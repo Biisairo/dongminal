@@ -4,16 +4,29 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Terminal</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="terminal"></div>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="sidebar-header">Sessions</div>
+      <div id="session-list"></div>
+      <div class="sidebar-footer">
+        <button id="btn-new-session" title="New session">+ New Session</button>
+      </div>
+    </aside>
+    <main id="main">
+      <div id="tabbar"></div>
+      <div id="terminal-area"></div>
+    </main>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10/lib/addon-fit.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11/lib/addon-web-links.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-unicode11@0.8/lib/addon-unicode11.js"></script>
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

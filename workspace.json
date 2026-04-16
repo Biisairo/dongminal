@@ -1,0 +1,32 @@
+{
+  "sessions": [
+    {
+      "id": "s7",
+      "name": "Session 7",
+      "tabs": [
+        {
+          "id": "t8",
+          "name": "Tab 8",
+          "activeId": "4",
+          "layout": {
+            "type": "split",
+            "paneId": "2",
+            "direction": "horizontal",
+            "children": [
+              {
+                "type": "pane",
+                "paneId": "2"
+              },
+              {
+                "type": "pane",
+                "paneId": "4"
+              }
+            ]
+          }
+        }
+      ],
+      "activeTab": "t8"
+    }
+  ],
+  "activeSession": "s7"
+}
