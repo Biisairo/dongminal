@@ -1109,12 +1109,17 @@ class App {
     this._pollStats();
   }
   async _pollStats(){
+    // Measure real network latency with lightweight ping
     try{
       const t0=performance.now();
-      const r=await fetch('/api/stats');
+      await fetch('/api/ping');
       this._latency=Math.round(performance.now()-t0);
-      this._stats=await r.json();
     }catch{this._latency=null}
+    // Fetch stats separately (may be slow due to `top` command)
+    try{
+      const r=await fetch('/api/stats');
+      this._stats=await r.json();
+    }catch{}
     this._updateStatusBar();
   }
   _updateStatusBar(){
