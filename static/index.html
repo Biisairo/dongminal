@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Terminal</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.css">
-  <link rel="stylesheet" href="style.css?v=64">
+  <link rel="stylesheet" href="style.css?v=71">
 </head>
 <body>
 <div id="app">
@@ -24,6 +24,15 @@
       <button class="tbtn" id="split-v" title="Split Vertical (Ctrl+Shift+V)">Split V</button>
     </div>
     <div id="area"></div>
+    <div id="search-bar" class="search-bar hidden">
+      <span class="search-icon">⌕</span>
+      <input id="search-input" type="text" placeholder="검색...">
+      <button id="search-prev" title="이전 (Shift+Enter)">↑</button>
+      <button id="search-next" title="다음 (Enter)">↓</button>
+      <button id="search-case" title="대소문자 구분">Aa</button>
+      <span id="search-count"></span>
+      <button id="search-close" title="닫기 (Esc)">✕</button>
+    </div>
   </div>
 </div>
 
@@ -60,6 +69,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10/lib/addon-fit.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11/lib/addon-web-links.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-unicode11@0.8/lib/addon-unicode11.js"></script>
-<script src="app.js?v=64"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-search@0.15/lib/addon-search.js"></script>
+<script src="app.js?v=71"></script>
 </body>
 </html>

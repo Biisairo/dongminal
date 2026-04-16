@@ -176,6 +176,7 @@ class TermPane {
     this.term.loadAddon(this.fit);
     try{this.term.loadAddon(new WebLinksAddon.WebLinksAddon())}catch(e){}
     try{this.term.loadAddon(new Unicode11Addon.Unicode11Addon());this.term.unicode.activeVersion='11'}catch(e){}
+    try{this.search=new SearchAddon.SearchAddon();this.term.loadAddon(this.search)}catch(e){}
     this.term.open(this.box);
     // Block browser Ctrl+ shortcuts → let them go to terminal
     // Cmd+ shortcuts left for browser (copy/paste/tab close etc)
@@ -517,12 +518,61 @@ class App {
     if(map[action])map[action]();
   }
 
+  // ── Search ──
+  toggleSearch(){
+    const bar=document.getElementById('search-bar');
+    if(!bar.classList.contains('hidden')){this.closeSearch();return}
+    bar.classList.remove('hidden');
+    document.getElementById('search-input').focus();
+    for(const pane of this.panes.values())if(pane.el.classList.contains('vis'))pane.doFit();
+  }
+  closeSearch(){
+    const bar=document.getElementById('search-bar');
+    bar.classList.add('hidden');
+    document.getElementById('search-input').value='';
+    document.getElementById('search-count').textContent='';
+    this._clearAllSearchDecorations();
+    this._focusedPane()?.focus();
+    for(const pane of this.panes.values())if(pane.el.classList.contains('vis'))pane.doFit();
+  }
+  _clearAllSearchDecorations(){
+    for(const p of this.panes.values())if(p.search)p.search.clearDecorations();
+  }
+  _searchOpen(){return !document.getElementById('search-bar').classList.contains('hidden')}
+  _researchIfOpen(){
+    if(!this._searchOpen())return;
+    setTimeout(()=>this._doSearch('next'),50);
+  }
+  _focusedPane(){
+    if(!this.focused)return null;
+    const s=this._as();if(!s)return null;
+    const rg=findRg(s.layout,this.focused);if(!rg)return null;
+    return this.panes.get(rg.tabs.find(t=>t.id===rg.activeTab)?.paneId);
+  }
+  _doSearch(dir){
+    const p=this._focusedPane();if(!p||!p.search)return;
+    const q=document.getElementById('search-input').value;
+    const cs=document.getElementById('search-case').classList.contains('active');
+    if(!q){document.getElementById('search-count').textContent='';return}
+    const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    const ab=getComputedStyle(document.documentElement).getPropertyValue('--accent-border').trim();
+    const danger=getComputedStyle(document.documentElement).getPropertyValue('--danger').trim();
+    const opts={regex:false,wholeWord:false,caseSensitive:cs,incremental:true,
+      decorations:{matchBackground:hexToRgba(accent,.4),matchBorder:ab,
+        activeMatchBackground:hexToRgba(danger,.5),activeMatchBorder:danger}};
+    const found=dir==='prev'?p.search.findPrevious(q,opts):p.search.findNext(q,opts);
+    document.getElementById('search-count').textContent=found!==undefined?(found?'':'없음'):'';
+  }
+
   setFocus(rid){
     if(this.focused===rid) return;
+    this._clearAllSearchDecorations();
     this.focused=rid;
+    this._prevFocus=rid;
     document.querySelectorAll('.rg').forEach(el=>{
       el.classList.toggle('focused',el.dataset.rid===rid);
     });
+    this._researchIfOpen();
   }
 
   async _save(){
@@ -548,7 +598,15 @@ class App {
 
   // ── Render ──
 
-  render(){this._rSidebar();this._rTopbar();this._rLayout()}
+  render(){
+    const oldFocus=this._prevFocus;
+    this._prevFocus=this.focused;
+    if(oldFocus!==undefined&&oldFocus!==this.focused){
+      this._clearAllSearchDecorations();
+      this._researchIfOpen();
+    }
+    this._rSidebar();this._rTopbar();this._rLayout();
+  }
 
   _rSidebar(){
     const el=document.getElementById('sessions'); el.innerHTML='';
@@ -694,11 +752,25 @@ class App {
       // Skip if non-xterm input is focused
       const ae=document.activeElement;
       if(ae.tagName==='INPUT'||(ae.tagName==='TEXTAREA'&&!ae.classList.contains('xterm-helper-textarea')))return;
+      // Search: Ctrl+F or Cmd+F
+      if(e.key==='f'&&(e.ctrlKey||e.metaKey)){e.preventDefault();e.stopImmediatePropagation();this.toggleSearch();return}
       // Check configured shortcuts
       for(const[action,key]of Object.entries(shortcuts)){
         if(matchShortcut(e,key)){e.preventDefault();e.stopImmediatePropagation();this.executeAction(action);return}
       }
     },true);
+    // Search bar bindings
+    const si=document.getElementById('search-input');
+    si.addEventListener('input',()=>this._doSearch('next'));
+    si.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();this._doSearch(e.shiftKey?'prev':'next')}
+      if(e.key==='Escape'){e.preventDefault();e.stopPropagation();this.closeSearch()}
+      e.stopPropagation();
+    });
+    document.getElementById('search-next').addEventListener('click',()=>this._doSearch('next'));
+    document.getElementById('search-prev').addEventListener('click',()=>this._doSearch('prev'));
+    document.getElementById('search-case').addEventListener('click',function(){this.classList.toggle('active')});
+    document.getElementById('search-close').addEventListener('click',()=>this.closeSearch());
     this._initModal();
   }
 

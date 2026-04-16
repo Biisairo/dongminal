@@ -245,3 +245,26 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 }
 .sc-rst:hover{opacity:1;color:var(--accent);background:var(--accent-hover)}
 kbd{background:var(--border);border:1px solid var(--accent-border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);font-family:inherit}
+
+/* ── Search Bar ── */
+.search-bar{
+  display:flex;align-items:center;gap:4px;
+  padding:4px 8px;
+  background:var(--sidebar-bg);border-top:1px solid var(--border);
+  z-index:10;flex-shrink:0;
+}
+.search-bar.hidden{display:none}
+.search-bar input{
+  flex:1;background:var(--bg);border:1px solid var(--border);border-radius:3px;
+  padding:3px 8px;color:var(--text-bright);font-size:12px;font-family:inherit;outline:none;
+}
+.search-bar input:focus{border-color:var(--accent)}
+.search-bar button{
+  background:none;border:none;color:var(--text-muted);cursor:pointer;
+  width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+  border-radius:3px;font-size:12px;
+}
+.search-bar button:hover{color:var(--text-bright);background:var(--accent-hover)}
+.search-bar button.active{color:var(--accent)}
+.search-icon{color:var(--text-muted);font-size:14px}
+#search-count{color:var(--text-dim);font-size:11px;min-width:40px;text-align:center}
