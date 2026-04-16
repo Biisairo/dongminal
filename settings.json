@@ -1,1 +1,1 @@
-{"themeName":"Dracula","customTheme":null}
+{"themeName":"Dracula","customTheme":null,"shortcuts":{"sessionNext":"Ctrl+Alt+ArrowDown","sessionPrev":"Ctrl+Alt+ArrowUp","tabNext":"Ctrl+Alt+Meta+ArrowRight","tabPrev":"Ctrl+Alt+Meta+ArrowLeft","paneUp":"Ctrl+Meta+ArrowUp","paneDown":"Ctrl+Meta+ArrowDown","paneLeft":"Ctrl+Meta+ArrowLeft","paneRight":"Ctrl+Meta+ArrowRight","splitH":"Ctrl+Meta+KeyH","splitV":"Ctrl+Meta+KeyV","newSession":"Ctrl+Alt+KeyN","newTab":"Ctrl+Alt+Meta+KeyT","closeSession":"Ctrl+Alt+KeyW","closeTab":"Ctrl+Alt+Meta+KeyW"}}

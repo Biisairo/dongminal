@@ -11,6 +11,30 @@ const enc=new TextEncoder(), dec=new TextDecoder();
 const UI_LABELS={bg:'Background',sidebarBg:'Sidebar',border:'Border',accent:'Accent',text:'Text',textMuted:'Muted',textBright:'Bright',textDim:'Dim',danger:'Danger',accentBorder:'Accent Bd'};
 const TERM_LABELS={background:'BG',foreground:'FG',cursor:'Cursor',selectionBackground:'Select',black:'Black',red:'Red',green:'Green',yellow:'Yellow',blue:'Blue',magenta:'Magenta',cyan:'Cyan',white:'White',brightBlack:'BrBlk',brightRed:'BrRed',brightGreen:'BrGrn',brightYellow:'BrYlw',brightBlue:'BrBlu',brightMagenta:'BrMag',brightCyan:'BrCyn',brightWhite:'BrWht'};
 
+const SHORTCUT_DEFAULTS={
+  sessionNext:'Ctrl+Shift+BracketRight',sessionPrev:'Ctrl+Shift+BracketLeft',
+  tabNext:'Ctrl+Tab',tabPrev:'Ctrl+Shift+Tab',
+  paneUp:'Ctrl+Shift+ArrowUp',paneDown:'Ctrl+Shift+ArrowDown',paneLeft:'Ctrl+Shift+ArrowLeft',paneRight:'Ctrl+Shift+ArrowRight',
+  splitH:'Ctrl+Shift+KeyH',splitV:'Ctrl+Shift+KeyV',
+  newSession:'Ctrl+Shift+KeyN',newTab:'Ctrl+Shift+KeyT',
+  closeSession:'Ctrl+Shift+KeyW',closeTab:'Ctrl+Shift+KeyD',
+};
+const SHORTCUT_LABELS={
+  sessionNext:'다음 세션',sessionPrev:'이전 세션',
+  tabNext:'다음 탭',tabPrev:'이전 탭',
+  paneUp:'Pane ↑',paneDown:'Pane ↓',paneLeft:'Pane ←',paneRight:'Pane →',
+  splitH:'가로 분할',splitV:'세로 분할',
+  newSession:'새 세션',newTab:'새 탭',
+  closeSession:'세션 닫기',closeTab:'탭 닫기',
+};
+let shortcuts={...SHORTCUT_DEFAULTS};
+
+const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight','ShiftLeft','ShiftRight']);
+function parseShortcut(s){const p=s.split('+');const k=p.pop();return{ctrl:p.includes('Ctrl'),alt:p.includes('Alt'),meta:p.includes('Meta'),shift:p.includes('Shift'),code:k}}
+function matchShortcut(e,s){if(!s)return false;const p=parseShortcut(s);return e.ctrlKey===p.ctrl&&e.altKey===p.alt&&e.metaKey===p.meta&&e.shiftKey===p.shift&&e.code===p.code}
+function fmtShortcut(e){const p=[];if(e.ctrlKey)p.push('Ctrl');if(e.altKey)p.push('Alt');if(e.metaKey)p.push('Meta');if(e.shiftKey)p.push('Shift');p.push(e.code);return p.join('+')}
+function displayKey(s){return s.replace(/Key/g,'').replace(/BracketLeft/g,'[').replace(/BracketRight/g,']').replace(/Meta/g,'⌘').replace(/Ctrl/g,'⌃').replace(/Alt/g,'⌥').replace(/Shift/g,'⇧').replace(/Arrow/g,'')}
+
 const THEMES={
   'Tokyo Night':{
     ui:{bg:'#1a1b26',sidebarBg:'#16161e',border:'#292e42',accent:'#7aa2f7',text:'#a9b1d6',textMuted:'#565f89',textBright:'#c0caf5',textDim:'#414868',danger:'#f7768e',accentBorder:'#3d59a1'},
@@ -261,6 +285,12 @@ function allPids(n){
   if(n.children) return n.children.flatMap(c=>allPids(c));
   return [];
 }
+function findPath(n,rid){
+  if(!n) return null;
+  if(n.type==='region') return n.id===rid?[n]:null;
+  if(n.children) for(const c of n.children){const p=findPath(c,rid);if(p)return[n,...p]}
+  return null;
+}
 function clean(n,ok){
   if(!n) return null;
   if(n.type==='region'){
@@ -429,6 +459,64 @@ class App {
     await this._save(); this.render();
   }
 
+  switchSessionNext(){
+    const idx=this.ws.sessions.findIndex(s=>s.id===this.ws.activeSession);
+    if(idx<0)return; this.switchSession(this.ws.sessions[(idx+1)%this.ws.sessions.length].id);
+  }
+  switchSessionPrev(){
+    const idx=this.ws.sessions.findIndex(s=>s.id===this.ws.activeSession);
+    if(idx<0)return; this.switchSession(this.ws.sessions[(idx-1+this.ws.sessions.length)%this.ws.sessions.length].id);
+  }
+  switchTabNext(){
+    const s=this._as();if(!s||!this.focused)return;
+    const rg=findRg(s.layout,this.focused);if(!rg)return;
+    const i=rg.tabs.findIndex(t=>t.id===rg.activeTab);if(i<0)return;
+    this.switchTab(rg.id,rg.tabs[(i+1)%rg.tabs.length].id);
+  }
+  switchTabPrev(){
+    const s=this._as();if(!s||!this.focused)return;
+    const rg=findRg(s.layout,this.focused);if(!rg)return;
+    const i=rg.tabs.findIndex(t=>t.id===rg.activeTab);if(i<0)return;
+    this.switchTab(rg.id,rg.tabs[(i-1+rg.tabs.length)%rg.tabs.length].id);
+  }
+  paneNavigate(dir){
+    const s=this._as();if(!s||!this.focused)return;
+    const path=findPath(s.layout,this.focused);if(!path||path.length<2)return;
+    for(let i=path.length-2;i>=0;i--){
+      const parent=path[i],child=path[i+1];
+      if(parent.type!=='split')continue;
+      const isH=parent.direction==='horizontal';
+      const ci=parent.children.indexOf(child);
+      let ti=-1;
+      if(dir==='right'&&isH)ti=ci+1; if(dir==='left'&&isH)ti=ci-1;
+      if(dir==='down'&&!isH)ti=ci+1; if(dir==='up'&&!isH)ti=ci-1;
+      if(ti>=0&&ti<parent.children.length){
+        const target=firstRg(parent.children[ti]);
+        if(target){this.focused=target.id;this.render();return}
+      }
+    }
+  }
+  addTabFocused(){if(this.focused)this.addTab(this.focused)}
+  closeTabFocused(){
+    const s=this._as();if(!s||!this.focused)return;
+    const rg=findRg(s.layout,this.focused);if(!rg)return;
+    this.closeTab(rg.id,rg.activeTab);
+  }
+  closeSessionActive(){this.delSession(this.ws.activeSession)}
+
+  executeAction(action){
+    const map={
+      sessionNext:()=>this.switchSessionNext(),sessionPrev:()=>this.switchSessionPrev(),
+      tabNext:()=>this.switchTabNext(),tabPrev:()=>this.switchTabPrev(),
+      paneUp:()=>this.paneNavigate('up'),paneDown:()=>this.paneNavigate('down'),
+      paneLeft:()=>this.paneNavigate('left'),paneRight:()=>this.paneNavigate('right'),
+      splitH:()=>this.split('horizontal'),splitV:()=>this.split('vertical'),
+      newSession:()=>this.addSession(),newTab:()=>this.addTabFocused(),
+      closeSession:()=>this.closeSessionActive(),closeTab:()=>this.closeTabFocused(),
+    };
+    if(map[action])map[action]();
+  }
+
   setFocus(rid){
     if(this.focused===rid) return;
     this.focused=rid;
@@ -576,12 +664,6 @@ class App {
 
   _bind(){
     if(this._kb) return; this._kb=true;
-    document.addEventListener('keydown',e=>{
-      if(e.ctrlKey&&e.shiftKey){
-        if(e.key==='H'){e.preventDefault();this.split('horizontal')}
-        if(e.key==='V'&&!e.metaKey){e.preventDefault();this.split('vertical')}
-      }
-    });
     document.getElementById('split-h').addEventListener('click',()=>this.split('horizontal'));
     document.getElementById('split-v').addEventListener('click',()=>this.split('vertical'));
     const sb=document.getElementById('sidebar'),sbh=document.getElementById('sb-handle');
@@ -591,11 +673,37 @@ class App {
       const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.panes.values())if(p.el.classList.contains('vis'))p.doFit()};
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
     });
+    // Global shortcut handler (capture phase → top priority)
+    this._recording=null;
+    window.addEventListener('keydown',e=>{
+      // Recording mode — absolute top priority, blocks EVERYTHING
+      if(this._recording){e.preventDefault();e.stopImmediatePropagation();
+        if(e.code==='Escape'){
+          const btn=document.querySelector('.sc-key.recording');
+          if(btn){btn.classList.remove('recording');btn.textContent=displayKey(shortcuts[btn.dataset.action]||'')}
+          this._recording=null;return;
+        }
+        if(MOD_CODES.has(e.code))return;
+        shortcuts[this._recording]=fmtShortcut(e);
+        const btn=document.querySelector(`.sc-key[data-action="${this._recording}"]`);
+        this._recording=null;
+        if(btn){btn.classList.remove('recording');btn.textContent=displayKey(shortcuts[btn.dataset.action]||'')}
+        this._saveSettings();
+        return;
+      }
+      // Skip if non-xterm input is focused
+      const ae=document.activeElement;
+      if(ae.tagName==='INPUT'||(ae.tagName==='TEXTAREA'&&!ae.classList.contains('xterm-helper-textarea')))return;
+      // Check configured shortcuts
+      for(const[action,key]of Object.entries(shortcuts)){
+        if(matchShortcut(e,key)){e.preventDefault();e.stopImmediatePropagation();this.executeAction(action);return}
+      }
+    },true);
     this._initModal();
   }
 
   async _saveSettings(){
-    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme})})}catch{}
+    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts})})}catch{}
   }
 
   // ── Modal & Theme ──
@@ -603,7 +711,7 @@ class App {
   _initModal(){
     const overlay=document.getElementById('modal-overlay');
     const modal=document.getElementById('modal');
-    document.getElementById('settings-btn').addEventListener('click',()=>{overlay.classList.add('open');this._renderThemePanel()});
+    document.getElementById('settings-btn').addEventListener('click',()=>{overlay.classList.add('open');this._renderThemePanel();this._renderShortcutList()});
     document.getElementById('modal-close').addEventListener('click',()=>overlay.classList.remove('open'));
     overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('open')});
     modal.querySelectorAll('.mtab').forEach(tab=>{
@@ -745,6 +853,45 @@ class App {
     item.appendChild(lbl); item.appendChild(inp);
     return item;
   }
+
+  _renderShortcutList(){
+    const el=document.getElementById('sc-list');if(!el)return;
+    el.innerHTML='';
+    const groups=[
+      {label:'세션',keys:['sessionNext','sessionPrev','newSession','closeSession']},
+      {label:'탭',keys:['tabNext','tabPrev','newTab','closeTab']},
+      {label:'Pane',keys:['paneUp','paneDown','paneLeft','paneRight']},
+      {label:'분할',keys:['splitH','splitV']},
+    ];
+    for(const g of groups){
+      const title=document.createElement('div');title.className='sc-group-title';title.textContent=g.label;
+      el.appendChild(title);
+      for(const k of g.keys){
+        const row=document.createElement('div');row.className='sc-row';
+        const label=document.createElement('span');label.textContent=SHORTCUT_LABELS[k];
+        const btn=document.createElement('button');btn.className='sc-key';btn.dataset.action=k;
+        btn.textContent=displayKey(shortcuts[k]||'');
+        // Click → record mode
+        btn.addEventListener('click',()=>{
+          this._cancelRecording();
+          this._recording=k;btn.textContent='키를 누르세요...';btn.classList.add('recording');
+        });
+        const rst=document.createElement('button');rst.className='sc-rst';rst.textContent='↺';rst.title='초기화';
+        rst.addEventListener('click',()=>{shortcuts[k]=SHORTCUT_DEFAULTS[k];this._saveSettings();btn.textContent=displayKey(shortcuts[k])});
+        row.appendChild(label);
+        const btns=document.createElement('div');btns.className='sc-btns';
+        btns.appendChild(btn);btns.appendChild(rst);
+        row.appendChild(btns);
+        el.appendChild(row);
+      }
+    }
+  }
+  _cancelRecording(){
+    if(!this._recording)return;
+    const btn=document.querySelector('.sc-key.recording');
+    if(btn){btn.classList.remove('recording');btn.textContent=displayKey(shortcuts[btn.dataset.action]||'')}
+    this._recording=null;
+  }
 }
 
 // ═══ Bootstrap ═══
@@ -752,7 +899,11 @@ class App {
 const app=new App();
 
 // Restore saved theme from server
-(async()=>{try{const r=await fetch('/api/settings');if(r.ok){const saved=await r.json();if(saved.customTheme){customTheme=saved.customTheme;applyThemeObj(customTheme)}else if(saved.themeName&&THEMES[saved.themeName]){currentThemeName=saved.themeName;applyThemeObj(THEMES[currentThemeName])}}}catch{}})();
+(async()=>{try{const r=await fetch('/api/settings');if(r.ok){const saved=await r.json();
+  if(saved.shortcuts) Object.assign(shortcuts,saved.shortcuts);
+  if(saved.customTheme){customTheme=saved.customTheme;applyThemeObj(customTheme)}
+  else if(saved.themeName&&THEMES[saved.themeName]){currentThemeName=saved.themeName;applyThemeObj(THEMES[currentThemeName])}
+}}catch{}})();
 
 app.init();
 document.getElementById('add-session').addEventListener('click',()=>app.addSession());
