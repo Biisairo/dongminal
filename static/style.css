@@ -24,6 +24,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a1b26;font-family:
 .si.active .si-dot{background:#7aa2f7}
 .si-name{flex:1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .si.active .si-name{color:#c0caf5;font-weight:500}
+.rename-input{
+  font:inherit;font-size:12px;background:#1a1b26;color:#c0caf5;
+  border:1px solid #3d59a1;border-radius:2px;
+  padding:0 3px;outline:none;
+  width:100%;height:100%;box-sizing:border-box;
+  min-width:40px;max-width:120px;
+}
 .si-x{
   width:16px;height:16px;display:flex;align-items:center;justify-content:center;
   font-size:12px;color:#565f89;opacity:0;cursor:pointer;border-radius:2px;

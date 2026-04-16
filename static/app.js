@@ -218,8 +218,8 @@ class App {
     const p=await this._newPane();
     const r=`r${++this._r}`,t=`t${++this._t}`;
     const s={
-      id:`s${++this._s}`,name:`Session ${this._s}`,
-      layout:{type:'region',id:r,tabs:[{id:t,name:'Shell #1',paneId:p.id}],activeTab:t}
+      id:`s${++this._s}`,name:'Session',
+      layout:{type:'region',id:r,tabs:[{id:t,name:'Shell',paneId:p.id}],activeTab:t}
     };
     this.ws.sessions.push(s);
     this.ws.activeSession=s.id;
@@ -244,6 +244,7 @@ class App {
   }
 
   switchSession(sid){
+    if(this.ws.activeSession===sid) return;
     this.ws.activeSession=sid;
     const a=this._as(); this.focused=a?firstRg(a.layout)?.id:null;
     this._save(); this.render();
@@ -254,7 +255,7 @@ class App {
     const rg=findRg(s.layout,rid); if(!rg) return;
     const p=await this._newPane();
     const t=`t${++this._t}`;
-    rg.tabs.push({id:t,name:`Shell #${rg.tabs.length+1}`,paneId:p.id});
+    rg.tabs.push({id:t,name:'Shell',paneId:p.id});
     rg.activeTab=t;
     await this._save(); this.render();
   }
@@ -278,6 +279,7 @@ class App {
   switchTab(rid,tid){
     const s=this._as(); if(!s) return;
     const rg=findRg(s.layout,rid); if(!rg) return;
+    if(rg.activeTab===tid) return;
     rg.activeTab=tid; this.focused=rid;
     this._save(); this.render();
   }
@@ -286,7 +288,7 @@ class App {
     const s=this._as(); if(!s||!this.focused) return;
     const p=await this._newPane();
     const r=`r${++this._r}`,t=`t${++this._t}`;
-    const nr={type:'region',id:r,tabs:[{id:t,name:'Shell #1',paneId:p.id}],activeTab:t};
+    const nr={type:'region',id:r,tabs:[{id:t,name:'Shell',paneId:p.id}],activeTab:t};
     s.layout=doSplit(s.layout,this.focused,nr,dir);
     this.focused=r;
     await this._save(); this.render();
@@ -302,6 +304,27 @@ class App {
 
   async _save(){
     try{await fetch('/api/workspace',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(this.ws)})}catch{}
+  }
+
+  _rename(obj, el){
+    const old = obj.name;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = old;
+    input.className = 'rename-input';
+    el.replaceWith(input);
+    input.focus();
+    input.select();
+    const done = () => {
+      const v = input.value.trim();
+      if(v && v !== old) { obj.name = v; this._save(); }
+      this.render();
+    };
+    input.addEventListener('blur', done, {once:true});
+    input.addEventListener('keydown', e => {
+      if(e.key==='Enter'){e.preventDefault();input.blur()}
+      if(e.key==='Escape'){input.value=old;input.blur()}
+    });
   }
 
   // ── Render ──
@@ -320,6 +343,7 @@ class App {
       d.innerHTML=`<span class="si-dot"></span><span class="si-name">${s.name}</span><span class="si-x">×</span>`;
       d.addEventListener('click',e=>{if(!e.target.classList.contains('si-x'))this.switchSession(s.id)});
       d.querySelector('.si-x').addEventListener('click',e=>{e.stopPropagation();this.delSession(s.id)});
+      d.querySelector('.si-name').addEventListener('dblclick',e=>{e.stopPropagation();this._rename(s,e.target)});
       el.appendChild(d);
     }
   }
@@ -385,6 +409,7 @@ class App {
         if(e.target.classList.contains('rt-x')) this.closeTab(n.id,tab.id);
         else this.switchTab(n.id,tab.id);
       });
+      t.querySelector('span').addEventListener('dblclick',e=>{e.stopPropagation();this._rename(tab,e.target)});
       tabs.appendChild(t);
     }
     const add=document.createElement('button');
