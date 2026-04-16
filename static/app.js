@@ -168,6 +168,10 @@ class TermPane {
     this.box=document.createElement('div');
     this.box.style.cssText='width:100%;height:100%';
     this.el.appendChild(this.box);
+    // Drag & drop upload
+    this.el.addEventListener('dragover',e=>{e.preventDefault();e.stopPropagation();this.el.classList.add('dragover')});
+    this.el.addEventListener('dragleave',()=>this.el.classList.remove('dragover'));
+    this.el.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();this.el.classList.remove('dragover');this._uploadFiles(e.dataTransfer.files)});
   }
   open() {
     if(this._opened) return; this._opened=true;
@@ -228,8 +232,27 @@ class TermPane {
     this.ws.onmessage=e=>{
       const d=new Uint8Array(e.data); if(!d.length) return;
       if(d[0]===OP.OUTPUT){
-        if(this.term) try{this.term.write(d.subarray(1))}catch{}
-        else this._buf.push(new Uint8Array(d.subarray(1)));
+        const data=d.subarray(1);
+        // Detect download escape sequence: ESC ] 777 ; Download ; <path> BEL
+        const text=dec.decode(data);
+        const dlIdx=text.indexOf('\x1b]777;Download;');
+        if(dlIdx!==-1){
+          const start=dlIdx+15; // length of '\x1b]777;Download;'
+          const end=text.indexOf('\x07',start);
+          if(end!==-1){
+            const path=text.substring(start,end);
+            this._downloadFile(path);
+            // Write remaining output (before + after the escape seq)
+            const clean=text.substring(0,dlIdx)+text.substring(end+1);
+            if(clean&&this.term) try{this.term.write(clean)}catch{}
+            else if(!clean&&this.term) try{this.term.write('\r\n')}catch{}
+          }else{
+            if(this.term) try{this.term.write(data)}catch{}
+          }
+        }else{
+          if(this.term) try{this.term.write(data)}catch{}
+          else this._buf.push(new Uint8Array(data));
+        }
       } else if(d[0]===OP.SID){
         this.id=dec.decode(d.subarray(1)); this.el.dataset.pid=this.id;
       } else if(d[0]===OP.EXIT){
@@ -244,6 +267,38 @@ class TermPane {
   write(s){if(this.term)try{this.term.write(s)}catch{}else this._buf.push(s)}
   doFit(){if(this.fit)try{this.fit.fit()}catch{}}
   focus(){if(this.term)try{this.term.focus()}catch{}}
+  _downloadFile(path){
+    const a=document.createElement('a');
+    a.href='/api/download?path='+encodeURIComponent(path);
+    a.download='';document.body.appendChild(a);a.click();a.remove();
+    this.term.write('\x1b[2m↓ Downloading: '+path+'\x1b[0m\r\n');
+  }
+  _uploadFiles(files){
+    if(!files||!files.length)return;
+    // Get cwd from server for this pane
+    fetch('/api/cwd?pane='+this.id).then(r=>r.json()).then(({cwd})=>{
+      let i=0;
+      const uploadNext=()=>{
+        if(i>=files.length)return;
+        const f=files[i++];
+        const fd=new FormData();fd.append('file',f);
+        this.term.write('\x1b[2m↑ Uploading: '+f.name+'\x1b[0m\r\n');
+        fetch('/api/upload?dir='+encodeURIComponent(cwd),{method:'POST',body:fd})
+          .then(r=>r.json()).then(d=>{
+            this.term.write('\x1b[2m  ✓ '+d.name+' ('+this._fmtSize(d.size)+')\x1b[0m\r\n');
+            uploadNext();
+          }).catch(()=>{
+            this.term.write('\x1b[31m  ✗ Upload failed\x1b[0m\r\n');uploadNext();
+          });
+      };
+      uploadNext();
+    });
+  }
+  _fmtSize(b){
+    if(b<1024)return b+'B';
+    if(b<1048576)return(b/1024).toFixed(1)+'KB';
+    return(b/1048576).toFixed(1)+'MB';
+  }
   destroy(){
     if(this.ws){this.ws.onclose=null;this.ws.onerror=null;this.ws.close();this.ws=null}
     if(this.term){this.term.dispose();this.term=null}

@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -91,6 +92,24 @@ type Pane struct {
 	once sync.Once
 }
 
+func (p *Pane) Cwd() string {
+	if p.cmd != nil && p.cmd.Process != nil {
+		cwd, _ := os.Readlink(fmt.Sprintf("/proc/%d/cwd", p.cmd.Process.Pid))
+		if cwd != "" {
+			return cwd
+		}
+		// macOS fallback
+		out, _ := exec.Command("lsof", "-p", fmt.Sprintf("%d", p.cmd.Process.Pid), "-Fn").Output()
+		for _, l := range strings.Split(string(out), "\n") {
+			if strings.HasPrefix(l, "n") && !strings.Contains(l, "txt") {
+				return strings.TrimPrefix(l, "n")
+			}
+		}
+	}
+	cwd, _ := os.Getwd()
+	return cwd
+}
+
 func startPane(id, name string, cols, rows uint16) (*Pane, error) {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
@@ -101,9 +120,11 @@ func startPane(id, name string, cols, rows uint16) (*Pane, error) {
 	}
 	home, _ := os.UserHomeDir()
 	cmd := exec.Command(shell, "-l")
+	binDir, _ := filepath.Abs(filepath.Join(".", "bin"))
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color", "COLORTERM=truecolor",
 		"LANG=en_US.UTF-8", "LC_ALL=en_US.UTF-8", "LC_CTYPE=en_US.UTF-8",
+		"PATH="+os.Getenv("PATH")+":"+binDir,
 	)
 	if home != "" {
 		cmd.Dir = home
@@ -339,6 +360,76 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 		saveSettings()
 		w.WriteHeader(200)
 
+	case p == "/api/upload" && r.Method == http.MethodPost:
+		file, header, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		defer file.Close()
+		dir := r.URL.Query().Get("dir")
+		if dir == "" {
+			dir = "."
+		}
+		outPath := uniquePath(dir, header.Filename)
+		out, err := os.Create(outPath)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		defer out.Close()
+		written, err := io.Copy(out, file)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"name": filepath.Base(outPath), "size": written, "path": outPath})
+
+	case p == "/api/download" && r.Method == http.MethodGet:
+		fp := r.URL.Query().Get("path")
+		if fp == "" {
+			http.Error(w, "missing path", 400)
+			return
+		}
+		// Security: only allow absolute paths or relative under cwd
+		if !filepath.IsAbs(fp) {
+			abs, err := filepath.Abs(fp)
+			if err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+			fp = abs
+		}
+		f, err := os.Open(fp)
+		if err != nil {
+			http.Error(w, err.Error(), 404)
+			return
+		}
+		defer f.Close()
+		stat, _ := f.Stat()
+		w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(fp))
+		w.Header().Set("Content-Type", "application/octet-stream")
+		if stat != nil {
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", stat.Size()))
+		}
+		io.Copy(w, f)
+
+	case p == "/api/cwd" && r.Method == http.MethodGet:
+		paneID := r.URL.Query().Get("pane")
+		var cwd string
+		if paneID != "" {
+			pane := pm.get(paneID)
+			if pane != nil {
+				cwd = pane.Cwd()
+			}
+		}
+		if cwd == "" {
+			cwd, _ = os.Getwd()
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"cwd": cwd})
+
 	default:
 		http.Error(w, "not found", 404)
 	}
@@ -455,12 +546,38 @@ func parseSize(r *http.Request) (uint16, uint16) {
 
 // ── Main ────────────────────────────────────────────
 
+func uniquePath(dir, name string) string {
+	p := filepath.Join(dir, name)
+	if _, err := os.Stat(p); err != nil {
+		return p
+	}
+	ext := filepath.Ext(name)
+	base := strings.TrimSuffix(name, ext)
+	for i := 1; ; i++ {
+		p = filepath.Join(dir, fmt.Sprintf("%s (%d)%s", base, i, ext))
+		if _, err := os.Stat(p); err != nil {
+			return p
+		}
+	}
+}
+
+func initBinDir() {
+	binDir := filepath.Join(".", "bin")
+	os.MkdirAll(binDir, 0755)
+	script := `#!/bin/sh
+path=$(realpath "$1" 2>/dev/null || echo "$1")
+printf '\033]777;Download;%s\007' "$path"
+`
+	os.WriteFile(filepath.Join(binDir, "download"), []byte(script), 0755)
+}
+
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 	loadSettings()
+	initBinDir()
 
 	staticFS, _ := fs.Sub(staticFiles, "static")
 	mux := http.NewServeMux()

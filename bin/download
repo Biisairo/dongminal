@@ -1,0 +1,3 @@
+#!/bin/sh
+path=$(realpath "$1" 2>/dev/null || echo "$1")
+printf '\033]777;Download;%s\007' "$path"
