@@ -276,3 +276,12 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   background:rgba(0,0,0,.6);border:2px dashed var(--accent);
   color:var(--accent);font-size:14px;z-index:20;pointer-events:none;
 }
+.tp-overlay{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:6px;
+  background:rgba(0,0,0,.7);z-index:25;
+  opacity:0;transition:opacity .3s;pointer-events:none;
+}
+.tp-overlay.visible{opacity:1}
+.tp-ov-title{color:var(--danger);font-size:14px;font-weight:600}
+.tp-ov-sub{color:var(--text-muted);font-size:11px}

@@ -162,7 +162,7 @@ const TOPTS={
 class TermPane {
   constructor(id, name) {
     this.id=id; this.name=name;
-    this.ws=null; this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false;
+    this.ws=null; this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false; this._destroyed=false; this._retryDelay=1000;
     this.el=document.createElement('div');
     this.el.className='tp'; this.el.dataset.pid=id;
     this.box=document.createElement('div');
@@ -261,12 +261,87 @@ class TermPane {
         this.write('\r\n\x1b[31m'+dec.decode(d.subarray(1))+'\x1b[0m\r\n');
       }
     };
-    this.ws.onclose=()=>this.write('\r\n\x1b[90m── disconnected ──\x1b[0m\r\n');
-    this.ws.onerror=()=>console.error('[TermPane] ws error', this.id);
+    this.ws.onclose=()=>{
+      if(this._destroyed) return;
+      this._showOverlay('연결 끊김', '재연결 중...');
+      this._reconnect();
+    };
+    this.ws.onerror=()=>{
+      if(this._destroyed) return;
+      this._showOverlay('연결 오류', '재연결 중...');
+      this._reconnect();
+    };
   }
   write(s){if(this.term)try{this.term.write(s)}catch{}else this._buf.push(s)}
   doFit(){if(this.fit)try{this.fit.fit()}catch{}}
   focus(){if(this.term)try{this.term.focus()}catch{}}
+  _reconnect(){
+    if(this._destroyed) return;
+    this._retryDelay=Math.min(this._retryDelay*1.5,30000);
+    setTimeout(()=>{
+      if(this._destroyed) return;
+      const p=location.protocol==='https:'?'wss:':'ws:';
+      const url=`${p}//${location.host}/ws?cols=120&rows=40&pane=${encodeURIComponent(this.id)}`;
+      const ws=new WebSocket(url); ws.binaryType='arraybuffer';
+      ws.onopen=()=>{
+        this.ws=ws; this._retryDelay=1000;
+        if(this.term){
+          const m=new Uint8Array(5);m[0]=OP.RESIZE;
+          new DataView(m.buffer).setUint16(1,this.term.cols,false);
+          new DataView(m.buffer).setUint16(3,this.term.rows,false);
+          this._send(m);
+        }
+        setTimeout(()=>{this._hideOverlay();this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},300);
+      };
+      ws.onmessage=this.ws?this.ws.onmessage:null;
+      // Re-bind onmessage
+      ws.onmessage=e=>{
+        const d=new Uint8Array(e.data); if(!d.length) return;
+        if(d[0]===OP.OUTPUT){
+          const data=d.subarray(1);
+          const text=dec.decode(data);
+          const dlIdx=text.indexOf('\x1b]777;Download;');
+          if(dlIdx!==-1){
+            const start=dlIdx+15;const end=text.indexOf('\x07',start);
+            if(end!==-1){
+              this._downloadFile(text.substring(start,end));
+              const clean=text.substring(0,dlIdx)+text.substring(end+1);
+              if(clean&&this.term)try{this.term.write(clean)}catch{}
+            }else{if(this.term)try{this.term.write(data)}catch{}}
+          }else{
+            if(this.term)try{this.term.write(data)}catch{}
+            else this._buf.push(new Uint8Array(data));
+          }
+        }else if(d[0]===OP.SID){
+          this.id=dec.decode(d.subarray(1));this.el.dataset.pid=this.id;
+        }else if(d[0]===OP.EXIT){
+          this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n');
+        }else if(d[0]===OP.ERROR){
+          this.write('\r\n\x1b[31m'+dec.decode(d.subarray(1))+'\x1b[0m\r\n');
+        }
+      };
+      ws.onclose=()=>{
+        if(this._destroyed)return;
+        this._showOverlay('연결 끊김','재연결 중...');
+        this._reconnect();
+      };
+      ws.onerror=()=>{
+        if(this._destroyed)return;
+        this._showOverlay('연결 오류','재연결 중...');
+        this._reconnect();
+      };
+    },this._retryDelay);
+  }
+  _showOverlay(title,sub){
+    let ov=this.el.querySelector('.tp-overlay');
+    if(!ov){ov=document.createElement('div');ov.className='tp-overlay';this.el.appendChild(ov)}
+    ov.innerHTML=`<div class="tp-ov-title">${title}</div><div class="tp-ov-sub">${sub}</div>`;
+    ov.classList.add('visible');
+  }
+  _hideOverlay(){
+    const ov=this.el.querySelector('.tp-overlay');
+    if(ov)ov.classList.remove('visible');
+  }
   _downloadFile(path){
     const a=document.createElement('a');
     a.href='/api/download?path='+encodeURIComponent(path);
@@ -300,6 +375,7 @@ class TermPane {
     return(b/1048576).toFixed(1)+'MB';
   }
   destroy(){
+    this._destroyed=true;
     if(this.ws){this.ws.onclose=null;this.ws.onerror=null;this.ws.close();this.ws=null}
     if(this.term){this.term.dispose();this.term=null}
     this.el.remove(); this._opened=false;
