@@ -109,7 +109,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a1b26;font-family:
 .rg-body{flex:1;position:relative;overflow:hidden}
 
 /* ── term pane ── */
-.tp{position:absolute;inset:0;display:none;padding:1px}
+.tp{position:absolute;inset:0;display:none;padding:1px;transition:opacity .15s ease}
 .tp.vis{display:block}
 .tp.vis>.xterm{height:100%}
 

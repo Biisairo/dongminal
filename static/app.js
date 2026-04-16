@@ -26,7 +26,7 @@ const TOPTS={
 class TermPane {
   constructor(id, name) {
     this.id=id; this.name=name;
-    this.ws=null; this.term=null; this.fit=null; this._opened=false; this._buf=[];
+    this.ws=null; this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false;
     this.el=document.createElement('div');
     this.el.className='tp'; this.el.dataset.pid=id;
     this.box=document.createElement('div');
@@ -42,8 +42,6 @@ class TermPane {
     try{this.term.loadAddon(new WebLinksAddon.WebLinksAddon())}catch(e){}
     try{this.term.loadAddon(new Unicode11Addon.Unicode11Addon());this.term.unicode.activeVersion='11'}catch(e){}
     this.term.open(this.box);
-    for(const d of this._buf) try{this.term.write(d)}catch{}
-    this._buf=[];
     this.term.onData(d=>{
       const b=enc.encode(d);
       const m=new Uint8Array(1+b.length);m[0]=OP.INPUT;m.set(b,1);
@@ -55,12 +53,29 @@ class TermPane {
       new DataView(m.buffer).setUint16(3,rows,false);
       this._send(m);
     });
+    try{this.fit.fit()}catch{}
+    for(const d of this._buf) try{this.term.write(d)}catch{}
+    this._buf=[];
+    if(this.term) this.term.scrollToBottom();
   }
   connect() {
     const p=location.protocol==='https:'?'wss:':'ws:';
     const url=`${p}//${location.host}/ws?cols=120&rows=40&pane=${encodeURIComponent(this.id)}`;
     console.log('[TermPane] connect', url);
     this.ws=new WebSocket(url); this.ws.binaryType='arraybuffer';
+    this.ws.onopen=()=>{
+      // Send actual terminal size so server can resize PTY correctly
+      if(this.term){
+        const m=new Uint8Array(5);m[0]=OP.RESIZE;
+        new DataView(m.buffer).setUint16(1,this.term.cols,false);
+        new DataView(m.buffer).setUint16(3,this.term.rows,false);
+        this._send(m);
+      }
+      // Reveal terminal after SIGWINCH redraw completes
+      if(this._reconnecting){
+        setTimeout(()=>{this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},300);
+      }
+    };
     this.ws.onmessage=e=>{
       const d=new Uint8Array(e.data); if(!d.length) return;
       if(d[0]===OP.OUTPUT){
@@ -154,7 +169,7 @@ class App {
       const sp=st.panes||[];
       const sv=st.workspace;
       const ok=new Set(sp.map(p=>p.id));
-      for(const p of sp) this._mkPane(p.id,p.name);
+      for(const p of sp){const pane=this._mkPane(p.id,p.name);pane._reconnecting=true;pane.el.style.opacity='0'}
       if(sv&&sv.sessions&&sv.sessions.length){
         this.ws=sv;
         for(const s of this.ws.sessions){
