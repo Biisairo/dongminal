@@ -26,8 +26,6 @@ import (
 //go:embed static/*
 var staticFiles embed.FS
 
-// ── Protocol ────────────────────────────────────────
-
 const (
 	opInput  byte = 0x00
 	opResize byte = 0x01
@@ -77,7 +75,7 @@ func (b *OutputBuffer) Snapshot() []byte {
 	return out
 }
 
-// ── Pane (one PTY session) ──────────────────────────
+// ── Pane ────────────────────────────────────────────
 
 type Pane struct {
 	ID   string `json:"id"`
@@ -240,9 +238,7 @@ func (m *PaneManager) list() []map[string]interface{} {
 		if p.cmd.Process != nil {
 			pid = p.cmd.Process.Pid
 		}
-		out = append(out, map[string]interface{}{
-			"id": p.ID, "name": p.Name, "pid": pid,
-		})
+		out = append(out, map[string]interface{}{"id": p.ID, "name": p.Name, "pid": pid})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i]["id"].(string) < out[j]["id"].(string) })
 	return out
@@ -259,37 +255,11 @@ func (m *PaneManager) delete(id string) {
 	}
 }
 
-// ── Workspace (frontend-managed, server-persisted) ──
-
-type LayoutNode struct {
-	Type      string        `json:"type"`
-	PaneID    string        `json:"paneId,omitempty"`
-	Direction string        `json:"direction,omitempty"`
-	Children  []*LayoutNode `json:"children,omitempty"`
-}
-
-type Tab struct {
-	ID       string      `json:"id"`
-	Name     string      `json:"name"`
-	ActiveID string      `json:"activeId"`
-	Layout   *LayoutNode `json:"layout"`
-}
-
-type Session struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Tabs      []*Tab `json:"tabs"`
-	ActiveTab string `json:"activeTab"`
-}
-
-type Workspace struct {
-	Sessions      []*Session `json:"sessions"`
-	ActiveSession string     `json:"activeSession"`
-}
+// ── Workspace (stored as opaque JSON) ───────────────
 
 var (
-	ws   = &Workspace{}
-	wsMu sync.Mutex
+	wsJSON []byte
+	wsMu   sync.Mutex
 )
 
 func loadWorkspace() {
@@ -297,12 +267,12 @@ func loadWorkspace() {
 	if err != nil {
 		return
 	}
-	json.Unmarshal(data, ws)
+	wsJSON = data
 }
 
 func saveWorkspace() {
 	wsMu.Lock()
-	data, _ := json.MarshalIndent(ws, "", "  ")
+	data := wsJSON
 	wsMu.Unlock()
 	os.WriteFile("workspace.json", data, 0644)
 }
@@ -311,16 +281,18 @@ func saveWorkspace() {
 
 func handleAPI(w http.ResponseWriter, r *http.Request) {
 	p := r.URL.Path
-
 	switch {
 	case p == "/api/state" && r.Method == http.MethodGet:
 		wsMu.Lock()
-		wsCopy := *ws
+		var ws interface{}
+		if len(wsJSON) > 0 {
+			json.Unmarshal(wsJSON, &ws)
+		}
 		wsMu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"panes":     pm.list(),
-			"workspace": wsCopy,
+			"workspace": ws,
 		})
 
 	case p == "/api/panes" && r.Method == http.MethodPost:
@@ -339,8 +311,9 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 
 	case p == "/api/workspace" && r.Method == http.MethodPut:
+		body, _ := io.ReadAll(r.Body)
 		wsMu.Lock()
-		json.NewDecoder(r.Body).Decode(ws)
+		wsJSON = body
 		wsMu.Unlock()
 		saveWorkspace()
 		w.WriteHeader(200)
@@ -353,18 +326,17 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 // ── WebSocket ───────────────────────────────────────
 
 func handleWS(w http.ResponseWriter, r *http.Request) {
-	log.Printf("ws: new connection from %s pane=%s", r.RemoteAddr, r.URL.Query().Get("pane"))
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("ws: upgrade failed: %v", err)
+		log.Printf("ws upgrade: %v", err)
 		return
 	}
 	defer conn.Close()
 
 	cols, rows := parseSize(r)
 	paneID := r.URL.Query().Get("pane")
-
 	var pane *Pane
+
 	if paneID != "" {
 		pane = pm.get(paneID)
 		if pane == nil {
@@ -374,20 +346,17 @@ func handleWS(w http.ResponseWriter, r *http.Request) {
 	} else {
 		pane, err = pm.create(cols, rows)
 		if err != nil {
-			wsSend(conn, opError, []byte("create failed: "+err.Error()))
+			wsSend(conn, opError, []byte("create failed"))
 			return
 		}
 	}
 
-	// Send assigned pane ID
-	// Add client BEFORE replaying buffer to avoid data gap
 	conn.SetWriteDeadline(time.Now().Add(pingPeriod + writeWait))
 	pane.addClient(conn)
 	defer pane.removeClient(conn)
 
 	wsSend(conn, opSID, []byte(pane.ID))
 
-	// On reconnect: replay buffer + resize
 	if paneID != "" {
 		if snap := pane.buf.Snapshot(); len(snap) > 0 {
 			msg := make([]byte, 1+len(snap))
@@ -415,7 +384,6 @@ func readWS(conn *websocket.Conn, pane *Pane) {
 	conn.SetReadLimit(1 << 20)
 	conn.SetReadDeadline(time.Now().Add(pongWait))
 	conn.SetPongHandler(func(string) error { conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
-
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {

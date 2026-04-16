@@ -1,106 +1,108 @@
-/* ── Reset ──────────────────────────────────────────── */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#1a1b26;font-family:-apple-system,sans-serif;color:#a9b1d6;font-size:13px}
 
-/* ── App ───────────────────────────────────────────── */
 #app{display:flex;width:100%;height:100%}
 
-/* ── Sidebar ───────────────────────────────────────── */
+/* ── Sidebar ────────────────────── */
 #sidebar{
-  width:180px;min-width:180px;
+  width:150px;min-width:150px;
   background:#16161e;border-right:1px solid #292e42;
   display:flex;flex-direction:column;user-select:none;
 }
-.sidebar-header{
-  padding:10px 12px 6px;font-size:10px;font-weight:700;
-  letter-spacing:.1em;text-transform:uppercase;color:#565f89;
-}
-#session-list{flex:1;overflow-y:auto}
-#session-list::-webkit-scrollbar{width:4px}
-#session-list::-webkit-scrollbar-thumb{background:rgba(169,177,214,.15);border-radius:2px}
+.sb-title{padding:10px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#565f89}
+#sessions{flex:1;overflow-y:auto}
+#sessions::-webkit-scrollbar{width:4px}
+#sessions::-webkit-scrollbar-thumb{background:rgba(169,177,214,.15);border-radius:2px}
 
-.session-item{
-  display:flex;align-items:center;height:32px;padding:0 12px;
+.si{
+  display:flex;align-items:center;height:30px;padding:0 10px;
   cursor:pointer;transition:background .1s;
 }
-.session-item:hover{background:rgba(255,255,255,.04)}
-.session-item.active{background:rgba(122,162,247,.12)}
-.session-dot{width:6px;height:6px;border-radius:50%;margin-right:8px;background:#414868;flex-shrink:0}
-.session-item.active .session-dot{background:#7aa2f7}
-.session-name{flex:1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.session-item.active .session-name{color:#c0caf5;font-weight:500}
-.session-close{
-  width:18px;height:18px;display:flex;align-items:center;justify-content:center;
-  font-size:14px;color:#565f89;border-radius:3px;opacity:0;transition:opacity .1s;
-  cursor:pointer;
+.si:hover{background:rgba(255,255,255,.04)}
+.si.active{background:rgba(122,162,247,.12)}
+.si-dot{width:5px;height:5px;border-radius:50%;margin-right:8px;background:#414868;flex-shrink:0}
+.si.active .si-dot{background:#7aa2f7}
+.si-name{flex:1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.si.active .si-name{color:#c0caf5;font-weight:500}
+.si-x{
+  width:16px;height:16px;display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:#565f89;opacity:0;cursor:pointer;border-radius:2px;
 }
-.session-item:hover .session-close{opacity:1}
-.session-close:hover{background:rgba(247,118,142,.2);color:#f7768e}
+.si:hover .si-x{opacity:1}
+.si-x:hover{color:#f7768e;background:rgba(247,118,142,.2)}
 
-.sidebar-footer{padding:8px;border-top:1px solid #292e42}
-#btn-new-session{
-  width:100%;height:28px;display:flex;align-items:center;justify-content:center;
+#add-session{
+  margin:6px 8px;padding:5px;
   background:transparent;border:1px solid #292e42;border-radius:4px;
-  color:#565f89;font-size:11px;font-weight:500;cursor:pointer;transition:all .1s;
+  color:#565f89;font-size:11px;cursor:pointer;
 }
-#btn-new-session:hover{background:rgba(122,162,247,.1);border-color:#3d59a1;color:#7aa2f7}
+#add-session:hover{background:rgba(122,162,247,.1);color:#7aa2f7}
 
-/* ── Main ──────────────────────────────────────────── */
-#main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+/* ── Content (sidebar 제외한 영역) ── */
+#content{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
 
-/* ── Tab Bar ───────────────────────────────────────── */
-#tabbar{
-  height:34px;min-height:34px;
-  display:flex;align-items:stretch;
+/* ── Top bar (session name + split buttons) ── */
+#topbar{
+  height:32px;min-height:32px;display:flex;align-items:center;
+  background:#16161e;border-bottom:1px solid #292e42;padding:0 8px;gap:6px;
+}
+#session-name{font-size:12px;color:#565f89}
+.spacer{flex:1}
+.tbtn{
+  padding:4px 10px;border:1px solid #292e42;border-radius:4px;
+  background:transparent;color:#565f89;font-size:11px;cursor:pointer;
+}
+.tbtn:hover{background:rgba(122,162,247,.12);color:#7aa2f7;border-color:#3d59a1}
+
+/* ── Terminal area (region들이 들어가는 곳) ── */
+#area{flex:1;position:relative;overflow:hidden;background:#1a1b26}
+
+/* ── Split layout ── */
+.sp{display:flex;position:absolute;inset:0;overflow:hidden}
+.sp[data-d="horizontal"]{flex-direction:row}
+.sp[data-d="vertical"]{flex-direction:column}
+.sc{flex:1;position:relative;overflow:hidden;min-width:0;min-height:0}
+.sh{flex-shrink:0;background:#292e42;transition:background .15s;position:relative;z-index:1}
+.sh:hover{background:#7aa2f7}
+.sp[data-d="horizontal"]>.sh{width:3px;cursor:col-resize}
+.sp[data-d="vertical"]>.sh{height:3px;cursor:row-resize}
+.sp[data-d="horizontal"]>.sh::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
+.sp[data-d="vertical"]>.sh::before{content:'';position:absolute;left:0;right:0;top:-6px;bottom:-6px}
+
+/* ── Region (tab bar + terminal) ── */
+.rg{display:flex;flex-direction:column;position:absolute;inset:0}
+.rg.focused .rg-tabs{border-bottom-color:#7aa2f7}
+
+.rg-tabs{
+  height:28px;min-height:28px;display:flex;align-items:stretch;
   background:#16161e;border-bottom:1px solid #292e42;
-  gap:0;
+  overflow-x:auto;flex-shrink:0;
 }
-.tab{
-  display:flex;align-items:center;padding:0 14px;gap:6px;
+.rg-tabs::-webkit-scrollbar{height:0}
+.rt{
+  display:flex;align-items:center;padding:0 10px;gap:4px;
   font-size:12px;color:#565f89;cursor:pointer;
-  border-right:1px solid #292e42;transition:all .1s;white-space:nowrap;
-  height:100%;
+  border-right:1px solid rgba(41,46,66,.5);white-space:nowrap;flex-shrink:0;
 }
-.tab:hover{background:rgba(255,255,255,.04);color:#a9b1d6}
-.tab.active{background:#1a1b26;color:#c0caf5}
-.tab-label{pointer-events:none}
-.tab-close{
-  font-size:12px;color:#565f89;opacity:0;transition:opacity .1s;
-  cursor:pointer;line-height:1;
+.rt:hover{background:rgba(255,255,255,.04);color:#a9b1d6}
+.rt.active{color:#c0caf5;background:rgba(122,162,247,.08)}
+.rt-x{font-size:11px;color:#414868;opacity:0;cursor:pointer}
+.rt:hover .rt-x{opacity:1}
+.rt-x:hover{color:#f7768e}
+.rt-add{
+  width:24px;display:flex;align-items:center;justify-content:center;
+  background:transparent;border:none;color:#414868;font-size:14px;cursor:pointer;flex-shrink:0;
 }
-.tab:hover .tab-close{opacity:1}
-.tab-close:hover{color:#f7768e}
+.rt-add:hover{color:#7aa2f7}
 
-.tabbar-sep{width:1px;background:#292e42;margin:8px 2px;flex-shrink:0}
+.rg-body{flex:1;position:relative;overflow:hidden}
 
-.tabbar-btn{
-  width:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
-  background:transparent;border:none;color:#565f89;font-size:14px;cursor:pointer;
-  transition:color .1s, background .1s;
-}
-.tabbar-btn:hover{color:#c0caf5;background:rgba(255,255,255,.04)}
-.tabbar-add{font-size:16px;font-weight:300}
+/* ── term pane ── */
+.tp{position:absolute;inset:0;display:none;padding:1px}
+.tp.vis{display:block}
+.tp.vis>.xterm{height:100%}
 
-/* ── Terminal Area ─────────────────────────────────── */
-#terminal-area{flex:1;position:relative;overflow:hidden;background:#1a1b26}
-
-.term-pane{position:absolute;inset:0;display:none}
-.term-pane.visible{display:block}
-.term-pane.visible>.xterm{height:100%}
-
-/* ── Split Layout ──────────────────────────────────── */
-.split{display:flex;position:absolute;inset:0;overflow:hidden}
-.split[data-dir="horizontal"]{flex-direction:row}
-.split[data-dir="vertical"]{flex-direction:column}
-.split-child{flex:1;position:relative;overflow:hidden;min-width:0;min-height:0}
-
-.split-handle{flex-shrink:0;background:#292e42;transition:background .15s}
-.split-handle:hover{background:#7aa2f7}
-.split[data-dir="horizontal"]>.split-handle{width:4px;cursor:col-resize}
-.split[data-dir="vertical"]>.split-handle{height:4px;cursor:row-resize}
-
-/* ── xterm overrides ───────────────────────────────── */
+/* ── xterm ── */
 .xterm-viewport::-webkit-scrollbar{width:8px}
 .xterm-viewport::-webkit-scrollbar-track{background:transparent}
 .xterm-viewport::-webkit-scrollbar-thumb{background:rgba(169,177,214,.2);border-radius:4px}
-.xterm-viewport::-webkit-scrollbar-thumb:hover{background:rgba(169,177,214,.4)}

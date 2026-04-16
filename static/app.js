@@ -1,759 +1,488 @@
 /**
- * Remote Terminal — Session → Tab → Pane
- *
- * Data model:
- *   Workspace
- *     └── Session[]          (sidebar items)
- *           └── Tab[]        (tab bar)
- *                 └── LayoutNode (split tree)
- *                       └── Pane  (xterm.js + WS + PTY)
+ * Remote Terminal — cmux style
+ * Session → LayoutTree(Region|Split), Region has own tab bar + terminal
  */
 
-const OP = { INPUT: 0, RESIZE: 1, OUTPUT: 0, ERROR: 1, EXIT: 2, SID: 3 };
-const enc = new TextEncoder();
-const dec = new TextDecoder();
-
-const THEME = {
-  background:'#1a1b26', foreground:'#a9b1d6', cursor:'#c0caf5', cursorAccent:'#1a1b26',
-  selectionBackground:'#33467c', selectionForeground:'#c0caf5',
-  black:'#15161e', red:'#f7768e', green:'#9ece6a', yellow:'#e0af68',
-  blue:'#7aa2f7', magenta:'#bb9af7', cyan:'#7dcfff', white:'#a9b1d6',
-  brightBlack:'#414868', brightRed:'#f7768e', brightGreen:'#9ece6a',
-  brightYellow:'#e0af68', brightBlue:'#7aa2f7', brightMagenta:'#bb9af7',
-  brightCyan:'#7dcfff', brightWhite:'#c0caf5',
+const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,SID:3};
+const enc=new TextEncoder(), dec=new TextDecoder();
+const THEME={
+  background:'#1a1b26',foreground:'#a9b1d6',cursor:'#c0caf5',cursorAccent:'#1a1b26',
+  selectionBackground:'#33467c',selectionForeground:'#c0caf5',
+  black:'#15161e',red:'#f7768e',green:'#9ece6a',yellow:'#e0af68',
+  blue:'#7aa2f7',magenta:'#bb9af7',cyan:'#7dcfff',white:'#a9b1d6',
+  brightBlack:'#414868',brightRed:'#f7768e',brightGreen:'#9ece6a',
+  brightYellow:'#e0af68',brightBlue:'#7aa2f7',brightMagenta:'#bb9af7',
+  brightCyan:'#7dcfff',brightWhite:'#c0caf5',
+};
+const TOPTS={
+  scrollback:50000,cursorBlink:true,cursorStyle:'block',
+  fontSize:14,lineHeight:1.2,allowProposedApi:true,logLevel:'off',
+  fontFamily:"'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace",
+  theme:THEME,
 };
 
-const TERM_OPTS = {
-  scrollback: 50000, cursorBlink: true, cursorStyle: 'block',
-  fontSize: 14, lineHeight: 1.2, allowProposedApi: true, logLevel: 'off',
-  fontFamily: "'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace",
-  theme: THEME,
-};
-
-// ══════════════════════════════════════════════════════
-//  TermPane — one xterm.js + one WebSocket → one PTY
-// ══════════════════════════════════════════════════════
+// ═══ TermPane: xterm + WebSocket ═══
 
 class TermPane {
   constructor(id, name) {
-    this.id = id;
-    this.name = name;
-    this.ws = null;
-    this.term = null;
-    this.fitAddon = null;
-
-    // DOM container — always lives in #terminal-area or .split-child
-    this.el = document.createElement('div');
-    this.el.className = 'term-pane';
-    this.el.dataset.paneId = id;
-
-    // Inner div that xterm.js opens into
-    this.inner = document.createElement('div');
-    this.inner.style.cssText = 'width:100%;height:100%;';
-    this.el.appendChild(this.inner);
-
-    this._pending = [];  // buffer output until xterm opens
-    this._opened = false;
+    this.id=id; this.name=name;
+    this.ws=null; this.term=null; this.fit=null; this._opened=false; this._buf=[];
+    this.el=document.createElement('div');
+    this.el.className='tp'; this.el.dataset.pid=id;
+    this.box=document.createElement('div');
+    this.box.style.cssText='width:100%;height:100%';
+    this.el.appendChild(this.box);
   }
-
-  /** Create xterm instance. Container must be in DOM and VISIBLE with non-zero size. */
   open() {
-    if (this._opened) return;
-    this._opened = true;
-
-    this.term = new Terminal(TERM_OPTS);
-    this.fitAddon = new FitAddon.FitAddon();
-    this.term.loadAddon(this.fitAddon);
-    try { this.term.loadAddon(new WebLinksAddon.WebLinksAddon()); } catch (e) { console.warn('weblinks:', e); }
-    try { this.term.loadAddon(new Unicode11Addon.Unicode11Addon()); this.term.unicode.activeVersion = '11'; } catch (e) { console.warn('unicode11:', e); }
-
-    this.term.open(this.inner);
-
-    // Replay buffered data
-    for (const d of this._pending) {
-      try { this.term.write(d); } catch {}
-    }
-    this._pending = [];
-
-    this.term.onData(d => this._send(OP.INPUT, enc.encode(d)));
-    this.term.onResize(({ cols, rows }) => {
-      const m = new Uint8Array(5);
-      m[0] = OP.RESIZE;
-      new DataView(m.buffer).setUint16(1, cols, false);
-      new DataView(m.buffer).setUint16(3, rows, false);
-      this._sendRaw(m);
+    if(this._opened) return; this._opened=true;
+    console.log('[TermPane] open', this.id);
+    this.term=new Terminal(TOPTS);
+    this.fit=new FitAddon.FitAddon();
+    this.term.loadAddon(this.fit);
+    try{this.term.loadAddon(new WebLinksAddon.WebLinksAddon())}catch(e){}
+    try{this.term.loadAddon(new Unicode11Addon.Unicode11Addon());this.term.unicode.activeVersion='11'}catch(e){}
+    this.term.open(this.box);
+    for(const d of this._buf) try{this.term.write(d)}catch{}
+    this._buf=[];
+    this.term.onData(d=>{
+      const b=enc.encode(d);
+      const m=new Uint8Array(1+b.length);m[0]=OP.INPUT;m.set(b,1);
+      this._send(m);
+    });
+    this.term.onResize(({cols,rows})=>{
+      const m=new Uint8Array(5);m[0]=OP.RESIZE;
+      new DataView(m.buffer).setUint16(1,cols,false);
+      new DataView(m.buffer).setUint16(3,rows,false);
+      this._send(m);
     });
   }
-
-  /** Connect WebSocket. paneId is always provided (POST creates it first). */
   connect() {
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const cols = this.term?.cols || 120;
-    const rows = this.term?.rows || 40;
-    const url = `${proto}//${location.host}/ws?cols=${cols}&rows=${rows}&pane=${encodeURIComponent(this.id)}`;
-
-    this.ws = new WebSocket(url);
-    this.ws.binaryType = 'arraybuffer';
-
-    this.ws.onmessage = e => {
-      const d = new Uint8Array(e.data);
-      if (d.length < 1) return;
-      switch (d[0]) {
-        case OP.OUTPUT:
-          if (this.term) {
-            try { this.term.write(d.subarray(1)); } catch {}
-          } else {
-            // xterm not opened yet — buffer it
-            this._pending.push(new Uint8Array(d.subarray(1)));
-          }
-          break;
-        case OP.SID:
-          // Server confirms pane ID (should match what we sent)
-          this.id = dec.decode(d.subarray(1));
-          this.el.dataset.paneId = this.id;
-          break;
-        case OP.EXIT:
-          this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n');
-          break;
-        case OP.ERROR:
-          this.write('\r\n\x1b[31mError: ' + dec.decode(d.subarray(1)) + '\x1b[0m\r\n');
-          break;
+    const p=location.protocol==='https:'?'wss:':'ws:';
+    const url=`${p}//${location.host}/ws?cols=120&rows=40&pane=${encodeURIComponent(this.id)}`;
+    console.log('[TermPane] connect', url);
+    this.ws=new WebSocket(url); this.ws.binaryType='arraybuffer';
+    this.ws.onmessage=e=>{
+      const d=new Uint8Array(e.data); if(!d.length) return;
+      if(d[0]===OP.OUTPUT){
+        if(this.term) try{this.term.write(d.subarray(1))}catch{}
+        else this._buf.push(new Uint8Array(d.subarray(1)));
+      } else if(d[0]===OP.SID){
+        this.id=dec.decode(d.subarray(1)); this.el.dataset.pid=this.id;
+      } else if(d[0]===OP.EXIT){
+        this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n');
+      } else if(d[0]===OP.ERROR){
+        this.write('\r\n\x1b[31m'+dec.decode(d.subarray(1))+'\x1b[0m\r\n');
       }
     };
-
-    this.ws.onclose = () => {
-      this.write('\r\n\x1b[90m── disconnected ──\x1b[0m\r\n');
-    };
-    this.ws.onerror = (e) => {
-      console.error('ws error for pane', this.id, e);
-    };
+    this.ws.onclose=()=>this.write('\r\n\x1b[90m── disconnected ──\x1b[0m\r\n');
+    this.ws.onerror=()=>console.error('[TermPane] ws error', this.id);
   }
-
-  write(s) {
-    if (this.term) { try { this.term.write(s); } catch {} }
-    else this._pending.push(s);
+  write(s){if(this.term)try{this.term.write(s)}catch{}else this._buf.push(s)}
+  doFit(){if(this.fit)try{this.fit.fit()}catch{}}
+  focus(){if(this.term)try{this.term.focus()}catch{}}
+  destroy(){
+    if(this.ws){this.ws.onclose=null;this.ws.onerror=null;this.ws.close();this.ws=null}
+    if(this.term){this.term.dispose();this.term=null}
+    this.el.remove(); this._opened=false;
   }
-
-  fit() {
-    if (!this.fitAddon) return;
-    try { this.fitAddon.fit(); } catch {}
-  }
-
-  focus() {
-    if (!this.term) return;
-    try { this.term.focus(); } catch {}
-  }
-
-  destroy() {
-    if (this.ws) { this.ws.onclose = null; this.ws.onerror = null; this.ws.close(); this.ws = null; }
-    if (this.term) { this.term.dispose(); this.term = null; }
-    this.el.remove();
-    this._opened = false;
-  }
-
-  async killServer() {
-    try { await fetch(`/api/panes/${this.id}`, { method: 'DELETE' }); } catch {}
-  }
-
-  _send(op, data) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-    const m = new Uint8Array(1 + data.length);
-    m[0] = op; m.set(data, 1);
-    this._sendRaw(m);
-  }
-  _sendRaw(m) {
-    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(m);
-  }
+  _send(m){if(this.ws&&this.ws.readyState===1)this.ws.send(m)}
 }
 
-// ══════════════════════════════════════════════════════
-//  Layout tree helpers
-// ══════════════════════════════════════════════════════
+// ═══ Layout helpers ═══
 
-function splitNode(node, targetId, newId, dir) {
-  if (node.type === 'pane') {
-    if (node.paneId === targetId) {
-      return { type: 'split', direction: dir, children: [
-        { type: 'pane', paneId: targetId },
-        { type: 'pane', paneId: newId },
-      ]};
-    }
-    return node;
+function doSplit(n,rid,nr,dir){
+  if(n.type==='region') return n.id===rid?{type:'split',direction:dir,children:[n,nr]}:n;
+  if(n.children) n.children=n.children.map(c=>doSplit(c,rid,nr,dir));
+  return n;
+}
+function doRemove(n,rid){
+  if(!n) return null;
+  if(n.type==='region') return n.id===rid?null:n;
+  if(!n.children) return null;
+  n.children=n.children.map(c=>doRemove(c,rid)).filter(Boolean);
+  if(!n.children.length) return null;
+  if(n.children.length===1) return n.children[0];
+  return n;
+}
+function findRg(n,rid){
+  if(!n) return null;
+  if(n.type==='region') return n.id===rid?n:null;
+  if(n.children) for(const c of n.children){const f=findRg(c,rid);if(f)return f}
+  return null;
+}
+function firstRg(n){
+  if(!n) return null;
+  if(n.type==='region') return n;
+  if(n.children) for(const c of n.children){const f=firstRg(c);if(f)return f}
+  return null;
+}
+function allPids(n){
+  if(!n) return [];
+  if(n.type==='region') return (n.tabs||[]).map(t=>t.paneId);
+  if(n.children) return n.children.flatMap(c=>allPids(c));
+  return [];
+}
+function clean(n,ok){
+  if(!n) return null;
+  if(n.type==='region'){
+    if(n.tabs) n.tabs=n.tabs.filter(t=>ok.has(t.paneId));
+    if(!n.tabs||!n.tabs.length) return null;
+    if(!n.tabs.find(t=>t.id===n.activeTab)) n.activeTab=n.tabs[0].id;
+    return n;
   }
-  node.children = node.children.map(c => splitNode(c, targetId, newId, dir));
-  return node;
+  if(!n.children) return null;
+  n.children=n.children.map(c=>clean(c,ok)).filter(Boolean);
+  if(!n.children.length) return null;
+  if(n.children.length===1) return n.children[0];
+  return n;
 }
 
-function removeNode(node, targetId) {
-  if (!node) return null;
-  if (node.type === 'pane') return node.paneId === targetId ? null : node;
-  node.children = node.children.map(c => removeNode(c, targetId)).filter(Boolean);
-  if (node.children.length === 0) return null;
-  if (node.children.length === 1) return node.children[0];
-  return node;
-}
-
-function hasPane(node, id) {
-  if (!node) return false;
-  if (node.type === 'pane') return node.paneId === id;
-  return node.children.some(c => hasPane(c, id));
-}
-
-function allPaneIds(node) {
-  if (!node) return [];
-  if (node.type === 'pane') return [node.paneId];
-  return node.children.flatMap(c => allPaneIds(c));
-}
-
-function cleanNode(node, valid) {
-  if (!node) return null;
-  if (node.type === 'pane') return valid.has(node.paneId) ? node : null;
-  node.children = node.children.map(c => cleanNode(c, valid)).filter(Boolean);
-  if (node.children.length === 0) return null;
-  if (node.children.length === 1) return node.children[0];
-  return node;
-}
-
-// ══════════════════════════════════════════════════════
-//  App
-// ══════════════════════════════════════════════════════
+// ═══ App ═══
 
 class App {
-  constructor() {
-    this.panes = new Map(); // paneId → TermPane
-    this.workspace = { sessions: [], activeSession: null };
-    // Monotonic counters — never reset on deletion
-    this._sNum = 0;  // session number
-    this._tNum = 0;  // tab number
+  constructor(){
+    this.panes=new Map();
+    this.ws={sessions:[],activeSession:null};
+    this.focused=null;
+    this._s=0;this._r=0;this._t=0;this._kb=false;
   }
 
-  // ── Boot ───────────────────────────────────────────
-
-  async init() {
-    try {
-      const res = await fetch('/api/state');
-      const state = await res.json();
-      const serverPanes = state.panes || [];
-      const saved = state.workspace;
-
-      // Reconnect existing server panes
-      const validIds = new Set(serverPanes.map(p => p.id));
-      for (const p of serverPanes) {
-        this._makePane(p.id, p.name);
-      }
-
-      // Validate saved workspace against live panes
-      if (saved?.sessions?.length > 0) {
-        this.workspace = saved;
-
-        // Restore counters from loaded IDs (avoid collisions)
-        for (const s of this.workspace.sessions) {
-          const sn = parseInt(s.id.replace('s', ''), 10);
-          if (sn > this._sNum) this._sNum = sn;
-          for (const t of s.tabs) {
-            const tn = parseInt(t.id.replace('t', ''), 10);
-            if (tn > this._tNum) this._tNum = tn;
-            // Clean stale pane refs
-            t.layout = cleanNode(t.layout, validIds);
-          }
-          s.tabs = s.tabs.filter(t => t.layout !== null);
+  async init(){
+    console.log('[App] init start');
+    try{
+      const st=await(await fetch('/api/state')).json();
+      const sp=st.panes||[];
+      const sv=st.workspace;
+      const ok=new Set(sp.map(p=>p.id));
+      for(const p of sp) this._mkPane(p.id,p.name);
+      if(sv&&sv.sessions&&sv.sessions.length){
+        this.ws=sv;
+        for(const s of this.ws.sessions){
+          if(!s||!s.id) continue;
+          const n=parseInt(s.id.replace(/\D/g,''),10); if(n>this._s) this._s=n;
+          s.layout=clean(s.layout,ok);
+          if(s.layout) this._rids(s.layout);
         }
-        this.workspace.sessions = this.workspace.sessions.filter(s => s.tabs.length > 0);
-
-        // Fix active references
-        if (!this.workspace.sessions.find(s => s.id === this.workspace.activeSession)) {
-          this.workspace.activeSession = this.workspace.sessions[0]?.id || null;
-        }
+        this.ws.sessions=this.ws.sessions.filter(s=>s&&s.layout);
+        if(!this.ws.sessions.find(s=>s.id===this.ws.activeSession))
+          this.ws.activeSession=this.ws.sessions[0]?.id||null;
       }
-
-      // If nothing survived, start fresh
-      if (this.workspace.sessions.length === 0) {
-        await this.createSession();
-        return;
-      }
-      const as = this.activeSession();
-      if (as && !as.tabs.find(t => t.id === as.activeTab)) {
-        as.activeTab = as.tabs[0]?.id || null;
-      }
-    } catch (e) {
-      console.error('init failed:', e);
-      await this.createSession();
+      if(!this.ws.sessions.length) await this._mkSession();
+    }catch(e){
+      console.error('[App] init error:',e);
+      if(!this.ws.sessions.length) await this._mkSession();
     }
+    const a=this._as();
+    if(a&&a.layout){const f=firstRg(a.layout);if(f)this.focused=f.id}
     this.render();
-    this._bindKeys();
+    this._bind();
+    console.log('[App] init done, sessions:', this.ws.sessions.length);
   }
 
-  // ── Pane helpers ───────────────────────────────────
+  _rids(n){
+    if(!n) return;
+    if(n.type==='region'){
+      const r=parseInt((n.id||'').replace(/\D/g,''),10);if(r>this._r)this._r=r;
+      if(n.tabs) for(const t of n.tabs){const x=parseInt((t.id||'').replace(/\D/g,''),10);if(x>this._t)this._t=x}
+      return;
+    }
+    if(n.children) for(const c of n.children) this._rids(c);
+  }
 
-  _makePane(id, name) {
-    if (this.panes.has(id)) return this.panes.get(id);
-    const p = new TermPane(id, name);
-    document.getElementById('terminal-area').appendChild(p.el);
-    p.connect();  // always connect with pane ID (existing pane)
-    this.panes.set(id, p);
+  _mkPane(id,name){
+    if(this.panes.has(id)) return this.panes.get(id);
+    const p=new TermPane(id,name);
+    document.getElementById('area').appendChild(p.el);
+    p.connect();
+    this.panes.set(id,p);
+    console.log('[App] pane created:', id);
     return p;
   }
 
-  /** POST to create PTY on server, then make TermPane and connect. */
-  async _newPane() {
-    const res = await fetch('/api/panes?cols=120&rows=40', { method: 'POST' });
-    if (!res.ok) throw new Error('Failed to create pane');
-    const { id, name } = await res.json();
-    return this._makePane(id, name);  // pane already exists on server → connect with ID
+  async _newPane(){
+    const r=await fetch('/api/panes?cols=120&rows=40',{method:'POST'});
+    if(!r.ok) throw new Error('create pane failed');
+    const {id,name}=await r.json();
+    return this._mkPane(id,name);
   }
 
-  // ── Session CRUD ───────────────────────────────────
+  async _kill(pid){
+    const p=this.panes.get(pid);
+    if(p){p.destroy();this.panes.delete(pid)}
+    try{await fetch(`/api/panes/${pid}`,{method:'DELETE'})}catch{}
+  }
 
-  async createSession() {
-    const p = await this._newPane();
-    const sid = `s${++this._sNum}`;
-    const tid = `t${++this._tNum}`;
-    const session = {
-      id: sid,
-      name: `Session ${this._sNum}`,
-      tabs: [{ id: tid, name: `Tab ${this._tNum}`, activeId: p.id, layout: { type: 'pane', paneId: p.id } }],
-      activeTab: tid,
+  _as(){return this.ws.sessions.find(s=>s.id===this.ws.activeSession)||null}
+
+  async _mkSession(){
+    const p=await this._newPane();
+    const r=`r${++this._r}`,t=`t${++this._t}`;
+    const s={
+      id:`s${++this._s}`,name:`Session ${this._s}`,
+      layout:{type:'region',id:r,tabs:[{id:t,name:'Shell #1',paneId:p.id}],activeTab:t}
     };
-    this.workspace.sessions.push(session);
-    this.workspace.activeSession = sid;
-    await this.save();
-    this.render();
+    this.ws.sessions.push(s);
+    this.ws.activeSession=s.id;
+    this.focused=r;
+    await this._save();
+    console.log('[App] session created:', s.id);
   }
 
-  async deleteSession(sid) {
-    const idx = this.workspace.sessions.findIndex(s => s.id === sid);
-    if (idx < 0) return;
-    const session = this.workspace.sessions[idx];
+  async addSession(){await this._mkSession();this.render()}
 
-    // Kill all panes in this session
-    const ids = new Set();
-    for (const tab of session.tabs) {
-      for (const pid of allPaneIds(tab.layout)) ids.add(pid);
-    }
-    for (const pid of ids) {
-      const p = this.panes.get(pid);
-      if (p) { p.destroy(); this.panes.delete(pid); }
-    }
-    // Kill on server (after local cleanup)
-    for (const pid of ids) {
-      try { await fetch(`/api/panes/${pid}`, { method: 'DELETE' }); } catch {}
-    }
-
-    this.workspace.sessions.splice(idx, 1);
-
-    if (this.workspace.sessions.length === 0) {
-      await this.createSession();
-      return;
-    }
-    if (this.workspace.activeSession === sid) {
-      this.workspace.activeSession = this.workspace.sessions[Math.min(idx, this.workspace.sessions.length - 1)].id;
-    }
-    await this.save();
-    this.render();
+  async delSession(sid){
+    const i=this.ws.sessions.findIndex(s=>s.id===sid);
+    if(i<0) return;
+    const s=this.ws.sessions[i];
+    for(const pid of allPids(s.layout)) this._kill(pid);
+    this.ws.sessions.splice(i,1);
+    if(!this.ws.sessions.length){await this._mkSession();this.render();return}
+    if(this.ws.activeSession===sid)
+      this.ws.activeSession=this.ws.sessions[Math.min(i,this.ws.sessions.length-1)].id;
+    const a=this._as(); this.focused=a?firstRg(a.layout)?.id:null;
+    await this._save(); this.render();
   }
 
-  // ── Tab CRUD ───────────────────────────────────────
-
-  async createTab() {
-    const s = this.activeSession();
-    if (!s) return;
-    const p = await this._newPane();
-    const tid = `t${++this._tNum}`;
-    s.tabs.push({ id: tid, name: `Tab ${this._tNum}`, activeId: p.id, layout: { type: 'pane', paneId: p.id } });
-    s.activeTab = tid;
-    await this.save();
-    this.render();
+  switchSession(sid){
+    this.ws.activeSession=sid;
+    const a=this._as(); this.focused=a?firstRg(a.layout)?.id:null;
+    this._save(); this.render();
   }
 
-  async deleteTab(tid) {
-    const s = this.activeSession();
-    if (!s) return;
-    const idx = s.tabs.findIndex(t => t.id === tid);
-    if (idx < 0) return;
-    const tab = s.tabs[idx];
-
-    // Kill panes in this tab
-    const pids = allPaneIds(tab.layout);
-    for (const pid of pids) {
-      const p = this.panes.get(pid);
-      if (p) { p.destroy(); this.panes.delete(pid); }
-    }
-    for (const pid of pids) {
-      try { await fetch(`/api/panes/${pid}`, { method: 'DELETE' }); } catch {}
-    }
-
-    s.tabs.splice(idx, 1);
-
-    if (s.tabs.length === 0) {
-      await this.deleteSession(s.id);
-      return;
-    }
-    if (s.activeTab === tid) {
-      s.activeTab = s.tabs[Math.min(idx, s.tabs.length - 1)].id;
-    }
-    await this.save();
-    this.render();
+  async addTab(rid){
+    const s=this._as(); if(!s) return;
+    const rg=findRg(s.layout,rid); if(!rg) return;
+    const p=await this._newPane();
+    const t=`t${++this._t}`;
+    rg.tabs.push({id:t,name:`Shell #${rg.tabs.length+1}`,paneId:p.id});
+    rg.activeTab=t;
+    await this._save(); this.render();
   }
 
-  // ── Split ──────────────────────────────────────────
-
-  async splitActive(dir) {
-    const tab = this.activeTab();
-    if (!tab) return;
-    const p = await this._newPane();
-    tab.layout = splitNode(tab.layout, tab.activeId, p.id, dir);
-    tab.activeId = p.id;
-    await this.save();
-    this.render();
-  }
-
-  async closeActivePane() {
-    const tab = this.activeTab();
-    if (!tab) return;
-    await this.deletePane(tab.activeId);
-  }
-
-  // ── Pane deletion ──────────────────────────────────
-
-  async deletePane(pid) {
-    if (!pid) return;
-    const p = this.panes.get(pid);
-    if (!p) return;
-
-    p.destroy();
-    this.panes.delete(pid);
-    try { await fetch(`/api/panes/${pid}`, { method: 'DELETE' }); } catch {}
-
-    // Remove from all layouts
-    for (const s of this.workspace.sessions) {
-      for (const t of s.tabs) {
-        if (hasPane(t.layout, pid)) {
-          t.layout = removeNode(t.layout, pid);
-        }
-      }
-      s.tabs = s.tabs.filter(t => t.layout !== null);
-    }
-    this.workspace.sessions = this.workspace.sessions.filter(s => s.tabs.length > 0);
-
-    if (this.workspace.sessions.length === 0) {
-      await this.createSession();
-      return;
-    }
-    // Fix active refs
-    if (!this.workspace.sessions.find(s => s.id === this.workspace.activeSession)) {
-      this.workspace.activeSession = this.workspace.sessions[0].id;
-    }
-    const as = this.activeSession();
-    if (as && !as.tabs.find(t => t.id === as.activeTab)) {
-      as.activeTab = as.tabs[0]?.id;
-    }
-    const at = this.activeTab();
-    if (at && !hasPane(at.layout, at.activeId)) {
-      const ids = allPaneIds(at.layout);
-      at.activeId = ids[0] || null;
-    }
-    await this.save();
-    this.render();
-  }
-
-  // ── Navigation ─────────────────────────────────────
-
-  switchSession(sid) {
-    this.workspace.activeSession = sid;
-    this.save();
-    this.render();
-  }
-
-  switchTab(tid) {
-    const s = this.activeSession();
-    if (!s) return;
-    s.activeTab = tid;
-    this.save();
-    this.render();
-  }
-
-  setActivePane(pid) {
-    const tab = this.activeTab();
-    if (!tab || !hasPane(tab.layout, pid)) {
-      for (const s of this.workspace.sessions) {
-        for (const t of s.tabs) {
-          if (hasPane(t.layout, pid)) {
-            this.workspace.activeSession = s.id;
-            s.activeTab = t.id;
-            t.activeId = pid;
-            this.save();
-            this.render();
-            return;
-          }
-        }
-      }
-      return;
-    }
-    tab.activeId = pid;
-    this.save();
-    this.render();
-  }
-
-  // ── Accessors ──────────────────────────────────────
-
-  activeSession() {
-    return this.workspace.sessions.find(s => s.id === this.workspace.activeSession) || null;
-  }
-
-  activeTab() {
-    const s = this.activeSession();
-    if (!s) return null;
-    return s.tabs.find(t => t.id === s.activeTab) || null;
-  }
-
-  activePane() {
-    const t = this.activeTab();
-    if (!t) return null;
-    return this.panes.get(t.activeId) || null;
-  }
-
-  // ── State ──────────────────────────────────────────
-
-  async save() {
-    try {
-      await fetch('/api/workspace', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(this.workspace),
-      });
-    } catch {}
-  }
-
-  // ── Render ─────────────────────────────────────────
-
-  render() {
-    this.renderSidebar();
-    this.renderTabs();
-    this.renderLayout();
-  }
-
-  renderSidebar() {
-    const el = document.getElementById('session-list');
-    el.innerHTML = '';
-    for (const s of this.workspace.sessions) {
-      const item = document.createElement('div');
-      item.className = 'session-item' + (s.id === this.workspace.activeSession ? ' active' : '');
-      item.innerHTML =
-        `<span class="session-dot"></span>` +
-        `<span class="session-name">${s.name}</span>` +
-        `<span class="session-close">×</span>`;
-      item.addEventListener('click', e => {
-        if (!e.target.classList.contains('session-close')) this.switchSession(s.id);
-      });
-      item.querySelector('.session-close').addEventListener('click', e => {
-        e.stopPropagation();
-        this.deleteSession(s.id);
-      });
-      el.appendChild(item);
-    }
-  }
-
-  renderTabs() {
-    const bar = document.getElementById('tabbar');
-    bar.innerHTML = '';
-
-    const s = this.activeSession();
-    if (!s) { bar.style.display = 'none'; return; }
-    bar.style.display = 'flex';
-
-    for (const t of s.tabs) {
-      const el = document.createElement('div');
-      el.className = 'tab' + (t.id === s.activeTab ? ' active' : '');
-      el.innerHTML = `<span class="tab-label">${t.name}</span><span class="tab-close">×</span>`;
-      el.addEventListener('click', e => {
-        if (!e.target.classList.contains('tab-close')) this.switchTab(t.id);
-      });
-      el.querySelector('.tab-close').addEventListener('click', e => {
-        e.stopPropagation();
-        this.deleteTab(t.id);
-      });
-      bar.appendChild(el);
-    }
-
-    // + tab button
-    const btnNew = document.createElement('button');
-    btnNew.className = 'tabbar-btn tabbar-add';
-    btnNew.textContent = '+';
-    btnNew.title = 'New Tab (Ctrl+Shift+T)';
-    btnNew.addEventListener('click', () => this.createTab());
-    bar.appendChild(btnNew);
-
-    // Separator
-    const sep = document.createElement('div');
-    sep.className = 'tabbar-sep';
-    bar.appendChild(sep);
-
-    // Split horizontal
-    const btnH = document.createElement('button');
-    btnH.className = 'tabbar-btn';
-    btnH.innerHTML = '<svg width="14" height="10" viewBox="0 0 14 10"><rect x=".5" y=".5" width="5" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="8.5" y=".5" width="5" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
-    btnH.title = 'Split Horizontal (Ctrl+Shift+H)';
-    btnH.addEventListener('click', () => this.splitActive('horizontal'));
-    bar.appendChild(btnH);
-
-    // Split vertical
-    const btnV = document.createElement('button');
-    btnV.className = 'tabbar-btn';
-    btnV.innerHTML = '<svg width="14" height="10" viewBox="0 0 14 10"><rect x=".5" y=".5" width="13" height="3.5" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x=".5" y="6" width="13" height="3.5" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
-    btnV.title = 'Split Vertical (Ctrl+Shift+V)';
-    btnV.addEventListener('click', () => this.splitActive('vertical'));
-    bar.appendChild(btnV);
-
-    // Close pane
-    const btnC = document.createElement('button');
-    btnC.className = 'tabbar-btn';
-    btnC.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.4"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.4"/></svg>';
-    btnC.title = 'Close Pane (Ctrl+Shift+W)';
-    btnC.addEventListener('click', () => this.closeActivePane());
-    bar.appendChild(btnC);
-  }
-
-  renderLayout() {
-    const area = document.getElementById('terminal-area');
-    const tab = this.activeTab();
-
-    // 1) Detach all panes from split structure → back to area, hide
-    for (const p of this.panes.values()) {
-      p.el.classList.remove('visible');
-      if (p.el.parentElement !== area) area.appendChild(p.el);
-    }
-
-    // 2) Remove old split structure
-    for (const ch of [...area.children]) {
-      if (ch.classList.contains('split')) ch.remove();
-    }
-
-    if (!tab?.layout) return;
-
-    const ids = allPaneIds(tab.layout);
-
-    // 3) Build layout tree, position panes
-    if (tab.layout.type === 'pane') {
-      const p = this.panes.get(tab.layout.paneId);
-      if (p) p.el.classList.add('visible');
+  async closeTab(rid,tid){
+    const s=this._as(); if(!s) return;
+    const rg=findRg(s.layout,rid); if(!rg) return;
+    const tab=rg.tabs.find(t=>t.id===tid); if(!tab) return;
+    await this._kill(tab.paneId);
+    rg.tabs=rg.tabs.filter(t=>t.id!==tid);
+    if(!rg.tabs.length){
+      s.layout=doRemove(s.layout,rid);
+      if(!s.layout){await this.delSession(s.id);return}
+      this.focused=firstRg(s.layout)?.id||null;
     } else {
-      area.appendChild(this._buildSplit(tab.layout));
+      if(rg.activeTab===tid) rg.activeTab=rg.tabs[0].id;
     }
+    await this._save(); this.render();
+  }
 
-    // 4) Open xterm + fit for visible panes (next frame when layout is settled)
-    requestAnimationFrame(() => {
-      for (const pid of ids) {
-        const p = this.panes.get(pid);
-        if (!p || !p.el.classList.contains('visible')) continue;
-        if (!p._opened) p.open();
-        p.fit();
-      }
-      // Focus active
-      const ap = this.panes.get(tab.activeId);
-      if (ap) ap.focus();
+  switchTab(rid,tid){
+    const s=this._as(); if(!s) return;
+    const rg=findRg(s.layout,rid); if(!rg) return;
+    rg.activeTab=tid; this.focused=rid;
+    this._save(); this.render();
+  }
+
+  async split(dir){
+    const s=this._as(); if(!s||!this.focused) return;
+    const p=await this._newPane();
+    const r=`r${++this._r}`,t=`t${++this._t}`;
+    const nr={type:'region',id:r,tabs:[{id:t,name:'Shell #1',paneId:p.id}],activeTab:t};
+    s.layout=doSplit(s.layout,this.focused,nr,dir);
+    this.focused=r;
+    await this._save(); this.render();
+  }
+
+  setFocus(rid){
+    if(this.focused===rid) return;
+    this.focused=rid;
+    document.querySelectorAll('.rg').forEach(el=>{
+      el.classList.toggle('focused',el.dataset.rid===rid);
     });
   }
 
-  _buildSplit(node) {
-    const el = document.createElement('div');
-    el.className = 'split';
-    el.dataset.dir = node.direction;
+  async _save(){
+    try{await fetch('/api/workspace',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(this.ws)})}catch{}
+  }
 
-    for (let i = 0; i < node.children.length; i++) {
-      const child = node.children[i];
-      const childEl = document.createElement('div');
-      childEl.className = 'split-child';
-      el.appendChild(childEl);
+  // ── Render ──
 
-      if (child.type === 'pane') {
-        const p = this.panes.get(child.paneId);
-        if (p) {
-          childEl.appendChild(p.el);
-          p.el.classList.add('visible');
+  render(){
+    this._rSidebar();
+    this._rTopbar();
+    this._rLayout();
+  }
+
+  _rSidebar(){
+    const el=document.getElementById('sessions'); el.innerHTML='';
+    for(const s of this.ws.sessions){
+      const d=document.createElement('div');
+      d.className='si'+(s.id===this.ws.activeSession?' active':'');
+      d.innerHTML=`<span class="si-dot"></span><span class="si-name">${s.name}</span><span class="si-x">×</span>`;
+      d.addEventListener('click',e=>{if(!e.target.classList.contains('si-x'))this.switchSession(s.id)});
+      d.querySelector('.si-x').addEventListener('click',e=>{e.stopPropagation();this.delSession(s.id)});
+      el.appendChild(d);
+    }
+  }
+
+  _rTopbar(){
+    const a=this._as();
+    document.getElementById('session-name').textContent=a?a.name:'';
+  }
+
+  _rLayout(){
+    const area=document.getElementById('area');
+    const s=this._as();
+
+    // detach all panes
+    for(const p of this.panes.values()){p.el.classList.remove('vis');area.appendChild(p.el)}
+    // clear layout
+    for(const c of [...area.children]){if(c.classList.contains('sp')||c.classList.contains('rg'))c.remove()}
+
+    if(!s?.layout) return;
+    if(!findRg(s.layout,this.focused)) this.focused=firstRg(s.layout)?.id||null;
+
+    const dom=this._buildNode(s.layout);
+    if(dom) area.appendChild(dom);
+
+    requestAnimationFrame(()=>{
+      for(const p of this.panes.values()){
+        if(p.el.classList.contains('vis')){
+          if(!p._opened) p.open();
+          p.doFit();
         }
-      } else {
-        childEl.appendChild(this._buildSplit(child));
       }
+      if(this.focused){
+        const rg=findRg(s.layout,this.focused);
+        if(rg){
+          const tab=rg.tabs.find(t=>t.id===rg.activeTab);
+          if(tab){const p=this.panes.get(tab.paneId);if(p)p.focus()}
+        }
+      }
+    });
+  }
 
-      if (i < node.children.length - 1) {
-        const handle = document.createElement('div');
-        handle.className = 'split-handle';
-        el.appendChild(handle);
-        this._initHandle(handle, el);
+  _buildNode(n){
+    if(!n) return null;
+    if(n.type==='region') return this._buildRg(n);
+    if(n.type==='split'&&n.children) return this._buildSp(n);
+    return null;
+  }
+
+  _buildRg(n){
+    const el=document.createElement('div');
+    el.className='rg'+(n.id===this.focused?' focused':'');
+    el.dataset.rid=n.id;
+
+    // tab bar
+    const tabs=document.createElement('div');
+    tabs.className='rg-tabs';
+    for(const tab of(n.tabs||[])){
+      const t=document.createElement('div');
+      t.className='rt'+(tab.id===n.activeTab?' active':'');
+      t.innerHTML=`<span>${tab.name}</span><span class="rt-x">×</span>`;
+      t.addEventListener('click',e=>{
+        e.stopPropagation();
+        if(e.target.classList.contains('rt-x')) this.closeTab(n.id,tab.id);
+        else this.switchTab(n.id,tab.id);
+      });
+      tabs.appendChild(t);
+    }
+    const add=document.createElement('button');
+    add.className='rt-add'; add.textContent='+';
+    add.addEventListener('click',e=>{e.stopPropagation();this.addTab(n.id)});
+    tabs.appendChild(add);
+    el.appendChild(tabs);
+
+    // body
+    const body=document.createElement('div');
+    body.className='rg-body';
+    const at=(n.tabs||[]).find(t=>t.id===n.activeTab);
+    if(at){
+      const p=this.panes.get(at.paneId);
+      if(p){body.appendChild(p.el);p.el.classList.add('vis')}
+    }
+    el.appendChild(body);
+
+    el.addEventListener('mousedown',()=>this.setFocus(n.id));
+    return el;
+  }
+
+  _buildSp(n){
+    const el=document.createElement('div');
+    el.className='sp'; el.dataset.d=n.direction;
+    el._node=n; // back-ref for saving sizes
+    for(let i=0;i<n.children.length;i++){
+      const sc=document.createElement('div');
+      sc.className='sc';
+      if(n.sizes&&n.sizes[i]!=null) sc.style.flex=n.sizes[i];
+      const built=this._buildNode(n.children[i]);
+      if(built) sc.appendChild(built);
+      el.appendChild(sc);
+      if(i<n.children.length-1){
+        const h=document.createElement('div');
+        h.className='sh';
+        el.appendChild(h);
+        this._handle(h,el);
       }
     }
     return el;
   }
 
-  _initHandle(handle, splitEl) {
-    handle.addEventListener('mousedown', e => {
+  _handle(h,sp){
+    h.addEventListener('mousedown',e=>{
       e.preventDefault();
-      const dir = splitEl.dataset.dir;
-      const prev = handle.previousElementSibling;
-      const next = handle.nextElementSibling;
-      const startX = e.clientX, startY = e.clientY;
-      const startW = prev.offsetWidth, startH = prev.offsetHeight;
-
-      const onMove = e => {
-        if (dir === 'horizontal') {
-          const d = e.clientX - startX;
-          const total = startW + next.offsetWidth;
-          const nw = startW + d;
-          if (nw < 60 || total - nw < 60) return;
-          prev.style.flex = `${nw / total}`;
-          next.style.flex = `${(total - nw) / total}`;
-        } else {
-          const d = e.clientY - startY;
-          const total = startH + next.offsetHeight;
-          const nh = startH + d;
-          if (nh < 60 || total - nh < 60) return;
-          prev.style.flex = `${nh / total}`;
-          next.style.flex = `${(total - nh) / total}`;
+      const dir=sp.dataset.d;
+      const prev=h.previousElementSibling, next=h.nextElementSibling;
+      const sx=e.clientX, sy=e.clientY;
+      // Capture total size ONCE at mousedown
+      const tot=dir==='horizontal'?prev.offsetWidth+next.offsetWidth:prev.offsetHeight+next.offsetHeight;
+      const start=dir==='horizontal'?prev.offsetWidth:prev.offsetHeight;
+      const mv=e=>{
+        if(dir==='horizontal'){
+          const nw=start+(e.clientX-sx);
+          if(nw<60||tot-nw<60)return;
+          prev.style.flex=`${nw/tot}`;next.style.flex=`${(tot-nw)/tot}`;
+        }else{
+          const nh=start+(e.clientY-sy);
+          if(nh<60||tot-nh<60)return;
+          prev.style.flex=`${nh/tot}`;next.style.flex=`${(tot-nh)/tot}`;
         }
       };
-      const onUp = () => {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        for (const p of this.panes.values()) {
-          if (p.el.classList.contains('visible')) p.fit();
+      const up=()=>{
+        document.removeEventListener('mousemove',mv);
+        document.removeEventListener('mouseup',up);
+        // Save current ratios to layout node
+        const nd=sp._node;
+        if(nd){
+          nd.sizes=[];
+          for(const c of sp.children){
+            if(c.classList.contains('sc')) nd.sizes.push(parseFloat(c.style.flex)||1);
+          }
+          this._save();
         }
+        for(const p of this.panes.values()) if(p.el.classList.contains('vis')) p.doFit();
       };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+      document.addEventListener('mousemove',mv);
+      document.addEventListener('mouseup',up);
     });
   }
 
-  // ── Keys ───────────────────────────────────────────
-
-  _bindKeys() {
-    document.addEventListener('keydown', e => {
-      if (e.ctrlKey && e.shiftKey) {
-        switch (e.key) {
-          case 'H': e.preventDefault(); this.splitActive('horizontal'); break;
-          case 'V': if (!e.metaKey) { e.preventDefault(); this.splitActive('vertical'); } break;
-          case 'W': e.preventDefault(); this.closeActivePane(); break;
-          case 'T': e.preventDefault(); this.createTab(); break;
-        }
+  _bind(){
+    if(this._kb) return; this._kb=true;
+    document.addEventListener('keydown',e=>{
+      if(e.ctrlKey&&e.shiftKey){
+        if(e.key==='H'){e.preventDefault();this.split('horizontal')}
+        if(e.key==='V'&&!e.metaKey){e.preventDefault();this.split('vertical')}
       }
     });
+    document.getElementById('split-h').addEventListener('click',()=>this.split('horizontal'));
+    document.getElementById('split-v').addEventListener('click',()=>this.split('vertical'));
+    console.log('[App] keys bound');
   }
 }
 
-// ══════════════════════════════════════════════════════
-//  Boot
-// ══════════════════════════════════════════════════════
-
-const app = new App();
+const app=new App();
 app.init();
-
-document.getElementById('btn-new-session').addEventListener('click', () => app.createSession());
-
-window.addEventListener('resize', () => {
-  for (const p of app.panes.values()) {
-    if (p.el.classList.contains('visible')) p.fit();
-  }
-});
-
-window.addEventListener('beforeunload', e => {
-  if (app.panes.size > 0) { e.preventDefault(); e.returnValue = ''; }
-});
+document.getElementById('add-session').addEventListener('click',()=>app.addSession());
+window.addEventListener('resize',()=>{for(const p of app.panes.values())if(p.el.classList.contains('vis'))p.doFit()});
+window.addEventListener('beforeunload',e=>{if(app.panes.size>0){e.preventDefault();e.returnValue=''}});
