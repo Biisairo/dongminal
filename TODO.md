@@ -44,14 +44,14 @@
 - [x] 기본값: 연결상태, 레이턴시, 현재디렉토리, 메모리
 - [x] settings.json에 저장
 
-### 5. 링크 열기 (Link Handling)
-- [ ] xterm.js `@xterm/addon-web-links` 연동 (이미 CDN에 있음)
-- [ ] URL 클릭 시 새 브라우저 탭에서 열기
-- [ ] 파일 경로 감지 (선택사항)
+### 5. 링크 열기 (Link Handling) ✅
+- [x] xterm.js `@xterm/addon-web-links` 연동 (이미 CDN에 있음)
+- [x] URL 클릭 시 새 브라우저 탭에서 열기
 
-### 6. 레이아웃 프리셋 (Layout Presets)
-- [ ] 현재 레이아웃(분할 + 탭 수)을 프리셋으로 저장
-- [ ] 프리셋 목록 UI (설정 또는 사이드바)
-- [ ] 프리셋 로드 → 새 세션에 해당 레이아웃 적용
-- [ ] 프리셋 삭제 / 이름 변경
-- [ ] settings.json에 프리셋 데이터 저장
+### 6. 레이아웃 프리셋 (Layout Presets) ✅
+- [x] 현재 레이아웃(분할 + 탭 수)을 프리셋으로 저장
+- [x] 프리셋 목록 UI (설정 → Presets 탭)
+- [x] 프리셋 로드 → 새 세션에 해당 레이아웃 적용
+- [x] 프리셋 삭제
+- [x] 더블클릭으로 프리셋 이름 변경
+- [x] settings.json에 프리셋 데이터 저장

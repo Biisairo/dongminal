@@ -40,12 +40,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .si:hover .si-x{opacity:1}
 .si-x:hover{color:var(--danger);background:rgba(247,118,142,.2)}
 
-#add-session{
+#add-session,#add-preset{
   margin:0 8px 4px;padding:4px 8px;
   background:transparent;border:1px solid var(--border);border-radius:4px;
   color:var(--text-muted);font-size:11px;cursor:pointer;text-align:left;
 }
-#add-session:hover{background:var(--accent-hover);color:var(--accent)}
+#add-session:hover,#add-preset:hover{background:var(--accent-hover);color:var(--accent)}
+#add-preset{color:var(--text-dim);opacity:.7}
+#add-preset:hover{opacity:1}
 
 #sb-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border);position:relative}
 #sb-handle:hover{background:var(--accent)}
@@ -313,3 +315,29 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .sbs-row input:checked+.slider::before{transform:translateX(16px);background:var(--text-bright)}
 .sbs-select{background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;padding:2px 6px;outline:none;font-family:inherit}
 .sbs-select:focus{border-color:var(--accent)}
+
+/* ── Presets ── */
+.preset-list{overflow-y:auto;max-height:55vh;display:flex;flex-direction:column;gap:4px}
+.preset-item{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 10px;border:1px solid var(--border);border-radius:6px;
+  transition:border-color .15s,background .15s;
+}
+.preset-item:hover{border-color:var(--accent-border);background:var(--accent-hover)}
+.preset-info{flex:1;min-width:0}
+.preset-name{color:var(--text-bright);font-size:12px;font-weight:500}
+.preset-desc{color:var(--text-dim);font-size:10px;margin-top:2px}
+.preset-btn{
+  background:none;border:none;color:var(--text-dim);cursor:pointer;
+  width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+  border-radius:4px;font-size:12px;opacity:.5;transition:opacity .15s,color .15s,background .15s;
+}
+.preset-btn:hover{opacity:1;color:var(--accent);background:var(--accent-hover)}
+.preset-btn.del:hover{color:var(--danger);background:rgba(255,80,80,.1)}
+.preset-save{
+  margin-top:8px;width:100%;padding:7px;
+  background:none;border:1px solid var(--border);border-radius:6px;
+  color:var(--text-bright);font-size:12px;cursor:pointer;font-family:inherit;
+  transition:border-color .15s,background .15s;
+}
+.preset-save:hover{border-color:var(--accent-border);background:var(--accent-hover)}

@@ -44,6 +44,8 @@ const STATUS_ITEMS={
 let statusBar={}; // {itemKey: true/false}
 for(const[k,v]of Object.entries(STATUS_ITEMS))statusBar[k]=v.def;
 let statsInterval=3000;
+let layoutPresets=[]; // [{name, layout}] — layout = stripped layout tree
+let defaultPreset=-1; // index into layoutPresets, -1 = none
 
 const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight','ShiftLeft','ShiftRight']);
 function parseShortcut(s){const p=s.split('+');const k=p.pop();return{ctrl:p.includes('Ctrl'),alt:p.includes('Alt'),meta:p.includes('Meta'),shift:p.includes('Shift'),code:k}}
@@ -904,10 +906,11 @@ class App {
     document.getElementById('search-close').addEventListener('click',()=>this.closeSearch());
     this._initModal();
     this._initStatusBar();
+    this._initPresets();
   }
 
   async _saveSettings(){
-    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval})})}catch{}
+    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,layoutPresets,defaultPreset})})}catch{}
   }
 
   // ── Modal & Theme ──
@@ -915,7 +918,7 @@ class App {
   _initModal(){
     const overlay=document.getElementById('modal-overlay');
     const modal=document.getElementById('modal');
-    document.getElementById('settings-btn').addEventListener('click',()=>{overlay.classList.add('open');this._renderThemePanel();this._renderShortcutList()});
+    document.getElementById('settings-btn').addEventListener('click',()=>{overlay.classList.add('open');this._renderThemePanel();this._renderShortcutList();this._renderPresets()});
     document.getElementById('modal-close').addEventListener('click',()=>overlay.classList.remove('open'));
     overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('open')});
     modal.querySelectorAll('.mtab').forEach(tab=>{
@@ -924,6 +927,7 @@ class App {
         tab.classList.add('active');
         modal.querySelectorAll('.mpanel').forEach(p=>p.style.display='none');
         document.getElementById('panel-'+tab.dataset.tab).style.display='';
+        if(tab.dataset.tab==='presets')this._renderPresets();
       });
     });
   }
@@ -1219,9 +1223,124 @@ class App {
       el.appendChild(row);
     }
   }
-}
 
-// ═══ Bootstrap ═══
+  // ── Layout Presets ──
+  _initPresets(){
+    document.getElementById('preset-save').addEventListener('click',()=>this._savePreset());
+    this._renderPresets();
+  }
+  _savePreset(){
+    const s=this._as();if(!s)return;
+    // Strip layout to just structure (remove paneIds, keep tab counts)
+    const strip=n=>{
+      if(!n)return null;
+      if(n.type==='region')return{type:'region',tabCount:n.tabs?n.tabs.length:1};
+      if(n.type==='split')return{type:'split',direction:n.direction,children:n.children.map(strip),sizes:n.sizes?[...n.sizes]:null};
+      return null;
+    };
+    const layout=strip(s.layout);
+    const name='프리셋 '+(layoutPresets.length+1);
+    layoutPresets.push({name,layout});
+    this._saveSettings();
+    this._renderPresets();
+  }
+  async _loadPreset(idx){
+    const preset=layoutPresets[idx];if(!preset)return;
+    // Create new session with preset layout
+    await this._mkSession();
+    const s=this._as();if(!s)return;
+    // Build layout from preset, creating panes as needed
+    const build=async(tpl)=>{
+      if(!tpl)return null;
+      if(tpl.type==='region'){
+        const tabs=[];
+        for(let i=0;i<tpl.tabCount;i++){
+          const p=await this._newPane();
+          tabs.push({id:`t${++this._t}`,name:'Shell',paneId:p.id});
+        }
+        const rid=`r${++this._r}`;
+        return{type:'region',id:rid,tabs,activeTab:tabs[0].id};
+      }
+      if(tpl.type==='split'){
+        const children=[];
+        for(const c of tpl.children){
+          const built=await build(c);
+          if(built)children.push(built);
+        }
+        return{type:'split',direction:tpl.direction,children,sizes:tpl.sizes?[...tpl.sizes]:null};
+      }
+      return null;
+    };
+    s.layout=await build(preset.layout);
+    this.focused=firstRg(s.layout)?.id||null;
+    await this._save();this.render();
+  }
+  _deletePreset(idx){
+    layoutPresets.splice(idx,1);
+    if(defaultPreset===idx)defaultPreset=-1;
+    else if(defaultPreset>idx)defaultPreset--;
+    this._saveSettings();
+    this._renderPresets();
+  }
+  _renamePreset(idx){
+    const item=document.querySelector(`.preset-item[data-idx="${idx}"] .preset-name`);
+    if(!item)return;
+    const inp=document.createElement('input');inp.className='preset-rename-input';
+    inp.value=layoutPresets[idx].name;inp.style.cssText='background:var(--bg);border:1px solid var(--accent);border-radius:3px;padding:2px 6px;color:var(--text);font-size:12px;width:100%;outline:none';
+    item.replaceWith(inp);inp.focus();inp.select();
+    const save=()=>{
+      layoutPresets[idx].name=inp.value.trim()||layoutPresets[idx].name;
+      this._saveSettings();this._renderPresets();
+    };
+    inp.addEventListener('blur',save);
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter')save();if(e.key==='Escape'){inp.value=layoutPresets[idx].name;save()}e.stopPropagation()});
+  }
+  _describeLayout(layout){
+    if(!layout)return'';
+    if(layout.type==='region')return`탭 ${layout.tabCount}개`;
+    if(layout.type==='split'){
+      const dir=layout.direction==='horizontal'?'가로':'세로';
+      const descs=layout.children.map(c=>this._describeLayout(c)).filter(Boolean);
+      return`${dir} 분할 [${descs.join(', ')}]`;
+    }
+    return'';
+  }
+  _renderPresets(){
+    const el=document.getElementById('preset-list');if(!el)return;
+    el.innerHTML='';
+    // Update sidebar preset button visibility
+    const pbtn=document.getElementById('add-preset');
+    if(pbtn)pbtn.style.display=defaultPreset>=0&&layoutPresets[defaultPreset]?'':'none';
+    if(!layoutPresets.length){
+      el.innerHTML='<div style="color:var(--text-dim);font-size:12px;text-align:center;padding:20px">저장된 프리셋이 없습니다</div>';
+      return;
+    }
+    layoutPresets.forEach((p,i)=>{
+      const item=document.createElement('div');item.className='preset-item';item.dataset.idx=i;
+      if(i===defaultPreset)item.style.borderColor='var(--accent)';
+      const info=document.createElement('div');info.className='preset-info';
+      const name=document.createElement('div');name.className='preset-name';name.textContent=p.name;
+      name.addEventListener('dblclick',e=>{e.stopPropagation();this._renamePreset(i)});
+      const desc=document.createElement('div');desc.className='preset-desc';desc.textContent=this._describeLayout(p.layout);
+      info.appendChild(name);info.appendChild(desc);
+      item.appendChild(info);
+      // Star (default) button
+      const star=document.createElement('button');star.className='preset-btn';
+      star.textContent=i===defaultPreset?'★':'☆';star.title='기본 프리셋으로 설정';
+      star.addEventListener('click',e=>{e.stopPropagation();defaultPreset=defaultPreset===i?-1:i;this._saveSettings();this._renderPresets()});
+      item.appendChild(star);
+      // Load button
+      const load=document.createElement('button');load.className='preset-btn';load.textContent='▶';load.title='불러오기';
+      load.addEventListener('click',e=>{e.stopPropagation();this._loadPreset(i)});
+      item.appendChild(load);
+      // Delete button
+      const del=document.createElement('button');del.className='preset-btn del';del.textContent='✕';del.title='삭제';
+      del.addEventListener('click',e=>{e.stopPropagation();this._deletePreset(i)});
+      item.appendChild(del);
+      el.appendChild(item);
+    });
+  }
+}
 
 const app=new App();
 
@@ -1230,12 +1349,19 @@ const app=new App();
   if(saved.shortcuts) Object.assign(shortcuts,saved.shortcuts);
   if(saved.statusBar) Object.assign(statusBar,saved.statusBar);
   if(saved.statsInterval) statsInterval=saved.statsInterval;
+  if(saved.layoutPresets) layoutPresets=saved.layoutPresets;
+  if(saved.defaultPreset!==undefined) defaultPreset=saved.defaultPreset;
   if(saved.customTheme){customTheme=saved.customTheme;applyThemeObj(customTheme)}
   else if(saved.themeName&&THEMES[saved.themeName]){currentThemeName=saved.themeName;applyThemeObj(THEMES[currentThemeName])}
 }}catch{}})();
 
 app.init();
+if(!(defaultPreset>=0&&layoutPresets[defaultPreset]))document.getElementById('add-preset').style.display='none';
 document.getElementById('add-session').addEventListener('click',()=>app.addSession());
+document.getElementById('add-preset').addEventListener('click',()=>{
+  if(defaultPreset>=0&&layoutPresets[defaultPreset]) app._loadPreset(defaultPreset);
+  else app.addSession();
+});
 
 // Custom toggle handler
 document.getElementById('custom-toggle').addEventListener('click',()=>{
