@@ -255,12 +255,30 @@ func (m *PaneManager) delete(id string) {
 	}
 }
 
-// ── Workspace (in-memory only, no file persistence) ──
+// ── Workspace (in-memory only) + Settings (file-persisted) ──
 
 var (
 	wsJSON []byte
 	wsMu   sync.Mutex
+
+	settingsJSON []byte
+	settingsMu   sync.Mutex
 )
+
+func loadSettings() {
+	data, err := os.ReadFile("settings.json")
+	if err != nil {
+		return
+	}
+	settingsJSON = data
+}
+
+func saveSettings() {
+	settingsMu.Lock()
+	data := settingsJSON
+	settingsMu.Unlock()
+	os.WriteFile("settings.json", data, 0644)
+}
 
 // ── API ─────────────────────────────────────────────
 
@@ -300,6 +318,25 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 		wsMu.Lock()
 		wsJSON = body
 		wsMu.Unlock()
+		w.WriteHeader(200)
+
+	case p == "/api/settings" && r.Method == http.MethodGet:
+		settingsMu.Lock()
+		data := settingsJSON
+		settingsMu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		if len(data) > 0 {
+			w.Write(data)
+		} else {
+			w.Write([]byte("{}"))
+		}
+
+	case p == "/api/settings" && r.Method == http.MethodPut:
+		body, _ := io.ReadAll(r.Body)
+		settingsMu.Lock()
+		settingsJSON = body
+		settingsMu.Unlock()
+		saveSettings()
 		w.WriteHeader(200)
 
 	default:
@@ -423,6 +460,8 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+	loadSettings()
+
 	staticFS, _ := fs.Sub(staticFiles, "static")
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
@@ -434,7 +473,7 @@ func main() {
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	go func() { <-sigCh; server.Close() }()
+	go func() { <-sigCh; saveSettings(); server.Close() }()
 
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		log.Fatalf("server: %v", err)

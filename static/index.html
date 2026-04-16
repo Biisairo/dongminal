@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Terminal</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.css">
-  <link rel="stylesheet" href="style.css?v=45">
+  <link rel="stylesheet" href="style.css?v=52">
 </head>
 <body>
 <div id="app">
@@ -13,6 +13,7 @@
     <div class="sb-title">Sessions</div>
     <button id="add-session">+ New</button>
     <div id="sessions"></div>
+    <button id="settings-btn" title="Settings">⚙</button>
   </div>
   <div id="sb-handle"></div>
   <div id="content">
@@ -25,10 +26,43 @@
     <div id="area"></div>
   </div>
 </div>
+
+<!-- Settings Modal -->
+<div id="modal-overlay">
+  <div id="modal">
+    <div class="modal-header">
+      <span class="modal-title">Settings</span>
+      <button class="modal-close" id="modal-close">×</button>
+    </div>
+    <div class="modal-tabs">
+      <button class="mtab active" data-tab="theme">Theme</button>
+      <button class="mtab" data-tab="shortcuts">Shortcuts</button>
+    </div>
+    <div class="modal-body">
+      <div class="mpanel" id="panel-theme">
+        <div class="theme-layout">
+          <div class="theme-list" id="theme-list"></div>
+          <div class="theme-preview-panel" id="theme-preview"></div>
+        </div>
+        <button id="custom-toggle">✏ Customize Current Theme</button>
+        <div id="custom-editor" style="display:none">
+          <div class="ce-section"><div class="ce-title">UI Colors</div><div class="ce-colors" id="ce-ui"></div></div>
+          <div class="ce-section"><div class="ce-title">Terminal Colors</div><div class="ce-colors" id="ce-terminal"></div></div>
+        </div>
+      </div>
+      <div class="mpanel" id="panel-shortcuts" style="display:none">
+        <div class="shortcut-list">
+          <div class="sc-row"><kbd>Ctrl+Shift+H</kbd><span>Split Horizontal</span></div>
+          <div class="sc-row"><kbd>Ctrl+Shift+V</kbd><span>Split Vertical</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/lib/xterm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10/lib/addon-fit.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11/lib/addon-web-links.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-unicode11@0.8/lib/addon-unicode11.js"></script>
-<script src="app.js?v=45"></script>
+<script src="app.js?v=52"></script>
 </body>
 </html>

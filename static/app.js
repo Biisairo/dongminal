@@ -5,20 +5,132 @@
 
 const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,SID:3};
 const enc=new TextEncoder(), dec=new TextDecoder();
-const THEME={
-  background:'#1a1b26',foreground:'#a9b1d6',cursor:'#c0caf5',cursorAccent:'#1a1b26',
-  selectionBackground:'#33467c',selectionForeground:'#c0caf5',
-  black:'#15161e',red:'#f7768e',green:'#9ece6a',yellow:'#e0af68',
-  blue:'#7aa2f7',magenta:'#bb9af7',cyan:'#7dcfff',white:'#a9b1d6',
-  brightBlack:'#414868',brightRed:'#f7768e',brightGreen:'#9ece6a',
-  brightYellow:'#e0af68',brightBlue:'#7aa2f7',brightMagenta:'#bb9af7',
-  brightCyan:'#7dcfff',brightWhite:'#c0caf5',
+
+// ═══ Theme System ═══
+
+const UI_LABELS={bg:'Background',sidebarBg:'Sidebar',border:'Border',accent:'Accent',text:'Text',textMuted:'Muted',textBright:'Bright',textDim:'Dim',danger:'Danger',accentBorder:'Accent Bd'};
+const TERM_LABELS={background:'BG',foreground:'FG',cursor:'Cursor',selectionBackground:'Select',black:'Black',red:'Red',green:'Green',yellow:'Yellow',blue:'Blue',magenta:'Magenta',cyan:'Cyan',white:'White',brightBlack:'BrBlk',brightRed:'BrRed',brightGreen:'BrGrn',brightYellow:'BrYlw',brightBlue:'BrBlu',brightMagenta:'BrMag',brightCyan:'BrCyn',brightWhite:'BrWht'};
+
+const THEMES={
+  'Tokyo Night':{
+    ui:{bg:'#1a1b26',sidebarBg:'#16161e',border:'#292e42',accent:'#7aa2f7',text:'#a9b1d6',textMuted:'#565f89',textBright:'#c0caf5',textDim:'#414868',danger:'#f7768e',accentBorder:'#3d59a1'},
+    terminal:{background:'#1a1b26',foreground:'#a9b1d6',cursor:'#c0caf5',cursorAccent:'#1a1b26',selectionBackground:'#33467c',selectionForeground:'#c0caf5',black:'#15161e',red:'#f7768e',green:'#9ece6a',yellow:'#e0af68',blue:'#7aa2f7',magenta:'#bb9af7',cyan:'#7dcfff',white:'#a9b1d6',brightBlack:'#414868',brightRed:'#f7768e',brightGreen:'#9ece6a',brightYellow:'#e0af68',brightBlue:'#7aa2f7',brightMagenta:'#bb9af7',brightCyan:'#7dcfff',brightWhite:'#c0caf5'},
+  },
+  'Dracula':{
+    ui:{bg:'#282a36',sidebarBg:'#21222c',border:'#44475a',accent:'#bd93f9',text:'#f8f8f2',textMuted:'#6272a4',textBright:'#f8f8f2',textDim:'#44475a',danger:'#ff5555',accentBorder:'#6272a4'},
+    terminal:{background:'#282a36',foreground:'#f8f8f2',cursor:'#f8f8f2',cursorAccent:'#282a36',selectionBackground:'#44475a',selectionForeground:'#f8f8f2',black:'#21222c',red:'#ff5555',green:'#50fa7b',yellow:'#f1fa8c',blue:'#bd93f9',magenta:'#ff79c6',cyan:'#8be9fd',white:'#f8f8f2',brightBlack:'#6272a4',brightRed:'#ff5555',brightGreen:'#50fa7b',brightYellow:'#f1fa8c',brightBlue:'#bd93f9',brightMagenta:'#ff79c6',brightCyan:'#8be9fd',brightWhite:'#f8f8f2'},
+  },
+  'One Dark':{
+    ui:{bg:'#282c34',sidebarBg:'#21252b',border:'#3e4451',accent:'#61afef',text:'#abb2bf',textMuted:'#5c6370',textBright:'#e5c07b',textDim:'#3e4451',danger:'#e06c75',accentBorder:'#4b5263'},
+    terminal:{background:'#282c34',foreground:'#abb2bf',cursor:'#528bff',cursorAccent:'#282c34',selectionBackground:'#3e4451',selectionForeground:'#abb2bf',black:'#282c34',red:'#e06c75',green:'#98c379',yellow:'#e5c07b',blue:'#61afef',magenta:'#c678dd',cyan:'#56b6c2',white:'#abb2bf',brightBlack:'#5c6370',brightRed:'#e06c75',brightGreen:'#98c379',brightYellow:'#e5c07b',brightBlue:'#61afef',brightMagenta:'#c678dd',brightCyan:'#56b6c2',brightWhite:'#ffffff'},
+  },
+  'Nord':{
+    ui:{bg:'#2e3440',sidebarBg:'#272c36',border:'#3b4252',accent:'#88c0d0',text:'#d8dee9',textMuted:'#4c566a',textBright:'#eceff4',textDim:'#3b4252',danger:'#bf616a',accentBorder:'#4c566a'},
+    terminal:{background:'#2e3440',foreground:'#d8dee9',cursor:'#d8dee9',cursorAccent:'#2e3440',selectionBackground:'#434c5e',selectionForeground:'#d8dee9',black:'#3b4252',red:'#bf616a',green:'#a3be8c',yellow:'#ebcb8b',blue:'#81a1c1',magenta:'#b48ead',cyan:'#88c0d0',white:'#e5e9f0',brightBlack:'#4c566a',brightRed:'#bf616a',brightGreen:'#a3be8c',brightYellow:'#ebcb8b',brightBlue:'#81a1c1',brightMagenta:'#b48ead',brightCyan:'#88c0d0',brightWhite:'#eceff4'},
+  },
+  'Catppuccin':{
+    ui:{bg:'#1e1e2e',sidebarBg:'#181825',border:'#313244',accent:'#89b4fa',text:'#cdd6f4',textMuted:'#585b70',textBright:'#f5e0dc',textDim:'#313244',danger:'#f38ba8',accentBorder:'#45475a'},
+    terminal:{background:'#1e1e2e',foreground:'#cdd6f4',cursor:'#f5e0dc',cursorAccent:'#1e1e2e',selectionBackground:'#585b70',selectionForeground:'#cdd6f4',black:'#45475a',red:'#f38ba8',green:'#a6e3a1',yellow:'#f9e2af',blue:'#89b4fa',magenta:'#f5c2e7',cyan:'#94e2d5',white:'#bac2de',brightBlack:'#585b70',brightRed:'#f38ba8',brightGreen:'#a6e3a1',brightYellow:'#f9e2af',brightBlue:'#89b4fa',brightMagenta:'#f5c2e7',brightCyan:'#94e2d5',brightWhite:'#a6adc8'},
+  },
+  'Solarized Dark':{
+    ui:{bg:'#002b36',sidebarBg:'#073642',border:'#073642',accent:'#268bd2',text:'#839496',textMuted:'#586e75',textBright:'#93a1a1',textDim:'#073642',danger:'#dc322f',accentBorder:'#586e75'},
+    terminal:{background:'#002b36',foreground:'#839496',cursor:'#93a1a1',cursorAccent:'#002b36',selectionBackground:'#073642',selectionForeground:'#93a1a1',black:'#073642',red:'#dc322f',green:'#859900',yellow:'#b58900',blue:'#268bd2',magenta:'#d33682',cyan:'#2aa198',white:'#eee8d5',brightBlack:'#586e75',brightRed:'#cb4b16',brightGreen:'#586e75',brightYellow:'#657b83',brightBlue:'#839496',brightMagenta:'#6c71c4',brightCyan:'#93a1a1',brightWhite:'#fdf6e3'},
+  },
+  'Monokai':{
+    ui:{bg:'#272822',sidebarBg:'#1e1f1c',border:'#3e3d32',accent:'#a6e22e',text:'#f8f8f2',textMuted:'#75715e',textBright:'#f8f8f0',textDim:'#49483e',danger:'#f92672',accentBorder:'#49483e'},
+    terminal:{background:'#272822',foreground:'#f8f8f2',cursor:'#f8f8f0',cursorAccent:'#272822',selectionBackground:'#49483e',selectionForeground:'#f8f8f2',black:'#272822',red:'#f92672',green:'#a6e22e',yellow:'#f4bf75',blue:'#66d9ef',magenta:'#ae81ff',cyan:'#a1efe4',white:'#f8f8f2',brightBlack:'#75715e',brightRed:'#fd971f',brightGreen:'#a6e22e',brightYellow:'#e6db74',brightBlue:'#66d9ef',brightMagenta:'#ae81ff',brightCyan:'#a1efe4',brightWhite:'#ffffff'},
+  },
+  'GitHub Dark':{
+    ui:{bg:'#0d1117',sidebarBg:'#010409',border:'#30363d',accent:'#58a6ff',text:'#c9d1d9',textMuted:'#8b949e',textBright:'#f0f6fc',textDim:'#21262d',danger:'#f85149',accentBorder:'#388bfd'},
+    terminal:{background:'#0d1117',foreground:'#c9d1d9',cursor:'#58a6ff',cursorAccent:'#0d1117',selectionBackground:'#264f78',selectionForeground:'#c9d1d9',black:'#484f58',red:'#ff7b72',green:'#3fb950',yellow:'#d29922',blue:'#58a6ff',magenta:'#bc8cff',cyan:'#39c5cf',white:'#b1bac4',brightBlack:'#6e7681',brightRed:'#ffa198',brightGreen:'#56d364',brightYellow:'#e3b341',brightBlue:'#79c0ff',brightMagenta:'#d2a8ff',brightCyan:'#56d4dd',brightWhite:'#ffffff'},
+  },
+  'Material Ocean':{
+    ui:{bg:'#0f111a',sidebarBg:'#0a0c12',border:'#1a1c25',accent:'#84ffff',text:'#8f93a2',textMuted:'#676e95',textBright:'#eeffff',textDim:'#1a1c25',danger:'#ff5370',accentBorder:'#2b2f3b'},
+    terminal:{background:'#0f111a',foreground:'#8f93a2',cursor:'#ffcc00',cursorAccent:'#0f111a',selectionBackground:'#80cbc420',selectionForeground:'#eeffff',black:'#546e7a',red:'#ff5370',green:'#c3e88d',yellow:'#ffcb6b',blue:'#82aaff',magenta:'#c792ea',cyan:'#89ddff',white:'#eeffff',brightBlack:'#546e7a',brightRed:'#f07178',brightGreen:'#c3e88d',brightYellow:'#ffcb6b',brightBlue:'#82aaff',brightMagenta:'#c792ea',brightCyan:'#89ddff',brightWhite:'#ffffff'},
+  },
+  'Material Palenight':{
+    ui:{bg:'#292d3e',sidebarBg:'#1e2030',border:'#3a3f5c',accent:'#c792ea',text:'#a6accd',textMuted:'#676e95',textBright:'#eeffff',textDim:'#3a3f5c',danger:'#ff5370',accentBorder:'#4a4e6a'},
+    terminal:{background:'#292d3e',foreground:'#a6accd',cursor:'#ffcc00',cursorAccent:'#292d3e',selectionBackground:'#676e9536',selectionForeground:'#eeffff',black:'#546e7a',red:'#ff5370',green:'#c3e88d',yellow:'#ffcb6b',blue:'#82aaff',magenta:'#c792ea',cyan:'#89ddff',white:'#eeffff',brightBlack:'#546e7a',brightRed:'#f07178',brightGreen:'#c3e88d',brightYellow:'#ffcb6b',brightBlue:'#82aaff',brightMagenta:'#c792ea',brightCyan:'#89ddff',brightWhite:'#ffffff'},
+  },
+  'Ayu Dark':{
+    ui:{bg:'#0a0e14',sidebarBg:'#010409',border:'#1a1f29',accent:'#39bae6',text:'#b3b1ad',textMuted:'#626a73',textBright:'#e6e1cf',textDim:'#1a1f29',danger:'#d95757',accentBorder:'#2a3040'},
+    terminal:{background:'#0a0e14',foreground:'#b3b1ad',cursor:'#f29e74',cursorAccent:'#0a0e14',selectionBackground:'#1a1f29',selectionForeground:'#e6e1cf',black:'#1a1f29',red:'#d95757',green:'#7fd962',yellow:'#f29e74',blue:'#39bae6',magenta:'#d2a6ff',cyan:'#95e6cb',white:'#c7c7c7',brightBlack:'#1a1f29',brightRed:'#d95757',brightGreen:'#7fd962',brightYellow:'#f29e74',brightBlue:'#39bae6',brightMagenta:'#d2a6ff',brightCyan:'#95e6cb',brightWhite:'#ffffff'},
+  },
+  'Gruvbox Dark':{
+    ui:{bg:'#282828',sidebarBg:'#1d2021',border:'#3c3836',accent:'#fe8019',text:'#ebdbb2',textMuted:'#928374',textBright:'#fbf1c7',textDim:'#3c3836',danger:'#fb4934',accentBorder:'#504945'},
+    terminal:{background:'#282828',foreground:'#ebdbb2',cursor:'#ebdbb2',cursorAccent:'#282828',selectionBackground:'#504945',selectionForeground:'#ebdbb2',black:'#282828',red:'#cc241d',green:'#98971a',yellow:'#d79921',blue:'#458588',magenta:'#b16286',cyan:'#689d6a',white:'#a89984',brightBlack:'#928374',brightRed:'#fb4934',brightGreen:'#b8bb26',brightYellow:'#fabd2f',brightBlue:'#83a598',brightMagenta:'#d3869b',brightCyan:'#8ec07c',brightWhite:'#ebdbb2'},
+  },
+  'Ros\u00e9 Pine':{
+    ui:{bg:'#191724',sidebarBg:'#1f1d2e',border:'#26233a',accent:'#c4a7e7',text:'#e0def4',textMuted:'#6e6a86',textBright:'#e0def4',textDim:'#26233a',danger:'#eb6f92',accentBorder:'#403d52'},
+    terminal:{background:'#191724',foreground:'#e0def4',cursor:'#e0def4',cursorAccent:'#191724',selectionBackground:'#403d52',selectionForeground:'#e0def4',black:'#26233a',red:'#eb6f92',green:'#31748f',yellow:'#f6c177',blue:'#9ccfd8',magenta:'#c4a7e7',cyan:'#ebbcba',white:'#e0def4',brightBlack:'#6e6a86',brightRed:'#eb6f92',brightGreen:'#31748f',brightYellow:'#f6c177',brightBlue:'#9ccfd8',brightMagenta:'#c4a7e7',brightCyan:'#ebbcba',brightWhite:'#e0def4'},
+  },
+  'Night Owl':{
+    ui:{bg:'#011627',sidebarBg:'#001122',border:'#1d3449',accent:'#82aaff',text:'#d6deeb',textMuted:'#5f7e97',textBright:'#ffffff',textDim:'#1d3449',danger:'#ef5350',accentBorder:'#2a4560'},
+    terminal:{background:'#011627',foreground:'#d6deeb',cursor:'#80a4c2',cursorAccent:'#011627',selectionBackground:'#1d3b53',selectionForeground:'#ffffff',black:'#011627',red:'#ef5350',green:'#22da6e',yellow:'#c5e478',blue:'#82aaff',magenta:'#c792ea',cyan:'#21c7a8',white:'#ffffff',brightBlack:'#575656',brightRed:'#ef5350',brightGreen:'#22da6e',brightYellow:'#ffeb95',brightBlue:'#82aaff',brightMagenta:'#c792ea',brightCyan:'#7fdbca',brightWhite:'#ffffff'},
+  },
+  'Cobalt\u00b2':{
+    ui:{bg:'#193549',sidebarBg:'#15232f',border:'#2a4a63',accent:'#ffc600',text:'#ffffff',textMuted:'#0088ff',textBright:'#ffffff',textDim:'#1f4662',danger:'#ff628c',accentBorder:'#3a6a8a'},
+    terminal:{background:'#193549',foreground:'#ffffff',cursor:'#ffc600',cursorAccent:'#193549',selectionBackground:'#003c8f',selectionForeground:'#ffffff',black:'#000000',red:'#ff628c',green:'#08ff00',yellow:'#ff9f00',blue:'#0088ff',magenta:'#ff00ff',cyan:'#00fdf8',white:'#bbbbbb',brightBlack:'#555555',brightRed:'#ff628c',brightGreen:'#08ff00',brightYellow:'#ffcc00',brightBlue:'#0099ff',brightMagenta:'#ff77ff',brightCyan:'#00fdf8',brightWhite:'#ffffff'},
+  },
+  'Shades of Purple':{
+    ui:{bg:'#2d2b55',sidebarBg:'#242240',border:'#3c3a6e',accent:'#a78bfa',text:'#a5b3ce',textMuted:'#5c5a8c',textBright:'#ffffff',textDim:'#3c3a6e',danger:'#ff6b8a',accentBorder:'#4a4880'},
+    terminal:{background:'#2d2b55',foreground:'#a5b3ce',cursor:'#a78bfa',cursorAccent:'#2d2b55',selectionBackground:'#3c3a6e',selectionForeground:'#ffffff',black:'#242240',red:'#ff6b8a',green:'#7addff',yellow:'#ffb8d1',blue:'#a78bfa',magenta:'#ff9ef5',cyan:'#36f9f6',white:'#ffffff',brightBlack:'#5c5a8c',brightRed:'#ff6b8a',brightGreen:'#7addff',brightYellow:'#ffb8d1',brightBlue:'#a78bfa',brightMagenta:'#ff9ef5',brightCyan:'#36f9f6',brightWhite:'#ffffff'},
+  },
+  'Horizon':{
+    ui:{bg:'#1c1e26',sidebarBg:'#16161c',border:'#232530',accent:'#e95678',text:'#cbced0',textMuted:'#6c6f93',textBright:'#d5d8da',textDim:'#232530',danger:'#e95678',accentBorder:'#2e303e'},
+    terminal:{background:'#1c1e26',foreground:'#cbced0',cursor:'#e95678',cursorAccent:'#1c1e26',selectionBackground:'#2e303e',selectionForeground:'#cbced0',black:'#1c1e26',red:'#e95678',green:'#09f7a0',yellow:'#f7c67f',blue:'#21bfc2',magenta:'#b877db',cyan:'#53dce0',white:'#cbced0',brightBlack:'#6c6f93',brightRed:'#e95678',brightGreen:'#09f7a0',brightYellow:'#f7c67f',brightBlue:'#21bfc2',brightMagenta:'#b877db',brightCyan:'#53dce0',brightWhite:'#ffffff'},
+  },
+  'Doom One':{
+    ui:{bg:'#282c34',sidebarBg:'#21252b',border:'#3e4451',accent:'#51afef',text:'#bbc2cf',textMuted:'#5b6268',textBright:'#ffffff',textDim:'#3e4451',danger:'#ff6c6b',accentBorder:'#4a5060'},
+    terminal:{background:'#282c34',foreground:'#bbc2cf',cursor:'#51afef',cursorAccent:'#282c34',selectionBackground:'#3e4451',selectionForeground:'#bbc2cf',black:'#282c34',red:'#ff6c6b',green:'#98be65',yellow:'#ecbe7a',blue:'#51afef',magenta:'#c678dd',cyan:'#46d9ff',white:'#bbc2cf',brightBlack:'#5b6268',brightRed:'#ff6c6b',brightGreen:'#98be65',brightYellow:'#ecbe7a',brightBlue:'#51afef',brightMagenta:'#c678dd',brightCyan:'#46d9ff',brightWhite:'#ffffff'},
+  },
+  'Everforest':{
+    ui:{bg:'#2b3339',sidebarBg:'#22272e',border:'#3a4249',accent:'#a7c080',text:'#d3c6aa',textMuted:'#859289',textBright:'#d3c6aa',textDim:'#3a4249',danger:'#e67e80',accentBorder:'#4a555b'},
+    terminal:{background:'#2b3339',foreground:'#d3c6aa',cursor:'#d3c6aa',cursorAccent:'#2b3339',selectionBackground:'#4a555b',selectionForeground:'#d3c6aa',black:'#3a4249',red:'#e67e80',green:'#a7c080',yellow:'#dbbc7f',blue:'#7fbbb3',magenta:'#d699b6',cyan:'#7fbbb3',white:'#d3c6aa',brightBlack:'#5c6a72',brightRed:'#e67e80',brightGreen:'#a7c080',brightYellow:'#dbbc7f',brightBlue:'#7fbbb3',brightMagenta:'#d699b6',brightCyan:'#7fbbb3',brightWhite:'#d3c6aa'},
+  },
+  'Kanagawa':{
+    ui:{bg:'#1f1f28',sidebarBg:'#181820',border:'#2a2a37',accent:'#7e9cd8',text:'#dcd7ba',textMuted:'#54546d',textBright:'#dcd7ba',textDim:'#2a2a37',danger:'#c34043',accentBorder:'#363646'},
+    terminal:{background:'#1f1f28',foreground:'#dcd7ba',cursor:'#dcd7ba',cursorAccent:'#1f1f28',selectionBackground:'#2a2a37',selectionForeground:'#dcd7ba',black:'#090618',red:'#c34043',green:'#769462',yellow:'#c0a36e',blue:'#7e9cd8',magenta:'#957fb8',cyan:'#6a9589',white:'#c8c093',brightBlack:'#727169',brightRed:'#e82424',brightGreen:'#98bb6c',brightYellow:'#e6c384',brightBlue:'#7fb4ca',brightMagenta:'#938aa9',brightCyan:'#7aa89f',brightWhite:'#dcd7ba'},
+  },
+  'Synthwave \'84':{
+    ui:{bg:'#262335',sidebarBg:'#1e1b2e',border:'#36325a',accent:'#f97e72',text:'#e0d0c0',textMuted:'#6a5f84',textBright:'#f8f1e8',textDim:'#36325a',danger:'#f97e72',accentBorder:'#4a4480'},
+    terminal:{background:'#262335',foreground:'#e0d0c0',cursor:'#f97e72',cursorAccent:'#262335',selectionBackground:'#36325a',selectionForeground:'#f8f1e8',black:'#262335',red:'#f97e72',green:'#72f1b8',yellow:'#f5d76e',blue:'#7b89bf',magenta:'#ff7edb',cyan:'#72f1b8',white:'#e0d0c0',brightBlack:'#6a5f84',brightRed:'#f97e72',brightGreen:'#72f1b8',brightYellow:'#f5d76e',brightBlue:'#7b89bf',brightMagenta:'#ff7edb',brightCyan:'#72f1b8',brightWhite:'#f8f1e8'},
+  },
 };
+
+let currentThemeName='Tokyo Night';
+let customTheme=null; // {ui:{...}, terminal:{...}} or null
+
+function hexToRgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`}
+
+function applyThemeObj(t){
+  const s=document.documentElement.style;
+  const ui=t.ui;
+  s.setProperty('--bg',ui.bg);
+  s.setProperty('--sidebar-bg',ui.sidebarBg);
+  s.setProperty('--border',ui.border);
+  s.setProperty('--accent',ui.accent);
+  s.setProperty('--text',ui.text);
+  s.setProperty('--text-muted',ui.textMuted);
+  s.setProperty('--text-bright',ui.textBright);
+  s.setProperty('--text-dim',ui.textDim);
+  s.setProperty('--danger',ui.danger);
+  s.setProperty('--accent-border',ui.accentBorder);
+  s.setProperty('--accent-hover',hexToRgba(ui.accent,.1));
+  s.setProperty('--accent-active',hexToRgba(ui.accent,.12));
+  s.setProperty('--accent-subtle',hexToRgba(ui.accent,.08));
+  TOPTS.theme=t.terminal;
+  document.getElementById('area').style.background=ui.bg;
+  for(const p of app.panes.values()){if(p.term)p.term.options.theme=t.terminal}
+}
+
+function getCurrentTheme(){return customTheme||THEMES[currentThemeName]}
+
 const TOPTS={
   scrollback:50000,cursorBlink:true,cursorStyle:'block',
   fontSize:14,lineHeight:1.2,allowProposedApi:true,logLevel:'off',
   fontFamily:"'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace",
-  theme:THEME,
+  theme:THEMES['Tokyo Night'].terminal,
 };
 
 // ═══ TermPane: xterm + WebSocket ═══
@@ -35,7 +147,6 @@ class TermPane {
   }
   open() {
     if(this._opened) return; this._opened=true;
-    console.log('[TermPane] open', this.id);
     this.term=new Terminal(TOPTS);
     this.fit=new FitAddon.FitAddon();
     this.term.loadAddon(this.fit);
@@ -61,17 +172,14 @@ class TermPane {
   connect() {
     const p=location.protocol==='https:'?'wss:':'ws:';
     const url=`${p}//${location.host}/ws?cols=120&rows=40&pane=${encodeURIComponent(this.id)}`;
-    console.log('[TermPane] connect', url);
     this.ws=new WebSocket(url); this.ws.binaryType='arraybuffer';
     this.ws.onopen=()=>{
-      // Send actual terminal size so server can resize PTY correctly
       if(this.term){
         const m=new Uint8Array(5);m[0]=OP.RESIZE;
         new DataView(m.buffer).setUint16(1,this.term.cols,false);
         new DataView(m.buffer).setUint16(3,this.term.rows,false);
         this._send(m);
       }
-      // Reveal terminal after SIGWINCH redraw completes
       if(this._reconnecting){
         setTimeout(()=>{this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},300);
       }
@@ -163,7 +271,6 @@ class App {
   }
 
   async init(){
-    console.log('[App] init start');
     try{
       const st=await(await fetch('/api/state')).json();
       const sp=st.panes||[];
@@ -191,7 +298,6 @@ class App {
     if(a&&a.layout){const f=firstRg(a.layout);if(f)this.focused=f.id}
     this.render();
     this._bind();
-    console.log('[App] init done, sessions:', this.ws.sessions.length);
   }
 
   _rids(n){
@@ -210,7 +316,6 @@ class App {
     document.getElementById('area').appendChild(p.el);
     p.connect();
     this.panes.set(id,p);
-    console.log('[App] pane created:', id);
     return p;
   }
 
@@ -240,7 +345,6 @@ class App {
     this.ws.activeSession=s.id;
     this.focused=r;
     await this._save();
-    console.log('[App] session created:', s.id);
   }
 
   async addSession(){await this._mkSession();this.render()}
@@ -324,12 +428,8 @@ class App {
   _rename(obj, el){
     const old = obj.name;
     const input = document.createElement('input');
-    input.type = 'text';
-    input.value = old;
-    input.className = 'rename-input';
-    el.replaceWith(input);
-    input.focus();
-    input.select();
+    input.type = 'text'; input.value = old; input.className = 'rename-input';
+    el.replaceWith(input); input.focus(); input.select();
     const done = () => {
       const v = input.value.trim();
       if(v && v !== old) { obj.name = v; this._save(); }
@@ -344,11 +444,7 @@ class App {
 
   // ── Render ──
 
-  render(){
-    this._rSidebar();
-    this._rTopbar();
-    this._rLayout();
-  }
+  render(){this._rSidebar();this._rTopbar();this._rLayout()}
 
   _rSidebar(){
     const el=document.getElementById('sessions'); el.innerHTML='';
@@ -371,31 +467,19 @@ class App {
   _rLayout(){
     const area=document.getElementById('area');
     const s=this._as();
-
-    // detach all panes
     for(const p of this.panes.values()){p.el.classList.remove('vis');area.appendChild(p.el)}
-    // clear layout
     for(const c of [...area.children]){if(c.classList.contains('sp')||c.classList.contains('rg'))c.remove()}
-
     if(!s?.layout) return;
     if(!findRg(s.layout,this.focused)) this.focused=firstRg(s.layout)?.id||null;
-
     const dom=this._buildNode(s.layout);
     if(dom) area.appendChild(dom);
-
     requestAnimationFrame(()=>{
       for(const p of this.panes.values()){
-        if(p.el.classList.contains('vis')){
-          if(!p._opened) p.open();
-          p.doFit();
-        }
+        if(p.el.classList.contains('vis')){if(!p._opened)p.open();p.doFit()}
       }
       if(this.focused){
         const rg=findRg(s.layout,this.focused);
-        if(rg){
-          const tab=rg.tabs.find(t=>t.id===rg.activeTab);
-          if(tab){const p=this.panes.get(tab.paneId);if(p)p.focus()}
-        }
+        if(rg){const tab=rg.tabs.find(t=>t.id===rg.activeTab);if(tab){const p=this.panes.get(tab.paneId);if(p)p.focus()}}
       }
     });
   }
@@ -411,10 +495,7 @@ class App {
     const el=document.createElement('div');
     el.className='rg'+(n.id===this.focused?' focused':'');
     el.dataset.rid=n.id;
-
-    // tab bar
-    const tabs=document.createElement('div');
-    tabs.className='rg-tabs';
+    const tabs=document.createElement('div'); tabs.className='rg-tabs';
     for(const tab of(n.tabs||[])){
       const t=document.createElement('div');
       t.className='rt'+(tab.id===n.activeTab?' active':'');
@@ -427,43 +508,26 @@ class App {
       t.querySelector('span').addEventListener('dblclick',e=>{e.stopPropagation();this._rename(tab,e.target)});
       tabs.appendChild(t);
     }
-    const add=document.createElement('button');
-    add.className='rt-add'; add.textContent='+';
+    const add=document.createElement('button'); add.className='rt-add'; add.textContent='+';
     add.addEventListener('click',e=>{e.stopPropagation();this.addTab(n.id)});
-    tabs.appendChild(add);
-    el.appendChild(tabs);
-
-    // body
-    const body=document.createElement('div');
-    body.className='rg-body';
+    tabs.appendChild(add); el.appendChild(tabs);
+    const body=document.createElement('div'); body.className='rg-body';
     const at=(n.tabs||[]).find(t=>t.id===n.activeTab);
-    if(at){
-      const p=this.panes.get(at.paneId);
-      if(p){body.appendChild(p.el);p.el.classList.add('vis')}
-    }
+    if(at){const p=this.panes.get(at.paneId);if(p){body.appendChild(p.el);p.el.classList.add('vis')}}
     el.appendChild(body);
-
     el.addEventListener('mousedown',()=>this.setFocus(n.id));
     return el;
   }
 
   _buildSp(n){
-    const el=document.createElement('div');
-    el.className='sp'; el.dataset.d=n.direction;
-    el._node=n; // back-ref for saving sizes
+    const el=document.createElement('div'); el.className='sp'; el.dataset.d=n.direction; el._node=n;
     for(let i=0;i<n.children.length;i++){
-      const sc=document.createElement('div');
-      sc.className='sc';
+      const sc=document.createElement('div'); sc.className='sc';
       if(n.sizes&&n.sizes[i]!=null) sc.style.flex=n.sizes[i];
       const built=this._buildNode(n.children[i]);
       if(built) sc.appendChild(built);
       el.appendChild(sc);
-      if(i<n.children.length-1){
-        const h=document.createElement('div');
-        h.className='sh';
-        el.appendChild(h);
-        this._handle(h,el);
-      }
+      if(i<n.children.length-1){const h=document.createElement('div');h.className='sh';el.appendChild(h);this._handle(h,el)}
     }
     return el;
   }
@@ -471,39 +535,26 @@ class App {
   _handle(h,sp){
     h.addEventListener('mousedown',e=>{
       e.preventDefault();
-      const dir=sp.dataset.d;
-      const prev=h.previousElementSibling, next=h.nextElementSibling;
+      const dir=sp.dataset.d, prev=h.previousElementSibling, next=h.nextElementSibling;
       const sx=e.clientX, sy=e.clientY;
-      // Capture total size ONCE at mousedown
       const tot=dir==='horizontal'?prev.offsetWidth+next.offsetWidth:prev.offsetHeight+next.offsetHeight;
       const start=dir==='horizontal'?prev.offsetWidth:prev.offsetHeight;
       const mv=e=>{
         if(dir==='horizontal'){
-          const nw=start+(e.clientX-sx);
-          if(nw<60||tot-nw<60)return;
+          const nw=start+(e.clientX-sx);if(nw<60||tot-nw<60)return;
           prev.style.flex=`${nw/tot}`;next.style.flex=`${(tot-nw)/tot}`;
         }else{
-          const nh=start+(e.clientY-sy);
-          if(nh<60||tot-nh<60)return;
+          const nh=start+(e.clientY-sy);if(nh<60||tot-nh<60)return;
           prev.style.flex=`${nh/tot}`;next.style.flex=`${(tot-nh)/tot}`;
         }
       };
       const up=()=>{
-        document.removeEventListener('mousemove',mv);
-        document.removeEventListener('mouseup',up);
-        // Save current ratios to layout node
+        document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);
         const nd=sp._node;
-        if(nd){
-          nd.sizes=[];
-          for(const c of sp.children){
-            if(c.classList.contains('sc')) nd.sizes.push(parseFloat(c.style.flex)||1);
-          }
-          this._save();
-        }
-        for(const p of this.panes.values()) if(p.el.classList.contains('vis')) p.doFit();
+        if(nd){nd.sizes=[];for(const c of sp.children){if(c.classList.contains('sc'))nd.sizes.push(parseFloat(c.style.flex)||1)}this._save()}
+        for(const p of this.panes.values())if(p.el.classList.contains('vis'))p.doFit();
       };
-      document.addEventListener('mousemove',mv);
-      document.addEventListener('mouseup',up);
+      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
     });
   }
 
@@ -517,7 +568,6 @@ class App {
     });
     document.getElementById('split-h').addEventListener('click',()=>this.split('horizontal'));
     document.getElementById('split-v').addEventListener('click',()=>this.split('vertical'));
-
     const sb=document.getElementById('sidebar'),sbh=document.getElementById('sb-handle');
     sbh.addEventListener('mousedown',e=>{e.preventDefault();
       const sx=e.clientX,sw=sb.offsetWidth;
@@ -525,13 +575,157 @@ class App {
       const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.panes.values())if(p.el.classList.contains('vis'))p.doFit()};
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
     });
+    this._initModal();
+  }
 
-    console.log('[App] keys bound');
+  async _saveSettings(){
+    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme})})}catch{}
+  }
+
+  // ── Modal & Theme ──
+
+  _initModal(){
+    const overlay=document.getElementById('modal-overlay');
+    const modal=document.getElementById('modal');
+    document.getElementById('settings-btn').addEventListener('click',()=>{overlay.classList.add('open');this._renderThemePanel()});
+    document.getElementById('modal-close').addEventListener('click',()=>overlay.classList.remove('open'));
+    overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('open')});
+    modal.querySelectorAll('.mtab').forEach(tab=>{
+      tab.addEventListener('click',()=>{
+        modal.querySelectorAll('.mtab').forEach(t=>t.classList.remove('active'));
+        tab.classList.add('active');
+        modal.querySelectorAll('.mpanel').forEach(p=>p.style.display='none');
+        document.getElementById('panel-'+tab.dataset.tab).style.display='';
+      });
+    });
+  }
+
+  _renderThemePanel(){
+    const list=document.getElementById('theme-list'); list.innerHTML='';
+    const activeName=customTheme?null:currentThemeName;
+    for(const name of Object.keys(THEMES)){
+      const t=THEMES[name];
+      const item=document.createElement('div');
+      item.className='tl-item'+(name===activeName?' active':'');
+      const keys=['bg','accent','text','border','danger'];
+      let dots='<div class="tl-dots">';
+      for(const k of keys){const v=t.ui[k];dots+=`<span style="background:${v}"></span>`}
+      dots+='</div>';
+      item.innerHTML=`${dots}<span class="tl-name">${name}</span>`;
+      item.addEventListener('click',()=>{
+        currentThemeName=name; customTheme=null;
+        applyThemeObj(t); this._renderThemePanel(); this._hideCustomEditor();
+        this._saveSettings();
+      });
+      list.appendChild(item);
+    }
+    this._renderPreview();
+  }
+
+  _renderPreview(){
+    const t=getCurrentTheme();
+    const u=t.ui, tr=t.terminal;
+    const ah=hexToRgba(u.accent,.08);
+    document.getElementById('theme-preview').innerHTML=`
+    <div style="display:flex;height:100%">
+      <div class="pv-sidebar" style="background:${u.sidebarBg};border-right:1px solid ${u.border}">
+        <div class="pv-dot" style="background:${u.textDim}"></div>
+        <div class="pv-dot" style="background:${u.accent}"></div>
+        <div class="pv-dot" style="background:${u.textDim}"></div>
+        <div class="pv-dot" style="background:${u.textDim}"></div>
+      </div>
+      <div class="pv-main" style="background:${u.bg}">
+        <div class="pv-topbar" style="background:${u.sidebarBg};border-bottom:1px solid ${u.border}">
+          <span style="color:${u.textMuted}">Session</span>
+          <span style="flex:1"></span>
+          <span style="color:${u.accent};font-size:7px">Split H</span>
+        </div>
+        <div class="pv-split">
+          <div class="pv-split-left" style="border:2px solid ${u.accent}">
+            <div class="pv-tabs" style="background:${u.sidebarBg};border-bottom:1px solid ${u.border}">
+              <div class="pv-tab" style="color:${u.textMuted};border-right:1px solid ${u.border}">Shell</div>
+              <div class="pv-tab" style="color:${u.textBright};background:${ah};border-bottom:1px solid ${u.accent}">Shell</div>
+            </div>
+            <div class="pv-term" style="background:${tr.background};color:${tr.foreground}">
+              <span style="color:${tr.green}">$</span> <span style="color:${tr.cyan}">vim</span> <span style="color:${tr.blue}">main.go</span><br>
+              <span style="color:${tr.red}">error</span><span style="color:${tr.foreground}": </span><span style="color:${tr.yellow}">syntax</span><span style="color:${tr.foreground}"> near line 42</span><br>
+              <span style="color:${tr.green}">ok</span><span style="color:${tr.foreground}"> build complete</span>
+            </div>
+          </div>
+          <div style="width:3px;background:${u.border}"></div>
+          <div class="pv-split-right">
+            <div class="pv-tabs" style="background:${u.sidebarBg};border-bottom:1px solid ${u.border}">
+              <div class="pv-tab" style="color:${u.textBright};background:${ah};border-bottom:1px solid ${u.accent}">htop</div>
+              <div class="pv-tab" style="color:${u.textMuted};border-left:1px solid ${u.border}">Shell</div>
+            </div>
+            <div class="pv-term" style="background:${tr.background};color:${tr.foreground}">
+              <span style="color:${tr.cyan}">PID</span> <span style="color:${tr.green}">CPU%</span> <span style="color:${tr.yellow}">MEM%</span><br>
+              <span style="color:${tr.foreground}"> 1  </span><span style="color:${tr.green}"> 12.3</span> <span style="color:${tr.yellow}">  4.1</span><br>
+              <span style="color:${tr.foreground}"> 42 </span><span style="color:${tr.red}"> 98.7</span> <span style="color:${tr.red}"> 45.2</span>
+            </div>
+          </div>
+        </div>
+        <div class="pv-status" style="background:${u.sidebarBg};border-top:1px solid ${u.border}">
+          <span style="color:${u.accent}">●</span>
+          <span style="color:${u.textMuted};margin-left:4px">2 sessions · 3 panes</span>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  _hideCustomEditor(){
+    document.getElementById('custom-editor').style.display='none';
+    document.getElementById('custom-toggle').classList.remove('active');
+  }
+
+  _showCustomEditor(){
+    const base=getCurrentTheme();
+    customTheme=JSON.parse(JSON.stringify(base));
+    document.getElementById('custom-toggle').classList.add('active');
+    document.getElementById('custom-editor').style.display='';
+    // UI colors
+    const uiDiv=document.getElementById('ce-ui'); uiDiv.innerHTML='';
+    for(const [key,label] of Object.entries(UI_LABELS)){
+      uiDiv.appendChild(this._colorInput(key,label,customTheme.ui,'ui'));
+    }
+    // Terminal colors
+    const termDiv=document.getElementById('ce-terminal'); termDiv.innerHTML='';
+    for(const [key,label] of Object.entries(TERM_LABELS)){
+      termDiv.appendChild(this._colorInput(key,label,customTheme.terminal,'terminal'));
+    }
+  }
+
+  _colorInput(key,label,obj,section){
+    const item=document.createElement('div'); item.className='ce-item';
+    const lbl=document.createElement('label'); lbl.textContent=label;
+    const inp=document.createElement('input'); inp.type='color'; inp.value=obj[key]||'#000000';
+    inp.addEventListener('input',()=>{
+      obj[key]=inp.value;
+      applyThemeObj(customTheme);
+      this._renderPreview();
+      this._saveSettings();
+    });
+    item.appendChild(lbl); item.appendChild(inp);
+    return item;
   }
 }
 
+// ═══ Bootstrap ═══
+
 const app=new App();
+
+// Restore saved theme from server
+(async()=>{try{const r=await fetch('/api/settings');if(r.ok){const saved=await r.json();if(saved.customTheme){customTheme=saved.customTheme;applyThemeObj(customTheme)}else if(saved.themeName&&THEMES[saved.themeName]){currentThemeName=saved.themeName;applyThemeObj(THEMES[currentThemeName])}}}catch{}})();
+
 app.init();
 document.getElementById('add-session').addEventListener('click',()=>app.addSession());
+
+// Custom toggle handler
+document.getElementById('custom-toggle').addEventListener('click',()=>{
+  const editor=document.getElementById('custom-editor');
+  if(editor.style.display==='none'){app._showCustomEditor()}
+  else{app._hideCustomEditor()}
+});
+
 window.addEventListener('resize',()=>{for(const p of app.panes.values())if(p.el.classList.contains('vis'))p.doFit()});
 window.addEventListener('beforeunload',e=>{if(app.panes.size>0){e.preventDefault();e.returnValue=''}});
