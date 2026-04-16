@@ -502,6 +502,15 @@ class App {
     });
     document.getElementById('split-h').addEventListener('click',()=>this.split('horizontal'));
     document.getElementById('split-v').addEventListener('click',()=>this.split('vertical'));
+
+    const sb=document.getElementById('sidebar'),sbh=document.getElementById('sb-handle');
+    sbh.addEventListener('mousedown',e=>{e.preventDefault();
+      const sx=e.clientX,sw=sb.offsetWidth;
+      const mv=e=>{const w=sw+(e.clientX-sx);if(w>=100&&w<=400){sb.style.width=w+'px';sb.style.minWidth=w+'px'}};
+      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.panes.values())if(p.el.classList.contains('vis'))p.doFit()};
+      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
+    });
+
     console.log('[App] keys bound');
   }
 }
