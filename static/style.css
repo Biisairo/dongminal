@@ -1,9 +1,4 @@
-/* ── Reset & Full-screen ────────────────────────────── */
-*, *::before, *::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {
   width: 100%;
@@ -12,92 +7,15 @@ html, body {
   background: #1a1b26;
 }
 
-/* ── Terminal Container ─────────────────────────────── */
-#terminal-wrapper {
+#terminal {
   width: 100%;
   height: 100%;
   padding: 4px;
 }
 
-#terminal-container {
-  width: 100%;
-  height: 100%;
-}
+#terminal .xterm { height: 100%; }
 
-#terminal-container .xterm {
-  height: 100%;
-}
-
-/* ── Overlay (connecting / disconnected) ────────────── */
-#overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(26, 27, 38, 0.92);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  transition: opacity 0.2s ease;
-}
-
-#overlay.hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
-#overlay-content {
-  text-align: center;
-  color: #a9b1d6;
-  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
-}
-
-#overlay-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-  color: #7aa2f7;
-}
-
-#overlay-message {
-  font-size: 16px;
-  margin-bottom: 24px;
-}
-
-#reconnect-btn {
-  display: inline-block;
-  padding: 10px 28px;
-  background: #7aa2f7;
-  color: #1a1b26;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-#reconnect-btn:hover {
-  background: #89b4fa;
-}
-
-#reconnect-btn.hidden {
-  display: none;
-}
-
-/* ── xterm.js Overrides ─────────────────────────────── */
-.xterm-viewport::-webkit-scrollbar {
-  width: 8px;
-}
-
-.xterm-viewport::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.xterm-viewport::-webkit-scrollbar-thumb {
-  background: rgba(169, 177, 214, 0.2);
-  border-radius: 4px;
-}
-
-.xterm-viewport::-webkit-scrollbar-thumb:hover {
-  background: rgba(169, 177, 214, 0.4);
-}
+.xterm-viewport::-webkit-scrollbar { width: 8px; }
+.xterm-viewport::-webkit-scrollbar-track { background: transparent; }
+.xterm-viewport::-webkit-scrollbar-thumb { background: rgba(169, 177, 214, 0.2); border-radius: 4px; }
+.xterm-viewport::-webkit-scrollbar-thumb:hover { background: rgba(169, 177, 214, 0.4); }
