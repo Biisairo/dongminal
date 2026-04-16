@@ -626,48 +626,69 @@ class App {
     const t=getCurrentTheme();
     const u=t.ui, tr=t.terminal;
     const ah=hexToRgba(u.accent,.08);
+    const c=tr; // shorthand
     document.getElementById('theme-preview').innerHTML=`
     <div style="display:flex;height:100%">
       <div class="pv-sidebar" style="background:${u.sidebarBg};border-right:1px solid ${u.border}">
-        <div class="pv-dot" style="background:${u.textDim}"></div>
-        <div class="pv-dot" style="background:${u.accent}"></div>
-        <div class="pv-dot" style="background:${u.textDim}"></div>
-        <div class="pv-dot" style="background:${u.textDim}"></div>
+        <div style="font-size:6px;color:${u.textMuted};padding:4px 2px;letter-spacing:.05em">SESSIONS</div>
+        <div style="display:flex;align-items:center;gap:3px;padding:2px 4px">
+          <div class="pv-dot" style="background:${u.accent}"></div>
+          <span style="font-size:7px;color:${u.textBright}">Main</span>
+          <span style="font-size:7px;color:${u.danger};margin-left:auto">×</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:3px;padding:2px 4px;background:${ah}">
+          <div class="pv-dot" style="background:${u.accent}"></div>
+          <span style="font-size:7px;color:${u.textBright};font-weight:600">Work</span>
+          <span style="font-size:7px;color:${u.danger};margin-left:auto">×</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:3px;padding:2px 4px">
+          <div class="pv-dot" style="background:${u.textDim}"></div>
+          <span style="font-size:7px;color:${u.text}">Test</span>
+          <span style="font-size:7px;color:${u.danger};margin-left:auto;opacity:.4">×</span>
+        </div>
       </div>
       <div class="pv-main" style="background:${u.bg}">
         <div class="pv-topbar" style="background:${u.sidebarBg};border-bottom:1px solid ${u.border}">
-          <span style="color:${u.textMuted}">Session</span>
+          <span style="color:${u.text}">Work</span>
           <span style="flex:1"></span>
-          <span style="color:${u.accent};font-size:7px">Split H</span>
+          <span style="color:${u.textMuted};font-size:7px;border:1px solid ${u.accentBorder};border-radius:2px;padding:0 3px">Split H</span>
+          <span style="color:${u.accent};font-size:7px;border:1px solid ${u.accentBorder};border-radius:2px;padding:0 3px">Split V</span>
         </div>
         <div class="pv-split">
           <div class="pv-split-left" style="border:2px solid ${u.accent}">
             <div class="pv-tabs" style="background:${u.sidebarBg};border-bottom:1px solid ${u.border}">
-              <div class="pv-tab" style="color:${u.textMuted};border-right:1px solid ${u.border}">Shell</div>
-              <div class="pv-tab" style="color:${u.textBright};background:${ah};border-bottom:1px solid ${u.accent}">Shell</div>
+              <div class="pv-tab" style="color:${u.textMuted};border-right:1px solid ${u.border}">Shell <span style="color:${u.danger}">×</span></div>
+              <div class="pv-tab" style="color:${u.textBright};background:${ah};border-bottom:1px solid ${u.accent}">vim <span style="color:${u.danger}">×</span></div>
             </div>
-            <div class="pv-term" style="background:${tr.background};color:${tr.foreground}">
-              <span style="color:${tr.green}">$</span> <span style="color:${tr.cyan}">vim</span> <span style="color:${tr.blue}">main.go</span><br>
-              <span style="color:${tr.red}">error</span><span style="color:${tr.foreground}": </span><span style="color:${tr.yellow}">syntax</span><span style="color:${tr.foreground}"> near line 42</span><br>
-              <span style="color:${tr.green}">ok</span><span style="color:${tr.foreground}"> build complete</span>
+            <div class="pv-term" style="background:${c.background};color:${c.foreground}">
+              <span style="color:${c.green}">$</span> <span style="color:${c.cyan}">echo</span> <span style="color:${c.yellow}">"palette"</span><br>
+              <span style="background:${c.selectionBackground};color:${c.selectionForeground}">selected text here █</span><br>
+              <span style="color:${c.red}">● Red</span> <span style="color:${c.green}">● Grn</span> <span style="color:${c.yellow}">● Ylw</span> <span style="color:${c.blue}">● Blu</span><br>
+              <span style="color:${c.magenta}">● Mag</span> <span style="color:${c.cyan}">● Cyn</span> <span style="color:${c.white}">● Wht</span> <span style="color:${c.brightBlack}">● Bk</span><br>
+              <span style="color:${c.brightRed}">● BR</span> <span style="color:${c.brightGreen}">● BG</span> <span style="color:${c.brightYellow}">● BY</span> <span style="color:${c.brightBlue}">● BB</span><br>
+              <span style="color:${c.brightMagenta}">● BM</span> <span style="color:${c.brightCyan}">● BC</span> <span style="color:${c.brightWhite}">● BW</span> <span style="color:${c.black}">● Bk</span>
             </div>
           </div>
           <div style="width:3px;background:${u.border}"></div>
-          <div class="pv-split-right">
+          <div class="pv-split-right" style="border:1px solid ${u.border}">
             <div class="pv-tabs" style="background:${u.sidebarBg};border-bottom:1px solid ${u.border}">
-              <div class="pv-tab" style="color:${u.textBright};background:${ah};border-bottom:1px solid ${u.accent}">htop</div>
-              <div class="pv-tab" style="color:${u.textMuted};border-left:1px solid ${u.border}">Shell</div>
+              <div class="pv-tab" style="color:${u.textBright};background:${ah};border-bottom:1px solid ${u.accent}">htop <span style="color:${u.danger}">×</span></div>
+              <div class="pv-tab" style="color:${u.textMuted};border-left:1px solid ${u.border}">Shell <span style="color:${u.danger}">×</span></div>
             </div>
-            <div class="pv-term" style="background:${tr.background};color:${tr.foreground}">
-              <span style="color:${tr.cyan}">PID</span> <span style="color:${tr.green}">CPU%</span> <span style="color:${tr.yellow}">MEM%</span><br>
-              <span style="color:${tr.foreground}"> 1  </span><span style="color:${tr.green}"> 12.3</span> <span style="color:${tr.yellow}">  4.1</span><br>
-              <span style="color:${tr.foreground}"> 42 </span><span style="color:${tr.red}"> 98.7</span> <span style="color:${tr.red}"> 45.2</span>
+            <div class="pv-term" style="background:${c.background};color:${c.foreground}">
+              <span style="color:${c.cyan}">PID</span> <span style="color:${c.green}">CPU</span> <span style="color:${c.yellow}">MEM</span> <span style="color:${c.blue}">CMD</span><br>
+              <span style="color:${c.foreground}"> 1  </span><span style="color:${c.green}">  2% </span><span style="color:${c.yellow}">  1% </span><span style="color:${c.foreground}">bash</span><br>
+              <span style="color:${c.foreground}"> 42 </span><span style="color:${c.red}"> 99% </span><span style="color:${c.red}"> 45% </span><span style="color:${c.foreground}">node</span><br>
+              <br>
+              <span style="color:${c.foreground}">cursor: </span><span style="background:${c.cursor};color:${c.cursorAccent}"> █ </span>
             </div>
           </div>
         </div>
         <div class="pv-status" style="background:${u.sidebarBg};border-top:1px solid ${u.border}">
           <span style="color:${u.accent}">●</span>
           <span style="color:${u.textMuted};margin-left:4px">2 sessions · 3 panes</span>
+          <span style="margin-left:auto;color:${u.danger};font-size:7px">ERR</span>
+          <span style="margin-left:4px;color:${u.text};font-size:7px">OK</span>
         </div>
       </div>
     </div>`;

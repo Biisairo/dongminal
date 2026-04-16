@@ -167,7 +167,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .modal-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 
 /* ── Theme layout (list + preview) ── */
-.theme-layout{display:flex;gap:12px;height:280px}
+.theme-layout{display:flex;gap:12px;height:380px}
 .theme-list{
   width:160px;min-width:160px;
   overflow-y:auto;border:1px solid var(--border);border-radius:6px;
