@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Terminal</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.css">
-  <link rel="stylesheet" href="style.css?v=74">
+  <link rel="stylesheet" href="style.css?v=80">
 </head>
 <body>
 <div id="app">
@@ -33,6 +33,7 @@
       <span id="search-count"></span>
       <button id="search-close" title="닫기 (Esc)">✕</button>
     </div>
+    <div id="status-bar" class="status-bar"></div>
   </div>
 </div>
 
@@ -46,6 +47,7 @@
     <div class="modal-tabs">
       <button class="mtab active" data-tab="theme">Theme</button>
       <button class="mtab" data-tab="shortcuts">Shortcuts</button>
+      <button class="mtab" data-tab="statusbar">Status Bar</button>
     </div>
     <div class="modal-body">
       <div class="mpanel" id="panel-theme">
@@ -62,6 +64,9 @@
       <div class="mpanel" id="panel-shortcuts" style="display:none">
         <div class="sc-list" id="sc-list"></div>
       </div>
+      <div class="mpanel" id="panel-statusbar" style="display:none">
+        <div class="sb-settings" id="sb-settings"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -70,6 +75,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11/lib/addon-web-links.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-unicode11@0.8/lib/addon-unicode11.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-search@0.15/lib/addon-search.js"></script>
-<script src="app.js?v=74"></script>
+<script src="app.js?v=80"></script>
 </body>
 </html>

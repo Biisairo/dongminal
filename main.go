@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -121,11 +122,19 @@ func startPane(id, name string, cols, rows uint16) (*Pane, error) {
 	home, _ := os.UserHomeDir()
 	cmd := exec.Command(shell, "-l")
 	binDir, _ := filepath.Abs(filepath.Join(".", "bin"))
-	cmd.Env = append(os.Environ(),
+	env := []string{
 		"TERM=xterm-256color", "COLORTERM=truecolor",
 		"LANG=en_US.UTF-8", "LC_ALL=en_US.UTF-8", "LC_CTYPE=en_US.UTF-8",
-		"PATH="+os.Getenv("PATH")+":"+binDir,
-	)
+		"PATH=" + os.Getenv("PATH") + ":" + binDir,
+	}
+	// Inject cwd reporting hook
+	if strings.Contains(shell, "zsh") {
+		zdotdir := filepath.Join(binDir, "zdotdir")
+		env = append(env, "ZDOTDIR="+zdotdir)
+	} else if strings.Contains(shell, "bash") {
+		env = append(env, "BASH_ENV="+filepath.Join(binDir, "bash-hook.sh"))
+	}
+	cmd.Env = append(os.Environ(), env...)
 	if home != "" {
 		cmd.Dir = home
 	}
@@ -228,6 +237,7 @@ type PaneManager struct {
 }
 
 var pm = &PaneManager{panes: make(map[string]*Pane)}
+var serverStart = time.Now()
 
 func (m *PaneManager) create(cols, rows uint16) (*Pane, error) {
 	m.mu.Lock()
@@ -302,6 +312,84 @@ func saveSettings() {
 }
 
 // ── API ─────────────────────────────────────────────
+
+func fmtDuration(d time.Duration) string {
+	if d.Hours() >= 24 {
+		return fmt.Sprintf("%dd %dh", int(d.Hours()/24), int(d.Hours())%24)
+	} else if d.Hours() >= 1 {
+		return fmt.Sprintf("%dh %dm", int(d.Hours()), int(d.Minutes())%60)
+	}
+	return fmt.Sprintf("%dm", int(d.Minutes()))
+}
+
+func getStats() map[string]interface{} {
+	hostname, _ := os.Hostname()
+
+	// CPU usage
+	cpu := 0.0
+	if out, err := exec.Command("bash", "-c", `top -l 1 -n 0 | grep "CPU usage"`).Output(); err == nil {
+		parts := strings.Fields(string(out))
+		if len(parts) >= 5 {
+			u, _ := strconv.ParseFloat(strings.TrimSuffix(parts[2], "%"), 64)
+			s, _ := strconv.ParseFloat(strings.TrimSuffix(parts[4], "%"), 64)
+			cpu = math.Round((u+s)*10) / 10
+		}
+	}
+
+	// Memory
+	memTotal, memUsed := uint64(0), uint64(0)
+	if out, err := exec.Command("sysctl", "-n", "hw.memsize").Output(); err == nil {
+		if v, err := strconv.ParseUint(strings.TrimSpace(string(out)), 10, 64); err == nil {
+			memTotal = v
+		}
+	}
+	if memTotal > 0 {
+		if out, err := exec.Command("vm_stat").Output(); err == nil {
+			var freePages uint64
+			for _, line := range strings.Split(string(out), "\n") {
+				line = strings.TrimRight(line, ".")
+				if strings.Contains(line, "Pages free") {
+					fmt.Sscanf(line, "Pages free: %d", &freePages)
+				} else if strings.Contains(line, "Pages inactive") {
+					var v uint64
+					fmt.Sscanf(line, "Pages inactive: %d", &v)
+					freePages += v
+				}
+			}
+			memUsed = memTotal - freePages*4096
+		}
+	}
+
+	// Disk
+	diskPct := 0.0
+	var stat syscall.Statfs_t
+	if syscall.Statfs("/", &stat) == nil {
+		used := stat.Blocks - stat.Bavail
+		diskPct = math.Round(float64(used)/float64(stat.Blocks)*1000) / 10
+	}
+
+	// Uptime (system + server)
+	sysUptime := ""
+	if out, err := exec.Command("sysctl", "-n", "kern.boottime").Output(); err == nil {
+		if parts := strings.Split(string(out), "="); len(parts) >= 2 {
+			secStr := strings.TrimSpace(strings.Split(parts[1], ",")[0])
+			if sec, err := strconv.ParseInt(secStr, 10, 64); err == nil {
+				sysUptime = fmtDuration(time.Since(time.Unix(sec, 0)))
+			}
+		}
+	}
+	srvUptime := fmtDuration(time.Since(serverStart))
+
+	return map[string]interface{}{
+		"hostname":  hostname,
+		"cpu":       cpu,
+		"memUsed":   memUsed,
+		"memTotal":  memTotal,
+		"diskPct":   diskPct,
+		"sysUptime": sysUptime,
+		"srvUptime": srvUptime,
+	}
+}
 
 func handleAPI(w http.ResponseWriter, r *http.Request) {
 	p := r.URL.Path
@@ -429,6 +517,14 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"cwd": cwd})
+
+	case p == "/api/ping":
+		w.Write([]byte("ok"))
+
+	case p == "/api/stats" && r.Method == http.MethodGet:
+		stats := getStats()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(stats)
 
 	default:
 		http.Error(w, "not found", 404)
@@ -564,11 +660,29 @@ func uniquePath(dir, name string) string {
 func initBinDir() {
 	binDir := filepath.Join(".", "bin")
 	os.MkdirAll(binDir, 0755)
-	script := `#!/bin/sh
+	// download command
+	dlScript := `#!/bin/sh
 path=$(realpath "$1" 2>/dev/null || echo "$1")
 printf '\033]777;Download;%s\007' "$path"
 `
-	os.WriteFile(filepath.Join(binDir, "download"), []byte(script), 0755)
+	os.WriteFile(filepath.Join(binDir, "download"), []byte(dlScript), 0755)
+
+	// zsh hook (ZDOTDIR approach)
+	zdotdir := filepath.Join(binDir, "zdotdir")
+	os.MkdirAll(zdotdir, 0755)
+	zshrc := `[ -f "$HOME/.zshrc" ] && source "$HOME/.zshrc"
+_rt_cwd_hook() { printf '\033]777;Cwd;%s\007' "$PWD" }
+autoload -Uz add-zsh-hook
+add-zsh-hook precmd _rt_cwd_hook
+add-zsh-hook chpwd _rt_cwd_hook
+`
+	os.WriteFile(filepath.Join(zdotdir, ".zshrc"), []byte(zshrc), 0644)
+
+	// bash hook
+	bashHook := `_rt_cwd_hook() { printf '\033]777;Cwd;%s\007' "$PWD"; }
+PROMPT_COMMAND="_rt_cwd_hook${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+`
+	os.WriteFile(filepath.Join(binDir, "bash-hook.sh"), []byte(bashHook), 0644)
 }
 
 func main() {

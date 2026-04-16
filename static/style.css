@@ -285,3 +285,31 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .tp-overlay.visible{opacity:1}
 .tp-ov-title{color:var(--danger);font-size:14px;font-weight:600}
 .tp-ov-sub{color:var(--text-muted);font-size:11px}
+
+/* ── Status Bar ── */
+.status-bar{
+  display:flex;align-items:center;gap:2px;
+  padding:2px 10px;flex-shrink:0;
+  background:var(--sidebar-bg);border-top:1px solid var(--border);
+  font-size:11px;color:var(--text-muted);height:22px;
+}
+.status-bar.hidden{display:none}
+.sb-item{display:flex;align-items:center;gap:3px;padding:0 6px}
+.sb-item+.sb-item{border-left:1px solid var(--border)}
+.sb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.sb-dot.ok{background:#4caf50}
+.sb-dot.err{background:var(--danger)}
+.sb-sep{color:var(--border);margin:0 2px}
+
+/* ── Status Bar Settings ── */
+.sb-settings{overflow-y:auto;max-height:60vh}
+.sbs-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.sbs-row span{color:var(--text);font-size:12px}
+.sbs-row label{position:relative;width:36px;height:20px;cursor:pointer}
+.sbs-row input{opacity:0;width:0;height:0}
+.sbs-row .slider{position:absolute;inset:0;background:var(--border);border-radius:10px;transition:.2s}
+.sbs-row .slider::before{content:'';position:absolute;left:2px;top:2px;width:16px;height:16px;background:var(--text-muted);border-radius:50%;transition:.2s}
+.sbs-row input:checked+.slider{background:var(--accent)}
+.sbs-row input:checked+.slider::before{transform:translateX(16px);background:var(--text-bright)}
+.sbs-select{background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;padding:2px 6px;outline:none;font-family:inherit}
+.sbs-select:focus{border-color:var(--accent)}

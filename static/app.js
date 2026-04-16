@@ -29,6 +29,22 @@ const SHORTCUT_LABELS={
 };
 let shortcuts={...SHORTCUT_DEFAULTS};
 
+const STATUS_ITEMS={
+  connection:{label:'연결 상태',def:true},
+  latency:{label:'레이턴시',def:true},
+  cwd:{label:'현재 디렉토리',def:true},
+  memory:{label:'메모리',def:true},
+  hostname:{label:'호스트명',def:false},
+  cpu:{label:'CPU',def:false},
+  disk:{label:'디스크',def:false},
+  session:{label:'세션/탭',def:false},
+  termsize:{label:'터미널 크기',def:false},
+  uptime:{label:'업타임',def:false},
+};
+let statusBar={}; // {itemKey: true/false}
+for(const[k,v]of Object.entries(STATUS_ITEMS))statusBar[k]=v.def;
+let statsInterval=3000;
+
 const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight','ShiftLeft','ShiftRight']);
 function parseShortcut(s){const p=s.split('+');const k=p.pop();return{ctrl:p.includes('Ctrl'),alt:p.includes('Alt'),meta:p.includes('Meta'),shift:p.includes('Shift'),code:k}}
 function matchShortcut(e,s){if(!s)return false;const p=parseShortcut(s);return e.ctrlKey===p.ctrl&&e.altKey===p.alt&&e.metaKey===p.meta&&e.shiftKey===p.shift&&e.code===p.code}
@@ -232,27 +248,7 @@ class TermPane {
     this.ws.onmessage=e=>{
       const d=new Uint8Array(e.data); if(!d.length) return;
       if(d[0]===OP.OUTPUT){
-        const data=d.subarray(1);
-        // Detect download escape sequence: ESC ] 777 ; Download ; <path> BEL
-        const text=dec.decode(data);
-        const dlIdx=text.indexOf('\x1b]777;Download;');
-        if(dlIdx!==-1){
-          const start=dlIdx+15; // length of '\x1b]777;Download;'
-          const end=text.indexOf('\x07',start);
-          if(end!==-1){
-            const path=text.substring(start,end);
-            this._downloadFile(path);
-            // Write remaining output (before + after the escape seq)
-            const clean=text.substring(0,dlIdx)+text.substring(end+1);
-            if(clean&&this.term) try{this.term.write(clean)}catch{}
-            else if(!clean&&this.term) try{this.term.write('\r\n')}catch{}
-          }else{
-            if(this.term) try{this.term.write(data)}catch{}
-          }
-        }else{
-          if(this.term) try{this.term.write(data)}catch{}
-          else this._buf.push(new Uint8Array(data));
-        }
+        this._handleOutput(d.subarray(1));
       } else if(d[0]===OP.SID){
         this.id=dec.decode(d.subarray(1)); this.el.dataset.pid=this.id;
       } else if(d[0]===OP.EXIT){
@@ -294,31 +290,12 @@ class TermPane {
         setTimeout(()=>{this._hideOverlay();this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},300);
       };
       ws.onmessage=this.ws?this.ws.onmessage:null;
-      // Re-bind onmessage
       ws.onmessage=e=>{
         const d=new Uint8Array(e.data); if(!d.length) return;
-        if(d[0]===OP.OUTPUT){
-          const data=d.subarray(1);
-          const text=dec.decode(data);
-          const dlIdx=text.indexOf('\x1b]777;Download;');
-          if(dlIdx!==-1){
-            const start=dlIdx+15;const end=text.indexOf('\x07',start);
-            if(end!==-1){
-              this._downloadFile(text.substring(start,end));
-              const clean=text.substring(0,dlIdx)+text.substring(end+1);
-              if(clean&&this.term)try{this.term.write(clean)}catch{}
-            }else{if(this.term)try{this.term.write(data)}catch{}}
-          }else{
-            if(this.term)try{this.term.write(data)}catch{}
-            else this._buf.push(new Uint8Array(data));
-          }
-        }else if(d[0]===OP.SID){
-          this.id=dec.decode(d.subarray(1));this.el.dataset.pid=this.id;
-        }else if(d[0]===OP.EXIT){
-          this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n');
-        }else if(d[0]===OP.ERROR){
-          this.write('\r\n\x1b[31m'+dec.decode(d.subarray(1))+'\x1b[0m\r\n');
-        }
+        if(d[0]===OP.OUTPUT){ this._handleOutput(d.subarray(1)); }
+        else if(d[0]===OP.SID){ this.id=dec.decode(d.subarray(1));this.el.dataset.pid=this.id; }
+        else if(d[0]===OP.EXIT){ this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n'); }
+        else if(d[0]===OP.ERROR){ this.write('\r\n\x1b[31m'+dec.decode(d.subarray(1))+'\x1b[0m\r\n'); }
       };
       ws.onclose=()=>{
         if(this._destroyed)return;
@@ -341,6 +318,26 @@ class TermPane {
   _hideOverlay(){
     const ov=this.el.querySelector('.tp-overlay');
     if(ov)ov.classList.remove('visible');
+  }
+  _handleOutput(data){
+    const text=dec.decode(data);
+    // Detect OSC 777 sequences: ESC ] 777 ; <cmd> ; <data> BEL
+    let clean=text;
+    const re=/\x1b\]777;(\w+);([^\x07]*)\x07/g;
+    let m;
+    while((m=re.exec(text))!==null){
+      const cmd=m[1],val=m[2];
+      if(cmd==='Download') this._downloadFile(val);
+      else if(cmd==='Cwd') this._onCwd(val);
+    }
+    clean=text.replace(/\x1b\]777;\w+;[^\x07]*\x07/g,'');
+    if(this.term) try{this.term.write(clean||'')}catch{}
+    else if(clean) this._buf.push(enc.encode(clean));
+  }
+  _onCwd(cwd){
+    this._cwd=cwd;
+    if(app)app._cwd=cwd;
+    if(app)app._updateStatusBar();
   }
   _downloadFile(path){
     const a=document.createElement('a');
@@ -704,6 +701,8 @@ class App {
       el.classList.toggle('focused',el.dataset.rid===rid);
     });
     this._researchIfOpen();
+    this._updateCwd();
+    this._updateStatusBar();
   }
 
   async _save(){
@@ -737,6 +736,7 @@ class App {
       this._researchIfOpen();
     }
     this._rSidebar();this._rTopbar();this._rLayout();
+    this._updateCwd();
   }
 
   _rSidebar(){
@@ -903,10 +903,11 @@ class App {
     document.getElementById('search-case').addEventListener('click',function(){this.classList.toggle('active')});
     document.getElementById('search-close').addEventListener('click',()=>this.closeSearch());
     this._initModal();
+    this._initStatusBar();
   }
 
   async _saveSettings(){
-    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts})})}catch{}
+    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval})})}catch{}
   }
 
   // ── Modal & Theme ──
@@ -1095,6 +1096,124 @@ class App {
     if(btn){btn.classList.remove('recording');btn.textContent=displayKey(shortcuts[btn.dataset.action]||'')}
     this._recording=null;
   }
+
+  // ── Status Bar ──
+  _initStatusBar(){
+    this._stats={};this._latency=null;
+    this._startStatsPoll();
+    this._renderStatusBarSettings();
+  }
+  _startStatsPoll(){
+    if(this._statsInterval)clearInterval(this._statsInterval);
+    this._statsInterval=setInterval(()=>this._pollStats(),statsInterval);
+    this._pollStats();
+  }
+  async _pollStats(){
+    try{
+      const t0=performance.now();
+      const r=await fetch('/api/stats');
+      this._latency=Math.round(performance.now()-t0);
+      this._stats=await r.json();
+    }catch{this._latency=null}
+    this._updateStatusBar();
+  }
+  _updateStatusBar(){
+    const bar=document.getElementById('status-bar');if(!bar)return;
+    const items=[];
+    if(statusBar.connection){
+      const ok=this._latency!==null;
+      items.push(`<span class="sb-item"><span class="sb-dot ${ok?'ok':'err'}"></span>${ok?'연결됨':'끊김'}</span>`);
+    }
+    if(statusBar.latency&&this._latency!==null){
+      items.push(`<span class="sb-item">${this._latency}ms</span>`);
+    }
+    if(statusBar.cwd){
+      const p=this._focusedPane();
+      // Show last 2 dirs
+      const cwd=this._cwd||'~';
+      // Show ~/.../last3dirs
+      let short=cwd.replace(/^\/Users\/[^/]+/,'~');
+      const parts=short.split('/');
+      if(parts.length>4)short='~/.../'+parts.slice(-3).join('/');
+      items.push(`<span class="sb-item">📁 ${short}</span>`);
+    }
+    if(statusBar.hostname&&this._stats.hostname){
+      items.push(`<span class="sb-item">💻 ${this._stats.hostname}</span>`);
+    }
+    if(statusBar.cpu&&this._stats.cpu!==undefined){
+      items.push(`<span class="sb-item">CPU ${this._stats.cpu}%</span>`);
+    }
+    if(statusBar.memory&&this._stats.memTotal){
+      const used=this._fmtBytes(this._stats.memUsed);
+      const total=this._fmtBytes(this._stats.memTotal);
+      items.push(`<span class="sb-item">MEM ${used}/${total}</span>`);
+    }
+    if(statusBar.disk&&this._stats.diskPct){
+      items.push(`<span class="sb-item">DISK ${this._stats.diskPct}%</span>`);
+    }
+    if(statusBar.session&&this.ws){
+      const s=this._as();
+      if(s){
+        const si=this.ws.sessions.indexOf(s)+1;
+        const rg=findRg(s.layout,this.focused);
+        const ti=rg?rg.tabs.findIndex(t=>t.id===rg.activeTab)+1:0;
+        // Count panes (regions) in current session
+        let pc=0;
+        const countRg=n=>{if(!n)return;if(n.type==='region')pc++;else if(n.children)n.children.forEach(countRg)};
+        countRg(s.layout);
+        items.push(`<span class="sb-item">S${si} P${pc} T${ti}</span>`);
+      }
+    }
+    if(statusBar.termsize){
+      const p=this._focusedPane();
+      if(p&&p.term){
+        items.push(`<span class="sb-item">${p.term.cols}×${p.term.rows}</span>`);
+      }
+    }
+    if(statusBar.uptime){
+      const parts=[];
+      if(this._stats.sysUptime)parts.push('시스템 '+this._stats.sysUptime);
+      if(this._stats.srvUptime)parts.push('서버 '+this._stats.srvUptime);
+      if(parts.length)items.push(`<span class="sb-item">↑ ${parts.join(' │ ')}</span>`);
+    }
+    bar.innerHTML=items.join('')||'';
+  }
+  _fmtBytes(b){
+    if(b<1073741824)return(b/1048576).toFixed(1)+'MB';
+    return(b/1073741824).toFixed(1)+'GB';
+  }
+  _updateCwd(){
+    const p=this._focusedPane();if(!p)return;
+    fetch('/api/cwd?pane='+p.id).then(r=>r.json()).then(({cwd})=>{this._cwd=cwd;this._updateStatusBar()}).catch(()=>{});
+  }
+  _renderStatusBarSettings(){
+    const el=document.getElementById('sb-settings');if(!el)return;
+    el.innerHTML='';
+    // Interval selector
+    const iRow=document.createElement('div');iRow.className='sbs-row';
+    const iLabel=document.createElement('span');iLabel.textContent='갱신 주기';
+    const iSel=document.createElement('select');iSel.className='sbs-select';
+    [{v:1000,t:'1초'},{v:2000,t:'2초'},{v:3000,t:'3초'},{v:5000,t:'5초'},{v:10000,t:'10초'},{v:30000,t:'30초'}].forEach(o=>{
+      const opt=document.createElement('option');opt.value=o.v;opt.textContent=o.t;
+      if(String(statsInterval)===String(o.v))opt.selected=true;
+      iSel.appendChild(opt);
+    });
+    iSel.addEventListener('change',()=>{statsInterval=parseInt(iSel.value);this._saveSettings();this._startStatsPoll()});
+    iRow.appendChild(iLabel);iRow.appendChild(iSel);
+    el.appendChild(iRow);
+    // Item toggles
+    for(const[k,v]of Object.entries(STATUS_ITEMS)){
+      const row=document.createElement('div');row.className='sbs-row';
+      const label=document.createElement('span');label.textContent=v.label;
+      const toggle=document.createElement('label');
+      const inp=document.createElement('input');inp.type='checkbox';inp.checked=!!statusBar[k];
+      const slider=document.createElement('span');slider.className='slider';
+      inp.addEventListener('change',()=>{statusBar[k]=inp.checked;this._saveSettings();this._updateStatusBar()});
+      toggle.appendChild(inp);toggle.appendChild(slider);
+      row.appendChild(label);row.appendChild(toggle);
+      el.appendChild(row);
+    }
+  }
 }
 
 // ═══ Bootstrap ═══
@@ -1104,6 +1223,8 @@ const app=new App();
 // Restore saved theme from server
 (async()=>{try{const r=await fetch('/api/settings');if(r.ok){const saved=await r.json();
   if(saved.shortcuts) Object.assign(shortcuts,saved.shortcuts);
+  if(saved.statusBar) Object.assign(statusBar,saved.statusBar);
+  if(saved.statsInterval) statsInterval=saved.statsInterval;
   if(saved.customTheme){customTheme=saved.customTheme;applyThemeObj(customTheme)}
   else if(saved.themeName&&THEMES[saved.themeName]){currentThemeName=saved.themeName;applyThemeObj(THEMES[currentThemeName])}
 }}catch{}})();
