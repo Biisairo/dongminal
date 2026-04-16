@@ -153,6 +153,22 @@ class TermPane {
     try{this.term.loadAddon(new WebLinksAddon.WebLinksAddon())}catch(e){}
     try{this.term.loadAddon(new Unicode11Addon.Unicode11Addon());this.term.unicode.activeVersion='11'}catch(e){}
     this.term.open(this.box);
+    // Block browser Ctrl+ shortcuts → let them go to terminal
+    // Cmd+ shortcuts left for browser (copy/paste/tab close etc)
+    this.box.addEventListener('keydown',e=>{
+      // Cmd+Left/Right → Home/End
+      if(e.metaKey&&!e.ctrlKey&&!e.altKey){
+        if(e.key==='ArrowLeft'){e.preventDefault();this._send(new Uint8Array([OP.INPUT,0x01]));return}
+        if(e.key==='ArrowRight'){e.preventDefault();this._send(new Uint8Array([OP.INPUT,0x05]));return}
+      }
+      // Alt+Left/Right → word jump
+      if(e.altKey&&!e.ctrlKey&&!e.metaKey){
+        if(e.key==='ArrowLeft'){e.preventDefault();this._send(new Uint8Array([OP.INPUT,0x1b,0x62]));return}
+        if(e.key==='ArrowRight'){e.preventDefault();this._send(new Uint8Array([OP.INPUT,0x1b,0x66]));return}
+      }
+      // Ctrl+ shortcuts → bypass to terminal, block browser
+      if(e.ctrlKey&&!e.metaKey) e.preventDefault();
+    });
     this.term.onData(d=>{
       const b=enc.encode(d);
       const m=new Uint8Array(1+b.length);m[0]=OP.INPUT;m.set(b,1);
