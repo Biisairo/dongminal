@@ -255,27 +255,12 @@ func (m *PaneManager) delete(id string) {
 	}
 }
 
-// ── Workspace (stored as opaque JSON) ───────────────
+// ── Workspace (in-memory only, no file persistence) ──
 
 var (
 	wsJSON []byte
 	wsMu   sync.Mutex
 )
-
-func loadWorkspace() {
-	data, err := os.ReadFile("workspace.json")
-	if err != nil {
-		return
-	}
-	wsJSON = data
-}
-
-func saveWorkspace() {
-	wsMu.Lock()
-	data := wsJSON
-	wsMu.Unlock()
-	os.WriteFile("workspace.json", data, 0644)
-}
 
 // ── API ─────────────────────────────────────────────
 
@@ -315,7 +300,6 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 		wsMu.Lock()
 		wsJSON = body
 		wsMu.Unlock()
-		saveWorkspace()
 		w.WriteHeader(200)
 
 	default:
@@ -439,8 +423,6 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	loadWorkspace()
-
 	staticFS, _ := fs.Sub(staticFiles, "static")
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
@@ -452,7 +434,7 @@ func main() {
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	go func() { <-sigCh; saveWorkspace(); server.Close() }()
+	go func() { <-sigCh; server.Close() }()
 
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		log.Fatalf("server: %v", err)
