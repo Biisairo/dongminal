@@ -496,11 +496,18 @@ class App {
     return p;
   }
 
-  async _newPane(){
-    const r=await fetch('/api/panes?cols=120&rows=40',{method:'POST'});
+  async _newPane(cwd){
+    const cwdParam=cwd?'&cwd='+encodeURIComponent(cwd):'';
+    const r=await fetch('/api/panes?cols=120&rows=40'+cwdParam,{method:'POST'});
     if(!r.ok) throw new Error('create pane failed');
     const {id,name}=await r.json();
     return this._mkPane(id,name);
+  }
+
+  async _focusedCwd(){
+    const p=this._focusedPane();
+    if(!p) return null;
+    try{const r=await fetch('/api/cwd?pane='+p.id);const d=await r.json();return d.cwd||null}catch{return null}
   }
 
   async _kill(pid){
@@ -549,7 +556,8 @@ class App {
   async addTab(rid){
     const s=this._as(); if(!s) return;
     const rg=findRg(s.layout,rid); if(!rg) return;
-    const p=await this._newPane();
+    const cwd=await this._focusedCwd();
+    const p=await this._newPane(cwd);
     const t=`t${++this._t}`;
     rg.tabs.push({id:t,name:'Shell',paneId:p.id});
     rg.activeTab=t;
@@ -582,7 +590,8 @@ class App {
 
   async split(dir){
     const s=this._as(); if(!s||!this.focused) return;
-    const p=await this._newPane();
+    const cwd=await this._focusedCwd();
+    const p=await this._newPane(cwd);
     const r=`r${++this._r}`,t=`t${++this._t}`;
     const nr={type:'region',id:r,tabs:[{id:t,name:'Shell',paneId:p.id}],activeTab:t};
     s.layout=doSplit(s.layout,this.focused,nr,dir);

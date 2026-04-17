@@ -111,7 +111,7 @@ func (p *Pane) Cwd() string {
 	return cwd
 }
 
-func startPane(id, name string, cols, rows uint16) (*Pane, error) {
+func startPane(id, name, cwd string, cols, rows uint16) (*Pane, error) {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "/bin/bash"
@@ -135,9 +135,16 @@ func startPane(id, name string, cols, rows uint16) (*Pane, error) {
 		env = append(env, "BASH_ENV="+filepath.Join(binDir, "bash-hook.sh"))
 	}
 	cmd.Env = append(os.Environ(), env...)
-	if home != "" {
-		cmd.Dir = home
+	startDir := home
+	if cwd != "" {
+		if info, err := os.Stat(cwd); err == nil && info.IsDir() {
+			startDir = cwd
+		}
 	}
+	if startDir == "" {
+		startDir = "."
+	}
+	cmd.Dir = startDir
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: cols, Rows: rows})
 	if err != nil {
 		return nil, err
@@ -239,13 +246,13 @@ type PaneManager struct {
 var pm = &PaneManager{panes: make(map[string]*Pane)}
 var serverStart = time.Now()
 
-func (m *PaneManager) create(cols, rows uint16) (*Pane, error) {
+func (m *PaneManager) create(cwd string, cols, rows uint16) (*Pane, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.nextID++
 	id := strconv.Itoa(m.nextID)
 	name := fmt.Sprintf("Shell #%d", m.nextID)
-	p, err := startPane(id, name, cols, rows)
+	p, err := startPane(id, name, cwd, cols, rows)
 	if err != nil {
 		return nil, err
 	}
@@ -409,7 +416,8 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 
 	case p == "/api/panes" && r.Method == http.MethodPost:
 		cols, rows := parseSize(r)
-		pane, err := pm.create(cols, rows)
+		cwd := r.URL.Query().Get("cwd")
+		pane, err := pm.create(cwd, cols, rows)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
@@ -552,7 +560,7 @@ func handleWS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		pane, err = pm.create(cols, rows)
+		pane, err = pm.create("", cols, rows)
 		if err != nil {
 			wsSend(conn, opError, []byte("create failed"))
 			return

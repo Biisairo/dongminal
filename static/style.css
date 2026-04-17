@@ -121,7 +121,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 /* ── xterm ── */
 .xterm-viewport::-webkit-scrollbar{width:8px}
 .xterm-viewport::-webkit-scrollbar-track{background:transparent}
-.xterm-viewport::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.xterm-viewport::-webkit-scrollbar-thumb{background:var(--text-dim);border-radius:4px}
+.xterm-viewport::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}
 
 /* ── Settings button ── */
 #settings-btn{
