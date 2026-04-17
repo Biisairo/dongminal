@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"embed"
 	"encoding/binary"
 	"encoding/json"
@@ -9,11 +10,13 @@ import (
 	"io/fs"
 	"log"
 	"math"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -49,6 +52,46 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 8192,
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
+
+// ── safeConn ─────────────────────────────────────────
+// gorilla/websocket은 동시 쓰기 금지 — 모든 WriteMessage를 mutex로 직렬화
+
+type safeConn struct {
+	mu   sync.Mutex
+	conn *websocket.Conn
+}
+
+func newSafeConn(c *websocket.Conn) *safeConn { return &safeConn{conn: c} }
+
+func (s *safeConn) writeMsg(typ int, data []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.conn.SetWriteDeadline(time.Now().Add(writeWait))
+	return s.conn.WriteMessage(typ, data)
+}
+
+func (s *safeConn) writePing() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.conn.SetWriteDeadline(time.Now().Add(pingPeriod + writeWait))
+	return s.conn.WriteMessage(websocket.PingMessage, nil)
+}
+
+func (s *safeConn) send(op byte, payload []byte) {
+	m := make([]byte, 1+len(payload))
+	m[0] = op
+	copy(m[1:], payload)
+	if err := s.writeMsg(websocket.BinaryMessage, m); err != nil {
+		log.Printf("ws send op=0x%02x addr=%s: %v", op, s.remoteAddr(), err)
+	}
+}
+
+func (s *safeConn) close()                              { s.conn.Close() }
+func (s *safeConn) remoteAddr() string                  { return s.conn.RemoteAddr().String() }
+func (s *safeConn) setReadLimit(l int64)                { s.conn.SetReadLimit(l) }
+func (s *safeConn) setReadDeadline(t time.Time) error   { return s.conn.SetReadDeadline(t) }
+func (s *safeConn) setPongHandler(h func(string) error) { s.conn.SetPongHandler(h) }
+func (s *safeConn) readMessage() (int, []byte, error)   { return s.conn.ReadMessage() }
 
 // ── OutputBuffer ────────────────────────────────────
 
@@ -88,7 +131,7 @@ type Pane struct {
 	buf  *OutputBuffer
 	bch  chan []byte
 	cmu  sync.Mutex
-	cls  []*websocket.Conn
+	cls  []*safeConn
 	done chan struct{}
 	once sync.Once
 }
@@ -138,7 +181,6 @@ func startPane(id, name, cwd string, cols, rows uint16) (*Pane, error) {
 		"LANG=en_US.UTF-8", "LC_ALL=en_US.UTF-8", "LC_CTYPE=en_US.UTF-8",
 		"PATH=" + os.Getenv("PATH") + ":" + binDir,
 	}
-	// Inject cwd reporting hook
 	if strings.Contains(shell, "zsh") {
 		zdotdir := filepath.Join(binDir, "zdotdir")
 		env = append(env, "ZDOTDIR="+zdotdir)
@@ -158,7 +200,7 @@ func startPane(id, name, cwd string, cols, rows uint16) (*Pane, error) {
 	cmd.Dir = startDir
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: cols, Rows: rows})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("pty start shell=%s cwd=%s: %w", shell, startDir, err)
 	}
 	p := &Pane{
 		ID: id, Name: name,
@@ -169,18 +211,38 @@ func startPane(id, name, cwd string, cols, rows uint16) (*Pane, error) {
 	}
 	go p.readPTY()
 	go p.drainBuf()
+	log.Printf("[pane %s] started shell=%s pid=%d cwd=%s cols=%d rows=%d",
+		id, shell, cmd.Process.Pid, startDir, cols, rows)
 	return p, nil
 }
 
-func (p *Pane) drainBuf() { for d := range p.bch { p.buf.Write(d) } }
+func (p *Pane) drainBuf() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[pane %s] drainBuf panic: %v\n%s", p.ID, r, debug.Stack())
+		}
+	}()
+	for d := range p.bch {
+		p.buf.Write(d)
+	}
+}
 
 func (p *Pane) readPTY() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[pane %s] readPTY panic: %v\n%s", p.ID, r, debug.Stack())
+		}
+		close(p.bch) // drainBuf 고루틴 종료 트리거
+	}()
 	raw := make([]byte, 8192)
 	for {
 		n, err := p.ptmx.Read(raw)
 		if err != nil {
-			if err != io.EOF {
-				log.Printf("pane %s read: %v", p.ID, err)
+			// EIO는 PTY slave(셸) 종료 시 정상 발생
+			if err == io.EOF || strings.Contains(err.Error(), "input/output error") {
+				log.Printf("[pane %s] readPTY: shell exited normally", p.ID)
+			} else {
+				log.Printf("[pane %s] readPTY unexpected error: %v", p.ID, err)
 			}
 			p.broadcast([]byte{opExit})
 			p.kill()
@@ -190,6 +252,7 @@ func (p *Pane) readPTY() {
 		select {
 		case p.bch <- append([]byte(nil), raw[:n]...):
 		default:
+			log.Printf("[pane %s] bch full, dropping %d bytes", p.ID, n)
 		}
 		msg := make([]byte, 1+n)
 		msg[0] = opOutput
@@ -200,25 +263,27 @@ func (p *Pane) readPTY() {
 
 func (p *Pane) broadcast(msg []byte) {
 	p.cmu.Lock()
-	snap := make([]*websocket.Conn, len(p.cls))
+	snap := make([]*safeConn, len(p.cls))
 	copy(snap, p.cls)
 	p.cmu.Unlock()
 	for _, c := range snap {
-		c.SetWriteDeadline(time.Now().Add(writeWait))
-		if err := c.WriteMessage(websocket.BinaryMessage, msg); err != nil {
+		if err := c.writeMsg(websocket.BinaryMessage, msg); err != nil {
+			log.Printf("[pane %s] broadcast error addr=%s: %v", p.ID, c.remoteAddr(), err)
 			p.removeClient(c)
-			c.Close()
+			c.close()
 		}
 	}
 }
 
-func (p *Pane) addClient(c *websocket.Conn) {
+func (p *Pane) addClient(c *safeConn) {
 	p.cmu.Lock()
 	p.cls = append(p.cls, c)
+	n := len(p.cls)
 	p.cmu.Unlock()
+	log.Printf("[pane %s] client connected addr=%s total=%d", p.ID, c.remoteAddr(), n)
 }
 
-func (p *Pane) removeClient(c *websocket.Conn) {
+func (p *Pane) removeClient(c *safeConn) {
 	p.cmu.Lock()
 	for i, v := range p.cls {
 		if v == c {
@@ -226,22 +291,31 @@ func (p *Pane) removeClient(c *websocket.Conn) {
 			break
 		}
 	}
+	n := len(p.cls)
 	p.cmu.Unlock()
+	log.Printf("[pane %s] client disconnected addr=%s remaining=%d", p.ID, c.remoteAddr(), n)
 }
 
 func (p *Pane) resize(c, r uint16) error {
-	return pty.Setsize(p.ptmx, &pty.Winsize{Cols: c, Rows: r})
+	err := pty.Setsize(p.ptmx, &pty.Winsize{Cols: c, Rows: r})
+	if err != nil {
+		log.Printf("[pane %s] resize error cols=%d rows=%d: %v", p.ID, c, r, err)
+	}
+	return err
 }
 
 func (p *Pane) kill() {
 	p.once.Do(func() {
+		log.Printf("[pane %s] killing pid=%d", p.ID, p.cmd.Process.Pid)
 		close(p.done)
 		p.ptmx.Close()
 		if p.cmd.Process != nil {
 			p.cmd.Process.Signal(syscall.SIGTERM)
 			time.Sleep(50 * time.Millisecond)
 			p.cmd.Process.Kill()
-			p.cmd.Wait()
+			if err := p.cmd.Wait(); err != nil {
+				log.Printf("[pane %s] wait: %v", p.ID, err)
+			}
 		}
 	})
 }
@@ -265,10 +339,11 @@ func (m *PaneManager) create(cwd string, cols, rows uint16) (*Pane, error) {
 	name := fmt.Sprintf("Shell #%d", m.nextID)
 	p, err := startPane(id, name, cwd, cols, rows)
 	if err != nil {
+		log.Printf("[pane %s] create error: %v", id, err)
 		return nil, err
 	}
 	m.panes[id] = p
-	log.Printf("pane created: %s pid=%d", id, p.cmd.Process.Pid)
+	log.Printf("[pane %s] registered total=%d", id, len(m.panes))
 	return p, nil
 }
 
@@ -297,10 +372,11 @@ func (m *PaneManager) delete(id string) {
 	m.mu.Lock()
 	p := m.panes[id]
 	delete(m.panes, id)
+	remaining := len(m.panes)
 	m.mu.Unlock()
 	if p != nil {
 		p.kill()
-		log.Printf("pane killed: %s", id)
+		log.Printf("[pane %s] deleted remaining=%d", id, remaining)
 	}
 }
 
@@ -317,16 +393,54 @@ var (
 func loadSettings() {
 	data, err := os.ReadFile("settings.json")
 	if err != nil {
+		if !os.IsNotExist(err) {
+			log.Printf("loadSettings: %v", err)
+		}
 		return
 	}
 	settingsJSON = data
+	log.Printf("settings loaded %d bytes", len(data))
 }
 
 func saveSettings() {
 	settingsMu.Lock()
 	data := settingsJSON
 	settingsMu.Unlock()
-	os.WriteFile("settings.json", data, 0644)
+	if err := os.WriteFile("settings.json", data, 0644); err != nil {
+		log.Printf("saveSettings: %v", err)
+	}
+}
+
+// ── HTTP logging middleware ──────────────────────────
+
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rw := &responseWriter{ResponseWriter: w, status: 200}
+		next.ServeHTTP(rw, r)
+		// ping/stats 는 너무 잦아서 제외
+		if r.URL.Path != "/api/ping" && r.URL.Path != "/api/stats" {
+			log.Printf("http %s %s %d %s addr=%s",
+				r.Method, r.URL.Path, rw.status, time.Since(start).Round(time.Millisecond), r.RemoteAddr)
+		}
+	})
+}
+
+type responseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (rw *responseWriter) WriteHeader(status int) {
+	rw.status = status
+	rw.ResponseWriter.WriteHeader(status)
+}
+
+func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if h, ok := rw.ResponseWriter.(http.Hijacker); ok {
+		return h.Hijack()
+	}
+	return nil, nil, fmt.Errorf("ResponseWriter does not implement http.Hijacker")
 }
 
 // ── API ─────────────────────────────────────────────
@@ -343,7 +457,6 @@ func fmtDuration(d time.Duration) string {
 func getStats() map[string]interface{} {
 	hostname, _ := os.Hostname()
 
-	// CPU usage
 	cpu := 0.0
 	if out, err := exec.Command("bash", "-c", `top -l 1 -n 0 | grep "CPU usage"`).Output(); err == nil {
 		parts := strings.Fields(string(out))
@@ -354,7 +467,6 @@ func getStats() map[string]interface{} {
 		}
 	}
 
-	// Memory
 	memTotal, memUsed := uint64(0), uint64(0)
 	if out, err := exec.Command("sysctl", "-n", "hw.memsize").Output(); err == nil {
 		if v, err := strconv.ParseUint(strings.TrimSpace(string(out)), 10, 64); err == nil {
@@ -378,7 +490,6 @@ func getStats() map[string]interface{} {
 		}
 	}
 
-	// Disk
 	diskPct := 0.0
 	var stat syscall.Statfs_t
 	if syscall.Statfs("/", &stat) == nil {
@@ -386,7 +497,6 @@ func getStats() map[string]interface{} {
 		diskPct = math.Round(float64(used)/float64(stat.Blocks)*1000) / 10
 	}
 
-	// Uptime (system + server)
 	sysUptime := ""
 	if out, err := exec.Command("sysctl", "-n", "kern.boottime").Output(); err == nil {
 		if parts := strings.Split(string(out), "="); len(parts) >= 2 {
@@ -506,7 +616,6 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "missing path", 400)
 			return
 		}
-		// Security: only allow absolute paths or relative under cwd
 		if !filepath.IsAbs(fp) {
 			abs, err := filepath.Abs(fp)
 			if err != nil {
@@ -560,67 +669,78 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 // ── WebSocket ───────────────────────────────────────
 
 func handleWS(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+	raw, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("ws upgrade: %v", err)
+		log.Printf("ws upgrade addr=%s: %v", r.RemoteAddr, err)
 		return
 	}
-	defer conn.Close()
+	conn := newSafeConn(raw)
+	defer conn.close()
+
+	paneID := r.URL.Query().Get("pane")
+	log.Printf("ws connected addr=%s pane=%s", r.RemoteAddr, paneID)
 
 	cols, rows := parseSize(r)
-	paneID := r.URL.Query().Get("pane")
 	var pane *Pane
 
 	if paneID != "" {
 		pane = pm.get(paneID)
 		if pane == nil {
-			wsSend(conn, opError, []byte("pane not found"))
+			conn.send(opError, []byte("pane not found"))
+			log.Printf("ws addr=%s: pane %s not found", r.RemoteAddr, paneID)
 			return
 		}
 	} else {
 		pane, err = pm.create("", cols, rows)
 		if err != nil {
-			wsSend(conn, opError, []byte("create failed"))
+			conn.send(opError, []byte("create failed"))
+			log.Printf("ws addr=%s: pane create error: %v", r.RemoteAddr, err)
 			return
 		}
 	}
 
-	conn.SetWriteDeadline(time.Now().Add(pingPeriod + writeWait))
 	pane.addClient(conn)
 	defer pane.removeClient(conn)
 
-	wsSend(conn, opSID, []byte(pane.ID))
+	conn.send(opSID, []byte(pane.ID))
 
 	if paneID != "" {
 		if snap := pane.buf.Snapshot(); len(snap) > 0 {
 			msg := make([]byte, 1+len(snap))
 			msg[0] = opOutput
 			copy(msg[1:], snap)
-			conn.SetWriteDeadline(time.Now().Add(writeWait))
-			conn.WriteMessage(websocket.BinaryMessage, msg)
+			if err := conn.writeMsg(websocket.BinaryMessage, msg); err != nil {
+				log.Printf("[pane %s] snapshot send error addr=%s: %v", pane.ID, r.RemoteAddr, err)
+				return
+			}
 		}
 		pane.resize(cols, rows)
 	}
 
 	go pingLoop(conn, pane.done)
 	readWS(conn, pane)
+	log.Printf("ws disconnected addr=%s pane=%s", r.RemoteAddr, pane.ID)
 }
 
-func wsSend(conn *websocket.Conn, op byte, payload []byte) {
-	m := make([]byte, 1+len(payload))
-	m[0] = op
-	copy(m[1:], payload)
-	conn.SetWriteDeadline(time.Now().Add(writeWait))
-	conn.WriteMessage(websocket.BinaryMessage, m)
-}
-
-func readWS(conn *websocket.Conn, pane *Pane) {
-	conn.SetReadLimit(1 << 20)
-	conn.SetReadDeadline(time.Now().Add(pongWait))
-	conn.SetPongHandler(func(string) error { conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+func readWS(conn *safeConn, pane *Pane) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[pane %s] readWS panic addr=%s: %v\n%s", pane.ID, conn.remoteAddr(), r, debug.Stack())
+		}
+	}()
+	conn.setReadLimit(1 << 20)
+	conn.setReadDeadline(time.Now().Add(pongWait))
+	conn.setPongHandler(func(string) error {
+		conn.setReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
 	for {
-		_, msg, err := conn.ReadMessage()
+		_, msg, err := conn.readMessage()
 		if err != nil {
+			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseNoStatusReceived) &&
+				!strings.Contains(err.Error(), "use of closed network connection") {
+				log.Printf("[pane %s] readWS error addr=%s: %v", pane.ID, conn.remoteAddr(), err)
+			}
 			return
 		}
 		if len(msg) == 0 {
@@ -628,7 +748,10 @@ func readWS(conn *websocket.Conn, pane *Pane) {
 		}
 		switch msg[0] {
 		case opInput:
-			pane.ptmx.Write(msg[1:])
+			if _, err := pane.ptmx.Write(msg[1:]); err != nil {
+				log.Printf("[pane %s] ptmx write error: %v", pane.ID, err)
+				return
+			}
 		case opResize:
 			if len(msg) >= 5 {
 				c := binary.BigEndian.Uint16(msg[1:3])
@@ -639,14 +762,19 @@ func readWS(conn *websocket.Conn, pane *Pane) {
 	}
 }
 
-func pingLoop(conn *websocket.Conn, done chan struct{}) {
+func pingLoop(conn *safeConn, done chan struct{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("pingLoop panic addr=%s: %v\n%s", conn.remoteAddr(), r, debug.Stack())
+		}
+	}()
 	t := time.NewTicker(pingPeriod)
 	defer t.Stop()
 	for {
 		select {
 		case <-t.C:
-			conn.SetWriteDeadline(time.Now().Add(pingPeriod + writeWait))
-			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			if err := conn.writePing(); err != nil {
+				log.Printf("pingLoop error addr=%s: %v", conn.remoteAddr(), err)
 				return
 			}
 		case <-done:
@@ -686,14 +814,12 @@ func uniquePath(dir, name string) string {
 func initBinDir() {
 	binDir := filepath.Join(".", "bin")
 	os.MkdirAll(binDir, 0755)
-	// download command
 	dlScript := `#!/bin/sh
 path=$(realpath "$1" 2>/dev/null || echo "$1")
 printf '\033]777;Download;%s\007' "$path"
 `
 	os.WriteFile(filepath.Join(binDir, "download"), []byte(dlScript), 0755)
 
-	// zsh hook (ZDOTDIR approach)
 	zdotdir := filepath.Join(binDir, "zdotdir")
 	os.MkdirAll(zdotdir, 0755)
 	zshrc := `export HISTFILE="$HOME/.zsh_history"
@@ -707,7 +833,6 @@ add-zsh-hook chpwd _rt_cwd_hook
 `
 	os.WriteFile(filepath.Join(zdotdir, ".zshrc"), []byte(zshrc), 0644)
 
-	// bash hook
 	bashHook := `_rt_cwd_hook() { printf '\033]777;Cwd;%s\007' "$PWD"; }
 PROMPT_COMMAND="_rt_cwd_hook${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
 `
@@ -715,6 +840,8 @@ PROMPT_COMMAND="_rt_cwd_hook${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
 }
 
 func main() {
+	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -728,14 +855,20 @@ func main() {
 	mux.HandleFunc("/ws", handleWS)
 	mux.HandleFunc("/api/", handleAPI)
 
-	server := &http.Server{Addr: ":" + port, Handler: mux}
-	log.Printf("remote-terminal on :%s", port)
+	server := &http.Server{Addr: ":" + port, Handler: loggingMiddleware(mux)}
+	log.Printf("remote-terminal starting on :%s", port)
 
-	sigCh := make(chan os.Signal, 1)
+	sigCh := make(chan os.Signal, 2)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	go func() { <-sigCh; saveSettings(); server.Close() }()
+	go func() {
+		sig := <-sigCh
+		log.Printf("signal received: %v — shutting down", sig)
+		saveSettings()
+		server.Close()
+	}()
 
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		log.Fatalf("server: %v", err)
+		log.Fatalf("server fatal: %v", err)
 	}
+	log.Printf("server stopped")
 }

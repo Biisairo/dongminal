@@ -103,4 +103,12 @@
 
 ### 16. focus 시 highlight line 이 terminal 을 가리지 않도록 ui 수정
 
-### 17. 이유모를 서버 중단이 있음. 문제점 코드에서 찾아보고 로그 꼼꼼히 넣기
+### 17. 이유모를 서버 중단이 있음. 문제점 코드에서 찾아보고 로그 꼼꼼히 넣기 ✅
+  - [x] gorilla/websocket 동시 쓰기 버그 수정 (broadcast + pingLoop + snapshot이 같은 conn에 concurrent 쓰기 → panic/crash)
+  - [x] safeConn 래퍼 추가 (write mutex로 모든 쓰기 직렬화)
+  - [x] bch 채널 누수 수정 (readPTY 종료 시 defer close(bch) → drainBuf 고루틴 정상 종료)
+  - [x] 모든 고루틴에 panic recovery + stack trace 로깅
+  - [x] HTTP request 로깅 미들웨어 추가
+  - [x] WebSocket connect/disconnect 상세 로그
+  - [x] pane 생성/종료/에러 상세 로그
+  - [x] 로그 타임스탬프 마이크로초 단위
