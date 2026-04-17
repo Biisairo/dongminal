@@ -76,3 +76,16 @@
 
 ### 11. 스크롤바 색상 변경 ✅
   - [x] 배경과 색상이 너무 비슷하여 잘 보이지 않음 → --text-dim / hover 시 --text-muted 로 변경
+
+### 12. code-server 연동 (원격 에디터)
+  - 동기: 로컬에서 VSCode + 터미널 두 창을 원격에서도 동일하게 사용하기 위함
+  - 터미널에서 `edit <경로>` 명령어 입력 시 해당 경로로 code-server가 실행되고 접속 URL 반환
+  - [ ] **서버 (Go)** — `/api/code-server?path=<path>` 엔드포인트 추가
+    - code-server 설치 여부 확인
+    - 이미 실행 중인 경우 재사용, 없으면 새로 실행 (포트 자동 할당)
+    - `--auth none` 또는 설정 가능한 인증 옵션
+    - 실행된 code-server URL 반환
+  - [ ] **터미널 (shell)** — `edit` bash/zsh function 자동 등록
+    - `edit <path>` 입력 시 `/api/code-server?path=<path>` 호출
+    - 반환된 URL을 터미널에 출력 (WebLinksAddon으로 클릭 가능)
+  - [ ] **프로세스 관리** — code-server 인스턴스 목록 관리, 세션 종료 시 정리
