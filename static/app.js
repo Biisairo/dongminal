@@ -532,7 +532,10 @@ class App {
       const ov=document.createElement('div');ov.className='confirm-overlay';
       ov.innerHTML=`<div class="confirm-box"><div class="confirm-msg">${msg}</div><div class="confirm-btns"><button class="confirm-ok">닫기</button><button class="confirm-cancel">취소</button></div></div>`;
       document.body.appendChild(ov);
-      const cleanup=v=>{ov.remove();resolve(v)};
+      ov.querySelector('.confirm-ok').focus();
+      const cleanup=v=>{ov.remove();document.removeEventListener('keydown',onKey);resolve(v)};
+      const onKey=e=>{if(e.key==='Enter'){e.preventDefault();cleanup(true)}else if(e.key==='Escape'){e.preventDefault();cleanup(false)}};
+      document.addEventListener('keydown',onKey);
       ov.querySelector('.confirm-ok').addEventListener('click',()=>cleanup(true));
       ov.querySelector('.confirm-cancel').addEventListener('click',()=>cleanup(false));
       ov.addEventListener('click',e=>{if(e.target===ov)cleanup(false)});
@@ -1008,6 +1011,7 @@ class App {
     document.getElementById('settings-btn').addEventListener('click',()=>{overlay.classList.add('open');this._renderThemePanel();this._renderShortcutList();this._renderPresets()});
     document.getElementById('modal-close').addEventListener('click',()=>overlay.classList.remove('open'));
     overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('open')});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.classList.contains('open')){e.preventDefault();overlay.classList.remove('open')}});
     modal.querySelectorAll('.mtab').forEach(tab=>{
       tab.addEventListener('click',()=>{
         modal.querySelectorAll('.mtab').forEach(t=>t.classList.remove('active'));

@@ -84,9 +84,9 @@
   - [x] 세션 이동 시 이전 포커스 pane 복원 (session.focusedRegion 저장/복원)
   - [x] pane 삭제 시 closestRg()로 인접 pane 포커스
 
-### 14. esc, enter 동작
-  - 창/세션 닫을때 경고 창에서 enter/esc 로 동의/취소
-  - 설정창 연 뒤 esc 로 설정창 닫기
+### 14. esc, enter 동작 ✅
+  - [x] 창/세션 닫을때 경고 창에서 enter/esc 로 동의/취소
+  - [x] 설정창 연 뒤 esc 로 설정창 닫기
 
 ### 15. code-server 연동 (원격 에디터)
   - 동기: 로컬에서 VSCode + 터미널 두 창을 원격에서도 동일하게 사용하기 위함
