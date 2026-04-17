@@ -201,6 +201,15 @@ class TermPane {
     try{this.term.loadAddon(new Unicode11Addon.Unicode11Addon());this.term.unicode.activeVersion='11'}catch(e){}
     try{this.search=new SearchAddon.SearchAddon();this.term.loadAddon(this.search)}catch(e){}
     this.term.open(this.box);
+    this.term.attachCustomKeyEventHandler(e=>{
+      if(e.key==='Enter'&&e.shiftKey&&!e.ctrlKey&&!e.altKey&&!e.metaKey){
+        if(e.type==='keydown') this._send(new Uint8Array([OP.INPUT,0x1b,0x0d]));
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      return true;
+    });
     // Block browser Ctrl+ shortcuts → let them go to terminal
     // Cmd+ shortcuts left for browser (copy/paste/tab close etc)
     this.box.addEventListener('keydown',e=>{
@@ -428,6 +437,17 @@ function findPath(n,rid){
   if(n.children) for(const c of n.children){const p=findPath(c,rid);if(p)return[n,...p]}
   return null;
 }
+function closestRg(n,rid){
+  const path=findPath(n,rid);
+  if(!path||path.length<2)return firstRg(n);
+  for(let i=path.length-2;i>=0;i--){
+    const parent=path[i];if(!parent.children)continue;
+    const ci=parent.children.indexOf(path[i+1]);if(ci<0)continue;
+    const c=parent.children[ci+1]||parent.children[ci-1];
+    if(c){const r=firstRg(c);if(r)return r}
+  }
+  return firstRg(n);
+}
 function clean(n,ok){
   if(!n) return null;
   if(n.type==='region'){
@@ -479,7 +499,7 @@ class App {
       if(!this.ws.sessions.length) await this._mkSession();
     }
     const a=this._as();
-    if(a&&a.layout){const f=firstRg(a.layout);if(f)this.focused=f.id}
+    if(a&&a.layout){const saved=a.focusedRegion;const f=(saved&&findRg(a.layout,saved))?{id:saved}:firstRg(a.layout);if(f)this.focused=f.id}
     this.render();
     this._bind();
   }
@@ -577,8 +597,12 @@ class App {
 
   switchSession(sid){
     if(this.ws.activeSession===sid) return;
+    const cur=this._as();if(cur)cur.focusedRegion=this.focused;
     this.ws.activeSession=sid;
-    const a=this._as(); this.focused=a?firstRg(a.layout)?.id:null;
+    const a=this._as();
+    if(a&&a.layout){
+      this.focused=(a.focusedRegion&&findRg(a.layout,a.focusedRegion))?a.focusedRegion:firstRg(a.layout)?.id||null;
+    } else this.focused=null;
     this._save(); this.render();
   }
 
@@ -604,9 +628,10 @@ class App {
     await this._kill(tab.paneId);
     rg.tabs=rg.tabs.filter(t=>t.id!==tid);
     if(!rg.tabs.length){
+      const fallback=this.focused===rid?closestRg(s.layout,rid)?.id:this.focused;
       s.layout=doRemove(s.layout,rid);
       if(!s.layout){await this.delSession(s.id);return}
-      this.focused=firstRg(s.layout)?.id||null;
+      this.focused=fallback&&findRg(s.layout,fallback)?fallback:firstRg(s.layout)?.id||null;
     } else {
       if(rg.activeTab===tid) rg.activeTab=rg.tabs[0].id;
     }
@@ -741,6 +766,7 @@ class App {
     this._clearAllSearchDecorations();
     this.focused=rid;
     this._prevFocus=rid;
+    const s=this._as();if(s)s.focusedRegion=rid;
     document.querySelectorAll('.rg').forEach(el=>{
       el.classList.toggle('focused',el.dataset.rid===rid);
     });
