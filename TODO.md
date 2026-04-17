@@ -100,3 +100,5 @@
     - `edit <path>` 입력 시 `/api/code-server?path=<path>` 호출
     - 반환된 URL을 터미널에 출력 (WebLinksAddon으로 클릭 가능)
   - [ ] **프로세스 관리** — code-server 인스턴스 목록 관리, 세션 종료 시 정리
+
+### 16. focus 시 highlight line 이 terminal 을 가리지 않도록 ui 수정
