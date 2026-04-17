@@ -366,3 +366,27 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   transition:border-color .15s,background .15s;
 }
 .preset-save:hover{border-color:var(--accent-border);background:var(--accent-hover)}
+
+/* ── Tab bar drag target ── */
+.rg-tabs.drag-target{background:var(--accent-hover);box-shadow:inset 0 -2px 0 var(--accent)}
+
+/* ── Drag reorder indicators ── */
+.si.dragging{opacity:.35}
+.si.drag-above{box-shadow:inset 0 2px 0 var(--accent)}
+.si.drag-below{box-shadow:inset 0 -2px 0 var(--accent)}
+.rt.dragging{opacity:.35}
+.rt.drag-left{box-shadow:inset 2px 0 0 var(--accent)}
+.rt.drag-right{box-shadow:inset -2px 0 0 var(--accent)}
+
+/* ── Tab→Pane drop zone indicator ── */
+.rg-drop-indicator{
+  position:absolute;pointer-events:none;
+  background:var(--accent);opacity:.18;
+  border:2px solid var(--accent);border-radius:2px;z-index:15;
+  transition:all .08s;
+}
+.rg-drop-indicator[data-zone="left"]  {top:0;left:0;width:33%;height:100%}
+.rg-drop-indicator[data-zone="right"] {top:0;right:0;width:33%;height:100%;left:auto}
+.rg-drop-indicator[data-zone="top"]   {top:0;left:0;width:100%;height:33%}
+.rg-drop-indicator[data-zone="bottom"]{bottom:0;left:0;width:100%;height:33%;top:auto}
+.rg-drop-indicator[data-zone="center"]{top:5%;left:5%;width:90%;height:90%;opacity:.1;border-style:dashed}
