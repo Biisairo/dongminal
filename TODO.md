@@ -77,7 +77,15 @@
 ### 11. 스크롤바 색상 변경 ✅
   - [x] 배경과 색상이 너무 비슷하여 잘 보이지 않음 → --text-dim / hover 시 --text-muted 로 변경
 
-### 12. code-server 연동 (원격 에디터)
+### 12. shift+enter 동작 안되는 이유 확인
+  - shift+enter 입력 시 개행이 되어야 할 부분에서 개행이 아닌 enter 입력만되어 실행되어짐
+
+### 13. session 이동 시 focus pane
+  - 현재는 session 을 이동하거나 pane 가 삭제되면 그 세션에서 제일 첫번째 pane 로 포커스가 이동됨
+  - 세션 이동 시에는 기존에 포커스가 있던 pane 에 그대로 포커스
+  - pane 삭제시에는 해당 pane 가 생긴 부모 pane, 혹은 제일 가까운 pane 로 이동하는 등 적절한 조치 필요
+
+### 14. code-server 연동 (원격 에디터)
   - 동기: 로컬에서 VSCode + 터미널 두 창을 원격에서도 동일하게 사용하기 위함
   - 터미널에서 `edit <경로>` 명령어 입력 시 해당 경로로 code-server가 실행되고 접속 URL 반환
   - [ ] **서버 (Go)** — `/api/code-server?path=<path>` 엔드포인트 추가
