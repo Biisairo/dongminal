@@ -181,6 +181,7 @@ class TermPane {
   constructor(id, name) {
     this.id=id; this.name=name;
     this.ws=null; this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false; this._destroyed=false; this._retryDelay=1000;
+    this._decoder=new TextDecoder('utf-8',{fatal:false}); this._outputBuf=''; this._flushScheduled=false;
     this.el=document.createElement('div');
     this.el.className='tp'; this.el.dataset.pid=id;
     this.box=document.createElement('div');
@@ -322,19 +323,24 @@ class TermPane {
     if(ov)ov.classList.remove('visible');
   }
   _handleOutput(data){
-    const text=dec.decode(data);
-    // Detect OSC 777 sequences: ESC ] 777 ; <cmd> ; <data> BEL
-    let clean=text;
-    const re=/\x1b\]777;(\w+);([^\x07]*)\x07/g;
-    let m;
-    while((m=re.exec(text))!==null){
-      const cmd=m[1],val=m[2];
-      if(cmd==='Download') this._downloadFile(val);
-      else if(cmd==='Cwd') this._onCwd(val);
-    }
-    clean=text.replace(/\x1b\]777;\w+;[^\x07]*\x07/g,'');
-    if(this.term) try{this.term.write(clean||'')}catch{}
-    else if(clean) this._buf.push(enc.encode(clean));
+    // stream:true preserves UTF-8 multibyte state across WS chunk boundaries
+    this._outputBuf+=this._decoder.decode(data,{stream:true});
+    if(this._flushScheduled) return;
+    this._flushScheduled=true;
+    requestAnimationFrame(()=>{
+      this._flushScheduled=false;
+      const text=this._outputBuf; this._outputBuf='';
+      const re=/\x1b\]777;(\w+);([^\x07]*)\x07/g;
+      let m;
+      while((m=re.exec(text))!==null){
+        const cmd=m[1],val=m[2];
+        if(cmd==='Download') this._downloadFile(val);
+        else if(cmd==='Cwd') this._onCwd(val);
+      }
+      const clean=text.replace(/\x1b\]777;\w+;[^\x07]*\x07/g,'');
+      if(this.term) try{this.term.write(clean||'')}catch{}
+      else if(clean) this._buf.push(enc.encode(clean));
+    });
   }
   _onCwd(cwd){
     this._cwd=cwd;
