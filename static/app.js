@@ -496,6 +496,22 @@ class App {
     return p;
   }
 
+  async _isPaneBusy(paneId){
+    try{const r=await fetch(`/api/panes/${paneId}/busy`);const d=await r.json();return d.busy}catch{return false}
+  }
+
+  _confirmClose(msg){
+    return new Promise(resolve=>{
+      const ov=document.createElement('div');ov.className='confirm-overlay';
+      ov.innerHTML=`<div class="confirm-box"><div class="confirm-msg">${msg}</div><div class="confirm-btns"><button class="confirm-ok">닫기</button><button class="confirm-cancel">취소</button></div></div>`;
+      document.body.appendChild(ov);
+      const cleanup=v=>{ov.remove();resolve(v)};
+      ov.querySelector('.confirm-ok').addEventListener('click',()=>cleanup(true));
+      ov.querySelector('.confirm-cancel').addEventListener('click',()=>cleanup(false));
+      ov.addEventListener('click',e=>{if(e.target===ov)cleanup(false)});
+    });
+  }
+
   async _newPane(cwd){
     const cwdParam=cwd?'&cwd='+encodeURIComponent(cwd):'';
     const r=await fetch('/api/panes?cols=120&rows=40'+cwdParam,{method:'POST'});
@@ -537,7 +553,13 @@ class App {
     const i=this.ws.sessions.findIndex(s=>s.id===sid);
     if(i<0) return;
     const s=this.ws.sessions[i];
-    for(const pid of allPids(s.layout)) this._kill(pid);
+    const pids=allPids(s.layout);
+    const busyChecks=await Promise.all(pids.map(pid=>this._isPaneBusy(pid)));
+    if(busyChecks.some(Boolean)){
+      const ok=await this._confirmClose('실행 중인 프로세스가 있습니다. 세션을 종료하시겠습니까?');
+      if(!ok) return;
+    }
+    for(const pid of pids) this._kill(pid);
     this.ws.sessions.splice(i,1);
     if(!this.ws.sessions.length){await this._mkSession();this.render();return}
     if(this.ws.activeSession===sid)
@@ -568,6 +590,10 @@ class App {
     const s=this._as(); if(!s) return;
     const rg=findRg(s.layout,rid); if(!rg) return;
     const tab=rg.tabs.find(t=>t.id===tid); if(!tab) return;
+    if(await this._isPaneBusy(tab.paneId)){
+      const ok=await this._confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?');
+      if(!ok) return;
+    }
     await this._kill(tab.paneId);
     rg.tabs=rg.tabs.filter(t=>t.id!==tid);
     if(!rg.tabs.length){

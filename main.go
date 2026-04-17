@@ -93,6 +93,17 @@ type Pane struct {
 	once sync.Once
 }
 
+func (p *Pane) IsBusy() bool {
+	if p.cmd == nil || p.cmd.Process == nil {
+		return false
+	}
+	out, err := exec.Command("pgrep", "-P", strconv.Itoa(p.cmd.Process.Pid)).Output()
+	if err != nil {
+		return false
+	}
+	return len(strings.TrimSpace(string(out))) > 0
+}
+
 func (p *Pane) Cwd() string {
 	if p.cmd != nil && p.cmd.Process != nil {
 		cwd, _ := os.Readlink(fmt.Sprintf("/proc/%d/cwd", p.cmd.Process.Pid))
@@ -424,6 +435,13 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"id": pane.ID, "name": pane.Name})
+
+	case strings.HasPrefix(p, "/api/panes/") && strings.HasSuffix(p, "/busy") && r.Method == http.MethodGet:
+		id := strings.TrimSuffix(strings.TrimPrefix(p, "/api/panes/"), "/busy")
+		pane := pm.get(id)
+		busy := pane != nil && pane.IsBusy()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{"busy": busy})
 
 	case strings.HasPrefix(p, "/api/panes/") && r.Method == http.MethodDelete:
 		id := strings.TrimPrefix(p, "/api/panes/")
