@@ -331,6 +331,14 @@ type PaneManager struct {
 var pm = &PaneManager{panes: make(map[string]*Pane)}
 var serverStart = time.Now()
 
+func dataPath(name string) string {
+	dir := os.Getenv("DATA_DIR")
+	if dir == "" {
+		dir = "."
+	}
+	return filepath.Join(dir, name)
+}
+
 func (m *PaneManager) create(cwd string, cols, rows uint16) (*Pane, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -344,7 +352,23 @@ func (m *PaneManager) create(cwd string, cols, rows uint16) (*Pane, error) {
 	}
 	m.panes[id] = p
 	log.Printf("[pane %s] registered total=%d", id, len(m.panes))
+	go savePanes()
 	return p, nil
+}
+
+func (m *PaneManager) restore(id, name, cwd string, cols, rows uint16) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	p, err := startPane(id, name, cwd, cols, rows)
+	if err != nil {
+		return err
+	}
+	m.panes[id] = p
+	if n, _ := strconv.Atoi(id); n > m.nextID {
+		m.nextID = n
+	}
+	log.Printf("[pane %s] restored total=%d", id, len(m.panes))
+	return nil
 }
 
 func (m *PaneManager) get(id string) *Pane {
@@ -378,6 +402,7 @@ func (m *PaneManager) delete(id string) {
 		p.kill()
 		log.Printf("[pane %s] deleted remaining=%d", id, remaining)
 	}
+	go savePanes()
 }
 
 // ── Workspace (in-memory only) + Settings (file-persisted) ──
@@ -391,7 +416,7 @@ var (
 )
 
 func loadSettings() {
-	data, err := os.ReadFile("settings.json")
+	data, err := os.ReadFile(dataPath("settings.json"))
 	if err != nil {
 		if !os.IsNotExist(err) {
 			log.Printf("loadSettings: %v", err)
@@ -406,8 +431,72 @@ func saveSettings() {
 	settingsMu.Lock()
 	data := settingsJSON
 	settingsMu.Unlock()
-	if err := os.WriteFile("settings.json", data, 0644); err != nil {
+	if err := os.WriteFile(dataPath("settings.json"), data, 0644); err != nil {
 		log.Printf("saveSettings: %v", err)
+	}
+}
+
+type PaneState struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Cwd  string `json:"cwd"`
+}
+
+func savePanes() {
+	pm.mu.Lock()
+	var states []PaneState
+	for _, p := range pm.panes {
+		states = append(states, PaneState{ID: p.ID, Name: p.Name, Cwd: p.Cwd()})
+	}
+	pm.mu.Unlock()
+	sort.Slice(states, func(i, j int) bool { return states[i].ID < states[j].ID })
+	data, _ := json.Marshal(states)
+	if err := os.WriteFile(dataPath("panes.json"), data, 0644); err != nil {
+		log.Printf("savePanes: %v", err)
+	}
+}
+
+func loadPanes() {
+	data, err := os.ReadFile(dataPath("panes.json"))
+	if err != nil {
+		if !os.IsNotExist(err) {
+			log.Printf("loadPanes: %v", err)
+		}
+		return
+	}
+	var states []PaneState
+	if err := json.Unmarshal(data, &states); err != nil {
+		log.Printf("loadPanes unmarshal: %v", err)
+		return
+	}
+	for _, s := range states {
+		if err := pm.restore(s.ID, s.Name, s.Cwd, 120, 40); err != nil {
+			log.Printf("[pane %s] restore error: %v", s.ID, err)
+		}
+	}
+	log.Printf("panes restored count=%d", len(states))
+}
+
+func loadWorkspace() {
+	data, err := os.ReadFile(dataPath("workspace.json"))
+	if err != nil {
+		if !os.IsNotExist(err) {
+			log.Printf("loadWorkspace: %v", err)
+		}
+		return
+	}
+	wsMu.Lock()
+	wsJSON = data
+	wsMu.Unlock()
+	log.Printf("workspace loaded %d bytes", len(data))
+}
+
+func saveWorkspace() {
+	wsMu.Lock()
+	data := wsJSON
+	wsMu.Unlock()
+	if err := os.WriteFile(dataPath("workspace.json"), data, 0644); err != nil {
+		log.Printf("saveWorkspace: %v", err)
 	}
 }
 
@@ -563,6 +652,7 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 		wsMu.Lock()
 		wsJSON = body
 		wsMu.Unlock()
+		saveWorkspace()
 		w.WriteHeader(200)
 
 	case p == "/api/settings" && r.Method == http.MethodGet:
@@ -846,7 +936,14 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+	if dir := os.Getenv("DATA_DIR"); dir != "" {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			log.Fatalf("DATA_DIR 생성 실패: %v", err)
+		}
+	}
 	loadSettings()
+	loadWorkspace()
+	loadPanes()
 	initBinDir()
 
 	staticFS, _ := fs.Sub(staticFiles, "static")
@@ -863,6 +960,7 @@ func main() {
 	go func() {
 		sig := <-sigCh
 		log.Printf("signal received: %v — shutting down", sig)
+		savePanes()
 		saveSettings()
 		server.Close()
 	}()

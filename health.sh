@@ -1,5 +1,7 @@
 #!/bin/bash
-PORT=58146
+cd "$(dirname "$0")"
+[ -f .env ] && set -a && source .env && set +a
+PORT="${PORT:-58146}"
 URL="http://localhost:${PORT}/"
 
 if curl -sf --max-time 3 "$URL" > /dev/null 2>&1; then

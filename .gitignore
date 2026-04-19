@@ -3,3 +3,7 @@ bin/zdotdir/.zsh_sessions/
 bin/zdotdir/.zcompdump*
 
 dongminal
+.env
+workspace.json
+settings.json
+panes.json
