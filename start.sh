@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 PORT=58146
-BINARY="remote-terminal"
-LOG="/tmp/remote-terminal.log"
+BINARY="dongminal"
+LOG="/tmp/dongminal.log"
 cd "$(dirname "$0")"
 
 if lsof -ti :$PORT >/dev/null 2>&1; then

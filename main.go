@@ -856,7 +856,7 @@ func main() {
 	mux.HandleFunc("/api/", handleAPI)
 
 	server := &http.Server{Addr: ":" + port, Handler: loggingMiddleware(mux)}
-	log.Printf("remote-terminal starting on :%s", port)
+	log.Printf("dongminal starting on :%s", port)
 
 	sigCh := make(chan os.Signal, 2)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)

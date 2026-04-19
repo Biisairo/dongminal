@@ -1,4 +1,4 @@
-module remote-terminal
+module dongminal
 
 go 1.24
 

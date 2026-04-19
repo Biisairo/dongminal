@@ -1,4 +1,4 @@
-# Remote Terminal
+# Dongminal
 
 브라우저 기반 터미널 멀티플렉서. 분할 Pane, 탭, 세션 관리, 테마 시스템, 파일 전송 등을 지원합니다.
 
@@ -9,7 +9,7 @@
 ```bash
 ./start.sh                     # 빌드 + 실행 (port 58146)
 ./stop.sh                      # 중지
-PORT=1234 ./remote-terminal    # 포트 지정 실행 (기본값: 8080)
+PORT=1234 ./dongminal          # 포트 지정 실행 (기본값: 8080)
 ```
 
 ## 아키텍처
@@ -177,7 +177,7 @@ PTY 출력에서 특수 명령을 전달합니다:
 ## 프로젝트 구조
 
 ```
-remote_terminal/
+dongminal/
 ├── main.go              # Go 서버 (PTY 관리, WebSocket, API)
 ├── go.mod
 ├── static/
