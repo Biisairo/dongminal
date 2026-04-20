@@ -137,6 +137,11 @@ type Pane struct {
 	cls  []*safeConn
 	done chan struct{}
 	once sync.Once
+	// restored=true means this pane's shell was freshly re-spawned because
+	// the server restarted. The first client to reconnect needs a mode
+	// reset to clear stale DECSET state (mouse tracking, bracketed paste,
+	// alt screen, SRM etc) left over in xterm from the previous session.
+	restored bool
 }
 
 func (p *Pane) IsBusy() bool {
@@ -582,6 +587,7 @@ func (m *PaneManager) restore(id, name, cwd string, cols, rows uint16) error {
 	if err != nil {
 		return err
 	}
+	p.restored = true
 	m.panes[id] = p
 	if n, _ := strconv.Atoi(id); n > m.nextID {
 		m.nextID = n
@@ -1073,6 +1079,22 @@ func handleWS(w http.ResponseWriter, r *http.Request) {
 	conn.send(opSID, []byte(pane.ID))
 
 	if paneID != "" {
+		// After a server restart the pane is respawned but xterm on the
+		// client still holds DECSET state from the previous session
+		// (mouse tracking, bracketed paste, alt screen, SRM local echo,
+		// hidden cursor, etc). Send a mode reset so those stale modes
+		// don't leak mouse-event codes into stdin or double-echo input.
+		if pane.restored {
+			pane.restored = false
+			reset := []byte("\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l")
+			msg := make([]byte, 1+len(reset))
+			msg[0] = opOutput
+			copy(msg[1:], reset)
+			if err := conn.writeMsg(websocket.BinaryMessage, msg); err != nil {
+				log.Printf("[pane %s] reset send error addr=%s: %v", pane.ID, r.RemoteAddr, err)
+				return
+			}
+		}
 		if snap := pane.buf.Snapshot(); len(snap) > 0 {
 			msg := make([]byte, 1+len(snap))
 			msg[0] = opOutput

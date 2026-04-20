@@ -276,7 +276,9 @@ class TermPane {
   }
   connect() {
     const p=location.protocol==='https:'?'wss:':'ws:';
-    const url=`${p}//${location.host}/ws?cols=120&rows=40&pane=${encodeURIComponent(this.id)}`;
+    const cols=(this.term&&this.term.cols)||120;
+    const rows=(this.term&&this.term.rows)||40;
+    const url=`${p}//${location.host}/ws?cols=${cols}&rows=${rows}&pane=${encodeURIComponent(this.id)}`;
     this.ws=new WebSocket(url); this.ws.binaryType='arraybuffer';
     this.ws.onopen=()=>{
       if(this.term){
@@ -304,13 +306,22 @@ class TermPane {
     this.ws.onclose=()=>{
       if(this._destroyed) return;
       this._showOverlay('연결 끊김', '재연결 중...');
-      this._reconnect();
+      this._scheduleReconnect();
     };
     this.ws.onerror=()=>{
       if(this._destroyed) return;
       this._showOverlay('연결 오류', '재연결 중...');
-      this._reconnect();
+      this._scheduleReconnect();
     };
+  }
+  _scheduleReconnect(){
+    if(this._destroyed||this._reconnectPending) return;
+    this._reconnectPending=true;
+    if(this.ws){try{this.ws.onclose=null;this.ws.onerror=null;this.ws.onmessage=null;this.ws.close()}catch{}this.ws=null}
+    // Reset decoder state so any half-received multibyte sequence from the
+    // dead connection doesn't get spliced with bytes from the new one.
+    try{this._decoder=new TextDecoder('utf-8',{fatal:false});this._outputBuf=''}catch{}
+    this._reconnect();
   }
   write(s){if(this.term)try{this.term.write(s)}catch{}else this._buf.push(s)}
   doFit(){if(this.fit)try{this.fit.fit()}catch{}}
@@ -321,10 +332,15 @@ class TermPane {
     setTimeout(()=>{
       if(this._destroyed) return;
       const p=location.protocol==='https:'?'wss:':'ws:';
-      const url=`${p}//${location.host}/ws?cols=120&rows=40&pane=${encodeURIComponent(this.id)}`;
+      const cols=(this.term&&this.term.cols)||120;
+      const rows=(this.term&&this.term.rows)||40;
+      const url=`${p}//${location.host}/ws?cols=${cols}&rows=${rows}&pane=${encodeURIComponent(this.id)}`;
       const ws=new WebSocket(url); ws.binaryType='arraybuffer';
+      this._pendingWs=ws;
+      this._reconnectPending=false;
       ws.onopen=()=>{
         this.ws=ws; this._retryDelay=1000;
+        this._pendingWs=null;
         if(this.term){
           const m=new Uint8Array(5);m[0]=OP.RESIZE;
           new DataView(m.buffer).setUint16(1,this.term.cols,false);
@@ -333,7 +349,6 @@ class TermPane {
         }
         setTimeout(()=>{this._hideOverlay();this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},300);
       };
-      ws.onmessage=this.ws?this.ws.onmessage:null;
       ws.onmessage=e=>{
         const d=new Uint8Array(e.data); if(!d.length) return;
         if(d[0]===OP.OUTPUT){ this._handleOutput(d.subarray(1)); }
@@ -343,13 +358,16 @@ class TermPane {
       };
       ws.onclose=()=>{
         if(this._destroyed)return;
+        if(this.ws&&this.ws!==ws) return;
+        if(this.ws===ws) this.ws=null;
         this._showOverlay('연결 끊김','재연결 중...');
-        this._reconnect();
+        this._scheduleReconnect();
       };
       ws.onerror=()=>{
         if(this._destroyed)return;
+        if(this.ws&&this.ws!==ws) return;
         this._showOverlay('연결 오류','재연결 중...');
-        this._reconnect();
+        this._scheduleReconnect();
       };
     },this._retryDelay);
   }
@@ -482,6 +500,10 @@ class TermPane {
   }
   destroy(){
     this._destroyed=true;
+    if(this._pendingWs&&this._pendingWs!==this.ws){
+      try{this._pendingWs.onopen=null;this._pendingWs.onclose=null;this._pendingWs.onerror=null;this._pendingWs.onmessage=null;this._pendingWs.close()}catch{}
+      this._pendingWs=null;
+    }
     if(this.ws){this.ws.onclose=null;this.ws.onerror=null;this.ws.close();this.ws=null}
     if(this.term){this.term.dispose();this.term=null}
     this.el.remove(); this._opened=false;
