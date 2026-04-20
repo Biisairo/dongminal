@@ -85,9 +85,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .sp[data-d="vertical"]>.sh::before{content:'';position:absolute;left:0;right:0;top:-6px;bottom:-6px}
 
 /* ── Region ── */
-.rg{display:flex;flex-direction:column;position:absolute;inset:0}
+.rg{display:flex;flex-direction:column;position:absolute;inset:0;border:2px solid transparent}
+.rg.focused{border-color:var(--accent)}
 .rg.focused .rg-tabs{border-bottom-color:var(--accent)}
-.rg.focused::after{content:'';position:absolute;inset:0;border:2px solid var(--accent);border-radius:0;pointer-events:none;z-index:5}
 
 .rg-tabs{
   height:28px;min-height:28px;display:flex;align-items:stretch;
