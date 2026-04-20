@@ -757,6 +757,12 @@ func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return nil, nil, fmt.Errorf("ResponseWriter does not implement http.Hijacker")
 }
 
+func (rw *responseWriter) Flush() {
+	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
 // ── API ─────────────────────────────────────────────
 
 func fmtDuration(d time.Duration) string {
@@ -1079,28 +1085,30 @@ func handleWS(w http.ResponseWriter, r *http.Request) {
 	conn.send(opSID, []byte(pane.ID))
 
 	if paneID != "" {
-		// After a server restart the pane is respawned but xterm on the
-		// client still holds DECSET state from the previous session
-		// (mouse tracking, bracketed paste, alt screen, SRM local echo,
-		// hidden cursor, etc). Send a mode reset so those stale modes
-		// don't leak mouse-event codes into stdin or double-echo input.
-		if pane.restored {
-			pane.restored = false
-			reset := []byte("\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l")
-			msg := make([]byte, 1+len(reset))
-			msg[0] = opOutput
-			copy(msg[1:], reset)
-			if err := conn.writeMsg(websocket.BinaryMessage, msg); err != nil {
-				log.Printf("[pane %s] reset send error addr=%s: %v", pane.ID, r.RemoteAddr, err)
-				return
-			}
-		}
+		// 서버 재시작으로 shell 이 재생성된 경우, xterm 에 남은 이전 세션의
+		// DECSET(mouse tracking, bracketed paste, alt screen, SRM, hidden
+		// cursor 등) 가 새 쉘 입력을 오염시킨다.
+		// 또한 snapshot 버퍼에도 이전 세션의 DECSET 바이트가 섞여있을 수 있으므로
+		// snapshot 을 먼저 재생하고 그 뒤에 reset 을 보내야 mouse 모드 등이
+		// 확실히 꺼진다. (이전 구현은 reset → snapshot 이라 snapshot 안의
+		// \x1b[?1000h 같은 바이트가 mouse 를 다시 켜는 버그가 있었다.)
 		if snap := pane.buf.Snapshot(); len(snap) > 0 {
 			msg := make([]byte, 1+len(snap))
 			msg[0] = opOutput
 			copy(msg[1:], snap)
 			if err := conn.writeMsg(websocket.BinaryMessage, msg); err != nil {
 				log.Printf("[pane %s] snapshot send error addr=%s: %v", pane.ID, r.RemoteAddr, err)
+				return
+			}
+		}
+		if pane.restored {
+			pane.restored = false
+			reset := []byte("\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l")
+			msg := make([]byte, 1+len(reset))
+			msg[0] = opOutput
+			copy(msg[1:], reset)
+			if err := conn.writeMsg(websocket.BinaryMessage, msg); err != nil {
+				log.Printf("[pane %s] reset send error addr=%s: %v", pane.ID, r.RemoteAddr, err)
 				return
 			}
 		}
@@ -1336,6 +1344,8 @@ func main() {
 	mux.HandleFunc("/ws", handleWS)
 	mux.HandleFunc("/api/", handleAPI)
 	mux.HandleFunc("/cs/", handleCSProxy)
+	mux.HandleFunc("/mcp/sse", handleMCPSSE)
+	mux.HandleFunc("/mcp/message", handleMCPMessage)
 
 	server := &http.Server{Addr: ":" + port, Handler: loggingMiddleware(mux)}
 	log.Printf("dongminal starting on :%s", port)

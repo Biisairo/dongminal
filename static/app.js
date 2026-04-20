@@ -60,6 +60,7 @@ let shortcuts={...SHORTCUT_DEFAULTS};
 const STATUS_ITEMS={
   connection:{label:'연결 상태',def:true},
   latency:{label:'레이턴시',def:true},
+  location:{label:'현재 위치 (MCP id)',def:true},
   cwd:{label:'현재 디렉토리',def:true},
   memory:{label:'메모리',def:true},
   hostname:{label:'호스트명',def:false},
@@ -585,6 +586,7 @@ class App {
     this.focused=null;
     this._s=0;this._r=0;this._t=0;this._kb=false;
     this._drag=null;
+    this._stats={};this._latency=null;
   }
 
   async init(){
@@ -928,6 +930,7 @@ class App {
     }
     this._rSidebar();this._rTopbar();this._rLayout();
     this._updateCwd();
+    this._updateStatusBar();
   }
 
   _rSidebar(){
@@ -1345,6 +1348,10 @@ class App {
     if(statusBar.latency&&this._latency!==null){
       items.push(`<span class="sb-item">${this._latency}ms</span>`);
     }
+    if(statusBar.location){
+      const loc=this._locationLabel();
+      if(loc)items.push(`<span class="sb-item" title="MCP id: ${loc}">📍 ${loc}</span>`);
+    }
     if(statusBar.cwd){
       const cwd=this._cwd||'~';
       // Show ~/.../last3dirs
@@ -1384,6 +1391,24 @@ class App {
   _fmtBytes(b){
     if(b<1073741824)return(b/1048576).toFixed(1)+'MB';
     return(b/1073741824).toFixed(1)+'GB';
+  }
+  _locationLabel(){
+    const s=this._as();if(!s||!s.layout||!this.focused)return null;
+    const sidx=this.ws.sessions.findIndex(x=>x.id===this.ws.activeSession);
+    if(sidx<0)return null;
+    const regions=[];
+    const walk=n=>{
+      if(!n)return;
+      if(n.type==='region')regions.push(n);
+      else if(n.type==='split')for(const c of(n.children||[]))walk(c);
+    };
+    walk(s.layout);
+    const pidx=regions.findIndex(r=>r.id===this.focused);
+    if(pidx<0)return null;
+    const rg=regions[pidx];
+    const tidx=rg.tabs.findIndex(t=>t.id===rg.activeTab);
+    if(tidx<0)return null;
+    return `S${sidx+1}.P${pidx+1}.T${tidx+1}`;
   }
   _updateCwd(){
     const p=this._focusedPane();if(!p)return;
