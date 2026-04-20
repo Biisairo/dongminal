@@ -596,6 +596,11 @@ class App {
       for(const p of sp){const pane=this._mkPane(p.id,p.name);pane._reconnecting=true;pane.el.style.opacity='0'}
       if(sv&&sv.sessions&&sv.sessions.length){
         this.ws=sv;
+        if(this.ws.sidebarWidth){
+          const w=Math.max(100,Math.min(400,this.ws.sidebarWidth));
+          document.documentElement.style.setProperty('--sb-w',w+'px');
+          try{localStorage.setItem('sidebarWidth',w)}catch{}
+        }
         for(const s of this.ws.sessions){
           if(!s||!s.id) continue;
           const n=parseInt(s.id.replace(/\D/g,''),10); if(n>this._s) this._s=n;
@@ -1063,8 +1068,8 @@ class App {
     const sb=document.getElementById('sidebar'),sbh=document.getElementById('sb-handle');
     sbh.addEventListener('mousedown',e=>{e.preventDefault();
       const sx=e.clientX,sw=sb.offsetWidth;
-      const mv=e=>{const w=sw+(e.clientX-sx);if(w>=100&&w<=400){sb.style.width=w+'px';sb.style.minWidth=w+'px'}};
-      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.panes.values())if(p.el.classList.contains('vis'))p.doFit()};
+      const mv=e=>{const w=sw+(e.clientX-sx);if(w>=100&&w<=400){document.documentElement.style.setProperty('--sb-w',w+'px');this.ws.sidebarWidth=w}};
+      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.panes.values())if(p.el.classList.contains('vis'))p.doFit();try{localStorage.setItem('sidebarWidth',this.ws.sidebarWidth)}catch{}this._save()};
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
     });
     // Global shortcut handler (capture phase → top priority)
@@ -1243,16 +1248,16 @@ class App {
     // UI colors
     const uiDiv=document.getElementById('ce-ui'); uiDiv.innerHTML='';
     for(const [key,label] of Object.entries(UI_LABELS)){
-      uiDiv.appendChild(this._colorInput(key,label,customTheme.ui,'ui'));
+      uiDiv.appendChild(this._colorInput(key,label,customTheme.ui));
     }
     // Terminal colors
     const termDiv=document.getElementById('ce-terminal'); termDiv.innerHTML='';
     for(const [key,label] of Object.entries(TERM_LABELS)){
-      termDiv.appendChild(this._colorInput(key,label,customTheme.terminal,'terminal'));
+      termDiv.appendChild(this._colorInput(key,label,customTheme.terminal));
     }
   }
 
-  _colorInput(key,label,obj,section){
+  _colorInput(key,label,obj){
     const item=document.createElement('div'); item.className='ce-item';
     const lbl=document.createElement('label'); lbl.textContent=label;
     const inp=document.createElement('input'); inp.type='color'; inp.value=obj[key]||'#000000';
@@ -1341,8 +1346,6 @@ class App {
       items.push(`<span class="sb-item">${this._latency}ms</span>`);
     }
     if(statusBar.cwd){
-      const p=this._focusedPane();
-      // Show last 2 dirs
       const cwd=this._cwd||'~';
       // Show ~/.../last3dirs
       let short=cwd.replace(/^\/Users\/[^/]+/,'~');
@@ -1606,4 +1609,4 @@ document.getElementById('custom-toggle').addEventListener('click',()=>{
 });
 
 window.addEventListener('resize',()=>{for(const p of app.panes.values())if(p.el.classList.contains('vis'))p.doFit()});
-window.addEventListener('beforeunload',e=>{if(app.panes.size>0){e.preventDefault();e.returnValue=''}});
+window.addEventListener('beforeunload',e=>{if(app.panes.size>0)e.preventDefault()});
