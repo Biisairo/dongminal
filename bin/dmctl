@@ -1,0 +1,82 @@
+#!/bin/sh
+# dmctl — dongminal 워크스페이스 원격 제어 CLI
+# 실행 중인 브라우저(들)에게 /api/commands 로 명령을 브로드캐스트한다.
+#
+# 사용법:
+#   dmctl new-session
+#   dmctl new-tab
+#   dmctl split-h        # 가로 분할
+#   dmctl split-v        # 세로 분할
+#   dmctl focus 4.1.1    # session.region.tab (1-base, "S4.P1.T1" 도 허용)
+#   dmctl focus 2
+#   dmctl close-tab
+#   dmctl close-session
+#   dmctl session-next / session-prev
+#   dmctl tab-next / tab-prev
+#   dmctl pane-up / pane-down / pane-left / pane-right
+#   dmctl send <action> [json-args]   # raw 전송
+#
+# 환경변수:
+#   DONGMINAL_PORT — 기본 58146 (server 가 자식 프로세스에 주입)
+#   DONGMINAL_HOST — 기본 127.0.0.1
+
+set -e
+
+HOST="${DONGMINAL_HOST:-127.0.0.1}"
+PORT="${DONGMINAL_PORT:-58146}"
+BASE="http://${HOST}:${PORT}"
+
+usage() {
+  sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+  exit "${1:-0}"
+}
+
+post() {
+  # $1: action, $2: JSON args (optional, default "{}")
+  action="$1"
+  args="${2:-{}}"
+  payload=$(printf '{"action":"%s","args":%s}' "$action" "$args")
+  # -sS: 조용하지만 에러는 표시. 실패 시 종료코드 전파.
+  curl -sS -X POST \
+    -H 'Content-Type: application/json' \
+    -d "$payload" \
+    "${BASE}/api/commands"
+  echo
+}
+
+json_escape() {
+  # 따옴표/백슬래시 최소 이스케이프
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+cmd="${1:-}"; shift 2>/dev/null || true
+
+case "$cmd" in
+  new-session)   post newSession ;;
+  new-tab)       post newTab ;;
+  split-h)       post splitH ;;
+  split-v)       post splitV ;;
+  close-tab)     post closeTab ;;
+  close-session) post closeSession ;;
+  session-next)  post sessionNext ;;
+  session-prev)  post sessionPrev ;;
+  tab-next)      post tabNext ;;
+  tab-prev)      post tabPrev ;;
+  pane-up)       post paneUp ;;
+  pane-down)     post paneDown ;;
+  pane-left)     post paneLeft ;;
+  pane-right)    post paneRight ;;
+  focus)
+    loc="${1:-}"
+    [ -z "$loc" ] && { echo "usage: dmctl focus <location>  (예: 4.1.1 또는 S4.P1.T1)" >&2; exit 2; }
+    esc=$(json_escape "$loc")
+    post focus "$(printf '{"location":"%s"}' "$esc")"
+    ;;
+  send)
+    action="${1:-}"; args="${2:-{}}"
+    [ -z "$action" ] && { echo "usage: dmctl send <action> [json-args]" >&2; exit 2; }
+    post "$action" "$args"
+    ;;
+  ""|-h|--help|help) usage 0 ;;
+  *) echo "unknown command: $cmd" >&2; usage 2 ;;
+esac

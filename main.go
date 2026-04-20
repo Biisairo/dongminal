@@ -1346,6 +1346,8 @@ func main() {
 	mux.HandleFunc("/cs/", handleCSProxy)
 	mux.HandleFunc("/mcp/sse", handleMCPSSE)
 	mux.HandleFunc("/mcp/message", handleMCPMessage)
+	mux.HandleFunc("/api/commands/sse", handleCommandSSE)
+	mux.HandleFunc("/api/commands", handleCommandPost)
 
 	server := &http.Server{Addr: ":" + port, Handler: loggingMiddleware(mux)}
 	log.Printf("dongminal starting on :%s", port)

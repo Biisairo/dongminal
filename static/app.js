@@ -622,6 +622,67 @@ class App {
     if(a&&a.layout){const saved=a.focusedRegion;const f=(saved&&findRg(a.layout,saved))?{id:saved}:firstRg(a.layout);if(f)this.focused=f.id}
     this.render();
     this._bind();
+    this._subscribeCommands();
+  }
+
+  // 외부 CLI(dmctl) → 서버 → SSE 브로드캐스트 수신 → executeAction 재사용
+  _subscribeCommands(){
+    let retry=1000;
+    const connect=()=>{
+      try{
+        const es=new EventSource('/api/commands/sse');
+        es.onopen=()=>{retry=1000};
+        es.onmessage=(e)=>{
+          try{
+            const m=JSON.parse(e.data);
+            this._execRemote(m.action, m.args||{});
+          }catch(err){console.error('[cmd] parse',err)}
+        };
+        es.onerror=()=>{
+          try{es.close()}catch{}
+          setTimeout(connect, retry);
+          retry=Math.min(retry*2, 30000);
+        };
+        this._cmdES=es;
+      }catch(e){console.error('[cmd] connect',e); setTimeout(connect, retry)}
+    };
+    connect();
+  }
+
+  _execRemote(action, args){
+    if(action==='focus'){this._focusLocation(args.location); return}
+    this.executeAction(action);
+  }
+
+  // "4.1.1", "S4.P1.T1", "4", "4.2" 등을 지원. 1-base positional (session.region.tab).
+  _focusLocation(loc){
+    if(!loc){console.warn('[cmd] focus: location 누락');return}
+    const m=String(loc).toUpperCase().trim().match(/^S?(\d+)(?:[.\s]+P?(\d+))?(?:[.\s]+T?(\d+))?$/);
+    if(!m){console.warn('[cmd] focus: 형식 오류',loc);return}
+    const si=parseInt(m[1],10)-1;
+    const pi=m[2]?parseInt(m[2],10)-1:0;
+    const ti=m[3]?parseInt(m[3],10)-1:0;
+    const sess=this.ws.sessions[si];
+    if(!sess){console.warn('[cmd] focus: session #'+(si+1)+' 없음');return}
+    const regions=[]; this._collectRegions(sess.layout, regions);
+    const rg=regions[pi];
+    if(!rg){console.warn('[cmd] focus: region #'+(pi+1)+' 없음');return}
+    const tab=rg.tabs[ti];
+    if(!tab){console.warn('[cmd] focus: tab #'+(ti+1)+' 없음');return}
+    if(this.ws.activeSession!==sess.id){
+      const cur=this._as(); if(cur) cur.focusedRegion=this.focused;
+      this.ws.activeSession=sess.id;
+    }
+    rg.activeTab=tab.id;
+    sess.focusedRegion=rg.id;
+    this.focused=rg.id;
+    this._save(); this.render();
+  }
+
+  _collectRegions(n, out){
+    if(!n) return;
+    if(n.type==='region'){out.push(n);return}
+    if(n.children) for(const c of n.children) this._collectRegions(c,out);
   }
 
   _rids(n){
