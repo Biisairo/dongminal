@@ -1,0 +1,79 @@
+#!/bin/sh
+# edit — code-server 런처 (dongminal)
+port="${DONGMINAL_PORT:-8080}"
+base="http://127.0.0.1:${port}/api/code-server"
+
+print_help() {
+  cat <<'HLP'
+사용법:
+  edit <path>              해당 경로로 새 code-server 열기
+  edit -l, --list          열린 code-server 목록 (URL 클릭 → 열기)
+  edit -s, --stop <id|all> 인스턴스 종료 (id 또는 all)
+  edit -h, --help, ?       이 도움말
+HLP
+}
+
+case "${1:-}" in
+  "" | -h | --help | "?" )
+    print_help
+    exit 0
+    ;;
+  -l | --list )
+    resp=$(curl -sf "$base") || { echo "edit: 서버 연결 실패 (port=$port)" >&2; exit 1; }
+    printf '\033]777;CodeServerList;%s\007' "$resp"
+    exit 0
+    ;;
+  -s | --stop )
+    target="${2:-}"
+    if [ -z "$target" ]; then
+      echo "사용법: edit -s <id|all>" >&2
+      exit 1
+    fi
+    if [ "$target" = "all" ]; then
+      ids=$(curl -sf "$base" | grep -oE '"id":"[^"]*"' | sed 's/"id":"\([^"]*\)"/\1/')
+      if [ -z "$ids" ]; then
+        echo "열린 인스턴스 없음"
+        exit 0
+      fi
+      for i in $ids; do
+        curl -sf -X POST "$base/stop?id=$i" >/dev/null && echo "stopped $i"
+      done
+    else
+      curl -sf -X POST "$base/stop?id=$target" >/dev/null \
+        && echo "stopped $target" \
+        || { echo "edit: 실패 ($target)" >&2; exit 1; }
+    fi
+    exit 0
+    ;;
+  -* )
+    echo "edit: 알 수 없는 옵션: $1" >&2
+    print_help >&2
+    exit 1
+    ;;
+esac
+
+target="$1"
+if [ ! -e "$target" ]; then
+  echo "edit: 경로 없음: $target" >&2
+  exit 1
+fi
+if [ -d "$target" ]; then
+  abs=$(cd "$target" && pwd)
+else
+  abs=$(cd "$(dirname "$target")" && printf '%s/%s' "$(pwd)" "$(basename "$target")")
+fi
+enc=$(printf '%s' "$abs" | sed 's/ /%20/g')
+resp=$(curl -sf -X POST "$base?path=${enc}")
+if [ -z "$resp" ]; then
+  echo "edit: 서버에 연결할 수 없음 (port=$port)" >&2
+  exit 1
+fi
+id=$(printf '%s' "$resp" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+cs_path=$(printf '%s' "$resp" | sed -n 's/.*"path":"\([^"]*\)".*/\1/p')
+folder=$(printf '%s' "$resp" | sed -n 's/.*"folder":"\([^"]*\)".*/\1/p')
+if [ -z "$id" ] || [ -z "$cs_path" ]; then
+  echo "edit: 실패 — $resp" >&2
+  exit 1
+fi
+printf '\033]777;OpenCodeServer;%s|%s|%s\007' "$id" "$cs_path" "$folder"
+printf 'VSCode(code-server) 열기: %s (folder=%s)\n' "$cs_path" "$folder"

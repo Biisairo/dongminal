@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"embed"
 	"encoding/binary"
 	"encoding/json"
@@ -12,6 +13,8 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -329,7 +332,223 @@ type PaneManager struct {
 }
 
 var pm = &PaneManager{panes: make(map[string]*Pane)}
+var csm = &CodeServerManager{insts: make(map[string]*CodeServerInst)}
 var serverStart = time.Now()
+
+// ── CodeServer ──────────────────────────────────────
+// 각 edit 호출마다 별도의 code-server 프로세스 실행.
+// 프론트가 hb를 보내지 않으면(=창 닫힘) 일정 시간 뒤 kill.
+
+type CodeServerInst struct {
+	ID        string
+	Sock      string
+	Folder    string
+	Cmd       *exec.Cmd
+	Proxy     *httputil.ReverseProxy
+	CreatedAt time.Time
+	LastPing  time.Time
+	once      sync.Once
+	done      chan struct{}
+}
+
+type CodeServerManager struct {
+	mu    sync.Mutex
+	insts map[string]*CodeServerInst
+	seq   int
+}
+
+func (m *CodeServerManager) start(folder string) (*CodeServerInst, error) {
+	bin, err := exec.LookPath("code-server")
+	if err != nil {
+		return nil, fmt.Errorf("code-server가 설치되어 있지 않습니다: %w", err)
+	}
+	if folder == "" {
+		folder, _ = os.Getwd()
+	}
+	if info, err := os.Stat(folder); err != nil {
+		return nil, fmt.Errorf("경로 없음: %s", folder)
+	} else if !info.IsDir() {
+		folder = filepath.Dir(folder)
+	}
+	m.mu.Lock()
+	m.seq++
+	id := fmt.Sprintf("cs%d", m.seq)
+	m.mu.Unlock()
+
+	sockDir := filepath.Join(os.TempDir(), "dongminal-cs")
+	os.MkdirAll(sockDir, 0700)
+	sock := filepath.Join(sockDir, id+".sock")
+	os.Remove(sock)
+	userDataDir := filepath.Join(sockDir, id+"-data")
+	os.MkdirAll(userDataDir, 0755)
+
+	cmd := exec.Command(bin,
+		"--auth", "none",
+		"--socket", sock,
+		"--socket-mode", "600",
+		"--disable-telemetry",
+		"--disable-update-check",
+		"--user-data-dir", userDataDir,
+		"--extensions-dir", filepath.Join(userDataDir, "ext"),
+		folder,
+	)
+	cmd.Env = os.Environ()
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("code-server 실행 실패: %w", err)
+	}
+
+	// 소켓 파일이 생성되고 accept 가능할 때까지 대기 (최대 15s)
+	deadline := time.Now().Add(15 * time.Second)
+	ready := false
+	for time.Now().Before(deadline) {
+		if c, err := net.DialTimeout("unix", sock, 500*time.Millisecond); err == nil {
+			c.Close()
+			ready = true
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if !ready {
+		cmd.Process.Kill()
+		return nil, fmt.Errorf("code-server가 소켓 %s에서 응답하지 않음", sock)
+	}
+
+	// Unix socket dial하는 커스텀 Transport
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, "unix", sock)
+		},
+	}
+	backend, _ := url.Parse("http://unix")
+	proxy := httputil.NewSingleHostReverseProxy(backend)
+	proxy.Transport = transport
+	prefix := "/cs/" + id
+	origDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		req.URL.Path = strings.TrimPrefix(req.URL.Path, prefix)
+		if req.URL.Path == "" {
+			req.URL.Path = "/"
+		}
+		origDirector(req)
+		// req.Host는 원본 유지 — code-server가 WS 검증 및 base URL 계산에 사용
+		req.Header.Set("X-Forwarded-Proto", "http")
+		req.Header.Set("X-Forwarded-Prefix", prefix)
+		req.Header.Set("X-Forwarded-Host", req.Host)
+	}
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		log.Printf("[cs %s] proxy error %s %s: %v", id, r.Method, r.URL.Path, err)
+		http.Error(w, "code-server unreachable", http.StatusBadGateway)
+	}
+
+	now := time.Now()
+	inst := &CodeServerInst{
+		ID: id, Sock: sock, Folder: folder,
+		Cmd: cmd, Proxy: proxy,
+		CreatedAt: now, LastPing: now,
+		done: make(chan struct{}),
+	}
+	m.mu.Lock()
+	m.insts[id] = inst
+	m.mu.Unlock()
+	log.Printf("[cs %s] started pid=%d sock=%s folder=%s", id, cmd.Process.Pid, sock, folder)
+
+	go func() {
+		cmd.Wait()
+		log.Printf("[cs %s] process exited", id)
+		m.stop(id)
+	}()
+	return inst, nil
+}
+
+func (m *CodeServerManager) list() []map[string]interface{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]map[string]interface{}, 0, len(m.insts))
+	for _, inst := range m.insts {
+		out = append(out, map[string]interface{}{
+			"id":     inst.ID,
+			"folder": inst.Folder,
+			"path":   "/cs/" + inst.ID + "/",
+			"age":    int(time.Since(inst.CreatedAt).Seconds()),
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i]["id"].(string) < out[j]["id"].(string) })
+	return out
+}
+
+func (m *CodeServerManager) get(id string) *CodeServerInst {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.insts[id]
+}
+
+func (m *CodeServerManager) touch(id string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if inst, ok := m.insts[id]; ok {
+		inst.LastPing = time.Now()
+		return true
+	}
+	return false
+}
+
+func (m *CodeServerManager) stop(id string) {
+	m.mu.Lock()
+	inst, ok := m.insts[id]
+	if ok {
+		delete(m.insts, id)
+	}
+	m.mu.Unlock()
+	if !ok {
+		return
+	}
+	inst.once.Do(func() {
+		close(inst.done)
+		if inst.Cmd != nil && inst.Cmd.Process != nil {
+			inst.Cmd.Process.Signal(syscall.SIGTERM)
+			time.Sleep(100 * time.Millisecond)
+			inst.Cmd.Process.Kill()
+		}
+		if inst.Sock != "" {
+			os.Remove(inst.Sock)
+		}
+		log.Printf("[cs %s] stopped", id)
+	})
+}
+
+func (m *CodeServerManager) stopAll() {
+	m.mu.Lock()
+	ids := make([]string, 0, len(m.insts))
+	for id := range m.insts {
+		ids = append(ids, id)
+	}
+	m.mu.Unlock()
+	for _, id := range ids {
+		m.stop(id)
+	}
+}
+
+func (m *CodeServerManager) watchdog() {
+	t := time.NewTicker(5 * time.Second)
+	defer t.Stop()
+	for range t.C {
+		now := time.Now()
+		m.mu.Lock()
+		stale := []string{}
+		for id, inst := range m.insts {
+			if now.Sub(inst.LastPing) > 30*time.Second {
+				stale = append(stale, id)
+			}
+		}
+		m.mu.Unlock()
+		for _, id := range stale {
+			log.Printf("[cs %s] heartbeat timeout, stopping", id)
+			m.stop(id)
+		}
+	}
+}
 
 func dataPath(name string) string {
 	dir := os.Getenv("DATA_DIR")
@@ -743,6 +962,36 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"cwd": cwd})
 
+	case p == "/api/code-server" && r.Method == http.MethodGet:
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(csm.list())
+
+	case p == "/api/code-server" && r.Method == http.MethodPost:
+		folder := r.URL.Query().Get("path")
+		inst, err := csm.start(folder)
+		if err != nil {
+			log.Printf("code-server start error: %v", err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": inst.ID, "path": "/cs/" + inst.ID + "/", "folder": inst.Folder,
+		})
+
+	case p == "/api/code-server/heartbeat" && r.Method == http.MethodPost:
+		id := r.URL.Query().Get("id")
+		if !csm.touch(id) {
+			http.Error(w, "not found", 404)
+			return
+		}
+		w.WriteHeader(200)
+
+	case p == "/api/code-server/stop" && r.Method == http.MethodPost:
+		id := r.URL.Query().Get("id")
+		csm.stop(id)
+		w.WriteHeader(200)
+
 	case p == "/api/ping":
 		w.Write([]byte("ok"))
 
@@ -754,6 +1003,35 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "not found", 404)
 	}
+}
+
+// ── code-server 리버스 프록시 ─────────────────────────
+
+func handleCSProxy(w http.ResponseWriter, r *http.Request) {
+	// /cs/<id>/... → 127.0.0.1:<port>/...
+	rest := strings.TrimPrefix(r.URL.Path, "/cs/")
+	idx := strings.Index(rest, "/")
+	id := rest
+	if idx >= 0 {
+		id = rest[:idx]
+	}
+	if id == "" {
+		http.NotFound(w, r)
+		return
+	}
+	inst := csm.get(id)
+	if inst == nil {
+		http.Error(w, "code-server session not found", http.StatusNotFound)
+		return
+	}
+	// prefix 접근을 활동으로 간주 (새로 고침 등도 포함)
+	csm.touch(id)
+	// trailing slash 보장 — VS Code web은 base URL에 / 필요
+	if r.URL.Path == "/cs/"+id {
+		http.Redirect(w, r, "/cs/"+id+"/", http.StatusMovedPermanently)
+		return
+	}
+	inst.Proxy.ServeHTTP(w, r)
 }
 
 // ── WebSocket ───────────────────────────────────────
@@ -910,6 +1188,88 @@ printf '\033]777;Download;%s\007' "$path"
 `
 	os.WriteFile(filepath.Join(binDir, "download"), []byte(dlScript), 0755)
 
+	editScript := `#!/bin/sh
+# edit — code-server 런처 (dongminal)
+port="${DONGMINAL_PORT:-8080}"
+base="http://127.0.0.1:${port}/api/code-server"
+
+print_help() {
+  cat <<'HLP'
+사용법:
+  edit <path>              해당 경로로 새 code-server 열기
+  edit -l, --list          열린 code-server 목록 (URL 클릭 → 열기)
+  edit -s, --stop <id|all> 인스턴스 종료 (id 또는 all)
+  edit -h, --help, ?       이 도움말
+HLP
+}
+
+case "${1:-}" in
+  "" | -h | --help | "?" )
+    print_help
+    exit 0
+    ;;
+  -l | --list )
+    resp=$(curl -sf "$base") || { echo "edit: 서버 연결 실패 (port=$port)" >&2; exit 1; }
+    printf '\033]777;CodeServerList;%s\007' "$resp"
+    exit 0
+    ;;
+  -s | --stop )
+    target="${2:-}"
+    if [ -z "$target" ]; then
+      echo "사용법: edit -s <id|all>" >&2
+      exit 1
+    fi
+    if [ "$target" = "all" ]; then
+      ids=$(curl -sf "$base" | grep -oE '"id":"[^"]*"' | sed 's/"id":"\([^"]*\)"/\1/')
+      if [ -z "$ids" ]; then
+        echo "열린 인스턴스 없음"
+        exit 0
+      fi
+      for i in $ids; do
+        curl -sf -X POST "$base/stop?id=$i" >/dev/null && echo "stopped $i"
+      done
+    else
+      curl -sf -X POST "$base/stop?id=$target" >/dev/null \
+        && echo "stopped $target" \
+        || { echo "edit: 실패 ($target)" >&2; exit 1; }
+    fi
+    exit 0
+    ;;
+  -* )
+    echo "edit: 알 수 없는 옵션: $1" >&2
+    print_help >&2
+    exit 1
+    ;;
+esac
+
+target="$1"
+if [ ! -e "$target" ]; then
+  echo "edit: 경로 없음: $target" >&2
+  exit 1
+fi
+if [ -d "$target" ]; then
+  abs=$(cd "$target" && pwd)
+else
+  abs=$(cd "$(dirname "$target")" && printf '%s/%s' "$(pwd)" "$(basename "$target")")
+fi
+enc=$(printf '%s' "$abs" | sed 's/ /%20/g')
+resp=$(curl -sf -X POST "$base?path=${enc}")
+if [ -z "$resp" ]; then
+  echo "edit: 서버에 연결할 수 없음 (port=$port)" >&2
+  exit 1
+fi
+id=$(printf '%s' "$resp" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+cs_path=$(printf '%s' "$resp" | sed -n 's/.*"path":"\([^"]*\)".*/\1/p')
+folder=$(printf '%s' "$resp" | sed -n 's/.*"folder":"\([^"]*\)".*/\1/p')
+if [ -z "$id" ] || [ -z "$cs_path" ]; then
+  echo "edit: 실패 — $resp" >&2
+  exit 1
+fi
+printf '\033]777;OpenCodeServer;%s|%s|%s\007' "$id" "$cs_path" "$folder"
+printf 'VSCode(code-server) 열기: %s (folder=%s)\n' "$cs_path" "$folder"
+`
+	os.WriteFile(filepath.Join(binDir, "edit"), []byte(editScript), 0755)
+
 	zdotdir := filepath.Join(binDir, "zdotdir")
 	os.MkdirAll(zdotdir, 0755)
 	zshrc := `export HISTFILE="$HOME/.zsh_history"
@@ -936,6 +1296,7 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+	os.Setenv("DONGMINAL_PORT", port)
 	if dir := os.Getenv("DATA_DIR"); dir != "" {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			log.Fatalf("DATA_DIR 생성 실패: %v", err)
@@ -945,12 +1306,14 @@ func main() {
 	loadWorkspace()
 	loadPanes()
 	initBinDir()
+	go csm.watchdog()
 
 	staticFS, _ := fs.Sub(staticFiles, "static")
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
 	mux.HandleFunc("/ws", handleWS)
 	mux.HandleFunc("/api/", handleAPI)
+	mux.HandleFunc("/cs/", handleCSProxy)
 
 	server := &http.Server{Addr: ":" + port, Handler: loggingMiddleware(mux)}
 	log.Printf("dongminal starting on :%s", port)
@@ -962,6 +1325,7 @@ func main() {
 		log.Printf("signal received: %v — shutting down", sig)
 		savePanes()
 		saveSettings()
+		csm.stopAll()
 		server.Close()
 	}()
 

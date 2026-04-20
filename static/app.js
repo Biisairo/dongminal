@@ -6,6 +6,34 @@
 const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,SID:3};
 const enc=new TextEncoder(), dec=new TextDecoder();
 
+// ═══ code-server 인스턴스 추적 ═══
+// 브라우저 탭 닫히면 /api/code-server/stop 호출 + 하트비트 주기 전송
+const codeServerWatchers=new Map(); // id -> {win, hbTimer, pollTimer}
+const codeServerPending=new Map();  // url -> id (팝업차단 폴백)
+function codeServerTrack(id,win){
+  if(codeServerWatchers.has(id)){
+    const prev=codeServerWatchers.get(id);
+    clearInterval(prev.hbTimer);clearInterval(prev.pollTimer);
+    try{prev.win&&!prev.win.closed&&prev.win.close()}catch{}
+  }
+  const hb=()=>{fetch('/api/code-server/heartbeat?id='+encodeURIComponent(id),{method:'POST'}).catch(()=>{})};
+  hb();
+  const hbTimer=setInterval(hb,10000);
+  const pollTimer=setInterval(()=>{
+    if(!win||win.closed){
+      clearInterval(hbTimer);clearInterval(pollTimer);
+      codeServerWatchers.delete(id);
+      fetch('/api/code-server/stop?id='+encodeURIComponent(id),{method:'POST'}).catch(()=>{});
+    }
+  },1000);
+  codeServerWatchers.set(id,{win,hbTimer,pollTimer});
+}
+window.addEventListener('beforeunload',()=>{
+  for(const [id] of codeServerWatchers){
+    navigator.sendBeacon('/api/code-server/stop?id='+encodeURIComponent(id));
+  }
+});
+
 // ═══ Theme System ═══
 
 const UI_LABELS={bg:'Background',sidebarBg:'Sidebar',border:'Border',accent:'Accent',text:'Text',textMuted:'Muted',textBright:'Bright',textDim:'Dim',danger:'Danger',accentBorder:'Accent Bd'};
@@ -197,7 +225,11 @@ class TermPane {
     this.term=new Terminal(TOPTS);
     this.fit=new FitAddon.FitAddon();
     this.term.loadAddon(this.fit);
-    try{this.term.loadAddon(new WebLinksAddon.WebLinksAddon())}catch(e){}
+    try{this.term.loadAddon(new WebLinksAddon.WebLinksAddon((_e,uri)=>{
+      const w=window.open(uri,'_blank');
+      const pendingId=codeServerPending.get(uri);
+      if(pendingId&&w){codeServerPending.delete(uri);codeServerTrack(pendingId,w)}
+    }))}catch(e){}
     try{this.term.loadAddon(new Unicode11Addon.Unicode11Addon());this.term.unicode.activeVersion='11'}catch(e){}
     try{this.search=new SearchAddon.SearchAddon();this.term.loadAddon(this.search)}catch(e){}
     this.term.open(this.box);
@@ -345,6 +377,8 @@ class TermPane {
         const cmd=m[1],val=m[2];
         if(cmd==='Download') this._downloadFile(val);
         else if(cmd==='Cwd') this._onCwd(val);
+        else if(cmd==='OpenCodeServer') this._openCodeServer(val);
+        else if(cmd==='CodeServerList') this._listCodeServers(val);
       }
       const clean=text.replace(/\x1b\]777;\w+;[^\x07]*\x07/g,'');
       if(this.term) try{this.term.write(clean||'')}catch{}
@@ -361,6 +395,64 @@ class TermPane {
     a.href='/api/download?path='+encodeURIComponent(path);
     a.download='';document.body.appendChild(a);a.click();a.remove();
     this.term.write('\x1b[2m↓ Downloading: '+path+'\x1b[0m\r\n');
+  }
+  _listCodeServers(json){
+    let list=[];
+    try{list=JSON.parse(json)||[]}catch{}
+    const T=this.term;
+    const cols=Math.max(40,(T&&T.cols)||80);
+    const line=ch=>ch.repeat(Math.min(cols-2,60));
+    const fmtAge=s=>{
+      s=s|0;
+      if(s<60)return s+'s';
+      if(s<3600)return Math.floor(s/60)+'m';
+      const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);
+      return m?h+'h'+m+'m':h+'h';
+    };
+    const shortFolder=p=>{
+      if(!p)return'';
+      const max=Math.max(20,cols-20);
+      return p.length<=max?p:'…'+p.slice(-(max-1));
+    };
+    T.write('\r\n');
+    if(!list.length){
+      T.write('  \x1b[2m─── \x1b[0m\x1b[36mcode-server\x1b[0m \x1b[2m──────── (없음) ─\x1b[0m\r\n');
+      T.write('  \x1b[2m   `edit <path>` 로 새 인스턴스 생성\x1b[0m\r\n\r\n');
+      return;
+    }
+    const maxId=Math.max(2,...list.map(x=>x.id.length));
+    const maxAge=Math.max(3,...list.map(x=>fmtAge(x.age||0).length));
+    T.write(`  \x1b[2m─── \x1b[0m\x1b[1;36mcode-server\x1b[0m \x1b[2m── ${list.length}개 활성 ${line('─').slice(12+String(list.length).length)}\x1b[0m\r\n`);
+    for(const it of list){
+      const url=location.origin+it.path+'?folder='+encodeURIComponent(it.folder);
+      codeServerPending.set(url,it.id);
+      const id=it.id.padEnd(maxId,' ');
+      const age=fmtAge(it.age||0).padStart(maxAge,' ');
+      T.write('\r\n');
+      T.write(`  \x1b[32m●\x1b[0m \x1b[1;33m${id}\x1b[0m  \x1b[2m${age}\x1b[0m  \x1b[37m${shortFolder(it.folder)}\x1b[0m\r\n`);
+      T.write(`    ${' '.repeat(maxId)}\x1b[2m↳\x1b[0m  \x1b[4;38;5;75m${url}\x1b[0m\r\n`);
+    }
+    T.write(`  \x1b[2m${line('─')}\x1b[0m\r\n`);
+    T.write(`  \x1b[2m URL 클릭 → 해당 인스턴스 열기   ·   edit stop <id|all> 로 종료\x1b[0m\r\n\r\n`);
+  }
+  _openCodeServer(val){
+    // val = "id|path|folder"
+    const parts=val.split('|');
+    if(parts.length<2)return;
+    const id=parts[0], csPath=parts[1], folder=parts.slice(2).join('|');
+    const url=location.origin+csPath+'?folder='+encodeURIComponent(folder);
+    const open=()=>{
+      const w=window.open(url,'_blank');
+      if(w){codeServerTrack(id,w);return true}
+      return false;
+    };
+    if(!open()){
+      // popup blocker — 터미널에 클릭 가능한 링크 표시 (사용자 제스처로 재시도)
+      this.term.write('\x1b[33m[edit] 팝업이 차단됨 — 아래 URL 클릭: '+url+'\x1b[0m\r\n');
+      codeServerPending.set(url,id);
+    } else {
+      this.term.write('\x1b[36m[edit] VSCode 열림: '+url+'\x1b[0m\r\n');
+    }
   }
   _uploadFiles(files){
     if(!files||!files.length)return;

@@ -88,18 +88,16 @@
   - [x] 창/세션 닫을때 경고 창에서 enter/esc 로 동의/취소
   - [x] 설정창 연 뒤 esc 로 설정창 닫기
 
-### 15. code-server 연동 (원격 에디터)
+### 15. code-server 연동 (원격 에디터) ✅
   - 동기: 로컬에서 VSCode + 터미널 두 창을 원격에서도 동일하게 사용하기 위함
-  - 터미널에서 `edit <경로>` 명령어 입력 시 해당 경로로 code-server가 실행되고 접속 URL 반환
-  - [ ] **서버 (Go)** — `/api/code-server?path=<path>` 엔드포인트 추가
-    - code-server 설치 여부 확인
-    - 이미 실행 중인 경우 재사용, 없으면 새로 실행 (포트 자동 할당)
-    - `--auth none` 또는 설정 가능한 인증 옵션
-    - 실행된 code-server URL 반환
-  - [ ] **터미널 (shell)** — `edit` bash/zsh function 자동 등록
-    - `edit <path>` 입력 시 `/api/code-server?path=<path>` 호출
-    - 반환된 URL을 터미널에 출력 (WebLinksAddon으로 클릭 가능)
-  - [ ] **프로세스 관리** — code-server 인스턴스 목록 관리, 세션 종료 시 정리
+  - [x] **서버 (Go)** — `/api/code-server` POST/heartbeat/stop 엔드포인트
+    - `exec.LookPath("code-server")`로 설치 확인
+    - `net.Listen(":0")` 자동 포트 할당, `--bind-addr 0.0.0.0:PORT --auth none`
+    - 입력 경로로 code-server 실행 (`<folder>` 인자)
+    - watchdog: 하트비트 30s 타임아웃 시 프로세스 kill
+    - SIGINT/SIGTERM 시 전체 인스턴스 정리
+  - [x] **bin/edit** — `edit <path>` 호출 시 `/api/code-server` 요청 후 OSC `OpenCodeServer;id|port|folder` 발신
+  - [x] **프론트엔드** — OSC 수신 시 `window.open`으로 새 창, 10s 주기 하트비트 + 1s 주기 `win.closed` 폴링 → 창 닫히면 `/stop` 호출. 팝업 차단 시 터미널의 URL 링크 클릭으로 폴백 및 창 추적.
 
 ### 16. focus 시 highlight line 이 terminal 을 가리지 않도록 ui 수정
 
