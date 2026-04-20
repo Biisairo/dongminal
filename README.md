@@ -68,7 +68,6 @@ Browser (xterm.js) ← Binary WebSocket → Go Server (PTY) → Shell
 | CPU | 서버 CPU 사용률 | ❌ |
 | 호스트명 | 서버 이름 | ❌ |
 | 디스크 | 루트 볼륨 사용률 | ❌ |
-| 세션/Pane/탭 | S1 P2 T3 형식 | ❌ |
 | 터미널 크기 | cols × rows | ❌ |
 | 업타임 | 시스템 + 서버 프로그램 | ❌ |
 

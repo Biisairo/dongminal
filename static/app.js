@@ -65,7 +65,6 @@ const STATUS_ITEMS={
   hostname:{label:'호스트명',def:false},
   cpu:{label:'CPU',def:false},
   disk:{label:'디스크',def:false},
-  session:{label:'세션/탭',def:false},
   termsize:{label:'터미널 크기',def:false},
   uptime:{label:'업타임',def:false},
 };
@@ -1364,19 +1363,6 @@ class App {
     }
     if(statusBar.disk&&this._stats.diskPct){
       items.push(`<span class="sb-item">DISK ${this._stats.diskPct}%</span>`);
-    }
-    if(statusBar.session&&this.ws){
-      const s=this._as();
-      if(s){
-        const si=this.ws.sessions.indexOf(s)+1;
-        const rg=findRg(s.layout,this.focused);
-        const ti=rg?rg.tabs.findIndex(t=>t.id===rg.activeTab)+1:0;
-        // Count panes (regions) in current session
-        let pc=0;
-        const countRg=n=>{if(!n)return;if(n.type==='region')pc++;else if(n.children)n.children.forEach(countRg)};
-        countRg(s.layout);
-        items.push(`<span class="sb-item">S${si} P${pc} T${ti}</span>`);
-      }
     }
     if(statusBar.termsize){
       const p=this._focusedPane();
