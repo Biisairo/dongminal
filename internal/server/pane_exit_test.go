@@ -1,23 +1,20 @@
-package main
+package server
 
 import (
 	"testing"
 	"time"
 )
 
-// startPane에 주입한 onExit 콜백이 셸 종료 시 호출되고,
-// Wait() 채널이 닫히는지 검증한다.
 func TestPaneOnExitAndWait(t *testing.T) {
 	called := make(chan string, 1)
-	p, err := startPane("t1", "test", "", 80, 24, func(id string) {
+	p, err := StartPane("t1", "test", "", 80, 24, func(id string) {
 		called <- id
 	})
 	if err != nil {
-		t.Fatalf("startPane: %v", err)
+		t.Fatalf("StartPane: %v", err)
 	}
 
-	// 셸에 exit 명령을 주입한다.
-	if _, err := p.ptmx.Write([]byte("exit\n")); err != nil {
+	if _, err := p.PTMX().Write([]byte("exit\n")); err != nil {
 		t.Fatalf("write exit: %v", err)
 	}
 

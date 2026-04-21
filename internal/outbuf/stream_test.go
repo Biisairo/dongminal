@@ -48,6 +48,23 @@ func TestMultipleFeeds(t *testing.T) {
 	}
 }
 
+func TestNoPhantomDrops(t *testing.T) {
+	// max=100, Feed(50) × 5 = 250바이트.
+	// 과거 else-if 분기에선 3·4회째에 중복 누적되어 수백 바이트로 부풀었음.
+	// 수정 후엔 5회째(250 > 2*100) compaction 1회분인 150바이트만 카운트되어야 한다.
+	s := NewStream(context.Background(), 100)
+	for i := 0; i < 5; i++ {
+		s.Feed(bytes.Repeat([]byte("x"), 50))
+	}
+	_, stats := s.Snapshot()
+	if stats.TotalBytesDrop != 150 {
+		t.Errorf("TotalBytesDrop=%d, want 150 (compaction 1회분)", stats.TotalBytesDrop)
+	}
+	if stats.TotalBytesIn != 250 {
+		t.Errorf("TotalBytesIn=%d, want 250", stats.TotalBytesIn)
+	}
+}
+
 func TestSnapshotIsolation(t *testing.T) {
 	s := NewStream(context.Background(), 100)
 	s.Feed([]byte("hello"))

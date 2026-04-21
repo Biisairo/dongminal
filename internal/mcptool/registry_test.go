@@ -74,6 +74,72 @@ func TestInvalidArgs(t *testing.T) {
 	}
 }
 
+// ── generic Register[A] / Textf ──────────────────────
+
+func TestRegisterGeneric(t *testing.T) {
+	r := mcptool.NewRegistry()
+	type args struct {
+		N    int    `json:"n"`
+		Note string `json:"note"`
+	}
+	spec := map[string]any{"name": "pickN", "inputSchema": map[string]any{"type": "object"}}
+	mcptool.Register(r, "pickN", spec, func(_ context.Context, a args) (mcptool.Result, error) {
+		return mcptool.Textf("n=%d note=%s", a.N, a.Note), nil
+	})
+	res, err := r.Dispatch(context.Background(), "pickN", json.RawMessage(`{"n":42,"note":"hi"}`))
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	content := res["content"].([]map[string]any)
+	if content[0]["text"] != "n=42 note=hi" {
+		t.Fatalf("unexpected text: %q", content[0]["text"])
+	}
+	// Spec passthrough for tools/list.
+	list := r.List()
+	if len(list) != 1 || list[0]["name"] != "pickN" {
+		t.Fatalf("unexpected List(): %#v", list)
+	}
+}
+
+func TestGenericInvalidJSON(t *testing.T) {
+	r := mcptool.NewRegistry()
+	type args struct {
+		N int `json:"n"`
+	}
+	mcptool.Register(r, "pickN", nil, func(_ context.Context, a args) (mcptool.Result, error) {
+		return mcptool.TextResult("ok"), nil
+	})
+	res, err := r.Dispatch(context.Background(), "pickN", json.RawMessage(`{"n":"not-an-int"}`))
+	if err != nil {
+		t.Fatalf("expected nil error (ErrorResult path), got %v", err)
+	}
+	if res["isError"] != true {
+		t.Fatalf("expected isError=true, got %#v", res)
+	}
+	content := res["content"].([]map[string]any)
+	text, _ := content[0]["text"].(string)
+	if !strings.HasPrefix(text, "잘못된 인자: ") {
+		t.Fatalf("expected 잘못된 인자 prefix, got %q", text)
+	}
+}
+
+func TestTextf(t *testing.T) {
+	res := mcptool.Textf("x=%d y=%s", 7, "q")
+	content, ok := res["content"].([]map[string]any)
+	if !ok || len(content) != 1 {
+		t.Fatalf("unexpected envelope: %#v", res)
+	}
+	if content[0]["type"] != "text" {
+		t.Fatalf("expected type=text, got %v", content[0]["type"])
+	}
+	if content[0]["text"] != "x=7 y=q" {
+		t.Fatalf("unexpected text: %v", content[0]["text"])
+	}
+	if _, isErr := res["isError"]; isErr {
+		t.Fatalf("Textf must not set isError")
+	}
+}
+
 // ── PaneReader / WorkspaceReader fakes ───────────────
 
 type fakePM struct {
@@ -161,6 +227,33 @@ func TestListPanesTool(t *testing.T) {
 	}
 	if !strings.Contains(text, "workspace 미등록") || !strings.Contains(text, "paneId=p2") {
 		t.Errorf("expected orphan p2, got %q", text)
+	}
+}
+
+func TestListPanesFiltersDeadEntries(t *testing.T) {
+	pm := &fakePM{
+		panes: []mcptool.PaneInfo{
+			{ID: "p1", Name: "a", ShellPID: 111},
+			{ID: "p2", Name: "b", ShellPID: 222},
+		},
+		sizeMap: map[string]string{"p1": "80x24", "p2": "80x24"},
+	}
+	ws := &fakeWS{entries: []mcptool.WorkspaceEntry{
+		{PaneID: "p1", Label: "S1.P1.T1", SessionName: "main", TabName: "zsh"},
+		{PaneID: "p2", Label: "S1.P1.T2", SessionName: "main", TabName: "zsh"},
+		{PaneID: "p3", Label: "S1.P1.T3", SessionName: "main", TabName: "zsh"},
+	}}
+	res, err := tools.ListPanes{PM: pm, WS: ws}.Call(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	content := res["content"].([]map[string]any)
+	text := content[0]["text"].(string)
+	if !strings.Contains(text, "paneId=p1") || !strings.Contains(text, "paneId=p2") {
+		t.Errorf("expected live panes p1/p2 in output, got %q", text)
+	}
+	if strings.Contains(text, "S1.P1.T3") || strings.Contains(text, "paneId=p3") {
+		t.Errorf("dead entry p3 should be filtered out, got %q", text)
 	}
 }
 

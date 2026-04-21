@@ -478,7 +478,7 @@ class TermPane {
     fetch('/api/cwd?pane='+this.id).then(r=>r.json()).then(({cwd})=>{
       let i=0;
       const uploadNext=()=>{
-        if(i>=files.length)return;
+        if(i>=files.length){this._send(new Uint8Array([OP.INPUT,0x0d]));return;}
         const f=files[i++];
         const fd=new FormData();fd.append('file',f);
         this.term.write('\x1b[2m↑ Uploading: '+f.name+'\x1b[0m\r\n');
@@ -585,6 +585,7 @@ class App {
   constructor(){
     this.panes=new Map();
     this.ws={sessions:[],activeSession:null};
+    this.wsETag=null;
     this.focused=null;
     this._s=0;this._r=0;this._t=0;this._kb=false;
     this._drag=null;
@@ -593,7 +594,9 @@ class App {
 
   async init(){
     try{
-      const st=await(await fetch('/api/state')).json();
+      const stRes=await fetch('/api/state');
+      this.wsETag=stRes.headers.get('ETag')||stRes.headers.get('Etag')||null;
+      const st=await stRes.json();
       const sp=st.panes||[];
       const sv=st.workspace;
       const ok=new Set(sp.map(p=>p.id));
@@ -875,13 +878,14 @@ class App {
     rg.tabs=rg.tabs.filter(t=>t.id!==tid);
     const isActive = s.id === this.ws.activeSession;
     if(!rg.tabs.length){
+      const prevClosestId=closestRg(s.layout,rid)?.id||null;
       s.layout=doRemove(s.layout,rid);
       if(!s.layout){await this.delSession(s.id);return}
       if(isActive){
-        const fallback=this.focused===rid?closestRg(s.layout,rid)?.id:this.focused;
+        const fallback=this.focused===rid?prevClosestId:this.focused;
         this.focused=fallback&&findRg(s.layout,fallback)?fallback:firstRg(s.layout)?.id||null;
       } else if(s.focusedRegion===rid){
-        s.focusedRegion=firstRg(s.layout)?.id||null;
+        s.focusedRegion=prevClosestId&&findRg(s.layout,prevClosestId)?prevClosestId:firstRg(s.layout)?.id||null;
       }
     } else {
       if(rg.activeTab===tid) rg.activeTab=rg.tabs[0].id;
@@ -1048,7 +1052,23 @@ class App {
   }
 
   async _save(){
-    try{await fetch('/api/workspace',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(this.ws)})}catch{}
+    try{
+      const headers={'Content-Type':'application/json'};
+      if(this.wsETag) headers['If-Match']=this.wsETag;
+      const res=await fetch('/api/workspace',{method:'PUT',headers,body:JSON.stringify(this.ws)});
+      if(res.status===409){
+        console.warn('[workspace] stale revision; reloading');
+        try{
+          const gr=await fetch('/api/workspace');
+          if(gr.ok) this.wsETag=gr.headers.get('ETag')||gr.headers.get('Etag')||null;
+        }catch{}
+        return;
+      }
+      if(res.ok){
+        const et=res.headers.get('ETag')||res.headers.get('Etag');
+        if(et) this.wsETag=et;
+      }
+    }catch{}
   }
 
   _rename(obj, el){

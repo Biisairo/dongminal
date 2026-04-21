@@ -66,6 +66,11 @@ func TextResult(text string) Result {
 	}
 }
 
+// Textf is a shortcut for TextResult(fmt.Sprintf(format, a...)).
+func Textf(format string, a ...any) Result {
+	return TextResult(fmt.Sprintf(format, a...))
+}
+
 // ErrorResult builds an isError response with formatted message.
 func ErrorResult(format string, a ...any) Result {
 	return Result{
@@ -74,6 +79,34 @@ func ErrorResult(format string, a ...any) Result {
 			{"type": "text", "text": fmt.Sprintf(format, a...)},
 		},
 	}
+}
+
+// ── generic tool registration ────────────────────────
+
+type genericTool[A any] struct {
+	name string
+	spec map[string]any
+	fn   func(ctx context.Context, a A) (Result, error)
+}
+
+func (g genericTool[A]) Name() string         { return g.name }
+func (g genericTool[A]) Spec() map[string]any { return g.spec }
+
+func (g genericTool[A]) Call(ctx context.Context, raw json.RawMessage) (Result, error) {
+	var a A
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &a); err != nil {
+			return ErrorResult("잘못된 인자: %v", err), nil
+		}
+	}
+	return g.fn(ctx, a)
+}
+
+// Register is a generic ergonomics helper: it wraps fn in a genericTool[A] that
+// auto-unmarshals args into A before invocation. spec is the tools/list schema
+// payload (kept external so the Tool interface stays unchanged).
+func Register[A any](r *Registry, name string, spec map[string]any, fn func(ctx context.Context, a A) (Result, error)) {
+	r.tools[name] = genericTool[A]{name: name, spec: spec, fn: fn}
 }
 
 // ── request-scoped context ───────────────────────────

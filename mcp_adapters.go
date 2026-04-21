@@ -5,45 +5,42 @@ import (
 	"time"
 
 	"dongminal/internal/mcptool"
+	"dongminal/internal/server"
+	"dongminal/internal/workspace"
 
 	"github.com/creack/pty"
 )
 
 // ── PaneReader adapter ───────────────────────────────
 
-type paneAdapter struct{ pm *PaneManager }
+type paneAdapter struct{ pm *server.PaneManager }
 
 func (a paneAdapter) List() []mcptool.PaneInfo {
-	a.pm.mu.Lock()
-	defer a.pm.mu.Unlock()
-	out := make([]mcptool.PaneInfo, 0, len(a.pm.panes))
-	for _, p := range a.pm.panes {
-		pid := 0
-		if p.cmd != nil && p.cmd.Process != nil {
-			pid = p.cmd.Process.Pid
-		}
-		out = append(out, mcptool.PaneInfo{ID: p.ID, Name: p.Name, ShellPID: pid})
+	panes := a.pm.Snapshot()
+	out := make([]mcptool.PaneInfo, 0, len(panes))
+	for _, p := range panes {
+		out = append(out, mcptool.PaneInfo{ID: p.ID, Name: p.Name, ShellPID: p.CmdProcessPID()})
 	}
 	return out
 }
 
-func (a paneAdapter) Has(id string) bool { return a.pm.get(id) != nil }
+func (a paneAdapter) Has(id string) bool { return a.pm.Get(id) != nil }
 
 func (a paneAdapter) Snapshot(id string) ([]byte, int64, bool) {
-	p := a.pm.get(id)
-	if p == nil || p.stream == nil {
+	p := a.pm.Get(id)
+	if p == nil || p.Stream() == nil {
 		return nil, 0, false
 	}
-	data, stats := p.stream.Snapshot()
+	data, stats := p.Stream().Snapshot()
 	return data, stats.TotalBytesDrop, true
 }
 
 func (a paneAdapter) Size(id string) string {
-	p := a.pm.get(id)
-	if p == nil || p.ptmx == nil {
+	p := a.pm.Get(id)
+	if p == nil || p.PTMX() == nil {
 		return "?"
 	}
-	rows, cols, err := pty.Getsize(p.ptmx)
+	rows, cols, err := pty.Getsize(p.PTMX())
 	if err != nil {
 		return "?"
 	}
@@ -51,20 +48,20 @@ func (a paneAdapter) Size(id string) string {
 }
 
 func (a paneAdapter) SendPaste(id string, text []byte, submit bool) error {
-	p := a.pm.get(id)
-	if p == nil || p.ptmx == nil {
+	p := a.pm.Get(id)
+	if p == nil || p.PTMX() == nil {
 		return fmt.Errorf("pane 없음: %s", id)
 	}
 	var paste []byte
 	paste = append(paste, 0x1b, '[', '2', '0', '0', '~')
 	paste = append(paste, text...)
 	paste = append(paste, 0x1b, '[', '2', '0', '1', '~')
-	if _, err := p.ptmx.Write(paste); err != nil {
+	if _, err := p.PTMX().Write(paste); err != nil {
 		return fmt.Errorf("ptmx write (paste): %w", err)
 	}
 	if submit {
 		time.Sleep(120 * time.Millisecond)
-		if _, err := p.ptmx.Write([]byte{'\r'}); err != nil {
+		if _, err := p.PTMX().Write([]byte{'\r'}); err != nil {
 			return fmt.Errorf("ptmx write (submit): %w", err)
 		}
 	}
@@ -73,14 +70,14 @@ func (a paneAdapter) SendPaste(id string, text []byte, submit bool) error {
 
 // ── WorkspaceReader adapter ──────────────────────────
 
-type workspaceAdapter struct{}
+type workspaceAdapter struct{ ws *workspace.Manager }
 
-func (workspaceAdapter) Resolve(id string) (string, error) { return wsMgr.Resolve(id) }
+func (a workspaceAdapter) Resolve(id string) (string, error) { return a.ws.Resolve(id) }
 
-func (workspaceAdapter) Labels() map[string]string { return wsMgr.Labels() }
+func (a workspaceAdapter) Labels() map[string]string { return a.ws.Labels() }
 
-func (workspaceAdapter) Entries() []mcptool.WorkspaceEntry {
-	src := wsMgr.Entries()
+func (a workspaceAdapter) Entries() []mcptool.WorkspaceEntry {
+	src := a.ws.Entries()
 	out := make([]mcptool.WorkspaceEntry, len(src))
 	for i, e := range src {
 		out[i] = mcptool.WorkspaceEntry{
@@ -96,14 +93,14 @@ func (workspaceAdapter) Entries() []mcptool.WorkspaceEntry {
 
 // ── CommandBroadcaster adapter ───────────────────────
 
-type cmdBroadcaster struct{}
+type cmdBroadcaster struct{ hub *server.CommandHub }
 
-func (cmdBroadcaster) AllowedAction(a string) bool { return allowedCmdActions[a] }
-func (cmdBroadcaster) Broadcast(p []byte) int      { return broadcastCmd(p) }
+func (c cmdBroadcaster) AllowedAction(a string) bool { return c.hub.AllowedAction(a) }
+func (c cmdBroadcaster) Broadcast(p []byte) int      { return c.hub.Broadcast(p) }
 
 // ── ClientPaneResolver adapter ───────────────────────
 
-type clientResolver struct{ pm *PaneManager }
+type clientResolver struct{ pm *server.PaneManager }
 
 func (r clientResolver) ResolveClientPane(remoteAddr string) (string, int, error) {
 	clientPID, err := getClientPID(remoteAddr)

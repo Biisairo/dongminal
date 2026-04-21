@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -25,18 +26,9 @@ func TestNewServerInTempDir(t *testing.T) {
 }
 
 func TestHandlerBasics(t *testing.T) {
-	// handleAPI 를 흉내내는 가짜 핸들러 — /api/panes GET 은 빈 배열을 돌려준다.
-	fakeAPI := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/panes" && r.Method == http.MethodGet {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte("[]"))
-			return
-		}
-		http.NotFound(w, r)
-	})
-	srv, err := New(Config{DataDir: t.TempDir()}, Deps{
-		Handlers: Handlers{API: fakeAPI},
-	})
+	// handleAPI 의 /api/panes GET 은 현재 route 테이블에서 404(내부 switch default)로
+	// 떨어진다. 대신 /api/ping 을 사용해 mux + loggingMiddleware 체인이 살아있는지 검증.
+	srv, err := New(Config{DataDir: t.TempDir()}, Deps{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -44,36 +36,31 @@ func TestHandlerBasics(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, err := http.Get(ts.URL + "/api/panes")
+	resp, err := http.Get(ts.URL + "/api/ping")
 	if err != nil {
-		t.Fatalf("GET /api/panes: %v", err)
+		t.Fatalf("GET /api/ping: %v", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d", resp.StatusCode)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	if string(body) != "[]" {
-		t.Fatalf("body=%q; want []", body)
+	if string(body) != "ok" {
+		t.Fatalf("body=%q; want ok", body)
 	}
 }
 
 func TestTwoServersInSameProcess(t *testing.T) {
-	mk := func(marker string) *Server {
-		api := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, _ = w.Write([]byte(marker))
-		})
-		s, err := New(Config{DataDir: t.TempDir()}, Deps{
-			Handlers: Handlers{API: api},
-		})
+	mk := func() *Server {
+		s, err := New(Config{DataDir: t.TempDir()}, Deps{})
 		if err != nil {
-			t.Fatalf("New(%s): %v", marker, err)
+			t.Fatalf("New: %v", err)
 		}
 		return s
 	}
 
-	s1 := mk("first")
-	s2 := mk("second")
+	s1 := mk()
+	s2 := mk()
 
 	ts1 := httptest.NewServer(s1.Handler())
 	defer ts1.Close()
@@ -86,21 +73,46 @@ func TestTwoServersInSameProcess(t *testing.T) {
 	if s1.MCP == s2.MCP {
 		t.Fatal("two servers must own distinct MCP registries")
 	}
-
-	for _, tc := range []struct {
-		url, want string
-	}{
-		{ts1.URL + "/api/anything", "first"},
-		{ts2.URL + "/api/anything", "second"},
-	} {
-		resp, err := http.Get(tc.url)
-		if err != nil {
-			t.Fatalf("GET %s: %v", tc.url, err)
-		}
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if string(body) != tc.want {
-			t.Fatalf("GET %s body=%q; want %q", tc.url, body, tc.want)
-		}
+	if s1.Commands == s2.Commands {
+		t.Fatal("two servers must own distinct command hubs")
 	}
+}
+
+// TestCreatePaneViaServer: POST /api/panes 가 실제 PaneManager 경유로 pane 을
+// 생성하고 id/name 을 JSON 으로 돌려주는지 검증한다. Fake DataDir 에 저장되는
+// panes.json 쓰기가 go-routine 으로 돌아가지만 테스트 종료에 의해 정리된다.
+func TestCreatePaneViaServer(t *testing.T) {
+	dir := t.TempDir()
+	pm := NewPaneManager(dir, nil)
+	srv, err := New(Config{DataDir: dir}, Deps{Panes: pm})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, err := http.Post(ts.URL+"/api/panes?cols=80&rows=24", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST /api/panes: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status=%d body=%s", resp.StatusCode, body)
+	}
+	var out struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if out.ID == "" || out.Name == "" {
+		t.Fatalf("missing id/name: %+v", out)
+	}
+	if pm.Get(out.ID) == nil {
+		t.Fatalf("pane %s not registered in manager", out.ID)
+	}
+	// Cleanup: kill the shell so the PTY goroutines wind down.
+	pm.Delete(out.ID)
 }

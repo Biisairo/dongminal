@@ -28,7 +28,7 @@ func (ListPanes) Spec() map[string]any {
 }
 
 func (t ListPanes) Call(_ context.Context, _ json.RawMessage) (mcptool.Result, error) {
-	entries := t.WS.Entries()
+	rawEntries := t.WS.Entries()
 	panes := t.PM.List()
 
 	shellPids := make(map[string]int, len(panes))
@@ -36,9 +36,14 @@ func (t ListPanes) Call(_ context.Context, _ json.RawMessage) (mcptool.Result, e
 		shellPids[p.ID] = p.ShellPID
 	}
 
-	seen := make(map[string]bool, len(entries))
-	for _, e := range entries {
+	entries := make([]mcptool.WorkspaceEntry, 0, len(rawEntries))
+	seen := make(map[string]bool, len(rawEntries))
+	for _, e := range rawEntries {
 		seen[e.PaneID] = true
+		if !t.PM.Has(e.PaneID) {
+			continue
+		}
+		entries = append(entries, e)
 	}
 
 	var orphans []mcptool.PaneInfo

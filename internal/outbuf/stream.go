@@ -32,7 +32,9 @@ func NewStream(parent context.Context, max int) *Stream {
 }
 
 // Feed는 readPTY에서 호출된다. 절대 블로킹하지 않으며,
-// 드롭된 바이트 수를 반환한다(없으면 0).
+// 실제 compaction 으로 소실된 바이트 수를 반환한다(없으면 0).
+// totalDrop 은 실제 compaction 으로 소실된 누적 바이트이며, max~2*max 구간의
+// tail-over 바이트는 Snapshot 시점에 잘려 나올 뿐 손실은 아니므로 카운트하지 않는다.
 func (s *Stream) Feed(p []byte) (dropped int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -42,11 +44,6 @@ func (s *Stream) Feed(p []byte) (dropped int) {
 		s.buf = append(s.buf[:0], s.buf[over:]...)
 		dropped = over
 		s.totalDrop.Add(int64(over))
-	} else if len(s.buf) > s.max {
-		dropped = len(s.buf) - s.max
-		s.totalDrop.Add(int64(dropped))
-		// 물리적 compaction은 2*max 초과 시에만. 빠른 경로는 논리적 truncation만 기록.
-		// 실제 바이트 제거는 Snapshot 시점에 지연 처리됨.
 	}
 	return
 }
