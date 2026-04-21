@@ -5,9 +5,9 @@
 # 사용법:
 #   dmctl new-session
 #   dmctl new-tab
-#   dmctl split-h        # 가로 분할
-#   dmctl split-v        # 세로 분할
-#   dmctl focus 4.1.1    # session.region.tab (1-base, "S4.P1.T1" 도 허용)
+#   dmctl split-h [N]      # 가로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
+#   dmctl split-v [N]      # 세로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
+#   dmctl focus 4.1.1      # session.region.tab (1-base, "S4.P1.T1" 도 허용)
 #   dmctl focus 2
 #   dmctl close-tab
 #   dmctl close-session
@@ -15,6 +15,15 @@
 #   dmctl tab-next / tab-prev
 #   dmctl pane-up / pane-down / pane-left / pane-right
 #   dmctl send <action> [json-args]   # raw 전송
+#
+# 공통 플래그:
+#   --at <loc>, -l <loc>   특정 위치를 대상으로 실행 (기본: 현재 포커스).
+#                          형식은 focus 와 동일 ("4.1.1" 또는 "S4.P1.T1").
+#   --no-focus, -n         명령 실행 전후로 사용자 포커스를 절대 이동시키지
+#                          않는다. split-h/split-v 의 경우 분할 후에도 포커스가
+#                          새 영역으로 튀지 않으며, --at 와 함께 쓰면 대상으로
+#                          포커스가 잠깐 갔다 돌아오는 일도 없다.
+#                          close-tab 등 다른 명령에도 동일하게 적용된다.
 #
 # 환경변수:
 #   DONGMINAL_PORT — 기본 58146 (server 가 자식 프로세스에 주입)
@@ -27,16 +36,16 @@ PORT="${DONGMINAL_PORT:-58146}"
 BASE="http://${HOST}:${PORT}"
 
 usage() {
-  sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
   exit "${1:-0}"
 }
 
 post() {
   # $1: action, $2: JSON args (optional, default "{}")
   action="$1"
-  args="${2:-{}}"
+  args="$2"
+  [ -z "$args" ] && args='{}'
   payload=$(printf '{"action":"%s","args":%s}' "$action" "$args")
-  # -sS: 조용하지만 에러는 표시. 실패 시 종료코드 전파.
   curl -sS -X POST \
     -H 'Content-Type: application/json' \
     -d "$payload" \
@@ -45,38 +54,87 @@ post() {
 }
 
 json_escape() {
-  # 따옴표/백슬래시 최소 이스케이프
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
 cmd="${1:-}"; shift 2>/dev/null || true
 
+# send 는 raw 명령이므로 플래그 파싱 없이 바로 처리
+if [ "$cmd" = "send" ]; then
+  action="${1:-}"; args="${2:-{}}"
+  [ -z "$action" ] && { echo "usage: dmctl send <action> [json-args]" >&2; exit 2; }
+  post "$action" "$args"
+  exit 0
+fi
+
+location=""
+count=""
+keep_focus=""
+positional=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --at)        shift; location="${1:-}" ;;
+    --at=*)      location="${1#*=}" ;;
+    -l)          shift; location="${1:-}" ;;
+    -l=*)        location="${1#*=}" ;;
+    --no-focus|-n) keep_focus=1 ;;
+    -h|--help)   usage 0 ;;
+    --)          shift; while [ $# -gt 0 ]; do positional="$positional $1"; shift; done; break ;;
+    -*)          echo "unknown flag: $1" >&2; exit 2 ;;
+    *)           positional="$positional $1" ;;
+  esac
+  shift
+done
+
+positional="${positional# }"
+
+build_args() {
+  sep=""; body=""
+  if [ -n "$location" ]; then
+    esc=$(json_escape "$location")
+    body="${body}${sep}\"location\":\"${esc}\""; sep=","
+  fi
+  if [ -n "$count" ]; then
+    body="${body}${sep}\"count\":${count}"; sep=","
+  fi
+  if [ -n "$keep_focus" ]; then
+    body="${body}${sep}\"keepFocus\":true"; sep=","
+  fi
+  printf '{%s}' "$body"
+}
+
 case "$cmd" in
-  new-session)   post newSession ;;
-  new-tab)       post newTab ;;
-  split-h)       post splitH ;;
-  split-v)       post splitV ;;
-  close-tab)     post closeTab ;;
-  close-session) post closeSession ;;
-  session-next)  post sessionNext ;;
-  session-prev)  post sessionPrev ;;
-  tab-next)      post tabNext ;;
-  tab-prev)      post tabPrev ;;
-  pane-up)       post paneUp ;;
-  pane-down)     post paneDown ;;
-  pane-left)     post paneLeft ;;
-  pane-right)    post paneRight ;;
+  split-h|split-v)
+    if [ -n "$positional" ]; then
+      count="$positional"
+      case "$count" in
+        ''|*[!0-9]*) echo "split count must be a positive integer: $count" >&2; exit 2 ;;
+      esac
+      [ "$count" -lt 2 ] && { echo "split count must be >= 2" >&2; exit 2; }
+    fi
+    action=splitH; [ "$cmd" = "split-v" ] && action=splitV
+    post "$action" "$(build_args)"
+    ;;
   focus)
-    loc="${1:-}"
-    [ -z "$loc" ] && { echo "usage: dmctl focus <location>  (예: 4.1.1 또는 S4.P1.T1)" >&2; exit 2; }
-    esc=$(json_escape "$loc")
-    post focus "$(printf '{"location":"%s"}' "$esc")"
+    if [ -z "$location" ] && [ -n "$positional" ]; then
+      location="$positional"
+    fi
+    [ -z "$location" ] && { echo "usage: dmctl focus <location>  (예: 4.1.1 또는 S4.P1.T1)" >&2; exit 2; }
+    post focus "$(build_args)"
     ;;
-  send)
-    action="${1:-}"; args="${2:-{}}"
-    [ -z "$action" ] && { echo "usage: dmctl send <action> [json-args]" >&2; exit 2; }
-    post "$action" "$args"
-    ;;
+  new-session)   post newSession   "$(build_args)" ;;
+  new-tab)       post newTab       "$(build_args)" ;;
+  close-tab)     post closeTab     "$(build_args)" ;;
+  close-session) post closeSession "$(build_args)" ;;
+  session-next)  post sessionNext  "$(build_args)" ;;
+  session-prev)  post sessionPrev  "$(build_args)" ;;
+  tab-next)      post tabNext      "$(build_args)" ;;
+  tab-prev)      post tabPrev      "$(build_args)" ;;
+  pane-up)       post paneUp       "$(build_args)" ;;
+  pane-down)     post paneDown     "$(build_args)" ;;
+  pane-left)     post paneLeft     "$(build_args)" ;;
+  pane-right)    post paneRight    "$(build_args)" ;;
   ""|-h|--help|help) usage 0 ;;
   *) echo "unknown command: $cmd" >&2; usage 2 ;;
 esac

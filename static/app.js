@@ -513,9 +513,11 @@ class TermPane {
 
 // ═══ Layout helpers ═══
 
-function doSplit(n,rid,nr,dir){
-  if(n.type==='region') return n.id===rid?{type:'split',direction:dir,children:[n,nr]}:n;
-  if(n.children) n.children=n.children.map(c=>doSplit(c,rid,nr,dir));
+function doSplit(n,rid,nrs,dir){
+  // nrs: 단일 region 또는 region 배열
+  const list=Array.isArray(nrs)?nrs:[nrs];
+  if(n.type==='region') return n.id===rid?{type:'split',direction:dir,children:[n,...list]}:n;
+  if(n.children) n.children=n.children.map(c=>doSplit(c,rid,nrs,dir));
   return n;
 }
 function doRemove(n,rid){
@@ -650,8 +652,65 @@ class App {
   }
 
   _execRemote(action, args){
+    args=args||{};
     if(action==='focus'){this._focusLocation(args.location); return}
-    this.executeAction(action);
+    const isSplit=(action==='splitH'||action==='splitV');
+    if(isSplit){
+      const opts={count:args.count,keepFocus:!!args.keepFocus};
+      if(args.location){
+        const tgt=this._resolveLocation(args.location);
+        if(!tgt) return;
+        opts.targetSession=tgt.sessionId;
+        opts.targetRegion=tgt.regionId;
+      }
+      const dir=action==='splitH'?'horizontal':'vertical';
+      this.split(dir,opts);
+      return;
+    }
+    const keepFocus=!!args.keepFocus;
+    // location 지정 closeTab 은 활성/비활성 세션 구분 없이 포커스를 건드리지 않고 직접 close.
+    // keepFocus 인자는 호환을 위해 받지만, location 이 있으면 항상 포커스 유지로 취급한다.
+    if(action==='closeTab' && args.location){
+      const tgt=this._resolveLocation(args.location);
+      if(tgt && tgt.regionId && tgt.tabId){
+        this.closeTab(tgt.regionId, tgt.tabId, tgt.sessionId);
+        return;
+      }
+    }
+    let savedSession=null, savedFocused=null;
+    if(args.location && keepFocus){
+      savedSession=this.ws.activeSession;
+      savedFocused=this.focused;
+    }
+    if(args.location) this._focusLocation(args.location);
+    const result=this.executeAction(action);
+    Promise.resolve(result).then(()=>{
+      if(savedSession==null) return;
+      if(this.ws.activeSession!==savedSession && this.ws.sessions.some(x=>x.id===savedSession)){
+        const cur=this._as(); if(cur) cur.focusedRegion=this.focused;
+        this.ws.activeSession=savedSession;
+      }
+      const a=this._as();
+      if(a&&savedFocused&&findRg(a.layout,savedFocused)){
+        a.focusedRegion=savedFocused;
+        this.focused=savedFocused;
+      }
+      this._save(); this.render();
+    });
+  }
+
+  _resolveLocation(loc){
+    if(!loc) return null;
+    const m=String(loc).toUpperCase().trim().match(/^S?(\d+)(?:[.\s]+P?(\d+))?(?:[.\s]+T?(\d+))?$/);
+    if(!m) return null;
+    const si=parseInt(m[1],10)-1;
+    const pi=m[2]?parseInt(m[2],10)-1:0;
+    const ti=m[3]?parseInt(m[3],10)-1:0;
+    const sess=this.ws.sessions[si]; if(!sess) return null;
+    const regions=[]; this._collectRegions(sess.layout,regions);
+    const rg=regions[pi]; if(!rg) return null;
+    const tab=rg.tabs[ti]; if(!tab) return null;
+    return {sessionId:sess.id,regionId:rg.id,tabId:tab.id,session:sess,region:rg,tab:tab};
   }
 
   // "4.1.1", "S4.P1.T1", "4", "4.2" 등을 지원. 1-base positional (session.region.tab).
@@ -801,8 +860,11 @@ class App {
     await this._save(); this.render();
   }
 
-  async closeTab(rid,tid){
-    const s=this._as(); if(!s) return;
+  async closeTab(rid,tid,sid){
+    // sid 를 지정하면 해당 세션의 탭을 닫는다 (비활성 세션 대상도 지원).
+    // 지정 안 하면 기존 동작: 활성 세션에서 닫는다.
+    const s = sid ? this.ws.sessions.find(x=>x.id===sid) : this._as();
+    if(!s) return;
     const rg=findRg(s.layout,rid); if(!rg) return;
     const tab=rg.tabs.find(t=>t.id===tid); if(!tab) return;
     if(await this._isPaneBusy(tab.paneId)){
@@ -811,11 +873,16 @@ class App {
     }
     await this._kill(tab.paneId);
     rg.tabs=rg.tabs.filter(t=>t.id!==tid);
+    const isActive = s.id === this.ws.activeSession;
     if(!rg.tabs.length){
-      const fallback=this.focused===rid?closestRg(s.layout,rid)?.id:this.focused;
       s.layout=doRemove(s.layout,rid);
       if(!s.layout){await this.delSession(s.id);return}
-      this.focused=fallback&&findRg(s.layout,fallback)?fallback:firstRg(s.layout)?.id||null;
+      if(isActive){
+        const fallback=this.focused===rid?closestRg(s.layout,rid)?.id:this.focused;
+        this.focused=fallback&&findRg(s.layout,fallback)?fallback:firstRg(s.layout)?.id||null;
+      } else if(s.focusedRegion===rid){
+        s.focusedRegion=firstRg(s.layout)?.id||null;
+      }
     } else {
       if(rg.activeTab===tid) rg.activeTab=rg.tabs[0].id;
     }
@@ -830,15 +897,36 @@ class App {
     this._save(); this.render();
   }
 
-  async split(dir){
-    const s=this._as(); if(!s||!this.focused) return;
-    const cwd=await this._focusedCwd();
-    const p=await this._newPane(cwd);
-    const r=`r${++this._r}`,t=`t${++this._t}`;
-    const nr={type:'region',id:r,tabs:[{id:t,name:'Shell',paneId:p.id}],activeTab:t};
-    s.layout=doSplit(s.layout,this.focused,nr,dir);
-    this.focused=r;
+  async split(dir,opts={}){
+    const tgtSessionId=opts.targetSession||this.ws.activeSession;
+    const s=this.ws.sessions.find(x=>x.id===tgtSessionId);
+    const tgtRegionId=opts.targetRegion||(tgtSessionId===this.ws.activeSession?this.focused:null);
+    if(!s||!tgtRegionId) return;
+    let count=parseInt(opts.count,10); if(!Number.isFinite(count)||count<2) count=2;
+    const keepFocus=!!opts.keepFocus;
+    const cwd=await this._regionCwd(s,tgtRegionId);
+    const newRegions=[]; let lastR=null;
+    for(let i=0;i<count-1;i++){
+      const p=await this._newPane(cwd);
+      const r=`r${++this._r}`,t=`t${++this._t}`;
+      newRegions.push({type:'region',id:r,tabs:[{id:t,name:'Shell',paneId:p.id}],activeTab:t});
+      lastR=r;
+    }
+    s.layout=doSplit(s.layout,tgtRegionId,newRegions,dir);
+    if(!keepFocus && lastR){
+      if(this.ws.activeSession!==tgtSessionId){
+        const cur=this._as(); if(cur) cur.focusedRegion=this.focused;
+        this.ws.activeSession=tgtSessionId;
+      }
+      this.focused=lastR;
+    }
     await this._save(); this.render();
+  }
+
+  async _regionCwd(sess,rid){
+    const rg=findRg(sess.layout,rid); if(!rg) return null;
+    const tab=rg.tabs.find(t=>t.id===rg.activeTab)||rg.tabs[0]; if(!tab) return null;
+    try{const r=await fetch('/api/cwd?pane='+tab.paneId);const d=await r.json();return d.cwd||null}catch{return null}
   }
 
   switchSessionNext(){
@@ -896,7 +984,7 @@ class App {
       newSession:()=>this.addSession(),newTab:()=>this.addTabFocused(),
       closeSession:()=>this.closeSessionActive(),closeTab:()=>this.closeTabFocused(),
     };
-    if(map[action])map[action]();
+    return map[action]?.();
   }
 
   // ── Search ──
