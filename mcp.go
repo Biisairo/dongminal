@@ -17,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/creack/pty"
 )
 
 // ── MCP JSON-RPC ─────────────────────────────────────
@@ -280,10 +282,53 @@ func mcpToolSchemas() []map[string]interface{} {
 		},
 		{
 			"name":        "who_am_i",
-			"description": "현재 CC 가 실행 중인 pane 의 라벨(S?.P?.T?)을 실시간으로 반환한다. SSE 연결 정보를 서버가 자동으로 추적하므로 파라미터 없이 호출하면 된다. workspace.json 기반으로 최신 라벨을 반환하므로 레이아웃이 바뀌어도 항상 정확하다. send_agent_message 의 from 필드를 채우기 전에 반드시 호출할 것.",
+			"description": "현재 CC 가 실행 중인 pane 의 라벨(S?.P?.T?), shellPid, 터미널 크기(cols×rows), 세션/탭 이름을 실시간으로 반환한다. SSE 연결 정보를 서버가 자동으로 추적하므로 파라미터 없이 호출하면 된다. workspace.json 기반으로 최신 라벨을 반환하므로 레이아웃이 바뀌어도 항상 정확하다. send_agent_message 의 from 필드를 채우기 전에 반드시 호출할 것.",
 			"inputSchema": map[string]interface{}{
 				"type":       "object",
 				"properties": map[string]interface{}{},
+			},
+		},
+		{
+			"name": "workspace_command",
+			"description": "dongminal 워크스페이스를 원격 제어한다. 실행 중인 브라우저(들)에 SSE 로 명령을 브로드캐스트하고, 브라우저가 기존 UI 로직(키보드 단축키와 동일 경로)을 그대로 실행한다. delivered=0 이면 구독 중인 브라우저 없음 — 사용자가 브라우저를 새로고침해야 함.\n\n" +
+				"【용어】 세션(Session)은 사이드바의 독립 작업공간. 영역(Region/Pane)은 세션 내부의 분할된 구획으로 자체 탭 바를 가진다. 탭(Tab)은 영역 안의 PTY 하나. 라벨은 S<세션>.P<영역>.T<탭> (1-base, 현재 레이아웃 기준 positional) — list_panes 로 확인 가능.\n\n" +
+				"【action — 대부분 '현재 포커스한 영역/세션' 기준으로 동작. 다른 위치를 대상으로 하려면 먼저 focus 로 이동할 것.】\n" +
+				"  • newSession   — 새 세션을 만들고 활성화. 새 영역/탭/PTY 자동 생성.\n" +
+				"  • newTab       — 현재 포커스한 영역에 새 탭(+PTY) 추가하고 그 탭으로 전환. cwd 는 현재 포커스 탭의 cwd 상속.\n" +
+				"  • splitH       — 현재 포커스한 영역을 '가로 분할' (좌↔우로 새 영역이 생김). 새 영역으로 포커스 이동.\n" +
+				"  • splitV       — 현재 포커스한 영역을 '세로 분할' (상↕하로 새 영역이 생김). 새 영역으로 포커스 이동.\n" +
+				"  • closeTab     — 현재 포커스 영역의 활성 탭을 닫음(PTY 종료). 영역의 마지막 탭이면 영역도 제거, 세션의 마지막 영역이면 세션도 제거. 실행 중 프로세스가 있으면 브라우저에서 확인 다이얼로그 표시.\n" +
+				"  • closeSession — 현재 활성 세션 전체를 닫음. 세션 내 모든 PTY 종료. 마지막 세션이면 자동으로 새 세션 생성.\n" +
+				"  • sessionNext  — 다음 세션으로 전환 (순환). 단축키 Ctrl+Shift+] 와 동일.\n" +
+				"  • sessionPrev  — 이전 세션으로 전환 (순환). Ctrl+Shift+[ 와 동일.\n" +
+				"  • tabNext      — 현재 영역 안에서 다음 탭 (순환). Ctrl+Tab 과 동일.\n" +
+				"  • tabPrev      — 현재 영역 안에서 이전 탭 (순환). Ctrl+Shift+Tab 과 동일.\n" +
+				"  • paneUp/Down/Left/Right — 분할 레이아웃에서 인접 영역으로 포커스 이동. 해당 방향에 영역이 없으면 무시됨. Ctrl+Shift+방향키와 동일.\n" +
+				"  • focus        — 임의 좌표로 직접 포커스 이동. location 인자 **필수**. 형식은 \"4.1.1\" 또는 \"S4.P1.T1\" (session.region.tab, 1-base, 대소문자 무시). 뒤에서부터 생략 가능: \"2\" = 세션 2의 첫 영역의 첫 탭, \"2.1\" = 세션 2의 영역 1의 첫 탭. 이 명령만 여러 위치에 대한 일괄 제어가 가능하다 — 예: focus 로 이동 후 splitV 호출.\n\n" +
+				"【사용 패턴】\n" +
+				"  - 새 작업공간 준비: newSession → splitV → newTab\n" +
+				"  - 특정 위치에서 분할: workspace_command(focus, \"2.1.1\") → workspace_command(splitH)\n" +
+				"  - 여러 에이전트 배치 후 특정 에이전트 화면 띄우기: focus \"S3.P2.T1\"",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"action": map[string]interface{}{
+						"type": "string",
+						"enum": []string{
+							"newSession", "newTab", "splitH", "splitV",
+							"closeTab", "closeSession",
+							"sessionNext", "sessionPrev",
+							"tabNext", "tabPrev",
+							"paneUp", "paneDown", "paneLeft", "paneRight",
+							"focus",
+						},
+					},
+					"location": map[string]interface{}{
+						"type":        "string",
+						"description": "action=focus 일 때 필수. 예: \"4.1.1\", \"S4.P1.T1\", \"2\", \"2.1\"",
+					},
+				},
+				"required": []string{"action"},
 			},
 		},
 		{
@@ -358,6 +403,15 @@ func callTool(sess *mcpSession, name string, argsRaw json.RawMessage) (map[strin
 		return toolSendAgentMessage(a.To, a.From, a.Message)
 	case "who_am_i":
 		return toolWhoAmI(sess.remoteAddr)
+	case "workspace_command":
+		var a struct {
+			Action   string `json:"action"`
+			Location string `json:"location"`
+		}
+		if err := json.Unmarshal(argsRaw, &a); err != nil {
+			return nil, err
+		}
+		return toolWorkspaceCommand(a.Action, a.Location)
 	}
 	return nil, fmt.Errorf("unknown tool: %s", name)
 }
@@ -561,13 +615,14 @@ func toolListPanes() (map[string]interface{}, error) {
 		if l.IsActive {
 			marker = "▶ "
 		}
-		fmt.Fprintf(&sb, "%s%s  paneId=%s  shellPid=%d  session=%q  tab=%q\n",
-			marker, l.Label, l.PaneID, shellPids[l.PaneID], l.SessionName, l.TabName)
+		fmt.Fprintf(&sb, "%s%s  paneId=%s  shellPid=%d  size=%s  session=%q  tab=%q\n",
+			marker, l.Label, l.PaneID, shellPids[l.PaneID], paneSizeString(l.PaneID), l.SessionName, l.TabName)
 	}
 	if len(orphans) > 0 {
 		sb.WriteString("\n[workspace 미등록]\n")
 		for _, p := range orphans {
-			fmt.Fprintf(&sb, "  paneId=%s  shellPid=%d  name=%q\n", p["id"], p["pid"], p["name"])
+			pid := p["id"].(string)
+			fmt.Fprintf(&sb, "  paneId=%s  shellPid=%d  size=%s  name=%q\n", pid, p["pid"], paneSizeString(pid), p["name"])
 		}
 	}
 	return textResult(sb.String()), nil
@@ -717,6 +772,7 @@ func toolWhoAmI(remoteAddr string) (map[string]interface{}, error) {
 	current := clientPID
 	for i := 0; i < 32; i++ {
 		if paneID, ok := paneShellPids[current]; ok {
+			sizeStr := paneSizeString(paneID)
 			labels, err := buildLabelMap()
 			if err != nil {
 				return nil, err
@@ -724,12 +780,12 @@ func toolWhoAmI(remoteAddr string) (map[string]interface{}, error) {
 			for _, l := range labels {
 				if l.PaneID == paneID {
 					return textResult(fmt.Sprintf(
-						"label=%s  paneId=%s  shellPid=%d  session=%q  tab=%q",
-						l.Label, paneID, current, l.SessionName, l.TabName,
+						"label=%s  paneId=%s  shellPid=%d  size=%s  session=%q  tab=%q",
+						l.Label, paneID, current, sizeStr, l.SessionName, l.TabName,
 					)), nil
 				}
 			}
-			return textResult(fmt.Sprintf("paneId=%s  shellPid=%d  (workspace 미등록)", paneID, current)), nil
+			return textResult(fmt.Sprintf("paneId=%s  shellPid=%d  size=%s  (workspace 미등록)", paneID, current, sizeStr)), nil
 		}
 		parent, err := getParentPID(current)
 		if err != nil || parent <= 1 {
@@ -738,6 +794,19 @@ func toolWhoAmI(remoteAddr string) (map[string]interface{}, error) {
 		current = parent
 	}
 	return nil, fmt.Errorf("clientPID=%d 가 어느 pane에도 속하지 않음", clientPID)
+}
+
+// pane 의 현재 PTY 크기를 "<cols>x<rows>" 문자열로 반환. 조회 실패 시 "?".
+func paneSizeString(paneID string) string {
+	p := pm.get(paneID)
+	if p == nil || p.ptmx == nil {
+		return "?"
+	}
+	rows, cols, err := pty.Getsize(p.ptmx)
+	if err != nil {
+		return "?"
+	}
+	return fmt.Sprintf("%dx%d", cols, rows)
 }
 
 func toolSendInput(id, text string, execute bool) (map[string]interface{}, error) {

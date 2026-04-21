@@ -143,3 +143,32 @@ func handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		"delivered": n,
 	})
 }
+
+// MCP tool 에서 호출하는 동일 프로세스 인앱 엔트리. HTTP 우회로 같은 브로드캐스트 채널을 쓴다.
+func toolWorkspaceCommand(action, location string) (map[string]interface{}, error) {
+	if action == "" {
+		return nil, fmt.Errorf("action 누락")
+	}
+	if !allowedCmdActions[action] {
+		return nil, fmt.Errorf("unknown action: %s", action)
+	}
+	if action == "focus" && location == "" {
+		return nil, fmt.Errorf("focus 는 location 인자가 필요 (예: \"4.1.1\")")
+	}
+	type argsWithLoc struct {
+		Location string `json:"location,omitempty"`
+	}
+	payload, _ := json.Marshal(struct {
+		Action string      `json:"action"`
+		Args   argsWithLoc `json:"args"`
+	}{action, argsWithLoc{Location: location}})
+	n := broadcastCmd(payload)
+	msg := fmt.Sprintf("action=%s delivered=%d", action, n)
+	if action == "focus" {
+		msg = fmt.Sprintf("action=focus location=%s delivered=%d", location, n)
+	}
+	if n == 0 {
+		msg += "  ⚠ 구독 중인 브라우저 없음 (새로고침 필요할 수 있음)"
+	}
+	return textResult(msg), nil
+}
