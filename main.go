@@ -1,11 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"embed"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -26,6 +26,12 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"dongminal/internal/mcptool"
+	"dongminal/internal/mcptool/tools"
+	"dongminal/internal/outbuf"
+	"dongminal/internal/server"
+	"dongminal/internal/workspace"
 
 	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
@@ -96,33 +102,6 @@ func (s *safeConn) setReadDeadline(t time.Time) error   { return s.conn.SetReadD
 func (s *safeConn) setPongHandler(h func(string) error) { s.conn.SetPongHandler(h) }
 func (s *safeConn) readMessage() (int, []byte, error)   { return s.conn.ReadMessage() }
 
-// ── OutputBuffer ────────────────────────────────────
-
-type OutputBuffer struct {
-	mu   sync.Mutex
-	data []byte
-	max  int
-}
-
-func newOutputBuffer(max int) *OutputBuffer { return &OutputBuffer{max: max} }
-
-func (b *OutputBuffer) Write(p []byte) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.data = append(b.data, p...)
-	if len(b.data) > b.max {
-		b.data = b.data[len(b.data)-b.max:]
-	}
-}
-
-func (b *OutputBuffer) Snapshot() []byte {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	out := make([]byte, len(b.data))
-	copy(out, b.data)
-	return out
-}
-
 // ── Pane ────────────────────────────────────────────
 
 type Pane struct {
@@ -131,12 +110,13 @@ type Pane struct {
 	PID  int    `json:"pid"`
 	ptmx *os.File
 	cmd  *exec.Cmd
-	buf  *OutputBuffer
+	stream *outbuf.Stream
 	bch  chan []byte
 	cmu  sync.Mutex
 	cls  []*safeConn
 	done chan struct{}
 	once sync.Once
+	onExit func(id string)
 	// restored=true means this pane's shell was freshly re-spawned because
 	// the server restarted. The first client to reconnect needs a mode
 	// reset to clear stale DECSET state (mouse tracking, bracketed paste,
@@ -173,7 +153,7 @@ func (p *Pane) Cwd() string {
 	return cwd
 }
 
-func startPane(id, name, cwd string, cols, rows uint16) (*Pane, error) {
+func startPane(id, name, cwd string, cols, rows uint16, onExit func(string)) (*Pane, error) {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "/bin/bash"
@@ -213,9 +193,10 @@ func startPane(id, name, cwd string, cols, rows uint16) (*Pane, error) {
 	p := &Pane{
 		ID: id, Name: name,
 		ptmx: ptmx, cmd: cmd,
-		buf:  newOutputBuffer(bufMax),
-		bch:  make(chan []byte, 256),
-		done: make(chan struct{}),
+		stream: outbuf.NewStream(context.Background(), bufMax),
+		bch:    make(chan []byte, 256),
+		done:   make(chan struct{}),
+		onExit: onExit,
 	}
 	go p.readPTY()
 	go p.drainBuf()
@@ -231,7 +212,7 @@ func (p *Pane) drainBuf() {
 		}
 	}()
 	for d := range p.bch {
-		p.buf.Write(d)
+		p.stream.Feed(d)
 	}
 }
 
@@ -254,7 +235,9 @@ func (p *Pane) readPTY() {
 			}
 			p.broadcast([]byte{opExit})
 			p.kill()
-			pm.delete(p.ID)
+			if p.onExit != nil {
+				go p.onExit(p.ID)
+			}
 			return
 		}
 		select {
@@ -312,6 +295,8 @@ func (p *Pane) resize(c, r uint16) error {
 	return err
 }
 
+func (p *Pane) Wait() <-chan struct{} { return p.done }
+
 func (p *Pane) kill() {
 	p.once.Do(func() {
 		log.Printf("[pane %s] killing pid=%d", p.ID, p.cmd.Process.Pid)
@@ -325,6 +310,7 @@ func (p *Pane) kill() {
 				log.Printf("[pane %s] wait: %v", p.ID, err)
 			}
 		}
+		p.stream.Close()
 	})
 }
 
@@ -569,7 +555,12 @@ func (m *PaneManager) create(cwd string, cols, rows uint16) (*Pane, error) {
 	m.nextID++
 	id := strconv.Itoa(m.nextID)
 	name := fmt.Sprintf("Shell #%d", m.nextID)
-	p, err := startPane(id, name, cwd, cols, rows)
+	p, err := startPane(id, name, cwd, cols, rows, func(paneID string) {
+		m.delete(paneID)
+		if wsMgr != nil {
+			wsMgr.InvalidatePane(paneID)
+		}
+	})
 	if err != nil {
 		log.Printf("[pane %s] create error: %v", id, err)
 		return nil, err
@@ -583,7 +574,12 @@ func (m *PaneManager) create(cwd string, cols, rows uint16) (*Pane, error) {
 func (m *PaneManager) restore(id, name, cwd string, cols, rows uint16) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	p, err := startPane(id, name, cwd, cols, rows)
+	p, err := startPane(id, name, cwd, cols, rows, func(paneID string) {
+		m.delete(paneID)
+		if wsMgr != nil {
+			wsMgr.InvalidatePane(paneID)
+		}
+	})
 	if err != nil {
 		return err
 	}
@@ -630,15 +626,25 @@ func (m *PaneManager) delete(id string) {
 	go savePanes()
 }
 
-// ── Workspace (in-memory only) + Settings (file-persisted) ──
+// ── Workspace (Manager) + Settings (file-persisted) ──
 
 var (
-	wsJSON []byte
-	wsMu   sync.Mutex
+	wsMgr *workspace.Manager
+
+	toolRegistry *mcptool.Registry
 
 	settingsJSON []byte
 	settingsMu   sync.Mutex
 )
+
+type pmLiveness struct{ pm *PaneManager }
+
+func (l pmLiveness) IsLive(id string) bool { return l.pm.get(id) != nil }
+
+type fsPersister struct{ path string }
+
+func (p fsPersister) Read() ([]byte, error)      { return os.ReadFile(p.path) }
+func (p fsPersister) Write(b []byte) error       { return os.WriteFile(p.path, b, 0644) }
 
 func loadSettings() {
 	data, err := os.ReadFile(dataPath("settings.json"))
@@ -700,67 +706,6 @@ func loadPanes() {
 		}
 	}
 	log.Printf("panes restored count=%d", len(states))
-}
-
-func loadWorkspace() {
-	data, err := os.ReadFile(dataPath("workspace.json"))
-	if err != nil {
-		if !os.IsNotExist(err) {
-			log.Printf("loadWorkspace: %v", err)
-		}
-		return
-	}
-	wsMu.Lock()
-	wsJSON = data
-	wsMu.Unlock()
-	log.Printf("workspace loaded %d bytes", len(data))
-}
-
-func saveWorkspace() {
-	wsMu.Lock()
-	data := wsJSON
-	wsMu.Unlock()
-	if err := os.WriteFile(dataPath("workspace.json"), data, 0644); err != nil {
-		log.Printf("saveWorkspace: %v", err)
-	}
-}
-
-// ── HTTP logging middleware ──────────────────────────
-
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		rw := &responseWriter{ResponseWriter: w, status: 200}
-		next.ServeHTTP(rw, r)
-		// ping/stats 는 너무 잦아서 제외
-		if r.URL.Path != "/api/ping" && r.URL.Path != "/api/stats" {
-			log.Printf("http %s %s %d %s addr=%s",
-				r.Method, r.URL.Path, rw.status, time.Since(start).Round(time.Millisecond), r.RemoteAddr)
-		}
-	})
-}
-
-type responseWriter struct {
-	http.ResponseWriter
-	status int
-}
-
-func (rw *responseWriter) WriteHeader(status int) {
-	rw.status = status
-	rw.ResponseWriter.WriteHeader(status)
-}
-
-func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	if h, ok := rw.ResponseWriter.(http.Hijacker); ok {
-		return h.Hijack()
-	}
-	return nil, nil, fmt.Errorf("ResponseWriter does not implement http.Hijacker")
-}
-
-func (rw *responseWriter) Flush() {
-	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
-		f.Flush()
-	}
 }
 
 // ── API ─────────────────────────────────────────────
@@ -843,12 +788,12 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 	p := r.URL.Path
 	switch {
 	case p == "/api/state" && r.Method == http.MethodGet:
-		wsMu.Lock()
+		raw := wsMgr.Raw()
 		var ws interface{}
-		if len(wsJSON) > 0 {
-			json.Unmarshal(wsJSON, &ws)
+		if len(raw) > 0 {
+			json.Unmarshal(raw, &ws)
 		}
-		wsMu.Unlock()
+		w.Header().Set("ETag", strconv.FormatUint(wsMgr.CurrentRev(), 10))
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"panes":     pm.list(),
@@ -878,12 +823,30 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 		pm.delete(id)
 		w.WriteHeader(200)
 
+	case p == "/api/workspace" && r.Method == http.MethodGet:
+		raw := wsMgr.Raw()
+		w.Header().Set("ETag", strconv.FormatUint(wsMgr.CurrentRev(), 10))
+		w.Header().Set("Content-Type", "application/json")
+		if len(raw) > 0 {
+			w.Write(raw)
+		} else {
+			w.Write([]byte("null"))
+		}
+
 	case p == "/api/workspace" && r.Method == http.MethodPut:
 		body, _ := io.ReadAll(r.Body)
-		wsMu.Lock()
-		wsJSON = body
-		wsMu.Unlock()
-		saveWorkspace()
+		ifMatch := r.Header.Get("If-Match")
+		rev, err := wsMgr.Save(body, ifMatch)
+		if err != nil {
+			if errors.Is(err, workspace.ErrStale) {
+				w.Header().Set("ETag", strconv.FormatUint(wsMgr.CurrentRev(), 10))
+				http.Error(w, "stale revision", http.StatusConflict)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("ETag", strconv.FormatUint(rev, 10))
 		w.WriteHeader(200)
 
 	case p == "/api/settings" && r.Method == http.MethodGet:
@@ -1092,7 +1055,7 @@ func handleWS(w http.ResponseWriter, r *http.Request) {
 		// snapshot 을 먼저 재생하고 그 뒤에 reset 을 보내야 mouse 모드 등이
 		// 확실히 꺼진다. (이전 구현은 reset → snapshot 이라 snapshot 안의
 		// \x1b[?1000h 같은 바이트가 mouse 를 다시 켜는 버그가 있었다.)
-		if snap := pane.buf.Snapshot(); len(snap) > 0 {
+		if snap, _ := pane.stream.Snapshot(); len(snap) > 0 {
 			msg := make([]byte, 1+len(snap))
 			msg[0] = opOutput
 			copy(msg[1:], snap)
@@ -1327,44 +1290,74 @@ func main() {
 		port = "8080"
 	}
 	os.Setenv("DONGMINAL_PORT", port)
-	if dir := os.Getenv("DATA_DIR"); dir != "" {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+	dataDir := os.Getenv("DATA_DIR")
+	if dataDir != "" {
+		if err := os.MkdirAll(dataDir, 0755); err != nil {
 			log.Fatalf("DATA_DIR 생성 실패: %v", err)
 		}
 	}
 	loadSettings()
-	loadWorkspace()
+	{
+		mgr, err := workspace.New(pmLiveness{pm: pm}, fsPersister{path: dataPath("workspace.json")})
+		if err != nil {
+			log.Fatalf("workspace manager init: %v", err)
+		}
+		wsMgr = mgr
+		log.Printf("workspace manager ready rev=%d bytes=%d", wsMgr.CurrentRev(), len(wsMgr.Raw()))
+	}
 	loadPanes()
 	initBinDir()
+	{
+		pa := paneAdapter{pm: pm}
+		wa := workspaceAdapter{}
+		toolRegistry = mcptool.NewRegistry()
+		toolRegistry.Register(tools.ListPanes{PM: pa, WS: wa})
+		toolRegistry.Register(tools.ReadPaneScreen{PM: pa, WS: wa})
+		toolRegistry.Register(tools.ReadPaneOutput{PM: pa, WS: wa})
+		toolRegistry.Register(tools.SendInput{PM: pa, WS: wa})
+		toolRegistry.Register(tools.SendAgentMessage{PM: pa, WS: wa})
+		toolRegistry.Register(tools.WhoAmI{PM: pa, WS: wa, Resolver: clientResolver{pm: pm}})
+		toolRegistry.Register(tools.WorkspaceCommand{Broadcaster: cmdBroadcaster{}})
+	}
 	go csm.watchdog()
 
 	staticFS, _ := fs.Sub(staticFiles, "static")
-	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.FS(staticFS)))
-	mux.HandleFunc("/ws", handleWS)
-	mux.HandleFunc("/api/", handleAPI)
-	mux.HandleFunc("/cs/", handleCSProxy)
-	mux.HandleFunc("/mcp/sse", handleMCPSSE)
-	mux.HandleFunc("/mcp/message", handleMCPMessage)
-	mux.HandleFunc("/api/commands/sse", handleCommandSSE)
-	mux.HandleFunc("/api/commands", handleCommandPost)
+	cfg := server.Config{Port: port, DataDir: dataDir, StaticFS: staticFS}
 
-	server := &http.Server{Addr: ":" + port, Handler: loggingMiddleware(mux)}
+	srv, err := server.New(cfg, server.Deps{
+		Panes:    pm,
+		CS:       csm,
+		Work:     wsMgr,
+		Tools:    toolRegistry,
+		Commands: cmdBroadcaster{},
+		Settings: nil,
+		Handlers: server.Handlers{
+			API:         http.HandlerFunc(handleAPI),
+			WS:          http.HandlerFunc(handleWS),
+			CSProxy:     http.HandlerFunc(handleCSProxy),
+			CommandSSE:  http.HandlerFunc(handleCommandSSE),
+			CommandPost: http.HandlerFunc(handleCommandPost),
+			MCPSSE:      http.HandlerFunc(handleMCPSSE),
+			MCPMessage:  http.HandlerFunc(handleMCPMessage),
+		},
+	})
+	if err != nil {
+		log.Fatalf("server init: %v", err)
+	}
+	mcpReg = srv.MCP
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	log.Printf("dongminal starting on :%s", port)
 
-	sigCh := make(chan os.Signal, 2)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		sig := <-sigCh
-		log.Printf("signal received: %v — shutting down", sig)
-		savePanes()
-		saveSettings()
-		csm.stopAll()
-		server.Close()
-	}()
+	runErr := srv.Run(ctx, ":"+port)
 
-	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		log.Fatalf("server fatal: %v", err)
+	log.Printf("shutting down")
+	savePanes()
+	saveSettings()
+	csm.stopAll()
+	if runErr != nil {
+		log.Fatalf("server fatal: %v", runErr)
 	}
 	log.Printf("server stopped")
 }
