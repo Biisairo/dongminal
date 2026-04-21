@@ -227,6 +227,7 @@ func main() {
 	log.Printf("shutting down")
 	bd.pm.SaveAll()
 	srv.PersistSettings()
+	_ = bd.wsMgr.Close()
 	bd.csm.StopAll()
 	if runErr != nil {
 		log.Fatalf("server fatal: %v", runErr)

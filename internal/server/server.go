@@ -16,9 +16,9 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
-
 )
 
 // Config carries process-level knobs.
@@ -208,11 +208,30 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 		rw := &responseWriter{ResponseWriter: w, status: 200}
 		next.ServeHTTP(rw, r)
-		if r.URL.Path != "/api/ping" && r.URL.Path != "/api/stats" {
+		if shouldLogRequest(r.URL.Path, rw.status) {
 			log.Printf("http %s %s %d %s addr=%s",
 				r.Method, r.URL.Path, rw.status, time.Since(start).Round(time.Millisecond), r.RemoteAddr)
 		}
 	})
+}
+
+// shouldLogRequest filters high-frequency hot-path endpoints from the access
+// log. Errors (status>=400) always log so failures stay observable. Split
+// panes / pane-delete flows hammer /api/workspace and /api/panes dozens of
+// times per second; logging each one caused hundreds of ms of keyboard-input
+// lag (H5).
+func shouldLogRequest(path string, status int) bool {
+	if status >= 400 {
+		return true
+	}
+	switch path {
+	case "/api/ping", "/api/stats":
+		return false
+	}
+	if strings.HasPrefix(path, "/api/workspace") || strings.HasPrefix(path, "/api/panes") {
+		return false
+	}
+	return true
 }
 
 type responseWriter struct {

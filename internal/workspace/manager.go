@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -44,10 +45,20 @@ type Manager struct {
 	raw atomic.Pointer[[]byte]
 	idx atomic.Pointer[index]
 	rev atomic.Uint64
+
+	writeCh    chan []byte
+	done       chan struct{}
+	wg         sync.WaitGroup
+	closedOnce sync.Once
 }
 
 func New(live Liveness, store Persister) (*Manager, error) {
-	m := &Manager{live: live, store: store}
+	m := &Manager{
+		live:    live,
+		store:   store,
+		writeCh: make(chan []byte, 1),
+		done:    make(chan struct{}),
+	}
 	data, err := store.Read()
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -62,7 +73,63 @@ func New(live Liveness, store Persister) (*Manager, error) {
 		ix = emptyIndex()
 	}
 	m.idx.Store(ix)
+	m.wg.Add(1)
+	go m.writer()
 	return m, nil
+}
+
+// writer drains writeCh serially. Latest-wins coalescing is enforced by Save
+// via the size-1 buffer: concurrent Saves overwrite any queued-but-not-yet-
+// picked blob, so disk writes collapse when the producer outruns the disk.
+func (m *Manager) writer() {
+	defer m.wg.Done()
+	for {
+		select {
+		case blob := <-m.writeCh:
+			if err := m.store.Write(blob); err != nil {
+				log.Printf("workspace async write: %v", err)
+			}
+		case <-m.done:
+			// drain pending (at most 1) and exit
+			for {
+				select {
+				case blob := <-m.writeCh:
+					if err := m.store.Write(blob); err != nil {
+						log.Printf("workspace async write (flush): %v", err)
+					}
+				default:
+					return
+				}
+			}
+		}
+	}
+}
+
+// enqueueWrite publishes blob with latest-wins semantics: never blocks the
+// caller, drops any previously-queued-but-unpicked blob.
+func (m *Manager) enqueueWrite(blob []byte) {
+	for {
+		select {
+		case m.writeCh <- blob:
+			return
+		default:
+			select {
+			case <-m.writeCh:
+			default:
+			}
+		}
+	}
+}
+
+// Close stops the writer goroutine after flushing any pending blob. Safe to
+// call multiple times; subsequent Saves still update in-memory state but their
+// blobs will not reach disk.
+func (m *Manager) Close() error {
+	m.closedOnce.Do(func() {
+		close(m.done)
+		m.wg.Wait()
+	})
+	return nil
 }
 
 func (m *Manager) CurrentRev() uint64 {
@@ -91,14 +158,12 @@ func (m *Manager) Save(blob []byte, ifMatch string) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("workspace parse: %w", err)
 	}
-	if err := m.store.Write(blob); err != nil {
-		return 0, fmt.Errorf("workspace write: %w", err)
-	}
 	buf := append([]byte(nil), blob...)
 	m.raw.Store(&buf)
 	m.idx.Store(ix)
 	newRev := cur + 1
 	m.rev.Store(newRev)
+	m.enqueueWrite(buf)
 	return newRev, nil
 }
 

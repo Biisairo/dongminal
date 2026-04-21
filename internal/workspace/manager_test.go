@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 )
 
 type fakeLive struct {
@@ -91,6 +92,136 @@ const sampleWS = `{
     }
   ]
 }`
+
+// slowPersister wraps a Persister and delays each Write by delay. Used to
+// prove Save doesn't block on disk.
+type slowPersister struct {
+	inner Persister
+	delay time.Duration
+}
+
+func (s *slowPersister) Read() ([]byte, error) { return s.inner.Read() }
+func (s *slowPersister) Write(b []byte) error {
+	time.Sleep(s.delay)
+	return s.inner.Write(b)
+}
+
+// gatedPersister blocks every Write on release. Useful for coalescing tests.
+type gatedPersister struct {
+	mu      sync.Mutex
+	data    []byte
+	wrote   int
+	release chan struct{}
+}
+
+func newGatedPersister() *gatedPersister {
+	return &gatedPersister{release: make(chan struct{})}
+}
+
+func (g *gatedPersister) Read() ([]byte, error) { return nil, os.ErrNotExist }
+func (g *gatedPersister) Write(b []byte) error {
+	<-g.release
+	g.mu.Lock()
+	g.data = append([]byte(nil), b...)
+	g.wrote++
+	g.mu.Unlock()
+	return nil
+}
+func (g *gatedPersister) writes() int {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.wrote
+}
+func (g *gatedPersister) bytes() []byte {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return append([]byte(nil), g.data...)
+}
+
+func waitFor(t *testing.T, cond func() bool, timeout time.Duration, msg string) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	t.Fatalf("timeout waiting for %s", msg)
+}
+
+func TestSaveIsNonBlocking(t *testing.T) {
+	live := newFakeLive("10", "11", "12")
+	inner := &memPersister{empty: true}
+	store := &slowPersister{inner: inner, delay: 100 * time.Millisecond}
+	m, err := New(live, store)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer m.Close()
+
+	start := time.Now()
+	if _, err := m.Save([]byte(sampleWS), ""); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	elapsed := time.Since(start)
+	if elapsed > 20*time.Millisecond {
+		t.Fatalf("Save took %v, expected sub-20ms (disk write is 100ms)", elapsed)
+	}
+}
+
+func TestSaveCoalescing(t *testing.T) {
+	live := newFakeLive("10", "11", "12")
+	store := newGatedPersister()
+	m, err := New(live, store)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	const N = 10
+	for i := 0; i < N; i++ {
+		if _, err := m.Save([]byte(sampleWS), ""); err != nil {
+			t.Fatalf("Save #%d: %v", i, err)
+		}
+	}
+	// Let writer pick up the first blob and block on release. At most one more
+	// blob may be queued behind it (latest-wins); the rest must have been
+	// dropped.
+	time.Sleep(20 * time.Millisecond)
+
+	close(store.release)
+	if err := m.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	got := store.writes()
+	if got >= N {
+		t.Fatalf("writes=%d, expected coalescing to collapse %d saves", got, N)
+	}
+	if got > 2 {
+		t.Fatalf("writes=%d, expected at most 2 (one in-flight + one queued latest)", got)
+	}
+}
+
+func TestCloseFlushesPending(t *testing.T) {
+	live := newFakeLive("10", "11", "12")
+	inner := &memPersister{empty: true}
+	store := &slowPersister{inner: inner, delay: 30 * time.Millisecond}
+	m, err := New(live, store)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if _, err := m.Save([]byte(sampleWS), ""); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if err := m.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	waitFor(t, func() bool {
+		inner.mu.Lock()
+		defer inner.mu.Unlock()
+		return inner.wrote >= 1 && string(inner.data) == sampleWS
+	}, 500*time.Millisecond, "pending blob flushed to disk")
+}
 
 func TestResolveByLabel(t *testing.T) {
 	live := newFakeLive("10", "11", "12")
@@ -202,6 +333,21 @@ func TestSaveRevIncrement(t *testing.T) {
 		if got := m.CurrentRev(); got != i {
 			t.Fatalf("CurrentRev=%d want %d", got, i)
 		}
+		// Give writer a chance to pick up each blob; with latest-wins a
+		// tight loop may coalesce writes, which is covered by
+		// TestSaveCoalescing. Here we want 1:1 to exercise the writer.
+		for n := 0; n < 100; n++ {
+			store.mu.Lock()
+			done := store.wrote >= int(i)
+			store.mu.Unlock()
+			if done {
+				break
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}
+	if err := m.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
 	}
 	if store.wrote != 5 {
 		t.Errorf("wrote=%d want 5", store.wrote)

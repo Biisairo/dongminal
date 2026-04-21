@@ -181,6 +181,13 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		cols, rows := ParseSize(r)
 		cwd := r.URL.Query().Get("cwd")
+		if cwd == "" {
+			if refID := r.URL.Query().Get("cwdPane"); refID != "" {
+				if ref := s.Panes.Get(refID); ref != nil {
+					cwd = ref.Cwd()
+				}
+			}
+		}
 		pane, err := s.Panes.Create(cwd, cols, rows)
 		if err != nil {
 			http.Error(w, err.Error(), 500)

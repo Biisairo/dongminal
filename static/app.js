@@ -785,9 +785,11 @@ class App {
     });
   }
 
-  async _newPane(cwd){
-    const cwdParam=cwd?'&cwd='+encodeURIComponent(cwd):'';
-    const r=await fetch('/api/panes?cols=120&rows=40'+cwdParam,{method:'POST'});
+  async _newPane(cwd,cwdPane){
+    let q='';
+    if(cwd) q='&cwd='+encodeURIComponent(cwd);
+    else if(cwdPane) q='&cwdPane='+encodeURIComponent(cwdPane);
+    const r=await fetch('/api/panes?cols=120&rows=40'+q,{method:'POST'});
     if(!r.ok) throw new Error('create pane failed');
     const {id,name}=await r.json();
     return this._mkPane(id,name);
@@ -803,6 +805,11 @@ class App {
     const p=this.panes.get(pid);
     if(p){p.destroy();this.panes.delete(pid)}
     try{await fetch(`/api/panes/${pid}`,{method:'DELETE'})}catch{}
+  }
+  _killBg(pid){
+    const p=this.panes.get(pid);
+    if(p){p.destroy();this.panes.delete(pid)}
+    fetch(`/api/panes/${pid}`,{method:'DELETE'}).catch(()=>{});
   }
 
   _as(){return this.ws.sessions.find(s=>s.id===this.ws.activeSession)||null}
@@ -855,12 +862,13 @@ class App {
   async addTab(rid){
     const s=this._as(); if(!s) return;
     const rg=findRg(s.layout,rid); if(!rg) return;
-    const cwd=await this._focusedCwd();
-    const p=await this._newPane(cwd);
+    const refPane=this._focusedPane();
+    const p=await this._newPane(null,refPane?.id);
     const t=`t${++this._t}`;
     rg.tabs.push({id:t,name:'Shell',paneId:p.id});
     rg.activeTab=t;
-    await this._save(); this.render();
+    this.render();
+    this._save();
   }
 
   async closeTab(rid,tid,sid){
@@ -874,13 +882,13 @@ class App {
       const ok=await this._confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?');
       if(!ok) return;
     }
-    await this._kill(tab.paneId);
+    const paneId=tab.paneId;
     rg.tabs=rg.tabs.filter(t=>t.id!==tid);
     const isActive = s.id === this.ws.activeSession;
     if(!rg.tabs.length){
       const prevClosestId=closestRg(s.layout,rid)?.id||null;
       s.layout=doRemove(s.layout,rid);
-      if(!s.layout){await this.delSession(s.id);return}
+      if(!s.layout){this._killBg(paneId);await this.delSession(s.id);return}
       if(isActive){
         const fallback=this.focused===rid?prevClosestId:this.focused;
         this.focused=fallback&&findRg(s.layout,fallback)?fallback:firstRg(s.layout)?.id||null;
@@ -890,7 +898,9 @@ class App {
     } else {
       if(rg.activeTab===tid) rg.activeTab=rg.tabs[0].id;
     }
-    await this._save(); this.render();
+    this.render();
+    this._killBg(paneId);
+    this._save();
   }
 
   switchTab(rid,tid){
@@ -908,10 +918,10 @@ class App {
     if(!s||!tgtRegionId) return;
     let count=parseInt(opts.count,10); if(!Number.isFinite(count)||count<2) count=2;
     const keepFocus=!!opts.keepFocus;
-    const cwd=await this._regionCwd(s,tgtRegionId);
+    const refPaneId=this._regionActivePaneId(s,tgtRegionId);
     const newRegions=[]; let lastR=null;
     for(let i=0;i<count-1;i++){
-      const p=await this._newPane(cwd);
+      const p=await this._newPane(null,refPaneId);
       const r=`r${++this._r}`,t=`t${++this._t}`;
       newRegions.push({type:'region',id:r,tabs:[{id:t,name:'Shell',paneId:p.id}],activeTab:t});
       lastR=r;
@@ -924,13 +934,14 @@ class App {
       }
       this.focused=lastR;
     }
-    await this._save(); this.render();
+    this.render();
+    this._save();
   }
 
-  async _regionCwd(sess,rid){
+  _regionActivePaneId(sess,rid){
     const rg=findRg(sess.layout,rid); if(!rg) return null;
-    const tab=rg.tabs.find(t=>t.id===rg.activeTab)||rg.tabs[0]; if(!tab) return null;
-    try{const r=await fetch('/api/cwd?pane='+tab.paneId);const d=await r.json();return d.cwd||null}catch{return null}
+    const tab=rg.tabs.find(t=>t.id===rg.activeTab)||rg.tabs[0];
+    return tab?.paneId||null;
   }
 
   switchSessionNext(){
@@ -1051,24 +1062,34 @@ class App {
     this._updateStatusBar();
   }
 
-  async _save(){
-    try{
-      const headers={'Content-Type':'application/json'};
-      if(this.wsETag) headers['If-Match']=this.wsETag;
-      const res=await fetch('/api/workspace',{method:'PUT',headers,body:JSON.stringify(this.ws)});
-      if(res.status===409){
-        console.warn('[workspace] stale revision; reloading');
+  _save(){
+    this._savePending=true;
+    if(this._saveChain) return this._saveChain;
+    const run=async()=>{
+      while(this._savePending){
+        this._savePending=false;
         try{
-          const gr=await fetch('/api/workspace');
-          if(gr.ok) this.wsETag=gr.headers.get('ETag')||gr.headers.get('Etag')||null;
+          const headers={'Content-Type':'application/json'};
+          if(this.wsETag) headers['If-Match']=this.wsETag;
+          const res=await fetch('/api/workspace',{method:'PUT',headers,body:JSON.stringify(this.ws)});
+          if(res.status===409){
+            try{
+              const gr=await fetch('/api/workspace');
+              if(gr.ok) this.wsETag=gr.headers.get('ETag')||gr.headers.get('Etag')||null;
+            }catch{}
+            this._savePending=true;
+            continue;
+          }
+          if(res.ok){
+            const et=res.headers.get('ETag')||res.headers.get('Etag');
+            if(et) this.wsETag=et;
+          }
         }catch{}
-        return;
       }
-      if(res.ok){
-        const et=res.headers.get('ETag')||res.headers.get('Etag');
-        if(et) this.wsETag=et;
-      }
-    }catch{}
+      this._saveChain=null;
+    };
+    this._saveChain=run();
+    return this._saveChain;
   }
 
   _rename(obj, el){

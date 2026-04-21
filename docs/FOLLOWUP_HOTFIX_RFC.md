@@ -261,6 +261,82 @@ if(!rg.tabs.length){
 
 ---
 
+## 4-ter. Item H5 — 창 분할/삭제 지연 (성능 회귀)
+
+### 4c.1 Problem Frame
+
+후속 작업(Candidate 1~5 + H1~H4 + F1~F4) 머지 후 **창 분할·pane 삭제 시 키보드 입력 후 지연이 발생**한 뒤 동작이 진행됨. 리팩터링 전 대비 명확하게 느려짐. 기능은 정상.
+
+### 4c.2 가설 — Suspected Causes
+
+사용자 관찰 상 체감 지연은 수백 ms 규모. 아래 후보들을 우선순위로 조사·대응:
+
+1. **`workspace.Manager.Save` 의 동기 디스크 쓰기** — HTTP PUT `/api/workspace` 의 response 가 `os.WriteFile` 완료를 기다림. macOS 에서 sync 포함 single-digit~수십 ms. 분할/삭제마다 PUT 발생.
+2. **workspace.Manager 의 JSON 파싱 + 인덱스 재빌드** — `buildIndex` 가 `json.Unmarshal` + tree traversal. 기존엔 MCP tool 호출 시점에만 lazy 파싱, 이제 매 PUT 에서 eager.
+3. **`loggingMiddleware` 의 `log.Printf`** — `/api/ping`·`/api/stats` 외 모든 요청을 stdout 으로 로깅. 핫 엔드포인트 제외 필요.
+4. **(기존 요인, 참고)** `_isPaneBusy` → `/api/pane/:id/busy` → `pgrep` shell out. 이건 리팩터링 이전부터 존재했으므로 회귀 원인 아님.
+
+### 4c.3 채택 설계
+
+**투-트랙 접근**:
+
+**Track A (확실한 개선, 저위험):** 로깅 미들웨어의 핫 엔드포인트 제외 목록 확장 — `/api/workspace`(PUT), `/api/panes`, `/api/pane/`·`/api/panes/` 프리픽스 등 분할/삭제 관련 엔드포인트를 로그 스킵 목록에 추가. stdout flush/버퍼 대기 제거.
+
+**Track B (핵심 개선):** `workspace.Manager.Save` 의 디스크 쓰기를 **백그라운드 goroutine**으로 이관.
+- Save 는 raw/idx/rev 를 atomic 교체 후 즉시 리턴
+- 별도 writer goroutine 이 채널로 받은 최신 blob 을 파일에 쓴다. 중간 쓰기는 drop (coalescing) — 최신본만 유지
+- writer goroutine 종료는 `Close()` 메서드에서 graceful flush
+- `Server.Shutdown` 경로에서 `wsMgr.Close()` 호출해 디스크 일관성 확보
+
+**Track C (측정):** Implementer 가 먼저 간단 타이밍 로그를 `workspace.Save` 핫 경로(buildIndex, store.Write 각각)에 임시 추가해 실측. 결과에 따라 B 의 범위를 조정(파싱도 async 로 뺄지 여부). 최종 커밋 시 타이밍 로그는 제거.
+
+### 4c.4 이관 작업
+
+1. **측정 단계 (임시 계측)**:
+   - `internal/workspace/manager.go` 의 `Save` 에 `t0 := time.Now()` 로그 3개 구간(buildIndex / store.Write / atomic swap+rev) 추가
+   - 로컬에서 재기동 후 UI 에서 분할·삭제 10회 반복, 로그의 평균/최대 확인
+   - 결과를 TEAM-REPLY 비고에 기록
+2. **Track A — 로깅 스킵**:
+   - `internal/server/server.go:211` 의 스킵 조건 확장:
+     ```go
+     if !isHotPath(r.URL.Path) {
+         log.Printf(...)
+     }
+     ```
+   - `isHotPath` 는 `/api/ping`, `/api/stats`, `/api/workspace`, `/api/panes`, `/api/pane/`, `/api/panes/` prefix 를 체크
+   - 에러 상태(status>=400)는 로깅 유지
+3. **Track B — 비동기 디스크 쓰기**:
+   - `workspace.Manager` 에 필드 추가:
+     ```go
+     writeCh chan []byte
+     done    chan struct{}
+     ```
+   - `New` 에서 buffered channel(크기 1 또는 2) + writer goroutine 시작. goroutine 은 latest-wins 패턴: 채널에서 받을 때 drain 후 최신 blob 만 store.Write
+   - `Save` 는 store.Write 호출 대신 `select{ case m.writeCh <- buf: default: /* drop older pending */ }` 로 교체
+   - `Close()` 추가 — channel close + goroutine 조인
+   - `Server.Shutdown` 또는 main 의 graceful shutdown 경로에서 `wsMgr.Close()` 호출 (`deps.Work` 가 `Close() error` 를 만족하도록 인터페이스 확장 검토. YAGNI 관점에서 구체 타입 접근이 더 간단하면 그걸로)
+4. **테스트**:
+   - `workspace/manager_test.go` 에 `TestSaveIsNonBlocking` 추가 — slow Persister(write에 100ms sleep) 로도 Save 가 sub-ms 리턴
+   - `TestSaveCoalescing` — 빠른 연속 Save 10회 시 실제 disk write 는 1~2회만 발생 (mock 카운터)
+   - `TestCloseFlushesPending` — Close() 호출 시 pending 최신본이 디스크에 반영
+5. **계측 로그 제거** — 측정 결과 Track B 로 해결됐는지 확인 후 임시 로그 삭제.
+6. `go build/vet/test ./...` 통과.
+7. TODO.md 에 'H5 창 분할/삭제 지연 수정 완료 (2026-04-21). 측정값 before=A ms / after=B ms' 기록.
+
+### 4c.5 수용 기준
+
+- [ ] 측정 단계에서 지연 원인 수치로 확인 (비고에 기재)
+- [ ] Track A: `/api/workspace`, `/api/panes` 계열 로그 스킵 적용
+- [ ] Track B: Save 가 sub-ms 리턴 (TestSaveIsNonBlocking PASS)
+- [ ] Coalescing 동작 (TestSaveCoalescing PASS)
+- [ ] Close/shutdown 에서 pending flush (TestCloseFlushesPending PASS)
+- [ ] 기존 테스트 회귀 0
+- [ ] 라이브 테스트(사용자 영역): 분할·삭제 체감 지연 사라짐
+- [ ] 임시 계측 로그 제거됨
+- [ ] TODO.md 갱신
+
+---
+
 ## 5. Item F1 — 프런트 `If-Match` 연동
 
 ### 5.1 Problem Frame
