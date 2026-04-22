@@ -13,16 +13,53 @@ internal/
   pane/                # pane 도메인 타입 (PaneLabel 등)
   runtime/             # 런타임에 배포될 셸 헬퍼 스크립트 embed + Install()
     scripts/           # download, edit, bash-hook.sh, zdotdir/.zshrc (실제 파일)
-  server/              # HTTP 라우팅, WS 핸들러, PaneManager, CodeServerManager, CommandHub
+  server/              # HTTP/WS/SSE 라우팅, PaneManager, CodeServerManager, CommandHub, MCPSessionRegistry, settingsStore
   workspace/           # workspace.json 인덱싱·resolve·영속화 (Manager + FilePersister)
 web/                   # 프론트엔드 자산 (HTML/CSS/JS) + embed.FS()
 scripts/               # start/stop/health/install-mcp.sh (개발자·운영자 대상)
+.env / .env.example    # start.sh 가 자동 로드하는 환경변수(PORT, BINARY, LOG, DONGMINAL_HOME)
 docs/
   internal/            # 개발자 문서 (이 파일)
   external/            # 사용자 문서
 ```
 
 `internal/` 는 Go 언어 레벨에서 외부 import 를 막아 캡슐화를 강제한다. 외부 의존성이 필요한 모듈은 의도적으로 `internal/` 밖(현재는 `web/` 만 해당)으로 뺀다.
+
+## 런타임 헬퍼 배포 (`internal/runtime`)
+
+`runtime.Install(binDir)` 이 `main()` 초기화에서 `$DONGMINAL_HOME/bin/` 으로 임베드된 스크립트를 복사한다. 확장자 없거나 `.sh` → `0755`, 그 외 → `0644`. 대상 파일:
+
+- `dmctl` — `/api/commands` 로 워크스페이스 action 브로드캐스트하는 shell CLI.
+- `edit` — `/api/code-server` 호출 + OSC 777 `OpenCodeServer` 출력.
+- `download` — OSC 777 `Download;<abs>` 출력.
+- `bash-hook.sh` — `PROMPT_COMMAND` 에 `_rt_cwd_hook` 주입, OSC 777 `Cwd;<pwd>`.
+- `zdotdir/.zshrc` — zsh 용 `precmd`/`chpwd` 훅. `~/.zshrc` 를 먼저 source.
+
+pane 스폰 시 `StartPane` 이 환경을 덧붙인다 (`internal/server/pane.go`):
+
+```
+PATH=<기존>:$DONGMINAL_HOME/bin
+zsh  → ZDOTDIR=$DONGMINAL_HOME/bin/zdotdir
+bash → BASH_ENV=$DONGMINAL_HOME/bin/bash-hook.sh
+TERM=xterm-256color, COLORTERM=truecolor, LANG/LC_ALL/LC_CTYPE=en_US.UTF-8
+DONGMINAL_PORT=<서버 포트>   # main() 이 setenv, 자식 PTY 가 상속
+```
+
+## code-server 통합 (`internal/server/codeserver.go`)
+
+`CodeServerManager` 는 `code-server` 를 Unix 소켓 모드(`--socket`, `--socket-mode 600`) 로 기동하고 `httputil.ReverseProxy` 를 인스턴스별로 보관한다. `/cs/<id>/` 프록시는 WebSocket 업그레이드까지 지원. `user-data-dir`/`extensions-dir` 는 인스턴스별 격리.
+
+- `Start(folder)` — `PATH` 에 `code-server` 가 없으면 실패. 경로가 파일이면 상위 디렉터리로 보정.
+- `Touch(id)` — `/api/code-server/heartbeat` 로 갱신. 프론트는 10s 주기 호출.
+- `Watchdog()` — 30s 동안 heartbeat 없으면 프로세스 kill. `main()` 에서 `go bd.csm.Watchdog()`.
+- `Stop(id)` / `StopAll()` — SIGTERM 후 소켓 파일 cleanup.
+- 기동 경로: pane `edit <path>` → `POST /api/code-server?path=<abs>` → 응답 수신 → OSC 777 `OpenCodeServer` → 브라우저 `window.open('/cs/<id>/...')`.
+
+## 커맨드 브로드캐스트 (`internal/server/commands.go`)
+
+`CommandHub` 는 SSE 구독자 집합과 버퍼 크기 16 의 채널을 관리. `POST /api/commands` 로 들어온 action 을 `allowedCmdActions` 화이트리스트로 검증 후 구독자 전원에게 브로드캐스트. 버퍼가 꽉 차면 해당 구독자에 한해 드롭 + `[cmd] subscriber channel full` 로그.
+
+15개 허용 action: `newSession`/`newTab`/`splitH`/`splitV`/`focus`/`closeTab`/`closeSession`/`sessionNext`/`sessionPrev`/`tabNext`/`tabPrev`/`paneUp`/`paneDown`/`paneLeft`/`paneRight`. 동일 집합을 MCP 툴 `workspace_command` 가 공유(같은 `CommandHub` 를 주입받음).
 
 ## 어댑터 패턴
 
