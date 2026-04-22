@@ -122,11 +122,11 @@ send_agent_message(
 
 ### 8. 팀 해체 (사용자 확인 후)
 
-**기본 (포커스 안전, CC 종료만)**:
+1. **CC 종료 (포커스 안전, CC 종료만)**:
 - 각 팀원 pane 에 `send_input(text="/exit", execute=true)` — Claude Code 정상 종료
 - pane 은 쉘 상태로 남음 (사용자가 중간 로그를 볼 수 있음)
 
-**pane 까지 제거 (사용자가 요청할 때만)**:
+2. **pane 까지 제거**:
 - `/exit` 먼저 → 쉘 복귀 확인 → 역순(큰 P 번호부터)으로 `workspace_command(closeTab, location=<팀원라벨>)`
 - 매 호출 전 `list_panes` 로 라벨 재확인 (positional 라벨 밀림 방지)
 - `location` 지정 `closeTab` 은 서버가 포커스를 움직이지 않는다. `focus` 는 **호출 금지**.
