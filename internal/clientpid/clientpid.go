@@ -1,8 +1,7 @@
-package main
-
-// MCP JSON-RPC handlers live in internal/server now. The client-PID resolver
-// helpers remain here because they shell out to `ps`/`lsof` and are only used
-// from package main's mcptool adapter.
+// Package clientpid는 원격 TCP 연결의 remoteAddr 로부터 클라이언트 프로세스 PID 를
+// 역추적하고, 조상 프로세스 체인을 거슬러 올라가는 유틸을 제공한다.
+// ps/lsof 를 셸아웃하므로 macOS/리눅스 의존적이다.
+package clientpid
 
 import (
 	"fmt"
@@ -13,7 +12,8 @@ import (
 	"strings"
 )
 
-func getParentPID(pid int) (int, error) {
+// Parent는 주어진 pid 의 부모 PID 를 반환한다.
+func Parent(pid int) (int, error) {
 	out, err := exec.Command("ps", "-o", "ppid=", "-p", strconv.Itoa(pid)).Output()
 	if err != nil {
 		return 0, err
@@ -21,7 +21,9 @@ func getParentPID(pid int) (int, error) {
 	return strconv.Atoi(strings.TrimSpace(string(out)))
 }
 
-func getClientPID(remoteAddr string) (int, error) {
+// FromRemoteAddr는 remoteAddr(예: "127.0.0.1:54321") 에 해당하는 TCP 엔드포인트를
+// 소유한 프로세스의 PID 를 lsof 로 조회한다. 서버 자신 PID 는 제외한다.
+func FromRemoteAddr(remoteAddr string) (int, error) {
 	_, port, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
 		return 0, fmt.Errorf("remoteAddr 파싱 실패: %s", remoteAddr)

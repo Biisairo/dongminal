@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 [ -f .env ] && set -a && source .env && set +a
 
@@ -16,7 +16,7 @@ if lsof -ti :$PORT >/dev/null 2>&1; then
 fi
 
 echo "Building..."
-go build -o $BINARY .
+go build -o $BINARY ./cmd/dongminal
 
 echo "Starting on port $PORT..."
 PORT=$PORT DATA_DIR=$DATA_DIR ./$BINARY > "$LOG" 2>&1 &

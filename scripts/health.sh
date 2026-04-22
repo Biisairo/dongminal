@@ -1,5 +1,5 @@
 #!/bin/bash
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 [ -f .env ] && set -a && source .env && set +a
 PORT="${PORT:-58146}"
 URL="http://localhost:${PORT}/"

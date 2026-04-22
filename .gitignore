@@ -1,9 +1,25 @@
-bin/zdotdir/.zsh_history
-bin/zdotdir/.zsh_sessions/
-bin/zdotdir/.zcompdump*
+# Build artifact (cmd/dongminal → ./dongminal) — 루트 한정(`cmd/dongminal/` 디렉터리와 충돌 방지)
+/dongminal
 
-dongminal
-.env
+# Runtime artifacts: internal/runtime.Install 이 생성하는 bin/*
+/bin
+
+# Runtime data (DATA_DIR 산출물)
+/.dongminal
 workspace.json
 settings.json
 panes.json
+
+# Local env (.env.example 은 추적)
+/.env
+
+# Go test / coverage
+*.test
+*.out
+coverage.txt
+
+# Editor / OS
+.DS_Store
+.claude/
+.idea/
+.vscode/
