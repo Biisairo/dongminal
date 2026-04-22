@@ -55,6 +55,9 @@ func (s *settingsStore) save() {
 	s.mu.Lock()
 	data := s.raw
 	s.mu.Unlock()
+	if len(data) == 0 {
+		return
+	}
 	if err := os.WriteFile(s.path, data, 0644); err != nil {
 		log.Printf("saveSettings: %v", err)
 	}

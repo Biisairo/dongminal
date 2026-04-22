@@ -49,7 +49,7 @@ Tokyo Night, Dracula, One Dark, Nord, Catppuccin, Solarized Dark, Monokai, GitHu
 
 ## 파일 영속성
 
-`DATA_DIR` 아래에 저장:
+`DONGMINAL_HOME` (기본 `~/.dongminal`) 아래에 저장:
 
 | 파일 | 설명 | 재시작 시 |
 |------|------|-----------|

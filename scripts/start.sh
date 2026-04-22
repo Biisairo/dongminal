@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 PORT="${PORT:-58146}"
 BINARY="${BINARY:-dongminal}"
 LOG="${LOG:-/tmp/dongminal.log}"
-DATA_DIR="${DATA_DIR:-.}"
+DONGMINAL_HOME="${DONGMINAL_HOME:-$HOME/.dongminal}"
 
 if lsof -ti :$PORT >/dev/null 2>&1; then
   echo "Stopping existing process on port $PORT..."
@@ -19,7 +19,7 @@ echo "Building..."
 go build -o $BINARY ./cmd/dongminal
 
 echo "Starting on port $PORT..."
-PORT=$PORT DATA_DIR=$DATA_DIR ./$BINARY > "$LOG" 2>&1 &
+PORT=$PORT DONGMINAL_HOME=$DONGMINAL_HOME ./$BINARY > "$LOG" 2>&1 &
 echo "PID: $!"
 sleep 1
 

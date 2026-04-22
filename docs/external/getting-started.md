@@ -39,7 +39,7 @@ PORT=8080 ./dongminal
 | 변수 | 기본 | 설명 |
 |------|------|------|
 | `PORT` | `8080` | HTTP 서버 포트 |
-| `DATA_DIR` | `.` (현재 디렉터리) | `settings.json`, `workspace.json`, `panes/` 저장 위치 |
+| `DONGMINAL_HOME` | `~/.dongminal` | 설치 루트. `bin/`(런타임 훅 스크립트), `settings.json`, `workspace.json`, `panes/` 전부 여기 아래에 둡니다. |
 | `LOG` | `/tmp/dongminal.log` | `start.sh` 가 서버 로그를 리다이렉트할 파일 |
 | `BINARY` | `dongminal` | 빌드될 바이너리 이름 |
 

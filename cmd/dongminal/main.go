@@ -77,17 +77,23 @@ func main() {
 		port = "8080"
 	}
 	os.Setenv("DONGMINAL_PORT", port)
-	dataDir := os.Getenv("DATA_DIR")
-	if dataDir != "" {
-		if err := os.MkdirAll(dataDir, 0o755); err != nil {
-			log.Fatalf("DATA_DIR 생성 실패: %v", err)
+	home := os.Getenv("DONGMINAL_HOME")
+	if home == "" {
+		userHome, err := os.UserHomeDir()
+		if err != nil {
+			log.Fatalf("홈 디렉터리 확인 실패: %v", err)
 		}
+		home = filepath.Join(userHome, ".dongminal")
 	}
-	if err := runtime.Install(filepath.Join(".", "bin")); err != nil {
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		log.Fatalf("DONGMINAL_HOME 생성 실패: %v", err)
+	}
+	os.Setenv("DONGMINAL_HOME", home)
+	if err := runtime.Install(filepath.Join(home, "bin")); err != nil {
 		log.Fatalf("runtime install: %v", err)
 	}
 
-	cfg := server.Config{Port: port, DataDir: dataDir, StaticFS: web.FS()}
+	cfg := server.Config{Port: port, DataDir: home, StaticFS: web.FS()}
 
 	bd, err := buildDeps(cfg)
 	if err != nil {
@@ -109,7 +115,6 @@ func main() {
 
 	log.Printf("shutting down")
 	bd.pm.SaveAll()
-	srv.PersistSettings()
 	_ = bd.wsMgr.Close()
 	bd.csm.StopAll()
 	if runErr != nil {

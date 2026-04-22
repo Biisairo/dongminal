@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -142,7 +143,7 @@ func StartPane(id, name, cwd string, cols, rows uint16, onExit func(string)) (*P
 	}
 	home, _ := os.UserHomeDir()
 	cmd := exec.Command(shell, "-l")
-	binDir, _ := filepath.Abs(filepath.Join(".", "bin"))
+	binDir := filepath.Join(os.Getenv("DONGMINAL_HOME"), "bin")
 	env := []string{
 		"TERM=xterm-256color", "COLORTERM=truecolor",
 		"LANG=en_US.UTF-8", "LC_ALL=en_US.UTF-8", "LC_CTYPE=en_US.UTF-8",
@@ -316,6 +317,7 @@ type PaneManager struct {
 
 	dataDir     string
 	invalidator func(paneID string)
+	dirty       atomic.Bool
 }
 
 // NewPaneManager builds an empty manager. dataDir is where panes.json lives;
@@ -364,6 +366,7 @@ func (m *PaneManager) Create(cwd string, cols, rows uint16) (*Pane, error) {
 	}
 	m.panes[id] = p
 	log.Printf("[pane %s] registered total=%d", id, len(m.panes))
+	m.dirty.Store(true)
 	go m.SaveAll()
 	return p, nil
 }
@@ -420,6 +423,7 @@ func (m *PaneManager) Delete(id string) {
 		p.kill()
 		log.Printf("[pane %s] deleted remaining=%d", id, remaining)
 	}
+	m.dirty.Store(true)
 	go m.SaveAll()
 }
 
@@ -434,8 +438,12 @@ type PaneState struct {
 	Cwd  string `json:"cwd"`
 }
 
-// SaveAll writes panes.json.
+// SaveAll writes panes.json. Skips when no state mutation has occurred since
+// startup so a clean run never clobbers an existing user file with empty state.
 func (m *PaneManager) SaveAll() {
+	if !m.dirty.Load() {
+		return
+	}
 	m.mu.Lock()
 	var states []PaneState
 	for _, p := range m.panes {
