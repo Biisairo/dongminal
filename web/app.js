@@ -640,6 +640,10 @@ class App {
         es.onmessage=(e)=>{
           try{
             const m=JSON.parse(e.data);
+            if(m.action==='workspace_changed'){
+              this._onWorkspaceChanged(m.args&&m.args.rev);
+              return;
+            }
             this._execRemote(m.action, m.args||{});
           }catch(err){console.error('[cmd] parse',err)}
         };
@@ -652,6 +656,61 @@ class App {
       }catch(e){console.error('[cmd] connect',e); setTimeout(connect, retry)}
     };
     connect();
+  }
+
+  async _onWorkspaceChanged(rev){
+    if(this._wsApplyInflight){ this._wsApplyPending=true; return }
+    const cur=this.wsETag?parseInt(this.wsETag,10):-1;
+    if(typeof rev==='number' && rev<=cur) return;
+    this._wsApplyInflight=true;
+    try{
+      do{
+        this._wsApplyPending=false;
+        const r=await fetch('/api/state');
+        if(!r.ok) break;
+        const et=r.headers.get('ETag')||r.headers.get('Etag');
+        const st=await r.json();
+        const sv=st&&st.workspace;
+        const sp=(st&&st.panes)||[];
+        if(!sv||!sv.sessions) break;
+        this._applyRemoteWorkspace(sv, sp);
+        if(et) this.wsETag=et;
+      }while(this._wsApplyPending);
+    }catch(err){console.error('[ws] sync',err)}
+    finally{this._wsApplyInflight=false}
+  }
+
+  _applyRemoteWorkspace(sv, serverPanes){
+    const ok=new Set((serverPanes||[]).map(p=>p.id));
+    const nameOf=new Map((serverPanes||[]).map(p=>[p.id,p.name]));
+    for(const id of ok){
+      if(!this.panes.has(id)) this._mkPane(id, nameOf.get(id)||id);
+    }
+    for(const [id,p] of Array.from(this.panes.entries())){
+      if(!ok.has(id)){ try{p.destroy()}catch{} this.panes.delete(id) }
+    }
+    for(const s of sv.sessions){
+      if(!s||!s.id) continue;
+      const n=parseInt(s.id.replace(/\D/g,''),10); if(n>this._s) this._s=n;
+      s.layout=clean(s.layout, ok);
+      if(s.layout) this._rids(s.layout);
+    }
+    sv.sessions=sv.sessions.filter(s=>s&&s.layout);
+    if(!sv.sessions.find(s=>s.id===sv.activeSession))
+      sv.activeSession=sv.sessions[0]?.id||null;
+    this.ws=sv;
+    if(this.ws.sidebarWidth){
+      const w=Math.max(100,Math.min(400,this.ws.sidebarWidth));
+      document.documentElement.style.setProperty('--sb-w',w+'px');
+      try{localStorage.setItem('sidebarWidth',w)}catch{}
+    }
+    const a=this._as();
+    if(a&&a.layout){
+      const saved=a.focusedRegion;
+      const f=(saved&&findRg(a.layout,saved))?{id:saved}:firstRg(a.layout);
+      if(f) this.focused=f.id;
+    }
+    this.render();
   }
 
   _execRemote(action, args){

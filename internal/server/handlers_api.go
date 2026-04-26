@@ -251,6 +251,13 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("ETag", strconv.FormatUint(rev, 10))
 		w.WriteHeader(200)
+		if s.Commands != nil {
+			payload, _ := json.Marshal(map[string]any{
+				"action": "workspace_changed",
+				"args":   map[string]any{"rev": rev},
+			})
+			s.Commands.Broadcast(payload)
+		}
 
 	case p == "/api/settings" && r.Method == http.MethodGet:
 		var data []byte
