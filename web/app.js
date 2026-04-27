@@ -259,7 +259,26 @@ class TermPane {
       if(e.ctrlKey&&!e.metaKey) e.preventDefault();
     });
     this.term.onData(d=>{
-      const b=enc.encode(d);
+      let out=d;
+      // Apply mobile sticky modifier (Ctrl/Alt) to virtual-keyboard input
+      const A=window.app;
+      if(A && A.isMobile && A._modKbd && out.length===1){
+        const mk=A._modKbd;
+        const c=out.charCodeAt(0);
+        if(mk.ctrl && c>=0x40 && c<=0x7e) out=String.fromCharCode(c & 0x1f);
+        if(mk.alt) out='\x1b'+out;
+        let changed=false;
+        if(mk.ctrl===true){mk.ctrl=false;changed=true}
+        if(mk.alt===true){mk.alt=false;changed=true}
+        if(changed){
+          document.querySelectorAll('#mobile-keybar .mkb-btn[data-mod]').forEach(b=>{
+            const mm=b.dataset.mod, st=mk[mm];
+            b.classList.toggle('sticky', st===true);
+            b.classList.toggle('locked', st==='lock');
+          });
+        }
+      }
+      const b=enc.encode(out);
       const m=new Uint8Array(1+b.length);m[0]=OP.INPUT;m.set(b,1);
       this._send(m);
     });
@@ -590,6 +609,81 @@ class App {
     this._s=0;this._r=0;this._t=0;this._kb=false;
     this._drag=null;
     this._stats={};this._latency=null;
+    this._mPaneIdx=0; // mobile current pane index (volatile)
+    this._drawerOpen=false;
+    this._modKbd=null; // {ctrl:bool|'lock', alt:bool|'lock'}
+  }
+
+  // ── Mobile mode ──
+
+  // displayMode / mobileBreakpoint are per-device (localStorage), NOT synced via workspace.
+  get displayMode(){
+    try{const v=localStorage.getItem('displayMode');if(v==='mobile'||v==='desktop'||v==='auto')return v}catch{}
+    return 'auto';
+  }
+  set displayMode(v){
+    if(v!=='mobile'&&v!=='desktop'&&v!=='auto') v='auto';
+    try{localStorage.setItem('displayMode', v)}catch{}
+  }
+  get mobileBreakpoint(){
+    try{const v=parseInt(localStorage.getItem('mobileBreakpoint'),10);if(v>=320&&v<=2000)return v}catch{}
+    return 768;
+  }
+  set mobileBreakpoint(v){
+    const n=parseInt(v,10);
+    if(!(n>=320&&n<=2000)) return;
+    try{localStorage.setItem('mobileBreakpoint', String(n))}catch{}
+  }
+  get isMobile(){
+    const m=this.displayMode;
+    if(m==='mobile') return true;
+    if(m==='desktop') return false;
+    return window.innerWidth < this.mobileBreakpoint;
+  }
+  _applyMobileMode(){
+    const mob=this.isMobile;
+    document.body.classList.toggle('mobile', mob);
+    if(!mob && this._drawerOpen){this._drawerOpen=false;document.body.classList.remove('drawer-open')}
+    if(!mob){document.body.classList.remove('keyboard-up')}
+  }
+  _toggleDrawer(open){
+    if(!this.isMobile){this._drawerOpen=false;document.body.classList.remove('drawer-open');return}
+    this._drawerOpen = (open===undefined) ? !this._drawerOpen : !!open;
+    document.body.classList.toggle('drawer-open', this._drawerOpen);
+  }
+
+  // Flatten split tree → array of region nodes (in-order: L→R, T→B)
+  _flattenRegions(node, out){
+    out = out || [];
+    if(!node) return out;
+    if(node.type==='region') out.push(node);
+    else if(node.type==='split' && node.children){
+      for(const c of node.children) this._flattenRegions(c, out);
+    }
+    return out;
+  }
+  _mobileCurrentRegion(){
+    const s=this._as(); if(!s||!s.layout) return null;
+    const regs=this._flattenRegions(s.layout);
+    if(!regs.length) return null;
+    if(this._mPaneIdx>=regs.length) this._mPaneIdx=regs.length-1;
+    if(this._mPaneIdx<0) this._mPaneIdx=0;
+    return regs[this._mPaneIdx];
+  }
+  _mobilePaneCount(){
+    const s=this._as(); if(!s||!s.layout) return 0;
+    return this._flattenRegions(s.layout).length;
+  }
+  navMobilePane(delta){
+    const n=this._mobilePaneCount(); if(n<=1) return;
+    this._mPaneIdx = (this._mPaneIdx + delta + n) % n;
+    const rg=this._mobileCurrentRegion();
+    if(rg){
+      this.focused=rg.id;
+      const s=this._as(); if(s) s.focusedRegion=rg.id;
+      this._save();
+    }
+    this.render();
   }
 
   async init(){
@@ -603,6 +697,10 @@ class App {
       for(const p of sp){const pane=this._mkPane(p.id,p.name);pane._reconnecting=true;pane.el.style.opacity='0'}
       if(sv&&sv.sessions&&sv.sessions.length){
         this.ws=sv;
+        // Migration: displayMode/mobileBreakpoint were briefly stored in workspace.
+        // Now per-device (localStorage); strip from synced state.
+        if('displayMode' in this.ws) delete this.ws.displayMode;
+        if('mobileBreakpoint' in this.ws) delete this.ws.mobileBreakpoint;
         if(this.ws.sidebarWidth){
           const w=Math.max(100,Math.min(400,this.ws.sidebarWidth));
           document.documentElement.style.setProperty('--sb-w',w+'px');
@@ -699,6 +797,8 @@ class App {
     if(!sv.sessions.find(s=>s.id===sv.activeSession))
       sv.activeSession=sv.sessions[0]?.id||null;
     this.ws=sv;
+    if('displayMode' in this.ws) delete this.ws.displayMode;
+    if('mobileBreakpoint' in this.ws) delete this.ws.mobileBreakpoint;
     if(this.ws.sidebarWidth){
       const w=Math.max(100,Math.min(400,this.ws.sidebarWidth));
       document.documentElement.style.setProperty('--sb-w',w+'px');
@@ -908,13 +1008,18 @@ class App {
   }
 
   switchSession(sid){
-    if(this.ws.activeSession===sid) return;
+    if(this.ws.activeSession===sid){
+      if(this.isMobile && this._drawerOpen) this._toggleDrawer(false);
+      return;
+    }
     const cur=this._as();if(cur)cur.focusedRegion=this.focused;
     this.ws.activeSession=sid;
     const a=this._as();
     if(a&&a.layout){
       this.focused=(a.focusedRegion&&findRg(a.layout,a.focusedRegion))?a.focusedRegion:firstRg(a.layout)?.id||null;
     } else this.focused=null;
+    this._mPaneIdx=0;
+    if(this.isMobile && this._drawerOpen) this._toggleDrawer(false);
     this._save(); this.render();
   }
 
@@ -971,6 +1076,7 @@ class App {
   }
 
   async split(dir,opts={}){
+    if(this.isMobile && !opts.force) return;
     const tgtSessionId=opts.targetSession||this.ws.activeSession;
     const s=this.ws.sessions.find(x=>x.id===tgtSessionId);
     const tgtRegionId=opts.targetRegion||(tgtSessionId===this.ws.activeSession?this.focused:null);
@@ -1119,6 +1225,7 @@ class App {
     this._researchIfOpen();
     this._updateCwd();
     this._updateStatusBar();
+    this._save();
   }
 
   _save(){
@@ -1177,6 +1284,7 @@ class App {
       this._clearAllSearchDecorations();
       this._researchIfOpen();
     }
+    this._applyMobileMode();
     this._rSidebar();this._rTopbar();this._rLayout();
     this._updateCwd();
     this._updateStatusBar();
@@ -1206,6 +1314,20 @@ class App {
   _rTopbar(){
     const a=this._as();
     document.getElementById('session-name').textContent=a?a.name:'';
+    // Mobile pane indicator
+    const ind=document.getElementById('m-pane-indicator');
+    if(ind){
+      const n=this._mobilePaneCount();
+      if(n<=0){ind.textContent='0/0'}
+      else{
+        if(this._mPaneIdx>=n) this._mPaneIdx=n-1;
+        if(this._mPaneIdx<0) this._mPaneIdx=0;
+        ind.textContent=`${this._mPaneIdx+1}/${n}`;
+      }
+    }
+    // Drawer toggle icon (☰ ↔ ✕)
+    const dt=document.getElementById('m-drawer-toggle');
+    if(dt) dt.textContent = this._drawerOpen ? '✕' : '☰';
   }
 
   _rLayout(){
@@ -1215,7 +1337,20 @@ class App {
     for(const c of [...area.children]){if(c.classList.contains('sp')||c.classList.contains('rg'))c.remove()}
     if(!s?.layout) return;
     if(!findRg(s.layout,this.focused)) this.focused=firstRg(s.layout)?.id||null;
-    const dom=this._buildNode(s.layout);
+    let dom;
+    if(this.isMobile){
+      // Sync _mPaneIdx with focused region if possible
+      const regs=this._flattenRegions(s.layout);
+      if(regs.length){
+        const fIdx=regs.findIndex(r=>r.id===this.focused);
+        if(fIdx>=0) this._mPaneIdx=fIdx;
+        else if(this._mPaneIdx>=regs.length) this._mPaneIdx=regs.length-1;
+        const target=regs[this._mPaneIdx];
+        if(target){this.focused=target.id;dom=this._buildRg(target)}
+      }
+    }else{
+      dom=this._buildNode(s.layout);
+    }
     if(dom) area.appendChild(dom);
     requestAnimationFrame(()=>{
       for(const p of this.panes.values()){
@@ -1367,7 +1502,160 @@ class App {
     this._initModal();
     this._initStatusBar();
     this._initPresets();
+    this._initMobile();
+    this._initMobileKeybar();
   }
+
+  // ── Mobile bindings ──
+
+  _initMobile(){
+    // Topbar mobile buttons
+    const prev=document.getElementById('m-pane-prev');
+    const next=document.getElementById('m-pane-next');
+    const addT=document.getElementById('m-add-tab');
+    const srch=document.getElementById('m-search-btn');
+    const drwr=document.getElementById('m-drawer-toggle');
+    const bd=document.getElementById('drawer-backdrop');
+    if(prev) prev.addEventListener('click',()=>this.navMobilePane(-1));
+    if(next) next.addEventListener('click',()=>this.navMobilePane(1));
+    if(addT) addT.addEventListener('click',()=>{
+      const rg=this._mobileCurrentRegion(); if(rg) this.addTab(rg.id);
+    });
+    if(srch) srch.addEventListener('click',()=>this.toggleSearch&&this.toggleSearch());
+    if(drwr) drwr.addEventListener('click',()=>{this._toggleDrawer();this._rTopbar()});
+    if(bd) bd.addEventListener('click',()=>{this._toggleDrawer(false);this._rTopbar()});
+    // Drawer close button injected into sidebar (visible only on mobile)
+    const sb=document.getElementById('sidebar');
+    if(sb && !sb.querySelector('.drawer-close')){
+      const xb=document.createElement('button');
+      xb.className='drawer-close';xb.textContent='✕';xb.title='닫기';
+      xb.addEventListener('click',()=>{this._toggleDrawer(false);this._rTopbar()});
+      sb.insertBefore(xb, sb.firstChild);
+    }
+    // Auto-close drawer on session switch (mobile)
+    // (handled in switchSession via _drawerOpen check)
+
+    // Display Settings panel sync
+    const dsMode=document.getElementById('ds-mode');
+    const dsBp=document.getElementById('ds-bp');
+    if(dsMode){
+      dsMode.value=this.displayMode;
+      dsMode.addEventListener('change',()=>{
+        this.displayMode=dsMode.value;
+        this.render();
+      });
+    }
+    if(dsBp){
+      dsBp.value=this.mobileBreakpoint;
+      dsBp.addEventListener('change',()=>{
+        let v=parseInt(dsBp.value,10);
+        if(!(v>=320&&v<=2000)){v=768;dsBp.value=v}
+        this.mobileBreakpoint=v;
+        this.render();
+      });
+    }
+  }
+
+  _initMobileKeybar(){
+    const bar=document.getElementById('mobile-keybar');
+    if(!bar) return;
+    bar.innerHTML='';
+    const keys=[
+      {label:'Esc',send:''},
+      {label:'Tab',send:'\t'},
+      {label:'Ctrl',mod:'ctrl'},
+      {label:'Alt',mod:'alt'},
+      {label:'↑',send:'[A'},
+      {label:'↓',send:'[B'},
+      {label:'←',send:'[D'},
+      {label:'→',send:'[C'},
+      {label:'|',send:'|'},
+      {label:'~',send:'~'},
+      {label:'/',send:'/'},
+      {label:'-',send:'-'},
+      {label:'Home',send:'[H'},
+      {label:'End',send:'[F'},
+      {label:'PgUp',send:'[5~'},
+      {label:'PgDn',send:'[6~'},
+    ];
+    this._modKbd={ctrl:false,alt:false};
+    const refresh=()=>{
+      bar.querySelectorAll('.mkb-btn[data-mod]').forEach(b=>{
+        const m=b.dataset.mod, st=this._modKbd[m];
+        b.classList.toggle('sticky', st===true);
+        b.classList.toggle('locked', st==='lock');
+      });
+    };
+    const sendToFocused=(s)=>{
+      const p=this._focusedPane();
+      if(!p) return;
+      let out=s;
+      // Ctrl modifier: convert printable a-z/A-Z to ctrl code (1-26)
+      if(this._modKbd.ctrl && s.length===1){
+        const c=s.charCodeAt(0);
+        if(c>=0x40 && c<=0x7e) out=String.fromCharCode(c & 0x1f);
+      }
+      // Alt prefix: ESC + char
+      if(this._modKbd.alt && out.length>=1 && !out.startsWith('')){
+        out=''+out;
+      }
+      try{p.term.focus();}catch{}
+      try{
+        const bts=enc.encode(out);
+        const msg=new Uint8Array(1+bts.length);msg[0]=OP.INPUT;msg.set(bts,1);
+        p._send(msg);
+      }catch{}
+      // Clear sticky (not lock)
+      if(this._modKbd.ctrl===true) this._modKbd.ctrl=false;
+      if(this._modKbd.alt===true) this._modKbd.alt=false;
+      refresh();
+    };
+    for(const k of keys){
+      const b=document.createElement('button');
+      b.className='mkb-btn';b.textContent=k.label;b.type='button';
+      if(k.mod){b.dataset.mod=k.mod}
+      // prevent focus theft from xterm
+      b.addEventListener('mousedown',e=>e.preventDefault());
+      b.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+      let lastTap=0;
+      b.addEventListener('click',e=>{
+        e.preventDefault();
+        if(k.mod){
+          const now=Date.now();
+          const dbl=(now-lastTap)<350;
+          lastTap=now;
+          const cur=this._modKbd[k.mod];
+          if(dbl){this._modKbd[k.mod]=(cur==='lock')?false:'lock'}
+          else{this._modKbd[k.mod]=cur?false:true}
+          refresh();
+        }else{
+          sendToFocused(k.send);
+        }
+      });
+      bar.appendChild(b);
+    }
+    // visualViewport tracking — keyboard up/down detection
+    if(window.visualViewport){
+      const vv=window.visualViewport;
+      const apply=()=>{
+        if(!this.isMobile){document.body.classList.remove('keyboard-up');return}
+        const kbH=Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+        const isUp=kbH > 80;
+        document.body.classList.toggle('keyboard-up', isUp);
+        if(isUp){
+          bar.style.bottom = kbH + 'px';
+        }else{
+          bar.style.bottom = '0px';
+        }
+        // Refit terminal
+        for(const p of this.panes.values()){if(p.el.classList.contains('vis'))p.doFit()}
+      };
+      vv.addEventListener('resize', apply);
+      vv.addEventListener('scroll', apply);
+      apply();
+    }
+  }
+
 
   async _saveSettings(){
     try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,layoutPresets,defaultPreset})})}catch{}
@@ -1378,7 +1666,16 @@ class App {
   _initModal(){
     const overlay=document.getElementById('modal-overlay');
     const modal=document.getElementById('modal');
-    document.getElementById('settings-btn').addEventListener('click',()=>{overlay.classList.add('open');this._renderThemePanel();this._renderShortcutList();this._renderPresets()});
+    document.getElementById('settings-btn').addEventListener('click',()=>{
+      overlay.classList.add('open');
+      this._renderThemePanel();this._renderShortcutList();this._renderPresets();
+      const dsMode=document.getElementById('ds-mode');
+      const dsBp=document.getElementById('ds-bp');
+      if(dsMode) dsMode.value=this.displayMode;
+      if(dsBp) dsBp.value=this.mobileBreakpoint;
+      // Auto-close drawer when opening settings on mobile
+      if(this.isMobile && this._drawerOpen){this._toggleDrawer(false);this._rTopbar()}
+    });
     document.getElementById('modal-close').addEventListener('click',()=>overlay.classList.remove('open'));
     overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('open')});
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.classList.contains('open')){e.preventDefault();overlay.classList.remove('open')}});
@@ -1882,5 +2179,10 @@ document.getElementById('custom-toggle').addEventListener('click',()=>{
   else{app._hideCustomEditor()}
 });
 
-window.addEventListener('resize',()=>{for(const p of app.panes.values())if(p.el.classList.contains('vis'))p.doFit()});
+window.addEventListener('resize',()=>{
+  const wasMobile=document.body.classList.contains('mobile');
+  const nowMobile=app.isMobile;
+  if(wasMobile!==nowMobile){app.render()}
+  else{for(const p of app.panes.values())if(p.el.classList.contains('vis'))p.doFit()}
+});
 window.addEventListener('beforeunload',e=>{if(app.panes.size>0)e.preventDefault()});

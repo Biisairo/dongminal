@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Terminal</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.css">
-  <link rel="stylesheet" href="style.css?v=94">
+  <link rel="stylesheet" href="style.css?v=95">
   <script>try{var w=parseInt(localStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px')}catch(e){}</script>
 </head>
 <body>
 <div id="app">
+  <div id="drawer-backdrop"></div>
   <div id="sidebar">
     <div class="sb-title">Sessions</div>
     <button id="add-session">+ New</button>
@@ -21,9 +22,17 @@
   <div id="content">
     <div id="topbar">
       <span id="session-name"></span>
+      <span class="m-pane-nav mobile-only">
+        <button class="mtbtn" id="m-pane-prev" title="이전 pane">‹</button>
+        <span id="m-pane-indicator">1/1</span>
+        <button class="mtbtn" id="m-pane-next" title="다음 pane">›</button>
+      </span>
       <span class="spacer"></span>
-      <button class="tbtn" id="split-h" title="Split Horizontal (Ctrl+Shift+H)">Split H</button>
-      <button class="tbtn" id="split-v" title="Split Vertical (Ctrl+Shift+V)">Split V</button>
+      <button class="tbtn desktop-only" id="split-h" title="Split Horizontal (Ctrl+Shift+H)">Split H</button>
+      <button class="tbtn desktop-only" id="split-v" title="Split Vertical (Ctrl+Shift+V)">Split V</button>
+      <button class="mtbtn mobile-only" id="m-search-btn" title="검색">🔍</button>
+      <button class="mtbtn mobile-only" id="m-add-tab" title="새 탭">+</button>
+      <button class="mtbtn mobile-only" id="m-drawer-toggle" title="메뉴">☰</button>
     </div>
     <div id="area"></div>
     <div id="search-bar" class="search-bar hidden">
@@ -37,6 +46,7 @@
     </div>
     <div id="status-bar" class="status-bar"></div>
   </div>
+  <div id="mobile-keybar" class="mobile-only"></div>
 </div>
 
 <!-- Settings Modal -->
@@ -51,6 +61,7 @@
       <button class="mtab" data-tab="shortcuts">Shortcuts</button>
       <button class="mtab" data-tab="statusbar">Status Bar</button>
       <button class="mtab" data-tab="presets">Presets</button>
+      <button class="mtab" data-tab="display">Display</button>
     </div>
     <div class="modal-body">
       <div class="mpanel" id="panel-theme">
@@ -73,6 +84,23 @@
       <div class="mpanel" id="panel-presets" style="display:none">
         <div class="preset-list" id="preset-list"></div>
         <button id="preset-save" class="preset-save">현재 레이아웃 저장</button>
+      </div>
+      <div class="mpanel" id="panel-display" style="display:none">
+        <div class="display-settings">
+          <div class="ds-row">
+            <span>Display Mode</span>
+            <select class="sbs-select" id="ds-mode">
+              <option value="auto">Auto (뷰포트 기준)</option>
+              <option value="desktop">Desktop (강제)</option>
+              <option value="mobile">Mobile (강제)</option>
+            </select>
+          </div>
+          <div class="ds-row">
+            <span>Mobile Breakpoint (px)</span>
+            <input type="number" class="ds-num" id="ds-bp" min="320" max="2000" step="10">
+          </div>
+          <div class="ds-hint">'Auto' 모드에서 창 너비가 Breakpoint보다 작으면 모바일 레이아웃으로 전환됩니다.</div>
+        </div>
       </div>
     </div>
   </div>

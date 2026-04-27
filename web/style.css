@@ -367,6 +367,112 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 }
 .preset-save:hover{border-color:var(--accent-border);background:var(--accent-hover)}
 
+/* ── Display Settings ── */
+.display-settings{display:flex;flex-direction:column;gap:10px}
+.ds-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.ds-row span{color:var(--text);font-size:12px}
+.ds-num{
+  width:90px;background:var(--bg);border:1px solid var(--border);border-radius:4px;
+  color:var(--text);font-size:12px;padding:3px 8px;font-family:inherit;outline:none;
+}
+.ds-num:focus{border-color:var(--accent)}
+.ds-hint{color:var(--text-dim);font-size:11px;line-height:1.5;margin-top:6px}
+
+/* ── Mobile/Desktop visibility toggles ── */
+.mobile-only{display:none !important}
+body.mobile .desktop-only{display:none !important}
+body.mobile .mtbtn.mobile-only{display:flex !important}
+body.mobile .m-pane-nav.mobile-only{display:inline-flex !important}
+/* keybar visibility is owned solely by keyboard-up; default hidden even on mobile */
+body.mobile #mobile-keybar{display:none}
+body.mobile.keyboard-up #mobile-keybar{display:flex}
+
+/* ── Mobile topbar buttons ── */
+.mtbtn{
+  background:transparent;border:1px solid transparent;border-radius:4px;
+  color:var(--text);cursor:pointer;font-size:14px;
+  width:30px;height:26px;align-items:center;justify-content:center;
+  flex-shrink:0;font-family:inherit;
+}
+.mtbtn:hover{background:var(--accent-hover);color:var(--accent)}
+.mtbtn:active{background:var(--accent-active)}
+.m-pane-nav{display:inline-flex;align-items:center;gap:2px;margin-left:4px}
+#m-pane-indicator{font-size:11px;color:var(--text-muted);min-width:32px;text-align:center;font-variant-numeric:tabular-nums}
+
+/* ── Mobile mode layout ── */
+body.mobile #sb-handle{display:none}
+body.mobile #sidebar{
+  position:fixed;top:0;left:0;right:0;bottom:auto;
+  width:100%;min-width:0;max-width:none;
+  height:auto;max-height:min(75vh,520px);
+  z-index:50;
+  transform:translateY(-100%);
+  transition:transform .22s ease;
+  border-right:none;border-bottom:1px solid var(--border);
+  box-shadow:0 6px 20px rgba(0,0,0,.45);
+  overflow-y:auto;
+}
+body.mobile.drawer-open #sidebar{transform:translateY(0)}
+#drawer-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40;opacity:0;transition:opacity .2s ease}
+body.mobile.drawer-open #drawer-backdrop{display:block;opacity:1}
+
+/* drawer close button shown only on mobile when drawer open */
+.drawer-close{
+  position:absolute;top:6px;right:6px;
+  background:transparent;border:none;color:var(--text-muted);
+  font-size:20px;cursor:pointer;width:32px;height:32px;
+  display:none;align-items:center;justify-content:center;border-radius:4px;
+}
+.drawer-close:hover{color:var(--danger);background:var(--accent-hover)}
+body.mobile .drawer-close{display:flex}
+
+/* hide split handles entirely on mobile */
+body.mobile .sh{display:none !important}
+/* on mobile, terminal area uses full width (no flex split rendering happens via JS) */
+
+/* mobile content takes full width (no sidebar push) */
+body.mobile #content{width:100%}
+
+/* mobile topbar tighter spacing */
+body.mobile #topbar{padding:0 4px;gap:2px}
+body.mobile #session-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:35%;color:var(--text-bright)}
+
+/* mobile keybar (M4) */
+#mobile-keybar{
+  position:fixed;left:0;right:0;bottom:0;
+  height:38px;background:var(--sidebar-bg);border-top:1px solid var(--border);
+  display:none;align-items:center;gap:4px;padding:4px 6px;
+  overflow-x:auto;overflow-y:hidden;z-index:60;
+  -webkit-overflow-scrolling:touch;
+}
+#mobile-keybar::-webkit-scrollbar{height:0}
+.mkb-btn{
+  flex-shrink:0;min-width:38px;height:30px;padding:0 8px;
+  background:var(--bg);border:1px solid var(--border);border-radius:5px;
+  color:var(--text-bright);font-size:12px;font-family:inherit;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  user-select:none;-webkit-user-select:none;
+}
+.mkb-btn:active{background:var(--accent-active)}
+.mkb-btn.sticky{border-color:var(--accent);color:var(--accent);background:var(--accent-subtle)}
+.mkb-btn.locked{border-color:var(--accent);background:var(--accent-active);color:var(--accent);font-weight:600}
+
+/* keybar sits above safe area when keyboard is up; JS sets bottom dynamically */
+body.mobile.keyboard-up #mobile-keybar{display:flex}
+
+/* on mobile, hide split-related drag indicators */
+body.mobile .rg-drop-indicator{display:none !important}
+
+/* enlarge touch targets on mobile */
+body.mobile .si{height:40px;font-size:13px}
+body.mobile .si-x{opacity:1;width:24px;height:24px;font-size:14px}
+body.mobile .rt{padding:0 14px;font-size:13px}
+body.mobile .rt-x{opacity:1;width:18px;height:18px}
+body.mobile .rt-add{width:32px;font-size:18px}
+body.mobile #add-session,body.mobile #add-preset,body.mobile #settings-btn{padding:8px;font-size:12px}
+body.mobile #sessions{padding-top:8px}
+body.mobile .sb-title{padding:14px 14px 8px}
+
 /* ── Tab bar drag target ── */
 .rg-tabs.drag-target{background:var(--accent-hover);box-shadow:inset 0 -2px 0 var(--accent)}
 
