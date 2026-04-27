@@ -7,13 +7,15 @@
 ## 빠른 시작
 
 ```bash
-./scripts/start.sh                  # 빌드 + 실행 (기본 포트 58146, .env 자동 로드)
+./scripts/start.sh                  # 빌드 + 실행 (기본: localhost only, 포트 58146)
+./scripts/internal.sh               # localhost 전용 실행 (동일 PC 에서만 접근)
+./scripts/external.sh               # LAN 노출 실행 (사내망 다른 기기 접근 허용)
 ./scripts/stop.sh                   # 중지
 ./scripts/health.sh                 # 헬스 체크
-PORT=8080 ./scripts/start.sh        # 포트 지정
+PORT=8080 ./scripts/internal.sh     # 포트 지정
 ```
 
-브라우저에서 `http://localhost:<PORT>/` 접속.
+브라우저에서 `http://localhost:<PORT>/` 접속. `external.sh` 로 띄운 경우 같은 네트워크의 다른 기기에서 `http://<host-ip>:<PORT>/` 로도 접근됩니다.
 
 상세한 설치·실행·환경변수는 [docs/external/getting-started.md](docs/external/getting-started.md).
 

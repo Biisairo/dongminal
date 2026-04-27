@@ -77,6 +77,10 @@ func main() {
 		port = "8080"
 	}
 	os.Setenv("DONGMINAL_PORT", port)
+	host := os.Getenv("DONGMINAL_HOST")
+	if host == "" {
+		host = "127.0.0.1"
+	}
 	home := os.Getenv("DONGMINAL_HOME")
 	if home == "" {
 		userHome, err := os.UserHomeDir()
@@ -109,9 +113,13 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	log.Printf("dongminal starting on :%s", port)
+	exposure := "local-only"
+	if host == "0.0.0.0" || host == "::" {
+		exposure = "exposed to LAN"
+	}
+	log.Printf("dongminal starting on http://%s:%s (%s)", host, port, exposure)
 
-	runErr := srv.Run(ctx, ":"+port)
+	runErr := srv.Run(ctx, host+":"+port)
 
 	log.Printf("shutting down")
 	bd.pm.SaveAll()
