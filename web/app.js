@@ -616,23 +616,23 @@ class App {
 
   // ── Mobile mode ──
 
-  // displayMode / mobileBreakpoint are per-device (localStorage), NOT synced via workspace.
+  // displayMode / mobileBreakpoint are per-tab (sessionStorage), NOT synced via workspace.
   get displayMode(){
-    try{const v=localStorage.getItem('displayMode');if(v==='mobile'||v==='desktop'||v==='auto')return v}catch{}
+    try{const v=sessionStorage.getItem('displayMode');if(v==='mobile'||v==='desktop'||v==='auto')return v}catch{}
     return 'auto';
   }
   set displayMode(v){
     if(v!=='mobile'&&v!=='desktop'&&v!=='auto') v='auto';
-    try{localStorage.setItem('displayMode', v)}catch{}
+    try{sessionStorage.setItem('displayMode', v)}catch{}
   }
   get mobileBreakpoint(){
-    try{const v=parseInt(localStorage.getItem('mobileBreakpoint'),10);if(v>=320&&v<=2000)return v}catch{}
+    try{const v=parseInt(sessionStorage.getItem('mobileBreakpoint'),10);if(v>=320&&v<=2000)return v}catch{}
     return 768;
   }
   set mobileBreakpoint(v){
     const n=parseInt(v,10);
     if(!(n>=320&&n<=2000)) return;
-    try{localStorage.setItem('mobileBreakpoint', String(n))}catch{}
+    try{sessionStorage.setItem('mobileBreakpoint', String(n))}catch{}
   }
   get isMobile(){
     const m=this.displayMode;

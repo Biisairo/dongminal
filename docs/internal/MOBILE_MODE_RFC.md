@@ -54,10 +54,10 @@
 
 | 키 | 타입 | 기본값 | 저장 위치 | 설명 |
 |---|---|---|---|---|
-| `displayMode` | `'auto' \| 'mobile' \| 'desktop'` | `'auto'` | **localStorage (디바이스별)** | 모드 강제. `'auto'`면 뷰포트 너비로 자동 판정 |
-| `mobileBreakpoint` | `number` (px) | `768` | **localStorage (디바이스별)** | `'auto'` 모드에서 모바일 판정 기준 너비 |
+| `displayMode` | `'auto' \| 'mobile' \| 'desktop'` | `'auto'` | **sessionStorage (탭별)** | 모드 강제. `'auto'`면 뷰포트 너비로 자동 판정 |
+| `mobileBreakpoint` | `number` (px) | `768` | **sessionStorage (탭별)** | `'auto'` 모드에서 모바일 판정 기준 너비 |
 
-두 값 모두 기존 ⚙ Settings 모달에 항목 추가하여 노출. **워크스페이스 동기화 대상 아님** — 한 디바이스에서 'mobile' 강제해도 다른 디바이스에 영향 안 줌. `sidebarWidth`와 같은 패턴.
+두 값 모두 기존 ⚙ Settings 모달에 항목 추가하여 노출. **워크스페이스 동기화 대상 아님** + **탭/창 단위 격리**. 같은 브라우저의 다른 탭에서도 별도 설정 가능. 탭 닫으면 휘발 — 새 탭은 항상 `'auto'` / `768`로 시작. `'auto'`는 viewport 너비 기반이라 빈 상태에서도 자연 동작.
 
 ### 2.2 결정식
 
@@ -224,12 +224,12 @@ keyBarButton.addEventListener('click', () => {
 
 - 휘발성: `App.currentMobilePaneIdx` (number, 기본 0)
 - 휘발성: `App.drawerOpen` (boolean, 기본 false)
-- 디바이스별 (localStorage): `App.displayMode`, `App.mobileBreakpoint` (워크스페이스 동기화 대상 아님)
+- 탭별 (sessionStorage): `App.displayMode`, `App.mobileBreakpoint` (워크스페이스 동기화 대상 아님, 탭 닫으면 휘발)
 
 **변경**
 
 - `App.render()` — `isMobile` 분기 추가
-- `App` getter/setter로 `displayMode`/`mobileBreakpoint` localStorage 노출 (워크스페이스에는 저장 안 함)
+- `App` getter/setter로 `displayMode`/`mobileBreakpoint` sessionStorage 노출 (워크스페이스에는 저장 안 함)
 - ⚙ Settings 모달 — 두 항목 폼 추가
 - `style.css` — `@media (max-width: ...)` 블록 추가 (브레이크포인트는 CSS 변수 `--mobile-bp` 통해 JS와 동기화 필요)
 
@@ -289,9 +289,10 @@ M6. 모바일 실기기 + Chrome DevTools 모바일 에뮬레이션 검증
 ### 7.3 안전성
 
 - [ ] visualViewport 미지원 브라우저 (구형 Android WebView)에서 fallback (보조 키바 미표시 / 단순 fixed 위치)
-- [ ] localStorage에 `displayMode` / `mobileBreakpoint` 누락 시 기본값(`auto` / `768`) 적용
+- [ ] sessionStorage 빈 상태에서 기본값(`auto` / `768`) 적용 (새 탭 / 시크릿 창)
 - [ ] 다중 브라우저 동기화: A 브라우저에서 모바일 ‹ ›로 pane 이동 → B 브라우저(데스크톱)의 focused border가 따라감
-- [ ] 다중 브라우저 격리: A에서 displayMode='mobile' 강제해도 B는 영향 없음 (디바이스별)
+- [ ] 탭별 격리: 같은 브라우저의 탭 1에서 displayMode='mobile' 강제해도 탭 2는 영향 없음
+- [ ] 탭 닫고 새로 열면 `'auto'`로 리셋
 
 ---
 
