@@ -99,7 +99,21 @@ send_input(id=<팀원i>, text=<빌더 출력>, execute=true)
 
 ### 5. Barrier — 전원 CC 준비 완료 확인
 
-대략 5~10초 경과 후 (별도 sleep 없이 다음 tool 호출로 진행) 모든 팀원에게 병렬 `read_pane_screen`. CC 입력 UI (`╭─`/`>` 프롬프트 박스) 가 보이고 "Thinking..." 이 없으면 준비 완료. 미준비 팀원만 재확인. 30초 넘게 미준비면 실패로 판정하고 해당 pane 화면을 진단 (`claude: command not found`, 쿼터 초과 등).
+> ⚠️ **턴 종료 금지** — 4단계(병렬 `send_input`) 부터 6단계(Kickoff `send_agent_message`) 까지는 **반드시 하나의 어시스턴트 턴 안에서 연속 실행**한다. "90초 후 kickoff" 같은 예고만 남기고 턴을 끝내면 영원히 재진입되지 않아 팀이 정지한다. `ScheduleWakeup` / 사용자 응답 대기로 빠지지 말 것. 대기는 오직 아래 도구 호출로 표현한다.
+>
+> **`Thinking...` 차단 정책** — Barrier 단계는 본질적으로 **모델이 출력 없이 도구 호출만 반복하는 구간**이다. "잠시 기다리겠습니다" 같은 텍스트도 출력하지 말 것 — 텍스트가 들어가는 순간 모델이 "응답 끝"으로 인식해 턴 종료 위험이 커진다. Barrier 통과 후 Kickoff 직전까지 무발화 도구 체인 유지.
+
+**대기 표현 — 반드시 도구 호출로**:
+
+1. 4단계 병렬 `send_input` 직후, **첫 `read_pane_screen` 전 최소 8초 대기를 명시 도구 호출로** 삽입:
+   - `Bash(command="sleep 8", description="CC 부팅 대기")` — 가장 단순
+   - 또는 다른 유의미한 동시 작업이 있으면 그걸로 8초+ 채워도 됨
+2. 대기 후 모든 팀원에게 병렬 `read_pane_screen`. 준비 완료 조건 (모두 충족):
+   - `╭─` / `>` 프롬프트 박스 노출
+   - 화면에 `Thinking...` 부재
+   - **초기 프롬프트의 `[대기]` 텍스트가 화면에 보임** (CC가 초기 프롬프트를 실제 처리했다는 fingerprint — 단순 부팅과 구분)
+3. 미준비 팀원이 있으면 `Bash(sleep 3)` → 미준비 팀원만 재확인. **최대 10회 (≈30초) 자동 재시도**. 한두 번 미준비로 절대 종료/보고 후 종료 하지 말 것.
+4. 30초 누적 미준비면 실패 판정 — 해당 pane 화면을 진단 (`claude: command not found`, 쿼터 초과, 쉘 파싱 에러 등).
 
 ### 6. Kickoff — 첫 작업 지시
 
@@ -112,7 +126,7 @@ send_agent_message(
 )
 ```
 
-초기 프롬프트에 이미 역할·프로토콜이 있으므로 kickoff 메시지는 짧아도 된다. 송신 후 `read_pane_screen` 한 번으로 수신측이 처리 시작(`Thinking...`)했는지 확인.
+초기 프롬프트에 이미 역할·프로토콜이 있으므로 kickoff 메시지는 짧아도 된다. 송신 후 `Bash(sleep 2)` → `read_pane_screen` 으로 수신측이 처리 시작(`Thinking...`)했는지 확인. `Thinking...` 미관측 시 `send_input(text="", execute=true)` 로 엔터 보강 후 재확인 (TUI reconciliation 지연 대비, troubleshooting 14행). 이 확인까지가 같은 턴에서 끝나야 한다 — 그 다음에야 7단계(턴 종료) 로 진행.
 
 ### 7. 팀장 턴 종료 → 답장 대기
 
@@ -143,9 +157,9 @@ send_agent_message(
 4. [ ] (N≥2) 직교 축 `count=N` 단일 호출 → `list_panes` → 팀원 라벨들 확보
 5. [ ] 팀원별 `scripts/build_prompt.py` 로 대기 프롬프트 생성
 6. [ ] **단일 메시지 병렬** `send_input` 으로 전원 기동
-7. [ ] Barrier: `read_pane_screen` 으로 전원 CC 준비 확인
-8. [ ] `send_agent_message` 로 Kickoff
-9. [ ] 팀장 턴 종료 — 답장 대기
+7. [ ] **같은 턴 안에서** `Bash(sleep 8)` → Barrier `read_pane_screen` (준비 fingerprint: `╭─` + `Thinking...` 부재 + `[대기]` 텍스트). 미준비면 `sleep 3` → 재확인 최대 10회
+8. [ ] **같은 턴 안에서** `send_agent_message` Kickoff → `Bash(sleep 2)` → `read_pane_screen` 으로 `Thinking...` 확인
+9. [ ] 위 7~8 까지 끝낸 **다음에야** 팀장 턴 종료 — 답장 대기
 10. [ ] 답장 파싱 → 결과 종합 → 사용자에 보고
 11. [ ] 정리 여부 확인. 기본 `/exit`. 요청 시 역순 `closeTab(location=...)`. `focus` 금지.
 
