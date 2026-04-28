@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"runtime/debug"
 	"sort"
@@ -144,11 +145,18 @@ func StartPane(id, name, cwd string, cols, rows uint16, onExit func(string)) (*P
 	home, _ := os.UserHomeDir()
 	cmd := exec.Command(shell, "-l")
 	binDir := filepath.Join(os.Getenv("DONGMINAL_HOME"), "bin")
+	// Ensure critical env vars are always present (os.Environ() may lack
+	// these when the server runs as a daemon / LaunchAgent).
 	env := []string{
 		"TERM=xterm-256color", "COLORTERM=truecolor",
 		"LANG=en_US.UTF-8", "LC_ALL=en_US.UTF-8", "LC_CTYPE=en_US.UTF-8",
 		"PATH=" + os.Getenv("PATH") + ":" + binDir,
+		"HOME=" + home,
 	}
+	if u, err := user.Current(); err == nil {
+		env = append(env, "USER="+u.Username, "LOGNAME="+u.Username)
+	}
+	env = append(env, "SHELL="+shell)
 	if strings.Contains(shell, "zsh") {
 		zdotdir := filepath.Join(binDir, "zdotdir")
 		env = append(env, "ZDOTDIR="+zdotdir)

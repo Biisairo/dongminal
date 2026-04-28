@@ -405,22 +405,26 @@ class TermPane {
     this._outputBuf+=this._decoder.decode(data,{stream:true});
     if(this._flushScheduled) return;
     this._flushScheduled=true;
-    requestAnimationFrame(()=>{
-      this._flushScheduled=false;
-      const text=this._outputBuf; this._outputBuf='';
-      const re=/\x1b\]777;(\w+);([^\x07]*)\x07/g;
-      let m;
-      while((m=re.exec(text))!==null){
-        const cmd=m[1],val=m[2];
-        if(cmd==='Download') this._downloadFile(val);
-        else if(cmd==='Cwd') this._onCwd(val);
-        else if(cmd==='OpenCodeServer') this._openCodeServer(val);
-        else if(cmd==='CodeServerList') this._listCodeServers(val);
-      }
-      const clean=text.replace(/\x1b\]777;\w+;[^\x07]*\x07/g,'');
-      if(this.term) try{this.term.write(clean||'')}catch{}
-      else if(clean) this._buf.push(enc.encode(clean));
-    });
+    // Use setTimeout instead of requestAnimationFrame so output flushes
+    // even when the browser tab is hidden/backgrounded.
+    setTimeout(()=>this._doFlush(),0);
+  }
+  _doFlush(){
+    this._flushScheduled=false;
+    const text=this._outputBuf; this._outputBuf='';
+    if(!text) return;
+    const re=/\x1b\]777;(\w+);([^\x07]*)\x07/g;
+    let m;
+    while((m=re.exec(text))!==null){
+      const cmd=m[1],val=m[2];
+      if(cmd==='Download') this._downloadFile(val);
+      else if(cmd==='Cwd') this._onCwd(val);
+      else if(cmd==='OpenCodeServer') this._openCodeServer(val);
+      else if(cmd==='CodeServerList') this._listCodeServers(val);
+    }
+    const clean=text.replace(/\x1b\]777;\w+;[^\x07]*\x07/g,'');
+    if(this.term) try{this.term.write(clean||'')}catch{}
+    else if(clean) this._buf.push(enc.encode(clean));
   }
   _onCwd(cwd){
     this._cwd=cwd;
