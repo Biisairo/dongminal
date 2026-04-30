@@ -73,6 +73,7 @@ var allowedCmdActions = map[string]bool{
 	"paneDown":     true,
 	"paneLeft":     true,
 	"paneRight":    true,
+	"openMdTab":    true,
 }
 
 // AllowedAction reports whether the action is accepted by the hub.

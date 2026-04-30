@@ -534,7 +534,116 @@ class TermPane {
   _send(m){if(this.ws&&this.ws.readyState===1)this.ws.send(m)}
 }
 
+// ═══ MdViewer: markdown viewer tab ═══
+
+const MD_EXTENSIONS=/\.(md|mdown|markdown)$/i;
+
+class MdViewer {
+  constructor(id, name, filePath) {
+    this.id = id;
+    this.name = name;
+    this.filePath = filePath;
+    this.el = document.createElement('div');
+    this.el.className = 'md-viewer';
+    this.el.tabIndex = 0;
+    this._loading = false;
+    this.fetchAndRender();
+  }
+
+  async fetchAndRender() {
+    this._loading = true;
+    try {
+      const r = await fetch('/api/md-file?path=' + encodeURIComponent(this.filePath));
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const md = await r.text();
+      this.el.innerHTML = marked.parse(md, { gfm: true, breaks: true });
+      this._interceptLinks();
+    } catch (e) {
+      this.el.innerHTML =
+        '<div class="md-error">파일을 불러올 수 없습니다' +
+        '<div class="md-error-path">' + this._esc(this.filePath) + '</div></div>';
+    }
+    this._loading = false;
+  }
+
+  refresh() { this.fetchAndRender() }
+
+  _interceptLinks() {
+    this.el.querySelectorAll('a').forEach(a => {
+      a.addEventListener('click', e => {
+        let href = a.getAttribute('href');
+        if (!href || href === '#' || href.startsWith('#')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        try { href = decodeURIComponent(href) } catch {}
+        // External URLs → new window
+        if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:')) {
+          window.open(href, '_blank');
+          return;
+        }
+        // Strip anchor fragment, keep clean path
+        const hashIdx = href.indexOf('#');
+        const linkHref = hashIdx >= 0 ? href.substring(0, hashIdx) : href;
+        // .md links → open as new markdown tab
+        if (MD_EXTENSIONS.test(linkHref)) {
+          const baseDir = this.filePath.substring(0, this.filePath.lastIndexOf('/'));
+          const absPath = this._resolve(baseDir, linkHref);
+          const name = linkHref.split('/').pop().replace(MD_EXTENSIONS, '');
+          const rid = app ? app.focused : null;
+          if (rid) app.addTab(rid, 'markdown', { name, filePath: absPath });
+          return;
+        }
+        // Other relative/absolute links → download via API
+        const isRel = linkHref.startsWith('./') || linkHref.startsWith('../') ||
+          (!linkHref.startsWith('/') && linkHref.includes('/'));
+        if (linkHref.startsWith('/') || isRel) {
+          const baseDir = this.filePath.substring(0, this.filePath.lastIndexOf('/'));
+          const absPath = this._resolve(baseDir, linkHref);
+          const dl = document.createElement('a');
+          dl.href = '/api/md-file?path=' + encodeURIComponent(absPath);
+          dl.download = '';
+          document.body.appendChild(dl);
+          dl.click();
+          dl.remove();
+        }
+      });
+    });
+  }
+
+  _resolve(base, rel) {
+    if (rel.startsWith('/')) return rel;
+    const combined = base + '/' + rel;
+    const parts = combined.split('/');
+    const stack = [];
+    for (const p of parts) {
+      if (!p || p === '.') continue;
+      if (p === '..') { if (stack.length) stack.pop(); continue; }
+      stack.push(p);
+    }
+    return '/' + stack.join('/');
+  }
+
+  _esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  destroy() { this.el.remove() }
+}
+
 // ═══ Layout helpers ═══
+
+function normalizeTab(t) {
+  if (!t.type) t.type = t.paneId ? 'terminal' : 'markdown';
+  return t;
+}
+function normalizeLayout(n) {
+  if (!n) return n;
+  if (n.type === 'region' && n.tabs) n.tabs.forEach(normalizeTab);
+  if (n.type === 'split' && n.children) n.children.forEach(normalizeLayout);
+  return n;
+}
 
 function doSplit(n,rid,nrs,dir){
   // nrs: 단일 region 또는 region 배열
@@ -566,7 +675,7 @@ function firstRg(n){
 }
 function allPids(n){
   if(!n) return [];
-  if(n.type==='region') return (n.tabs||[]).map(t=>t.paneId);
+  if(n.type==='region') return (n.tabs||[]).filter(t=>t.type!=='markdown').map(t=>t.paneId);
   if(n.children) return n.children.flatMap(c=>allPids(c));
   return [];
 }
@@ -590,7 +699,10 @@ function closestRg(n,rid){
 function clean(n,ok){
   if(!n) return null;
   if(n.type==='region'){
-    if(n.tabs) n.tabs=n.tabs.filter(t=>ok.has(t.paneId));
+    if(n.tabs) n.tabs=n.tabs.filter(t=>{
+      if(t.type==='markdown') return true;
+      return ok.has(t.paneId);
+    });
     if(!n.tabs||!n.tabs.length) return null;
     if(!n.tabs.find(t=>t.id===n.activeTab)) n.activeTab=n.tabs[0].id;
     return n;
@@ -607,6 +719,7 @@ function clean(n,ok){
 class App {
   constructor(){
     this.panes=new Map();
+    this.mdViewers=new Map();
     this.ws={sessions:[],activeSession:null};
     this.wsETag=null;
     this.focused=null;
@@ -714,6 +827,7 @@ class App {
           if(!s||!s.id) continue;
           const n=parseInt(s.id.replace(/\D/g,''),10); if(n>this._s) this._s=n;
           s.layout=clean(s.layout,ok);
+          if(s.layout) normalizeLayout(s.layout);
           if(s.layout) this._rids(s.layout);
         }
         this.ws.sessions=this.ws.sessions.filter(s=>s&&s.layout);
@@ -795,6 +909,7 @@ class App {
       if(!s||!s.id) continue;
       const n=parseInt(s.id.replace(/\D/g,''),10); if(n>this._s) this._s=n;
       s.layout=clean(s.layout, ok);
+      if(s.layout) normalizeLayout(s.layout);
       if(s.layout) this._rids(s.layout);
     }
     sv.sessions=sv.sessions.filter(s=>s&&s.layout);
@@ -820,6 +935,14 @@ class App {
   _execRemote(action, args){
     args=args||{};
     if(action==='focus'){this._focusLocation(args.location); return}
+    if(action==='openMdTab'){
+      const{name,filePath,location}=args;
+      if(!filePath){console.warn('[cmd] openMdTab: filePath required');return}
+      if(location) this._focusLocation(location);
+      const rid=this.focused;
+      if(rid) this.addTab(rid,'markdown',{name:name||filePath.split('/').pop(),filePath});
+      return;
+    }
     const isSplit=(action==='splitH'||action==='splitV');
     if(isSplit){
       const opts={count:args.count,keepFocus:!!args.keepFocus};
@@ -959,7 +1082,7 @@ class App {
   }
 
   async _focusedCwd(){
-    const p=this._focusedPane();
+    const p=this._focusedTermPane();
     if(!p) return null;
     try{const r=await fetch('/api/cwd?pane='+p.id);const d=await r.json();return d.cwd||null}catch{return null}
   }
@@ -982,7 +1105,7 @@ class App {
     const r=`r${++this._r}`,t=`t${++this._t}`;
     const s={
       id:`s${++this._s}`,name:'Session',
-      layout:{type:'region',id:r,tabs:[{id:t,name:'Shell',paneId:p.id}],activeTab:t}
+      layout:{type:'region',id:r,tabs:[{id:t,name:'Shell',type:'terminal',paneId:p.id}],activeTab:t}
     };
     this.ws.sessions.push(s);
     this.ws.activeSession=s.id;
@@ -1027,13 +1150,19 @@ class App {
     this._save(); this.render();
   }
 
-  async addTab(rid){
+  async addTab(rid,type='terminal',opts={}){
     const s=this._as(); if(!s) return;
     const rg=findRg(s.layout,rid); if(!rg) return;
-    const refPane=this._focusedPane();
-    const p=await this._newPane(null,refPane?.id);
     const t=`t${++this._t}`;
-    rg.tabs.push({id:t,name:'Shell',paneId:p.id});
+    if(type==='markdown'){
+      if(!opts.filePath){console.warn('[addTab] markdown tab requires filePath');return}
+      const name=opts.name||opts.filePath.split('/').pop();
+      rg.tabs.push({id:t,name,type:'markdown',filePath:opts.filePath});
+    }else{
+      const refPane=this._focusedTermPane();
+      const p=await this._newPane(null,refPane?.id);
+      rg.tabs.push({id:t,name:'Shell',type:'terminal',paneId:p.id});
+    }
     rg.activeTab=t;
     this.render();
     this._save();
@@ -1046,9 +1175,15 @@ class App {
     if(!s) return;
     const rg=findRg(s.layout,rid); if(!rg) return;
     const tab=rg.tabs.find(t=>t.id===tid); if(!tab) return;
-    if(await this._isPaneBusy(tab.paneId)){
-      const ok=await this._confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?');
-      if(!ok) return;
+    const isMd=tab.type==='markdown';
+    if(isMd){
+      const viewer=this.mdViewers.get(tab.id);
+      if(viewer){viewer.destroy();this.mdViewers.delete(tab.id)}
+    }else{
+      if(await this._isPaneBusy(tab.paneId)){
+        const ok=await this._confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?');
+        if(!ok) return;
+      }
     }
     const paneId=tab.paneId;
     rg.tabs=rg.tabs.filter(t=>t.id!==tid);
@@ -1056,7 +1191,7 @@ class App {
     if(!rg.tabs.length){
       const prevClosestId=closestRg(s.layout,rid)?.id||null;
       s.layout=doRemove(s.layout,rid);
-      if(!s.layout){this._killBg(paneId);await this.delSession(s.id);return}
+      if(!s.layout){if(!isMd&&paneId)this._killBg(paneId);await this.delSession(s.id);return}
       if(isActive){
         const fallback=this.focused===rid?prevClosestId:this.focused;
         this.focused=fallback&&findRg(s.layout,fallback)?fallback:firstRg(s.layout)?.id||null;
@@ -1067,7 +1202,9 @@ class App {
       if(rg.activeTab===tid) rg.activeTab=rg.tabs[0].id;
     }
     this.render();
-    this._killBg(paneId);
+    if(!isMd&&paneId){
+      this._killBg(paneId);
+    }
     this._save();
   }
 
@@ -1092,7 +1229,7 @@ class App {
     for(let i=0;i<count-1;i++){
       const p=await this._newPane(null,refPaneId);
       const r=`r${++this._r}`,t=`t${++this._t}`;
-      newRegions.push({type:'region',id:r,tabs:[{id:t,name:'Shell',paneId:p.id}],activeTab:t});
+      newRegions.push({type:'region',id:r,tabs:[{id:t,name:'Shell',type:'terminal',paneId:p.id}],activeTab:t});
       lastR=r;
     }
     s.layout=doSplit(s.layout,tgtRegionId,newRegions,dir);
@@ -1150,7 +1287,7 @@ class App {
       }
     }
   }
-  addTabFocused(){if(this.focused)this.addTab(this.focused)}
+  addTabFocused(){if(this.focused)this.addTab(this.focused,'terminal')}
   closeTabFocused(){
     const s=this._as();if(!s||!this.focused)return;
     const rg=findRg(s.layout,this.focused);if(!rg)return;
@@ -1185,7 +1322,7 @@ class App {
     document.getElementById('search-input').value='';
     document.getElementById('search-count').textContent='';
     this._clearAllSearchDecorations();
-    this._focusedPane()?.focus();
+    this._focusedTermPane()?.focus();
     for(const pane of this.panes.values())if(pane.el.classList.contains('vis'))pane.doFit();
   }
   _clearAllSearchDecorations(){
@@ -1196,14 +1333,23 @@ class App {
     if(!this._searchOpen())return;
     setTimeout(()=>this._doSearch('next'),50);
   }
-  _focusedPane(){
+  _focusedTermPane(){
     if(!this.focused)return null;
     const s=this._as();if(!s)return null;
     const rg=findRg(s.layout,this.focused);if(!rg)return null;
-    return this.panes.get(rg.tabs.find(t=>t.id===rg.activeTab)?.paneId);
+    const tab=rg.tabs.find(t=>t.id===rg.activeTab);
+    if(!tab||tab.type!=='terminal')return null;
+    return this.panes.get(tab.paneId);
+  }
+  _focusedTab(){
+    if(!this.focused)return null;
+    const s=this._as();if(!s)return null;
+    const rg=findRg(s.layout,this.focused);if(!rg)return null;
+    const tab=rg.tabs.find(t=>t.id===rg.activeTab);
+    return tab||null;
   }
   _doSearch(dir){
-    const p=this._focusedPane();if(!p||!p.search)return;
+    const p=this._focusedTermPane();if(!p||!p.search)return;
     const q=document.getElementById('search-input').value;
     const cs=document.getElementById('search-case').classList.contains('active');
     if(!q){document.getElementById('search-count').textContent='';return}
@@ -1338,6 +1484,7 @@ class App {
     const area=document.getElementById('area');
     const s=this._as();
     for(const p of this.panes.values()){p.el.classList.remove('vis');area.appendChild(p.el)}
+    for(const v of this.mdViewers.values()){v.el.classList.remove('vis');area.appendChild(v.el)}
     for(const c of [...area.children]){if(c.classList.contains('sp')||c.classList.contains('rg'))c.remove()}
     if(!s?.layout) return;
     if(!findRg(s.layout,this.focused)) this.focused=firstRg(s.layout)?.id||null;
@@ -1356,13 +1503,20 @@ class App {
       dom=this._buildNode(s.layout);
     }
     if(dom) area.appendChild(dom);
+    // Clean up MdViewers for tabs no longer in the layout
+    const allTabIds=new Set();
+    if(s&&s.layout){(function walk(n){if(!n)return;if(n.type==='region'&&n.tabs)n.tabs.forEach(t=>allTabIds.add(t.id));if(n.type==='split'&&n.children)n.children.forEach(walk)})(s.layout)}
+    for(const[tid,v] of this.mdViewers){if(!allTabIds.has(tid)){v.destroy();this.mdViewers.delete(tid)}}
     requestAnimationFrame(()=>{
       for(const p of this.panes.values()){
         if(p.el.classList.contains('vis')){if(!p._opened)p.open();p.doFit()}
       }
       if(this.focused){
         const rg=findRg(s.layout,this.focused);
-        if(rg){const tab=rg.tabs.find(t=>t.id===rg.activeTab);if(tab){const p=this.panes.get(tab.paneId);if(p)p.focus()}}
+        if(rg){const tab=rg.tabs.find(t=>t.id===rg.activeTab);if(tab){
+          if(tab.type==='markdown'){const v=this.mdViewers.get(tab.id);if(v)v.el.focus()}
+          else{const p=this.panes.get(tab.paneId);if(p)p.focus()}
+        }}
       }
     });
   }
@@ -1404,7 +1558,16 @@ class App {
     tabs.appendChild(add); el.appendChild(tabs);
     const body=document.createElement('div'); body.className='rg-body';
     const at=(n.tabs||[]).find(t=>t.id===n.activeTab);
-    if(at){const p=this.panes.get(at.paneId);if(p){body.appendChild(p.el);p.el.classList.add('vis')}}
+    if(at){
+      if(at.type==='markdown'){
+        let viewer=this.mdViewers.get(at.id);
+        if(!viewer){viewer=new MdViewer(at.id,at.name,at.filePath);this.mdViewers.set(at.id,viewer)}
+        body.appendChild(viewer.el);viewer.el.classList.add('vis');
+      }else{
+        const p=this.panes.get(at.paneId);
+        if(p){body.appendChild(p.el);p.el.classList.add('vis')}
+      }
+    }
     body.addEventListener('dragover',e=>{if(!this._drag||this._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));this._showBodyDropIndicator(body,this._getDragZone(body,e))});
     body.addEventListener('dragleave',e=>{if(!body.contains(e.relatedTarget))this._clearBodyDropIndicator(body)});
     body.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this._drag||this._drag.type!=='tab')return;const zone=this._getDragZone(body,e);const{srcRegionId,tabId}=this._drag;this._drag=null;this._clearBodyDropIndicator(body);if(zone==='center'){if(srcRegionId===n.id)return;this._moveTabToRegion(srcRegionId,tabId,n.id,null,false)}else{this._splitRegionWithTab(srcRegionId,tabId,n.id,zone)}});
@@ -1591,7 +1754,7 @@ class App {
       });
     };
     const sendToFocused=(s)=>{
-      const p=this._focusedPane();
+      const p=this._focusedTermPane();
       if(!p) return;
       let out=s;
       // Ctrl modifier: convert printable a-z/A-Z to ctrl code (1-26)
@@ -1925,7 +2088,7 @@ class App {
       items.push(`<span class="sb-item">DISK ${this._stats.diskPct}%</span>`);
     }
     if(statusBar.termsize){
-      const p=this._focusedPane();
+      const p=this._focusedTermPane();
       if(p&&p.term){
         items.push(`<span class="sb-item">${p.term.cols}×${p.term.rows}</span>`);
       }
@@ -1961,7 +2124,7 @@ class App {
     return `S${sidx+1}.P${pidx+1}.T${tidx+1}`;
   }
   _updateCwd(){
-    const p=this._focusedPane();if(!p)return;
+    const p=this._focusedTermPane();if(!p)return;
     fetch('/api/cwd?pane='+p.id).then(r=>r.json()).then(({cwd})=>{this._cwd=cwd;this._updateStatusBar()}).catch(()=>{});
   }
   _renderStatusBarSettings(){
@@ -2025,7 +2188,7 @@ class App {
         const tabs=[];
         for(let i=0;i<tpl.tabCount;i++){
           const p=await this._newPane();
-          tabs.push({id:`t${++this._t}`,name:'Shell',paneId:p.id});
+          tabs.push({id:`t${++this._t}`,name:'Shell',type:'terminal',paneId:p.id});
         }
         const rid=`r${++this._r}`;
         return{type:'region',id:rid,tabs,activeTab:tabs[0].id};

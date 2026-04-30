@@ -31,6 +31,7 @@ func (WorkspaceCommand) Spec() map[string]any {
 			"  • tabNext      — 현재 영역 안에서 다음 탭 (순환). Ctrl+Tab 과 동일.\n" +
 			"  • tabPrev      — 현재 영역 안에서 이전 탭 (순환). Ctrl+Shift+Tab 과 동일.\n" +
 			"  • paneUp/Down/Left/Right — 분할 레이아웃에서 인접 영역으로 포커스 이동. 해당 방향에 영역이 없으면 무시됨. Ctrl+Shift+방향키와 동일.\n" +
+			"  • openMdTab   — 포커스(또는 location) 영역에 Markdown 뷰어 탭을 추가. name과 filePath 인자 필수.\n" +
 			"  • focus        — 임의 좌표로 포커스 이동. location **필수**. 형식 \"4.1.1\" 또는 \"S4.P1.T1\" (session.region.tab, 1-base, 대소문자 무시). 뒤에서부터 생략 가능.\n\n" +
 			"【인자】\n" +
 			"  • location  (모든 action 공용, 선택) — 대상 위치. 지정하면 action 실행 전에 해당 위치로 먼저 포커스 이동 후 실행. focus 액션에서는 필수.\n" +
@@ -52,7 +53,7 @@ func (WorkspaceCommand) Spec() map[string]any {
 						"sessionNext", "sessionPrev",
 						"tabNext", "tabPrev",
 						"paneUp", "paneDown", "paneLeft", "paneRight",
-						"focus",
+						"focus", "openMdTab",
 					},
 				},
 				"location": map[string]any{
@@ -68,6 +69,14 @@ func (WorkspaceCommand) Spec() map[string]any {
 					"type":        "boolean",
 					"description": "splitH/splitV 전용. true 면 분할 후 포커스를 이동하지 않는다 (기본 false — 마지막 새 영역으로 이동).",
 				},
+				"name": map[string]any{
+					"type":        "string",
+					"description": "openMdTab 전용. 탭에 표시할 이름. 생략하면 파일명 사용.",
+				},
+				"filePath": map[string]any{
+					"type":        "string",
+					"description": "openMdTab 전용 (필수). Markdown 파일의 절대경로.",
+				},
 			},
 			"required": []string{"action"},
 		},
@@ -80,6 +89,8 @@ func (t WorkspaceCommand) Call(_ context.Context, raw json.RawMessage) (mcptool.
 		Location  string `json:"location"`
 		Count     int    `json:"count"`
 		KeepFocus bool   `json:"keepFocus"`
+		Name     string `json:"name"`
+		FilePath string `json:"filePath"`
 	}
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return nil, err
@@ -92,6 +103,9 @@ func (t WorkspaceCommand) Call(_ context.Context, raw json.RawMessage) (mcptool.
 	}
 	if a.Action == "focus" && a.Location == "" {
 		return nil, fmt.Errorf("focus 는 location 인자가 필요 (예: \"4.1.1\")")
+	}
+	if a.Action == "openMdTab" && a.FilePath == "" {
+		return nil, fmt.Errorf("openMdTab 은 filePath 인자가 필수")
 	}
 	if a.Count != 0 && a.Count < 2 {
 		return nil, fmt.Errorf("count 는 2 이상이어야 한다 (받은 값: %d)", a.Count)
@@ -106,16 +120,20 @@ func (t WorkspaceCommand) Call(_ context.Context, raw json.RawMessage) (mcptool.
 		Location  string `json:"location,omitempty"`
 		Count     int    `json:"count,omitempty"`
 		KeepFocus bool   `json:"keepFocus,omitempty"`
+		Name     string `json:"name,omitempty"`
+		FilePath string `json:"filePath,omitempty"`
 	}
 	payload, _ := json.Marshal(struct {
 		Action string `json:"action"`
 		Args   argsT  `json:"args"`
-	}{a.Action, argsT{Location: a.Location, Count: a.Count, KeepFocus: a.KeepFocus}})
+	}{a.Action, argsT{Location: a.Location, Count: a.Count, KeepFocus: a.KeepFocus, Name: a.Name, FilePath: a.FilePath}})
 	n := t.Broadcaster.Broadcast(payload)
 	msg := fmt.Sprintf("action=%s delivered=%d", a.Action, n)
 	switch {
 	case a.Action == "focus":
 		msg = fmt.Sprintf("action=focus location=%s delivered=%d", a.Location, n)
+	case a.Action == "openMdTab":
+		msg = fmt.Sprintf("action=openMdTab filePath=%s delivered=%d", a.FilePath, n)
 	case a.Action == "splitH" || a.Action == "splitV":
 		extras := ""
 		if a.Location != "" {

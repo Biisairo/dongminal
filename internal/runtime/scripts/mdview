@@ -1,0 +1,68 @@
+#!/bin/sh
+# mdview — dongminal에서 Markdown 파일을 뷰어 탭으로 열기
+#
+# 사용법:
+#   mdview <path>         Markdown 파일을 뷰어 탭으로 열기
+#   mdview -h, --help     도움말
+
+set -e
+
+HOST="${DONGMINAL_HOST:-127.0.0.1}"
+PORT="${DONGMINAL_PORT:-8080}"
+BASE="http://${HOST}:${PORT}"
+
+usage() {
+  cat <<'HELP'
+사용법:
+  mdview <path>    Markdown 파일을 뷰어 탭으로 열기
+  mdview -h       도움말
+
+환경변수:
+  DONGMINAL_HOST — 서버 호스트 (기본 127.0.0.1)
+  DONGMINAL_PORT — 서버 포트 (기본 8080)
+HELP
+  exit "${1:-0}"
+}
+
+case "${1:-}" in
+  "" | -h | --help )
+    usage 0
+    ;;
+esac
+
+target="$1"
+if [ ! -f "$target" ]; then
+  echo "mdview: 파일 없음: $target" >&2
+  exit 1
+fi
+
+# 절대경로 변환
+abs=$(cd "$(dirname "$target")" && pwd)/$(basename "$target")
+name=$(basename "$abs")
+
+# JSON 이스케이핑: python3 → jq → 수동 폴백
+json_str() {
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s' "$1" | python3 -c 'import sys,json;print(json.dumps(sys.stdin.read()))'
+  elif command -v jq >/dev/null 2>&1; then
+    printf '%s' "$1" | jq -Rs .
+  else
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g'
+    printf '\n'
+  fi
+}
+
+name_e=$(json_str "$name")
+path_e=$(json_str "$abs")
+
+payload=$(printf '{"action":"openMdTab","args":{"name":%s,"filePath":%s}}' "$name_e" "$path_e")
+
+resp=$(curl -sS -X POST \
+  -H 'Content-Type: application/json' \
+  -d "$payload" \
+  "${BASE}/api/commands" 2>&1) || {
+  echo "mdview: 서버 연결 실패 (port=$PORT)" >&2
+  exit 1
+}
+
+echo "$resp"

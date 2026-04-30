@@ -394,6 +394,35 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(s.getStats())
 
+	case p == "/api/md-file" && r.Method == http.MethodGet:
+		fp := r.URL.Query().Get("path")
+		if fp == "" {
+			http.Error(w, "missing path", http.StatusBadRequest)
+			return
+		}
+		if !filepath.IsAbs(fp) {
+			http.Error(w, "path must be absolute", http.StatusBadRequest)
+			return
+		}
+		ext := strings.ToLower(filepath.Ext(fp))
+		if ext != ".md" && ext != ".mdown" && ext != ".markdown" {
+			http.Error(w, "only markdown files (.md, .mdown, .markdown) are allowed", http.StatusForbidden)
+			return
+		}
+		f, err := os.Open(fp)
+		if err != nil {
+			http.Error(w, "file not found", http.StatusNotFound)
+			return
+		}
+		defer f.Close()
+		stat, _ := f.Stat()
+		if stat.IsDir() {
+			http.Error(w, "not a file", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+		io.Copy(w, f)
+
 	default:
 		http.Error(w, "not found", 404)
 	}
