@@ -1150,20 +1150,61 @@ class App {
     this._save(); this.render();
   }
 
-  async addTab(rid,type='terminal',opts={}){
-    const s=this._as(); if(!s) return;
-    const rg=findRg(s.layout,rid); if(!rg) return;
-    const t=`t${++this._t}`;
-    if(type==='markdown'){
-      if(!opts.filePath){console.warn('[addTab] markdown tab requires filePath');return}
-      const name=opts.name||opts.filePath.split('/').pop();
-      rg.tabs.push({id:t,name,type:'markdown',filePath:opts.filePath});
-    }else{
-      const refPane=this._focusedTermPane();
-      const p=await this._newPane(null,refPane?.id);
-      rg.tabs.push({id:t,name:'Shell',type:'terminal',paneId:p.id});
+  _findMdTab(filePath) {
+    for (const s of this.ws.sessions) {
+      if (!s || !s.layout) continue;
+      let result = null;
+      const walk = n => {
+        if (!n || result) return;
+        if (n.type === 'region' && n.tabs) {
+          for (const t of n.tabs) {
+            if (t.type === 'markdown' && t.filePath === filePath) {
+              result = { tab: t, region: n, session: s };
+              return;
+            }
+          }
+        }
+        if (n.type === 'split' && n.children) {
+          for (const c of n.children) walk(c);
+        }
+      };
+      walk(s.layout);
+      if (result) return result;
     }
-    rg.activeTab=t;
+    return null;
+  }
+
+  async addTab(rid, type = 'terminal', opts = {}) {
+    const s = this._as(); if (!s) return;
+    const rg = findRg(s.layout, rid); if (!rg) return;
+    if (type === 'markdown') {
+      if (!opts.filePath) { console.warn('[addTab] markdown tab requires filePath'); return }
+      const existing = this._findMdTab(opts.filePath);
+      if (existing) {
+        const cur = this._as(); if (cur) cur.focusedRegion = this.focused;
+        this.ws.activeSession = existing.session.id;
+        existing.region.activeTab = existing.tab.id;
+        this.focused = existing.region.id;
+        existing.session.focusedRegion = existing.region.id;
+        const viewer = this.mdViewers.get(existing.tab.id);
+        if (viewer) viewer.refresh();
+        this.render();
+        this._save();
+        return;
+      }
+      const name = opts.name || opts.filePath.split('/').pop();
+      const t = `t${++this._t}`;
+      rg.tabs.push({ id: t, name, type: 'markdown', filePath: opts.filePath });
+      rg.activeTab = t;
+      this.render();
+      this._save();
+      return;
+    }
+    const refPane = this._focusedTermPane();
+    const p = await this._newPane(null, refPane?.id);
+    const t = `t${++this._t}`;
+    rg.tabs.push({ id: t, name: 'Shell', type: 'terminal', paneId: p.id });
+    rg.activeTab = t;
     this.render();
     this._save();
   }
