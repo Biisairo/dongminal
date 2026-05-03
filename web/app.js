@@ -1324,7 +1324,7 @@ class App {
       if(dir==='down'&&!isH)ti=ci+1; if(dir==='up'&&!isH)ti=ci-1;
       if(ti>=0&&ti<parent.children.length){
         const target=firstRg(parent.children[ti]);
-        if(target){this.focused=target.id;this.render();return}
+        if(target){this.focused=target.id;s.focusedRegion=target.id;this._save();this.render();return}
       }
     }
   }
