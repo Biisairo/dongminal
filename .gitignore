@@ -23,3 +23,11 @@ coverage.txt
 .claude/
 .idea/
 .vscode/
+
+# Node.js / Playwright
+node_modules/
+playwright-report/
+test-results/
+
+# Temporary / test data
+/tmp/

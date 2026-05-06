@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	"dongminal/internal/mcptool"
@@ -156,6 +157,17 @@ func (f *fakeToolDispatcher) Dispatch(ctx context.Context, name string, args jso
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, dispatchCall{Name: name, Args: append(json.RawMessage(nil), args...)})
+	// Simulate unknown tool for names not in the registry.
+	known := false
+	for _, n := range f.names {
+		if n == name {
+			known = true
+			break
+		}
+	}
+	if !known {
+		return nil, fmt.Errorf("%w: %s", mcptool.ErrUnknownTool, name)
+	}
 	return f.result, nil
 }
 

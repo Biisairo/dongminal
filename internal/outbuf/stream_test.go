@@ -75,3 +75,84 @@ func TestSnapshotIsolation(t *testing.T) {
 		t.Errorf("snap=%q after mutation, want %q", snap, "hello")
 	}
 }
+
+func TestFeed_MaxTo2Max_NoDropCount(t *testing.T) {
+	// max=100, Feed 150 → buf=150 (max~2*max). No drop counted yet.
+	s := NewStream(context.Background(), 100)
+	dropped := s.Feed(bytes.Repeat([]byte("x"), 150))
+	if dropped != 0 {
+		t.Errorf("dropped=%d want 0 (max~2*max range)", dropped)
+	}
+	if s.Len() != 100 {
+		t.Errorf("Len=%d want 100", s.Len())
+	}
+	snap, stats := s.Snapshot()
+	if len(snap) != 100 {
+		t.Errorf("Snapshot len=%d want 100", len(snap))
+	}
+	if stats.TotalBytesDrop != 0 {
+		t.Errorf("TotalBytesDrop=%d want 0", stats.TotalBytesDrop)
+	}
+	if stats.TotalBytesIn != 150 {
+		t.Errorf("TotalBytesIn=%d want 150", stats.TotalBytesIn)
+	}
+}
+
+func TestFeed_Above2Max_Compaction(t *testing.T) {
+	// max=100, Feed 250 → buf=250 (>2*max). Compaction drops 150.
+	s := NewStream(context.Background(), 100)
+	dropped := s.Feed(bytes.Repeat([]byte("x"), 250))
+	if dropped != 150 {
+		t.Errorf("dropped=%d want 150", dropped)
+	}
+	snap, stats := s.Snapshot()
+	if len(snap) != 100 {
+		t.Errorf("Snapshot len=%d want 100", len(snap))
+	}
+	if stats.TotalBytesDrop != 150 {
+		t.Errorf("TotalBytesDrop=%d want 150", stats.TotalBytesDrop)
+	}
+	if stats.TotalBytesIn != 250 {
+		t.Errorf("TotalBytesIn=%d want 250", stats.TotalBytesIn)
+	}
+}
+
+func TestClose(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	s := NewStream(ctx, 100)
+	s.Feed([]byte("data"))
+	s.Close()
+	// After Close, buf is nil.
+	if s.Len() != 0 {
+		t.Errorf("Len after Close=%d want 0", s.Len())
+	}
+	// Feed after Close should not panic.
+	s.Feed([]byte("more"))
+	cancel() // no-op, already cancelled
+}
+
+func TestSnapshot_Stats(t *testing.T) {
+	s := NewStream(context.Background(), 100)
+	s.Feed(bytes.Repeat([]byte("a"), 50))
+	snap, stats := s.Snapshot()
+	if len(snap) != 50 {
+		t.Errorf("snap len=%d want 50", len(snap))
+	}
+	if stats.Retained != 50 {
+		t.Errorf("Retained=%d want 50", stats.Retained)
+	}
+	if stats.TotalBytesIn != 50 {
+		t.Errorf("TotalBytesIn=%d want 50", stats.TotalBytesIn)
+	}
+	if stats.TotalBytesDrop != 0 {
+		t.Errorf("TotalBytesDrop=%d want 0", stats.TotalBytesDrop)
+	}
+}
+
+func TestLen_AboveMax(t *testing.T) {
+	s := NewStream(context.Background(), 100)
+	s.Feed(bytes.Repeat([]byte("x"), 200))
+	if s.Len() != 100 {
+		t.Errorf("Len=%d want 100", s.Len())
+	}
+}

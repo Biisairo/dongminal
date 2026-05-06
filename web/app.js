@@ -2360,6 +2360,7 @@ class App {
 }
 
 const app=new App();
+window.app=app;
 
 // Restore saved theme from server
 (async()=>{try{const r=await fetch('/api/settings');if(r.ok){const saved=await r.json();
