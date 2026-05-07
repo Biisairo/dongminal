@@ -1613,8 +1613,8 @@ class App {
       this._save();
       return;
     }
-    const refPane = this._focusedTermPane();
-    const p = await this._newPane(null, refPane?.id);
+    const ref = this._regionNewPaneRef(s, rid);
+    const p = await this._newPane(ref.cwd || null, ref.cwd ? null : (ref.cwdPane || null));
     const t = `t${++this._t}`;
     rg.tabs.push({ id: t, name: 'Shell', type: 'terminal', paneId: p.id });
     rg.activeTab = t;
@@ -1694,10 +1694,11 @@ class App {
     if(!s||!tgtRegionId) return;
     let count=parseInt(opts.count,10); if(!Number.isFinite(count)||count<2) count=2;
     const keepFocus=!!opts.keepFocus;
-    const refPaneId=this._regionActivePaneId(s,tgtRegionId);
+    const ref=this._regionNewPaneRef(s,tgtRegionId);
+    const refPaneId=ref.cwd ? null : (ref.cwdPane || null);
     const newRegions=[]; let lastR=null;
     for(let i=0;i<count-1;i++){
-      const p=await this._newPane(null,refPaneId);
+      const p=await this._newPane(ref.cwd || null, refPaneId);
       const r=`r${++this._r}`,t=`t${++this._t}`;
       newRegions.push({type:'region',id:r,tabs:[{id:t,name:'Shell',type:'terminal',paneId:p.id}],activeTab:t});
       lastR=r;
@@ -1724,6 +1725,23 @@ class App {
     const rg=findRg(sess.layout,rid); if(!rg) return null;
     const tab=rg.tabs.find(t=>t.id===rg.activeTab)||rg.tabs[0];
     return tab?.paneId||null;
+  }
+
+  // For new pane creation (split / addTab terminal): if the region's active
+  // tab is a markdown viewer, derive cwd from its file path so the new shell
+  // opens next to the doc the user is reading. Otherwise inherit the parent
+  // terminal's cwd via cwdPane (existing behaviour).
+  _regionNewPaneRef(sess,rid){
+    const rg=findRg(sess.layout,rid); if(!rg) return {};
+    const tab=rg.tabs.find(t=>t.id===rg.activeTab)||rg.tabs[0];
+    if(!tab) return {};
+    if(tab.type==='markdown' && typeof tab.filePath==='string' && tab.filePath.startsWith('/')){
+      const i=tab.filePath.lastIndexOf('/');
+      const dir = i>0 ? tab.filePath.substring(0,i) : '/';
+      return {cwd: dir};
+    }
+    if(tab.paneId) return {cwdPane: tab.paneId};
+    return {};
   }
 
   switchSessionNext(){

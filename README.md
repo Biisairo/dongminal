@@ -93,4 +93,5 @@ dongminal/
 - md scroll 동기화
 - md focus 상황에서 새탭, 창분할 시 경로 유지
 - theme 늘리기
-- script go 로 작성
+- cli script 를 go 로 작성
+- browser 로 wrapping(tauri, electron 등)
