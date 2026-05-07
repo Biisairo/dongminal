@@ -90,5 +90,4 @@ dongminal/
 
 ## TODO
 
-- runtime script 를 go 로 작성
 - browser 로 wrapping(tauri, electron 등)

@@ -13,6 +13,7 @@ import (
 	"dongminal/internal/mcptool/tools"
 	"dongminal/internal/mdscroll"
 	"dongminal/internal/runtime"
+	"dongminal/internal/runtimebin"
 	"dongminal/internal/server"
 	"dongminal/internal/workspace"
 	"dongminal/web"
@@ -85,11 +86,15 @@ func buildDeps(cfg server.Config) (builtDeps, error) {
 }
 
 func main() {
+	if code, ok := runtimebin.Dispatch(os.Args); ok {
+		os.Exit(code)
+	}
+
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "58146"
 	}
 	os.Setenv("DONGMINAL_PORT", port)
 	host := os.Getenv("DONGMINAL_HOST")
