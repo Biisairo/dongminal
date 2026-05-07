@@ -134,13 +134,18 @@ func (p *Pane) IsBusy() bool {
 
 func (p *Pane) Cwd() string {
 	if p.cmd != nil && p.cmd.Process != nil {
+		// Linux: /proc/PID/cwd is a symlink — instant read.
 		cwd, _ := os.Readlink(fmt.Sprintf("/proc/%d/cwd", p.cmd.Process.Pid))
 		if cwd != "" {
 			return cwd
 		}
-		out, _ := exec.Command("lsof", "-p", fmt.Sprintf("%d", p.cmd.Process.Pid), "-Fn").Output()
+		// macOS fallback: lsof restricted to (a)nd of (p)id and (d)escriptor=cwd.
+		// Without -a + -d cwd this would dump the entire fd table for the
+		// process AND every other process whose cwd matches a path filter,
+		// which is dramatically slower on busy machines (10× or more).
+		out, _ := exec.Command("lsof", "-a", "-p", fmt.Sprintf("%d", p.cmd.Process.Pid), "-d", "cwd", "-Fn").Output()
 		for _, l := range strings.Split(string(out), "\n") {
-			if strings.HasPrefix(l, "n") && !strings.Contains(l, "txt") {
+			if strings.HasPrefix(l, "n") {
 				return strings.TrimPrefix(l, "n")
 			}
 		}
@@ -493,16 +498,24 @@ type PaneState struct {
 
 // SaveAll writes panes.json. Skips when no state mutation has occurred since
 // startup so a clean run never clobbers an existing user file with empty state.
+//
+// Cwd() can take tens to hundreds of ms on macOS (lsof). To keep it from
+// blocking concurrent Create/Delete calls, we snapshot pane pointers under
+// m.mu and then call Cwd() OUTSIDE the lock.
 func (m *PaneManager) SaveAll() {
 	if !m.dirty.Load() {
 		return
 	}
 	m.mu.Lock()
-	var states []PaneState
+	snap := make([]*Pane, 0, len(m.panes))
 	for _, p := range m.panes {
-		states = append(states, PaneState{ID: p.ID, Name: p.Name, Cwd: p.Cwd()})
+		snap = append(snap, p)
 	}
 	m.mu.Unlock()
+	states := make([]PaneState, 0, len(snap))
+	for _, p := range snap {
+		states = append(states, PaneState{ID: p.ID, Name: p.Name, Cwd: p.Cwd()})
+	}
 	sort.Slice(states, func(i, j int) bool { return states[i].ID < states[j].ID })
 	data, _ := json.Marshal(states)
 	if err := os.WriteFile(m.dataPath("panes.json"), data, 0644); err != nil {

@@ -1407,7 +1407,10 @@ class App {
     this.ws.sessions.push(s);
     this.ws.activeSession=s.id;
     this._setFocus(r, s);
-    await this._save();
+    // Fire-and-forget save: keeps the UI snappy. Awaiting here would block
+    // render on the PUT roundtrip (see split/addTab which already use
+    // this pattern).
+    this._save();
   }
 
   async addSession(){await this._mkSession();this.render()}
@@ -1432,7 +1435,9 @@ class App {
       const next=(a.focusedRegion&&findRg(a.layout,a.focusedRegion))?a.focusedRegion:firstRg(a.layout)?.id||null;
       this._setFocus(next, a);
     } else this.focused=null;
-    await this._save(); this.render();
+    // Render first, save in background (matches split/addTab/closeTab).
+    this.render();
+    this._save();
   }
 
   switchSession(sid){
