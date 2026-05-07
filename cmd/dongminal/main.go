@@ -49,6 +49,12 @@ func buildDeps(cfg server.Config) (builtDeps, error) {
 	if err != nil {
 		return builtDeps{}, err
 	}
+	wsMgr.OnIndexUpdate = func() {
+		msMgr.Reconcile(wsMgr.TabIDs())
+	}
+	if removed := msMgr.Reconcile(wsMgr.TabIDs()); removed > 0 {
+		log.Printf("mdscroll: pruned %d stale tab(s) at startup", removed)
+	}
 
 	hub := server.NewCommandHub()
 	reg := mcptool.NewRegistry()

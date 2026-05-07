@@ -32,9 +32,10 @@ type Persister interface {
 }
 
 type index struct {
-	entries    []PaneLabel
-	labels     map[string]string
-	labelToID  map[string]string
+	entries   []PaneLabel
+	labels    map[string]string
+	labelToID map[string]string
+	tabIDs    map[string]struct{}
 }
 
 // snap is the coherent (raw, rev) pair published atomically by Save.
@@ -50,6 +51,11 @@ type Manager struct {
 	mu   sync.Mutex
 	snap atomic.Pointer[snap]
 	idx  atomic.Pointer[index]
+
+	// OnIndexUpdate, when non-nil, runs synchronously after the in-memory index
+	// is replaced (initial load + every Save). Use it to reconcile satellite
+	// stores (e.g., mdscroll) against the current set of tabs.
+	OnIndexUpdate func()
 
 	writeCh    chan []byte
 	done       chan struct{}
@@ -78,6 +84,8 @@ func New(live Liveness, store Persister) (*Manager, error) {
 		ix = emptyIndex()
 	}
 	m.idx.Store(ix)
+	// Note: OnIndexUpdate is not yet wired at construction time; callers invoke
+	// the initial reconcile manually after assigning the hook (see main.go).
 	m.wg.Add(1)
 	go m.writer()
 	return m, nil
@@ -179,6 +187,9 @@ func (m *Manager) Save(blob []byte, ifMatch string) (uint64, error) {
 	m.snap.Store(&snap{raw: buf, rev: newRev})
 	m.idx.Store(ix)
 	m.enqueueWrite(buf)
+	if m.OnIndexUpdate != nil {
+		m.OnIndexUpdate()
+	}
 	return newRev, nil
 }
 
@@ -214,6 +225,20 @@ func (m *Manager) Labels() map[string]string {
 	out := make(map[string]string, len(ix.labels))
 	for k, v := range ix.labels {
 		out[k] = v
+	}
+	return out
+}
+
+// TabIDs returns the set of tab ids currently present in the workspace.
+// Returned map is a copy; safe to mutate.
+func (m *Manager) TabIDs() map[string]struct{} {
+	ix := m.idx.Load()
+	if ix == nil {
+		return map[string]struct{}{}
+	}
+	out := make(map[string]struct{}, len(ix.tabIDs))
+	for k := range ix.tabIDs {
+		out[k] = struct{}{}
 	}
 	return out
 }
@@ -266,7 +291,11 @@ type wsState struct {
 }
 
 func emptyIndex() *index {
-	return &index{labels: map[string]string{}, labelToID: map[string]string{}}
+	return &index{
+		labels:    map[string]string{},
+		labelToID: map[string]string{},
+		tabIDs:    map[string]struct{}{},
+	}
 }
 
 func buildIndex(blob []byte) (*index, error) {
@@ -294,6 +323,9 @@ func buildIndex(blob []byte) (*index, error) {
 				})
 				ix.labels[tab.PaneID] = label
 				ix.labelToID[label] = tab.PaneID
+				if tab.ID != "" {
+					ix.tabIDs[tab.ID] = struct{}{}
+				}
 			}
 		}
 	}
