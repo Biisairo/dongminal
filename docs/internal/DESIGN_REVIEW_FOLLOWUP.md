@@ -59,11 +59,15 @@
 4. ✅ **S2** — PaneManager mutex → RWMutex, busy probe 주입 가능화. `PANE_MANAGER_DECOMPOSE_SRS.md`.
 5. ✅ **S3** — handlers_api 라우터 테이블화. `HANDLERS_API_ROUTER_SRS.md`.
 6. ✅ **S5** — workspace `Snapshot()` 단일 진입점 + race 테스트. `WORKSPACE_SNAPSHOT_SRS.md`.
-7. ⏸️ **S4** — outbuf backpressure 정책 노출.
-8. ⏸️ **S6** — MCP typed `Bind` helper.
+7. ✅ **S4** — outbuf backpressure 정책 노출 + pane.bch silent-loss 경로 제거. `OUTBUF_BACKPRESSURE_SRS.md`.
+8. ✅ **S6** — MCP typed `Bind` helper 일원화 (6 tools 변환). `MCP_BIND_HELPER_SRS.md`.
 
 L1/L4/L8 (워밍업 묶음): ✅ 완료. `SAFETY_WARMUP_SRS.md`.
-L2/L3/L5/L6/L7: ⏸️ 미처리.
+L3/L5/L7: ✅ 완료. `CONCURRENCY_HARDENING_SRS.md` (L3 exit invariant + addClient 거절, L5 race detector 박제, L7 단일 ANSI strip 검증).
+L6: ✅ 완료. `CODESERVER_SHUTDOWN_SRS.md` (timeout-driven SIGKILL 에스컬레이션).
+L2: ✅ 완료. `SHORTCUT_DISPATCH_SRS.md` (Ctrl/Cmd+F → BUILTIN_HOTKEYS 테이블 + executeAction 통합).
+
+**모든 design review 항목 처리 완료.**
 
 ### 2026-05-07 세션 결과 (확장)
 - 처리: L1, L4, L8, S5, S3, S2, S1-Phase1, S1-Phase2, S1-Phase3.
@@ -71,6 +75,40 @@ L2/L3/L5/L6/L7: ⏸️ 미처리.
 - 미처리: S4, S6, L2, L3, L5, L6, L7. TS 마이그레이션은 SRS 만 작성 (구현 미진).
 - 검증: `go test -race ./...` green, `npx playwright test` 68/68 green (3.5분).
 - 커버리지: server 65→73%, adapters 0→40%, mcptool/tools 0→86%, workspace 92%, outbuf 100%, e2e 53→68건.
+- Stage 상태로 두고 push 미실행 (사용자 검토 대기).
+
+### 2026-05-07 세션 결과 (2차 — concurrency / shutdown / outbuf)
+- 처리: L3, L5, L7(검증), S4, L6.
+- 신규 SRS: CONCURRENCY_HARDENING_SRS, OUTBUF_BACKPRESSURE_SRS, CODESERVER_SHUTDOWN_SRS.
+- 변경 요약:
+  - `internal/server/pane.go`: `exited bool` invariant 도입, `kill()` 이 단일 진입점으로 OpExit fan-out + 상태 전이 처리. `addClient` 가 `bool` 반환, 종료 후 거절. `bch`/`drainBuf` 제거 → `Stream.Feed` 직접 호출 (single drop path).
+  - `internal/server/handlers_ws.go`: addClient 반환 false 시 즉시 종료.
+  - `internal/server/codeserver.go`: `CodeServerInst.exited chan` 추가, `Stop()` 이 `shutdownGrace` (default 2s) 까지 SIGTERM 응답 대기 후 SIGKILL 에스컬레이션.
+  - `internal/outbuf/stream.go`: backpressure 정책 godoc 명시.
+  - 테스트 추가: `concurrency_invariants_test.go` (L3/L5 race), `codeserver_shutdown_test.go` (L6 wait-for-exit).
+- 검증: `go test -race ./...` green, `npx playwright test` 68/68 green (3.6분).
+- 미처리: S6, L2.
+- Stage 상태로 두고 push 미실행 (사용자 검토 대기).
+
+### 2026-05-07 세션 결과 (4차 — split race hotfix, 1차 수정)
+- 1차 수정: split 직렬화만 적용 → 사용자 추가 보고: "여전히 두 번째 분할이 안 되고 1번 pane 으로 포커스 이동".
+- 진짜 원인 (2차 수정): SSE `workspace_changed` echo 가 본인의 PUT 응답보다 먼저 도착하면 `_applyRemoteWorkspace` 가 `this.ws` 를 통째로 교체 → 진행 중이던 두 번째 split 의 `s` (session) 참조가 stale 화 → focus 가 layout 에 없는 R3 로 설정 → render fallback 이 firstRg(R1) 로 점프.
+- 변경 요약:
+  - `web/app.js` `App.split`: `_splitChain` Promise 큐로 직렬화.
+  - `web/app.js` `App._save` / `App._onWorkspaceChanged`: `_saveInflight` 플래그 추가. save in-flight 동안 SSE workspace_changed apply 를 보류 (`_wsApplyPending`); save 완료 시 한 번 drain.
+  - `e2e/layout.spec.ts`: 회귀 테스트 2 건 추가 — promise 직접 invocation, 버튼 클릭 2 회.
+  - `web/index.html`: 캐시 버스터 v=105→107.
+- 신규 SRS: SPLIT_SERIALIZATION_SRS (FR-SPLIT-1/2/3).
+- 검증: `npx playwright test e2e/layout.spec.ts` 7/7 그린, 전체 69/70 그린 (실패 1건은 사전 존재 flake `regression-md FR-10`, 본 변경과 무관).
+
+### 2026-05-07 세션 결과 (3차 — S6 / L2 마무리)
+- 처리: S6, L2.
+- 신규 SRS: MCP_BIND_HELPER_SRS, SHORTCUT_DISPATCH_SRS.
+- 변경 요약:
+  - **S6**: `internal/mcptool/tools/{listpanes,readpane,sendinput,sendagent,workspacecmd}.go` 6 개 tool 을 함수형 `<Name>Name` const + `<Name>Spec` var + `<Name>Args` struct + `<Name>Handler(deps)` 패턴으로 일원화 (이미 적용된 WhoAmI 와 동일). `cmd/dongminal/main.go` 등록은 모두 `mcptool.Register[Args]` typed helper 사용. `tools_test.go` 와 `internal/mcptool/registry_test.go` 갱신.
+  - **L2**: `web/app.js` 의 `BUILTIN_HOTKEYS` 테이블 도입 (Ctrl/Cmd+F → toggleSearch). `InputBinding.bind` 의 ad-hoc 분기 제거 → built-in 테이블 + 사용자 shortcuts 테이블의 단일 dispatch 루프. `App.executeAction` 에 `toggleSearch` 추가. `web/index.html` 캐시 버스터 v=104→105.
+- 검증: `go test -race ./...` green, `npx playwright test` 68/68 green (3.4분).
+- 미처리: 없음 — design review 후속 작업 100% 완료.
 - Stage 상태로 두고 push 미실행 (사용자 검토 대기).
 
 ## 5. 참고 문서

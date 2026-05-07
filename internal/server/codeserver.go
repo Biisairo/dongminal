@@ -18,6 +18,10 @@ import (
 	"time"
 )
 
+// shutdownGrace caps how long Stop waits for SIGTERM to be honored before
+// escalating to SIGKILL. It is a package var so tests can shorten it.
+var shutdownGrace = 2 * time.Second
+
 type CodeServerInst struct {
 	ID        string
 	Sock      string
@@ -28,6 +32,7 @@ type CodeServerInst struct {
 	LastPing  time.Time
 	once      sync.Once
 	done      chan struct{}
+	exited    chan struct{} // closed when cmd.Wait() returns (nil for synthetic test fixtures)
 }
 
 type CodeServerManager struct {
@@ -127,7 +132,8 @@ func (m *CodeServerManager) Start(folder string) (*CodeServerInst, error) {
 		ID: id, Sock: sock, Folder: folder,
 		Cmd: cmd, Proxy: proxy,
 		CreatedAt: now, LastPing: now,
-		done: make(chan struct{}),
+		done:   make(chan struct{}),
+		exited: make(chan struct{}),
 	}
 	m.mu.Lock()
 	m.insts[id] = inst
@@ -136,6 +142,7 @@ func (m *CodeServerManager) Start(folder string) (*CodeServerInst, error) {
 
 	go func() {
 		cmd.Wait()
+		close(inst.exited)
 		log.Printf("[cs %s] process exited", id)
 		m.Stop(id)
 	}()
@@ -188,8 +195,20 @@ func (m *CodeServerManager) Stop(id string) {
 		close(inst.done)
 		if inst.Cmd != nil && inst.Cmd.Process != nil {
 			inst.Cmd.Process.Signal(syscall.SIGTERM)
-			time.Sleep(100 * time.Millisecond)
-			inst.Cmd.Process.Kill()
+			if inst.exited != nil {
+				select {
+				case <-inst.exited:
+				case <-time.After(shutdownGrace):
+					log.Printf("[cs %s] SIGTERM grace expired; escalating to SIGKILL", id)
+					inst.Cmd.Process.Kill()
+					<-inst.exited
+				}
+			} else {
+				// Synthetic fixtures (tests with empty Cmd{}) — preserve
+				// the legacy fallback so existing unit tests keep working.
+				time.Sleep(100 * time.Millisecond)
+				inst.Cmd.Process.Kill()
+			}
 		}
 		if inst.Sock != "" {
 			os.Remove(inst.Sock)

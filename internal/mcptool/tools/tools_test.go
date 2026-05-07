@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -49,6 +50,21 @@ func (f *fakeWorkspaceReader) Resolve(id string) (string, error) {
 func (f *fakeWorkspaceReader) Labels() map[string]string         { return f.labels }
 func (f *fakeWorkspaceReader) Entries() []mcptool.WorkspaceEntry { return f.entries }
 
+// dispatch is a small helper that mirrors the production wiring: register the
+// handler under a fresh registry and dispatch a JSON payload through it. This
+// exercises the same path the real MCP server uses, while keeping per-test
+// setup terse.
+func dispatch[A any](t *testing.T, name string, spec map[string]any, h func(context.Context, A) (mcptool.Result, error), payload string) (mcptool.Result, error) {
+	t.Helper()
+	reg := mcptool.NewRegistry()
+	mcptool.Register(reg, name, spec, h)
+	var raw json.RawMessage
+	if payload != "" {
+		raw = json.RawMessage(payload)
+	}
+	return reg.Dispatch(context.Background(), name, raw)
+}
+
 func TestStripANSI(t *testing.T) {
 	cases := []struct {
 		name string
@@ -75,18 +91,15 @@ func TestStripANSI(t *testing.T) {
 func TestListPanes_Empty(t *testing.T) {
 	pr := newFakePaneReader()
 	wr := &fakeWorkspaceReader{}
-	tool := ListPanes{PM: pr, WS: wr}
-
-	if tool.Name() != "list_panes" {
-		t.Errorf("name=%q", tool.Name())
+	if ListPanesName != "list_panes" {
+		t.Errorf("name=%q", ListPanesName)
 	}
-	if spec := tool.Spec(); spec["name"] != "list_panes" {
-		t.Errorf("spec name=%v", spec["name"])
+	if ListPanesSpec["name"] != "list_panes" {
+		t.Errorf("spec name=%v", ListPanesSpec["name"])
 	}
-
-	res, err := tool.Call(context.Background(), nil)
+	res, err := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
 	if err != nil {
-		t.Fatalf("Call: %v", err)
+		t.Fatalf("Dispatch: %v", err)
 	}
 	body := resultText(res)
 	if !strings.Contains(body, "(없음)") {
@@ -107,9 +120,7 @@ func TestListPanes_Mixed(t *testing.T) {
 			{PaneID: "1", Label: "S1.P1.T1", SessionName: "Main", TabName: "Shell", IsActive: true},
 		},
 	}
-	tool := ListPanes{PM: pr, WS: wr}
-
-	res, _ := tool.Call(context.Background(), nil)
+	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
 	body := resultText(res)
 	if !strings.Contains(body, "▶ S1.P1.T1") {
 		t.Errorf("missing focus marker: %q", body)
@@ -132,7 +143,7 @@ func TestListPanes_DropsStaleEntries(t *testing.T) {
 			{PaneID: "ghost", Label: "S1.P1.T2"},
 		},
 	}
-	res, _ := ListPanes{PM: pr, WS: wr}.Call(context.Background(), nil)
+	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
 	body := resultText(res)
 	if strings.Contains(body, "ghost") {
 		t.Errorf("stale entry leaked: %q", body)
@@ -156,15 +167,14 @@ func TestSendInput_Resolves(t *testing.T) {
 	pr := newFakePaneReader()
 	pr.has["10"] = true
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"S1.P1.T1": "10"}}
-	tool := SendInput{PM: pr, WS: wr}
-
-	if tool.Name() != "send_input" {
-		t.Errorf("name=%q", tool.Name())
+	if SendInputName != "send_input" {
+		t.Errorf("name=%q", SendInputName)
 	}
-
-	res, err := tool.Call(context.Background(), []byte(`{"id":"S1.P1.T1","text":"echo hi","execute":true}`))
+	res, err := dispatch(t, SendInputName, SendInputSpec,
+		SendInputHandler(SendInputDeps{PM: pr, WS: wr}),
+		`{"id":"S1.P1.T1","text":"echo hi","execute":true}`)
 	if err != nil {
-		t.Fatalf("Call: %v", err)
+		t.Fatalf("Dispatch: %v", err)
 	}
 	if !strings.Contains(resultText(res), "pane=10") {
 		t.Errorf("body=%q", resultText(res))
@@ -177,19 +187,19 @@ func TestSendInput_Resolves(t *testing.T) {
 func TestSendInput_UnknownLabel(t *testing.T) {
 	pr := newFakePaneReader()
 	wr := &fakeWorkspaceReader{}
-	tool := SendInput{PM: pr, WS: wr}
-
-	if _, err := tool.Call(context.Background(), []byte(`{"id":"BAD","text":"x"}`)); err == nil {
+	if _, err := dispatch(t, SendInputName, SendInputSpec,
+		SendInputHandler(SendInputDeps{PM: pr, WS: wr}),
+		`{"id":"BAD","text":"x"}`); err == nil {
 		t.Errorf("err=nil, expected resolve failure")
 	}
 }
 
 func TestSendInput_MissingPane(t *testing.T) {
-	pr := newFakePaneReader() // has=false
+	pr := newFakePaneReader()
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"S1.P1.T1": "99"}}
-	tool := SendInput{PM: pr, WS: wr}
-
-	if _, err := tool.Call(context.Background(), []byte(`{"id":"S1.P1.T1","text":"x"}`)); err == nil {
+	if _, err := dispatch(t, SendInputName, SendInputSpec,
+		SendInputHandler(SendInputDeps{PM: pr, WS: wr}),
+		`{"id":"S1.P1.T1","text":"x"}`); err == nil {
 		t.Errorf("err=nil, expected pane missing")
 	}
 }
@@ -197,9 +207,9 @@ func TestSendInput_MissingPane(t *testing.T) {
 func TestReadPaneOutput_NoPane(t *testing.T) {
 	pr := newFakePaneReader()
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "1"}}
-	tool := ReadPaneOutput{PM: pr, WS: wr}
-
-	if _, err := tool.Call(context.Background(), []byte(`{"id":"x"}`)); err == nil {
+	if _, err := dispatch(t, ReadPaneOutputName, ReadPaneOutputSpec,
+		ReadPaneOutputHandler(ReadPaneDeps{PM: pr, WS: wr}),
+		`{"id":"x"}`); err == nil {
 		t.Errorf("err=nil")
 	}
 }
@@ -209,9 +219,9 @@ func TestReadPaneScreen_StripsANSI(t *testing.T) {
 	pr.has["1"] = true
 	pr.snap["1"] = []byte("\x1b[32mhello\x1b[0m world\n")
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "1"}}
-	tool := ReadPaneScreen{PM: pr, WS: wr}
-
-	res, err := tool.Call(context.Background(), []byte(`{"id":"x"}`))
+	res, err := dispatch(t, ReadPaneScreenName, ReadPaneScreenSpec,
+		ReadPaneScreenHandler(ReadPaneDeps{PM: pr, WS: wr}),
+		`{"id":"x"}`)
 	if err != nil {
 		t.Fatalf("err=%v", err)
 	}
@@ -229,9 +239,9 @@ func TestReadPaneOutput_KeepsANSI(t *testing.T) {
 	pr.has["1"] = true
 	pr.snap["1"] = []byte("\x1b[32mraw\x1b[0m")
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "1"}}
-	tool := ReadPaneOutput{PM: pr, WS: wr}
-
-	res, _ := tool.Call(context.Background(), []byte(`{"id":"x"}`))
+	res, _ := dispatch(t, ReadPaneOutputName, ReadPaneOutputSpec,
+		ReadPaneOutputHandler(ReadPaneDeps{PM: pr, WS: wr}),
+		`{"id":"x"}`)
 	body := resultText(res)
 	if !strings.Contains(body, "\x1b[32m") {
 		t.Errorf("expected raw ANSI preserved: %q", body)
@@ -244,9 +254,9 @@ func TestReadPaneScreen_DroppedPrefix(t *testing.T) {
 	pr.snap["1"] = []byte("ok")
 	pr.dropped = 42
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "1"}}
-	tool := ReadPaneScreen{PM: pr, WS: wr}
-
-	res, _ := tool.Call(context.Background(), []byte(`{"id":"x"}`))
+	res, _ := dispatch(t, ReadPaneScreenName, ReadPaneScreenSpec,
+		ReadPaneScreenHandler(ReadPaneDeps{PM: pr, WS: wr}),
+		`{"id":"x"}`)
 	body := resultText(res)
 	if !strings.HasPrefix(body, "dropped_bytes: 42") {
 		t.Errorf("missing dropped prefix: %q", body)
@@ -258,9 +268,9 @@ func TestReadPaneScreen_BytesTrim(t *testing.T) {
 	pr.has["1"] = true
 	pr.snap["1"] = []byte("0123456789abcdef")
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "1"}}
-	tool := ReadPaneScreen{PM: pr, WS: wr}
-
-	res, _ := tool.Call(context.Background(), []byte(`{"id":"x","bytes":4}`))
+	res, _ := dispatch(t, ReadPaneScreenName, ReadPaneScreenSpec,
+		ReadPaneScreenHandler(ReadPaneDeps{PM: pr, WS: wr}),
+		`{"id":"x","bytes":4}`)
 	body := resultText(res)
 	if body != "cdef" {
 		t.Errorf("body=%q want cdef", body)
@@ -274,15 +284,14 @@ func TestSendAgentMessage_Wraps(t *testing.T) {
 		resolve: map[string]string{"S2.P1.T1": "10"},
 		labels:  map[string]string{"10": "S2.P1.T1"},
 	}
-	tool := SendAgentMessage{PM: pr, WS: wr}
-
-	if tool.Name() != "send_agent_message" {
-		t.Errorf("name=%q", tool.Name())
+	if SendAgentMessageName != "send_agent_message" {
+		t.Errorf("name=%q", SendAgentMessageName)
 	}
-
-	res, err := tool.Call(context.Background(), []byte(`{"to":"S2.P1.T1","from":"S1.P1.T1","message":"hello"}`))
+	res, err := dispatch(t, SendAgentMessageName, SendAgentMessageSpec,
+		SendAgentMessageHandler(SendAgentMessageDeps{PM: pr, WS: wr}),
+		`{"to":"S2.P1.T1","from":"S1.P1.T1","message":"hello"}`)
 	if err != nil {
-		t.Fatalf("Call: %v", err)
+		t.Fatalf("Dispatch: %v", err)
 	}
 	if !strings.Contains(resultText(res), "S2.P1.T1") {
 		t.Errorf("body=%q", resultText(res))
@@ -306,10 +315,11 @@ func TestSendAgentMessage_DefaultFrom(t *testing.T) {
 	pr := newFakePaneReader()
 	pr.has["10"] = true
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "10"}}
-	tool := SendAgentMessage{PM: pr, WS: wr}
-	_, err := tool.Call(context.Background(), []byte(`{"to":"x","from":"","message":"m"}`))
+	_, err := dispatch(t, SendAgentMessageName, SendAgentMessageSpec,
+		SendAgentMessageHandler(SendAgentMessageDeps{PM: pr, WS: wr}),
+		`{"to":"x","from":"","message":"m"}`)
 	if err != nil {
-		t.Fatalf("Call: %v", err)
+		t.Fatalf("Dispatch: %v", err)
 	}
 	if !strings.Contains(pr.pastes[0], "from=unknown") {
 		t.Errorf("expected unknown default: %q", pr.pastes[0])
@@ -319,8 +329,9 @@ func TestSendAgentMessage_DefaultFrom(t *testing.T) {
 func TestSendAgentMessage_MissingPane(t *testing.T) {
 	pr := newFakePaneReader()
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "99"}}
-	tool := SendAgentMessage{PM: pr, WS: wr}
-	if _, err := tool.Call(context.Background(), []byte(`{"to":"x","from":"a","message":"b"}`)); err == nil {
+	if _, err := dispatch(t, SendAgentMessageName, SendAgentMessageSpec,
+		SendAgentMessageHandler(SendAgentMessageDeps{PM: pr, WS: wr}),
+		`{"to":"x","from":"a","message":"b"}`); err == nil {
 		t.Errorf("err=nil")
 	}
 }
@@ -399,8 +410,9 @@ func (f *fakeBroadcaster) Broadcast(p []byte) int {
 
 func TestWorkspaceCommand_BroadcastsPayload(t *testing.T) {
 	b := &fakeBroadcaster{allowed: map[string]bool{"splitH": true}, delivered: 2}
-	tool := WorkspaceCommand{Broadcaster: b}
-	res, err := tool.Call(context.Background(), []byte(`{"action":"splitH","count":3,"keepFocus":true}`))
+	res, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
+		`{"action":"splitH","count":3,"keepFocus":true}`)
 	if err != nil {
 		t.Fatalf("err=%v", err)
 	}
@@ -418,64 +430,72 @@ func TestWorkspaceCommand_BroadcastsPayload(t *testing.T) {
 
 func TestWorkspaceCommand_FocusRequiresLocation(t *testing.T) {
 	b := &fakeBroadcaster{allowed: map[string]bool{"focus": true}}
-	tool := WorkspaceCommand{Broadcaster: b}
-	if _, err := tool.Call(context.Background(), []byte(`{"action":"focus"}`)); err == nil {
+	if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
+		`{"action":"focus"}`); err == nil {
 		t.Errorf("err=nil, expected location required")
 	}
 }
 
 func TestWorkspaceCommand_OpenMdTabRequiresFilePath(t *testing.T) {
 	b := &fakeBroadcaster{allowed: map[string]bool{"openMdTab": true}}
-	tool := WorkspaceCommand{Broadcaster: b}
-	if _, err := tool.Call(context.Background(), []byte(`{"action":"openMdTab"}`)); err == nil {
+	if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
+		`{"action":"openMdTab"}`); err == nil {
 		t.Errorf("err=nil")
 	}
 }
 
 func TestWorkspaceCommand_UnknownAction(t *testing.T) {
 	b := &fakeBroadcaster{allowed: map[string]bool{}}
-	tool := WorkspaceCommand{Broadcaster: b}
-	if _, err := tool.Call(context.Background(), []byte(`{"action":"reboot"}`)); err == nil {
+	if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
+		`{"action":"reboot"}`); err == nil {
 		t.Errorf("err=nil")
 	}
 }
 
 func TestWorkspaceCommand_MissingAction(t *testing.T) {
 	b := &fakeBroadcaster{}
-	tool := WorkspaceCommand{Broadcaster: b}
-	if _, err := tool.Call(context.Background(), []byte(`{}`)); err == nil {
+	if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
+		`{}`); err == nil {
 		t.Errorf("err=nil")
 	}
 }
 
 func TestWorkspaceCommand_CountInvalid(t *testing.T) {
 	b := &fakeBroadcaster{allowed: map[string]bool{"splitH": true}}
-	tool := WorkspaceCommand{Broadcaster: b}
-	if _, err := tool.Call(context.Background(), []byte(`{"action":"splitH","count":1}`)); err == nil {
+	if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
+		`{"action":"splitH","count":1}`); err == nil {
 		t.Errorf("err=nil for count=1")
 	}
 }
 
 func TestWorkspaceCommand_CountForbiddenOnNonSplit(t *testing.T) {
 	b := &fakeBroadcaster{allowed: map[string]bool{"closeTab": true}}
-	tool := WorkspaceCommand{Broadcaster: b}
-	if _, err := tool.Call(context.Background(), []byte(`{"action":"closeTab","count":3}`)); err == nil {
+	if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
+		`{"action":"closeTab","count":3}`); err == nil {
 		t.Errorf("err=nil for count on closeTab")
 	}
 }
 
 func TestWorkspaceCommand_KeepFocusForbidden(t *testing.T) {
 	b := &fakeBroadcaster{allowed: map[string]bool{"newSession": true}}
-	tool := WorkspaceCommand{Broadcaster: b}
-	if _, err := tool.Call(context.Background(), []byte(`{"action":"newSession","keepFocus":true}`)); err == nil {
+	if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
+		`{"action":"newSession","keepFocus":true}`); err == nil {
 		t.Errorf("err=nil")
 	}
 }
 
 func TestWorkspaceCommand_Delivered0Warning(t *testing.T) {
 	b := &fakeBroadcaster{allowed: map[string]bool{"newSession": true}, delivered: 0}
-	tool := WorkspaceCommand{Broadcaster: b}
-	res, _ := tool.Call(context.Background(), []byte(`{"action":"newSession"}`))
+	res, _ := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
+		`{"action":"newSession"}`)
 	if !strings.Contains(resultText(res), "구독 중인 브라우저 없음") {
 		t.Errorf("missing warning: %q", resultText(res))
 	}

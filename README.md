@@ -87,3 +87,8 @@ dongminal/
 - **백엔드**: Go 1.21+, `creack/pty`, `gorilla/websocket`, `go:embed`
 - **프론트엔드**: xterm.js v5 (fit, search, web-links, unicode11 addons)
 - **선택 의존성**: `code-server` (edit 명령 사용 시), `claude` CLI (MCP 등록 시)
+
+## TODO
+
+- md scroll 동기화
+- md focus 상황에서 새탭, 창분할 시 경로 유지

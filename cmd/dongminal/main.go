@@ -46,14 +46,20 @@ func buildDeps(cfg server.Config) (builtDeps, error) {
 	reg := mcptool.NewRegistry()
 	pa := adapters.Pane{PM: pm}
 	wa := adapters.Workspace{WS: wsMgr}
-	reg.Register(tools.ListPanes{PM: pa, WS: wa})
-	reg.Register(tools.ReadPaneScreen{PM: pa, WS: wa})
-	reg.Register(tools.ReadPaneOutput{PM: pa, WS: wa})
-	reg.Register(tools.SendInput{PM: pa, WS: wa})
-	reg.Register(tools.SendAgentMessage{PM: pa, WS: wa})
+	mcptool.Register(reg, tools.ListPanesName, tools.ListPanesSpec,
+		tools.ListPanesHandler(tools.ListPanesDeps{PM: pa, WS: wa}))
+	mcptool.Register(reg, tools.ReadPaneScreenName, tools.ReadPaneScreenSpec,
+		tools.ReadPaneScreenHandler(tools.ReadPaneDeps{PM: pa, WS: wa}))
+	mcptool.Register(reg, tools.ReadPaneOutputName, tools.ReadPaneOutputSpec,
+		tools.ReadPaneOutputHandler(tools.ReadPaneDeps{PM: pa, WS: wa}))
+	mcptool.Register(reg, tools.SendInputName, tools.SendInputSpec,
+		tools.SendInputHandler(tools.SendInputDeps{PM: pa, WS: wa}))
+	mcptool.Register(reg, tools.SendAgentMessageName, tools.SendAgentMessageSpec,
+		tools.SendAgentMessageHandler(tools.SendAgentMessageDeps{PM: pa, WS: wa}))
 	mcptool.Register(reg, tools.WhoAmIName, tools.WhoAmISpec,
 		tools.WhoAmIHandler(tools.WhoAmIDeps{PM: pa, WS: wa, Resolver: adapters.Client{PM: pm}}))
-	reg.Register(tools.WorkspaceCommand{Broadcaster: adapters.Command{Hub: hub}})
+	mcptool.Register(reg, tools.WorkspaceCommandName, tools.WorkspaceCommandSpec,
+		tools.WorkspaceCommandHandler(tools.WorkspaceCommandDeps{Broadcaster: adapters.Command{Hub: hub}}))
 
 	return builtDeps{
 		deps: server.Deps{

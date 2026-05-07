@@ -89,6 +89,14 @@ func (s *safeConn) readMessage() (int, []byte, error)   { return s.conn.ReadMess
 
 // ── Pane ────────────────────────────────────────────
 
+// Pane invariants:
+//   - cmu protects cls and exited.
+//   - broadcast/addClient/removeClient must NOT be called by a caller
+//     already holding cmu (these methods acquire cmu themselves).
+//   - Once exited=true, broadcast becomes a no-op and addClient rejects
+//     new clients (sending OpExit immediately, outside cmu).
+//   - The exited transition happens exactly once, inside kill() under
+//     the protection of `once`.
 type Pane struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
@@ -96,9 +104,9 @@ type Pane struct {
 	ptmx *os.File
 	cmd  *exec.Cmd
 	stream *outbuf.Stream
-	bch  chan []byte
-	cmu  sync.Mutex
-	cls  []*safeConn
+	cmu    sync.Mutex
+	cls    []*safeConn
+	exited bool
 	done chan struct{}
 	once sync.Once
 	onExit func(id string)
@@ -190,34 +198,24 @@ func StartPane(id, name, cwd string, cols, rows uint16, onExit func(string)) (*P
 		ID: id, Name: name,
 		ptmx: ptmx, cmd: cmd,
 		stream: outbuf.NewStream(context.Background(), bufMax),
-		bch:    make(chan []byte, 256),
 		done:   make(chan struct{}),
 		onExit: onExit,
 	}
 	go p.readPTY()
-	go p.drainBuf()
 	log.Printf("[pane %s] started shell=%s pid=%d cwd=%s cols=%d rows=%d",
 		id, shell, cmd.Process.Pid, startDir, cols, rows)
 	return p, nil
 }
 
-func (p *Pane) drainBuf() {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("[pane %s] drainBuf panic: %v\n%s", p.ID, r, debug.Stack())
-		}
-	}()
-	for d := range p.bch {
-		p.stream.Feed(d)
-	}
-}
-
+// readPTY drains the PTY master, feeds the bounded stream buffer (single
+// drop path: outbuf.Stream compaction → Stats.TotalBytesDrop), and
+// fan-outs OpOutput messages to live clients. On EOF/IO error it triggers
+// a single kill() (which itself emits the final OpExit) and signals onExit.
 func (p *Pane) readPTY() {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[pane %s] readPTY panic: %v\n%s", p.ID, r, debug.Stack())
 		}
-		close(p.bch)
 	}()
 	raw := make([]byte, 8192)
 	for {
@@ -228,18 +226,15 @@ func (p *Pane) readPTY() {
 			} else {
 				log.Printf("[pane %s] readPTY unexpected error: %v", p.ID, err)
 			}
-			p.broadcast([]byte{OpExit})
 			p.kill()
 			if p.onExit != nil {
 				go p.onExit(p.ID)
 			}
 			return
 		}
-		select {
-		case p.bch <- append([]byte(nil), raw[:n]...):
-		default:
-			log.Printf("[pane %s] bch full, dropping %d bytes", p.ID, n)
-		}
+		// Single backpressure path: Stream.Feed never blocks; loss (if any)
+		// is recorded in Stats.TotalBytesDrop.
+		p.stream.Feed(append([]byte(nil), raw[:n]...))
 		msg := make([]byte, 1+n)
 		msg[0] = OpOutput
 		copy(msg[1:], raw[:n])
@@ -247,8 +242,14 @@ func (p *Pane) readPTY() {
 	}
 }
 
+// broadcast delivers msg to all currently-registered clients. It is a no-op
+// once the pane has transitioned to exited. Caller must NOT hold cmu.
 func (p *Pane) broadcast(msg []byte) {
 	p.cmu.Lock()
+	if p.exited {
+		p.cmu.Unlock()
+		return
+	}
 	snap := make([]*safeConn, len(p.cls))
 	copy(snap, p.cls)
 	p.cmu.Unlock()
@@ -261,12 +262,22 @@ func (p *Pane) broadcast(msg []byte) {
 	}
 }
 
-func (p *Pane) addClient(c *safeConn) {
+// addClient registers c. Returns false when the pane has already exited; in
+// that case OpExit is sent to c immediately (outside cmu) and c is left
+// untouched in the caller's possession. Caller must NOT hold cmu.
+func (p *Pane) addClient(c *safeConn) bool {
 	p.cmu.Lock()
+	if p.exited {
+		p.cmu.Unlock()
+		c.send(OpExit, nil)
+		log.Printf("[pane %s] addClient after exit addr=%s — sent OpExit", p.ID, c.remoteAddr())
+		return false
+	}
 	p.cls = append(p.cls, c)
 	n := len(p.cls)
 	p.cmu.Unlock()
 	log.Printf("[pane %s] client connected addr=%s total=%d", p.ID, c.remoteAddr(), n)
+	return true
 }
 
 func (p *Pane) removeClient(c *safeConn) {
@@ -307,12 +318,36 @@ func (p *Pane) CmdProcessPID() int {
 	return p.cmd.Process.Pid
 }
 
+// kill transitions the pane to exited exactly once: it marks exited under
+// cmu, fans out a final OpExit to the clients that were registered at that
+// moment (outside cmu), then tears down the PTY/process and stream.
 func (p *Pane) kill() {
 	p.once.Do(func() {
-		log.Printf("[pane %s] killing pid=%d", p.ID, p.cmd.Process.Pid)
+		// Phase 1: atomic mark + snapshot under cmu.
+		p.cmu.Lock()
+		p.exited = true
+		snap := make([]*safeConn, len(p.cls))
+		copy(snap, p.cls)
+		p.cmu.Unlock()
+
+		// Phase 2: final OpExit broadcast outside cmu. Errors are ignored —
+		// the pane is dying anyway and clients will close on their side.
+		exitMsg := []byte{OpExit}
+		for _, c := range snap {
+			_ = c.writeMsg(websocket.BinaryMessage, exitMsg)
+		}
+
+		// Phase 3: tear down PTY/process/stream.
+		pid := 0
+		if p.cmd != nil && p.cmd.Process != nil {
+			pid = p.cmd.Process.Pid
+		}
+		log.Printf("[pane %s] killing pid=%d", p.ID, pid)
 		close(p.done)
-		p.ptmx.Close()
-		if p.cmd.Process != nil {
+		if p.ptmx != nil {
+			p.ptmx.Close()
+		}
+		if p.cmd != nil && p.cmd.Process != nil {
 			p.cmd.Process.Signal(syscall.SIGTERM)
 			time.Sleep(50 * time.Millisecond)
 			p.cmd.Process.Kill()
@@ -320,7 +355,9 @@ func (p *Pane) kill() {
 				log.Printf("[pane %s] wait: %v", p.ID, err)
 			}
 		}
-		p.stream.Close()
+		if p.stream != nil {
+			p.stream.Close()
+		}
 	})
 }
 

@@ -46,7 +46,10 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	pane.addClient(conn)
+	if !pane.addClient(conn) {
+		log.Printf("ws addr=%s: pane %s already exited; sent OpExit", r.RemoteAddr, pane.ID)
+		return
+	}
 	defer pane.removeClient(conn)
 
 	conn.send(OpSID, []byte(pane.ID))

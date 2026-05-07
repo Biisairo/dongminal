@@ -216,7 +216,8 @@ func TestListPanesTool(t *testing.T) {
 	ws := &fakeWS{entries: []mcptool.WorkspaceEntry{
 		{PaneID: "p1", Label: "S1.P1.T1", SessionName: "main", TabName: "zsh", IsActive: true},
 	}}
-	res, err := tools.ListPanes{PM: pm, WS: ws}.Call(context.Background(), nil)
+	h := tools.ListPanesHandler(tools.ListPanesDeps{PM: pm, WS: ws})
+	res, err := h(context.Background(), tools.ListPanesArgs{})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -243,7 +244,8 @@ func TestListPanesFiltersDeadEntries(t *testing.T) {
 		{PaneID: "p2", Label: "S1.P1.T2", SessionName: "main", TabName: "zsh"},
 		{PaneID: "p3", Label: "S1.P1.T3", SessionName: "main", TabName: "zsh"},
 	}}
-	res, err := tools.ListPanes{PM: pm, WS: ws}.Call(context.Background(), nil)
+	h := tools.ListPanesHandler(tools.ListPanesDeps{PM: pm, WS: ws})
+	res, err := h(context.Background(), tools.ListPanesArgs{})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -260,8 +262,8 @@ func TestListPanesFiltersDeadEntries(t *testing.T) {
 func TestSendInputTool(t *testing.T) {
 	pm := &fakePM{panes: []mcptool.PaneInfo{{ID: "p1"}}}
 	ws := &fakeWS{resolve: map[string]string{"S1.P1.T1": "p1"}}
-	_, err := tools.SendInput{PM: pm, WS: ws}.Call(context.Background(),
-		json.RawMessage(`{"id":"S1.P1.T1","text":"hello","execute":true}`))
+	h := tools.SendInputHandler(tools.SendInputDeps{PM: pm, WS: ws})
+	_, err := h(context.Background(), tools.SendInputArgs{ID: "S1.P1.T1", Text: "hello", Execute: true})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -273,8 +275,8 @@ func TestSendInputTool(t *testing.T) {
 func TestSendInputUnknownID(t *testing.T) {
 	pm := &fakePM{}
 	ws := &fakeWS{}
-	_, err := tools.SendInput{PM: pm, WS: ws}.Call(context.Background(),
-		json.RawMessage(`{"id":"S9.P9.T9","text":"x"}`))
+	h := tools.SendInputHandler(tools.SendInputDeps{PM: pm, WS: ws})
+	_, err := h(context.Background(), tools.SendInputArgs{ID: "S9.P9.T9", Text: "x"})
 	if err == nil {
 		t.Fatal("expected resolve error")
 	}

@@ -735,6 +735,13 @@ function clean(n,ok){
 
 // ═══ InputBinding: 키보드/마우스/단축키 dispatch (S1-Phase3 추출) ═══
 // App 의 _bind 책임을 분리. 동작은 1:1 보존.
+// Built-in hotkeys are not user-rebindable and may match modifier variants
+// (e.g. Ctrl OR Cmd) that the single-binding `shortcuts` table can't express.
+// They are dispatched through the same `executeAction` path as user shortcuts.
+const BUILTIN_HOTKEYS = [
+  { match: e => e.code === 'KeyF' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey, action: 'toggleSearch' },
+];
+
 class InputBinding {
   constructor(app){ this.app = app; }
 
@@ -767,7 +774,9 @@ class InputBinding {
       }
       const ae=document.activeElement;
       if(ae.tagName==='INPUT'||(ae.tagName==='TEXTAREA'&&!ae.classList.contains('xterm-helper-textarea')))return;
-      if(e.key==='f'&&(e.ctrlKey||e.metaKey)){e.preventDefault();e.stopImmediatePropagation();this.app.toggleSearch();return}
+      for(const h of BUILTIN_HOTKEYS){
+        if(h.match(e)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(h.action);return}
+      }
       for(const[action,key]of Object.entries(shortcuts)){
         if(matchShortcut(e,key)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(action);return}
       }
@@ -1147,6 +1156,11 @@ class App {
   }
 
   async _onWorkspaceChanged(rev){
+    // While a local save is in flight, the SSE we just received is almost
+    // certainly an echo of our own PUT (the PUT response with the new ETag
+    // hasn't returned yet, so wsETag is still stale and would erroneously
+    // pass the rev check). Defer until save settles.
+    if(this._saveInflight){ this._wsApplyPending=true; return }
     if(this._wsApplyInflight){ this._wsApplyPending=true; return }
     const cur=this.wsETag?parseInt(this.wsETag,10):-1;
     if(typeof rev==='number' && rev<=cur) return;
@@ -1549,10 +1563,21 @@ class App {
     this._save(); this.render();
   }
 
-  async split(dir,opts={}){
+  // split is serialized through this._splitChain so that rapid successive
+  // calls (e.g. holding the shortcut) don't race on this.focused: each call
+  // waits for the previous to finish — including the _setFocus that updates
+  // the new target — before reading focus or layout state.
+  split(dir,opts={}){
+    const prev=this._splitChain||Promise.resolve();
+    const next=prev.then(()=>this._splitInner(dir,opts)).catch(err=>{console.error('[split] error',err)});
+    this._splitChain=next.finally(()=>{ if(this._splitChain===next) this._splitChain=null; });
+    return next;
+  }
+
+  async _splitInner(dir,opts={}){
     if(this.isMobile && !opts.force) return;
     const tgtSessionId=opts.targetSession||this.ws.activeSession;
-    const s=this.ws.sessions.find(x=>x.id===tgtSessionId);
+    let s=this.ws.sessions.find(x=>x.id===tgtSessionId);
     const tgtRegionId=opts.targetRegion||(tgtSessionId===this.ws.activeSession?this.focused:null);
     if(!s||!tgtRegionId) return;
     let count=parseInt(opts.count,10); if(!Number.isFinite(count)||count<2) count=2;
@@ -1565,6 +1590,13 @@ class App {
       newRegions.push({type:'region',id:r,tabs:[{id:t,name:'Shell',type:'terminal',paneId:p.id}],activeTab:t});
       lastR=r;
     }
+    // Re-fetch session after awaits: this.ws may have been replaced by an
+    // SSE workspace_changed apply during the _newPane awaits, leaving our
+    // earlier `s` reference stale (and invisible to render). Bail if the
+    // target region is gone — the created panes will be reaped on the next
+    // workspace sync.
+    s=this.ws.sessions.find(x=>x.id===tgtSessionId);
+    if(!s||!findRg(s.layout,tgtRegionId)) return;
     s.layout=doSplit(s.layout,tgtRegionId,newRegions,dir);
     if(this.ws.activeSession!==tgtSessionId){
       const cur=this._as(); if(cur) cur.focusedRegion=this.focused;
@@ -1636,6 +1668,7 @@ class App {
       splitH:()=>this.split('horizontal'),splitV:()=>this.split('vertical'),
       newSession:()=>this.addSession(),newTab:()=>this.addTabFocused(),
       closeSession:()=>this.closeSessionActive(),closeTab:()=>this.closeTabFocused(),
+      toggleSearch:()=>this.toggleSearch(),
     };
     return map[action]?.();
   }
@@ -1712,6 +1745,7 @@ class App {
   _save(){
     this._savePending=true;
     if(this._saveChain) return this._saveChain;
+    this._saveInflight=true;
     const run=async()=>{
       while(this._savePending){
         this._savePending=false;
@@ -1734,6 +1768,13 @@ class App {
         }catch{}
       }
       this._saveChain=null;
+      this._saveInflight=false;
+      // Deferred workspace_changed events from during the save were almost
+      // certainly echoes of our own PUT (now reflected in the updated
+      // wsETag). Drop them — any genuinely newer external change will land
+      // as a future SSE event with rev > our new wsETag and be applied
+      // through the normal rev check.
+      this._wsApplyPending=false;
     };
     this._saveChain=run();
     return this._saveChain;

@@ -6,8 +6,16 @@ import (
 	"sync/atomic"
 )
 
-// Stream은 readPTY 라이터와 MCP/WS 리더를 통합한 바운디드 버퍼다.
-// bch/drainBuf 패턴을 대체한다.
+// Stream 은 PTY writer 와 MCP/WS reader 를 통합한 단일 진입점 바운디드 버퍼다.
+//
+// Backpressure / drop 정책 (S4 SRS):
+//   - Feed 는 절대 블록되지 않는다. 짧은 mutex 만 잡는다.
+//   - 보유량이 max 이상 ~ 2*max 미만 구간이면 tail 은 그대로 보존되고,
+//     Snapshot 시점에 max 만큼만 잘려 반환된다 (loss 가 아니라 retention).
+//   - 보유량이 2*max 를 초과하면 compaction 이 일어나 head 가 잘린다.
+//     이 분량만 Stats.TotalBytesDrop 에 누적된다.
+//   - 호출자는 다른 곳에 별도 buffered channel 을 두어 silent drop 경로를
+//     만들지 않아야 한다 (single drop path 원칙).
 type Stream struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
