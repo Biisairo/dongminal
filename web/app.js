@@ -1130,7 +1130,11 @@ class App {
     if(!this.ws.sessions.length){await this._mkSession();this.render();return}
     if(this.ws.activeSession===sid)
       this.ws.activeSession=this.ws.sessions[Math.min(i,this.ws.sessions.length-1)].id;
-    const a=this._as(); this.focused=a?firstRg(a.layout)?.id:null;
+    const a=this._as();
+    if(a&&a.layout){
+      this.focused=(a.focusedRegion&&findRg(a.layout,a.focusedRegion))?a.focusedRegion:firstRg(a.layout)?.id||null;
+      a.focusedRegion=this.focused;
+    } else this.focused=null;
     await this._save(); this.render();
   }
 
@@ -1227,6 +1231,7 @@ class App {
       }
     }
     const paneId=tab.paneId;
+    const closingIdx=rg.tabs.findIndex(t=>t.id===tid);
     rg.tabs=rg.tabs.filter(t=>t.id!==tid);
     const isActive = s.id === this.ws.activeSession;
     if(!rg.tabs.length){
@@ -1236,11 +1241,15 @@ class App {
       if(isActive){
         const fallback=this.focused===rid?prevClosestId:this.focused;
         this.focused=fallback&&findRg(s.layout,fallback)?fallback:firstRg(s.layout)?.id||null;
+        s.focusedRegion=this.focused;
       } else if(s.focusedRegion===rid){
         s.focusedRegion=prevClosestId&&findRg(s.layout,prevClosestId)?prevClosestId:firstRg(s.layout)?.id||null;
       }
     } else {
-      if(rg.activeTab===tid) rg.activeTab=rg.tabs[0].id;
+      if(rg.activeTab===tid){
+        const ni=closingIdx<rg.tabs.length?closingIdx:rg.tabs.length-1;
+        rg.activeTab=rg.tabs[ni].id;
+      }
     }
     this.render();
     if(!isMd&&paneId){
@@ -1252,8 +1261,8 @@ class App {
   switchTab(rid,tid){
     const s=this._as(); if(!s) return;
     const rg=findRg(s.layout,rid); if(!rg) return;
-    if(rg.activeTab===tid) return;
-    rg.activeTab=tid; this.focused=rid;
+    if(rg.activeTab===tid && this.focused===rid){s.focusedRegion=rid; return}
+    rg.activeTab=tid; this.focused=rid; s.focusedRegion=rid;
     this._save(); this.render();
   }
 
@@ -1274,13 +1283,16 @@ class App {
       lastR=r;
     }
     s.layout=doSplit(s.layout,tgtRegionId,newRegions,dir);
-    if(!keepFocus && lastR){
-      if(this.ws.activeSession!==tgtSessionId){
-        const cur=this._as(); if(cur) cur.focusedRegion=this.focused;
-        this.ws.activeSession=tgtSessionId;
-      }
-      this.focused=lastR;
+    if(this.ws.activeSession!==tgtSessionId){
+      const cur=this._as(); if(cur) cur.focusedRegion=this.focused;
+      this.ws.activeSession=tgtSessionId;
     }
+    if(!keepFocus && lastR){
+      this.focused=lastR;
+    } else {
+      this.focused=tgtRegionId;
+    }
+    s.focusedRegion=this.focused;
     this.render();
     this._save();
   }
@@ -1525,10 +1537,13 @@ class App {
     const area=document.getElementById('area');
     const s=this._as();
     for(const p of this.panes.values()){p.el.classList.remove('vis');area.appendChild(p.el)}
-    for(const v of this.mdViewers.values()){v.el.classList.remove('vis');area.appendChild(v.el)}
+    for(const v of this.mdViewers.values()){
+      if(v.el.classList.contains('vis')) v._scrollTop=v.el.scrollTop;
+      v.el.classList.remove('vis');area.appendChild(v.el);
+    }
     for(const c of [...area.children]){if(c.classList.contains('sp')||c.classList.contains('rg'))c.remove()}
     if(!s?.layout) return;
-    if(!findRg(s.layout,this.focused)) this.focused=firstRg(s.layout)?.id||null;
+    if(!findRg(s.layout,this.focused)){this.focused=firstRg(s.layout)?.id||null;s.focusedRegion=this.focused}
     let dom;
     if(this.isMobile){
       // Sync _mPaneIdx with focused region if possible
@@ -1538,15 +1553,16 @@ class App {
         if(fIdx>=0) this._mPaneIdx=fIdx;
         else if(this._mPaneIdx>=regs.length) this._mPaneIdx=regs.length-1;
         const target=regs[this._mPaneIdx];
-        if(target){this.focused=target.id;dom=this._buildRg(target)}
+        if(target){this.focused=target.id;s.focusedRegion=target.id;dom=this._buildRg(target)}
       }
     }else{
       dom=this._buildNode(s.layout);
     }
     if(dom) area.appendChild(dom);
-    // Clean up MdViewers for tabs no longer in the layout
+    // Clean up MdViewers for tabs no longer present in any session's layout.
     const allTabIds=new Set();
-    if(s&&s.layout){(function walk(n){if(!n)return;if(n.type==='region'&&n.tabs)n.tabs.forEach(t=>allTabIds.add(t.id));if(n.type==='split'&&n.children)n.children.forEach(walk)})(s.layout)}
+    const walk=n=>{if(!n)return;if(n.type==='region'&&n.tabs)n.tabs.forEach(t=>allTabIds.add(t.id));if(n.type==='split'&&n.children)n.children.forEach(walk)};
+    for(const sess of this.ws.sessions){if(sess&&sess.layout)walk(sess.layout)}
     for(const[tid,v] of this.mdViewers){if(!allTabIds.has(tid)){v.destroy();this.mdViewers.delete(tid)}}
     requestAnimationFrame(()=>{
       for(const p of this.panes.values()){
@@ -1604,6 +1620,7 @@ class App {
         let viewer=this.mdViewers.get(at.id);
         if(!viewer){viewer=new MdViewer(at.id,at.name,at.filePath);this.mdViewers.set(at.id,viewer)}
         body.appendChild(viewer.el);viewer.el.classList.add('vis');
+        if(viewer._scrollTop){const st=viewer._scrollTop;requestAnimationFrame(()=>{viewer.el.scrollTop=st})}
       }else{
         const p=this.panes.get(at.paneId);
         if(p){body.appendChild(p.el);p.el.classList.add('vis')}

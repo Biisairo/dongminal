@@ -9,7 +9,7 @@ export default defineConfig({
   fullyParallel: false,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:58146',
+    baseURL: 'http://localhost:58147',
     trace: 'on-first-retry',
     viewport: { width: 1280, height: 720 },
   },
@@ -21,10 +21,10 @@ export default defineConfig({
   ],
   webServer: {
     command: 'go run cmd/dongminal/main.go',
-    url: 'http://localhost:58146/api/ping',
-    reuseExistingServer: !process.env.CI,
+    url: 'http://localhost:58147/api/ping',
+    reuseExistingServer: false,
     env: {
-      PORT: '58146',
+      PORT: '58147',
       DONGMINAL_HOME: '/tmp/dongminal-e2e-' + Date.now(),
     },
     timeout: 60_000,
