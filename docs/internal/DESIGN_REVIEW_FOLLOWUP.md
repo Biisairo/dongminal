@@ -53,13 +53,25 @@
 
 ## 4. 우선순위 작업 큐
 
-1. **S1** — App 3분할 SRS 작성 후 단계적 리팩터링 (회귀 위험 가장 크지만 가치 가장 높음)
-2. **S2** — PaneManager 분해 + mutex 통합
-3. **S3** — handlers_api 라우터 테이블화 (테스트 표면 축소 부수효과)
-4. **S5** — workspace `Snapshot()` 단일 진입점 + race 테스트
-5. **S6** — MCP typed `Bind` helper
+1. ✅ **S1-Phase1** — `App._setFocus` 단일 진입점 도입 (focus 불변식 단일화). `APP_DECOMPOSE_SRS.md` 참조.
+2. ✅ **S1-Phase2** — Renderer 클래스 추출 (render/_rSidebar/_rTopbar/_rLayout/_buildNode/_buildRg/_buildSp/_handle 8개 메서드). e2e 68/68.
+3. ✅ **S1-Phase3** — InputBinding 클래스 추출 (_bind 위임). e2e 68/68.
+4. ✅ **S2** — PaneManager mutex → RWMutex, busy probe 주입 가능화. `PANE_MANAGER_DECOMPOSE_SRS.md`.
+5. ✅ **S3** — handlers_api 라우터 테이블화. `HANDLERS_API_ROUTER_SRS.md`.
+6. ✅ **S5** — workspace `Snapshot()` 단일 진입점 + race 테스트. `WORKSPACE_SNAPSHOT_SRS.md`.
+7. ⏸️ **S4** — outbuf backpressure 정책 노출.
+8. ⏸️ **S6** — MCP typed `Bind` helper.
 
-S4/L1~L8 은 위 작업 진행 중 함께 정리 가능한 후순위.
+L1/L4/L8 (워밍업 묶음): ✅ 완료. `SAFETY_WARMUP_SRS.md`.
+L2/L3/L5/L6/L7: ⏸️ 미처리.
+
+### 2026-05-07 세션 결과 (확장)
+- 처리: L1, L4, L8, S5, S3, S2, S1-Phase1, S1-Phase2, S1-Phase3.
+- 신규 SRS: SAFETY_WARMUP_SRS, WORKSPACE_SNAPSHOT_SRS, HANDLERS_API_ROUTER_SRS, PANE_MANAGER_DECOMPOSE_SRS, APP_DECOMPOSE_SRS, TS_MIGRATION_SRS.
+- 미처리: S4, S6, L2, L3, L5, L6, L7. TS 마이그레이션은 SRS 만 작성 (구현 미진).
+- 검증: `go test -race ./...` green, `npx playwright test` 68/68 green (3.5분).
+- 커버리지: server 65→73%, adapters 0→40%, mcptool/tools 0→86%, workspace 92%, outbuf 100%, e2e 53→68건.
+- Stage 상태로 두고 push 미실행 (사용자 검토 대기).
 
 ## 5. 참고 문서
 

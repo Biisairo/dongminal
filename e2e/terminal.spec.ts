@@ -92,4 +92,83 @@ test.describe('Terminal features', () => {
     const statusText = await page.locator('#status-bar').textContent();
     expect(statusText.length).toBeGreaterThan(0);
   });
+
+  test('_send drops are counted when ws is closed', async ({ page }) => {
+    await waitForInit(page);
+    await page.waitForFunction(() => {
+      const a = (window as any).app;
+      const p = a && a.panes && a.panes.values().next().value;
+      return p && p.ws && p.ws.readyState === 1;
+    }, { timeout: 10000 });
+
+    const before = await page.evaluate(() => (window as any).__dongminalDebug.sendDropCount());
+
+    await page.evaluate(() => {
+      const a = (window as any).app;
+      const p = a.panes.values().next().value;
+      try { p.ws.close() } catch {}
+      Object.defineProperty(p.ws, 'readyState', { get: () => 3 });
+      p._send(new Uint8Array([1, 65]));
+      p._send(new Uint8Array([1, 66]));
+    });
+
+    const after = await page.evaluate(() => (window as any).__dongminalDebug.sendDropCount());
+    expect(after - before).toBeGreaterThanOrEqual(2);
+  });
+
+  test('_send buffers while ws is connecting', async ({ page }) => {
+    await waitForInit(page);
+    await page.waitForFunction(() => {
+      const a = (window as any).app;
+      const p = a && a.panes && a.panes.values().next().value;
+      return p && p.ws && p.ws.readyState === 1;
+    }, { timeout: 10000 });
+
+    const queued = await page.evaluate(() => {
+      const a = (window as any).app;
+      const p = a.panes.values().next().value;
+      const fakeWs = { readyState: 0, send: () => {} };
+      p.ws = fakeWs as any;
+      p._send(new Uint8Array([1, 65]));
+      p._send(new Uint8Array([1, 66]));
+      return p._sendQueue.length;
+    });
+    expect(queued).toBe(2);
+
+    const remaining = await page.evaluate(() => {
+      const a = (window as any).app;
+      const p = a.panes.values().next().value;
+      let calls = 0;
+      const fakeWs = { readyState: 1, send: () => { calls++ } };
+      p.ws = fakeWs as any;
+      p._flushSendQueue();
+      return { qlen: p._sendQueue.length, calls };
+    });
+    expect(remaining.qlen).toBe(0);
+    expect(remaining.calls).toBe(2);
+  });
+
+  test('_send queue is bounded and drops oldest', async ({ page }) => {
+    await waitForInit(page);
+    await page.waitForFunction(() => {
+      const a = (window as any).app;
+      const p = a && a.panes && a.panes.values().next().value;
+      return p && p.ws && p.ws.readyState === 1;
+    }, { timeout: 10000 });
+
+    const result = await page.evaluate(() => {
+      const a = (window as any).app;
+      const p = a.panes.values().next().value;
+      const before = p._sendDropCount;
+      p._sendQueue = [];
+      const fakeWs = { readyState: 0, send: () => {} };
+      p.ws = fakeWs as any;
+      for (let i = 0; i < p._sendQueueMax + 5; i++) {
+        p._send(new Uint8Array([1, i & 0xff]));
+      }
+      return { qlen: p._sendQueue.length, dropDelta: p._sendDropCount - before };
+    });
+    expect(result.qlen).toBe(64);
+    expect(result.dropDelta).toBe(5);
+  });
 });

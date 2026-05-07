@@ -105,15 +105,23 @@ type Pane struct {
 	restored bool
 }
 
-func (p *Pane) IsBusy() bool {
-	if p.cmd == nil || p.cmd.Process == nil {
-		return false
-	}
-	out, err := exec.Command("pgrep", "-P", strconv.Itoa(p.cmd.Process.Pid)).Output()
+// paneBusyProbe is the busy-detection function used by Pane.IsBusy. It is a
+// package variable so tests can substitute a deterministic probe instead of
+// relying on the host's pgrep behavior. The default implementation matches the
+// historical behavior: a pane is "busy" when it has any direct child process.
+var paneBusyProbe = func(pid int) bool {
+	out, err := exec.Command("pgrep", "-P", strconv.Itoa(pid)).Output()
 	if err != nil {
 		return false
 	}
 	return len(strings.TrimSpace(string(out))) > 0
+}
+
+func (p *Pane) IsBusy() bool {
+	if p.cmd == nil || p.cmd.Process == nil {
+		return false
+	}
+	return paneBusyProbe(p.cmd.Process.Pid)
 }
 
 func (p *Pane) Cwd() string {
@@ -319,7 +327,7 @@ func (p *Pane) kill() {
 // ── PaneManager ─────────────────────────────────────
 
 type PaneManager struct {
-	mu     sync.Mutex
+	mu     sync.RWMutex
 	panes  map[string]*Pane
 	nextID int
 
@@ -401,14 +409,14 @@ func (m *PaneManager) Restore(id, name, cwd string, cols, rows uint16) error {
 }
 
 func (m *PaneManager) Get(id string) *Pane {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return m.panes[id]
 }
 
 func (m *PaneManager) List() []map[string]interface{} {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	var out []map[string]interface{}
 	for _, p := range m.panes {
 		pid := 0
@@ -489,8 +497,8 @@ func (m *PaneManager) LoadAll() {
 
 // Snapshot locks + copies pane pointers; used by adapters.
 func (m *PaneManager) Snapshot() []*Pane {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	out := make([]*Pane, 0, len(m.panes))
 	for _, p := range m.panes {
 		out = append(out, p)
@@ -498,13 +506,18 @@ func (m *PaneManager) Snapshot() []*Pane {
 	return out
 }
 
+// MaxTerminalDim is the upper bound (inclusive) accepted for cols and rows.
+// Values above this clamp back to the default to reject pathological inputs.
+const MaxTerminalDim uint64 = 4096
+
 // ParseSize extracts cols/rows from request query.
+// Out-of-range (0 or > MaxTerminalDim) or unparseable values fall back to defaults (120, 40).
 func ParseSize(r *http.Request) (uint16, uint16) {
 	c, ro := uint16(120), uint16(40)
-	if v, err := strconv.ParseUint(r.URL.Query().Get("cols"), 10, 16); err == nil && v > 0 {
+	if v, err := strconv.ParseUint(r.URL.Query().Get("cols"), 10, 16); err == nil && v > 0 && v <= MaxTerminalDim {
 		c = uint16(v)
 	}
-	if v, err := strconv.ParseUint(r.URL.Query().Get("rows"), 10, 16); err == nil && v > 0 {
+	if v, err := strconv.ParseUint(r.URL.Query().Get("rows"), 10, 16); err == nil && v > 0 && v <= MaxTerminalDim {
 		ro = uint16(v)
 	}
 	return c, ro

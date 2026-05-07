@@ -111,7 +111,7 @@ func main() {
 	}
 	go bd.csm.Watchdog()
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	defer stop()
 	exposure := "local-only"
 	if host == "0.0.0.0" || host == "::" {

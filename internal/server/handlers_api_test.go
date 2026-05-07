@@ -480,3 +480,291 @@ func TestHandleAPI_CreatePane_NilPanes(t *testing.T) {
 		t.Fatalf("status=%d want 500", resp.StatusCode)
 	}
 }
+
+func TestHandleAPI_State_HappyPath(t *testing.T) {
+	pm := newFakePaneHub()
+	pm.seed("1", "Shell #1")
+	fw := newFakeWorkspaceStore()
+	fw.raw = []byte(`{"sessions":[{"id":"s1"}]}`)
+	fw.rev = 7
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm, Work: fw})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Get(ts.URL + "/api/state")
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	if got := resp.Header.Get("ETag"); got != "7" {
+		t.Errorf("ETag=%q want 7", got)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), `"workspace"`) || !strings.Contains(string(body), `"panes"`) {
+		t.Errorf("body=%s", body)
+	}
+}
+
+func TestHandleAPI_Ping(t *testing.T) {
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete} {
+		req, _ := http.NewRequest(method, ts.URL+"/api/ping", nil)
+		resp, _ := http.DefaultClient.Do(req)
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != 200 || string(body) != "ok" {
+			t.Errorf("method=%s status=%d body=%q", method, resp.StatusCode, body)
+		}
+	}
+}
+
+func TestHandleAPI_Stats(t *testing.T) {
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Get(ts.URL + "/api/stats")
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), "hostname") {
+		t.Errorf("body missing hostname: %s", body)
+	}
+}
+
+func TestHandleAPI_WorkspaceStaleConflict(t *testing.T) {
+	fw := newFakeWorkspaceStore()
+	fw.stale = true
+	fw.rev = 5
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Work: fw})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/workspace", strings.NewReader(`{}`))
+	req.Header.Set("If-Match", "0")
+	resp, _ := http.DefaultClient.Do(req)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("status=%d want 409", resp.StatusCode)
+	}
+	if got := resp.Header.Get("ETag"); got != "5" {
+		t.Errorf("ETag=%q want 5", got)
+	}
+}
+
+func TestHandleAPI_MethodMismatch(t *testing.T) {
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	cases := []struct {
+		method, path string
+	}{
+		{http.MethodPost, "/api/state"},
+		{http.MethodPut, "/api/state"},
+		{http.MethodGet, "/api/upload"},
+		{http.MethodPost, "/api/download"},
+		{http.MethodDelete, "/api/workspace"},
+	}
+	for _, c := range cases {
+		req, _ := http.NewRequest(c.method, ts.URL+c.path, nil)
+		resp, _ := http.DefaultClient.Do(req)
+		resp.Body.Close()
+		if resp.StatusCode != 404 {
+			t.Errorf("%s %s: status=%d want 404", c.method, c.path, resp.StatusCode)
+		}
+	}
+}
+
+func TestHandleAPI_CreatePane_Success(t *testing.T) {
+	pm := newFakePaneHub()
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Post(ts.URL+"/api/panes?cols=80&rows=24", "application/json", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), `"id"`) {
+		t.Errorf("body=%s", body)
+	}
+}
+
+func TestHandleAPI_CreatePane_OversizedCols(t *testing.T) {
+	pm := newFakePaneHub()
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	// 8000 > MaxTerminalDim(4096) → fallback to defaults; pane still created.
+	resp, _ := http.Post(ts.URL+"/api/panes?cols=8000&rows=24", "application/json", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	if pm.lastCols != 120 {
+		t.Errorf("lastCols=%d want 120 (fallback)", pm.lastCols)
+	}
+	if pm.lastRows != 24 {
+		t.Errorf("lastRows=%d want 24", pm.lastRows)
+	}
+}
+
+func TestHandleAPI_SettingsGet_NilSettings(t *testing.T) {
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Get(ts.URL + "/api/settings")
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != "{}" {
+		t.Errorf("body=%q want {}", body)
+	}
+}
+
+func TestHandleAPI_CodeServerList_WithFake(t *testing.T) {
+	cs := &fakeCodeServerHost{listResp: []map[string]interface{}{{"id": "x"}}}
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{CS: cs})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Get(ts.URL + "/api/code-server")
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), `"x"`) {
+		t.Errorf("body=%s", body)
+	}
+}
+
+func TestHandleAPI_CodeServerStart_Success(t *testing.T) {
+	cs := &fakeCodeServerHost{startResp: &CodeServerInst{ID: "abc", Folder: "/tmp"}}
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{CS: cs})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Post(ts.URL+"/api/code-server?path=/tmp", "application/json", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), `"abc"`) {
+		t.Errorf("body=%s", body)
+	}
+}
+
+func TestHandleAPI_CodeServerHeartbeat_Success(t *testing.T) {
+	cs := &fakeCodeServerHost{touchOK: true}
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{CS: cs})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Post(ts.URL+"/api/code-server/heartbeat?id=x", "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+}
+
+func TestHandleAPI_CodeServerStop_Records(t *testing.T) {
+	cs := &fakeCodeServerHost{}
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{CS: cs})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Post(ts.URL+"/api/code-server/stop?id=foo", "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	if len(cs.stopped) != 1 || cs.stopped[0] != "foo" {
+		t.Errorf("stopped=%v want [foo]", cs.stopped)
+	}
+}
+
+func TestHandleAPI_CodeServerStart_NilCS(t *testing.T) {
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+	resp, _ := http.Post(ts.URL+"/api/code-server", "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != 500 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+}
+
+func TestHandleAPI_Cwd_WithPane(t *testing.T) {
+	pm := newFakePaneHub()
+	pm.seed("p1", "P1")
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Get(ts.URL + "/api/cwd?pane=p1")
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+}
+
+func TestHandleAPI_PanesCreate_CwdPaneRef(t *testing.T) {
+	pm := newFakePaneHub()
+	// Reference pane with cwd resolution path; fake returns whatever Cwd() yields.
+	pm.seed("ref", "Ref")
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Post(ts.URL+"/api/panes?cwdPane=ref", "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+}
+
+func TestHandleCSProxy_NilCS(t *testing.T) {
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Get(ts.URL + "/cs/foo/")
+	defer resp.Body.Close()
+	if resp.StatusCode != 500 {
+		t.Fatalf("status=%d want 500", resp.StatusCode)
+	}
+}
+
+func TestHandleCSProxy_EmptyID(t *testing.T) {
+	cs := &fakeCodeServerHost{}
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{CS: cs})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Get(ts.URL + "/cs/")
+	defer resp.Body.Close()
+	if resp.StatusCode != 404 {
+		t.Fatalf("status=%d want 404", resp.StatusCode)
+	}
+}
+
+func TestHandleCSProxy_NotFound(t *testing.T) {
+	cs := &fakeCodeServerHost{}
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{CS: cs})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Get(ts.URL + "/cs/missing/")
+	defer resp.Body.Close()
+	if resp.StatusCode != 404 {
+		t.Fatalf("status=%d want 404", resp.StatusCode)
+	}
+}

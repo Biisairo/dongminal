@@ -37,14 +37,19 @@ type index struct {
 	labelToID  map[string]string
 }
 
+// snap is the coherent (raw, rev) pair published atomically by Save.
+type snap struct {
+	raw []byte
+	rev uint64
+}
+
 type Manager struct {
 	live  Liveness
 	store Persister
 
-	mu  sync.Mutex
-	raw atomic.Pointer[[]byte]
-	idx atomic.Pointer[index]
-	rev atomic.Uint64
+	mu   sync.Mutex
+	snap atomic.Pointer[snap]
+	idx  atomic.Pointer[index]
 
 	writeCh    chan []byte
 	done       chan struct{}
@@ -67,7 +72,7 @@ func New(live Liveness, store Persister) (*Manager, error) {
 		data = nil
 	}
 	buf := append([]byte(nil), data...)
-	m.raw.Store(&buf)
+	m.snap.Store(&snap{raw: buf, rev: 0})
 	ix, perr := buildIndex(buf)
 	if perr != nil {
 		ix = emptyIndex()
@@ -132,22 +137,33 @@ func (m *Manager) Close() error {
 	return nil
 }
 
+// Snapshot returns a coherent (raw, rev) pair from the same Save transaction.
+// raw is shared (do not mutate). rev=0 indicates no Save has occurred.
+func (m *Manager) Snapshot() ([]byte, uint64) {
+	p := m.snap.Load()
+	if p == nil {
+		return nil, 0
+	}
+	return p.raw, p.rev
+}
+
 func (m *Manager) CurrentRev() uint64 {
-	return m.rev.Load()
+	_, rev := m.Snapshot()
+	return rev
 }
 
 func (m *Manager) Raw() []byte {
-	p := m.raw.Load()
-	if p == nil {
-		return nil
-	}
-	return *p
+	raw, _ := m.Snapshot()
+	return raw
 }
 
 func (m *Manager) Save(blob []byte, ifMatch string) (uint64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	cur := m.rev.Load()
+	cur := uint64(0)
+	if p := m.snap.Load(); p != nil {
+		cur = p.rev
+	}
 	if ifMatch != "" {
 		want, err := strconv.ParseUint(ifMatch, 10, 64)
 		if err != nil || want != cur {
@@ -159,10 +175,9 @@ func (m *Manager) Save(blob []byte, ifMatch string) (uint64, error) {
 		return 0, fmt.Errorf("workspace parse: %w", err)
 	}
 	buf := append([]byte(nil), blob...)
-	m.raw.Store(&buf)
-	m.idx.Store(ix)
 	newRev := cur + 1
-	m.rev.Store(newRev)
+	m.snap.Store(&snap{raw: buf, rev: newRev})
+	m.idx.Store(ix)
 	m.enqueueWrite(buf)
 	return newRev, nil
 }

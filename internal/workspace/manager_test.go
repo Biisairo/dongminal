@@ -376,3 +376,94 @@ func TestSaveRevIncrement(t *testing.T) {
 	}
 	_ = fmt.Sprint(entries)
 }
+
+func TestSnapshotCoherent(t *testing.T) {
+	live := newFakeLive("10", "11", "12")
+	store := &memPersister{empty: true}
+	m, err := New(live, store)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer m.Close()
+
+	raw, rev := m.Snapshot()
+	if rev != 0 || len(raw) != 0 {
+		t.Fatalf("initial snapshot raw=%d rev=%d want empty,0", len(raw), rev)
+	}
+
+	if _, err := m.Save([]byte(sampleWS), ""); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	raw, rev = m.Snapshot()
+	if rev != 1 {
+		t.Fatalf("rev=%d want 1", rev)
+	}
+	if string(raw) != sampleWS {
+		t.Fatalf("raw mismatch")
+	}
+}
+
+func TestSnapshotConcurrentCoherence(t *testing.T) {
+	live := newFakeLive("10", "11", "12")
+	store := &memPersister{empty: true}
+	m, err := New(live, store)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer m.Close()
+	if _, err := m.Save([]byte(sampleWS), ""); err != nil {
+		t.Fatalf("seed Save: %v", err)
+	}
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ifMatch := "1"
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			rev, err := m.Save([]byte(sampleWS), ifMatch)
+			if err == nil {
+				ifMatch = fmt.Sprintf("%d", rev)
+			} else if errors.Is(err, ErrStale) {
+				_, cur := m.Snapshot()
+				ifMatch = fmt.Sprintf("%d", cur)
+			}
+		}
+	}()
+
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for n := 0; n < 2000; n++ {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				raw, rev := m.Snapshot()
+				if rev == 0 {
+					if len(raw) != 0 {
+						t.Errorf("rev=0 but raw nonempty len=%d", len(raw))
+						return
+					}
+					continue
+				}
+				if len(raw) == 0 {
+					t.Errorf("rev=%d but raw empty", rev)
+					return
+				}
+			}
+		}()
+	}
+	time.Sleep(50 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+}

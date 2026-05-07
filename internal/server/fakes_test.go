@@ -13,10 +13,12 @@ import (
 // ── fakePaneHub ─────────────────────────────────────
 
 type fakePaneHub struct {
-	mu      sync.Mutex
-	panes   map[string]*Pane
-	created []string
-	nextID  int
+	mu       sync.Mutex
+	panes    map[string]*Pane
+	created  []string
+	nextID   int
+	lastCols uint16
+	lastRows uint16
 }
 
 func newFakePaneHub() *fakePaneHub {
@@ -47,6 +49,8 @@ func (f *fakePaneHub) Create(cwd string, cols, rows uint16) (*Pane, error) {
 	p := &Pane{ID: id, Name: "Fake " + id}
 	f.panes[id] = p
 	f.created = append(f.created, id)
+	f.lastCols = cols
+	f.lastRows = rows
 	return p, nil
 }
 
@@ -78,13 +82,36 @@ func itoa(n int) string {
 
 // ── fakeCodeServerHost ──────────────────────────────
 
-type fakeCodeServerHost struct{}
+type fakeCodeServerHost struct {
+	mu        sync.Mutex
+	startResp *CodeServerInst
+	startErr  error
+	touchOK   bool
+	stopped   []string
+	listResp  []map[string]interface{}
+}
 
-func (fakeCodeServerHost) List() []map[string]interface{}           { return nil }
-func (fakeCodeServerHost) Start(string) (*CodeServerInst, error)    { return nil, nil }
-func (fakeCodeServerHost) Get(string) *CodeServerInst               { return nil }
-func (fakeCodeServerHost) Touch(string) bool                        { return false }
-func (fakeCodeServerHost) Stop(string)                              {}
+func (f *fakeCodeServerHost) List() []map[string]interface{} {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.listResp
+}
+func (f *fakeCodeServerHost) Start(folder string) (*CodeServerInst, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.startResp, f.startErr
+}
+func (f *fakeCodeServerHost) Get(string) *CodeServerInst { return nil }
+func (f *fakeCodeServerHost) Touch(string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.touchOK
+}
+func (f *fakeCodeServerHost) Stop(id string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.stopped = append(f.stopped, id)
+}
 
 // ── fakeWorkspaceStore ──────────────────────────────
 
@@ -110,6 +137,12 @@ func (f *fakeWorkspaceStore) CurrentRev() uint64 {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.rev
+}
+
+func (f *fakeWorkspaceStore) Snapshot() ([]byte, uint64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]byte(nil), f.raw...), f.rev
 }
 
 func (f *fakeWorkspaceStore) Save(blob []byte, ifMatch string) (uint64, error) {

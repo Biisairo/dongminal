@@ -152,278 +152,335 @@ func uniquePath(dir, name string) string {
 	}
 }
 
+// apiRoute couples a method+path matcher with the handler. The first matching
+// route is dispatched; non-match falls through to 404.
+type apiRoute struct {
+	method string // "" matches any method
+	match  func(path string) bool
+	handle func(s *Server, w http.ResponseWriter, r *http.Request)
+}
+
+func exactPath(p string) func(string) bool {
+	return func(s string) bool { return s == p }
+}
+
+var apiRoutes = []apiRoute{
+	{http.MethodGet, exactPath("/api/state"), (*Server).apiStateGet},
+	{http.MethodPost, exactPath("/api/panes"), (*Server).apiPanesCreate},
+	{http.MethodGet, func(p string) bool {
+		return strings.HasPrefix(p, "/api/panes/") && strings.HasSuffix(p, "/busy")
+	}, (*Server).apiPaneBusy},
+	{http.MethodDelete, func(p string) bool { return strings.HasPrefix(p, "/api/panes/") }, (*Server).apiPaneDelete},
+	{http.MethodGet, exactPath("/api/workspace"), (*Server).apiWorkspaceGet},
+	{http.MethodPut, exactPath("/api/workspace"), (*Server).apiWorkspacePut},
+	{http.MethodGet, exactPath("/api/settings"), (*Server).apiSettingsGet},
+	{http.MethodPut, exactPath("/api/settings"), (*Server).apiSettingsPut},
+	{http.MethodPost, exactPath("/api/upload"), (*Server).apiUpload},
+	{http.MethodGet, exactPath("/api/download"), (*Server).apiDownload},
+	{http.MethodGet, exactPath("/api/cwd"), (*Server).apiCwd},
+	{http.MethodGet, exactPath("/api/code-server"), (*Server).apiCodeServerList},
+	{http.MethodPost, exactPath("/api/code-server"), (*Server).apiCodeServerStart},
+	{http.MethodPost, exactPath("/api/code-server/heartbeat"), (*Server).apiCodeServerHeartbeat},
+	{http.MethodPost, exactPath("/api/code-server/stop"), (*Server).apiCodeServerStop},
+	{"", exactPath("/api/ping"), (*Server).apiPing},
+	{http.MethodGet, exactPath("/api/stats"), (*Server).apiStats},
+	{http.MethodGet, exactPath("/api/md-file"), (*Server).apiMdFile},
+}
+
 func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 	p := r.URL.Path
-	switch {
-	case p == "/api/state" && r.Method == http.MethodGet:
-		if s.Panes == nil {
-			http.Error(w, "panes unavailable", 500)
+	for _, rt := range apiRoutes {
+		if rt.method != "" && rt.method != r.Method {
+			continue
+		}
+		if rt.match(p) {
+			rt.handle(s, w, r)
 			return
 		}
-		var rawWS []byte
-		var rev uint64
-		if s.Work != nil {
-			rawWS = s.Work.Raw()
-			rev = s.Work.CurrentRev()
+	}
+	http.Error(w, "not found", 404)
+}
+
+func (s *Server) apiStateGet(w http.ResponseWriter, r *http.Request) {
+	if s.Panes == nil {
+		http.Error(w, "panes unavailable", 500)
+		return
+	}
+	var rawWS []byte
+	var rev uint64
+	if s.Work != nil {
+		rawWS, rev = s.Work.Snapshot()
+	}
+	var ws interface{}
+	if len(rawWS) > 0 {
+		json.Unmarshal(rawWS, &ws)
+	}
+	w.Header().Set("ETag", strconv.FormatUint(rev, 10))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"panes":     s.Panes.List(),
+		"workspace": ws,
+	})
+}
+
+func (s *Server) apiPanesCreate(w http.ResponseWriter, r *http.Request) {
+	if s.Panes == nil {
+		http.Error(w, "panes unavailable", 500)
+		return
+	}
+	cols, rows := ParseSize(r)
+	cwd := r.URL.Query().Get("cwd")
+	if cwd == "" {
+		if refID := r.URL.Query().Get("cwdPane"); refID != "" {
+			if ref := s.Panes.Get(refID); ref != nil {
+				cwd = ref.Cwd()
+			}
 		}
-		var ws interface{}
-		if len(rawWS) > 0 {
-			json.Unmarshal(rawWS, &ws)
+	}
+	pane, err := s.Panes.Create(cwd, cols, rows)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"id": pane.ID, "name": pane.Name})
+}
+
+func (s *Server) apiPaneBusy(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/panes/"), "/busy")
+	var busy bool
+	if s.Panes != nil {
+		if pane := s.Panes.Get(id); pane != nil {
+			busy = pane.IsBusy()
 		}
-		w.Header().Set("ETag", strconv.FormatUint(rev, 10))
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"panes":     s.Panes.List(),
-			"workspace": ws,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"busy": busy})
+}
+
+func (s *Server) apiPaneDelete(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimPrefix(r.URL.Path, "/api/panes/")
+	if s.Panes != nil {
+		s.Panes.Delete(id)
+	}
+	w.WriteHeader(200)
+}
+
+func (s *Server) apiWorkspaceGet(w http.ResponseWriter, r *http.Request) {
+	var raw []byte
+	var rev uint64
+	if s.Work != nil {
+		raw, rev = s.Work.Snapshot()
+	}
+	w.Header().Set("ETag", strconv.FormatUint(rev, 10))
+	w.Header().Set("Content-Type", "application/json")
+	if len(raw) > 0 {
+		w.Write(raw)
+	} else {
+		w.Write([]byte("null"))
+	}
+}
+
+func (s *Server) apiWorkspacePut(w http.ResponseWriter, r *http.Request) {
+	if s.Work == nil {
+		http.Error(w, "workspace unavailable", 500)
+		return
+	}
+	body, _ := io.ReadAll(r.Body)
+	ifMatch := r.Header.Get("If-Match")
+	rev, err := s.Work.Save(body, ifMatch)
+	if err != nil {
+		if errors.Is(err, workspace.ErrStale) {
+			w.Header().Set("ETag", strconv.FormatUint(s.Work.CurrentRev(), 10))
+			http.Error(w, "stale revision", http.StatusConflict)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("ETag", strconv.FormatUint(rev, 10))
+	w.WriteHeader(200)
+	if s.Commands != nil {
+		payload, _ := json.Marshal(map[string]any{
+			"action": "workspace_changed",
+			"args":   map[string]any{"rev": rev},
 		})
+		s.Commands.Broadcast(payload)
+	}
+}
 
-	case p == "/api/panes" && r.Method == http.MethodPost:
-		if s.Panes == nil {
-			http.Error(w, "panes unavailable", 500)
-			return
-		}
-		cols, rows := ParseSize(r)
-		cwd := r.URL.Query().Get("cwd")
-		if cwd == "" {
-			if refID := r.URL.Query().Get("cwdPane"); refID != "" {
-				if ref := s.Panes.Get(refID); ref != nil {
-					cwd = ref.Cwd()
-				}
-			}
-		}
-		pane, err := s.Panes.Create(cwd, cols, rows)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"id": pane.ID, "name": pane.Name})
+func (s *Server) apiSettingsGet(w http.ResponseWriter, r *http.Request) {
+	var data []byte
+	if s.Settings != nil {
+		data = s.Settings.get()
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if len(data) > 0 {
+		w.Write(data)
+	} else {
+		w.Write([]byte("{}"))
+	}
+}
 
-	case strings.HasPrefix(p, "/api/panes/") && strings.HasSuffix(p, "/busy") && r.Method == http.MethodGet:
-		id := strings.TrimSuffix(strings.TrimPrefix(p, "/api/panes/"), "/busy")
-		var busy bool
-		if s.Panes != nil {
-			if pane := s.Panes.Get(id); pane != nil {
-				busy = pane.IsBusy()
-			}
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]bool{"busy": busy})
+func (s *Server) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
+	body, _ := io.ReadAll(r.Body)
+	if s.Settings != nil {
+		s.Settings.set(body)
+		s.Settings.save()
+	}
+	w.WriteHeader(200)
+}
 
-	case strings.HasPrefix(p, "/api/panes/") && r.Method == http.MethodDelete:
-		id := strings.TrimPrefix(p, "/api/panes/")
-		if s.Panes != nil {
-			s.Panes.Delete(id)
-		}
-		w.WriteHeader(200)
+func (s *Server) apiUpload(w http.ResponseWriter, r *http.Request) {
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	defer file.Close()
+	dir := r.URL.Query().Get("dir")
+	if dir == "" {
+		dir = "."
+	}
+	outPath := uniquePath(dir, header.Filename)
+	out, err := os.Create(outPath)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	defer out.Close()
+	written, err := io.Copy(out, file)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"name": filepath.Base(outPath), "size": written, "path": outPath})
+}
 
-	case p == "/api/workspace" && r.Method == http.MethodGet:
-		var raw []byte
-		var rev uint64
-		if s.Work != nil {
-			raw = s.Work.Raw()
-			rev = s.Work.CurrentRev()
-		}
-		w.Header().Set("ETag", strconv.FormatUint(rev, 10))
-		w.Header().Set("Content-Type", "application/json")
-		if len(raw) > 0 {
-			w.Write(raw)
-		} else {
-			w.Write([]byte("null"))
-		}
-
-	case p == "/api/workspace" && r.Method == http.MethodPut:
-		if s.Work == nil {
-			http.Error(w, "workspace unavailable", 500)
-			return
-		}
-		body, _ := io.ReadAll(r.Body)
-		ifMatch := r.Header.Get("If-Match")
-		rev, err := s.Work.Save(body, ifMatch)
-		if err != nil {
-			if errors.Is(err, workspace.ErrStale) {
-				w.Header().Set("ETag", strconv.FormatUint(s.Work.CurrentRev(), 10))
-				http.Error(w, "stale revision", http.StatusConflict)
-				return
-			}
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("ETag", strconv.FormatUint(rev, 10))
-		w.WriteHeader(200)
-		if s.Commands != nil {
-			payload, _ := json.Marshal(map[string]any{
-				"action": "workspace_changed",
-				"args":   map[string]any{"rev": rev},
-			})
-			s.Commands.Broadcast(payload)
-		}
-
-	case p == "/api/settings" && r.Method == http.MethodGet:
-		var data []byte
-		if s.Settings != nil {
-			data = s.Settings.get()
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if len(data) > 0 {
-			w.Write(data)
-		} else {
-			w.Write([]byte("{}"))
-		}
-
-	case p == "/api/settings" && r.Method == http.MethodPut:
-		body, _ := io.ReadAll(r.Body)
-		if s.Settings != nil {
-			s.Settings.set(body)
-			s.Settings.save()
-		}
-		w.WriteHeader(200)
-
-	case p == "/api/upload" && r.Method == http.MethodPost:
-		file, header, err := r.FormFile("file")
+func (s *Server) apiDownload(w http.ResponseWriter, r *http.Request) {
+	fp := r.URL.Query().Get("path")
+	if fp == "" {
+		http.Error(w, "missing path", 400)
+		return
+	}
+	if !filepath.IsAbs(fp) {
+		abs, err := filepath.Abs(fp)
 		if err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		defer file.Close()
-		dir := r.URL.Query().Get("dir")
-		if dir == "" {
-			dir = "."
-		}
-		outPath := uniquePath(dir, header.Filename)
-		out, err := os.Create(outPath)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		defer out.Close()
-		written, err := io.Copy(out, file)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"name": filepath.Base(outPath), "size": written, "path": outPath})
-
-	case p == "/api/download" && r.Method == http.MethodGet:
-		fp := r.URL.Query().Get("path")
-		if fp == "" {
-			http.Error(w, "missing path", 400)
-			return
-		}
-		if !filepath.IsAbs(fp) {
-			abs, err := filepath.Abs(fp)
-			if err != nil {
-				http.Error(w, err.Error(), 400)
-				return
-			}
-			fp = abs
-		}
-		f, err := os.Open(fp)
-		if err != nil {
-			http.Error(w, err.Error(), 404)
-			return
-		}
-		defer f.Close()
-		stat, _ := f.Stat()
-		w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(fp))
-		w.Header().Set("Content-Type", "application/octet-stream")
-		if stat != nil {
-			w.Header().Set("Content-Length", fmt.Sprintf("%d", stat.Size()))
-		}
-		io.Copy(w, f)
-
-	case p == "/api/cwd" && r.Method == http.MethodGet:
-		paneID := r.URL.Query().Get("pane")
-		var cwd string
-		if paneID != "" && s.Panes != nil {
-			if pane := s.Panes.Get(paneID); pane != nil {
-				cwd = pane.Cwd()
-			}
-		}
-		if cwd == "" {
-			cwd, _ = os.Getwd()
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"cwd": cwd})
-
-	case p == "/api/code-server" && r.Method == http.MethodGet:
-		var list []map[string]interface{}
-		if s.CS != nil {
-			list = s.CS.List()
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(list)
-
-	case p == "/api/code-server" && r.Method == http.MethodPost:
-		if s.CS == nil {
-			http.Error(w, "code-server unavailable", 500)
-			return
-		}
-		folder := r.URL.Query().Get("path")
-		inst, err := s.CS.Start(folder)
-		if err != nil {
-			log.Printf("code-server start error: %v", err)
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": inst.ID, "path": "/cs/" + inst.ID + "/", "folder": inst.Folder,
-		})
-
-	case p == "/api/code-server/heartbeat" && r.Method == http.MethodPost:
-		id := r.URL.Query().Get("id")
-		if s.CS == nil || !s.CS.Touch(id) {
-			http.Error(w, "not found", 404)
-			return
-		}
-		w.WriteHeader(200)
-
-	case p == "/api/code-server/stop" && r.Method == http.MethodPost:
-		id := r.URL.Query().Get("id")
-		if s.CS != nil {
-			s.CS.Stop(id)
-		}
-		w.WriteHeader(200)
-
-	case p == "/api/ping":
-		w.Write([]byte("ok"))
-
-	case p == "/api/stats" && r.Method == http.MethodGet:
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(s.getStats())
-
-	case p == "/api/md-file" && r.Method == http.MethodGet:
-		fp := r.URL.Query().Get("path")
-		if fp == "" {
-			http.Error(w, "missing path", http.StatusBadRequest)
-			return
-		}
-		if !filepath.IsAbs(fp) {
-			http.Error(w, "path must be absolute", http.StatusBadRequest)
-			return
-		}
-		ext := strings.ToLower(filepath.Ext(fp))
-		if ext != ".md" && ext != ".mdown" && ext != ".markdown" {
-			http.Error(w, "only markdown files (.md, .mdown, .markdown) are allowed", http.StatusForbidden)
-			return
-		}
-		f, err := os.Open(fp)
-		if err != nil {
-			http.Error(w, "file not found", http.StatusNotFound)
-			return
-		}
-		defer f.Close()
-		stat, _ := f.Stat()
-		if stat.IsDir() {
-			http.Error(w, "not a file", http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
-		io.Copy(w, f)
-
-	default:
-		http.Error(w, "not found", 404)
+		fp = abs
 	}
+	f, err := os.Open(fp)
+	if err != nil {
+		http.Error(w, err.Error(), 404)
+		return
+	}
+	defer f.Close()
+	stat, _ := f.Stat()
+	w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(fp))
+	w.Header().Set("Content-Type", "application/octet-stream")
+	if stat != nil {
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", stat.Size()))
+	}
+	io.Copy(w, f)
+}
+
+func (s *Server) apiCwd(w http.ResponseWriter, r *http.Request) {
+	paneID := r.URL.Query().Get("pane")
+	var cwd string
+	if paneID != "" && s.Panes != nil {
+		if pane := s.Panes.Get(paneID); pane != nil {
+			cwd = pane.Cwd()
+		}
+	}
+	if cwd == "" {
+		cwd, _ = os.Getwd()
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"cwd": cwd})
+}
+
+func (s *Server) apiCodeServerList(w http.ResponseWriter, r *http.Request) {
+	var list []map[string]interface{}
+	if s.CS != nil {
+		list = s.CS.List()
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(list)
+}
+
+func (s *Server) apiCodeServerStart(w http.ResponseWriter, r *http.Request) {
+	if s.CS == nil {
+		http.Error(w, "code-server unavailable", 500)
+		return
+	}
+	folder := r.URL.Query().Get("path")
+	inst, err := s.CS.Start(folder)
+	if err != nil {
+		log.Printf("code-server start error: %v", err)
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"id": inst.ID, "path": "/cs/" + inst.ID + "/", "folder": inst.Folder,
+	})
+}
+
+func (s *Server) apiCodeServerHeartbeat(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	if s.CS == nil || !s.CS.Touch(id) {
+		http.Error(w, "not found", 404)
+		return
+	}
+	w.WriteHeader(200)
+}
+
+func (s *Server) apiCodeServerStop(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	if s.CS != nil {
+		s.CS.Stop(id)
+	}
+	w.WriteHeader(200)
+}
+
+func (s *Server) apiPing(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("ok"))
+}
+
+func (s *Server) apiStats(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(s.getStats())
+}
+
+func (s *Server) apiMdFile(w http.ResponseWriter, r *http.Request) {
+	fp := r.URL.Query().Get("path")
+	if fp == "" {
+		http.Error(w, "missing path", http.StatusBadRequest)
+		return
+	}
+	if !filepath.IsAbs(fp) {
+		http.Error(w, "path must be absolute", http.StatusBadRequest)
+		return
+	}
+	ext := strings.ToLower(filepath.Ext(fp))
+	if ext != ".md" && ext != ".mdown" && ext != ".markdown" {
+		http.Error(w, "only markdown files (.md, .mdown, .markdown) are allowed", http.StatusForbidden)
+		return
+	}
+	f, err := os.Open(fp)
+	if err != nil {
+		http.Error(w, "file not found", http.StatusNotFound)
+		return
+	}
+	defer f.Close()
+	stat, _ := f.Stat()
+	if stat.IsDir() {
+		http.Error(w, "not a file", http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	io.Copy(w, f)
 }

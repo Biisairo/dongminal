@@ -209,6 +209,7 @@ class TermPane {
   constructor(id, name) {
     this.id=id; this.name=name;
     this.ws=null; this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false; this._destroyed=false; this._retryDelay=1000;
+    this._sendQueue=[]; this._sendQueueMax=64; this._sendDropCount=0;
     this._decoder=new TextDecoder('utf-8',{fatal:false}); this._outputBuf=''; this._flushScheduled=false;
     this.el=document.createElement('div');
     this.el.className='tp'; this.el.dataset.pid=id;
@@ -306,6 +307,7 @@ class TermPane {
         new DataView(m.buffer).setUint16(3,this.term.rows,false);
         this._send(m);
       }
+      this._flushSendQueue();
       if(this._reconnecting){
         setTimeout(()=>{this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},300);
       }
@@ -366,6 +368,7 @@ class TermPane {
           new DataView(m.buffer).setUint16(3,this.term.rows,false);
           this._send(m);
         }
+        this._flushSendQueue();
         setTimeout(()=>{this._hideOverlay();this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},300);
       };
       ws.onmessage=e=>{
@@ -531,7 +534,21 @@ class TermPane {
     if(this.term){this.term.dispose();this.term=null}
     this.el.remove(); this._opened=false;
   }
-  _send(m){if(this.ws&&this.ws.readyState===1)this.ws.send(m)}
+  _send(m){
+    const ws=this.ws;
+    if(ws&&ws.readyState===1){ws.send(m);return}
+    if(ws&&ws.readyState===0){
+      if(this._sendQueue.length>=this._sendQueueMax){this._sendQueue.shift();this._sendDropCount++}
+      this._sendQueue.push(m);
+      return;
+    }
+    this._sendDropCount++;
+  }
+  _flushSendQueue(){
+    if(!this.ws||this.ws.readyState!==1)return;
+    const q=this._sendQueue;this._sendQueue=[];
+    for(const m of q){this.ws.send(m)}
+  }
 }
 
 // ═══ MdViewer: markdown viewer tab ═══
@@ -716,6 +733,260 @@ function clean(n,ok){
 
 // ═══ App ═══
 
+// ═══ InputBinding: 키보드/마우스/단축키 dispatch (S1-Phase3 추출) ═══
+// App 의 _bind 책임을 분리. 동작은 1:1 보존.
+class InputBinding {
+  constructor(app){ this.app = app; }
+
+  bind(){
+    if(this.app._kb) return; this.app._kb=true;
+    document.getElementById('split-h').addEventListener('click',()=>this.app.split('horizontal'));
+    document.getElementById('split-v').addEventListener('click',()=>this.app.split('vertical'));
+    const sb=document.getElementById('sidebar'),sbh=document.getElementById('sb-handle');
+    sbh.addEventListener('mousedown',e=>{e.preventDefault();
+      const sx=e.clientX,sw=sb.offsetWidth;
+      const mv=e=>{const w=sw+(e.clientX-sx);if(w>=100&&w<=400){document.documentElement.style.setProperty('--sb-w',w+'px');this.app.ws.sidebarWidth=w}};
+      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.app.panes.values())if(p.el.classList.contains('vis'))p.doFit();try{localStorage.setItem('sidebarWidth',this.app.ws.sidebarWidth)}catch{}this.app._save()};
+      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
+    });
+    this.app._recording=null;
+    window.addEventListener('keydown',e=>{
+      if(this.app._recording){e.preventDefault();e.stopImmediatePropagation();
+        if(e.code==='Escape'){
+          const btn=document.querySelector('.sc-key.recording');
+          if(btn){btn.classList.remove('recording');btn.textContent=displayKey(shortcuts[btn.dataset.action]||'')}
+          this.app._recording=null;return;
+        }
+        if(MOD_CODES.has(e.code))return;
+        shortcuts[this.app._recording]=fmtShortcut(e);
+        const btn=document.querySelector(`.sc-key[data-action="${this.app._recording}"]`);
+        this.app._recording=null;
+        if(btn){btn.classList.remove('recording');btn.textContent=displayKey(shortcuts[btn.dataset.action]||'')}
+        this.app._saveSettings();
+        return;
+      }
+      const ae=document.activeElement;
+      if(ae.tagName==='INPUT'||(ae.tagName==='TEXTAREA'&&!ae.classList.contains('xterm-helper-textarea')))return;
+      if(e.key==='f'&&(e.ctrlKey||e.metaKey)){e.preventDefault();e.stopImmediatePropagation();this.app.toggleSearch();return}
+      for(const[action,key]of Object.entries(shortcuts)){
+        if(matchShortcut(e,key)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(action);return}
+      }
+    },true);
+    const si=document.getElementById('search-input');
+    si.addEventListener('input',()=>this.app._doSearch('next'));
+    si.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();this.app._doSearch(e.shiftKey?'prev':'next')}
+      if(e.key==='Escape'){e.preventDefault();e.stopPropagation();this.app.closeSearch()}
+      e.stopPropagation();
+    });
+    document.getElementById('search-next').addEventListener('click',()=>this.app._doSearch('next'));
+    document.getElementById('search-prev').addEventListener('click',()=>this.app._doSearch('prev'));
+    document.getElementById('search-case').addEventListener('click',function(){this.classList.toggle('active')});
+    document.getElementById('search-close').addEventListener('click',()=>this.app.closeSearch());
+    this.app._initModal();
+    this.app._initStatusBar();
+    this.app._initPresets();
+    this.app._initMobile();
+    this.app._initMobileKeybar();
+  }
+}
+
+// ═══ Renderer: layout → DOM (S1-Phase2 외과적 추출) ═══
+// App 의 render / _rSidebar / _rTopbar / _rLayout / _buildNode / _buildRg
+// / _buildSp / _handle 책임을 분리. Renderer 내부 메서드 호출은 this.X 로,
+// App 상태·메서드는 this.app.X 로 접근한다. 동작은 1:1 보존.
+class Renderer {
+  constructor(app){ this.app = app; }
+
+  render(){
+    const oldFocus=this.app._prevFocus;
+    this.app._prevFocus=this.app.focused;
+    if(oldFocus!==undefined&&oldFocus!==this.app.focused){
+      this.app._clearAllSearchDecorations();
+      this.app._researchIfOpen();
+    }
+    this.app._applyMobileMode();
+    this._rSidebar();this._rTopbar();this._rLayout();
+    this.app._updateCwd();
+    this.app._updateStatusBar();
+  }
+
+  _rSidebar(){
+    const el=document.getElementById('sessions'); el.innerHTML='';
+    for(const s of this.app.ws.sessions){
+      const d=document.createElement('div');
+      d.className='si'+(s.id===this.app.ws.activeSession?' active':'');
+      d.innerHTML=`<span class="si-dot"></span><span class="si-name">${s.name}</span><span class="si-x">×</span>`;
+      d.addEventListener('click',e=>{if(!e.target.classList.contains('si-x'))this.app.switchSession(s.id)});
+      d.querySelector('.si-x').addEventListener('click',e=>{e.stopPropagation();this.app.delSession(s.id)});
+      d.querySelector('.si-name').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(s,e.target)});
+      d.draggable=true;
+      d.addEventListener('dragstart',e=>{this.app._drag={type:'session',idx:this.app.ws.sessions.indexOf(s)};e.dataTransfer.effectAllowed='move';setTimeout(()=>d.classList.add('dragging'),0)});
+      d.addEventListener('dragend',()=>{this.app._drag=null;d.classList.remove('dragging');el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'))});
+      d.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='session')return;e.preventDefault();el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'));const rect=d.getBoundingClientRect();d.classList.add(e.clientY<rect.top+rect.height/2?'drag-above':'drag-below')});
+      d.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='session')return;const srcIdx=this.app._drag.idx;this.app._drag=null;el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'));const rect=d.getBoundingClientRect();const insBefore=e.clientY<rect.top+rect.height/2;const[moved]=this.app.ws.sessions.splice(srcIdx,1);let ins=this.app.ws.sessions.indexOf(s);if(!insBefore)ins++;this.app.ws.sessions.splice(ins,0,moved);this.app._save();this.app.render()});
+      el.appendChild(d);
+    }
+    el.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='session')return;e.preventDefault()});
+    el.addEventListener('drop',e=>{if(!this.app._drag||this.app._drag.type!=='session')return;e.preventDefault();const srcIdx=this.app._drag.idx;this.app._drag=null;el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'));const[moved]=this.app.ws.sessions.splice(srcIdx,1);this.app.ws.sessions.push(moved);this.app._save();this.app.render()});
+  }
+
+  _rTopbar(){
+    const a=this.app._as();
+    document.getElementById('session-name').textContent=a?a.name:'';
+    const ind=document.getElementById('m-pane-indicator');
+    if(ind){
+      const n=this.app._mobilePaneCount();
+      if(n<=0){ind.textContent='0/0'}
+      else{
+        if(this.app._mPaneIdx>=n) this.app._mPaneIdx=n-1;
+        if(this.app._mPaneIdx<0) this.app._mPaneIdx=0;
+        ind.textContent=`${this.app._mPaneIdx+1}/${n}`;
+      }
+    }
+    const dt=document.getElementById('m-drawer-toggle');
+    if(dt) dt.textContent = this.app._drawerOpen ? '✕' : '☰';
+  }
+
+  _rLayout(){
+    const area=document.getElementById('area');
+    const s=this.app._as();
+    for(const p of this.app.panes.values()){p.el.classList.remove('vis');area.appendChild(p.el)}
+    for(const v of this.app.mdViewers.values()){
+      if(v.el.classList.contains('vis')) v._scrollTop=v.el.scrollTop;
+      v.el.classList.remove('vis');area.appendChild(v.el);
+    }
+    for(const c of [...area.children]){if(c.classList.contains('sp')||c.classList.contains('rg'))c.remove()}
+    if(!s?.layout) return;
+    if(!findRg(s.layout,this.app.focused)){this.app._setFocus(firstRg(s.layout)?.id||null, s)}
+    let dom;
+    if(this.app.isMobile){
+      const regs=this.app._flattenRegions(s.layout);
+      if(regs.length){
+        const fIdx=regs.findIndex(r=>r.id===this.app.focused);
+        if(fIdx>=0) this.app._mPaneIdx=fIdx;
+        else if(this.app._mPaneIdx>=regs.length) this.app._mPaneIdx=regs.length-1;
+        const target=regs[this.app._mPaneIdx];
+        if(target){this.app._setFocus(target.id, s);dom=this._buildRg(target)}
+      }
+    }else{
+      dom=this._buildNode(s.layout);
+    }
+    if(dom) area.appendChild(dom);
+    const allTabIds=new Set();
+    const walk=n=>{if(!n)return;if(n.type==='region'&&n.tabs)n.tabs.forEach(t=>allTabIds.add(t.id));if(n.type==='split'&&n.children)n.children.forEach(walk)};
+    for(const sess of this.app.ws.sessions){if(sess&&sess.layout)walk(sess.layout)}
+    for(const[tid,v] of this.app.mdViewers){if(!allTabIds.has(tid)){v.destroy();this.app.mdViewers.delete(tid)}}
+    requestAnimationFrame(()=>{
+      for(const p of this.app.panes.values()){
+        if(p.el.classList.contains('vis')){if(!p._opened)p.open();p.doFit()}
+      }
+      if(this.app.focused){
+        const rg=findRg(s.layout,this.app.focused);
+        if(rg){const tab=rg.tabs.find(t=>t.id===rg.activeTab);if(tab){
+          if(tab.type==='markdown'){const v=this.app.mdViewers.get(tab.id);if(v)v.el.focus()}
+          else{const p=this.app.panes.get(tab.paneId);if(p)p.focus()}
+        }}
+      }
+    });
+  }
+
+  _buildNode(n){
+    if(!n) return null;
+    if(n.type==='region') return this._buildRg(n);
+    if(n.type==='split'&&n.children) return this._buildSp(n);
+    return null;
+  }
+
+  _buildRg(n){
+    const el=document.createElement('div');
+    el.className='rg'+(n.id===this.app.focused?' focused':'');
+    el.dataset.rid=n.id;
+    const tabs=document.createElement('div'); tabs.className='rg-tabs';
+    for(const tab of(n.tabs||[])){
+      const t=document.createElement('div');
+      t.className='rt'+(tab.id===n.activeTab?' active':'');
+      t.innerHTML=`<span>${tab.name}</span><span class="rt-x">×</span>`;
+      t.addEventListener('click',e=>{
+        e.stopPropagation();
+        if(e.target.classList.contains('rt-x')) this.app.closeTab(n.id,tab.id);
+        else this.app.switchTab(n.id,tab.id);
+      });
+      t.querySelector('span').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(tab,e.target)});
+      t.draggable=true;
+      t.addEventListener('dragstart',e=>{this.app._drag={type:'tab',srcRegionId:n.id,tabId:tab.id};e.dataTransfer.effectAllowed='move';e.stopPropagation();setTimeout(()=>t.classList.add('dragging'),0)});
+      t.addEventListener('dragend',()=>{this.app._drag=null;t.classList.remove('dragging');tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));document.querySelectorAll('.rg-drop-indicator').forEach(ind=>ind.style.display='none')});
+      t.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));const rect=t.getBoundingClientRect();t.classList.add(e.clientX<rect.left+rect.width/2?'drag-left':'drag-right');document.querySelectorAll('.rg-drop-indicator').forEach(ind=>ind.style.display='none')});
+      t.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcRegionId,tabId}=this.app._drag;this.app._drag=null;tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));const s=this.app._as();if(!s)return;if(srcRegionId===n.id){const rg=findRg(s.layout,n.id);if(!rg)return;const si=rg.tabs.findIndex(tt=>tt.id===tabId);const di=rg.tabs.findIndex(tt=>tt.id===tab.id);if(si<0||di<0||si===di)return;const rect=t.getBoundingClientRect();const insBefore=e.clientX<rect.left+rect.width/2;const[moved]=rg.tabs.splice(si,1);let ins=rg.tabs.findIndex(tt=>tt.id===tab.id);if(!insBefore)ins++;rg.tabs.splice(ins,0,moved);rg.activeTab=tabId;this.app._save();this.app.render()}else{const rect=t.getBoundingClientRect();this.app._moveTabToRegion(srcRegionId,tabId,n.id,tab.id,e.clientX<rect.left+rect.width/2)}});
+      tabs.appendChild(t);
+    }
+    const add=document.createElement('button'); add.className='rt-add'; add.textContent='+';
+    add.addEventListener('click',e=>{e.stopPropagation();this.app.addTab(n.id)});
+    tabs.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();if(this.app._drag.srcRegionId!==n.id)tabs.classList.add('drag-target')});
+    tabs.addEventListener('dragleave',e=>{if(!tabs.contains(e.relatedTarget))tabs.classList.remove('drag-target')});
+    tabs.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();tabs.classList.remove('drag-target');tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcRegionId,tabId}=this.app._drag;this.app._drag=null;const s=this.app._as();if(!s)return;if(srcRegionId===n.id){const rg=findRg(s.layout,n.id);if(!rg)return;const si=rg.tabs.findIndex(t=>t.id===tabId);if(si<0)return;const[moved]=rg.tabs.splice(si,1);rg.tabs.push(moved);rg.activeTab=tabId;this.app._save();this.app.render()}else{this.app._moveTabToRegion(srcRegionId,tabId,n.id,null,false)}});
+    tabs.appendChild(add); el.appendChild(tabs);
+    const body=document.createElement('div'); body.className='rg-body';
+    const at=(n.tabs||[]).find(t=>t.id===n.activeTab);
+    if(at){
+      if(at.type==='markdown'){
+        let viewer=this.app.mdViewers.get(at.id);
+        if(!viewer){viewer=new MdViewer(at.id,at.name,at.filePath);this.app.mdViewers.set(at.id,viewer)}
+        body.appendChild(viewer.el);viewer.el.classList.add('vis');
+        if(viewer._scrollTop){const st=viewer._scrollTop;requestAnimationFrame(()=>{viewer.el.scrollTop=st})}
+      }else{
+        const p=this.app.panes.get(at.paneId);
+        if(p){body.appendChild(p.el);p.el.classList.add('vis')}
+      }
+    }
+    body.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));this.app._showBodyDropIndicator(body,this.app._getDragZone(body,e))});
+    body.addEventListener('dragleave',e=>{if(!body.contains(e.relatedTarget))this.app._clearBodyDropIndicator(body)});
+    body.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='tab')return;const zone=this.app._getDragZone(body,e);const{srcRegionId,tabId}=this.app._drag;this.app._drag=null;this.app._clearBodyDropIndicator(body);if(zone==='center'){if(srcRegionId===n.id)return;this.app._moveTabToRegion(srcRegionId,tabId,n.id,null,false)}else{this.app._splitRegionWithTab(srcRegionId,tabId,n.id,zone)}});
+    el.appendChild(body);
+    el.addEventListener('mousedown',()=>this.app.setFocus(n.id));
+    return el;
+  }
+
+  _buildSp(n){
+    const el=document.createElement('div'); el.className='sp'; el.dataset.d=n.direction; el._node=n;
+    for(let i=0;i<n.children.length;i++){
+      const sc=document.createElement('div'); sc.className='sc';
+      if(n.sizes&&n.sizes[i]!=null) sc.style.flex=n.sizes[i];
+      const built=this._buildNode(n.children[i]);
+      if(built) sc.appendChild(built);
+      el.appendChild(sc);
+      if(i<n.children.length-1){const h=document.createElement('div');h.className='sh';el.appendChild(h);this._handle(h,el)}
+    }
+    return el;
+  }
+
+  _handle(h,sp){
+    h.addEventListener('mousedown',e=>{
+      e.preventDefault();
+      const dir=sp.dataset.d, prev=h.previousElementSibling, next=h.nextElementSibling;
+      const sx=e.clientX, sy=e.clientY;
+      const tot=dir==='horizontal'?prev.offsetWidth+next.offsetWidth:prev.offsetHeight+next.offsetHeight;
+      const start=dir==='horizontal'?prev.offsetWidth:prev.offsetHeight;
+      const mv=e=>{
+        if(dir==='horizontal'){
+          const nw=start+(e.clientX-sx);if(nw<60||tot-nw<60)return;
+          prev.style.flex=`${nw/tot}`;next.style.flex=`${(tot-nw)/tot}`;
+        }else{
+          const nh=start+(e.clientY-sy);if(nh<60||tot-nh<60)return;
+          prev.style.flex=`${nh/tot}`;next.style.flex=`${(tot-nh)/tot}`;
+        }
+      };
+      const up=()=>{
+        document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);
+        const nd=sp._node;
+        if(nd){nd.sizes=[];for(const c of sp.children){if(c.classList.contains('sc'))nd.sizes.push(parseFloat(c.style.flex)||1)}this.app._save()}
+        for(const p of this.app.panes.values())if(p.el.classList.contains('vis'))p.doFit();
+      };
+      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
+    });
+  }
+}
+
 class App {
   constructor(){
     this.panes=new Map();
@@ -729,6 +1000,8 @@ class App {
     this._mPaneIdx=0; // mobile current pane index (volatile)
     this._drawerOpen=false;
     this._modKbd=null; // {ctrl:bool|'lock', alt:bool|'lock'}
+    this.renderer=new Renderer(this);
+    this.inputBinding=new InputBinding(this);
   }
 
   // ── Mobile mode ──
@@ -796,8 +1069,7 @@ class App {
     this._mPaneIdx = (this._mPaneIdx + delta + n) % n;
     const rg=this._mobileCurrentRegion();
     if(rg){
-      this.focused=rg.id;
-      const s=this._as(); if(s) s.focusedRegion=rg.id;
+      this._setFocus(rg.id);
       this._save();
     }
     this.render();
@@ -840,7 +1112,7 @@ class App {
       if(!this.ws.sessions.length) await this._mkSession();
     }
     const a=this._as();
-    if(a&&a.layout){const saved=a.focusedRegion;const f=(saved&&findRg(a.layout,saved))?{id:saved}:firstRg(a.layout);if(f)this.focused=f.id}
+    if(a&&a.layout){const saved=a.focusedRegion;const f=(saved&&findRg(a.layout,saved))?{id:saved}:firstRg(a.layout);if(f)this._setFocus(f.id, a)}
     this.render();
     this._bind();
     this._subscribeCommands();
@@ -927,7 +1199,7 @@ class App {
     if(a&&a.layout){
       const saved=a.focusedRegion;
       const f=(saved&&findRg(a.layout,saved))?{id:saved}:firstRg(a.layout);
-      if(f) this.focused=f.id;
+      if(f) this._setFocus(f.id, a);
     }
     this.render();
   }
@@ -981,8 +1253,7 @@ class App {
       }
       const a=this._as();
       if(a&&savedFocused&&findRg(a.layout,savedFocused)){
-        a.focusedRegion=savedFocused;
-        this.focused=savedFocused;
+        this._setFocus(savedFocused, a);
       }
       this._save(); this.render();
     });
@@ -1022,8 +1293,7 @@ class App {
       this.ws.activeSession=sess.id;
     }
     rg.activeTab=tab.id;
-    sess.focusedRegion=rg.id;
-    this.focused=rg.id;
+    this._setFocus(rg.id, sess);
     this._save(); this.render();
   }
 
@@ -1100,6 +1370,19 @@ class App {
 
   _as(){return this.ws.sessions.find(s=>s.id===this.ws.activeSession)||null}
 
+  // _setFocus is the single entry point for the focus invariant
+  // (this.focused === active session.focusedRegion). It accepts an optional
+  // session reference; when omitted, the active session is used. When the
+  // mutated session is not the active one, only its focusedRegion is updated
+  // (this.focused unchanged). REG-2~8 회귀 클래스 차단용 단일 진입점.
+  _setFocus(rid, sess){
+    const target = sess || this._as();
+    if(target) target.focusedRegion = rid;
+    if(!sess || (target && target.id === this.ws.activeSession)){
+      this.focused = rid;
+    }
+  }
+
   async _mkSession(){
     const p=await this._newPane();
     const r=`r${++this._r}`,t=`t${++this._t}`;
@@ -1109,7 +1392,7 @@ class App {
     };
     this.ws.sessions.push(s);
     this.ws.activeSession=s.id;
-    this.focused=r;
+    this._setFocus(r, s);
     await this._save();
   }
 
@@ -1132,8 +1415,8 @@ class App {
       this.ws.activeSession=this.ws.sessions[Math.min(i,this.ws.sessions.length-1)].id;
     const a=this._as();
     if(a&&a.layout){
-      this.focused=(a.focusedRegion&&findRg(a.layout,a.focusedRegion))?a.focusedRegion:firstRg(a.layout)?.id||null;
-      a.focusedRegion=this.focused;
+      const next=(a.focusedRegion&&findRg(a.layout,a.focusedRegion))?a.focusedRegion:firstRg(a.layout)?.id||null;
+      this._setFocus(next, a);
     } else this.focused=null;
     await this._save(); this.render();
   }
@@ -1147,7 +1430,8 @@ class App {
     this.ws.activeSession=sid;
     const a=this._as();
     if(a&&a.layout){
-      this.focused=(a.focusedRegion&&findRg(a.layout,a.focusedRegion))?a.focusedRegion:firstRg(a.layout)?.id||null;
+      const next=(a.focusedRegion&&findRg(a.layout,a.focusedRegion))?a.focusedRegion:firstRg(a.layout)?.id||null;
+      this._setFocus(next, a);
     } else this.focused=null;
     this._mPaneIdx=0;
     if(this.isMobile && this._drawerOpen) this._toggleDrawer(false);
@@ -1188,8 +1472,7 @@ class App {
         const cur = this._as(); if (cur) cur.focusedRegion = this.focused;
         this.ws.activeSession = existing.session.id;
         existing.region.activeTab = existing.tab.id;
-        this.focused = existing.region.id;
-        existing.session.focusedRegion = existing.region.id;
+        this._setFocus(existing.region.id, existing.session);
         const viewer = this.mdViewers.get(existing.tab.id);
         if (viewer) viewer.refresh();
         this.render();
@@ -1240,8 +1523,8 @@ class App {
       if(!s.layout){if(!isMd&&paneId)this._killBg(paneId);await this.delSession(s.id);return}
       if(isActive){
         const fallback=this.focused===rid?prevClosestId:this.focused;
-        this.focused=fallback&&findRg(s.layout,fallback)?fallback:firstRg(s.layout)?.id||null;
-        s.focusedRegion=this.focused;
+        const next=fallback&&findRg(s.layout,fallback)?fallback:firstRg(s.layout)?.id||null;
+        this._setFocus(next, s);
       } else if(s.focusedRegion===rid){
         s.focusedRegion=prevClosestId&&findRg(s.layout,prevClosestId)?prevClosestId:firstRg(s.layout)?.id||null;
       }
@@ -1261,8 +1544,8 @@ class App {
   switchTab(rid,tid){
     const s=this._as(); if(!s) return;
     const rg=findRg(s.layout,rid); if(!rg) return;
-    if(rg.activeTab===tid && this.focused===rid){s.focusedRegion=rid; return}
-    rg.activeTab=tid; this.focused=rid; s.focusedRegion=rid;
+    if(rg.activeTab===tid && this.focused===rid){this._setFocus(rid, s); return}
+    rg.activeTab=tid; this._setFocus(rid, s);
     this._save(); this.render();
   }
 
@@ -1287,12 +1570,8 @@ class App {
       const cur=this._as(); if(cur) cur.focusedRegion=this.focused;
       this.ws.activeSession=tgtSessionId;
     }
-    if(!keepFocus && lastR){
-      this.focused=lastR;
-    } else {
-      this.focused=tgtRegionId;
-    }
-    s.focusedRegion=this.focused;
+    const next=(!keepFocus && lastR) ? lastR : tgtRegionId;
+    this._setFocus(next, s);
     this.render();
     this._save();
   }
@@ -1336,7 +1615,7 @@ class App {
       if(dir==='down'&&!isH)ti=ci+1; if(dir==='up'&&!isH)ti=ci-1;
       if(ti>=0&&ti<parent.children.length){
         const target=firstRg(parent.children[ti]);
-        if(target){this.focused=target.id;s.focusedRegion=target.id;this._save();this.render();return}
+        if(target){this._setFocus(target.id, s);this._save();this.render();return}
       }
     }
   }
@@ -1419,9 +1698,8 @@ class App {
   setFocus(rid){
     if(this.focused===rid) return;
     this._clearAllSearchDecorations();
-    this.focused=rid;
+    this._setFocus(rid);
     this._prevFocus=rid;
-    const s=this._as();if(s)s.focusedRegion=rid;
     document.querySelectorAll('.rg').forEach(el=>{
       el.classList.toggle('focused',el.dataset.rid===rid);
     });
@@ -1478,258 +1756,12 @@ class App {
     });
   }
 
-  // ── Render ──
+  // ── Render (위임) ──
 
-  render(){
-    const oldFocus=this._prevFocus;
-    this._prevFocus=this.focused;
-    if(oldFocus!==undefined&&oldFocus!==this.focused){
-      this._clearAllSearchDecorations();
-      this._researchIfOpen();
-    }
-    this._applyMobileMode();
-    this._rSidebar();this._rTopbar();this._rLayout();
-    this._updateCwd();
-    this._updateStatusBar();
-  }
+  render(){ this.renderer.render() }
 
-  _rSidebar(){
-    const el=document.getElementById('sessions'); el.innerHTML='';
-    for(const s of this.ws.sessions){
-      const d=document.createElement('div');
-      d.className='si'+(s.id===this.ws.activeSession?' active':'');
-      d.innerHTML=`<span class="si-dot"></span><span class="si-name">${s.name}</span><span class="si-x">×</span>`;
-      d.addEventListener('click',e=>{if(!e.target.classList.contains('si-x'))this.switchSession(s.id)});
-      d.querySelector('.si-x').addEventListener('click',e=>{e.stopPropagation();this.delSession(s.id)});
-      d.querySelector('.si-name').addEventListener('dblclick',e=>{e.stopPropagation();this._rename(s,e.target)});
-      d.draggable=true;
-      d.addEventListener('dragstart',e=>{this._drag={type:'session',idx:this.ws.sessions.indexOf(s)};e.dataTransfer.effectAllowed='move';setTimeout(()=>d.classList.add('dragging'),0)});
-      d.addEventListener('dragend',()=>{this._drag=null;d.classList.remove('dragging');el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'))});
-      d.addEventListener('dragover',e=>{if(!this._drag||this._drag.type!=='session')return;e.preventDefault();el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'));const rect=d.getBoundingClientRect();d.classList.add(e.clientY<rect.top+rect.height/2?'drag-above':'drag-below')});
-      d.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this._drag||this._drag.type!=='session')return;const srcIdx=this._drag.idx;this._drag=null;el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'));const rect=d.getBoundingClientRect();const insBefore=e.clientY<rect.top+rect.height/2;const[moved]=this.ws.sessions.splice(srcIdx,1);let ins=this.ws.sessions.indexOf(s);if(!insBefore)ins++;this.ws.sessions.splice(ins,0,moved);this._save();this.render()});
-      el.appendChild(d);
-    }
-    // Drop zone below all sessions (for dragging to last position)
-    el.addEventListener('dragover',e=>{if(!this._drag||this._drag.type!=='session')return;e.preventDefault()});
-    el.addEventListener('drop',e=>{if(!this._drag||this._drag.type!=='session')return;e.preventDefault();const srcIdx=this._drag.idx;this._drag=null;el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'));const[moved]=this.ws.sessions.splice(srcIdx,1);this.ws.sessions.push(moved);this._save();this.render()});
-  }
 
-  _rTopbar(){
-    const a=this._as();
-    document.getElementById('session-name').textContent=a?a.name:'';
-    // Mobile pane indicator
-    const ind=document.getElementById('m-pane-indicator');
-    if(ind){
-      const n=this._mobilePaneCount();
-      if(n<=0){ind.textContent='0/0'}
-      else{
-        if(this._mPaneIdx>=n) this._mPaneIdx=n-1;
-        if(this._mPaneIdx<0) this._mPaneIdx=0;
-        ind.textContent=`${this._mPaneIdx+1}/${n}`;
-      }
-    }
-    // Drawer toggle icon (☰ ↔ ✕)
-    const dt=document.getElementById('m-drawer-toggle');
-    if(dt) dt.textContent = this._drawerOpen ? '✕' : '☰';
-  }
-
-  _rLayout(){
-    const area=document.getElementById('area');
-    const s=this._as();
-    for(const p of this.panes.values()){p.el.classList.remove('vis');area.appendChild(p.el)}
-    for(const v of this.mdViewers.values()){
-      if(v.el.classList.contains('vis')) v._scrollTop=v.el.scrollTop;
-      v.el.classList.remove('vis');area.appendChild(v.el);
-    }
-    for(const c of [...area.children]){if(c.classList.contains('sp')||c.classList.contains('rg'))c.remove()}
-    if(!s?.layout) return;
-    if(!findRg(s.layout,this.focused)){this.focused=firstRg(s.layout)?.id||null;s.focusedRegion=this.focused}
-    let dom;
-    if(this.isMobile){
-      // Sync _mPaneIdx with focused region if possible
-      const regs=this._flattenRegions(s.layout);
-      if(regs.length){
-        const fIdx=regs.findIndex(r=>r.id===this.focused);
-        if(fIdx>=0) this._mPaneIdx=fIdx;
-        else if(this._mPaneIdx>=regs.length) this._mPaneIdx=regs.length-1;
-        const target=regs[this._mPaneIdx];
-        if(target){this.focused=target.id;s.focusedRegion=target.id;dom=this._buildRg(target)}
-      }
-    }else{
-      dom=this._buildNode(s.layout);
-    }
-    if(dom) area.appendChild(dom);
-    // Clean up MdViewers for tabs no longer present in any session's layout.
-    const allTabIds=new Set();
-    const walk=n=>{if(!n)return;if(n.type==='region'&&n.tabs)n.tabs.forEach(t=>allTabIds.add(t.id));if(n.type==='split'&&n.children)n.children.forEach(walk)};
-    for(const sess of this.ws.sessions){if(sess&&sess.layout)walk(sess.layout)}
-    for(const[tid,v] of this.mdViewers){if(!allTabIds.has(tid)){v.destroy();this.mdViewers.delete(tid)}}
-    requestAnimationFrame(()=>{
-      for(const p of this.panes.values()){
-        if(p.el.classList.contains('vis')){if(!p._opened)p.open();p.doFit()}
-      }
-      if(this.focused){
-        const rg=findRg(s.layout,this.focused);
-        if(rg){const tab=rg.tabs.find(t=>t.id===rg.activeTab);if(tab){
-          if(tab.type==='markdown'){const v=this.mdViewers.get(tab.id);if(v)v.el.focus()}
-          else{const p=this.panes.get(tab.paneId);if(p)p.focus()}
-        }}
-      }
-    });
-  }
-
-  _buildNode(n){
-    if(!n) return null;
-    if(n.type==='region') return this._buildRg(n);
-    if(n.type==='split'&&n.children) return this._buildSp(n);
-    return null;
-  }
-
-  _buildRg(n){
-    const el=document.createElement('div');
-    el.className='rg'+(n.id===this.focused?' focused':'');
-    el.dataset.rid=n.id;
-    const tabs=document.createElement('div'); tabs.className='rg-tabs';
-    for(const tab of(n.tabs||[])){
-      const t=document.createElement('div');
-      t.className='rt'+(tab.id===n.activeTab?' active':'');
-      t.innerHTML=`<span>${tab.name}</span><span class="rt-x">×</span>`;
-      t.addEventListener('click',e=>{
-        e.stopPropagation();
-        if(e.target.classList.contains('rt-x')) this.closeTab(n.id,tab.id);
-        else this.switchTab(n.id,tab.id);
-      });
-      t.querySelector('span').addEventListener('dblclick',e=>{e.stopPropagation();this._rename(tab,e.target)});
-      t.draggable=true;
-      t.addEventListener('dragstart',e=>{this._drag={type:'tab',srcRegionId:n.id,tabId:tab.id};e.dataTransfer.effectAllowed='move';e.stopPropagation();setTimeout(()=>t.classList.add('dragging'),0)});
-      t.addEventListener('dragend',()=>{this._drag=null;t.classList.remove('dragging');tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));document.querySelectorAll('.rg-drop-indicator').forEach(ind=>ind.style.display='none')});
-      t.addEventListener('dragover',e=>{if(!this._drag||this._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));const rect=t.getBoundingClientRect();t.classList.add(e.clientX<rect.left+rect.width/2?'drag-left':'drag-right');document.querySelectorAll('.rg-drop-indicator').forEach(ind=>ind.style.display='none')});
-      t.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this._drag||this._drag.type!=='tab')return;const{srcRegionId,tabId}=this._drag;this._drag=null;tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));const s=this._as();if(!s)return;if(srcRegionId===n.id){const rg=findRg(s.layout,n.id);if(!rg)return;const si=rg.tabs.findIndex(tt=>tt.id===tabId);const di=rg.tabs.findIndex(tt=>tt.id===tab.id);if(si<0||di<0||si===di)return;const rect=t.getBoundingClientRect();const insBefore=e.clientX<rect.left+rect.width/2;const[moved]=rg.tabs.splice(si,1);let ins=rg.tabs.findIndex(tt=>tt.id===tab.id);if(!insBefore)ins++;rg.tabs.splice(ins,0,moved);rg.activeTab=tabId;this._save();this.render()}else{const rect=t.getBoundingClientRect();this._moveTabToRegion(srcRegionId,tabId,n.id,tab.id,e.clientX<rect.left+rect.width/2)}});
-      tabs.appendChild(t);
-    }
-    const add=document.createElement('button'); add.className='rt-add'; add.textContent='+';
-    add.addEventListener('click',e=>{e.stopPropagation();this.addTab(n.id)});
-    tabs.addEventListener('dragover',e=>{if(!this._drag||this._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();if(this._drag.srcRegionId!==n.id)tabs.classList.add('drag-target')});
-    tabs.addEventListener('dragleave',e=>{if(!tabs.contains(e.relatedTarget))tabs.classList.remove('drag-target')});
-    tabs.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();tabs.classList.remove('drag-target');tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));if(!this._drag||this._drag.type!=='tab')return;const{srcRegionId,tabId}=this._drag;this._drag=null;const s=this._as();if(!s)return;if(srcRegionId===n.id){const rg=findRg(s.layout,n.id);if(!rg)return;const si=rg.tabs.findIndex(t=>t.id===tabId);if(si<0)return;const[moved]=rg.tabs.splice(si,1);rg.tabs.push(moved);rg.activeTab=tabId;this._save();this.render()}else{this._moveTabToRegion(srcRegionId,tabId,n.id,null,false)}});
-    tabs.appendChild(add); el.appendChild(tabs);
-    const body=document.createElement('div'); body.className='rg-body';
-    const at=(n.tabs||[]).find(t=>t.id===n.activeTab);
-    if(at){
-      if(at.type==='markdown'){
-        let viewer=this.mdViewers.get(at.id);
-        if(!viewer){viewer=new MdViewer(at.id,at.name,at.filePath);this.mdViewers.set(at.id,viewer)}
-        body.appendChild(viewer.el);viewer.el.classList.add('vis');
-        if(viewer._scrollTop){const st=viewer._scrollTop;requestAnimationFrame(()=>{viewer.el.scrollTop=st})}
-      }else{
-        const p=this.panes.get(at.paneId);
-        if(p){body.appendChild(p.el);p.el.classList.add('vis')}
-      }
-    }
-    body.addEventListener('dragover',e=>{if(!this._drag||this._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));this._showBodyDropIndicator(body,this._getDragZone(body,e))});
-    body.addEventListener('dragleave',e=>{if(!body.contains(e.relatedTarget))this._clearBodyDropIndicator(body)});
-    body.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this._drag||this._drag.type!=='tab')return;const zone=this._getDragZone(body,e);const{srcRegionId,tabId}=this._drag;this._drag=null;this._clearBodyDropIndicator(body);if(zone==='center'){if(srcRegionId===n.id)return;this._moveTabToRegion(srcRegionId,tabId,n.id,null,false)}else{this._splitRegionWithTab(srcRegionId,tabId,n.id,zone)}});
-    el.appendChild(body);
-    el.addEventListener('mousedown',()=>this.setFocus(n.id));
-    return el;
-  }
-
-  _buildSp(n){
-    const el=document.createElement('div'); el.className='sp'; el.dataset.d=n.direction; el._node=n;
-    for(let i=0;i<n.children.length;i++){
-      const sc=document.createElement('div'); sc.className='sc';
-      if(n.sizes&&n.sizes[i]!=null) sc.style.flex=n.sizes[i];
-      const built=this._buildNode(n.children[i]);
-      if(built) sc.appendChild(built);
-      el.appendChild(sc);
-      if(i<n.children.length-1){const h=document.createElement('div');h.className='sh';el.appendChild(h);this._handle(h,el)}
-    }
-    return el;
-  }
-
-  _handle(h,sp){
-    h.addEventListener('mousedown',e=>{
-      e.preventDefault();
-      const dir=sp.dataset.d, prev=h.previousElementSibling, next=h.nextElementSibling;
-      const sx=e.clientX, sy=e.clientY;
-      const tot=dir==='horizontal'?prev.offsetWidth+next.offsetWidth:prev.offsetHeight+next.offsetHeight;
-      const start=dir==='horizontal'?prev.offsetWidth:prev.offsetHeight;
-      const mv=e=>{
-        if(dir==='horizontal'){
-          const nw=start+(e.clientX-sx);if(nw<60||tot-nw<60)return;
-          prev.style.flex=`${nw/tot}`;next.style.flex=`${(tot-nw)/tot}`;
-        }else{
-          const nh=start+(e.clientY-sy);if(nh<60||tot-nh<60)return;
-          prev.style.flex=`${nh/tot}`;next.style.flex=`${(tot-nh)/tot}`;
-        }
-      };
-      const up=()=>{
-        document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);
-        const nd=sp._node;
-        if(nd){nd.sizes=[];for(const c of sp.children){if(c.classList.contains('sc'))nd.sizes.push(parseFloat(c.style.flex)||1)}this._save()}
-        for(const p of this.panes.values())if(p.el.classList.contains('vis'))p.doFit();
-      };
-      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
-    });
-  }
-
-  _bind(){
-    if(this._kb) return; this._kb=true;
-    document.getElementById('split-h').addEventListener('click',()=>this.split('horizontal'));
-    document.getElementById('split-v').addEventListener('click',()=>this.split('vertical'));
-    const sb=document.getElementById('sidebar'),sbh=document.getElementById('sb-handle');
-    sbh.addEventListener('mousedown',e=>{e.preventDefault();
-      const sx=e.clientX,sw=sb.offsetWidth;
-      const mv=e=>{const w=sw+(e.clientX-sx);if(w>=100&&w<=400){document.documentElement.style.setProperty('--sb-w',w+'px');this.ws.sidebarWidth=w}};
-      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.panes.values())if(p.el.classList.contains('vis'))p.doFit();try{localStorage.setItem('sidebarWidth',this.ws.sidebarWidth)}catch{}this._save()};
-      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
-    });
-    // Global shortcut handler (capture phase → top priority)
-    this._recording=null;
-    window.addEventListener('keydown',e=>{
-      // Recording mode — absolute top priority, blocks EVERYTHING
-      if(this._recording){e.preventDefault();e.stopImmediatePropagation();
-        if(e.code==='Escape'){
-          const btn=document.querySelector('.sc-key.recording');
-          if(btn){btn.classList.remove('recording');btn.textContent=displayKey(shortcuts[btn.dataset.action]||'')}
-          this._recording=null;return;
-        }
-        if(MOD_CODES.has(e.code))return;
-        shortcuts[this._recording]=fmtShortcut(e);
-        const btn=document.querySelector(`.sc-key[data-action="${this._recording}"]`);
-        this._recording=null;
-        if(btn){btn.classList.remove('recording');btn.textContent=displayKey(shortcuts[btn.dataset.action]||'')}
-        this._saveSettings();
-        return;
-      }
-      // Skip if non-xterm input is focused
-      const ae=document.activeElement;
-      if(ae.tagName==='INPUT'||(ae.tagName==='TEXTAREA'&&!ae.classList.contains('xterm-helper-textarea')))return;
-      // Search: Ctrl+F or Cmd+F
-      if(e.key==='f'&&(e.ctrlKey||e.metaKey)){e.preventDefault();e.stopImmediatePropagation();this.toggleSearch();return}
-      // Check configured shortcuts
-      for(const[action,key]of Object.entries(shortcuts)){
-        if(matchShortcut(e,key)){e.preventDefault();e.stopImmediatePropagation();this.executeAction(action);return}
-      }
-    },true);
-    // Search bar bindings
-    const si=document.getElementById('search-input');
-    si.addEventListener('input',()=>this._doSearch('next'));
-    si.addEventListener('keydown',e=>{
-      if(e.key==='Enter'){e.preventDefault();this._doSearch(e.shiftKey?'prev':'next')}
-      if(e.key==='Escape'){e.preventDefault();e.stopPropagation();this.closeSearch()}
-      e.stopPropagation();
-    });
-    document.getElementById('search-next').addEventListener('click',()=>this._doSearch('next'));
-    document.getElementById('search-prev').addEventListener('click',()=>this._doSearch('prev'));
-    document.getElementById('search-case').addEventListener('click',function(){this.classList.toggle('active')});
-    document.getElementById('search-close').addEventListener('click',()=>this.closeSearch());
-    this._initModal();
-    this._initStatusBar();
-    this._initPresets();
-    this._initMobile();
-    this._initMobileKeybar();
-  }
+  _bind(){ this.inputBinding.bind() }
 
   // ── Mobile bindings ──
 
@@ -2262,7 +2294,7 @@ class App {
       return null;
     };
     s.layout=await build(preset.layout);
-    this.focused=firstRg(s.layout)?.id||null;
+    this._setFocus(firstRg(s.layout)?.id||null, s);
     await this._save();this.render();
   }
   _deletePreset(idx){
@@ -2342,12 +2374,12 @@ class App {
     if(!srcRg||!dstRg)return;
     const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
     const[tab]=srcRg.tabs.splice(ti,1);
-    if(srcRg.tabs.length===0){s.layout=doRemove(s.layout,srcRid);if(this.focused===srcRid)this.focused=dstRid}
+    if(srcRg.tabs.length===0){s.layout=doRemove(s.layout,srcRid);if(this.focused===srcRid)this._setFocus(dstRid, s)}
     else if(srcRg.activeTab===tabId)srcRg.activeTab=srcRg.tabs[0].id;
     const dst=findRg(s.layout,dstRid);if(!dst)return;
     if(beforeTabId){let ins=dst.tabs.findIndex(t=>t.id===beforeTabId);if(ins<0)ins=dst.tabs.length;else if(!insertBefore)ins++;dst.tabs.splice(ins,0,tab)}
     else dst.tabs.push(tab);
-    dst.activeTab=tab.id;this.focused=dstRid;
+    dst.activeTab=tab.id;this._setFocus(dstRid, s);
     if(!s.layout){this._mkSession();return}
     this._save();this.render();
   }
@@ -2372,12 +2404,16 @@ class App {
     };
     s.layout=splitNode(s.layout);
     if(!s.layout){this._mkSession();return}
-    this.focused=newRid;this._save();this.render();
+    this._setFocus(newRid, s);this._save();this.render();
   }
 }
 
 const app=new App();
 window.app=app;
+window.__dongminalDebug={
+  sendDropCount(){let n=0;app.panes&&app.panes.forEach(p=>{n+=p._sendDropCount||0});return n},
+  sendQueueLength(){let n=0;app.panes&&app.panes.forEach(p=>{n+=(p._sendQueue&&p._sendQueue.length)||0});return n}
+};
 
 // Restore saved theme from server
 (async()=>{try{const r=await fetch('/api/settings');if(r.ok){const saved=await r.json();

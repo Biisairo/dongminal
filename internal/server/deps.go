@@ -33,6 +33,7 @@ type CodeServerHost interface {
 type WorkspaceStore interface {
 	Raw() []byte
 	CurrentRev() uint64
+	Snapshot() ([]byte, uint64)
 	Save(blob []byte, ifMatch string) (uint64, error)
 }
 
