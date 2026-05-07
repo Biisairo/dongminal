@@ -38,6 +38,7 @@ type Server struct {
 	Commands CommandBroker
 	MCP      *MCPSessionRegistry
 	Settings SettingsStore
+	MdScroll MdScrollStore
 
 	started time.Time
 
@@ -71,6 +72,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		Commands: cmds,
 		MCP:      NewMCPSessionRegistry(),
 		Settings: settings,
+		MdScroll: deps.MdScroll,
 		started:  time.Now(),
 	}, nil
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"dongminal/internal/mcptool"
+	"dongminal/internal/mdscroll"
 )
 
 // PaneHub is the minimum surface that HTTP/WS handlers need from the pane
@@ -58,6 +59,13 @@ type SettingsStore interface {
 	save()
 }
 
+// MdScrollStore abstracts the markdown viewer scroll persistence layer.
+type MdScrollStore interface {
+	Get(tabID string) (mdscroll.Entry, bool)
+	Set(tabID string, e mdscroll.Entry)
+	Snapshot() map[string]mdscroll.Entry
+}
+
 // Deps is the full injection surface for New.
 type Deps struct {
 	Panes    PaneHub
@@ -66,4 +74,5 @@ type Deps struct {
 	Tools    ToolDispatcher
 	Commands CommandBroker
 	Settings SettingsStore
+	MdScroll MdScrollStore
 }

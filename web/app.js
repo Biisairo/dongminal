@@ -564,17 +564,26 @@ class MdViewer {
     this.el.className = 'md-viewer';
     this.el.tabIndex = 0;
     this._loading = false;
+    this._loaded = false;
+    this._restored = false;
+    this._suppressScroll = 0;
+    this._scrollTimer = null;
+    this.el.addEventListener('scroll', () => this._onScroll());
     this.fetchAndRender();
   }
 
   async fetchAndRender() {
     this._loading = true;
+    this._loaded = false;
+    this._restored = false;
     try {
       const r = await fetch('/api/md-file?path=' + encodeURIComponent(this.filePath));
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const md = await r.text();
       this.el.innerHTML = marked.parse(md, { gfm: true, breaks: true });
       this._interceptLinks();
+      this._loaded = true;
+      this._tryRestore();
     } catch (e) {
       this.el.innerHTML =
         '<div class="md-error">파일을 불러올 수 없습니다' +
@@ -584,6 +593,57 @@ class MdViewer {
   }
 
   refresh() { this.fetchAndRender() }
+
+  _tryRestore() {
+    if (this._restored || !this._loaded) return;
+    if (!this.el.classList.contains('vis')) return;
+    if (typeof app === 'undefined' || !app) return;
+    const entry = app.mdScrolls && app.mdScrolls.get(this.id);
+    if (!entry) { this._restored = true; return; }
+    this._applyScroll(entry);
+    this._restored = true;
+  }
+
+  _applyScroll(entry) {
+    if (!entry) return;
+    const max = Math.max(0, this.el.scrollHeight - this.el.clientHeight);
+    let target = entry.top;
+    if (target > max + 4 || target < 0) {
+      target = Math.round((entry.ratio || 0) * max);
+    }
+    this._suppressScroll++;
+    this.el.scrollTop = target;
+    setTimeout(() => { this._suppressScroll = Math.max(0, this._suppressScroll - 1); }, 80);
+  }
+
+  _onScroll() {
+    if (this._suppressScroll > 0) return;
+    if (!this._loaded) return;
+    if (typeof app === 'undefined' || !app) return;
+    // 50ms throttle: leading edge fires immediately, subsequent events within
+    // the window are coalesced into a single trailing flush. Keeps remote
+    // viewers visibly in sync during continuous scrolling without flooding the
+    // server with PUTs.
+    const now = Date.now();
+    const last = this._scrollLastSent || 0;
+    const since = now - last;
+    const fire = () => {
+      this._scrollLastSent = Date.now();
+      const top = this.el.scrollTop;
+      const max = Math.max(1, this.el.scrollHeight - this.el.clientHeight);
+      app.saveMdScroll(this.id, top, top / max);
+    };
+    if (since >= 50) {
+      if (this._scrollTimer) { clearTimeout(this._scrollTimer); this._scrollTimer = null; }
+      fire();
+      return;
+    }
+    if (this._scrollTimer) return;
+    this._scrollTimer = setTimeout(() => {
+      this._scrollTimer = null;
+      fire();
+    }, 50 - since);
+  }
 
   _interceptLinks() {
     this.el.querySelectorAll('a').forEach(a => {
@@ -646,7 +706,10 @@ class MdViewer {
     return d.innerHTML;
   }
 
-  destroy() { this.el.remove() }
+  destroy() {
+    if (this._scrollTimer) { clearTimeout(this._scrollTimer); this._scrollTimer = null; }
+    this.el.remove();
+  }
 }
 
 // ═══ Layout helpers ═══
@@ -942,7 +1005,13 @@ class Renderer {
         let viewer=this.app.mdViewers.get(at.id);
         if(!viewer){viewer=new MdViewer(at.id,at.name,at.filePath);this.app.mdViewers.set(at.id,viewer)}
         body.appendChild(viewer.el);viewer.el.classList.add('vis');
-        if(viewer._scrollTop){const st=viewer._scrollTop;requestAnimationFrame(()=>{viewer.el.scrollTop=st})}
+        if(viewer._scrollTop){
+          const st=viewer._scrollTop;
+          viewer._suppressScroll=(viewer._suppressScroll||0)+1;
+          requestAnimationFrame(()=>{viewer.el.scrollTop=st;setTimeout(()=>{viewer._suppressScroll=Math.max(0,viewer._suppressScroll-1)},80)});
+        } else {
+          viewer._tryRestore();
+        }
       }else{
         const p=this.app.panes.get(at.paneId);
         if(p){body.appendChild(p.el);p.el.classList.add('vis')}
@@ -1000,6 +1069,8 @@ class App {
   constructor(){
     this.panes=new Map();
     this.mdViewers=new Map();
+    this.mdScrolls=new Map();
+    this.clientId=(crypto&&crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2));
     this.ws={sessions:[],activeSession:null};
     this.wsETag=null;
     this.focused=null;
@@ -1122,9 +1193,41 @@ class App {
     }
     const a=this._as();
     if(a&&a.layout){const saved=a.focusedRegion;const f=(saved&&findRg(a.layout,saved))?{id:saved}:firstRg(a.layout);if(f)this._setFocus(f.id, a)}
+    await this._loadMdScrolls();
     this.render();
     this._bind();
     this._subscribeCommands();
+  }
+
+  async _loadMdScrolls(){
+    try{
+      const r=await fetch('/api/md-scroll');
+      if(!r.ok) return;
+      const j=await r.json();
+      const tabs=j&&j.tabs;
+      if(!tabs) return;
+      for(const[k,v] of Object.entries(tabs)) this.mdScrolls.set(k,v);
+    }catch(e){console.warn('[mdscroll] load',e)}
+  }
+
+  saveMdScroll(tabId, top, ratio){
+    if(!tabId) return;
+    const ts=Date.now();
+    this.mdScrolls.set(tabId, {top, ratio, ts});
+    fetch('/api/md-scroll', {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({tabId, top, ratio, by: this.clientId}),
+    }).catch(e=>console.warn('[mdscroll] put',e));
+  }
+
+  _onMdScrollRemote(args){
+    if(!args||!args.tabId) return;
+    if(args.by===this.clientId) return;
+    const entry={top: args.top||0, ratio: args.ratio||0, ts: args.ts||Date.now()};
+    this.mdScrolls.set(args.tabId, entry);
+    const v=this.mdViewers.get(args.tabId);
+    if(v&&v.el.classList.contains('vis')) v._applyScroll(entry);
   }
 
   // 외부 CLI(dmctl) → 서버 → SSE 브로드캐스트 수신 → executeAction 재사용
@@ -1139,6 +1242,10 @@ class App {
             const m=JSON.parse(e.data);
             if(m.action==='workspace_changed'){
               this._onWorkspaceChanged(m.args&&m.args.rev);
+              return;
+            }
+            if(m.action==='md_scroll_changed'){
+              this._onMdScrollRemote(m.args||{});
               return;
             }
             this._execRemote(m.action, m.args||{});

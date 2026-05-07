@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"dongminal/internal/mdscroll"
 )
 
 func TestHandleAPI_PaneBusy(t *testing.T) {
@@ -766,5 +768,93 @@ func TestHandleCSProxy_NotFound(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != 404 {
 		t.Fatalf("status=%d want 404", resp.StatusCode)
+	}
+}
+
+// ── md-scroll ────────────────────────────────────────
+
+func TestHandleAPI_MdScrollGet_Empty(t *testing.T) {
+	dir := t.TempDir()
+	ms, err := mdscroll.New(mdscroll.FilePersister{Path: filepath.Join(dir, "mdscroll.json")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ms.Close()
+	srv, _ := New(Config{DataDir: dir}, Deps{MdScroll: ms})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+	resp, _ := http.Get(ts.URL + "/api/md-scroll")
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), `"tabs"`) {
+		t.Fatalf("body=%q", body)
+	}
+}
+
+func TestHandleAPI_MdScrollPut_BroadcastAndStore(t *testing.T) {
+	dir := t.TempDir()
+	ms, err := mdscroll.New(mdscroll.FilePersister{Path: filepath.Join(dir, "mdscroll.json")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ms.Close()
+	fb := &fakeCommandBroker{}
+	srv, _ := New(Config{DataDir: dir}, Deps{MdScroll: ms, Commands: fb})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	body := strings.NewReader(`{"tabId":"t1","top":42.5,"ratio":0.33,"by":"clientA"}`)
+	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/md-scroll", body)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	got, ok := ms.Get("t1")
+	if !ok || got.Top != 42.5 || got.Ratio != 0.33 {
+		t.Fatalf("entry=%+v ok=%v", got, ok)
+	}
+	if len(fb.published) != 1 {
+		t.Fatalf("broadcasts=%d want 1", len(fb.published))
+	}
+	if !bytes.Contains(fb.published[0], []byte(`"md_scroll_changed"`)) {
+		t.Fatalf("payload=%q", fb.published[0])
+	}
+	if !bytes.Contains(fb.published[0], []byte(`"by":"clientA"`)) {
+		t.Fatalf("missing by clientA: %q", fb.published[0])
+	}
+}
+
+func TestHandleAPI_MdScrollPut_Validation(t *testing.T) {
+	dir := t.TempDir()
+	ms, err := mdscroll.New(mdscroll.FilePersister{Path: filepath.Join(dir, "mdscroll.json")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ms.Close()
+	srv, _ := New(Config{DataDir: dir}, Deps{MdScroll: ms})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	cases := []struct {
+		body string
+		want int
+	}{
+		{`not-json`, 400},
+		{`{"tabId":""}`, 400},
+	}
+	for _, c := range cases {
+		req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/md-scroll", strings.NewReader(c.body))
+		resp, _ := http.DefaultClient.Do(req)
+		resp.Body.Close()
+		if resp.StatusCode != c.want {
+			t.Fatalf("body=%s status=%d want %d", c.body, resp.StatusCode, c.want)
+		}
 	}
 }

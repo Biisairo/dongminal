@@ -11,6 +11,7 @@ import (
 	"dongminal/internal/adapters"
 	"dongminal/internal/mcptool"
 	"dongminal/internal/mcptool/tools"
+	"dongminal/internal/mdscroll"
 	"dongminal/internal/runtime"
 	"dongminal/internal/server"
 	"dongminal/internal/workspace"
@@ -30,6 +31,7 @@ type builtDeps struct {
 	pm    *server.PaneManager
 	csm   *server.CodeServerManager
 	wsMgr *workspace.Manager
+	msMgr *mdscroll.Manager
 }
 
 func buildDeps(cfg server.Config) (builtDeps, error) {
@@ -41,6 +43,11 @@ func buildDeps(cfg server.Config) (builtDeps, error) {
 	}
 	pm.SetInvalidator(wsMgr.InvalidatePane)
 	pm.LoadAll()
+
+	msMgr, err := mdscroll.New(mdscroll.FilePersister{Path: dataPath(cfg.DataDir, "mdscroll.json")})
+	if err != nil {
+		return builtDeps{}, err
+	}
 
 	hub := server.NewCommandHub()
 	reg := mcptool.NewRegistry()
@@ -68,10 +75,12 @@ func buildDeps(cfg server.Config) (builtDeps, error) {
 			Work:     wsMgr,
 			Tools:    reg,
 			Commands: hub,
+			MdScroll: msMgr,
 		},
 		pm:    pm,
 		csm:   csm,
 		wsMgr: wsMgr,
+		msMgr: msMgr,
 	}, nil
 }
 
@@ -130,6 +139,7 @@ func main() {
 	log.Printf("shutting down")
 	bd.pm.SaveAll()
 	_ = bd.wsMgr.Close()
+	_ = bd.msMgr.Close()
 	bd.csm.StopAll()
 	if runErr != nil {
 		log.Fatalf("server fatal: %v", runErr)

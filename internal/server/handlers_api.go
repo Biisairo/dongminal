@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"dongminal/internal/mdscroll"
 	"dongminal/internal/workspace"
 )
 
@@ -185,6 +186,8 @@ var apiRoutes = []apiRoute{
 	{"", exactPath("/api/ping"), (*Server).apiPing},
 	{http.MethodGet, exactPath("/api/stats"), (*Server).apiStats},
 	{http.MethodGet, exactPath("/api/md-file"), (*Server).apiMdFile},
+	{http.MethodGet, exactPath("/api/md-scroll"), (*Server).apiMdScrollGet},
+	{http.MethodPut, exactPath("/api/md-scroll"), (*Server).apiMdScrollPut},
 }
 
 func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
@@ -483,4 +486,63 @@ func (s *Server) apiMdFile(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 	io.Copy(w, f)
+}
+
+func (s *Server) apiMdScrollGet(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.MdScroll == nil {
+		w.Write([]byte(`{"tabs":{}}`))
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]any{"tabs": s.MdScroll.Snapshot()})
+}
+
+type mdScrollPutReq struct {
+	TabID string  `json:"tabId"`
+	Top   float64 `json:"top"`
+	Ratio float64 `json:"ratio"`
+	By    string  `json:"by"`
+}
+
+func (s *Server) apiMdScrollPut(w http.ResponseWriter, r *http.Request) {
+	if s.MdScroll == nil {
+		http.Error(w, "md-scroll unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var req mdScrollPutReq
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	if req.TabID == "" {
+		http.Error(w, "tabId required", http.StatusBadRequest)
+		return
+	}
+	if math.IsNaN(req.Top) || math.IsInf(req.Top, 0) || math.IsNaN(req.Ratio) || math.IsInf(req.Ratio, 0) {
+		http.Error(w, "invalid number", http.StatusBadRequest)
+		return
+	}
+	ts := time.Now().UnixMilli()
+	entry := mdscroll.Entry{Top: req.Top, Ratio: req.Ratio, TS: ts}
+	s.MdScroll.Set(req.TabID, entry)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"ok": true, "ts": ts})
+	if s.Commands != nil {
+		payload, _ := json.Marshal(map[string]any{
+			"action": "md_scroll_changed",
+			"args": map[string]any{
+				"tabId": req.TabID,
+				"top":   req.Top,
+				"ratio": req.Ratio,
+				"ts":    ts,
+				"by":    req.By,
+			},
+		})
+		s.Commands.Broadcast(payload)
+	}
 }
