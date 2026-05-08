@@ -1061,7 +1061,14 @@ class Renderer {
   _rLayout(){
     const area=document.getElementById('area');
     const s=this.app._as();
-    for(const p of this.app.panes.values()){p.el.classList.remove('vis');area.appendChild(p.el)}
+    for(const p of this.app.panes.values()){
+      if(p.el.classList.contains('vis')){
+        const vp=p.el.querySelector('.xterm-viewport');
+        if(vp) p._scrollTop=vp.scrollTop;
+        if(p.term){try{p._viewportY=p.term.buffer.active.viewportY}catch{}}
+      }
+      p.el.classList.remove('vis');area.appendChild(p.el);
+    }
     for(const v of this.app.mdViewers.values()){
       if(v.el.classList.contains('vis')) v._scrollTop=v.el.scrollTop;
       v.el.classList.remove('vis');area.appendChild(v.el);
@@ -1089,7 +1096,50 @@ class Renderer {
     for(const[tid,v] of this.app.mdViewers){if(!allTabIds.has(tid)){v.destroy();this.app.mdViewers.delete(tid)}}
     requestAnimationFrame(()=>{
       for(const p of this.app.panes.values()){
-        if(p.el.classList.contains('vis')){if(!p._opened)p.open();p.doFit()}
+        if(p.el.classList.contains('vis')){
+          if(!p._opened)p.open();
+          p.doFit();
+          // Restore scrollback after DOM detach.
+          //
+          // xterm v5 keeps two states: internal `buffer.ydisp` (drives row
+          // rendering) and DOM `.xterm-viewport.scrollTop` (drives scrollbar
+          // and scroll events). Detach + display:none + reattach via
+          // appendChild fires scroll events which `_handleScroll` either
+          // ignores (offsetParent null) or applies (offsetParent non-null).
+          // The exact timing is browser-dependent, leaving us in any of:
+          //   (a) ydisp preserved, scrollTop reset → scrollbar at top, content correct
+          //   (b) ydisp reset, scrollTop preserved → scrollbar at original, content at top
+          //   (c) both reset → both at top  (the user-reported case)
+          //   (d) both preserved → no fix needed
+          // `term.scrollLines(delta)` early-returns when delta==0, so the
+          // case where ydisp matches our target is a no-op and leaves the
+          // DOM unsynced. We force a guaranteed resync by toggling ydisp
+          // through 0 (or away from target if target==0) before scrolling
+          // back, which always fires `_onScroll` → `syncScrollArea` →
+          // `_innerRefresh`. _innerRefresh then sets scrollTop = ydisp *
+          // rowHeight authoritatively. As a safety net we also write the
+          // captured pixel value directly.
+          if(p.term&&typeof p._viewportY==='number'){
+            try{
+              const buf=p.term.buffer.active;
+              const max=Math.max(0,buf.length-p.term.rows);
+              const target=Math.min(Math.max(0,p._viewportY),max);
+              if(target>0){
+                p.term.scrollToTop();
+                p.term.scrollToLine(target);
+              }else if(max>0){
+                p.term.scrollToBottom();
+                p.term.scrollToTop();
+              }else{
+                p.term.scrollToTop();
+              }
+            }catch{}
+          }
+          if(typeof p._scrollTop==='number'){
+            const vp=p.el.querySelector('.xterm-viewport');
+            if(vp){try{vp.scrollTop=p._scrollTop}catch{}}
+          }
+        }
       }
       if(this.app.focused){
         const rg=findRg(s.layout,this.app.focused);
