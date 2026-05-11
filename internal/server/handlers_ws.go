@@ -56,12 +56,18 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 
 	if paneID != "" {
 		if snap, _ := pane.stream.Snapshot(); len(snap) > 0 {
-			msg := make([]byte, 1+len(snap))
-			msg[0] = OpOutput
-			copy(msg[1:], snap)
-			if err := conn.writeMsg(websocket.BinaryMessage, msg); err != nil {
-				log.Printf("[pane %s] snapshot send error addr=%s: %v", pane.ID, r.RemoteAddr, err)
-				return
+			// FR-A1: strip private OSC 777 sequences so reconnect/reload
+			// replay never re-triggers OpenCodeServer/Download/Cwd side
+			// effects on the client.
+			snap = stripOSC777(snap)
+			if len(snap) > 0 {
+				msg := make([]byte, 1+len(snap))
+				msg[0] = OpOutput
+				copy(msg[1:], snap)
+				if err := conn.writeMsg(websocket.BinaryMessage, msg); err != nil {
+					log.Printf("[pane %s] snapshot send error addr=%s: %v", pane.ID, r.RemoteAddr, err)
+					return
+				}
 			}
 		}
 		if pane.restored {

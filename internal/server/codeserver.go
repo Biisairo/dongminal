@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -21,6 +23,28 @@ import (
 // shutdownGrace caps how long Stop waits for SIGTERM to be honored before
 // escalating to SIGKILL. It is a package var so tests can shorten it.
 var shutdownGrace = 2 * time.Second
+
+// watchdogStale is the LastPing age at which Watchdog kills an instance.
+// FR-D1: raised from 30s to 90s to tolerate background-tab setInterval
+// throttling (Chrome can throttle to ~60s for fully hidden tabs).
+var watchdogStale = 90 * time.Second
+
+// osc777Pattern matches dongminal's private OSC 777 sequences:
+//
+//	ESC ] 777 ; <cmd> ; <payload> BEL
+//
+// FR-A1: snapshot replay must not re-execute these on the client.
+var osc777Pattern = regexp.MustCompile(`\x1b\]777;[^\x07]*\x07`)
+
+// stripOSC777 removes every complete OSC 777 sequence from b without
+// altering other bytes (including regular CSI ANSI escapes). Incomplete
+// sequences (no terminating BEL) are left intact.
+func stripOSC777(b []byte) []byte {
+	if !bytes.Contains(b, []byte{0x1b, ']', '7', '7', '7', ';'}) {
+		return b
+	}
+	return osc777Pattern.ReplaceAll(b, nil)
+}
 
 type CodeServerInst struct {
 	ID        string
@@ -46,10 +70,6 @@ func NewCodeServerManager() *CodeServerManager {
 }
 
 func (m *CodeServerManager) Start(folder string) (*CodeServerInst, error) {
-	bin, err := exec.LookPath("code-server")
-	if err != nil {
-		return nil, fmt.Errorf("code-server가 설치되어 있지 않습니다: %w", err)
-	}
 	if folder == "" {
 		folder, _ = os.Getwd()
 	}
@@ -57,6 +77,26 @@ func (m *CodeServerManager) Start(folder string) (*CodeServerInst, error) {
 		return nil, fmt.Errorf("경로 없음: %s", folder)
 	} else if !info.IsDir() {
 		folder = filepath.Dir(folder)
+	}
+	if abs, err := filepath.Abs(folder); err == nil {
+		folder = abs
+	}
+
+	// FR-C1: reuse an existing instance bound to the same folder.
+	m.mu.Lock()
+	for _, inst := range m.insts {
+		if inst.Folder == folder {
+			inst.LastPing = time.Now()
+			m.mu.Unlock()
+			log.Printf("[cs %s] reuse folder=%s", inst.ID, folder)
+			return inst, nil
+		}
+	}
+	m.mu.Unlock()
+
+	bin, err := exec.LookPath("code-server")
+	if err != nil {
+		return nil, fmt.Errorf("code-server가 설치되어 있지 않습니다: %w", err)
 	}
 	m.mu.Lock()
 	m.seq++
@@ -238,7 +278,7 @@ func (m *CodeServerManager) Watchdog() {
 		m.mu.Lock()
 		stale := []string{}
 		for id, inst := range m.insts {
-			if now.Sub(inst.LastPing) > 30*time.Second {
+			if now.Sub(inst.LastPing) > watchdogStale {
 				stale = append(stale, id)
 			}
 		}
