@@ -90,4 +90,7 @@ dongminal/
 
 ## TODO
 
+- shell name by process
+- code server 재검토
 - browser 로 wrapping(tauri, electron 등)
+- mobile mode : Ctrl+C/D/Z 단발 버튼, 키 커스터마이즈, modifier sticky/lock 시각 강화 (RFC §8)

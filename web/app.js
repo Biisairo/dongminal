@@ -2194,6 +2194,12 @@ class App {
       {label:'PgUp',send:'[5~'},
       {label:'PgDn',send:'[6~'},
     ];
+    const FULL_NAMES={
+      'Esc':'Escape','Tab':'Tab','Ctrl':'Control (modifier)','Alt':'Alt (modifier)',
+      '↑':'Arrow Up','↓':'Arrow Down','←':'Arrow Left','→':'Arrow Right',
+      '|':'Pipe','~':'Tilde','/':'Slash','-':'Hyphen',
+      'Home':'Home','End':'End','PgUp':'Page Up','PgDn':'Page Down',
+    };
     this._modKbd={ctrl:false,alt:false};
     const refresh=()=>{
       bar.querySelectorAll('.mkb-btn[data-mod]').forEach(b=>{
@@ -2226,16 +2232,43 @@ class App {
       if(this._modKbd.alt===true) this._modKbd.alt=false;
       refresh();
     };
+    const showTip=(text, btn)=>{
+      let tip=document.getElementById('mkb-tip');
+      if(!tip){tip=document.createElement('div');tip.id='mkb-tip';document.body.appendChild(tip)}
+      tip.textContent=text;
+      const r=btn.getBoundingClientRect();
+      tip.style.left=(r.left+r.width/2)+'px';
+      tip.style.top=(r.top-8)+'px';
+    };
+    const hideTip=()=>{const t=document.getElementById('mkb-tip');if(t)t.remove()};
     for(const k of keys){
       const b=document.createElement('button');
       b.className='mkb-btn';b.textContent=k.label;b.type='button';
+      const full=FULL_NAMES[k.label]||k.label;
+      b.title=full;b.setAttribute('aria-label',full);
       if(k.mod){b.dataset.mod=k.mod}
       // prevent focus theft from xterm
       b.addEventListener('mousedown',e=>e.preventDefault());
-      b.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
       let lastTap=0;
+      let pressTimer=null;
+      let longPressFired=false;
+      b.addEventListener('touchstart',e=>{
+        e.preventDefault();
+        longPressFired=false;
+        pressTimer=setTimeout(()=>{longPressFired=true;showTip(full,b)},600);
+      },{passive:false});
+      const cancelPress=()=>{
+        if(pressTimer){clearTimeout(pressTimer);pressTimer=null}
+      };
+      b.addEventListener('touchmove',()=>{cancelPress();hideTip();longPressFired=false});
+      b.addEventListener('touchcancel',()=>{cancelPress();hideTip();longPressFired=false});
+      b.addEventListener('touchend',e=>{
+        cancelPress();
+        if(longPressFired){e.preventDefault();hideTip();return}
+      });
       b.addEventListener('click',e=>{
         e.preventDefault();
+        if(longPressFired){longPressFired=false;return}
         if(k.mod){
           const now=Date.now();
           const dbl=(now-lastTap)<350;
@@ -2253,15 +2286,26 @@ class App {
     // visualViewport tracking — keyboard up/down detection
     if(window.visualViewport){
       const vv=window.visualViewport;
+      const kbH_PX=()=>{
+        const v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--m-kb-h'));
+        return isFinite(v)?v:38;
+      };
       const apply=()=>{
-        if(!this.isMobile){document.body.classList.remove('keyboard-up');return}
+        if(!this.isMobile){
+          document.body.classList.remove('keyboard-up');
+          document.body.style.paddingBottom='';
+          bar.style.bottom='';
+          return;
+        }
         const kbH=Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
         const isUp=kbH > 80;
         document.body.classList.toggle('keyboard-up', isUp);
         if(isUp){
           bar.style.bottom = kbH + 'px';
+          document.body.style.paddingBottom = (kbH + kbH_PX()) + 'px';
         }else{
-          bar.style.bottom = '0px';
+          bar.style.bottom = '';
+          document.body.style.paddingBottom = '';
         }
         // Refit terminal
         for(const p of this.panes.values()){if(p.el.classList.contains('vis'))p.doFit()}

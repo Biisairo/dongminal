@@ -7,6 +7,7 @@
   --accent-border:#3d59a1;
   --accent-hover:rgba(122,162,247,.1);--accent-active:rgba(122,162,247,.12);
   --accent-subtle:rgba(122,162,247,.08);
+  --m-kb-h:38px;
 }
 
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:-apple-system,sans-serif;color:var(--text);font-size:13px}
@@ -389,9 +390,8 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 body.mobile .desktop-only{display:none !important}
 body.mobile .mtbtn.mobile-only{display:flex !important}
 body.mobile .m-pane-nav.mobile-only{display:inline-flex !important}
-/* keybar visibility is owned solely by keyboard-up; default hidden even on mobile */
-body.mobile #mobile-keybar{display:none}
-body.mobile.keyboard-up #mobile-keybar{display:flex}
+/* keybar is always visible in mobile mode (SRS: MOBILE_KEYBAR_ALWAYS_VISIBLE) — overrides .mobile-only !important */
+body.mobile #mobile-keybar.mobile-only{display:flex !important}
 
 /* ── Mobile topbar buttons ── */
 .mtbtn{
@@ -438,6 +438,8 @@ body.mobile .sh{display:none !important}
 
 /* mobile content takes full width (no sidebar push) */
 body.mobile #content{width:100%}
+/* reserve space at the bottom for the always-visible keybar + iOS safe-area; JS may override paddingBottom inline when the virtual keyboard is up */
+body.mobile{padding-bottom:calc(var(--m-kb-h) + env(safe-area-inset-bottom, 0px))}
 
 /* mobile topbar tighter spacing */
 body.mobile #topbar{padding:0 4px;gap:2px}
@@ -445,8 +447,8 @@ body.mobile #session-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;w
 
 /* mobile keybar (M4) */
 #mobile-keybar{
-  position:fixed;left:0;right:0;bottom:0;
-  height:38px;background:var(--sidebar-bg);border-top:1px solid var(--border);
+  position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom, 0px);
+  height:var(--m-kb-h);background:var(--sidebar-bg);border-top:1px solid var(--border);
   display:none;align-items:center;gap:4px;padding:4px 6px;
   overflow-x:auto;overflow-y:hidden;z-index:60;
   -webkit-overflow-scrolling:touch;
@@ -463,8 +465,16 @@ body.mobile #session-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;w
 .mkb-btn.sticky{border-color:var(--accent);color:var(--accent);background:var(--accent-subtle)}
 .mkb-btn.locked{border-color:var(--accent);background:var(--accent-active);color:var(--accent);font-weight:600}
 
-/* keybar sits above safe area when keyboard is up; JS sets bottom dynamically */
-body.mobile.keyboard-up #mobile-keybar{display:flex}
+/* long-press key tooltip popup */
+#mkb-tip{
+  position:fixed;transform:translate(-50%,-100%);
+  padding:6px 10px;background:var(--sidebar-bg);border:1px solid var(--accent-border);
+  border-radius:6px;color:var(--text-bright);font-size:12px;pointer-events:none;
+  z-index:70;white-space:nowrap;
+  box-shadow:0 2px 12px rgba(0,0,0,.5);
+}
+
+/* keybar sits above safe area when keyboard is up; JS sets bottom dynamically (visibility handled at L392) */
 
 /* on mobile, hide split-related drag indicators */
 body.mobile .rg-drop-indicator{display:none !important}
