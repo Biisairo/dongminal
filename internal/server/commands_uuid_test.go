@@ -88,7 +88,10 @@ func TestHandleCommandPost_CoordinatePassThrough(t *testing.T) {
 	defer ts.Close()
 
 	body := `{"action":"focus","args":{"location":"S4.P1.T1"}}`
-	resp, _ := http.Post(ts.URL+"/api/commands", "application/json", strings.NewReader(body))
+	resp, err := http.Post(ts.URL+"/api/commands", "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST: %v", err)
+	}
 	defer resp.Body.Close()
 
 	select {
@@ -169,8 +172,11 @@ func TestHandleCommandPost_FullStackUUID_ReflowSafety(t *testing.T) {
 	}
 
 	// 4단계: 이전 라벨 S2 로 호출 → 에러 (S2 가 더 이상 존재하지 않음).
-	resp, _ := http.Post(ts.URL+"/api/commands", "application/json",
+	resp, err := http.Post(ts.URL+"/api/commands", "application/json",
 		strings.NewReader(`{"action":"focus","args":{"location":"S2.P1.T1"}}`))
+	if err != nil {
+		t.Fatalf("POST: %v", err)
+	}
 	defer resp.Body.Close()
 	// label 은 CoordinateOf 의 non-UUID 분기로 pass-through 되어 broadcast 됨.
 	// 브라우저는 S2 좌표를 받아 무시하거나 노옵 (broadcast 자체는 성공).
