@@ -20,6 +20,13 @@ type PaneLabel struct {
 	SessionName string
 	TabName     string
 	IsActive    bool
+
+	// Entity identity (UUID_IDENTITY_SRS Phase 1, FR-UID-6/7). Empty when the
+	// upstream workspace.json predates the schema; consumers must tolerate that.
+	SessionUUID string
+	RegionUUID  string
+	TabUUID     string
+	ShortCode   string
 }
 
 type Liveness interface {
@@ -320,6 +327,10 @@ func buildIndex(blob []byte) (*index, error) {
 					SessionName: sess.Name,
 					TabName:     tab.Name,
 					IsActive:    isActive,
+					SessionUUID: sess.ID,
+					RegionUUID:  rg.ID,
+					TabUUID:     tab.ID,
+					ShortCode:   shortCodeOf(tab.ID),
 				})
 				ix.labels[tab.PaneID] = label
 				ix.labelToID[label] = tab.PaneID
@@ -330,6 +341,16 @@ func buildIndex(blob []byte) (*index, error) {
 		}
 	}
 	return ix, nil
+}
+
+// shortCodeOf returns the leading 8 hex chars of a canonical UUID, used as a
+// log-readability alias (NFR-UID-4). Falls back to the raw string when the
+// input is shorter than 8 chars or empty.
+func shortCodeOf(uuid string) string {
+	if len(uuid) >= 8 {
+		return uuid[:8]
+	}
+	return uuid
 }
 
 func collectRegions(n *wsLayout, out *[]*wsLayout) {

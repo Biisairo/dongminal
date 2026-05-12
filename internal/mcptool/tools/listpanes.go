@@ -63,8 +63,12 @@ func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcp
 			if e.IsActive {
 				marker = "▶ "
 			}
-			fmt.Fprintf(&sb, "%s%s  paneId=%s  shellPid=%d  size=%s  session=%q  tab=%q\n",
+			fmt.Fprintf(&sb, "%s%s  paneId=%s  shellPid=%d  size=%s  session=%q  tab=%q",
 				marker, e.Label, e.PaneID, shellPids[e.PaneID], d.PM.Size(e.PaneID), e.SessionName, e.TabName)
+			if e.TabUUID != "" {
+				fmt.Fprintf(&sb, "  uuid=%s  short=%s", e.TabUUID, e.ShortCode)
+			}
+			sb.WriteByte('\n')
 		}
 		if len(orphans) > 0 {
 			sb.WriteString("\n[workspace 미등록]\n")

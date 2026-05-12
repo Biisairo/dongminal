@@ -25,6 +25,13 @@ type WorkspaceEntry struct {
 	SessionName string
 	TabName     string
 	IsActive    bool
+
+	// Entity identity (UUID_IDENTITY_SRS Phase 1). Empty when upstream
+	// workspace.json predates the schema.
+	SessionUUID string
+	RegionUUID  string
+	TabUUID     string
+	ShortCode   string
 }
 
 type WorkspaceReader interface {

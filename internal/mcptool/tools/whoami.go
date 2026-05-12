@@ -39,8 +39,18 @@ func WhoAmIHandler(d WhoAmIDeps) func(context.Context, WhoAmIArgs) (mcptool.Resu
 		size := d.PM.Size(paneID)
 		for _, e := range d.WS.Entries() {
 			if e.PaneID == paneID {
-				return mcptool.Textf("label=%s  paneId=%s  shellPid=%d  size=%s  session=%q  tab=%q",
-					e.Label, paneID, shellPID, size, e.SessionName, e.TabName), nil
+				base := fmt.Sprintf("label=%s  paneId=%s  shellPid=%d  size=%s  session=%q  tab=%q",
+					e.Label, paneID, shellPID, size, e.SessionName, e.TabName)
+				if e.TabUUID != "" {
+					base += fmt.Sprintf("  uuid=%s  short=%s", e.TabUUID, e.ShortCode)
+					if e.SessionUUID != "" {
+						base += fmt.Sprintf("  session_uuid=%s", e.SessionUUID)
+					}
+					if e.RegionUUID != "" {
+						base += fmt.Sprintf("  region_uuid=%s", e.RegionUUID)
+					}
+				}
+				return mcptool.Textf("%s", base), nil
 			}
 		}
 		return mcptool.Textf("paneId=%s  shellPid=%d  size=%s  (workspace 미등록)", paneID, shellPID, size), nil

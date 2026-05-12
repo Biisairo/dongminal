@@ -22,6 +22,10 @@ func (a Workspace) Entries() []mcptool.WorkspaceEntry {
 			SessionName: e.SessionName,
 			TabName:     e.TabName,
 			IsActive:    e.IsActive,
+			SessionUUID: e.SessionUUID,
+			RegionUUID:  e.RegionUUID,
+			TabUUID:     e.TabUUID,
+			ShortCode:   e.ShortCode,
 		}
 	}
 	return out
