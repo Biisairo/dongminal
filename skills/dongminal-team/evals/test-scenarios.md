@@ -41,9 +41,10 @@
 ### 검증 포인트 — 동시 기동 + inline 프롬프트
 
 - [ ] 4개 `send_input` 호출이 **단일 어시스턴트 메시지** 에 담긴 병렬 tool call
+- [ ] 각 `send_input` 의 `id` 인자가 **uuid** (`list_panes` 의 라인 끝 `uuid=` 값) — 라벨 사용 시 즉시 NG
 - [ ] 각 호출의 `text` 가 `claude --model <opus|sonnet|...> "<role+process+protocol>"` 형태
 - [ ] 따옴표 이스케이프 정상 (`\"` 사용, 쉘 파싱 에러 없음)
-- [ ] 초기 프롬프트 안에 **팀원 라벨** (네 라벨, 동료 라벨 전부) 명시 → 팀원이 `who_am_i` 호출 안 해도 됨
+- [ ] 초기 프롬프트 안에 **팀원 uuid** (네 uuid, 동료 uuid 전부) 명시 → 팀원이 `who_am_i` 호출 안 해도 됨
 - [ ] 초기 프롬프트 안에 **`mcp__dongminal__send_agent_message` 풀 네임 명시** + "유사 이름 내장 tool (SendMessage 등) 쓰지 말라" 경고 포함
 
 ### 검증 포인트 — 2라운드 파이프라인
@@ -65,15 +66,23 @@
 ### 실측된 실패 패턴 (이 시나리오로 검증 가능)
 
 1. **툴 이름 오용**: 비평가 C 가 `mcp__dongminal__send_agent_message` 대신 Claude Code 내장 `SendMessage` 를 호출해 A 가 영원히 대기. 프롬프트에 풀 네임 명시 + 경고를 넣었는지 확인.
-2. **순차 기동 레이스**: 먼저 뜬 팀원이 아직 존재하지 않는 동료 라벨로 메시지 시도 → "unknown label". 단일 메시지 병렬 기동으로 해결됐는지 확인.
-3. **라벨 드리프트**: 수평 협업 중 팀원 해체 없이 positional 라벨이 바뀌는 일은 없지만, 디버깅 중 임의로 pane 을 닫으면 라벨이 재부여됨.
+2. **순차 기동 레이스**: 먼저 뜬 팀원이 아직 존재하지 않는 동료 uuid 로 메시지 시도 → "unknown uuid". 단일 메시지 병렬 기동으로 해결됐는지 확인.
+3. **라벨 드리프트**: 정리 단계에서 라벨로 `closeTab` 호출 시, 앞선 pane 이 닫혀 후속 라벨이 reflow → 엉뚱한 pane 닫힘. uuid 사용 시 면역.
+
+### 검증 포인트 — 식별자 안정성 (UUID)
+
+- [ ] 모든 `workspace_command(location=...)` 호출의 location 값이 **uuid** (라벨 시 NG)
+- [ ] 모든 `send_agent_message(to=..., from=...)` 의 to/from 이 **uuid**
+- [ ] 모든 `send_input(id=...)` / `read_pane_screen(id=...)` 의 id 가 **uuid**
+- [ ] 정리 중 한 pane 닫은 직후 `list_panes` 재호출 없이 보관된 uuid 로 다음 pane 정리 가능 (라벨 reflow 무관)
 
 ### 검증 포인트 — 정리
 
-- [ ] 모든 팀원 CC 에 `/exit` 전송
-- [ ] 쉘 복귀 확인 (`read_pane_screen`)
-- [ ] 각 팀원 pane 에 대해 `focus` → `closeTab` — 매 closeTab 전 `list_panes` 로 라벨 재확인
+- [ ] 모든 팀원 CC 에 `send_input(id=<팀원_uuid>, text="/exit", execute=true)` 전송
+- [ ] 쉘 복귀 확인 (`read_pane_screen(id=<팀원_uuid>)`)
+- [ ] 각 팀원 pane 에 대해 `workspace_command(closeTab, location=<팀원_uuid>)` — `list_panes` 재확인 불필요 (uuid 안정성)
 - [ ] 최종적으로 팀장 pane 만 남고 크기가 원복됨
+- [ ] `focus` 액션 0회 호출
 
 ---
 

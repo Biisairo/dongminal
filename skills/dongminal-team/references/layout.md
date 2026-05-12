@@ -27,4 +27,12 @@
 
 ## 포커스 안전
 
-모든 `workspace_command` 호출은 `location=<명시 라벨>` + `keepFocus=true` 조합으로 한다. 해체 단계의 `closeTab` 은 `location` 지정 시 서버가 포커스를 건드리지 않는다. `focus` 액션은 이 스킬에서 **어떤 경우에도 호출하지 않는다** — 복원 목적 포함. 사용자가 그 사이 다른 pane 으로 이동했을 수 있어 "원위치 복원" 이 오히려 엉뚱한 곳으로 포커스를 보낸다.
+모든 `workspace_command` 호출은 `location=<uuid>` + `keepFocus=true` 조합으로 한다. 해체 단계의 `closeTab` 은 `location` 지정 시 서버가 포커스를 건드리지 않는다. `focus` 액션은 이 스킬에서 **어떤 경우에도 호출하지 않는다** — 복원 목적 포함. 사용자가 그 사이 다른 pane 으로 이동했을 수 있어 "원위치 복원" 이 오히려 엉뚱한 곳으로 포커스를 보낸다.
+
+## 식별자 안정성 — UUID 사용
+
+`S?.P?.T?` 라벨은 workspace.json 배열 위치로부터 매번 재계산되는 positional 좌표다. 다른 세션·pane 이 닫히면 모든 후속 라벨이 한 칸씩 reflow 된다. 보관해둔 라벨이 다른 pane 을 가리키는 순간 정리·라우팅·계층 팀 모두 깨진다.
+
+해결: `who_am_i` / `list_panes` 의 라인 끝 `uuid=<36자>` 를 식별자로 보관·전달. 서버는 `workspace_command(location=<uuid>)` 와 `send_agent_message(to=<uuid>)` 를 모두 자동 수용 — broadcast 직전 (workspace_command) 또는 라우팅 전 (send_agent_message) 에 형식을 판별해 좌표/paneId 로 변환한다. 스킬 내부에서는 항상 uuid 만 보관.
+
+이로써 다른 세션이 닫혀도 보관한 팀원 uuid 는 같은 pane 을 가리키며, `closeTab` 직전 `list_panes` 재확인은 더는 정합성 보존을 위한 필수 단계가 아니다.

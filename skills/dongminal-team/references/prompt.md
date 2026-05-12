@@ -2,27 +2,29 @@
 
 ## 자동 생성 — `scripts/build_prompt.py`
 
-프롬프트 직접 작성 대신 빌더 사용:
+프롬프트 직접 작성 대신 빌더 사용. 식별자는 `who_am_i` / `list_panes` 출력의 `uuid=<36자>` 필드를 그대로 넣는다:
 
 ```bash
 python scripts/build_prompt.py \
   --model sonnet \
-  --my-label S4.P5.T1 \
-  --boss S4.P3.T1 \
+  --my-label 550e8400-e29b-41d4-a716-446655440005 \
+  --boss 550e8400-e29b-41d4-a716-446655440003 \
   --role "비평가 B — 형식/운율 중심" \
-  --teammate S4.P4.T1:작가 \
-  --teammate S4.P7.T1:수석비평가A \
+  --teammate 550e8400-e29b-41d4-a716-446655440004:작가 \
+  --teammate 550e8400-e29b-41d4-a716-446655440007:수석비평가A \
   --process "작가 초안 수신 → 독립 비평 → A 에게 송신" \
-  --reply-to S4.P7.T1
+  --reply-to 550e8400-e29b-41d4-a716-446655440007
 ```
 
 출력은 `claude --model X "..."` 형태의 단일 문자열 — `send_input(text=<출력>, execute=true)` 에 그대로 투입. 따옴표·`$`·백틱 이스케이프 자동 처리.
 
 빌더는 다음을 항상 포함시킨다:
-- 역할 + 팀 구성 (모든 팀원 라벨 + 역할)
+- 역할 + 팀 구성 (모든 팀원 uuid + 역할)
 - 프로세스 (선택)
 - 답장 규칙 (tool 풀 네임 + 유사 이름 금지 경고 + 포맷)
 - **`[대기]` 지시** — 첫 작업 지시는 포함하지 않음 (Kickoff 단계에서 `send_agent_message` 로 별도 전달)
+
+> 인자명은 역사적으로 `--my-label`/`--boss`/`--teammate <id>:<role>` 이지만 식별자 형식 검증이 없어 uuid 값을 그대로 통과시킨다. 서버측 Resolve 가 라우팅 시 형식 자동 판별 — uuid·paneId·라벨 모두 호환.
 
 ## 왜 `[대기]` 가 필요한가 — 데드락 방지
 
@@ -57,9 +59,13 @@ LLM 이 이름 혼동으로 엉뚱한 tool 을 호출하면 메시지가 dongmin
 
 ## `send_agent_message` 의 역할
 
-- **초기 세팅**: `claude --model X "..."` (1회, `send_input` 으로 전달)
-- **Kickoff + 후속 턴**: `send_agent_message` (N회, 필요한 만큼)
+- **초기 세팅**: `claude --model X "..."` (1회, `send_input(id=<팀원_uuid>)` 으로 전달)
+- **Kickoff + 후속 턴**: `send_agent_message(to=<uuid>, from=<BOSS_uuid>)` (N회, 필요한 만큼)
 
-엔벨로프 `[DONGMINAL-AGENT-MSG from=... to=... ts=...]...[/DONGMINAL-AGENT-MSG]` 는 수신 CC 의 입력창에 신뢰 가능한 사용자 턴으로 자동 제출된다. 폴링 불필요.
+엔벨로프 `[DONGMINAL-AGENT-MSG from=... to=... ts=...]...[/DONGMINAL-AGENT-MSG]` 는 수신 CC 의 입력창에 신뢰 가능한 사용자 턴으로 자동 제출된다. 폴링 불필요. 헤더의 `to=`/`from=` 표시는 서버가 사람 가독성용으로 라벨로 정규화하지만, 내부 라우팅 키는 uuid.
 
-드물게 여러 줄 메시지 submit 안 됨 → `send_input(id=<수신>, text="", execute=true)` 로 엔터 보강.
+드물게 여러 줄 메시지 submit 안 됨 → `send_input(id=<수신_uuid>, text="", execute=true)` 로 엔터 보강.
+
+## 식별자 — UUID 가 안전
+
+`who_am_i` / `list_panes` 출력 라인 끝의 `uuid=<36자>` `short=<8자>` 가 안정 식별자다. `S?.P?.T?` 라벨은 다른 세션·pane 닫힘 시 reflow 되어 다른 pane 을 가리킨다 → 보관해둔 라벨이 stale 되어 라우팅 깨짐. 모든 tool 인자 (`to`/`from`/`id`/`location`) 는 uuid·paneId·라벨 어느 형식이든 받지만, **이 스킬에서는 항상 uuid 만 보관·전달**.
