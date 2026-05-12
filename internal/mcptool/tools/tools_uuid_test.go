@@ -114,3 +114,32 @@ func TestWhoAmI_OmitsUUIDFieldsWhenAbsent(t *testing.T) {
 		t.Errorf("uuid/short leaked when TabUUID empty: %q", body)
 	}
 }
+
+// FR-UID-8 / TC-UID-5: send_agent_message 의 `to` 에 uuid 를 넣어도 라우팅
+// 정상. 엔벨로프의 to= 는 사람 가독성을 위해 label 로 표시되며 (행위 보존),
+// 송신 결과 paneId 는 uuid 가 가리키던 그 pane.
+func TestSendAgentMessage_AcceptsUUIDInTo(t *testing.T) {
+	tabUUID := "550e8400-e29b-41d4-a716-446655440003"
+	pr := newFakePaneReader()
+	pr.has["10"] = true
+	wr := &fakeWorkspaceReader{
+		resolve: map[string]string{tabUUID: "10"},
+		labels:  map[string]string{"10": "S2.P1.T1"},
+	}
+	_, err := dispatch(t, SendAgentMessageName, SendAgentMessageSpec,
+		SendAgentMessageHandler(SendAgentMessageDeps{PM: pr, WS: wr}),
+		`{"to":"`+tabUUID+`","from":"S1.P1.T1","message":"hi"}`)
+	if err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+	if len(pr.pastes) != 1 {
+		t.Fatalf("pastes=%v", pr.pastes)
+	}
+	envelope := pr.pastes[0]
+	if !strings.Contains(envelope, "to=S2.P1.T1") {
+		t.Errorf("envelope should display resolved label, got: %q", envelope)
+	}
+	if !strings.Contains(envelope, "hi") {
+		t.Errorf("missing message: %q", envelope)
+	}
+}

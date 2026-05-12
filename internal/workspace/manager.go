@@ -43,6 +43,10 @@ type index struct {
 	labels    map[string]string
 	labelToID map[string]string
 	tabIDs    map[string]struct{}
+	// uuidToID maps a tab's UUID (lower-case canonical form) to its paneId.
+	// Stable across label reflows: closing other sessions/regions does not
+	// shift the uuid->paneId binding (UUID_IDENTITY_SRS TC-UID-2).
+	uuidToID map[string]string
 }
 
 // snap is the coherent (raw, rev) pair published atomically by Save.
@@ -211,8 +215,19 @@ func (m *Manager) Resolve(id string) (string, error) {
 		}
 		return "", fmt.Errorf("paneId=%s 존재하지 않음", id)
 	}
-	norm := strings.ToUpper(id)
 	ix := m.idx.Load()
+	if isUUIDForm(id) {
+		if ix != nil {
+			if pid, ok := ix.uuidToID[strings.ToLower(id)]; ok {
+				if !m.live.IsLive(pid) {
+					return "", fmt.Errorf("uuid %s 은 paneId=%s 가리키지만 pane 이 존재하지 않음", id, pid)
+				}
+				return pid, nil
+			}
+		}
+		return "", fmt.Errorf("id 해석 실패: %s (list_panes 로 확인)", id)
+	}
+	norm := strings.ToUpper(id)
 	if ix != nil {
 		if pid, ok := ix.labelToID[norm]; ok {
 			if !m.live.IsLive(pid) {
@@ -222,6 +237,17 @@ func (m *Manager) Resolve(id string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("id 해석 실패: %s (list_panes 로 확인)", id)
+}
+
+// isUUIDForm checks the canonical 8-4-4-4-12 hex shape without validating that
+// every character is hex — Resolve will fail on lookup anyway, and a strict
+// hex check here would block legitimate non-UUID inputs that happen to share
+// the length (rare in practice but the looser check stays composable).
+func isUUIDForm(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	return s[8] == '-' && s[13] == '-' && s[18] == '-' && s[23] == '-'
 }
 
 func (m *Manager) Labels() map[string]string {
@@ -302,6 +328,7 @@ func emptyIndex() *index {
 		labels:    map[string]string{},
 		labelToID: map[string]string{},
 		tabIDs:    map[string]struct{}{},
+		uuidToID:  map[string]string{},
 	}
 }
 
@@ -336,6 +363,7 @@ func buildIndex(blob []byte) (*index, error) {
 				ix.labelToID[label] = tab.PaneID
 				if tab.ID != "" {
 					ix.tabIDs[tab.ID] = struct{}{}
+					ix.uuidToID[strings.ToLower(tab.ID)] = tab.PaneID
 				}
 			}
 		}

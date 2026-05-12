@@ -62,12 +62,12 @@ dongminal 의 session/region/tab/pane 식별 체계를 **위치 좌표 (position
 | FR-UID-2 | UUID 는 엔티티 destroy 시까지 불변이며, destroy 후 동일 UUID 는 재사용되지 않는다. 서버 재시작 후에도 보존된다. | 필수 |
 | FR-UID-3 | 기존 `wsTab.PaneID` (string) 는 alias 로 영구 유지된다 (NFR-UID-0). 출력 필드와 입력 수용 모두 변함 없음. 신규 코드는 tab UUID 를 primary 로 사용하지만 PaneID 기반 호출도 영구 호환. | 필수 |
 | FR-UID-4 | 라벨 `S{n}.P{n}.T{n}` 은 derived view 로 유지된다. workspace.json 에는 저장되지 않고 인덱스 빌드 시 계산된다. | 필수 |
-| FR-UID-5 | MCP tool 7개의 입출력 스키마는 다음과 같이 확장된다:<br>• 출력: 기존 필드 (label, paneId 등) **영구 유지** + `uuid`/`short_code` 신규 필드 **추가**.<br>• 입력: uuid·paneId·label 모두 수용 (영구). 동일 호출에 둘 이상 지정되면 우선순위 `uuid > paneId > label`. 충돌 시 (예: uuid 와 label 이 서로 다른 엔티티를 가리킴) uuid 우선 + 경고 로그 1회. | 필수 |
+| FR-UID-5 | MCP tool 7개의 입출력 스키마는 다음과 같이 확장된다:<br>• 출력: 기존 필드 (label, paneId 등) **영구 유지** + `uuid`/`short_code` 신규 필드 **추가**.<br>• 입력: **기존 필드 (`to`/`from`/`id`/`location` 등) 가 uuid 도 수용**한다. 신규 uuid 전용 필드 추가 없음 (단일 필드 polymorphism). 식별자 형식 (uuid/paneId/label) 은 값의 모양으로 자동 판별. | 필수 |
 | FR-UID-6 | `who_am_i()` 는 호출자 pane 의 `{ uuid, label, short_code, session_uuid, region_uuid, tab_uuid, paneId, size }` 를 반환한다. 기존 필드는 그대로, 신규 필드 추가. | 필수 |
 | FR-UID-7 | `list_panes()` 는 각 pane 에 대해 `{ uuid, label, short_code, session_uuid, region_uuid, tab_uuid, paneId, shell_pid, focused }` 를 반환한다. 기존 필드는 그대로, 신규 필드 추가. | 필수 |
-| FR-UID-8 | 엔벨로프 헤더는 신규 필드 `from_uuid`/`to_uuid` 가 **추가**된다. 기존 `from`/`to` (label) 필드는 **영구 유지**. 수신자의 신뢰 라우팅 검증은 우선순위 `uuid > label` 로 동작하되, label 만 있는 엔벨로프도 정상 처리. | 필수 |
+| FR-UID-8 | 엔벨로프 헤더의 기존 `from`/`to` 필드가 uuid 도 수용한다. **신규 uuid 전용 필드 추가 없음** (단일 필드 polymorphism). 값의 형식 (uuid/paneId/label) 은 모양으로 자동 판별 후 Resolve 거쳐 paneId 로 정규화. label/paneId 만 사용한 기존 엔벨로프도 변경 전과 동일하게 라우팅. | 필수 |
 | FR-UID-9 | 사용자 자연어 해석 경로 (예: "오른쪽 위 pane 닫아줘") 는 LLM 측에서 label/위치 표현으로 매칭 후 uuid 로 변환하는 패턴을 **권장**한다 (스킬 문서·프롬프트 기본값). 서버는 label 입력을 영구히 수용하므로 본 권장이 어겨져도 동작은 동일하다. | 필수 |
-| FR-UID-10 | dongminal-team 스킬의 `scripts/build_prompt.py` 와 `scripts/plan_layout.py` 는 신규 uuid 인자 (`--my-uuid`, `--boss-uuid`, `--teammate <uuid>:<role>`) 를 **추가**한다. 기존 label 인자 (`--my-label`, `--boss`, `--teammate <label>:<role>`) 는 영구 유지하며 두 형식 동시 사용 가능. uuid 가 제공되면 우선 사용, 미제공 시 label 로 fallback (NFR-UID-0). | 필수 |
+| FR-UID-10 | dongminal-team 스킬의 `scripts/build_prompt.py` 와 `scripts/plan_layout.py` 는 기존 인자 (`--my-label`, `--boss`, `--teammate <id>:<role>`) 가 uuid 값도 그대로 수용한다. 신규 uuid 전용 인자 추가 없음. 스크립트는 식별자 형식을 검사하지 않고 그대로 통과시키며, 서버 측 Resolve 가 형식을 판별한다. | 필수 |
 | FR-UID-11 | `/tmp/dongminal.log` 의 `[cmd]` 라인에 `uuid=<uuid>` 필드를 **추가**한다. 기존 라인 형식은 유지 (필드 추가는 라인 끝). 양방향 lookup 가능. | 필수 |
 | FR-UID-12 | 브라우저 SSE 메시지는 엔티티 참조 시 uuid 필드를 **추가**한다. 기존 메시지 필드는 유지. UI 내부 상태 키는 uuid 기준으로 전환하되, label 기반 외부 호출 (URL, deep link 등) 도 영구 동작. focus/drag/close 액션의 결과는 변경 전과 동일. | 필수 |
 
@@ -104,7 +104,7 @@ dongminal 의 session/region/tab/pane 식별 체계를 **위치 좌표 (position
 - **TC-UID-8** (스킬 회귀): 기존 시나리오 1 (4명 팀 비평 파이프라인) 이 uuid 기반으로 그대로 동작.
 - **TC-UID-9** (행위 보존 회귀): 변경 전 e2e 테스트 스위트 전체가 **테스트 코드 변경 없이** 통과. label 만 사용, paneId 만 사용, 양쪽 혼합 모든 경로 정상 결과 (NFR-UID-0).
 - **TC-UID-10** (엔벨로프 호환): 기존 `[DONGMINAL-AGENT-MSG from=<label> to=<label> ts=...]` 포맷 엔벨로프 (uuid 필드 없음) 가 변경 후에도 정상 라우팅. 양쪽 uuid/label 동시 존재 + 일치 시 동일 결과, 불일치 시 uuid 우선 + 경고 로그.
-- **TC-UID-11** (충돌 우선순위): 동일 호출에 uuid 와 label 이 서로 다른 엔티티를 가리킬 때 uuid 가 사용되고 경고 로그 1회 기록.
+- **TC-UID-11** (단일 필드 polymorphism): 동일 입력 필드 (`to`/`from`/`id`/`location`) 에 label, paneId, full uuid 를 각각 넣어도 모두 정상 resolve 되어 동일 paneId 반환.
 
 ### 4.2 완료 조건 (DoD)
 - [ ] **행위 보존 (NFR-UID-0) — 기존 e2e 테스트 스위트가 테스트 코드 무수정 통과 (TC-UID-9).**
@@ -140,7 +140,7 @@ dongminal 의 session/region/tab/pane 식별 체계를 **위치 좌표 (position
 |-------|------|-----------|
 | **Phase 0** | UUID v7 생성기 + 단위 테스트 | NFR-UID-1, TC-UID-6 통과 |
 | **Phase 1 (data layer)** | workspace.json 스키마 확장 + 자동 마이그레이션 + MCP 출력에 uuid/short_code 필드 추가 (label/paneId 출력·입력 변동 없음) | TC-UID-1, TC-UID-4, TC-UID-9 (label-only 기존 호출 무회귀) 통과 |
-| **Phase 2 (protocol & UI)** | 엔벨로프 uuid 필드 추가, 브라우저 SSE/UI uuid 활용. 기존 label 기반 엔벨로프·UI 동작 보존 | TC-UID-5, TC-UID-10 통과 |
+| **Phase 2 (resolver & routing)** | `workspace.Manager.Resolve` 가 uuid 입력도 paneId 로 정규화. 모든 tool (`send_agent_message`, `workspace_command`, `send_input`, `read_pane_screen`, `read_pane_output`) 이 기존 `to`/`from`/`id`/`location` 필드에 uuid 를 받아도 정상 동작 | TC-UID-5, TC-UID-10, TC-UID-11 통과 |
 | **Phase 3 (skill & docs)** | 스킬·문서가 uuid 사용을 기본 권장으로 갱신. 단, label 기반 예제·호출 동작 보존 | TC-UID-8 통과. 스킬 README 갱신 완료 |
 
 **Phase 3 완료 시점에도 label/paneId 입력·출력은 영구 유지** (NFR-UID-0). "enforce" Phase 없음.
