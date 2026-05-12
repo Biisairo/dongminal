@@ -13,7 +13,7 @@ const WorkspaceCommandName = "workspace_command"
 var WorkspaceCommandSpec = map[string]any{
 	"name": WorkspaceCommandName,
 	"description": "dongminal 워크스페이스를 원격 제어한다. 실행 중인 브라우저(들)에 SSE 로 명령을 브로드캐스트하고, 브라우저가 기존 UI 로직(키보드 단축키와 동일 경로)을 그대로 실행한다. delivered=0 이면 구독 중인 브라우저 없음 — 사용자가 브라우저를 새로고침해야 함.\n\n" +
-		"【용어】 세션(Session)은 사이드바의 독립 작업공간. 영역(Region/Pane)은 세션 내부의 분할된 구획으로 자체 탭 바를 가진다. 탭(Tab)은 영역 안의 PTY 하나. 라벨은 S<세션>.P<영역>.T<탭> (1-base, 현재 레이아웃 기준 positional) — list_panes 로 확인 가능.\n\n" +
+		"【용어】 세션(Session)은 사이드바의 독립 작업공간. 영역(Region/Pane)은 세션 내부의 분할된 구획으로 자체 탭 바를 가진다. 탭(Tab)은 영역 안의 PTY 하나. 라벨은 S<세션>.P<영역>.T<탭> (1-base, 현재 레이아웃 기준 positional) — list_panes 로 확인 가능. tab UUID(36자 hex-dash) 는 레이아웃 변경에 무관한 안정 식별자로, list_panes 의 라인 끝 `uuid=` 필드에 노출되며 location 인자에 그대로 사용 가능 (서버가 broadcast 직전 자동으로 좌표로 변환).\n\n" +
 		"【action — 기본은 '현재 포커스한 영역/세션' 기준. location 인자로 포커스 외 위치를 직접 대상 지정 가능 (focus → action 2콜 대신 1콜로 해결).】\n" +
 		"  • newSession   — 새 세션을 만들고 활성화. 새 영역/탭/PTY 자동 생성.\n" +
 		"  • newTab       — 포커스(또는 location) 영역에 새 탭(+PTY) 추가하고 그 탭으로 전환. cwd 는 해당 탭의 cwd 상속.\n" +
@@ -27,15 +27,15 @@ var WorkspaceCommandSpec = map[string]any{
 		"  • tabPrev      — 현재 영역 안에서 이전 탭 (순환). Ctrl+Shift+Tab 과 동일.\n" +
 		"  • paneUp/Down/Left/Right — 분할 레이아웃에서 인접 영역으로 포커스 이동. 해당 방향에 영역이 없으면 무시됨. Ctrl+Shift+방향키와 동일.\n" +
 		"  • openMdTab   — 포커스(또는 location) 영역에 Markdown 뷰어 탭을 추가. name과 filePath 인자 필수.\n" +
-		"  • focus        — 임의 좌표로 포커스 이동. location **필수**. 형식 \"4.1.1\" 또는 \"S4.P1.T1\" (session.region.tab, 1-base, 대소문자 무시). 뒤에서부터 생략 가능.\n\n" +
+		"  • focus        — 임의 위치로 포커스 이동. location **필수**. 형식: \"4.1.1\" / \"S4.P1.T1\" (좌표, 1-base, 대소문자 무시) 또는 tab UUID(36자). 뒤에서부터 생략 가능.\n\n" +
 		"【인자】\n" +
 		"  • location  (모든 action 공용, 선택) — 대상 위치. 지정하면 action 실행 전에 해당 위치로 먼저 포커스 이동 후 실행. focus 액션에서는 필수.\n" +
 		"  • count     (splitH/splitV 전용, 선택, 기본 2) — N 개 균등 분할. N >= 2.\n" +
 		"  • keepFocus (splitH/splitV 전용, 선택, 기본 false) — true 면 분할 후 포커스를 원래 위치에 유지.\n\n" +
 		"【사용 패턴】\n" +
 		"  - 새 작업공간 준비: newSession → splitV(count=N)\n" +
-		"  - 특정 위치 한 번에 N 분할: workspace_command(splitH, location=\"2.1\", count=4)\n" +
-		"  - 정리(포커스 유지하며 원격 탭 닫기): workspace_command(closeTab, location=\"S3.P2.T1\") — 매 호출 전 list_panes 로 라벨 재확인\n" +
+		"  - 특정 위치 한 번에 N 분할: workspace_command(splitH, location=\"2.1\", count=4) 또는 location=<uuid>\n" +
+		"  - 정리(포커스 유지하며 원격 탭 닫기): workspace_command(closeTab, location=<uuid>) — UUID 사용 시 라벨 reflow 무관, list_panes 재확인 불필요\n" +
 		"  - 팀 영역 미리 만들고 내 포커스 유지: workspace_command(splitV, count=3, keepFocus=true)",
 	"inputSchema": map[string]any{
 		"type": "object",
@@ -53,7 +53,7 @@ var WorkspaceCommandSpec = map[string]any{
 			},
 			"location": map[string]any{
 				"type":        "string",
-				"description": "대상 위치. 모든 action 에서 선택 사항 — 지정하면 action 실행 전에 해당 위치로 먼저 포커스 이동. focus 액션에서는 필수. 예: \"4.1.1\", \"S4.P1.T1\", \"2\", \"2.1\"",
+				"description": "대상 위치. 모든 action 에서 선택 사항 — 지정하면 action 실행 전에 해당 위치로 먼저 포커스 이동. focus 액션에서는 필수. 형식: 좌표 \"4.1.1\" / \"S4.P1.T1\" / \"2\" / \"2.1\" 또는 **tab UUID (36자 hex-dash)**. UUID 가 권장 (list_panes/who_am_i 의 `uuid=` 필드) — 다른 세션 닫힘 시 라벨이 reflow 되어도 같은 pane 을 가리킨다. 서버가 broadcast 직전 uuid→좌표로 자동 변환.",
 			},
 			"count": map[string]any{
 				"type":        "integer",
@@ -100,7 +100,7 @@ func WorkspaceCommandHandler(d WorkspaceCommandDeps) func(context.Context, Works
 			return nil, fmt.Errorf("unknown action: %s", a.Action)
 		}
 		if a.Action == "focus" && a.Location == "" {
-			return nil, fmt.Errorf("focus 는 location 인자가 필요 (예: \"4.1.1\")")
+			return nil, fmt.Errorf("focus 는 location 인자가 필요 (좌표 \"4.1.1\"/\"S4.P1.T1\" 또는 tab UUID)")
 		}
 		if a.Action == "openMdTab" && a.FilePath == "" {
 			return nil, fmt.Errorf("openMdTab 은 filePath 인자가 필수")

@@ -11,7 +11,7 @@ const WhoAmIName = "who_am_i"
 
 var WhoAmISpec = map[string]any{
 	"name":        WhoAmIName,
-	"description": "현재 CC 가 실행 중인 pane 의 라벨(S?.P?.T?), shellPid, 터미널 크기(cols×rows), 세션/탭 이름을 실시간으로 반환한다. SSE 연결 정보를 서버가 자동으로 추적하므로 파라미터 없이 호출하면 된다. workspace.json 기반으로 최신 라벨을 반환하므로 레이아웃이 바뀌어도 항상 정확하다. send_agent_message 의 from 필드를 채우기 전에 반드시 호출할 것.",
+	"description": "현재 CC 가 실행 중인 pane 의 식별 정보를 반환: label(S?.P?.T?), paneId, shellPid, 터미널 크기(cols×rows), 세션/탭 이름, **uuid(36자)·short_code(8자)·session_uuid·region_uuid**. SSE 연결 정보를 서버가 자동 추적하므로 파라미터 없이 호출. send_agent_message 의 from 등 다른 tool 에 식별자를 전달할 때는 **출력의 uuid 값을 사용**할 것 — 라벨은 다른 세션 닫힘 시 reflow 되어 다른 pane 을 가리킨다. workspace.json 기반으로 최신 정보를 반환하므로 레이아웃이 바뀌어도 항상 정확.",
 	"inputSchema": map[string]any{
 		"type":       "object",
 		"properties": map[string]any{},

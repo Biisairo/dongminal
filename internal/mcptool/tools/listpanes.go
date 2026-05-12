@@ -12,7 +12,7 @@ const ListPanesName = "list_panes"
 
 var ListPanesSpec = map[string]any{
 	"name":        ListPanesName,
-	"description": "현재 열린 모든 pane 목록과 라벨(S1.P2.T3) 반환. 각 pane 의 shellPid 포함. ▶ 표시는 사용자가 현재 포커스한 pane. 같은 워크스페이스 내 다른 Claude Code 인스턴스를 식별하고 send_agent_message 로 통신할 때 사용.",
+	"description": "현재 열린 모든 pane 목록을 반환. 각 행 끝에 `uuid=<36자>  short=<8자>` 가 부착된다 — 이게 안정 식별자다. 라벨(S1.P2.T3) 은 사람 가독성용 positional 좌표로 다른 세션/pane 닫힘 시 reflow 된다. paneId 와 shellPid 도 함께. ▶ 표시는 사용자가 현재 포커스한 pane. 같은 워크스페이스 내 다른 Claude Code 인스턴스를 식별하고 send_agent_message 로 통신할 때는 **uuid 를 사용**할 것.",
 	"inputSchema": map[string]any{
 		"type":       "object",
 		"properties": map[string]any{},

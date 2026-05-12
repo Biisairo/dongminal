@@ -137,6 +137,53 @@ func TestRunDmctlUnknownCommand(t *testing.T) {
 	}
 }
 
+// UUID_IDENTITY_SRS: dmctl 이 uuid 를 location 인자로 받아 그대로 서버로
+// POST 한다는 회귀. (서버 측의 좌표 변환은 commands_uuid_test 에서 검증)
+func TestRunDmctlFocusAcceptsUUID(t *testing.T) {
+	uuid := "550e8400-e29b-41d4-a716-446655440003"
+	var got map[string]any
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &got)
+		w.Write([]byte(`{"ok":true}`))
+	})
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"focus", uuid}, &stdout, &stderr)
+	if rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+	if got["action"] != "focus" {
+		t.Errorf("action=%v", got["action"])
+	}
+	args := got["args"].(map[string]any)
+	if args["location"] != uuid {
+		t.Errorf("location=%v want %q (dmctl should pass uuid through)", args["location"], uuid)
+	}
+}
+
+func TestRunDmctlAtFlagAcceptsUUID(t *testing.T) {
+	uuid := "550e8400-e29b-41d4-a716-446655440003"
+	var got map[string]any
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &got)
+		w.Write([]byte(`{"ok":true}`))
+	})
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"close-tab", "--at", uuid}, &stdout, &stderr)
+	if rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+	args := got["args"].(map[string]any)
+	if args["location"] != uuid {
+		t.Errorf("location=%v want %q (--at should accept uuid)", args["location"], uuid)
+	}
+}
+
 func TestRunDmctlHelp(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	rc := runDmctl([]string{"-h"}, &stdout, &stderr)
