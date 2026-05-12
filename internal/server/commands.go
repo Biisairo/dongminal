@@ -86,33 +86,34 @@ func (h *CommandHub) AllowedAction(a string) bool { return allowedCmdActions[a] 
 // UUID, replacing it with the canonical "S{n}.P{n}.T{n}" coordinate that the
 // browser parses. Non-UUID values (coordinate / paneId / label / empty) and
 // missing location field pass through with no rewrite, preserving every
-// existing dmctl and MCP call (NFR-UID-0).
-func translateLocationUUID(rawArgs *json.RawMessage, ws WorkspaceStore) error {
+// existing dmctl and MCP call (NFR-UID-0). Returns (origLoc, finalLoc) so the
+// caller can log both forms when the input was a UUID.
+func translateLocationUUID(rawArgs *json.RawMessage, ws WorkspaceStore) (orig, final string, err error) {
 	if rawArgs == nil || len(*rawArgs) == 0 || ws == nil {
-		return nil
+		return "", "", nil
 	}
 	var args map[string]any
-	if err := json.Unmarshal(*rawArgs, &args); err != nil {
-		return nil // not an object — leave untouched
+	if uerr := json.Unmarshal(*rawArgs, &args); uerr != nil {
+		return "", "", nil // not an object — leave untouched
 	}
 	loc, ok := args["location"].(string)
 	if !ok || loc == "" {
-		return nil
+		return "", "", nil
 	}
-	coord, err := ws.CoordinateOf(loc)
-	if err != nil {
-		return err
+	coord, cerr := ws.CoordinateOf(loc)
+	if cerr != nil {
+		return loc, "", cerr
 	}
 	if coord == loc {
-		return nil
+		return loc, loc, nil
 	}
 	args["location"] = coord
-	patched, err := json.Marshal(args)
-	if err != nil {
-		return err
+	patched, merr := json.Marshal(args)
+	if merr != nil {
+		return loc, coord, merr
 	}
 	*rawArgs = patched
-	return nil
+	return loc, coord, nil
 }
 
 func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
@@ -173,13 +174,22 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unknown action: "+req.Action, http.StatusBadRequest)
 		return
 	}
-	if err := translateLocationUUID(&req.Args, s.Work); err != nil {
+	origLoc, finalLoc, err := translateLocationUUID(&req.Args, s.Work)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	payload, _ := json.Marshal(req)
 	n := s.Commands.Broadcast(payload)
-	log.Printf("[cmd] action=%s delivered=%d", req.Action, n)
+	locField := ""
+	switch {
+	case finalLoc == "":
+	case origLoc != finalLoc:
+		locField = fmt.Sprintf(" location=%s uuid=%s", finalLoc, origLoc)
+	default:
+		locField = " location=" + finalLoc
+	}
+	log.Printf("[cmd] action=%s%s delivered=%d", req.Action, locField, n)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"ok":        true,

@@ -53,6 +53,15 @@ func SendAgentMessageHandler(d SendAgentMessageDeps) func(context.Context, SendA
 		if from == "" {
 			from = "unknown"
 		}
+		// Envelope 표시 정규화: from/to 가 uuid 면 사람 가독성을 위해 label 로
+		// 변환해 envelope 에 박는다. 라우팅은 이미 Resolve(a.To) 로 끝난 상태라
+		// 영향 없음 (NFR-UID-0).
+		fromLabel := from
+		if fromPid, rerr := d.WS.Resolve(from); rerr == nil {
+			if l, ok := d.WS.Labels()[fromPid]; ok {
+				fromLabel = l
+			}
+		}
 		toLabel := a.To
 		if l, ok := d.WS.Labels()[pid]; ok {
 			toLabel = l
@@ -60,15 +69,16 @@ func SendAgentMessageHandler(d SendAgentMessageDeps) func(context.Context, SendA
 		ts := time.Now().Format("15:04:05")
 		envelope := fmt.Sprintf(
 			"[DONGMINAL-AGENT-MSG from=%s to=%s ts=%s]\n%s\n[/DONGMINAL-AGENT-MSG]",
-			from, toLabel, ts, a.Message,
+			fromLabel, toLabel, ts, a.Message,
 		)
 		if err := d.PM.SendPaste(pid, []byte(envelope), true); err != nil {
 			return nil, err
 		}
-		log.Printf("[mcp] send_agent_message from=%s to=%s(pane=%s) msgLen=%d", from, toLabel, pid, len(a.Message))
+		log.Printf("[mcp] send_agent_message from=%s(input=%s) to=%s(input=%s pane=%s) msgLen=%d",
+			fromLabel, from, toLabel, a.To, pid, len(a.Message))
 		return mcptool.TextResult(fmt.Sprintf(
 			"에이전트 메시지 전송 완료: from=%s → to=%s (paneId=%s), 본문 %d 자. 수신측이 엔벨로프로 인식 후 응답할 것.",
-			from, toLabel, pid, len(a.Message),
+			fromLabel, toLabel, pid, len(a.Message),
 		)), nil
 	}
 }

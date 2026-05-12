@@ -138,6 +138,60 @@ func TestWorkspaceCommand_TranslatesUUIDLocation(t *testing.T) {
 	}
 }
 
+// FR-UID-8: send_agent_message 의 from 인자가 uuid 면 envelope 헤더의
+// from= 는 사람 가독성을 위해 label 로 정규화된다. 라우팅 영향 없음
+// (라우팅은 to 만 사용; from 은 메타데이터).
+func TestSendAgentMessage_NormalizesUUIDFrom(t *testing.T) {
+	toUUID := "550e8400-e29b-41d4-a716-446655440003"
+	fromUUID := "550e8400-e29b-41d4-a716-446655440099"
+	pr := newFakePaneReader()
+	pr.has["10"] = true
+	wr := &fakeWorkspaceReader{
+		resolve: map[string]string{toUUID: "10", fromUUID: "99"},
+		labels:  map[string]string{"10": "S2.P1.T1", "99": "S1.P1.T1"},
+	}
+	_, err := dispatch(t, SendAgentMessageName, SendAgentMessageSpec,
+		SendAgentMessageHandler(SendAgentMessageDeps{PM: pr, WS: wr}),
+		`{"to":"`+toUUID+`","from":"`+fromUUID+`","message":"hi"}`)
+	if err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+	if len(pr.pastes) != 1 {
+		t.Fatalf("pastes=%v", pr.pastes)
+	}
+	envelope := pr.pastes[0]
+	if !strings.Contains(envelope, "from=S1.P1.T1") {
+		t.Errorf("envelope from should be normalized to label, got: %q", envelope)
+	}
+	if !strings.Contains(envelope, "to=S2.P1.T1") {
+		t.Errorf("envelope to should be normalized to label, got: %q", envelope)
+	}
+	if strings.Contains(envelope, fromUUID) || strings.Contains(envelope, toUUID) {
+		t.Errorf("uuid should not leak into envelope (human-readable header): %q", envelope)
+	}
+}
+
+// NFR-UID-0: from 이 label 형태로 들어오면 그대로 envelope 에 표시.
+// 행위 보존 — 기존 라벨 기반 envelope 와 byte-wise 동일 동작.
+func TestSendAgentMessage_LabelFromPassThrough(t *testing.T) {
+	pr := newFakePaneReader()
+	pr.has["10"] = true
+	wr := &fakeWorkspaceReader{
+		resolve: map[string]string{"S2.P1.T1": "10", "S1.P1.T1": "99"},
+		labels:  map[string]string{"10": "S2.P1.T1", "99": "S1.P1.T1"},
+	}
+	_, err := dispatch(t, SendAgentMessageName, SendAgentMessageSpec,
+		SendAgentMessageHandler(SendAgentMessageDeps{PM: pr, WS: wr}),
+		`{"to":"S2.P1.T1","from":"S1.P1.T1","message":"hi"}`)
+	if err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+	envelope := pr.pastes[0]
+	if !strings.Contains(envelope, "from=S1.P1.T1") {
+		t.Errorf("label from should pass through verbatim, got: %q", envelope)
+	}
+}
+
 // FR-UID-8 / TC-UID-5: send_agent_message 의 `to` 에 uuid 를 넣어도 라우팅
 // 정상. 엔벨로프의 to= 는 사람 가독성을 위해 label 로 표시되며 (행위 보존),
 // 송신 결과 paneId 는 uuid 가 가리키던 그 pane.

@@ -47,7 +47,7 @@ func SendInputHandler(d SendInputDeps) func(context.Context, SendInputArgs) (mcp
 		if err := d.PM.SendPaste(pid, []byte(a.Text), a.Execute); err != nil {
 			return nil, err
 		}
-		log.Printf("[mcp] send_input pane=%s execute=%v textLen=%d", pid, a.Execute, len(a.Text))
+		log.Printf("[mcp] send_input pane=%s id=%s execute=%v textLen=%d", pid, a.ID, a.Execute, len(a.Text))
 		mode := "타이핑만 (paste + 엔터 대기)"
 		if a.Execute {
 			mode = "paste + 자동 엔터"

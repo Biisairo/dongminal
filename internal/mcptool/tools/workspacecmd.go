@@ -134,16 +134,22 @@ func WorkspaceCommandHandler(d WorkspaceCommandDeps) func(context.Context, Works
 			Args   argsT  `json:"args"`
 		}{a.Action, argsT{Location: loc, Count: a.Count, KeepFocus: a.KeepFocus, Name: a.Name, FilePath: a.FilePath}})
 		n := d.Broadcaster.Broadcast(payload)
+		// 결과 메시지의 location 은 변환 후 좌표 (loc) 우선. 입력이 uuid 였으면
+		// 원본도 괄호로 부기해 사용자가 추적 가능하게.
+		locDisplay := loc
+		if a.Location != "" && a.Location != loc {
+			locDisplay = fmt.Sprintf("%s (uuid=%s)", loc, a.Location)
+		}
 		msg := fmt.Sprintf("action=%s delivered=%d", a.Action, n)
 		switch {
 		case a.Action == "focus":
-			msg = fmt.Sprintf("action=focus location=%s delivered=%d", a.Location, n)
+			msg = fmt.Sprintf("action=focus location=%s delivered=%d", locDisplay, n)
 		case a.Action == "openMdTab":
 			msg = fmt.Sprintf("action=openMdTab filePath=%s delivered=%d", a.FilePath, n)
 		case a.Action == "splitH" || a.Action == "splitV":
 			extras := ""
 			if a.Location != "" {
-				extras += " location=" + a.Location
+				extras += " location=" + locDisplay
 			}
 			if a.Count != 0 {
 				extras += fmt.Sprintf(" count=%d", a.Count)
