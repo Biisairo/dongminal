@@ -39,6 +39,7 @@ type fakeWorkspaceReader struct {
 	entries []mcptool.WorkspaceEntry
 	labels  map[string]string
 	resolve map[string]string
+	coords  map[string]string
 }
 
 func (f *fakeWorkspaceReader) Resolve(id string) (string, error) {
@@ -49,6 +50,12 @@ func (f *fakeWorkspaceReader) Resolve(id string) (string, error) {
 }
 func (f *fakeWorkspaceReader) Labels() map[string]string         { return f.labels }
 func (f *fakeWorkspaceReader) Entries() []mcptool.WorkspaceEntry { return f.entries }
+func (f *fakeWorkspaceReader) CoordinateOf(id string) (string, error) {
+	if v, ok := f.coords[id]; ok {
+		return v, nil
+	}
+	return id, nil
+}
 
 // dispatch is a small helper that mirrors the production wiring: register the
 // handler under a fresh registry and dispatch a JSON payload through it. This

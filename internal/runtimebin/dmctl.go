@@ -14,7 +14,7 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl new-tab
   dmctl split-h [N]      # 가로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
   dmctl split-v [N]      # 세로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
-  dmctl focus 4.1.1      # session.region.tab (1-base, "S4.P1.T1" 도 허용)
+  dmctl focus <위치>     # 위치 = "4.1.1" / "S4.P1.T1" 좌표, 또는 tab UUID
   dmctl close-tab
   dmctl close-session
   dmctl session-next / session-prev
@@ -22,9 +22,15 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl pane-up / pane-down / pane-left / pane-right
   dmctl send <action> [json-args]   # raw 전송
 
+위치 식별자:
+  - "4.1.1" / "S4.P1.T1"     현재 레이아웃의 positional 좌표 (1-base, reflow 가능)
+  - tab UUID (36자)          레이아웃 변경 무관한 안정 식별자. list_panes 의 uuid 필드.
+  UUID 입력은 서버가 broadcast 직전에 좌표로 번역하여 브라우저에 전달한다.
+
 공통 플래그:
-  --at <loc>, -l <loc>   특정 위치를 대상으로 실행 (기본: 현재 포커스).
-  --no-focus, -n         명령 실행 전후로 사용자 포커스를 이동시키지 않는다.
+  --at <위치>, -l <위치>  특정 위치를 대상으로 실행 (기본: 현재 포커스).
+                          좌표/UUID 모두 가능.
+  --no-focus, -n          명령 실행 전후로 사용자 포커스를 이동시키지 않는다.
 
 환경변수:
   DONGMINAL_PORT — 기본 58146

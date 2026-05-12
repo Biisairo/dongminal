@@ -12,6 +12,8 @@ func (a Workspace) Resolve(id string) (string, error) { return a.WS.Resolve(id) 
 
 func (a Workspace) Labels() map[string]string { return a.WS.Labels() }
 
+func (a Workspace) CoordinateOf(id string) (string, error) { return a.WS.CoordinateOf(id) }
+
 func (a Workspace) Entries() []mcptool.WorkspaceEntry {
 	src := a.WS.Entries()
 	out := make([]mcptool.WorkspaceEntry, len(src))

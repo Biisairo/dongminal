@@ -200,8 +200,9 @@ func (f *fakeWS) Resolve(id string) (string, error) {
 	}
 	return "", errors.New("unknown id: " + id)
 }
-func (f *fakeWS) Labels() map[string]string            { return f.labels }
-func (f *fakeWS) Entries() []mcptool.WorkspaceEntry    { return f.entries }
+func (f *fakeWS) Labels() map[string]string                 { return f.labels }
+func (f *fakeWS) Entries() []mcptool.WorkspaceEntry         { return f.entries }
+func (f *fakeWS) CoordinateOf(id string) (string, error)    { return id, nil }
 
 // ── per-tool tests ───────────────────────────────────
 

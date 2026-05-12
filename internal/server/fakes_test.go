@@ -116,11 +116,13 @@ func (f *fakeCodeServerHost) Stop(id string) {
 // ── fakeWorkspaceStore ──────────────────────────────
 
 type fakeWorkspaceStore struct {
-	mu    sync.Mutex
-	raw   []byte
-	rev   uint64
-	saves int
-	stale bool // when true, Save returns ErrStale
+	mu       sync.Mutex
+	raw      []byte
+	rev      uint64
+	saves    int
+	stale    bool // when true, Save returns ErrStale
+	coordMap map[string]string
+	coordErr map[string]error
 }
 
 func newFakeWorkspaceStore() *fakeWorkspaceStore {
@@ -155,6 +157,18 @@ func (f *fakeWorkspaceStore) Save(blob []byte, ifMatch string) (uint64, error) {
 	f.rev++
 	f.saves++
 	return f.rev, nil
+}
+
+func (f *fakeWorkspaceStore) CoordinateOf(id string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err, ok := f.coordErr[id]; ok {
+		return "", err
+	}
+	if v, ok := f.coordMap[id]; ok {
+		return v, nil
+	}
+	return id, nil
 }
 
 // ── fakeToolDispatcher ──────────────────────────────

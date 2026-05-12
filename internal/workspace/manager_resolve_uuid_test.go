@@ -103,6 +103,43 @@ func TestResolve_RejectsShortCode(t *testing.T) {
 	}
 }
 
+// FR-UID-12 (broadcast 경로): CoordinateOf 는 uuid 만 좌표로 변환한다.
+// coordinate / paneId / label / 빈문자는 그대로 통과 — 행위 보존.
+func TestCoordinateOf_PassThroughAndTranslate(t *testing.T) {
+	tabUUID := "550e8400-e29b-41d4-a716-446655440003"
+	blob := `{"activeSession":"s","sessions":[{"id":"s","name":"x","focusedRegion":"r","layout":{"type":"region","id":"r","activeTab":"` + tabUUID + `","tabs":[{"id":"` + tabUUID + `","name":"a","paneId":"7"}]}}]}`
+	m := newManagerWithBlob(t, liveSet{"7": {}}, blob)
+
+	cases := []struct {
+		name, in, want string
+	}{
+		{"empty", "", ""},
+		{"coordinate dotted", "4.1.1", "4.1.1"},
+		{"coordinate prefixed", "S4.P1.T1", "S4.P1.T1"},
+		{"paneId numeric", "7", "7"},
+		{"uuid translates", tabUUID, "S1.P1.T1"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := m.CoordinateOf(c.in)
+			if err != nil {
+				t.Fatalf("CoordinateOf(%q): %v", c.in, err)
+			}
+			if got != c.want {
+				t.Errorf("CoordinateOf(%q)=%q want %q", c.in, got, c.want)
+			}
+		})
+	}
+}
+
+func TestCoordinateOf_UnknownUUID(t *testing.T) {
+	blob := `{"activeSession":"s","sessions":[{"id":"s","name":"x","focusedRegion":"r","layout":{"type":"region","id":"r","activeTab":"t","tabs":[{"id":"t","name":"a","paneId":"1"}]}}]}`
+	m := newManagerWithBlob(t, liveSet{"1": {}}, blob)
+	if _, err := m.CoordinateOf("ffffffff-ffff-7fff-bfff-ffffffffffff"); err == nil {
+		t.Errorf("expected error for unknown uuid")
+	}
+}
+
 // NFR-UID-0: uuid 입력이 인덱스에 없으면 친절한 오류, 기존 label 경로는 무회귀.
 func TestResolve_UUIDNotFoundIsDistinctError(t *testing.T) {
 	blob := `{"activeSession":"s","sessions":[{"id":"s","name":"x","focusedRegion":"r","layout":{"type":"region","id":"r","activeTab":"t","tabs":[{"id":"t","name":"a","paneId":"1"}]}}]}`

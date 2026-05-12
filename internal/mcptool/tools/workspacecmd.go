@@ -88,6 +88,7 @@ type WorkspaceCommandArgs struct {
 
 type WorkspaceCommandDeps struct {
 	Broadcaster mcptool.CommandBroadcaster
+	WS          mcptool.WorkspaceReader
 }
 
 func WorkspaceCommandHandler(d WorkspaceCommandDeps) func(context.Context, WorkspaceCommandArgs) (mcptool.Result, error) {
@@ -113,6 +114,14 @@ func WorkspaceCommandHandler(d WorkspaceCommandDeps) func(context.Context, Works
 		if a.KeepFocus && a.Action != "splitH" && a.Action != "splitV" && a.Action != "closeTab" {
 			return nil, fmt.Errorf("keepFocus 는 splitH/splitV/closeTab 에서만 의미가 있다 (action=%s)", a.Action)
 		}
+		loc := a.Location
+		if d.WS != nil && loc != "" {
+			coord, err := d.WS.CoordinateOf(loc)
+			if err != nil {
+				return nil, err
+			}
+			loc = coord
+		}
 		type argsT struct {
 			Location  string `json:"location,omitempty"`
 			Count     int    `json:"count,omitempty"`
@@ -123,7 +132,7 @@ func WorkspaceCommandHandler(d WorkspaceCommandDeps) func(context.Context, Works
 		payload, _ := json.Marshal(struct {
 			Action string `json:"action"`
 			Args   argsT  `json:"args"`
-		}{a.Action, argsT{Location: a.Location, Count: a.Count, KeepFocus: a.KeepFocus, Name: a.Name, FilePath: a.FilePath}})
+		}{a.Action, argsT{Location: loc, Count: a.Count, KeepFocus: a.KeepFocus, Name: a.Name, FilePath: a.FilePath}})
 		n := d.Broadcaster.Broadcast(payload)
 		msg := fmt.Sprintf("action=%s delivered=%d", a.Action, n)
 		switch {

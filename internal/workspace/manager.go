@@ -239,6 +239,29 @@ func (m *Manager) Resolve(id string) (string, error) {
 	return "", fmt.Errorf("id 해석 실패: %s (list_panes 로 확인)", id)
 }
 
+// CoordinateOf translates an identifier into the canonical positional
+// coordinate "S{n}.P{n}.T{n}" that the browser command pipeline parses. Only
+// UUID inputs are rewritten — coordinate, paneId, label, and empty inputs are
+// returned unchanged (NFR-UID-0 행위 보존). Used by /api/commands and
+// workspace_command so dmctl and MCP accept UUID anywhere a location is
+// expected.
+func (m *Manager) CoordinateOf(id string) (string, error) {
+	if id == "" || !isUUIDForm(id) {
+		return id, nil
+	}
+	paneID, err := m.Resolve(id)
+	if err != nil {
+		return "", err
+	}
+	ix := m.idx.Load()
+	if ix != nil {
+		if label, ok := ix.labels[paneID]; ok {
+			return label, nil
+		}
+	}
+	return "", fmt.Errorf("uuid %s 은 paneId=%s 가리키지만 label 매핑 없음", id, paneID)
+}
+
 // isUUIDForm checks the canonical 8-4-4-4-12 hex shape without validating that
 // every character is hex — Resolve will fail on lookup anyway, and a strict
 // hex check here would block legitimate non-UUID inputs that happen to share

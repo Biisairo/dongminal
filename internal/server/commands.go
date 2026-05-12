@@ -82,6 +82,39 @@ var allowedCmdActions = map[string]bool{
 // AllowedAction reports whether the action is accepted by the hub.
 func (h *CommandHub) AllowedAction(a string) bool { return allowedCmdActions[a] }
 
+// translateLocationUUID rewrites args.location in-place when the value is a
+// UUID, replacing it with the canonical "S{n}.P{n}.T{n}" coordinate that the
+// browser parses. Non-UUID values (coordinate / paneId / label / empty) and
+// missing location field pass through with no rewrite, preserving every
+// existing dmctl and MCP call (NFR-UID-0).
+func translateLocationUUID(rawArgs *json.RawMessage, ws WorkspaceStore) error {
+	if rawArgs == nil || len(*rawArgs) == 0 || ws == nil {
+		return nil
+	}
+	var args map[string]any
+	if err := json.Unmarshal(*rawArgs, &args); err != nil {
+		return nil // not an object — leave untouched
+	}
+	loc, ok := args["location"].(string)
+	if !ok || loc == "" {
+		return nil
+	}
+	coord, err := ws.CoordinateOf(loc)
+	if err != nil {
+		return err
+	}
+	if coord == loc {
+		return nil
+	}
+	args["location"] = coord
+	patched, err := json.Marshal(args)
+	if err != nil {
+		return err
+	}
+	*rawArgs = patched
+	return nil
+}
+
 func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -138,6 +171,10 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 	}
 	if !allowedCmdActions[req.Action] {
 		http.Error(w, "unknown action: "+req.Action, http.StatusBadRequest)
+		return
+	}
+	if err := translateLocationUUID(&req.Args, s.Work); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	payload, _ := json.Marshal(req)

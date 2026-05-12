@@ -73,7 +73,7 @@ func buildDeps(cfg server.Config) (builtDeps, error) {
 	mcptool.Register(reg, tools.WhoAmIName, tools.WhoAmISpec,
 		tools.WhoAmIHandler(tools.WhoAmIDeps{PM: pa, WS: wa, Resolver: adapters.Client{PM: pm}}))
 	mcptool.Register(reg, tools.WorkspaceCommandName, tools.WorkspaceCommandSpec,
-		tools.WorkspaceCommandHandler(tools.WorkspaceCommandDeps{Broadcaster: adapters.Command{Hub: hub}}))
+		tools.WorkspaceCommandHandler(tools.WorkspaceCommandDeps{Broadcaster: adapters.Command{Hub: hub}, WS: wa}))
 
 	return builtDeps{
 		deps: server.Deps{

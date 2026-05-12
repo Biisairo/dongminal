@@ -115,6 +115,29 @@ func TestWhoAmI_OmitsUUIDFieldsWhenAbsent(t *testing.T) {
 	}
 }
 
+// FR-UID-12: workspace_command 의 location 에 uuid 를 넣으면 broadcast 직전에
+// 좌표로 번역되어 브라우저는 변경 없이 정상 동작 (NFR-UID-0).
+func TestWorkspaceCommand_TranslatesUUIDLocation(t *testing.T) {
+	uuid := "550e8400-e29b-41d4-a716-446655440003"
+	b := &fakeBroadcaster{allowed: map[string]bool{"focus": true}}
+	wr := &fakeWorkspaceReader{coords: map[string]string{uuid: "S4.P1.T1"}}
+	_, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b, WS: wr}),
+		`{"action":"focus","location":"`+uuid+`"}`)
+	if err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+	if len(b.published) != 1 {
+		t.Fatalf("published=%d", len(b.published))
+	}
+	if !strings.Contains(string(b.published[0]), `"location":"S4.P1.T1"`) {
+		t.Errorf("broadcast missed coord rewrite: %s", b.published[0])
+	}
+	if strings.Contains(string(b.published[0]), uuid) {
+		t.Errorf("uuid leaked into broadcast: %s", b.published[0])
+	}
+}
+
 // FR-UID-8 / TC-UID-5: send_agent_message 의 `to` 에 uuid 를 넣어도 라우팅
 // 정상. 엔벨로프의 to= 는 사람 가독성을 위해 label 로 표시되며 (행위 보존),
 // 송신 결과 paneId 는 uuid 가 가리키던 그 pane.
