@@ -14,22 +14,24 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl new-tab
   dmctl split-h [N]      # 가로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
   dmctl split-v [N]      # 세로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
-  dmctl focus <위치>     # 위치 = "4.1.1" / "S4.P1.T1" 좌표, 또는 tab UUID
+  dmctl focus <uuid>     # uuid = list-panes 의 uuid 컬럼 값 (좌표/라벨/paneId 거부)
   dmctl close-tab
   dmctl close-session
   dmctl session-next / session-prev
   dmctl tab-next / tab-prev
   dmctl pane-up / pane-down / pane-left / pane-right
+  dmctl list-panes [--json]         # 열린 pane 목록 (uuid 포함, ▶=현재 포커스)
   dmctl send <action> [json-args]   # raw 전송
 
-위치 식별자:
-  - "4.1.1" / "S4.P1.T1"     현재 레이아웃의 positional 좌표 (1-base, reflow 가능)
-  - tab UUID (36자)          레이아웃 변경 무관한 안정 식별자. list_panes 의 uuid 필드.
-  UUID 입력은 서버가 broadcast 직전에 좌표로 번역하여 브라우저에 전달한다.
+위치 식별자 — uuid 만 허용:
+  - tab uuid: list-panes 의 "uuid=" 컬럼 값 (예: 550e8400-... 또는 짧은 형식 모두 OK).
+  - 좌표(4.1.1 / S4.P1.T1), 라벨, paneId 는 거부 (400 응답).
+    이유: 라벨/좌표는 다른 세션 닫힘 시 reflow 되어 다른 pane 을 가리킨다.
+  서버는 uuid 를 broadcast 직전 좌표로 번역해 브라우저에 전달한다.
 
 공통 플래그:
-  --at <위치>, -l <위치>  특정 위치를 대상으로 실행 (기본: 현재 포커스).
-                          좌표/UUID 모두 가능.
+  --at <uuid>, -l <uuid>  특정 위치를 대상으로 실행 (기본: 현재 포커스).
+                          uuid 만 허용.
   --no-focus, -n          명령 실행 전후로 사용자 포커스를 이동시키지 않는다.
 
 환경변수:
@@ -51,6 +53,8 @@ func runDmctl(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "send":
 		return dmctlSend(rest, stdout, stderr)
+	case "list-panes":
+		return dmctlListPanes(rest, stdout, stderr)
 	}
 
 	parsed, err := parseDmctlFlags(rest)
@@ -83,7 +87,7 @@ func runDmctl(args []string, stdout, stderr io.Writer) int {
 			parsed.location = parsed.positional
 		}
 		if parsed.location == "" {
-			fmt.Fprintln(stderr, "usage: dmctl focus <location>  (예: 4.1.1 또는 S4.P1.T1)")
+			fmt.Fprintln(stderr, "usage: dmctl focus <uuid>  (list-panes 의 uuid 컬럼 값)")
 			return 2
 		}
 		return dmctlPost("focus", parsed.buildArgs(), stdout, stderr)
@@ -179,9 +183,16 @@ func parseDmctlFlags(args []string) (dmctlParsed, error) {
 func dmctlPost(action string, args map[string]any, stdout, stderr io.Writer) int {
 	url := baseURL() + "/api/commands"
 	body := map[string]any{"action": action, "args": args}
-	_, resp, err := httpPostJSON(url, body)
+	status, resp, err := httpPostJSON(url, body)
 	if err != nil {
 		fmt.Fprintf(stderr, "dmctl: %v\n", err)
+		return 1
+	}
+	if status >= 400 {
+		stderr.Write(resp)
+		if len(resp) == 0 || resp[len(resp)-1] != '\n' {
+			fmt.Fprintln(stderr)
+		}
 		return 1
 	}
 	stdout.Write(resp)
@@ -204,9 +215,16 @@ func dmctlSend(args []string, stdout, stderr io.Writer) int {
 	}
 	url := baseURL() + "/api/commands"
 	body := map[string]any{"action": action, "args": rawArgs}
-	_, resp, err := httpPostJSON(url, body)
+	status, resp, err := httpPostJSON(url, body)
 	if err != nil {
 		fmt.Fprintf(stderr, "dmctl: %v\n", err)
+		return 1
+	}
+	if status >= 400 {
+		stderr.Write(resp)
+		if len(resp) == 0 || resp[len(resp)-1] != '\n' {
+			fmt.Fprintln(stderr)
+		}
 		return 1
 	}
 	stdout.Write(resp)

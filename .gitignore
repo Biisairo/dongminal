@@ -32,4 +32,7 @@ test-results/
 # Temporary / test data
 /tmp/
 
+# script/test_start.sh 가 생성하는 격리 테스트 인스턴스 (PORT=12345)
+/.test-dongminal/
+
 .serena

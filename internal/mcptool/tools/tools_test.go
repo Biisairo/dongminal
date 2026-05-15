@@ -56,6 +56,13 @@ func (f *fakeWorkspaceReader) CoordinateOf(id string) (string, error) {
 	}
 	return id, nil
 }
+func (f *fakeWorkspaceReader) IsKnownTabID(id string) bool {
+	if id == "" {
+		return false
+	}
+	_, ok := f.coords[id]
+	return ok
+}
 
 // dispatch is a small helper that mirrors the production wiring: register the
 // handler under a fresh registry and dispatch a JSON payload through it. This

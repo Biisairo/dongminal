@@ -77,8 +77,9 @@ func TestHandleCommandPost_TranslatesUUIDLocation(t *testing.T) {
 	}
 }
 
-// NFR-UID-0: coordinate 가 들어오면 그대로 통과.
-func TestHandleCommandPost_CoordinatePassThrough(t *testing.T) {
+// FR-DMC-9 (정책 강화): 좌표는 더 이상 pass-through 되지 않고 400 거부.
+// uuid 만 받는다. (이전 NFR-UID-0 의 coordinate pass-through 는 의도적으로 폐기)
+func TestHandleCommandPost_CoordinateRejected(t *testing.T) {
 	hub := NewCommandHub()
 	ws := newFakeWorkspaceStore()
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: hub, Work: ws})
@@ -93,14 +94,13 @@ func TestHandleCommandPost_CoordinatePassThrough(t *testing.T) {
 		t.Fatalf("POST: %v", err)
 	}
 	defer resp.Body.Close()
-
+	if resp.StatusCode != 400 {
+		t.Errorf("status=%d want 400 (coordinate must be rejected)", resp.StatusCode)
+	}
 	select {
-	case payload := <-sub.ch:
-		if !strings.Contains(string(payload), `"location":"S4.P1.T1"`) {
-			t.Errorf("coordinate should pass through unchanged: %s", payload)
-		}
+	case <-sub.ch:
+		t.Fatal("coordinate input should not have been broadcast")
 	default:
-		t.Fatal("no broadcast received")
 	}
 }
 
@@ -171,19 +171,118 @@ func TestHandleCommandPost_FullStackUUID_ReflowSafety(t *testing.T) {
 		t.Errorf("after reflow, uuid B should now resolve to S1.P1.T1, got: %s", payload)
 	}
 
-	// 4단계: 이전 라벨 S2 로 호출 → 에러 (S2 가 더 이상 존재하지 않음).
+	// 4단계: 라벨 형식 입력은 FR-DMC-9 로 거부. uuid 만 허용 정책의 핵심.
 	resp, err := http.Post(ts.URL+"/api/commands", "application/json",
 		strings.NewReader(`{"action":"focus","args":{"location":"S2.P1.T1"}}`))
 	if err != nil {
 		t.Fatalf("POST: %v", err)
 	}
 	defer resp.Body.Close()
-	// label 은 CoordinateOf 의 non-UUID 분기로 pass-through 되어 broadcast 됨.
-	// 브라우저는 S2 좌표를 받아 무시하거나 노옵 (broadcast 자체는 성공).
-	// 핵심은: uuid 는 stable, label 은 stale 가능 — 이 테스트가 양쪽을
-	// 명확히 분리해 보여준다.
-	if resp.StatusCode != 200 {
-		t.Errorf("label pass-through should not error at /api/commands: status=%d", resp.StatusCode)
+	if resp.StatusCode != 400 {
+		t.Errorf("label input must be rejected (FR-DMC-9): status=%d", resp.StatusCode)
+	}
+}
+
+// TC-DMC-5/8: uuid 변환 시 /api/commands 응답에 action/location/requestedLocation
+// 신규 필드 노출 + 기존 ok/delivered 무변화 (NFR-DMC-0).
+func TestHandleCommandPost_ResponseExposesTranslation(t *testing.T) {
+	uuid := "550e8400-e29b-41d4-a716-446655440003"
+	hub := NewCommandHub()
+	ws := newFakeWorkspaceStore()
+	ws.coordMap = map[string]string{uuid: "S2.P1.T1"}
+
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: hub, Work: ws})
+	sub := hub.add()
+	defer hub.remove(sub)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	body := `{"action":"focus","args":{"location":"` + uuid + `"}}`
+	resp, err := http.Post(ts.URL+"/api/commands", "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST: %v", err)
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	var got map[string]any
+	if err := json.Unmarshal(respBody, &got); err != nil {
+		t.Fatalf("unmarshal: %v body=%s", err, respBody)
+	}
+	if got["ok"] != true {
+		t.Errorf("ok=%v want true", got["ok"])
+	}
+	if _, isFloat := got["delivered"].(float64); !isFloat {
+		t.Errorf("delivered missing/not number: %v", got["delivered"])
+	}
+	if got["action"] != "focus" {
+		t.Errorf("action=%v want focus", got["action"])
+	}
+	if got["location"] != "S2.P1.T1" {
+		t.Errorf("location=%v want S2.P1.T1", got["location"])
+	}
+	if got["requestedLocation"] != uuid {
+		t.Errorf("requestedLocation=%v want %q", got["requestedLocation"], uuid)
+	}
+}
+
+// TC-DMC-13 (FR-DMC-9): 좌표 입력은 400 거부, broadcast 없음.
+func TestHandleCommandPost_ResponseCoordinateRejected(t *testing.T) {
+	hub := NewCommandHub()
+	ws := newFakeWorkspaceStore()
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: hub, Work: ws})
+	sub := hub.add()
+	defer hub.remove(sub)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	for _, badLoc := range []string{"S4.P1.T1", "4.1.1", "303"} {
+		body := `{"action":"focus","args":{"location":"` + badLoc + `"}}`
+		resp, err := http.Post(ts.URL+"/api/commands", "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("POST(%s): %v", badLoc, err)
+		}
+		respBody, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != 400 {
+			t.Errorf("loc=%q status=%d body=%s want 400", badLoc, resp.StatusCode, respBody)
+		}
+	}
+	select {
+	case <-sub.ch:
+		t.Fatal("rejected inputs should not be broadcast")
+	default:
+	}
+}
+
+// TC-DMC-7: location 없는 액션은 빈 문자열로 채움.
+func TestHandleCommandPost_ResponseNoLocation(t *testing.T) {
+	hub := NewCommandHub()
+	ws := newFakeWorkspaceStore()
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: hub, Work: ws})
+	sub := hub.add()
+	defer hub.remove(sub)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	body := `{"action":"newSession","args":{}}`
+	resp, err := http.Post(ts.URL+"/api/commands", "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST: %v", err)
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	var got map[string]any
+	if err := json.Unmarshal(respBody, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if _, ok := got["location"]; !ok {
+		t.Errorf("location key missing (should be present as empty string): %s", respBody)
+	}
+	if got["location"] != "" || got["requestedLocation"] != "" {
+		t.Errorf("location=%v requestedLocation=%v want both empty", got["location"], got["requestedLocation"])
+	}
+	if got["action"] != "newSession" {
+		t.Errorf("action=%v", got["action"])
 	}
 }
 

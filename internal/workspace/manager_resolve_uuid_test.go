@@ -132,6 +132,58 @@ func TestCoordinateOf_PassThroughAndTranslate(t *testing.T) {
 	}
 }
 
+// DMCTL_UUID_FINALIZE D3: workspace.json 이 36자 UUID 가 아닌 tab.id 를 가져도
+// (예: "t1", "t42" 같은 legacy short id) list-panes 가 노출하는 그 식별자를
+// 다른 명령에서 그대로 사용 가능해야 한다. CoordinateOf 가 tab.id 형식과 무관하게
+// 좌표로 변환.
+func TestCoordinateOf_ShortTabIDTranslates(t *testing.T) {
+	blob := `{"activeSession":"s2","sessions":[
+		{"id":"s1","name":"a","focusedRegion":"r1","layout":{"type":"region","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"shA","paneId":"303"}]}},
+		{"id":"s2","name":"b","focusedRegion":"r2","layout":{"type":"region","id":"r2","activeTab":"t42","tabs":[{"id":"t42","name":"shB","paneId":"342"}]}}
+	]}`
+	m := newManagerWithBlob(t, liveSet{"303": {}, "342": {}}, blob)
+
+	got, err := m.CoordinateOf("t1")
+	if err != nil {
+		t.Fatalf("CoordinateOf(t1): %v", err)
+	}
+	if got != "S1.P1.T1" {
+		t.Errorf("CoordinateOf(t1)=%q want S1.P1.T1", got)
+	}
+	got, err = m.CoordinateOf("t42")
+	if err != nil {
+		t.Fatalf("CoordinateOf(t42): %v", err)
+	}
+	if got != "S2.P1.T1" {
+		t.Errorf("CoordinateOf(t42)=%q want S2.P1.T1", got)
+	}
+
+	// Resolve 도 동일 — 형식 무관하게 tab.id 매칭.
+	pid, err := m.Resolve("t42")
+	if err != nil || pid != "342" {
+		t.Errorf("Resolve(t42)=%q,%v want 342,nil", pid, err)
+	}
+}
+
+// NFR-UID-0 보존: 좌표/라벨/paneId 는 여전히 pass-through 한다 (tab.id 매칭 우선).
+func TestCoordinateOf_PassThroughPreserved_AfterShortIDFix(t *testing.T) {
+	blob := `{"activeSession":"s2","sessions":[
+		{"id":"s1","name":"a","focusedRegion":"r1","layout":{"type":"region","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"shA","paneId":"303"}]}},
+		{"id":"s2","name":"b","focusedRegion":"r2","layout":{"type":"region","id":"r2","activeTab":"t42","tabs":[{"id":"t42","name":"shB","paneId":"342"}]}}
+	]}`
+	m := newManagerWithBlob(t, liveSet{"303": {}, "342": {}}, blob)
+
+	for _, in := range []string{"", "4.1.1", "S2.P1.T1", "342"} {
+		got, err := m.CoordinateOf(in)
+		if err != nil {
+			t.Fatalf("CoordinateOf(%q): %v", in, err)
+		}
+		if got != in {
+			t.Errorf("CoordinateOf(%q)=%q want %q (pass-through)", in, got, in)
+		}
+	}
+}
+
 func TestCoordinateOf_UnknownUUID(t *testing.T) {
 	blob := `{"activeSession":"s","sessions":[{"id":"s","name":"x","focusedRegion":"r","layout":{"type":"region","id":"r","activeTab":"t","tabs":[{"id":"t","name":"a","paneId":"1"}]}}]}`
 	m := newManagerWithBlob(t, liveSet{"1": {}}, blob)

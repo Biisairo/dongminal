@@ -203,6 +203,7 @@ func (f *fakeWS) Resolve(id string) (string, error) {
 func (f *fakeWS) Labels() map[string]string                 { return f.labels }
 func (f *fakeWS) Entries() []mcptool.WorkspaceEntry         { return f.entries }
 func (f *fakeWS) CoordinateOf(id string) (string, error)    { return id, nil }
+func (f *fakeWS) IsKnownTabID(string) bool                  { return true }
 
 // ── per-tool tests ───────────────────────────────────
 

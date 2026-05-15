@@ -40,6 +40,10 @@ type WorkspaceStore interface {
 	// coordinate the browser command pipeline parses. Non-UUID input passes
 	// through unchanged. Used by handleCommandPost to make dmctl accept UUIDs.
 	CoordinateOf(id string) (string, error)
+	// IsKnownTabID reports whether id matches a known tab.id in the current
+	// workspace index. Used by handleCommandPost to enforce FR-DMC-9
+	// (location must be a list-panes uuid; coords/labels/paneIds rejected).
+	IsKnownTabID(id string) bool
 }
 
 // ToolDispatcher abstracts *mcptool.Registry for the MCP handler.

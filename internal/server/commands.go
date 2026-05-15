@@ -100,12 +100,14 @@ func translateLocationUUID(rawArgs *json.RawMessage, ws WorkspaceStore) (orig, f
 	if !ok || loc == "" {
 		return "", "", nil
 	}
+	// FR-DMC-9: location 은 list-panes 의 uuid (tab.id) 만 허용. 좌표/라벨/paneId
+	// 는 거부 — 사용자가 reflow 위험이 있는 식별자를 무의식적으로 쓰는 표면을 차단.
+	if !ws.IsKnownTabID(loc) {
+		return loc, "", fmt.Errorf("location 은 list-panes 의 uuid 만 허용 (좌표/라벨/paneId 거부): %q", loc)
+	}
 	coord, cerr := ws.CoordinateOf(loc)
 	if cerr != nil {
 		return loc, "", cerr
-	}
-	if coord == loc {
-		return loc, loc, nil
 	}
 	args["location"] = coord
 	patched, merr := json.Marshal(args)
@@ -192,7 +194,10 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[cmd] action=%s%s delivered=%d", req.Action, locField, n)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"ok":        true,
-		"delivered": n,
+		"ok":                true,
+		"delivered":         n,
+		"action":            req.Action,
+		"location":          finalLoc,
+		"requestedLocation": origLoc,
 	})
 }

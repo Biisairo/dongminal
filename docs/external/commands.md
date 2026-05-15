@@ -19,34 +19,39 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼 스크립트를
 | `dmctl new-tab` | 현재 pane 에 새 탭 |
 | `dmctl split-h [N]` | 가로 분할. N 지정 시 N 개로 균등 분할 (기본 2) |
 | `dmctl split-v [N]` | 세로 분할. 동일 |
-| `dmctl focus <loc>` | 특정 위치에 포커스. `4.1.1` 또는 `S4.P1.T1` 형식 |
+| `dmctl focus <uuid>` | 특정 pane 으로 포커스. **uuid 만 허용** (`list-panes` 의 `uuid=` 컬럼). 좌표/라벨/paneId 는 400 거부 |
 | `dmctl close-tab` | 현재 탭 닫기 |
 | `dmctl close-session` | 현재 세션 닫기 |
 | `dmctl session-next` / `session-prev` | 세션 이동 |
 | `dmctl tab-next` / `tab-prev` | 탭 이동 |
 | `dmctl pane-up` / `pane-down` / `pane-left` / `pane-right` | 방향키식 pane 포커스 이동 |
+| `dmctl list-panes [--json]` | 열린 pane 목록 조회. 행마다 라벨·`uuid=`·`short=`·`paneId=`·`shellPid=`·세션·탭. ▶ 표시는 현재 포커스. `--json` 시 JSON 배열. uuid 를 다른 명령의 `--at` / `focus` 인자로 그대로 사용 가능 |
 | `dmctl send <action> [json]` | 원시 action 전송 (확장용) |
 
 ### 공통 플래그
 
 | 플래그 | 설명 |
 |--------|------|
-| `--at <loc>` / `-l <loc>` | 대상 위치 지정. 미지정 시 현재 포커스. 형식은 `focus` 와 동일 (`4.1.1` 또는 `S4.P1.T1`) |
+| `--at <uuid>` / `-l <uuid>` | 대상 pane 지정. 미지정 시 현재 포커스. **uuid 만 허용** — `list-panes` 의 `uuid=` 컬럼 값. 좌표/라벨/paneId 는 거부 |
 | `--no-focus` / `-n` | 실행 전후로 사용자 포커스를 옮기지 않음. `split-h/v` 후 새 영역으로 포커스가 튀지 않음. `close-tab` 등에도 동일 적용 |
 | `-h` / `--help` | 도움말 |
 
-### 위치 포맷
+### 위치 식별자 — uuid 만 허용
 
-`S<세션>.P<Pane>.T<탭>` (1-base). 점 표기 `4.1.1` 도 허용. 사이드바 하단의 `📍 S1.P2.T1` 라벨과 동일 체계.
+`/api/commands` 의 `args.location` 인자는 **`list-panes` 가 노출하는 `uuid=` 컬럼 값만** 받는다. 좌표(`4.1.1`/`S4.P1.T1`), 라벨, paneId 는 400 거부 — 다른 세션 닫힘 시 reflow 되어 다른 pane 을 가리키는 사고를 차단하기 위함.
+
+사이드바 라벨 `📍 S1.P2.T1` 은 사람용 표시; 명령에는 같은 행의 `uuid=` 값을 쓴다.
 
 ### 예
 
 ```bash
-dmctl split-h 3                      # 가로 3 분할
-dmctl split-v --no-focus             # 세로 분할하되 포커스 유지
-dmctl focus 1.2.1                    # S1.P2.T1 로 이동
-dmctl new-tab --at 2.1.1 -n          # S2.P1 에 탭만 추가, 포커스 변경 없음
-dmctl send splitH '{"count":2}'      # raw API 호출
+dmctl list-panes                                # 안정 식별자 확인
+UUID=$(dmctl list-panes --json | jq -r '.[0].uuid')
+dmctl focus "$UUID"                             # uuid 로 이동
+dmctl split-h 3 --at "$UUID"                    # uuid 위치에 가로 3 분할
+dmctl new-tab --at "$UUID" -n                   # 포커스 변경 없이 탭 추가
+dmctl split-v --no-focus                        # 현재 포커스 유지하며 분할
+dmctl send splitH '{"count":2}'                 # raw API 호출
 ```
 
 ### 허용된 action (서버 화이트리스트)

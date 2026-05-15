@@ -43,6 +43,9 @@ type WorkspaceReader interface {
 	// input passes through unchanged. workspace_command uses this so MCP
 	// callers can pass uuid in `location`.
 	CoordinateOf(id string) (string, error)
+	// IsKnownTabID reports whether id matches a known tab.id. workspace_command
+	// uses this to reject non-uuid location inputs (FR-DMC-9).
+	IsKnownTabID(id string) bool
 }
 
 // CommandBroadcaster delivers workspace UI commands to connected browsers.

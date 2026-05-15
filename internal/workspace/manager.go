@@ -216,15 +216,16 @@ func (m *Manager) Resolve(id string) (string, error) {
 		return "", fmt.Errorf("paneId=%s 존재하지 않음", id)
 	}
 	ix := m.idx.Load()
-	if isUUIDForm(id) {
-		if ix != nil {
-			if pid, ok := ix.uuidToID[strings.ToLower(id)]; ok {
-				if !m.live.IsLive(pid) {
-					return "", fmt.Errorf("uuid %s 은 paneId=%s 가리키지만 pane 이 존재하지 않음", id, pid)
-				}
-				return pid, nil
+	if ix != nil {
+		if pid, ok := ix.uuidToID[strings.ToLower(id)]; ok {
+			if !m.live.IsLive(pid) {
+				return "", fmt.Errorf("tab id %s 은 paneId=%s 가리키지만 pane 이 존재하지 않음", id, pid)
 			}
+			return pid, nil
 		}
+	}
+	if isUUIDForm(id) {
+		// 36자 UUID 형식인데 인덱스에 없음 — stale uuid 명시적 에러.
 		return "", fmt.Errorf("id 해석 실패: %s (list_panes 로 확인)", id)
 	}
 	norm := strings.ToUpper(id)
@@ -246,20 +247,46 @@ func (m *Manager) Resolve(id string) (string, error) {
 // workspace_command so dmctl and MCP accept UUID anywhere a location is
 // expected.
 func (m *Manager) CoordinateOf(id string) (string, error) {
-	if id == "" || !isUUIDForm(id) {
+	if id == "" {
 		return id, nil
 	}
-	paneID, err := m.Resolve(id)
-	if err != nil {
-		return "", err
-	}
 	ix := m.idx.Load()
+	var paneID string
 	if ix != nil {
-		if label, ok := ix.labels[paneID]; ok {
-			return label, nil
+		if pid, ok := ix.uuidToID[strings.ToLower(id)]; ok {
+			paneID = pid
 		}
 	}
-	return "", fmt.Errorf("uuid %s 은 paneId=%s 가리키지만 label 매핑 없음", id, paneID)
+	if paneID == "" {
+		if isUUIDForm(id) {
+			// 36자 UUID 형식인데 인덱스에 없으면 stale uuid — 명시적 에러.
+			return "", fmt.Errorf("id 해석 실패: %s (list_panes 로 확인)", id)
+		}
+		// 좌표/라벨/paneId/숫자/그 외 식별자는 pass-through (NFR-UID-0 행위 보존).
+		return id, nil
+	}
+	if !m.live.IsLive(paneID) {
+		return "", fmt.Errorf("tab id %s 은 paneId=%s 가리키지만 pane 이 존재하지 않음", id, paneID)
+	}
+	if label, ok := ix.labels[paneID]; ok {
+		return label, nil
+	}
+	return "", fmt.Errorf("tab id %s 은 paneId=%s 가리키지만 label 매핑 없음", id, paneID)
+}
+
+// IsKnownTabID reports whether id matches a tab.id present in the current
+// workspace index (case-insensitive). Used by API entry points to enforce the
+// "location must be a list-panes uuid" policy (FR-DMC-9/10).
+func (m *Manager) IsKnownTabID(id string) bool {
+	if id == "" {
+		return false
+	}
+	ix := m.idx.Load()
+	if ix == nil {
+		return false
+	}
+	_, ok := ix.uuidToID[strings.ToLower(id)]
+	return ok
 }
 
 // isUUIDForm checks the canonical 8-4-4-4-12 hex shape without validating that

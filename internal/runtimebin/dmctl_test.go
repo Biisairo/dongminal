@@ -191,3 +191,137 @@ func TestRunDmctlHelp(t *testing.T) {
 		t.Errorf("rc=%d out=%s", rc, stdout.String())
 	}
 }
+
+// TC-DMC-10: -h 출력에 list-panes 안내 포함.
+func TestRunDmctlHelp_MentionsListPanes(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"-h"}, &stdout, &stderr)
+	if rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	if !strings.Contains(stdout.String(), "list-panes") {
+		t.Errorf("help should mention list-panes, got:\n%s", stdout.String())
+	}
+}
+
+// fake /api/state payload — 두 세션, 각각 단일 region·tab. 세션 B 가 active.
+const listPanesFakeState = `{
+  "panes":[
+    {"id":"10","name":"Shell A","pid":11111},
+    {"id":"20","name":"Shell B","pid":22222}
+  ],
+  "workspace":{
+    "activeSession":"sb",
+    "sessions":[
+      {"id":"sa","name":"Main","focusedRegion":"ra","layout":{"type":"region","id":"ra","activeTab":"taba","tabs":[{"id":"550e8400-e29b-41d4-a716-446655440aaa","name":"shell-a","paneId":"10"}]}},
+      {"id":"sb","name":"Work","focusedRegion":"rb","layout":{"type":"region","id":"rb","activeTab":"550e8400-e29b-41d4-a716-446655440bbb","tabs":[{"id":"550e8400-e29b-41d4-a716-446655440bbb","name":"shell-b","paneId":"20"}]}}
+    ]
+  }
+}`
+
+// TC-DMC-1: list-panes 가 각 tab 의 label/uuid/short/paneId/shellPid 를 줄당 1개로
+// 사람 가독성 텍스트로 출력. 포커스된 pane 에만 ▶.
+func TestRunDmctlListPanes_TextOutput(t *testing.T) {
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/state" || r.Method != http.MethodGet {
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(listPanesFakeState))
+	})
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"list-panes"}, &stdout, &stderr)
+	if rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+	out := stdout.String()
+
+	// 첫 pane (포커스 없음): 두 칸 공백 prefix.
+	if !strings.Contains(out, "  S1.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440aaa  short=550e8400  paneId=10  shellPid=11111  session=\"Main\"  tab=\"shell-a\"") {
+		t.Errorf("missing/wrong non-focus line:\n%s", out)
+	}
+	// 두 번째 pane (포커스): ▶ prefix.
+	if !strings.Contains(out, "▶ S2.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440bbb  short=550e8400  paneId=20  shellPid=22222  session=\"Work\"  tab=\"shell-b\"") {
+		t.Errorf("missing/wrong focus line:\n%s", out)
+	}
+}
+
+// TC-DMC-2: --json 시 JSON 배열 반환. 각 원소가 uuid/label/paneId 등 키 포함.
+func TestRunDmctlListPanes_JSON(t *testing.T) {
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(listPanesFakeState))
+	})
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"list-panes", "--json"}, &stdout, &stderr)
+	if rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+	var arr []map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &arr); err != nil {
+		t.Fatalf("json: %v out=%s", err, stdout.String())
+	}
+	if len(arr) != 2 {
+		t.Fatalf("len=%d want 2", len(arr))
+	}
+	if arr[0]["label"] != "S1.P1.T1" || arr[0]["uuid"] != "550e8400-e29b-41d4-a716-446655440aaa" {
+		t.Errorf("arr[0]=%+v", arr[0])
+	}
+	if arr[0]["focused"] != false || arr[1]["focused"] != true {
+		t.Errorf("focused flags wrong: %+v %+v", arr[0], arr[1])
+	}
+	if arr[1]["paneId"] != "20" {
+		t.Errorf("arr[1].paneId=%v", arr[1]["paneId"])
+	}
+	if shellPid, _ := arr[1]["shellPid"].(float64); shellPid != 22222 {
+		t.Errorf("arr[1].shellPid=%v", arr[1]["shellPid"])
+	}
+}
+
+// TC-DMC-3: 빈 워크스페이스 → "(no panes)" 류 + rc=0.
+func TestRunDmctlListPanes_Empty(t *testing.T) {
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"panes":[],"workspace":null}`))
+	})
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"list-panes"}, &stdout, &stderr)
+	if rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "(no panes)") {
+		t.Errorf("expected empty marker, got:\n%s", stdout.String())
+	}
+
+	// --json 빈 워크스페이스는 빈 배열.
+	stdout.Reset()
+	stderr.Reset()
+	rc = runDmctl([]string{"list-panes", "--json"}, &stdout, &stderr)
+	if rc != 0 {
+		t.Fatalf("--json rc=%d", rc)
+	}
+	if strings.TrimSpace(stdout.String()) != "[]" {
+		t.Errorf("expected [], got %q", stdout.String())
+	}
+}
+
+// TC-DMC-4: /api/state 5xx → stderr 명확한 오류 + rc=1.
+func TestRunDmctlListPanes_ServerError(t *testing.T) {
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", 500)
+	})
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"list-panes"}, &stdout, &stderr)
+	if rc != 1 {
+		t.Errorf("rc=%d want 1", rc)
+	}
+	if stderr.Len() == 0 {
+		t.Errorf("stderr empty")
+	}
+}

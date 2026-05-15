@@ -171,6 +171,16 @@ func (f *fakeWorkspaceStore) CoordinateOf(id string) (string, error) {
 	return id, nil
 }
 
+func (f *fakeWorkspaceStore) IsKnownTabID(id string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if id == "" {
+		return false
+	}
+	_, ok := f.coordMap[id]
+	return ok
+}
+
 // ── fakeToolDispatcher ──────────────────────────────
 
 type dispatchCall struct {
