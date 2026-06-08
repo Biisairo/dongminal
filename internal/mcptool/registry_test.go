@@ -225,7 +225,7 @@ func TestListPanesTool(t *testing.T) {
 	}
 	content := res["content"].([]map[string]any)
 	text := content[0]["text"].(string)
-	if !strings.Contains(text, "▶ S1.P1.T1") {
+	if !strings.Contains(text, "▶ label=S1.P1.T1") {
 		t.Errorf("expected active marker, got %q", text)
 	}
 	if !strings.Contains(text, "workspace 미등록") || !strings.Contains(text, "paneId=p2") {

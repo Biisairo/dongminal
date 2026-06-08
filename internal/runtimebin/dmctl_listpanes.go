@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+
+	"dongminal/internal/paneline"
 )
 
-// dmctlListPanes implements `dmctl list-panes` (FR-DMC-1~3). It calls
-// /api/state once, parses the workspace tree, recomputes positional labels
-// (S{n}.P{n}.T{n}), joins shellPid from the panes[] map, and prints one
-// human-readable line per tab — with a ▶ marker on the user-focused pane.
-// With --json the same records are emitted as a JSON array (FR-DMC-2).
+// dmctlListPanes implements `dmctl list-panes`. /api/state 호출 후 workspace
+// 트리를 순회해 paneline.Line 으로 렌더링한다 — MCP `list_panes` 와 byte-level
+// 동일 포맷 (DMCTL_WHO_AM_I_SRS FR-DMC-LP-1).
 func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 	jsonOut := false
 	for _, a := range args {
@@ -46,11 +46,13 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 	}
 
 	shellPids := make(map[string]int, len(state.Panes))
+	sizes := make(map[string][2]int, len(state.Panes))
 	for _, p := range state.Panes {
 		shellPids[p.ID] = p.PID
+		sizes[p.ID] = [2]int{p.SizeCols, p.SizeRows}
 	}
 
-	rows := buildListPanesRows(state.Workspace, shellPids)
+	rows := buildListPanesRows(state.Workspace, shellPids, sizes)
 
 	if jsonOut {
 		enc := json.NewEncoder(stdout)
@@ -67,14 +69,21 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 	for _, r := range rows {
-		marker := "  "
-		if r.Focused {
-			marker = "▶ "
+		line := paneline.Line{
+			FocusMarker: r.Focused,
+			Label:       r.Label,
+			UUID:        r.UUID,
+			Short:       r.Short,
+			PaneID:      r.PaneID,
+			ShellPID:    r.ShellPID,
+			SizeCols:    r.SizeCols,
+			SizeRows:    r.SizeRows,
+			Session:     r.Session,
+			Tab:         r.Tab,
+			SessionUUID: r.SessionUUID,
+			RegionUUID:  r.RegionUUID,
 		}
-		fmt.Fprintf(stdout,
-			"%s%s  uuid=%s  short=%s  paneId=%s  shellPid=%d  session=%q  tab=%q\n",
-			marker, r.Label, r.UUID, r.Short, r.PaneID, r.ShellPID, r.Session, r.Tab,
-		)
+		fmt.Fprintln(stdout, line.Render())
 	}
 	return 0
 }
@@ -85,12 +94,15 @@ const dmctlListPanesHelp = `dmctl list-panes — 열린 pane 목록 조회
   dmctl list-panes          # 사람 가독성 텍스트 (▶ = 사용자 포커스)
   dmctl list-panes --json   # JSON 배열 (스크립트 친화)
 
-각 행: label  uuid=...  short=...  paneId=...  shellPid=...  session="..."  tab="..."
+각 행: ▶|  label=...  uuid=...  short=...  paneId=...  shellPid=...  size=WxH  session="..."  tab="..."  session_uuid=...  region_uuid=...
+빈 값(uuid/short/size/session_uuid/region_uuid)은 해당 컬럼이 생략된다.
 `
 
 type paneEntry struct {
-	ID  string `json:"id"`
-	PID int    `json:"pid"`
+	ID       string `json:"id"`
+	PID      int    `json:"pid"`
+	SizeCols int    `json:"sizeCols"`
+	SizeRows int    `json:"sizeRows"`
 }
 
 type wsTree struct {
@@ -120,17 +132,21 @@ type wsTab struct {
 }
 
 type listPanesRow struct {
-	Label    string `json:"label"`
-	UUID     string `json:"uuid"`
-	Short    string `json:"short"`
-	PaneID   string `json:"paneId"`
-	ShellPID int    `json:"shellPid"`
-	Session  string `json:"session"`
-	Tab      string `json:"tab"`
-	Focused  bool   `json:"focused"`
+	Label       string `json:"label"`
+	UUID        string `json:"uuid"`
+	Short       string `json:"short"`
+	PaneID      string `json:"paneId"`
+	ShellPID    int    `json:"shellPid"`
+	SizeCols    int    `json:"sizeCols"`
+	SizeRows    int    `json:"sizeRows"`
+	Session     string `json:"session"`
+	Tab         string `json:"tab"`
+	SessionUUID string `json:"sessionUuid"`
+	RegionUUID  string `json:"regionUuid"`
+	Focused     bool   `json:"focused"`
 }
 
-func buildListPanesRows(ws *wsTree, shellPids map[string]int) []listPanesRow {
+func buildListPanesRows(ws *wsTree, shellPids map[string]int, sizes map[string][2]int) []listPanesRow {
 	if ws == nil {
 		return nil
 	}
@@ -143,15 +159,20 @@ func buildListPanesRows(ws *wsTree, shellPids map[string]int) []listPanesRow {
 				focused := sess.ID == ws.ActiveSession &&
 					sess.FocusedRegion == rg.ID &&
 					rg.ActiveTab == tab.ID
+				sz := sizes[tab.PaneID]
 				out = append(out, listPanesRow{
-					Label:    fmt.Sprintf("S%d.P%d.T%d", si+1, pi+1, ti+1),
-					UUID:     tab.ID,
-					Short:    shortCode(tab.ID),
-					PaneID:   tab.PaneID,
-					ShellPID: shellPids[tab.PaneID],
-					Session:  sess.Name,
-					Tab:      tab.Name,
-					Focused:  focused,
+					Label:       fmt.Sprintf("S%d.P%d.T%d", si+1, pi+1, ti+1),
+					UUID:        tab.ID,
+					Short:       shortCode(tab.ID),
+					PaneID:      tab.PaneID,
+					ShellPID:    shellPids[tab.PaneID],
+					SizeCols:    sz[0],
+					SizeRows:    sz[1],
+					Session:     sess.Name,
+					Tab:         tab.Name,
+					SessionUUID: sess.ID,
+					RegionUUID:  rg.ID,
+					Focused:     focused,
 				})
 			}
 		}
@@ -180,4 +201,3 @@ func shortCode(uuid string) string {
 	}
 	return uuid
 }
-

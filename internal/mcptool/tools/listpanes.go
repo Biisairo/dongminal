@@ -6,13 +6,14 @@ import (
 	"strings"
 
 	"dongminal/internal/mcptool"
+	"dongminal/internal/paneline"
 )
 
 const ListPanesName = "list_panes"
 
 var ListPanesSpec = map[string]any{
 	"name":        ListPanesName,
-	"description": "현재 열린 모든 pane 목록을 반환. 각 행 끝에 `uuid=<36자>  short=<8자>` 가 부착된다 — 이게 안정 식별자다. 라벨(S1.P2.T3) 은 사람 가독성용 positional 좌표로 다른 세션/pane 닫힘 시 reflow 된다. paneId 와 shellPid 도 함께. ▶ 표시는 사용자가 현재 포커스한 pane. 같은 워크스페이스 내 다른 Claude Code 인스턴스를 식별하고 send_agent_message 로 통신할 때는 **uuid 를 사용**할 것.",
+	"description": "현재 열린 모든 pane 목록을 반환. 각 행은 표준 KEY=VALUE 라인 (label/uuid/short/paneId/shellPid/size/session/tab/session_uuid/region_uuid). ▶ 표시는 사용자가 현재 포커스한 pane. 같은 워크스페이스 내 다른 Claude Code 인스턴스를 식별하고 send_agent_message 로 통신할 때는 **uuid 를 사용**할 것. dmctl `list-panes` 와 byte-level 동일 포맷.",
 	"inputSchema": map[string]any{
 		"type":       "object",
 		"properties": map[string]any{},
@@ -59,15 +60,22 @@ func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcp
 			sb.WriteString("  (없음)\n")
 		}
 		for _, e := range entries {
-			marker := "  "
-			if e.IsActive {
-				marker = "▶ "
+			cols, rows := parseSize(d.PM.Size(e.PaneID))
+			line := paneline.Line{
+				FocusMarker: e.IsActive,
+				Label:       e.Label,
+				UUID:        e.TabUUID,
+				Short:       e.ShortCode,
+				PaneID:      e.PaneID,
+				ShellPID:    shellPids[e.PaneID],
+				SizeCols:    cols,
+				SizeRows:    rows,
+				Session:     e.SessionName,
+				Tab:         e.TabName,
+				SessionUUID: e.SessionUUID,
+				RegionUUID:  e.RegionUUID,
 			}
-			fmt.Fprintf(&sb, "%s%s  paneId=%s  shellPid=%d  size=%s  session=%q  tab=%q",
-				marker, e.Label, e.PaneID, shellPids[e.PaneID], d.PM.Size(e.PaneID), e.SessionName, e.TabName)
-			if e.TabUUID != "" {
-				fmt.Fprintf(&sb, "  uuid=%s  short=%s", e.TabUUID, e.ShortCode)
-			}
+			sb.WriteString(line.Render())
 			sb.WriteByte('\n')
 		}
 		if len(orphans) > 0 {
@@ -79,4 +87,32 @@ func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcp
 		}
 		return mcptool.TextResult(sb.String()), nil
 	}
+}
+
+// parseSize는 "WxH" 형식 문자열을 정수 쌍으로 변환한다. 실패하면 0,0.
+func parseSize(s string) (int, int) {
+	x := strings.IndexByte(s, 'x')
+	if x <= 0 || x == len(s)-1 {
+		return 0, 0
+	}
+	c, errC := atoiNonNeg(s[:x])
+	r, errR := atoiNonNeg(s[x+1:])
+	if errC != nil || errR != nil {
+		return 0, 0
+	}
+	return c, r
+}
+
+func atoiNonNeg(s string) (int, error) {
+	n := 0
+	if s == "" {
+		return 0, fmt.Errorf("empty")
+	}
+	for _, ch := range s {
+		if ch < '0' || ch > '9' {
+			return 0, fmt.Errorf("nan")
+		}
+		n = n*10 + int(ch-'0')
+	}
+	return n, nil
 }

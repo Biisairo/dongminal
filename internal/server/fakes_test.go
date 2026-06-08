@@ -123,6 +123,7 @@ type fakeWorkspaceStore struct {
 	stale    bool // when true, Save returns ErrStale
 	coordMap map[string]string
 	coordErr map[string]error
+	entries  []workspace.PaneLabel
 }
 
 func newFakeWorkspaceStore() *fakeWorkspaceStore {
@@ -169,6 +170,12 @@ func (f *fakeWorkspaceStore) CoordinateOf(id string) (string, error) {
 		return v, nil
 	}
 	return id, nil
+}
+
+func (f *fakeWorkspaceStore) Entries() []workspace.PaneLabel {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]workspace.PaneLabel(nil), f.entries...)
 }
 
 func (f *fakeWorkspaceStore) IsKnownTabID(id string) bool {

@@ -19,6 +19,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"dongminal/internal/mcptool"
 )
 
 // Config carries process-level knobs.
@@ -39,6 +41,7 @@ type Server struct {
 	MCP      *MCPSessionRegistry
 	Settings SettingsStore
 	MdScroll MdScrollStore
+	WhoAmI   mcptool.ClientPaneResolver
 
 	started time.Time
 
@@ -73,6 +76,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		MCP:      NewMCPSessionRegistry(),
 		Settings: settings,
 		MdScroll: deps.MdScroll,
+		WhoAmI:   deps.WhoAmI,
 		started:  time.Now(),
 	}, nil
 }

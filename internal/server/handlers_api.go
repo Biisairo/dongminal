@@ -167,6 +167,7 @@ func exactPath(p string) func(string) bool {
 
 var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/state"), (*Server).apiStateGet},
+	{http.MethodGet, exactPath("/api/whoami"), (*Server).apiWhoAmI},
 	{http.MethodPost, exactPath("/api/panes"), (*Server).apiPanesCreate},
 	{http.MethodGet, func(p string) bool {
 		return strings.HasPrefix(p, "/api/panes/") && strings.HasSuffix(p, "/busy")

@@ -25,8 +25,20 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼 스크립트를
 | `dmctl session-next` / `session-prev` | 세션 이동 |
 | `dmctl tab-next` / `tab-prev` | 탭 이동 |
 | `dmctl pane-up` / `pane-down` / `pane-left` / `pane-right` | 방향키식 pane 포커스 이동 |
-| `dmctl list-panes [--json]` | 열린 pane 목록 조회. 행마다 라벨·`uuid=`·`short=`·`paneId=`·`shellPid=`·세션·탭. ▶ 표시는 현재 포커스. `--json` 시 JSON 배열. uuid 를 다른 명령의 `--at` / `focus` 인자로 그대로 사용 가능 |
+| `dmctl list-panes [--json]` | 열린 pane 목록 조회. 표준 KEY=VALUE 라인 (아래 박스). ▶ 표시는 현재 포커스. `--json` 시 JSON 배열. MCP `list_panes` 와 byte-level 동일 포맷 |
+| `dmctl who-am-i [--json]` | 현재 쉘이 속한 pane 의 식별 정보. 같은 표준 라인 한 줄. MCP `who_am_i` 와 동일 포맷. 스크립트에서 `UUID=$(dmctl who-am-i --json \| jq -r .uuid)` 패턴으로 자기 식별 |
 | `dmctl send <action> [json]` | 원시 action 전송 (확장용) |
+
+#### 표준 라인 포맷 (list-panes / who-am-i / MCP list_panes·who_am_i 공통)
+
+```
+{▶|  } label=S1.P1.T1  uuid=<36자>  short=<8자>  paneId=<n>  shellPid=<n>  size=<W>x<H>  session="<n>"  tab="<n>"  session_uuid=<36자>  region_uuid=<36자>
+```
+
+- 모든 컬럼 KEY=VALUE, 두 칸 공백 구분. `awk` / `grep` 으로 컬럼 단위 파싱 가능.
+- `▶` = 사용자 브라우저 포커스 일치. 비포커스는 두 칸 공백.
+- 빈 값(uuid/short/sessionUuid/regionUuid 미지정, size=0x0)은 해당 컬럼 통째 생략.
+- `session` / `tab` 은 Go `%q` 이스케이프.
 
 ### 공통 플래그
 
@@ -52,6 +64,7 @@ dmctl split-h 3 --at "$UUID"                    # uuid 위치에 가로 3 분할
 dmctl new-tab --at "$UUID" -n                   # 포커스 변경 없이 탭 추가
 dmctl split-v --no-focus                        # 현재 포커스 유지하며 분할
 dmctl send splitH '{"count":2}'                 # raw API 호출
+SELF=$(dmctl who-am-i --json | jq -r .uuid)     # 자기 자신 uuid (스크립트 자기 식별)
 ```
 
 ### 허용된 action (서버 화이트리스트)

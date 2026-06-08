@@ -238,12 +238,12 @@ func TestRunDmctlListPanes_TextOutput(t *testing.T) {
 	}
 	out := stdout.String()
 
-	// 첫 pane (포커스 없음): 두 칸 공백 prefix.
-	if !strings.Contains(out, "  S1.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440aaa  short=550e8400  paneId=10  shellPid=11111  session=\"Main\"  tab=\"shell-a\"") {
+	// 첫 pane (포커스 없음): 두 칸 공백 prefix. size 미노출(panes[]에 sizeCols/Rows 없음) → 컬럼 생략.
+	if !strings.Contains(out, "  label=S1.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440aaa  short=550e8400  paneId=10  shellPid=11111  session=\"Main\"  tab=\"shell-a\"  session_uuid=sa  region_uuid=ra") {
 		t.Errorf("missing/wrong non-focus line:\n%s", out)
 	}
 	// 두 번째 pane (포커스): ▶ prefix.
-	if !strings.Contains(out, "▶ S2.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440bbb  short=550e8400  paneId=20  shellPid=22222  session=\"Work\"  tab=\"shell-b\"") {
+	if !strings.Contains(out, "▶ label=S2.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440bbb  short=550e8400  paneId=20  shellPid=22222  session=\"Work\"  tab=\"shell-b\"  session_uuid=sb  region_uuid=rb") {
 		t.Errorf("missing/wrong focus line:\n%s", out)
 	}
 }

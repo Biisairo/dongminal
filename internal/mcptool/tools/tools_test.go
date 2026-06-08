@@ -136,7 +136,7 @@ func TestListPanes_Mixed(t *testing.T) {
 	}
 	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
 	body := resultText(res)
-	if !strings.Contains(body, "▶ S1.P1.T1") {
+	if !strings.Contains(body, "▶ label=S1.P1.T1") {
 		t.Errorf("missing focus marker: %q", body)
 	}
 	if !strings.Contains(body, "[workspace 미등록]") || !strings.Contains(body, `paneId=2`) {

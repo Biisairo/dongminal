@@ -21,6 +21,7 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl tab-next / tab-prev
   dmctl pane-up / pane-down / pane-left / pane-right
   dmctl list-panes [--json]         # 열린 pane 목록 (uuid 포함, ▶=현재 포커스)
+  dmctl who-am-i [--json]           # 현재 쉘이 속한 pane 의 식별 정보
   dmctl send <action> [json-args]   # raw 전송
 
 위치 식별자 — uuid 만 허용:
@@ -55,6 +56,8 @@ func runDmctl(args []string, stdout, stderr io.Writer) int {
 		return dmctlSend(rest, stdout, stderr)
 	case "list-panes":
 		return dmctlListPanes(rest, stdout, stderr)
+	case "who-am-i":
+		return dmctlWhoAmI(rest, stdout, stderr)
 	}
 
 	parsed, err := parseDmctlFlags(rest)

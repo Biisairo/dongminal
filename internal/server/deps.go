@@ -6,6 +6,7 @@ import (
 
 	"dongminal/internal/mcptool"
 	"dongminal/internal/mdscroll"
+	"dongminal/internal/workspace"
 )
 
 // PaneHub is the minimum surface that HTTP/WS handlers need from the pane
@@ -44,6 +45,10 @@ type WorkspaceStore interface {
 	// workspace index. Used by handleCommandPost to enforce FR-DMC-9
 	// (location must be a list-panes uuid; coords/labels/paneIds rejected).
 	IsKnownTabID(id string) bool
+	// Entries returns the flat tab-level index used by /api/whoami to map a
+	// paneID to its workspace coordinates and uuids (DMCTL_WHO_AM_I_SRS
+	// FR-API-WAI-1).
+	Entries() []workspace.PaneLabel
 }
 
 // ToolDispatcher abstracts *mcptool.Registry for the MCP handler.
@@ -83,4 +88,7 @@ type Deps struct {
 	Commands CommandBroker
 	Settings SettingsStore
 	MdScroll MdScrollStore
+	// WhoAmI resolves a request's RemoteAddr to the originating pane via
+	// PID parent-chain walking. /api/whoami uses it (FR-API-WAI-1). Nil → 500.
+	WhoAmI mcptool.ClientPaneResolver
 }

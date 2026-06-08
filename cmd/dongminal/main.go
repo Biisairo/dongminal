@@ -83,6 +83,7 @@ func buildDeps(cfg server.Config) (builtDeps, error) {
 			Tools:    reg,
 			Commands: hub,
 			MdScroll: msMgr,
+			WhoAmI:   adapters.Client{PM: pm},
 		},
 		pm:    pm,
 		csm:   csm,

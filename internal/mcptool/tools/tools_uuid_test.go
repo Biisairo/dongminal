@@ -36,7 +36,7 @@ func TestListPanes_AppendsUUIDFields(t *testing.T) {
 	if !strings.Contains(body, "short=550e8400") {
 		t.Errorf("short not in body: %q", body)
 	}
-	if !strings.Contains(body, "▶ S1.P1.T1") || !strings.Contains(body, "paneId=pty-1") {
+	if !strings.Contains(body, "▶ label=S1.P1.T1") || !strings.Contains(body, "paneId=pty-1") {
 		t.Errorf("existing line content broken: %q", body)
 	}
 }

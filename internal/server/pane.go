@@ -465,7 +465,16 @@ func (m *PaneManager) List() []map[string]interface{} {
 		if p.cmd.Process != nil {
 			pid = p.cmd.Process.Pid
 		}
-		out = append(out, map[string]interface{}{"id": p.ID, "name": p.Name, "pid": pid})
+		cols, rows := 0, 0
+		if p.ptmx != nil {
+			if r, c, err := pty.Getsize(p.ptmx); err == nil {
+				cols, rows = c, r
+			}
+		}
+		out = append(out, map[string]interface{}{
+			"id": p.ID, "name": p.Name, "pid": pid,
+			"sizeCols": cols, "sizeRows": rows,
+		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i]["id"].(string) < out[j]["id"].(string) })
 	return out
