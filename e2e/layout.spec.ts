@@ -164,6 +164,47 @@ test.describe('Layout & navigation', () => {
     expect(finalId).not.toBe(afterFirstId === finalId ? null : afterFirstId);
   });
 
+  // TC-SKF-1: 사용자 포커스 region A, split 대상 region B (A != B). keepFocus=true 면
+  // 새 region 이 추가되더라도 사용자 포커스는 A 그대로여야 한다.
+  test('keepFocus split on a different region leaves user focus untouched', async ({ page }) => {
+    await waitForInit(page);
+    // 먼저 region 두 개 확보 (split-h 한 번).
+    const before = await page.locator('#area .rg').count();
+    const [resp] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+      page.click('#split-h'),
+    ]);
+    expect(resp.status()).toBe(200);
+    await expect(page.locator('#area .rg')).toHaveCount(before + 1, { timeout: 10000 });
+
+    // 사용자 포커스를 region 0 (leftmost) 으로 옮긴다. split target 은 region 1.
+    const regions = page.locator('#area .rg');
+    const userRg = regions.nth(0);
+    const targetRg = regions.nth(1);
+    await userRg.locator('.rg-body').click();
+    await expect(userRg).toHaveClass(/focused/);
+    const userRegionId = await userRg.getAttribute('data-rid');
+    const targetRegionId = await targetRg.getAttribute('data-rid');
+    expect(userRegionId).not.toBe(targetRegionId);
+
+    // dmctl/MCP 처럼 location 지정 keepFocus split: targetRegion=B, 사용자 포커스 A.
+    const countBefore = await page.locator('#area .rg').count();
+    await page.evaluate(async (targetRid) => {
+      const app = (window as any).app;
+      await app.split('horizontal', {
+        keepFocus: true,
+        targetSession: app.ws.activeSession,
+        targetRegion: targetRid,
+      });
+    }, targetRegionId);
+    await expect(page.locator('#area .rg')).toHaveCount(countBefore + 1, { timeout: 10000 });
+
+    // 사용자 포커스는 여전히 region A.
+    const focused = page.locator('#area .rg.focused');
+    await expect(focused).toHaveCount(1);
+    expect(await focused.getAttribute('data-rid')).toBe(userRegionId);
+  });
+
   test('keepFocus split preserves original region focus', async ({ page }) => {
     await waitForInit(page);
     const before = await page.locator('#area .rg').count();

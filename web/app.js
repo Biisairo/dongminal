@@ -1902,6 +1902,9 @@ class App {
     if(!s||!tgtRegionId) return;
     let count=parseInt(opts.count,10); if(!Number.isFinite(count)||count<2) count=2;
     const keepFocus=!!opts.keepFocus;
+    // SPLIT_KEEPFOCUS_FIX_SRS FR-SKF-1: keepFocus 면 호출 직전 사용자 포커스를 저장해 사후 복원.
+    const savedSession = keepFocus ? this.ws.activeSession : null;
+    const savedFocused = keepFocus ? this.focused : null;
     const ref=this._regionNewPaneRef(s,tgtRegionId);
     const refPaneId=ref.cwd ? null : (ref.cwdPane || null);
     const newRegions=[]; let lastR=null;
@@ -1919,12 +1922,26 @@ class App {
     s=this.ws.sessions.find(x=>x.id===tgtSessionId);
     if(!s||!findRg(s.layout,tgtRegionId)) return;
     s.layout=doSplit(s.layout,tgtRegionId,newRegions,dir);
-    if(this.ws.activeSession!==tgtSessionId){
-      const cur=this._as(); if(cur) cur.focusedRegion=this.focused;
-      this.ws.activeSession=tgtSessionId;
+    if(keepFocus){
+      // FR-SKF-1: 저장된 사용자 포커스를 그대로 복원. activeSession / focused 모두.
+      // FR-SKF-3: 저장된 region 이 사후 layout 에서 사라졌으면 무동작 + 경고.
+      if(this.ws.activeSession!==savedSession && this.ws.sessions.some(x=>x.id===savedSession)){
+        this.ws.activeSession=savedSession;
+      }
+      const a=this._as();
+      if(a && savedFocused && findRg(a.layout,savedFocused)){
+        this._setFocus(savedFocused, a);
+      } else if(savedFocused){
+        console.warn('[split] keepFocus: savedFocused region gone after split, leaving focus as-is');
+      }
+    } else {
+      if(this.ws.activeSession!==tgtSessionId){
+        const cur=this._as(); if(cur) cur.focusedRegion=this.focused;
+        this.ws.activeSession=tgtSessionId;
+      }
+      const next = lastR || tgtRegionId;
+      this._setFocus(next, s);
     }
-    const next=(!keepFocus && lastR) ? lastR : tgtRegionId;
-    this._setFocus(next, s);
     this.render();
     this._save();
   }
