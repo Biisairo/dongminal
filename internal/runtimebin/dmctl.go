@@ -10,8 +10,8 @@ import (
 const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
 
 사용법:
-  dmctl new-session
-  dmctl new-tab
+  dmctl new-session [--name <이름>] [-n]   # -n: 백그라운드 생성 (포커스 유지)
+  dmctl new-tab [--name <이름>] [-n] [--at <uuid>]
   dmctl split-h [N]      # 가로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
   dmctl split-v [N]      # 세로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
   dmctl focus <uuid>     # uuid = list-panes 의 uuid 컬럼 값 (좌표/라벨/paneId 거부)
@@ -20,6 +20,8 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl session-next / session-prev
   dmctl tab-next / tab-prev
   dmctl pane-up / pane-down / pane-left / pane-right
+  dmctl rename-tab --at <uuid> <이름>      # pane 표시 이름 변경 (역할명 부여 등)
+  dmctl rename-session --at <uuid> <이름>  # 그 pane 이 속한 세션 이름 변경
   dmctl list-panes [--json]         # 열린 pane 목록 (uuid 포함, ▶=현재 포커스)
   dmctl who-am-i [--json]           # 현재 쉘이 속한 pane 의 식별 정보
   dmctl send <action> [json-args]   # raw 전송
@@ -34,6 +36,8 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   --at <uuid>, -l <uuid>  특정 위치를 대상으로 실행 (기본: 현재 포커스).
                           uuid 만 허용.
   --no-focus, -n          명령 실행 전후로 사용자 포커스를 이동시키지 않는다.
+                          new-session/-tab 에선 백그라운드 생성 (활성 탭도 유지).
+  --name <이름>           new-session/new-tab 전용. 새 세션/탭 이름 (최대 64자).
 
 환경변수:
   DONGMINAL_PORT — 기본 58146
@@ -94,6 +98,19 @@ func runDmctl(args []string, stdout, stderr io.Writer) int {
 			return 2
 		}
 		return dmctlPost("focus", parsed.buildArgs(), stdout, stderr)
+	case "rename-tab", "rename-session":
+		action := "renameTab"
+		if cmd == "rename-session" {
+			action = "renameSession"
+		}
+		if parsed.name == "" && parsed.positional != "" {
+			parsed.name = parsed.positional
+		}
+		if parsed.location == "" || parsed.name == "" {
+			fmt.Fprintf(stderr, "usage: dmctl %s --at <uuid> <name>  (또는 --name <name>)\n", cmd)
+			return 2
+		}
+		return dmctlPost(action, parsed.buildArgs(), stdout, stderr)
 	}
 
 	action, ok := dmctlSimpleActions[cmd]
@@ -124,6 +141,7 @@ type dmctlParsed struct {
 	location   string
 	count      *int
 	keepFocus  bool
+	name       string
 	positional string
 }
 
@@ -137,6 +155,9 @@ func (p dmctlParsed) buildArgs() map[string]any {
 	}
 	if p.keepFocus {
 		out["keepFocus"] = true
+	}
+	if p.name != "" {
+		out["name"] = p.name
 	}
 	return out
 }
@@ -159,6 +180,15 @@ func parseDmctlFlags(args []string) (dmctlParsed, error) {
 			p.location = a[5:]
 		case len(a) > 3 && a[:3] == "-l=":
 			p.location = a[3:]
+		case a == "--name":
+			if i+1 >= len(args) {
+				return p, fmt.Errorf("flag %s requires value", a)
+			}
+			p.name = args[i+1]
+			i += 2
+			continue
+		case len(a) > 7 && a[:7] == "--name=":
+			p.name = a[7:]
 		case a == "--no-focus" || a == "-n":
 			p.keepFocus = true
 		case a == "-h" || a == "--help":

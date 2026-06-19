@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"dongminal/internal/mcptool"
 )
@@ -15,8 +16,8 @@ var WorkspaceCommandSpec = map[string]any{
 	"description": "dongminal 워크스페이스를 원격 제어한다. 실행 중인 브라우저(들)에 SSE 로 명령을 브로드캐스트하고, 브라우저가 기존 UI 로직(키보드 단축키와 동일 경로)을 그대로 실행한다. delivered=0 이면 구독 중인 브라우저 없음 — 사용자가 브라우저를 새로고침해야 함.\n\n" +
 		"【용어】 세션(Session)은 사이드바의 독립 작업공간. 영역(Region/Pane)은 세션 내부의 분할된 구획으로 자체 탭 바를 가진다. 탭(Tab)은 영역 안의 PTY 하나. 라벨 S<세션>.P<영역>.T<탭> 은 사람 가독성용 positional 표시(list_panes 의 label 컬럼). location 인자는 **uuid 만 허용** — list_panes 의 `uuid=` 컬럼 값. 좌표/라벨/paneId 입력은 거부. 서버가 broadcast 직전 uuid→좌표로 변환.\n\n" +
 		"【action — 기본은 '현재 포커스한 영역/세션' 기준. location 인자로 포커스 외 위치를 직접 대상 지정 가능 (focus → action 2콜 대신 1콜로 해결).】\n" +
-		"  • newSession   — 새 세션을 만들고 활성화. 새 영역/탭/PTY 자동 생성.\n" +
-		"  • newTab       — 포커스(또는 location) 영역에 새 탭(+PTY) 추가하고 그 탭으로 전환. cwd 는 해당 탭의 cwd 상속.\n" +
+		"  • newSession   — 새 세션 생성. 기본은 활성화(전환). name=잡이름 지정 가능, keepFocus=true 면 사용자 포커스 유지(백그라운드 생성 — 잡 컨테이너 패턴).\n" +
+		"  • newTab       — 포커스(또는 location) 영역에 새 탭(+PTY) 추가. 기본은 그 탭으로 전환. name 지정 가능, keepFocus=true 면 사용자 포커스·대상 영역 활성 탭 모두 유지. cwd 는 해당 탭의 cwd 상속.\n" +
 		"  • splitH       — 영역을 '가로 분할' (좌↔우). 기본 2분할. count=N 지정 시 N 균등 분할. keepFocus=true 면 원래 포커스 유지, 기본은 마지막 새 영역으로 이동.\n" +
 		"  • splitV       — 영역을 '세로 분할' (상↕하). count/keepFocus 동일.\n" +
 		"  • closeTab     — 영역의 활성 탭을 닫음(PTY 종료). 영역의 마지막 탭이면 영역도 제거, 세션의 마지막 영역이면 세션도 제거. 실행 중 프로세스가 있으면 브라우저에서 확인 다이얼로그 표시.\n" +
@@ -27,7 +28,9 @@ var WorkspaceCommandSpec = map[string]any{
 		"  • tabPrev      — 현재 영역 안에서 이전 탭 (순환). Ctrl+Shift+Tab 과 동일.\n" +
 		"  • paneUp/Down/Left/Right — 분할 레이아웃에서 인접 영역으로 포커스 이동. 해당 방향에 영역이 없으면 무시됨. Ctrl+Shift+방향키와 동일.\n" +
 		"  • openMdTab   — 포커스(또는 location) 영역에 Markdown 뷰어 탭을 추가. name과 filePath 인자 필수.\n" +
-		"  • focus        — 임의 위치로 포커스 이동. location **필수**. uuid 만 허용 (list_panes 의 `uuid=` 컬럼 값).\n\n" +
+		"  • focus        — 임의 위치로 포커스 이동. location **필수**. uuid 만 허용 (list_panes 의 `uuid=` 컬럼 값).\n" +
+		"  • renameTab    — location(필수) pane 의 표시 이름을 name(필수) 으로 변경. 포커스 무영향. 팀 pane 에 역할명 부여에 사용.\n" +
+		"  • renameSession — location(필수) pane 이 **속한 세션**의 이름을 name(필수) 으로 변경. 포커스 무영향.\n\n" +
 		"【인자】\n" +
 		"  • location  (모든 action 공용, 선택) — 대상 위치. 지정하면 action 실행 전에 해당 위치로 먼저 포커스 이동 후 실행. focus 액션에서는 필수.\n" +
 		"  • count     (splitH/splitV 전용, 선택, 기본 2) — N 개 균등 분할. N >= 2.\n" +
@@ -49,6 +52,7 @@ var WorkspaceCommandSpec = map[string]any{
 					"tabNext", "tabPrev",
 					"paneUp", "paneDown", "paneLeft", "paneRight",
 					"focus", "openMdTab",
+					"renameTab", "renameSession",
 				},
 			},
 			"location": map[string]any{
@@ -62,11 +66,11 @@ var WorkspaceCommandSpec = map[string]any{
 			},
 			"keepFocus": map[string]any{
 				"type":        "boolean",
-				"description": "splitH/splitV 전용. true 면 분할 후 포커스를 이동하지 않는다 (기본 false — 마지막 새 영역으로 이동).",
+				"description": "splitH/splitV/newSession/newTab 전용. true 면 실행 후 사용자 포커스를 호출 전 상태 그대로 유지한다 (기본 false). newSession+keepFocus 는 세션을 사이드바에만 추가, newTab+keepFocus 는 대상 영역의 활성 탭도 바꾸지 않는다.",
 			},
 			"name": map[string]any{
 				"type":        "string",
-				"description": "openMdTab 전용. 탭에 표시할 이름. 생략하면 파일명 사용.",
+				"description": "newSession/newTab/openMdTab 전용. 새 세션/탭에 표시할 이름. 생략 시 기본값 (Session/Shell/파일명).",
 			},
 			"filePath": map[string]any{
 				"type":        "string",
@@ -105,14 +109,27 @@ func WorkspaceCommandHandler(d WorkspaceCommandDeps) func(context.Context, Works
 		if a.Action == "openMdTab" && a.FilePath == "" {
 			return nil, fmt.Errorf("openMdTab 은 filePath 인자가 필수")
 		}
+		if a.Action == "renameTab" || a.Action == "renameSession" {
+			if a.Location == "" {
+				return nil, fmt.Errorf("%s 은 location 인자가 필요 (list_panes 의 uuid 컬럼 값)", a.Action)
+			}
+			if a.Name == "" {
+				return nil, fmt.Errorf("%s 은 name 인자가 필수", a.Action)
+			}
+		}
 		if a.Count != 0 && a.Count < 2 {
 			return nil, fmt.Errorf("count 는 2 이상이어야 한다 (받은 값: %d)", a.Count)
 		}
 		if a.Count != 0 && a.Action != "splitH" && a.Action != "splitV" {
 			return nil, fmt.Errorf("count 는 splitH/splitV 에서만 의미가 있다 (action=%s)", a.Action)
 		}
-		if a.KeepFocus && a.Action != "splitH" && a.Action != "splitV" && a.Action != "closeTab" {
-			return nil, fmt.Errorf("keepFocus 는 splitH/splitV/closeTab 에서만 의미가 있다 (action=%s)", a.Action)
+		if a.KeepFocus && a.Action != "splitH" && a.Action != "splitV" && a.Action != "closeTab" &&
+			a.Action != "newSession" && a.Action != "newTab" {
+			return nil, fmt.Errorf("keepFocus 는 splitH/splitV/closeTab/newSession/newTab 에서만 의미가 있다 (action=%s)", a.Action)
+		}
+		if a.Name != "" && a.Action != "openMdTab" && a.Action != "newSession" && a.Action != "newTab" &&
+			a.Action != "renameTab" && a.Action != "renameSession" {
+			return nil, fmt.Errorf("name 은 newSession/newTab/openMdTab/renameTab/renameSession 에서만 의미가 있다 (action=%s)", a.Action)
 		}
 		loc := a.Location
 		if d.WS != nil && loc != "" {
@@ -133,11 +150,27 @@ func WorkspaceCommandHandler(d WorkspaceCommandDeps) func(context.Context, Works
 			Name      string `json:"name,omitempty"`
 			FilePath  string `json:"filePath,omitempty"`
 		}
-		payload, _ := json.Marshal(struct {
-			Action string `json:"action"`
-			Args   argsT  `json:"args"`
-		}{a.Action, argsT{Location: loc, Count: a.Count, KeepFocus: a.KeepFocus, Name: a.Name, FilePath: a.FilePath}})
-		n := d.Broadcaster.Broadcast(payload)
+		av := argsT{Location: loc, Count: a.Count, KeepFocus: a.KeepFocus, Name: a.Name, FilePath: a.FilePath}
+		var n int
+		var res mcptool.CmdResult
+		var timedOut bool
+		creating := d.Broadcaster.IsCreatingAction(a.Action)
+		if creating {
+			// FR-RCR-8: reqId 발급 → await → 새 id 를 결과 텍스트에 부착.
+			reqId := d.Broadcaster.NewReqId()
+			payload, _ := json.Marshal(struct {
+				Action string `json:"action"`
+				Args   argsT  `json:"args"`
+				ReqId  string `json:"reqId"`
+			}{a.Action, av, reqId})
+			res, n, timedOut = d.Broadcaster.BroadcastAndAwait(payload, reqId)
+		} else {
+			payload, _ := json.Marshal(struct {
+				Action string `json:"action"`
+				Args   argsT  `json:"args"`
+			}{a.Action, av})
+			n = d.Broadcaster.Broadcast(payload)
+		}
 		// 결과 메시지의 location 은 변환 후 좌표 (loc) 우선. 입력이 uuid 였으면
 		// 원본도 괄호로 부기해 사용자가 추적 가능하게.
 		locDisplay := loc
@@ -165,7 +198,35 @@ func WorkspaceCommandHandler(d WorkspaceCommandDeps) func(context.Context, Works
 		}
 		if n == 0 {
 			msg += "  ⚠ 구독 중인 브라우저 없음 (새로고침 필요할 수 있음)"
+		} else if creating {
+			msg += formatNewEntities(res, timedOut)
 		}
 		return mcptool.TextResult(msg), nil
 	}
+}
+
+// formatNewEntities 는 생성 명령의 결과(새 엔터티 id)를 사람 가독성 텍스트로
+// 부착한다. timedOut 이면 미수신을 표시 (FR-RCR-8).
+func formatNewEntities(res mcptool.CmdResult, timedOut bool) string {
+	if timedOut {
+		return "  (timedOut: 새 id 미수신 — list_panes 로 확인)"
+	}
+	var sb strings.Builder
+	if len(res.NewSessions) > 0 {
+		fmt.Fprintf(&sb, "  newSessions=%v", res.NewSessions)
+	}
+	if len(res.NewRegions) > 0 {
+		fmt.Fprintf(&sb, "  newRegions=%v", res.NewRegions)
+	}
+	if len(res.NewTabs) > 0 {
+		sb.WriteString("  newTabs=[")
+		for i, t := range res.NewTabs {
+			if i > 0 {
+				sb.WriteByte(' ')
+			}
+			fmt.Fprintf(&sb, "%s(%s)", t.UUID, t.PaneID)
+		}
+		sb.WriteByte(']')
+	}
+	return sb.String()
 }

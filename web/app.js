@@ -1456,7 +1456,11 @@ class App {
               this._onMdScrollRemote(m.args||{});
               return;
             }
-            this._execRemote(m.action, m.args||{});
+            // REMOTE_COMMAND_RESULT_SRS: reqId 는 broadcast payload 의 top-level
+            // 이므로 args 에 합쳐 _execRemote 로 전달 (echo correlation).
+            const args=m.args||{};
+            if(m.reqId) args.reqId=m.reqId;
+            this._execRemote(m.action, args);
           }catch(err){console.error('[cmd] parse',err)}
         };
         es.onerror=()=>{
@@ -1533,6 +1537,20 @@ class App {
     this.render();
   }
 
+  // REMOTE_COMMAND_RESULT_SRS FR-RCR-6: 생성 명령의 새 엔터티 id 를 reqId 와 묶어
+  // 서버에 echo. best-effort — 실패해도 서버 timeout 이 백스톱 (DC-RCR-3).
+  _echoResult(reqId, result){
+    fetch('/api/command-result',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        reqId,
+        newSessions:result.newSessions||[],
+        newRegions:result.newRegions||[],
+        newTabs:result.newTabs||[],
+      }),
+    }).catch(()=>{});
+  }
+
   _execRemote(action, args){
     args=args||{};
     if(action==='focus'){this._focusLocation(args.location); return}
@@ -1542,6 +1560,47 @@ class App {
       if(location) this._focusLocation(location);
       const rid=this.focused;
       if(rid) this.addTab(rid,'markdown',{name:name||filePath.split('/').pop(),filePath});
+      return;
+    }
+    // RENAME_TAB_SESSION_SRS FR-RNS-1/2: 순수 데이터 변경 — 포커스 무영향.
+    if(action==='renameTab'||action==='renameSession'){
+      if(!args.location||!args.name){console.warn('[cmd] '+action+': location/name 필수');return}
+      const tgt=this._resolveLocation(args.location);
+      if(!tgt){console.warn('[cmd] '+action+': 대상 없음',args.location);return}
+      const name=String(args.name).slice(0,64);
+      if(action==='renameTab') tgt.tab.name=name;
+      else tgt.session.name=name;
+      this._save(); this.render();
+      return;
+    }
+    // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-5: newSession/newTab 은 name/keepFocus
+    // 를 전달하기 위해 명시 분기. 의미는 _mkSession/addTab 내부에서 보장.
+    if(action==='newSession'){
+      this._mkSession({name:args.name,keepFocus:!!args.keepFocus}).then((c)=>{
+        this.render();
+        if(args.reqId&&c) this._echoResult(args.reqId,{newSessions:[c.session],newRegions:[c.region],newTabs:[c.tab]});
+      });
+      return;
+    }
+    if(action==='newTab'){
+      const opts={name:args.name,keepFocus:!!args.keepFocus};
+      let rid=null;
+      if(args.location){
+        const tgt=this._resolveLocation(args.location);
+        if(!tgt) return;
+        if(opts.keepFocus){
+          opts.sessionId=tgt.sessionId;
+          rid=tgt.regionId;
+        }else{
+          this._focusLocation(args.location);
+          rid=this.focused;
+        }
+      }else{
+        rid=this.focused;
+      }
+      if(rid) this.addTab(rid,'terminal',opts).then((tab)=>{
+        if(args.reqId&&tab) this._echoResult(args.reqId,{newTabs:[tab]});
+      });
       return;
     }
     const isSplit=(action==='splitH'||action==='splitV');
@@ -1554,7 +1613,9 @@ class App {
         opts.targetRegion=tgt.regionId;
       }
       const dir=action==='splitH'?'horizontal':'vertical';
-      this.split(dir,opts);
+      this.split(dir,opts).then((c)=>{
+        if(args.reqId&&c) this._echoResult(args.reqId,{newRegions:c.regions,newTabs:c.tabs});
+      });
       return;
     }
     const keepFocus=!!args.keepFocus;
@@ -1712,20 +1773,27 @@ class App {
     }
   }
 
-  async _mkSession(){
+  async _mkSession(opts={}){
     const p=await this._newPane();
     const r=`r${++this._r}`,t=`t${++this._t}`;
+    const name=(typeof opts.name==='string'&&opts.name?opts.name:'Session').slice(0,64);
     const s={
-      id:`s${++this._s}`,name:'Session',
+      id:`s${++this._s}`,name,
       layout:{type:'region',id:r,tabs:[{id:t,name:'Shell',type:'terminal',paneId:p.id}],activeTab:t}
     };
     this.ws.sessions.push(s);
-    this.ws.activeSession=s.id;
-    this._setFocus(r, s);
+    // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-2: keepFocus 면 세션은 사이드바에만
+    // 추가 — activeSession/focused 무변화 (백그라운드 잡 컨테이너 패턴).
+    if(!opts.keepFocus){
+      this.ws.activeSession=s.id;
+      this._setFocus(r, s);
+    }
     // Fire-and-forget save: keeps the UI snappy. Awaiting here would block
     // render on the PUT roundtrip (see split/addTab which already use
     // this pattern).
     this._save();
+    // REMOTE_COMMAND_RESULT_SRS FR-RCR-6/7: 생성한 엔터티 id 반환 (echo 용).
+    return {session:s.id, region:r, tab:{uuid:t, paneId:p.id}};
   }
 
   async addSession(){await this._mkSession();this.render()}
@@ -1797,7 +1865,9 @@ class App {
   }
 
   async addTab(rid, type = 'terminal', opts = {}) {
-    const s = this._as(); if (!s) return;
+    // opts.sessionId 지정 시 비활성 세션의 region 에도 추가 가능 (FR-RST-4).
+    const s = opts.sessionId ? this.ws.sessions.find(x => x.id === opts.sessionId) : this._as();
+    if (!s) return;
     const rg = findRg(s.layout, rid); if (!rg) return;
     if (type === 'markdown') {
       if (!opts.filePath) { console.warn('[addTab] markdown tab requires filePath'); return }
@@ -1824,10 +1894,14 @@ class App {
     const ref = this._regionNewPaneRef(s, rid);
     const p = await this._newPane(ref.cwd || null, ref.cwd ? null : (ref.cwdPane || null));
     const t = `t${++this._t}`;
-    rg.tabs.push({ id: t, name: 'Shell', type: 'terminal', paneId: p.id });
-    rg.activeTab = t;
+    const name = (typeof opts.name === 'string' && opts.name ? opts.name : 'Shell').slice(0, 64);
+    rg.tabs.push({ id: t, name, type: 'terminal', paneId: p.id });
+    // FR-RST-4: keepFocus 면 대상 region 의 활성 탭도 바꾸지 않는다 (백그라운드 추가).
+    if (!opts.keepFocus) rg.activeTab = t;
     this.render();
     this._save();
+    // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 tab id+paneId 반환 (echo 용).
+    return { uuid: t, paneId: p.id };
   }
 
   async closeTab(rid,tid,sid){
@@ -1944,6 +2018,11 @@ class App {
     }
     this.render();
     this._save();
+    // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 region/tab id 반환 (echo 용).
+    return {
+      regions: newRegions.map(rg=>rg.id),
+      tabs: newRegions.map(rg=>({uuid:rg.tabs[0].id, paneId:rg.tabs[0].paneId})),
+    };
   }
 
   _regionActivePaneId(sess,rid){

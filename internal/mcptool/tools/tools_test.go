@@ -147,6 +147,51 @@ func TestListPanes_Mixed(t *testing.T) {
 	}
 }
 
+// TC-LPF-6: MCP session 필터 — 매칭 행만 + orphan 섹션 생략.
+func TestListPanes_SessionFilter(t *testing.T) {
+	pr := newFakePaneReader()
+	pr.panes = []mcptool.PaneInfo{
+		{ID: "1", Name: "Shell #1", ShellPID: 100},
+		{ID: "2", Name: "Orphan", ShellPID: 200},
+	}
+	pr.has["1"] = true
+	pr.has["2"] = true
+	wr := &fakeWorkspaceReader{
+		entries: []mcptool.WorkspaceEntry{
+			{PaneID: "1", Label: "S1.P1.T1", SessionName: "poem-critique", TabName: "writer"},
+		},
+	}
+	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}),
+		`{"session":"POEM"}`)
+	body := resultText(res)
+	if !strings.Contains(body, `session="poem-critique"`) {
+		t.Errorf("missing match: %q", body)
+	}
+	if strings.Contains(body, "[workspace 미등록]") {
+		t.Errorf("orphan section should be omitted with filter: %q", body)
+	}
+}
+
+// TC-LPF-7: MCP 필터 0건 → "(매칭 없음" 텍스트, 에러 아님.
+func TestListPanes_FilterNoMatch(t *testing.T) {
+	pr := newFakePaneReader()
+	pr.panes = []mcptool.PaneInfo{{ID: "1", Name: "Shell", ShellPID: 100}}
+	pr.has["1"] = true
+	wr := &fakeWorkspaceReader{
+		entries: []mcptool.WorkspaceEntry{
+			{PaneID: "1", Label: "S1.P1.T1", SessionName: "Main", TabName: "Shell"},
+		},
+	}
+	res, err := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}),
+		`{"tab":"nomatch"}`)
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	if !strings.Contains(resultText(res), "매칭 없음") {
+		t.Errorf("body=%q", resultText(res))
+	}
+}
+
 func TestListPanes_DropsStaleEntries(t *testing.T) {
 	pr := newFakePaneReader()
 	pr.panes = []mcptool.PaneInfo{{ID: "1", Name: "Shell"}}
@@ -411,15 +456,26 @@ func TestWhoAmI_ResolveError(t *testing.T) {
 }
 
 type fakeBroadcaster struct {
-	allowed   map[string]bool
-	published [][]byte
-	delivered int
+	allowed       map[string]bool
+	published     [][]byte
+	delivered     int
+	awaitResult   mcptool.CmdResult
+	awaitTimedOut bool
 }
 
 func (f *fakeBroadcaster) AllowedAction(a string) bool { return f.allowed[a] }
 func (f *fakeBroadcaster) Broadcast(p []byte) int {
 	f.published = append(f.published, append([]byte(nil), p...))
 	return f.delivered
+}
+
+func (f *fakeBroadcaster) IsCreatingAction(a string) bool {
+	return a == "splitH" || a == "splitV" || a == "newTab" || a == "newSession"
+}
+func (f *fakeBroadcaster) NewReqId() string { return "test-req" }
+func (f *fakeBroadcaster) BroadcastAndAwait(p []byte, reqId string) (mcptool.CmdResult, int, bool) {
+	f.published = append(f.published, append([]byte(nil), p...))
+	return f.awaitResult, f.delivered, f.awaitTimedOut
 }
 
 func TestWorkspaceCommand_BroadcastsPayload(t *testing.T) {
@@ -439,6 +495,59 @@ func TestWorkspaceCommand_BroadcastsPayload(t *testing.T) {
 	body := resultText(res)
 	if !strings.Contains(body, "delivered=2") || !strings.Contains(body, "count=3") || !strings.Contains(body, "keepFocus=true") {
 		t.Errorf("body=%q", body)
+	}
+}
+
+// TC-RCR-7: 생성명령(newSession) 결과를 텍스트에 부착.
+func TestWorkspaceCommand_CreatingAttachesNewIds(t *testing.T) {
+	b := &fakeBroadcaster{
+		allowed:   map[string]bool{"newSession": true},
+		delivered: 1,
+		awaitResult: mcptool.CmdResult{
+			NewSessions: []string{"s5"},
+			NewRegions:  []string{"r9"},
+			NewTabs:     []mcptool.TabRef{{UUID: "t9", PaneID: "409"}},
+		},
+	}
+	res, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
+		`{"action":"newSession","name":"wf"}`)
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	body := resultText(res)
+	if !strings.Contains(body, "newSessions=[s5]") || !strings.Contains(body, "newTabs=[t9(409)]") {
+		t.Errorf("body=%q", body)
+	}
+	// payload 에 reqId 포함.
+	if !strings.Contains(string(b.published[0]), `"reqId":"test-req"`) {
+		t.Errorf("payload missing reqId: %s", b.published[0])
+	}
+}
+
+// TC-RCR-8: 비생성(focus)은 기존 텍스트 — newTabs 부착 없음.
+func TestWorkspaceCommand_NonCreatingNoNewIds(t *testing.T) {
+	b := &fakeBroadcaster{allowed: map[string]bool{"focus": true}, delivered: 1}
+	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "S1.P1.T1"}}
+	res, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b, WS: ws}),
+		`{"action":"focus","location":"u1"}`)
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	if strings.Contains(resultText(res), "newTabs") {
+		t.Errorf("non-creating should not attach newTabs: %q", resultText(res))
+	}
+}
+
+// timedOut 이면 미수신 표시.
+func TestWorkspaceCommand_CreatingTimedOut(t *testing.T) {
+	b := &fakeBroadcaster{allowed: map[string]bool{"splitV": true}, delivered: 1, awaitTimedOut: true}
+	res, _ := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
+		`{"action":"splitV"}`)
+	if !strings.Contains(resultText(res), "timedOut") {
+		t.Errorf("body=%q", resultText(res))
 	}
 }
 
@@ -497,11 +606,95 @@ func TestWorkspaceCommand_CountForbiddenOnNonSplit(t *testing.T) {
 }
 
 func TestWorkspaceCommand_KeepFocusForbidden(t *testing.T) {
-	b := &fakeBroadcaster{allowed: map[string]bool{"newSession": true}}
+	b := &fakeBroadcaster{allowed: map[string]bool{"sessionNext": true}}
 	if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
 		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
-		`{"action":"newSession","keepFocus":true}`); err == nil {
+		`{"action":"sessionNext","keepFocus":true}`); err == nil {
 		t.Errorf("err=nil")
+	}
+}
+
+// FR-RST-2/4: newSession/newTab 이 keepFocus 를 허용하고 payload 에 그대로 전달.
+func TestWorkspaceCommand_NewSessionKeepFocusName(t *testing.T) {
+	b := &fakeBroadcaster{allowed: map[string]bool{"newSession": true}, delivered: 1}
+	_, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
+		`{"action":"newSession","keepFocus":true,"name":"wf-test"}`)
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	payload := string(b.published[0])
+	if !strings.Contains(payload, `"keepFocus":true`) || !strings.Contains(payload, `"name":"wf-test"`) {
+		t.Errorf("payload=%s", payload)
+	}
+}
+
+func TestWorkspaceCommand_NewTabKeepFocusName(t *testing.T) {
+	b := &fakeBroadcaster{allowed: map[string]bool{"newTab": true}, delivered: 1}
+	_, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
+		`{"action":"newTab","keepFocus":true,"name":"worker"}`)
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	payload := string(b.published[0])
+	if !strings.Contains(payload, `"keepFocus":true`) || !strings.Contains(payload, `"name":"worker"`) {
+		t.Errorf("payload=%s", payload)
+	}
+}
+
+// TC-RNS-4: renameTab/renameSession 은 location + name 둘 다 필수.
+func TestWorkspaceCommand_RenameRequiresLocationAndName(t *testing.T) {
+	b := &fakeBroadcaster{allowed: map[string]bool{"renameTab": true, "renameSession": true}}
+	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "S1.P1.T1"}}
+	h := WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b, WS: ws})
+	for _, payload := range []string{
+		`{"action":"renameTab","name":"writer"}`,                  // location 누락
+		`{"action":"renameTab","location":"u1"}`,                  // name 누락
+		`{"action":"renameSession","name":"x"}`,                   // location 누락
+		`{"action":"renameSession","location":"u1"}`,              // name 누락
+	} {
+		if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec, h, payload); err == nil {
+			t.Errorf("err=nil for %s", payload)
+		}
+	}
+}
+
+// renameTab 해피패스 — payload 에 location(좌표 변환)/name.
+func TestWorkspaceCommand_RenameTabHappy(t *testing.T) {
+	b := &fakeBroadcaster{allowed: map[string]bool{"renameTab": true}, delivered: 1}
+	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "S1.P1.T1"}}
+	_, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b, WS: ws}),
+		`{"action":"renameTab","location":"u1","name":"writer"}`)
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	payload := string(b.published[0])
+	if !strings.Contains(payload, `"name":"writer"`) || !strings.Contains(payload, `"location":"S1.P1.T1"`) {
+		t.Errorf("payload=%s", payload)
+	}
+}
+
+// TC-RNS-5: rename 액션에 keepFocus 지정 시 에러.
+func TestWorkspaceCommand_RenameKeepFocusForbidden(t *testing.T) {
+	b := &fakeBroadcaster{allowed: map[string]bool{"renameTab": true}}
+	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "S1.P1.T1"}}
+	if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b, WS: ws}),
+		`{"action":"renameTab","location":"u1","name":"x","keepFocus":true}`); err == nil {
+		t.Errorf("err=nil")
+	}
+}
+
+// TC-RST-7: name 은 newSession/newTab/openMdTab 외 action 에서 거부.
+func TestWorkspaceCommand_NameForbiddenOnFocus(t *testing.T) {
+	b := &fakeBroadcaster{allowed: map[string]bool{"focus": true}}
+	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "S1.P1.T1"}}
+	if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
+		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b, WS: ws}),
+		`{"action":"focus","location":"u1","name":"x"}`); err == nil {
+		t.Errorf("err=nil, name should be rejected on focus")
 	}
 }
 

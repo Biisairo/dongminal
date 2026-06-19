@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"dongminal/internal/mcptool"
 	"dongminal/internal/mdscroll"
@@ -63,6 +64,10 @@ type CommandBroker interface {
 	add() *cmdSub
 	remove(*cmdSub)
 	Broadcast(payload []byte) int
+	// BroadcastAndAwait / DeliverResult support creating-command result
+	// correlation (REMOTE_COMMAND_RESULT_SRS).
+	BroadcastAndAwait(payload []byte, reqId string, timeout time.Duration) (CmdResult, int, bool)
+	DeliverResult(reqId string, res CmdResult)
 }
 
 // SettingsStore abstracts the in-memory + on-disk settings blob holder.

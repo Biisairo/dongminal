@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"dongminal/internal/mcptool"
 	"dongminal/internal/workspace"
@@ -238,8 +239,12 @@ func (f *fakeToolDispatcher) Dispatch(ctx context.Context, name string, args jso
 // ── fakeCommandBroker ───────────────────────────────
 
 type fakeCommandBroker struct {
-	mu        sync.Mutex
-	published [][]byte
+	mu             sync.Mutex
+	published      [][]byte
+	awaitResult    CmdResult
+	awaitDelivered int
+	awaitTimedOut  bool
+	deliverCalls   []string // reqIds passed to DeliverResult
 }
 
 func (f *fakeCommandBroker) add() *cmdSub {
@@ -257,6 +262,19 @@ func (f *fakeCommandBroker) Broadcast(payload []byte) int {
 	defer f.mu.Unlock()
 	f.published = append(f.published, append([]byte(nil), payload...))
 	return 1
+}
+
+func (f *fakeCommandBroker) BroadcastAndAwait(payload []byte, reqId string, timeout time.Duration) (CmdResult, int, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.published = append(f.published, append([]byte(nil), payload...))
+	return f.awaitResult, f.awaitDelivered, f.awaitTimedOut
+}
+
+func (f *fakeCommandBroker) DeliverResult(reqId string, res CmdResult) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.deliverCalls = append(f.deliverCalls, reqId)
 }
 
 // ── fakeSettingsStore ───────────────────────────────

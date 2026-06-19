@@ -184,6 +184,131 @@ func TestRunDmctlAtFlagAcceptsUUID(t *testing.T) {
 	}
 }
 
+// TC-RST-8: dmctl new-session --name wf -n → args 에 name + keepFocus.
+func TestRunDmctlNewSessionNameKeepFocus(t *testing.T) {
+	var got map[string]any
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &got)
+		w.Write([]byte(`{"ok":true}`))
+	})
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"new-session", "--name", "wf-test", "-n"}, &stdout, &stderr)
+	if rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+	if got["action"] != "newSession" {
+		t.Errorf("action=%v", got["action"])
+	}
+	args := got["args"].(map[string]any)
+	if args["name"] != "wf-test" || args["keepFocus"] != true {
+		t.Errorf("args=%v", args)
+	}
+}
+
+// TC-RST-9: dmctl new-tab --name worker --at <uuid> -n → name/location/keepFocus 모두.
+func TestRunDmctlNewTabNameAtKeepFocus(t *testing.T) {
+	uuid := "550e8400-e29b-41d4-a716-446655440003"
+	var got map[string]any
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &got)
+		w.Write([]byte(`{"ok":true}`))
+	})
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"new-tab", "--name", "worker", "--at", uuid, "-n"}, &stdout, &stderr)
+	if rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+	args := got["args"].(map[string]any)
+	if args["name"] != "worker" || args["location"] != uuid || args["keepFocus"] != true {
+		t.Errorf("args=%v", args)
+	}
+}
+
+// TC-RNS-6: dmctl rename-tab --at <uuid> <name> (positional name).
+func TestRunDmctlRenameTab(t *testing.T) {
+	uuid := "550e8400-e29b-41d4-a716-446655440003"
+	var got map[string]any
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &got)
+		w.Write([]byte(`{"ok":true}`))
+	})
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"rename-tab", "--at", uuid, "writer"}, &stdout, &stderr)
+	if rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+	if got["action"] != "renameTab" {
+		t.Errorf("action=%v", got["action"])
+	}
+	args := got["args"].(map[string]any)
+	if args["location"] != uuid || args["name"] != "writer" {
+		t.Errorf("args=%v", args)
+	}
+}
+
+// TC-RNS-7: rename-session 은 --name 플래그 경로도 동등.
+func TestRunDmctlRenameSessionNameFlag(t *testing.T) {
+	uuid := "550e8400-e29b-41d4-a716-446655440003"
+	var got map[string]any
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &got)
+		w.Write([]byte(`{"ok":true}`))
+	})
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"rename-session", "--at", uuid, "--name", "poem run 2"}, &stdout, &stderr)
+	if rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+	if got["action"] != "renameSession" {
+		t.Errorf("action=%v", got["action"])
+	}
+	args := got["args"].(map[string]any)
+	if args["name"] != "poem run 2" || args["location"] != uuid {
+		t.Errorf("args=%v", args)
+	}
+}
+
+// TC-RNS-8: 인자 누락 → usage + rc=2.
+func TestRunDmctlRenameTabMissingArgs(t *testing.T) {
+	for _, args := range [][]string{
+		{"rename-tab", "writer"},                    // --at 누락
+		{"rename-tab", "--at", "u1"},                // name 누락
+		{"rename-session"},                          // 둘 다 누락
+	} {
+		var stdout, stderr bytes.Buffer
+		rc := runDmctl(args, &stdout, &stderr)
+		if rc != 2 {
+			t.Errorf("args=%v rc=%d want 2 (stderr=%s)", args, rc, stderr.String())
+		}
+		if stderr.Len() == 0 {
+			t.Errorf("args=%v stderr empty", args)
+		}
+	}
+}
+
+// --name=값 형식도 지원.
+func TestParseDmctlFlags_NameEq(t *testing.T) {
+	got, err := parseDmctlFlags([]string{"--name=wf"})
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	if got.name != "wf" {
+		t.Errorf("name=%q", got.name)
+	}
+}
+
 func TestRunDmctlHelp(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	rc := runDmctl([]string{"-h"}, &stdout, &stderr)
@@ -306,6 +431,82 @@ func TestRunDmctlListPanes_Empty(t *testing.T) {
 	}
 	if strings.TrimSpace(stdout.String()) != "[]" {
 		t.Errorf("expected [], got %q", stdout.String())
+	}
+}
+
+// TC-LPF-1/2: --session 필터 — 부분 일치 + 대소문자 무시.
+func TestRunDmctlListPanes_SessionFilter(t *testing.T) {
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(listPanesFakeState))
+	})
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"list-panes", "--session", "WoRk"}, &stdout, &stderr)
+	if rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, `session="Work"`) {
+		t.Errorf("expected Work row, got:\n%s", out)
+	}
+	if strings.Contains(out, `session="Main"`) {
+		t.Errorf("Main row should be filtered out:\n%s", out)
+	}
+}
+
+// TC-LPF-3: 매칭 0건 → stderr "(no match)" + rc=1.
+func TestRunDmctlListPanes_FilterNoMatch(t *testing.T) {
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(listPanesFakeState))
+	})
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"list-panes", "--session", "nomatch"}, &stdout, &stderr)
+	if rc != 1 {
+		t.Fatalf("rc=%d want 1", rc)
+	}
+	if !strings.Contains(stderr.String(), "no match") {
+		t.Errorf("stderr=%q", stderr.String())
+	}
+}
+
+// TC-LPF-4: --json + 0건 → stdout "[]" + rc=1.
+func TestRunDmctlListPanes_FilterNoMatchJSON(t *testing.T) {
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(listPanesFakeState))
+	})
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"list-panes", "--session", "nomatch", "--json"}, &stdout, &stderr)
+	if rc != 1 {
+		t.Fatalf("rc=%d want 1", rc)
+	}
+	if strings.TrimSpace(stdout.String()) != "[]" {
+		t.Errorf("stdout=%q", stdout.String())
+	}
+}
+
+// TC-LPF-5: --session + --tab AND 매칭.
+func TestRunDmctlListPanes_SessionAndTabFilter(t *testing.T) {
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(listPanesFakeState))
+	})
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	// session=Work + tab=shell-a → 0건 (Work 의 tab 은 shell-b)
+	rc := runDmctl([]string{"list-panes", "--session", "Work", "--tab", "shell-a"}, &stdout, &stderr)
+	if rc != 1 {
+		t.Fatalf("AND mismatch rc=%d want 1", rc)
+	}
+	stdout.Reset()
+	stderr.Reset()
+	rc = runDmctl([]string{"list-panes", "--session", "Work", "--tab", "shell-b"}, &stdout, &stderr)
+	if rc != 0 || !strings.Contains(stdout.String(), `tab="shell-b"`) {
+		t.Errorf("AND match rc=%d out=%q", rc, stdout.String())
 	}
 }
 

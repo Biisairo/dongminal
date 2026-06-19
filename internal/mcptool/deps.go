@@ -48,10 +48,27 @@ type WorkspaceReader interface {
 	IsKnownTabID(id string) bool
 }
 
+// TabRef pairs a new tab's uuid with its paneId (REMOTE_COMMAND_RESULT_SRS).
+type TabRef struct {
+	UUID   string `json:"uuid"`
+	PaneID string `json:"paneId"`
+}
+
+// CmdResult is the set of entities a creating command produced.
+type CmdResult struct {
+	NewSessions []string `json:"newSessions"`
+	NewRegions  []string `json:"newRegions"`
+	NewTabs     []TabRef `json:"newTabs"`
+}
+
 // CommandBroadcaster delivers workspace UI commands to connected browsers.
 type CommandBroadcaster interface {
 	AllowedAction(action string) bool
 	Broadcast(payload []byte) int
+	// 생성 명령 결과 correlation (REMOTE_COMMAND_RESULT_SRS FR-RCR-8).
+	IsCreatingAction(action string) bool
+	NewReqId() string
+	BroadcastAndAwait(payload []byte, reqId string) (CmdResult, int, bool)
 }
 
 // ClientPaneResolver maps an SSE client's remote address to the pane whose

@@ -1,11 +1,15 @@
 package server
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -16,14 +20,120 @@ type cmdSub struct {
 	once sync.Once
 }
 
+// TabRef pairs a newly created tab's uuid with its server-assigned paneId
+// (REMOTE_COMMAND_RESULT_SRS — 호출자가 uuid→paneId 재조회 불필요).
+type TabRef struct {
+	UUID   string `json:"uuid"`
+	PaneID string `json:"paneId"`
+}
+
+// CmdResult is the set of entities a creating command produced, echoed back by
+// the browser and returned to the caller via long-poll correlation.
+type CmdResult struct {
+	NewSessions []string `json:"newSessions"`
+	NewRegions  []string `json:"newRegions"`
+	NewTabs     []TabRef `json:"newTabs"`
+}
+
 // CommandHub broadcasts workspace UI commands to SSE subscribers.
 type CommandHub struct {
 	mu   sync.Mutex
 	subs map[*cmdSub]struct{}
+
+	// pending maps a creating command's reqId to the channel awaiting the
+	// browser's echo (REMOTE_COMMAND_RESULT_SRS FR-RCR-2/3). Guarded by pmu.
+	pmu     sync.Mutex
+	pending map[string]chan CmdResult
 }
 
 func NewCommandHub() *CommandHub {
-	return &CommandHub{subs: map[*cmdSub]struct{}{}}
+	return &CommandHub{
+		subs:    map[*cmdSub]struct{}{},
+		pending: map[string]chan CmdResult{},
+	}
+}
+
+// creatingActions are the commands that produce new entities and thus support
+// result correlation. Others broadcast immediately with no await.
+var creatingActions = map[string]bool{
+	"newSession": true,
+	"newTab":     true,
+	"splitH":     true,
+	"splitV":     true,
+}
+
+// IsCreatingAction reports whether action creates new entities (FR-RCR-1).
+func IsCreatingAction(action string) bool { return creatingActions[action] }
+
+const defaultCommandResultTimeout = 3 * time.Second
+
+// CommandResultTimeout is the long-poll wait, overridable via env (NFR-RCR-1).
+func CommandResultTimeout() time.Duration {
+	if v := os.Getenv("DONGMINAL_CMD_RESULT_TIMEOUT_MS"); v != "" {
+		if ms, err := strconv.Atoi(v); err == nil && ms > 0 {
+			return time.Duration(ms) * time.Millisecond
+		}
+	}
+	return defaultCommandResultTimeout
+}
+
+// NewReqId returns a fresh 1회성 correlation key.
+func NewReqId() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+// BroadcastAndAwait broadcasts payload (which must already embed reqId) and
+// blocks until the browser echoes the result for reqId or timeout elapses. If
+// no subscriber received the broadcast (delivered=0) it returns immediately
+// without waiting (FR-RCR-2).
+func (h *CommandHub) BroadcastAndAwait(payload []byte, reqId string, timeout time.Duration) (CmdResult, int, bool) {
+	ch := make(chan CmdResult, 1)
+	h.pmu.Lock()
+	h.pending[reqId] = ch
+	h.pmu.Unlock()
+
+	n := h.Broadcast(payload)
+	if n == 0 {
+		h.clearPending(reqId)
+		return CmdResult{}, 0, false
+	}
+	select {
+	case res := <-ch:
+		return res, n, false
+	case <-time.After(timeout):
+		h.clearPending(reqId)
+		return CmdResult{}, n, true
+	}
+}
+
+// DeliverResult routes a browser echo to the awaiting BroadcastAndAwait. The
+// first echo wins (channel removed); unknown/expired reqId is a no-op
+// (FR-RCR-3, NFR-RCR-3).
+func (h *CommandHub) DeliverResult(reqId string, res CmdResult) {
+	h.pmu.Lock()
+	ch, ok := h.pending[reqId]
+	if ok {
+		delete(h.pending, reqId)
+	}
+	h.pmu.Unlock()
+	if ok {
+		ch <- res // buffered cap 1, non-blocking
+	}
+}
+
+func (h *CommandHub) clearPending(reqId string) {
+	h.pmu.Lock()
+	delete(h.pending, reqId)
+	h.pmu.Unlock()
+}
+
+// pendingCount is a test helper for leak detection.
+func (h *CommandHub) pendingCount() int {
+	h.pmu.Lock()
+	defer h.pmu.Unlock()
+	return len(h.pending)
 }
 
 func (h *CommandHub) add() *cmdSub {
@@ -73,7 +183,9 @@ var allowedCmdActions = map[string]bool{
 	"paneDown":     true,
 	"paneLeft":     true,
 	"paneRight":    true,
-	"openMdTab":    true,
+	"openMdTab":     true,
+	"renameTab":     true,
+	"renameSession": true,
 	// md_scroll_changed is emitted server-side after PUT /api/md-scroll. It is
 	// not in the dmctl POST path; clients receive it via SSE only.
 	"md_scroll_changed": true,
@@ -167,6 +279,7 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Action string          `json:"action"`
 		Args   json.RawMessage `json:"args,omitempty"`
+		ReqId  string          `json:"reqId,omitempty"`
 	}
 	if err := json.Unmarshal(body, &req); err != nil {
 		http.Error(w, "invalid json: "+err.Error(), http.StatusBadRequest)
@@ -181,8 +294,6 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	payload, _ := json.Marshal(req)
-	n := s.Commands.Broadcast(payload)
 	locField := ""
 	switch {
 	case finalLoc == "":
@@ -191,13 +302,61 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 	default:
 		locField = " location=" + finalLoc
 	}
-	log.Printf("[cmd] action=%s%s delivered=%d", req.Action, locField, n)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+
+	resp := map[string]interface{}{
 		"ok":                true,
-		"delivered":         n,
 		"action":            req.Action,
 		"location":          finalLoc,
 		"requestedLocation": origLoc,
-	})
+	}
+
+	if IsCreatingAction(req.Action) {
+		// FR-RCR-4: reqId 발급 → broadcast → 브라우저 echo 대기 → 새 id 포함 반환.
+		req.ReqId = NewReqId()
+		payload, _ := json.Marshal(req)
+		res, n, timedOut := s.Commands.BroadcastAndAwait(payload, req.ReqId, CommandResultTimeout())
+		resp["delivered"] = n
+		resp["newSessions"] = res.NewSessions
+		resp["newRegions"] = res.NewRegions
+		resp["newTabs"] = res.NewTabs
+		resp["timedOut"] = timedOut
+		log.Printf("[cmd] action=%s%s delivered=%d newTabs=%d timedOut=%t",
+			req.Action, locField, n, len(res.NewTabs), timedOut)
+	} else {
+		// FR-RCR-5: 비생성 명령은 기존과 완전히 동일 (대기 없음, 새 필드 없음).
+		payload, _ := json.Marshal(req)
+		n := s.Commands.Broadcast(payload)
+		resp["delivered"] = n
+		log.Printf("[cmd] action=%s%s delivered=%d", req.Action, locField, n)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+// handleCommandResult receives the browser's echo for a creating command and
+// routes it to the awaiting handleCommandPost / MCP handler (FR-RCR-3).
+func (s *Server) handleCommandResult(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		ReqId       string   `json:"reqId"`
+		NewSessions []string `json:"newSessions"`
+		NewRegions  []string `json:"newRegions"`
+		NewTabs     []TabRef `json:"newTabs"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid json: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if body.ReqId != "" {
+		s.Commands.DeliverResult(body.ReqId, CmdResult{
+			NewSessions: body.NewSessions,
+			NewRegions:  body.NewRegions,
+			NewTabs:     body.NewTabs,
+		})
+	}
+	w.WriteHeader(http.StatusOK)
 }

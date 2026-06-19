@@ -103,6 +103,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/cs/", s.handleCSProxy)
 	mux.HandleFunc("/api/commands", s.handleCommandPost)
 	mux.HandleFunc("/api/commands/sse", s.handleCommandSSE)
+	mux.HandleFunc("/api/command-result", s.handleCommandResult)
 	mux.HandleFunc("/mcp/sse", s.handleMCPSSE)
 	mux.HandleFunc("/mcp/message", s.handleMCPMessage)
 	return loggingMiddleware(mux)

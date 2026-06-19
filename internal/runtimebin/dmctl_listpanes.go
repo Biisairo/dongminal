@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"dongminal/internal/paneline"
 )
@@ -13,17 +14,33 @@ import (
 // 동일 포맷 (DMCTL_WHO_AM_I_SRS FR-DMC-LP-1).
 func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 	jsonOut := false
-	for _, a := range args {
-		switch a {
-		case "-h", "--help":
+	sessionFilter, tabFilter := "", ""
+	i := 0
+	for i < len(args) {
+		a := args[i]
+		switch {
+		case a == "-h" || a == "--help":
 			fmt.Fprint(stdout, dmctlListPanesHelp)
 			return 0
-		case "--json":
+		case a == "--json":
 			jsonOut = true
+		case a == "--session" || a == "--tab":
+			if i+1 >= len(args) {
+				fmt.Fprintf(stderr, "list-panes: flag %s requires value\n", a)
+				return 2
+			}
+			if a == "--session" {
+				sessionFilter = args[i+1]
+			} else {
+				tabFilter = args[i+1]
+			}
+			i += 2
+			continue
 		default:
 			fmt.Fprintf(stderr, "list-panes: unknown argument: %s\n", a)
 			return 2
 		}
+		i++
 	}
 
 	status, body, err := httpGet(baseURL() + "/api/state")
@@ -53,6 +70,26 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 	}
 
 	rows := buildListPanesRows(state.Workspace, shellPids, sizes)
+
+	// LIST_PANES_NAME_FILTER_SRS FR-LPF-1/2: 이름 필터 (부분 일치, 대소문자 무시, AND).
+	filtered := sessionFilter != "" || tabFilter != ""
+	if filtered {
+		var keep []listPanesRow
+		for _, r := range rows {
+			if matchFold(r.Session, sessionFilter) && matchFold(r.Tab, tabFilter) {
+				keep = append(keep, r)
+			}
+		}
+		rows = keep
+		if len(rows) == 0 {
+			if jsonOut {
+				stdout.Write([]byte("[]\n"))
+			} else {
+				fmt.Fprintln(stderr, "(no match)")
+			}
+			return 1
+		}
+	}
 
 	if jsonOut {
 		enc := json.NewEncoder(stdout)
@@ -91,8 +128,11 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 const dmctlListPanesHelp = `dmctl list-panes — 열린 pane 목록 조회
 
 사용법:
-  dmctl list-panes          # 사람 가독성 텍스트 (▶ = 사용자 포커스)
-  dmctl list-panes --json   # JSON 배열 (스크립트 친화)
+  dmctl list-panes                      # 사람 가독성 텍스트 (▶ = 사용자 포커스)
+  dmctl list-panes --json               # JSON 배열 (스크립트 친화)
+  dmctl list-panes --session <substr>   # 세션 이름 필터 (부분 일치·대소문자 무시)
+  dmctl list-panes --tab <substr>       # 탭 이름 필터. --session 과 AND
+                                        # 매칭 0건이면 rc=1 (grep 컨벤션)
 
 각 행: ▶|  label=...  uuid=...  short=...  paneId=...  shellPid=...  size=WxH  session="..."  tab="..."  session_uuid=...  region_uuid=...
 빈 값(uuid/short/size/session_uuid/region_uuid)은 해당 컬럼이 생략된다.
@@ -193,6 +233,14 @@ func collectRegions(n *wsLayout, out *[]*wsLayout) {
 			collectRegions(c, out)
 		}
 	}
+}
+
+// matchFold 는 substr 이 비었으면 통과, 아니면 case-insensitive substring 매칭.
+func matchFold(s, substr string) bool {
+	if substr == "" {
+		return true
+	}
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
 
 func shortCode(uuid string) string {
