@@ -2052,11 +2052,13 @@ class App {
     }
     // 데스크톱 알림 권한은 사용자 제스처가 필요하므로, 켜져 있고 아직 미결정이면
     // 첫 상호작용에서 한 번 요청한다 (브라우저 정책 충족) — FR-PAN-13a.
+    // capture 단계로 들어야 xterm 이 pointer/key 이벤트를 먼저 소비해도 누락되지 않는다.
     if(typeof Notification!=='undefined'&&Notification.permission==='default'&&this.attnDesktop&&!this._attnPermAsked){
       this._attnPermAsked=true;
-      const ask=()=>{document.removeEventListener('pointerdown',ask);document.removeEventListener('keydown',ask);try{Notification.requestPermission()}catch{}};
-      document.addEventListener('pointerdown',ask,{once:true});
-      document.addEventListener('keydown',ask,{once:true});
+      let asked=false;
+      const ask=()=>{if(asked)return;asked=true;try{const r=Notification.requestPermission();if(r&&r.then)r.then(()=>this._initAttn&&this._attnRefresh())}catch{}};
+      document.addEventListener('pointerdown',ask,{once:true,capture:true});
+      document.addEventListener('keydown',ask,{once:true,capture:true});
     }
     // 브라우저로 돌아오면(다른 앱→복귀) 지금 보고 있는 pane 의 알람은 해제 (요구2 보완).
     if(!this._attnFocusBound){
