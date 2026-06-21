@@ -37,6 +37,9 @@ type builtDeps struct {
 
 func buildDeps(cfg server.Config) (builtDeps, error) {
 	pm := server.NewPaneManager(cfg.DataDir, nil)
+	hub := server.NewCommandHub()
+	// Wire attention SSE before LoadAll so restored panes also get detection.
+	server.WireAttention(pm, hub)
 	csm := server.NewCodeServerManager()
 	wsMgr, err := workspace.New(pm, workspace.FilePersister{Path: dataPath(cfg.DataDir, "workspace.json")})
 	if err != nil {
@@ -56,7 +59,6 @@ func buildDeps(cfg server.Config) (builtDeps, error) {
 		log.Printf("mdscroll: pruned %d stale tab(s) at startup", removed)
 	}
 
-	hub := server.NewCommandHub()
 	reg := mcptool.NewRegistry()
 	pa := adapters.Pane{PM: pm}
 	wa := adapters.Workspace{WS: wsMgr}
@@ -140,6 +142,7 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	defer stop()
+	bd.pm.StartAttentionSweeper(ctx.Done())
 	exposure := "local-only"
 	if host == "0.0.0.0" || host == "::" {
 		exposure = "exposed to LAN"

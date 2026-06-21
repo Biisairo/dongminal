@@ -1,9 +1,11 @@
 package runtime
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"dongminal/internal/runtimebin"
@@ -15,8 +17,9 @@ func TestInstallShellHooks(t *testing.T) {
 		t.Fatalf("Install: %v", err)
 	}
 	want := map[string]os.FileMode{
-		"bash-hook.sh":   0o755,
-		"zdotdir/.zshrc": 0o644,
+		"bash-hook.sh":            0o755,
+		"zdotdir/.zshrc":          0o644,
+		"agent-hooks/claude.json": 0o644,
 	}
 	for rel, wantMode := range want {
 		info, err := os.Stat(filepath.Join(dir, rel))
@@ -27,6 +30,21 @@ func TestInstallShellHooks(t *testing.T) {
 		if got := info.Mode().Perm(); got != wantMode {
 			t.Errorf("%s: mode=%o want=%o", rel, got, wantMode)
 		}
+	}
+	// The installed claude hooks file must be valid JSON (claude --settings
+	// rejects malformed input, which would break the wrapper).
+	blob, err := os.ReadFile(filepath.Join(dir, "agent-hooks/claude.json"))
+	if err != nil {
+		t.Fatalf("read claude.json: %v", err)
+	}
+	var parsed any
+	if err := json.Unmarshal(blob, &parsed); err != nil {
+		t.Fatalf("claude.json is not valid JSON: %v", err)
+	}
+	// Hook commands must reference dmctl by absolute path (PATH-independent).
+	wantCmd := filepath.Join(dir, "dmctl") + " notify"
+	if !strings.Contains(string(blob), wantCmd) {
+		t.Fatalf("claude.json should invoke %q, got:\n%s", wantCmd, blob)
 	}
 }
 

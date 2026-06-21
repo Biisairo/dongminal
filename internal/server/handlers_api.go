@@ -169,6 +169,10 @@ var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/state"), (*Server).apiStateGet},
 	{http.MethodGet, exactPath("/api/whoami"), (*Server).apiWhoAmI},
 	{http.MethodPost, exactPath("/api/panes"), (*Server).apiPanesCreate},
+	{http.MethodGet, exactPath("/api/panes/attention"), (*Server).apiPanesAttention},
+	{http.MethodPost, exactPath("/api/panes/attention/set"), (*Server).apiPaneAttentionSet},
+	{http.MethodPost, exactPath("/api/panes/attention/clear"), (*Server).apiPaneAttentionClear},
+	{http.MethodPost, exactPath("/api/panes/attention/clear-all"), (*Server).apiPaneAttentionClearAll},
 	{http.MethodGet, func(p string) bool {
 		return strings.HasPrefix(p, "/api/panes/") && strings.HasSuffix(p, "/busy")
 	}, (*Server).apiPaneBusy},
@@ -260,6 +264,76 @@ func (s *Server) apiPaneBusy(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"busy": busy})
+}
+
+// apiPanesAttention returns the ids of panes currently needing attention, so a
+// late-joining / reconnecting client can restore highlights (FR-PAN-8).
+func (s *Server) apiPanesAttention(w http.ResponseWriter, r *http.Request) {
+	ids := []string{}
+	if al, ok := s.Panes.(interface{ AttentionIDs() []string }); ok {
+		if got := al.AttentionIDs(); got != nil {
+			ids = got
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"paneIds": ids})
+}
+
+// apiPaneAttentionSet flags a pane as needing attention. Used by `dmctl notify`
+// (agent hook bridge) which identifies its pane via DONGMINAL_PANE_ID — this
+// works from detached hooks that have no controlling terminal. Body:
+// {"paneId":"...","reason":"done|waiting|..."}. Unknown pane is a 200 no-op;
+// missing paneId is 400.
+func (s *Server) apiPaneAttentionSet(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		PaneID string `json:"paneId"`
+		Reason string `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PaneID == "" {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	reason := req.Reason
+	if reason == "" {
+		reason = "signaled"
+	}
+	if s.Panes != nil {
+		if pane := s.Panes.Get(req.PaneID); pane != nil {
+			pane.setAttention(reason)
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+}
+
+// apiPaneAttentionClear clears a pane's attention (and broadcasts the clear)
+// when the user focuses/opens it. Body: {"paneId":"..."}. Unknown/idle pane is
+// a no-op (200) so a stale focus event never errors.
+func (s *Server) apiPaneAttentionClear(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		PaneID string `json:"paneId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PaneID == "" {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if s.Panes != nil {
+		if pane := s.Panes.Get(req.PaneID); pane != nil {
+			pane.attend()
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+}
+
+// apiPaneAttentionClearAll dismisses every pane's attention at once (FR-PAN-17).
+func (s *Server) apiPaneAttentionClearAll(w http.ResponseWriter, r *http.Request) {
+	cleared := 0
+	if ca, ok := s.Panes.(interface{ ClearAllAttention() int }); ok {
+		cleared = ca.ClearAllAttention()
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int{"cleared": cleared})
 }
 
 func (s *Server) apiPaneDelete(w http.ResponseWriter, r *http.Request) {

@@ -7,6 +7,7 @@
   --accent-border:#3d59a1;
   --accent-hover:rgba(122,162,247,.1);--accent-active:rgba(122,162,247,.12);
   --accent-subtle:rgba(122,162,247,.08);
+  --attn:#e0af68;--attn-subtle:rgba(224,175,104,.16);--attn-glow:rgba(224,175,104,.5);
   --m-kb-h:38px;
 }
 
@@ -64,6 +65,28 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 }
 #session-name{font-size:12px;color:var(--text-muted)}
 .spacer{flex:1}
+
+/* 주의 알림 배지 + 센터 팝오버 (FR-PAN-16) */
+#attn-badge{position:relative;color:var(--attn);border-color:var(--attn)}
+#attn-badge .attn-count{margin-left:4px;font-size:10px;font-weight:600}
+#attn-center{
+  display:none;position:fixed;top:36px;right:8px;z-index:200;
+  min-width:200px;max-width:320px;max-height:60vh;overflow-y:auto;
+  background:var(--sidebar-bg);border:1px solid var(--attn);border-radius:6px;
+  box-shadow:0 4px 16px rgba(0,0,0,.4);padding:4px;
+}
+#attn-center.open{display:block}
+.attn-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px 8px;border-bottom:1px solid var(--border);margin-bottom:4px}
+.attn-head .attn-title{font-size:11px;color:var(--text-muted)}
+.attn-clear-all{font-size:11px;color:var(--attn);background:none;border:1px solid var(--attn);border-radius:4px;padding:2px 8px;cursor:pointer}
+.attn-clear-all:hover{background:var(--attn-subtle)}
+.attn-item{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;color:var(--text);
+}
+.attn-item:hover{background:var(--attn-subtle)}
+.attn-item .attn-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.attn-item .attn-reason{flex-shrink:0;font-size:10px;color:var(--attn)}
 .tbtn{
   padding:4px 10px;border:1px solid var(--border);border-radius:4px;
   background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;
@@ -111,6 +134,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   background:transparent;border:none;color:var(--text-dim);font-size:14px;cursor:pointer;flex-shrink:0;
 }
 .rt-add:hover{color:var(--accent)}
+
+/* 주의 알림 강조 — 포커스(--accent)·위험(--danger)과 구분되는 테마색 --attn, 굵은 실선+글로우로 가시성 강화 (FR-PAN-10) */
+.rt.attn{color:var(--attn);background:var(--attn-subtle);font-weight:600;box-shadow:inset 0 -3px 0 var(--attn)}
+.rg.attn{border-color:var(--attn);box-shadow:inset 0 0 0 2px var(--attn),0 0 12px -1px var(--attn-glow)}
+.si.attn{box-shadow:inset 3px 0 0 var(--attn)}
+.si.attn .si-dot{background:var(--attn);box-shadow:0 0 6px var(--attn-glow)}
 
 .rg-body{flex:1;position:relative;overflow:hidden}
 

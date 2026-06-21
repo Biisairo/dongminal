@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -98,19 +99,31 @@ func (s *safeConn) readMessage() (int, []byte, error)   { return s.conn.ReadMess
 //   - The exited transition happens exactly once, inside kill() under
 //     the protection of `once`.
 type Pane struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	PID  int    `json:"pid"`
-	ptmx *os.File
-	cmd  *exec.Cmd
-	stream *outbuf.Stream
-	cmu    sync.Mutex
-	cls    []*safeConn
-	exited bool
-	done chan struct{}
-	once sync.Once
-	onExit func(id string)
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	PID      int    `json:"pid"`
+	ptmx     *os.File
+	cmd      *exec.Cmd
+	stream   *outbuf.Stream
+	cmu      sync.Mutex
+	cls      []*safeConn
+	exited   bool
+	done     chan struct{}
+	once     sync.Once
+	onExit   func(id string)
 	restored bool
+
+	// Attention state (PANE_ATTENTION_NOTIFY_SRS). attnCarry is touched only
+	// by the readPTY goroutine (no lock). The atomics are shared with the
+	// idle sweeper / input / query goroutines. onAttention/onAttentionClear/
+	// allowBell are set once in StartPane before readPTY starts (race-free).
+	lastOutputAt     atomic.Int64
+	attnArmed        atomic.Bool
+	attention        atomic.Bool
+	attnCarry        []byte
+	allowBell        bool
+	onAttention      func(id, reason string)
+	onAttentionClear func(id string)
 }
 
 // paneBusyProbe is the busy-detection function used by Pane.IsBusy. It is a
@@ -154,8 +167,16 @@ func (p *Pane) Cwd() string {
 	return cwd
 }
 
+// PaneHooks carries the attention wiring StartPane applies before launching
+// readPTY (race-free). A nil *PaneHooks disables attention for that pane.
+type PaneHooks struct {
+	OnAttention      func(id, reason string)
+	OnAttentionClear func(id string)
+	AllowBell        bool
+}
+
 // StartPane spawns a shell under a new PTY. Exported for pane manager + tests.
-func StartPane(id, name, cwd string, cols, rows uint16, onExit func(string)) (*Pane, error) {
+func StartPane(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *PaneHooks) (*Pane, error) {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "/bin/bash"
@@ -173,6 +194,9 @@ func StartPane(id, name, cwd string, cols, rows uint16, onExit func(string)) (*P
 		"LANG=en_US.UTF-8", "LC_ALL=en_US.UTF-8", "LC_CTYPE=en_US.UTF-8",
 		"PATH=" + os.Getenv("PATH") + ":" + binDir,
 		"HOME=" + home,
+		// PANE_ATTENTION_NOTIFY_SRS: lets `dmctl notify` (incl. detached agent
+		// hooks that have no controlling tty) identify this pane to the server.
+		"DONGMINAL_PANE_ID=" + id,
 	}
 	if u, err := user.Current(); err == nil {
 		env = append(env, "USER="+u.Username, "LOGNAME="+u.Username)
@@ -205,6 +229,11 @@ func StartPane(id, name, cwd string, cols, rows uint16, onExit func(string)) (*P
 		stream: outbuf.NewStream(context.Background(), bufMax),
 		done:   make(chan struct{}),
 		onExit: onExit,
+	}
+	if hooks != nil {
+		p.onAttention = hooks.OnAttention
+		p.onAttentionClear = hooks.OnAttentionClear
+		p.allowBell = hooks.AllowBell
 	}
 	go p.readPTY()
 	log.Printf("[pane %s] started shell=%s pid=%d cwd=%s cols=%d rows=%d",
@@ -240,6 +269,7 @@ func (p *Pane) readPTY() {
 		// Single backpressure path: Stream.Feed never blocks; loss (if any)
 		// is recorded in Stats.TotalBytesDrop.
 		p.stream.Feed(append([]byte(nil), raw[:n]...))
+		p.observeOutput(raw[:n])
 		msg := make([]byte, 1+n)
 		msg[0] = OpOutput
 		copy(msg[1:], raw[:n])
@@ -266,6 +296,94 @@ func (p *Pane) broadcast(msg []byte) {
 		}
 	}
 }
+
+// observeOutput records output activity and runs observe-only L1 detection on
+// the raw chunk. Called from the readPTY goroutine only; attnCarry needs no
+// lock. The live bytes are never mutated.
+func (p *Pane) observeOutput(chunk []byte) { p.observeOutputAt(chunk, attnNow()) }
+
+// observeOutputAt is observeOutput with an injectable timestamp (tests).
+func (p *Pane) observeOutputAt(chunk []byte, now int64) {
+	p.lastOutputAt.Store(now)
+	p.attnArmed.Store(true)
+	if p.onAttention == nil {
+		return
+	}
+	scan := chunk
+	if len(p.attnCarry) > 0 {
+		scan = append(append([]byte(nil), p.attnCarry...), chunk...)
+	}
+	if bytes.IndexByte(scan, 0x1b) < 0 && bytes.IndexByte(scan, 0x07) < 0 {
+		p.attnCarry = nil
+		return
+	}
+	sig, carry := detectAttentionSignal(scan, p.allowBell, attnMaxCarry)
+	p.attnCarry = carry
+	if sig {
+		p.setAttention("signaled")
+	}
+}
+
+// setAttention transitions none→attention exactly once (edge), firing the
+// notifier only on the transition (NFR-PAN-3). Returns true if it transitioned.
+func (p *Pane) setAttention(reason string) bool {
+	if p.attention.CompareAndSwap(false, true) {
+		if p.onAttention != nil {
+			p.onAttention(p.ID, reason)
+		}
+		return true
+	}
+	return false
+}
+
+// clearAttention transitions attention→none exactly once, firing the clear
+// notifier only on the transition.
+func (p *Pane) clearAttention() bool {
+	if p.attention.CompareAndSwap(true, false) {
+		if p.onAttentionClear != nil {
+			p.onAttentionClear(p.ID)
+		}
+		return true
+	}
+	return false
+}
+
+// attend marks the pane as attended-to: disarms idle and clears attention.
+// Invoked only via the explicit focus/clear endpoints — NOT on raw WS input,
+// because xterm replies to terminal queries (cursor-position/device-attribute
+// reports an agent's TUI emits) arrive as OpInput too and would spuriously
+// clear a just-raised alarm. Real "user attended" is signalled by focus.
+func (p *Pane) attend() {
+	p.attnArmed.Store(false)
+	p.clearAttention()
+}
+
+// attnBusyProbe reports whether a pane has a running foreground process. It is
+// a package variable so tests can substitute a deterministic probe.
+var attnBusyProbe = func(p *Pane) bool { return p.IsBusy() }
+
+// maybeIdle fires L2 (idle) attention when an armed pane has been quiet for at
+// least threshold. It disarms after firing so it fires once per quiet edge;
+// new output re-arms it. threshold<=0 disables L2. Idle only fires when a
+// foreground process (e.g. an agent) is actually running — a bare shell sitting
+// at its prompt is not "waiting on the user" and must not raise an alarm (this
+// is what otherwise floods the UI with bogus alarms after a daemon restart).
+func (p *Pane) maybeIdle(now, threshold int64) {
+	if threshold <= 0 || !p.attnArmed.Load() {
+		return
+	}
+	if now-p.lastOutputAt.Load() < threshold {
+		return
+	}
+	p.attnArmed.Store(false)
+	if !attnBusyProbe(p) {
+		return
+	}
+	p.setAttention("idle")
+}
+
+// Attention reports whether the pane currently needs attention.
+func (p *Pane) Attention() bool { return p.attention.Load() }
 
 // addClient registers c. Returns false when the pane has already exited; in
 // that case OpExit is sent to c immediately (outside cmu) and c is left
@@ -376,6 +494,14 @@ type PaneManager struct {
 	dataDir     string
 	invalidator func(paneID string)
 	dirty       atomic.Bool
+
+	// Attention (PANE_ATTENTION_NOTIFY_SRS): idleThreshold/allowBell configure
+	// detection; attnNotify/attnClear bridge transitions to SSE (set via
+	// SetAttentionNotifier from the composition root).
+	idleThreshold int64 // nanos, 0 disables L2
+	allowBell     bool
+	attnNotify    func(id, reason string)
+	attnClear     func(id string)
 }
 
 // NewPaneManager builds an empty manager. dataDir is where panes.json lives;
@@ -383,10 +509,99 @@ type PaneManager struct {
 // its references (may be nil in tests).
 func NewPaneManager(dataDir string, invalidator func(string)) *PaneManager {
 	return &PaneManager{
-		panes:       make(map[string]*Pane),
-		dataDir:     dataDir,
-		invalidator: invalidator,
+		panes:         make(map[string]*Pane),
+		dataDir:       dataDir,
+		invalidator:   invalidator,
+		idleThreshold: int64(attentionIdleThreshold()),
+		allowBell:     attentionAllowBell(),
 	}
+}
+
+// SetAttentionNotifier wires pane attention transitions to broadcasts. Called
+// from the composition root after the CommandHub exists (mirrors
+// SetInvalidator). Must be called before panes are created so Create/Restore
+// hand the hooks to StartPane.
+func (m *PaneManager) SetAttentionNotifier(notify func(id, reason string), clear func(id string)) {
+	m.mu.Lock()
+	m.attnNotify = notify
+	m.attnClear = clear
+	m.mu.Unlock()
+}
+
+// attnHooks builds the per-pane hooks from the manager's notifier config.
+func (m *PaneManager) attnHooks() *PaneHooks {
+	if m.attnNotify == nil && m.attnClear == nil {
+		return nil
+	}
+	return &PaneHooks{OnAttention: m.attnNotify, OnAttentionClear: m.attnClear, AllowBell: m.allowBell}
+}
+
+// sweepIdle runs one L2 idle pass at the given time. Exposed for deterministic
+// tests; the goroutine in StartAttentionSweeper calls it on each tick.
+func (m *PaneManager) sweepIdle(now int64) {
+	m.mu.RLock()
+	panes := make([]*Pane, 0, len(m.panes))
+	for _, p := range m.panes {
+		panes = append(panes, p)
+	}
+	threshold := m.idleThreshold
+	m.mu.RUnlock()
+	for _, p := range panes {
+		p.maybeIdle(now, threshold)
+	}
+}
+
+// StartAttentionSweeper launches the L2 idle sweeper goroutine. stop closes on
+// server shutdown. No-op when L2 is disabled (idleThreshold<=0).
+func (m *PaneManager) StartAttentionSweeper(stop <-chan struct{}) {
+	if m.idleThreshold <= 0 {
+		return
+	}
+	go func() {
+		t := time.NewTicker(attnTickMS * time.Millisecond)
+		defer t.Stop()
+		for {
+			select {
+			case <-t.C:
+				m.sweepIdle(attnNow())
+			case <-stop:
+				return
+			}
+		}
+	}()
+}
+
+// AttentionIDs returns the ids of panes currently needing attention (FR-PAN-8).
+func (m *PaneManager) AttentionIDs() []string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var ids []string
+	for id, p := range m.panes {
+		if p.Attention() {
+			ids = append(ids, id)
+		}
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+// ClearAllAttention attends to every pane currently needing attention and
+// returns how many were cleared (FR-PAN-17, bulk dismiss).
+func (m *PaneManager) ClearAllAttention() int {
+	m.mu.RLock()
+	panes := make([]*Pane, 0, len(m.panes))
+	for _, p := range m.panes {
+		panes = append(panes, p)
+	}
+	m.mu.RUnlock()
+	n := 0
+	for _, p := range panes {
+		if p.Attention() {
+			p.attend()
+			n++
+		}
+	}
+	return n
 }
 
 // SetInvalidator lets main register the workspace invalidation hook after
@@ -417,7 +632,7 @@ func (m *PaneManager) Create(cwd string, cols, rows uint16) (*Pane, error) {
 		if m.invalidator != nil {
 			m.invalidator(paneID)
 		}
-	})
+	}, m.attnHooks())
 	if err != nil {
 		log.Printf("[pane %s] create error: %v", id, err)
 		return nil, err
@@ -437,7 +652,7 @@ func (m *PaneManager) Restore(id, name, cwd string, cols, rows uint16) error {
 		if m.invalidator != nil {
 			m.invalidator(paneID)
 		}
-	})
+	}, m.attnHooks())
 	if err != nil {
 		return err
 	}

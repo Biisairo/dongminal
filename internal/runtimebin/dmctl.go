@@ -24,6 +24,7 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl rename-session --at <uuid> <이름>  # 그 pane 이 속한 세션 이름 변경
   dmctl list-panes [--json]         # 열린 pane 목록 (uuid 포함, ▶=현재 포커스)
   dmctl who-am-i [--json]           # 현재 쉘이 속한 pane 의 식별 정보
+  dmctl notify [label]              # 현재 pane 에 주의 알림 (에이전트 hook 에서 호출)
   dmctl send <action> [json-args]   # raw 전송
 
 위치 식별자 — uuid 만 허용:
@@ -62,6 +63,8 @@ func runDmctl(args []string, stdout, stderr io.Writer) int {
 		return dmctlListPanes(rest, stdout, stderr)
 	case "who-am-i":
 		return dmctlWhoAmI(rest, stdout, stderr)
+	case "notify":
+		return runDmctlNotify(rest, stdout, stderr)
 	}
 
 	parsed, err := parseDmctlFlags(rest)

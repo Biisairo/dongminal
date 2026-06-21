@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Terminal</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.css">
-  <link rel="stylesheet" href="style.css?v=98">
+  <link rel="stylesheet" href="style.css?v=99">
   <script>try{var w=parseInt(localStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px')}catch(e){}</script>
 </head>
 <body>
@@ -28,6 +28,7 @@
         <button class="mtbtn" id="m-pane-next" title="다음 pane">›</button>
       </span>
       <span class="spacer"></span>
+      <button class="tbtn" id="attn-badge" title="주의 알림" style="display:none">🔔<span class="attn-count">0</span></button>
       <button class="tbtn desktop-only" id="split-h" title="Split Horizontal (Ctrl+Shift+H)">Split H</button>
       <button class="tbtn desktop-only" id="split-v" title="Split Vertical (Ctrl+Shift+V)">Split V</button>
       <button class="mtbtn mobile-only" id="m-search-btn" title="검색">🔍</button>
@@ -49,6 +50,9 @@
   <div id="mobile-keybar" class="mobile-only"></div>
 </div>
 
+<!-- 주의 알림 센터 (FR-PAN-16) -->
+<div id="attn-center"></div>
+
 <!-- Settings Modal -->
 <div id="modal-overlay">
   <div id="modal">
@@ -62,6 +66,7 @@
       <button class="mtab" data-tab="statusbar">Status Bar</button>
       <button class="mtab" data-tab="presets">Presets</button>
       <button class="mtab" data-tab="display">Display</button>
+      <button class="mtab" data-tab="notify">Notifications</button>
     </div>
     <div class="modal-body">
       <div class="mpanel" id="panel-theme">
@@ -102,6 +107,19 @@
           <div class="ds-hint">'Auto' 모드에서 창 너비가 Breakpoint보다 작으면 모바일 레이아웃으로 전환됩니다.</div>
         </div>
       </div>
+      <div class="mpanel" id="panel-notify" style="display:none">
+        <div class="display-settings">
+          <div class="ds-row">
+            <span>데스크톱 알림</span>
+            <input type="checkbox" id="attn-desktop">
+          </div>
+          <div class="ds-row">
+            <span>사운드</span>
+            <input type="checkbox" id="attn-sound">
+          </div>
+          <div class="ds-hint">데스크톱 알림은 브라우저 권한 허용이 필요합니다. 시각 강조와 탭 제목 배지는 항상 동작합니다.</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -111,6 +129,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-unicode11@0.8/lib/addon-unicode11.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-search@0.15/lib/addon-search.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="app.js?v=112"></script>
+<script src="app.js?v=113"></script>
 </body>
 </html>

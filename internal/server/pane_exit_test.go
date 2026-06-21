@@ -9,7 +9,7 @@ func TestPaneOnExitAndWait(t *testing.T) {
 	called := make(chan string, 1)
 	p, err := StartPane("t1", "test", "", 80, 24, func(id string) {
 		called <- id
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("StartPane: %v", err)
 	}

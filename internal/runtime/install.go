@@ -10,6 +10,7 @@ package runtime
 
 import (
 	"embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -48,7 +49,40 @@ func Install(binDir string) error {
 			return fmt.Errorf("install helper %s: %w", name, err)
 		}
 	}
+	if err := installAgentHooks(binDir); err != nil {
+		return fmt.Errorf("install agent hooks: %w", err)
+	}
 	return nil
+}
+
+// installAgentHooks writes the Claude Code hooks settings file used by the
+// transparent `claude` wrapper (PANE_ATTENTION_NOTIFY_SRS FR-PAN-19). The hook
+// commands reference dmctl by absolute path so they resolve to THIS instance's
+// helper regardless of PATH ordering (a stale dmctl earlier in PATH would not
+// understand `notify`).
+func installAgentHooks(binDir string) error {
+	dir := filepath.Join(binDir, "agent-hooks")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	dmctl := filepath.Join(binDir, "dmctl")
+	cmd := func(label string) any {
+		return []any{map[string]any{
+			"matcher": "",
+			"hooks":   []any{map[string]any{"type": "command", "command": dmctl + " notify " + label}},
+		}}
+	}
+	settings := map[string]any{
+		"hooks": map[string]any{
+			"Stop":         cmd("done"),
+			"Notification": cmd("waiting"),
+		},
+	}
+	blob, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "claude.json"), blob, 0o644)
 }
 
 func installHelper(self, dst string) error {

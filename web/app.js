@@ -340,6 +340,11 @@ function applyThemeObj(t){
   s.setProperty('--accent-hover',hexToRgba(ui.accent,.1));
   s.setProperty('--accent-active',hexToRgba(ui.accent,.12));
   s.setProperty('--accent-subtle',hexToRgba(ui.accent,.08));
+  // 주의 알림색은 테마 팔레트의 yellow 를 사용 — 포커스(accent)·위험(danger)과 구분 (FR-PAN-10)
+  const attn=(t.terminal&&(t.terminal.brightYellow||t.terminal.yellow))||'#e0af68';
+  s.setProperty('--attn',attn);
+  s.setProperty('--attn-subtle',hexToRgba(attn,.16));
+  s.setProperty('--attn-glow',hexToRgba(attn,.5));
   TOPTS.theme=t.terminal;
   document.getElementById('area').style.background=ui.bg;
   for(const p of app.panes.values()){if(p.term)p.term.options.theme=t.terminal}
@@ -1018,6 +1023,7 @@ class InputBinding {
     this.app._initPresets();
     this.app._initMobile();
     this.app._initMobileKeybar();
+    this.app._initAttn();
   }
 }
 
@@ -1045,7 +1051,9 @@ class Renderer {
     const el=document.getElementById('sessions'); el.innerHTML='';
     for(const s of this.app.ws.sessions){
       const d=document.createElement('div');
-      d.className='si'+(s.id===this.app.ws.activeSession?' active':'');
+      // FR-PAN-16: 알람이 있는 세션을 사이드바에서 구분 표시
+      d.className='si'+(s.id===this.app.ws.activeSession?' active':'')+(this.app._sessionHasAttn(s)?' attn':'');
+      d.dataset.sid=s.id;
       d.innerHTML=`<span class="si-dot"></span><span class="si-name">${s.name}</span><span class="si-x">×</span>`;
       d.addEventListener('click',e=>{if(!e.target.classList.contains('si-x'))this.app.switchSession(s.id)});
       d.querySelector('.si-x').addEventListener('click',e=>{e.stopPropagation();this.app.delSession(s.id)});
@@ -1180,12 +1188,20 @@ class Renderer {
 
   _buildRg(n){
     const el=document.createElement('div');
-    el.className='rg'+(n.id===this.app.focused?' focused':'');
+    // FR-PAN-9: 활성탭 pane 이 주의 상태이고 region 이 포커스 안 됐을 때만 region 강조
+    const focused=n.id===this.app.focused;
+    const at0=(n.tabs||[]).find(t=>t.id===n.activeTab);
+    const rgAttn=!focused&&at0&&this.app._attnHas(at0.paneId);
+    el.className='rg'+(focused?' focused':'')+(rgAttn?' attn':'');
     el.dataset.rid=n.id;
     const tabs=document.createElement('div'); tabs.className='rg-tabs';
     for(const tab of(n.tabs||[])){
       const t=document.createElement('div');
-      t.className='rt'+(tab.id===n.activeTab?' active':'');
+      // FR-PAN-9/TC-PAN-17: 사용자가 지금 보고 있는 탭(포커스+활성)은 강조하지 않음
+      const tabActive=tab.id===n.activeTab;
+      const tabAttn=this.app._attnHas(tab.paneId)&&!(focused&&tabActive);
+      t.className='rt'+(tabActive?' active':'')+(tabAttn?' attn':'');
+      if(tab.paneId) t.dataset.pid=tab.paneId; // 타깃 알림 갱신용(전체 재렌더 없이)
       t.innerHTML=`<span>${tab.name}</span><span class="rt-x">×</span>`;
       t.addEventListener('click',e=>{
         e.stopPropagation();
@@ -1282,6 +1298,7 @@ class App {
     this.ws={sessions:[],activeSession:null};
     this.wsETag=null;
     this.focused=null;
+    this._attn=new Map(); // paneId → {reason} 주의 상태 집합 (FR-PAN-9/16)
     this._s=0;this._r=0;this._t=0;this._kb=false;
     this._drag=null;
     this._stats={};this._latency=null;
@@ -1444,7 +1461,7 @@ class App {
     const connect=()=>{
       try{
         const es=new EventSource('/api/commands/sse');
-        es.onopen=()=>{retry=1000};
+        es.onopen=()=>{retry=1000;this._attnRestore()};
         es.onmessage=(e)=>{
           try{
             const m=JSON.parse(e.data);
@@ -1454,6 +1471,14 @@ class App {
             }
             if(m.action==='md_scroll_changed'){
               this._onMdScrollRemote(m.args||{});
+              return;
+            }
+            if(m.action==='pane_attention'){
+              this._onPaneAttention(m.args||{});
+              return;
+            }
+            if(m.action==='pane_attention_clear'){
+              this._onPaneAttentionClear(m.args||{});
               return;
             }
             // REMOTE_COMMAND_RESULT_SRS: reqId 는 broadcast payload 의 top-level
@@ -1770,7 +1795,247 @@ class App {
     if(target) target.focusedRegion = rid;
     if(!sess || (target && target.id === this.ws.activeSession)){
       this.focused = rid;
+      // FR-PAN-11: 포커스된 활성 탭 pane 의 주의 상태 해제(로컬+엔드포인트)
+      if(this.focused===rid) this._attnClearFocused();
     }
+  }
+
+  // ── Pane Attention Notify (PANE_ATTENTION_NOTIFY_SRS) ──
+
+  // 설정 영속화는 localStorage(per-device), 기존 /api/settings 스키마 무변경 (FR-PAN-14)
+  get attnDesktop(){try{return localStorage.getItem('attnDesktop')==='1'}catch{return false}}
+  set attnDesktop(v){try{localStorage.setItem('attnDesktop',v?'1':'0')}catch{}}
+  get attnSound(){try{return localStorage.getItem('attnSound')==='1'}catch{return false}}
+  set attnSound(v){try{localStorage.setItem('attnSound',v?'1':'0')}catch{}}
+
+  _attnHas(paneId){return this._attn.has(paneId)}
+
+  // 활성 세션의 포커스 region 의 activeTab paneId === paneId 인지 (FR-PAN-9)
+  _isPaneFocusedActive(paneId){
+    if(!paneId) return false;
+    const s=this._as(); if(!s||!s.layout) return false;
+    const rg=findRg(s.layout,this.focused); if(!rg) return false;
+    const at=(rg.tabs||[]).find(t=>t.id===rg.activeTab);
+    return !!at&&at.paneId===paneId;
+  }
+
+  _onPaneAttention({paneId,reason}={}){
+    if(!paneId) return;
+    // 페이지를 실제로 보고 있고(그 pane 에 포커스) 있을 때만 억제(즉시 해제) — 알람 불필요.
+    // 브라우저를 다른 창으로 가려둔 경우(document.hidden)엔 포커스여도 알람을 살린다 (FR-PAN-9/13).
+    const pageVisible=!(typeof document!=='undefined'&&document.hidden);
+    if(pageVisible&&this._isPaneFocusedActive(paneId)){this._attnClear(paneId);return}
+    this._attn.set(paneId,{reason});
+    this._attnRefresh();
+    const loc=this._findPaneLocation(paneId);
+    const name=loc?loc.tab.name:paneId;
+    this._attnDesktopNotify(name,reason,paneId); // FR-PAN-13a
+    this._attnBeep(); // FR-PAN-13c
+  }
+
+  _onPaneAttentionClear({paneId}={}){
+    if(!paneId) return;
+    if(!this._attn.delete(paneId)) return;
+    this._attnRefresh();
+  }
+
+  // FR-PAN-12: 합류/재연결 시 현재 주의 집합 복원(기존 것 병합)
+  _attnRestore(){
+    fetch('/api/panes/attention').then(r=>r.ok?r.json():null).then(j=>{
+      if(!j||!Array.isArray(j.paneIds)) return;
+      for(const pid of j.paneIds){if(!this._attn.has(pid))this._attn.set(pid,{reason:'signaled'})}
+      this._attnRefresh();
+    }).catch(()=>{});
+  }
+
+  // FR-PAN-11: 로컬 즉시 제거 + 백엔드 해제(다른 브라우저로 전파)
+  _attnClear(paneId){
+    if(!paneId) return;
+    this._attn.delete(paneId);
+    fetch('/api/panes/attention/clear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paneId})}).catch(()=>{});
+    this._attnRefresh();
+  }
+
+  // FR-PAN-17: 모든 알람 일괄 해제
+  _attnClearAll(){
+    fetch('/api/panes/attention/clear-all',{method:'POST'}).catch(()=>{});
+    this._attn.clear();
+    this._attnCenterClose();
+    this._attnRefresh();
+  }
+
+  // FR-PAN-16: 세션 layout 안에 주의 상태 pane 이 있는지
+  _sessionHasAttn(s){
+    if(!s||!s.layout||!this._attn.size) return false;
+    const walk=(node)=>{
+      if(!node) return false;
+      if(node.type==='region') return (node.tabs||[]).some(t=>t.paneId&&this._attn.has(t.paneId));
+      if(node.children) return node.children.some(walk);
+      return false;
+    };
+    return walk(s.layout);
+  }
+
+  // 포커스된 활성 탭이 주의 상태면 해제. 그 탭은 어차피 강조 안 되므로 full render 불필요
+  _attnClearFocused(){
+    if(!this._attn.size) return;
+    const s=this._as(); if(!s||!s.layout) return;
+    const rg=findRg(s.layout,this.focused); if(!rg) return;
+    const at=(rg.tabs||[]).find(t=>t.id===rg.activeTab);
+    if(at&&at.paneId&&this._attn.has(at.paneId)) this._attnClear(at.paneId);
+  }
+
+  // 모든 세션 layout 트리를 walk 해 paneId 를 가진 tab 위치 반환 (FR-PAN-16)
+  _findPaneLocation(paneId){
+    if(!paneId) return null;
+    const walk=(node,session)=>{
+      if(!node) return null;
+      if(node.type==='region'){
+        const tab=(node.tabs||[]).find(t=>t.paneId===paneId);
+        return tab?{session,region:node,tab}:null;
+      }
+      if(node.children) for(const c of node.children){const f=walk(c,session);if(f)return f}
+      return null;
+    };
+    for(const s of this.ws.sessions){const f=walk(s.layout,s);if(f)return f}
+    return null;
+  }
+
+  // FR-PAN-16: 해당 pane 으로 포커스 이동(_setFocus 가 _attnClearFocused 로 해제)
+  _jumpToPane(paneId){
+    const loc=this._findPaneLocation(paneId);
+    if(!loc) return;
+    this.ws.activeSession=loc.session.id;
+    loc.region.activeTab=loc.tab.id;
+    this._setFocus(loc.region.id, loc.session);
+    this.render();
+  }
+
+  // FR-PAN-16: 제목 배지 + notification center 배지/팝오버 갱신
+  _attnRefresh(){
+    const n=this._attn.size;
+    document.title=(n?'('+n+') ':'')+'Terminal'; // FR-PAN-13b
+    // 사이드바 세션 알람 표시 갱신 (전체 재렌더 없이)
+    document.querySelectorAll('#sessions .si').forEach(el=>{
+      const s=this.ws.sessions.find(x=>x.id===el.dataset.sid);
+      el.classList.toggle('attn', !!(s&&this._sessionHasAttn(s)));
+    });
+    // 탭/리전 강조도 타깃 토글 — 전체 render() 를 피해 포커스 플리커(xterm blur/refocus)를 막는다.
+    document.querySelectorAll('#area .rt[data-pid]').forEach(t=>{
+      const rg=t.closest('.rg');
+      const focusedRegion=!!(rg&&rg.classList.contains('focused'));
+      const active=t.classList.contains('active');
+      t.classList.toggle('attn', this._attnHas(t.dataset.pid)&&!(focusedRegion&&active));
+    });
+    document.querySelectorAll('#area .rg[data-rid]').forEach(rg=>{
+      const at=rg.querySelector('.rt.active[data-pid]');
+      const pid=at?at.dataset.pid:null;
+      rg.classList.toggle('attn', !!(pid&&this._attnHas(pid)&&!rg.classList.contains('focused')));
+    });
+    const badge=document.getElementById('attn-badge');
+    if(badge){
+      const cnt=badge.querySelector('.attn-count');
+      if(cnt) cnt.textContent=String(n);
+      badge.style.display=n?'':'none';
+      if(!n) this._attnCenterClose();
+    }
+    const center=document.getElementById('attn-center');
+    if(center&&center.classList.contains('open')) this._attnCenterRender();
+  }
+
+  _attnCenterToggle(){
+    const center=document.getElementById('attn-center');
+    if(!center) return;
+    if(center.classList.contains('open')) this._attnCenterClose();
+    else{center.classList.add('open');this._attnCenterRender()}
+  }
+
+  _attnCenterClose(){
+    const center=document.getElementById('attn-center');
+    if(center) center.classList.remove('open');
+  }
+
+  _attnCenterRender(){
+    const center=document.getElementById('attn-center');
+    if(!center) return;
+    center.innerHTML='';
+    if(!this._attn.size){this._attnCenterClose();return}
+    const head=document.createElement('div');
+    head.className='attn-head';
+    head.innerHTML=`<span class="attn-title">주의 알림 ${this._attn.size}</span><button class="attn-clear-all">모두 제거</button>`;
+    head.querySelector('.attn-clear-all').addEventListener('click',e=>{e.stopPropagation();this._attnClearAll()});
+    center.appendChild(head);
+    for(const [paneId,info] of this._attn){
+      const loc=this._findPaneLocation(paneId);
+      const name=loc?loc.tab.name:paneId;
+      const reason=info&&info.reason==='idle'?'작업 멈춤':'알림 신호';
+      const item=document.createElement('div');
+      item.className='attn-item';
+      item.innerHTML=`<span class="attn-name"></span><span class="attn-reason"></span>`;
+      item.querySelector('.attn-name').textContent=name;
+      item.querySelector('.attn-reason').textContent=reason;
+      item.addEventListener('click',()=>{this._jumpToPane(paneId);this._attnCenterClose()});
+      center.appendChild(item);
+    }
+  }
+
+  // FR-PAN-13a: 데스크톱 알림(권한 granted + 설정 on). tag 로 동일 pane 중복 억제
+  _attnDesktopNotify(name,reason,paneId){
+    if(!this.attnDesktop) return;
+    if(typeof Notification==='undefined'||Notification.permission!=='granted') return;
+    const body=reason==='idle'?'작업이 멈췄습니다(입력 대기 가능)':'알림 신호';
+    new Notification('알림: '+name,{body,tag:paneId});
+  }
+
+  // FR-PAN-13c: WebAudio 짧은 비프(외부 파일 없음). 설정 on 일 때만
+  _attnBeep(){
+    if(!this.attnSound) return;
+    const Ctx=window.AudioContext||window['webkitAudioContext'];
+    if(!Ctx) return;
+    if(!this._audioCtx) this._audioCtx=new Ctx();
+    const ctx=this._audioCtx;
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.type='sine';
+    osc.frequency.value=880;
+    gain.gain.value=.05;
+    osc.connect(gain);gain.connect(ctx.destination);
+    const t=ctx.currentTime;
+    osc.start(t);
+    gain.gain.setValueAtTime(.05,t);
+    gain.gain.exponentialRampToValueAtTime(.0001,t+.18);
+    osc.stop(t+.2);
+  }
+
+  // notification center 배지/팝오버 이벤트 바인딩 + 설정 토글 (FR-PAN-14/16)
+  _initAttn(){
+    const badge=document.getElementById('attn-badge');
+    if(badge&&!badge._bound){
+      badge._bound=true;
+      badge.addEventListener('click',e=>{e.stopPropagation();this._attnCenterToggle()});
+    }
+    document.addEventListener('click',e=>{
+      const center=document.getElementById('attn-center');
+      if(!center||!center.classList.contains('open')) return;
+      if(center.contains(e.target)||(badge&&badge.contains(e.target))) return;
+      this._attnCenterClose();
+    });
+    const dt=document.getElementById('attn-desktop');
+    if(dt){
+      dt.checked=this.attnDesktop;
+      dt.addEventListener('change',()=>{
+        if(dt.checked&&typeof Notification!=='undefined'&&Notification.permission==='default'){
+          Notification.requestPermission().then(p=>{if(p!=='granted'){dt.checked=false;this.attnDesktop=false}});
+        }
+        this.attnDesktop=dt.checked;
+      });
+    }
+    const sd=document.getElementById('attn-sound');
+    if(sd){
+      sd.checked=this.attnSound;
+      sd.addEventListener('change',()=>{this.attnSound=sd.checked});
+    }
+    this._attnRefresh();
   }
 
   async _mkSession(opts={}){
