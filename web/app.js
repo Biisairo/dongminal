@@ -323,6 +323,19 @@ let currentThemeName='Tokyo Night';
 let customTheme=null; // {ui:{...}, terminal:{...}} or null
 
 function hexToRgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`}
+function hexRgb(hex){if(typeof hex!=='string'||hex[0]!=='#'||hex.length<7)return null;return{r:parseInt(hex.slice(1,3),16),g:parseInt(hex.slice(3,5),16),b:parseInt(hex.slice(5,7),16)}}
+// 알림 강조색: 팔레트(테마 terminal 색) 중 accent(포커스)와 가장 대비되는 색을 고른다.
+// 색을 하드코딩하지 않고, accent 가 노랑/주황인 테마에서도 포커스와 겹치지 않게 한다(FR-PAN-10).
+function pickAttnColor(t){
+  const T=t.terminal||{};
+  const fallback=T.brightYellow||T.yellow||'#e0af68';
+  const acc=hexRgb(t.ui&&t.ui.accent);
+  const cands=[T.brightYellow||T.yellow,T.brightMagenta||T.magenta,T.brightCyan||T.cyan,T.brightGreen||T.green].filter(Boolean);
+  if(!acc||!cands.length) return fallback;
+  let best=cands[0],bestD=-1;
+  for(const c of cands){const rgb=hexRgb(c);if(!rgb)continue;const d=(rgb.r-acc.r)**2+(rgb.g-acc.g)**2+(rgb.b-acc.b)**2;if(d>bestD){bestD=d;best=c}}
+  return best;
+}
 
 function applyThemeObj(t){
   const s=document.documentElement.style;
@@ -340,8 +353,8 @@ function applyThemeObj(t){
   s.setProperty('--accent-hover',hexToRgba(ui.accent,.1));
   s.setProperty('--accent-active',hexToRgba(ui.accent,.12));
   s.setProperty('--accent-subtle',hexToRgba(ui.accent,.08));
-  // 주의 알림색은 테마 팔레트의 yellow 를 사용 — 포커스(accent)·위험(danger)과 구분 (FR-PAN-10)
-  const attn=(t.terminal&&(t.terminal.brightYellow||t.terminal.yellow))||'#e0af68';
+  // 주의 알림색은 팔레트 중 accent(포커스)와 가장 대비되는 색 — 포커스와 겹치지 않게 (FR-PAN-10)
+  const attn=pickAttnColor(t);
   s.setProperty('--attn',attn);
   s.setProperty('--attn-subtle',hexToRgba(attn,.16));
   s.setProperty('--attn-glow',hexToRgba(attn,.5));
@@ -1803,7 +1816,8 @@ class App {
   // ── Pane Attention Notify (PANE_ATTENTION_NOTIFY_SRS) ──
 
   // 설정 영속화는 localStorage(per-device), 기존 /api/settings 스키마 무변경 (FR-PAN-14)
-  get attnDesktop(){try{return localStorage.getItem('attnDesktop')==='1'}catch{return false}}
+  // 데스크톱 알림은 기본 ON(권한 허용 시 동작) — '0' 으로 명시 비활성만 끈다 (FR-PAN-13a)
+  get attnDesktop(){try{return localStorage.getItem('attnDesktop')!=='0'}catch{return true}}
   set attnDesktop(v){try{localStorage.setItem('attnDesktop',v?'1':'0')}catch{}}
   get attnSound(){try{return localStorage.getItem('attnSound')==='1'}catch{return false}}
   set attnSound(v){try{localStorage.setItem('attnSound',v?'1':'0')}catch{}}
@@ -1821,10 +1835,11 @@ class App {
 
   _onPaneAttention({paneId,reason}={}){
     if(!paneId) return;
-    // 페이지를 실제로 보고 있고(그 pane 에 포커스) 있을 때만 억제(즉시 해제) — 알람 불필요.
-    // 브라우저를 다른 창으로 가려둔 경우(document.hidden)엔 포커스여도 알람을 살린다 (FR-PAN-9/13).
-    const pageVisible=!(typeof document!=='undefined'&&document.hidden);
-    if(pageVisible&&this._isPaneFocusedActive(paneId)){this._attnClear(paneId);return}
+    // 억제(즉시 해제)는 "정말로 보고 있을 때"만 — 브라우저 창이 OS 포커스를 가졌고(다른 앱이
+    // 위에 있지 않음) 그 pane 에 포커스가 있을 때. 다른 프로그램을 보고 있으면(document.hasFocus()
+    // false) 포커스여도 알람을 살린다 (FR-PAN-9/13/요구2).
+    const browserFocused=(typeof document!=='undefined'&&typeof document.hasFocus==='function')?document.hasFocus():true;
+    if(browserFocused&&this._isPaneFocusedActive(paneId)){this._attnClear(paneId);return}
     this._attn.set(paneId,{reason});
     this._attnRefresh();
     const loc=this._findPaneLocation(paneId);
@@ -1983,8 +1998,8 @@ class App {
   _attnDesktopNotify(name,reason,paneId){
     if(!this.attnDesktop) return;
     if(typeof Notification==='undefined'||Notification.permission!=='granted') return;
-    const body=reason==='idle'?'작업이 멈췄습니다(입력 대기 가능)':'알림 신호';
-    new Notification('알림: '+name,{body,tag:paneId});
+    const body=reason==='done'?'작업 완료':reason==='waiting'?'입력 대기 중':reason==='idle'?'작업이 멈췄습니다(입력 대기 가능)':'주의가 필요합니다';
+    try{new Notification(name,{body,tag:paneId})}catch{}
   }
 
   // FR-PAN-13c: WebAudio 짧은 비프(외부 파일 없음). 설정 on 일 때만
@@ -2034,6 +2049,19 @@ class App {
     if(sd){
       sd.checked=this.attnSound;
       sd.addEventListener('change',()=>{this.attnSound=sd.checked});
+    }
+    // 데스크톱 알림 권한은 사용자 제스처가 필요하므로, 켜져 있고 아직 미결정이면
+    // 첫 상호작용에서 한 번 요청한다 (브라우저 정책 충족) — FR-PAN-13a.
+    if(typeof Notification!=='undefined'&&Notification.permission==='default'&&this.attnDesktop&&!this._attnPermAsked){
+      this._attnPermAsked=true;
+      const ask=()=>{document.removeEventListener('pointerdown',ask);document.removeEventListener('keydown',ask);try{Notification.requestPermission()}catch{}};
+      document.addEventListener('pointerdown',ask,{once:true});
+      document.addEventListener('keydown',ask,{once:true});
+    }
+    // 브라우저로 돌아오면(다른 앱→복귀) 지금 보고 있는 pane 의 알람은 해제 (요구2 보완).
+    if(!this._attnFocusBound){
+      this._attnFocusBound=true;
+      window.addEventListener('focus',()=>this._attnClearFocused());
     }
     this._attnRefresh();
   }
