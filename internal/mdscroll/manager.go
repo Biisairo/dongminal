@@ -1,7 +1,8 @@
 // Package mdscroll persists per-tab markdown viewer scroll positions.
 //
 // File model: $DONGMINAL_HOME/mdscroll.json. Map keyed by tab id.
-//   { "tabs": { "<tabId>": {"top": 123.0, "ratio": 0.45, "ts": 1700000000000} } }
+//
+//	{ "tabs": { "<tabId>": {"top": 123.0, "ratio": 0.45, "ts": 1700000000000} } }
 //
 // The store is intentionally separate from workspace.json because scroll PUTs
 // are high-frequency and would otherwise trigger workspace rev increments and

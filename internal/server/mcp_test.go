@@ -37,7 +37,7 @@ func TestMCPSessionRegistry(t *testing.T) {
 	if r.Get(s.ID) != nil {
 		t.Fatal("session should be removed")
 	}
-	r.Close(s) // second close should not panic
+	r.Close(s)   // second close should not panic
 	r.Close(nil) // nil should not panic
 }
 

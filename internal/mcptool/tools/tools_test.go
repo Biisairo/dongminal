@@ -649,10 +649,10 @@ func TestWorkspaceCommand_RenameRequiresLocationAndName(t *testing.T) {
 	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "S1.P1.T1"}}
 	h := WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b, WS: ws})
 	for _, payload := range []string{
-		`{"action":"renameTab","name":"writer"}`,                  // location 누락
-		`{"action":"renameTab","location":"u1"}`,                  // name 누락
-		`{"action":"renameSession","name":"x"}`,                   // location 누락
-		`{"action":"renameSession","location":"u1"}`,              // name 누락
+		`{"action":"renameTab","name":"writer"}`,     // location 누락
+		`{"action":"renameTab","location":"u1"}`,     // name 누락
+		`{"action":"renameSession","name":"x"}`,      // location 누락
+		`{"action":"renameSession","location":"u1"}`, // name 누락
 	} {
 		if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec, h, payload); err == nil {
 			t.Errorf("err=nil for %s", payload)

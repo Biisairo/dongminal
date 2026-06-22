@@ -10,7 +10,6 @@ import (
 	"testing"
 )
 
-
 func TestRunMdviewMissing(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	rc := runMdview([]string{"/no/such/file.md"}, &stdout, &stderr)
@@ -51,4 +50,3 @@ func TestRunMdviewSendsAction(t *testing.T) {
 		t.Errorf("filePath=%v want %v", args["filePath"], target)
 	}
 }
-

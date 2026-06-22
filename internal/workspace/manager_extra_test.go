@@ -175,5 +175,5 @@ type errorPersister struct {
 	err error
 }
 
-func (e *errorPersister) Read() ([]byte, error)  { return nil, e.err }
-func (e *errorPersister) Write([]byte) error     { return nil }
+func (e *errorPersister) Read() ([]byte, error) { return nil, e.err }
+func (e *errorPersister) Write([]byte) error    { return nil }

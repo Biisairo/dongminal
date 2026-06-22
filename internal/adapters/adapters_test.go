@@ -11,8 +11,8 @@ import (
 
 type stubPersister struct{ data []byte }
 
-func (s *stubPersister) Read() ([]byte, error)        { return s.data, nil }
-func (s *stubPersister) Write(data []byte) error      { s.data = data; return nil }
+func (s *stubPersister) Read() ([]byte, error)   { return s.data, nil }
+func (s *stubPersister) Write(data []byte) error { s.data = data; return nil }
 
 func TestPaneAdapter_EmptyManager(t *testing.T) {
 	pm := server.NewPaneManager(t.TempDir(), nil)

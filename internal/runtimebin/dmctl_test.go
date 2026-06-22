@@ -13,10 +13,10 @@ import (
 
 func TestParseDmctlFlags(t *testing.T) {
 	tests := []struct {
-		name     string
-		args     []string
-		want     dmctlParsed
-		wantErr  bool
+		name    string
+		args    []string
+		want    dmctlParsed
+		wantErr bool
 	}{
 		{"empty", nil, dmctlParsed{}, false},
 		{"location_long", []string{"--at", "1.2.3"}, dmctlParsed{location: "1.2.3"}, false},
@@ -283,9 +283,9 @@ func TestRunDmctlRenameSessionNameFlag(t *testing.T) {
 // TC-RNS-8: 인자 누락 → usage + rc=2.
 func TestRunDmctlRenameTabMissingArgs(t *testing.T) {
 	for _, args := range [][]string{
-		{"rename-tab", "writer"},                    // --at 누락
-		{"rename-tab", "--at", "u1"},                // name 누락
-		{"rename-session"},                          // 둘 다 누락
+		{"rename-tab", "writer"},     // --at 누락
+		{"rename-tab", "--at", "u1"}, // name 누락
+		{"rename-session"},           // 둘 다 누락
 	} {
 		var stdout, stderr bytes.Buffer
 		rc := runDmctl(args, &stdout, &stderr)

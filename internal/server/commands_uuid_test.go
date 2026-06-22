@@ -21,7 +21,7 @@ func (l liveSet) IsLive(paneID string) bool {
 
 type memPersister struct{ data []byte }
 
-func (m *memPersister) Read() ([]byte, error)  { return append([]byte(nil), m.data...), nil }
+func (m *memPersister) Read() ([]byte, error)   { return append([]byte(nil), m.data...), nil }
 func (m *memPersister) Write(data []byte) error { m.data = append([]byte(nil), data...); return nil }
 
 // FR-UID-12 / dmctl: /api/commands 가 args.location 에 uuid 가 오면 좌표로

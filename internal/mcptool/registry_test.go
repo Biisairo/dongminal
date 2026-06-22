@@ -19,8 +19,8 @@ type fakeTool struct {
 	call func(ctx context.Context, args json.RawMessage) (mcptool.Result, error)
 }
 
-func (f fakeTool) Name() string          { return f.name }
-func (f fakeTool) Spec() map[string]any  { return f.spec }
+func (f fakeTool) Name() string         { return f.name }
+func (f fakeTool) Spec() map[string]any { return f.spec }
 func (f fakeTool) Call(ctx context.Context, args json.RawMessage) (mcptool.Result, error) {
 	return f.call(ctx, args)
 }
@@ -143,11 +143,11 @@ func TestTextf(t *testing.T) {
 // ── PaneReader / WorkspaceReader fakes ───────────────
 
 type fakePM struct {
-	panes    []mcptool.PaneInfo
-	sizeMap  map[string]string
-	snap     map[string][]byte
-	dropped  map[string]int64
-	pastes   []string // paneID|submit|text
+	panes   []mcptool.PaneInfo
+	sizeMap map[string]string
+	snap    map[string][]byte
+	dropped map[string]int64
+	pastes  []string // paneID|submit|text
 }
 
 func (f *fakePM) List() []mcptool.PaneInfo { return f.panes }
@@ -200,10 +200,10 @@ func (f *fakeWS) Resolve(id string) (string, error) {
 	}
 	return "", errors.New("unknown id: " + id)
 }
-func (f *fakeWS) Labels() map[string]string                 { return f.labels }
-func (f *fakeWS) Entries() []mcptool.WorkspaceEntry         { return f.entries }
-func (f *fakeWS) CoordinateOf(id string) (string, error)    { return id, nil }
-func (f *fakeWS) IsKnownTabID(string) bool                  { return true }
+func (f *fakeWS) Labels() map[string]string              { return f.labels }
+func (f *fakeWS) Entries() []mcptool.WorkspaceEntry      { return f.entries }
+func (f *fakeWS) CoordinateOf(id string) (string, error) { return id, nil }
+func (f *fakeWS) IsKnownTabID(string) bool               { return true }
 
 // ── per-tool tests ───────────────────────────────────
 
