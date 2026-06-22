@@ -1835,6 +1835,7 @@ class App {
       // FR-PAN-11: 포커스된 활성 탭 pane 의 주의 상태 해제(로컬+엔드포인트)
       if(this.focused===rid) this._attnClearFocused();
     }
+    this._agentsRender(); // 외부 포커스 변경도 카드 .focused 에 즉시 반영(render 미경유 경로 포함)
   }
 
   // ── Pane Attention Notify (PANE_ATTENTION_NOTIFY_SRS) ──
