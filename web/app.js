@@ -6,9 +6,11 @@
 const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,SID:3};
 const enc=new TextEncoder(), dec=new TextDecoder();
 
-// 활동 패널 자동 새로고침 주기(ms). 비정상 종료·hook 누락으로 SSE 가 안 와도
-// 주기적으로 서버 스냅샷과 동기화한다 (AGENT_ACTIVITY_PANEL_SRS FR-AAP-19).
-const AGENTS_POLL_MS=5000;
+// 활동 패널 자동 새로고침 주기 기본값(ms). 설정에서 변경(per-device localStorage).
+// 비정상 종료·hook 누락으로 SSE 가 안 와도 주기적으로 서버와 동기화 (FR-AAP-19).
+const AGENTS_POLL_DEFAULT=5000;
+// 상태별 글꼴 기호(이모지 아님) — 색(.ag-state.<state>)과 함께 상태를 구분.
+const AGENT_STATE_ICON={working:'●',done:'✓',waiting:'…',idle:'○'};
 
 // ═══ code-server 인스턴스 추적 ═══
 // code-server 창 자체의 close 가 권위. 터미널 탭이 새로고침되어도 다른 창의
@@ -63,6 +65,7 @@ const SHORTCUT_DEFAULTS={
   splitH:'Ctrl+Shift+KeyH',splitV:'Ctrl+Shift+KeyV',
   newSession:'Ctrl+Shift+KeyN',newTab:'Ctrl+Shift+KeyT',
   closeSession:'Ctrl+Shift+KeyW',closeTab:'Ctrl+Shift+KeyD',
+  agentsToggle:'Ctrl+Shift+KeyA',
 };
 const SHORTCUT_LABELS={
   sessionNext:'다음 세션',sessionPrev:'이전 세션',
@@ -71,6 +74,7 @@ const SHORTCUT_LABELS={
   splitH:'가로 분할',splitV:'세로 분할',
   newSession:'새 세션',newTab:'새 탭',
   closeSession:'세션 닫기',closeTab:'탭 닫기',
+  agentsToggle:'에이전트 패널',
 };
 let shortcuts={...SHORTCUT_DEFAULTS};
 
@@ -994,7 +998,7 @@ class InputBinding {
     document.getElementById('split-v').addEventListener('click',()=>this.app.split('vertical'));
     document.getElementById('agents-toggle').addEventListener('click',()=>this.app._agentsToggle());
     const ap=document.getElementById('agents-panel'),aph=document.getElementById('agents-handle');
-    try{if(localStorage.getItem('agentsPanelOpen')==='1'){ap.classList.add('open');aph.classList.add('open');this.app._agentsStartPoll()}}catch{}
+    try{if(localStorage.getItem('agentsPanelOpen')==='1'){ap.classList.add('open');aph.classList.add('open');document.getElementById('agents-toggle').classList.add('open');this.app._agentsStartPoll()}}catch{}
     aph.addEventListener('mousedown',e=>{e.preventDefault();
       const sx=e.clientX,sw=ap.offsetWidth;
       const mv=e=>{const w=sw-(e.clientX-sx);if(w>=160&&w<=480){document.documentElement.style.setProperty('--ag-w',w+'px')}};
@@ -1841,6 +1845,8 @@ class App {
   set attnDesktop(v){try{localStorage.setItem('attnDesktop',v?'1':'0')}catch{}}
   get attnSound(){try{return localStorage.getItem('attnSound')==='1'}catch{return false}}
   set attnSound(v){try{localStorage.setItem('attnSound',v?'1':'0')}catch{}}
+  get agentsPollMs(){try{const v=parseInt(localStorage.getItem('agentsPollMs'));return v>=1000?v:AGENTS_POLL_DEFAULT}catch{return AGENTS_POLL_DEFAULT}}
+  set agentsPollMs(v){try{localStorage.setItem('agentsPollMs',String(v))}catch{}}
 
   _attnHas(paneId){return this._attn.has(paneId)}
 
@@ -1977,6 +1983,7 @@ class App {
     const open=!panel.classList.contains('open');
     panel.classList.toggle('open',open);
     handle.classList.toggle('open',open);
+    const btn=document.getElementById('agents-toggle');if(btn)btn.classList.toggle('open',open);
     try{localStorage.setItem('agentsPanelOpen',open?'1':'0')}catch{}
     for(const p of this.panes.values()) if(p.el.classList.contains('vis')) p.doFit();
     if(open){this._agentsRender();this._agentsStartPoll()}else{this._agentsStopPoll()}
@@ -1985,7 +1992,7 @@ class App {
   // FR-AAP-19: 패널 열림 동안 주기적으로 서버 스냅샷과 동기화(자동 새로고침)
   _agentsStartPoll(){
     this._agentsStopPoll();
-    this._agentsTimer=setInterval(()=>this._activityRestore(),AGENTS_POLL_MS);
+    this._agentsTimer=setInterval(()=>this._activityRestore(),this.agentsPollMs);
   }
   _agentsStopPoll(){
     if(this._agentsTimer){clearInterval(this._agentsTimer);this._agentsTimer=null}
@@ -1999,22 +2006,23 @@ class App {
     panel.innerHTML='';
     const head=document.createElement('div');
     head.className='ag-head';
-    head.innerHTML=`<span class="ag-title"></span><button class="ag-refresh" title="새로고침">↻</button>`;
-    head.querySelector('.ag-title').textContent='에이전트';
+    head.innerHTML=`<span class="ag-title">Agents</span><button class="ag-refresh" title="새로고침">↻</button><button class="ag-close" title="닫기">✕</button>`;
     head.querySelector('.ag-refresh').addEventListener('click',e=>{e.stopPropagation();this._activityRestore()});
+    head.querySelector('.ag-close').addEventListener('click',e=>{e.stopPropagation();this._agentsToggle()});
     panel.appendChild(head);
-    const icons={working:'●',done:'✅',waiting:'⌨️',idle:'⏸️'};
     let n=0;
     for(const [paneId,info] of [...this._activity].reverse()){ // 최신(맨 위)부터
       const loc=this._findPaneLocation(paneId);
       if(!loc) continue;
       n++;
       const card=document.createElement('div');
-      card.className='ag-card'+(this._attnHas(paneId)?' attn':'');
+      card.className='ag-card'+(this._attnHas(paneId)?' attn':'')+(this._isPaneFocusedActive(paneId)?' focused':'');
       card.dataset.pid=paneId;
       card.innerHTML=`<div class="ag-loc"></div><div class="ag-state"></div><div class="ag-detail"></div>`;
       card.querySelector('.ag-loc').textContent=(loc.session.name||'')+' · '+(loc.tab.name||paneId);
-      card.querySelector('.ag-state').textContent=(icons[info.state]||'●')+' '+info.state+(info.tool?' · '+info.tool:'');
+      const st=card.querySelector('.ag-state');
+      st.classList.add(info.state); // 상태별 색(.ag-state.working 등)
+      st.textContent=(AGENT_STATE_ICON[info.state]||'●')+' '+info.state+(info.tool?' · '+info.tool:'');
       const dt=card.querySelector('.ag-detail');
       if(info.detail) dt.textContent=info.detail; else dt.remove();
       card.addEventListener('click',()=>{this._jumpToPane(paneId);if(this._attnHas(paneId))this._attnClear(paneId)});
@@ -2166,6 +2174,14 @@ class App {
     if(sd){
       sd.checked=this.attnSound;
       sd.addEventListener('change',()=>{this.attnSound=sd.checked});
+    }
+    const ap=document.getElementById('agents-poll');
+    if(ap){
+      ap.value=String(this.agentsPollMs);
+      ap.addEventListener('change',()=>{
+        this.agentsPollMs=parseInt(ap.value);
+        if(this._agentsTimer) this._agentsStartPoll(); // 폴링 중이면 새 주기로 재시작
+      });
     }
     // 데스크톱 알림 권한은 사용자 제스처가 필요하므로, 켜져 있고 아직 미결정이면
     // 첫 상호작용에서 한 번 요청한다 (브라우저 정책 충족) — FR-PAN-13a.
@@ -2514,6 +2530,7 @@ class App {
       splitH:()=>this.split('horizontal'),splitV:()=>this.split('vertical'),
       newSession:()=>this.addSession(),newTab:()=>this.addTabFocused(),
       closeSession:()=>this.closeSessionActive(),closeTab:()=>this.closeTabFocused(),
+      agentsToggle:()=>this._agentsToggle(),
       toggleSearch:()=>this.toggleSearch(),
     };
     return map[action]?.();
@@ -2645,7 +2662,7 @@ class App {
 
   // ── Render (위임) ──
 
-  render(){ this.renderer.render() }
+  render(){ this.renderer.render(); this._agentsRender() }
 
 
   _bind(){ this.inputBinding.bind() }
@@ -3029,6 +3046,7 @@ class App {
       {label:'탭',keys:['tabNext','tabPrev','newTab','closeTab']},
       {label:'Pane',keys:['paneUp','paneDown','paneLeft','paneRight']},
       {label:'분할',keys:['splitH','splitV']},
+      {label:'에이전트',keys:['agentsToggle']},
     ];
     for(const g of groups){
       const title=document.createElement('div');title.className='sc-group-title';title.textContent=g.label;
