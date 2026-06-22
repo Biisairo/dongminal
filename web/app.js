@@ -6,6 +6,10 @@
 const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,SID:3};
 const enc=new TextEncoder(), dec=new TextDecoder();
 
+// 활동 패널 자동 새로고침 주기(ms). 비정상 종료·hook 누락으로 SSE 가 안 와도
+// 주기적으로 서버 스냅샷과 동기화한다 (AGENT_ACTIVITY_PANEL_SRS FR-AAP-19).
+const AGENTS_POLL_MS=5000;
+
 // ═══ code-server 인스턴스 추적 ═══
 // code-server 창 자체의 close 가 권위. 터미널 탭이 새로고침되어도 다른 창의
 // 인스턴스는 살아있어야 한다(FR-B1: beforeunload 일괄 stop 제거).
@@ -988,6 +992,16 @@ class InputBinding {
     if(this.app._kb) return; this.app._kb=true;
     document.getElementById('split-h').addEventListener('click',()=>this.app.split('horizontal'));
     document.getElementById('split-v').addEventListener('click',()=>this.app.split('vertical'));
+    document.getElementById('agents-toggle').addEventListener('click',()=>this.app._agentsToggle());
+    const ap=document.getElementById('agents-panel'),aph=document.getElementById('agents-handle');
+    try{if(localStorage.getItem('agentsPanelOpen')==='1'){ap.classList.add('open');aph.classList.add('open');this.app._agentsStartPoll()}}catch{}
+    aph.addEventListener('mousedown',e=>{e.preventDefault();
+      const sx=e.clientX,sw=ap.offsetWidth;
+      const mv=e=>{const w=sw-(e.clientX-sx);if(w>=160&&w<=480){document.documentElement.style.setProperty('--ag-w',w+'px')}};
+      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.app.panes.values())if(p.el.classList.contains('vis'))p.doFit();try{localStorage.setItem('agentsWidth',ap.offsetWidth)}catch{}};
+      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
+    });
+    try{const aw=parseInt(localStorage.getItem('agentsWidth'));if(aw>=160&&aw<=480)document.documentElement.style.setProperty('--ag-w',aw+'px')}catch{}
     const sb=document.getElementById('sidebar'),sbh=document.getElementById('sb-handle');
     sbh.addEventListener('mousedown',e=>{e.preventDefault();
       const sx=e.clientX,sw=sb.offsetWidth;
@@ -1313,6 +1327,7 @@ class App {
     this.focused=null;
     this._attn=new Map(); // paneId → {reason} 주의 상태 집합 (FR-PAN-9/16)
     this._attnNotifs={}; // paneId → Notification (재팝업 위해 직전 알림 보관)
+    this._activity=new Map(); // paneId → {state,tool,detail} 활동 상태 (AGENT_ACTIVITY_PANEL_SRS)
     this._s=0;this._r=0;this._t=0;this._kb=false;
     this._drag=null;
     this._stats={};this._latency=null;
@@ -1475,7 +1490,7 @@ class App {
     const connect=()=>{
       try{
         const es=new EventSource('/api/commands/sse');
-        es.onopen=()=>{retry=1000;this._attnRestore()};
+        es.onopen=()=>{retry=1000;this._attnRestore();this._activityRestore()};
         es.onmessage=(e)=>{
           try{
             const m=JSON.parse(e.data);
@@ -1493,6 +1508,10 @@ class App {
             }
             if(m.action==='pane_attention_clear'){
               this._onPaneAttentionClear(m.args||{});
+              return;
+            }
+            if(m.action==='pane_activity'){
+              this._onPaneActivity(m.args||{});
               return;
             }
             // REMOTE_COMMAND_RESULT_SRS: reqId 는 broadcast payload 의 top-level
@@ -1928,6 +1947,87 @@ class App {
     this.render();
   }
 
+  // FR-AAP-15: SSE pane_activity 수신 → 최신 상태로 덮어쓰고 카드 타깃 갱신
+  _onPaneActivity({paneId,state,tool,detail}={}){
+    if(!paneId||!state) return;
+    if(state==='ended'){ // 종료 → 카드 제거
+      if(this._activity.delete(paneId)) this._agentsRender();
+      return;
+    }
+    this._activity.delete(paneId); // 재삽입으로 최신 항목을 Map 끝(=맨 위)으로
+    this._activity.set(paneId,{state,tool:tool||'',detail:detail||''});
+    this._agentsRender();
+  }
+
+  // FR-AAP-15: 합류/재연결 시 현재 활동 스냅샷 복원
+  _activityRestore(){
+    fetch('/api/panes/activity').then(r=>r.ok?r.json():null).then(j=>{
+      if(!j||!Array.isArray(j.activities)) return;
+      j.activities.sort((a,b)=>(a.updatedAt||0)-(b.updatedAt||0)); // 오래된→최신: 끝이 가장 최근
+      this._activity.clear();
+      for(const a of j.activities) this._activity.set(a.paneId,{state:a.state,tool:a.tool||'',detail:a.detail||''});
+      this._agentsRender();
+    }).catch(()=>{});
+  }
+
+  // FR-AAP-11/12: 우측 활동 패널 토글(열림 상태 영속)
+  _agentsToggle(){
+    const panel=document.getElementById('agents-panel'),handle=document.getElementById('agents-handle');
+    if(!panel) return;
+    const open=!panel.classList.contains('open');
+    panel.classList.toggle('open',open);
+    handle.classList.toggle('open',open);
+    try{localStorage.setItem('agentsPanelOpen',open?'1':'0')}catch{}
+    for(const p of this.panes.values()) if(p.el.classList.contains('vis')) p.doFit();
+    if(open){this._agentsRender();this._agentsStartPoll()}else{this._agentsStopPoll()}
+  }
+
+  // FR-AAP-19: 패널 열림 동안 주기적으로 서버 스냅샷과 동기화(자동 새로고침)
+  _agentsStartPoll(){
+    this._agentsStopPoll();
+    this._agentsTimer=setInterval(()=>this._activityRestore(),AGENTS_POLL_MS);
+  }
+  _agentsStopPoll(){
+    if(this._agentsTimer){clearInterval(this._agentsTimer);this._agentsTimer=null}
+  }
+
+  // FR-AAP-13/14/16/18: 활동 중인 pane 카드 렌더. _findPaneLocation 실패(종료/없음)
+  // pane 은 제외, attention 있으면 .attn 합성, 클릭 시 점프+알람 해제.
+  _agentsRender(){
+    const panel=document.getElementById('agents-panel');
+    if(!panel||!panel.classList.contains('open')) return;
+    panel.innerHTML='';
+    const head=document.createElement('div');
+    head.className='ag-head';
+    head.innerHTML=`<span class="ag-title"></span><button class="ag-refresh" title="새로고침">↻</button>`;
+    head.querySelector('.ag-title').textContent='에이전트';
+    head.querySelector('.ag-refresh').addEventListener('click',e=>{e.stopPropagation();this._activityRestore()});
+    panel.appendChild(head);
+    const icons={working:'●',done:'✅',waiting:'⌨️',idle:'⏸️'};
+    let n=0;
+    for(const [paneId,info] of [...this._activity].reverse()){ // 최신(맨 위)부터
+      const loc=this._findPaneLocation(paneId);
+      if(!loc) continue;
+      n++;
+      const card=document.createElement('div');
+      card.className='ag-card'+(this._attnHas(paneId)?' attn':'');
+      card.dataset.pid=paneId;
+      card.innerHTML=`<div class="ag-loc"></div><div class="ag-state"></div><div class="ag-detail"></div>`;
+      card.querySelector('.ag-loc').textContent=(loc.session.name||'')+' · '+(loc.tab.name||paneId);
+      card.querySelector('.ag-state').textContent=(icons[info.state]||'●')+' '+info.state+(info.tool?' · '+info.tool:'');
+      const dt=card.querySelector('.ag-detail');
+      if(info.detail) dt.textContent=info.detail; else dt.remove();
+      card.addEventListener('click',()=>{this._jumpToPane(paneId);if(this._attnHas(paneId))this._attnClear(paneId)});
+      panel.appendChild(card);
+    }
+    if(!n){
+      const empty=document.createElement('div');
+      empty.className='ag-empty';
+      empty.textContent='활동 중인 에이전트 없음';
+      panel.appendChild(empty);
+    }
+  }
+
   // FR-PAN-16: 제목 배지 + notification center 배지/팝오버 갱신
   _attnRefresh(){
     const n=this._attn.size;
@@ -1958,6 +2058,7 @@ class App {
     }
     const center=document.getElementById('attn-center');
     if(center&&center.classList.contains('open')) this._attnCenterRender();
+    this._agentsRender(); // FR-AAP-18: 활동 카드의 alarm 표시도 함께 갱신
   }
 
   _attnCenterToggle(){

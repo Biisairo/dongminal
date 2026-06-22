@@ -40,6 +40,7 @@ func buildDeps(cfg server.Config) (builtDeps, error) {
 	hub := server.NewCommandHub()
 	// Wire attention SSE before LoadAll so restored panes also get detection.
 	server.WireAttention(pm, hub)
+	server.WireActivity(pm, hub)
 	csm := server.NewCodeServerManager()
 	wsMgr, err := workspace.New(pm, workspace.FilePersister{Path: dataPath(cfg.DataDir, "workspace.json")})
 	if err != nil {

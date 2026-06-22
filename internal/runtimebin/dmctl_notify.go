@@ -49,6 +49,7 @@ func runDmctlNotify(args []string, stdout, stderr io.Writer) int {
 		}
 		return 1
 	}
+	reportCodexActivity(label, args, paneID)
 	return 0
 }
 

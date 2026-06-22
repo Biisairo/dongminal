@@ -66,16 +66,24 @@ func installAgentHooks(binDir string) error {
 		return err
 	}
 	dmctl := filepath.Join(binDir, "dmctl")
-	cmd := func(label string) any {
-		return []any{map[string]any{
-			"matcher": "",
-			"hooks":   []any{map[string]any{"type": "command", "command": dmctl + " notify " + label}},
-		}}
+	notifyHook := func(label string) map[string]any {
+		return map[string]any{"type": "command", "command": dmctl + " notify " + label}
+	}
+	activityHook := map[string]any{"type": "command", "command": dmctl + " activity claude"}
+	event := func(hooks ...any) any {
+		return []any{map[string]any{"matcher": "", "hooks": hooks}}
 	}
 	settings := map[string]any{
 		"hooks": map[string]any{
-			"Stop":         cmd("done"),
-			"Notification": cmd("waiting"),
+			"SessionStart":     event(activityHook),
+			"SessionEnd":       event(activityHook),
+			"UserPromptSubmit": event(activityHook),
+			"PreToolUse":       event(activityHook),
+			"PostToolUse":      event(activityHook),
+			"PreCompact":       event(activityHook),
+			"SubagentStop":     event(activityHook),
+			"Stop":             event(notifyHook("done"), activityHook),
+			"Notification":     event(notifyHook("waiting"), activityHook),
 		},
 	}
 	blob, err := json.MarshalIndent(settings, "", "  ")

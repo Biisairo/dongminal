@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Terminal</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.css">
-  <link rel="stylesheet" href="style.css?v=99">
+  <link rel="stylesheet" href="style.css?v=100">
   <script>try{var w=parseInt(localStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px')}catch(e){}</script>
 </head>
 <body>
@@ -31,6 +31,7 @@
       <button class="tbtn" id="attn-badge" title="주의 알림" style="display:none">🔔<span class="attn-count">0</span></button>
       <button class="tbtn desktop-only" id="split-h" title="Split Horizontal (Ctrl+Shift+H)">Split H</button>
       <button class="tbtn desktop-only" id="split-v" title="Split Vertical (Ctrl+Shift+V)">Split V</button>
+      <button class="tbtn desktop-only" id="agents-toggle" title="에이전트 모아보기">🧭 Agents</button>
       <button class="mtbtn mobile-only" id="m-search-btn" title="검색">🔍</button>
       <button class="mtbtn mobile-only" id="m-add-tab" title="새 탭">+</button>
       <button class="mtbtn mobile-only" id="m-drawer-toggle" title="메뉴">☰</button>
@@ -47,6 +48,8 @@
     </div>
     <div id="status-bar" class="status-bar"></div>
   </div>
+  <div id="agents-handle"></div>
+  <div id="agents-panel"></div>
   <div id="mobile-keybar" class="mobile-only"></div>
 </div>
 

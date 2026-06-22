@@ -173,6 +173,8 @@ var apiRoutes = []apiRoute{
 	{http.MethodPost, exactPath("/api/panes/attention/set"), (*Server).apiPaneAttentionSet},
 	{http.MethodPost, exactPath("/api/panes/attention/clear"), (*Server).apiPaneAttentionClear},
 	{http.MethodPost, exactPath("/api/panes/attention/clear-all"), (*Server).apiPaneAttentionClearAll},
+	{http.MethodGet, exactPath("/api/panes/activity"), (*Server).apiPanesActivity},
+	{http.MethodPost, exactPath("/api/panes/activity/set"), (*Server).apiPaneActivitySet},
 	{http.MethodGet, func(p string) bool {
 		return strings.HasPrefix(p, "/api/panes/") && strings.HasSuffix(p, "/busy")
 	}, (*Server).apiPaneBusy},
@@ -320,6 +322,44 @@ func (s *Server) apiPaneAttentionClear(w http.ResponseWriter, r *http.Request) {
 	if s.Panes != nil {
 		if pane := s.Panes.Get(req.PaneID); pane != nil {
 			pane.attend()
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+}
+
+// apiPanesActivity returns the current activity snapshot of every pane that has
+// reported one, so a late-joining / reconnecting client can restore cards
+// (FR-AAP-4).
+func (s *Server) apiPanesActivity(w http.ResponseWriter, r *http.Request) {
+	acts := []activitySnap{}
+	if al, ok := s.Panes.(interface{ ActivitySnapshot() []activitySnap }); ok {
+		if got := al.ActivitySnapshot(); got != nil {
+			acts = got
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"activities": acts})
+}
+
+// apiPaneActivitySet records what an agent in a pane is currently doing. Used by
+// `dmctl activity` (agent hook bridge), identified via DONGMINAL_PANE_ID. Body:
+// {"paneId":"...","state":"working|done|waiting|idle","tool":"...","detail":"..."}.
+// Unknown pane is a 200 no-op; missing paneId or invalid state is 400 (FR-AAP-3).
+func (s *Server) apiPaneActivitySet(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		PaneID string `json:"paneId"`
+		State  string `json:"state"`
+		Tool   string `json:"tool"`
+		Detail string `json:"detail"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PaneID == "" || !validActivityState(req.State) {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if s.Panes != nil {
+		if pane := s.Panes.Get(req.PaneID); pane != nil {
+			pane.setActivity(req.State, sanitizeActivityField(req.Tool, activityToolMax), sanitizeActivityField(req.Detail, activityDetailMax))
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")

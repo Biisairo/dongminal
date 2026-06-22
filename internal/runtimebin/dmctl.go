@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 )
 
@@ -25,6 +26,7 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl list-panes [--json]         # 열린 pane 목록 (uuid 포함, ▶=현재 포커스)
   dmctl who-am-i [--json]           # 현재 쉘이 속한 pane 의 식별 정보
   dmctl notify [label]              # 현재 pane 에 주의 알림 (에이전트 hook 에서 호출)
+  dmctl activity <agent>            # 현재 pane 의 작업 상태 보고 (stdin hook JSON 파싱)
   dmctl send <action> [json-args]   # raw 전송
 
 위치 식별자 — uuid 만 허용:
@@ -65,6 +67,8 @@ func runDmctl(args []string, stdout, stderr io.Writer) int {
 		return dmctlWhoAmI(rest, stdout, stderr)
 	case "notify":
 		return runDmctlNotify(rest, stdout, stderr)
+	case "activity":
+		return runDmctlActivity(rest, os.Stdin, stdout, stderr)
 	}
 
 	parsed, err := parseDmctlFlags(rest)

@@ -124,6 +124,9 @@ type Pane struct {
 	allowBell        bool
 	onAttention      func(id, reason string)
 	onAttentionClear func(id string)
+
+	activity   atomic.Pointer[activityState]
+	onActivity func(id, state, tool, detail string)
 }
 
 // paneBusyProbe is the busy-detection function used by Pane.IsBusy. It is a
@@ -172,6 +175,7 @@ func (p *Pane) Cwd() string {
 type PaneHooks struct {
 	OnAttention      func(id, reason string)
 	OnAttentionClear func(id string)
+	OnActivity       func(id, state, tool, detail string)
 	AllowBell        bool
 }
 
@@ -233,6 +237,7 @@ func StartPane(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 	if hooks != nil {
 		p.onAttention = hooks.OnAttention
 		p.onAttentionClear = hooks.OnAttentionClear
+		p.onActivity = hooks.OnActivity
 		p.allowBell = hooks.AllowBell
 	}
 	go p.readPTY()
@@ -398,6 +403,34 @@ func (p *Pane) maybeIdle(now, threshold int64) {
 // Attention reports whether the pane currently needs attention.
 func (p *Pane) Attention() bool { return p.attention.Load() }
 
+type activityState struct {
+	State     string `json:"state"`
+	Tool      string `json:"tool,omitempty"`
+	Detail    string `json:"detail,omitempty"`
+	UpdatedAt int64  `json:"updatedAt"`
+}
+
+type activitySnap struct {
+	PaneID    string `json:"paneId"`
+	State     string `json:"state"`
+	Tool      string `json:"tool,omitempty"`
+	Detail    string `json:"detail,omitempty"`
+	UpdatedAt int64  `json:"updatedAt"`
+}
+
+func (p *Pane) setActivity(state, tool, detail string) {
+	if state == "ended" {
+		p.activity.Store(nil) // 종료 → 카드 제거(스냅샷에서 빠짐)
+	} else {
+		p.activity.Store(&activityState{State: state, Tool: tool, Detail: detail, UpdatedAt: attnNow()})
+	}
+	if p.onActivity != nil {
+		p.onActivity(p.ID, state, tool, detail)
+	}
+}
+
+func (p *Pane) Activity() *activityState { return p.activity.Load() }
+
 // addClient registers c. Returns false when the pane has already exited; in
 // that case OpExit is sent to c immediately (outside cmu) and c is left
 // untouched in the caller's possession. Caller must NOT hold cmu.
@@ -494,6 +527,10 @@ func (p *Pane) kill() {
 		if p.stream != nil {
 			p.stream.Close()
 		}
+		// pane 종료 → 활동 카드 제거(셸 exit/Ctrl+C 등, SessionEnd hook 없이도).
+		if p.activity.Load() != nil {
+			p.setActivity("ended", "", "")
+		}
 	})
 }
 
@@ -511,10 +548,11 @@ type PaneManager struct {
 	// Attention (PANE_ATTENTION_NOTIFY_SRS): idleThreshold/allowBell configure
 	// detection; attnNotify/attnClear bridge transitions to SSE (set via
 	// SetAttentionNotifier from the composition root).
-	idleThreshold int64 // nanos, 0 disables L2
-	allowBell     bool
-	attnNotify    func(id, reason string)
-	attnClear     func(id string)
+	idleThreshold  int64 // nanos, 0 disables L2
+	allowBell      bool
+	attnNotify     func(id, reason string)
+	attnClear      func(id string)
+	activityNotify func(id, state, tool, detail string)
 }
 
 // NewPaneManager builds an empty manager. dataDir is where panes.json lives;
@@ -541,12 +579,50 @@ func (m *PaneManager) SetAttentionNotifier(notify func(id, reason string), clear
 	m.mu.Unlock()
 }
 
+// SetActivityNotifier wires pane activity transitions to broadcasts (mirrors
+// SetAttentionNotifier). Must be called before panes are created.
+func (m *PaneManager) SetActivityNotifier(notify func(id, state, tool, detail string)) {
+	m.mu.Lock()
+	m.activityNotify = notify
+	m.mu.Unlock()
+}
+
 // attnHooks builds the per-pane hooks from the manager's notifier config.
 func (m *PaneManager) attnHooks() *PaneHooks {
-	if m.attnNotify == nil && m.attnClear == nil {
+	if m.attnNotify == nil && m.attnClear == nil && m.activityNotify == nil {
 		return nil
 	}
-	return &PaneHooks{OnAttention: m.attnNotify, OnAttentionClear: m.attnClear, AllowBell: m.allowBell}
+	return &PaneHooks{OnAttention: m.attnNotify, OnAttentionClear: m.attnClear, OnActivity: m.activityNotify, AllowBell: m.allowBell}
+}
+
+// ActivitySnapshot returns the current activity of every pane that has reported
+// one, sorted by id (FR-AAP-4; lets a late-joining client restore cards).
+func (m *PaneManager) ActivitySnapshot() []activitySnap {
+	type item struct {
+		id string
+		a  *activityState
+		p  *Pane
+	}
+	m.mu.RLock()
+	items := make([]item, 0, len(m.panes))
+	for id, p := range m.panes {
+		if a := p.Activity(); a != nil {
+			items = append(items, item{id, a, p})
+		}
+	}
+	m.mu.RUnlock()
+	// busy check (pgrep) runs outside the lock. A `working` card whose agent
+	// process is gone is pruned so an abnormal exit (no Stop/SessionEnd hook)
+	// doesn't leave a stale "working" (FR-AAP-20).
+	out := []activitySnap{}
+	for _, it := range items {
+		if it.a.State == "working" && !attnBusyProbe(it.p) {
+			continue
+		}
+		out = append(out, activitySnap{PaneID: it.id, State: it.a.State, Tool: it.a.Tool, Detail: it.a.Detail, UpdatedAt: it.a.UpdatedAt})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].PaneID < out[j].PaneID })
+	return out
 }
 
 // sweepIdle runs one L2 idle pass at the given time. Exposed for deterministic
