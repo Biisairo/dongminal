@@ -75,7 +75,7 @@ dongminal 위에서 동시에 돌아가는 여러 에이전트(Claude Code, Code
 | **FR-AAP-10** | 추정 활동 에이전트(gemini/pi 등, 명시 신호 없음): 서버는 ATTENTION SRS 의 출력 활동 신호를 재사용해 **best-effort** activity 를 채운다 — 출력 수신(armed)이면 `working`, L2 idle 발화면 `idle`. `tool`/`detail` 은 비운다. 이 추정은 명시 신호가 한 번이라도 온 pane 에는 적용하지 않는다(명시 신호 우선). | 권장 |
 | **FR-AAP-11** | 프론트는 `#app` 우측 끝에 좌측 `#sidebar` 와 대칭되는 **접이식 활동 패널 `#agents-panel`** 과 리사이즈 핸들 `#agents-handle`(`#sb-handle`(54) 패턴, hover 시 `--accent`)을 둔다. 패널은 활동 중인 pane 들의 카드를 나열한다. 패널 헤더(`Agents`) **우측 끝에 닫기 버튼**, 그 **왼쪽에 새로고침 버튼**(`_activityRestore`)을 둔다. | 필수 |
 | **FR-AAP-12** | 패널 토글 버튼을 **topbar 의 Split V(`#split-v`) 옆**에 둔다 — 버튼 UI 는 Split 버튼과 **동일(`tbtn`)하되 색상만 구분**(이모지 없이 텍스트 `Agents`, `--attn` 색). 클릭/단축키로 `#agents-panel` 을 펼치고/접고 버튼·핸들에 `.open` 강조. 토글 **단축키**(`agentsToggle`, 기본 `Ctrl+Shift+A`)를 제공하고 **설정 Shortcuts 탭에서 편집** 가능(기존 단축키 등록/저장 경로 재사용). 좌측 하단에는 두지 않는다. | 필수 |
-| **FR-AAP-13** | 카드는 (a) pane 위치(세션·탭 이름; `_findPaneLocation`(참조)로 해석), (b) 에이전트 식별 가능 시 종류, (c) `state` 아이콘(working/done/waiting/idle 구분), (d) `tool`, (e) `detail` **원문**(길이 초과 시 말줄임)을 보인다. detail 이 없으면 state 만 보인다. 상태는 **이모지가 아닌 글꼴 기호**(working `●` / done `✓` / waiting `…` / idle `○`)와 **테마 팔레트 색**(working→`--accent`, done→`--text-bright`, waiting→`--attn`, idle→`--text`; 하드코딩 금지)으로 구분한다. **카드는 최근 업데이트(또는 새로 추가)된 항목이 맨 위로 오도록 정렬한다** — 갱신 시 재삽입으로 최신을 끝에 두고 역순 렌더, 서버 복원 시 `updatedAt` 기준. **포커스된 pane(`_isPaneFocusedActive`)의 카드는 `.focused` 로 표시**하고, 포커스/레이아웃 변경(`render`) 시 동기화한다(attention `.attn` 강조와 시각 구분). | 필수 |
+| **FR-AAP-13** | 카드는 (a) pane 위치(세션·탭 이름; `_findPaneLocation`(참조)로 해석), (b) 에이전트 식별 가능 시 종류, (c) `state` 아이콘(working/done/waiting/idle 구분), (d) `tool`, (e) `detail` **원문**(길이 초과 시 말줄임)을 보인다. detail 이 없으면 state 만 보인다. 상태는 **이모지가 아닌 글꼴 기호**(working `●` / done `✓` / waiting `…` / idle `○`)와 **테마 팔레트 색**(working→`--accent`, done→`--text-bright`, waiting→`--attn`, idle→`--text`; 하드코딩 금지)으로 구분한다. **카드 순서는 사용자가 드래그로 정한 순서(FR-AAP-21)를 따른다** — 새로 추가된 에이전트는 목록 **최하단**에 붙고(추가 순서 = 신호 도착 순서, 서버 복원 시 `updatedAt` **오름차순**), **기존 카드의 상태 갱신(working→done 등)은 순서를 바꾸지 않는다(제자리 갱신)**. **포커스된 pane(`_isPaneFocusedActive`)의 카드는 `.focused` 로 표시**하고, 포커스/레이아웃 변경(`render`) 시 동기화한다(attention `.attn` 강조와 시각 구분). | 필수 |
 | **FR-AAP-14** | 카드 클릭 시 (a) `_jumpToPane(paneId)`(1922)로 그 pane 으로 포커스 이동(다른 세션이면 세션 전환 포함), (b) 그 pane 에 주의(attention)가 있으면 기존 포커스 해제 경로(`POST /api/panes/attention/clear`, FR-PAN-11)로 알람도 해제한다. 활동 상태 자체는 클릭으로 지우지 않는다(상태는 다음 신호가 덮어씀). | 필수 |
 | **FR-AAP-15** | 프론트는 SSE `pane_activity` 수신 시 해당 pane 카드를 **타깃 갱신**(추가/수정)한다. 합류 시 또는 SSE 재연결 시 `GET /api/panes/activity` 로 전체 스냅샷을 받아 패널을 복원한다(FR-PAN-12 와 동일 동기). | 필수 |
 | **FR-AAP-16** | pane 이 종료되거나 에이전트가 종료되면 카드를 제거한다. (a) claude `SessionEnd` → `state=ended` 신호 → 서버가 활동을 nil 로 비우고 `pane_activity{state:ended}` 발행 → 프론트는 카드 삭제. (b) pane 자체 종료(`kill()`, 셸 exit/Ctrl+C 등 — SessionEnd hook 없이도) 시 서버가 동일하게 활동을 비우고 `ended` 를 발행. (c) 프론트는 존재하지 않는 pane(`_findPaneLocation` 실패)의 카드를 표시하지 않는다. `state=ended` 는 표시 상태가 아니라 제거 신호다(스냅샷·카드에서 즉시 빠짐). | 필수 |
@@ -83,6 +83,7 @@ dongminal 위에서 동시에 돌아가는 여러 에이전트(Claude Code, Code
 | **FR-AAP-19** | 패널이 열려 있는 동안 named 기본값(`AGENTS_POLL_DEFAULT`, 하드코딩 금지)마다 `GET /api/panes/activity` 로 스냅샷을 **자동 재동기화**한다 — 주기는 **설정 Notifications 탭에서 변경**(per-device localStorage `agentsPollMs`), 변경 시 폴링 재시작. — 비정상 종료(SIGKILL 등)·hook 누락으로 SSE 가 오지 않아도 stale 카드를 교정하고, 종료된(없어진) pane 카드를 제거한다. 패널을 닫으면 폴링을 중지한다(타이머 누수 없음). 수동 새로고침 버튼(헤더 `↻`)도 같은 `_activityRestore` 경로를 쓴다. | 필수 |
 | **FR-AAP-20** | `ActivitySnapshot` 은 `state=working` 인데 해당 pane 에 **살아있는 에이전트 프로세스가 없으면**(`IsBusy`=false) 그 항목을 제외한다 — 비정상 종료로 `Stop`/`SessionEnd` hook 이 발화하지 못해 남은 stale `working` 을 자동 정리. 종료/대기 상태(`done`/`waiting`/`idle`)는 busy 와 무관하게 유지한다. busy 판정(`pgrep`)은 락을 잡지 않은 채 수행한다(락 홀드 중 외부 명령 금지). | 필수 |
 | **FR-AAP-18** | 활동 카드는 그 pane 에 **주의(attention)가 있으면 카드에도 알람 표시**를 한다 — 프론트가 이미 보유한 attention 집합(`_attn`)을 카드 렌더 시 참조해(`_attnHas(paneId)`) 기존 `--attn` 색 토큰/`.attn` 강조(포커스·위험과 시각 구분, FR-PAN-10)를 재사용한다. attention 상태가 바뀌면(SSE `pane_attention`/`pane_attention_clear`) 활동 카드 표시도 **타깃 갱신**한다(기존 `_attnRefresh`(1932)에 활동 카드 갱신을 더하거나 카드 렌더가 attention 을 참조; 전체 render() 금지). 알람 표시된 카드 클릭 시 바로가기 + 알람 해제는 FR-AAP-14 경로. **서버 변경 없음**(attention/activity 두 상태를 프론트에서 합성). | 필수 |
+| **FR-AAP-21** | **활동 카드 순서는 사용자가 드래그 앤 드롭으로 직접 조절**할 수 있다 — 좌측 세션 사이드바(`_rSidebar`(1081)의 native HTML5 Drag&Drop)와 **동일한 방식·시각 피드백**을 쓴다: 카드에 `draggable`, `dragstart` 에서 `_drag={type:'agent', pid}`(세션 DnD 의 `type:'session'` 과 충돌 금지), `dragover` 에서 위/아래 절반 기준 `drag-above`/`drag-below` 강조 **및 마지막 대상(`targetPid`)·삽입 방향(`before`) 기록**, **`drop`(놓는 즉시 발생, `dragend` 보다 먼저) 에서 재배치를 커밋**해 드래그 고스트가 원위치로 돌아가기 전에 DOM 을 갱신한다(원위치로 튕겼다가 이동하는 깜빡임 제거). **드래그가 진행되는 동안 `document` 레벨에서 `dragover` 를 `preventDefault` 하여 화면 전체를 드롭 수락 영역으로 만든다** — native DnD 의 snap-back(미수락 release 시 원위치 복귀 애니메이션)을 패널 안/밖 어디서든 제거하고, `document` `drop` 에서 마지막으로 기록된 대상 기준으로 **즉시** 커밋한다(패널 밖에 놓아도 즉시 반영). `dragover`/`drop` 의 `document` 핸들러는 **1회만** 바인딩(렌더마다 재등록 금지·리스너 누수 금지)하고 `_drag` 가 session/agent 일 때만 동작한다. `dragend` 는 시각 강조 정리만 한다. 중복 커밋(카드/컨테이너 `drop` ↔ `document` `drop` 버블링)은 `e.stopPropagation()` 과 `_drag.done` 플래그로 막는다. 순서 배열은 **paneId 배열 `ws.agentsOrder` 로 workspace 에 영속**된다 — `sidebarWidth`(app.js:1012, workspace 최상위 필드, Go raw blob 그대로 round-trip)와 **동일한 패턴**으로 `_save()`(PUT `/api/workspace`)에 실려 디스크에 저장되고 `workspace_changed` SSE → `/api/state` → `_applyRemoteWorkspace`(1566) 경로로 **다른 클라이언트에도 동기화**된다(에이전트는 로컬이 아닌 서버/터미널 자원이므로 순서도 공유). 카드 렌더는 매번 `ws.agentsOrder` 를 현재 활동 집합(`_activity` 키)과 **reconcile** 한다: 배열에서 더 이상 존재하지 않는 paneId 는 제외하고, 배열에 없던 새 paneId 는 **최하단에 추가**한다(reconcile 자체는 결정적이라 `_save()` 를 유발하지 않으며, 사용자 드래그 시에만 `_save()`). 서버 변경 없음(기존 raw workspace round-trip 재사용). | 필수 |
 
 ### 3.2 비기능 요구사항 (Non-functional)
 
@@ -108,6 +109,7 @@ dongminal 위에서 동시에 돌아가는 여러 에이전트(Claude Code, Code
 | DC-AAP-4 | 카드 클릭 점프는 기존 `_jumpToPane`/`_findPaneLocation` 을 재사용하고 새 점프 로직을 만들지 않는다. |
 | DC-AAP-5 | `dmctl activity` 는 attention 의 `dmctl notify` 와 별도 서브커맨드로 분리하되, `DONGMINAL_PANE_ID` 식별·`baseURL()`·`httpPostJSON`·`sanitize` 등 공통 유틸을 공유한다. |
 | DC-AAP-6 | TypeScript/JS·Go 양쪽 기존 코드 스타일을 따르고, 상수 하드코딩 금지(state 라벨·길이 상한·기본 패널 너비 등 named). 요청 전 주석 추가 금지. |
+| DC-AAP-7 | 카드 드래그 정렬은 세션 사이드바 DnD(`_rSidebar`(1081))와 동일한 native HTML5 Drag&Drop·`_drag` 상태·`drag-above`/`drag-below` 강조 패턴을 재사용한다(새 라이브러리·새 정렬 로직 금지). 순서 영속은 `ws.agentsOrder`(workspace 최상위 필드)로 `sidebarWidth` 패턴을 재사용하며, **Go workspace 구조체 변경 없이** raw blob round-trip 으로 영속·동기화한다. 재배치 커밋은 **`drop`(즉시·깜빡임 없음)** 에서만 수행하고, 드래그 중 `document` 레벨 `dragover` `preventDefault` 로 화면 전체를 드롭 수락 영역으로 만들어 **패널 안/밖 어디에 놓든 snap-back 없이 즉시 반영**한다(`document` 핸들러는 1회만 바인딩, 렌더마다 재등록 금지). `dragend` 는 시각 정리만. 재배치는 **인덱스가 아닌 식별자**(session=`id`, agent=`paneId`)로 대상/원본을 찾아 splice 후 발생하는 인덱스 이동에 안전하게 하고, 중복 커밋은 `stopPropagation`+`_drag.done` 으로 막는다. 세션 사이드바 DnD 도 동일 모델로 정렬한다(공유 회귀 수정). |
 
 ---
 
@@ -135,6 +137,8 @@ dongminal 위에서 동시에 돌아가는 여러 에이전트(Claude Code, Code
 | **TC-AAP-16** (e2e) | 활동 카드 색/아이콘 | 테마 토큰 사용, 21종 테마에서 가독 |
 | **TC-AAP-17** (e2e) | 활동 카드가 있는 pane 에 `pane_attention` 도착 → 이후 `pane_attention_clear` | 카드에 `.attn` 알람 강조(포커스/위험과 구분) 추가, 해제 시 강조 제거. 모두 타깃 갱신(전체 render 없음). 알람 카드 클릭 → 바로가기 + 알람 해제 |
 | **TC-AAP-18** (Go) | `ActivitySnapshot`: `working`+busy / `working`+not-busy / `done`+not-busy | working+busy 포함, working+not-busy 제외(stale 정리), done 은 busy 무관 포함 |
+| **TC-AAP-19** (e2e) | 두 pane 에 순차 활동 신호(pid1→pid2) 주입 | pid1 이 상단, pid2 가 **하단**(추가 순서). pid1 재갱신해도 순서 불변(제자리 갱신, 하단 이동 없음) |
+| **TC-AAP-20** (e2e) | 하단 카드(pid2)를 상단 카드(pid1) 위로 **드래그 앤 드롭** | 순서가 pid2→pid1 로 재배치되고 `ws.agentsOrder` 가 PUT `/api/workspace` 로 저장됨(드래그가 `_save()` 유발). 폴링 재동기화 후에도 순서 유지 |
 
 ### 4.2 완료 조건 (DoD)
 - [ ] `Pane.activity` 상태 + `setActivity` + `onActivity` 콜백 + pane 종료 시 정리.
@@ -144,6 +148,7 @@ dongminal 위에서 동시에 돌아가는 여러 에이전트(Claude Code, Code
 - [ ] `claude.json` 에 PreToolUse/Stop/Notification activity hook 추가(기존 attention hook·유효 JSON 보존) + codex `-c notify` activity 라우팅.
 - [ ] (권장) gemini/pi best-effort 출력활동 추정(FR-AAP-10).
 - [ ] web: `#agents-panel`+`#agents-handle`, topbar 토글 버튼, 카드 렌더(타깃 갱신), `_jumpToPane` 클릭, 스냅샷 복원, 패널 영속, 카드 attention 알람 합성 표시(`.attn` 재사용) + TC-AAP-11~17.
+- [ ] 카드 드래그 정렬(`type:'agent'` DnD) + `ws.agentsOrder` workspace 영속/동기화 + reconcile(신규=최하단, 갱신=제자리) + TC-AAP-19,20.
 - [ ] `go test -race ./...` 그린, playwright 그린.
 - [ ] `docs/external/features.md` 에 활동 패널 문서화(에이전트별 충실도 차이 명시).
 - [ ] 신규 코드에 TODO 없음, 미사용 import 없음, 스펙 외 동작 없음, attention 인프라 무변경 확인.
@@ -166,4 +171,16 @@ dongminal 위에서 동시에 돌아가는 여러 에이전트(Claude Code, Code
   - **활동 타임라인** — pane 당 최근 N개 활동 ring buffer + 카드 펼침 피드(본 SRS 의 상태 모델/SSE 재사용).
   - **gemini/pi 명시 신호** — 영속 hook 설정을 사용자 동의 하에 옵트인 설치.
   - 모바일 레이아웃, 활동 기반 필터/정렬(세션별·state별).
+
+## 7. 동작 변경 이력 (Behavior Change Log)
+
+### 7.1 카드 정렬: 자동 "최신 상단" → 수동 드래그 순서 (FR-AAP-13/21 개정)
+- **이전 동작**: 신호가 올 때마다 해당 pane 을 `_activity` Map 끝으로 재삽입(`delete`+`set`)하고 렌더 시 `reverse()` 하여, **가장 최근 업데이트된 카드가 항상 맨 위**로 자동 정렬되었다. 사용자가 순서를 조절할 수 없었다.
+- **신규 동작**: (1) 새로 추가된 에이전트는 **목록 최하단**에 붙는다. (2) 기존 카드의 상태 갱신은 순서를 바꾸지 않는다(제자리 갱신). (3) 사용자가 **드래그 앤 드롭**으로 순서를 직접 조절하며, 그 순서는 `ws.agentsOrder` 로 workspace 에 영속되어 다른 클라이언트에도 동기화된다.
+- **이유**: 자동 재정렬은 작업 진행 중 카드가 계속 튀어 올라 추적이 어렵고, 사용자가 원하는 배치를 고정할 수 없었다. 세션 사이드바와 동일한 수동 정렬 UX 로 일관성을 맞추고, 에이전트가 서버/터미널 자원인 만큼 순서도 클라이언트 간 공유한다.
+
+### 7.2 드래그 커밋: `drop` → `dragend` (DC-AAP-7, 세션 사이드바 공유)
+- **이전 동작**: 재배치를 카드의 `drop` 이벤트에서 수행했다. native HTML5 DnD 에서 `drop` 은 놓는 순간 커서 아래 요소에서만 발생하므로, 카드를 **목록 양끝 너머·패널 빈 공간·바깥에 놓으면** `drop` 이 카드에서 발생하지 않아 — `dragover` 하이라이트는 떴는데 — 재배치가 일어나지 않고 원위치로 돌아갔다(세션·에이전트 동일).
+- **신규 동작**: `dragover` 동안 마지막 대상(`targetId`/`targetPid`)·삽입 방향(`before`)을 `_drag` 에 기록하고, **`drop`(놓는 즉시, `dragend` 보다 먼저)** 에서만 재배치를 커밋한다 — 드래그 고스트가 원위치로 돌아가기 전에 DOM 을 바꿔 "원위치로 튕겼다가 이동"하는 깜빡임을 없앤다. 드래그 중 **`document` 레벨 `dragover` `preventDefault` 로 화면 전체를 드롭 수락 영역으로** 만들어 native snap-back 을 패널 안/밖 어디서든 제거하고, `document` `drop` 으로 즉시 커밋한다(패널 밖 release 도 즉시 반영). `document` 핸들러는 **1회만** 바인딩(렌더마다 재등록 금지)하고 `_drag` 가 session/agent 일 때만 동작한다. `dragend` 는 시각 강조만 정리. 중복 커밋(카드/컨테이너 ↔ `document` `drop` 버블)은 `stopPropagation`+`_drag.done` 으로 막고, 재배치는 식별자(session `id`, agent `paneId`)로 splice.
+- **이유**: (1) 끝으로 드래그할 때 드롭 위치가 조금만 벗어나도 순서가 안 바뀌던 회귀, (2) release 시 원위치로 한 번 돌아갔다가 이동하는 snap-back 깜빡임 — 둘 다 `document` 전역 드롭 수락 + `drop` 즉시 커밋으로 제거한다(패널 밖에 놓아도 즉시).
 ```

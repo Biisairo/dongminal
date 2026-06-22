@@ -1006,6 +1006,11 @@ class InputBinding {
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
     });
     try{const aw=parseInt(localStorage.getItem('agentsWidth'));if(aw>=160&&aw<=480)document.documentElement.style.setProperty('--ag-w',aw+'px')}catch{}
+    // 문서 전역 DnD 수락(1회 바인딩): 드래그 중 화면 전체를 드롭 수락 영역으로 만들어
+    // native snap-back(미수락 release 시 원위치 복귀 애니메이션)을 패널 안/밖 어디서든 제거,
+    // drop 에서 마지막 dragover 가 기록한 대상 기준 즉시 커밋. FR-AAP-21 / 세션 사이드바 공유.
+    document.addEventListener('dragover',e=>{const dr=this.app._drag;if(dr&&(dr.type==='session'||dr.type==='agent'))e.preventDefault()});
+    document.addEventListener('drop',e=>{const dr=this.app._drag;if(!dr)return;if(dr.type==='session'){e.preventDefault();this.app._reorderSessions(dr)}else if(dr.type==='agent'){e.preventDefault();this.app._reorderAgents(dr)}});
     const sb=document.getElementById('sidebar'),sbh=document.getElementById('sb-handle');
     sbh.addEventListener('mousedown',e=>{e.preventDefault();
       const sx=e.clientX,sw=sb.offsetWidth;
@@ -1090,14 +1095,14 @@ class Renderer {
       d.querySelector('.si-x').addEventListener('click',e=>{e.stopPropagation();this.app.delSession(s.id)});
       d.querySelector('.si-name').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(s,e.target)});
       d.draggable=true;
-      d.addEventListener('dragstart',e=>{this.app._drag={type:'session',idx:this.app.ws.sessions.indexOf(s)};e.dataTransfer.effectAllowed='move';setTimeout(()=>d.classList.add('dragging'),0)});
+      // 재배치는 drop(즉시·깜빡임 없음) 1순위, 패널 밖 release 는 dragend 폴백. 식별자 기반 splice.
+      d.addEventListener('dragstart',e=>{this.app._drag={type:'session',srcId:s.id,targetId:null,before:false,done:false};e.dataTransfer.effectAllowed='move';setTimeout(()=>d.classList.add('dragging'),0)});
+      d.addEventListener('dragover',e=>{const dr=this.app._drag;if(!dr||dr.type!=='session')return;e.preventDefault();el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'));const rect=d.getBoundingClientRect();const before=e.clientY<rect.top+rect.height/2;d.classList.add(before?'drag-above':'drag-below');dr.targetId=s.id;dr.before=before});
+      d.addEventListener('drop',e=>{const dr=this.app._drag;if(!dr||dr.type!=='session')return;e.preventDefault();e.stopPropagation();this.app._reorderSessions(dr)});
+      // dragend 는 시각 정리만 — 패널 밖 release 는 취소(순서 불변, snap-back 깜빡임 방지).
       d.addEventListener('dragend',()=>{this.app._drag=null;d.classList.remove('dragging');el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'))});
-      d.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='session')return;e.preventDefault();el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'));const rect=d.getBoundingClientRect();d.classList.add(e.clientY<rect.top+rect.height/2?'drag-above':'drag-below')});
-      d.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='session')return;const srcIdx=this.app._drag.idx;this.app._drag=null;el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'));const rect=d.getBoundingClientRect();const insBefore=e.clientY<rect.top+rect.height/2;const[moved]=this.app.ws.sessions.splice(srcIdx,1);let ins=this.app.ws.sessions.indexOf(s);if(!insBefore)ins++;this.app.ws.sessions.splice(ins,0,moved);this.app._save();this.app.render()});
       el.appendChild(d);
     }
-    el.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='session')return;e.preventDefault()});
-    el.addEventListener('drop',e=>{if(!this.app._drag||this.app._drag.type!=='session')return;e.preventDefault();const srcIdx=this.app._drag.idx;this.app._drag=null;el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'));const[moved]=this.app.ws.sessions.splice(srcIdx,1);this.app.ws.sessions.push(moved);this.app._save();this.app.render()});
   }
 
   _rTopbar(){
@@ -1961,7 +1966,7 @@ class App {
       if(this._activity.delete(paneId)) this._agentsRender();
       return;
     }
-    this._activity.delete(paneId); // 재삽입으로 최신 항목을 Map 끝(=맨 위)으로
+    // FR-AAP-13/21: 기존 항목은 제자리 갱신(순서 불변), 신규는 Map 끝(=최하단)에 추가
     this._activity.set(paneId,{state,tool:tool||'',detail:detail||''});
     this._agentsRender();
   }
@@ -1999,8 +2004,50 @@ class App {
     if(this._agentsTimer){clearInterval(this._agentsTimer);this._agentsTimer=null}
   }
 
-  // FR-AAP-13/14/16/18: 활동 중인 pane 카드 렌더. _findPaneLocation 실패(종료/없음)
-  // pane 은 제외, attention 있으면 .attn 합성, 클릭 시 점프+알람 해제.
+  // 세션 사이드바 드래그 재배치. drop(즉시) 1순위 + dragend 폴백, done 으로 중복 커밋 차단.
+  // 식별자(id)로 원본/대상을 찾아 splice 후 인덱스 이동에 안전. 대상 미존재(끝 너머)면 맨 끝으로.
+  _reorderSessions(dr){
+    if(!dr||dr.done||!dr.srcId||dr.targetId==null||dr.srcId===dr.targetId) return;
+    dr.done=true;
+    const arr=this.ws.sessions;
+    const si=arr.findIndex(x=>x.id===dr.srcId);
+    if(si<0) return;
+    const[moved]=arr.splice(si,1);
+    let ti=arr.findIndex(x=>x.id===dr.targetId);
+    if(ti<0){arr.push(moved)}else{if(!dr.before)ti++;arr.splice(ti,0,moved)}
+    this._save();this.render();
+  }
+
+  // FR-AAP-21: 활동 카드 드래그 재배치. drop(즉시) 1순위 + dragend 폴백, done 으로 중복 차단.
+  _reorderAgents(dr){
+    if(!dr||dr.done||!dr.pid||!dr.targetPid||dr.pid===dr.targetPid) return;
+    dr.done=true;
+    const ord=this.ws.agentsOrder;
+    if(!Array.isArray(ord)) return;
+    const si=ord.indexOf(dr.pid);
+    if(si<0) return;
+    ord.splice(si,1);
+    let ti=ord.indexOf(dr.targetPid);
+    if(ti<0){ord.push(dr.pid)}else{if(!dr.before)ti++;ord.splice(ti,0,dr.pid)}
+    this._save();this._agentsRender();
+  }
+
+  // FR-AAP-21: ws.agentsOrder(workspace 영속·동기화)를 현재 활동 집합과 정합한다.
+  // 사라진 paneId 는 제외, 배열에 없던 새 paneId 는 신호 도착 순서대로 최하단에 추가.
+  // reconcile 은 결정적이라 _save() 를 유발하지 않는다(드래그 시에만 저장).
+  _agentOrderSync(){
+    if(!Array.isArray(this.ws.agentsOrder)) this.ws.agentsOrder=[];
+    const present=new Set(this._activity.keys());
+    const order=this.ws.agentsOrder.filter(pid=>present.has(pid));
+    const seen=new Set(order);
+    for(const pid of this._activity.keys()) if(!seen.has(pid)) order.push(pid);
+    this.ws.agentsOrder=order;
+    return order;
+  }
+
+  // FR-AAP-13/14/16/18/21: 활동 중인 pane 카드 렌더. _findPaneLocation 실패(종료/없음)
+  // pane 은 제외, attention 있으면 .attn 합성, 클릭 시 점프+알람 해제. 카드 순서는
+  // ws.agentsOrder(드래그로 조절·영속) 를 따른다.
   _agentsRender(){
     const panel=document.getElementById('agents-panel');
     if(!panel||!panel.classList.contains('open')) return;
@@ -2012,7 +2059,8 @@ class App {
     head.querySelector('.ag-close').addEventListener('click',e=>{e.stopPropagation();this._agentsToggle()});
     panel.appendChild(head);
     let n=0;
-    for(const [paneId,info] of [...this._activity].reverse()){ // 최신(맨 위)부터
+    for(const paneId of this._agentOrderSync()){ // ws.agentsOrder 순서(신규=최하단)
+      const info=this._activity.get(paneId);
       const loc=this._findPaneLocation(paneId);
       if(!loc) continue;
       n++;
@@ -2027,6 +2075,13 @@ class App {
       const dt=card.querySelector('.ag-detail');
       if(info.detail) dt.textContent=info.detail; else dt.remove();
       card.addEventListener('click',()=>{this._jumpToPane(paneId);if(this._attnHas(paneId))this._attnClear(paneId)});
+      // FR-AAP-21: 세션 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
+      card.draggable=true;
+      card.addEventListener('dragstart',e=>{this._drag={type:'agent',pid:paneId,targetPid:null,before:false,done:false};e.dataTransfer.effectAllowed='move';setTimeout(()=>card.classList.add('dragging'),0)});
+      card.addEventListener('dragover',e=>{const dr=this._drag;if(!dr||dr.type!=='agent')return;e.preventDefault();panel.querySelectorAll('.ag-card').forEach(c=>c.classList.remove('drag-above','drag-below'));const rect=card.getBoundingClientRect();const before=e.clientY<rect.top+rect.height/2;card.classList.add(before?'drag-above':'drag-below');dr.targetPid=paneId;dr.before=before});
+      card.addEventListener('drop',e=>{const dr=this._drag;if(!dr||dr.type!=='agent')return;e.preventDefault();e.stopPropagation();this._reorderAgents(dr)});
+      // dragend 는 시각 정리만 — 패널 밖 release 는 취소(순서 불변, snap-back 깜빡임 방지).
+      card.addEventListener('dragend',()=>{this._drag=null;card.classList.remove('dragging');panel.querySelectorAll('.ag-card').forEach(c=>c.classList.remove('drag-above','drag-below'))});
       panel.appendChild(card);
     }
     if(!n){
