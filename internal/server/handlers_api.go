@@ -299,7 +299,7 @@ func (s *Server) apiPaneAttentionSet(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.Panes != nil {
 		if pane := s.Panes.Get(req.PaneID); pane != nil {
-			pane.setAttention(reason)
+			pane.signalAttention(reason)
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")

@@ -1312,6 +1312,7 @@ class App {
     this.wsETag=null;
     this.focused=null;
     this._attn=new Map(); // paneId → {reason} 주의 상태 집합 (FR-PAN-9/16)
+    this._attnNotifs={}; // paneId → Notification (재팝업 위해 직전 알림 보관)
     this._s=0;this._r=0;this._t=0;this._kb=false;
     this._drag=null;
     this._stats={};this._latency=null;
@@ -1842,14 +1843,13 @@ class App {
     if(browserFocused&&this._isPaneFocusedActive(paneId)){this._attnClear(paneId);return}
     this._attn.set(paneId,{reason});
     this._attnRefresh();
-    const loc=this._findPaneLocation(paneId);
-    const name=loc?loc.tab.name:paneId;
-    this._attnDesktopNotify(name,reason,paneId); // FR-PAN-13a
+    this._attnDesktopNotify(reason,paneId); // FR-PAN-13a
     this._attnBeep(); // FR-PAN-13c
   }
 
   _onPaneAttentionClear({paneId}={}){
     if(!paneId) return;
+    this._attnCloseNotif(paneId);
     if(!this._attn.delete(paneId)) return;
     this._attnRefresh();
   }
@@ -1866,6 +1866,7 @@ class App {
   // FR-PAN-11: 로컬 즉시 제거 + 백엔드 해제(다른 브라우저로 전파)
   _attnClear(paneId){
     if(!paneId) return;
+    this._attnCloseNotif(paneId);
     this._attn.delete(paneId);
     fetch('/api/panes/attention/clear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paneId})}).catch(()=>{});
     this._attnRefresh();
@@ -1874,6 +1875,7 @@ class App {
   // FR-PAN-17: 모든 알람 일괄 해제
   _attnClearAll(){
     fetch('/api/panes/attention/clear-all',{method:'POST'}).catch(()=>{});
+    Object.keys(this._attnNotifs||{}).forEach(k=>this._attnCloseNotif(k));
     this._attn.clear();
     this._attnCenterClose();
     this._attnRefresh();
@@ -1994,12 +1996,26 @@ class App {
     }
   }
 
-  // FR-PAN-13a: 데스크톱 알림(권한 granted + 설정 on). tag 로 동일 pane 중복 억제
-  _attnDesktopNotify(name,reason,paneId){
+  // FR-PAN-13a: 데스크톱 알림(권한 granted + 설정 on). pane 별 직전 알림을 닫고 새로 띄운다.
+  _attnDesktopNotify(reason,paneId){
     if(!this.attnDesktop) return;
     if(typeof Notification==='undefined'||Notification.permission!=='granted') return;
-    const body=reason==='done'?'작업 완료':reason==='waiting'?'입력 대기 중':reason==='idle'?'작업이 멈췄습니다(입력 대기 가능)':'주의가 필요합니다';
-    try{new Notification(name,{body,tag:paneId})}catch{}
+    const loc=this._findPaneLocation(paneId);
+    const where=loc?[loc.session&&loc.session.name,loc.tab&&loc.tab.name].filter(Boolean).join(' · '):('pane '+paneId);
+    const head=reason==='done'?'✅ 작업 완료':reason==='waiting'?'⌨️ 입력 대기 중':reason==='idle'?'⏸️ 작업이 멈췄습니다':'🔔 주의가 필요합니다';
+    // 같은 pane 의 이전 알림을 닫고 새로 띄운다 — tag+renotify 는 (특히 macOS 에서)
+    // 조용히 갱신만 되어 재팝업이 안 되므로, close→재생성으로 매번 확실히 다시 띄운다.
+    this._attnNotifs=this._attnNotifs||{};
+    this._attnCloseNotif(paneId);
+    try{this._attnNotifs[paneId]=new Notification(head,{body:where||('pane '+paneId)})}catch{}
+  }
+
+  // 저장해 둔 데스크톱 알림 객체를 닫는다(있으면).
+  _attnCloseNotif(paneId){
+    if(this._attnNotifs&&this._attnNotifs[paneId]){
+      try{this._attnNotifs[paneId].close()}catch{}
+      delete this._attnNotifs[paneId];
+    }
   }
 
   // FR-PAN-13c: WebAudio 짧은 비프(외부 파일 없음). 설정 on 일 때만

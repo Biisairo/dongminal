@@ -252,6 +252,15 @@ func TestApiPaneAttentionSet(t *testing.T) {
 		t.Fatalf("notifier should fire once with reason, got %v", attn)
 	}
 
+	// Re-notify: a second explicit signal must fire AGAIN even though the pane
+	// is already in attention (each agent completion re-alerts) — not edge-gated.
+	rec = httptest.NewRecorder()
+	s.apiPaneAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/panes/attention/set",
+		strings.NewReader(`{"paneId":"9","reason":"waiting"}`)))
+	if len(attn) != 2 || attn[1] != "9:waiting" {
+		t.Fatalf("second signal must re-fire while already in attention, got %v", attn)
+	}
+
 	// missing paneId → 400.
 	rec = httptest.NewRecorder()
 	s.apiPaneAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/panes/attention/set",

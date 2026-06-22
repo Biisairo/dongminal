@@ -326,6 +326,8 @@ func (p *Pane) observeOutputAt(chunk []byte, now int64) {
 
 // setAttention transitions none→attention exactly once (edge), firing the
 // notifier only on the transition (NFR-PAN-3). Returns true if it transitioned.
+// Used by passive detection (L1 OSC, L2 idle) where re-alerting an already-
+// flagged pane would be noise.
 func (p *Pane) setAttention(reason string) bool {
 	if p.attention.CompareAndSwap(false, true) {
 		if p.onAttention != nil {
@@ -334,6 +336,17 @@ func (p *Pane) setAttention(reason string) bool {
 		return true
 	}
 	return false
+}
+
+// signalAttention raises attention and ALWAYS notifies (not edge-gated). Used
+// by explicit agent signals (`dmctl notify` → set endpoint): each discrete
+// completion/waiting event must re-alert the user even if a prior unattended
+// alarm is still active. The state itself stays idempotent (already-true).
+func (p *Pane) signalAttention(reason string) {
+	p.attention.Store(true)
+	if p.onAttention != nil {
+		p.onAttention(p.ID, reason)
+	}
 }
 
 // clearAttention transitions attention→none exactly once, firing the clear
