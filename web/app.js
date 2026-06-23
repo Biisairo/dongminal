@@ -1993,6 +1993,9 @@ class App {
     try{localStorage.setItem('agentsPanelOpen',open?'1':'0')}catch{}
     for(const p of this.panes.values()) if(p.el.classList.contains('vis')) p.doFit();
     if(open){this._agentsRender();this._agentsStartPoll()}else{this._agentsStopPoll()}
+    // agents 패널이 열리거나 닫힐 때 attn center 위치도 같이 조정
+    const ac=document.getElementById('attn-center');
+    if(ac&&ac.classList.contains('open')) requestAnimationFrame(()=>this._positionAttnCenter());
   }
 
   // FR-AAP-19: 패널 열림 동안 주기적으로 서버 스냅샷과 동기화(자동 새로고침)
@@ -2125,11 +2128,21 @@ class App {
     this._agentsRender(); // FR-AAP-18: 활동 카드의 alarm 표시도 함께 갱신
   }
 
+  _positionAttnCenter(){
+    const badge=document.getElementById('attn-badge');
+    const center=document.getElementById('attn-center');
+    if(!badge||!center) return;
+    const r=badge.getBoundingClientRect();
+    center.style.top=(r.bottom+4)+'px';
+    center.style.left='';
+    center.style.right=(window.innerWidth-r.right)+'px';
+  }
+
   _attnCenterToggle(){
     const center=document.getElementById('attn-center');
     if(!center) return;
     if(center.classList.contains('open')) this._attnCenterClose();
-    else{center.classList.add('open');this._attnCenterRender()}
+    else{this._positionAttnCenter();center.classList.add('open');this._attnCenterRender()}
   }
 
   _attnCenterClose(){
@@ -3460,6 +3473,8 @@ document.getElementById('custom-toggle').addEventListener('click',()=>{
 });
 
 window.addEventListener('resize',()=>{
+  const ac=document.getElementById('attn-center');
+  if(ac&&ac.classList.contains('open')) app._positionAttnCenter();
   const wasMobile=document.body.classList.contains('mobile');
   const nowMobile=app.isMobile;
   if(wasMobile!==nowMobile){app.render()}
