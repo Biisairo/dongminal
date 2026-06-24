@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -718,6 +719,27 @@ func TestHandleAPI_Cwd_WithPane(t *testing.T) {
 	}
 }
 
+// DAEMON_CWDPANE_RESOLVE_SRS FR-5: /api/cwd resolves the pane's live cwd via
+// PaneHub.Cwd, not the server process working directory (daemon-mode bug).
+func TestHandleAPI_Cwd_ResolvesLiveCwd(t *testing.T) {
+	pm := newFakePaneHub()
+	pm.seed("p1", "P1")
+	pm.setCwd("p1", "/live/dir")
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Get(ts.URL + "/api/cwd?pane=p1")
+	defer resp.Body.Close()
+	var body struct {
+		Cwd string `json:"cwd"`
+	}
+	json.NewDecoder(resp.Body).Decode(&body)
+	if body.Cwd != "/live/dir" {
+		t.Fatalf("cwd=%q want %q", body.Cwd, "/live/dir")
+	}
+}
+
 func TestHandleAPI_PanesCreate_CwdPaneRef(t *testing.T) {
 	pm := newFakePaneHub()
 	// Reference pane with cwd resolution path; fake returns whatever Cwd() yields.
@@ -730,6 +752,64 @@ func TestHandleAPI_PanesCreate_CwdPaneRef(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
+	}
+}
+
+// DAEMON_CWDPANE_RESOLVE_SRS FR-1: cwdPane must resolve to the reference pane's
+// live cwd via PaneHub.Cwd, not the server process working directory. In daemon
+// mode Get() returns a cmd-less Pane whose Cwd() falls back to os.Getwd(), so the
+// handler must go through the hub's Cwd(id) instead of Get(id).Cwd().
+func TestHandleAPI_PanesCreate_CwdPaneRef_ResolvesLiveCwd(t *testing.T) {
+	pm := newFakePaneHub()
+	pm.seed("ref", "Ref")
+	pm.setCwd("ref", "/parent/dir")
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Post(ts.URL+"/api/panes?cwdPane=ref", "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	if pm.lastCwd != "/parent/dir" {
+		t.Fatalf("created pane cwd=%q want %q", pm.lastCwd, "/parent/dir")
+	}
+}
+
+// FR-3: an explicit cwd query takes precedence over cwdPane.
+func TestHandleAPI_PanesCreate_ExplicitCwdWins(t *testing.T) {
+	pm := newFakePaneHub()
+	pm.seed("ref", "Ref")
+	pm.setCwd("ref", "/parent/dir")
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Post(ts.URL+"/api/panes?cwd=/explicit&cwdPane=ref", "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	if pm.lastCwd != "/explicit" {
+		t.Fatalf("created pane cwd=%q want %q", pm.lastCwd, "/explicit")
+	}
+}
+
+// FR-4: an unknown/empty cwdPane leaves cwd empty so Create falls back.
+func TestHandleAPI_PanesCreate_UnknownCwdPaneFallsBack(t *testing.T) {
+	pm := newFakePaneHub()
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Post(ts.URL+"/api/panes?cwdPane=missing", "", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	if pm.lastCwd != "" {
+		t.Fatalf("created pane cwd=%q want empty", pm.lastCwd)
 	}
 }
 

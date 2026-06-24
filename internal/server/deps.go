@@ -16,6 +16,10 @@ type PaneHub interface {
 	List() []map[string]interface{}
 	Create(cwd string, cols, rows uint16) (*Pane, error)
 	Get(id string) *Pane
+	// Cwd resolves the live working directory of pane id (empty if unknown).
+	// In daemon mode this routes through the daemon cwd RPC; Get(id).Cwd() is
+	// not usable there because Get returns a cmd-less Pane (DAEMON_CWDPANE_RESOLVE_SRS).
+	Cwd(id string) string
 	Delete(id string)
 	Write(id string, data []byte) error
 	Resize(id string, cols, rows uint16) error

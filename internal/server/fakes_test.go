@@ -16,20 +16,37 @@ import (
 type fakePaneHub struct {
 	mu       sync.Mutex
 	panes    map[string]*Pane
+	cwds     map[string]string
 	created  []string
 	nextID   int
 	lastCols uint16
 	lastRows uint16
+	lastCwd  string
 }
 
 func newFakePaneHub() *fakePaneHub {
-	return &fakePaneHub{panes: map[string]*Pane{}}
+	return &fakePaneHub{panes: map[string]*Pane{}, cwds: map[string]string{}}
 }
 
 func (f *fakePaneHub) seed(id, name string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.panes[id] = &Pane{ID: id, Name: name}
+}
+
+// setCwd records the working directory the hub reports for pane id via Cwd().
+// Mirrors the live cwd a real PaneManager/PaneClient would resolve.
+func (f *fakePaneHub) setCwd(id, cwd string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.cwds[id] = cwd
+}
+
+// Cwd reports the recorded working directory for pane id (empty if unknown).
+func (f *fakePaneHub) Cwd(id string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.cwds[id]
 }
 
 func (f *fakePaneHub) List() []map[string]interface{} {
@@ -52,6 +69,7 @@ func (f *fakePaneHub) Create(cwd string, cols, rows uint16) (*Pane, error) {
 	f.created = append(f.created, id)
 	f.lastCols = cols
 	f.lastRows = rows
+	f.lastCwd = cwd
 	return p, nil
 }
 

@@ -242,9 +242,7 @@ func (s *Server) apiPanesCreate(w http.ResponseWriter, r *http.Request) {
 	cwd := r.URL.Query().Get("cwd")
 	if cwd == "" {
 		if refID := r.URL.Query().Get("cwdPane"); refID != "" {
-			if ref := s.Panes.Get(refID); ref != nil {
-				cwd = ref.Cwd()
-			}
+			cwd = s.Panes.Cwd(refID)
 		}
 	}
 	pane, err := s.Panes.Create(cwd, cols, rows)
@@ -526,9 +524,7 @@ func (s *Server) apiCwd(w http.ResponseWriter, r *http.Request) {
 	paneID := r.URL.Query().Get("pane")
 	var cwd string
 	if paneID != "" && s.Panes != nil {
-		if pane := s.Panes.Get(paneID); pane != nil {
-			cwd = pane.Cwd()
-		}
+		cwd = s.Panes.Cwd(paneID)
 	}
 	if cwd == "" {
 		cwd, _ = os.Getwd()
