@@ -10,13 +10,26 @@ import (
 // chain) via the injected WhoAmI resolver, then enriches with workspace
 // entry + terminal size.
 func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
-	if s.WhoAmI == nil {
+	// Daemon mode: use paneId query parameter if provided.
+	paneID := r.URL.Query().Get("paneId")
+	var shellPID int
+	var err error
+
+	if paneID != "" {
+		// Verify pane exists
+		if s.Panes != nil && s.Panes.Get(paneID) == nil {
+			writeWhoAmIError(w, http.StatusNotFound, "pane not found: "+paneID)
+			return
+		}
+		// shellPID unknown in daemon mode; leave as 0
+	} else if s.WhoAmI != nil {
+		paneID, shellPID, err = s.WhoAmI.ResolveClientPane(r.RemoteAddr)
+		if err != nil {
+			writeWhoAmIError(w, http.StatusNotFound, err.Error())
+			return
+		}
+	} else {
 		http.Error(w, "whoami unavailable", http.StatusInternalServerError)
-		return
-	}
-	paneID, shellPID, err := s.WhoAmI.ResolveClientPane(r.RemoteAddr)
-	if err != nil {
-		writeWhoAmIError(w, http.StatusNotFound, err.Error())
 		return
 	}
 

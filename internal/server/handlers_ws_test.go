@@ -201,8 +201,8 @@ func TestHandleWS_MissingPane(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
-	if mt != websocket.BinaryMessage || len(msg) == 0 || msg[0] != OpError {
-		t.Fatalf("expected OpError, got mt=%d op=0x%02x", mt, msg[0])
+	if mt != websocket.BinaryMessage || len(msg) == 0 || msg[0] != OpExit {
+		t.Fatalf("expected OpExit, got mt=%d op=0x%02x", mt, msg[0])
 	}
 }
 

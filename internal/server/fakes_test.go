@@ -67,6 +67,14 @@ func (f *fakePaneHub) Delete(id string) {
 	delete(f.panes, id)
 }
 
+func (f *fakePaneHub) IsLive(id string) bool                     { return f.Get(id) != nil }
+func (f *fakePaneHub) Write(id string, data []byte) error        { return nil }
+func (f *fakePaneHub) Resize(id string, cols, rows uint16) error { return nil }
+func (f *fakePaneHub) SnapshotPane(id string) (PaneSnapshot, error) {
+	return PaneSnapshot{}, nil
+}
+func (f *fakePaneHub) IsDaemon() bool { return false }
+
 func itoa(n int) string {
 	if n == 0 {
 		return "0"

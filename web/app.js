@@ -385,7 +385,7 @@ const TOPTS={
 class TermPane {
   constructor(id, name) {
     this.id=id; this.name=name;
-    this.ws=null; this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false; this._destroyed=false; this._retryDelay=1000;
+    this.ws=null; this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false; this._destroyed=false; this._retryDelay=0;
     this._sendQueue=[]; this._sendQueueMax=64; this._sendDropCount=0;
     this._decoder=new TextDecoder('utf-8',{fatal:false}); this._outputBuf=''; this._flushScheduled=false;
     this.el=document.createElement('div');
@@ -526,7 +526,11 @@ class TermPane {
   focus(){if(this.term)try{this.term.focus()}catch{}}
   _reconnect(){
     if(this._destroyed) return;
-    this._retryDelay=Math.min(this._retryDelay*1.5,30000);
+    // Instant first attempt, then fast backoff: 200, 500, 1s, 1.2x up to 10s.
+    let delay=this._retryDelay;
+    if(this._retryDelay===0){ delay=0; this._retryDelay=200 }
+    else if(this._retryDelay<=500){ this._retryDelay=Math.min(this._retryDelay*2.5,1000) }
+    else{ this._retryDelay=Math.min(this._retryDelay*1.2,10000) }
     setTimeout(()=>{
       if(this._destroyed) return;
       const p=location.protocol==='https:'?'wss:':'ws:';
@@ -537,7 +541,7 @@ class TermPane {
       this._pendingWs=ws;
       this._reconnectPending=false;
       ws.onopen=()=>{
-        this.ws=ws; this._retryDelay=1000;
+        this.ws=ws; this._retryDelay=0;
         this._pendingWs=null;
         if(this.term){
           const m=new Uint8Array(5);m[0]=OP.RESIZE;
@@ -568,7 +572,7 @@ class TermPane {
         this._showOverlay('연결 오류','재연결 중...');
         this._scheduleReconnect();
       };
-    },this._retryDelay);
+    },delay);
   }
   _showOverlay(title,sub){
     let ov=this.el.querySelector('.tp-overlay');
@@ -1974,10 +1978,11 @@ class App {
   // FR-AAP-15: 합류/재연결 시 현재 활동 스냅샷 복원
   _activityRestore(){
     fetch('/api/panes/activity').then(r=>r.ok?r.json():null).then(j=>{
-      if(!j||!Array.isArray(j.activities)) return;
-      j.activities.sort((a,b)=>(a.updatedAt||0)-(b.updatedAt||0)); // 오래된→최신: 끝이 가장 최근
       this._activity.clear();
-      for(const a of j.activities) this._activity.set(a.paneId,{state:a.state,tool:a.tool||'',detail:a.detail||''});
+      if(j&&Array.isArray(j.activities)){
+        j.activities.sort((a,b)=>(a.updatedAt||0)-(b.updatedAt||0)); // 오래된→최신: 끝이 가장 최근
+        for(const a of j.activities) this._activity.set(a.paneId,{state:a.state,tool:a.tool||'',detail:a.detail||''});
+      }
       this._agentsRender();
     }).catch(()=>{});
   }
