@@ -8,14 +8,16 @@
 
 ```bash
 ./scripts/start.sh                  # 빌드 + 실행 (기본: localhost only, 포트 58146)
-./scripts/internal.sh               # localhost 전용 실행 (동일 PC 에서만 접근)
-./scripts/external.sh               # LAN 노출 실행 (사내망 다른 기기 접근 허용)
-./scripts/stop.sh                   # 중지
-./scripts/health.sh                 # 헬스 체크
-PORT=8080 ./scripts/internal.sh     # 포트 지정
+./scripts/start.sh                   # 기본 실행 (localhost only, 세션 유지)
+PORT=8080 ./scripts/start.sh          # 포트 지정
+./scripts/start.sh --expose           # LAN 노출 실행 (사내망 다른 기기 접근 허용)
+./scripts/start.sh --restart-daemon   # dongminald까지 재시작 (세션 초기화)
+./scripts/stop.sh                     # 중지 (세션 유지)
+./scripts/stop.sh --all               # 전체 중지 (dongminald 포함)
+./scripts/health.sh                   # 헬스 체크
 ```
 
-브라우저에서 `http://localhost:<PORT>/` 접속. `external.sh` 로 띄운 경우 같은 네트워크의 다른 기기에서 `http://<host-ip>:<PORT>/` 로도 접근됩니다.
+브라우저에서 `http://localhost:<PORT>/` 접속. `--expose` 로 띄운 경우 같은 네트워크의 다른 기기에서 `http://<host-ip>:<PORT>/` 로도 접근됩니다.
 
 상세한 설치·실행·환경변수는 [docs/external/getting-started.md](docs/external/getting-started.md).
 

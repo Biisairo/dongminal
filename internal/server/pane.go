@@ -98,6 +98,15 @@ func (s *safeConn) readMessage() (int, []byte, error)   { return s.conn.ReadMess
 //     new clients (sending OpExit immediately, outside cmu).
 //   - The exited transition happens exactly once, inside kill() under
 //     the protection of `once`.
+//
+// paneRelay holds the output/exit relay callbacks for a Pane. It is stored
+// via atomic.Pointer so the readPTY goroutine can read the callbacks without
+// racing against daemon-mode wiring (DAEMON_SPLIT_SRS FR-12).
+type paneRelay struct {
+	onOutput func(paneID string, data []byte)
+	onExit   func(paneID string)
+}
+
 type Pane struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
@@ -110,7 +119,6 @@ type Pane struct {
 	exited   bool
 	done     chan struct{}
 	once     sync.Once
-	onExit   func(id string)
 	restored bool
 
 	// Attention state (PANE_ATTENTION_NOTIFY_SRS). attnCarry is touched only
@@ -124,6 +132,14 @@ type Pane struct {
 	allowBell        bool
 	onAttention      func(id, reason string)
 	onAttentionClear func(id string)
+
+	// relay carries the exit/output callbacks. Stored atomically so the
+	// readPTY goroutine reads them without racing daemon-mode wiring
+	// (DAEMON_SPLIT_SRS FR-12). onExit is the base PaneManager handler set
+	// once in StartPane; daemon mode wraps it exactly once via
+	// PanedServer.wirePane (guarded by `wired`).
+	relay atomic.Pointer[paneRelay]
+	wired atomic.Bool
 
 	activity   atomic.Pointer[activityState]
 	onActivity func(id, state, tool, detail string)
@@ -232,8 +248,9 @@ func StartPane(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 		ptmx: ptmx, cmd: cmd,
 		stream: outbuf.NewStream(context.Background(), bufMax),
 		done:   make(chan struct{}),
-		onExit: onExit,
 	}
+	// Set the base exit callback before readPTY starts (race-free).
+	p.relay.Store(&paneRelay{onExit: onExit})
 	if hooks != nil {
 		p.onAttention = hooks.OnAttention
 		p.onAttentionClear = hooks.OnAttentionClear
@@ -266,14 +283,17 @@ func (p *Pane) readPTY() {
 				log.Printf("[pane %s] readPTY unexpected error: %v", p.ID, err)
 			}
 			p.kill()
-			if p.onExit != nil {
-				go p.onExit(p.ID)
+			if r := p.relay.Load(); r != nil && r.onExit != nil {
+				go r.onExit(p.ID)
 			}
 			return
 		}
 		// Single backpressure path: Stream.Feed never blocks; loss (if any)
 		// is recorded in Stats.TotalBytesDrop.
 		p.stream.Feed(append([]byte(nil), raw[:n]...))
+		if r := p.relay.Load(); r != nil && r.onOutput != nil {
+			r.onOutput(p.ID, append([]byte(nil), raw[:n]...))
+		}
 		p.observeOutput(raw[:n])
 		msg := make([]byte, 1+n)
 		msg[0] = OpOutput
@@ -485,6 +505,21 @@ func (p *Pane) CmdProcessPID() int {
 		return 0
 	}
 	return p.cmd.Process.Pid
+}
+
+// Write sends data to the PTY master. Safe to call from any goroutine.
+func (p *Pane) Write(data []byte) error {
+	if p.ptmx == nil {
+		return fmt.Errorf("pane %s: ptmx is nil", p.ID)
+	}
+	_, err := p.ptmx.Write(data)
+	return err
+}
+
+// Resize is the exported wrapper around the unexported resize for
+// PaneManager delegation. It calls pty.Setsize on the PTY master.
+func (p *Pane) Resize(cols, rows uint16) error {
+	return p.resize(cols, rows)
 }
 
 // kill transitions the pane to exited exactly once: it marks exited under
@@ -701,6 +736,9 @@ func (m *PaneManager) SetInvalidator(f func(string)) {
 	m.mu.Unlock()
 }
 
+// DataDir returns the pane persistence directory (used by tests).
+func (m *PaneManager) DataDir() string { return m.dataDir }
+
 func (m *PaneManager) dataPath(name string) string {
 	dir := m.dataDir
 	if dir == "" {
@@ -801,6 +839,9 @@ func (m *PaneManager) Delete(id string) {
 // IsLive implements the liveness interface consumed by workspace.Manager.
 func (m *PaneManager) IsLive(id string) bool { return m.Get(id) != nil }
 
+// IsDaemon reports false: PaneManager is direct mode, not daemon-backed.
+func (m *PaneManager) IsDaemon() bool { return false }
+
 // ── persistence ──────────────────────────────────────
 
 type PaneState struct {
@@ -867,6 +908,82 @@ func (m *PaneManager) Snapshot() []*Pane {
 		out = append(out, p)
 	}
 	return out
+}
+
+// ── PaneManager: expanded PaneHub methods (DAEMON_SPLIT_SRS Phase 1) ──
+
+// Write sends data to the PTY master of the named pane.
+func (m *PaneManager) Write(id string, data []byte) error {
+	m.mu.RLock()
+	p := m.panes[id]
+	m.mu.RUnlock()
+	if p == nil {
+		return nil // silently drop write to nonexistent pane
+	}
+	return p.Write(data)
+}
+
+// Resize changes the PTY dimensions of the named pane.
+func (m *PaneManager) Resize(id string, cols, rows uint16) error {
+	m.mu.RLock()
+	p := m.panes[id]
+	m.mu.RUnlock()
+	if p == nil {
+		return nil
+	}
+	return p.Resize(cols, rows)
+}
+
+// Cwd returns the current working directory of the named pane.
+func (m *PaneManager) Cwd(id string) string {
+	m.mu.RLock()
+	p := m.panes[id]
+	m.mu.RUnlock()
+	if p == nil {
+		return ""
+	}
+	return p.Cwd()
+}
+
+// Busy reports whether the named pane has a running foreground process.
+func (m *PaneManager) Busy(id string) bool {
+	m.mu.RLock()
+	p := m.panes[id]
+	m.mu.RUnlock()
+	if p == nil {
+		return false
+	}
+	return p.IsBusy()
+}
+
+// PaneSnapshot captures the outbuf state of a pane for reattach scrollback
+// restoration (DAEMON_SPLIT_SRS §6.6).
+type PaneSnapshot struct {
+	Data           []byte
+	TotalBytesIn   int64
+	TotalBytesDrop int64
+	Retained       int
+}
+
+// SnapshotPane returns the outbuf snapshot of the named pane.
+func (m *PaneManager) SnapshotPane(id string) (PaneSnapshot, error) {
+	m.mu.RLock()
+	p := m.panes[id]
+	m.mu.RUnlock()
+	if p == nil {
+		return PaneSnapshot{}, nil
+	}
+	s := p.Stream()
+	if s == nil {
+		return PaneSnapshot{}, nil
+	}
+	data, stats := s.Snapshot()
+	return PaneSnapshot{
+		Data:           data,
+		TotalBytesIn:   stats.TotalBytesIn,
+		TotalBytesDrop: stats.TotalBytesDrop,
+		Retained:       stats.Retained,
+	}, nil
 }
 
 // MaxTerminalDim is the upper bound (inclusive) accepted for cols and rows.

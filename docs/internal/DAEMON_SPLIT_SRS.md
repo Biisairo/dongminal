@@ -1,8 +1,12 @@
 # SRS: 데몬 분리 — dongminald + dongminal (IEEE 29148 준수)
 
-**상태**: PLANNED — 미구현. 본 문서는 향후 작업의 계획서이며 구현은 별도 일정에 진행한다.
+**상태**: IMPLEMENTED — Phase 1~5 구현 완료(`dongminald` 서브커맨드 `dongminal d`, `internal/server/paned.go`·`pane_client.go`·`attn_tracker.go`). 본 개정판은 실제 구현 동작과 견고성 보강(§4.4)을 반영한다.
 
 **관련 문서**: `HOT_RELOAD_SRS.md`의 Option B를 본 문서로 대체·구체화.
+
+**개정 이력**:
+- rev.1 (PLANNED): 초기 계획서.
+- rev.2 (IMPLEMENTED): 구현 반영 + 코드 리뷰 결함(동시성 레이스, FR-7 재연결, RPC 타임아웃, L2 idle, whoami, reattach 순서, 출력 백프레셔) 보강 요구사항(§4.4) 추가.
 
 ## 1. 개요 (Introduction)
 
@@ -195,6 +199,21 @@ $ go build && ./dongminal
 | NFR-3 | `dongminald` 추가 메모리: PaneManager + outbuf만. 추가 오버헤드 < 3MB. |
 | NFR-4 | `dongminal`은 `dongminald`가 없는 콜드 스타트에서도 기존과 동일한 사용자 경험을 제공해야 한다. |
 
+### 4.4 견고성 보강 요구사항 (Robustness — rev.2)
+
+코드 리뷰에서 식별된 결함을 해소하기 위한 추가 요구사항. 모두 **필수**이며 §9 검증 대상이다.
+
+| ID | 요구사항 | 근거 |
+|----|---------|------|
+| FR-11 | `dongminald`의 IPC 소켓 쓰기(응답 + push event)는 단일 직렬화 지점을 통해야 하며, 여러 goroutine의 동시 `Encode`로 인한 데이터 레이스·스트림 파손이 없어야 한다. | IPC 무결성 |
+| FR-12 | `Pane`의 출력/종료 relay 콜백(`onOutput`/`onExit`)은 `readPTY` goroutine과 연결 wiring goroutine 간 데이터 레이스 없이 갱신·호출돼야 한다. | 메모리 안전성 |
+| FR-13 | `dongminal`은 `dongminald` 연결 끊김을 감지하면 지수 백오프(1s→2s→…→max 30s)로 재연결하고, 소켓이 사라졌으면 `dongminald`를 재spawn 후 재연결해야 한다. 재연결 성공 시 활성 WS 구독은 자동 복구돼야 한다. | FR-7 구체화 |
+| FR-14 | RPC `call`은 응답이 5초를 초과하면 에러를 반환하고 연결을 close하여 재연결 경로로 전이해야 한다. 무한 블록이 없어야 한다. | 실패 모드(hang) |
+| FR-15 | 데몬 모드에서 L2 idle attention 감지가 동작해야 하며, idle 판정 전 `busy` RPC로 foreground 프로세스 실행 여부를 확인하여 busy pane은 idle로 보고하지 않아야 한다. | FR-10 / §6.5 |
+| FR-16 | 데몬 모드에서 `/api/whoami`·MCP `who_am_i`의 RemoteAddr 기반 자동 pane 해석이 `dongminald`의 pane 목록(shell PID)을 이용해 동작해야 한다. | whoami 회귀 방지 |
+| FR-17 | reattach 시 라이브 출력 구독 등록은 outbuf 스냅샷 취득보다 **먼저** 이뤄져, 스냅샷 시점과 구독 시점 사이의 출력이 유실되지 않아야 한다. | 데이터 무결성 |
+| FR-18 | `output` push 전달 시 구독 채널이 가득 차면 출력을 무음 드롭하지 않고 블로킹 전달 또는 드롭 카운트 로깅으로 손실을 가시화해야 한다. | 데이터 무결성 |
+
 ### 4.3 제약 (Constraints)
 
 - Go 표준 라이브러리 + `creack/pty`, `gorilla/websocket` 범위 내. 신규 외부 의존성 금지.
@@ -243,12 +262,14 @@ $ go build && ./dongminal
 
 #### `hello`
 
-연결 초기화. dongminald는 hello 수신 즉시 모든 pane의 최신 outbuf를 `output` push로 순차 전송하기 시작한다.
+연결 초기화. dongminald는 hello 수신 시 version과 살아있는 pane id 목록을 반환하고, 연결된 모든 pane의 실시간 `output`/`exit` push 스트리밍을 시작한다.
 
 ```
 → {"id":1,"method":"hello","params":{"server_pid":98765}}
 ← {"id":1,"result":{"version":1,"pane_ids":["1","2","3"]}}
 ```
+
+> **구현 주(rev.2)**: scrollback 복원은 hello 시 일괄 push가 아니라, dongminal이 WS 연결 시점에 pane별 `snapshot` RPC로 취득하는 방식으로 구현되었다(§6.2, FR-17). hello는 실시간 스트림만 개시한다.
 
 #### `create`
 
@@ -649,14 +670,16 @@ type PaneHub interface {
 - dongminald 네트워크 노출 — Unix socket only.
 - 머신 간 PTY 마이그레이션.
 - Windows 지원.
+- **attention/activity 상태 영속화** — 해당 상태는 dongminal 메모리(`AttnTracker`)에만 존재한다. `dongminal` 재시작 시 초기화되며(셸·스크롤백은 dongminald가 유지하지만 알림 뱃지는 사라짐), 재연결 시 스냅샷은 attention 감지를 거치지 않으므로 과거 알림이 재발화되지도 않는다. 이는 §3.3(attention은 dongminal에 둔다)에 따른 **의도된 동작**이다. 알림은 새 이벤트(OSC/`dmctl notify`/L2 idle) 발생 시 다시 표시된다.
 
 ## 12. 완료 조건 (Definition of Done)
 
-- [ ] `dongminald`가 Unix socket으로 raw PTY I/O relay
-- [ ] `dongminal`이 `dongminald` 소켓에 연결하여 정상 동작
-- [ ] `dongminal` 재시작 후 기존 셸 세션 유지 + outbuf scrollback 복원
-- [ ] Attention/activity 감지가 dongminal에서 정상 동작 (dmctl notify, OSC, L2 idle)
-- [ ] `dongminald` crash 시 자동 재시작 및 복구
-- [ ] 기존 테스트 전수 통과 (회귀 없음)
-- [ ] e2e: 서버 kill → 재시작 → 세션 유지 확인
-- [ ] 본 문서를 IMPLEMENTED 상태로 갱신
+- [x] `dongminald`가 Unix socket으로 raw PTY I/O relay
+- [x] `dongminal`이 `dongminald` 소켓에 연결하여 정상 동작
+- [x] `dongminal` 재시작 후 기존 셸 세션 유지 + outbuf scrollback 복원
+- [x] Attention/activity 감지가 dongminal에서 정상 동작 (dmctl notify, OSC, L2 idle — FR-15)
+- [x] `dongminald` crash 시 자동 재시작 및 복구 (FR-13)
+- [x] IPC 동시성 안전 (FR-11/FR-12), RPC 타임아웃(FR-14), reattach 무손실(FR-17), 출력 백프레셔(FR-18), whoami 자동해석(FR-16)
+- [x] 기존 테스트 전수 통과 (회귀 없음)
+- [x] 프로세스 레벨 검증: 콜드스타트 spawn(FR-5), dongminal SIGTERM 후 데몬 생존(FR-6), 재기동 reattach(FR-1), 셸 출력 토큰 스냅샷 복원(FR-2), 데몬 SIGKILL 후 백오프 재연결·respawn(FR-7) 확인
+- [x] 본 문서를 IMPLEMENTED 상태로 갱신

@@ -33,8 +33,17 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	if paneID != "" {
 		pane = s.Panes.Get(paneID)
 		if pane == nil {
-			conn.send(OpError, []byte("pane not found"))
-			log.Printf("ws addr=%s: pane %s not found", r.RemoteAddr, paneID)
+			// During a daemon reconnect window Get() fails transiently. Don't
+			// declare the pane gone — just close so the browser shows "재연결 중"
+			// and keeps retrying; OpExit is reserved for a genuinely absent pane.
+			if dc, ok := s.Panes.(interface{ Connected() bool }); ok && !dc.Connected() {
+				log.Printf("ws addr=%s: pane %s lookup during daemon reconnect; closing for retry", r.RemoteAddr, paneID)
+				return
+			}
+			// Send OpExit so the frontend knows this pane is permanently gone.
+			conn.send(OpExit, nil)
+			conn.close()
+			log.Printf("ws addr=%s: pane %s not found (sent OpExit)", r.RemoteAddr, paneID)
 			return
 		}
 	} else {
@@ -44,49 +53,159 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			log.Printf("ws addr=%s: pane create error: %v", r.RemoteAddr, err)
 			return
 		}
+		paneID = pane.ID
 	}
 
+	// Branch: daemon mode vs direct mode
+	if s.Panes.IsDaemon() {
+		s.handleWSDaemon(conn, paneID, pane, cols, rows)
+	} else {
+		s.handleWSDirect(conn, pane, cols, rows, r.RemoteAddr)
+	}
+}
+
+// handleWSDirect is the original (non-daemon) WebSocket handler.
+func (s *Server) handleWSDirect(conn *safeConn, pane *Pane, cols, rows uint16, remoteAddr string) {
 	if !pane.addClient(conn) {
-		log.Printf("ws addr=%s: pane %s already exited; sent OpExit", r.RemoteAddr, pane.ID)
+		log.Printf("ws addr=%s: pane %s already exited; sent OpExit", remoteAddr, pane.ID)
 		return
 	}
 	defer pane.removeClient(conn)
 
 	conn.send(OpSID, []byte(pane.ID))
 
-	if paneID != "" {
-		if snap, _ := pane.stream.Snapshot(); len(snap) > 0 {
-			// FR-A1: strip private OSC 777 sequences so reconnect/reload
-			// replay never re-triggers OpenCodeServer/Download/Cwd side
-			// effects on the client.
-			snap = stripOSC777(snap)
-			if len(snap) > 0 {
-				msg := make([]byte, 1+len(snap))
-				msg[0] = OpOutput
-				copy(msg[1:], snap)
-				if err := conn.writeMsg(websocket.BinaryMessage, msg); err != nil {
-					log.Printf("[pane %s] snapshot send error addr=%s: %v", pane.ID, r.RemoteAddr, err)
-					return
-				}
-			}
-		}
-		if pane.restored {
-			pane.restored = false
-			reset := []byte("\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l")
-			msg := make([]byte, 1+len(reset))
+	// Send scrollback snapshot for existing pane
+	if snap, _ := pane.stream.Snapshot(); len(snap) > 0 {
+		snap = stripOSC777(snap)
+		if len(snap) > 0 {
+			msg := make([]byte, 1+len(snap))
 			msg[0] = OpOutput
-			copy(msg[1:], reset)
+			copy(msg[1:], snap)
 			if err := conn.writeMsg(websocket.BinaryMessage, msg); err != nil {
-				log.Printf("[pane %s] reset send error addr=%s: %v", pane.ID, r.RemoteAddr, err)
+				log.Printf("[pane %s] snapshot send error addr=%s: %v", pane.ID, remoteAddr, err)
 				return
 			}
 		}
-		pane.resize(cols, rows)
+	}
+	if pane.restored {
+		pane.restored = false
+		reset := []byte("\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l")
+		msg := make([]byte, 1+len(reset))
+		msg[0] = OpOutput
+		copy(msg[1:], reset)
+		if err := conn.writeMsg(websocket.BinaryMessage, msg); err != nil {
+			log.Printf("[pane %s] reset send error addr=%s: %v", pane.ID, remoteAddr, err)
+			return
+		}
+	}
+	pane.resize(cols, rows)
+
+	done := make(chan struct{})
+	go pingLoop(conn, pane.done)
+	readWSDirect(conn, pane)
+	log.Printf("ws disconnected addr=%s pane=%s", remoteAddr, pane.ID)
+	_ = done
+}
+
+// handleWSDaemon is the daemon-mode WebSocket handler.
+// It uses PaneHub methods (which go through PaneClient RPC) instead of
+// Pane struct internals.
+func (s *Server) handleWSDaemon(conn *safeConn, paneID string, _ *Pane, cols, rows uint16) {
+	_ = s.Panes.Resize(paneID, cols, rows)
+
+	conn.send(OpSID, []byte(paneID))
+
+	// Send terminal reset to clear any stale modes (mouse tracking, etc.)
+	// from a previous connection.
+	reset := []byte("\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l")
+	if err := conn.writeMsg(websocket.BinaryMessage, append([]byte{OpOutput}, reset...)); err != nil {
+		return
 	}
 
-	go pingLoop(conn, pane.done)
-	readWS(conn, pane)
-	log.Printf("ws disconnected addr=%s pane=%s", r.RemoteAddr, pane.ID)
+	pc, ok := s.Panes.(*PaneClient)
+	if !ok {
+		log.Printf("[pane %s] daemon mode but PaneHub is not *PaneClient", paneID)
+		return
+	}
+
+	// Subscribe to live output BEFORE taking the snapshot so output produced
+	// during the snapshot RPC round-trip is buffered rather than lost (FR-17).
+	// The small overlap between the snapshot and the buffered live stream may
+	// duplicate a few bytes, which xterm.js redraws harmlessly — preferable to
+	// a gap that could desync escape-sequence parsing.
+	outputCh := make(chan []byte, 256)
+	exitCh, unsub := pc.Subscribe(paneID, outputCh)
+	defer unsub()
+
+	// Send snapshot for reconnection.
+	if snap, err := s.Panes.SnapshotPane(paneID); err == nil && len(snap.Data) > 0 {
+		log.Printf("[ws-daemon] snapshot pane=%s len=%d retained=%d", paneID, len(snap.Data), snap.Retained)
+		snapData := stripOSC777(snap.Data)
+		if len(snapData) > 0 {
+			msg := make([]byte, 1+len(snapData))
+			msg[0] = OpOutput
+			copy(msg[1:], snapData)
+			if err := conn.writeMsg(websocket.BinaryMessage, msg); err != nil {
+				log.Printf("[pane %s] snapshot send error: %v", paneID, err)
+				return
+			}
+		}
+	}
+
+	done := make(chan struct{})
+	defer close(done)
+
+	// Output relay goroutine. Attention/activity detection happens once in the
+	// PaneClient readLoop (OnOutput), not here, so it is not tied to this WS
+	// subscription. On pane exit (exitCh closed) we send OpExit and close the
+	// socket so the browser tears the terminal down (parity with direct mode).
+	go func() {
+		for {
+			select {
+			case data := <-outputCh:
+				conn.send(OpOutput, data)
+			case <-exitCh:
+				conn.send(OpExit, nil)
+				conn.close()
+				return
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	go pingLoop(conn, done)
+
+	// Read loop: input → dongminald, resize → dongminald
+	conn.setReadLimit(1 << 20)
+	conn.setReadDeadline(time.Now().Add(pongWait))
+	conn.setPongHandler(func(string) error {
+		conn.setReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+	for {
+		_, msg, err := conn.readMessage()
+		if err != nil {
+			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseNoStatusReceived) &&
+				!strings.Contains(err.Error(), "use of closed network connection") {
+				log.Printf("[pane %s] readWS error: %v", paneID, err)
+			}
+			return
+		}
+		if len(msg) == 0 {
+			continue
+		}
+		switch msg[0] {
+		case OpInput:
+			_ = pc.Write(paneID, msg[1:])
+		case OpResize:
+			if len(msg) >= 5 {
+				c := binary.BigEndian.Uint16(msg[1:3])
+				ro := binary.BigEndian.Uint16(msg[3:5])
+				_ = pc.Resize(paneID, c, ro)
+			}
+		}
+	}
 }
 
 func readWS(conn *safeConn, pane *Pane) {
@@ -128,6 +247,9 @@ func readWS(conn *safeConn, pane *Pane) {
 		}
 	}
 }
+
+// readWSDirect is the original WS read loop kept for direct mode.
+func readWSDirect(conn *safeConn, pane *Pane) { readWS(conn, pane) }
 
 func pingLoop(conn *safeConn, done chan struct{}) {
 	defer func() {

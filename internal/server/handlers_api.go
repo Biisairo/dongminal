@@ -272,7 +272,9 @@ func (s *Server) apiPaneBusy(w http.ResponseWriter, r *http.Request) {
 // late-joining / reconnecting client can restore highlights (FR-PAN-8).
 func (s *Server) apiPanesAttention(w http.ResponseWriter, r *http.Request) {
 	ids := []string{}
-	if al, ok := s.Panes.(interface{ AttentionIDs() []string }); ok {
+	if s.AttnTracker != nil {
+		ids = s.AttnTracker.AttentionIDs()
+	} else if al, ok := s.Panes.(interface{ AttentionIDs() []string }); ok {
 		if got := al.AttentionIDs(); got != nil {
 			ids = got
 		}
@@ -300,7 +302,12 @@ func (s *Server) apiPaneAttentionSet(w http.ResponseWriter, r *http.Request) {
 		reason = "signaled"
 	}
 	if s.Panes != nil {
-		if pane := s.Panes.Get(req.PaneID); pane != nil {
+		if s.AttnTracker != nil {
+			// Verify pane exists before flagging attention
+			if s.Panes.Get(req.PaneID) != nil {
+				s.AttnTracker.SignalAttention(req.PaneID, reason)
+			}
+		} else if pane := s.Panes.Get(req.PaneID); pane != nil {
 			pane.signalAttention(reason)
 		}
 	}
@@ -320,7 +327,9 @@ func (s *Server) apiPaneAttentionClear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.Panes != nil {
-		if pane := s.Panes.Get(req.PaneID); pane != nil {
+		if s.AttnTracker != nil {
+			s.AttnTracker.Attend(req.PaneID)
+		} else if pane := s.Panes.Get(req.PaneID); pane != nil {
 			pane.attend()
 		}
 	}
@@ -333,7 +342,9 @@ func (s *Server) apiPaneAttentionClear(w http.ResponseWriter, r *http.Request) {
 // (FR-AAP-4).
 func (s *Server) apiPanesActivity(w http.ResponseWriter, r *http.Request) {
 	acts := []activitySnap{}
-	if al, ok := s.Panes.(interface{ ActivitySnapshot() []activitySnap }); ok {
+	if s.AttnTracker != nil {
+		acts = s.AttnTracker.ActivitySnapshot()
+	} else if al, ok := s.Panes.(interface{ ActivitySnapshot() []activitySnap }); ok {
 		if got := al.ActivitySnapshot(); got != nil {
 			acts = got
 		}
@@ -358,7 +369,11 @@ func (s *Server) apiPaneActivitySet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.Panes != nil {
-		if pane := s.Panes.Get(req.PaneID); pane != nil {
+		if s.AttnTracker != nil {
+			s.AttnTracker.SetActivity(req.PaneID, req.State,
+				sanitizeActivityField(req.Tool, activityToolMax),
+				sanitizeActivityField(req.Detail, activityDetailMax))
+		} else if pane := s.Panes.Get(req.PaneID); pane != nil {
 			pane.setActivity(req.State, sanitizeActivityField(req.Tool, activityToolMax), sanitizeActivityField(req.Detail, activityDetailMax))
 		}
 	}
@@ -369,7 +384,9 @@ func (s *Server) apiPaneActivitySet(w http.ResponseWriter, r *http.Request) {
 // apiPaneAttentionClearAll dismisses every pane's attention at once (FR-PAN-17).
 func (s *Server) apiPaneAttentionClearAll(w http.ResponseWriter, r *http.Request) {
 	cleared := 0
-	if ca, ok := s.Panes.(interface{ ClearAllAttention() int }); ok {
+	if s.AttnTracker != nil {
+		cleared = s.AttnTracker.ClearAllAttention()
+	} else if ca, ok := s.Panes.(interface{ ClearAllAttention() int }); ok {
 		cleared = ca.ClearAllAttention()
 	}
 	w.Header().Set("Content-Type", "application/json")

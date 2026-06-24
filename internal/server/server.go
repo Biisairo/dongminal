@@ -32,16 +32,17 @@ type Config struct {
 
 // Server owns the HTTP server lifecycle.
 type Server struct {
-	cfg      Config
-	Panes    PaneHub
-	CS       CodeServerHost
-	Work     WorkspaceStore
-	Tools    ToolDispatcher
-	Commands CommandBroker
-	MCP      *MCPSessionRegistry
-	Settings SettingsStore
-	MdScroll MdScrollStore
-	WhoAmI   mcptool.ClientPaneResolver
+	cfg         Config
+	Panes       PaneHub
+	CS          CodeServerHost
+	Work        WorkspaceStore
+	Tools       ToolDispatcher
+	Commands    CommandBroker
+	MCP         *MCPSessionRegistry
+	Settings    SettingsStore
+	MdScroll    MdScrollStore
+	WhoAmI      mcptool.ClientPaneResolver
+	AttnTracker *AttnTracker
 
 	started time.Time
 
@@ -67,17 +68,18 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		settings = newSettingsStore(settingsPath)
 	}
 	return &Server{
-		cfg:      cfg,
-		Panes:    deps.Panes,
-		CS:       deps.CS,
-		Work:     deps.Work,
-		Tools:    deps.Tools,
-		Commands: cmds,
-		MCP:      NewMCPSessionRegistry(),
-		Settings: settings,
-		MdScroll: deps.MdScroll,
-		WhoAmI:   deps.WhoAmI,
-		started:  time.Now(),
+		cfg:         cfg,
+		Panes:       deps.Panes,
+		CS:          deps.CS,
+		Work:        deps.Work,
+		Tools:       deps.Tools,
+		Commands:    cmds,
+		MCP:         NewMCPSessionRegistry(),
+		Settings:    settings,
+		MdScroll:    deps.MdScroll,
+		WhoAmI:      deps.WhoAmI,
+		AttnTracker: deps.AttnTracker,
+		started:     time.Now(),
 	}, nil
 }
 
@@ -135,9 +137,8 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 
 	select {
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		_ = srv.Shutdown(shutdownCtx)
+		// Close immediately so browsers detect disconnection instantly.
+		_ = srv.Close()
 		return <-errCh
 	case err := <-errCh:
 		return err

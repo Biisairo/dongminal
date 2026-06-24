@@ -17,6 +17,13 @@ type PaneHub interface {
 	Create(cwd string, cols, rows uint16) (*Pane, error)
 	Get(id string) *Pane
 	Delete(id string)
+	Write(id string, data []byte) error
+	Resize(id string, cols, rows uint16) error
+	SnapshotPane(id string) (PaneSnapshot, error)
+	IsLive(id string) bool
+	// IsDaemon reports whether this hub is a daemon-backed client.
+	// Used by handleWS to choose the daemon-mode code path.
+	IsDaemon() bool
 }
 
 // CodeServerHost exposes the subset of CodeServerManager consumed by handlers.
@@ -86,13 +93,14 @@ type MdScrollStore interface {
 
 // Deps is the full injection surface for New.
 type Deps struct {
-	Panes    PaneHub
-	CS       CodeServerHost
-	Work     WorkspaceStore
-	Tools    ToolDispatcher
-	Commands CommandBroker
-	Settings SettingsStore
-	MdScroll MdScrollStore
+	Panes       PaneHub
+	CS          CodeServerHost
+	Work        WorkspaceStore
+	Tools       ToolDispatcher
+	Commands    CommandBroker
+	Settings    SettingsStore
+	MdScroll    MdScrollStore
+	AttnTracker *AttnTracker // daemon mode: attention/activity tracking in dongminal
 	// WhoAmI resolves a request's RemoteAddr to the originating pane via
 	// PID parent-chain walking. /api/whoami uses it (FR-API-WAI-1). Nil → 500.
 	WhoAmI mcptool.ClientPaneResolver
