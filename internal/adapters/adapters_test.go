@@ -101,6 +101,7 @@ func (f fakeHub) Get(id string) *server.Pane {
 	return nil
 }
 func (f fakeHub) Cwd(string) string                   { return "" }
+func (f fakeHub) Busy(string) bool                    { return false }
 func (f fakeHub) Delete(string)                       {}
 func (f fakeHub) Write(string, []byte) error          { return nil }
 func (f fakeHub) Resize(string, uint16, uint16) error { return nil }

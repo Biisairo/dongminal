@@ -258,9 +258,7 @@ func (s *Server) apiPaneBusy(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/panes/"), "/busy")
 	var busy bool
 	if s.Panes != nil {
-		if pane := s.Panes.Get(id); pane != nil {
-			busy = pane.IsBusy()
-		}
+		busy = s.Panes.Busy(id)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"busy": busy})

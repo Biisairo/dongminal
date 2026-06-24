@@ -17,6 +17,7 @@ type fakePaneHub struct {
 	mu       sync.Mutex
 	panes    map[string]*Pane
 	cwds     map[string]string
+	busies   map[string]bool
 	created  []string
 	nextID   int
 	lastCols uint16
@@ -25,7 +26,7 @@ type fakePaneHub struct {
 }
 
 func newFakePaneHub() *fakePaneHub {
-	return &fakePaneHub{panes: map[string]*Pane{}, cwds: map[string]string{}}
+	return &fakePaneHub{panes: map[string]*Pane{}, cwds: map[string]string{}, busies: map[string]bool{}}
 }
 
 func (f *fakePaneHub) seed(id, name string) {
@@ -47,6 +48,22 @@ func (f *fakePaneHub) Cwd(id string) string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.cwds[id]
+}
+
+// setBusy records the busy state the hub reports for pane id via Busy().
+// Mirrors the live foreground-process state a real PaneManager/PaneClient
+// would resolve (daemon mode routes through the busy RPC).
+func (f *fakePaneHub) setBusy(id string, busy bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.busies[id] = busy
+}
+
+// Busy reports the recorded busy state for pane id (false if unknown).
+func (f *fakePaneHub) Busy(id string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.busies[id]
 }
 
 func (f *fakePaneHub) List() []map[string]interface{} {

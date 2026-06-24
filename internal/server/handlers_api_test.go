@@ -33,6 +33,30 @@ func TestHandleAPI_PaneBusy(t *testing.T) {
 	}
 }
 
+// TestHandleAPI_PaneBusy_DaemonMode reproduces DAEMON_PANE_BUSY_RESOLVE_SRS FR-1.
+// In daemon mode Get(id) returns a cmd-less Pane, so the handler must resolve
+// busy via PaneHub.Busy(id) (daemon busy RPC) rather than Get(id).IsBusy().
+// fakePaneHub mirrors PaneClient: Get returns a cmd-less Pane while Busy reports
+// the live foreground-process state.
+func TestHandleAPI_PaneBusy_DaemonMode(t *testing.T) {
+	hub := newFakePaneHub()
+	hub.seed("p1", "Pane 1")
+	hub.setBusy("p1", true)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: hub})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, _ := http.Get(ts.URL + "/api/panes/p1/busy")
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d want 200", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if strings.TrimSpace(string(body)) != `{"busy":true}` {
+		t.Fatalf("body=%q want {\"busy\":true}", body)
+	}
+}
+
 func TestHandleAPI_DeletePane(t *testing.T) {
 	pm := NewPaneManager(t.TempDir(), nil)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})

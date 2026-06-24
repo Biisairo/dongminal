@@ -20,6 +20,11 @@ type PaneHub interface {
 	// In daemon mode this routes through the daemon cwd RPC; Get(id).Cwd() is
 	// not usable there because Get returns a cmd-less Pane (DAEMON_CWDPANE_RESOLVE_SRS).
 	Cwd(id string) string
+	// Busy reports whether pane id has a running foreground process.
+	// In daemon mode this routes through the daemon busy RPC; Get(id).IsBusy()
+	// is not usable there because Get returns a cmd-less Pane
+	// (DAEMON_PANE_BUSY_RESOLVE_SRS).
+	Busy(id string) bool
 	Delete(id string)
 	Write(id string, data []byte) error
 	Resize(id string, cols, rows uint16) error
