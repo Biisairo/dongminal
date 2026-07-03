@@ -76,7 +76,7 @@ func (s *Server) handleWSDirect(conn *safeConn, pane *Pane, cols, rows uint16, r
 
 	// Send scrollback snapshot for existing pane
 	if snap, _ := pane.stream.Snapshot(); len(snap) > 0 {
-		snap = stripOSC777(snap)
+		snap = stripSnapshotQueries(stripOSC777(snap))
 		if len(snap) > 0 {
 			msg := make([]byte, 1+len(snap))
 			msg[0] = OpOutput
@@ -140,7 +140,7 @@ func (s *Server) handleWSDaemon(conn *safeConn, paneID string, _ *Pane, cols, ro
 	// Send snapshot for reconnection.
 	if snap, err := s.Panes.SnapshotPane(paneID); err == nil && len(snap.Data) > 0 {
 		log.Printf("[ws-daemon] snapshot pane=%s len=%d retained=%d", paneID, len(snap.Data), snap.Retained)
-		snapData := stripOSC777(snap.Data)
+		snapData := stripSnapshotQueries(stripOSC777(snap.Data))
 		if len(snapData) > 0 {
 			msg := make([]byte, 1+len(snapData))
 			msg[0] = OpOutput

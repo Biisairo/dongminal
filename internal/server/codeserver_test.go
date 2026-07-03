@@ -191,6 +191,54 @@ func TestStripOSC777_IncompleteSequenceUnchanged(t *testing.T) {
 	}
 }
 
+// 스냅샷 재생 시 CPR(커서 위치) 요청 ESC[6n 은 제거되어야 xterm 이 자동응답하지 않는다.
+func TestStripSnapshotQueries_RemovesCPRRequest(t *testing.T) {
+	in := []byte("prompt\x1b[6ntail")
+	want := []byte("prompttail")
+	got := stripSnapshotQueries(in)
+	if !bytes.Equal(want, got) {
+		t.Fatalf("strip mismatch: want=%q got=%q", want, got)
+	}
+}
+
+// DA(장치 속성) 요청 ESC[c, ESC[>c, ESC[0c 는 모두 제거된다.
+func TestStripSnapshotQueries_RemovesDARequests(t *testing.T) {
+	in := []byte("a\x1b[cb\x1b[>cc\x1b[0cd")
+	want := []byte("abcd")
+	got := stripSnapshotQueries(in)
+	if !bytes.Equal(want, got) {
+		t.Fatalf("strip mismatch: want=%q got=%q", want, got)
+	}
+}
+
+// DECRQM(ESC[?…$p) 와 OSC 색상 질의(ESC]10;?BEL / ST 종료)도 제거된다.
+func TestStripSnapshotQueries_RemovesDECRQMAndOSCQuery(t *testing.T) {
+	in := []byte("x\x1b[?2004$py\x1b]10;?\x07z\x1b]11;?\x1b\\w")
+	want := []byte("xyzw")
+	got := stripSnapshotQueries(in)
+	if !bytes.Equal(want, got) {
+		t.Fatalf("strip mismatch: want=%q got=%q", want, got)
+	}
+}
+
+// 일반 출력(SGR 색상, 커서 이동, 화면 지움)과 질의가 아닌 시퀀스는 보존한다.
+func TestStripSnapshotQueries_PreservesNormalOutput(t *testing.T) {
+	in := []byte("\x1b[31mred\x1b[0m\x1b[2J\x1b[H\x1b[?25hplain")
+	got := stripSnapshotQueries(in)
+	if !bytes.Equal(in, got) {
+		t.Fatalf("normal output must pass through: want=%q got=%q", in, got)
+	}
+}
+
+// ESC 가 전혀 없으면 원본을 그대로 반환한다(빠른 경로).
+func TestStripSnapshotQueries_NoEscapeUnchanged(t *testing.T) {
+	in := []byte("just plain text 56;9R without ESC")
+	got := stripSnapshotQueries(in)
+	if !bytes.Equal(in, got) {
+		t.Fatalf("no-ESC input must be unchanged: want=%q got=%q", in, got)
+	}
+}
+
 // FR-C1 / TC-C1: 동일 folder 의 instance 가 이미 있으면 신규 spawn 없이 재사용.
 func TestCodeServerManager_Start_ReusesFolder(t *testing.T) {
 	tmp := t.TempDir()

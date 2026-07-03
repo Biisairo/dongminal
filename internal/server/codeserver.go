@@ -46,6 +46,30 @@ func stripOSC777(b []byte) []byte {
 	return osc777Pattern.ReplaceAll(b, nil)
 }
 
+// snapshotQueryPattern matches terminal *query* control sequences that make a
+// client terminal (xterm.js) emit an automatic reply (CPR "…R", DA "…c", …).
+// Such queries in replayed scrollback are stale — the program that asked is
+// long gone — so the reply is injected into the shell as junk input, kicking
+// off a feedback loop (e.g. an endless "56;9R56;9R…" flood on reconnect).
+var snapshotQueryPattern = regexp.MustCompile(
+	`\x1b\[[0-9;?]*n` + // DSR / cursor-position request (ESC[6n, ESC[5n)
+		`|\x1b\[[0-9;>=?]*c` + // DA1/DA2/DA3 request (ESC[c, ESC[>c, ESC[=c)
+		`|\x1b\[\?[0-9;]*\$p` + // DECRQM mode request (ESC[?…$p)
+		`|\x1b\[(?:11|13|14|15|16|18|19|20|21)t` + // XTWINOPS report requests
+		`|\x1b\][0-9;]*\?(?:\x07|\x1b\\)`, // OSC color/etc query (ESC]10;?BEL / ST)
+)
+
+// stripSnapshotQueries removes terminal query sequences from b so that
+// replaying a scrollback snapshot never makes the client terminal send an
+// automatic reply back into the PTY. Only queries are removed; ordinary output
+// (colors, cursor moves, already-present responses) is left intact.
+func stripSnapshotQueries(b []byte) []byte {
+	if !bytes.Contains(b, []byte{0x1b}) {
+		return b
+	}
+	return snapshotQueryPattern.ReplaceAll(b, nil)
+}
+
 type CodeServerInst struct {
 	ID        string
 	Sock      string
