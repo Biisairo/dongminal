@@ -98,7 +98,6 @@ func (s *Server) handleWSDirect(conn *safeConn, pane *Pane, cols, rows uint16, r
 			return
 		}
 	}
-	pane.resize(cols, rows)
 
 	done := make(chan struct{})
 	go pingLoop(conn, pane.done)
@@ -110,9 +109,12 @@ func (s *Server) handleWSDirect(conn *safeConn, pane *Pane, cols, rows uint16, r
 // handleWSDaemon is the daemon-mode WebSocket handler.
 // It uses PaneHub methods (which go through PaneClient RPC) instead of
 // Pane struct internals.
+// Note: we do NOT resize the PTY from the URL query params here. When a
+// new window opens, the frontend creates WS connections for ALL panes with
+// default cols/rows (120x40), which would incorrectly resize panes owned by
+// other windows. The frontend sends the correct OpResize via the WS binary
+// protocol after terminal open+fit, guarded by _resizeCheck (session ownership).
 func (s *Server) handleWSDaemon(conn *safeConn, paneID string, _ *Pane, cols, rows uint16) {
-	_ = s.Panes.Resize(paneID, cols, rows)
-
 	conn.send(OpSID, []byte(paneID))
 
 	// Send terminal reset to clear any stale modes (mouse tracking, etc.)
