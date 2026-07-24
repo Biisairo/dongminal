@@ -461,6 +461,8 @@ class TermPane {
       this._send(m);
     });
     this.term.onResize(({cols,rows})=>{
+      // Only the OS-focused window that owns the pane's session may send resize.
+      if(!window.app||!window.app._resizeCheck(this.id)) return;
       const m=new Uint8Array(5);m[0]=OP.RESIZE;
       new DataView(m.buffer).setUint16(1,cols,false);
       new DataView(m.buffer).setUint16(3,rows,false);
@@ -478,7 +480,7 @@ class TermPane {
     const url=`${p}//${location.host}/ws?cols=${cols}&rows=${rows}&pane=${encodeURIComponent(this.id)}`;
     this.ws=new WebSocket(url); this.ws.binaryType='arraybuffer';
     this.ws.onopen=()=>{
-      if(this.term){
+      if(this.term && window.app && window.app._resizeCheck(this.id)){
         const m=new Uint8Array(5);m[0]=OP.RESIZE;
         new DataView(m.buffer).setUint16(1,this.term.cols,false);
         new DataView(m.buffer).setUint16(3,this.term.rows,false);
@@ -543,7 +545,7 @@ class TermPane {
       ws.onopen=()=>{
         this.ws=ws; this._retryDelay=0;
         this._pendingWs=null;
-        if(this.term){
+        if(this.term && window.app && window.app._resizeCheck(this.id)){
           const m=new Uint8Array(5);m[0]=OP.RESIZE;
           new DataView(m.buffer).setUint16(1,this.term.cols,false);
           new DataView(m.buffer).setUint16(3,this.term.rows,false);
@@ -1085,6 +1087,10 @@ class Renderer {
     this._rSidebar();this._rTopbar();this._rLayout();
     this.app._updateCwd();
     this.app._updateStatusBar();
+    // Apply session focus overlay after every render so the DOM is
+    // guaranteed to exist (BroadcastChannel may trigger _applyFocusOverlay
+    // before the first render completes).
+    this.app._applyFocusOverlay();
   }
 
   _rSidebar(){
@@ -1216,6 +1222,11 @@ class Renderer {
           else{const p=this.app.panes.get(tab.paneId);if(p)p.focus()}
         }}
       }
+      // After fit, panes have correct dimensions. Re-send sizes for the
+      // active session if this window owns it and has OS focus.
+      if(this.app._windowFocused){
+        this.app._resendSessionSizes(this.app.ws.activeSession);
+      }
     });
   }
 
@@ -1342,6 +1353,9 @@ class App {
     this._attnNotifs={}; // paneId → Notification (재팝업 위해 직전 알림 보관)
     this._activity=new Map(); // paneId → {state,tool,detail} 활동 상태 (AGENT_ACTIVITY_PANEL_SRS)
     this._s=0;this._r=0;this._t=0;this._kb=false;
+    this._windowFocused=typeof document!=='undefined'&&document.hasFocus?document.hasFocus():true;
+    this._sessionFocusOwner={}; // { sessionId: clientId } — per-session focus ownership
+    this._focusCh=null; // BroadcastChannel for focus sync (lazy init)
     this._drag=null;
     this._stats={};this._latency=null;
     this._mPaneIdx=0; // mobile current pane index (volatile)
@@ -1423,6 +1437,9 @@ class App {
   }
 
   async init(){
+    // Set up BroadcastChannel listener BEFORE any async work so we don't
+    // miss session focus claims from other windows during init.
+    this._initFocusChannel();
     try{
       const stRes=await fetch('/api/state');
       this.wsETag=stRes.headers.get('ETag')||stRes.headers.get('Etag')||null;
@@ -1458,12 +1475,38 @@ class App {
       console.error('[App] init error:',e);
       if(!this.ws.sessions.length) await this._mkSession();
     }
+    // Restore per-window activeSession from sessionStorage (survives refresh).
+    // Only apply if the session still exists in the loaded workspace.
+    try{
+      const saved=sessionStorage.getItem('activeSession');
+      if(saved && this.ws.sessions.some(s=>s.id===saved)){
+        this.ws.activeSession=saved;
+      }
+      // Restore per-window focusedRegion for each session from sessionStorage.
+      const savedFocus=sessionStorage.getItem('focusedRegions');
+      if(savedFocus){
+        const map=JSON.parse(savedFocus);
+        for(const s of this.ws.sessions){
+          const rid=map[s.id];
+          if(rid && s.layout && findRg(s.layout, rid)) s.focusedRegion=rid;
+        }
+      }
+    }catch{}
     const a=this._as();
     if(a&&a.layout){const saved=a.focusedRegion;const f=(saved&&findRg(a.layout,saved))?{id:saved}:firstRg(a.layout);if(f)this._setFocus(f.id, a)}
     await this._loadMdScrolls();
     this.render();
     this._bind();
     this._subscribeCommands();
+    // Initial session claim: only if window has focus AND no other window
+    // already owns this session (prevents init-time claim races).
+    if(document.hasFocus&&document.hasFocus()){
+      const sid=this.ws.activeSession;
+      if(sid && !this._sessionFocusOwner[sid]){
+        this._focusSession(sid);
+      }
+    }
+    this._applyFocusOverlay();
   }
 
   async _loadMdScrolls(){
@@ -1591,7 +1634,23 @@ class App {
     sv.sessions=sv.sessions.filter(s=>s&&s.layout);
     if(!sv.sessions.find(s=>s.id===sv.activeSession))
       sv.activeSession=sv.sessions[0]?.id||null;
+    // Preserve per-window viewport state: activeSession and each session's
+    // focusedRegion. Remote structural changes (splits/tabs) are applied
+    // but this window stays on its own session/region.
+    const localActive=this.ws.activeSession;
+    const localFocus=new Map();
+    for(const s of this.ws.sessions){
+      if(s.focusedRegion) localFocus.set(s.id, s.focusedRegion);
+    }
     this.ws=sv;
+    if(localActive && this.ws.sessions.some(s=>s.id===localActive)){
+      this.ws.activeSession=localActive;
+    }
+    // Restore each session's focusedRegion if the region still exists.
+    for(const s of this.ws.sessions){
+      const rid=localFocus.get(s.id);
+      if(rid && s.layout && findRg(s.layout, rid)) s.focusedRegion=rid;
+    }
     if('displayMode' in this.ws) delete this.ws.displayMode;
     if('mobileBreakpoint' in this.ws) delete this.ws.mobileBreakpoint;
     if(this.ws.sidebarWidth){
@@ -1624,7 +1683,15 @@ class App {
 
   _execRemote(action, args){
     args=args||{};
-    if(action==='focus'){this._focusLocation(args.location); return}
+    if(action==='focus'){
+      // Multi-window: only apply focus if the source pane is in this window's
+      // *active* session. If the pane belongs to a session that another
+      // window is viewing, this window stays put.
+      if(args.sourcePane && !this._isPaneInActiveSession(args.sourcePane)){
+        return;
+      }
+      this._focusLocation(args.location); return
+    }
     if(action==='openMdTab'){
       const{name,filePath,location}=args;
       if(!filePath){console.warn('[cmd] openMdTab: filePath required');return}
@@ -1711,6 +1778,8 @@ class App {
       if(this.ws.activeSession!==savedSession && this.ws.sessions.some(x=>x.id===savedSession)){
         const cur=this._as(); if(cur) cur.focusedRegion=this.focused;
         this.ws.activeSession=savedSession;
+        try{sessionStorage.setItem('activeSession', savedSession)}catch{}
+        this._focusSession(savedSession);
       }
       const a=this._as();
       if(a&&savedFocused&&findRg(a.layout,savedFocused)){
@@ -1752,9 +1821,11 @@ class App {
     if(this.ws.activeSession!==sess.id){
       const cur=this._as(); if(cur) cur.focusedRegion=this.focused;
       this.ws.activeSession=sess.id;
+      try{sessionStorage.setItem('activeSession', sess.id)}catch{}
     }
     rg.activeTab=tab.id;
     this._setFocus(rg.id, sess);
+    this._focusSession(sess.id);
     this._save(); this.render();
   }
 
@@ -1780,6 +1851,7 @@ class App {
     document.getElementById('area').appendChild(p.el);
     p.connect();
     this.panes.set(id,p);
+    this._applyFocusOverlay();
     return p;
   }
 
@@ -1831,6 +1903,25 @@ class App {
 
   _as(){return this.ws.sessions.find(s=>s.id===this.ws.activeSession)||null}
 
+  // _isPaneInActiveSession reports whether a pane (by id) is present in the
+  // currently active session's layout. Used to route focus commands only to
+  // the window that is actually viewing the source pane (multi-window).
+  _isPaneInActiveSession(paneId){
+    if(!paneId) return false;
+    const s=this._as();
+    if(!s||!s.layout) return false;
+    let found=false;
+    const walk=n=>{
+      if(!n||found) return;
+      if(n.type==='region'&&n.tabs){
+        for(const t of n.tabs) if(t.paneId===paneId){found=true;return}
+      }
+      if(n.type==='split'&&n.children) for(const c of n.children) walk(c);
+    };
+    walk(s.layout);
+    return found;
+  }
+
   // _setFocus is the single entry point for the focus invariant
   // (this.focused === active session.focusedRegion). It accepts an optional
   // session reference; when omitted, the active session is used. When the
@@ -1845,6 +1936,19 @@ class App {
       if(this.focused===rid) this._attnClearFocused();
     }
     this._agentsRender(); // 외부 포커스 변경도 카드 .focused 에 즉시 반영(render 미경유 경로 포함)
+    this._persistFocusedRegions();
+  }
+
+  // Persist per-window focusedRegion map to sessionStorage so a refresh
+  // restores the same view (multi-window: each window owns its viewport).
+  _persistFocusedRegions(){
+    try{
+      const map={};
+      for(const s of this.ws.sessions){
+        if(s.focusedRegion) map[s.id]=s.focusedRegion;
+      }
+      sessionStorage.setItem('focusedRegions', JSON.stringify(map));
+    }catch{}
   }
 
   // ── Pane Attention Notify (PANE_ATTENTION_NOTIFY_SRS) ──
@@ -1958,8 +2062,10 @@ class App {
     const loc=this._findPaneLocation(paneId);
     if(!loc) return;
     this.ws.activeSession=loc.session.id;
+    try{sessionStorage.setItem('activeSession', loc.session.id)}catch{}
     loc.region.activeTab=loc.tab.id;
     this._setFocus(loc.region.id, loc.session);
+    this._focusSession(loc.session.id);
     this.render();
   }
 
@@ -2288,7 +2394,9 @@ class App {
     // 추가 — activeSession/focused 무변화 (백그라운드 잡 컨테이너 패턴).
     if(!opts.keepFocus){
       this.ws.activeSession=s.id;
+      try{sessionStorage.setItem('activeSession', s.id)}catch{}
       this._setFocus(r, s);
+      this._focusSession(s.id);
     }
     // Fire-and-forget save: keeps the UI snappy. Awaiting here would block
     // render on the PUT roundtrip (see split/addTab which already use
@@ -2313,14 +2421,17 @@ class App {
     for(const pid of pids) this._kill(pid);
     this.ws.sessions.splice(i,1);
     if(!this.ws.sessions.length){await this._mkSession();this.render();return}
-    if(this.ws.activeSession===sid)
+    if(this.ws.activeSession===sid){
       this.ws.activeSession=this.ws.sessions[Math.min(i,this.ws.sessions.length-1)].id;
+      try{sessionStorage.setItem('activeSession', this.ws.activeSession)}catch{}
+    }
     const a=this._as();
     if(a&&a.layout){
       const next=(a.focusedRegion&&findRg(a.layout,a.focusedRegion))?a.focusedRegion:firstRg(a.layout)?.id||null;
       this._setFocus(next, a);
     } else this.focused=null;
     // Render first, save in background (matches split/addTab/closeTab).
+    this._focusSession(this.ws.activeSession);
     this.render();
     this._save();
   }
@@ -2332,6 +2443,9 @@ class App {
     }
     const cur=this._as();if(cur)cur.focusedRegion=this.focused;
     this.ws.activeSession=sid;
+    // Persist per-window activeSession to sessionStorage (survives refresh,
+    // independent across windows).
+    try{sessionStorage.setItem('activeSession', sid)}catch{}
     const a=this._as();
     if(a&&a.layout){
       const next=(a.focusedRegion&&findRg(a.layout,a.focusedRegion))?a.focusedRegion:firstRg(a.layout)?.id||null;
@@ -2339,6 +2453,7 @@ class App {
     } else this.focused=null;
     this._mPaneIdx=0;
     if(this.isMobile && this._drawerOpen) this._toggleDrawer(false);
+    this._focusSession(sid);
     this._save(); this.render();
   }
 
@@ -2377,8 +2492,10 @@ class App {
       if (existing) {
         const cur = this._as(); if (cur) cur.focusedRegion = this.focused;
         this.ws.activeSession = existing.session.id;
+        try{sessionStorage.setItem('activeSession', existing.session.id)}catch{}
         existing.region.activeTab = existing.tab.id;
         this._setFocus(existing.region.id, existing.session);
+        this._focusSession(existing.session.id);
         const viewer = this.mdViewers.get(existing.tab.id);
         if (viewer) viewer.refresh();
         this.render();
@@ -2503,6 +2620,7 @@ class App {
       // FR-SKF-3: 저장된 region 이 사후 layout 에서 사라졌으면 무동작 + 경고.
       if(this.ws.activeSession!==savedSession && this.ws.sessions.some(x=>x.id===savedSession)){
         this.ws.activeSession=savedSession;
+        try{sessionStorage.setItem('activeSession', savedSession)}catch{}
       }
       const a=this._as();
       if(a && savedFocused && findRg(a.layout,savedFocused)){
@@ -2514,9 +2632,11 @@ class App {
       if(this.ws.activeSession!==tgtSessionId){
         const cur=this._as(); if(cur) cur.focusedRegion=this.focused;
         this.ws.activeSession=tgtSessionId;
+        try{sessionStorage.setItem('activeSession', tgtSessionId)}catch{}
       }
       const next = lastR || tgtRegionId;
       this._setFocus(next, s);
+      this._focusSession(tgtSessionId);
     }
     this.render();
     this._save();
@@ -2666,6 +2786,9 @@ class App {
   }
 
   setFocus(rid){
+    // Claim session ownership on every click — even if focus doesn't change,
+    // the user is asserting "I want this session" (multi-window).
+    this._focusSession(this.ws.activeSession);
     if(this.focused===rid) return;
     this._clearAllSearchDecorations();
     this._setFocus(rid);
@@ -2689,7 +2812,13 @@ class App {
         try{
           const headers={'Content-Type':'application/json'};
           if(this.wsETag) headers['If-Match']=this.wsETag;
-          const res=await fetch('/api/workspace',{method:'PUT',headers,body:JSON.stringify(this.ws)});
+          // activeSession and focusedRegion are per-window; strip them so
+          // remote windows aren't forced to switch views (multi-window sync).
+          const wsBody=JSON.parse(JSON.stringify(this.ws,(k,v)=>{
+            if(k==='activeSession'||k==='focusedRegion') return undefined;
+            return v;
+          }));
+          const res=await fetch('/api/workspace',{method:'PUT',headers,body:JSON.stringify(wsBody)});
           if(res.status===409){
             try{
               const gr=await fetch('/api/workspace');
@@ -2740,6 +2869,164 @@ class App {
 
 
   _bind(){ this.inputBinding.bind() }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  Session Focus Ownership (multi-window)
+  // ═══════════════════════════════════════════════════════════════════════
+  //
+  //  Rules:
+  //    • Each session has ONE focus owner — the last window that focused on it.
+  //    • The owner controls PTY size for that session's panes.
+  //    • All other windows see that session dimmed (rg-dimmed overlay).
+  //    • If no window owns a session, all windows see it bright.
+  //
+  //  State:
+  //    _sessionFocusOwner : { sessionId → clientId }
+  //    _windowFocused      : boolean (OS focus on this window)
+  //    _focusCh            : BroadcastChannel (cross-window messaging)
+  //
+  //  Single entry point:
+  //    _focusSession(sid)  — claim ownership, broadcast, resize, overlay.
+  //    Called from: setFocus, switchSession, _focusLocation, _jumpToPane,
+  //                 _mkSession, addTab(existing), window.focus, split.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // _initFocusChannel sets up cross-window messaging and OS focus listeners.
+  _initFocusChannel(){
+    if(typeof BroadcastChannel!=='undefined'){
+      this._focusCh=new BroadcastChannel('dongminal-focus');
+      this._focusCh.onmessage=(e)=>{
+        if(e.data.type==='sessionFocus'){
+          this._sessionFocusOwner[e.data.sessionId]=e.data.id;
+          this._applyFocusOverlay();
+        }else if(e.data.type==='sessionRelease'){
+          if(this._sessionFocusOwner[e.data.sessionId]===e.data.id){
+            delete this._sessionFocusOwner[e.data.sessionId];
+            this._applyFocusOverlay();
+          }
+        }
+      };
+    }
+    window.addEventListener('focus',()=>{
+      this._windowFocused=true;
+      if(this.ws.activeSession) this._focusSession(this.ws.activeSession);
+    });
+    window.addEventListener('blur',()=>{this._windowFocused=false});
+    window.addEventListener('beforeunload',()=>{
+      const ch=this._focusCh; if(!ch) return;
+      for(const sid of Object.keys(this._sessionFocusOwner)){
+        if(this._sessionFocusOwner[sid]===this.clientId){
+          ch.postMessage({type:'sessionRelease',sessionId:sid,id:this.clientId});
+        }
+      }
+    });
+  }
+
+  // _focusSession is the SINGLE entry point for claiming session ownership.
+  // Releases old sessions owned by this window, claims the new one,
+  // broadcasts via BroadcastChannel, sends resize, and updates the overlay.
+  _focusSession(sessionId){
+    if(!sessionId) return;
+    if(!this._focusCh&&typeof BroadcastChannel!=='undefined'){
+      this._focusCh=new BroadcastChannel('dongminal-focus');
+    }
+    const ch=this._focusCh;
+    // Release other sessions this window owns (one window → one session).
+    for(const sid of Object.keys(this._sessionFocusOwner)){
+      if(sid!==sessionId&&this._sessionFocusOwner[sid]===this.clientId){
+        delete this._sessionFocusOwner[sid];
+        if(ch) ch.postMessage({type:'sessionRelease',sessionId:sid,id:this.clientId});
+      }
+    }
+    // Only broadcast if ownership actually changes.
+    if(this._sessionFocusOwner[sessionId]!==this.clientId){
+      this._sessionFocusOwner[sessionId]=this.clientId;
+      if(ch) ch.postMessage({type:'sessionFocus',sessionId,id:this.clientId});
+    }
+    // Send resize immediately (before render) so PTY matches this window's
+    // size by the time the user sees the panes. Only if OS-focused.
+    if(this._windowFocused) this._resendSessionSizes(sessionId);
+    this._applyFocusOverlay();
+  }
+
+  // _resizeCheck returns true if this window is allowed to send resize for
+  // a given pane (has OS focus + owns the pane's session or it's unowned).
+  _resizeCheck(paneId){
+    if(!this._windowFocused) return false;
+    const sid=this._paneSessionId(paneId);
+    if(!sid) return true; // pane not in any session yet → allow
+    const owner=this._sessionFocusOwner[sid];
+    return !owner||owner===this.clientId;
+  }
+
+  // _applyFocusOverlay syncs the DOM: regions whose session is owned by
+  // another window get the dimmed overlay (rg-dimmed class).
+  _applyFocusOverlay(){
+    const otherOwned=new Set();
+    for(const[sid,owner] of Object.entries(this._sessionFocusOwner)){
+      if(owner&&owner!==this.clientId) otherOwned.add(sid);
+    }
+    for(const rg of document.querySelectorAll('.rg')){
+      let dim=false;
+      for(const t of rg.querySelectorAll('.rt[data-pid]')){
+        const sid=this._paneSessionId(t.dataset.pid);
+        if(sid&&otherOwned.has(sid)){dim=true;break}
+      }
+      rg.classList.toggle('rg-dimmed',dim);
+    }
+  }
+
+  // _paneSessionId returns the session id containing a pane (by walking the
+  // workspace layout tree). Returns null if the pane is not in any session.
+  _paneSessionId(paneId){
+    if(!paneId) return null;
+    for(const s of this.ws.sessions){
+      if(!s||!s.layout) continue;
+      let found=null;
+      const walk=n=>{
+        if(!n||found) return;
+        if(n.type==='region'&&n.tabs){
+          for(const t of n.tabs) if(t.paneId===paneId){found=s.id;return}
+        }
+        if(n.type==='split'&&n.children) for(const c of n.children) walk(c);
+      };
+      walk(s.layout);
+      if(found) return found;
+    }
+    return null;
+  }
+
+  // _resendSessionSizes sends resize for every pane in a session.
+  // Sends even for hidden panes (they retain last-visible dimensions) so the
+  // PTY is sized correctly BEFORE render, avoiding a one-frame glitch.
+  _resendSessionSizes(sessionId){
+    if(!sessionId) return;
+    // Don't send resize if another window owns this session.
+    const owner=this._sessionFocusOwner[sessionId];
+    if(owner&&owner!==this.clientId) return;
+    const s=this.ws.sessions.find(x=>x.id===sessionId);
+    if(!s||!s.layout) return;
+    const paneIds=new Set();
+    const walk=n=>{
+      if(!n) return;
+      if(n.type==='region'&&n.tabs){
+        for(const t of n.tabs) if(t.paneId) paneIds.add(t.paneId);
+      }
+      if(n.type==='split'&&n.children) for(const c of n.children) walk(c);
+    };
+    walk(s.layout);
+    for(const pid of paneIds){
+      const p=this.panes.get(pid);
+      // Send resize even if pane is hidden — the dimensions were set when
+      // it was last visible and are still valid. This avoids a visible
+      // glitch where the PTY renders at the wrong size for one frame.
+      if(!p||!p.term||!p.term.cols||!p.term.rows) continue;
+      const m=new Uint8Array(5);m[0]=0x01;
+      new DataView(m.buffer).setUint16(1,p.term.cols,false);
+      new DataView(m.buffer).setUint16(3,p.term.rows,false);
+      p._send(m);
+    }
+  }
 
   // ── Mobile bindings ──
 

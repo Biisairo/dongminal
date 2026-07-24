@@ -327,7 +327,7 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		payload, _ := json.Marshal(req)
 		n := s.Commands.Broadcast(payload)
 		resp["delivered"] = n
-		log.Printf("[cmd] action=%s%s delivered=%d", req.Action, locField, n)
+		log.Printf("[cmd] action=%s%s delivered=%d payload=%s", req.Action, locField, n, string(payload))
 	}
 
 	w.Header().Set("Content-Type", "application/json")

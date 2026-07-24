@@ -104,7 +104,13 @@ func runDmctl(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "usage: dmctl focus <uuid>  (list-panes 의 uuid 컬럼 값)")
 			return 2
 		}
-		return dmctlPost("focus", parsed.buildArgs(), stdout, stderr)
+		args := parsed.buildArgs()
+		// Include source pane so the browser can route the focus only to
+		// windows that actually show this pane (multi-window).
+		if pid := os.Getenv("DONGMINAL_PANE_ID"); pid != "" {
+			args["sourcePane"] = pid
+		}
+		return dmctlPost("focus", args, stdout, stderr)
 	case "rename-tab", "rename-session":
 		action := "renameTab"
 		if cmd == "rename-session" {
