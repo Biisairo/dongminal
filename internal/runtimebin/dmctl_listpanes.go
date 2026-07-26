@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"dongminal/internal/paneline"
+	"dongminal/internal/workspace"
 )
 
 // dmctlListPanes implements `dmctl list-panes`. /api/state 호출 후 workspace
@@ -76,7 +77,7 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 	if filtered {
 		var keep []listPanesRow
 		for _, r := range rows {
-			if matchFold(r.Session, sessionFilter) && matchFold(r.Tab, tabFilter) {
+			if MatchFold(r.Session, sessionFilter) && MatchFold(r.Tab, tabFilter) {
 				keep = append(keep, r)
 			}
 		}
@@ -151,24 +152,10 @@ type wsTree struct {
 }
 
 type wsSession struct {
-	ID            string    `json:"id"`
-	Name          string    `json:"name"`
-	FocusedRegion string    `json:"focusedRegion"`
-	Layout        *wsLayout `json:"layout"`
-}
-
-type wsLayout struct {
-	Type      string      `json:"type"`
-	ID        string      `json:"id"`
-	ActiveTab string      `json:"activeTab"`
-	Tabs      []wsTab     `json:"tabs"`
-	Children  []*wsLayout `json:"children"`
-}
-
-type wsTab struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	PaneID string `json:"paneId"`
+	ID            string              `json:"id"`
+	Name          string              `json:"name"`
+	FocusedRegion string              `json:"focusedRegion"`
+	Layout        *workspace.WsLayout `json:"layout"`
 }
 
 type listPanesRow struct {
@@ -192,8 +179,8 @@ func buildListPanesRows(ws *wsTree, shellPids map[string]int, sizes map[string][
 	}
 	var out []listPanesRow
 	for si, sess := range ws.Sessions {
-		var regions []*wsLayout
-		collectRegions(sess.Layout, &regions)
+		var regions []*workspace.WsLayout
+		workspace.CollectRegions(sess.Layout, &regions)
 		for pi, rg := range regions {
 			for ti, tab := range rg.Tabs {
 				focused := sess.ID == ws.ActiveSession &&
@@ -220,23 +207,8 @@ func buildListPanesRows(ws *wsTree, shellPids map[string]int, sizes map[string][
 	return out
 }
 
-func collectRegions(n *wsLayout, out *[]*wsLayout) {
-	if n == nil {
-		return
-	}
-	if n.Type == "region" {
-		*out = append(*out, n)
-		return
-	}
-	if n.Type == "split" {
-		for _, c := range n.Children {
-			collectRegions(c, out)
-		}
-	}
-}
-
-// matchFold 는 substr 이 비었으면 통과, 아니면 case-insensitive substring 매칭.
-func matchFold(s, substr string) bool {
+// MatchFold returns true when substr is empty or s contains substr (case-insensitive).
+func MatchFold(s, substr string) bool {
 	if substr == "" {
 		return true
 	}

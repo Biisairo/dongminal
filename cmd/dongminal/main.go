@@ -32,6 +32,15 @@ func dataPath(dataDir, name string) string {
 // dialOrStartDaemon connects to a running dongminald or starts one,
 // returning a PaneClient ready for use. Falls back to nil if the daemon
 // is not available and the direct PaneManager path should be used.
+//
+// Goroutine lifecycle: DialPaneClientWithReconnect spawns a supervise()
+// goroutine that watches for connection loss and reconnects with backoff.
+// When the caller is done with the PaneClient, it MUST call Close(), which
+// closes pc.closed and sets pc.stopped. Both the outer and inner reconnect
+// loops in supervise() check <-pc.closed and pc.stopped in their select
+// statements, ensuring the goroutine exits promptly. The wrapper goroutine
+// here (lines 50-53) is fire-and-forget: it writes its result to a buffered
+// channel and exits, regardless of whether the outer select consumes it.
 func dialOrStartDaemon(home string) *server.PaneClient {
 	sockPath := filepath.Join(home, "paned.sock")
 
@@ -105,6 +114,7 @@ func startDaemon(home string) error {
 	if err == nil {
 		cmd.Stdout = logFile
 		cmd.Stderr = logFile
+		defer logFile.Close()
 	}
 	if err := cmd.Start(); err != nil {
 		return err
@@ -158,17 +168,51 @@ type builtDeps struct {
 
 func buildDeps(cfg server.Config) (builtDeps, error) {
 	pm := server.NewPaneManager(cfg.DataDir, nil)
-	hub := server.NewCommandHub()
+	cmdHub := server.NewCommandHub()
 	// Wire attention SSE before LoadAll so restored panes also get detection.
-	server.WireAttention(pm, hub)
-	server.WireActivity(pm, hub)
-	csm := server.NewCodeServerManager()
-	wsMgr, err := workspace.New(pm, workspace.FilePersister{Path: dataPath(cfg.DataDir, "workspace.json")})
+	server.WireAttention(pm, cmdHub)
+	server.WireActivity(pm, cmdHub)
+
+	bd, err := buildCommonDeps(cfg, pm, cmdHub, nil)
 	if err != nil {
 		return builtDeps{}, err
 	}
-	pm.SetInvalidator(wsMgr.InvalidatePane)
+
+	pm.SetInvalidator(bd.wsMgr.InvalidatePane)
 	pm.LoadAll()
+	bd.pm = pm
+
+	return bd, nil
+}
+
+// buildDepsWithHub is the daemon-mode variant that uses a PaneHub (PaneClient)
+// instead of a direct PaneManager. Attention/activity are not wired here
+// because in daemon mode they are driven by output push events from dongminald.
+func buildDepsWithHub(cfg server.Config, hub server.PaneHub) (builtDeps, error) {
+	cmdHub := server.NewCommandHub()
+
+	// Attention/activity tracker for daemon mode (in-memory in dongminal).
+	// L1 OSC detection works from terminal escape sequences. L2 idle detection
+	// uses the busy RPC to dongminald to check foreground process status, so a
+	// bare prompt does not raise a bogus alarm (FR-15).
+	attnTracker := server.NewAttnTracker(cmdHub, server.DefaultIdleMS())
+	if bp, ok := hub.(interface{ Busy(string) bool }); ok {
+		attnTracker.SetBusyProbe(bp.Busy)
+	}
+
+	return buildCommonDeps(cfg, hub, cmdHub, attnTracker)
+}
+
+// buildCommonDeps wires up the managers, mdscroll, and MCP tool registry
+// shared by both direct and daemon modes. panes provides Liveness (IsLive)
+// for the workspace manager and PaneHub for tool adapters.
+func buildCommonDeps(cfg server.Config, panes server.PaneHub, cmdHub *server.CommandHub, attnTracker *server.AttnTracker) (builtDeps, error) {
+	csm := server.NewCodeServerManager()
+
+	wsMgr, err := workspace.New(panes, workspace.FilePersister{Path: dataPath(cfg.DataDir, "workspace.json")})
+	if err != nil {
+		return builtDeps{}, err
+	}
 
 	msMgr, err := mdscroll.New(mdscroll.FilePersister{Path: dataPath(cfg.DataDir, "mdscroll.json")})
 	if err != nil {
@@ -181,75 +225,19 @@ func buildDeps(cfg server.Config) (builtDeps, error) {
 		log.Printf("mdscroll: pruned %d stale tab(s) at startup", removed)
 	}
 
-	reg := mcptool.NewRegistry()
-	pa := adapters.Pane{PM: pm}
-	wa := adapters.Workspace{WS: wsMgr}
-	mcptool.Register(reg, tools.ListPanesName, tools.ListPanesSpec,
-		tools.ListPanesHandler(tools.ListPanesDeps{PM: pa, WS: wa}))
-	mcptool.Register(reg, tools.ReadPaneScreenName, tools.ReadPaneScreenSpec,
-		tools.ReadPaneScreenHandler(tools.ReadPaneDeps{PM: pa, WS: wa}))
-	mcptool.Register(reg, tools.ReadPaneOutputName, tools.ReadPaneOutputSpec,
-		tools.ReadPaneOutputHandler(tools.ReadPaneDeps{PM: pa, WS: wa}))
-	mcptool.Register(reg, tools.SendInputName, tools.SendInputSpec,
-		tools.SendInputHandler(tools.SendInputDeps{PM: pa, WS: wa}))
-	mcptool.Register(reg, tools.SendAgentMessageName, tools.SendAgentMessageSpec,
-		tools.SendAgentMessageHandler(tools.SendAgentMessageDeps{PM: pa, WS: wa}))
-	mcptool.Register(reg, tools.WhoAmIName, tools.WhoAmISpec,
-		tools.WhoAmIHandler(tools.WhoAmIDeps{PM: pa, WS: wa, Resolver: adapters.Client{PM: pm}}))
-	mcptool.Register(reg, tools.WorkspaceCommandName, tools.WorkspaceCommandSpec,
-		tools.WorkspaceCommandHandler(tools.WorkspaceCommandDeps{Broadcaster: adapters.Command{Hub: hub}, WS: wa}))
-
-	return builtDeps{
-		deps: server.Deps{
-			Panes:    pm,
-			CS:       csm,
-			Work:     wsMgr,
-			Tools:    reg,
-			Commands: hub,
-			MdScroll: msMgr,
-			WhoAmI:   adapters.Client{PM: pm},
-		},
-		pm:    pm,
-		csm:   csm,
-		wsMgr: wsMgr,
-		msMgr: msMgr,
-	}, nil
-}
-
-// buildDepsWithHub is the daemon-mode variant that uses a PaneHub (PaneClient)
-// instead of a direct PaneManager. Attention/activity are not wired here
-// because in daemon mode they are driven by output push events from dongminald.
-func buildDepsWithHub(cfg server.Config, hub server.PaneHub) (builtDeps, error) {
-	cmdHub := server.NewCommandHub()
-	csm := server.NewCodeServerManager()
-
-	// Attention/activity tracker for daemon mode (in-memory in dongminal).
-	// L1 OSC detection works from terminal escape sequences. L2 idle detection
-	// uses the busy RPC to dongminald to check foreground process status, so a
-	// bare prompt does not raise a bogus alarm (FR-15).
-	attnTracker := server.NewAttnTracker(cmdHub, server.DefaultIdleMS())
-	if bp, ok := hub.(interface{ Busy(string) bool }); ok {
-		attnTracker.SetBusyProbe(bp.Busy)
-	}
-
-	// Wrap PaneHub.IsLive as workspace.Liveness
-	live := paneHubLiveness{hub}
-	wsMgr, err := workspace.New(live, workspace.FilePersister{Path: dataPath(cfg.DataDir, "workspace.json")})
-	if err != nil {
-		return builtDeps{}, err
-	}
-
-	msMgr, err := mdscroll.New(mdscroll.FilePersister{Path: dataPath(cfg.DataDir, "mdscroll.json")})
-	if err != nil {
-		return builtDeps{}, err
+	var pa adapters.Pane
+	var resolver adapters.Client
+	if _, ok := panes.(*server.PaneManager); ok {
+		// Direct mode: use the concrete PaneManager for richer adapter access.
+		pa = adapters.Pane{PM: panes.(*server.PaneManager)}
+		resolver = adapters.Client{PM: panes.(*server.PaneManager)}
+	} else {
+		pa = adapters.Pane{Hub: panes}
+		resolver = adapters.Client{Hub: panes}
 	}
 
 	reg := mcptool.NewRegistry()
-	pa := adapters.Pane{PM: nil, Hub: hub}
 	wa := adapters.Workspace{WS: wsMgr}
-	// Daemon-mode whoami resolver: matches the client PID's ancestor chain
-	// against pane shell PIDs from the hub's list (FR-16).
-	resolver := adapters.Client{Hub: hub}
 	mcptool.Register(reg, tools.ListPanesName, tools.ListPanesSpec,
 		tools.ListPanesHandler(tools.ListPanesDeps{PM: pa, WS: wa}))
 	mcptool.Register(reg, tools.ReadPaneScreenName, tools.ReadPaneScreenSpec,
@@ -267,7 +255,7 @@ func buildDepsWithHub(cfg server.Config, hub server.PaneHub) (builtDeps, error) 
 
 	return builtDeps{
 		deps: server.Deps{
-			Panes:       hub,
+			Panes:       panes,
 			CS:          csm,
 			Work:        wsMgr,
 			Tools:       reg,
@@ -276,7 +264,7 @@ func buildDepsWithHub(cfg server.Config, hub server.PaneHub) (builtDeps, error) 
 			AttnTracker: attnTracker,
 			WhoAmI:      resolver,
 		},
-		pm:          nil,
+		pm:          nil, // set by caller in direct mode
 		attnTracker: attnTracker,
 		csm:         csm,
 		wsMgr:       wsMgr,
@@ -413,9 +401,3 @@ func main() {
 	log.Printf("server stopped")
 }
 
-// paneHubLiveness adapts PaneHub.IsLive to workspace.Liveness.
-type paneHubLiveness struct {
-	hub server.PaneHub
-}
-
-func (l paneHubLiveness) IsLive(paneID string) bool { return l.hub.IsLive(paneID) }

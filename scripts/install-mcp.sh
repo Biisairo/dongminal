@@ -7,7 +7,7 @@
 
 set -e
 
-PORT="${PORT:-8080}"
+PORT="${PORT:-58146}"
 NAME="dongminal"
 URL="http://localhost:${PORT}/mcp/sse"
 SCOPE="user"   # user 스코프: 모든 프로젝트에서 공용

@@ -1,8 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
+  globalSetup: './e2e/global-setup.ts',
+  globalTeardown: './e2e/global-teardown.ts',
   testDir: './e2e',
-  fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
@@ -25,7 +26,7 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       PORT: '58147',
-      DONGMINAL_HOME: '/tmp/dongminal-e2e-' + Date.now(),
+      DONGMINAL_HOME: '/tmp/dongminal-e2e-' + Date.now() + '-' + process.pid,
     },
     timeout: 60_000,
   },

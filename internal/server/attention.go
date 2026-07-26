@@ -52,6 +52,17 @@ func attentionAllowBell() bool {
 // BEL. It is observe-only and never mutates the live stream. It returns
 // whether a signal was found and a bounded carry — an unterminated trailing
 // OSC fragment to prepend to the next chunk (nil when none / dropped).
+//
+// Carry mechanism: a fragmented OSC sequence (ESC ] … without a BEL or ST
+// terminator) is saved as the carry and prepended to the next chunk. This
+// handles cross-chunk OSC sequences (e.g. when the PTY read buffer splits a
+// long OSC 9;… sequence across two reads). The carry is bounded by maxCarry:
+// fragments exceeding the limit are silently dropped. This is intentional —
+// an unterminated OSC that large is either a runaway sequence or a malformed
+// escape, and keeping it unbounded would risk memory growth. The next chunk
+// starts fresh without the carry, so a single legitimate notification
+// spanning two reads will still be detected as long as the OSC body is
+// shorter than maxCarry.
 func detectAttentionSignal(b []byte, allowBell bool, maxCarry int) (bool, []byte) {
 	i, n := 0, len(b)
 	for i < n {

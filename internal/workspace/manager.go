@@ -198,6 +198,9 @@ func (m *Manager) Save(blob []byte, ifMatch string) (uint64, error) {
 	m.snap.Store(&snap{raw: buf, rev: newRev})
 	m.idx.Store(ix)
 	m.enqueueWrite(buf)
+	// OnIndexUpdate is called under m.mu. Callers MUST NOT re-enter the
+	// Manager (e.g. call Save, Snapshot, Resolve, or any method that
+	// acquires m.mu) or a deadlock will occur.
 	if m.OnIndexUpdate != nil {
 		m.OnIndexUpdate()
 	}
@@ -346,16 +349,16 @@ func (m *Manager) InvalidatePane(paneID string) {
 
 // ── workspace.json parsing ──────────────────────────
 
-type wsLayout struct {
-	Type      string      `json:"type"`
-	ID        string      `json:"id,omitempty"`
-	Tabs      []wsTab     `json:"tabs,omitempty"`
-	ActiveTab string      `json:"activeTab,omitempty"`
-	Direction string      `json:"direction,omitempty"`
-	Children  []*wsLayout `json:"children,omitempty"`
+type WsLayout struct {
+	Type      string     `json:"type"`
+	ID        string     `json:"id,omitempty"`
+	Tabs      []WsTab    `json:"tabs,omitempty"`
+	ActiveTab string     `json:"activeTab,omitempty"`
+	Direction string     `json:"direction,omitempty"`
+	Children  []*WsLayout `json:"children,omitempty"`
 }
 
-type wsTab struct {
+type WsTab struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
 	PaneID string `json:"paneId"`
@@ -364,7 +367,7 @@ type wsTab struct {
 type wsSession struct {
 	ID            string    `json:"id"`
 	Name          string    `json:"name"`
-	Layout        *wsLayout `json:"layout"`
+	Layout        *WsLayout `json:"layout"`
 	FocusedRegion string    `json:"focusedRegion"`
 }
 
@@ -392,8 +395,8 @@ func buildIndex(blob []byte) (*index, error) {
 		return nil, err
 	}
 	for si, sess := range s.Sessions {
-		var regions []*wsLayout
-		collectRegions(sess.Layout, &regions)
+		var regions []*WsLayout
+		CollectRegions(sess.Layout, &regions)
 		for pi, rg := range regions {
 			for ti, tab := range rg.Tabs {
 				isActive := sess.ID == s.ActiveSession && sess.FocusedRegion == rg.ID && rg.ActiveTab == tab.ID
@@ -431,7 +434,8 @@ func shortCodeOf(uuid string) string {
 	return uuid
 }
 
-func collectRegions(n *wsLayout, out *[]*wsLayout) {
+// CollectRegions walks a layout tree and appends every "region" node to out.
+func CollectRegions(n *WsLayout, out *[]*WsLayout) {
 	if n == nil {
 		return
 	}
@@ -441,7 +445,7 @@ func collectRegions(n *wsLayout, out *[]*wsLayout) {
 	}
 	if n.Type == "split" {
 		for _, c := range n.Children {
-			collectRegions(c, out)
+			CollectRegions(c, out)
 		}
 	}
 }

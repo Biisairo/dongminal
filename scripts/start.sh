@@ -2,7 +2,19 @@
 set -e
 cd "$(dirname "$0")/.."
 
-[ -f .env ] && set -a && source .env && set +a
+# Load .env safely — reads KEY=VALUE lines only, never executes shell code.
+# Limitation: variable references like $HOME inside values are not expanded.
+_load_env() {
+  if [ -f .env ]; then
+    while IFS='=' read -r key value; do
+      case "$key" in
+        ''|\#*) continue ;;
+        *) export "$key=$value" ;;
+      esac
+    done < .env
+  fi
+}
+_load_env
 
 EXPOSE=0
 RESTART_DAEMON=0
@@ -34,13 +46,13 @@ else
 fi
 
 # ── Stop old dongminal (web server) ──────────────────────────
-if lsof -tiTCP:$PORT -sTCP:LISTEN >/dev/null 2>&1; then
+if lsof -ti :$PORT >/dev/null 2>&1; then
   echo "Stopping existing dongminal on port $PORT..."
-  lsof -tiTCP:$PORT -sTCP:LISTEN | xargs kill 2>/dev/null
+  lsof -ti :$PORT | xargs kill 2>/dev/null
   sleep 1
-  if lsof -tiTCP:$PORT -sTCP:LISTEN >/dev/null 2>&1; then
+  if lsof -ti :$PORT >/dev/null 2>&1; then
     echo "Force killing dongminal..."
-    lsof -tiTCP:$PORT -sTCP:LISTEN | xargs kill -9 2>/dev/null
+    lsof -ti :$PORT | xargs kill -9 2>/dev/null
     sleep 1
   fi
 fi
@@ -73,13 +85,20 @@ fi
 
 # ── Build ────────────────────────────────────────────────────
 echo "Building..."
-go build -o $BINARY ./cmd/dongminal
+go build -o "$BINARY" ./cmd/dongminal
 
 # ── Start dongminal ──────────────────────────────────────────
 echo "Starting dongminal on $DONGMINAL_HOST:$PORT..."
-PORT=$PORT DONGMINAL_HOST=$DONGMINAL_HOST DONGMINAL_HOME=$DONGMINAL_HOME ./$BINARY > "$LOG" 2>&1 &
+PORT=$PORT DONGMINAL_HOST=$DONGMINAL_HOST DONGMINAL_HOME=$DONGMINAL_HOME ./"$BINARY" > "$LOG" 2>&1 &
 echo "dongminal PID: $!"
-sleep 1
+
+# ── Wait for readiness ───────────────────────────────────────
+for i in $(seq 1 10); do
+  if curl -sf --max-time 1 "http://$DONGMINAL_HOST:$PORT/api/ping" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.5
+done
 
 # ── Health check ─────────────────────────────────────────────
 if lsof -ti :$PORT >/dev/null 2>&1; then

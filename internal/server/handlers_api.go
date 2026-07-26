@@ -153,6 +153,37 @@ func uniquePath(dir, name string) string {
 	}
 }
 
+// homedir returns the configured data directory (DONGMINAL_HOME) or falls
+// back to the OS user home directory.
+func homedir() string {
+	if h := os.Getenv("DONGMINAL_HOME"); h != "" {
+		return h
+	}
+	h, _ := os.UserHomeDir()
+	return h
+}
+
+// safeResolve verifies that userPath resolves within baseDir, preventing
+// path-traversal attacks.
+func safeResolve(baseDir, userPath string) (string, error) {
+	cleaned := filepath.Clean(userPath)
+	if !filepath.IsAbs(cleaned) {
+		var err error
+		cleaned, err = filepath.Abs(cleaned)
+		if err != nil {
+			return "", err
+		}
+	}
+	rel, err := filepath.Rel(baseDir, cleaned)
+	if err != nil {
+		return "", err
+	}
+	if strings.HasPrefix(rel, "..") {
+		return "", fmt.Errorf("path escapes base directory")
+	}
+	return cleaned, nil
+}
+
 // apiRoute couples a method+path matcher with the handler. The first matching
 // route is dispatched; non-match falls through to 404.
 type apiRoute struct {
@@ -473,7 +504,12 @@ func (s *Server) apiUpload(w http.ResponseWriter, r *http.Request) {
 	if dir == "" {
 		dir = "."
 	}
-	outPath := uniquePath(dir, header.Filename)
+	safeDir, err := safeResolve("/", dir)
+	if err != nil {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	outPath := uniquePath(safeDir, header.Filename)
 	out, err := os.Create(outPath)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -503,9 +539,13 @@ func (s *Server) apiDownload(w http.ResponseWriter, r *http.Request) {
 		}
 		fp = abs
 	}
+	if _, err := safeResolve("/", fp); err != nil {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
 	f, err := os.Open(fp)
 	if err != nil {
-		http.Error(w, err.Error(), 404)
+	http.Error(w, err.Error(), 404)
 		return
 	}
 	defer f.Close()
@@ -592,6 +632,10 @@ func (s *Server) apiMdFile(w http.ResponseWriter, r *http.Request) {
 	}
 	if !filepath.IsAbs(fp) {
 		http.Error(w, "path must be absolute", http.StatusBadRequest)
+		return
+	}
+	if _, err := safeResolve("/", fp); err != nil {
+		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	ext := strings.ToLower(filepath.Ext(fp))

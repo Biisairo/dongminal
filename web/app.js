@@ -3,8 +3,13 @@
  * Session → LayoutTree(Region|Split), Region has own tab bar + terminal
  */
 
+// Binary protocol opcodes. Client→Server uses INPUT(0)/RESIZE(1).
+// Server→Client uses OUTPUT(0)/ERROR(1)/EXIT(2)/SID(3).
+// Same byte values are reused per direction — the protocol is directional,
+// so INPUT(0) and OUTPUT(0) never conflict at the same endpoint.
 const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,SID:3};
 const enc=new TextEncoder(), dec=new TextDecoder();
+const SEARCH_RESEARCH_DELAY=50;
 
 // 활동 패널 자동 새로고침 주기 기본값(ms). 설정에서 변경(per-device localStorage).
 // 비정상 종료·hook 누락으로 SSE 가 안 와도 주기적으로 서버와 동기화 (FR-AAP-19).
@@ -1100,7 +1105,8 @@ class Renderer {
       // FR-PAN-16: 알람이 있는 세션을 사이드바에서 구분 표시
       d.className='si'+(s.id===this.app.ws.activeSession?' active':'')+(this.app._sessionHasAttn(s)?' attn':'');
       d.dataset.sid=s.id;
-      d.innerHTML=`<span class="si-dot"></span><span class="si-name">${s.name}</span><span class="si-x">×</span>`;
+      d.innerHTML='<span class="si-dot"></span><span class="si-name"></span><span class="si-x">×</span>';
+      d.querySelector('.si-name').textContent=s.name;
       d.addEventListener('click',e=>{if(!e.target.classList.contains('si-x'))this.app.switchSession(s.id)});
       d.querySelector('.si-x').addEventListener('click',e=>{e.stopPropagation();this.app.delSession(s.id)});
       d.querySelector('.si-name').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(s,e.target)});
@@ -1253,7 +1259,8 @@ class Renderer {
       const tabAttn=this.app._attnHas(tab.paneId)&&!(focused&&tabActive);
       t.className='rt'+(tabActive?' active':'')+(tabAttn?' attn':'');
       if(tab.paneId) t.dataset.pid=tab.paneId; // 타깃 알림 갱신용(전체 재렌더 없이)
-      t.innerHTML=`<span>${tab.name}</span><span class="rt-x">×</span>`;
+      t.innerHTML='<span></span><span class="rt-x">×</span>';
+      t.querySelector('span').textContent=tab.name;
       t.addEventListener('click',e=>{
         e.stopPropagation();
         if(e.target.classList.contains('rt-x')) this.app.closeTab(n.id,tab.id);
@@ -1542,11 +1549,11 @@ class App {
 
   // 외부 CLI(dmctl) → 서버 → SSE 브로드캐스트 수신 → executeAction 재사용
   _subscribeCommands(){
-    let retry=1000;
+    let retry=1000, retryCount=0, maxRetries=20;
     const connect=()=>{
       try{
         const es=new EventSource('/api/commands/sse');
-        es.onopen=()=>{retry=1000;this._attnRestore();this._activityRestore()};
+        es.onopen=()=>{retry=1000;retryCount=0;this._attnRestore();this._activityRestore()};
         es.onmessage=(e)=>{
           try{
             const m=JSON.parse(e.data);
@@ -1579,6 +1586,7 @@ class App {
         };
         es.onerror=()=>{
           try{es.close()}catch{}
+          if(++retryCount>maxRetries){console.error("[cmd] SSE max retries, giving up");return}
           setTimeout(connect, retry);
           retry=Math.min(retry*2, 30000);
         };
@@ -2181,13 +2189,14 @@ class App {
       const card=document.createElement('div');
       card.className='ag-card'+(this._attnHas(paneId)?' attn':'')+(this._isPaneFocusedActive(paneId)?' focused':'');
       card.dataset.pid=paneId;
-      card.innerHTML=`<div class="ag-loc"></div><div class="ag-state"></div><div class="ag-detail"></div>`;
-      card.querySelector('.ag-loc').textContent=(loc.session.name||'')+' · '+(loc.tab.name||paneId);
-      const st=card.querySelector('.ag-state');
+      const locDiv=document.createElement('div');locDiv.className='ag-loc';locDiv.textContent=(loc.session.name||'')+' · '+(loc.tab.name||paneId);
+      const st=document.createElement('div');st.className='ag-state';
       st.classList.add(info.state); // 상태별 색(.ag-state.working 등)
       st.textContent=(AGENT_STATE_ICON[info.state]||'●')+' '+info.state+(info.tool?' · '+info.tool:'');
-      const dt=card.querySelector('.ag-detail');
-      if(info.detail) dt.textContent=info.detail; else dt.remove();
+      const dt=document.createElement('div');dt.className='ag-detail';
+      if(info.detail){dt.textContent=info.detail;card.appendChild(dt);}
+      card.appendChild(locDiv);
+      card.appendChild(st);
       card.addEventListener('click',()=>{this._jumpToPane(paneId);if(this._attnHas(paneId))this._attnClear(paneId)});
       // FR-AAP-21: 세션 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
       card.draggable=true;
@@ -2277,9 +2286,10 @@ class App {
       const reason=info&&info.reason==='idle'?'작업 멈춤':'알림 신호';
       const item=document.createElement('div');
       item.className='attn-item';
-      item.innerHTML=`<span class="attn-name"></span><span class="attn-reason"></span>`;
-      item.querySelector('.attn-name').textContent=name;
-      item.querySelector('.attn-reason').textContent=reason;
+      const nameSpan=document.createElement('span');nameSpan.className='attn-name';nameSpan.textContent=name;
+      const reasonSpan=document.createElement('span');reasonSpan.className='attn-reason';reasonSpan.textContent=reason;
+      item.appendChild(nameSpan);
+      item.appendChild(reasonSpan);
       item.addEventListener('click',()=>{this._jumpToPane(paneId);this._attnCenterClose()});
       center.appendChild(item);
     }
@@ -2831,7 +2841,7 @@ class App {
             const et=res.headers.get('ETag')||res.headers.get('Etag');
             if(et) this.wsETag=et;
           }
-        }catch{}
+        }catch(err){console.warn('[save] PUT failed',err)}
       }
       this._saveChain=null;
       this._saveInflight=false;
@@ -3127,7 +3137,7 @@ class App {
       if(this._modKbd.alt && out.length>=1 && !out.startsWith('')){
         out=''+out;
       }
-      try{p.term.focus();}catch{}
+      if(p.term){try{p.term.focus()}catch{}}
       try{
         const bts=enc.encode(out);
         const msg=new Uint8Array(1+bts.length);msg[0]=OP.INPUT;msg.set(bts,1);

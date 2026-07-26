@@ -52,8 +52,9 @@ var upgrader = websocket.Upgrader{
 // ── safeConn ─────────────────────────────────────────
 
 type safeConn struct {
-	mu   sync.Mutex
-	conn *websocket.Conn
+	mu        sync.Mutex
+	conn      *websocket.Conn
+	closeOnce sync.Once
 }
 
 func newSafeConn(c *websocket.Conn) *safeConn { return &safeConn{conn: c} }
@@ -81,7 +82,14 @@ func (s *safeConn) send(op byte, payload []byte) {
 	}
 }
 
-func (s *safeConn) close()                              { s.conn.Close() }
+// close is idempotent: sync.Once prevents double-close panics when the
+// deferred close races with an error-path close (e.g. readWS closing on
+// read error while the WS handler's defer also fires).
+func (s *safeConn) close() {
+	s.closeOnce.Do(func() {
+		s.conn.Close()
+	})
+}
 func (s *safeConn) remoteAddr() string                  { return s.conn.RemoteAddr().String() }
 func (s *safeConn) setReadLimit(l int64)                { s.conn.SetReadLimit(l) }
 func (s *safeConn) setReadDeadline(t time.Time) error   { return s.conn.SetReadDeadline(t) }
@@ -515,16 +523,22 @@ func (p *Pane) Write(data []byte) error {
 	_, err := p.ptmx.Write(data)
 	return err
 }
-
-// Resize is the exported wrapper around the unexported resize for
-// PaneManager delegation. It calls pty.Setsize on the PTY master.
-func (p *Pane) Resize(cols, rows uint16) error {
-	return p.resize(cols, rows)
-}
-
 // kill transitions the pane to exited exactly once: it marks exited under
 // cmu, fans out a final OpExit to the clients that were registered at that
 // moment (outside cmu), then tears down the PTY/process and stream.
+//
+// kill is race-free by design:
+//   - sync.Once guarantees the body executes at most once, even when the
+//     readPTY goroutine calls kill() on EOF while an external caller (API
+//     handler, watchdog) concurrently calls kill().
+//   - The once.Do body is self-contained: it snapshots the client list
+//     under cmu, broadcasts outside cmu (avoiding deadlock with addClient),
+//     then tears down resources (ptmx, cmd, stream). No call from inside
+//     the once body re-enters kill() or readPTY.
+//   - Closing p.done inside once.Do safely unblocks any Wait() readers;
+//     the close is also idempotent under the Once guard.
+//   - The onExit callback is NOT invoked here — it was moved to readPTY
+//     (which is the sole caller after EOF) to avoid re-entrancy issues.
 func (p *Pane) kill() {
 	p.once.Do(func() {
 		// Phase 1: atomic mark + snapshot under cmu.
@@ -567,6 +581,12 @@ func (p *Pane) kill() {
 			p.setActivity("ended", "", "")
 		}
 	})
+}
+
+// Resize is the exported wrapper around the unexported resize for
+// PaneManager delegation. It calls pty.Setsize on the PTY master.
+func (p *Pane) Resize(cols, rows uint16) error {
+	return p.resize(cols, rows)
 }
 
 // ── PaneManager ─────────────────────────────────────
@@ -804,7 +824,7 @@ func (m *PaneManager) List() []map[string]interface{} {
 	var out []map[string]interface{}
 	for _, p := range m.panes {
 		pid := 0
-		if p.cmd.Process != nil {
+		if p.cmd != nil && p.cmd.Process != nil {
 			pid = p.cmd.Process.Pid
 		}
 		cols, rows := 0, 0

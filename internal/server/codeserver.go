@@ -199,7 +199,20 @@ func (m *CodeServerManager) Start(folder string) (*CodeServerInst, error) {
 		done:   make(chan struct{}),
 		exited: make(chan struct{}),
 	}
+
+	// Re-check under lock: a concurrent Start for the same folder may have
+	// completed between our first check (above) and now. If so, tear down
+	// our just-launched instance and return the existing one.
 	m.mu.Lock()
+	for _, existing := range m.insts {
+		if existing.Folder == folder {
+			m.mu.Unlock()
+			log.Printf("[cs %s] duplicate for folder=%s; discarding in favor of %s", id, folder, existing.ID)
+			cmd.Process.Kill()
+			os.Remove(sock)
+			return existing, nil
+		}
+	}
 	m.insts[id] = inst
 	m.mu.Unlock()
 	log.Printf("[cs %s] started pid=%d sock=%s folder=%s", id, cmd.Process.Pid, sock, folder)

@@ -182,7 +182,9 @@ func (pc *panedConn) hello(req *panedRequest) interface{} {
 	panes := pc.pm.List()
 	ids := make([]string, 0, len(panes))
 	for _, m := range panes {
-		ids = append(ids, m["id"].(string))
+			if id, ok := m["id"].(string); ok {
+				ids = append(ids, id)
+			}
 	}
 	return panedResponse{ID: req.ID, Result: map[string]interface{}{
 		"version":  1,
@@ -240,7 +242,9 @@ func (pc *panedConn) kill(req *panedRequest) interface{} {
 	var p struct {
 		ID string `json:"id"`
 	}
-	json.Unmarshal(req.Params, &p)
+	if err := json.Unmarshal(req.Params, &p); err != nil {
+		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+	}
 	pc.pm.Delete(p.ID)
 	return panedResponse{ID: req.ID, Result: struct{}{}}
 }
@@ -250,7 +254,9 @@ func (pc *panedConn) write(req *panedRequest) interface{} {
 		ID   string `json:"id"`
 		Data string `json:"data"`
 	}
-	json.Unmarshal(req.Params, &p)
+	if err := json.Unmarshal(req.Params, &p); err != nil {
+		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+	}
 	raw, err := base64.StdEncoding.DecodeString(p.Data)
 	if err != nil {
 		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: "invalid base64"}}
@@ -265,7 +271,9 @@ func (pc *panedConn) resize(req *panedRequest) interface{} {
 		Cols uint16 `json:"cols"`
 		Rows uint16 `json:"rows"`
 	}
-	json.Unmarshal(req.Params, &p)
+	if err := json.Unmarshal(req.Params, &p); err != nil {
+		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+	}
 	pc.pm.Resize(p.ID, p.Cols, p.Rows)
 	return panedResponse{ID: req.ID, Result: struct{}{}}
 }
@@ -280,8 +288,10 @@ func (pc *panedConn) snapshot(req *panedRequest) interface{} {
 	var p struct {
 		ID string `json:"id"`
 	}
-	json.Unmarshal(req.Params, &p)
-	snap, _ := pc.pm.SnapshotPane(p.ID)
+	if err := json.Unmarshal(req.Params, &p); err != nil {
+		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+	}
+	snap, err := pc.pm.SnapshotPane(p.ID); if err != nil { return panedError{ID: req.ID, Error: panedErrObj{Code: -32603, Message: err.Error()}} }
 	return panedResponse{ID: req.ID, Result: map[string]interface{}{
 		"data":           base64.StdEncoding.EncodeToString(snap.Data),
 		"totalBytesIn":   snap.TotalBytesIn,
@@ -294,7 +304,9 @@ func (pc *panedConn) cwd(req *panedRequest) interface{} {
 	var p struct {
 		ID string `json:"id"`
 	}
-	json.Unmarshal(req.Params, &p)
+	if err := json.Unmarshal(req.Params, &p); err != nil {
+		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+	}
 	return panedResponse{ID: req.ID, Result: map[string]interface{}{
 		"cwd": pc.pm.Cwd(p.ID),
 	}}
@@ -304,7 +316,9 @@ func (pc *panedConn) busy(req *panedRequest) interface{} {
 	var p struct {
 		ID string `json:"id"`
 	}
-	json.Unmarshal(req.Params, &p)
+	if err := json.Unmarshal(req.Params, &p); err != nil {
+		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+	}
 	return panedResponse{ID: req.ID, Result: map[string]interface{}{
 		"busy": pc.pm.Busy(p.ID),
 	}}

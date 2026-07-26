@@ -55,20 +55,8 @@ func runDmctl(args []string, stdout, stderr io.Writer) int {
 	cmd := args[0]
 	rest := args[1:]
 
-	switch cmd {
-	case "-h", "--help", "help":
-		fmt.Fprint(stdout, dmctlHelp)
-		return 0
-	case "send":
-		return dmctlSend(rest, stdout, stderr)
-	case "list-panes":
-		return dmctlListPanes(rest, stdout, stderr)
-	case "who-am-i":
-		return dmctlWhoAmI(rest, stdout, stderr)
-	case "notify":
-		return runDmctlNotify(rest, stdout, stderr)
-	case "activity":
-		return runDmctlActivity(rest, os.Stdin, stdout, stderr)
+	if code, handled := runDmctlSpecial(cmd, rest, stdout, stderr); handled {
+		return code
 	}
 
 	parsed, err := parseDmctlFlags(rest)
@@ -77,59 +65,99 @@ func runDmctl(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
+	return runDmctlWithFlags(cmd, parsed, stdout, stderr)
+}
+
+// runDmctlSpecial handles commands that don't need flag parsing
+// (help, send, list-panes, who-am-i, notify, activity).
+// Returns (exitCode, true) if handled, (0, false) otherwise.
+func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, bool) {
+	switch cmd {
+	case "-h", "--help", "help":
+		fmt.Fprint(stdout, dmctlHelp)
+		return 0, true
+	case "send":
+		return dmctlSend(rest, stdout, stderr), true
+	case "list-panes":
+		return dmctlListPanes(rest, stdout, stderr), true
+	case "who-am-i":
+		return dmctlWhoAmI(rest, stdout, stderr), true
+	case "notify":
+		return runDmctlNotify(rest, stdout, stderr), true
+	case "activity":
+		return runDmctlActivity(rest, os.Stdin, stdout, stderr), true
+	}
+	return 0, false
+}
+
+// runDmctlWithFlags handles commands that require flag parsing
+// (split, focus, rename, and simple actions lookup).
+func runDmctlWithFlags(cmd string, parsed dmctlParsed, stdout, stderr io.Writer) int {
 	switch cmd {
 	case "split-h", "split-v":
-		action := "splitH"
-		if cmd == "split-v" {
-			action = "splitV"
-		}
-		if parsed.positional != "" {
-			n, err := strconv.Atoi(parsed.positional)
-			if err != nil || n < 0 {
-				fmt.Fprintf(stderr, "split count must be a positive integer: %s\n", parsed.positional)
-				return 2
-			}
-			if n < 2 {
-				fmt.Fprintln(stderr, "split count must be >= 2")
-				return 2
-			}
-			parsed.count = &n
-		}
-		return dmctlPost(action, parsed.buildArgs(), stdout, stderr)
+		return runDmctlSplit(cmd, &parsed, stdout, stderr)
 	case "focus":
-		if parsed.location == "" && parsed.positional != "" {
-			parsed.location = parsed.positional
-		}
-		if parsed.location == "" {
-			fmt.Fprintln(stderr, "usage: dmctl focus <uuid>  (list-panes 의 uuid 컬럼 값)")
-			return 2
-		}
-		args := parsed.buildArgs()
-		// Include source pane so the browser can route the focus only to
-		// windows that actually show this pane (multi-window).
-		if pid := os.Getenv("DONGMINAL_PANE_ID"); pid != "" {
-			args["sourcePane"] = pid
-		}
-		return dmctlPost("focus", args, stdout, stderr)
+		return runDmctlFocus(cmd, &parsed, stdout, stderr)
 	case "rename-tab", "rename-session":
-		action := "renameTab"
-		if cmd == "rename-session" {
-			action = "renameSession"
-		}
-		if parsed.name == "" && parsed.positional != "" {
-			parsed.name = parsed.positional
-		}
-		if parsed.location == "" || parsed.name == "" {
-			fmt.Fprintf(stderr, "usage: dmctl %s --at <uuid> <name>  (또는 --name <name>)\n", cmd)
-			return 2
-		}
-		return dmctlPost(action, parsed.buildArgs(), stdout, stderr)
+		return runDmctlRename(cmd, &parsed, stdout, stderr)
 	}
 
 	action, ok := dmctlSimpleActions[cmd]
 	if !ok {
 		fmt.Fprintf(stderr, "unknown command: %s\n", cmd)
 		fmt.Fprint(stderr, dmctlHelp)
+		return 2
+	}
+	return dmctlPost(action, parsed.buildArgs(), stdout, stderr)
+}
+
+func runDmctlSplit(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) int {
+	action := "splitH"
+	if cmd == "split-v" {
+		action = "splitV"
+	}
+	if parsed.positional != "" {
+		n, err := strconv.Atoi(parsed.positional)
+		if err != nil || n < 0 {
+			fmt.Fprintf(stderr, "split count must be a positive integer: %s\n", parsed.positional)
+			return 2
+		}
+		if n < 2 {
+			fmt.Fprintln(stderr, "split count must be >= 2")
+			return 2
+		}
+		parsed.count = &n
+	}
+	return dmctlPost(action, parsed.buildArgs(), stdout, stderr)
+}
+
+func runDmctlFocus(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) int {
+	if parsed.location == "" && parsed.positional != "" {
+		parsed.location = parsed.positional
+	}
+	if parsed.location == "" {
+		fmt.Fprintln(stderr, "usage: dmctl focus <uuid>  (list-panes 의 uuid 컬럼 값)")
+		return 2
+	}
+	args := parsed.buildArgs()
+	// Include source pane so the browser can route the focus only to
+	// windows that actually show this pane (multi-window).
+	if pid := os.Getenv("DONGMINAL_PANE_ID"); pid != "" {
+		args["sourcePane"] = pid
+	}
+	return dmctlPost("focus", args, stdout, stderr)
+}
+
+func runDmctlRename(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) int {
+	action := "renameTab"
+	if cmd == "rename-session" {
+		action = "renameSession"
+	}
+	if parsed.name == "" && parsed.positional != "" {
+		parsed.name = parsed.positional
+	}
+	if parsed.location == "" || parsed.name == "" {
+		fmt.Fprintf(stderr, "usage: dmctl %s --at <uuid> <name>  (또는 --name <name>)\n", cmd)
 		return 2
 	}
 	return dmctlPost(action, parsed.buildArgs(), stdout, stderr)

@@ -1,6 +1,19 @@
 #!/bin/bash
+set -e
 cd "$(dirname "$0")/.."
-[ -f .env ] && set -a && source .env && set +a
+# Load .env safely — reads KEY=VALUE lines only, never executes shell code.
+# Limitation: variable references like $HOME inside values are not expanded.
+_load_env() {
+  if [ -f .env ]; then
+    while IFS='=' read -r key value; do
+      case "$key" in
+        ''|\#*) continue ;;
+        *) export "$key=$value" ;;
+      esac
+    done < .env
+  fi
+}
+_load_env
 
 PORT="${PORT:-58146}"
 DONGMINAL_HOME="${DONGMINAL_HOME:-$HOME/.dongminal}"
@@ -20,28 +33,28 @@ for arg in "$@"; do
   esac
 done
 
-dongminal_stopped=0
-dongminald_stopped=0
+dongminal_ok=0
+dongminald_ok=0
 
 # ── Stop dongminal (web server) ──────────────────────────────
-if lsof -tiTCP:$PORT -sTCP:LISTEN >/dev/null 2>&1; then
+if lsof -ti :$PORT >/dev/null 2>&1; then
   echo "Stopping dongminal on port $PORT..."
-  lsof -tiTCP:$PORT -sTCP:LISTEN | xargs kill 2>/dev/null
+  lsof -ti :$PORT | xargs kill 2>/dev/null
   sleep 1
-  if lsof -tiTCP:$PORT -sTCP:LISTEN >/dev/null 2>&1; then
+  if lsof -ti :$PORT >/dev/null 2>&1; then
     echo "Force killing dongminal..."
-    lsof -tiTCP:$PORT -sTCP:LISTEN | xargs kill -9 2>/dev/null
+    lsof -ti :$PORT | xargs kill -9 2>/dev/null
     sleep 1
   fi
-  if lsof -tiTCP:$PORT -sTCP:LISTEN >/dev/null 2>&1; then
+  if lsof -ti :$PORT >/dev/null 2>&1; then
     echo "❌ Failed to stop dongminal"
   else
     echo "✅ dongminal stopped"
-    dongminal_stopped=1
+    dongminal_ok=1
   fi
 else
   echo "dongminal not running on port $PORT"
-  dongminal_stopped=1  # already stopped
+  dongminal_ok=1  # already stopped
 fi
 
 # ── Optionally stop dongminald (PTY daemon) ─────────────────
@@ -56,15 +69,16 @@ if [ "$STOP_ALL" = "1" ]; then
       rm -f "${PID_FILE}"
       rm -f "${SOCK_PATH}"
       echo "✅ dongminald stopped"
-      dongminald_stopped=1
+      dongminald_ok=1
     else
       rm -f "${PID_FILE}"
+      rm -f "${SOCK_PATH}"
       echo "dongminald not running (stale pidfile removed)"
-      dongminald_stopped=1
+      dongminald_ok=1
     fi
   else
     echo "dongminald not running (no pidfile)"
-    dongminald_stopped=1
+    dongminald_ok=1
   fi
 else
   if [ -f "${PID_FILE}" ]; then
@@ -77,13 +91,13 @@ fi
 
 # ── Final status ─────────────────────────────────────────────
 if [ "$STOP_ALL" = "1" ]; then
-  if [ "$dongminal_stopped" = "1" ] && [ "$dongminald_stopped" = "1" ]; then
+  if [ "$dongminal_ok" = "1" ] && [ "$dongminald_ok" = "1" ]; then
     exit 0
   else
     exit 1
   fi
 else
-  if [ "$dongminal_stopped" = "1" ]; then
+  if [ "$dongminal_ok" = "1" ]; then
     exit 0
   else
     exit 1

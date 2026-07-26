@@ -7,6 +7,7 @@ import (
 
 	"dongminal/internal/mcptool"
 	"dongminal/internal/paneline"
+	"dongminal/internal/runtimebin"
 )
 
 const ListPanesName = "list_panes"
@@ -54,16 +55,16 @@ func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcp
 
 		entries := make([]mcptool.WorkspaceEntry, 0, len(rawEntries))
 		seen := make(map[string]bool, len(rawEntries))
-		for _, e := range rawEntries {
-			seen[e.PaneID] = true
-			if !d.PM.Has(e.PaneID) {
-				continue
-			}
-			if !nameMatchFold(e.SessionName, a.Session) || !nameMatchFold(e.TabName, a.Tab) {
-				continue
-			}
-			entries = append(entries, e)
+	for _, e := range rawEntries {
+		seen[e.PaneID] = true
+		if !d.PM.Has(e.PaneID) {
+			continue
 		}
+		if !runtimebin.MatchFold(e.SessionName, a.Session) || !runtimebin.MatchFold(e.TabName, a.Tab) {
+			continue
+		}
+		entries = append(entries, e)
+	}
 
 		var orphans []mcptool.PaneInfo
 		if !filtered { // FR-LPF-3: 필터 시 orphan 섹션 생략 (이름 매칭 대상 아님)
@@ -113,13 +114,6 @@ func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcp
 	}
 }
 
-// nameMatchFold 는 substr 이 비었으면 통과, 아니면 case-insensitive substring 매칭.
-func nameMatchFold(s, substr string) bool {
-	if substr == "" {
-		return true
-	}
-	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
-}
 
 // parseSize는 "WxH" 형식 문자열을 정수 쌍으로 변환한다. 실패하면 0,0.
 func parseSize(s string) (int, int) {

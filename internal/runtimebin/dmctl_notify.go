@@ -38,6 +38,9 @@ func runDmctlNotify(args []string, stdout, stderr io.Writer) int {
 	url := baseURL() + "/api/panes/attention/set"
 	body := map[string]any{"paneId": paneID, "reason": sanitizeNotifyLabel(label)}
 	status, resp, err := httpPostJSON(url, body)
+	// Report codex activity on every notify attempt, even if the attention
+	// POST itself fails. Best-effort and silent — never affects exit status.
+	reportCodexActivity(label, args, paneID)
 	if err != nil {
 		fmt.Fprintf(stderr, "dmctl notify: %v\n", err)
 		return 1
@@ -49,7 +52,6 @@ func runDmctlNotify(args []string, stdout, stderr io.Writer) int {
 		}
 		return 1
 	}
-	reportCodexActivity(label, args, paneID)
 	return 0
 }
 
