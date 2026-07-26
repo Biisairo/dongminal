@@ -75,8 +75,7 @@ class Renderer {
       }
       p.el.classList.remove('vis');area.appendChild(p.el);
     }
-    for(const v of this.app.mdViewers.values()){
-      if(v.el.classList.contains('vis')) v._scrollTop=v.el.scrollTop;
+    for(const v of this.app.fileEditors.values()){
       v.el.classList.remove('vis');area.appendChild(v.el);
     }
     for(const c of [...area.children]){if(c.classList.contains('sp')||c.classList.contains('rg'))c.remove()}
@@ -99,7 +98,7 @@ class Renderer {
     const allTabIds=new Set();
     const walk=n=>{if(!n)return;if(n.type==='region'&&n.tabs)n.tabs.forEach(t=>allTabIds.add(t.id));if(n.type==='split'&&n.children)n.children.forEach(walk)};
     for(const sess of this.app.ws.sessions){if(sess&&sess.layout)walk(sess.layout)}
-    for(const[tid,v] of this.app.mdViewers){if(!allTabIds.has(tid)){v.destroy();this.app.mdViewers.delete(tid)}}
+    for(const[tid,v] of this.app.fileEditors){if(!allTabIds.has(tid)){v.destroy();this.app.fileEditors.delete(tid)}}
     requestAnimationFrame(()=>{
       for(const p of this.app.panes.values()){
         if(p.el.classList.contains('vis')){
@@ -150,7 +149,7 @@ class Renderer {
       if(this.app.focused){
         const rg=findRg(s.layout,this.app.focused);
         if(rg){const tab=rg.tabs.find(t=>t.id===rg.activeTab);if(tab){
-          if(tab.type==='markdown'){const v=this.app.mdViewers.get(tab.id);if(v)v.el.focus()}
+          if(tab.type==='editor'){const v=this.app.fileEditors.get(tab.id);if(v)v.el.focus()}
           else{const p=this.app.panes.get(tab.paneId);if(p)p.focus()}
         }}
       }
@@ -184,15 +183,16 @@ class Renderer {
       const tabActive=tab.id===n.activeTab;
       const tabAttn=this.app._attnHas(tab.paneId)&&!(focused&&tabActive);
       t.className='rt'+(tabActive?' active':'')+(tabAttn?' attn':'');
-      if(tab.paneId) t.dataset.pid=tab.paneId; // 타깃 알림 갱신용(전체 재렌더 없이)
-      t.innerHTML='<span></span><span class="rt-x">×</span>';
-      t.querySelector('span').textContent=tab.name;
+      t.dataset.tabId=tab.id;
+      if(tab.paneId) t.dataset.pid=tab.paneId;
+      t.innerHTML='<span class="rt-label"></span><span class="rt-x">×</span>';
+      t.querySelector('.rt-label').textContent=(tab.dirty?'● ':'')+tab.name;
       t.addEventListener('click',e=>{
         e.stopPropagation();
         if(e.target.classList.contains('rt-x')) this.app.closeTab(n.id,tab.id);
         else this.app.switchTab(n.id,tab.id);
       });
-      t.querySelector('span').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(tab,e.target)});
+      t.querySelector('.rt-label').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(tab,e.target)});
       t.draggable=true;
       t.addEventListener('dragstart',e=>{this.app._drag={type:'tab',srcRegionId:n.id,tabId:tab.id};e.dataTransfer.effectAllowed='move';e.stopPropagation();setTimeout(()=>t.classList.add('dragging'),0)});
       t.addEventListener('dragend',()=>{this.app._drag=null;t.classList.remove('dragging');tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));document.querySelectorAll('.rg-drop-indicator').forEach(ind=>ind.style.display='none')});
@@ -209,17 +209,10 @@ class Renderer {
     const body=document.createElement('div'); body.className='rg-body';
     const at=(n.tabs||[]).find(t=>t.id===n.activeTab);
     if(at){
-      if(at.type==='markdown'){
-        let viewer=this.app.mdViewers.get(at.id);
-        if(!viewer){viewer=new MdViewer(at.id,at.name,at.filePath);this.app.mdViewers.set(at.id,viewer)}
-        body.appendChild(viewer.el);viewer.el.classList.add('vis');
-        if(viewer._scrollTop){
-          const st=viewer._scrollTop;
-          viewer._suppressScroll=(viewer._suppressScroll||0)+1;
-          requestAnimationFrame(()=>{viewer.el.scrollTop=st;setTimeout(()=>{viewer._suppressScroll=Math.max(0,viewer._suppressScroll-1)},80)});
-        } else {
-          viewer._tryRestore();
-        }
+      if(at.type==='editor'){
+        let editor=this.app.fileEditors.get(at.id);
+        if(!editor){editor=new FileEditor(at.id,at.name,at.filePath);this.app.fileEditors.set(at.id,editor)}
+        body.appendChild(editor.el);editor.el.classList.add('vis');
       }else{
         const p=this.app.panes.get(at.paneId);
         if(p){body.appendChild(p.el);p.el.classList.add('vis')}

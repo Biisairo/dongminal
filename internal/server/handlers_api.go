@@ -17,7 +17,6 @@ import (
 	"syscall"
 	"time"
 
-	"dongminal/internal/mdscroll"
 	"dongminal/internal/workspace"
 )
 
@@ -208,15 +207,10 @@ var apiRoutes = []apiRoute{
 	{http.MethodPost, exactPath("/api/upload"), (*Server).apiUpload},
 	{http.MethodGet, exactPath("/api/download"), (*Server).apiDownload},
 	{http.MethodGet, exactPath("/api/cwd"), (*Server).apiCwd},
-	{http.MethodGet, exactPath("/api/code-server"), (*Server).apiCodeServerList},
-	{http.MethodPost, exactPath("/api/code-server"), (*Server).apiCodeServerStart},
-	{http.MethodPost, exactPath("/api/code-server/heartbeat"), (*Server).apiCodeServerHeartbeat},
-	{http.MethodPost, exactPath("/api/code-server/stop"), (*Server).apiCodeServerStop},
+	{http.MethodGet, exactPath("/api/file/read"), (*Server).apiFileRead},
+	{http.MethodPost, exactPath("/api/file/write"), (*Server).apiFileWrite},
 	{"", exactPath("/api/ping"), (*Server).apiPing},
 	{http.MethodGet, exactPath("/api/stats"), (*Server).apiStats},
-	{http.MethodGet, exactPath("/api/md-file"), (*Server).apiMdFile},
-	{http.MethodGet, exactPath("/api/md-scroll"), (*Server).apiMdScrollGet},
-	{http.MethodPut, exactPath("/api/md-scroll"), (*Server).apiMdScrollPut},
 }
 
 func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
@@ -562,60 +556,7 @@ func (s *Server) apiCwd(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"cwd": cwd})
 }
 
-func (s *Server) apiCodeServerList(w http.ResponseWriter, r *http.Request) {
-	var list []map[string]interface{}
-	if s.CS != nil {
-		list = s.CS.List()
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(list)
-}
-
-func (s *Server) apiCodeServerStart(w http.ResponseWriter, r *http.Request) {
-	if s.CS == nil {
-		http.Error(w, "code-server unavailable", 500)
-		return
-	}
-	folder := r.URL.Query().Get("path")
-	inst, err := s.CS.Start(folder)
-	if err != nil {
-		log.Printf("code-server start error: %v", err)
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"id": inst.ID, "path": "/cs/" + inst.ID + "/", "folder": inst.Folder,
-	})
-}
-
-func (s *Server) apiCodeServerHeartbeat(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
-	if s.CS == nil || !s.CS.Touch(id) {
-		http.Error(w, "not found", 404)
-		return
-	}
-	w.WriteHeader(200)
-}
-
-func (s *Server) apiCodeServerStop(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
-	if s.CS != nil {
-		s.CS.Stop(id)
-	}
-	w.WriteHeader(200)
-}
-
-func (s *Server) apiPing(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("ok"))
-}
-
-func (s *Server) apiStats(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(s.getStats())
-}
-
-func (s *Server) apiMdFile(w http.ResponseWriter, r *http.Request) {
+func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 	fp := r.URL.Query().Get("path")
 	if fp == "" {
 		http.Error(w, "missing path", http.StatusBadRequest)
@@ -629,11 +570,6 @@ func (s *Server) apiMdFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
-	ext := strings.ToLower(filepath.Ext(fp))
-	if ext != ".md" && ext != ".mdown" && ext != ".markdown" {
-		http.Error(w, "only markdown files (.md, .mdown, .markdown) are allowed", http.StatusForbidden)
-		return
-	}
 	f, err := os.Open(fp)
 	if err != nil {
 		http.Error(w, "file not found", http.StatusNotFound)
@@ -645,65 +581,52 @@ func (s *Server) apiMdFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not a file", http.StatusBadRequest)
 		return
 	}
-	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	io.Copy(w, f)
 }
 
-func (s *Server) apiMdScrollGet(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	if s.MdScroll == nil {
-		w.Write([]byte(`{"tabs":{}}`))
-		return
-	}
-	json.NewEncoder(w).Encode(map[string]any{"tabs": s.MdScroll.Snapshot()})
+type fileWriteReq struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
 }
 
-type mdScrollPutReq struct {
-	TabID string  `json:"tabId"`
-	Top   float64 `json:"top"`
-	Ratio float64 `json:"ratio"`
-	By    string  `json:"by"`
-}
-
-func (s *Server) apiMdScrollPut(w http.ResponseWriter, r *http.Request) {
-	if s.MdScroll == nil {
-		http.Error(w, "md-scroll unavailable", http.StatusServiceUnavailable)
-		return
-	}
+func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "read body: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	var req mdScrollPutReq
+	var req fileWriteReq
 	if err := json.Unmarshal(body, &req); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
+		http.Error(w, "invalid json: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	if req.TabID == "" {
-		http.Error(w, "tabId required", http.StatusBadRequest)
+	if req.Path == "" {
+		http.Error(w, "missing path", http.StatusBadRequest)
 		return
 	}
-	if math.IsNaN(req.Top) || math.IsInf(req.Top, 0) || math.IsNaN(req.Ratio) || math.IsInf(req.Ratio, 0) {
-		http.Error(w, "invalid number", http.StatusBadRequest)
+	if !filepath.IsAbs(req.Path) {
+		http.Error(w, "path must be absolute", http.StatusBadRequest)
 		return
 	}
-	ts := time.Now().UnixMilli()
-	entry := mdscroll.Entry{Top: req.Top, Ratio: req.Ratio, TS: ts}
-	s.MdScroll.Set(req.TabID, entry)
+	if _, err := safeResolve("/", req.Path); err != nil {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	if err := os.WriteFile(req.Path, []byte(req.Content), 0o644); err != nil {
+		log.Printf("file write error: %v", err)
+		http.Error(w, "write failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"ok": true, "ts": ts})
-	if s.Commands != nil {
-		payload, _ := json.Marshal(map[string]any{
-			"action": "md_scroll_changed",
-			"args": map[string]any{
-				"tabId": req.TabID,
-				"top":   req.Top,
-				"ratio": req.Ratio,
-				"ts":    ts,
-				"by":    req.By,
-			},
-		})
-		s.Commands.Broadcast(payload)
-	}
+	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+}
+
+func (s *Server) apiPing(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("ok"))
+}
+
+func (s *Server) apiStats(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(s.getStats())
 }

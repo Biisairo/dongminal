@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"time"
-
 	"dongminal/internal/mcptool"
-	"dongminal/internal/mdscroll"
 	"dongminal/internal/workspace"
 )
 
@@ -35,14 +33,6 @@ type PaneHub interface {
 	IsDaemon() bool
 }
 
-// CodeServerHost exposes the subset of CodeServerManager consumed by handlers.
-type CodeServerHost interface {
-	List() []map[string]interface{}
-	Start(folder string) (*CodeServerInst, error)
-	Get(id string) *CodeServerInst
-	Touch(id string) bool
-	Stop(id string)
-}
 
 // WorkspaceStore is implemented by *workspace.Manager; kept as an interface so
 // tests can inject a fake without bringing up the real persister. Only the
@@ -93,22 +83,14 @@ type SettingsStore interface {
 	save()
 }
 
-// MdScrollStore abstracts the markdown viewer scroll persistence layer.
-type MdScrollStore interface {
-	Get(tabID string) (mdscroll.Entry, bool)
-	Set(tabID string, e mdscroll.Entry)
-	Snapshot() map[string]mdscroll.Entry
-}
 
 // Deps is the full injection surface for New.
 type Deps struct {
 	Panes       PaneHub
-	CS          CodeServerHost
 	Work        WorkspaceStore
 	Tools       ToolDispatcher
 	Commands    CommandBroker
 	Settings    SettingsStore
-	MdScroll    MdScrollStore
 	AttnTracker *AttnTracker // daemon mode: attention/activity tracking in dongminal
 	// WhoAmI resolves a request's RemoteAddr to the originating pane via
 	// PID parent-chain walking. /api/whoami uses it (FR-API-WAI-1). Nil → 500.

@@ -183,12 +183,8 @@ var allowedCmdActions = map[string]bool{
 	"paneDown":      true,
 	"paneLeft":      true,
 	"paneRight":     true,
-	"openMdTab":     true,
+	"openEditorTab": true,
 	"renameTab":     true,
-	"renameSession": true,
-	// md_scroll_changed is emitted server-side after PUT /api/md-scroll. It is
-	// not in the dmctl POST path; clients receive it via SSE only.
-	"md_scroll_changed": true,
 }
 
 // AllowedAction reports whether the action is accepted by the hub.

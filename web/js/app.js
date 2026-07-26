@@ -4,8 +4,7 @@
 class App {
   constructor(){
     this.panes=new Map();
-    this.mdViewers=new Map();
-    this.mdScrolls=new Map();
+    this.fileEditors=new Map();
     this.clientId=(crypto&&crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2));
     this.ws={sessions:[],activeSession:null};
     this.wsETag=null;
@@ -155,7 +154,6 @@ class App {
     }catch{}
     const a=this._as();
     if(a&&a.layout){const saved=a.focusedRegion;const f=(saved&&findRg(a.layout,saved))?{id:saved}:firstRg(a.layout);if(f)this._setFocus(f.id, a)}
-    await this._loadMdScrolls();
     this.render();
     this._bind();
     this._subscribeCommands();
@@ -170,36 +168,6 @@ class App {
     this._applyFocusOverlay();
   }
 
-  async _loadMdScrolls(){
-    try{
-      const r=await fetch('/api/md-scroll');
-      if(!r.ok) return;
-      const j=await r.json();
-      const tabs=j&&j.tabs;
-      if(!tabs) return;
-      for(const[k,v] of Object.entries(tabs)) this.mdScrolls.set(k,v);
-    }catch(e){console.warn('[mdscroll] load',e)}
-  }
-
-  saveMdScroll(tabId, top, ratio){
-    if(!tabId) return;
-    const ts=Date.now();
-    this.mdScrolls.set(tabId, {top, ratio, ts});
-    fetch('/api/md-scroll', {
-      method:'PUT',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({tabId, top, ratio, by: this.clientId}),
-    }).catch(e=>console.warn('[mdscroll] put',e));
-  }
-
-  _onMdScrollRemote(args){
-    if(!args||!args.tabId) return;
-    if(args.by===this.clientId) return;
-    const entry={top: args.top||0, ratio: args.ratio||0, ts: args.ts||Date.now()};
-    this.mdScrolls.set(args.tabId, entry);
-    const v=this.mdViewers.get(args.tabId);
-    if(v&&v.el.classList.contains('vis')) v._applyScroll(entry);
-  }
 
   // 외부 CLI(dmctl) → 서버 → SSE 브로드캐스트 수신 → executeAction 재사용
   _subscribeCommands(){
@@ -213,10 +181,6 @@ class App {
             const m=JSON.parse(e.data);
             if(m.action==='workspace_changed'){
               this._onWorkspaceChanged(m.args&&m.args.rev);
-              return;
-            }
-            if(m.action==='md_scroll_changed'){
-              this._onMdScrollRemote(m.args||{});
               return;
             }
             if(m.action==='pane_attention'){
@@ -354,12 +318,12 @@ class App {
       }
       this._focusLocation(args.location); return
     }
-    if(action==='openMdTab'){
+    if(action==='openEditorTab'){
       const{name,filePath,location}=args;
-      if(!filePath){console.warn('[cmd] openMdTab: filePath required');return}
+      if(!filePath){console.warn('[cmd] openEditorTab: filePath required');return}
       if(location) this._focusLocation(location);
       const rid=this.focused;
-      if(rid) this.addTab(rid,'markdown',{name:name||filePath.split('/').pop(),filePath});
+      if(rid) this.addTab(rid,'editor',{name:name||filePath.split('/').pop(),filePath});
       return;
     }
     // RENAME_TAB_SESSION_SRS FR-RNS-1/2: 순수 데이터 변경 — 포커스 무영향.
@@ -521,15 +485,21 @@ class App {
     try{const r=await fetch(`/api/panes/${paneId}/busy`);const d=await r.json();return d.busy}catch{return false}
   }
 
-  _confirmClose(msg){
+  _confirmClose(msg, opts = {}){
     return new Promise(resolve=>{
       const ov=document.createElement('div');ov.className='confirm-overlay';
-      ov.innerHTML=`<div class="confirm-box"><div class="confirm-msg">${msg}</div><div class="confirm-btns"><button class="confirm-ok">닫기</button><button class="confirm-cancel">취소</button></div></div>`;
+      let btns = '<button class="confirm-ok">닫기</button><button class="confirm-cancel">취소</button>';
+      if (opts.saveBtn) {
+        btns = '<button class="confirm-save">저장 후 닫기</button>' + btns;
+      }
+      ov.innerHTML=`<div class="confirm-box"><div class="confirm-msg">${msg}</div><div class="confirm-btns">${btns}</div></div>`;
       document.body.appendChild(ov);
-      ov.querySelector('.confirm-ok').focus();
+      const saveBtn = ov.querySelector('.confirm-save');
+      if (saveBtn) saveBtn.focus(); else ov.querySelector('.confirm-ok').focus();
       const cleanup=v=>{ov.remove();document.removeEventListener('keydown',onKey);resolve(v)};
-      const onKey=e=>{if(e.key==='Enter'){e.preventDefault();cleanup(true)}else if(e.key==='Escape'){e.preventDefault();cleanup(false)}};
+      const onKey=e=>{if(e.key==='Enter'){e.preventDefault();cleanup(saveBtn?'save':true)}else if(e.key==='Escape'){e.preventDefault();cleanup(false)}};
       document.addEventListener('keydown',onKey);
+      if (saveBtn) saveBtn.addEventListener('click',()=>cleanup('save'));
       ov.querySelector('.confirm-ok').addEventListener('click',()=>cleanup(true));
       ov.querySelector('.confirm-cancel').addEventListener('click',()=>cleanup(false));
       ov.addEventListener('click',e=>{if(e.target===ov)cleanup(false)});
@@ -1121,7 +1091,7 @@ class App {
     this._save(); this.render();
   }
 
-  _findMdTab(filePath) {
+  _findEditorTab(filePath) {
     for (const s of this.ws.sessions) {
       if (!s || !s.layout) continue;
       let result = null;
@@ -1129,7 +1099,7 @@ class App {
         if (!n || result) return;
         if (n.type === 'region' && n.tabs) {
           for (const t of n.tabs) {
-            if (t.type === 'markdown' && t.filePath === filePath) {
+            if (t.type === 'editor' && t.filePath === filePath) {
               result = { tab: t, region: n, session: s };
               return;
             }
@@ -1150,9 +1120,9 @@ class App {
     const s = opts.sessionId ? this.ws.sessions.find(x => x.id === opts.sessionId) : this._as();
     if (!s) return;
     const rg = findRg(s.layout, rid); if (!rg) return;
-    if (type === 'markdown') {
-      if (!opts.filePath) { console.warn('[addTab] markdown tab requires filePath'); return }
-      const existing = this._findMdTab(opts.filePath);
+    if (type === 'editor') {
+      if (!opts.filePath) { console.warn('[addTab] editor tab requires filePath'); return }
+      const existing = this._findEditorTab(opts.filePath);
       if (existing) {
         const cur = this._as(); if (cur) cur.focusedRegion = this.focused;
         this.ws.activeSession = existing.session.id;
@@ -1160,15 +1130,15 @@ class App {
         existing.region.activeTab = existing.tab.id;
         this._setFocus(existing.region.id, existing.session);
         this._focusSession(existing.session.id);
-        const viewer = this.mdViewers.get(existing.tab.id);
-        if (viewer) viewer.refresh();
+        const editor = this.fileEditors.get(existing.tab.id);
+        if (editor) editor.refresh();
         this.render();
         this._save();
         return;
       }
       const name = opts.name || opts.filePath.split('/').pop();
       const t = `t${++this._t}`;
-      rg.tabs.push({ id: t, name, type: 'markdown', filePath: opts.filePath });
+      rg.tabs.push({ id: t, name, type: 'editor', filePath: opts.filePath });
       rg.activeTab = t;
       this.render();
       this._save();
@@ -1194,10 +1164,18 @@ class App {
     if(!s) return;
     const rg=findRg(s.layout,rid); if(!rg) return;
     const tab=rg.tabs.find(t=>t.id===tid); if(!tab) return;
-    const isMd=tab.type==='markdown';
-    if(isMd){
-      const viewer=this.mdViewers.get(tab.id);
-      if(viewer){viewer.destroy();this.mdViewers.delete(tab.id)}
+    const isEditor=tab.type==='editor';
+    if(isEditor){
+      const editor=this.fileEditors.get(tab.id);
+      if(editor && editor._dirty){
+        const result=await this._confirmClose('저장되지 않은 변경사항이 있습니다.', { saveBtn: true });
+        if(result==='save'){
+          await editor.save();
+        }else if(!result){
+          return;
+        }
+      }
+      if(editor){editor.destroy();this.fileEditors.delete(tab.id)}
     }else{
       if(await this._isPaneBusy(tab.paneId)){
         const ok=await this._confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?');
@@ -1207,26 +1185,26 @@ class App {
     const paneId=tab.paneId;
     const closingIdx=rg.tabs.findIndex(t=>t.id===tid);
     rg.tabs=rg.tabs.filter(t=>t.id!==tid);
+    const prevClosestId=rg.tabs.length?rg.tabs[Math.min(closingIdx,rg.tabs.length-1)].id:null;
     const isActive = s.id === this.ws.activeSession;
-    if(!rg.tabs.length){
-      const prevClosestId=closestRg(s.layout,rid)?.id||null;
+    if(rg.tabs.length===0){
       s.layout=doRemove(s.layout,rid);
-      if(!s.layout){if(!isMd&&paneId)this._killBg(paneId);await this.delSession(s.id);return}
+      if(!s.layout){if(!isEditor&&paneId)this._killBg(paneId);await this.delSession(s.id);return}
       if(isActive){
         const fallback=this.focused===rid?prevClosestId:this.focused;
         const next=fallback&&findRg(s.layout,fallback)?fallback:firstRg(s.layout)?.id||null;
-        this._setFocus(next, s);
-      } else if(s.focusedRegion===rid){
-        s.focusedRegion=prevClosestId&&findRg(s.layout,prevClosestId)?prevClosestId:firstRg(s.layout)?.id||null;
+        this._setFocus(next,s);
+        this._focusSession(s.id);
       }
-    } else {
-      if(rg.activeTab===tid){
-        const ni=closingIdx<rg.tabs.length?closingIdx:rg.tabs.length-1;
-        rg.activeTab=rg.tabs[ni].id;
+    }else{
+      rg.activeTab=rg.tabs[Math.min(closingIdx,rg.tabs.length-1)].id;
+      if(isActive){
+        this._setFocus(rid,s);
+        this._focusSession(s.id);
       }
     }
     this.render();
-    if(!isMd&&paneId){
+    if(!isEditor&&paneId){
       this._killBg(paneId);
     }
     this._save();
@@ -1317,36 +1295,21 @@ class App {
     return tab?.paneId||null;
   }
 
-  // For new pane creation (split / addTab terminal): if the region's active
-  // tab is a markdown viewer, derive cwd from its file path so the new shell
-  // opens next to the doc the user is reading. Otherwise inherit the parent
-  // terminal's cwd via cwdPane (existing behaviour).
   _regionNewPaneRef(sess,rid){
-    const rg=findRg(sess.layout,rid); if(!rg) return {};
-    const tab=rg.tabs.find(t=>t.id===rg.activeTab)||rg.tabs[0];
+    const rg=findRg(sess.layout,rid);if(!rg)return {};
+    const tab=rg.tabs.find(t=>t.id===rg.activeTab);
     if(!tab) return {};
-    if(tab.type==='markdown' && typeof tab.filePath==='string' && tab.filePath.startsWith('/')){
+    if(tab.type==='editor' && typeof tab.filePath==='string' && tab.filePath.startsWith('/')){
       const i=tab.filePath.lastIndexOf('/');
       const dir = i>0 ? tab.filePath.substring(0,i) : '/';
       return {cwd: dir};
     }
-    if(tab.paneId) return {cwdPane: tab.paneId};
+    const paneId = tab.paneId;
+    if (paneId) {
+      const p = this.panes.get(paneId);
+      if (p) return { cwdPane: paneId };
+    }
     return {};
-  }
-
-  switchSessionNext(){
-    const idx=this.ws.sessions.findIndex(s=>s.id===this.ws.activeSession);
-    if(idx<0)return; this.switchSession(this.ws.sessions[(idx+1)%this.ws.sessions.length].id);
-  }
-  switchSessionPrev(){
-    const idx=this.ws.sessions.findIndex(s=>s.id===this.ws.activeSession);
-    if(idx<0)return; this.switchSession(this.ws.sessions[(idx-1+this.ws.sessions.length)%this.ws.sessions.length].id);
-  }
-  switchTabNext(){
-    const s=this._as();if(!s||!this.focused)return;
-    const rg=findRg(s.layout,this.focused);if(!rg)return;
-    const i=rg.tabs.findIndex(t=>t.id===rg.activeTab);if(i<0)return;
-    this.switchTab(rg.id,rg.tabs[(i+1)%rg.tabs.length].id);
   }
   switchTabPrev(){
     const s=this._as();if(!s||!this.focused)return;

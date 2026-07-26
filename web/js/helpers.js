@@ -53,6 +53,7 @@ function applyThemeObj(t){
   TOPTS.theme=t.terminal;
   document.getElementById('area').style.background=ui.bg;
   for(const p of app.panes.values()){if(p.term)p.term.options.theme=t.terminal}
+  if(typeof FileEditor!=='undefined'&&FileEditor.applyTheme) FileEditor.applyTheme();
 }
 
 function getCurrentTheme(){return customTheme||THEMES[currentThemeName]}
@@ -102,7 +103,7 @@ var defaultPreset=-1; // index into layoutPresets, -1 = none
 // ── Layout helpers ──
 
 function normalizeTab(t) {
-  if (!t.type) t.type = t.paneId ? 'terminal' : 'markdown';
+  if (!t.type) t.type = t.paneId ? 'terminal' : 'editor';
   return t;
 }
 function normalizeLayout(n) {
@@ -142,7 +143,7 @@ function firstRg(n){
 }
 function allPids(n){
   if(!n) return [];
-  if(n.type==='region') return (n.tabs||[]).filter(t=>t.type!=='markdown').map(t=>t.paneId);
+  if(n.type==='region') return (n.tabs||[]).filter(t=>t.type==='terminal').map(t=>t.paneId);
   if(n.children) return n.children.flatMap(c=>allPids(c));
   return [];
 }
@@ -167,7 +168,7 @@ function clean(n,ok){
   if(!n) return null;
   if(n.type==='region'){
     if(n.tabs) n.tabs=n.tabs.filter(t=>{
-      if(t.type==='markdown') return true;
+      if(t.type==='editor') return true;
       return ok.has(t.paneId);
     });
     if(!n.tabs||!n.tabs.length) return null;

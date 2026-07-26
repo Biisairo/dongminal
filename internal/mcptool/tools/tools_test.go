@@ -560,11 +560,11 @@ func TestWorkspaceCommand_FocusRequiresLocation(t *testing.T) {
 	}
 }
 
-func TestWorkspaceCommand_OpenMdTabRequiresFilePath(t *testing.T) {
-	b := &fakeBroadcaster{allowed: map[string]bool{"openMdTab": true}}
+func TestWorkspaceCommand_OpenEditorTabRequiresFilePath(t *testing.T) {
+	b := &fakeBroadcaster{allowed: map[string]bool{"openEditorTab": true}}
 	if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
 		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
-		`{"action":"openMdTab"}`); err == nil {
+		`{"action":"openEditorTab"}`); err == nil {
 		t.Errorf("err=nil")
 	}
 }
@@ -687,7 +687,7 @@ func TestWorkspaceCommand_RenameKeepFocusForbidden(t *testing.T) {
 	}
 }
 
-// TC-RST-7: name 은 newSession/newTab/openMdTab 외 action 에서 거부.
+// TC-RST-7: name 은 newSession/newTab/openEditorTab 외 action 에서 거부.
 func TestWorkspaceCommand_NameForbiddenOnFocus(t *testing.T) {
 	b := &fakeBroadcaster{allowed: map[string]bool{"focus": true}}
 	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "S1.P1.T1"}}

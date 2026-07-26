@@ -124,38 +124,6 @@ func itoa(n int) string {
 	return string(buf[i:])
 }
 
-// ── fakeCodeServerHost ──────────────────────────────
-
-type fakeCodeServerHost struct {
-	mu        sync.Mutex
-	startResp *CodeServerInst
-	startErr  error
-	touchOK   bool
-	stopped   []string
-	listResp  []map[string]interface{}
-}
-
-func (f *fakeCodeServerHost) List() []map[string]interface{} {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.listResp
-}
-func (f *fakeCodeServerHost) Start(folder string) (*CodeServerInst, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.startResp, f.startErr
-}
-func (f *fakeCodeServerHost) Get(string) *CodeServerInst { return nil }
-func (f *fakeCodeServerHost) Touch(string) bool {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.touchOK
-}
-func (f *fakeCodeServerHost) Stop(id string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.stopped = append(f.stopped, id)
-}
 
 // ── fakeWorkspaceStore ──────────────────────────────
 

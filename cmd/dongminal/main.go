@@ -13,7 +13,6 @@ import (
 	"dongminal/internal/adapters"
 	"dongminal/internal/mcptool"
 	"dongminal/internal/mcptool/tools"
-	"dongminal/internal/mdscroll"
 	"dongminal/internal/runtime"
 	"dongminal/internal/runtimebin"
 	"dongminal/internal/server"
@@ -161,9 +160,7 @@ type builtDeps struct {
 	deps        server.Deps
 	pm          *server.PaneManager
 	attnTracker *server.AttnTracker
-	csm         *server.CodeServerManager
 	wsMgr       *workspace.Manager
-	msMgr       *mdscroll.Manager
 }
 
 func buildDeps(cfg server.Config) (builtDeps, error) {
@@ -203,27 +200,16 @@ func buildDepsWithHub(cfg server.Config, hub server.PaneHub) (builtDeps, error) 
 	return buildCommonDeps(cfg, hub, cmdHub, attnTracker)
 }
 
-// buildCommonDeps wires up the managers, mdscroll, and MCP tool registry
-// shared by both direct and daemon modes. panes provides Liveness (IsLive)
-// for the workspace manager and PaneHub for tool adapters.
+// buildCommonDeps wires up the managers and MCP tool registry shared by both
+// direct and daemon modes. panes provides Liveness (IsLive) for the workspace
+// manager and PaneHub for tool adapters.
 func buildCommonDeps(cfg server.Config, panes server.PaneHub, cmdHub *server.CommandHub, attnTracker *server.AttnTracker) (builtDeps, error) {
-	csm := server.NewCodeServerManager()
 
 	wsMgr, err := workspace.New(panes, workspace.FilePersister{Path: dataPath(cfg.DataDir, "workspace.json")})
 	if err != nil {
 		return builtDeps{}, err
 	}
 
-	msMgr, err := mdscroll.New(mdscroll.FilePersister{Path: dataPath(cfg.DataDir, "mdscroll.json")})
-	if err != nil {
-		return builtDeps{}, err
-	}
-	wsMgr.OnIndexUpdate = func() {
-		msMgr.Reconcile(wsMgr.TabIDs())
-	}
-	if removed := msMgr.Reconcile(wsMgr.TabIDs()); removed > 0 {
-		log.Printf("mdscroll: pruned %d stale tab(s) at startup", removed)
-	}
 
 	var pa adapters.Pane
 	var resolver adapters.Client
@@ -256,19 +242,15 @@ func buildCommonDeps(cfg server.Config, panes server.PaneHub, cmdHub *server.Com
 	return builtDeps{
 		deps: server.Deps{
 			Panes:       panes,
-			CS:          csm,
 			Work:        wsMgr,
 			Tools:       reg,
 			Commands:    cmdHub,
-			MdScroll:    msMgr,
 			AttnTracker: attnTracker,
 			WhoAmI:      resolver,
 		},
 		pm:          nil, // set by caller in direct mode
 		attnTracker: attnTracker,
-		csm:         csm,
 		wsMgr:       wsMgr,
-		msMgr:       msMgr,
 	}, nil
 }
 
@@ -356,7 +338,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("server init: %v", err)
 	}
-	go bd.csm.Watchdog()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	defer stop()
@@ -393,8 +374,6 @@ func main() {
 		bd.pm.SaveAll()
 	}
 	_ = bd.wsMgr.Close()
-	_ = bd.msMgr.Close()
-	bd.csm.StopAll()
 	if runErr != nil {
 		log.Fatalf("server fatal: %v", runErr)
 	}

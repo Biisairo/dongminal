@@ -18,7 +18,6 @@ const AGENT_STATE_ICON={working:'●',done:'✓',waiting:'…',idle:'○'};
 
 const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight','ShiftLeft','ShiftRight']);
 
-const MD_EXTENSIONS=/\.(md|mdown|markdown)$/i;
 
 // Built-in hotkeys are not user-rebindable and may match modifier variants
 // (e.g. Ctrl OR Cmd) that the single-binding `shortcuts` table can't express.

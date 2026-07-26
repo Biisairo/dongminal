@@ -27,7 +27,7 @@ var WorkspaceCommandSpec = map[string]any{
 		"  • tabNext      — 현재 영역 안에서 다음 탭 (순환). Ctrl+Tab 과 동일.\n" +
 		"  • tabPrev      — 현재 영역 안에서 이전 탭 (순환). Ctrl+Shift+Tab 과 동일.\n" +
 		"  • paneUp/Down/Left/Right — 분할 레이아웃에서 인접 영역으로 포커스 이동. 해당 방향에 영역이 없으면 무시됨. Ctrl+Shift+방향키와 동일.\n" +
-		"  • openMdTab   — 포커스(또는 location) 영역에 Markdown 뷰어 탭을 추가. name과 filePath 인자 필수.\n" +
+		"  • openEditorTab — 포커스(또는 location) 영역에 편집기 탭을 추가. name과 filePath 인자 필수.\n" +
 		"  • focus        — 임의 위치로 포커스 이동. location **필수**. uuid 만 허용 (list_panes 의 `uuid=` 컬럼 값).\n" +
 		"  • renameTab    — location(필수) pane 의 표시 이름을 name(필수) 으로 변경. 포커스 무영향. 팀 pane 에 역할명 부여에 사용.\n" +
 		"  • renameSession — location(필수) pane 이 **속한 세션**의 이름을 name(필수) 으로 변경. 포커스 무영향.\n\n" +
@@ -51,7 +51,7 @@ var WorkspaceCommandSpec = map[string]any{
 					"sessionNext", "sessionPrev",
 					"tabNext", "tabPrev",
 					"paneUp", "paneDown", "paneLeft", "paneRight",
-					"focus", "openMdTab",
+					"focus", "openEditorTab",
 					"renameTab", "renameSession",
 				},
 			},
@@ -70,11 +70,11 @@ var WorkspaceCommandSpec = map[string]any{
 			},
 			"name": map[string]any{
 				"type":        "string",
-				"description": "newSession/newTab/openMdTab 전용. 새 세션/탭에 표시할 이름. 생략 시 기본값 (Session/Shell/파일명).",
+				"description": "newSession/newTab/openEditorTab 전용. 새 세션/탭에 표시할 이름. 생략 시 기본값 (Session/Shell/파일명).",
 			},
 			"filePath": map[string]any{
 				"type":        "string",
-				"description": "openMdTab 전용 (필수). Markdown 파일의 절대경로.",
+				"description": "openEditorTab 전용 (필수). 편집할 파일의 절대경로.",
 			},
 		},
 		"required": []string{"action"},
@@ -106,8 +106,8 @@ func WorkspaceCommandHandler(d WorkspaceCommandDeps) func(context.Context, Works
 		if a.Action == "focus" && a.Location == "" {
 			return nil, fmt.Errorf("focus 는 location 인자가 필요 (list_panes 의 uuid 컬럼 값)")
 		}
-		if a.Action == "openMdTab" && a.FilePath == "" {
-			return nil, fmt.Errorf("openMdTab 은 filePath 인자가 필수")
+		if a.Action == "openEditorTab" && a.FilePath == "" {
+			return nil, fmt.Errorf("openEditorTab 은 filePath 인자가 필수")
 		}
 		if a.Action == "renameTab" || a.Action == "renameSession" {
 			if a.Location == "" {
@@ -127,9 +127,9 @@ func WorkspaceCommandHandler(d WorkspaceCommandDeps) func(context.Context, Works
 			a.Action != "newSession" && a.Action != "newTab" {
 			return nil, fmt.Errorf("keepFocus 는 splitH/splitV/closeTab/newSession/newTab 에서만 의미가 있다 (action=%s)", a.Action)
 		}
-		if a.Name != "" && a.Action != "openMdTab" && a.Action != "newSession" && a.Action != "newTab" &&
+		if a.Name != "" && a.Action != "openEditorTab" && a.Action != "newSession" && a.Action != "newTab" &&
 			a.Action != "renameTab" && a.Action != "renameSession" {
-			return nil, fmt.Errorf("name 은 newSession/newTab/openMdTab/renameTab/renameSession 에서만 의미가 있다 (action=%s)", a.Action)
+			return nil, fmt.Errorf("name 은 newSession/newTab/openEditorTab/renameTab/renameSession 에서만 의미가 있다 (action=%s)", a.Action)
 		}
 		loc := a.Location
 		if d.WS != nil && loc != "" {
@@ -181,8 +181,8 @@ func WorkspaceCommandHandler(d WorkspaceCommandDeps) func(context.Context, Works
 		switch {
 		case a.Action == "focus":
 			msg = fmt.Sprintf("action=focus location=%s delivered=%d", locDisplay, n)
-		case a.Action == "openMdTab":
-			msg = fmt.Sprintf("action=openMdTab filePath=%s delivered=%d", a.FilePath, n)
+		case a.Action == "openEditorTab":
+			msg = fmt.Sprintf("action=openEditorTab filePath=%s delivered=%d", a.FilePath, n)
 		case a.Action == "splitH" || a.Action == "splitV":
 			extras := ""
 			if a.Location != "" {

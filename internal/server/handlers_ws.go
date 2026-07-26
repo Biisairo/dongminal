@@ -274,30 +274,3 @@ func pingLoop(conn *safeConn, done chan struct{}) {
 	}
 }
 
-func (s *Server) handleCSProxy(w http.ResponseWriter, r *http.Request) {
-	if s.CS == nil {
-		http.Error(w, "code-server unavailable", http.StatusInternalServerError)
-		return
-	}
-	rest := strings.TrimPrefix(r.URL.Path, "/cs/")
-	idx := strings.Index(rest, "/")
-	id := rest
-	if idx >= 0 {
-		id = rest[:idx]
-	}
-	if id == "" {
-		http.NotFound(w, r)
-		return
-	}
-	inst := s.CS.Get(id)
-	if inst == nil {
-		http.Error(w, "code-server session not found", http.StatusNotFound)
-		return
-	}
-	s.CS.Touch(id)
-	if r.URL.Path == "/cs/"+id {
-		http.Redirect(w, r, "/cs/"+id+"/", http.StatusMovedPermanently)
-		return
-	}
-	inst.Proxy.ServeHTTP(w, r)
-}

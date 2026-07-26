@@ -20,7 +20,6 @@ var commands = map[string]runFunc{
 	"dmctl":    runDmctl,
 	"edit":     runEdit,
 	"download": runDownload,
-	"mdview":   runMdview,
 }
 
 // HelperNames는 multi-call 로 등록된 helper 이름 목록.

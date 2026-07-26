@@ -1,8 +1,7 @@
 // Package server owns the HTTP/MCP endpoints and subsystem managers. A
-// *Server value aggregates the per-instance state (pane registry, code-server
-// host, workspace store, MCP session registry, tool registry) so that two
-// independent servers can coexist in a single process (tests, embedded
-// scenarios).
+// *Server value aggregates the per-instance state (pane registry, workspace
+// store, MCP session registry, tool registry) so that two independent servers
+// can coexist in a single process (tests, embedded scenarios).
 package server
 
 import (
@@ -34,13 +33,11 @@ type Config struct {
 type Server struct {
 	cfg         Config
 	Panes       PaneHub
-	CS          CodeServerHost
 	Work        WorkspaceStore
 	Tools       ToolDispatcher
 	Commands    CommandBroker
 	MCP         *MCPSessionRegistry
 	Settings    SettingsStore
-	MdScroll    MdScrollStore
 	WhoAmI      mcptool.ClientPaneResolver
 	AttnTracker *AttnTracker
 
@@ -70,13 +67,11 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	return &Server{
 		cfg:         cfg,
 		Panes:       deps.Panes,
-		CS:          deps.CS,
 		Work:        deps.Work,
 		Tools:       deps.Tools,
 		Commands:    cmds,
 		MCP:         NewMCPSessionRegistry(),
 		Settings:    settings,
-		MdScroll:    deps.MdScroll,
 		WhoAmI:      deps.WhoAmI,
 		AttnTracker: deps.AttnTracker,
 		started:     time.Now(),
@@ -102,7 +97,6 @@ func (s *Server) Handler() http.Handler {
 	}
 	mux.HandleFunc("/ws", s.handleWS)
 	mux.HandleFunc("/api/", s.handleAPI)
-	mux.HandleFunc("/cs/", s.handleCSProxy)
 	mux.HandleFunc("/api/commands", s.handleCommandPost)
 	mux.HandleFunc("/api/commands/sse", s.handleCommandSSE)
 	mux.HandleFunc("/api/command-result", s.handleCommandResult)
