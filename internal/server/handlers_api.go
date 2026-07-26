@@ -153,15 +153,6 @@ func uniquePath(dir, name string) string {
 	}
 }
 
-// homedir returns the configured data directory (DONGMINAL_HOME) or falls
-// back to the OS user home directory.
-func homedir() string {
-	if h := os.Getenv("DONGMINAL_HOME"); h != "" {
-		return h
-	}
-	h, _ := os.UserHomeDir()
-	return h
-}
 
 // safeResolve verifies that userPath resolves within baseDir, preventing
 // path-traversal attacks.
