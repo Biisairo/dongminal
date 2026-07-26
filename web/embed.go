@@ -7,7 +7,7 @@ import (
 	"io/fs"
 )
 
-//go:embed *.html *.css *.js
+//go:embed *.html *.css vendor/* js/*.js
 var files embed.FS
 
 // FS는 embed 된 정적 자산을 파일 서버에 바로 꽂을 수 있도록 fs.FS 로 반환한다.

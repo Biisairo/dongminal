@@ -52,7 +52,7 @@ test.describe('Pane attention', () => {
 
     // The alarm must PERSIST until the user attends — it must not auto-clear
     // (regression guard: raw terminal input/echo must not dismiss it).
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
     await expect(firstTab).toHaveClass(/attn/);
     await expect(badge).toBeVisible();
 

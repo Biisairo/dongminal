@@ -113,7 +113,7 @@ test.describe('Tab management', () => {
     let tabs = await secondRegion.locator('.rt').count();
     while (tabs > 0) {
       await secondRegion.locator('.rt').first().locator('.rt-x').click();
-      await page.waitForTimeout(300);
+    await expect(secondRegion.locator(".rt")).toHaveCount(tabs - 1, { timeout: 5000 });
       tabs = await secondRegion.locator('.rt').count();
     }
 

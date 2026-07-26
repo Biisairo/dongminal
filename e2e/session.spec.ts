@@ -109,7 +109,7 @@ test.describe('Session management', () => {
     let count = await page.locator('#sessions .si').count();
     while (count > 1) {
       await page.locator('#sessions .si').first().locator('.si-x').click();
-      await page.waitForTimeout(500);
+    await expect(page.locator("#sessions .si")).toHaveCount(count - 1, { timeout: 5000 });
       count = await page.locator('#sessions .si').count();
     }
 

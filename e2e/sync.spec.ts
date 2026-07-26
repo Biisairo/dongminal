@@ -122,7 +122,7 @@ test.describe('Multi-client synchronization via SSE', () => {
     await pageA.locator('#sessions .si').first().locator('.si-x').click();
 
     // Wait a moment for SSE to propagate.
-    await pageB.waitForTimeout(1000);
+  await expect(pageB.locator("#sessions .si")).toHaveCount(0, { timeout: 10000 });
 
     // Both clients should see the decreased count.
     await expect(pageA.locator('#sessions .si')).toHaveCount(countA - 1, { timeout: 15000 });

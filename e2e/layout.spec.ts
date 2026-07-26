@@ -388,7 +388,7 @@ test.describe('Layout & navigation', () => {
   test('creating command via POST returns newTabs end-to-end through SSE', async ({ page }) => {
     await waitForInit(page);
     // 페이지의 SSE 구독이 자리잡도록 잠깐 대기.
-    await page.waitForTimeout(300);
+    await page.waitForFunction(() => window.app \    await page.waitForTimeout(300);\    await page.waitForTimeout(300); window.app._cmdES \    await page.waitForTimeout(300);\    await page.waitForTimeout(300); window.app._cmdES.readyState === 1, { timeout: 5000 });
     const resp = await page.evaluate(async () => {
       const r = await fetch('/api/commands', {
         method: 'POST',

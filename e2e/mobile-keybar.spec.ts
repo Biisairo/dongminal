@@ -288,7 +288,7 @@ test.describe('Mobile keybar tooltips (SRS REQ-T-1..T-4)', () => {
       type: 'touchStart',
       touchPoints: [{ x, y }],
     });
-    await page.waitForTimeout(700);
+    await page.waitForSelector("#mkb-tip", { timeout: 2000 });
 
     const tip = page.locator('#mkb-tip');
     await expect(tip).toBeVisible();
