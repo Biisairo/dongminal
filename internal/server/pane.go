@@ -916,6 +916,9 @@ func (m *PaneManager) LoadAll() {
 			log.Printf("[pane %s] restore error: %v", s.ID, err)
 		}
 	}
+	// Mark dirty so the next SaveAll (e.g. on shutdown) persists CWD changes
+	// that happen after restore, even if no panes were created/deleted.
+	m.dirty.Store(true)
 	log.Printf("panes restored count=%d", len(states))
 }
 

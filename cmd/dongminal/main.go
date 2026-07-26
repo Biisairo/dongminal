@@ -142,7 +142,15 @@ func runDaemon(home string) {
 	if err := ps.Listen(); err != nil {
 		log.Fatalf("dongminald listen: %v", err)
 	}
-	defer ps.Close()
+
+	// On signal, close the listener to unblock Accept() and save state.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	defer stop()
+
+	go func() {
+		<-ctx.Done()
+		ps.Close()
+	}()
 
 	log.Printf("dongminald listening on %s", sockPath)
 
@@ -150,6 +158,13 @@ func runDaemon(home string) {
 	// the daemon waits for the next dongminal to connect.
 	for {
 		if err := ps.Accept(); err != nil {
+			select {
+			case <-ctx.Done():
+				log.Printf("dongminald shutting down, saving %d panes...", len(pm.Snapshot()))
+				pm.SaveAll()
+				return
+			default:
+			}
 			log.Printf("dongminald accept: %v", err)
 			// Continue accepting — transient errors are not fatal.
 		}
