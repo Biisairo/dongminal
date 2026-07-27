@@ -3,13 +3,19 @@ set -e
 cd "$(dirname "$0")/.."
 
 # Load .env safely — reads KEY=VALUE lines only, never executes shell code.
-# Limitation: variable references like $HOME inside values are not expanded.
+# Leading `~/` in a value is expanded to $HOME; other variable references
+# like $HOME inside values are not expanded.
 _load_env() {
   if [ -f .env ]; then
     while IFS='=' read -r key value; do
       case "$key" in
         ''|\#*) continue ;;
-        *) export "$key=$value" ;;
+        *)
+          case "$value" in
+            '~'|'~/'*) value="$HOME${value#\~}" ;;
+          esac
+          export "$key=$value"
+          ;;
       esac
     done < .env
   fi
