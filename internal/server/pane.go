@@ -414,6 +414,8 @@ var attnBusyProbe = func(p *Pane) bool { return p.IsBusy() }
 // foreground process (e.g. an agent) is actually running — a bare shell sitting
 // at its prompt is not "waiting on the user" and must not raise an alarm (this
 // is what otherwise floods the UI with bogus alarms after a daemon restart).
+// Additionally, idle is suppressed while the agent is actively working (activity
+// state "working") — a thinking agent that pauses output is not waiting for input.
 func (p *Pane) maybeIdle(now, threshold int64) {
 	if threshold <= 0 || !p.attnArmed.Load() {
 		return
@@ -423,6 +425,10 @@ func (p *Pane) maybeIdle(now, threshold int64) {
 	}
 	p.attnArmed.Store(false)
 	if !attnBusyProbe(p) {
+		return
+	}
+	// Suppress idle alarm while agent is actively working (thinking).
+	if a := p.activity.Load(); a != nil && a.State == "working" {
 		return
 	}
 	p.setAttention("idle")

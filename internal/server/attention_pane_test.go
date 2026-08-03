@@ -110,6 +110,45 @@ func TestPane_MaybeIdle_DisabledThreshold(t *testing.T) {
 	}
 }
 
+// Idle must NOT fire while the agent is actively working (activity state
+// "working"). A thinking agent that pauses output is not waiting for input.
+func TestPane_MaybeIdle_SuppressedWhileWorking(t *testing.T) {
+	defer func(orig func(*Pane) bool) { attnBusyProbe = orig }(attnBusyProbe)
+	attnBusyProbe = func(*Pane) bool { return true }
+	var mu sync.Mutex
+	var attn, clear []string
+	const threshold = int64(1000)
+
+	p := newAttnPane("1", &mu, &attn, &clear)
+	p.lastOutputAt.Store(0)
+	p.attnArmed.Store(true)
+	// Agent is working → idle must not fire.
+	p.setActivity("working", "bash", "running")
+	p.maybeIdle(threshold+1, threshold)
+	if len(attn) != 0 {
+		t.Fatalf("idle must not fire while working, got %v", attn)
+	}
+
+	// Agent asks a question (waiting) → idle must fire.
+	p.setActivity("waiting", "", "")
+	p.attnArmed.Store(true)
+	p.lastOutputAt.Store(0)
+	p.maybeIdle(threshold+1, threshold)
+	if len(attn) != 1 || attn[0] != "1:idle" {
+		t.Fatalf("idle must fire while waiting, got %v", attn)
+	}
+
+	// Agent stops working → idle fires (after clearing prior attention).
+	p.clearAttention()
+	p.setActivity("ended", "", "")
+	p.attnArmed.Store(true)
+	p.lastOutputAt.Store(0)
+	p.maybeIdle(threshold+1, threshold)
+	if len(attn) != 2 || attn[1] != "1:idle" {
+		t.Fatalf("idle must fire after work ends, got %v", attn)
+	}
+}
+
 // TC-PAN-11: repeated signal while already in attention fires the edge once.
 func TestPane_SetAttention_EdgeOnly(t *testing.T) {
 	var mu sync.Mutex

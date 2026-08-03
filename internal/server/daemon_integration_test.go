@@ -586,6 +586,64 @@ func TestDaemonAttnTrackerL2IdleBusyGate(t *testing.T) {
 	}
 }
 
+// TestDaemonAttnTrackerL2IdleSuppressedWhileWorking verifies idle does NOT fire
+// when the agent is actively working (activity state "working"). A thinking
+// agent that pauses output is not waiting for input.
+func TestDaemonAttnTrackerL2IdleSuppressedWhileWorking(t *testing.T) {
+	hub := NewCommandHub()
+	tracker := NewAttnTracker(hub, 100)
+	tracker.SetBusyProbe(func(string) bool { return true }) // busy
+
+	var mu sync.Mutex
+	var reasons []string
+	sub := hub.add()
+	go func() {
+		for msg := range sub.ch {
+			var ev struct {
+				Action string `json:"action"`
+			}
+			json.Unmarshal(msg, &ev)
+			mu.Lock()
+			reasons = append(reasons, ev.Action)
+			mu.Unlock()
+		}
+	}()
+	defer hub.remove(sub)
+
+	tracker.FeedOutput("p1", []byte("output"))
+	tracker.SetActivity("p1", "working", "bash", "running")
+	stopCh := make(chan struct{})
+	tracker.StartSweeper(stopCh)
+	defer close(stopCh)
+
+	time.Sleep(1300 * time.Millisecond)
+	mu.Lock()
+	for _, r := range reasons {
+		if r == "pane_attention" {
+			mu.Unlock()
+			t.Fatal("idle attention must not fire while agent is working")
+		}
+	}
+	mu.Unlock()
+
+	// Agent stops working → idle should fire.
+	tracker.SetActivity("p1", "ended", "", "")
+	tracker.FeedOutput("p1", []byte("more output"))
+	time.Sleep(1300 * time.Millisecond)
+	mu.Lock()
+	defer mu.Unlock()
+	found := false
+	for _, r := range reasons {
+		if r == "pane_attention" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("idle attention must fire after agent stops working")
+	}
+}
+
 // TestDaemonExitClosesSubscriber verifies a pane exit closes the per-subscriber
 // exit channel so the WS handler can send OpExit (parity with direct mode).
 func TestDaemonExitClosesSubscriber(t *testing.T) {

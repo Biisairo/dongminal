@@ -1317,6 +1317,22 @@ class App {
     const i=rg.tabs.findIndex(t=>t.id===rg.activeTab);if(i<0)return;
     this.switchTab(rg.id,rg.tabs[(i-1+rg.tabs.length)%rg.tabs.length].id);
   }
+  switchTabNext(){
+    const s=this._as();if(!s||!this.focused)return;
+    const rg=findRg(s.layout,this.focused);if(!rg)return;
+    const i=rg.tabs.findIndex(t=>t.id===rg.activeTab);if(i<0)return;
+    this.switchTab(rg.id,rg.tabs[(i+1)%rg.tabs.length].id);
+  }
+  switchSessionPrev(){
+    const arr=this.ws.sessions;if(arr.length<2)return;
+    const i=arr.findIndex(s=>s.id===this.ws.activeSession);if(i<0)return;
+    this.switchSession(arr[(i-1+arr.length)%arr.length].id);
+  }
+  switchSessionNext(){
+    const arr=this.ws.sessions;if(arr.length<2)return;
+    const i=arr.findIndex(s=>s.id===this.ws.activeSession);if(i<0)return;
+    this.switchSession(arr[(i+1)%arr.length].id);
+  }
   paneNavigate(dir){
     const s=this._as();if(!s||!this.focused)return;
     const path=findPath(s.layout,this.focused);if(!path||path.length<2)return;

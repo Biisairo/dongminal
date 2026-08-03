@@ -297,8 +297,15 @@ func (t *AttnTracker) sweepIdle() {
 		if probe == nil || !probe(ps.id) {
 			continue
 		}
+		// Suppress idle alarm while agent is actively working (thinking).
+		if a := ps.activity.Load(); a != nil && a.State == "working" {
+			continue
+		}
 		if ps.attention.CompareAndSwap(false, true) {
-			t.onAttention(ps.id, "idle")
+			onAttn := t.onAttention
+			if onAttn != nil {
+				onAttn(ps.id, "idle")
+			}
 		}
 	}
 }
