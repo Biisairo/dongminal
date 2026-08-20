@@ -3,7 +3,7 @@
 > `ARCHITECTURE_DEEPENING_RFC.md` (Candidate 1~5) 후속 작업을 단일 문서로 정리한다. 이 문서 역시 **작업자 독립 실행 가능**을 목표로 작성되었으며, dongminal-team 스킬로 각 항목을 하나씩 순차 구현·검증한다.
 >
 > 작업 대상 리포: `/Users/dykim/personal/dongminal`
-> 이전 RFC: `/Users/dykim/personal/dongminal/docs/ARCHITECTURE_DEEPENING_RFC.md`
+> 이전 RFC: [ARCHITECTURE_DEEPENING_RFC.md](./ARCHITECTURE_DEEPENING_RFC.md)
 > 작성일: 2026-04-21
 
 ---

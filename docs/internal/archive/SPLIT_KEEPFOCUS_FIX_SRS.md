@@ -28,7 +28,7 @@
 
 ### 1.4 참고 (References)
 - `MD_VIEWER_REGRESSION_FIX_SRS.md` — `this.focused` 와 `s.focusedRegion` 동기화 보장(FR-4).
-- `docs/test-checklist.md:C13.6` — keepFocus split 의 기존 동작 명세.
+- `docs/internal/test-checklist.md:C13.6` — keepFocus split 의 기존 동작 명세.
 - `skills/dongminal-team/references/layout.md` — `location + keepFocus=true` 조합은 사용자 포커스를 건드리지 않는다는 명시적 보장.
 
 ---

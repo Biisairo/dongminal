@@ -19,8 +19,8 @@ md 뷰어 탭의 스크롤 위치를 서버에 영속화하여, 새로고침/다
 - **clientId**: 페이지 로드마다 생성되는 랜덤 식별자. 자기 자신이 보낸 브로드캐스트 echo 를 식별.
 
 ### 1.4 관련 문서
-- `docs/internal/MD_VIEWER_REGRESSION_FIX_SRS.md` (REG-7 의 `_scrollTop` 메모리 보존)
-- `docs/internal/WORKSPACE_SNAPSHOT_SRS.md` (Manager/ETag/coalescing 패턴)
+- `docs/internal/archive/MD_VIEWER_REGRESSION_FIX_SRS.md` (REG-7 의 `_scrollTop` 메모리 보존)
+- `docs/internal/archive/WORKSPACE_SNAPSHOT_SRS.md` (Manager/ETag/coalescing 패턴)
 
 ## 2. 회귀/현황 (Current State)
 - `MdViewer` 는 `_scrollTop` 휘발성 캐시만 보유. 새로고침·다른 창에서는 항상 0으로 복귀.

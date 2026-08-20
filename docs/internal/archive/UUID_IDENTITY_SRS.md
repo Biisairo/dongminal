@@ -145,7 +145,7 @@ dongminal 의 session/region/tab/pane 식별 체계를 **위치 좌표 (position
 
 **Phase 3 완료 시점에도 label/paneId 입력·출력은 영구 유지** (NFR-UID-0). "enforce" Phase 없음.
 
-각 Phase 마다 `git tag` 와 `docs/internal/UUID_IDENTITY_PROGRESS.md` (후속 작성) 에 진행 기록.
+각 Phase 마다 `git tag` 로 진행 기록. (당시 계획한 `UUID_IDENTITY_PROGRESS.md` 는 작성되지 않았고, 진행은 커밋 이력으로 남았다.)
 
 ---
 

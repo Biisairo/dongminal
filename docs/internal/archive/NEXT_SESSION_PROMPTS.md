@@ -7,14 +7,14 @@
 ## A. 남은 Design Review 항목 (S4 / S6 / L2 / L3 / L5 / L6 / L7) 처리 세션
 
 ```
-docs/internal/DESIGN_REVIEW_FOLLOWUP.md 의 §4 작업 큐에서 미처리(⏸️)인 design review 항목을 이어서 처리한다.
+docs/internal/archive/DESIGN_REVIEW_FOLLOWUP.md 의 §4 작업 큐에서 미처리(⏸️)인 design review 항목을 이어서 처리한다.
 
 이번 세션 목표: 사용자가 선택한 항목을 Spec → Test → Code 순으로 구현·검증·문서화 완료까지.
 
 진행 절차:
 1. 컨텍스트 로드:
-   - docs/internal/DESIGN_REVIEW_FOLLOWUP.md (§2 Strategic concerns, §3 Localized issues, §4 작업 큐)
-   - docs/internal/SAFETY_WARMUP_SRS.md / WORKSPACE_SNAPSHOT_SRS.md / HANDLERS_API_ROUTER_SRS.md / PANE_MANAGER_DECOMPOSE_SRS.md / APP_DECOMPOSE_SRS.md (이전 세션의 SRS 양식 참고)
+   - docs/internal/archive/DESIGN_REVIEW_FOLLOWUP.md (§2 Strategic concerns, §3 Localized issues, §4 작업 큐)
+   - docs/internal/archive/SAFETY_WARMUP_SRS.md / WORKSPACE_SNAPSHOT_SRS.md / HANDLERS_API_ROUTER_SRS.md / PANE_MANAGER_DECOMPOSE_SRS.md / APP_DECOMPOSE_SRS.md (이전 세션의 SRS 양식 참고)
    - 변경 대상 파일은 LSP/Serena 로 우선 탐색.
 2. 화면 첫 응답에 미처리 항목 요약을 노출하고 사용자에게 한 번에 묻는다:
    - 이번 세션에서 다룰 항목 (S4 / S6 / L2 / L3 / L5 / L6 / L7 다중 선택 가능)
@@ -61,13 +61,13 @@ docs/internal/DESIGN_REVIEW_FOLLOWUP.md 의 §4 작업 큐에서 미처리(⏸�
 ## B. TS 마이그레이션 Phase 1 착수 세션
 
 ```
-docs/internal/TS_MIGRATION_SRS.md 의 Phase 1 (빌드 파이프라인 도입) 을 실제 구현한다.
+docs/internal/archive/TS_MIGRATION_SRS.md 의 Phase 1 (빌드 파이프라인 도입) 을 실제 구현한다.
 
 이번 세션 목표: TypeScript + esbuild 빌드 파이프라인을 도입하여 web/app.js 가 TS 산출물로 동작하도록 만들되, 코드 변환 자체는 최소화한다 (// @ts-nocheck 헤더로 점진 전환 토대만 마련).
 
 진행 절차:
 1. 컨텍스트 로드:
-   - docs/internal/TS_MIGRATION_SRS.md 전체 (§4 Phase 1 의 DoD 4 항목)
+   - docs/internal/archive/TS_MIGRATION_SRS.md 전체 (§4 Phase 1 의 DoD 4 항목)
    - 현재 web/embed.go, web/app.js, web/index.html 구조
    - package.json 의 기존 devDependencies (@playwright/test 만 있음)
 2. Phase 1 구현 단계:

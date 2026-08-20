@@ -95,7 +95,7 @@
   3. 두 region 중 활성 region 의 마지막 탭을 닫음 → 세션 전환 → 복귀 시 stale region 이 아닌 fallback region 이 포커스되어야 함 (FR-3).
 
 ### 4.2 수동 확인 (Test Checklist)
-- 터미널 탭 추가/포커스/단축키 입력이 1974efd 동작과 동일한지 회귀 체크리스트(`docs/test-checklist.md`)로 확인.
+- 터미널 탭 추가/포커스/단축키 입력이 1974efd 동작과 동일한지 회귀 체크리스트(`docs/internal/test-checklist.md`)로 확인.
 
 ## 5. 완료 조건 (Definition of Done)
 - [ ] 위 4건의 코드 수정 적용 (REG-1~4)

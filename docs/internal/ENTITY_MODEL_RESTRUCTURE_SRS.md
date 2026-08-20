@@ -39,10 +39,10 @@ dongminal 의 공간 계층 어휘를 사용자 통념과 일치시키고, 탭 �
 
 ### 1.4 참고 (References)
 
-- `docs/internal/UUID_IDENTITY_SRS.md` — 좌표계·UUID 정체성 (본 SRS 는 좌표계를 변경하지 않는다)
-- `docs/internal/MULTI_TAB_TYPE_SPEC.md` — `tab.type` 도입 (도구 타입의 전신)
-- `docs/internal/DAEMON_SPLIT_SRS.md` — 데몬이 PTY 를 소유하는 구조
-- `docs/internal/PANE_ATTENTION_NOTIFY_SRS.md`, `AGENT_ACTIVITY_PANEL_SRS.md` — 도구 단위 알림·활동 레이어
+- `docs/internal/archive/UUID_IDENTITY_SRS.md` — 좌표계·UUID 정체성 (본 SRS 는 좌표계를 변경하지 않는다)
+- `docs/internal/archive/MULTI_TAB_TYPE_SPEC.md` — `tab.type` 도입 (도구 타입의 전신)
+- `docs/internal/archive/DAEMON_SPLIT_SRS.md` — 데몬이 PTY 를 소유하는 구조
+- `docs/internal/archive/PANE_ATTENTION_NOTIFY_SRS.md`, `AGENT_ACTIVITY_PANEL_SRS.md` — 도구 단위 알림·활동 레이어
 
 ### 1.5 개요 (Overview)
 

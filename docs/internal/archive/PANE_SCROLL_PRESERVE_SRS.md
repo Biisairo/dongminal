@@ -26,8 +26,8 @@
   (`App.setFocus()`) 은 layout 을 재구성하지 않으며 본 SRS 의 회귀와 무관.
 
 ### 1.4 관련 문서
-- `docs/internal/MD_VIEWER_REGRESSION_FIX_SRS.md` (REG-7: md viewer scrollTop 보존)
-- `docs/internal/MD_SCROLL_SYNC_SRS.md` (md viewer 영속/동기화 정책)
+- `docs/internal/archive/MD_VIEWER_REGRESSION_FIX_SRS.md` (REG-7: md viewer scrollTop 보존)
+- `docs/internal/archive/MD_SCROLL_SYNC_SRS.md` (md viewer 영속/동기화 정책)
 
 ## 2. 회귀 식별 (Identified Regression)
 

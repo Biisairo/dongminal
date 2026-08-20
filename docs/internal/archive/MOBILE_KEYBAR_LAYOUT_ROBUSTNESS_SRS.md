@@ -36,8 +36,8 @@
 ### 1.4 References
 
 - IEEE 29148:2018 §9
-- `docs/internal/MOBILE_MODE_RFC.md` §4.2 "가상 키보드 대응(visualViewport API)"
-- `docs/internal/MOBILE_KEYBAR_ALWAYS_VISIBLE_SRS.md` §3 REQ-F-4
+- `docs/internal/archive/MOBILE_MODE_RFC.md` §4.2 "가상 키보드 대응(visualViewport API)"
+- `docs/internal/archive/MOBILE_KEYBAR_ALWAYS_VISIBLE_SRS.md` §3 REQ-F-4
 - 영향 코드: `web/app.js:2253~2272` (`apply` 핸들러), `web/style.css:387~394, 446~470`, `e2e/mobile-keybar.spec.ts`
 
 ---

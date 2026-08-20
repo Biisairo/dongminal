@@ -28,9 +28,9 @@ TODO #15 (code-server 연동) 출시 이후 관찰된 두 종류의 회귀를 �
 - **watcher**: 프론트에서 `codeServerWatchers` 맵에 등록되는 `{win, hbTimer, pollTimer}` 트리플. code-server 창 1개당 1개.
 
 ### 1.4 References
-- `docs/internal/CODESERVER_SHUTDOWN_SRS.md` (L6) — 종료 경로 정의(상속).
-- `docs/internal/OUTBUF_BACKPRESSURE_SRS.md` — `outbuf.Stream` 의 single drop path 원칙(보존).
-- `docs/internal/TODO.md` §15, §17 — 기능 도입 및 관련 회귀 히스토리.
+- `docs/internal/archive/CODESERVER_SHUTDOWN_SRS.md` (L6) — 종료 경로 정의(상속).
+- `docs/internal/archive/OUTBUF_BACKPRESSURE_SRS.md` — `outbuf.Stream` 의 single drop path 원칙(보존).
+- `docs/internal/archive/TODO.md` §15, §17 — 기능 도입 및 관련 회귀 히스토리.
 
 ## 2. Overall Description
 

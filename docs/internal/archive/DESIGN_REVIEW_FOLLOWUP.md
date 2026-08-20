@@ -126,14 +126,14 @@ L2: ✅ 완료. `SHORTCUT_DISPATCH_SRS.md` (Ctrl/Cmd+F → BUILTIN_HOTKEYS 테�
 이번 세션의 목적은 **SRS 작성이 아니라 실제 수정 구현**이다.
 
 ```
-docs/internal/DESIGN_REVIEW_FOLLOWUP.md 에 정리된 design review 결과(S1~S6, L1~L8)를 실제 수정한다.
+docs/internal/archive/DESIGN_REVIEW_FOLLOWUP.md 에 정리된 design review 결과(S1~S6, L1~L8)를 실제 수정한다.
 
 이번 세션 목표: 사용자가 선택한 항목을 Spec → Test → Code 순으로 구현·검증·문서화 완료까지.
 
 진행 절차:
 1. 컨텍스트 로드:
-   - docs/internal/DESIGN_REVIEW_FOLLOWUP.md (§2 Strategic concerns, §3 Localized issues, §4 작업 큐)
-   - docs/internal/MD_VIEWER_REGRESSION_FIX_SRS.md (기존 SRS 양식 참고)
+   - docs/internal/archive/DESIGN_REVIEW_FOLLOWUP.md (§2 Strategic concerns, §3 Localized issues, §4 작업 큐)
+   - docs/internal/archive/MD_VIEWER_REGRESSION_FIX_SRS.md (기존 SRS 양식 참고)
    - 변경 대상 파일을 LSP/Serena 로 우선 탐색.
 2. 화면 첫 응답에 §2·§3·§4 요약을 노출하고 사용자에게 한 번에 묻는다:
    - 이번 세션에서 다룰 항목 (S1~S6 / L1~L8 다중 선택 가능)

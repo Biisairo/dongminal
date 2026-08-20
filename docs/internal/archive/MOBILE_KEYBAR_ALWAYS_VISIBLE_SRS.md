@@ -34,7 +34,7 @@
 ### 1.4 References
 
 - IEEE 29148:2018 §9 (Software Requirements Specification)
-- 상위 RFC: `docs/internal/MOBILE_MODE_RFC.md` §4.1, §7.3
+- 상위 RFC: `docs/internal/archive/MOBILE_MODE_RFC.md` §4.1, §7.3
 - 영향 코드: `web/style.css:387~394, 466~467, 440`, `web/app.js:2253~2270`, `web/index.html:8, 49`
 
 ### 1.5 Overview
@@ -169,7 +169,7 @@ CSS 규칙 추가/삭제 외 변경 없음 → 렌더 비용 증가 없음. visu
 | `web/style.css` | 440 | `body.mobile #content{width:100%}` → `body.mobile #content{width:100%;padding-bottom:38px}` (REQ-F-4) |
 | `web/index.html` | 8 | `style.css?v=95` → `style.css?v=96` (캐시 무효화) |
 | `e2e/mobile-keybar.spec.ts` | NEW | TC-1~TC-5 |
-| `docs/internal/MOBILE_MODE_RFC.md` | §4.1 | 본 SRS 링크 추가 (footnote 형태로 결정 갱신 기록) |
+| `docs/internal/archive/MOBILE_MODE_RFC.md` | §4.1 | 본 SRS 링크 추가 (footnote 형태로 결정 갱신 기록) |
 
 ### 5.2 Backward Compatibility
 

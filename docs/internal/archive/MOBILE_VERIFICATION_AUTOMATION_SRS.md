@@ -31,7 +31,7 @@ RFC §7.2 의 다음 4개 항목은 현재 수동 검증으로만 분류되어 �
 ### 1.3 References
 
 - IEEE 29148:2018 §9
-- `docs/internal/MOBILE_MODE_RFC.md` §7.2
+- `docs/internal/archive/MOBILE_MODE_RFC.md` §7.2
 
 ---
 
@@ -84,6 +84,6 @@ RFC §7.2 의 다음 4개 항목은 현재 수동 검증으로만 분류되어 �
 | 파일 | 변경 |
 |---|---|
 | `e2e/mobile-keybar.spec.ts` | TC-D1~D4 추가 |
-| `docs/internal/MOBILE_MODE_RFC.md` | §7.2 항목 4개에 "(자동화 완료)" 마킹 |
+| `docs/internal/archive/MOBILE_MODE_RFC.md` | §7.2 항목 4개에 "(자동화 완료)" 마킹 |
 
 구현 코드 변경 0건.

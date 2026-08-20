@@ -1,4 +1,8 @@
-# Remote Terminal — TODO
+# Remote Terminal — TODO (2026-04~05 작업 로그, 보관)
+
+> 이 문서는 append-only 작업 로그다. 완료 항목의 어휘·파일 경로는 당시 것이며
+> 갱신하지 않는다. 현행 사실은 `../architecture.md` 와 코드가 답한다.
+> 남은 작업은 `../README.md` §남은 작업 을 본다.
 
 ## 기능 구현 목록
 
@@ -122,7 +126,7 @@
 - [x] **Candidate 5 Stage 5a 완료** (2026-04-21): `internal/server` 패키지 신설 — `server.Config`/`server.Deps`/`server.Server`/`server.MCPSessionRegistry` 도입. `NewServer(cfg, deps)` → `Handler()` / `MCPHandler()` / `Run(ctx, addr)` / `Shutdown(ctx)` 제공. 기존 `main()` 의 HTTP 서버 기동·graceful shutdown 로직을 `Server.Run` 으로 이관(+ `signal.NotifyContext` 사용). `loggingMiddleware` / `responseWriter` 를 `internal/server` 로 이동. `mcp.go` 의 `mcpSessions`/`mcpSessionsMu`/`newMCPSession`/`getMCPSession`/`mcpSession` 타입을 제거하고 `server.MCPSessionRegistry` (shim `var mcpReg *server.MCPSessionRegistry`) 로 대체. 핸들러 본문·기존 핸들러 함수 시그니처는 그대로. `grep -rn '\bpm\.' internal/` 는 테스트 로컬 변수만 매치(패키지 main 전역 참조 0). 단위 테스트 3개(`TestNewServerInTempDir`/`TestHandlerBasics`/`TestTwoServersInSameProcess`) 통과.
   - 설계 조정(보스 승인): `PaneManager`/`CodeServerManager` 가 `package main` 에 있어 `internal/server` 가 구체 타입을 직접 참조하면 import cycle 발생 + Stage 5c(인터페이스화) 금지 충돌. 보스 지시로 옵션 (b) 채택 — `PaneHub`/`CodeServerHost`/`WorkspaceStore`/`ToolDispatcher`/`CommandBroker`/`SettingsStore` 를 `internal/server` 내부에 최소 인터페이스로 선언하고, 구체 타입을 `main` 에서 `server.Deps` 로 주입. kickoff 원문의 `pm = srv.Panes` 바인딩은 의존 방향이 뒤집혀 불필요해짐 — `pm`/`csm`/`wsMgr`/`toolRegistry` shim 전역은 `main()` 초기화 지점에서 종전대로 생성되어 핸들러가 그대로 참조한다.
 - [x] **F3 Server DI Stage 5b 완료** (2026-04-21): `PaneManager`/`CodeServerManager`/`safeConn`/`Pane` 및 모든 HTTP·MCP 핸들러(`handleAPI`/`handleWS`/`handleCSProxy`/`handleCommandSSE`/`handleCommandPost`/`handleMCPSSE`/`handleMCPMessage`/`handleMCPRequest`)를 `internal/server` 로 이관하고 `(s *Server)` 메서드로 전환. shim 전역(`pm`/`csm`/`wsMgr`/`toolRegistry`/`mcpReg`/`serverStart`/`settingsJSON`/`settingsMu`/`cmdSubs`/`allowedCmdActions`) 전부 제거. `commands.go`/`mcp.go` 는 빈 껍데기 혹은 `getParentPID`/`getClientPID` OS helper 만 유지. `mcp_adapters.go` 가 `*server.PaneManager`/`*workspace.Manager`/`*server.CommandHub` 를 명시 주입받도록 갱신. `main()` 은 `cfg → buildDeps(cfg) → server.New → srv.Run` 로 축소. `server.Server` 가 `*PaneManager`/`*CodeServerManager`/`*mcptool.Registry`/`*CommandHub`/`*MCPSessionRegistry`/`*settingsStore` 를 직접 소유(동시 2서버 기동 가능). 테스트: 기존 `TestNewServerInTempDir`/`TestHandlerBasics`/`TestTwoServersInSameProcess` 유지·갱신 + 신규 `TestCreatePaneViaServer`(POST `/api/panes` 가 실제 PaneManager 경유해 pane 생성) + `TestPaneOnExitAndWait` 를 `internal/server` 로 이동. `go build/vet/test ./...` 전부 통과.
-- [ ] **Candidate 5 Stage 5c (follow-up)**: `PaneManager` → `PaneStore` 인터페이스, `CodeServerManager` → `CodeServerHost` 등 실제 메서드를 가진 인터페이스로 확장해 Design B(포트&어댑터) 방향으로 수렴. Stage 5b 와 함께 또는 직전에 수행.
+- [~] **Candidate 5 Stage 5c (follow-up)** — **무효**: `PaneManager` 는 `ToolManager` 로 개명되며 이미 `ToolHub` 인터페이스 뒤에 있고, `CodeServerManager` 는 `8dc0a3f` 에서 제거됐다. 이 항목의 대상이 존재하지 않는다.
 
 ## Follow-up & Hotfix (FOLLOWUP_HOTFIX_RFC.md)
 
