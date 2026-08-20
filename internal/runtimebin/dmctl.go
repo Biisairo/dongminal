@@ -142,7 +142,7 @@ func runDmctlFocus(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) in
 	args := parsed.buildArgs()
 	// Include source tool so the browser can route the focus only to
 	// windows that actually show this tool (multi-window).
-	if pid := os.Getenv("DONGMINAL_PANE_ID"); pid != "" {
+	if pid := os.Getenv("DONGMINAL_TOOL_ID"); pid != "" {
 		args["sourcePane"] = pid
 	}
 	return dmctlPost("focus", args, stdout, stderr)

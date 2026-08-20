@@ -108,7 +108,7 @@ func TestPanedHelloReturnsToolIDs(t *testing.T) {
 	var resp panedResponse
 	json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &resp)
 	resultMap := resp.Result.(map[string]interface{})
-	toolIDs := resultMap["pane_ids"].([]interface{})
+	toolIDs := resultMap["tool_ids"].([]interface{})
 	if len(toolIDs) != 2 {
 		t.Fatalf("pane_ids len=%d want 2", len(toolIDs))
 	}

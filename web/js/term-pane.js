@@ -97,7 +97,7 @@ class TerminalTool {
     const p=location.protocol==='https:'?'wss:':'ws:';
     const cols=(this.term&&this.term.cols)||120;
     const rows=(this.term&&this.term.rows)||40;
-    const url=`${p}//${location.host}/ws?cols=${cols}&rows=${rows}&pane=${encodeURIComponent(this.id)}`;
+    const url=`${p}//${location.host}/ws?cols=${cols}&rows=${rows}&tool=${encodeURIComponent(this.id)}`;
     this.ws=new WebSocket(url); this.ws.binaryType='arraybuffer';
     this.ws.onopen=()=>{
       if(this.term && window.app && window.app._resizeCheck(this.id)){
@@ -158,7 +158,7 @@ class TerminalTool {
       const p=location.protocol==='https:'?'wss:':'ws:';
       const cols=(this.term&&this.term.cols)||120;
       const rows=(this.term&&this.term.rows)||40;
-      const url=`${p}//${location.host}/ws?cols=${cols}&rows=${rows}&pane=${encodeURIComponent(this.id)}`;
+      const url=`${p}//${location.host}/ws?cols=${cols}&rows=${rows}&tool=${encodeURIComponent(this.id)}`;
       const ws=new WebSocket(url); ws.binaryType='arraybuffer';
       this._pendingWs=ws;
       this._reconnectPending=false;
@@ -311,7 +311,7 @@ class TerminalTool {
   _uploadFiles(files){
     if(!files||!files.length)return;
     // Get cwd from server for this pane
-    fetch('/api/cwd?pane='+this.id).then(r=>r.json()).then(({cwd})=>{
+    fetch('/api/cwd?tool='+this.id).then(r=>r.json()).then(({cwd})=>{
       let i=0;
       const uploadNext=()=>{
         if(i>=files.length){this._send(new Uint8Array([OP.INPUT,0x0d]));return;}

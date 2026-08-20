@@ -376,6 +376,9 @@ type WsTab struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
 	ToolID string `json:"toolId"`
+	// RunID는 이 탭의 도구를 소유한 Run (FR-EM-17 접합면). 비어 있으면
+	// 어느 Run 에도 속하지 않는다 — 사람이 직접 만든 도구의 정상 상태다.
+	RunID string `json:"runId,omitempty"`
 }
 
 type wsWindow struct {
@@ -383,6 +386,9 @@ type wsWindow struct {
 	Name        string    `json:"name"`
 	Layout      *WsLayout `json:"layout"`
 	FocusedPane string    `json:"focusedPane"`
+	// OwnerRunID는 이 Window 를 전용으로 만든 Run (Projection
+	// dedicated-window). 비어 있으면 사용자 소유 Window 다 (FR-EM-17).
+	OwnerRunID string `json:"ownerRunId,omitempty"`
 }
 
 type wsState struct {
@@ -457,7 +463,7 @@ func CollectPanes(n *WsLayout, out *[]*WsLayout) {
 	if n == nil {
 		return
 	}
-	if n.Type == "tool" {
+	if n.Type == "pane" {
 		*out = append(*out, n)
 		return
 	}

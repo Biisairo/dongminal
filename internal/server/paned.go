@@ -59,8 +59,8 @@ type panedConn struct {
 	dropped   atomic.Int64
 	writerEnd chan struct{}
 
-	// wirePane is set by PanedServer to hook tool output/exit into this conn.
-	wirePane func(p *Tool)
+	// wireTool is set by PanedServer to hook tool output/exit into this conn.
+	wireTool func(p *Tool)
 }
 
 func newPanedConn(conn net.Conn, pm *ToolManager) *panedConn {
@@ -170,6 +170,10 @@ func (pc *panedConn) dispatch(req *panedRequest) {
 		resp = pc.cwd(req)
 	case "busy":
 		resp = pc.busy(req)
+	case "setbackground":
+		resp = pc.setBackground(req)
+	case "backgroundlist":
+		resp = pc.backgroundList(req)
 	default:
 		resp = panedError{ID: req.ID, Error: panedErrObj{Code: -32601, Message: "unknown method: " + req.Method}}
 	}
@@ -182,13 +186,13 @@ func (pc *panedConn) hello(req *panedRequest) interface{} {
 	tools := pc.pm.List()
 	ids := make([]string, 0, len(tools))
 	for _, m := range tools {
-			if id, ok := m["id"].(string); ok {
-				ids = append(ids, id)
-			}
+		if id, ok := m["id"].(string); ok {
+			ids = append(ids, id)
+		}
 	}
 	return panedResponse{ID: req.ID, Result: map[string]interface{}{
 		"version":  1,
-		"pane_ids": ids,
+		"tool_ids": ids,
 	}}
 }
 
@@ -205,8 +209,8 @@ func (pc *panedConn) create(req *panedRequest) interface{} {
 	if err != nil {
 		return panedError{ID: req.ID, Error: panedErrObj{Code: -32603, Message: err.Error()}}
 	}
-	if pc.wirePane != nil {
-		pc.wirePane(tool)
+	if pc.wireTool != nil {
+		pc.wireTool(tool)
 	}
 	return panedResponse{ID: req.ID, Result: map[string]interface{}{
 		"id": tool.ID, "name": tool.Name, "pid": tool.CmdProcessPID(),
@@ -228,9 +232,9 @@ func (pc *panedConn) restore(req *panedRequest) interface{} {
 	if err := pc.pm.Restore(p.ID, p.Name, p.Cwd, p.Cols, p.Rows); err != nil {
 		return panedError{ID: req.ID, Error: panedErrObj{Code: -32603, Message: err.Error()}}
 	}
-	if pc.wirePane != nil {
+	if pc.wireTool != nil {
 		if restored := pc.pm.Get(p.ID); restored != nil {
-			pc.wirePane(restored)
+			pc.wireTool(restored)
 		}
 	}
 	return panedResponse{ID: req.ID, Result: map[string]interface{}{
@@ -291,7 +295,10 @@ func (pc *panedConn) snapshot(req *panedRequest) interface{} {
 	if err := json.Unmarshal(req.Params, &p); err != nil {
 		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
 	}
-	snap, err := pc.pm.SnapshotTool(p.ID); if err != nil { return panedError{ID: req.ID, Error: panedErrObj{Code: -32603, Message: err.Error()}} }
+	snap, err := pc.pm.SnapshotTool(p.ID)
+	if err != nil {
+		return panedError{ID: req.ID, Error: panedErrObj{Code: -32603, Message: err.Error()}}
+	}
 	return panedResponse{ID: req.ID, Result: map[string]interface{}{
 		"data":           base64.StdEncoding.EncodeToString(snap.Data),
 		"totalBytesIn":   snap.TotalBytesIn,
@@ -321,6 +328,25 @@ func (pc *panedConn) busy(req *panedRequest) interface{} {
 	}
 	return panedResponse{ID: req.ID, Result: map[string]interface{}{
 		"busy": pc.pm.Busy(p.ID),
+	}}
+}
+
+func (pc *panedConn) setBackground(req *panedRequest) interface{} {
+	var p struct {
+		ID         string `json:"id"`
+		Background bool   `json:"background"`
+	}
+	if err := json.Unmarshal(req.Params, &p); err != nil {
+		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+	}
+	return panedResponse{ID: req.ID, Result: map[string]interface{}{
+		"ok": pc.pm.SetBackground(p.ID, p.Background),
+	}}
+}
+
+func (pc *panedConn) backgroundList(req *panedRequest) interface{} {
+	return panedResponse{ID: req.ID, Result: map[string]interface{}{
+		"background": pc.pm.BackgroundList(),
 	}}
 }
 
@@ -401,7 +427,7 @@ func (ps *PanedServer) Accept() error {
 	// needs to be wired ONCE for its lifetime — reconnects reuse the same
 	// closures and just swap currConn. `p.wired` guards against re-wiring
 	// (which would nest exit handlers and re-trigger pushes). (FR-12)
-	pc.wirePane = func(p *Tool) {
+	pc.wireTool = func(p *Tool) {
 		if !p.wired.CompareAndSwap(false, true) {
 			return
 		}
@@ -432,7 +458,7 @@ func (ps *PanedServer) Accept() error {
 		})
 	}
 	for _, p := range ps.pm.Snapshot() {
-		pc.wirePane(p)
+		pc.wireTool(p)
 	}
 	ps.currConn = pc
 	ps.mu.Unlock()

@@ -211,7 +211,7 @@ func TestPaneManager_AttentionIDs_AndEndpoint(t *testing.T) {
 
 	s := &Server{Panes: m}
 	rec := httptest.NewRecorder()
-	s.apiPanesAttention(rec, httptest.NewRequest(http.MethodGet, "/api/tools/attention", nil))
+	s.apiToolsAttention(rec, httptest.NewRequest(http.MethodGet, "/api/tools/attention", nil))
 	var got struct {
 		ToolIds []string `json:"toolIds"`
 	}
@@ -223,7 +223,7 @@ func TestPaneManager_AttentionIDs_AndEndpoint(t *testing.T) {
 	}
 }
 
-// apiPaneAttentionClear clears via the focus path and tolerates unknown tools.
+// apiToolAttentionClear clears via the focus path and tolerates unknown tools.
 func TestApiPaneAttentionClear(t *testing.T) {
 	m := NewToolManager("", nil)
 	var mu sync.Mutex
@@ -238,7 +238,7 @@ func TestApiPaneAttentionClear(t *testing.T) {
 
 	// unknown tool → 200 no-op.
 	rec := httptest.NewRecorder()
-	s.apiPaneAttentionClear(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear",
+	s.apiToolAttentionClear(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear",
 		strings.NewReader(`{"toolId":"999"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("unknown tool want 200, got %d", rec.Code)
@@ -246,7 +246,7 @@ func TestApiPaneAttentionClear(t *testing.T) {
 
 	// known attention tool → cleared + notifier fired.
 	rec = httptest.NewRecorder()
-	s.apiPaneAttentionClear(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear",
+	s.apiToolAttentionClear(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear",
 		strings.NewReader(`{"toolId":"4"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("known tool want 200, got %d", rec.Code)
@@ -260,7 +260,7 @@ func TestApiPaneAttentionClear(t *testing.T) {
 
 	// missing toolId → 400.
 	rec = httptest.NewRecorder()
-	s.apiPaneAttentionClear(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear",
+	s.apiToolAttentionClear(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear",
 		strings.NewReader(`{}`)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("missing toolId want 400, got %d", rec.Code)
@@ -279,7 +279,7 @@ func TestApiPaneAttentionSet(t *testing.T) {
 	s := &Server{Panes: m}
 
 	rec := httptest.NewRecorder()
-	s.apiPaneAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/set",
+	s.apiToolAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/set",
 		strings.NewReader(`{"toolId":"9","reason":"done"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("set want 200, got %d", rec.Code)
@@ -294,7 +294,7 @@ func TestApiPaneAttentionSet(t *testing.T) {
 	// Re-notify: a second explicit signal must fire AGAIN even though the tool
 	// is already in attention (each agent completion re-alerts) — not edge-gated.
 	rec = httptest.NewRecorder()
-	s.apiPaneAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/set",
+	s.apiToolAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/set",
 		strings.NewReader(`{"toolId":"9","reason":"waiting"}`)))
 	if len(attn) != 2 || attn[1] != "9:waiting" {
 		t.Fatalf("second signal must re-fire while already in attention, got %v", attn)
@@ -302,7 +302,7 @@ func TestApiPaneAttentionSet(t *testing.T) {
 
 	// missing toolId → 400.
 	rec = httptest.NewRecorder()
-	s.apiPaneAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/set",
+	s.apiToolAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/set",
 		strings.NewReader(`{}`)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("missing toolId want 400, got %d", rec.Code)
@@ -327,7 +327,7 @@ func TestClearAllAttention_AndEndpoint(t *testing.T) {
 
 	s := &Server{Panes: m}
 	rec := httptest.NewRecorder()
-	s.apiPaneAttentionClearAll(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear-all", nil))
+	s.apiToolAttentionClearAll(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear-all", nil))
 	var got struct {
 		Cleared int `json:"cleared"`
 	}

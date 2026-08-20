@@ -39,7 +39,7 @@ function makeMdInDir(): { mdPath: string; expectedCwd: string } {
 }
 
 async function paneCwd(request, toolId: string): Promise<string> {
-  const r = await request.get('/api/cwd?pane=' + toolId);
+  const r = await request.get('/api/cwd?tool=' + toolId);
   const j = await r.json();
   return j.cwd as string;
 }
@@ -100,7 +100,7 @@ test.describe('MD focus → new pane cwd inheritance', () => {
       const walk = (n: any, out: any[]) => { if (!n) return; if (n.type === 'pane') out.push(n); else if (n.children) n.children.forEach((c: any) => walk(c, out)); };
       const regs: any[] = []; walk(s.layout, regs);
       const pid = regs[0].tabs[0].toolId;
-      const r = await fetch('/api/cwd?pane=' + pid);
+      const r = await fetch('/api/cwd?tool=' + pid);
       const j = await r.json();
       return j.cwd as string;
     });

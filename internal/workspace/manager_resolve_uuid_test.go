@@ -31,7 +31,7 @@ func newManagerWithBlob(t *testing.T, live Liveness, blob string) *Manager {
 // 수용한다. 셋 다 동일 toolId 를 반환해야 한다.
 func TestResolve_AcceptsLabelPaneIdAndUUID(t *testing.T) {
 	tabUUID := "550e8400-e29b-41d4-a716-446655440003"
-	blob := `{"activeWindow":"550e8400-e29b-41d4-a716-446655440001","schemaVersion": 2, "windows":[{"id":"550e8400-e29b-41d4-a716-446655440001","name":"Main","focusedPane":"550e8400-e29b-41d4-a716-446655440002","layout":{"type":"tool","id":"550e8400-e29b-41d4-a716-446655440002","activeTab":"` + tabUUID + `","tabs":[{"id":"` + tabUUID + `","name":"Shell","toolId":"1"}]}}]}`
+	blob := `{"activeWindow":"550e8400-e29b-41d4-a716-446655440001","schemaVersion": 2, "windows":[{"id":"550e8400-e29b-41d4-a716-446655440001","name":"Main","focusedPane":"550e8400-e29b-41d4-a716-446655440002","layout":{"type":"pane","id":"550e8400-e29b-41d4-a716-446655440002","activeTab":"` + tabUUID + `","tabs":[{"id":"` + tabUUID + `","name":"Shell","toolId":"1"}]}}]}`
 	m := newManagerWithBlob(t, liveSet{"1": {}}, blob)
 
 	cases := []struct {
@@ -61,8 +61,8 @@ func TestResolve_UUIDStableAcrossLabelReflow(t *testing.T) {
 	tabB := "550e8400-e29b-41d4-a716-446655440bbb"
 	// 처음: 세션 둘. A 가 S1, B 가 S2.
 	blob1 := `{"activeWindow":"sa","schemaVersion": 2, "windows":[
-		{"id":"sa","name":"A","focusedPane":"ra","layout":{"type":"tool","id":"ra","activeTab":"` + tabA + `","tabs":[{"id":"` + tabA + `","name":"a","toolId":"10"}]}},
-		{"id":"sb","name":"B","focusedPane":"rb","layout":{"type":"tool","id":"rb","activeTab":"` + tabB + `","tabs":[{"id":"` + tabB + `","name":"b","toolId":"20"}]}}
+		{"id":"sa","name":"A","focusedPane":"ra","layout":{"type":"pane","id":"ra","activeTab":"` + tabA + `","tabs":[{"id":"` + tabA + `","name":"a","toolId":"10"}]}},
+		{"id":"sb","name":"B","focusedPane":"rb","layout":{"type":"pane","id":"rb","activeTab":"` + tabB + `","tabs":[{"id":"` + tabB + `","name":"b","toolId":"20"}]}}
 	]}`
 	m := newManagerWithBlob(t, liveSet{"10": {}, "20": {}}, blob1)
 
@@ -75,7 +75,7 @@ func TestResolve_UUIDStableAcrossLabelReflow(t *testing.T) {
 
 	// 세션 A 종료. B 의 위치 라벨이 S2 → S1 로 reflow.
 	blob2 := `{"activeWindow":"sb","schemaVersion": 2, "windows":[
-		{"id":"sb","name":"B","focusedPane":"rb","layout":{"type":"tool","id":"rb","activeTab":"` + tabB + `","tabs":[{"id":"` + tabB + `","name":"b","toolId":"20"}]}}
+		{"id":"sb","name":"B","focusedPane":"rb","layout":{"type":"pane","id":"rb","activeTab":"` + tabB + `","tabs":[{"id":"` + tabB + `","name":"b","toolId":"20"}]}}
 	]}`
 	if _, err := m.Save([]byte(blob2), "1"); err != nil {
 		t.Fatalf("Save reflow: %v", err)
@@ -96,7 +96,7 @@ func TestResolve_UUIDStableAcrossLabelReflow(t *testing.T) {
 // NFR-UID-4: short code 8자만으로 resolve 시도하면 거부 (full uuid 만 권한).
 func TestResolve_RejectsShortCode(t *testing.T) {
 	tabUUID := "550e8400-e29b-41d4-a716-446655440003"
-	blob := `{"activeWindow":"s","schemaVersion": 2, "windows":[{"id":"s","name":"x","focusedPane":"r","layout":{"type":"tool","id":"r","activeTab":"` + tabUUID + `","tabs":[{"id":"` + tabUUID + `","name":"a","toolId":"1"}]}}]}`
+	blob := `{"activeWindow":"s","schemaVersion": 2, "windows":[{"id":"s","name":"x","focusedPane":"r","layout":{"type":"pane","id":"r","activeTab":"` + tabUUID + `","tabs":[{"id":"` + tabUUID + `","name":"a","toolId":"1"}]}}]}`
 	m := newManagerWithBlob(t, liveSet{"1": {}}, blob)
 	if _, err := m.Resolve("550e8400"); err == nil {
 		t.Errorf("short-code resolve should fail per NFR-UID-4")
@@ -107,7 +107,7 @@ func TestResolve_RejectsShortCode(t *testing.T) {
 // coordinate / toolId / label / 빈문자는 그대로 통과 — 행위 보존.
 func TestCoordinateOf_PassThroughAndTranslate(t *testing.T) {
 	tabUUID := "550e8400-e29b-41d4-a716-446655440003"
-	blob := `{"activeWindow":"s","schemaVersion": 2, "windows":[{"id":"s","name":"x","focusedPane":"r","layout":{"type":"tool","id":"r","activeTab":"` + tabUUID + `","tabs":[{"id":"` + tabUUID + `","name":"a","toolId":"7"}]}}]}`
+	blob := `{"activeWindow":"s","schemaVersion": 2, "windows":[{"id":"s","name":"x","focusedPane":"r","layout":{"type":"pane","id":"r","activeTab":"` + tabUUID + `","tabs":[{"id":"` + tabUUID + `","name":"a","toolId":"7"}]}}]}`
 	m := newManagerWithBlob(t, liveSet{"7": {}}, blob)
 
 	cases := []struct {
@@ -138,8 +138,8 @@ func TestCoordinateOf_PassThroughAndTranslate(t *testing.T) {
 // 좌표로 변환.
 func TestCoordinateOf_ShortTabIDTranslates(t *testing.T) {
 	blob := `{"activeWindow":"s2","schemaVersion": 2, "windows":[
-		{"id":"s1","name":"a","focusedPane":"r1","layout":{"type":"tool","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"shA","toolId":"303"}]}},
-		{"id":"s2","name":"b","focusedPane":"r2","layout":{"type":"tool","id":"r2","activeTab":"t42","tabs":[{"id":"t42","name":"shB","toolId":"342"}]}}
+		{"id":"s1","name":"a","focusedPane":"r1","layout":{"type":"pane","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"shA","toolId":"303"}]}},
+		{"id":"s2","name":"b","focusedPane":"r2","layout":{"type":"pane","id":"r2","activeTab":"t42","tabs":[{"id":"t42","name":"shB","toolId":"342"}]}}
 	]}`
 	m := newManagerWithBlob(t, liveSet{"303": {}, "342": {}}, blob)
 
@@ -168,8 +168,8 @@ func TestCoordinateOf_ShortTabIDTranslates(t *testing.T) {
 // NFR-UID-0 보존: 좌표/라벨/toolId 는 여전히 pass-through 한다 (tab.id 매칭 우선).
 func TestCoordinateOf_PassThroughPreserved_AfterShortIDFix(t *testing.T) {
 	blob := `{"activeWindow":"s2","schemaVersion": 2, "windows":[
-		{"id":"s1","name":"a","focusedPane":"r1","layout":{"type":"tool","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"shA","toolId":"303"}]}},
-		{"id":"s2","name":"b","focusedPane":"r2","layout":{"type":"tool","id":"r2","activeTab":"t42","tabs":[{"id":"t42","name":"shB","toolId":"342"}]}}
+		{"id":"s1","name":"a","focusedPane":"r1","layout":{"type":"pane","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"shA","toolId":"303"}]}},
+		{"id":"s2","name":"b","focusedPane":"r2","layout":{"type":"pane","id":"r2","activeTab":"t42","tabs":[{"id":"t42","name":"shB","toolId":"342"}]}}
 	]}`
 	m := newManagerWithBlob(t, liveSet{"303": {}, "342": {}}, blob)
 
@@ -185,7 +185,7 @@ func TestCoordinateOf_PassThroughPreserved_AfterShortIDFix(t *testing.T) {
 }
 
 func TestCoordinateOf_UnknownUUID(t *testing.T) {
-	blob := `{"activeWindow":"s","schemaVersion": 2, "windows":[{"id":"s","name":"x","focusedPane":"r","layout":{"type":"tool","id":"r","activeTab":"t","tabs":[{"id":"t","name":"a","toolId":"1"}]}}]}`
+	blob := `{"activeWindow":"s","schemaVersion": 2, "windows":[{"id":"s","name":"x","focusedPane":"r","layout":{"type":"pane","id":"r","activeTab":"t","tabs":[{"id":"t","name":"a","toolId":"1"}]}}]}`
 	m := newManagerWithBlob(t, liveSet{"1": {}}, blob)
 	if _, err := m.CoordinateOf("ffffffff-ffff-7fff-bfff-ffffffffffff"); err == nil {
 		t.Errorf("expected error for unknown uuid")
@@ -194,7 +194,7 @@ func TestCoordinateOf_UnknownUUID(t *testing.T) {
 
 // NFR-UID-0: uuid 입력이 인덱스에 없으면 친절한 오류, 기존 label 경로는 무회귀.
 func TestResolve_UUIDNotFoundIsDistinctError(t *testing.T) {
-	blob := `{"activeWindow":"s","schemaVersion": 2, "windows":[{"id":"s","name":"x","focusedPane":"r","layout":{"type":"tool","id":"r","activeTab":"t","tabs":[{"id":"t","name":"a","toolId":"1"}]}}]}`
+	blob := `{"activeWindow":"s","schemaVersion": 2, "windows":[{"id":"s","name":"x","focusedPane":"r","layout":{"type":"pane","id":"r","activeTab":"t","tabs":[{"id":"t","name":"a","toolId":"1"}]}}]}`
 	m := newManagerWithBlob(t, liveSet{"1": {}}, blob)
 	bogus := "ffffffff-ffff-7fff-bfff-ffffffffffff"
 	_, err := m.Resolve(bogus)

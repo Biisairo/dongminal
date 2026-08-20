@@ -20,6 +20,8 @@ class App {
     this._stats={};this._latency=null;
     this._mPaneIdx=0; // mobile current pane index (volatile)
     this._drawerOpen=false;
+    this._bg=[]; // 백그라운드 도구 목록 (FR-BG-6)
+    this._bgPopoverOpen=false;
     this._modKbd=null; // {ctrl:bool|'lock', alt:bool|'lock'}
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
@@ -176,7 +178,7 @@ class App {
     const connect=()=>{
       try{
         const es=new EventSource('/api/commands/sse');
-        es.onopen=()=>{retry=1000;retryCount=0;this._attnRestore();this._activityRestore()};
+        es.onopen=()=>{retry=1000;retryCount=0;this._attnRestore();this._activityRestore();this._bgRefresh()};
         es.onmessage=(e)=>{
           try{
             const m=JSON.parse(e.data);
@@ -386,6 +388,20 @@ class App {
     const keepFocus=!!args.keepFocus;
     // location 지정 closeTab 은 활성/비활성 창 구분 없이 포커스를 건드리지 않고 직접 close.
     // keepFocus 인자는 호환을 위해 받지만, location 이 있으면 항상 포커스 유지로 취급한다.
+    // FR-BG-2: detach 명령 — 도구를 백그라운드로 보내고 탭을 닫는다.
+    if(action==='detachTab'){
+      const loc=this._findToolLocation(args.toolId);
+      if(!loc){console.warn('[cmd] detachTab: 도구 위치 없음',args.toolId);return}
+      if(!toolBackgroundCapable(loc.tab.type)){
+        console.warn('[cmd] detachTab: 백그라운드 미지원 도구',loc.tab.type);return;
+      }
+      this.closeTab(loc.pane.id,loc.tab.id,loc.win.id,{keepTool:true});
+      return;
+    }
+    if(action==='restoreTool'){
+      this._restoreTool(args.toolId);
+      return;
+    }
     if(action==='closeTab' && args.location){
       const tgt=this._resolveLocation(args.location);
       if(tgt && tgt.paneId && tgt.tabId){
@@ -493,24 +509,70 @@ class App {
       if (opts.saveBtn) {
         btns = '<button class="confirm-save">저장 후 닫기</button>' + btns;
       }
+      // FR-BG-3/4: 실행 중인 도구를 살려두고 닫는 선택지.
+      if (opts.bgBtn) {
+        btns = `<button class="confirm-bg">${opts.bgLabel||'백그라운드로'}</button>` + btns;
+      }
       ov.innerHTML=`<div class="confirm-box"><div class="confirm-msg">${msg}</div><div class="confirm-btns">${btns}</div></div>`;
       document.body.appendChild(ov);
       const saveBtn = ov.querySelector('.confirm-save');
-      if (saveBtn) saveBtn.focus(); else ov.querySelector('.confirm-ok').focus();
+      const bgBtn = ov.querySelector('.confirm-bg');
+      if (saveBtn) saveBtn.focus(); else if (bgBtn) bgBtn.focus(); else ov.querySelector('.confirm-ok').focus();
       const cleanup=v=>{ov.remove();document.removeEventListener('keydown',onKey);resolve(v)};
-      const onKey=e=>{if(e.key==='Enter'){e.preventDefault();cleanup(saveBtn?'save':true)}else if(e.key==='Escape'){e.preventDefault();cleanup(false)}};
+      const onKey=e=>{if(e.key==='Enter'){e.preventDefault();cleanup(saveBtn?'save':(bgBtn?'background':true))}else if(e.key==='Escape'){e.preventDefault();cleanup(false)}};
       document.addEventListener('keydown',onKey);
       if (saveBtn) saveBtn.addEventListener('click',()=>cleanup('save'));
+      if (bgBtn) bgBtn.addEventListener('click',()=>cleanup('background'));
       ov.querySelector('.confirm-ok').addEventListener('click',()=>cleanup(true));
       ov.querySelector('.confirm-cancel').addEventListener('click',()=>cleanup(false));
       ov.addEventListener('click',e=>{if(e.target===ov)cleanup(false)});
     });
   }
 
-  async _newTool(cwd,cwdPane){
+  // ── 백그라운드 도구 (FR-BG) ──
+
+  // _setToolBackground는 도구를 백그라운드로 보내거나 되돌린다. 실패해도
+  // 호출자의 흐름을 막지 않는다 — 탭 닫기가 알림 실패로 멈추면 더 나쁘다.
+  async _setToolBackground(toolId,bg){
+    if(!toolId) return false;
+    try{
+      const r=await fetch('/api/tools/background/set',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({toolId,background:!!bg})});
+      return r.ok;
+    }catch{return false}
+  }
+
+  async _bgRefresh(){
+    try{
+      const r=await fetch('/api/tools/background');
+      if(!r.ok) return;
+      const j=await r.json();
+      this._bg=Array.isArray(j.background)?j.background:[];
+    }catch{return}
+    this._updateStatusBar();
+    if(this._bgPopoverOpen) this._bgPopoverRender();
+  }
+
+  // FR-BG-7: 백그라운드 도구를 현재 분할 칸의 새 탭으로 되돌린다.
+  async _restoreTool(toolId){
+    if(!toolId) return;
+    const pn=this.focused&&this._aw()?findPane(this._aw().layout,this.focused):null;
+    if(!pn){console.warn('[bg] 복귀할 분할 칸 없음');return}
+    if(!await this._setToolBackground(toolId,false)) return;
+    if(!this.tools.has(toolId)) this._mkTool(toolId,'Shell #'+toolId);
+    const t=`t${++this._t}`;
+    pn.tabs.push({id:t,name:'Shell',type:'terminal',toolId});
+    pn.activeTab=t;
+    this.render();
+    this._save();
+    this._bgRefresh();
+  }
+
+  async _newTool(cwd,cwdTool){
     let q='';
     if(cwd) q='&cwd='+encodeURIComponent(cwd);
-    else if(cwdPane) q='&cwdPane='+encodeURIComponent(cwdPane);
+    else if(cwdTool) q='&cwdTool='+encodeURIComponent(cwdTool);
     const r=await fetch('/api/tools?cols=120&rows=40'+q,{method:'POST'});
     if(!r.ok) throw new Error('create pane failed');
     const {id,name}=await r.json();
@@ -520,7 +582,7 @@ class App {
   async _focusedCwd(){
     const p=this._focusedTerminal();
     if(!p) return null;
-    try{const r=await fetch('/api/cwd?pane='+p.id);const d=await r.json();return d.cwd||null}catch{return null}
+    try{const r=await fetch('/api/cwd?tool='+p.id);const d=await r.json();return d.cwd||null}catch{return null}
   }
 
   async _kill(pid){
@@ -1064,11 +1126,22 @@ class App {
     const s=this.ws.windows[i];
     const pids=allPids(s.layout);
     const busyChecks=await Promise.all(pids.map(pid=>this._isToolBusy(pid)));
+    // FR-BG-4/4a: 일괄 전환 대상은 busy 인 도구만이다. 확인창이 뜨는 사유가
+    // "실행 중인 프로세스"이고, 한가하면 그냥 종료한다는 FR-BG-1 의 기본과
+    // 일관되어야 한다 — 한가한 셸까지 보존하면 백그라운드가 쓰레기로 찬다.
+    let keep=new Set();
     if(busyChecks.some(Boolean)){
-      const ok=await this._confirmClose('실행 중인 프로세스가 있습니다. 창을 닫으시겠습니까?');
-      if(!ok) return;
+      const r=await this._confirmClose('실행 중인 프로세스가 있습니다. 창을 닫으시겠습니까?',
+        {bgBtn:true,bgLabel:'실행 중인 것만 백그라운드로'});
+      if(!r) return;
+      if(r==='background'){
+        for(let i=0;i<pids.length;i++) if(busyChecks[i]) keep.add(pids[i]);
+      }
     }
-    for(const pid of pids) this._kill(pid);
+    for(const pid of keep) this._setToolBackground(pid,true);
+    if(keep.size) this._bgRefresh();
+    // FR-BG-4b: backgroundCapable 이 아닌 도구는 전환 대상이 아니라 종료된다.
+    for(const pid of pids) if(!keep.has(pid)) this._kill(pid);
     this.ws.windows.splice(i,1);
     if(!this.ws.windows.length){await this._mkWindow();this.render();return}
     if(this.ws.activeWindow===sid){
@@ -1161,7 +1234,7 @@ class App {
       return;
     }
     const ref = this._paneNewToolRef(s, rid);
-    const p = await this._newTool(ref.cwd || null, ref.cwd ? null : (ref.cwdPane || null));
+    const p = await this._newTool(ref.cwd || null, ref.cwd ? null : (ref.cwdTool || null));
     const t = `t${++this._t}`;
     const name = (typeof opts.name === 'string' && opts.name ? opts.name : 'Shell').slice(0, 64);
     pn.tabs.push({ id: t, name, type: 'terminal', toolId: p.id });
@@ -1173,7 +1246,7 @@ class App {
     return { uuid: t, toolId: p.id };
   }
 
-  async closeTab(rid,tid,sid){
+  async closeTab(rid,tid,sid,opts={}){
     // sid 를 지정하면 해당 창의 탭을 닫는다 (비활성 창 대상도 지원).
     // 지정 안 하면 기존 동작: 활성 창에서 닫는다.
     const s = sid ? this.ws.windows.find(x=>x.id===sid) : this._aw();
@@ -1193,9 +1266,15 @@ class App {
       }
       if(editor){editor.destroy();this.fileEditors.delete(tab.id)}
     }else{
-      if(await this._isToolBusy(tab.toolId)){
-        const ok=await this._confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?');
-        if(!ok) return;
+      // FR-BG-1: 한가하면 확인 없이 닫고 도구를 종료한다.
+      // FR-BG-3: 실행 중이면 살려둘 선택지를 준다. 프로세스가 도는 탭에는
+      // 셸 프롬프트가 없어 detach 를 입력할 수 없고, 바로 그 탭이 이 창을
+      // 띄우는 탭이다.
+      if(!opts.keepTool && await this._isToolBusy(tab.toolId)){
+        const r=await this._confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?',
+          {bgBtn:toolBackgroundCapable(tab.type)});
+        if(!r) return;
+        if(r==='background') opts={...opts,keepTool:true};
       }
     }
     const toolId=tab.toolId;
@@ -1205,7 +1284,7 @@ class App {
     const isActive = s.id === this.ws.activeWindow;
     if(pn.tabs.length===0){
       s.layout=doRemove(s.layout,rid);
-      if(!s.layout){if(!isEditor&&toolId)this._killTool(toolId);await this.delWindow(s.id);return}
+      if(!s.layout){if(!isEditor&&toolId&&!opts.keepTool)this._killTool(toolId);await this.delWindow(s.id);return}
       if(isActive){
         const fallback=this.focused===rid?prevClosestId:this.focused;
         const next=fallback&&findPane(s.layout,fallback)?fallback:firstPane(s.layout)?.id||null;
@@ -1221,7 +1300,12 @@ class App {
     }
     this.render();
     if(!isEditor&&toolId){
-      this._killTool(toolId);
+      if(opts.keepTool){
+        // 탭만 제거한다 — 도구는 백그라운드에서 계속 실행된다 (FR-BG-2/3).
+        this._setToolBackground(toolId,true).then(()=>this._bgRefresh());
+      }else{
+        this._killTool(toolId);
+      }
     }
     this._save();
   }
@@ -1257,7 +1341,7 @@ class App {
     const savedWindow = keepFocus ? this.ws.activeWindow : null;
     const savedFocused = keepFocus ? this.focused : null;
     const ref=this._paneNewToolRef(s,tgtPaneId);
-    const refPaneId=ref.cwd ? null : (ref.cwdPane || null);
+    const refPaneId=ref.cwd ? null : (ref.cwdTool || null);
     const newPanes=[]; let lastR=null;
     for(let i=0;i<count-1;i++){
       const p=await this._newTool(ref.cwd || null, refPaneId);
@@ -1323,7 +1407,7 @@ class App {
     const toolId = tab.toolId;
     if (toolId) {
       const p = this.tools.get(toolId);
-      if (p) return { cwdPane: toolId };
+      if (p) return { cwdTool: toolId };
     }
     return {};
   }
@@ -2136,6 +2220,11 @@ class App {
     if(statusBar.latency&&this._latency!==null){
       items.push(`<span class="sb-item">${this._latency}ms</span>`);
     }
+    // FR-BG-6: 백그라운드 도구가 1개 이상일 때만 배지를 낸다. 0개면 UI 에
+    // 아무 흔적이 없어야 한다.
+    if(this._bg&&this._bg.length){
+      items.push(`<span class="sb-item sb-bg" id="sb-bg" title="백그라운드 도구 ${this._bg.length}개">⏻ ${this._bg.length}</span>`);
+    }
     if(statusBar.location){
       const loc=this._locationLabel();
       if(loc)items.push(`<span class="sb-item" title="MCP id: ${loc}">📍 ${loc}</span>`);
@@ -2175,6 +2264,49 @@ class App {
       if(parts.length)items.push(`<span class="sb-item">↑ ${parts.join(' │ ')}</span>`);
     }
     bar.innerHTML=items.join('')||'';
+    const bgEl=document.getElementById('sb-bg');
+    if(bgEl) bgEl.addEventListener('click',e=>{e.stopPropagation();this._bgPopoverToggle()});
+  }
+
+  // FR-BG-6/7: 배지 클릭 → 목록 팝오버. 항목 클릭 시 현재 분할 칸의 새 탭으로
+  // 복귀한다 (detach --restore 와 같은 경로).
+  _bgPopoverToggle(open){
+    this._bgPopoverOpen = (open===undefined) ? !this._bgPopoverOpen : !!open;
+    if(this._bgPopoverOpen){ this._bgRefresh(); this._bgPopoverRender() }
+    else{ const el=document.getElementById('bg-popover'); if(el) el.remove() }
+  }
+
+  _bgPopoverRender(){
+    let el=document.getElementById('bg-popover');
+    if(!el){
+      el=document.createElement('div'); el.id='bg-popover'; el.className='bg-popover';
+      document.body.appendChild(el);
+      el.addEventListener('click',e=>e.stopPropagation());
+      const onDoc=()=>{this._bgPopoverToggle(false);document.removeEventListener('click',onDoc)};
+      setTimeout(()=>document.addEventListener('click',onDoc),0);
+    }
+    el.innerHTML='';
+    const head=document.createElement('div'); head.className='bg-head';
+    head.textContent=`백그라운드 도구 ${this._bg.length}개`;
+    el.appendChild(head);
+    if(!this._bg.length){
+      const empty=document.createElement('div'); empty.className='bg-empty';
+      empty.textContent='없음'; el.appendChild(empty);
+    }
+    for(const b of this._bg){
+      const row=document.createElement('div'); row.className='bg-row'; row.title='클릭하면 현재 분할 칸의 새 탭으로 복귀';
+      const name=document.createElement('span'); name.className='bg-name'; name.textContent=b.name||('Shell #'+b.toolId);
+      const cwd=document.createElement('span'); cwd.className='bg-cwd'; cwd.textContent=b.cwd||'';
+      row.appendChild(name); row.appendChild(cwd);
+      row.addEventListener('click',()=>{this._bgPopoverToggle(false);this._restoreTool(b.toolId)});
+      el.appendChild(row);
+    }
+    const anchor=document.getElementById('sb-bg');
+    if(anchor){
+      const r=anchor.getBoundingClientRect();
+      el.style.left=Math.max(4,r.left)+'px';
+      el.style.bottom=(window.innerHeight-r.top+6)+'px';
+    }
   }
   _fmtBytes(b){
     if(b<1073741824)return(b/1048576).toFixed(1)+'MB';
@@ -2200,7 +2332,7 @@ class App {
   }
   _updateCwd(){
     const p=this._focusedTerminal();if(!p)return;
-    fetch('/api/cwd?pane='+p.id).then(r=>r.json()).then(({cwd})=>{this._cwd=cwd;this._updateStatusBar()}).catch(()=>{});
+    fetch('/api/cwd?tool='+p.id).then(r=>r.json()).then(({cwd})=>{this._cwd=cwd;this._updateStatusBar()}).catch(()=>{});
   }
   _renderStatusBarSettings(){
     const el=document.getElementById('sb-settings');if(!el)return;

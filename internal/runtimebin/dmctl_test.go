@@ -338,8 +338,8 @@ const listPanesFakeState = `{
   "workspace":{
     "activeWindow":"sb",
     "schemaVersion": 2, "windows":[
-      {"id":"sa","name":"Main","focusedPane":"ra","layout":{"type":"tool","id":"ra","activeTab":"taba","tabs":[{"id":"550e8400-e29b-41d4-a716-446655440aaa","name":"shell-a","toolId":"10"}]}},
-      {"id":"sb","name":"Work","focusedPane":"rb","layout":{"type":"tool","id":"rb","activeTab":"550e8400-e29b-41d4-a716-446655440bbb","tabs":[{"id":"550e8400-e29b-41d4-a716-446655440bbb","name":"shell-b","toolId":"20"}]}}
+      {"id":"sa","name":"Main","focusedPane":"ra","layout":{"type":"pane","id":"ra","activeTab":"taba","tabs":[{"id":"550e8400-e29b-41d4-a716-446655440aaa","name":"shell-a","toolId":"10"}]}},
+      {"id":"sb","name":"Work","focusedPane":"rb","layout":{"type":"pane","id":"rb","activeTab":"550e8400-e29b-41d4-a716-446655440bbb","tabs":[{"id":"550e8400-e29b-41d4-a716-446655440bbb","name":"shell-b","toolId":"20"}]}}
     ]
   }
 }`

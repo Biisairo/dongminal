@@ -9,13 +9,13 @@ import (
 
 const dmctlNotifyHelp = `dmctl notify [label]
   현재 tool 이 주의가 필요함을 알린다(작업 완료/입력 대기 등).
-  DONGMINAL_PANE_ID 로 자신을 식별해 서버에 알림을 POST 하므로, 제어 터미널이
+  DONGMINAL_TOOL_ID 로 자신을 식별해 서버에 알림을 POST 하므로, 제어 터미널이
   없는 detached 환경(에이전트 hook 등)에서도 동작한다. 에이전트 hook 에서 호출.
   예: claude Stop hook -> "dmctl notify done", Notification hook -> "dmctl notify waiting"
 `
 
 // runDmctlNotify flags the calling tool as needing attention by POSTing to the
-// dongminal server, identifying the tool via DONGMINAL_PANE_ID. This works from
+// dongminal server, identifying the tool via DONGMINAL_TOOL_ID. This works from
 // detached agent hooks that have no controlling terminal (writing to /dev/tty
 // would fail there with ENXIO).
 func runDmctlNotify(args []string, stdout, stderr io.Writer) int {
@@ -30,9 +30,9 @@ func runDmctlNotify(args []string, stdout, stderr io.Writer) int {
 			break
 		}
 	}
-	toolID := os.Getenv("DONGMINAL_PANE_ID")
+	toolID := os.Getenv("DONGMINAL_TOOL_ID")
 	if toolID == "" {
-		fmt.Fprintln(stderr, "dmctl notify: DONGMINAL_PANE_ID 미설정 (dongminal tool 안에서 실행해야 함)")
+		fmt.Fprintln(stderr, "dmctl notify: DONGMINAL_TOOL_ID 미설정 (dongminal tool 안에서 실행해야 함)")
 		return 1
 	}
 	url := baseURL() + "/api/tools/attention/set"

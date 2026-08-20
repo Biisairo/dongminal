@@ -523,6 +523,35 @@ func (pc *ToolClient) Busy(id string) bool {
 	return busy
 }
 
+func (pc *ToolClient) SetBackground(id string, bg bool) bool {
+	resp, err := pc.call("setbackground", map[string]interface{}{"id": id, "background": bg})
+	if err != nil {
+		return false
+	}
+	ok, _ := resp["ok"].(bool)
+	return ok
+}
+
+func (pc *ToolClient) BackgroundList() []BackgroundEntry {
+	resp, err := pc.call("backgroundlist", map[string]interface{}{})
+	if err != nil {
+		return nil
+	}
+	raw, ok := resp["background"]
+	if !ok {
+		return nil
+	}
+	blob, err := json.Marshal(raw)
+	if err != nil {
+		return nil
+	}
+	var out []BackgroundEntry
+	if json.Unmarshal(blob, &out) != nil {
+		return nil
+	}
+	return out
+}
+
 func (pc *ToolClient) SnapshotTool(id string) (ToolSnapshot, error) {
 	resp, err := pc.call("snapshot", map[string]interface{}{"id": id})
 	if err != nil {

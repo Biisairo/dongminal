@@ -145,7 +145,7 @@ func TestPaneClientPushOutput(t *testing.T) {
 	outputCh := make(chan []byte, 1)
 	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
 		return panedResponse{ID: req.ID, Result: map[string]interface{}{
-			"version": 1, "pane_ids": []interface{}{"1"},
+			"version": 1, "tool_ids": []interface{}{"1"},
 		}}
 	})
 	pc, _ := DialToolClient(sockPath)

@@ -31,6 +31,12 @@ type ToolHub interface {
 	// IsDaemon reports whether this hub is a daemon-backed client.
 	// Used by handleWS to choose the daemon-mode code path.
 	IsDaemon() bool
+	// SetBackground detaches tool id from its tab (bg=true) or restores it
+	// (bg=false). False when the tool does not exist (FR-BG-2/4/7).
+	SetBackground(id string, bg bool) bool
+	// BackgroundList returns the tools currently sent to the background,
+	// oldest first (FR-BG-6).
+	BackgroundList() []BackgroundEntry
 }
 
 // WorkspaceStore is implemented by *workspace.Manager; kept as an interface so

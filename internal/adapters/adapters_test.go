@@ -60,7 +60,7 @@ func TestWorkspaceAdapter_EntriesShape(t *testing.T) {
 	pm := server.NewToolManager(t.TempDir(), nil)
 	dir := t.TempDir()
 	wsPath := filepath.Join(dir, "ws.json")
-	blob := []byte(`{"schemaVersion": 2, "windows":[{"id":"s1","name":"S","layout":{"type":"tool","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"T","toolId":"42"}]}}],"activeWindow":"s1"}`)
+	blob := []byte(`{"schemaVersion": 2, "windows":[{"id":"s1","name":"S","layout":{"type":"pane","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"T","toolId":"42"}]}}],"activeWindow":"s1"}`)
 	os.WriteFile(wsPath, blob, 0644)
 
 	wsMgr, _ := workspace.New(pm, workspace.FilePersister{Path: wsPath})
@@ -108,8 +108,10 @@ func (f fakeHub) Resize(string, uint16, uint16) error { return nil }
 func (f fakeHub) SnapshotTool(string) (server.ToolSnapshot, error) {
 	return server.ToolSnapshot{}, nil
 }
-func (f fakeHub) IsLive(string) bool { return true }
-func (f fakeHub) IsDaemon() bool     { return true }
+func (f fakeHub) IsLive(string) bool                       { return true }
+func (f fakeHub) IsDaemon() bool                           { return true }
+func (f fakeHub) SetBackground(string, bool) bool          { return false }
+func (f fakeHub) BackgroundList() []server.BackgroundEntry { return nil }
 
 // TestPaneAdapter_DaemonListShellPID verifies daemon-mode List() carries the
 // shell PID from the hub payload (decoded as float64), which whoami relies on

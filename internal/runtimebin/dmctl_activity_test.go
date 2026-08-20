@@ -97,7 +97,7 @@ func TestReportCodexActivity_Guards(t *testing.T) {
 // NFR-AAP-5 / TC-AAP-10: runDmctlActivity is non-fatal — missing tool id or bad
 // JSON must exit 0 (never block the agent's tool call), without POSTing.
 func TestRunDmctlActivity_NonFatal(t *testing.T) {
-	t.Setenv("DONGMINAL_PANE_ID", "")
+	t.Setenv("DONGMINAL_TOOL_ID", "")
 	var out, errb strings.Builder
 	if code := runDmctlActivity([]string{"claude"}, strings.NewReader(`{"hook_event_name":"Stop"}`), &out, &errb); code != 0 {
 		t.Fatalf("missing tool id must be non-fatal, got %d", code)

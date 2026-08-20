@@ -145,7 +145,7 @@ type Tool struct {
 	// readPTY goroutine reads them without racing daemon-mode wiring
 	// (DAEMON_SPLIT_SRS FR-12). onExit is the base ToolManager handler set
 	// once in StartTool; daemon mode wraps it exactly once via
-	// PanedServer.wirePane (guarded by `wired`).
+	// PanedServer.wireTool (guarded by `wired`).
 	relay atomic.Pointer[paneRelay]
 	wired atomic.Bool
 
@@ -224,7 +224,7 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 		"HOME=" + home,
 		// PANE_ATTENTION_NOTIFY_SRS: lets `dmctl notify` (incl. detached agent
 		// hooks that have no controlling tty) identify this tool to the server.
-		"DONGMINAL_PANE_ID=" + id,
+		"DONGMINAL_TOOL_ID=" + id,
 	}
 	if u, err := user.Current(); err == nil {
 		env = append(env, "USER="+u.Username, "LOGNAME="+u.Username)
@@ -615,6 +615,20 @@ type ToolManager struct {
 	attnNotify     func(id, reason string)
 	attnClear      func(id string)
 	activityNotify func(id, state, tool, detail string)
+
+	// background는 탭에서 떼어내 백그라운드로 보낸 도구의 전환 시각(unix
+	// nanos)을 담는다. 런타임 전용 — tools.json 에 기재하지 않으므로 데몬
+	// 재시작을 넘기지 못한다 (FR-BG-9). 이 규칙이 고아 누적을 원리적으로
+	// 차단하며, 그래서 TTL·개수 한도·회수 스케줄러가 필요 없다.
+	background map[string]int64
+}
+
+// BackgroundEntry는 백그라운드 도구 한 건의 조회 결과다 (FR-BG-6).
+type BackgroundEntry struct {
+	ToolID string `json:"toolId"`
+	Name   string `json:"name"`
+	Cwd    string `json:"cwd"`
+	Since  int64  `json:"since"`
 }
 
 // NewToolManager builds an empty manager. dataDir is where tools.json lives;
@@ -853,6 +867,7 @@ func (m *ToolManager) Delete(id string) {
 	m.mu.Lock()
 	p := m.tools[id]
 	delete(m.tools, id)
+	delete(m.background, id)
 	remaining := len(m.tools)
 	m.mu.Unlock()
 	if p != nil {
@@ -895,12 +910,18 @@ func (m *ToolManager) SaveAll() {
 	m.mu.Unlock()
 	states := make([]ToolState, 0, len(snap))
 	for _, p := range snap {
+		// FR-EM-12/FR-BG-9: 백그라운드 도구는 기재하지 않는다. 기재하면
+		// 재시작 시 빈 셸로 되살아나 고아가 된다 — 백그라운드로 보낸 이유가
+		// "돌고 있던 작업"이므로 빈 셸에는 의미가 없다.
+		if m.IsBackground(p.ID) {
+			continue
+		}
 		states = append(states, ToolState{ID: p.ID, Name: p.Name, Cwd: p.Cwd()})
 	}
 	sort.Slice(states, func(i, j int) bool { return states[i].ID < states[j].ID })
 	data, _ := json.Marshal(states)
 	if err := os.WriteFile(m.dataPath("tools.json"), data, 0644); err != nil {
-		log.Printf("savePanes: %v", err)
+		log.Printf("saveTools: %v", err)
 	}
 }
 
@@ -1044,4 +1065,63 @@ func ParseSize(r *http.Request) (uint16, uint16) {
 		ro = uint16(v)
 	}
 	return c, ro
+}
+
+// SetBackground marks tool id as background (bg=true) or restores it to a tab
+// (bg=false). Returns false when the tool does not exist.
+//
+// Background is not a lifecycle of its own: the tool keeps running exactly as
+// before. The flag records the *intent* that it outlives its tab, which is the
+// one thing the server could not express — and without it "no tab references
+// this tool" cannot be told apart from a leak (FR-BG).
+func (m *ToolManager) SetBackground(id string, bg bool) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.tools[id]; !ok {
+		return false
+	}
+	if m.background == nil {
+		m.background = map[string]int64{}
+	}
+	if bg {
+		if _, already := m.background[id]; !already {
+			m.background[id] = time.Now().UnixNano()
+		}
+	} else {
+		delete(m.background, id)
+	}
+	m.dirty.Store(true)
+	return true
+}
+
+// IsBackground reports whether tool id was explicitly sent to the background.
+func (m *ToolManager) IsBackground(id string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	_, ok := m.background[id]
+	return ok
+}
+
+// BackgroundList returns every background tool, oldest transition first.
+func (m *ToolManager) BackgroundList() []BackgroundEntry {
+	m.mu.RLock()
+	type pair struct {
+		t     *Tool
+		since int64
+	}
+	pairs := make([]pair, 0, len(m.background))
+	for id, since := range m.background {
+		if t, ok := m.tools[id]; ok {
+			pairs = append(pairs, pair{t, since})
+		}
+	}
+	m.mu.RUnlock()
+
+	// Cwd() shells out (lsof on macOS) — never hold the lock across it.
+	out := make([]BackgroundEntry, 0, len(pairs))
+	for _, p := range pairs {
+		out = append(out, BackgroundEntry{ToolID: p.t.ID, Name: p.t.Name, Cwd: p.t.Cwd(), Since: p.since})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Since < out[j].Since })
+	return out
 }

@@ -27,7 +27,7 @@ func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	status, body, err := httpGet(baseURL() + "/api/whoami?toolId=" + os.Getenv("DONGMINAL_PANE_ID"))
+	status, body, err := httpGet(baseURL() + "/api/whoami?toolId=" + os.Getenv("DONGMINAL_TOOL_ID"))
 	if err != nil {
 		fmt.Fprintf(stderr, "dmctl: %v\n", err)
 		return 1

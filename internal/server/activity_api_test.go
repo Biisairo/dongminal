@@ -22,7 +22,7 @@ func TestApiPaneActivitySet(t *testing.T) {
 
 	// known tool → updates + notifier fires.
 	rec := httptest.NewRecorder()
-	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
+	s.apiToolActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
 		strings.NewReader(`{"toolId":"9","state":"working","tool":"Bash","detail":"npm test"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("set want 200, got %d", rec.Code)
@@ -37,7 +37,7 @@ func TestApiPaneActivitySet(t *testing.T) {
 
 	// unknown tool → 200 no-op.
 	rec = httptest.NewRecorder()
-	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
+	s.apiToolActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
 		strings.NewReader(`{"toolId":"999","state":"done"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("unknown tool want 200, got %d", rec.Code)
@@ -45,7 +45,7 @@ func TestApiPaneActivitySet(t *testing.T) {
 
 	// missing toolId → 400.
 	rec = httptest.NewRecorder()
-	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
+	s.apiToolActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
 		strings.NewReader(`{"state":"done"}`)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("missing toolId want 400, got %d", rec.Code)
@@ -53,7 +53,7 @@ func TestApiPaneActivitySet(t *testing.T) {
 
 	// invalid state → 400.
 	rec = httptest.NewRecorder()
-	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
+	s.apiToolActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
 		strings.NewReader(`{"toolId":"9","state":"bogus"}`)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("invalid state want 400, got %d", rec.Code)
@@ -85,7 +85,7 @@ func TestApiPanesActivity_Endpoint(t *testing.T) {
 	s := &Server{Panes: m}
 
 	rec := httptest.NewRecorder()
-	s.apiPanesActivity(rec, httptest.NewRequest(http.MethodGet, "/api/tools/activity", nil))
+	s.apiToolsActivity(rec, httptest.NewRequest(http.MethodGet, "/api/tools/activity", nil))
 	var got struct {
 		Activities []struct {
 			ToolID string `json:"toolId"`

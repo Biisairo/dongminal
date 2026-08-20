@@ -30,10 +30,10 @@ func TestReferencedToolIDs_FlatPane(t *testing.T) {
 func TestReferencedToolIDs_NestedSplits(t *testing.T) {
 	blob := `{"schemaVersion":2,"windows":[{"id":"s1","name":"w","layout":{
 	  "type":"split","children":[
-	    {"type":"tool","id":"r1","tabs":[{"id":"t1","toolId":"1"}]},
+	    {"type":"pane","id":"r1","tabs":[{"id":"t1","toolId":"1"}]},
 	    {"type":"split","children":[
-	      {"type":"tool","id":"r2","tabs":[{"id":"t2","toolId":"2"}]},
-	      {"type":"tool","id":"r3","tabs":[{"id":"t3","toolId":"3"}]}]}]}}]}`
+	      {"type":"pane","id":"r2","tabs":[{"id":"t2","toolId":"2"}]},
+	      {"type":"pane","id":"r3","tabs":[{"id":"t3","toolId":"3"}]}]}]}}]}`
 	got, err := ReferencedToolIDs([]byte(blob))
 	if err != nil {
 		t.Fatalf("ReferencedToolIDs: %v", err)
@@ -46,7 +46,7 @@ func TestReferencedToolIDs_NestedSplits(t *testing.T) {
 func TestReferencedToolIDs_SkipsTabsWithoutTool(t *testing.T) {
 	// editor/markdown 탭은 도구 id 가 없다 (FR-EM-11: 참조 0개도 유효).
 	blob := `{"schemaVersion":2,"windows":[{"id":"s1","name":"w","layout":
-	  {"type":"tool","id":"r1","tabs":[
+	  {"type":"pane","id":"r1","tabs":[
 	    {"id":"t1","type":"editor","filePath":"/a.md"},
 	    {"id":"t2","type":"terminal","toolId":"7"}]}}]}`
 	got, err := ReferencedToolIDs([]byte(blob))

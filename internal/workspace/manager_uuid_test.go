@@ -12,7 +12,7 @@ func TestBuildIndex_PopulatesUUIDFields(t *testing.T) {
 			"name":"Main",
 			"focusedPane":"550e8400-e29b-41d4-a716-446655440002",
 			"layout":{
-				"type":"tool",
+				"type":"pane",
 				"id":"550e8400-e29b-41d4-a716-446655440002",
 				"activeTab":"550e8400-e29b-41d4-a716-446655440003",
 				"tabs":[{
@@ -54,7 +54,7 @@ func TestBuildIndex_PopulatesUUIDFields(t *testing.T) {
 // NFR-UID-0: workspace.json 에 UUID 필드가 없는 레거시 형식도 그대로 동작해야
 // 한다 (행위 보존). 기존 필드만 채워지고 신규 UUID 필드는 비어 있다.
 func TestBuildIndex_EmptyUUIDsAreTolerated(t *testing.T) {
-	data := `{"activeWindow":"s1","schemaVersion": 2, "windows":[{"id":"s1","name":"x","focusedPane":"r1","layout":{"type":"tool","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"a","toolId":"1"}]}}]}`
+	data := `{"activeWindow":"s1","schemaVersion": 2, "windows":[{"id":"s1","name":"x","focusedPane":"r1","layout":{"type":"pane","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"a","toolId":"1"}]}}]}`
 	ix, err := buildIndex([]byte(data))
 	if err != nil {
 		t.Fatalf("buildIndex: %v", err)

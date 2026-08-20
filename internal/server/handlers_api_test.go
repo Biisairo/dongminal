@@ -556,14 +556,14 @@ func TestHandleAPI_PanesCreate_CwdPaneRef(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/tools?cwdPane=ref", "", nil)
+	resp, _ := http.Post(ts.URL+"/api/tools?cwdTool=ref", "", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
 	}
 }
 
-// DAEMON_CWDPANE_RESOLVE_SRS FR-1: cwdPane must resolve to the reference tool's
+// DAEMON_CWDPANE_RESOLVE_SRS FR-1: cwdTool must resolve to the reference tool's
 // live cwd via ToolHub.Cwd, not the server process working directory. In daemon
 // mode Get() returns a cmd-less Tool whose Cwd() falls back to os.Getwd(), so the
 // handler must go through the hub's Cwd(id) instead of Get(id).Cwd().
@@ -575,7 +575,7 @@ func TestHandleAPI_PanesCreate_CwdPaneRef_ResolvesLiveCwd(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/tools?cwdPane=ref", "", nil)
+	resp, _ := http.Post(ts.URL+"/api/tools?cwdTool=ref", "", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
@@ -585,7 +585,7 @@ func TestHandleAPI_PanesCreate_CwdPaneRef_ResolvesLiveCwd(t *testing.T) {
 	}
 }
 
-// FR-3: an explicit cwd query takes precedence over cwdPane.
+// FR-3: an explicit cwd query takes precedence over cwdTool.
 func TestHandleAPI_PanesCreate_ExplicitCwdWins(t *testing.T) {
 	pm := newFakePaneHub()
 	pm.seed("ref", "Ref")
@@ -594,7 +594,7 @@ func TestHandleAPI_PanesCreate_ExplicitCwdWins(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/tools?cwd=/explicit&cwdPane=ref", "", nil)
+	resp, _ := http.Post(ts.URL+"/api/tools?cwd=/explicit&cwdTool=ref", "", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
@@ -604,14 +604,14 @@ func TestHandleAPI_PanesCreate_ExplicitCwdWins(t *testing.T) {
 	}
 }
 
-// FR-4: an unknown/empty cwdPane leaves cwd empty so Create falls back.
+// FR-4: an unknown/empty cwdTool leaves cwd empty so Create falls back.
 func TestHandleAPI_PanesCreate_UnknownCwdPaneFallsBack(t *testing.T) {
 	pm := newFakePaneHub()
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/tools?cwdPane=missing", "", nil)
+	resp, _ := http.Post(ts.URL+"/api/tools?cwdTool=missing", "", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)

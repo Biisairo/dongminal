@@ -108,7 +108,9 @@ func (f *fakePaneHub) Resize(id string, cols, rows uint16) error { return nil }
 func (f *fakePaneHub) SnapshotTool(id string) (ToolSnapshot, error) {
 	return ToolSnapshot{}, nil
 }
-func (f *fakePaneHub) IsDaemon() bool { return false }
+func (f *fakePaneHub) IsDaemon() bool                    { return false }
+func (f *fakePaneHub) SetBackground(string, bool) bool   { return false }
+func (f *fakePaneHub) BackgroundList() []BackgroundEntry { return nil }
 
 func itoa(n int) string {
 	if n == 0 {

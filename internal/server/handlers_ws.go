@@ -273,4 +273,3 @@ func pingLoop(conn *safeConn, done chan struct{}) {
 		}
 	}
 }
-

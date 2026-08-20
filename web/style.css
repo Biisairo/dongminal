@@ -603,3 +603,19 @@ body.mobile .sb-title{padding:14px 14px 8px}
 }
 .fe-error{color:var(--danger);padding:20px;text-align:center}
 .fe-error-path{font-family:monospace;font-size:12px;color:var(--text-muted);margin-top:8px;word-break:break-all}
+
+/* ── 백그라운드 도구 배지·팝오버 (FR-BG-6/7) ── */
+.sb-item.sb-bg{cursor:pointer}
+.sb-item.sb-bg:hover{color:var(--accent)}
+.bg-popover{
+  position:fixed;z-index:60;min-width:220px;max-width:420px;max-height:50vh;overflow-y:auto;
+  background:var(--sidebar-bg);border:1px solid var(--border);border-radius:6px;
+  box-shadow:0 6px 24px rgba(0,0,0,.35);padding:4px;font-size:12px;
+}
+.bg-popover .bg-head{padding:6px 8px;color:var(--text-muted);border-bottom:1px solid var(--border)}
+.bg-popover .bg-empty{padding:8px;color:var(--text-muted)}
+.bg-popover .bg-row{display:flex;gap:8px;align-items:baseline;padding:6px 8px;border-radius:4px;cursor:pointer}
+.bg-popover .bg-row:hover{background:var(--accent-subtle)}
+.bg-popover .bg-name{color:var(--text-bright);white-space:nowrap}
+.bg-popover .bg-cwd{color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.confirm-btns .confirm-bg{border-color:var(--accent-border);color:var(--accent)}

@@ -1,4 +1,4 @@
-// Package runtimebin은 dongminal 바이너리가 dmctl/edit/download/mdview 등
+// Package runtimebin은 dongminal 바이너리가 dmctl/edit/download/detach 등
 // 헬퍼 CLI 로도 동작할 수 있게 multi-call dispatch 를 제공한다.
 //
 // 사용:
@@ -20,6 +20,7 @@ var commands = map[string]runFunc{
 	"dmctl":    runDmctl,
 	"edit":     runEdit,
 	"download": runDownload,
+	"detach":   runDetach,
 }
 
 // HelperNames는 multi-call 로 등록된 helper 이름 목록.

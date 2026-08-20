@@ -71,7 +71,7 @@ const sampleWS = `{
         "direction": "row",
         "children": [
           {
-            "type": "tool",
+            "type": "pane",
             "id": "r1",
             "activeTab": "t1",
             "tabs": [
@@ -80,7 +80,7 @@ const sampleWS = `{
             ]
           },
           {
-            "type": "tool",
+            "type": "pane",
             "id": "r2",
             "activeTab": "t3",
             "tabs": [

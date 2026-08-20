@@ -9,7 +9,7 @@ import (
 const dmctlActivityHelp = `dmctl activity <agent>
   현재 tool 에서 도는 에이전트의 "지금 무엇을 하는가"(작업 상태)를 서버에 보고한다.
   에이전트 hook 의 stdin 으로 들어온 JSON 을 파싱해 state/tool/detail 을 추출한다.
-  <agent>: claude | codex. DONGMINAL_PANE_ID 로 자신을 식별한다.
+  <agent>: claude | codex. DONGMINAL_TOOL_ID 로 자신을 식별한다.
   에이전트 hook(claude PreToolUse 등)에서 호출되며, 비0 종료가 에이전트의 도구
   실행을 막지 않도록 항상 0 으로 종료한다(실패는 조용히 무시).
 `
@@ -25,7 +25,7 @@ type activityReport struct {
 // server. It ALWAYS exits 0: it runs as an agent hook (e.g. claude PreToolUse)
 // where a non-zero exit could block the agent's tool call (NFR-AAP-5). Every
 // failure path — no agent arg, unreadable stdin, unparseable event, missing
-// DONGMINAL_PANE_ID, server error — is silent.
+// DONGMINAL_TOOL_ID, server error — is silent.
 func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	for _, a := range args {
 		if a == "-h" || a == "--help" {
@@ -52,7 +52,7 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	if !ok {
 		return 0
 	}
-	toolID := os.Getenv("DONGMINAL_PANE_ID")
+	toolID := os.Getenv("DONGMINAL_TOOL_ID")
 	if toolID == "" {
 		return 0
 	}

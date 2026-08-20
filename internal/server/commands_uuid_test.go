@@ -111,8 +111,8 @@ func TestHandleCommandPost_FullStackUUID_ReflowSafety(t *testing.T) {
 	tabA := "550e8400-e29b-41d4-a716-446655440aaa"
 	tabB := "550e8400-e29b-41d4-a716-446655440bbb"
 	blob1 := `{"activeWindow":"sa","schemaVersion": 2, "windows":[
-		{"id":"sa","name":"A","focusedPane":"ra","layout":{"type":"tool","id":"ra","activeTab":"` + tabA + `","tabs":[{"id":"` + tabA + `","name":"a","toolId":"10"}]}},
-		{"id":"sb","name":"B","focusedPane":"rb","layout":{"type":"tool","id":"rb","activeTab":"` + tabB + `","tabs":[{"id":"` + tabB + `","name":"b","toolId":"20"}]}}
+		{"id":"sa","name":"A","focusedPane":"ra","layout":{"type":"pane","id":"ra","activeTab":"` + tabA + `","tabs":[{"id":"` + tabA + `","name":"a","toolId":"10"}]}},
+		{"id":"sb","name":"B","focusedPane":"rb","layout":{"type":"pane","id":"rb","activeTab":"` + tabB + `","tabs":[{"id":"` + tabB + `","name":"b","toolId":"20"}]}}
 	]}`
 	ws, err := workspace.New(liveSet{"10": {}, "20": {}}, &memPersister{})
 	if err != nil {
@@ -159,7 +159,7 @@ func TestHandleCommandPost_FullStackUUID_ReflowSafety(t *testing.T) {
 
 	// 2단계: 세션 A 종료. B 의 라벨이 S2 → S1 로 reflow.
 	blob2 := `{"activeWindow":"sb","schemaVersion": 2, "windows":[
-		{"id":"sb","name":"B","focusedPane":"rb","layout":{"type":"tool","id":"rb","activeTab":"` + tabB + `","tabs":[{"id":"` + tabB + `","name":"b","toolId":"20"}]}}
+		{"id":"sb","name":"B","focusedPane":"rb","layout":{"type":"pane","id":"rb","activeTab":"` + tabB + `","tabs":[{"id":"` + tabB + `","name":"b","toolId":"20"}]}}
 	]}`
 	if _, err := ws.Save([]byte(blob2), "1"); err != nil {
 		t.Fatalf("Save reflow: %v", err)
