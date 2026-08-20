@@ -104,6 +104,6 @@ DONGMINAL_HOME=~/.dongminal
 
 - 기능 전체: [features.md](./features.md)
 - 단축키 커스터마이징: [shortcuts.md](./shortcuts.md)
-- pane 내부에서 쓰는 `dmctl` / `edit` / `download` CLI: [commands.md](./commands.md)
+- 터미널 안에서 쓰는 `dmctl` / `edit` / `download` CLI: [commands.md](./commands.md)
 - Claude Code MCP 연동: [mcp-setup.md](./mcp-setup.md)
 - HTTP/WebSocket/SSE/OSC: [api.md](./api.md)

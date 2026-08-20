@@ -10,7 +10,7 @@ workspace_command 호출 순서를 JSON 으로 돌려준다.
 
 식별자 — UUID 사용:
   `--boss` 는 who_am_i 의 라인 끝 `uuid=<36자>` 필드를 그대로 넣는다.
-  paneId·라벨 호환도 되지만, 다중 세션·계층 팀에서는 라벨 reflow 위험이
+  toolId·라벨 호환도 되지만, 다중 창·계층 팀에서는 라벨 reflow 위험이
   있으니 uuid 권장. 서버 workspace_command 핸들러가 broadcast 직전에
   uuid → 좌표로 자동 번역한다.
 
@@ -25,7 +25,7 @@ workspace_command 호출 순서를 JSON 으로 돌려준다.
     "n": 3
   }
 
-location_from_seed=true 는 "1차 분할 후 list_panes 로 확인한 SEED pane 의 uuid 를
+location_from_seed=true 는 "1차 분할 후 list_workspace 로 확인한 SEED pane 의 uuid 를
 location 으로 쓴다" 는 의미. N=1 이면 orthogonal_split 은 null.
 """
 
@@ -44,11 +44,11 @@ def plan(cols: int, rows: int, n: int, boss: str) -> dict:
     if horizontal_is_longer:
         primary = "splitH"
         orthogonal = "splitV"
-        reason = f"COLS={cols} >= ROWS*{CELL_RATIO}={rows*CELL_RATIO:.1f} → 가로가 시각적으로 더 긺. 1차 splitH 로 팀 영역을 오른쪽에 확보."
+        reason = f"COLS={cols} >= ROWS*{CELL_RATIO}={rows*CELL_RATIO:.1f} → 가로가 시각적으로 더 긺. 1차 splitH 로 팀 분할 칸을 오른쪽에 확보."
     else:
         primary = "splitV"
         orthogonal = "splitH"
-        reason = f"COLS={cols} < ROWS*{CELL_RATIO}={rows*CELL_RATIO:.1f} → 세로가 시각적으로 더 긺. 1차 splitV 로 팀 영역을 아래에 확보."
+        reason = f"COLS={cols} < ROWS*{CELL_RATIO}={rows*CELL_RATIO:.1f} → 세로가 시각적으로 더 긺. 1차 splitV 로 팀 분할 칸을 아래에 확보."
 
     result = {
         "n": n,
@@ -57,7 +57,7 @@ def plan(cols: int, rows: int, n: int, boss: str) -> dict:
             "action": primary,
             "location": boss,
             "keepFocus": True,
-            "note": "팀장 pane 을 쪼개 SEED pane 1개 생성. 실행 후 list_panes 로 SEED uuid 확인.",
+            "note": "팀장 pane 을 쪼개 SEED pane 1개 생성. 실행 후 list_workspace 로 SEED uuid 확인.",
         },
         "orthogonal_split": None,
     }
@@ -79,7 +79,7 @@ def main():
     p.add_argument("--cols", type=int, required=True, help="터미널 셀 너비")
     p.add_argument("--rows", type=int, required=True, help="터미널 셀 높이")
     p.add_argument("--n", type=int, required=True, help="팀원 수")
-    p.add_argument("--boss", type=str, required=True, help="팀장 pane 식별자 (uuid 권장; paneId/라벨도 호환)")
+    p.add_argument("--boss", type=str, required=True, help="팀장 pane 식별자 (uuid 권장; toolId/라벨도 호환)")
     args = p.parse_args()
 
     try:

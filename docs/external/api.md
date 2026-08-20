@@ -7,9 +7,9 @@
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
 | GET | `/api/state` | `{ panes, workspace }` 스냅샷. 응답 헤더 `ETag: <rev>` 포함 |
-| POST | `/api/panes?cols=&rows=&cwd=&cwdPane=` | 새 PTY 생성. `cwd` 또는 `cwdPane`(참조 pane ID) 중 하나로 시작 디렉터리 지정 |
-| DELETE | `/api/panes/:id` | PTY 종료 |
-| GET | `/api/panes/:id/busy` | `{ busy: bool }` — foreground process 여부 |
+| POST | `/api/tools?cols=&rows=&cwd=&cwdPane=` | 새 PTY 생성. `cwd` 또는 `cwdPane`(참조 도구 id) 중 하나로 시작 디렉터리 지정 |
+| DELETE | `/api/tools/:id` | PTY 종료 |
+| GET | `/api/tools/:id/busy` | `{ busy: bool }` — foreground process 여부 |
 | GET | `/api/workspace` | workspace.json raw. ETag 헤더 포함 |
 | PUT | `/api/workspace` | workspace 저장. `If-Match: <rev>` 로 낙관적 동시성 제어. stale 시 409 + 최신 `ETag` 반환 |
 | GET | `/api/settings` | 설정 조회 |
@@ -28,12 +28,12 @@
 
 ### `/api/commands` 허용 action
 
-`newSession`, `newTab`, `splitH`, `splitV`, `focus`, `closeTab`, `closeSession`, `sessionNext`, `sessionPrev`, `tabNext`, `tabPrev`, `paneUp`, `paneDown`, `paneLeft`, `paneRight`. 그 외는 400.
+`newWindow`, `newTab`, `splitH`, `splitV`, `focus`, `closeTab`, `closeWindow`, `windowNext`, `windowPrev`, `tabNext`, `tabPrev`, `paneUp`, `paneDown`, `paneLeft`, `paneRight`. 그 외는 400.
 
 args 스키마 (optional):
 
 ```json
-{ "location": "S1.P2.T1", "count": 3, "keepFocus": true }
+{ "location": "W1.P2.T1", "count": 3, "keepFocus": true }
 ```
 
 ### 리버스 프록시
@@ -51,7 +51,7 @@ Binary 프로토콜. 첫 바이트가 opcode.
 | `0x01` | C→S | 리사이즈: `cols uint16 BE + rows uint16 BE` |
 | `0x01` | S→C | 에러 메시지 (UTF-8) |
 | `0x02` | S→C | 프로세스 종료 알림 |
-| `0x03` | S→C | 세션 ID 할당 (문자열) |
+| `0x03` | S→C | 창 ID 할당 (문자열) |
 
 서버는 `gorilla/websocket` ping/pong 으로 keep-alive (pong 60s, ping 54s). 모든 쓰기는 `safeConn` mutex 로 직렬화.
 

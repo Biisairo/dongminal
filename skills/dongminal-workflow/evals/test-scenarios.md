@@ -23,8 +23,8 @@
 
 검증:
 - [ ] `render_workflow.py --json --param topic=바다` 선행 호출, `{{` 잔존 없음
-- [ ] `newSession(name='poem-critique', keepFocus=true)` 로 전용 세션 백그라운드 생성 — 사용자 화면 무변화
-- [ ] `list_panes` 의 `session="poem-critique"` 행으로 시드 uuid 식별 (diff 비교 아님)
+- [ ] `newWindow(name='poem-critique', keepFocus=true)` 로 전용 창 백그라운드 생성 — 사용자 화면 무변화
+- [ ] `list_workspace` 의 `session="poem-critique"` 행으로 시드 uuid 식별 (diff 비교 아님)
 - [ ] 시드에 균등 분할로 팀원 4 pane (writer/lead/critic_1/critic_2) — 기존 pane 재사용 없음
 - [ ] 모든 workspace_command 가 `location=<uuid>` + `keepFocus=true`, 사용자 ▶ 미이동
 - [ ] team id ↔ uuid 매핑표 작성됨

@@ -8,7 +8,7 @@ internal/
   adapters/            # internal/{server,workspace} → internal/mcptool 인터페이스 브리지
   clientpid/           # 원격 TCP(remoteAddr) → client PID (ps/lsof)
   mcptool/             # MCP 툴 레지스트리 + JSON-RPC 핸들러 + 구체 툴 구현체
-    tools/             # list_panes, read_pane_output, send_input, who_am_i 등
+    tools/             # list_workspace, read_output, send_input, who_am_i 등
   outbuf/              # PTY 출력 바운디드 버퍼 (Stream — readPTY 와 MCP/WS 리더 통합)
   pane/                # pane 도메인 타입 (PaneLabel 등)
   runtime/             # 런타임에 배포될 셸 헬퍼 스크립트 embed + Install()
@@ -59,7 +59,7 @@ DONGMINAL_PORT=<서버 포트>   # main() 이 setenv, 자식 PTY 가 상속
 
 `CommandHub` 는 SSE 구독자 집합과 버퍼 크기 16 의 채널을 관리. `POST /api/commands` 로 들어온 action 을 `allowedCmdActions` 화이트리스트로 검증 후 구독자 전원에게 브로드캐스트. 버퍼가 꽉 차면 해당 구독자에 한해 드롭 + `[cmd] subscriber channel full` 로그.
 
-15개 허용 action: `newSession`/`newTab`/`splitH`/`splitV`/`focus`/`closeTab`/`closeSession`/`sessionNext`/`sessionPrev`/`tabNext`/`tabPrev`/`paneUp`/`paneDown`/`paneLeft`/`paneRight`. 동일 집합을 MCP 툴 `workspace_command` 가 공유(같은 `CommandHub` 를 주입받음).
+15개 허용 action: `newWindow`/`newTab`/`splitH`/`splitV`/`focus`/`closeTab`/`closeWindow`/`windowNext`/`windowPrev`/`tabNext`/`tabPrev`/`paneUp`/`paneDown`/`paneLeft`/`paneRight`. 동일 집합을 MCP 툴 `workspace_command` 가 공유(같은 `CommandHub` 를 주입받음).
 
 ## 어댑터 패턴
 
@@ -85,13 +85,13 @@ HTTP `PUT /api/workspace` 핸들러는 `Save(blob, ifMatch)` 호출 → 인덱�
 
 ### 로깅 스킵 (H5 Track A)
 
-`server.loggingMiddleware` 는 `/api/workspace*`, `/api/panes*`, `/api/ping`, `/api/stats` 에 대해 **정상 응답(status < 400) 만 로그 스킵**. 에러는 항상 로그. 분할/삭제 시 초당 수십 회 히트하는 엔드포인트의 로그 오버헤드 제거.
+`server.loggingMiddleware` 는 `/api/workspace*`, `/api/tools*`, `/api/ping`, `/api/stats` 에 대해 **정상 응답(status < 400) 만 로그 스킵**. 에러는 항상 로그. 분할/삭제 시 초당 수십 회 히트하는 엔드포인트의 로그 오버헤드 제거.
 
 ### 클라이언트 낙관적 UI (성능 재개선 턴)
 
 `web/app.js` 의 `split`, `closeTab`, `addTab` 은 레이아웃 mutation + `render()` 를 **즉시** 실행하고 `_kill`, `_save` 를 await 하지 않고 fire-and-forget. `_save()` 는 내부 직렬화 큐로 ETag 경쟁을 방지하고 coalescing 수행.
 
-또한 `/api/panes` POST 에 `cwdPane=<refPaneId>` 쿼리 지원 → 클라이언트가 `/api/cwd` 사전 조회할 필요 없음 (RT 1 건 제거).
+또한 `/api/tools` POST 에 `cwdPane=<refPaneId>` 쿼리 지원 → 클라이언트가 `/api/cwd` 사전 조회할 필요 없음 (RT 1 건 제거).
 
 ## 동시성
 
@@ -104,7 +104,7 @@ HTTP `PUT /api/workspace` 핸들러는 `Save(blob, ifMatch)` 호출 → 인덱�
 
 1. `signal.NotifyContext` 가 `SIGINT`/`SIGTERM` 포착 → ctx cancel.
 2. `srv.Run` 이 리턴 (http.Server.Shutdown 내부 호출).
-3. `bd.pm.SaveAll()` — pane 별 cwd 등 상태를 디스크에.
+3. `bd.pm.SaveAll()` — 도구별 cwd 등 상태를 디스크에.
 4. `srv.PersistSettings()` — settings.json flush.
 5. `bd.wsMgr.Close()` — workspace writer 고루틴 flush + 종료.
 6. `bd.csm.StopAll()` — code-server 자식 프로세스 종료.

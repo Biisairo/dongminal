@@ -6,8 +6,8 @@
 
 | 동작 | 기본 |
 |------|------|
-| 다음 세션 | `Ctrl+Shift+]` |
-| 이전 세션 | `Ctrl+Shift+[` |
+| 다음 창 | `Ctrl+Shift+]` |
+| 이전 창 | `Ctrl+Shift+[` |
 | 다음 탭 | `Ctrl+Tab` |
 | 이전 탭 | `Ctrl+Shift+Tab` |
 | Pane ↑ | `Ctrl+Shift+↑` |
@@ -16,9 +16,9 @@
 | Pane → | `Ctrl+Shift+→` |
 | 가로 분할 | `Ctrl+Shift+H` |
 | 세로 분할 | `Ctrl+Shift+V` |
-| 새 세션 | `Ctrl+Shift+N` |
+| 새 창 | `Ctrl+Shift+N` |
 | 새 탭 | `Ctrl+Shift+T` |
-| 세션 닫기 | `Ctrl+Shift+W` |
+| 창 닫기 | `Ctrl+Shift+W` |
 | 탭 닫기 | `Ctrl+Shift+D` |
 | 터미널 검색 | `Ctrl+F` / `Cmd+F` (고정) |
 

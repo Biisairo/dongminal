@@ -32,8 +32,8 @@
 ### 검증 포인트 — 레이아웃
 
 - [ ] `who_am_i` 로 size 획득, 셀 비율 × 2.2 규칙 적용해 긴 축 결정
-- [ ] 1차 분할 (긴 축 직교) — 팀 영역 확보
-- [ ] 2차 분할 — 팀 영역을 좌/우 또는 상/하로 2등분
+- [ ] 1차 분할 (긴 축 직교) — 팀 분할 칸 확보
+- [ ] 2차 분할 — 팀 분할 칸을 좌/우 또는 상/하로 2등분
 - [ ] 3차 분할 — focus 좌(또는 상)으로 이동 후 분할 (새 팀원 1명)
 - [ ] 4차 분할 — focus 우(또는 하)으로 이동 후 분할 (새 팀원 1명)
 - [ ] 최종 팀원 4개가 **균등 크기** (단순 연속 splitH 시의 1/2:1/4:1/8:1/8 가 아닌, 각 ~1/4 씩)
@@ -41,7 +41,7 @@
 ### 검증 포인트 — 동시 기동 + inline 프롬프트
 
 - [ ] 4개 `send_input` 호출이 **단일 어시스턴트 메시지** 에 담긴 병렬 tool call
-- [ ] 각 `send_input` 의 `id` 인자가 **uuid** (`list_panes` 의 라인 끝 `uuid=` 값) — 라벨 사용 시 즉시 NG
+- [ ] 각 `send_input` 의 `id` 인자가 **uuid** (`list_workspace` 의 라인 끝 `uuid=` 값) — 라벨 사용 시 즉시 NG
 - [ ] 각 호출의 `text` 가 `claude --model <opus|sonnet|...> "<role+process+protocol>"` 형태
 - [ ] 따옴표 이스케이프 정상 (`\"` 사용, 쉘 파싱 에러 없음)
 - [ ] 초기 프롬프트 안에 **팀원 uuid** (네 uuid, 동료 uuid 전부) 명시 → 팀원이 `who_am_i` 호출 안 해도 됨
@@ -73,14 +73,14 @@
 
 - [ ] 모든 `workspace_command(location=...)` 호출의 location 값이 **uuid** (라벨 시 NG)
 - [ ] 모든 `send_agent_message(to=..., from=...)` 의 to/from 이 **uuid**
-- [ ] 모든 `send_input(id=...)` / `read_pane_screen(id=...)` 의 id 가 **uuid**
-- [ ] 정리 중 한 pane 닫은 직후 `list_panes` 재호출 없이 보관된 uuid 로 다음 pane 정리 가능 (라벨 reflow 무관)
+- [ ] 모든 `send_input(id=...)` / `read_screen(id=...)` 의 id 가 **uuid**
+- [ ] 정리 중 한 pane 닫은 직후 `list_workspace` 재호출 없이 보관된 uuid 로 다음 pane 정리 가능 (라벨 reflow 무관)
 
 ### 검증 포인트 — 정리
 
 - [ ] 모든 팀원 CC 에 `send_input(id=<팀원_uuid>, text="/exit", execute=true)` 전송
-- [ ] 쉘 복귀 확인 (`read_pane_screen(id=<팀원_uuid>)`)
-- [ ] 각 팀원 pane 에 대해 `workspace_command(closeTab, location=<팀원_uuid>)` — `list_panes` 재확인 불필요 (uuid 안정성)
+- [ ] 쉘 복귀 확인 (`read_screen(id=<팀원_uuid>)`)
+- [ ] 각 팀원 pane 에 대해 `workspace_command(closeTab, location=<팀원_uuid>)` — `list_workspace` 재확인 불필요 (uuid 안정성)
 - [ ] 최종적으로 팀장 pane 만 남고 크기가 원복됨
 - [ ] `focus` 액션 0회 호출
 
@@ -96,7 +96,7 @@ CC 기동 단계에서 지연/실패가 날 때 대응을 보는 용도. 단일 
 **검증 포인트**:
 - [ ] 분할 1회 → 팀원 pane 1개 → inline 프롬프트 포함 `claude` 기동
 - [ ] 답장 수신 성공 시 정상 종료
-- [ ] 답장 안 오면 `read_pane_screen` 으로 상태 진단 (쉘 에러, claude not found, 이스케이프 실패 등 구분)
+- [ ] 답장 안 오면 `read_screen` 으로 상태 진단 (쉘 에러, claude not found, 이스케이프 실패 등 구분)
 - [ ] 실패 지속 시 사용자에게 "CC 기동 실패. 로그: <화면 일부>. 수동 확인 바람" 보고
 
 ---
@@ -115,7 +115,7 @@ CC 기동 단계에서 지연/실패가 날 때 대응을 보는 용도. 단일 
 ### 트리거되지 말아야 함 (단일 CC 로 충분)
 - "이 파일 읽어줘"
 - "현재 pane 이름 뭐야?" → `who_am_i` 정도만 필요
-- "`list_panes` 실행해줘" → 단순 도구 호출
+- "`list_workspace` 실행해줘" → 단순 도구 호출
 - "dongminal MCP 툴 설명해줘" → 문서성 질문
 
 ---
@@ -126,6 +126,6 @@ CC 기동 단계에서 지연/실패가 날 때 대응을 보는 용도. 단일 
 
 **진행 시각화**: 각 팀원 pane 이 브라우저에서 실시간으로 보이므로 엔벨로프 주고받는 순간, CC 가 생각하는 순간, 답장하는 순간이 모두 관찰 가능. tmux team agents 대비 가장 큰 UX 이점.
 
-**멈춘 CC 진단**: 시나리오 1 에서 "A 가 C 비평 대기 중" 으로 멈춰 있다면, C 의 pane 을 `read_pane_screen` 해서 **어느 tool 을 호출했는지** 확인. `mcp__dongminal__send_agent_message` 가 아니라 `SendMessage` 같은 이름이 보이면 툴 오용.
+**멈춘 CC 진단**: 시나리오 1 에서 "A 가 C 비평 대기 중" 으로 멈춰 있다면, C 의 pane 을 `read_screen` 해서 **어느 tool 을 호출했는지** 확인. `mcp__dongminal__send_agent_message` 가 아니라 `SendMessage` 같은 이름이 보이면 툴 오용.
 
 **로그**: `/tmp/dongminal.log` 에 `[cmd] action=... delivered=N` 이 찍혀 SSE 브로드캐스트 여부 확인 가능.

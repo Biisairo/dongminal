@@ -1,4 +1,4 @@
-# Pane 내부 CLI (`dmctl`, `edit`, `download`)
+# 터미널 내부 CLI (`dmctl`, `edit`, `download`)
 
 Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼 스크립트를 풀어내고, 각 pane 의 shell 은 이 디렉터리를 `PATH` 에 자동 주입받습니다. 즉 터미널에서 바로 아래 명령을 쓸 수 있습니다.
 
@@ -15,52 +15,52 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼 스크립트를
 
 | 명령 | 설명 |
 |------|------|
-| `dmctl new-session [--name <이름>] [-n]` | 새 세션 생성. `--name` 으로 잡 이름 지정, `-n` 이면 백그라운드 생성 (사용자 포커스·화면 무변화 — 사이드바에만 추가) |
-| `dmctl new-tab [--name <이름>] [-n] [--at <uuid>]` | 새 탭. `--at` 으로 다른 영역 대상 지정 가능. `-n` 이면 대상 영역의 활성 탭도 유지한 채 백그라운드 추가 |
+| `dmctl new-window [--name <이름>] [-n]` | 새 창 생성. `--name` 으로 잡 이름 지정, `-n` 이면 백그라운드 생성 (사용자 포커스·화면 무변화 — 사이드바에만 추가) |
+| `dmctl new-tab [--name <이름>] [-n] [--at <uuid>]` | 새 탭. `--at` 으로 다른 분할 칸 대상 지정 가능. `-n` 이면 대상 분할 칸의 활성 탭도 유지한 채 백그라운드 추가 |
 | `dmctl split-h [N]` | 가로 분할. N 지정 시 N 개로 균등 분할 (기본 2) |
 | `dmctl split-v [N]` | 세로 분할. 동일 |
-| `dmctl focus <uuid>` | 특정 pane 으로 포커스. **uuid 만 허용** (`list-panes` 의 `uuid=` 컬럼). 좌표/라벨/paneId 는 400 거부 |
+| `dmctl focus <uuid>` | 특정 pane 으로 포커스. **uuid 만 허용** (`list-workspace` 의 `uuid=` 컬럼). 좌표/라벨/toolId 는 400 거부 |
 | `dmctl close-tab` | 현재 탭 닫기 |
-| `dmctl close-session` | 현재 세션 닫기 |
-| `dmctl session-next` / `session-prev` | 세션 이동 |
+| `dmctl close-window` | 현재 창 닫기 |
+| `dmctl window-next` / `window-prev` | 창 이동 |
 | `dmctl tab-next` / `tab-prev` | 탭 이동 |
 | `dmctl pane-up` / `pane-down` / `pane-left` / `pane-right` | 방향키식 pane 포커스 이동 |
 | `dmctl rename-tab --at <uuid> <이름>` | pane 표시 이름 변경 (예: 팀 pane 에 역할명). 포커스 무영향. `--name <이름>` 플래그도 동등 |
-| `dmctl rename-session --at <uuid> <이름>` | 그 pane 이 **속한 세션**의 이름 변경. 포커스 무영향 |
-| `dmctl list-panes [--json] [--session <substr>] [--tab <substr>]` | 열린 pane 목록 조회. 표준 KEY=VALUE 라인 (아래 박스). ▶ 표시는 현재 포커스. `--session`/`--tab` 으로 이름 필터 (부분 일치·대소문자 무시, AND, 0건이면 rc=1). `--json` 시 JSON 배열. MCP `list_panes` 와 byte-level 동일 포맷 |
+| `dmctl rename-window --at <uuid> <이름>` | 그 pane 이 **속한 창**의 이름 변경. 포커스 무영향 |
+| `dmctl list-workspace [--json] [--window <substr>] [--tab <substr>]` | 열린 도구 목록 조회. 표준 KEY=VALUE 라인 (아래 박스). ▶ 표시는 현재 포커스. `--session`/`--tab` 으로 이름 필터 (부분 일치·대소문자 무시, AND, 0건이면 rc=1). `--json` 시 JSON 배열. MCP `list_workspace` 와 byte-level 동일 포맷 |
 | `dmctl who-am-i [--json]` | 현재 쉘이 속한 pane 의 식별 정보. 같은 표준 라인 한 줄. MCP `who_am_i` 와 동일 포맷. 스크립트에서 `UUID=$(dmctl who-am-i --json \| jq -r .uuid)` 패턴으로 자기 식별 |
 | `dmctl send <action> [json]` | 원시 action 전송 (확장용) |
 
-#### 표준 라인 포맷 (list-panes / who-am-i / MCP list_panes·who_am_i 공통)
+#### 표준 라인 포맷 (list-workspace / who-am-i / MCP list_workspace·who_am_i 공통)
 
 ```
-{▶|  } label=S1.P1.T1  uuid=<36자>  short=<8자>  paneId=<n>  shellPid=<n>  size=<W>x<H>  session="<n>"  tab="<n>"  session_uuid=<36자>  region_uuid=<36자>
+{▶|  } label=W1.P1.T1  uuid=<36자>  short=<8자>  toolId=<n>  shellPid=<n>  size=<W>x<H>  session="<n>"  tab="<n>"  window_uuid=<36자>  pane_uuid=<36자>
 ```
 
 - 모든 컬럼 KEY=VALUE, 두 칸 공백 구분. `awk` / `grep` 으로 컬럼 단위 파싱 가능.
 - `▶` = 사용자 브라우저 포커스 일치. 비포커스는 두 칸 공백.
-- 빈 값(uuid/short/sessionUuid/regionUuid 미지정, size=0x0)은 해당 컬럼 통째 생략.
+- 빈 값(uuid/short/windowUuid/paneUuid 미지정, size=0x0)은 해당 컬럼 통째 생략.
 - `session` / `tab` 은 Go `%q` 이스케이프.
 
 ### 공통 플래그
 
 | 플래그 | 설명 |
 |--------|------|
-| `--at <uuid>` / `-l <uuid>` | 대상 pane 지정. 미지정 시 현재 포커스. **uuid 만 허용** — `list-panes` 의 `uuid=` 컬럼 값. 좌표/라벨/paneId 는 거부 |
-| `--no-focus` / `-n` | 실행 전후로 사용자 포커스를 옮기지 않음. `split-h/v` 후 새 영역으로 포커스가 튀지 않음. `close-tab` 등에도 동일 적용 |
+| `--at <uuid>` / `-l <uuid>` | 대상 pane 지정. 미지정 시 현재 포커스. **uuid 만 허용** — `list-workspace` 의 `uuid=` 컬럼 값. 좌표/라벨/toolId 는 거부 |
+| `--no-focus` / `-n` | 실행 전후로 사용자 포커스를 옮기지 않음. `split-h/v` 후 새 분할 칸으로 포커스가 튀지 않음. `close-tab` 등에도 동일 적용 |
 | `-h` / `--help` | 도움말 |
 
 ### 위치 식별자 — uuid 만 허용
 
-`/api/commands` 의 `args.location` 인자는 **`list-panes` 가 노출하는 `uuid=` 컬럼 값만** 받는다. 좌표(`4.1.1`/`S4.P1.T1`), 라벨, paneId 는 400 거부 — 다른 세션 닫힘 시 reflow 되어 다른 pane 을 가리키는 사고를 차단하기 위함.
+`/api/commands` 의 `args.location` 인자는 **`list-workspace` 가 노출하는 `uuid=` 컬럼 값만** 받는다. 좌표(`4.1.1`/`W4.P1.T1`), 라벨, toolId 는 400 거부 — 다른 창 닫힘 시 reflow 되어 다른 pane 을 가리키는 사고를 차단하기 위함.
 
-사이드바 라벨 `📍 S1.P2.T1` 은 사람용 표시; 명령에는 같은 행의 `uuid=` 값을 쓴다.
+사이드바 라벨 `📍 W1.P2.T1` 은 사람용 표시; 명령에는 같은 행의 `uuid=` 값을 쓴다.
 
 ### 예
 
 ```bash
-dmctl list-panes                                # 안정 식별자 확인
-UUID=$(dmctl list-panes --json | jq -r '.[0].uuid')
+dmctl list-workspace                                # 안정 식별자 확인
+UUID=$(dmctl list-workspace --json | jq -r '.[0].uuid')
 dmctl focus "$UUID"                             # uuid 로 이동
 dmctl split-h 3 --at "$UUID"                    # uuid 위치에 가로 3 분할
 dmctl new-tab --at "$UUID" -n                   # 포커스 변경 없이 탭 추가
@@ -72,23 +72,23 @@ NEW=$(dmctl split-v --at "$UUID" -n | jq -r '.newTabs[0].uuid')  # 새로 생긴
 
 ### 생성 명령의 결과 (새 엔터티 uuid 반환)
 
-`splitH`/`splitV`/`newTab`/`newSession` 은 **생성 명령**이다. 응답에 그 명령으로 새로 생긴 엔터티가 포함된다 (브라우저가 처리 후 echo → 서버가 long-poll 로 상관 → 한 번의 요청-응답):
+`splitH`/`splitV`/`newTab`/`newWindow` 은 **생성 명령**이다. 응답에 그 명령으로 새로 생긴 엔터티가 포함된다 (브라우저가 처리 후 echo → 서버가 long-poll 로 상관 → 한 번의 요청-응답):
 
 ```json
 { "ok": true, "delivered": 1, "action": "splitV",
-  "newSessions": [], "newRegions": ["r110"],
-  "newTabs": [ {"uuid": "t139", "paneId": "439"} ],
+  "newWindows": [], "newPanes": ["r110"],
+  "newTabs": [ {"uuid": "t139", "toolId": "439"} ],
   "timedOut": false }
 ```
 
-- `newTabs` 각 원소는 `{uuid, paneId}` — uuid→paneId 재조회 불필요.
-- `newSession` 은 `newSessions`/`newRegions`/`newTabs` 각 1개.
-- 구독 브라우저가 없거나(`delivered=0`) 응답이 늦으면 `timedOut: true` + 빈 배열 — 명령 자체는 broadcast 됨. 이 경우 `list-panes` 로 확인.
+- `newTabs` 각 원소는 `{uuid, toolId}` — uuid→toolId 재조회 불필요.
+- `newWindow` 은 `newWindows`/`newPanes`/`newTabs` 각 1개.
+- 구독 브라우저가 없거나(`delivered=0`) 응답이 늦으면 `timedOut: true` + 빈 배열 — 명령 자체는 broadcast 됨. 이 경우 `list-workspace` 로 확인.
 - 비생성 명령(`focus`/`close*`/`rename*`/`pane*` 등)은 이 필드들이 없다 (기존 응답 그대로).
 
 ### 허용된 action (서버 화이트리스트)
 
-`newSession`, `newTab`, `splitH`, `splitV`, `focus`, `closeTab`, `closeSession`, `sessionNext`, `sessionPrev`, `tabNext`, `tabPrev`, `paneUp`, `paneDown`, `paneLeft`, `paneRight`, `renameTab`, `renameSession`.
+`newWindow`, `newTab`, `splitH`, `splitV`, `focus`, `closeTab`, `closeWindow`, `windowNext`, `windowPrev`, `tabNext`, `tabPrev`, `paneUp`, `paneDown`, `paneLeft`, `paneRight`, `renameTab`, `renameWindow`.
 
 그 외 action 은 서버가 400 으로 거절.
 
