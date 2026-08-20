@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -13,6 +14,7 @@ import (
 	"dongminal/internal/adapters"
 	"dongminal/internal/mcptool"
 	"dongminal/internal/mcptool/tools"
+	"dongminal/internal/migrate"
 	"dongminal/internal/runtime"
 	"dongminal/internal/runtimebin"
 	"dongminal/internal/server"
@@ -123,6 +125,49 @@ func startDaemon(home string) error {
 	return nil
 }
 
+// runMigrate executes the one-shot v2 entity-model migration and prints a
+// report. Exits non-zero on failure so scripts can gate on it.
+func runMigrate(home string, args []string) {
+	dryRun := false
+	for _, a := range args {
+		switch a {
+		case "--dry-run", "-n":
+			dryRun = true
+		default:
+			fmt.Fprintf(os.Stderr, "unknown flag: %s\n사용법: dongminal migrate [--dry-run]\n", a)
+			os.Exit(2)
+		}
+	}
+	rep, err := migrate.Apply(home, dryRun)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "마이그레이션 실패: %v\n변경된 파일 없음.\n", err)
+		os.Exit(1)
+	}
+	if rep.Empty {
+		fmt.Printf("마이그레이션 대상 없음 (%s)\n", home)
+		return
+	}
+	if dryRun {
+		fmt.Println("[dry-run] 파일을 변경하지 않습니다.")
+	}
+	if rep.AlreadyMigrated {
+		fmt.Println("이미 v2 스키마입니다. 참조 정리만 수행합니다.")
+	}
+	fmt.Printf("Window %d개, Tool %d개\n", rep.Windows, rep.Tools)
+	if len(rep.Orphans) > 0 {
+		fmt.Printf("고아 도구 %d개 폐기: %v\n", len(rep.Orphans), rep.Orphans)
+	}
+	if len(rep.GhostRefs) > 0 {
+		fmt.Printf("agentsOrder 유령 참조 %d개 제거: %v\n", len(rep.GhostRefs), rep.GhostRefs)
+	}
+	if len(rep.BrokenRefs) > 0 {
+		fmt.Printf("경고: 탭이 참조하나 도구가 없음 %d개: %v\n", len(rep.BrokenRefs), rep.BrokenRefs)
+	}
+	if !dryRun {
+		fmt.Println("백업: workspace.json.v1.bak, panes.json.v1.bak")
+	}
+}
+
 // runDaemon is the entry point for dongminald (DAEMON_SPLIT_SRS Phase 2).
 // It creates a PaneManager, loads panes.json, and listens on a Unix socket.
 func runDaemon(home string) {
@@ -225,7 +270,6 @@ func buildCommonDeps(cfg server.Config, panes server.PaneHub, cmdHub *server.Com
 		return builtDeps{}, err
 	}
 
-
 	var pa adapters.Pane
 	var resolver adapters.Client
 	if _, ok := panes.(*server.PaneManager); ok {
@@ -300,6 +344,14 @@ func main() {
 		log.Fatalf("DONGMINAL_HOME 생성 실패: %v", err)
 	}
 	os.Setenv("DONGMINAL_HOME", home)
+
+	// Migrate subcommand: "dongminal migrate [--dry-run]" converts
+	// workspace.json/panes.json to the v2 entity model
+	// (ENTITY_MODEL_RESTRUCTURE_SRS P1). Runs standalone and exits.
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		runMigrate(home, os.Args[2:])
+		return
+	}
 
 	if daemonMode {
 		runDaemon(home)
@@ -394,4 +446,3 @@ func main() {
 	}
 	log.Printf("server stopped")
 }
-
