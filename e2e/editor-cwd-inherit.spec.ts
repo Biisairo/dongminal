@@ -7,9 +7,13 @@ import * as os from 'os';
 import * as path from 'path';
 
 // SRS: MD_FOCUS_NEW_PANE_CWD_SRS.md
-//   FR-1: md pane 의 +addTab 은 md 파일 디렉터리에서 시작
-//   FR-2: md pane 의 split 은 md 파일 디렉터리에서 시작
-//   FR-3: terminal pane 은 부모 pane 의 cwd 를 상속(회귀 보호)
+//   FR-1: 파일 탭이 활성인 분할 칸의 +addTab 은 그 파일의 디렉터리에서 시작
+//   FR-2: 같은 상태에서의 split 도 그 파일의 디렉터리에서 시작
+//   FR-3: terminal 탭이 활성이면 그 도구의 cwd 를 상속(회귀 보호)
+//
+// 원래 이 SRS 의 대상은 markdown 뷰어 탭이었다. 뷰어는 8dc0a3f 에서 내장
+// 편집기(editor 탭)로 대체됐고 동작 규칙은 그대로 살아 있어(app.js
+// _paneNewToolRef), 스펙을 editor 탭으로 이관했다.
 
 async function resetWorkspace(request) {
   const get = await request.get('/api/workspace');
@@ -30,12 +34,12 @@ async function gotoFresh(page, request) {
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
-function makeMdInDir(): { mdPath: string; expectedCwd: string } {
+function makeFileInDir(): { filePath: string; expectedCwd: string } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mdcwd-'));
   const fp = path.join(dir, 'doc.md');
   fs.writeFileSync(fp, '# doc\n\nhello\n');
   // macOS resolves /var → /private/var; shell-reported cwd uses the realpath.
-  return { mdPath: fp, expectedCwd: fs.realpathSync(dir) };
+  return { filePath: fp, expectedCwd: fs.realpathSync(dir) };
 }
 
 async function paneCwd(request, toolId: string): Promise<string> {
@@ -44,16 +48,16 @@ async function paneCwd(request, toolId: string): Promise<string> {
   return j.cwd as string;
 }
 
-test.describe('MD focus → new pane cwd inheritance', () => {
-  test('FR-1: addTab terminal in md pane inherits md file directory', async ({ page, request }) => {
+test.describe('편집기 탭 → 새 도구의 cwd 상속', () => {
+  test('FR-1: 편집기 탭이 활성인 분할 칸의 addTab 이 그 파일의 디렉터리를 상속', async ({ page, request }) => {
     await gotoFresh(page, request);
-    const { mdPath, expectedCwd } = makeMdInDir();
+    const { filePath, expectedCwd } = makeFileInDir();
 
-    // Open md tab → focused pane's active tab becomes the md viewer.
+    // 편집기 탭을 열어 포커스된 분할 칸의 활성 탭으로 만든다.
     await page.evaluate((fp) => {
       const a = (window as any).app;
-      a.addTab(a.focused, 'markdown', { name: fp.split('/').pop(), filePath: fp });
-    }, mdPath);
+      a.addTab(a.focused, 'editor', { name: fp.split('/').pop(), filePath: fp });
+    }, filePath);
     await page.waitForTimeout(150);
 
     // + new terminal tab in same pane.
@@ -69,14 +73,14 @@ test.describe('MD focus → new pane cwd inheritance', () => {
     expect(await paneCwd(request, newPaneId)).toBe(expectedCwd);
   });
 
-  test('FR-2: split from md pane opens new pane in md file directory', async ({ page, request }) => {
+  test('FR-2: 같은 상태에서의 split 도 그 파일의 디렉터리를 상속', async ({ page, request }) => {
     await gotoFresh(page, request);
-    const { mdPath, expectedCwd } = makeMdInDir();
+    const { filePath, expectedCwd } = makeFileInDir();
 
     await page.evaluate((fp) => {
       const a = (window as any).app;
-      a.addTab(a.focused, 'markdown', { name: fp.split('/').pop(), filePath: fp });
-    }, mdPath);
+      a.addTab(a.focused, 'editor', { name: fp.split('/').pop(), filePath: fp });
+    }, filePath);
     await page.waitForTimeout(150);
 
     const newPaneId = await page.evaluate(async () => {
@@ -90,7 +94,7 @@ test.describe('MD focus → new pane cwd inheritance', () => {
     expect(await paneCwd(request, newPaneId)).toBe(expectedCwd);
   });
 
-  test('FR-3: terminal pane addTab still inherits parent pane cwd (regression)', async ({ page, request }) => {
+  test('FR-3: terminal 탭이 활성이면 여전히 그 도구의 cwd 를 상속 (회귀)', async ({ page, request }) => {
     await gotoFresh(page, request);
 
     // Initial pane is terminal; capture its cwd.

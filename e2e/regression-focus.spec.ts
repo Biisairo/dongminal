@@ -1,9 +1,13 @@
 import { test, expect } from './fixtures';
 
-// SRS: MD_VIEWER_REGRESSION_FIX_SRS.md
-//   FR-1: 비활성 세션의 MdViewer 인스턴스는 활성 세션 렌더 후에도 유지되어야 한다.
-//   FR-2: switchTab 후 세션 전환→복귀 시 마지막 탭/pane 이 복원되어야 한다.
-//   FR-3: 활성 pane 의 마지막 탭 close 후 세션 전환→복귀 시 stale pane 이 포커스되면 안 된다.
+// SRS: MD_VIEWER_REGRESSION_FIX_SRS.md 의 포커스 불변식 부분.
+//   FR-2: switchTab 후 창 전환→복귀 시 마지막 탭/분할 칸이 복원되어야 한다.
+//   FR-3: 활성 분할 칸의 마지막 탭 close 후 전환→복귀 시 stale 분할 칸이 포커스되면 안 된다.
+//   FR-4/5/6/7/10: split·keepFocus·창 삭제·closeTab 의 focusedPane 불변식.
+//
+// 이 SRS 의 MdViewer 관련 요구(FR-1 캐시 유지, FR-9 스크롤 보존)는 markdown
+// 뷰어가 8dc0a3f 에서 제거되며 대상이 사라져 함께 삭제했다. 나머지는 뷰어와
+// 무관한 focusedPane 불변식이라 그대로 유지한다.
 
 async function resetWorkspace(request) {
   const get = await request.get('/api/workspace');
@@ -33,41 +37,7 @@ async function addWindow(page) {
   await expect(page.locator('#windows .si')).toHaveCount(before + 1, { timeout: 10000 });
 }
 
-async function openMdTabInActive(page, filePath: string) {
-  await page.evaluate((fp) => {
-    const a = (window as any).app;
-    if (!a) throw new Error('app not exposed');
-    a.addTab(a.focused, 'markdown', { name: fp.split('/').pop(), filePath: fp });
-  }, filePath);
-}
-
-test.describe('MD viewer regression', () => {
-  test('FR-1: MdViewer in inactive session survives render of active session', async ({ page, request }) => {
-    await waitForInit(page, request);
-
-    // Session 1: open md tab.
-    await openMdTabInActive(page, '/tmp/__regression_a.md');
-    await page.waitForTimeout(50);
-    const tabAId = await page.evaluate(() => {
-      const a = (window as any).app;
-      const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
-      return s.layout.tabs.find((t: any) => t.type === 'markdown').id;
-    });
-
-    // Add a 2nd session (active switches).
-    await addWindow(page);
-
-    // Open md tab in session 2 to trigger render.
-    await openMdTabInActive(page, '/tmp/__regression_b.md');
-
-    // Session 1's md viewer should still be cached.
-    const cachedA = await page.evaluate((tid) => {
-      const a = (window as any).app;
-      return a.mdViewers.has(tid);
-    }, tabAId);
-    expect(cachedA).toBe(true);
-  });
-
+test.describe('focusedPane 불변식 회귀', () => {
   test('FR-2: switchTab persists s.focusedPane across session switch', async ({ page, request }) => {
     await waitForInit(page, request);
 
@@ -129,9 +99,7 @@ test.describe('MD viewer regression', () => {
         return null;
       };
       const pn = find(s.layout, a.focused);
-      // Mark as not busy for fast close
       for (const t of [...pn.tabs]) {
-        a.mdViewers.delete(t.id);
         await a.closeTab(pn.id, t.id);
       }
     });
@@ -193,31 +161,6 @@ test.describe('MD viewer regression', () => {
 
     expect(result.focused).toBe(result.beforeFocus);
     expect(result.focusedPane).toBe(result.beforeFocus);
-  });
-
-  // FR-9: render() 후에도 MdViewer 의 scrollTop 이 보존되어야 한다.
-  test('FR-9: MdViewer scroll position survives render', async ({ page, request }) => {
-    await waitForInit(page, request);
-
-    await openMdTabInActive(page, '/tmp/__regression_scroll.md');
-    await page.evaluate(() => {
-      const a = (window as any).app;
-      const v = [...a.mdViewers.values()][0];
-      v.el.innerHTML = '<div style="height:5000px">long</div>';
-      v.el.classList.add('vis');
-      v.el.scrollTop = 1500;
-    });
-
-    // split('h', { keepFocus: true }) 로 render() 트리거.
-    await page.evaluate(() => (window as any).app.split('h', { keepFocus: true }));
-    await page.waitForTimeout(80);
-
-    const scrollTop = await page.evaluate(() => {
-      const a = (window as any).app;
-      const v = [...a.mdViewers.values()][0];
-      return v.el.scrollTop;
-    });
-    expect(scrollTop).toBeGreaterThan(0);
   });
 
   // FR-7: 활성 세션 삭제 시 이동한 세션의 저장된 focusedPane 을 보존한다.

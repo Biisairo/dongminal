@@ -5,7 +5,7 @@ description: dongminal MCP 위에서 여러 Claude Code 인스턴스를 팀으�
 
 # dongminal-team
 
-dongminal MCP 의 pane/창/탭 + 신뢰 채널 (`send_agent_message`) 로 **여러 Claude Code 인스턴스를 같은 워크스페이스에서 팀으로 협업**시키는 스킬. 팀은 항상 이 스킬이 **새로** 만들고, 끝나면 정리한다.
+dongminal MCP 의 창/분할 칸/탭/도구 + 신뢰 채널 (`send_agent_message`) 로 **여러 Claude Code 인스턴스를 같은 워크스페이스에서 팀으로 협업**시키는 스킬. 팀은 항상 이 스킬이 **새로** 만들고, 끝나면 정리한다.
 
 ## 언제 쓰나
 
@@ -19,10 +19,10 @@ dongminal MCP 의 pane/창/탭 + 신뢰 채널 (`send_agent_message`) 로 **여�
 
 ## 절대 원칙 (4가지)
 
-1. **항상 새 팀** — 기존 열린 CC pane 은 절대 팀원으로 재사용하지 않는다. 사용자 맥락 훼손 방지 + 팀원은 깨끗한 컨텍스트에서 지시받아야 작업이 명확하다.
+1. **항상 새 팀** — 기존 열린 CC 도구는 절대 팀원으로 재사용하지 않는다. 사용자 맥락 훼손 방지 + 팀원은 깨끗한 컨텍스트에서 지시받아야 작업이 명확하다.
 2. **사용자 포커스 금지** — 모든 `workspace_command` 호출은 `location=<uuid>` + `keepFocus=true`. `focus` 액션은 **복원 목적 포함 어떤 경우에도 호출 금지**. 이유와 상세는 `references/layout.md`.
 3. **Barrier 전 Kickoff 금지** — inline 프롬프트엔 첫 작업 지시를 **절대** 넣지 않는다. 전원 CC 준비 완료 확인 후 `send_agent_message` 로 Kickoff. 위반 시 데드락 실화 — `references/prompt.md`.
-4. **식별자는 항상 UUID** — 팀원·pane 식별·라우팅·정리 모든 단계에서 `who_am_i` / `list_workspace` 의 `uuid=<36자>` 필드를 사용한다. `W?.P?.T?` 라벨은 사람 가독성용 좌표일 뿐, 다른 창이 닫히면 reflow 되어 다른 pane 을 가리키게 된다. 계층 팀·정리·해체 단계에서 라벨 보관 시 즉시 깨짐. **항상 uuid 로 보관·전달.**
+4. **식별자는 항상 UUID** — 팀원 식별·라우팅·정리 모든 단계에서 `who_am_i` / `list_workspace` 의 `uuid=<36자>` 필드를 사용한다. `W?.P?.T?` 라벨은 사람 가독성용 좌표일 뿐, 다른 창이 닫히면 reflow 되어 다른 탭을 가리키게 된다. 계층 팀·정리·해체 단계에서 라벨 보관 시 즉시 깨짐. **항상 uuid 로 보관·전달.**
 
 ---
 
@@ -31,9 +31,9 @@ dongminal MCP 의 pane/창/탭 + 신뢰 채널 (`send_agent_message`) 로 **여�
 | 도구 | 용도 |
 |------|------|
 | `who_am_i` | 팀장 식별자 (라인 끝의 `uuid=...` `short=...`) + `size=COLSxROWS` 획득 |
-| `list_workspace` | 팀원 pane 의 라벨·**uuid**·shellPid 식별. 라인 끝에 `uuid=...` `short=...` 가 붙는다 |
+| `list_workspace` | 팀원 도구의 라벨·**uuid**·shellPid 식별. 라인 끝에 `uuid=...` `short=...` 가 붙는다 |
 | `workspace_command` | 창/탭/분할/닫기. 항상 `location=<uuid>` + `keepFocus=true` |
-| `send_input` | 새 pane 쉘에 `claude` 명령 주입. `id` 는 uuid. `execute=true` 로 엔터 자동 |
+| `send_input` | 새 도구의 쉘에 `claude` 명령 주입. `id` 는 uuid. `execute=true` 로 엔터 자동 |
 | `send_agent_message` | 팀원과의 신뢰 채널. `to` / `from` 둘 다 uuid |
 | `read_screen` | Barrier 확인, 멈춘 CC 진단. `id` 는 uuid |
 
@@ -70,7 +70,7 @@ python scripts/plan_layout.py --cols <COLS> --rows <ROWS> --n <N> --boss <BOSS_U
 workspace_command(action=<splitH|splitV>, location=<BOSS_UUID>, keepFocus=true)
 ```
 
-실행 후 `list_workspace`. 출력에서 **방금 생긴 SEED pane 의 uuid** 를 캡처:
+실행 후 `list_workspace`. 출력에서 **방금 생긴 SEED 도구의 uuid** 를 캡처:
 - 이전 `list_workspace` 와 비교해 새로 등장한 행의 `uuid=` 값
 - 또는 BOSS uuid 가 아닌 행 중에서 최근 분할로 생긴 것
 
@@ -123,7 +123,7 @@ send_input(id=<팀원i_UUID>, text=<빌더 출력>, execute=true)
    - 화면에 `Thinking...` 부재
    - **초기 프롬프트의 `[대기]` 텍스트가 화면에 보임** (CC가 초기 프롬프트를 실제 처리했다는 fingerprint — 단순 부팅과 구분)
 3. 미준비 팀원이 있으면 `Bash(sleep 3)` → 미준비 팀원만 재확인. **최대 10회 (≈30초) 자동 재시도**. 한두 번 미준비로 절대 종료/보고 후 종료 하지 말 것.
-4. 30초 누적 미준비면 실패 판정 — 해당 pane 화면을 진단 (`claude: command not found`, 쿼터 초과, 쉘 파싱 에러 등).
+4. 30초 누적 미준비면 실패 판정 — 해당 도구의 화면을 진단 (`claude: command not found`, 쿼터 초과, 쉘 파싱 에러 등).
 
 ### 6. Kickoff — 첫 작업 지시
 
@@ -144,17 +144,17 @@ send_agent_message(
 
 팀장 CC 는 팀원을 실시간 감시하지 않는다. 팀원 답장은 엔벨로프 `[DONGMINAL-AGENT-MSG from=... to=...]...[/DONGMINAL-AGENT-MSG]` 로 다음 사용자 턴처럼 자동 도착. 엔벨로프 내부 `[TEAM-REPLY task-id=...]` 파싱해 결과 활용. 폴링 불필요.
 
-여러 명의 답장이 순차 도착하면 부분 처리하거나 "현재 M/N 완료" 로 보고하고 다음 턴에서 마저 받는다. 비정상 지연은 `read_screen(id=<팀원_UUID>)` 로 해당 pane 진단.
+여러 명의 답장이 순차 도착하면 부분 처리하거나 "현재 M/N 완료" 로 보고하고 다음 턴에서 마저 받는다. 비정상 지연은 `read_screen(id=<팀원_UUID>)` 로 해당 도구 진단.
 
 ### 8. 팀 해체 (사용자 확인 후)
 
 1. **CC 종료 (포커스 안전, CC 종료만)**:
-- 각 팀원 pane 에 `send_input(id=<팀원_UUID>, text="/exit", execute=true)` — Claude Code 정상 종료
-- pane 은 쉘 상태로 남음 (사용자가 중간 로그를 볼 수 있음)
+- 각 팀원 도구에 `send_input(id=<팀원_UUID>, text="/exit", execute=true)` — Claude Code 정상 종료
+- 탭은 쉘 상태로 남음 (사용자가 중간 로그를 볼 수 있음)
 
-2. **pane 까지 제거**:
+2. **탭까지 제거**:
 - `/exit` 먼저 → 쉘 복귀 확인 → 보관해둔 팀원 uuid 들에 대해 `workspace_command(closeTab, location=<팀원_UUID>)`
-- **uuid 기반이라 라벨 reflow 영향 없음**: 한 pane 을 닫으면 다른 팀원의 라벨은 옮겨질 수 있지만 uuid 는 그대로. `list_workspace` 재확인이 더는 필수가 아니다.
+- **uuid 기반이라 라벨 reflow 영향 없음**: 한 탭을 닫으면 다른 팀원의 라벨은 옮겨질 수 있지만 uuid 는 그대로. `list_workspace` 재확인이 더는 필수가 아니다.
 - `location` 지정 `closeTab` 은 서버가 포커스를 움직이지 않는다. `focus` 는 **호출 금지**.
 
 `/exit` 를 먼저 하는 이유: 실행 중 CC 를 바로 `closeTab` 하면 "프로세스 종료?" 다이얼로그가 뜨기 때문.

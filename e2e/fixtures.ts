@@ -38,10 +38,41 @@ async function reapOrphanTools(request: any) {
   }
 }
 
+// 테스트 간 워크스페이스 누적은 순서 의존 실패의 주 원인이다. 앞선 테스트가
+// 만든 창·탭이 남아 있으면 "포커스된 분할 칸의 활성 탭" 이 터미널이 아니게 되고
+// waitForInit 의 .xterm-helper-textarea 대기가 hidden 상태로 타임아웃한다.
+// 매 테스트 전에 빈 워크스페이스로 되돌린다 — 브라우저가 첫 도구를 새로 만든다.
+async function resetWorkspace(request: any) {
+  try {
+    const get = await request.get('/api/workspace');
+    if (!get.ok()) return;
+    const rev = get.headers()['etag'] || '0';
+    await request.put('/api/workspace', {
+      headers: { 'If-Match': rev, 'Content-Type': 'application/json' },
+      data: '{"schemaVersion":2,"windows":[]}',
+    });
+  } catch {
+    // 서버가 아직 안 떴으면 무시 — 첫 테스트가 goto 에서 다시 기다린다.
+  }
+}
+
+// 주의 알림은 도구가 사라져도 서버에 남고 배지 개수·모아보기 목록에 누적된다.
+// 개수를 단정하는 스펙(attention.spec.ts)이 앞선 테스트의 알림에 오염되므로
+// 매 테스트 전에 비운다.
+async function clearAttention(request: any) {
+  try {
+    await request.post('/api/tools/attention/clear-all');
+  } catch {
+    // 서버가 아직 안 떴으면 무시
+  }
+}
+
 export const test = base.extend<{ cleanTools: void }>({
   cleanTools: [
     async ({ request }, use) => {
+      await resetWorkspace(request);
       await reapOrphanTools(request);
+      await clearAttention(request);
       await use();
     },
     { auto: true },

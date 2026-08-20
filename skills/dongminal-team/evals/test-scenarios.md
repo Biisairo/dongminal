@@ -1,11 +1,11 @@
 # dongminal-team 테스트 시나리오
 
-사용자가 직접 돌려보고 실제 동작 여부를 검증하기 위한 프롬프트 모음. 각 시나리오는 **팀장 CC 가 돌고 있는 pane 에서 사용자가 치는 메시지**다.
+사용자가 직접 돌려보고 실제 동작 여부를 검증하기 위한 프롬프트 모음. 각 시나리오는 **팀장 CC 가 돌고 있는 도구에서 사용자가 치는 메시지**다.
 
 대전제:
 - dongminal 서버 실행 중, 브라우저 열림, SSE 연결됨
-- 팀장 CC 는 **한 pane** 에서만 동작. 팀원 pane 은 스킬이 새로 생성한다
-- 기존에 열린 다른 pane 의 CC 는 절대 팀원으로 쓰지 않는다
+- 팀장 CC 는 **한 도구** 에서만 동작. 팀원 도구는 스킬이 새로 생성한다
+- 기존에 열린 다른 도구의 CC 는 절대 팀원으로 쓰지 않는다
 
 ---
 
@@ -67,21 +67,21 @@
 
 1. **툴 이름 오용**: 비평가 C 가 `mcp__dongminal__send_agent_message` 대신 Claude Code 내장 `SendMessage` 를 호출해 A 가 영원히 대기. 프롬프트에 풀 네임 명시 + 경고를 넣었는지 확인.
 2. **순차 기동 레이스**: 먼저 뜬 팀원이 아직 존재하지 않는 동료 uuid 로 메시지 시도 → "unknown uuid". 단일 메시지 병렬 기동으로 해결됐는지 확인.
-3. **라벨 드리프트**: 정리 단계에서 라벨로 `closeTab` 호출 시, 앞선 pane 이 닫혀 후속 라벨이 reflow → 엉뚱한 pane 닫힘. uuid 사용 시 면역.
+3. **라벨 드리프트**: 정리 단계에서 라벨로 `closeTab` 호출 시, 앞선 탭이 닫혀 후속 라벨이 reflow → 엉뚱한 탭 닫힘. uuid 사용 시 면역.
 
 ### 검증 포인트 — 식별자 안정성 (UUID)
 
 - [ ] 모든 `workspace_command(location=...)` 호출의 location 값이 **uuid** (라벨 시 NG)
 - [ ] 모든 `send_agent_message(to=..., from=...)` 의 to/from 이 **uuid**
 - [ ] 모든 `send_input(id=...)` / `read_screen(id=...)` 의 id 가 **uuid**
-- [ ] 정리 중 한 pane 닫은 직후 `list_workspace` 재호출 없이 보관된 uuid 로 다음 pane 정리 가능 (라벨 reflow 무관)
+- [ ] 정리 중 한 탭 닫은 직후 `list_workspace` 재호출 없이 보관된 uuid 로 다음 탭 정리 가능 (라벨 reflow 무관)
 
 ### 검증 포인트 — 정리
 
 - [ ] 모든 팀원 CC 에 `send_input(id=<팀원_uuid>, text="/exit", execute=true)` 전송
 - [ ] 쉘 복귀 확인 (`read_screen(id=<팀원_uuid>)`)
-- [ ] 각 팀원 pane 에 대해 `workspace_command(closeTab, location=<팀원_uuid>)` — `list_workspace` 재확인 불필요 (uuid 안정성)
-- [ ] 최종적으로 팀장 pane 만 남고 크기가 원복됨
+- [ ] 각 팀원 탭에 대해 `workspace_command(closeTab, location=<팀원_uuid>)` — `list_workspace` 재확인 불필요 (uuid 안정성)
+- [ ] 최종적으로 팀장 분할 칸만 남고 크기가 원복됨
 - [ ] `focus` 액션 0회 호출
 
 ---
@@ -94,7 +94,7 @@
 CC 기동 단계에서 지연/실패가 날 때 대응을 보는 용도. 단일 팀원이므로 레이아웃은 간단.
 
 **검증 포인트**:
-- [ ] 분할 1회 → 팀원 pane 1개 → inline 프롬프트 포함 `claude` 기동
+- [ ] 분할 1회 → 팀원 분할 칸 1개 → inline 프롬프트 포함 `claude` 기동
 - [ ] 답장 수신 성공 시 정상 종료
 - [ ] 답장 안 오면 `read_screen` 으로 상태 진단 (쉘 에러, claude not found, 이스케이프 실패 등 구분)
 - [ ] 실패 지속 시 사용자에게 "CC 기동 실패. 로그: <화면 일부>. 수동 확인 바람" 보고
@@ -114,7 +114,7 @@ CC 기동 단계에서 지연/실패가 날 때 대응을 보는 용도. 단일 
 
 ### 트리거되지 말아야 함 (단일 CC 로 충분)
 - "이 파일 읽어줘"
-- "현재 pane 이름 뭐야?" → `who_am_i` 정도만 필요
+- "현재 탭 이름 뭐야?" → `who_am_i` 정도만 필요
 - "`list_workspace` 실행해줘" → 단순 도구 호출
 - "dongminal MCP 툴 설명해줘" → 문서성 질문
 
@@ -124,8 +124,8 @@ CC 기동 단계에서 지연/실패가 날 때 대응을 보는 용도. 단일 
 
 **레이아웃 확인**: 브라우저에서 팀 구성 직후 화면이 의도한 대로 나뉘었는지 눈으로 확인. 특히 시나리오 1 에서 4분할이 균등한지.
 
-**진행 시각화**: 각 팀원 pane 이 브라우저에서 실시간으로 보이므로 엔벨로프 주고받는 순간, CC 가 생각하는 순간, 답장하는 순간이 모두 관찰 가능. tmux team agents 대비 가장 큰 UX 이점.
+**진행 시각화**: 각 팀원 도구가 브라우저에서 실시간으로 보이므로 엔벨로프 주고받는 순간, CC 가 생각하는 순간, 답장하는 순간이 모두 관찰 가능. tmux team agents 대비 가장 큰 UX 이점.
 
-**멈춘 CC 진단**: 시나리오 1 에서 "A 가 C 비평 대기 중" 으로 멈춰 있다면, C 의 pane 을 `read_screen` 해서 **어느 tool 을 호출했는지** 확인. `mcp__dongminal__send_agent_message` 가 아니라 `SendMessage` 같은 이름이 보이면 툴 오용.
+**멈춘 CC 진단**: 시나리오 1 에서 "A 가 C 비평 대기 중" 으로 멈춰 있다면, C 의 도구를 `read_screen` 해서 **어느 tool 을 호출했는지** 확인. `mcp__dongminal__send_agent_message` 가 아니라 `SendMessage` 같은 이름이 보이면 툴 오용.
 
 **로그**: `/tmp/dongminal.log` 에 `[cmd] action=... delivered=N` 이 찍혀 SSE 브로드캐스트 여부 확인 가능.

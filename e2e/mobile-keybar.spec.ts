@@ -195,25 +195,20 @@ test.describe('Mobile RFC §7.2 verification automation (SRS REQ-D1..D4)', () =>
   test('TC-D2: keybar button mousedown is preventDefault (focus guard)', async ({ page }) => {
     await gotoMobile(page);
 
-    // Use a probe input to isolate from workspace state pollution between spec files.
-    // The behavior under test is mousedown preventDefault — independent of which element is focused.
-    await page.evaluate(() => {
-      const inp = document.createElement('input');
-      inp.id = 'tc-d2-probe';
-      inp.type = 'text';
-      inp.style.position = 'fixed';
-      inp.style.top = '0';
-      inp.style.left = '0';
-      document.body.appendChild(inp);
-      inp.focus();
+    // REQ-D2 의 구현은 app.js 의 `b.addEventListener('mousedown',e=>e.preventDefault())`
+    // 다. 이 요구를 "문서 포커스가 유지되는가" 로 관측하면 앱의 비동기 포커스
+    // 복원(터미널 helper textarea 로 되돌리는 경로)과 경합해 불안정하다.
+    // 요구 그대로 — mousedown 의 defaultPrevented — 를 직접 관측한다.
+    const prevented = await page.evaluate(async () => {
+      const btn = [...document.querySelectorAll('#mobile-keybar .mkb-btn')]
+        .find((b) => (b.textContent || '').trim() === 'Tab') as HTMLElement | undefined;
+      if (!btn) return null;
+      const ev = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      btn.dispatchEvent(ev);
+      return ev.defaultPrevented;
     });
-    await expect(page.locator('#tc-d2-probe')).toBeFocused();
-
-    // Click a non-modifier keybar button — should NOT steal focus.
-    await page.locator('#mobile-keybar .mkb-btn', { hasText: /^Tab$/ }).click();
-    await expect(page.locator('#tc-d2-probe')).toBeFocused();
-
-    await page.evaluate(() => document.getElementById('tc-d2-probe')?.remove());
+    expect(prevented, 'Tab 키바 버튼을 찾지 못했다').not.toBeNull();
+    expect(prevented, 'mousedown 이 preventDefault 되지 않아 포커스를 빼앗는다').toBe(true);
   });
 
   test('TC-D3: single-pane session shows 1/1 indicator', async ({ page }) => {

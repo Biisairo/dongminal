@@ -25,7 +25,7 @@ workspace_command 호출 순서를 JSON 으로 돌려준다.
     "n": 3
   }
 
-location_from_seed=true 는 "1차 분할 후 list_workspace 로 확인한 SEED pane 의 uuid 를
+location_from_seed=true 는 "1차 분할 후 list_workspace 로 확인한 SEED 도구의 uuid 를
 location 으로 쓴다" 는 의미. N=1 이면 orthogonal_split 은 null.
 """
 
@@ -57,7 +57,7 @@ def plan(cols: int, rows: int, n: int, boss: str) -> dict:
             "action": primary,
             "location": boss,
             "keepFocus": True,
-            "note": "팀장 pane 을 쪼개 SEED pane 1개 생성. 실행 후 list_workspace 로 SEED uuid 확인.",
+            "note": "팀장 분할 칸을 쪼개 SEED 도구 1개 생성. 실행 후 list_workspace 로 SEED uuid 확인.",
         },
         "orthogonal_split": None,
     }
@@ -79,7 +79,7 @@ def main():
     p.add_argument("--cols", type=int, required=True, help="터미널 셀 너비")
     p.add_argument("--rows", type=int, required=True, help="터미널 셀 높이")
     p.add_argument("--n", type=int, required=True, help="팀원 수")
-    p.add_argument("--boss", type=str, required=True, help="팀장 pane 식별자 (uuid 권장; toolId/라벨도 호환)")
+    p.add_argument("--boss", type=str, required=True, help="팀장 탭 식별자 (uuid 권장; toolId/라벨도 호환)")
     args = p.parse_args()
 
     try:

@@ -25,7 +25,7 @@
 - [ ] `render_workflow.py --json --param topic=바다` 선행 호출, `{{` 잔존 없음
 - [ ] `newWindow(name='poem-critique', keepFocus=true)` 로 전용 창 백그라운드 생성 — 사용자 화면 무변화
 - [ ] `list_workspace` 의 `session="poem-critique"` 행으로 시드 uuid 식별 (diff 비교 아님)
-- [ ] 시드에 균등 분할로 팀원 4 pane (writer/lead/critic_1/critic_2) — 기존 pane 재사용 없음
+- [ ] 시드에 균등 분할로 팀원 4 분할 칸 (writer/lead/critic_1/critic_2) — 기존 도구 재사용 없음
 - [ ] 모든 workspace_command 가 `location=<uuid>` + `keepFocus=true`, 사용자 ▶ 미이동
 - [ ] team id ↔ uuid 매핑표 작성됨
 - [ ] 병렬 send_input 부팅 → 같은 턴 Barrier → kickoff.to(writer) 에게 kickoff.message 송신
@@ -37,7 +37,7 @@
 > poem-critique 실행해줘.
 
 검증:
-- [ ] **pane 생성 전에** topic 누락을 사용자에게 질문 (팀 만들고 나서 묻기 금지)
+- [ ] **분할 칸 생성 전에** topic 누락을 사용자에게 질문 (팀 만들고 나서 묻기 금지)
 
 ## TC-WFS-D — delete
 
