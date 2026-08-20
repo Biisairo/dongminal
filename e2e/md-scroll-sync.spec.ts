@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 // @ts-ignore - node builtins, no @types/node installed
 import * as fs from 'fs';
 // @ts-ignore
@@ -34,7 +34,7 @@ async function gotoFresh(page, request) {
     try { localStorage.clear(); } catch {}
   });
   await page.goto('/');
-  await page.waitForSelector('#area .rg.focused .xterm-helper-textarea', { timeout: 15000 });
+  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 async function openMdTab(page, fp: string): Promise<string> {
@@ -108,7 +108,7 @@ test.describe('MD scroll sync', () => {
       sessionStorage.setItem('displayMode', 'desktop');
     });
     await pageA.goto('/');
-    await pageA.waitForSelector('#area .rg.focused .xterm-helper-textarea', { timeout: 15000 });
+    await pageA.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 
     const md = await makeBigMd('sync');
     const tid = await openMdTab(pageA, md);

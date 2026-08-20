@@ -3,15 +3,15 @@
  */
 class App {
   constructor(){
-    this.panes=new Map();
+    this.tools=new Map();
     this.fileEditors=new Map();
     this.clientId=(crypto&&crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2));
     this.ws={schemaVersion:2,windows:[],activeWindow:null};
     this.wsETag=null;
     this.focused=null;
-    this._attn=new Map(); // paneId → {reason} 주의 상태 집합 (FR-PAN-9/16)
-    this._attnNotifs={}; // paneId → Notification (재팝업 위해 직전 알림 보관)
-    this._activity=new Map(); // paneId → {state,tool,detail} 활동 상태 (AGENT_ACTIVITY_PANEL_SRS)
+    this._attn=new Map(); // toolId → {reason} 주의 상태 집합 (FR-PAN-9/16)
+    this._attnNotifs={}; // toolId → Notification (재팝업 위해 직전 알림 보관)
+    this._activity=new Map(); // toolId → {state,tool,detail} 활동 상태 (AGENT_ACTIVITY_PANEL_SRS)
     this._s=0;this._r=0;this._t=0;this._kb=false;
     this._windowFocused=typeof document!=='undefined'&&document.hasFocus?document.hasFocus():true;
     this._windowFocusOwner={}; // { windowId: clientId } — per-window focus ownership
@@ -63,7 +63,7 @@ class App {
     document.body.classList.toggle('drawer-open', this._drawerOpen);
   }
 
-  // Flatten split tree → array of region nodes (in-order: L→R, T→B)
+  // Flatten split tree → array of pane nodes (in-order: L→R, T→B)
   _flattenPanes(node, out){
     out = out || [];
     if(!node) return out;
@@ -88,9 +88,9 @@ class App {
   navMobilePane(delta){
     const n=this._mobilePaneCount(); if(n<=1) return;
     this._mPaneIdx = (this._mPaneIdx + delta + n) % n;
-    const rg=this._mobileCurrentPane();
-    if(rg){
-      this._setFocus(rg.id);
+    const pn=this._mobileCurrentPane();
+    if(pn){
+      this._setFocus(pn.id);
       this._save();
     }
     this.render();
@@ -104,10 +104,10 @@ class App {
       const stRes=await fetch('/api/state');
       this.wsETag=stRes.headers.get('ETag')||stRes.headers.get('Etag')||null;
       const st=await stRes.json();
-      const sp=st.panes||[];
+      const sp=st.tools||[];
       const sv=st.workspace;
       const ok=new Set(sp.map(p=>p.id));
-      for(const p of sp){const pane=this._mkPane(p.id,p.name);pane._reconnecting=true;pane.el.style.opacity='0'}
+      for(const p of sp){const pane=this._mkTool(p.id,p.name);pane._reconnecting=true;pane.el.style.opacity='0'}
       if(sv&&sv.windows&&sv.windows.length){
         this.ws=sv;
         // Migration: displayMode/mobileBreakpoint were briefly stored in workspace.
@@ -152,6 +152,7 @@ class App {
         }
       }
     }catch{}
+    this._pruneAgentOrder();
     const a=this._aw();
     if(a&&a.layout){const saved=a.focusedPane;const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);if(f)this._setFocus(f.id, a)}
     this.render();
@@ -184,15 +185,15 @@ class App {
               return;
             }
             if(m.action==='tool_attention'){
-              this._onPaneAttention(m.args||{});
+              this._onToolAttention(m.args||{});
               return;
             }
             if(m.action==='tool_attention_clear'){
-              this._onPaneAttentionClear(m.args||{});
+              this._onToolAttentionClear(m.args||{});
               return;
             }
             if(m.action==='tool_activity'){
-              this._onPaneActivity(m.args||{});
+              this._onToolActivity(m.args||{});
               return;
             }
             // REMOTE_COMMAND_RESULT_SRS: reqId 는 broadcast payload 의 top-level
@@ -232,7 +233,7 @@ class App {
         const et=r.headers.get('ETag')||r.headers.get('Etag');
         const st=await r.json();
         const sv=st&&st.workspace;
-        const sp=(st&&st.panes)||[];
+        const sp=(st&&st.tools)||[];
         if(!sv||!sv.windows) break;
         this._applyRemoteWorkspace(sv, sp);
         if(et) this.wsETag=et;
@@ -245,10 +246,10 @@ class App {
     const ok=new Set((serverPanes||[]).map(p=>p.id));
     const nameOf=new Map((serverPanes||[]).map(p=>[p.id,p.name]));
     for(const id of ok){
-      if(!this.panes.has(id)) this._mkPane(id, nameOf.get(id)||id);
+      if(!this.tools.has(id)) this._mkTool(id, nameOf.get(id)||id);
     }
-    for(const [id,p] of Array.from(this.panes.entries())){
-      if(!ok.has(id)){ try{p.destroy()}catch{} this.panes.delete(id) }
+    for(const [id,p] of Array.from(this.tools.entries())){
+      if(!ok.has(id)){ try{p.destroy()}catch{} this.tools.delete(id) }
     }
     for(const s of sv.windows){
       if(!s||!s.id) continue;
@@ -262,7 +263,7 @@ class App {
       sv.activeWindow=sv.windows[0]?.id||null;
     // Preserve per-window viewport state: activeWindow and each window's
     // focusedPane. Remote structural changes (splits/tabs) are applied
-    // but this window stays on its own window/region.
+    // but this window stays on its own window/pane.
     const localActive=this.ws.activeWindow;
     const localFocus=new Map();
     for(const s of this.ws.windows){
@@ -272,7 +273,7 @@ class App {
     if(localActive && this.ws.windows.some(s=>s.id===localActive)){
       this.ws.activeWindow=localActive;
     }
-    // Restore each window's focusedPane if the region still exists.
+    // Restore each window's focusedPane if the pane still exists.
     for(const s of this.ws.windows){
       const rid=localFocus.get(s.id);
       if(rid && s.layout && findPane(s.layout, rid)) s.focusedPane=rid;
@@ -354,7 +355,7 @@ class App {
         if(!tgt) return;
         if(opts.keepFocus){
           opts.windowId=tgt.windowId;
-          rid=tgt.regionId;
+          rid=tgt.paneId;
         }else{
           this._focusLocation(args.location);
           rid=this.focused;
@@ -374,11 +375,11 @@ class App {
         const tgt=this._resolveLocation(args.location);
         if(!tgt) return;
         opts.targetWindow=tgt.windowId;
-        opts.targetRegion=tgt.regionId;
+        opts.targetPane=tgt.paneId;
       }
       const dir=action==='splitH'?'horizontal':'vertical';
       this.split(dir,opts).then((c)=>{
-        if(args.reqId&&c) this._echoResult(args.reqId,{newPanes:c.regions,newTabs:c.tabs});
+        if(args.reqId&&c) this._echoResult(args.reqId,{newPanes:c.panes,newTabs:c.tabs});
       });
       return;
     }
@@ -387,8 +388,8 @@ class App {
     // keepFocus 인자는 호환을 위해 받지만, location 이 있으면 항상 포커스 유지로 취급한다.
     if(action==='closeTab' && args.location){
       const tgt=this._resolveLocation(args.location);
-      if(tgt && tgt.regionId && tgt.tabId){
-        this.closeTab(tgt.regionId, tgt.tabId, tgt.windowId);
+      if(tgt && tgt.paneId && tgt.tabId){
+        this.closeTab(tgt.paneId, tgt.tabId, tgt.windowId);
         return;
       }
     }
@@ -423,10 +424,10 @@ class App {
     const pi=m[2]?parseInt(m[2],10)-1:0;
     const ti=m[3]?parseInt(m[3],10)-1:0;
     const sess=this.ws.windows[si]; if(!sess) return null;
-    const regions=[]; this._collectRegions(sess.layout,regions);
-    const rg=regions[pi]; if(!rg) return null;
-    const tab=rg.tabs[ti]; if(!tab) return null;
-    return {windowId:sess.id,regionId:rg.id,tabId:tab.id,win:sess,region:rg,tab:tab};
+    const panes=[]; this._collectPanes(sess.layout,panes);
+    const pn=panes[pi]; if(!pn) return null;
+    const tab=pn.tabs[ti]; if(!tab) return null;
+    return {windowId:sess.id,paneId:pn.id,tabId:tab.id,win:sess,pane:pn,tab:tab};
   }
 
   // "4.1.1", "W4.P1.T1", "4", "4.2" 등을 지원. 1-base positional (window.pane.tab).
@@ -439,26 +440,26 @@ class App {
     const ti=m[3]?parseInt(m[3],10)-1:0;
     const sess=this.ws.windows[si];
     if(!sess){console.warn('[cmd] focus: window #'+(si+1)+' 없음');return}
-    const regions=[]; this._collectRegions(sess.layout, regions);
-    const rg=regions[pi];
-    if(!rg){console.warn('[cmd] focus: region #'+(pi+1)+' 없음');return}
-    const tab=rg.tabs[ti];
+    const panes=[]; this._collectPanes(sess.layout, panes);
+    const pn=panes[pi];
+    if(!pn){console.warn('[cmd] focus: pane #'+(pi+1)+' 없음');return}
+    const tab=pn.tabs[ti];
     if(!tab){console.warn('[cmd] focus: tab #'+(ti+1)+' 없음');return}
     if(this.ws.activeWindow!==sess.id){
       const cur=this._aw(); if(cur) cur.focusedPane=this.focused;
       this.ws.activeWindow=sess.id;
       try{sessionStorage.setItem('activeWindow', sess.id)}catch{}
     }
-    rg.activeTab=tab.id;
-    this._setFocus(rg.id, sess);
+    pn.activeTab=tab.id;
+    this._setFocus(pn.id, sess);
     this._focusWindow(sess.id);
     this._save(); this.render();
   }
 
-  _collectRegions(n, out){
+  _collectPanes(n, out){
     if(!n) return;
     if(n.type==='pane'){out.push(n);return}
-    if(n.children) for(const c of n.children) this._collectRegions(c,out);
+    if(n.children) for(const c of n.children) this._collectPanes(c,out);
   }
 
   _rids(n){
@@ -471,18 +472,18 @@ class App {
     if(n.children) for(const c of n.children) this._rids(c);
   }
 
-  _mkPane(id,name){
-    if(this.panes.has(id)) return this.panes.get(id);
-    const p=new TermPane(id,name);
+  _mkTool(id,name){
+    if(this.tools.has(id)) return this.tools.get(id);
+    const p=new TerminalTool(id,name);
     document.getElementById('area').appendChild(p.el);
     p.connect();
-    this.panes.set(id,p);
+    this.tools.set(id,p);
     this._applyFocusOverlay();
     return p;
   }
 
-  async _isPaneBusy(paneId){
-    try{const r=await fetch(`/api/tools/${paneId}/busy`);const d=await r.json();return d.busy}catch{return false}
+  async _isToolBusy(toolId){
+    try{const r=await fetch(`/api/tools/${toolId}/busy`);const d=await r.json();return d.busy}catch{return false}
   }
 
   _confirmClose(msg, opts = {}){
@@ -506,30 +507,30 @@ class App {
     });
   }
 
-  async _newPane(cwd,cwdPane){
+  async _newTool(cwd,cwdPane){
     let q='';
     if(cwd) q='&cwd='+encodeURIComponent(cwd);
     else if(cwdPane) q='&cwdPane='+encodeURIComponent(cwdPane);
     const r=await fetch('/api/tools?cols=120&rows=40'+q,{method:'POST'});
     if(!r.ok) throw new Error('create pane failed');
     const {id,name}=await r.json();
-    return this._mkPane(id,name);
+    return this._mkTool(id,name);
   }
 
   async _focusedCwd(){
-    const p=this._focusedTermPane();
+    const p=this._focusedTerminal();
     if(!p) return null;
     try{const r=await fetch('/api/cwd?pane='+p.id);const d=await r.json();return d.cwd||null}catch{return null}
   }
 
   async _kill(pid){
-    const p=this.panes.get(pid);
-    if(p){p.destroy();this.panes.delete(pid)}
+    const p=this.tools.get(pid);
+    if(p){p.destroy();this.tools.delete(pid)}
     try{await fetch(`/api/tools/${pid}`,{method:'DELETE'})}catch{}
   }
   _killTool(pid){
-    const p=this.panes.get(pid);
-    if(p){p.destroy();this.panes.delete(pid)}
+    const p=this.tools.get(pid);
+    if(p){p.destroy();this.tools.delete(pid)}
     fetch(`/api/tools/${pid}`,{method:'DELETE'}).catch(()=>{});
   }
 
@@ -538,15 +539,15 @@ class App {
   // _isToolInActiveWindow reports whether a pane (by id) is present in the
   // currently active window's layout. Used to route focus commands only to
   // the window that is actually viewing the source pane (multi-window).
-  _isToolInActiveWindow(paneId){
-    if(!paneId) return false;
+  _isToolInActiveWindow(toolId){
+    if(!toolId) return false;
     const s=this._aw();
     if(!s||!s.layout) return false;
     let found=false;
     const walk=n=>{
       if(!n||found) return;
       if(n.type==='pane'&&n.tabs){
-        for(const t of n.tabs) if(t.toolId===paneId){found=true;return}
+        for(const t of n.tabs) if(t.toolId===toolId){found=true;return}
       }
       if(n.type==='split'&&n.children) for(const c of n.children) walk(c);
     };
@@ -568,12 +569,12 @@ class App {
       if(this.focused===rid) this._attnClearFocused();
     }
     this._agentsRender(); // 외부 포커스 변경도 카드 .focused 에 즉시 반영(render 미경유 경로 포함)
-    this._persistFocusedRegions();
+    this._persistFocusedPanes();
   }
 
   // Persist per-window focusedPane map to sessionStorage so a refresh
   // restores the same view (multi-window: each window owns its viewport).
-  _persistFocusedRegions(){
+  _persistFocusedPanes(){
     try{
       const map={};
       for(const s of this.ws.windows){
@@ -594,34 +595,34 @@ class App {
   get agentsPollMs(){try{const v=parseInt(localStorage.getItem('agentsPollMs'));return v>=1000?v:AGENTS_POLL_DEFAULT}catch{return AGENTS_POLL_DEFAULT}}
   set agentsPollMs(v){try{localStorage.setItem('agentsPollMs',String(v))}catch{}}
 
-  _attnHas(paneId){return this._attn.has(paneId)}
+  _attnHas(toolId){return this._attn.has(toolId)}
 
-  // 활성 창의 포커스 region 의 activeTab paneId === paneId 인지 (FR-PAN-9)
-  _isPaneFocusedActive(paneId){
-    if(!paneId) return false;
+  // 활성 창의 포커스 pane 의 activeTab toolId === toolId 인지 (FR-PAN-9)
+  _isToolFocusedActive(toolId){
+    if(!toolId) return false;
     const s=this._aw(); if(!s||!s.layout) return false;
-    const rg=findPane(s.layout,this.focused); if(!rg) return false;
-    const at=(rg.tabs||[]).find(t=>t.id===rg.activeTab);
-    return !!at&&at.toolId===paneId;
+    const pn=findPane(s.layout,this.focused); if(!pn) return false;
+    const at=(pn.tabs||[]).find(t=>t.id===pn.activeTab);
+    return !!at&&at.toolId===toolId;
   }
 
-  _onPaneAttention({toolId:paneId,reason}={}){
-    if(!paneId) return;
+  _onToolAttention({toolId,reason}={}){
+    if(!toolId) return;
     // 억제(즉시 해제)는 "정말로 보고 있을 때"만 — 브라우저 창이 OS 포커스를 가졌고(다른 앱이
     // 위에 있지 않음) 그 pane 에 포커스가 있을 때. 다른 프로그램을 보고 있으면(document.hasFocus()
     // false) 포커스여도 알람을 살린다 (FR-PAN-9/13/요구2).
     const browserFocused=(typeof document!=='undefined'&&typeof document.hasFocus==='function')?document.hasFocus():true;
-    if(browserFocused&&this._isPaneFocusedActive(paneId)){this._attnClear(paneId);return}
-    this._attn.set(paneId,{reason});
+    if(browserFocused&&this._isToolFocusedActive(toolId)){this._attnClear(toolId);return}
+    this._attn.set(toolId,{reason});
     this._attnRefresh();
-    this._attnDesktopNotify(reason,paneId); // FR-PAN-13a
+    this._attnDesktopNotify(reason,toolId); // FR-PAN-13a
     this._attnBeep(); // FR-PAN-13c
   }
 
-  _onPaneAttentionClear({toolId:paneId}={}){
-    if(!paneId) return;
-    this._attnCloseNotif(paneId);
-    if(!this._attn.delete(paneId)) return;
+  _onToolAttentionClear({toolId}={}){
+    if(!toolId) return;
+    this._attnCloseNotif(toolId);
+    if(!this._attn.delete(toolId)) return;
     this._attnRefresh();
   }
 
@@ -635,11 +636,11 @@ class App {
   }
 
   // FR-PAN-11: 로컬 즉시 제거 + 백엔드 해제(다른 브라우저로 전파)
-  _attnClear(paneId){
-    if(!paneId) return;
-    this._attnCloseNotif(paneId);
-    this._attn.delete(paneId);
-    fetch('/api/tools/attention/clear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({toolId:paneId})}).catch(()=>{});
+  _attnClear(toolId){
+    if(!toolId) return;
+    this._attnCloseNotif(toolId);
+    this._attn.delete(toolId);
+    fetch('/api/tools/attention/clear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({toolId})}).catch(()=>{});
     this._attnRefresh();
   }
 
@@ -668,19 +669,19 @@ class App {
   _attnClearFocused(){
     if(!this._attn.size) return;
     const s=this._aw(); if(!s||!s.layout) return;
-    const rg=findPane(s.layout,this.focused); if(!rg) return;
-    const at=(rg.tabs||[]).find(t=>t.id===rg.activeTab);
+    const pn=findPane(s.layout,this.focused); if(!pn) return;
+    const at=(pn.tabs||[]).find(t=>t.id===pn.activeTab);
     if(at&&at.toolId&&this._attn.has(at.toolId)) this._attnClear(at.toolId);
   }
 
-  // 모든 창 layout 트리를 walk 해 paneId 를 가진 tab 위치 반환 (FR-PAN-16)
-  _findPaneLocation(paneId){
-    if(!paneId) return null;
+  // 모든 창 layout 트리를 walk 해 toolId 를 가진 tab 위치 반환 (FR-PAN-16)
+  _findToolLocation(toolId){
+    if(!toolId) return null;
     const walk=(node,win)=>{
       if(!node) return null;
       if(node.type==='pane'){
-        const tab=(node.tabs||[]).find(t=>t.toolId===paneId);
-        return tab?{win,region:node,tab}:null;
+        const tab=(node.tabs||[]).find(t=>t.toolId===toolId);
+        return tab?{win,pane:node,tab}:null;
       }
       if(node.children) for(const c of node.children){const f=walk(c,win);if(f)return f}
       return null;
@@ -690,26 +691,26 @@ class App {
   }
 
   // FR-PAN-16: 해당 pane 으로 포커스 이동(_setFocus 가 _attnClearFocused 로 해제)
-  _jumpToPane(paneId){
-    const loc=this._findPaneLocation(paneId);
+  _jumpToTool(toolId){
+    const loc=this._findToolLocation(toolId);
     if(!loc) return;
     this.ws.activeWindow=loc.win.id;
     try{sessionStorage.setItem('activeWindow', loc.win.id)}catch{}
-    loc.region.activeTab=loc.tab.id;
-    this._setFocus(loc.region.id, loc.win);
+    loc.pane.activeTab=loc.tab.id;
+    this._setFocus(loc.pane.id, loc.win);
     this._focusWindow(loc.win.id);
     this.render();
   }
 
   // FR-AAP-15: SSE tool_activity 수신 → 최신 상태로 덮어쓰고 카드 타깃 갱신
-  _onPaneActivity({toolId:paneId,state,tool,detail}={}){
-    if(!paneId||!state) return;
+  _onToolActivity({toolId,state,tool,detail}={}){
+    if(!toolId||!state) return;
     if(state==='ended'){ // 종료 → 카드 제거
-      if(this._activity.delete(paneId)) this._agentsRender();
+      if(this._activity.delete(toolId)) this._agentsRender();
       return;
     }
     // FR-AAP-13/21: 기존 항목은 제자리 갱신(순서 불변), 신규는 Map 끝(=최하단)에 추가
-    this._activity.set(paneId,{state,tool:tool||'',detail:detail||''});
+    this._activity.set(toolId,{state,tool:tool||'',detail:detail||''});
     this._agentsRender();
   }
 
@@ -734,7 +735,7 @@ class App {
     handle.classList.toggle('open',open);
     const btn=document.getElementById('agents-toggle');if(btn)btn.classList.toggle('open',open);
     try{localStorage.setItem('agentsPanelOpen',open?'1':'0')}catch{}
-    for(const p of this.panes.values()) if(p.el.classList.contains('vis')) p.doFit();
+    for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
     if(open){this._agentsRender();this._agentsStartPoll()}else{this._agentsStopPoll()}
     // agents 패널이 열리거나 닫힐 때 attn center 위치도 같이 조정
     const ac=document.getElementById('attn-center');
@@ -779,8 +780,23 @@ class App {
   }
 
   // FR-AAP-21: ws.agentsOrder(workspace 영속·동기화)를 현재 활동 집합과 정합한다.
-  // 사라진 paneId 는 제외, 배열에 없던 새 paneId 는 신호 도착 순서대로 최하단에 추가.
+  // 사라진 toolId 는 제외, 배열에 없던 새 toolId 는 신호 도착 순서대로 최하단에 추가.
   // reconcile 은 결정적이라 _save() 를 유발하지 않는다(드래그 시에만 저장).
+  // FR-EM-16: 부팅 시 workspace 트리에 없는 도구 id 를 agentsOrder 에서
+  // 제거한다. _agentOrderSync 는 활동 보고가 있는 도구만 남기므로 부팅
+  // 직후(활동 0건)에 쓰면 순서가 전부 날아간다 — 여기서는 레이아웃 참조를
+  // 기준으로만 정리한다.
+  _pruneAgentOrder(){
+    if(!Array.isArray(this.ws.agentsOrder)||!this.ws.agentsOrder.length) return;
+    const present=new Set();
+    for(const w of this.ws.windows||[]){
+      const panes=[]; this._collectPanes(w.layout,panes);
+      for(const pn of panes) for(const t of (pn.tabs||[])) if(t.toolId) present.add(t.toolId);
+    }
+    const kept=this.ws.agentsOrder.filter(id=>present.has(id));
+    if(kept.length!==this.ws.agentsOrder.length) this.ws.agentsOrder=kept;
+  }
+
   _agentOrderSync(){
     if(!Array.isArray(this.ws.agentsOrder)) this.ws.agentsOrder=[];
     const present=new Set(this._activity.keys());
@@ -791,7 +807,7 @@ class App {
     return order;
   }
 
-  // FR-AAP-13/14/16/18/21: 활동 중인 pane 카드 렌더. _findPaneLocation 실패(종료/없음)
+  // FR-AAP-13/14/16/18/21: 활동 중인 pane 카드 렌더. _findToolLocation 실패(종료/없음)
   // pane 은 제외, attention 있으면 .attn 합성, 클릭 시 점프+알람 해제. 카드 순서는
   // ws.agentsOrder(드래그로 조절·영속) 를 따른다.
   _agentsRender(){
@@ -805,15 +821,15 @@ class App {
     head.querySelector('.ag-close').addEventListener('click',e=>{e.stopPropagation();this._agentsToggle()});
     panel.appendChild(head);
     let n=0;
-    for(const paneId of this._agentOrderSync()){ // ws.agentsOrder 순서(신규=최하단)
-      const info=this._activity.get(paneId);
-      const loc=this._findPaneLocation(paneId);
+    for(const toolId of this._agentOrderSync()){ // ws.agentsOrder 순서(신규=최하단)
+      const info=this._activity.get(toolId);
+      const loc=this._findToolLocation(toolId);
       if(!loc) continue;
       n++;
       const card=document.createElement('div');
-      card.className='ag-card'+(this._attnHas(paneId)?' attn':'')+(this._isPaneFocusedActive(paneId)?' focused':'');
-      card.dataset.pid=paneId;
-      const locDiv=document.createElement('div');locDiv.className='ag-loc';locDiv.textContent=(loc.win.name||'')+' · '+(loc.tab.name||paneId);
+      card.className='ag-card'+(this._attnHas(toolId)?' attn':'')+(this._isToolFocusedActive(toolId)?' focused':'');
+      card.dataset.toolid=toolId;
+      const locDiv=document.createElement('div');locDiv.className='ag-loc';locDiv.textContent=(loc.win.name||'')+' · '+(loc.tab.name||toolId);
       const st=document.createElement('div');st.className='ag-state';
       st.classList.add(info.state); // 상태별 색(.ag-state.working 등)
       st.textContent=(AGENT_STATE_ICON[info.state]||'●')+' '+info.state+(info.tool?' · '+info.tool:'');
@@ -821,11 +837,11 @@ class App {
       if(info.detail){dt.textContent=info.detail;card.appendChild(dt);}
       card.appendChild(locDiv);
       card.appendChild(st);
-      card.addEventListener('click',()=>{this._jumpToPane(paneId);if(this._attnHas(paneId))this._attnClear(paneId)});
+      card.addEventListener('click',()=>{this._jumpToTool(toolId);if(this._attnHas(toolId))this._attnClear(toolId)});
       // FR-AAP-21: 창 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
       card.draggable=true;
-      card.addEventListener('dragstart',e=>{this._drag={type:'agent',pid:paneId,targetPid:null,before:false,done:false};e.dataTransfer.effectAllowed='move';setTimeout(()=>card.classList.add('dragging'),0)});
-      card.addEventListener('dragover',e=>{const dr=this._drag;if(!dr||dr.type!=='agent')return;e.preventDefault();panel.querySelectorAll('.ag-card').forEach(c=>c.classList.remove('drag-above','drag-below'));const rect=card.getBoundingClientRect();const before=e.clientY<rect.top+rect.height/2;card.classList.add(before?'drag-above':'drag-below');dr.targetPid=paneId;dr.before=before});
+      card.addEventListener('dragstart',e=>{this._drag={type:'agent',pid:toolId,targetPid:null,before:false,done:false};e.dataTransfer.effectAllowed='move';setTimeout(()=>card.classList.add('dragging'),0)});
+      card.addEventListener('dragover',e=>{const dr=this._drag;if(!dr||dr.type!=='agent')return;e.preventDefault();panel.querySelectorAll('.ag-card').forEach(c=>c.classList.remove('drag-above','drag-below'));const rect=card.getBoundingClientRect();const before=e.clientY<rect.top+rect.height/2;card.classList.add(before?'drag-above':'drag-below');dr.targetPid=toolId;dr.before=before});
       card.addEventListener('drop',e=>{const dr=this._drag;if(!dr||dr.type!=='agent')return;e.preventDefault();e.stopPropagation();this._reorderAgents(dr)});
       // dragend 는 시각 정리만 — 패널 밖 release 는 취소(순서 불변, snap-back 깜빡임 방지).
       card.addEventListener('dragend',()=>{this._drag=null;card.classList.remove('dragging');panel.querySelectorAll('.ag-card').forEach(c=>c.classList.remove('drag-above','drag-below'))});
@@ -849,16 +865,16 @@ class App {
       el.classList.toggle('attn', !!(s&&this._windowHasAttn(s)));
     });
     // 탭/리전 강조도 타깃 토글 — 전체 render() 를 피해 포커스 플리커(xterm blur/refocus)를 막는다.
-    document.querySelectorAll('#area .rt[data-pid]').forEach(t=>{
-      const rg=t.closest('.rg');
-      const focusedPane=!!(rg&&rg.classList.contains('focused'));
+    document.querySelectorAll('#area .rt[data-toolid]').forEach(t=>{
+      const pn=t.closest('.pn');
+      const focusedPane=!!(pn&&pn.classList.contains('focused'));
       const active=t.classList.contains('active');
-      t.classList.toggle('attn', this._attnHas(t.dataset.pid)&&!(focusedPane&&active));
+      t.classList.toggle('attn', this._attnHas(t.dataset.toolid)&&!(focusedPane&&active));
     });
-    document.querySelectorAll('#area .rg[data-rid]').forEach(rg=>{
-      const at=rg.querySelector('.rt.active[data-pid]');
-      const pid=at?at.dataset.pid:null;
-      rg.classList.toggle('attn', !!(pid&&this._attnHas(pid)&&!rg.classList.contains('focused')));
+    document.querySelectorAll('#area .pn[data-paneid]').forEach(pn=>{
+      const at=pn.querySelector('.rt.active[data-toolid]');
+      const pid=at?at.dataset.toolid:null;
+      pn.classList.toggle('attn', !!(pid&&this._attnHas(pid)&&!pn.classList.contains('focused')));
     });
     const badge=document.getElementById('attn-badge');
     if(badge){
@@ -904,9 +920,9 @@ class App {
     head.innerHTML=`<span class="attn-title">주의 알림 ${this._attn.size}</span><button class="attn-clear-all">모두 제거</button>`;
     head.querySelector('.attn-clear-all').addEventListener('click',e=>{e.stopPropagation();this._attnClearAll()});
     center.appendChild(head);
-    for(const [paneId,info] of this._attn){
-      const loc=this._findPaneLocation(paneId);
-      const name=loc?loc.tab.name:paneId;
+    for(const [toolId,info] of this._attn){
+      const loc=this._findToolLocation(toolId);
+      const name=loc?loc.tab.name:toolId;
       const reason=info&&info.reason==='idle'?'작업 멈춤':'알림 신호';
       const item=document.createElement('div');
       item.className='attn-item';
@@ -914,30 +930,30 @@ class App {
       const reasonSpan=document.createElement('span');reasonSpan.className='attn-reason';reasonSpan.textContent=reason;
       item.appendChild(nameSpan);
       item.appendChild(reasonSpan);
-      item.addEventListener('click',()=>{this._jumpToPane(paneId);this._attnCenterClose()});
+      item.addEventListener('click',()=>{this._jumpToTool(toolId);this._attnCenterClose()});
       center.appendChild(item);
     }
   }
 
   // FR-PAN-13a: 데스크톱 알림(권한 granted + 설정 on). pane 별 직전 알림을 닫고 새로 띄운다.
-  _attnDesktopNotify(reason,paneId){
+  _attnDesktopNotify(reason,toolId){
     if(!this.attnDesktop) return;
     if(typeof Notification==='undefined'||Notification.permission!=='granted') return;
-    const loc=this._findPaneLocation(paneId);
-    const where=loc?[loc.win&&loc.win.name,loc.tab&&loc.tab.name].filter(Boolean).join(' · '):('pane '+paneId);
+    const loc=this._findToolLocation(toolId);
+    const where=loc?[loc.win&&loc.win.name,loc.tab&&loc.tab.name].filter(Boolean).join(' · '):('pane '+toolId);
     const head=reason==='done'?'✅ 작업 완료':reason==='waiting'?'⌨️ 입력 대기 중':reason==='idle'?'⏸️ 작업이 멈췄습니다':'🔔 주의가 필요합니다';
     // 같은 pane 의 이전 알림을 닫고 새로 띄운다 — tag+renotify 는 (특히 macOS 에서)
     // 조용히 갱신만 되어 재팝업이 안 되므로, close→재생성으로 매번 확실히 다시 띄운다.
     this._attnNotifs=this._attnNotifs||{};
-    this._attnCloseNotif(paneId);
-    try{this._attnNotifs[paneId]=new Notification(head,{body:where||('pane '+paneId)})}catch{}
+    this._attnCloseNotif(toolId);
+    try{this._attnNotifs[toolId]=new Notification(head,{body:where||('pane '+toolId)})}catch{}
   }
 
   // 저장해 둔 데스크톱 알림 객체를 닫는다(있으면).
-  _attnCloseNotif(paneId){
-    if(this._attnNotifs&&this._attnNotifs[paneId]){
-      try{this._attnNotifs[paneId].close()}catch{}
-      delete this._attnNotifs[paneId];
+  _attnCloseNotif(toolId){
+    if(this._attnNotifs&&this._attnNotifs[toolId]){
+      try{this._attnNotifs[toolId].close()}catch{}
+      delete this._attnNotifs[toolId];
     }
   }
 
@@ -1016,7 +1032,7 @@ class App {
   }
 
   async _mkWindow(opts={}){
-    const p=await this._newPane();
+    const p=await this._newTool();
     const r=`r${++this._r}`,t=`t${++this._t}`;
     const name=(typeof opts.name==='string'&&opts.name?opts.name:'Window').slice(0,64);
     const s={
@@ -1047,7 +1063,7 @@ class App {
     if(i<0) return;
     const s=this.ws.windows[i];
     const pids=allPids(s.layout);
-    const busyChecks=await Promise.all(pids.map(pid=>this._isPaneBusy(pid)));
+    const busyChecks=await Promise.all(pids.map(pid=>this._isToolBusy(pid)));
     if(busyChecks.some(Boolean)){
       const ok=await this._confirmClose('실행 중인 프로세스가 있습니다. 창을 닫으시겠습니까?');
       if(!ok) return;
@@ -1100,7 +1116,7 @@ class App {
         if (n.type === 'pane' && n.tabs) {
           for (const t of n.tabs) {
             if (t.type === 'editor' && t.filePath === filePath) {
-              result = { tab: t, region: n, win: s };
+              result = { tab: t, pane: n, win: s };
               return;
             }
           }
@@ -1116,10 +1132,10 @@ class App {
   }
 
   async addTab(rid, type = 'terminal', opts = {}) {
-    // opts.windowId 지정 시 비활성 창의 region 에도 추가 가능 (FR-RST-4).
+    // opts.windowId 지정 시 비활성 창의 pane 에도 추가 가능 (FR-RST-4).
     const s = opts.windowId ? this.ws.windows.find(x => x.id === opts.windowId) : this._aw();
     if (!s) return;
-    const rg = findPane(s.layout, rid); if (!rg) return;
+    const pn = findPane(s.layout, rid); if (!pn) return;
     if (type === 'editor') {
       if (!opts.filePath) { console.warn('[addTab] editor tab requires filePath'); return }
       const existing = this._findEditorTab(opts.filePath);
@@ -1127,8 +1143,8 @@ class App {
         const cur = this._aw(); if (cur) cur.focusedPane = this.focused;
         this.ws.activeWindow = existing.win.id;
         try{sessionStorage.setItem('activeWindow', existing.win.id)}catch{}
-        existing.region.activeTab = existing.tab.id;
-        this._setFocus(existing.region.id, existing.win);
+        existing.pane.activeTab = existing.tab.id;
+        this._setFocus(existing.pane.id, existing.win);
         this._focusWindow(existing.win.id);
         const editor = this.fileEditors.get(existing.tab.id);
         if (editor) editor.refresh();
@@ -1138,22 +1154,22 @@ class App {
       }
       const name = opts.name || opts.filePath.split('/').pop();
       const t = `t${++this._t}`;
-      rg.tabs.push({ id: t, name, type: 'editor', filePath: opts.filePath });
-      rg.activeTab = t;
+      pn.tabs.push({ id: t, name, type: 'editor', filePath: opts.filePath });
+      pn.activeTab = t;
       this.render();
       this._save();
       return;
     }
-    const ref = this._regionNewPaneRef(s, rid);
-    const p = await this._newPane(ref.cwd || null, ref.cwd ? null : (ref.cwdPane || null));
+    const ref = this._paneNewToolRef(s, rid);
+    const p = await this._newTool(ref.cwd || null, ref.cwd ? null : (ref.cwdPane || null));
     const t = `t${++this._t}`;
     const name = (typeof opts.name === 'string' && opts.name ? opts.name : 'Shell').slice(0, 64);
-    rg.tabs.push({ id: t, name, type: 'terminal', toolId: p.id });
-    // FR-RST-4: keepFocus 면 대상 region 의 활성 탭도 바꾸지 않는다 (백그라운드 추가).
-    if (!opts.keepFocus) rg.activeTab = t;
+    pn.tabs.push({ id: t, name, type: 'terminal', toolId: p.id });
+    // FR-RST-4: keepFocus 면 대상 pane 의 활성 탭도 바꾸지 않는다 (백그라운드 추가).
+    if (!opts.keepFocus) pn.activeTab = t;
     this.render();
     this._save();
-    // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 tab id+paneId 반환 (echo 용).
+    // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 tab id+toolId 반환 (echo 용).
     return { uuid: t, toolId: p.id };
   }
 
@@ -1162,8 +1178,8 @@ class App {
     // 지정 안 하면 기존 동작: 활성 창에서 닫는다.
     const s = sid ? this.ws.windows.find(x=>x.id===sid) : this._aw();
     if(!s) return;
-    const rg=findPane(s.layout,rid); if(!rg) return;
-    const tab=rg.tabs.find(t=>t.id===tid); if(!tab) return;
+    const pn=findPane(s.layout,rid); if(!pn) return;
+    const tab=pn.tabs.find(t=>t.id===tid); if(!tab) return;
     const isEditor=tab.type==='editor';
     if(isEditor){
       const editor=this.fileEditors.get(tab.id);
@@ -1177,19 +1193,19 @@ class App {
       }
       if(editor){editor.destroy();this.fileEditors.delete(tab.id)}
     }else{
-      if(await this._isPaneBusy(tab.toolId)){
+      if(await this._isToolBusy(tab.toolId)){
         const ok=await this._confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?');
         if(!ok) return;
       }
     }
-    const paneId=tab.toolId;
-    const closingIdx=rg.tabs.findIndex(t=>t.id===tid);
-    rg.tabs=rg.tabs.filter(t=>t.id!==tid);
-    const prevClosestId=rg.tabs.length?rg.tabs[Math.min(closingIdx,rg.tabs.length-1)].id:null;
+    const toolId=tab.toolId;
+    const closingIdx=pn.tabs.findIndex(t=>t.id===tid);
+    pn.tabs=pn.tabs.filter(t=>t.id!==tid);
+    const prevClosestId=pn.tabs.length?pn.tabs[Math.min(closingIdx,pn.tabs.length-1)].id:null;
     const isActive = s.id === this.ws.activeWindow;
-    if(rg.tabs.length===0){
+    if(pn.tabs.length===0){
       s.layout=doRemove(s.layout,rid);
-      if(!s.layout){if(!isEditor&&paneId)this._killTool(paneId);await this.delWindow(s.id);return}
+      if(!s.layout){if(!isEditor&&toolId)this._killTool(toolId);await this.delWindow(s.id);return}
       if(isActive){
         const fallback=this.focused===rid?prevClosestId:this.focused;
         const next=fallback&&findPane(s.layout,fallback)?fallback:firstPane(s.layout)?.id||null;
@@ -1197,24 +1213,24 @@ class App {
         this._focusWindow(s.id);
       }
     }else{
-      rg.activeTab=rg.tabs[Math.min(closingIdx,rg.tabs.length-1)].id;
+      pn.activeTab=pn.tabs[Math.min(closingIdx,pn.tabs.length-1)].id;
       if(isActive){
         this._setFocus(rid,s);
         this._focusWindow(s.id);
       }
     }
     this.render();
-    if(!isEditor&&paneId){
-      this._killTool(paneId);
+    if(!isEditor&&toolId){
+      this._killTool(toolId);
     }
     this._save();
   }
 
   switchTab(rid,tid){
     const s=this._aw(); if(!s) return;
-    const rg=findPane(s.layout,rid); if(!rg) return;
-    if(rg.activeTab===tid && this.focused===rid){this._setFocus(rid, s); return}
-    rg.activeTab=tid; this._setFocus(rid, s);
+    const pn=findPane(s.layout,rid); if(!pn) return;
+    if(pn.activeTab===tid && this.focused===rid){this._setFocus(rid, s); return}
+    pn.activeTab=tid; this._setFocus(rid, s);
     this._save(); this.render();
   }
 
@@ -1233,33 +1249,33 @@ class App {
     if(this.isMobile && !opts.force) return;
     const tgtWindowId=opts.targetWindow||this.ws.activeWindow;
     let s=this.ws.windows.find(x=>x.id===tgtWindowId);
-    const tgtRegionId=opts.targetRegion||(tgtWindowId===this.ws.activeWindow?this.focused:null);
-    if(!s||!tgtRegionId) return;
+    const tgtPaneId=opts.targetPane||(tgtWindowId===this.ws.activeWindow?this.focused:null);
+    if(!s||!tgtPaneId) return;
     let count=parseInt(opts.count,10); if(!Number.isFinite(count)||count<2) count=2;
     const keepFocus=!!opts.keepFocus;
     // SPLIT_KEEPFOCUS_FIX_SRS FR-SKF-1: keepFocus 면 호출 직전 사용자 포커스를 저장해 사후 복원.
     const savedWindow = keepFocus ? this.ws.activeWindow : null;
     const savedFocused = keepFocus ? this.focused : null;
-    const ref=this._regionNewPaneRef(s,tgtRegionId);
+    const ref=this._paneNewToolRef(s,tgtPaneId);
     const refPaneId=ref.cwd ? null : (ref.cwdPane || null);
     const newPanes=[]; let lastR=null;
     for(let i=0;i<count-1;i++){
-      const p=await this._newPane(ref.cwd || null, refPaneId);
+      const p=await this._newTool(ref.cwd || null, refPaneId);
       const r=`r${++this._r}`,t=`t${++this._t}`;
       newPanes.push({type:'pane',id:r,tabs:[{id:t,name:'Shell',type:'terminal',toolId:p.id}],activeTab:t});
       lastR=r;
     }
     // Re-fetch window after awaits: this.ws may have been replaced by an
-    // SSE workspace_changed apply during the _newPane awaits, leaving our
+    // SSE workspace_changed apply during the _newTool awaits, leaving our
     // earlier `s` reference stale (and invisible to render). Bail if the
-    // target region is gone — the created panes will be reaped on the next
+    // target pane is gone — the created panes will be reaped on the next
     // workspace sync.
     s=this.ws.windows.find(x=>x.id===tgtWindowId);
-    if(!s||!findPane(s.layout,tgtRegionId)) return;
-    s.layout=doSplit(s.layout,tgtRegionId,newPanes,dir);
+    if(!s||!findPane(s.layout,tgtPaneId)) return;
+    s.layout=doSplit(s.layout,tgtPaneId,newPanes,dir);
     if(keepFocus){
       // FR-SKF-1: 저장된 사용자 포커스를 그대로 복원. activeWindow / focused 모두.
-      // FR-SKF-3: 저장된 region 이 사후 layout 에서 사라졌으면 무동작 + 경고.
+      // FR-SKF-3: 저장된 pane 이 사후 layout 에서 사라졌으면 무동작 + 경고.
       if(this.ws.activeWindow!==savedWindow && this.ws.windows.some(x=>x.id===savedWindow)){
         this.ws.activeWindow=savedWindow;
         try{sessionStorage.setItem('activeWindow', savedWindow)}catch{}
@@ -1268,7 +1284,7 @@ class App {
       if(a && savedFocused && findPane(a.layout,savedFocused)){
         this._setFocus(savedFocused, a);
       } else if(savedFocused){
-        console.warn('[split] keepFocus: savedFocused region gone after split, leaving focus as-is');
+        console.warn('[split] keepFocus: savedFocused pane gone after split, leaving focus as-is');
       }
     } else {
       if(this.ws.activeWindow!==tgtWindowId){
@@ -1276,52 +1292,52 @@ class App {
         this.ws.activeWindow=tgtWindowId;
         try{sessionStorage.setItem('activeWindow', tgtWindowId)}catch{}
       }
-      const next = lastR || tgtRegionId;
+      const next = lastR || tgtPaneId;
       this._setFocus(next, s);
       this._focusWindow(tgtWindowId);
     }
     this.render();
     this._save();
-    // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 region/tab id 반환 (echo 용).
+    // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 pane/tab id 반환 (echo 용).
     return {
-      regions: newPanes.map(rg=>rg.id),
-      tabs: newPanes.map(rg=>({uuid:rg.tabs[0].id, toolId:rg.tabs[0].toolId})),
+      panes: newPanes.map(pn=>pn.id),
+      tabs: newPanes.map(pn=>({uuid:pn.tabs[0].id, toolId:pn.tabs[0].toolId})),
     };
   }
 
   _regionActivePaneId(sess,rid){
-    const rg=findPane(sess.layout,rid); if(!rg) return null;
-    const tab=rg.tabs.find(t=>t.id===rg.activeTab)||rg.tabs[0];
+    const pn=findPane(sess.layout,rid); if(!pn) return null;
+    const tab=pn.tabs.find(t=>t.id===pn.activeTab)||pn.tabs[0];
     return tab?.toolId||null;
   }
 
-  _regionNewPaneRef(sess,rid){
-    const rg=findPane(sess.layout,rid);if(!rg)return {};
-    const tab=rg.tabs.find(t=>t.id===rg.activeTab);
+  _paneNewToolRef(sess,rid){
+    const pn=findPane(sess.layout,rid);if(!pn)return {};
+    const tab=pn.tabs.find(t=>t.id===pn.activeTab);
     if(!tab) return {};
     if(tab.type==='editor' && typeof tab.filePath==='string' && tab.filePath.startsWith('/')){
       const i=tab.filePath.lastIndexOf('/');
       const dir = i>0 ? tab.filePath.substring(0,i) : '/';
       return {cwd: dir};
     }
-    const paneId = tab.toolId;
-    if (paneId) {
-      const p = this.panes.get(paneId);
-      if (p) return { cwdPane: paneId };
+    const toolId = tab.toolId;
+    if (toolId) {
+      const p = this.tools.get(toolId);
+      if (p) return { cwdPane: toolId };
     }
     return {};
   }
   switchTabPrev(){
     const s=this._aw();if(!s||!this.focused)return;
-    const rg=findPane(s.layout,this.focused);if(!rg)return;
-    const i=rg.tabs.findIndex(t=>t.id===rg.activeTab);if(i<0)return;
-    this.switchTab(rg.id,rg.tabs[(i-1+rg.tabs.length)%rg.tabs.length].id);
+    const pn=findPane(s.layout,this.focused);if(!pn)return;
+    const i=pn.tabs.findIndex(t=>t.id===pn.activeTab);if(i<0)return;
+    this.switchTab(pn.id,pn.tabs[(i-1+pn.tabs.length)%pn.tabs.length].id);
   }
   switchTabNext(){
     const s=this._aw();if(!s||!this.focused)return;
-    const rg=findPane(s.layout,this.focused);if(!rg)return;
-    const i=rg.tabs.findIndex(t=>t.id===rg.activeTab);if(i<0)return;
-    this.switchTab(rg.id,rg.tabs[(i+1)%rg.tabs.length].id);
+    const pn=findPane(s.layout,this.focused);if(!pn)return;
+    const i=pn.tabs.findIndex(t=>t.id===pn.activeTab);if(i<0)return;
+    this.switchTab(pn.id,pn.tabs[(i+1)%pn.tabs.length].id);
   }
   switchWindowPrev(){
     const arr=this.ws.windows;if(arr.length<2)return;
@@ -1353,8 +1369,8 @@ class App {
   addTabFocused(){if(this.focused)this.addTab(this.focused,'terminal')}
   closeTabFocused(){
     const s=this._aw();if(!s||!this.focused)return;
-    const rg=findPane(s.layout,this.focused);if(!rg)return;
-    this.closeTab(rg.id,rg.activeTab);
+    const pn=findPane(s.layout,this.focused);if(!pn)return;
+    this.closeTab(pn.id,pn.activeTab);
   }
   closeWindowActive(){this.delWindow(this.ws.activeWindow)}
 
@@ -1379,7 +1395,7 @@ class App {
     if(!bar.classList.contains('hidden')){this.closeSearch();return}
     bar.classList.remove('hidden');
     document.getElementById('search-input').focus();
-    for(const pane of this.panes.values())if(pane.el.classList.contains('vis'))pane.doFit();
+    for(const pane of this.tools.values())if(pane.el.classList.contains('vis'))pane.doFit();
   }
   closeSearch(){
     const bar=document.getElementById('search-bar');
@@ -1387,34 +1403,34 @@ class App {
     document.getElementById('search-input').value='';
     document.getElementById('search-count').textContent='';
     this._clearAllSearchDecorations();
-    this._focusedTermPane()?.focus();
-    for(const pane of this.panes.values())if(pane.el.classList.contains('vis'))pane.doFit();
+    this._focusedTerminal()?.focus();
+    for(const pane of this.tools.values())if(pane.el.classList.contains('vis'))pane.doFit();
   }
   _clearAllSearchDecorations(){
-    for(const p of this.panes.values())if(p.search)p.search.clearDecorations();
+    for(const p of this.tools.values())if(p.search)p.search.clearDecorations();
   }
   _searchOpen(){return !document.getElementById('search-bar').classList.contains('hidden')}
   _researchIfOpen(){
     if(!this._searchOpen())return;
     setTimeout(()=>this._doSearch('next'),50);
   }
-  _focusedTermPane(){
+  _focusedTerminal(){
     if(!this.focused)return null;
     const s=this._aw();if(!s)return null;
-    const rg=findPane(s.layout,this.focused);if(!rg)return null;
-    const tab=rg.tabs.find(t=>t.id===rg.activeTab);
+    const pn=findPane(s.layout,this.focused);if(!pn)return null;
+    const tab=pn.tabs.find(t=>t.id===pn.activeTab);
     if(!tab||tab.type!=='terminal')return null;
-    return this.panes.get(tab.toolId);
+    return this.tools.get(tab.toolId);
   }
   _focusedTab(){
     if(!this.focused)return null;
     const s=this._aw();if(!s)return null;
-    const rg=findPane(s.layout,this.focused);if(!rg)return null;
-    const tab=rg.tabs.find(t=>t.id===rg.activeTab);
+    const pn=findPane(s.layout,this.focused);if(!pn)return null;
+    const tab=pn.tabs.find(t=>t.id===pn.activeTab);
     return tab||null;
   }
   _doSearch(dir){
-    const p=this._focusedTermPane();if(!p||!p.search)return;
+    const p=this._focusedTerminal();if(!p||!p.search)return;
     const q=document.getElementById('search-input').value;
     const cs=document.getElementById('search-case').classList.contains('active');
     if(!q){document.getElementById('search-count').textContent='';return}
@@ -1436,8 +1452,8 @@ class App {
     this._clearAllSearchDecorations();
     this._setFocus(rid);
     this._prevFocus=rid;
-    document.querySelectorAll('.rg').forEach(el=>{
-      el.classList.toggle('focused',el.dataset.rid===rid);
+    document.querySelectorAll('.pn').forEach(el=>{
+      el.classList.toggle('focused',el.dataset.paneid===rid);
     });
     this._researchIfOpen();
     this._updateCwd();
@@ -1523,7 +1539,7 @@ class App {
   //  Rules:
   //    • Each window has ONE focus owner — the last window that focused on it.
   //    • The owner controls PTY size for that window's panes.
-  //    • All other windows see that window dimmed (rg-dimmed overlay).
+  //    • All other windows see that window dimmed (pn-dimmed overlay).
   //    • If no window owns a window, all windows see it bright.
   //
   //  State:
@@ -1533,7 +1549,7 @@ class App {
   //
   //  Single entry point:
   //    _focusWindow(sid)  — claim ownership, broadcast, resize, overlay.
-  //    Called from: setFocus, switchWindow, _focusLocation, _jumpToPane,
+  //    Called from: setFocus, switchWindow, _focusLocation, _jumpToTool,
   //                 _mkWindow, addTab(existing), window.focus, split.
   // ═══════════════════════════════════════════════════════════════════════
 
@@ -1597,42 +1613,42 @@ class App {
 
   // _resizeCheck returns true if this window is allowed to send resize for
   // a given pane (has OS focus + owns the pane's window or it's unowned).
-  _resizeCheck(paneId){
+  _resizeCheck(toolId){
     if(!this._windowFocused) return false;
-    const sid=this._toolWindowId(paneId);
+    const sid=this._toolWindowId(toolId);
     if(!sid) return true; // pane not in any window yet → allow
     const owner=this._windowFocusOwner[sid];
     return !owner||owner===this.clientId;
   }
 
-  // _applyFocusOverlay syncs the DOM: regions whose window is owned by
-  // another window get the dimmed overlay (rg-dimmed class).
+  // _applyFocusOverlay syncs the DOM: panes whose window is owned by
+  // another window get the dimmed overlay (pn-dimmed class).
   _applyFocusOverlay(){
     const otherOwned=new Set();
     for(const[sid,owner] of Object.entries(this._windowFocusOwner)){
       if(owner&&owner!==this.clientId) otherOwned.add(sid);
     }
-    for(const rg of document.querySelectorAll('.rg')){
+    for(const pn of document.querySelectorAll('.pn')){
       let dim=false;
-      for(const t of rg.querySelectorAll('.rt[data-pid]')){
-        const sid=this._toolWindowId(t.dataset.pid);
+      for(const t of pn.querySelectorAll('.rt[data-toolid]')){
+        const sid=this._toolWindowId(t.dataset.toolid);
         if(sid&&otherOwned.has(sid)){dim=true;break}
       }
-      rg.classList.toggle('rg-dimmed',dim);
+      pn.classList.toggle('pn-dimmed',dim);
     }
   }
 
   // _toolWindowId returns the window id containing a pane (by walking the
   // workspace layout tree). Returns null if the pane is not in any window.
-  _toolWindowId(paneId){
-    if(!paneId) return null;
+  _toolWindowId(toolId){
+    if(!toolId) return null;
     for(const s of this.ws.windows){
       if(!s||!s.layout) continue;
       let found=null;
       const walk=n=>{
         if(!n||found) return;
         if(n.type==='pane'&&n.tabs){
-          for(const t of n.tabs) if(t.toolId===paneId){found=s.id;return}
+          for(const t of n.tabs) if(t.toolId===toolId){found=s.id;return}
         }
         if(n.type==='split'&&n.children) for(const c of n.children) walk(c);
       };
@@ -1652,17 +1668,17 @@ class App {
     if(owner&&owner!==this.clientId) return;
     const s=this.ws.windows.find(x=>x.id===windowId);
     if(!s||!s.layout) return;
-    const paneIds=new Set();
+    const toolIds=new Set();
     const walk=n=>{
       if(!n) return;
       if(n.type==='pane'&&n.tabs){
-        for(const t of n.tabs) if(t.toolId) paneIds.add(t.toolId);
+        for(const t of n.tabs) if(t.toolId) toolIds.add(t.toolId);
       }
       if(n.type==='split'&&n.children) for(const c of n.children) walk(c);
     };
     walk(s.layout);
-    for(const pid of paneIds){
-      const p=this.panes.get(pid);
+    for(const pid of toolIds){
+      const p=this.tools.get(pid);
       // Send resize even if pane is hidden — the dimensions were set when
       // it was last visible and are still valid. This avoids a visible
       // glitch where the PTY renders at the wrong size for one frame.
@@ -1687,7 +1703,7 @@ class App {
     if(prev) prev.addEventListener('click',()=>this.navMobilePane(-1));
     if(next) next.addEventListener('click',()=>this.navMobilePane(1));
     if(addT) addT.addEventListener('click',()=>{
-      const rg=this._mobileCurrentPane(); if(rg) this.addTab(rg.id);
+      const pn=this._mobileCurrentPane(); if(pn) this.addTab(pn.id);
     });
     if(srch) srch.addEventListener('click',()=>this.toggleSearch&&this.toggleSearch());
     if(drwr) drwr.addEventListener('click',()=>{this._toggleDrawer();this._rTopbar()});
@@ -1761,7 +1777,7 @@ class App {
       });
     };
     const sendToFocused=(s)=>{
-      const p=this._focusedTermPane();
+      const p=this._focusedTerminal();
       if(!p) return;
       let out=s;
       // Ctrl modifier: convert printable a-z/A-Z to ctrl code (1-26)
@@ -1860,7 +1876,7 @@ class App {
           document.body.style.paddingBottom = '';
         }
         // Refit terminal
-        for(const p of this.panes.values()){if(p.el.classList.contains('vis'))p.doFit()}
+        for(const p of this.tools.values()){if(p.el.classList.contains('vis'))p.doFit()}
       };
       vv.addEventListener('resize', apply);
       vv.addEventListener('scroll', apply);
@@ -2147,7 +2163,7 @@ class App {
       items.push(`<span class="sb-item">DISK ${this._stats.diskPct}%</span>`);
     }
     if(statusBar.termsize){
-      const p=this._focusedTermPane();
+      const p=this._focusedTerminal();
       if(p&&p.term){
         items.push(`<span class="sb-item">${p.term.cols}×${p.term.rows}</span>`);
       }
@@ -2168,22 +2184,22 @@ class App {
     const s=this._aw();if(!s||!s.layout||!this.focused)return null;
     const sidx=this.ws.windows.findIndex(x=>x.id===this.ws.activeWindow);
     if(sidx<0)return null;
-    const regions=[];
+    const panes=[];
     const walk=n=>{
       if(!n)return;
-      if(n.type==='pane')regions.push(n);
+      if(n.type==='pane')panes.push(n);
       else if(n.type==='split')for(const c of(n.children||[]))walk(c);
     };
     walk(s.layout);
-    const pidx=regions.findIndex(r=>r.id===this.focused);
+    const pidx=panes.findIndex(r=>r.id===this.focused);
     if(pidx<0)return null;
-    const rg=regions[pidx];
-    const tidx=rg.tabs.findIndex(t=>t.id===rg.activeTab);
+    const pn=panes[pidx];
+    const tidx=pn.tabs.findIndex(t=>t.id===pn.activeTab);
     if(tidx<0)return null;
     return `W${sidx+1}.P${pidx+1}.T${tidx+1}`;
   }
   _updateCwd(){
-    const p=this._focusedTermPane();if(!p)return;
+    const p=this._focusedTerminal();if(!p)return;
     fetch('/api/cwd?pane='+p.id).then(r=>r.json()).then(({cwd})=>{this._cwd=cwd;this._updateStatusBar()}).catch(()=>{});
   }
   _renderStatusBarSettings(){
@@ -2222,7 +2238,7 @@ class App {
   }
   _savePreset(){
     const s=this._aw();if(!s)return;
-    // Strip layout to just structure (remove paneIds, keep tab counts)
+    // Strip layout to just structure (remove toolIds, keep tab counts)
     const strip=n=>{
       if(!n)return null;
       if(n.type==='pane')return{type:'pane',tabCount:n.tabs?n.tabs.length:1};
@@ -2246,7 +2262,7 @@ class App {
       if(tpl.type==='pane'){
         const tabs=[];
         for(let i=0;i<tpl.tabCount;i++){
-          const p=await this._newPane();
+          const p=await this._newTool();
           tabs.push({id:`t${++this._t}`,name:'Shell',type:'terminal',toolId:p.id});
         }
         const rid=`r${++this._r}`;
@@ -2334,10 +2350,10 @@ class App {
 
   // ── Drag helpers ──
   _getDragZone(el,e){const rect=el.getBoundingClientRect();const x=e.clientX-rect.left;const y=e.clientY-rect.top;const w=rect.width,h=rect.height;if(x/w<0.25)return'left';if(x/w>0.75)return'right';if(y/h<0.25)return'top';if(y/h>0.75)return'bottom';return'center'}
-  _showBodyDropIndicator(bodyEl,zone){let ind=bodyEl.querySelector('.rg-drop-indicator');if(!ind){ind=document.createElement('div');ind.className='rg-drop-indicator';bodyEl.appendChild(ind)}ind.dataset.zone=zone;ind.style.display=''}
-  _clearBodyDropIndicator(bodyEl){const ind=bodyEl?.querySelector('.rg-drop-indicator');if(ind)ind.style.display='none'}
+  _showBodyDropIndicator(bodyEl,zone){let ind=bodyEl.querySelector('.pn-drop-indicator');if(!ind){ind=document.createElement('div');ind.className='pn-drop-indicator';bodyEl.appendChild(ind)}ind.dataset.zone=zone;ind.style.display=''}
+  _clearBodyDropIndicator(bodyEl){const ind=bodyEl?.querySelector('.pn-drop-indicator');if(ind)ind.style.display='none'}
 
-  _moveTabToRegion(srcRid,tabId,dstRid,beforeTabId,insertBefore){
+  _moveTabToPane(srcRid,tabId,dstRid,beforeTabId,insertBefore){
     const s=this._aw();if(!s)return;
     const srcRg=findPane(s.layout,srcRid);const dstRg=findPane(s.layout,dstRid);
     if(!srcRg||!dstRg)return;
@@ -2353,7 +2369,7 @@ class App {
     this._save();this.render();
   }
 
-  _splitRegionWithTab(srcRid,tabId,targetRid,zone){
+  _splitPaneWithTab(srcRid,tabId,targetRid,zone){
     const s=this._aw();if(!s)return;
     const srcRg=findPane(s.layout,srcRid);if(!srcRg)return;
     if(srcRid===targetRid&&srcRg.tabs.length<=1)return;

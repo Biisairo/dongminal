@@ -52,7 +52,7 @@ function applyThemeObj(t){
   s.setProperty('--attn-glow',hexToRgba(attn,.5));
   TOPTS.theme=t.terminal;
   document.getElementById('area').style.background=ui.bg;
-  for(const p of app.panes.values()){if(p.term)p.term.options.theme=t.terminal}
+  for(const p of app.tools.values()){if(p.term)p.term.options.theme=t.terminal}
   if(typeof FileEditor!=='undefined'&&FileEditor.applyTheme) FileEditor.applyTheme();
 }
 
@@ -106,6 +106,19 @@ function normalizeTab(t) {
   if (!t.type) t.type = t.toolId ? 'terminal' : 'editor';
   return t;
 }
+
+// FR-EM-13: 도구 타입별 능력. 백그라운드로 보낼 수 있는 도구는 서버(데몬)가
+// 소유하는 실행 실체가 있는 것뿐이다 — editor/markdown 은 브라우저 메모리에만
+// 존재하므로 탭에서 떼어낼 실체가 없다.
+const TOOL_CAPABILITIES = {
+  terminal: { backgroundCapable: true },
+  editor:   { backgroundCapable: false },
+  markdown: { backgroundCapable: false },
+};
+function toolBackgroundCapable(type) {
+  const cap = TOOL_CAPABILITIES[type || 'terminal'];
+  return !!(cap && cap.backgroundCapable);
+}
 function normalizeLayout(n) {
   if (!n) return n;
   if (n.type === 'pane' && n.tabs) n.tabs.forEach(normalizeTab);
@@ -114,7 +127,7 @@ function normalizeLayout(n) {
 }
 
 function doSplit(n,rid,nrs,dir){
-  // nrs: 단일 region 또는 region 배열
+  // nrs: 단일 pane 또는 pane 배열
   const list=Array.isArray(nrs)?nrs:[nrs];
   if(n.type==='pane') return n.id===rid?{type:'split',direction:dir,children:[n,...list]}:n;
   if(n.children) n.children=n.children.map(c=>doSplit(c,rid,nrs,dir));

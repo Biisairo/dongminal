@@ -1,12 +1,12 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 async function waitForInit(page) {
   await page.context().addInitScript(() => {
     sessionStorage.setItem('displayMode', 'desktop');
   });
   await page.goto('/');
-  // Wait for init() → render() → xterm readiness inside the focused region.
-  await page.waitForSelector('#area .rg.focused .xterm-helper-textarea', { timeout: 15000 });
+  // Wait for init() → render() → xterm readiness inside the focused pane.
+  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 test.describe('Theme & settings', () => {

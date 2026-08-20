@@ -7,11 +7,11 @@ import (
 
 func TestPaneOnExitAndWait(t *testing.T) {
 	called := make(chan string, 1)
-	p, err := StartPane("t1", "test", "", 80, 24, func(id string) {
+	p, err := StartTool("t1", "test", "", 80, 24, func(id string) {
 		called <- id
 	}, nil)
 	if err != nil {
-		t.Fatalf("StartPane: %v", err)
+		t.Fatalf("StartTool: %v", err)
 	}
 
 	if _, err := p.PTMX().Write([]byte("exit\n")); err != nil {

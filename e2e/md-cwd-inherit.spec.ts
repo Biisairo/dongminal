@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 // @ts-ignore
 import * as fs from 'fs';
 // @ts-ignore
@@ -7,9 +7,9 @@ import * as os from 'os';
 import * as path from 'path';
 
 // SRS: MD_FOCUS_NEW_PANE_CWD_SRS.md
-//   FR-1: md region 의 +addTab 은 md 파일 디렉터리에서 시작
-//   FR-2: md region 의 split 은 md 파일 디렉터리에서 시작
-//   FR-3: terminal region 은 부모 pane 의 cwd 를 상속(회귀 보호)
+//   FR-1: md pane 의 +addTab 은 md 파일 디렉터리에서 시작
+//   FR-2: md pane 의 split 은 md 파일 디렉터리에서 시작
+//   FR-3: terminal pane 은 부모 pane 의 cwd 를 상속(회귀 보호)
 
 async function resetWorkspace(request) {
   const get = await request.get('/api/workspace');
@@ -27,7 +27,7 @@ async function gotoFresh(page, request) {
     try { localStorage.clear(); } catch {}
   });
   await page.goto('/');
-  await page.waitForSelector('#area .rg.focused .xterm-helper-textarea', { timeout: 15000 });
+  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 function makeMdInDir(): { mdPath: string; expectedCwd: string } {
@@ -45,31 +45,31 @@ async function paneCwd(request, toolId: string): Promise<string> {
 }
 
 test.describe('MD focus → new pane cwd inheritance', () => {
-  test('FR-1: addTab terminal in md region inherits md file directory', async ({ page, request }) => {
+  test('FR-1: addTab terminal in md pane inherits md file directory', async ({ page, request }) => {
     await gotoFresh(page, request);
     const { mdPath, expectedCwd } = makeMdInDir();
 
-    // Open md tab → focused region's active tab becomes the md viewer.
+    // Open md tab → focused pane's active tab becomes the md viewer.
     await page.evaluate((fp) => {
       const a = (window as any).app;
       a.addTab(a.focused, 'markdown', { name: fp.split('/').pop(), filePath: fp });
     }, mdPath);
     await page.waitForTimeout(150);
 
-    // + new terminal tab in same region.
+    // + new terminal tab in same pane.
     const newPaneId = await page.evaluate(async () => {
       const a = (window as any).app;
       const rid = a.focused;
-      const before = new Set([...a.panes.keys()]);
+      const before = new Set([...a.tools.keys()]);
       await a.addTab(rid, 'terminal');
-      const after = [...a.panes.keys()].find((k) => !before.has(k));
+      const after = [...a.tools.keys()].find((k) => !before.has(k));
       return after as string;
     });
     expect(newPaneId).toBeTruthy();
     expect(await paneCwd(request, newPaneId)).toBe(expectedCwd);
   });
 
-  test('FR-2: split from md region opens new pane in md file directory', async ({ page, request }) => {
+  test('FR-2: split from md pane opens new pane in md file directory', async ({ page, request }) => {
     await gotoFresh(page, request);
     const { mdPath, expectedCwd } = makeMdInDir();
 
@@ -81,16 +81,16 @@ test.describe('MD focus → new pane cwd inheritance', () => {
 
     const newPaneId = await page.evaluate(async () => {
       const a = (window as any).app;
-      const before = new Set([...a.panes.keys()]);
+      const before = new Set([...a.tools.keys()]);
       await a.split('h');
-      const after = [...a.panes.keys()].find((k) => !before.has(k));
+      const after = [...a.tools.keys()].find((k) => !before.has(k));
       return after as string;
     });
     expect(newPaneId).toBeTruthy();
     expect(await paneCwd(request, newPaneId)).toBe(expectedCwd);
   });
 
-  test('FR-3: terminal region addTab still inherits parent pane cwd (regression)', async ({ page, request }) => {
+  test('FR-3: terminal pane addTab still inherits parent pane cwd (regression)', async ({ page, request }) => {
     await gotoFresh(page, request);
 
     // Initial pane is terminal; capture its cwd.
@@ -108,9 +108,9 @@ test.describe('MD focus → new pane cwd inheritance', () => {
 
     const newPaneId = await page.evaluate(async () => {
       const a = (window as any).app;
-      const before = new Set([...a.panes.keys()]);
+      const before = new Set([...a.tools.keys()]);
       await a.addTab(a.focused, 'terminal');
-      return [...a.panes.keys()].find((k) => !before.has(k)) as string;
+      return [...a.tools.keys()].find((k) => !before.has(k)) as string;
     });
     expect(await paneCwd(request, newPaneId)).toBe(parentCwd);
   });

@@ -42,7 +42,7 @@ func TestParseSize(t *testing.T) {
 }
 
 func TestPaneManager_SetInvalidator(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	pm.SetInvalidator(func(string) {})
 	// invalidator is stored; full invocation is covered via Create+Delete integration.
 	if pm.invalidator == nil {
@@ -51,21 +51,21 @@ func TestPaneManager_SetInvalidator(t *testing.T) {
 }
 
 func TestPaneManager_Get(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	if pm.Get("1") != nil {
-		t.Fatal("expected nil for missing pane")
+		t.Fatal("expected nil for missing tool")
 	}
 }
 
 func TestPaneManager_IsLive(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	if pm.IsLive("1") {
-		t.Fatal("expected false for missing pane")
+		t.Fatal("expected false for missing tool")
 	}
 }
 
 func TestPaneManager_List_Empty(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	out := pm.List()
 	if len(out) != 0 {
 		t.Fatalf("expected empty list, got %d", len(out))
@@ -73,7 +73,7 @@ func TestPaneManager_List_Empty(t *testing.T) {
 }
 
 func TestPaneManager_Snapshot_Empty(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	out := pm.Snapshot()
 	if len(out) != 0 {
 		t.Fatalf("expected empty snapshot, got %d", len(out))
@@ -81,7 +81,7 @@ func TestPaneManager_Snapshot_Empty(t *testing.T) {
 }
 
 func TestPaneManager_DirtyAndSaveAll(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	if pm.dirty.Load() {
 		t.Fatal("expected dirty=false after init")
 	}
@@ -96,7 +96,7 @@ func TestPaneManager_DirtyAndSaveAll(t *testing.T) {
 }
 
 func TestPaneManager_DataPath(t *testing.T) {
-	pm := NewPaneManager("", nil)
+	pm := NewToolManager("", nil)
 	p := pm.dataPath("test.json")
 	if p != "test.json" {
 		t.Fatalf("dataPath with empty dir=%q want test.json", p)
@@ -104,16 +104,16 @@ func TestPaneManager_DataPath(t *testing.T) {
 }
 
 func TestPane_IsBusy_UsesProbe(t *testing.T) {
-	orig := paneBusyProbe
-	t.Cleanup(func() { paneBusyProbe = orig })
+	orig := toolBusyProbe
+	t.Cleanup(func() { toolBusyProbe = orig })
 
 	called := 0
-	paneBusyProbe = func(pid int) bool {
+	toolBusyProbe = func(pid int) bool {
 		called++
 		return pid == 4242
 	}
 
-	p := &Pane{ID: "x"}
+	p := &Tool{ID: "x"}
 	if p.IsBusy() {
 		t.Errorf("IsBusy with no cmd should be false")
 	}
@@ -123,7 +123,7 @@ func TestPane_IsBusy_UsesProbe(t *testing.T) {
 }
 
 func TestPaneManager_RLockReadPaths(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
 	for i := 0; i < 16; i++ {

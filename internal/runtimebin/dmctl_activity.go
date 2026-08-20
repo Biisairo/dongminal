@@ -7,7 +7,7 @@ import (
 )
 
 const dmctlActivityHelp = `dmctl activity <agent>
-  현재 pane 에서 도는 에이전트의 "지금 무엇을 하는가"(작업 상태)를 서버에 보고한다.
+  현재 tool 에서 도는 에이전트의 "지금 무엇을 하는가"(작업 상태)를 서버에 보고한다.
   에이전트 hook 의 stdin 으로 들어온 JSON 을 파싱해 state/tool/detail 을 추출한다.
   <agent>: claude | codex. DONGMINAL_PANE_ID 로 자신을 식별한다.
   에이전트 hook(claude PreToolUse 등)에서 호출되며, 비0 종료가 에이전트의 도구
@@ -21,7 +21,7 @@ type activityReport struct {
 	Detail string
 }
 
-// runDmctlActivity reports the calling pane's current agent activity to the
+// runDmctlActivity reports the calling tool's current agent activity to the
 // server. It ALWAYS exits 0: it runs as an agent hook (e.g. claude PreToolUse)
 // where a non-zero exit could block the agent's tool call (NFR-AAP-5). Every
 // failure path — no agent arg, unreadable stdin, unparseable event, missing
@@ -52,11 +52,11 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	if !ok {
 		return 0
 	}
-	paneID := os.Getenv("DONGMINAL_PANE_ID")
-	if paneID == "" {
+	toolID := os.Getenv("DONGMINAL_PANE_ID")
+	if toolID == "" {
 		return 0
 	}
-	body := map[string]any{"toolId": paneID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail}
+	body := map[string]any{"toolId": toolID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail}
 	httpPostJSON(baseURL()+"/api/tools/activity/set", body)
 	return 0
 }
@@ -125,15 +125,15 @@ func claudeToolDetail(tool string, input json.RawMessage) string {
 // state alongside the attention alarm without changing the codex wrapper
 // (FR-AAP-9). Codex passes its event JSON as the final argv. Best-effort and
 // silent — never affects the notify exit status.
-func reportCodexActivity(label string, args []string, paneID string) {
-	if label != "codex" || paneID == "" {
+func reportCodexActivity(label string, args []string, toolID string) {
+	if label != "codex" || toolID == "" {
 		return
 	}
 	for _, a := range args {
 		if len(a) > 0 && a[0] == '{' {
 			if rep, ok := parseCodexHook([]byte(a)); ok {
 				httpPostJSON(baseURL()+"/api/tools/activity/set",
-					map[string]any{"toolId": paneID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail})
+					map[string]any{"toolId": toolID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail})
 			}
 			return
 		}

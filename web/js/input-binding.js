@@ -16,7 +16,7 @@ class InputBinding {
     aph.addEventListener('mousedown',e=>{e.preventDefault();
       const sx=e.clientX,sw=ap.offsetWidth;
       const mv=e=>{const w=sw-(e.clientX-sx);if(w>=160&&w<=480){document.documentElement.style.setProperty('--ag-w',w+'px')}};
-      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.app.panes.values())if(p.el.classList.contains('vis'))p.doFit();try{localStorage.setItem('agentsWidth',ap.offsetWidth)}catch{}};
+      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();try{localStorage.setItem('agentsWidth',ap.offsetWidth)}catch{}};
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
     });
     try{const aw=parseInt(localStorage.getItem('agentsWidth'));if(aw>=160&&aw<=480)document.documentElement.style.setProperty('--ag-w',aw+'px')}catch{}
@@ -29,7 +29,7 @@ class InputBinding {
     sbh.addEventListener('mousedown',e=>{e.preventDefault();
       const sx=e.clientX,sw=sb.offsetWidth;
       const mv=e=>{const w=sw+(e.clientX-sx);if(w>=100&&w<=400){document.documentElement.style.setProperty('--sb-w',w+'px');this.app.ws.sidebarWidth=w}};
-      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.app.panes.values())if(p.el.classList.contains('vis'))p.doFit();try{localStorage.setItem('sidebarWidth',this.app.ws.sidebarWidth)}catch{}this.app._save()};
+      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();try{localStorage.setItem('sidebarWidth',this.app.ws.sidebarWidth)}catch{}this.app._save()};
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
     });
     this.app._recording=null;

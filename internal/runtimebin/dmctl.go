@@ -20,7 +20,7 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl close-window
   dmctl window-next / window-prev
   dmctl tab-next / tab-prev
-  dmctl pane-up / pane-down / pane-left / pane-right
+  dmctl tool-up / tool-down / tool-left / tool-right
   dmctl rename-tab --at <uuid> <이름>      # 탭 표시 이름 변경 (역할명 부여 등)
   dmctl rename-window --at <uuid> <이름>  # 그 도구가 속한 창 이름 변경
   dmctl list-workspace [--json]         # 열린 도구 목록 (uuid 포함, ▶=현재 포커스)
@@ -69,7 +69,7 @@ func runDmctl(args []string, stdout, stderr io.Writer) int {
 }
 
 // runDmctlSpecial handles commands that don't need flag parsing
-// (help, send, list-panes, who-am-i, notify, activity).
+// (help, send, list-tools, who-am-i, notify, activity).
 // Returns (exitCode, true) if handled, (0, false) otherwise.
 func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, bool) {
 	switch cmd {
@@ -136,12 +136,12 @@ func runDmctlFocus(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) in
 		parsed.location = parsed.positional
 	}
 	if parsed.location == "" {
-		fmt.Fprintln(stderr, "usage: dmctl focus <uuid>  (list-panes 의 uuid 컬럼 값)")
+		fmt.Fprintln(stderr, "usage: dmctl focus <uuid>  (list-tools 의 uuid 컬럼 값)")
 		return 2
 	}
 	args := parsed.buildArgs()
-	// Include source pane so the browser can route the focus only to
-	// windows that actually show this pane (multi-window).
+	// Include source tool so the browser can route the focus only to
+	// windows that actually show this tool (multi-window).
 	if pid := os.Getenv("DONGMINAL_PANE_ID"); pid != "" {
 		args["sourcePane"] = pid
 	}
@@ -172,10 +172,10 @@ var dmctlSimpleActions = map[string]string{
 	"window-prev":  "windowPrev",
 	"tab-next":     "tabNext",
 	"tab-prev":     "tabPrev",
-	"pane-up":      "paneUp",
-	"pane-down":    "paneDown",
-	"pane-left":    "paneLeft",
-	"pane-right":   "paneRight",
+	"tool-up":      "paneUp",
+	"tool-down":    "paneDown",
+	"tool-left":    "paneLeft",
+	"tool-right":   "paneRight",
 }
 
 type dmctlParsed struct {

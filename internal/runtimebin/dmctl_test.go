@@ -317,7 +317,7 @@ func TestRunDmctlHelp(t *testing.T) {
 	}
 }
 
-// TC-DMC-10: -h 출력에 list-panes 안내 포함.
+// TC-DMC-10: -h 출력에 list-tools 안내 포함.
 func TestRunDmctlHelp_MentionsListPanes(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	rc := runDmctl([]string{"-h"}, &stdout, &stderr)
@@ -325,27 +325,27 @@ func TestRunDmctlHelp_MentionsListPanes(t *testing.T) {
 		t.Fatalf("rc=%d", rc)
 	}
 	if !strings.Contains(stdout.String(), "list-workspace") {
-		t.Errorf("help should mention list-panes, got:\n%s", stdout.String())
+		t.Errorf("help should mention list-tools, got:\n%s", stdout.String())
 	}
 }
 
 // fake /api/state payload — 두 세션, 각각 단일 region·tab. 세션 B 가 active.
 const listPanesFakeState = `{
-  "panes":[
+  "tools":[
     {"id":"10","name":"Shell A","pid":11111},
     {"id":"20","name":"Shell B","pid":22222}
   ],
   "workspace":{
     "activeWindow":"sb",
     "schemaVersion": 2, "windows":[
-      {"id":"sa","name":"Main","focusedPane":"ra","layout":{"type":"pane","id":"ra","activeTab":"taba","tabs":[{"id":"550e8400-e29b-41d4-a716-446655440aaa","name":"shell-a","toolId":"10"}]}},
-      {"id":"sb","name":"Work","focusedPane":"rb","layout":{"type":"pane","id":"rb","activeTab":"550e8400-e29b-41d4-a716-446655440bbb","tabs":[{"id":"550e8400-e29b-41d4-a716-446655440bbb","name":"shell-b","toolId":"20"}]}}
+      {"id":"sa","name":"Main","focusedPane":"ra","layout":{"type":"tool","id":"ra","activeTab":"taba","tabs":[{"id":"550e8400-e29b-41d4-a716-446655440aaa","name":"shell-a","toolId":"10"}]}},
+      {"id":"sb","name":"Work","focusedPane":"rb","layout":{"type":"tool","id":"rb","activeTab":"550e8400-e29b-41d4-a716-446655440bbb","tabs":[{"id":"550e8400-e29b-41d4-a716-446655440bbb","name":"shell-b","toolId":"20"}]}}
     ]
   }
 }`
 
-// TC-DMC-1: list-panes 가 각 tab 의 label/uuid/short/paneId/shellPid 를 줄당 1개로
-// 사람 가독성 텍스트로 출력. 포커스된 pane 에만 ▶.
+// TC-DMC-1: list-tools 가 각 tab 의 label/uuid/short/toolId/shellPid 를 줄당 1개로
+// 사람 가독성 텍스트로 출력. 포커스된 tool 에만 ▶.
 func TestRunDmctlListPanes_TextOutput(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/state" || r.Method != http.MethodGet {
@@ -363,17 +363,17 @@ func TestRunDmctlListPanes_TextOutput(t *testing.T) {
 	}
 	out := stdout.String()
 
-	// 첫 pane (포커스 없음): 두 칸 공백 prefix. size 미노출(panes[]에 sizeCols/Rows 없음) → 컬럼 생략.
+	// 첫 tool (포커스 없음): 두 칸 공백 prefix. size 미노출(tools[]에 sizeCols/Rows 없음) → 컬럼 생략.
 	if !strings.Contains(out, "  label=W1.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440aaa  short=550e8400  toolId=10  shellPid=11111  window=\"Main\"  tab=\"shell-a\"  window_uuid=sa  pane_uuid=ra") {
 		t.Errorf("missing/wrong non-focus line:\n%s", out)
 	}
-	// 두 번째 pane (포커스): ▶ prefix.
+	// 두 번째 tool (포커스): ▶ prefix.
 	if !strings.Contains(out, "▶ label=W2.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440bbb  short=550e8400  toolId=20  shellPid=22222  window=\"Work\"  tab=\"shell-b\"  window_uuid=sb  pane_uuid=rb") {
 		t.Errorf("missing/wrong focus line:\n%s", out)
 	}
 }
 
-// TC-DMC-2: --json 시 JSON 배열 반환. 각 원소가 uuid/label/paneId 등 키 포함.
+// TC-DMC-2: --json 시 JSON 배열 반환. 각 원소가 uuid/label/toolId 등 키 포함.
 func TestRunDmctlListPanes_JSON(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(listPanesFakeState))
@@ -406,10 +406,10 @@ func TestRunDmctlListPanes_JSON(t *testing.T) {
 	}
 }
 
-// TC-DMC-3: 빈 워크스페이스 → "(no panes)" 류 + rc=0.
+// TC-DMC-3: 빈 워크스페이스 → "(no tools)" 류 + rc=0.
 func TestRunDmctlListPanes_Empty(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"panes":[],"workspace":null}`))
+		w.Write([]byte(`{"tools":[],"workspace":null}`))
 	})
 	defer cleanup()
 
@@ -418,7 +418,7 @@ func TestRunDmctlListPanes_Empty(t *testing.T) {
 	if rc != 0 {
 		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "(no panes)") {
+	if !strings.Contains(stdout.String(), "(no tools)") {
 		t.Errorf("expected empty marker, got:\n%s", stdout.String())
 	}
 

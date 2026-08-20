@@ -140,20 +140,20 @@ func TestTextf(t *testing.T) {
 	}
 }
 
-// ── PaneReader / WorkspaceReader fakes ───────────────
+// ── ToolReader / WorkspaceReader fakes ───────────────
 
 type fakePM struct {
-	panes   []mcptool.PaneInfo
+	tools   []mcptool.PaneInfo
 	sizeMap map[string]string
 	snap    map[string][]byte
 	dropped map[string]int64
-	pastes  []string // paneID|submit|text
+	pastes  []string // toolID|submit|text
 }
 
-func (f *fakePM) List() []mcptool.PaneInfo { return f.panes }
+func (f *fakePM) List() []mcptool.PaneInfo { return f.tools }
 
 func (f *fakePM) Has(id string) bool {
-	for _, p := range f.panes {
+	for _, p := range f.tools {
 		if p.ID == id {
 			return true
 		}
@@ -209,7 +209,7 @@ func (f *fakeWS) IsKnownTabID(string) bool               { return true }
 
 func TestListPanesTool(t *testing.T) {
 	pm := &fakePM{
-		panes: []mcptool.PaneInfo{
+		tools: []mcptool.PaneInfo{
 			{ID: "p1", Name: "a", ShellPID: 111},
 			{ID: "p2", Name: "b", ShellPID: 222},
 		},
@@ -235,7 +235,7 @@ func TestListPanesTool(t *testing.T) {
 
 func TestListPanesFiltersDeadEntries(t *testing.T) {
 	pm := &fakePM{
-		panes: []mcptool.PaneInfo{
+		tools: []mcptool.PaneInfo{
 			{ID: "p1", Name: "a", ShellPID: 111},
 			{ID: "p2", Name: "b", ShellPID: 222},
 		},
@@ -254,7 +254,7 @@ func TestListPanesFiltersDeadEntries(t *testing.T) {
 	content := res["content"].([]map[string]any)
 	text := content[0]["text"].(string)
 	if !strings.Contains(text, "toolId=p1") || !strings.Contains(text, "toolId=p2") {
-		t.Errorf("expected live panes p1/p2 in output, got %q", text)
+		t.Errorf("expected live tools p1/p2 in output, got %q", text)
 	}
 	if strings.Contains(text, "W1.P1.T3") || strings.Contains(text, "toolId=p3") {
 		t.Errorf("dead entry p3 should be filtered out, got %q", text)
@@ -262,7 +262,7 @@ func TestListPanesFiltersDeadEntries(t *testing.T) {
 }
 
 func TestSendInputTool(t *testing.T) {
-	pm := &fakePM{panes: []mcptool.PaneInfo{{ID: "p1"}}}
+	pm := &fakePM{tools: []mcptool.PaneInfo{{ID: "p1"}}}
 	ws := &fakeWS{resolve: map[string]string{"W1.P1.T1": "p1"}}
 	h := tools.SendInputHandler(tools.SendInputDeps{PM: pm, WS: ws})
 	_, err := h(context.Background(), tools.SendInputArgs{ID: "W1.P1.T1", Text: "hello", Execute: true})

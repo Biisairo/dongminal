@@ -1,4 +1,6 @@
-import { test, expect, Page, APIRequestContext } from '@playwright/test';
+import { Page, APIRequestContext } from '@playwright/test';
+
+import { test, expect } from './fixtures';
 
 // SRS: APP_DECOMPOSE_SRS.md (S1-Phase1)
 //   불변식: this.focused === active session.focusedPane
@@ -20,7 +22,7 @@ async function waitForInit(page: Page, request: APIRequestContext) {
     try { localStorage.clear(); } catch {}
   });
   await page.goto('/');
-  await page.waitForSelector('#area .rg.focused .xterm-helper-textarea', { timeout: 15000 });
+  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 async function readInvariant(page: Page) {
@@ -29,7 +31,7 @@ async function readInvariant(page: Page) {
     const sess = a.ws.windows.find((s: any) => s.id === a.ws.activeWindow);
     return {
       focused: a.focused,
-      sessionFocusedRegion: sess ? sess.focusedPane : null,
+      windowFocusedPane: sess ? sess.focusedPane : null,
       activeWindow: a.ws.activeWindow,
     };
   });
@@ -39,16 +41,16 @@ test.describe('Focus invariant (S1-Phase1)', () => {
   test('initial state holds invariant', async ({ page, request }) => {
     await waitForInit(page, request);
     const inv = await readInvariant(page);
-    expect(inv.focused).toBe(inv.sessionFocusedRegion);
+    expect(inv.focused).toBe(inv.windowFocusedPane);
     expect(inv.focused).not.toBeNull();
   });
 
-  test('split keeps invariant on new region focus', async ({ page, request }) => {
+  test('split keeps invariant on new pane focus', async ({ page, request }) => {
     await waitForInit(page, request);
     await page.click('#split-h');
-    await page.waitForFunction(() => document.querySelectorAll('#area .rg').length >= 2, { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelectorAll('#area .pn').length >= 2, { timeout: 5000 });
     const inv = await readInvariant(page);
-    expect(inv.focused).toBe(inv.sessionFocusedRegion);
+    expect(inv.focused).toBe(inv.windowFocusedPane);
   });
 
   test('switchTab keeps invariant', async ({ page, request }) => {
@@ -58,17 +60,17 @@ test.describe('Focus invariant (S1-Phase1)', () => {
       const a = (window as any).app;
       a.addTab(a.focused, 'terminal');
     });
-    await page.waitForFunction(() => document.querySelectorAll('#area .rg.focused .rt').length >= 2, { timeout: 5000 });
-    const tabs = await page.locator('#area .rg.focused .rt').all();
+    await page.waitForFunction(() => document.querySelectorAll('#area .pn.focused .rt').length >= 2, { timeout: 5000 });
+    const tabs = await page.locator('#area .pn.focused .rt').all();
     await tabs[0].click();
     const inv = await readInvariant(page);
-    expect(inv.focused).toBe(inv.sessionFocusedRegion);
+    expect(inv.focused).toBe(inv.windowFocusedPane);
   });
 
-  test('session switch then return restores focused region', async ({ page, request }) => {
+  test('session switch then return restores focused pane', async ({ page, request }) => {
     await waitForInit(page, request);
     await page.click('#split-h');
-    await page.waitForFunction(() => document.querySelectorAll('#area .rg').length >= 2, { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelectorAll('#area .pn').length >= 2, { timeout: 5000 });
 
     const before = await readInvariant(page);
 
@@ -84,7 +86,7 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     await page.waitForTimeout(150);
 
     const after = await readInvariant(page);
-    expect(after.focused).toBe(after.sessionFocusedRegion);
+    expect(after.focused).toBe(after.windowFocusedPane);
     expect(after.focused).toBe(before.focused);
   });
 
@@ -95,7 +97,7 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     // behind a confirm dialog and make the test flaky.
     await page.evaluate(() => {
       const a = (window as any).app;
-      a._isPaneBusy = async () => false;
+      a._isToolBusy = async () => false;
     });
     // Add 2 more terminal tabs and wait for each pane to register.
     await page.evaluate(async () => {
@@ -107,8 +109,8 @@ test.describe('Focus invariant (S1-Phase1)', () => {
       const a = (window as any).app;
       const sess = a.ws.windows.find((s: any) => s.id === a.ws.activeWindow);
       const findPane = (n: any): any => n && (n.type === 'pane' ? n : (n.children || []).map(findPane).find(Boolean));
-      const rg = findPane(sess.layout);
-      return rg && rg.tabs.length >= 3;
+      const pn = findPane(sess.layout);
+      return pn && pn.tabs.length >= 3;
     }, { timeout: 10000 });
 
     const tabIds = await page.evaluate(() => {
@@ -134,15 +136,15 @@ test.describe('Focus invariant (S1-Phase1)', () => {
       const a = (window as any).app;
       const sess = a.ws.windows.find((s: any) => s.id === a.ws.activeWindow);
       const findPane = (n: any): any => n && (n.type === 'pane' ? n : (n.children || []).map(findPane).find(Boolean));
-      const rg = findPane(sess.layout);
-      return rg && rg.tabs.length === 2 && rg.activeTab === expected;
+      const pn = findPane(sess.layout);
+      return pn && pn.tabs.length === 2 && pn.activeTab === expected;
     }, tabIds[2], { timeout: 5000 });
   });
 
-  test('setFocus on different region updates both sides', async ({ page, request }) => {
+  test('setFocus on different pane updates both sides', async ({ page, request }) => {
     await waitForInit(page, request);
     await page.click('#split-h');
-    await page.waitForFunction(() => document.querySelectorAll('#area .rg').length >= 2, { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelectorAll('#area .pn').length >= 2, { timeout: 5000 });
 
     const otherRid = await page.evaluate(() => {
       const a = (window as any).app;
@@ -159,7 +161,7 @@ test.describe('Focus invariant (S1-Phase1)', () => {
 
     const inv = await readInvariant(page);
     expect(inv.focused).toBe(otherRid);
-    expect(inv.sessionFocusedRegion).toBe(otherRid);
+    expect(inv.windowFocusedPane).toBe(otherRid);
   });
 });
 

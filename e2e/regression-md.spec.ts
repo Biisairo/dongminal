@@ -1,9 +1,9 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 // SRS: MD_VIEWER_REGRESSION_FIX_SRS.md
 //   FR-1: 비활성 세션의 MdViewer 인스턴스는 활성 세션 렌더 후에도 유지되어야 한다.
-//   FR-2: switchTab 후 세션 전환→복귀 시 마지막 탭/region 이 복원되어야 한다.
-//   FR-3: 활성 region 의 마지막 탭 close 후 세션 전환→복귀 시 stale region 이 포커스되면 안 된다.
+//   FR-2: switchTab 후 세션 전환→복귀 시 마지막 탭/pane 이 복원되어야 한다.
+//   FR-3: 활성 pane 의 마지막 탭 close 후 세션 전환→복귀 시 stale pane 이 포커스되면 안 된다.
 
 async function resetWorkspace(request) {
   const get = await request.get('/api/workspace');
@@ -21,7 +21,7 @@ async function waitForInit(page, request) {
     try { localStorage.clear(); } catch {}
   });
   await page.goto('/');
-  await page.waitForSelector('#area .rg.focused .xterm-helper-textarea', { timeout: 15000 });
+  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 async function addWindow(page) {
@@ -71,11 +71,11 @@ test.describe('MD viewer regression', () => {
   test('FR-2: switchTab persists s.focusedPane across session switch', async ({ page, request }) => {
     await waitForInit(page, request);
 
-    // Split horizontally → 2 regions in session 1.
+    // Split horizontally → 2 panes in session 1.
     await page.evaluate(() => (window as any).app.split('h'));
     await page.waitForTimeout(100);
 
-    // Pick the second region as focus target.
+    // Pick the second pane as focus target.
     const r2id = await page.evaluate(() => {
       const a = (window as any).app;
       const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
@@ -86,7 +86,7 @@ test.describe('MD viewer regression', () => {
         else if (n.children) n.children.forEach(walk);
       };
       walk(s.layout);
-      // simulate switchTab on 2nd region's active tab
+      // simulate switchTab on 2nd pane's active tab
       const target = regs[1];
       a.switchTab(target.id, target.activeTab);
       return target.id;
@@ -99,15 +99,15 @@ test.describe('MD viewer regression', () => {
       a.switchWindow(sid0);
     }, await page.evaluate(() => (window as any).app.ws.windows[0].id));
 
-    // Focused region should be r2id.
+    // Focused pane should be r2id.
     const focusedNow = await page.evaluate(() => (window as any).app.focused);
     expect(focusedNow).toBe(r2id);
   });
 
-  test('FR-3: closing active region updates s.focusedPane in active session', async ({ page, request }) => {
+  test('FR-3: closing active pane updates s.focusedPane in active session', async ({ page, request }) => {
     await waitForInit(page, request);
 
-    // Split → 2 regions; close the second region (focused after split).
+    // Split → 2 panes; close the second pane (focused after split).
     await page.evaluate(() => (window as any).app.split('h'));
     await page.waitForTimeout(100);
 
@@ -118,7 +118,7 @@ test.describe('MD viewer regression', () => {
     });
     expect(stateBefore.focused).toBeTruthy();
 
-    // Close all tabs in focused region (forcing region removal).
+    // Close all tabs in focused pane (forcing pane removal).
     await page.evaluate(async () => {
       const a = (window as any).app;
       const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
@@ -128,11 +128,11 @@ test.describe('MD viewer regression', () => {
         if (n.children) for (const c of n.children) { const r = find(c, id); if (r) return r; }
         return null;
       };
-      const rg = find(s.layout, a.focused);
+      const pn = find(s.layout, a.focused);
       // Mark as not busy for fast close
-      for (const t of [...rg.tabs]) {
+      for (const t of [...pn.tabs]) {
         a.mdViewers.delete(t.id);
-        await a.closeTab(rg.id, t.id);
+        await a.closeTab(pn.id, t.id);
       }
     });
 
@@ -156,8 +156,8 @@ test.describe('MD viewer regression', () => {
     expect(ok).toBe(true);
   });
 
-  // FR-4: split 후 s.focusedPane 이 새 region 과 일치해야 한다.
-  test('FR-4: split updates s.focusedPane to the new region', async ({ page, request }) => {
+  // FR-4: split 후 s.focusedPane 이 새 pane 과 일치해야 한다.
+  test('FR-4: split updates s.focusedPane to the new pane', async ({ page, request }) => {
     await waitForInit(page, request);
 
     const result = await page.evaluate(async () => {
@@ -175,8 +175,8 @@ test.describe('MD viewer regression', () => {
     expect(result.focusedPane).toBe(result.focused);
   });
 
-  // FR-5: keepFocus=true 로 split 하면 원래 region 으로 focusedPane 이 유지돼야 한다.
-  test('FR-5: split with keepFocus keeps s.focusedPane on original region', async ({ page, request }) => {
+  // FR-5: keepFocus=true 로 split 하면 원래 pane 으로 focusedPane 이 유지돼야 한다.
+  test('FR-5: split with keepFocus keeps s.focusedPane on original pane', async ({ page, request }) => {
     await waitForInit(page, request);
 
     const result = await page.evaluate(async () => {
@@ -224,12 +224,12 @@ test.describe('MD viewer regression', () => {
   test('FR-7: delWindow preserves target session focusedPane', async ({ page, request }) => {
     await waitForInit(page, request);
 
-    // 세션 A 에서 split + 두 번째 region 으로 포커스 이동.
+    // 세션 A 에서 split + 두 번째 pane 으로 포커스 이동.
     const sidA = await page.evaluate(() => (window as any).app.ws.activeWindow);
     const r2idA = await page.evaluate(async () => {
       const a = (window as any).app;
       await a.split('h');
-      return a.focused; // 새 region (lastR)
+      return a.focused; // 새 pane (lastR)
     });
 
     // 세션 B 추가 (활성 세션이 B 로 전환됨).
@@ -241,11 +241,11 @@ test.describe('MD viewer regression', () => {
     await page.evaluate((sid) => (window as any).app.switchWindow(sid), sidA);
     expect(await page.evaluate(() => (window as any).app.focused)).toBe(r2idA);
 
-    // 활성 세션 A 를 삭제 → B 가 활성이 됨. B 의 focusedPane 은 자기 layout 의 첫 region 이어야 함.
+    // 활성 세션 A 를 삭제 → B 가 활성이 됨. B 의 focusedPane 은 자기 layout 의 첫 pane 이어야 함.
     await page.evaluate(async (sid) => {
       const a = (window as any).app;
       // 삭제 시 busy 확인 모달이 뜨지 않도록 fake.
-      a._isPaneBusy = async () => false;
+      a._isToolBusy = async () => false;
       await a.delWindow(sid);
     }, sidA);
 
@@ -269,7 +269,7 @@ test.describe('MD viewer regression', () => {
     expect(after.syncMatches).toBe(true);
   });
 
-  // FR-6: split 후 세션 전환→복귀 시 새 region 으로 포커스 복원.
+  // FR-6: split 후 세션 전환→복귀 시 새 pane 으로 포커스 복원.
   test('FR-6: split focus survives session switch and return', async ({ page, request }) => {
     await waitForInit(page, request);
 
@@ -293,7 +293,7 @@ test.describe('MD viewer regression', () => {
   test('FR-10: closeTab activates neighbor tab, not first', async ({ page, request }) => {
     await waitForInit(page, request);
 
-    // 동일 region 에 탭 4개 만들기 (terminal 기본 1개 + 3개 추가).
+    // 동일 pane 에 탭 4개 만들기 (terminal 기본 1개 + 3개 추가).
     const ids = await page.evaluate(async () => {
       const a = (window as any).app;
       await a.addTab(a.focused, 'terminal');
@@ -306,8 +306,8 @@ test.describe('MD viewer regression', () => {
         if (n.children) for (const c of n.children) { const r = find(c, id); if (r) return r; }
         return null;
       };
-      const rg = find(s.layout, a.focused);
-      return rg.tabs.map((t: any) => t.id);
+      const pn = find(s.layout, a.focused);
+      return pn.tabs.map((t: any) => t.id);
     });
     expect(ids.length).toBe(4);
 

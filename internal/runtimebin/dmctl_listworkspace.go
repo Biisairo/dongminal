@@ -10,7 +10,7 @@ import (
 	"dongminal/internal/workspace"
 )
 
-// dmctlListPanes implements `dmctl list-panes`. /api/state 호출 후 workspace
+// dmctlListPanes implements `dmctl list-tools`. /api/state 호출 후 workspace
 // 트리를 순회해 paneline.Line 으로 렌더링한다 — MCP `list_workspace` 와 byte-level
 // 동일 포맷 (DMCTL_WHO_AM_I_SRS FR-DMC-LP-1).
 func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
@@ -55,7 +55,7 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 	}
 
 	var state struct {
-		Panes     []paneEntry `json:"panes"`
+		Panes     []paneEntry `json:"tools"`
 		Workspace *wsTree     `json:"workspace"`
 	}
 	if err := json.Unmarshal(body, &state); err != nil {
@@ -103,7 +103,7 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if len(rows) == 0 {
-		fmt.Fprintln(stdout, "(no panes)")
+		fmt.Fprintln(stdout, "(no tools)")
 		return 0
 	}
 	for _, r := range rows {

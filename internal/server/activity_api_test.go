@@ -11,16 +11,16 @@ import (
 
 // FR-AAP-3 / TC-AAP-6: activity set endpoint — known / unknown / missing / bad-state.
 func TestApiPaneActivitySet(t *testing.T) {
-	m := NewPaneManager("", nil)
+	m := NewToolManager("", nil)
 	var mu sync.Mutex
 	var events []string
 	p := newActivityPane("9", &mu, &events)
 	m.mu.Lock()
-	m.panes["9"] = p
+	m.tools["9"] = p
 	m.mu.Unlock()
 	s := &Server{Panes: m}
 
-	// known pane → updates + notifier fires.
+	// known tool → updates + notifier fires.
 	rec := httptest.NewRecorder()
 	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
 		strings.NewReader(`{"toolId":"9","state":"working","tool":"Bash","detail":"npm test"}`)))
@@ -35,20 +35,20 @@ func TestApiPaneActivitySet(t *testing.T) {
 		t.Fatalf("notifier should fire once, got %v", events)
 	}
 
-	// unknown pane → 200 no-op.
+	// unknown tool → 200 no-op.
 	rec = httptest.NewRecorder()
 	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
 		strings.NewReader(`{"toolId":"999","state":"done"}`)))
 	if rec.Code != http.StatusOK {
-		t.Fatalf("unknown pane want 200, got %d", rec.Code)
+		t.Fatalf("unknown tool want 200, got %d", rec.Code)
 	}
 
-	// missing paneId → 400.
+	// missing toolId → 400.
 	rec = httptest.NewRecorder()
 	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
 		strings.NewReader(`{"state":"done"}`)))
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("missing paneId want 400, got %d", rec.Code)
+		t.Fatalf("missing toolId want 400, got %d", rec.Code)
 	}
 
 	// invalid state → 400.
@@ -72,15 +72,15 @@ func TestSanitizeActivityField(t *testing.T) {
 	}
 }
 
-// FR-AAP-4 / TC-AAP-7: activity snapshot endpoint returns reported panes.
+// FR-AAP-4 / TC-AAP-7: activity snapshot endpoint returns reported tools.
 func TestApiPanesActivity_Endpoint(t *testing.T) {
-	defer func(o func(*Pane) bool) { attnBusyProbe = o }(attnBusyProbe)
-	attnBusyProbe = func(*Pane) bool { return true } // agent alive
-	m := NewPaneManager("", nil)
-	p1 := &Pane{ID: "1"}
+	defer func(o func(*Tool) bool) { attnBusyProbe = o }(attnBusyProbe)
+	attnBusyProbe = func(*Tool) bool { return true } // agent alive
+	m := NewToolManager("", nil)
+	p1 := &Tool{ID: "1"}
 	p1.setActivity("working", "Edit", "app.js")
 	m.mu.Lock()
-	m.panes["1"] = p1
+	m.tools["1"] = p1
 	m.mu.Unlock()
 	s := &Server{Panes: m}
 

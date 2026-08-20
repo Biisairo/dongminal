@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-// PaneClient is a dongminal-side client that connects to dongminald
-// over a Unix socket and implements the PaneHub interface via JSON-RPC
+// ToolClient is a dongminal-side client that connects to dongminald
+// over a Unix socket and implements the ToolHub interface via JSON-RPC
 // style request/response (DAEMON_SPLIT_SRS Phase 3).
 const (
 	// panedCallTimeout bounds a single RPC. On expiry the connection is
@@ -25,7 +25,7 @@ const (
 	panedRespawnEvery = 3
 )
 
-type PaneClient struct {
+type ToolClient struct {
 	sockPath    string
 	spawnDaemon func() error // respawns dongminald on repeated dial failure; nil disables respawn
 
@@ -44,13 +44,13 @@ type PaneClient struct {
 	// goroutine (attention/activity detection — DAEMON_SPLIT_SRS §6.2); it is
 	// independent of WS subscribers so detection works even with no browser and
 	// never double-counts or races attnCarry across multiple subscribers.
-	OnOutput    func(paneID string, data []byte)
-	OnExit      func(paneID string, code int)
+	OnOutput    func(toolID string, data []byte)
+	OnExit      func(toolID string, code int)
 	earlyPushes []earlyPush
 
-	// Per-pane WS subscribers: output channel → its exit-signal channel. The
-	// exit channel is closed when the pane exits so the WS handler can send
-	// OpExit and tear down (parity with direct-mode pane.kill).
+	// Per-tool WS subscribers: output channel → its exit-signal channel. The
+	// exit channel is closed when the tool exits so the WS handler can send
+	// OpExit and tear down (parity with direct-mode tool.kill).
 	subMu   sync.RWMutex
 	subbers map[string]map[chan []byte]chan struct{}
 	dropped atomic.Int64
@@ -58,21 +58,21 @@ type PaneClient struct {
 
 type earlyPush struct {
 	event string
-	pane  string
+	tool  string
 	data  []byte
 	code  int
 }
 
-// DialPaneClient connects to the dongminald Unix socket, sends hello, and
-// returns a ready-to-use PaneClient with auto-reconnect (no daemon respawn).
-func DialPaneClient(sockPath string) (*PaneClient, error) {
+// DialToolClient connects to the dongminald Unix socket, sends hello, and
+// returns a ready-to-use ToolClient with auto-reconnect (no daemon respawn).
+func DialToolClient(sockPath string) (*ToolClient, error) {
 	return DialPaneClientWithReconnect(sockPath, nil)
 }
 
-// DialPaneClientWithReconnect is DialPaneClient plus a spawnDaemon callback the
+// DialPaneClientWithReconnect is DialToolClient plus a spawnDaemon callback the
 // supervisor invokes to respawn dongminald when dials keep failing (FR-13).
-func DialPaneClientWithReconnect(sockPath string, spawnDaemon func() error) (*PaneClient, error) {
-	pc := &PaneClient{
+func DialPaneClientWithReconnect(sockPath string, spawnDaemon func() error) (*ToolClient, error) {
+	pc := &ToolClient{
 		sockPath:    sockPath,
 		spawnDaemon: spawnDaemon,
 		pending:     make(map[int64]chan json.RawMessage),
@@ -88,7 +88,7 @@ func DialPaneClientWithReconnect(sockPath string, spawnDaemon func() error) (*Pa
 
 // connect establishes one connection, starts its readLoop, and completes the
 // hello handshake. Safe to call repeatedly (initial dial + each reconnect).
-func (pc *PaneClient) connect() error {
+func (pc *ToolClient) connect() error {
 	conn, err := net.Dial("unix", pc.sockPath)
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ func (pc *PaneClient) connect() error {
 
 // supervise watches for connection loss and reconnects with exponential
 // backoff, respawning dongminald when dials keep failing (FR-13).
-func (pc *PaneClient) supervise() {
+func (pc *ToolClient) supervise() {
 	for {
 		pc.mu.Lock()
 		cd := pc.connDone
@@ -157,7 +157,7 @@ func (pc *PaneClient) supervise() {
 
 // readLoop decodes responses and push events for a single connection. On
 // connection death it signals connLost so the supervisor can reconnect.
-func (pc *PaneClient) readLoop(conn net.Conn, cd chan struct{}) {
+func (pc *ToolClient) readLoop(conn net.Conn, cd chan struct{}) {
 	dec := json.NewDecoder(conn)
 	for {
 		var raw json.RawMessage
@@ -188,7 +188,7 @@ func (pc *PaneClient) readLoop(conn net.Conn, cd chan struct{}) {
 
 // connLost closes connDone exactly once and fails all pending calls for the
 // dead connection so blocked callers return promptly (FR-14).
-func (pc *PaneClient) connLost(cd chan struct{}) {
+func (pc *ToolClient) connLost(cd chan struct{}) {
 	pc.mu.Lock()
 	select {
 	case <-cd:
@@ -207,7 +207,7 @@ func (pc *PaneClient) connLost(cd chan struct{}) {
 
 // dropIfCurrent closes the live socket only if it still matches cd, forcing
 // readLoop to error out and the supervisor to reconnect.
-func (pc *PaneClient) dropIfCurrent(cd chan struct{}) {
+func (pc *ToolClient) dropIfCurrent(cd chan struct{}) {
 	pc.mu.Lock()
 	if pc.connDone == cd && pc.conn != nil {
 		pc.conn.Close()
@@ -216,7 +216,7 @@ func (pc *PaneClient) dropIfCurrent(cd chan struct{}) {
 }
 
 // handleResponse delivers a response to the waiting caller.
-func (pc *PaneClient) handleResponse(id int64, raw json.RawMessage) {
+func (pc *ToolClient) handleResponse(id int64, raw json.RawMessage) {
 	pc.mu.Lock()
 	ch := pc.pending[id]
 	delete(pc.pending, id)
@@ -226,13 +226,13 @@ func (pc *PaneClient) handleResponse(id int64, raw json.RawMessage) {
 	}
 }
 
-// handlePush dispatches a server-pushed event to per-pane subscribers
+// handlePush dispatches a server-pushed event to per-tool subscribers
 // and to the global OnOutput/OnExit callbacks.
-func (pc *PaneClient) handlePush(event string, raw json.RawMessage) {
+func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 	switch event {
 	case "output":
 		var ev struct {
-			Pane string `json:"pane"`
+			Tool string `json:"tool"`
 			Data string `json:"data"`
 		}
 		if err := json.Unmarshal(raw, &ev); err != nil {
@@ -245,37 +245,37 @@ func (pc *PaneClient) handlePush(event string, raw json.RawMessage) {
 		// Attention/activity detection: once per chunk, in this single readLoop
 		// goroutine — independent of WS subscribers (FR-15, §6.2).
 		if pc.OnOutput != nil {
-			pc.OnOutput(ev.Pane, data)
+			pc.OnOutput(ev.Tool, data)
 		}
-		// Dispatch to per-pane output channels. Non-blocking: a single slow
-		// WS subscriber must never stall readLoop (which serves every pane).
+		// Dispatch to per-tool output channels. Non-blocking: a single slow
+		// WS subscriber must never stall readLoop (which serves every tool).
 		// Drops are counted/logged rather than silently lost (FR-18).
 		pc.subMu.RLock()
-		chans := pc.subbers[ev.Pane]
+		chans := pc.subbers[ev.Tool]
 		pc.subMu.RUnlock()
 		for ch := range chans {
 			select {
 			case ch <- data:
 			default:
 				if n := pc.dropped.Add(1); n == 1 || n%256 == 0 {
-					log.Printf("paneclient: WS output backpressure pane=%s dropped=%d (slow browser?)", ev.Pane, n)
+					log.Printf("paneclient: WS output backpressure tool=%s dropped=%d (slow browser?)", ev.Tool, n)
 				}
 			}
 		}
 	case "exit":
 		var ev struct {
-			Pane string `json:"pane"`
+			Tool string `json:"tool"`
 			Code int    `json:"code"`
 		}
 		if err := json.Unmarshal(raw, &ev); err != nil {
 			return
 		}
-		// Signal every WS subscriber of this pane so it can send OpExit and
-		// tear down (parity with direct-mode pane.kill). Closing + removing
+		// Signal every WS subscriber of this tool so it can send OpExit and
+		// tear down (parity with direct-mode tool.kill). Closing + removing
 		// under subMu means no concurrent output dispatch sends on a closed chan.
 		pc.subMu.Lock()
-		subs := pc.subbers[ev.Pane]
-		delete(pc.subbers, ev.Pane)
+		subs := pc.subbers[ev.Tool]
+		delete(pc.subbers, ev.Tool)
 		pc.subMu.Unlock()
 		for _, exitCh := range subs {
 			close(exitCh)
@@ -284,9 +284,9 @@ func (pc *PaneClient) handlePush(event string, raw json.RawMessage) {
 		pc.mu.Lock()
 		if pc.OnExit != nil {
 			pc.mu.Unlock()
-			pc.OnExit(ev.Pane, ev.Code)
+			pc.OnExit(ev.Tool, ev.Code)
 		} else {
-			pc.earlyPushes = append(pc.earlyPushes, earlyPush{event: "exit", pane: ev.Pane, code: ev.Code})
+			pc.earlyPushes = append(pc.earlyPushes, earlyPush{event: "exit", tool: ev.Tool, code: ev.Code})
 			pc.mu.Unlock()
 		}
 	}
@@ -294,21 +294,21 @@ func (pc *PaneClient) handlePush(event string, raw json.RawMessage) {
 
 // FlushEarlyPushes replays any buffered exit events that arrived before
 // the OnExit callback was set.
-func (pc *PaneClient) FlushEarlyPushes() {
+func (pc *ToolClient) FlushEarlyPushes() {
 	pc.mu.Lock()
 	pushes := pc.earlyPushes
 	pc.earlyPushes = nil
 	pc.mu.Unlock()
 	for _, p := range pushes {
 		if p.event == "exit" && pc.OnExit != nil {
-			pc.OnExit(p.pane, p.code)
+			pc.OnExit(p.tool, p.code)
 		}
 	}
 }
 
 // call sends a request and blocks until the response arrives, the connection
 // is lost, the call times out (FR-14), or the client closes.
-func (pc *PaneClient) call(method string, params interface{}) (map[string]interface{}, error) {
+func (pc *ToolClient) call(method string, params interface{}) (map[string]interface{}, error) {
 	pc.mu.Lock()
 	if pc.enc == nil {
 		pc.mu.Unlock()
@@ -369,7 +369,7 @@ func (pc *PaneClient) call(method string, params interface{}) (map[string]interf
 }
 
 // Close shuts down the client connection and stops the reconnect supervisor.
-func (pc *PaneClient) Close() {
+func (pc *ToolClient) Close() {
 	pc.closeOnce.Do(func() {
 		pc.stopped.Store(true)
 		close(pc.closed)
@@ -382,33 +382,33 @@ func (pc *PaneClient) Close() {
 	})
 }
 
-// Subscribe registers an output channel for a pane. It returns exitCh (closed
-// when the pane exits) and an unsubscribe function. unsubscribe removes the
-// channel; it does not close exitCh (the pane-exit path owns that close).
-func (pc *PaneClient) Subscribe(paneID string, ch chan []byte) (exitCh <-chan struct{}, unsubscribe func()) {
+// Subscribe registers an output channel for a tool. It returns exitCh (closed
+// when the tool exits) and an unsubscribe function. unsubscribe removes the
+// channel; it does not close exitCh (the tool-exit path owns that close).
+func (pc *ToolClient) Subscribe(toolID string, ch chan []byte) (exitCh <-chan struct{}, unsubscribe func()) {
 	ex := make(chan struct{})
 	pc.subMu.Lock()
-	if pc.subbers[paneID] == nil {
-		pc.subbers[paneID] = map[chan []byte]chan struct{}{}
+	if pc.subbers[toolID] == nil {
+		pc.subbers[toolID] = map[chan []byte]chan struct{}{}
 	}
-	pc.subbers[paneID][ch] = ex
+	pc.subbers[toolID][ch] = ex
 	pc.subMu.Unlock()
 	return ex, func() {
 		pc.subMu.Lock()
-		delete(pc.subbers[paneID], ch)
+		delete(pc.subbers[toolID], ch)
 		pc.subMu.Unlock()
 	}
 }
 
-// IsDaemon reports whether this PaneClient is in daemon mode (always true).
+// IsDaemon reports whether this ToolClient is in daemon mode (always true).
 // Used by handleWS to detect daemon mode at runtime.
-func (pc *PaneClient) IsDaemon() bool { return true }
+func (pc *ToolClient) IsDaemon() bool { return true }
 
 // Connected reports whether a live daemon connection is currently established.
 // During a reconnect window it returns false, so callers can distinguish a
-// genuinely missing pane from a transient outage and avoid telling the browser
-// the pane is gone.
-func (pc *PaneClient) Connected() bool {
+// genuinely missing tool from a transient outage and avoid telling the browser
+// the tool is gone.
+func (pc *ToolClient) Connected() bool {
 	pc.mu.Lock()
 	cd, conn := pc.connDone, pc.conn
 	pc.mu.Unlock()
@@ -423,14 +423,14 @@ func (pc *PaneClient) Connected() bool {
 	}
 }
 
-// ── PaneHub implementation ──────────────────────────────────────────────
+// ── ToolHub implementation ──────────────────────────────────────────────
 
-func (pc *PaneClient) List() []map[string]interface{} {
+func (pc *ToolClient) List() []map[string]interface{} {
 	resp, err := pc.call("list", struct{}{})
 	if err != nil {
 		return nil
 	}
-	raw, ok := resp["panes"]
+	raw, ok := resp["tools"]
 	if !ok {
 		return nil
 	}
@@ -448,7 +448,7 @@ func (pc *PaneClient) List() []map[string]interface{} {
 	return out
 }
 
-func (pc *PaneClient) Create(cwd string, cols, rows uint16) (*Pane, error) {
+func (pc *ToolClient) Create(cwd string, cols, rows uint16) (*Tool, error) {
 	resp, err := pc.call("create", map[string]interface{}{
 		"cwd": cwd, "cols": cols, "rows": rows,
 	})
@@ -457,40 +457,40 @@ func (pc *PaneClient) Create(cwd string, cols, rows uint16) (*Pane, error) {
 	}
 	id, _ := resp["id"].(string)
 	name, _ := resp["name"].(string)
-	return &Pane{ID: id, Name: name}, nil
+	return &Tool{ID: id, Name: name}, nil
 }
 
-func (pc *PaneClient) Get(id string) *Pane {
-	// PaneClient doesn't have local state; we check liveness via List
-	panes := pc.List()
-	for _, m := range panes {
+func (pc *ToolClient) Get(id string) *Tool {
+	// ToolClient doesn't have local state; we check liveness via List
+	tools := pc.List()
+	for _, m := range tools {
 		if m["id"].(string) == id {
 			name, _ := m["name"].(string)
-			return &Pane{ID: id, Name: name}
+			return &Tool{ID: id, Name: name}
 		}
 	}
 	return nil
 }
 
-func (pc *PaneClient) Delete(id string) {
+func (pc *ToolClient) Delete(id string) {
 	pc.call("kill", map[string]interface{}{"id": id})
 }
 
-func (pc *PaneClient) Restore(id, name, cwd string, cols, rows uint16) error {
+func (pc *ToolClient) Restore(id, name, cwd string, cols, rows uint16) error {
 	_, err := pc.call("restore", map[string]interface{}{
 		"id": id, "name": name, "cwd": cwd, "cols": cols, "rows": rows,
 	})
 	return err
 }
 
-func (pc *PaneClient) IsLive(id string) bool {
+func (pc *ToolClient) IsLive(id string) bool {
 	return pc.Get(id) != nil
 }
 
-func (pc *PaneClient) SaveAll() {}
-func (pc *PaneClient) LoadAll() {}
+func (pc *ToolClient) SaveAll()                    {}
+func (pc *ToolClient) LoadAll(map[string]struct{}) {}
 
-func (pc *PaneClient) Write(id string, data []byte) error {
+func (pc *ToolClient) Write(id string, data []byte) error {
 	_, err := pc.call("write", map[string]interface{}{
 		"id":   id,
 		"data": base64.StdEncoding.EncodeToString(data),
@@ -498,14 +498,14 @@ func (pc *PaneClient) Write(id string, data []byte) error {
 	return err
 }
 
-func (pc *PaneClient) Resize(id string, cols, rows uint16) error {
+func (pc *ToolClient) Resize(id string, cols, rows uint16) error {
 	_, err := pc.call("resize", map[string]interface{}{
 		"id": id, "cols": cols, "rows": rows,
 	})
 	return err
 }
 
-func (pc *PaneClient) Cwd(id string) string {
+func (pc *ToolClient) Cwd(id string) string {
 	resp, err := pc.call("cwd", map[string]interface{}{"id": id})
 	if err != nil {
 		return ""
@@ -514,7 +514,7 @@ func (pc *PaneClient) Cwd(id string) string {
 	return cwd
 }
 
-func (pc *PaneClient) Busy(id string) bool {
+func (pc *ToolClient) Busy(id string) bool {
 	resp, err := pc.call("busy", map[string]interface{}{"id": id})
 	if err != nil {
 		return false
@@ -523,17 +523,17 @@ func (pc *PaneClient) Busy(id string) bool {
 	return busy
 }
 
-func (pc *PaneClient) SnapshotPane(id string) (PaneSnapshot, error) {
+func (pc *ToolClient) SnapshotTool(id string) (ToolSnapshot, error) {
 	resp, err := pc.call("snapshot", map[string]interface{}{"id": id})
 	if err != nil {
-		return PaneSnapshot{}, err
+		return ToolSnapshot{}, err
 	}
 	dataStr, _ := resp["data"].(string)
 	data, _ := base64.StdEncoding.DecodeString(dataStr)
 	totalIn, _ := resp["totalBytesIn"].(float64)
 	totalDrop, _ := resp["totalBytesDrop"].(float64)
 	retained, _ := resp["retained"].(float64)
-	return PaneSnapshot{
+	return ToolSnapshot{
 		Data:           data,
 		TotalBytesIn:   int64(totalIn),
 		TotalBytesDrop: int64(totalDrop),
@@ -541,5 +541,5 @@ func (pc *PaneClient) SnapshotPane(id string) (PaneSnapshot, error) {
 	}, nil
 }
 
-// Ensure PaneClient implements PaneHub.
-var _ PaneHub = (*PaneClient)(nil)
+// Ensure ToolClient implements ToolHub.
+var _ ToolHub = (*ToolClient)(nil)

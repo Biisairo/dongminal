@@ -1,20 +1,20 @@
 package mcptool
 
-// PaneInfo is a minimal summary of a live pane for tool consumption.
+// PaneInfo is a minimal summary of a live tool for tool consumption.
 type PaneInfo struct {
 	ID       string
 	Name     string
 	ShellPID int
 }
 
-// PaneReader exposes read/write access to PTY-backed panes without leaking
-// the concrete Pane type into the tool layer.
-type PaneReader interface {
+// ToolReader exposes read/write access to PTY-backed tools without leaking
+// the concrete Tool type into the tool layer.
+type ToolReader interface {
 	List() []PaneInfo
-	Has(paneID string) bool
-	Snapshot(paneID string) (data []byte, droppedTotal int64, ok bool)
-	SendPaste(paneID string, text []byte, submit bool) error
-	Size(paneID string) string
+	Has(toolID string) bool
+	Snapshot(toolID string) (data []byte, droppedTotal int64, ok bool)
+	SendPaste(toolID string, text []byte, submit bool) error
+	Size(toolID string) string
 }
 
 // WorkspaceEntry mirrors workspace.TabEntry but is owned by this package so
@@ -48,7 +48,7 @@ type WorkspaceReader interface {
 	IsKnownTabID(id string) bool
 }
 
-// TabRef pairs a new tab's uuid with its paneId (REMOTE_COMMAND_RESULT_SRS).
+// TabRef pairs a new tab's uuid with its toolId (REMOTE_COMMAND_RESULT_SRS).
 type TabRef struct {
 	UUID   string `json:"uuid"`
 	ToolID string `json:"toolId"`
@@ -71,8 +71,8 @@ type CommandBroadcaster interface {
 	BroadcastAndAwait(payload []byte, reqId string) (CmdResult, int, bool)
 }
 
-// ClientPaneResolver maps an SSE client's remote address to the pane whose
+// ClientPaneResolver maps an SSE client's remote address to the tool whose
 // shell hosts it (via PID parent-chain walking).
 type ClientPaneResolver interface {
-	ResolveClientPane(remoteAddr string) (paneID string, shellPID int, err error)
+	ResolveClientPane(remoteAddr string) (toolID string, shellPID int, err error)
 }

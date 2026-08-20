@@ -1,11 +1,11 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 async function waitForInit(page) {
   await page.context().addInitScript(() => {
     sessionStorage.setItem('displayMode', 'desktop');
   });
   await page.goto('/');
-  await page.waitForSelector('#area .rg.focused .xterm-helper-textarea', { timeout: 15000 });
+  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 test.describe('Session management', () => {
@@ -117,6 +117,6 @@ test.describe('Session management', () => {
     await page.locator('#windows .si').first().locator('.si-x').click();
     // A new session should be created automatically.
     await expect(page.locator('#windows .si')).toHaveCount(1, { timeout: 10000 });
-    await expect(page.locator('#area .rg.focused')).toHaveCount(1);
+    await expect(page.locator('#area .pn.focused')).toHaveCount(1);
   });
 });

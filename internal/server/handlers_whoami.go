@@ -6,24 +6,24 @@ import (
 )
 
 // apiWhoAmI implements GET /api/whoami (DMCTL_WHO_AM_I_SRS FR-API-WAI-1).
-// Resolves the caller's TCP source port → clientPID → pane (32-step parent
+// Resolves the caller's TCP source port → clientPID → tool (32-step parent
 // chain) via the injected WhoAmI resolver, then enriches with workspace
 // entry + terminal size.
 func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
-	// Daemon mode: use paneId query parameter if provided.
-	paneID := r.URL.Query().Get("toolId")
+	// Daemon mode: use toolId query parameter if provided.
+	toolID := r.URL.Query().Get("toolId")
 	var shellPID int
 	var err error
 
-	if paneID != "" {
-		// Verify pane exists
-		if s.Panes != nil && s.Panes.Get(paneID) == nil {
-			writeWhoAmIError(w, http.StatusNotFound, "pane not found: "+paneID)
+	if toolID != "" {
+		// Verify tool exists
+		if s.Panes != nil && s.Panes.Get(toolID) == nil {
+			writeWhoAmIError(w, http.StatusNotFound, "tool not found: "+toolID)
 			return
 		}
 		// shellPID unknown in daemon mode; leave as 0
 	} else if s.WhoAmI != nil {
-		paneID, shellPID, err = s.WhoAmI.ResolveClientPane(r.RemoteAddr)
+		toolID, shellPID, err = s.WhoAmI.ResolveClientPane(r.RemoteAddr)
 		if err != nil {
 			writeWhoAmIError(w, http.StatusNotFound, err.Error())
 			return
@@ -34,7 +34,7 @@ func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := map[string]interface{}{
-		"toolId":     paneID,
+		"toolId":     toolID,
 		"shellPid":   shellPID,
 		"label":      "",
 		"uuid":       "",
@@ -50,7 +50,7 @@ func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 
 	if s.Panes != nil {
 		for _, p := range s.Panes.List() {
-			if id, _ := p["id"].(string); id == paneID {
+			if id, _ := p["id"].(string); id == toolID {
 				if c, ok := p["sizeCols"].(int); ok {
 					resp["sizeCols"] = c
 				}
@@ -64,7 +64,7 @@ func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 
 	if s.Work != nil {
 		for _, e := range s.Work.Entries() {
-			if e.ToolID != paneID {
+			if e.ToolID != toolID {
 				continue
 			}
 			resp["label"] = e.Label

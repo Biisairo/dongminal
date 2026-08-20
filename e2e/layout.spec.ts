@@ -1,55 +1,55 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 async function waitForInit(page) {
   await page.context().addInitScript(() => {
     sessionStorage.setItem('displayMode', 'desktop');
   });
   await page.goto('/');
-  await page.waitForSelector('#area .rg.focused .xterm-helper-textarea', { timeout: 15000 });
+  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 test.describe('Layout & navigation', () => {
-  test('split horizontal increases region count', async ({ page }) => {
+  test('split horizontal increases pane count', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.locator('#area .rg').count();
+    const before = await page.locator('#area .pn').count();
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       page.click('#split-h'),
     ]);
     expect(resp.status()).toBe(200);
-    await expect(page.locator('#area .rg')).toHaveCount(before + 1, { timeout: 10000 });
-    await expect(page.locator('#area .rg.focused')).toHaveCount(1);
+    await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
+    await expect(page.locator('#area .pn.focused')).toHaveCount(1);
   });
 
-  test('split vertical increases region count', async ({ page }) => {
+  test('split vertical increases pane count', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.locator('#area .rg').count();
+    const before = await page.locator('#area .pn').count();
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       page.click('#split-v'),
     ]);
     expect(resp.status()).toBe(200);
-    await expect(page.locator('#area .rg')).toHaveCount(before + 1, { timeout: 10000 });
-    await expect(page.locator('#area .rg.focused')).toHaveCount(1);
+    await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
+    await expect(page.locator('#area .pn.focused')).toHaveCount(1);
   });
 
   test('pane navigation with arrow keys moves focus', async ({ page }) => {
     await waitForInit(page);
     // Always create a fresh horizontal split for reliable pane navigation.
-    const before = await page.locator('#area .rg').count();
+    const before = await page.locator('#area .pn').count();
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       page.click('#split-h'),
     ]);
     expect(resp.status()).toBe(200);
-    await expect(page.locator('#area .rg')).toHaveCount(before + 1, { timeout: 10000 });
-    await expect(page.locator('#area .rg.focused')).toHaveCount(1);
+    await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
+    await expect(page.locator('#area .pn.focused')).toHaveCount(1);
 
-    // After split-h, the new (rightmost) region is focused.
-    // paneLeft moves to the previous region; paneRight moves back.
+    // After split-h, the new (rightmost) pane is focused.
+    // paneLeft moves to the previous pane; paneRight moves back.
     const countAfter = before + 1;
-    const rightRegion = page.locator('#area .rg').nth(countAfter - 1);
-    const leftRegion = page.locator('#area .rg').nth(countAfter - 2);
+    const rightPaneEl = page.locator('#area .pn').nth(countAfter - 1);
+    const leftPaneEl = page.locator('#area .pn').nth(countAfter - 2);
 
     const leftResult = await page.evaluate(() => {
       const app = (window as any).app;
@@ -57,26 +57,26 @@ test.describe('Layout & navigation', () => {
       app.executeAction('paneLeft');
       return { before, after: app.focused };
     });
-    // Verify the focused region moved to the expected ID.
-    await expect(page.locator('#area .rg.focused')).toHaveAttribute('data-rid', leftResult.after, { timeout: 5000 });
+    // Verify the focused pane moved to the expected ID.
+    await expect(page.locator('#area .pn.focused')).toHaveAttribute('data-paneid', leftResult.after, { timeout: 5000 });
 
     await page.evaluate(() => {
       const app = (window as any).app;
       app.executeAction('paneRight');
     });
-    await expect(page.locator('#area .rg.focused')).toHaveAttribute('data-rid', leftResult.before, { timeout: 5000 });
+    await expect(page.locator('#area .pn.focused')).toHaveAttribute('data-paneid', leftResult.before, { timeout: 5000 });
   });
 
-  test('resize handle exists between split regions', async ({ page }) => {
+  test('resize handle exists between split panes', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.locator('#area .rg').count();
+    const before = await page.locator('#area .pn').count();
     if (before < 2) {
       const [resp] = await Promise.all([
         page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
         page.click('#split-h'),
       ]);
       expect(resp.status()).toBe(200);
-      await expect(page.locator('#area .rg')).toHaveCount(before + 1, { timeout: 10000 });
+      await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
     }
 
     // After horizontal split, at least one resize handle (.sh) should exist.
@@ -85,33 +85,33 @@ test.describe('Layout & navigation', () => {
   });
 
   // Regression: rapid successive split() calls must each split the
-  // currently-focused region (which is the previous split's new region),
+  // currently-focused pane (which is the previous split's new pane),
   // not race on a stale this.focused. Without serialization, two parallel
-  // split() invocations would both target the same initial region.
-  test('rapid successive splits each create a region (serialized)', async ({ page }) => {
+  // split() invocations would both target the same initial pane.
+  test('rapid successive splits each create a pane (serialized)', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.locator('#area .rg').count();
+    const before = await page.locator('#area .pn').count();
 
     await page.evaluate(() => {
       const app = (window as any).app;
       // Fire two splits without awaiting between them — simulates a fast
-      // shortcut press. Both promises must resolve to distinct regions.
+      // shortcut press. Both promises must resolve to distinct panes.
       const p1 = app.split('horizontal');
       const p2 = app.split('horizontal');
       return Promise.all([p1, p2]);
     });
 
-    await expect(page.locator('#area .rg')).toHaveCount(before + 2, { timeout: 10000 });
-    await expect(page.locator('#area .rg.focused')).toHaveCount(1);
+    await expect(page.locator('#area .pn')).toHaveCount(before + 2, { timeout: 10000 });
+    await expect(page.locator('#area .pn.focused')).toHaveCount(1);
   });
 
   // Regression: clicking the split button twice in quick succession must
-  // produce two splits, with focus on the latest new region (NOT on the
-  // first/original region as the SSE workspace_changed echo could cause).
+  // produce two splits, with focus on the latest new pane (NOT on the
+  // first/original pane as the SSE workspace_changed echo could cause).
   test('two rapid split-h button clicks produce two splits and keep focus on latest', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.locator('#area .rg').count();
-    const firstId = await page.locator('#area .rg.focused').getAttribute('data-rid');
+    const before = await page.locator('#area .pn').count();
+    const firstId = await page.locator('#area .pn.focused').getAttribute('data-paneid');
 
     // Two button clicks back-to-back, no awaiting between them — this is
     // exactly the user-reported reproduction.
@@ -121,28 +121,28 @@ test.describe('Layout & navigation', () => {
       btn.click();
     });
 
-    await expect(page.locator('#area .rg')).toHaveCount(before + 2, { timeout: 10000 });
-    await expect(page.locator('#area .rg.focused')).toHaveCount(1);
-    // Focus must NOT have jumped back to the original region.
-    const focusedId = await page.locator('#area .rg.focused').getAttribute('data-rid');
+    await expect(page.locator('#area .pn')).toHaveCount(before + 2, { timeout: 10000 });
+    await expect(page.locator('#area .pn.focused')).toHaveCount(1);
+    // Focus must NOT have jumped back to the original pane.
+    const focusedId = await page.locator('#area .pn.focused').getAttribute('data-paneid');
     expect(focusedId).not.toBe(firstId);
   });
 
   // Regression for the user-reported "한번씩 건너뛰는" pattern: even when
   // the SSE workspace_changed echo lands during the second split's
-  // _newPane await (which would replace this.ws and stale the second
+  // _newTool await (which would replace this.ws and stale the second
   // split's session reference), the second split must still produce a
-  // visible region and focus must end on the latest split, not on R1.
+  // visible pane and focus must end on the latest split, not on R1.
   test('split survives stale-ws via post-await re-fetch', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.locator('#area .rg').count();
+    const before = await page.locator('#area .pn').count();
 
     // Click 1: completes naturally.
     await page.evaluate(async () => {
       await (window as any).app.split('horizontal');
     });
-    await expect(page.locator('#area .rg')).toHaveCount(before + 1, { timeout: 10000 });
-    const afterFirstId = await page.locator('#area .rg.focused').getAttribute('data-rid');
+    await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
+    const afterFirstId = await page.locator('#area .pn.focused').getAttribute('data-paneid');
 
     // Click 2: while the new-pane fetch is in flight, simulate an SSE
     // workspace_changed apply by directly invoking _onWorkspaceChanged
@@ -151,58 +151,58 @@ test.describe('Layout & navigation', () => {
       const app = (window as any).app;
       const p = app.split('horizontal');
       // Force an immediate remote-state apply on the next microtask while
-      // _splitInner is still awaiting _newPane.
+      // _splitInner is still awaiting _newTool.
       await Promise.resolve();
       await app._onWorkspaceChanged();
       await p;
     });
 
-    await expect(page.locator('#area .rg')).toHaveCount(before + 2, { timeout: 10000 });
-    await expect(page.locator('#area .rg.focused')).toHaveCount(1);
-    const finalId = await page.locator('#area .rg.focused').getAttribute('data-rid');
-    // Focus must NOT have jumped to the original first region.
+    await expect(page.locator('#area .pn')).toHaveCount(before + 2, { timeout: 10000 });
+    await expect(page.locator('#area .pn.focused')).toHaveCount(1);
+    const finalId = await page.locator('#area .pn.focused').getAttribute('data-paneid');
+    // Focus must NOT have jumped to the original first pane.
     expect(finalId).not.toBe(afterFirstId === finalId ? null : afterFirstId);
   });
 
-  // TC-SKF-1: 사용자 포커스 region A, split 대상 region B (A != B). keepFocus=true 면
-  // 새 region 이 추가되더라도 사용자 포커스는 A 그대로여야 한다.
-  test('keepFocus split on a different region leaves user focus untouched', async ({ page }) => {
+  // TC-SKF-1: 사용자 포커스 pane A, split 대상 pane B (A != B). keepFocus=true 면
+  // 새 pane 이 추가되더라도 사용자 포커스는 A 그대로여야 한다.
+  test('keepFocus split on a different pane leaves user focus untouched', async ({ page }) => {
     await waitForInit(page);
-    // 먼저 region 두 개 확보 (split-h 한 번).
-    const before = await page.locator('#area .rg').count();
+    // 먼저 pane 두 개 확보 (split-h 한 번).
+    const before = await page.locator('#area .pn').count();
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       page.click('#split-h'),
     ]);
     expect(resp.status()).toBe(200);
-    await expect(page.locator('#area .rg')).toHaveCount(before + 1, { timeout: 10000 });
+    await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
 
-    // 사용자 포커스를 region 0 (leftmost) 으로 옮긴다. split target 은 region 1.
-    const regions = page.locator('#area .rg');
-    const userRg = regions.nth(0);
-    const targetRg = regions.nth(1);
-    await userRg.locator('.rg-body').click();
+    // 사용자 포커스를 pane 0 (leftmost) 으로 옮긴다. split target 은 pane 1.
+    const panes = page.locator('#area .pn');
+    const userRg = panes.nth(0);
+    const targetRg = panes.nth(1);
+    await userRg.locator('.pn-body').click();
     await expect(userRg).toHaveClass(/focused/);
-    const userRegionId = await userRg.getAttribute('data-rid');
-    const targetRegionId = await targetRg.getAttribute('data-rid');
-    expect(userRegionId).not.toBe(targetRegionId);
+    const userPaneId = await userRg.getAttribute('data-paneid');
+    const targetPaneId = await targetRg.getAttribute('data-paneid');
+    expect(userPaneId).not.toBe(targetPaneId);
 
-    // dmctl/MCP 처럼 location 지정 keepFocus split: targetRegion=B, 사용자 포커스 A.
-    const countBefore = await page.locator('#area .rg').count();
+    // dmctl/MCP 처럼 location 지정 keepFocus split: targetPane=B, 사용자 포커스 A.
+    const countBefore = await page.locator('#area .pn').count();
     await page.evaluate(async (targetRid) => {
       const app = (window as any).app;
       await app.split('horizontal', {
         keepFocus: true,
         targetWindow: app.ws.activeWindow,
-        targetRegion: targetRid,
+        targetPane: targetRid,
       });
-    }, targetRegionId);
-    await expect(page.locator('#area .rg')).toHaveCount(countBefore + 1, { timeout: 10000 });
+    }, targetPaneId);
+    await expect(page.locator('#area .pn')).toHaveCount(countBefore + 1, { timeout: 10000 });
 
-    // 사용자 포커스는 여전히 region A.
-    const focused = page.locator('#area .rg.focused');
+    // 사용자 포커스는 여전히 pane A.
+    const focused = page.locator('#area .pn.focused');
     await expect(focused).toHaveCount(1);
-    expect(await focused.getAttribute('data-rid')).toBe(userRegionId);
+    expect(await focused.getAttribute('data-paneid')).toBe(userPaneId);
   });
 
   // REMOTE_SESSION_TAB_CREATE_SRS TC-RST-1: newWindow + keepFocus + name —
@@ -243,23 +243,23 @@ test.describe('Layout & navigation', () => {
     expect(after.lastName).toBe('named-active');
   });
 
-  // TC-RST-4: newTab + location(다른 region) + keepFocus + name —
-  // 대상 region 의 activeTab 유지 + 사용자 포커스 무변화 + 탭 이름 반영.
+  // TC-RST-4: newTab + location(다른 pane) + keepFocus + name —
+  // 대상 pane 의 activeTab 유지 + 사용자 포커스 무변화 + 탭 이름 반영.
   test('remote newTab with keepFocus adds background tab without focus change', async ({ page }) => {
     await waitForInit(page);
-    // region 2개 확보.
-    const before = await page.locator('#area .rg').count();
+    // pane 2개 확보.
+    const before = await page.locator('#area .pn').count();
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       page.click('#split-h'),
     ]);
     expect(resp.status()).toBe(200);
-    await expect(page.locator('#area .rg')).toHaveCount(before + 1, { timeout: 10000 });
+    await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
 
-    // 사용자 포커스를 region 0 으로, target 은 region 1.
-    const regions = page.locator('#area .rg');
-    await regions.nth(0).locator('.rg-body').click();
-    await expect(regions.nth(0)).toHaveClass(/focused/);
+    // 사용자 포커스를 pane 0 으로, target 은 pane 1.
+    const panes = page.locator('#area .pn');
+    await panes.nth(0).locator('.pn-body').click();
+    await expect(panes.nth(0)).toHaveClass(/focused/);
 
     const state = await page.evaluate(() => {
       const app = (window as any).app;
@@ -277,7 +277,7 @@ test.describe('Layout & navigation', () => {
       const ti = target.tabs.findIndex((t: any) => t.id === target.activeTab) + 1;
       return {
         active: app.ws.activeWindow, focused: app.focused,
-        targetRegion: target.id, targetActiveTab: target.activeTab,
+        targetPane: target.id, targetActiveTab: target.activeTab,
         targetCoord: `W${si}.P${pi}.T${ti}`,
         targetTabCount: target.tabs.length,
       };
@@ -294,7 +294,7 @@ test.describe('Layout & navigation', () => {
         if (n.type === 'pane') { rgs.push(n); return; }
         if (n.children) n.children.forEach(collect);
       })(sess.layout);
-      const target = rgs.find((r: any) => r.id === s.targetRegion);
+      const target = rgs.find((r: any) => r.id === s.targetPane);
       return target && target.tabs.length === s.targetTabCount + 1;
     }, state, { timeout: 10000 });
 
@@ -307,7 +307,7 @@ test.describe('Layout & navigation', () => {
         if (n.type === 'pane') { rgs.push(n); return; }
         if (n.children) n.children.forEach(collect);
       })(sess.layout);
-      const target = rgs.find((r: any) => r.id === s.targetRegion);
+      const target = rgs.find((r: any) => r.id === s.targetPane);
       return {
         active: app.ws.activeWindow, focused: app.focused,
         targetActiveTab: target.activeTab,
@@ -317,7 +317,7 @@ test.describe('Layout & navigation', () => {
 
     expect(after.active).toBe(state.active);
     expect(after.focused).toBe(state.focused);
-    expect(after.targetActiveTab).toBe(state.targetActiveTab); // 대상 region 의 보던 탭 유지
+    expect(after.targetActiveTab).toBe(state.targetActiveTab); // 대상 pane 의 보던 탭 유지
     expect(after.newTabName).toBe('worker');
   });
 
@@ -415,7 +415,7 @@ test.describe('Layout & navigation', () => {
       await route.fulfill({ status: 200, body: '' });
     });
 
-    const before = await page.locator('#area .rg').count();
+    const before = await page.locator('#area .pn').count();
     const coord = await page.evaluate(() => {
       const app = (window as any).app;
       const si = app.ws.windows.findIndex((x: any) => x.id === app.ws.activeWindow) + 1;
@@ -423,7 +423,7 @@ test.describe('Layout & navigation', () => {
     });
     await page.evaluate((c) => (window as any).app._execRemote('splitV',
       { location: c, count: 2, keepFocus: true }), coord); // reqId 없음
-    await expect(page.locator('#area .rg')).toHaveCount(before + 1, { timeout: 10000 });
+    await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
     // 분할은 됐지만 echo 는 없어야.
     expect(captured.length).toBe(0);
   });
@@ -442,24 +442,24 @@ test.describe('Layout & navigation', () => {
     expect(lastName.length).toBe(64);
   });
 
-  test('keepFocus split preserves original region focus', async ({ page }) => {
+  test('keepFocus split preserves original pane focus', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.locator('#area .rg').count();
-    const firstRegion = page.locator('#area .rg').first();
-    await firstRegion.locator('.rg-body').click();
-    await expect(firstRegion).toHaveClass(/focused/);
-    const firstRegionId = await firstRegion.getAttribute('data-rid');
+    const before = await page.locator('#area .pn').count();
+    const firstPaneEl = page.locator('#area .pn').first();
+    await firstPaneEl.locator('.pn-body').click();
+    await expect(firstPaneEl).toHaveClass(/focused/);
+    const firstPaneId = await firstPaneEl.getAttribute('data-paneid');
 
     // Trigger split with keepFocus via evaluate (avoids Promise.all race).
     await page.evaluate(async () => {
       const app = (window as any).app;
       await app.split('horizontal', { keepFocus: true });
     });
-    await expect(page.locator('#area .rg')).toHaveCount(before + 1, { timeout: 10000 });
+    await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
 
-    // Focus should still be on the original region.
-    const focusedPane = page.locator('#area .rg.focused');
+    // Focus should still be on the original pane.
+    const focusedPane = page.locator('#area .pn.focused');
     await expect(focusedPane).toHaveCount(1);
-    expect(await focusedPane.getAttribute('data-rid')).toBe(firstRegionId);
+    expect(await focusedPane.getAttribute('data-paneid')).toBe(firstPaneId);
   });
 });

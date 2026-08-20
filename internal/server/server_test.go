@@ -78,12 +78,12 @@ func TestTwoServersInSameProcess(t *testing.T) {
 	}
 }
 
-// TestCreatePaneViaServer: POST /api/tools 가 실제 PaneManager 경유로 pane 을
+// TestCreatePaneViaServer: POST /api/tools 가 실제 ToolManager 경유로 tool 을
 // 생성하고 id/name 을 JSON 으로 돌려주는지 검증한다. Fake DataDir 에 저장되는
-// panes.json 쓰기가 go-routine 으로 돌아가지만 테스트 종료에 의해 정리된다.
+// tools.json 쓰기가 go-routine 으로 돌아가지만 테스트 종료에 의해 정리된다.
 func TestCreatePaneViaServer(t *testing.T) {
 	dir := t.TempDir()
-	pm := NewPaneManager(dir, nil)
+	pm := NewToolManager(dir, nil)
 	srv, err := New(Config{DataDir: dir}, Deps{Panes: pm})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -111,7 +111,7 @@ func TestCreatePaneViaServer(t *testing.T) {
 		t.Fatalf("missing id/name: %+v", out)
 	}
 	if pm.Get(out.ID) == nil {
-		t.Fatalf("pane %s not registered in manager", out.ID)
+		t.Fatalf("tool %s not registered in manager", out.ID)
 	}
 	// Cleanup: kill the shell so the PTY goroutines wind down.
 	pm.Delete(out.ID)

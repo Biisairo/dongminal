@@ -51,9 +51,9 @@ type index struct {
 	labels    map[string]string
 	labelToID map[string]string
 	tabIDs    map[string]struct{}
-	// uuidToID maps a tab's UUID (lower-case canonical form) to its paneId.
+	// uuidToID maps a tab's UUID (lower-case canonical form) to its toolId.
 	// Stable across label reflows: closing other sessions/regions does not
-	// shift the uuid->paneId binding (UUID_IDENTITY_SRS TC-UID-2).
+	// shift the uuid->toolId binding (UUID_IDENTITY_SRS TC-UID-2).
 	uuidToID map[string]string
 }
 
@@ -259,7 +259,7 @@ func (m *Manager) Resolve(id string) (string, error) {
 
 // CoordinateOf translates an identifier into the canonical positional
 // coordinate "W{n}.P{n}.T{n}" that the browser command pipeline parses. Only
-// UUID inputs are rewritten — coordinate, paneId, label, and empty inputs are
+// UUID inputs are rewritten — coordinate, toolId, label, and empty inputs are
 // returned unchanged (NFR-UID-0 행위 보존). Used by /api/commands and
 // workspace_command so dmctl and MCP accept UUID anywhere a location is
 // expected.
@@ -293,7 +293,7 @@ func (m *Manager) CoordinateOf(id string) (string, error) {
 
 // IsKnownTabID reports whether id matches a tab.id present in the current
 // workspace index (case-insensitive). Used by API entry points to enforce the
-// "location must be a list-panes uuid" policy (FR-DMC-9/10).
+// "location must be a list-tools uuid" policy (FR-DMC-9/10).
 func (m *Manager) IsKnownTabID(id string) bool {
 	if id == "" {
 		return false
@@ -354,7 +354,7 @@ func (m *Manager) Entries() []TabEntry {
 }
 
 func (m *Manager) InvalidateTool(toolID string) {
-	// Labels are positional (derived from workspace.json). Pane death doesn't
+	// Labels are positional (derived from workspace.json). Tool death doesn't
 	// shift labels; liveness is queried via Liveness at Resolve time. Kept as
 	// an explicit hook so callers (onExit) can signal the manager without
 	// caring about current semantics.
@@ -452,12 +452,12 @@ func shortCodeOf(uuid string) string {
 	return uuid
 }
 
-// CollectPanes walks a layout tree and appends every "pane" node to out.
+// CollectPanes walks a layout tree and appends every "tool" node to out.
 func CollectPanes(n *WsLayout, out *[]*WsLayout) {
 	if n == nil {
 		return
 	}
-	if n.Type == "pane" {
+	if n.Type == "tool" {
 		*out = append(*out, n)
 		return
 	}
@@ -466,4 +466,39 @@ func CollectPanes(n *WsLayout, out *[]*WsLayout) {
 			CollectPanes(c, out)
 		}
 	}
+}
+
+// ReferencedToolIDs returns the set of tool ids that some tab in blob points
+// at. Used at boot to distinguish live tools from orphans in tools.json
+// (FR-EM-14) — a tool nobody references is unreachable from any UI and must
+// not be respawned.
+//
+// Tabs without a tool (editor/markdown) contribute nothing. An empty blob
+// yields an empty set. A pre-v2 blob is an error, never an empty set: silently
+// treating it as "nothing referenced" would classify every tool as an orphan
+// and discard the user's whole session.
+func ReferencedToolIDs(blob []byte) (map[string]struct{}, error) {
+	out := map[string]struct{}{}
+	if len(blob) == 0 {
+		return out, nil
+	}
+	var s wsState
+	if err := json.Unmarshal(blob, &s); err != nil {
+		return nil, err
+	}
+	if s.SchemaVersion < SchemaVersion {
+		return nil, ErrSchemaTooOld
+	}
+	for _, win := range s.Windows {
+		var tools []*WsLayout
+		CollectPanes(win.Layout, &tools)
+		for _, pn := range tools {
+			for _, tab := range pn.Tabs {
+				if tab.ToolID != "" {
+					out[tab.ToolID] = struct{}{}
+				}
+			}
+		}
+	}
+	return out, nil
 }

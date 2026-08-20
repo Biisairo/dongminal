@@ -2,14 +2,14 @@
  * Remote Terminal — xterm + WebSocket pane
  */
 
-class TermPane {
+class TerminalTool {
   constructor(id, name) {
     this.id=id; this.name=name;
     this.ws=null; this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false; this._destroyed=false; this._retryDelay=0;
     this._sendQueue=[]; this._sendQueueMax=64; this._sendDropCount=0;
     this._decoder=new TextDecoder('utf-8',{fatal:false}); this._outputBuf=''; this._flushScheduled=false;
     this.el=document.createElement('div');
-    this.el.className='tp'; this.el.dataset.pid=id;
+    this.el.className='tp'; this.el.dataset.toolid=id;
     this.box=document.createElement('div');
     this.box.style.cssText='width:100%;height:100%';
     this.el.appendChild(this.box);
@@ -116,7 +116,7 @@ class TermPane {
       if(d[0]===OP.OUTPUT){
         this._handleOutput(d.subarray(1));
       } else if(d[0]===OP.SID){
-        this.id=dec.decode(d.subarray(1)); this.el.dataset.pid=this.id;
+        this.id=dec.decode(d.subarray(1)); this.el.dataset.toolid=this.id;
       } else if(d[0]===OP.EXIT){
         this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n');
       } else if(d[0]===OP.ERROR){
@@ -177,7 +177,7 @@ class TermPane {
       ws.onmessage=e=>{
         const d=new Uint8Array(e.data); if(!d.length) return;
         if(d[0]===OP.OUTPUT){ this._handleOutput(d.subarray(1)); }
-        else if(d[0]===OP.SID){ this.id=dec.decode(d.subarray(1));this.el.dataset.pid=this.id; }
+        else if(d[0]===OP.SID){ this.id=dec.decode(d.subarray(1));this.el.dataset.toolid=this.id; }
         else if(d[0]===OP.EXIT){ this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n'); }
         else if(d[0]===OP.ERROR){ this.write('\r\n\x1b[31m'+dec.decode(d.subarray(1))+'\x1b[0m\r\n'); }
       };

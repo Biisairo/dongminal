@@ -1,5 +1,5 @@
 // Package server owns the HTTP/MCP endpoints and subsystem managers. A
-// *Server value aggregates the per-instance state (pane registry, workspace
+// *Server value aggregates the per-instance state (tool registry, workspace
 // store, MCP session registry, tool registry) so that two independent servers
 // can coexist in a single process (tests, embedded scenarios).
 package server
@@ -32,7 +32,7 @@ type Config struct {
 // Server owns the HTTP server lifecycle.
 type Server struct {
 	cfg         Config
-	Panes       PaneHub
+	Panes       ToolHub
 	Work        WorkspaceStore
 	Tools       ToolDispatcher
 	Commands    CommandBroker
@@ -219,7 +219,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 
 // shouldLogRequest filters high-frequency hot-path endpoints from the access
 // log. Errors (status>=400) always log so failures stay observable. Split
-// panes / pane-delete flows hammer /api/workspace and /api/tools dozens of
+// tools / tool-delete flows hammer /api/workspace and /api/tools dozens of
 // times per second; logging each one caused hundreds of ms of keyboard-input
 // lag (H5).
 func shouldLogRequest(path string, status int) bool {

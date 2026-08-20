@@ -7,12 +7,12 @@ import (
 	"time"
 )
 
-// AttnTracker manages per-pane attention and activity state in dongminal's
-// memory. Used in daemon mode where PaneManager lives in dongminald and
+// AttnTracker manages per-tool attention and activity state in dongminal's
+// memory. Used in daemon mode where ToolManager lives in dongminald and
 // dongminal needs its own attention/activity detection (DAEMON_SPLIT_SRS).
 type AttnTracker struct {
 	mu    sync.Mutex
-	panes map[string]*attnPaneState
+	tools map[string]*attnPaneState
 	hub   CommandBroker
 
 	// L2 idle sweeper
@@ -21,7 +21,7 @@ type AttnTracker struct {
 	ticker        *time.Ticker
 	stop          chan struct{}
 
-	// Output observation per pane
+	// Output observation per tool
 	onAttention      func(id, reason string)
 	onAttentionClear func(id string)
 	onActivity       func(id, state, tool, detail string)
@@ -45,7 +45,7 @@ func DefaultIdleMS() int { return int(attentionIdleThreshold() / time.Millisecon
 // NewAttnTracker creates an attention/activity tracker wired to the SSE hub.
 func NewAttnTracker(hub CommandBroker, idleMS int) *AttnTracker {
 	t := &AttnTracker{
-		panes:         map[string]*attnPaneState{},
+		tools:         map[string]*attnPaneState{},
 		hub:           hub,
 		idleThreshold: int64(idleMS) * int64(time.Millisecond),
 		stop:          make(chan struct{}),
@@ -63,7 +63,7 @@ func NewAttnTracker(hub CommandBroker, idleMS int) *AttnTracker {
 }
 
 // SetBusyProbe installs the foreground-process check used by the L2 idle
-// sweeper. In daemon mode this is wired to PaneClient.Busy (a busy RPC to
+// sweeper. In daemon mode this is wired to ToolClient.Busy (a busy RPC to
 // dongminald). Without it, idle never fires (matching direct mode, where a
 // bare prompt must not raise an alarm — DAEMON_SPLIT_SRS FR-15).
 func (t *AttnTracker) SetBusyProbe(f func(string) bool) {
@@ -101,12 +101,12 @@ func (t *AttnTracker) Stop() {
 
 // FeedOutput processes raw PTY output for attention detection (L1 OSC).
 // Called from handleWSDaemon when output arrives from dongminald.
-func (t *AttnTracker) FeedOutput(paneID string, data []byte) {
+func (t *AttnTracker) FeedOutput(toolID string, data []byte) {
 	t.mu.Lock()
-	ps := t.panes[paneID]
+	ps := t.tools[toolID]
 	if ps == nil {
-		ps = &attnPaneState{id: paneID}
-		t.panes[paneID] = ps
+		ps = &attnPaneState{id: toolID}
+		t.tools[toolID] = ps
 	}
 	t.mu.Unlock()
 
@@ -124,7 +124,7 @@ func (t *AttnTracker) FeedOutput(paneID string, data []byte) {
 		ps.attnCarry = carry
 		if sig {
 			if ps.attention.CompareAndSwap(false, true) {
-				t.onAttention(paneID, "signaled")
+				t.onAttention(toolID, "signaled")
 			}
 		}
 	} else {
@@ -133,12 +133,12 @@ func (t *AttnTracker) FeedOutput(paneID string, data []byte) {
 }
 
 // SignalAttention sets attention explicitly (dmctl notify).
-func (t *AttnTracker) SignalAttention(paneID, reason string) {
+func (t *AttnTracker) SignalAttention(toolID, reason string) {
 	t.mu.Lock()
-	ps := t.panes[paneID]
+	ps := t.tools[toolID]
 	if ps == nil {
-		ps = &attnPaneState{id: paneID}
-		t.panes[paneID] = ps
+		ps = &attnPaneState{id: toolID}
+		t.tools[toolID] = ps
 	}
 	t.mu.Unlock()
 
@@ -146,27 +146,27 @@ func (t *AttnTracker) SignalAttention(paneID, reason string) {
 	if reason == "" {
 		reason = "signaled"
 	}
-	t.onAttention(paneID, reason)
+	t.onAttention(toolID, reason)
 }
 
 // Attend clears attention (user focus).
-func (t *AttnTracker) Attend(paneID string) {
+func (t *AttnTracker) Attend(toolID string) {
 	t.mu.Lock()
-	ps := t.panes[paneID]
+	ps := t.tools[toolID]
 	t.mu.Unlock()
 	if ps == nil {
 		return
 	}
 	ps.attnArmed.Store(false)
 	if ps.attention.CompareAndSwap(true, false) {
-		t.onAttentionClear(paneID)
+		t.onAttentionClear(toolID)
 	}
 }
 
-// Attention returns whether the pane currently needs attention.
-func (t *AttnTracker) Attention(paneID string) bool {
+// Attention returns whether the tool currently needs attention.
+func (t *AttnTracker) Attention(toolID string) bool {
 	t.mu.Lock()
-	ps := t.panes[paneID]
+	ps := t.tools[toolID]
 	t.mu.Unlock()
 	if ps == nil {
 		return false
@@ -174,12 +174,12 @@ func (t *AttnTracker) Attention(paneID string) bool {
 	return ps.attention.Load()
 }
 
-// AttentionIDs returns all pane IDs currently needing attention.
+// AttentionIDs returns all tool IDs currently needing attention.
 func (t *AttnTracker) AttentionIDs() []string {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	var ids []string
-	for id, ps := range t.panes {
+	for id, ps := range t.tools {
 		if ps.attention.Load() {
 			ids = append(ids, id)
 		}
@@ -187,12 +187,12 @@ func (t *AttnTracker) AttentionIDs() []string {
 	return ids
 }
 
-// ClearAllAttention clears attention for all panes.
+// ClearAllAttention clears attention for all tools.
 func (t *AttnTracker) ClearAllAttention() int {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	n := 0
-	for _, ps := range t.panes {
+	for _, ps := range t.tools {
 		if ps.attention.CompareAndSwap(true, false) {
 			t.onAttentionClear(ps.id)
 			n++
@@ -201,13 +201,13 @@ func (t *AttnTracker) ClearAllAttention() int {
 	return n
 }
 
-// SetActivity sets the activity state for a pane.
-func (t *AttnTracker) SetActivity(paneID, state, tool, detail string) {
+// SetActivity sets the activity state for a tool.
+func (t *AttnTracker) SetActivity(toolID, state, tool, detail string) {
 	t.mu.Lock()
-	ps := t.panes[paneID]
+	ps := t.tools[toolID]
 	if ps == nil {
-		ps = &attnPaneState{id: paneID}
-		t.panes[paneID] = ps
+		ps = &attnPaneState{id: toolID}
+		t.tools[toolID] = ps
 	}
 	t.mu.Unlock()
 
@@ -221,13 +221,13 @@ func (t *AttnTracker) SetActivity(paneID, state, tool, detail string) {
 			UpdatedAt: time.Now().UnixNano(),
 		})
 	}
-	t.onActivity(paneID, state, tool, detail)
+	t.onActivity(toolID, state, tool, detail)
 }
 
-// Activity returns the current activity state for a pane.
-func (t *AttnTracker) Activity(paneID string) *activityState {
+// Activity returns the current activity state for a tool.
+func (t *AttnTracker) Activity(toolID string) *activityState {
 	t.mu.Lock()
-	ps := t.panes[paneID]
+	ps := t.tools[toolID]
 	t.mu.Unlock()
 	if ps == nil {
 		return nil
@@ -235,16 +235,16 @@ func (t *AttnTracker) Activity(paneID string) *activityState {
 	return ps.activity.Load()
 }
 
-// ActivitySnapshot returns current activity for all panes. A "working" card
+// ActivitySnapshot returns current activity for all tools. A "working" card
 // whose foreground process is gone is pruned so an abnormal agent exit (no
 // Stop/SessionEnd hook) doesn't leave a stale "working" card — parity with
-// direct-mode PaneManager.ActivitySnapshot (FR-AAP-20). The busy probe (an RPC
+// direct-mode ToolManager.ActivitySnapshot (FR-AAP-20). The busy probe (an RPC
 // to dongminald) runs outside the lock.
 func (t *AttnTracker) ActivitySnapshot() []activitySnap {
 	t.mu.Lock()
 	probe := t.busyProbe
-	items := make([]activitySnap, 0, len(t.panes))
-	for id, ps := range t.panes {
+	items := make([]activitySnap, 0, len(t.tools))
+	for id, ps := range t.tools {
 		a := ps.activity.Load()
 		if a == nil {
 			continue
@@ -273,8 +273,8 @@ func (t *AttnTracker) ActivitySnapshot() []activitySnap {
 func (t *AttnTracker) sweepIdle() {
 	now := time.Now().UnixNano()
 	t.mu.Lock()
-	snap := make([]*attnPaneState, 0, len(t.panes))
-	for _, ps := range t.panes {
+	snap := make([]*attnPaneState, 0, len(t.tools))
+	for _, ps := range t.tools {
 		snap = append(snap, ps)
 	}
 	t.mu.Unlock()
@@ -293,7 +293,7 @@ func (t *AttnTracker) sweepIdle() {
 		ps.attnArmed.Store(false)
 		// Idle only fires when a foreground process is actually running (an
 		// agent waiting on the user); a bare shell at its prompt must not raise
-		// an alarm. Mirrors direct-mode Pane.maybeIdle (FR-15).
+		// an alarm. Mirrors direct-mode Tool.maybeIdle (FR-15).
 		if probe == nil || !probe(ps.id) {
 			continue
 		}

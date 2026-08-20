@@ -31,7 +31,7 @@ const sampleV2 = `{
         "direction": "row",
         "children": [
           {
-            "type": "pane",
+            "type": "tool",
             "id": "r1",
             "activeTab": "t1",
             "tabs": [
@@ -40,7 +40,7 @@ const sampleV2 = `{
             ]
           },
           {
-            "type": "pane",
+            "type": "tool",
             "id": "r2",
             "activeTab": "t3",
             "tabs": [
@@ -123,7 +123,7 @@ func TestSave_RejectsMissingSchemaVersion(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 	defer m.Close()
-	blob := `{"windows":[{"id":"s1","name":"w","layout":{"type":"pane","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"a","toolId":"10"}]}}]}`
+	blob := `{"windows":[{"id":"s1","name":"w","layout":{"type":"tool","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"a","toolId":"10"}]}}]}`
 	if _, err := m.Save([]byte(blob), ""); !errors.Is(err, ErrSchemaTooOld) {
 		t.Errorf("schemaVersion 누락 Save err = %v, want ErrSchemaTooOld", err)
 	}

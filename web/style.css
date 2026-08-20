@@ -111,17 +111,17 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .sp[data-d="horizontal"]>.sh::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
 .sp[data-d="vertical"]>.sh::before{content:'';position:absolute;left:0;right:0;top:-6px;bottom:-6px}
 
-/* ── Region ── */
-.rg{display:flex;flex-direction:column;position:absolute;inset:0;border:2px solid transparent}
-.rg.focused{border-color:var(--accent)}
-.rg.focused .rg-tabs{border-bottom-color:var(--accent)}
+/* ── Pane (분할 칸) ── */
+.pn{display:flex;flex-direction:column;position:absolute;inset:0;border:2px solid transparent}
+.pn.focused{border-color:var(--accent)}
+.pn.focused .pn-tabs{border-bottom-color:var(--accent)}
 
-.rg-tabs{
+.pn-tabs{
   height:28px;min-height:28px;display:flex;align-items:stretch;
   background:var(--sidebar-bg);border-bottom:1px solid var(--border);
   overflow-x:auto;flex-shrink:0;
 }
-.rg-tabs::-webkit-scrollbar{height:0}
+.pn-tabs::-webkit-scrollbar{height:0}
 .rt{
   display:flex;align-items:center;padding:0 10px;gap:4px;
   font-size:12px;color:var(--text-muted);cursor:pointer;
@@ -140,7 +140,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 
 /* 주의 알림 강조 — 포커스(--accent)·위험(--danger)과 구분되는 테마색 --attn, 굵은 실선+글로우로 가시성 강화 (FR-PAN-10) */
 .rt.attn{color:var(--attn);background:var(--attn-subtle);font-weight:600;box-shadow:inset 0 -3px 0 var(--attn)}
-.rg.attn{border-color:var(--attn);box-shadow:inset 0 0 0 2px var(--attn),0 0 12px -1px var(--attn-glow)}
+.pn.attn{border-color:var(--attn);box-shadow:inset 0 0 0 2px var(--attn),0 0 12px -1px var(--attn-glow)}
 .si.attn{box-shadow:inset 3px 0 0 var(--attn)}
 .si.attn .si-dot{background:var(--attn);box-shadow:0 0 6px var(--attn-glow)}
 
@@ -172,7 +172,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .ag-state.idle{color:var(--text)}
 .ag-detail{font-size:11px;color:var(--text);margin-top:2px;font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-.rg-body{flex:1;position:relative;overflow:hidden}
+.pn-body{flex:1;position:relative;overflow:hidden}
 
 /* ── term pane ── */
 .tp{position:absolute;inset:0;display:none;padding:1px;transition:opacity .15s ease}
@@ -357,7 +357,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .tp-ov-sub{color:var(--text-muted);font-size:11px}
 
 /* ── Dimmed session overlay (multi-window: another window owns this session) ── */
-.rg-dimmed .rg-body::after{
+.pn-dimmed .pn-body::after{
   content:'클릭하여 포커스';
   position:absolute;inset:0;z-index:30;
   display:flex;align-items:center;justify-content:center;
@@ -367,7 +367,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   pointer-events:none;
 }
 /* Hide connection-lost overlay behind the dimmed overlay */
-.rg-dimmed .tp-overlay{display:none !important}
+.pn-dimmed .tp-overlay{display:none !important}
 
 /* ── Status Bar ── */
 .status-bar{
@@ -555,7 +555,7 @@ body.mobile #window-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;wh
 /* keybar sits above safe area when keyboard is up; JS sets bottom dynamically (visibility handled at L392) */
 
 /* on mobile, hide split-related drag indicators */
-body.mobile .rg-drop-indicator{display:none !important}
+body.mobile .pn-drop-indicator{display:none !important}
 
 /* enlarge touch targets on mobile */
 body.mobile .si{height:40px;font-size:13px}
@@ -568,7 +568,7 @@ body.mobile #windows{padding-top:8px}
 body.mobile .sb-title{padding:14px 14px 8px}
 
 /* ── Tab bar drag target ── */
-.rg-tabs.drag-target{background:var(--accent-hover);box-shadow:inset 0 -2px 0 var(--accent)}
+.pn-tabs.drag-target{background:var(--accent-hover);box-shadow:inset 0 -2px 0 var(--accent)}
 
 /* ── Drag reorder indicators ── */
 .si.dragging{opacity:.35}
@@ -579,17 +579,17 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .rt.drag-right{box-shadow:inset -2px 0 0 var(--accent)}
 
 /* ── Tab→Pane drop zone indicator ── */
-.rg-drop-indicator{
+.pn-drop-indicator{
   position:absolute;pointer-events:none;
   background:var(--accent);opacity:.18;
   border:2px solid var(--accent);border-radius:2px;z-index:15;
   transition:all .08s;
 }
-.rg-drop-indicator[data-zone="left"]  {top:0;left:0;width:33%;height:100%}
-.rg-drop-indicator[data-zone="right"] {top:0;right:0;width:33%;height:100%;left:auto}
-.rg-drop-indicator[data-zone="top"]   {top:0;left:0;width:100%;height:33%}
-.rg-drop-indicator[data-zone="bottom"]{bottom:0;left:0;width:100%;height:33%;top:auto}
-.rg-drop-indicator[data-zone="center"]{top:5%;left:5%;width:90%;height:90%;opacity:.1;border-style:dashed}
+.pn-drop-indicator[data-zone="left"]  {top:0;left:0;width:33%;height:100%}
+.pn-drop-indicator[data-zone="right"] {top:0;right:0;width:33%;height:100%;left:auto}
+.pn-drop-indicator[data-zone="top"]   {top:0;left:0;width:100%;height:33%}
+.pn-drop-indicator[data-zone="bottom"]{bottom:0;left:0;width:100%;height:33%;top:auto}
+.pn-drop-indicator[data-zone="center"]{top:5%;left:5%;width:90%;height:90%;opacity:.1;border-style:dashed}
 
 /* ── File Editor (Monaco) ── */
 .file-editor{

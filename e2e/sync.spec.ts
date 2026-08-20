@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 async function waitForInit(page) {
   await page.goto('/');
-  await page.waitForSelector('#area .rg.focused .xterm-helper-textarea', { timeout: 15000 });
+  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 test.describe('Multi-client synchronization via SSE', () => {
@@ -46,19 +46,19 @@ test.describe('Multi-client synchronization via SSE', () => {
     await waitForInit(pageA);
     await waitForInit(pageB);
 
-    const beforeA = await pageA.locator('#area .rg.focused .rt').count();
-    const beforeB = await pageB.locator('#area .rg.focused .rt').count();
+    const beforeA = await pageA.locator('#area .pn.focused .rt').count();
+    const beforeB = await pageB.locator('#area .pn.focused .rt').count();
 
     // Client A adds a tab.
     const [resp] = await Promise.all([
       pageA.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-      pageA.locator('#area .rg.focused .rt-add').click(),
+      pageA.locator('#area .pn.focused .rt-add').click(),
     ]);
     expect(resp.status()).toBe(200);
 
     // Both clients should see the new tab.
-    await expect(pageA.locator('#area .rg.focused .rt')).toHaveCount(beforeA + 1, { timeout: 15000 });
-    await expect(pageB.locator('#area .rg.focused .rt')).toHaveCount(beforeB + 1, { timeout: 15000 });
+    await expect(pageA.locator('#area .pn.focused .rt')).toHaveCount(beforeA + 1, { timeout: 15000 });
+    await expect(pageB.locator('#area .pn.focused .rt')).toHaveCount(beforeB + 1, { timeout: 15000 });
 
     await ctxA.close();
     await ctxB.close();
@@ -75,8 +75,8 @@ test.describe('Multi-client synchronization via SSE', () => {
     await waitForInit(pageA);
     await waitForInit(pageB);
 
-    const beforeA = await pageA.locator('#area .rg').count();
-    const beforeB = await pageB.locator('#area .rg').count();
+    const beforeA = await pageA.locator('#area .pn').count();
+    const beforeB = await pageB.locator('#area .pn').count();
 
     // Client A splits horizontally.
     const [resp] = await Promise.all([
@@ -85,9 +85,9 @@ test.describe('Multi-client synchronization via SSE', () => {
     ]);
     expect(resp.status()).toBe(200);
 
-    // Both clients should see the new region.
-    await expect(pageA.locator('#area .rg')).toHaveCount(beforeA + 1, { timeout: 15000 });
-    await expect(pageB.locator('#area .rg')).toHaveCount(beforeB + 1, { timeout: 15000 });
+    // Both clients should see the new pane.
+    await expect(pageA.locator('#area .pn')).toHaveCount(beforeA + 1, { timeout: 15000 });
+    await expect(pageB.locator('#area .pn')).toHaveCount(beforeB + 1, { timeout: 15000 });
 
     await ctxA.close();
     await ctxB.close();

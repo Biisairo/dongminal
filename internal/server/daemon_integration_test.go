@@ -18,7 +18,7 @@ func TestDaemonFullFlow(t *testing.T) {
 	os.MkdirAll(dataDir, 0o755)
 
 	// Start dongminald
-	pm := NewPaneManager(dataDir, nil)
+	pm := NewToolManager(dataDir, nil)
 	ps := NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -28,9 +28,9 @@ func TestDaemonFullFlow(t *testing.T) {
 	go func() { ps.Accept() }()
 
 	// Connect dongminal
-	pc, err := DialPaneClient(sockPath)
+	pc, err := DialToolClient(sockPath)
 	if err != nil {
-		t.Fatalf("DialPaneClient: %v", err)
+		t.Fatalf("DialToolClient: %v", err)
 	}
 	defer pc.Close()
 
@@ -39,8 +39,8 @@ func TestDaemonFullFlow(t *testing.T) {
 	tracker := NewAttnTracker(hub, 500) // 500ms idle threshold for fast test
 
 	// Wire exit → activity cleanup
-	pc.OnExit = func(paneID string, code int) {
-		tracker.SetActivity(paneID, "ended", "", "")
+	pc.OnExit = func(toolID string, code int) {
+		tracker.SetActivity(toolID, "ended", "", "")
 	}
 	pc.FlushEarlyPushes()
 
@@ -67,30 +67,30 @@ func TestDaemonFullFlow(t *testing.T) {
 	}()
 	defer hub.remove(sub)
 
-	// Create a pane
-	pane, err := pc.Create("/tmp", 80, 24)
+	// Create a tool
+	tool, err := pc.Create("/tmp", 80, 24)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	paneID := pane.ID
+	toolID := tool.ID
 
 	// Give the shell time to start and produce output (prompt)
 	time.Sleep(200 * time.Millisecond)
 
 	// Subscribe to output
 	outputCh := make(chan []byte, 32)
-	_, unsub := pc.Subscribe(paneID, outputCh)
+	_, unsub := pc.Subscribe(toolID, outputCh)
 	defer unsub()
 
 	// Feed output to attention tracker
 	go func() {
 		for data := range outputCh {
-			tracker.FeedOutput(paneID, data)
+			tracker.FeedOutput(toolID, data)
 		}
 	}()
 
 	// Write input to trigger output
-	if err := pc.Write(paneID, []byte("echo hello\n")); err != nil {
+	if err := pc.Write(toolID, []byte("echo hello\n")); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
 
@@ -99,27 +99,27 @@ func TestDaemonFullFlow(t *testing.T) {
 	case <-outputCh:
 		// got some output
 	case <-time.After(2 * time.Second):
-		t.Fatal("no output received from pane")
+		t.Fatal("no output received from tool")
 	}
 
 	// Set activity
-	tracker.SetActivity(paneID, "working", "claude", "testing")
+	tracker.SetActivity(toolID, "working", "claude", "testing")
 
 	// Snapshot
-	snap, err := pc.SnapshotPane(paneID)
+	snap, err := pc.SnapshotTool(toolID)
 	if err != nil {
-		t.Fatalf("SnapshotPane: %v", err)
+		t.Fatalf("SnapshotTool: %v", err)
 	}
 	if snap.Data == nil {
 		t.Fatal("snapshot data is nil")
 	}
 
-	// Kill pane → should trigger exit → activity cleanup
-	pc.Delete(paneID)
+	// Kill tool → should trigger exit → activity cleanup
+	pc.Delete(toolID)
 	time.Sleep(300 * time.Millisecond)
 
 	// Verify activity was cleared
-	if a := tracker.Activity(paneID); a != nil {
+	if a := tracker.Activity(toolID); a != nil {
 		t.Fatal("activity should be nil after exit")
 	}
 
@@ -163,7 +163,7 @@ func TestDaemonAttentionDetection(t *testing.T) {
 
 	// Feed output with OSC 9 notification
 	oscNotify := []byte("\x1b]9;done\x07")
-	tracker.FeedOutput("test-pane", oscNotify)
+	tracker.FeedOutput("test-tool", oscNotify)
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -181,7 +181,7 @@ func TestDaemonAttentionDetection(t *testing.T) {
 	}
 
 	// Clear attention
-	tracker.Attend("test-pane")
+	tracker.Attend("test-tool")
 	time.Sleep(50 * time.Millisecond)
 	sseMu.Lock()
 	hasClear := false
@@ -196,7 +196,7 @@ func TestDaemonAttentionDetection(t *testing.T) {
 	}
 }
 
-// TestDaemonReconnectPreservesPanes verifies that panes survive
+// TestDaemonReconnectPreservesPanes verifies that tools survive
 // a dongminal reconnection (dongminald stays alive).
 func TestDaemonReconnectPreservesPanes(t *testing.T) {
 	dir := t.TempDir()
@@ -204,13 +204,13 @@ func TestDaemonReconnectPreservesPanes(t *testing.T) {
 	dataDir := dir + "/d"
 	os.MkdirAll(dataDir, 0o755)
 
-	// Start dongminald with a pane created directly in PaneManager
-	pm := NewPaneManager(dataDir, nil)
+	// Start dongminald with a tool created directly in ToolManager
+	pm := NewToolManager(dataDir, nil)
 	p, err := pm.Create("/tmp", 80, 24)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	paneID := p.ID
+	toolID := p.ID
 
 	ps := NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
@@ -220,21 +220,21 @@ func TestDaemonReconnectPreservesPanes(t *testing.T) {
 
 	// First dongminal connection
 	go func() { ps.Accept() }()
-	pc1, err := DialPaneClient(sockPath)
+	pc1, err := DialToolClient(sockPath)
 	if err != nil {
 		t.Fatalf("Dial1: %v", err)
 	}
 
-	// Verify pane exists
+	// Verify tool exists
 	panes1 := pc1.List()
 	found := false
 	for _, m := range panes1 {
-		if m["id"].(string) == paneID {
+		if m["id"].(string) == toolID {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatal("pane not found in list after first connection")
+		t.Fatal("tool not found in list after first connection")
 	}
 
 	// Simulate dongminal restart: close client, accept new connection
@@ -243,29 +243,29 @@ func TestDaemonReconnectPreservesPanes(t *testing.T) {
 
 	// Second dongminal connects
 	go func() { ps.Accept() }()
-	pc2, err := DialPaneClient(sockPath)
+	pc2, err := DialToolClient(sockPath)
 	if err != nil {
 		t.Fatalf("Dial2: %v", err)
 	}
 	defer pc2.Close()
 
-	// Verify pane still exists
+	// Verify tool still exists
 	panes2 := pc2.List()
 	found = false
 	for _, m := range panes2 {
-		if m["id"].(string) == paneID {
+		if m["id"].(string) == toolID {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatal("pane not found after reconnection")
+		t.Fatal("tool not found after reconnection")
 	}
 
 	// Output should still flow
-	_ = pm.Write(paneID, []byte("echo reconnect_test\n"))
+	_ = pm.Write(toolID, []byte("echo reconnect_test\n"))
 	time.Sleep(200 * time.Millisecond)
 
-	snap, _ := pm.SnapshotPane(paneID)
+	snap, _ := pm.SnapshotTool(toolID)
 	if len(snap.Data) == 0 {
 		t.Fatal("snapshot empty after write — output not flowing")
 	}
@@ -367,7 +367,7 @@ func bytesRepeat(n int, b byte) []byte {
 func TestDaemonPaneCreateDeleteLifecycle(t *testing.T) {
 	sockPath := t.TempDir() + "/s"
 
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	ps := NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -376,13 +376,13 @@ func TestDaemonPaneCreateDeleteLifecycle(t *testing.T) {
 
 	go func() { ps.Accept() }()
 
-	pc, err := DialPaneClient(sockPath)
+	pc, err := DialToolClient(sockPath)
 	if err != nil {
-		t.Fatalf("DialPaneClient: %v", err)
+		t.Fatalf("DialToolClient: %v", err)
 	}
 	defer pc.Close()
 
-	// Create 3 panes
+	// Create 3 tools
 	for i := 0; i < 3; i++ {
 		_, err := pc.Create("/tmp", 80, 24)
 		if err != nil {
@@ -392,10 +392,10 @@ func TestDaemonPaneCreateDeleteLifecycle(t *testing.T) {
 
 	// List should show 3
 	if len(pc.List()) != 3 {
-		t.Fatalf("expected 3 panes, got %d", len(pc.List()))
+		t.Fatalf("expected 3 tools, got %d", len(pc.List()))
 	}
 
-	// Delete middle pane
+	// Delete middle tool
 	ids := make([]string, 0)
 	for _, m := range pc.List() {
 		ids = append(ids, m["id"].(string))
@@ -405,7 +405,7 @@ func TestDaemonPaneCreateDeleteLifecycle(t *testing.T) {
 
 	// List should show 2
 	if len(pc.List()) != 2 {
-		t.Fatalf("expected 2 panes after delete, got %d", len(pc.List()))
+		t.Fatalf("expected 2 tools after delete, got %d", len(pc.List()))
 	}
 }
 
@@ -421,7 +421,7 @@ func TestDaemonPanedServerSocketCleanup(t *testing.T) {
 		f.Close()
 	}
 
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	ps := NewPanedServer(pm, sockPath, pidPath)
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -445,31 +445,31 @@ func TestDaemonPanedServerSocketCleanup(t *testing.T) {
 }
 
 // TestDaemonAttnTrackerMultiplePanes verifies attention tracking
-// works independently for multiple panes.
+// works independently for multiple tools.
 func TestDaemonAttnTrackerMultiplePanes(t *testing.T) {
 	hub := NewCommandHub()
 	tracker := NewAttnTracker(hub, 10000)
 
-	// Signal attention for pane A (FeedOutput first to register)
+	// Signal attention for tool A (FeedOutput first to register)
 	tracker.FeedOutput("A", []byte("prompt"))
 	tracker.SignalAttention("A", "done")
 	if !tracker.Attention("A") {
-		t.Fatal("pane A should have attention")
+		t.Fatal("tool A should have attention")
 	}
 
-	// Signal attention for pane B
+	// Signal attention for tool B
 	tracker.SignalAttention("B", "waiting")
 	if !tracker.Attention("B") {
-		t.Fatal("pane B should have attention")
+		t.Fatal("tool B should have attention")
 	}
 
 	// Attend A
 	tracker.Attend("A")
 	if tracker.Attention("A") {
-		t.Fatal("pane A should NOT have attention after attend")
+		t.Fatal("tool A should NOT have attention after attend")
 	}
 	if !tracker.Attention("B") {
-		t.Fatal("pane B should still have attention")
+		t.Fatal("tool B should still have attention")
 	}
 
 	// Clear all
@@ -478,12 +478,12 @@ func TestDaemonAttnTrackerMultiplePanes(t *testing.T) {
 		t.Fatalf("ClearAllAttention cleared=%d want 1", cleared)
 	}
 	if tracker.Attention("B") {
-		t.Fatal("pane B should NOT have attention after clear-all")
+		t.Fatal("tool B should NOT have attention after clear-all")
 	}
 }
 
 // TestDaemonConcurrentPushAndRequest exercises the IPC write path under
-// concurrency: a pane streams output (push events from the readPTY goroutine)
+// concurrency: a tool streams output (push events from the readPTY goroutine)
 // while the client hammers RPC requests (responses from the handle goroutine).
 // Both encode onto the same json.Encoder; without writeMu serialization this
 // races and corrupts the JSON-Lines stream (FR-11). Run with -race.
@@ -493,7 +493,7 @@ func TestDaemonConcurrentPushAndRequest(t *testing.T) {
 	dataDir := dir + "/d"
 	os.MkdirAll(dataDir, 0o755)
 
-	pm := NewPaneManager(dataDir, nil)
+	pm := NewToolManager(dataDir, nil)
 	ps := NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -501,27 +501,27 @@ func TestDaemonConcurrentPushAndRequest(t *testing.T) {
 	defer ps.Close()
 	go func() { ps.Accept() }()
 
-	pc, err := DialPaneClient(sockPath)
+	pc, err := DialToolClient(sockPath)
 	if err != nil {
-		t.Fatalf("DialPaneClient: %v", err)
+		t.Fatalf("DialToolClient: %v", err)
 	}
 	defer pc.Close()
 
-	// Create a pane and subscribe so push events flow.
-	pane, err := pc.Create("/tmp", 80, 24)
+	// Create a tool and subscribe so push events flow.
+	tool, err := pc.Create("/tmp", 80, 24)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 	outputCh := make(chan []byte, 256)
-	_, unsub := pc.Subscribe(pane.ID, outputCh)
+	_, unsub := pc.Subscribe(tool.ID, outputCh)
 	defer unsub()
 	go func() {
 		for range outputCh {
 		}
 	}()
 
-	// Flood output from the pane (push events) ...
-	if err := pc.Write(pane.ID, []byte("for i in $(seq 1 2000); do echo concurrency_probe_$i; done\n")); err != nil {
+	// Flood output from the tool (push events) ...
+	if err := pc.Write(tool.ID, []byte("for i in $(seq 1 2000); do echo concurrency_probe_$i; done\n")); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
 
@@ -531,8 +531,8 @@ func TestDaemonConcurrentPushAndRequest(t *testing.T) {
 		defer close(done)
 		for i := 0; i < 400; i++ {
 			pc.List()
-			_ = pc.Cwd(pane.ID)
-			_ = pc.Busy(pane.ID)
+			_ = pc.Cwd(tool.ID)
+			_ = pc.Busy(tool.ID)
 		}
 	}()
 
@@ -544,7 +544,7 @@ func TestDaemonConcurrentPushAndRequest(t *testing.T) {
 
 	// The connection must still be usable (stream not corrupted).
 	if l := pc.List(); len(l) != 1 {
-		t.Fatalf("expected 1 pane after concurrent IO, got %d", len(l))
+		t.Fatalf("expected 1 tool after concurrent IO, got %d", len(l))
 	}
 }
 
@@ -581,7 +581,7 @@ func TestDaemonAttnTrackerL2IdleBusyGate(t *testing.T) {
 	defer mu.Unlock()
 	for _, r := range reasons {
 		if r == "tool_attention" {
-			t.Fatal("idle attention must not fire when pane is not busy (FR-15)")
+			t.Fatal("idle attention must not fire when tool is not busy (FR-15)")
 		}
 	}
 }
@@ -644,13 +644,13 @@ func TestDaemonAttnTrackerL2IdleSuppressedWhileWorking(t *testing.T) {
 	}
 }
 
-// TestDaemonExitClosesSubscriber verifies a pane exit closes the per-subscriber
+// TestDaemonExitClosesSubscriber verifies a tool exit closes the per-subscriber
 // exit channel so the WS handler can send OpExit (parity with direct mode).
 func TestDaemonExitClosesSubscriber(t *testing.T) {
 	dir := t.TempDir()
 	sockPath := dir + "/s"
 	os.MkdirAll(dir+"/d", 0o755)
-	pm := NewPaneManager(dir+"/d", nil)
+	pm := NewToolManager(dir+"/d", nil)
 	ps := NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -658,37 +658,37 @@ func TestDaemonExitClosesSubscriber(t *testing.T) {
 	defer ps.Close()
 	go func() { ps.Accept() }()
 
-	pc, err := DialPaneClient(sockPath)
+	pc, err := DialToolClient(sockPath)
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
 	defer pc.Close()
 
-	pane, err := pc.Create("/tmp", 80, 24)
+	tool, err := pc.Create("/tmp", 80, 24)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	outputCh := make(chan []byte, 8)
-	exitCh, unsub := pc.Subscribe(pane.ID, outputCh)
+	exitCh, unsub := pc.Subscribe(tool.ID, outputCh)
 	defer unsub()
 
-	pc.Delete(pane.ID) // triggers shell teardown → exit push
+	pc.Delete(tool.ID) // triggers shell teardown → exit push
 
 	select {
 	case <-exitCh:
 		// good: WS handler would now send OpExit
 	case <-time.After(3 * time.Second):
-		t.Fatal("exitCh not closed after pane exit — browser terminal would hang")
+		t.Fatal("exitCh not closed after tool exit — browser terminal would hang")
 	}
 }
 
 // TestDaemonAttentionWithoutSubscriber verifies OnOutput-driven attention
-// detection fires even when no WS client is subscribed to the pane (FR-15).
+// detection fires even when no WS client is subscribed to the tool (FR-15).
 func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
 	dir := t.TempDir()
 	sockPath := dir + "/s"
 	os.MkdirAll(dir+"/d", 0o755)
-	pm := NewPaneManager(dir+"/d", nil)
+	pm := NewToolManager(dir+"/d", nil)
 	ps := NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -696,7 +696,7 @@ func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
 	defer ps.Close()
 	go func() { ps.Accept() }()
 
-	pc, err := DialPaneClient(sockPath)
+	pc, err := DialToolClient(sockPath)
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
@@ -724,14 +724,14 @@ func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
 	}()
 	defer hub.remove(sub)
 
-	pane, err := pc.Create("/tmp", 80, 24)
+	tool, err := pc.Create("/tmp", 80, 24)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	// NOTE: deliberately NOT subscribing any output channel.
 	time.Sleep(200 * time.Millisecond)
 	// Emit an OSC 9 notification from the shell.
-	if err := pc.Write(pane.ID, []byte("printf '\\033]9;done\\007'\n")); err != nil {
+	if err := pc.Write(tool.ID, []byte("printf '\\033]9;done\\007'\n")); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 

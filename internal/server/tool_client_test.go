@@ -6,19 +6,20 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
 
-// ── PaneClient tests ────────────────────────────────────────────────────
+// ── ToolClient tests ────────────────────────────────────────────────────
 
 func TestPaneClientRequestResponse(t *testing.T) {
 	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
 		return panedResponse{ID: req.ID, Result: map[string]interface{}{"echo": req.Method}}
 	})
-	pc, err := DialPaneClient(sockPath)
+	pc, err := DialToolClient(sockPath)
 	if err != nil {
-		t.Fatalf("DialPaneClient: %v", err)
+		t.Fatalf("DialToolClient: %v", err)
 	}
 	defer pc.Close()
 
@@ -37,25 +38,25 @@ func TestPaneClientCreate(t *testing.T) {
 			"id": "99", "name": "S99", "pid": 12345, "cols": 80, "rows": 24,
 		}}
 	})
-	pc, _ := DialPaneClient(sockPath)
+	pc, _ := DialToolClient(sockPath)
 	defer pc.Close()
 
-	pane, err := pc.Create("/tmp", 80, 24)
-	if err != nil || pane.ID != "99" {
-		t.Fatalf("Create: err=%v id=%q", err, pane.ID)
+	tool, err := pc.Create("/tmp", 80, 24)
+	if err != nil || tool.ID != "99" {
+		t.Fatalf("Create: err=%v id=%q", err, tool.ID)
 	}
 }
 
 func TestPaneClientList(t *testing.T) {
 	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
 		return panedResponse{ID: req.ID, Result: map[string]interface{}{
-			"panes": []interface{}{
+			"tools": []interface{}{
 				map[string]interface{}{"id": "1", "name": "S1"},
 				map[string]interface{}{"id": "2", "name": "S2"},
 			},
 		}}
 	})
-	pc, _ := DialPaneClient(sockPath)
+	pc, _ := DialToolClient(sockPath)
 	defer pc.Close()
 	if len(pc.List()) != 2 {
 		t.Fatal("List len != 2")
@@ -72,7 +73,7 @@ func TestPaneClientWriteBase64(t *testing.T) {
 		received = p.Data
 		return panedResponse{ID: req.ID, Result: struct{}{}}
 	})
-	pc, _ := DialPaneClient(sockPath)
+	pc, _ := DialToolClient(sockPath)
 	defer pc.Close()
 
 	pc.Write("1", []byte("hello world"))
@@ -92,7 +93,7 @@ func TestPaneClientDelete(t *testing.T) {
 		killed = p.ID
 		return panedResponse{ID: req.ID, Result: struct{}{}}
 	})
-	pc, _ := DialPaneClient(sockPath)
+	pc, _ := DialToolClient(sockPath)
 	defer pc.Close()
 	pc.Delete("42")
 	if killed != "42" {
@@ -115,7 +116,7 @@ func TestPaneClientResize(t *testing.T) {
 		resized.id, resized.cols, resized.rows = p.ID, p.Cols, p.Rows
 		return panedResponse{ID: req.ID, Result: struct{}{}}
 	})
-	pc, _ := DialPaneClient(sockPath)
+	pc, _ := DialToolClient(sockPath)
 	defer pc.Close()
 	pc.Resize("3", 200, 60)
 	if resized.id != "3" || resized.cols != 200 || resized.rows != 60 {
@@ -132,9 +133,9 @@ func TestPaneClientSnapshot(t *testing.T) {
 			"retained":       float64(95),
 		}}
 	})
-	pc, _ := DialPaneClient(sockPath)
+	pc, _ := DialToolClient(sockPath)
 	defer pc.Close()
-	snap, _ := pc.SnapshotPane("1")
+	snap, _ := pc.SnapshotTool("1")
 	if string(snap.Data) != "buffered" || snap.TotalBytesIn != 100 {
 		t.Fatalf("snap=%+v", snap)
 	}
@@ -147,7 +148,7 @@ func TestPaneClientPushOutput(t *testing.T) {
 			"version": 1, "pane_ids": []interface{}{"1"},
 		}}
 	})
-	pc, _ := DialPaneClient(sockPath)
+	pc, _ := DialToolClient(sockPath)
 	defer pc.Close()
 
 	pc.Subscribe("1", outputCh) // test only checks registration
@@ -169,22 +170,22 @@ func TestPaneClientReconnect(t *testing.T) {
 	dataDir := d + "/d"
 	os.MkdirAll(dataDir, 0o755)
 
-	pm1 := NewPaneManager(dataDir, nil)
+	pm1 := NewToolManager(dataDir, nil)
 	ps1 := NewPanedServer(pm1, sockPath, "")
 	ps1.Listen()
 	go func() { ps1.Accept() }()
 
-	pc1, _ := DialPaneClient(sockPath)
+	pc1, _ := DialToolClient(sockPath)
 	p, _ := pc1.Create("/tmp", 80, 24)
-	paneID := p.ID
+	toolID := p.ID
 	pc1.Close()
 	ps1.Close()
 	time.Sleep(200 * time.Millisecond)
 
-	pm2 := NewPaneManager(dataDir, nil)
-	pm2.LoadAll()
-	if !pm2.IsLive(paneID) {
-		t.Fatalf("pane %s should be live after LoadAll", paneID)
+	pm2 := NewToolManager(dataDir, nil)
+	pm2.LoadAll(map[string]struct{}{toolID: {}})
+	if !pm2.IsLive(toolID) {
+		t.Fatalf("tool %s should be live after LoadAll", toolID)
 	}
 }
 
@@ -193,7 +194,7 @@ func TestPaneClientReconnect(t *testing.T) {
 func startFakePaned(t *testing.T, handler func(panedRequest) interface{}) string {
 	t.Helper()
 	sockPath := t.TempDir() + "/s"
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	ln, _ := net.Listen("unix", sockPath)
 
 	go func() {
@@ -229,7 +230,7 @@ func TestPaneClientAutoReconnect(t *testing.T) {
 		}
 	}
 
-	pm1 := NewPaneManager(dataDir, nil)
+	pm1 := NewToolManager(dataDir, nil)
 	ps1 := NewPanedServer(pm1, sockPath, "")
 	if err := ps1.Listen(); err != nil {
 		t.Fatalf("Listen1: %v", err)
@@ -250,8 +251,8 @@ func TestPaneClientAutoReconnect(t *testing.T) {
 	time.Sleep(150 * time.Millisecond)
 
 	// Bring up a replacement daemon on the same socket.
-	pm2 := NewPaneManager(dataDir, nil)
-	pm2.LoadAll()
+	pm2 := NewToolManager(dataDir, nil)
+	pm2.LoadAll(allToolIDs(dataDir))
 	ps2 := NewPanedServer(pm2, sockPath, "")
 	if err := ps2.Listen(); err != nil {
 		t.Fatalf("Listen2: %v", err)
@@ -311,14 +312,14 @@ func TestPaneClientConnected(t *testing.T) {
 	d := t.TempDir()
 	sockPath := d + "/s"
 	os.MkdirAll(d+"/d", 0o755)
-	pm := NewPaneManager(d+"/d", nil)
+	pm := NewToolManager(d+"/d", nil)
 	ps := NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
 	}
 	go func() { ps.Accept() }()
 
-	pc, err := DialPaneClient(sockPath)
+	pc, err := DialToolClient(sockPath)
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
@@ -344,4 +345,22 @@ func TestPaneClientConnected(t *testing.T) {
 	if pc.Connected() {
 		t.Fatal("Connected() should be false after Close")
 	}
+}
+
+// allToolIDs는 tools.json 의 전 항목을 참조 집합으로 취급한다. LoadAll 의
+// 참조 필터(FR-EM-14)를 우회해 "재시작 후 복원" 자체를 검증하는 용도.
+func allToolIDs(dataDir string) map[string]struct{} {
+	out := map[string]struct{}{}
+	b, err := os.ReadFile(filepath.Join(dataDir, "tools.json"))
+	if err != nil {
+		return out
+	}
+	var states []ToolState
+	if json.Unmarshal(b, &states) != nil {
+		return out
+	}
+	for _, s := range states {
+		out[s.ID] = struct{}{}
+	}
+	return out
 }

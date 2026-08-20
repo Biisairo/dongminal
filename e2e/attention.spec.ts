@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 // PANE_ATTENTION_NOTIFY_SRS e2e: terminal-monitoring attention.
 // Covers TC-PAN-15 (background tab highlight, distinct from focus),
@@ -10,7 +10,7 @@ async function waitForInit(page) {
     sessionStorage.setItem('displayMode', 'desktop');
   });
   await page.goto('/');
-  await page.waitForSelector('#area .rg.focused .xterm-helper-textarea', { timeout: 15000 });
+  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 test.describe('Pane attention', () => {
@@ -22,7 +22,7 @@ test.describe('Pane attention', () => {
     // real agent hook runs (the agent owns the pane's foreground), while we
     // switch away so the signalling pane is in the background — not the
     // focused-active tab, which would be suppressed.
-    await page.waitForSelector('#area .rg.focused .xterm-screen', { state: 'visible', timeout: 15000 });
+    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
     // Absolute path: a stale dmctl earlier in PATH would not understand `notify`
     // (the real wrappers also call dmctl by absolute path for this reason).
     await page.keyboard.type('sleep 2 && "$DONGMINAL_HOME/bin/dmctl" notify done');
@@ -30,17 +30,17 @@ test.describe('Pane attention', () => {
 
     // Add a new tab → it becomes the focused/active tab; the first tab's pane
     // is now in the background.
-    const before = await page.locator('#area .rg.focused .rt').count();
+    const before = await page.locator('#area .pn.focused .rt').count();
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-      page.locator('#area .rg.focused .rt-add').click(),
+      page.locator('#area .pn.focused .rt-add').click(),
     ]);
     expect(resp.status()).toBe(200);
-    await expect(page.locator('#area .rg.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
+    await expect(page.locator('#area .pn.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
 
     // The background (first) tab gains the attention highlight; it must NOT be
     // the focus/active styling (distinct class).
-    const firstTab = page.locator('#area .rg.focused .rt').first();
+    const firstTab = page.locator('#area .pn.focused .rt').first();
     await expect(firstTab).toHaveClass(/attn/, { timeout: 10000 });
     await expect(firstTab).not.toHaveClass(/active/);
 
@@ -63,7 +63,7 @@ test.describe('Pane attention', () => {
 
     // Clicking the item jumps to that pane → attention clears everywhere.
     await page.locator('#attn-center .attn-item').first().click();
-    await expect(page.locator('#area .rg.focused .rt').first()).not.toHaveClass(/attn/, { timeout: 10000 });
+    await expect(page.locator('#area .pn.focused .rt').first()).not.toHaveClass(/attn/, { timeout: 10000 });
     await expect(badge).toBeHidden();
     await expect.poll(() => page.title()).not.toContain('(1)');
   });

@@ -9,10 +9,10 @@ import (
 )
 
 // FR-UID-7: list_workspace 출력의 라인 끝에 uuid/short 가 부착된다. 기존 라인
-// 앞부분 (label, paneId, shellPid, size, session, tab) 은 그대로 유지된다.
+// 앞부분 (label, toolId, shellPid, size, session, tab) 은 그대로 유지된다.
 func TestListPanes_AppendsUUIDFields(t *testing.T) {
-	pr := newFakePaneReader()
-	pr.panes = []mcptool.PaneInfo{{ID: "pty-1", Name: "Shell", ShellPID: 100}}
+	pr := newFakeToolReader()
+	pr.tools = []mcptool.PaneInfo{{ID: "pty-1", Name: "Shell", ShellPID: 100}}
 	pr.has["pty-1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{{
@@ -43,8 +43,8 @@ func TestListPanes_AppendsUUIDFields(t *testing.T) {
 
 // NFR-UID-0: UUID 가 없는 엔트리의 출력은 변경 전과 완전히 동일해야 한다.
 func TestListPanes_OmitsUUIDFieldsWhenAbsent(t *testing.T) {
-	pr := newFakePaneReader()
-	pr.panes = []mcptool.PaneInfo{{ID: "1", Name: "Shell", ShellPID: 100}}
+	pr := newFakeToolReader()
+	pr.tools = []mcptool.PaneInfo{{ID: "1", Name: "Shell", ShellPID: 100}}
 	pr.has["1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{{
@@ -62,7 +62,7 @@ func TestListPanes_OmitsUUIDFieldsWhenAbsent(t *testing.T) {
 // FR-UID-6: who_am_i 도 uuid/short_code 를 라인 끝에 부착한다. session_uuid /
 // region_uuid 는 TabUUID 가 있을 때만 함께 출력한다.
 func TestWhoAmI_AppendsUUIDFields(t *testing.T) {
-	pr := newFakePaneReader()
+	pr := newFakeToolReader()
 	pr.has["pty-1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{{
@@ -100,7 +100,7 @@ func TestWhoAmI_AppendsUUIDFields(t *testing.T) {
 
 // NFR-UID-0: TabUUID 가 비어 있으면 기존 출력과 동일해야 한다.
 func TestWhoAmI_OmitsUUIDFieldsWhenAbsent(t *testing.T) {
-	pr := newFakePaneReader()
+	pr := newFakeToolReader()
 	pr.has["pty-1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{{ToolID: "pty-1", Label: "W1.P1.T1"}},
@@ -144,7 +144,7 @@ func TestWorkspaceCommand_TranslatesUUIDLocation(t *testing.T) {
 func TestSendAgentMessage_NormalizesUUIDFrom(t *testing.T) {
 	toUUID := "550e8400-e29b-41d4-a716-446655440003"
 	fromUUID := "550e8400-e29b-41d4-a716-446655440099"
-	pr := newFakePaneReader()
+	pr := newFakeToolReader()
 	pr.has["10"] = true
 	wr := &fakeWorkspaceReader{
 		resolve: map[string]string{toUUID: "10", fromUUID: "99"},
@@ -174,7 +174,7 @@ func TestSendAgentMessage_NormalizesUUIDFrom(t *testing.T) {
 // NFR-UID-0: from 이 label 형태로 들어오면 그대로 envelope 에 표시.
 // 행위 보존 — 기존 라벨 기반 envelope 와 byte-wise 동일 동작.
 func TestSendAgentMessage_LabelFromPassThrough(t *testing.T) {
-	pr := newFakePaneReader()
+	pr := newFakeToolReader()
 	pr.has["10"] = true
 	wr := &fakeWorkspaceReader{
 		resolve: map[string]string{"W2.P1.T1": "10", "W1.P1.T1": "99"},
@@ -194,10 +194,10 @@ func TestSendAgentMessage_LabelFromPassThrough(t *testing.T) {
 
 // FR-UID-8 / TC-UID-5: send_agent_message 의 `to` 에 uuid 를 넣어도 라우팅
 // 정상. 엔벨로프의 to= 는 사람 가독성을 위해 label 로 표시되며 (행위 보존),
-// 송신 결과 paneId 는 uuid 가 가리키던 그 pane.
+// 송신 결과 toolId 는 uuid 가 가리키던 그 tool.
 func TestSendAgentMessage_AcceptsUUIDInTo(t *testing.T) {
 	tabUUID := "550e8400-e29b-41d4-a716-446655440003"
-	pr := newFakePaneReader()
+	pr := newFakeToolReader()
 	pr.has["10"] = true
 	wr := &fakeWorkspaceReader{
 		resolve: map[string]string{tabUUID: "10"},

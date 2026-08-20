@@ -4,8 +4,8 @@
 const app=new App();
 window.app=app;
 window.__dongminalDebug={
-  sendDropCount(){let n=0;app.panes&&app.panes.forEach(p=>{n+=p._sendDropCount||0});return n},
-  sendQueueLength(){let n=0;app.panes&&app.panes.forEach(p=>{n+=(p._sendQueue&&p._sendQueue.length)||0});return n}
+  sendDropCount(){let n=0;app.tools&&app.tools.forEach(p=>{n+=p._sendDropCount||0});return n},
+  sendQueueLength(){let n=0;app.tools&&app.tools.forEach(p=>{n+=(p._sendQueue&&p._sendQueue.length)||0});return n}
 };
 
 // Restore saved theme from server
@@ -40,6 +40,6 @@ window.addEventListener('resize',()=>{
   const wasMobile=document.body.classList.contains('mobile');
   const nowMobile=app.isMobile;
   if(wasMobile!==nowMobile){app.render()}
-  else{for(const p of app.panes.values())if(p.el.classList.contains('vis'))p.doFit()}
+  else{for(const p of app.tools.values())if(p.el.classList.contains('vis'))p.doFit()}
 });
-window.addEventListener('beforeunload',e=>{if(app.panes.size>0)e.preventDefault()});
+window.addEventListener('beforeunload',e=>{if(app.tools.size>0)e.preventDefault()});

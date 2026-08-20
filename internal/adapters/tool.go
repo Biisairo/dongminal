@@ -13,14 +13,14 @@ import (
 	"github.com/creack/pty"
 )
 
-// Pane은 server.PaneManager 를 mcptool.PaneReader 로 어댑트한다.
-// PM이 nil이면 (daemon mode) PaneHub 를 사용한다.
-type Pane struct {
-	PM  *server.PaneManager
-	Hub server.PaneHub
+// Tool은 server.ToolManager 를 mcptool.ToolReader 로 어댑트한다.
+// PM이 nil이면 (daemon mode) ToolHub 를 사용한다.
+type Tool struct {
+	PM  *server.ToolManager
+	Hub server.ToolHub
 }
 
-func (a Pane) getPane(id string) *server.Pane {
+func (a Tool) getPane(id string) *server.Tool {
 	if a.PM != nil {
 		return a.PM.Get(id)
 	}
@@ -30,23 +30,23 @@ func (a Pane) getPane(id string) *server.Pane {
 	return nil
 }
 
-func (a Pane) listPanes() []*server.Pane {
+func (a Tool) listPanes() []*server.Tool {
 	if a.PM != nil {
 		return a.PM.Snapshot()
 	}
-	// PaneHub doesn't have Snapshot; build from List
-	var out []*server.Pane
+	// ToolHub doesn't have Snapshot; build from List
+	var out []*server.Tool
 	if a.Hub != nil {
 		for _, m := range a.Hub.List() {
 			id, _ := m["id"].(string)
 			name, _ := m["name"].(string)
-			out = append(out, &server.Pane{ID: id, Name: name})
+			out = append(out, &server.Tool{ID: id, Name: name})
 		}
 	}
 	return out
 }
 
-func (a Pane) List() []mcptool.PaneInfo {
+func (a Tool) List() []mcptool.PaneInfo {
 	// Daemon mode: read the shell PID directly from the hub's list payload.
 	// Synthetic Panes built in listPanes() have no os/exec handle, so
 	// CmdProcessPID() would return 0 and break whoami PID matching (FR-16).
@@ -60,9 +60,9 @@ func (a Pane) List() []mcptool.PaneInfo {
 		}
 		return out
 	}
-	panes := a.listPanes()
-	out := make([]mcptool.PaneInfo, 0, len(panes))
-	for _, p := range panes {
+	tools := a.listPanes()
+	out := make([]mcptool.PaneInfo, 0, len(tools))
+	for _, p := range tools {
 		out = append(out, mcptool.PaneInfo{ID: p.ID, Name: p.Name, ShellPID: p.CmdProcessPID()})
 	}
 	return out
@@ -81,7 +81,7 @@ func mapInt(v interface{}) int {
 	return 0
 }
 
-func (a Pane) Has(id string) bool {
+func (a Tool) Has(id string) bool {
 	if a.PM != nil {
 		return a.PM.Get(id) != nil
 	}
@@ -91,7 +91,7 @@ func (a Pane) Has(id string) bool {
 	return false
 }
 
-func (a Pane) Snapshot(id string) ([]byte, int64, bool) {
+func (a Tool) Snapshot(id string) ([]byte, int64, bool) {
 	if a.PM != nil {
 		p := a.PM.Get(id)
 		if p == nil || p.Stream() == nil {
@@ -101,7 +101,7 @@ func (a Pane) Snapshot(id string) ([]byte, int64, bool) {
 		return data, stats.TotalBytesDrop, true
 	}
 	if a.Hub != nil {
-		snap, err := a.Hub.SnapshotPane(id)
+		snap, err := a.Hub.SnapshotTool(id)
 		if err != nil {
 			return nil, 0, false
 		}
@@ -110,7 +110,7 @@ func (a Pane) Snapshot(id string) ([]byte, int64, bool) {
 	return nil, 0, false
 }
 
-func (a Pane) Size(id string) string {
+func (a Tool) Size(id string) string {
 	if a.PM != nil {
 		p := a.PM.Get(id)
 		if p == nil || p.PTMX() == nil {
@@ -122,7 +122,7 @@ func (a Pane) Size(id string) string {
 		}
 		return fmt.Sprintf("%dx%d", cols, rows)
 	}
-	// Daemon mode: PaneHub doesn't expose PTMX; use List for cols/rows.
+	// Daemon mode: ToolHub doesn't expose PTMX; use List for cols/rows.
 	// JSON numbers decode as float64, so coerce via mapInt.
 	if a.Hub != nil {
 		for _, m := range a.Hub.List() {
@@ -138,11 +138,11 @@ func (a Pane) Size(id string) string {
 	return "?"
 }
 
-func (a Pane) SendPaste(id string, text []byte, submit bool) error {
+func (a Tool) SendPaste(id string, text []byte, submit bool) error {
 	if a.PM != nil {
 		p := a.PM.Get(id)
 		if p == nil || p.PTMX() == nil {
-			return fmt.Errorf("pane 없음: %s", id)
+			return fmt.Errorf("tool 없음: %s", id)
 		}
 		var paste []byte
 		paste = append(paste, 0x1b, '[', '2', '0', '0', '~')
@@ -159,7 +159,7 @@ func (a Pane) SendPaste(id string, text []byte, submit bool) error {
 		}
 		return nil
 	}
-	// Daemon mode: use PaneHub.Write
+	// Daemon mode: use ToolHub.Write
 	if a.Hub != nil {
 		var paste []byte
 		paste = append(paste, 0x1b, '[', '2', '0', '0', '~')
@@ -176,5 +176,5 @@ func (a Pane) SendPaste(id string, text []byte, submit bool) error {
 		}
 		return nil
 	}
-	return fmt.Errorf("pane 없음: %s", id)
+	return fmt.Errorf("tool 없음: %s", id)
 }

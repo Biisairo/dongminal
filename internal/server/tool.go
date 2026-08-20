@@ -96,9 +96,9 @@ func (s *safeConn) setReadDeadline(t time.Time) error   { return s.conn.SetReadD
 func (s *safeConn) setPongHandler(h func(string) error) { s.conn.SetPongHandler(h) }
 func (s *safeConn) readMessage() (int, []byte, error)   { return s.conn.ReadMessage() }
 
-// ── Pane ────────────────────────────────────────────
+// ── Tool ────────────────────────────────────────────
 
-// Pane invariants:
+// Tool invariants:
 //   - cmu protects cls and exited.
 //   - broadcast/addClient/removeClient must NOT be called by a caller
 //     already holding cmu (these methods acquire cmu themselves).
@@ -107,15 +107,15 @@ func (s *safeConn) readMessage() (int, []byte, error)   { return s.conn.ReadMess
 //   - The exited transition happens exactly once, inside kill() under
 //     the protection of `once`.
 //
-// paneRelay holds the output/exit relay callbacks for a Pane. It is stored
+// paneRelay holds the output/exit relay callbacks for a Tool. It is stored
 // via atomic.Pointer so the readPTY goroutine can read the callbacks without
 // racing against daemon-mode wiring (DAEMON_SPLIT_SRS FR-12).
 type paneRelay struct {
-	onOutput func(paneID string, data []byte)
-	onExit   func(paneID string)
+	onOutput func(toolID string, data []byte)
+	onExit   func(toolID string)
 }
 
-type Pane struct {
+type Tool struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
 	PID      int    `json:"pid"`
@@ -132,7 +132,7 @@ type Pane struct {
 	// Attention state (PANE_ATTENTION_NOTIFY_SRS). attnCarry is touched only
 	// by the readPTY goroutine (no lock). The atomics are shared with the
 	// idle sweeper / input / query goroutines. onAttention/onAttentionClear/
-	// allowBell are set once in StartPane before readPTY starts (race-free).
+	// allowBell are set once in StartTool before readPTY starts (race-free).
 	lastOutputAt     atomic.Int64
 	attnArmed        atomic.Bool
 	attention        atomic.Bool
@@ -143,8 +143,8 @@ type Pane struct {
 
 	// relay carries the exit/output callbacks. Stored atomically so the
 	// readPTY goroutine reads them without racing daemon-mode wiring
-	// (DAEMON_SPLIT_SRS FR-12). onExit is the base PaneManager handler set
-	// once in StartPane; daemon mode wraps it exactly once via
+	// (DAEMON_SPLIT_SRS FR-12). onExit is the base ToolManager handler set
+	// once in StartTool; daemon mode wraps it exactly once via
 	// PanedServer.wirePane (guarded by `wired`).
 	relay atomic.Pointer[paneRelay]
 	wired atomic.Bool
@@ -153,11 +153,11 @@ type Pane struct {
 	onActivity func(id, state, tool, detail string)
 }
 
-// paneBusyProbe is the busy-detection function used by Pane.IsBusy. It is a
+// toolBusyProbe is the busy-detection function used by Tool.IsBusy. It is a
 // package variable so tests can substitute a deterministic probe instead of
 // relying on the host's pgrep behavior. The default implementation matches the
-// historical behavior: a pane is "busy" when it has any direct child process.
-var paneBusyProbe = func(pid int) bool {
+// historical behavior: a tool is "busy" when it has any direct child process.
+var toolBusyProbe = func(pid int) bool {
 	out, err := exec.Command("pgrep", "-P", strconv.Itoa(pid)).Output()
 	if err != nil {
 		return false
@@ -165,14 +165,14 @@ var paneBusyProbe = func(pid int) bool {
 	return len(strings.TrimSpace(string(out))) > 0
 }
 
-func (p *Pane) IsBusy() bool {
+func (p *Tool) IsBusy() bool {
 	if p.cmd == nil || p.cmd.Process == nil {
 		return false
 	}
-	return paneBusyProbe(p.cmd.Process.Pid)
+	return toolBusyProbe(p.cmd.Process.Pid)
 }
 
-func (p *Pane) Cwd() string {
+func (p *Tool) Cwd() string {
 	if p.cmd != nil && p.cmd.Process != nil {
 		// Linux: /proc/PID/cwd is a symlink — instant read.
 		cwd, _ := os.Readlink(fmt.Sprintf("/proc/%d/cwd", p.cmd.Process.Pid))
@@ -194,8 +194,8 @@ func (p *Pane) Cwd() string {
 	return cwd
 }
 
-// PaneHooks carries the attention wiring StartPane applies before launching
-// readPTY (race-free). A nil *PaneHooks disables attention for that pane.
+// PaneHooks carries the attention wiring StartTool applies before launching
+// readPTY (race-free). A nil *PaneHooks disables attention for that tool.
 type PaneHooks struct {
 	OnAttention      func(id, reason string)
 	OnAttentionClear func(id string)
@@ -203,8 +203,8 @@ type PaneHooks struct {
 	AllowBell        bool
 }
 
-// StartPane spawns a shell under a new PTY. Exported for pane manager + tests.
-func StartPane(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *PaneHooks) (*Pane, error) {
+// StartTool spawns a shell under a new PTY. Exported for tool manager + tests.
+func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *PaneHooks) (*Tool, error) {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "/bin/bash"
@@ -223,7 +223,7 @@ func StartPane(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 		"PATH=" + os.Getenv("PATH") + ":" + binDir,
 		"HOME=" + home,
 		// PANE_ATTENTION_NOTIFY_SRS: lets `dmctl notify` (incl. detached agent
-		// hooks that have no controlling tty) identify this pane to the server.
+		// hooks that have no controlling tty) identify this tool to the server.
 		"DONGMINAL_PANE_ID=" + id,
 	}
 	if u, err := user.Current(); err == nil {
@@ -251,7 +251,7 @@ func StartPane(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 	if err != nil {
 		return nil, fmt.Errorf("pty start shell=%s cwd=%s: %w", shell, startDir, err)
 	}
-	p := &Pane{
+	p := &Tool{
 		ID: id, Name: name,
 		ptmx: ptmx, cmd: cmd,
 		stream: outbuf.NewStream(context.Background(), bufMax),
@@ -266,7 +266,7 @@ func StartPane(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 		p.allowBell = hooks.AllowBell
 	}
 	go p.readPTY()
-	log.Printf("[pane %s] started shell=%s pid=%d cwd=%s cols=%d rows=%d",
+	log.Printf("[tool %s] started shell=%s pid=%d cwd=%s cols=%d rows=%d",
 		id, shell, cmd.Process.Pid, startDir, cols, rows)
 	return p, nil
 }
@@ -275,10 +275,10 @@ func StartPane(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 // drop path: outbuf.Stream compaction → Stats.TotalBytesDrop), and
 // fan-outs OpOutput messages to live clients. On EOF/IO error it triggers
 // a single kill() (which itself emits the final OpExit) and signals onExit.
-func (p *Pane) readPTY() {
+func (p *Tool) readPTY() {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[pane %s] readPTY panic: %v\n%s", p.ID, r, debug.Stack())
+			log.Printf("[tool %s] readPTY panic: %v\n%s", p.ID, r, debug.Stack())
 		}
 	}()
 	raw := make([]byte, 8192)
@@ -286,9 +286,9 @@ func (p *Pane) readPTY() {
 		n, err := p.ptmx.Read(raw)
 		if err != nil {
 			if err == io.EOF || strings.Contains(err.Error(), "input/output error") {
-				log.Printf("[pane %s] readPTY: shell exited normally", p.ID)
+				log.Printf("[tool %s] readPTY: shell exited normally", p.ID)
 			} else {
-				log.Printf("[pane %s] readPTY unexpected error: %v", p.ID, err)
+				log.Printf("[tool %s] readPTY unexpected error: %v", p.ID, err)
 			}
 			p.kill()
 			if r := p.relay.Load(); r != nil && r.onExit != nil {
@@ -311,8 +311,8 @@ func (p *Pane) readPTY() {
 }
 
 // broadcast delivers msg to all currently-registered clients. It is a no-op
-// once the pane has transitioned to exited. Caller must NOT hold cmu.
-func (p *Pane) broadcast(msg []byte) {
+// once the tool has transitioned to exited. Caller must NOT hold cmu.
+func (p *Tool) broadcast(msg []byte) {
 	p.cmu.Lock()
 	if p.exited {
 		p.cmu.Unlock()
@@ -323,7 +323,7 @@ func (p *Pane) broadcast(msg []byte) {
 	p.cmu.Unlock()
 	for _, c := range snap {
 		if err := c.writeMsg(websocket.BinaryMessage, msg); err != nil {
-			log.Printf("[pane %s] broadcast error addr=%s: %v", p.ID, c.remoteAddr(), err)
+			log.Printf("[tool %s] broadcast error addr=%s: %v", p.ID, c.remoteAddr(), err)
 			p.removeClient(c)
 			c.close()
 		}
@@ -333,10 +333,10 @@ func (p *Pane) broadcast(msg []byte) {
 // observeOutput records output activity and runs observe-only L1 detection on
 // the raw chunk. Called from the readPTY goroutine only; attnCarry needs no
 // lock. The live bytes are never mutated.
-func (p *Pane) observeOutput(chunk []byte) { p.observeOutputAt(chunk, attnNow()) }
+func (p *Tool) observeOutput(chunk []byte) { p.observeOutputAt(chunk, attnNow()) }
 
 // observeOutputAt is observeOutput with an injectable timestamp (tests).
-func (p *Pane) observeOutputAt(chunk []byte, now int64) {
+func (p *Tool) observeOutputAt(chunk []byte, now int64) {
 	p.lastOutputAt.Store(now)
 	p.attnArmed.Store(true)
 	if p.onAttention == nil {
@@ -360,8 +360,8 @@ func (p *Pane) observeOutputAt(chunk []byte, now int64) {
 // setAttention transitions none→attention exactly once (edge), firing the
 // notifier only on the transition (NFR-PAN-3). Returns true if it transitioned.
 // Used by passive detection (L1 OSC, L2 idle) where re-alerting an already-
-// flagged pane would be noise.
-func (p *Pane) setAttention(reason string) bool {
+// flagged tool would be noise.
+func (p *Tool) setAttention(reason string) bool {
 	if p.attention.CompareAndSwap(false, true) {
 		if p.onAttention != nil {
 			p.onAttention(p.ID, reason)
@@ -375,7 +375,7 @@ func (p *Pane) setAttention(reason string) bool {
 // by explicit agent signals (`dmctl notify` → set endpoint): each discrete
 // completion/waiting event must re-alert the user even if a prior unattended
 // alarm is still active. The state itself stays idempotent (already-true).
-func (p *Pane) signalAttention(reason string) {
+func (p *Tool) signalAttention(reason string) {
 	p.attention.Store(true)
 	if p.onAttention != nil {
 		p.onAttention(p.ID, reason)
@@ -384,7 +384,7 @@ func (p *Pane) signalAttention(reason string) {
 
 // clearAttention transitions attention→none exactly once, firing the clear
 // notifier only on the transition.
-func (p *Pane) clearAttention() bool {
+func (p *Tool) clearAttention() bool {
 	if p.attention.CompareAndSwap(true, false) {
 		if p.onAttentionClear != nil {
 			p.onAttentionClear(p.ID)
@@ -394,21 +394,21 @@ func (p *Pane) clearAttention() bool {
 	return false
 }
 
-// attend marks the pane as attended-to: disarms idle and clears attention.
+// attend marks the tool as attended-to: disarms idle and clears attention.
 // Invoked only via the explicit focus/clear endpoints — NOT on raw WS input,
 // because xterm replies to terminal queries (cursor-position/device-attribute
 // reports an agent's TUI emits) arrive as OpInput too and would spuriously
 // clear a just-raised alarm. Real "user attended" is signalled by focus.
-func (p *Pane) attend() {
+func (p *Tool) attend() {
 	p.attnArmed.Store(false)
 	p.clearAttention()
 }
 
-// attnBusyProbe reports whether a pane has a running foreground process. It is
+// attnBusyProbe reports whether a tool has a running foreground process. It is
 // a package variable so tests can substitute a deterministic probe.
-var attnBusyProbe = func(p *Pane) bool { return p.IsBusy() }
+var attnBusyProbe = func(p *Tool) bool { return p.IsBusy() }
 
-// maybeIdle fires L2 (idle) attention when an armed pane has been quiet for at
+// maybeIdle fires L2 (idle) attention when an armed tool has been quiet for at
 // least threshold. It disarms after firing so it fires once per quiet edge;
 // new output re-arms it. threshold<=0 disables L2. Idle only fires when a
 // foreground process (e.g. an agent) is actually running — a bare shell sitting
@@ -416,7 +416,7 @@ var attnBusyProbe = func(p *Pane) bool { return p.IsBusy() }
 // is what otherwise floods the UI with bogus alarms after a daemon restart).
 // Additionally, idle is suppressed while the agent is actively working (activity
 // state "working") — a thinking agent that pauses output is not waiting for input.
-func (p *Pane) maybeIdle(now, threshold int64) {
+func (p *Tool) maybeIdle(now, threshold int64) {
 	if threshold <= 0 || !p.attnArmed.Load() {
 		return
 	}
@@ -434,8 +434,8 @@ func (p *Pane) maybeIdle(now, threshold int64) {
 	p.setAttention("idle")
 }
 
-// Attention reports whether the pane currently needs attention.
-func (p *Pane) Attention() bool { return p.attention.Load() }
+// Attention reports whether the tool currently needs attention.
+func (p *Tool) Attention() bool { return p.attention.Load() }
 
 type activityState struct {
 	State     string `json:"state"`
@@ -452,7 +452,7 @@ type activitySnap struct {
 	UpdatedAt int64  `json:"updatedAt"`
 }
 
-func (p *Pane) setActivity(state, tool, detail string) {
+func (p *Tool) setActivity(state, tool, detail string) {
 	if state == "ended" {
 		p.activity.Store(nil) // 종료 → 카드 제거(스냅샷에서 빠짐)
 	} else {
@@ -463,27 +463,27 @@ func (p *Pane) setActivity(state, tool, detail string) {
 	}
 }
 
-func (p *Pane) Activity() *activityState { return p.activity.Load() }
+func (p *Tool) Activity() *activityState { return p.activity.Load() }
 
-// addClient registers c. Returns false when the pane has already exited; in
+// addClient registers c. Returns false when the tool has already exited; in
 // that case OpExit is sent to c immediately (outside cmu) and c is left
 // untouched in the caller's possession. Caller must NOT hold cmu.
-func (p *Pane) addClient(c *safeConn) bool {
+func (p *Tool) addClient(c *safeConn) bool {
 	p.cmu.Lock()
 	if p.exited {
 		p.cmu.Unlock()
 		c.send(OpExit, nil)
-		log.Printf("[pane %s] addClient after exit addr=%s — sent OpExit", p.ID, c.remoteAddr())
+		log.Printf("[tool %s] addClient after exit addr=%s — sent OpExit", p.ID, c.remoteAddr())
 		return false
 	}
 	p.cls = append(p.cls, c)
 	n := len(p.cls)
 	p.cmu.Unlock()
-	log.Printf("[pane %s] client connected addr=%s total=%d", p.ID, c.remoteAddr(), n)
+	log.Printf("[tool %s] client connected addr=%s total=%d", p.ID, c.remoteAddr(), n)
 	return true
 }
 
-func (p *Pane) removeClient(c *safeConn) {
+func (p *Tool) removeClient(c *safeConn) {
 	p.cmu.Lock()
 	for i, v := range p.cls {
 		if v == c {
@@ -493,28 +493,28 @@ func (p *Pane) removeClient(c *safeConn) {
 	}
 	n := len(p.cls)
 	p.cmu.Unlock()
-	log.Printf("[pane %s] client disconnected addr=%s remaining=%d", p.ID, c.remoteAddr(), n)
+	log.Printf("[tool %s] client disconnected addr=%s remaining=%d", p.ID, c.remoteAddr(), n)
 }
 
-func (p *Pane) resize(c, r uint16) error {
+func (p *Tool) resize(c, r uint16) error {
 	err := pty.Setsize(p.ptmx, &pty.Winsize{Cols: c, Rows: r})
 	if err != nil {
-		log.Printf("[pane %s] resize error cols=%d rows=%d: %v", p.ID, c, r, err)
+		log.Printf("[tool %s] resize error cols=%d rows=%d: %v", p.ID, c, r, err)
 	}
 	return err
 }
 
-// Wait returns a channel closed when the pane terminates (test helper).
-func (p *Pane) Wait() <-chan struct{} { return p.done }
+// Wait returns a channel closed when the tool terminates (test helper).
+func (p *Tool) Wait() <-chan struct{} { return p.done }
 
 // PTMX exposes the underlying PTY master for tests.
-func (p *Pane) PTMX() *os.File { return p.ptmx }
+func (p *Tool) PTMX() *os.File { return p.ptmx }
 
 // Stream exposes the output stream for tools.
-func (p *Pane) Stream() *outbuf.Stream { return p.stream }
+func (p *Tool) Stream() *outbuf.Stream { return p.stream }
 
 // CmdProcessPID returns the PID (0 if unavailable).
-func (p *Pane) CmdProcessPID() int {
+func (p *Tool) CmdProcessPID() int {
 	if p.cmd == nil || p.cmd.Process == nil {
 		return 0
 	}
@@ -522,15 +522,15 @@ func (p *Pane) CmdProcessPID() int {
 }
 
 // Write sends data to the PTY master. Safe to call from any goroutine.
-func (p *Pane) Write(data []byte) error {
+func (p *Tool) Write(data []byte) error {
 	if p.ptmx == nil {
-		return fmt.Errorf("pane %s: ptmx is nil", p.ID)
+		return fmt.Errorf("tool %s: ptmx is nil", p.ID)
 	}
 	_, err := p.ptmx.Write(data)
 	return err
 }
 
-// kill transitions the pane to exited exactly once: it marks exited under
+// kill transitions the tool to exited exactly once: it marks exited under
 // cmu, fans out a final OpExit to the clients that were registered at that
 // moment (outside cmu), then tears down the PTY/process and stream.
 //
@@ -546,7 +546,7 @@ func (p *Pane) Write(data []byte) error {
 //     the close is also idempotent under the Once guard.
 //   - The onExit callback is NOT invoked here — it was moved to readPTY
 //     (which is the sole caller after EOF) to avoid re-entrancy issues.
-func (p *Pane) kill() {
+func (p *Tool) kill() {
 	p.once.Do(func() {
 		// Phase 1: atomic mark + snapshot under cmu.
 		p.cmu.Lock()
@@ -556,7 +556,7 @@ func (p *Pane) kill() {
 		p.cmu.Unlock()
 
 		// Phase 2: final OpExit broadcast outside cmu. Errors are ignored —
-		// the pane is dying anyway and clients will close on their side.
+		// the tool is dying anyway and clients will close on their side.
 		exitMsg := []byte{OpExit}
 		for _, c := range snap {
 			_ = c.writeMsg(websocket.BinaryMessage, exitMsg)
@@ -567,7 +567,7 @@ func (p *Pane) kill() {
 		if p.cmd != nil && p.cmd.Process != nil {
 			pid = p.cmd.Process.Pid
 		}
-		log.Printf("[pane %s] killing pid=%d", p.ID, pid)
+		log.Printf("[tool %s] killing pid=%d", p.ID, pid)
 		close(p.done)
 		if p.ptmx != nil {
 			p.ptmx.Close()
@@ -577,13 +577,13 @@ func (p *Pane) kill() {
 			time.Sleep(50 * time.Millisecond)
 			p.cmd.Process.Kill()
 			if err := p.cmd.Wait(); err != nil {
-				log.Printf("[pane %s] wait: %v", p.ID, err)
+				log.Printf("[tool %s] wait: %v", p.ID, err)
 			}
 		}
 		if p.stream != nil {
 			p.stream.Close()
 		}
-		// pane 종료 → 활동 카드 제거(셸 exit/Ctrl+C 등, SessionEnd hook 없이도).
+		// tool 종료 → 활동 카드 제거(셸 exit/Ctrl+C 등, SessionEnd hook 없이도).
 		if p.activity.Load() != nil {
 			p.setActivity("ended", "", "")
 		}
@@ -591,20 +591,20 @@ func (p *Pane) kill() {
 }
 
 // Resize is the exported wrapper around the unexported resize for
-// PaneManager delegation. It calls pty.Setsize on the PTY master.
-func (p *Pane) Resize(cols, rows uint16) error {
+// ToolManager delegation. It calls pty.Setsize on the PTY master.
+func (p *Tool) Resize(cols, rows uint16) error {
 	return p.resize(cols, rows)
 }
 
-// ── PaneManager ─────────────────────────────────────
+// ── ToolManager ─────────────────────────────────────
 
-type PaneManager struct {
+type ToolManager struct {
 	mu     sync.RWMutex
-	panes  map[string]*Pane
+	tools  map[string]*Tool
 	nextID int
 
 	dataDir     string
-	invalidator func(paneID string)
+	invalidator func(toolID string)
 	dirty       atomic.Bool
 
 	// Attention (PANE_ATTENTION_NOTIFY_SRS): idleThreshold/allowBell configure
@@ -617,12 +617,12 @@ type PaneManager struct {
 	activityNotify func(id, state, tool, detail string)
 }
 
-// NewPaneManager builds an empty manager. dataDir is where tools.json lives;
-// invalidator is called whenever a pane dies so the workspace layer can prune
+// NewToolManager builds an empty manager. dataDir is where tools.json lives;
+// invalidator is called whenever a tool dies so the workspace layer can prune
 // its references (may be nil in tests).
-func NewPaneManager(dataDir string, invalidator func(string)) *PaneManager {
-	return &PaneManager{
-		panes:         make(map[string]*Pane),
+func NewToolManager(dataDir string, invalidator func(string)) *ToolManager {
+	return &ToolManager{
+		tools:         make(map[string]*Tool),
 		dataDir:       dataDir,
 		invalidator:   invalidator,
 		idleThreshold: int64(attentionIdleThreshold()),
@@ -630,44 +630,44 @@ func NewPaneManager(dataDir string, invalidator func(string)) *PaneManager {
 	}
 }
 
-// SetAttentionNotifier wires pane attention transitions to broadcasts. Called
+// SetAttentionNotifier wires tool attention transitions to broadcasts. Called
 // from the composition root after the CommandHub exists (mirrors
-// SetInvalidator). Must be called before panes are created so Create/Restore
-// hand the hooks to StartPane.
-func (m *PaneManager) SetAttentionNotifier(notify func(id, reason string), clear func(id string)) {
+// SetInvalidator). Must be called before tools are created so Create/Restore
+// hand the hooks to StartTool.
+func (m *ToolManager) SetAttentionNotifier(notify func(id, reason string), clear func(id string)) {
 	m.mu.Lock()
 	m.attnNotify = notify
 	m.attnClear = clear
 	m.mu.Unlock()
 }
 
-// SetActivityNotifier wires pane activity transitions to broadcasts (mirrors
-// SetAttentionNotifier). Must be called before panes are created.
-func (m *PaneManager) SetActivityNotifier(notify func(id, state, tool, detail string)) {
+// SetActivityNotifier wires tool activity transitions to broadcasts (mirrors
+// SetAttentionNotifier). Must be called before tools are created.
+func (m *ToolManager) SetActivityNotifier(notify func(id, state, tool, detail string)) {
 	m.mu.Lock()
 	m.activityNotify = notify
 	m.mu.Unlock()
 }
 
-// attnHooks builds the per-pane hooks from the manager's notifier config.
-func (m *PaneManager) attnHooks() *PaneHooks {
+// attnHooks builds the per-tool hooks from the manager's notifier config.
+func (m *ToolManager) attnHooks() *PaneHooks {
 	if m.attnNotify == nil && m.attnClear == nil && m.activityNotify == nil {
 		return nil
 	}
 	return &PaneHooks{OnAttention: m.attnNotify, OnAttentionClear: m.attnClear, OnActivity: m.activityNotify, AllowBell: m.allowBell}
 }
 
-// ActivitySnapshot returns the current activity of every pane that has reported
+// ActivitySnapshot returns the current activity of every tool that has reported
 // one, sorted by id (FR-AAP-4; lets a late-joining client restore cards).
-func (m *PaneManager) ActivitySnapshot() []activitySnap {
+func (m *ToolManager) ActivitySnapshot() []activitySnap {
 	type item struct {
 		id string
 		a  *activityState
-		p  *Pane
+		p  *Tool
 	}
 	m.mu.RLock()
-	items := make([]item, 0, len(m.panes))
-	for id, p := range m.panes {
+	items := make([]item, 0, len(m.tools))
+	for id, p := range m.tools {
 		if a := p.Activity(); a != nil {
 			items = append(items, item{id, a, p})
 		}
@@ -689,22 +689,22 @@ func (m *PaneManager) ActivitySnapshot() []activitySnap {
 
 // sweepIdle runs one L2 idle pass at the given time. Exposed for deterministic
 // tests; the goroutine in StartAttentionSweeper calls it on each tick.
-func (m *PaneManager) sweepIdle(now int64) {
+func (m *ToolManager) sweepIdle(now int64) {
 	m.mu.RLock()
-	panes := make([]*Pane, 0, len(m.panes))
-	for _, p := range m.panes {
-		panes = append(panes, p)
+	tools := make([]*Tool, 0, len(m.tools))
+	for _, p := range m.tools {
+		tools = append(tools, p)
 	}
 	threshold := m.idleThreshold
 	m.mu.RUnlock()
-	for _, p := range panes {
+	for _, p := range tools {
 		p.maybeIdle(now, threshold)
 	}
 }
 
 // StartAttentionSweeper launches the L2 idle sweeper goroutine. stop closes on
 // server shutdown. No-op when L2 is disabled (idleThreshold<=0).
-func (m *PaneManager) StartAttentionSweeper(stop <-chan struct{}) {
+func (m *ToolManager) StartAttentionSweeper(stop <-chan struct{}) {
 	if m.idleThreshold <= 0 {
 		return
 	}
@@ -722,12 +722,12 @@ func (m *PaneManager) StartAttentionSweeper(stop <-chan struct{}) {
 	}()
 }
 
-// AttentionIDs returns the ids of panes currently needing attention (FR-PAN-8).
-func (m *PaneManager) AttentionIDs() []string {
+// AttentionIDs returns the ids of tools currently needing attention (FR-PAN-8).
+func (m *ToolManager) AttentionIDs() []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	var ids []string
-	for id, p := range m.panes {
+	for id, p := range m.tools {
 		if p.Attention() {
 			ids = append(ids, id)
 		}
@@ -736,17 +736,17 @@ func (m *PaneManager) AttentionIDs() []string {
 	return ids
 }
 
-// ClearAllAttention attends to every pane currently needing attention and
+// ClearAllAttention attends to every tool currently needing attention and
 // returns how many were cleared (FR-PAN-17, bulk dismiss).
-func (m *PaneManager) ClearAllAttention() int {
+func (m *ToolManager) ClearAllAttention() int {
 	m.mu.RLock()
-	panes := make([]*Pane, 0, len(m.panes))
-	for _, p := range m.panes {
-		panes = append(panes, p)
+	tools := make([]*Tool, 0, len(m.tools))
+	for _, p := range m.tools {
+		tools = append(tools, p)
 	}
 	m.mu.RUnlock()
 	n := 0
-	for _, p := range panes {
+	for _, p := range tools {
 		if p.Attention() {
 			p.attend()
 			n++
@@ -757,16 +757,16 @@ func (m *PaneManager) ClearAllAttention() int {
 
 // SetInvalidator lets main register the workspace invalidation hook after
 // wsMgr has been constructed (avoids a chicken-and-egg ordering issue).
-func (m *PaneManager) SetInvalidator(f func(string)) {
+func (m *ToolManager) SetInvalidator(f func(string)) {
 	m.mu.Lock()
 	m.invalidator = f
 	m.mu.Unlock()
 }
 
-// DataDir returns the pane persistence directory (used by tests).
-func (m *PaneManager) DataDir() string { return m.dataDir }
+// DataDir returns the tool persistence directory (used by tests).
+func (m *ToolManager) DataDir() string { return m.dataDir }
 
-func (m *PaneManager) dataPath(name string) string {
+func (m *ToolManager) dataPath(name string) string {
 	dir := m.dataDir
 	if dir == "" {
 		dir = "."
@@ -774,62 +774,62 @@ func (m *PaneManager) dataPath(name string) string {
 	return filepath.Join(dir, name)
 }
 
-// Create spawns a new pane.
-func (m *PaneManager) Create(cwd string, cols, rows uint16) (*Pane, error) {
+// Create spawns a new tool.
+func (m *ToolManager) Create(cwd string, cols, rows uint16) (*Tool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.nextID++
 	id := strconv.Itoa(m.nextID)
 	name := fmt.Sprintf("Shell #%d", m.nextID)
-	p, err := StartPane(id, name, cwd, cols, rows, func(paneID string) {
-		m.Delete(paneID)
+	p, err := StartTool(id, name, cwd, cols, rows, func(toolID string) {
+		m.Delete(toolID)
 		if m.invalidator != nil {
-			m.invalidator(paneID)
+			m.invalidator(toolID)
 		}
 	}, m.attnHooks())
 	if err != nil {
-		log.Printf("[pane %s] create error: %v", id, err)
+		log.Printf("[tool %s] create error: %v", id, err)
 		return nil, err
 	}
-	m.panes[id] = p
-	log.Printf("[pane %s] registered total=%d", id, len(m.panes))
+	m.tools[id] = p
+	log.Printf("[tool %s] registered total=%d", id, len(m.tools))
 	m.dirty.Store(true)
 	go m.SaveAll()
 	return p, nil
 }
 
-func (m *PaneManager) Restore(id, name, cwd string, cols, rows uint16) error {
+func (m *ToolManager) Restore(id, name, cwd string, cols, rows uint16) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	p, err := StartPane(id, name, cwd, cols, rows, func(paneID string) {
-		m.Delete(paneID)
+	p, err := StartTool(id, name, cwd, cols, rows, func(toolID string) {
+		m.Delete(toolID)
 		if m.invalidator != nil {
-			m.invalidator(paneID)
+			m.invalidator(toolID)
 		}
 	}, m.attnHooks())
 	if err != nil {
 		return err
 	}
 	p.restored = true
-	m.panes[id] = p
+	m.tools[id] = p
 	if n, _ := strconv.Atoi(id); n > m.nextID {
 		m.nextID = n
 	}
-	log.Printf("[pane %s] restored total=%d", id, len(m.panes))
+	log.Printf("[tool %s] restored total=%d", id, len(m.tools))
 	return nil
 }
 
-func (m *PaneManager) Get(id string) *Pane {
+func (m *ToolManager) Get(id string) *Tool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.panes[id]
+	return m.tools[id]
 }
 
-func (m *PaneManager) List() []map[string]interface{} {
+func (m *ToolManager) List() []map[string]interface{} {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	var out []map[string]interface{}
-	for _, p := range m.panes {
+	for _, p := range m.tools {
 		pid := 0
 		if p.cmd != nil && p.cmd.Process != nil {
 			pid = p.cmd.Process.Pid
@@ -849,29 +849,29 @@ func (m *PaneManager) List() []map[string]interface{} {
 	return out
 }
 
-func (m *PaneManager) Delete(id string) {
+func (m *ToolManager) Delete(id string) {
 	m.mu.Lock()
-	p := m.panes[id]
-	delete(m.panes, id)
-	remaining := len(m.panes)
+	p := m.tools[id]
+	delete(m.tools, id)
+	remaining := len(m.tools)
 	m.mu.Unlock()
 	if p != nil {
 		p.kill()
-		log.Printf("[pane %s] deleted remaining=%d", id, remaining)
+		log.Printf("[tool %s] deleted remaining=%d", id, remaining)
 	}
 	m.dirty.Store(true)
 	go m.SaveAll()
 }
 
 // IsLive implements the liveness interface consumed by workspace.Manager.
-func (m *PaneManager) IsLive(id string) bool { return m.Get(id) != nil }
+func (m *ToolManager) IsLive(id string) bool { return m.Get(id) != nil }
 
-// IsDaemon reports false: PaneManager is direct mode, not daemon-backed.
-func (m *PaneManager) IsDaemon() bool { return false }
+// IsDaemon reports false: ToolManager is direct mode, not daemon-backed.
+func (m *ToolManager) IsDaemon() bool { return false }
 
 // ── persistence ──────────────────────────────────────
 
-type PaneState struct {
+type ToolState struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 	Cwd  string `json:"cwd"`
@@ -881,21 +881,21 @@ type PaneState struct {
 // startup so a clean run never clobbers an existing user file with empty state.
 //
 // Cwd() can take tens to hundreds of ms on macOS (lsof). To keep it from
-// blocking concurrent Create/Delete calls, we snapshot pane pointers under
+// blocking concurrent Create/Delete calls, we snapshot tool pointers under
 // m.mu and then call Cwd() OUTSIDE the lock.
-func (m *PaneManager) SaveAll() {
+func (m *ToolManager) SaveAll() {
 	if !m.dirty.Load() {
 		return
 	}
 	m.mu.Lock()
-	snap := make([]*Pane, 0, len(m.panes))
-	for _, p := range m.panes {
+	snap := make([]*Tool, 0, len(m.tools))
+	for _, p := range m.tools {
 		snap = append(snap, p)
 	}
 	m.mu.Unlock()
-	states := make([]PaneState, 0, len(snap))
+	states := make([]ToolState, 0, len(snap))
 	for _, p := range snap {
-		states = append(states, PaneState{ID: p.ID, Name: p.Name, Cwd: p.Cwd()})
+		states = append(states, ToolState{ID: p.ID, Name: p.Name, Cwd: p.Cwd()})
 	}
 	sort.Slice(states, func(i, j int) bool { return states[i].ID < states[j].ID })
 	data, _ := json.Marshal(states)
@@ -904,59 +904,72 @@ func (m *PaneManager) SaveAll() {
 	}
 }
 
-// LoadAll reads tools.json and respawns shells.
-func (m *PaneManager) LoadAll() {
+// LoadAll reads tools.json and respawns the shells that referenced still
+// points at. Unreferenced entries are discarded (FR-EM-14).
+func (m *ToolManager) LoadAll(referenced map[string]struct{}) {
 	data, err := os.ReadFile(m.dataPath("tools.json"))
 	if err != nil {
 		if !os.IsNotExist(err) {
-			log.Printf("loadPanes: %v", err)
+			log.Printf("loadTools: %v", err)
 		}
 		return
 	}
-	var states []PaneState
+	var states []ToolState
 	if err := json.Unmarshal(data, &states); err != nil {
-		log.Printf("loadPanes unmarshal: %v", err)
+		log.Printf("loadTools unmarshal: %v", err)
 		return
 	}
+	restored, skipped := 0, 0
 	for _, s := range states {
-		if err := m.Restore(s.ID, s.Name, s.Cwd, 120, 40); err != nil {
-			log.Printf("[pane %s] restore error: %v", s.ID, err)
+		// FR-EM-14: 어떤 탭도 참조하지 않는 도구는 어느 UI 에서도 도달할 수
+		// 없다. 되살리면 부팅마다 셸이 누적되기만 한다.
+		if _, ok := referenced[s.ID]; !ok {
+			skipped++
+			continue
 		}
+		if err := m.Restore(s.ID, s.Name, s.Cwd, 120, 40); err != nil {
+			log.Printf("[tool %s] restore error: %v", s.ID, err)
+			continue
+		}
+		restored++
+	}
+	if skipped > 0 {
+		log.Printf("tools: 미참조 %d개 폐기", skipped)
 	}
 	// Mark dirty so the next SaveAll (e.g. on shutdown) persists CWD changes
-	// that happen after restore, even if no panes were created/deleted.
+	// that happen after restore, even if no tools were created/deleted.
 	m.dirty.Store(true)
-	log.Printf("panes restored count=%d", len(states))
+	log.Printf("tools restored count=%d", restored)
 }
 
-// Snapshot locks + copies pane pointers; used by adapters.
-func (m *PaneManager) Snapshot() []*Pane {
+// Snapshot locks + copies tool pointers; used by adapters.
+func (m *ToolManager) Snapshot() []*Tool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	out := make([]*Pane, 0, len(m.panes))
-	for _, p := range m.panes {
+	out := make([]*Tool, 0, len(m.tools))
+	for _, p := range m.tools {
 		out = append(out, p)
 	}
 	return out
 }
 
-// ── PaneManager: expanded PaneHub methods (DAEMON_SPLIT_SRS Phase 1) ──
+// ── ToolManager: expanded ToolHub methods (DAEMON_SPLIT_SRS Phase 1) ──
 
-// Write sends data to the PTY master of the named pane.
-func (m *PaneManager) Write(id string, data []byte) error {
+// Write sends data to the PTY master of the named tool.
+func (m *ToolManager) Write(id string, data []byte) error {
 	m.mu.RLock()
-	p := m.panes[id]
+	p := m.tools[id]
 	m.mu.RUnlock()
 	if p == nil {
-		return nil // silently drop write to nonexistent pane
+		return nil // silently drop write to nonexistent tool
 	}
 	return p.Write(data)
 }
 
-// Resize changes the PTY dimensions of the named pane.
-func (m *PaneManager) Resize(id string, cols, rows uint16) error {
+// Resize changes the PTY dimensions of the named tool.
+func (m *ToolManager) Resize(id string, cols, rows uint16) error {
 	m.mu.RLock()
-	p := m.panes[id]
+	p := m.tools[id]
 	m.mu.RUnlock()
 	if p == nil {
 		return nil
@@ -964,10 +977,10 @@ func (m *PaneManager) Resize(id string, cols, rows uint16) error {
 	return p.Resize(cols, rows)
 }
 
-// Cwd returns the current working directory of the named pane.
-func (m *PaneManager) Cwd(id string) string {
+// Cwd returns the current working directory of the named tool.
+func (m *ToolManager) Cwd(id string) string {
 	m.mu.RLock()
-	p := m.panes[id]
+	p := m.tools[id]
 	m.mu.RUnlock()
 	if p == nil {
 		return ""
@@ -975,10 +988,10 @@ func (m *PaneManager) Cwd(id string) string {
 	return p.Cwd()
 }
 
-// Busy reports whether the named pane has a running foreground process.
-func (m *PaneManager) Busy(id string) bool {
+// Busy reports whether the named tool has a running foreground process.
+func (m *ToolManager) Busy(id string) bool {
 	m.mu.RLock()
-	p := m.panes[id]
+	p := m.tools[id]
 	m.mu.RUnlock()
 	if p == nil {
 		return false
@@ -986,29 +999,29 @@ func (m *PaneManager) Busy(id string) bool {
 	return p.IsBusy()
 }
 
-// PaneSnapshot captures the outbuf state of a pane for reattach scrollback
+// ToolSnapshot captures the outbuf state of a tool for reattach scrollback
 // restoration (DAEMON_SPLIT_SRS §6.6).
-type PaneSnapshot struct {
+type ToolSnapshot struct {
 	Data           []byte
 	TotalBytesIn   int64
 	TotalBytesDrop int64
 	Retained       int
 }
 
-// SnapshotPane returns the outbuf snapshot of the named pane.
-func (m *PaneManager) SnapshotPane(id string) (PaneSnapshot, error) {
+// SnapshotTool returns the outbuf snapshot of the named tool.
+func (m *ToolManager) SnapshotTool(id string) (ToolSnapshot, error) {
 	m.mu.RLock()
-	p := m.panes[id]
+	p := m.tools[id]
 	m.mu.RUnlock()
 	if p == nil {
-		return PaneSnapshot{}, nil
+		return ToolSnapshot{}, nil
 	}
 	s := p.Stream()
 	if s == nil {
-		return PaneSnapshot{}, nil
+		return ToolSnapshot{}, nil
 	}
 	data, stats := s.Snapshot()
-	return PaneSnapshot{
+	return ToolSnapshot{
 		Data:           data,
 		TotalBytesIn:   stats.TotalBytesIn,
 		TotalBytesDrop: stats.TotalBytesDrop,

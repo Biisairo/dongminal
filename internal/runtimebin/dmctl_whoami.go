@@ -83,7 +83,7 @@ func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-const dmctlWhoAmIHelp = `dmctl who-am-i — 현재 쉘이 속한 pane 의 식별 정보
+const dmctlWhoAmIHelp = `dmctl who-am-i — 현재 쉘이 속한 tool 의 식별 정보
 
 사용법:
   dmctl who-am-i          # 표준 KEY=VALUE 한 줄 (label/uuid/short/...)

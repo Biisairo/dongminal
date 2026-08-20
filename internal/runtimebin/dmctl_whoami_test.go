@@ -69,7 +69,7 @@ func TestRunDmctlWhoAmI_NotFound(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(404)
-		fmt.Fprint(w, `{"error":"clientPID=999 가 어느 pane 에도 속하지 않음"}`)
+		fmt.Fprint(w, `{"error":"clientPID=999 가 어느 tool 에도 속하지 않음"}`)
 	})
 	defer cleanup()
 

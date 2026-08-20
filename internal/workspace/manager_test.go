@@ -71,7 +71,7 @@ const sampleWS = `{
         "direction": "row",
         "children": [
           {
-            "type": "pane",
+            "type": "tool",
             "id": "r1",
             "activeTab": "t1",
             "tabs": [
@@ -80,7 +80,7 @@ const sampleWS = `{
             ]
           },
           {
-            "type": "pane",
+            "type": "tool",
             "id": "r2",
             "activeTab": "t3",
             "tabs": [
@@ -270,10 +270,10 @@ func TestResolveDeadPane(t *testing.T) {
 	live.set("11", false)
 
 	if _, err := m.Resolve("W1.P1.T2"); err == nil {
-		t.Error("expected error for dead pane via label")
+		t.Error("expected error for dead tool via label")
 	}
 	if _, err := m.Resolve("11"); err == nil {
-		t.Error("expected error for dead pane via numeric id")
+		t.Error("expected error for dead tool via numeric id")
 	}
 	if pid, err := m.Resolve("W1.P1.T1"); err != nil || pid != "10" {
 		t.Errorf("Resolve(W1.P1.T1)=%s err=%v, want 10 nil", pid, err)

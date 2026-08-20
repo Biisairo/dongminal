@@ -8,15 +8,15 @@ import (
 	"time"
 )
 
-// Pane attention (PANE_ATTENTION_NOTIFY_SRS): terminal-monitoring based
-// detection that a pane needs the user's attention — an agent finished or is
+// Tool attention (PANE_ATTENTION_NOTIFY_SRS): terminal-monitoring based
+// detection that a tool needs the user's attention — an agent finished or is
 // waiting for input. Detection is observe-only over the PTY output stream:
 //   L1 (signaled): standard notification escape sequences (OSC 9 / OSC 99 /
 //                  OSC 777;notify, and optionally a bare BEL).
 //   L2 (idle):     output quiescence after activity (handled by the sweeper).
 
 const (
-	// attnMaxCarry bounds the per-pane carry holding an unterminated OSC
+	// attnMaxCarry bounds the per-tool carry holding an unterminated OSC
 	// fragment that spans a read boundary. Beyond this the fragment is dropped.
 	attnMaxCarry = 512
 	// attnDefaultIdleMS is the default L2 idle threshold. 0 would disable L2.
@@ -26,7 +26,7 @@ const (
 )
 
 // attnNow returns the current time in unix-nanos. It is a package variable so
-// tests can substitute a deterministic clock (mirrors paneBusyProbe).
+// tests can substitute a deterministic clock (mirrors toolBusyProbe).
 var attnNow = func() int64 { return time.Now().UnixNano() }
 
 // attentionIdleThreshold resolves the L2 idle threshold: env override
@@ -154,25 +154,25 @@ func boundedCarry(frag []byte, maxCarry int) []byte {
 
 // paneAttentionPayload / paneAttentionClearPayload build the SSE event bodies
 // broadcast via CommandHub. Keys are lowerCamelCase.
-func paneAttentionPayload(paneID, reason string) []byte {
+func paneAttentionPayload(toolID, reason string) []byte {
 	b, _ := json.Marshal(map[string]any{
 		"action": "tool_attention",
-		"args":   map[string]any{"toolId": paneID, "reason": reason},
+		"args":   map[string]any{"toolId": toolID, "reason": reason},
 	})
 	return b
 }
 
-func paneAttentionClearPayload(paneID string) []byte {
+func paneAttentionClearPayload(toolID string) []byte {
 	b, _ := json.Marshal(map[string]any{
 		"action": "tool_attention_clear",
-		"args":   map[string]any{"toolId": paneID},
+		"args":   map[string]any{"toolId": toolID},
 	})
 	return b
 }
 
-// WireAttention connects pane attention transitions to SSE broadcasts. Called
-// from the composition root once both the PaneManager and CommandHub exist.
-func WireAttention(pm *PaneManager, hub CommandBroker) {
+// WireAttention connects tool attention transitions to SSE broadcasts. Called
+// from the composition root once both the ToolManager and CommandHub exist.
+func WireAttention(pm *ToolManager, hub CommandBroker) {
 	pm.SetAttentionNotifier(
 		func(id, reason string) { hub.Broadcast(paneAttentionPayload(id, reason)) },
 		func(id string) { hub.Broadcast(paneAttentionClearPayload(id)) },

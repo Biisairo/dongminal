@@ -14,12 +14,12 @@ import (
 )
 
 func TestHandleAPI_PaneBusy(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	// missing pane
+	// missing tool
 	resp, _ := http.Get(ts.URL + "/api/tools/missing/busy")
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
@@ -32,13 +32,13 @@ func TestHandleAPI_PaneBusy(t *testing.T) {
 }
 
 // TestHandleAPI_PaneBusy_DaemonMode reproduces DAEMON_PANE_BUSY_RESOLVE_SRS FR-1.
-// In daemon mode Get(id) returns a cmd-less Pane, so the handler must resolve
-// busy via PaneHub.Busy(id) (daemon busy RPC) rather than Get(id).IsBusy().
-// fakePaneHub mirrors PaneClient: Get returns a cmd-less Pane while Busy reports
+// In daemon mode Get(id) returns a cmd-less Tool, so the handler must resolve
+// busy via ToolHub.Busy(id) (daemon busy RPC) rather than Get(id).IsBusy().
+// fakePaneHub mirrors ToolClient: Get returns a cmd-less Tool while Busy reports
 // the live foreground-process state.
 func TestHandleAPI_PaneBusy_DaemonMode(t *testing.T) {
 	hub := newFakePaneHub()
-	hub.seed("p1", "Pane 1")
+	hub.seed("p1", "Tool 1")
 	hub.setBusy("p1", true)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: hub})
 	ts := httptest.NewServer(srv.Handler())
@@ -56,7 +56,7 @@ func TestHandleAPI_PaneBusy_DaemonMode(t *testing.T) {
 }
 
 func TestHandleAPI_DeletePane(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -257,7 +257,7 @@ func TestHandleAPI_Download_RelativePath(t *testing.T) {
 }
 
 func TestHandleAPI_Cwd(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -382,7 +382,7 @@ func TestHandleAPI_State_HappyPath(t *testing.T) {
 		t.Errorf("ETag=%q want 7", got)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	if !strings.Contains(string(body), `"workspace"`) || !strings.Contains(string(body), `"panes"`) {
+	if !strings.Contains(string(body), `"workspace"`) || !strings.Contains(string(body), `"tools"`) {
 		t.Errorf("body=%s", body)
 	}
 }
@@ -486,7 +486,7 @@ func TestHandleAPI_CreatePane_OversizedCols(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	// 8000 > MaxTerminalDim(4096) → fallback to defaults; pane still created.
+	// 8000 > MaxTerminalDim(4096) → fallback to defaults; tool still created.
 	resp, _ := http.Post(ts.URL+"/api/tools?cols=8000&rows=24", "application/json", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
@@ -520,15 +520,15 @@ func TestHandleAPI_Cwd_WithPane(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/cwd?pane=p1")
+	resp, _ := http.Get(ts.URL + "/api/cwd?tool=p1")
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
 	}
 }
 
-// DAEMON_CWDPANE_RESOLVE_SRS FR-5: /api/cwd resolves the pane's live cwd via
-// PaneHub.Cwd, not the server process working directory (daemon-mode bug).
+// DAEMON_CWDPANE_RESOLVE_SRS FR-5: /api/cwd resolves the tool's live cwd via
+// ToolHub.Cwd, not the server process working directory (daemon-mode bug).
 func TestHandleAPI_Cwd_ResolvesLiveCwd(t *testing.T) {
 	pm := newFakePaneHub()
 	pm.seed("p1", "P1")
@@ -537,7 +537,7 @@ func TestHandleAPI_Cwd_ResolvesLiveCwd(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/cwd?pane=p1")
+	resp, _ := http.Get(ts.URL + "/api/cwd?tool=p1")
 	defer resp.Body.Close()
 	var body struct {
 		Cwd string `json:"cwd"`
@@ -550,7 +550,7 @@ func TestHandleAPI_Cwd_ResolvesLiveCwd(t *testing.T) {
 
 func TestHandleAPI_PanesCreate_CwdPaneRef(t *testing.T) {
 	pm := newFakePaneHub()
-	// Reference pane with cwd resolution path; fake returns whatever Cwd() yields.
+	// Reference tool with cwd resolution path; fake returns whatever Cwd() yields.
 	pm.seed("ref", "Ref")
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
 	ts := httptest.NewServer(srv.Handler())
@@ -563,9 +563,9 @@ func TestHandleAPI_PanesCreate_CwdPaneRef(t *testing.T) {
 	}
 }
 
-// DAEMON_CWDPANE_RESOLVE_SRS FR-1: cwdPane must resolve to the reference pane's
-// live cwd via PaneHub.Cwd, not the server process working directory. In daemon
-// mode Get() returns a cmd-less Pane whose Cwd() falls back to os.Getwd(), so the
+// DAEMON_CWDPANE_RESOLVE_SRS FR-1: cwdPane must resolve to the reference tool's
+// live cwd via ToolHub.Cwd, not the server process working directory. In daemon
+// mode Get() returns a cmd-less Tool whose Cwd() falls back to os.Getwd(), so the
 // handler must go through the hub's Cwd(id) instead of Get(id).Cwd().
 func TestHandleAPI_PanesCreate_CwdPaneRef_ResolvesLiveCwd(t *testing.T) {
 	pm := newFakePaneHub()
@@ -581,7 +581,7 @@ func TestHandleAPI_PanesCreate_CwdPaneRef_ResolvesLiveCwd(t *testing.T) {
 		t.Fatalf("status=%d", resp.StatusCode)
 	}
 	if pm.lastCwd != "/parent/dir" {
-		t.Fatalf("created pane cwd=%q want %q", pm.lastCwd, "/parent/dir")
+		t.Fatalf("created tool cwd=%q want %q", pm.lastCwd, "/parent/dir")
 	}
 }
 
@@ -600,7 +600,7 @@ func TestHandleAPI_PanesCreate_ExplicitCwdWins(t *testing.T) {
 		t.Fatalf("status=%d", resp.StatusCode)
 	}
 	if pm.lastCwd != "/explicit" {
-		t.Fatalf("created pane cwd=%q want %q", pm.lastCwd, "/explicit")
+		t.Fatalf("created tool cwd=%q want %q", pm.lastCwd, "/explicit")
 	}
 }
 
@@ -617,6 +617,6 @@ func TestHandleAPI_PanesCreate_UnknownCwdPaneFallsBack(t *testing.T) {
 		t.Fatalf("status=%d", resp.StatusCode)
 	}
 	if pm.lastCwd != "" {
-		t.Fatalf("created pane cwd=%q want empty", pm.lastCwd)
+		t.Fatalf("created tool cwd=%q want empty", pm.lastCwd)
 	}
 }
