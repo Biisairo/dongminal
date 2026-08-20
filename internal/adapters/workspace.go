@@ -21,15 +21,15 @@ func (a Workspace) Entries() []mcptool.WorkspaceEntry {
 	out := make([]mcptool.WorkspaceEntry, len(src))
 	for i, e := range src {
 		out[i] = mcptool.WorkspaceEntry{
-			PaneID:      e.PaneID,
-			Label:       e.Label,
-			SessionName: e.SessionName,
-			TabName:     e.TabName,
-			IsActive:    e.IsActive,
-			SessionUUID: e.SessionUUID,
-			RegionUUID:  e.RegionUUID,
-			TabUUID:     e.TabUUID,
-			ShortCode:   e.ShortCode,
+			ToolID:     e.ToolID,
+			Label:      e.Label,
+			WindowName: e.WindowName,
+			TabName:    e.TabName,
+			IsActive:   e.IsActive,
+			WindowUUID: e.WindowUUID,
+			PaneUUID:   e.PaneUUID,
+			TabUUID:    e.TabUUID,
+			ShortCode:  e.ShortCode,
 		}
 	}
 	return out

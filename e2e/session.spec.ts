@@ -11,8 +11,8 @@ async function waitForInit(page) {
 test.describe('Session management', () => {
   test('session can be renamed via double-click', async ({ page }) => {
     await waitForInit(page);
-    const firstSession = page.locator('#sessions .si').first();
-    await expect(firstSession.locator('.si-name')).toHaveText('Session');
+    const firstSession = page.locator('#windows .si').first();
+    await expect(firstSession.locator('.si-name')).toHaveText('Window');
 
     // Double-click session name to trigger rename.
     await firstSession.locator('.si-name').dblclick();
@@ -29,42 +29,42 @@ test.describe('Session management', () => {
 
   test('session can be deleted via x button', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.locator('#sessions .si').count();
+    const before = await page.locator('#windows .si').count();
     if (before <= 1) {
       // Create an extra session so we can delete one.
       const [resp] = await Promise.all([
         page.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
-        page.click('#add-session'),
+        page.click('#add-window'),
       ]);
       expect(resp.status()).toBe(200);
-      await expect(page.locator('#sessions .si')).toHaveCount(before + 1, { timeout: 10000 });
+      await expect(page.locator('#windows .si')).toHaveCount(before + 1, { timeout: 10000 });
     }
 
-    const countBeforeDelete = await page.locator('#sessions .si').count();
-    const firstSession = page.locator('#sessions .si').first();
+    const countBeforeDelete = await page.locator('#windows .si').count();
+    const firstSession = page.locator('#windows .si').first();
     await firstSession.locator('.si-x').click();
 
     // After deleting the first session, count decreases by 1.
-    await expect(page.locator('#sessions .si')).toHaveCount(countBeforeDelete - 1, { timeout: 10000 });
+    await expect(page.locator('#windows .si')).toHaveCount(countBeforeDelete - 1, { timeout: 10000 });
     // At least one session remains.
-    expect(await page.locator('#sessions .si').count()).toBeGreaterThanOrEqual(1);
+    expect(await page.locator('#windows .si').count()).toBeGreaterThanOrEqual(1);
   });
 
   test('session switch via sidebar click', async ({ page }) => {
     await waitForInit(page);
     // Ensure at least 2 sessions.
-    const before = await page.locator('#sessions .si').count();
+    const before = await page.locator('#windows .si').count();
     if (before < 2) {
       const [resp] = await Promise.all([
         page.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
-        page.click('#add-session'),
+        page.click('#add-window'),
       ]);
       expect(resp.status()).toBe(200);
-      await expect(page.locator('#sessions .si')).toHaveCount(before + 1, { timeout: 10000 });
+      await expect(page.locator('#windows .si')).toHaveCount(before + 1, { timeout: 10000 });
     }
 
-    const first = page.locator('#sessions .si').first();
-    const second = page.locator('#sessions .si').nth(1);
+    const first = page.locator('#windows .si').first();
+    const second = page.locator('#windows .si').nth(1);
 
     // Click second session.
     await second.click();
@@ -77,18 +77,18 @@ test.describe('Session management', () => {
 
   test('keyboard shortcut switches sessions', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.locator('#sessions .si').count();
+    const before = await page.locator('#windows .si').count();
     if (before < 2) {
       const [resp] = await Promise.all([
         page.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
-        page.click('#add-session'),
+        page.click('#add-window'),
       ]);
       expect(resp.status()).toBe(200);
-      await expect(page.locator('#sessions .si')).toHaveCount(before + 1, { timeout: 10000 });
+      await expect(page.locator('#windows .si')).toHaveCount(before + 1, { timeout: 10000 });
     }
 
-    const first = page.locator('#sessions .si').first();
-    const second = page.locator('#sessions .si').nth(1);
+    const first = page.locator('#windows .si').first();
+    const second = page.locator('#windows .si').nth(1);
 
     // Start on first.
     await first.click();
@@ -106,17 +106,17 @@ test.describe('Session management', () => {
   test('last session deletion creates a new one automatically', async ({ page }) => {
     await waitForInit(page);
     // Ensure only one session exists by deleting extras.
-    let count = await page.locator('#sessions .si').count();
+    let count = await page.locator('#windows .si').count();
     while (count > 1) {
-      await page.locator('#sessions .si').first().locator('.si-x').click();
-    await expect(page.locator("#sessions .si")).toHaveCount(count - 1, { timeout: 5000 });
-      count = await page.locator('#sessions .si').count();
+      await page.locator('#windows .si').first().locator('.si-x').click();
+    await expect(page.locator("#windows .si")).toHaveCount(count - 1, { timeout: 5000 });
+      count = await page.locator('#windows .si').count();
     }
 
     // Delete the last session.
-    await page.locator('#sessions .si').first().locator('.si-x').click();
+    await page.locator('#windows .si').first().locator('.si-x').click();
     // A new session should be created automatically.
-    await expect(page.locator('#sessions .si')).toHaveCount(1, { timeout: 10000 });
+    await expect(page.locator('#windows .si')).toHaveCount(1, { timeout: 10000 });
     await expect(page.locator('#area .rg.focused')).toHaveCount(1);
   });
 });

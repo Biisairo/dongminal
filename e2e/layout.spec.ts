@@ -193,7 +193,7 @@ test.describe('Layout & navigation', () => {
       const app = (window as any).app;
       await app.split('horizontal', {
         keepFocus: true,
-        targetSession: app.ws.activeWindow,
+        targetWindow: app.ws.activeWindow,
         targetRegion: targetRid,
       });
     }, targetRegionId);

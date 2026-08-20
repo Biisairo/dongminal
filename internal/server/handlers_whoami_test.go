@@ -29,11 +29,11 @@ func TestApiWhoAmI_HappyPath(t *testing.T) {
 	// override List to inject sizeCols/sizeRows for paneID p1.
 	fpm := &sizedPaneHub{fakePaneHub: pm, cols: 80, rows: 24}
 	fw := newFakeWorkspaceStore()
-	fw.entries = []workspace.PaneLabel{{
-		PaneID: "p1", Label: "W1.P1.T1",
-		SessionName: "Main", TabName: "Shell",
-		IsActive:    true,
-		SessionUUID: "su1", RegionUUID: "ru1",
+	fw.entries = []workspace.TabEntry{{
+		ToolID: "p1", Label: "W1.P1.T1",
+		WindowName: "Main", TabName: "Shell",
+		IsActive:   true,
+		WindowUUID: "su1", PaneUUID: "ru1",
 		TabUUID: "tu1", ShortCode: "tu1short",
 	}}
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{

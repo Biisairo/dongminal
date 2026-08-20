@@ -224,7 +224,7 @@ func formatNewEntities(res mcptool.CmdResult, timedOut bool) string {
 			if i > 0 {
 				sb.WriteByte(' ')
 			}
-			fmt.Fprintf(&sb, "%s(%s)", t.UUID, t.PaneID)
+			fmt.Fprintf(&sb, "%s(%s)", t.UUID, t.ToolID)
 		}
 		sb.WriteByte(']')
 	}

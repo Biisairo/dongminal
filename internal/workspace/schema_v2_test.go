@@ -176,7 +176,7 @@ func TestBuildIndex_ReadsFocusedPaneAndActiveWindow(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 	defer m.Close()
-	var active *PaneLabel
+	var active *TabEntry
 	for i := range m.Entries() {
 		if m.Entries()[i].IsActive {
 			active = &m.Entries()[i]
@@ -185,8 +185,8 @@ func TestBuildIndex_ReadsFocusedPaneAndActiveWindow(t *testing.T) {
 	if active == nil {
 		t.Fatal("activeWindow/focusedPane 로 활성 탭이 판정되지 않음")
 	}
-	if active.PaneID != "10" {
-		t.Errorf("활성 탭 = %s, want 10", active.PaneID)
+	if active.ToolID != "10" {
+		t.Errorf("활성 탭 = %s, want 10", active.ToolID)
 	}
 }
 

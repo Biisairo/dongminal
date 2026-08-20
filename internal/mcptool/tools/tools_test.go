@@ -131,7 +131,7 @@ func TestListPanes_Mixed(t *testing.T) {
 	pr.has["2"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{
-			{PaneID: "1", Label: "W1.P1.T1", SessionName: "Main", TabName: "Shell", IsActive: true},
+			{ToolID: "1", Label: "W1.P1.T1", WindowName: "Main", TabName: "Shell", IsActive: true},
 		},
 	}
 	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
@@ -158,7 +158,7 @@ func TestListPanes_SessionFilter(t *testing.T) {
 	pr.has["2"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{
-			{PaneID: "1", Label: "W1.P1.T1", SessionName: "poem-critique", TabName: "writer"},
+			{ToolID: "1", Label: "W1.P1.T1", WindowName: "poem-critique", TabName: "writer"},
 		},
 	}
 	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}),
@@ -179,7 +179,7 @@ func TestListPanes_FilterNoMatch(t *testing.T) {
 	pr.has["1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{
-			{PaneID: "1", Label: "W1.P1.T1", SessionName: "Main", TabName: "Shell"},
+			{ToolID: "1", Label: "W1.P1.T1", WindowName: "Main", TabName: "Shell"},
 		},
 	}
 	res, err := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}),
@@ -198,8 +198,8 @@ func TestListPanes_DropsStaleEntries(t *testing.T) {
 	pr.has["1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{
-			{PaneID: "1", Label: "W1.P1.T1"},
-			{PaneID: "ghost", Label: "W1.P1.T2"},
+			{ToolID: "1", Label: "W1.P1.T1"},
+			{ToolID: "ghost", Label: "W1.P1.T2"},
 		},
 	}
 	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
@@ -418,7 +418,7 @@ func TestWhoAmI_WithEntry(t *testing.T) {
 	pr := newFakePaneReader()
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{
-			{PaneID: "1", Label: "W1.P1.T1", SessionName: "Main", TabName: "Shell"},
+			{ToolID: "1", Label: "W1.P1.T1", WindowName: "Main", TabName: "Shell"},
 		},
 	}
 	h := WhoAmIHandler(WhoAmIDeps{PM: pr, WS: wr, Resolver: fakeResolver{pid: "1", shell: 100}})
@@ -506,7 +506,7 @@ func TestWorkspaceCommand_CreatingAttachesNewIds(t *testing.T) {
 		awaitResult: mcptool.CmdResult{
 			NewSessions: []string{"s5"},
 			NewRegions:  []string{"r9"},
-			NewTabs:     []mcptool.TabRef{{UUID: "t9", PaneID: "409"}},
+			NewTabs:     []mcptool.TabRef{{UUID: "t9", ToolID: "409"}},
 		},
 	}
 	res, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,

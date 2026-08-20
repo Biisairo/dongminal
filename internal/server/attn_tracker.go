@@ -250,7 +250,7 @@ func (t *AttnTracker) ActivitySnapshot() []activitySnap {
 			continue
 		}
 		items = append(items, activitySnap{
-			PaneID:    id,
+			ToolID:    id,
 			State:     a.State,
 			Tool:      a.Tool,
 			Detail:    a.Detail,
@@ -261,7 +261,7 @@ func (t *AttnTracker) ActivitySnapshot() []activitySnap {
 
 	out := []activitySnap{}
 	for _, it := range items {
-		if it.State == "working" && probe != nil && !probe(it.PaneID) {
+		if it.State == "working" && probe != nil && !probe(it.ToolID) {
 			continue
 		}
 		out = append(out, it)

@@ -21,10 +21,10 @@ window.__dongminalDebug={
 
 app.init();
 if(!(defaultPreset>=0&&layoutPresets[defaultPreset]))document.getElementById('add-preset').style.display='none';
-document.getElementById('add-session').addEventListener('click',()=>app.addSession());
+document.getElementById('add-window').addEventListener('click',()=>app.addWindow());
 document.getElementById('add-preset').addEventListener('click',()=>{
   if(defaultPreset>=0&&layoutPresets[defaultPreset]) app._loadPreset(defaultPreset);
-  else app.addSession();
+  else app.addWindow();
 });
 
 // Custom toggle handler

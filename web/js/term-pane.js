@@ -81,7 +81,7 @@ class TermPane {
       this._send(m);
     });
     this.term.onResize(({cols,rows})=>{
-      // Only the OS-focused window that owns the pane's session may send resize.
+      // Only the OS-focused window that owns the pane's window may send resize.
       if(!window.app||!window.app._resizeCheck(this.id)) return;
       const m=new Uint8Array(5);m[0]=OP.RESIZE;
       new DataView(m.buffer).setUint16(1,cols,false);

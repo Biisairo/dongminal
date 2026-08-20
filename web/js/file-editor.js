@@ -213,7 +213,7 @@ class FileEditor {
 
   _updateTabLabel() {
     // Update the tab data model so dirty state survives re-renders
-    const s = app._as();
+    const s = app._aw();
     if (s) {
       for (const n of (s.layout ? [s.layout] : [])) {
         const walk = n => {

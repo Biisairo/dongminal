@@ -16,15 +16,15 @@ func TestListPanes_AppendsUUIDFields(t *testing.T) {
 	pr.has["pty-1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{{
-			PaneID:      "pty-1",
-			Label:       "W1.P1.T1",
-			SessionName: "Main",
-			TabName:     "Shell",
-			IsActive:    true,
-			SessionUUID: "550e8400-e29b-41d4-a716-446655440001",
-			RegionUUID:  "550e8400-e29b-41d4-a716-446655440002",
-			TabUUID:     "550e8400-e29b-41d4-a716-446655440003",
-			ShortCode:   "550e8400",
+			ToolID:     "pty-1",
+			Label:      "W1.P1.T1",
+			WindowName: "Main",
+			TabName:    "Shell",
+			IsActive:   true,
+			WindowUUID: "550e8400-e29b-41d4-a716-446655440001",
+			PaneUUID:   "550e8400-e29b-41d4-a716-446655440002",
+			TabUUID:    "550e8400-e29b-41d4-a716-446655440003",
+			ShortCode:  "550e8400",
 		}},
 	}
 	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
@@ -48,7 +48,7 @@ func TestListPanes_OmitsUUIDFieldsWhenAbsent(t *testing.T) {
 	pr.has["1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{{
-			PaneID: "1", Label: "W1.P1.T1", IsActive: true,
+			ToolID: "1", Label: "W1.P1.T1", IsActive: true,
 		}},
 	}
 	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
@@ -66,14 +66,14 @@ func TestWhoAmI_AppendsUUIDFields(t *testing.T) {
 	pr.has["pty-1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{{
-			PaneID:      "pty-1",
-			Label:       "W1.P1.T1",
-			SessionName: "Main",
-			TabName:     "Shell",
-			SessionUUID: "550e8400-e29b-41d4-a716-446655440001",
-			RegionUUID:  "550e8400-e29b-41d4-a716-446655440002",
-			TabUUID:     "550e8400-e29b-41d4-a716-446655440003",
-			ShortCode:   "550e8400",
+			ToolID:     "pty-1",
+			Label:      "W1.P1.T1",
+			WindowName: "Main",
+			TabName:    "Shell",
+			WindowUUID: "550e8400-e29b-41d4-a716-446655440001",
+			PaneUUID:   "550e8400-e29b-41d4-a716-446655440002",
+			TabUUID:    "550e8400-e29b-41d4-a716-446655440003",
+			ShortCode:  "550e8400",
 		}},
 	}
 	h := WhoAmIHandler(WhoAmIDeps{PM: pr, WS: wr, Resolver: fakeResolver{pid: "pty-1", shell: 100}})
@@ -103,7 +103,7 @@ func TestWhoAmI_OmitsUUIDFieldsWhenAbsent(t *testing.T) {
 	pr := newFakePaneReader()
 	pr.has["pty-1"] = true
 	wr := &fakeWorkspaceReader{
-		entries: []mcptool.WorkspaceEntry{{PaneID: "pty-1", Label: "W1.P1.T1"}},
+		entries: []mcptool.WorkspaceEntry{{ToolID: "pty-1", Label: "W1.P1.T1"}},
 	}
 	h := WhoAmIHandler(WhoAmIDeps{PM: pr, WS: wr, Resolver: fakeResolver{pid: "pty-1", shell: 100}})
 	ctx := mcptool.WithRemoteAddr(context.Background(), "127.0.0.1:1234")

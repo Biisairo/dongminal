@@ -14,7 +14,7 @@ class App {
     this._activity=new Map(); // paneId → {state,tool,detail} 활동 상태 (AGENT_ACTIVITY_PANEL_SRS)
     this._s=0;this._r=0;this._t=0;this._kb=false;
     this._windowFocused=typeof document!=='undefined'&&document.hasFocus?document.hasFocus():true;
-    this._sessionFocusOwner={}; // { sessionId: clientId } — per-session focus ownership
+    this._windowFocusOwner={}; // { windowId: clientId } — per-window focus ownership
     this._focusCh=null; // BroadcastChannel for focus sync (lazy init)
     this._drag=null;
     this._stats={};this._latency=null;
@@ -64,31 +64,31 @@ class App {
   }
 
   // Flatten split tree → array of region nodes (in-order: L→R, T→B)
-  _flattenRegions(node, out){
+  _flattenPanes(node, out){
     out = out || [];
     if(!node) return out;
     if(node.type==='pane') out.push(node);
     else if(node.type==='split' && node.children){
-      for(const c of node.children) this._flattenRegions(c, out);
+      for(const c of node.children) this._flattenPanes(c, out);
     }
     return out;
   }
-  _mobileCurrentRegion(){
-    const s=this._as(); if(!s||!s.layout) return null;
-    const regs=this._flattenRegions(s.layout);
+  _mobileCurrentPane(){
+    const s=this._aw(); if(!s||!s.layout) return null;
+    const regs=this._flattenPanes(s.layout);
     if(!regs.length) return null;
     if(this._mPaneIdx>=regs.length) this._mPaneIdx=regs.length-1;
     if(this._mPaneIdx<0) this._mPaneIdx=0;
     return regs[this._mPaneIdx];
   }
   _mobilePaneCount(){
-    const s=this._as(); if(!s||!s.layout) return 0;
-    return this._flattenRegions(s.layout).length;
+    const s=this._aw(); if(!s||!s.layout) return 0;
+    return this._flattenPanes(s.layout).length;
   }
   navMobilePane(delta){
     const n=this._mobilePaneCount(); if(n<=1) return;
     this._mPaneIdx = (this._mPaneIdx + delta + n) % n;
-    const rg=this._mobileCurrentRegion();
+    const rg=this._mobileCurrentPane();
     if(rg){
       this._setFocus(rg.id);
       this._save();
@@ -98,7 +98,7 @@ class App {
 
   async init(){
     // Set up BroadcastChannel listener BEFORE any async work so we don't
-    // miss session focus claims from other windows during init.
+    // miss window focus claims from other windows during init.
     this._initFocusChannel();
     try{
       const stRes=await fetch('/api/state');
@@ -130,39 +130,39 @@ class App {
         if(!this.ws.windows.find(s=>s.id===this.ws.activeWindow))
           this.ws.activeWindow=this.ws.windows[0]?.id||null;
       }
-      if(!this.ws.windows.length) await this._mkSession();
+      if(!this.ws.windows.length) await this._mkWindow();
     }catch(e){
       console.error('[App] init error:',e);
-      if(!this.ws.windows.length) await this._mkSession();
+      if(!this.ws.windows.length) await this._mkWindow();
     }
     // Restore per-window activeWindow from sessionStorage (survives refresh).
-    // Only apply if the session still exists in the loaded workspace.
+    // Only apply if the window still exists in the loaded workspace.
     try{
       const saved=sessionStorage.getItem('activeWindow');
       if(saved && this.ws.windows.some(s=>s.id===saved)){
         this.ws.activeWindow=saved;
       }
-      // Restore per-window focusedPane for each session from sessionStorage.
+      // Restore per-window focusedPane for each window from sessionStorage.
       const savedFocus=sessionStorage.getItem('focusedPanes');
       if(savedFocus){
         const map=JSON.parse(savedFocus);
         for(const s of this.ws.windows){
           const rid=map[s.id];
-          if(rid && s.layout && findRg(s.layout, rid)) s.focusedPane=rid;
+          if(rid && s.layout && findPane(s.layout, rid)) s.focusedPane=rid;
         }
       }
     }catch{}
-    const a=this._as();
-    if(a&&a.layout){const saved=a.focusedPane;const f=(saved&&findRg(a.layout,saved))?{id:saved}:firstRg(a.layout);if(f)this._setFocus(f.id, a)}
+    const a=this._aw();
+    if(a&&a.layout){const saved=a.focusedPane;const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);if(f)this._setFocus(f.id, a)}
     this.render();
     this._bind();
     this._subscribeCommands();
-    // Initial session claim: only if window has focus AND no other window
-    // already owns this session (prevents init-time claim races).
+    // Initial window claim: only if window has focus AND no other window
+    // already owns this window (prevents init-time claim races).
     if(document.hasFocus&&document.hasFocus()){
       const sid=this.ws.activeWindow;
-      if(sid && !this._sessionFocusOwner[sid]){
-        this._focusSession(sid);
+      if(sid && !this._windowFocusOwner[sid]){
+        this._focusWindow(sid);
       }
     }
     this._applyFocusOverlay();
@@ -260,9 +260,9 @@ class App {
     sv.windows=sv.windows.filter(s=>s&&s.layout);
     if(!sv.windows.find(s=>s.id===sv.activeWindow))
       sv.activeWindow=sv.windows[0]?.id||null;
-    // Preserve per-window viewport state: activeWindow and each session's
+    // Preserve per-window viewport state: activeWindow and each window's
     // focusedPane. Remote structural changes (splits/tabs) are applied
-    // but this window stays on its own session/region.
+    // but this window stays on its own window/region.
     const localActive=this.ws.activeWindow;
     const localFocus=new Map();
     for(const s of this.ws.windows){
@@ -272,10 +272,10 @@ class App {
     if(localActive && this.ws.windows.some(s=>s.id===localActive)){
       this.ws.activeWindow=localActive;
     }
-    // Restore each session's focusedPane if the region still exists.
+    // Restore each window's focusedPane if the region still exists.
     for(const s of this.ws.windows){
       const rid=localFocus.get(s.id);
-      if(rid && s.layout && findRg(s.layout, rid)) s.focusedPane=rid;
+      if(rid && s.layout && findPane(s.layout, rid)) s.focusedPane=rid;
     }
     if('displayMode' in this.ws) delete this.ws.displayMode;
     if('mobileBreakpoint' in this.ws) delete this.ws.mobileBreakpoint;
@@ -284,10 +284,10 @@ class App {
       document.documentElement.style.setProperty('--sb-w',w+'px');
       try{localStorage.setItem('sidebarWidth',w)}catch{}
     }
-    const a=this._as();
+    const a=this._aw();
     if(a&&a.layout){
       const saved=a.focusedPane;
-      const f=(saved&&findRg(a.layout,saved))?{id:saved}:firstRg(a.layout);
+      const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);
       if(f) this._setFocus(f.id, a);
     }
     this.render();
@@ -311,9 +311,9 @@ class App {
     args=args||{};
     if(action==='focus'){
       // Multi-window: only apply focus if the source pane is in this window's
-      // *active* session. If the pane belongs to a session that another
+      // *active* window. If the pane belongs to a window that another
       // window is viewing, this window stays put.
-      if(args.sourcePane && !this._isPaneInActiveSession(args.sourcePane)){
+      if(args.sourcePane && !this._isToolInActiveWindow(args.sourcePane)){
         return;
       }
       this._focusLocation(args.location); return
@@ -333,14 +333,14 @@ class App {
       if(!tgt){console.warn('[cmd] '+action+': 대상 없음',args.location);return}
       const name=String(args.name).slice(0,64);
       if(action==='renameTab') tgt.tab.name=name;
-      else tgt.session.name=name;
+      else tgt.win.name=name;
       this._save(); this.render();
       return;
     }
     // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-5: newSession/newTab 은 name/keepFocus
-    // 를 전달하기 위해 명시 분기. 의미는 _mkSession/addTab 내부에서 보장.
+    // 를 전달하기 위해 명시 분기. 의미는 _mkWindow/addTab 내부에서 보장.
     if(action==='newSession'){
-      this._mkSession({name:args.name,keepFocus:!!args.keepFocus}).then((c)=>{
+      this._mkWindow({name:args.name,keepFocus:!!args.keepFocus}).then((c)=>{
         this.render();
         if(args.reqId&&c) this._echoResult(args.reqId,{newSessions:[c.session],newRegions:[c.region],newTabs:[c.tab]});
       });
@@ -353,7 +353,7 @@ class App {
         const tgt=this._resolveLocation(args.location);
         if(!tgt) return;
         if(opts.keepFocus){
-          opts.sessionId=tgt.sessionId;
+          opts.windowId=tgt.windowId;
           rid=tgt.regionId;
         }else{
           this._focusLocation(args.location);
@@ -373,7 +373,7 @@ class App {
       if(args.location){
         const tgt=this._resolveLocation(args.location);
         if(!tgt) return;
-        opts.targetSession=tgt.sessionId;
+        opts.targetWindow=tgt.windowId;
         opts.targetRegion=tgt.regionId;
       }
       const dir=action==='splitH'?'horizontal':'vertical';
@@ -383,32 +383,32 @@ class App {
       return;
     }
     const keepFocus=!!args.keepFocus;
-    // location 지정 closeTab 은 활성/비활성 세션 구분 없이 포커스를 건드리지 않고 직접 close.
+    // location 지정 closeTab 은 활성/비활성 창 구분 없이 포커스를 건드리지 않고 직접 close.
     // keepFocus 인자는 호환을 위해 받지만, location 이 있으면 항상 포커스 유지로 취급한다.
     if(action==='closeTab' && args.location){
       const tgt=this._resolveLocation(args.location);
       if(tgt && tgt.regionId && tgt.tabId){
-        this.closeTab(tgt.regionId, tgt.tabId, tgt.sessionId);
+        this.closeTab(tgt.regionId, tgt.tabId, tgt.windowId);
         return;
       }
     }
-    let savedSession=null, savedFocused=null;
+    let savedWindow=null, savedFocused=null;
     if(args.location && keepFocus){
-      savedSession=this.ws.activeWindow;
+      savedWindow=this.ws.activeWindow;
       savedFocused=this.focused;
     }
     if(args.location) this._focusLocation(args.location);
     const result=this.executeAction(action);
     Promise.resolve(result).then(()=>{
-      if(savedSession==null) return;
-      if(this.ws.activeWindow!==savedSession && this.ws.windows.some(x=>x.id===savedSession)){
-        const cur=this._as(); if(cur) cur.focusedPane=this.focused;
-        this.ws.activeWindow=savedSession;
-        try{sessionStorage.setItem('activeWindow', savedSession)}catch{}
-        this._focusSession(savedSession);
+      if(savedWindow==null) return;
+      if(this.ws.activeWindow!==savedWindow && this.ws.windows.some(x=>x.id===savedWindow)){
+        const cur=this._aw(); if(cur) cur.focusedPane=this.focused;
+        this.ws.activeWindow=savedWindow;
+        try{sessionStorage.setItem('activeWindow', savedWindow)}catch{}
+        this._focusWindow(savedWindow);
       }
-      const a=this._as();
-      if(a&&savedFocused&&findRg(a.layout,savedFocused)){
+      const a=this._aw();
+      if(a&&savedFocused&&findPane(a.layout,savedFocused)){
         this._setFocus(savedFocused, a);
       }
       this._save(); this.render();
@@ -426,7 +426,7 @@ class App {
     const regions=[]; this._collectRegions(sess.layout,regions);
     const rg=regions[pi]; if(!rg) return null;
     const tab=rg.tabs[ti]; if(!tab) return null;
-    return {sessionId:sess.id,regionId:rg.id,tabId:tab.id,session:sess,region:rg,tab:tab};
+    return {windowId:sess.id,regionId:rg.id,tabId:tab.id,win:sess,region:rg,tab:tab};
   }
 
   // "4.1.1", "W4.P1.T1", "4", "4.2" 등을 지원. 1-base positional (window.pane.tab).
@@ -438,20 +438,20 @@ class App {
     const pi=m[2]?parseInt(m[2],10)-1:0;
     const ti=m[3]?parseInt(m[3],10)-1:0;
     const sess=this.ws.windows[si];
-    if(!sess){console.warn('[cmd] focus: session #'+(si+1)+' 없음');return}
+    if(!sess){console.warn('[cmd] focus: window #'+(si+1)+' 없음');return}
     const regions=[]; this._collectRegions(sess.layout, regions);
     const rg=regions[pi];
     if(!rg){console.warn('[cmd] focus: region #'+(pi+1)+' 없음');return}
     const tab=rg.tabs[ti];
     if(!tab){console.warn('[cmd] focus: tab #'+(ti+1)+' 없음');return}
     if(this.ws.activeWindow!==sess.id){
-      const cur=this._as(); if(cur) cur.focusedPane=this.focused;
+      const cur=this._aw(); if(cur) cur.focusedPane=this.focused;
       this.ws.activeWindow=sess.id;
       try{sessionStorage.setItem('activeWindow', sess.id)}catch{}
     }
     rg.activeTab=tab.id;
     this._setFocus(rg.id, sess);
-    this._focusSession(sess.id);
+    this._focusWindow(sess.id);
     this._save(); this.render();
   }
 
@@ -527,20 +527,20 @@ class App {
     if(p){p.destroy();this.panes.delete(pid)}
     try{await fetch(`/api/panes/${pid}`,{method:'DELETE'})}catch{}
   }
-  _killBg(pid){
+  _killTool(pid){
     const p=this.panes.get(pid);
     if(p){p.destroy();this.panes.delete(pid)}
     fetch(`/api/panes/${pid}`,{method:'DELETE'}).catch(()=>{});
   }
 
-  _as(){return this.ws.windows.find(s=>s.id===this.ws.activeWindow)||null}
+  _aw(){return this.ws.windows.find(s=>s.id===this.ws.activeWindow)||null}
 
-  // _isPaneInActiveSession reports whether a pane (by id) is present in the
-  // currently active session's layout. Used to route focus commands only to
+  // _isToolInActiveWindow reports whether a pane (by id) is present in the
+  // currently active window's layout. Used to route focus commands only to
   // the window that is actually viewing the source pane (multi-window).
-  _isPaneInActiveSession(paneId){
+  _isToolInActiveWindow(paneId){
     if(!paneId) return false;
-    const s=this._as();
+    const s=this._aw();
     if(!s||!s.layout) return false;
     let found=false;
     const walk=n=>{
@@ -555,12 +555,12 @@ class App {
   }
 
   // _setFocus is the single entry point for the focus invariant
-  // (this.focused === active session.focusedPane). It accepts an optional
-  // session reference; when omitted, the active session is used. When the
-  // mutated session is not the active one, only its focusedPane is updated
+  // (this.focused === active window.focusedPane). It accepts an optional
+  // window reference; when omitted, the active window is used. When the
+  // mutated window is not the active one, only its focusedPane is updated
   // (this.focused unchanged). REG-2~8 회귀 클래스 차단용 단일 진입점.
   _setFocus(rid, sess){
-    const target = sess || this._as();
+    const target = sess || this._aw();
     if(target) target.focusedPane = rid;
     if(!sess || (target && target.id === this.ws.activeWindow)){
       this.focused = rid;
@@ -596,11 +596,11 @@ class App {
 
   _attnHas(paneId){return this._attn.has(paneId)}
 
-  // 활성 세션의 포커스 region 의 activeTab paneId === paneId 인지 (FR-PAN-9)
+  // 활성 창의 포커스 region 의 activeTab paneId === paneId 인지 (FR-PAN-9)
   _isPaneFocusedActive(paneId){
     if(!paneId) return false;
-    const s=this._as(); if(!s||!s.layout) return false;
-    const rg=findRg(s.layout,this.focused); if(!rg) return false;
+    const s=this._aw(); if(!s||!s.layout) return false;
+    const rg=findPane(s.layout,this.focused); if(!rg) return false;
     const at=(rg.tabs||[]).find(t=>t.id===rg.activeTab);
     return !!at&&at.toolId===paneId;
   }
@@ -652,8 +652,8 @@ class App {
     this._attnRefresh();
   }
 
-  // FR-PAN-16: 세션 layout 안에 주의 상태 pane 이 있는지
-  _sessionHasAttn(s){
+  // FR-PAN-16: 창 layout 안에 주의 상태 pane 이 있는지
+  _windowHasAttn(s){
     if(!s||!s.layout||!this._attn.size) return false;
     const walk=(node)=>{
       if(!node) return false;
@@ -667,22 +667,22 @@ class App {
   // 포커스된 활성 탭이 주의 상태면 해제. 그 탭은 어차피 강조 안 되므로 full render 불필요
   _attnClearFocused(){
     if(!this._attn.size) return;
-    const s=this._as(); if(!s||!s.layout) return;
-    const rg=findRg(s.layout,this.focused); if(!rg) return;
+    const s=this._aw(); if(!s||!s.layout) return;
+    const rg=findPane(s.layout,this.focused); if(!rg) return;
     const at=(rg.tabs||[]).find(t=>t.id===rg.activeTab);
     if(at&&at.toolId&&this._attn.has(at.toolId)) this._attnClear(at.toolId);
   }
 
-  // 모든 세션 layout 트리를 walk 해 paneId 를 가진 tab 위치 반환 (FR-PAN-16)
+  // 모든 창 layout 트리를 walk 해 paneId 를 가진 tab 위치 반환 (FR-PAN-16)
   _findPaneLocation(paneId){
     if(!paneId) return null;
-    const walk=(node,session)=>{
+    const walk=(node,win)=>{
       if(!node) return null;
       if(node.type==='pane'){
         const tab=(node.tabs||[]).find(t=>t.toolId===paneId);
-        return tab?{session,region:node,tab}:null;
+        return tab?{win,region:node,tab}:null;
       }
-      if(node.children) for(const c of node.children){const f=walk(c,session);if(f)return f}
+      if(node.children) for(const c of node.children){const f=walk(c,win);if(f)return f}
       return null;
     };
     for(const s of this.ws.windows){const f=walk(s.layout,s);if(f)return f}
@@ -693,11 +693,11 @@ class App {
   _jumpToPane(paneId){
     const loc=this._findPaneLocation(paneId);
     if(!loc) return;
-    this.ws.activeWindow=loc.session.id;
-    try{sessionStorage.setItem('activeWindow', loc.session.id)}catch{}
+    this.ws.activeWindow=loc.win.id;
+    try{sessionStorage.setItem('activeWindow', loc.win.id)}catch{}
     loc.region.activeTab=loc.tab.id;
-    this._setFocus(loc.region.id, loc.session);
-    this._focusSession(loc.session.id);
+    this._setFocus(loc.region.id, loc.win);
+    this._focusWindow(loc.win.id);
     this.render();
   }
 
@@ -750,9 +750,9 @@ class App {
     if(this._agentsTimer){clearInterval(this._agentsTimer);this._agentsTimer=null}
   }
 
-  // 세션 사이드바 드래그 재배치. drop(즉시) 1순위 + dragend 폴백, done 으로 중복 커밋 차단.
+  // 창 사이드바 드래그 재배치. drop(즉시) 1순위 + dragend 폴백, done 으로 중복 커밋 차단.
   // 식별자(id)로 원본/대상을 찾아 splice 후 인덱스 이동에 안전. 대상 미존재(끝 너머)면 맨 끝으로.
-  _reorderSessions(dr){
+  _reorderWindows(dr){
     if(!dr||dr.done||!dr.srcId||dr.targetId==null||dr.srcId===dr.targetId) return;
     dr.done=true;
     const arr=this.ws.windows;
@@ -813,7 +813,7 @@ class App {
       const card=document.createElement('div');
       card.className='ag-card'+(this._attnHas(paneId)?' attn':'')+(this._isPaneFocusedActive(paneId)?' focused':'');
       card.dataset.pid=paneId;
-      const locDiv=document.createElement('div');locDiv.className='ag-loc';locDiv.textContent=(loc.session.name||'')+' · '+(loc.tab.name||paneId);
+      const locDiv=document.createElement('div');locDiv.className='ag-loc';locDiv.textContent=(loc.win.name||'')+' · '+(loc.tab.name||paneId);
       const st=document.createElement('div');st.className='ag-state';
       st.classList.add(info.state); // 상태별 색(.ag-state.working 등)
       st.textContent=(AGENT_STATE_ICON[info.state]||'●')+' '+info.state+(info.tool?' · '+info.tool:'');
@@ -822,7 +822,7 @@ class App {
       card.appendChild(locDiv);
       card.appendChild(st);
       card.addEventListener('click',()=>{this._jumpToPane(paneId);if(this._attnHas(paneId))this._attnClear(paneId)});
-      // FR-AAP-21: 세션 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
+      // FR-AAP-21: 창 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
       card.draggable=true;
       card.addEventListener('dragstart',e=>{this._drag={type:'agent',pid:paneId,targetPid:null,before:false,done:false};e.dataTransfer.effectAllowed='move';setTimeout(()=>card.classList.add('dragging'),0)});
       card.addEventListener('dragover',e=>{const dr=this._drag;if(!dr||dr.type!=='agent')return;e.preventDefault();panel.querySelectorAll('.ag-card').forEach(c=>c.classList.remove('drag-above','drag-below'));const rect=card.getBoundingClientRect();const before=e.clientY<rect.top+rect.height/2;card.classList.add(before?'drag-above':'drag-below');dr.targetPid=paneId;dr.before=before});
@@ -843,10 +843,10 @@ class App {
   _attnRefresh(){
     const n=this._attn.size;
     document.title=(n?'('+n+') ':'')+'Terminal'; // FR-PAN-13b
-    // 사이드바 세션 알람 표시 갱신 (전체 재렌더 없이)
-    document.querySelectorAll('#sessions .si').forEach(el=>{
+    // 사이드바 창 알람 표시 갱신 (전체 재렌더 없이)
+    document.querySelectorAll('#windows .si').forEach(el=>{
       const s=this.ws.windows.find(x=>x.id===el.dataset.sid);
-      el.classList.toggle('attn', !!(s&&this._sessionHasAttn(s)));
+      el.classList.toggle('attn', !!(s&&this._windowHasAttn(s)));
     });
     // 탭/리전 강조도 타깃 토글 — 전체 render() 를 피해 포커스 플리커(xterm blur/refocus)를 막는다.
     document.querySelectorAll('#area .rt[data-pid]').forEach(t=>{
@@ -924,7 +924,7 @@ class App {
     if(!this.attnDesktop) return;
     if(typeof Notification==='undefined'||Notification.permission!=='granted') return;
     const loc=this._findPaneLocation(paneId);
-    const where=loc?[loc.session&&loc.session.name,loc.tab&&loc.tab.name].filter(Boolean).join(' · '):('pane '+paneId);
+    const where=loc?[loc.win&&loc.win.name,loc.tab&&loc.tab.name].filter(Boolean).join(' · '):('pane '+paneId);
     const head=reason==='done'?'✅ 작업 완료':reason==='waiting'?'⌨️ 입력 대기 중':reason==='idle'?'⏸️ 작업이 멈췄습니다':'🔔 주의가 필요합니다';
     // 같은 pane 의 이전 알림을 닫고 새로 띄운다 — tag+renotify 는 (특히 macOS 에서)
     // 조용히 갱신만 되어 재팝업이 안 되므로, close→재생성으로 매번 확실히 다시 띄운다.
@@ -1015,22 +1015,22 @@ class App {
     this._attnRefresh();
   }
 
-  async _mkSession(opts={}){
+  async _mkWindow(opts={}){
     const p=await this._newPane();
     const r=`r${++this._r}`,t=`t${++this._t}`;
-    const name=(typeof opts.name==='string'&&opts.name?opts.name:'Session').slice(0,64);
+    const name=(typeof opts.name==='string'&&opts.name?opts.name:'Window').slice(0,64);
     const s={
       id:`s${++this._s}`,name,
       layout:{type:'pane',id:r,tabs:[{id:t,name:'Shell',type:'terminal',toolId:p.id}],activeTab:t}
     };
     this.ws.windows.push(s);
-    // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-2: keepFocus 면 세션은 사이드바에만
+    // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-2: keepFocus 면 창은 사이드바에만
     // 추가 — activeWindow/focused 무변화 (백그라운드 잡 컨테이너 패턴).
     if(!opts.keepFocus){
       this.ws.activeWindow=s.id;
       try{sessionStorage.setItem('activeWindow', s.id)}catch{}
       this._setFocus(r, s);
-      this._focusSession(s.id);
+      this._focusWindow(s.id);
     }
     // Fire-and-forget save: keeps the UI snappy. Awaiting here would block
     // render on the PUT roundtrip (see split/addTab which already use
@@ -1040,54 +1040,54 @@ class App {
     return {session:s.id, region:r, tab:{uuid:t, paneId:p.id}};
   }
 
-  async addSession(){await this._mkSession();this.render()}
+  async addWindow(){await this._mkWindow();this.render()}
 
-  async delSession(sid){
+  async delWindow(sid){
     const i=this.ws.windows.findIndex(s=>s.id===sid);
     if(i<0) return;
     const s=this.ws.windows[i];
     const pids=allPids(s.layout);
     const busyChecks=await Promise.all(pids.map(pid=>this._isPaneBusy(pid)));
     if(busyChecks.some(Boolean)){
-      const ok=await this._confirmClose('실행 중인 프로세스가 있습니다. 세션을 종료하시겠습니까?');
+      const ok=await this._confirmClose('실행 중인 프로세스가 있습니다. 창을 닫으시겠습니까?');
       if(!ok) return;
     }
     for(const pid of pids) this._kill(pid);
     this.ws.windows.splice(i,1);
-    if(!this.ws.windows.length){await this._mkSession();this.render();return}
+    if(!this.ws.windows.length){await this._mkWindow();this.render();return}
     if(this.ws.activeWindow===sid){
       this.ws.activeWindow=this.ws.windows[Math.min(i,this.ws.windows.length-1)].id;
       try{sessionStorage.setItem('activeWindow', this.ws.activeWindow)}catch{}
     }
-    const a=this._as();
+    const a=this._aw();
     if(a&&a.layout){
-      const next=(a.focusedPane&&findRg(a.layout,a.focusedPane))?a.focusedPane:firstRg(a.layout)?.id||null;
+      const next=(a.focusedPane&&findPane(a.layout,a.focusedPane))?a.focusedPane:firstPane(a.layout)?.id||null;
       this._setFocus(next, a);
     } else this.focused=null;
     // Render first, save in background (matches split/addTab/closeTab).
-    this._focusSession(this.ws.activeWindow);
+    this._focusWindow(this.ws.activeWindow);
     this.render();
     this._save();
   }
 
-  switchSession(sid){
+  switchWindow(sid){
     if(this.ws.activeWindow===sid){
       if(this.isMobile && this._drawerOpen) this._toggleDrawer(false);
       return;
     }
-    const cur=this._as();if(cur)cur.focusedPane=this.focused;
+    const cur=this._aw();if(cur)cur.focusedPane=this.focused;
     this.ws.activeWindow=sid;
     // Persist per-window activeWindow to sessionStorage (survives refresh,
     // independent across windows).
     try{sessionStorage.setItem('activeWindow', sid)}catch{}
-    const a=this._as();
+    const a=this._aw();
     if(a&&a.layout){
-      const next=(a.focusedPane&&findRg(a.layout,a.focusedPane))?a.focusedPane:firstRg(a.layout)?.id||null;
+      const next=(a.focusedPane&&findPane(a.layout,a.focusedPane))?a.focusedPane:firstPane(a.layout)?.id||null;
       this._setFocus(next, a);
     } else this.focused=null;
     this._mPaneIdx=0;
     if(this.isMobile && this._drawerOpen) this._toggleDrawer(false);
-    this._focusSession(sid);
+    this._focusWindow(sid);
     this._save(); this.render();
   }
 
@@ -1100,7 +1100,7 @@ class App {
         if (n.type === 'pane' && n.tabs) {
           for (const t of n.tabs) {
             if (t.type === 'editor' && t.filePath === filePath) {
-              result = { tab: t, region: n, session: s };
+              result = { tab: t, region: n, win: s };
               return;
             }
           }
@@ -1116,20 +1116,20 @@ class App {
   }
 
   async addTab(rid, type = 'terminal', opts = {}) {
-    // opts.sessionId 지정 시 비활성 세션의 region 에도 추가 가능 (FR-RST-4).
-    const s = opts.sessionId ? this.ws.windows.find(x => x.id === opts.sessionId) : this._as();
+    // opts.windowId 지정 시 비활성 창의 region 에도 추가 가능 (FR-RST-4).
+    const s = opts.windowId ? this.ws.windows.find(x => x.id === opts.windowId) : this._aw();
     if (!s) return;
-    const rg = findRg(s.layout, rid); if (!rg) return;
+    const rg = findPane(s.layout, rid); if (!rg) return;
     if (type === 'editor') {
       if (!opts.filePath) { console.warn('[addTab] editor tab requires filePath'); return }
       const existing = this._findEditorTab(opts.filePath);
       if (existing) {
-        const cur = this._as(); if (cur) cur.focusedPane = this.focused;
-        this.ws.activeWindow = existing.session.id;
-        try{sessionStorage.setItem('activeWindow', existing.session.id)}catch{}
+        const cur = this._aw(); if (cur) cur.focusedPane = this.focused;
+        this.ws.activeWindow = existing.win.id;
+        try{sessionStorage.setItem('activeWindow', existing.win.id)}catch{}
         existing.region.activeTab = existing.tab.id;
-        this._setFocus(existing.region.id, existing.session);
-        this._focusSession(existing.session.id);
+        this._setFocus(existing.region.id, existing.win);
+        this._focusWindow(existing.win.id);
         const editor = this.fileEditors.get(existing.tab.id);
         if (editor) editor.refresh();
         this.render();
@@ -1158,11 +1158,11 @@ class App {
   }
 
   async closeTab(rid,tid,sid){
-    // sid 를 지정하면 해당 세션의 탭을 닫는다 (비활성 세션 대상도 지원).
-    // 지정 안 하면 기존 동작: 활성 세션에서 닫는다.
-    const s = sid ? this.ws.windows.find(x=>x.id===sid) : this._as();
+    // sid 를 지정하면 해당 창의 탭을 닫는다 (비활성 창 대상도 지원).
+    // 지정 안 하면 기존 동작: 활성 창에서 닫는다.
+    const s = sid ? this.ws.windows.find(x=>x.id===sid) : this._aw();
     if(!s) return;
-    const rg=findRg(s.layout,rid); if(!rg) return;
+    const rg=findPane(s.layout,rid); if(!rg) return;
     const tab=rg.tabs.find(t=>t.id===tid); if(!tab) return;
     const isEditor=tab.type==='editor';
     if(isEditor){
@@ -1189,30 +1189,30 @@ class App {
     const isActive = s.id === this.ws.activeWindow;
     if(rg.tabs.length===0){
       s.layout=doRemove(s.layout,rid);
-      if(!s.layout){if(!isEditor&&paneId)this._killBg(paneId);await this.delSession(s.id);return}
+      if(!s.layout){if(!isEditor&&paneId)this._killTool(paneId);await this.delWindow(s.id);return}
       if(isActive){
         const fallback=this.focused===rid?prevClosestId:this.focused;
-        const next=fallback&&findRg(s.layout,fallback)?fallback:firstRg(s.layout)?.id||null;
+        const next=fallback&&findPane(s.layout,fallback)?fallback:firstPane(s.layout)?.id||null;
         this._setFocus(next,s);
-        this._focusSession(s.id);
+        this._focusWindow(s.id);
       }
     }else{
       rg.activeTab=rg.tabs[Math.min(closingIdx,rg.tabs.length-1)].id;
       if(isActive){
         this._setFocus(rid,s);
-        this._focusSession(s.id);
+        this._focusWindow(s.id);
       }
     }
     this.render();
     if(!isEditor&&paneId){
-      this._killBg(paneId);
+      this._killTool(paneId);
     }
     this._save();
   }
 
   switchTab(rid,tid){
-    const s=this._as(); if(!s) return;
-    const rg=findRg(s.layout,rid); if(!rg) return;
+    const s=this._aw(); if(!s) return;
+    const rg=findPane(s.layout,rid); if(!rg) return;
     if(rg.activeTab===tid && this.focused===rid){this._setFocus(rid, s); return}
     rg.activeTab=tid; this._setFocus(rid, s);
     this._save(); this.render();
@@ -1231,14 +1231,14 @@ class App {
 
   async _splitInner(dir,opts={}){
     if(this.isMobile && !opts.force) return;
-    const tgtSessionId=opts.targetSession||this.ws.activeWindow;
-    let s=this.ws.windows.find(x=>x.id===tgtSessionId);
-    const tgtRegionId=opts.targetRegion||(tgtSessionId===this.ws.activeWindow?this.focused:null);
+    const tgtWindowId=opts.targetWindow||this.ws.activeWindow;
+    let s=this.ws.windows.find(x=>x.id===tgtWindowId);
+    const tgtRegionId=opts.targetRegion||(tgtWindowId===this.ws.activeWindow?this.focused:null);
     if(!s||!tgtRegionId) return;
     let count=parseInt(opts.count,10); if(!Number.isFinite(count)||count<2) count=2;
     const keepFocus=!!opts.keepFocus;
     // SPLIT_KEEPFOCUS_FIX_SRS FR-SKF-1: keepFocus 면 호출 직전 사용자 포커스를 저장해 사후 복원.
-    const savedSession = keepFocus ? this.ws.activeWindow : null;
+    const savedWindow = keepFocus ? this.ws.activeWindow : null;
     const savedFocused = keepFocus ? this.focused : null;
     const ref=this._regionNewPaneRef(s,tgtRegionId);
     const refPaneId=ref.cwd ? null : (ref.cwdPane || null);
@@ -1249,36 +1249,36 @@ class App {
       newRegions.push({type:'pane',id:r,tabs:[{id:t,name:'Shell',type:'terminal',toolId:p.id}],activeTab:t});
       lastR=r;
     }
-    // Re-fetch session after awaits: this.ws may have been replaced by an
+    // Re-fetch window after awaits: this.ws may have been replaced by an
     // SSE workspace_changed apply during the _newPane awaits, leaving our
     // earlier `s` reference stale (and invisible to render). Bail if the
     // target region is gone — the created panes will be reaped on the next
     // workspace sync.
-    s=this.ws.windows.find(x=>x.id===tgtSessionId);
-    if(!s||!findRg(s.layout,tgtRegionId)) return;
+    s=this.ws.windows.find(x=>x.id===tgtWindowId);
+    if(!s||!findPane(s.layout,tgtRegionId)) return;
     s.layout=doSplit(s.layout,tgtRegionId,newRegions,dir);
     if(keepFocus){
       // FR-SKF-1: 저장된 사용자 포커스를 그대로 복원. activeWindow / focused 모두.
       // FR-SKF-3: 저장된 region 이 사후 layout 에서 사라졌으면 무동작 + 경고.
-      if(this.ws.activeWindow!==savedSession && this.ws.windows.some(x=>x.id===savedSession)){
-        this.ws.activeWindow=savedSession;
-        try{sessionStorage.setItem('activeWindow', savedSession)}catch{}
+      if(this.ws.activeWindow!==savedWindow && this.ws.windows.some(x=>x.id===savedWindow)){
+        this.ws.activeWindow=savedWindow;
+        try{sessionStorage.setItem('activeWindow', savedWindow)}catch{}
       }
-      const a=this._as();
-      if(a && savedFocused && findRg(a.layout,savedFocused)){
+      const a=this._aw();
+      if(a && savedFocused && findPane(a.layout,savedFocused)){
         this._setFocus(savedFocused, a);
       } else if(savedFocused){
         console.warn('[split] keepFocus: savedFocused region gone after split, leaving focus as-is');
       }
     } else {
-      if(this.ws.activeWindow!==tgtSessionId){
-        const cur=this._as(); if(cur) cur.focusedPane=this.focused;
-        this.ws.activeWindow=tgtSessionId;
-        try{sessionStorage.setItem('activeWindow', tgtSessionId)}catch{}
+      if(this.ws.activeWindow!==tgtWindowId){
+        const cur=this._aw(); if(cur) cur.focusedPane=this.focused;
+        this.ws.activeWindow=tgtWindowId;
+        try{sessionStorage.setItem('activeWindow', tgtWindowId)}catch{}
       }
       const next = lastR || tgtRegionId;
       this._setFocus(next, s);
-      this._focusSession(tgtSessionId);
+      this._focusWindow(tgtWindowId);
     }
     this.render();
     this._save();
@@ -1290,13 +1290,13 @@ class App {
   }
 
   _regionActivePaneId(sess,rid){
-    const rg=findRg(sess.layout,rid); if(!rg) return null;
+    const rg=findPane(sess.layout,rid); if(!rg) return null;
     const tab=rg.tabs.find(t=>t.id===rg.activeTab)||rg.tabs[0];
     return tab?.toolId||null;
   }
 
   _regionNewPaneRef(sess,rid){
-    const rg=findRg(sess.layout,rid);if(!rg)return {};
+    const rg=findPane(sess.layout,rid);if(!rg)return {};
     const tab=rg.tabs.find(t=>t.id===rg.activeTab);
     if(!tab) return {};
     if(tab.type==='editor' && typeof tab.filePath==='string' && tab.filePath.startsWith('/')){
@@ -1312,29 +1312,29 @@ class App {
     return {};
   }
   switchTabPrev(){
-    const s=this._as();if(!s||!this.focused)return;
-    const rg=findRg(s.layout,this.focused);if(!rg)return;
+    const s=this._aw();if(!s||!this.focused)return;
+    const rg=findPane(s.layout,this.focused);if(!rg)return;
     const i=rg.tabs.findIndex(t=>t.id===rg.activeTab);if(i<0)return;
     this.switchTab(rg.id,rg.tabs[(i-1+rg.tabs.length)%rg.tabs.length].id);
   }
   switchTabNext(){
-    const s=this._as();if(!s||!this.focused)return;
-    const rg=findRg(s.layout,this.focused);if(!rg)return;
+    const s=this._aw();if(!s||!this.focused)return;
+    const rg=findPane(s.layout,this.focused);if(!rg)return;
     const i=rg.tabs.findIndex(t=>t.id===rg.activeTab);if(i<0)return;
     this.switchTab(rg.id,rg.tabs[(i+1)%rg.tabs.length].id);
   }
-  switchSessionPrev(){
+  switchWindowPrev(){
     const arr=this.ws.windows;if(arr.length<2)return;
     const i=arr.findIndex(s=>s.id===this.ws.activeWindow);if(i<0)return;
-    this.switchSession(arr[(i-1+arr.length)%arr.length].id);
+    this.switchWindow(arr[(i-1+arr.length)%arr.length].id);
   }
-  switchSessionNext(){
+  switchWindowNext(){
     const arr=this.ws.windows;if(arr.length<2)return;
     const i=arr.findIndex(s=>s.id===this.ws.activeWindow);if(i<0)return;
-    this.switchSession(arr[(i+1)%arr.length].id);
+    this.switchWindow(arr[(i+1)%arr.length].id);
   }
   paneNavigate(dir){
-    const s=this._as();if(!s||!this.focused)return;
+    const s=this._aw();if(!s||!this.focused)return;
     const path=findPath(s.layout,this.focused);if(!path||path.length<2)return;
     for(let i=path.length-2;i>=0;i--){
       const parent=path[i],child=path[i+1];
@@ -1345,28 +1345,28 @@ class App {
       if(dir==='right'&&isH)ti=ci+1; if(dir==='left'&&isH)ti=ci-1;
       if(dir==='down'&&!isH)ti=ci+1; if(dir==='up'&&!isH)ti=ci-1;
       if(ti>=0&&ti<parent.children.length){
-        const target=firstRg(parent.children[ti]);
+        const target=firstPane(parent.children[ti]);
         if(target){this._setFocus(target.id, s);this._save();this.render();return}
       }
     }
   }
   addTabFocused(){if(this.focused)this.addTab(this.focused,'terminal')}
   closeTabFocused(){
-    const s=this._as();if(!s||!this.focused)return;
-    const rg=findRg(s.layout,this.focused);if(!rg)return;
+    const s=this._aw();if(!s||!this.focused)return;
+    const rg=findPane(s.layout,this.focused);if(!rg)return;
     this.closeTab(rg.id,rg.activeTab);
   }
-  closeSessionActive(){this.delSession(this.ws.activeWindow)}
+  closeWindowActive(){this.delWindow(this.ws.activeWindow)}
 
   executeAction(action){
     const map={
-      sessionNext:()=>this.switchSessionNext(),sessionPrev:()=>this.switchSessionPrev(),
+      sessionNext:()=>this.switchWindowNext(),sessionPrev:()=>this.switchWindowPrev(),
       tabNext:()=>this.switchTabNext(),tabPrev:()=>this.switchTabPrev(),
       paneUp:()=>this.paneNavigate('up'),paneDown:()=>this.paneNavigate('down'),
       paneLeft:()=>this.paneNavigate('left'),paneRight:()=>this.paneNavigate('right'),
       splitH:()=>this.split('horizontal'),splitV:()=>this.split('vertical'),
-      newSession:()=>this.addSession(),newTab:()=>this.addTabFocused(),
-      closeSession:()=>this.closeSessionActive(),closeTab:()=>this.closeTabFocused(),
+      newSession:()=>this.addWindow(),newTab:()=>this.addTabFocused(),
+      closeSession:()=>this.closeWindowActive(),closeTab:()=>this.closeTabFocused(),
       agentsToggle:()=>this._agentsToggle(),
       toggleSearch:()=>this.toggleSearch(),
     };
@@ -1400,16 +1400,16 @@ class App {
   }
   _focusedTermPane(){
     if(!this.focused)return null;
-    const s=this._as();if(!s)return null;
-    const rg=findRg(s.layout,this.focused);if(!rg)return null;
+    const s=this._aw();if(!s)return null;
+    const rg=findPane(s.layout,this.focused);if(!rg)return null;
     const tab=rg.tabs.find(t=>t.id===rg.activeTab);
     if(!tab||tab.type!=='terminal')return null;
     return this.panes.get(tab.toolId);
   }
   _focusedTab(){
     if(!this.focused)return null;
-    const s=this._as();if(!s)return null;
-    const rg=findRg(s.layout,this.focused);if(!rg)return null;
+    const s=this._aw();if(!s)return null;
+    const rg=findPane(s.layout,this.focused);if(!rg)return null;
     const tab=rg.tabs.find(t=>t.id===rg.activeTab);
     return tab||null;
   }
@@ -1429,9 +1429,9 @@ class App {
   }
 
   setFocus(rid){
-    // Claim session ownership on every click — even if focus doesn't change,
-    // the user is asserting "I want this session" (multi-window).
-    this._focusSession(this.ws.activeWindow);
+    // Claim window ownership on every click — even if focus doesn't change,
+    // the user is asserting "I want this window" (multi-window).
+    this._focusWindow(this.ws.activeWindow);
     if(this.focused===rid) return;
     this._clearAllSearchDecorations();
     this._setFocus(rid);
@@ -1517,24 +1517,24 @@ class App {
   _bind(){ this.inputBinding.bind() }
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  Session Focus Ownership (multi-window)
+  //  Window Focus Ownership (multi-window)
   // ═══════════════════════════════════════════════════════════════════════
   //
   //  Rules:
-  //    • Each session has ONE focus owner — the last window that focused on it.
-  //    • The owner controls PTY size for that session's panes.
-  //    • All other windows see that session dimmed (rg-dimmed overlay).
-  //    • If no window owns a session, all windows see it bright.
+  //    • Each window has ONE focus owner — the last window that focused on it.
+  //    • The owner controls PTY size for that window's panes.
+  //    • All other windows see that window dimmed (rg-dimmed overlay).
+  //    • If no window owns a window, all windows see it bright.
   //
   //  State:
-  //    _sessionFocusOwner : { sessionId → clientId }
+  //    _windowFocusOwner : { windowId → clientId }
   //    _windowFocused      : boolean (OS focus on this window)
   //    _focusCh            : BroadcastChannel (cross-window messaging)
   //
   //  Single entry point:
-  //    _focusSession(sid)  — claim ownership, broadcast, resize, overlay.
-  //    Called from: setFocus, switchSession, _focusLocation, _jumpToPane,
-  //                 _mkSession, addTab(existing), window.focus, split.
+  //    _focusWindow(sid)  — claim ownership, broadcast, resize, overlay.
+  //    Called from: setFocus, switchWindow, _focusLocation, _jumpToPane,
+  //                 _mkWindow, addTab(existing), window.focus, split.
   // ═══════════════════════════════════════════════════════════════════════
 
   // _initFocusChannel sets up cross-window messaging and OS focus listeners.
@@ -1542,12 +1542,12 @@ class App {
     if(typeof BroadcastChannel!=='undefined'){
       this._focusCh=new BroadcastChannel('dongminal-focus');
       this._focusCh.onmessage=(e)=>{
-        if(e.data.type==='sessionFocus'){
-          this._sessionFocusOwner[e.data.sessionId]=e.data.id;
+        if(e.data.type==='windowFocus'){
+          this._windowFocusOwner[e.data.windowId]=e.data.id;
           this._applyFocusOverlay();
-        }else if(e.data.type==='sessionRelease'){
-          if(this._sessionFocusOwner[e.data.sessionId]===e.data.id){
-            delete this._sessionFocusOwner[e.data.sessionId];
+        }else if(e.data.type==='windowRelease'){
+          if(this._windowFocusOwner[e.data.windowId]===e.data.id){
+            delete this._windowFocusOwner[e.data.windowId];
             this._applyFocusOverlay();
           }
         }
@@ -1555,76 +1555,76 @@ class App {
     }
     window.addEventListener('focus',()=>{
       this._windowFocused=true;
-      if(this.ws.activeWindow) this._focusSession(this.ws.activeWindow);
+      if(this.ws.activeWindow) this._focusWindow(this.ws.activeWindow);
     });
     window.addEventListener('blur',()=>{this._windowFocused=false});
     window.addEventListener('beforeunload',()=>{
       const ch=this._focusCh; if(!ch) return;
-      for(const sid of Object.keys(this._sessionFocusOwner)){
-        if(this._sessionFocusOwner[sid]===this.clientId){
-          ch.postMessage({type:'sessionRelease',sessionId:sid,id:this.clientId});
+      for(const sid of Object.keys(this._windowFocusOwner)){
+        if(this._windowFocusOwner[sid]===this.clientId){
+          ch.postMessage({type:'windowRelease',windowId:sid,id:this.clientId});
         }
       }
     });
   }
 
-  // _focusSession is the SINGLE entry point for claiming session ownership.
-  // Releases old sessions owned by this window, claims the new one,
+  // _focusWindow is the SINGLE entry point for claiming window ownership.
+  // Releases old windows owned by this window, claims the new one,
   // broadcasts via BroadcastChannel, sends resize, and updates the overlay.
-  _focusSession(sessionId){
-    if(!sessionId) return;
+  _focusWindow(windowId){
+    if(!windowId) return;
     if(!this._focusCh&&typeof BroadcastChannel!=='undefined'){
       this._focusCh=new BroadcastChannel('dongminal-focus');
     }
     const ch=this._focusCh;
-    // Release other sessions this window owns (one window → one session).
-    for(const sid of Object.keys(this._sessionFocusOwner)){
-      if(sid!==sessionId&&this._sessionFocusOwner[sid]===this.clientId){
-        delete this._sessionFocusOwner[sid];
-        if(ch) ch.postMessage({type:'sessionRelease',sessionId:sid,id:this.clientId});
+    // Release other windows this window owns (one window → one window).
+    for(const sid of Object.keys(this._windowFocusOwner)){
+      if(sid!==windowId&&this._windowFocusOwner[sid]===this.clientId){
+        delete this._windowFocusOwner[sid];
+        if(ch) ch.postMessage({type:'windowRelease',windowId:sid,id:this.clientId});
       }
     }
     // Only broadcast if ownership actually changes.
-    if(this._sessionFocusOwner[sessionId]!==this.clientId){
-      this._sessionFocusOwner[sessionId]=this.clientId;
-      if(ch) ch.postMessage({type:'sessionFocus',sessionId,id:this.clientId});
+    if(this._windowFocusOwner[windowId]!==this.clientId){
+      this._windowFocusOwner[windowId]=this.clientId;
+      if(ch) ch.postMessage({type:'windowFocus',windowId,id:this.clientId});
     }
     // Send resize immediately (before render) so PTY matches this window's
     // size by the time the user sees the panes. Only if OS-focused.
-    if(this._windowFocused) this._resendSessionSizes(sessionId);
+    if(this._windowFocused) this._resendWindowSizes(windowId);
     this._applyFocusOverlay();
   }
 
   // _resizeCheck returns true if this window is allowed to send resize for
-  // a given pane (has OS focus + owns the pane's session or it's unowned).
+  // a given pane (has OS focus + owns the pane's window or it's unowned).
   _resizeCheck(paneId){
     if(!this._windowFocused) return false;
-    const sid=this._paneSessionId(paneId);
-    if(!sid) return true; // pane not in any session yet → allow
-    const owner=this._sessionFocusOwner[sid];
+    const sid=this._toolWindowId(paneId);
+    if(!sid) return true; // pane not in any window yet → allow
+    const owner=this._windowFocusOwner[sid];
     return !owner||owner===this.clientId;
   }
 
-  // _applyFocusOverlay syncs the DOM: regions whose session is owned by
+  // _applyFocusOverlay syncs the DOM: regions whose window is owned by
   // another window get the dimmed overlay (rg-dimmed class).
   _applyFocusOverlay(){
     const otherOwned=new Set();
-    for(const[sid,owner] of Object.entries(this._sessionFocusOwner)){
+    for(const[sid,owner] of Object.entries(this._windowFocusOwner)){
       if(owner&&owner!==this.clientId) otherOwned.add(sid);
     }
     for(const rg of document.querySelectorAll('.rg')){
       let dim=false;
       for(const t of rg.querySelectorAll('.rt[data-pid]')){
-        const sid=this._paneSessionId(t.dataset.pid);
+        const sid=this._toolWindowId(t.dataset.pid);
         if(sid&&otherOwned.has(sid)){dim=true;break}
       }
       rg.classList.toggle('rg-dimmed',dim);
     }
   }
 
-  // _paneSessionId returns the session id containing a pane (by walking the
-  // workspace layout tree). Returns null if the pane is not in any session.
-  _paneSessionId(paneId){
+  // _toolWindowId returns the window id containing a pane (by walking the
+  // workspace layout tree). Returns null if the pane is not in any window.
+  _toolWindowId(paneId){
     if(!paneId) return null;
     for(const s of this.ws.windows){
       if(!s||!s.layout) continue;
@@ -1642,15 +1642,15 @@ class App {
     return null;
   }
 
-  // _resendSessionSizes sends resize for every pane in a session.
+  // _resendWindowSizes sends resize for every pane in a window.
   // Sends even for hidden panes (they retain last-visible dimensions) so the
   // PTY is sized correctly BEFORE render, avoiding a one-frame glitch.
-  _resendSessionSizes(sessionId){
-    if(!sessionId) return;
-    // Don't send resize if another window owns this session.
-    const owner=this._sessionFocusOwner[sessionId];
+  _resendWindowSizes(windowId){
+    if(!windowId) return;
+    // Don't send resize if another window owns this window.
+    const owner=this._windowFocusOwner[windowId];
     if(owner&&owner!==this.clientId) return;
-    const s=this.ws.windows.find(x=>x.id===sessionId);
+    const s=this.ws.windows.find(x=>x.id===windowId);
     if(!s||!s.layout) return;
     const paneIds=new Set();
     const walk=n=>{
@@ -1687,7 +1687,7 @@ class App {
     if(prev) prev.addEventListener('click',()=>this.navMobilePane(-1));
     if(next) next.addEventListener('click',()=>this.navMobilePane(1));
     if(addT) addT.addEventListener('click',()=>{
-      const rg=this._mobileCurrentRegion(); if(rg) this.addTab(rg.id);
+      const rg=this._mobileCurrentPane(); if(rg) this.addTab(rg.id);
     });
     if(srch) srch.addEventListener('click',()=>this.toggleSearch&&this.toggleSearch());
     if(drwr) drwr.addEventListener('click',()=>{this._toggleDrawer();this._rTopbar()});
@@ -1700,8 +1700,8 @@ class App {
       xb.addEventListener('click',()=>{this._toggleDrawer(false);this._rTopbar()});
       sb.insertBefore(xb, sb.firstChild);
     }
-    // Auto-close drawer on session switch (mobile)
-    // (handled in switchSession via _drawerOpen check)
+    // Auto-close drawer on window switch (mobile)
+    // (handled in switchWindow via _drawerOpen check)
 
     // Display Settings panel sync
     const dsMode=document.getElementById('ds-mode');
@@ -2001,7 +2001,7 @@ class App {
         </div>
         <div class="pv-status" style="background:${u.sidebarBg};border-top:1px solid ${u.border}">
           <span style="color:${u.accent}">●</span>
-          <span style="color:${u.textMuted};margin-left:4px">2 sessions · 3 panes</span>
+          <span style="color:${u.textMuted};margin-left:4px">2 windows · 3 panes</span>
           <span style="margin-left:auto;color:${u.danger};font-size:7px">ERR</span>
           <span style="margin-left:4px;color:${u.text};font-size:7px">OK</span>
         </div>
@@ -2049,7 +2049,7 @@ class App {
     const el=document.getElementById('sc-list');if(!el)return;
     el.innerHTML='';
     const groups=[
-      {label:'세션',keys:['sessionNext','sessionPrev','newSession','closeSession']},
+      {label:'창',keys:['sessionNext','sessionPrev','newSession','closeSession']},
       {label:'탭',keys:['tabNext','tabPrev','newTab','closeTab']},
       {label:'Pane',keys:['paneUp','paneDown','paneLeft','paneRight']},
       {label:'분할',keys:['splitH','splitV']},
@@ -2165,7 +2165,7 @@ class App {
     return(b/1073741824).toFixed(1)+'GB';
   }
   _locationLabel(){
-    const s=this._as();if(!s||!s.layout||!this.focused)return null;
+    const s=this._aw();if(!s||!s.layout||!this.focused)return null;
     const sidx=this.ws.windows.findIndex(x=>x.id===this.ws.activeWindow);
     if(sidx<0)return null;
     const regions=[];
@@ -2221,7 +2221,7 @@ class App {
     this._renderPresets();
   }
   _savePreset(){
-    const s=this._as();if(!s)return;
+    const s=this._aw();if(!s)return;
     // Strip layout to just structure (remove paneIds, keep tab counts)
     const strip=n=>{
       if(!n)return null;
@@ -2237,9 +2237,9 @@ class App {
   }
   async _loadPreset(idx){
     const preset=layoutPresets[idx];if(!preset)return;
-    // Create new session with preset layout
-    await this._mkSession();
-    const s=this._as();if(!s)return;
+    // Create new window with preset layout
+    await this._mkWindow();
+    const s=this._aw();if(!s)return;
     // Build layout from preset, creating panes as needed
     const build=async(tpl)=>{
       if(!tpl)return null;
@@ -2263,7 +2263,7 @@ class App {
       return null;
     };
     s.layout=await build(preset.layout);
-    this._setFocus(firstRg(s.layout)?.id||null, s);
+    this._setFocus(firstPane(s.layout)?.id||null, s);
     await this._save();this.render();
   }
   _deletePreset(idx){
@@ -2338,24 +2338,24 @@ class App {
   _clearBodyDropIndicator(bodyEl){const ind=bodyEl?.querySelector('.rg-drop-indicator');if(ind)ind.style.display='none'}
 
   _moveTabToRegion(srcRid,tabId,dstRid,beforeTabId,insertBefore){
-    const s=this._as();if(!s)return;
-    const srcRg=findRg(s.layout,srcRid);const dstRg=findRg(s.layout,dstRid);
+    const s=this._aw();if(!s)return;
+    const srcRg=findPane(s.layout,srcRid);const dstRg=findPane(s.layout,dstRid);
     if(!srcRg||!dstRg)return;
     const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
     const[tab]=srcRg.tabs.splice(ti,1);
     if(srcRg.tabs.length===0){s.layout=doRemove(s.layout,srcRid);if(this.focused===srcRid)this._setFocus(dstRid, s)}
     else if(srcRg.activeTab===tabId)srcRg.activeTab=srcRg.tabs[0].id;
-    const dst=findRg(s.layout,dstRid);if(!dst)return;
+    const dst=findPane(s.layout,dstRid);if(!dst)return;
     if(beforeTabId){let ins=dst.tabs.findIndex(t=>t.id===beforeTabId);if(ins<0)ins=dst.tabs.length;else if(!insertBefore)ins++;dst.tabs.splice(ins,0,tab)}
     else dst.tabs.push(tab);
     dst.activeTab=tab.id;this._setFocus(dstRid, s);
-    if(!s.layout){this._mkSession();return}
+    if(!s.layout){this._mkWindow();return}
     this._save();this.render();
   }
 
   _splitRegionWithTab(srcRid,tabId,targetRid,zone){
-    const s=this._as();if(!s)return;
-    const srcRg=findRg(s.layout,srcRid);if(!srcRg)return;
+    const s=this._aw();if(!s)return;
+    const srcRg=findPane(s.layout,srcRid);if(!srcRg)return;
     if(srcRid===targetRid&&srcRg.tabs.length<=1)return;
     const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
     const[tab]=srcRg.tabs.splice(ti,1);
@@ -2372,7 +2372,7 @@ class App {
       return n;
     };
     s.layout=splitNode(s.layout);
-    if(!s.layout){this._mkSession();return}
+    if(!s.layout){this._mkWindow();return}
     this._setFocus(newRid, s);this._save();this.render();
   }
 }

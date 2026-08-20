@@ -24,13 +24,13 @@ async function waitForInit(page, request) {
   await page.waitForSelector('#area .rg.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
-async function addSession(page) {
-  const before = await page.locator('#sessions .si').count();
+async function addWindow(page) {
+  const before = await page.locator('#windows .si').count();
   await Promise.all([
     page.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
-    page.click('#add-session'),
+    page.click('#add-window'),
   ]);
-  await expect(page.locator('#sessions .si')).toHaveCount(before + 1, { timeout: 10000 });
+  await expect(page.locator('#windows .si')).toHaveCount(before + 1, { timeout: 10000 });
 }
 
 async function activePaneOfFocused(page) {
@@ -105,8 +105,8 @@ test.describe('Pane scroll preserve regression', () => {
     expect(before.viewportY).toBeGreaterThan(0);
 
     // 세션 B 추가하여 활성 전환된 다음 다시 A 로 복귀.
-    await addSession(page);
-    await page.evaluate((sid) => (window as any).app.switchSession(sid), sidA);
+    await addWindow(page);
+    await page.evaluate((sid) => (window as any).app.switchWindow(sid), sidA);
     await page.waitForTimeout(120);
 
     const after = await activePaneOfFocused(page);

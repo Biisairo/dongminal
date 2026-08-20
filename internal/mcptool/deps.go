@@ -17,21 +17,21 @@ type PaneReader interface {
 	Size(paneID string) string
 }
 
-// WorkspaceEntry mirrors workspace.PaneLabel but is owned by this package so
+// WorkspaceEntry mirrors workspace.TabEntry but is owned by this package so
 // tools do not need to import the workspace package directly.
 type WorkspaceEntry struct {
-	PaneID      string
-	Label       string
-	SessionName string
-	TabName     string
-	IsActive    bool
+	ToolID     string
+	Label      string
+	WindowName string
+	TabName    string
+	IsActive   bool
 
 	// Entity identity (UUID_IDENTITY_SRS Phase 1). Empty when upstream
 	// workspace.json predates the schema.
-	SessionUUID string
-	RegionUUID  string
-	TabUUID     string
-	ShortCode   string
+	WindowUUID string
+	PaneUUID   string
+	TabUUID    string
+	ShortCode  string
 }
 
 type WorkspaceReader interface {
@@ -51,7 +51,7 @@ type WorkspaceReader interface {
 // TabRef pairs a new tab's uuid with its paneId (REMOTE_COMMAND_RESULT_SRS).
 type TabRef struct {
 	UUID   string `json:"uuid"`
-	PaneID string `json:"paneId"`
+	ToolID string `json:"paneId"`
 }
 
 // CmdResult is the set of entities a creating command produced.

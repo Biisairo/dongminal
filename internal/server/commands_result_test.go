@@ -19,7 +19,7 @@ func TestCommandHub_AwaitDelivers(t *testing.T) {
 	reqId := "req-1"
 	want := CmdResult{
 		NewRegions: []string{"r10"},
-		NewTabs:    []TabRef{{UUID: "t10", PaneID: "410"}},
+		NewTabs:    []TabRef{{UUID: "t10", ToolID: "410"}},
 	}
 	go func() {
 		// 구독자 채널을 비워 broadcast 가 막히지 않게.
@@ -35,7 +35,7 @@ func TestCommandHub_AwaitDelivers(t *testing.T) {
 	if delivered != 1 {
 		t.Errorf("delivered=%d want 1", delivered)
 	}
-	if len(res.NewTabs) != 1 || res.NewTabs[0].UUID != "t10" || res.NewTabs[0].PaneID != "410" {
+	if len(res.NewTabs) != 1 || res.NewTabs[0].UUID != "t10" || res.NewTabs[0].ToolID != "410" {
 		t.Errorf("newTabs=%+v", res.NewTabs)
 	}
 	if len(res.NewRegions) != 1 || res.NewRegions[0] != "r10" {
@@ -132,7 +132,7 @@ func TestHandleCommandPost_CreatingReturnsNewIds(t *testing.T) {
 		awaitDelivered: 1,
 		awaitResult: CmdResult{
 			NewRegions: []string{"r10"},
-			NewTabs:    []TabRef{{UUID: "t10", PaneID: "410"}},
+			NewTabs:    []TabRef{{UUID: "t10", ToolID: "410"}},
 		},
 	}
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: fb})

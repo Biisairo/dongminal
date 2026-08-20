@@ -24,7 +24,7 @@ type cmdSub struct {
 // (REMOTE_COMMAND_RESULT_SRS — 호출자가 uuid→paneId 재조회 불필요).
 type TabRef struct {
 	UUID   string `json:"uuid"`
-	PaneID string `json:"paneId"`
+	ToolID string `json:"paneId"`
 }
 
 // CmdResult is the set of entities a creating command produced, echoed back by

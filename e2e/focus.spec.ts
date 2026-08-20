@@ -13,16 +13,16 @@ test.describe('Focus movement', () => {
   test('new session creates focused region', async ({ page }) => {
     await waitForInit(page);
 
-    const beforeSi = await page.locator('#sessions .si').count();
+    const beforeSi = await page.locator('#windows .si').count();
 
-    // Use the add-session button (triggers _mkSession → _newPane POST).
+    // Use the add-window button (triggers _mkWindow → _newPane POST).
     const [response] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
-      page.click('#add-session'),
+      page.click('#add-window'),
     ]);
     expect(response.status()).toBe(200);
     // Session count increased by 1 (active session switched, so rg count stays 1).
-    await expect(page.locator('#sessions .si')).toHaveCount(beforeSi + 1, { timeout: 10000 });
+    await expect(page.locator('#windows .si')).toHaveCount(beforeSi + 1, { timeout: 10000 });
 
     // Exactly one focused region.
     await expect(page.locator('#area .rg.focused')).toHaveCount(1);
@@ -82,18 +82,18 @@ test.describe('Focus movement', () => {
 
   test('switch session restores focused region', async ({ page }) => {
     await waitForInit(page);
-    const beforeSi = await page.locator('#sessions .si').count();
+    const beforeSi = await page.locator('#windows .si').count();
 
     // Create a second session.
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
-      page.click('#add-session'),
+      page.click('#add-window'),
     ]);
     expect(resp.status()).toBe(200);
-    await expect(page.locator('#sessions .si')).toHaveCount(beforeSi + 1, { timeout: 10000 });
+    await expect(page.locator('#windows .si')).toHaveCount(beforeSi + 1, { timeout: 10000 });
 
     // Click first session in sidebar.
-    const firstSession = page.locator('#sessions .si').first();
+    const firstSession = page.locator('#windows .si').first();
     await firstSession.click();
 
     // The first session's region should become focused.

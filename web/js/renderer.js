@@ -18,29 +18,29 @@ class Renderer {
     this._rSidebar();this._rTopbar();this._rLayout();
     this.app._updateCwd();
     this.app._updateStatusBar();
-    // Apply session focus overlay after every render so the DOM is
+    // Apply window focus overlay after every render so the DOM is
     // guaranteed to exist (BroadcastChannel may trigger _applyFocusOverlay
     // before the first render completes).
     this.app._applyFocusOverlay();
   }
 
   _rSidebar(){
-    const el=document.getElementById('sessions'); el.innerHTML='';
+    const el=document.getElementById('windows'); el.innerHTML='';
     for(const s of this.app.ws.windows){
       const d=document.createElement('div');
-      // FR-PAN-16: 알람이 있는 세션을 사이드바에서 구분 표시
-      d.className='si'+(s.id===this.app.ws.activeWindow?' active':'')+(this.app._sessionHasAttn(s)?' attn':'');
+      // FR-PAN-16: 알람이 있는 창을 사이드바에서 구분 표시
+      d.className='si'+(s.id===this.app.ws.activeWindow?' active':'')+(this.app._windowHasAttn(s)?' attn':'');
       d.dataset.sid=s.id;
       d.innerHTML='<span class="si-dot"></span><span class="si-name"></span><span class="si-x">×</span>';
       d.querySelector('.si-name').textContent=s.name;
-      d.addEventListener('click',e=>{if(!e.target.classList.contains('si-x'))this.app.switchSession(s.id)});
-      d.querySelector('.si-x').addEventListener('click',e=>{e.stopPropagation();this.app.delSession(s.id)});
+      d.addEventListener('click',e=>{if(!e.target.classList.contains('si-x'))this.app.switchWindow(s.id)});
+      d.querySelector('.si-x').addEventListener('click',e=>{e.stopPropagation();this.app.delWindow(s.id)});
       d.querySelector('.si-name').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(s,e.target)});
       d.draggable=true;
       // 재배치는 drop(즉시·깜빡임 없음) 1순위, 패널 밖 release 는 dragend 폴백. 식별자 기반 splice.
-      d.addEventListener('dragstart',e=>{this.app._drag={type:'session',srcId:s.id,targetId:null,before:false,done:false};e.dataTransfer.effectAllowed='move';setTimeout(()=>d.classList.add('dragging'),0)});
-      d.addEventListener('dragover',e=>{const dr=this.app._drag;if(!dr||dr.type!=='session')return;e.preventDefault();el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'));const rect=d.getBoundingClientRect();const before=e.clientY<rect.top+rect.height/2;d.classList.add(before?'drag-above':'drag-below');dr.targetId=s.id;dr.before=before});
-      d.addEventListener('drop',e=>{const dr=this.app._drag;if(!dr||dr.type!=='session')return;e.preventDefault();e.stopPropagation();this.app._reorderSessions(dr)});
+      d.addEventListener('dragstart',e=>{this.app._drag={type:'window',srcId:s.id,targetId:null,before:false,done:false};e.dataTransfer.effectAllowed='move';setTimeout(()=>d.classList.add('dragging'),0)});
+      d.addEventListener('dragover',e=>{const dr=this.app._drag;if(!dr||dr.type!=='window')return;e.preventDefault();el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'));const rect=d.getBoundingClientRect();const before=e.clientY<rect.top+rect.height/2;d.classList.add(before?'drag-above':'drag-below');dr.targetId=s.id;dr.before=before});
+      d.addEventListener('drop',e=>{const dr=this.app._drag;if(!dr||dr.type!=='window')return;e.preventDefault();e.stopPropagation();this.app._reorderWindows(dr)});
       // dragend 는 시각 정리만 — 패널 밖 release 는 취소(순서 불변, snap-back 깜빡임 방지).
       d.addEventListener('dragend',()=>{this.app._drag=null;d.classList.remove('dragging');el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'))});
       el.appendChild(d);
@@ -48,8 +48,8 @@ class Renderer {
   }
 
   _rTopbar(){
-    const a=this.app._as();
-    document.getElementById('session-name').textContent=a?a.name:'';
+    const a=this.app._aw();
+    document.getElementById('window-name').textContent=a?a.name:'';
     const ind=document.getElementById('m-pane-indicator');
     if(ind){
       const n=this.app._mobilePaneCount();
@@ -66,7 +66,7 @@ class Renderer {
 
   _rLayout(){
     const area=document.getElementById('area');
-    const s=this.app._as();
+    const s=this.app._aw();
     for(const p of this.app.panes.values()){
       if(p.el.classList.contains('vis')){
         const vp=p.el.querySelector('.xterm-viewport');
@@ -80,10 +80,10 @@ class Renderer {
     }
     for(const c of [...area.children]){if(c.classList.contains('sp')||c.classList.contains('rg'))c.remove()}
     if(!s?.layout) return;
-    if(!findRg(s.layout,this.app.focused)){this.app._setFocus(firstRg(s.layout)?.id||null, s)}
+    if(!findPane(s.layout,this.app.focused)){this.app._setFocus(firstPane(s.layout)?.id||null, s)}
     let dom;
     if(this.app.isMobile){
-      const regs=this.app._flattenRegions(s.layout);
+      const regs=this.app._flattenPanes(s.layout);
       if(regs.length){
         const fIdx=regs.findIndex(r=>r.id===this.app.focused);
         if(fIdx>=0) this.app._mPaneIdx=fIdx;
@@ -147,16 +147,16 @@ class Renderer {
         }
       }
       if(this.app.focused){
-        const rg=findRg(s.layout,this.app.focused);
+        const rg=findPane(s.layout,this.app.focused);
         if(rg){const tab=rg.tabs.find(t=>t.id===rg.activeTab);if(tab){
           if(tab.type==='editor'){const v=this.app.fileEditors.get(tab.id);if(v)v.el.focus()}
           else{const p=this.app.panes.get(tab.toolId);if(p)p.focus()}
         }}
       }
       // After fit, panes have correct dimensions. Re-send sizes for the
-      // active session if this window owns it and has OS focus.
+      // active window if this window owns it and has OS focus.
       if(this.app._windowFocused){
-        this.app._resendSessionSizes(this.app.ws.activeWindow);
+        this.app._resendWindowSizes(this.app.ws.activeWindow);
       }
     });
   }
@@ -197,14 +197,14 @@ class Renderer {
       t.addEventListener('dragstart',e=>{this.app._drag={type:'tab',srcRegionId:n.id,tabId:tab.id};e.dataTransfer.effectAllowed='move';e.stopPropagation();setTimeout(()=>t.classList.add('dragging'),0)});
       t.addEventListener('dragend',()=>{this.app._drag=null;t.classList.remove('dragging');tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));document.querySelectorAll('.rg-drop-indicator').forEach(ind=>ind.style.display='none')});
       t.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));const rect=t.getBoundingClientRect();t.classList.add(e.clientX<rect.left+rect.width/2?'drag-left':'drag-right');document.querySelectorAll('.rg-drop-indicator').forEach(ind=>ind.style.display='none')});
-      t.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcRegionId,tabId}=this.app._drag;this.app._drag=null;tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));const s=this.app._as();if(!s)return;if(srcRegionId===n.id){const rg=findRg(s.layout,n.id);if(!rg)return;const si=rg.tabs.findIndex(tt=>tt.id===tabId);const di=rg.tabs.findIndex(tt=>tt.id===tab.id);if(si<0||di<0||si===di)return;const rect=t.getBoundingClientRect();const insBefore=e.clientX<rect.left+rect.width/2;const[moved]=rg.tabs.splice(si,1);let ins=rg.tabs.findIndex(tt=>tt.id===tab.id);if(!insBefore)ins++;rg.tabs.splice(ins,0,moved);rg.activeTab=tabId;this.app._save();this.app.render()}else{const rect=t.getBoundingClientRect();this.app._moveTabToRegion(srcRegionId,tabId,n.id,tab.id,e.clientX<rect.left+rect.width/2)}});
+      t.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcRegionId,tabId}=this.app._drag;this.app._drag=null;tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));const s=this.app._aw();if(!s)return;if(srcRegionId===n.id){const rg=findPane(s.layout,n.id);if(!rg)return;const si=rg.tabs.findIndex(tt=>tt.id===tabId);const di=rg.tabs.findIndex(tt=>tt.id===tab.id);if(si<0||di<0||si===di)return;const rect=t.getBoundingClientRect();const insBefore=e.clientX<rect.left+rect.width/2;const[moved]=rg.tabs.splice(si,1);let ins=rg.tabs.findIndex(tt=>tt.id===tab.id);if(!insBefore)ins++;rg.tabs.splice(ins,0,moved);rg.activeTab=tabId;this.app._save();this.app.render()}else{const rect=t.getBoundingClientRect();this.app._moveTabToRegion(srcRegionId,tabId,n.id,tab.id,e.clientX<rect.left+rect.width/2)}});
       tabs.appendChild(t);
     }
     const add=document.createElement('button'); add.className='rt-add'; add.textContent='+';
     add.addEventListener('click',e=>{e.stopPropagation();this.app.addTab(n.id)});
     tabs.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();if(this.app._drag.srcRegionId!==n.id)tabs.classList.add('drag-target')});
     tabs.addEventListener('dragleave',e=>{if(!tabs.contains(e.relatedTarget))tabs.classList.remove('drag-target')});
-    tabs.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();tabs.classList.remove('drag-target');tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcRegionId,tabId}=this.app._drag;this.app._drag=null;const s=this.app._as();if(!s)return;if(srcRegionId===n.id){const rg=findRg(s.layout,n.id);if(!rg)return;const si=rg.tabs.findIndex(t=>t.id===tabId);if(si<0)return;const[moved]=rg.tabs.splice(si,1);rg.tabs.push(moved);rg.activeTab=tabId;this.app._save();this.app.render()}else{this.app._moveTabToRegion(srcRegionId,tabId,n.id,null,false)}});
+    tabs.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();tabs.classList.remove('drag-target');tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcRegionId,tabId}=this.app._drag;this.app._drag=null;const s=this.app._aw();if(!s)return;if(srcRegionId===n.id){const rg=findPane(s.layout,n.id);if(!rg)return;const si=rg.tabs.findIndex(t=>t.id===tabId);if(si<0)return;const[moved]=rg.tabs.splice(si,1);rg.tabs.push(moved);rg.activeTab=tabId;this.app._save();this.app.render()}else{this.app._moveTabToRegion(srcRegionId,tabId,n.id,null,false)}});
     tabs.appendChild(add); el.appendChild(tabs);
     const body=document.createElement('div'); body.className='rg-body';
     const at=(n.tabs||[]).find(t=>t.id===n.activeTab);

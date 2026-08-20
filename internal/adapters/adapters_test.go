@@ -68,7 +68,7 @@ func TestWorkspaceAdapter_EntriesShape(t *testing.T) {
 	a := Workspace{WS: wsMgr}
 
 	entries := a.Entries()
-	if len(entries) != 1 || entries[0].PaneID != "42" || entries[0].Label != "W1.P1.T1" {
+	if len(entries) != 1 || entries[0].ToolID != "42" || entries[0].Label != "W1.P1.T1" {
 		t.Fatalf("entries=%+v", entries)
 	}
 }

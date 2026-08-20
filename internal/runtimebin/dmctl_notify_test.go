@@ -24,7 +24,7 @@ func pointDmctlAtServer(t *testing.T, ts *httptest.Server, paneID string) {
 func TestDmctlNotify_PostsToServer(t *testing.T) {
 	var gotPath string
 	var got struct {
-		PaneID string `json:"paneId"`
+		ToolID string `json:"paneId"`
 		Reason string `json:"reason"`
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -41,8 +41,8 @@ func TestDmctlNotify_PostsToServer(t *testing.T) {
 	if gotPath != "/api/panes/attention/set" {
 		t.Fatalf("POST path = %q, want /api/panes/attention/set", gotPath)
 	}
-	if got.PaneID != "7" || got.Reason != "done" {
-		t.Fatalf("server received %+v, want {PaneID:7 Reason:done}", got)
+	if got.ToolID != "7" || got.Reason != "done" {
+		t.Fatalf("server received %+v, want {ToolID:7 Reason:done}", got)
 	}
 }
 

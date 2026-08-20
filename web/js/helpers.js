@@ -70,12 +70,12 @@ const SHORTCUT_DEFAULTS={
   agentsToggle:'Ctrl+Shift+KeyA',
 };
 const SHORTCUT_LABELS={
-  sessionNext:'다음 세션',sessionPrev:'이전 세션',
+  sessionNext:'다음 창',sessionPrev:'이전 창',
   tabNext:'다음 탭',tabPrev:'이전 탭',
   paneUp:'Pane ↑',paneDown:'Pane ↓',paneLeft:'Pane ←',paneRight:'Pane →',
   splitH:'가로 분할',splitV:'세로 분할',
-  newSession:'새 세션',newTab:'새 탭',
-  closeSession:'세션 닫기',closeTab:'탭 닫기',
+  newSession:'새 창',newTab:'새 탭',
+  closeSession:'창 닫기',closeTab:'탭 닫기',
   agentsToggle:'에이전트 패널',
 };
 var shortcuts={...SHORTCUT_DEFAULTS};
@@ -129,16 +129,16 @@ function doRemove(n,rid){
   if(n.children.length===1) return n.children[0];
   return n;
 }
-function findRg(n,rid){
+function findPane(n,rid){
   if(!n) return null;
   if(n.type==='pane') return n.id===rid?n:null;
-  if(n.children) for(const c of n.children){const f=findRg(c,rid);if(f)return f}
+  if(n.children) for(const c of n.children){const f=findPane(c,rid);if(f)return f}
   return null;
 }
-function firstRg(n){
+function firstPane(n){
   if(!n) return null;
   if(n.type==='pane') return n;
-  if(n.children) for(const c of n.children){const f=firstRg(c);if(f)return f}
+  if(n.children) for(const c of n.children){const f=firstPane(c);if(f)return f}
   return null;
 }
 function allPids(n){
@@ -155,14 +155,14 @@ function findPath(n,rid){
 }
 function closestRg(n,rid){
   const path=findPath(n,rid);
-  if(!path||path.length<2)return firstRg(n);
+  if(!path||path.length<2)return firstPane(n);
   for(let i=path.length-2;i>=0;i--){
     const parent=path[i];if(!parent.children)continue;
     const ci=parent.children.indexOf(path[i+1]);if(ci<0)continue;
     const c=parent.children[ci+1]||parent.children[ci-1];
-    if(c){const r=firstRg(c);if(r)return r}
+    if(c){const r=firstPane(c);if(r)return r}
   }
-  return firstRg(n);
+  return firstPane(n);
 }
 function clean(n,ok){
   if(!n) return null;

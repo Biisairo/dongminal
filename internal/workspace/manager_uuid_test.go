@@ -3,7 +3,7 @@ package workspace
 import "testing"
 
 // FR-UID-6/7: buildIndex 가 workspace.json 의 session/region/tab ID 를
-// PaneLabel 의 신규 UUID 필드로 그대로 surface 한다.
+// TabEntry 의 신규 UUID 필드로 그대로 surface 한다.
 func TestBuildIndex_PopulatesUUIDFields(t *testing.T) {
 	data := `{
 		"activeWindow":"550e8400-e29b-41d4-a716-446655440001",
@@ -31,11 +31,11 @@ func TestBuildIndex_PopulatesUUIDFields(t *testing.T) {
 		t.Fatalf("entries=%d want 1", len(ix.entries))
 	}
 	e := ix.entries[0]
-	if e.SessionUUID != "550e8400-e29b-41d4-a716-446655440001" {
-		t.Errorf("SessionUUID=%q", e.SessionUUID)
+	if e.WindowUUID != "550e8400-e29b-41d4-a716-446655440001" {
+		t.Errorf("WindowUUID=%q", e.WindowUUID)
 	}
-	if e.RegionUUID != "550e8400-e29b-41d4-a716-446655440002" {
-		t.Errorf("RegionUUID=%q", e.RegionUUID)
+	if e.PaneUUID != "550e8400-e29b-41d4-a716-446655440002" {
+		t.Errorf("PaneUUID=%q", e.PaneUUID)
 	}
 	if e.TabUUID != "550e8400-e29b-41d4-a716-446655440003" {
 		t.Errorf("TabUUID=%q", e.TabUUID)
@@ -43,8 +43,8 @@ func TestBuildIndex_PopulatesUUIDFields(t *testing.T) {
 	if e.ShortCode != "550e8400" {
 		t.Errorf("ShortCode=%q want first 8 hex chars", e.ShortCode)
 	}
-	if e.PaneID != "pty-1" {
-		t.Errorf("PaneID=%q (existing field must be preserved)", e.PaneID)
+	if e.ToolID != "pty-1" {
+		t.Errorf("ToolID=%q (existing field must be preserved)", e.ToolID)
 	}
 	if e.Label != "W1.P1.T1" {
 		t.Errorf("Label=%q (existing field must be preserved)", e.Label)
@@ -63,12 +63,12 @@ func TestBuildIndex_EmptyUUIDsAreTolerated(t *testing.T) {
 		t.Fatalf("entries=%d want 1", len(ix.entries))
 	}
 	e := ix.entries[0]
-	if e.PaneID != "1" || e.Label != "W1.P1.T1" {
-		t.Errorf("existing fields broken: PaneID=%q Label=%q", e.PaneID, e.Label)
+	if e.ToolID != "1" || e.Label != "W1.P1.T1" {
+		t.Errorf("existing fields broken: ToolID=%q Label=%q", e.ToolID, e.Label)
 	}
-	if e.SessionUUID != "s1" || e.RegionUUID != "r1" || e.TabUUID != "t1" {
+	if e.WindowUUID != "s1" || e.PaneUUID != "r1" || e.TabUUID != "t1" {
 		t.Errorf("short ids should pass through: %q %q %q",
-			e.SessionUUID, e.RegionUUID, e.TabUUID)
+			e.WindowUUID, e.PaneUUID, e.TabUUID)
 	}
 	if e.ShortCode != "t1" {
 		t.Errorf("ShortCode=%q want %q (input shorter than 8 chars)", e.ShortCode, "t1")

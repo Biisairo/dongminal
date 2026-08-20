@@ -78,7 +78,7 @@ func TestManager_InvalidatePane(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 	// Should not panic.
-	m.InvalidatePane("any")
+	m.InvalidateTool("any")
 }
 
 func TestManager_Close_Idempotent(t *testing.T) {

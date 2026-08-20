@@ -236,7 +236,7 @@ func buildDeps(cfg server.Config) (builtDeps, error) {
 		return builtDeps{}, err
 	}
 
-	pm.SetInvalidator(bd.wsMgr.InvalidatePane)
+	pm.SetInvalidator(bd.wsMgr.InvalidateTool)
 	pm.LoadAll()
 	bd.pm = pm
 

@@ -64,16 +64,16 @@ func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 
 	if s.Work != nil {
 		for _, e := range s.Work.Entries() {
-			if e.PaneID != paneID {
+			if e.ToolID != paneID {
 				continue
 			}
 			resp["label"] = e.Label
 			resp["uuid"] = e.TabUUID
 			resp["short"] = e.ShortCode
-			resp["session"] = e.SessionName
+			resp["session"] = e.WindowName
 			resp["tab"] = e.TabName
-			resp["sessionUuid"] = e.SessionUUID
-			resp["regionUuid"] = e.RegionUUID
+			resp["sessionUuid"] = e.WindowUUID
+			resp["regionUuid"] = e.PaneUUID
 			resp["focused"] = e.IsActive
 			break
 		}

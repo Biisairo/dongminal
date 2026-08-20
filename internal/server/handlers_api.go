@@ -152,7 +152,6 @@ func uniquePath(dir, name string) string {
 	}
 }
 
-
 // safeResolve verifies that userPath resolves within baseDir, preventing
 // path-traversal attacks.
 func safeResolve(baseDir, userPath string) (string, error) {
@@ -302,10 +301,10 @@ func (s *Server) apiPanesAttention(w http.ResponseWriter, r *http.Request) {
 // missing paneId is 400.
 func (s *Server) apiPaneAttentionSet(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		PaneID string `json:"paneId"`
+		ToolID string `json:"paneId"`
 		Reason string `json:"reason"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PaneID == "" {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
@@ -316,10 +315,10 @@ func (s *Server) apiPaneAttentionSet(w http.ResponseWriter, r *http.Request) {
 	if s.Panes != nil {
 		if s.AttnTracker != nil {
 			// Verify pane exists before flagging attention
-			if s.Panes.Get(req.PaneID) != nil {
-				s.AttnTracker.SignalAttention(req.PaneID, reason)
+			if s.Panes.Get(req.ToolID) != nil {
+				s.AttnTracker.SignalAttention(req.ToolID, reason)
 			}
-		} else if pane := s.Panes.Get(req.PaneID); pane != nil {
+		} else if pane := s.Panes.Get(req.ToolID); pane != nil {
 			pane.signalAttention(reason)
 		}
 	}
@@ -332,16 +331,16 @@ func (s *Server) apiPaneAttentionSet(w http.ResponseWriter, r *http.Request) {
 // a no-op (200) so a stale focus event never errors.
 func (s *Server) apiPaneAttentionClear(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		PaneID string `json:"paneId"`
+		ToolID string `json:"paneId"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PaneID == "" {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 	if s.Panes != nil {
 		if s.AttnTracker != nil {
-			s.AttnTracker.Attend(req.PaneID)
-		} else if pane := s.Panes.Get(req.PaneID); pane != nil {
+			s.AttnTracker.Attend(req.ToolID)
+		} else if pane := s.Panes.Get(req.ToolID); pane != nil {
 			pane.attend()
 		}
 	}
@@ -371,21 +370,21 @@ func (s *Server) apiPanesActivity(w http.ResponseWriter, r *http.Request) {
 // Unknown pane is a 200 no-op; missing paneId or invalid state is 400 (FR-AAP-3).
 func (s *Server) apiPaneActivitySet(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		PaneID string `json:"paneId"`
+		ToolID string `json:"paneId"`
 		State  string `json:"state"`
 		Tool   string `json:"tool"`
 		Detail string `json:"detail"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PaneID == "" || !validActivityState(req.State) {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" || !validActivityState(req.State) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 	if s.Panes != nil {
 		if s.AttnTracker != nil {
-			s.AttnTracker.SetActivity(req.PaneID, req.State,
+			s.AttnTracker.SetActivity(req.ToolID, req.State,
 				sanitizeActivityField(req.Tool, activityToolMax),
 				sanitizeActivityField(req.Detail, activityDetailMax))
-		} else if pane := s.Panes.Get(req.PaneID); pane != nil {
+		} else if pane := s.Panes.Get(req.ToolID); pane != nil {
 			pane.setActivity(req.State, sanitizeActivityField(req.Tool, activityToolMax), sanitizeActivityField(req.Detail, activityDetailMax))
 		}
 	}
@@ -530,7 +529,7 @@ func (s *Server) apiDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	f, err := os.Open(fp)
 	if err != nil {
-	http.Error(w, err.Error(), 404)
+		http.Error(w, err.Error(), 404)
 		return
 	}
 	defer f.Close()

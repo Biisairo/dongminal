@@ -445,7 +445,7 @@ type activityState struct {
 }
 
 type activitySnap struct {
-	PaneID    string `json:"paneId"`
+	ToolID    string `json:"paneId"`
 	State     string `json:"state"`
 	Tool      string `json:"tool,omitempty"`
 	Detail    string `json:"detail,omitempty"`
@@ -529,6 +529,7 @@ func (p *Pane) Write(data []byte) error {
 	_, err := p.ptmx.Write(data)
 	return err
 }
+
 // kill transitions the pane to exited exactly once: it marks exited under
 // cmu, fans out a final OpExit to the clients that were registered at that
 // moment (outside cmu), then tears down the PTY/process and stream.
@@ -680,9 +681,9 @@ func (m *PaneManager) ActivitySnapshot() []activitySnap {
 		if it.a.State == "working" && !attnBusyProbe(it.p) {
 			continue
 		}
-		out = append(out, activitySnap{PaneID: it.id, State: it.a.State, Tool: it.a.Tool, Detail: it.a.Detail, UpdatedAt: it.a.UpdatedAt})
+		out = append(out, activitySnap{ToolID: it.id, State: it.a.State, Tool: it.a.Tool, Detail: it.a.Detail, UpdatedAt: it.a.UpdatedAt})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].PaneID < out[j].PaneID })
+	sort.Slice(out, func(i, j int) bool { return out[i].ToolID < out[j].ToolID })
 	return out
 }
 

@@ -112,14 +112,14 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 			Label:       r.Label,
 			UUID:        r.UUID,
 			Short:       r.Short,
-			PaneID:      r.PaneID,
+			ToolID:      r.ToolID,
 			ShellPID:    r.ShellPID,
 			SizeCols:    r.SizeCols,
 			SizeRows:    r.SizeRows,
 			Session:     r.Session,
 			Tab:         r.Tab,
-			SessionUUID: r.SessionUUID,
-			RegionUUID:  r.RegionUUID,
+			WindowUUID:  r.WindowUUID,
+			PaneUUID:    r.PaneUUID,
 		}
 		fmt.Fprintln(stdout, line.Render())
 	}
@@ -147,30 +147,30 @@ type paneEntry struct {
 }
 
 type wsTree struct {
-	ActiveSession string      `json:"activeWindow"`
-	Sessions      []wsSession `json:"windows"`
+	ActiveWindow string     `json:"activeWindow"`
+	Windows      []wsWindow `json:"windows"`
 }
 
-type wsSession struct {
-	ID            string              `json:"id"`
-	Name          string              `json:"name"`
-	FocusedRegion string              `json:"focusedPane"`
-	Layout        *workspace.WsLayout `json:"layout"`
+type wsWindow struct {
+	ID          string              `json:"id"`
+	Name        string              `json:"name"`
+	FocusedPane string              `json:"focusedPane"`
+	Layout      *workspace.WsLayout `json:"layout"`
 }
 
 type listPanesRow struct {
-	Label       string `json:"label"`
-	UUID        string `json:"uuid"`
-	Short       string `json:"short"`
-	PaneID      string `json:"paneId"`
-	ShellPID    int    `json:"shellPid"`
-	SizeCols    int    `json:"sizeCols"`
-	SizeRows    int    `json:"sizeRows"`
-	Session     string `json:"session"`
-	Tab         string `json:"tab"`
-	SessionUUID string `json:"sessionUuid"`
-	RegionUUID  string `json:"regionUuid"`
-	Focused     bool   `json:"focused"`
+	Label      string `json:"label"`
+	UUID       string `json:"uuid"`
+	Short      string `json:"short"`
+	ToolID     string `json:"paneId"`
+	ShellPID   int    `json:"shellPid"`
+	SizeCols   int    `json:"sizeCols"`
+	SizeRows   int    `json:"sizeRows"`
+	Session    string `json:"session"`
+	Tab        string `json:"tab"`
+	WindowUUID string `json:"sessionUuid"`
+	PaneUUID   string `json:"regionUuid"`
+	Focused    bool   `json:"focused"`
 }
 
 func buildListPanesRows(ws *wsTree, shellPids map[string]int, sizes map[string][2]int) []listPanesRow {
@@ -178,28 +178,28 @@ func buildListPanesRows(ws *wsTree, shellPids map[string]int, sizes map[string][
 		return nil
 	}
 	var out []listPanesRow
-	for si, sess := range ws.Sessions {
+	for si, sess := range ws.Windows {
 		var regions []*workspace.WsLayout
-		workspace.CollectRegions(sess.Layout, &regions)
+		workspace.CollectPanes(sess.Layout, &regions)
 		for pi, rg := range regions {
 			for ti, tab := range rg.Tabs {
-				focused := sess.ID == ws.ActiveSession &&
-					sess.FocusedRegion == rg.ID &&
+				focused := sess.ID == ws.ActiveWindow &&
+					sess.FocusedPane == rg.ID &&
 					rg.ActiveTab == tab.ID
-				sz := sizes[tab.PaneID]
+				sz := sizes[tab.ToolID]
 				out = append(out, listPanesRow{
-					Label:       fmt.Sprintf("W%d.P%d.T%d", si+1, pi+1, ti+1),
-					UUID:        tab.ID,
-					Short:       shortCode(tab.ID),
-					PaneID:      tab.PaneID,
-					ShellPID:    shellPids[tab.PaneID],
-					SizeCols:    sz[0],
-					SizeRows:    sz[1],
-					Session:     sess.Name,
-					Tab:         tab.Name,
-					SessionUUID: sess.ID,
-					RegionUUID:  rg.ID,
-					Focused:     focused,
+					Label:      fmt.Sprintf("W%d.P%d.T%d", si+1, pi+1, ti+1),
+					UUID:       tab.ID,
+					Short:      shortCode(tab.ID),
+					ToolID:     tab.ToolID,
+					ShellPID:   shellPids[tab.ToolID],
+					SizeCols:   sz[0],
+					SizeRows:   sz[1],
+					Session:    sess.Name,
+					Tab:        tab.Name,
+					WindowUUID: sess.ID,
+					PaneUUID:   rg.ID,
+					Focused:    focused,
 				})
 			}
 		}

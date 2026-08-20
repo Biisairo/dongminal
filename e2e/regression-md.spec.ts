@@ -24,13 +24,13 @@ async function waitForInit(page, request) {
   await page.waitForSelector('#area .rg.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
-async function addSession(page) {
-  const before = await page.locator('#sessions .si').count();
+async function addWindow(page) {
+  const before = await page.locator('#windows .si').count();
   await Promise.all([
     page.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
-    page.click('#add-session'),
+    page.click('#add-window'),
   ]);
-  await expect(page.locator('#sessions .si')).toHaveCount(before + 1, { timeout: 10000 });
+  await expect(page.locator('#windows .si')).toHaveCount(before + 1, { timeout: 10000 });
 }
 
 async function openMdTabInActive(page, filePath: string) {
@@ -55,7 +55,7 @@ test.describe('MD viewer regression', () => {
     });
 
     // Add a 2nd session (active switches).
-    await addSession(page);
+    await addWindow(page);
 
     // Open md tab in session 2 to trigger render.
     await openMdTabInActive(page, '/tmp/__regression_b.md');
@@ -93,10 +93,10 @@ test.describe('MD viewer regression', () => {
     });
 
     // Add a 2nd session and switch back.
-    await addSession(page);
+    await addWindow(page);
     await page.evaluate((sid0) => {
       const a = (window as any).app;
-      a.switchSession(sid0);
+      a.switchWindow(sid0);
     }, await page.evaluate(() => (window as any).app.ws.windows[0].id));
 
     // Focused region should be r2id.
@@ -137,9 +137,9 @@ test.describe('MD viewer regression', () => {
     });
 
     // Add 2nd session and return.
-    await addSession(page);
+    await addWindow(page);
     const sid0 = await page.evaluate(() => (window as any).app.ws.windows[0].id);
-    await page.evaluate((sid) => (window as any).app.switchSession(sid), sid0);
+    await page.evaluate((sid) => (window as any).app.switchWindow(sid), sid0);
 
     // s.focusedPane should not be the removed rid.
     const ok = await page.evaluate(() => {
@@ -221,7 +221,7 @@ test.describe('MD viewer regression', () => {
   });
 
   // FR-7: 활성 세션 삭제 시 이동한 세션의 저장된 focusedPane 을 보존한다.
-  test('FR-7: delSession preserves target session focusedPane', async ({ page, request }) => {
+  test('FR-7: delWindow preserves target session focusedPane', async ({ page, request }) => {
     await waitForInit(page, request);
 
     // 세션 A 에서 split + 두 번째 region 으로 포커스 이동.
@@ -233,12 +233,12 @@ test.describe('MD viewer regression', () => {
     });
 
     // 세션 B 추가 (활성 세션이 B 로 전환됨).
-    await addSession(page);
+    await addWindow(page);
     const sidB = await page.evaluate(() => (window as any).app.ws.activeWindow);
     expect(sidB).not.toBe(sidA);
 
     // 다시 A 로 전환 → 활성 A.
-    await page.evaluate((sid) => (window as any).app.switchSession(sid), sidA);
+    await page.evaluate((sid) => (window as any).app.switchWindow(sid), sidA);
     expect(await page.evaluate(() => (window as any).app.focused)).toBe(r2idA);
 
     // 활성 세션 A 를 삭제 → B 가 활성이 됨. B 의 focusedPane 은 자기 layout 의 첫 region 이어야 함.
@@ -246,7 +246,7 @@ test.describe('MD viewer regression', () => {
       const a = (window as any).app;
       // 삭제 시 busy 확인 모달이 뜨지 않도록 fake.
       a._isPaneBusy = async () => false;
-      await a.delSession(sid);
+      await a.delWindow(sid);
     }, sidA);
 
     const after = await page.evaluate(() => {
@@ -282,8 +282,8 @@ test.describe('MD viewer regression', () => {
     });
 
     // 2번째 세션 추가 후 복귀.
-    await addSession(page);
-    await page.evaluate((sid) => (window as any).app.switchSession(sid), session1Id);
+    await addWindow(page);
+    await page.evaluate((sid) => (window as any).app.switchWindow(sid), session1Id);
 
     const focusedOnReturn = await page.evaluate(() => (window as any).app.focused);
     expect(focusedOnReturn).toBe(focusedAfterSplit);

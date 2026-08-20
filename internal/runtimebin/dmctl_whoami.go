@@ -66,14 +66,14 @@ func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 		Label:       rec.Label,
 		UUID:        rec.UUID,
 		Short:       rec.Short,
-		PaneID:      rec.PaneID,
+		ToolID:      rec.ToolID,
 		ShellPID:    rec.ShellPID,
 		SizeCols:    rec.SizeCols,
 		SizeRows:    rec.SizeRows,
 		Session:     rec.Session,
 		Tab:         rec.Tab,
-		SessionUUID: rec.SessionUUID,
-		RegionUUID:  rec.RegionUUID,
+		WindowUUID:  rec.WindowUUID,
+		PaneUUID:    rec.PaneUUID,
 	}
 	out := line.Render()
 	if !strings.HasSuffix(out, "\n") {
@@ -93,16 +93,16 @@ const dmctlWhoAmIHelp = `dmctl who-am-i — 현재 쉘이 속한 pane 의 식별
 `
 
 type whoAmIResp struct {
-	PaneID      string `json:"paneId"`
-	ShellPID    int    `json:"shellPid"`
-	Label       string `json:"label"`
-	UUID        string `json:"uuid"`
-	Short       string `json:"short"`
-	SizeCols    int    `json:"sizeCols"`
-	SizeRows    int    `json:"sizeRows"`
-	Session     string `json:"session"`
-	Tab         string `json:"tab"`
-	SessionUUID string `json:"sessionUuid"`
-	RegionUUID  string `json:"regionUuid"`
-	Focused     bool   `json:"focused"`
+	ToolID     string `json:"paneId"`
+	ShellPID   int    `json:"shellPid"`
+	Label      string `json:"label"`
+	UUID       string `json:"uuid"`
+	Short      string `json:"short"`
+	SizeCols   int    `json:"sizeCols"`
+	SizeRows   int    `json:"sizeRows"`
+	Session    string `json:"session"`
+	Tab        string `json:"tab"`
+	WindowUUID string `json:"sessionUuid"`
+	PaneUUID   string `json:"regionUuid"`
+	Focused    bool   `json:"focused"`
 }

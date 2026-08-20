@@ -53,7 +53,7 @@ func TestDaemonFullFlow(t *testing.T) {
 			var ev struct {
 				Action string `json:"action"`
 				Args   struct {
-					PaneID string `json:"paneId"`
+					ToolID string `json:"paneId"`
 					State  string `json:"state"`
 					Reason string `json:"reason"`
 				} `json:"args"`

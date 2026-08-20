@@ -21,9 +21,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   display:flex;flex-direction:column;user-select:none;
 }
 .sb-title{padding:10px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
-#sessions{flex:1;overflow-y:auto}
-#sessions::-webkit-scrollbar{width:4px}
-#sessions::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+#windows{flex:1;overflow-y:auto}
+#windows::-webkit-scrollbar{width:4px}
+#windows::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
 .si{display:flex;align-items:center;height:30px;padding:0 10px;cursor:pointer;transition:background .1s}
 .si:hover{background:var(--accent-hover)}
@@ -42,12 +42,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .si:hover .si-x{opacity:1}
 .si-x:hover{color:var(--danger);background:rgba(247,118,142,.2)}
 
-#add-session,#add-preset{
+#add-window,#add-preset{
   margin:0 8px 4px;padding:4px 8px;
   background:transparent;border:1px solid var(--border);border-radius:4px;
   color:var(--text-muted);font-size:11px;cursor:pointer;text-align:left;
 }
-#add-session:hover,#add-preset:hover{background:var(--accent-hover);color:var(--accent)}
+#add-window:hover,#add-preset:hover{background:var(--accent-hover);color:var(--accent)}
 #add-preset{color:var(--text-dim);opacity:.7}
 #add-preset:hover{opacity:1}
 
@@ -63,7 +63,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   height:32px;min-height:32px;display:flex;align-items:center;
   background:var(--sidebar-bg);border-bottom:1px solid var(--border);padding:0 8px;gap:6px;
 }
-#session-name{font-size:12px;color:var(--text-muted)}
+#window-name{font-size:12px;color:var(--text-muted)}
 .spacer{flex:1}
 
 /* 주의 알림 배지 + 센터 팝오버 (FR-PAN-16) */
@@ -521,7 +521,7 @@ body.mobile{padding-bottom:calc(var(--m-kb-h) + env(safe-area-inset-bottom, 0px)
 
 /* mobile topbar tighter spacing */
 body.mobile #topbar{padding:0 4px;gap:2px}
-body.mobile #session-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:35%;color:var(--text-bright)}
+body.mobile #window-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:35%;color:var(--text-bright)}
 
 /* mobile keybar (M4) */
 #mobile-keybar{
@@ -563,8 +563,8 @@ body.mobile .si-x{opacity:1;width:24px;height:24px;font-size:14px}
 body.mobile .rt{padding:0 14px;font-size:13px}
 body.mobile .rt-x{opacity:1;width:18px;height:18px}
 body.mobile .rt-add{width:32px;font-size:18px}
-body.mobile #add-session,body.mobile #add-preset,body.mobile #settings-btn{padding:8px;font-size:12px}
-body.mobile #sessions{padding-top:8px}
+body.mobile #add-window,body.mobile #add-preset,body.mobile #settings-btn{padding:8px;font-size:12px}
+body.mobile #windows{padding-top:8px}
 body.mobile .sb-title{padding:14px 14px 8px}
 
 /* ── Tab bar drag target ── */

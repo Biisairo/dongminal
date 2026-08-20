@@ -216,7 +216,7 @@ func TestListPanesTool(t *testing.T) {
 		sizeMap: map[string]string{"p1": "80x24", "p2": "?"},
 	}
 	ws := &fakeWS{entries: []mcptool.WorkspaceEntry{
-		{PaneID: "p1", Label: "W1.P1.T1", SessionName: "main", TabName: "zsh", IsActive: true},
+		{ToolID: "p1", Label: "W1.P1.T1", WindowName: "main", TabName: "zsh", IsActive: true},
 	}}
 	h := tools.ListPanesHandler(tools.ListPanesDeps{PM: pm, WS: ws})
 	res, err := h(context.Background(), tools.ListPanesArgs{})
@@ -242,9 +242,9 @@ func TestListPanesFiltersDeadEntries(t *testing.T) {
 		sizeMap: map[string]string{"p1": "80x24", "p2": "80x24"},
 	}
 	ws := &fakeWS{entries: []mcptool.WorkspaceEntry{
-		{PaneID: "p1", Label: "W1.P1.T1", SessionName: "main", TabName: "zsh"},
-		{PaneID: "p2", Label: "W1.P1.T2", SessionName: "main", TabName: "zsh"},
-		{PaneID: "p3", Label: "W1.P1.T3", SessionName: "main", TabName: "zsh"},
+		{ToolID: "p1", Label: "W1.P1.T1", WindowName: "main", TabName: "zsh"},
+		{ToolID: "p2", Label: "W1.P1.T2", WindowName: "main", TabName: "zsh"},
+		{ToolID: "p3", Label: "W1.P1.T3", WindowName: "main", TabName: "zsh"},
 	}}
 	h := tools.ListPanesHandler(tools.ListPanesDeps{PM: pm, WS: ws})
 	res, err := h(context.Background(), tools.ListPanesArgs{})

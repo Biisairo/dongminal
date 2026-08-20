@@ -87,10 +87,10 @@ func TestPaneManager_ActivitySnapshot(t *testing.T) {
 	if len(snap) != 2 {
 		t.Fatalf("snapshot want 2 active panes, got %v", snap)
 	}
-	if snap[0].PaneID != "1" || snap[0].State != "working" || snap[0].Tool != "Edit" || snap[0].Detail != "app.js" {
+	if snap[0].ToolID != "1" || snap[0].State != "working" || snap[0].Tool != "Edit" || snap[0].Detail != "app.js" {
 		t.Fatalf("snapshot[0] unexpected: %+v", snap[0])
 	}
-	if snap[1].PaneID != "5" || snap[1].State != "done" {
+	if snap[1].ToolID != "5" || snap[1].State != "done" {
 		t.Fatalf("snapshot[1] unexpected: %+v", snap[1])
 	}
 }
@@ -112,7 +112,7 @@ func TestPaneManager_ActivitySnapshot_PrunesDeadWorking(t *testing.T) {
 	m.mu.Unlock()
 
 	snap := m.ActivitySnapshot()
-	if len(snap) != 1 || snap[0].PaneID != "2" {
+	if len(snap) != 1 || snap[0].ToolID != "2" {
 		t.Fatalf("dead working pruned, done kept; got %+v", snap)
 	}
 }

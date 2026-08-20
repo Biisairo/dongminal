@@ -73,13 +73,13 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     const before = await readInvariant(page);
 
     // Add a second session.
-    await page.evaluate(() => (window as any).app.addSession());
+    await page.evaluate(() => (window as any).app.addWindow());
     await page.waitForFunction(() => (window as any).app.ws.windows.length === 2, { timeout: 5000 });
 
     // Switch back to the first session.
     await page.evaluate(() => {
       const a = (window as any).app;
-      a.switchSession(a.ws.windows[0].id);
+      a.switchWindow(a.ws.windows[0].id);
     });
     await page.waitForTimeout(150);
 
@@ -106,16 +106,16 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     await page.waitForFunction(() => {
       const a = (window as any).app;
       const sess = a.ws.windows.find((s: any) => s.id === a.ws.activeWindow);
-      const findRg = (n: any): any => n && (n.type === 'pane' ? n : (n.children || []).map(findRg).find(Boolean));
-      const rg = findRg(sess.layout);
+      const findPane = (n: any): any => n && (n.type === 'pane' ? n : (n.children || []).map(findPane).find(Boolean));
+      const rg = findPane(sess.layout);
       return rg && rg.tabs.length >= 3;
     }, { timeout: 10000 });
 
     const tabIds = await page.evaluate(() => {
       const a = (window as any).app;
       const sess = a.ws.windows.find((s: any) => s.id === a.ws.activeWindow);
-      const findRg = (n: any): any => n && (n.type === 'pane' ? n : (n.children || []).map(findRg).find(Boolean));
-      return findRg(sess.layout).tabs.map((t: any) => t.id);
+      const findPane = (n: any): any => n && (n.type === 'pane' ? n : (n.children || []).map(findPane).find(Boolean));
+      return findPane(sess.layout).tabs.map((t: any) => t.id);
     });
     expect(tabIds.length).toBeGreaterThanOrEqual(3);
 
@@ -124,8 +124,8 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     await page.waitForFunction((tid) => {
       const a = (window as any).app;
       const sess = a.ws.windows.find((s: any) => s.id === a.ws.activeWindow);
-      const findRg = (n: any): any => n && (n.type === 'pane' ? n : (n.children || []).map(findRg).find(Boolean));
-      return findRg(sess.layout).activeTab === tid;
+      const findPane = (n: any): any => n && (n.type === 'pane' ? n : (n.children || []).map(findPane).find(Boolean));
+      return findPane(sess.layout).activeTab === tid;
     }, tabIds[1], { timeout: 5000 });
 
     // Close middle tab.
@@ -133,8 +133,8 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     await page.waitForFunction((expected) => {
       const a = (window as any).app;
       const sess = a.ws.windows.find((s: any) => s.id === a.ws.activeWindow);
-      const findRg = (n: any): any => n && (n.type === 'pane' ? n : (n.children || []).map(findRg).find(Boolean));
-      const rg = findRg(sess.layout);
+      const findPane = (n: any): any => n && (n.type === 'pane' ? n : (n.children || []).map(findPane).find(Boolean));
+      const rg = findPane(sess.layout);
       return rg && rg.tabs.length === 2 && rg.activeTab === expected;
     }, tabIds[2], { timeout: 5000 });
   });

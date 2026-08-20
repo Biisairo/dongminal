@@ -22,19 +22,19 @@ var ErrSchemaTooOld = errors.New("workspace: schemaVersion 이 2 미만입니다
 // SchemaVersion은 이 코드가 읽고 쓰는 workspace.json 스키마 버전이다.
 const SchemaVersion = 2
 
-type PaneLabel struct {
-	PaneID      string
-	Label       string
-	SessionName string
-	TabName     string
-	IsActive    bool
+type TabEntry struct {
+	ToolID     string
+	Label      string
+	WindowName string
+	TabName    string
+	IsActive   bool
 
 	// Entity identity (UUID_IDENTITY_SRS Phase 1, FR-UID-6/7). Empty when the
 	// upstream workspace.json predates the schema; consumers must tolerate that.
-	SessionUUID string
-	RegionUUID  string
-	TabUUID     string
-	ShortCode   string
+	WindowUUID string
+	PaneUUID   string
+	TabUUID    string
+	ShortCode  string
 }
 
 type Liveness interface {
@@ -47,7 +47,7 @@ type Persister interface {
 }
 
 type index struct {
-	entries   []PaneLabel
+	entries   []TabEntry
 	labels    map[string]string
 	labelToID map[string]string
 	tabIDs    map[string]struct{}
@@ -343,17 +343,17 @@ func (m *Manager) TabIDs() map[string]struct{} {
 	return out
 }
 
-func (m *Manager) Entries() []PaneLabel {
+func (m *Manager) Entries() []TabEntry {
 	ix := m.idx.Load()
 	if ix == nil {
 		return nil
 	}
-	out := make([]PaneLabel, len(ix.entries))
+	out := make([]TabEntry, len(ix.entries))
 	copy(out, ix.entries)
 	return out
 }
 
-func (m *Manager) InvalidatePane(paneID string) {
+func (m *Manager) InvalidateTool(paneID string) {
 	// Labels are positional (derived from workspace.json). Pane death doesn't
 	// shift labels; liveness is queried via Liveness at Resolve time. Kept as
 	// an explicit hook so callers (onExit) can signal the manager without
@@ -375,20 +375,20 @@ type WsLayout struct {
 type WsTab struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
-	PaneID string `json:"toolId"`
+	ToolID string `json:"toolId"`
 }
 
-type wsSession struct {
-	ID            string    `json:"id"`
-	Name          string    `json:"name"`
-	Layout        *WsLayout `json:"layout"`
-	FocusedRegion string    `json:"focusedPane"`
+type wsWindow struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Layout      *WsLayout `json:"layout"`
+	FocusedPane string    `json:"focusedPane"`
 }
 
 type wsState struct {
-	SchemaVersion int         `json:"schemaVersion"`
-	Sessions      []wsSession `json:"windows"`
-	ActiveSession string      `json:"activeWindow"`
+	SchemaVersion int        `json:"schemaVersion"`
+	Windows       []wsWindow `json:"windows"`
+	ActiveWindow  string     `json:"activeWindow"`
 }
 
 func emptyIndex() *index {
@@ -412,29 +412,29 @@ func buildIndex(blob []byte) (*index, error) {
 	if s.SchemaVersion < SchemaVersion {
 		return nil, ErrSchemaTooOld
 	}
-	for si, sess := range s.Sessions {
+	for si, sess := range s.Windows {
 		var regions []*WsLayout
-		CollectRegions(sess.Layout, &regions)
+		CollectPanes(sess.Layout, &regions)
 		for pi, rg := range regions {
 			for ti, tab := range rg.Tabs {
-				isActive := sess.ID == s.ActiveSession && sess.FocusedRegion == rg.ID && rg.ActiveTab == tab.ID
+				isActive := sess.ID == s.ActiveWindow && sess.FocusedPane == rg.ID && rg.ActiveTab == tab.ID
 				label := fmt.Sprintf("W%d.P%d.T%d", si+1, pi+1, ti+1)
-				ix.entries = append(ix.entries, PaneLabel{
-					PaneID:      tab.PaneID,
-					Label:       label,
-					SessionName: sess.Name,
-					TabName:     tab.Name,
-					IsActive:    isActive,
-					SessionUUID: sess.ID,
-					RegionUUID:  rg.ID,
-					TabUUID:     tab.ID,
-					ShortCode:   shortCodeOf(tab.ID),
+				ix.entries = append(ix.entries, TabEntry{
+					ToolID:     tab.ToolID,
+					Label:      label,
+					WindowName: sess.Name,
+					TabName:    tab.Name,
+					IsActive:   isActive,
+					WindowUUID: sess.ID,
+					PaneUUID:   rg.ID,
+					TabUUID:    tab.ID,
+					ShortCode:  shortCodeOf(tab.ID),
 				})
-				ix.labels[tab.PaneID] = label
-				ix.labelToID[label] = tab.PaneID
+				ix.labels[tab.ToolID] = label
+				ix.labelToID[label] = tab.ToolID
 				if tab.ID != "" {
 					ix.tabIDs[tab.ID] = struct{}{}
-					ix.uuidToID[strings.ToLower(tab.ID)] = tab.PaneID
+					ix.uuidToID[strings.ToLower(tab.ID)] = tab.ToolID
 				}
 			}
 		}
@@ -452,8 +452,8 @@ func shortCodeOf(uuid string) string {
 	return uuid
 }
 
-// CollectRegions walks a layout tree and appends every "pane" node to out.
-func CollectRegions(n *WsLayout, out *[]*WsLayout) {
+// CollectPanes walks a layout tree and appends every "pane" node to out.
+func CollectPanes(n *WsLayout, out *[]*WsLayout) {
 	if n == nil {
 		return
 	}
@@ -463,7 +463,7 @@ func CollectRegions(n *WsLayout, out *[]*WsLayout) {
 	}
 	if n.Type == "split" {
 		for _, c := range n.Children {
-			CollectRegions(c, out)
+			CollectPanes(c, out)
 		}
 	}
 }

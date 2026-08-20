@@ -13,14 +13,14 @@ type Line struct {
 	Label       string
 	UUID        string
 	Short       string
-	PaneID      string
+	ToolID      string
 	ShellPID    int
 	SizeCols    int
 	SizeRows    int
 	Session     string
 	Tab         string
-	SessionUUID string
-	RegionUUID  string
+	WindowUUID  string
+	PaneUUID    string
 }
 
 // Render는 FR-PL-1 의 표준 라인을 반환한다. 개행 미포함.
@@ -39,16 +39,16 @@ func (l Line) Render() string {
 	if l.Short != "" {
 		fmt.Fprintf(&b, "  short=%s", l.Short)
 	}
-	fmt.Fprintf(&b, "  paneId=%s  shellPid=%d", l.PaneID, l.ShellPID)
+	fmt.Fprintf(&b, "  paneId=%s  shellPid=%d", l.ToolID, l.ShellPID)
 	if l.SizeCols != 0 || l.SizeRows != 0 {
 		fmt.Fprintf(&b, "  size=%dx%d", l.SizeCols, l.SizeRows)
 	}
 	fmt.Fprintf(&b, "  session=%q  tab=%q", l.Session, l.Tab)
-	if l.SessionUUID != "" {
-		fmt.Fprintf(&b, "  session_uuid=%s", l.SessionUUID)
+	if l.WindowUUID != "" {
+		fmt.Fprintf(&b, "  session_uuid=%s", l.WindowUUID)
 	}
-	if l.RegionUUID != "" {
-		fmt.Fprintf(&b, "  region_uuid=%s", l.RegionUUID)
+	if l.PaneUUID != "" {
+		fmt.Fprintf(&b, "  region_uuid=%s", l.PaneUUID)
 	}
 	return b.String()
 }

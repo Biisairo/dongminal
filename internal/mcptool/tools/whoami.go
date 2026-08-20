@@ -39,7 +39,7 @@ func WhoAmIHandler(d WhoAmIDeps) func(context.Context, WhoAmIArgs) (mcptool.Resu
 		}
 		cols, rows := parseSize(d.PM.Size(paneID))
 		for _, e := range d.WS.Entries() {
-			if e.PaneID != paneID {
+			if e.ToolID != paneID {
 				continue
 			}
 			line := paneline.Line{
@@ -47,19 +47,19 @@ func WhoAmIHandler(d WhoAmIDeps) func(context.Context, WhoAmIArgs) (mcptool.Resu
 				Label:       e.Label,
 				UUID:        e.TabUUID,
 				Short:       e.ShortCode,
-				PaneID:      paneID,
+				ToolID:      paneID,
 				ShellPID:    shellPID,
 				SizeCols:    cols,
 				SizeRows:    rows,
-				Session:     e.SessionName,
+				Session:     e.WindowName,
 				Tab:         e.TabName,
-				SessionUUID: e.SessionUUID,
-				RegionUUID:  e.RegionUUID,
+				WindowUUID:  e.WindowUUID,
+				PaneUUID:    e.PaneUUID,
 			}
 			return mcptool.Textf("%s", line.Render()), nil
 		}
 		// workspace 미등록 경로 — paneId/shellPid/size 만 표시.
-		line := paneline.Line{PaneID: paneID, ShellPID: shellPID, SizeCols: cols, SizeRows: rows}
+		line := paneline.Line{ToolID: paneID, ShellPID: shellPID, SizeCols: cols, SizeRows: rows}
 		return mcptool.Textf("%s  (workspace 미등록)", line.Render()), nil
 	}
 }

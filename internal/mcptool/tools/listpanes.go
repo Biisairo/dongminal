@@ -55,16 +55,16 @@ func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcp
 
 		entries := make([]mcptool.WorkspaceEntry, 0, len(rawEntries))
 		seen := make(map[string]bool, len(rawEntries))
-	for _, e := range rawEntries {
-		seen[e.PaneID] = true
-		if !d.PM.Has(e.PaneID) {
-			continue
+		for _, e := range rawEntries {
+			seen[e.ToolID] = true
+			if !d.PM.Has(e.ToolID) {
+				continue
+			}
+			if !runtimebin.MatchFold(e.WindowName, a.Session) || !runtimebin.MatchFold(e.TabName, a.Tab) {
+				continue
+			}
+			entries = append(entries, e)
 		}
-		if !runtimebin.MatchFold(e.SessionName, a.Session) || !runtimebin.MatchFold(e.TabName, a.Tab) {
-			continue
-		}
-		entries = append(entries, e)
-	}
 
 		var orphans []mcptool.PaneInfo
 		if !filtered { // FR-LPF-3: 필터 시 orphan 섹션 생략 (이름 매칭 대상 아님)
@@ -85,20 +85,20 @@ func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcp
 			sb.WriteString("  (없음)\n")
 		}
 		for _, e := range entries {
-			cols, rows := parseSize(d.PM.Size(e.PaneID))
+			cols, rows := parseSize(d.PM.Size(e.ToolID))
 			line := paneline.Line{
 				FocusMarker: e.IsActive,
 				Label:       e.Label,
 				UUID:        e.TabUUID,
 				Short:       e.ShortCode,
-				PaneID:      e.PaneID,
-				ShellPID:    shellPids[e.PaneID],
+				ToolID:      e.ToolID,
+				ShellPID:    shellPids[e.ToolID],
 				SizeCols:    cols,
 				SizeRows:    rows,
-				Session:     e.SessionName,
+				Session:     e.WindowName,
 				Tab:         e.TabName,
-				SessionUUID: e.SessionUUID,
-				RegionUUID:  e.RegionUUID,
+				WindowUUID:  e.WindowUUID,
+				PaneUUID:    e.PaneUUID,
 			}
 			sb.WriteString(line.Render())
 			sb.WriteByte('\n')
@@ -113,7 +113,6 @@ func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcp
 		return mcptool.TextResult(sb.String()), nil
 	}
 }
-
 
 // parseSize는 "WxH" 형식 문자열을 정수 쌍으로 변환한다. 실패하면 0,0.
 func parseSize(s string) (int, int) {

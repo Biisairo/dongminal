@@ -152,6 +152,8 @@ PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:
 | `newRegions` | `newPanes` |
 | `newTab`, `newTabs`, `closeTab`, `splitH`, `splitV`, `focus`, `renameTab`, `tabNext`, `tabPrev` | 변경 없음 |
 
+**FR-EM-6a** 브라우저 단축키 action id 는 위 액션명과 같은 어휘이며 사용자 커스텀 바인딩과 함께 `settings.json` 의 `shortcuts` 에 **영속된다**. 따라서 개명은 액션명과 같은 단계에서 수행하고, `settings.json` 마이그레이션을 동반해야 한다 — 그러지 않으면 사용자 키바인딩이 조용히 기본값으로 되돌아간다. `paneUp`/`paneDown`/`paneLeft`/`paneRight` 는 분할 칸 이동이므로 새 어휘에서 이미 정확하여 변경하지 않는다.
+
 **FR-EM-7** HTTP 경로와 SSE 이벤트명을 개명한다.
 
 | 구 | 신 |
@@ -328,9 +330,9 @@ PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:
 |-------|------|------|
 | **P1** | 마이그레이션 도구 — 순수 변환 함수 + `dongminal migrate` (NFR-EM-2) | TC-EM-11 |
 | **P2** | 스키마 전환 (원자적) — `workspace.json` 스키마, Go 파서, 브라우저, 좌표계 `S`→`W` (FR-EM-2/2a/3) | TC-EM-1, TC-EM-2/2b/2c |
-| **P3** | 나머지 내부 개명 — Go·JS 심볼, 한국어 UI, `_killBg` (FR-EM-8/9) | 기존 테스트 |
-| **P4** | 외부 계약 개명 — MCP·dmctl·`workspace_command`·HTTP·SSE (FR-EM-4~7) | TC-EM-3/4/5 |
-| **P5** | 도구 1급화 + 참조 무결성 (FR-EM-10~16) | TC-EM-6~9 |
+| **P3** | 공간 계층 어휘 심볼 (`workspace`·`paneline`·JS) + 한국어 UI + `_killBg` (FR-EM-8/9) | 기존 테스트 |
+| **P4** | 외부 계약 개명 — MCP·dmctl·`workspace_command`·HTTP·SSE + 단축키 id·`settings.json` 마이그레이션 (FR-EM-4~7, 6a) | TC-EM-3/4/5 |
+| **P5** | 도구 1급화 + 참조 무결성 + PTY 계층 심볼 개명 (FR-EM-10~16) | TC-EM-6~9 |
 | **P6** | 백그라운드 (FR-BG-1~11) | TC-BG-1~10 및 6b~6h |
 | **P7** | Run 접합 필드 (FR-EM-17/18) | TC-EM-10 |
 | **P8** | 문서·스킬 어휘 갱신 | DoD |
@@ -338,6 +340,8 @@ PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:
 **P1 과 P2 를 분리한 이유:** 데이터 스키마와 이를 읽는 코드(Go 파서 + 브라우저)는 함께 바뀌어야 하므로 P2 는 원자적 단계다. P1 은 아무것도 깨뜨리지 않는 독립 도구여서 먼저 완성·검증할 수 있다.
 
 P1 의 마이그레이션은 `workspace.json` 과 `panes.json`→`tools.json` 을 **한 번에** 처리한다(사용자가 두 번 마이그레이션하지 않도록). 파일 개명은 P1, 참조 무결성의 런타임 강제(FR-EM-14)는 P5.
+
+`internal/server` 의 PTY 계층 심볼(`PaneManager`·`PaneHub`·`PaneClient`·`StartPane`, 200여 곳)은 P3 이 아니라 **P5** 에서 개명한다. 이 레이어는 `terminal` 도구만 다루므로 올바른 이름(`ToolManager` vs `TerminalManager`)이 P5 의 도구 모델(FR-EM-13)에 달려 있다 — P3 에서 정하면 P5 에서 다시 바꾸게 된다.
 
 P4 는 재기동을 요구한다(alias 미제공). P5 는 P2 에 의존한다. P6 은 P5 에 의존한다.
 

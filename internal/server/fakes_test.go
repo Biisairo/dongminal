@@ -124,7 +124,6 @@ func itoa(n int) string {
 	return string(buf[i:])
 }
 
-
 // ── fakeWorkspaceStore ──────────────────────────────
 
 type fakeWorkspaceStore struct {
@@ -135,7 +134,7 @@ type fakeWorkspaceStore struct {
 	stale    bool // when true, Save returns ErrStale
 	coordMap map[string]string
 	coordErr map[string]error
-	entries  []workspace.PaneLabel
+	entries  []workspace.TabEntry
 }
 
 func newFakeWorkspaceStore() *fakeWorkspaceStore {
@@ -184,10 +183,10 @@ func (f *fakeWorkspaceStore) CoordinateOf(id string) (string, error) {
 	return id, nil
 }
 
-func (f *fakeWorkspaceStore) Entries() []workspace.PaneLabel {
+func (f *fakeWorkspaceStore) Entries() []workspace.TabEntry {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return append([]workspace.PaneLabel(nil), f.entries...)
+	return append([]workspace.TabEntry(nil), f.entries...)
 }
 
 func (f *fakeWorkspaceStore) IsKnownTabID(id string) bool {

@@ -17,19 +17,19 @@ test.describe('Multi-client synchronization via SSE', () => {
     await waitForInit(pageA);
     await waitForInit(pageB);
 
-    const beforeA = await pageA.locator('#sessions .si').count();
-    const beforeB = await pageB.locator('#sessions .si').count();
+    const beforeA = await pageA.locator('#windows .si').count();
+    const beforeB = await pageB.locator('#windows .si').count();
 
     // Client A creates a new session.
     const [resp] = await Promise.all([
       pageA.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
-      pageA.click('#add-session'),
+      pageA.click('#add-window'),
     ]);
     expect(resp.status()).toBe(200);
 
     // Both clients should see the new session.
-    await expect(pageA.locator('#sessions .si')).toHaveCount(beforeA + 1, { timeout: 15000 });
-    await expect(pageB.locator('#sessions .si')).toHaveCount(beforeB + 1, { timeout: 15000 });
+    await expect(pageA.locator('#windows .si')).toHaveCount(beforeA + 1, { timeout: 15000 });
+    await expect(pageB.locator('#windows .si')).toHaveCount(beforeB + 1, { timeout: 15000 });
 
     await ctxA.close();
     await ctxB.close();
@@ -105,28 +105,28 @@ test.describe('Multi-client synchronization via SSE', () => {
     await waitForInit(pageB);
 
     // Ensure at least 2 sessions on A.
-    let countA = await pageA.locator('#sessions .si').count();
+    let countA = await pageA.locator('#windows .si').count();
     if (countA < 2) {
       const [resp] = await Promise.all([
         pageA.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
-        pageA.click('#add-session'),
+        pageA.click('#add-window'),
       ]);
       expect(resp.status()).toBe(200);
-      await expect(pageA.locator('#sessions .si')).toHaveCount(countA + 1, { timeout: 10000 });
+      await expect(pageA.locator('#windows .si')).toHaveCount(countA + 1, { timeout: 10000 });
       countA = countA + 1;
     }
 
-    const countBBefore = await pageB.locator('#sessions .si').count();
+    const countBBefore = await pageB.locator('#windows .si').count();
 
     // Client A deletes the first session.
-    await pageA.locator('#sessions .si').first().locator('.si-x').click();
+    await pageA.locator('#windows .si').first().locator('.si-x').click();
 
     // Wait a moment for SSE to propagate.
-  await expect(pageB.locator("#sessions .si")).toHaveCount(0, { timeout: 10000 });
+  await expect(pageB.locator("#windows .si")).toHaveCount(0, { timeout: 10000 });
 
     // Both clients should see the decreased count.
-    await expect(pageA.locator('#sessions .si')).toHaveCount(countA - 1, { timeout: 15000 });
-    await expect(pageB.locator('#sessions .si')).toHaveCount(countBBefore - 1, { timeout: 15000 });
+    await expect(pageA.locator('#windows .si')).toHaveCount(countA - 1, { timeout: 15000 });
+    await expect(pageB.locator('#windows .si')).toHaveCount(countBBefore - 1, { timeout: 15000 });
 
     await ctxA.close();
     await ctxB.close();

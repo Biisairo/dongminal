@@ -2,10 +2,10 @@ package server
 
 import (
 	"context"
-	"encoding/json"
-	"time"
 	"dongminal/internal/mcptool"
 	"dongminal/internal/workspace"
+	"encoding/json"
+	"time"
 )
 
 // PaneHub is the minimum surface that HTTP/WS handlers need from the pane
@@ -33,11 +33,10 @@ type PaneHub interface {
 	IsDaemon() bool
 }
 
-
 // WorkspaceStore is implemented by *workspace.Manager; kept as an interface so
 // tests can inject a fake without bringing up the real persister. Only the
 // methods actually consumed by HTTP handlers in this package are listed —
-// Resolve / Labels / Entries / InvalidatePane are callers' concerns
+// Resolve / Labels / Entries / InvalidateTool are callers' concerns
 // (internal/mcptool/tools/* + main).
 type WorkspaceStore interface {
 	Raw() []byte
@@ -55,7 +54,7 @@ type WorkspaceStore interface {
 	// Entries returns the flat tab-level index used by /api/whoami to map a
 	// paneID to its workspace coordinates and uuids (DMCTL_WHO_AM_I_SRS
 	// FR-API-WAI-1).
-	Entries() []workspace.PaneLabel
+	Entries() []workspace.TabEntry
 }
 
 // ToolDispatcher abstracts *mcptool.Registry for the MCP handler.
@@ -82,7 +81,6 @@ type SettingsStore interface {
 	set([]byte)
 	save()
 }
-
 
 // Deps is the full injection surface for New.
 type Deps struct {

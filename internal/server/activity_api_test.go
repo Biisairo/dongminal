@@ -88,7 +88,7 @@ func TestApiPanesActivity_Endpoint(t *testing.T) {
 	s.apiPanesActivity(rec, httptest.NewRequest(http.MethodGet, "/api/panes/activity", nil))
 	var got struct {
 		Activities []struct {
-			PaneID string `json:"paneId"`
+			ToolID string `json:"paneId"`
 			State  string `json:"state"`
 			Tool   string `json:"tool"`
 			Detail string `json:"detail"`
@@ -97,7 +97,7 @@ func TestApiPanesActivity_Endpoint(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(got.Activities) != 1 || got.Activities[0].PaneID != "1" ||
+	if len(got.Activities) != 1 || got.Activities[0].ToolID != "1" ||
 		got.Activities[0].State != "working" || got.Activities[0].Tool != "Edit" {
 		t.Fatalf("snapshot endpoint unexpected: %+v", got.Activities)
 	}
