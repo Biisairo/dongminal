@@ -11,7 +11,7 @@ import (
 )
 
 type fakeToolReader struct {
-	tools    []mcptool.PaneInfo
+	tools    []mcptool.ToolInfo
 	has      map[string]bool
 	snap     map[string][]byte
 	dropped  int64
@@ -23,7 +23,7 @@ func newFakeToolReader() *fakeToolReader {
 	return &fakeToolReader{has: map[string]bool{}, snap: map[string][]byte{}}
 }
 
-func (f *fakeToolReader) List() []mcptool.PaneInfo { return f.tools }
+func (f *fakeToolReader) List() []mcptool.ToolInfo { return f.tools }
 func (f *fakeToolReader) Has(id string) bool       { return f.has[id] }
 func (f *fakeToolReader) Snapshot(id string) ([]byte, int64, bool) {
 	d, ok := f.snap[id]
@@ -102,16 +102,16 @@ func TestStripANSI(t *testing.T) {
 	}
 }
 
-func TestListPanes_Empty(t *testing.T) {
+func TestListWorkspace_Empty(t *testing.T) {
 	pr := newFakeToolReader()
 	wr := &fakeWorkspaceReader{}
 	if ListWorkspaceName != "list_workspace" {
 		t.Errorf("name=%q", ListWorkspaceName)
 	}
-	if ListPanesSpec["name"] != "list_workspace" {
-		t.Errorf("spec name=%v", ListPanesSpec["name"])
+	if ListWorkspaceSpec["name"] != "list_workspace" {
+		t.Errorf("spec name=%v", ListWorkspaceSpec["name"])
 	}
-	res, err := dispatch(t, ListWorkspaceName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
+	res, err := dispatch(t, ListWorkspaceName, ListWorkspaceSpec, ListWorkspaceHandler(ListWorkspaceDeps{PM: pr, WS: wr}), "")
 	if err != nil {
 		t.Fatalf("Dispatch: %v", err)
 	}
@@ -121,9 +121,9 @@ func TestListPanes_Empty(t *testing.T) {
 	}
 }
 
-func TestListPanes_Mixed(t *testing.T) {
+func TestListWorkspace_Mixed(t *testing.T) {
 	pr := newFakeToolReader()
-	pr.tools = []mcptool.PaneInfo{
+	pr.tools = []mcptool.ToolInfo{
 		{ID: "1", Name: "Shell #1", ShellPID: 100},
 		{ID: "2", Name: "Orphan", ShellPID: 200},
 	}
@@ -134,7 +134,7 @@ func TestListPanes_Mixed(t *testing.T) {
 			{ToolID: "1", Label: "W1.P1.T1", WindowName: "Main", TabName: "Shell", IsActive: true},
 		},
 	}
-	res, _ := dispatch(t, ListWorkspaceName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
+	res, _ := dispatch(t, ListWorkspaceName, ListWorkspaceSpec, ListWorkspaceHandler(ListWorkspaceDeps{PM: pr, WS: wr}), "")
 	body := resultText(res)
 	if !strings.Contains(body, "▶ label=W1.P1.T1") {
 		t.Errorf("missing focus marker: %q", body)
@@ -148,9 +148,9 @@ func TestListPanes_Mixed(t *testing.T) {
 }
 
 // TC-LPF-6: MCP session 필터 — 매칭 행만 + orphan 섹션 생략.
-func TestListPanes_SessionFilter(t *testing.T) {
+func TestListWorkspace_WindowFilter(t *testing.T) {
 	pr := newFakeToolReader()
-	pr.tools = []mcptool.PaneInfo{
+	pr.tools = []mcptool.ToolInfo{
 		{ID: "1", Name: "Shell #1", ShellPID: 100},
 		{ID: "2", Name: "Orphan", ShellPID: 200},
 	}
@@ -161,7 +161,7 @@ func TestListPanes_SessionFilter(t *testing.T) {
 			{ToolID: "1", Label: "W1.P1.T1", WindowName: "poem-critique", TabName: "writer"},
 		},
 	}
-	res, _ := dispatch(t, ListWorkspaceName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}),
+	res, _ := dispatch(t, ListWorkspaceName, ListWorkspaceSpec, ListWorkspaceHandler(ListWorkspaceDeps{PM: pr, WS: wr}),
 		`{"window":"POEM"}`)
 	body := resultText(res)
 	if !strings.Contains(body, `window="poem-critique"`) {
@@ -173,16 +173,16 @@ func TestListPanes_SessionFilter(t *testing.T) {
 }
 
 // TC-LPF-7: MCP 필터 0건 → "(매칭 없음" 텍스트, 에러 아님.
-func TestListPanes_FilterNoMatch(t *testing.T) {
+func TestListWorkspace_FilterNoMatch(t *testing.T) {
 	pr := newFakeToolReader()
-	pr.tools = []mcptool.PaneInfo{{ID: "1", Name: "Shell", ShellPID: 100}}
+	pr.tools = []mcptool.ToolInfo{{ID: "1", Name: "Shell", ShellPID: 100}}
 	pr.has["1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{
 			{ToolID: "1", Label: "W1.P1.T1", WindowName: "Main", TabName: "Shell"},
 		},
 	}
-	res, err := dispatch(t, ListWorkspaceName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}),
+	res, err := dispatch(t, ListWorkspaceName, ListWorkspaceSpec, ListWorkspaceHandler(ListWorkspaceDeps{PM: pr, WS: wr}),
 		`{"tab":"nomatch"}`)
 	if err != nil {
 		t.Fatalf("err=%v", err)
@@ -192,9 +192,9 @@ func TestListPanes_FilterNoMatch(t *testing.T) {
 	}
 }
 
-func TestListPanes_DropsStaleEntries(t *testing.T) {
+func TestListWorkspace_DropsStaleEntries(t *testing.T) {
 	pr := newFakeToolReader()
-	pr.tools = []mcptool.PaneInfo{{ID: "1", Name: "Shell"}}
+	pr.tools = []mcptool.ToolInfo{{ID: "1", Name: "Shell"}}
 	pr.has["1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{
@@ -202,7 +202,7 @@ func TestListPanes_DropsStaleEntries(t *testing.T) {
 			{ToolID: "ghost", Label: "W1.P1.T2"},
 		},
 	}
-	res, _ := dispatch(t, ListWorkspaceName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
+	res, _ := dispatch(t, ListWorkspaceName, ListWorkspaceSpec, ListWorkspaceHandler(ListWorkspaceDeps{PM: pr, WS: wr}), "")
 	body := resultText(res)
 	if strings.Contains(body, "ghost") {
 		t.Errorf("stale entry leaked: %q", body)
@@ -253,7 +253,7 @@ func TestSendInput_UnknownLabel(t *testing.T) {
 	}
 }
 
-func TestSendInput_MissingPane(t *testing.T) {
+func TestSendInput_MissingTool(t *testing.T) {
 	pr := newFakeToolReader()
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"W1.P1.T1": "99"}}
 	if _, err := dispatch(t, SendInputName, SendInputSpec,
@@ -263,23 +263,23 @@ func TestSendInput_MissingPane(t *testing.T) {
 	}
 }
 
-func TestReadPaneOutput_NoPane(t *testing.T) {
+func TestReadOutput_NoTool(t *testing.T) {
 	pr := newFakeToolReader()
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "1"}}
-	if _, err := dispatch(t, ReadOutputName, ReadPaneOutputSpec,
-		ReadPaneOutputHandler(ReadPaneDeps{PM: pr, WS: wr}),
+	if _, err := dispatch(t, ReadOutputName, ReadOutputSpec,
+		ReadOutputHandler(ReadToolDeps{PM: pr, WS: wr}),
 		`{"id":"x"}`); err == nil {
 		t.Errorf("err=nil")
 	}
 }
 
-func TestReadPaneScreen_StripsANSI(t *testing.T) {
+func TestReadScreen_StripsANSI(t *testing.T) {
 	pr := newFakeToolReader()
 	pr.has["1"] = true
 	pr.snap["1"] = []byte("\x1b[32mhello\x1b[0m world\n")
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "1"}}
-	res, err := dispatch(t, ReadScreenName, ReadPaneScreenSpec,
-		ReadPaneScreenHandler(ReadPaneDeps{PM: pr, WS: wr}),
+	res, err := dispatch(t, ReadScreenName, ReadScreenSpec,
+		ReadScreenHandler(ReadToolDeps{PM: pr, WS: wr}),
 		`{"id":"x"}`)
 	if err != nil {
 		t.Fatalf("err=%v", err)
@@ -293,13 +293,13 @@ func TestReadPaneScreen_StripsANSI(t *testing.T) {
 	}
 }
 
-func TestReadPaneOutput_KeepsANSI(t *testing.T) {
+func TestReadOutput_KeepsANSI(t *testing.T) {
 	pr := newFakeToolReader()
 	pr.has["1"] = true
 	pr.snap["1"] = []byte("\x1b[32mraw\x1b[0m")
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "1"}}
-	res, _ := dispatch(t, ReadOutputName, ReadPaneOutputSpec,
-		ReadPaneOutputHandler(ReadPaneDeps{PM: pr, WS: wr}),
+	res, _ := dispatch(t, ReadOutputName, ReadOutputSpec,
+		ReadOutputHandler(ReadToolDeps{PM: pr, WS: wr}),
 		`{"id":"x"}`)
 	body := resultText(res)
 	if !strings.Contains(body, "\x1b[32m") {
@@ -307,14 +307,14 @@ func TestReadPaneOutput_KeepsANSI(t *testing.T) {
 	}
 }
 
-func TestReadPaneScreen_DroppedPrefix(t *testing.T) {
+func TestReadScreen_DroppedPrefix(t *testing.T) {
 	pr := newFakeToolReader()
 	pr.has["1"] = true
 	pr.snap["1"] = []byte("ok")
 	pr.dropped = 42
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "1"}}
-	res, _ := dispatch(t, ReadScreenName, ReadPaneScreenSpec,
-		ReadPaneScreenHandler(ReadPaneDeps{PM: pr, WS: wr}),
+	res, _ := dispatch(t, ReadScreenName, ReadScreenSpec,
+		ReadScreenHandler(ReadToolDeps{PM: pr, WS: wr}),
 		`{"id":"x"}`)
 	body := resultText(res)
 	if !strings.HasPrefix(body, "dropped_bytes: 42") {
@@ -322,13 +322,13 @@ func TestReadPaneScreen_DroppedPrefix(t *testing.T) {
 	}
 }
 
-func TestReadPaneScreen_BytesTrim(t *testing.T) {
+func TestReadScreen_BytesTrim(t *testing.T) {
 	pr := newFakeToolReader()
 	pr.has["1"] = true
 	pr.snap["1"] = []byte("0123456789abcdef")
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "1"}}
-	res, _ := dispatch(t, ReadScreenName, ReadPaneScreenSpec,
-		ReadPaneScreenHandler(ReadPaneDeps{PM: pr, WS: wr}),
+	res, _ := dispatch(t, ReadScreenName, ReadScreenSpec,
+		ReadScreenHandler(ReadToolDeps{PM: pr, WS: wr}),
 		`{"id":"x","bytes":4}`)
 	body := resultText(res)
 	if body != "cdef" {
@@ -385,7 +385,7 @@ func TestSendAgentMessage_DefaultFrom(t *testing.T) {
 	}
 }
 
-func TestSendAgentMessage_MissingPane(t *testing.T) {
+func TestSendAgentMessage_MissingTool(t *testing.T) {
 	pr := newFakeToolReader()
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "99"}}
 	if _, err := dispatch(t, SendAgentMessageName, SendAgentMessageSpec,

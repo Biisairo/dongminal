@@ -13,7 +13,7 @@ import (
 
 // ── ToolClient tests ────────────────────────────────────────────────────
 
-func TestPaneClientRequestResponse(t *testing.T) {
+func TestToolClientRequestResponse(t *testing.T) {
 	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
 		return panedResponse{ID: req.ID, Result: map[string]interface{}{"echo": req.Method}}
 	})
@@ -32,7 +32,7 @@ func TestPaneClientRequestResponse(t *testing.T) {
 	}
 }
 
-func TestPaneClientCreate(t *testing.T) {
+func TestToolClientCreate(t *testing.T) {
 	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
 		return panedResponse{ID: req.ID, Result: map[string]interface{}{
 			"id": "99", "name": "S99", "pid": 12345, "cols": 80, "rows": 24,
@@ -47,7 +47,7 @@ func TestPaneClientCreate(t *testing.T) {
 	}
 }
 
-func TestPaneClientList(t *testing.T) {
+func TestToolClientList(t *testing.T) {
 	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
 		return panedResponse{ID: req.ID, Result: map[string]interface{}{
 			"tools": []interface{}{
@@ -63,7 +63,7 @@ func TestPaneClientList(t *testing.T) {
 	}
 }
 
-func TestPaneClientWriteBase64(t *testing.T) {
+func TestToolClientWriteBase64(t *testing.T) {
 	var received string
 	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
 		var p struct {
@@ -83,7 +83,7 @@ func TestPaneClientWriteBase64(t *testing.T) {
 	}
 }
 
-func TestPaneClientDelete(t *testing.T) {
+func TestToolClientDelete(t *testing.T) {
 	var killed string
 	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
 		var p struct {
@@ -101,7 +101,7 @@ func TestPaneClientDelete(t *testing.T) {
 	}
 }
 
-func TestPaneClientResize(t *testing.T) {
+func TestToolClientResize(t *testing.T) {
 	var resized struct {
 		id         string
 		cols, rows uint16
@@ -124,7 +124,7 @@ func TestPaneClientResize(t *testing.T) {
 	}
 }
 
-func TestPaneClientSnapshot(t *testing.T) {
+func TestToolClientSnapshot(t *testing.T) {
 	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
 		return panedResponse{ID: req.ID, Result: map[string]interface{}{
 			"data":           base64.StdEncoding.EncodeToString([]byte("buffered")),
@@ -141,7 +141,7 @@ func TestPaneClientSnapshot(t *testing.T) {
 	}
 }
 
-func TestPaneClientPushOutput(t *testing.T) {
+func TestToolClientPushOutput(t *testing.T) {
 	outputCh := make(chan []byte, 1)
 	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
 		return panedResponse{ID: req.ID, Result: map[string]interface{}{
@@ -164,7 +164,7 @@ func TestPaneClientPushOutput(t *testing.T) {
 	}
 }
 
-func TestPaneClientReconnect(t *testing.T) {
+func TestToolClientReconnect(t *testing.T) {
 	d := t.TempDir()
 	sockPath := d + "/s"
 	dataDir := d + "/d"
@@ -214,9 +214,9 @@ func startFakePaned(t *testing.T, handler func(panedRequest) interface{}) string
 	return sockPath
 }
 
-// TestPaneClientAutoReconnect verifies the supervisor redials dongminald after
+// TestToolClientAutoReconnect verifies the supervisor redials dongminald after
 // the daemon dies and a fresh one binds the same socket (FR-13).
-func TestPaneClientAutoReconnect(t *testing.T) {
+func TestToolClientAutoReconnect(t *testing.T) {
 	d := t.TempDir()
 	sockPath := d + "/s"
 	dataDir := d + "/d"
@@ -273,7 +273,7 @@ func TestPaneClientAutoReconnect(t *testing.T) {
 
 // silentListener accepts connections but never replies, to exercise the RPC
 // timeout (FR-14).
-func TestPaneClientCallTimeout(t *testing.T) {
+func TestToolClientCallTimeout(t *testing.T) {
 	if testing.Short() {
 		t.Skip("5s timeout test")
 	}
@@ -306,9 +306,9 @@ func TestPaneClientCallTimeout(t *testing.T) {
 	}
 }
 
-// TestPaneClientConnected verifies Connected() reflects live/lost/closed state,
+// TestToolClientConnected verifies Connected() reflects live/lost/closed state,
 // so handleWS can avoid false OpExit during a daemon reconnect window (edge D).
-func TestPaneClientConnected(t *testing.T) {
+func TestToolClientConnected(t *testing.T) {
 	d := t.TempDir()
 	sockPath := d + "/s"
 	os.MkdirAll(d+"/d", 0o755)

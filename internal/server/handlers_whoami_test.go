@@ -37,7 +37,7 @@ func TestApiWhoAmI_HappyPath(t *testing.T) {
 		TabUUID: "tu1", ShortCode: "tu1short",
 	}}
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{
-		Panes:  fpm,
+		Tools:  fpm,
 		Work:   fw,
 		WhoAmI: fakeWhoAmIResolver{toolID: "p1", shellPID: 12345},
 	})
@@ -79,7 +79,7 @@ func TestApiWhoAmI_HappyPath(t *testing.T) {
 // TC-API-WAI-2: 매칭 실패 → 404 + error JSON.
 func TestApiWhoAmI_ResolveFails(t *testing.T) {
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{
-		Panes:  newFakePaneHub(),
+		Tools:  newFakePaneHub(),
 		Work:   newFakeWorkspaceStore(),
 		WhoAmI: fakeWhoAmIResolver{err: errors.New("clientPID=999 가 어느 tool 에도 속하지 않음")},
 	})
@@ -106,7 +106,7 @@ func TestApiWhoAmI_NoEntry(t *testing.T) {
 	pm := newFakePaneHub()
 	pm.seed("p1", "Shell #1")
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{
-		Panes:  pm,
+		Tools:  pm,
 		Work:   newFakeWorkspaceStore(),
 		WhoAmI: fakeWhoAmIResolver{toolID: "p1", shellPID: 1234},
 	})
@@ -134,7 +134,7 @@ func TestApiWhoAmI_NoEntry(t *testing.T) {
 // TC-API-WAI-5: POST → 404 (apiRoutes 패턴, method 미스 매칭 시 404).
 func TestApiWhoAmI_MethodNotGet(t *testing.T) {
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{
-		Panes:  newFakePaneHub(),
+		Tools:  newFakePaneHub(),
 		Work:   newFakeWorkspaceStore(),
 		WhoAmI: fakeWhoAmIResolver{toolID: "p1"},
 	})
@@ -154,7 +154,7 @@ func TestApiWhoAmI_MethodNotGet(t *testing.T) {
 // WhoAmI 의존 미주입 → 500.
 func TestApiWhoAmI_NilResolver(t *testing.T) {
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{
-		Panes: newFakePaneHub(), Work: newFakeWorkspaceStore(),
+		Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(),
 	})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()

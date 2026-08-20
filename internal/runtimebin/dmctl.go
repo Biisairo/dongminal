@@ -69,7 +69,7 @@ func runDmctl(args []string, stdout, stderr io.Writer) int {
 }
 
 // runDmctlSpecial handles commands that don't need flag parsing
-// (help, send, list-tools, who-am-i, notify, activity).
+// (help, send, list-workspace, who-am-i, notify, activity).
 // Returns (exitCode, true) if handled, (0, false) otherwise.
 func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, bool) {
 	switch cmd {
@@ -79,7 +79,7 @@ func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, 
 	case "send":
 		return dmctlSend(rest, stdout, stderr), true
 	case "list-workspace":
-		return dmctlListPanes(rest, stdout, stderr), true
+		return dmctlListWorkspace(rest, stdout, stderr), true
 	case "who-am-i":
 		return dmctlWhoAmI(rest, stdout, stderr), true
 	case "notify":
@@ -136,7 +136,7 @@ func runDmctlFocus(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) in
 		parsed.location = parsed.positional
 	}
 	if parsed.location == "" {
-		fmt.Fprintln(stderr, "usage: dmctl focus <uuid>  (list-tools 의 uuid 컬럼 값)")
+		fmt.Fprintln(stderr, "usage: dmctl focus <uuid>  (list-workspace 의 uuid 컬럼 값)")
 		return 2
 	}
 	args := parsed.buildArgs()

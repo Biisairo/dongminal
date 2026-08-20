@@ -14,7 +14,7 @@ type stubPersister struct{ data []byte }
 func (s *stubPersister) Read() ([]byte, error)   { return s.data, nil }
 func (s *stubPersister) Write(data []byte) error { s.data = data; return nil }
 
-func TestPaneAdapter_EmptyManager(t *testing.T) {
+func TestToolAdapter_EmptyManager(t *testing.T) {
 	pm := server.NewToolManager(t.TempDir(), nil)
 	a := Tool{PM: pm}
 	if got := a.List(); len(got) != 0 {
@@ -113,10 +113,10 @@ func (f fakeHub) IsDaemon() bool                           { return true }
 func (f fakeHub) SetBackground(string, bool) bool          { return false }
 func (f fakeHub) BackgroundList() []server.BackgroundEntry { return nil }
 
-// TestPaneAdapter_DaemonListShellPID verifies daemon-mode List() carries the
+// TestToolAdapter_DaemonListShellPID verifies daemon-mode List() carries the
 // shell PID from the hub payload (decoded as float64), which whoami relies on
 // for PID-chain matching (FR-16).
-func TestPaneAdapter_DaemonListShellPID(t *testing.T) {
+func TestToolAdapter_DaemonListShellPID(t *testing.T) {
 	hub := fakeHub{list: []map[string]interface{}{
 		{"id": "1", "name": "Shell #1", "pid": float64(4242), "sizeCols": float64(120), "sizeRows": float64(40)},
 	}}

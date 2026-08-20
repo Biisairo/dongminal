@@ -55,7 +55,7 @@ type WorkspaceStore interface {
 	CoordinateOf(id string) (string, error)
 	// IsKnownTabID reports whether id matches a known tab.id in the current
 	// workspace index. Used by handleCommandPost to enforce FR-DMC-9
-	// (location must be a list-tools uuid; coords/labels/toolIds rejected).
+	// (location must be a list-workspace uuid; coords/labels/toolIds rejected).
 	IsKnownTabID(id string) bool
 	// Entries returns the flat tab-level index used by /api/whoami to map a
 	// toolID to its workspace coordinates and uuids (DMCTL_WHO_AM_I_SRS
@@ -90,13 +90,13 @@ type SettingsStore interface {
 
 // Deps is the full injection surface for New.
 type Deps struct {
-	Panes       ToolHub
+	Tools       ToolHub
 	Work        WorkspaceStore
-	Tools       ToolDispatcher
+	MCPTools    ToolDispatcher
 	Commands    CommandBroker
 	Settings    SettingsStore
 	AttnTracker *AttnTracker // daemon mode: attention/activity tracking in dongminal
 	// WhoAmI resolves a request's RemoteAddr to the originating tool via
 	// PID parent-chain walking. /api/whoami uses it (FR-API-WAI-1). Nil → 500.
-	WhoAmI mcptool.ClientPaneResolver
+	WhoAmI mcptool.ClientToolResolver
 }

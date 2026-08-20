@@ -11,26 +11,26 @@ async function waitForInit(page) {
 test.describe('Tab management', () => {
   test('tab can be closed via x button', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.locator('#area .pn.focused .rt').count();
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
     // Ensure at least 2 tabs so we can close one.
     if (before < 2) {
       const [resp] = await Promise.all([
         page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-        page.locator('#area .pn.focused .rt-add').click(),
+        page.locator('#area .pn.focused .pn-tab-add').click(),
       ]);
       expect(resp.status()).toBe(200);
-      await expect(page.locator('#area .pn.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
+      await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
     }
 
-    const countBefore = await page.locator('#area .pn.focused .rt').count();
+    const countBefore = await page.locator('#area .pn.focused .pn-tab').count();
     // Click the x on the first tab.
-    await page.locator('#area .pn.focused .rt').first().locator('.rt-x').click();
-    await expect(page.locator('#area .pn.focused .rt')).toHaveCount(countBefore - 1, { timeout: 10000 });
+    await page.locator('#area .pn.focused .pn-tab').first().locator('.pn-tab-x').click();
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(countBefore - 1, { timeout: 10000 });
   });
 
   test('tab can be renamed via double-click', async ({ page }) => {
     await waitForInit(page);
-    const firstTab = page.locator('#area .pn.focused .rt').first();
+    const firstTab = page.locator('#area .pn.focused .pn-tab').first();
     await expect(firstTab).toBeVisible();
 
     // Double-click tab name.
@@ -47,18 +47,18 @@ test.describe('Tab management', () => {
 
   test('tab switch by clicking another tab', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.locator('#area .pn.focused .rt').count();
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
     if (before < 2) {
       const [resp] = await Promise.all([
         page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-        page.locator('#area .pn.focused .rt-add').click(),
+        page.locator('#area .pn.focused .pn-tab-add').click(),
       ]);
       expect(resp.status()).toBe(200);
-      await expect(page.locator('#area .pn.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
+      await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
     }
 
-    const first = page.locator('#area .pn.focused .rt').first();
-    const second = page.locator('#area .pn.focused .rt').nth(1);
+    const first = page.locator('#area .pn.focused .pn-tab').first();
+    const second = page.locator('#area .pn.focused .pn-tab').nth(1);
 
     // Click second tab.
     await second.click();
@@ -71,18 +71,18 @@ test.describe('Tab management', () => {
 
   test('keyboard shortcut switches tabs', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.locator('#area .pn.focused .rt').count();
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
     if (before < 2) {
       const [resp] = await Promise.all([
         page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-        page.locator('#area .pn.focused .rt-add').click(),
+        page.locator('#area .pn.focused .pn-tab-add').click(),
       ]);
       expect(resp.status()).toBe(200);
-      await expect(page.locator('#area .pn.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
+      await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
     }
 
-    const first = page.locator('#area .pn.focused .rt').first();
-    const second = page.locator('#area .pn.focused .rt').nth(1);
+    const first = page.locator('#area .pn.focused .pn-tab').first();
+    const second = page.locator('#area .pn.focused .pn-tab').nth(1);
 
     await first.click();
     await expect(first).toHaveClass(/active/);
@@ -110,11 +110,11 @@ test.describe('Tab management', () => {
     const rgCountBefore = await page.locator('#area .pn').count();
     // Close all tabs in the second pane (not focused) one by one.
     const secondPaneEl = page.locator('#area .pn').nth(1);
-    let tabs = await secondPaneEl.locator('.rt').count();
+    let tabs = await secondPaneEl.locator('.pn-tab').count();
     while (tabs > 0) {
-      await secondPaneEl.locator('.rt').first().locator('.rt-x').click();
-    await expect(secondPaneEl.locator(".rt")).toHaveCount(tabs - 1, { timeout: 5000 });
-      tabs = await secondPaneEl.locator('.rt').count();
+      await secondPaneEl.locator('.pn-tab').first().locator('.pn-tab-x').click();
+    await expect(secondPaneEl.locator(".pn-tab")).toHaveCount(tabs - 1, { timeout: 5000 });
+      tabs = await secondPaneEl.locator('.pn-tab').count();
     }
 
     // Pane count should have decreased by 1.

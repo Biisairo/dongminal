@@ -33,7 +33,7 @@ const (
 	OpOutput byte = 0x00
 	OpError  byte = 0x01
 	OpExit   byte = 0x02
-	OpSID    byte = 0x03
+	OpToolID byte = 0x03
 )
 
 const (
@@ -107,10 +107,10 @@ func (s *safeConn) readMessage() (int, []byte, error)   { return s.conn.ReadMess
 //   - The exited transition happens exactly once, inside kill() under
 //     the protection of `once`.
 //
-// paneRelay holds the output/exit relay callbacks for a Tool. It is stored
+// toolRelay holds the output/exit relay callbacks for a Tool. It is stored
 // via atomic.Pointer so the readPTY goroutine can read the callbacks without
 // racing against daemon-mode wiring (DAEMON_SPLIT_SRS FR-12).
-type paneRelay struct {
+type toolRelay struct {
 	onOutput func(toolID string, data []byte)
 	onExit   func(toolID string)
 }
@@ -146,7 +146,7 @@ type Tool struct {
 	// (DAEMON_SPLIT_SRS FR-12). onExit is the base ToolManager handler set
 	// once in StartTool; daemon mode wraps it exactly once via
 	// PanedServer.wireTool (guarded by `wired`).
-	relay atomic.Pointer[paneRelay]
+	relay atomic.Pointer[toolRelay]
 	wired atomic.Bool
 
 	activity   atomic.Pointer[activityState]
@@ -194,9 +194,9 @@ func (p *Tool) Cwd() string {
 	return cwd
 }
 
-// PaneHooks carries the attention wiring StartTool applies before launching
-// readPTY (race-free). A nil *PaneHooks disables attention for that tool.
-type PaneHooks struct {
+// ToolHooks carries the attention wiring StartTool applies before launching
+// readPTY (race-free). A nil *ToolHooks disables attention for that tool.
+type ToolHooks struct {
 	OnAttention      func(id, reason string)
 	OnAttentionClear func(id string)
 	OnActivity       func(id, state, tool, detail string)
@@ -204,7 +204,7 @@ type PaneHooks struct {
 }
 
 // StartTool spawns a shell under a new PTY. Exported for tool manager + tests.
-func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *PaneHooks) (*Tool, error) {
+func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *ToolHooks) (*Tool, error) {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "/bin/bash"
@@ -258,7 +258,7 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 		done:   make(chan struct{}),
 	}
 	// Set the base exit callback before readPTY starts (race-free).
-	p.relay.Store(&paneRelay{onExit: onExit})
+	p.relay.Store(&toolRelay{onExit: onExit})
 	if hooks != nil {
 		p.onAttention = hooks.OnAttention
 		p.onAttentionClear = hooks.OnAttentionClear
@@ -664,11 +664,11 @@ func (m *ToolManager) SetActivityNotifier(notify func(id, state, tool, detail st
 }
 
 // attnHooks builds the per-tool hooks from the manager's notifier config.
-func (m *ToolManager) attnHooks() *PaneHooks {
+func (m *ToolManager) attnHooks() *ToolHooks {
 	if m.attnNotify == nil && m.attnClear == nil && m.activityNotify == nil {
 		return nil
 	}
-	return &PaneHooks{OnAttention: m.attnNotify, OnAttentionClear: m.attnClear, OnActivity: m.activityNotify, AllowBell: m.allowBell}
+	return &ToolHooks{OnAttention: m.attnNotify, OnAttentionClear: m.attnClear, OnActivity: m.activityNotify, AllowBell: m.allowBell}
 }
 
 // ActivitySnapshot returns the current activity of every tool that has reported

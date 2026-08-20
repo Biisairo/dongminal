@@ -51,10 +51,10 @@ func NewAttnTracker(hub CommandBroker, idleMS int) *AttnTracker {
 		stop:          make(chan struct{}),
 	}
 	t.onAttention = func(id, reason string) {
-		hub.Broadcast(paneAttentionPayload(id, reason))
+		hub.Broadcast(toolAttentionPayload(id, reason))
 	}
 	t.onAttentionClear = func(id string) {
-		hub.Broadcast(paneAttentionClearPayload(id))
+		hub.Broadcast(toolAttentionClearPayload(id))
 	}
 	t.onActivity = func(id, state, tool, detail string) {
 		hub.Broadcast(toolActivityPayload(id, state, tool, detail))

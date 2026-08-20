@@ -293,7 +293,7 @@ func (m *Manager) CoordinateOf(id string) (string, error) {
 
 // IsKnownTabID reports whether id matches a tab.id present in the current
 // workspace index (case-insensitive). Used by API entry points to enforce the
-// "location must be a list-tools uuid" policy (FR-DMC-9/10).
+// "location must be a list-workspace uuid" policy (FR-DMC-9/10).
 func (m *Manager) IsKnownTabID(id string) bool {
 	if id == "" {
 		return false

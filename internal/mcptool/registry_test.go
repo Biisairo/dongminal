@@ -143,14 +143,14 @@ func TestTextf(t *testing.T) {
 // ── ToolReader / WorkspaceReader fakes ───────────────
 
 type fakePM struct {
-	tools   []mcptool.PaneInfo
+	tools   []mcptool.ToolInfo
 	sizeMap map[string]string
 	snap    map[string][]byte
 	dropped map[string]int64
 	pastes  []string // toolID|submit|text
 }
 
-func (f *fakePM) List() []mcptool.PaneInfo { return f.tools }
+func (f *fakePM) List() []mcptool.ToolInfo { return f.tools }
 
 func (f *fakePM) Has(id string) bool {
 	for _, p := range f.tools {
@@ -207,9 +207,9 @@ func (f *fakeWS) IsKnownTabID(string) bool               { return true }
 
 // ── per-tool tests ───────────────────────────────────
 
-func TestListPanesTool(t *testing.T) {
+func TestListWorkspaceTool(t *testing.T) {
 	pm := &fakePM{
-		tools: []mcptool.PaneInfo{
+		tools: []mcptool.ToolInfo{
 			{ID: "p1", Name: "a", ShellPID: 111},
 			{ID: "p2", Name: "b", ShellPID: 222},
 		},
@@ -218,8 +218,8 @@ func TestListPanesTool(t *testing.T) {
 	ws := &fakeWS{entries: []mcptool.WorkspaceEntry{
 		{ToolID: "p1", Label: "W1.P1.T1", WindowName: "main", TabName: "zsh", IsActive: true},
 	}}
-	h := tools.ListPanesHandler(tools.ListPanesDeps{PM: pm, WS: ws})
-	res, err := h(context.Background(), tools.ListPanesArgs{})
+	h := tools.ListWorkspaceHandler(tools.ListWorkspaceDeps{PM: pm, WS: ws})
+	res, err := h(context.Background(), tools.ListWorkspaceArgs{})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -233,9 +233,9 @@ func TestListPanesTool(t *testing.T) {
 	}
 }
 
-func TestListPanesFiltersDeadEntries(t *testing.T) {
+func TestListWorkspaceFiltersDeadEntries(t *testing.T) {
 	pm := &fakePM{
-		tools: []mcptool.PaneInfo{
+		tools: []mcptool.ToolInfo{
 			{ID: "p1", Name: "a", ShellPID: 111},
 			{ID: "p2", Name: "b", ShellPID: 222},
 		},
@@ -246,8 +246,8 @@ func TestListPanesFiltersDeadEntries(t *testing.T) {
 		{ToolID: "p2", Label: "W1.P1.T2", WindowName: "main", TabName: "zsh"},
 		{ToolID: "p3", Label: "W1.P1.T3", WindowName: "main", TabName: "zsh"},
 	}}
-	h := tools.ListPanesHandler(tools.ListPanesDeps{PM: pm, WS: ws})
-	res, err := h(context.Background(), tools.ListPanesArgs{})
+	h := tools.ListWorkspaceHandler(tools.ListWorkspaceDeps{PM: pm, WS: ws})
+	res, err := h(context.Background(), tools.ListWorkspaceArgs{})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -262,7 +262,7 @@ func TestListPanesFiltersDeadEntries(t *testing.T) {
 }
 
 func TestSendInputTool(t *testing.T) {
-	pm := &fakePM{tools: []mcptool.PaneInfo{{ID: "p1"}}}
+	pm := &fakePM{tools: []mcptool.ToolInfo{{ID: "p1"}}}
 	ws := &fakeWS{resolve: map[string]string{"W1.P1.T1": "p1"}}
 	h := tools.SendInputHandler(tools.SendInputDeps{PM: pm, WS: ws})
 	_, err := h(context.Background(), tools.SendInputArgs{ID: "W1.P1.T1", Text: "hello", Execute: true})

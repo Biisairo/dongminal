@@ -1,7 +1,7 @@
-// Package paneline은 dmctl 과 MCP (list_workspace / who_am_i) 가 공유하는
+// Package toolline은 dmctl 과 MCP (list_workspace / who_am_i) 가 공유하는
 // 한 줄 출력 렌더러를 제공한다. DMCTL_WHO_AM_I_SRS FR-PL-1~3 의 단일
 // 소스 — 양 채널의 byte-level 일치를 위해 fmt 외부 의존 0.
-package paneline
+package toolline
 
 import (
 	"fmt"

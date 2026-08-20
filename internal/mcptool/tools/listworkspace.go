@@ -6,42 +6,42 @@ import (
 	"strings"
 
 	"dongminal/internal/mcptool"
-	"dongminal/internal/paneline"
 	"dongminal/internal/runtimebin"
+	"dongminal/internal/toolline"
 )
 
 const ListWorkspaceName = "list_workspace"
 
-var ListPanesSpec = map[string]any{
+var ListWorkspaceSpec = map[string]any{
 	"name":        ListWorkspaceName,
-	"description": "현재 열린 모든 tool 목록을 반환. 각 행은 표준 KEY=VALUE 라인 (label/uuid/short/toolId/shellPid/size/session/tab/session_uuid/region_uuid). ▶ 표시는 사용자가 현재 포커스한 tool. session/tab 인자로 이름 필터 가능 (부분 일치·대소문자 무시, 둘 다 지정 시 AND) — 워크플로우 세션 시드 식별 등에 사용. 같은 워크스페이스 내 다른 Claude Code 인스턴스를 식별하고 send_agent_message 로 통신할 때는 **uuid 를 사용**할 것. dmctl `list-tools` 와 byte-level 동일 포맷.",
+	"description": "현재 열린 모든 도구(Tool) 목록을 반환. 각 행은 표준 KEY=VALUE 라인 (label/uuid/short/toolId/shellPid/size/window/tab/window_uuid/pane_uuid). ▶ 표시는 사용자가 현재 포커스한 도구. window/tab 인자로 이름 필터 가능 (부분 일치·대소문자 무시, 둘 다 지정 시 AND) — 워크플로우 창의 시드 도구 식별 등에 사용. 같은 워크스페이스 내 다른 Claude Code 인스턴스를 식별하고 send_agent_message 로 통신할 때는 **uuid 를 사용**할 것. dmctl `list-workspace` 와 byte-level 동일 포맷.",
 	"inputSchema": map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"window": map[string]any{
 				"type":        "string",
-				"description": "세션 이름 필터 (부분 일치, 대소문자 무시). 매칭 행만 반환.",
+				"description": "창(Window) 이름 필터 (부분 일치, 대소문자 무시). 매칭 행만 반환.",
 			},
 			"tab": map[string]any{
 				"type":        "string",
-				"description": "탭 이름 필터 (부분 일치, 대소문자 무시). session 과 함께 지정 시 AND.",
+				"description": "탭 이름 필터 (부분 일치, 대소문자 무시). window 와 함께 지정 시 AND.",
 			},
 		},
 	},
 }
 
-type ListPanesArgs struct {
+type ListWorkspaceArgs struct {
 	Window string `json:"window"`
 	Tab    string `json:"tab"`
 }
 
-type ListPanesDeps struct {
+type ListWorkspaceDeps struct {
 	PM mcptool.ToolReader
 	WS mcptool.WorkspaceReader
 }
 
-func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcptool.Result, error) {
-	return func(_ context.Context, a ListPanesArgs) (mcptool.Result, error) {
+func ListWorkspaceHandler(d ListWorkspaceDeps) func(context.Context, ListWorkspaceArgs) (mcptool.Result, error) {
+	return func(_ context.Context, a ListWorkspaceArgs) (mcptool.Result, error) {
 		rawEntries := d.WS.Entries()
 		tools := d.PM.List()
 
@@ -66,7 +66,7 @@ func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcp
 			entries = append(entries, e)
 		}
 
-		var orphans []mcptool.PaneInfo
+		var orphans []mcptool.ToolInfo
 		if !filtered { // FR-LPF-3: 필터 시 orphan 섹션 생략 (이름 매칭 대상 아님)
 			for _, p := range tools {
 				if !seen[p.ID] {
@@ -86,7 +86,7 @@ func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcp
 		}
 		for _, e := range entries {
 			cols, rows := parseSize(d.PM.Size(e.ToolID))
-			line := paneline.Line{
+			line := toolline.Line{
 				FocusMarker: e.IsActive,
 				Label:       e.Label,
 				UUID:        e.TabUUID,

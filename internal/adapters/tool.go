@@ -46,24 +46,24 @@ func (a Tool) listPanes() []*server.Tool {
 	return out
 }
 
-func (a Tool) List() []mcptool.PaneInfo {
+func (a Tool) List() []mcptool.ToolInfo {
 	// Daemon mode: read the shell PID directly from the hub's list payload.
-	// Synthetic Panes built in listPanes() have no os/exec handle, so
+	// Synthetic Tools built in listPanes() have no os/exec handle, so
 	// CmdProcessPID() would return 0 and break whoami PID matching (FR-16).
 	if a.PM == nil && a.Hub != nil {
 		maps := a.Hub.List()
-		out := make([]mcptool.PaneInfo, 0, len(maps))
+		out := make([]mcptool.ToolInfo, 0, len(maps))
 		for _, m := range maps {
 			id, _ := m["id"].(string)
 			name, _ := m["name"].(string)
-			out = append(out, mcptool.PaneInfo{ID: id, Name: name, ShellPID: mapInt(m["pid"])})
+			out = append(out, mcptool.ToolInfo{ID: id, Name: name, ShellPID: mapInt(m["pid"])})
 		}
 		return out
 	}
 	tools := a.listPanes()
-	out := make([]mcptool.PaneInfo, 0, len(tools))
+	out := make([]mcptool.ToolInfo, 0, len(tools))
 	for _, p := range tools {
-		out = append(out, mcptool.PaneInfo{ID: p.ID, Name: p.Name, ShellPID: p.CmdProcessPID()})
+		out = append(out, mcptool.ToolInfo{ID: p.ID, Name: p.Name, ShellPID: p.CmdProcessPID()})
 	}
 	return out
 }

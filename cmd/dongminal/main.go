@@ -312,12 +312,12 @@ func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.C
 
 	reg := mcptool.NewRegistry()
 	wa := adapters.Workspace{WS: wsMgr}
-	mcptool.Register(reg, tools.ListWorkspaceName, tools.ListPanesSpec,
-		tools.ListPanesHandler(tools.ListPanesDeps{PM: pa, WS: wa}))
-	mcptool.Register(reg, tools.ReadScreenName, tools.ReadPaneScreenSpec,
-		tools.ReadPaneScreenHandler(tools.ReadPaneDeps{PM: pa, WS: wa}))
-	mcptool.Register(reg, tools.ReadOutputName, tools.ReadPaneOutputSpec,
-		tools.ReadPaneOutputHandler(tools.ReadPaneDeps{PM: pa, WS: wa}))
+	mcptool.Register(reg, tools.ListWorkspaceName, tools.ListWorkspaceSpec,
+		tools.ListWorkspaceHandler(tools.ListWorkspaceDeps{PM: pa, WS: wa}))
+	mcptool.Register(reg, tools.ReadScreenName, tools.ReadScreenSpec,
+		tools.ReadScreenHandler(tools.ReadToolDeps{PM: pa, WS: wa}))
+	mcptool.Register(reg, tools.ReadOutputName, tools.ReadOutputSpec,
+		tools.ReadOutputHandler(tools.ReadToolDeps{PM: pa, WS: wa}))
 	mcptool.Register(reg, tools.SendInputName, tools.SendInputSpec,
 		tools.SendInputHandler(tools.SendInputDeps{PM: pa, WS: wa}))
 	mcptool.Register(reg, tools.SendAgentMessageName, tools.SendAgentMessageSpec,
@@ -329,9 +329,9 @@ func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.C
 
 	return builtDeps{
 		deps: server.Deps{
-			Panes:       toolHub,
+			Tools:       toolHub,
 			Work:        wsMgr,
-			Tools:       reg,
+			MCPTools:    reg,
 			Commands:    cmdHub,
 			AttnTracker: attnTracker,
 			WhoAmI:      resolver,

@@ -29,7 +29,7 @@ func newManagerWithBlob(t *testing.T, live Liveness, blob string) *Manager {
 
 // FR-UID-8: Resolve 는 동일 입력 필드에서 label, toolId, full uuid 를 모두
 // 수용한다. 셋 다 동일 toolId 를 반환해야 한다.
-func TestResolve_AcceptsLabelPaneIdAndUUID(t *testing.T) {
+func TestResolve_AcceptsLabelToolIdAndUUID(t *testing.T) {
 	tabUUID := "550e8400-e29b-41d4-a716-446655440003"
 	blob := `{"activeWindow":"550e8400-e29b-41d4-a716-446655440001","schemaVersion": 2, "windows":[{"id":"550e8400-e29b-41d4-a716-446655440001","name":"Main","focusedPane":"550e8400-e29b-41d4-a716-446655440002","layout":{"type":"pane","id":"550e8400-e29b-41d4-a716-446655440002","activeTab":"` + tabUUID + `","tabs":[{"id":"` + tabUUID + `","name":"Shell","toolId":"1"}]}}]}`
 	m := newManagerWithBlob(t, liveSet{"1": {}}, blob)

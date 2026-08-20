@@ -229,7 +229,7 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) apiStateGet(w http.ResponseWriter, r *http.Request) {
-	if s.Panes == nil {
+	if s.Tools == nil {
 		http.Error(w, "tools unavailable", 500)
 		return
 	}
@@ -245,13 +245,13 @@ func (s *Server) apiStateGet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("ETag", strconv.FormatUint(rev, 10))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"tools":     s.Panes.List(),
+		"tools":     s.Tools.List(),
 		"workspace": ws,
 	})
 }
 
 func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
-	if s.Panes == nil {
+	if s.Tools == nil {
 		http.Error(w, "tools unavailable", 500)
 		return
 	}
@@ -259,10 +259,10 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 	cwd := r.URL.Query().Get("cwd")
 	if cwd == "" {
 		if refID := r.URL.Query().Get("cwdTool"); refID != "" {
-			cwd = s.Panes.Cwd(refID)
+			cwd = s.Tools.Cwd(refID)
 		}
 	}
-	tool, err := s.Panes.Create(cwd, cols, rows)
+	tool, err := s.Tools.Create(cwd, cols, rows)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -274,8 +274,8 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 func (s *Server) apiToolBusy(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/tools/"), "/busy")
 	var busy bool
-	if s.Panes != nil {
-		busy = s.Panes.Busy(id)
+	if s.Tools != nil {
+		busy = s.Tools.Busy(id)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"busy": busy})
@@ -287,7 +287,7 @@ func (s *Server) apiToolsAttention(w http.ResponseWriter, r *http.Request) {
 	ids := []string{}
 	if s.AttnTracker != nil {
 		ids = s.AttnTracker.AttentionIDs()
-	} else if al, ok := s.Panes.(interface{ AttentionIDs() []string }); ok {
+	} else if al, ok := s.Tools.(interface{ AttentionIDs() []string }); ok {
 		if got := al.AttentionIDs(); got != nil {
 			ids = got
 		}
@@ -314,13 +314,13 @@ func (s *Server) apiToolAttentionSet(w http.ResponseWriter, r *http.Request) {
 	if reason == "" {
 		reason = "signaled"
 	}
-	if s.Panes != nil {
+	if s.Tools != nil {
 		if s.AttnTracker != nil {
 			// Verify tool exists before flagging attention
-			if s.Panes.Get(req.ToolID) != nil {
+			if s.Tools.Get(req.ToolID) != nil {
 				s.AttnTracker.SignalAttention(req.ToolID, reason)
 			}
-		} else if tool := s.Panes.Get(req.ToolID); tool != nil {
+		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
 			tool.signalAttention(reason)
 		}
 	}
@@ -339,10 +339,10 @@ func (s *Server) apiToolAttentionClear(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	if s.Panes != nil {
+	if s.Tools != nil {
 		if s.AttnTracker != nil {
 			s.AttnTracker.Attend(req.ToolID)
-		} else if tool := s.Panes.Get(req.ToolID); tool != nil {
+		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
 			tool.attend()
 		}
 	}
@@ -357,7 +357,7 @@ func (s *Server) apiToolsActivity(w http.ResponseWriter, r *http.Request) {
 	acts := []activitySnap{}
 	if s.AttnTracker != nil {
 		acts = s.AttnTracker.ActivitySnapshot()
-	} else if al, ok := s.Panes.(interface{ ActivitySnapshot() []activitySnap }); ok {
+	} else if al, ok := s.Tools.(interface{ ActivitySnapshot() []activitySnap }); ok {
 		if got := al.ActivitySnapshot(); got != nil {
 			acts = got
 		}
@@ -381,12 +381,12 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	if s.Panes != nil {
+	if s.Tools != nil {
 		if s.AttnTracker != nil {
 			s.AttnTracker.SetActivity(req.ToolID, req.State,
 				sanitizeActivityField(req.Tool, activityToolMax),
 				sanitizeActivityField(req.Detail, activityDetailMax))
-		} else if tool := s.Panes.Get(req.ToolID); tool != nil {
+		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
 			tool.setActivity(req.State, sanitizeActivityField(req.Tool, activityToolMax), sanitizeActivityField(req.Detail, activityDetailMax))
 		}
 	}
@@ -399,7 +399,7 @@ func (s *Server) apiToolAttentionClearAll(w http.ResponseWriter, r *http.Request
 	cleared := 0
 	if s.AttnTracker != nil {
 		cleared = s.AttnTracker.ClearAllAttention()
-	} else if ca, ok := s.Panes.(interface{ ClearAllAttention() int }); ok {
+	} else if ca, ok := s.Tools.(interface{ ClearAllAttention() int }); ok {
 		cleared = ca.ClearAllAttention()
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -408,8 +408,8 @@ func (s *Server) apiToolAttentionClearAll(w http.ResponseWriter, r *http.Request
 
 func (s *Server) apiToolDelete(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/api/tools/")
-	if s.Panes != nil {
-		s.Panes.Delete(id)
+	if s.Tools != nil {
+		s.Tools.Delete(id)
 	}
 	w.WriteHeader(200)
 }
@@ -547,8 +547,8 @@ func (s *Server) apiDownload(w http.ResponseWriter, r *http.Request) {
 func (s *Server) apiCwd(w http.ResponseWriter, r *http.Request) {
 	toolID := r.URL.Query().Get("tool")
 	var cwd string
-	if toolID != "" && s.Panes != nil {
-		cwd = s.Panes.Cwd(toolID)
+	if toolID != "" && s.Tools != nil {
+		cwd = s.Tools.Cwd(toolID)
 	}
 	if cwd == "" {
 		cwd, _ = os.Getwd()
@@ -636,8 +636,8 @@ func (s *Server) apiStats(w http.ResponseWriter, r *http.Request) {
 // oldest transition first (FR-BG-6).
 func (s *Server) apiToolsBackground(w http.ResponseWriter, r *http.Request) {
 	list := []BackgroundEntry{}
-	if s.Panes != nil {
-		if got := s.Panes.BackgroundList(); got != nil {
+	if s.Tools != nil {
+		if got := s.Tools.BackgroundList(); got != nil {
 			list = got
 		}
 	}
@@ -658,7 +658,7 @@ func (s *Server) apiToolBackgroundSet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "toolId 필요", http.StatusBadRequest)
 		return
 	}
-	if s.Panes == nil || !s.Panes.SetBackground(body.ToolID, body.Background) {
+	if s.Tools == nil || !s.Tools.SetBackground(body.ToolID, body.Background) {
 		http.Error(w, "toolId="+body.ToolID+" 존재하지 않음", http.StatusNotFound)
 		return
 	}

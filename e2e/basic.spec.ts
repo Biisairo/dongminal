@@ -19,9 +19,9 @@ test.describe('Basic connection & lifecycle', () => {
     // That pane should be focused.
     await expect(page.locator('#area .pn.focused')).toHaveCount(1);
     // One tab inside the focused pane.
-    const tabs = page.locator('#area .pn.focused .rt');
+    const tabs = page.locator('#area .pn.focused .pn-tab');
     await expect(tabs).toHaveCount(1);
-    await expect(page.locator('#area .pn.focused .rt.active')).toHaveCount(1);
+    await expect(page.locator('#area .pn.focused .pn-tab.active')).toHaveCount(1);
   });
 
   test('status bar shows connection info', async ({ page }) => {

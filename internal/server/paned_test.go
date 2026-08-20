@@ -110,11 +110,11 @@ func TestPanedHelloReturnsToolIDs(t *testing.T) {
 	resultMap := resp.Result.(map[string]interface{})
 	toolIDs := resultMap["tool_ids"].([]interface{})
 	if len(toolIDs) != 2 {
-		t.Fatalf("pane_ids len=%d want 2", len(toolIDs))
+		t.Fatalf("tool_ids len=%d want 2", len(toolIDs))
 	}
 }
 
-func TestPanedKillRemovesPane(t *testing.T) {
+func TestPanedKillRemovesTool(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
 	pm.Create("/tmp", 80, 24)
 	pc := newTestConn(pm)

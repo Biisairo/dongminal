@@ -318,7 +318,7 @@ func TestRunDmctlHelp(t *testing.T) {
 }
 
 // TC-DMC-10: -h 출력에 list-tools 안내 포함.
-func TestRunDmctlHelp_MentionsListPanes(t *testing.T) {
+func TestRunDmctlHelp_MentionsListWorkspace(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	rc := runDmctl([]string{"-h"}, &stdout, &stderr)
 	if rc != 0 {
@@ -346,7 +346,7 @@ const listPanesFakeState = `{
 
 // TC-DMC-1: list-tools 가 각 tab 의 label/uuid/short/toolId/shellPid 를 줄당 1개로
 // 사람 가독성 텍스트로 출력. 포커스된 tool 에만 ▶.
-func TestRunDmctlListPanes_TextOutput(t *testing.T) {
+func TestRunDmctlListWorkspace_TextOutput(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/state" || r.Method != http.MethodGet {
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
@@ -374,7 +374,7 @@ func TestRunDmctlListPanes_TextOutput(t *testing.T) {
 }
 
 // TC-DMC-2: --json 시 JSON 배열 반환. 각 원소가 uuid/label/toolId 등 키 포함.
-func TestRunDmctlListPanes_JSON(t *testing.T) {
+func TestRunDmctlListWorkspace_JSON(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(listPanesFakeState))
 	})
@@ -407,7 +407,7 @@ func TestRunDmctlListPanes_JSON(t *testing.T) {
 }
 
 // TC-DMC-3: 빈 워크스페이스 → "(no tools)" 류 + rc=0.
-func TestRunDmctlListPanes_Empty(t *testing.T) {
+func TestRunDmctlListWorkspace_Empty(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"tools":[],"workspace":null}`))
 	})
@@ -435,7 +435,7 @@ func TestRunDmctlListPanes_Empty(t *testing.T) {
 }
 
 // TC-LPF-1/2: --session 필터 — 부분 일치 + 대소문자 무시.
-func TestRunDmctlListPanes_SessionFilter(t *testing.T) {
+func TestRunDmctlListWorkspace_WindowFilter(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(listPanesFakeState))
 	})
@@ -456,7 +456,7 @@ func TestRunDmctlListPanes_SessionFilter(t *testing.T) {
 }
 
 // TC-LPF-3: 매칭 0건 → stderr "(no match)" + rc=1.
-func TestRunDmctlListPanes_FilterNoMatch(t *testing.T) {
+func TestRunDmctlListWorkspace_FilterNoMatch(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(listPanesFakeState))
 	})
@@ -473,7 +473,7 @@ func TestRunDmctlListPanes_FilterNoMatch(t *testing.T) {
 }
 
 // TC-LPF-4: --json + 0건 → stdout "[]" + rc=1.
-func TestRunDmctlListPanes_FilterNoMatchJSON(t *testing.T) {
+func TestRunDmctlListWorkspace_FilterNoMatchJSON(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(listPanesFakeState))
 	})
@@ -490,7 +490,7 @@ func TestRunDmctlListPanes_FilterNoMatchJSON(t *testing.T) {
 }
 
 // TC-LPF-5: --session + --tab AND 매칭.
-func TestRunDmctlListPanes_SessionAndTabFilter(t *testing.T) {
+func TestRunDmctlListWorkspace_WindowAndTabFilter(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(listPanesFakeState))
 	})
@@ -511,7 +511,7 @@ func TestRunDmctlListPanes_SessionAndTabFilter(t *testing.T) {
 }
 
 // TC-DMC-4: /api/state 5xx → stderr 명확한 오류 + rc=1.
-func TestRunDmctlListPanes_ServerError(t *testing.T) {
+func TestRunDmctlListWorkspace_ServerError(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "boom", 500)
 	})

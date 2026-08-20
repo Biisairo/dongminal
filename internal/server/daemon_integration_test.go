@@ -196,9 +196,9 @@ func TestDaemonAttentionDetection(t *testing.T) {
 	}
 }
 
-// TestDaemonReconnectPreservesPanes verifies that tools survive
+// TestDaemonReconnectPreservesTools verifies that tools survive
 // a dongminal reconnection (dongminald stays alive).
-func TestDaemonReconnectPreservesPanes(t *testing.T) {
+func TestDaemonReconnectPreservesTools(t *testing.T) {
 	dir := t.TempDir()
 	sockPath := dir + "/s"
 	dataDir := dir + "/d"
@@ -226,9 +226,9 @@ func TestDaemonReconnectPreservesPanes(t *testing.T) {
 	}
 
 	// Verify tool exists
-	panes1 := pc1.List()
+	tools1 := pc1.List()
 	found := false
-	for _, m := range panes1 {
+	for _, m := range tools1 {
 		if m["id"].(string) == toolID {
 			found = true
 		}
@@ -250,9 +250,9 @@ func TestDaemonReconnectPreservesPanes(t *testing.T) {
 	defer pc2.Close()
 
 	// Verify tool still exists
-	panes2 := pc2.List()
+	tools2 := pc2.List()
 	found = false
-	for _, m := range panes2 {
+	for _, m := range tools2 {
 		if m["id"].(string) == toolID {
 			found = true
 		}
@@ -363,8 +363,8 @@ func bytesRepeat(n int, b byte) []byte {
 	return out
 }
 
-// TestDaemonPaneCreateDeleteLifecycle verifies create → list → delete → not in list.
-func TestDaemonPaneCreateDeleteLifecycle(t *testing.T) {
+// TestDaemonToolCreateDeleteLifecycle verifies create → list → delete → not in list.
+func TestDaemonToolCreateDeleteLifecycle(t *testing.T) {
 	sockPath := t.TempDir() + "/s"
 
 	pm := NewToolManager(t.TempDir(), nil)
@@ -444,9 +444,9 @@ func TestDaemonPanedServerSocketCleanup(t *testing.T) {
 	}
 }
 
-// TestDaemonAttnTrackerMultiplePanes verifies attention tracking
+// TestDaemonAttnTrackerMultipleTools verifies attention tracking
 // works independently for multiple tools.
-func TestDaemonAttnTrackerMultiplePanes(t *testing.T) {
+func TestDaemonAttnTrackerMultipleTools(t *testing.T) {
 	hub := NewCommandHub()
 	tracker := NewAttnTracker(hub, 10000)
 

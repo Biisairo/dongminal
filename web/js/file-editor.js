@@ -228,7 +228,7 @@ class FileEditor {
       }
     }
     // Also update DOM immediately for instant feedback
-    const tabEl = document.querySelector('.rt[data-tab-id="' + this.id + '"] .rt-label');
+    const tabEl = document.querySelector('.pn-tab[data-tab-id="' + this.id + '"] .pn-tab-label');
     if (tabEl) {
       tabEl.textContent = (this._dirty ? '● ' : '') + this.name;
     }

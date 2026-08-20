@@ -10,7 +10,7 @@ import (
 )
 
 // FR-AAP-3 / TC-AAP-6: activity set endpoint — known / unknown / missing / bad-state.
-func TestApiPaneActivitySet(t *testing.T) {
+func TestApiToolActivitySet(t *testing.T) {
 	m := NewToolManager("", nil)
 	var mu sync.Mutex
 	var events []string
@@ -18,7 +18,7 @@ func TestApiPaneActivitySet(t *testing.T) {
 	m.mu.Lock()
 	m.tools["9"] = p
 	m.mu.Unlock()
-	s := &Server{Panes: m}
+	s := &Server{Tools: m}
 
 	// known tool → updates + notifier fires.
 	rec := httptest.NewRecorder()
@@ -73,7 +73,7 @@ func TestSanitizeActivityField(t *testing.T) {
 }
 
 // FR-AAP-4 / TC-AAP-7: activity snapshot endpoint returns reported tools.
-func TestApiPanesActivity_Endpoint(t *testing.T) {
+func TestApiToolsActivity_Endpoint(t *testing.T) {
 	defer func(o func(*Tool) bool) { attnBusyProbe = o }(attnBusyProbe)
 	attnBusyProbe = func(*Tool) bool { return true } // agent alive
 	m := NewToolManager("", nil)
@@ -82,7 +82,7 @@ func TestApiPanesActivity_Endpoint(t *testing.T) {
 	m.mu.Lock()
 	m.tools["1"] = p1
 	m.mu.Unlock()
-	s := &Server{Panes: m}
+	s := &Server{Tools: m}
 
 	rec := httptest.NewRecorder()
 	s.apiToolsActivity(rec, httptest.NewRequest(http.MethodGet, "/api/tools/activity", nil))
@@ -104,7 +104,7 @@ func TestApiPanesActivity_Endpoint(t *testing.T) {
 }
 
 // FR-AAP-5: tool_activity SSE payload shape (server-published; lowerCamelCase).
-func TestPaneActivityPayload(t *testing.T) {
+func TestToolActivityPayload(t *testing.T) {
 	s := string(toolActivityPayload("3", "working", "Bash", "ls"))
 	if !strings.Contains(s, `"action":"tool_activity"`) ||
 		!strings.Contains(s, `"toolId":"3"`) ||

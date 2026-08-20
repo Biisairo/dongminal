@@ -20,7 +20,7 @@ const whoAmIFakeJSON = `{
   "focused":true
 }`
 
-// TC-DMC-WAI-1: 정상 응답 → paneline 한 줄, rc=0.
+// TC-DMC-WAI-1: 정상 응답 → toolline 한 줄, rc=0.
 func TestRunDmctlWhoAmI_TextOutput(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/whoami" || r.Method != http.MethodGet {

@@ -115,7 +115,7 @@ class TerminalTool {
       const d=new Uint8Array(e.data); if(!d.length) return;
       if(d[0]===OP.OUTPUT){
         this._handleOutput(d.subarray(1));
-      } else if(d[0]===OP.SID){
+      } else if(d[0]===OP.TOOLID){
         this.id=dec.decode(d.subarray(1)); this.el.dataset.toolid=this.id;
       } else if(d[0]===OP.EXIT){
         this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n');
@@ -177,7 +177,7 @@ class TerminalTool {
       ws.onmessage=e=>{
         const d=new Uint8Array(e.data); if(!d.length) return;
         if(d[0]===OP.OUTPUT){ this._handleOutput(d.subarray(1)); }
-        else if(d[0]===OP.SID){ this.id=dec.decode(d.subarray(1));this.el.dataset.toolid=this.id; }
+        else if(d[0]===OP.TOOLID){ this.id=dec.decode(d.subarray(1));this.el.dataset.toolid=this.id; }
         else if(d[0]===OP.EXIT){ this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n'); }
         else if(d[0]===OP.ERROR){ this.write('\r\n\x1b[31m'+dec.decode(d.subarray(1))+'\x1b[0m\r\n'); }
       };

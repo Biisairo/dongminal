@@ -71,7 +71,7 @@ func TestManager_Entries_Empty(t *testing.T) {
 	}
 }
 
-func TestManager_InvalidatePane(t *testing.T) {
+func TestManager_InvalidateTool(t *testing.T) {
 	store := &memPersister{empty: true}
 	m, err := New(newFakeLive(), store)
 	if err != nil {

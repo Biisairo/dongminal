@@ -12,7 +12,7 @@ import (
 )
 
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
-	if s.Panes == nil {
+	if s.Tools == nil {
 		http.Error(w, "tools unavailable", http.StatusInternalServerError)
 		return
 	}
@@ -31,12 +31,12 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	var tool *Tool
 
 	if toolID != "" {
-		tool = s.Panes.Get(toolID)
+		tool = s.Tools.Get(toolID)
 		if tool == nil {
 			// During a daemon reconnect window Get() fails transiently. Don't
 			// declare the tool gone — just close so the browser shows "재연결 중"
 			// and keeps retrying; OpExit is reserved for a genuinely absent tool.
-			if dc, ok := s.Panes.(interface{ Connected() bool }); ok && !dc.Connected() {
+			if dc, ok := s.Tools.(interface{ Connected() bool }); ok && !dc.Connected() {
 				log.Printf("ws addr=%s: tool %s lookup during daemon reconnect; closing for retry", r.RemoteAddr, toolID)
 				return
 			}
@@ -47,7 +47,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		tool, err = s.Panes.Create("", cols, rows)
+		tool, err = s.Tools.Create("", cols, rows)
 		if err != nil {
 			conn.send(OpError, []byte("create failed"))
 			log.Printf("ws addr=%s: tool create error: %v", r.RemoteAddr, err)
@@ -57,7 +57,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Branch: daemon mode vs direct mode
-	if s.Panes.IsDaemon() {
+	if s.Tools.IsDaemon() {
 		s.handleWSDaemon(conn, toolID, tool, cols, rows)
 	} else {
 		s.handleWSDirect(conn, tool, cols, rows, r.RemoteAddr)
@@ -72,7 +72,7 @@ func (s *Server) handleWSDirect(conn *safeConn, tool *Tool, cols, rows uint16, r
 	}
 	defer tool.removeClient(conn)
 
-	conn.send(OpSID, []byte(tool.ID))
+	conn.send(OpToolID, []byte(tool.ID))
 
 	// Send scrollback snapshot for existing tool
 	if snap, _ := tool.stream.Snapshot(); len(snap) > 0 {
@@ -115,7 +115,7 @@ func (s *Server) handleWSDirect(conn *safeConn, tool *Tool, cols, rows uint16, r
 // other windows. The frontend sends the correct OpResize via the WS binary
 // protocol after terminal open+fit, guarded by _resizeCheck (session ownership).
 func (s *Server) handleWSDaemon(conn *safeConn, toolID string, _ *Tool, cols, rows uint16) {
-	conn.send(OpSID, []byte(toolID))
+	conn.send(OpToolID, []byte(toolID))
 
 	// Send terminal reset to clear any stale modes (mouse tracking, etc.)
 	// from a previous connection.
@@ -124,7 +124,7 @@ func (s *Server) handleWSDaemon(conn *safeConn, toolID string, _ *Tool, cols, ro
 		return
 	}
 
-	pc, ok := s.Panes.(*ToolClient)
+	pc, ok := s.Tools.(*ToolClient)
 	if !ok {
 		log.Printf("[tool %s] daemon mode but ToolHub is not *ToolClient", toolID)
 		return
@@ -140,7 +140,7 @@ func (s *Server) handleWSDaemon(conn *safeConn, toolID string, _ *Tool, cols, ro
 	defer unsub()
 
 	// Send snapshot for reconnection.
-	if snap, err := s.Panes.SnapshotTool(toolID); err == nil && len(snap.Data) > 0 {
+	if snap, err := s.Tools.SnapshotTool(toolID); err == nil && len(snap.Data) > 0 {
 		log.Printf("[ws-daemon] snapshot tool=%s len=%d retained=%d", toolID, len(snap.Data), snap.Retained)
 		snapData := stripSnapshotQueries(stripOSC777(snap.Data))
 		if len(snapData) > 0 {

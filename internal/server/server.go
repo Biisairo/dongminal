@@ -32,13 +32,13 @@ type Config struct {
 // Server owns the HTTP server lifecycle.
 type Server struct {
 	cfg         Config
-	Panes       ToolHub
+	Tools       ToolHub
 	Work        WorkspaceStore
-	Tools       ToolDispatcher
+	MCPTools    ToolDispatcher
 	Commands    CommandBroker
 	MCP         *MCPSessionRegistry
 	Settings    SettingsStore
-	WhoAmI      mcptool.ClientPaneResolver
+	WhoAmI      mcptool.ClientToolResolver
 	AttnTracker *AttnTracker
 
 	started time.Time
@@ -66,9 +66,9 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	}
 	return &Server{
 		cfg:         cfg,
-		Panes:       deps.Panes,
-		Work:        deps.Work,
 		Tools:       deps.Tools,
+		Work:        deps.Work,
+		MCPTools:    deps.MCPTools,
 		Commands:    cmds,
 		MCP:         NewMCPSessionRegistry(),
 		Settings:    settings,
@@ -80,14 +80,6 @@ func New(cfg Config, deps Deps) (*Server, error) {
 
 // Started returns the NewServer timestamp.
 func (s *Server) Started() time.Time { return s.started }
-
-// PersistSettings writes the current settings blob to disk (called from
-// shutdown path in main).
-func (s *Server) PersistSettings() {
-	if s.Settings != nil {
-		s.Settings.save()
-	}
-}
 
 // Handler returns the top-level http.Handler.
 func (s *Server) Handler() http.Handler {

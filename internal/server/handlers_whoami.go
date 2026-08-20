@@ -17,7 +17,7 @@ func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 
 	if toolID != "" {
 		// Verify tool exists
-		if s.Panes != nil && s.Panes.Get(toolID) == nil {
+		if s.Tools != nil && s.Tools.Get(toolID) == nil {
 			writeWhoAmIError(w, http.StatusNotFound, "tool not found: "+toolID)
 			return
 		}
@@ -48,8 +48,8 @@ func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 		"focused":    false,
 	}
 
-	if s.Panes != nil {
-		for _, p := range s.Panes.List() {
+	if s.Tools != nil {
+		for _, p := range s.Tools.List() {
 			if id, _ := p["id"].(string); id == toolID {
 				if c, ok := p["sizeCols"].(int); ok {
 					resp["sizeCols"] = c

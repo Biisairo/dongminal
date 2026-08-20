@@ -6,7 +6,7 @@
 // Server→Client uses OUTPUT(0)/ERROR(1)/EXIT(2)/SID(3).
 // Same byte values are reused per direction — the protocol is directional,
 // so INPUT(0) and OUTPUT(0) never conflict at the same endpoint.
-const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,SID:3};
+const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,TOOLID:3};
 const enc=new TextEncoder(), dec=new TextDecoder();
 const SEARCH_RESEARCH_DELAY=50;
 

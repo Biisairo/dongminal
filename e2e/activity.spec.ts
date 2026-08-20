@@ -32,7 +32,7 @@ test.describe('Agent activity panel', () => {
   test('card render, in-place update, toggle, jump', async ({ page }) => {
     await waitForInit(page);
 
-    const pid = await page.locator('#area .pn.focused .rt.active').getAttribute('data-toolid');
+    const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
     expect(pid).toBeTruthy();
 
     // Open the panel (toggle button next to Split V).
@@ -54,12 +54,12 @@ test.describe('Agent activity panel', () => {
     // Clicking the card jumps to that pane (here the only pane → stays focused,
     // and the card click must not throw / panel still consistent).
     await card.click();
-    await expect(page.locator('#area .pn.focused .rt.active')).toHaveAttribute('data-toolid', pid!);
+    await expect(page.locator('#area .pn.focused .pn-tab.active')).toHaveAttribute('data-toolid', pid!);
   });
 
   test('SessionEnd (ended) removes the card (FR-AAP-16)', async ({ page }) => {
     await waitForInit(page);
-    const pid = await page.locator('#area .pn.focused .rt.active').getAttribute('data-toolid');
+    const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
     await page.locator('#agents-toggle').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
@@ -72,13 +72,13 @@ test.describe('Agent activity panel', () => {
 
   test('new agent appends at bottom, status update keeps position (TC-AAP-19)', async ({ page }) => {
     await waitForInit(page);
-    const pid1 = await page.locator('#area .pn.focused .rt.active').getAttribute('data-toolid');
+    const pid1 = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
 
     // Second tab → a second pane.
-    const before = await page.locator('#area .pn.focused .rt').count();
-    await page.locator('#area .pn.focused .rt-add').click();
-    await expect(page.locator('#area .pn.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
-    const pid2 = await page.locator('#area .pn.focused .rt.active').getAttribute('data-toolid');
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
+    await page.locator('#area .pn.focused .pn-tab-add').click();
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
+    const pid2 = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
     expect(pid1).toBeTruthy();
     expect(pid2).toBeTruthy();
 
@@ -101,12 +101,12 @@ test.describe('Agent activity panel', () => {
 
   test('drag reorders cards and persists to workspace (TC-AAP-20)', async ({ page }) => {
     await waitForInit(page);
-    const pid1 = await page.locator('#area .pn.focused .rt.active').getAttribute('data-toolid');
+    const pid1 = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
 
-    const before = await page.locator('#area .pn.focused .rt').count();
-    await page.locator('#area .pn.focused .rt-add').click();
-    await expect(page.locator('#area .pn.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
-    const pid2 = await page.locator('#area .pn.focused .rt.active').getAttribute('data-toolid');
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
+    await page.locator('#area .pn.focused .pn-tab-add').click();
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
+    const pid2 = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
 
     await page.locator('#agents-toggle').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
@@ -178,7 +178,7 @@ test.describe('Agent activity panel', () => {
 
     // Make a second tab so the first pane is in the background (foreground+active
     // panes suppress the attention highlight).
-    const pid = await page.locator('#area .pn.focused .rt.active').getAttribute('data-toolid');
+    const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
     expect(pid).toBeTruthy();
     // done (not pruned by the busy check) so the card stays put through polling.
     expect(await setActivity(page, pid, 'done', '', 'finished')).toBe(200);
@@ -192,9 +192,9 @@ test.describe('Agent activity panel', () => {
     // attention alarm on it via the server endpoint. Wait for the new tab to
     // actually become active first (else the pane is still focused-active and
     // the alarm is suppressed).
-    const before = await page.locator('#area .pn.focused .rt').count();
-    await page.locator('#area .pn.focused .rt-add').click();
-    await expect(page.locator('#area .pn.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
+    await page.locator('#area .pn.focused .pn-tab-add').click();
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
     await page.evaluate(async (p) => {
       await fetch('/api/tools/attention/set', {
         method: 'POST',

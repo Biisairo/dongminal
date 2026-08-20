@@ -159,8 +159,8 @@ func TestHandleCommandPost_CreatingReturnsNewIds(t *testing.T) {
 	if tab0["uuid"] != "t10" || tab0["toolId"] != "410" {
 		t.Errorf("newTabs[0]=%v", tab0)
 	}
-	regions, _ := got["newPanes"].([]interface{})
-	if len(regions) != 1 || regions[0] != "r10" {
+	newPanes, _ := got["newPanes"].([]interface{})
+	if len(newPanes) != 1 || newPanes[0] != "r10" {
 		t.Errorf("newPanes=%v", got["newPanes"])
 	}
 }

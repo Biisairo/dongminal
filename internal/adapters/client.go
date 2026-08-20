@@ -21,15 +21,15 @@ func (r Client) ResolveClientPane(remoteAddr string) (string, int, error) {
 	if err != nil {
 		return "", 0, err
 	}
-	paneShellPids := map[int]string{}
+	toolShellPids := map[int]string{}
 	for _, p := range (Tool{PM: r.PM, Hub: r.Hub}).List() {
 		if p.ShellPID > 0 {
-			paneShellPids[p.ShellPID] = p.ID
+			toolShellPids[p.ShellPID] = p.ID
 		}
 	}
 	current := clientPID
 	for i := 0; i < 32; i++ {
-		if toolID, ok := paneShellPids[current]; ok {
+		if toolID, ok := toolShellPids[current]; ok {
 			return toolID, current, nil
 		}
 		parent, err := clientpid.Parent(current)

@@ -19,7 +19,7 @@ func newActivityPane(id string, mu *sync.Mutex, events *[]string) *Tool {
 
 // FR-AAP-2 / TC-AAP-8: setActivity fires on every transition (not edge-gated)
 // and the latest value overwrites the previous one (tool keeps one snapshot).
-func TestPane_SetActivity_AlwaysFiresAndOverwrites(t *testing.T) {
+func TestTool_SetActivity_AlwaysFiresAndOverwrites(t *testing.T) {
 	var mu sync.Mutex
 	var events []string
 	p := newActivityPane("1", &mu, &events)
@@ -40,7 +40,7 @@ func TestPane_SetActivity_AlwaysFiresAndOverwrites(t *testing.T) {
 }
 
 // FR-AAP-7/16: SessionEnd → "ended" clears the activity so the card is removed.
-func TestPane_SetActivity_EndedClears(t *testing.T) {
+func TestTool_SetActivity_EndedClears(t *testing.T) {
 	var mu sync.Mutex
 	var events []string
 	p := newActivityPane("1", &mu, &events)
@@ -59,7 +59,7 @@ func TestPane_SetActivity_EndedClears(t *testing.T) {
 
 // A tool that never reported activity has a nil snapshot and is excluded from
 // ActivitySnapshot (FR-AAP-16: only tools with reported activity show a card).
-func TestPane_Activity_NilUntilReported(t *testing.T) {
+func TestTool_Activity_NilUntilReported(t *testing.T) {
 	p := &Tool{ID: "x"}
 	if p.Activity() != nil {
 		t.Fatalf("activity must be nil until reported")
@@ -68,7 +68,7 @@ func TestPane_Activity_NilUntilReported(t *testing.T) {
 
 // FR-AAP-4 / TC-AAP-7: ActivitySnapshot returns only tools that have reported
 // activity, sorted by id for determinism.
-func TestPaneManager_ActivitySnapshot(t *testing.T) {
+func TestToolManager_ActivitySnapshot(t *testing.T) {
 	defer func(o func(*Tool) bool) { attnBusyProbe = o }(attnBusyProbe)
 	attnBusyProbe = func(*Tool) bool { return true } // agents alive
 	m := NewToolManager("", nil)
@@ -98,7 +98,7 @@ func TestPaneManager_ActivitySnapshot(t *testing.T) {
 // FR-AAP-20: a `working` card whose agent process has died (not busy) is pruned
 // from the snapshot so a stale "working" never lingers after an abnormal exit.
 // Terminal states (done/waiting/idle) are kept regardless of busy.
-func TestPaneManager_ActivitySnapshot_PrunesDeadWorking(t *testing.T) {
+func TestToolManager_ActivitySnapshot_PrunesDeadWorking(t *testing.T) {
 	defer func(o func(*Tool) bool) { attnBusyProbe = o }(attnBusyProbe)
 	attnBusyProbe = func(*Tool) bool { return false } // agent dead
 	m := NewToolManager("", nil)
@@ -118,7 +118,7 @@ func TestPaneManager_ActivitySnapshot_PrunesDeadWorking(t *testing.T) {
 }
 
 // FR-AAP-2: a tool with no activity notifier wired must not panic on setActivity.
-func TestPane_SetActivity_NilNotifierSafe(t *testing.T) {
+func TestTool_SetActivity_NilNotifierSafe(t *testing.T) {
 	p := &Tool{ID: "1"}
 	p.setActivity("working", "Bash", "ls")
 	if got := p.Activity(); got == nil || got.State != "working" {

@@ -1,4 +1,4 @@
-package paneline
+package toolline
 
 import "testing"
 

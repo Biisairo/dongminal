@@ -41,7 +41,7 @@ func TestParseSize(t *testing.T) {
 	}
 }
 
-func TestPaneManager_SetInvalidator(t *testing.T) {
+func TestToolManager_SetInvalidator(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
 	pm.SetInvalidator(func(string) {})
 	// invalidator is stored; full invocation is covered via Create+Delete integration.
@@ -50,21 +50,21 @@ func TestPaneManager_SetInvalidator(t *testing.T) {
 	}
 }
 
-func TestPaneManager_Get(t *testing.T) {
+func TestToolManager_Get(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
 	if pm.Get("1") != nil {
 		t.Fatal("expected nil for missing tool")
 	}
 }
 
-func TestPaneManager_IsLive(t *testing.T) {
+func TestToolManager_IsLive(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
 	if pm.IsLive("1") {
 		t.Fatal("expected false for missing tool")
 	}
 }
 
-func TestPaneManager_List_Empty(t *testing.T) {
+func TestToolManager_List_Empty(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
 	out := pm.List()
 	if len(out) != 0 {
@@ -72,7 +72,7 @@ func TestPaneManager_List_Empty(t *testing.T) {
 	}
 }
 
-func TestPaneManager_Snapshot_Empty(t *testing.T) {
+func TestToolManager_Snapshot_Empty(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
 	out := pm.Snapshot()
 	if len(out) != 0 {
@@ -80,7 +80,7 @@ func TestPaneManager_Snapshot_Empty(t *testing.T) {
 	}
 }
 
-func TestPaneManager_DirtyAndSaveAll(t *testing.T) {
+func TestToolManager_DirtyAndSaveAll(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
 	if pm.dirty.Load() {
 		t.Fatal("expected dirty=false after init")
@@ -95,7 +95,7 @@ func TestPaneManager_DirtyAndSaveAll(t *testing.T) {
 	}
 }
 
-func TestPaneManager_DataPath(t *testing.T) {
+func TestToolManager_DataPath(t *testing.T) {
 	pm := NewToolManager("", nil)
 	p := pm.dataPath("test.json")
 	if p != "test.json" {
@@ -103,7 +103,7 @@ func TestPaneManager_DataPath(t *testing.T) {
 	}
 }
 
-func TestPane_IsBusy_UsesProbe(t *testing.T) {
+func TestTool_IsBusy_UsesProbe(t *testing.T) {
 	orig := toolBusyProbe
 	t.Cleanup(func() { toolBusyProbe = orig })
 
@@ -122,7 +122,7 @@ func TestPane_IsBusy_UsesProbe(t *testing.T) {
 	}
 }
 
-func TestPaneManager_RLockReadPaths(t *testing.T) {
+func TestToolManager_RLockReadPaths(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
 	stop := make(chan struct{})
 	var wg sync.WaitGroup

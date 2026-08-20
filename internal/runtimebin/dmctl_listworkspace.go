@@ -6,14 +6,14 @@ import (
 	"io"
 	"strings"
 
-	"dongminal/internal/paneline"
+	"dongminal/internal/toolline"
 	"dongminal/internal/workspace"
 )
 
-// dmctlListPanes implements `dmctl list-tools`. /api/state 호출 후 workspace
-// 트리를 순회해 paneline.Line 으로 렌더링한다 — MCP `list_workspace` 와 byte-level
+// dmctlListWorkspace implements `dmctl list-workspace`. /api/state 호출 후 workspace
+// 트리를 순회해 toolline.Line 으로 렌더링한다 — MCP `list_workspace` 와 byte-level
 // 동일 포맷 (DMCTL_WHO_AM_I_SRS FR-DMC-LP-1).
-func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
+func dmctlListWorkspace(args []string, stdout, stderr io.Writer) int {
 	jsonOut := false
 	windowFilter, tabFilter := "", ""
 	i := 0
@@ -21,7 +21,7 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 		a := args[i]
 		switch {
 		case a == "-h" || a == "--help":
-			fmt.Fprint(stdout, dmctlListPanesHelp)
+			fmt.Fprint(stdout, dmctlListWorkspaceHelp)
 			return 0
 		case a == "--json":
 			jsonOut = true
@@ -55,7 +55,7 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 	}
 
 	var state struct {
-		Panes     []paneEntry `json:"tools"`
+		Tools     []toolEntry `json:"tools"`
 		Workspace *wsTree     `json:"workspace"`
 	}
 	if err := json.Unmarshal(body, &state); err != nil {
@@ -63,19 +63,19 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	shellPids := make(map[string]int, len(state.Panes))
-	sizes := make(map[string][2]int, len(state.Panes))
-	for _, p := range state.Panes {
+	shellPids := make(map[string]int, len(state.Tools))
+	sizes := make(map[string][2]int, len(state.Tools))
+	for _, p := range state.Tools {
 		shellPids[p.ID] = p.PID
 		sizes[p.ID] = [2]int{p.SizeCols, p.SizeRows}
 	}
 
-	rows := buildListPanesRows(state.Workspace, shellPids, sizes)
+	rows := buildListWorkspaceRows(state.Workspace, shellPids, sizes)
 
 	// LIST_PANES_NAME_FILTER_SRS FR-LPF-1/2: 이름 필터 (부분 일치, 대소문자 무시, AND).
 	filtered := windowFilter != "" || tabFilter != ""
 	if filtered {
-		var keep []listPanesRow
+		var keep []listWorkspaceRow
 		for _, r := range rows {
 			if MatchFold(r.Window, windowFilter) && MatchFold(r.Tab, tabFilter) {
 				keep = append(keep, r)
@@ -107,7 +107,7 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 	for _, r := range rows {
-		line := paneline.Line{
+		line := toolline.Line{
 			FocusMarker: r.Focused,
 			Label:       r.Label,
 			UUID:        r.UUID,
@@ -126,7 +126,7 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-const dmctlListPanesHelp = `dmctl list-workspace — 열린 도구 목록 조회
+const dmctlListWorkspaceHelp = `dmctl list-workspace — 열린 도구 목록 조회
 
 사용법:
   dmctl list-workspace                     # 사람 가독성 텍스트 (▶ = 사용자 포커스)
@@ -139,7 +139,7 @@ const dmctlListPanesHelp = `dmctl list-workspace — 열린 도구 목록 조회
 빈 값(uuid/short/size/window_uuid/pane_uuid)은 해당 컬럼이 생략된다.
 `
 
-type paneEntry struct {
+type toolEntry struct {
 	ID       string `json:"id"`
 	PID      int    `json:"pid"`
 	SizeCols int    `json:"sizeCols"`
@@ -158,7 +158,7 @@ type wsWindow struct {
 	Layout      *workspace.WsLayout `json:"layout"`
 }
 
-type listPanesRow struct {
+type listWorkspaceRow struct {
 	Label      string `json:"label"`
 	UUID       string `json:"uuid"`
 	Short      string `json:"short"`
@@ -173,11 +173,11 @@ type listPanesRow struct {
 	Focused    bool   `json:"focused"`
 }
 
-func buildListPanesRows(ws *wsTree, shellPids map[string]int, sizes map[string][2]int) []listPanesRow {
+func buildListWorkspaceRows(ws *wsTree, shellPids map[string]int, sizes map[string][2]int) []listWorkspaceRow {
 	if ws == nil {
 		return nil
 	}
-	var out []listPanesRow
+	var out []listWorkspaceRow
 	for si, sess := range ws.Windows {
 		var regions []*workspace.WsLayout
 		workspace.CollectPanes(sess.Layout, &regions)
@@ -187,7 +187,7 @@ func buildListPanesRows(ws *wsTree, shellPids map[string]int, sizes map[string][
 					sess.FocusedPane == rg.ID &&
 					rg.ActiveTab == tab.ID
 				sz := sizes[tab.ToolID]
-				out = append(out, listPanesRow{
+				out = append(out, listWorkspaceRow{
 					Label:      fmt.Sprintf("W%d.P%d.T%d", si+1, pi+1, ti+1),
 					UUID:       tab.ID,
 					Short:      shortCode(tab.ID),

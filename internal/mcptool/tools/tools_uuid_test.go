@@ -10,9 +10,9 @@ import (
 
 // FR-UID-7: list_workspace 출력의 라인 끝에 uuid/short 가 부착된다. 기존 라인
 // 앞부분 (label, toolId, shellPid, size, session, tab) 은 그대로 유지된다.
-func TestListPanes_AppendsUUIDFields(t *testing.T) {
+func TestListWorkspace_AppendsUUIDFields(t *testing.T) {
 	pr := newFakeToolReader()
-	pr.tools = []mcptool.PaneInfo{{ID: "pty-1", Name: "Shell", ShellPID: 100}}
+	pr.tools = []mcptool.ToolInfo{{ID: "pty-1", Name: "Shell", ShellPID: 100}}
 	pr.has["pty-1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{{
@@ -27,7 +27,7 @@ func TestListPanes_AppendsUUIDFields(t *testing.T) {
 			ShortCode:  "550e8400",
 		}},
 	}
-	res, _ := dispatch(t, ListWorkspaceName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
+	res, _ := dispatch(t, ListWorkspaceName, ListWorkspaceSpec, ListWorkspaceHandler(ListWorkspaceDeps{PM: pr, WS: wr}), "")
 	body := resultText(res)
 
 	if !strings.Contains(body, "uuid=550e8400-e29b-41d4-a716-446655440003") {
@@ -42,16 +42,16 @@ func TestListPanes_AppendsUUIDFields(t *testing.T) {
 }
 
 // NFR-UID-0: UUID 가 없는 엔트리의 출력은 변경 전과 완전히 동일해야 한다.
-func TestListPanes_OmitsUUIDFieldsWhenAbsent(t *testing.T) {
+func TestListWorkspace_OmitsUUIDFieldsWhenAbsent(t *testing.T) {
 	pr := newFakeToolReader()
-	pr.tools = []mcptool.PaneInfo{{ID: "1", Name: "Shell", ShellPID: 100}}
+	pr.tools = []mcptool.ToolInfo{{ID: "1", Name: "Shell", ShellPID: 100}}
 	pr.has["1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{{
 			ToolID: "1", Label: "W1.P1.T1", IsActive: true,
 		}},
 	}
-	res, _ := dispatch(t, ListWorkspaceName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
+	res, _ := dispatch(t, ListWorkspaceName, ListWorkspaceSpec, ListWorkspaceHandler(ListWorkspaceDeps{PM: pr, WS: wr}), "")
 	body := resultText(res)
 
 	if strings.Contains(body, "uuid=") || strings.Contains(body, "short=") {

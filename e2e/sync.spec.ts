@@ -46,19 +46,19 @@ test.describe('Multi-client synchronization via SSE', () => {
     await waitForInit(pageA);
     await waitForInit(pageB);
 
-    const beforeA = await pageA.locator('#area .pn.focused .rt').count();
-    const beforeB = await pageB.locator('#area .pn.focused .rt').count();
+    const beforeA = await pageA.locator('#area .pn.focused .pn-tab').count();
+    const beforeB = await pageB.locator('#area .pn.focused .pn-tab').count();
 
     // Client A adds a tab.
     const [resp] = await Promise.all([
       pageA.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-      pageA.locator('#area .pn.focused .rt-add').click(),
+      pageA.locator('#area .pn.focused .pn-tab-add').click(),
     ]);
     expect(resp.status()).toBe(200);
 
     // Both clients should see the new tab.
-    await expect(pageA.locator('#area .pn.focused .rt')).toHaveCount(beforeA + 1, { timeout: 15000 });
-    await expect(pageB.locator('#area .pn.focused .rt')).toHaveCount(beforeB + 1, { timeout: 15000 });
+    await expect(pageA.locator('#area .pn.focused .pn-tab')).toHaveCount(beforeA + 1, { timeout: 15000 });
+    await expect(pageB.locator('#area .pn.focused .pn-tab')).toHaveCount(beforeB + 1, { timeout: 15000 });
 
     await ctxA.close();
     await ctxB.close();
@@ -116,13 +116,17 @@ test.describe('Multi-client synchronization via SSE', () => {
       countA = countA + 1;
     }
 
+    // B 가 A 의 추가를 반영하기 전에 개수를 읽으면 아래 산술이 어긋난다.
+    // (A 는 2개, B 는 아직 1개 → countBBefore-1 = 0 이 되어 영원히 불일치)
+    await expect(pageB.locator('#windows .si')).toHaveCount(countA, { timeout: 15000 });
     const countBBefore = await pageB.locator('#windows .si').count();
 
     // Client A deletes the first session.
     await pageA.locator('#windows .si').first().locator('.si-x').click();
 
-    // Wait a moment for SSE to propagate.
-  await expect(pageB.locator("#windows .si")).toHaveCount(0, { timeout: 10000 });
+    // SSE 전파 대기는 아래 두 단정이 겸한다 (넉넉한 timeout).
+    // 3abb475 가 waitForTimeout(1000) 을 단정으로 바꿀 때 기대값을 0 으로
+    // 잘못 넣어(창 2개 중 1개를 지웠으니 0 이 될 수 없다) 그때부터 실패해 왔다.
 
     // Both clients should see the decreased count.
     await expect(pageA.locator('#windows .si')).toHaveCount(countA - 1, { timeout: 15000 });

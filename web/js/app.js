@@ -646,7 +646,7 @@ class App {
     }catch{}
   }
 
-  // ── Pane Attention Notify (PANE_ATTENTION_NOTIFY_SRS) ──
+  // ── Tool Attention Notify (PANE_ATTENTION_NOTIFY_SRS) ──
 
   // 설정 영속화는 localStorage(per-device), 기존 /api/settings 스키마 무변경 (FR-PAN-14)
   // 데스크톱 알림은 기본 ON(권한 허용 시 동작) — '0' 으로 명시 비활성만 끈다 (FR-PAN-13a)
@@ -927,14 +927,14 @@ class App {
       el.classList.toggle('attn', !!(s&&this._windowHasAttn(s)));
     });
     // 탭/리전 강조도 타깃 토글 — 전체 render() 를 피해 포커스 플리커(xterm blur/refocus)를 막는다.
-    document.querySelectorAll('#area .rt[data-toolid]').forEach(t=>{
+    document.querySelectorAll('#area .pn-tab[data-toolid]').forEach(t=>{
       const pn=t.closest('.pn');
       const focusedPane=!!(pn&&pn.classList.contains('focused'));
       const active=t.classList.contains('active');
       t.classList.toggle('attn', this._attnHas(t.dataset.toolid)&&!(focusedPane&&active));
     });
     document.querySelectorAll('#area .pn[data-paneid]').forEach(pn=>{
-      const at=pn.querySelector('.rt.active[data-toolid]');
+      const at=pn.querySelector('.pn-tab.active[data-toolid]');
       const pid=at?at.dataset.toolid:null;
       pn.classList.toggle('attn', !!(pid&&this._attnHas(pid)&&!pn.classList.contains('focused')));
     });
@@ -1401,12 +1401,6 @@ class App {
     };
   }
 
-  _regionActivePaneId(sess,rid){
-    const pn=findPane(sess.layout,rid); if(!pn) return null;
-    const tab=pn.tabs.find(t=>t.id===pn.activeTab)||pn.tabs[0];
-    return tab?.toolId||null;
-  }
-
   _paneNewToolRef(sess,rid){
     const pn=findPane(sess.layout,rid);if(!pn)return {};
     const tab=pn.tabs.find(t=>t.id===pn.activeTab);
@@ -1517,13 +1511,6 @@ class App {
     const tab=pn.tabs.find(t=>t.id===pn.activeTab);
     if(!tab||tab.type!=='terminal')return null;
     return this.tools.get(tab.toolId);
-  }
-  _focusedTab(){
-    if(!this.focused)return null;
-    const s=this._aw();if(!s)return null;
-    const pn=findPane(s.layout,this.focused);if(!pn)return null;
-    const tab=pn.tabs.find(t=>t.id===pn.activeTab);
-    return tab||null;
   }
   _doSearch(dir){
     const p=this._focusedTerminal();if(!p||!p.search)return;
@@ -1726,7 +1713,7 @@ class App {
     }
     for(const pn of document.querySelectorAll('.pn')){
       let dim=false;
-      for(const t of pn.querySelectorAll('.rt[data-toolid]')){
+      for(const t of pn.querySelectorAll('.pn-tab[data-toolid]')){
         const sid=this._toolWindowId(t.dataset.toolid);
         if(sid&&otherOwned.has(sid)){dim=true;break}
       }

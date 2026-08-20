@@ -7,11 +7,11 @@ import (
 	"os"
 	"strings"
 
-	"dongminal/internal/paneline"
+	"dongminal/internal/toolline"
 )
 
 // dmctlWhoAmI implements `dmctl who-am-i` (DMCTL_WHO_AM_I_SRS FR-DMC-WAI-1~3).
-// `/api/whoami` JSON → paneline.Line 단일 행 또는 --json 시 그대로 stdout.
+// `/api/whoami` JSON → toolline.Line 단일 행 또는 --json 시 그대로 stdout.
 func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 	jsonOut := false
 	for _, a := range args {
@@ -61,7 +61,7 @@ func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "dmctl: invalid /api/whoami response: %v\n", err)
 		return 1
 	}
-	line := paneline.Line{
+	line := toolline.Line{
 		FocusMarker: rec.Focused,
 		Label:       rec.Label,
 		UUID:        rec.UUID,

@@ -166,17 +166,6 @@ function findPath(n,rid){
   if(n.children) for(const c of n.children){const p=findPath(c,rid);if(p)return[n,...p]}
   return null;
 }
-function closestRg(n,rid){
-  const path=findPath(n,rid);
-  if(!path||path.length<2)return firstPane(n);
-  for(let i=path.length-2;i>=0;i--){
-    const parent=path[i];if(!parent.children)continue;
-    const ci=parent.children.indexOf(path[i+1]);if(ci<0)continue;
-    const c=parent.children[ci+1]||parent.children[ci-1];
-    if(c){const r=firstPane(c);if(r)return r}
-  }
-  return firstPane(n);
-}
 function clean(n,ok){
   if(!n) return null;
   if(n.type==='pane'){

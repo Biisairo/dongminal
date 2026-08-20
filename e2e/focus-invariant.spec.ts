@@ -60,8 +60,8 @@ test.describe('Focus invariant (S1-Phase1)', () => {
       const a = (window as any).app;
       a.addTab(a.focused, 'terminal');
     });
-    await page.waitForFunction(() => document.querySelectorAll('#area .pn.focused .rt').length >= 2, { timeout: 5000 });
-    const tabs = await page.locator('#area .pn.focused .rt').all();
+    await page.waitForFunction(() => document.querySelectorAll('#area .pn.focused .pn-tab').length >= 2, { timeout: 5000 });
+    const tabs = await page.locator('#area .pn.focused .pn-tab').all();
     await tabs[0].click();
     const inv = await readInvariant(page);
     expect(inv.focused).toBe(inv.windowFocusedPane);

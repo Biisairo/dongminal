@@ -122,24 +122,24 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   overflow-x:auto;flex-shrink:0;
 }
 .pn-tabs::-webkit-scrollbar{height:0}
-.rt{
+.pn-tab{
   display:flex;align-items:center;padding:0 10px;gap:4px;
   font-size:12px;color:var(--text-muted);cursor:pointer;
   border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0;
 }
-.rt:hover{background:var(--accent-hover);color:var(--text)}
-.rt.active{color:var(--text-bright);background:var(--accent-subtle)}
-.rt-x{font-size:11px;color:var(--text-dim);opacity:0;cursor:pointer}
-.rt:hover .rt-x{opacity:1}
-.rt-x:hover{color:var(--danger)}
-.rt-add{
+.pn-tab:hover{background:var(--accent-hover);color:var(--text)}
+.pn-tab.active{color:var(--text-bright);background:var(--accent-subtle)}
+.pn-tab-x{font-size:11px;color:var(--text-dim);opacity:0;cursor:pointer}
+.pn-tab:hover .pn-tab-x{opacity:1}
+.pn-tab-x:hover{color:var(--danger)}
+.pn-tab-add{
   width:24px;display:flex;align-items:center;justify-content:center;
   background:transparent;border:none;color:var(--text-dim);font-size:14px;cursor:pointer;flex-shrink:0;
 }
-.rt-add:hover{color:var(--accent)}
+.pn-tab-add:hover{color:var(--accent)}
 
 /* 주의 알림 강조 — 포커스(--accent)·위험(--danger)과 구분되는 테마색 --attn, 굵은 실선+글로우로 가시성 강화 (FR-PAN-10) */
-.rt.attn{color:var(--attn);background:var(--attn-subtle);font-weight:600;box-shadow:inset 0 -3px 0 var(--attn)}
+.pn-tab.attn{color:var(--attn);background:var(--attn-subtle);font-weight:600;box-shadow:inset 0 -3px 0 var(--attn)}
 .pn.attn{border-color:var(--attn);box-shadow:inset 0 0 0 2px var(--attn),0 0 12px -1px var(--attn-glow)}
 .si.attn{box-shadow:inset 3px 0 0 var(--attn)}
 .si.attn .si-dot{background:var(--attn);box-shadow:0 0 6px var(--attn-glow)}
@@ -560,9 +560,9 @@ body.mobile .pn-drop-indicator{display:none !important}
 /* enlarge touch targets on mobile */
 body.mobile .si{height:40px;font-size:13px}
 body.mobile .si-x{opacity:1;width:24px;height:24px;font-size:14px}
-body.mobile .rt{padding:0 14px;font-size:13px}
-body.mobile .rt-x{opacity:1;width:18px;height:18px}
-body.mobile .rt-add{width:32px;font-size:18px}
+body.mobile .pn-tab{padding:0 14px;font-size:13px}
+body.mobile .pn-tab-x{opacity:1;width:18px;height:18px}
+body.mobile .pn-tab-add{width:32px;font-size:18px}
 body.mobile #add-window,body.mobile #add-preset,body.mobile #settings-btn{padding:8px;font-size:12px}
 body.mobile #windows{padding-top:8px}
 body.mobile .sb-title{padding:14px 14px 8px}
@@ -574,9 +574,9 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .si.dragging{opacity:.35}
 .si.drag-above{box-shadow:inset 0 2px 0 var(--accent)}
 .si.drag-below{box-shadow:inset 0 -2px 0 var(--accent)}
-.rt.dragging{opacity:.35}
-.rt.drag-left{box-shadow:inset 2px 0 0 var(--accent)}
-.rt.drag-right{box-shadow:inset -2px 0 0 var(--accent)}
+.pn-tab.dragging{opacity:.35}
+.pn-tab.drag-left{box-shadow:inset 2px 0 0 var(--accent)}
+.pn-tab.drag-right{box-shadow:inset -2px 0 0 var(--accent)}
 
 /* ── Tab→Pane drop zone indicator ── */
 .pn-drop-indicator{

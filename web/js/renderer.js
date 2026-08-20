@@ -1,6 +1,6 @@
 /**
  * Remote Terminal — layout → DOM renderer
- * App 의 render / _rSidebar / _rTopbar / _rLayout / _buildNode / _buildRg
+ * App 의 render / _rSidebar / _rTopbar / _rLayout / _buildNode / _buildPane
  * / _buildSp / _handle 책임을 분리. Renderer 내부 메서드 호출은 this.X 로,
  * App 상태·메서드는 this.app.X 로 접근한다. 동작은 1:1 보존.
  */
@@ -89,7 +89,7 @@ class Renderer {
         if(fIdx>=0) this.app._mPaneIdx=fIdx;
         else if(this.app._mPaneIdx>=regs.length) this.app._mPaneIdx=regs.length-1;
         const target=regs[this.app._mPaneIdx];
-        if(target){this.app._setFocus(target.id, s);dom=this._buildRg(target)}
+        if(target){this.app._setFocus(target.id, s);dom=this._buildPane(target)}
       }
     }else{
       dom=this._buildNode(s.layout);
@@ -163,18 +163,18 @@ class Renderer {
 
   _buildNode(n){
     if(!n) return null;
-    if(n.type==='pane') return this._buildRg(n);
+    if(n.type==='pane') return this._buildPane(n);
     if(n.type==='split'&&n.children) return this._buildSp(n);
     return null;
   }
 
-  _buildRg(n){
+  _buildPane(n){
     const el=document.createElement('div');
     // FR-PAN-9: 활성탭 pane 이 주의 상태이고 pane 이 포커스 안 됐을 때만 pane 강조
     const focused=n.id===this.app.focused;
     const at0=(n.tabs||[]).find(t=>t.id===n.activeTab);
-    const rgAttn=!focused&&at0&&this.app._attnHas(at0.toolId);
-    el.className='pn'+(focused?' focused':'')+(rgAttn?' attn':'');
+    const paneAttn=!focused&&at0&&this.app._attnHas(at0.toolId);
+    el.className='pn'+(focused?' focused':'')+(paneAttn?' attn':'');
     el.dataset.paneid=n.id;
     const tabs=document.createElement('div'); tabs.className='pn-tabs';
     for(const tab of(n.tabs||[])){
@@ -182,29 +182,29 @@ class Renderer {
       // FR-PAN-9/TC-PAN-17: 사용자가 지금 보고 있는 탭(포커스+활성)은 강조하지 않음
       const tabActive=tab.id===n.activeTab;
       const tabAttn=this.app._attnHas(tab.toolId)&&!(focused&&tabActive);
-      t.className='rt'+(tabActive?' active':'')+(tabAttn?' attn':'');
+      t.className='pn-tab'+(tabActive?' active':'')+(tabAttn?' attn':'');
       t.dataset.tabId=tab.id;
       if(tab.toolId) t.dataset.toolid=tab.toolId;
-      t.innerHTML='<span class="rt-label"></span><span class="rt-x">×</span>';
-      t.querySelector('.rt-label').textContent=(tab.dirty?'● ':'')+tab.name;
+      t.innerHTML='<span class="pn-tab-label"></span><span class="pn-tab-x">×</span>';
+      t.querySelector('.pn-tab-label').textContent=(tab.dirty?'● ':'')+tab.name;
       t.addEventListener('click',e=>{
         e.stopPropagation();
-        if(e.target.classList.contains('rt-x')) this.app.closeTab(n.id,tab.id);
+        if(e.target.classList.contains('pn-tab-x')) this.app.closeTab(n.id,tab.id);
         else this.app.switchTab(n.id,tab.id);
       });
-      t.querySelector('.rt-label').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(tab,e.target)});
+      t.querySelector('.pn-tab-label').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(tab,e.target)});
       t.draggable=true;
       t.addEventListener('dragstart',e=>{this.app._drag={type:'tab',srcPaneId:n.id,tabId:tab.id};e.dataTransfer.effectAllowed='move';e.stopPropagation();setTimeout(()=>t.classList.add('dragging'),0)});
-      t.addEventListener('dragend',()=>{this.app._drag=null;t.classList.remove('dragging');tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none')});
-      t.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));const rect=t.getBoundingClientRect();t.classList.add(e.clientX<rect.left+rect.width/2?'drag-left':'drag-right');document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none')});
-      t.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));const s=this.app._aw();if(!s)return;if(srcPaneId===n.id){const pn=findPane(s.layout,n.id);if(!pn)return;const si=pn.tabs.findIndex(tt=>tt.id===tabId);const di=pn.tabs.findIndex(tt=>tt.id===tab.id);if(si<0||di<0||si===di)return;const rect=t.getBoundingClientRect();const insBefore=e.clientX<rect.left+rect.width/2;const[moved]=pn.tabs.splice(si,1);let ins=pn.tabs.findIndex(tt=>tt.id===tab.id);if(!insBefore)ins++;pn.tabs.splice(ins,0,moved);pn.activeTab=tabId;this.app._save();this.app.render()}else{const rect=t.getBoundingClientRect();this.app._moveTabToPane(srcPaneId,tabId,n.id,tab.id,e.clientX<rect.left+rect.width/2)}});
+      t.addEventListener('dragend',()=>{this.app._drag=null;t.classList.remove('dragging');tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none')});
+      t.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));const rect=t.getBoundingClientRect();t.classList.add(e.clientX<rect.left+rect.width/2?'drag-left':'drag-right');document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none')});
+      t.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));const s=this.app._aw();if(!s)return;if(srcPaneId===n.id){const pn=findPane(s.layout,n.id);if(!pn)return;const si=pn.tabs.findIndex(tt=>tt.id===tabId);const di=pn.tabs.findIndex(tt=>tt.id===tab.id);if(si<0||di<0||si===di)return;const rect=t.getBoundingClientRect();const insBefore=e.clientX<rect.left+rect.width/2;const[moved]=pn.tabs.splice(si,1);let ins=pn.tabs.findIndex(tt=>tt.id===tab.id);if(!insBefore)ins++;pn.tabs.splice(ins,0,moved);pn.activeTab=tabId;this.app._save();this.app.render()}else{const rect=t.getBoundingClientRect();this.app._moveTabToPane(srcPaneId,tabId,n.id,tab.id,e.clientX<rect.left+rect.width/2)}});
       tabs.appendChild(t);
     }
-    const add=document.createElement('button'); add.className='rt-add'; add.textContent='+';
+    const add=document.createElement('button'); add.className='pn-tab-add'; add.textContent='+';
     add.addEventListener('click',e=>{e.stopPropagation();this.app.addTab(n.id)});
     tabs.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();if(this.app._drag.srcPaneId!==n.id)tabs.classList.add('drag-target')});
     tabs.addEventListener('dragleave',e=>{if(!tabs.contains(e.relatedTarget))tabs.classList.remove('drag-target')});
-    tabs.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();tabs.classList.remove('drag-target');tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;const s=this.app._aw();if(!s)return;if(srcPaneId===n.id){const pn=findPane(s.layout,n.id);if(!pn)return;const si=pn.tabs.findIndex(t=>t.id===tabId);if(si<0)return;const[moved]=pn.tabs.splice(si,1);pn.tabs.push(moved);pn.activeTab=tabId;this.app._save();this.app.render()}else{this.app._moveTabToPane(srcPaneId,tabId,n.id,null,false)}});
+    tabs.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();tabs.classList.remove('drag-target');tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;const s=this.app._aw();if(!s)return;if(srcPaneId===n.id){const pn=findPane(s.layout,n.id);if(!pn)return;const si=pn.tabs.findIndex(t=>t.id===tabId);if(si<0)return;const[moved]=pn.tabs.splice(si,1);pn.tabs.push(moved);pn.activeTab=tabId;this.app._save();this.app.render()}else{this.app._moveTabToPane(srcPaneId,tabId,n.id,null,false)}});
     tabs.appendChild(add); el.appendChild(tabs);
     const body=document.createElement('div'); body.className='pn-body';
     const at=(n.tabs||[]).find(t=>t.id===n.activeTab);
@@ -218,7 +218,7 @@ class Renderer {
         if(p){body.appendChild(p.el);p.el.classList.add('vis')}
       }
     }
-    body.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.rt').forEach(r=>r.classList.remove('drag-left','drag-right'));this.app._showBodyDropIndicator(body,this.app._getDragZone(body,e))});
+    body.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));this.app._showBodyDropIndicator(body,this.app._getDragZone(body,e))});
     body.addEventListener('dragleave',e=>{if(!body.contains(e.relatedTarget))this.app._clearBodyDropIndicator(body)});
     body.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='tab')return;const zone=this.app._getDragZone(body,e);const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;this.app._clearBodyDropIndicator(body);if(zone==='center'){if(srcPaneId===n.id)return;this.app._moveTabToPane(srcPaneId,tabId,n.id,null,false)}else{this.app._splitPaneWithTab(srcPaneId,tabId,n.id,zone)}});
     el.appendChild(body);

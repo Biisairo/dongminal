@@ -435,7 +435,7 @@ func (ps *PanedServer) Accept() error {
 		if prev := p.relay.Load(); prev != nil {
 			baseExit = prev.onExit
 		}
-		p.relay.Store(&paneRelay{
+		p.relay.Store(&toolRelay{
 			onOutput: func(toolID string, data []byte) {
 				ps.mu.Lock()
 				c := ps.currConn

@@ -27,7 +27,7 @@ func newAttnPane(id string, mu *sync.Mutex, attn *[]string, clear *[]string) *To
 }
 
 // TC-PAN-8/9/10: idle sweeper edge semantics.
-func TestPane_MaybeIdle_FiresOncePerQuietEdge(t *testing.T) {
+func TestTool_MaybeIdle_FiresOncePerQuietEdge(t *testing.T) {
 	defer func(orig func(*Tool) bool) { attnBusyProbe = orig }(attnBusyProbe)
 	attnBusyProbe = func(*Tool) bool { return true } // tool has a running agent
 	var mu sync.Mutex
@@ -59,7 +59,7 @@ func TestPane_MaybeIdle_FiresOncePerQuietEdge(t *testing.T) {
 	}
 }
 
-func TestPane_MaybeIdle_NoActivityNeverFires(t *testing.T) {
+func TestTool_MaybeIdle_NoActivityNeverFires(t *testing.T) {
 	var mu sync.Mutex
 	var attn, clear []string
 	p := newAttnPane("1", &mu, &attn, &clear)
@@ -72,7 +72,7 @@ func TestPane_MaybeIdle_NoActivityNeverFires(t *testing.T) {
 
 // Idle must NOT fire for a bare shell (no foreground process) — this is the
 // daemon-restart flood guard.
-func TestPane_MaybeIdle_GatedByBusy(t *testing.T) {
+func TestTool_MaybeIdle_GatedByBusy(t *testing.T) {
 	defer func(orig func(*Tool) bool) { attnBusyProbe = orig }(attnBusyProbe)
 	var mu sync.Mutex
 	var attn, clear []string
@@ -99,7 +99,7 @@ func TestPane_MaybeIdle_GatedByBusy(t *testing.T) {
 	}
 }
 
-func TestPane_MaybeIdle_DisabledThreshold(t *testing.T) {
+func TestTool_MaybeIdle_DisabledThreshold(t *testing.T) {
 	var mu sync.Mutex
 	var attn, clear []string
 	p := newAttnPane("1", &mu, &attn, &clear)
@@ -112,7 +112,7 @@ func TestPane_MaybeIdle_DisabledThreshold(t *testing.T) {
 
 // Idle must NOT fire while the agent is actively working (activity state
 // "working"). A thinking agent that pauses output is not waiting for input.
-func TestPane_MaybeIdle_SuppressedWhileWorking(t *testing.T) {
+func TestTool_MaybeIdle_SuppressedWhileWorking(t *testing.T) {
 	defer func(orig func(*Tool) bool) { attnBusyProbe = orig }(attnBusyProbe)
 	attnBusyProbe = func(*Tool) bool { return true }
 	var mu sync.Mutex
@@ -150,7 +150,7 @@ func TestPane_MaybeIdle_SuppressedWhileWorking(t *testing.T) {
 }
 
 // TC-PAN-11: repeated signal while already in attention fires the edge once.
-func TestPane_SetAttention_EdgeOnly(t *testing.T) {
+func TestTool_SetAttention_EdgeOnly(t *testing.T) {
 	var mu sync.Mutex
 	var attn, clear []string
 	p := newAttnPane("2", &mu, &attn, &clear)
@@ -167,7 +167,7 @@ func TestPane_SetAttention_EdgeOnly(t *testing.T) {
 
 // TC-PAN-12: attend (focus/clear path) clears attention once + disarms idle;
 // attending a non-attention tool is a no-op.
-func TestPane_Attend_ClearsOnce(t *testing.T) {
+func TestTool_Attend_ClearsOnce(t *testing.T) {
 	var mu sync.Mutex
 	var attn, clear []string
 	p := newAttnPane("3", &mu, &attn, &clear)
@@ -191,7 +191,7 @@ func TestPane_Attend_ClearsOnce(t *testing.T) {
 }
 
 // TC-PAN-13: AttentionIDs + endpoint return current attention set.
-func TestPaneManager_AttentionIDs_AndEndpoint(t *testing.T) {
+func TestToolManager_AttentionIDs_AndEndpoint(t *testing.T) {
 	m := NewToolManager("", nil)
 	p2 := &Tool{ID: "2"}
 	p2.attention.Store(true)
@@ -209,7 +209,7 @@ func TestPaneManager_AttentionIDs_AndEndpoint(t *testing.T) {
 		t.Fatalf("AttentionIDs want [2 5], got %v", ids)
 	}
 
-	s := &Server{Panes: m}
+	s := &Server{Tools: m}
 	rec := httptest.NewRecorder()
 	s.apiToolsAttention(rec, httptest.NewRequest(http.MethodGet, "/api/tools/attention", nil))
 	var got struct {
@@ -224,7 +224,7 @@ func TestPaneManager_AttentionIDs_AndEndpoint(t *testing.T) {
 }
 
 // apiToolAttentionClear clears via the focus path and tolerates unknown tools.
-func TestApiPaneAttentionClear(t *testing.T) {
+func TestApiToolAttentionClear(t *testing.T) {
 	m := NewToolManager("", nil)
 	var mu sync.Mutex
 	var attn, clear []string
@@ -234,7 +234,7 @@ func TestApiPaneAttentionClear(t *testing.T) {
 	m.tools["4"] = p
 	m.mu.Unlock()
 
-	s := &Server{Panes: m}
+	s := &Server{Tools: m}
 
 	// unknown tool → 200 no-op.
 	rec := httptest.NewRecorder()
@@ -268,7 +268,7 @@ func TestApiPaneAttentionClear(t *testing.T) {
 }
 
 // FR-PAN-18: dmctl notify → set endpoint flags a tool (hook bridge).
-func TestApiPaneAttentionSet(t *testing.T) {
+func TestApiToolAttentionSet(t *testing.T) {
 	m := NewToolManager("", nil)
 	var mu sync.Mutex
 	var attn, clear []string
@@ -276,7 +276,7 @@ func TestApiPaneAttentionSet(t *testing.T) {
 	m.mu.Lock()
 	m.tools["9"] = p
 	m.mu.Unlock()
-	s := &Server{Panes: m}
+	s := &Server{Tools: m}
 
 	rec := httptest.NewRecorder()
 	s.apiToolAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/set",
@@ -325,7 +325,7 @@ func TestClearAllAttention_AndEndpoint(t *testing.T) {
 		m.mu.Unlock()
 	}
 
-	s := &Server{Panes: m}
+	s := &Server{Tools: m}
 	rec := httptest.NewRecorder()
 	s.apiToolAttentionClearAll(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear-all", nil))
 	var got struct {

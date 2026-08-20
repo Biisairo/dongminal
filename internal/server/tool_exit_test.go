@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func TestPaneOnExitAndWait(t *testing.T) {
+func TestToolOnExitAndWait(t *testing.T) {
 	called := make(chan string, 1)
 	p, err := StartTool("t1", "test", "", 80, 24, func(id string) {
 		called <- id

@@ -152,9 +152,9 @@ func boundedCarry(frag []byte, maxCarry int) []byte {
 	return append([]byte(nil), frag...)
 }
 
-// paneAttentionPayload / paneAttentionClearPayload build the SSE event bodies
+// toolAttentionPayload / toolAttentionClearPayload build the SSE event bodies
 // broadcast via CommandHub. Keys are lowerCamelCase.
-func paneAttentionPayload(toolID, reason string) []byte {
+func toolAttentionPayload(toolID, reason string) []byte {
 	b, _ := json.Marshal(map[string]any{
 		"action": "tool_attention",
 		"args":   map[string]any{"toolId": toolID, "reason": reason},
@@ -162,7 +162,7 @@ func paneAttentionPayload(toolID, reason string) []byte {
 	return b
 }
 
-func paneAttentionClearPayload(toolID string) []byte {
+func toolAttentionClearPayload(toolID string) []byte {
 	b, _ := json.Marshal(map[string]any{
 		"action": "tool_attention_clear",
 		"args":   map[string]any{"toolId": toolID},
@@ -174,7 +174,7 @@ func paneAttentionClearPayload(toolID string) []byte {
 // from the composition root once both the ToolManager and CommandHub exist.
 func WireAttention(pm *ToolManager, hub CommandBroker) {
 	pm.SetAttentionNotifier(
-		func(id, reason string) { hub.Broadcast(paneAttentionPayload(id, reason)) },
-		func(id string) { hub.Broadcast(paneAttentionClearPayload(id)) },
+		func(id, reason string) { hub.Broadcast(toolAttentionPayload(id, reason)) },
+		func(id string) { hub.Broadcast(toolAttentionClearPayload(id)) },
 	)
 }

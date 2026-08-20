@@ -1,7 +1,7 @@
 package mcptool
 
-// PaneInfo is a minimal summary of a live tool for tool consumption.
-type PaneInfo struct {
+// ToolInfo is a minimal summary of a live tool for tool consumption.
+type ToolInfo struct {
 	ID       string
 	Name     string
 	ShellPID int
@@ -10,7 +10,7 @@ type PaneInfo struct {
 // ToolReader exposes read/write access to PTY-backed tools without leaking
 // the concrete Tool type into the tool layer.
 type ToolReader interface {
-	List() []PaneInfo
+	List() []ToolInfo
 	Has(toolID string) bool
 	Snapshot(toolID string) (data []byte, droppedTotal int64, ok bool)
 	SendPaste(toolID string, text []byte, submit bool) error
@@ -71,8 +71,8 @@ type CommandBroadcaster interface {
 	BroadcastAndAwait(payload []byte, reqId string) (CmdResult, int, bool)
 }
 
-// ClientPaneResolver maps an SSE client's remote address to the tool whose
+// ClientToolResolver maps an SSE client's remote address to the tool whose
 // shell hosts it (via PID parent-chain walking).
-type ClientPaneResolver interface {
+type ClientToolResolver interface {
 	ResolveClientPane(remoteAddr string) (toolID string, shellPID int, err error)
 }

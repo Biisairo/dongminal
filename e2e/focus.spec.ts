@@ -32,8 +32,8 @@ test.describe('Focus movement', () => {
     await waitForInit(page);
 
     // Click the "+" tab button inside the focused pane.
-    const addTabBtn = page.locator('#area .pn.focused .rt-add');
-    const before = await page.locator('#area .pn.focused .rt').count();
+    const addTabBtn = page.locator('#area .pn.focused .pn-tab-add');
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       addTabBtn.click(),
@@ -41,9 +41,9 @@ test.describe('Focus movement', () => {
     expect(resp.status()).toBe(200);
 
     // Tab count increased by 1.
-    await expect(page.locator('#area .pn.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
     // Exactly one active tab.
-    await expect(page.locator('#area .pn.focused .rt.active')).toHaveCount(1);
+    await expect(page.locator('#area .pn.focused .pn-tab.active')).toHaveCount(1);
     // Pane itself stays focused.
     await expect(page.locator('#area .pn.focused')).toHaveCount(1);
   });

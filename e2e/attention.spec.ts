@@ -30,17 +30,17 @@ test.describe('Pane attention', () => {
 
     // Add a new tab → it becomes the focused/active tab; the first tab's pane
     // is now in the background.
-    const before = await page.locator('#area .pn.focused .rt').count();
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-      page.locator('#area .pn.focused .rt-add').click(),
+      page.locator('#area .pn.focused .pn-tab-add').click(),
     ]);
     expect(resp.status()).toBe(200);
-    await expect(page.locator('#area .pn.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
 
     // The background (first) tab gains the attention highlight; it must NOT be
     // the focus/active styling (distinct class).
-    const firstTab = page.locator('#area .pn.focused .rt').first();
+    const firstTab = page.locator('#area .pn.focused .pn-tab').first();
     await expect(firstTab).toHaveClass(/attn/, { timeout: 10000 });
     await expect(firstTab).not.toHaveClass(/active/);
 
@@ -63,7 +63,7 @@ test.describe('Pane attention', () => {
 
     // Clicking the item jumps to that pane → attention clears everywhere.
     await page.locator('#attn-center .attn-item').first().click();
-    await expect(page.locator('#area .pn.focused .rt').first()).not.toHaveClass(/attn/, { timeout: 10000 });
+    await expect(page.locator('#area .pn.focused .pn-tab').first()).not.toHaveClass(/attn/, { timeout: 10000 });
     await expect(badge).toBeHidden();
     await expect.poll(() => page.title()).not.toContain('(1)');
   });

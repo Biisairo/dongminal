@@ -256,7 +256,7 @@ func TestResolveByLabel(t *testing.T) {
 	}
 }
 
-func TestResolveDeadPane(t *testing.T) {
+func TestResolveDeadTool(t *testing.T) {
 	live := newFakeLive("10", "11", "12")
 	store := &memPersister{data: []byte(sampleWS)}
 	m, err := New(live, store)

@@ -124,7 +124,7 @@ func (pc *ToolClient) supervise() {
 		if pc.stopped.Load() {
 			return
 		}
-		log.Printf("paneclient: connection lost, reconnecting...")
+		log.Printf("toolclient: connection lost, reconnecting...")
 		backoff := time.Second
 		fails := 0
 		for {
@@ -137,12 +137,12 @@ func (pc *ToolClient) supervise() {
 			case <-time.After(backoff):
 			}
 			if err := pc.connect(); err == nil {
-				log.Printf("paneclient: reconnected")
+				log.Printf("toolclient: reconnected")
 				break
 			}
 			fails++
 			if pc.spawnDaemon != nil && fails%panedRespawnEvery == 0 {
-				log.Printf("paneclient: respawning dongminald after %d failed dials", fails)
+				log.Printf("toolclient: respawning dongminald after %d failed dials", fails)
 				_ = pc.spawnDaemon()
 			}
 			if backoff < panedMaxBackoff {
@@ -163,7 +163,7 @@ func (pc *ToolClient) readLoop(conn net.Conn, cd chan struct{}) {
 		var raw json.RawMessage
 		if err := dec.Decode(&raw); err != nil {
 			if !pc.stopped.Load() {
-				log.Printf("paneclient read: %v", err)
+				log.Printf("toolclient read: %v", err)
 			}
 			break
 		}
@@ -258,7 +258,7 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 			case ch <- data:
 			default:
 				if n := pc.dropped.Add(1); n == 1 || n%256 == 0 {
-					log.Printf("paneclient: WS output backpressure tool=%s dropped=%d (slow browser?)", ev.Tool, n)
+					log.Printf("toolclient: WS output backpressure tool=%s dropped=%d (slow browser?)", ev.Tool, n)
 				}
 			}
 		}
@@ -312,7 +312,7 @@ func (pc *ToolClient) call(method string, params interface{}) (map[string]interf
 	pc.mu.Lock()
 	if pc.enc == nil {
 		pc.mu.Unlock()
-		return nil, fmt.Errorf("paneclient not connected")
+		return nil, fmt.Errorf("toolclient not connected")
 	}
 	id := pc.nextID
 	pc.nextID++
@@ -364,7 +364,7 @@ func (pc *ToolClient) call(method string, params interface{}) (map[string]interf
 		pc.dropIfCurrent(cd)
 		return nil, fmt.Errorf("paned call %q timed out", method)
 	case <-pc.closed:
-		return nil, fmt.Errorf("paneclient closed")
+		return nil, fmt.Errorf("toolclient closed")
 	}
 }
 

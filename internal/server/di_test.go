@@ -11,15 +11,15 @@ import (
 	"time"
 )
 
-// TestHandlerPanesGetUsesFake: fake ToolHub 주입 → GET /api/state 응답의
+// TestHandlerToolsGetUsesFake: fake ToolHub 주입 → GET /api/state 응답의
 // tools 배열이 fake 데이터를 반영함을 검증한다.
 // (라우트 테이블에 /api/tools GET 이 없어 /api/state 경유로 List() 를 호출)
-func TestHandlerPanesGetUsesFake(t *testing.T) {
+func TestHandlerToolsGetUsesFake(t *testing.T) {
 	fp := newFakePaneHub()
 	fp.seed("fake-a", "Alpha")
 	fp.seed("fake-b", "Beta")
 
-	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Panes: fp})
+	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Tools: fp})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -36,20 +36,20 @@ func TestHandlerPanesGetUsesFake(t *testing.T) {
 		t.Fatalf("status=%d body=%s", resp.StatusCode, body)
 	}
 	var body struct {
-		Panes []map[string]interface{} `json:"tools"`
+		Tools []map[string]interface{} `json:"tools"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(body.Panes) != 2 {
-		t.Fatalf("want 2 tools, got %d: %+v", len(body.Panes), body.Panes)
+	if len(body.Tools) != 2 {
+		t.Fatalf("want 2 tools, got %d: %+v", len(body.Tools), body.Tools)
 	}
 	ids := map[string]bool{}
-	for _, p := range body.Panes {
+	for _, p := range body.Tools {
 		ids[p["id"].(string)] = true
 	}
 	if !ids["fake-a"] || !ids["fake-b"] {
-		t.Fatalf("missing fake tool ids: %+v", body.Panes)
+		t.Fatalf("missing fake tool ids: %+v", body.Tools)
 	}
 }
 
@@ -101,7 +101,7 @@ func TestHandlerWorkspacePutIfMatch(t *testing.T) {
 // Dispatch 가 올바른 이름·args 로 호출되고 응답이 세션 채널로 흘러온다.
 func TestMCPDispatchUsesFakeTools(t *testing.T) {
 	ft := newFakeToolDispatcher()
-	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Tools: ft})
+	srv, err := New(Config{DataDir: t.TempDir()}, Deps{MCPTools: ft})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
