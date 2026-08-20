@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -169,7 +170,7 @@ func runMigrate(home string, args []string) {
 }
 
 // runDaemon is the entry point for dongminald (DAEMON_SPLIT_SRS Phase 2).
-// It creates a PaneManager, loads panes.json, and listens on a Unix socket.
+// It creates a PaneManager, loads tools.json, and listens on a Unix socket.
 func runDaemon(home string) {
 	log.Printf("dongminald starting home=%s", home)
 
@@ -397,6 +398,14 @@ func main() {
 		bd, err = buildDeps(cfg)
 	}
 	if err != nil {
+		// 스키마 미달은 사용자가 조치할 수 있는 상태다 — 스택 대신 안내를 낸다.
+		if errors.Is(err, workspace.ErrSchemaTooOld) {
+			log.Printf("workspace.json 이 구 스키마입니다.")
+			log.Printf("  1) 서버와 데몬을 완전히 정지: ./scripts/stop.sh --all")
+			log.Printf("  2) 변환 내용 확인:            dongminal migrate --dry-run")
+			log.Printf("  3) 변환 실행:                 dongminal migrate")
+			os.Exit(1)
+		}
 		log.Fatalf("buildDeps: %v", err)
 	}
 	log.Printf("workspace manager ready rev=%d bytes=%d", bd.wsMgr.CurrentRev(), len(bd.wsMgr.Raw()))

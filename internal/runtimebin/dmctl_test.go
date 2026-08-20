@@ -21,7 +21,7 @@ func TestParseDmctlFlags(t *testing.T) {
 		{"empty", nil, dmctlParsed{}, false},
 		{"location_long", []string{"--at", "1.2.3"}, dmctlParsed{location: "1.2.3"}, false},
 		{"location_short_eq", []string{"-l=2.1"}, dmctlParsed{location: "2.1"}, false},
-		{"location_long_eq", []string{"--at=S4.P1.T1"}, dmctlParsed{location: "S4.P1.T1"}, false},
+		{"location_long_eq", []string{"--at=W4.P1.T1"}, dmctlParsed{location: "W4.P1.T1"}, false},
 		{"keep_focus", []string{"-n"}, dmctlParsed{keepFocus: true}, false},
 		{"positional", []string{"3"}, dmctlParsed{positional: "3"}, false},
 		{"mixed", []string{"--no-focus", "--at", "1.1.1", "5"}, dmctlParsed{location: "1.1.1", keepFocus: true, positional: "5"}, false},
@@ -336,10 +336,10 @@ const listPanesFakeState = `{
     {"id":"20","name":"Shell B","pid":22222}
   ],
   "workspace":{
-    "activeSession":"sb",
-    "sessions":[
-      {"id":"sa","name":"Main","focusedRegion":"ra","layout":{"type":"region","id":"ra","activeTab":"taba","tabs":[{"id":"550e8400-e29b-41d4-a716-446655440aaa","name":"shell-a","paneId":"10"}]}},
-      {"id":"sb","name":"Work","focusedRegion":"rb","layout":{"type":"region","id":"rb","activeTab":"550e8400-e29b-41d4-a716-446655440bbb","tabs":[{"id":"550e8400-e29b-41d4-a716-446655440bbb","name":"shell-b","paneId":"20"}]}}
+    "activeWindow":"sb",
+    "schemaVersion": 2, "windows":[
+      {"id":"sa","name":"Main","focusedPane":"ra","layout":{"type":"pane","id":"ra","activeTab":"taba","tabs":[{"id":"550e8400-e29b-41d4-a716-446655440aaa","name":"shell-a","toolId":"10"}]}},
+      {"id":"sb","name":"Work","focusedPane":"rb","layout":{"type":"pane","id":"rb","activeTab":"550e8400-e29b-41d4-a716-446655440bbb","tabs":[{"id":"550e8400-e29b-41d4-a716-446655440bbb","name":"shell-b","toolId":"20"}]}}
     ]
   }
 }`
@@ -364,11 +364,11 @@ func TestRunDmctlListPanes_TextOutput(t *testing.T) {
 	out := stdout.String()
 
 	// 첫 pane (포커스 없음): 두 칸 공백 prefix. size 미노출(panes[]에 sizeCols/Rows 없음) → 컬럼 생략.
-	if !strings.Contains(out, "  label=S1.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440aaa  short=550e8400  paneId=10  shellPid=11111  session=\"Main\"  tab=\"shell-a\"  session_uuid=sa  region_uuid=ra") {
+	if !strings.Contains(out, "  label=W1.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440aaa  short=550e8400  paneId=10  shellPid=11111  session=\"Main\"  tab=\"shell-a\"  session_uuid=sa  region_uuid=ra") {
 		t.Errorf("missing/wrong non-focus line:\n%s", out)
 	}
 	// 두 번째 pane (포커스): ▶ prefix.
-	if !strings.Contains(out, "▶ label=S2.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440bbb  short=550e8400  paneId=20  shellPid=22222  session=\"Work\"  tab=\"shell-b\"  session_uuid=sb  region_uuid=rb") {
+	if !strings.Contains(out, "▶ label=W2.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440bbb  short=550e8400  paneId=20  shellPid=22222  session=\"Work\"  tab=\"shell-b\"  session_uuid=sb  region_uuid=rb") {
 		t.Errorf("missing/wrong focus line:\n%s", out)
 	}
 }
@@ -392,7 +392,7 @@ func TestRunDmctlListPanes_JSON(t *testing.T) {
 	if len(arr) != 2 {
 		t.Fatalf("len=%d want 2", len(arr))
 	}
-	if arr[0]["label"] != "S1.P1.T1" || arr[0]["uuid"] != "550e8400-e29b-41d4-a716-446655440aaa" {
+	if arr[0]["label"] != "W1.P1.T1" || arr[0]["uuid"] != "550e8400-e29b-41d4-a716-446655440aaa" {
 		t.Errorf("arr[0]=%+v", arr[0])
 	}
 	if arr[0]["focused"] != false || arr[1]["focused"] != true {

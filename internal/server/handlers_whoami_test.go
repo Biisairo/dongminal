@@ -30,7 +30,7 @@ func TestApiWhoAmI_HappyPath(t *testing.T) {
 	fpm := &sizedPaneHub{fakePaneHub: pm, cols: 80, rows: 24}
 	fw := newFakeWorkspaceStore()
 	fw.entries = []workspace.PaneLabel{{
-		PaneID: "p1", Label: "S1.P1.T1",
+		PaneID: "p1", Label: "W1.P1.T1",
 		SessionName: "Main", TabName: "Shell",
 		IsActive:    true,
 		SessionUUID: "su1", RegionUUID: "ru1",
@@ -58,7 +58,7 @@ func TestApiWhoAmI_HappyPath(t *testing.T) {
 	want := map[string]interface{}{
 		"paneId":      "p1",
 		"shellPid":    float64(12345),
-		"label":       "S1.P1.T1",
+		"label":       "W1.P1.T1",
 		"uuid":        "tu1",
 		"short":       "tu1short",
 		"sizeCols":    float64(80),

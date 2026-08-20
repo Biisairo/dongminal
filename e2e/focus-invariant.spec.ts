@@ -1,7 +1,7 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
 
 // SRS: APP_DECOMPOSE_SRS.md (S1-Phase1)
-//   불변식: this.focused === active session.focusedRegion
+//   불변식: this.focused === active session.focusedPane
 //   본 스펙은 _setFocus 도입 이후 18 사이트의 동작이 1:1 보존되는지 검증.
 
 async function resetWorkspace(request: APIRequestContext) {
@@ -9,7 +9,7 @@ async function resetWorkspace(request: APIRequestContext) {
   const rev = get.headers()['etag'] || '0';
   await request.put('/api/workspace', {
     headers: { 'If-Match': rev, 'Content-Type': 'application/json' },
-    data: '{}',
+    data: '{"schemaVersion":2,"windows":[]}',
   });
 }
 
@@ -26,11 +26,11 @@ async function waitForInit(page: Page, request: APIRequestContext) {
 async function readInvariant(page: Page) {
   return page.evaluate(() => {
     const a = (window as any).app;
-    const sess = a.ws.sessions.find((s: any) => s.id === a.ws.activeSession);
+    const sess = a.ws.windows.find((s: any) => s.id === a.ws.activeWindow);
     return {
       focused: a.focused,
-      sessionFocusedRegion: sess ? sess.focusedRegion : null,
-      activeSession: a.ws.activeSession,
+      sessionFocusedRegion: sess ? sess.focusedPane : null,
+      activeWindow: a.ws.activeWindow,
     };
   });
 }
@@ -74,12 +74,12 @@ test.describe('Focus invariant (S1-Phase1)', () => {
 
     // Add a second session.
     await page.evaluate(() => (window as any).app.addSession());
-    await page.waitForFunction(() => (window as any).app.ws.sessions.length === 2, { timeout: 5000 });
+    await page.waitForFunction(() => (window as any).app.ws.windows.length === 2, { timeout: 5000 });
 
     // Switch back to the first session.
     await page.evaluate(() => {
       const a = (window as any).app;
-      a.switchSession(a.ws.sessions[0].id);
+      a.switchSession(a.ws.windows[0].id);
     });
     await page.waitForTimeout(150);
 
@@ -105,16 +105,16 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     });
     await page.waitForFunction(() => {
       const a = (window as any).app;
-      const sess = a.ws.sessions.find((s: any) => s.id === a.ws.activeSession);
-      const findRg = (n: any): any => n && (n.type === 'region' ? n : (n.children || []).map(findRg).find(Boolean));
+      const sess = a.ws.windows.find((s: any) => s.id === a.ws.activeWindow);
+      const findRg = (n: any): any => n && (n.type === 'pane' ? n : (n.children || []).map(findRg).find(Boolean));
       const rg = findRg(sess.layout);
       return rg && rg.tabs.length >= 3;
     }, { timeout: 10000 });
 
     const tabIds = await page.evaluate(() => {
       const a = (window as any).app;
-      const sess = a.ws.sessions.find((s: any) => s.id === a.ws.activeSession);
-      const findRg = (n: any): any => n && (n.type === 'region' ? n : (n.children || []).map(findRg).find(Boolean));
+      const sess = a.ws.windows.find((s: any) => s.id === a.ws.activeWindow);
+      const findRg = (n: any): any => n && (n.type === 'pane' ? n : (n.children || []).map(findRg).find(Boolean));
       return findRg(sess.layout).tabs.map((t: any) => t.id);
     });
     expect(tabIds.length).toBeGreaterThanOrEqual(3);
@@ -123,8 +123,8 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     await page.evaluate((tid) => (window as any).app.switchTab((window as any).app.focused, tid), tabIds[1]);
     await page.waitForFunction((tid) => {
       const a = (window as any).app;
-      const sess = a.ws.sessions.find((s: any) => s.id === a.ws.activeSession);
-      const findRg = (n: any): any => n && (n.type === 'region' ? n : (n.children || []).map(findRg).find(Boolean));
+      const sess = a.ws.windows.find((s: any) => s.id === a.ws.activeWindow);
+      const findRg = (n: any): any => n && (n.type === 'pane' ? n : (n.children || []).map(findRg).find(Boolean));
       return findRg(sess.layout).activeTab === tid;
     }, tabIds[1], { timeout: 5000 });
 
@@ -132,8 +132,8 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     await page.evaluate((tid) => (window as any).app.closeTab((window as any).app.focused, tid), tabIds[1]);
     await page.waitForFunction((expected) => {
       const a = (window as any).app;
-      const sess = a.ws.sessions.find((s: any) => s.id === a.ws.activeSession);
-      const findRg = (n: any): any => n && (n.type === 'region' ? n : (n.children || []).map(findRg).find(Boolean));
+      const sess = a.ws.windows.find((s: any) => s.id === a.ws.activeWindow);
+      const findRg = (n: any): any => n && (n.type === 'pane' ? n : (n.children || []).map(findRg).find(Boolean));
       const rg = findRg(sess.layout);
       return rg && rg.tabs.length === 2 && rg.activeTab === expected;
     }, tabIds[2], { timeout: 5000 });
@@ -146,9 +146,9 @@ test.describe('Focus invariant (S1-Phase1)', () => {
 
     const otherRid = await page.evaluate(() => {
       const a = (window as any).app;
-      const sess = a.ws.sessions.find((s: any) => s.id === a.ws.activeSession);
+      const sess = a.ws.windows.find((s: any) => s.id === a.ws.activeWindow);
       const flat: any[] = [];
-      const walk = (n: any) => { if (!n) return; if (n.type === 'region') flat.push(n.id); (n.children || []).forEach(walk); };
+      const walk = (n: any) => { if (!n) return; if (n.type === 'pane') flat.push(n.id); (n.children || []).forEach(walk); };
       walk(sess.layout);
       return flat.find(id => id !== a.focused);
     });
@@ -205,7 +205,7 @@ test.describe('Workspace ETag (S5)', () => {
     const etag = r.headers()['etag'];
     expect(etag).toBeDefined();
     // Save a known body, fetch it back, ETag should bump and body should match.
-    const next = '{"sessions":[],"activeSession":""}';
+    const next = '{"schemaVersion":2,"windows":[],"activeWindow":""}';
     const put = await request.put('/api/workspace', {
       headers: { 'If-Match': etag, 'Content-Type': 'application/json' },
       data: next,
@@ -221,7 +221,7 @@ test.describe('Workspace ETag (S5)', () => {
 
     const r = await request.put('/api/workspace', {
       headers: { 'If-Match': '999999', 'Content-Type': 'application/json' },
-      data: '{}',
+      data: '{"schemaVersion":2,"windows":[]}',
     });
     expect(r.status()).toBe(409);
     expect(r.headers()['etag']).toBe(cur);

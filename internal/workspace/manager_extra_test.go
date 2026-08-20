@@ -158,7 +158,7 @@ func TestBuildIndex_InvalidJSON(t *testing.T) {
 }
 
 func TestBuildIndex_Active(t *testing.T) {
-	data := `{"activeSession":"s1","sessions":[{"id":"s1","name":"x","focusedRegion":"r1","layout":{"type":"region","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"a","paneId":"1"}]}}]}`
+	data := `{"activeWindow":"s1","schemaVersion": 2, "windows":[{"id":"s1","name":"x","focusedPane":"r1","layout":{"type":"pane","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"a","toolId":"1"}]}}]}`
 	ix, err := buildIndex([]byte(data))
 	if err != nil {
 		t.Fatalf("buildIndex: %v", err)

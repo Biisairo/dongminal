@@ -31,7 +31,7 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
 
 위치 식별자 — uuid 만 허용:
   - tab uuid: list-panes 의 "uuid=" 컬럼 값 (예: 550e8400-... 또는 짧은 형식 모두 OK).
-  - 좌표(4.1.1 / S4.P1.T1), 라벨, paneId 는 거부 (400 응답).
+  - 좌표(4.1.1 / W4.P1.T1), 라벨, paneId 는 거부 (400 응답).
     이유: 라벨/좌표는 다른 세션 닫힘 시 reflow 되어 다른 pane 을 가리킨다.
   서버는 uuid 를 broadcast 직전 좌표로 번역해 브라우저에 전달한다.
 

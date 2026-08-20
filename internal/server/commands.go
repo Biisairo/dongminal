@@ -191,7 +191,7 @@ var allowedCmdActions = map[string]bool{
 func (h *CommandHub) AllowedAction(a string) bool { return allowedCmdActions[a] }
 
 // translateLocationUUID rewrites args.location in-place when the value is a
-// UUID, replacing it with the canonical "S{n}.P{n}.T{n}" coordinate that the
+// UUID, replacing it with the canonical "W{n}.P{n}.T{n}" coordinate that the
 // browser parses. Non-UUID values (coordinate / paneId / label / empty) and
 // missing location field pass through with no rewrite, preserving every
 // existing dmctl and MCP call (NFR-UID-0). Returns (origLoc, finalLoc) so the

@@ -17,7 +17,7 @@ func TestListPanes_AppendsUUIDFields(t *testing.T) {
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{{
 			PaneID:      "pty-1",
-			Label:       "S1.P1.T1",
+			Label:       "W1.P1.T1",
 			SessionName: "Main",
 			TabName:     "Shell",
 			IsActive:    true,
@@ -36,7 +36,7 @@ func TestListPanes_AppendsUUIDFields(t *testing.T) {
 	if !strings.Contains(body, "short=550e8400") {
 		t.Errorf("short not in body: %q", body)
 	}
-	if !strings.Contains(body, "▶ label=S1.P1.T1") || !strings.Contains(body, "paneId=pty-1") {
+	if !strings.Contains(body, "▶ label=W1.P1.T1") || !strings.Contains(body, "paneId=pty-1") {
 		t.Errorf("existing line content broken: %q", body)
 	}
 }
@@ -48,7 +48,7 @@ func TestListPanes_OmitsUUIDFieldsWhenAbsent(t *testing.T) {
 	pr.has["1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{{
-			PaneID: "1", Label: "S1.P1.T1", IsActive: true,
+			PaneID: "1", Label: "W1.P1.T1", IsActive: true,
 		}},
 	}
 	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
@@ -67,7 +67,7 @@ func TestWhoAmI_AppendsUUIDFields(t *testing.T) {
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{{
 			PaneID:      "pty-1",
-			Label:       "S1.P1.T1",
+			Label:       "W1.P1.T1",
 			SessionName: "Main",
 			TabName:     "Shell",
 			SessionUUID: "550e8400-e29b-41d4-a716-446655440001",
@@ -85,7 +85,7 @@ func TestWhoAmI_AppendsUUIDFields(t *testing.T) {
 	body := resultText(res)
 
 	for _, want := range []string{
-		"label=S1.P1.T1",
+		"label=W1.P1.T1",
 		"paneId=pty-1",
 		"uuid=550e8400-e29b-41d4-a716-446655440003",
 		"short=550e8400",
@@ -103,7 +103,7 @@ func TestWhoAmI_OmitsUUIDFieldsWhenAbsent(t *testing.T) {
 	pr := newFakePaneReader()
 	pr.has["pty-1"] = true
 	wr := &fakeWorkspaceReader{
-		entries: []mcptool.WorkspaceEntry{{PaneID: "pty-1", Label: "S1.P1.T1"}},
+		entries: []mcptool.WorkspaceEntry{{PaneID: "pty-1", Label: "W1.P1.T1"}},
 	}
 	h := WhoAmIHandler(WhoAmIDeps{PM: pr, WS: wr, Resolver: fakeResolver{pid: "pty-1", shell: 100}})
 	ctx := mcptool.WithRemoteAddr(context.Background(), "127.0.0.1:1234")
@@ -120,7 +120,7 @@ func TestWhoAmI_OmitsUUIDFieldsWhenAbsent(t *testing.T) {
 func TestWorkspaceCommand_TranslatesUUIDLocation(t *testing.T) {
 	uuid := "550e8400-e29b-41d4-a716-446655440003"
 	b := &fakeBroadcaster{allowed: map[string]bool{"focus": true}}
-	wr := &fakeWorkspaceReader{coords: map[string]string{uuid: "S4.P1.T1"}}
+	wr := &fakeWorkspaceReader{coords: map[string]string{uuid: "W4.P1.T1"}}
 	_, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
 		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b, WS: wr}),
 		`{"action":"focus","location":"`+uuid+`"}`)
@@ -130,7 +130,7 @@ func TestWorkspaceCommand_TranslatesUUIDLocation(t *testing.T) {
 	if len(b.published) != 1 {
 		t.Fatalf("published=%d", len(b.published))
 	}
-	if !strings.Contains(string(b.published[0]), `"location":"S4.P1.T1"`) {
+	if !strings.Contains(string(b.published[0]), `"location":"W4.P1.T1"`) {
 		t.Errorf("broadcast missed coord rewrite: %s", b.published[0])
 	}
 	if strings.Contains(string(b.published[0]), uuid) {
@@ -148,7 +148,7 @@ func TestSendAgentMessage_NormalizesUUIDFrom(t *testing.T) {
 	pr.has["10"] = true
 	wr := &fakeWorkspaceReader{
 		resolve: map[string]string{toUUID: "10", fromUUID: "99"},
-		labels:  map[string]string{"10": "S2.P1.T1", "99": "S1.P1.T1"},
+		labels:  map[string]string{"10": "W2.P1.T1", "99": "W1.P1.T1"},
 	}
 	_, err := dispatch(t, SendAgentMessageName, SendAgentMessageSpec,
 		SendAgentMessageHandler(SendAgentMessageDeps{PM: pr, WS: wr}),
@@ -160,10 +160,10 @@ func TestSendAgentMessage_NormalizesUUIDFrom(t *testing.T) {
 		t.Fatalf("pastes=%v", pr.pastes)
 	}
 	envelope := pr.pastes[0]
-	if !strings.Contains(envelope, "from=S1.P1.T1") {
+	if !strings.Contains(envelope, "from=W1.P1.T1") {
 		t.Errorf("envelope from should be normalized to label, got: %q", envelope)
 	}
-	if !strings.Contains(envelope, "to=S2.P1.T1") {
+	if !strings.Contains(envelope, "to=W2.P1.T1") {
 		t.Errorf("envelope to should be normalized to label, got: %q", envelope)
 	}
 	if strings.Contains(envelope, fromUUID) || strings.Contains(envelope, toUUID) {
@@ -177,17 +177,17 @@ func TestSendAgentMessage_LabelFromPassThrough(t *testing.T) {
 	pr := newFakePaneReader()
 	pr.has["10"] = true
 	wr := &fakeWorkspaceReader{
-		resolve: map[string]string{"S2.P1.T1": "10", "S1.P1.T1": "99"},
-		labels:  map[string]string{"10": "S2.P1.T1", "99": "S1.P1.T1"},
+		resolve: map[string]string{"W2.P1.T1": "10", "W1.P1.T1": "99"},
+		labels:  map[string]string{"10": "W2.P1.T1", "99": "W1.P1.T1"},
 	}
 	_, err := dispatch(t, SendAgentMessageName, SendAgentMessageSpec,
 		SendAgentMessageHandler(SendAgentMessageDeps{PM: pr, WS: wr}),
-		`{"to":"S2.P1.T1","from":"S1.P1.T1","message":"hi"}`)
+		`{"to":"W2.P1.T1","from":"W1.P1.T1","message":"hi"}`)
 	if err != nil {
 		t.Fatalf("Dispatch: %v", err)
 	}
 	envelope := pr.pastes[0]
-	if !strings.Contains(envelope, "from=S1.P1.T1") {
+	if !strings.Contains(envelope, "from=W1.P1.T1") {
 		t.Errorf("label from should pass through verbatim, got: %q", envelope)
 	}
 }
@@ -201,11 +201,11 @@ func TestSendAgentMessage_AcceptsUUIDInTo(t *testing.T) {
 	pr.has["10"] = true
 	wr := &fakeWorkspaceReader{
 		resolve: map[string]string{tabUUID: "10"},
-		labels:  map[string]string{"10": "S2.P1.T1"},
+		labels:  map[string]string{"10": "W2.P1.T1"},
 	}
 	_, err := dispatch(t, SendAgentMessageName, SendAgentMessageSpec,
 		SendAgentMessageHandler(SendAgentMessageDeps{PM: pr, WS: wr}),
-		`{"to":"`+tabUUID+`","from":"S1.P1.T1","message":"hi"}`)
+		`{"to":"`+tabUUID+`","from":"W1.P1.T1","message":"hi"}`)
 	if err != nil {
 		t.Fatalf("Dispatch: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestSendAgentMessage_AcceptsUUIDInTo(t *testing.T) {
 		t.Fatalf("pastes=%v", pr.pastes)
 	}
 	envelope := pr.pastes[0]
-	if !strings.Contains(envelope, "to=S2.P1.T1") {
+	if !strings.Contains(envelope, "to=W2.P1.T1") {
 		t.Errorf("envelope should display resolved label, got: %q", envelope)
 	}
 	if !strings.Contains(envelope, "hi") {

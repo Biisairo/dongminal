@@ -14,6 +14,14 @@ import (
 
 var ErrStale = errors.New("workspace: stale revision")
 
+// ErrSchemaTooOld는 workspace.json 이 v2 미만일 때 반환된다 (FR-EM-2a).
+// 구 스키마를 빈 workspace 와 구별할 수 없으므로 조용히 넘기지 않고
+// 명시적으로 실패한다 — 방치하면 브라우저가 빈 상태를 저장해 덮어쓴다.
+var ErrSchemaTooOld = errors.New("workspace: schemaVersion 이 2 미만입니다 — `dongminal migrate` 를 먼저 실행하세요")
+
+// SchemaVersion은 이 코드가 읽고 쓰는 workspace.json 스키마 버전이다.
+const SchemaVersion = 2
+
 type PaneLabel struct {
 	PaneID      string
 	Label       string
@@ -92,6 +100,12 @@ func New(live Liveness, store Persister) (*Manager, error) {
 	m.snap.Store(&snap{raw: buf, rev: 0})
 	ix, perr := buildIndex(buf)
 	if perr != nil {
+		// 버전 미달은 치명적이다 — 계속 진행하면 브라우저가 빈 상태를
+		// 저장해 사용자 워크스페이스를 덮어쓴다 (FR-EM-2a).
+		if errors.Is(perr, ErrSchemaTooOld) {
+			return nil, perr
+		}
+		// 파싱 불가 파일은 기존 동작 유지 (NFR-EM-3).
 		ix = emptyIndex()
 	}
 	m.idx.Store(ix)
@@ -244,7 +258,7 @@ func (m *Manager) Resolve(id string) (string, error) {
 }
 
 // CoordinateOf translates an identifier into the canonical positional
-// coordinate "S{n}.P{n}.T{n}" that the browser command pipeline parses. Only
+// coordinate "W{n}.P{n}.T{n}" that the browser command pipeline parses. Only
 // UUID inputs are rewritten — coordinate, paneId, label, and empty inputs are
 // returned unchanged (NFR-UID-0 행위 보존). Used by /api/commands and
 // workspace_command so dmctl and MCP accept UUID anywhere a location is
@@ -350,30 +364,31 @@ func (m *Manager) InvalidatePane(paneID string) {
 // ── workspace.json parsing ──────────────────────────
 
 type WsLayout struct {
-	Type      string     `json:"type"`
-	ID        string     `json:"id,omitempty"`
-	Tabs      []WsTab    `json:"tabs,omitempty"`
-	ActiveTab string     `json:"activeTab,omitempty"`
-	Direction string     `json:"direction,omitempty"`
+	Type      string      `json:"type"`
+	ID        string      `json:"id,omitempty"`
+	Tabs      []WsTab     `json:"tabs,omitempty"`
+	ActiveTab string      `json:"activeTab,omitempty"`
+	Direction string      `json:"direction,omitempty"`
 	Children  []*WsLayout `json:"children,omitempty"`
 }
 
 type WsTab struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
-	PaneID string `json:"paneId"`
+	PaneID string `json:"toolId"`
 }
 
 type wsSession struct {
 	ID            string    `json:"id"`
 	Name          string    `json:"name"`
 	Layout        *WsLayout `json:"layout"`
-	FocusedRegion string    `json:"focusedRegion"`
+	FocusedRegion string    `json:"focusedPane"`
 }
 
 type wsState struct {
-	Sessions      []wsSession `json:"sessions"`
-	ActiveSession string      `json:"activeSession"`
+	SchemaVersion int         `json:"schemaVersion"`
+	Sessions      []wsSession `json:"windows"`
+	ActiveSession string      `json:"activeWindow"`
 }
 
 func emptyIndex() *index {
@@ -394,13 +409,16 @@ func buildIndex(blob []byte) (*index, error) {
 	if err := json.Unmarshal(blob, &s); err != nil {
 		return nil, err
 	}
+	if s.SchemaVersion < SchemaVersion {
+		return nil, ErrSchemaTooOld
+	}
 	for si, sess := range s.Sessions {
 		var regions []*WsLayout
 		CollectRegions(sess.Layout, &regions)
 		for pi, rg := range regions {
 			for ti, tab := range rg.Tabs {
 				isActive := sess.ID == s.ActiveSession && sess.FocusedRegion == rg.ID && rg.ActiveTab == tab.ID
-				label := fmt.Sprintf("S%d.P%d.T%d", si+1, pi+1, ti+1)
+				label := fmt.Sprintf("W%d.P%d.T%d", si+1, pi+1, ti+1)
 				ix.entries = append(ix.entries, PaneLabel{
 					PaneID:      tab.PaneID,
 					Label:       label,
@@ -434,12 +452,12 @@ func shortCodeOf(uuid string) string {
 	return uuid
 }
 
-// CollectRegions walks a layout tree and appends every "region" node to out.
+// CollectRegions walks a layout tree and appends every "pane" node to out.
 func CollectRegions(n *WsLayout, out *[]*WsLayout) {
 	if n == nil {
 		return
 	}
-	if n.Type == "region" {
+	if n.Type == "pane" {
 		*out = append(*out, n)
 		return
 	}

@@ -57,7 +57,7 @@ var WorkspaceCommandSpec = map[string]any{
 			},
 			"location": map[string]any{
 				"type":        "string",
-				"description": "대상 pane uuid. 모든 action 에서 선택 사항 — 지정하면 action 실행 전 해당 pane 으로 먼저 포커스 이동. focus 액션에서는 필수. **uuid 만 허용** — list_panes/who_am_i 출력의 `uuid=` 컬럼 값. 좌표(`4.1.1`/`S4.P1.T1`), 라벨, paneId 입력은 거부(에러). 서버가 broadcast 직전 uuid→좌표로 변환.",
+				"description": "대상 pane uuid. 모든 action 에서 선택 사항 — 지정하면 action 실행 전 해당 pane 으로 먼저 포커스 이동. focus 액션에서는 필수. **uuid 만 허용** — list_panes/who_am_i 출력의 `uuid=` 컬럼 값. 좌표(`4.1.1`/`W4.P1.T1`), 라벨, paneId 입력은 거부(에러). 서버가 broadcast 직전 uuid→좌표로 변환.",
 			},
 			"count": map[string]any{
 				"type":        "integer",

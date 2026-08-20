@@ -216,7 +216,7 @@ func TestListPanesTool(t *testing.T) {
 		sizeMap: map[string]string{"p1": "80x24", "p2": "?"},
 	}
 	ws := &fakeWS{entries: []mcptool.WorkspaceEntry{
-		{PaneID: "p1", Label: "S1.P1.T1", SessionName: "main", TabName: "zsh", IsActive: true},
+		{PaneID: "p1", Label: "W1.P1.T1", SessionName: "main", TabName: "zsh", IsActive: true},
 	}}
 	h := tools.ListPanesHandler(tools.ListPanesDeps{PM: pm, WS: ws})
 	res, err := h(context.Background(), tools.ListPanesArgs{})
@@ -225,7 +225,7 @@ func TestListPanesTool(t *testing.T) {
 	}
 	content := res["content"].([]map[string]any)
 	text := content[0]["text"].(string)
-	if !strings.Contains(text, "▶ label=S1.P1.T1") {
+	if !strings.Contains(text, "▶ label=W1.P1.T1") {
 		t.Errorf("expected active marker, got %q", text)
 	}
 	if !strings.Contains(text, "workspace 미등록") || !strings.Contains(text, "paneId=p2") {
@@ -242,9 +242,9 @@ func TestListPanesFiltersDeadEntries(t *testing.T) {
 		sizeMap: map[string]string{"p1": "80x24", "p2": "80x24"},
 	}
 	ws := &fakeWS{entries: []mcptool.WorkspaceEntry{
-		{PaneID: "p1", Label: "S1.P1.T1", SessionName: "main", TabName: "zsh"},
-		{PaneID: "p2", Label: "S1.P1.T2", SessionName: "main", TabName: "zsh"},
-		{PaneID: "p3", Label: "S1.P1.T3", SessionName: "main", TabName: "zsh"},
+		{PaneID: "p1", Label: "W1.P1.T1", SessionName: "main", TabName: "zsh"},
+		{PaneID: "p2", Label: "W1.P1.T2", SessionName: "main", TabName: "zsh"},
+		{PaneID: "p3", Label: "W1.P1.T3", SessionName: "main", TabName: "zsh"},
 	}}
 	h := tools.ListPanesHandler(tools.ListPanesDeps{PM: pm, WS: ws})
 	res, err := h(context.Background(), tools.ListPanesArgs{})
@@ -256,16 +256,16 @@ func TestListPanesFiltersDeadEntries(t *testing.T) {
 	if !strings.Contains(text, "paneId=p1") || !strings.Contains(text, "paneId=p2") {
 		t.Errorf("expected live panes p1/p2 in output, got %q", text)
 	}
-	if strings.Contains(text, "S1.P1.T3") || strings.Contains(text, "paneId=p3") {
+	if strings.Contains(text, "W1.P1.T3") || strings.Contains(text, "paneId=p3") {
 		t.Errorf("dead entry p3 should be filtered out, got %q", text)
 	}
 }
 
 func TestSendInputTool(t *testing.T) {
 	pm := &fakePM{panes: []mcptool.PaneInfo{{ID: "p1"}}}
-	ws := &fakeWS{resolve: map[string]string{"S1.P1.T1": "p1"}}
+	ws := &fakeWS{resolve: map[string]string{"W1.P1.T1": "p1"}}
 	h := tools.SendInputHandler(tools.SendInputDeps{PM: pm, WS: ws})
-	_, err := h(context.Background(), tools.SendInputArgs{ID: "S1.P1.T1", Text: "hello", Execute: true})
+	_, err := h(context.Background(), tools.SendInputArgs{ID: "W1.P1.T1", Text: "hello", Execute: true})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestSendInputUnknownID(t *testing.T) {
 	pm := &fakePM{}
 	ws := &fakeWS{}
 	h := tools.SendInputHandler(tools.SendInputDeps{PM: pm, WS: ws})
-	_, err := h(context.Background(), tools.SendInputArgs{ID: "S9.P9.T9", Text: "x"})
+	_, err := h(context.Background(), tools.SendInputArgs{ID: "W9.P9.T9", Text: "x"})
 	if err == nil {
 		t.Fatal("expected resolve error")
 	}

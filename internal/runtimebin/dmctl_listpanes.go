@@ -147,14 +147,14 @@ type paneEntry struct {
 }
 
 type wsTree struct {
-	ActiveSession string      `json:"activeSession"`
-	Sessions      []wsSession `json:"sessions"`
+	ActiveSession string      `json:"activeWindow"`
+	Sessions      []wsSession `json:"windows"`
 }
 
 type wsSession struct {
 	ID            string              `json:"id"`
 	Name          string              `json:"name"`
-	FocusedRegion string              `json:"focusedRegion"`
+	FocusedRegion string              `json:"focusedPane"`
 	Layout        *workspace.WsLayout `json:"layout"`
 }
 
@@ -188,7 +188,7 @@ func buildListPanesRows(ws *wsTree, shellPids map[string]int, sizes map[string][
 					rg.ActiveTab == tab.ID
 				sz := sizes[tab.PaneID]
 				out = append(out, listPanesRow{
-					Label:       fmt.Sprintf("S%d.P%d.T%d", si+1, pi+1, ti+1),
+					Label:       fmt.Sprintf("W%d.P%d.T%d", si+1, pi+1, ti+1),
 					UUID:        tab.ID,
 					Short:       shortCode(tab.ID),
 					PaneID:      tab.PaneID,

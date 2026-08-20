@@ -73,7 +73,7 @@ func TestHandleAPI_DeletePane(t *testing.T) {
 
 func TestHandleAPI_WorkspaceGet(t *testing.T) {
 	fw := newFakeWorkspaceStore()
-	fw.raw = []byte(`{"sessions":[]}`)
+	fw.raw = []byte(`{"schemaVersion": 2, "windows":[]}`)
 	fw.rev = 3
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Work: fw})
 	ts := httptest.NewServer(srv.Handler())
@@ -88,7 +88,7 @@ func TestHandleAPI_WorkspaceGet(t *testing.T) {
 		t.Fatalf("ETag=%q want 3", got)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	if string(body) != `{"sessions":[]}` {
+	if string(body) != `{"schemaVersion": 2, "windows":[]}` {
 		t.Fatalf("body=%q", body)
 	}
 }
@@ -100,7 +100,7 @@ func TestHandleAPI_WorkspacePut_Broadcast(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/workspace", strings.NewReader(`{"sessions":[]}`))
+	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/workspace", strings.NewReader(`{"schemaVersion": 2, "windows":[]}`))
 	resp, _ := http.DefaultClient.Do(req)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
@@ -370,7 +370,7 @@ func TestHandleAPI_State_HappyPath(t *testing.T) {
 	pm := newFakePaneHub()
 	pm.seed("1", "Shell #1")
 	fw := newFakeWorkspaceStore()
-	fw.raw = []byte(`{"sessions":[{"id":"s1"}]}`)
+	fw.raw = []byte(`{"schemaVersion": 2, "windows":[{"id":"s1"}]}`)
 	fw.rev = 7
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm, Work: fw})
 	ts := httptest.NewServer(srv.Handler())

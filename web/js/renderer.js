@@ -26,10 +26,10 @@ class Renderer {
 
   _rSidebar(){
     const el=document.getElementById('sessions'); el.innerHTML='';
-    for(const s of this.app.ws.sessions){
+    for(const s of this.app.ws.windows){
       const d=document.createElement('div');
       // FR-PAN-16: 알람이 있는 세션을 사이드바에서 구분 표시
-      d.className='si'+(s.id===this.app.ws.activeSession?' active':'')+(this.app._sessionHasAttn(s)?' attn':'');
+      d.className='si'+(s.id===this.app.ws.activeWindow?' active':'')+(this.app._sessionHasAttn(s)?' attn':'');
       d.dataset.sid=s.id;
       d.innerHTML='<span class="si-dot"></span><span class="si-name"></span><span class="si-x">×</span>';
       d.querySelector('.si-name').textContent=s.name;
@@ -96,8 +96,8 @@ class Renderer {
     }
     if(dom) area.appendChild(dom);
     const allTabIds=new Set();
-    const walk=n=>{if(!n)return;if(n.type==='region'&&n.tabs)n.tabs.forEach(t=>allTabIds.add(t.id));if(n.type==='split'&&n.children)n.children.forEach(walk)};
-    for(const sess of this.app.ws.sessions){if(sess&&sess.layout)walk(sess.layout)}
+    const walk=n=>{if(!n)return;if(n.type==='pane'&&n.tabs)n.tabs.forEach(t=>allTabIds.add(t.id));if(n.type==='split'&&n.children)n.children.forEach(walk)};
+    for(const sess of this.app.ws.windows){if(sess&&sess.layout)walk(sess.layout)}
     for(const[tid,v] of this.app.fileEditors){if(!allTabIds.has(tid)){v.destroy();this.app.fileEditors.delete(tid)}}
     requestAnimationFrame(()=>{
       for(const p of this.app.panes.values()){
@@ -150,20 +150,20 @@ class Renderer {
         const rg=findRg(s.layout,this.app.focused);
         if(rg){const tab=rg.tabs.find(t=>t.id===rg.activeTab);if(tab){
           if(tab.type==='editor'){const v=this.app.fileEditors.get(tab.id);if(v)v.el.focus()}
-          else{const p=this.app.panes.get(tab.paneId);if(p)p.focus()}
+          else{const p=this.app.panes.get(tab.toolId);if(p)p.focus()}
         }}
       }
       // After fit, panes have correct dimensions. Re-send sizes for the
       // active session if this window owns it and has OS focus.
       if(this.app._windowFocused){
-        this.app._resendSessionSizes(this.app.ws.activeSession);
+        this.app._resendSessionSizes(this.app.ws.activeWindow);
       }
     });
   }
 
   _buildNode(n){
     if(!n) return null;
-    if(n.type==='region') return this._buildRg(n);
+    if(n.type==='pane') return this._buildRg(n);
     if(n.type==='split'&&n.children) return this._buildSp(n);
     return null;
   }
@@ -173,7 +173,7 @@ class Renderer {
     // FR-PAN-9: 활성탭 pane 이 주의 상태이고 region 이 포커스 안 됐을 때만 region 강조
     const focused=n.id===this.app.focused;
     const at0=(n.tabs||[]).find(t=>t.id===n.activeTab);
-    const rgAttn=!focused&&at0&&this.app._attnHas(at0.paneId);
+    const rgAttn=!focused&&at0&&this.app._attnHas(at0.toolId);
     el.className='rg'+(focused?' focused':'')+(rgAttn?' attn':'');
     el.dataset.rid=n.id;
     const tabs=document.createElement('div'); tabs.className='rg-tabs';
@@ -181,10 +181,10 @@ class Renderer {
       const t=document.createElement('div');
       // FR-PAN-9/TC-PAN-17: 사용자가 지금 보고 있는 탭(포커스+활성)은 강조하지 않음
       const tabActive=tab.id===n.activeTab;
-      const tabAttn=this.app._attnHas(tab.paneId)&&!(focused&&tabActive);
+      const tabAttn=this.app._attnHas(tab.toolId)&&!(focused&&tabActive);
       t.className='rt'+(tabActive?' active':'')+(tabAttn?' attn':'');
       t.dataset.tabId=tab.id;
-      if(tab.paneId) t.dataset.pid=tab.paneId;
+      if(tab.toolId) t.dataset.pid=tab.toolId;
       t.innerHTML='<span class="rt-label"></span><span class="rt-x">×</span>';
       t.querySelector('.rt-label').textContent=(tab.dirty?'● ':'')+tab.name;
       t.addEventListener('click',e=>{
@@ -214,7 +214,7 @@ class Renderer {
         if(!editor){editor=new FileEditor(at.id,at.name,at.filePath);this.app.fileEditors.set(at.id,editor)}
         body.appendChild(editor.el);editor.el.classList.add('vis');
       }else{
-        const p=this.app.panes.get(at.paneId);
+        const p=this.app.panes.get(at.toolId);
         if(p){body.appendChild(p.el);p.el.classList.add('vis')}
       }
     }

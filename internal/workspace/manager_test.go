@@ -60,31 +60,31 @@ func (p *memPersister) Write(b []byte) error {
 }
 
 const sampleWS = `{
-  "activeSession": "s1",
-  "sessions": [
+  "activeWindow": "s1",
+  "schemaVersion": 2, "windows": [
     {
       "id": "s1",
       "name": "main",
-      "focusedRegion": "r1",
+      "focusedPane": "r1",
       "layout": {
         "type": "split",
         "direction": "row",
         "children": [
           {
-            "type": "region",
+            "type": "pane",
             "id": "r1",
             "activeTab": "t1",
             "tabs": [
-              {"id": "t1", "name": "build", "paneId": "10"},
-              {"id": "t2", "name": "run",   "paneId": "11"}
+              {"id": "t1", "name": "build", "toolId": "10"},
+              {"id": "t2", "name": "run",   "toolId": "11"}
             ]
           },
           {
-            "type": "region",
+            "type": "pane",
             "id": "r2",
             "activeTab": "t3",
             "tabs": [
-              {"id": "t3", "name": "logs", "paneId": "12"}
+              {"id": "t3", "name": "logs", "toolId": "12"}
             ]
           }
         ]
@@ -235,9 +235,9 @@ func TestResolveByLabel(t *testing.T) {
 	}
 
 	cases := map[string]string{
-		"S1.P1.T1": "10",
-		"s1.p1.t2": "11",
-		"S1.P2.T1": "12",
+		"W1.P1.T1": "10",
+		"w1.p1.t2": "11",
+		"W1.P2.T1": "12",
 		"11":       "11",
 	}
 	for in, want := range cases {
@@ -251,7 +251,7 @@ func TestResolveByLabel(t *testing.T) {
 		}
 	}
 
-	if _, err := m.Resolve("S9.P9.T9"); err == nil {
+	if _, err := m.Resolve("W9.P9.T9"); err == nil {
 		t.Error("expected error for unknown label")
 	}
 }
@@ -269,14 +269,14 @@ func TestResolveDeadPane(t *testing.T) {
 
 	live.set("11", false)
 
-	if _, err := m.Resolve("S1.P1.T2"); err == nil {
+	if _, err := m.Resolve("W1.P1.T2"); err == nil {
 		t.Error("expected error for dead pane via label")
 	}
 	if _, err := m.Resolve("11"); err == nil {
 		t.Error("expected error for dead pane via numeric id")
 	}
-	if pid, err := m.Resolve("S1.P1.T1"); err != nil || pid != "10" {
-		t.Errorf("Resolve(S1.P1.T1)=%s err=%v, want 10 nil", pid, err)
+	if pid, err := m.Resolve("W1.P1.T1"); err != nil || pid != "10" {
+		t.Errorf("Resolve(W1.P1.T1)=%s err=%v, want 10 nil", pid, err)
 	}
 }
 
@@ -357,8 +357,8 @@ func TestSaveRevIncrement(t *testing.T) {
 	}
 
 	labels := m.Labels()
-	if labels["10"] != "S1.P1.T1" {
-		t.Errorf("labels[10]=%q want S1.P1.T1", labels["10"])
+	if labels["10"] != "W1.P1.T1" {
+		t.Errorf("labels[10]=%q want W1.P1.T1", labels["10"])
 	}
 	entries := m.Entries()
 	if len(entries) != 3 {

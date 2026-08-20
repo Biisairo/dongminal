@@ -131,12 +131,12 @@ func TestListPanes_Mixed(t *testing.T) {
 	pr.has["2"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{
-			{PaneID: "1", Label: "S1.P1.T1", SessionName: "Main", TabName: "Shell", IsActive: true},
+			{PaneID: "1", Label: "W1.P1.T1", SessionName: "Main", TabName: "Shell", IsActive: true},
 		},
 	}
 	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
 	body := resultText(res)
-	if !strings.Contains(body, "▶ label=S1.P1.T1") {
+	if !strings.Contains(body, "▶ label=W1.P1.T1") {
 		t.Errorf("missing focus marker: %q", body)
 	}
 	if !strings.Contains(body, "[workspace 미등록]") || !strings.Contains(body, `paneId=2`) {
@@ -158,7 +158,7 @@ func TestListPanes_SessionFilter(t *testing.T) {
 	pr.has["2"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{
-			{PaneID: "1", Label: "S1.P1.T1", SessionName: "poem-critique", TabName: "writer"},
+			{PaneID: "1", Label: "W1.P1.T1", SessionName: "poem-critique", TabName: "writer"},
 		},
 	}
 	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}),
@@ -179,7 +179,7 @@ func TestListPanes_FilterNoMatch(t *testing.T) {
 	pr.has["1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{
-			{PaneID: "1", Label: "S1.P1.T1", SessionName: "Main", TabName: "Shell"},
+			{PaneID: "1", Label: "W1.P1.T1", SessionName: "Main", TabName: "Shell"},
 		},
 	}
 	res, err := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}),
@@ -198,8 +198,8 @@ func TestListPanes_DropsStaleEntries(t *testing.T) {
 	pr.has["1"] = true
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{
-			{PaneID: "1", Label: "S1.P1.T1"},
-			{PaneID: "ghost", Label: "S1.P1.T2"},
+			{PaneID: "1", Label: "W1.P1.T1"},
+			{PaneID: "ghost", Label: "W1.P1.T2"},
 		},
 	}
 	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
@@ -225,13 +225,13 @@ func resultText(res mcptool.Result) string {
 func TestSendInput_Resolves(t *testing.T) {
 	pr := newFakePaneReader()
 	pr.has["10"] = true
-	wr := &fakeWorkspaceReader{resolve: map[string]string{"S1.P1.T1": "10"}}
+	wr := &fakeWorkspaceReader{resolve: map[string]string{"W1.P1.T1": "10"}}
 	if SendInputName != "send_input" {
 		t.Errorf("name=%q", SendInputName)
 	}
 	res, err := dispatch(t, SendInputName, SendInputSpec,
 		SendInputHandler(SendInputDeps{PM: pr, WS: wr}),
-		`{"id":"S1.P1.T1","text":"echo hi","execute":true}`)
+		`{"id":"W1.P1.T1","text":"echo hi","execute":true}`)
 	if err != nil {
 		t.Fatalf("Dispatch: %v", err)
 	}
@@ -255,10 +255,10 @@ func TestSendInput_UnknownLabel(t *testing.T) {
 
 func TestSendInput_MissingPane(t *testing.T) {
 	pr := newFakePaneReader()
-	wr := &fakeWorkspaceReader{resolve: map[string]string{"S1.P1.T1": "99"}}
+	wr := &fakeWorkspaceReader{resolve: map[string]string{"W1.P1.T1": "99"}}
 	if _, err := dispatch(t, SendInputName, SendInputSpec,
 		SendInputHandler(SendInputDeps{PM: pr, WS: wr}),
-		`{"id":"S1.P1.T1","text":"x"}`); err == nil {
+		`{"id":"W1.P1.T1","text":"x"}`); err == nil {
 		t.Errorf("err=nil, expected pane missing")
 	}
 }
@@ -340,26 +340,26 @@ func TestSendAgentMessage_Wraps(t *testing.T) {
 	pr := newFakePaneReader()
 	pr.has["10"] = true
 	wr := &fakeWorkspaceReader{
-		resolve: map[string]string{"S2.P1.T1": "10"},
-		labels:  map[string]string{"10": "S2.P1.T1"},
+		resolve: map[string]string{"W2.P1.T1": "10"},
+		labels:  map[string]string{"10": "W2.P1.T1"},
 	}
 	if SendAgentMessageName != "send_agent_message" {
 		t.Errorf("name=%q", SendAgentMessageName)
 	}
 	res, err := dispatch(t, SendAgentMessageName, SendAgentMessageSpec,
 		SendAgentMessageHandler(SendAgentMessageDeps{PM: pr, WS: wr}),
-		`{"to":"S2.P1.T1","from":"S1.P1.T1","message":"hello"}`)
+		`{"to":"W2.P1.T1","from":"W1.P1.T1","message":"hello"}`)
 	if err != nil {
 		t.Fatalf("Dispatch: %v", err)
 	}
-	if !strings.Contains(resultText(res), "S2.P1.T1") {
+	if !strings.Contains(resultText(res), "W2.P1.T1") {
 		t.Errorf("body=%q", resultText(res))
 	}
 	if len(pr.pastes) != 1 {
 		t.Fatalf("pastes=%v", pr.pastes)
 	}
 	envelope := pr.pastes[0]
-	if !strings.Contains(envelope, "[DONGMINAL-AGENT-MSG from=S1.P1.T1") {
+	if !strings.Contains(envelope, "[DONGMINAL-AGENT-MSG from=W1.P1.T1") {
 		t.Errorf("envelope missing from: %q", envelope)
 	}
 	if !strings.Contains(envelope, "[/DONGMINAL-AGENT-MSG]") {
@@ -418,7 +418,7 @@ func TestWhoAmI_WithEntry(t *testing.T) {
 	pr := newFakePaneReader()
 	wr := &fakeWorkspaceReader{
 		entries: []mcptool.WorkspaceEntry{
-			{PaneID: "1", Label: "S1.P1.T1", SessionName: "Main", TabName: "Shell"},
+			{PaneID: "1", Label: "W1.P1.T1", SessionName: "Main", TabName: "Shell"},
 		},
 	}
 	h := WhoAmIHandler(WhoAmIDeps{PM: pr, WS: wr, Resolver: fakeResolver{pid: "1", shell: 100}})
@@ -428,7 +428,7 @@ func TestWhoAmI_WithEntry(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 	body := resultText(res)
-	if !strings.Contains(body, "S1.P1.T1") || !strings.Contains(body, "shellPid=100") {
+	if !strings.Contains(body, "W1.P1.T1") || !strings.Contains(body, "shellPid=100") {
 		t.Errorf("body=%q", body)
 	}
 }
@@ -528,7 +528,7 @@ func TestWorkspaceCommand_CreatingAttachesNewIds(t *testing.T) {
 // TC-RCR-8: 비생성(focus)은 기존 텍스트 — newTabs 부착 없음.
 func TestWorkspaceCommand_NonCreatingNoNewIds(t *testing.T) {
 	b := &fakeBroadcaster{allowed: map[string]bool{"focus": true}, delivered: 1}
-	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "S1.P1.T1"}}
+	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "W1.P1.T1"}}
 	res, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
 		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b, WS: ws}),
 		`{"action":"focus","location":"u1"}`)
@@ -646,7 +646,7 @@ func TestWorkspaceCommand_NewTabKeepFocusName(t *testing.T) {
 // TC-RNS-4: renameTab/renameSession 은 location + name 둘 다 필수.
 func TestWorkspaceCommand_RenameRequiresLocationAndName(t *testing.T) {
 	b := &fakeBroadcaster{allowed: map[string]bool{"renameTab": true, "renameSession": true}}
-	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "S1.P1.T1"}}
+	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "W1.P1.T1"}}
 	h := WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b, WS: ws})
 	for _, payload := range []string{
 		`{"action":"renameTab","name":"writer"}`,     // location 누락
@@ -663,7 +663,7 @@ func TestWorkspaceCommand_RenameRequiresLocationAndName(t *testing.T) {
 // renameTab 해피패스 — payload 에 location(좌표 변환)/name.
 func TestWorkspaceCommand_RenameTabHappy(t *testing.T) {
 	b := &fakeBroadcaster{allowed: map[string]bool{"renameTab": true}, delivered: 1}
-	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "S1.P1.T1"}}
+	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "W1.P1.T1"}}
 	_, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
 		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b, WS: ws}),
 		`{"action":"renameTab","location":"u1","name":"writer"}`)
@@ -671,7 +671,7 @@ func TestWorkspaceCommand_RenameTabHappy(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 	payload := string(b.published[0])
-	if !strings.Contains(payload, `"name":"writer"`) || !strings.Contains(payload, `"location":"S1.P1.T1"`) {
+	if !strings.Contains(payload, `"name":"writer"`) || !strings.Contains(payload, `"location":"W1.P1.T1"`) {
 		t.Errorf("payload=%s", payload)
 	}
 }
@@ -679,7 +679,7 @@ func TestWorkspaceCommand_RenameTabHappy(t *testing.T) {
 // TC-RNS-5: rename 액션에 keepFocus 지정 시 에러.
 func TestWorkspaceCommand_RenameKeepFocusForbidden(t *testing.T) {
 	b := &fakeBroadcaster{allowed: map[string]bool{"renameTab": true}}
-	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "S1.P1.T1"}}
+	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "W1.P1.T1"}}
 	if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
 		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b, WS: ws}),
 		`{"action":"renameTab","location":"u1","name":"x","keepFocus":true}`); err == nil {
@@ -690,7 +690,7 @@ func TestWorkspaceCommand_RenameKeepFocusForbidden(t *testing.T) {
 // TC-RST-7: name 은 newSession/newTab/openEditorTab 외 action 에서 거부.
 func TestWorkspaceCommand_NameForbiddenOnFocus(t *testing.T) {
 	b := &fakeBroadcaster{allowed: map[string]bool{"focus": true}}
-	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "S1.P1.T1"}}
+	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "W1.P1.T1"}}
 	if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
 		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b, WS: ws}),
 		`{"action":"focus","location":"u1","name":"x"}`); err == nil {

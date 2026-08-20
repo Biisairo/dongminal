@@ -2,6 +2,8 @@ package migrate
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -205,5 +207,71 @@ func TestApply_RerunReadsToolsJSON(t *testing.T) {
 	}
 	if got := read(t, dir, "tools.json"); got != toolsBefore {
 		t.Errorf("2차 실행이 tools.json 을 변경했음\n전: %s\n후: %s", toolsBefore, got)
+	}
+}
+
+// ── 데몬 생존 시 차단 ────────────────────────────────────────────────────
+//
+// 살아있는 dongminald 는 SaveAll 로 tools.json 을 다시 쓰므로, 마이그레이션
+// 직후 고아가 되살아나거나 산출물이 덮어써진다. 쓰기 경로는 반드시 막아야
+// 한다. dry-run 은 읽기 전용이므로 허용한다.
+
+func TestApply_RefusesWhileDaemonAlive(t *testing.T) {
+	dir := t.TempDir()
+	seed(t, dir, "workspace.json", v1Basic)
+	seed(t, dir, "panes.json", panesBasic)
+	seed(t, dir, "paned.pid", fmt.Sprintf("%d\n", os.Getpid()))
+
+	_, err := Apply(dir, false)
+	if err == nil {
+		t.Fatal("데몬이 살아있는데 마이그레이션이 진행됨")
+	}
+	if !errors.Is(err, ErrDaemonRunning) {
+		t.Errorf("err = %v, want ErrDaemonRunning", err)
+	}
+	if exists(dir, "tools.json") || exists(dir, "workspace.json.v1.bak") {
+		t.Error("차단됐는데 산출물이 생성됨")
+	}
+	if got := read(t, dir, "workspace.json"); got != v1Basic {
+		t.Error("차단됐는데 workspace.json 이 변경됨")
+	}
+}
+
+func TestApply_DryRunAllowedWhileDaemonAlive(t *testing.T) {
+	dir := t.TempDir()
+	seed(t, dir, "workspace.json", v1Basic)
+	seed(t, dir, "panes.json", panesBasic)
+	seed(t, dir, "paned.pid", fmt.Sprintf("%d\n", os.Getpid()))
+
+	rep, err := Apply(dir, true)
+	if err != nil {
+		t.Fatalf("dry-run 이 차단됨: %v", err)
+	}
+	if rep.Windows != 1 {
+		t.Errorf("dry-run 리포트 미산출: %+v", rep)
+	}
+}
+
+func TestApply_StalePIDDoesNotBlock(t *testing.T) {
+	dir := t.TempDir()
+	seed(t, dir, "workspace.json", v1Basic)
+	seed(t, dir, "panes.json", panesBasic)
+	// 존재하지 않는 pid — 정상 종료 후 남은 stale pid 파일 상황.
+	seed(t, dir, "paned.pid", "4194304\n")
+
+	if _, err := Apply(dir, false); err != nil {
+		t.Fatalf("stale pid 가 마이그레이션을 막음: %v", err)
+	}
+	if !exists(dir, "tools.json") {
+		t.Error("tools.json 미생성")
+	}
+}
+
+func TestApply_NoPIDFileDoesNotBlock(t *testing.T) {
+	dir := t.TempDir()
+	seed(t, dir, "workspace.json", v1Basic)
+	seed(t, dir, "panes.json", panesBasic)
+	if _, err := Apply(dir, false); err != nil {
+		t.Fatalf("pid 파일 없음이 마이그레이션을 막음: %v", err)
 	}
 }

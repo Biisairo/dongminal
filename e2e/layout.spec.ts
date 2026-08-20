@@ -193,7 +193,7 @@ test.describe('Layout & navigation', () => {
       const app = (window as any).app;
       await app.split('horizontal', {
         keepFocus: true,
-        targetSession: app.ws.activeSession,
+        targetSession: app.ws.activeWindow,
         targetRegion: targetRid,
       });
     }, targetRegionId);
@@ -211,16 +211,16 @@ test.describe('Layout & navigation', () => {
     await waitForInit(page);
     const before = await page.evaluate(() => {
       const app = (window as any).app;
-      return { active: app.ws.activeSession, focused: app.focused, count: app.ws.sessions.length };
+      return { active: app.ws.activeWindow, focused: app.focused, count: app.ws.windows.length };
     });
     await page.evaluate(() => (window as any).app._execRemote('newSession', { name: 'wf-test', keepFocus: true }));
-    await page.waitForFunction((n) => (window as any).app.ws.sessions.length === n + 1, before.count, { timeout: 10000 });
+    await page.waitForFunction((n) => (window as any).app.ws.windows.length === n + 1, before.count, { timeout: 10000 });
     const after = await page.evaluate(() => {
       const app = (window as any).app;
       return {
-        active: app.ws.activeSession,
+        active: app.ws.activeWindow,
         focused: app.focused,
-        lastName: app.ws.sessions[app.ws.sessions.length - 1].name,
+        lastName: app.ws.windows[app.ws.windows.length - 1].name,
       };
     });
     expect(after.active).toBe(before.active);
@@ -231,13 +231,13 @@ test.describe('Layout & navigation', () => {
   // TC-RST-2: newSession + name 만 → 전환은 기존대로, 이름 반영.
   test('remote newSession with name only switches and names', async ({ page }) => {
     await waitForInit(page);
-    const beforeCount = await page.evaluate(() => (window as any).app.ws.sessions.length);
+    const beforeCount = await page.evaluate(() => (window as any).app.ws.windows.length);
     await page.evaluate(() => (window as any).app._execRemote('newSession', { name: 'named-active' }));
-    await page.waitForFunction((n) => (window as any).app.ws.sessions.length === n + 1, beforeCount, { timeout: 10000 });
+    await page.waitForFunction((n) => (window as any).app.ws.windows.length === n + 1, beforeCount, { timeout: 10000 });
     const after = await page.evaluate(() => {
       const app = (window as any).app;
-      const last = app.ws.sessions[app.ws.sessions.length - 1];
-      return { active: app.ws.activeSession, lastId: last.id, lastName: last.name };
+      const last = app.ws.windows[app.ws.windows.length - 1];
+      return { active: app.ws.activeWindow, lastId: last.id, lastName: last.name };
     });
     expect(after.active).toBe(after.lastId);
     expect(after.lastName).toBe('named-active');
@@ -263,22 +263,22 @@ test.describe('Layout & navigation', () => {
 
     const state = await page.evaluate(() => {
       const app = (window as any).app;
-      const s = app.ws.sessions.find((x: any) => x.id === app.ws.activeSession);
+      const s = app.ws.windows.find((x: any) => x.id === app.ws.activeWindow);
       const rgs: any[] = [];
       (function collect(n: any) {
         if (!n) return;
-        if (n.type === 'region') { rgs.push(n); return; }
+        if (n.type === 'pane') { rgs.push(n); return; }
         if (n.children) n.children.forEach(collect);
       })(s.layout);
       const target = rgs.find((r: any) => r.id !== app.focused);
       // 브라우저 _resolveLocation 은 좌표만 파싱 (uuid→좌표는 서버 책임) — 좌표 구성.
-      const si = app.ws.sessions.findIndex((x: any) => x.id === app.ws.activeSession) + 1;
+      const si = app.ws.windows.findIndex((x: any) => x.id === app.ws.activeWindow) + 1;
       const pi = rgs.findIndex((r: any) => r.id === target.id) + 1;
       const ti = target.tabs.findIndex((t: any) => t.id === target.activeTab) + 1;
       return {
-        active: app.ws.activeSession, focused: app.focused,
+        active: app.ws.activeWindow, focused: app.focused,
         targetRegion: target.id, targetActiveTab: target.activeTab,
-        targetCoord: `S${si}.P${pi}.T${ti}`,
+        targetCoord: `W${si}.P${pi}.T${ti}`,
         targetTabCount: target.tabs.length,
       };
     });
@@ -287,11 +287,11 @@ test.describe('Layout & navigation', () => {
       { location: s.targetCoord, keepFocus: true, name: 'worker' }), state);
     await page.waitForFunction((s) => {
       const app = (window as any).app;
-      const sess = app.ws.sessions.find((x: any) => x.id === s.active);
+      const sess = app.ws.windows.find((x: any) => x.id === s.active);
       const rgs: any[] = [];
       (function collect(n: any) {
         if (!n) return;
-        if (n.type === 'region') { rgs.push(n); return; }
+        if (n.type === 'pane') { rgs.push(n); return; }
         if (n.children) n.children.forEach(collect);
       })(sess.layout);
       const target = rgs.find((r: any) => r.id === s.targetRegion);
@@ -300,16 +300,16 @@ test.describe('Layout & navigation', () => {
 
     const after = await page.evaluate((s) => {
       const app = (window as any).app;
-      const sess = app.ws.sessions.find((x: any) => x.id === s.active);
+      const sess = app.ws.windows.find((x: any) => x.id === s.active);
       const rgs: any[] = [];
       (function collect(n: any) {
         if (!n) return;
-        if (n.type === 'region') { rgs.push(n); return; }
+        if (n.type === 'pane') { rgs.push(n); return; }
         if (n.children) n.children.forEach(collect);
       })(sess.layout);
       const target = rgs.find((r: any) => r.id === s.targetRegion);
       return {
-        active: app.ws.activeSession, focused: app.focused,
+        active: app.ws.activeWindow, focused: app.focused,
         targetActiveTab: target.activeTab,
         newTabName: target.tabs[target.tabs.length - 1].name,
       };
@@ -326,26 +326,26 @@ test.describe('Layout & navigation', () => {
     await waitForInit(page);
     const before = await page.evaluate(() => {
       const app = (window as any).app;
-      return { active: app.ws.activeSession, focused: app.focused };
+      return { active: app.ws.activeWindow, focused: app.focused };
     });
-    // 활성 세션의 포커스 탭을 좌표 S{n}.P1.T1 로 rename (활성 세션 index 계산).
+    // 활성 세션의 포커스 탭을 좌표 W{n}.P1.T1 로 rename (활성 세션 index 계산).
     const result = await page.evaluate(() => {
       const app = (window as any).app;
-      const si = app.ws.sessions.findIndex((x: any) => x.id === app.ws.activeSession) + 1;
-      const coord = `S${si}.P1.T1`;
+      const si = app.ws.windows.findIndex((x: any) => x.id === app.ws.activeWindow) + 1;
+      const coord = `W${si}.P1.T1`;
       app._execRemote('renameTab', { location: coord, name: 'writer' });
       app._execRemote('renameSession', { location: coord, name: 'x'.repeat(80) });
-      const s = app.ws.sessions[si - 1];
+      const s = app.ws.windows[si - 1];
       const rgs: any[] = [];
       (function collect(n: any) {
         if (!n) return;
-        if (n.type === 'region') { rgs.push(n); return; }
+        if (n.type === 'pane') { rgs.push(n); return; }
         if (n.children) n.children.forEach(collect);
       })(s.layout);
       return {
         tabName: rgs[0].tabs[0].name,
         sessionName: s.name,
-        active: app.ws.activeSession,
+        active: app.ws.activeWindow,
         focused: app.focused,
       };
     });
@@ -367,8 +367,8 @@ test.describe('Layout & navigation', () => {
 
     const coord = await page.evaluate(() => {
       const app = (window as any).app;
-      const si = app.ws.sessions.findIndex((x: any) => x.id === app.ws.activeSession) + 1;
-      return `S${si}.P1.T1`;
+      const si = app.ws.windows.findIndex((x: any) => x.id === app.ws.activeWindow) + 1;
+      return `W${si}.P1.T1`;
     });
     await page.evaluate((c) => (window as any).app._execRemote('splitV',
       { reqId: 'test-req-9', location: c, count: 2, keepFocus: true }), coord);
@@ -388,7 +388,7 @@ test.describe('Layout & navigation', () => {
   test('creating command via POST returns newTabs end-to-end through SSE', async ({ page }) => {
     await waitForInit(page);
     // 페이지의 SSE 구독이 자리잡도록 잠깐 대기.
-    await page.waitForFunction(() => window.app \    await page.waitForTimeout(300);\    await page.waitForTimeout(300); window.app._cmdES \    await page.waitForTimeout(300);\    await page.waitForTimeout(300); window.app._cmdES.readyState === 1, { timeout: 5000 });
+    await page.waitForFunction(() => window.app && window.app._cmdES && window.app._cmdES.readyState === 1, { timeout: 5000 });
     const resp = await page.evaluate(async () => {
       const r = await fetch('/api/commands', {
         method: 'POST',
@@ -418,8 +418,8 @@ test.describe('Layout & navigation', () => {
     const before = await page.locator('#area .rg').count();
     const coord = await page.evaluate(() => {
       const app = (window as any).app;
-      const si = app.ws.sessions.findIndex((x: any) => x.id === app.ws.activeSession) + 1;
-      return `S${si}.P1.T1`;
+      const si = app.ws.windows.findIndex((x: any) => x.id === app.ws.activeWindow) + 1;
+      return `W${si}.P1.T1`;
     });
     await page.evaluate((c) => (window as any).app._execRemote('splitV',
       { location: c, count: 2, keepFocus: true }), coord); // reqId 없음
@@ -432,12 +432,12 @@ test.describe('Layout & navigation', () => {
   test('remote newSession truncates name to 64 chars', async ({ page }) => {
     await waitForInit(page);
     const long = 'x'.repeat(80);
-    const beforeCount = await page.evaluate(() => (window as any).app.ws.sessions.length);
+    const beforeCount = await page.evaluate(() => (window as any).app.ws.windows.length);
     await page.evaluate((n) => (window as any).app._execRemote('newSession', { name: n, keepFocus: true }), long);
-    await page.waitForFunction((n) => (window as any).app.ws.sessions.length === n + 1, beforeCount, { timeout: 10000 });
+    await page.waitForFunction((n) => (window as any).app.ws.windows.length === n + 1, beforeCount, { timeout: 10000 });
     const lastName = await page.evaluate(() => {
       const app = (window as any).app;
-      return app.ws.sessions[app.ws.sessions.length - 1].name;
+      return app.ws.windows[app.ws.windows.length - 1].name;
     });
     expect(lastName.length).toBe(64);
   });
@@ -458,8 +458,8 @@ test.describe('Layout & navigation', () => {
     await expect(page.locator('#area .rg')).toHaveCount(before + 1, { timeout: 10000 });
 
     // Focus should still be on the original region.
-    const focusedRegion = page.locator('#area .rg.focused');
-    await expect(focusedRegion).toHaveCount(1);
-    expect(await focusedRegion.getAttribute('data-rid')).toBe(firstRegionId);
+    const focusedPane = page.locator('#area .rg.focused');
+    await expect(focusedPane).toHaveCount(1);
+    expect(await focusedPane.getAttribute('data-rid')).toBe(firstRegionId);
   });
 });

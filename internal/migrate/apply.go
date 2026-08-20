@@ -1,13 +1,23 @@
 package migrate
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"syscall"
 )
+
+// ErrDaemonRunning은 dongminald 가 살아있을 때 반환된다. 데몬은 pane 생성·
+// 삭제마다 SaveAll 로 도구 컬렉션을 다시 쓰므로, 마이그레이션 산출물이
+// 즉시 덮어써지고 폐기한 고아가 되살아난다.
+var ErrDaemonRunning = errors.New("dongminald 가 실행 중입니다 — `./scripts/stop.sh --all` 로 정지한 뒤 다시 실행하세요")
 
 const (
 	workspaceFile = "workspace.json"
+	daemonPIDFile = "paned.pid"
 	panesFile     = "panes.json"
 	toolsFile     = "tools.json"
 	backupSuffix  = ".v1.bak"
@@ -26,6 +36,12 @@ const (
 // 것을 막는다. 재실행 시에는 panes.json 이 없으므로 도구 컬렉션을
 // tools.json 에서 읽어 멱등성을 유지한다.
 func Apply(home string, dryRun bool) (Report, error) {
+	if !dryRun {
+		if pid, alive := daemonAlive(home); alive {
+			return Report{}, fmt.Errorf("%w (pid=%d)", ErrDaemonRunning, pid)
+		}
+	}
+
 	wsPath := filepath.Join(home, workspaceFile)
 	pnPath := filepath.Join(home, panesFile)
 
@@ -109,4 +125,25 @@ func backupOnce(path string) error {
 		return fmt.Errorf("%s 백업 쓰기: %w", filepath.Base(bak), err)
 	}
 	return nil
+}
+
+// daemonAlive는 paned.pid 가 가리키는 프로세스가 살아있는지 본다. 파일이
+// 없거나 stale pid 면 (0, false).
+func daemonAlive(home string) (int, bool) {
+	b, err := os.ReadFile(filepath.Join(home, daemonPIDFile))
+	if err != nil {
+		return 0, false
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(b)))
+	if err != nil || pid <= 0 {
+		return 0, false
+	}
+	p, err := os.FindProcess(pid)
+	if err != nil {
+		return 0, false
+	}
+	if err := p.Signal(syscall.Signal(0)); err != nil {
+		return 0, false
+	}
+	return pid, true
 }

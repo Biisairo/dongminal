@@ -44,7 +44,7 @@ type WorkspaceStore interface {
 	CurrentRev() uint64
 	Snapshot() ([]byte, uint64)
 	Save(blob []byte, ifMatch string) (uint64, error)
-	// CoordinateOf rewrites a UUID identifier into the positional "S{n}.P{n}.T{n}"
+	// CoordinateOf rewrites a UUID identifier into the positional "W{n}.P{n}.T{n}"
 	// coordinate the browser command pipeline parses. Non-UUID input passes
 	// through unchanged. Used by handleCommandPost to make dmctl accept UUIDs.
 	CoordinateOf(id string) (string, error)

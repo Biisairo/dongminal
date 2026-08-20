@@ -15,7 +15,7 @@ async function resetWorkspace(request) {
   const rev = get.headers()['etag'] || '0';
   await request.put('/api/workspace', {
     headers: { 'If-Match': rev, 'Content-Type': 'application/json' },
-    data: '{}',
+    data: '{"schemaVersion":2,"windows":[]}',
   });
 }
 
@@ -45,8 +45,8 @@ async function openMdTab(page, fp: string): Promise<string> {
   await page.waitForTimeout(150);
   const tid = await page.evaluate(() => {
     const a = (window as any).app;
-    const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
-    const walk = (n: any, out: any[]) => { if (!n) return; if (n.type === 'region') out.push(n); else if (n.children) n.children.forEach((c:any)=>walk(c,out)); };
+    const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
+    const walk = (n: any, out: any[]) => { if (!n) return; if (n.type === 'pane') out.push(n); else if (n.children) n.children.forEach((c:any)=>walk(c,out)); };
     const regs: any[] = []; walk(s.layout, regs);
     for (const r of regs) {
       const t = r.tabs.find((x: any) => x.type === 'markdown');

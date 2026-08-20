@@ -25,13 +25,13 @@ func (m *memPersister) Read() ([]byte, error)   { return append([]byte(nil), m.d
 func (m *memPersister) Write(data []byte) error { m.data = append([]byte(nil), data...); return nil }
 
 // FR-UID-12 / dmctl: /api/commands 가 args.location 에 uuid 가 오면 좌표로
-// 번역한 뒤 broadcast 한다. coordinate 형식 (`4.1.1` / `S4.P1.T1`) 은 그대로
+// 번역한 뒤 broadcast 한다. coordinate 형식 (`4.1.1` / `W4.P1.T1`) 은 그대로
 // 통과한다 (NFR-UID-0 행위 보존).
 func TestHandleCommandPost_TranslatesUUIDLocation(t *testing.T) {
 	uuid := "550e8400-e29b-41d4-a716-446655440003"
 	hub := NewCommandHub()
 	ws := newFakeWorkspaceStore()
-	ws.coordMap = map[string]string{uuid: "S2.P1.T1"}
+	ws.coordMap = map[string]string{uuid: "W2.P1.T1"}
 
 	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Commands: hub, Work: ws})
 	if err != nil {
@@ -69,8 +69,8 @@ func TestHandleCommandPost_TranslatesUUIDLocation(t *testing.T) {
 		if err := json.Unmarshal(got.Args, &args); err != nil {
 			t.Fatalf("args unmarshal: %v (raw=%s)", err, got.Args)
 		}
-		if args["location"] != "S2.P1.T1" {
-			t.Errorf("location=%v want %q (uuid should be translated)", args["location"], "S2.P1.T1")
+		if args["location"] != "W2.P1.T1" {
+			t.Errorf("location=%v want %q (uuid should be translated)", args["location"], "W2.P1.T1")
 		}
 	default:
 		t.Fatal("no broadcast received")
@@ -88,7 +88,7 @@ func TestHandleCommandPost_CoordinateRejected(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	body := `{"action":"focus","args":{"location":"S4.P1.T1"}}`
+	body := `{"action":"focus","args":{"location":"W4.P1.T1"}}`
 	resp, err := http.Post(ts.URL+"/api/commands", "application/json", strings.NewReader(body))
 	if err != nil {
 		t.Fatalf("POST: %v", err)
@@ -110,9 +110,9 @@ func TestHandleCommandPost_CoordinateRejected(t *testing.T) {
 func TestHandleCommandPost_FullStackUUID_ReflowSafety(t *testing.T) {
 	tabA := "550e8400-e29b-41d4-a716-446655440aaa"
 	tabB := "550e8400-e29b-41d4-a716-446655440bbb"
-	blob1 := `{"activeSession":"sa","sessions":[
-		{"id":"sa","name":"A","focusedRegion":"ra","layout":{"type":"region","id":"ra","activeTab":"` + tabA + `","tabs":[{"id":"` + tabA + `","name":"a","paneId":"10"}]}},
-		{"id":"sb","name":"B","focusedRegion":"rb","layout":{"type":"region","id":"rb","activeTab":"` + tabB + `","tabs":[{"id":"` + tabB + `","name":"b","paneId":"20"}]}}
+	blob1 := `{"activeWindow":"sa","schemaVersion": 2, "windows":[
+		{"id":"sa","name":"A","focusedPane":"ra","layout":{"type":"pane","id":"ra","activeTab":"` + tabA + `","tabs":[{"id":"` + tabA + `","name":"a","toolId":"10"}]}},
+		{"id":"sb","name":"B","focusedPane":"rb","layout":{"type":"pane","id":"rb","activeTab":"` + tabB + `","tabs":[{"id":"` + tabB + `","name":"b","toolId":"20"}]}}
 	]}`
 	ws, err := workspace.New(liveSet{"10": {}, "20": {}}, &memPersister{})
 	if err != nil {
@@ -133,7 +133,7 @@ func TestHandleCommandPost_FullStackUUID_ReflowSafety(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	// 1단계: B 의 uuid 로 focus → broadcast 페이로드의 location 이 S2.P1.T1.
+	// 1단계: B 의 uuid 로 focus → broadcast 페이로드의 location 이 W2.P1.T1.
 	post := func(body string) []byte {
 		resp, err := http.Post(ts.URL+"/api/commands", "application/json", strings.NewReader(body))
 		if err != nil {
@@ -153,27 +153,27 @@ func TestHandleCommandPost_FullStackUUID_ReflowSafety(t *testing.T) {
 		}
 	}
 	payload := post(`{"action":"focus","args":{"location":"` + tabB + `"}}`)
-	if !strings.Contains(string(payload), `"location":"S2.P1.T1"`) {
-		t.Errorf("uuid B should resolve to S2.P1.T1, got: %s", payload)
+	if !strings.Contains(string(payload), `"location":"W2.P1.T1"`) {
+		t.Errorf("uuid B should resolve to W2.P1.T1, got: %s", payload)
 	}
 
 	// 2단계: 세션 A 종료. B 의 라벨이 S2 → S1 로 reflow.
-	blob2 := `{"activeSession":"sb","sessions":[
-		{"id":"sb","name":"B","focusedRegion":"rb","layout":{"type":"region","id":"rb","activeTab":"` + tabB + `","tabs":[{"id":"` + tabB + `","name":"b","paneId":"20"}]}}
+	blob2 := `{"activeWindow":"sb","schemaVersion": 2, "windows":[
+		{"id":"sb","name":"B","focusedPane":"rb","layout":{"type":"pane","id":"rb","activeTab":"` + tabB + `","tabs":[{"id":"` + tabB + `","name":"b","toolId":"20"}]}}
 	]}`
 	if _, err := ws.Save([]byte(blob2), "1"); err != nil {
 		t.Fatalf("Save reflow: %v", err)
 	}
 
-	// 3단계: 같은 uuid 로 focus → 이제 S1.P1.T1 (라벨 reflow 후) 가리킴.
+	// 3단계: 같은 uuid 로 focus → 이제 W1.P1.T1 (라벨 reflow 후) 가리킴.
 	payload = post(`{"action":"focus","args":{"location":"` + tabB + `"}}`)
-	if !strings.Contains(string(payload), `"location":"S1.P1.T1"`) {
-		t.Errorf("after reflow, uuid B should now resolve to S1.P1.T1, got: %s", payload)
+	if !strings.Contains(string(payload), `"location":"W1.P1.T1"`) {
+		t.Errorf("after reflow, uuid B should now resolve to W1.P1.T1, got: %s", payload)
 	}
 
 	// 4단계: 라벨 형식 입력은 FR-DMC-9 로 거부. uuid 만 허용 정책의 핵심.
 	resp, err := http.Post(ts.URL+"/api/commands", "application/json",
-		strings.NewReader(`{"action":"focus","args":{"location":"S2.P1.T1"}}`))
+		strings.NewReader(`{"action":"focus","args":{"location":"W2.P1.T1"}}`))
 	if err != nil {
 		t.Fatalf("POST: %v", err)
 	}
@@ -189,7 +189,7 @@ func TestHandleCommandPost_ResponseExposesTranslation(t *testing.T) {
 	uuid := "550e8400-e29b-41d4-a716-446655440003"
 	hub := NewCommandHub()
 	ws := newFakeWorkspaceStore()
-	ws.coordMap = map[string]string{uuid: "S2.P1.T1"}
+	ws.coordMap = map[string]string{uuid: "W2.P1.T1"}
 
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: hub, Work: ws})
 	sub := hub.add()
@@ -217,8 +217,8 @@ func TestHandleCommandPost_ResponseExposesTranslation(t *testing.T) {
 	if got["action"] != "focus" {
 		t.Errorf("action=%v want focus", got["action"])
 	}
-	if got["location"] != "S2.P1.T1" {
-		t.Errorf("location=%v want S2.P1.T1", got["location"])
+	if got["location"] != "W2.P1.T1" {
+		t.Errorf("location=%v want W2.P1.T1", got["location"])
 	}
 	if got["requestedLocation"] != uuid {
 		t.Errorf("requestedLocation=%v want %q", got["requestedLocation"], uuid)
@@ -235,7 +235,7 @@ func TestHandleCommandPost_ResponseCoordinateRejected(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	for _, badLoc := range []string{"S4.P1.T1", "4.1.1", "303"} {
+	for _, badLoc := range []string{"W4.P1.T1", "4.1.1", "303"} {
 		body := `{"action":"focus","args":{"location":"` + badLoc + `"}}`
 		resp, err := http.Post(ts.URL+"/api/commands", "application/json", strings.NewReader(body))
 		if err != nil {

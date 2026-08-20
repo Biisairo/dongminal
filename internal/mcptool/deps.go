@@ -39,7 +39,7 @@ type WorkspaceReader interface {
 	Labels() map[string]string
 	Entries() []WorkspaceEntry
 	// CoordinateOf rewrites a UUID into the canonical positional coordinate
-	// ("S{n}.P{n}.T{n}") consumed by the browser command pipeline. Non-UUID
+	// ("W{n}.P{n}.T{n}") consumed by the browser command pipeline. Non-UUID
 	// input passes through unchanged. workspace_command uses this so MCP
 	// callers can pass uuid in `location`.
 	CoordinateOf(id string) (string, error)

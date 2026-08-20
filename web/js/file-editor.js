@@ -218,7 +218,7 @@ class FileEditor {
       for (const n of (s.layout ? [s.layout] : [])) {
         const walk = n => {
           if (!n) return;
-          if (n.type === 'region' && n.tabs) {
+          if (n.type === 'pane' && n.tabs) {
             const tab = n.tabs.find(t => t.id === this.id);
             if (tab) tab.dirty = this._dirty;
           }

@@ -103,12 +103,12 @@ var defaultPreset=-1; // index into layoutPresets, -1 = none
 // ── Layout helpers ──
 
 function normalizeTab(t) {
-  if (!t.type) t.type = t.paneId ? 'terminal' : 'editor';
+  if (!t.type) t.type = t.toolId ? 'terminal' : 'editor';
   return t;
 }
 function normalizeLayout(n) {
   if (!n) return n;
-  if (n.type === 'region' && n.tabs) n.tabs.forEach(normalizeTab);
+  if (n.type === 'pane' && n.tabs) n.tabs.forEach(normalizeTab);
   if (n.type === 'split' && n.children) n.children.forEach(normalizeLayout);
   return n;
 }
@@ -116,13 +116,13 @@ function normalizeLayout(n) {
 function doSplit(n,rid,nrs,dir){
   // nrs: 단일 region 또는 region 배열
   const list=Array.isArray(nrs)?nrs:[nrs];
-  if(n.type==='region') return n.id===rid?{type:'split',direction:dir,children:[n,...list]}:n;
+  if(n.type==='pane') return n.id===rid?{type:'split',direction:dir,children:[n,...list]}:n;
   if(n.children) n.children=n.children.map(c=>doSplit(c,rid,nrs,dir));
   return n;
 }
 function doRemove(n,rid){
   if(!n) return null;
-  if(n.type==='region') return n.id===rid?null:n;
+  if(n.type==='pane') return n.id===rid?null:n;
   if(!n.children) return null;
   n.children=n.children.map(c=>doRemove(c,rid)).filter(Boolean);
   if(!n.children.length) return null;
@@ -131,25 +131,25 @@ function doRemove(n,rid){
 }
 function findRg(n,rid){
   if(!n) return null;
-  if(n.type==='region') return n.id===rid?n:null;
+  if(n.type==='pane') return n.id===rid?n:null;
   if(n.children) for(const c of n.children){const f=findRg(c,rid);if(f)return f}
   return null;
 }
 function firstRg(n){
   if(!n) return null;
-  if(n.type==='region') return n;
+  if(n.type==='pane') return n;
   if(n.children) for(const c of n.children){const f=firstRg(c);if(f)return f}
   return null;
 }
 function allPids(n){
   if(!n) return [];
-  if(n.type==='region') return (n.tabs||[]).filter(t=>t.type==='terminal').map(t=>t.paneId);
+  if(n.type==='pane') return (n.tabs||[]).filter(t=>t.type==='terminal').map(t=>t.toolId);
   if(n.children) return n.children.flatMap(c=>allPids(c));
   return [];
 }
 function findPath(n,rid){
   if(!n) return null;
-  if(n.type==='region') return n.id===rid?[n]:null;
+  if(n.type==='pane') return n.id===rid?[n]:null;
   if(n.children) for(const c of n.children){const p=findPath(c,rid);if(p)return[n,...p]}
   return null;
 }
@@ -166,10 +166,10 @@ function closestRg(n,rid){
 }
 function clean(n,ok){
   if(!n) return null;
-  if(n.type==='region'){
+  if(n.type==='pane'){
     if(n.tabs) n.tabs=n.tabs.filter(t=>{
       if(t.type==='editor') return true;
-      return ok.has(t.paneId);
+      return ok.has(t.toolId);
     });
     if(!n.tabs||!n.tabs.length) return null;
     if(!n.tabs.find(t=>t.id===n.activeTab)) n.activeTab=n.tabs[0].id;

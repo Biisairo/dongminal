@@ -60,7 +60,7 @@ func TestWorkspaceAdapter_EntriesShape(t *testing.T) {
 	pm := server.NewPaneManager(t.TempDir(), nil)
 	dir := t.TempDir()
 	wsPath := filepath.Join(dir, "ws.json")
-	blob := []byte(`{"sessions":[{"id":"s1","name":"S","layout":{"type":"region","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"T","paneId":"42"}]}}],"activeSession":"s1"}`)
+	blob := []byte(`{"schemaVersion": 2, "windows":[{"id":"s1","name":"S","layout":{"type":"pane","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"T","toolId":"42"}]}}],"activeWindow":"s1"}`)
 	os.WriteFile(wsPath, blob, 0644)
 
 	wsMgr, _ := workspace.New(pm, workspace.FilePersister{Path: wsPath})
@@ -68,7 +68,7 @@ func TestWorkspaceAdapter_EntriesShape(t *testing.T) {
 	a := Workspace{WS: wsMgr}
 
 	entries := a.Entries()
-	if len(entries) != 1 || entries[0].PaneID != "42" || entries[0].Label != "S1.P1.T1" {
+	if len(entries) != 1 || entries[0].PaneID != "42" || entries[0].Label != "W1.P1.T1" {
 		t.Fatalf("entries=%+v", entries)
 	}
 }

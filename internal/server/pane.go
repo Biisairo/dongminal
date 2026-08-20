@@ -616,7 +616,7 @@ type PaneManager struct {
 	activityNotify func(id, state, tool, detail string)
 }
 
-// NewPaneManager builds an empty manager. dataDir is where panes.json lives;
+// NewPaneManager builds an empty manager. dataDir is where tools.json lives;
 // invalidator is called whenever a pane dies so the workspace layer can prune
 // its references (may be nil in tests).
 func NewPaneManager(dataDir string, invalidator func(string)) *PaneManager {
@@ -876,7 +876,7 @@ type PaneState struct {
 	Cwd  string `json:"cwd"`
 }
 
-// SaveAll writes panes.json. Skips when no state mutation has occurred since
+// SaveAll writes tools.json. Skips when no state mutation has occurred since
 // startup so a clean run never clobbers an existing user file with empty state.
 //
 // Cwd() can take tens to hundreds of ms on macOS (lsof). To keep it from
@@ -898,14 +898,14 @@ func (m *PaneManager) SaveAll() {
 	}
 	sort.Slice(states, func(i, j int) bool { return states[i].ID < states[j].ID })
 	data, _ := json.Marshal(states)
-	if err := os.WriteFile(m.dataPath("panes.json"), data, 0644); err != nil {
+	if err := os.WriteFile(m.dataPath("tools.json"), data, 0644); err != nil {
 		log.Printf("savePanes: %v", err)
 	}
 }
 
-// LoadAll reads panes.json and respawns shells.
+// LoadAll reads tools.json and respawns shells.
 func (m *PaneManager) LoadAll() {
-	data, err := os.ReadFile(m.dataPath("panes.json"))
+	data, err := os.ReadFile(m.dataPath("tools.json"))
 	if err != nil {
 		if !os.IsNotExist(err) {
 			log.Printf("loadPanes: %v", err)

@@ -10,7 +10,7 @@ async function resetWorkspace(request) {
   const rev = get.headers()['etag'] || '0';
   await request.put('/api/workspace', {
     headers: { 'If-Match': rev, 'Content-Type': 'application/json' },
-    data: '{}',
+    data: '{"schemaVersion":2,"windows":[]}',
   });
 }
 
@@ -36,16 +36,16 @@ async function addSession(page) {
 async function activePaneOfFocused(page) {
   return await page.evaluate(() => {
     const a = (window as any).app;
-    const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
+    const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
     const find = (n: any, id: string): any => {
       if (!n) return null;
-      if (n.type === 'region' && n.id === id) return n;
+      if (n.type === 'pane' && n.id === id) return n;
       if (n.children) for (const c of n.children) { const r = find(c, id); if (r) return r; }
       return null;
     };
     const rg = find(s.layout, a.focused);
     const tab = rg.tabs.find((t: any) => t.id === rg.activeTab);
-    const pane = a.panes.get(tab.paneId);
+    const pane = a.panes.get(tab.toolId);
     const vp = pane.el.querySelector('.xterm-viewport');
     return {
       viewportY: pane.term.buffer.active.viewportY,
@@ -58,16 +58,16 @@ async function activePaneOfFocused(page) {
 async function fillScrollback(page, lines = 200) {
   await page.evaluate((n) => {
     const a = (window as any).app;
-    const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
+    const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
     const find = (m: any, id: string): any => {
       if (!m) return null;
-      if (m.type === 'region' && m.id === id) return m;
+      if (m.type === 'pane' && m.id === id) return m;
       if (m.children) for (const c of m.children) { const r = find(c, id); if (r) return r; }
       return null;
     };
     const rg = find(s.layout, a.focused);
     const tab = rg.tabs.find((t: any) => t.id === rg.activeTab);
-    const pane = a.panes.get(tab.paneId);
+    const pane = a.panes.get(tab.toolId);
     let payload = '';
     for (let i = 1; i <= n; i++) payload += `LINE-${i}\r\n`;
     pane.term.write(payload);
@@ -79,16 +79,16 @@ async function fillScrollback(page, lines = 200) {
 async function scrollUp(page, lines: number) {
   await page.evaluate((n) => {
     const a = (window as any).app;
-    const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
+    const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
     const find = (m: any, id: string): any => {
       if (!m) return null;
-      if (m.type === 'region' && m.id === id) return m;
+      if (m.type === 'pane' && m.id === id) return m;
       if (m.children) for (const c of m.children) { const r = find(c, id); if (r) return r; }
       return null;
     };
     const rg = find(s.layout, a.focused);
     const tab = rg.tabs.find((t: any) => t.id === rg.activeTab);
-    const pane = a.panes.get(tab.paneId);
+    const pane = a.panes.get(tab.toolId);
     pane.term.scrollLines(-n);
   }, lines);
   await page.waitForTimeout(50);
@@ -98,7 +98,7 @@ test.describe('Pane scroll preserve regression', () => {
   test('xterm scroll position survives session switch and return', async ({ page, request }) => {
     await waitForInit(page, request);
 
-    const sidA = await page.evaluate(() => (window as any).app.ws.activeSession);
+    const sidA = await page.evaluate(() => (window as any).app.ws.activeWindow);
     await fillScrollback(page, 200);
     await scrollUp(page, 80);
     const before = await activePaneOfFocused(page);
@@ -122,10 +122,10 @@ test.describe('Pane scroll preserve regression', () => {
     const tabIds = await page.evaluate(async () => {
       const a = (window as any).app;
       await a.addTab(a.focused, 'terminal');
-      const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
+      const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
       const find = (m: any, id: string): any => {
         if (!m) return null;
-        if (m.type === 'region' && m.id === id) return m;
+        if (m.type === 'pane' && m.id === id) return m;
         if (m.children) for (const c of m.children) { const r = find(c, id); if (r) return r; }
         return null;
       };

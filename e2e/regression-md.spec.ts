@@ -10,7 +10,7 @@ async function resetWorkspace(request) {
   const rev = get.headers()['etag'] || '0';
   await request.put('/api/workspace', {
     headers: { 'If-Match': rev, 'Content-Type': 'application/json' },
-    data: '{}',
+    data: '{"schemaVersion":2,"windows":[]}',
   });
 }
 
@@ -50,7 +50,7 @@ test.describe('MD viewer regression', () => {
     await page.waitForTimeout(50);
     const tabAId = await page.evaluate(() => {
       const a = (window as any).app;
-      const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
+      const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
       return s.layout.tabs.find((t: any) => t.type === 'markdown').id;
     });
 
@@ -68,7 +68,7 @@ test.describe('MD viewer regression', () => {
     expect(cachedA).toBe(true);
   });
 
-  test('FR-2: switchTab persists s.focusedRegion across session switch', async ({ page, request }) => {
+  test('FR-2: switchTab persists s.focusedPane across session switch', async ({ page, request }) => {
     await waitForInit(page, request);
 
     // Split horizontally → 2 regions in session 1.
@@ -78,11 +78,11 @@ test.describe('MD viewer regression', () => {
     // Pick the second region as focus target.
     const r2id = await page.evaluate(() => {
       const a = (window as any).app;
-      const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
+      const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
       const regs: any[] = [];
       const walk = (n: any) => {
         if (!n) return;
-        if (n.type === 'region') regs.push(n);
+        if (n.type === 'pane') regs.push(n);
         else if (n.children) n.children.forEach(walk);
       };
       walk(s.layout);
@@ -97,14 +97,14 @@ test.describe('MD viewer regression', () => {
     await page.evaluate((sid0) => {
       const a = (window as any).app;
       a.switchSession(sid0);
-    }, await page.evaluate(() => (window as any).app.ws.sessions[0].id));
+    }, await page.evaluate(() => (window as any).app.ws.windows[0].id));
 
     // Focused region should be r2id.
     const focusedNow = await page.evaluate(() => (window as any).app.focused);
     expect(focusedNow).toBe(r2id);
   });
 
-  test('FR-3: closing active region updates s.focusedRegion in active session', async ({ page, request }) => {
+  test('FR-3: closing active region updates s.focusedPane in active session', async ({ page, request }) => {
     await waitForInit(page, request);
 
     // Split → 2 regions; close the second region (focused after split).
@@ -113,18 +113,18 @@ test.describe('MD viewer regression', () => {
 
     const stateBefore = await page.evaluate(() => {
       const a = (window as any).app;
-      const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
-      return { focused: a.focused, sFocused: s.focusedRegion };
+      const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
+      return { focused: a.focused, sFocused: s.focusedPane };
     });
     expect(stateBefore.focused).toBeTruthy();
 
     // Close all tabs in focused region (forcing region removal).
     await page.evaluate(async () => {
       const a = (window as any).app;
-      const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
+      const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
       const find = (n: any, id: string): any => {
         if (!n) return null;
-        if (n.type === 'region' && n.id === id) return n;
+        if (n.type === 'pane' && n.id === id) return n;
         if (n.children) for (const c of n.children) { const r = find(c, id); if (r) return r; }
         return null;
       };
@@ -138,61 +138,61 @@ test.describe('MD viewer regression', () => {
 
     // Add 2nd session and return.
     await addSession(page);
-    const sid0 = await page.evaluate(() => (window as any).app.ws.sessions[0].id);
+    const sid0 = await page.evaluate(() => (window as any).app.ws.windows[0].id);
     await page.evaluate((sid) => (window as any).app.switchSession(sid), sid0);
 
-    // s.focusedRegion should not be the removed rid.
+    // s.focusedPane should not be the removed rid.
     const ok = await page.evaluate(() => {
       const a = (window as any).app;
-      const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
+      const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
       const find = (n: any, id: string): any => {
         if (!n) return null;
-        if (n.type === 'region' && n.id === id) return n;
+        if (n.type === 'pane' && n.id === id) return n;
         if (n.children) for (const c of n.children) { const r = find(c, id); if (r) return r; }
         return null;
       };
-      return !!find(s.layout, s.focusedRegion);
+      return !!find(s.layout, s.focusedPane);
     });
     expect(ok).toBe(true);
   });
 
-  // FR-4: split 후 s.focusedRegion 이 새 region 과 일치해야 한다.
-  test('FR-4: split updates s.focusedRegion to the new region', async ({ page, request }) => {
+  // FR-4: split 후 s.focusedPane 이 새 region 과 일치해야 한다.
+  test('FR-4: split updates s.focusedPane to the new region', async ({ page, request }) => {
     await waitForInit(page, request);
 
     const result = await page.evaluate(async () => {
       const a = (window as any).app;
-      const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
+      const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
       await a.split('h');
       return {
         focused: a.focused,
-        focusedRegion: s.focusedRegion,
+        focusedPane: s.focusedPane,
       };
     });
 
-    // focused 와 s.focusedRegion 이 반드시 일치해야 한다.
+    // focused 와 s.focusedPane 이 반드시 일치해야 한다.
     expect(result.focused).toBeTruthy();
-    expect(result.focusedRegion).toBe(result.focused);
+    expect(result.focusedPane).toBe(result.focused);
   });
 
-  // FR-5: keepFocus=true 로 split 하면 원래 region 으로 focusedRegion 이 유지돼야 한다.
-  test('FR-5: split with keepFocus keeps s.focusedRegion on original region', async ({ page, request }) => {
+  // FR-5: keepFocus=true 로 split 하면 원래 region 으로 focusedPane 이 유지돼야 한다.
+  test('FR-5: split with keepFocus keeps s.focusedPane on original region', async ({ page, request }) => {
     await waitForInit(page, request);
 
     const result = await page.evaluate(async () => {
       const a = (window as any).app;
-      const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
+      const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
       const beforeFocus = a.focused;
       await a.split('h', { keepFocus: true });
       return {
         beforeFocus,
         focused: a.focused,
-        focusedRegion: s.focusedRegion,
+        focusedPane: s.focusedPane,
       };
     });
 
     expect(result.focused).toBe(result.beforeFocus);
-    expect(result.focusedRegion).toBe(result.beforeFocus);
+    expect(result.focusedPane).toBe(result.beforeFocus);
   });
 
   // FR-9: render() 후에도 MdViewer 의 scrollTop 이 보존되어야 한다.
@@ -220,12 +220,12 @@ test.describe('MD viewer regression', () => {
     expect(scrollTop).toBeGreaterThan(0);
   });
 
-  // FR-7: 활성 세션 삭제 시 이동한 세션의 저장된 focusedRegion 을 보존한다.
-  test('FR-7: delSession preserves target session focusedRegion', async ({ page, request }) => {
+  // FR-7: 활성 세션 삭제 시 이동한 세션의 저장된 focusedPane 을 보존한다.
+  test('FR-7: delSession preserves target session focusedPane', async ({ page, request }) => {
     await waitForInit(page, request);
 
     // 세션 A 에서 split + 두 번째 region 으로 포커스 이동.
-    const sidA = await page.evaluate(() => (window as any).app.ws.activeSession);
+    const sidA = await page.evaluate(() => (window as any).app.ws.activeWindow);
     const r2idA = await page.evaluate(async () => {
       const a = (window as any).app;
       await a.split('h');
@@ -234,14 +234,14 @@ test.describe('MD viewer regression', () => {
 
     // 세션 B 추가 (활성 세션이 B 로 전환됨).
     await addSession(page);
-    const sidB = await page.evaluate(() => (window as any).app.ws.activeSession);
+    const sidB = await page.evaluate(() => (window as any).app.ws.activeWindow);
     expect(sidB).not.toBe(sidA);
 
     // 다시 A 로 전환 → 활성 A.
     await page.evaluate((sid) => (window as any).app.switchSession(sid), sidA);
     expect(await page.evaluate(() => (window as any).app.focused)).toBe(r2idA);
 
-    // 활성 세션 A 를 삭제 → B 가 활성이 됨. B 의 focusedRegion 은 자기 layout 의 첫 region 이어야 함.
+    // 활성 세션 A 를 삭제 → B 가 활성이 됨. B 의 focusedPane 은 자기 layout 의 첫 region 이어야 함.
     await page.evaluate(async (sid) => {
       const a = (window as any).app;
       // 삭제 시 busy 확인 모달이 뜨지 않도록 fake.
@@ -251,18 +251,18 @@ test.describe('MD viewer regression', () => {
 
     const after = await page.evaluate(() => {
       const a = (window as any).app;
-      const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
+      const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
       const find = (n: any, id: string): any => {
         if (!n) return null;
-        if (n.type === 'region' && n.id === id) return n;
+        if (n.type === 'pane' && n.id === id) return n;
         if (n.children) for (const c of n.children) { const r = find(c, id); if (r) return r; }
         return null;
       };
       return {
         focused: a.focused,
-        sFocused: s.focusedRegion,
+        sFocused: s.focusedPane,
         focusedExists: !!find(s.layout, a.focused),
-        syncMatches: a.focused === s.focusedRegion,
+        syncMatches: a.focused === s.focusedPane,
       };
     });
     expect(after.focusedExists).toBe(true);
@@ -273,7 +273,7 @@ test.describe('MD viewer regression', () => {
   test('FR-6: split focus survives session switch and return', async ({ page, request }) => {
     await waitForInit(page, request);
 
-    const session1Id = await page.evaluate(() => (window as any).app.ws.activeSession);
+    const session1Id = await page.evaluate(() => (window as any).app.ws.activeWindow);
 
     const focusedAfterSplit = await page.evaluate(async () => {
       const a = (window as any).app;
@@ -299,10 +299,10 @@ test.describe('MD viewer regression', () => {
       await a.addTab(a.focused, 'terminal');
       await a.addTab(a.focused, 'terminal');
       await a.addTab(a.focused, 'terminal');
-      const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
+      const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
       const find = (n: any, id: string): any => {
         if (!n) return null;
-        if (n.type === 'region' && n.id === id) return n;
+        if (n.type === 'pane' && n.id === id) return n;
         if (n.children) for (const c of n.children) { const r = find(c, id); if (r) return r; }
         return null;
       };
@@ -325,10 +325,10 @@ test.describe('MD viewer regression', () => {
 
     const activeAfterCloseMid = await page.evaluate(() => {
       const a = (window as any).app;
-      const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
+      const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
       const find = (n: any, id: string): any => {
         if (!n) return null;
-        if (n.type === 'region' && n.id === id) return n;
+        if (n.type === 'pane' && n.id === id) return n;
         if (n.children) for (const c of n.children) { const r = find(c, id); if (r) return r; }
         return null;
       };
@@ -350,10 +350,10 @@ test.describe('MD viewer regression', () => {
 
     const activeAfterCloseLast = await page.evaluate(() => {
       const a = (window as any).app;
-      const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
+      const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
       const find = (n: any, id: string): any => {
         if (!n) return null;
-        if (n.type === 'region' && n.id === id) return n;
+        if (n.type === 'pane' && n.id === id) return n;
         if (n.children) for (const c of n.children) { const r = find(c, id); if (r) return r; }
         return null;
       };

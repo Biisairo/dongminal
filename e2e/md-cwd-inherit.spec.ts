@@ -16,7 +16,7 @@ async function resetWorkspace(request) {
   const rev = get.headers()['etag'] || '0';
   await request.put('/api/workspace', {
     headers: { 'If-Match': rev, 'Content-Type': 'application/json' },
-    data: '{}',
+    data: '{"schemaVersion":2,"windows":[]}',
   });
 }
 
@@ -96,10 +96,10 @@ test.describe('MD focus → new pane cwd inheritance', () => {
     // Initial pane is terminal; capture its cwd.
     const parentCwd = await page.evaluate(async () => {
       const a = (window as any).app;
-      const s = a.ws.sessions.find((x: any) => x.id === a.ws.activeSession);
-      const walk = (n: any, out: any[]) => { if (!n) return; if (n.type === 'region') out.push(n); else if (n.children) n.children.forEach((c: any) => walk(c, out)); };
+      const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
+      const walk = (n: any, out: any[]) => { if (!n) return; if (n.type === 'pane') out.push(n); else if (n.children) n.children.forEach((c: any) => walk(c, out)); };
       const regs: any[] = []; walk(s.layout, regs);
-      const pid = regs[0].tabs[0].paneId;
+      const pid = regs[0].tabs[0].toolId;
       const r = await fetch('/api/cwd?pane=' + pid);
       const j = await r.json();
       return j.cwd as string;
