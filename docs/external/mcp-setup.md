@@ -1,6 +1,6 @@
 # Claude Code MCP 연동
 
-Dongminal 은 내장 MCP (Model Context Protocol) SSE 서버를 `/mcp/sse` 엔드포인트로 노출합니다. Claude Code 에 등록하면 Claude 가 pane 목록을 조회하고 터미널에 입력을 보내고 출력을 읽을 수 있습니다.
+Dongminal 은 내장 MCP (Model Context Protocol) SSE 서버를 `/mcp/sse` 엔드포인트로 노출합니다. Claude Code 에 등록하면 Claude 가 열린 도구 목록을 조회하고 터미널에 입력을 보내고 출력을 읽을 수 있습니다.
 
 ## 설치
 
@@ -34,7 +34,7 @@ PORT=58146 ./scripts/install-mcp.sh      # 다른 포트로 등록
 ## 사용
 
 1. Dongminal 서버 실행 중인지 확인.
-2. Claude Code 에서 새 세션 시작 → `/mcp` 로 `dongminal` 연결 확인.
+2. Claude Code 를 새로 시작 → `/mcp` 로 `dongminal` 연결 확인.
 3. 화면 하단의 라벨(예: `📍 W1.P2.T3`)을 Claude 에 알려주면 해당 탭을 타깃.
 
 ## 제공 MCP 툴

@@ -108,12 +108,11 @@ function normalizeTab(t) {
 }
 
 // FR-EM-13: 도구 타입별 능력. 백그라운드로 보낼 수 있는 도구는 서버(데몬)가
-// 소유하는 실행 실체가 있는 것뿐이다 — editor/markdown 은 브라우저 메모리에만
+// 소유하는 실행 실체가 있는 것뿐이다 — editor 는 브라우저 메모리에만
 // 존재하므로 탭에서 떼어낼 실체가 없다.
 const TOOL_CAPABILITIES = {
   terminal: { backgroundCapable: true },
   editor:   { backgroundCapable: false },
-  markdown: { backgroundCapable: false },
 };
 function toolBackgroundCapable(type) {
   const cap = TOOL_CAPABILITIES[type || 'terminal'];

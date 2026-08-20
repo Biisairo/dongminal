@@ -5,7 +5,6 @@
 - Go 1.21+
 - macOS 또는 Linux (PTY, `ps`, `lsof` 의존)
 - zsh 또는 bash (현재 디렉터리 상태 바 표시용 — 선택)
-- `code-server` (pane 에서 `edit <path>` 로 원격 VSCode 열 때만 필요 — 선택)
 - `claude` CLI (MCP 자동 등록 시 — 선택)
 
 ## 설치 & 실행
@@ -61,7 +60,7 @@ PORT=58146 DONGMINAL_HOST=0.0.0.0 ./dongminal       # LAN 노출
 | 변수 | 기본 | 설명 |
 |------|------|------|
 | `PORT` | `58146` (start.sh) / `8080` (바이너리 직접 실행) | HTTP 서버 포트 |
-| `DONGMINAL_HOME` | `~/.dongminal` | 설치 루트. `bin/`(런타임 헬퍼 스크립트), `settings.json`, `workspace.json`, `panes/` 모두 이 아래. 없으면 서버 기동 시 자동 생성 |
+| `DONGMINAL_HOME` | `~/.dongminal` | 설치 루트. `bin/`(런타임 헬퍼), `settings.json`, `workspace.json`, `tools.json` 모두 이 아래. 없으면 서버 기동 시 자동 생성 |
 | `DONGMINAL_PORT` | = `PORT` | 서버가 자식 PTY 프로세스에 주입. `dmctl`, `edit` 가 서버로 HTTP 콜 할 때 사용 |
 | `DONGMINAL_HOST` | `127.0.0.1` | HTTP 서버 바인딩 주소. `127.0.0.1` 은 동일 PC 전용, `0.0.0.0` 은 LAN 노출. `dmctl` 도 이 값으로 서버에 접속 |
 | `LOG` | `/tmp/dongminal.log` | `start.sh` 가 서버 로그를 리다이렉트할 파일 |
@@ -80,25 +79,28 @@ DONGMINAL_HOME=~/.dongminal
 
 ### 런타임 헬퍼 배포 (자동)
 
-서버 기동 시 `internal/runtime` 이 `go:embed` 로 번들한 스크립트를 `$DONGMINAL_HOME/bin/` 으로 풀어냅니다.
+서버 기동 시 `internal/runtime` 이 `$DONGMINAL_HOME/bin/` 을 채웁니다. helper CLI 는 dongminal 바이너리를 가리키는 symlink, 셸 훅은 `go:embed` 로 번들한 실제 파일입니다.
 
-- `bin/dmctl` — 워크스페이스 원격 제어 CLI (분할/탭/포커스)
-- `bin/edit` — code-server 런처
+- `bin/dmctl` — 워크스페이스 원격 제어 CLI (분할/탭/포커스/목록/알림)
+- `bin/edit` — 내장 편집기 탭으로 파일 열기
 - `bin/download` — 파일을 브라우저로 다운로드
+- `bin/detach` — 현재 도구를 백그라운드로 보내고 탭 닫기
 - `bin/bash-hook.sh`, `bin/zdotdir/.zshrc` — 현재 디렉터리 OSC 리포트 훅
+- `bin/agent-hooks/` — claude 래퍼가 주입하는 hooks settings
 
-각 pane 의 shell 은 서버가 다음을 주입한 환경으로 스폰되므로 PATH 를 수동 설정할 필요가 없습니다.
+각 터미널 도구의 shell 은 서버가 다음을 주입한 환경으로 스폰되므로 PATH 를 수동 설정할 필요가 없습니다.
 
 - `PATH=<기존 PATH>:$DONGMINAL_HOME/bin`
 - zsh → `ZDOTDIR=$DONGMINAL_HOME/bin/zdotdir`
 - bash → `BASH_ENV=$DONGMINAL_HOME/bin/bash-hook.sh`
 - `TERM=xterm-256color`, `COLORTERM=truecolor`, `LANG/LC_ALL/LC_CTYPE=en_US.UTF-8`
+- `DONGMINAL_PORT=<서버 포트>`, `DONGMINAL_TOOL_ID=<도구 id>`
 
 외부 터미널에서도 `dmctl`/`edit` 를 쓰고 싶다면 별도로 `PATH`/`DONGMINAL_PORT` 를 export 하면 됩니다.
 
 ## 접속
 
-브라우저에서 `http://localhost:<PORT>/` 를 열면 즉시 터미널이 뜨고 첫 Pane 이 자동 생성됩니다.
+브라우저에서 `http://localhost:<PORT>/` 를 열면 즉시 터미널이 뜨고 첫 도구가 자동 생성됩니다.
 
 ## 다음 단계
 

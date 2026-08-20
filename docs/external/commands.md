@@ -1,11 +1,14 @@
-# 터미널 내부 CLI (`dmctl`, `edit`, `download`)
+# 터미널 내부 CLI (`dmctl`, `edit`, `download`, `detach`)
 
-Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼 스크립트를 풀어내고, 각 pane 의 shell 은 이 디렉터리를 `PATH` 에 자동 주입받습니다. 즉 터미널에서 바로 아래 명령을 쓸 수 있습니다.
+Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고, 각 터미널 도구의 shell 은 이 디렉터리를 `PATH` 에 자동 주입받습니다. 즉 터미널에서 바로 아래 명령을 쓸 수 있습니다.
+
+헬퍼는 dongminal 바이너리를 가리키는 symlink 입니다 (multi-call CLI) — 서버와 헬퍼의 버전이 어긋날 수 없습니다.
 
 공통 환경 변수 (서버가 자동 주입):
 
 - `DONGMINAL_PORT` — 서버 포트 (기본 58146 또는 `PORT` 값)
 - `DONGMINAL_HOST` — 기본 `127.0.0.1`
+- `DONGMINAL_TOOL_ID` — 그 셸이 속한 도구 id (`detach` 가 사용)
 
 ## `dmctl` — 워크스페이스 원격 제어
 
@@ -19,40 +22,41 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼 스크립트를
 | `dmctl new-tab [--name <이름>] [-n] [--at <uuid>]` | 새 탭. `--at` 으로 다른 분할 칸 대상 지정 가능. `-n` 이면 대상 분할 칸의 활성 탭도 유지한 채 백그라운드 추가 |
 | `dmctl split-h [N]` | 가로 분할. N 지정 시 N 개로 균등 분할 (기본 2) |
 | `dmctl split-v [N]` | 세로 분할. 동일 |
-| `dmctl focus <uuid>` | 특정 pane 으로 포커스. **uuid 만 허용** (`list-workspace` 의 `uuid=` 컬럼). 좌표/라벨/toolId 는 400 거부 |
+| `dmctl focus <uuid>` | 특정 탭으로 포커스. **uuid 만 허용** (`list-workspace` 의 `uuid=` 컬럼). 좌표/라벨/toolId 는 400 거부 |
 | `dmctl close-tab` | 현재 탭 닫기 |
 | `dmctl close-window` | 현재 창 닫기 |
 | `dmctl window-next` / `window-prev` | 창 이동 |
 | `dmctl tab-next` / `tab-prev` | 탭 이동 |
-| `dmctl pane-up` / `pane-down` / `pane-left` / `pane-right` | 방향키식 pane 포커스 이동 |
-| `dmctl rename-tab --at <uuid> <이름>` | pane 표시 이름 변경 (예: 팀 pane 에 역할명). 포커스 무영향. `--name <이름>` 플래그도 동등 |
-| `dmctl rename-window --at <uuid> <이름>` | 그 pane 이 **속한 창**의 이름 변경. 포커스 무영향 |
-| `dmctl list-workspace [--json] [--window <substr>] [--tab <substr>]` | 열린 도구 목록 조회. 표준 KEY=VALUE 라인 (아래 박스). ▶ 표시는 현재 포커스. `--session`/`--tab` 으로 이름 필터 (부분 일치·대소문자 무시, AND, 0건이면 rc=1). `--json` 시 JSON 배열. MCP `list_workspace` 와 byte-level 동일 포맷 |
-| `dmctl who-am-i [--json]` | 현재 쉘이 속한 pane 의 식별 정보. 같은 표준 라인 한 줄. MCP `who_am_i` 와 동일 포맷. 스크립트에서 `UUID=$(dmctl who-am-i --json \| jq -r .uuid)` 패턴으로 자기 식별 |
+| `dmctl tool-up` / `tool-down` / `tool-left` / `tool-right` | 방향키식 분할 칸 포커스 이동 (action 은 `paneUp`/`paneDown`/`paneLeft`/`paneRight`) |
+| `dmctl rename-tab --at <uuid> <이름>` | 탭 표시 이름 변경 (예: 팀 도구에 역할명). 포커스 무영향. `--name <이름>` 플래그도 동등 |
+| `dmctl rename-window --at <uuid> <이름>` | 그 탭이 **속한 창**의 이름 변경. 포커스 무영향 |
+| `dmctl list-workspace [--json] [--window <substr>] [--tab <substr>]` | 열린 도구 목록 조회. 표준 KEY=VALUE 라인 (아래 박스). ▶ 표시는 현재 포커스. `--window`/`--tab` 으로 이름 필터 (부분 일치·대소문자 무시, AND, 0건이면 rc=1). `--json` 시 JSON 배열. MCP `list_workspace` 와 byte-level 동일 포맷 |
+| `dmctl who-am-i [--json]` | 현재 쉘이 속한 탭의 식별 정보. 같은 표준 라인 한 줄. MCP `who_am_i` 와 동일 포맷. 스크립트에서 `UUID=$(dmctl who-am-i --json \| jq -r .uuid)` 패턴으로 자기 식별 |
 | `dmctl send <action> [json]` | 원시 action 전송 (확장용) |
 
 #### 표준 라인 포맷 (list-workspace / who-am-i / MCP list_workspace·who_am_i 공통)
 
 ```
-{▶|  } label=W1.P1.T1  uuid=<36자>  short=<8자>  toolId=<n>  shellPid=<n>  size=<W>x<H>  session="<n>"  tab="<n>"  window_uuid=<36자>  pane_uuid=<36자>
+{▶|  } label=W1.P1.T1  uuid=<36자>  short=<8자>  toolId=<n>  shellPid=<n>  size=<W>x<H>  window="<이름>"  tab="<이름>"  window_uuid=<36자>  pane_uuid=<36자>
 ```
 
 - 모든 컬럼 KEY=VALUE, 두 칸 공백 구분. `awk` / `grep` 으로 컬럼 단위 파싱 가능.
 - `▶` = 사용자 브라우저 포커스 일치. 비포커스는 두 칸 공백.
 - 빈 값(uuid/short/windowUuid/paneUuid 미지정, size=0x0)은 해당 컬럼 통째 생략.
-- `session` / `tab` 은 Go `%q` 이스케이프.
+- `window` / `tab` 은 Go `%q` 이스케이프.
+- `--json` 의 키는 lowerCamelCase (`toolId`, `shellPid`, `sizeCols`, `sizeRows`, `windowUuid`, `paneUuid`, `focused`).
 
 ### 공통 플래그
 
 | 플래그 | 설명 |
 |--------|------|
-| `--at <uuid>` / `-l <uuid>` | 대상 pane 지정. 미지정 시 현재 포커스. **uuid 만 허용** — `list-workspace` 의 `uuid=` 컬럼 값. 좌표/라벨/toolId 는 거부 |
+| `--at <uuid>` / `-l <uuid>` | 대상 탭 지정. 미지정 시 현재 포커스. **uuid 만 허용** — `list-workspace` 의 `uuid=` 컬럼 값. 좌표/라벨/toolId 는 거부 |
 | `--no-focus` / `-n` | 실행 전후로 사용자 포커스를 옮기지 않음. `split-h/v` 후 새 분할 칸으로 포커스가 튀지 않음. `close-tab` 등에도 동일 적용 |
 | `-h` / `--help` | 도움말 |
 
 ### 위치 식별자 — uuid 만 허용
 
-`/api/commands` 의 `args.location` 인자는 **`list-workspace` 가 노출하는 `uuid=` 컬럼 값만** 받는다. 좌표(`4.1.1`/`W4.P1.T1`), 라벨, toolId 는 400 거부 — 다른 창 닫힘 시 reflow 되어 다른 pane 을 가리키는 사고를 차단하기 위함.
+`/api/commands` 의 `args.location` 인자는 **`list-workspace` 가 노출하는 `uuid=` 컬럼 값만** 받는다. 좌표(`4.1.1`/`W4.P1.T1`), 라벨, toolId 는 400 거부 — 다른 창 닫힘 시 reflow 되어 다른 탭을 가리키는 사고를 차단하기 위함.
 
 사이드바 라벨 `📍 W1.P2.T1` 은 사람용 표시; 명령에는 같은 행의 `uuid=` 값을 쓴다.
 
@@ -84,35 +88,46 @@ NEW=$(dmctl split-v --at "$UUID" -n | jq -r '.newTabs[0].uuid')  # 새로 생긴
 - `newTabs` 각 원소는 `{uuid, toolId}` — uuid→toolId 재조회 불필요.
 - `newWindow` 은 `newWindows`/`newPanes`/`newTabs` 각 1개.
 - 구독 브라우저가 없거나(`delivered=0`) 응답이 늦으면 `timedOut: true` + 빈 배열 — 명령 자체는 broadcast 됨. 이 경우 `list-workspace` 로 확인.
-- 비생성 명령(`focus`/`close*`/`rename*`/`pane*` 등)은 이 필드들이 없다 (기존 응답 그대로).
+- 비생성 명령(`focus`/`close*`/`rename*`/`tool-*` 등)은 이 필드들이 없다 (기존 응답 그대로).
 
 ### 허용된 action (서버 화이트리스트)
 
-`newWindow`, `newTab`, `splitH`, `splitV`, `focus`, `closeTab`, `closeWindow`, `windowNext`, `windowPrev`, `tabNext`, `tabPrev`, `paneUp`, `paneDown`, `paneLeft`, `paneRight`, `renameTab`, `renameWindow`.
+`newWindow`, `newTab`, `splitH`, `splitV`, `openEditorTab`, `focus`, `closeTab`, `closeWindow`, `windowNext`, `windowPrev`, `tabNext`, `tabPrev`, `paneUp`, `paneDown`, `paneLeft`, `paneRight`, `renameTab`, `renameWindow`, `detachTab`, `restoreTool`.
 
-그 외 action 은 서버가 400 으로 거절.
+그 외 action 은 서버가 400 으로 거절. `openEditorTab` 은 `edit`, `detachTab`/`restoreTool` 은 `detach` 가 사용합니다.
 
-## `edit` — code-server 런처 (원격 VSCode)
-
-pane 에서 경로를 열면 서버가 `code-server` 프로세스를 Unix 소켓 모드로 띄우고, 브라우저가 `/cs/<id>/` 리버스 프록시를 새 창으로 오픈합니다.
+## `edit` — 내장 편집기로 파일 열기
 
 ```
-edit <path>              # 해당 경로로 새 code-server 인스턴스 열기
-edit -l, --list          # 현재 열린 인스턴스 목록
-edit -s, --stop <id|all> # 인스턴스 종료 (id 또는 all)
-edit -h, --help, ?       # 도움말
+edit <path>          # 현재 분할 칸에 편집기 탭으로 열기
+edit -h, --help      # 도움말
 ```
 
-`<path>` 가 파일이면 상위 디렉터리가 `folder` 로 열리고 해당 파일이 자동으로 에디터에 로드됩니다. 상대 경로는 절대 경로로 변환.
+동작: `POST /api/commands` 로 `openEditorTab` 을 브로드캐스트하고, 브라우저가 그 탭에 Monaco Editor 를 띄운 뒤 `GET /api/file/read` 로 내용을 읽습니다. 저장은 `POST /api/file/write`.
 
-동작:
+- 상대경로는 절대경로로 변환됩니다. 파일이 없거나 디렉터리면 rc=1.
+- 구독 중인 브라우저가 없으면 `delivered=0` — 페이지를 새로고침해야 합니다.
 
-1. `POST /api/code-server?path=<abs>` → 서버가 `code-server` 를 스폰, id/folder/path 반환.
-2. OSC 777 `OpenCodeServer;<id>|<path>|<folder>` 가 터미널을 통해 프론트엔드로 전달.
-3. 브라우저가 `window.open('/cs/<id>/...')` 로 새 창을 열고 10s 주기 하트비트, 1s 주기 창 존재 확인.
-4. 창이 닫히면 자동으로 `/api/code-server/stop?id=<id>` 호출. 팝업 차단 시 터미널의 URL 링크 클릭으로 폴백.
+과거에는 `code-server`(원격 VSCode) 프로세스를 띄우고 `/cs/<id>/` 로 프록시했으나 내장 편집기로 대체되며 제거됐습니다. `edit -l` / `edit -s` 도 함께 사라졌습니다.
 
-요구: 서버 호스트에 `code-server` 가 `PATH` 상에 설치되어 있어야 합니다. 없으면 `edit` 는 서버에서 500 응답을 받고 실패 메시지를 출력합니다.
+## `detach` — 도구를 백그라운드로
+
+탭을 닫아도 도구가 계속 돌게 합니다. 이름이 `bg` 가 아닌 이유는 `bg` 가 zsh/bash 의 작업 제어 빌트인이기 때문입니다.
+
+```
+detach                   # 현재 탭의 도구를 백그라운드로 (탭은 닫힘)
+detach --list, -l        # 백그라운드 도구 목록
+detach --restore <id>    # 백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀
+detach -h, --help        # 도움말
+```
+
+동작: `DONGMINAL_TOOL_ID` 로 자기 도구를 식별해 `POST /api/commands` 로 `detachTab` 을 보냅니다. 전환과 탭 닫기를 **하나의 명령**으로 처리하는 이유는, 두 단계로 나누면 그 사이에 탭이 닫혀 도구가 종료될 수 있기 때문입니다. `--list` 는 `GET /api/tools/background` 를 직접 조회합니다.
+
+- `DONGMINAL_TOOL_ID` 가 없으면(dongminal 터미널 밖) rc=1.
+- 터미널 도구만 대상입니다. 편집기 탭은 `backgroundCapable=false` 라 브라우저가 무시합니다.
+- **데몬을 재시작하면 백그라운드 도구는 복원되지 않습니다** — 복원해도 돌던 작업이 아니라 같은 cwd 의 빈 셸이 되살아날 뿐입니다.
+
+상태 바의 `⏻ <개수>` 배지를 클릭해도 같은 목록·복귀 경로를 쓸 수 있습니다.
 
 ## `download` — 파일을 브라우저로 내려받기
 
@@ -122,7 +137,7 @@ download <path>
 
 OSC 777 `Download;<abs-path>` 시퀀스를 출력해 브라우저가 `/api/download?path=<abs>` 로 실제 다운로드를 트리거합니다. 상대경로는 `realpath` 로 절대경로 변환. 파일이 없으면 서버 측에서 404.
 
-반대 방향(업로드)은 터미널에 파일을 드래그앤드롭 → 해당 pane 의 `cwd` 에 저장 (중복 시 `(1)`, `(2)` 자동 넘버링).
+반대 방향(업로드)은 터미널에 파일을 드래그앤드롭 → 해당 도구의 `cwd` 에 저장 (중복 시 `(1)`, `(2)` 자동 넘버링).
 
 ## cwd 훅
 
