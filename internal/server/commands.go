@@ -185,6 +185,9 @@ var allowedCmdActions = map[string]bool{
 	"paneRight":     true,
 	"openEditorTab": true,
 	"renameTab":     true,
+	"renameWindow":  true,
+	"detachTab":     true,
+	"restoreTool":   true,
 }
 
 // AllowedAction reports whether the action is accepted by the hub.
@@ -208,10 +211,10 @@ func translateLocationUUID(rawArgs *json.RawMessage, ws WorkspaceStore) (orig, f
 	if !ok || loc == "" {
 		return "", "", nil
 	}
-	// FR-DMC-9: location 은 list-tools 의 uuid (tab.id) 만 허용. 좌표/라벨/toolId
+	// FR-DMC-9: location 은 list-workspace 의 uuid (tab.id) 만 허용. 좌표/라벨/toolId
 	// 는 거부 — 사용자가 reflow 위험이 있는 식별자를 무의식적으로 쓰는 표면을 차단.
 	if !ws.IsKnownTabID(loc) {
-		return loc, "", fmt.Errorf("location 은 list-tools 의 uuid 만 허용 (좌표/라벨/toolId 거부): %q", loc)
+		return loc, "", fmt.Errorf("location 은 list-workspace 의 uuid 만 허용 (좌표/라벨/toolId 거부): %q", loc)
 	}
 	coord, cerr := ws.CoordinateOf(loc)
 	if cerr != nil {

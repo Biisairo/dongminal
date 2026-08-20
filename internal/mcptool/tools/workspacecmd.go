@@ -11,10 +11,33 @@ import (
 
 const WorkspaceCommandName = "workspace_command"
 
+// workspaceCmdActions는 workspace_command 가 노출하는 action 집합이다.
+// 서버의 allowedCmdActions 부분집합 — 브로드캐스트 화이트리스트에는 있으나
+// MCP 로 부를 수 없는 action 이 있다. detachTab/restoreTool 은 toolId 인자를
+// 요구하고 workspace_command 는 그 인자를 갖지 않으므로 여기서 제외한다.
+var workspaceCmdActions = []string{
+	"newWindow", "newTab", "splitH", "splitV",
+	"closeTab", "closeWindow",
+	"windowNext", "windowPrev",
+	"tabNext", "tabPrev",
+	"paneUp", "paneDown", "paneLeft", "paneRight",
+	"focus", "openEditorTab",
+	"renameTab", "renameWindow",
+}
+
+func isWorkspaceCmdAction(a string) bool {
+	for _, x := range workspaceCmdActions {
+		if x == a {
+			return true
+		}
+	}
+	return false
+}
+
 var WorkspaceCommandSpec = map[string]any{
 	"name": WorkspaceCommandName,
 	"description": "dongminal 워크스페이스를 원격 제어한다. 실행 중인 브라우저(들)에 SSE 로 명령을 브로드캐스트하고, 브라우저가 기존 UI 로직(키보드 단축키와 동일 경로)을 그대로 실행한다. delivered=0 이면 구독 중인 브라우저 없음 — 사용자가 브라우저를 새로고침해야 함.\n\n" +
-		"【용어】 창(Window)은 사이드바의 독립 작업공간. 분할 칸(Tool)은 창 내부의 나뉜 공간으로 자체 탭 바를 가진다. 탭(Tab)은 분할 칸 안의 공간이며, 그 안에 도구(Tool — 현재는 터미널)가 탑재된다. 라벨 W<창>.P<분할칸>.T<탭> 은 사람 가독성용 positional 표시(list_workspace 의 label 컬럼). location 인자는 **uuid 만 허용** — list_workspace 의 `uuid=` 컬럼 값. 좌표/라벨/toolId 입력은 거부. 서버가 broadcast 직전 uuid→좌표로 변환.\n\n" +
+		"【용어】 창(Window)은 사이드바의 독립 작업공간. 분할 칸(Pane)은 창 내부의 나뉜 공간으로 자체 탭 바를 가진다. 탭(Tab)은 분할 칸 안의 공간이며, 그 안에 도구(Tool — 현재는 터미널)가 탑재된다. 라벨 W<창>.P<분할칸>.T<탭> 은 사람 가독성용 positional 표시(list_workspace 의 label 컬럼). location 인자는 **uuid 만 허용** — list_workspace 의 `uuid=` 컬럼 값. 좌표/라벨/toolId 입력은 거부. 서버가 broadcast 직전 uuid→좌표로 변환.\n\n" +
 		"【action — 기본은 '현재 포커스한 분할 칸/창' 기준. location 인자로 포커스 외 위치를 직접 대상 지정 가능 (focus → action 2콜 대신 1콜로 해결).】\n" +
 		"  • newWindow   — 새 창 생성. 기본은 활성화(전환). name=잡이름 지정 가능, keepFocus=true 면 사용자 포커스 유지(백그라운드 생성 — 잡 컨테이너 패턴).\n" +
 		"  • newTab       — 포커스(또는 location) 분할 칸에 새 탭(+터미널) 추가. 기본은 그 탭으로 전환. name 지정 가능, keepFocus=true 면 사용자 포커스·대상 분할 칸 활성 탭 모두 유지. cwd 는 해당 탭의 cwd 상속.\n" +
@@ -45,15 +68,7 @@ var WorkspaceCommandSpec = map[string]any{
 		"properties": map[string]any{
 			"action": map[string]any{
 				"type": "string",
-				"enum": []string{
-					"newWindow", "newTab", "splitH", "splitV",
-					"closeTab", "closeWindow",
-					"windowNext", "windowPrev",
-					"tabNext", "tabPrev",
-					"paneUp", "paneDown", "paneLeft", "paneRight",
-					"focus", "openEditorTab",
-					"renameTab", "renameWindow",
-				},
+				"enum": workspaceCmdActions,
 			},
 			"location": map[string]any{
 				"type":        "string",
@@ -62,15 +77,15 @@ var WorkspaceCommandSpec = map[string]any{
 			"count": map[string]any{
 				"type":        "integer",
 				"minimum":     2,
-				"description": "splitH/splitV 전용. 한 번에 N 균등 분할 (기본 2). 예: count=4 이면 원본 + 새 영역 3 개 = 총 4 개 형제.",
+				"description": "splitH/splitV 전용. 한 번에 N 균등 분할 (기본 2). 예: count=4 이면 원본 + 새 분할 칸 3 개 = 총 4 개 형제.",
 			},
 			"keepFocus": map[string]any{
 				"type":        "boolean",
-				"description": "splitH/splitV/newWindow/newTab 전용. true 면 실행 후 사용자 포커스를 호출 전 상태 그대로 유지한다 (기본 false). newWindow+keepFocus 는 세션을 사이드바에만 추가, newTab+keepFocus 는 대상 영역의 활성 탭도 바꾸지 않는다.",
+				"description": "splitH/splitV/closeTab/newWindow/newTab 전용. true 면 실행 후 사용자 포커스를 호출 전 상태 그대로 유지한다 (기본 false). newWindow+keepFocus 는 창을 사이드바에만 추가, newTab+keepFocus 는 대상 분할 칸의 활성 탭도 바꾸지 않는다.",
 			},
 			"name": map[string]any{
 				"type":        "string",
-				"description": "newWindow/newTab/openEditorTab 전용. 새 세션/탭에 표시할 이름. 생략 시 기본값 (Session/Shell/파일명).",
+				"description": "newWindow/newTab/openEditorTab 전용. 새 창/탭에 표시할 이름. 생략 시 기본값 (Window/Shell/파일명).",
 			},
 			"filePath": map[string]any{
 				"type":        "string",
@@ -100,7 +115,7 @@ func WorkspaceCommandHandler(d WorkspaceCommandDeps) func(context.Context, Works
 		if a.Action == "" {
 			return nil, fmt.Errorf("action 누락")
 		}
-		if !d.Broadcaster.AllowedAction(a.Action) {
+		if !isWorkspaceCmdAction(a.Action) || !d.Broadcaster.AllowedAction(a.Action) {
 			return nil, fmt.Errorf("unknown action: %s", a.Action)
 		}
 		if a.Action == "focus" && a.Location == "" {

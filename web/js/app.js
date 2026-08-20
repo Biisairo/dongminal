@@ -1284,7 +1284,19 @@ class App {
     const isActive = s.id === this.ws.activeWindow;
     if(pn.tabs.length===0){
       s.layout=doRemove(s.layout,rid);
-      if(!s.layout){if(!isEditor&&toolId&&!opts.keepTool)this._killTool(toolId);await this.delWindow(s.id);return}
+      if(!s.layout){
+        // FR-BG-6f: 마지막 탭이 닫혀 창까지 사라지는 경로. 아래 공통 처리에
+        // 도달하지 못하고 조기 반환하므로 도구 처분을 여기서 마쳐야 한다.
+        // keepTool 이면 백그라운드로 등록한다 — 등록을 빠뜨리면 종료되지도,
+        // 목록에 오르지도 않아 어디서도 닿을 수 없는 도구가 된다.
+        if(!isEditor&&toolId){
+          if(opts.keepTool) await this._setToolBackground(toolId,true);
+          else this._killTool(toolId);
+        }
+        await this.delWindow(s.id);
+        if(!isEditor&&toolId&&opts.keepTool) this._bgRefresh();
+        return;
+      }
       if(isActive){
         const fallback=this.focused===rid?prevClosestId:this.focused;
         const next=fallback&&findPane(s.layout,fallback)?fallback:firstPane(s.layout)?.id||null;
