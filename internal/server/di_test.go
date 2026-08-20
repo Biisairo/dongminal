@@ -13,7 +13,7 @@ import (
 
 // TestHandlerPanesGetUsesFake: fake PaneHub 주입 → GET /api/state 응답의
 // panes 배열이 fake 데이터를 반영함을 검증한다.
-// (라우트 테이블에 /api/panes GET 이 없어 /api/state 경유로 List() 를 호출)
+// (라우트 테이블에 /api/tools GET 이 없어 /api/state 경유로 List() 를 호출)
 func TestHandlerPanesGetUsesFake(t *testing.T) {
 	fp := newFakePaneHub()
 	fp.seed("fake-a", "Alpha")

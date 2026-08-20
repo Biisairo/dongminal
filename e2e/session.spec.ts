@@ -33,7 +33,7 @@ test.describe('Session management', () => {
     if (before <= 1) {
       // Create an extra session so we can delete one.
       const [resp] = await Promise.all([
-        page.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
+        page.waitForResponse((r) => r.url().includes('/api/tools') && r.request().method() === 'POST'),
         page.click('#add-window'),
       ]);
       expect(resp.status()).toBe(200);
@@ -56,7 +56,7 @@ test.describe('Session management', () => {
     const before = await page.locator('#windows .si').count();
     if (before < 2) {
       const [resp] = await Promise.all([
-        page.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
+        page.waitForResponse((r) => r.url().includes('/api/tools') && r.request().method() === 'POST'),
         page.click('#add-window'),
       ]);
       expect(resp.status()).toBe(200);
@@ -80,7 +80,7 @@ test.describe('Session management', () => {
     const before = await page.locator('#windows .si').count();
     if (before < 2) {
       const [resp] = await Promise.all([
-        page.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
+        page.waitForResponse((r) => r.url().includes('/api/tools') && r.request().method() === 'POST'),
         page.click('#add-window'),
       ]);
       expect(resp.status()).toBe(200);

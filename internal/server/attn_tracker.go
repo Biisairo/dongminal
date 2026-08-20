@@ -57,7 +57,7 @@ func NewAttnTracker(hub CommandBroker, idleMS int) *AttnTracker {
 		hub.Broadcast(paneAttentionClearPayload(id))
 	}
 	t.onActivity = func(id, state, tool, detail string) {
-		hub.Broadcast(paneActivityPayload(id, state, tool, detail))
+		hub.Broadcast(toolActivityPayload(id, state, tool, detail))
 	}
 	return t
 }

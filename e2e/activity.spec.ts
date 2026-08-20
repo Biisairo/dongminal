@@ -14,17 +14,17 @@ async function waitForInit(page) {
   await page.waitForSelector('#area .rg.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
-async function setActivity(page, paneId, state, tool, detail) {
+async function setActivity(page, toolId, state, tool, detail) {
   return page.evaluate(
     async (a) => {
-      const r = await fetch('/api/panes/activity/set', {
+      const r = await fetch('/api/tools/activity/set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(a),
       });
       return r.status;
     },
-    { paneId, state, tool, detail },
+    { toolId, state, tool, detail },
   );
 }
 
@@ -196,10 +196,10 @@ test.describe('Agent activity panel', () => {
     await page.locator('#area .rg.focused .rt-add').click();
     await expect(page.locator('#area .rg.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
     await page.evaluate(async (p) => {
-      await fetch('/api/panes/attention/set', {
+      await fetch('/api/tools/attention/set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paneId: p, reason: 'done' }),
+        body: JSON.stringify({ toolId: p, reason: 'done' }),
       });
     }, pid);
 

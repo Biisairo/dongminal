@@ -219,7 +219,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 
 // shouldLogRequest filters high-frequency hot-path endpoints from the access
 // log. Errors (status>=400) always log so failures stay observable. Split
-// panes / pane-delete flows hammer /api/workspace and /api/panes dozens of
+// panes / pane-delete flows hammer /api/workspace and /api/tools dozens of
 // times per second; logging each one caused hundreds of ms of keyboard-input
 // lag (H5).
 func shouldLogRequest(path string, status int) bool {
@@ -230,7 +230,7 @@ func shouldLogRequest(path string, status int) bool {
 	case "/api/ping", "/api/stats":
 		return false
 	}
-	if strings.HasPrefix(path, "/api/workspace") || strings.HasPrefix(path, "/api/panes") {
+	if strings.HasPrefix(path, "/api/workspace") || strings.HasPrefix(path, "/api/tools") {
 		return false
 	}
 	return true

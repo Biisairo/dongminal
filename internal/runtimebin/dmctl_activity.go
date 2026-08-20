@@ -56,8 +56,8 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	if paneID == "" {
 		return 0
 	}
-	body := map[string]any{"paneId": paneID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail}
-	httpPostJSON(baseURL()+"/api/panes/activity/set", body)
+	body := map[string]any{"toolId": paneID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail}
+	httpPostJSON(baseURL()+"/api/tools/activity/set", body)
 	return 0
 }
 
@@ -132,8 +132,8 @@ func reportCodexActivity(label string, args []string, paneID string) {
 	for _, a := range args {
 		if len(a) > 0 && a[0] == '{' {
 			if rep, ok := parseCodexHook([]byte(a)); ok {
-				httpPostJSON(baseURL()+"/api/panes/activity/set",
-					map[string]any{"paneId": paneID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail})
+				httpPostJSON(baseURL()+"/api/tools/activity/set",
+					map[string]any{"toolId": paneID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail})
 			}
 			return
 		}

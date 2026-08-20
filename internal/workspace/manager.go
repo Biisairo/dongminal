@@ -38,7 +38,7 @@ type TabEntry struct {
 }
 
 type Liveness interface {
-	IsLive(paneID string) bool
+	IsLive(toolID string) bool
 }
 
 type Persister interface {
@@ -230,31 +230,31 @@ func (m *Manager) Resolve(id string) (string, error) {
 		if m.live.IsLive(id) {
 			return id, nil
 		}
-		return "", fmt.Errorf("paneId=%s 존재하지 않음", id)
+		return "", fmt.Errorf("toolId=%s 존재하지 않음", id)
 	}
 	ix := m.idx.Load()
 	if ix != nil {
 		if pid, ok := ix.uuidToID[strings.ToLower(id)]; ok {
 			if !m.live.IsLive(pid) {
-				return "", fmt.Errorf("tab id %s 은 paneId=%s 가리키지만 pane 이 존재하지 않음", id, pid)
+				return "", fmt.Errorf("tab id %s 은 toolId=%s 가리키지만 도구가 존재하지 않음", id, pid)
 			}
 			return pid, nil
 		}
 	}
 	if isUUIDForm(id) {
 		// 36자 UUID 형식인데 인덱스에 없음 — stale uuid 명시적 에러.
-		return "", fmt.Errorf("id 해석 실패: %s (list_panes 로 확인)", id)
+		return "", fmt.Errorf("id 해석 실패: %s (list_workspace 로 확인)", id)
 	}
 	norm := strings.ToUpper(id)
 	if ix != nil {
 		if pid, ok := ix.labelToID[norm]; ok {
 			if !m.live.IsLive(pid) {
-				return "", fmt.Errorf("라벨 %s 은 paneId=%s 가리키지만 pane 이 존재하지 않음", norm, pid)
+				return "", fmt.Errorf("라벨 %s 은 toolId=%s 가리키지만 도구가 존재하지 않음", norm, pid)
 			}
 			return pid, nil
 		}
 	}
-	return "", fmt.Errorf("id 해석 실패: %s (list_panes 로 확인)", id)
+	return "", fmt.Errorf("id 해석 실패: %s (list_workspace 로 확인)", id)
 }
 
 // CoordinateOf translates an identifier into the canonical positional
@@ -268,27 +268,27 @@ func (m *Manager) CoordinateOf(id string) (string, error) {
 		return id, nil
 	}
 	ix := m.idx.Load()
-	var paneID string
+	var toolID string
 	if ix != nil {
 		if pid, ok := ix.uuidToID[strings.ToLower(id)]; ok {
-			paneID = pid
+			toolID = pid
 		}
 	}
-	if paneID == "" {
+	if toolID == "" {
 		if isUUIDForm(id) {
 			// 36자 UUID 형식인데 인덱스에 없으면 stale uuid — 명시적 에러.
-			return "", fmt.Errorf("id 해석 실패: %s (list_panes 로 확인)", id)
+			return "", fmt.Errorf("id 해석 실패: %s (list_workspace 로 확인)", id)
 		}
-		// 좌표/라벨/paneId/숫자/그 외 식별자는 pass-through (NFR-UID-0 행위 보존).
+		// 좌표/라벨/toolId/숫자/그 외 식별자는 pass-through (NFR-UID-0 행위 보존).
 		return id, nil
 	}
-	if !m.live.IsLive(paneID) {
-		return "", fmt.Errorf("tab id %s 은 paneId=%s 가리키지만 pane 이 존재하지 않음", id, paneID)
+	if !m.live.IsLive(toolID) {
+		return "", fmt.Errorf("tab id %s 은 toolId=%s 가리키지만 도구가 존재하지 않음", id, toolID)
 	}
-	if label, ok := ix.labels[paneID]; ok {
+	if label, ok := ix.labels[toolID]; ok {
 		return label, nil
 	}
-	return "", fmt.Errorf("tab id %s 은 paneId=%s 가리키지만 label 매핑 없음", id, paneID)
+	return "", fmt.Errorf("tab id %s 은 toolId=%s 가리키지만 label 매핑 없음", id, toolID)
 }
 
 // IsKnownTabID reports whether id matches a tab.id present in the current
@@ -353,12 +353,12 @@ func (m *Manager) Entries() []TabEntry {
 	return out
 }
 
-func (m *Manager) InvalidateTool(paneID string) {
+func (m *Manager) InvalidateTool(toolID string) {
 	// Labels are positional (derived from workspace.json). Pane death doesn't
 	// shift labels; liveness is queried via Liveness at Resolve time. Kept as
 	// an explicit hook so callers (onExit) can signal the manager without
 	// caring about current semantics.
-	_ = paneID
+	_ = toolID
 }
 
 // ── workspace.json parsing ──────────────────────────

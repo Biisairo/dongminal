@@ -195,11 +195,11 @@ func TestRunDmctlNewSessionNameKeepFocus(t *testing.T) {
 	defer cleanup()
 
 	var stdout, stderr bytes.Buffer
-	rc := runDmctl([]string{"new-session", "--name", "wf-test", "-n"}, &stdout, &stderr)
+	rc := runDmctl([]string{"new-window", "--name", "wf-test", "-n"}, &stdout, &stderr)
 	if rc != 0 {
 		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
 	}
-	if got["action"] != "newSession" {
+	if got["action"] != "newWindow" {
 		t.Errorf("action=%v", got["action"])
 	}
 	args := got["args"].(map[string]any)
@@ -267,11 +267,11 @@ func TestRunDmctlRenameSessionNameFlag(t *testing.T) {
 	defer cleanup()
 
 	var stdout, stderr bytes.Buffer
-	rc := runDmctl([]string{"rename-session", "--at", uuid, "--name", "poem run 2"}, &stdout, &stderr)
+	rc := runDmctl([]string{"rename-window", "--at", uuid, "--name", "poem run 2"}, &stdout, &stderr)
 	if rc != 0 {
 		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
 	}
-	if got["action"] != "renameSession" {
+	if got["action"] != "renameWindow" {
 		t.Errorf("action=%v", got["action"])
 	}
 	args := got["args"].(map[string]any)
@@ -285,7 +285,7 @@ func TestRunDmctlRenameTabMissingArgs(t *testing.T) {
 	for _, args := range [][]string{
 		{"rename-tab", "writer"},     // --at 누락
 		{"rename-tab", "--at", "u1"}, // name 누락
-		{"rename-session"},           // 둘 다 누락
+		{"rename-window"},            // 둘 다 누락
 	} {
 		var stdout, stderr bytes.Buffer
 		rc := runDmctl(args, &stdout, &stderr)
@@ -324,7 +324,7 @@ func TestRunDmctlHelp_MentionsListPanes(t *testing.T) {
 	if rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
-	if !strings.Contains(stdout.String(), "list-panes") {
+	if !strings.Contains(stdout.String(), "list-workspace") {
 		t.Errorf("help should mention list-panes, got:\n%s", stdout.String())
 	}
 }
@@ -357,18 +357,18 @@ func TestRunDmctlListPanes_TextOutput(t *testing.T) {
 	defer cleanup()
 
 	var stdout, stderr bytes.Buffer
-	rc := runDmctl([]string{"list-panes"}, &stdout, &stderr)
+	rc := runDmctl([]string{"list-workspace"}, &stdout, &stderr)
 	if rc != 0 {
 		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
 	}
 	out := stdout.String()
 
 	// 첫 pane (포커스 없음): 두 칸 공백 prefix. size 미노출(panes[]에 sizeCols/Rows 없음) → 컬럼 생략.
-	if !strings.Contains(out, "  label=W1.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440aaa  short=550e8400  paneId=10  shellPid=11111  session=\"Main\"  tab=\"shell-a\"  session_uuid=sa  region_uuid=ra") {
+	if !strings.Contains(out, "  label=W1.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440aaa  short=550e8400  toolId=10  shellPid=11111  window=\"Main\"  tab=\"shell-a\"  window_uuid=sa  pane_uuid=ra") {
 		t.Errorf("missing/wrong non-focus line:\n%s", out)
 	}
 	// 두 번째 pane (포커스): ▶ prefix.
-	if !strings.Contains(out, "▶ label=W2.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440bbb  short=550e8400  paneId=20  shellPid=22222  session=\"Work\"  tab=\"shell-b\"  session_uuid=sb  region_uuid=rb") {
+	if !strings.Contains(out, "▶ label=W2.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440bbb  short=550e8400  toolId=20  shellPid=22222  window=\"Work\"  tab=\"shell-b\"  window_uuid=sb  pane_uuid=rb") {
 		t.Errorf("missing/wrong focus line:\n%s", out)
 	}
 }
@@ -381,7 +381,7 @@ func TestRunDmctlListPanes_JSON(t *testing.T) {
 	defer cleanup()
 
 	var stdout, stderr bytes.Buffer
-	rc := runDmctl([]string{"list-panes", "--json"}, &stdout, &stderr)
+	rc := runDmctl([]string{"list-workspace", "--json"}, &stdout, &stderr)
 	if rc != 0 {
 		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
 	}
@@ -398,8 +398,8 @@ func TestRunDmctlListPanes_JSON(t *testing.T) {
 	if arr[0]["focused"] != false || arr[1]["focused"] != true {
 		t.Errorf("focused flags wrong: %+v %+v", arr[0], arr[1])
 	}
-	if arr[1]["paneId"] != "20" {
-		t.Errorf("arr[1].paneId=%v", arr[1]["paneId"])
+	if arr[1]["toolId"] != "20" {
+		t.Errorf("arr[1].toolId=%v", arr[1]["toolId"])
 	}
 	if shellPid, _ := arr[1]["shellPid"].(float64); shellPid != 22222 {
 		t.Errorf("arr[1].shellPid=%v", arr[1]["shellPid"])
@@ -414,7 +414,7 @@ func TestRunDmctlListPanes_Empty(t *testing.T) {
 	defer cleanup()
 
 	var stdout, stderr bytes.Buffer
-	rc := runDmctl([]string{"list-panes"}, &stdout, &stderr)
+	rc := runDmctl([]string{"list-workspace"}, &stdout, &stderr)
 	if rc != 0 {
 		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
 	}
@@ -425,7 +425,7 @@ func TestRunDmctlListPanes_Empty(t *testing.T) {
 	// --json 빈 워크스페이스는 빈 배열.
 	stdout.Reset()
 	stderr.Reset()
-	rc = runDmctl([]string{"list-panes", "--json"}, &stdout, &stderr)
+	rc = runDmctl([]string{"list-workspace", "--json"}, &stdout, &stderr)
 	if rc != 0 {
 		t.Fatalf("--json rc=%d", rc)
 	}
@@ -442,15 +442,15 @@ func TestRunDmctlListPanes_SessionFilter(t *testing.T) {
 	defer cleanup()
 
 	var stdout, stderr bytes.Buffer
-	rc := runDmctl([]string{"list-panes", "--session", "WoRk"}, &stdout, &stderr)
+	rc := runDmctl([]string{"list-workspace", "--window", "WoRk"}, &stdout, &stderr)
 	if rc != 0 {
 		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
 	}
 	out := stdout.String()
-	if !strings.Contains(out, `session="Work"`) {
+	if !strings.Contains(out, `window="Work"`) {
 		t.Errorf("expected Work row, got:\n%s", out)
 	}
-	if strings.Contains(out, `session="Main"`) {
+	if strings.Contains(out, `window="Main"`) {
 		t.Errorf("Main row should be filtered out:\n%s", out)
 	}
 }
@@ -463,7 +463,7 @@ func TestRunDmctlListPanes_FilterNoMatch(t *testing.T) {
 	defer cleanup()
 
 	var stdout, stderr bytes.Buffer
-	rc := runDmctl([]string{"list-panes", "--session", "nomatch"}, &stdout, &stderr)
+	rc := runDmctl([]string{"list-workspace", "--window", "nomatch"}, &stdout, &stderr)
 	if rc != 1 {
 		t.Fatalf("rc=%d want 1", rc)
 	}
@@ -480,7 +480,7 @@ func TestRunDmctlListPanes_FilterNoMatchJSON(t *testing.T) {
 	defer cleanup()
 
 	var stdout, stderr bytes.Buffer
-	rc := runDmctl([]string{"list-panes", "--session", "nomatch", "--json"}, &stdout, &stderr)
+	rc := runDmctl([]string{"list-workspace", "--window", "nomatch", "--json"}, &stdout, &stderr)
 	if rc != 1 {
 		t.Fatalf("rc=%d want 1", rc)
 	}
@@ -498,13 +498,13 @@ func TestRunDmctlListPanes_SessionAndTabFilter(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	// session=Work + tab=shell-a → 0건 (Work 의 tab 은 shell-b)
-	rc := runDmctl([]string{"list-panes", "--session", "Work", "--tab", "shell-a"}, &stdout, &stderr)
+	rc := runDmctl([]string{"list-workspace", "--window", "Work", "--tab", "shell-a"}, &stdout, &stderr)
 	if rc != 1 {
 		t.Fatalf("AND mismatch rc=%d want 1", rc)
 	}
 	stdout.Reset()
 	stderr.Reset()
-	rc = runDmctl([]string{"list-panes", "--session", "Work", "--tab", "shell-b"}, &stdout, &stderr)
+	rc = runDmctl([]string{"list-workspace", "--window", "Work", "--tab", "shell-b"}, &stdout, &stderr)
 	if rc != 0 || !strings.Contains(stdout.String(), `tab="shell-b"`) {
 		t.Errorf("AND match rc=%d out=%q", rc, stdout.String())
 	}
@@ -518,7 +518,7 @@ func TestRunDmctlListPanes_ServerError(t *testing.T) {
 	defer cleanup()
 
 	var stdout, stderr bytes.Buffer
-	rc := runDmctl([]string{"list-panes"}, &stdout, &stderr)
+	rc := runDmctl([]string{"list-workspace"}, &stdout, &stderr)
 	if rc != 1 {
 		t.Errorf("rc=%d want 1", rc)
 	}

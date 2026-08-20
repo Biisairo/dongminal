@@ -13,7 +13,7 @@ const sampleV1 = `{
   "sessions": [
     {"id":"s1","name":"main","focusedRegion":"r1","layout":{
       "type":"region","id":"r1","activeTab":"t1",
-      "tabs":[{"id":"t1","name":"build","paneId":"10"}]}}
+      "tabs":[{"id":"t1","name":"build","toolId":"10"}]}}
   ]
 }`
 

@@ -17,7 +17,7 @@ test.describe('Focus movement', () => {
 
     // Use the add-window button (triggers _mkWindow → _newPane POST).
     const [response] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
+      page.waitForResponse((r) => r.url().includes('/api/tools') && r.request().method() === 'POST'),
       page.click('#add-window'),
     ]);
     expect(response.status()).toBe(200);
@@ -35,7 +35,7 @@ test.describe('Focus movement', () => {
     const addTabBtn = page.locator('#area .rg.focused .rt-add');
     const before = await page.locator('#area .rg.focused .rt').count();
     const [resp] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+      page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       addTabBtn.click(),
     ]);
     expect(resp.status()).toBe(200);
@@ -54,7 +54,7 @@ test.describe('Focus movement', () => {
 
     // Click Split H.
     const [respH] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+      page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       page.click('#split-h'),
     ]);
     expect(respH.status()).toBe(200);
@@ -71,7 +71,7 @@ test.describe('Focus movement', () => {
     const before = await page.locator('#area .rg').count();
 
     const [respV] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+      page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       page.click('#split-v'),
     ]);
     expect(respV.status()).toBe(200);
@@ -86,7 +86,7 @@ test.describe('Focus movement', () => {
 
     // Create a second session.
     const [resp] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
+      page.waitForResponse((r) => r.url().includes('/api/tools') && r.request().method() === 'POST'),
       page.click('#add-window'),
     ]);
     expect(resp.status()).toBe(200);
@@ -107,7 +107,7 @@ test.describe('Focus movement', () => {
     const before = await page.locator('#area .rg').count();
 
     const [resp] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+      page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       page.click('#split-h'),
     ]);
     expect(resp.status()).toBe(200);

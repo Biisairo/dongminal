@@ -24,15 +24,15 @@ type cmdSub struct {
 // (REMOTE_COMMAND_RESULT_SRS — 호출자가 uuid→paneId 재조회 불필요).
 type TabRef struct {
 	UUID   string `json:"uuid"`
-	ToolID string `json:"paneId"`
+	ToolID string `json:"toolId"`
 }
 
 // CmdResult is the set of entities a creating command produced, echoed back by
 // the browser and returned to the caller via long-poll correlation.
 type CmdResult struct {
-	NewSessions []string `json:"newSessions"`
-	NewRegions  []string `json:"newRegions"`
-	NewTabs     []TabRef `json:"newTabs"`
+	NewWindows []string `json:"newWindows"`
+	NewPanes   []string `json:"newPanes"`
+	NewTabs    []TabRef `json:"newTabs"`
 }
 
 // CommandHub broadcasts workspace UI commands to SSE subscribers.
@@ -56,10 +56,10 @@ func NewCommandHub() *CommandHub {
 // creatingActions are the commands that produce new entities and thus support
 // result correlation. Others broadcast immediately with no await.
 var creatingActions = map[string]bool{
-	"newSession": true,
-	"newTab":     true,
-	"splitH":     true,
-	"splitV":     true,
+	"newWindow": true,
+	"newTab":    true,
+	"splitH":    true,
+	"splitV":    true,
 }
 
 // IsCreatingAction reports whether action creates new entities (FR-RCR-1).
@@ -168,15 +168,15 @@ func (h *CommandHub) Broadcast(payload []byte) int {
 }
 
 var allowedCmdActions = map[string]bool{
-	"newSession":    true,
+	"newWindow":     true,
 	"newTab":        true,
 	"splitH":        true,
 	"splitV":        true,
 	"focus":         true,
 	"closeTab":      true,
-	"closeSession":  true,
-	"sessionNext":   true,
-	"sessionPrev":   true,
+	"closeWindow":   true,
+	"windowNext":    true,
+	"windowPrev":    true,
 	"tabNext":       true,
 	"tabPrev":       true,
 	"paneUp":        true,
@@ -312,8 +312,8 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		payload, _ := json.Marshal(req)
 		res, n, timedOut := s.Commands.BroadcastAndAwait(payload, req.ReqId, CommandResultTimeout())
 		resp["delivered"] = n
-		resp["newSessions"] = res.NewSessions
-		resp["newRegions"] = res.NewRegions
+		resp["newWindows"] = res.NewWindows
+		resp["newPanes"] = res.NewPanes
 		resp["newTabs"] = res.NewTabs
 		resp["timedOut"] = timedOut
 		log.Printf("[cmd] action=%s%s delivered=%d newTabs=%d timedOut=%t",
@@ -338,10 +338,10 @@ func (s *Server) handleCommandResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		ReqId       string   `json:"reqId"`
-		NewSessions []string `json:"newSessions"`
-		NewRegions  []string `json:"newRegions"`
-		NewTabs     []TabRef `json:"newTabs"`
+		ReqId      string   `json:"reqId"`
+		NewWindows []string `json:"newWindows"`
+		NewPanes   []string `json:"newPanes"`
+		NewTabs    []TabRef `json:"newTabs"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid json: "+err.Error(), http.StatusBadRequest)
@@ -349,9 +349,9 @@ func (s *Server) handleCommandResult(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.ReqId != "" {
 		s.Commands.DeliverResult(body.ReqId, CmdResult{
-			NewSessions: body.NewSessions,
-			NewRegions:  body.NewRegions,
-			NewTabs:     body.NewTabs,
+			NewWindows: body.NewWindows,
+			NewPanes:   body.NewPanes,
+			NewTabs:    body.NewTabs,
 		})
 	}
 	w.WriteHeader(http.StatusOK)

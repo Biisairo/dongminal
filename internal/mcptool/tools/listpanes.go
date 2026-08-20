@@ -10,15 +10,15 @@ import (
 	"dongminal/internal/runtimebin"
 )
 
-const ListPanesName = "list_panes"
+const ListWorkspaceName = "list_workspace"
 
 var ListPanesSpec = map[string]any{
-	"name":        ListPanesName,
+	"name":        ListWorkspaceName,
 	"description": "현재 열린 모든 pane 목록을 반환. 각 행은 표준 KEY=VALUE 라인 (label/uuid/short/paneId/shellPid/size/session/tab/session_uuid/region_uuid). ▶ 표시는 사용자가 현재 포커스한 pane. session/tab 인자로 이름 필터 가능 (부분 일치·대소문자 무시, 둘 다 지정 시 AND) — 워크플로우 세션 시드 식별 등에 사용. 같은 워크스페이스 내 다른 Claude Code 인스턴스를 식별하고 send_agent_message 로 통신할 때는 **uuid 를 사용**할 것. dmctl `list-panes` 와 byte-level 동일 포맷.",
 	"inputSchema": map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"session": map[string]any{
+			"window": map[string]any{
 				"type":        "string",
 				"description": "세션 이름 필터 (부분 일치, 대소문자 무시). 매칭 행만 반환.",
 			},
@@ -31,8 +31,8 @@ var ListPanesSpec = map[string]any{
 }
 
 type ListPanesArgs struct {
-	Session string `json:"session"`
-	Tab     string `json:"tab"`
+	Window string `json:"window"`
+	Tab    string `json:"tab"`
 }
 
 type ListPanesDeps struct {
@@ -51,7 +51,7 @@ func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcp
 		}
 
 		// LIST_PANES_NAME_FILTER_SRS FR-LPF-4: 이름 필터 (부분 일치, 대소문자 무시, AND).
-		filtered := a.Session != "" || a.Tab != ""
+		filtered := a.Window != "" || a.Tab != ""
 
 		entries := make([]mcptool.WorkspaceEntry, 0, len(rawEntries))
 		seen := make(map[string]bool, len(rawEntries))
@@ -60,7 +60,7 @@ func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcp
 			if !d.PM.Has(e.ToolID) {
 				continue
 			}
-			if !runtimebin.MatchFold(e.WindowName, a.Session) || !runtimebin.MatchFold(e.TabName, a.Tab) {
+			if !runtimebin.MatchFold(e.WindowName, a.Window) || !runtimebin.MatchFold(e.TabName, a.Tab) {
 				continue
 			}
 			entries = append(entries, e)
@@ -76,11 +76,11 @@ func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcp
 		}
 
 		if filtered && len(entries) == 0 {
-			return mcptool.Textf("(매칭 없음: session=%q tab=%q)", a.Session, a.Tab), nil
+			return mcptool.Textf("(매칭 없음: session=%q tab=%q)", a.Window, a.Tab), nil
 		}
 
 		var sb strings.Builder
-		sb.WriteString("Pane 목록 (▶ = 사용자 포커스):\n")
+		sb.WriteString("도구 목록 (▶ = 사용자 포커스):\n")
 		if len(entries) == 0 && len(orphans) == 0 {
 			sb.WriteString("  (없음)\n")
 		}
@@ -95,7 +95,7 @@ func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcp
 				ShellPID:    shellPids[e.ToolID],
 				SizeCols:    cols,
 				SizeRows:    rows,
-				Session:     e.WindowName,
+				Window:      e.WindowName,
 				Tab:         e.TabName,
 				WindowUUID:  e.WindowUUID,
 				PaneUUID:    e.PaneUUID,
@@ -106,7 +106,7 @@ func ListPanesHandler(d ListPanesDeps) func(context.Context, ListPanesArgs) (mcp
 		if len(orphans) > 0 {
 			sb.WriteString("\n[workspace 미등록]\n")
 			for _, p := range orphans {
-				fmt.Fprintf(&sb, "  paneId=%s  shellPid=%d  size=%s  name=%q\n",
+				fmt.Fprintf(&sb, "  toolId=%s  shellPid=%d  size=%s  name=%q\n",
 					p.ID, p.ShellPID, d.PM.Size(p.ID), p.Name)
 			}
 		}

@@ -22,7 +22,7 @@ test.describe('Multi-client synchronization via SSE', () => {
 
     // Client A creates a new session.
     const [resp] = await Promise.all([
-      pageA.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
+      pageA.waitForResponse((r) => r.url().includes('/api/tools') && r.request().method() === 'POST'),
       pageA.click('#add-window'),
     ]);
     expect(resp.status()).toBe(200);
@@ -51,7 +51,7 @@ test.describe('Multi-client synchronization via SSE', () => {
 
     // Client A adds a tab.
     const [resp] = await Promise.all([
-      pageA.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+      pageA.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       pageA.locator('#area .rg.focused .rt-add').click(),
     ]);
     expect(resp.status()).toBe(200);
@@ -80,7 +80,7 @@ test.describe('Multi-client synchronization via SSE', () => {
 
     // Client A splits horizontally.
     const [resp] = await Promise.all([
-      pageA.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+      pageA.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       pageA.click('#split-h'),
     ]);
     expect(resp.status()).toBe(200);
@@ -108,7 +108,7 @@ test.describe('Multi-client synchronization via SSE', () => {
     let countA = await pageA.locator('#windows .si').count();
     if (countA < 2) {
       const [resp] = await Promise.all([
-        pageA.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
+        pageA.waitForResponse((r) => r.url().includes('/api/tools') && r.request().method() === 'POST'),
         pageA.click('#add-window'),
       ]);
       expect(resp.status()).toBe(200);

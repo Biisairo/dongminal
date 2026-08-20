@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
 )
 
 func TestHandleAPI_PaneBusy(t *testing.T) {
@@ -21,7 +20,7 @@ func TestHandleAPI_PaneBusy(t *testing.T) {
 	defer ts.Close()
 
 	// missing pane
-	resp, _ := http.Get(ts.URL + "/api/panes/missing/busy")
+	resp, _ := http.Get(ts.URL + "/api/tools/missing/busy")
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d want 200", resp.StatusCode)
@@ -45,7 +44,7 @@ func TestHandleAPI_PaneBusy_DaemonMode(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/panes/p1/busy")
+	resp, _ := http.Get(ts.URL + "/api/tools/p1/busy")
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d want 200", resp.StatusCode)
@@ -62,7 +61,7 @@ func TestHandleAPI_DeletePane(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.NewRequest(http.MethodDelete, ts.URL+"/api/panes/1", nil)
+	resp, _ := http.NewRequest(http.MethodDelete, ts.URL+"/api/tools/1", nil)
 	// Use DefaultClient because NewRequest returns *Request
 	resp2, _ := http.DefaultClient.Do(resp)
 	defer resp2.Body.Close()
@@ -274,8 +273,6 @@ func TestHandleAPI_Cwd(t *testing.T) {
 	}
 }
 
-
-
 func TestUniquePath(t *testing.T) {
 	dir := t.TempDir()
 	p1 := uniquePath(dir, "a.txt")
@@ -359,7 +356,7 @@ func TestHandleAPI_CreatePane_NilPanes(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/panes", "application/json", nil)
+	resp, _ := http.Post(ts.URL+"/api/tools", "application/json", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 500 {
 		t.Fatalf("status=%d want 500", resp.StatusCode)
@@ -472,7 +469,7 @@ func TestHandleAPI_CreatePane_Success(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/panes?cols=80&rows=24", "application/json", nil)
+	resp, _ := http.Post(ts.URL+"/api/tools?cols=80&rows=24", "application/json", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
@@ -490,7 +487,7 @@ func TestHandleAPI_CreatePane_OversizedCols(t *testing.T) {
 	defer ts.Close()
 
 	// 8000 > MaxTerminalDim(4096) → fallback to defaults; pane still created.
-	resp, _ := http.Post(ts.URL+"/api/panes?cols=8000&rows=24", "application/json", nil)
+	resp, _ := http.Post(ts.URL+"/api/tools?cols=8000&rows=24", "application/json", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
@@ -515,7 +512,6 @@ func TestHandleAPI_SettingsGet_NilSettings(t *testing.T) {
 		t.Errorf("body=%q want {}", body)
 	}
 }
-
 
 func TestHandleAPI_Cwd_WithPane(t *testing.T) {
 	pm := newFakePaneHub()
@@ -560,7 +556,7 @@ func TestHandleAPI_PanesCreate_CwdPaneRef(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/panes?cwdPane=ref", "", nil)
+	resp, _ := http.Post(ts.URL+"/api/tools?cwdPane=ref", "", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
@@ -579,7 +575,7 @@ func TestHandleAPI_PanesCreate_CwdPaneRef_ResolvesLiveCwd(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/panes?cwdPane=ref", "", nil)
+	resp, _ := http.Post(ts.URL+"/api/tools?cwdPane=ref", "", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
@@ -598,7 +594,7 @@ func TestHandleAPI_PanesCreate_ExplicitCwdWins(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/panes?cwd=/explicit&cwdPane=ref", "", nil)
+	resp, _ := http.Post(ts.URL+"/api/tools?cwd=/explicit&cwdPane=ref", "", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
@@ -615,7 +611,7 @@ func TestHandleAPI_PanesCreate_UnknownCwdPaneFallsBack(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/panes?cwdPane=missing", "", nil)
+	resp, _ := http.Post(ts.URL+"/api/tools?cwdPane=missing", "", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
@@ -624,5 +620,3 @@ func TestHandleAPI_PanesCreate_UnknownCwdPaneFallsBack(t *testing.T) {
 		t.Fatalf("created pane cwd=%q want empty", pm.lastCwd)
 	}
 }
-
-

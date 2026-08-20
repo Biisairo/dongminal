@@ -264,7 +264,7 @@ func TestHandleCommandPost_ResponseNoLocation(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	body := `{"action":"newSession","args":{}}`
+	body := `{"action":"newWindow","args":{}}`
 	resp, err := http.Post(ts.URL+"/api/commands", "application/json", strings.NewReader(body))
 	if err != nil {
 		t.Fatalf("POST: %v", err)
@@ -281,7 +281,7 @@ func TestHandleCommandPost_ResponseNoLocation(t *testing.T) {
 	if got["location"] != "" || got["requestedLocation"] != "" {
 		t.Errorf("location=%v requestedLocation=%v want both empty", got["location"], got["requestedLocation"])
 	}
-	if got["action"] != "newSession" {
+	if got["action"] != "newWindow" {
 		t.Errorf("action=%v", got["action"])
 	}
 }

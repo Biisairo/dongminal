@@ -38,8 +38,8 @@ function makeMdInDir(): { mdPath: string; expectedCwd: string } {
   return { mdPath: fp, expectedCwd: fs.realpathSync(dir) };
 }
 
-async function paneCwd(request, paneId: string): Promise<string> {
-  const r = await request.get('/api/cwd?pane=' + paneId);
+async function paneCwd(request, toolId: string): Promise<string> {
+  const r = await request.get('/api/cwd?pane=' + toolId);
   const j = await r.json();
   return j.cwd as string;
 }

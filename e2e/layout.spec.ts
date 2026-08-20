@@ -13,7 +13,7 @@ test.describe('Layout & navigation', () => {
     await waitForInit(page);
     const before = await page.locator('#area .rg').count();
     const [resp] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+      page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       page.click('#split-h'),
     ]);
     expect(resp.status()).toBe(200);
@@ -25,7 +25,7 @@ test.describe('Layout & navigation', () => {
     await waitForInit(page);
     const before = await page.locator('#area .rg').count();
     const [resp] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+      page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       page.click('#split-v'),
     ]);
     expect(resp.status()).toBe(200);
@@ -38,7 +38,7 @@ test.describe('Layout & navigation', () => {
     // Always create a fresh horizontal split for reliable pane navigation.
     const before = await page.locator('#area .rg').count();
     const [resp] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+      page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       page.click('#split-h'),
     ]);
     expect(resp.status()).toBe(200);
@@ -72,7 +72,7 @@ test.describe('Layout & navigation', () => {
     const before = await page.locator('#area .rg').count();
     if (before < 2) {
       const [resp] = await Promise.all([
-        page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+        page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
         page.click('#split-h'),
       ]);
       expect(resp.status()).toBe(200);
@@ -171,7 +171,7 @@ test.describe('Layout & navigation', () => {
     // 먼저 region 두 개 확보 (split-h 한 번).
     const before = await page.locator('#area .rg').count();
     const [resp] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+      page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       page.click('#split-h'),
     ]);
     expect(resp.status()).toBe(200);
@@ -205,15 +205,15 @@ test.describe('Layout & navigation', () => {
     expect(await focused.getAttribute('data-rid')).toBe(userRegionId);
   });
 
-  // REMOTE_SESSION_TAB_CREATE_SRS TC-RST-1: newSession + keepFocus + name —
+  // REMOTE_SESSION_TAB_CREATE_SRS TC-RST-1: newWindow + keepFocus + name —
   // 세션은 사이드바에만 추가, 사용자 포커스 무변화.
-  test('remote newSession with keepFocus and name leaves focus untouched', async ({ page }) => {
+  test('remote newWindow with keepFocus and name leaves focus untouched', async ({ page }) => {
     await waitForInit(page);
     const before = await page.evaluate(() => {
       const app = (window as any).app;
       return { active: app.ws.activeWindow, focused: app.focused, count: app.ws.windows.length };
     });
-    await page.evaluate(() => (window as any).app._execRemote('newSession', { name: 'wf-test', keepFocus: true }));
+    await page.evaluate(() => (window as any).app._execRemote('newWindow', { name: 'wf-test', keepFocus: true }));
     await page.waitForFunction((n) => (window as any).app.ws.windows.length === n + 1, before.count, { timeout: 10000 });
     const after = await page.evaluate(() => {
       const app = (window as any).app;
@@ -228,11 +228,11 @@ test.describe('Layout & navigation', () => {
     expect(after.lastName).toBe('wf-test');
   });
 
-  // TC-RST-2: newSession + name 만 → 전환은 기존대로, 이름 반영.
-  test('remote newSession with name only switches and names', async ({ page }) => {
+  // TC-RST-2: newWindow + name 만 → 전환은 기존대로, 이름 반영.
+  test('remote newWindow with name only switches and names', async ({ page }) => {
     await waitForInit(page);
     const beforeCount = await page.evaluate(() => (window as any).app.ws.windows.length);
-    await page.evaluate(() => (window as any).app._execRemote('newSession', { name: 'named-active' }));
+    await page.evaluate(() => (window as any).app._execRemote('newWindow', { name: 'named-active' }));
     await page.waitForFunction((n) => (window as any).app.ws.windows.length === n + 1, beforeCount, { timeout: 10000 });
     const after = await page.evaluate(() => {
       const app = (window as any).app;
@@ -250,7 +250,7 @@ test.describe('Layout & navigation', () => {
     // region 2개 확보.
     const before = await page.locator('#area .rg').count();
     const [resp] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+      page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       page.click('#split-h'),
     ]);
     expect(resp.status()).toBe(200);
@@ -322,7 +322,7 @@ test.describe('Layout & navigation', () => {
   });
 
   // RENAME_TAB_SESSION_SRS TC-RNS-1/2/3: 원격 rename — 포커스 무영향 + 64자 절단.
-  test('remote renameTab and renameSession change names without focus change', async ({ page }) => {
+  test('remote renameTab and renameWindow change names without focus change', async ({ page }) => {
     await waitForInit(page);
     const before = await page.evaluate(() => {
       const app = (window as any).app;
@@ -334,7 +334,7 @@ test.describe('Layout & navigation', () => {
       const si = app.ws.windows.findIndex((x: any) => x.id === app.ws.activeWindow) + 1;
       const coord = `W${si}.P1.T1`;
       app._execRemote('renameTab', { location: coord, name: 'writer' });
-      app._execRemote('renameSession', { location: coord, name: 'x'.repeat(80) });
+      app._execRemote('renameWindow', { location: coord, name: 'x'.repeat(80) });
       const s = app.ws.windows[si - 1];
       const rgs: any[] = [];
       (function collect(n: any) {
@@ -356,7 +356,7 @@ test.describe('Layout & navigation', () => {
   });
 
   // REMOTE_COMMAND_RESULT_SRS TC-RCR-9: 생성 명령에 reqId 가 있으면 처리 후
-  // POST /api/command-result 로 새 region/tab(uuid+paneId) 를 echo.
+  // POST /api/command-result 로 새 pane/tab(uuid+toolId) 를 echo.
   test('remote creating command echoes new ids to command-result', async ({ page }) => {
     await waitForInit(page);
     const captured: any[] = [];
@@ -376,11 +376,11 @@ test.describe('Layout & navigation', () => {
     await expect.poll(() => captured.length, { timeout: 10000 }).toBeGreaterThan(0);
     const echo = captured[0];
     expect(echo.reqId).toBe('test-req-9');
-    expect(echo.newRegions.length).toBeGreaterThanOrEqual(1);
+    expect(echo.newPanes.length).toBeGreaterThanOrEqual(1);
     expect(echo.newTabs.length).toBeGreaterThanOrEqual(1);
     expect(typeof echo.newTabs[0].uuid).toBe('string');
     expect(echo.newTabs[0].uuid.length).toBeGreaterThan(0);
-    expect(echo.newTabs[0].paneId.length).toBeGreaterThan(0);
+    expect(echo.newTabs[0].toolId.length).toBeGreaterThan(0);
   });
 
   // REMOTE_COMMAND_RESULT_SRS: SSE → _execRemote → echo → long-poll 응답 전 경로.
@@ -402,8 +402,8 @@ test.describe('Layout & navigation', () => {
     expect(resp.newTabs.length).toBeGreaterThanOrEqual(1);
     expect(typeof resp.newTabs[0].uuid).toBe('string');
     expect(resp.newTabs[0].uuid.length).toBeGreaterThan(0);
-    expect(resp.newTabs[0].paneId.length).toBeGreaterThan(0);
-    expect(resp.newRegions.length).toBeGreaterThanOrEqual(1);
+    expect(resp.newTabs[0].toolId.length).toBeGreaterThan(0);
+    expect(resp.newPanes.length).toBeGreaterThanOrEqual(1);
   });
 
   // TC-RCR-10: reqId 없는 명령(단축키/버튼 경로)은 echo 하지 않는다.
@@ -429,11 +429,11 @@ test.describe('Layout & navigation', () => {
   });
 
   // TC-RST-10: name 64자 절단.
-  test('remote newSession truncates name to 64 chars', async ({ page }) => {
+  test('remote newWindow truncates name to 64 chars', async ({ page }) => {
     await waitForInit(page);
     const long = 'x'.repeat(80);
     const beforeCount = await page.evaluate(() => (window as any).app.ws.windows.length);
-    await page.evaluate((n) => (window as any).app._execRemote('newSession', { name: n, keepFocus: true }), long);
+    await page.evaluate((n) => (window as any).app._execRemote('newWindow', { name: n, keepFocus: true }), long);
     await page.waitForFunction((n) => (window as any).app.ws.windows.length === n + 1, beforeCount, { timeout: 10000 });
     const lastName = await page.evaluate(() => {
       const app = (window as any).app;

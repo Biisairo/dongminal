@@ -51,14 +51,14 @@ type WorkspaceReader interface {
 // TabRef pairs a new tab's uuid with its paneId (REMOTE_COMMAND_RESULT_SRS).
 type TabRef struct {
 	UUID   string `json:"uuid"`
-	ToolID string `json:"paneId"`
+	ToolID string `json:"toolId"`
 }
 
 // CmdResult is the set of entities a creating command produced.
 type CmdResult struct {
-	NewSessions []string `json:"newSessions"`
-	NewRegions  []string `json:"newRegions"`
-	NewTabs     []TabRef `json:"newTabs"`
+	NewWindows []string `json:"newWindows"`
+	NewPanes   []string `json:"newPanes"`
+	NewTabs    []TabRef `json:"newTabs"`
 }
 
 // CommandBroadcaster delivers workspace UI commands to connected browsers.

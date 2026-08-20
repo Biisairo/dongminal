@@ -15,7 +15,7 @@ test.describe('Tab management', () => {
     // Ensure at least 2 tabs so we can close one.
     if (before < 2) {
       const [resp] = await Promise.all([
-        page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+        page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
         page.locator('#area .rg.focused .rt-add').click(),
       ]);
       expect(resp.status()).toBe(200);
@@ -50,7 +50,7 @@ test.describe('Tab management', () => {
     const before = await page.locator('#area .rg.focused .rt').count();
     if (before < 2) {
       const [resp] = await Promise.all([
-        page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+        page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
         page.locator('#area .rg.focused .rt-add').click(),
       ]);
       expect(resp.status()).toBe(200);
@@ -74,7 +74,7 @@ test.describe('Tab management', () => {
     const before = await page.locator('#area .rg.focused .rt').count();
     if (before < 2) {
       const [resp] = await Promise.all([
-        page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+        page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
         page.locator('#area .rg.focused .rt-add').click(),
       ]);
       expect(resp.status()).toBe(200);
@@ -100,7 +100,7 @@ test.describe('Tab management', () => {
     const beforeRg = await page.locator('#area .rg').count();
     if (beforeRg < 2) {
       const [resp] = await Promise.all([
-        page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+        page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
         page.click('#split-h'),
       ]);
       expect(resp.status()).toBe(200);

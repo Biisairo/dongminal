@@ -156,16 +156,16 @@ func boundedCarry(frag []byte, maxCarry int) []byte {
 // broadcast via CommandHub. Keys are lowerCamelCase.
 func paneAttentionPayload(paneID, reason string) []byte {
 	b, _ := json.Marshal(map[string]any{
-		"action": "pane_attention",
-		"args":   map[string]any{"paneId": paneID, "reason": reason},
+		"action": "tool_attention",
+		"args":   map[string]any{"toolId": paneID, "reason": reason},
 	})
 	return b
 }
 
 func paneAttentionClearPayload(paneID string) []byte {
 	b, _ := json.Marshal(map[string]any{
-		"action": "pane_attention_clear",
-		"args":   map[string]any{"paneId": paneID},
+		"action": "tool_attention_clear",
+		"args":   map[string]any{"toolId": paneID},
 	})
 	return b
 }

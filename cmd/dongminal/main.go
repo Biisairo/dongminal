@@ -161,11 +161,14 @@ func runMigrate(home string, args []string) {
 	if len(rep.GhostRefs) > 0 {
 		fmt.Printf("agentsOrder 유령 참조 %d개 제거: %v\n", len(rep.GhostRefs), rep.GhostRefs)
 	}
+	if len(rep.ShortcutsRenamed) > 0 {
+		fmt.Printf("단축키 id %d개 개명: %v\n", len(rep.ShortcutsRenamed), rep.ShortcutsRenamed)
+	}
 	if len(rep.BrokenRefs) > 0 {
 		fmt.Printf("경고: 탭이 참조하나 도구가 없음 %d개: %v\n", len(rep.BrokenRefs), rep.BrokenRefs)
 	}
 	if !dryRun {
-		fmt.Println("백업: workspace.json.v1.bak, panes.json.v1.bak")
+		fmt.Println("백업: *.v1.bak (workspace/panes/settings)")
 	}
 }
 
@@ -284,11 +287,11 @@ func buildCommonDeps(cfg server.Config, panes server.PaneHub, cmdHub *server.Com
 
 	reg := mcptool.NewRegistry()
 	wa := adapters.Workspace{WS: wsMgr}
-	mcptool.Register(reg, tools.ListPanesName, tools.ListPanesSpec,
+	mcptool.Register(reg, tools.ListWorkspaceName, tools.ListPanesSpec,
 		tools.ListPanesHandler(tools.ListPanesDeps{PM: pa, WS: wa}))
-	mcptool.Register(reg, tools.ReadPaneScreenName, tools.ReadPaneScreenSpec,
+	mcptool.Register(reg, tools.ReadScreenName, tools.ReadPaneScreenSpec,
 		tools.ReadPaneScreenHandler(tools.ReadPaneDeps{PM: pa, WS: wa}))
-	mcptool.Register(reg, tools.ReadPaneOutputName, tools.ReadPaneOutputSpec,
+	mcptool.Register(reg, tools.ReadOutputName, tools.ReadPaneOutputSpec,
 		tools.ReadPaneOutputHandler(tools.ReadPaneDeps{PM: pa, WS: wa}))
 	mcptool.Register(reg, tools.SendInputName, tools.SendInputSpec,
 		tools.SendInputHandler(tools.SendInputDeps{PM: pa, WS: wa}))

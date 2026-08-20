@@ -22,8 +22,8 @@ func TestApiPaneActivitySet(t *testing.T) {
 
 	// known pane → updates + notifier fires.
 	rec := httptest.NewRecorder()
-	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/panes/activity/set",
-		strings.NewReader(`{"paneId":"9","state":"working","tool":"Bash","detail":"npm test"}`)))
+	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
+		strings.NewReader(`{"toolId":"9","state":"working","tool":"Bash","detail":"npm test"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("set want 200, got %d", rec.Code)
 	}
@@ -37,15 +37,15 @@ func TestApiPaneActivitySet(t *testing.T) {
 
 	// unknown pane → 200 no-op.
 	rec = httptest.NewRecorder()
-	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/panes/activity/set",
-		strings.NewReader(`{"paneId":"999","state":"done"}`)))
+	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
+		strings.NewReader(`{"toolId":"999","state":"done"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("unknown pane want 200, got %d", rec.Code)
 	}
 
 	// missing paneId → 400.
 	rec = httptest.NewRecorder()
-	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/panes/activity/set",
+	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
 		strings.NewReader(`{"state":"done"}`)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("missing paneId want 400, got %d", rec.Code)
@@ -53,8 +53,8 @@ func TestApiPaneActivitySet(t *testing.T) {
 
 	// invalid state → 400.
 	rec = httptest.NewRecorder()
-	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/panes/activity/set",
-		strings.NewReader(`{"paneId":"9","state":"bogus"}`)))
+	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
+		strings.NewReader(`{"toolId":"9","state":"bogus"}`)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("invalid state want 400, got %d", rec.Code)
 	}
@@ -85,10 +85,10 @@ func TestApiPanesActivity_Endpoint(t *testing.T) {
 	s := &Server{Panes: m}
 
 	rec := httptest.NewRecorder()
-	s.apiPanesActivity(rec, httptest.NewRequest(http.MethodGet, "/api/panes/activity", nil))
+	s.apiPanesActivity(rec, httptest.NewRequest(http.MethodGet, "/api/tools/activity", nil))
 	var got struct {
 		Activities []struct {
-			ToolID string `json:"paneId"`
+			ToolID string `json:"toolId"`
 			State  string `json:"state"`
 			Tool   string `json:"tool"`
 			Detail string `json:"detail"`
@@ -103,11 +103,11 @@ func TestApiPanesActivity_Endpoint(t *testing.T) {
 	}
 }
 
-// FR-AAP-5: pane_activity SSE payload shape (server-published; lowerCamelCase).
+// FR-AAP-5: tool_activity SSE payload shape (server-published; lowerCamelCase).
 func TestPaneActivityPayload(t *testing.T) {
-	s := string(paneActivityPayload("3", "working", "Bash", "ls"))
-	if !strings.Contains(s, `"action":"pane_activity"`) ||
-		!strings.Contains(s, `"paneId":"3"`) ||
+	s := string(toolActivityPayload("3", "working", "Bash", "ls"))
+	if !strings.Contains(s, `"action":"tool_activity"`) ||
+		!strings.Contains(s, `"toolId":"3"`) ||
 		!strings.Contains(s, `"state":"working"`) ||
 		!strings.Contains(s, `"tool":"Bash"`) ||
 		!strings.Contains(s, `"detail":"ls"`) {

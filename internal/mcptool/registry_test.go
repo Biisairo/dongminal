@@ -228,7 +228,7 @@ func TestListPanesTool(t *testing.T) {
 	if !strings.Contains(text, "▶ label=W1.P1.T1") {
 		t.Errorf("expected active marker, got %q", text)
 	}
-	if !strings.Contains(text, "workspace 미등록") || !strings.Contains(text, "paneId=p2") {
+	if !strings.Contains(text, "workspace 미등록") || !strings.Contains(text, "toolId=p2") {
 		t.Errorf("expected orphan p2, got %q", text)
 	}
 }
@@ -253,10 +253,10 @@ func TestListPanesFiltersDeadEntries(t *testing.T) {
 	}
 	content := res["content"].([]map[string]any)
 	text := content[0]["text"].(string)
-	if !strings.Contains(text, "paneId=p1") || !strings.Contains(text, "paneId=p2") {
+	if !strings.Contains(text, "toolId=p1") || !strings.Contains(text, "toolId=p2") {
 		t.Errorf("expected live panes p1/p2 in output, got %q", text)
 	}
-	if strings.Contains(text, "W1.P1.T3") || strings.Contains(text, "paneId=p3") {
+	if strings.Contains(text, "W1.P1.T3") || strings.Contains(text, "toolId=p3") {
 		t.Errorf("dead entry p3 should be filtered out, got %q", text)
 	}
 }

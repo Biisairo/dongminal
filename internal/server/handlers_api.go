@@ -188,17 +188,17 @@ func exactPath(p string) func(string) bool {
 var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/state"), (*Server).apiStateGet},
 	{http.MethodGet, exactPath("/api/whoami"), (*Server).apiWhoAmI},
-	{http.MethodPost, exactPath("/api/panes"), (*Server).apiPanesCreate},
-	{http.MethodGet, exactPath("/api/panes/attention"), (*Server).apiPanesAttention},
-	{http.MethodPost, exactPath("/api/panes/attention/set"), (*Server).apiPaneAttentionSet},
-	{http.MethodPost, exactPath("/api/panes/attention/clear"), (*Server).apiPaneAttentionClear},
-	{http.MethodPost, exactPath("/api/panes/attention/clear-all"), (*Server).apiPaneAttentionClearAll},
-	{http.MethodGet, exactPath("/api/panes/activity"), (*Server).apiPanesActivity},
-	{http.MethodPost, exactPath("/api/panes/activity/set"), (*Server).apiPaneActivitySet},
+	{http.MethodPost, exactPath("/api/tools"), (*Server).apiPanesCreate},
+	{http.MethodGet, exactPath("/api/tools/attention"), (*Server).apiPanesAttention},
+	{http.MethodPost, exactPath("/api/tools/attention/set"), (*Server).apiPaneAttentionSet},
+	{http.MethodPost, exactPath("/api/tools/attention/clear"), (*Server).apiPaneAttentionClear},
+	{http.MethodPost, exactPath("/api/tools/attention/clear-all"), (*Server).apiPaneAttentionClearAll},
+	{http.MethodGet, exactPath("/api/tools/activity"), (*Server).apiPanesActivity},
+	{http.MethodPost, exactPath("/api/tools/activity/set"), (*Server).apiPaneActivitySet},
 	{http.MethodGet, func(p string) bool {
-		return strings.HasPrefix(p, "/api/panes/") && strings.HasSuffix(p, "/busy")
+		return strings.HasPrefix(p, "/api/tools/") && strings.HasSuffix(p, "/busy")
 	}, (*Server).apiPaneBusy},
-	{http.MethodDelete, func(p string) bool { return strings.HasPrefix(p, "/api/panes/") }, (*Server).apiPaneDelete},
+	{http.MethodDelete, func(p string) bool { return strings.HasPrefix(p, "/api/tools/") }, (*Server).apiPaneDelete},
 	{http.MethodGet, exactPath("/api/workspace"), (*Server).apiWorkspaceGet},
 	{http.MethodPut, exactPath("/api/workspace"), (*Server).apiWorkspacePut},
 	{http.MethodGet, exactPath("/api/settings"), (*Server).apiSettingsGet},
@@ -270,7 +270,7 @@ func (s *Server) apiPanesCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) apiPaneBusy(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/panes/"), "/busy")
+	id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/tools/"), "/busy")
 	var busy bool
 	if s.Panes != nil {
 		busy = s.Panes.Busy(id)
@@ -291,17 +291,17 @@ func (s *Server) apiPanesAttention(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"paneIds": ids})
+	json.NewEncoder(w).Encode(map[string]any{"toolIds": ids})
 }
 
 // apiPaneAttentionSet flags a pane as needing attention. Used by `dmctl notify`
 // (agent hook bridge) which identifies its pane via DONGMINAL_PANE_ID — this
 // works from detached hooks that have no controlling terminal. Body:
-// {"paneId":"...","reason":"done|waiting|..."}. Unknown pane is a 200 no-op;
+// {"toolId":"...","reason":"done|waiting|..."}. Unknown pane is a 200 no-op;
 // missing paneId is 400.
 func (s *Server) apiPaneAttentionSet(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		ToolID string `json:"paneId"`
+		ToolID string `json:"toolId"`
 		Reason string `json:"reason"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" {
@@ -327,11 +327,11 @@ func (s *Server) apiPaneAttentionSet(w http.ResponseWriter, r *http.Request) {
 }
 
 // apiPaneAttentionClear clears a pane's attention (and broadcasts the clear)
-// when the user focuses/opens it. Body: {"paneId":"..."}. Unknown/idle pane is
+// when the user focuses/opens it. Body: {"toolId":"..."}. Unknown/idle pane is
 // a no-op (200) so a stale focus event never errors.
 func (s *Server) apiPaneAttentionClear(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		ToolID string `json:"paneId"`
+		ToolID string `json:"toolId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -366,11 +366,11 @@ func (s *Server) apiPanesActivity(w http.ResponseWriter, r *http.Request) {
 
 // apiPaneActivitySet records what an agent in a pane is currently doing. Used by
 // `dmctl activity` (agent hook bridge), identified via DONGMINAL_PANE_ID. Body:
-// {"paneId":"...","state":"working|done|waiting|idle","tool":"...","detail":"..."}.
+// {"toolId":"...","state":"working|done|waiting|idle","tool":"...","detail":"..."}.
 // Unknown pane is a 200 no-op; missing paneId or invalid state is 400 (FR-AAP-3).
 func (s *Server) apiPaneActivitySet(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		ToolID string `json:"paneId"`
+		ToolID string `json:"toolId"`
 		State  string `json:"state"`
 		Tool   string `json:"tool"`
 		Detail string `json:"detail"`
@@ -405,7 +405,7 @@ func (s *Server) apiPaneAttentionClearAll(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) apiPaneDelete(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/api/panes/")
+	id := strings.TrimPrefix(r.URL.Path, "/api/tools/")
 	if s.Panes != nil {
 		s.Panes.Delete(id)
 	}

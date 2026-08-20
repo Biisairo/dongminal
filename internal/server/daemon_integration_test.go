@@ -53,7 +53,7 @@ func TestDaemonFullFlow(t *testing.T) {
 			var ev struct {
 				Action string `json:"action"`
 				Args   struct {
-					ToolID string `json:"paneId"`
+					ToolID string `json:"toolId"`
 					State  string `json:"state"`
 					Reason string `json:"reason"`
 				} `json:"args"`
@@ -127,7 +127,7 @@ func TestDaemonFullFlow(t *testing.T) {
 	sseMu.Lock()
 	found := false
 	for _, ev := range sseEvents {
-		if ev == "pane_activity" {
+		if ev == "tool_activity" {
 			found = true
 			break
 		}
@@ -135,7 +135,7 @@ func TestDaemonFullFlow(t *testing.T) {
 	sseMu.Unlock()
 	if !found {
 		t.Log("SSE events:", sseEvents)
-		t.Fatal("expected pane_activity SSE event")
+		t.Fatal("expected tool_activity SSE event")
 	}
 }
 
@@ -170,14 +170,14 @@ func TestDaemonAttentionDetection(t *testing.T) {
 	sseMu.Lock()
 	hasAttention := false
 	for _, ev := range attentionEvents {
-		if ev == "pane_attention" {
+		if ev == "tool_attention" {
 			hasAttention = true
 		}
 	}
 	sseMu.Unlock()
 
 	if !hasAttention {
-		t.Fatal("expected pane_attention SSE event for OSC 9")
+		t.Fatal("expected tool_attention SSE event for OSC 9")
 	}
 
 	// Clear attention
@@ -186,13 +186,13 @@ func TestDaemonAttentionDetection(t *testing.T) {
 	sseMu.Lock()
 	hasClear := false
 	for _, ev := range attentionEvents {
-		if ev == "pane_attention_clear" {
+		if ev == "tool_attention_clear" {
 			hasClear = true
 		}
 	}
 	sseMu.Unlock()
 	if !hasClear {
-		t.Fatal("expected pane_attention_clear SSE event")
+		t.Fatal("expected tool_attention_clear SSE event")
 	}
 }
 
@@ -320,7 +320,7 @@ func TestDaemonAttnTrackerL2Idle(t *testing.T) {
 				} `json:"args"`
 			}
 			json.Unmarshal(msg, &ev)
-			if ev.Action == "pane_attention" {
+			if ev.Action == "tool_attention" {
 				sseMu.Lock()
 				attentionReasons = append(attentionReasons, ev.Args.Reason)
 				sseMu.Unlock()
@@ -580,7 +580,7 @@ func TestDaemonAttnTrackerL2IdleBusyGate(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	for _, r := range reasons {
-		if r == "pane_attention" {
+		if r == "tool_attention" {
 			t.Fatal("idle attention must not fire when pane is not busy (FR-15)")
 		}
 	}
@@ -619,7 +619,7 @@ func TestDaemonAttnTrackerL2IdleSuppressedWhileWorking(t *testing.T) {
 	time.Sleep(1300 * time.Millisecond)
 	mu.Lock()
 	for _, r := range reasons {
-		if r == "pane_attention" {
+		if r == "tool_attention" {
 			mu.Unlock()
 			t.Fatal("idle attention must not fire while agent is working")
 		}
@@ -634,7 +634,7 @@ func TestDaemonAttnTrackerL2IdleSuppressedWhileWorking(t *testing.T) {
 	defer mu.Unlock()
 	found := false
 	for _, r := range reasons {
-		if r == "pane_attention" {
+		if r == "tool_attention" {
 			found = true
 			break
 		}
@@ -715,7 +715,7 @@ func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
 				Action string `json:"action"`
 			}
 			json.Unmarshal(msg, &ev)
-			if ev.Action == "pane_attention" {
+			if ev.Action == "tool_attention" {
 				mu.Lock()
 				attn = true
 				mu.Unlock()

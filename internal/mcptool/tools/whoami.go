@@ -51,14 +51,14 @@ func WhoAmIHandler(d WhoAmIDeps) func(context.Context, WhoAmIArgs) (mcptool.Resu
 				ShellPID:    shellPID,
 				SizeCols:    cols,
 				SizeRows:    rows,
-				Session:     e.WindowName,
+				Window:      e.WindowName,
 				Tab:         e.TabName,
 				WindowUUID:  e.WindowUUID,
 				PaneUUID:    e.PaneUUID,
 			}
 			return mcptool.Textf("%s", line.Render()), nil
 		}
-		// workspace 미등록 경로 — paneId/shellPid/size 만 표시.
+		// workspace 미등록 경로 — toolId/shellPid/size 만 표시.
 		line := paneline.Line{ToolID: paneID, ShellPID: shellPID, SizeCols: cols, SizeRows: rows}
 		return mcptool.Textf("%s  (workspace 미등록)", line.Render()), nil
 	}

@@ -27,7 +27,7 @@ async function waitForInit(page, request) {
 async function addWindow(page) {
   const before = await page.locator('#windows .si').count();
   await Promise.all([
-    page.waitForResponse((r) => r.url().includes('/api/panes') && r.request().method() === 'POST'),
+    page.waitForResponse((r) => r.url().includes('/api/tools') && r.request().method() === 'POST'),
     page.click('#add-window'),
   ]);
   await expect(page.locator('#windows .si')).toHaveCount(before + 1, { timeout: 10000 });

@@ -36,13 +36,13 @@ func sanitizeActivityField(s string, max int) string {
 	return s
 }
 
-// paneActivityPayload builds the pane_activity SSE event body broadcast via
+// toolActivityPayload builds the tool_activity SSE event body broadcast via
 // CommandHub. Server-published only (not in allowedCmdActions). Keys are
 // lowerCamelCase.
-func paneActivityPayload(paneID, state, tool, detail string) []byte {
+func toolActivityPayload(paneID, state, tool, detail string) []byte {
 	b, _ := json.Marshal(map[string]any{
-		"action": "pane_activity",
-		"args":   map[string]any{"paneId": paneID, "state": state, "tool": tool, "detail": detail},
+		"action": "tool_activity",
+		"args":   map[string]any{"toolId": paneID, "state": state, "tool": tool, "detail": detail},
 	})
 	return b
 }
@@ -51,6 +51,6 @@ func paneActivityPayload(paneID, state, tool, detail string) []byte {
 // from the composition root once both the PaneManager and CommandHub exist.
 func WireActivity(pm *PaneManager, hub CommandBroker) {
 	pm.SetActivityNotifier(func(id, state, tool, detail string) {
-		hub.Broadcast(paneActivityPayload(id, state, tool, detail))
+		hub.Broadcast(toolActivityPayload(id, state, tool, detail))
 	})
 }

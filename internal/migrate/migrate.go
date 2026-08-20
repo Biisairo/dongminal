@@ -28,6 +28,9 @@ type Report struct {
 	Orphans []string
 	// GhostRefs는 존재하지 않는 도구를 가리켜 agentsOrder 에서 제거된 id.
 	GhostRefs []string
+	// ShortcutsRenamed는 settings.json 에서 개명된 단축키 action id 목록.
+	ShortcutsRenamed []string
+
 	// BrokenRefs는 탭이 참조하지만 도구 컬렉션에 없는 id. 제거하지 않고 보고만
 	// 한다 — 탭 정리는 런타임 무결성 검사(FR-EM-14)의 책임이다.
 	BrokenRefs []string

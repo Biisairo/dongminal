@@ -105,13 +105,13 @@ func TestStripANSI(t *testing.T) {
 func TestListPanes_Empty(t *testing.T) {
 	pr := newFakePaneReader()
 	wr := &fakeWorkspaceReader{}
-	if ListPanesName != "list_panes" {
-		t.Errorf("name=%q", ListPanesName)
+	if ListWorkspaceName != "list_workspace" {
+		t.Errorf("name=%q", ListWorkspaceName)
 	}
-	if ListPanesSpec["name"] != "list_panes" {
+	if ListPanesSpec["name"] != "list_workspace" {
 		t.Errorf("spec name=%v", ListPanesSpec["name"])
 	}
-	res, err := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
+	res, err := dispatch(t, ListWorkspaceName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
 	if err != nil {
 		t.Fatalf("Dispatch: %v", err)
 	}
@@ -134,12 +134,12 @@ func TestListPanes_Mixed(t *testing.T) {
 			{ToolID: "1", Label: "W1.P1.T1", WindowName: "Main", TabName: "Shell", IsActive: true},
 		},
 	}
-	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
+	res, _ := dispatch(t, ListWorkspaceName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
 	body := resultText(res)
 	if !strings.Contains(body, "▶ label=W1.P1.T1") {
 		t.Errorf("missing focus marker: %q", body)
 	}
-	if !strings.Contains(body, "[workspace 미등록]") || !strings.Contains(body, `paneId=2`) {
+	if !strings.Contains(body, "[workspace 미등록]") || !strings.Contains(body, `toolId=2`) {
 		t.Errorf("missing orphan section: %q", body)
 	}
 	if !strings.Contains(body, "shellPid=100") {
@@ -161,10 +161,10 @@ func TestListPanes_SessionFilter(t *testing.T) {
 			{ToolID: "1", Label: "W1.P1.T1", WindowName: "poem-critique", TabName: "writer"},
 		},
 	}
-	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}),
-		`{"session":"POEM"}`)
+	res, _ := dispatch(t, ListWorkspaceName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}),
+		`{"window":"POEM"}`)
 	body := resultText(res)
-	if !strings.Contains(body, `session="poem-critique"`) {
+	if !strings.Contains(body, `window="poem-critique"`) {
 		t.Errorf("missing match: %q", body)
 	}
 	if strings.Contains(body, "[workspace 미등록]") {
@@ -182,7 +182,7 @@ func TestListPanes_FilterNoMatch(t *testing.T) {
 			{ToolID: "1", Label: "W1.P1.T1", WindowName: "Main", TabName: "Shell"},
 		},
 	}
-	res, err := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}),
+	res, err := dispatch(t, ListWorkspaceName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}),
 		`{"tab":"nomatch"}`)
 	if err != nil {
 		t.Fatalf("err=%v", err)
@@ -202,7 +202,7 @@ func TestListPanes_DropsStaleEntries(t *testing.T) {
 			{ToolID: "ghost", Label: "W1.P1.T2"},
 		},
 	}
-	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
+	res, _ := dispatch(t, ListWorkspaceName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
 	body := resultText(res)
 	if strings.Contains(body, "ghost") {
 		t.Errorf("stale entry leaked: %q", body)
@@ -266,7 +266,7 @@ func TestSendInput_MissingPane(t *testing.T) {
 func TestReadPaneOutput_NoPane(t *testing.T) {
 	pr := newFakePaneReader()
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "1"}}
-	if _, err := dispatch(t, ReadPaneOutputName, ReadPaneOutputSpec,
+	if _, err := dispatch(t, ReadOutputName, ReadPaneOutputSpec,
 		ReadPaneOutputHandler(ReadPaneDeps{PM: pr, WS: wr}),
 		`{"id":"x"}`); err == nil {
 		t.Errorf("err=nil")
@@ -278,7 +278,7 @@ func TestReadPaneScreen_StripsANSI(t *testing.T) {
 	pr.has["1"] = true
 	pr.snap["1"] = []byte("\x1b[32mhello\x1b[0m world\n")
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "1"}}
-	res, err := dispatch(t, ReadPaneScreenName, ReadPaneScreenSpec,
+	res, err := dispatch(t, ReadScreenName, ReadPaneScreenSpec,
 		ReadPaneScreenHandler(ReadPaneDeps{PM: pr, WS: wr}),
 		`{"id":"x"}`)
 	if err != nil {
@@ -298,7 +298,7 @@ func TestReadPaneOutput_KeepsANSI(t *testing.T) {
 	pr.has["1"] = true
 	pr.snap["1"] = []byte("\x1b[32mraw\x1b[0m")
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "1"}}
-	res, _ := dispatch(t, ReadPaneOutputName, ReadPaneOutputSpec,
+	res, _ := dispatch(t, ReadOutputName, ReadPaneOutputSpec,
 		ReadPaneOutputHandler(ReadPaneDeps{PM: pr, WS: wr}),
 		`{"id":"x"}`)
 	body := resultText(res)
@@ -313,7 +313,7 @@ func TestReadPaneScreen_DroppedPrefix(t *testing.T) {
 	pr.snap["1"] = []byte("ok")
 	pr.dropped = 42
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "1"}}
-	res, _ := dispatch(t, ReadPaneScreenName, ReadPaneScreenSpec,
+	res, _ := dispatch(t, ReadScreenName, ReadPaneScreenSpec,
 		ReadPaneScreenHandler(ReadPaneDeps{PM: pr, WS: wr}),
 		`{"id":"x"}`)
 	body := resultText(res)
@@ -327,7 +327,7 @@ func TestReadPaneScreen_BytesTrim(t *testing.T) {
 	pr.has["1"] = true
 	pr.snap["1"] = []byte("0123456789abcdef")
 	wr := &fakeWorkspaceReader{resolve: map[string]string{"x": "1"}}
-	res, _ := dispatch(t, ReadPaneScreenName, ReadPaneScreenSpec,
+	res, _ := dispatch(t, ReadScreenName, ReadPaneScreenSpec,
 		ReadPaneScreenHandler(ReadPaneDeps{PM: pr, WS: wr}),
 		`{"id":"x","bytes":4}`)
 	body := resultText(res)
@@ -470,7 +470,7 @@ func (f *fakeBroadcaster) Broadcast(p []byte) int {
 }
 
 func (f *fakeBroadcaster) IsCreatingAction(a string) bool {
-	return a == "splitH" || a == "splitV" || a == "newTab" || a == "newSession"
+	return a == "splitH" || a == "splitV" || a == "newTab" || a == "newWindow"
 }
 func (f *fakeBroadcaster) NewReqId() string { return "test-req" }
 func (f *fakeBroadcaster) BroadcastAndAwait(p []byte, reqId string) (mcptool.CmdResult, int, bool) {
@@ -498,25 +498,25 @@ func TestWorkspaceCommand_BroadcastsPayload(t *testing.T) {
 	}
 }
 
-// TC-RCR-7: 생성명령(newSession) 결과를 텍스트에 부착.
+// TC-RCR-7: 생성명령(newWindow) 결과를 텍스트에 부착.
 func TestWorkspaceCommand_CreatingAttachesNewIds(t *testing.T) {
 	b := &fakeBroadcaster{
-		allowed:   map[string]bool{"newSession": true},
+		allowed:   map[string]bool{"newWindow": true},
 		delivered: 1,
 		awaitResult: mcptool.CmdResult{
-			NewSessions: []string{"s5"},
-			NewRegions:  []string{"r9"},
-			NewTabs:     []mcptool.TabRef{{UUID: "t9", ToolID: "409"}},
+			NewWindows: []string{"s5"},
+			NewPanes:   []string{"r9"},
+			NewTabs:    []mcptool.TabRef{{UUID: "t9", ToolID: "409"}},
 		},
 	}
 	res, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
 		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
-		`{"action":"newSession","name":"wf"}`)
+		`{"action":"newWindow","name":"wf"}`)
 	if err != nil {
 		t.Fatalf("err=%v", err)
 	}
 	body := resultText(res)
-	if !strings.Contains(body, "newSessions=[s5]") || !strings.Contains(body, "newTabs=[t9(409)]") {
+	if !strings.Contains(body, "newWindows=[s5]") || !strings.Contains(body, "newTabs=[t9(409)]") {
 		t.Errorf("body=%q", body)
 	}
 	// payload 에 reqId 포함.
@@ -606,20 +606,20 @@ func TestWorkspaceCommand_CountForbiddenOnNonSplit(t *testing.T) {
 }
 
 func TestWorkspaceCommand_KeepFocusForbidden(t *testing.T) {
-	b := &fakeBroadcaster{allowed: map[string]bool{"sessionNext": true}}
+	b := &fakeBroadcaster{allowed: map[string]bool{"windowNext": true}}
 	if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
 		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
-		`{"action":"sessionNext","keepFocus":true}`); err == nil {
+		`{"action":"windowNext","keepFocus":true}`); err == nil {
 		t.Errorf("err=nil")
 	}
 }
 
-// FR-RST-2/4: newSession/newTab 이 keepFocus 를 허용하고 payload 에 그대로 전달.
+// FR-RST-2/4: newWindow/newTab 이 keepFocus 를 허용하고 payload 에 그대로 전달.
 func TestWorkspaceCommand_NewSessionKeepFocusName(t *testing.T) {
-	b := &fakeBroadcaster{allowed: map[string]bool{"newSession": true}, delivered: 1}
+	b := &fakeBroadcaster{allowed: map[string]bool{"newWindow": true}, delivered: 1}
 	_, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
 		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
-		`{"action":"newSession","keepFocus":true,"name":"wf-test"}`)
+		`{"action":"newWindow","keepFocus":true,"name":"wf-test"}`)
 	if err != nil {
 		t.Fatalf("err=%v", err)
 	}
@@ -643,16 +643,16 @@ func TestWorkspaceCommand_NewTabKeepFocusName(t *testing.T) {
 	}
 }
 
-// TC-RNS-4: renameTab/renameSession 은 location + name 둘 다 필수.
+// TC-RNS-4: renameTab/renameWindow 은 location + name 둘 다 필수.
 func TestWorkspaceCommand_RenameRequiresLocationAndName(t *testing.T) {
-	b := &fakeBroadcaster{allowed: map[string]bool{"renameTab": true, "renameSession": true}}
+	b := &fakeBroadcaster{allowed: map[string]bool{"renameTab": true, "renameWindow": true}}
 	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "W1.P1.T1"}}
 	h := WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b, WS: ws})
 	for _, payload := range []string{
-		`{"action":"renameTab","name":"writer"}`,     // location 누락
-		`{"action":"renameTab","location":"u1"}`,     // name 누락
-		`{"action":"renameSession","name":"x"}`,      // location 누락
-		`{"action":"renameSession","location":"u1"}`, // name 누락
+		`{"action":"renameTab","name":"writer"}`,    // location 누락
+		`{"action":"renameTab","location":"u1"}`,    // name 누락
+		`{"action":"renameWindow","name":"x"}`,      // location 누락
+		`{"action":"renameWindow","location":"u1"}`, // name 누락
 	} {
 		if _, err := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec, h, payload); err == nil {
 			t.Errorf("err=nil for %s", payload)
@@ -687,7 +687,7 @@ func TestWorkspaceCommand_RenameKeepFocusForbidden(t *testing.T) {
 	}
 }
 
-// TC-RST-7: name 은 newSession/newTab/openEditorTab 외 action 에서 거부.
+// TC-RST-7: name 은 newWindow/newTab/openEditorTab 외 action 에서 거부.
 func TestWorkspaceCommand_NameForbiddenOnFocus(t *testing.T) {
 	b := &fakeBroadcaster{allowed: map[string]bool{"focus": true}}
 	ws := &fakeWorkspaceReader{coords: map[string]string{"u1": "W1.P1.T1"}}
@@ -699,10 +699,10 @@ func TestWorkspaceCommand_NameForbiddenOnFocus(t *testing.T) {
 }
 
 func TestWorkspaceCommand_Delivered0Warning(t *testing.T) {
-	b := &fakeBroadcaster{allowed: map[string]bool{"newSession": true}, delivered: 0}
+	b := &fakeBroadcaster{allowed: map[string]bool{"newWindow": true}, delivered: 0}
 	res, _ := dispatch(t, WorkspaceCommandName, WorkspaceCommandSpec,
 		WorkspaceCommandHandler(WorkspaceCommandDeps{Broadcaster: b}),
-		`{"action":"newSession"}`)
+		`{"action":"newWindow"}`)
 	if !strings.Contains(resultText(res), "구독 중인 브라우저 없음") {
 		t.Errorf("missing warning: %q", resultText(res))
 	}

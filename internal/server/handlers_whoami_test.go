@@ -56,18 +56,18 @@ func TestApiWhoAmI_HappyPath(t *testing.T) {
 	var got map[string]interface{}
 	json.NewDecoder(resp.Body).Decode(&got)
 	want := map[string]interface{}{
-		"paneId":      "p1",
-		"shellPid":    float64(12345),
-		"label":       "W1.P1.T1",
-		"uuid":        "tu1",
-		"short":       "tu1short",
-		"sizeCols":    float64(80),
-		"sizeRows":    float64(24),
-		"session":     "Main",
-		"tab":         "Shell",
-		"sessionUuid": "su1",
-		"regionUuid":  "ru1",
-		"focused":     true,
+		"toolId":     "p1",
+		"shellPid":   float64(12345),
+		"label":      "W1.P1.T1",
+		"uuid":       "tu1",
+		"short":      "tu1short",
+		"sizeCols":   float64(80),
+		"sizeRows":   float64(24),
+		"window":     "Main",
+		"tab":        "Shell",
+		"windowUuid": "su1",
+		"paneUuid":   "ru1",
+		"focused":    true,
 	}
 	for k, v := range want {
 		if got[k] != v {
@@ -123,7 +123,7 @@ func TestApiWhoAmI_NoEntry(t *testing.T) {
 	}
 	var got map[string]interface{}
 	json.NewDecoder(resp.Body).Decode(&got)
-	if got["paneId"] != "p1" || got["shellPid"] != float64(1234) {
+	if got["toolId"] != "p1" || got["shellPid"] != float64(1234) {
 		t.Errorf("paneId/shellPid mismatch: %v", got)
 	}
 	if got["label"] != "" || got["uuid"] != "" {

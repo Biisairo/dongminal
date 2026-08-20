@@ -61,21 +61,21 @@ function getCurrentTheme(){return customTheme||THEMES[currentThemeName]}
 // ── Shortcut state ──
 
 const SHORTCUT_DEFAULTS={
-  sessionNext:'Ctrl+Shift+BracketRight',sessionPrev:'Ctrl+Shift+BracketLeft',
+  windowNext:'Ctrl+Shift+BracketRight',windowPrev:'Ctrl+Shift+BracketLeft',
   tabNext:'Ctrl+Tab',tabPrev:'Ctrl+Shift+Tab',
   paneUp:'Ctrl+Shift+ArrowUp',paneDown:'Ctrl+Shift+ArrowDown',paneLeft:'Ctrl+Shift+ArrowLeft',paneRight:'Ctrl+Shift+ArrowRight',
   splitH:'Ctrl+Shift+KeyH',splitV:'Ctrl+Shift+KeyV',
-  newSession:'Ctrl+Shift+KeyN',newTab:'Ctrl+Shift+KeyT',
-  closeSession:'Ctrl+Shift+KeyW',closeTab:'Ctrl+Shift+KeyD',
+  newWindow:'Ctrl+Shift+KeyN',newTab:'Ctrl+Shift+KeyT',
+  closeWindow:'Ctrl+Shift+KeyW',closeTab:'Ctrl+Shift+KeyD',
   agentsToggle:'Ctrl+Shift+KeyA',
 };
 const SHORTCUT_LABELS={
-  sessionNext:'다음 창',sessionPrev:'이전 창',
+  windowNext:'다음 창',windowPrev:'이전 창',
   tabNext:'다음 탭',tabPrev:'이전 탭',
   paneUp:'Pane ↑',paneDown:'Pane ↓',paneLeft:'Pane ←',paneRight:'Pane →',
   splitH:'가로 분할',splitV:'세로 분할',
-  newSession:'새 창',newTab:'새 탭',
-  closeSession:'창 닫기',closeTab:'탭 닫기',
+  newWindow:'새 창',newTab:'새 탭',
+  closeWindow:'창 닫기',closeTab:'탭 닫기',
   agentsToggle:'에이전트 패널',
 };
 var shortcuts={...SHORTCUT_DEFAULTS};

@@ -211,9 +211,9 @@ func TestPaneManager_AttentionIDs_AndEndpoint(t *testing.T) {
 
 	s := &Server{Panes: m}
 	rec := httptest.NewRecorder()
-	s.apiPanesAttention(rec, httptest.NewRequest(http.MethodGet, "/api/panes/attention", nil))
+	s.apiPanesAttention(rec, httptest.NewRequest(http.MethodGet, "/api/tools/attention", nil))
 	var got struct {
-		PaneIds []string `json:"paneIds"`
+		PaneIds []string `json:"toolIds"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode: %v", err)
@@ -238,16 +238,16 @@ func TestApiPaneAttentionClear(t *testing.T) {
 
 	// unknown pane → 200 no-op.
 	rec := httptest.NewRecorder()
-	s.apiPaneAttentionClear(rec, httptest.NewRequest(http.MethodPost, "/api/panes/attention/clear",
-		strings.NewReader(`{"paneId":"999"}`)))
+	s.apiPaneAttentionClear(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear",
+		strings.NewReader(`{"toolId":"999"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("unknown pane want 200, got %d", rec.Code)
 	}
 
 	// known attention pane → cleared + notifier fired.
 	rec = httptest.NewRecorder()
-	s.apiPaneAttentionClear(rec, httptest.NewRequest(http.MethodPost, "/api/panes/attention/clear",
-		strings.NewReader(`{"paneId":"4"}`)))
+	s.apiPaneAttentionClear(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear",
+		strings.NewReader(`{"toolId":"4"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("known pane want 200, got %d", rec.Code)
 	}
@@ -260,7 +260,7 @@ func TestApiPaneAttentionClear(t *testing.T) {
 
 	// missing paneId → 400.
 	rec = httptest.NewRecorder()
-	s.apiPaneAttentionClear(rec, httptest.NewRequest(http.MethodPost, "/api/panes/attention/clear",
+	s.apiPaneAttentionClear(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear",
 		strings.NewReader(`{}`)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("missing paneId want 400, got %d", rec.Code)
@@ -279,8 +279,8 @@ func TestApiPaneAttentionSet(t *testing.T) {
 	s := &Server{Panes: m}
 
 	rec := httptest.NewRecorder()
-	s.apiPaneAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/panes/attention/set",
-		strings.NewReader(`{"paneId":"9","reason":"done"}`)))
+	s.apiPaneAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/set",
+		strings.NewReader(`{"toolId":"9","reason":"done"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("set want 200, got %d", rec.Code)
 	}
@@ -294,15 +294,15 @@ func TestApiPaneAttentionSet(t *testing.T) {
 	// Re-notify: a second explicit signal must fire AGAIN even though the pane
 	// is already in attention (each agent completion re-alerts) — not edge-gated.
 	rec = httptest.NewRecorder()
-	s.apiPaneAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/panes/attention/set",
-		strings.NewReader(`{"paneId":"9","reason":"waiting"}`)))
+	s.apiPaneAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/set",
+		strings.NewReader(`{"toolId":"9","reason":"waiting"}`)))
 	if len(attn) != 2 || attn[1] != "9:waiting" {
 		t.Fatalf("second signal must re-fire while already in attention, got %v", attn)
 	}
 
 	// missing paneId → 400.
 	rec = httptest.NewRecorder()
-	s.apiPaneAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/panes/attention/set",
+	s.apiPaneAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/set",
 		strings.NewReader(`{}`)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("missing paneId want 400, got %d", rec.Code)
@@ -327,7 +327,7 @@ func TestClearAllAttention_AndEndpoint(t *testing.T) {
 
 	s := &Server{Panes: m}
 	rec := httptest.NewRecorder()
-	s.apiPaneAttentionClearAll(rec, httptest.NewRequest(http.MethodPost, "/api/panes/attention/clear-all", nil))
+	s.apiPaneAttentionClearAll(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear-all", nil))
 	var got struct {
 		Cleared int `json:"cleared"`
 	}

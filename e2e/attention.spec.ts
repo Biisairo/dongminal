@@ -32,7 +32,7 @@ test.describe('Pane attention', () => {
     // is now in the background.
     const before = await page.locator('#area .rg.focused .rt').count();
     const [resp] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+      page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
       page.locator('#area .rg.focused .rt-add').click(),
     ]);
     expect(resp.status()).toBe(200);

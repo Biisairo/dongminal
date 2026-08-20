@@ -445,7 +445,7 @@ type activityState struct {
 }
 
 type activitySnap struct {
-	ToolID    string `json:"paneId"`
+	ToolID    string `json:"toolId"`
 	State     string `json:"state"`
 	Tool      string `json:"tool,omitempty"`
 	Detail    string `json:"detail,omitempty"`

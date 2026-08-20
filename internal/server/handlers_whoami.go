@@ -11,7 +11,7 @@ import (
 // entry + terminal size.
 func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 	// Daemon mode: use paneId query parameter if provided.
-	paneID := r.URL.Query().Get("paneId")
+	paneID := r.URL.Query().Get("toolId")
 	var shellPID int
 	var err error
 
@@ -34,18 +34,18 @@ func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := map[string]interface{}{
-		"paneId":      paneID,
-		"shellPid":    shellPID,
-		"label":       "",
-		"uuid":        "",
-		"short":       "",
-		"sizeCols":    0,
-		"sizeRows":    0,
-		"session":     "",
-		"tab":         "",
-		"sessionUuid": "",
-		"regionUuid":  "",
-		"focused":     false,
+		"toolId":     paneID,
+		"shellPid":   shellPID,
+		"label":      "",
+		"uuid":       "",
+		"short":      "",
+		"sizeCols":   0,
+		"sizeRows":   0,
+		"window":     "",
+		"tab":        "",
+		"windowUuid": "",
+		"paneUuid":   "",
+		"focused":    false,
 	}
 
 	if s.Panes != nil {
@@ -70,10 +70,10 @@ func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 			resp["label"] = e.Label
 			resp["uuid"] = e.TabUUID
 			resp["short"] = e.ShortCode
-			resp["session"] = e.WindowName
+			resp["window"] = e.WindowName
 			resp["tab"] = e.TabName
-			resp["sessionUuid"] = e.WindowUUID
-			resp["regionUuid"] = e.PaneUUID
+			resp["windowUuid"] = e.WindowUUID
+			resp["paneUuid"] = e.PaneUUID
 			resp["focused"] = e.IsActive
 			break
 		}

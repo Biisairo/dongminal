@@ -23,8 +23,8 @@ func (c Command) BroadcastAndAwait(payload []byte, reqId string) (mcptool.CmdRes
 		tabs[i] = mcptool.TabRef{UUID: t.UUID, ToolID: t.ToolID}
 	}
 	return mcptool.CmdResult{
-		NewSessions: res.NewSessions,
-		NewRegions:  res.NewRegions,
-		NewTabs:     tabs,
+		NewWindows: res.NewWindows,
+		NewPanes:   res.NewPanes,
+		NewTabs:    tabs,
 	}, n, timedOut
 }

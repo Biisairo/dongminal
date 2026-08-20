@@ -35,8 +35,8 @@ func runDmctlNotify(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "dmctl notify: DONGMINAL_PANE_ID 미설정 (dongminal pane 안에서 실행해야 함)")
 		return 1
 	}
-	url := baseURL() + "/api/panes/attention/set"
-	body := map[string]any{"paneId": paneID, "reason": sanitizeNotifyLabel(label)}
+	url := baseURL() + "/api/tools/attention/set"
+	body := map[string]any{"toolId": paneID, "reason": sanitizeNotifyLabel(label)}
 	status, resp, err := httpPostJSON(url, body)
 	// Report codex activity on every notify attempt, even if the attention
 	// POST itself fails. Best-effort and silent — never affects exit status.

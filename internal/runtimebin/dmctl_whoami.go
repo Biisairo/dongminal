@@ -27,7 +27,7 @@ func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	status, body, err := httpGet(baseURL() + "/api/whoami?paneId=" + os.Getenv("DONGMINAL_PANE_ID"))
+	status, body, err := httpGet(baseURL() + "/api/whoami?toolId=" + os.Getenv("DONGMINAL_PANE_ID"))
 	if err != nil {
 		fmt.Fprintf(stderr, "dmctl: %v\n", err)
 		return 1
@@ -70,7 +70,7 @@ func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 		ShellPID:    rec.ShellPID,
 		SizeCols:    rec.SizeCols,
 		SizeRows:    rec.SizeRows,
-		Session:     rec.Session,
+		Window:      rec.Window,
 		Tab:         rec.Tab,
 		WindowUUID:  rec.WindowUUID,
 		PaneUUID:    rec.PaneUUID,
@@ -93,16 +93,16 @@ const dmctlWhoAmIHelp = `dmctl who-am-i — 현재 쉘이 속한 pane 의 식별
 `
 
 type whoAmIResp struct {
-	ToolID     string `json:"paneId"`
+	ToolID     string `json:"toolId"`
 	ShellPID   int    `json:"shellPid"`
 	Label      string `json:"label"`
 	UUID       string `json:"uuid"`
 	Short      string `json:"short"`
 	SizeCols   int    `json:"sizeCols"`
 	SizeRows   int    `json:"sizeRows"`
-	Session    string `json:"session"`
+	Window     string `json:"window"`
 	Tab        string `json:"tab"`
-	WindowUUID string `json:"sessionUuid"`
-	PaneUUID   string `json:"regionUuid"`
+	WindowUUID string `json:"windowUuid"`
+	PaneUUID   string `json:"paneUuid"`
 	Focused    bool   `json:"focused"`
 }

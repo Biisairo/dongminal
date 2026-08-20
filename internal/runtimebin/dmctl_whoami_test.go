@@ -11,12 +11,12 @@ import (
 )
 
 const whoAmIFakeJSON = `{
-  "paneId":"12","shellPid":12345,
+  "toolId":"12","shellPid":12345,
   "label":"W1.P1.T1","uuid":"550e8400-e29b-41d4-a716-446655440003","short":"550e8400",
   "sizeCols":80,"sizeRows":24,
-  "session":"Main","tab":"Shell",
-  "sessionUuid":"550e8400-e29b-41d4-a716-446655440001",
-  "regionUuid":"550e8400-e29b-41d4-a716-446655440002",
+  "window":"Main","tab":"Shell",
+  "windowUuid":"550e8400-e29b-41d4-a716-446655440001",
+  "paneUuid":"550e8400-e29b-41d4-a716-446655440002",
   "focused":true
 }`
 
@@ -36,7 +36,7 @@ func TestRunDmctlWhoAmI_TextOutput(t *testing.T) {
 	if rc != 0 {
 		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
 	}
-	want := "▶ label=W1.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440003  short=550e8400  paneId=12  shellPid=12345  size=80x24  session=\"Main\"  tab=\"Shell\"  session_uuid=550e8400-e29b-41d4-a716-446655440001  region_uuid=550e8400-e29b-41d4-a716-446655440002\n"
+	want := "▶ label=W1.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440003  short=550e8400  toolId=12  shellPid=12345  size=80x24  window=\"Main\"  tab=\"Shell\"  window_uuid=550e8400-e29b-41d4-a716-446655440001  pane_uuid=550e8400-e29b-41d4-a716-446655440002\n"
 	if stdout.String() != want {
 		t.Errorf("stdout=%q\nwant   =%q", stdout.String(), want)
 	}

@@ -1,4 +1,4 @@
-// Package paneline은 dmctl 과 MCP (list_panes / who_am_i) 가 공유하는
+// Package paneline은 dmctl 과 MCP (list_workspace / who_am_i) 가 공유하는
 // 한 줄 출력 렌더러를 제공한다. DMCTL_WHO_AM_I_SRS FR-PL-1~3 의 단일
 // 소스 — 양 채널의 byte-level 일치를 위해 fmt 외부 의존 0.
 package paneline
@@ -17,7 +17,7 @@ type Line struct {
 	ShellPID    int
 	SizeCols    int
 	SizeRows    int
-	Session     string
+	Window      string
 	Tab         string
 	WindowUUID  string
 	PaneUUID    string
@@ -39,16 +39,16 @@ func (l Line) Render() string {
 	if l.Short != "" {
 		fmt.Fprintf(&b, "  short=%s", l.Short)
 	}
-	fmt.Fprintf(&b, "  paneId=%s  shellPid=%d", l.ToolID, l.ShellPID)
+	fmt.Fprintf(&b, "  toolId=%s  shellPid=%d", l.ToolID, l.ShellPID)
 	if l.SizeCols != 0 || l.SizeRows != 0 {
 		fmt.Fprintf(&b, "  size=%dx%d", l.SizeCols, l.SizeRows)
 	}
-	fmt.Fprintf(&b, "  session=%q  tab=%q", l.Session, l.Tab)
+	fmt.Fprintf(&b, "  window=%q  tab=%q", l.Window, l.Tab)
 	if l.WindowUUID != "" {
-		fmt.Fprintf(&b, "  session_uuid=%s", l.WindowUUID)
+		fmt.Fprintf(&b, "  window_uuid=%s", l.WindowUUID)
 	}
 	if l.PaneUUID != "" {
-		fmt.Fprintf(&b, "  region_uuid=%s", l.PaneUUID)
+		fmt.Fprintf(&b, "  pane_uuid=%s", l.PaneUUID)
 	}
 	return b.String()
 }

@@ -20,6 +20,7 @@ const (
 	daemonPIDFile = "paned.pid"
 	panesFile     = "panes.json"
 	toolsFile     = "tools.json"
+	settingsFile  = "settings.json"
 	backupSuffix  = ".v1.bak"
 )
 
@@ -69,7 +70,22 @@ func Apply(home string, dryRun bool) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
-	if res.Report.Empty || dryRun {
+
+	stPath := filepath.Join(home, settingsFile)
+	stBlob, err := readOptional(stPath)
+	if err != nil {
+		return Report{}, err
+	}
+	stOut, renamed, err := Settings(stBlob)
+	if err != nil {
+		return Report{}, err
+	}
+	res.Report.ShortcutsRenamed = renamed
+
+	if res.Report.Empty && stOut == nil {
+		return res.Report, nil
+	}
+	if dryRun {
 		return res.Report, nil
 	}
 
@@ -92,6 +108,14 @@ func Apply(home string, dryRun bool) (Report, error) {
 		}
 		if err := os.WriteFile(filepath.Join(home, toolsFile), res.Tools, 0o644); err != nil {
 			return Report{}, fmt.Errorf("%s 쓰기: %w", toolsFile, err)
+		}
+	}
+	if stOut != nil {
+		if err := backupOnce(stPath); err != nil {
+			return Report{}, err
+		}
+		if err := os.WriteFile(stPath, stOut, 0o644); err != nil {
+			return Report{}, fmt.Errorf("%s 쓰기: %w", settingsFile, err)
 		}
 	}
 	return res.Report, nil

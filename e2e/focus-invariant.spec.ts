@@ -230,14 +230,14 @@ test.describe('Workspace ETag (S5)', () => {
 
 test.describe('Pane size validation (L4)', () => {
   test('cols above MaxTerminalDim falls back', async ({ request }) => {
-    // POST /api/panes accepts cols/rows; oversized values should be clamped.
+    // POST /api/tools accepts cols/rows; oversized values should be clamped.
     // The fake pane manager doesn't run, but the real one does — verify the
     // creation succeeds (oversized → fallback default 120).
-    const r = await request.post('/api/panes?cols=99999&rows=24');
+    const r = await request.post('/api/tools?cols=99999&rows=24');
     expect(r.status()).toBe(200);
     const body = await r.json();
     expect(body.id).toBeDefined();
     // Cleanup so subsequent tests aren't polluted.
-    await request.delete('/api/panes/' + body.id);
+    await request.delete('/api/tools/' + body.id);
   });
 });

@@ -26,7 +26,7 @@ func TestNewServerInTempDir(t *testing.T) {
 }
 
 func TestHandlerBasics(t *testing.T) {
-	// handleAPI 의 /api/panes GET 은 현재 route 테이블에서 404(내부 switch default)로
+	// handleAPI 의 /api/tools GET 은 현재 route 테이블에서 404(내부 switch default)로
 	// 떨어진다. 대신 /api/ping 을 사용해 mux + loggingMiddleware 체인이 살아있는지 검증.
 	srv, err := New(Config{DataDir: t.TempDir()}, Deps{})
 	if err != nil {
@@ -78,7 +78,7 @@ func TestTwoServersInSameProcess(t *testing.T) {
 	}
 }
 
-// TestCreatePaneViaServer: POST /api/panes 가 실제 PaneManager 경유로 pane 을
+// TestCreatePaneViaServer: POST /api/tools 가 실제 PaneManager 경유로 pane 을
 // 생성하고 id/name 을 JSON 으로 돌려주는지 검증한다. Fake DataDir 에 저장되는
 // panes.json 쓰기가 go-routine 으로 돌아가지만 테스트 종료에 의해 정리된다.
 func TestCreatePaneViaServer(t *testing.T) {
@@ -91,9 +91,9 @@ func TestCreatePaneViaServer(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, err := http.Post(ts.URL+"/api/panes?cols=80&rows=24", "application/json", nil)
+	resp, err := http.Post(ts.URL+"/api/tools?cols=80&rows=24", "application/json", nil)
 	if err != nil {
-		t.Fatalf("POST /api/panes: %v", err)
+		t.Fatalf("POST /api/tools: %v", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {

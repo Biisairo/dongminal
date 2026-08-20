@@ -8,7 +8,7 @@ import (
 	"dongminal/internal/mcptool"
 )
 
-// FR-UID-7: list_panes 출력의 라인 끝에 uuid/short 가 부착된다. 기존 라인
+// FR-UID-7: list_workspace 출력의 라인 끝에 uuid/short 가 부착된다. 기존 라인
 // 앞부분 (label, paneId, shellPid, size, session, tab) 은 그대로 유지된다.
 func TestListPanes_AppendsUUIDFields(t *testing.T) {
 	pr := newFakePaneReader()
@@ -27,7 +27,7 @@ func TestListPanes_AppendsUUIDFields(t *testing.T) {
 			ShortCode:  "550e8400",
 		}},
 	}
-	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
+	res, _ := dispatch(t, ListWorkspaceName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
 	body := resultText(res)
 
 	if !strings.Contains(body, "uuid=550e8400-e29b-41d4-a716-446655440003") {
@@ -36,7 +36,7 @@ func TestListPanes_AppendsUUIDFields(t *testing.T) {
 	if !strings.Contains(body, "short=550e8400") {
 		t.Errorf("short not in body: %q", body)
 	}
-	if !strings.Contains(body, "▶ label=W1.P1.T1") || !strings.Contains(body, "paneId=pty-1") {
+	if !strings.Contains(body, "▶ label=W1.P1.T1") || !strings.Contains(body, "toolId=pty-1") {
 		t.Errorf("existing line content broken: %q", body)
 	}
 }
@@ -51,7 +51,7 @@ func TestListPanes_OmitsUUIDFieldsWhenAbsent(t *testing.T) {
 			ToolID: "1", Label: "W1.P1.T1", IsActive: true,
 		}},
 	}
-	res, _ := dispatch(t, ListPanesName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
+	res, _ := dispatch(t, ListWorkspaceName, ListPanesSpec, ListPanesHandler(ListPanesDeps{PM: pr, WS: wr}), "")
 	body := resultText(res)
 
 	if strings.Contains(body, "uuid=") || strings.Contains(body, "short=") {
@@ -86,11 +86,11 @@ func TestWhoAmI_AppendsUUIDFields(t *testing.T) {
 
 	for _, want := range []string{
 		"label=W1.P1.T1",
-		"paneId=pty-1",
+		"toolId=pty-1",
 		"uuid=550e8400-e29b-41d4-a716-446655440003",
 		"short=550e8400",
-		"session_uuid=550e8400-e29b-41d4-a716-446655440001",
-		"region_uuid=550e8400-e29b-41d4-a716-446655440002",
+		"window_uuid=550e8400-e29b-41d4-a716-446655440001",
+		"pane_uuid=550e8400-e29b-41d4-a716-446655440002",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q in: %q", want, body)
@@ -110,7 +110,7 @@ func TestWhoAmI_OmitsUUIDFieldsWhenAbsent(t *testing.T) {
 	res, _ := h(ctx, WhoAmIArgs{})
 	body := resultText(res)
 	if strings.Contains(body, "uuid=") || strings.Contains(body, "short=") ||
-		strings.Contains(body, "session_uuid=") || strings.Contains(body, "region_uuid=") {
+		strings.Contains(body, "window_uuid=") || strings.Contains(body, "pane_uuid=") {
 		t.Errorf("uuid/short leaked when TabUUID empty: %q", body)
 	}
 }

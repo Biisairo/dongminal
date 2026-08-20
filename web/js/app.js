@@ -183,15 +183,15 @@ class App {
               this._onWorkspaceChanged(m.args&&m.args.rev);
               return;
             }
-            if(m.action==='pane_attention'){
+            if(m.action==='tool_attention'){
               this._onPaneAttention(m.args||{});
               return;
             }
-            if(m.action==='pane_attention_clear'){
+            if(m.action==='tool_attention_clear'){
               this._onPaneAttentionClear(m.args||{});
               return;
             }
-            if(m.action==='pane_activity'){
+            if(m.action==='tool_activity'){
               this._onPaneActivity(m.args||{});
               return;
             }
@@ -300,8 +300,8 @@ class App {
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         reqId,
-        newSessions:result.newSessions||[],
-        newRegions:result.newRegions||[],
+        newWindows:result.newWindows||[],
+        newPanes:result.newPanes||[],
         newTabs:result.newTabs||[],
       }),
     }).catch(()=>{});
@@ -327,7 +327,7 @@ class App {
       return;
     }
     // RENAME_TAB_SESSION_SRS FR-RNS-1/2: 순수 데이터 변경 — 포커스 무영향.
-    if(action==='renameTab'||action==='renameSession'){
+    if(action==='renameTab'||action==='renameWindow'){
       if(!args.location||!args.name){console.warn('[cmd] '+action+': location/name 필수');return}
       const tgt=this._resolveLocation(args.location);
       if(!tgt){console.warn('[cmd] '+action+': 대상 없음',args.location);return}
@@ -337,12 +337,12 @@ class App {
       this._save(); this.render();
       return;
     }
-    // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-5: newSession/newTab 은 name/keepFocus
+    // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-5: newWindow/newTab 은 name/keepFocus
     // 를 전달하기 위해 명시 분기. 의미는 _mkWindow/addTab 내부에서 보장.
-    if(action==='newSession'){
+    if(action==='newWindow'){
       this._mkWindow({name:args.name,keepFocus:!!args.keepFocus}).then((c)=>{
         this.render();
-        if(args.reqId&&c) this._echoResult(args.reqId,{newSessions:[c.session],newRegions:[c.region],newTabs:[c.tab]});
+        if(args.reqId&&c) this._echoResult(args.reqId,{newWindows:[c.win],newPanes:[c.pane],newTabs:[c.tab]});
       });
       return;
     }
@@ -378,7 +378,7 @@ class App {
       }
       const dir=action==='splitH'?'horizontal':'vertical';
       this.split(dir,opts).then((c)=>{
-        if(args.reqId&&c) this._echoResult(args.reqId,{newRegions:c.regions,newTabs:c.tabs});
+        if(args.reqId&&c) this._echoResult(args.reqId,{newPanes:c.regions,newTabs:c.tabs});
       });
       return;
     }
@@ -482,7 +482,7 @@ class App {
   }
 
   async _isPaneBusy(paneId){
-    try{const r=await fetch(`/api/panes/${paneId}/busy`);const d=await r.json();return d.busy}catch{return false}
+    try{const r=await fetch(`/api/tools/${paneId}/busy`);const d=await r.json();return d.busy}catch{return false}
   }
 
   _confirmClose(msg, opts = {}){
@@ -510,7 +510,7 @@ class App {
     let q='';
     if(cwd) q='&cwd='+encodeURIComponent(cwd);
     else if(cwdPane) q='&cwdPane='+encodeURIComponent(cwdPane);
-    const r=await fetch('/api/panes?cols=120&rows=40'+q,{method:'POST'});
+    const r=await fetch('/api/tools?cols=120&rows=40'+q,{method:'POST'});
     if(!r.ok) throw new Error('create pane failed');
     const {id,name}=await r.json();
     return this._mkPane(id,name);
@@ -525,12 +525,12 @@ class App {
   async _kill(pid){
     const p=this.panes.get(pid);
     if(p){p.destroy();this.panes.delete(pid)}
-    try{await fetch(`/api/panes/${pid}`,{method:'DELETE'})}catch{}
+    try{await fetch(`/api/tools/${pid}`,{method:'DELETE'})}catch{}
   }
   _killTool(pid){
     const p=this.panes.get(pid);
     if(p){p.destroy();this.panes.delete(pid)}
-    fetch(`/api/panes/${pid}`,{method:'DELETE'}).catch(()=>{});
+    fetch(`/api/tools/${pid}`,{method:'DELETE'}).catch(()=>{});
   }
 
   _aw(){return this.ws.windows.find(s=>s.id===this.ws.activeWindow)||null}
@@ -605,7 +605,7 @@ class App {
     return !!at&&at.toolId===paneId;
   }
 
-  _onPaneAttention({paneId,reason}={}){
+  _onPaneAttention({toolId:paneId,reason}={}){
     if(!paneId) return;
     // 억제(즉시 해제)는 "정말로 보고 있을 때"만 — 브라우저 창이 OS 포커스를 가졌고(다른 앱이
     // 위에 있지 않음) 그 pane 에 포커스가 있을 때. 다른 프로그램을 보고 있으면(document.hasFocus()
@@ -618,7 +618,7 @@ class App {
     this._attnBeep(); // FR-PAN-13c
   }
 
-  _onPaneAttentionClear({paneId}={}){
+  _onPaneAttentionClear({toolId:paneId}={}){
     if(!paneId) return;
     this._attnCloseNotif(paneId);
     if(!this._attn.delete(paneId)) return;
@@ -627,9 +627,9 @@ class App {
 
   // FR-PAN-12: 합류/재연결 시 현재 주의 집합 복원(기존 것 병합)
   _attnRestore(){
-    fetch('/api/panes/attention').then(r=>r.ok?r.json():null).then(j=>{
-      if(!j||!Array.isArray(j.paneIds)) return;
-      for(const pid of j.paneIds){if(!this._attn.has(pid))this._attn.set(pid,{reason:'signaled'})}
+    fetch('/api/tools/attention').then(r=>r.ok?r.json():null).then(j=>{
+      if(!j||!Array.isArray(j.toolIds)) return;
+      for(const pid of j.toolIds){if(!this._attn.has(pid))this._attn.set(pid,{reason:'signaled'})}
       this._attnRefresh();
     }).catch(()=>{});
   }
@@ -639,13 +639,13 @@ class App {
     if(!paneId) return;
     this._attnCloseNotif(paneId);
     this._attn.delete(paneId);
-    fetch('/api/panes/attention/clear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paneId})}).catch(()=>{});
+    fetch('/api/tools/attention/clear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({toolId:paneId})}).catch(()=>{});
     this._attnRefresh();
   }
 
   // FR-PAN-17: 모든 알람 일괄 해제
   _attnClearAll(){
-    fetch('/api/panes/attention/clear-all',{method:'POST'}).catch(()=>{});
+    fetch('/api/tools/attention/clear-all',{method:'POST'}).catch(()=>{});
     Object.keys(this._attnNotifs||{}).forEach(k=>this._attnCloseNotif(k));
     this._attn.clear();
     this._attnCenterClose();
@@ -701,8 +701,8 @@ class App {
     this.render();
   }
 
-  // FR-AAP-15: SSE pane_activity 수신 → 최신 상태로 덮어쓰고 카드 타깃 갱신
-  _onPaneActivity({paneId,state,tool,detail}={}){
+  // FR-AAP-15: SSE tool_activity 수신 → 최신 상태로 덮어쓰고 카드 타깃 갱신
+  _onPaneActivity({toolId:paneId,state,tool,detail}={}){
     if(!paneId||!state) return;
     if(state==='ended'){ // 종료 → 카드 제거
       if(this._activity.delete(paneId)) this._agentsRender();
@@ -715,11 +715,11 @@ class App {
 
   // FR-AAP-15: 합류/재연결 시 현재 활동 스냅샷 복원
   _activityRestore(){
-    fetch('/api/panes/activity').then(r=>r.ok?r.json():null).then(j=>{
+    fetch('/api/tools/activity').then(r=>r.ok?r.json():null).then(j=>{
       this._activity.clear();
       if(j&&Array.isArray(j.activities)){
         j.activities.sort((a,b)=>(a.updatedAt||0)-(b.updatedAt||0)); // 오래된→최신: 끝이 가장 최근
-        for(const a of j.activities) this._activity.set(a.paneId,{state:a.state,tool:a.tool||'',detail:a.detail||''});
+        for(const a of j.activities) this._activity.set(a.toolId,{state:a.state,tool:a.tool||'',detail:a.detail||''});
       }
       this._agentsRender();
     }).catch(()=>{});
@@ -1037,7 +1037,7 @@ class App {
     // this pattern).
     this._save();
     // REMOTE_COMMAND_RESULT_SRS FR-RCR-6/7: 생성한 엔터티 id 반환 (echo 용).
-    return {session:s.id, region:r, tab:{uuid:t, paneId:p.id}};
+    return {win:s.id, pane:r, tab:{uuid:t, toolId:p.id}};
   }
 
   async addWindow(){await this._mkWindow();this.render()}
@@ -1154,7 +1154,7 @@ class App {
     this.render();
     this._save();
     // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 tab id+paneId 반환 (echo 용).
-    return { uuid: t, paneId: p.id };
+    return { uuid: t, toolId: p.id };
   }
 
   async closeTab(rid,tid,sid){
@@ -1242,11 +1242,11 @@ class App {
     const savedFocused = keepFocus ? this.focused : null;
     const ref=this._regionNewPaneRef(s,tgtRegionId);
     const refPaneId=ref.cwd ? null : (ref.cwdPane || null);
-    const newRegions=[]; let lastR=null;
+    const newPanes=[]; let lastR=null;
     for(let i=0;i<count-1;i++){
       const p=await this._newPane(ref.cwd || null, refPaneId);
       const r=`r${++this._r}`,t=`t${++this._t}`;
-      newRegions.push({type:'pane',id:r,tabs:[{id:t,name:'Shell',type:'terminal',toolId:p.id}],activeTab:t});
+      newPanes.push({type:'pane',id:r,tabs:[{id:t,name:'Shell',type:'terminal',toolId:p.id}],activeTab:t});
       lastR=r;
     }
     // Re-fetch window after awaits: this.ws may have been replaced by an
@@ -1256,7 +1256,7 @@ class App {
     // workspace sync.
     s=this.ws.windows.find(x=>x.id===tgtWindowId);
     if(!s||!findPane(s.layout,tgtRegionId)) return;
-    s.layout=doSplit(s.layout,tgtRegionId,newRegions,dir);
+    s.layout=doSplit(s.layout,tgtRegionId,newPanes,dir);
     if(keepFocus){
       // FR-SKF-1: 저장된 사용자 포커스를 그대로 복원. activeWindow / focused 모두.
       // FR-SKF-3: 저장된 region 이 사후 layout 에서 사라졌으면 무동작 + 경고.
@@ -1284,8 +1284,8 @@ class App {
     this._save();
     // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 region/tab id 반환 (echo 용).
     return {
-      regions: newRegions.map(rg=>rg.id),
-      tabs: newRegions.map(rg=>({uuid:rg.tabs[0].id, paneId:rg.tabs[0].toolId})),
+      regions: newPanes.map(rg=>rg.id),
+      tabs: newPanes.map(rg=>({uuid:rg.tabs[0].id, toolId:rg.tabs[0].toolId})),
     };
   }
 
@@ -1360,13 +1360,13 @@ class App {
 
   executeAction(action){
     const map={
-      sessionNext:()=>this.switchWindowNext(),sessionPrev:()=>this.switchWindowPrev(),
+      windowNext:()=>this.switchWindowNext(),windowPrev:()=>this.switchWindowPrev(),
       tabNext:()=>this.switchTabNext(),tabPrev:()=>this.switchTabPrev(),
       paneUp:()=>this.paneNavigate('up'),paneDown:()=>this.paneNavigate('down'),
       paneLeft:()=>this.paneNavigate('left'),paneRight:()=>this.paneNavigate('right'),
       splitH:()=>this.split('horizontal'),splitV:()=>this.split('vertical'),
-      newSession:()=>this.addWindow(),newTab:()=>this.addTabFocused(),
-      closeSession:()=>this.closeWindowActive(),closeTab:()=>this.closeTabFocused(),
+      newWindow:()=>this.addWindow(),newTab:()=>this.addTabFocused(),
+      closeWindow:()=>this.closeWindowActive(),closeTab:()=>this.closeTabFocused(),
       agentsToggle:()=>this._agentsToggle(),
       toggleSearch:()=>this.toggleSearch(),
     };
@@ -2049,7 +2049,7 @@ class App {
     const el=document.getElementById('sc-list');if(!el)return;
     el.innerHTML='';
     const groups=[
-      {label:'창',keys:['sessionNext','sessionPrev','newSession','closeSession']},
+      {label:'창',keys:['windowNext','windowPrev','newWindow','closeWindow']},
       {label:'탭',keys:['tabNext','tabPrev','newTab','closeTab']},
       {label:'Pane',keys:['paneUp','paneDown','paneLeft','paneRight']},
       {label:'분할',keys:['splitH','splitV']},

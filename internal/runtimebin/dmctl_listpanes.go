@@ -11,11 +11,11 @@ import (
 )
 
 // dmctlListPanes implements `dmctl list-panes`. /api/state 호출 후 workspace
-// 트리를 순회해 paneline.Line 으로 렌더링한다 — MCP `list_panes` 와 byte-level
+// 트리를 순회해 paneline.Line 으로 렌더링한다 — MCP `list_workspace` 와 byte-level
 // 동일 포맷 (DMCTL_WHO_AM_I_SRS FR-DMC-LP-1).
 func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 	jsonOut := false
-	sessionFilter, tabFilter := "", ""
+	windowFilter, tabFilter := "", ""
 	i := 0
 	for i < len(args) {
 		a := args[i]
@@ -25,20 +25,20 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 			return 0
 		case a == "--json":
 			jsonOut = true
-		case a == "--session" || a == "--tab":
+		case a == "--window" || a == "--tab":
 			if i+1 >= len(args) {
-				fmt.Fprintf(stderr, "list-panes: flag %s requires value\n", a)
+				fmt.Fprintf(stderr, "list-workspace: flag %s requires value\n", a)
 				return 2
 			}
-			if a == "--session" {
-				sessionFilter = args[i+1]
+			if a == "--window" {
+				windowFilter = args[i+1]
 			} else {
 				tabFilter = args[i+1]
 			}
 			i += 2
 			continue
 		default:
-			fmt.Fprintf(stderr, "list-panes: unknown argument: %s\n", a)
+			fmt.Fprintf(stderr, "list-workspace: unknown argument: %s\n", a)
 			return 2
 		}
 		i++
@@ -73,11 +73,11 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 	rows := buildListPanesRows(state.Workspace, shellPids, sizes)
 
 	// LIST_PANES_NAME_FILTER_SRS FR-LPF-1/2: 이름 필터 (부분 일치, 대소문자 무시, AND).
-	filtered := sessionFilter != "" || tabFilter != ""
+	filtered := windowFilter != "" || tabFilter != ""
 	if filtered {
 		var keep []listPanesRow
 		for _, r := range rows {
-			if MatchFold(r.Session, sessionFilter) && MatchFold(r.Tab, tabFilter) {
+			if MatchFold(r.Window, windowFilter) && MatchFold(r.Tab, tabFilter) {
 				keep = append(keep, r)
 			}
 		}
@@ -116,7 +116,7 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 			ShellPID:    r.ShellPID,
 			SizeCols:    r.SizeCols,
 			SizeRows:    r.SizeRows,
-			Session:     r.Session,
+			Window:      r.Window,
 			Tab:         r.Tab,
 			WindowUUID:  r.WindowUUID,
 			PaneUUID:    r.PaneUUID,
@@ -126,17 +126,17 @@ func dmctlListPanes(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-const dmctlListPanesHelp = `dmctl list-panes — 열린 pane 목록 조회
+const dmctlListPanesHelp = `dmctl list-workspace — 열린 도구 목록 조회
 
 사용법:
-  dmctl list-panes                      # 사람 가독성 텍스트 (▶ = 사용자 포커스)
-  dmctl list-panes --json               # JSON 배열 (스크립트 친화)
-  dmctl list-panes --session <substr>   # 세션 이름 필터 (부분 일치·대소문자 무시)
-  dmctl list-panes --tab <substr>       # 탭 이름 필터. --session 과 AND
-                                        # 매칭 0건이면 rc=1 (grep 컨벤션)
+  dmctl list-workspace                     # 사람 가독성 텍스트 (▶ = 사용자 포커스)
+  dmctl list-workspace --json              # JSON 배열 (스크립트 친화)
+  dmctl list-workspace --window <substr>   # 창 이름 필터 (부분 일치·대소문자 무시)
+  dmctl list-workspace --tab <substr>      # 탭 이름 필터. --window 과 AND
+                                           # 매칭 0건이면 rc=1 (grep 컨벤션)
 
-각 행: ▶|  label=...  uuid=...  short=...  paneId=...  shellPid=...  size=WxH  session="..."  tab="..."  session_uuid=...  region_uuid=...
-빈 값(uuid/short/size/session_uuid/region_uuid)은 해당 컬럼이 생략된다.
+각 행: ▶|  label=...  uuid=...  short=...  toolId=...  shellPid=...  size=WxH  window="..."  tab="..."  window_uuid=...  pane_uuid=...
+빈 값(uuid/short/size/window_uuid/pane_uuid)은 해당 컬럼이 생략된다.
 `
 
 type paneEntry struct {
@@ -162,14 +162,14 @@ type listPanesRow struct {
 	Label      string `json:"label"`
 	UUID       string `json:"uuid"`
 	Short      string `json:"short"`
-	ToolID     string `json:"paneId"`
+	ToolID     string `json:"toolId"`
 	ShellPID   int    `json:"shellPid"`
 	SizeCols   int    `json:"sizeCols"`
 	SizeRows   int    `json:"sizeRows"`
-	Session    string `json:"session"`
+	Window     string `json:"window"`
 	Tab        string `json:"tab"`
-	WindowUUID string `json:"sessionUuid"`
-	PaneUUID   string `json:"regionUuid"`
+	WindowUUID string `json:"windowUuid"`
+	PaneUUID   string `json:"paneUuid"`
 	Focused    bool   `json:"focused"`
 }
 
@@ -195,7 +195,7 @@ func buildListPanesRows(ws *wsTree, shellPids map[string]int, sizes map[string][
 					ShellPID:   shellPids[tab.ToolID],
 					SizeCols:   sz[0],
 					SizeRows:   sz[1],
-					Session:    sess.Name,
+					Window:     sess.Name,
 					Tab:        tab.Name,
 					WindowUUID: sess.ID,
 					PaneUUID:   rg.ID,
