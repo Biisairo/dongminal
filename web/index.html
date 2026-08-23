@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Terminal</title>
   <link rel="stylesheet" href="vendor/xterm.css">
-  <link rel="stylesheet" href="style.css?v=100">
+  <link rel="stylesheet" href="style.css?v=101">
   <script>try{var w=parseInt(localStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px')}catch(e){}</script>
 </head>
 <body>
@@ -46,7 +46,10 @@
       <span id="search-count"></span>
       <button id="search-close" title="닫기 (Esc)">✕</button>
     </div>
-    <div id="status-bar" class="status-bar"></div>
+    <div id="status-bar" class="status-bar">
+      <span id="sb-items"></span>
+      <button class="tbtn" id="sb-bg-btn" title="백그라운드 도구" style="display:none"></button>
+    </div>
   </div>
   <div id="agents-handle"></div>
   <div id="agents-panel"></div>

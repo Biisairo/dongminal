@@ -21,7 +21,8 @@ class App {
     this._mPaneIdx=0; // mobile current pane index (volatile)
     this._drawerOpen=false;
     this._bg=[]; // 백그라운드 도구 목록 (FR-BG-6)
-    this._bgPopoverOpen=false;
+    this._bgModalOpen=false;
+    this._bgModalKey=null; // 모달 Esc 핸들러 (열려 있을 때만 부착)
     this._modKbd=null; // {ctrl:bool|'lock', alt:bool|'lock'}
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
@@ -551,7 +552,7 @@ class App {
       this._bg=Array.isArray(j.background)?j.background:[];
     }catch{return}
     this._updateStatusBar();
-    if(this._bgPopoverOpen) this._bgPopoverRender();
+    if(this._bgModalOpen) this._bgModalRender();
   }
 
   // FR-BG-7: 백그라운드 도구를 현재 분할 칸의 새 탭으로 되돌린다.
@@ -2187,6 +2188,10 @@ class App {
   // ── Status Bar ──
   _initStatusBar(){
     this._stats={};this._latency=null;
+    // FR-BGU-4: 진입점은 정적 요소다. 리스너를 여기서 한 번만 부착한다 —
+    // 지표 재생성(_updateStatusBar) 주기에 종속되면 안 된다.
+    const bgBtn=document.getElementById('sb-bg-btn');
+    if(bgBtn) bgBtn.addEventListener('click',e=>{e.stopPropagation();this._bgModalToggle()});
     this._startStatsPoll();
     this._renderStatusBarSettings();
   }
@@ -2210,7 +2215,7 @@ class App {
     this._updateStatusBar();
   }
   _updateStatusBar(){
-    const bar=document.getElementById('status-bar');if(!bar)return;
+    const bar=document.getElementById('sb-items');if(!bar)return;
     const items=[];
     if(statusBar.connection){
       const ok=this._latency!==null;
@@ -2218,11 +2223,6 @@ class App {
     }
     if(statusBar.latency&&this._latency!==null){
       items.push(`<span class="sb-item">${this._latency}ms</span>`);
-    }
-    // FR-BG-6: 백그라운드 도구가 1개 이상일 때만 배지를 낸다. 0개면 UI 에
-    // 아무 흔적이 없어야 한다.
-    if(this._bg&&this._bg.length){
-      items.push(`<span class="sb-item sb-bg" id="sb-bg" title="백그라운드 도구 ${this._bg.length}개">⏻ ${this._bg.length}</span>`);
     }
     if(statusBar.location){
       const loc=this._locationLabel();
@@ -2263,49 +2263,58 @@ class App {
       if(parts.length)items.push(`<span class="sb-item">↑ ${parts.join(' │ ')}</span>`);
     }
     bar.innerHTML=items.join('')||'';
-    const bgEl=document.getElementById('sb-bg');
-    if(bgEl) bgEl.addEventListener('click',e=>{e.stopPropagation();this._bgPopoverToggle()});
+    this._updateBgBtn();
   }
 
-  // FR-BG-6/7: 배지 클릭 → 목록 팝오버. 항목 클릭 시 현재 분할 칸의 새 탭으로
+  // FR-BGU-2..5: 진입점은 상태바 우측 끝의 정적 버튼이다. 지표 재생성과
+  // 수명을 공유하지 않으므로 여기서는 표시 여부와 개수만 갱신한다.
+  _updateBgBtn(){
+    const btn=document.getElementById('sb-bg-btn');if(!btn)return;
+    const n=(this._bg&&this._bg.length)||0;
+    // FR-BGU-5 (구 FR-BG-8): 0개면 UI 에 아무 흔적이 없어야 한다.
+    btn.style.display=n?'':'none';
+    if(!n) return;
+    btn.textContent=`⏻ ${n}`;
+    btn.title=`백그라운드 도구 ${n}개`;
+  }
+
+  // FR-BGU-6/7: 진입점 클릭 → 중앙 모달. 항목 클릭 시 현재 분할 칸의 새 탭으로
   // 복귀한다 (detach --restore 와 같은 경로).
-  _bgPopoverToggle(open){
-    this._bgPopoverOpen = (open===undefined) ? !this._bgPopoverOpen : !!open;
-    if(this._bgPopoverOpen){ this._bgRefresh(); this._bgPopoverRender() }
-    else{ const el=document.getElementById('bg-popover'); if(el) el.remove() }
+  _bgModalToggle(open){
+    this._bgModalOpen = (open===undefined) ? !this._bgModalOpen : !!open;
+    if(this._bgModalOpen){ this._bgRefresh(); this._bgModalRender(); return }
+    const el=document.getElementById('bg-modal'); if(el) el.remove();
+    if(this._bgModalKey){document.removeEventListener('keydown',this._bgModalKey);this._bgModalKey=null}
   }
 
-  _bgPopoverRender(){
-    let el=document.getElementById('bg-popover');
-    if(!el){
-      el=document.createElement('div'); el.id='bg-popover'; el.className='bg-popover';
-      document.body.appendChild(el);
-      el.addEventListener('click',e=>e.stopPropagation());
-      const onDoc=()=>{this._bgPopoverToggle(false);document.removeEventListener('click',onDoc)};
-      setTimeout(()=>document.addEventListener('click',onDoc),0);
+  _bgModalRender(){
+    let ov=document.getElementById('bg-modal');
+    if(!ov){
+      ov=document.createElement('div'); ov.id='bg-modal'; ov.className='bg-modal';
+      document.body.appendChild(ov);
+      // FR-BGU-7: 배경 클릭 — 오버레이 자신이 대상일 때만 닫는다.
+      ov.addEventListener('click',e=>{if(e.target===ov)this._bgModalToggle(false)});
+      this._bgModalKey=e=>{if(e.key==='Escape'){e.preventDefault();this._bgModalToggle(false)}};
+      document.addEventListener('keydown',this._bgModalKey);
     }
-    el.innerHTML='';
+    ov.innerHTML='';
+    const box=document.createElement('div'); box.className='bg-box';
     const head=document.createElement('div'); head.className='bg-head';
     head.textContent=`백그라운드 도구 ${this._bg.length}개`;
-    el.appendChild(head);
+    box.appendChild(head);
     if(!this._bg.length){
       const empty=document.createElement('div'); empty.className='bg-empty';
-      empty.textContent='없음'; el.appendChild(empty);
+      empty.textContent='없음'; box.appendChild(empty);
     }
     for(const b of this._bg){
       const row=document.createElement('div'); row.className='bg-row'; row.title='클릭하면 현재 분할 칸의 새 탭으로 복귀';
       const name=document.createElement('span'); name.className='bg-name'; name.textContent=b.name||('Shell #'+b.toolId);
       const cwd=document.createElement('span'); cwd.className='bg-cwd'; cwd.textContent=b.cwd||'';
       row.appendChild(name); row.appendChild(cwd);
-      row.addEventListener('click',()=>{this._bgPopoverToggle(false);this._restoreTool(b.toolId)});
-      el.appendChild(row);
+      row.addEventListener('click',()=>{this._bgModalToggle(false);this._restoreTool(b.toolId)});
+      box.appendChild(row);
     }
-    const anchor=document.getElementById('sb-bg');
-    if(anchor){
-      const r=anchor.getBoundingClientRect();
-      el.style.left=Math.max(4,r.left)+'px';
-      el.style.bottom=(window.innerHeight-r.top+6)+'px';
-    }
+    ov.appendChild(box);
   }
   _fmtBytes(b){
     if(b<1073741824)return(b/1048576).toFixed(1)+'MB';

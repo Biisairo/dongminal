@@ -428,20 +428,19 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 }
 .confirm-msg{color:var(--text-bright);font-size:13px;margin-bottom:16px;line-height:1.5}
 .confirm-btns{display:flex;gap:8px;justify-content:flex-end}
-.confirm-ok{
-  padding:6px 16px;border-radius:4px;border:1px solid var(--danger);
-  background:rgba(247,118,142,.15);color:var(--danger);font-size:12px;cursor:pointer;font-family:inherit;
+/* 형태 규약은 여기서만 선언한다 — 버튼별 규칙은 역할 색만 다룬다 (FR-BGU-1).
+   버튼을 추가할 때 형태를 다시 쓰지 않아야 .confirm-bg 같은 누락이 재발하지 않는다. */
+.confirm-btns button{
+  padding:6px 16px;border-radius:4px;border:1px solid transparent;
+  background:transparent;font-size:12px;cursor:pointer;font-family:inherit;
 }
+.confirm-ok{border-color:var(--danger);background:rgba(247,118,142,.15);color:var(--danger)}
 .confirm-ok:hover{background:rgba(247,118,142,.25)}
-.confirm-save{
-  padding:6px 16px;border-radius:4px;border:1px solid var(--accent);
-  background:var(--accent-subtle);color:var(--accent);font-size:12px;cursor:pointer;font-family:inherit;
-}
+.confirm-save{border-color:var(--accent);background:var(--accent-subtle);color:var(--accent)}
 .confirm-save:hover{background:var(--accent-hover)}
-.confirm-cancel{
-  padding:6px 16px;border-radius:4px;border:1px solid var(--border);
-  background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;font-family:inherit;
-}
+.confirm-bg{border-color:var(--accent-border);color:var(--accent)}
+.confirm-bg:hover{background:var(--accent-hover)}
+.confirm-cancel{border-color:var(--border);color:var(--text-muted)}
 .confirm-cancel:hover{background:var(--accent-hover);color:var(--text)}
 
 .preset-save{
@@ -604,18 +603,26 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .fe-error{color:var(--danger);padding:20px;text-align:center}
 .fe-error-path{font-family:monospace;font-size:12px;color:var(--text-muted);margin-top:8px;word-break:break-all}
 
-/* ── 백그라운드 도구 배지·팝오버 (FR-BG-6/7) ── */
-.sb-item.sb-bg{cursor:pointer}
-.sb-item.sb-bg:hover{color:var(--accent)}
-.bg-popover{
-  position:fixed;z-index:60;min-width:220px;max-width:420px;max-height:50vh;overflow-y:auto;
-  background:var(--sidebar-bg);border:1px solid var(--border);border-radius:6px;
-  box-shadow:0 6px 24px rgba(0,0,0,.35);padding:4px;font-size:12px;
+/* ── 백그라운드 도구 진입점·모달 (FR-BGU-2..8) ── */
+/* 지표 컨테이너. 진입점은 이 밖에 있어야 .sb-item+.sb-item 구분선이 닿지 않는다. */
+#sb-items{display:flex;align-items:center;gap:2px;min-width:0;overflow:hidden}
+/* 상태바 우측 끝 진입점. .tbtn 규약을 쓰되 22px 상태바에 맞춰 여백만 줄인다. */
+#sb-bg-btn{margin-left:auto;flex-shrink:0;padding:1px 8px;font-size:11px;
+  color:var(--accent);border-color:var(--accent-border)}
+#sb-bg-btn:hover{background:var(--accent-active);color:var(--accent);border-color:var(--accent)}
+.bg-modal{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;
 }
-.bg-popover .bg-head{padding:6px 8px;color:var(--text-muted);border-bottom:1px solid var(--border)}
-.bg-popover .bg-empty{padding:8px;color:var(--text-muted)}
-.bg-popover .bg-row{display:flex;gap:8px;align-items:baseline;padding:6px 8px;border-radius:4px;cursor:pointer}
-.bg-popover .bg-row:hover{background:var(--accent-subtle)}
-.bg-popover .bg-name{color:var(--text-bright);white-space:nowrap}
-.bg-popover .bg-cwd{color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.confirm-btns .confirm-bg{border-color:var(--accent-border);color:var(--accent)}
+.bg-box{
+  min-width:280px;max-width:min(520px,90vw);max-height:70vh;overflow-y:auto;
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);padding:4px;font-size:12px;
+}
+.bg-box .bg-head{padding:8px 10px;color:var(--text-muted);border-bottom:1px solid var(--border)}
+.bg-box .bg-empty{padding:10px;color:var(--text-muted)}
+.bg-box .bg-row{display:flex;gap:8px;align-items:baseline;padding:8px 10px;border-radius:4px;cursor:pointer}
+.bg-box .bg-row:hover{background:var(--accent-subtle)}
+.bg-box .bg-name{color:var(--text-bright);white-space:nowrap}
+.bg-box .bg-cwd{color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
