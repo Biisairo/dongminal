@@ -146,11 +146,12 @@ MCP 툴명·좌표계·`toolId` 는 이미 맞았고, 틀린 것은 `pane` 이 *
 
 ```bash
 ./scripts/stop.sh --all          # 데몬까지 완전 정지 (필수)
-dongminal migrate --dry-run      # 변환 내용 확인
-dongminal migrate                # 실행 (*.v1.bak 백업 자동)
+./scripts/migrate.sh --dry-run   # 변환 내용 확인
+./scripts/migrate.sh             # 실행 (*.v1.bak 백업 자동)
 ./scripts/start.sh
 ```
 
+- `dongminal` 은 PATH 에 설치되지 않으므로(설치되는 helper 는 dmctl/edit/download/detach 뿐) `./scripts/migrate.sh` 가 진입점이다. 스크립트는 매번 재빌드하고, 서버가 포트에서 응답하면 변환을 거부한다 (`USER_CHECKLIST_FIXES_SRS` FR-MIG-3/6).
 - 정지하지 않으면 `ErrDaemonRunning` 으로 거부된다 — 살아있는 데몬이 `SaveAll` 로 `tools.json` 을 되살려 산출물을 덮어쓰기 때문이다.
 - 마이그레이션 없이 새 바이너리를 띄우면 `schemaVersion` 게이트가 안내를 출력하고 종료한다.
 - 마이그레이션은 `workspace.json`(v2 스키마) + `panes.json`→`tools.json`(고아 폐기) + `settings.json`(단축키 id·레이아웃 프리셋)을 한 번에 처리하며 멱등하다.

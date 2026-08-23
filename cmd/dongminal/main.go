@@ -430,8 +430,8 @@ func main() {
 		if errors.Is(err, workspace.ErrSchemaTooOld) {
 			log.Printf("workspace.json 이 구 스키마입니다.")
 			log.Printf("  1) 서버와 데몬을 완전히 정지: ./scripts/stop.sh --all")
-			log.Printf("  2) 변환 내용 확인:            dongminal migrate --dry-run")
-			log.Printf("  3) 변환 실행:                 dongminal migrate")
+			log.Printf("  2) 변환 내용 확인:            ./scripts/migrate.sh --dry-run")
+			log.Printf("  3) 변환 실행:                 ./scripts/migrate.sh")
 			os.Exit(1)
 		}
 		log.Fatalf("buildDeps: %v", err)

@@ -14,6 +14,8 @@ PORT=8080 ./scripts/start.sh          # 포트 지정
 ./scripts/stop.sh                     # 중지 (창 유지)
 ./scripts/stop.sh --all               # 전체 중지 (dongminald 포함)
 ./scripts/health.sh                   # 헬스 체크
+./scripts/migrate.sh --dry-run        # v1 → v2 스키마 변환 계획 확인
+./scripts/migrate.sh                  # v1 → v2 스키마 변환 (서버 정지 후)
 ```
 
 브라우저에서 `http://localhost:<PORT>/` 접속. `--expose` 로 띄운 경우 같은 네트워크의 다른 기기에서 `http://<host-ip>:<PORT>/` 로도 접근됩니다.

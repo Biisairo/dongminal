@@ -9,7 +9,7 @@ internal/
   clientpid/           # 원격 TCP(remoteAddr) → client PID (ps/lsof)
   mcptool/             # MCP 툴 레지스트리 + JSON-RPC 핸들러 + 구체 툴 구현체
     tools/             # list_workspace, read_output, read_screen, send_input, who_am_i 등
-  migrate/             # v1 → v2 엔티티 스키마 1회성 변환 (`dongminal migrate`)
+  migrate/             # v1 → v2 엔티티 스키마 1회성 변환 (진입점: `./scripts/migrate.sh`)
   outbuf/              # PTY 출력 바운디드 버퍼 (Stream — readPTY 와 MCP/WS 리더 통합)
   run/                 # Run(오케스트레이션 실행)의 공간 계층 접합면 타입 (Projection)
   runtime/             # helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
