@@ -17,9 +17,6 @@ func TestNewServerInTempDir(t *testing.T) {
 	if srv == nil {
 		t.Fatal("srv nil")
 	}
-	if srv.MCP == nil {
-		t.Fatal("MCP registry nil — Server must own its session registry")
-	}
 	if srv.Started().IsZero() {
 		t.Fatal("Started() zero — expected NewServer timestamp")
 	}
@@ -69,9 +66,6 @@ func TestTwoServersInSameProcess(t *testing.T) {
 
 	if ts1.URL == ts2.URL {
 		t.Fatalf("listeners share URL: %s", ts1.URL)
-	}
-	if s1.MCP == s2.MCP {
-		t.Fatal("two servers must own distinct MCP registries")
 	}
 	if s1.Commands == s2.Commands {
 		t.Fatal("two servers must own distinct command hubs")

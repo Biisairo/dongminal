@@ -28,6 +28,19 @@
 | GET | `/api/tools/<id>/busy` | `{ busy: bool }` — foreground process 여부 |
 | GET | `/api/cwd?tool=<id>` | 해당 도구의 현재 작업 디렉터리. `tool` 생략 시 서버 프로세스 cwd |
 
+### 에이전트 접합면
+
+`dmctl read-screen`/`read-output`/`send-input`/`msg` 의 백엔드다. 개념과 사용법은
+[agent-orchestration.md](./agent-orchestration.md).
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/tools/output?id=&bytes=&strip=` | 도구의 스크롤백. `strip=1` 이면 ANSI 제거. `bytes<=0`/생략이면 전체 (기본값 판단은 `dmctl` 몫). `{ toolId, text, dropped }` |
+| POST | `/api/tools/input` | `{ id, text, execute }` — bracketed paste 로 주입, `execute` 면 자동 엔터 |
+| POST | `/api/tools/message` | `{ to, from, message }` — 신뢰 봉투로 감싸 주입 + 자동 엔터. `from` 이 비면 `unknown`. 응답의 `from`/`to` 는 정규화된 라벨 |
+
+`id`/`to` 는 tab uuid·`toolId`·라벨 모두 받는다. 대상이 없으면 404 `{ "error": … }`.
+
 ### 주의 알림 · 활동
 
 | 메서드 | 경로 | 설명 |
@@ -103,7 +116,7 @@
 
 `detachTab` 은 `location` 이 아니라 `toolId` 를 받는다 — `toolId` 만으로 대상이 완전히 결정되므로 대상 지정 수단이 필요 없다. `restoreTool` 은 `toolId` 에 더해 `location`(선택)을 받는다: 지정하면 그 탭이 **속한 분할 칸**에 복귀하고(탭 성분은 무시), 없으면 브라우저가 현재 포커스한 분할 칸에 복귀한다.
 
-둘 다 MCP `workspace_command` 로는 호출할 수 없다 (`toolId` 인자가 없어 `detach` CLI 전용 경로다).
+둘 다 `dmctl` 의 레이아웃 서브커맨드로는 호출할 수 없다 — `detach` CLI 전용 경로다.
 
 ## WebSocket: `/ws?tool=<id>`
 
@@ -135,15 +148,6 @@ Binary 프로토콜. 첫 바이트가 opcode.
 | `tool_attention_clear` | 주의 상태 해제 |
 | `tool_activity` | 도구의 활동 상태 갱신 |
 | `window_focus` | 창 포커스 소유권이 바뀌었다. `args.owners` 는 **전체 맵**이다 (증분이 아니다) |
-
-## MCP
-
-| 경로 | 설명 |
-|------|------|
-| `/mcp/sse` | Claude Code MCP 클라이언트용 SSE 스트림. 세션 open 시 `sessionId=<hex>` 할당 |
-| `/mcp/message?sessionId=<id>` | JSON-RPC 2.0 요청 POST 경로 |
-
-툴 카탈로그 및 Claude Code 등록 방법은 [mcp-setup.md](./mcp-setup.md).
 
 ## OSC 777 커스텀 이스케이프
 

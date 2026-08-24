@@ -1,11 +1,11 @@
 package adapters
 
 import (
-	"dongminal/internal/mcptool"
+	"dongminal/internal/toolaccess"
 	"dongminal/internal/workspace"
 )
 
-// Workspace는 workspace.Manager 를 mcptool.WorkspaceReader 로 어댑트한다.
+// Workspace는 workspace.Manager 를 toolaccess.WorkspaceReader 로 어댑트한다.
 type Workspace struct{ WS *workspace.Manager }
 
 func (a Workspace) Resolve(id string) (string, error) { return a.WS.Resolve(id) }
@@ -16,11 +16,11 @@ func (a Workspace) CoordinateOf(id string) (string, error) { return a.WS.Coordin
 
 func (a Workspace) IsKnownTabID(id string) bool { return a.WS.IsKnownTabID(id) }
 
-func (a Workspace) Entries() []mcptool.WorkspaceEntry {
+func (a Workspace) Entries() []toolaccess.WorkspaceEntry {
 	src := a.WS.Entries()
-	out := make([]mcptool.WorkspaceEntry, len(src))
+	out := make([]toolaccess.WorkspaceEntry, len(src))
 	for i, e := range src {
-		out[i] = mcptool.WorkspaceEntry{
+		out[i] = toolaccess.WorkspaceEntry{
 			ToolID:     e.ToolID,
 			Label:      e.Label,
 			WindowName: e.WindowName,

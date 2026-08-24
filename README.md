@@ -1,6 +1,6 @@
 # Dongminal
 
-브라우저 기반 터미널 멀티플렉서. 분할 칸, 탭, 창, 테마, 파일 전송, 내장 편집기, 백그라운드 도구, dmctl 원격 제어 CLI, Claude Code MCP 연동, 에이전트 주의 알림, 에이전트 활동 모아보기를 지원합니다.
+브라우저 기반 터미널 멀티플렉서. 분할 칸, 탭, 창, 테마, 파일 전송, 내장 편집기, 백그라운드 도구, dmctl 원격 제어 CLI, 에이전트 오케스트레이션, 에이전트 주의 알림, 에이전트 활동 모아보기를 지원합니다.
 
 단일 Go 바이너리에 프론트엔드(xterm.js)와 런타임 헬퍼 스크립트가 모두 포함되어 있어 실행 파일 하나로 서비스가 가능합니다.
 
@@ -24,7 +24,7 @@ PORT=8080 ./scripts/start.sh          # 포트 지정
 
 ## 문서
 
-- **사용자**: [docs/external/](docs/external/) — 설치, 기능, 단축키, dmctl/edit/detach CLI, MCP 연동, API.
+- **사용자**: [docs/external/](docs/external/) — 설치, 기능, 단축키, dmctl/edit/detach CLI, 에이전트 오케스트레이션, API.
 - **개발자**: [docs/internal/](docs/internal/) — 아키텍처, 테스트 체크리스트, 인계 문서. 완료된 SRS·RFC 기록은 [docs/internal/archive/](docs/internal/archive/).
 
 ## 주요 기능
@@ -36,7 +36,7 @@ PORT=8080 ./scripts/start.sh          # 포트 지정
 - **백그라운드 도구** — `detach` 로 탭을 닫아도 도구가 계속 돈다. 상태 바 `⏻` 배지에서 목록 조회·복귀. tmux 의 detach 에 대응.
 - **dmctl CLI** — 터미널 안에서 `dmctl split-h`, `dmctl new-tab`, `dmctl new-window`, `dmctl focus <uuid>`, `dmctl list-workspace`, `dmctl notify`, `dmctl activity` 등으로 워크스페이스 원격 제어·조회·알림·활동 보고.
 - **파일 업/다운로드** — 드래그앤드롭 업로드 + `download <path>` 명령.
-- **Claude Code MCP** — `list_workspace`, `read_output`, `read_screen`, `send_input`, `send_agent_message`, `who_am_i`, `workspace_command` 7개 툴로 Claude 가 워크스페이스를 조회·조작.
+- **에이전트 오케스트레이션** — `dmctl read-screen`/`send-input`/`msg` 로 에이전트가 워크스페이스를 조회·조작하고 서로 통신. `/dongminal:team`·`/dongminal:workflow` 스킬이 dongminal 세션에만 주입된다 (사용자 설정 무오염, 설정 불필요).
 - **테마 44종 + 커스텀** — 다크 33 · 라이트 11. xterm.js 터미널과 UI 양쪽 일괄 테마.
 
 ## 아키텍처 개요
@@ -57,7 +57,7 @@ Browser (xterm.js) ── Binary WebSocket ──▶ Go Server (PTY hub) ──�
 - 런타임 헬퍼(`dmctl`, `edit`, `download`, `detach`)는 multi-call CLI — `$DONGMINAL_HOME/bin/` 에 바이너리를 가리키는 symlink 로 설치된다. zsh/bash cwd 훅은 `go:embed` 로 풀린다. 각 터미널의 shell 은 자동으로 이 경로를 `PATH` 에 얹고 `ZDOTDIR`/`BASH_ENV` 로 훅 연결.
 - PTY 프로세스는 브라우저 새로고침해도 유지 (서버 메모리 버퍼).
 - 워크스페이스(창/분할 칸/탭) 는 `workspace.json` 에 비동기 영속화 (H5 latest-wins coalescing). 탭이 참조하는 도구는 `tools.json` 에 기록되고, 백그라운드 도구는 기록되지 않아 데몬 재시작을 넘기지 않는다.
-- Claude Code 에서 MCP 로 도구 조작 가능 (`./scripts/install-mcp.sh`).
+- 에이전트 접합면: 액션은 `dmctl` 서브커맨드, 정책은 `--plugin-dir`/`--settings` 로 세션 스코프 주입되는 스킬·훅. 등록 절차 없음. 자세히는 [docs/external/agent-orchestration.md](docs/external/agent-orchestration.md).
 - 주의 알림: 서버가 도구 출력을 관찰(OSC 9/99/777·idle)하거나 `dmctl notify`(claude/codex 투명 래퍼가 자동 주입한 hook 이 호출)로 주의 상태를 잡아 SSE(`tool_attention`) 로 브라우저에 전달. 자세히는 [docs/internal/archive/PANE_ATTENTION_NOTIFY_SRS.md](docs/internal/archive/PANE_ATTENTION_NOTIFY_SRS.md).
 - 에이전트 활동: attention 과 직교하는 "현재 작업 상태(activity)" 레이어. 에이전트 hook 이 `dmctl activity` 로 보고(stdin hook JSON 파싱) → `POST /api/tools/activity/set` → SSE(`tool_activity`) 발행. 도구당 최신 1개 상태만 보관(히스토리 없음). 자세히는 [docs/internal/archive/AGENT_ACTIVITY_PANEL_SRS.md](docs/internal/archive/AGENT_ACTIVITY_PANEL_SRS.md).
 
@@ -69,21 +69,22 @@ Browser (xterm.js) ── Binary WebSocket ──▶ Go Server (PTY hub) ──�
 dongminal/
 ├── cmd/dongminal/       # main (composition root)
 ├── internal/
-│   ├── adapters/        # mcptool ↔ server/workspace 브리지
+│   ├── adapters/        # toolaccess ↔ server/workspace 브리지
 │   ├── clientpid/       # remoteAddr → client PID
-│   ├── mcptool/         # MCP 레지스트리 + 7개 툴 구현
 │   ├── migrate/         # v1 → v2 엔티티 스키마 마이그레이션 (dongminal migrate)
 │   ├── outbuf/          # PTY 출력 바운디드 스트림
 │   ├── run/             # Run(오케스트레이션 실행)의 공간 계층 접합면 타입
-│   ├── runtime/         # bin/ 설치(Install) + 임베드 shellhooks + agent-hooks 생성
-│   │   └── shellhooks/  # bash-hook.sh, zdotdir/.zshrc (cwd 훅 + claude/codex 래퍼)
+│   ├── runtime/         # bin/ 설치(Install) + 임베드 shellhooks·agentplugin + 훅 생성
+│   │   ├── shellhooks/  # bash-hook.sh, zdotdir/.zshrc (cwd 훅 + claude/codex 래퍼)
+│   │   └── agentplugin/ # 세션 스코프 주입 플러그인 (skills/team, skills/workflow)
 │   ├── runtimebin/      # dmctl/edit/download/detach multi-call CLI (dmctl notify·activity 포함)
-│   ├── server/          # HTTP/WS/SSE 핸들러, ToolManager, CommandHub, MCPSessionRegistry
-│   ├── toolline/        # dmctl·MCP 공용 한 줄 렌더러
+│   ├── server/          # HTTP/WS/SSE 핸들러, ToolManager, CommandHub
+│   ├── toolaccess/      # 도구·워크스페이스·커맨드 접합면 인터페이스
+│   ├── toolline/        # dmctl 공용 한 줄 렌더러
 │   ├── uuid/            # 엔티티 uuid 생성·검증
 │   └── workspace/       # workspace.json Manager (atomic + async writer)
 ├── web/                 # 프론트엔드 (HTML/CSS/JS, go:embed)
-├── scripts/             # start/stop/health/install-mcp (운영자용)
+├── scripts/             # start/stop/health/migrate (운영자용)
 ├── docs/
 │   ├── external/        # 사용자 가이드
 │   └── internal/        # 개발자 문서 (RFC, TODO, 아키텍처)
@@ -96,7 +97,7 @@ dongminal/
 
 - **백엔드**: Go 1.21+, `creack/pty`, `gorilla/websocket`, `go:embed`
 - **프론트엔드**: xterm.js v5 (fit, search, web-links, unicode11 addons)
-- **선택 의존성**: `claude` CLI (MCP 등록 시)
+- **선택 의존성**: `claude` CLI (에이전트 오케스트레이션 시)
 
 ## TODO
 

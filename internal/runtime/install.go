@@ -24,6 +24,12 @@ import (
 //go:embed all:shellhooks
 var shellhookFS embed.FS
 
+// agentplugin 은 Claude Code 플러그인 루트다. `all:` 접두사가 없으면 점으로 시작하는
+// .claude-plugin/ 이 임베드에서 빠진다 (SKILL_INJECTION_SRS FR-INJ-2).
+//
+//go:embed all:agentplugin
+var agentPluginFS embed.FS
+
 // helperNames는 multi-call 로 등록된 helper 명. runtimebin 과 동기화 유지.
 func helperNames() []string { return runtimebin.HelperNames() }
 
@@ -52,7 +58,53 @@ func Install(binDir string) error {
 	if err := installAgentHooks(binDir); err != nil {
 		return fmt.Errorf("install agent hooks: %w", err)
 	}
+	if err := installAgentPlugin(binDir); err != nil {
+		return fmt.Errorf("install agent plugin: %w", err)
+	}
 	return nil
+}
+
+// AgentPluginDir는 세션 스코프로 주입되는 Claude Code 플러그인의 경로다. 셸 래퍼가
+// `claude --plugin-dir <이 경로>` 로 붙인다 (SKILL_INJECTION_SRS FR-INJ-4).
+func AgentPluginDir(binDir string) string { return filepath.Join(binDir, "agent-plugin") }
+
+// installAgentPlugin은 임베드된 플러그인(스킬 + 매니페스트)을 전개하고, 그 안에
+// SessionStart 훅을 생성한다 (FR-INJ-1, FR-CTX-2).
+//
+// 이 플러그인은 사용자의 ~/.claude 에 설치되지 않는다. dongminal 이 띄운 PTY 의
+// claude() 래퍼만 --plugin-dir 로 참조하므로, 주입 범위가 그 세션으로 한정된다.
+func installAgentPlugin(binDir string) error {
+	dir := AgentPluginDir(binDir)
+	if err := unpackEmbedded(agentPluginFS, "agentplugin", dir); err != nil {
+		return err
+	}
+	return installAgentPluginHooks(binDir, dir)
+}
+
+// installAgentPluginHooks writes the plugin's SessionStart hook. dmctl is
+// referenced by absolute path for the same reason installAgentHooks does it —
+// a stale dmctl earlier in PATH would not understand `agent-context`.
+func installAgentPluginHooks(binDir, pluginDir string) error {
+	hooksDir := filepath.Join(pluginDir, "hooks")
+	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
+		return err
+	}
+	settings := map[string]any{
+		"hooks": map[string]any{
+			"SessionStart": []any{map[string]any{
+				"matcher": "",
+				"hooks": []any{map[string]any{
+					"type":    "command",
+					"command": filepath.Join(binDir, "dmctl") + " agent-context",
+				}},
+			}},
+		},
+	}
+	blob, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(hooksDir, "hooks.json"), blob, 0o644)
 }
 
 // installAgentHooks writes the Claude Code hooks settings file used by the
@@ -124,29 +176,37 @@ func copyFile(src, dst string, mode os.FileMode) error {
 }
 
 func installShellHooks(binDir string) error {
-	return fs.WalkDir(shellhookFS, "shellhooks", func(p string, d fs.DirEntry, err error) error {
+	return unpackEmbedded(shellhookFS, "shellhooks", binDir)
+}
+
+// unpackEmbedded는 embedded FS 의 root 서브트리를 dst 아래로 전개한다. 매 호출마다
+// 덮어쓰므로 바이너리가 갱신되면 전개물도 함께 갱신된다. 실행 가능해야 하는
+// 확장자(.sh, .py)만 0755 이고 나머지는 0644 다 (FR-INJ-3).
+func unpackEmbedded(src embed.FS, root, dst string) error {
+	return fs.WalkDir(src, root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		rel, _ := filepath.Rel("shellhooks", p)
+		rel, _ := filepath.Rel(root, p)
 		if rel == "." {
 			return nil
 		}
-		dst := filepath.Join(binDir, rel)
+		target := filepath.Join(dst, rel)
 		if d.IsDir() {
-			return os.MkdirAll(dst, 0o755)
+			return os.MkdirAll(target, 0o755)
 		}
-		data, err := shellhookFS.ReadFile(p)
+		data, err := src.ReadFile(p)
 		if err != nil {
 			return err
 		}
 		mode := os.FileMode(0o644)
-		if filepath.Ext(rel) == ".sh" {
+		switch filepath.Ext(rel) {
+		case ".sh", ".py":
 			mode = 0o755
 		}
-		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
-		return os.WriteFile(dst, data, mode)
+		return os.WriteFile(target, data, mode)
 	})
 }

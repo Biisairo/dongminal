@@ -1,5 +1,5 @@
 // Package adapters는 internal/{server,workspace} 의 구체 타입을
-// internal/mcptool 인터페이스로 브리지하는 어댑터들을 모은다.
+// internal/toolaccess 인터페이스로 브리지하는 어댑터들을 모은다.
 // main 패키지에서 쓰이던 wiring 코드를 한 곳으로 정리한다.
 package adapters
 
@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"time"
 
-	"dongminal/internal/mcptool"
 	"dongminal/internal/server"
+	"dongminal/internal/toolaccess"
 
 	"github.com/creack/pty"
 )
 
-// Tool은 server.ToolManager 를 mcptool.ToolReader 로 어댑트한다.
+// Tool은 server.ToolManager 를 toolaccess.ToolReader 로 어댑트한다.
 // PM이 nil이면 (daemon mode) ToolHub 를 사용한다.
 type Tool struct {
 	PM  *server.ToolManager
@@ -46,24 +46,24 @@ func (a Tool) listPanes() []*server.Tool {
 	return out
 }
 
-func (a Tool) List() []mcptool.ToolInfo {
+func (a Tool) List() []toolaccess.ToolInfo {
 	// Daemon mode: read the shell PID directly from the hub's list payload.
 	// Synthetic Tools built in listPanes() have no os/exec handle, so
 	// CmdProcessPID() would return 0 and break whoami PID matching (FR-16).
 	if a.PM == nil && a.Hub != nil {
 		maps := a.Hub.List()
-		out := make([]mcptool.ToolInfo, 0, len(maps))
+		out := make([]toolaccess.ToolInfo, 0, len(maps))
 		for _, m := range maps {
 			id, _ := m["id"].(string)
 			name, _ := m["name"].(string)
-			out = append(out, mcptool.ToolInfo{ID: id, Name: name, ShellPID: mapInt(m["pid"])})
+			out = append(out, toolaccess.ToolInfo{ID: id, Name: name, ShellPID: mapInt(m["pid"])})
 		}
 		return out
 	}
 	tools := a.listPanes()
-	out := make([]mcptool.ToolInfo, 0, len(tools))
+	out := make([]toolaccess.ToolInfo, 0, len(tools))
 	for _, p := range tools {
-		out = append(out, mcptool.ToolInfo{ID: p.ID, Name: p.Name, ShellPID: p.CmdProcessPID()})
+		out = append(out, toolaccess.ToolInfo{ID: p.ID, Name: p.Name, ShellPID: p.CmdProcessPID()})
 	}
 	return out
 }

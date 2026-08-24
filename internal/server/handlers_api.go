@@ -194,6 +194,11 @@ var apiRoutes = []apiRoute{
 	{http.MethodPost, exactPath("/api/tools/attention/clear"), (*Server).apiToolAttentionClear},
 	{http.MethodPost, exactPath("/api/tools/attention/clear-all"), (*Server).apiToolAttentionClearAll},
 	{http.MethodGet, exactPath("/api/tools/activity"), (*Server).apiToolsActivity},
+	// 에이전트 접합면 (SKILL_INJECTION_SRS FR-API-1/2/3). dmctl read-screen /
+	// read-output / send-input / msg 가 호출한다.
+	{http.MethodGet, exactPath("/api/tools/output"), (*Server).apiToolOutput},
+	{http.MethodPost, exactPath("/api/tools/input"), (*Server).apiToolInput},
+	{http.MethodPost, exactPath("/api/tools/message"), (*Server).apiToolMessage},
 	{http.MethodGet, exactPath("/api/tools/background"), (*Server).apiToolsBackground},
 	{http.MethodPost, exactPath("/api/tools/background/set"), (*Server).apiToolBackgroundSet},
 	{http.MethodPost, exactPath("/api/tools/activity/set"), (*Server).apiToolActivitySet},

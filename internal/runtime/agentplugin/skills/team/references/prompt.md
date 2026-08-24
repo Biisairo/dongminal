@@ -1,0 +1,89 @@
+# 팀원 초기 프롬프트 구조
+
+## 자동 생성 — `scripts/build_prompt.py`
+
+프롬프트 직접 작성 대신 빌더 사용. 식별자는 `dmctl who-am-i` / `dmctl list-workspace` 출력의 `uuid=<36자>` 필드를 그대로 넣는다:
+
+```bash
+python scripts/build_prompt.py \
+  --model sonnet \
+  --my-label 550e8400-e29b-41d4-a716-446655440005 \
+  --boss 550e8400-e29b-41d4-a716-446655440003 \
+  --role "비평가 B — 형식/운율 중심" \
+  --teammate 550e8400-e29b-41d4-a716-446655440004:작가 \
+  --teammate 550e8400-e29b-41d4-a716-446655440007:수석비평가A \
+  --process "작가 초안 수신 → 독립 비평 → A 에게 송신" \
+  --reply-to 550e8400-e29b-41d4-a716-446655440007
+```
+
+출력은 `claude --model X "..."` 형태의 단일 문자열이다. 팀원 도구의 쉘에 이렇게 주입한다:
+
+```bash
+python scripts/build_prompt.py ... | dmctl send-input --at "$MEMBER_UUID" --execute -
+```
+
+따옴표·`$`·백틱 이스케이프는 빌더가 자동 처리한다.
+
+빌더는 다음을 항상 포함시킨다:
+- 역할 + 팀 구성 (모든 팀원 uuid + 역할)
+- 프로세스 (선택)
+- 답장 규칙 (`dmctl msg` 명령 + 내장 `SendMessage` 오용 경고 + 포맷)
+- **`[대기]` 지시** — 첫 작업 지시는 포함하지 않음 (Kickoff 단계에서 `dmctl msg` 로 별도 전달)
+
+> 인자명은 역사적으로 `--my-label`/`--boss`/`--teammate <id>:<role>` 이지만 식별자 형식 검증이 없어 uuid 값을 그대로 통과시킨다. 서버측 Resolve 가 라우팅 시 형식 자동 판별 — uuid·toolId·라벨 모두 호환.
+
+## 왜 `[대기]` 가 필요한가 — 데드락 방지
+
+과거 `claude --model X "... 바로 작업 시작 + 동료에게 결과 전송"` 구조에서:
+- CC 부팅 시간은 팀원마다 다름 (opus vs sonnet, 네트워크, terminal resize)
+- 먼저 부팅된 팀원이 inline 지시를 받자마자 작업 → `dmctl msg` 로 결과 송신
+- **수신자가 아직 쉘 상태** → 엔벨로프가 쉘에 텍스트로 찍혀 증발 → 수신자는 영원히 대기
+
+근본 원인: "도구 동시 존재" ≠ "CC 입력 준비 완료". 초기 프롬프트는 역할·프로토콜 세팅만, 첫 작업은 Barrier 뒤 Kickoff 에서.
+
+## 답장 경로 오용 — 매우 중요
+
+팀원 CC 환경에는 "메시지를 보낸다" 로 읽히는 내장 tool 이 여럿 있다:
+- `SendMessage` (서브에이전트 인-프로세스 메시징)
+- `SendUserMessage` (사용자에게 말하기)
+
+이것들은 dongminal 채널과 무관하다. LLM 이 이름 유사성으로 그쪽을 호출하면 메시지가 팀원에게 도달하지 않는데, 자기 화면에는 "전송 완료" 로 보여 디버깅이 어렵다.
+
+dongminal 채널은 **Bash 로 `dmctl msg` 를 호출하는 것뿐**이다. 빌더는 실행 가능한 명령 그대로를 프롬프트에 박고 오용 경고를 포함시킨다. 직접 프롬프트를 쓴다면 동일 블록을 반드시 넣을 것.
+
+## 이스케이프와 heredoc
+
+빌더가 만드는 것은 팀원의 **쉘에 타이핑되는 명령줄**이므로 `claude --model X "..."` 의 큰따옴표 내부 규칙이 적용된다:
+- `"` → `\"`
+- `$` → `\$` (변수 전개 방지)
+- `` ` `` → `` \` ``
+- `\` → `\\`
+- 개행은 bracketed paste 가 보존하므로 literal 개행 OK
+
+빌더가 전부 처리하므로 일반적으로는 신경 쓰지 않아도 된다.
+
+팀장이 직접 여러 줄 본문을 보낼 때는 이스케이프 대신 stdin 을 쓴다. **heredoc 종료자는 반드시 줄 맨 앞(열 0)** 이어야 한다 — 들여쓰면 종료되지 않고 셸이 멈춘다:
+
+```bash
+dmctl msg --to "$MEMBER_UUID" - <<'MSG'
+여러 줄
+지시문
+MSG
+```
+
+## `dmctl msg` 의 역할
+
+- **초기 세팅**: `claude --model X "..."` (1회, `dmctl send-input --at <팀원_uuid> --execute -` 으로 전달)
+- **Kickoff + 후속 턴**: `dmctl msg --to <uuid>` (N회, 필요한 만큼)
+
+`--from` 은 넘기지 않는다 — `$DONGMINAL_TOOL_ID` 로 자동 채워진다.
+
+엔벨로프 `[DONGMINAL-AGENT-MSG from=... to=... ts=...]...[/DONGMINAL-AGENT-MSG]` 는 수신 CC 의 입력창에 신뢰 가능한 사용자 턴으로 자동 제출된다. 폴링 불필요. 헤더의 `to=`/`from=` 표시는 서버가 사람 가독성용으로 라벨로 정규화하지만, 내부 라우팅 키는 uuid.
+
+수신측이 이 엔벨로프를 신뢰 채널로 인식하는 근거는 dongminal 이 모든 세션에 상시 주입하는 컨텍스트다 (`dmctl agent-context`). 팀원 프롬프트에 규약을 다시 적을 필요가 없다.
+
+드물게 여러 줄 메시지 submit 안 됨 → `dmctl send-input --at <수신_uuid> --execute ""` 로 엔터 보강.
+
+## 식별자 — UUID 가 안전
+
+`dmctl who-am-i` / `dmctl list-workspace` 출력 라인 끝의 `uuid=<36자>` `short=<8자>` 가 안정 식별자다. `W?.P?.T?` 라벨은 다른 창·분할 칸 닫힘 시 reflow 되어 다른 탭을 가리킨다 → 보관해둔 라벨이 stale 되어 라우팅 깨짐. 모든 식별자 인자 (`--to`/`--at`) 는 uuid·toolId·라벨 어느 형식이든 받지만, **이 스킬에서는 항상 uuid 만 보관·전달**.

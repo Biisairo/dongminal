@@ -1,0 +1,7 @@
+{
+  "name": "dongminal",
+  "displayName": "dongminal",
+  "description": "dongminal 워크스페이스에서 여러 에이전트를 팀으로 오케스트레이션하는 스킬 모음. dongminal 이 띄운 도구 안에서만 세션 스코프로 주입된다.",
+  "version": "0.1.0",
+  "author": {"name": "dongminal"}
+}

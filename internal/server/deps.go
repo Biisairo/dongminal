@@ -1,10 +1,8 @@
 package server
 
 import (
-	"context"
-	"dongminal/internal/mcptool"
+	"dongminal/internal/toolaccess"
 	"dongminal/internal/workspace"
-	"encoding/json"
 	"time"
 )
 
@@ -43,7 +41,7 @@ type ToolHub interface {
 // tests can inject a fake without bringing up the real persister. Only the
 // methods actually consumed by HTTP handlers in this package are listed —
 // Resolve / Labels / Entries / InvalidateTool are callers' concerns
-// (internal/mcptool/tools/* + main).
+// (internal/adapters/* + main).
 type WorkspaceStore interface {
 	Raw() []byte
 	CurrentRev() uint64
@@ -61,12 +59,6 @@ type WorkspaceStore interface {
 	// toolID to its workspace coordinates and uuids (DMCTL_WHO_AM_I_SRS
 	// FR-API-WAI-1).
 	Entries() []workspace.TabEntry
-}
-
-// ToolDispatcher abstracts *mcptool.Registry for the MCP handler.
-type ToolDispatcher interface {
-	List() []map[string]any
-	Dispatch(ctx context.Context, name string, args json.RawMessage) (mcptool.Result, error)
 }
 
 // CommandBroker abstracts *CommandHub. Methods stay unexported — the SSE
@@ -92,11 +84,17 @@ type SettingsStore interface {
 type Deps struct {
 	Tools       ToolHub
 	Work        WorkspaceStore
-	MCPTools    ToolDispatcher
 	Commands    CommandBroker
 	Settings    SettingsStore
 	AttnTracker *AttnTracker // daemon mode: attention/activity tracking in dongminal
 	// WhoAmI resolves a request's RemoteAddr to the originating tool via
 	// PID parent-chain walking. /api/whoami uses it (FR-API-WAI-1). Nil → 500.
-	WhoAmI mcptool.ClientToolResolver
+	WhoAmI toolaccess.ClientToolResolver
+	// ToolIO reads a tool's scrollback and writes into its PTY. Backed by
+	// adapters.Tool so /api/tools/{output,input,message} behave identically in
+	// direct and daemon mode (SKILL_INJECTION_SRS FR-API-6). Nil → 503.
+	ToolIO toolaccess.ToolReader
+	// WorkIndex resolves tool identifiers (uuid / toolId / label) and labels
+	// them back for the agent-message envelope (FR-API-3/4). Nil → 503.
+	WorkIndex toolaccess.WorkspaceReader
 }

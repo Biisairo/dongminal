@@ -5,22 +5,22 @@
 ```
 cmd/dongminal/         # composition root (main)
 internal/
-  adapters/            # internal/{server,workspace} → internal/mcptool 인터페이스 브리지
+  adapters/            # internal/{server,workspace} → internal/toolaccess 인터페이스 브리지
   clientpid/           # 원격 TCP(remoteAddr) → client PID (ps/lsof)
-  mcptool/             # MCP 툴 레지스트리 + JSON-RPC 핸들러 + 구체 툴 구현체
     tools/             # list_workspace, read_output, read_screen, send_input, who_am_i 등
   migrate/             # v1 → v2 엔티티 스키마 1회성 변환 (진입점: `./scripts/migrate.sh`)
-  outbuf/              # PTY 출력 바운디드 버퍼 (Stream — readPTY 와 MCP/WS 리더 통합)
+  outbuf/              # PTY 출력 바운디드 버퍼 (Stream — readPTY 와 WS/HTTP 리더 통합)
   run/                 # Run(오케스트레이션 실행)의 공간 계층 접합면 타입 (Projection)
   runtime/             # helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
     shellhooks/        # bash-hook.sh, zdotdir/.zshrc (실제 파일)
   runtimebin/          # dmctl/edit/download/detach multi-call CLI 구현
-  server/              # HTTP/WS/SSE 라우팅, ToolManager, CommandHub, MCPSessionRegistry, settingsStore
-  toolline/            # dmctl·MCP 공용 한 줄 렌더러 (byte-level 동일 출력 보장)
+  server/              # HTTP/WS/SSE 라우팅, ToolManager, CommandHub, settingsStore
+  toolaccess/          # 도구(PTY)·워크스페이스·커맨드 허브 접합면 인터페이스
+  toolline/            # dmctl 공용 한 줄 렌더러 (byte-level 동일 출력 보장)
   uuid/                # 엔티티 uuid(UUID v7) 생성·파싱
   workspace/           # workspace.json 인덱싱·resolve·영속화 (Manager + FilePersister)
 web/                   # 프론트엔드 자산 (HTML/CSS/JS) + embed.FS()
-scripts/               # start/stop/health/install-mcp.sh (개발자·운영자 대상)
+scripts/               # start/stop/health/migrate.sh (개발자·운영자 대상)
 .env / .env.example    # start.sh 가 자동 로드하는 환경변수(PORT, BINARY, LOG, DONGMINAL_HOME)
 docs/
   internal/            # 개발자 문서 (이 파일)
@@ -75,20 +75,22 @@ DONGMINAL_TOOL_ID=<도구 id>  # detach 가 자기 도구를 식별하는 근거
 
 `allowedCmdActions` 는 20개를 허용한다: `newWindow`/`newTab`/`splitH`/`splitV`/`focus`/`closeTab`/`closeWindow`/`windowNext`/`windowPrev`/`tabNext`/`tabPrev`/`paneUp`/`paneDown`/`paneLeft`/`paneRight`/`openEditorTab`/`renameTab`/`renameWindow`/`detachTab`/`restoreTool`.
 
-MCP 툴 `workspace_command` 는 같은 `CommandHub` 를 주입받지만 **부분집합만 노출**한다 (`workspaceCmdActions`, 18개). `detachTab`·`restoreTool` 은 `toolId` 인자를 요구하고 `workspace_command` 는 그 인자를 갖지 않으므로 제외된다 — `detach` CLI 전용 경로다.
+`dmctl` 은 이 중 `detachTab`·`restoreTool` 을 제외한 나머지를 서브커맨드로 노출한다. 그 둘은 `toolId` 를 대상 지정자로 받아 `detach` CLI 전용 경로다.
 
 이 화이트리스트는 생산자(브라우저 `_execRemote`, `dmctl`, `detach`)와 대조 검증된다 (`internal/server/commands_browser_test.go`). 생산자가 처리하는 action 이 여기 없으면 `POST /api/commands` 가 400 으로 거부해 브라우저 코드에 도달하지 못하는데, 스텁 서버로 테스트하는 CLI 쪽은 그 결함을 볼 수 없다.
 
 ## 어댑터 패턴
 
-`internal/mcptool` 은 `ToolReader`, `WorkspaceReader`, `CommandBroadcaster`, `ClientToolResolver` 같은 **인터페이스만** 정의한다. 구체 타입(`server.ToolManager`, `workspace.Manager`, `server.CommandHub`)은 그 인터페이스를 직접 구현하지 않는다. 대신 `internal/adapters` 가 브리지 역할을 한다.
+`internal/toolaccess` 는 `ToolReader`, `WorkspaceReader`, `CommandBroadcaster`, `ClientToolResolver` 같은 **인터페이스만** 정의한다. 구체 타입(`server.ToolManager`, `workspace.Manager`, `server.CommandHub`)은 그 인터페이스를 직접 구현하지 않는다. 대신 `internal/adapters` 가 브리지 역할을 한다.
 
-- `adapters.Tool` — `*server.ToolManager` 를 `mcptool.ToolReader` 로.
-- `adapters.Workspace` — `*workspace.Manager` 를 `mcptool.WorkspaceReader` 로.
-- `adapters.Command` — `*server.CommandHub` 를 `mcptool.CommandBroadcaster` 로.
-- `adapters.Client` — `*server.ToolManager` + `clientpid` 를 `mcptool.ClientToolResolver` 로.
+- `adapters.Tool` — `*server.ToolManager` 를 `toolaccess.ToolReader` 로.
+- `adapters.Workspace` — `*workspace.Manager` 를 `toolaccess.WorkspaceReader` 로.
+- `adapters.Command` — `*server.CommandHub` 를 `toolaccess.CommandBroadcaster` 로.
+- `adapters.Client` — `*server.ToolManager` + `clientpid` 를 `toolaccess.ClientToolResolver` 로.
 
-import 방향은 단방향 (`adapters → {mcptool, server, workspace, clientpid}`). server/workspace 는 mcptool 을 몰라도 되며, mcptool 은 server/workspace 의 구체 타입을 몰라도 된다. 테스트에서 인터페이스를 mock 하기 쉽다.
+import 방향은 단방향 (`adapters → {toolaccess, server, workspace, clientpid}`). server/workspace 는 toolaccess 를 몰라도 되며, toolaccess 는 server/workspace 의 구체 타입을 몰라도 된다. 테스트에서 인터페이스를 mock 하기 쉽다.
+
+`adapters.Tool` 은 direct 모드(`*server.ToolManager`)와 daemon 모드(`server.ToolHub`) 의 이중 경로, bracketed paste, submit 지연을 한곳에 캡슐화한다. `/api/tools/{output,input,message}` 가 두 모드에서 동일하게 동작하는 근거다 — 이 어댑터를 우회해 핸들러에서 PTY 를 직접 만지면 daemon 모드가 깨진다.
 
 ## 성능: 핫패스 비차단
 
@@ -133,6 +135,7 @@ HTTP `PUT /api/workspace` 핸들러는 `Save(blob, ifMatch)` 호출 → 인덱�
 - `internal/server/*_test.go` — HTTP 라우팅, DI, 도구 CRUD, 커맨드 화이트리스트의 생산자 대조.
 - `internal/workspace/*_test.go` — Save 비차단·coalescing·Close flush, parse, resolve.
 - `internal/outbuf/*_test.go` — Feed/Snapshot/compaction/통계.
-- `internal/mcptool/*_test.go` — 툴 dispatch, JSON-RPC.
+- `internal/runtime/*_test.go` — bin/ 전개, 세션 스코프 플러그인·훅 생성.
+- `internal/runtimebin/*_test.go` — dmctl 서브커맨드 플래그 파싱·HTTP 호출.
 
 Go 관례대로 `*_test.go` 는 각 패키지 안에 공존. Black-box 테스트가 필요한 경우 `package xxx_test` 를 사용.

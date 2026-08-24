@@ -1,0 +1,177 @@
+package runtime
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// SKILL_INJECTION_SRS 묶음 C·D 검증 (V-C1, V-C2, V-D1).
+
+// FR-INJ-1/2: 플러그인 루트가 Claude Code 가 요구하는 레이아웃으로 전개되는지.
+// `all:` 없는 go:embed 는 .claude-plugin/ 을 빼먹으므로 그 회귀를 여기서 잡는다.
+func TestInstallAgentPlugin_Layout(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	plugin := AgentPluginDir(dir)
+
+	want := map[string]os.FileMode{
+		".claude-plugin/plugin.json":         0o644,
+		"skills/team/SKILL.md":               0o644,
+		"skills/workflow/SKILL.md":           0o644,
+		"skills/team/scripts/plan_layout.py": 0o755,
+		"hooks/hooks.json":                   0o644,
+	}
+	for rel, wantMode := range want {
+		info, err := os.Stat(filepath.Join(plugin, rel))
+		if err != nil {
+			t.Errorf("missing %s: %v", rel, err)
+			continue
+		}
+		if got := info.Mode().Perm(); got != wantMode {
+			t.Errorf("%s: mode=%o want=%o", rel, got, wantMode)
+		}
+	}
+}
+
+// FR-INJ-1: 매니페스트의 name 이 스킬 호출명의 네임스페이스가 된다
+// (/dongminal:team). 이 값이 바뀌면 스킬 본문의 상호 참조가 전부 깨진다.
+func TestInstallAgentPlugin_ManifestName(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	blob, err := os.ReadFile(filepath.Join(AgentPluginDir(dir), ".claude-plugin/plugin.json"))
+	if err != nil {
+		t.Fatalf("read plugin.json: %v", err)
+	}
+	var manifest struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(blob, &manifest); err != nil {
+		t.Fatalf("plugin.json is not valid JSON: %v", err)
+	}
+	if manifest.Name != "dongminal" {
+		t.Fatalf("plugin name=%q want dongminal (스킬 호출명 /dongminal:team 의 근거)", manifest.Name)
+	}
+}
+
+// FR-SK-1: 스킬 frontmatter 의 name 이 호출명을 결정한다.
+func TestInstallAgentPlugin_SkillNames(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	for rel, wantName := range map[string]string{
+		"skills/team/SKILL.md":     "name: team",
+		"skills/workflow/SKILL.md": "name: workflow",
+	} {
+		blob, err := os.ReadFile(filepath.Join(AgentPluginDir(dir), rel))
+		if err != nil {
+			t.Fatalf("read %s: %v", rel, err)
+		}
+		if !strings.Contains(string(blob), wantName) {
+			t.Errorf("%s frontmatter 에 %q 없음", rel, wantName)
+		}
+	}
+}
+
+// FR-CTX-2: SessionStart 훅이 dmctl 을 절대 경로로 호출해야 한다. PATH 앞쪽의 낡은
+// dmctl 은 agent-context 를 모른다.
+func TestInstallAgentPlugin_Hooks(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	blob, err := os.ReadFile(filepath.Join(AgentPluginDir(dir), "hooks/hooks.json"))
+	if err != nil {
+		t.Fatalf("read hooks.json: %v", err)
+	}
+	var parsed struct {
+		Hooks map[string]any `json:"hooks"`
+	}
+	if err := json.Unmarshal(blob, &parsed); err != nil {
+		t.Fatalf("hooks.json is not valid JSON: %v", err)
+	}
+	if _, ok := parsed.Hooks["SessionStart"]; !ok {
+		t.Fatalf("hooks.json must wire SessionStart, got: %v", parsed.Hooks)
+	}
+	want := filepath.Join(dir, "dmctl") + " agent-context"
+	if !strings.Contains(string(blob), want) {
+		t.Fatalf("hooks.json should invoke %q, got:\n%s", want, blob)
+	}
+}
+
+// FR-CTX-4: 플러그인 훅과 --settings 훅은 서로 다른 파일에 있어야 한다. 한쪽이
+// 다른 쪽을 덮어써 활동 보고나 컨텍스트 주입이 사라지면 안 된다.
+func TestInstallAgentPlugin_HooksCoexistWithSettings(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	pluginHooks, err := os.ReadFile(filepath.Join(AgentPluginDir(dir), "hooks/hooks.json"))
+	if err != nil {
+		t.Fatalf("read plugin hooks: %v", err)
+	}
+	settings, err := os.ReadFile(filepath.Join(dir, "agent-hooks/claude.json"))
+	if err != nil {
+		t.Fatalf("read settings hooks: %v", err)
+	}
+	if strings.Contains(string(pluginHooks), "activity claude") {
+		t.Error("플러그인 훅이 활동 보고를 중복 등록했다 — --settings 의 몫이다")
+	}
+	if strings.Contains(string(settings), "agent-context") {
+		t.Error("--settings 훅이 컨텍스트 주입을 중복 등록했다 — 플러그인의 몫이다")
+	}
+}
+
+// FR-INJ-4/5: 셸 래퍼가 두 주입을 독립적으로 판단해야 한다. 한쪽 산출물이 없어도
+// 다른 쪽은 붙고, 둘 다 없으면 투명하게 위임한다.
+func TestInstallShellHooks_InjectBothIndependently(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	for _, rel := range []string{"bash-hook.sh", "zdotdir/.zshrc"} {
+		blob, err := os.ReadFile(filepath.Join(dir, rel))
+		if err != nil {
+			t.Fatalf("read %s: %v", rel, err)
+		}
+		s := string(blob)
+		for _, want := range []string{"--settings", "--plugin-dir", "agent-plugin", "command claude"} {
+			if !strings.Contains(s, want) {
+				t.Errorf("%s 에 %q 없음", rel, want)
+			}
+		}
+		// 조건부 부착이어야 한다 — 무조건 붙이면 파일이 없을 때 claude 가 죽는다.
+		if !strings.Contains(s, `-f "$s"`) || !strings.Contains(s, `-d "$p"`) {
+			t.Errorf("%s: --settings/--plugin-dir 부착이 조건부가 아니다:\n%s", rel, s)
+		}
+	}
+}
+
+// FR-INJ-3: 재설치가 전개물을 갱신해야 한다 (바이너리 갱신 시 스킬도 따라간다).
+func TestInstallAgentPlugin_Overwrites(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir); err != nil {
+		t.Fatalf("Install #1: %v", err)
+	}
+	skill := filepath.Join(AgentPluginDir(dir), "skills/team/SKILL.md")
+	if err := os.WriteFile(skill, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("write stale: %v", err)
+	}
+	if err := Install(dir); err != nil {
+		t.Fatalf("Install #2: %v", err)
+	}
+	blob, err := os.ReadFile(skill)
+	if err != nil {
+		t.Fatalf("read skill: %v", err)
+	}
+	if string(blob) == "stale" {
+		t.Fatal("재설치가 전개물을 갱신하지 않았다")
+	}
+}

@@ -30,11 +30,11 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl tool-up` / `tool-down` / `tool-left` / `tool-right` | 방향키식 분할 칸 포커스 이동 (action 은 `paneUp`/`paneDown`/`paneLeft`/`paneRight`) |
 | `dmctl rename-tab --at <uuid> <이름>` | 탭 표시 이름 변경 (예: 팀 도구에 역할명). 포커스 무영향. `--name <이름>` 플래그도 동등 |
 | `dmctl rename-window --at <uuid> <이름>` | 그 탭이 **속한 창**의 이름 변경. 포커스 무영향 |
-| `dmctl list-workspace [--json] [--window <substr>] [--tab <substr>]` | 열린 도구 목록 조회. 표준 KEY=VALUE 라인 (아래 박스). ▶ 표시는 현재 포커스. `--window`/`--tab` 으로 이름 필터 (부분 일치·대소문자 무시, AND, 0건이면 rc=1). `--json` 시 JSON 배열. MCP `list_workspace` 와 byte-level 동일 포맷 |
-| `dmctl who-am-i [--json]` | 현재 쉘이 속한 탭의 식별 정보. 같은 표준 라인 한 줄. MCP `who_am_i` 와 동일 포맷. 스크립트에서 `UUID=$(dmctl who-am-i --json \| jq -r .uuid)` 패턴으로 자기 식별 |
+| `dmctl list-workspace [--json] [--window <substr>] [--tab <substr>]` | 열린 도구 목록 조회. 표준 KEY=VALUE 라인 (아래 박스). ▶ 표시는 현재 포커스. `--window`/`--tab` 으로 이름 필터 (부분 일치·대소문자 무시, AND, 0건이면 rc=1). `--json` 시 JSON 배열 |
+| `dmctl who-am-i [--json]` | 현재 쉘이 속한 탭의 식별 정보. 같은 표준 라인 한 줄. 스크립트에서 `UUID=$(dmctl who-am-i --json \| jq -r .uuid)` 패턴으로 자기 식별 |
 | `dmctl send <action> [json]` | 원시 action 전송 (확장용) |
 
-#### 표준 라인 포맷 (list-workspace / who-am-i / MCP list_workspace·who_am_i 공통)
+#### 표준 라인 포맷 (list-workspace / who-am-i 공통)
 
 ```
 {▶|  } label=W1.P1.T1  uuid=<36자>  short=<8자>  toolId=<n>  shellPid=<n>  size=<W>x<H>  window="<이름>"  tab="<이름>"  window_uuid=<36자>  pane_uuid=<36자>

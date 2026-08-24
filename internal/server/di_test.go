@@ -6,9 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
-	"time"
 )
 
 // TestHandlerToolsGetUsesFake: fake ToolHub 주입 → GET /api/state 응답의
@@ -94,62 +92,5 @@ func TestHandlerWorkspacePutIfMatch(t *testing.T) {
 	}
 	if got := resp2.Header.Get("ETag"); got != "8" {
 		t.Fatalf("ETag=%q want 8", got)
-	}
-}
-
-// TestMCPDispatchUsesFakeTools: fake ToolDispatcher 에 tools/call 을 보내면
-// Dispatch 가 올바른 이름·args 로 호출되고 응답이 세션 채널로 흘러온다.
-func TestMCPDispatchUsesFakeTools(t *testing.T) {
-	ft := newFakeToolDispatcher()
-	srv, err := New(Config{DataDir: t.TempDir()}, Deps{MCPTools: ft})
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	ts := httptest.NewServer(srv.Handler())
-	defer ts.Close()
-
-	// 직접 MCP 세션 생성 (SSE handshake 없이 테스트 가능하도록).
-	sess := srv.MCP.New()
-	defer srv.MCP.Close(sess)
-
-	rpcBody := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fake_tool","arguments":{"hello":"world"}}}`
-	resp, err := http.Post(ts.URL+"/mcp/message?sessionId="+sess.ID, "application/json", strings.NewReader(rpcBody))
-	if err != nil {
-		t.Fatalf("POST /mcp/message: %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusAccepted {
-		t.Fatalf("status=%d want 202", resp.StatusCode)
-	}
-
-	select {
-	case msg := <-sess.Ch:
-		var r struct {
-			Result map[string]any `json:"result"`
-		}
-		if err := json.Unmarshal(msg, &r); err != nil {
-			t.Fatalf("unmarshal rpc response: %v; raw=%s", err, msg)
-		}
-		if r.Result == nil {
-			t.Fatalf("expected non-nil result; raw=%s", msg)
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("no MCP response within 3s")
-	}
-
-	ft.mu.Lock()
-	defer ft.mu.Unlock()
-	if len(ft.calls) != 1 {
-		t.Fatalf("Dispatch call count=%d want 1", len(ft.calls))
-	}
-	if ft.calls[0].Name != "fake_tool" {
-		t.Fatalf("tool name=%q want fake_tool", ft.calls[0].Name)
-	}
-	var args map[string]string
-	if err := json.Unmarshal(ft.calls[0].Args, &args); err != nil {
-		t.Fatalf("args unmarshal: %v", err)
-	}
-	if args["hello"] != "world" {
-		t.Fatalf("args=%+v want {hello:world}", args)
 	}
 }

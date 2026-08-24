@@ -1,13 +1,9 @@
 package server
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
 	"sync"
 	"time"
 
-	"dongminal/internal/mcptool"
 	"dongminal/internal/workspace"
 )
 
@@ -199,53 +195,6 @@ func (f *fakeWorkspaceStore) IsKnownTabID(id string) bool {
 	}
 	_, ok := f.coordMap[id]
 	return ok
-}
-
-// ── fakeToolDispatcher ──────────────────────────────
-
-type dispatchCall struct {
-	Name string
-	Args json.RawMessage
-}
-
-type fakeToolDispatcher struct {
-	mu     sync.Mutex
-	calls  []dispatchCall
-	result mcptool.Result
-	names  []string
-}
-
-func newFakeToolDispatcher() *fakeToolDispatcher {
-	return &fakeToolDispatcher{
-		result: mcptool.TextResult("fake-dispatched"),
-		names:  []string{"fake_tool"},
-	}
-}
-
-func (f *fakeToolDispatcher) List() []map[string]any {
-	out := make([]map[string]any, 0, len(f.names))
-	for _, n := range f.names {
-		out = append(out, map[string]any{"name": n})
-	}
-	return out
-}
-
-func (f *fakeToolDispatcher) Dispatch(ctx context.Context, name string, args json.RawMessage) (mcptool.Result, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.calls = append(f.calls, dispatchCall{Name: name, Args: append(json.RawMessage(nil), args...)})
-	// Simulate unknown tool for names not in the registry.
-	known := false
-	for _, n := range f.names {
-		if n == name {
-			known = true
-			break
-		}
-	}
-	if !known {
-		return nil, fmt.Errorf("%w: %s", mcptool.ErrUnknownTool, name)
-	}
-	return f.result, nil
 }
 
 // ── fakeCommandBroker ───────────────────────────────

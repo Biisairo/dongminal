@@ -7,8 +7,6 @@ package server
 import (
 	"bufio"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"log"
@@ -19,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"dongminal/internal/mcptool"
+	"dongminal/internal/toolaccess"
 )
 
 // Config carries process-level knobs.
@@ -34,11 +32,11 @@ type Server struct {
 	cfg         Config
 	Tools       ToolHub
 	Work        WorkspaceStore
-	MCPTools    ToolDispatcher
 	Commands    CommandBroker
-	MCP         *MCPSessionRegistry
 	Settings    SettingsStore
-	WhoAmI      mcptool.ClientToolResolver
+	WhoAmI      toolaccess.ClientToolResolver
+	ToolIO      toolaccess.ToolReader
+	WorkIndex   toolaccess.WorkspaceReader
 	AttnTracker *AttnTracker
 	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
 	Focus *FocusRegistry
@@ -70,12 +68,12 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		cfg:         cfg,
 		Tools:       deps.Tools,
 		Work:        deps.Work,
-		MCPTools:    deps.MCPTools,
 		Commands:    cmds,
 		Focus:       NewFocusRegistry(),
-		MCP:         NewMCPSessionRegistry(),
 		Settings:    settings,
 		WhoAmI:      deps.WhoAmI,
+		ToolIO:      deps.ToolIO,
+		WorkIndex:   deps.WorkIndex,
 		AttnTracker: deps.AttnTracker,
 		started:     time.Now(),
 	}, nil
@@ -95,17 +93,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/commands", s.handleCommandPost)
 	mux.HandleFunc("/api/commands/sse", s.handleCommandSSE)
 	mux.HandleFunc("/api/command-result", s.handleCommandResult)
-	mux.HandleFunc("/mcp/sse", s.handleMCPSSE)
-	mux.HandleFunc("/mcp/message", s.handleMCPMessage)
 	return loggingMiddleware(mux)
-}
-
-// MCPHandler returns just the /mcp/* subset.
-func (s *Server) MCPHandler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/mcp/sse", s.handleMCPSSE)
-	mux.HandleFunc("/mcp/message", s.handleMCPMessage)
-	return mux
 }
 
 // Run starts the HTTP server on addr and blocks until ctx is cancelled.
@@ -143,59 +131,6 @@ func (s *Server) Shutdown(ctx context.Context) error {
 		return nil
 	}
 	return srv.Shutdown(ctx)
-}
-
-// --- MCP session registry ---------------------------------------------------
-
-type MCPSession struct {
-	ID         string
-	Ch         chan []byte
-	Done       chan struct{}
-	RemoteAddr string
-
-	once sync.Once
-}
-
-type MCPSessionRegistry struct {
-	mu       sync.Mutex
-	sessions map[string]*MCPSession
-}
-
-func NewMCPSessionRegistry() *MCPSessionRegistry {
-	return &MCPSessionRegistry{sessions: make(map[string]*MCPSession)}
-}
-
-func (r *MCPSessionRegistry) New() *MCPSession {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	id := hex.EncodeToString(b)
-	s := &MCPSession{
-		ID:   id,
-		Ch:   make(chan []byte, 32),
-		Done: make(chan struct{}),
-	}
-	r.mu.Lock()
-	r.sessions[id] = s
-	r.mu.Unlock()
-	return s
-}
-
-func (r *MCPSessionRegistry) Get(id string) *MCPSession {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.sessions[id]
-}
-
-func (r *MCPSessionRegistry) Close(s *MCPSession) {
-	if s == nil {
-		return
-	}
-	s.once.Do(func() {
-		close(s.Done)
-		r.mu.Lock()
-		delete(r.sessions, s.ID)
-		r.mu.Unlock()
-	})
 }
 
 // --- HTTP logging middleware ------------------------------------------------

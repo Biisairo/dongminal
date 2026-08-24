@@ -5,7 +5,7 @@
 - Go 1.21+
 - macOS 또는 Linux (PTY, `ps`, `lsof` 의존)
 - zsh 또는 bash (현재 디렉터리 상태 바 표시용 — 선택)
-- `claude` CLI (MCP 자동 등록 시 — 선택)
+- `claude` CLI (에이전트 오케스트레이션 — 선택)
 
 ## 설치 & 실행
 
@@ -107,5 +107,5 @@ DONGMINAL_HOME=~/.dongminal
 - 기능 전체: [features.md](./features.md)
 - 단축키 커스터마이징: [shortcuts.md](./shortcuts.md)
 - 터미널 안에서 쓰는 `dmctl` / `edit` / `download` CLI: [commands.md](./commands.md)
-- Claude Code MCP 연동: [mcp-setup.md](./mcp-setup.md)
+- 에이전트 오케스트레이션: [agent-orchestration.md](./agent-orchestration.md)
 - HTTP/WebSocket/SSE/OSC: [api.md](./api.md)

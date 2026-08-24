@@ -17,6 +17,8 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [USER_CHECKLIST_FIXES_SRS.md](./USER_CHECKLIST_FIXES_SRS.md) | 사용자 확인 피드백 8개 항목의 단일 진실 공급원 (IEEE 29148). 묶음 A~D 완료, E·F 는 골격만 |
 | [USER_CHECKLIST_FIXES_PLAN.md](./USER_CHECKLIST_FIXES_PLAN.md) | 위 작업의 묶음·순서·의존성 + **착수 전 결정 10건**(E 5 · F 5) |
 | [USER_CHECKLIST_FIXES_HANDOFF.md](./USER_CHECKLIST_FIXES_HANDOFF.md) | 위 작업의 인계 문서 — A~D 완료 내역, **반복하면 안 되는 함정 9개**, 검증 방법, 미해결 |
+| [SYSTEM_STATS_SRS.md](./SYSTEM_STATS_SRS.md) | 상태바 지표 수집 재설계 (IEEE 29148). `/api/stats` 요청당 프로세스 6개·1.5초를 커널 직접 호출로 제거 + 메모리 계산식 정정. **구현 미착수**, 착수 전 결정 5건(§8) |
+| [SKILL_INJECTION_SRS.md](./SKILL_INJECTION_SRS.md) | MCP 폐지와 세션 스코프 스킬 주입의 단일 진실 공급원 (IEEE 29148). 에이전트 접합면 = `dmctl` (액션) + `--plugin-dir`/`--settings` 주입 스킬·훅 (정책). **구현 완료** |
 | [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트. **진행 중 트랙 2개**(사용자 피드백 E·F / AI 오케스트레이션) |
 
 ## 용어
@@ -55,7 +57,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [PANE_MANAGER_DECOMPOSE_SRS.md](./archive/PANE_MANAGER_DECOMPOSE_SRS.md) — PaneManager 분해 + mutex 정리 | 2026-05 |
 | [HANDLERS_API_ROUTER_SRS.md](./archive/HANDLERS_API_ROUTER_SRS.md) — handlers_api 라우터 테이블화 | 2026-05 |
 | [WORKSPACE_SNAPSHOT_SRS.md](./archive/WORKSPACE_SNAPSHOT_SRS.md) — Workspace Snapshot 단일 진입점 | 2026-05 |
-| [MCP_BIND_HELPER_SRS.md](./archive/MCP_BIND_HELPER_SRS.md) — MCP typed bind helper | 2026-05 |
+| [MCP_BIND_HELPER_SRS.md](./archive/MCP_BIND_HELPER_SRS.md) — MCP typed bind helper. **전체 폐지** (SKILL_INJECTION_SRS §6) | 2026-05 |
 | [RUNTIME_HELPERS_GO_SRS.md](./archive/RUNTIME_HELPERS_GO_SRS.md) — 런타임 헬퍼 Go 재작성 | 2026-05 |
 | [TS_MIGRATION_SRS.md](./archive/TS_MIGRATION_SRS.md) — 프론트엔드 TypeScript 마이그레이션 | 2026-05 |
 | [TODO.md](./archive/TODO.md) — 2026-04~05 작업 로그 (완료 49건) | 2026-05 |
@@ -105,7 +107,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [MOBILE_KEYBAR_TOOLTIPS_SRS.md](./archive/MOBILE_KEYBAR_TOOLTIPS_SRS.md) | 2026-05 |
 | [MOBILE_VERIFICATION_AUTOMATION_SRS.md](./archive/MOBILE_VERIFICATION_AUTOMATION_SRS.md) — RFC §7.2 검증 자동화 | 2026-05 |
 
-### 식별자 · 원격 제어 · MCP
+### 식별자 · 원격 제어 · 에이전트 접합면
 
 | 문서 | 시점 |
 |------|------|
@@ -116,7 +118,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [REMOTE_SESSION_TAB_CREATE_SRS.md](./archive/REMOTE_SESSION_TAB_CREATE_SRS.md) — `newWindow`/`newTab` 의 keepFocus·name | 2026-06 |
 | [RENAME_TAB_SESSION_SRS.md](./archive/RENAME_TAB_SESSION_SRS.md) — `renameTab`/`renameWindow` | 2026-06 |
 | [REMOTE_COMMAND_RESULT_SRS.md](./archive/REMOTE_COMMAND_RESULT_SRS.md) — 생성 명령의 새 uuid 반환 (long-poll correlation) | 2026-06 |
-| [DONGMINAL_WORKFLOW_SKILL_SRS.md](./archive/DONGMINAL_WORKFLOW_SKILL_SRS.md) — `dongminal-workflow` 스킬 | 2026-06 |
+| [DONGMINAL_WORKFLOW_SKILL_SRS.md](./archive/DONGMINAL_WORKFLOW_SKILL_SRS.md) — `dongminal-workflow` 스킬. 호출명·설치 경로는 SKILL_INJECTION_SRS 가 개정 | 2026-06 |
 
 ### 알림 · 활동
 

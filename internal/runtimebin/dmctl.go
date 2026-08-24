@@ -23,11 +23,22 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl tool-up / tool-down / tool-left / tool-right
   dmctl rename-tab --at <uuid> <이름>      # 탭 표시 이름 변경 (역할명 부여 등)
   dmctl rename-window --at <uuid> <이름>  # 그 도구가 속한 창 이름 변경
+  dmctl open-editor --at <uuid> [--name <이름>] <파일 절대경로>
   dmctl list-workspace [--json]         # 열린 도구 목록 (uuid 포함, ▶=현재 포커스)
   dmctl who-am-i [--json]           # 현재 쉘이 속한 탭의 식별 정보
   dmctl notify [label]              # 현재 도구에 주의 알림 (에이전트 hook 에서 호출)
   dmctl activity <agent>            # 현재 도구의 작업 상태 보고 (stdin hook JSON 파싱)
+  dmctl agent-context               # 세션 상시 주입 컨텍스트 (에이전트 hook 에서 호출)
   dmctl send <action> [json-args]   # raw 전송
+
+에이전트 접합면 — 다른 도구의 화면을 읽고 입력을 넣는다:
+  dmctl read-screen [--at <uuid>] [--bytes N]   # ANSI 제거 텍스트 (기본 16384)
+  dmctl read-output [--at <uuid>] [--bytes N]   # raw 바이트, ANSI 포함 (기본 8192)
+  dmctl send-input --at <uuid> [--execute] <텍스트>   # 쉘 대상. - 또는 생략 시 stdin
+  dmctl msg --to <uuid> [--from <uuid>] <메시지>      # 에이전트 대상 (신뢰 엔벨로프)
+
+  여러 에이전트를 팀으로 묶는 절차는 /dongminal:team 스킬에 있다.
+  각 서브커맨드의 상세는 dmctl <서브커맨드> --help 로 본다.
 
 위치 식별자 — uuid 만 허용:
   - tab uuid: list-workspace 의 "uuid=" 컬럼 값 (예: 550e8400-... 또는 짧은 형식 모두 OK).
@@ -86,6 +97,16 @@ func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, 
 		return runDmctlNotify(rest, stdout, stderr), true
 	case "activity":
 		return runDmctlActivity(rest, os.Stdin, stdout, stderr), true
+	case "agent-context":
+		return runDmctlAgentContext(rest, stdout, stderr), true
+	case "read-screen", "read-output":
+		return runDmctlRead(cmd, rest, stdout, stderr), true
+	case "send-input":
+		return runDmctlSendInput(rest, os.Stdin, stdout, stderr), true
+	case "msg":
+		return runDmctlMsg(rest, os.Stdin, stdout, stderr), true
+	case "open-editor":
+		return runDmctlOpenEditor(rest, stdout, stderr), true
 	}
 	return 0, false
 }

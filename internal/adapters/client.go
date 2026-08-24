@@ -9,7 +9,7 @@ import (
 
 // Client는 원격 TCP 연결(remoteAddr) 로부터 클라이언트 PID 를 구하고,
 // 조상 체인을 거슬러 올라가며 tool 의 shell PID 와 매칭되는 toolID 를 반환한다.
-// WhoAmI 류 MCP 툴의 의존성.
+// /api/whoami 의 toolId 폴백 경로가 쓴다.
 // PM이 nil이면 (daemon mode) Hub 를 통해 tool 목록을 얻는다.
 type Client struct {
 	PM  *server.ToolManager

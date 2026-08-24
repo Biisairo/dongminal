@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"dongminal/internal/adapters"
-	"dongminal/internal/mcptool"
-	"dongminal/internal/mcptool/tools"
 	"dongminal/internal/migrate"
 	"dongminal/internal/runtime"
 	"dongminal/internal/runtimebin"
@@ -289,9 +287,9 @@ func buildDepsWithHub(cfg server.Config, hub server.ToolHub) (builtDeps, error) 
 	return buildCommonDeps(cfg, hub, cmdHub, attnTracker)
 }
 
-// buildCommonDeps wires up the managers and MCP tool registry shared by both
-// direct and daemon modes. toolHub provides Liveness (IsLive) for the workspace
-// manager and ToolHub for tool adapters.
+// buildCommonDeps wires up the managers shared by both direct and daemon modes.
+// toolHub provides Liveness (IsLive) for the workspace manager and ToolHub for
+// the tool adapters.
 func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.CommandHub, attnTracker *server.AttnTracker) (builtDeps, error) {
 
 	wsMgr, err := workspace.New(toolHub, workspace.FilePersister{Path: dataPath(cfg.DataDir, "workspace.json")})
@@ -310,31 +308,17 @@ func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.C
 		resolver = adapters.Client{Hub: toolHub}
 	}
 
-	reg := mcptool.NewRegistry()
 	wa := adapters.Workspace{WS: wsMgr}
-	mcptool.Register(reg, tools.ListWorkspaceName, tools.ListWorkspaceSpec,
-		tools.ListWorkspaceHandler(tools.ListWorkspaceDeps{PM: pa, WS: wa}))
-	mcptool.Register(reg, tools.ReadScreenName, tools.ReadScreenSpec,
-		tools.ReadScreenHandler(tools.ReadToolDeps{PM: pa, WS: wa}))
-	mcptool.Register(reg, tools.ReadOutputName, tools.ReadOutputSpec,
-		tools.ReadOutputHandler(tools.ReadToolDeps{PM: pa, WS: wa}))
-	mcptool.Register(reg, tools.SendInputName, tools.SendInputSpec,
-		tools.SendInputHandler(tools.SendInputDeps{PM: pa, WS: wa}))
-	mcptool.Register(reg, tools.SendAgentMessageName, tools.SendAgentMessageSpec,
-		tools.SendAgentMessageHandler(tools.SendAgentMessageDeps{PM: pa, WS: wa}))
-	mcptool.Register(reg, tools.WhoAmIName, tools.WhoAmISpec,
-		tools.WhoAmIHandler(tools.WhoAmIDeps{PM: pa, WS: wa, Resolver: resolver}))
-	mcptool.Register(reg, tools.WorkspaceCommandName, tools.WorkspaceCommandSpec,
-		tools.WorkspaceCommandHandler(tools.WorkspaceCommandDeps{Broadcaster: adapters.Command{Hub: cmdHub}, WS: wa}))
 
 	return builtDeps{
 		deps: server.Deps{
 			Tools:       toolHub,
 			Work:        wsMgr,
-			MCPTools:    reg,
 			Commands:    cmdHub,
 			AttnTracker: attnTracker,
 			WhoAmI:      resolver,
+			ToolIO:      pa,
+			WorkIndex:   wa,
 		},
 		pm:          nil, // set by caller in direct mode
 		attnTracker: attnTracker,
