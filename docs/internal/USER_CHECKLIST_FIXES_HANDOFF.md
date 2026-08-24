@@ -13,7 +13,7 @@
 | **B** | 마이그레이션 진입점 | **완료** | `e6463e1` |
 | **C** | 모바일 키바 터치 | **완료** | `18c7f14` |
 | **D** | 복귀 대상 Pane 지정 | **완료** | `a906418` |
-| **E** | 크로스 기기 창 포커스 | **완료** | (미커밋) |
+| **E** | 크로스 기기 창 포커스 | **완료** | `854ada6` |
 | **F** | 모바일 키보드 뷰포트 | **미착수** — 스펙 골격만 | — |
 
 검증 상태 (A~E 완료 시점 실측):
@@ -94,7 +94,7 @@ bash scripts/test_migrate.sh   28 통과
 
 `ENTITY_MODEL_RESTRUCTURE_SRS` 의 FR-BG-7·TC-BG-7 을 개정했다.
 
-### 묶음 E — 크로스 기기 창 포커스 (미커밋)
+### 묶음 E — 크로스 기기 창 포커스 (`854ada6`)
 
 `BroadcastChannel('dongminal-focus')` 을 **서버 권위**로 옮겼다. 채널은 동일 브라우저·
 동일 origin 한정이라 다른 기기와 원리적으로 통신할 수 없었고, `--expose` 시
@@ -307,41 +307,6 @@ git stash pop
 `expect.poll` 로 바꿔 통과하면 원인은 경합이다.
 
 **문서의 "142 통과"·"153 통과" 는 단일 실행 실측치이고 보장이 아니다.**
-
-### 묶음 E 가 커밋되지 않았다
-
-구현·테스트·문서가 모두 끝났고 검증도 전량 통과했으나 **커밋하지 않았다** — 커밋은
-사용자 확인 후에만 한다는 규약 때문이다. 대상 파일:
-
-```
-신규:  internal/server/focus.go
-      internal/server/focus_test.go
-      e2e/focus-owner.spec.ts
-수정:  internal/server/{server.go,handlers_api.go,commands.go}
-      web/js/app.js
-      web/index.html                     (js 캐시 버스터 119→120)
-      docs/external/api.md
-      docs/internal/{USER_CHECKLIST_FIXES_SRS,USER_CHECKLIST_FIXES_PLAN,
-                     USER_CHECKLIST_FIXES_HANDOFF,ENTITY_MODEL_RESTRUCTURE_SRS}.md
-      README.md
-```
-
-### 사용자 인스턴스가 여전히 v1 이다
-
-`~/.dongminal/workspace.json` 은 `sessions` 키를 가진 v1 이고 `schemaVersion` 이
-없다. 구 바이너리(8월 7일 빌드)가 17일째 돌고 있어 정상 동작한다. **최신 소스로
-재시작하면 스키마 게이트에서 멈춘다.**
-
-업그레이드 순서는 이제 이것이다 (`ENTITY_MODEL_HANDOFF.md` §4.2 도 갱신했다):
-
-```bash
-./scripts/stop.sh --all
-./scripts/migrate.sh --dry-run
-./scripts/migrate.sh
-./scripts/start.sh
-```
-
-**직접 마이그레이션하거나 재기동하지 마라.** 사용자 판단이다.
 
 ### 범위 밖으로 기록만 한 것
 

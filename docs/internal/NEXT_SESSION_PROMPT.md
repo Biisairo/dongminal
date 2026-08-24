@@ -10,9 +10,9 @@
 트랙 1 이 사용자 실사용에서 나온 항목이라 우선순위가 높다. 트랙 2 는 규모가 크고
 착수 전 결정(worktree 격리 정책)이 남아 있다.
 
-묶음 E(크로스 기기 포커스)는 완료됐다 — `BroadcastChannel` 을 서버 권위로 옮겼고
-`internal/server/focus.go` · `/api/focus` · SSE `window_focus` 가 그 결과다. **미커밋
-상태**이므로 어느 트랙이든 착수 전에 워킹트리를 확인하라.
+묶음 E(크로스 기기 포커스)는 완료·커밋됐다 (`854ada6`) — `BroadcastChannel` 을 서버 권위로
+옮겼고 `internal/server/focus.go` · `/api/focus` · SSE `window_focus` 가 그 결과다.
+포커스 소유권이 이제 서버 상태이므로 어느 트랙이든 그것을 전제로 시작하라.
 
 ---
 
@@ -37,7 +37,7 @@ dongminal 의 user_checklist 대응에서 묶음 F(모바일 키보드 뷰포트
 **현재 상태**
 
 - 묶음 A~E 완료. 커밋 `9c3b87c`(스펙) `eec0ddd`(A) `e6463e1`(B) `18c7f14`(C)
-  `a906418`(D). **묶음 E 는 미커밋이다** — 워킹트리를 먼저 확인하라
+  `a906418`(D) `854ada6`(E)
 - `go build`·`go vet`·`go test` 전부 깨끗, `gofmt -l` 0건
 - Playwright **153 통과** — 프로젝트가 둘이다: `chromium`(Desktop Chrome,
   `-touch.spec.ts` 제외) 143 + `mobile-touch`(Pixel 7, `hasTouch:true`,
@@ -118,7 +118,7 @@ dongminal 의 요구 3(AI 오케스트레이션)을 진행한다. 요구 1(구�
 - **별 트랙으로 user_checklist 묶음 A~E 가 완료됐다.** 상태바·백그라운드 모달·
   모바일 키바 터치·`detach --restore --at` 이 그 결과다. 묶음 F 만 미착수이며
   `docs/internal/USER_CHECKLIST_FIXES_HANDOFF.md` 에 인계되어 있다
-- **묶음 E 가 `internal/server` 와 포커스 소유권을 바꿨다 (미커밋).** 창 포커스
+- **묶음 E 가 `internal/server` 와 포커스 소유권을 바꿨다 (`854ada6`).** 창 포커스
   소유권이 `BroadcastChannel` → 서버 권위(`internal/server/focus.go`)로 옮겨졌고,
   `/api/focus`·`/api/focus/claim`·SSE `window_focus`·`/api/commands/sse?clientId=`
   가 신설됐다. 요구 3 의 `Client ▶ Window` 축을 만질 때 이 상태를 모르고 시작하지
