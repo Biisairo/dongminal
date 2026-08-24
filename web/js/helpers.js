@@ -141,6 +141,14 @@ function doRemove(n,rid){
   if(n.children.length===1) return n.children[0];
   return n;
 }
+// 엔터티 id 생성 (WORKSPACE_IDENTITY_SRS FR-WID-1).
+//
+// 카운터(`t${++this._t}`)는 로드된 워크스페이스의 최댓값에서 seeding 되므로 같은
+// 상태를 본 두 클라이언트가 반드시 같은 다음 값을 냈다 — 충돌은 우연이 아니라
+// 필연이었다. id 는 전 계층에서 opaque 문자열이라(SRS §2.5) 구 id 와 섞여도 무해하고
+// 마이그레이션이 필요 없다.
+function newEntityId(){return crypto.randomUUID()}
+
 function findPane(n,rid){
   if(!n) return null;
   if(n.type==='pane') return n.id===rid?n:null;

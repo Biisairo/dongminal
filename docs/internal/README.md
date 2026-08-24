@@ -18,6 +18,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [USER_CHECKLIST_FIXES_PLAN.md](./USER_CHECKLIST_FIXES_PLAN.md) | 위 작업의 묶음·순서·의존성 + **착수 전 결정 10건**(E 5 · F 5) |
 | [USER_CHECKLIST_FIXES_HANDOFF.md](./USER_CHECKLIST_FIXES_HANDOFF.md) | 위 작업의 인계 문서 — A~D 완료 내역, **반복하면 안 되는 함정 9개**, 검증 방법, 미해결 |
 | [SYSTEM_STATS_SRS.md](./SYSTEM_STATS_SRS.md) | 상태바 지표 수집 재설계 (IEEE 29148). `/api/stats` 요청당 프로세스 6개·1.5초를 커널 직접 호출로 제거 + 메모리 계산식 정정. **구현 완료** (§4.1 실측) |
+| [WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md) | 엔터티 식별자를 클라이언트별 카운터에서 uuid 로, 생성 명령을 단일 실행자로 (IEEE 29148). 다중 클라이언트에서 같은 id·고아 PTY·echo 불일치가 재현됐다. **구현 완료** |
 | [SKILL_INJECTION_SRS.md](./SKILL_INJECTION_SRS.md) | MCP 폐지와 세션 스코프 스킬 주입의 단일 진실 공급원 (IEEE 29148). 에이전트 접합면 = `dmctl` (액션) + `--plugin-dir`/`--settings` 주입 스킬·훅 (정책). **구현 완료** |
 | [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트. **트랙 1~3 완료, 트랙 4(AI 오케스트레이터 연구·설계)가 진행 대상** |
 
@@ -140,8 +141,10 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | 항목 | 상태 |
 |------|------|
 | 요구 3 — AI 오케스트레이터 (`RUN_ORCHESTRATION_SRS`) | 미착수. 접합면은 준비됐다(SKILL_INJECTION_SRS). 착수 전 결정 4건(worktree 격리 범위·식별자 체계·Run 영속 범위·에이전트 범위)은 [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) 3단계 |
-| `TC-BGU-9b` 기존 실패 | 미해결. `restoreTool` 을 `location` 없이 부르면 조용히 무효가 되는 계열 (`1013f8c` 커밋 메시지) |
-| 프론트엔드 id 가 UUID 가 아니다 | `internal/uuid` v7 생성기는 비테스트 소비자 0개. 실제 id 는 `s{n}`/`t{n}` 이고 카운터가 클라이언트별 상태라 동시 생성 시 충돌 가능 |
-| 사용자 인스턴스 v1 → v2 마이그레이션 | 미실행. 순서는 [ENTITY_MODEL_HANDOFF.md](./ENTITY_MODEL_HANDOFF.md) §4.2 |
+| ~~`TC-BGU-9b` 기존 실패~~ | **해소** (트랙 4 0-A). 제품 결함이 아니라 테스트가 서버 관측을 클라이언트 단정의 배리어로 쓴 것이었다. 별개로 `location` 미지정 복귀의 조용한 무효는 실재했고 FR-BGR-7 로 닫았다 |
+| ~~프론트엔드 id 가 UUID 가 아니다~~ | **해소** — 엔터티 id 는 `crypto.randomUUID()` 로 만든다. 생성 명령의 다중 실행도 함께 닫았다 ([WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md)) |
+| 워크스페이스 PUT 의 last-write-wins | 미해소. 사람 둘이 각자 브라우저에서 동시에 편집하면 한쪽이 유실된다. 오케스트레이터 경로는 FR-SXE-\* 가 덮는다 (WORKSPACE_IDENTITY_SRS §2.4·§5) |
+| ~~사용자 인스턴스 v1 → v2 마이그레이션~~ | **완료** (2026-08-24 12:24). `~/.dongminal` 에 `.v1.bak` 3개, `panes.json`→`tools.json` 전환 확인 |
+| `~/.dongminal/runs.json` | 커밋된 코드에 소비자가 없는 산출물. 실행 중 바이너리에 문자열조차 없다 — 출처 불명의 Run 레코드 프로토타입 |
 | `CLIENT_ATTACH_SRS` — Client↔Window attach 서버 등록, visibility 파생 | 미착수 (ENTITY_MODEL SRS §7 후속) |
 | 사용자 대상 기능 TODO | 저장소 루트 [README.md](../../README.md) |

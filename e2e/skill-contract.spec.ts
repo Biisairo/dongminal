@@ -50,8 +50,9 @@ test.describe('스킬이 부르는 접합면 (라이브)', () => {
     expect(uuid).toBeTruthy();
     expect(toolId).toBeTruthy();
     // 스킬의 계약은 "이 값이 좌표 라벨이 아니다" 다 — 라벨은 다른 창이 닫히면
-    // reflow 되지만 이 id 는 탭에 고정된다. 실제 형식은 UUID 가 아니라 프론트엔드가
-    // 만드는 s{n}/t{n} 이므로(app.js:1127,2517) 형식을 단정하지 않는다.
+    // reflow 되지만 이 id 는 탭에 고정된다. 형식은 uuid 로 바뀌었지만
+    // (WORKSPACE_IDENTITY_SRS FR-WID-1) 마이그레이션된 구 id 도 유효하므로
+    // (FR-WID-2) 여기서 형식을 단정하지는 않는다.
     expect(uuid).not.toMatch(/^W\d+\.P\d+\.T\d+$/);
     expect(uuid).not.toBe(toolId);
 
@@ -243,13 +244,32 @@ test.describe('detach CLI 의 HTTP 계약 (라이브)', () => {
       return (bg.background || []).some((b: any) => b.toolId === toolId);
     }, { timeout: 10000 }).toBe(true);
 
-    // 복귀 대상을 명시한다. location 을 생략하면 브라우저의 **포커스된** 분할 칸으로
-    // 복귀하는데, 방금 detach 로 그 분할 칸이 사라졌으면 복귀 대상이 없어 조용히
-    // 무효가 된다. 살아남은 탭을 대상으로 주는 것이 지원되는 방식이다
+    // 복귀 대상을 명시한다. location 생략 경로의 폴백은 FR-BGR-7 이 담당하고
+    // background-restore-at.spec.ts 의 TC-BGR-8/9 가 직접 덮는다. 여기서 검증할
+    // 계약은 스킬·오케스트레이터가 쓰는 방식 — 대상을 명시하는 쪽이다
     // (USER_CHECKLIST_FIXES 묶음 D — detach --restore <toolId> --at <uuid>).
-    const survivor = await firstTab(request);
+    //
+    // /api/tools/background 가 참이 되는 시점은 브라우저가 워크스페이스를 아직
+    // 저장하기 전이다. 유일한 탭을 detach 했으면 창이 사라지고 새 창이 만들어지는
+    // 중이므로, 그 전에 /api/state 를 읽으면 곧 없어질 탭 uuid 를 집어 restoreTool
+    // 이 서버의 IsKnownTabID 게이트에서 400 이 된다. 분리한 도구가 트리에서 사라진
+    // 스냅샷에서 골라야 결정적이다.
+    let survivor: { uuid: string; toolId: string } | null = null;
+    await expect.poll(async () => {
+      const st = await (await request.get('/api/state')).json();
+      const tabs: any[] = [];
+      const walk = (n: any) => {
+        if (!n) return;
+        for (const t of n.tabs || []) if (t.id && t.toolId) tabs.push(t);
+        for (const c of n.children || []) walk(c);
+      };
+      for (const w of st.workspace?.windows || []) walk(w.layout);
+      if (!tabs.length || tabs.some((t) => t.toolId === toolId)) return false;
+      survivor = { uuid: tabs[0].id, toolId: tabs[0].toolId };
+      return true;
+    }, { timeout: 10000 }).toBe(true);
     const r2 = await request.post('/api/commands', {
-      data: { action: 'restoreTool', args: { toolId, location: survivor.uuid } },
+      data: { action: 'restoreTool', args: { toolId, location: survivor!.uuid } },
     });
     expect(r2.status()).toBe(200);
     expect((await r2.json()).delivered, '구독 중인 브라우저가 없다').toBeGreaterThan(0);

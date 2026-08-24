@@ -221,3 +221,95 @@ test.describe('FR-BGR-1/2: location 으로 복귀 대상 Pane 을 지정한다',
       '대상이 없는데 백그라운드 상태가 해제됐다').toBe(true);
   });
 });
+
+// FR-BGR-7: location 미지정은 "대상을 정하지 않았다"는 뜻이므로, 포커스 Pane 이
+// 해소되지 않아도 조용히 무효가 되어서는 안 된다. 명시 대상(TC-BGR-6b)과 달리
+// 폴백이 정당한 유일한 경로다.
+test.describe('FR-BGR-7: location 미지정 복귀는 조용히 무효가 되지 않는다', () => {
+  test('TC-BGR-8: 포커스가 해소되지 않으면 활성 창의 첫 Pane 에 복귀한다', async ({ page, request }) => {
+    await waitForInit(page);
+    const { focused } = await twoPanes(page, request);
+    const toolId = focused.toolIds[0];
+    await detach(page, request, toolId);
+
+    // 포커스를 존재하지 않는 Pane 으로 만든다 — delWindow 의 else 분기가
+    // this.focused=null 로 두는 상태(app.js:1180)와 같은 계열이다.
+    await page.evaluate(() => { (window as any).app.focused = 'rZZZ' });
+
+    const r = await request.post('/api/commands', {
+      data: { action: 'restoreTool', args: { toolId } },
+    });
+    expect(r.status()).toBe(200);
+
+    await expect.poll(async () => {
+      const bg = await (await request.get('/api/tools/background')).json();
+      return (bg.background || []).some((b: any) => b.toolId === toolId);
+    }, { timeout: 10000 }).toBe(false);
+
+    // 활성 창 어딘가의 탭으로 돌아와 있어야 한다.
+    await expect.poll(() => page.evaluate((tid) => {
+      const app = (window as any).app;
+      const w = app.ws.windows.find((x: any) => x.id === app.ws.activeWindow);
+      let found = false;
+      const walk = (n: any) => {
+        if (!n) return;
+        for (const t of n.tabs || []) if (t.toolId === tid) found = true;
+        for (const c of n.children || []) walk(c);
+      };
+      walk(w?.layout);
+      return found;
+    }, toolId), { timeout: 10000 }).toBe(true);
+  });
+
+  test('TC-BGR-9: 창이 하나도 없는 과도 상태에서도 복귀한다', async ({ page, request }) => {
+    await waitForInit(page);
+    // 창·Pane·탭이 하나씩인 상태에서 그 탭을 detach 하면 창이 사라지고
+    // delWindow 가 _mkWindow 를 await 하는 동안 ws.windows 가 빈다.
+    const toolId = await page.evaluate(() => {
+      const app = (window as any).app;
+      const w = app.ws.windows.find((x: any) => x.id === app.ws.activeWindow);
+      const walk = (n: any): string | null => {
+        if (!n) return null;
+        for (const t of n.tabs || []) if (t.toolId) return t.toolId;
+        for (const c of n.children || []) { const r = walk(c); if (r) return r }
+        return null;
+      };
+      return walk(w?.layout);
+    });
+    expect(toolId).toBeTruthy();
+
+    // 그 순간을 명중시킨다 — 폴링해서 windows 가 비는 즉시 복귀를 건다.
+    const armed = page.evaluate(async (tid) => {
+      const app = (window as any).app;
+      const t0 = performance.now();
+      while (performance.now() - t0 < 15000) {
+        if (app.ws.windows.length === 0) { await app._restoreTool(tid); return true }
+        await new Promise((r) => setTimeout(r, 1));
+      }
+      return false;
+    }, toolId);
+
+    const d = await request.post('/api/commands', { data: { action: 'detachTab', args: { toolId } } });
+    expect(d.status()).toBe(200);
+    expect(await armed, '창이 비는 과도 상태를 명중시키지 못했다').toBe(true);
+
+    await expect.poll(async () => {
+      const bg = await (await request.get('/api/tools/background')).json();
+      return (bg.background || []).some((b: any) => b.toolId === toolId);
+    }, { timeout: 10000 }).toBe(false);
+
+    await expect.poll(() => page.evaluate((tid) => {
+      const app = (window as any).app;
+      let found = false;
+      for (const w of app.ws.windows) {
+        const walk = (n: any) => {
+          if (!n) return;
+          for (const t of n.tabs || []) if (t.toolId === tid) found = true;
+          for (const c of n.children || []) walk(c);
+        };
+        walk(w.layout);
+      }
+      return found;
+    }, toolId), { timeout: 10000 }).toBe(true);
+  });
+});

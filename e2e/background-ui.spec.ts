@@ -289,13 +289,16 @@ test.describe('FR-BGU-6..8: 백그라운드 목록 모달', () => {
     await page.click('#sb-bg-btn');
     await page.locator(`#bg-modal .bg-row[data-toolid="${toolId}"]`).click();
 
-    await expect.poll(async () => {
-      const bg = await (await request.get('/api/tools/background')).json();
-      return (bg.background || []).some((b: any) => b.toolId === toolId);
-    }, { timeout: 10000 }).toBe(false);
+    // 배리어는 클라이언트 상태여야 한다. _restoreTool 은 서버의 백그라운드
+    // 해제를 먼저 await 하고 그 뒤에 탭을 넣으므로, /api/tools/background 로
+    // 폴링하면 해제와 탭 삽입 사이(약 3ms)를 관측한다. 그 폴 GET 은 브라우저의
+    // POST 와 같은 서버에 파이프라인되어 그 창을 안정적으로 명중시킨다 —
+    // 경합이 아니라 결정적 실패였다.
+    await expect.poll(focusedTabCount, { timeout: 10000 }).toBe(tabsBefore + 1);
 
-    const tabsAfter = await focusedTabCount();
-    expect(tabsAfter).toBe(tabsBefore + 1);
+    const bg = await (await request.get('/api/tools/background')).json();
+    expect((bg.background || []).some((b: any) => b.toolId === toolId),
+      '탭은 복귀했는데 백그라운드 목록에 남아 있다').toBe(false);
     await expect(page.locator('#bg-modal')).toHaveCount(0);
   });
 });

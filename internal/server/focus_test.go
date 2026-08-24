@@ -191,3 +191,87 @@ func TestFocus_ClaimRejectsBadBody(t *testing.T) {
 		}
 	}
 }
+
+// ── 실행자 선출 (WORKSPACE_IDENTITY_SRS FR-SXE-4/5) ──
+
+// TC-SXE-1: live 구독이 없으면 지명하지 않는다 (FR-SXE-5).
+func TestExecutor_NoLiveSubscriptionYieldsEmpty(t *testing.T) {
+	f := NewFocusRegistry()
+	if got := f.Executor(); got != "" {
+		t.Fatalf("Executor()=%q want \"\" — live 구독이 없다", got)
+	}
+	// 포커스만 주장하고 구독은 없는 경우에도 지명하지 않는다.
+	f.Claim("cliA", "W1")
+	if got := f.Executor(); got != "" {
+		t.Fatalf("Executor()=%q want \"\" — 주장 이력만으로 지명해서는 안 된다", got)
+	}
+}
+
+// TC-SXE-1: 주장 이력이 없으면 가장 오래된 live 구독을 쓴다 (FR-SXE-4 폴백).
+func TestExecutor_FallsBackToOldestLiveSubscription(t *testing.T) {
+	f := NewFocusRegistry()
+	f.Attach("cliA")
+	f.Attach("cliB")
+	f.Attach("cliC")
+	if got := f.Executor(); got != "cliA" {
+		t.Fatalf("Executor()=%q want cliA — 가장 오래된 구독이어야 한다", got)
+	}
+}
+
+// TC-SXE-1: 가장 최근에 포커스를 주장한 live Client 가 실행자다 (FR-SXE-4).
+func TestExecutor_PrefersMostRecentFocusClaimer(t *testing.T) {
+	f := NewFocusRegistry()
+	f.Attach("cliA")
+	f.Attach("cliB")
+	f.Claim("cliB", "W1")
+	if got := f.Executor(); got != "cliB" {
+		t.Fatalf("Executor()=%q want cliB — 주장 이력이 구독 순서를 이긴다", got)
+	}
+	f.Claim("cliA", "W2")
+	if got := f.Executor(); got != "cliA" {
+		t.Fatalf("Executor()=%q want cliA — 더 최근 주장이 이긴다", got)
+	}
+	// 같은 주장을 반복해도 순서는 바뀌지 않는다 (Claim 이 변화 없음으로 보는 경로).
+	f.Claim("cliB", "W1")
+	if got := f.Executor(); got != "cliA" {
+		t.Fatalf("Executor()=%q want cliA — 변화 없는 재주장이 순서를 바꿨다", got)
+	}
+}
+
+// TC-SXE-1: 주장 이력이 있어도 live 가 아니면 후보가 아니다.
+func TestExecutor_IgnoresClaimersThatAreNotLive(t *testing.T) {
+	f := NewFocusRegistry()
+	f.Attach("cliA")
+	ep := f.Attach("cliB")
+	f.Claim("cliB", "W1")
+	f.Detach("cliB", ep)
+	if got := f.Executor(); got != "cliA" {
+		t.Fatalf("Executor()=%q want cliA — 끊긴 Client 를 지명했다", got)
+	}
+}
+
+// TC-SXE-2: 실행자가 끊기면 남은 live 중에서 다시 고른다.
+func TestExecutor_ReelectsAfterDetach(t *testing.T) {
+	f := NewFocusRegistry()
+	epA := f.Attach("cliA")
+	f.Attach("cliB")
+	f.Claim("cliA", "W1")
+	if got := f.Executor(); got != "cliA" {
+		t.Fatalf("Executor()=%q want cliA", got)
+	}
+	f.Detach("cliA", epA)
+	if got := f.Executor(); got != "cliB" {
+		t.Fatalf("Executor()=%q want cliB — 재선출되지 않았다", got)
+	}
+}
+
+// 재연결(새 Attach)은 옛 epoch 의 Detach 로 무효화되지 않는다 — FR-XDF-10 과 같은 규칙.
+func TestExecutor_StaleDetachDoesNotRemoveReattachedClient(t *testing.T) {
+	f := NewFocusRegistry()
+	old := f.Attach("cliA")
+	f.Attach("cliA") // 재연결
+	f.Detach("cliA", old)
+	if got := f.Executor(); got != "cliA" {
+		t.Fatalf("Executor()=%q want cliA — 옛 구독의 teardown 이 후보에서 지웠다", got)
+	}
+}

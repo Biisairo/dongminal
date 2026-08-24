@@ -12,7 +12,7 @@ class App {
     this._attn=new Map(); // toolId → {reason} 주의 상태 집합 (FR-PAN-9/16)
     this._attnNotifs={}; // toolId → Notification (재팝업 위해 직전 알림 보관)
     this._activity=new Map(); // toolId → {state,tool,detail} 활동 상태 (AGENT_ACTIVITY_PANEL_SRS)
-    this._s=0;this._r=0;this._t=0;this._kb=false;
+    this._kb=false;
     this._windowFocused=typeof document!=='undefined'&&document.hasFocus?document.hasFocus():true;
     this._windowFocusOwner={}; // { windowId: clientId } — per-window focus ownership
     this._drag=null;
@@ -123,10 +123,8 @@ class App {
         }
         for(const s of this.ws.windows){
           if(!s||!s.id) continue;
-          const n=parseInt(s.id.replace(/\D/g,''),10); if(n>this._s) this._s=n;
           s.layout=clean(s.layout,ok);
           if(s.layout) normalizeLayout(s.layout);
-          if(s.layout) this._rids(s.layout);
         }
         this.ws.windows=this.ws.windows.filter(s=>s&&s.layout);
         if(!this.ws.windows.find(s=>s.id===this.ws.activeWindow))
@@ -207,6 +205,11 @@ class App {
               this._applyFocusOverlay();
               return;
             }
+            // FR-SXE-3: 서버가 실행자를 지명한 명령은 그 클라이언트만 수행한다.
+            // 어떤 action 을 게이팅할지는 서버만 정하므로 여기서 종류를 보지
+            // 않는다. 지명이 없으면(구독자에 clientId 가 없는 경우) 게이팅하지
+            // 않는다 — FR-SXE-5 의 열화 경로다.
+            if(m.execClientId&&m.execClientId!==this.clientId) return;
             // REMOTE_COMMAND_RESULT_SRS: reqId 는 broadcast payload 의 top-level
             // 이므로 args 에 합쳐 _execRemote 로 전달 (echo correlation).
             const args=m.args||{};
@@ -264,10 +267,8 @@ class App {
     }
     for(const s of sv.windows){
       if(!s||!s.id) continue;
-      const n=parseInt(s.id.replace(/\D/g,''),10); if(n>this._s) this._s=n;
       s.layout=clean(s.layout, ok);
       if(s.layout) normalizeLayout(s.layout);
-      if(s.layout) this._rids(s.layout);
     }
     sv.windows=sv.windows.filter(s=>s&&s.layout);
     if(!sv.windows.find(s=>s.id===sv.activeWindow))
@@ -495,16 +496,6 @@ class App {
     if(n.children) for(const c of n.children) this._collectPanes(c,out);
   }
 
-  _rids(n){
-    if(!n) return;
-    if(n.type==='pane'){
-      const r=parseInt((n.id||'').replace(/\D/g,''),10);if(r>this._r)this._r=r;
-      if(n.tabs) for(const t of n.tabs){const x=parseInt((t.id||'').replace(/\D/g,''),10);if(x>this._t)this._t=x}
-      return;
-    }
-    if(n.children) for(const c of n.children) this._rids(c);
-  }
-
   _mkTool(id,name){
     if(this.tools.has(id)) return this.tools.get(id);
     const p=new TerminalTool(id,name);
@@ -571,23 +562,41 @@ class App {
     if(this._bgModalOpen) this._bgModalRender();
   }
 
+  // FR-BGR-7: 복귀 대상 Pane 을 고른다.
+  //
+  // 명시 대상(opts.paneId)은 폴백하지 않는다 — 지목한 곳이 사라졌으면 실패가
+  // 옳고, 그때 도구는 백그라운드 목록에 남아 여전히 닿을 수 있다 (TC-BGR-6b).
+  // location 미지정은 "대상을 정하지 않았다"는 뜻이므로 폴백이 정당하다.
+  async _restorePane(opts){
+    if(opts.paneId){
+      const win=this.ws.windows.find(s=>s.id===opts.windowId)||null;
+      return win&&win.layout?findPane(win.layout,opts.paneId):null;
+    }
+    for(let i=0;i<RESTORE_PANE_WAIT_TRIES;i++){
+      const a=this._aw();
+      const pn=(this.focused&&a&&a.layout?findPane(a.layout,this.focused):null)
+        ||(a&&a.layout?firstPane(a.layout):null)
+        ||this.ws.windows.map(s=>firstPane(s.layout)).find(Boolean)
+        ||null;
+      if(pn) return pn;
+      // 창이 하나도 없는 것은 delWindow 가 _mkWindow 를 끝내기 전의 과도
+      // 상태뿐이다. 조용히 무효가 되지 않도록 그 왕복만큼 기다린다.
+      await new Promise(r=>setTimeout(r,RESTORE_PANE_WAIT_MS));
+    }
+    return null;
+  }
+
   // FR-BG-7 / FR-BGR-1: 백그라운드 도구를 지정 분할 칸(opts.paneId, 미지정 시
   // 현재 포커스)의 새 탭으로 되돌린다.
   async _restoreTool(toolId,opts={}){
     if(!toolId) return;
     // FR-BGR-5: 대상을 먼저 확정한다. 백그라운드 해제를 앞세우면 대상이 없을 때
     // 도구가 목록에도 탭에도 없는 — 어디서도 닿을 수 없는 상태가 된다.
-    let pn=null;
-    if(opts.paneId){
-      const win=this.ws.windows.find(s=>s.id===opts.windowId)||null;
-      pn=win&&win.layout?findPane(win.layout,opts.paneId):null;
-    }else{
-      pn=this.focused&&this._aw()?findPane(this._aw().layout,this.focused):null;
-    }
+    const pn=await this._restorePane(opts);
     if(!pn){console.warn('[bg] 복귀할 분할 칸 없음',opts.paneId||this.focused);return}
     if(!await this._setToolBackground(toolId,false)) return;
     if(!this.tools.has(toolId)) this._mkTool(toolId,'Shell #'+toolId);
-    const t=`t${++this._t}`;
+    const t=newEntityId();
     pn.tabs.push({id:t,name:'Shell',type:'terminal',toolId});
     pn.activeTab=t;
     this.render();
@@ -1121,10 +1130,10 @@ class App {
 
   async _mkWindow(opts={}){
     const p=await this._newTool();
-    const r=`r${++this._r}`,t=`t${++this._t}`;
+    const r=newEntityId(),t=newEntityId();
     const name=(typeof opts.name==='string'&&opts.name?opts.name:'Window').slice(0,64);
     const s={
-      id:`s${++this._s}`,name,
+      id:newEntityId(),name,
       layout:{type:'pane',id:r,tabs:[{id:t,name:'Shell',type:'terminal',toolId:p.id}],activeTab:t}
     };
     this.ws.windows.push(s);
@@ -1252,7 +1261,7 @@ class App {
         return;
       }
       const name = opts.name || opts.filePath.split('/').pop();
-      const t = `t${++this._t}`;
+      const t = newEntityId();
       pn.tabs.push({ id: t, name, type: 'editor', filePath: opts.filePath });
       pn.activeTab = t;
       this.render();
@@ -1261,7 +1270,7 @@ class App {
     }
     const ref = this._paneNewToolRef(s, rid);
     const p = await this._newTool(ref.cwd || null, ref.cwd ? null : (ref.cwdTool || null));
-    const t = `t${++this._t}`;
+    const t = newEntityId();
     const name = (typeof opts.name === 'string' && opts.name ? opts.name : 'Shell').slice(0, 64);
     pn.tabs.push({ id: t, name, type: 'terminal', toolId: p.id });
     // FR-RST-4: keepFocus 면 대상 pane 의 활성 탭도 바꾸지 않는다 (백그라운드 추가).
@@ -1383,7 +1392,7 @@ class App {
     const newPanes=[]; let lastR=null;
     for(let i=0;i<count-1;i++){
       const p=await this._newTool(ref.cwd || null, refPaneId);
-      const r=`r${++this._r}`,t=`t${++this._t}`;
+      const r=newEntityId(),t=newEntityId();
       newPanes.push({type:'pane',id:r,tabs:[{id:t,name:'Shell',type:'terminal',toolId:p.id}],activeTab:t});
       lastR=r;
     }
@@ -2514,9 +2523,9 @@ class App {
         const tabs=[];
         for(let i=0;i<tpl.tabCount;i++){
           const p=await this._newTool();
-          tabs.push({id:`t${++this._t}`,name:'Shell',type:'terminal',toolId:p.id});
+          tabs.push({id:newEntityId(),name:'Shell',type:'terminal',toolId:p.id});
         }
-        const rid=`r${++this._r}`;
+        const rid=newEntityId();
         return{type:'pane',id:rid,tabs,activeTab:tabs[0].id};
       }
       if(tpl.type==='split'){
@@ -2628,7 +2637,7 @@ class App {
     const[tab]=srcRg.tabs.splice(ti,1);
     if(srcRg.tabs.length===0)s.layout=doRemove(s.layout,srcRid);
     else if(srcRg.activeTab===tabId)srcRg.activeTab=srcRg.tabs[0].id;
-    const newRid=`r${++this._r}`;
+    const newRid=newEntityId();
     const newRg={type:'pane',id:newRid,tabs:[tab],activeTab:tab.id};
     const dir=(zone==='left'||zone==='right')?'horizontal':'vertical';
     const before=zone==='left'||zone==='top';

@@ -413,6 +413,20 @@ Pane 단위 동작이므로 **좌표의 T 성분은 무시**된다. 이는 `newT
 **FR-BGR-6** 서버(`internal/server`)와 `dmctl` 은 변경하지 않는다. `restoreTool` 은 이미
 action 화이트리스트에 있고 `location` 변환은 action 무관하게 동작한다.
 
+**FR-BGR-7** (개정, 트랙 4 0-A) FR-BGR-5 의 "복귀하지 않는다"는 **명시 대상**
+(`location` 지정)에만 적용한다. `location` 미지정은 "대상을 정하지 않았다"는 뜻이므로
+조용한 무효가 되어서는 안 되며, 다음 순서로 폴백한다.
+
+1. 포커스 Pane
+2. 활성 창의 첫 Pane
+3. 아무 창의 첫 Pane
+4. 창이 하나도 없으면 — `delWindow` 가 마지막 창을 지우고 `_mkWindow` 를 `await`
+   하는 동안의 과도 상태뿐이다 — `RESTORE_PANE_WAIT_MS` 간격으로
+   `RESTORE_PANE_WAIT_TRIES` 회까지 기다렸다 1~3 을 재시도한다
+
+새 Pane·창을 만들지 않는다. 폴백이 모두 실패하면 FR-BGR-5 대로 백그라운드 목록에
+남긴다 — 목록에 있으면 여전히 닿을 수 있다.
+
 **비목표(D)**: `restoreTool` 을 MCP `workspace_command` 에 노출하지 않는다 — `toolId`
 인자가 MCP 스키마에 없어 `location` 추가만으로는 호출 가능해지지 않으며, 이는 별개 결정이다.
 
@@ -621,6 +635,9 @@ Client 가 소유자가 된다. 기기 종류·화면 크기를 구분하지 않
 | TC-BGR-5c | FR-BGR-3 | `detach --at <uuid>` (`--restore` 없이) | 거부. rc≠0 |
 | TC-BGR-6 | FR-BGR-5 | 존재하지 않는 uuid 지정 | 복귀 미수행. 도구가 백그라운드 목록에 그대로 남는다 |
 | TC-BGR-7 | FR-BGR-6 | `internal/server` 기존 테스트 | 전량 통과 (무변경 확인) |
+| TC-BGR-6b | FR-BGR-5 | 명시 대상이 브라우저 시점에 사라진 경쟁 상황 | 복귀 미수행. 백그라운드 유지 (폴백하지 않는다) |
+| TC-BGR-8 | FR-BGR-7 | `location` 미지정 + `app.focused` 가 해소되지 않음 | 활성 창의 Pane 에 복귀 |
+| TC-BGR-9 | FR-BGR-7 | `location` 미지정 + `ws.windows` 가 빈 과도 상태 | 기다렸다 복귀 |
 
 ### 4.5 묶음 E — 크로스 기기 창 포커스
 
@@ -762,6 +779,7 @@ Safari 가 재스크롤할 이유가 없다는 것이 설계 근거이지만(§2
 | D | `restoreTool` 대상 | 항상 브라우저의 현재 포커스 Pane (`this.focused` 하드코딩) | `args.location` 지정 시 그 탭이 속한 Pane, 미지정 시 기존대로 | 워크스페이스 조작 명령 중 대상 지정 수단이 없는 유일한 명령이었다. 서버(`translateLocationUUID`)는 이미 action 무관하게 변환하고 있었다 |
 | D | `detach` 인자 파싱 | 첫 플래그에서 즉시 반환 | 플래그를 모두 모은 뒤 해석 | `--at` 이 `--restore` 앞에 와도 같은 결과여야 한다 |
 | D | `_restoreTool` 시그니처 | `(toolId)` | `(toolId, opts={})` | 대상 Pane 주입. `opts` 기본값으로 기존 호출부(모달 항목 클릭) 무변경 |
+| D | `location` 미지정 복귀 대상 (트랙 4 0-A) | 포커스 Pane 이 해소되지 않으면 조용히 무효 — `delivered=1`·`ok=true` 를 반환하고 아무 일도 하지 않았다 | 포커스 → 활성 창 첫 Pane → 아무 창 첫 Pane → (창이 비면) 대기 후 재시도 (FR-BGR-7) | `delWindow` 가 마지막 창을 지우고 `_mkWindow` 를 `await` 하는 동안 `ws.windows` 가 비어 `_aw()` 가 null 이 된다 (실측 확인). 명시 대상은 폴백하지 않는다 — 지목이 사라졌으면 실패가 옳다 |
 | D | 모달 행 식별자 | (없음) | `data-toolid` | `.pn-tab[data-toolid]` 과 같은 관행. 여러 백그라운드 도구 중 특정 행을 DOM 으로 지목할 수 있다 |
 | E | 소유권 전파 경로 | `BroadcastChannel('dongminal-focus')` — 동일 브라우저·동일 origin 한정 | `POST /api/focus/claim` → SSE `window_focus` | 다른 기기와 원리적으로 통신 불가였고, `--expose` 시 `localhost:PORT` 와 `<host-ip>:PORT` 는 origin 이 달라 같은 컴퓨터의 두 탭도 격리됐다 (§2.7) |
 | E | 소유권 권위 | 각 브라우저의 로컬 `_windowFocusOwner` (합의 없음) | 서버 in-memory (`FocusRegistry`) | 권위가 없으면 기기마다 다른 소유자를 믿는다. 영속화하지 않는 이유는 클라이언트 소유권이 휘발성이기 때문이다 — 서버 재시작 시 전원 해제가 안전하다 |

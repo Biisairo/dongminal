@@ -24,6 +24,12 @@ const MKB_DOUBLE_TAP_MS=350;
 const MKB_TAP_SLOP_PX=10;
 const MKB_GHOST_CLICK_MS=700;
 
+// 복귀 대상 Pane 을 기다리는 상한 (FR-BGR-7). delWindow 는 마지막 창을 지운 뒤
+// _mkWindow 를 await 하는데, 그 사이 ws.windows 가 비어 대상 Pane 이 없다.
+// PTY 생성 왕복 한 번이면 끝나는 과도 상태이므로 짧게 기다렸다 재시도한다.
+const RESTORE_PANE_WAIT_MS=25;
+const RESTORE_PANE_WAIT_TRIES=20;
+
 const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight','ShiftLeft','ShiftRight']);
 
 

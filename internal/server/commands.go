@@ -65,6 +65,26 @@ var creatingActions = map[string]bool{
 // IsCreatingAction reports whether action creates new entities (FR-RCR-1).
 func IsCreatingAction(action string) bool { return creatingActions[action] }
 
+// singleExecutorActions are the commands that add an entity to the workspace
+// tree and therefore must run on exactly ONE client
+// (WORKSPACE_IDENTITY_SRS FR-SXE-1). It is wider than creatingActions:
+// openEditorTab and restoreTool allocate a tab id without taking part in the
+// reqId echo protocol.
+//
+// Everything else stays ungated — focus is per-client by definition, and the
+// remaining mutations are idempotent across clients.
+var singleExecutorActions = map[string]bool{
+	"newWindow":     true,
+	"newTab":        true,
+	"splitH":        true,
+	"splitV":        true,
+	"openEditorTab": true,
+	"restoreTool":   true,
+}
+
+// IsSingleExecutorAction reports whether action must run on one client only.
+func IsSingleExecutorAction(action string) bool { return singleExecutorActions[action] }
+
 const defaultCommandResultTimeout = 3 * time.Second
 
 // CommandResultTimeout is the long-poll wait, overridable via env (NFR-RCR-1).
@@ -292,6 +312,10 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		Action string          `json:"action"`
 		Args   json.RawMessage `json:"args,omitempty"`
 		ReqId  string          `json:"reqId,omitempty"`
+		// ExecClientId names the single client that must perform this command
+		// (FR-SXE-2). Empty for ungated actions and when nothing is subscribed,
+		// which FR-SXE-3 reads as "do not gate".
+		ExecClientId string `json:"execClientId,omitempty"`
 	}
 	if err := json.Unmarshal(body, &req); err != nil {
 		http.Error(w, "invalid json: "+err.Error(), http.StatusBadRequest)
@@ -313,6 +337,13 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		locField = fmt.Sprintf(" location=%s uuid=%s", finalLoc, origLoc)
 	default:
 		locField = " location=" + finalLoc
+	}
+
+	// FR-SXE-2: 지명은 브로드캐스트 직전에 한다. 여기서 정하지 않으면 구독 중인
+	// 모든 브라우저가 각자 엔터티를 만들어 하나만 참조되고 나머지가 고아가 된다.
+	req.ExecClientId = ""
+	if IsSingleExecutorAction(req.Action) && s.Focus != nil {
+		req.ExecClientId = s.Focus.Executor()
 	}
 
 	resp := map[string]interface{}{
