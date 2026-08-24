@@ -498,5 +498,9 @@ FR-MKV-* 로 확정한다.
 | B | 바이너리 처리 | (신규) | 매 실행마다 `go build` | 존재 여부로 재사용하면 `migrate` 를 모르는 낡은 바이너리가 웹 서버로 부팅해 데몬 대기 100초 + PTY 되살림 + 포트 충돌을 일으킨다 (§2.5a-2, 구현 중 실측) |
 | B | 환경변수 우선순위 | (신규) | 호출자 값 > `.env` 값 | `_load_env` 가 무조건 export 하므로 지정한 `DONGMINAL_HOME` 이 `.env` 의 운영 홈으로 대체됐다 (§2.5a-1, 구현 중 실측) |
 | B | 서버 실행 중 보호 | (신규) | `PORT` 응답 시 변환 거부 (`--dry-run` 은 허용) | `Apply` 의 데몬 검사는 direct mode 인스턴스를 잡지 못한다 (§2.5a-3) |
-| C | | | | |
+| C | 키바 `touchstart` | `e.preventDefault()` (passive:false) | preventDefault 제거 (passive:true) | 규격상 합성 마우스 이벤트 생성을 취소한다. 키 전송이 `click` 리스너에 있었으므로 실기기에서 짧은 탭이 무반응이었고, 같은 호출이 스크롤도 취소해 슬라이드가 불가했다 |
+| C | 키 전송 시점 | `click` 전용 | `touchend`(짧은 탭) + `click`(마우스 폴백) | 터치 경로에서 즉각 반응하고, 마우스 경로는 그대로 유지한다 |
+| C | 중복 발동 방지 | (없음 — 이중 발동 가능) | `touchend` 후 700ms 내 `click` 무시 (`MKB_GHOST_CLICK_MS`) | 플래그 방식은 `preventDefault` 로 click 이 오지 않으면 플래그가 남아 다음 마우스 클릭을 먹는다. 시간 기준은 그 잔존이 없다 |
+| C | 롱프레스 취소 판정 | `touchmove` 발생 즉시 취소 | 이동 거리 임계값 10px 초과 시 취소 (`MKB_TAP_SLOP_PX`) | 손떨림에도 롱프레스가 죽었고, 스크롤과 공존할 수 없었다 |
+| C | 검증 범위 | Desktop Chrome 단일 프로젝트(`hasTouch:false`) | `mobile-touch` 프로젝트(Pixel 7, `hasTouch:true`) 신설 | 마우스 경로만으로는 이 결함을 한 번도 볼 수 없었다. 분리 없이는 재발한다 |
 | D | | | | |

@@ -353,6 +353,13 @@
 | C11.2 | 모바일 전용 버튼 — 분할 칸 prev/next, search, add tab, drawer | |
 | C11.3 | 가상 키보드 — sticky Ctrl/Alt | toggle/lock 모드 |
 | C11.4 | 모바일 키보드 바 | 동적 생성 |
+| C11.5 | **키바 터치 경로** — 짧은 탭이 키 전송, 한 제스처 = 1회 발동 | `hasTouch:true` 프로젝트 필수. `touchstart` 의 `preventDefault()` 는 합성 click 을 취소해 마우스 경로 테스트로는 결함이 보이지 않는다 |
+| C11.6 | **키바 수평 슬라이드** — 버튼 위에서 시작한 스와이프 | 이동 임계값(`MKB_TAP_SLOP_PX`) 초과 시 키 미전송 |
+| C11.7 | 롱프레스 툴팁 — 손떨림 내성 | 임계값 미만 이동은 롱프레스 유지 |
+
+**iOS Safari 수동 확인** (자동화 불가 — Chromium 터치 에뮬레이션으로 대체할 수
+없다): C11.5~C11.7 을 실기기에서 한 번 더 확인한다. 특히 합성 click 타이밍과
+`touch-action:manipulation` 의 더블탭 확대 차단.
 
 ### C12. 파일 업로드/다운로드 (web/js/app.js)
 | # | 동작 | 엣지/실패 케이스 |
@@ -496,7 +503,13 @@ Go 테스트는 전 패키지 통과, `go vet` 무경고, `gofmt` 청결. Playwr
 
 **e2e 스펙**: `basic`, `terminal`, `tab`, `focus`, `focus-invariant`, `layout`,
 `session`, `sync`, `settings`, `theme`, `attention`, `activity`, `mobile-keybar`,
-`regression-focus`, `regression-pane-scroll`, `editor-cwd-inherit`, `skill-contract`.
+`background-ui`, `regression-focus`, `regression-pane-scroll`, `editor-cwd-inherit`,
+`skill-contract`, `mobile-keybar-touch`.
+
+**Playwright 프로젝트 2개**: `chromium`(Desktop Chrome, `hasTouch:false`) 이
+`-touch.spec.ts` 를 제외한 전부를, `mobile-touch`(Pixel 7, `hasTouch:true`) 가
+`-touch.spec.ts` 만 돈다. 마우스 경로만으로는 `touchstart` 계열 결함을 볼 수
+없으므로 이 분리가 필수다 (`USER_CHECKLIST_FIXES_SRS` FR-MTB-7).
 
 `e2e/fixtures.ts` 가 매 테스트 전에 워크스페이스를 비우고 미참조 도구를 회수하며
 주의 알림을 해제한다. 이 초기화가 없으면 앞선 테스트의 창·탭이 남아 "포커스된

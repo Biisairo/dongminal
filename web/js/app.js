@@ -1899,31 +1899,25 @@ class App {
       const full=FULL_NAMES[k.label]||k.label;
       b.title=full;b.setAttribute('aria-label',full);
       if(k.mod){b.dataset.mod=k.mod}
-      // prevent focus theft from xterm
+      // 마우스 경로에서만 포커스 탈취를 막는다. touchstart 에서 preventDefault
+      // 하면 브라우저가 합성 click 과 스크롤을 함께 취소해, 실기기에서 버튼이
+      // 아무 반응도 하지 않고 키바 슬라이드도 막힌다 (FR-MTB-1/3).
       b.addEventListener('mousedown',e=>e.preventDefault());
-      let lastTap=0;
+
+      let lastTap=0;          // 모디파이어 더블탭(lock) 판정
       let pressTimer=null;
       let longPressFired=false;
-      b.addEventListener('touchstart',e=>{
-        e.preventDefault();
-        longPressFired=false;
-        pressTimer=setTimeout(()=>{longPressFired=true;showTip(full,b)},600);
-      },{passive:false});
+      let startPt=null;       // 터치 시작 좌표 — 이동 거리 판정의 기준
+      let moved=false;        // TAP_SLOP 초과 = 스크롤 제스처
+      let lastTouchEndAt=0;   // 합성 click(ghost click) 억제용
+
       const cancelPress=()=>{
         if(pressTimer){clearTimeout(pressTimer);pressTimer=null}
       };
-      b.addEventListener('touchmove',()=>{cancelPress();hideTip();longPressFired=false});
-      b.addEventListener('touchcancel',()=>{cancelPress();hideTip();longPressFired=false});
-      b.addEventListener('touchend',e=>{
-        cancelPress();
-        if(longPressFired){e.preventDefault();hideTip();return}
-      });
-      b.addEventListener('click',e=>{
-        e.preventDefault();
-        if(longPressFired){longPressFired=false;return}
+      const activate=()=>{
         if(k.mod){
           const now=Date.now();
-          const dbl=(now-lastTap)<350;
+          const dbl=(now-lastTap)<MKB_DOUBLE_TAP_MS;
           lastTap=now;
           const cur=this._modKbd[k.mod];
           if(dbl){this._modKbd[k.mod]=(cur==='lock')?false:'lock'}
@@ -1932,6 +1926,51 @@ class App {
         }else{
           sendToFocused(k.send);
         }
+      };
+
+      b.addEventListener('touchstart',e=>{
+        const t=e.touches[0];
+        startPt=t?{x:t.clientX,y:t.clientY}:null;
+        moved=false;longPressFired=false;
+        cancelPress();
+        pressTimer=setTimeout(()=>{longPressFired=true;showTip(full,b)},MKB_LONG_PRESS_MS);
+      },{passive:true});
+
+      // FR-MTB-5: 이동 거리 임계값으로 판정한다. touchmove 발생만으로 취소하면
+      // 손떨림에도 롱프레스가 죽고, 스크롤과 공존할 수 없다.
+      b.addEventListener('touchmove',e=>{
+        if(!startPt||moved) return;
+        const t=e.touches[0];
+        if(!t) return;
+        if(Math.abs(t.clientX-startPt.x)>MKB_TAP_SLOP_PX||Math.abs(t.clientY-startPt.y)>MKB_TAP_SLOP_PX){
+          moved=true;cancelPress();hideTip();longPressFired=false;
+        }
+      },{passive:true});
+
+      b.addEventListener('touchcancel',()=>{
+        cancelPress();hideTip();
+        startPt=null;moved=false;longPressFired=false;
+        lastTouchEndAt=Date.now();
+      });
+
+      b.addEventListener('touchend',e=>{
+        cancelPress();
+        const wasLong=longPressFired, wasMoved=moved;
+        startPt=null;moved=false;longPressFired=false;
+        lastTouchEndAt=Date.now();
+        if(wasLong){hideTip();e.preventDefault();return}
+        if(wasMoved) return;              // 스크롤 제스처 — 키를 보내지 않는다
+        e.preventDefault();               // 합성 click 억제. 여기서 직접 처리한다
+        activate();
+      });
+
+      b.addEventListener('click',e=>{
+        e.preventDefault();
+        // FR-MTB-2: 터치 제스처가 합성한 click 은 무시한다 — touchend 가 이미
+        // 처리했다. 시간 기준을 쓰는 이유는, 플래그를 쓰면 preventDefault 로
+        // click 이 오지 않은 경우 플래그가 남아 다음 마우스 클릭을 먹는다.
+        if(Date.now()-lastTouchEndAt<MKB_GHOST_CLICK_MS) return;
+        activate();
       });
       bar.appendChild(b);
     }

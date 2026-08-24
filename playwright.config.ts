@@ -22,8 +22,17 @@ export default defineConfig({
   },
   projects: [
     {
+      // 마우스 경로. 터치 전용 스펙은 hasTouch 가 없어 여기서 돌 수 없다.
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testIgnore: /-touch\.spec\.ts$/,
+    },
+    {
+      // FR-MTB-7: 실기기 터치 경로. hasTouch 없이는 브라우저가 호환 마우스
+      // 이벤트를 합성하지 않으므로, 키바의 tap → click 경로 결함을 볼 수 없다.
+      name: 'mobile-touch',
+      use: { ...devices['Pixel 7'] },
+      testMatch: /-touch\.spec\.ts$/,
     },
   ],
   webServer: {

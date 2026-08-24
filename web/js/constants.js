@@ -16,6 +16,14 @@ const AGENTS_POLL_DEFAULT=5000;
 // 상태별 글꼴 기호(이모지 아님) — 색(.ag-state.<state>)과 함께 상태를 구분.
 const AGENT_STATE_ICON={working:'●',done:'✓',waiting:'…',idle:'○'};
 
+// 모바일 키바 제스처 상수 (USER_CHECKLIST_FIXES_SRS FR-MTB-2/4/5).
+// TAP_SLOP: 이 거리를 넘으면 탭이 아니라 스크롤로 넘긴다.
+// GHOST_CLICK: touchend 처리 후 이 시간 안에 오는 click 은 합성분으로 본다.
+const MKB_LONG_PRESS_MS=600;
+const MKB_DOUBLE_TAP_MS=350;
+const MKB_TAP_SLOP_PX=10;
+const MKB_GHOST_CLICK_MS=700;
+
 const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight','ShiftLeft','ShiftRight']);
 
 
