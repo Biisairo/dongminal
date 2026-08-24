@@ -14,7 +14,7 @@
 | **C** | 모바일 키바 터치 | **완료** | `18c7f14` |
 | **D** | 복귀 대상 Pane 지정 | **완료** | `a906418` |
 | **E** | 크로스 기기 창 포커스 | **완료** | `854ada6` |
-| **F** | 모바일 키보드 뷰포트 | **완료** | (미커밋) |
+| **F** | 모바일 키보드 뷰포트 | **완료** | `cb4cc8c` |
 
 검증 상태 (A~F 완료 시점 실측):
 
@@ -126,7 +126,7 @@ bash scripts/test_migrate.sh   28 통과
 를 기록했다. `ENTITY_MODEL_RESTRUCTURE_SRS` 의 비목표 "다중 창 포커스 소유권 부채
 정리" 를 부분 해소로 갱신하고, `README.md` TODO 의 현행 동작 서술을 정정했다.
 
-### 묶음 F — 모바일 키보드 뷰포트 (미커밋)
+### 묶음 F — 모바일 키보드 뷰포트 (`cb4cc8c`)
 
 **조사가 계획의 전제 두 개를 무너뜨렸다.** 그래서 구현이 계획보다 훨씬 작아졌다.
 
@@ -365,15 +365,13 @@ git stash pop
 
 **문서의 "142 통과"·"153 통과" 는 단일 실행 실측치이고 보장이 아니다.**
 
-### 묶음 F 가 커밋되지 않았다
+### iOS 실기기 수동 확인이 남아 있다 (묶음 F)
 
-구현·테스트·문서가 끝났고 자동 검증은 전량 통과했으나 커밋하지 않았다 — 커밋은 사용자
-확인 후에만 한다. 대상: `web/index.html`(viewport meta + js 캐시 버스터 120→121),
-`web/js/app.js`, `e2e/mobile-keybar.spec.ts`(TC-A → TC-MKV 재작성),
-`docs/internal/{USER_CHECKLIST_FIXES_SRS,USER_CHECKLIST_FIXES_PLAN,
-USER_CHECKLIST_FIXES_HANDOFF,test-checklist}.md`.
-
-**그리고 iOS 실기기 확인이 남아 있다** — 자동 검증으로 닫을 수 없는 유일한 항목이다.
+자동 검증으로 닫을 수 없는 유일한 항목이다 — Playwright 의 `webkit` 프로젝트조차
+가상 키보드를 띄우지 않는다. 절차는 `test-checklist.md` C11.8~C11.10 에 엔진별로
+있다. 특히 **진동(oscillation)** 을 보라 — 보정 후 Safari 가 재스크롤하지 않는다는
+것이 설계 근거이지만 그 휴리스틱은 실기기로만 확인된다. 진동이 관측되면 폴백은
+`scroll` 리스너에서의 보정 감쇠다 (`resize` 에서만 보정).
 
 ### 범위 밖으로 기록만 한 것
 
