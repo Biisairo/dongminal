@@ -22,6 +22,10 @@ const (
 	toolsFile     = "tools.json"
 	settingsFile  = "settings.json"
 	backupSuffix  = ".v1.bak"
+	// preUUIDSuffix는 구 식별자 재작성 직전 상태의 백업이다 (FR-MGU-8).
+	// `.v1.bak` 을 재사용할 수 없다 — backupOnce 는 백업이 이미 있으면
+	// 무동작이라, 이미 v2 인 홈에서는 직전 상태가 어디에도 남지 않는다.
+	preUUIDSuffix = ".preuuid.bak"
 )
 
 // Apply는 home 의 workspace.json·panes.json 을 v2 로 변환한다 (NFR-EM-2).
@@ -71,6 +75,17 @@ func Apply(home string, dryRun bool) (Report, error) {
 		return Report{}, err
 	}
 
+	// 묶음 M: 구 식별자를 uuid 로 재작성한다 (SRS §3.5). Run 의 산출을 입력으로
+	// 받으므로, v1 사용자는 스키마 변환과 id 정리가 1회 실행으로 함께 끝난다.
+	wsRewritten, toolsRewritten, idRep, err := RewriteIdentifiers(res.Workspace, res.Tools, nil)
+	if err != nil {
+		return Report{}, err
+	}
+	res.Report.Identity = idRep
+	if idRep.Total() > 0 {
+		res.Workspace, res.Tools = wsRewritten, toolsRewritten
+	}
+
 	stPath := filepath.Join(home, settingsFile)
 	stBlob, err := readOptional(stPath)
 	if err != nil {
@@ -90,8 +105,13 @@ func Apply(home string, dryRun bool) (Report, error) {
 	}
 
 	if res.Workspace != nil {
-		if err := backupOnce(wsPath); err != nil {
+		if err := backupOnce(wsPath, backupSuffix); err != nil {
 			return Report{}, err
+		}
+		if idRep.Total() > 0 {
+			if err := backupOnce(wsPath, preUUIDSuffix); err != nil {
+				return Report{}, err
+			}
 		}
 		if err := os.WriteFile(wsPath, res.Workspace, 0o644); err != nil {
 			return Report{}, fmt.Errorf("%s 쓰기: %w", workspaceFile, err)
@@ -99,11 +119,16 @@ func Apply(home string, dryRun bool) (Report, error) {
 	}
 	if res.Tools != nil {
 		if !fromTools {
-			if err := backupOnce(pnPath); err != nil {
+			if err := backupOnce(pnPath, backupSuffix); err != nil {
 				return Report{}, err
 			}
 			if err := os.Remove(pnPath); err != nil && !os.IsNotExist(err) {
 				return Report{}, fmt.Errorf("%s 제거: %w", panesFile, err)
+			}
+		}
+		if idRep.Total() > 0 {
+			if err := backupOnce(filepath.Join(home, toolsFile), preUUIDSuffix); err != nil {
+				return Report{}, err
 			}
 		}
 		if err := os.WriteFile(filepath.Join(home, toolsFile), res.Tools, 0o644); err != nil {
@@ -111,7 +136,7 @@ func Apply(home string, dryRun bool) (Report, error) {
 		}
 	}
 	if stOut != nil {
-		if err := backupOnce(stPath); err != nil {
+		if err := backupOnce(stPath, backupSuffix); err != nil {
 			return Report{}, err
 		}
 		if err := os.WriteFile(stPath, stOut, 0o644); err != nil {
@@ -132,9 +157,10 @@ func readOptional(path string) ([]byte, error) {
 	return b, nil
 }
 
-// backupOnce는 path 를 백업한다. 백업이 이미 존재하면 아무것도 하지 않는다.
-func backupOnce(path string) error {
-	bak := path + backupSuffix
+// backupOnce는 path 를 suffix 백업으로 남긴다. 백업이 이미 존재하면 아무것도
+// 하지 않는다.
+func backupOnce(path, suffix string) error {
+	bak := path + suffix
 	if _, err := os.Stat(bak); err == nil {
 		return nil
 	}

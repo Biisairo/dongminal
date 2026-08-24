@@ -1,5 +1,9 @@
 #!/bin/bash
-# v1 → v2 엔티티 스키마 1회성 변환 (ENTITY_MODEL_RESTRUCTURE_SRS NFR-EM-2).
+# 1회성 데이터 변환. 두 가지를 수행한다.
+#   1) v1 → v2 엔티티 스키마 (ENTITY_MODEL_RESTRUCTURE_SRS NFR-EM-2)
+#   2) 구 식별자(s{n}/r{n}/t{n}·정수 toolId) → uuid 재작성
+#      (WORKSPACE_IDENTITY_SRS 묶음 M, FR-MGU-1)
+# 이미 v2 인 홈에서는 2)만 일어난다. 둘 다 멱등이다.
 #
 # `dongminal` 은 PATH 에 설치되지 않는다 — $DONGMINAL_HOME/bin 에 놓이는 것은
 # dmctl/edit/download/detach 뿐이다. 그래서 사용자 진입점을 이 스크립트로 둔다
@@ -48,8 +52,11 @@ for arg in "$@"; do
     --dry-run|-n) DRY_RUN=1 ;;
     -h|--help)
       echo "Usage: $0 [--dry-run]"
-      echo "  (no flag)   변환 실행 (*.v1.bak 백업 자동)"
+      echo "  (no flag)   변환 실행 (백업 자동)"
       echo "  --dry-run   변환 내용만 출력, 파일 무변경"
+      echo
+      echo "백업: *.v1.bak       스키마 변환 직전 (v1 원본)"
+      echo "      *.preuuid.bak  식별자 재작성 직전"
       echo
       echo "DONGMINAL_HOME=$DONGMINAL_HOME"
       echo "PORT=$PORT (서버가 이 포트에서 응답하면 변환을 거부한다)"

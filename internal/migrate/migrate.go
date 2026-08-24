@@ -34,6 +34,9 @@ type Report struct {
 	// BrokenRefs는 탭이 참조하지만 도구 컬렉션에 없는 id. 제거하지 않고 보고만
 	// 한다 — 탭 정리는 런타임 무결성 검사(FR-EM-14)의 책임이다.
 	BrokenRefs []string
+
+	// Identity는 구 식별자 재작성의 결과다 (묶음 M, FR-MGU-10).
+	Identity IdentityReport
 }
 
 type Result struct {

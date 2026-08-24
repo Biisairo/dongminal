@@ -187,8 +187,21 @@ func runMigrate(home string, args []string) {
 	if len(rep.BrokenRefs) > 0 {
 		fmt.Printf("경고: 탭이 참조하나 도구가 없음 %d개: %v\n", len(rep.BrokenRefs), rep.BrokenRefs)
 	}
+	// 묶음 M: 구 식별자 재작성 (FR-MGU-10)
+	if id := rep.Identity; id.Total() > 0 {
+		fmt.Printf("구 식별자 %d개를 uuid 로 재작성: 창 %d, 분할 칸 %d, 탭 %d, 도구 %d\n",
+			id.Total(), id.Windows, id.Panes, id.Tabs, id.Tools)
+	} else {
+		fmt.Println("구 식별자 없음 — 재작성할 것이 없습니다.")
+	}
+	if d := rep.Identity.Dangling; len(d) > 0 {
+		fmt.Printf("경고: 대상이 없어 값을 보존한 참조 %d개: %v\n", len(d), d)
+	}
 	if !dryRun {
 		fmt.Println("백업: *.v1.bak (workspace/tools/settings)")
+		if rep.Identity.Total() > 0 {
+			fmt.Println("백업: *.preuuid.bak (식별자 재작성 직전 상태)")
+		}
 	}
 }
 
