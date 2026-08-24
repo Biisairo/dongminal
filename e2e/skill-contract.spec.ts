@@ -1,14 +1,14 @@
 import { test, expect } from './fixtures';
 
-// skills/dongminal-team 과 dongminal-workflow 가 실제로 밟는 MCP 시퀀스를
-// 라이브 서버에서 검증한다. 스킬 문서는 툴명·action·인자만 적혀 있어 정적
-// 대조로는 "그 이름이 존재한다" 까지만 알 수 있다 — 여기서 실제 호출이
-// 통하는지, 응답에서 스킬이 기대하는 필드가 나오는지를 확인한다.
+// /dongminal:team 과 /dongminal:workflow 스킬이 실제로 밟는 접합면을 라이브 서버에서
+// 검증한다. 스킬 문서는 명령·인자만 적혀 있어 정적 대조로는 "그 이름이 존재한다"
+// 까지만 알 수 있다 — 여기서 실제 왕복이 통하는지, 응답에서 스킬이 기대하는 필드가
+// 나오는지를 확인한다.
 //
-// MCP SSE 전송은 POST /mcp/message 가 202 만 돌려주고 실제 JSON-RPC 응답은
-// /mcp/sse 스트림으로 온다. 그래서 호출·수신을 모두 페이지 안에서 한다.
-// 브라우저 페이지는 동시에 /api/commands/sse 구독자 역할도 하므로,
-// workspace_command 가 delivered>0 을 받는 스킬의 전제도 함께 만족한다.
+// 접합면은 MCP 에서 dmctl + HTTP 로 교체됐다 (SKILL_INJECTION_SRS). dmctl 은 아래
+// 엔드포인트를 부르는 얇은 CLI 이므로, 여기서 같은 엔드포인트를 직접 호출하는 것이
+// 스킬이 밟는 경로와 동일하다. 브라우저 페이지를 함께 띄우는 이유는 그것이
+// /api/commands/sse 구독자이기 때문이다 — 스킬의 delivered>0 전제를 만족시킨다.
 
 async function waitForInit(page: any) {
   await page.context().addInitScript(() => {
@@ -18,124 +18,198 @@ async function waitForInit(page: any) {
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
-// 페이지에 MCP 클라이언트를 심는다. window.__mcp(method, params) 가
-// JSON-RPC 응답 객체로 resolve 한다.
-async function installMCPClient(page: any) {
-  await page.evaluate(() => new Promise<void>((resolve, reject) => {
-    const w = window as any;
-    const pending = new Map<number, (v: any) => void>();
-    let seq = 0;
-    let endpoint = '';
-    const es = new EventSource('/mcp/sse');
-    const timer = setTimeout(() => reject(new Error('MCP SSE endpoint timeout')), 10000);
-    es.addEventListener('endpoint', (e: any) => {
-      endpoint = String(e.data);
-      clearTimeout(timer);
-      resolve();
-    });
-    es.addEventListener('message', (e: any) => {
-      let msg: any;
-      try { msg = JSON.parse(e.data); } catch { return; }
-      const fn = pending.get(Number(msg.id));
-      if (fn) { pending.delete(Number(msg.id)); fn(msg); }
-    });
-    es.onerror = () => { clearTimeout(timer); reject(new Error('MCP SSE error')); };
-    w.__mcp = (method: string, params: any) => new Promise((res, rej) => {
-      const id = ++seq;
-      const t = setTimeout(() => { pending.delete(id); rej(new Error('MCP 응답 timeout: ' + method)); }, 15000);
-      pending.set(id, (v) => { clearTimeout(t); res(v); });
-      fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
-      }).catch(rej);
-    });
-  }));
+// dmctl list-workspace 가 /api/state 를 읽어 만드는 행에서 스킬이 캡처하는 값들.
+async function firstTab(request: any): Promise<{ uuid: string; toolId: string }> {
+  const state = await (await request.get('/api/state')).json();
+  const walk = (n: any): any => {
+    if (!n) return null;
+    for (const t of n.tabs || []) if (t.id && t.toolId) return t;
+    for (const c of n.children || []) { const r = walk(c); if (r) return r; }
+    return null;
+  };
+  for (const w of state.workspace?.windows || []) {
+    const t = walk(w.layout);
+    if (t) return { uuid: t.id, toolId: t.toolId };
+  }
+  throw new Error('참조된 탭이 없다');
 }
 
-async function callTool(page: any, name: string, args: any = {}) {
-  return await page.evaluate(
-    ([n, a]: [string, any]) => (window as any).__mcp('tools/call', { name: n, arguments: a }),
-    [name, args] as [string, any],
-  );
-}
-
-function textOf(res: any): string {
-  return (res?.result?.content || []).map((c: any) => c.text || '').join('\n');
-}
-
-test.describe('스킬이 부르는 MCP 계약 (라이브)', () => {
+test.describe('스킬이 부르는 접합면 (라이브)', () => {
   test.beforeEach(async ({ page }) => {
     await waitForInit(page);
-    await installMCPClient(page);
   });
 
-  test('tools/list 가 스킬이 쓰는 7개 툴을 노출한다', async ({ page }) => {
-    const res = await page.evaluate(() => (window as any).__mcp('tools/list', {}));
-    const names = (res?.result?.tools || []).map((t: any) => t.name).sort();
-    expect(names).toEqual([
-      'list_workspace', 'read_output', 'read_screen', 'send_agent_message',
-      'send_input', 'who_am_i', 'workspace_command',
-    ]);
-  });
+  // dmctl who-am-i / list-workspace 가 파싱하는 필드가 서버 응답에 있는지.
+  // 스킬은 이 중 uuid 를 모든 단계의 식별자로 보관한다.
+  test('/api/state 가 스킬이 캡처하는 식별자를 낸다', async ({ request }) => {
+    const state = await (await request.get('/api/state')).json();
+    expect(state.workspace, 'workspace 트리가 없다').toBeTruthy();
+    expect(Array.isArray(state.tools), 'tools 배열이 없다').toBe(true);
 
-  test('list_workspace 가 스킬이 파싱하는 컬럼을 낸다', async ({ page }) => {
-    const txt = textOf(await callTool(page, 'list_workspace'));
-    // 스킬은 uuid= / short= / toolId= 를 캡처한다 (SKILL.md §3 팁).
-    expect(txt).toMatch(/label=W\d+\.P\d+\.T\d+/);
-    expect(txt).toMatch(/uuid=/);
-    expect(txt).toMatch(/toolId=/);
+    const { uuid, toolId } = await firstTab(request);
+    expect(uuid).toBeTruthy();
+    expect(toolId).toBeTruthy();
+    // 스킬의 계약은 "이 값이 좌표 라벨이 아니다" 다 — 라벨은 다른 창이 닫히면
+    // reflow 되지만 이 id 는 탭에 고정된다. 실제 형식은 UUID 가 아니라 프론트엔드가
+    // 만드는 s{n}/t{n} 이므로(app.js:1127,2517) 형식을 단정하지 않는다.
+    expect(uuid).not.toMatch(/^W\d+\.P\d+\.T\d+$/);
+    expect(uuid).not.toBe(toolId);
+
     // v1 어휘가 남아 있으면 스킬의 파싱 지시가 어긋난다.
-    expect(txt).not.toMatch(/\bsession="|session_uuid=|region_uuid=/);
-    expect(txt).toMatch(/window="/);
+    const raw = JSON.stringify(state);
+    expect(raw).not.toMatch(/"region"|"paneId"|"session_uuid"/);
   });
 
-  test('workspace_command(splitH, keepFocus) 가 분할 칸을 늘린다', async ({ page }) => {
-    const before = await page.locator('#area .pn').count();
-    const uuid = textOf(await callTool(page, 'list_workspace')).match(/uuid=([0-9a-zA-Z-]+)/)?.[1];
-    expect(uuid, 'list_workspace 에서 uuid 를 못 뽑았다').toBeTruthy();
+  test('/api/whoami 가 uuid·라벨을 돌려준다', async ({ request }) => {
+    const { toolId } = await firstTab(request);
+    const r = await request.get(`/api/whoami?toolId=${toolId}`);
+    expect(r.status()).toBe(200);
+    const body = await r.json();
+    expect(body.toolId).toBe(toolId);
+    expect(body.uuid, 'who-am-i 에 uuid 가 없다 — 스킬의 BOSS 캡처가 깨진다').toBeTruthy();
+    expect(body.label).toMatch(/^W\d+\.P\d+\.T\d+$/);
+  });
 
-    // dongminal-team SKILL.md §2 의 호출 형태 그대로.
-    const res = await callTool(page, 'workspace_command', {
-      action: 'splitH', location: uuid, keepFocus: true,
+  // /dongminal:team §2 의 호출 형태 그대로. 스킬은 응답의 newTabs[0].uuid 를
+  // SEED 로 캡처하므로 그 필드가 실제로 오는지가 계약이다.
+  test('split-h --at <uuid> -n 이 분할 칸을 늘리고 newTabs 를 돌려준다', async ({ page, request }) => {
+    const before = await page.locator('#area .pn').count();
+    const { uuid } = await firstTab(request);
+
+    const r = await request.post('/api/commands', {
+      data: { action: 'splitH', args: { location: uuid, keepFocus: true } },
     });
-    expect(res.result?.isError, `splitH 실패: ${textOf(res)}`).toBeFalsy();
+    expect(r.status(), `splitH 가 ${r.status()} 로 거부됐다`).toBe(200);
+    const body = await r.json();
+    expect(body.delivered, '구독 중인 브라우저가 없다').toBeGreaterThan(0);
+    if (!body.timedOut) {
+      expect(Array.isArray(body.newTabs), 'newTabs 가 배열이 아니다').toBe(true);
+      expect(body.newTabs.length, '생성 명령인데 newTabs 가 비었다').toBeGreaterThan(0);
+      expect(body.newTabs[0].uuid, 'newTabs[0].uuid 가 없다 — 스킬의 SEED 캡처가 깨진다').toBeTruthy();
+      expect(body.newTabs[0].toolId).toBeTruthy();
+    }
     await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
   });
 
-  test('좌표 location 은 거부된다 (스킬의 uuid-only 규칙 근거)', async ({ page }) => {
-    const res = await callTool(page, 'workspace_command', {
-      action: 'focus', location: 'W1.P1.T1',
+  // 스킬의 "식별자는 항상 UUID" 원칙의 서버측 근거.
+  test('좌표 location 은 거부된다', async ({ request }) => {
+    const r = await request.post('/api/commands', {
+      data: { action: 'focus', args: { location: 'W1.P1.T1' } },
     });
-    expect(res.result?.isError, '좌표 location 이 통과했다').toBeTruthy();
-    // 안내 메시지는 실재하는 조회 수단을 가리켜야 한다. MCP 채널이므로
-    // 툴명 list_workspace (HTTP/CLI 경로는 list-workspace).
-    expect(textOf(res)).toContain('list_workspace');
+    expect(r.status(), '좌표 location 이 통과했다').toBe(400);
+    // 안내는 실재하는 조회 수단을 가리켜야 한다.
+    expect(await r.text()).toContain('list-workspace');
   });
 
-  test('detach 계열 action 은 workspace_command 로 부를 수 없다', async ({ page }) => {
-    for (const action of ['detachTab', 'restoreTool']) {
-      const res = await callTool(page, 'workspace_command', { action });
-      expect(res.result?.isError, `${action} 이 통과했다`).toBeTruthy();
-      expect(textOf(res)).toContain('unknown action');
+  test('rename-tab / rename-window 가 통한다', async ({ request }) => {
+    const { uuid } = await firstTab(request);
+
+    for (const [action, name] of [['renameTab', 'sk-tab'], ['renameWindow', 'sk-window']]) {
+      const r = await request.post('/api/commands', {
+        data: { action, args: { location: uuid, name } },
+      });
+      expect(r.status(), `${action} 이 ${r.status()} 로 거부됐다`).toBe(200);
     }
+
+    await expect.poll(async () => {
+      const state = await (await request.get('/api/state')).json();
+      return (state.workspace?.windows || []).map((w: any) => w.name);
+    }, { timeout: 10000 }).toContain('sk-window');
+  });
+});
+
+// 에이전트 접합면 3종 (SKILL_INJECTION_SRS 묶음 B). dmctl read-screen /
+// send-input / msg 가 부르는 경로다. Go 테스트는 fake 어댑터로 검증하므로
+// 실제 PTY 왕복은 여기서만 확인된다.
+test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
+  test.beforeEach(async ({ page }) => {
+    await waitForInit(page);
   });
 
-  test('renameTab / renameWindow 가 통한다', async ({ page }) => {
-    const uuid = textOf(await callTool(page, 'list_workspace')).match(/uuid=([0-9a-zA-Z-]+)/)?.[1];
-    expect(uuid).toBeTruthy();
+  test('send-input → read-screen 왕복', async ({ request }) => {
+    const { uuid } = await firstTab(request);
+    const marker = 'SKILL_CONTRACT_' + Date.now();
 
-    const rt = await callTool(page, 'workspace_command',
-      { action: 'renameTab', location: uuid, name: 'p8-tab' });
-    expect(rt.result?.isError, `renameTab 실패: ${textOf(rt)}`).toBeFalsy();
+    const r = await request.post('/api/tools/input', {
+      data: { id: uuid, text: `echo ${marker}`, execute: true },
+    });
+    expect(r.status(), `send-input 이 ${r.status()} 로 실패했다`).toBe(200);
 
-    const rw = await callTool(page, 'workspace_command',
-      { action: 'renameWindow', location: uuid, name: 'p8-window' });
-    expect(rw.result?.isError, `renameWindow 실패: ${textOf(rw)}`).toBeFalsy();
+    await expect.poll(async () => {
+      const out = await (await request.get(
+        `/api/tools/output?id=${uuid}&bytes=8192&strip=1`)).json();
+      return out.text || '';
+    }, { timeout: 10000 }).toContain(marker);
+  });
 
-    await expect.poll(async () =>
-      textOf(await callTool(page, 'list_workspace')), { timeout: 10000 },
-    ).toContain('window="p8-window"');
+  test('read-screen 은 ANSI 를 제거하고 read-output 은 유지한다', async ({ request }) => {
+    const { uuid } = await firstTab(request);
+    // 색을 내는 출력을 만든다.
+    await request.post('/api/tools/input', {
+      data: { id: uuid, text: `printf '\\033[31mRED_MARK\\033[0m\\n'`, execute: true },
+    });
+
+    await expect.poll(async () => {
+      const out = await (await request.get(
+        `/api/tools/output?id=${uuid}&bytes=8192&strip=1`)).json();
+      return out.text || '';
+    }, { timeout: 10000 }).toContain('RED_MARK');
+
+    const stripped = await (await request.get(
+      `/api/tools/output?id=${uuid}&bytes=8192&strip=1`)).json();
+    const raw = await (await request.get(
+      `/api/tools/output?id=${uuid}&bytes=8192`)).json();
+    // eslint-disable-next-line no-control-regex
+    expect(stripped.text, 'strip=1 인데 ESC 가 남아 있다').not.toMatch(/\x1b\[/);
+    // eslint-disable-next-line no-control-regex
+    expect(raw.text, 'raw 응답에 ESC 가 없다').toMatch(/\x1b\[/);
+  });
+
+  // 엔벨로프는 서버가 조립한다 (FR-API-3). 수신 도구 화면에 그 형태로 도달하는지가
+  // 팀 협업 전체의 전제다.
+  test('msg 가 엔벨로프로 감싸 수신 도구에 도달한다', async ({ request }) => {
+    const { uuid } = await firstTab(request);
+    const marker = 'ENVELOPE_BODY_' + Date.now();
+
+    const r = await request.post('/api/tools/message', {
+      data: { to: uuid, from: uuid, message: marker },
+    });
+    expect(r.status(), `msg 가 ${r.status()} 로 실패했다`).toBe(200);
+    const body = await r.json();
+    // 헤더 표시는 사람 가독성용 라벨로 정규화된다.
+    expect(body.from).toMatch(/^W\d+\.P\d+\.T\d+$/);
+    expect(body.to).toMatch(/^W\d+\.P\d+\.T\d+$/);
+
+    await expect.poll(async () => {
+      const out = await (await request.get(
+        `/api/tools/output?id=${uuid}&bytes=16384&strip=1`)).json();
+      return out.text || '';
+    }, { timeout: 10000 }).toContain('DONGMINAL-AGENT-MSG');
+
+    const out = await (await request.get(
+      `/api/tools/output?id=${uuid}&bytes=16384&strip=1`)).json();
+    expect(out.text, '엔벨로프 본문이 도달하지 않았다').toContain(marker);
+  });
+
+  test('없는 식별자는 404 로 거부된다', async ({ request }) => {
+    for (const [path, data] of [
+      ['/api/tools/input', { id: 'no-such-uuid', text: 'x' }],
+      ['/api/tools/message', { to: 'no-such-uuid', message: 'x' }],
+    ] as [string, any][]) {
+      const r = await request.post(path, { data });
+      expect(r.status(), `${path} 가 없는 식별자를 통과시켰다`).toBe(404);
+    }
+    const g = await request.get('/api/tools/output?id=no-such-uuid');
+    expect(g.status()).toBe(404);
+  });
+
+  // MCP 는 제거됐다 (SKILL_INJECTION_SRS 묶음 F). 라우트가 되살아나면 이중
+  // 접합면이 생기므로 여기서 막는다.
+  test('MCP 엔드포인트는 더 이상 없다', async ({ request }) => {
+    for (const path of ['/mcp/sse', '/mcp/message']) {
+      const r = await request.get(path);
+      expect(r.status(), `${path} 가 살아 있다`).toBe(404);
+    }
   });
 });
 
@@ -169,8 +243,16 @@ test.describe('detach CLI 의 HTTP 계약 (라이브)', () => {
       return (bg.background || []).some((b: any) => b.toolId === toolId);
     }, { timeout: 10000 }).toBe(true);
 
-    const r2 = await request.post('/api/commands', { data: { action: 'restoreTool', args: { toolId } } });
+    // 복귀 대상을 명시한다. location 을 생략하면 브라우저의 **포커스된** 분할 칸으로
+    // 복귀하는데, 방금 detach 로 그 분할 칸이 사라졌으면 복귀 대상이 없어 조용히
+    // 무효가 된다. 살아남은 탭을 대상으로 주는 것이 지원되는 방식이다
+    // (USER_CHECKLIST_FIXES 묶음 D — detach --restore <toolId> --at <uuid>).
+    const survivor = await firstTab(request);
+    const r2 = await request.post('/api/commands', {
+      data: { action: 'restoreTool', args: { toolId, location: survivor.uuid } },
+    });
     expect(r2.status()).toBe(200);
+    expect((await r2.json()).delivered, '구독 중인 브라우저가 없다').toBeGreaterThan(0);
     await expect.poll(async () => {
       const bg = await (await request.get('/api/tools/background')).json();
       return (bg.background || []).length;
