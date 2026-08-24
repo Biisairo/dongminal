@@ -217,3 +217,85 @@ test.describe('묶음 X — 생성 명령은 한 클라이언트만 수행한다
     await A.ctx.close(); await B.ctx.close();
   });
 });
+
+// ---------------------------------------------------------------------------
+// 묶음 U — 모든 식별자가 uuid 다 (WORKSPACE_IDENTITY_SRS §3.4)
+// ---------------------------------------------------------------------------
+
+test.describe('묶음 U — 식별자 통일', () => {
+  // TC-UNI-5: 새로 만든 도구의 toolId 가 uuid 형식이다.
+  // 이전에는 서버 카운터("267")였고 재기동 후 재사용됐다 (SRS §2.7 (3)).
+  test('TC-UNI-5: 새 도구의 toolId 가 uuid 다', async ({ page, request }) => {
+    await page.goto('/');
+    await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+
+    const r = await request.post('/api/commands', { data: { action: 'newTab' } });
+    expect(r.status()).toBe(200);
+    const body = await r.json();
+    expect(body.newTabs?.length).toBeGreaterThan(0);
+    expect(body.newTabs[0].toolId).toMatch(UUID_RE);
+  });
+
+  // TC-UNI-14: location 정책(FR-DMC-9)은 식별자 형식 변경에 흔들리지 않는다 —
+  // 탭 uuid 만 받고 toolId 는 uuid 형식이 되어도 거부한다.
+  // (toolId pass-through 계약은 CoordinateOf 단위 테스트 TC-UNI-12 가 덮는다.)
+  test('TC-UNI-14: location 은 탭 uuid 만 받고 uuid toolId 는 거부한다', async ({ page, request }) => {
+    await page.goto('/');
+    await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+
+    const created = await (await request.post('/api/commands', { data: { action: 'newTab' } })).json();
+    const { uuid: tabUuid, toolId } = created.newTabs[0];
+    expect(tabUuid).toMatch(UUID_RE);
+    expect(toolId).toMatch(UUID_RE);
+
+    const byTool = await request.post('/api/commands', { data: { action: 'focus', args: { location: toolId } } });
+    expect(byTool.status()).toBe(400);
+
+    const byTab = await request.post('/api/commands', { data: { action: 'focus', args: { location: tabUuid } } });
+    expect(byTab.status()).toBe(200);
+    expect((await byTab.json()).ok).toBe(true);
+  });
+
+  // TC-UNI-16: who-am-i 계약(/api/whoami)의 uuid·short 가 uuid 파생이다.
+  test('TC-UNI-16: whoami 의 uuid·short 가 uuid 파생이다', async ({ page, request }) => {
+    await page.goto('/');
+    await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+
+    const created = await (await request.post('/api/commands', { data: { action: 'newTab' } })).json();
+    const toolId = created.newTabs[0].toolId;
+
+    const who = await (await request.get(`/api/whoami?toolId=${encodeURIComponent(toolId)}`)).json();
+    expect(who.uuid).toMatch(UUID_RE);
+    expect(who.short).toBe(String(who.uuid).slice(0, 8));
+  });
+
+  // TC-UNI-4: clientId 가 uuid 형식이다 (Math.random 폴백 제거, FR-UNI-4/5).
+  test('TC-UNI-4: clientId 가 uuid 다', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+    const cid = await page.evaluate(() => (window as any).app.clientId);
+    expect(cid).toMatch(UUID_RE);
+  });
+
+  // TC-UNI-1/3: newUUID 가 보안 컨텍스트가 아닌 환경에서도 동작하고, 폴백조차
+  // 불가능하면 조용히 저품질 id 를 내는 대신 예외를 던진다.
+  // --expose 로 LAN 에 노출하면 crypto.randomUUID 가 undefined 다 (SRS §2.7 (1)).
+  test('TC-UNI-1/3: randomUUID 없이도 uuid 를 만들고, crypto 가 없으면 던진다', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+
+    const out = await page.evaluate(() => {
+      const src = (window as any).newUUID.toString();
+      const mk = (cryptoObj: any) => new Function('crypto', `return (${src})()`)(cryptoObj);
+      const fallback = mk({ getRandomValues: (a: Uint8Array) => crypto.getRandomValues(a) });
+      let threw = false;
+      try { mk({}); } catch { threw = true; }
+      return { fallback, threw };
+    });
+
+    expect(out.fallback).toMatch(UUID_RE);
+    expect(out.fallback[14]).toBe('4');            // version 4
+    expect('89ab').toContain(out.fallback[19]);    // variant 10
+    expect(out.threw).toBe(true);
+  });
+});

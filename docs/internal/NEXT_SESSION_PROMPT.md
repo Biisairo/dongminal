@@ -7,7 +7,7 @@
 | ~~1. 사용자 확인 피드백~~ | **완료** — 8개 항목 전부. iOS 실기기 수동 확인만 남음 ([USER_CHECKLIST_FIXES_HANDOFF.md](./USER_CHECKLIST_FIXES_HANDOFF.md)) |
 | ~~2. MCP 폐지 → 세션 스코프 스킬 주입~~ | **완료** — `6681a14`, `1013f8c` ([SKILL_INJECTION_SRS.md](./SKILL_INJECTION_SRS.md)) |
 | ~~3. 상태바 지표 재설계~~ | **완료** — `286ebd8` ([SYSTEM_STATS_SRS.md](./SYSTEM_STATS_SRS.md)) |
-| **4. AI 오케스트레이터 — 연구·설계** | **진행 중.** 0단계(알려진 결함 2건) **완료** — `0ec8e02` ([WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md), FR-BGR-7). 다음은 **1단계(심화 조사)** 부터. 아래 프롬프트 |
+| **4. AI 오케스트레이터 — 연구·설계** | **진행 중.** 0단계(알려진 결함 2건) **완료** — `0ec8e02`. 0.5단계(식별자 통일, 묶음 U) **완료** ([WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md) §3.4). 다음은 **1단계(심화 조사)** 부터. 아래 프롬프트 |
 
 ---
 
@@ -21,8 +21,9 @@
 dongminal 을 다중 에이전트 오케스트레이터로 만드는 작업의 **심화 연구와 설계**를
 진행한다.
 
-**0단계(알려진 결함 2건)는 이전 세션에서 닫혔다.** 결론은 아래 "0단계 — 완료" 절에
-있고, 그 결론이 이번 세션의 전제다. 다시 조사하지 마라.
+**0단계(알려진 결함 2건)와 0.5단계(식별자 통일)는 이전 세션에서 닫혔다.** 결론은 아래
+"0단계 — 완료"·"0.5단계 — 완료" 절에 있고, 그 결론이 이번 세션의 전제다. 다시 조사하지
+마라.
 
 산출물은 하나다.
 
@@ -41,24 +42,31 @@ SRS·RFC 는 `docs/internal/archive/` 에 있고 갱신하지 않는다.)
 4. `docs/internal/USER_CHECKLIST_FIXES_HANDOFF.md` §4 — 함정 15개. 특히 13(브라우저
    기본값은 바뀐다)·14(레이아웃 가설은 측정으로 확인)·12(Serena 가 `web/js/` 를
    편집할 수 없다)는 묶음에 무관하게 유효하다
-5. `docs/internal/WORKSPACE_IDENTITY_SRS.md` — 0단계 0-B 의 산출. **§3.3 FR-SXE-8 이
-   오케스트레이터가 전제할 식별자 계약이다** (D-B 의 답). §2.6 에 문서와 어긋났던
-   사실 3건이 있다
+5. `docs/internal/WORKSPACE_IDENTITY_SRS.md` — 0·0.5단계의 산출. **§3.3 FR-SXE-8 과
+   §3.4 FR-UNI-1 이 오케스트레이터가 전제할 식별자 계약이다** (D-B 의 답). §2.6 에
+   문서와 어긋났던 사실 3건, §2.7 에 묶음 U 의 실측이 있다
 
-**현재 상태 (2026-08-24)**
+**현재 상태 (2026-08-25)**
 
 - `go build`·`go vet`·`go test ./...`·`gofmt -l` 전부 깨끗
-- Playwright **172 통과 / 0 실패** (2회 연속 재현)
+- Playwright **177 통과 / 0 실패** (2회 연속 재현)
 - 에이전트 접합면은 더 이상 MCP 가 아니다. **액션 = `dmctl` 서브커맨드, 정책 = 세션
   스코프로 주입되는 스킬**이다. `internal/mcptool`·`/mcp/*` 는 삭제됐다
 - 스킬은 `internal/runtime/agentplugin/skills/{team,workflow}` 에 있고 `go:embed` 로
   바이너리에 들어간다. 호출명은 `/dongminal:team`·`/dongminal:workflow`
-- 엔터티 id 는 이제 `crypto.randomUUID()` 다. 생성 명령(`newTab`/`newWindow`/`splitH`/
-  `splitV`/`openEditorTab`/`restoreTool`)은 서버가 지명한 **단일 실행자**만 수행한다
-  (`execClientId`). 자세한 것은 `WORKSPACE_IDENTITY_SRS.md`
-- 사용자 인스턴스(`~/.dongminal`)는 **이미 v2 이고 바이너리도 HEAD 로 재빌드돼 있다**
-  (문서의 "v1 미실행" 서술은 낡은 것이었다 — `WORKSPACE_IDENTITY_SRS` §2.6).
-  그래도 **직접 마이그레이션하거나 재기동하지 마라**
+- 생성 명령(`newTab`/`newWindow`/`splitH`/`splitV`/`openEditorTab`/`restoreTool`)은
+  서버가 지명한 **단일 실행자**만 수행한다 (`execClientId`)
+- **새로 발급되는 식별자는 전부 uuid 다** — 엔터티 id·`clientId`(브라우저 `newUUID()`),
+  `toolId`·`reqId`(서버 `internal/uuid`). 구 id 는 보존되며 혼재가 정상이다.
+  자세한 것은 `WORKSPACE_IDENTITY_SRS.md` §3.4
+- 사용자 인스턴스(`~/.dongminal`)는 **이미 v2 다** (문서의 "v1 미실행" 서술은 낡은
+  것이었다 — `WORKSPACE_IDENTITY_SRS` §2.6). **직접 마이그레이션하거나 재기동하지 마라**
+- **실행 중 바이너리는 HEAD 가 아니다.** 0.5단계(묶음 U) 직전 커밋으로 빌드된 상태로
+  돌고 있다. 따라서 살아있는 워크스페이스에서 `dmctl who-am-i` 는 여전히
+  `uuid=t201 toolId=267` 같은 **구 식별자**를 보여준다. 이건 결함이 아니다 —
+  ① 구 id 는 보존이 규약이고(FR-WID-2·FR-UNI-9) ② 새 발급기는 재빌드·재기동 후에야
+  실행된다. 혼동해서 다시 조사하지 마라. 확인이 필요하면 사용자에게 재기동을 요청하고,
+  **임의로 재기동하지 마라**
 
 **이번 세션의 작업 — 순서대로**
 
@@ -97,8 +105,41 @@ SRS·RFC 는 `docs/internal/archive/` 에 있고 갱신하지 않는다.)
 - **(iii) 는 미해소** — 사람 둘이 각자 브라우저에서 동시에 편집할 때만 남는다.
   오케스트레이터 경로는 (ii)가 덮는다. `WORKSPACE_IDENTITY_SRS` §2.4·§5
 
-부수로 확인된 것: `internal/uuid`(Go v7)는 **저장소 전체 import 0건**인 죽은 패키지다
-(제거는 별건). id 는 전 계층에서 opaque 라 마이그레이션이 필요 없었다.
+부수로 확인된 것: id 는 전 계층에서 opaque 라 마이그레이션이 필요 없었다.
+(당시 "`internal/uuid` 는 import 0건인 죽은 패키지" 로 적었으나 **0.5단계가 되살렸다.**)
+
+### 0.5단계 — 완료 (이전 세션). 결론만 전제로 삼아라
+
+0단계 직후 사용자가 "왜 `who-am-i` 는 아직 `t201` 이냐" 고 물은 데서 출발했다. 답은
+"설계대로"(FR-WID-2 — 구 id 는 보존한다)였지만, 확인 과정에서 **묶음 I 이 닫지 않은
+발급 지점 4곳**이 드러났다. `WORKSPACE_IDENTITY_SRS` **묶음 U**(§2.7, §3.4)가 단일
+진실 공급원이다.
+
+| 발견 | 성격 |
+|---|---|
+| `toolId` 가 서버 카운터(`m.nextID++`)였고 **영속되지 않는다** | **잠복 결함.** `tools.json` 은 `{id,name,cwd}` 만 저장하고 `nextID` 는 복원된 도구의 최대 정수값으로만 재시딩된다. 모든 도구가 닫힌 상태로 재기동하면 `"1"` 부터 **재사용**된다. 지금은 무해하지만 **D-C(Run 영속)를 켜는 순간 결함**이다 — 저장된 Run 이 무관한 도구를 가리킨다 |
+| `newEntityId()` 에 폴백이 없었다 | **실재 결함(0단계가 들여온 회귀).** `crypto.randomUUID()` 는 **보안 컨텍스트 전용**이다. `start.sh --expose` 로 LAN 에 평문 HTTP 노출하면 다른 기기에서 undefined 이고 탭·분할·창 생성이 전부 TypeError 로 죽었다 |
+| `Resolve`·`CoordinateOf` 가 **id 형태**로 종류를 판별했다 | `strconv.Atoi(id)` 성공 = "toolId 다". uuid 로 바꾸면 살아있는 도구가 "stale uuid" 로 거절된다 |
+| `clientId` 폴백이 `Math.random()` 이었다 | 조용히 비uuid·저엔트로피 id 를 발급 |
+
+처리 결과:
+
+- **새로 발급되는 식별자는 전부 canonical uuid 다** — 엔터티 id·`clientId`(브라우저
+  `newUUID()`), `toolId`·`reqId`(서버 `internal/uuid`). 구 id 는 보존되고 혼재가 정상이다
+- `newUUID()` 는 `randomUUID` → `getRandomValues` v4 로 폴백하고, 둘 다 없으면
+  **예외를 던진다**(조용한 저품질 id 금지)
+- 도구 표시명을 id 에서 **분리**했다 — `Shell` 고정. 구분은 좌표와 cwd 가 담당한다
+- `Resolve`·`CoordinateOf` 는 **조회 결과로만** 판별한다. `isUUIDForm` 은 진단 메시지에만 남았다
+- `internal/uuid`(Go v7)가 서버측 단일 생성기가 됐다. v7 은 시간 정렬되므로 id 사전순
+  정렬이 생성 순서와 일치한다
+
+> **주의**: `/api/commands` 의 `location` 정책은 **바뀌지 않았다** — 탭 uuid 만 받고
+> 좌표·라벨·`toolId` 는 거부한다(FR-DMC-9). `CoordinateOf` 수정은 함수 자신의
+> pass-through 계약 보존이지 실호출 경로의 결함 수정이 아니다.
+
+> **교훈**: 카운터를 전제로 `"1"` 을 하드코딩한 테스트가 하나 있었다
+> (`TestPanedKillRemovesTool`). 생성 결과에서 id 를 받도록 고쳤다. 식별자 형식을
+> 바꿀 때는 **테스트의 하드코딩**이 먼저 걸린다.
 
 ### 1단계. 심화 조사 (연구)
 
@@ -155,13 +196,13 @@ Pane 을 쪼갠다. 그래서 사용자 작업 공간을 침범하고, 그 방�
 | ID | 결정 | 왜 지금 |
 |---|---|---|
 | D-A | **worktree 격리 범위** — Run 단위 선택 vs 항상 격리 | 격리는 팀원 간 파일 공유를 차단한다. Run 단위 선택이면 두 실행 모드를 유지해야 하고, 항상 격리면 기존 `team` 스킬의 일부 토폴로지가 성립하지 않는다 |
-| ~~D-B~~ | ~~**식별자 계약**~~ | **해소.** `WORKSPACE_IDENTITY_SRS` FR-SXE-8 — 엔터티 id 는 uuid 이고 구 id 도 유효하다. `location` 없는 생성 명령은 **서버가 지명한 실행자의 포커스 Pane** 에 착지하므로 호출자가 통제할 수 없다 → **오케스트레이터는 항상 `location` 을 명시한다.** 이 규약을 `RUN_ORCHESTRATION_SRS` 에 싣는 것만 남았다 |
-| D-C | **Run 레코드의 영속 범위** — 메모리만 / `runs.json` / 재개 가능 | 재개 가능이면 에이전트 재기동과 컨텍스트 복원까지 설계해야 한다 |
+| ~~D-B~~ | ~~**식별자 계약**~~ | **해소.** ① `WORKSPACE_IDENTITY_SRS` FR-UNI-1 — 새로 발급되는 식별자는 전부 uuid 이고 구 id 도 유효하다. Run·Member id 도 uuid 다(FR-UNI-15). ② FR-SXE-8 — `location` 없는 생성 명령은 **서버가 지명한 실행자의 포커스 Pane** 에 착지하므로 호출자가 통제할 수 없다 → **오케스트레이터는 항상 `location` 을 명시한다.** 두 규약을 `RUN_ORCHESTRATION_SRS` 에 싣는 것만 남았다 |
+| D-C | **Run 레코드의 영속 범위** — 메모리만 / `runs.json` / 재개 가능 | 재개 가능이면 에이전트 재기동과 컨텍스트 복원까지 설계해야 한다. **0.5단계가 전제 하나를 치웠다** — `toolId` 가 uuid 라 재기동 후 재사용되지 않으므로, 영속된 Run 이 붙잡은 도구 참조가 조용히 다른 도구를 가리키는 일은 없다. 대신 **그 도구가 사라졌다는 것**은 여전히 판정해야 한다 (백그라운드 도구는 재기동을 넘지 못한다, FR-BG-9) |
 | D-D | **에이전트 범위** — Claude Code 만인지, codex 까지인지 | 어댑터 레지스트리의 검증 대상 수가 달라진다. 트랙 2 는 Claude Code 만으로 좁혔다 |
 
 **알려진 결함**
 
-0단계에서 닫혔다. 결론은 "0단계 — 완료" 절에 있다.
+0단계·0.5단계에서 닫혔다. 결론은 각 "— 완료" 절에 있다.
 
 > `1013f8c` 커밋 메시지는 `TC-BGU-9b` 를 "`restoreTool` 이 `location` 없이 조용히
 > 무효가 되는 계열" 로 적었다. **그 진단은 부정확하다** — `TC-BGU-9b` 에서는 백그라운드
@@ -213,7 +254,9 @@ Pane 을 쪼갠다. 그래서 사용자 작업 공간을 침범하고, 그 방�
 | ~~사용자 인스턴스 v1 → v2 마이그레이션~~ | **완료** (2026-08-24 12:24). `.v1.bak` 3개 + `panes.json`→`tools.json` 확인 |
 | 워크스페이스 PUT 의 last-write-wins | 미해소. `WORKSPACE_IDENTITY_SRS` §2.4·§5 |
 | `~/.dongminal/runs.json` | 커밋된 코드에 소비자가 없는 Run 레코드 프로토타입. D-C 의 입력으로 볼 것 |
-| `internal/uuid` (Go v7) | 저장소 전체 import 0건인 죽은 패키지. 제거 여부 미정 |
+| 도구 표시명이 전부 `Shell` | FR-UNI-8 의 의도된 결과다. 구분은 좌표와 cwd 가 담당한다. 사용자가 불편해하면 rename UX 를 보강하는 것이 후속 후보 |
+| ~~`internal/uuid` (Go v7)~~ | **해소** — 묶음 U 가 `toolId`·`reqId` 의 단일 생성기로 삼았다 (FR-UNI-6) |
+| `~/.dongminal/panels.json` | v1 시절 도구 기록(`"1"`~`"15"`). 소비자 없음. `toolId` 재사용의 증거로 쓰였다. 삭제 여부 미정 |
 | ~~`TC-BGU-9b` 기존 실패~~ | **해소** — 제품 결함이 아니라 테스트의 배리어 오용이었다 (0-A ②) |
 | iOS 실기기 확인 (트랙 1 묶음 F) | 사용자 수동 확인 대기 (`test-checklist.md` C11.8~C11.10) |
 | `SYSTEM_STATS_SRS` V-5·V-9 | 수동 확인 대기 (Activity Monitor 대조 / 브라우저 네트워크 탭) |

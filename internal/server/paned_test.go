@@ -116,15 +116,21 @@ func TestPanedHelloReturnsToolIDs(t *testing.T) {
 
 func TestPanedKillRemovesTool(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
-	pm.Create("/tmp", 80, 24)
+	// toolId 는 uuid 이므로 생성 결과에서 받아야 한다 (FR-UNI-7). 이전에는 첫 도구가
+	// 항상 "1" 이라는 카운터 전제에 의존했다.
+	tl, err := pm.Create("/tmp", 80, 24)
+	if err != nil {
+		t.Skipf("PTY 생성 불가(환경): %v", err)
+	}
 	pc := newTestConn(pm)
 
-	if !pm.IsLive("1") {
+	if !pm.IsLive(tl.ID) {
 		t.Fatal("tool should be live before kill")
 	}
-	pc.dispatch(&panedRequest{ID: 1, Method: "kill", Params: json.RawMessage(`{"id":"1"}`)})
+	params, _ := json.Marshal(map[string]string{"id": tl.ID})
+	pc.dispatch(&panedRequest{ID: 1, Method: "kill", Params: params})
 	time.Sleep(200 * time.Millisecond) // allow async cleanup
-	if pm.IsLive("1") {
+	if pm.IsLive(tl.ID) {
 		t.Fatal("tool should be dead after kill")
 	}
 }

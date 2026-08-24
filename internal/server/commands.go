@@ -1,8 +1,6 @@
 package server
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +10,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"dongminal/internal/uuid"
 )
 
 type cmdSub struct {
@@ -99,9 +99,9 @@ func CommandResultTimeout() time.Duration {
 
 // NewReqId returns a fresh 1회성 correlation key.
 func NewReqId() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
+	// FR-UNI-14: canonical uuid. 이전에는 16바이트 hex(32자, 구분자·버전 비트 없음)
+	// 였다. 엔트로피가 동등하므로 echo 상관 동작(FR-RCR-*)은 불변이다.
+	return uuid.NewString()
 }
 
 // BroadcastAndAwait broadcasts payload (which must already embed reqId) and

@@ -141,13 +141,40 @@ function doRemove(n,rid){
   if(n.children.length===1) return n.children[0];
   return n;
 }
+// uuid 생성 단일 진입점 (WORKSPACE_IDENTITY_SRS FR-UNI-3/4/5).
+//
+// crypto.randomUUID() 는 **보안 컨텍스트 전용**이다. `start.sh --expose` /
+// DONGMINAL_HOST=0.0.0.0 은 평문 HTTP 로 LAN 에 노출하므로 그 주소로 접속한
+// 브라우저에서는 undefined 이고, 직접 호출하면 엔터티 생성이 TypeError 로 죽는다
+// (SRS §2.7 (1)). crypto.getRandomValues() 는 비보안 컨텍스트에서도 쓸 수 있어
+// 폴백 수단이 된다.
+//
+// Math.random() 으로 내려가지 않는다 — 조용히 비uuid·저엔트로피 id 를 발급하면
+// SRS §2.2 가 닫은 충돌이 다시 열린다 (FR-UNI-4).
+function newUUID(){
+  if(typeof crypto==='undefined'||!crypto) throw new Error('newUUID: crypto 를 쓸 수 없다');
+  if(typeof crypto.randomUUID==='function') return crypto.randomUUID();
+  if(typeof crypto.getRandomValues!=='function') throw new Error('newUUID: crypto.getRandomValues 를 쓸 수 없다');
+  const b=new Uint8Array(16);
+  crypto.getRandomValues(b);
+  b[6]=(b[6]&0x0f)|0x40;  // version 4
+  b[8]=(b[8]&0x3f)|0x80;  // variant 10
+  const h=[];
+  for(let i=0;i<256;i++) h.push((i+0x100).toString(16).slice(1));
+  return h[b[0]]+h[b[1]]+h[b[2]]+h[b[3]]+'-'+h[b[4]]+h[b[5]]+'-'+h[b[6]]+h[b[7]]+'-'+
+         h[b[8]]+h[b[9]]+'-'+h[b[10]]+h[b[11]]+h[b[12]]+h[b[13]]+h[b[14]]+h[b[15]];
+}
+
 // 엔터티 id 생성 (WORKSPACE_IDENTITY_SRS FR-WID-1).
 //
 // 카운터(`t${++this._t}`)는 로드된 워크스페이스의 최댓값에서 seeding 되므로 같은
 // 상태를 본 두 클라이언트가 반드시 같은 다음 값을 냈다 — 충돌은 우연이 아니라
 // 필연이었다. id 는 전 계층에서 opaque 문자열이라(SRS §2.5) 구 id 와 섞여도 무해하고
 // 마이그레이션이 필요 없다.
-function newEntityId(){return crypto.randomUUID()}
+function newEntityId(){return newUUID()}
+
+// 도구 표시명 (FR-UNI-8). id 파생이 아니다 — 구분은 좌표와 cwd 가 담당한다.
+const DEFAULT_TOOL_NAME='Shell';
 
 function findPane(n,rid){
   if(!n) return null;

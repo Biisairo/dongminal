@@ -139,3 +139,20 @@ func Parse(s string) (UUID, error) {
 	}
 	return u, nil
 }
+
+// defaultGen은 프로세스 전역 생성기다. 묶음 U(WORKSPACE_IDENTITY_SRS FR-UNI-6)에서
+// 서버가 발급하는 모든 식별자 — toolId, reqId — 가 이 하나를 거친다.
+var defaultGen = New()
+
+// NewString은 canonical 8-4-4-4-12 형식의 새 UUID v7 문자열을 반환한다.
+// v7 은 시간 정렬되므로 id 사전순 정렬이 생성 순서와 일치한다.
+//
+// Generate 가 실패하는 경로는 crypto/rand 고갈뿐이며 그 상황에서는 식별자를 만들
+// 방법이 없다 — 카운터나 시각으로 대체하면 충돌이 다시 열리므로(SRS §2.2) panic 한다.
+func NewString() string {
+	u, err := defaultGen.Generate()
+	if err != nil {
+		panic("uuid: " + err.Error())
+	}
+	return u.String()
+}

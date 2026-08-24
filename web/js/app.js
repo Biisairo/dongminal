@@ -5,7 +5,7 @@ class App {
   constructor(){
     this.tools=new Map();
     this.fileEditors=new Map();
-    this.clientId=(crypto&&crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2));
+    this.clientId=newUUID();
     this.ws={schemaVersion:2,windows:[],activeWindow:null};
     this.wsETag=null;
     this.focused=null;
@@ -595,7 +595,7 @@ class App {
     const pn=await this._restorePane(opts);
     if(!pn){console.warn('[bg] 복귀할 분할 칸 없음',opts.paneId||this.focused);return}
     if(!await this._setToolBackground(toolId,false)) return;
-    if(!this.tools.has(toolId)) this._mkTool(toolId,'Shell #'+toolId);
+    if(!this.tools.has(toolId)) this._mkTool(toolId,DEFAULT_TOOL_NAME);
     const t=newEntityId();
     pn.tabs.push({id:t,name:'Shell',type:'terminal',toolId});
     pn.activeTab=t;
@@ -2428,7 +2428,7 @@ class App {
       const row=document.createElement('div'); row.className='bg-row'; row.title='클릭하면 현재 분할 칸의 새 탭으로 복귀';
       // .pn-tab[data-toolid] 과 같은 관행 — 어느 도구의 행인지 DOM 으로 식별한다.
       row.dataset.toolid=b.toolId;
-      const name=document.createElement('span'); name.className='bg-name'; name.textContent=b.name||('Shell #'+b.toolId);
+      const name=document.createElement('span'); name.className='bg-name'; name.textContent=b.name||DEFAULT_TOOL_NAME;
       const cwd=document.createElement('span'); cwd.className='bg-cwd'; cwd.textContent=b.cwd||'';
       row.appendChild(name); row.appendChild(cwd);
       row.addEventListener('click',()=>{this._bgModalToggle(false);this._restoreTool(b.toolId)});

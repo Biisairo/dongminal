@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"dongminal/internal/outbuf"
+	"dongminal/internal/uuid"
 
 	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
@@ -599,9 +600,8 @@ func (p *Tool) Resize(cols, rows uint16) error {
 // ── ToolManager ─────────────────────────────────────
 
 type ToolManager struct {
-	mu     sync.RWMutex
-	tools  map[string]*Tool
-	nextID int
+	mu    sync.RWMutex
+	tools map[string]*Tool
 
 	dataDir     string
 	invalidator func(toolID string)
@@ -777,6 +777,11 @@ func (m *ToolManager) SetInvalidator(f func(string)) {
 	m.mu.Unlock()
 }
 
+// defaultToolName은 새 도구의 표시명이다. FR-UNI-8 로 id 에서 분리됐다 — 이전에는
+// "Shell #{카운터}" 였고, 표시명이 id 파생이라 id 형식 변경에 끌려다녔다. 도구 간
+// 구분은 좌표 라벨(W{n}.P{n}.T{n})과 cwd 가 담당한다.
+const defaultToolName = "Shell"
+
 // DataDir returns the tool persistence directory (used by tests).
 func (m *ToolManager) DataDir() string { return m.dataDir }
 
@@ -792,10 +797,11 @@ func (m *ToolManager) dataPath(name string) string {
 func (m *ToolManager) Create(cwd string, cols, rows uint16) (*Tool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.nextID++
-	id := strconv.Itoa(m.nextID)
-	name := fmt.Sprintf("Shell #%d", m.nextID)
-	p, err := StartTool(id, name, cwd, cols, rows, func(toolID string) {
+	// FR-UNI-7: toolId 는 uuid 다. 카운터는 영속되지 않아 모든 도구가 닫힌 상태로
+	// 재기동하면 "1" 부터 재사용됐다 (SRS §2.7 (3)).
+	// FR-UNI-8: 표시명은 id 와 분리한다 — 구분은 좌표와 cwd 가 담당한다.
+	id := uuid.NewString()
+	p, err := StartTool(id, defaultToolName, cwd, cols, rows, func(toolID string) {
 		m.Delete(toolID)
 		if m.invalidator != nil {
 			m.invalidator(toolID)
@@ -826,9 +832,6 @@ func (m *ToolManager) Restore(id, name, cwd string, cols, rows uint16) error {
 	}
 	p.restored = true
 	m.tools[id] = p
-	if n, _ := strconv.Atoi(id); n > m.nextID {
-		m.nextID = n
-	}
 	log.Printf("[tool %s] restored total=%d", id, len(m.tools))
 	return nil
 }

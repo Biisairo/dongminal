@@ -221,18 +221,22 @@ func (m *Manager) Save(blob []byte, ifMatch string) (uint64, error) {
 	return newRev, nil
 }
 
+// Resolve translates an identifier into a live toolId. Per FR-UNI-10 the kind of
+// identifier is decided by lookup result, never by its shape — toolId is a uuid
+// since 묶음 U, so a numeric/36-char test would reject live tools (SRS §2.7).
+//
+// 순서: 살아있는 toolId → 엔터티 uuid 인덱스 → 좌표 라벨 인덱스 → 실패.
 func (m *Manager) Resolve(id string) (string, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return "", fmt.Errorf("빈 id")
 	}
-	if _, err := strconv.Atoi(id); err == nil {
-		if m.live.IsLive(id) {
-			return id, nil
-		}
-		return "", fmt.Errorf("toolId=%s 존재하지 않음", id)
+	// 1) 살아있는 toolId 인가. uuid 든 구 정수든 형태를 보지 않는다.
+	if m.live.IsLive(id) {
+		return id, nil
 	}
 	ix := m.idx.Load()
+	// 2) 엔터티(창·분할 칸·탭) uuid 인가.
 	if ix != nil {
 		if pid, ok := ix.uuidToID[strings.ToLower(id)]; ok {
 			if !m.live.IsLive(pid) {
@@ -241,12 +245,9 @@ func (m *Manager) Resolve(id string) (string, error) {
 			return pid, nil
 		}
 	}
-	if isUUIDForm(id) {
-		// 36자 UUID 형식인데 인덱스에 없음 — stale uuid 명시적 에러.
-		return "", fmt.Errorf("id 해석 실패: %s (list_workspace 로 확인)", id)
-	}
-	norm := strings.ToUpper(id)
+	// 3) 좌표 라벨인가.
 	if ix != nil {
+		norm := strings.ToUpper(id)
 		if pid, ok := ix.labelToID[norm]; ok {
 			if !m.live.IsLive(pid) {
 				return "", fmt.Errorf("라벨 %s 은 toolId=%s 가리키지만 도구가 존재하지 않음", norm, pid)
@@ -254,7 +255,24 @@ func (m *Manager) Resolve(id string) (string, error) {
 			return pid, nil
 		}
 	}
+	if isKnownToolID(ix, id) {
+		return "", fmt.Errorf("toolId=%s 존재하지 않음", id)
+	}
 	return "", fmt.Errorf("id 해석 실패: %s (list_workspace 로 확인)", id)
+}
+
+// isKnownToolID reports whether id appears as a tab's toolId in the current
+// tree. FR-UNI-12: 형태가 아니라 인덱스로 판정하며, 진단 메시지에만 쓴다.
+func isKnownToolID(ix *index, id string) bool {
+	if ix == nil {
+		return false
+	}
+	for _, pid := range ix.uuidToID {
+		if pid == id {
+			return true
+		}
+	}
+	return false
 }
 
 // CoordinateOf translates an identifier into the canonical positional
@@ -275,11 +293,18 @@ func (m *Manager) CoordinateOf(id string) (string, error) {
 		}
 	}
 	if toolID == "" {
+		// FR-UNI-11 2번: 살아있는 toolId 는 pass-through 다. toolId 가 uuid 가 된
+		// 뒤로는 이 분기가 없으면 아래 stale 판정에 걸려 location=<toolId> 가
+		// 전부 거절된다 (SRS §2.7).
+		if m.live.IsLive(id) {
+			return id, nil
+		}
 		if isUUIDForm(id) {
-			// 36자 UUID 형식인데 인덱스에 없으면 stale uuid — 명시적 에러.
+			// 36자 UUID 형식인데 인덱스에도 없고 살아있는 도구도 아니면 stale
+			// uuid — 명시적 에러. FR-UNI-12: 형태 검사는 여기(진단)에만 남는다.
 			return "", fmt.Errorf("id 해석 실패: %s (list_workspace 로 확인)", id)
 		}
-		// 좌표/라벨/toolId/숫자/그 외 식별자는 pass-through (NFR-UID-0 행위 보존).
+		// 좌표/라벨/구 정수 toolId/그 외 식별자는 pass-through (NFR-UID-0 행위 보존).
 		return id, nil
 	}
 	if !m.live.IsLive(toolID) {
