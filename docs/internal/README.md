@@ -14,7 +14,10 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [test-checklist.md](./test-checklist.md) | 백엔드·프론트엔드 동작 체크리스트 + 테스트 커버리지 현황 |
 | [ENTITY_MODEL_RESTRUCTURE_SRS.md](./ENTITY_MODEL_RESTRUCTURE_SRS.md) | 엔티티 모델(Window ─ Pane ─ Tab ─ Tool)과 백그라운드 도구의 단일 진실 공급원. 요구 1·2 완료. §7 의 Run 접합면(FR-EM-17/18)은 후속 작업의 근거다 |
 | [ENTITY_MODEL_HANDOFF.md](./ENTITY_MODEL_HANDOFF.md) | 위 작업의 인계 문서 — 확정된 모델과 근거, P1~P8 완료 내역, **반복하면 안 되는 함정 7개**, 검증 방법 |
-| [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트 |
+| [USER_CHECKLIST_FIXES_SRS.md](./USER_CHECKLIST_FIXES_SRS.md) | 사용자 확인 피드백 8개 항목의 단일 진실 공급원 (IEEE 29148). 묶음 A~D 완료, E·F 는 골격만 |
+| [USER_CHECKLIST_FIXES_PLAN.md](./USER_CHECKLIST_FIXES_PLAN.md) | 위 작업의 묶음·순서·의존성 + **착수 전 결정 10건**(E 5 · F 5) |
+| [USER_CHECKLIST_FIXES_HANDOFF.md](./USER_CHECKLIST_FIXES_HANDOFF.md) | 위 작업의 인계 문서 — A~D 완료 내역, **반복하면 안 되는 함정 9개**, 검증 방법, 미해결 |
+| [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트. **진행 중 트랙 2개**(사용자 피드백 E·F / AI 오케스트레이션) |
 
 ## 용어
 
