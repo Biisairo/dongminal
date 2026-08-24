@@ -6,15 +6,12 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"dongminal/internal/workspace"
@@ -72,69 +69,35 @@ func fmtDuration(d time.Duration) string {
 	return fmt.Sprintf("%dm", int(d.Minutes()))
 }
 
+// getStats 는 상태바 지표를 조립한다. 커널을 호출하지 않는다 — 샘플러가 갱신한
+// 스냅샷을 읽을 뿐이므로 클라이언트 수와 무관하게 즉시 반환된다 (FR-STAT-9, 10, 11).
+//
+// 한 번도 유효하지 않았던 지표는 키 자체를 생략한다 (FR-STAT-7). 클라이언트의
+// _updateStatusBar 는 각 키를 truthy / !==undefined 로 검사하므로 생략을 견딘다.
 func (s *Server) getStats() map[string]interface{} {
 	hostname, _ := os.Hostname()
-
-	cpu := 0.0
-	if out, err := exec.Command("bash", "-c", `top -l 1 -n 0 | grep "CPU usage"`).Output(); err == nil {
-		parts := strings.Fields(string(out))
-		if len(parts) >= 5 {
-			u, _ := strconv.ParseFloat(strings.TrimSuffix(parts[2], "%"), 64)
-			sv, _ := strconv.ParseFloat(strings.TrimSuffix(parts[4], "%"), 64)
-			cpu = math.Round((u+sv)*10) / 10
-		}
-	}
-
-	memTotal, memUsed := uint64(0), uint64(0)
-	if out, err := exec.Command("sysctl", "-n", "hw.memsize").Output(); err == nil {
-		if v, err := strconv.ParseUint(strings.TrimSpace(string(out)), 10, 64); err == nil {
-			memTotal = v
-		}
-	}
-	if memTotal > 0 {
-		if out, err := exec.Command("vm_stat").Output(); err == nil {
-			var freePages uint64
-			for _, line := range strings.Split(string(out), "\n") {
-				line = strings.TrimRight(line, ".")
-				if strings.Contains(line, "Pages free") {
-					fmt.Sscanf(line, "Pages free: %d", &freePages)
-				} else if strings.Contains(line, "Pages inactive") {
-					var v uint64
-					fmt.Sscanf(line, "Pages inactive: %d", &v)
-					freePages += v
-				}
-			}
-			memUsed = memTotal - freePages*4096
-		}
-	}
-
-	diskPct := 0.0
-	var stat syscall.Statfs_t
-	if syscall.Statfs("/", &stat) == nil {
-		used := stat.Blocks - stat.Bavail
-		diskPct = math.Round(float64(used)/float64(stat.Blocks)*1000) / 10
-	}
-
-	sysUptime := ""
-	if out, err := exec.Command("sysctl", "-n", "kern.boottime").Output(); err == nil {
-		if parts := strings.Split(string(out), "="); len(parts) >= 2 {
-			secStr := strings.TrimSpace(strings.Split(parts[1], ",")[0])
-			if sec, err := strconv.ParseInt(secStr, 10, 64); err == nil {
-				sysUptime = fmtDuration(time.Since(time.Unix(sec, 0)))
-			}
-		}
-	}
-	srvUptime := fmtDuration(time.Since(s.started))
-
-	return map[string]interface{}{
+	out := map[string]interface{}{
 		"hostname":  hostname,
-		"cpu":       cpu,
-		"memUsed":   memUsed,
-		"memTotal":  memTotal,
-		"diskPct":   diskPct,
-		"sysUptime": sysUptime,
-		"srvUptime": srvUptime,
+		"srvUptime": fmtDuration(time.Since(s.started)),
 	}
+	if s.Stats == nil {
+		return out
+	}
+	snap := s.Stats.Snapshot()
+	if snap.CPUValid {
+		out["cpu"] = snap.CPU
+	}
+	if snap.MemValid {
+		out["memUsed"] = snap.Mem.Used
+		out["memTotal"] = snap.Mem.Total
+	}
+	if snap.DiskValid {
+		out["diskPct"] = snap.DiskPct
+	}
+	if snap.BootValid {
+		out["sysUptime"] = fmtDuration(time.Since(snap.BootTime))
+	}
+	return out
 }
 
 func uniquePath(dir, name string) string {

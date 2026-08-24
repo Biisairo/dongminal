@@ -2294,7 +2294,19 @@ class App {
   }
   _startStatsPoll(){
     if(this._statsInterval)clearInterval(this._statsInterval);
-    this._statsInterval=setInterval(()=>this._pollStats(),statsInterval);
+    // Skip polling while the tab is hidden — the status bar isn't visible, so
+    // the request buys nothing (SYSTEM_STATS_SRS FR-STAT-17). Registered once;
+    // _startStatsPoll also runs on interval changes.
+    if(!this._statsVisHook){
+      this._statsVisHook=true;
+      document.addEventListener('visibilitychange',()=>{
+        if(!document.hidden)this._pollStats();
+      });
+    }
+    this._statsInterval=setInterval(()=>{
+      if(document.hidden)return;
+      this._pollStats();
+    },statsInterval);
     this._pollStats();
   }
   async _pollStats(){
@@ -2304,7 +2316,7 @@ class App {
       await fetch('/api/ping');
       this._latency=Math.round(performance.now()-t0);
     }catch{this._latency=null}
-    // Fetch stats separately (may be slow due to `top` command)
+    // Fetch stats separately (kept separate so ping stays a clean latency probe)
     try{
       const r=await fetch('/api/stats');
       this._stats=await r.json();
@@ -2323,7 +2335,7 @@ class App {
     }
     if(statusBar.location){
       const loc=this._locationLabel();
-      if(loc)items.push(`<span class="sb-item" title="MCP id: ${loc}">📍 ${loc}</span>`);
+      if(loc)items.push(`<span class="sb-item" title="dmctl 대상: ${loc}">📍 ${loc}</span>`);
     }
     if(statusBar.cwd){
       const cwd=this._cwd||'~';

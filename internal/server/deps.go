@@ -1,6 +1,7 @@
 package server
 
 import (
+	"dongminal/internal/sysstat"
 	"dongminal/internal/toolaccess"
 	"dongminal/internal/workspace"
 	"time"
@@ -97,4 +98,14 @@ type Deps struct {
 	// WorkIndex resolves tool identifiers (uuid / toolId / label) and labels
 	// them back for the agent-message envelope (FR-API-3/4). Nil → 503.
 	WorkIndex toolaccess.WorkspaceReader
+	// Stats supplies the status-bar metrics snapshot. Nil → /api/stats returns
+	// only hostname and srvUptime (SYSTEM_STATS_SRS FR-STAT-7).
+	Stats StatsSnapshotter
+}
+
+// StatsSnapshotter is satisfied by *sysstat.Sampler. Kept as an interface so the
+// HTTP layer never reaches the kernel itself and tests can inject a fixed
+// snapshot (SYSTEM_STATS_SRS FR-STAT-9).
+type StatsSnapshotter interface {
+	Snapshot() sysstat.Snapshot
 }

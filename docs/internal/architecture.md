@@ -16,6 +16,7 @@ internal/
   runtimebin/          # dmctl/edit/download/detach multi-call CLI 구현
   server/              # HTTP/WS/SSE 라우팅, ToolManager, CommandHub, settingsStore
   toolaccess/          # 도구(PTY)·워크스페이스·커맨드 허브 접합면 인터페이스
+  sysstat/             # 상태바 지표를 커널에서 직접 읽는다 (cgo 격리 — mach host_statistics)
   toolline/            # dmctl 공용 한 줄 렌더러 (byte-level 동일 출력 보장)
   uuid/                # 엔티티 uuid(UUID v7) 생성·파싱
   workspace/           # workspace.json 인덱싱·resolve·영속화 (Manager + FilePersister)

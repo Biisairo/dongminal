@@ -17,6 +17,7 @@ import (
 	"dongminal/internal/runtime"
 	"dongminal/internal/runtimebin"
 	"dongminal/internal/server"
+	"dongminal/internal/sysstat"
 	"dongminal/internal/workspace"
 	"dongminal/web"
 )
@@ -243,6 +244,7 @@ type builtDeps struct {
 	deps        server.Deps
 	pm          *server.ToolManager
 	attnTracker *server.AttnTracker
+	sampler     *sysstat.Sampler
 	wsMgr       *workspace.Manager
 }
 
@@ -310,6 +312,10 @@ func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.C
 
 	wa := adapters.Workspace{WS: wsMgr}
 
+	// 상태바 지표 샘플러. 커널을 주기적으로 읽어 스냅샷을 유지하므로 /api/stats 가
+	// 요청 경로에서 커널을 호출하지 않는다 (SYSTEM_STATS_SRS FR-STAT-8/9/11).
+	sampler := sysstat.NewSampler(sysstat.NewReader(), sysstat.DefaultInterval, "/")
+
 	return builtDeps{
 		deps: server.Deps{
 			Tools:       toolHub,
@@ -319,10 +325,12 @@ func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.C
 			WhoAmI:      resolver,
 			ToolIO:      pa,
 			WorkIndex:   wa,
+			Stats:       sampler,
 		},
 		pm:          nil, // set by caller in direct mode
 		attnTracker: attnTracker,
 		wsMgr:       wsMgr,
+		sampler:     sampler,
 	}, nil
 }
 
@@ -444,6 +452,9 @@ func main() {
 	}
 	if bd.attnTracker != nil {
 		bd.attnTracker.StartSweeper(ctx.Done())
+	}
+	if bd.sampler != nil {
+		bd.sampler.Start(ctx.Done())
 	}
 	exposure := "local-only"
 	if host == "0.0.0.0" || host == "::" {

@@ -85,7 +85,7 @@ var shortcuts={...SHORTCUT_DEFAULTS};
 const STATUS_ITEMS={
   connection:{label:'연결 상태',def:true},
   latency:{label:'레이턴시',def:true},
-  location:{label:'현재 위치 (MCP id)',def:true},
+  location:{label:'현재 위치 (dmctl 대상)',def:true},
   cwd:{label:'현재 디렉토리',def:true},
   memory:{label:'메모리',def:true},
   hostname:{label:'호스트명',def:false},

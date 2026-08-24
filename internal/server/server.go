@@ -37,6 +37,7 @@ type Server struct {
 	WhoAmI      toolaccess.ClientToolResolver
 	ToolIO      toolaccess.ToolReader
 	WorkIndex   toolaccess.WorkspaceReader
+	Stats       StatsSnapshotter
 	AttnTracker *AttnTracker
 	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
 	Focus *FocusRegistry
@@ -74,6 +75,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		WhoAmI:      deps.WhoAmI,
 		ToolIO:      deps.ToolIO,
 		WorkIndex:   deps.WorkIndex,
+		Stats:       deps.Stats,
 		AttnTracker: deps.AttnTracker,
 		started:     time.Now(),
 	}, nil
