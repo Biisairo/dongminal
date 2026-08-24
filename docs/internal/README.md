@@ -20,7 +20,9 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [SYSTEM_STATS_SRS.md](./SYSTEM_STATS_SRS.md) | 상태바 지표 수집 재설계 (IEEE 29148). `/api/stats` 요청당 프로세스 6개·1.5초를 커널 직접 호출로 제거 + 메모리 계산식 정정. **구현 완료** (§4.1 실측) |
 | [WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md) | 식별자와 단일 실행자의 단일 진실 공급원 (IEEE 29148). 묶음 I(엔터티 id → uuid)·X(생성 명령 단일 실행자)·**U(모든 발급 지점을 uuid 로 통일 + 형태 판별 제거)**. **구현 완료** |
 | [SKILL_INJECTION_SRS.md](./SKILL_INJECTION_SRS.md) | MCP 폐지와 세션 스코프 스킬 주입의 단일 진실 공급원 (IEEE 29148). 에이전트 접합면 = `dmctl` (액션) + `--plugin-dir`/`--settings` 주입 스킬·훅 (정책). **구현 완료** |
-| [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트. **트랙 1~3 완료, 트랙 4(AI 오케스트레이터 연구·설계)가 진행 대상** |
+| [RUN_ORCHESTRATION_SRS.md](./RUN_ORCHESTRATION_SRS.md) | AI 오케스트레이터의 단일 진실 공급원 (IEEE 29148). Run 레코드·상태/대기 계약·에이전트 어댑터 레지스트리·worktree 격리·프리앰블/보고 계약·스킬 재작성. 착수 전 결정 5건 확정. **설계 완료, 구현 미착수** |
+| [ORCHESTRATOR_RESEARCH_NOTES.md](./ORCHESTRATOR_RESEARCH_NOTES.md) | 위 SRS 의 입력 — orca(MIT)·paseo(AGPL) **실제 소스** 조사 노트. 파일 경로 근거 포함. §9 는 기존 문서 서술을 뒤집은 5건 |
+| [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트. **트랙 1~3 완료. 트랙 4 는 연구·설계·결정까지 완료(RUN_ORCHESTRATION_SRS), 다음은 구현** |
 
 ## 용어
 
@@ -140,7 +142,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 
 | 항목 | 상태 |
 |------|------|
-| 요구 3 — AI 오케스트레이터 (`RUN_ORCHESTRATION_SRS`) | 미착수. 접합면은 준비됐다(SKILL_INJECTION_SRS). 식별자 전제는 묶음 U 로 닫혔다(WORKSPACE_IDENTITY_SRS §3.4). 남은 착수 전 결정 3건(worktree 격리 범위·Run 영속 범위·에이전트 범위)은 [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) 3단계 |
+| 요구 3 — AI 오케스트레이터 (`RUN_ORCHESTRATION_SRS`) | **스펙 완료, 구현 미착수.** 착수 전 결정 5건 확정 (§7.1) — 격리는 Run 단위 선택·기본 none, Run 은 `runs.json` 영속 + 재기동 펜싱, 검증 대상은 Claude Code, 완료 판정은 훅 상태(생존) + 명시 보고(권위). 묶음 R·S·A·W·P·K |
 | ~~`TC-BGU-9b` 기존 실패~~ | **해소** (트랙 4 0-A). 제품 결함이 아니라 테스트가 서버 관측을 클라이언트 단정의 배리어로 쓴 것이었다. 별개로 `location` 미지정 복귀의 조용한 무효는 실재했고 FR-BGR-7 로 닫았다 |
 | ~~프론트엔드 id 가 UUID 가 아니다~~ | **해소** — 엔터티 id 는 `crypto.randomUUID()` 로 만든다. 생성 명령의 다중 실행도 함께 닫았다 ([WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md)) |
 | 워크스페이스 PUT 의 last-write-wins | 미해소. 사람 둘이 각자 브라우저에서 동시에 편집하면 한쪽이 유실된다. 오케스트레이터 경로는 FR-SXE-\* 가 덮는다 (WORKSPACE_IDENTITY_SRS §2.4·§5) |
