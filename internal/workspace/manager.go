@@ -14,23 +14,31 @@ import (
 
 var ErrStale = errors.New("workspace: stale revision")
 
-type PaneLabel struct {
-	PaneID      string
-	Label       string
-	SessionName string
-	TabName     string
-	IsActive    bool
+// ErrSchemaTooOld는 workspace.json 이 v2 미만일 때 반환된다 (FR-EM-2a).
+// 구 스키마를 빈 workspace 와 구별할 수 없으므로 조용히 넘기지 않고
+// 명시적으로 실패한다 — 방치하면 브라우저가 빈 상태를 저장해 덮어쓴다.
+var ErrSchemaTooOld = errors.New("workspace: schemaVersion 이 2 미만입니다 — `dongminal migrate` 를 먼저 실행하세요")
+
+// SchemaVersion은 이 코드가 읽고 쓰는 workspace.json 스키마 버전이다.
+const SchemaVersion = 2
+
+type TabEntry struct {
+	ToolID     string
+	Label      string
+	WindowName string
+	TabName    string
+	IsActive   bool
 
 	// Entity identity (UUID_IDENTITY_SRS Phase 1, FR-UID-6/7). Empty when the
 	// upstream workspace.json predates the schema; consumers must tolerate that.
-	SessionUUID string
-	RegionUUID  string
-	TabUUID     string
-	ShortCode   string
+	WindowUUID string
+	PaneUUID   string
+	TabUUID    string
+	ShortCode  string
 }
 
 type Liveness interface {
-	IsLive(paneID string) bool
+	IsLive(toolID string) bool
 }
 
 type Persister interface {
@@ -39,13 +47,13 @@ type Persister interface {
 }
 
 type index struct {
-	entries   []PaneLabel
+	entries   []TabEntry
 	labels    map[string]string
 	labelToID map[string]string
 	tabIDs    map[string]struct{}
-	// uuidToID maps a tab's UUID (lower-case canonical form) to its paneId.
+	// uuidToID maps a tab's UUID (lower-case canonical form) to its toolId.
 	// Stable across label reflows: closing other sessions/regions does not
-	// shift the uuid->paneId binding (UUID_IDENTITY_SRS TC-UID-2).
+	// shift the uuid->toolId binding (UUID_IDENTITY_SRS TC-UID-2).
 	uuidToID map[string]string
 }
 
@@ -92,6 +100,12 @@ func New(live Liveness, store Persister) (*Manager, error) {
 	m.snap.Store(&snap{raw: buf, rev: 0})
 	ix, perr := buildIndex(buf)
 	if perr != nil {
+		// 버전 미달은 치명적이다 — 계속 진행하면 브라우저가 빈 상태를
+		// 저장해 사용자 워크스페이스를 덮어쓴다 (FR-EM-2a).
+		if errors.Is(perr, ErrSchemaTooOld) {
+			return nil, perr
+		}
+		// 파싱 불가 파일은 기존 동작 유지 (NFR-EM-3).
 		ix = emptyIndex()
 	}
 	m.idx.Store(ix)
@@ -216,36 +230,36 @@ func (m *Manager) Resolve(id string) (string, error) {
 		if m.live.IsLive(id) {
 			return id, nil
 		}
-		return "", fmt.Errorf("paneId=%s 존재하지 않음", id)
+		return "", fmt.Errorf("toolId=%s 존재하지 않음", id)
 	}
 	ix := m.idx.Load()
 	if ix != nil {
 		if pid, ok := ix.uuidToID[strings.ToLower(id)]; ok {
 			if !m.live.IsLive(pid) {
-				return "", fmt.Errorf("tab id %s 은 paneId=%s 가리키지만 pane 이 존재하지 않음", id, pid)
+				return "", fmt.Errorf("tab id %s 은 toolId=%s 가리키지만 도구가 존재하지 않음", id, pid)
 			}
 			return pid, nil
 		}
 	}
 	if isUUIDForm(id) {
 		// 36자 UUID 형식인데 인덱스에 없음 — stale uuid 명시적 에러.
-		return "", fmt.Errorf("id 해석 실패: %s (list_panes 로 확인)", id)
+		return "", fmt.Errorf("id 해석 실패: %s (list_workspace 로 확인)", id)
 	}
 	norm := strings.ToUpper(id)
 	if ix != nil {
 		if pid, ok := ix.labelToID[norm]; ok {
 			if !m.live.IsLive(pid) {
-				return "", fmt.Errorf("라벨 %s 은 paneId=%s 가리키지만 pane 이 존재하지 않음", norm, pid)
+				return "", fmt.Errorf("라벨 %s 은 toolId=%s 가리키지만 도구가 존재하지 않음", norm, pid)
 			}
 			return pid, nil
 		}
 	}
-	return "", fmt.Errorf("id 해석 실패: %s (list_panes 로 확인)", id)
+	return "", fmt.Errorf("id 해석 실패: %s (list_workspace 로 확인)", id)
 }
 
 // CoordinateOf translates an identifier into the canonical positional
-// coordinate "S{n}.P{n}.T{n}" that the browser command pipeline parses. Only
-// UUID inputs are rewritten — coordinate, paneId, label, and empty inputs are
+// coordinate "W{n}.P{n}.T{n}" that the browser command pipeline parses. Only
+// UUID inputs are rewritten — coordinate, toolId, label, and empty inputs are
 // returned unchanged (NFR-UID-0 행위 보존). Used by /api/commands and
 // workspace_command so dmctl and MCP accept UUID anywhere a location is
 // expected.
@@ -254,32 +268,32 @@ func (m *Manager) CoordinateOf(id string) (string, error) {
 		return id, nil
 	}
 	ix := m.idx.Load()
-	var paneID string
+	var toolID string
 	if ix != nil {
 		if pid, ok := ix.uuidToID[strings.ToLower(id)]; ok {
-			paneID = pid
+			toolID = pid
 		}
 	}
-	if paneID == "" {
+	if toolID == "" {
 		if isUUIDForm(id) {
 			// 36자 UUID 형식인데 인덱스에 없으면 stale uuid — 명시적 에러.
-			return "", fmt.Errorf("id 해석 실패: %s (list_panes 로 확인)", id)
+			return "", fmt.Errorf("id 해석 실패: %s (list_workspace 로 확인)", id)
 		}
-		// 좌표/라벨/paneId/숫자/그 외 식별자는 pass-through (NFR-UID-0 행위 보존).
+		// 좌표/라벨/toolId/숫자/그 외 식별자는 pass-through (NFR-UID-0 행위 보존).
 		return id, nil
 	}
-	if !m.live.IsLive(paneID) {
-		return "", fmt.Errorf("tab id %s 은 paneId=%s 가리키지만 pane 이 존재하지 않음", id, paneID)
+	if !m.live.IsLive(toolID) {
+		return "", fmt.Errorf("tab id %s 은 toolId=%s 가리키지만 도구가 존재하지 않음", id, toolID)
 	}
-	if label, ok := ix.labels[paneID]; ok {
+	if label, ok := ix.labels[toolID]; ok {
 		return label, nil
 	}
-	return "", fmt.Errorf("tab id %s 은 paneId=%s 가리키지만 label 매핑 없음", id, paneID)
+	return "", fmt.Errorf("tab id %s 은 toolId=%s 가리키지만 label 매핑 없음", id, toolID)
 }
 
 // IsKnownTabID reports whether id matches a tab.id present in the current
 // workspace index (case-insensitive). Used by API entry points to enforce the
-// "location must be a list-panes uuid" policy (FR-DMC-9/10).
+// "location must be a list-workspace uuid" policy (FR-DMC-9/10).
 func (m *Manager) IsKnownTabID(id string) bool {
 	if id == "" {
 		return false
@@ -329,51 +343,58 @@ func (m *Manager) TabIDs() map[string]struct{} {
 	return out
 }
 
-func (m *Manager) Entries() []PaneLabel {
+func (m *Manager) Entries() []TabEntry {
 	ix := m.idx.Load()
 	if ix == nil {
 		return nil
 	}
-	out := make([]PaneLabel, len(ix.entries))
+	out := make([]TabEntry, len(ix.entries))
 	copy(out, ix.entries)
 	return out
 }
 
-func (m *Manager) InvalidatePane(paneID string) {
-	// Labels are positional (derived from workspace.json). Pane death doesn't
+func (m *Manager) InvalidateTool(toolID string) {
+	// Labels are positional (derived from workspace.json). Tool death doesn't
 	// shift labels; liveness is queried via Liveness at Resolve time. Kept as
 	// an explicit hook so callers (onExit) can signal the manager without
 	// caring about current semantics.
-	_ = paneID
+	_ = toolID
 }
 
 // ── workspace.json parsing ──────────────────────────
 
 type WsLayout struct {
-	Type      string     `json:"type"`
-	ID        string     `json:"id,omitempty"`
-	Tabs      []WsTab    `json:"tabs,omitempty"`
-	ActiveTab string     `json:"activeTab,omitempty"`
-	Direction string     `json:"direction,omitempty"`
+	Type      string      `json:"type"`
+	ID        string      `json:"id,omitempty"`
+	Tabs      []WsTab     `json:"tabs,omitempty"`
+	ActiveTab string      `json:"activeTab,omitempty"`
+	Direction string      `json:"direction,omitempty"`
 	Children  []*WsLayout `json:"children,omitempty"`
 }
 
 type WsTab struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
-	PaneID string `json:"paneId"`
+	ToolID string `json:"toolId"`
+	// RunID는 이 탭의 도구를 소유한 Run (FR-EM-17 접합면). 비어 있으면
+	// 어느 Run 에도 속하지 않는다 — 사람이 직접 만든 도구의 정상 상태다.
+	RunID string `json:"runId,omitempty"`
 }
 
-type wsSession struct {
-	ID            string    `json:"id"`
-	Name          string    `json:"name"`
-	Layout        *WsLayout `json:"layout"`
-	FocusedRegion string    `json:"focusedRegion"`
+type wsWindow struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Layout      *WsLayout `json:"layout"`
+	FocusedPane string    `json:"focusedPane"`
+	// OwnerRunID는 이 Window 를 전용으로 만든 Run (Projection
+	// dedicated-window). 비어 있으면 사용자 소유 Window 다 (FR-EM-17).
+	OwnerRunID string `json:"ownerRunId,omitempty"`
 }
 
 type wsState struct {
-	Sessions      []wsSession `json:"sessions"`
-	ActiveSession string      `json:"activeSession"`
+	SchemaVersion int        `json:"schemaVersion"`
+	Windows       []wsWindow `json:"windows"`
+	ActiveWindow  string     `json:"activeWindow"`
 }
 
 func emptyIndex() *index {
@@ -394,29 +415,32 @@ func buildIndex(blob []byte) (*index, error) {
 	if err := json.Unmarshal(blob, &s); err != nil {
 		return nil, err
 	}
-	for si, sess := range s.Sessions {
+	if s.SchemaVersion < SchemaVersion {
+		return nil, ErrSchemaTooOld
+	}
+	for si, sess := range s.Windows {
 		var regions []*WsLayout
-		CollectRegions(sess.Layout, &regions)
+		CollectPanes(sess.Layout, &regions)
 		for pi, rg := range regions {
 			for ti, tab := range rg.Tabs {
-				isActive := sess.ID == s.ActiveSession && sess.FocusedRegion == rg.ID && rg.ActiveTab == tab.ID
-				label := fmt.Sprintf("S%d.P%d.T%d", si+1, pi+1, ti+1)
-				ix.entries = append(ix.entries, PaneLabel{
-					PaneID:      tab.PaneID,
-					Label:       label,
-					SessionName: sess.Name,
-					TabName:     tab.Name,
-					IsActive:    isActive,
-					SessionUUID: sess.ID,
-					RegionUUID:  rg.ID,
-					TabUUID:     tab.ID,
-					ShortCode:   shortCodeOf(tab.ID),
+				isActive := sess.ID == s.ActiveWindow && sess.FocusedPane == rg.ID && rg.ActiveTab == tab.ID
+				label := fmt.Sprintf("W%d.P%d.T%d", si+1, pi+1, ti+1)
+				ix.entries = append(ix.entries, TabEntry{
+					ToolID:     tab.ToolID,
+					Label:      label,
+					WindowName: sess.Name,
+					TabName:    tab.Name,
+					IsActive:   isActive,
+					WindowUUID: sess.ID,
+					PaneUUID:   rg.ID,
+					TabUUID:    tab.ID,
+					ShortCode:  shortCodeOf(tab.ID),
 				})
-				ix.labels[tab.PaneID] = label
-				ix.labelToID[label] = tab.PaneID
+				ix.labels[tab.ToolID] = label
+				ix.labelToID[label] = tab.ToolID
 				if tab.ID != "" {
 					ix.tabIDs[tab.ID] = struct{}{}
-					ix.uuidToID[strings.ToLower(tab.ID)] = tab.PaneID
+					ix.uuidToID[strings.ToLower(tab.ID)] = tab.ToolID
 				}
 			}
 		}
@@ -434,18 +458,53 @@ func shortCodeOf(uuid string) string {
 	return uuid
 }
 
-// CollectRegions walks a layout tree and appends every "region" node to out.
-func CollectRegions(n *WsLayout, out *[]*WsLayout) {
+// CollectPanes walks a layout tree and appends every "tool" node to out.
+func CollectPanes(n *WsLayout, out *[]*WsLayout) {
 	if n == nil {
 		return
 	}
-	if n.Type == "region" {
+	if n.Type == "pane" {
 		*out = append(*out, n)
 		return
 	}
 	if n.Type == "split" {
 		for _, c := range n.Children {
-			CollectRegions(c, out)
+			CollectPanes(c, out)
 		}
 	}
+}
+
+// ReferencedToolIDs returns the set of tool ids that some tab in blob points
+// at. Used at boot to distinguish live tools from orphans in tools.json
+// (FR-EM-14) — a tool nobody references is unreachable from any UI and must
+// not be respawned.
+//
+// Tabs without a tool (editor/markdown) contribute nothing. An empty blob
+// yields an empty set. A pre-v2 blob is an error, never an empty set: silently
+// treating it as "nothing referenced" would classify every tool as an orphan
+// and discard the user's whole session.
+func ReferencedToolIDs(blob []byte) (map[string]struct{}, error) {
+	out := map[string]struct{}{}
+	if len(blob) == 0 {
+		return out, nil
+	}
+	var s wsState
+	if err := json.Unmarshal(blob, &s); err != nil {
+		return nil, err
+	}
+	if s.SchemaVersion < SchemaVersion {
+		return nil, ErrSchemaTooOld
+	}
+	for _, win := range s.Windows {
+		var tools []*WsLayout
+		CollectPanes(win.Layout, &tools)
+		for _, pn := range tools {
+			for _, tab := range pn.Tabs {
+				if tab.ToolID != "" {
+					out[tab.ToolID] = struct{}{}
+				}
+			}
+		}
+	}
+	return out, nil
 }

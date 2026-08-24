@@ -129,8 +129,8 @@ func (s *Server) handleMCPRequest(sess *MCPSession, req *jsonRPCReq) {
 			},
 		}
 	case "tools/list":
-		if s.Tools != nil {
-			resp.Result = map[string]interface{}{"tools": s.Tools.List()}
+		if s.MCPTools != nil {
+			resp.Result = map[string]interface{}{"tools": s.MCPTools.List()}
 		} else {
 			resp.Result = map[string]interface{}{"tools": []any{}}
 		}
@@ -141,11 +141,11 @@ func (s *Server) handleMCPRequest(sess *MCPSession, req *jsonRPCReq) {
 		}
 		if err := json.Unmarshal(req.Params, &p); err != nil {
 			resp.Error = &jsonRPCErr{Code: -32602, Message: err.Error()}
-		} else if s.Tools == nil {
+		} else if s.MCPTools == nil {
 			resp.Error = &jsonRPCErr{Code: -32601, Message: "no tool registry"}
 		} else {
 			ctx := mcptool.WithRemoteAddr(context.Background(), sess.RemoteAddr)
-			result, err := s.Tools.Dispatch(ctx, p.Name, p.Arguments)
+			result, err := s.MCPTools.Dispatch(ctx, p.Name, p.Arguments)
 			switch {
 			case errors.Is(err, mcptool.ErrUnknownTool):
 				resp.Error = &jsonRPCErr{Code: -32601, Message: err.Error()}

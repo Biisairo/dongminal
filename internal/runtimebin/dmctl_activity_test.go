@@ -87,20 +87,20 @@ func TestParseCodexHook(t *testing.T) {
 	}
 }
 
-// FR-AAP-9: reportCodexActivity is a no-op for non-codex labels or no pane id
+// FR-AAP-9: reportCodexActivity is a no-op for non-codex labels or no tool id
 // (must not touch the network in those cases).
 func TestReportCodexActivity_Guards(t *testing.T) {
 	reportCodexActivity("done", []string{`{"type":"agent-turn-complete"}`}, "")
 	reportCodexActivity("claude", []string{`{"type":"agent-turn-complete"}`}, "p1")
 }
 
-// NFR-AAP-5 / TC-AAP-10: runDmctlActivity is non-fatal — missing pane id or bad
+// NFR-AAP-5 / TC-AAP-10: runDmctlActivity is non-fatal — missing tool id or bad
 // JSON must exit 0 (never block the agent's tool call), without POSTing.
 func TestRunDmctlActivity_NonFatal(t *testing.T) {
-	t.Setenv("DONGMINAL_PANE_ID", "")
+	t.Setenv("DONGMINAL_TOOL_ID", "")
 	var out, errb strings.Builder
 	if code := runDmctlActivity([]string{"claude"}, strings.NewReader(`{"hook_event_name":"Stop"}`), &out, &errb); code != 0 {
-		t.Fatalf("missing pane id must be non-fatal, got %d", code)
+		t.Fatalf("missing tool id must be non-fatal, got %d", code)
 	}
 	if code := runDmctlActivity([]string{"claude"}, strings.NewReader(`garbage`), &out, &errb); code != 0 {
 		t.Fatalf("bad json must be non-fatal, got %d", code)

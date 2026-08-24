@@ -11,66 +11,81 @@ import (
 
 const WorkspaceCommandName = "workspace_command"
 
+// workspaceCmdActions는 workspace_command 가 노출하는 action 집합이다.
+// 서버의 allowedCmdActions 부분집합 — 브로드캐스트 화이트리스트에는 있으나
+// MCP 로 부를 수 없는 action 이 있다. detachTab/restoreTool 은 toolId 인자를
+// 요구하고 workspace_command 는 그 인자를 갖지 않으므로 여기서 제외한다.
+var workspaceCmdActions = []string{
+	"newWindow", "newTab", "splitH", "splitV",
+	"closeTab", "closeWindow",
+	"windowNext", "windowPrev",
+	"tabNext", "tabPrev",
+	"paneUp", "paneDown", "paneLeft", "paneRight",
+	"focus", "openEditorTab",
+	"renameTab", "renameWindow",
+}
+
+func isWorkspaceCmdAction(a string) bool {
+	for _, x := range workspaceCmdActions {
+		if x == a {
+			return true
+		}
+	}
+	return false
+}
+
 var WorkspaceCommandSpec = map[string]any{
 	"name": WorkspaceCommandName,
 	"description": "dongminal 워크스페이스를 원격 제어한다. 실행 중인 브라우저(들)에 SSE 로 명령을 브로드캐스트하고, 브라우저가 기존 UI 로직(키보드 단축키와 동일 경로)을 그대로 실행한다. delivered=0 이면 구독 중인 브라우저 없음 — 사용자가 브라우저를 새로고침해야 함.\n\n" +
-		"【용어】 세션(Session)은 사이드바의 독립 작업공간. 영역(Region/Pane)은 세션 내부의 분할된 구획으로 자체 탭 바를 가진다. 탭(Tab)은 영역 안의 PTY 하나. 라벨 S<세션>.P<영역>.T<탭> 은 사람 가독성용 positional 표시(list_panes 의 label 컬럼). location 인자는 **uuid 만 허용** — list_panes 의 `uuid=` 컬럼 값. 좌표/라벨/paneId 입력은 거부. 서버가 broadcast 직전 uuid→좌표로 변환.\n\n" +
-		"【action — 기본은 '현재 포커스한 영역/세션' 기준. location 인자로 포커스 외 위치를 직접 대상 지정 가능 (focus → action 2콜 대신 1콜로 해결).】\n" +
-		"  • newSession   — 새 세션 생성. 기본은 활성화(전환). name=잡이름 지정 가능, keepFocus=true 면 사용자 포커스 유지(백그라운드 생성 — 잡 컨테이너 패턴).\n" +
-		"  • newTab       — 포커스(또는 location) 영역에 새 탭(+PTY) 추가. 기본은 그 탭으로 전환. name 지정 가능, keepFocus=true 면 사용자 포커스·대상 영역 활성 탭 모두 유지. cwd 는 해당 탭의 cwd 상속.\n" +
-		"  • splitH       — 영역을 '가로 분할' (좌↔우). 기본 2분할. count=N 지정 시 N 균등 분할. keepFocus=true 면 원래 포커스 유지, 기본은 마지막 새 영역으로 이동.\n" +
-		"  • splitV       — 영역을 '세로 분할' (상↕하). count/keepFocus 동일.\n" +
-		"  • closeTab     — 영역의 활성 탭을 닫음(PTY 종료). 영역의 마지막 탭이면 영역도 제거, 세션의 마지막 영역이면 세션도 제거. 실행 중 프로세스가 있으면 브라우저에서 확인 다이얼로그 표시.\n" +
-		"  • closeSession — 활성 세션 전체를 닫음. 세션 내 모든 PTY 종료. 마지막 세션이면 자동으로 새 세션 생성.\n" +
-		"  • sessionNext  — 다음 세션으로 전환 (순환). 단축키 Ctrl+Shift+] 와 동일.\n" +
-		"  • sessionPrev  — 이전 세션으로 전환 (순환). Ctrl+Shift+[ 와 동일.\n" +
-		"  • tabNext      — 현재 영역 안에서 다음 탭 (순환). Ctrl+Tab 과 동일.\n" +
-		"  • tabPrev      — 현재 영역 안에서 이전 탭 (순환). Ctrl+Shift+Tab 과 동일.\n" +
-		"  • paneUp/Down/Left/Right — 분할 레이아웃에서 인접 영역으로 포커스 이동. 해당 방향에 영역이 없으면 무시됨. Ctrl+Shift+방향키와 동일.\n" +
-		"  • openEditorTab — 포커스(또는 location) 영역에 편집기 탭을 추가. name과 filePath 인자 필수.\n" +
-		"  • focus        — 임의 위치로 포커스 이동. location **필수**. uuid 만 허용 (list_panes 의 `uuid=` 컬럼 값).\n" +
-		"  • renameTab    — location(필수) pane 의 표시 이름을 name(필수) 으로 변경. 포커스 무영향. 팀 pane 에 역할명 부여에 사용.\n" +
-		"  • renameSession — location(필수) pane 이 **속한 세션**의 이름을 name(필수) 으로 변경. 포커스 무영향.\n\n" +
+		"【용어】 창(Window)은 사이드바의 독립 작업공간. 분할 칸(Pane)은 창 내부의 나뉜 공간으로 자체 탭 바를 가진다. 탭(Tab)은 분할 칸 안의 공간이며, 그 안에 도구(Tool — 현재는 터미널)가 탑재된다. 라벨 W<창>.P<분할칸>.T<탭> 은 사람 가독성용 positional 표시(list_workspace 의 label 컬럼). location 인자는 **uuid 만 허용** — list_workspace 의 `uuid=` 컬럼 값. 좌표/라벨/toolId 입력은 거부. 서버가 broadcast 직전 uuid→좌표로 변환.\n\n" +
+		"【action — 기본은 '현재 포커스한 분할 칸/창' 기준. location 인자로 포커스 외 위치를 직접 대상 지정 가능 (focus → action 2콜 대신 1콜로 해결).】\n" +
+		"  • newWindow   — 새 창 생성. 기본은 활성화(전환). name=잡이름 지정 가능, keepFocus=true 면 사용자 포커스 유지(백그라운드 생성 — 잡 컨테이너 패턴).\n" +
+		"  • newTab       — 포커스(또는 location) 분할 칸에 새 탭(+터미널) 추가. 기본은 그 탭으로 전환. name 지정 가능, keepFocus=true 면 사용자 포커스·대상 분할 칸 활성 탭 모두 유지. cwd 는 해당 탭의 cwd 상속.\n" +
+		"  • splitH       — 분할 칸을 '가로 분할' (좌↔우). 기본 2분할. count=N 지정 시 N 균등 분할. keepFocus=true 면 원래 포커스 유지, 기본은 마지막 새 분할 칸으로 이동.\n" +
+		"  • splitV       — 분할 칸을 '세로 분할' (상↕하). count/keepFocus 동일.\n" +
+		"  • closeTab     — 분할 칸의 활성 탭을 닫음(도구 종료). 분할 칸의 마지막 탭이면 분할 칸도 제거, 창의 마지막 분할 칸이면 창도 제거. 실행 중 프로세스가 있으면 브라우저에서 확인 다이얼로그 표시.\n" +
+		"  • closeWindow — 활성 창 전체를 닫음. 창 안의 모든 도구 종료. 마지막 창이면 자동으로 새 창 생성.\n" +
+		"  • windowNext  — 다음 창으로 전환 (순환). 단축키 Ctrl+Shift+] 와 동일.\n" +
+		"  • windowPrev  — 이전 창으로 전환 (순환). Ctrl+Shift+[ 와 동일.\n" +
+		"  • tabNext      — 현재 분할 칸 안에서 다음 탭 (순환). Ctrl+Tab 과 동일.\n" +
+		"  • tabPrev      — 현재 분할 칸 안에서 이전 탭 (순환). Ctrl+Shift+Tab 과 동일.\n" +
+		"  • paneUp/Down/Left/Right — 분할 레이아웃에서 인접 분할 칸으로 포커스 이동. 해당 방향에 분할 칸이 없으면 무시됨. Ctrl+Shift+방향키와 동일.\n" +
+		"  • openEditorTab — 포커스(또는 location) 분할 칸에 편집기 탭을 추가. name과 filePath 인자 필수.\n" +
+		"  • focus        — 임의 위치로 포커스 이동. location **필수**. uuid 만 허용 (list_workspace 의 `uuid=` 컬럼 값).\n" +
+		"  • renameTab    — location(필수) 탭의 표시 이름을 name(필수) 으로 변경. 포커스 무영향. 팀 도구에 역할명 부여에 사용.\n" +
+		"  • renameWindow — location(필수) 탭이 **속한 창**의 이름을 name(필수) 으로 변경. 포커스 무영향.\n\n" +
 		"【인자】\n" +
 		"  • location  (모든 action 공용, 선택) — 대상 위치. 지정하면 action 실행 전에 해당 위치로 먼저 포커스 이동 후 실행. focus 액션에서는 필수.\n" +
 		"  • count     (splitH/splitV 전용, 선택, 기본 2) — N 개 균등 분할. N >= 2.\n" +
 		"  • keepFocus (splitH/splitV 전용, 선택, 기본 false) — true 면 분할 후 포커스를 원래 위치에 유지.\n\n" +
 		"【사용 패턴】\n" +
-		"  - 새 작업공간 준비: newSession → splitV(count=N)\n" +
+		"  - 새 작업공간 준비: newWindow → splitV(count=N)\n" +
 		"  - 특정 위치 한 번에 N 분할: workspace_command(splitH, location=<uuid>, count=4)\n" +
-		"  - 정리(포커스 유지하며 원격 탭 닫기): workspace_command(closeTab, location=<uuid>) — uuid 는 라벨 reflow 무관, list_panes 재확인 불필요\n" +
-		"  - 팀 영역 미리 만들고 내 포커스 유지: workspace_command(splitV, count=3, keepFocus=true)",
+		"  - 정리(포커스 유지하며 원격 탭 닫기): workspace_command(closeTab, location=<uuid>) — uuid 는 라벨 reflow 무관, list_workspace 재확인 불필요\n" +
+		"  - 팀 분할 칸 미리 만들고 내 포커스 유지: workspace_command(splitV, count=3, keepFocus=true)",
 	"inputSchema": map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"action": map[string]any{
 				"type": "string",
-				"enum": []string{
-					"newSession", "newTab", "splitH", "splitV",
-					"closeTab", "closeSession",
-					"sessionNext", "sessionPrev",
-					"tabNext", "tabPrev",
-					"paneUp", "paneDown", "paneLeft", "paneRight",
-					"focus", "openEditorTab",
-					"renameTab", "renameSession",
-				},
+				"enum": workspaceCmdActions,
 			},
 			"location": map[string]any{
 				"type":        "string",
-				"description": "대상 pane uuid. 모든 action 에서 선택 사항 — 지정하면 action 실행 전 해당 pane 으로 먼저 포커스 이동. focus 액션에서는 필수. **uuid 만 허용** — list_panes/who_am_i 출력의 `uuid=` 컬럼 값. 좌표(`4.1.1`/`S4.P1.T1`), 라벨, paneId 입력은 거부(에러). 서버가 broadcast 직전 uuid→좌표로 변환.",
+				"description": "대상 탭 uuid. 모든 action 에서 선택 사항 — 지정하면 action 실행 전 해당 탭으로 먼저 포커스 이동. focus 액션에서는 필수. **uuid 만 허용** — list_workspace/who_am_i 출력의 `uuid=` 컬럼 값. 좌표(`4.1.1`/`W4.P1.T1`), 라벨, toolId 입력은 거부(에러). 서버가 broadcast 직전 uuid→좌표로 변환.",
 			},
 			"count": map[string]any{
 				"type":        "integer",
 				"minimum":     2,
-				"description": "splitH/splitV 전용. 한 번에 N 균등 분할 (기본 2). 예: count=4 이면 원본 + 새 영역 3 개 = 총 4 개 형제.",
+				"description": "splitH/splitV 전용. 한 번에 N 균등 분할 (기본 2). 예: count=4 이면 원본 + 새 분할 칸 3 개 = 총 4 개 형제.",
 			},
 			"keepFocus": map[string]any{
 				"type":        "boolean",
-				"description": "splitH/splitV/newSession/newTab 전용. true 면 실행 후 사용자 포커스를 호출 전 상태 그대로 유지한다 (기본 false). newSession+keepFocus 는 세션을 사이드바에만 추가, newTab+keepFocus 는 대상 영역의 활성 탭도 바꾸지 않는다.",
+				"description": "splitH/splitV/closeTab/newWindow/newTab 전용. true 면 실행 후 사용자 포커스를 호출 전 상태 그대로 유지한다 (기본 false). newWindow+keepFocus 는 창을 사이드바에만 추가, newTab+keepFocus 는 대상 분할 칸의 활성 탭도 바꾸지 않는다.",
 			},
 			"name": map[string]any{
 				"type":        "string",
-				"description": "newSession/newTab/openEditorTab 전용. 새 세션/탭에 표시할 이름. 생략 시 기본값 (Session/Shell/파일명).",
+				"description": "newWindow/newTab/openEditorTab 전용. 새 창/탭에 표시할 이름. 생략 시 기본값 (Window/Shell/파일명).",
 			},
 			"filePath": map[string]any{
 				"type":        "string",
@@ -100,18 +115,18 @@ func WorkspaceCommandHandler(d WorkspaceCommandDeps) func(context.Context, Works
 		if a.Action == "" {
 			return nil, fmt.Errorf("action 누락")
 		}
-		if !d.Broadcaster.AllowedAction(a.Action) {
+		if !isWorkspaceCmdAction(a.Action) || !d.Broadcaster.AllowedAction(a.Action) {
 			return nil, fmt.Errorf("unknown action: %s", a.Action)
 		}
 		if a.Action == "focus" && a.Location == "" {
-			return nil, fmt.Errorf("focus 는 location 인자가 필요 (list_panes 의 uuid 컬럼 값)")
+			return nil, fmt.Errorf("focus 는 location 인자가 필요 (list_workspace 의 uuid 컬럼 값)")
 		}
 		if a.Action == "openEditorTab" && a.FilePath == "" {
 			return nil, fmt.Errorf("openEditorTab 은 filePath 인자가 필수")
 		}
-		if a.Action == "renameTab" || a.Action == "renameSession" {
+		if a.Action == "renameTab" || a.Action == "renameWindow" {
 			if a.Location == "" {
-				return nil, fmt.Errorf("%s 은 location 인자가 필요 (list_panes 의 uuid 컬럼 값)", a.Action)
+				return nil, fmt.Errorf("%s 은 location 인자가 필요 (list_workspace 의 uuid 컬럼 값)", a.Action)
 			}
 			if a.Name == "" {
 				return nil, fmt.Errorf("%s 은 name 인자가 필수", a.Action)
@@ -124,18 +139,18 @@ func WorkspaceCommandHandler(d WorkspaceCommandDeps) func(context.Context, Works
 			return nil, fmt.Errorf("count 는 splitH/splitV 에서만 의미가 있다 (action=%s)", a.Action)
 		}
 		if a.KeepFocus && a.Action != "splitH" && a.Action != "splitV" && a.Action != "closeTab" &&
-			a.Action != "newSession" && a.Action != "newTab" {
-			return nil, fmt.Errorf("keepFocus 는 splitH/splitV/closeTab/newSession/newTab 에서만 의미가 있다 (action=%s)", a.Action)
+			a.Action != "newWindow" && a.Action != "newTab" {
+			return nil, fmt.Errorf("keepFocus 는 splitH/splitV/closeTab/newWindow/newTab 에서만 의미가 있다 (action=%s)", a.Action)
 		}
-		if a.Name != "" && a.Action != "openEditorTab" && a.Action != "newSession" && a.Action != "newTab" &&
-			a.Action != "renameTab" && a.Action != "renameSession" {
-			return nil, fmt.Errorf("name 은 newSession/newTab/openEditorTab/renameTab/renameSession 에서만 의미가 있다 (action=%s)", a.Action)
+		if a.Name != "" && a.Action != "openEditorTab" && a.Action != "newWindow" && a.Action != "newTab" &&
+			a.Action != "renameTab" && a.Action != "renameWindow" {
+			return nil, fmt.Errorf("name 은 newWindow/newTab/openEditorTab/renameTab/renameWindow 에서만 의미가 있다 (action=%s)", a.Action)
 		}
 		loc := a.Location
 		if d.WS != nil && loc != "" {
-			// FR-DMC-9: location 은 list_panes 의 uuid 만 허용.
+			// FR-DMC-9: location 은 list_workspace 의 uuid 만 허용.
 			if !d.WS.IsKnownTabID(loc) {
-				return nil, fmt.Errorf("location 은 list_panes 의 uuid 만 허용 (좌표/라벨/paneId 거부): %q", loc)
+				return nil, fmt.Errorf("location 은 list_workspace 의 uuid 만 허용 (좌표/라벨/toolId 거부): %q", loc)
 			}
 			coord, err := d.WS.CoordinateOf(loc)
 			if err != nil {
@@ -209,14 +224,14 @@ func WorkspaceCommandHandler(d WorkspaceCommandDeps) func(context.Context, Works
 // 부착한다. timedOut 이면 미수신을 표시 (FR-RCR-8).
 func formatNewEntities(res mcptool.CmdResult, timedOut bool) string {
 	if timedOut {
-		return "  (timedOut: 새 id 미수신 — list_panes 로 확인)"
+		return "  (timedOut: 새 id 미수신 — list_workspace 로 확인)"
 	}
 	var sb strings.Builder
-	if len(res.NewSessions) > 0 {
-		fmt.Fprintf(&sb, "  newSessions=%v", res.NewSessions)
+	if len(res.NewWindows) > 0 {
+		fmt.Fprintf(&sb, "  newWindows=%v", res.NewWindows)
 	}
-	if len(res.NewRegions) > 0 {
-		fmt.Fprintf(&sb, "  newRegions=%v", res.NewRegions)
+	if len(res.NewPanes) > 0 {
+		fmt.Fprintf(&sb, "  newPanes=%v", res.NewPanes)
 	}
 	if len(res.NewTabs) > 0 {
 		sb.WriteString("  newTabs=[")
@@ -224,7 +239,7 @@ func formatNewEntities(res mcptool.CmdResult, timedOut bool) string {
 			if i > 0 {
 				sb.WriteByte(' ')
 			}
-			fmt.Fprintf(&sb, "%s(%s)", t.UUID, t.PaneID)
+			fmt.Fprintf(&sb, "%s(%s)", t.UUID, t.ToolID)
 		}
 		sb.WriteByte(']')
 	}

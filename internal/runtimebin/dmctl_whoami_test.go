@@ -11,16 +11,16 @@ import (
 )
 
 const whoAmIFakeJSON = `{
-  "paneId":"12","shellPid":12345,
-  "label":"S1.P1.T1","uuid":"550e8400-e29b-41d4-a716-446655440003","short":"550e8400",
+  "toolId":"12","shellPid":12345,
+  "label":"W1.P1.T1","uuid":"550e8400-e29b-41d4-a716-446655440003","short":"550e8400",
   "sizeCols":80,"sizeRows":24,
-  "session":"Main","tab":"Shell",
-  "sessionUuid":"550e8400-e29b-41d4-a716-446655440001",
-  "regionUuid":"550e8400-e29b-41d4-a716-446655440002",
+  "window":"Main","tab":"Shell",
+  "windowUuid":"550e8400-e29b-41d4-a716-446655440001",
+  "paneUuid":"550e8400-e29b-41d4-a716-446655440002",
   "focused":true
 }`
 
-// TC-DMC-WAI-1: 정상 응답 → paneline 한 줄, rc=0.
+// TC-DMC-WAI-1: 정상 응답 → toolline 한 줄, rc=0.
 func TestRunDmctlWhoAmI_TextOutput(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/whoami" || r.Method != http.MethodGet {
@@ -36,7 +36,7 @@ func TestRunDmctlWhoAmI_TextOutput(t *testing.T) {
 	if rc != 0 {
 		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
 	}
-	want := "▶ label=S1.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440003  short=550e8400  paneId=12  shellPid=12345  size=80x24  session=\"Main\"  tab=\"Shell\"  session_uuid=550e8400-e29b-41d4-a716-446655440001  region_uuid=550e8400-e29b-41d4-a716-446655440002\n"
+	want := "▶ label=W1.P1.T1  uuid=550e8400-e29b-41d4-a716-446655440003  short=550e8400  toolId=12  shellPid=12345  size=80x24  window=\"Main\"  tab=\"Shell\"  window_uuid=550e8400-e29b-41d4-a716-446655440001  pane_uuid=550e8400-e29b-41d4-a716-446655440002\n"
 	if stdout.String() != want {
 		t.Errorf("stdout=%q\nwant   =%q", stdout.String(), want)
 	}
@@ -69,7 +69,7 @@ func TestRunDmctlWhoAmI_NotFound(t *testing.T) {
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(404)
-		fmt.Fprint(w, `{"error":"clientPID=999 가 어느 pane 에도 속하지 않음"}`)
+		fmt.Fprint(w, `{"error":"clientPID=999 가 어느 tool 에도 속하지 않음"}`)
 	})
 	defer cleanup()
 

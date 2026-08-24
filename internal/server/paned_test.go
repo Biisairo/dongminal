@@ -48,7 +48,7 @@ func TestPanedBase64RoundTrip(t *testing.T) {
 // newTestConn builds a panedConn over an in-memory pipe via the real
 // newPanedConn path (queue + writeLoop). The peer end is drained so writes
 // never block.
-func newTestConn(pm *PaneManager) *panedConn {
+func newTestConn(pm *ToolManager) *panedConn {
 	c1, c2 := net.Pipe()
 	pc := newPanedConn(c1, pm)
 	go func() { _, _ = io.Copy(io.Discard, c2) }()
@@ -56,7 +56,7 @@ func newTestConn(pm *PaneManager) *panedConn {
 }
 
 func TestPanedMethodDispatch(t *testing.T) {
-	pc := newTestConn(NewPaneManager(t.TempDir(), nil))
+	pc := newTestConn(NewToolManager(t.TempDir(), nil))
 	tests := []struct {
 		name   string
 		method string
@@ -82,7 +82,7 @@ func TestPanedMethodDispatch(t *testing.T) {
 
 func TestPanedUnknownMethod(t *testing.T) {
 	var buf bytes.Buffer
-	pc := &panedConn{pm: NewPaneManager(t.TempDir(), nil), encoder: json.NewEncoder(&buf)}
+	pc := &panedConn{pm: NewToolManager(t.TempDir(), nil), encoder: json.NewEncoder(&buf)}
 	pc.dispatch(&panedRequest{ID: 1, Method: "bogus", Params: json.RawMessage(`{}`)})
 
 	raw := bytes.TrimRight(buf.Bytes(), "\n")
@@ -96,8 +96,8 @@ func TestPanedUnknownMethod(t *testing.T) {
 	}
 }
 
-func TestPanedHelloReturnsPaneIDs(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+func TestPanedHelloReturnsToolIDs(t *testing.T) {
+	pm := NewToolManager(t.TempDir(), nil)
 	pm.Create("/tmp", 80, 24)
 	pm.Create("/tmp", 80, 24)
 
@@ -108,24 +108,24 @@ func TestPanedHelloReturnsPaneIDs(t *testing.T) {
 	var resp panedResponse
 	json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &resp)
 	resultMap := resp.Result.(map[string]interface{})
-	paneIDs := resultMap["pane_ids"].([]interface{})
-	if len(paneIDs) != 2 {
-		t.Fatalf("pane_ids len=%d want 2", len(paneIDs))
+	toolIDs := resultMap["tool_ids"].([]interface{})
+	if len(toolIDs) != 2 {
+		t.Fatalf("tool_ids len=%d want 2", len(toolIDs))
 	}
 }
 
-func TestPanedKillRemovesPane(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+func TestPanedKillRemovesTool(t *testing.T) {
+	pm := NewToolManager(t.TempDir(), nil)
 	pm.Create("/tmp", 80, 24)
 	pc := newTestConn(pm)
 
 	if !pm.IsLive("1") {
-		t.Fatal("pane should be live before kill")
+		t.Fatal("tool should be live before kill")
 	}
 	pc.dispatch(&panedRequest{ID: 1, Method: "kill", Params: json.RawMessage(`{"id":"1"}`)})
 	time.Sleep(200 * time.Millisecond) // allow async cleanup
 	if pm.IsLive("1") {
-		t.Fatal("pane should be dead after kill")
+		t.Fatal("tool should be dead after kill")
 	}
 }
 
@@ -139,11 +139,11 @@ func TestPanedPushOutputBase64(t *testing.T) {
 
 	var ev struct {
 		Event string `json:"event"`
-		Pane  string `json:"pane"`
+		Tool  string `json:"tool"`
 		Data  string `json:"data"`
 	}
 	json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &ev)
-	if ev.Event != "output" || ev.Pane != "1" {
+	if ev.Event != "output" || ev.Tool != "1" {
 		t.Fatalf("ev=%+v", ev)
 	}
 	dec, _ := base64.StdEncoding.DecodeString(ev.Data)
@@ -159,11 +159,11 @@ func TestPanedPushExit(t *testing.T) {
 
 	var ev struct {
 		Event string `json:"event"`
-		Pane  string `json:"pane"`
+		Tool  string `json:"tool"`
 		Code  int    `json:"code"`
 	}
 	json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &ev)
-	if ev.Event != "exit" || ev.Pane != "1" {
+	if ev.Event != "exit" || ev.Tool != "1" {
 		t.Fatalf("ev=%+v", ev)
 	}
 }
@@ -183,7 +183,7 @@ func TestPanedPushOutputStopped(t *testing.T) {
 func shortPath(t *testing.T, name string) string { return t.TempDir() + "/" + name }
 
 func TestPanedServerListenAccept(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	pm.Create("/tmp", 80, 24)
 
 	sockPath := shortPath(t, "t.sock")
@@ -225,7 +225,7 @@ func TestPanedServerListenAccept(t *testing.T) {
 }
 
 func TestPanedServerCloseCleanup(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	sockPath := shortPath(t, "c.sock")
 	pidPath := shortPath(t, "c.pid")
 
@@ -242,7 +242,7 @@ func TestPanedServerCloseCleanup(t *testing.T) {
 }
 
 func TestPanedCreateWriteSnapshotFlow(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	var buf bytes.Buffer
 	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&buf)}
 
@@ -263,14 +263,14 @@ func TestPanedCreateWriteSnapshotFlow(t *testing.T) {
 }
 
 func TestPanedRestore(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
+	pm := NewToolManager(t.TempDir(), nil)
 	var buf bytes.Buffer
 	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&buf)}
 
 	pc.dispatch(&panedRequest{ID: 1, Method: "restore", Params: json.RawMessage(`{"id":"5","name":"R","cwd":"/home","cols":100,"rows":30}`)})
 
 	if !pm.IsLive("5") {
-		t.Fatal("restored pane should be live")
+		t.Fatal("restored tool should be live")
 	}
 }
 
@@ -278,14 +278,14 @@ func TestPanedRestore(t *testing.T) {
 // already served by a live daemon (concurrent cold-start guard).
 func TestPanedListenRejectsLiveSocket(t *testing.T) {
 	sock := t.TempDir() + "/s"
-	ps1 := NewPanedServer(NewPaneManager(t.TempDir(), nil), sock, "")
+	ps1 := NewPanedServer(NewToolManager(t.TempDir(), nil), sock, "")
 	if err := ps1.Listen(); err != nil {
 		t.Fatalf("Listen1: %v", err)
 	}
 	defer ps1.Close()
 	go func() { ps1.Accept() }()
 
-	ps2 := NewPanedServer(NewPaneManager(t.TempDir(), nil), sock, "")
+	ps2 := NewPanedServer(NewToolManager(t.TempDir(), nil), sock, "")
 	if err := ps2.Listen(); err == nil {
 		ps2.Close()
 		t.Fatal("Listen2 should reject a live socket, got nil error")
@@ -295,13 +295,13 @@ func TestPanedListenRejectsLiveSocket(t *testing.T) {
 // TestPanedListenRemovesStaleSocket verifies a stale (dead) socket is replaced.
 func TestPanedListenRemovesStaleSocket(t *testing.T) {
 	sock := t.TempDir() + "/s"
-	ps1 := NewPanedServer(NewPaneManager(t.TempDir(), nil), sock, "")
+	ps1 := NewPanedServer(NewToolManager(t.TempDir(), nil), sock, "")
 	if err := ps1.Listen(); err != nil {
 		t.Fatalf("Listen1: %v", err)
 	}
 	ps1.Close() // socket file may linger but no listener
 
-	ps2 := NewPanedServer(NewPaneManager(t.TempDir(), nil), sock, "")
+	ps2 := NewPanedServer(NewToolManager(t.TempDir(), nil), sock, "")
 	if err := ps2.Listen(); err != nil {
 		t.Fatalf("Listen2 should reclaim stale socket: %v", err)
 	}

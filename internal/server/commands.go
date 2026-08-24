@@ -20,19 +20,19 @@ type cmdSub struct {
 	once sync.Once
 }
 
-// TabRef pairs a newly created tab's uuid with its server-assigned paneId
-// (REMOTE_COMMAND_RESULT_SRS — 호출자가 uuid→paneId 재조회 불필요).
+// TabRef pairs a newly created tab's uuid with its server-assigned toolId
+// (REMOTE_COMMAND_RESULT_SRS — 호출자가 uuid→toolId 재조회 불필요).
 type TabRef struct {
 	UUID   string `json:"uuid"`
-	PaneID string `json:"paneId"`
+	ToolID string `json:"toolId"`
 }
 
 // CmdResult is the set of entities a creating command produced, echoed back by
 // the browser and returned to the caller via long-poll correlation.
 type CmdResult struct {
-	NewSessions []string `json:"newSessions"`
-	NewRegions  []string `json:"newRegions"`
-	NewTabs     []TabRef `json:"newTabs"`
+	NewWindows []string `json:"newWindows"`
+	NewPanes   []string `json:"newPanes"`
+	NewTabs    []TabRef `json:"newTabs"`
 }
 
 // CommandHub broadcasts workspace UI commands to SSE subscribers.
@@ -56,10 +56,10 @@ func NewCommandHub() *CommandHub {
 // creatingActions are the commands that produce new entities and thus support
 // result correlation. Others broadcast immediately with no await.
 var creatingActions = map[string]bool{
-	"newSession": true,
-	"newTab":     true,
-	"splitH":     true,
-	"splitV":     true,
+	"newWindow": true,
+	"newTab":    true,
+	"splitH":    true,
+	"splitV":    true,
 }
 
 // IsCreatingAction reports whether action creates new entities (FR-RCR-1).
@@ -168,15 +168,15 @@ func (h *CommandHub) Broadcast(payload []byte) int {
 }
 
 var allowedCmdActions = map[string]bool{
-	"newSession":    true,
+	"newWindow":     true,
 	"newTab":        true,
 	"splitH":        true,
 	"splitV":        true,
 	"focus":         true,
 	"closeTab":      true,
-	"closeSession":  true,
-	"sessionNext":   true,
-	"sessionPrev":   true,
+	"closeWindow":   true,
+	"windowNext":    true,
+	"windowPrev":    true,
 	"tabNext":       true,
 	"tabPrev":       true,
 	"paneUp":        true,
@@ -185,14 +185,17 @@ var allowedCmdActions = map[string]bool{
 	"paneRight":     true,
 	"openEditorTab": true,
 	"renameTab":     true,
+	"renameWindow":  true,
+	"detachTab":     true,
+	"restoreTool":   true,
 }
 
 // AllowedAction reports whether the action is accepted by the hub.
 func (h *CommandHub) AllowedAction(a string) bool { return allowedCmdActions[a] }
 
 // translateLocationUUID rewrites args.location in-place when the value is a
-// UUID, replacing it with the canonical "S{n}.P{n}.T{n}" coordinate that the
-// browser parses. Non-UUID values (coordinate / paneId / label / empty) and
+// UUID, replacing it with the canonical "W{n}.P{n}.T{n}" coordinate that the
+// browser parses. Non-UUID values (coordinate / toolId / label / empty) and
 // missing location field pass through with no rewrite, preserving every
 // existing dmctl and MCP call (NFR-UID-0). Returns (origLoc, finalLoc) so the
 // caller can log both forms when the input was a UUID.
@@ -208,10 +211,10 @@ func translateLocationUUID(rawArgs *json.RawMessage, ws WorkspaceStore) (orig, f
 	if !ok || loc == "" {
 		return "", "", nil
 	}
-	// FR-DMC-9: location 은 list-panes 의 uuid (tab.id) 만 허용. 좌표/라벨/paneId
+	// FR-DMC-9: location 은 list-workspace 의 uuid (tab.id) 만 허용. 좌표/라벨/toolId
 	// 는 거부 — 사용자가 reflow 위험이 있는 식별자를 무의식적으로 쓰는 표면을 차단.
 	if !ws.IsKnownTabID(loc) {
-		return loc, "", fmt.Errorf("location 은 list-panes 의 uuid 만 허용 (좌표/라벨/paneId 거부): %q", loc)
+		return loc, "", fmt.Errorf("location 은 list-workspace 의 uuid 만 허용 (좌표/라벨/toolId 거부): %q", loc)
 	}
 	coord, cerr := ws.CoordinateOf(loc)
 	if cerr != nil {
@@ -239,6 +242,19 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 
 	sub := s.Commands.add()
 	defer s.Commands.remove(sub)
+
+	// FR-XDF-8: 구독에 clientId 를 결선한다. cmdSub 자체에는 신원이 없으므로
+	// 이 결선 없이는 구독 해제와 소유권 해제를 이을 수 없다.
+	// FR-XDF-9: 구독이 끊기면 그 Client 의 소유권을 즉시 해제한다 —
+	// grace period 없음. epoch 로 재연결 경합을 막는다 (FR-XDF-10).
+	if cid := r.URL.Query().Get("clientId"); cid != "" && s.Focus != nil {
+		ep := s.Focus.Attach(cid)
+		defer func() {
+			if s.Focus.Detach(cid, ep) {
+				s.broadcastFocusOwners()
+			}
+		}()
+	}
 
 	fmt.Fprint(w, ": connected\n\n")
 	flusher.Flush()
@@ -312,8 +328,8 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		payload, _ := json.Marshal(req)
 		res, n, timedOut := s.Commands.BroadcastAndAwait(payload, req.ReqId, CommandResultTimeout())
 		resp["delivered"] = n
-		resp["newSessions"] = res.NewSessions
-		resp["newRegions"] = res.NewRegions
+		resp["newWindows"] = res.NewWindows
+		resp["newPanes"] = res.NewPanes
 		resp["newTabs"] = res.NewTabs
 		resp["timedOut"] = timedOut
 		log.Printf("[cmd] action=%s%s delivered=%d newTabs=%d timedOut=%t",
@@ -338,10 +354,10 @@ func (s *Server) handleCommandResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		ReqId       string   `json:"reqId"`
-		NewSessions []string `json:"newSessions"`
-		NewRegions  []string `json:"newRegions"`
-		NewTabs     []TabRef `json:"newTabs"`
+		ReqId      string   `json:"reqId"`
+		NewWindows []string `json:"newWindows"`
+		NewPanes   []string `json:"newPanes"`
+		NewTabs    []TabRef `json:"newTabs"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid json: "+err.Error(), http.StatusBadRequest)
@@ -349,9 +365,9 @@ func (s *Server) handleCommandResult(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.ReqId != "" {
 		s.Commands.DeliverResult(body.ReqId, CmdResult{
-			NewSessions: body.NewSessions,
-			NewRegions:  body.NewRegions,
-			NewTabs:     body.NewTabs,
+			NewWindows: body.NewWindows,
+			NewPanes:   body.NewPanes,
+			NewTabs:    body.NewTabs,
 		})
 	}
 	w.WriteHeader(http.StatusOK)

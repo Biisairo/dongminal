@@ -1,36 +1,36 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 async function waitForInit(page) {
   await page.context().addInitScript(() => {
     sessionStorage.setItem('displayMode', 'desktop');
   });
   await page.goto('/');
-  await page.waitForSelector('#area .rg.focused .xterm-helper-textarea', { timeout: 15000 });
+  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 test.describe('Tab management', () => {
   test('tab can be closed via x button', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.locator('#area .rg.focused .rt').count();
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
     // Ensure at least 2 tabs so we can close one.
     if (before < 2) {
       const [resp] = await Promise.all([
-        page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
-        page.locator('#area .rg.focused .rt-add').click(),
+        page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
+        page.locator('#area .pn.focused .pn-tab-add').click(),
       ]);
       expect(resp.status()).toBe(200);
-      await expect(page.locator('#area .rg.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
+      await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
     }
 
-    const countBefore = await page.locator('#area .rg.focused .rt').count();
+    const countBefore = await page.locator('#area .pn.focused .pn-tab').count();
     // Click the x on the first tab.
-    await page.locator('#area .rg.focused .rt').first().locator('.rt-x').click();
-    await expect(page.locator('#area .rg.focused .rt')).toHaveCount(countBefore - 1, { timeout: 10000 });
+    await page.locator('#area .pn.focused .pn-tab').first().locator('.pn-tab-x').click();
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(countBefore - 1, { timeout: 10000 });
   });
 
   test('tab can be renamed via double-click', async ({ page }) => {
     await waitForInit(page);
-    const firstTab = page.locator('#area .rg.focused .rt').first();
+    const firstTab = page.locator('#area .pn.focused .pn-tab').first();
     await expect(firstTab).toBeVisible();
 
     // Double-click tab name.
@@ -47,18 +47,18 @@ test.describe('Tab management', () => {
 
   test('tab switch by clicking another tab', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.locator('#area .rg.focused .rt').count();
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
     if (before < 2) {
       const [resp] = await Promise.all([
-        page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
-        page.locator('#area .rg.focused .rt-add').click(),
+        page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
+        page.locator('#area .pn.focused .pn-tab-add').click(),
       ]);
       expect(resp.status()).toBe(200);
-      await expect(page.locator('#area .rg.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
+      await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
     }
 
-    const first = page.locator('#area .rg.focused .rt').first();
-    const second = page.locator('#area .rg.focused .rt').nth(1);
+    const first = page.locator('#area .pn.focused .pn-tab').first();
+    const second = page.locator('#area .pn.focused .pn-tab').nth(1);
 
     // Click second tab.
     await second.click();
@@ -71,18 +71,18 @@ test.describe('Tab management', () => {
 
   test('keyboard shortcut switches tabs', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.locator('#area .rg.focused .rt').count();
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
     if (before < 2) {
       const [resp] = await Promise.all([
-        page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
-        page.locator('#area .rg.focused .rt-add').click(),
+        page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
+        page.locator('#area .pn.focused .pn-tab-add').click(),
       ]);
       expect(resp.status()).toBe(200);
-      await expect(page.locator('#area .rg.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
+      await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
     }
 
-    const first = page.locator('#area .rg.focused .rt').first();
-    const second = page.locator('#area .rg.focused .rt').nth(1);
+    const first = page.locator('#area .pn.focused .pn-tab').first();
+    const second = page.locator('#area .pn.focused .pn-tab').nth(1);
 
     await first.click();
     await expect(first).toHaveClass(/active/);
@@ -95,29 +95,29 @@ test.describe('Tab management', () => {
     await expect(first).toHaveClass(/active/);
   });
 
-  test('closing last tab in a region removes the region', async ({ page }) => {
+  test('closing last tab in a pane removes the pane', async ({ page }) => {
     await waitForInit(page);
-    const beforeRg = await page.locator('#area .rg').count();
+    const beforeRg = await page.locator('#area .pn').count();
     if (beforeRg < 2) {
       const [resp] = await Promise.all([
-        page.waitForResponse((r) => r.url().includes('/api/panes') && r.status() === 200),
+        page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
         page.click('#split-h'),
       ]);
       expect(resp.status()).toBe(200);
-      await expect(page.locator('#area .rg')).toHaveCount(beforeRg + 1, { timeout: 10000 });
+      await expect(page.locator('#area .pn')).toHaveCount(beforeRg + 1, { timeout: 10000 });
     }
 
-    const rgCountBefore = await page.locator('#area .rg').count();
-    // Close all tabs in the second region (not focused) one by one.
-    const secondRegion = page.locator('#area .rg').nth(1);
-    let tabs = await secondRegion.locator('.rt').count();
+    const rgCountBefore = await page.locator('#area .pn').count();
+    // Close all tabs in the second pane (not focused) one by one.
+    const secondPaneEl = page.locator('#area .pn').nth(1);
+    let tabs = await secondPaneEl.locator('.pn-tab').count();
     while (tabs > 0) {
-      await secondRegion.locator('.rt').first().locator('.rt-x').click();
-    await expect(secondRegion.locator(".rt")).toHaveCount(tabs - 1, { timeout: 5000 });
-      tabs = await secondRegion.locator('.rt').count();
+      await secondPaneEl.locator('.pn-tab').first().locator('.pn-tab-x').click();
+    await expect(secondPaneEl.locator(".pn-tab")).toHaveCount(tabs - 1, { timeout: 5000 });
+      tabs = await secondPaneEl.locator('.pn-tab').count();
     }
 
-    // Region count should have decreased by 1.
-    await expect(page.locator('#area .rg')).toHaveCount(rgCountBefore - 1, { timeout: 10000 });
+    // Pane count should have decreased by 1.
+    await expect(page.locator('#area .pn')).toHaveCount(rgCountBefore - 1, { timeout: 10000 });
   });
 });

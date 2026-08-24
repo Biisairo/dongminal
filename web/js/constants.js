@@ -6,7 +6,7 @@
 // Server→Client uses OUTPUT(0)/ERROR(1)/EXIT(2)/SID(3).
 // Same byte values are reused per direction — the protocol is directional,
 // so INPUT(0) and OUTPUT(0) never conflict at the same endpoint.
-const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,SID:3};
+const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,TOOLID:3};
 const enc=new TextEncoder(), dec=new TextDecoder();
 const SEARCH_RESEARCH_DELAY=50;
 
@@ -15,6 +15,14 @@ const SEARCH_RESEARCH_DELAY=50;
 const AGENTS_POLL_DEFAULT=5000;
 // 상태별 글꼴 기호(이모지 아님) — 색(.ag-state.<state>)과 함께 상태를 구분.
 const AGENT_STATE_ICON={working:'●',done:'✓',waiting:'…',idle:'○'};
+
+// 모바일 키바 제스처 상수 (USER_CHECKLIST_FIXES_SRS FR-MTB-2/4/5).
+// TAP_SLOP: 이 거리를 넘으면 탭이 아니라 스크롤로 넘긴다.
+// GHOST_CLICK: touchend 처리 후 이 시간 안에 오는 click 은 합성분으로 본다.
+const MKB_LONG_PRESS_MS=600;
+const MKB_DOUBLE_TAP_MS=350;
+const MKB_TAP_SLOP_PX=10;
+const MKB_GHOST_CLICK_MS=700;
 
 const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight','ShiftLeft','ShiftRight']);
 

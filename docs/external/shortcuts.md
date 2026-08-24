@@ -2,12 +2,14 @@
 
 모든 앱 단축키는 **설정 → Shortcuts** 에서 커스터마이징 가능합니다. 설정된 단축키는 터미널/브라우저 기본 동작보다 우선합니다.
 
+`Pane ↑/↓/←/→` 는 분할 칸 사이의 포커스 이동입니다.
+
 ## 기본값
 
 | 동작 | 기본 |
 |------|------|
-| 다음 세션 | `Ctrl+Shift+]` |
-| 이전 세션 | `Ctrl+Shift+[` |
+| 다음 창 | `Ctrl+Shift+]` |
+| 이전 창 | `Ctrl+Shift+[` |
 | 다음 탭 | `Ctrl+Tab` |
 | 이전 탭 | `Ctrl+Shift+Tab` |
 | Pane ↑ | `Ctrl+Shift+↑` |
@@ -16,10 +18,11 @@
 | Pane → | `Ctrl+Shift+→` |
 | 가로 분할 | `Ctrl+Shift+H` |
 | 세로 분할 | `Ctrl+Shift+V` |
-| 새 세션 | `Ctrl+Shift+N` |
+| 새 창 | `Ctrl+Shift+N` |
 | 새 탭 | `Ctrl+Shift+T` |
-| 세션 닫기 | `Ctrl+Shift+W` |
+| 창 닫기 | `Ctrl+Shift+W` |
 | 탭 닫기 | `Ctrl+Shift+D` |
+| 에이전트 패널 | `Ctrl+Shift+A` |
 | 터미널 검색 | `Ctrl+F` / `Cmd+F` (고정) |
 
 ## 키 입력 우선순위

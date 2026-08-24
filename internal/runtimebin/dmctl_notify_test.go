@@ -9,8 +9,8 @@ import (
 	"testing"
 )
 
-// pointDmctlAtServer points dmctl's HTTP client at ts and sets a pane id.
-func pointDmctlAtServer(t *testing.T, ts *httptest.Server, paneID string) {
+// pointDmctlAtServer points dmctl's HTTP client at ts and sets a tool id.
+func pointDmctlAtServer(t *testing.T, ts *httptest.Server, toolID string) {
 	t.Helper()
 	u, err := url.Parse(ts.URL)
 	if err != nil {
@@ -18,13 +18,13 @@ func pointDmctlAtServer(t *testing.T, ts *httptest.Server, paneID string) {
 	}
 	t.Setenv("DONGMINAL_HOST", u.Hostname())
 	t.Setenv("DONGMINAL_PORT", u.Port())
-	t.Setenv("DONGMINAL_PANE_ID", paneID)
+	t.Setenv("DONGMINAL_TOOL_ID", toolID)
 }
 
 func TestDmctlNotify_PostsToServer(t *testing.T) {
 	var gotPath string
 	var got struct {
-		PaneID string `json:"paneId"`
+		ToolID string `json:"toolId"`
 		Reason string `json:"reason"`
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -38,11 +38,11 @@ func TestDmctlNotify_PostsToServer(t *testing.T) {
 	if code := runDmctlNotify([]string{"done"}, io.Discard, io.Discard); code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
-	if gotPath != "/api/panes/attention/set" {
-		t.Fatalf("POST path = %q, want /api/panes/attention/set", gotPath)
+	if gotPath != "/api/tools/attention/set" {
+		t.Fatalf("POST path = %q, want /api/tools/attention/set", gotPath)
 	}
-	if got.PaneID != "7" || got.Reason != "done" {
-		t.Fatalf("server received %+v, want {PaneID:7 Reason:done}", got)
+	if got.ToolID != "7" || got.Reason != "done" {
+		t.Fatalf("server received %+v, want {ToolID:7 Reason:done}", got)
 	}
 }
 
@@ -63,11 +63,11 @@ func TestDmctlNotify_DefaultReason(t *testing.T) {
 	}
 }
 
-func TestDmctlNotify_RequiresPaneID(t *testing.T) {
-	// No server should be hit; just assert it fails clearly without a pane id.
-	t.Setenv("DONGMINAL_PANE_ID", "")
+func TestDmctlNotify_RequiresToolID(t *testing.T) {
+	// No server should be hit; just assert it fails clearly without a tool id.
+	t.Setenv("DONGMINAL_TOOL_ID", "")
 	if code := runDmctlNotify([]string{"done"}, io.Discard, io.Discard); code == 0 {
-		t.Fatalf("expected non-zero exit without DONGMINAL_PANE_ID")
+		t.Fatalf("expected non-zero exit without DONGMINAL_TOOL_ID")
 	}
 }
 

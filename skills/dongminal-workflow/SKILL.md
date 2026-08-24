@@ -51,22 +51,22 @@ python3 scripts/render_workflow.py ~/.dongminal/workflows/<name>.md --json --par
 - rc=1 + "필수 파라미터 누락" → **팀 생성 시작 전에** 사용자에게 누락 param 질문.
 - 출력 JSON: `team[]` (count 전개 + 인스턴스별 `role_prompt`), `kickoff`, `report`, `teardown`, `process`.
 
-### 세션 모드 — JSON `session` 필드로 분기
+### 창 모드 — JSON `session` 필드로 분기
 
-**`dedicated` (전용 세션 — 권장)**: 워크플로우가 자기만의 세션에서 실행. 사용자 화면 완전 무손상, 사이드바가 잡 대시보드 역할.
+**`dedicated` (전용 창 — 권장)**: 워크플로우가 자기만의 창에서 실행. 사용자 화면 완전 무손상, 사이드바가 잡 대시보드 역할.
 
-1. `workspace_command(action=newSession, name=<워크플로우 이름>, keepFocus=true)` — 백그라운드 세션 생성. **응답의 `newTabs[0]` = 시드 pane 의 {uuid, paneId}** (재조회 불필요), `newSessions[0]` = 세션 uuid.
-2. 시드에 `splitH/V(location=<시드 uuid>, count=N, keepFocus=true)` — 전용 세션이라 보스 화면 비율 무관, `plan_layout.py` 없이 단순 균등 분할로 충분. **응답의 `newTabs` 가 새 팀원 pane 의 {uuid, paneId} 배열** — 이게 팀원 식별자다. (list_panes diff/이름필터 불필요 — 생성 명령이 직접 반환)
+1. `workspace_command(action=newWindow, name=<워크플로우 이름>, keepFocus=true)` — 백그라운드 창 생성. **응답의 `newTabs[0]` = 시드 도구의 {uuid, toolId}** (재조회 불필요), `newWindows[0]` = 창 uuid.
+2. 시드에 `splitH/V(location=<시드 uuid>, count=N, keepFocus=true)` — 전용 창이라 보스 화면 비율 무관, `plan_layout.py` 없이 단순 균등 분할로 충분. **응답의 `newTabs` 가 새 팀원 도구의 {uuid, toolId} 배열** — 이게 팀원 식별자다. (list_workspace diff/이름필터 불필요 — 생성 명령이 직접 반환)
 3. 이후 부팅·Barrier·Kickoff 는 아래 inline 과 동일.
-5. **해체**: 팀원 전부 `/exit` → `closeTab(location=<uuid>)` 연쇄. 마지막 탭이 닫히면 세션이 자동 제거된다 — `closeSession` 은 사용하지 않는다 (포커스 안전 보장 없음).
+5. **해체**: 팀원 전부 `/exit` → `closeTab(location=<uuid>)` 연쇄. 마지막 탭이 닫히면 창이 자동 제거된다 — `closeWindow` 은 사용하지 않는다 (포커스 안전 보장 없음).
 
-**`inline` (기본)**: 보스 region 옆 분할 — 기존 dongminal-team 1~3단계 그대로.
+**`inline` (기본)**: 보스 분할 칸 옆 분할 — 기존 dongminal-team 1~3단계 그대로.
 
 ### 1~8. 팀 구성·실행 — dongminal-team 규칙 그대로
 
 이하 모든 단계는 **dongminal-team 스킬의 절대 원칙 4개**를 따른다 (상세는 `skills/dongminal-team/SKILL.md` 와 그 references — 본 스킬에서 재정의하지 않음):
 
-1. 항상 새 팀 — 기존 pane 재사용 금지
+1. 항상 새 팀 — 기존 도구 재사용 금지
 2. 사용자 포커스 금지 — 모든 `workspace_command` 는 `location=<uuid>` + `keepFocus=true`, `focus` 액션 금지
 3. Barrier 전 Kickoff 금지 — 대기 프롬프트로 부팅, 같은 턴 안에서 Barrier → Kickoff
 4. 식별자는 항상 uuid
@@ -75,7 +75,7 @@ python3 scripts/render_workflow.py ~/.dongminal/workflows/<name>.md --json --par
 
 | dongminal-team 단계 | 정의서에서 가져오는 것 |
 |---|---|
-| 1. 레이아웃 계획 | 팀원 수 = JSON `team` 배열 길이. inline 이면 `plan_layout.py --n <길이>`, dedicated 면 위 세션 모드 절차. **split/newSession 응답의 `newTabs` 로 팀원 uuid+paneId 즉시 확보** (list_panes diff 대체) |
+| 1. 레이아웃 계획 | 팀원 수 = JSON `team` 배열 길이. inline 이면 `plan_layout.py --n <길이>`, dedicated 면 위 창 모드 절차. **split/newWindow 응답의 `newTabs` 로 팀원 uuid+toolId 즉시 확보** (list_workspace diff 대체) |
 | 4. 팀원 부팅 | 팀원별 `build_prompt.py --model <model> --role <role>` + **`role_prompt` 를 역할 상세로 주입**. `process` 는 `--process` 인자로 |
 | 6. Kickoff | `kickoff.to` 의 인스턴스 uuid 에게 `kickoff.message` 송신 |
 | 7. 답장 대기 | `report.from` 의 `[TEAM-REPLY task-id=<report.task_id>]` 가 최종 보고 |
@@ -83,7 +83,7 @@ python3 scripts/render_workflow.py ~/.dongminal/workflows/<name>.md --json --par
 
 team id ↔ uuid 매핑표는 부팅 직후 작성해 보관한다 (예: `writer → 550e84..`). kickoff·진단·해체 모두 이 매핑으로.
 
-**역할명 부여** — pane 확보 직후, 부팅 전에 각 팀원 pane 에 역할명을 붙인다 (사이드바·탭바 관전성):
+**역할명 부여** — 분할 칸 확보 직후, 부팅 전에 각 팀원 탭에 역할명을 붙인다 (사이드바·탭바 관전성):
 
 ```
 workspace_command(action=renameTab, location=<uuid>, name=<team id>)   # 팀원마다
@@ -104,8 +104,8 @@ ls ${DONGMINAL_HOME:-~/.dongminal}/workflows/*.md   # list (없으면 "(없음)"
 ## 체크리스트 (run)
 
 1. [ ] `render_workflow.py --json` 검증 통과 (param 누락 시 먼저 질문)
-2. [ ] 팀원 N pane 확보 — `session` 필드 분기: dedicated 면 newSession(name, keepFocus=true) → **split 응답 newTabs 로 팀원 uuid+paneId 수집** / inline 이면 dongminal-team 1~3단계
-3. [ ] team id ↔ uuid 매핑표 작성 + `renameTab` 으로 각 pane 에 역할명 부여
+2. [ ] 팀원 N 분할 칸 확보 — `session` 필드 분기: dedicated 면 newWindow(name, keepFocus=true) → **split 응답 newTabs 로 팀원 uuid+toolId 수집** / inline 이면 dongminal-team 1~3단계
+3. [ ] team id ↔ uuid 매핑표 작성 + `renameTab` 으로 각 탭에 역할명 부여
 4. [ ] 팀원별 `build_prompt.py` + `role_prompt` 로 병렬 부팅
 5. [ ] 같은 턴: Barrier → `kickoff.to` 에게 `kickoff.message` 송신 → Thinking 확인
 6. [ ] `report.from` 의 TEAM-REPLY 수신 → 사용자 보고

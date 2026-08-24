@@ -6,24 +6,24 @@ import (
 )
 
 // apiWhoAmI implements GET /api/whoami (DMCTL_WHO_AM_I_SRS FR-API-WAI-1).
-// Resolves the caller's TCP source port → clientPID → pane (32-step parent
+// Resolves the caller's TCP source port → clientPID → tool (32-step parent
 // chain) via the injected WhoAmI resolver, then enriches with workspace
 // entry + terminal size.
 func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
-	// Daemon mode: use paneId query parameter if provided.
-	paneID := r.URL.Query().Get("paneId")
+	// Daemon mode: use toolId query parameter if provided.
+	toolID := r.URL.Query().Get("toolId")
 	var shellPID int
 	var err error
 
-	if paneID != "" {
-		// Verify pane exists
-		if s.Panes != nil && s.Panes.Get(paneID) == nil {
-			writeWhoAmIError(w, http.StatusNotFound, "pane not found: "+paneID)
+	if toolID != "" {
+		// Verify tool exists
+		if s.Tools != nil && s.Tools.Get(toolID) == nil {
+			writeWhoAmIError(w, http.StatusNotFound, "tool not found: "+toolID)
 			return
 		}
 		// shellPID unknown in daemon mode; leave as 0
 	} else if s.WhoAmI != nil {
-		paneID, shellPID, err = s.WhoAmI.ResolveClientPane(r.RemoteAddr)
+		toolID, shellPID, err = s.WhoAmI.ResolveClientPane(r.RemoteAddr)
 		if err != nil {
 			writeWhoAmIError(w, http.StatusNotFound, err.Error())
 			return
@@ -34,23 +34,23 @@ func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := map[string]interface{}{
-		"paneId":      paneID,
-		"shellPid":    shellPID,
-		"label":       "",
-		"uuid":        "",
-		"short":       "",
-		"sizeCols":    0,
-		"sizeRows":    0,
-		"session":     "",
-		"tab":         "",
-		"sessionUuid": "",
-		"regionUuid":  "",
-		"focused":     false,
+		"toolId":     toolID,
+		"shellPid":   shellPID,
+		"label":      "",
+		"uuid":       "",
+		"short":      "",
+		"sizeCols":   0,
+		"sizeRows":   0,
+		"window":     "",
+		"tab":        "",
+		"windowUuid": "",
+		"paneUuid":   "",
+		"focused":    false,
 	}
 
-	if s.Panes != nil {
-		for _, p := range s.Panes.List() {
-			if id, _ := p["id"].(string); id == paneID {
+	if s.Tools != nil {
+		for _, p := range s.Tools.List() {
+			if id, _ := p["id"].(string); id == toolID {
 				if c, ok := p["sizeCols"].(int); ok {
 					resp["sizeCols"] = c
 				}
@@ -64,16 +64,16 @@ func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 
 	if s.Work != nil {
 		for _, e := range s.Work.Entries() {
-			if e.PaneID != paneID {
+			if e.ToolID != toolID {
 				continue
 			}
 			resp["label"] = e.Label
 			resp["uuid"] = e.TabUUID
 			resp["short"] = e.ShortCode
-			resp["session"] = e.SessionName
+			resp["window"] = e.WindowName
 			resp["tab"] = e.TabName
-			resp["sessionUuid"] = e.SessionUUID
-			resp["regionUuid"] = e.RegionUUID
+			resp["windowUuid"] = e.WindowUUID
+			resp["paneUuid"] = e.PaneUUID
 			resp["focused"] = e.IsActive
 			break
 		}

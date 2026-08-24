@@ -7,11 +7,11 @@ import (
 	"os"
 	"strings"
 
-	"dongminal/internal/paneline"
+	"dongminal/internal/toolline"
 )
 
 // dmctlWhoAmI implements `dmctl who-am-i` (DMCTL_WHO_AM_I_SRS FR-DMC-WAI-1~3).
-// `/api/whoami` JSON → paneline.Line 단일 행 또는 --json 시 그대로 stdout.
+// `/api/whoami` JSON → toolline.Line 단일 행 또는 --json 시 그대로 stdout.
 func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 	jsonOut := false
 	for _, a := range args {
@@ -27,7 +27,7 @@ func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	status, body, err := httpGet(baseURL() + "/api/whoami?paneId=" + os.Getenv("DONGMINAL_PANE_ID"))
+	status, body, err := httpGet(baseURL() + "/api/whoami?toolId=" + os.Getenv("DONGMINAL_TOOL_ID"))
 	if err != nil {
 		fmt.Fprintf(stderr, "dmctl: %v\n", err)
 		return 1
@@ -61,19 +61,19 @@ func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "dmctl: invalid /api/whoami response: %v\n", err)
 		return 1
 	}
-	line := paneline.Line{
+	line := toolline.Line{
 		FocusMarker: rec.Focused,
 		Label:       rec.Label,
 		UUID:        rec.UUID,
 		Short:       rec.Short,
-		PaneID:      rec.PaneID,
+		ToolID:      rec.ToolID,
 		ShellPID:    rec.ShellPID,
 		SizeCols:    rec.SizeCols,
 		SizeRows:    rec.SizeRows,
-		Session:     rec.Session,
+		Window:      rec.Window,
 		Tab:         rec.Tab,
-		SessionUUID: rec.SessionUUID,
-		RegionUUID:  rec.RegionUUID,
+		WindowUUID:  rec.WindowUUID,
+		PaneUUID:    rec.PaneUUID,
 	}
 	out := line.Render()
 	if !strings.HasSuffix(out, "\n") {
@@ -83,7 +83,7 @@ func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-const dmctlWhoAmIHelp = `dmctl who-am-i — 현재 쉘이 속한 pane 의 식별 정보
+const dmctlWhoAmIHelp = `dmctl who-am-i — 현재 쉘이 속한 tool 의 식별 정보
 
 사용법:
   dmctl who-am-i          # 표준 KEY=VALUE 한 줄 (label/uuid/short/...)
@@ -93,16 +93,16 @@ const dmctlWhoAmIHelp = `dmctl who-am-i — 현재 쉘이 속한 pane 의 식별
 `
 
 type whoAmIResp struct {
-	PaneID      string `json:"paneId"`
-	ShellPID    int    `json:"shellPid"`
-	Label       string `json:"label"`
-	UUID        string `json:"uuid"`
-	Short       string `json:"short"`
-	SizeCols    int    `json:"sizeCols"`
-	SizeRows    int    `json:"sizeRows"`
-	Session     string `json:"session"`
-	Tab         string `json:"tab"`
-	SessionUUID string `json:"sessionUuid"`
-	RegionUUID  string `json:"regionUuid"`
-	Focused     bool   `json:"focused"`
+	ToolID     string `json:"toolId"`
+	ShellPID   int    `json:"shellPid"`
+	Label      string `json:"label"`
+	UUID       string `json:"uuid"`
+	Short      string `json:"short"`
+	SizeCols   int    `json:"sizeCols"`
+	SizeRows   int    `json:"sizeRows"`
+	Window     string `json:"window"`
+	Tab        string `json:"tab"`
+	WindowUUID string `json:"windowUuid"`
+	PaneUUID   string `json:"paneUuid"`
+	Focused    bool   `json:"focused"`
 }

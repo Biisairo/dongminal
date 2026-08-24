@@ -152,7 +152,6 @@ func uniquePath(dir, name string) string {
 	}
 }
 
-
 // safeResolve verifies that userPath resolves within baseDir, preventing
 // path-traversal attacks.
 func safeResolve(baseDir, userPath string) (string, error) {
@@ -189,17 +188,21 @@ func exactPath(p string) func(string) bool {
 var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/state"), (*Server).apiStateGet},
 	{http.MethodGet, exactPath("/api/whoami"), (*Server).apiWhoAmI},
-	{http.MethodPost, exactPath("/api/panes"), (*Server).apiPanesCreate},
-	{http.MethodGet, exactPath("/api/panes/attention"), (*Server).apiPanesAttention},
-	{http.MethodPost, exactPath("/api/panes/attention/set"), (*Server).apiPaneAttentionSet},
-	{http.MethodPost, exactPath("/api/panes/attention/clear"), (*Server).apiPaneAttentionClear},
-	{http.MethodPost, exactPath("/api/panes/attention/clear-all"), (*Server).apiPaneAttentionClearAll},
-	{http.MethodGet, exactPath("/api/panes/activity"), (*Server).apiPanesActivity},
-	{http.MethodPost, exactPath("/api/panes/activity/set"), (*Server).apiPaneActivitySet},
+	{http.MethodPost, exactPath("/api/tools"), (*Server).apiToolsCreate},
+	{http.MethodGet, exactPath("/api/tools/attention"), (*Server).apiToolsAttention},
+	{http.MethodPost, exactPath("/api/tools/attention/set"), (*Server).apiToolAttentionSet},
+	{http.MethodPost, exactPath("/api/tools/attention/clear"), (*Server).apiToolAttentionClear},
+	{http.MethodPost, exactPath("/api/tools/attention/clear-all"), (*Server).apiToolAttentionClearAll},
+	{http.MethodGet, exactPath("/api/tools/activity"), (*Server).apiToolsActivity},
+	{http.MethodGet, exactPath("/api/tools/background"), (*Server).apiToolsBackground},
+	{http.MethodPost, exactPath("/api/tools/background/set"), (*Server).apiToolBackgroundSet},
+	{http.MethodPost, exactPath("/api/tools/activity/set"), (*Server).apiToolActivitySet},
 	{http.MethodGet, func(p string) bool {
-		return strings.HasPrefix(p, "/api/panes/") && strings.HasSuffix(p, "/busy")
-	}, (*Server).apiPaneBusy},
-	{http.MethodDelete, func(p string) bool { return strings.HasPrefix(p, "/api/panes/") }, (*Server).apiPaneDelete},
+		return strings.HasPrefix(p, "/api/tools/") && strings.HasSuffix(p, "/busy")
+	}, (*Server).apiToolBusy},
+	{http.MethodDelete, func(p string) bool { return strings.HasPrefix(p, "/api/tools/") }, (*Server).apiToolDelete},
+	{http.MethodGet, exactPath("/api/focus"), (*Server).apiFocusGet},
+	{http.MethodPost, exactPath("/api/focus/claim"), (*Server).apiFocusClaim},
 	{http.MethodGet, exactPath("/api/workspace"), (*Server).apiWorkspaceGet},
 	{http.MethodPut, exactPath("/api/workspace"), (*Server).apiWorkspacePut},
 	{http.MethodGet, exactPath("/api/settings"), (*Server).apiSettingsGet},
@@ -228,8 +231,8 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) apiStateGet(w http.ResponseWriter, r *http.Request) {
-	if s.Panes == nil {
-		http.Error(w, "panes unavailable", 500)
+	if s.Tools == nil {
+		http.Error(w, "tools unavailable", 500)
 		return
 	}
 	var rawWS []byte
@@ -244,68 +247,68 @@ func (s *Server) apiStateGet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("ETag", strconv.FormatUint(rev, 10))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"panes":     s.Panes.List(),
+		"tools":     s.Tools.List(),
 		"workspace": ws,
 	})
 }
 
-func (s *Server) apiPanesCreate(w http.ResponseWriter, r *http.Request) {
-	if s.Panes == nil {
-		http.Error(w, "panes unavailable", 500)
+func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
+	if s.Tools == nil {
+		http.Error(w, "tools unavailable", 500)
 		return
 	}
 	cols, rows := ParseSize(r)
 	cwd := r.URL.Query().Get("cwd")
 	if cwd == "" {
-		if refID := r.URL.Query().Get("cwdPane"); refID != "" {
-			cwd = s.Panes.Cwd(refID)
+		if refID := r.URL.Query().Get("cwdTool"); refID != "" {
+			cwd = s.Tools.Cwd(refID)
 		}
 	}
-	pane, err := s.Panes.Create(cwd, cols, rows)
+	tool, err := s.Tools.Create(cwd, cols, rows)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"id": pane.ID, "name": pane.Name})
+	json.NewEncoder(w).Encode(map[string]string{"id": tool.ID, "name": tool.Name})
 }
 
-func (s *Server) apiPaneBusy(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/panes/"), "/busy")
+func (s *Server) apiToolBusy(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/tools/"), "/busy")
 	var busy bool
-	if s.Panes != nil {
-		busy = s.Panes.Busy(id)
+	if s.Tools != nil {
+		busy = s.Tools.Busy(id)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"busy": busy})
 }
 
-// apiPanesAttention returns the ids of panes currently needing attention, so a
+// apiToolsAttention returns the ids of tools currently needing attention, so a
 // late-joining / reconnecting client can restore highlights (FR-PAN-8).
-func (s *Server) apiPanesAttention(w http.ResponseWriter, r *http.Request) {
+func (s *Server) apiToolsAttention(w http.ResponseWriter, r *http.Request) {
 	ids := []string{}
 	if s.AttnTracker != nil {
 		ids = s.AttnTracker.AttentionIDs()
-	} else if al, ok := s.Panes.(interface{ AttentionIDs() []string }); ok {
+	} else if al, ok := s.Tools.(interface{ AttentionIDs() []string }); ok {
 		if got := al.AttentionIDs(); got != nil {
 			ids = got
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"paneIds": ids})
+	json.NewEncoder(w).Encode(map[string]any{"toolIds": ids})
 }
 
-// apiPaneAttentionSet flags a pane as needing attention. Used by `dmctl notify`
-// (agent hook bridge) which identifies its pane via DONGMINAL_PANE_ID — this
+// apiToolAttentionSet flags a tool as needing attention. Used by `dmctl notify`
+// (agent hook bridge) which identifies its tool via DONGMINAL_TOOL_ID — this
 // works from detached hooks that have no controlling terminal. Body:
-// {"paneId":"...","reason":"done|waiting|..."}. Unknown pane is a 200 no-op;
-// missing paneId is 400.
-func (s *Server) apiPaneAttentionSet(w http.ResponseWriter, r *http.Request) {
+// {"toolId":"...","reason":"done|waiting|..."}. Unknown tool is a 200 no-op;
+// missing toolId is 400.
+func (s *Server) apiToolAttentionSet(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		PaneID string `json:"paneId"`
+		ToolID string `json:"toolId"`
 		Reason string `json:"reason"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PaneID == "" {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
@@ -313,50 +316,50 @@ func (s *Server) apiPaneAttentionSet(w http.ResponseWriter, r *http.Request) {
 	if reason == "" {
 		reason = "signaled"
 	}
-	if s.Panes != nil {
+	if s.Tools != nil {
 		if s.AttnTracker != nil {
-			// Verify pane exists before flagging attention
-			if s.Panes.Get(req.PaneID) != nil {
-				s.AttnTracker.SignalAttention(req.PaneID, reason)
+			// Verify tool exists before flagging attention
+			if s.Tools.Get(req.ToolID) != nil {
+				s.AttnTracker.SignalAttention(req.ToolID, reason)
 			}
-		} else if pane := s.Panes.Get(req.PaneID); pane != nil {
-			pane.signalAttention(reason)
+		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
+			tool.signalAttention(reason)
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 }
 
-// apiPaneAttentionClear clears a pane's attention (and broadcasts the clear)
-// when the user focuses/opens it. Body: {"paneId":"..."}. Unknown/idle pane is
+// apiToolAttentionClear clears a tool's attention (and broadcasts the clear)
+// when the user focuses/opens it. Body: {"toolId":"..."}. Unknown/idle tool is
 // a no-op (200) so a stale focus event never errors.
-func (s *Server) apiPaneAttentionClear(w http.ResponseWriter, r *http.Request) {
+func (s *Server) apiToolAttentionClear(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		PaneID string `json:"paneId"`
+		ToolID string `json:"toolId"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PaneID == "" {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	if s.Panes != nil {
+	if s.Tools != nil {
 		if s.AttnTracker != nil {
-			s.AttnTracker.Attend(req.PaneID)
-		} else if pane := s.Panes.Get(req.PaneID); pane != nil {
-			pane.attend()
+			s.AttnTracker.Attend(req.ToolID)
+		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
+			tool.attend()
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 }
 
-// apiPanesActivity returns the current activity snapshot of every pane that has
+// apiToolsActivity returns the current activity snapshot of every tool that has
 // reported one, so a late-joining / reconnecting client can restore cards
 // (FR-AAP-4).
-func (s *Server) apiPanesActivity(w http.ResponseWriter, r *http.Request) {
+func (s *Server) apiToolsActivity(w http.ResponseWriter, r *http.Request) {
 	acts := []activitySnap{}
 	if s.AttnTracker != nil {
 		acts = s.AttnTracker.ActivitySnapshot()
-	} else if al, ok := s.Panes.(interface{ ActivitySnapshot() []activitySnap }); ok {
+	} else if al, ok := s.Tools.(interface{ ActivitySnapshot() []activitySnap }); ok {
 		if got := al.ActivitySnapshot(); got != nil {
 			acts = got
 		}
@@ -365,50 +368,50 @@ func (s *Server) apiPanesActivity(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]any{"activities": acts})
 }
 
-// apiPaneActivitySet records what an agent in a pane is currently doing. Used by
-// `dmctl activity` (agent hook bridge), identified via DONGMINAL_PANE_ID. Body:
-// {"paneId":"...","state":"working|done|waiting|idle","tool":"...","detail":"..."}.
-// Unknown pane is a 200 no-op; missing paneId or invalid state is 400 (FR-AAP-3).
-func (s *Server) apiPaneActivitySet(w http.ResponseWriter, r *http.Request) {
+// apiToolActivitySet records what an agent in a tool is currently doing. Used by
+// `dmctl activity` (agent hook bridge), identified via DONGMINAL_TOOL_ID. Body:
+// {"toolId":"...","state":"working|done|waiting|idle","tool":"...","detail":"..."}.
+// Unknown tool is a 200 no-op; missing toolId or invalid state is 400 (FR-AAP-3).
+func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		PaneID string `json:"paneId"`
+		ToolID string `json:"toolId"`
 		State  string `json:"state"`
 		Tool   string `json:"tool"`
 		Detail string `json:"detail"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PaneID == "" || !validActivityState(req.State) {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" || !validActivityState(req.State) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	if s.Panes != nil {
+	if s.Tools != nil {
 		if s.AttnTracker != nil {
-			s.AttnTracker.SetActivity(req.PaneID, req.State,
+			s.AttnTracker.SetActivity(req.ToolID, req.State,
 				sanitizeActivityField(req.Tool, activityToolMax),
 				sanitizeActivityField(req.Detail, activityDetailMax))
-		} else if pane := s.Panes.Get(req.PaneID); pane != nil {
-			pane.setActivity(req.State, sanitizeActivityField(req.Tool, activityToolMax), sanitizeActivityField(req.Detail, activityDetailMax))
+		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
+			tool.setActivity(req.State, sanitizeActivityField(req.Tool, activityToolMax), sanitizeActivityField(req.Detail, activityDetailMax))
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 }
 
-// apiPaneAttentionClearAll dismisses every pane's attention at once (FR-PAN-17).
-func (s *Server) apiPaneAttentionClearAll(w http.ResponseWriter, r *http.Request) {
+// apiToolAttentionClearAll dismisses every tool's attention at once (FR-PAN-17).
+func (s *Server) apiToolAttentionClearAll(w http.ResponseWriter, r *http.Request) {
 	cleared := 0
 	if s.AttnTracker != nil {
 		cleared = s.AttnTracker.ClearAllAttention()
-	} else if ca, ok := s.Panes.(interface{ ClearAllAttention() int }); ok {
+	} else if ca, ok := s.Tools.(interface{ ClearAllAttention() int }); ok {
 		cleared = ca.ClearAllAttention()
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]int{"cleared": cleared})
 }
 
-func (s *Server) apiPaneDelete(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/api/panes/")
-	if s.Panes != nil {
-		s.Panes.Delete(id)
+func (s *Server) apiToolDelete(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimPrefix(r.URL.Path, "/api/tools/")
+	if s.Tools != nil {
+		s.Tools.Delete(id)
 	}
 	w.WriteHeader(200)
 }
@@ -530,7 +533,7 @@ func (s *Server) apiDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	f, err := os.Open(fp)
 	if err != nil {
-	http.Error(w, err.Error(), 404)
+		http.Error(w, err.Error(), 404)
 		return
 	}
 	defer f.Close()
@@ -544,10 +547,10 @@ func (s *Server) apiDownload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) apiCwd(w http.ResponseWriter, r *http.Request) {
-	paneID := r.URL.Query().Get("pane")
+	toolID := r.URL.Query().Get("tool")
 	var cwd string
-	if paneID != "" && s.Panes != nil {
-		cwd = s.Panes.Cwd(paneID)
+	if toolID != "" && s.Tools != nil {
+		cwd = s.Tools.Cwd(toolID)
 	}
 	if cwd == "" {
 		cwd, _ = os.Getwd()
@@ -629,4 +632,38 @@ func (s *Server) apiPing(w http.ResponseWriter, r *http.Request) {
 func (s *Server) apiStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(s.getStats())
+}
+
+// apiToolsBackground lists the tools currently sent to the background,
+// oldest transition first (FR-BG-6).
+func (s *Server) apiToolsBackground(w http.ResponseWriter, r *http.Request) {
+	list := []BackgroundEntry{}
+	if s.Tools != nil {
+		if got := s.Tools.BackgroundList(); got != nil {
+			list = got
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"background": list})
+}
+
+// apiToolBackgroundSet detaches a tool from its tab or restores it.
+// Body: {"toolId":"...","background":true|false} (FR-BG-2/4/7).
+// An unknown tool is a 404 — the caller asked about something that is gone,
+// and silently succeeding would hide a stale id.
+func (s *Server) apiToolBackgroundSet(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ToolID     string `json:"toolId"`
+		Background bool   `json:"background"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ToolID == "" {
+		http.Error(w, "toolId 필요", http.StatusBadRequest)
+		return
+	}
+	if s.Tools == nil || !s.Tools.SetBackground(body.ToolID, body.Background) {
+		http.Error(w, "toolId="+body.ToolID+" 존재하지 않음", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"ok": true})
 }

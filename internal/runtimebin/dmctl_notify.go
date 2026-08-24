@@ -8,14 +8,14 @@ import (
 )
 
 const dmctlNotifyHelp = `dmctl notify [label]
-  현재 pane 이 주의가 필요함을 알린다(작업 완료/입력 대기 등).
-  DONGMINAL_PANE_ID 로 자신을 식별해 서버에 알림을 POST 하므로, 제어 터미널이
+  현재 tool 이 주의가 필요함을 알린다(작업 완료/입력 대기 등).
+  DONGMINAL_TOOL_ID 로 자신을 식별해 서버에 알림을 POST 하므로, 제어 터미널이
   없는 detached 환경(에이전트 hook 등)에서도 동작한다. 에이전트 hook 에서 호출.
   예: claude Stop hook -> "dmctl notify done", Notification hook -> "dmctl notify waiting"
 `
 
-// runDmctlNotify flags the calling pane as needing attention by POSTing to the
-// dongminal server, identifying the pane via DONGMINAL_PANE_ID. This works from
+// runDmctlNotify flags the calling tool as needing attention by POSTing to the
+// dongminal server, identifying the tool via DONGMINAL_TOOL_ID. This works from
 // detached agent hooks that have no controlling terminal (writing to /dev/tty
 // would fail there with ENXIO).
 func runDmctlNotify(args []string, stdout, stderr io.Writer) int {
@@ -30,17 +30,17 @@ func runDmctlNotify(args []string, stdout, stderr io.Writer) int {
 			break
 		}
 	}
-	paneID := os.Getenv("DONGMINAL_PANE_ID")
-	if paneID == "" {
-		fmt.Fprintln(stderr, "dmctl notify: DONGMINAL_PANE_ID 미설정 (dongminal pane 안에서 실행해야 함)")
+	toolID := os.Getenv("DONGMINAL_TOOL_ID")
+	if toolID == "" {
+		fmt.Fprintln(stderr, "dmctl notify: DONGMINAL_TOOL_ID 미설정 (dongminal tool 안에서 실행해야 함)")
 		return 1
 	}
-	url := baseURL() + "/api/panes/attention/set"
-	body := map[string]any{"paneId": paneID, "reason": sanitizeNotifyLabel(label)}
+	url := baseURL() + "/api/tools/attention/set"
+	body := map[string]any{"toolId": toolID, "reason": sanitizeNotifyLabel(label)}
 	status, resp, err := httpPostJSON(url, body)
 	// Report codex activity on every notify attempt, even if the attention
 	// POST itself fails. Best-effort and silent — never affects exit status.
-	reportCodexActivity(label, args, paneID)
+	reportCodexActivity(label, args, toolID)
 	if err != nil {
 		fmt.Fprintf(stderr, "dmctl notify: %v\n", err)
 		return 1

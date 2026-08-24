@@ -1,6 +1,6 @@
 // Package runtime는 dongminal 이 런타임에 배포하는 헬퍼들을 설치한다.
 //
-// helper CLI (dmctl, edit, download, mdview) 는 multi-call 방식으로 dongminal
+// helper CLI (dmctl, edit, download, detach) 는 multi-call 방식으로 dongminal
 // 바이너리 자체가 처리하므로, $DONGMINAL_HOME/bin/<name> 은 dongminal 실행
 // 파일을 가리키는 symlink (지원되지 않는 환경에선 복사) 로 만든다.
 //

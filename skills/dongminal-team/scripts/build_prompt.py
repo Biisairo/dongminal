@@ -11,10 +11,10 @@
 
 식별자 — UUID 사용:
   `--my-label` / `--boss` / `--teammate <id>:<role>` 의 식별자 값은
-  list_panes / who_am_i 의 `uuid=<36자>` 필드를 그대로 넣는다.
-  스크립트는 형식을 검증하지 않고 통과시키며 (paneId·라벨 호환), 서버 측
-  Resolve 가 실제 라우팅 시 자동 판별한다. 계층 팀·다중 세션 환경에서는
-  반드시 uuid — 라벨은 다른 세션 닫힘 시 reflow 되어 다른 pane 을 가리킨다.
+  list_workspace / who_am_i 의 `uuid=<36자>` 필드를 그대로 넣는다.
+  스크립트는 형식을 검증하지 않고 통과시키며 (toolId·라벨 호환), 서버 측
+  Resolve 가 실제 라우팅 시 자동 판별한다. 계층 팀·다중 창 환경에서는
+  반드시 uuid — 라벨은 다른 창 닫힘 시 reflow 되어 다른 탭을 가리킨다.
 
 사용:
   python build_prompt.py \\

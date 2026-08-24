@@ -2,26 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
   <title>Terminal</title>
   <link rel="stylesheet" href="vendor/xterm.css">
-  <link rel="stylesheet" href="style.css?v=100">
+  <link rel="stylesheet" href="style.css?v=103">
   <script>try{var w=parseInt(localStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px')}catch(e){}</script>
 </head>
 <body>
 <div id="app">
   <div id="drawer-backdrop"></div>
   <div id="sidebar">
-    <div class="sb-title">Sessions</div>
-    <button id="add-session">+ New</button>
-    <button id="add-preset" title="기본 프리셋으로 새 세션">★ Preset</button>
-    <div id="sessions"></div>
+    <div class="sb-title">Windows</div>
+    <button id="add-window">+ New</button>
+    <button id="add-preset" title="기본 프리셋으로 새 창">★ Preset</button>
+    <div id="windows"></div>
     <button id="settings-btn" title="Settings">⚙</button>
   </div>
   <div id="sb-handle"></div>
   <div id="content">
     <div id="topbar">
-      <span id="session-name"></span>
+      <span id="window-name"></span>
       <span class="m-pane-nav mobile-only">
         <button class="mtbtn" id="m-pane-prev" title="이전 pane">‹</button>
         <span id="m-pane-indicator">1/1</span>
@@ -46,7 +46,10 @@
       <span id="search-count"></span>
       <button id="search-close" title="닫기 (Esc)">✕</button>
     </div>
-    <div id="status-bar" class="status-bar"></div>
+    <div id="status-bar" class="status-bar">
+      <span id="sb-items"></span>
+      <button class="tbtn" id="sb-bg-btn" title="백그라운드 도구" style="display:none"></button>
+    </div>
   </div>
   <div id="agents-handle"></div>
   <div id="agents-panel"></div>
@@ -141,14 +144,14 @@
 <script src="vendor/addon-web-links.js"></script>
 <script src="vendor/addon-unicode11.js"></script>
 <script src="vendor/addon-search.js"></script>
-<script src="js/constants.js?v=116"></script>
-<script src="js/helpers.js?v=116"></script>
-<script src="js/themes.js?v=116"></script>
-<script src="js/term-pane.js?v=116"></script>
-<script src="js/file-editor.js?v=116"></script>
-<script src="js/input-binding.js?v=116"></script>
-<script src="js/renderer.js?v=116"></script>
-<script src="js/app.js?v=116"></script>
-<script src="js/main.js?v=116"></script>
+<script src="js/constants.js?v=121"></script>
+<script src="js/helpers.js?v=121"></script>
+<script src="js/themes.js?v=121"></script>
+<script src="js/term-pane.js?v=121"></script>
+<script src="js/file-editor.js?v=121"></script>
+<script src="js/input-binding.js?v=121"></script>
+<script src="js/renderer.js?v=121"></script>
+<script src="js/app.js?v=121"></script>
+<script src="js/main.js?v=121"></script>
 </body>
 </html>

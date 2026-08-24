@@ -1,5 +1,5 @@
 // Package uuid implements UUID v7 (RFC 9562) generation and parsing for
-// dongminal internal entity identity. See docs/internal/UUID_IDENTITY_SRS.md.
+// dongminal internal entity identity. See docs/internal/archive/UUID_IDENTITY_SRS.md.
 package uuid
 
 import (

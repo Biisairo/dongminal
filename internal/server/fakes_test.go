@@ -15,7 +15,7 @@ import (
 
 type fakePaneHub struct {
 	mu       sync.Mutex
-	panes    map[string]*Pane
+	tools    map[string]*Tool
 	cwds     map[string]string
 	busies   map[string]bool
 	created  []string
@@ -26,32 +26,32 @@ type fakePaneHub struct {
 }
 
 func newFakePaneHub() *fakePaneHub {
-	return &fakePaneHub{panes: map[string]*Pane{}, cwds: map[string]string{}, busies: map[string]bool{}}
+	return &fakePaneHub{tools: map[string]*Tool{}, cwds: map[string]string{}, busies: map[string]bool{}}
 }
 
 func (f *fakePaneHub) seed(id, name string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.panes[id] = &Pane{ID: id, Name: name}
+	f.tools[id] = &Tool{ID: id, Name: name}
 }
 
-// setCwd records the working directory the hub reports for pane id via Cwd().
-// Mirrors the live cwd a real PaneManager/PaneClient would resolve.
+// setCwd records the working directory the hub reports for tool id via Cwd().
+// Mirrors the live cwd a real ToolManager/ToolClient would resolve.
 func (f *fakePaneHub) setCwd(id, cwd string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.cwds[id] = cwd
 }
 
-// Cwd reports the recorded working directory for pane id (empty if unknown).
+// Cwd reports the recorded working directory for tool id (empty if unknown).
 func (f *fakePaneHub) Cwd(id string) string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.cwds[id]
 }
 
-// setBusy records the busy state the hub reports for pane id via Busy().
-// Mirrors the live foreground-process state a real PaneManager/PaneClient
+// setBusy records the busy state the hub reports for tool id via Busy().
+// Mirrors the live foreground-process state a real ToolManager/ToolClient
 // would resolve (daemon mode routes through the busy RPC).
 func (f *fakePaneHub) setBusy(id string, busy bool) {
 	f.mu.Lock()
@@ -59,7 +59,7 @@ func (f *fakePaneHub) setBusy(id string, busy bool) {
 	f.busies[id] = busy
 }
 
-// Busy reports the recorded busy state for pane id (false if unknown).
+// Busy reports the recorded busy state for tool id (false if unknown).
 func (f *fakePaneHub) Busy(id string) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -69,20 +69,20 @@ func (f *fakePaneHub) Busy(id string) bool {
 func (f *fakePaneHub) List() []map[string]interface{} {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	out := make([]map[string]interface{}, 0, len(f.panes))
-	for _, p := range f.panes {
+	out := make([]map[string]interface{}, 0, len(f.tools))
+	for _, p := range f.tools {
 		out = append(out, map[string]interface{}{"id": p.ID, "name": p.Name, "pid": 0})
 	}
 	return out
 }
 
-func (f *fakePaneHub) Create(cwd string, cols, rows uint16) (*Pane, error) {
+func (f *fakePaneHub) Create(cwd string, cols, rows uint16) (*Tool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.nextID++
 	id := "fake" + itoa(f.nextID)
-	p := &Pane{ID: id, Name: "Fake " + id}
-	f.panes[id] = p
+	p := &Tool{ID: id, Name: "Fake " + id}
+	f.tools[id] = p
 	f.created = append(f.created, id)
 	f.lastCols = cols
 	f.lastRows = rows
@@ -90,25 +90,27 @@ func (f *fakePaneHub) Create(cwd string, cols, rows uint16) (*Pane, error) {
 	return p, nil
 }
 
-func (f *fakePaneHub) Get(id string) *Pane {
+func (f *fakePaneHub) Get(id string) *Tool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.panes[id]
+	return f.tools[id]
 }
 
 func (f *fakePaneHub) Delete(id string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	delete(f.panes, id)
+	delete(f.tools, id)
 }
 
 func (f *fakePaneHub) IsLive(id string) bool                     { return f.Get(id) != nil }
 func (f *fakePaneHub) Write(id string, data []byte) error        { return nil }
 func (f *fakePaneHub) Resize(id string, cols, rows uint16) error { return nil }
-func (f *fakePaneHub) SnapshotPane(id string) (PaneSnapshot, error) {
-	return PaneSnapshot{}, nil
+func (f *fakePaneHub) SnapshotTool(id string) (ToolSnapshot, error) {
+	return ToolSnapshot{}, nil
 }
-func (f *fakePaneHub) IsDaemon() bool { return false }
+func (f *fakePaneHub) IsDaemon() bool                    { return false }
+func (f *fakePaneHub) SetBackground(string, bool) bool   { return false }
+func (f *fakePaneHub) BackgroundList() []BackgroundEntry { return nil }
 
 func itoa(n int) string {
 	if n == 0 {
@@ -124,7 +126,6 @@ func itoa(n int) string {
 	return string(buf[i:])
 }
 
-
 // ── fakeWorkspaceStore ──────────────────────────────
 
 type fakeWorkspaceStore struct {
@@ -135,7 +136,7 @@ type fakeWorkspaceStore struct {
 	stale    bool // when true, Save returns ErrStale
 	coordMap map[string]string
 	coordErr map[string]error
-	entries  []workspace.PaneLabel
+	entries  []workspace.TabEntry
 }
 
 func newFakeWorkspaceStore() *fakeWorkspaceStore {
@@ -184,10 +185,10 @@ func (f *fakeWorkspaceStore) CoordinateOf(id string) (string, error) {
 	return id, nil
 }
 
-func (f *fakeWorkspaceStore) Entries() []workspace.PaneLabel {
+func (f *fakeWorkspaceStore) Entries() []workspace.TabEntry {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return append([]workspace.PaneLabel(nil), f.entries...)
+	return append([]workspace.TabEntry(nil), f.entries...)
 }
 
 func (f *fakeWorkspaceStore) IsKnownTabID(id string) bool {

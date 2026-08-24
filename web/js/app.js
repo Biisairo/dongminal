@@ -3,23 +3,25 @@
  */
 class App {
   constructor(){
-    this.panes=new Map();
+    this.tools=new Map();
     this.fileEditors=new Map();
     this.clientId=(crypto&&crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2));
-    this.ws={sessions:[],activeSession:null};
+    this.ws={schemaVersion:2,windows:[],activeWindow:null};
     this.wsETag=null;
     this.focused=null;
-    this._attn=new Map(); // paneId → {reason} 주의 상태 집합 (FR-PAN-9/16)
-    this._attnNotifs={}; // paneId → Notification (재팝업 위해 직전 알림 보관)
-    this._activity=new Map(); // paneId → {state,tool,detail} 활동 상태 (AGENT_ACTIVITY_PANEL_SRS)
+    this._attn=new Map(); // toolId → {reason} 주의 상태 집합 (FR-PAN-9/16)
+    this._attnNotifs={}; // toolId → Notification (재팝업 위해 직전 알림 보관)
+    this._activity=new Map(); // toolId → {state,tool,detail} 활동 상태 (AGENT_ACTIVITY_PANEL_SRS)
     this._s=0;this._r=0;this._t=0;this._kb=false;
     this._windowFocused=typeof document!=='undefined'&&document.hasFocus?document.hasFocus():true;
-    this._sessionFocusOwner={}; // { sessionId: clientId } — per-session focus ownership
-    this._focusCh=null; // BroadcastChannel for focus sync (lazy init)
+    this._windowFocusOwner={}; // { windowId: clientId } — per-window focus ownership
     this._drag=null;
     this._stats={};this._latency=null;
     this._mPaneIdx=0; // mobile current pane index (volatile)
     this._drawerOpen=false;
+    this._bg=[]; // 백그라운드 도구 목록 (FR-BG-6)
+    this._bgModalOpen=false;
+    this._bgModalKey=null; // 모달 Esc 핸들러 (열려 있을 때만 부착)
     this._modKbd=null; // {ctrl:bool|'lock', alt:bool|'lock'}
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
@@ -63,52 +65,52 @@ class App {
     document.body.classList.toggle('drawer-open', this._drawerOpen);
   }
 
-  // Flatten split tree → array of region nodes (in-order: L→R, T→B)
-  _flattenRegions(node, out){
+  // Flatten split tree → array of pane nodes (in-order: L→R, T→B)
+  _flattenPanes(node, out){
     out = out || [];
     if(!node) return out;
-    if(node.type==='region') out.push(node);
+    if(node.type==='pane') out.push(node);
     else if(node.type==='split' && node.children){
-      for(const c of node.children) this._flattenRegions(c, out);
+      for(const c of node.children) this._flattenPanes(c, out);
     }
     return out;
   }
-  _mobileCurrentRegion(){
-    const s=this._as(); if(!s||!s.layout) return null;
-    const regs=this._flattenRegions(s.layout);
+  _mobileCurrentPane(){
+    const s=this._aw(); if(!s||!s.layout) return null;
+    const regs=this._flattenPanes(s.layout);
     if(!regs.length) return null;
     if(this._mPaneIdx>=regs.length) this._mPaneIdx=regs.length-1;
     if(this._mPaneIdx<0) this._mPaneIdx=0;
     return regs[this._mPaneIdx];
   }
   _mobilePaneCount(){
-    const s=this._as(); if(!s||!s.layout) return 0;
-    return this._flattenRegions(s.layout).length;
+    const s=this._aw(); if(!s||!s.layout) return 0;
+    return this._flattenPanes(s.layout).length;
   }
   navMobilePane(delta){
     const n=this._mobilePaneCount(); if(n<=1) return;
     this._mPaneIdx = (this._mPaneIdx + delta + n) % n;
-    const rg=this._mobileCurrentRegion();
-    if(rg){
-      this._setFocus(rg.id);
+    const pn=this._mobileCurrentPane();
+    if(pn){
+      this._setFocus(pn.id);
       this._save();
     }
     this.render();
   }
 
   async init(){
-    // Set up BroadcastChannel listener BEFORE any async work so we don't
-    // miss session focus claims from other windows during init.
-    this._initFocusChannel();
+    // OS focus listeners go up before any async work — a `focus` event during
+    // init must still claim the active window.
+    this._initFocusSync();
     try{
       const stRes=await fetch('/api/state');
       this.wsETag=stRes.headers.get('ETag')||stRes.headers.get('Etag')||null;
       const st=await stRes.json();
-      const sp=st.panes||[];
+      const sp=st.tools||[];
       const sv=st.workspace;
       const ok=new Set(sp.map(p=>p.id));
-      for(const p of sp){const pane=this._mkPane(p.id,p.name);pane._reconnecting=true;pane.el.style.opacity='0'}
-      if(sv&&sv.sessions&&sv.sessions.length){
+      for(const p of sp){const pane=this._mkTool(p.id,p.name);pane._reconnecting=true;pane.el.style.opacity='0'}
+      if(sv&&sv.windows&&sv.windows.length){
         this.ws=sv;
         // Migration: displayMode/mobileBreakpoint were briefly stored in workspace.
         // Now per-device (localStorage); strip from synced state.
@@ -119,50 +121,51 @@ class App {
           document.documentElement.style.setProperty('--sb-w',w+'px');
           try{localStorage.setItem('sidebarWidth',w)}catch{}
         }
-        for(const s of this.ws.sessions){
+        for(const s of this.ws.windows){
           if(!s||!s.id) continue;
           const n=parseInt(s.id.replace(/\D/g,''),10); if(n>this._s) this._s=n;
           s.layout=clean(s.layout,ok);
           if(s.layout) normalizeLayout(s.layout);
           if(s.layout) this._rids(s.layout);
         }
-        this.ws.sessions=this.ws.sessions.filter(s=>s&&s.layout);
-        if(!this.ws.sessions.find(s=>s.id===this.ws.activeSession))
-          this.ws.activeSession=this.ws.sessions[0]?.id||null;
+        this.ws.windows=this.ws.windows.filter(s=>s&&s.layout);
+        if(!this.ws.windows.find(s=>s.id===this.ws.activeWindow))
+          this.ws.activeWindow=this.ws.windows[0]?.id||null;
       }
-      if(!this.ws.sessions.length) await this._mkSession();
+      if(!this.ws.windows.length) await this._mkWindow();
     }catch(e){
       console.error('[App] init error:',e);
-      if(!this.ws.sessions.length) await this._mkSession();
+      if(!this.ws.windows.length) await this._mkWindow();
     }
-    // Restore per-window activeSession from sessionStorage (survives refresh).
-    // Only apply if the session still exists in the loaded workspace.
+    // Restore per-window activeWindow from sessionStorage (survives refresh).
+    // Only apply if the window still exists in the loaded workspace.
     try{
-      const saved=sessionStorage.getItem('activeSession');
-      if(saved && this.ws.sessions.some(s=>s.id===saved)){
-        this.ws.activeSession=saved;
+      const saved=sessionStorage.getItem('activeWindow');
+      if(saved && this.ws.windows.some(s=>s.id===saved)){
+        this.ws.activeWindow=saved;
       }
-      // Restore per-window focusedRegion for each session from sessionStorage.
-      const savedFocus=sessionStorage.getItem('focusedRegions');
+      // Restore per-window focusedPane for each window from sessionStorage.
+      const savedFocus=sessionStorage.getItem('focusedPanes');
       if(savedFocus){
         const map=JSON.parse(savedFocus);
-        for(const s of this.ws.sessions){
+        for(const s of this.ws.windows){
           const rid=map[s.id];
-          if(rid && s.layout && findRg(s.layout, rid)) s.focusedRegion=rid;
+          if(rid && s.layout && findPane(s.layout, rid)) s.focusedPane=rid;
         }
       }
     }catch{}
-    const a=this._as();
-    if(a&&a.layout){const saved=a.focusedRegion;const f=(saved&&findRg(a.layout,saved))?{id:saved}:firstRg(a.layout);if(f)this._setFocus(f.id, a)}
+    this._pruneAgentOrder();
+    const a=this._aw();
+    if(a&&a.layout){const saved=a.focusedPane;const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);if(f)this._setFocus(f.id, a)}
     this.render();
     this._bind();
     this._subscribeCommands();
-    // Initial session claim: only if window has focus AND no other window
-    // already owns this session (prevents init-time claim races).
+    // Initial window claim: only if window has focus AND no other window
+    // already owns this window (prevents init-time claim races).
     if(document.hasFocus&&document.hasFocus()){
-      const sid=this.ws.activeSession;
-      if(sid && !this._sessionFocusOwner[sid]){
-        this._focusSession(sid);
+      const sid=this.ws.activeWindow;
+      if(sid && !this._windowFocusOwner[sid]){
+        this._focusWindow(sid);
       }
     }
     this._applyFocusOverlay();
@@ -174,8 +177,10 @@ class App {
     let retry=1000, retryCount=0, maxRetries=20;
     const connect=()=>{
       try{
-        const es=new EventSource('/api/commands/sse');
-        es.onopen=()=>{retry=1000;retryCount=0;this._attnRestore();this._activityRestore()};
+        // FR-XDF-8: clientId 를 실어 서버가 구독↔Client 를 결선한다. 이 결선이
+        // 구독 해제 시 소유권 해제(FR-XDF-9)의 선행 조건이다.
+        const es=new EventSource('/api/commands/sse?clientId='+encodeURIComponent(this.clientId));
+        es.onopen=()=>{retry=1000;retryCount=0;this._attnRestore();this._activityRestore();this._bgRefresh();this._focusRestore()};
         es.onmessage=(e)=>{
           try{
             const m=JSON.parse(e.data);
@@ -183,16 +188,23 @@ class App {
               this._onWorkspaceChanged(m.args&&m.args.rev);
               return;
             }
-            if(m.action==='pane_attention'){
-              this._onPaneAttention(m.args||{});
+            if(m.action==='tool_attention'){
+              this._onToolAttention(m.args||{});
               return;
             }
-            if(m.action==='pane_attention_clear'){
-              this._onPaneAttentionClear(m.args||{});
+            if(m.action==='tool_attention_clear'){
+              this._onToolAttentionClear(m.args||{});
               return;
             }
-            if(m.action==='pane_activity'){
-              this._onPaneActivity(m.args||{});
+            if(m.action==='tool_activity'){
+              this._onToolActivity(m.args||{});
+              return;
+            }
+            // FR-XDF-6: 전체 소유권 맵이 온다. 증분이 아니므로 통째로 갈아치우면
+            // 되고, 자기 에코 필터가 필요 없다 (FR-XDF-14 — 멱등).
+            if(m.action==='window_focus'){
+              this._windowFocusOwner=(m.args&&m.args.owners)||{};
+              this._applyFocusOverlay();
               return;
             }
             // REMOTE_COMMAND_RESULT_SRS: reqId 는 broadcast payload 의 top-level
@@ -232,8 +244,8 @@ class App {
         const et=r.headers.get('ETag')||r.headers.get('Etag');
         const st=await r.json();
         const sv=st&&st.workspace;
-        const sp=(st&&st.panes)||[];
-        if(!sv||!sv.sessions) break;
+        const sp=(st&&st.tools)||[];
+        if(!sv||!sv.windows) break;
         this._applyRemoteWorkspace(sv, sp);
         if(et) this.wsETag=et;
       }while(this._wsApplyPending);
@@ -245,37 +257,37 @@ class App {
     const ok=new Set((serverPanes||[]).map(p=>p.id));
     const nameOf=new Map((serverPanes||[]).map(p=>[p.id,p.name]));
     for(const id of ok){
-      if(!this.panes.has(id)) this._mkPane(id, nameOf.get(id)||id);
+      if(!this.tools.has(id)) this._mkTool(id, nameOf.get(id)||id);
     }
-    for(const [id,p] of Array.from(this.panes.entries())){
-      if(!ok.has(id)){ try{p.destroy()}catch{} this.panes.delete(id) }
+    for(const [id,p] of Array.from(this.tools.entries())){
+      if(!ok.has(id)){ try{p.destroy()}catch{} this.tools.delete(id) }
     }
-    for(const s of sv.sessions){
+    for(const s of sv.windows){
       if(!s||!s.id) continue;
       const n=parseInt(s.id.replace(/\D/g,''),10); if(n>this._s) this._s=n;
       s.layout=clean(s.layout, ok);
       if(s.layout) normalizeLayout(s.layout);
       if(s.layout) this._rids(s.layout);
     }
-    sv.sessions=sv.sessions.filter(s=>s&&s.layout);
-    if(!sv.sessions.find(s=>s.id===sv.activeSession))
-      sv.activeSession=sv.sessions[0]?.id||null;
-    // Preserve per-window viewport state: activeSession and each session's
-    // focusedRegion. Remote structural changes (splits/tabs) are applied
-    // but this window stays on its own session/region.
-    const localActive=this.ws.activeSession;
+    sv.windows=sv.windows.filter(s=>s&&s.layout);
+    if(!sv.windows.find(s=>s.id===sv.activeWindow))
+      sv.activeWindow=sv.windows[0]?.id||null;
+    // Preserve per-window viewport state: activeWindow and each window's
+    // focusedPane. Remote structural changes (splits/tabs) are applied
+    // but this window stays on its own window/pane.
+    const localActive=this.ws.activeWindow;
     const localFocus=new Map();
-    for(const s of this.ws.sessions){
-      if(s.focusedRegion) localFocus.set(s.id, s.focusedRegion);
+    for(const s of this.ws.windows){
+      if(s.focusedPane) localFocus.set(s.id, s.focusedPane);
     }
     this.ws=sv;
-    if(localActive && this.ws.sessions.some(s=>s.id===localActive)){
-      this.ws.activeSession=localActive;
+    if(localActive && this.ws.windows.some(s=>s.id===localActive)){
+      this.ws.activeWindow=localActive;
     }
-    // Restore each session's focusedRegion if the region still exists.
-    for(const s of this.ws.sessions){
+    // Restore each window's focusedPane if the pane still exists.
+    for(const s of this.ws.windows){
       const rid=localFocus.get(s.id);
-      if(rid && s.layout && findRg(s.layout, rid)) s.focusedRegion=rid;
+      if(rid && s.layout && findPane(s.layout, rid)) s.focusedPane=rid;
     }
     if('displayMode' in this.ws) delete this.ws.displayMode;
     if('mobileBreakpoint' in this.ws) delete this.ws.mobileBreakpoint;
@@ -284,10 +296,10 @@ class App {
       document.documentElement.style.setProperty('--sb-w',w+'px');
       try{localStorage.setItem('sidebarWidth',w)}catch{}
     }
-    const a=this._as();
+    const a=this._aw();
     if(a&&a.layout){
-      const saved=a.focusedRegion;
-      const f=(saved&&findRg(a.layout,saved))?{id:saved}:firstRg(a.layout);
+      const saved=a.focusedPane;
+      const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);
       if(f) this._setFocus(f.id, a);
     }
     this.render();
@@ -300,8 +312,8 @@ class App {
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         reqId,
-        newSessions:result.newSessions||[],
-        newRegions:result.newRegions||[],
+        newWindows:result.newWindows||[],
+        newPanes:result.newPanes||[],
         newTabs:result.newTabs||[],
       }),
     }).catch(()=>{});
@@ -311,9 +323,9 @@ class App {
     args=args||{};
     if(action==='focus'){
       // Multi-window: only apply focus if the source pane is in this window's
-      // *active* session. If the pane belongs to a session that another
+      // *active* window. If the pane belongs to a window that another
       // window is viewing, this window stays put.
-      if(args.sourcePane && !this._isPaneInActiveSession(args.sourcePane)){
+      if(args.sourcePane && !this._isToolInActiveWindow(args.sourcePane)){
         return;
       }
       this._focusLocation(args.location); return
@@ -327,22 +339,22 @@ class App {
       return;
     }
     // RENAME_TAB_SESSION_SRS FR-RNS-1/2: 순수 데이터 변경 — 포커스 무영향.
-    if(action==='renameTab'||action==='renameSession'){
+    if(action==='renameTab'||action==='renameWindow'){
       if(!args.location||!args.name){console.warn('[cmd] '+action+': location/name 필수');return}
       const tgt=this._resolveLocation(args.location);
       if(!tgt){console.warn('[cmd] '+action+': 대상 없음',args.location);return}
       const name=String(args.name).slice(0,64);
       if(action==='renameTab') tgt.tab.name=name;
-      else tgt.session.name=name;
+      else tgt.win.name=name;
       this._save(); this.render();
       return;
     }
-    // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-5: newSession/newTab 은 name/keepFocus
-    // 를 전달하기 위해 명시 분기. 의미는 _mkSession/addTab 내부에서 보장.
-    if(action==='newSession'){
-      this._mkSession({name:args.name,keepFocus:!!args.keepFocus}).then((c)=>{
+    // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-5: newWindow/newTab 은 name/keepFocus
+    // 를 전달하기 위해 명시 분기. 의미는 _mkWindow/addTab 내부에서 보장.
+    if(action==='newWindow'){
+      this._mkWindow({name:args.name,keepFocus:!!args.keepFocus}).then((c)=>{
         this.render();
-        if(args.reqId&&c) this._echoResult(args.reqId,{newSessions:[c.session],newRegions:[c.region],newTabs:[c.tab]});
+        if(args.reqId&&c) this._echoResult(args.reqId,{newWindows:[c.win],newPanes:[c.pane],newTabs:[c.tab]});
       });
       return;
     }
@@ -353,8 +365,8 @@ class App {
         const tgt=this._resolveLocation(args.location);
         if(!tgt) return;
         if(opts.keepFocus){
-          opts.sessionId=tgt.sessionId;
-          rid=tgt.regionId;
+          opts.windowId=tgt.windowId;
+          rid=tgt.paneId;
         }else{
           this._focusLocation(args.location);
           rid=this.focused;
@@ -373,42 +385,64 @@ class App {
       if(args.location){
         const tgt=this._resolveLocation(args.location);
         if(!tgt) return;
-        opts.targetSession=tgt.sessionId;
-        opts.targetRegion=tgt.regionId;
+        opts.targetWindow=tgt.windowId;
+        opts.targetPane=tgt.paneId;
       }
       const dir=action==='splitH'?'horizontal':'vertical';
       this.split(dir,opts).then((c)=>{
-        if(args.reqId&&c) this._echoResult(args.reqId,{newRegions:c.regions,newTabs:c.tabs});
+        if(args.reqId&&c) this._echoResult(args.reqId,{newPanes:c.panes,newTabs:c.tabs});
       });
       return;
     }
     const keepFocus=!!args.keepFocus;
-    // location 지정 closeTab 은 활성/비활성 세션 구분 없이 포커스를 건드리지 않고 직접 close.
+    // location 지정 closeTab 은 활성/비활성 창 구분 없이 포커스를 건드리지 않고 직접 close.
     // keepFocus 인자는 호환을 위해 받지만, location 이 있으면 항상 포커스 유지로 취급한다.
+    // FR-BG-2: detach 명령 — 도구를 백그라운드로 보내고 탭을 닫는다.
+    if(action==='detachTab'){
+      const loc=this._findToolLocation(args.toolId);
+      if(!loc){console.warn('[cmd] detachTab: 도구 위치 없음',args.toolId);return}
+      if(!toolBackgroundCapable(loc.tab.type)){
+        console.warn('[cmd] detachTab: 백그라운드 미지원 도구',loc.tab.type);return;
+      }
+      this.closeTab(loc.pane.id,loc.tab.id,loc.win.id,{keepTool:true});
+      return;
+    }
+    if(action==='restoreTool'){
+      // FR-BGR-2: location 은 탭 uuid → 서버가 좌표로 변환한 값이다. 복귀는
+      // Pane 단위이므로 T 성분은 쓰지 않는다 (newTab/splitH 와 같은 해석).
+      const opts={};
+      if(args.location){
+        const tgt=this._resolveLocation(args.location);
+        if(!tgt){console.warn('[cmd] restoreTool: 대상 없음',args.location);return}
+        opts.windowId=tgt.windowId; opts.paneId=tgt.paneId;
+      }
+      this._restoreTool(args.toolId,opts);
+      return;
+    }
     if(action==='closeTab' && args.location){
       const tgt=this._resolveLocation(args.location);
-      if(tgt && tgt.regionId && tgt.tabId){
-        this.closeTab(tgt.regionId, tgt.tabId, tgt.sessionId);
+      if(tgt && tgt.paneId && tgt.tabId){
+        this.closeTab(tgt.paneId, tgt.tabId, tgt.windowId);
         return;
       }
     }
-    let savedSession=null, savedFocused=null;
+    let savedWindow=null, savedFocused=null;
     if(args.location && keepFocus){
-      savedSession=this.ws.activeSession;
+      savedWindow=this.ws.activeWindow;
       savedFocused=this.focused;
     }
     if(args.location) this._focusLocation(args.location);
     const result=this.executeAction(action);
     Promise.resolve(result).then(()=>{
-      if(savedSession==null) return;
-      if(this.ws.activeSession!==savedSession && this.ws.sessions.some(x=>x.id===savedSession)){
-        const cur=this._as(); if(cur) cur.focusedRegion=this.focused;
-        this.ws.activeSession=savedSession;
-        try{sessionStorage.setItem('activeSession', savedSession)}catch{}
-        this._focusSession(savedSession);
+      if(savedWindow==null) return;
+      if(this.ws.activeWindow!==savedWindow && this.ws.windows.some(x=>x.id===savedWindow)){
+        const cur=this._aw(); if(cur) cur.focusedPane=this.focused;
+        this.ws.activeWindow=savedWindow;
+        try{sessionStorage.setItem('activeWindow', savedWindow)}catch{}
+        this._focusWindow(savedWindow);
       }
-      const a=this._as();
-      if(a&&savedFocused&&findRg(a.layout,savedFocused)){
+      const a=this._aw();
+      if(a&&savedFocused&&findPane(a.layout,savedFocused)){
         this._setFocus(savedFocused, a);
       }
       this._save(); this.render();
@@ -417,53 +451,53 @@ class App {
 
   _resolveLocation(loc){
     if(!loc) return null;
-    const m=String(loc).toUpperCase().trim().match(/^S?(\d+)(?:[.\s]+P?(\d+))?(?:[.\s]+T?(\d+))?$/);
+    const m=String(loc).toUpperCase().trim().match(/^W?(\d+)(?:[.\s]+P?(\d+))?(?:[.\s]+T?(\d+))?$/);
     if(!m) return null;
     const si=parseInt(m[1],10)-1;
     const pi=m[2]?parseInt(m[2],10)-1:0;
     const ti=m[3]?parseInt(m[3],10)-1:0;
-    const sess=this.ws.sessions[si]; if(!sess) return null;
-    const regions=[]; this._collectRegions(sess.layout,regions);
-    const rg=regions[pi]; if(!rg) return null;
-    const tab=rg.tabs[ti]; if(!tab) return null;
-    return {sessionId:sess.id,regionId:rg.id,tabId:tab.id,session:sess,region:rg,tab:tab};
+    const sess=this.ws.windows[si]; if(!sess) return null;
+    const panes=[]; this._collectPanes(sess.layout,panes);
+    const pn=panes[pi]; if(!pn) return null;
+    const tab=pn.tabs[ti]; if(!tab) return null;
+    return {windowId:sess.id,paneId:pn.id,tabId:tab.id,win:sess,pane:pn,tab:tab};
   }
 
-  // "4.1.1", "S4.P1.T1", "4", "4.2" 등을 지원. 1-base positional (session.region.tab).
+  // "4.1.1", "W4.P1.T1", "4", "4.2" 등을 지원. 1-base positional (window.pane.tab).
   _focusLocation(loc){
     if(!loc){console.warn('[cmd] focus: location 누락');return}
-    const m=String(loc).toUpperCase().trim().match(/^S?(\d+)(?:[.\s]+P?(\d+))?(?:[.\s]+T?(\d+))?$/);
+    const m=String(loc).toUpperCase().trim().match(/^W?(\d+)(?:[.\s]+P?(\d+))?(?:[.\s]+T?(\d+))?$/);
     if(!m){console.warn('[cmd] focus: 형식 오류',loc);return}
     const si=parseInt(m[1],10)-1;
     const pi=m[2]?parseInt(m[2],10)-1:0;
     const ti=m[3]?parseInt(m[3],10)-1:0;
-    const sess=this.ws.sessions[si];
-    if(!sess){console.warn('[cmd] focus: session #'+(si+1)+' 없음');return}
-    const regions=[]; this._collectRegions(sess.layout, regions);
-    const rg=regions[pi];
-    if(!rg){console.warn('[cmd] focus: region #'+(pi+1)+' 없음');return}
-    const tab=rg.tabs[ti];
+    const sess=this.ws.windows[si];
+    if(!sess){console.warn('[cmd] focus: window #'+(si+1)+' 없음');return}
+    const panes=[]; this._collectPanes(sess.layout, panes);
+    const pn=panes[pi];
+    if(!pn){console.warn('[cmd] focus: pane #'+(pi+1)+' 없음');return}
+    const tab=pn.tabs[ti];
     if(!tab){console.warn('[cmd] focus: tab #'+(ti+1)+' 없음');return}
-    if(this.ws.activeSession!==sess.id){
-      const cur=this._as(); if(cur) cur.focusedRegion=this.focused;
-      this.ws.activeSession=sess.id;
-      try{sessionStorage.setItem('activeSession', sess.id)}catch{}
+    if(this.ws.activeWindow!==sess.id){
+      const cur=this._aw(); if(cur) cur.focusedPane=this.focused;
+      this.ws.activeWindow=sess.id;
+      try{sessionStorage.setItem('activeWindow', sess.id)}catch{}
     }
-    rg.activeTab=tab.id;
-    this._setFocus(rg.id, sess);
-    this._focusSession(sess.id);
+    pn.activeTab=tab.id;
+    this._setFocus(pn.id, sess);
+    this._focusWindow(sess.id);
     this._save(); this.render();
   }
 
-  _collectRegions(n, out){
+  _collectPanes(n, out){
     if(!n) return;
-    if(n.type==='region'){out.push(n);return}
-    if(n.children) for(const c of n.children) this._collectRegions(c,out);
+    if(n.type==='pane'){out.push(n);return}
+    if(n.children) for(const c of n.children) this._collectPanes(c,out);
   }
 
   _rids(n){
     if(!n) return;
-    if(n.type==='region'){
+    if(n.type==='pane'){
       const r=parseInt((n.id||'').replace(/\D/g,''),10);if(r>this._r)this._r=r;
       if(n.tabs) for(const t of n.tabs){const x=parseInt((t.id||'').replace(/\D/g,''),10);if(x>this._t)this._t=x}
       return;
@@ -471,18 +505,18 @@ class App {
     if(n.children) for(const c of n.children) this._rids(c);
   }
 
-  _mkPane(id,name){
-    if(this.panes.has(id)) return this.panes.get(id);
-    const p=new TermPane(id,name);
+  _mkTool(id,name){
+    if(this.tools.has(id)) return this.tools.get(id);
+    const p=new TerminalTool(id,name);
     document.getElementById('area').appendChild(p.el);
     p.connect();
-    this.panes.set(id,p);
+    this.tools.set(id,p);
     this._applyFocusOverlay();
     return p;
   }
 
-  async _isPaneBusy(paneId){
-    try{const r=await fetch(`/api/panes/${paneId}/busy`);const d=await r.json();return d.busy}catch{return false}
+  async _isToolBusy(toolId){
+    try{const r=await fetch(`/api/tools/${toolId}/busy`);const d=await r.json();return d.busy}catch{return false}
   }
 
   _confirmClose(msg, opts = {}){
@@ -492,61 +526,116 @@ class App {
       if (opts.saveBtn) {
         btns = '<button class="confirm-save">저장 후 닫기</button>' + btns;
       }
+      // FR-BG-3/4: 실행 중인 도구를 살려두고 닫는 선택지.
+      if (opts.bgBtn) {
+        btns = `<button class="confirm-bg">${opts.bgLabel||'백그라운드로'}</button>` + btns;
+      }
       ov.innerHTML=`<div class="confirm-box"><div class="confirm-msg">${msg}</div><div class="confirm-btns">${btns}</div></div>`;
       document.body.appendChild(ov);
       const saveBtn = ov.querySelector('.confirm-save');
-      if (saveBtn) saveBtn.focus(); else ov.querySelector('.confirm-ok').focus();
+      const bgBtn = ov.querySelector('.confirm-bg');
+      if (saveBtn) saveBtn.focus(); else if (bgBtn) bgBtn.focus(); else ov.querySelector('.confirm-ok').focus();
       const cleanup=v=>{ov.remove();document.removeEventListener('keydown',onKey);resolve(v)};
-      const onKey=e=>{if(e.key==='Enter'){e.preventDefault();cleanup(saveBtn?'save':true)}else if(e.key==='Escape'){e.preventDefault();cleanup(false)}};
+      const onKey=e=>{if(e.key==='Enter'){e.preventDefault();cleanup(saveBtn?'save':(bgBtn?'background':true))}else if(e.key==='Escape'){e.preventDefault();cleanup(false)}};
       document.addEventListener('keydown',onKey);
       if (saveBtn) saveBtn.addEventListener('click',()=>cleanup('save'));
+      if (bgBtn) bgBtn.addEventListener('click',()=>cleanup('background'));
       ov.querySelector('.confirm-ok').addEventListener('click',()=>cleanup(true));
       ov.querySelector('.confirm-cancel').addEventListener('click',()=>cleanup(false));
       ov.addEventListener('click',e=>{if(e.target===ov)cleanup(false)});
     });
   }
 
-  async _newPane(cwd,cwdPane){
+  // ── 백그라운드 도구 (FR-BG) ──
+
+  // _setToolBackground는 도구를 백그라운드로 보내거나 되돌린다. 실패해도
+  // 호출자의 흐름을 막지 않는다 — 탭 닫기가 알림 실패로 멈추면 더 나쁘다.
+  async _setToolBackground(toolId,bg){
+    if(!toolId) return false;
+    try{
+      const r=await fetch('/api/tools/background/set',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({toolId,background:!!bg})});
+      return r.ok;
+    }catch{return false}
+  }
+
+  async _bgRefresh(){
+    try{
+      const r=await fetch('/api/tools/background');
+      if(!r.ok) return;
+      const j=await r.json();
+      this._bg=Array.isArray(j.background)?j.background:[];
+    }catch{return}
+    this._updateStatusBar();
+    if(this._bgModalOpen) this._bgModalRender();
+  }
+
+  // FR-BG-7 / FR-BGR-1: 백그라운드 도구를 지정 분할 칸(opts.paneId, 미지정 시
+  // 현재 포커스)의 새 탭으로 되돌린다.
+  async _restoreTool(toolId,opts={}){
+    if(!toolId) return;
+    // FR-BGR-5: 대상을 먼저 확정한다. 백그라운드 해제를 앞세우면 대상이 없을 때
+    // 도구가 목록에도 탭에도 없는 — 어디서도 닿을 수 없는 상태가 된다.
+    let pn=null;
+    if(opts.paneId){
+      const win=this.ws.windows.find(s=>s.id===opts.windowId)||null;
+      pn=win&&win.layout?findPane(win.layout,opts.paneId):null;
+    }else{
+      pn=this.focused&&this._aw()?findPane(this._aw().layout,this.focused):null;
+    }
+    if(!pn){console.warn('[bg] 복귀할 분할 칸 없음',opts.paneId||this.focused);return}
+    if(!await this._setToolBackground(toolId,false)) return;
+    if(!this.tools.has(toolId)) this._mkTool(toolId,'Shell #'+toolId);
+    const t=`t${++this._t}`;
+    pn.tabs.push({id:t,name:'Shell',type:'terminal',toolId});
+    pn.activeTab=t;
+    this.render();
+    this._save();
+    this._bgRefresh();
+  }
+
+  async _newTool(cwd,cwdTool){
     let q='';
     if(cwd) q='&cwd='+encodeURIComponent(cwd);
-    else if(cwdPane) q='&cwdPane='+encodeURIComponent(cwdPane);
-    const r=await fetch('/api/panes?cols=120&rows=40'+q,{method:'POST'});
+    else if(cwdTool) q='&cwdTool='+encodeURIComponent(cwdTool);
+    const r=await fetch('/api/tools?cols=120&rows=40'+q,{method:'POST'});
     if(!r.ok) throw new Error('create pane failed');
     const {id,name}=await r.json();
-    return this._mkPane(id,name);
+    return this._mkTool(id,name);
   }
 
   async _focusedCwd(){
-    const p=this._focusedTermPane();
+    const p=this._focusedTerminal();
     if(!p) return null;
-    try{const r=await fetch('/api/cwd?pane='+p.id);const d=await r.json();return d.cwd||null}catch{return null}
+    try{const r=await fetch('/api/cwd?tool='+p.id);const d=await r.json();return d.cwd||null}catch{return null}
   }
 
   async _kill(pid){
-    const p=this.panes.get(pid);
-    if(p){p.destroy();this.panes.delete(pid)}
-    try{await fetch(`/api/panes/${pid}`,{method:'DELETE'})}catch{}
+    const p=this.tools.get(pid);
+    if(p){p.destroy();this.tools.delete(pid)}
+    try{await fetch(`/api/tools/${pid}`,{method:'DELETE'})}catch{}
   }
-  _killBg(pid){
-    const p=this.panes.get(pid);
-    if(p){p.destroy();this.panes.delete(pid)}
-    fetch(`/api/panes/${pid}`,{method:'DELETE'}).catch(()=>{});
+  _killTool(pid){
+    const p=this.tools.get(pid);
+    if(p){p.destroy();this.tools.delete(pid)}
+    fetch(`/api/tools/${pid}`,{method:'DELETE'}).catch(()=>{});
   }
 
-  _as(){return this.ws.sessions.find(s=>s.id===this.ws.activeSession)||null}
+  _aw(){return this.ws.windows.find(s=>s.id===this.ws.activeWindow)||null}
 
-  // _isPaneInActiveSession reports whether a pane (by id) is present in the
-  // currently active session's layout. Used to route focus commands only to
+  // _isToolInActiveWindow reports whether a pane (by id) is present in the
+  // currently active window's layout. Used to route focus commands only to
   // the window that is actually viewing the source pane (multi-window).
-  _isPaneInActiveSession(paneId){
-    if(!paneId) return false;
-    const s=this._as();
+  _isToolInActiveWindow(toolId){
+    if(!toolId) return false;
+    const s=this._aw();
     if(!s||!s.layout) return false;
     let found=false;
     const walk=n=>{
       if(!n||found) return;
-      if(n.type==='region'&&n.tabs){
-        for(const t of n.tabs) if(t.paneId===paneId){found=true;return}
+      if(n.type==='pane'&&n.tabs){
+        for(const t of n.tabs) if(t.toolId===toolId){found=true;return}
       }
       if(n.type==='split'&&n.children) for(const c of n.children) walk(c);
     };
@@ -555,35 +644,35 @@ class App {
   }
 
   // _setFocus is the single entry point for the focus invariant
-  // (this.focused === active session.focusedRegion). It accepts an optional
-  // session reference; when omitted, the active session is used. When the
-  // mutated session is not the active one, only its focusedRegion is updated
+  // (this.focused === active window.focusedPane). It accepts an optional
+  // window reference; when omitted, the active window is used. When the
+  // mutated window is not the active one, only its focusedPane is updated
   // (this.focused unchanged). REG-2~8 회귀 클래스 차단용 단일 진입점.
   _setFocus(rid, sess){
-    const target = sess || this._as();
-    if(target) target.focusedRegion = rid;
-    if(!sess || (target && target.id === this.ws.activeSession)){
+    const target = sess || this._aw();
+    if(target) target.focusedPane = rid;
+    if(!sess || (target && target.id === this.ws.activeWindow)){
       this.focused = rid;
       // FR-PAN-11: 포커스된 활성 탭 pane 의 주의 상태 해제(로컬+엔드포인트)
       if(this.focused===rid) this._attnClearFocused();
     }
     this._agentsRender(); // 외부 포커스 변경도 카드 .focused 에 즉시 반영(render 미경유 경로 포함)
-    this._persistFocusedRegions();
+    this._persistFocusedPanes();
   }
 
-  // Persist per-window focusedRegion map to sessionStorage so a refresh
+  // Persist per-window focusedPane map to sessionStorage so a refresh
   // restores the same view (multi-window: each window owns its viewport).
-  _persistFocusedRegions(){
+  _persistFocusedPanes(){
     try{
       const map={};
-      for(const s of this.ws.sessions){
-        if(s.focusedRegion) map[s.id]=s.focusedRegion;
+      for(const s of this.ws.windows){
+        if(s.focusedPane) map[s.id]=s.focusedPane;
       }
-      sessionStorage.setItem('focusedRegions', JSON.stringify(map));
+      sessionStorage.setItem('focusedPanes', JSON.stringify(map));
     }catch{}
   }
 
-  // ── Pane Attention Notify (PANE_ATTENTION_NOTIFY_SRS) ──
+  // ── Tool Attention Notify (PANE_ATTENTION_NOTIFY_SRS) ──
 
   // 설정 영속화는 localStorage(per-device), 기존 /api/settings 스키마 무변경 (FR-PAN-14)
   // 데스크톱 알림은 기본 ON(권한 허용 시 동작) — '0' 으로 명시 비활성만 끈다 (FR-PAN-13a)
@@ -594,70 +683,70 @@ class App {
   get agentsPollMs(){try{const v=parseInt(localStorage.getItem('agentsPollMs'));return v>=1000?v:AGENTS_POLL_DEFAULT}catch{return AGENTS_POLL_DEFAULT}}
   set agentsPollMs(v){try{localStorage.setItem('agentsPollMs',String(v))}catch{}}
 
-  _attnHas(paneId){return this._attn.has(paneId)}
+  _attnHas(toolId){return this._attn.has(toolId)}
 
-  // 활성 세션의 포커스 region 의 activeTab paneId === paneId 인지 (FR-PAN-9)
-  _isPaneFocusedActive(paneId){
-    if(!paneId) return false;
-    const s=this._as(); if(!s||!s.layout) return false;
-    const rg=findRg(s.layout,this.focused); if(!rg) return false;
-    const at=(rg.tabs||[]).find(t=>t.id===rg.activeTab);
-    return !!at&&at.paneId===paneId;
+  // 활성 창의 포커스 pane 의 activeTab toolId === toolId 인지 (FR-PAN-9)
+  _isToolFocusedActive(toolId){
+    if(!toolId) return false;
+    const s=this._aw(); if(!s||!s.layout) return false;
+    const pn=findPane(s.layout,this.focused); if(!pn) return false;
+    const at=(pn.tabs||[]).find(t=>t.id===pn.activeTab);
+    return !!at&&at.toolId===toolId;
   }
 
-  _onPaneAttention({paneId,reason}={}){
-    if(!paneId) return;
+  _onToolAttention({toolId,reason}={}){
+    if(!toolId) return;
     // 억제(즉시 해제)는 "정말로 보고 있을 때"만 — 브라우저 창이 OS 포커스를 가졌고(다른 앱이
     // 위에 있지 않음) 그 pane 에 포커스가 있을 때. 다른 프로그램을 보고 있으면(document.hasFocus()
     // false) 포커스여도 알람을 살린다 (FR-PAN-9/13/요구2).
     const browserFocused=(typeof document!=='undefined'&&typeof document.hasFocus==='function')?document.hasFocus():true;
-    if(browserFocused&&this._isPaneFocusedActive(paneId)){this._attnClear(paneId);return}
-    this._attn.set(paneId,{reason});
+    if(browserFocused&&this._isToolFocusedActive(toolId)){this._attnClear(toolId);return}
+    this._attn.set(toolId,{reason});
     this._attnRefresh();
-    this._attnDesktopNotify(reason,paneId); // FR-PAN-13a
+    this._attnDesktopNotify(reason,toolId); // FR-PAN-13a
     this._attnBeep(); // FR-PAN-13c
   }
 
-  _onPaneAttentionClear({paneId}={}){
-    if(!paneId) return;
-    this._attnCloseNotif(paneId);
-    if(!this._attn.delete(paneId)) return;
+  _onToolAttentionClear({toolId}={}){
+    if(!toolId) return;
+    this._attnCloseNotif(toolId);
+    if(!this._attn.delete(toolId)) return;
     this._attnRefresh();
   }
 
   // FR-PAN-12: 합류/재연결 시 현재 주의 집합 복원(기존 것 병합)
   _attnRestore(){
-    fetch('/api/panes/attention').then(r=>r.ok?r.json():null).then(j=>{
-      if(!j||!Array.isArray(j.paneIds)) return;
-      for(const pid of j.paneIds){if(!this._attn.has(pid))this._attn.set(pid,{reason:'signaled'})}
+    fetch('/api/tools/attention').then(r=>r.ok?r.json():null).then(j=>{
+      if(!j||!Array.isArray(j.toolIds)) return;
+      for(const pid of j.toolIds){if(!this._attn.has(pid))this._attn.set(pid,{reason:'signaled'})}
       this._attnRefresh();
     }).catch(()=>{});
   }
 
   // FR-PAN-11: 로컬 즉시 제거 + 백엔드 해제(다른 브라우저로 전파)
-  _attnClear(paneId){
-    if(!paneId) return;
-    this._attnCloseNotif(paneId);
-    this._attn.delete(paneId);
-    fetch('/api/panes/attention/clear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paneId})}).catch(()=>{});
+  _attnClear(toolId){
+    if(!toolId) return;
+    this._attnCloseNotif(toolId);
+    this._attn.delete(toolId);
+    fetch('/api/tools/attention/clear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({toolId})}).catch(()=>{});
     this._attnRefresh();
   }
 
   // FR-PAN-17: 모든 알람 일괄 해제
   _attnClearAll(){
-    fetch('/api/panes/attention/clear-all',{method:'POST'}).catch(()=>{});
+    fetch('/api/tools/attention/clear-all',{method:'POST'}).catch(()=>{});
     Object.keys(this._attnNotifs||{}).forEach(k=>this._attnCloseNotif(k));
     this._attn.clear();
     this._attnCenterClose();
     this._attnRefresh();
   }
 
-  // FR-PAN-16: 세션 layout 안에 주의 상태 pane 이 있는지
-  _sessionHasAttn(s){
+  // FR-PAN-16: 창 layout 안에 주의 상태 pane 이 있는지
+  _windowHasAttn(s){
     if(!s||!s.layout||!this._attn.size) return false;
     const walk=(node)=>{
       if(!node) return false;
-      if(node.type==='region') return (node.tabs||[]).some(t=>t.paneId&&this._attn.has(t.paneId));
+      if(node.type==='pane') return (node.tabs||[]).some(t=>t.toolId&&this._attn.has(t.toolId));
       if(node.children) return node.children.some(walk);
       return false;
     };
@@ -667,59 +756,59 @@ class App {
   // 포커스된 활성 탭이 주의 상태면 해제. 그 탭은 어차피 강조 안 되므로 full render 불필요
   _attnClearFocused(){
     if(!this._attn.size) return;
-    const s=this._as(); if(!s||!s.layout) return;
-    const rg=findRg(s.layout,this.focused); if(!rg) return;
-    const at=(rg.tabs||[]).find(t=>t.id===rg.activeTab);
-    if(at&&at.paneId&&this._attn.has(at.paneId)) this._attnClear(at.paneId);
+    const s=this._aw(); if(!s||!s.layout) return;
+    const pn=findPane(s.layout,this.focused); if(!pn) return;
+    const at=(pn.tabs||[]).find(t=>t.id===pn.activeTab);
+    if(at&&at.toolId&&this._attn.has(at.toolId)) this._attnClear(at.toolId);
   }
 
-  // 모든 세션 layout 트리를 walk 해 paneId 를 가진 tab 위치 반환 (FR-PAN-16)
-  _findPaneLocation(paneId){
-    if(!paneId) return null;
-    const walk=(node,session)=>{
+  // 모든 창 layout 트리를 walk 해 toolId 를 가진 tab 위치 반환 (FR-PAN-16)
+  _findToolLocation(toolId){
+    if(!toolId) return null;
+    const walk=(node,win)=>{
       if(!node) return null;
-      if(node.type==='region'){
-        const tab=(node.tabs||[]).find(t=>t.paneId===paneId);
-        return tab?{session,region:node,tab}:null;
+      if(node.type==='pane'){
+        const tab=(node.tabs||[]).find(t=>t.toolId===toolId);
+        return tab?{win,pane:node,tab}:null;
       }
-      if(node.children) for(const c of node.children){const f=walk(c,session);if(f)return f}
+      if(node.children) for(const c of node.children){const f=walk(c,win);if(f)return f}
       return null;
     };
-    for(const s of this.ws.sessions){const f=walk(s.layout,s);if(f)return f}
+    for(const s of this.ws.windows){const f=walk(s.layout,s);if(f)return f}
     return null;
   }
 
   // FR-PAN-16: 해당 pane 으로 포커스 이동(_setFocus 가 _attnClearFocused 로 해제)
-  _jumpToPane(paneId){
-    const loc=this._findPaneLocation(paneId);
+  _jumpToTool(toolId){
+    const loc=this._findToolLocation(toolId);
     if(!loc) return;
-    this.ws.activeSession=loc.session.id;
-    try{sessionStorage.setItem('activeSession', loc.session.id)}catch{}
-    loc.region.activeTab=loc.tab.id;
-    this._setFocus(loc.region.id, loc.session);
-    this._focusSession(loc.session.id);
+    this.ws.activeWindow=loc.win.id;
+    try{sessionStorage.setItem('activeWindow', loc.win.id)}catch{}
+    loc.pane.activeTab=loc.tab.id;
+    this._setFocus(loc.pane.id, loc.win);
+    this._focusWindow(loc.win.id);
     this.render();
   }
 
-  // FR-AAP-15: SSE pane_activity 수신 → 최신 상태로 덮어쓰고 카드 타깃 갱신
-  _onPaneActivity({paneId,state,tool,detail}={}){
-    if(!paneId||!state) return;
+  // FR-AAP-15: SSE tool_activity 수신 → 최신 상태로 덮어쓰고 카드 타깃 갱신
+  _onToolActivity({toolId,state,tool,detail}={}){
+    if(!toolId||!state) return;
     if(state==='ended'){ // 종료 → 카드 제거
-      if(this._activity.delete(paneId)) this._agentsRender();
+      if(this._activity.delete(toolId)) this._agentsRender();
       return;
     }
     // FR-AAP-13/21: 기존 항목은 제자리 갱신(순서 불변), 신규는 Map 끝(=최하단)에 추가
-    this._activity.set(paneId,{state,tool:tool||'',detail:detail||''});
+    this._activity.set(toolId,{state,tool:tool||'',detail:detail||''});
     this._agentsRender();
   }
 
   // FR-AAP-15: 합류/재연결 시 현재 활동 스냅샷 복원
   _activityRestore(){
-    fetch('/api/panes/activity').then(r=>r.ok?r.json():null).then(j=>{
+    fetch('/api/tools/activity').then(r=>r.ok?r.json():null).then(j=>{
       this._activity.clear();
       if(j&&Array.isArray(j.activities)){
         j.activities.sort((a,b)=>(a.updatedAt||0)-(b.updatedAt||0)); // 오래된→최신: 끝이 가장 최근
-        for(const a of j.activities) this._activity.set(a.paneId,{state:a.state,tool:a.tool||'',detail:a.detail||''});
+        for(const a of j.activities) this._activity.set(a.toolId,{state:a.state,tool:a.tool||'',detail:a.detail||''});
       }
       this._agentsRender();
     }).catch(()=>{});
@@ -734,7 +823,7 @@ class App {
     handle.classList.toggle('open',open);
     const btn=document.getElementById('agents-toggle');if(btn)btn.classList.toggle('open',open);
     try{localStorage.setItem('agentsPanelOpen',open?'1':'0')}catch{}
-    for(const p of this.panes.values()) if(p.el.classList.contains('vis')) p.doFit();
+    for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
     if(open){this._agentsRender();this._agentsStartPoll()}else{this._agentsStopPoll()}
     // agents 패널이 열리거나 닫힐 때 attn center 위치도 같이 조정
     const ac=document.getElementById('attn-center');
@@ -750,12 +839,12 @@ class App {
     if(this._agentsTimer){clearInterval(this._agentsTimer);this._agentsTimer=null}
   }
 
-  // 세션 사이드바 드래그 재배치. drop(즉시) 1순위 + dragend 폴백, done 으로 중복 커밋 차단.
+  // 창 사이드바 드래그 재배치. drop(즉시) 1순위 + dragend 폴백, done 으로 중복 커밋 차단.
   // 식별자(id)로 원본/대상을 찾아 splice 후 인덱스 이동에 안전. 대상 미존재(끝 너머)면 맨 끝으로.
-  _reorderSessions(dr){
+  _reorderWindows(dr){
     if(!dr||dr.done||!dr.srcId||dr.targetId==null||dr.srcId===dr.targetId) return;
     dr.done=true;
-    const arr=this.ws.sessions;
+    const arr=this.ws.windows;
     const si=arr.findIndex(x=>x.id===dr.srcId);
     if(si<0) return;
     const[moved]=arr.splice(si,1);
@@ -779,8 +868,23 @@ class App {
   }
 
   // FR-AAP-21: ws.agentsOrder(workspace 영속·동기화)를 현재 활동 집합과 정합한다.
-  // 사라진 paneId 는 제외, 배열에 없던 새 paneId 는 신호 도착 순서대로 최하단에 추가.
+  // 사라진 toolId 는 제외, 배열에 없던 새 toolId 는 신호 도착 순서대로 최하단에 추가.
   // reconcile 은 결정적이라 _save() 를 유발하지 않는다(드래그 시에만 저장).
+  // FR-EM-16: 부팅 시 workspace 트리에 없는 도구 id 를 agentsOrder 에서
+  // 제거한다. _agentOrderSync 는 활동 보고가 있는 도구만 남기므로 부팅
+  // 직후(활동 0건)에 쓰면 순서가 전부 날아간다 — 여기서는 레이아웃 참조를
+  // 기준으로만 정리한다.
+  _pruneAgentOrder(){
+    if(!Array.isArray(this.ws.agentsOrder)||!this.ws.agentsOrder.length) return;
+    const present=new Set();
+    for(const w of this.ws.windows||[]){
+      const panes=[]; this._collectPanes(w.layout,panes);
+      for(const pn of panes) for(const t of (pn.tabs||[])) if(t.toolId) present.add(t.toolId);
+    }
+    const kept=this.ws.agentsOrder.filter(id=>present.has(id));
+    if(kept.length!==this.ws.agentsOrder.length) this.ws.agentsOrder=kept;
+  }
+
   _agentOrderSync(){
     if(!Array.isArray(this.ws.agentsOrder)) this.ws.agentsOrder=[];
     const present=new Set(this._activity.keys());
@@ -791,7 +895,7 @@ class App {
     return order;
   }
 
-  // FR-AAP-13/14/16/18/21: 활동 중인 pane 카드 렌더. _findPaneLocation 실패(종료/없음)
+  // FR-AAP-13/14/16/18/21: 활동 중인 pane 카드 렌더. _findToolLocation 실패(종료/없음)
   // pane 은 제외, attention 있으면 .attn 합성, 클릭 시 점프+알람 해제. 카드 순서는
   // ws.agentsOrder(드래그로 조절·영속) 를 따른다.
   _agentsRender(){
@@ -805,15 +909,15 @@ class App {
     head.querySelector('.ag-close').addEventListener('click',e=>{e.stopPropagation();this._agentsToggle()});
     panel.appendChild(head);
     let n=0;
-    for(const paneId of this._agentOrderSync()){ // ws.agentsOrder 순서(신규=최하단)
-      const info=this._activity.get(paneId);
-      const loc=this._findPaneLocation(paneId);
+    for(const toolId of this._agentOrderSync()){ // ws.agentsOrder 순서(신규=최하단)
+      const info=this._activity.get(toolId);
+      const loc=this._findToolLocation(toolId);
       if(!loc) continue;
       n++;
       const card=document.createElement('div');
-      card.className='ag-card'+(this._attnHas(paneId)?' attn':'')+(this._isPaneFocusedActive(paneId)?' focused':'');
-      card.dataset.pid=paneId;
-      const locDiv=document.createElement('div');locDiv.className='ag-loc';locDiv.textContent=(loc.session.name||'')+' · '+(loc.tab.name||paneId);
+      card.className='ag-card'+(this._attnHas(toolId)?' attn':'')+(this._isToolFocusedActive(toolId)?' focused':'');
+      card.dataset.toolid=toolId;
+      const locDiv=document.createElement('div');locDiv.className='ag-loc';locDiv.textContent=(loc.win.name||'')+' · '+(loc.tab.name||toolId);
       const st=document.createElement('div');st.className='ag-state';
       st.classList.add(info.state); // 상태별 색(.ag-state.working 등)
       st.textContent=(AGENT_STATE_ICON[info.state]||'●')+' '+info.state+(info.tool?' · '+info.tool:'');
@@ -821,11 +925,11 @@ class App {
       if(info.detail){dt.textContent=info.detail;card.appendChild(dt);}
       card.appendChild(locDiv);
       card.appendChild(st);
-      card.addEventListener('click',()=>{this._jumpToPane(paneId);if(this._attnHas(paneId))this._attnClear(paneId)});
-      // FR-AAP-21: 세션 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
+      card.addEventListener('click',()=>{this._jumpToTool(toolId);if(this._attnHas(toolId))this._attnClear(toolId)});
+      // FR-AAP-21: 창 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
       card.draggable=true;
-      card.addEventListener('dragstart',e=>{this._drag={type:'agent',pid:paneId,targetPid:null,before:false,done:false};e.dataTransfer.effectAllowed='move';setTimeout(()=>card.classList.add('dragging'),0)});
-      card.addEventListener('dragover',e=>{const dr=this._drag;if(!dr||dr.type!=='agent')return;e.preventDefault();panel.querySelectorAll('.ag-card').forEach(c=>c.classList.remove('drag-above','drag-below'));const rect=card.getBoundingClientRect();const before=e.clientY<rect.top+rect.height/2;card.classList.add(before?'drag-above':'drag-below');dr.targetPid=paneId;dr.before=before});
+      card.addEventListener('dragstart',e=>{this._drag={type:'agent',pid:toolId,targetPid:null,before:false,done:false};e.dataTransfer.effectAllowed='move';setTimeout(()=>card.classList.add('dragging'),0)});
+      card.addEventListener('dragover',e=>{const dr=this._drag;if(!dr||dr.type!=='agent')return;e.preventDefault();panel.querySelectorAll('.ag-card').forEach(c=>c.classList.remove('drag-above','drag-below'));const rect=card.getBoundingClientRect();const before=e.clientY<rect.top+rect.height/2;card.classList.add(before?'drag-above':'drag-below');dr.targetPid=toolId;dr.before=before});
       card.addEventListener('drop',e=>{const dr=this._drag;if(!dr||dr.type!=='agent')return;e.preventDefault();e.stopPropagation();this._reorderAgents(dr)});
       // dragend 는 시각 정리만 — 패널 밖 release 는 취소(순서 불변, snap-back 깜빡임 방지).
       card.addEventListener('dragend',()=>{this._drag=null;card.classList.remove('dragging');panel.querySelectorAll('.ag-card').forEach(c=>c.classList.remove('drag-above','drag-below'))});
@@ -843,22 +947,22 @@ class App {
   _attnRefresh(){
     const n=this._attn.size;
     document.title=(n?'('+n+') ':'')+'Terminal'; // FR-PAN-13b
-    // 사이드바 세션 알람 표시 갱신 (전체 재렌더 없이)
-    document.querySelectorAll('#sessions .si').forEach(el=>{
-      const s=this.ws.sessions.find(x=>x.id===el.dataset.sid);
-      el.classList.toggle('attn', !!(s&&this._sessionHasAttn(s)));
+    // 사이드바 창 알람 표시 갱신 (전체 재렌더 없이)
+    document.querySelectorAll('#windows .si').forEach(el=>{
+      const s=this.ws.windows.find(x=>x.id===el.dataset.sid);
+      el.classList.toggle('attn', !!(s&&this._windowHasAttn(s)));
     });
     // 탭/리전 강조도 타깃 토글 — 전체 render() 를 피해 포커스 플리커(xterm blur/refocus)를 막는다.
-    document.querySelectorAll('#area .rt[data-pid]').forEach(t=>{
-      const rg=t.closest('.rg');
-      const focusedRegion=!!(rg&&rg.classList.contains('focused'));
+    document.querySelectorAll('#area .pn-tab[data-toolid]').forEach(t=>{
+      const pn=t.closest('.pn');
+      const focusedPane=!!(pn&&pn.classList.contains('focused'));
       const active=t.classList.contains('active');
-      t.classList.toggle('attn', this._attnHas(t.dataset.pid)&&!(focusedRegion&&active));
+      t.classList.toggle('attn', this._attnHas(t.dataset.toolid)&&!(focusedPane&&active));
     });
-    document.querySelectorAll('#area .rg[data-rid]').forEach(rg=>{
-      const at=rg.querySelector('.rt.active[data-pid]');
-      const pid=at?at.dataset.pid:null;
-      rg.classList.toggle('attn', !!(pid&&this._attnHas(pid)&&!rg.classList.contains('focused')));
+    document.querySelectorAll('#area .pn[data-paneid]').forEach(pn=>{
+      const at=pn.querySelector('.pn-tab.active[data-toolid]');
+      const pid=at?at.dataset.toolid:null;
+      pn.classList.toggle('attn', !!(pid&&this._attnHas(pid)&&!pn.classList.contains('focused')));
     });
     const badge=document.getElementById('attn-badge');
     if(badge){
@@ -904,9 +1008,9 @@ class App {
     head.innerHTML=`<span class="attn-title">주의 알림 ${this._attn.size}</span><button class="attn-clear-all">모두 제거</button>`;
     head.querySelector('.attn-clear-all').addEventListener('click',e=>{e.stopPropagation();this._attnClearAll()});
     center.appendChild(head);
-    for(const [paneId,info] of this._attn){
-      const loc=this._findPaneLocation(paneId);
-      const name=loc?loc.tab.name:paneId;
+    for(const [toolId,info] of this._attn){
+      const loc=this._findToolLocation(toolId);
+      const name=loc?loc.tab.name:toolId;
       const reason=info&&info.reason==='idle'?'작업 멈춤':'알림 신호';
       const item=document.createElement('div');
       item.className='attn-item';
@@ -914,30 +1018,30 @@ class App {
       const reasonSpan=document.createElement('span');reasonSpan.className='attn-reason';reasonSpan.textContent=reason;
       item.appendChild(nameSpan);
       item.appendChild(reasonSpan);
-      item.addEventListener('click',()=>{this._jumpToPane(paneId);this._attnCenterClose()});
+      item.addEventListener('click',()=>{this._jumpToTool(toolId);this._attnCenterClose()});
       center.appendChild(item);
     }
   }
 
   // FR-PAN-13a: 데스크톱 알림(권한 granted + 설정 on). pane 별 직전 알림을 닫고 새로 띄운다.
-  _attnDesktopNotify(reason,paneId){
+  _attnDesktopNotify(reason,toolId){
     if(!this.attnDesktop) return;
     if(typeof Notification==='undefined'||Notification.permission!=='granted') return;
-    const loc=this._findPaneLocation(paneId);
-    const where=loc?[loc.session&&loc.session.name,loc.tab&&loc.tab.name].filter(Boolean).join(' · '):('pane '+paneId);
+    const loc=this._findToolLocation(toolId);
+    const where=loc?[loc.win&&loc.win.name,loc.tab&&loc.tab.name].filter(Boolean).join(' · '):('pane '+toolId);
     const head=reason==='done'?'✅ 작업 완료':reason==='waiting'?'⌨️ 입력 대기 중':reason==='idle'?'⏸️ 작업이 멈췄습니다':'🔔 주의가 필요합니다';
     // 같은 pane 의 이전 알림을 닫고 새로 띄운다 — tag+renotify 는 (특히 macOS 에서)
     // 조용히 갱신만 되어 재팝업이 안 되므로, close→재생성으로 매번 확실히 다시 띄운다.
     this._attnNotifs=this._attnNotifs||{};
-    this._attnCloseNotif(paneId);
-    try{this._attnNotifs[paneId]=new Notification(head,{body:where||('pane '+paneId)})}catch{}
+    this._attnCloseNotif(toolId);
+    try{this._attnNotifs[toolId]=new Notification(head,{body:where||('pane '+toolId)})}catch{}
   }
 
   // 저장해 둔 데스크톱 알림 객체를 닫는다(있으면).
-  _attnCloseNotif(paneId){
-    if(this._attnNotifs&&this._attnNotifs[paneId]){
-      try{this._attnNotifs[paneId].close()}catch{}
-      delete this._attnNotifs[paneId];
+  _attnCloseNotif(toolId){
+    if(this._attnNotifs&&this._attnNotifs[toolId]){
+      try{this._attnNotifs[toolId].close()}catch{}
+      delete this._attnNotifs[toolId];
     }
   }
 
@@ -1015,92 +1119,103 @@ class App {
     this._attnRefresh();
   }
 
-  async _mkSession(opts={}){
-    const p=await this._newPane();
+  async _mkWindow(opts={}){
+    const p=await this._newTool();
     const r=`r${++this._r}`,t=`t${++this._t}`;
-    const name=(typeof opts.name==='string'&&opts.name?opts.name:'Session').slice(0,64);
+    const name=(typeof opts.name==='string'&&opts.name?opts.name:'Window').slice(0,64);
     const s={
       id:`s${++this._s}`,name,
-      layout:{type:'region',id:r,tabs:[{id:t,name:'Shell',type:'terminal',paneId:p.id}],activeTab:t}
+      layout:{type:'pane',id:r,tabs:[{id:t,name:'Shell',type:'terminal',toolId:p.id}],activeTab:t}
     };
-    this.ws.sessions.push(s);
-    // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-2: keepFocus 면 세션은 사이드바에만
-    // 추가 — activeSession/focused 무변화 (백그라운드 잡 컨테이너 패턴).
+    this.ws.windows.push(s);
+    // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-2: keepFocus 면 창은 사이드바에만
+    // 추가 — activeWindow/focused 무변화 (백그라운드 잡 컨테이너 패턴).
     if(!opts.keepFocus){
-      this.ws.activeSession=s.id;
-      try{sessionStorage.setItem('activeSession', s.id)}catch{}
+      this.ws.activeWindow=s.id;
+      try{sessionStorage.setItem('activeWindow', s.id)}catch{}
       this._setFocus(r, s);
-      this._focusSession(s.id);
+      this._focusWindow(s.id);
     }
     // Fire-and-forget save: keeps the UI snappy. Awaiting here would block
     // render on the PUT roundtrip (see split/addTab which already use
     // this pattern).
     this._save();
     // REMOTE_COMMAND_RESULT_SRS FR-RCR-6/7: 생성한 엔터티 id 반환 (echo 용).
-    return {session:s.id, region:r, tab:{uuid:t, paneId:p.id}};
+    return {win:s.id, pane:r, tab:{uuid:t, toolId:p.id}};
   }
 
-  async addSession(){await this._mkSession();this.render()}
+  async addWindow(){await this._mkWindow();this.render()}
 
-  async delSession(sid){
-    const i=this.ws.sessions.findIndex(s=>s.id===sid);
+  async delWindow(sid){
+    const i=this.ws.windows.findIndex(s=>s.id===sid);
     if(i<0) return;
-    const s=this.ws.sessions[i];
+    const s=this.ws.windows[i];
     const pids=allPids(s.layout);
-    const busyChecks=await Promise.all(pids.map(pid=>this._isPaneBusy(pid)));
+    const busyChecks=await Promise.all(pids.map(pid=>this._isToolBusy(pid)));
+    // FR-BG-4/4a: 일괄 전환 대상은 busy 인 도구만이다. 확인창이 뜨는 사유가
+    // "실행 중인 프로세스"이고, 한가하면 그냥 종료한다는 FR-BG-1 의 기본과
+    // 일관되어야 한다 — 한가한 셸까지 보존하면 백그라운드가 쓰레기로 찬다.
+    let keep=new Set();
     if(busyChecks.some(Boolean)){
-      const ok=await this._confirmClose('실행 중인 프로세스가 있습니다. 세션을 종료하시겠습니까?');
-      if(!ok) return;
+      const r=await this._confirmClose('실행 중인 프로세스가 있습니다. 창을 닫으시겠습니까?',
+        {bgBtn:true,bgLabel:'실행 중인 것만 백그라운드로'});
+      if(!r) return;
+      if(r==='background'){
+        for(let i=0;i<pids.length;i++) if(busyChecks[i]) keep.add(pids[i]);
+      }
     }
-    for(const pid of pids) this._kill(pid);
-    this.ws.sessions.splice(i,1);
-    if(!this.ws.sessions.length){await this._mkSession();this.render();return}
-    if(this.ws.activeSession===sid){
-      this.ws.activeSession=this.ws.sessions[Math.min(i,this.ws.sessions.length-1)].id;
-      try{sessionStorage.setItem('activeSession', this.ws.activeSession)}catch{}
+    for(const pid of keep) this._setToolBackground(pid,true);
+    if(keep.size) this._bgRefresh();
+    // FR-BG-4b: backgroundCapable 이 아닌 도구는 전환 대상이 아니라 종료된다.
+    for(const pid of pids) if(!keep.has(pid)) this._kill(pid);
+    this.ws.windows.splice(i,1);
+    if(!this.ws.windows.length){await this._mkWindow();this.render();return}
+    if(this.ws.activeWindow===sid){
+      this.ws.activeWindow=this.ws.windows[Math.min(i,this.ws.windows.length-1)].id;
+      try{sessionStorage.setItem('activeWindow', this.ws.activeWindow)}catch{}
     }
-    const a=this._as();
+    const a=this._aw();
     if(a&&a.layout){
-      const next=(a.focusedRegion&&findRg(a.layout,a.focusedRegion))?a.focusedRegion:firstRg(a.layout)?.id||null;
+      const next=(a.focusedPane&&findPane(a.layout,a.focusedPane))?a.focusedPane:firstPane(a.layout)?.id||null;
       this._setFocus(next, a);
     } else this.focused=null;
     // Render first, save in background (matches split/addTab/closeTab).
-    this._focusSession(this.ws.activeSession);
+    this._focusWindow(this.ws.activeWindow);
     this.render();
     this._save();
   }
 
-  switchSession(sid){
-    if(this.ws.activeSession===sid){
+  switchWindow(sid){
+    if(this.ws.activeWindow===sid){
       if(this.isMobile && this._drawerOpen) this._toggleDrawer(false);
       return;
     }
-    const cur=this._as();if(cur)cur.focusedRegion=this.focused;
-    this.ws.activeSession=sid;
-    // Persist per-window activeSession to sessionStorage (survives refresh,
+    const cur=this._aw();if(cur)cur.focusedPane=this.focused;
+    this.ws.activeWindow=sid;
+    // Persist per-window activeWindow to sessionStorage (survives refresh,
     // independent across windows).
-    try{sessionStorage.setItem('activeSession', sid)}catch{}
-    const a=this._as();
+    try{sessionStorage.setItem('activeWindow', sid)}catch{}
+    const a=this._aw();
     if(a&&a.layout){
-      const next=(a.focusedRegion&&findRg(a.layout,a.focusedRegion))?a.focusedRegion:firstRg(a.layout)?.id||null;
+      const next=(a.focusedPane&&findPane(a.layout,a.focusedPane))?a.focusedPane:firstPane(a.layout)?.id||null;
       this._setFocus(next, a);
     } else this.focused=null;
     this._mPaneIdx=0;
     if(this.isMobile && this._drawerOpen) this._toggleDrawer(false);
-    this._focusSession(sid);
+    this._focusWindow(sid);
     this._save(); this.render();
   }
 
   _findEditorTab(filePath) {
-    for (const s of this.ws.sessions) {
+    for (const s of this.ws.windows) {
       if (!s || !s.layout) continue;
       let result = null;
       const walk = n => {
         if (!n || result) return;
-        if (n.type === 'region' && n.tabs) {
+        if (n.type === 'pane' && n.tabs) {
           for (const t of n.tabs) {
             if (t.type === 'editor' && t.filePath === filePath) {
-              result = { tab: t, region: n, session: s };
+              result = { tab: t, pane: n, win: s };
               return;
             }
           }
@@ -1116,20 +1231,20 @@ class App {
   }
 
   async addTab(rid, type = 'terminal', opts = {}) {
-    // opts.sessionId 지정 시 비활성 세션의 region 에도 추가 가능 (FR-RST-4).
-    const s = opts.sessionId ? this.ws.sessions.find(x => x.id === opts.sessionId) : this._as();
+    // opts.windowId 지정 시 비활성 창의 pane 에도 추가 가능 (FR-RST-4).
+    const s = opts.windowId ? this.ws.windows.find(x => x.id === opts.windowId) : this._aw();
     if (!s) return;
-    const rg = findRg(s.layout, rid); if (!rg) return;
+    const pn = findPane(s.layout, rid); if (!pn) return;
     if (type === 'editor') {
       if (!opts.filePath) { console.warn('[addTab] editor tab requires filePath'); return }
       const existing = this._findEditorTab(opts.filePath);
       if (existing) {
-        const cur = this._as(); if (cur) cur.focusedRegion = this.focused;
-        this.ws.activeSession = existing.session.id;
-        try{sessionStorage.setItem('activeSession', existing.session.id)}catch{}
-        existing.region.activeTab = existing.tab.id;
-        this._setFocus(existing.region.id, existing.session);
-        this._focusSession(existing.session.id);
+        const cur = this._aw(); if (cur) cur.focusedPane = this.focused;
+        this.ws.activeWindow = existing.win.id;
+        try{sessionStorage.setItem('activeWindow', existing.win.id)}catch{}
+        existing.pane.activeTab = existing.tab.id;
+        this._setFocus(existing.pane.id, existing.win);
+        this._focusWindow(existing.win.id);
         const editor = this.fileEditors.get(existing.tab.id);
         if (editor) editor.refresh();
         this.render();
@@ -1138,32 +1253,32 @@ class App {
       }
       const name = opts.name || opts.filePath.split('/').pop();
       const t = `t${++this._t}`;
-      rg.tabs.push({ id: t, name, type: 'editor', filePath: opts.filePath });
-      rg.activeTab = t;
+      pn.tabs.push({ id: t, name, type: 'editor', filePath: opts.filePath });
+      pn.activeTab = t;
       this.render();
       this._save();
       return;
     }
-    const ref = this._regionNewPaneRef(s, rid);
-    const p = await this._newPane(ref.cwd || null, ref.cwd ? null : (ref.cwdPane || null));
+    const ref = this._paneNewToolRef(s, rid);
+    const p = await this._newTool(ref.cwd || null, ref.cwd ? null : (ref.cwdTool || null));
     const t = `t${++this._t}`;
     const name = (typeof opts.name === 'string' && opts.name ? opts.name : 'Shell').slice(0, 64);
-    rg.tabs.push({ id: t, name, type: 'terminal', paneId: p.id });
-    // FR-RST-4: keepFocus 면 대상 region 의 활성 탭도 바꾸지 않는다 (백그라운드 추가).
-    if (!opts.keepFocus) rg.activeTab = t;
+    pn.tabs.push({ id: t, name, type: 'terminal', toolId: p.id });
+    // FR-RST-4: keepFocus 면 대상 pane 의 활성 탭도 바꾸지 않는다 (백그라운드 추가).
+    if (!opts.keepFocus) pn.activeTab = t;
     this.render();
     this._save();
-    // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 tab id+paneId 반환 (echo 용).
-    return { uuid: t, paneId: p.id };
+    // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 tab id+toolId 반환 (echo 용).
+    return { uuid: t, toolId: p.id };
   }
 
-  async closeTab(rid,tid,sid){
-    // sid 를 지정하면 해당 세션의 탭을 닫는다 (비활성 세션 대상도 지원).
-    // 지정 안 하면 기존 동작: 활성 세션에서 닫는다.
-    const s = sid ? this.ws.sessions.find(x=>x.id===sid) : this._as();
+  async closeTab(rid,tid,sid,opts={}){
+    // sid 를 지정하면 해당 창의 탭을 닫는다 (비활성 창 대상도 지원).
+    // 지정 안 하면 기존 동작: 활성 창에서 닫는다.
+    const s = sid ? this.ws.windows.find(x=>x.id===sid) : this._aw();
     if(!s) return;
-    const rg=findRg(s.layout,rid); if(!rg) return;
-    const tab=rg.tabs.find(t=>t.id===tid); if(!tab) return;
+    const pn=findPane(s.layout,rid); if(!pn) return;
+    const tab=pn.tabs.find(t=>t.id===tid); if(!tab) return;
     const isEditor=tab.type==='editor';
     if(isEditor){
       const editor=this.fileEditors.get(tab.id);
@@ -1177,44 +1292,67 @@ class App {
       }
       if(editor){editor.destroy();this.fileEditors.delete(tab.id)}
     }else{
-      if(await this._isPaneBusy(tab.paneId)){
-        const ok=await this._confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?');
-        if(!ok) return;
+      // FR-BG-1: 한가하면 확인 없이 닫고 도구를 종료한다.
+      // FR-BG-3: 실행 중이면 살려둘 선택지를 준다. 프로세스가 도는 탭에는
+      // 셸 프롬프트가 없어 detach 를 입력할 수 없고, 바로 그 탭이 이 창을
+      // 띄우는 탭이다.
+      if(!opts.keepTool && await this._isToolBusy(tab.toolId)){
+        const r=await this._confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?',
+          {bgBtn:toolBackgroundCapable(tab.type)});
+        if(!r) return;
+        if(r==='background') opts={...opts,keepTool:true};
       }
     }
-    const paneId=tab.paneId;
-    const closingIdx=rg.tabs.findIndex(t=>t.id===tid);
-    rg.tabs=rg.tabs.filter(t=>t.id!==tid);
-    const prevClosestId=rg.tabs.length?rg.tabs[Math.min(closingIdx,rg.tabs.length-1)].id:null;
-    const isActive = s.id === this.ws.activeSession;
-    if(rg.tabs.length===0){
+    const toolId=tab.toolId;
+    const closingIdx=pn.tabs.findIndex(t=>t.id===tid);
+    pn.tabs=pn.tabs.filter(t=>t.id!==tid);
+    const prevClosestId=pn.tabs.length?pn.tabs[Math.min(closingIdx,pn.tabs.length-1)].id:null;
+    const isActive = s.id === this.ws.activeWindow;
+    if(pn.tabs.length===0){
       s.layout=doRemove(s.layout,rid);
-      if(!s.layout){if(!isEditor&&paneId)this._killBg(paneId);await this.delSession(s.id);return}
+      if(!s.layout){
+        // FR-BG-6f: 마지막 탭이 닫혀 창까지 사라지는 경로. 아래 공통 처리에
+        // 도달하지 못하고 조기 반환하므로 도구 처분을 여기서 마쳐야 한다.
+        // keepTool 이면 백그라운드로 등록한다 — 등록을 빠뜨리면 종료되지도,
+        // 목록에 오르지도 않아 어디서도 닿을 수 없는 도구가 된다.
+        if(!isEditor&&toolId){
+          if(opts.keepTool) await this._setToolBackground(toolId,true);
+          else this._killTool(toolId);
+        }
+        await this.delWindow(s.id);
+        if(!isEditor&&toolId&&opts.keepTool) this._bgRefresh();
+        return;
+      }
       if(isActive){
         const fallback=this.focused===rid?prevClosestId:this.focused;
-        const next=fallback&&findRg(s.layout,fallback)?fallback:firstRg(s.layout)?.id||null;
+        const next=fallback&&findPane(s.layout,fallback)?fallback:firstPane(s.layout)?.id||null;
         this._setFocus(next,s);
-        this._focusSession(s.id);
+        this._focusWindow(s.id);
       }
     }else{
-      rg.activeTab=rg.tabs[Math.min(closingIdx,rg.tabs.length-1)].id;
+      pn.activeTab=pn.tabs[Math.min(closingIdx,pn.tabs.length-1)].id;
       if(isActive){
         this._setFocus(rid,s);
-        this._focusSession(s.id);
+        this._focusWindow(s.id);
       }
     }
     this.render();
-    if(!isEditor&&paneId){
-      this._killBg(paneId);
+    if(!isEditor&&toolId){
+      if(opts.keepTool){
+        // 탭만 제거한다 — 도구는 백그라운드에서 계속 실행된다 (FR-BG-2/3).
+        this._setToolBackground(toolId,true).then(()=>this._bgRefresh());
+      }else{
+        this._killTool(toolId);
+      }
     }
     this._save();
   }
 
   switchTab(rid,tid){
-    const s=this._as(); if(!s) return;
-    const rg=findRg(s.layout,rid); if(!rg) return;
-    if(rg.activeTab===tid && this.focused===rid){this._setFocus(rid, s); return}
-    rg.activeTab=tid; this._setFocus(rid, s);
+    const s=this._aw(); if(!s) return;
+    const pn=findPane(s.layout,rid); if(!pn) return;
+    if(pn.activeTab===tid && this.focused===rid){this._setFocus(rid, s); return}
+    pn.activeTab=tid; this._setFocus(rid, s);
     this._save(); this.render();
   }
 
@@ -1231,110 +1369,104 @@ class App {
 
   async _splitInner(dir,opts={}){
     if(this.isMobile && !opts.force) return;
-    const tgtSessionId=opts.targetSession||this.ws.activeSession;
-    let s=this.ws.sessions.find(x=>x.id===tgtSessionId);
-    const tgtRegionId=opts.targetRegion||(tgtSessionId===this.ws.activeSession?this.focused:null);
-    if(!s||!tgtRegionId) return;
+    const tgtWindowId=opts.targetWindow||this.ws.activeWindow;
+    let s=this.ws.windows.find(x=>x.id===tgtWindowId);
+    const tgtPaneId=opts.targetPane||(tgtWindowId===this.ws.activeWindow?this.focused:null);
+    if(!s||!tgtPaneId) return;
     let count=parseInt(opts.count,10); if(!Number.isFinite(count)||count<2) count=2;
     const keepFocus=!!opts.keepFocus;
     // SPLIT_KEEPFOCUS_FIX_SRS FR-SKF-1: keepFocus 면 호출 직전 사용자 포커스를 저장해 사후 복원.
-    const savedSession = keepFocus ? this.ws.activeSession : null;
+    const savedWindow = keepFocus ? this.ws.activeWindow : null;
     const savedFocused = keepFocus ? this.focused : null;
-    const ref=this._regionNewPaneRef(s,tgtRegionId);
-    const refPaneId=ref.cwd ? null : (ref.cwdPane || null);
-    const newRegions=[]; let lastR=null;
+    const ref=this._paneNewToolRef(s,tgtPaneId);
+    const refPaneId=ref.cwd ? null : (ref.cwdTool || null);
+    const newPanes=[]; let lastR=null;
     for(let i=0;i<count-1;i++){
-      const p=await this._newPane(ref.cwd || null, refPaneId);
+      const p=await this._newTool(ref.cwd || null, refPaneId);
       const r=`r${++this._r}`,t=`t${++this._t}`;
-      newRegions.push({type:'region',id:r,tabs:[{id:t,name:'Shell',type:'terminal',paneId:p.id}],activeTab:t});
+      newPanes.push({type:'pane',id:r,tabs:[{id:t,name:'Shell',type:'terminal',toolId:p.id}],activeTab:t});
       lastR=r;
     }
-    // Re-fetch session after awaits: this.ws may have been replaced by an
-    // SSE workspace_changed apply during the _newPane awaits, leaving our
+    // Re-fetch window after awaits: this.ws may have been replaced by an
+    // SSE workspace_changed apply during the _newTool awaits, leaving our
     // earlier `s` reference stale (and invisible to render). Bail if the
-    // target region is gone — the created panes will be reaped on the next
+    // target pane is gone — the created panes will be reaped on the next
     // workspace sync.
-    s=this.ws.sessions.find(x=>x.id===tgtSessionId);
-    if(!s||!findRg(s.layout,tgtRegionId)) return;
-    s.layout=doSplit(s.layout,tgtRegionId,newRegions,dir);
+    s=this.ws.windows.find(x=>x.id===tgtWindowId);
+    if(!s||!findPane(s.layout,tgtPaneId)) return;
+    s.layout=doSplit(s.layout,tgtPaneId,newPanes,dir);
     if(keepFocus){
-      // FR-SKF-1: 저장된 사용자 포커스를 그대로 복원. activeSession / focused 모두.
-      // FR-SKF-3: 저장된 region 이 사후 layout 에서 사라졌으면 무동작 + 경고.
-      if(this.ws.activeSession!==savedSession && this.ws.sessions.some(x=>x.id===savedSession)){
-        this.ws.activeSession=savedSession;
-        try{sessionStorage.setItem('activeSession', savedSession)}catch{}
+      // FR-SKF-1: 저장된 사용자 포커스를 그대로 복원. activeWindow / focused 모두.
+      // FR-SKF-3: 저장된 pane 이 사후 layout 에서 사라졌으면 무동작 + 경고.
+      if(this.ws.activeWindow!==savedWindow && this.ws.windows.some(x=>x.id===savedWindow)){
+        this.ws.activeWindow=savedWindow;
+        try{sessionStorage.setItem('activeWindow', savedWindow)}catch{}
       }
-      const a=this._as();
-      if(a && savedFocused && findRg(a.layout,savedFocused)){
+      const a=this._aw();
+      if(a && savedFocused && findPane(a.layout,savedFocused)){
         this._setFocus(savedFocused, a);
       } else if(savedFocused){
-        console.warn('[split] keepFocus: savedFocused region gone after split, leaving focus as-is');
+        console.warn('[split] keepFocus: savedFocused pane gone after split, leaving focus as-is');
       }
     } else {
-      if(this.ws.activeSession!==tgtSessionId){
-        const cur=this._as(); if(cur) cur.focusedRegion=this.focused;
-        this.ws.activeSession=tgtSessionId;
-        try{sessionStorage.setItem('activeSession', tgtSessionId)}catch{}
+      if(this.ws.activeWindow!==tgtWindowId){
+        const cur=this._aw(); if(cur) cur.focusedPane=this.focused;
+        this.ws.activeWindow=tgtWindowId;
+        try{sessionStorage.setItem('activeWindow', tgtWindowId)}catch{}
       }
-      const next = lastR || tgtRegionId;
+      const next = lastR || tgtPaneId;
       this._setFocus(next, s);
-      this._focusSession(tgtSessionId);
+      this._focusWindow(tgtWindowId);
     }
     this.render();
     this._save();
-    // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 region/tab id 반환 (echo 용).
+    // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 pane/tab id 반환 (echo 용).
     return {
-      regions: newRegions.map(rg=>rg.id),
-      tabs: newRegions.map(rg=>({uuid:rg.tabs[0].id, paneId:rg.tabs[0].paneId})),
+      panes: newPanes.map(pn=>pn.id),
+      tabs: newPanes.map(pn=>({uuid:pn.tabs[0].id, toolId:pn.tabs[0].toolId})),
     };
   }
 
-  _regionActivePaneId(sess,rid){
-    const rg=findRg(sess.layout,rid); if(!rg) return null;
-    const tab=rg.tabs.find(t=>t.id===rg.activeTab)||rg.tabs[0];
-    return tab?.paneId||null;
-  }
-
-  _regionNewPaneRef(sess,rid){
-    const rg=findRg(sess.layout,rid);if(!rg)return {};
-    const tab=rg.tabs.find(t=>t.id===rg.activeTab);
+  _paneNewToolRef(sess,rid){
+    const pn=findPane(sess.layout,rid);if(!pn)return {};
+    const tab=pn.tabs.find(t=>t.id===pn.activeTab);
     if(!tab) return {};
     if(tab.type==='editor' && typeof tab.filePath==='string' && tab.filePath.startsWith('/')){
       const i=tab.filePath.lastIndexOf('/');
       const dir = i>0 ? tab.filePath.substring(0,i) : '/';
       return {cwd: dir};
     }
-    const paneId = tab.paneId;
-    if (paneId) {
-      const p = this.panes.get(paneId);
-      if (p) return { cwdPane: paneId };
+    const toolId = tab.toolId;
+    if (toolId) {
+      const p = this.tools.get(toolId);
+      if (p) return { cwdTool: toolId };
     }
     return {};
   }
   switchTabPrev(){
-    const s=this._as();if(!s||!this.focused)return;
-    const rg=findRg(s.layout,this.focused);if(!rg)return;
-    const i=rg.tabs.findIndex(t=>t.id===rg.activeTab);if(i<0)return;
-    this.switchTab(rg.id,rg.tabs[(i-1+rg.tabs.length)%rg.tabs.length].id);
+    const s=this._aw();if(!s||!this.focused)return;
+    const pn=findPane(s.layout,this.focused);if(!pn)return;
+    const i=pn.tabs.findIndex(t=>t.id===pn.activeTab);if(i<0)return;
+    this.switchTab(pn.id,pn.tabs[(i-1+pn.tabs.length)%pn.tabs.length].id);
   }
   switchTabNext(){
-    const s=this._as();if(!s||!this.focused)return;
-    const rg=findRg(s.layout,this.focused);if(!rg)return;
-    const i=rg.tabs.findIndex(t=>t.id===rg.activeTab);if(i<0)return;
-    this.switchTab(rg.id,rg.tabs[(i+1)%rg.tabs.length].id);
+    const s=this._aw();if(!s||!this.focused)return;
+    const pn=findPane(s.layout,this.focused);if(!pn)return;
+    const i=pn.tabs.findIndex(t=>t.id===pn.activeTab);if(i<0)return;
+    this.switchTab(pn.id,pn.tabs[(i+1)%pn.tabs.length].id);
   }
-  switchSessionPrev(){
-    const arr=this.ws.sessions;if(arr.length<2)return;
-    const i=arr.findIndex(s=>s.id===this.ws.activeSession);if(i<0)return;
-    this.switchSession(arr[(i-1+arr.length)%arr.length].id);
+  switchWindowPrev(){
+    const arr=this.ws.windows;if(arr.length<2)return;
+    const i=arr.findIndex(s=>s.id===this.ws.activeWindow);if(i<0)return;
+    this.switchWindow(arr[(i-1+arr.length)%arr.length].id);
   }
-  switchSessionNext(){
-    const arr=this.ws.sessions;if(arr.length<2)return;
-    const i=arr.findIndex(s=>s.id===this.ws.activeSession);if(i<0)return;
-    this.switchSession(arr[(i+1)%arr.length].id);
+  switchWindowNext(){
+    const arr=this.ws.windows;if(arr.length<2)return;
+    const i=arr.findIndex(s=>s.id===this.ws.activeWindow);if(i<0)return;
+    this.switchWindow(arr[(i+1)%arr.length].id);
   }
   paneNavigate(dir){
-    const s=this._as();if(!s||!this.focused)return;
+    const s=this._aw();if(!s||!this.focused)return;
     const path=findPath(s.layout,this.focused);if(!path||path.length<2)return;
     for(let i=path.length-2;i>=0;i--){
       const parent=path[i],child=path[i+1];
@@ -1345,28 +1477,28 @@ class App {
       if(dir==='right'&&isH)ti=ci+1; if(dir==='left'&&isH)ti=ci-1;
       if(dir==='down'&&!isH)ti=ci+1; if(dir==='up'&&!isH)ti=ci-1;
       if(ti>=0&&ti<parent.children.length){
-        const target=firstRg(parent.children[ti]);
+        const target=firstPane(parent.children[ti]);
         if(target){this._setFocus(target.id, s);this._save();this.render();return}
       }
     }
   }
   addTabFocused(){if(this.focused)this.addTab(this.focused,'terminal')}
   closeTabFocused(){
-    const s=this._as();if(!s||!this.focused)return;
-    const rg=findRg(s.layout,this.focused);if(!rg)return;
-    this.closeTab(rg.id,rg.activeTab);
+    const s=this._aw();if(!s||!this.focused)return;
+    const pn=findPane(s.layout,this.focused);if(!pn)return;
+    this.closeTab(pn.id,pn.activeTab);
   }
-  closeSessionActive(){this.delSession(this.ws.activeSession)}
+  closeWindowActive(){this.delWindow(this.ws.activeWindow)}
 
   executeAction(action){
     const map={
-      sessionNext:()=>this.switchSessionNext(),sessionPrev:()=>this.switchSessionPrev(),
+      windowNext:()=>this.switchWindowNext(),windowPrev:()=>this.switchWindowPrev(),
       tabNext:()=>this.switchTabNext(),tabPrev:()=>this.switchTabPrev(),
       paneUp:()=>this.paneNavigate('up'),paneDown:()=>this.paneNavigate('down'),
       paneLeft:()=>this.paneNavigate('left'),paneRight:()=>this.paneNavigate('right'),
       splitH:()=>this.split('horizontal'),splitV:()=>this.split('vertical'),
-      newSession:()=>this.addSession(),newTab:()=>this.addTabFocused(),
-      closeSession:()=>this.closeSessionActive(),closeTab:()=>this.closeTabFocused(),
+      newWindow:()=>this.addWindow(),newTab:()=>this.addTabFocused(),
+      closeWindow:()=>this.closeWindowActive(),closeTab:()=>this.closeTabFocused(),
       agentsToggle:()=>this._agentsToggle(),
       toggleSearch:()=>this.toggleSearch(),
     };
@@ -1379,7 +1511,7 @@ class App {
     if(!bar.classList.contains('hidden')){this.closeSearch();return}
     bar.classList.remove('hidden');
     document.getElementById('search-input').focus();
-    for(const pane of this.panes.values())if(pane.el.classList.contains('vis'))pane.doFit();
+    for(const pane of this.tools.values())if(pane.el.classList.contains('vis'))pane.doFit();
   }
   closeSearch(){
     const bar=document.getElementById('search-bar');
@@ -1387,34 +1519,27 @@ class App {
     document.getElementById('search-input').value='';
     document.getElementById('search-count').textContent='';
     this._clearAllSearchDecorations();
-    this._focusedTermPane()?.focus();
-    for(const pane of this.panes.values())if(pane.el.classList.contains('vis'))pane.doFit();
+    this._focusedTerminal()?.focus();
+    for(const pane of this.tools.values())if(pane.el.classList.contains('vis'))pane.doFit();
   }
   _clearAllSearchDecorations(){
-    for(const p of this.panes.values())if(p.search)p.search.clearDecorations();
+    for(const p of this.tools.values())if(p.search)p.search.clearDecorations();
   }
   _searchOpen(){return !document.getElementById('search-bar').classList.contains('hidden')}
   _researchIfOpen(){
     if(!this._searchOpen())return;
     setTimeout(()=>this._doSearch('next'),50);
   }
-  _focusedTermPane(){
+  _focusedTerminal(){
     if(!this.focused)return null;
-    const s=this._as();if(!s)return null;
-    const rg=findRg(s.layout,this.focused);if(!rg)return null;
-    const tab=rg.tabs.find(t=>t.id===rg.activeTab);
+    const s=this._aw();if(!s)return null;
+    const pn=findPane(s.layout,this.focused);if(!pn)return null;
+    const tab=pn.tabs.find(t=>t.id===pn.activeTab);
     if(!tab||tab.type!=='terminal')return null;
-    return this.panes.get(tab.paneId);
-  }
-  _focusedTab(){
-    if(!this.focused)return null;
-    const s=this._as();if(!s)return null;
-    const rg=findRg(s.layout,this.focused);if(!rg)return null;
-    const tab=rg.tabs.find(t=>t.id===rg.activeTab);
-    return tab||null;
+    return this.tools.get(tab.toolId);
   }
   _doSearch(dir){
-    const p=this._focusedTermPane();if(!p||!p.search)return;
+    const p=this._focusedTerminal();if(!p||!p.search)return;
     const q=document.getElementById('search-input').value;
     const cs=document.getElementById('search-case').classList.contains('active');
     if(!q){document.getElementById('search-count').textContent='';return}
@@ -1429,15 +1554,15 @@ class App {
   }
 
   setFocus(rid){
-    // Claim session ownership on every click — even if focus doesn't change,
-    // the user is asserting "I want this session" (multi-window).
-    this._focusSession(this.ws.activeSession);
+    // Claim window ownership on every click — even if focus doesn't change,
+    // the user is asserting "I want this window" (multi-window).
+    this._focusWindow(this.ws.activeWindow);
     if(this.focused===rid) return;
     this._clearAllSearchDecorations();
     this._setFocus(rid);
     this._prevFocus=rid;
-    document.querySelectorAll('.rg').forEach(el=>{
-      el.classList.toggle('focused',el.dataset.rid===rid);
+    document.querySelectorAll('.pn').forEach(el=>{
+      el.classList.toggle('focused',el.dataset.paneid===rid);
     });
     this._researchIfOpen();
     this._updateCwd();
@@ -1455,12 +1580,15 @@ class App {
         try{
           const headers={'Content-Type':'application/json'};
           if(this.wsETag) headers['If-Match']=this.wsETag;
-          // activeSession and focusedRegion are per-window; strip them so
+          // activeWindow and focusedPane are per-window; strip them so
           // remote windows aren't forced to switch views (multi-window sync).
           const wsBody=JSON.parse(JSON.stringify(this.ws,(k,v)=>{
-            if(k==='activeSession'||k==='focusedRegion') return undefined;
+            if(k==='activeWindow'||k==='focusedPane') return undefined;
             return v;
           }));
+          // 서버는 schemaVersion 미달 저장을 거부한다 (FR-EM-2a). 어떤 경로로
+          // this.ws 가 만들어졌든 PUT 은 항상 현재 버전을 실어 보낸다.
+          wsBody.schemaVersion=2;
           const res=await fetch('/api/workspace',{method:'PUT',headers,body:JSON.stringify(wsBody)});
           if(res.status===409){
             try{
@@ -1514,122 +1642,136 @@ class App {
   _bind(){ this.inputBinding.bind() }
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  Session Focus Ownership (multi-window)
+  //  Window Focus Ownership (multi-window)
   // ═══════════════════════════════════════════════════════════════════════
   //
   //  Rules:
-  //    • Each session has ONE focus owner — the last window that focused on it.
-  //    • The owner controls PTY size for that session's panes.
-  //    • All other windows see that session dimmed (rg-dimmed overlay).
-  //    • If no window owns a session, all windows see it bright.
+  //    • Each window has ONE focus owner — the last window that focused on it.
+  //    • The owner controls PTY size for that window's panes.
+  //    • All other windows see that window dimmed (pn-dimmed overlay).
+  //    • If no window owns a window, all windows see it bright.
   //
   //  State:
-  //    _sessionFocusOwner : { sessionId → clientId }
-  //    _windowFocused      : boolean (OS focus on this window)
-  //    _focusCh            : BroadcastChannel (cross-window messaging)
+  //    _windowFocusOwner : { windowId → clientId } — server-authoritative
+  //    _windowFocused      : boolean (OS focus on this client)
+  //
+  //  Transport (FR-XDF-5/6): the server owns the map. Claims go out as
+  //  POST /api/focus/claim; every change comes back over the existing command
+  //  SSE as a `window_focus` event carrying the FULL map. The previous
+  //  BroadcastChannel('dongminal-focus') path is gone — it was same-browser
+  //  same-origin only, so it never reached another device, and under --expose
+  //  even localhost:PORT and <host-ip>:PORT were isolated (SRS §2.7).
+  //
+  //  Release (FR-XDF-9): the server releases when the SSE subscription drops.
+  //  There is no `beforeunload` handler — it does not fire on a remote device's
+  //  force-quit or network loss, which left ownership stuck forever.
   //
   //  Single entry point:
-  //    _focusSession(sid)  — claim ownership, broadcast, resize, overlay.
-  //    Called from: setFocus, switchSession, _focusLocation, _jumpToPane,
-  //                 _mkSession, addTab(existing), window.focus, split.
+  //    _focusWindow(sid)  — claim ownership, POST, resize, overlay.
+  //    Called from: setFocus, switchWindow, _focusLocation, _jumpToTool,
+  //                 _mkWindow, addTab(existing), window.focus, split.
   // ═══════════════════════════════════════════════════════════════════════
 
-  // _initFocusChannel sets up cross-window messaging and OS focus listeners.
-  _initFocusChannel(){
-    if(typeof BroadcastChannel!=='undefined'){
-      this._focusCh=new BroadcastChannel('dongminal-focus');
-      this._focusCh.onmessage=(e)=>{
-        if(e.data.type==='sessionFocus'){
-          this._sessionFocusOwner[e.data.sessionId]=e.data.id;
-          this._applyFocusOverlay();
-        }else if(e.data.type==='sessionRelease'){
-          if(this._sessionFocusOwner[e.data.sessionId]===e.data.id){
-            delete this._sessionFocusOwner[e.data.sessionId];
-            this._applyFocusOverlay();
-          }
-        }
-      };
-    }
+  // _initFocusSync wires the OS focus listeners. Ownership transport lives in
+  // _focusClaim (out) and the `window_focus` SSE branch (in).
+  _initFocusSync(){
     window.addEventListener('focus',()=>{
       this._windowFocused=true;
-      if(this.ws.activeSession) this._focusSession(this.ws.activeSession);
+      if(this.ws.activeWindow) this._focusWindow(this.ws.activeWindow);
     });
     window.addEventListener('blur',()=>{this._windowFocused=false});
-    window.addEventListener('beforeunload',()=>{
-      const ch=this._focusCh; if(!ch) return;
-      for(const sid of Object.keys(this._sessionFocusOwner)){
-        if(this._sessionFocusOwner[sid]===this.clientId){
-          ch.postMessage({type:'sessionRelease',sessionId:sid,id:this.clientId});
-        }
-      }
-    });
   }
 
-  // _focusSession is the SINGLE entry point for claiming session ownership.
-  // Releases old sessions owned by this window, claims the new one,
-  // broadcasts via BroadcastChannel, sends resize, and updates the overlay.
-  _focusSession(sessionId){
-    if(!sessionId) return;
-    if(!this._focusCh&&typeof BroadcastChannel!=='undefined'){
-      this._focusCh=new BroadcastChannel('dongminal-focus');
-    }
-    const ch=this._focusCh;
-    // Release other sessions this window owns (one window → one session).
-    for(const sid of Object.keys(this._sessionFocusOwner)){
-      if(sid!==sessionId&&this._sessionFocusOwner[sid]===this.clientId){
-        delete this._sessionFocusOwner[sid];
-        if(ch) ch.postMessage({type:'sessionRelease',sessionId:sid,id:this.clientId});
+  // _focusWindow is the SINGLE entry point for claiming window ownership.
+  // Applies the claim locally, posts it to the server (which broadcasts the
+  // full map to every client), sends resize, and updates the overlay.
+  _focusWindow(windowId){
+    if(!windowId) return;
+    let changed=false;
+    // Release other windows this client owns (one client → one window).
+    for(const sid of Object.keys(this._windowFocusOwner)){
+      if(sid!==windowId&&this._windowFocusOwner[sid]===this.clientId){
+        delete this._windowFocusOwner[sid];
+        changed=true;
       }
     }
-    // Only broadcast if ownership actually changes.
-    if(this._sessionFocusOwner[sessionId]!==this.clientId){
-      this._sessionFocusOwner[sessionId]=this.clientId;
-      if(ch) ch.postMessage({type:'sessionFocus',sessionId,id:this.clientId});
+    if(this._windowFocusOwner[windowId]!==this.clientId){
+      this._windowFocusOwner[windowId]=this.clientId;
+      changed=true;
     }
+    // Only post if ownership actually changes — otherwise every click on an
+    // already-owned window would hit the server.
+    if(changed) this._focusClaim(windowId);
     // Send resize immediately (before render) so PTY matches this window's
     // size by the time the user sees the panes. Only if OS-focused.
-    if(this._windowFocused) this._resendSessionSizes(sessionId);
+    if(this._windowFocused) this._resendWindowSizes(windowId);
     this._applyFocusOverlay();
   }
 
+  // _focusClaim posts ownership to the server (FR-XDF-7). The server answers by
+  // broadcasting the full owner map, which is what actually converges every
+  // client — this POST is fire-and-forget.
+  _focusClaim(windowId){
+    fetch('/api/focus/claim',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({clientId:this.clientId,windowId})}).catch(()=>{});
+  }
+
+  // _focusRestore aligns local state with the server on SSE connect
+  // (FR-XDF-11), then RE-CLAIMS if this client holds OS focus (FR-XDF-12).
+  //
+  // The re-claim is not optional. The server releases ownership the moment the
+  // subscription drops (FR-XDF-9), so after a reconnect nobody owns the window
+  // — and without re-claiming, _focusWindow's "only if ownership changes" guard
+  // would never fire again for a client that still remembers owning it.
+  // Re-claiming only when OS-focused keeps a backgrounded device from stealing
+  // the PTY size back from the active one (FR-XDF-13).
+  _focusRestore(){
+    fetch('/api/focus').then(r=>r.ok?r.json():null).then(j=>{
+      if(!j) return;
+      this._windowFocusOwner=j.owners||{};
+      this._applyFocusOverlay();
+      if(this._windowFocused&&this.ws.activeWindow) this._focusWindow(this.ws.activeWindow);
+    }).catch(()=>{});
+  }
+
   // _resizeCheck returns true if this window is allowed to send resize for
-  // a given pane (has OS focus + owns the pane's session or it's unowned).
-  _resizeCheck(paneId){
+  // a given pane (has OS focus + owns the pane's window or it's unowned).
+  _resizeCheck(toolId){
     if(!this._windowFocused) return false;
-    const sid=this._paneSessionId(paneId);
-    if(!sid) return true; // pane not in any session yet → allow
-    const owner=this._sessionFocusOwner[sid];
+    const sid=this._toolWindowId(toolId);
+    if(!sid) return true; // pane not in any window yet → allow
+    const owner=this._windowFocusOwner[sid];
     return !owner||owner===this.clientId;
   }
 
-  // _applyFocusOverlay syncs the DOM: regions whose session is owned by
-  // another window get the dimmed overlay (rg-dimmed class).
+  // _applyFocusOverlay syncs the DOM: panes whose window is owned by
+  // another window get the dimmed overlay (pn-dimmed class).
   _applyFocusOverlay(){
     const otherOwned=new Set();
-    for(const[sid,owner] of Object.entries(this._sessionFocusOwner)){
+    for(const[sid,owner] of Object.entries(this._windowFocusOwner)){
       if(owner&&owner!==this.clientId) otherOwned.add(sid);
     }
-    for(const rg of document.querySelectorAll('.rg')){
+    for(const pn of document.querySelectorAll('.pn')){
       let dim=false;
-      for(const t of rg.querySelectorAll('.rt[data-pid]')){
-        const sid=this._paneSessionId(t.dataset.pid);
+      for(const t of pn.querySelectorAll('.pn-tab[data-toolid]')){
+        const sid=this._toolWindowId(t.dataset.toolid);
         if(sid&&otherOwned.has(sid)){dim=true;break}
       }
-      rg.classList.toggle('rg-dimmed',dim);
+      pn.classList.toggle('pn-dimmed',dim);
     }
   }
 
-  // _paneSessionId returns the session id containing a pane (by walking the
-  // workspace layout tree). Returns null if the pane is not in any session.
-  _paneSessionId(paneId){
-    if(!paneId) return null;
-    for(const s of this.ws.sessions){
+  // _toolWindowId returns the window id containing a pane (by walking the
+  // workspace layout tree). Returns null if the pane is not in any window.
+  _toolWindowId(toolId){
+    if(!toolId) return null;
+    for(const s of this.ws.windows){
       if(!s||!s.layout) continue;
       let found=null;
       const walk=n=>{
         if(!n||found) return;
-        if(n.type==='region'&&n.tabs){
-          for(const t of n.tabs) if(t.paneId===paneId){found=s.id;return}
+        if(n.type==='pane'&&n.tabs){
+          for(const t of n.tabs) if(t.toolId===toolId){found=s.id;return}
         }
         if(n.type==='split'&&n.children) for(const c of n.children) walk(c);
       };
@@ -1639,27 +1781,27 @@ class App {
     return null;
   }
 
-  // _resendSessionSizes sends resize for every pane in a session.
+  // _resendWindowSizes sends resize for every pane in a window.
   // Sends even for hidden panes (they retain last-visible dimensions) so the
   // PTY is sized correctly BEFORE render, avoiding a one-frame glitch.
-  _resendSessionSizes(sessionId){
-    if(!sessionId) return;
-    // Don't send resize if another window owns this session.
-    const owner=this._sessionFocusOwner[sessionId];
+  _resendWindowSizes(windowId){
+    if(!windowId) return;
+    // Don't send resize if another window owns this window.
+    const owner=this._windowFocusOwner[windowId];
     if(owner&&owner!==this.clientId) return;
-    const s=this.ws.sessions.find(x=>x.id===sessionId);
+    const s=this.ws.windows.find(x=>x.id===windowId);
     if(!s||!s.layout) return;
-    const paneIds=new Set();
+    const toolIds=new Set();
     const walk=n=>{
       if(!n) return;
-      if(n.type==='region'&&n.tabs){
-        for(const t of n.tabs) if(t.paneId) paneIds.add(t.paneId);
+      if(n.type==='pane'&&n.tabs){
+        for(const t of n.tabs) if(t.toolId) toolIds.add(t.toolId);
       }
       if(n.type==='split'&&n.children) for(const c of n.children) walk(c);
     };
     walk(s.layout);
-    for(const pid of paneIds){
-      const p=this.panes.get(pid);
+    for(const pid of toolIds){
+      const p=this.tools.get(pid);
       // Send resize even if pane is hidden — the dimensions were set when
       // it was last visible and are still valid. This avoids a visible
       // glitch where the PTY renders at the wrong size for one frame.
@@ -1684,7 +1826,7 @@ class App {
     if(prev) prev.addEventListener('click',()=>this.navMobilePane(-1));
     if(next) next.addEventListener('click',()=>this.navMobilePane(1));
     if(addT) addT.addEventListener('click',()=>{
-      const rg=this._mobileCurrentRegion(); if(rg) this.addTab(rg.id);
+      const pn=this._mobileCurrentPane(); if(pn) this.addTab(pn.id);
     });
     if(srch) srch.addEventListener('click',()=>this.toggleSearch&&this.toggleSearch());
     if(drwr) drwr.addEventListener('click',()=>{this._toggleDrawer();this._rTopbar()});
@@ -1697,8 +1839,8 @@ class App {
       xb.addEventListener('click',()=>{this._toggleDrawer(false);this._rTopbar()});
       sb.insertBefore(xb, sb.firstChild);
     }
-    // Auto-close drawer on session switch (mobile)
-    // (handled in switchSession via _drawerOpen check)
+    // Auto-close drawer on window switch (mobile)
+    // (handled in switchWindow via _drawerOpen check)
 
     // Display Settings panel sync
     const dsMode=document.getElementById('ds-mode');
@@ -1758,7 +1900,7 @@ class App {
       });
     };
     const sendToFocused=(s)=>{
-      const p=this._focusedTermPane();
+      const p=this._focusedTerminal();
       if(!p) return;
       let out=s;
       // Ctrl modifier: convert printable a-z/A-Z to ctrl code (1-26)
@@ -1796,31 +1938,25 @@ class App {
       const full=FULL_NAMES[k.label]||k.label;
       b.title=full;b.setAttribute('aria-label',full);
       if(k.mod){b.dataset.mod=k.mod}
-      // prevent focus theft from xterm
+      // 마우스 경로에서만 포커스 탈취를 막는다. touchstart 에서 preventDefault
+      // 하면 브라우저가 합성 click 과 스크롤을 함께 취소해, 실기기에서 버튼이
+      // 아무 반응도 하지 않고 키바 슬라이드도 막힌다 (FR-MTB-1/3).
       b.addEventListener('mousedown',e=>e.preventDefault());
-      let lastTap=0;
+
+      let lastTap=0;          // 모디파이어 더블탭(lock) 판정
       let pressTimer=null;
       let longPressFired=false;
-      b.addEventListener('touchstart',e=>{
-        e.preventDefault();
-        longPressFired=false;
-        pressTimer=setTimeout(()=>{longPressFired=true;showTip(full,b)},600);
-      },{passive:false});
+      let startPt=null;       // 터치 시작 좌표 — 이동 거리 판정의 기준
+      let moved=false;        // TAP_SLOP 초과 = 스크롤 제스처
+      let lastTouchEndAt=0;   // 합성 click(ghost click) 억제용
+
       const cancelPress=()=>{
         if(pressTimer){clearTimeout(pressTimer);pressTimer=null}
       };
-      b.addEventListener('touchmove',()=>{cancelPress();hideTip();longPressFired=false});
-      b.addEventListener('touchcancel',()=>{cancelPress();hideTip();longPressFired=false});
-      b.addEventListener('touchend',e=>{
-        cancelPress();
-        if(longPressFired){e.preventDefault();hideTip();return}
-      });
-      b.addEventListener('click',e=>{
-        e.preventDefault();
-        if(longPressFired){longPressFired=false;return}
+      const activate=()=>{
         if(k.mod){
           const now=Date.now();
-          const dbl=(now-lastTap)<350;
+          const dbl=(now-lastTap)<MKB_DOUBLE_TAP_MS;
           lastTap=now;
           const cur=this._modKbd[k.mod];
           if(dbl){this._modKbd[k.mod]=(cur==='lock')?false:'lock'}
@@ -1829,6 +1965,51 @@ class App {
         }else{
           sendToFocused(k.send);
         }
+      };
+
+      b.addEventListener('touchstart',e=>{
+        const t=e.touches[0];
+        startPt=t?{x:t.clientX,y:t.clientY}:null;
+        moved=false;longPressFired=false;
+        cancelPress();
+        pressTimer=setTimeout(()=>{longPressFired=true;showTip(full,b)},MKB_LONG_PRESS_MS);
+      },{passive:true});
+
+      // FR-MTB-5: 이동 거리 임계값으로 판정한다. touchmove 발생만으로 취소하면
+      // 손떨림에도 롱프레스가 죽고, 스크롤과 공존할 수 없다.
+      b.addEventListener('touchmove',e=>{
+        if(!startPt||moved) return;
+        const t=e.touches[0];
+        if(!t) return;
+        if(Math.abs(t.clientX-startPt.x)>MKB_TAP_SLOP_PX||Math.abs(t.clientY-startPt.y)>MKB_TAP_SLOP_PX){
+          moved=true;cancelPress();hideTip();longPressFired=false;
+        }
+      },{passive:true});
+
+      b.addEventListener('touchcancel',()=>{
+        cancelPress();hideTip();
+        startPt=null;moved=false;longPressFired=false;
+        lastTouchEndAt=Date.now();
+      });
+
+      b.addEventListener('touchend',e=>{
+        cancelPress();
+        const wasLong=longPressFired, wasMoved=moved;
+        startPt=null;moved=false;longPressFired=false;
+        lastTouchEndAt=Date.now();
+        if(wasLong){hideTip();e.preventDefault();return}
+        if(wasMoved) return;              // 스크롤 제스처 — 키를 보내지 않는다
+        e.preventDefault();               // 합성 click 억제. 여기서 직접 처리한다
+        activate();
+      });
+
+      b.addEventListener('click',e=>{
+        e.preventDefault();
+        // FR-MTB-2: 터치 제스처가 합성한 click 은 무시한다 — touchend 가 이미
+        // 처리했다. 시간 기준을 쓰는 이유는, 플래그를 쓰면 preventDefault 로
+        // click 이 오지 않은 경우 플래그가 남아 다음 마우스 클릭을 먹는다.
+        if(Date.now()-lastTouchEndAt<MKB_GHOST_CLICK_MS) return;
+        activate();
       });
       bar.appendChild(b);
     }
@@ -1842,22 +2023,41 @@ class App {
       const apply=()=>{
         if(!this.isMobile){
           document.body.classList.remove('keyboard-up');
+          document.body.style.paddingTop='';
           document.body.style.paddingBottom='';
           bar.style.bottom='';
           return;
         }
+        // FR-MKV-3: layout viewport 가 키보드만큼 함께 줄어드는 환경
+        // (interactive-widget=resizes-content 를 지원하는 Chromium·Firefox)에서는
+        // innerHeight 도 줄어 kbH 가 0 에 수렴하므로 이 보정이 스스로 비활성된다.
+        // 엔진 판별을 하지 않는 이유다. WebKit 은 그 키를 무시하므로 여기가 유일한 수단이다.
         const kbH=Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
         const isUp=kbH > 80;
         document.body.classList.toggle('keyboard-up', isUp);
         if(isUp){
           bar.style.bottom = kbH + 'px';
+          // FR-MKV-4: WebKit 은 포커스된 요소를 드러내려 visual viewport 를 위로
+          // 스크롤한다. 그 스크롤은 overflow:hidden 으로 막을 수 없고 레이아웃은
+          // layout viewport 좌표계에 그대로 남으므로, 상쇄하지 않으면 화면 상단
+          // (topbar)이 가시 영역 밖으로 밀린다 — 사용자가 본 증상이 이것이다.
+          //
+          // padding-top 으로 상쇄하면 body 의 content box 가
+          // [offsetTop, innerHeight-kbH-키바높이] 로 내려앉아 가시 영역 안에 정확히
+          // 들어간다. kbH 는 이미 offsetTop 을 뺀 값이므로 padding-bottom 계산은
+          // 바뀌지 않고, 키바(position:fixed, bottom:kbH)와도 틈 없이 맞물린다.
+          //
+          // transform 이 아니라 padding 인 이유: transform 은 fixed 자손의 컨테이닝
+          // 블록을 만들어 키바의 bottom 기준을 layout viewport 에서 #app 으로 바꾼다.
+          document.body.style.paddingTop = vv.offsetTop + 'px';
           document.body.style.paddingBottom = (kbH + kbH_PX()) + 'px';
         }else{
           bar.style.bottom = '';
+          document.body.style.paddingTop = '';
           document.body.style.paddingBottom = '';
         }
         // Refit terminal
-        for(const p of this.panes.values()){if(p.el.classList.contains('vis'))p.doFit()}
+        for(const p of this.tools.values()){if(p.el.classList.contains('vis'))p.doFit()}
       };
       vv.addEventListener('resize', apply);
       vv.addEventListener('scroll', apply);
@@ -1998,7 +2198,7 @@ class App {
         </div>
         <div class="pv-status" style="background:${u.sidebarBg};border-top:1px solid ${u.border}">
           <span style="color:${u.accent}">●</span>
-          <span style="color:${u.textMuted};margin-left:4px">2 sessions · 3 panes</span>
+          <span style="color:${u.textMuted};margin-left:4px">2 windows · 3 panes</span>
           <span style="margin-left:auto;color:${u.danger};font-size:7px">ERR</span>
           <span style="margin-left:4px;color:${u.text};font-size:7px">OK</span>
         </div>
@@ -2046,7 +2246,7 @@ class App {
     const el=document.getElementById('sc-list');if(!el)return;
     el.innerHTML='';
     const groups=[
-      {label:'세션',keys:['sessionNext','sessionPrev','newSession','closeSession']},
+      {label:'창',keys:['windowNext','windowPrev','newWindow','closeWindow']},
       {label:'탭',keys:['tabNext','tabPrev','newTab','closeTab']},
       {label:'Pane',keys:['paneUp','paneDown','paneLeft','paneRight']},
       {label:'분할',keys:['splitH','splitV']},
@@ -2085,6 +2285,10 @@ class App {
   // ── Status Bar ──
   _initStatusBar(){
     this._stats={};this._latency=null;
+    // FR-BGU-4: 진입점은 정적 요소다. 리스너를 여기서 한 번만 부착한다 —
+    // 지표 재생성(_updateStatusBar) 주기에 종속되면 안 된다.
+    const bgBtn=document.getElementById('sb-bg-btn');
+    if(bgBtn) bgBtn.addEventListener('click',e=>{e.stopPropagation();this._bgModalToggle()});
     this._startStatsPoll();
     this._renderStatusBarSettings();
   }
@@ -2108,7 +2312,7 @@ class App {
     this._updateStatusBar();
   }
   _updateStatusBar(){
-    const bar=document.getElementById('status-bar');if(!bar)return;
+    const bar=document.getElementById('sb-items');if(!bar)return;
     const items=[];
     if(statusBar.connection){
       const ok=this._latency!==null;
@@ -2144,7 +2348,7 @@ class App {
       items.push(`<span class="sb-item">DISK ${this._stats.diskPct}%</span>`);
     }
     if(statusBar.termsize){
-      const p=this._focusedTermPane();
+      const p=this._focusedTerminal();
       if(p&&p.term){
         items.push(`<span class="sb-item">${p.term.cols}×${p.term.rows}</span>`);
       }
@@ -2156,32 +2360,86 @@ class App {
       if(parts.length)items.push(`<span class="sb-item">↑ ${parts.join(' │ ')}</span>`);
     }
     bar.innerHTML=items.join('')||'';
+    this._updateBgBtn();
+  }
+
+  // FR-BGU-2..5: 진입점은 상태바 우측 끝의 정적 버튼이다. 지표 재생성과
+  // 수명을 공유하지 않으므로 여기서는 표시 여부와 개수만 갱신한다.
+  _updateBgBtn(){
+    const btn=document.getElementById('sb-bg-btn');if(!btn)return;
+    const n=(this._bg&&this._bg.length)||0;
+    // FR-BGU-5 (구 FR-BG-8): 0개면 UI 에 아무 흔적이 없어야 한다.
+    btn.style.display=n?'':'none';
+    if(!n) return;
+    btn.textContent=`⏻ ${n}`;
+    btn.title=`백그라운드 도구 ${n}개`;
+  }
+
+  // FR-BGU-6/7: 진입점 클릭 → 중앙 모달. 항목 클릭 시 현재 분할 칸의 새 탭으로
+  // 복귀한다 (detach --restore 와 같은 경로).
+  _bgModalToggle(open){
+    this._bgModalOpen = (open===undefined) ? !this._bgModalOpen : !!open;
+    if(this._bgModalOpen){ this._bgRefresh(); this._bgModalRender(); return }
+    const el=document.getElementById('bg-modal'); if(el) el.remove();
+    if(this._bgModalKey){document.removeEventListener('keydown',this._bgModalKey);this._bgModalKey=null}
+  }
+
+  _bgModalRender(){
+    let ov=document.getElementById('bg-modal');
+    if(!ov){
+      ov=document.createElement('div'); ov.id='bg-modal'; ov.className='bg-modal';
+      document.body.appendChild(ov);
+      // FR-BGU-7: 배경 클릭 — 오버레이 자신이 대상일 때만 닫는다.
+      ov.addEventListener('click',e=>{if(e.target===ov)this._bgModalToggle(false)});
+      this._bgModalKey=e=>{if(e.key==='Escape'){e.preventDefault();this._bgModalToggle(false)}};
+      document.addEventListener('keydown',this._bgModalKey);
+    }
+    ov.innerHTML='';
+    const box=document.createElement('div'); box.className='bg-box';
+    const head=document.createElement('div'); head.className='bg-head';
+    head.textContent=`백그라운드 도구 ${this._bg.length}개`;
+    box.appendChild(head);
+    if(!this._bg.length){
+      const empty=document.createElement('div'); empty.className='bg-empty';
+      empty.textContent='없음'; box.appendChild(empty);
+    }
+    for(const b of this._bg){
+      const row=document.createElement('div'); row.className='bg-row'; row.title='클릭하면 현재 분할 칸의 새 탭으로 복귀';
+      // .pn-tab[data-toolid] 과 같은 관행 — 어느 도구의 행인지 DOM 으로 식별한다.
+      row.dataset.toolid=b.toolId;
+      const name=document.createElement('span'); name.className='bg-name'; name.textContent=b.name||('Shell #'+b.toolId);
+      const cwd=document.createElement('span'); cwd.className='bg-cwd'; cwd.textContent=b.cwd||'';
+      row.appendChild(name); row.appendChild(cwd);
+      row.addEventListener('click',()=>{this._bgModalToggle(false);this._restoreTool(b.toolId)});
+      box.appendChild(row);
+    }
+    ov.appendChild(box);
   }
   _fmtBytes(b){
     if(b<1073741824)return(b/1048576).toFixed(1)+'MB';
     return(b/1073741824).toFixed(1)+'GB';
   }
   _locationLabel(){
-    const s=this._as();if(!s||!s.layout||!this.focused)return null;
-    const sidx=this.ws.sessions.findIndex(x=>x.id===this.ws.activeSession);
+    const s=this._aw();if(!s||!s.layout||!this.focused)return null;
+    const sidx=this.ws.windows.findIndex(x=>x.id===this.ws.activeWindow);
     if(sidx<0)return null;
-    const regions=[];
+    const panes=[];
     const walk=n=>{
       if(!n)return;
-      if(n.type==='region')regions.push(n);
+      if(n.type==='pane')panes.push(n);
       else if(n.type==='split')for(const c of(n.children||[]))walk(c);
     };
     walk(s.layout);
-    const pidx=regions.findIndex(r=>r.id===this.focused);
+    const pidx=panes.findIndex(r=>r.id===this.focused);
     if(pidx<0)return null;
-    const rg=regions[pidx];
-    const tidx=rg.tabs.findIndex(t=>t.id===rg.activeTab);
+    const pn=panes[pidx];
+    const tidx=pn.tabs.findIndex(t=>t.id===pn.activeTab);
     if(tidx<0)return null;
-    return `S${sidx+1}.P${pidx+1}.T${tidx+1}`;
+    return `W${sidx+1}.P${pidx+1}.T${tidx+1}`;
   }
   _updateCwd(){
-    const p=this._focusedTermPane();if(!p)return;
-    fetch('/api/cwd?pane='+p.id).then(r=>r.json()).then(({cwd})=>{this._cwd=cwd;this._updateStatusBar()}).catch(()=>{});
+    const p=this._focusedTerminal();if(!p)return;
+    fetch('/api/cwd?tool='+p.id).then(r=>r.json()).then(({cwd})=>{this._cwd=cwd;this._updateStatusBar()}).catch(()=>{});
   }
   _renderStatusBarSettings(){
     const el=document.getElementById('sb-settings');if(!el)return;
@@ -2218,11 +2476,11 @@ class App {
     this._renderPresets();
   }
   _savePreset(){
-    const s=this._as();if(!s)return;
-    // Strip layout to just structure (remove paneIds, keep tab counts)
+    const s=this._aw();if(!s)return;
+    // Strip layout to just structure (remove toolIds, keep tab counts)
     const strip=n=>{
       if(!n)return null;
-      if(n.type==='region')return{type:'region',tabCount:n.tabs?n.tabs.length:1};
+      if(n.type==='pane')return{type:'pane',tabCount:n.tabs?n.tabs.length:1};
       if(n.type==='split')return{type:'split',direction:n.direction,children:n.children.map(strip),sizes:n.sizes?[...n.sizes]:null};
       return null;
     };
@@ -2234,20 +2492,20 @@ class App {
   }
   async _loadPreset(idx){
     const preset=layoutPresets[idx];if(!preset)return;
-    // Create new session with preset layout
-    await this._mkSession();
-    const s=this._as();if(!s)return;
+    // Create new window with preset layout
+    await this._mkWindow();
+    const s=this._aw();if(!s)return;
     // Build layout from preset, creating panes as needed
     const build=async(tpl)=>{
       if(!tpl)return null;
-      if(tpl.type==='region'){
+      if(tpl.type==='pane'){
         const tabs=[];
         for(let i=0;i<tpl.tabCount;i++){
-          const p=await this._newPane();
-          tabs.push({id:`t${++this._t}`,name:'Shell',type:'terminal',paneId:p.id});
+          const p=await this._newTool();
+          tabs.push({id:`t${++this._t}`,name:'Shell',type:'terminal',toolId:p.id});
         }
         const rid=`r${++this._r}`;
-        return{type:'region',id:rid,tabs,activeTab:tabs[0].id};
+        return{type:'pane',id:rid,tabs,activeTab:tabs[0].id};
       }
       if(tpl.type==='split'){
         const children=[];
@@ -2260,7 +2518,7 @@ class App {
       return null;
     };
     s.layout=await build(preset.layout);
-    this._setFocus(firstRg(s.layout)?.id||null, s);
+    this._setFocus(firstPane(s.layout)?.id||null, s);
     await this._save();this.render();
   }
   _deletePreset(idx){
@@ -2285,7 +2543,7 @@ class App {
   }
   _describeLayout(layout){
     if(!layout)return'';
-    if(layout.type==='region')return`탭 ${layout.tabCount}개`;
+    if(layout.type==='pane')return`탭 ${layout.tabCount}개`;
     if(layout.type==='split'){
       const dir=layout.direction==='horizontal'?'가로':'세로';
       const descs=layout.children.map(c=>this._describeLayout(c)).filter(Boolean);
@@ -2331,45 +2589,45 @@ class App {
 
   // ── Drag helpers ──
   _getDragZone(el,e){const rect=el.getBoundingClientRect();const x=e.clientX-rect.left;const y=e.clientY-rect.top;const w=rect.width,h=rect.height;if(x/w<0.25)return'left';if(x/w>0.75)return'right';if(y/h<0.25)return'top';if(y/h>0.75)return'bottom';return'center'}
-  _showBodyDropIndicator(bodyEl,zone){let ind=bodyEl.querySelector('.rg-drop-indicator');if(!ind){ind=document.createElement('div');ind.className='rg-drop-indicator';bodyEl.appendChild(ind)}ind.dataset.zone=zone;ind.style.display=''}
-  _clearBodyDropIndicator(bodyEl){const ind=bodyEl?.querySelector('.rg-drop-indicator');if(ind)ind.style.display='none'}
+  _showBodyDropIndicator(bodyEl,zone){let ind=bodyEl.querySelector('.pn-drop-indicator');if(!ind){ind=document.createElement('div');ind.className='pn-drop-indicator';bodyEl.appendChild(ind)}ind.dataset.zone=zone;ind.style.display=''}
+  _clearBodyDropIndicator(bodyEl){const ind=bodyEl?.querySelector('.pn-drop-indicator');if(ind)ind.style.display='none'}
 
-  _moveTabToRegion(srcRid,tabId,dstRid,beforeTabId,insertBefore){
-    const s=this._as();if(!s)return;
-    const srcRg=findRg(s.layout,srcRid);const dstRg=findRg(s.layout,dstRid);
+  _moveTabToPane(srcRid,tabId,dstRid,beforeTabId,insertBefore){
+    const s=this._aw();if(!s)return;
+    const srcRg=findPane(s.layout,srcRid);const dstRg=findPane(s.layout,dstRid);
     if(!srcRg||!dstRg)return;
     const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
     const[tab]=srcRg.tabs.splice(ti,1);
     if(srcRg.tabs.length===0){s.layout=doRemove(s.layout,srcRid);if(this.focused===srcRid)this._setFocus(dstRid, s)}
     else if(srcRg.activeTab===tabId)srcRg.activeTab=srcRg.tabs[0].id;
-    const dst=findRg(s.layout,dstRid);if(!dst)return;
+    const dst=findPane(s.layout,dstRid);if(!dst)return;
     if(beforeTabId){let ins=dst.tabs.findIndex(t=>t.id===beforeTabId);if(ins<0)ins=dst.tabs.length;else if(!insertBefore)ins++;dst.tabs.splice(ins,0,tab)}
     else dst.tabs.push(tab);
     dst.activeTab=tab.id;this._setFocus(dstRid, s);
-    if(!s.layout){this._mkSession();return}
+    if(!s.layout){this._mkWindow();return}
     this._save();this.render();
   }
 
-  _splitRegionWithTab(srcRid,tabId,targetRid,zone){
-    const s=this._as();if(!s)return;
-    const srcRg=findRg(s.layout,srcRid);if(!srcRg)return;
+  _splitPaneWithTab(srcRid,tabId,targetRid,zone){
+    const s=this._aw();if(!s)return;
+    const srcRg=findPane(s.layout,srcRid);if(!srcRg)return;
     if(srcRid===targetRid&&srcRg.tabs.length<=1)return;
     const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
     const[tab]=srcRg.tabs.splice(ti,1);
     if(srcRg.tabs.length===0)s.layout=doRemove(s.layout,srcRid);
     else if(srcRg.activeTab===tabId)srcRg.activeTab=srcRg.tabs[0].id;
     const newRid=`r${++this._r}`;
-    const newRg={type:'region',id:newRid,tabs:[tab],activeTab:tab.id};
+    const newRg={type:'pane',id:newRid,tabs:[tab],activeTab:tab.id};
     const dir=(zone==='left'||zone==='right')?'horizontal':'vertical';
     const before=zone==='left'||zone==='top';
     const splitNode=n=>{
       if(!n)return null;
-      if(n.type==='region'&&n.id===targetRid)return{type:'split',direction:dir,children:before?[newRg,n]:[n,newRg]};
+      if(n.type==='pane'&&n.id===targetRid)return{type:'split',direction:dir,children:before?[newRg,n]:[n,newRg]};
       if(n.type==='split'){n.children=n.children.map(splitNode).filter(Boolean);if(!n.children.length)return null;if(n.children.length===1)return n.children[0]}
       return n;
     };
     s.layout=splitNode(s.layout);
-    if(!s.layout){this._mkSession();return}
+    if(!s.layout){this._mkWindow();return}
     this._setFocus(newRid, s);this._save();this.render();
   }
 }

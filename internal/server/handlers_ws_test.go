@@ -21,16 +21,16 @@ func mustWS(t *testing.T, srv *httptest.Server, path string) *websocket.Conn {
 	return c
 }
 
-func TestHandleWS_NewPane(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+func TestHandleWS_NewTool(t *testing.T) {
+	pm := NewToolManager(t.TempDir(), nil)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
 	ws := mustWS(t, ts, "/ws?cols=80&rows=24")
 	defer ws.Close()
 
-	// First message should be OpSID with pane ID.
+	// First message should be OpToolID with tool ID.
 	ws.SetReadDeadline(time.Now().Add(5 * time.Second))
 	mt, msg, err := ws.ReadMessage()
 	if err != nil {
@@ -39,34 +39,34 @@ func TestHandleWS_NewPane(t *testing.T) {
 	if mt != websocket.BinaryMessage {
 		t.Fatalf("expected binary, got %d", mt)
 	}
-	if len(msg) == 0 || msg[0] != OpSID {
-		t.Fatalf("expected OpSID, got op=0x%02x", msg[0])
+	if len(msg) == 0 || msg[0] != OpToolID {
+		t.Fatalf("expected OpToolID, got op=0x%02x", msg[0])
 	}
-	paneID := string(msg[1:])
-	if paneID == "" {
-		t.Fatal("empty pane id")
+	toolID := string(msg[1:])
+	if toolID == "" {
+		t.Fatal("empty tool id")
 	}
 
-	// Pane should exist in manager.
-	p := pm.Get(paneID)
+	// Tool should exist in manager.
+	p := pm.Get(toolID)
 	if p == nil {
-		t.Fatalf("pane %s not found", paneID)
+		t.Fatalf("tool %s not found", toolID)
 	}
 
 	// Cleanup.
-	pm.Delete(paneID)
+	pm.Delete(toolID)
 }
 
-func TestHandleWS_ExistingPane(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+func TestHandleWS_ExistingTool(t *testing.T) {
+	pm := NewToolManager(t.TempDir(), nil)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	// Create a pane first.
+	// Create a tool first.
 	p, err := pm.Create("", 80, 24)
 	if err != nil {
-		t.Fatalf("create pane: %v", err)
+		t.Fatalf("create tool: %v", err)
 	}
 	defer pm.Delete(p.ID)
 
@@ -76,17 +76,17 @@ func TestHandleWS_ExistingPane(t *testing.T) {
 	}
 	time.Sleep(200 * time.Millisecond)
 
-	ws := mustWS(t, ts, "/ws?pane="+p.ID+"&cols=80&rows=24")
+	ws := mustWS(t, ts, "/ws?tool="+p.ID+"&cols=80&rows=24")
 	defer ws.Close()
 
-	// First message: OpSID.
+	// First message: OpToolID.
 	ws.SetReadDeadline(time.Now().Add(5 * time.Second))
 	mt, msg, err := ws.ReadMessage()
 	if err != nil {
 		t.Fatalf("read sid: %v", err)
 	}
-	if msg[0] != OpSID {
-		t.Fatalf("expected OpSID, got 0x%02x", msg[0])
+	if msg[0] != OpToolID {
+		t.Fatalf("expected OpToolID, got 0x%02x", msg[0])
 	}
 
 	// Next message should be OpOutput (snapshot).
@@ -107,19 +107,19 @@ func TestHandleWS_ExistingPane(t *testing.T) {
 }
 
 func TestHandleWS_OpInput(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	pm := NewToolManager(t.TempDir(), nil)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
 	ws := mustWS(t, ts, "/ws?cols=80&rows=24")
 	defer ws.Close()
 
-	// Read OpSID.
+	// Read OpToolID.
 	ws.SetReadDeadline(time.Now().Add(5 * time.Second))
 	_, msg, _ := ws.ReadMessage()
-	paneID := string(msg[1:])
-	defer pm.Delete(paneID)
+	toolID := string(msg[1:])
+	defer pm.Delete(toolID)
 
 	// Send OpInput.
 	input := []byte("echo ws_test\n")
@@ -153,19 +153,19 @@ func TestHandleWS_OpInput(t *testing.T) {
 }
 
 func TestHandleWS_OpResize(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	pm := NewToolManager(t.TempDir(), nil)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
 	ws := mustWS(t, ts, "/ws?cols=80&rows=24")
 	defer ws.Close()
 
-	// Read OpSID.
+	// Read OpToolID.
 	ws.SetReadDeadline(time.Now().Add(5 * time.Second))
 	_, msg, _ := ws.ReadMessage()
-	paneID := string(msg[1:])
-	defer pm.Delete(paneID)
+	toolID := string(msg[1:])
+	defer pm.Delete(toolID)
 
 	// Send OpResize: cols=100, rows=30.
 	m := make([]byte, 5)
@@ -187,13 +187,13 @@ func TestHandleWS_OpResize(t *testing.T) {
 	}
 }
 
-func TestHandleWS_MissingPane(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+func TestHandleWS_MissingTool(t *testing.T) {
+	pm := NewToolManager(t.TempDir(), nil)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	ws := mustWS(t, ts, "/ws?pane=9999")
+	ws := mustWS(t, ts, "/ws?tool=9999")
 	defer ws.Close()
 
 	ws.SetReadDeadline(time.Now().Add(2 * time.Second))
@@ -206,16 +206,16 @@ func TestHandleWS_MissingPane(t *testing.T) {
 	}
 }
 
-func TestHandleWS_NilPanes(t *testing.T) {
+func TestHandleWS_NilTools(t *testing.T) {
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	// httptest to websocket upgrade will fail with 500 because Panes is nil.
+	// httptest to websocket upgrade will fail with 500 because Tools is nil.
 	wsURL := strings.Replace(ts.URL, "http://", "ws://", 1) + "/ws"
 	_, resp, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err == nil {
-		t.Fatal("expected dial error when panes is nil")
+		t.Fatal("expected dial error when tools is nil")
 	}
 	if resp != nil && resp.StatusCode != http.StatusInternalServerError {
 		t.Fatalf("status=%d want 500", resp.StatusCode)

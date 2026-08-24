@@ -52,7 +52,7 @@ function applyThemeObj(t){
   s.setProperty('--attn-glow',hexToRgba(attn,.5));
   TOPTS.theme=t.terminal;
   document.getElementById('area').style.background=ui.bg;
-  for(const p of app.panes.values()){if(p.term)p.term.options.theme=t.terminal}
+  for(const p of app.tools.values()){if(p.term)p.term.options.theme=t.terminal}
   if(typeof FileEditor!=='undefined'&&FileEditor.applyTheme) FileEditor.applyTheme();
 }
 
@@ -61,21 +61,21 @@ function getCurrentTheme(){return customTheme||THEMES[currentThemeName]}
 // ── Shortcut state ──
 
 const SHORTCUT_DEFAULTS={
-  sessionNext:'Ctrl+Shift+BracketRight',sessionPrev:'Ctrl+Shift+BracketLeft',
+  windowNext:'Ctrl+Shift+BracketRight',windowPrev:'Ctrl+Shift+BracketLeft',
   tabNext:'Ctrl+Tab',tabPrev:'Ctrl+Shift+Tab',
   paneUp:'Ctrl+Shift+ArrowUp',paneDown:'Ctrl+Shift+ArrowDown',paneLeft:'Ctrl+Shift+ArrowLeft',paneRight:'Ctrl+Shift+ArrowRight',
   splitH:'Ctrl+Shift+KeyH',splitV:'Ctrl+Shift+KeyV',
-  newSession:'Ctrl+Shift+KeyN',newTab:'Ctrl+Shift+KeyT',
-  closeSession:'Ctrl+Shift+KeyW',closeTab:'Ctrl+Shift+KeyD',
+  newWindow:'Ctrl+Shift+KeyN',newTab:'Ctrl+Shift+KeyT',
+  closeWindow:'Ctrl+Shift+KeyW',closeTab:'Ctrl+Shift+KeyD',
   agentsToggle:'Ctrl+Shift+KeyA',
 };
 const SHORTCUT_LABELS={
-  sessionNext:'다음 세션',sessionPrev:'이전 세션',
+  windowNext:'다음 창',windowPrev:'이전 창',
   tabNext:'다음 탭',tabPrev:'이전 탭',
   paneUp:'Pane ↑',paneDown:'Pane ↓',paneLeft:'Pane ←',paneRight:'Pane →',
   splitH:'가로 분할',splitV:'세로 분할',
-  newSession:'새 세션',newTab:'새 탭',
-  closeSession:'세션 닫기',closeTab:'탭 닫기',
+  newWindow:'새 창',newTab:'새 탭',
+  closeWindow:'창 닫기',closeTab:'탭 닫기',
   agentsToggle:'에이전트 패널',
 };
 var shortcuts={...SHORTCUT_DEFAULTS};
@@ -103,73 +103,74 @@ var defaultPreset=-1; // index into layoutPresets, -1 = none
 // ── Layout helpers ──
 
 function normalizeTab(t) {
-  if (!t.type) t.type = t.paneId ? 'terminal' : 'editor';
+  if (!t.type) t.type = t.toolId ? 'terminal' : 'editor';
   return t;
+}
+
+// FR-EM-13: 도구 타입별 능력. 백그라운드로 보낼 수 있는 도구는 서버(데몬)가
+// 소유하는 실행 실체가 있는 것뿐이다 — editor 는 브라우저 메모리에만
+// 존재하므로 탭에서 떼어낼 실체가 없다.
+const TOOL_CAPABILITIES = {
+  terminal: { backgroundCapable: true },
+  editor:   { backgroundCapable: false },
+};
+function toolBackgroundCapable(type) {
+  const cap = TOOL_CAPABILITIES[type || 'terminal'];
+  return !!(cap && cap.backgroundCapable);
 }
 function normalizeLayout(n) {
   if (!n) return n;
-  if (n.type === 'region' && n.tabs) n.tabs.forEach(normalizeTab);
+  if (n.type === 'pane' && n.tabs) n.tabs.forEach(normalizeTab);
   if (n.type === 'split' && n.children) n.children.forEach(normalizeLayout);
   return n;
 }
 
 function doSplit(n,rid,nrs,dir){
-  // nrs: 단일 region 또는 region 배열
+  // nrs: 단일 pane 또는 pane 배열
   const list=Array.isArray(nrs)?nrs:[nrs];
-  if(n.type==='region') return n.id===rid?{type:'split',direction:dir,children:[n,...list]}:n;
+  if(n.type==='pane') return n.id===rid?{type:'split',direction:dir,children:[n,...list]}:n;
   if(n.children) n.children=n.children.map(c=>doSplit(c,rid,nrs,dir));
   return n;
 }
 function doRemove(n,rid){
   if(!n) return null;
-  if(n.type==='region') return n.id===rid?null:n;
+  if(n.type==='pane') return n.id===rid?null:n;
   if(!n.children) return null;
   n.children=n.children.map(c=>doRemove(c,rid)).filter(Boolean);
   if(!n.children.length) return null;
   if(n.children.length===1) return n.children[0];
   return n;
 }
-function findRg(n,rid){
+function findPane(n,rid){
   if(!n) return null;
-  if(n.type==='region') return n.id===rid?n:null;
-  if(n.children) for(const c of n.children){const f=findRg(c,rid);if(f)return f}
+  if(n.type==='pane') return n.id===rid?n:null;
+  if(n.children) for(const c of n.children){const f=findPane(c,rid);if(f)return f}
   return null;
 }
-function firstRg(n){
+function firstPane(n){
   if(!n) return null;
-  if(n.type==='region') return n;
-  if(n.children) for(const c of n.children){const f=firstRg(c);if(f)return f}
+  if(n.type==='pane') return n;
+  if(n.children) for(const c of n.children){const f=firstPane(c);if(f)return f}
   return null;
 }
 function allPids(n){
   if(!n) return [];
-  if(n.type==='region') return (n.tabs||[]).filter(t=>t.type==='terminal').map(t=>t.paneId);
+  if(n.type==='pane') return (n.tabs||[]).filter(t=>t.type==='terminal').map(t=>t.toolId);
   if(n.children) return n.children.flatMap(c=>allPids(c));
   return [];
 }
 function findPath(n,rid){
   if(!n) return null;
-  if(n.type==='region') return n.id===rid?[n]:null;
+  if(n.type==='pane') return n.id===rid?[n]:null;
   if(n.children) for(const c of n.children){const p=findPath(c,rid);if(p)return[n,...p]}
   return null;
 }
-function closestRg(n,rid){
-  const path=findPath(n,rid);
-  if(!path||path.length<2)return firstRg(n);
-  for(let i=path.length-2;i>=0;i--){
-    const parent=path[i];if(!parent.children)continue;
-    const ci=parent.children.indexOf(path[i+1]);if(ci<0)continue;
-    const c=parent.children[ci+1]||parent.children[ci-1];
-    if(c){const r=firstRg(c);if(r)return r}
-  }
-  return firstRg(n);
-}
 function clean(n,ok){
   if(!n) return null;
-  if(n.type==='region'){
+  if(n.type==='pane'){
     if(n.tabs) n.tabs=n.tabs.filter(t=>{
       if(t.type==='editor') return true;
-      return ok.has(t.paneId);
+      return ok.has(t.toolId);
     });
     if(!n.tabs||!n.tabs.length) return null;
     if(!n.tabs.find(t=>t.id===n.activeTab)) n.activeTab=n.tabs[0].id;

@@ -13,7 +13,7 @@ import (
 
 // echoWSHandler upgrades to WS and reads/discards messages so client-side
 // writes don't block. Used to obtain real *websocket.Conn for invariant tests
-// without the full pane handler stack.
+// without the full tool handler stack.
 func echoWSHandler() http.HandlerFunc {
 	up := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -43,11 +43,11 @@ func dialEcho(t *testing.T, ts *httptest.Server) *websocket.Conn {
 	return c
 }
 
-// TC-L3-1: addClient on exited Pane must reject and not register.
-func TestPane_AddClientRejectedAfterExit(t *testing.T) {
-	p, err := StartPane("t-exit", "test", "", 80, 24, nil, nil)
+// TC-L3-1: addClient on exited Tool must reject and not register.
+func TestTool_AddClientRejectedAfterExit(t *testing.T) {
+	p, err := StartTool("t-exit", "test", "", 80, 24, nil, nil)
 	if err != nil {
-		t.Fatalf("StartPane: %v", err)
+		t.Fatalf("StartTool: %v", err)
 	}
 	p.kill()
 	<-p.Wait()
@@ -60,7 +60,7 @@ func TestPane_AddClientRejectedAfterExit(t *testing.T) {
 	sc := newSafeConn(conn)
 
 	if ok := p.addClient(sc); ok {
-		t.Fatalf("addClient returned true for exited pane")
+		t.Fatalf("addClient returned true for exited tool")
 	}
 	p.cmu.Lock()
 	n := len(p.cls)
@@ -71,10 +71,10 @@ func TestPane_AddClientRejectedAfterExit(t *testing.T) {
 }
 
 // TC-L3-2: concurrent broadcast/addClient/removeClient must be race-clean.
-func TestPane_BroadcastAddRemoveRace(t *testing.T) {
-	p, err := StartPane("t-race", "race", "", 80, 24, nil, nil)
+func TestTool_BroadcastAddRemoveRace(t *testing.T) {
+	p, err := StartTool("t-race", "race", "", 80, 24, nil, nil)
 	if err != nil {
-		t.Fatalf("StartPane: %v", err)
+		t.Fatalf("StartTool: %v", err)
 	}
 	defer p.kill()
 

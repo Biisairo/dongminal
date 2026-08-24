@@ -46,8 +46,8 @@ func TestHandleMCPMessage_MethodNotAllowed(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/mcp/message", nil)
-	resp, _ := http.DefaultClient.Do(req)
+	req := mustNewRequest(t, http.MethodGet, ts.URL+"/mcp/message", nil)
+	resp := mustDo(t, req)
 	defer resp.Body.Close()
 	if resp.StatusCode != 405 {
 		t.Fatalf("status=%d want 405", resp.StatusCode)
@@ -59,7 +59,7 @@ func TestHandleMCPMessage_SessionNotFound(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/mcp/message?sessionId=bad", "application/json", strings.NewReader("{}"))
+	resp := mustPost(t, ts.URL+"/mcp/message?sessionId=bad", "application/json", strings.NewReader("{}"))
 	defer resp.Body.Close()
 	if resp.StatusCode != 404 {
 		t.Fatalf("status=%d want 404", resp.StatusCode)
@@ -74,7 +74,7 @@ func TestHandleMCPMessage_InvalidJSON(t *testing.T) {
 	sess := srv.MCP.New()
 	defer srv.MCP.Close(sess)
 
-	resp, _ := http.Post(ts.URL+"/mcp/message?sessionId="+sess.ID, "application/json", strings.NewReader("{bad"))
+	resp := mustPost(t, ts.URL+"/mcp/message?sessionId="+sess.ID, "application/json", strings.NewReader("{bad"))
 	defer resp.Body.Close()
 	if resp.StatusCode != 400 {
 		t.Fatalf("status=%d want 400", resp.StatusCode)
@@ -113,7 +113,7 @@ func TestHandleMCPRequest_Initialize(t *testing.T) {
 
 func TestHandleMCPRequest_ToolsList(t *testing.T) {
 	ft := newFakeToolDispatcher()
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: ft})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{MCPTools: ft})
 	sess := srv.MCP.New()
 	defer srv.MCP.Close(sess)
 
@@ -166,7 +166,7 @@ func TestHandleMCPRequest_ToolsList_NilTools(t *testing.T) {
 
 func TestHandleMCPRequest_ToolsCall(t *testing.T) {
 	ft := newFakeToolDispatcher()
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: ft})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{MCPTools: ft})
 	sess := srv.MCP.New()
 	defer srv.MCP.Close(sess)
 
@@ -190,7 +190,7 @@ func TestHandleMCPRequest_ToolsCall(t *testing.T) {
 
 func TestHandleMCPRequest_ToolsCall_UnknownTool(t *testing.T) {
 	ft := newFakeToolDispatcher()
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: ft})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{MCPTools: ft})
 	sess := srv.MCP.New()
 	defer srv.MCP.Close(sess)
 

@@ -2,7 +2,7 @@
 
 ## 자동 생성 — `scripts/build_prompt.py`
 
-프롬프트 직접 작성 대신 빌더 사용. 식별자는 `who_am_i` / `list_panes` 출력의 `uuid=<36자>` 필드를 그대로 넣는다:
+프롬프트 직접 작성 대신 빌더 사용. 식별자는 `who_am_i` / `list_workspace` 출력의 `uuid=<36자>` 필드를 그대로 넣는다:
 
 ```bash
 python scripts/build_prompt.py \
@@ -24,7 +24,7 @@ python scripts/build_prompt.py \
 - 답장 규칙 (tool 풀 네임 + 유사 이름 금지 경고 + 포맷)
 - **`[대기]` 지시** — 첫 작업 지시는 포함하지 않음 (Kickoff 단계에서 `send_agent_message` 로 별도 전달)
 
-> 인자명은 역사적으로 `--my-label`/`--boss`/`--teammate <id>:<role>` 이지만 식별자 형식 검증이 없어 uuid 값을 그대로 통과시킨다. 서버측 Resolve 가 라우팅 시 형식 자동 판별 — uuid·paneId·라벨 모두 호환.
+> 인자명은 역사적으로 `--my-label`/`--boss`/`--teammate <id>:<role>` 이지만 식별자 형식 검증이 없어 uuid 값을 그대로 통과시킨다. 서버측 Resolve 가 라우팅 시 형식 자동 판별 — uuid·toolId·라벨 모두 호환.
 
 ## 왜 `[대기]` 가 필요한가 — 데드락 방지
 
@@ -33,7 +33,7 @@ python scripts/build_prompt.py \
 - 먼저 부팅된 팀원이 inline 지시를 받자마자 작업 → `send_agent_message` 로 결과 송신
 - **수신자가 아직 쉘 상태** → 엔벨로프가 쉘에 텍스트로 찍혀 증발 → 수신자는 영원히 대기
 
-근본 원인: "pane 동시 존재" ≠ "CC 입력 준비 완료". 초기 프롬프트는 역할·프로토콜 세팅만, 첫 작업은 Barrier 뒤 Kickoff 에서.
+근본 원인: "도구 동시 존재" ≠ "CC 입력 준비 완료". 초기 프롬프트는 역할·프로토콜 세팅만, 첫 작업은 Barrier 뒤 Kickoff 에서.
 
 ## 툴 이름 오용 — 매우 중요
 
@@ -68,4 +68,4 @@ LLM 이 이름 혼동으로 엉뚱한 tool 을 호출하면 메시지가 dongmin
 
 ## 식별자 — UUID 가 안전
 
-`who_am_i` / `list_panes` 출력 라인 끝의 `uuid=<36자>` `short=<8자>` 가 안정 식별자다. `S?.P?.T?` 라벨은 다른 세션·pane 닫힘 시 reflow 되어 다른 pane 을 가리킨다 → 보관해둔 라벨이 stale 되어 라우팅 깨짐. 모든 tool 인자 (`to`/`from`/`id`/`location`) 는 uuid·paneId·라벨 어느 형식이든 받지만, **이 스킬에서는 항상 uuid 만 보관·전달**.
+`who_am_i` / `list_workspace` 출력 라인 끝의 `uuid=<36자>` `short=<8자>` 가 안정 식별자다. `W?.P?.T?` 라벨은 다른 창·분할 칸 닫힘 시 reflow 되어 다른 탭을 가리킨다 → 보관해둔 라벨이 stale 되어 라우팅 깨짐. 모든 tool 인자 (`to`/`from`/`id`/`location`) 는 uuid·toolId·라벨 어느 형식이든 받지만, **이 스킬에서는 항상 uuid 만 보관·전달**.

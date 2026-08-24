@@ -18,8 +18,8 @@ func TestCommandHub_AwaitDelivers(t *testing.T) {
 
 	reqId := "req-1"
 	want := CmdResult{
-		NewRegions: []string{"r10"},
-		NewTabs:    []TabRef{{UUID: "t10", PaneID: "410"}},
+		NewPanes: []string{"r10"},
+		NewTabs:  []TabRef{{UUID: "t10", ToolID: "410"}},
 	}
 	go func() {
 		// 구독자 채널을 비워 broadcast 가 막히지 않게.
@@ -35,11 +35,11 @@ func TestCommandHub_AwaitDelivers(t *testing.T) {
 	if delivered != 1 {
 		t.Errorf("delivered=%d want 1", delivered)
 	}
-	if len(res.NewTabs) != 1 || res.NewTabs[0].UUID != "t10" || res.NewTabs[0].PaneID != "410" {
+	if len(res.NewTabs) != 1 || res.NewTabs[0].UUID != "t10" || res.NewTabs[0].ToolID != "410" {
 		t.Errorf("newTabs=%+v", res.NewTabs)
 	}
-	if len(res.NewRegions) != 1 || res.NewRegions[0] != "r10" {
-		t.Errorf("newRegions=%+v", res.NewRegions)
+	if len(res.NewPanes) != 1 || res.NewPanes[0] != "r10" {
+		t.Errorf("newPanes=%+v", res.NewPanes)
 	}
 }
 
@@ -57,7 +57,7 @@ func TestCommandHub_AwaitTimeout(t *testing.T) {
 	if delivered != 1 {
 		t.Errorf("delivered=%d want 1", delivered)
 	}
-	if len(res.NewTabs) != 0 || len(res.NewRegions) != 0 || len(res.NewSessions) != 0 {
+	if len(res.NewTabs) != 0 || len(res.NewPanes) != 0 || len(res.NewWindows) != 0 {
 		t.Errorf("expected empty result, got %+v", res)
 	}
 	// pending 누수 없음 (TC-RCR-11 일부).
@@ -114,25 +114,25 @@ func TestCommandHub_NoPendingLeak(t *testing.T) {
 
 // 생성 명령 판별.
 func TestIsCreatingAction(t *testing.T) {
-	for _, a := range []string{"splitH", "splitV", "newTab", "newSession"} {
+	for _, a := range []string{"splitH", "splitV", "newTab", "newWindow"} {
 		if !IsCreatingAction(a) {
 			t.Errorf("%s should be creating", a)
 		}
 	}
-	for _, a := range []string{"focus", "closeTab", "renameTab", "paneUp", "sessionNext"} {
+	for _, a := range []string{"focus", "closeTab", "renameTab", "paneUp", "windowNext"} {
 		if IsCreatingAction(a) {
 			t.Errorf("%s should NOT be creating", a)
 		}
 	}
 }
 
-// TC-RCR-4: POST /api/commands 생성명령 → 응답에 newTabs/newRegions + 기존 필드.
+// TC-RCR-4: POST /api/commands 생성명령 → 응답에 newTabs/newPanes + 기존 필드.
 func TestHandleCommandPost_CreatingReturnsNewIds(t *testing.T) {
 	fb := &fakeCommandBroker{
 		awaitDelivered: 1,
 		awaitResult: CmdResult{
-			NewRegions: []string{"r10"},
-			NewTabs:    []TabRef{{UUID: "t10", PaneID: "410"}},
+			NewPanes: []string{"r10"},
+			NewTabs:  []TabRef{{UUID: "t10", ToolID: "410"}},
 		},
 	}
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: fb})
@@ -156,12 +156,12 @@ func TestHandleCommandPost_CreatingReturnsNewIds(t *testing.T) {
 		t.Fatalf("newTabs=%v", got["newTabs"])
 	}
 	tab0 := tabs[0].(map[string]interface{})
-	if tab0["uuid"] != "t10" || tab0["paneId"] != "410" {
+	if tab0["uuid"] != "t10" || tab0["toolId"] != "410" {
 		t.Errorf("newTabs[0]=%v", tab0)
 	}
-	regions, _ := got["newRegions"].([]interface{})
-	if len(regions) != 1 || regions[0] != "r10" {
-		t.Errorf("newRegions=%v", got["newRegions"])
+	newPanes, _ := got["newPanes"].([]interface{})
+	if len(newPanes) != 1 || newPanes[0] != "r10" {
+		t.Errorf("newPanes=%v", got["newPanes"])
 	}
 }
 
@@ -204,7 +204,7 @@ func TestHandleCommandResult_RoutesToDeliver(t *testing.T) {
 	defer ts.Close()
 
 	resp, err := http.Post(ts.URL+"/api/command-result", "application/json",
-		bytes.NewReader([]byte(`{"reqId":"abc","newTabs":[{"uuid":"t1","paneId":"401"}]}`)))
+		bytes.NewReader([]byte(`{"reqId":"abc","newTabs":[{"uuid":"t1","toolId":"401"}]}`)))
 	if err != nil {
 		t.Fatalf("POST: %v", err)
 	}

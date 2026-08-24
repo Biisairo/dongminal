@@ -11,17 +11,16 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
 )
 
-func TestHandleAPI_PaneBusy(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+func TestHandleAPI_ToolBusy(t *testing.T) {
+	pm := NewToolManager(t.TempDir(), nil)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	// missing pane
-	resp, _ := http.Get(ts.URL + "/api/panes/missing/busy")
+	// missing tool
+	resp := mustGet(t, ts.URL+"/api/tools/missing/busy")
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d want 200", resp.StatusCode)
@@ -32,20 +31,20 @@ func TestHandleAPI_PaneBusy(t *testing.T) {
 	}
 }
 
-// TestHandleAPI_PaneBusy_DaemonMode reproduces DAEMON_PANE_BUSY_RESOLVE_SRS FR-1.
-// In daemon mode Get(id) returns a cmd-less Pane, so the handler must resolve
-// busy via PaneHub.Busy(id) (daemon busy RPC) rather than Get(id).IsBusy().
-// fakePaneHub mirrors PaneClient: Get returns a cmd-less Pane while Busy reports
+// TestHandleAPI_ToolBusy_DaemonMode reproduces DAEMON_PANE_BUSY_RESOLVE_SRS FR-1.
+// In daemon mode Get(id) returns a cmd-less Tool, so the handler must resolve
+// busy via ToolHub.Busy(id) (daemon busy RPC) rather than Get(id).IsBusy().
+// fakePaneHub mirrors ToolClient: Get returns a cmd-less Tool while Busy reports
 // the live foreground-process state.
-func TestHandleAPI_PaneBusy_DaemonMode(t *testing.T) {
+func TestHandleAPI_ToolBusy_DaemonMode(t *testing.T) {
 	hub := newFakePaneHub()
-	hub.seed("p1", "Pane 1")
+	hub.seed("p1", "Tool 1")
 	hub.setBusy("p1", true)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: hub})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: hub})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/panes/p1/busy")
+	resp := mustGet(t, ts.URL+"/api/tools/p1/busy")
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d want 200", resp.StatusCode)
@@ -56,15 +55,15 @@ func TestHandleAPI_PaneBusy_DaemonMode(t *testing.T) {
 	}
 }
 
-func TestHandleAPI_DeletePane(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+func TestHandleAPI_DeleteTool(t *testing.T) {
+	pm := NewToolManager(t.TempDir(), nil)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.NewRequest(http.MethodDelete, ts.URL+"/api/panes/1", nil)
+	resp := mustNewRequest(t, http.MethodDelete, ts.URL+"/api/tools/1", nil)
 	// Use DefaultClient because NewRequest returns *Request
-	resp2, _ := http.DefaultClient.Do(resp)
+	resp2 := mustDo(t, resp)
 	defer resp2.Body.Close()
 	if resp2.StatusCode != 200 {
 		t.Fatalf("status=%d want 200", resp2.StatusCode)
@@ -73,13 +72,13 @@ func TestHandleAPI_DeletePane(t *testing.T) {
 
 func TestHandleAPI_WorkspaceGet(t *testing.T) {
 	fw := newFakeWorkspaceStore()
-	fw.raw = []byte(`{"sessions":[]}`)
+	fw.raw = []byte(`{"schemaVersion": 2, "windows":[]}`)
 	fw.rev = 3
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Work: fw})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/workspace")
+	resp := mustGet(t, ts.URL+"/api/workspace")
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d want 200", resp.StatusCode)
@@ -88,7 +87,7 @@ func TestHandleAPI_WorkspaceGet(t *testing.T) {
 		t.Fatalf("ETag=%q want 3", got)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	if string(body) != `{"sessions":[]}` {
+	if string(body) != `{"schemaVersion": 2, "windows":[]}` {
 		t.Fatalf("body=%q", body)
 	}
 }
@@ -100,8 +99,8 @@ func TestHandleAPI_WorkspacePut_Broadcast(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/workspace", strings.NewReader(`{"sessions":[]}`))
-	resp, _ := http.DefaultClient.Do(req)
+	req := mustNewRequest(t, http.MethodPut, ts.URL+"/api/workspace", strings.NewReader(`{"schemaVersion": 2, "windows":[]}`))
+	resp := mustDo(t, req)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d want 200", resp.StatusCode)
@@ -120,7 +119,7 @@ func TestHandleAPI_SettingsGet(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/settings")
+	resp := mustGet(t, ts.URL+"/api/settings")
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d want 200", resp.StatusCode)
@@ -136,7 +135,7 @@ func TestHandleAPI_SettingsGet_Empty(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/settings")
+	resp := mustGet(t, ts.URL+"/api/settings")
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d want 200", resp.StatusCode)
@@ -153,8 +152,8 @@ func TestHandleAPI_SettingsPut(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/settings", strings.NewReader(`{"theme":"light"}`))
-	resp, _ := http.DefaultClient.Do(req)
+	req := mustNewRequest(t, http.MethodPut, ts.URL+"/api/settings", strings.NewReader(`{"theme":"light"}`))
+	resp := mustDo(t, req)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d want 200", resp.StatusCode)
@@ -176,9 +175,9 @@ func TestHandleAPI_Upload(t *testing.T) {
 	fw.Write([]byte("world"))
 	mw.Close()
 
-	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/upload?dir="+dir, &b)
+	req := mustNewRequest(t, http.MethodPost, ts.URL+"/api/upload?dir="+dir, &b)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
-	resp, _ := http.DefaultClient.Do(req)
+	resp := mustDo(t, req)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
@@ -205,9 +204,9 @@ func TestHandleAPI_Upload_UniquePath(t *testing.T) {
 	fw.Write([]byte("y"))
 	mw.Close()
 
-	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/upload?dir="+dir, &b)
+	req := mustNewRequest(t, http.MethodPost, ts.URL+"/api/upload?dir="+dir, &b)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
-	resp, _ := http.DefaultClient.Do(req)
+	resp := mustDo(t, req)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
@@ -229,7 +228,7 @@ func TestHandleAPI_Download(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/download?path=" + f)
+	resp := mustGet(t, ts.URL+"/api/download?path="+f)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d want 200", resp.StatusCode)
@@ -249,7 +248,7 @@ func TestHandleAPI_Download_RelativePath(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/download?path=relative.txt")
+	resp := mustGet(t, ts.URL+"/api/download?path=relative.txt")
 	defer resp.Body.Close()
 	if resp.StatusCode != 404 {
 		// relative path is converted to abs, then open fails
@@ -258,12 +257,12 @@ func TestHandleAPI_Download_RelativePath(t *testing.T) {
 }
 
 func TestHandleAPI_Cwd(t *testing.T) {
-	pm := NewPaneManager(t.TempDir(), nil)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	pm := NewToolManager(t.TempDir(), nil)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/cwd")
+	resp := mustGet(t, ts.URL+"/api/cwd")
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d want 200", resp.StatusCode)
@@ -273,8 +272,6 @@ func TestHandleAPI_Cwd(t *testing.T) {
 		t.Fatalf("body=%q", body)
 	}
 }
-
-
 
 func TestUniquePath(t *testing.T) {
 	dir := t.TempDir()
@@ -322,7 +319,7 @@ func TestHandleAPI_DefaultNotFound(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/nonexistent")
+	resp := mustGet(t, ts.URL+"/api/nonexistent")
 	defer resp.Body.Close()
 	if resp.StatusCode != 404 {
 		t.Fatalf("status=%d want 404", resp.StatusCode)
@@ -334,32 +331,32 @@ func TestHandleAPI_WorkspacePut_NilWork(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/workspace", strings.NewReader(`{}`))
-	resp, _ := http.DefaultClient.Do(req)
+	req := mustNewRequest(t, http.MethodPut, ts.URL+"/api/workspace", strings.NewReader(`{}`))
+	resp := mustDo(t, req)
 	defer resp.Body.Close()
 	if resp.StatusCode != 500 {
 		t.Fatalf("status=%d want 500", resp.StatusCode)
 	}
 }
 
-func TestHandleAPI_State_NilPanes(t *testing.T) {
+func TestHandleAPI_State_NilTools(t *testing.T) {
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/state")
+	resp := mustGet(t, ts.URL+"/api/state")
 	defer resp.Body.Close()
 	if resp.StatusCode != 500 {
 		t.Fatalf("status=%d want 500", resp.StatusCode)
 	}
 }
 
-func TestHandleAPI_CreatePane_NilPanes(t *testing.T) {
+func TestHandleAPI_CreateTool_NilTools(t *testing.T) {
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/panes", "application/json", nil)
+	resp := mustPost(t, ts.URL+"/api/tools", "application/json", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 500 {
 		t.Fatalf("status=%d want 500", resp.StatusCode)
@@ -370,13 +367,13 @@ func TestHandleAPI_State_HappyPath(t *testing.T) {
 	pm := newFakePaneHub()
 	pm.seed("1", "Shell #1")
 	fw := newFakeWorkspaceStore()
-	fw.raw = []byte(`{"sessions":[{"id":"s1"}]}`)
+	fw.raw = []byte(`{"schemaVersion": 2, "windows":[{"id":"s1"}]}`)
 	fw.rev = 7
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm, Work: fw})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm, Work: fw})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/state")
+	resp := mustGet(t, ts.URL+"/api/state")
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
@@ -385,7 +382,7 @@ func TestHandleAPI_State_HappyPath(t *testing.T) {
 		t.Errorf("ETag=%q want 7", got)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	if !strings.Contains(string(body), `"workspace"`) || !strings.Contains(string(body), `"panes"`) {
+	if !strings.Contains(string(body), `"workspace"`) || !strings.Contains(string(body), `"tools"`) {
 		t.Errorf("body=%s", body)
 	}
 }
@@ -396,8 +393,8 @@ func TestHandleAPI_Ping(t *testing.T) {
 	defer ts.Close()
 
 	for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete} {
-		req, _ := http.NewRequest(method, ts.URL+"/api/ping", nil)
-		resp, _ := http.DefaultClient.Do(req)
+		req := mustNewRequest(t, method, ts.URL+"/api/ping", nil)
+		resp := mustDo(t, req)
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if resp.StatusCode != 200 || string(body) != "ok" {
@@ -411,7 +408,7 @@ func TestHandleAPI_Stats(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/stats")
+	resp := mustGet(t, ts.URL+"/api/stats")
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
@@ -430,9 +427,9 @@ func TestHandleAPI_WorkspaceStaleConflict(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/workspace", strings.NewReader(`{}`))
+	req := mustNewRequest(t, http.MethodPut, ts.URL+"/api/workspace", strings.NewReader(`{}`))
 	req.Header.Set("If-Match", "0")
-	resp, _ := http.DefaultClient.Do(req)
+	resp := mustDo(t, req)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusConflict {
 		t.Fatalf("status=%d want 409", resp.StatusCode)
@@ -457,8 +454,8 @@ func TestHandleAPI_MethodMismatch(t *testing.T) {
 		{http.MethodDelete, "/api/workspace"},
 	}
 	for _, c := range cases {
-		req, _ := http.NewRequest(c.method, ts.URL+c.path, nil)
-		resp, _ := http.DefaultClient.Do(req)
+		req := mustNewRequest(t, c.method, ts.URL+c.path, nil)
+		resp := mustDo(t, req)
 		resp.Body.Close()
 		if resp.StatusCode != 404 {
 			t.Errorf("%s %s: status=%d want 404", c.method, c.path, resp.StatusCode)
@@ -466,13 +463,13 @@ func TestHandleAPI_MethodMismatch(t *testing.T) {
 	}
 }
 
-func TestHandleAPI_CreatePane_Success(t *testing.T) {
+func TestHandleAPI_CreateTool_Success(t *testing.T) {
 	pm := newFakePaneHub()
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/panes?cols=80&rows=24", "application/json", nil)
+	resp := mustPost(t, ts.URL+"/api/tools?cols=80&rows=24", "application/json", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
@@ -483,14 +480,14 @@ func TestHandleAPI_CreatePane_Success(t *testing.T) {
 	}
 }
 
-func TestHandleAPI_CreatePane_OversizedCols(t *testing.T) {
+func TestHandleAPI_CreateTool_OversizedCols(t *testing.T) {
 	pm := newFakePaneHub()
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	// 8000 > MaxTerminalDim(4096) → fallback to defaults; pane still created.
-	resp, _ := http.Post(ts.URL+"/api/panes?cols=8000&rows=24", "application/json", nil)
+	// 8000 > MaxTerminalDim(4096) → fallback to defaults; tool still created.
+	resp := mustPost(t, ts.URL+"/api/tools?cols=8000&rows=24", "application/json", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
@@ -508,7 +505,7 @@ func TestHandleAPI_SettingsGet_NilSettings(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/settings")
+	resp := mustGet(t, ts.URL+"/api/settings")
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	if string(body) != "{}" {
@@ -516,32 +513,31 @@ func TestHandleAPI_SettingsGet_NilSettings(t *testing.T) {
 	}
 }
 
-
-func TestHandleAPI_Cwd_WithPane(t *testing.T) {
+func TestHandleAPI_Cwd_WithTool(t *testing.T) {
 	pm := newFakePaneHub()
 	pm.seed("p1", "P1")
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/cwd?pane=p1")
+	resp := mustGet(t, ts.URL+"/api/cwd?tool=p1")
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
 	}
 }
 
-// DAEMON_CWDPANE_RESOLVE_SRS FR-5: /api/cwd resolves the pane's live cwd via
-// PaneHub.Cwd, not the server process working directory (daemon-mode bug).
+// DAEMON_CWDPANE_RESOLVE_SRS FR-5: /api/cwd resolves the tool's live cwd via
+// ToolHub.Cwd, not the server process working directory (daemon-mode bug).
 func TestHandleAPI_Cwd_ResolvesLiveCwd(t *testing.T) {
 	pm := newFakePaneHub()
 	pm.seed("p1", "P1")
 	pm.setCwd("p1", "/live/dir")
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/api/cwd?pane=p1")
+	resp := mustGet(t, ts.URL+"/api/cwd?tool=p1")
 	defer resp.Body.Close()
 	var body struct {
 		Cwd string `json:"cwd"`
@@ -552,77 +548,75 @@ func TestHandleAPI_Cwd_ResolvesLiveCwd(t *testing.T) {
 	}
 }
 
-func TestHandleAPI_PanesCreate_CwdPaneRef(t *testing.T) {
+func TestHandleAPI_ToolsCreate_CwdToolRef(t *testing.T) {
 	pm := newFakePaneHub()
-	// Reference pane with cwd resolution path; fake returns whatever Cwd() yields.
+	// Reference tool with cwd resolution path; fake returns whatever Cwd() yields.
 	pm.seed("ref", "Ref")
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/panes?cwdPane=ref", "", nil)
+	resp := mustPost(t, ts.URL+"/api/tools?cwdTool=ref", "", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
 	}
 }
 
-// DAEMON_CWDPANE_RESOLVE_SRS FR-1: cwdPane must resolve to the reference pane's
-// live cwd via PaneHub.Cwd, not the server process working directory. In daemon
-// mode Get() returns a cmd-less Pane whose Cwd() falls back to os.Getwd(), so the
+// DAEMON_CWDPANE_RESOLVE_SRS FR-1: cwdTool must resolve to the reference tool's
+// live cwd via ToolHub.Cwd, not the server process working directory. In daemon
+// mode Get() returns a cmd-less Tool whose Cwd() falls back to os.Getwd(), so the
 // handler must go through the hub's Cwd(id) instead of Get(id).Cwd().
-func TestHandleAPI_PanesCreate_CwdPaneRef_ResolvesLiveCwd(t *testing.T) {
+func TestHandleAPI_ToolsCreate_CwdToolRef_ResolvesLiveCwd(t *testing.T) {
 	pm := newFakePaneHub()
 	pm.seed("ref", "Ref")
 	pm.setCwd("ref", "/parent/dir")
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/panes?cwdPane=ref", "", nil)
+	resp := mustPost(t, ts.URL+"/api/tools?cwdTool=ref", "", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
 	}
 	if pm.lastCwd != "/parent/dir" {
-		t.Fatalf("created pane cwd=%q want %q", pm.lastCwd, "/parent/dir")
+		t.Fatalf("created tool cwd=%q want %q", pm.lastCwd, "/parent/dir")
 	}
 }
 
-// FR-3: an explicit cwd query takes precedence over cwdPane.
-func TestHandleAPI_PanesCreate_ExplicitCwdWins(t *testing.T) {
+// FR-3: an explicit cwd query takes precedence over cwdTool.
+func TestHandleAPI_ToolsCreate_ExplicitCwdWins(t *testing.T) {
 	pm := newFakePaneHub()
 	pm.seed("ref", "Ref")
 	pm.setCwd("ref", "/parent/dir")
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/panes?cwd=/explicit&cwdPane=ref", "", nil)
+	resp := mustPost(t, ts.URL+"/api/tools?cwd=/explicit&cwdTool=ref", "", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
 	}
 	if pm.lastCwd != "/explicit" {
-		t.Fatalf("created pane cwd=%q want %q", pm.lastCwd, "/explicit")
+		t.Fatalf("created tool cwd=%q want %q", pm.lastCwd, "/explicit")
 	}
 }
 
-// FR-4: an unknown/empty cwdPane leaves cwd empty so Create falls back.
-func TestHandleAPI_PanesCreate_UnknownCwdPaneFallsBack(t *testing.T) {
+// FR-4: an unknown/empty cwdTool leaves cwd empty so Create falls back.
+func TestHandleAPI_ToolsCreate_UnknownCwdToolFallsBack(t *testing.T) {
 	pm := newFakePaneHub()
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Panes: pm})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp, _ := http.Post(ts.URL+"/api/panes?cwdPane=missing", "", nil)
+	resp := mustPost(t, ts.URL+"/api/tools?cwdTool=missing", "", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
 	}
 	if pm.lastCwd != "" {
-		t.Fatalf("created pane cwd=%q want empty", pm.lastCwd)
+		t.Fatalf("created tool cwd=%q want empty", pm.lastCwd)
 	}
 }
-
-

@@ -2,60 +2,65 @@ package server
 
 import (
 	"context"
-	"encoding/json"
-	"time"
 	"dongminal/internal/mcptool"
 	"dongminal/internal/workspace"
+	"encoding/json"
+	"time"
 )
 
-// PaneHub is the minimum surface that HTTP/WS handlers need from the pane
-// registry. *PaneManager satisfies it naturally.
-type PaneHub interface {
+// ToolHub is the minimum surface that HTTP/WS handlers need from the tool
+// registry. *ToolManager satisfies it naturally.
+type ToolHub interface {
 	List() []map[string]interface{}
-	Create(cwd string, cols, rows uint16) (*Pane, error)
-	Get(id string) *Pane
-	// Cwd resolves the live working directory of pane id (empty if unknown).
+	Create(cwd string, cols, rows uint16) (*Tool, error)
+	Get(id string) *Tool
+	// Cwd resolves the live working directory of tool id (empty if unknown).
 	// In daemon mode this routes through the daemon cwd RPC; Get(id).Cwd() is
-	// not usable there because Get returns a cmd-less Pane (DAEMON_CWDPANE_RESOLVE_SRS).
+	// not usable there because Get returns a cmd-less Tool (DAEMON_CWDPANE_RESOLVE_SRS).
 	Cwd(id string) string
-	// Busy reports whether pane id has a running foreground process.
+	// Busy reports whether tool id has a running foreground process.
 	// In daemon mode this routes through the daemon busy RPC; Get(id).IsBusy()
-	// is not usable there because Get returns a cmd-less Pane
+	// is not usable there because Get returns a cmd-less Tool
 	// (DAEMON_PANE_BUSY_RESOLVE_SRS).
 	Busy(id string) bool
 	Delete(id string)
 	Write(id string, data []byte) error
 	Resize(id string, cols, rows uint16) error
-	SnapshotPane(id string) (PaneSnapshot, error)
+	SnapshotTool(id string) (ToolSnapshot, error)
 	IsLive(id string) bool
 	// IsDaemon reports whether this hub is a daemon-backed client.
 	// Used by handleWS to choose the daemon-mode code path.
 	IsDaemon() bool
+	// SetBackground detaches tool id from its tab (bg=true) or restores it
+	// (bg=false). False when the tool does not exist (FR-BG-2/4/7).
+	SetBackground(id string, bg bool) bool
+	// BackgroundList returns the tools currently sent to the background,
+	// oldest first (FR-BG-6).
+	BackgroundList() []BackgroundEntry
 }
-
 
 // WorkspaceStore is implemented by *workspace.Manager; kept as an interface so
 // tests can inject a fake without bringing up the real persister. Only the
 // methods actually consumed by HTTP handlers in this package are listed —
-// Resolve / Labels / Entries / InvalidatePane are callers' concerns
+// Resolve / Labels / Entries / InvalidateTool are callers' concerns
 // (internal/mcptool/tools/* + main).
 type WorkspaceStore interface {
 	Raw() []byte
 	CurrentRev() uint64
 	Snapshot() ([]byte, uint64)
 	Save(blob []byte, ifMatch string) (uint64, error)
-	// CoordinateOf rewrites a UUID identifier into the positional "S{n}.P{n}.T{n}"
+	// CoordinateOf rewrites a UUID identifier into the positional "W{n}.P{n}.T{n}"
 	// coordinate the browser command pipeline parses. Non-UUID input passes
 	// through unchanged. Used by handleCommandPost to make dmctl accept UUIDs.
 	CoordinateOf(id string) (string, error)
 	// IsKnownTabID reports whether id matches a known tab.id in the current
 	// workspace index. Used by handleCommandPost to enforce FR-DMC-9
-	// (location must be a list-panes uuid; coords/labels/paneIds rejected).
+	// (location must be a list-workspace uuid; coords/labels/toolIds rejected).
 	IsKnownTabID(id string) bool
 	// Entries returns the flat tab-level index used by /api/whoami to map a
-	// paneID to its workspace coordinates and uuids (DMCTL_WHO_AM_I_SRS
+	// toolID to its workspace coordinates and uuids (DMCTL_WHO_AM_I_SRS
 	// FR-API-WAI-1).
-	Entries() []workspace.PaneLabel
+	Entries() []workspace.TabEntry
 }
 
 // ToolDispatcher abstracts *mcptool.Registry for the MCP handler.
@@ -83,16 +88,15 @@ type SettingsStore interface {
 	save()
 }
 
-
 // Deps is the full injection surface for New.
 type Deps struct {
-	Panes       PaneHub
+	Tools       ToolHub
 	Work        WorkspaceStore
-	Tools       ToolDispatcher
+	MCPTools    ToolDispatcher
 	Commands    CommandBroker
 	Settings    SettingsStore
 	AttnTracker *AttnTracker // daemon mode: attention/activity tracking in dongminal
-	// WhoAmI resolves a request's RemoteAddr to the originating pane via
+	// WhoAmI resolves a request's RemoteAddr to the originating tool via
 	// PID parent-chain walking. /api/whoami uses it (FR-API-WAI-1). Nil → 500.
-	WhoAmI mcptool.ClientPaneResolver
+	WhoAmI mcptool.ClientToolResolver
 }

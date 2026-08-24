@@ -4,15 +4,15 @@
 
 터미널 셀은 정사각형이 아니다. 셀 높이는 너비의 약 **2.2 배** (폰트·라인스페이싱에 따라 2.0~2.5 범위). 따라서 `who_am_i` 의 `size=COLSxROWS` 숫자를 그대로 비교하면 시각 결과와 어긋난다.
 
-- 판정: `COLS >= ROWS * 2.2` → 가로가 시각적으로 더 긺 → 1차 `splitH` (좌↔우). 팀 영역은 오른쪽.
-- 반대면 1차 `splitV` (상↕하). 팀 영역은 아래.
+- 판정: `COLS >= ROWS * 2.2` → 가로가 시각적으로 더 긺 → 1차 `splitH` (좌↔우). 팀 분할 칸은 오른쪽.
+- 반대면 1차 `splitV` (상↕하). 팀 분할 칸은 아래.
 - 경계 케이스에서는 `splitV` 쪽이 보수적으로 안전 (가로 공간이 보존되어 각 팀원 셀폭 여유 확보).
 
 이 계산은 `scripts/plan_layout.py` 가 수행한다. 직접 계산하지 말고 스크립트를 호출할 것.
 
 ## 긴 축 먼저 → 직교 축으로 N 등분
 
-짧은 축을 먼저 나누면 팀 영역이 납작해져 팀원 터미널이 사용 불가능한 크기가 된다. 긴 축을 먼저 쪼개 팀 영역을 확보한 뒤, 그 내부를 직교 축으로 한 번에 `count=N` 분할한다.
+짧은 축을 먼저 나누면 팀 분할 칸이 납작해져 팀원 터미널이 사용 불가능한 크기가 된다. 긴 축을 먼저 쪼개 팀 분할 칸을 확보한 뒤, 그 내부를 직교 축으로 한 번에 `count=N` 분할한다.
 
 이진 분할을 (N−1) 번 중첩하면 50/25/25 같은 불균등 결과가 나온다. `count=N` 단일 호출은 정확한 균등 N 등분이 되어 해소된다. 왕복 수도 감소 → 레이스 표면적도 축소.
 
@@ -27,12 +27,12 @@
 
 ## 포커스 안전
 
-모든 `workspace_command` 호출은 `location=<uuid>` + `keepFocus=true` 조합으로 한다. 해체 단계의 `closeTab` 은 `location` 지정 시 서버가 포커스를 건드리지 않는다. `focus` 액션은 이 스킬에서 **어떤 경우에도 호출하지 않는다** — 복원 목적 포함. 사용자가 그 사이 다른 pane 으로 이동했을 수 있어 "원위치 복원" 이 오히려 엉뚱한 곳으로 포커스를 보낸다.
+모든 `workspace_command` 호출은 `location=<uuid>` + `keepFocus=true` 조합으로 한다. 해체 단계의 `closeTab` 은 `location` 지정 시 서버가 포커스를 건드리지 않는다. `focus` 액션은 이 스킬에서 **어떤 경우에도 호출하지 않는다** — 복원 목적 포함. 사용자가 그 사이 다른 분할 칸으로 이동했을 수 있어 "원위치 복원" 이 오히려 엉뚱한 곳으로 포커스를 보낸다.
 
 ## 식별자 안정성 — UUID 사용
 
-`S?.P?.T?` 라벨은 workspace.json 배열 위치로부터 매번 재계산되는 positional 좌표다. 다른 세션·pane 이 닫히면 모든 후속 라벨이 한 칸씩 reflow 된다. 보관해둔 라벨이 다른 pane 을 가리키는 순간 정리·라우팅·계층 팀 모두 깨진다.
+`W?.P?.T?` 라벨은 workspace.json 배열 위치로부터 매번 재계산되는 positional 좌표다. 다른 창·분할 칸이 닫히면 모든 후속 라벨이 한 칸씩 reflow 된다. 보관해둔 라벨이 다른 탭을 가리키는 순간 정리·라우팅·계층 팀 모두 깨진다.
 
-해결: `who_am_i` / `list_panes` 의 라인 끝 `uuid=<36자>` 를 식별자로 보관·전달. 서버는 `workspace_command(location=<uuid>)` 와 `send_agent_message(to=<uuid>)` 를 모두 자동 수용 — broadcast 직전 (workspace_command) 또는 라우팅 전 (send_agent_message) 에 형식을 판별해 좌표/paneId 로 변환한다. 스킬 내부에서는 항상 uuid 만 보관.
+해결: `who_am_i` / `list_workspace` 의 라인 끝 `uuid=<36자>` 를 식별자로 보관·전달. 서버는 `workspace_command(location=<uuid>)` 와 `send_agent_message(to=<uuid>)` 를 모두 자동 수용 — broadcast 직전 (workspace_command) 또는 라우팅 전 (send_agent_message) 에 형식을 판별해 좌표/toolId 로 변환한다. 스킬 내부에서는 항상 uuid 만 보관.
 
-이로써 다른 세션이 닫혀도 보관한 팀원 uuid 는 같은 pane 을 가리키며, `closeTab` 직전 `list_panes` 재확인은 더는 정합성 보존을 위한 필수 단계가 아니다.
+이로써 다른 창이 닫혀도 보관한 팀원 uuid 는 같은 탭을 가리키며, `closeTab` 직전 `list_workspace` 재확인은 더는 정합성 보존을 위한 필수 단계가 아니다.

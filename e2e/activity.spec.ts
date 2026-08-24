@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 // AGENT_ACTIVITY_PANEL_SRS e2e: agent activity panel.
 // Covers TC-AAP-11 (card with location/state/detail), TC-AAP-12 (toggle),
@@ -11,20 +11,20 @@ async function waitForInit(page) {
     sessionStorage.setItem('displayMode', 'desktop');
   });
   await page.goto('/');
-  await page.waitForSelector('#area .rg.focused .xterm-helper-textarea', { timeout: 15000 });
+  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
-async function setActivity(page, paneId, state, tool, detail) {
+async function setActivity(page, toolId, state, tool, detail) {
   return page.evaluate(
     async (a) => {
-      const r = await fetch('/api/panes/activity/set', {
+      const r = await fetch('/api/tools/activity/set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(a),
       });
       return r.status;
     },
-    { paneId, state, tool, detail },
+    { toolId, state, tool, detail },
   );
 }
 
@@ -32,7 +32,7 @@ test.describe('Agent activity panel', () => {
   test('card render, in-place update, toggle, jump', async ({ page }) => {
     await waitForInit(page);
 
-    const pid = await page.locator('#area .rg.focused .rt.active').getAttribute('data-pid');
+    const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
     expect(pid).toBeTruthy();
 
     // Open the panel (toggle button next to Split V).
@@ -54,12 +54,12 @@ test.describe('Agent activity panel', () => {
     // Clicking the card jumps to that pane (here the only pane → stays focused,
     // and the card click must not throw / panel still consistent).
     await card.click();
-    await expect(page.locator('#area .rg.focused .rt.active')).toHaveAttribute('data-pid', pid!);
+    await expect(page.locator('#area .pn.focused .pn-tab.active')).toHaveAttribute('data-toolid', pid!);
   });
 
   test('SessionEnd (ended) removes the card (FR-AAP-16)', async ({ page }) => {
     await waitForInit(page);
-    const pid = await page.locator('#area .rg.focused .rt.active').getAttribute('data-pid');
+    const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
     await page.locator('#agents-toggle').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
@@ -72,13 +72,13 @@ test.describe('Agent activity panel', () => {
 
   test('new agent appends at bottom, status update keeps position (TC-AAP-19)', async ({ page }) => {
     await waitForInit(page);
-    const pid1 = await page.locator('#area .rg.focused .rt.active').getAttribute('data-pid');
+    const pid1 = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
 
     // Second tab → a second pane.
-    const before = await page.locator('#area .rg.focused .rt').count();
-    await page.locator('#area .rg.focused .rt-add').click();
-    await expect(page.locator('#area .rg.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
-    const pid2 = await page.locator('#area .rg.focused .rt.active').getAttribute('data-pid');
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
+    await page.locator('#area .pn.focused .pn-tab-add').click();
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
+    const pid2 = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
     expect(pid1).toBeTruthy();
     expect(pid2).toBeTruthy();
 
@@ -90,23 +90,23 @@ test.describe('Agent activity panel', () => {
     expect(await setActivity(page, pid1, 'done', '', 'one')).toBe(200);
     expect(await setActivity(page, pid2, 'done', '', 'two')).toBe(200);
     await expect(page.locator('#agents-panel .ag-card')).toHaveCount(2, { timeout: 10000 });
-    await expect(page.locator('#agents-panel .ag-card').first()).toHaveAttribute('data-pid', pid1!);
-    await expect(page.locator('#agents-panel .ag-card').last()).toHaveAttribute('data-pid', pid2!);
+    await expect(page.locator('#agents-panel .ag-card').first()).toHaveAttribute('data-toolid', pid1!);
+    await expect(page.locator('#agents-panel .ag-card').last()).toHaveAttribute('data-toolid', pid2!);
 
     // Re-updating pid1 (status change) must NOT move it — order stays pid1, pid2.
     expect(await setActivity(page, pid1, 'working', 'Bash', 'again')).toBe(200);
-    await expect(page.locator('#agents-panel .ag-card').first()).toHaveAttribute('data-pid', pid1!);
-    await expect(page.locator('#agents-panel .ag-card').last()).toHaveAttribute('data-pid', pid2!);
+    await expect(page.locator('#agents-panel .ag-card').first()).toHaveAttribute('data-toolid', pid1!);
+    await expect(page.locator('#agents-panel .ag-card').last()).toHaveAttribute('data-toolid', pid2!);
   });
 
   test('drag reorders cards and persists to workspace (TC-AAP-20)', async ({ page }) => {
     await waitForInit(page);
-    const pid1 = await page.locator('#area .rg.focused .rt.active').getAttribute('data-pid');
+    const pid1 = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
 
-    const before = await page.locator('#area .rg.focused .rt').count();
-    await page.locator('#area .rg.focused .rt-add').click();
-    await expect(page.locator('#area .rg.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
-    const pid2 = await page.locator('#area .rg.focused .rt.active').getAttribute('data-pid');
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
+    await page.locator('#area .pn.focused .pn-tab-add').click();
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
+    const pid2 = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
 
     await page.locator('#agents-toggle').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
@@ -115,7 +115,7 @@ test.describe('Agent activity panel', () => {
     expect(await setActivity(page, pid2, 'done', '', 'two')).toBe(200);
     await expect(page.locator('#agents-panel .ag-card')).toHaveCount(2, { timeout: 10000 });
     // Initial order: pid1, pid2.
-    await expect(page.locator('#agents-panel .ag-card').first()).toHaveAttribute('data-pid', pid1!);
+    await expect(page.locator('#agents-panel .ag-card').first()).toHaveAttribute('data-toolid', pid1!);
 
     // Drag pid2's card above pid1's card (native HTML5 DnD via synthetic events
     // sharing one DataTransfer — same path the sidebar session DnD uses). Full
@@ -124,8 +124,8 @@ test.describe('Agent activity panel', () => {
     await page.evaluate(
       ({ src, dst }) => {
         const dt = new DataTransfer();
-        const s = document.querySelector(`#agents-panel .ag-card[data-pid="${src}"]`)!;
-        const d = document.querySelector(`#agents-panel .ag-card[data-pid="${dst}"]`)!;
+        const s = document.querySelector(`#agents-panel .ag-card[data-toolid="${src}"]`)!;
+        const d = document.querySelector(`#agents-panel .ag-card[data-toolid="${dst}"]`)!;
         const rect = d.getBoundingClientRect();
         const y = rect.top + 2; // upper half → insert before
         s.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
@@ -137,16 +137,16 @@ test.describe('Agent activity panel', () => {
     );
 
     // New order: pid2, pid1.
-    await expect(page.locator('#agents-panel .ag-card').first()).toHaveAttribute('data-pid', pid2!, {
+    await expect(page.locator('#agents-panel .ag-card').first()).toHaveAttribute('data-toolid', pid2!, {
       timeout: 10000,
     });
-    await expect(page.locator('#agents-panel .ag-card').last()).toHaveAttribute('data-pid', pid1!);
+    await expect(page.locator('#agents-panel .ag-card').last()).toHaveAttribute('data-toolid', pid1!);
 
     // Persisted into ws.agentsOrder and survives a polling re-sync.
     const order = await page.evaluate(() => (window as any).app.ws.agentsOrder);
     expect(order.indexOf(pid2)).toBeLessThan(order.indexOf(pid1));
     await page.evaluate(() => (window as any).app._activityRestore());
-    await expect(page.locator('#agents-panel .ag-card').first()).toHaveAttribute('data-pid', pid2!, {
+    await expect(page.locator('#agents-panel .ag-card').first()).toHaveAttribute('data-toolid', pid2!, {
       timeout: 10000,
     });
 
@@ -155,8 +155,8 @@ test.describe('Agent activity panel', () => {
     await page.evaluate(
       ({ src, dst }) => {
         const dt = new DataTransfer();
-        const s = document.querySelector(`#agents-panel .ag-card[data-pid="${src}"]`)!;
-        const d = document.querySelector(`#agents-panel .ag-card[data-pid="${dst}"]`)!;
+        const s = document.querySelector(`#agents-panel .ag-card[data-toolid="${src}"]`)!;
+        const d = document.querySelector(`#agents-panel .ag-card[data-toolid="${dst}"]`)!;
         const rect = d.getBoundingClientRect();
         const y = rect.bottom - 2; // lower half → insert after
         s.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
@@ -167,10 +167,10 @@ test.describe('Agent activity panel', () => {
       },
       { src: pid2, dst: pid1 },
     );
-    await expect(page.locator('#agents-panel .ag-card').first()).toHaveAttribute('data-pid', pid1!, {
+    await expect(page.locator('#agents-panel .ag-card').first()).toHaveAttribute('data-toolid', pid1!, {
       timeout: 10000,
     });
-    await expect(page.locator('#agents-panel .ag-card').last()).toHaveAttribute('data-pid', pid2!);
+    await expect(page.locator('#agents-panel .ag-card').last()).toHaveAttribute('data-toolid', pid2!);
   });
 
   test('attention alarm is composited onto the activity card (TC-AAP-17)', async ({ page }) => {
@@ -178,28 +178,28 @@ test.describe('Agent activity panel', () => {
 
     // Make a second tab so the first pane is in the background (foreground+active
     // panes suppress the attention highlight).
-    const pid = await page.locator('#area .rg.focused .rt.active').getAttribute('data-pid');
+    const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
     expect(pid).toBeTruthy();
     // done (not pruned by the busy check) so the card stays put through polling.
     expect(await setActivity(page, pid, 'done', '', 'finished')).toBe(200);
 
     await page.locator('#agents-toggle').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
-    const card = page.locator(`#agents-panel .ag-card[data-pid="${pid}"]`);
+    const card = page.locator(`#agents-panel .ag-card[data-toolid="${pid}"]`);
     await expect(card).toHaveCount(1, { timeout: 10000 });
 
     // Move focus to a new tab so the first pane is background, then raise an
     // attention alarm on it via the server endpoint. Wait for the new tab to
     // actually become active first (else the pane is still focused-active and
     // the alarm is suppressed).
-    const before = await page.locator('#area .rg.focused .rt').count();
-    await page.locator('#area .rg.focused .rt-add').click();
-    await expect(page.locator('#area .rg.focused .rt')).toHaveCount(before + 1, { timeout: 10000 });
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
+    await page.locator('#area .pn.focused .pn-tab-add').click();
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
     await page.evaluate(async (p) => {
-      await fetch('/api/panes/attention/set', {
+      await fetch('/api/tools/attention/set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paneId: p, reason: 'done' }),
+        body: JSON.stringify({ toolId: p, reason: 'done' }),
       });
     }, pid);
 

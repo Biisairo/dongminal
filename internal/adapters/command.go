@@ -20,11 +20,11 @@ func (c Command) BroadcastAndAwait(payload []byte, reqId string) (mcptool.CmdRes
 	res, n, timedOut := c.Hub.BroadcastAndAwait(payload, reqId, server.CommandResultTimeout())
 	tabs := make([]mcptool.TabRef, len(res.NewTabs))
 	for i, t := range res.NewTabs {
-		tabs[i] = mcptool.TabRef{UUID: t.UUID, PaneID: t.PaneID}
+		tabs[i] = mcptool.TabRef{UUID: t.UUID, ToolID: t.ToolID}
 	}
 	return mcptool.CmdResult{
-		NewSessions: res.NewSessions,
-		NewRegions:  res.NewRegions,
-		NewTabs:     tabs,
+		NewWindows: res.NewWindows,
+		NewPanes:   res.NewPanes,
+		NewTabs:    tabs,
 	}, n, timedOut
 }

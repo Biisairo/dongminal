@@ -11,36 +11,36 @@ import (
 const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
 
 사용법:
-  dmctl new-session [--name <이름>] [-n]   # -n: 백그라운드 생성 (포커스 유지)
+  dmctl new-window [--name <이름>] [-n]   # -n: 백그라운드 생성 (포커스 유지)
   dmctl new-tab [--name <이름>] [-n] [--at <uuid>]
   dmctl split-h [N]      # 가로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
   dmctl split-v [N]      # 세로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
-  dmctl focus <uuid>     # uuid = list-panes 의 uuid 컬럼 값 (좌표/라벨/paneId 거부)
+  dmctl focus <uuid>     # uuid = list-workspace 의 uuid 컬럼 값 (좌표/라벨/toolId 거부)
   dmctl close-tab
-  dmctl close-session
-  dmctl session-next / session-prev
+  dmctl close-window
+  dmctl window-next / window-prev
   dmctl tab-next / tab-prev
-  dmctl pane-up / pane-down / pane-left / pane-right
-  dmctl rename-tab --at <uuid> <이름>      # pane 표시 이름 변경 (역할명 부여 등)
-  dmctl rename-session --at <uuid> <이름>  # 그 pane 이 속한 세션 이름 변경
-  dmctl list-panes [--json]         # 열린 pane 목록 (uuid 포함, ▶=현재 포커스)
-  dmctl who-am-i [--json]           # 현재 쉘이 속한 pane 의 식별 정보
-  dmctl notify [label]              # 현재 pane 에 주의 알림 (에이전트 hook 에서 호출)
-  dmctl activity <agent>            # 현재 pane 의 작업 상태 보고 (stdin hook JSON 파싱)
+  dmctl tool-up / tool-down / tool-left / tool-right
+  dmctl rename-tab --at <uuid> <이름>      # 탭 표시 이름 변경 (역할명 부여 등)
+  dmctl rename-window --at <uuid> <이름>  # 그 도구가 속한 창 이름 변경
+  dmctl list-workspace [--json]         # 열린 도구 목록 (uuid 포함, ▶=현재 포커스)
+  dmctl who-am-i [--json]           # 현재 쉘이 속한 탭의 식별 정보
+  dmctl notify [label]              # 현재 도구에 주의 알림 (에이전트 hook 에서 호출)
+  dmctl activity <agent>            # 현재 도구의 작업 상태 보고 (stdin hook JSON 파싱)
   dmctl send <action> [json-args]   # raw 전송
 
 위치 식별자 — uuid 만 허용:
-  - tab uuid: list-panes 의 "uuid=" 컬럼 값 (예: 550e8400-... 또는 짧은 형식 모두 OK).
-  - 좌표(4.1.1 / S4.P1.T1), 라벨, paneId 는 거부 (400 응답).
-    이유: 라벨/좌표는 다른 세션 닫힘 시 reflow 되어 다른 pane 을 가리킨다.
+  - tab uuid: list-workspace 의 "uuid=" 컬럼 값 (예: 550e8400-... 또는 짧은 형식 모두 OK).
+  - 좌표(4.1.1 / W4.P1.T1), 라벨, toolId 는 거부 (400 응답).
+    이유: 라벨/좌표는 다른 창 닫힘 시 reflow 되어 다른 탭을 가리킨다.
   서버는 uuid 를 broadcast 직전 좌표로 번역해 브라우저에 전달한다.
 
 공통 플래그:
   --at <uuid>, -l <uuid>  특정 위치를 대상으로 실행 (기본: 현재 포커스).
                           uuid 만 허용.
   --no-focus, -n          명령 실행 전후로 사용자 포커스를 이동시키지 않는다.
-                          new-session/-tab 에선 백그라운드 생성 (활성 탭도 유지).
-  --name <이름>           new-session/new-tab 전용. 새 세션/탭 이름 (최대 64자).
+                          new-window/-tab 에선 백그라운드 생성 (활성 탭도 유지).
+  --name <이름>           new-window/new-tab 전용. 새 창/탭 이름 (최대 64자).
 
 환경변수:
   DONGMINAL_PORT — 기본 58146
@@ -69,7 +69,7 @@ func runDmctl(args []string, stdout, stderr io.Writer) int {
 }
 
 // runDmctlSpecial handles commands that don't need flag parsing
-// (help, send, list-panes, who-am-i, notify, activity).
+// (help, send, list-workspace, who-am-i, notify, activity).
 // Returns (exitCode, true) if handled, (0, false) otherwise.
 func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, bool) {
 	switch cmd {
@@ -78,8 +78,8 @@ func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, 
 		return 0, true
 	case "send":
 		return dmctlSend(rest, stdout, stderr), true
-	case "list-panes":
-		return dmctlListPanes(rest, stdout, stderr), true
+	case "list-workspace":
+		return dmctlListWorkspace(rest, stdout, stderr), true
 	case "who-am-i":
 		return dmctlWhoAmI(rest, stdout, stderr), true
 	case "notify":
@@ -98,7 +98,7 @@ func runDmctlWithFlags(cmd string, parsed dmctlParsed, stdout, stderr io.Writer)
 		return runDmctlSplit(cmd, &parsed, stdout, stderr)
 	case "focus":
 		return runDmctlFocus(cmd, &parsed, stdout, stderr)
-	case "rename-tab", "rename-session":
+	case "rename-tab", "rename-window":
 		return runDmctlRename(cmd, &parsed, stdout, stderr)
 	}
 
@@ -136,13 +136,13 @@ func runDmctlFocus(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) in
 		parsed.location = parsed.positional
 	}
 	if parsed.location == "" {
-		fmt.Fprintln(stderr, "usage: dmctl focus <uuid>  (list-panes 의 uuid 컬럼 값)")
+		fmt.Fprintln(stderr, "usage: dmctl focus <uuid>  (list-workspace 의 uuid 컬럼 값)")
 		return 2
 	}
 	args := parsed.buildArgs()
-	// Include source pane so the browser can route the focus only to
-	// windows that actually show this pane (multi-window).
-	if pid := os.Getenv("DONGMINAL_PANE_ID"); pid != "" {
+	// Include source tool so the browser can route the focus only to
+	// windows that actually show this tool (multi-window).
+	if pid := os.Getenv("DONGMINAL_TOOL_ID"); pid != "" {
 		args["sourcePane"] = pid
 	}
 	return dmctlPost("focus", args, stdout, stderr)
@@ -150,8 +150,8 @@ func runDmctlFocus(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) in
 
 func runDmctlRename(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) int {
 	action := "renameTab"
-	if cmd == "rename-session" {
-		action = "renameSession"
+	if cmd == "rename-window" {
+		action = "renameWindow"
 	}
 	if parsed.name == "" && parsed.positional != "" {
 		parsed.name = parsed.positional
@@ -164,18 +164,18 @@ func runDmctlRename(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) i
 }
 
 var dmctlSimpleActions = map[string]string{
-	"new-session":   "newSession",
-	"new-tab":       "newTab",
-	"close-tab":     "closeTab",
-	"close-session": "closeSession",
-	"session-next":  "sessionNext",
-	"session-prev":  "sessionPrev",
-	"tab-next":      "tabNext",
-	"tab-prev":      "tabPrev",
-	"pane-up":       "paneUp",
-	"pane-down":     "paneDown",
-	"pane-left":     "paneLeft",
-	"pane-right":    "paneRight",
+	"new-window":   "newWindow",
+	"new-tab":      "newTab",
+	"close-tab":    "closeTab",
+	"close-window": "closeWindow",
+	"window-next":  "windowNext",
+	"window-prev":  "windowPrev",
+	"tab-next":     "tabNext",
+	"tab-prev":     "tabPrev",
+	"tool-up":      "paneUp",
+	"tool-down":    "paneDown",
+	"tool-left":    "paneLeft",
+	"tool-right":   "paneRight",
 }
 
 type dmctlParsed struct {

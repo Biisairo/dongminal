@@ -10,20 +10,20 @@ import (
 )
 
 // FR-AAP-3 / TC-AAP-6: activity set endpoint — known / unknown / missing / bad-state.
-func TestApiPaneActivitySet(t *testing.T) {
-	m := NewPaneManager("", nil)
+func TestApiToolActivitySet(t *testing.T) {
+	m := NewToolManager("", nil)
 	var mu sync.Mutex
 	var events []string
 	p := newActivityPane("9", &mu, &events)
 	m.mu.Lock()
-	m.panes["9"] = p
+	m.tools["9"] = p
 	m.mu.Unlock()
-	s := &Server{Panes: m}
+	s := &Server{Tools: m}
 
-	// known pane → updates + notifier fires.
+	// known tool → updates + notifier fires.
 	rec := httptest.NewRecorder()
-	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/panes/activity/set",
-		strings.NewReader(`{"paneId":"9","state":"working","tool":"Bash","detail":"npm test"}`)))
+	s.apiToolActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
+		strings.NewReader(`{"toolId":"9","state":"working","tool":"Bash","detail":"npm test"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("set want 200, got %d", rec.Code)
 	}
@@ -35,26 +35,26 @@ func TestApiPaneActivitySet(t *testing.T) {
 		t.Fatalf("notifier should fire once, got %v", events)
 	}
 
-	// unknown pane → 200 no-op.
+	// unknown tool → 200 no-op.
 	rec = httptest.NewRecorder()
-	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/panes/activity/set",
-		strings.NewReader(`{"paneId":"999","state":"done"}`)))
+	s.apiToolActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
+		strings.NewReader(`{"toolId":"999","state":"done"}`)))
 	if rec.Code != http.StatusOK {
-		t.Fatalf("unknown pane want 200, got %d", rec.Code)
+		t.Fatalf("unknown tool want 200, got %d", rec.Code)
 	}
 
-	// missing paneId → 400.
+	// missing toolId → 400.
 	rec = httptest.NewRecorder()
-	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/panes/activity/set",
+	s.apiToolActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
 		strings.NewReader(`{"state":"done"}`)))
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("missing paneId want 400, got %d", rec.Code)
+		t.Fatalf("missing toolId want 400, got %d", rec.Code)
 	}
 
 	// invalid state → 400.
 	rec = httptest.NewRecorder()
-	s.apiPaneActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/panes/activity/set",
-		strings.NewReader(`{"paneId":"9","state":"bogus"}`)))
+	s.apiToolActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
+		strings.NewReader(`{"toolId":"9","state":"bogus"}`)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("invalid state want 400, got %d", rec.Code)
 	}
@@ -72,23 +72,23 @@ func TestSanitizeActivityField(t *testing.T) {
 	}
 }
 
-// FR-AAP-4 / TC-AAP-7: activity snapshot endpoint returns reported panes.
-func TestApiPanesActivity_Endpoint(t *testing.T) {
-	defer func(o func(*Pane) bool) { attnBusyProbe = o }(attnBusyProbe)
-	attnBusyProbe = func(*Pane) bool { return true } // agent alive
-	m := NewPaneManager("", nil)
-	p1 := &Pane{ID: "1"}
+// FR-AAP-4 / TC-AAP-7: activity snapshot endpoint returns reported tools.
+func TestApiToolsActivity_Endpoint(t *testing.T) {
+	defer func(o func(*Tool) bool) { attnBusyProbe = o }(attnBusyProbe)
+	attnBusyProbe = func(*Tool) bool { return true } // agent alive
+	m := NewToolManager("", nil)
+	p1 := &Tool{ID: "1"}
 	p1.setActivity("working", "Edit", "app.js")
 	m.mu.Lock()
-	m.panes["1"] = p1
+	m.tools["1"] = p1
 	m.mu.Unlock()
-	s := &Server{Panes: m}
+	s := &Server{Tools: m}
 
 	rec := httptest.NewRecorder()
-	s.apiPanesActivity(rec, httptest.NewRequest(http.MethodGet, "/api/panes/activity", nil))
+	s.apiToolsActivity(rec, httptest.NewRequest(http.MethodGet, "/api/tools/activity", nil))
 	var got struct {
 		Activities []struct {
-			PaneID string `json:"paneId"`
+			ToolID string `json:"toolId"`
 			State  string `json:"state"`
 			Tool   string `json:"tool"`
 			Detail string `json:"detail"`
@@ -97,17 +97,17 @@ func TestApiPanesActivity_Endpoint(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(got.Activities) != 1 || got.Activities[0].PaneID != "1" ||
+	if len(got.Activities) != 1 || got.Activities[0].ToolID != "1" ||
 		got.Activities[0].State != "working" || got.Activities[0].Tool != "Edit" {
 		t.Fatalf("snapshot endpoint unexpected: %+v", got.Activities)
 	}
 }
 
-// FR-AAP-5: pane_activity SSE payload shape (server-published; lowerCamelCase).
-func TestPaneActivityPayload(t *testing.T) {
-	s := string(paneActivityPayload("3", "working", "Bash", "ls"))
-	if !strings.Contains(s, `"action":"pane_activity"`) ||
-		!strings.Contains(s, `"paneId":"3"`) ||
+// FR-AAP-5: tool_activity SSE payload shape (server-published; lowerCamelCase).
+func TestToolActivityPayload(t *testing.T) {
+	s := string(toolActivityPayload("3", "working", "Bash", "ls"))
+	if !strings.Contains(s, `"action":"tool_activity"`) ||
+		!strings.Contains(s, `"toolId":"3"`) ||
 		!strings.Contains(s, `"state":"working"`) ||
 		!strings.Contains(s, `"tool":"Bash"`) ||
 		!strings.Contains(s, `"detail":"ls"`) {

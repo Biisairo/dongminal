@@ -40,30 +40,30 @@ type panedErrObj struct {
 
 // panedOutQueue bounds the per-connection outbound buffer. Output pushes are
 // dropped when it overflows (a slow/dead dongminal must never stall the daemon
-// or other panes); responses/exit events block until enqueued (FR-11/FR-18).
+// or other tools); responses/exit events block until enqueued (FR-11/FR-18).
 const panedOutQueue = 1024
 
 type panedConn struct {
 	conn    net.Conn
-	pm      *PaneManager
+	pm      *ToolManager
 	encoder *json.Encoder
 	stopped atomic.Bool
 
 	// out is the single outbound queue drained by writeLoop. Centralizing all
 	// socket writes through one goroutine serializes the json.Encoder (no race,
-	// FR-11) and decouples each pane's readPTY goroutine from socket I/O so one
-	// slow dongminal cannot block other panes or RPC responses (FR-18).
+	// FR-11) and decouples each tool's readPTY goroutine from socket I/O so one
+	// slow dongminal cannot block other tools or RPC responses (FR-18).
 	out       chan interface{}
 	done      chan struct{}
 	doneOnce  sync.Once
 	dropped   atomic.Int64
 	writerEnd chan struct{}
 
-	// wirePane is set by PanedServer to hook pane output/exit into this conn.
-	wirePane func(p *Pane)
+	// wireTool is set by PanedServer to hook tool output/exit into this conn.
+	wireTool func(p *Tool)
 }
 
-func newPanedConn(conn net.Conn, pm *PaneManager) *panedConn {
+func newPanedConn(conn net.Conn, pm *ToolManager) *panedConn {
 	pc := &panedConn{
 		conn:      conn,
 		pm:        pm,
@@ -170,6 +170,10 @@ func (pc *panedConn) dispatch(req *panedRequest) {
 		resp = pc.cwd(req)
 	case "busy":
 		resp = pc.busy(req)
+	case "setbackground":
+		resp = pc.setBackground(req)
+	case "backgroundlist":
+		resp = pc.backgroundList(req)
 	default:
 		resp = panedError{ID: req.ID, Error: panedErrObj{Code: -32601, Message: "unknown method: " + req.Method}}
 	}
@@ -179,16 +183,16 @@ func (pc *panedConn) dispatch(req *panedRequest) {
 // ── Request handlers ────────────────────────────────────────────────────
 
 func (pc *panedConn) hello(req *panedRequest) interface{} {
-	panes := pc.pm.List()
-	ids := make([]string, 0, len(panes))
-	for _, m := range panes {
-			if id, ok := m["id"].(string); ok {
-				ids = append(ids, id)
-			}
+	tools := pc.pm.List()
+	ids := make([]string, 0, len(tools))
+	for _, m := range tools {
+		if id, ok := m["id"].(string); ok {
+			ids = append(ids, id)
+		}
 	}
 	return panedResponse{ID: req.ID, Result: map[string]interface{}{
 		"version":  1,
-		"pane_ids": ids,
+		"tool_ids": ids,
 	}}
 }
 
@@ -201,15 +205,15 @@ func (pc *panedConn) create(req *panedRequest) interface{} {
 	if err := json.Unmarshal(req.Params, &p); err != nil {
 		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
 	}
-	pane, err := pc.pm.Create(p.Cwd, p.Cols, p.Rows)
+	tool, err := pc.pm.Create(p.Cwd, p.Cols, p.Rows)
 	if err != nil {
 		return panedError{ID: req.ID, Error: panedErrObj{Code: -32603, Message: err.Error()}}
 	}
-	if pc.wirePane != nil {
-		pc.wirePane(pane)
+	if pc.wireTool != nil {
+		pc.wireTool(tool)
 	}
 	return panedResponse{ID: req.ID, Result: map[string]interface{}{
-		"id": pane.ID, "name": pane.Name, "pid": pane.CmdProcessPID(),
+		"id": tool.ID, "name": tool.Name, "pid": tool.CmdProcessPID(),
 		"cols": p.Cols, "rows": p.Rows,
 	}}
 }
@@ -228,9 +232,9 @@ func (pc *panedConn) restore(req *panedRequest) interface{} {
 	if err := pc.pm.Restore(p.ID, p.Name, p.Cwd, p.Cols, p.Rows); err != nil {
 		return panedError{ID: req.ID, Error: panedErrObj{Code: -32603, Message: err.Error()}}
 	}
-	if pc.wirePane != nil {
+	if pc.wireTool != nil {
 		if restored := pc.pm.Get(p.ID); restored != nil {
-			pc.wirePane(restored)
+			pc.wireTool(restored)
 		}
 	}
 	return panedResponse{ID: req.ID, Result: map[string]interface{}{
@@ -280,7 +284,7 @@ func (pc *panedConn) resize(req *panedRequest) interface{} {
 
 func (pc *panedConn) list(req *panedRequest) interface{} {
 	return panedResponse{ID: req.ID, Result: map[string]interface{}{
-		"panes": pc.pm.List(),
+		"tools": pc.pm.List(),
 	}}
 }
 
@@ -291,7 +295,10 @@ func (pc *panedConn) snapshot(req *panedRequest) interface{} {
 	if err := json.Unmarshal(req.Params, &p); err != nil {
 		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
 	}
-	snap, err := pc.pm.SnapshotPane(p.ID); if err != nil { return panedError{ID: req.ID, Error: panedErrObj{Code: -32603, Message: err.Error()}} }
+	snap, err := pc.pm.SnapshotTool(p.ID)
+	if err != nil {
+		return panedError{ID: req.ID, Error: panedErrObj{Code: -32603, Message: err.Error()}}
+	}
 	return panedResponse{ID: req.ID, Result: map[string]interface{}{
 		"data":           base64.StdEncoding.EncodeToString(snap.Data),
 		"totalBytesIn":   snap.TotalBytesIn,
@@ -324,20 +331,39 @@ func (pc *panedConn) busy(req *panedRequest) interface{} {
 	}}
 }
 
+func (pc *panedConn) setBackground(req *panedRequest) interface{} {
+	var p struct {
+		ID         string `json:"id"`
+		Background bool   `json:"background"`
+	}
+	if err := json.Unmarshal(req.Params, &p); err != nil {
+		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+	}
+	return panedResponse{ID: req.ID, Result: map[string]interface{}{
+		"ok": pc.pm.SetBackground(p.ID, p.Background),
+	}}
+}
+
+func (pc *panedConn) backgroundList(req *panedRequest) interface{} {
+	return panedResponse{ID: req.ID, Result: map[string]interface{}{
+		"background": pc.pm.BackgroundList(),
+	}}
+}
+
 // ── Push events ────────────────────────────────────────────────────────
 
-// pushExit notifies dongminal that a pane exited. code is currently always 0:
+// pushExit notifies dongminal that a tool exited. code is currently always 0:
 // the readPTY exit path does not capture the shell's real exit status, and the
-// frontend only needs the exit signal (not the code) to tear down the pane.
-func (pc *panedConn) pushExit(paneID string, code int) {
+// frontend only needs the exit signal (not the code) to tear down the tool.
+func (pc *panedConn) pushExit(toolID string, code int) {
 	pc.enqueue(map[string]interface{}{
-		"event": "exit", "pane": paneID, "code": code,
+		"event": "exit", "tool": toolID, "code": code,
 	}, false)
 }
 
-func (pc *panedConn) pushOutputData(paneID string, data []byte) {
+func (pc *panedConn) pushOutputData(toolID string, data []byte) {
 	pc.enqueue(map[string]interface{}{
-		"event": "output", "pane": paneID,
+		"event": "output", "tool": toolID,
 		"data": base64.StdEncoding.EncodeToString(data),
 	}, true)
 }
@@ -345,7 +371,7 @@ func (pc *panedConn) pushOutputData(paneID string, data []byte) {
 // ── Unix socket server ──────────────────────────────────────────────────
 
 type PanedServer struct {
-	pm       *PaneManager
+	pm       *ToolManager
 	sockPath string
 	pidPath  string
 
@@ -354,14 +380,14 @@ type PanedServer struct {
 	currConn *panedConn
 }
 
-func NewPanedServer(pm *PaneManager, sockPath, pidPath string) *PanedServer {
+func NewPanedServer(pm *ToolManager, sockPath, pidPath string) *PanedServer {
 	return &PanedServer{pm: pm, sockPath: sockPath, pidPath: pidPath}
 }
 
 func (ps *PanedServer) Listen() error {
 	// Guard against clobbering a live daemon's socket (concurrent cold starts).
 	// If the existing socket still answers, another dongminald owns it — abort
-	// rather than removing it and stealing its panes. A stale socket (dial
+	// rather than removing it and stealing its tools. A stale socket (dial
 	// fails) is safe to remove.
 	if conn, err := net.Dial("unix", ps.sockPath); err == nil {
 		conn.Close()
@@ -396,12 +422,12 @@ func (ps *PanedServer) Accept() error {
 
 	pc := newPanedConn(conn, ps.pm)
 
-	// Wire output/exit from each pane through whichever dongminal connection
-	// is current. The closures resolve ps.currConn dynamically, so a pane only
+	// Wire output/exit from each tool through whichever dongminal connection
+	// is current. The closures resolve ps.currConn dynamically, so a tool only
 	// needs to be wired ONCE for its lifetime — reconnects reuse the same
 	// closures and just swap currConn. `p.wired` guards against re-wiring
 	// (which would nest exit handlers and re-trigger pushes). (FR-12)
-	pc.wirePane = func(p *Pane) {
+	pc.wireTool = func(p *Tool) {
 		if !p.wired.CompareAndSwap(false, true) {
 			return
 		}
@@ -409,30 +435,30 @@ func (ps *PanedServer) Accept() error {
 		if prev := p.relay.Load(); prev != nil {
 			baseExit = prev.onExit
 		}
-		p.relay.Store(&paneRelay{
-			onOutput: func(paneID string, data []byte) {
+		p.relay.Store(&toolRelay{
+			onOutput: func(toolID string, data []byte) {
 				ps.mu.Lock()
 				c := ps.currConn
 				ps.mu.Unlock()
 				if c != nil {
-					c.pushOutputData(paneID, data)
+					c.pushOutputData(toolID, data)
 				}
 			},
-			onExit: func(paneID string) {
+			onExit: func(toolID string) {
 				ps.mu.Lock()
 				c := ps.currConn
 				ps.mu.Unlock()
 				if c != nil {
-					c.pushExit(paneID, 0)
+					c.pushExit(toolID, 0)
 				}
 				if baseExit != nil {
-					baseExit(paneID)
+					baseExit(toolID)
 				}
 			},
 		})
 	}
 	for _, p := range ps.pm.Snapshot() {
-		pc.wirePane(p)
+		pc.wireTool(p)
 	}
 	ps.currConn = pc
 	ps.mu.Unlock()

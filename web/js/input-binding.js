@@ -16,20 +16,20 @@ class InputBinding {
     aph.addEventListener('mousedown',e=>{e.preventDefault();
       const sx=e.clientX,sw=ap.offsetWidth;
       const mv=e=>{const w=sw-(e.clientX-sx);if(w>=160&&w<=480){document.documentElement.style.setProperty('--ag-w',w+'px')}};
-      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.app.panes.values())if(p.el.classList.contains('vis'))p.doFit();try{localStorage.setItem('agentsWidth',ap.offsetWidth)}catch{}};
+      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();try{localStorage.setItem('agentsWidth',ap.offsetWidth)}catch{}};
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
     });
     try{const aw=parseInt(localStorage.getItem('agentsWidth'));if(aw>=160&&aw<=480)document.documentElement.style.setProperty('--ag-w',aw+'px')}catch{}
     // 문서 전역 DnD 수락(1회 바인딩): 드래그 중 화면 전체를 드롭 수락 영역으로 만들어
     // native snap-back(미수락 release 시 원위치 복귀 애니메이션)을 패널 안/밖 어디서든 제거,
-    // drop 에서 마지막 dragover 가 기록한 대상 기준 즉시 커밋. FR-AAP-21 / 세션 사이드바 공유.
-    document.addEventListener('dragover',e=>{const dr=this.app._drag;if(dr&&(dr.type==='session'||dr.type==='agent'))e.preventDefault()});
-    document.addEventListener('drop',e=>{const dr=this.app._drag;if(!dr)return;if(dr.type==='session'){e.preventDefault();this.app._reorderSessions(dr)}else if(dr.type==='agent'){e.preventDefault();this.app._reorderAgents(dr)}});
+    // drop 에서 마지막 dragover 가 기록한 대상 기준 즉시 커밋. FR-AAP-21 / 창 사이드바 공유.
+    document.addEventListener('dragover',e=>{const dr=this.app._drag;if(dr&&(dr.type==='window'||dr.type==='agent'))e.preventDefault()});
+    document.addEventListener('drop',e=>{const dr=this.app._drag;if(!dr)return;if(dr.type==='window'){e.preventDefault();this.app._reorderWindows(dr)}else if(dr.type==='agent'){e.preventDefault();this.app._reorderAgents(dr)}});
     const sb=document.getElementById('sidebar'),sbh=document.getElementById('sb-handle');
     sbh.addEventListener('mousedown',e=>{e.preventDefault();
       const sx=e.clientX,sw=sb.offsetWidth;
       const mv=e=>{const w=sw+(e.clientX-sx);if(w>=100&&w<=400){document.documentElement.style.setProperty('--sb-w',w+'px');this.app.ws.sidebarWidth=w}};
-      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.app.panes.values())if(p.el.classList.contains('vis'))p.doFit();try{localStorage.setItem('sidebarWidth',this.app.ws.sidebarWidth)}catch{}this.app._save()};
+      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();try{localStorage.setItem('sidebarWidth',this.app.ws.sidebarWidth)}catch{}this.app._save()};
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
     });
     this.app._recording=null;

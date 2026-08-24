@@ -2,45 +2,110 @@
 
 외부 통합용 공개 엔드포인트 정리. 내부 구현 세부는 [docs/internal/architecture.md](../internal/architecture.md) 참고.
 
+용어는 [features.md](./features.md) 와 같다 — 창(Window) ▸ 분할 칸(Pane) ▸ 탭(Tab) ▸ 도구(Tool).
+
 ## REST
+
+### 상태
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| GET | `/api/state` | `{ panes, workspace }` 스냅샷. 응답 헤더 `ETag: <rev>` 포함 |
-| POST | `/api/panes?cols=&rows=&cwd=&cwdPane=` | 새 PTY 생성. `cwd` 또는 `cwdPane`(참조 pane ID) 중 하나로 시작 디렉터리 지정 |
-| DELETE | `/api/panes/:id` | PTY 종료 |
-| GET | `/api/panes/:id/busy` | `{ busy: bool }` — foreground process 여부 |
-| GET | `/api/workspace` | workspace.json raw. ETag 헤더 포함 |
+| GET | `/api/state` | `{ tools, workspace }` 스냅샷. 응답 헤더 `ETag: <rev>` 포함 |
+| GET | `/api/whoami?toolId=<id>` | 요청자의 도구 식별 정보. `toolId` 생략 시 remoteAddr → PID 부모 체인으로 역추적 |
+| GET | `/api/workspace` | workspace.json raw (`schemaVersion: 2`). ETag 헤더 포함 |
 | PUT | `/api/workspace` | workspace 저장. `If-Match: <rev>` 로 낙관적 동시성 제어. stale 시 409 + 최신 `ETag` 반환 |
 | GET | `/api/settings` | 설정 조회 |
-| PUT | `/api/settings` | 설정 저장 (`settings.json` 영속화) |
+| PUT | `/api/settings` | 설정 저장 (`settings.json` 즉시 영속화) |
 | GET | `/api/stats` | `{ hostname, cpu, memUsed, memTotal, diskPct, sysUptime, srvUptime }` |
-| GET | `/api/cwd?pane=<id>` | 해당 pane 의 현재 작업 디렉터리. `pane` 생략 시 서버 프로세스 cwd |
 | GET | `/api/ping` | `"ok"` (레이턴시 측정용) |
+
+### 도구
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| POST | `/api/tools?cols=&rows=&cwd=&cwdTool=` | 새 PTY 생성. `cwd` 또는 `cwdTool`(참조 도구 id) 중 하나로 시작 디렉터리 지정 |
+| DELETE | `/api/tools/<id>` | PTY 종료 |
+| GET | `/api/tools/<id>/busy` | `{ busy: bool }` — foreground process 여부 |
+| GET | `/api/cwd?tool=<id>` | 해당 도구의 현재 작업 디렉터리. `tool` 생략 시 서버 프로세스 cwd |
+
+### 주의 알림 · 활동
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/tools/attention` | 주의 상태인 도구 목록 |
+| POST | `/api/tools/attention/set` | 주의 상태 설정 (`dmctl notify` 가 사용) |
+| POST | `/api/tools/attention/clear` | 도구 하나의 주의 상태 해제 |
+| POST | `/api/tools/attention/clear-all` | 전체 해제 |
+| GET | `/api/tools/activity` | 도구별 현재 활동 상태 (도구당 최신 1건) |
+| POST | `/api/tools/activity/set` | 활동 상태 보고 (`dmctl activity` 가 사용) |
+
+### 백그라운드 도구
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/tools/background` | `{ background: [{toolId, name, cwd, since}] }` — 어느 탭에도 매이지 않고 도는 도구 |
+| POST | `/api/tools/background/set` | 바디 `{toolId, background}`. 도구를 백그라운드로 보내거나 복귀시킨다. 미지 `toolId` 는 404 |
+
+백그라운드 도구는 데몬 재시작을 넘기지 않는다 — `tools.json` 에는 탭이 참조하는 도구만 기록된다.
+
+### 창 포커스 소유권
+
+한 Window 를 어느 클라이언트가 보고 있는지를 서버가 들고 있다. 이 상태는 dim 표시와
+**PTY 리사이즈 권한**을 함께 결정한다 — 소유자만 그 Window 의 PTY 크기를 정한다.
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/focus` | `{ owners: { "<windowId>": "<clientId>" } }` — 현재 소유권 스냅샷 |
+| POST | `/api/focus/claim` | 바디 `{clientId, windowId}`. 그 클라이언트를 소유자로 만든다. 둘 중 하나라도 비면 400 |
+
+- **last-focus-wins**: 기존 소유자는 협상 없이 밀려난다. 한 클라이언트는 동시에 한 Window 만 소유한다
+- **in-memory**: 영속화하지 않는다. 서버 재시작이면 전원 해제다
+- **해제**: `/api/commands/sse?clientId=<id>` 구독이 끊기면 그 클라이언트의 소유권을 **즉시** 해제한다. grace period 는 없다. 같은 `clientId` 의 더 새로운 구독이 있으면 옛 구독의 종료는 해제하지 않는다
+- 소유권이 없는 Window 는 모두에게 밝게 보이고 모두가 리사이즈할 수 있다
+
+### 파일
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
 | POST | `/api/upload?dir=<path>` | multipart 업로드 (`file` 필드). 중복 파일은 `(1)`, `(2)` suffix. `{ name, size, path }` 반환 |
-| GET | `/api/download?path=<path>` | 파일 다운로드 (절대/상대경로 모두 허용) |
-| GET | `/api/code-server` | 열린 code-server 인스턴스 목록 `[{id, folder, createdAt, ...}]` |
-| POST | `/api/code-server?path=<path>` | code-server 인스턴스 새로 열기. `{ id, path: "/cs/<id>/", folder }` 반환 |
-| POST | `/api/code-server/heartbeat?id=<id>` | 창이 살아 있음을 알림 (30s 미수신 시 서버가 kill) |
-| POST | `/api/code-server/stop?id=<id>` | 인스턴스 종료 |
-| POST | `/api/commands` | 워크스페이스 action 브로드캐스트. 바디 `{action, args?}` — `dmctl` 가 사용 |
-| GET | `/api/commands/sse` | Server-Sent Events. 브라우저가 구독해 다른 pane 의 `dmctl` 명령을 수신 |
+| GET | `/api/download?path=<path>` | 파일 다운로드 |
+| GET | `/api/file/read?path=<abs>` | 편집기 탭이 파일을 읽는 경로. 절대경로만 허용 |
+| POST | `/api/file/write` | 바디 `{path, content}`. 편집기 탭의 저장 |
 
-### `/api/commands` 허용 action
+### 원격 제어
 
-`newSession`, `newTab`, `splitH`, `splitV`, `focus`, `closeTab`, `closeSession`, `sessionNext`, `sessionPrev`, `tabNext`, `tabPrev`, `paneUp`, `paneDown`, `paneLeft`, `paneRight`. 그 외는 400.
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| POST | `/api/commands` | 워크스페이스 action 브로드캐스트. 바디 `{action, args?, reqId?}` — `dmctl`·`edit`·`detach` 가 사용 |
+| GET | `/api/commands/sse` | Server-Sent Events. 브라우저가 구독해 다른 도구의 명령을 수신 |
+| POST | `/api/command-result` | 브라우저가 생성 결과(`newWindows`/`newPanes`/`newTabs`)를 `reqId` 로 되돌려주는 경로 |
 
-args 스키마 (optional):
+#### `/api/commands` 허용 action
+
+20개. 그 외는 400.
+
+| 분류 | action |
+|------|--------|
+| 생성 | `newWindow`, `newTab`, `splitH`, `splitV`, `openEditorTab` |
+| 이동 | `focus`, `windowNext`, `windowPrev`, `tabNext`, `tabPrev`, `paneUp`, `paneDown`, `paneLeft`, `paneRight` |
+| 종료 | `closeTab`, `closeWindow` |
+| 이름 | `renameTab`, `renameWindow` |
+| 백그라운드 | `detachTab`, `restoreTool` |
+
+`args` 스키마 (전부 선택):
 
 ```json
-{ "location": "S1.P2.T1", "count": 3, "keepFocus": true }
+{ "location": "<탭 uuid>", "count": 3, "keepFocus": true, "name": "worker-1",
+  "filePath": "/abs/path", "toolId": "12" }
 ```
 
-### 리버스 프록시
+`location` 은 **uuid 만 허용**한다 — `dmctl list-workspace` 의 `uuid=` 컬럼 값. 좌표(`W4.P1.T1`)·라벨·`toolId` 는 400 으로 거부된다. 다른 창이 닫히면 좌표가 reflow 되어 엉뚱한 탭을 가리키기 때문이다. 서버가 broadcast 직전에 uuid → 좌표로 변환한다.
 
-`/cs/<id>/...` — 해당 id 의 code-server Unix 소켓으로 HTTP/WebSocket 프록시.
+`detachTab` 은 `location` 이 아니라 `toolId` 를 받는다 — `toolId` 만으로 대상이 완전히 결정되므로 대상 지정 수단이 필요 없다. `restoreTool` 은 `toolId` 에 더해 `location`(선택)을 받는다: 지정하면 그 탭이 **속한 분할 칸**에 복귀하고(탭 성분은 무시), 없으면 브라우저가 현재 포커스한 분할 칸에 복귀한다.
 
-## WebSocket: `/ws?pane=<id>`
+둘 다 MCP `workspace_command` 로는 호출할 수 없다 (`toolId` 인자가 없어 `detach` CLI 전용 경로다).
+
+## WebSocket: `/ws?tool=<id>`
 
 Binary 프로토콜. 첫 바이트가 opcode.
 
@@ -51,7 +116,7 @@ Binary 프로토콜. 첫 바이트가 opcode.
 | `0x01` | C→S | 리사이즈: `cols uint16 BE + rows uint16 BE` |
 | `0x01` | S→C | 에러 메시지 (UTF-8) |
 | `0x02` | S→C | 프로세스 종료 알림 |
-| `0x03` | S→C | 세션 ID 할당 (문자열) |
+| `0x03` | S→C | 도구 id 할당 (문자열). 연결 직후 서버가 보내고 브라우저가 `dataset.toolid` 에 반영 |
 
 서버는 `gorilla/websocket` ping/pong 으로 keep-alive (pong 60s, ping 54s). 모든 쓰기는 `safeConn` mutex 로 직렬화.
 
@@ -59,22 +124,35 @@ Binary 프로토콜. 첫 바이트가 opcode.
 
 `/api/commands` 로 들어온 action 을 구독 중인 모든 브라우저에 브로드캐스트. 15s 주기 keep-alive 주석. 브라우저가 여러 탭으로 열려 있으면 모두 동일 action 을 수행.
 
+`?clientId=<id>` 를 붙이면 서버가 그 구독을 클라이언트와 결선한다 — 구독이 끊길 때 창 포커스 소유권을 해제하기 위한 것이다. 생략해도 스트림은 정상 동작한다 (소유권 결선만 없다).
+
+서버가 자체적으로 발행하는 이벤트도 같은 스트림을 쓴다:
+
+| 이벤트 | 의미 |
+|--------|------|
+| `workspace_changed` | 다른 클라이언트가 워크스페이스를 바꿨다 |
+| `tool_attention` | 도구가 주의를 요구한다 |
+| `tool_attention_clear` | 주의 상태 해제 |
+| `tool_activity` | 도구의 활동 상태 갱신 |
+| `window_focus` | 창 포커스 소유권이 바뀌었다. `args.owners` 는 **전체 맵**이다 (증분이 아니다) |
+
 ## MCP
 
 | 경로 | 설명 |
 |------|------|
-| `/mcp/sse` | Claude Code MCP 클라이언트용 SSE 스트림. 세션 open 시 `session=<hex>` 할당 |
-| `/mcp/message?session=<id>` | JSON-RPC 2.0 요청 POST 경로 |
+| `/mcp/sse` | Claude Code MCP 클라이언트용 SSE 스트림. 세션 open 시 `sessionId=<hex>` 할당 |
+| `/mcp/message?sessionId=<id>` | JSON-RPC 2.0 요청 POST 경로 |
 
 툴 카탈로그 및 Claude Code 등록 방법은 [mcp-setup.md](./mcp-setup.md).
 
 ## OSC 777 커스텀 이스케이프
 
-PTY 출력에서 브라우저로 특수 명령 전달:
+PTY 출력에서 브라우저로 특수 명령 전달. 형식은 `ESC ] 777 ; <cmd> ; <payload> BEL`.
 
 | 시퀀스 | 발신자 | 설명 |
 |--------|--------|------|
-| `ESC]777;Download;<path>BEL` | `download` 스크립트 | 브라우저 다운로드 트리거 (`/api/download`) |
+| `ESC]777;Download;<path>BEL` | `download` 헬퍼 | 브라우저 다운로드 트리거 (`/api/download`) |
 | `ESC]777;Cwd;<path>BEL` | zsh/bash 훅 | 현재 디렉터리 실시간 보고 |
-| `ESC]777;OpenCodeServer;<id>\|<path>\|<folder>BEL` | `edit` 스크립트 | code-server 새 창 열기 (`window.open('/cs/<id>/...')`) |
-| `ESC]777;CodeServerList;<json>BEL` | `edit -l` | 열린 code-server 목록을 터미널에 렌더링 |
+| `ESC]777;notify;<body>BEL` | 임의의 CLI·에이전트 | 주의 알림. 서버가 관찰해 `tool_attention` 으로 전환 |
+
+서버는 스냅샷을 재생할 때 이 사설 시퀀스를 제거한다 (`stripOSC777`) — 새로고침 때 다운로드가 다시 트리거되는 것을 막기 위함이다.

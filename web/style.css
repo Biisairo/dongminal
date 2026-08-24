@@ -21,9 +21,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   display:flex;flex-direction:column;user-select:none;
 }
 .sb-title{padding:10px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
-#sessions{flex:1;overflow-y:auto}
-#sessions::-webkit-scrollbar{width:4px}
-#sessions::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+#windows{flex:1;overflow-y:auto}
+#windows::-webkit-scrollbar{width:4px}
+#windows::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
 .si{display:flex;align-items:center;height:30px;padding:0 10px;cursor:pointer;transition:background .1s}
 .si:hover{background:var(--accent-hover)}
@@ -42,12 +42,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .si:hover .si-x{opacity:1}
 .si-x:hover{color:var(--danger);background:rgba(247,118,142,.2)}
 
-#add-session,#add-preset{
+#add-window,#add-preset{
   margin:0 8px 4px;padding:4px 8px;
   background:transparent;border:1px solid var(--border);border-radius:4px;
   color:var(--text-muted);font-size:11px;cursor:pointer;text-align:left;
 }
-#add-session:hover,#add-preset:hover{background:var(--accent-hover);color:var(--accent)}
+#add-window:hover,#add-preset:hover{background:var(--accent-hover);color:var(--accent)}
 #add-preset{color:var(--text-dim);opacity:.7}
 #add-preset:hover{opacity:1}
 
@@ -63,7 +63,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   height:32px;min-height:32px;display:flex;align-items:center;
   background:var(--sidebar-bg);border-bottom:1px solid var(--border);padding:0 8px;gap:6px;
 }
-#session-name{font-size:12px;color:var(--text-muted)}
+#window-name{font-size:12px;color:var(--text-muted)}
 .spacer{flex:1}
 
 /* 주의 알림 배지 + 센터 팝오버 (FR-PAN-16) */
@@ -111,36 +111,36 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .sp[data-d="horizontal"]>.sh::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
 .sp[data-d="vertical"]>.sh::before{content:'';position:absolute;left:0;right:0;top:-6px;bottom:-6px}
 
-/* ── Region ── */
-.rg{display:flex;flex-direction:column;position:absolute;inset:0;border:2px solid transparent}
-.rg.focused{border-color:var(--accent)}
-.rg.focused .rg-tabs{border-bottom-color:var(--accent)}
+/* ── Pane (분할 칸) ── */
+.pn{display:flex;flex-direction:column;position:absolute;inset:0;border:2px solid transparent}
+.pn.focused{border-color:var(--accent)}
+.pn.focused .pn-tabs{border-bottom-color:var(--accent)}
 
-.rg-tabs{
+.pn-tabs{
   height:28px;min-height:28px;display:flex;align-items:stretch;
   background:var(--sidebar-bg);border-bottom:1px solid var(--border);
   overflow-x:auto;flex-shrink:0;
 }
-.rg-tabs::-webkit-scrollbar{height:0}
-.rt{
+.pn-tabs::-webkit-scrollbar{height:0}
+.pn-tab{
   display:flex;align-items:center;padding:0 10px;gap:4px;
   font-size:12px;color:var(--text-muted);cursor:pointer;
   border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0;
 }
-.rt:hover{background:var(--accent-hover);color:var(--text)}
-.rt.active{color:var(--text-bright);background:var(--accent-subtle)}
-.rt-x{font-size:11px;color:var(--text-dim);opacity:0;cursor:pointer}
-.rt:hover .rt-x{opacity:1}
-.rt-x:hover{color:var(--danger)}
-.rt-add{
+.pn-tab:hover{background:var(--accent-hover);color:var(--text)}
+.pn-tab.active{color:var(--text-bright);background:var(--accent-subtle)}
+.pn-tab-x{font-size:11px;color:var(--text-dim);opacity:0;cursor:pointer}
+.pn-tab:hover .pn-tab-x{opacity:1}
+.pn-tab-x:hover{color:var(--danger)}
+.pn-tab-add{
   width:24px;display:flex;align-items:center;justify-content:center;
   background:transparent;border:none;color:var(--text-dim);font-size:14px;cursor:pointer;flex-shrink:0;
 }
-.rt-add:hover{color:var(--accent)}
+.pn-tab-add:hover{color:var(--accent)}
 
 /* 주의 알림 강조 — 포커스(--accent)·위험(--danger)과 구분되는 테마색 --attn, 굵은 실선+글로우로 가시성 강화 (FR-PAN-10) */
-.rt.attn{color:var(--attn);background:var(--attn-subtle);font-weight:600;box-shadow:inset 0 -3px 0 var(--attn)}
-.rg.attn{border-color:var(--attn);box-shadow:inset 0 0 0 2px var(--attn),0 0 12px -1px var(--attn-glow)}
+.pn-tab.attn{color:var(--attn);background:var(--attn-subtle);font-weight:600;box-shadow:inset 0 -3px 0 var(--attn)}
+.pn.attn{border-color:var(--attn);box-shadow:inset 0 0 0 2px var(--attn),0 0 12px -1px var(--attn-glow)}
 .si.attn{box-shadow:inset 3px 0 0 var(--attn)}
 .si.attn .si-dot{background:var(--attn);box-shadow:0 0 6px var(--attn-glow)}
 
@@ -172,7 +172,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .ag-state.idle{color:var(--text)}
 .ag-detail{font-size:11px;color:var(--text);margin-top:2px;font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-.rg-body{flex:1;position:relative;overflow:hidden}
+.pn-body{flex:1;position:relative;overflow:hidden}
 
 /* ── term pane ── */
 .tp{position:absolute;inset:0;display:none;padding:1px;transition:opacity .15s ease}
@@ -357,7 +357,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .tp-ov-sub{color:var(--text-muted);font-size:11px}
 
 /* ── Dimmed session overlay (multi-window: another window owns this session) ── */
-.rg-dimmed .rg-body::after{
+.pn-dimmed .pn-body::after{
   content:'클릭하여 포커스';
   position:absolute;inset:0;z-index:30;
   display:flex;align-items:center;justify-content:center;
@@ -367,7 +367,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   pointer-events:none;
 }
 /* Hide connection-lost overlay behind the dimmed overlay */
-.rg-dimmed .tp-overlay{display:none !important}
+.pn-dimmed .tp-overlay{display:none !important}
 
 /* ── Status Bar ── */
 .status-bar{
@@ -428,20 +428,19 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 }
 .confirm-msg{color:var(--text-bright);font-size:13px;margin-bottom:16px;line-height:1.5}
 .confirm-btns{display:flex;gap:8px;justify-content:flex-end}
-.confirm-ok{
-  padding:6px 16px;border-radius:4px;border:1px solid var(--danger);
-  background:rgba(247,118,142,.15);color:var(--danger);font-size:12px;cursor:pointer;font-family:inherit;
+/* 형태 규약은 여기서만 선언한다 — 버튼별 규칙은 역할 색만 다룬다 (FR-BGU-1).
+   버튼을 추가할 때 형태를 다시 쓰지 않아야 .confirm-bg 같은 누락이 재발하지 않는다. */
+.confirm-btns button{
+  padding:6px 16px;border-radius:4px;border:1px solid transparent;
+  background:transparent;font-size:12px;cursor:pointer;font-family:inherit;
 }
+.confirm-ok{border-color:var(--danger);background:rgba(247,118,142,.15);color:var(--danger)}
 .confirm-ok:hover{background:rgba(247,118,142,.25)}
-.confirm-save{
-  padding:6px 16px;border-radius:4px;border:1px solid var(--accent);
-  background:var(--accent-subtle);color:var(--accent);font-size:12px;cursor:pointer;font-family:inherit;
-}
+.confirm-save{border-color:var(--accent);background:var(--accent-subtle);color:var(--accent)}
 .confirm-save:hover{background:var(--accent-hover)}
-.confirm-cancel{
-  padding:6px 16px;border-radius:4px;border:1px solid var(--border);
-  background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;font-family:inherit;
-}
+.confirm-bg{border-color:var(--accent-border);color:var(--accent)}
+.confirm-bg:hover{background:var(--accent-hover)}
+.confirm-cancel{border-color:var(--border);color:var(--text-muted)}
 .confirm-cancel:hover{background:var(--accent-hover);color:var(--text)}
 
 .preset-save{
@@ -521,7 +520,7 @@ body.mobile{padding-bottom:calc(var(--m-kb-h) + env(safe-area-inset-bottom, 0px)
 
 /* mobile topbar tighter spacing */
 body.mobile #topbar{padding:0 4px;gap:2px}
-body.mobile #session-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:35%;color:var(--text-bright)}
+body.mobile #window-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:35%;color:var(--text-bright)}
 
 /* mobile keybar (M4) */
 #mobile-keybar{
@@ -533,6 +532,9 @@ body.mobile #session-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;w
 }
 #mobile-keybar::-webkit-scrollbar{height:0}
 .mkb-btn{
+  /* manipulation: 더블탭 확대를 끊어 모디파이어 더블탭(lock)과 충돌하지 않게
+     한다. 수평 팬(키바 슬라이드)은 그대로 허용된다. */
+  touch-action:manipulation;
   flex-shrink:0;min-width:38px;height:30px;padding:0 8px;
   background:var(--bg);border:1px solid var(--border);border-radius:5px;
   color:var(--text-bright);font-size:12px;font-family:inherit;
@@ -555,41 +557,41 @@ body.mobile #session-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;w
 /* keybar sits above safe area when keyboard is up; JS sets bottom dynamically (visibility handled at L392) */
 
 /* on mobile, hide split-related drag indicators */
-body.mobile .rg-drop-indicator{display:none !important}
+body.mobile .pn-drop-indicator{display:none !important}
 
 /* enlarge touch targets on mobile */
 body.mobile .si{height:40px;font-size:13px}
 body.mobile .si-x{opacity:1;width:24px;height:24px;font-size:14px}
-body.mobile .rt{padding:0 14px;font-size:13px}
-body.mobile .rt-x{opacity:1;width:18px;height:18px}
-body.mobile .rt-add{width:32px;font-size:18px}
-body.mobile #add-session,body.mobile #add-preset,body.mobile #settings-btn{padding:8px;font-size:12px}
-body.mobile #sessions{padding-top:8px}
+body.mobile .pn-tab{padding:0 14px;font-size:13px}
+body.mobile .pn-tab-x{opacity:1;width:18px;height:18px}
+body.mobile .pn-tab-add{width:32px;font-size:18px}
+body.mobile #add-window,body.mobile #add-preset,body.mobile #settings-btn{padding:8px;font-size:12px}
+body.mobile #windows{padding-top:8px}
 body.mobile .sb-title{padding:14px 14px 8px}
 
 /* ── Tab bar drag target ── */
-.rg-tabs.drag-target{background:var(--accent-hover);box-shadow:inset 0 -2px 0 var(--accent)}
+.pn-tabs.drag-target{background:var(--accent-hover);box-shadow:inset 0 -2px 0 var(--accent)}
 
 /* ── Drag reorder indicators ── */
 .si.dragging{opacity:.35}
 .si.drag-above{box-shadow:inset 0 2px 0 var(--accent)}
 .si.drag-below{box-shadow:inset 0 -2px 0 var(--accent)}
-.rt.dragging{opacity:.35}
-.rt.drag-left{box-shadow:inset 2px 0 0 var(--accent)}
-.rt.drag-right{box-shadow:inset -2px 0 0 var(--accent)}
+.pn-tab.dragging{opacity:.35}
+.pn-tab.drag-left{box-shadow:inset 2px 0 0 var(--accent)}
+.pn-tab.drag-right{box-shadow:inset -2px 0 0 var(--accent)}
 
 /* ── Tab→Pane drop zone indicator ── */
-.rg-drop-indicator{
+.pn-drop-indicator{
   position:absolute;pointer-events:none;
   background:var(--accent);opacity:.18;
   border:2px solid var(--accent);border-radius:2px;z-index:15;
   transition:all .08s;
 }
-.rg-drop-indicator[data-zone="left"]  {top:0;left:0;width:33%;height:100%}
-.rg-drop-indicator[data-zone="right"] {top:0;right:0;width:33%;height:100%;left:auto}
-.rg-drop-indicator[data-zone="top"]   {top:0;left:0;width:100%;height:33%}
-.rg-drop-indicator[data-zone="bottom"]{bottom:0;left:0;width:100%;height:33%;top:auto}
-.rg-drop-indicator[data-zone="center"]{top:5%;left:5%;width:90%;height:90%;opacity:.1;border-style:dashed}
+.pn-drop-indicator[data-zone="left"]  {top:0;left:0;width:33%;height:100%}
+.pn-drop-indicator[data-zone="right"] {top:0;right:0;width:33%;height:100%;left:auto}
+.pn-drop-indicator[data-zone="top"]   {top:0;left:0;width:100%;height:33%}
+.pn-drop-indicator[data-zone="bottom"]{bottom:0;left:0;width:100%;height:33%;top:auto}
+.pn-drop-indicator[data-zone="center"]{top:5%;left:5%;width:90%;height:90%;opacity:.1;border-style:dashed}
 
 /* ── File Editor (Monaco) ── */
 .file-editor{
@@ -603,3 +605,27 @@ body.mobile .sb-title{padding:14px 14px 8px}
 }
 .fe-error{color:var(--danger);padding:20px;text-align:center}
 .fe-error-path{font-family:monospace;font-size:12px;color:var(--text-muted);margin-top:8px;word-break:break-all}
+
+/* ── 백그라운드 도구 진입점·모달 (FR-BGU-2..8) ── */
+/* 지표 컨테이너. 진입점은 이 밖에 있어야 .sb-item+.sb-item 구분선이 닿지 않는다. */
+#sb-items{display:flex;align-items:center;gap:2px;min-width:0;overflow:hidden}
+/* 상태바 우측 끝 진입점. .tbtn 규약을 쓰되 22px 상태바에 맞춰 여백만 줄인다. */
+#sb-bg-btn{margin-left:auto;flex-shrink:0;padding:1px 8px;font-size:11px;
+  color:var(--accent);border-color:var(--accent-border)}
+#sb-bg-btn:hover{background:var(--accent-active);color:var(--accent);border-color:var(--accent)}
+.bg-modal{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;
+}
+.bg-box{
+  min-width:280px;max-width:min(520px,90vw);max-height:70vh;overflow-y:auto;
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);padding:4px;font-size:12px;
+}
+.bg-box .bg-head{padding:8px 10px;color:var(--text-muted);border-bottom:1px solid var(--border)}
+.bg-box .bg-empty{padding:10px;color:var(--text-muted)}
+.bg-box .bg-row{display:flex;gap:8px;align-items:baseline;padding:8px 10px;border-radius:4px;cursor:pointer}
+.bg-box .bg-row:hover{background:var(--accent-subtle)}
+.bg-box .bg-name{color:var(--text-bright);white-space:nowrap}
+.bg-box .bg-cwd{color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

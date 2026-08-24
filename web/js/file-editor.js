@@ -213,12 +213,12 @@ class FileEditor {
 
   _updateTabLabel() {
     // Update the tab data model so dirty state survives re-renders
-    const s = app._as();
+    const s = app._aw();
     if (s) {
       for (const n of (s.layout ? [s.layout] : [])) {
         const walk = n => {
           if (!n) return;
-          if (n.type === 'region' && n.tabs) {
+          if (n.type === 'pane' && n.tabs) {
             const tab = n.tabs.find(t => t.id === this.id);
             if (tab) tab.dirty = this._dirty;
           }
@@ -228,7 +228,7 @@ class FileEditor {
       }
     }
     // Also update DOM immediately for instant feedback
-    const tabEl = document.querySelector('.rt[data-tab-id="' + this.id + '"] .rt-label');
+    const tabEl = document.querySelector('.pn-tab[data-tab-id="' + this.id + '"] .pn-tab-label');
     if (tabEl) {
       tabEl.textContent = (this._dirty ? '● ' : '') + this.name;
     }
