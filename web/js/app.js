@@ -2023,18 +2023,37 @@ class App {
       const apply=()=>{
         if(!this.isMobile){
           document.body.classList.remove('keyboard-up');
+          document.body.style.paddingTop='';
           document.body.style.paddingBottom='';
           bar.style.bottom='';
           return;
         }
+        // FR-MKV-3: layout viewport 가 키보드만큼 함께 줄어드는 환경
+        // (interactive-widget=resizes-content 를 지원하는 Chromium·Firefox)에서는
+        // innerHeight 도 줄어 kbH 가 0 에 수렴하므로 이 보정이 스스로 비활성된다.
+        // 엔진 판별을 하지 않는 이유다. WebKit 은 그 키를 무시하므로 여기가 유일한 수단이다.
         const kbH=Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
         const isUp=kbH > 80;
         document.body.classList.toggle('keyboard-up', isUp);
         if(isUp){
           bar.style.bottom = kbH + 'px';
+          // FR-MKV-4: WebKit 은 포커스된 요소를 드러내려 visual viewport 를 위로
+          // 스크롤한다. 그 스크롤은 overflow:hidden 으로 막을 수 없고 레이아웃은
+          // layout viewport 좌표계에 그대로 남으므로, 상쇄하지 않으면 화면 상단
+          // (topbar)이 가시 영역 밖으로 밀린다 — 사용자가 본 증상이 이것이다.
+          //
+          // padding-top 으로 상쇄하면 body 의 content box 가
+          // [offsetTop, innerHeight-kbH-키바높이] 로 내려앉아 가시 영역 안에 정확히
+          // 들어간다. kbH 는 이미 offsetTop 을 뺀 값이므로 padding-bottom 계산은
+          // 바뀌지 않고, 키바(position:fixed, bottom:kbH)와도 틈 없이 맞물린다.
+          //
+          // transform 이 아니라 padding 인 이유: transform 은 fixed 자손의 컨테이닝
+          // 블록을 만들어 키바의 bottom 기준을 layout viewport 에서 #app 으로 바꾼다.
+          document.body.style.paddingTop = vv.offsetTop + 'px';
           document.body.style.paddingBottom = (kbH + kbH_PX()) + 'px';
         }else{
           bar.style.bottom = '';
+          document.body.style.paddingTop = '';
           document.body.style.paddingBottom = '';
         }
         // Refit terminal

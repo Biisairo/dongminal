@@ -20,7 +20,7 @@
 | C | 모바일 키바 터치 반응·수평 슬라이드 복구 + 터치 e2e 프로젝트 | **구현 완료** (`18c7f14`) |
 | D | `restoreTool` 대상 Pane 지정 (`detach --restore <toolId> --at <uuid>`) | **구현 완료** (`a906418`) |
 | E | 크로스 기기 창 포커스 소유권 동기화 | **구현 완료** (§3.5, FR-XDF-1..14) |
-| F | 모바일 키보드 표출 시 레이아웃 높이 체계 | **미착수. 골격만 — §3.6 결정 후 확정** |
+| F | 모바일 키보드 표출 시 visual viewport 스크롤 상쇄 | **구현 완료** (§3.6, FR-MKV-1..11) |
 
 완료 묶음의 구현 결과와 함정은 [USER_CHECKLIST_FIXES_HANDOFF.md](./USER_CHECKLIST_FIXES_HANDOFF.md) 에 있다.
 
@@ -225,27 +225,85 @@ Pane* 이 아니라 *브라우저가 현재 포커스한 Pane* 이 된다. 워�
 
 ### 2.8 모바일 키보드 표출 시 문서가 스크롤된다
 
-`_initMobileKeybar` 의 visualViewport 블록(`app.js:1938-1962`):
+`_initMobileKeybar` 의 visualViewport 블록(`app.js:2016-2046`):
 
 ```js
 const kbH=Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
 if(isUp){
-  bar.style.bottom = kbH + 'px';                                  // app.js:1955
-  document.body.style.paddingBottom = (kbH + kbH_PX()) + 'px';    // app.js:1956
+  bar.style.bottom = kbH + 'px';                                  // app.js:2034
+  document.body.style.paddingBottom = (kbH + kbH_PX()) + 'px';    // app.js:2035
 }
 ```
 
-`html,body{height:100%;overflow:hidden}`(`style.css:14`) + 전역
-`box-sizing:border-box`(`style.css:1`) 구조에서 body 에 `padding-bottom` 을 더하면 `#app` 의
-사용 가능 높이는 줄어든다. 그러나 **iOS Safari 는 키보드 표출 시 layout viewport 를 줄이지
-않고 visual viewport 를 위로 스크롤**한다. 이 스크롤은 `overflow:hidden` 으로 막을 수 없다.
+#### 2.8a 이 결손은 iOS 한정이 아니다 (조사 결과)
 
-결과: topbar 가 화면 밖으로 밀려 사용자가 화면을 스크롤해야 한다. `#area` 가 실제로 줄지
-않으므로 `doFit()`(`app.js:1962`)도 무효가 된다 — 요구 원문의 "탭이 줄어드는걸 감지하지
-못하는 것 같음"이 이 현상이다.
+초판은 이 항목을 "iOS Safari 의 특이 거동"으로 서술했다. **더 이상 사실이 아니다.**
+**Chrome 108 부터 Android Chrome 이 MobileSafari 에 맞춰 기본 거동을 바꿨다** — 가상
+키보드가 뜰 때 layout viewport 를 줄이지 않고 **visual viewport 만** 줄인다
+(기본값 `interactive-widget: resizes-visual`). Samsung Internet 은 Chromium 기반이므로
+(현 30 = M143) 동일하다. 즉 사용자가 쓰는 세 브라우저가 모두 같은 거동이다.
 
-`e2e/mobile-keybar.spec.ts` 의 `TC-A1`~`TC-A4` 는 `--m-kb-h` 와 `body.paddingBottom` **수치만**
-검증하므로 이 증상을 잡지 못한다.
+갈리는 것은 **복구 수단**이다.
+
+| 엔진 | 키보드 표출 시 layout viewport | `interactive-widget` |
+|---|---|---|
+| Chrome Android ≥108 | 줄지 않음 (기본 `resizes-visual`) | **지원** (108+) |
+| Samsung Internet ≥20 (Chromium ≥108) | 동일 | **지원** |
+| Firefox ≥132 | 동일 | **지원** |
+| iOS Safari | 줄지 않음 **+ visual viewport 를 스크롤** | **미지원** |
+
+`interactive-widget=resizes-content` 를 선언하면 Chromium·Firefox 는 layout viewport
+까지 줄인다 — 그러면 `innerHeight` 가 함께 줄어 `kbH ≈ 0` 이 되고 위 JS 분기는
+**스스로 비활성**이 되며 `height:100%` 사슬이 그대로 옳아진다. WebKit 은 이 키를
+무시하므로 JS 경로가 유일한 수단이다.
+
+#### 2.8b `#area` 는 실제로 줄어든다 — 초판의 서술은 틀렸다
+
+초판은 "`#area` 가 실제로 줄지 않으므로 `doFit()` 도 무효가 된다"고 적었다.
+**측정으로 반증됐다.** 전역 `box-sizing:border-box`(`style.css:1`) + `html,body{height:100%}`
+(`style.css:15`) 구조에서 body 에 `padding-bottom` 을 더하면 body 의 **content box** 가
+줄고, `#app{height:100%}`(`style.css:16`) 는 그 content box 를 기준으로 하므로
+`#app → #content → #area` 가 전부 줄어든다.
+
+실측 (390×780 뷰포트, 키보드 300px):
+
+| 상태 | `#area` 높이 |
+|---|---|
+| 키보드 없음 | 688px |
+| 키보드 표출 (`offsetTop=0`) | **388px** — 줄어든다 |
+
+따라서 **높이 권위(`height:100%`)를 교체할 필요가 없다.** 결손은 하나뿐이다.
+
+#### 2.8c 진짜 결손: `vv.offsetTop` 을 아무도 상쇄하지 않는다
+
+iOS Safari 는 포커스된 요소를 드러내기 위해 visual viewport 를 **위로 스크롤**한다
+(`vv.offsetTop > 0`). 이 스크롤은 `overflow:hidden` 으로 막을 수 없고, 레이아웃은
+layout viewport 좌표계에 그대로 있으므로 화면 상단이 가시 영역 밖으로 밀린다.
+
+실측 (같은 뷰포트, 키보드 300px, **`offsetTop=120`**):
+
+```
+가시 영역   = [120, 600]        (vv.offsetTop ~ vv.offsetTop+vv.height)
+kbH        = 780-480-120 = 180
+padBottom  = 180+38 = 218
+#app       = [0, 562]          ← 상단 120px 이 가시 영역 밖
+#topbar    = [0, 32]           ← 전체가 가시 영역 밖. 이것이 사용자가 본 증상이다
+#area      = [32, 540]
+#mobile-keybar = [562, 600]    ← 이쪽은 정확하다 (fixed, bottom:kbH)
+```
+
+`padding-top` 이 `0px` 인 것이 유일한 오차다. `padding-top = vv.offsetTop` 을 주면
+body content box 가 `[120, 562]` 로 내려와 topbar 가 `[120,152]` 에 보이고, 키바는
+계산이 바뀌지 않으므로 `[562,600]` 에 그대로 남아 **틈도 겹침도 없다.**
+
+#### 2.8d 기존 테스트가 이것을 볼 수 없는 이유
+
+`e2e/mobile-keybar.spec.ts` 의 `stubVisualViewportHeight`(`:100`)가
+**`offsetTop` 을 0 으로 고정한다**(`:105`). `TC-A1`~`TC-A4` 는 스크롤된 상태를 한 번도
+만들지 않으므로 이 결손을 원리적으로 관측할 수 없다 — 함정 7(`hasTouch:false` 에서
+`touchstart` 미발동)과 같은 구조다. 게다가 `resizes-content` 를 선언한 뒤에는 그 시뮬
+자체가 **실재하는 엔진 거동과 대응하지 않는다**(실제 Chromium 에서는 `innerHeight` 가
+함께 줄어 `kbH≈0` 이 된다). 그래서 동반 개정이 아니라 **재작성** 대상이다.
 
 ---
 
@@ -429,17 +487,79 @@ Client 가 소유자가 된다. 기기 종류·화면 크기를 구분하지 않
 2. **명시적 소유권 인수 UI** — FR-XDF-2 가 자동 획득이므로 인수 표면이 필요 없다
 3. **삭제된 Window 의 소유권 항목 청소** — 항목은 유한하고 아무것도 참조하지 않는다
 
-### 3.6 묶음 F — 모바일 키보드 뷰포트 (미확정)
+### 3.6 묶음 F — 모바일 키보드 뷰포트
 
-아래는 **골격**이다. `USER_CHECKLIST_FIXES_PLAN.md` §6.2 의 결정 F-1..F-5 를 해소한 뒤
-FR-MKV-* 로 확정한다.
+`USER_CHECKLIST_FIXES_PLAN.md` §6.2 의 결정 F-1..F-6 이 해소되어 확정됐다.
+**F-1 은 권장안(높이 권위 전면 이전)을 채택하지 않았다** — §2.8b 의 실측이 그 전제를
+반증했다. 근거는 PLAN §6.2 에 있다.
 
-- **목표 동작**: 키보드가 올라오면 터미널 영역만 줄어들고, 문서 전체가 스크롤되지 않는다
-- **높이 권위**: layout viewport(`height:100%`) → visual viewport 기반 값으로 이전
-- **iOS 상쇄**: `vv.offsetTop` 관측 기반 보정
-- **viewport meta**: `interactive-widget=resizes-content` 추가 검토 (`index.html:5`)
-- **검증 제약**: iOS 실기기 수동 검증 필수. 기존 `TC-A1`~`TC-A4` 는 수치 검증이므로
-  높이 체계 교체 시 동반 개정 대상
+#### 3.6.1 대상 브라우저
+
+**FR-MKV-1** 대상은 iOS Safari · Android Chrome · Samsung Internet 세 엔진이다 (F-6).
+세 엔진 모두 키보드 표출 시 layout viewport 를 줄이지 않으므로(§2.8a) **동일한 결손을
+공유한다.** 복구 수단만 둘로 갈린다 — Chromium 계열은 선언으로, WebKit 은 JS 로.
+
+#### 3.6.2 Chromium·Firefox 경로 (선언)
+
+**FR-MKV-2** viewport meta 에 `interactive-widget=resizes-content` 를 선언한다
+(`index.html:5`, F-3). 그러면 Chromium ≥108 · Firefox ≥132 는 layout viewport 까지
+줄이므로 `html,body{height:100%}` 사슬이 그대로 옳아진다.
+
+**FR-MKV-3** 그 환경에서 JS 보정 경로는 **스스로 비활성**이어야 한다. `innerHeight` 가
+키보드만큼 줄어 `kbH = innerHeight - vv.height - vv.offsetTop ≈ 0` 이 되고 `isUp` 이
+거짓이 되므로, 별도 분기를 두지 않는다. 엔진 판별(UA 스니핑)을 하지 않는다.
+
+#### 3.6.3 WebKit 경로 (JS 보정)
+
+**FR-MKV-4** 키보드 표출 상태에서 body 의 `padding-top` 은 `vv.offsetTop` 이어야 한다.
+이것이 §2.8c 의 유일한 결손을 메운다. 키보드 미표출 시에는 선언하지 않는다(CSS 기본값
+복원).
+
+**FR-MKV-5** `padding-bottom` 계산은 **바꾸지 않는다** — `kbH + <키바 높이>` 그대로다.
+`padding-top` 을 더해도 키바의 `bottom: kbH` 계산과 어긋나지 않는다: body 는
+`box-sizing:border-box` + `height:100%` 이므로 content box 는
+`[offsetTop, innerHeight - kbH - 키바높이]` 가 되고, 키바(fixed)는
+`[innerHeight - kbH - 키바높이, innerHeight - kbH]` 에 남아 정확히 맞물린다 (§2.8c).
+
+**FR-MKV-6** `vv.offsetTop` 은 `resize` 뿐 아니라 `scroll` 에서도 추적한다 (현행
+리스너 2종 유지). 사용자가 visual viewport 를 직접 스크롤해도 앱이 가시 영역에 고정된다.
+
+**FR-MKV-7** `window.scrollTo` 로 스크롤을 되돌리지 않는다 (F-2). 문서가
+`overflow:hidden` 이라 되돌릴 스크롤이 없고, visual viewport 의 스크롤은 그 API 의
+대상이 아니다. **관측 후 보정**만 한다.
+
+#### 3.6.4 줄어드는 대상
+
+**FR-MKV-8** 키보드 표출 시 줄어드는 것은 **터미널 영역(`#area`)뿐**이다 (F-4).
+`#topbar`(32px)·`.status-bar`(22px)·키바는 높이를 유지한다. 요구 원문("터미널 창만
+줄어들면 좋겠다") 그대로이며, `#area{flex:1}`(`style.css:100`) 구조상 이미 그렇게 된다 —
+새 규칙을 넣지 않는다.
+
+**FR-MKV-9** `#area` 축소 후 활성 터미널은 `doFit()` 으로 cols/rows 를 재계산한다
+(현행 `app.js:2041` 유지). 이것이 요구 원문의 "탭이 줄어드는걸 감지하지 못하는 것
+같음"에 대응한다 — 감지는 이미 동작하고 있었고, 보이지 않은 원인은 §2.8c 의 스크롤이었다.
+
+#### 3.6.5 검증
+
+**FR-MKV-10** 자동 검증은 `vv.height` 와 **`vv.offsetTop` 을 함께** 시뮬레이션해야
+한다. `offsetTop` 을 0 으로 고정하는 시뮬은 이 결손을 원리적으로 관측할 수 없다
+(§2.8d). 기존 `TC-A1`~`TC-A4` 는 **재작성** 대상이다 — `resizes-content` 선언 이후
+그 시뮬은 실재 엔진 거동과 대응하지 않는다.
+
+**FR-MKV-11** iOS 실기기 수동 검증이 필수다 (F-5). Chromium 에뮬레이션으로 WebKit 의
+키보드 스크롤 거동을 재현할 수 없고, Playwright 의 `webkit` 프로젝트도 가상 키보드를
+띄우지 않으므로 대체가 되지 않는다. `docs/internal/test-checklist.md` 에 항목을 둔다.
+
+#### 3.6.6 비목표 (F)
+
+1. **키보드 표출 시 상태바·topbar 숨김** — 요구 원문은 "터미널 창만 줄어들면 좋겠다"다
+   (F-4). 별건
+2. **높이 권위를 `--vvh` 로 전면 이전** — §2.8b 가 전제를 반증했다. `height:100%` 는
+   데스크톱과 `resizes-content` 환경에서 옳고, WebKit 결손은 `padding-top` 하나로 메워진다.
+   불필요한 데스크톱 리스크를 지지 않는다
+3. **UA 기반 엔진 분기** — FR-MKV-3 이 계산으로 자동 비활성되므로 필요 없다
+4. **VirtualKeyboard API**(`navigator.virtualKeyboard`) — Chromium 전용이라 WebKit 결손을
+   해결하지 못하고, `resizes-content` 와 역할이 겹친다
 
 ---
 
@@ -527,13 +647,54 @@ FR-MKV-* 로 확정한다.
 | TC-XDF-12 | FR-XDF-9 | 서버 유닛 — 구독 종료 | 소유권 해제 + 전체 맵 브로드캐스트 |
 | TC-XDF-13 | FR-XDF-14 | 자신이 소유자인 브로드캐스트 수신 | 상태 무변화 (멱등) |
 
-### 4.6 회귀 검증 (전 묶음 공통)
+### 4.6 묶음 F — 모바일 키보드 뷰포트
+
+**시뮬레이션 규약**: `vv.height` 와 `vv.offsetTop` 을 **함께** 스텁한다 (FR-MKV-10).
+`innerHeight` 는 건드리지 않는다 — layout viewport 가 줄지 않는 것이 WebKit 재현의
+핵심이다 (TC-MKV-10 만 예외로 `innerHeight` 를 함께 줄여 Chromium 경로를 재현한다).
+
+기준 수치는 e2e 의 `MOBILE_VIEWPORT`(**375×667**) · 키보드 300px · 스크롤 120px 이다.
+그때:
+
+```
+vv.height = 367        가시 영역 = [120, 487]
+kbH       = 667-367-120 = 180
+padTop    = 120        padBottom = 180+38 = 218
+#app      = [120, 449]  키바 = [449, 487]      → 틈도 겹침도 없다
+```
+
+(§2.8 의 실측은 390×780 프로브 기준이다. 비율은 같고 수치만 다르다.)
+
+**RED 전제**: TC-MKV-1 은 현행 코드에서 실패해야 한다 — `padding-top` 이 `0px` 이다.
+
+| TC | FR | 절차 | 기대 |
+|---|---|---|---|
+| TC-MKV-1 | FR-MKV-4 | `height-=300`, `offsetTop=120` 시뮬 | `body` 의 `padding-top` = `120px` |
+| TC-MKV-2 | FR-MKV-4 | 이어서 `offsetTop=0` 으로 되돌림 | `padding-top` = `0px` |
+| TC-MKV-3 | FR-MKV-4 | 키보드 해제 (`height` 복원) | `padding-top` = `0px`, `padding-bottom` = 키바 높이 |
+| TC-MKV-4 | FR-MKV-5 | `offsetTop=120` 시뮬 | `padding-bottom` = `kbH + 키바높이` = `218px`. `offsetTop` 이 이 값을 바꾸지 않는다 |
+| TC-MKV-5 | FR-MKV-4 | `offsetTop=120` 시뮬 | `#topbar` 가 가시 영역 안에 있다 — `top ≥ vv.offsetTop` |
+| TC-MKV-6 | FR-MKV-5 | `offsetTop=120` 시뮬 | 키바 상단이 `#app` 하단과 맞물린다 (틈·겹침 0). 키바가 가시 영역 하단에 닿는다 |
+| TC-MKV-7 | FR-MKV-8 | `offsetTop=120` 시뮬 | `#topbar`·`.status-bar` 높이 무변화(32/22). `#area` 만 줄어든다 |
+| TC-MKV-8 | FR-MKV-6 | `resize` 없이 `scroll` 이벤트만 발화 | `padding-top` 이 새 `offsetTop` 을 따라간다 |
+| TC-MKV-9 | FR-MKV-2 | viewport meta 파싱 | `interactive-widget=resizes-content` 를 포함한다. 기존 `viewport-fit=cover` 도 유지 |
+| TC-MKV-10 | FR-MKV-3 | `innerHeight` 가 함께 줄어든 상태(resizes-content 환경 재현: `height-=300`, `innerHeight-=300`, `offsetTop=0`) | `keyboard-up` 이 붙지 않고 `padding-top`·`padding-bottom` 인라인 값이 없다 — JS 경로가 비활성 |
+| TC-MKV-11 | FR-MKV-9 | `offsetTop=120` 시뮬 후 | 활성 터미널의 `rows` 가 축소 전보다 작다 |
+| TC-MKV-12 | 회귀 | 데스크톱 모드 | `padding-top`·`padding-bottom` 인라인 값이 없다. `#app` 높이 = `innerHeight` |
+
+**수동 검증 (iOS 실기기, FR-MKV-11)**: `docs/internal/test-checklist.md`.
+자동화로 대체할 수 없는 것 — 실제 WebKit 의 스크롤 타이밍, 그리고 보정 후 Safari 가
+다시 스크롤해 진동하지 않는지. 보정은 포커스된 textarea 를 가시 영역 안에 두므로
+Safari 가 재스크롤할 이유가 없다는 것이 설계 근거이지만(§2.8c), **이것만은 실기기로만
+확인된다.** 진동이 관측되면 `scroll` 리스너에서의 보정을 감쇠하는 것이 폴백이다.
+
+### 4.7 회귀 검증 (전 묶음 공통)
 
 | 대상 | 이유 |
 |---|---|
 | `e2e/mobile-keybar.spec.ts` TC-6 | 묶음 A 가 상태바 구조를 바꾼다 |
 | `e2e/mobile-keybar.spec.ts` TC-D1/D2/T2/T3/T4 | 묶음 C 가 같은 핸들러를 재작성한다 |
-| `e2e/mobile-keybar.spec.ts` TC-A1..A4 | 묶음 F 가 높이 체계를 교체한다 (F 착수 시 개정) |
+| `e2e/mobile-keybar.spec.ts` TC-A1..A4 | 묶음 F 가 **재작성**한다 — `offsetTop=0` 고정 시뮬은 실재 엔진 거동과 대응하지 않는다 (§2.8d) |
 | `internal/migrate` 유닛 | 묶음 B — 구 어휘가 입력이므로 일괄 치환 금지 |
 | `e2e/sync.spec.ts` | 묶음 E 가 SSE 구독 URL 에 `clientId` 를 추가한다 |
 | `internal/server` 유닛 (`commands_test.go`) | 묶음 E 가 `handleCommandSSE` 를 바꾼다 |
@@ -611,3 +772,7 @@ FR-MKV-* 로 확정한다.
 | E | 재연결 시 소유권 | (해당 없음 — 서버 상태가 없었다) | SSE `onopen` 에서 스냅샷 정렬 + OS 포커스 시 재획득 | 즉시 해제를 택한 전제다. 재획득이 없으면 `_focusWindow` 의 "소유권이 실제로 바뀔 때만 전파" 조건에 걸려 **영구히 재획득하지 못한다.** OS 포커스가 없는 기기는 주장하지 않는다 — 백그라운드 기기가 활성 기기의 PTY 크기를 빼앗아서는 안 된다 |
 | E | `_initFocusChannel` | BroadcastChannel 생성 + OS 포커스 리스너 + `beforeunload` | `_initFocusSync` — OS 포커스 리스너만 | 채널이 없어졌으므로 이름의 "Channel" 이 사실과 어긋난다. 전파는 `_focusClaim`(송신)과 `window_focus` SSE 분기(수신)로 분리했다 |
 | E | SSE 구독 URL | `/api/commands/sse` | `/api/commands/sse?clientId=<id>` | `cmdSub` 에 신원이 없어 구독 해제와 소유권 해제를 이을 수 없었다. 쿼리 파라미터는 기존 payload 규약과 `CommandBroker` 인터페이스를 건드리지 않는다. `clientId` 없는 구독도 그대로 동작한다 (소유권 결선만 없음) |
+| F | viewport meta | `width=device-width, initial-scale=1.0, viewport-fit=cover` | `interactive-widget=resizes-content` 추가 | Chrome 108 이 기본값을 `resizes-visual` 로 바꿔 Android Chrome·Samsung Internet 도 layout viewport 를 줄이지 않게 됐다. 이 선언으로 Chromium·Firefox 는 layout viewport 까지 줄이므로 `height:100%` 사슬이 그대로 옳아지고, `innerHeight` 가 함께 줄어 JS 보정이 스스로 비활성된다 (UA 스니핑 불필요) |
+| F | 키보드 표출 시 `body` padding | `padding-bottom` 만 (`kbH + 키바높이`) | `padding-top = vv.offsetTop` 추가. `padding-bottom` 은 무변경 | WebKit 은 포커스된 요소를 드러내려 visual viewport 를 스크롤하는데(`vv.offsetTop > 0`) 아무도 상쇄하지 않아 `#topbar` 전체가 가시 영역 밖으로 밀렸다. 실측: 가시 영역 `[120,600]` 인데 `#app` 이 `[0,562]` 였다 (§2.8c) |
+| F | 높이 권위 | `html,body{height:100%}` | **무변경** | 초판 계획은 `--vvh` 전면 이전이었으나 §2.8b 의 측정이 전제를 반증했다 — `#area` 는 이미 688→388px 로 줄고 있었다. 교체는 데스크톱 경로까지 위험에 넣으면서 아무것도 더 고치지 못한다. `web/style.css` 는 한 줄도 바꾸지 않았다 |
+| F | 키보드 시뮬 e2e | `TC-A1`~`TC-A4` — `vv.height` 만 스텁, `offsetTop` 은 0 고정 | `TC-MKV-1..12` — `vv.height`·`vv.offsetTop` 을 함께 스텁 | `offsetTop=0` 고정 시뮬은 이 결손을 원리적으로 관측할 수 없었다(함정 7 과 같은 구조). 게다가 `resizes-content` 선언 이후 그 시뮬은 실재하는 어떤 엔진 거동과도 대응하지 않는다 — 동반 개정이 아니라 재작성이 필요했다 (§2.8d) |

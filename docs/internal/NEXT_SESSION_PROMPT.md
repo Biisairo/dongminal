@@ -4,91 +4,39 @@
 
 | 트랙 | 남은 작업 | 인계 문서 |
 |---|---|---|
-| **1. 사용자 확인 피드백** | 묶음 F(모바일 키보드 뷰포트) — E 는 완료 | [USER_CHECKLIST_FIXES_HANDOFF.md](./USER_CHECKLIST_FIXES_HANDOFF.md) |
+| ~~1. 사용자 확인 피드백~~ | **완료** — 8개 항목 전부. iOS 실기기 수동 확인만 남음 | [USER_CHECKLIST_FIXES_HANDOFF.md](./USER_CHECKLIST_FIXES_HANDOFF.md) |
 | **2. AI 오케스트레이션** | 요구 3 — `RUN_ORCHESTRATION_SRS` 작성 + 구현 | [ENTITY_MODEL_HANDOFF.md](./ENTITY_MODEL_HANDOFF.md) |
 
-트랙 1 이 사용자 실사용에서 나온 항목이라 우선순위가 높다. 트랙 2 는 규모가 크고
-착수 전 결정(worktree 격리 정책)이 남아 있다.
+**트랙 1 은 완료됐다.** 남은 것은 트랙 2 하나이며, 규모가 크고 착수 전 결정
+(worktree 격리 정책)이 남아 있다.
 
-묶음 E(크로스 기기 포커스)는 완료·커밋됐다 (`854ada6`) — `BroadcastChannel` 을 서버 권위로
-옮겼고 `internal/server/focus.go` · `/api/focus` · SSE `window_focus` 가 그 결과다.
-포커스 소유권이 이제 서버 상태이므로 어느 트랙이든 그것을 전제로 시작하라.
+**트랙 1 에서 유일하게 남은 것은 사용자의 iOS 실기기 확인이다** (묶음 F,
+`test-checklist.md` C11.8~C11.10). 자동 검증으로 대체할 수 없다 — Playwright 의
+`webkit` 프로젝트조차 가상 키보드를 띄우지 않는다. 코드 작업은 없다.
 
 ---
 
-## 트랙 1 — 사용자 확인 피드백: 묶음 F
+## 트랙 1 — 사용자 확인 피드백: **완료**
 
-```
-dongminal 의 user_checklist 대응에서 묶음 F(모바일 키보드 뷰포트)를 진행한다.
-묶음 A~E 는 완료됐다.
+붙여넣을 프롬프트는 없다. `user_checklist.md` 8개 항목이 전부 닫혔다.
 
-**먼저 이 세 문서를 읽어라. 순서대로.** (개발자 문서 전체 색인은
-`docs/internal/README.md`, 완료된 과거 SRS·RFC 는 `docs/internal/archive/` 에
-있고 갱신하지 않는다.)
+| 묶음 | 커밋 |
+|---|---|
+| A 백그라운드 UI 일관화 | `eec0ddd` |
+| B 마이그레이션 진입점 | `e6463e1` |
+| C 모바일 키바 터치 | `18c7f14` |
+| D 복귀 대상 Pane 지정 | `a906418` |
+| E 크로스 기기 창 포커스 | `854ada6` |
+| F 모바일 키보드 뷰포트 | (미커밋) |
 
-1. `docs/internal/USER_CHECKLIST_FIXES_HANDOFF.md` — 인계 문서.
-   A~E 완료 내역, **반복하면 안 되는 함정 12개**(전부 실제로 밟은 것이다),
-   검증 방법, 미해결 항목
-2. `docs/internal/USER_CHECKLIST_FIXES_SRS.md` — 단일 진실 공급원 (IEEE 29148).
-   §2.8 이 F 의 근본 원인, §3.6 은 **골격만** 이다
-3. `docs/internal/USER_CHECKLIST_FIXES_PLAN.md` — §6.2 에 착수 전 해소할 결정
-   5건과 각각의 권장안. §6.1(묶음 E)은 해소 완료 기록이니 결정 방식의 예로 읽어라
+남은 것은 **사용자의 iOS 실기기 수동 확인** 하나다 (`test-checklist.md`
+C11.8~C11.10). 특히 묶음 F 의 보정이 Safari 와 진동하지 않는지 — 진동이 관측되면
+폴백은 `scroll` 리스너에서의 보정 감쇠이고, 그 판단 근거는
+`USER_CHECKLIST_FIXES_HANDOFF.md` §2 묶음 F 절에 있다.
 
-**현재 상태**
-
-- 묶음 A~E 완료. 커밋 `9c3b87c`(스펙) `eec0ddd`(A) `e6463e1`(B) `18c7f14`(C)
-  `a906418`(D) `854ada6`(E)
-- `go build`·`go vet`·`go test` 전부 깨끗, `gofmt -l` 0건
-- Playwright **153 통과** — 프로젝트가 둘이다: `chromium`(Desktop Chrome,
-  `-touch.spec.ts` 제외) 143 + `mobile-touch`(Pixel 7, `hasTouch:true`,
-  `-touch.spec.ts` 전용) 10.
-  **단 전량 통과는 결정론적이지 않다** — 스위트 레벨 산발 실패가 약 4~5회 중 1회
-  난다 (묶음 E 와 무관하며 깨끗한 트리에서도 같은 비율이다). 후보는 `TC-BGU-9b`.
-  네 변경 탓으로 오해하지 마라. 좁히는 방법은 인계 문서 §6 에 있다
-- `bash scripts/test_migrate.sh` 28 통과
-
-**이번 세션의 작업**
-
-묶음 F 는 **리스크 HIGH 이고 스펙이 골격만 있다.** 구현 전에 PLAN §6.2 의 결정
-5건을 해소하고 FR-MKV-* 를 확정하라.
-
-**F 착수 전 반드시 해소할 결정** (PLAN §6.2):
-
-높이 권위를 visual viewport 로 옮기는 방식, iOS 강제 스크롤 상쇄 방법,
-`interactive-widget=resizes-content` 추가 여부, 줄일 대상 범위, 검증 수단.
-각각 권장안이 PLAN 에 있으니 사용자와 확인하고 확정하라.
-
-F 가 위험한 이유: 레이아웃 높이의 단일 진실 공급원(`html,body{height:100%}`,
-`style.css:14`)을 교체하므로 데스크톱 경로까지 영향한다. **iOS 실기기 수동 확인이
-필수다** — Chromium 에뮬레이션으로 iOS 의 layout viewport 고정 거동을 재현할 수
-없다. 기존 `e2e/mobile-keybar.spec.ts` 의 `TC-A1`~`TC-A4` 는 `--m-kb-h` 와
-`body.paddingBottom` 수치만 검증하므로 높이 체계를 바꾸면 동반 개정 대상이다.
-
-**작업 규약**
-
-- 중·대 규모는 스펙 → 테스트 → 코드 순서를 지킨다. 신규 동작은 **RED 를 먼저
-  확인한다.** 구현을 먼저 했다면 `git stash push <file>` 로 되돌려 실패를 확인하라
-  — 묶음 E 에서 이 방법으로 신규 스펙 11개가 서버 변경만으로는 통과하지 않는다는
-  것(즉 테스트가 실제로 결함을 잡는다는 것)을 확인했다
-- 인계 문서 §4 의 함정 12개를 착수 전에 읽어라. F 에서 특히 유효한 것은
-  7(`hasTouch:false` 에서 `touchstart` 미발동)과 4(캐시 버스터가 CSS·JS 두 종류
-  — F 는 **CSS 쪽**을 건드리므로 `style.css?v=N` 을 올려야 한다)
-- 터치·모바일 동작은 `mobile-touch` 프로젝트에서 검증한다. 새 터치 스펙은
-  파일명을 `*-touch.spec.ts` 로 해야 그 프로젝트가 집어간다
-- 심볼 작업은 LSP → Serena → CLI 순. 단 **Serena 는 이 프로젝트에서 `web/js/` 를
-  편집할 수 없다** (무시 경로, 함정 12). `gopls` 가 PATH 에 없으면
-  `ln -sf ~/go/bin/gopls ~/.local/bin/gopls`
-- 커밋은 사용자 확인 후에만. 커밋 메시지에 AI 서명 금지
-- e2e 결과가 이상하면 코드를 의심하기 전에 PTY 를 확인하라:
-  `ps -eo tty | awk '$1 ~ /^ttys/' | sort -u | wc -l` (상한 511)
-
-**건드리면 안 되는 것**
-
-- 리포 루트의 `./dongminal` — 실행 중인 서버의 실행 파일이다. 테스트가
-  삭제·재빌드하면 운영 인스턴스를 바꾼다. 격리 산출물을 써라
-- `~/.dongminal` — 여전히 v1 스키마다. **직접 마이그레이션하거나 재기동하지 마라.**
-  절차는 인계 문서 §6 에 있고 사용자 판단이다
-```
+이 트랙에서 나온 **함정 15개**는 `USER_CHECKLIST_FIXES_HANDOFF.md` §4 에 있다.
+트랙 2 착수 전에 읽어라 — 특히 13(브라우저 기본값은 바뀐다)·14(레이아웃 가설은
+측정으로 확인)·12(Serena 가 `web/js/` 를 편집할 수 없다)는 묶음에 무관하게 유효하다.
 
 ---
 
@@ -110,14 +58,15 @@ dongminal 의 요구 3(AI 오케스트레이션)을 진행한다. 요구 1(구�
 **현재 상태**
 
 - P1~P8 완료. `go build`·`go test`·`go vet` 전부 깨끗, `gofmt -l` 0건
-- Playwright **153 통과** (프로젝트 2개: `chromium` 143 + `mobile-touch` 10)
+- Playwright **161 통과** (프로젝트 2개: `chromium` 151 + `mobile-touch` 10)
 - 확정 모델: 공간 축 `Client ▶ Window ─ Pane ─ Tab ─ Tool`,
   실행 축 `Run ─ Member ──1:1──▶ Tool` (직교, 접합 필드만 구현됨)
 - 도구 타입은 `terminal` 과 `editor` 두 가지다. code-server 통합과 markdown
   뷰어는 `8dc0a3f` 에서 제거됐다
-- **별 트랙으로 user_checklist 묶음 A~E 가 완료됐다.** 상태바·백그라운드 모달·
-  모바일 키바 터치·`detach --restore --at` 이 그 결과다. 묶음 F 만 미착수이며
-  `docs/internal/USER_CHECKLIST_FIXES_HANDOFF.md` 에 인계되어 있다
+- **별 트랙 user_checklist 는 A~F 전부 완료됐다.** 상태바·백그라운드 모달·
+  모바일 키바 터치·`detach --restore --at`·크로스 기기 포커스·모바일 키보드
+  뷰포트가 그 결과다. `docs/internal/USER_CHECKLIST_FIXES_HANDOFF.md` 에 함정
+  15개와 함께 정리되어 있다
 - **묶음 E 가 `internal/server` 와 포커스 소유권을 바꿨다 (`854ada6`).** 창 포커스
   소유권이 `BroadcastChannel` → 서버 권위(`internal/server/focus.go`)로 옮겨졌고,
   `/api/focus`·`/api/focus/claim`·SSE `window_focus`·`/api/commands/sse?clientId=`

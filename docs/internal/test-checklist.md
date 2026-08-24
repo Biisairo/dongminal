@@ -356,10 +356,29 @@
 | C11.5 | **키바 터치 경로** — 짧은 탭이 키 전송, 한 제스처 = 1회 발동 | `hasTouch:true` 프로젝트 필수. `touchstart` 의 `preventDefault()` 는 합성 click 을 취소해 마우스 경로 테스트로는 결함이 보이지 않는다 |
 | C11.6 | **키바 수평 슬라이드** — 버튼 위에서 시작한 스와이프 | 이동 임계값(`MKB_TAP_SLOP_PX`) 초과 시 키 미전송 |
 | C11.7 | 롱프레스 툴팁 — 손떨림 내성 | 임계값 미만 이동은 롱프레스 유지 |
+| C11.8 | **키보드 표출 시 터미널만 줄어든다** — 문서가 스크롤되지 않는다 | `#topbar` 가 화면 밖으로 밀리지 않는다. `#area` 만 줄고 topbar(32px)·상태바(22px)·키바(38px)는 높이 유지 |
+| C11.9 | **키바가 키보드 바로 위에 붙는다** | `#app` 하단과 키바 상단 사이에 틈·겹침이 없다 |
+| C11.10 | **키보드 해제 후 원상 복구** | `padding-top`·`padding-bottom` 인라인 값이 사라지고 레이아웃이 되돌아온다 |
 
-**iOS Safari 수동 확인** (자동화 불가 — Chromium 터치 에뮬레이션으로 대체할 수
-없다): C11.5~C11.7 을 실기기에서 한 번 더 확인한다. 특히 합성 click 타이밍과
-`touch-action:manipulation` 의 더블탭 확대 차단.
+#### 실기기 수동 확인 (자동화 불가)
+
+**터치 경로 (C11.5~C11.7)** — Chromium 터치 에뮬레이션으로 대체할 수 없다. 합성 click
+타이밍과 `touch-action:manipulation` 의 더블탭 확대 차단을 실기기에서 확인한다.
+
+**키보드 뷰포트 (C11.8~C11.10)** — 세 엔진의 거동이 갈리므로 **엔진별로** 확인한다
+(SRS §2.8a).
+
+| 엔진 | 확인 대상 | 왜 |
+|---|---|---|
+| **iOS Safari** | C11.8~C11.10 **전부.** 특히 키보드가 뜬 직후 topbar 가 보이는지 | `interactive-widget` 미지원이라 JS 보정(`padding-top = vv.offsetTop`)이 유일한 수단이다. Playwright `webkit` 프로젝트는 가상 키보드를 띄우지 않으므로 대체가 안 된다 |
+| **Android Chrome** | C11.8~C11.10 | `interactive-widget=resizes-content` 로 layout viewport 가 줄어드는 경로. JS 보정은 비활성이어야 한다 |
+| **Samsung Internet** | C11.8~C11.10 | Chromium 기반이므로 Chrome 과 같아야 한다. 다르면 그 버전의 Chromium 이 108 미달인지 확인한다 |
+
+**iOS 에서 특히 볼 것 — 진동(oscillation).** 보정은 포커스된 textarea 를 가시 영역 안에
+두므로 Safari 가 다시 스크롤할 이유가 없다는 것이 설계 근거다(SRS §2.8c). 그러나
+Safari 의 스크롤 휴리스틱은 실기기로만 확인된다. 화면이 미세하게 떨거나 topbar 가
+들락날락하면 진동이며, 그때의 폴백은 `scroll` 리스너에서의 보정을 감쇠하는 것이다
+(`resize` 에서만 보정). 자동 테스트로는 이 현상을 볼 수 없다.
 
 ### C12. 파일 업로드/다운로드 (web/js/app.js)
 | # | 동작 | 엣지/실패 케이스 |

@@ -20,7 +20,7 @@
 | 오류 2 | 모바일 키바 터치 무반응 · 슬라이드 불가 | **C** | FR-MTB-1..7 |
 | 확인 1 | 백그라운드 복귀 대상 pane 지정 불가 | **D** | FR-BGR-1..6 |
 | 오류 3 | 외부 기기 접속 시 off-focus 미동작 | **E** | FR-XDF-1..14 |
-| 수정 4 | 모바일 키보드 표출 시 화면 스크롤 발생 | **F** | FR-MKV-* (미확정) |
+| 수정 4 | 모바일 키보드 표출 시 화면 스크롤 발생 | **F** | FR-MKV-1..11 |
 
 **확인 1 은 "정상 동작"으로 판정됐다** (FR-BG-7 명세대로 동작). 사용자 제안에 따라 기능
 확장(대상 지정)으로 전환해 묶음 D 가 됐다.
@@ -33,7 +33,7 @@ A ─┬─▶ D        A 가 _restoreTool 호출 경로를 건드리므로 D �
 B ─┘  (독립)
 C     (독립)
 E     (스펙 확정 — §6.1 결정 7건 해소)
-F     (스펙 인터뷰 필요)
+F     (스펙 확정 — §6.2 결정 6건 해소)
 ```
 
 | 순서 | 묶음 | 규모 | 게이트 | 상태 |
@@ -43,7 +43,7 @@ F     (스펙 인터뷰 필요)
 | 3 | C — 모바일 키바 터치 | 소 | 스펙 확정 + `hasTouch` e2e 프로젝트 | **완료** `18c7f14` |
 | 4 | D — 복귀 대상 지정 | 소~중 | **FR-BG-7/8 개정 선행** | **완료** `a906418` |
 | 5 | E — 크로스 기기 포커스 | 중 | ~~인터뷰 → 스펙 확정~~ **해소 완료** (§6.1) | **완료** `854ada6` |
-| 6 | F — 모바일 키보드 뷰포트 | 중 | **인터뷰 → 스펙 확정** (§6.2) | 미착수 |
+| 6 | F — 모바일 키보드 뷰포트 | 중 | ~~인터뷰 → 스펙 확정~~ **해소 완료** (§6.2) | **완료** (미커밋) |
 
 B 는 구현 중 §2.5a 의 실패 양식을 만나 FR-MIG-3 개정 + FR-MIG-6/7 신설로
 범위가 늘었다. C 는 `hasTouch:true` 프로젝트 신설이 전제였고 그대로 수행했다.
@@ -108,16 +108,16 @@ A→D 의존성 근거: A 가 `_bgPopoverRender` 를 모달로 대체하며 항�
 | 연관 | `README.md` TODO "focused browser 자동 동기화" 와 동일 뿌리 |
 | 게이트 | ~~§6.1 결정 5건~~ **7건 해소 완료.** SRS §3.5 FR-XDF-1..14 확정 |
 
-### 4.6 묶음 F — 모바일 키보드 뷰포트 (스펙 미확정)
+### 4.6 묶음 F — 모바일 키보드 뷰포트 (스펙 확정)
 
 | 항목 | 내용 |
 |---|---|
-| 근본 원인 | iOS Safari 는 키보드 표출 시 layout viewport 를 줄이지 않고 visual viewport 를 스크롤한다. body padding 보정으로는 상쇄 불가 |
-| 영향 범위 | `web/style.css` 높이 체계, `web/index.html` viewport meta, `web/js/app.js` visualViewport 블록 |
+| 근본 원인 | 세 엔진 모두 키보드 표출 시 layout viewport 를 줄이지 않는다 (Chrome 108 이 기본값을 바꿨다). WebKit 은 추가로 visual viewport 를 스크롤하는데 `vv.offsetTop` 을 아무도 상쇄하지 않는다 |
+| 영향 범위 | `web/index.html` viewport meta, `web/js/app.js` visualViewport 블록, `e2e/mobile-keybar.spec.ts` TC-A 재작성. **`web/style.css` 는 무변경** |
 | 규모 | 중 |
-| 리스크 | **HIGH** — 레이아웃 높이의 단일 진실 공급원을 교체한다. 데스크톱 경로까지 영향 |
+| 리스크 | **MEDIUM** (초판 HIGH 에서 하향) — 높이 권위를 교체하지 않기로 확정했으므로 데스크톱 경로가 영향받지 않는다 (§6.2 F-1). 남은 위험은 실기기 WebKit 거동 하나다 |
 | 검증 제약 | **iOS 실기기 수동 검증 필수.** Playwright/CDP 로 iOS 의 layout viewport 고정 거동을 재현할 수 없다 |
-| 게이트 | §6.2 결정 5건 해소 후 스펙 확정 |
+| 게이트 | ~~§6.2 결정 5건~~ **6건 해소 완료.** SRS §3.6 FR-MKV-1..11 확정 |
 
 ## 5. 공통 완료 정의 (묶음 단위)
 
@@ -159,15 +159,37 @@ A→D 의존성 근거: A 가 `_bgPopoverRender` 를 모달로 대체하며 항�
 크로스 기기 프록시는 `browser.newContext()`(`e2e/sync.spec.ts` 패턴) — `BroadcastChannel`
 스코프와 `clientId` 가 모두 격리된다.
 
-### 6.2 묶음 F
+### 6.2 묶음 F — **해소 완료.** SRS §3.6 (FR-MKV-1..11) 로 확정됐다
 
-| # | 결정 사항 | 권장안 |
-|---|---|---|
-| F-1 | 높이 권위 — `--vvh`(visualViewport.height) 전면 이전 vs 키보드 상태만 별도 처리 | **전면 이전.** 부분 처리는 현재 body padding 해킹의 재판이 된다 |
-| F-2 | iOS 강제 스크롤 상쇄 방법 | `vv.offsetTop` 관측 + 컨테이너 보정. `window.scrollTo` 반복은 스크롤 경합을 만든다 |
-| F-3 | viewport meta 에 `interactive-widget=resizes-content` 추가 여부 | **추가.** Android 경로가 단순해진다. 단 기존 TC-A1..A4 가 깨지므로 동반 개정 |
-| F-4 | 키보드 표출 시 줄일 대상 — 터미널 영역만 vs 상태바까지 숨김 | **터미널 영역만** (요구 원문 그대로). 상태바 숨김은 별건 |
-| F-5 | 검증 수단 | 자동화 가능 범위(Android/Chrome 경로)는 e2e, iOS 는 `docs/internal/test-checklist.md` 에 수동 항목 추가 |
+착수 전 조사에서 **초판의 전제 두 개가 무너졌다.** 결정 내용이 그에 따라 바뀌었다.
+
+**(1) 이 결손은 iOS 한정이 아니다.** Chrome 108 이 MobileSafari 에 맞춰 기본 거동을
+바꿨다 — 가상 키보드가 뜰 때 layout viewport 를 줄이지 않고 visual viewport 만 줄인다
+(`interactive-widget: resizes-visual` 기본). Samsung Internet 도 Chromium 이므로
+동일하다. 사용자가 쓰는 세 브라우저가 모두 같은 거동이다 (SRS §2.8a).
+
+**(2) `#area` 는 이미 줄어든다.** SRS 초판의 "`#area` 가 실제로 줄지 않아 `doFit()` 도
+무효" 라는 서술은 **측정으로 반증됐다** (SRS §2.8b). 390×780 · 키보드 300px 에서
+`#area` 는 688px → 388px 로 줄어든다. `box-sizing:border-box` + `height:100%` 구조에서
+body 의 `padding-bottom` 이 content box 를 줄이고 `#app{height:100%}` 가 그것을
+기준으로 하기 때문이다. **따라서 높이 권위를 교체할 이유가 없다.**
+
+진짜 결손은 하나다 — `vv.offsetTop` 을 아무도 상쇄하지 않는다. 실측
+(`offsetTop=120`): 가시 영역 `[120,600]` 인데 `#app` 은 `[0,562]` 라 `#topbar`
+전체(`[0,32]`)가 화면 밖이다. 이것이 사용자가 본 증상이다 (SRS §2.8c).
+
+| # | 결정 사항 | 확정 | 근거 |
+|---|---|---|---|
+| F-1 | 높이 권위 — `--vvh` 전면 이전 vs 키보드 상태만 별도 처리 | **권장안 미채택.** `height:100%` 를 유지하고 `padding-top = vv.offsetTop` 하나만 더한다 | 권장안의 전제("부분 처리는 padding 해킹의 재판")가 §2.8b 로 반증됐다. padding 사슬은 해킹이 아니라 실제로 `#area` 를 줄이고 있었고, 빠진 것은 `padding-top` 한 줄이다. 전면 이전은 데스크톱 경로까지 위험에 넣으면서 아무것도 더 고치지 못한다 → FR-MKV-4/5, 비목표 2 |
+| F-2 | iOS 강제 스크롤 상쇄 방법 | **`vv.offsetTop` 관측 + body `padding-top`** (권장안의 방향) | `window.scrollTo` 는 애초에 수단이 못 된다 — 문서가 `overflow:hidden` 이라 되돌릴 스크롤이 없고 visual viewport 스크롤은 그 API 대상이 아니다. `padding-top` 은 `transform` 과 달리 fixed 자손의 컨테이닝 블록을 만들지 않아 키바(`position:fixed`)를 깨지 않는다 → FR-MKV-4/6/7 |
+| F-3 | viewport meta 에 `interactive-widget=resizes-content` 추가 여부 | **추가** (권장안) | Chromium ≥108 · Firefox ≥132 가 layout viewport 까지 줄여 `height:100%` 사슬이 그대로 옳아진다. WebKit 은 이 키를 미지원이라 JS 경로가 유일하다. 부수 효과가 좋다 — Chromium 에서는 `innerHeight` 가 함께 줄어 `kbH≈0` 이 되어 **JS 경로가 스스로 비활성**이 되므로 UA 스니핑이 필요 없다 → FR-MKV-2/3 |
+| F-4 | 키보드 표출 시 줄일 대상 | **터미널 영역만** (권장안) | 요구 원문 그대로. `#area{flex:1}` 구조상 이미 그렇게 되므로 새 규칙이 필요 없다 → FR-MKV-8 |
+| F-5 | 검증 수단 | **시뮬 e2e + iOS 실기기 수동** (권장안) | 단 시뮬 규약을 고쳐야 한다 — 기존 `stubVisualViewportHeight` 는 `offsetTop` 을 0 으로 고정해 이 결손을 원리적으로 관측할 수 없다(함정 7 과 같은 구조). Playwright `webkit` 프로젝트는 대체가 안 된다 — 가상 키보드를 띄우지 않는다 → FR-MKV-10/11 |
+| **F-6** | **대상 브라우저 매트릭스** (본 문서 초판에 없던 결정. 사용자 확인) | **iOS Safari · Android Chrome · Samsung Internet** | 사용자 환경이 "사파리, 삼성 브라우저, 크롬 등 다양". 초판은 iOS 만 상정해 Chromium 경로를 "단순해진다" 정도로 다뤘으나, 실제로는 세 엔진이 같은 결손을 공유한다 → FR-MKV-1 |
+
+**기존 TC-A1..A4 는 동반 개정이 아니라 재작성이다.** `resizes-content` 선언 이후
+`offsetTop=0` 고정 시뮬은 실재하는 어떤 엔진 거동과도 대응하지 않는다 — 실제
+Chromium 에서는 `innerHeight` 가 함께 줄어 `kbH≈0` 이 된다 (SRS §2.8d).
 
 ## 7. 문서 갱신 대상
 
@@ -179,5 +201,5 @@ A→D 의존성 근거: A 가 `_bgPopoverRender` 를 모달로 대체하며 항�
 | `docs/external/features.md` | A, D | 배지 → 버튼, 팝오버 → 모달, 복귀 대상 지정 |
 | `docs/internal/architecture.md` | B | `dongminal migrate` → `scripts/migrate.sh` |
 | `docs/internal/ENTITY_MODEL_HANDOFF.md` | B | 동일 |
-| `docs/internal/test-checklist.md` | C, F | 실기기 수동 검증 항목 |
+| `docs/internal/test-checklist.md` | C, F | 실기기 수동 검증 항목 — F 는 **엔진별**(iOS Safari·Android Chrome·Samsung Internet)로 나눴다 (C11.8~C11.10) |
 | `README.md` | B | 스크립트 목록에 `migrate.sh` |

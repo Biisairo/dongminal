@@ -14,20 +14,21 @@
 | **C** | 모바일 키바 터치 | **완료** | `18c7f14` |
 | **D** | 복귀 대상 Pane 지정 | **완료** | `a906418` |
 | **E** | 크로스 기기 창 포커스 | **완료** | `854ada6` |
-| **F** | 모바일 키보드 뷰포트 | **미착수** — 스펙 골격만 | — |
+| **F** | 모바일 키보드 뷰포트 | **완료** | (미커밋) |
 
-검증 상태 (A~E 완료 시점 실측):
+검증 상태 (A~F 완료 시점 실측):
 
 ```
 go build ./...        깨끗
 go vet ./...          경고 0
 gofmt -l internal/ cmd/   0건
 go test ./...         전량 통과
-npx playwright test   153 통과 (chromium 143 + mobile-touch 10)
+npx playwright test   161 통과 (chromium 151 + mobile-touch 10)
 bash scripts/test_migrate.sh   28 통과
 ```
 
-묶음 E 의 신규 스펙(`e2e/focus-owner.spec.ts` 11개)은 3회 반복 실행 전부 통과했다.
+묶음 E 의 신규 스펙(`e2e/focus-owner.spec.ts` 11개)과 묶음 F 의 재작성 스펙
+(`e2e/mobile-keybar.spec.ts` TC-MKV-1..12)은 전량 실행 3회 연속 통과했다.
 
 **단, `npx playwright test` 전량 통과는 결정론적이지 않다** — 스위트 레벨 산발 실패가
 있다. §6 을 읽어라.
@@ -125,30 +126,59 @@ bash scripts/test_migrate.sh   28 통과
 를 기록했다. `ENTITY_MODEL_RESTRUCTURE_SRS` 의 비목표 "다중 창 포커스 소유권 부채
 정리" 를 부분 해소로 갱신하고, `README.md` TODO 의 현행 동작 서술을 정정했다.
 
+### 묶음 F — 모바일 키보드 뷰포트 (미커밋)
+
+**조사가 계획의 전제 두 개를 무너뜨렸다.** 그래서 구현이 계획보다 훨씬 작아졌다.
+
+**(1) iOS 한정이 아니다.** Chrome 108 이 MobileSafari 에 맞춰 기본 거동을 바꿨다 —
+가상 키보드가 뜰 때 layout viewport 를 줄이지 않고 visual viewport 만 줄인다
+(`interactive-widget: resizes-visual` 기본). Samsung Internet 도 Chromium(현 30 = M143)
+이므로 동일하다. **사용자가 쓰는 세 브라우저가 모두 같은 결손을 공유한다.**
+
+**(2) `#area` 는 이미 줄어들고 있었다.** SRS 초판의 "`#area` 가 실제로 줄지 않아
+`doFit()` 도 무효" 는 **측정으로 반증됐다.** 390×780 · 키보드 300px 에서 `#area` 는
+688 → 388px 로 줄어든다. `box-sizing:border-box` + `body{height:100%}` 에서
+`padding-bottom` 이 body 의 content box 를 줄이고 `#app{height:100%}` 가 그것을 기준으로
+하기 때문이다. **따라서 높이 권위를 교체할 이유가 없었다** — `web/style.css` 는 한 줄도
+바꾸지 않았다.
+
+진짜 결손은 하나였다. 실측(`offsetTop=120`): 가시 영역 `[120,600]` 인데 `#app` 이
+`[0,562]` 라 `#topbar` 전체(`[0,32]`)가 화면 밖이었다. **`vv.offsetTop` 을 아무도
+상쇄하지 않았다.**
+
+| 요구 | 결과 |
+|---|---|
+| FR-MKV-2/3 | viewport meta 에 `interactive-widget=resizes-content`. Chromium·Firefox 는 layout viewport 까지 줄고, `innerHeight` 가 함께 줄어 **JS 경로가 스스로 비활성**된다 (UA 스니핑 없음) |
+| FR-MKV-4/5 | `body.style.paddingTop = vv.offsetTop`. `padding-bottom` 계산은 무변경 — `kbH` 가 이미 `offsetTop` 을 뺀 값이라 키바(`bottom:kbH`)와 틈 없이 맞물린다 |
+| FR-MKV-6/7 | `resize`·`scroll` 리스너 2종 유지. `window.scrollTo` 는 쓰지 않는다 — 문서가 `overflow:hidden` 이라 되돌릴 스크롤이 없고 visual viewport 스크롤은 그 API 대상이 아니다 |
+| FR-MKV-8/9 | 줄어드는 것은 `#area` 뿐 (`flex:1` 구조상 이미 그렇다). `doFit()` 유지 |
+| FR-MKV-10/11 | 시뮬 규약 교체 + iOS 실기기 수동 항목 |
+
+**`transform` 대신 `padding` 인 이유**: `transform` 은 `position:fixed` 자손의 컨테이닝
+블록을 만든다. `#mobile-keybar` 가 `#app` 안의 fixed 요소이므로, `#app` 에 transform 을
+걸면 키바의 `bottom` 기준이 layout viewport 에서 `#app` 으로 바뀌어 위치 계산이 깨진다.
+`padding` 은 그 부작용이 없다.
+
+**리스크가 HIGH → MEDIUM 으로 내려갔다.** 높이 권위를 교체하지 않으므로 데스크톱
+경로가 영향받지 않는다 (TC-MKV-12 가 지킨다). 남은 위험은 실기기 WebKit 거동 하나다.
+
+**iOS 실기기 확인이 남아 있다** — 자동화로 닫을 수 없다. `test-checklist.md`
+C11.8~C11.10 에 엔진별로 나눠 뒀고, 특히 **진동(oscillation)** 을 보라고 적었다.
+보정은 포커스된 textarea 를 가시 영역 안에 두므로 Safari 가 재스크롤할 이유가 없다는
+것이 설계 근거이지만, Safari 의 휴리스틱은 실기기로만 확인된다. 진동이 보이면 폴백은
+`scroll` 리스너에서의 보정을 감쇠하는 것(`resize` 에서만 보정)이다.
+
 ## 3. 남은 작업
 
-### 묶음 F — 모바일 키보드 뷰포트
+없다. 묶음 A~F 전부 완료다. `user_checklist.md` 8개 항목이 모두 닫혔다.
 
-**근본 원인** (SRS §2.8): iOS Safari 는 키보드 표출 시 layout viewport 를 줄이지
-않고 visual viewport 를 스크롤한다. `body.style.paddingBottom`(`app.js:1956`)으로는
-상쇄할 수 없고 `overflow:hidden` 으로 막을 수도 없다. `#area` 가 실제로 줄지 않아
-`doFit()`(`app.js:1962`)도 무효가 된다.
-
-**리스크 HIGH** — 레이아웃 높이의 단일 진실 공급원(`html,body{height:100%}`,
-`style.css:14`)을 교체한다. 데스크톱 경로까지 영향한다.
-
-**검증 제약**: iOS 실기기 수동 확인이 필수다. Chromium 터치 에뮬레이션으로
-iOS 의 layout viewport 고정 거동을 재현할 수 없다. `test-checklist.md` C11 에
-수동 항목을 이미 넣어뒀다.
-
-기존 `e2e/mobile-keybar.spec.ts` 의 `TC-A1`~`TC-A4` 는 `--m-kb-h` 와
-`body.paddingBottom` **수치만** 검증하므로, 높이 체계를 바꾸면 동반 개정 대상이다.
-
-**착수 전 결정 5건** — PLAN §6.2.
+**단 iOS 실기기 수동 확인은 사용자 몫으로 남아 있다** (묶음 F, `test-checklist.md`
+C11.8~C11.10). 자동 검증으로 대체할 수 없다.
 
 ## 4. 반복하면 안 되는 함정
 
-전부 이 작업들에서 **실제로 밟은** 것들이다. 1~9 는 묶음 A~D, 10~12 는 묶음 E 에서 나왔다.
+전부 이 작업들에서 **실제로 밟은** 것들이다. 1~9 는 묶음 A~D, 10~12 는 묶음 E,
+13~15 는 묶음 F 에서 나왔다.
 
 ### 1. `.env` 가 호출자 환경변수를 덮어쓴다
 
@@ -241,6 +271,33 @@ toolId 가 `true` 로 돌아오는 것까지 확인해, `false` 의 원인이 �
 path is ignored` 로 거부한다. JS 심볼 편집은 폴백(정밀 텍스트 편집)으로 가야 한다.
 Go 쪽은 정상 동작한다.
 
+### 13. 브라우저 거동을 기억으로 단정하지 마라 — 기본값이 바뀐다
+
+묶음 F 의 SRS·PLAN 은 "iOS Safari 의 특이 거동"으로 문제를 서술했다. **Chrome 108
+부터 Android Chrome 도 같은 거동이다** — MobileSafari 에 맞춰 가상 키보드가 layout
+viewport 를 줄이지 않도록 기본값(`interactive-widget: resizes-visual`)을 바꿨다.
+Samsung Internet 도 Chromium 이므로 동일하다. 이걸 모르고 "Android 는 layout 이 줄어서
+괜찮다"는 전제로 설계하면 **세 브라우저 중 둘을 놓친다.**
+
+지원 매트릭스는 조사해서 확정하고 스펙에 적어라 (SRS §2.8a 에 표로 있다).
+`interactive-widget` 은 Chrome 108+ · Firefox 132+ 지원, **WebKit 미지원**이다.
+
+### 14. 레이아웃 가설은 계산이 아니라 측정으로 확인하라
+
+SRS 초판은 "`#area` 가 실제로 줄지 않아 `doFit()` 도 무효"라고 적었다. **틀렸다.**
+임시 프로브 스펙으로 `getBoundingClientRect()` 를 찍어 보니 `#area` 는 688 → 388px 로
+줄고 있었다 (`box-sizing:border-box` + `body{height:100%}` + `padding-bottom` 조합).
+
+이 한 번의 측정이 작업 규모를 바꿨다 — 계획은 "레이아웃 높이의 단일 진실 공급원 교체
+(리스크 HIGH, 데스크톱 영향)" 였는데, 실제로 필요한 것은 `padding-top` 한 줄이었고
+`web/style.css` 는 무변경이었다. **높이 사슬을 손대기 전에 프로브를 먼저 찍어라.**
+
+### 15. `transform` 은 `position:fixed` 자손의 기준을 바꾼다
+
+visual viewport 스크롤 상쇄를 `#app` 의 `transform: translateY()` 로 하려 했다면
+`#mobile-keybar`(`#app` 안의 `position:fixed`)의 `bottom` 기준이 layout viewport 에서
+`#app` 으로 바뀌어 위치 계산이 깨진다. `padding` 은 그 부작용이 없다.
+
 ## 5. 검증 방법
 
 ```bash
@@ -307,6 +364,16 @@ git stash pop
 `expect.poll` 로 바꿔 통과하면 원인은 경합이다.
 
 **문서의 "142 통과"·"153 통과" 는 단일 실행 실측치이고 보장이 아니다.**
+
+### 묶음 F 가 커밋되지 않았다
+
+구현·테스트·문서가 끝났고 자동 검증은 전량 통과했으나 커밋하지 않았다 — 커밋은 사용자
+확인 후에만 한다. 대상: `web/index.html`(viewport meta + js 캐시 버스터 120→121),
+`web/js/app.js`, `e2e/mobile-keybar.spec.ts`(TC-A → TC-MKV 재작성),
+`docs/internal/{USER_CHECKLIST_FIXES_SRS,USER_CHECKLIST_FIXES_PLAN,
+USER_CHECKLIST_FIXES_HANDOFF,test-checklist}.md`.
+
+**그리고 iOS 실기기 확인이 남아 있다** — 자동 검증으로 닫을 수 없는 유일한 항목이다.
 
 ### 범위 밖으로 기록만 한 것
 
