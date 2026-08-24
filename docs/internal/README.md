@@ -19,7 +19,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [USER_CHECKLIST_FIXES_HANDOFF.md](./USER_CHECKLIST_FIXES_HANDOFF.md) | 위 작업의 인계 문서 — A~D 완료 내역, **반복하면 안 되는 함정 9개**, 검증 방법, 미해결 |
 | [SYSTEM_STATS_SRS.md](./SYSTEM_STATS_SRS.md) | 상태바 지표 수집 재설계 (IEEE 29148). `/api/stats` 요청당 프로세스 6개·1.5초를 커널 직접 호출로 제거 + 메모리 계산식 정정. **구현 완료** (§4.1 실측) |
 | [SKILL_INJECTION_SRS.md](./SKILL_INJECTION_SRS.md) | MCP 폐지와 세션 스코프 스킬 주입의 단일 진실 공급원 (IEEE 29148). 에이전트 접합면 = `dmctl` (액션) + `--plugin-dir`/`--settings` 주입 스킬·훅 (정책). **구현 완료** |
-| [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트. **진행 중 트랙 2개**(사용자 피드백 E·F / AI 오케스트레이션) |
+| [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트. **트랙 1~3 완료, 트랙 4(AI 오케스트레이터 연구·설계)가 진행 대상** |
 
 ## 용어
 
@@ -139,7 +139,9 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 
 | 항목 | 상태 |
 |------|------|
-| 요구 3 — AI 오케스트레이션 (`RUN_ORCHESTRATION_SRS`) | 미착수. 착수 전 worktree 격리 정책을 결정해야 한다 ([NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md)) |
+| 요구 3 — AI 오케스트레이터 (`RUN_ORCHESTRATION_SRS`) | 미착수. 접합면은 준비됐다(SKILL_INJECTION_SRS). 착수 전 결정 4건(worktree 격리 범위·식별자 체계·Run 영속 범위·에이전트 범위)은 [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) 3단계 |
+| `TC-BGU-9b` 기존 실패 | 미해결. `restoreTool` 을 `location` 없이 부르면 조용히 무효가 되는 계열 (`1013f8c` 커밋 메시지) |
+| 프론트엔드 id 가 UUID 가 아니다 | `internal/uuid` v7 생성기는 비테스트 소비자 0개. 실제 id 는 `s{n}`/`t{n}` 이고 카운터가 클라이언트별 상태라 동시 생성 시 충돌 가능 |
 | 사용자 인스턴스 v1 → v2 마이그레이션 | 미실행. 순서는 [ENTITY_MODEL_HANDOFF.md](./ENTITY_MODEL_HANDOFF.md) §4.2 |
 | `CLIENT_ATTACH_SRS` — Client↔Window attach 서버 등록, visibility 파생 | 미착수 (ENTITY_MODEL SRS §7 후속) |
 | 사용자 대상 기능 TODO | 저장소 루트 [README.md](../../README.md) |
