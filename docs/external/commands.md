@@ -118,8 +118,11 @@ edit -h, --help      # 도움말
 detach                   # 현재 탭의 도구를 백그라운드로 (탭은 닫힘)
 detach --list, -l        # 백그라운드 도구 목록
 detach --restore <id>    # 백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀
+detach --restore <id> --at <uuid>   # 지정한 탭이 속한 분할 칸으로 복귀
 detach -h, --help        # 도움말
 ```
+
+`--at` 은 `dmctl list-workspace` 의 uuid 를 받습니다. 복귀는 분할 칸 단위이므로 좌표의 탭 성분은 무시됩니다 — 그 탭이 **속한 분할 칸**이 대상입니다 (`newTab`·`splitH` 와 같은 해석). `--at` 없이 쓰면 브라우저가 현재 포커스한 분할 칸으로 복귀합니다. `dmctl` 은 `-l` 을 `--at` 의 단축으로 쓰지만 `detach` 에서 `-l` 은 `--list` 이므로 그 단축은 제공하지 않습니다. `--at` 은 `--restore` 와 함께만 유효합니다.
 
 동작: `DONGMINAL_TOOL_ID` 로 자기 도구를 식별해 `POST /api/commands` 로 `detachTab` 을 보냅니다. 전환과 탭 닫기를 **하나의 명령**으로 처리하는 이유는, 두 단계로 나누면 그 사이에 탭이 닫혀 도구가 종료될 수 있기 때문입니다. `--list` 는 `GET /api/tools/background` 를 직접 조회합니다.
 

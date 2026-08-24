@@ -339,8 +339,10 @@ FR-MIG-6 의 서버 실행 검사에 쓴다.
 Pane 단위 동작이므로 **좌표의 T 성분은 무시**된다. 이는 `newTab` · `splitH` · `splitV` 가
 이미 쓰는 해석이다.
 
-**FR-BGR-3** `detach --restore <toolId> --at <uuid>` 로 대상을 지정한다. 플래그는
-`dmctl` 규약을 따른다 — `--at <uuid>` · `-l <uuid>` · `--at=<uuid>`.
+**FR-BGR-3** `detach --restore <toolId> --at <uuid>` 로 대상을 지정한다. `--at <uuid>`
+와 `--at=<uuid>` 두 형태를 지원한다. `dmctl` 의 `-l` 단축(`dmctl.go:213`)은 **제공하지
+않는다** — `detach` 에서 `-l` 은 이미 `--list` 이고(`detach.go:35`), 기존 사용을 깨뜨릴
+수 없다. `--at` 은 `--restore` 와 함께만 유효하며, 단독으로 오면 거부한다.
 
 **FR-BGR-4** `--at` 없는 기존 호출 형태 `detach --restore <toolId>` 는 동작이 변하지
 않는다.
@@ -436,7 +438,9 @@ FR-MKV-* 로 확정한다.
 | TC-BGR-2 | FR-BGR-1, FR-BGR-4 | `--at` 없이 `detach --restore <id>` | 현재 포커스 Pane 에 복귀 (기존 동작) |
 | TC-BGR-3 | FR-BGR-2 | 같은 Pane 의 두 번째 탭 uuid 지정 | 동일 Pane 에 복귀 (T 성분 무시 확인) |
 | TC-BGR-4 | FR-BGR-2 | 좌표(`W1.P1.T1`)·`toolId` 를 `--at` 에 지정 | 서버가 400. 복귀 미수행 |
-| TC-BGR-5 | FR-BGR-3 | `--at=<uuid>` · `-l <uuid>` 형태 | 모두 동작 |
+| TC-BGR-5 | FR-BGR-3 | `--at=<uuid>` 형태 | 동작한다 |
+| TC-BGR-5b | FR-BGR-3 | `detach -l` | 기존대로 목록을 출력한다 (`--at` 의 단축이 아니다) |
+| TC-BGR-5c | FR-BGR-3 | `detach --at <uuid>` (`--restore` 없이) | 거부. rc≠0 |
 | TC-BGR-6 | FR-BGR-5 | 존재하지 않는 uuid 지정 | 복귀 미수행. 도구가 백그라운드 목록에 그대로 남는다 |
 | TC-BGR-7 | FR-BGR-6 | `internal/server` 기존 테스트 | 전량 통과 (무변경 확인) |
 
@@ -503,4 +507,7 @@ FR-MKV-* 로 확정한다.
 | C | 중복 발동 방지 | (없음 — 이중 발동 가능) | `touchend` 후 700ms 내 `click` 무시 (`MKB_GHOST_CLICK_MS`) | 플래그 방식은 `preventDefault` 로 click 이 오지 않으면 플래그가 남아 다음 마우스 클릭을 먹는다. 시간 기준은 그 잔존이 없다 |
 | C | 롱프레스 취소 판정 | `touchmove` 발생 즉시 취소 | 이동 거리 임계값 10px 초과 시 취소 (`MKB_TAP_SLOP_PX`) | 손떨림에도 롱프레스가 죽었고, 스크롤과 공존할 수 없었다 |
 | C | 검증 범위 | Desktop Chrome 단일 프로젝트(`hasTouch:false`) | `mobile-touch` 프로젝트(Pixel 7, `hasTouch:true`) 신설 | 마우스 경로만으로는 이 결함을 한 번도 볼 수 없었다. 분리 없이는 재발한다 |
-| D | | | | |
+| D | `restoreTool` 대상 | 항상 브라우저의 현재 포커스 Pane (`this.focused` 하드코딩) | `args.location` 지정 시 그 탭이 속한 Pane, 미지정 시 기존대로 | 워크스페이스 조작 명령 중 대상 지정 수단이 없는 유일한 명령이었다. 서버(`translateLocationUUID`)는 이미 action 무관하게 변환하고 있었다 |
+| D | `detach` 인자 파싱 | 첫 플래그에서 즉시 반환 | 플래그를 모두 모은 뒤 해석 | `--at` 이 `--restore` 앞에 와도 같은 결과여야 한다 |
+| D | `_restoreTool` 시그니처 | `(toolId)` | `(toolId, opts={})` | 대상 Pane 주입. `opts` 기본값으로 기존 호출부(모달 항목 클릭) 무변경 |
+| D | 모달 행 식별자 | (없음) | `data-toolid` | `.pn-tab[data-toolid]` 과 같은 관행. 여러 백그라운드 도구 중 특정 행을 DOM 으로 지목할 수 있다 |

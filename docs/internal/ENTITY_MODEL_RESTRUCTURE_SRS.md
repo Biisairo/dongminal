@@ -216,7 +216,7 @@ PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:
 
 **FR-BG-6** `detach --list` 는 백그라운드 도구 목록을 반환한다. 각 항목은 도구 id, 이름, cwd, 백그라운드 전환 시각을 포함한다.
 
-**FR-BG-7** `detach --restore <id>` 는 백그라운드 도구를 현재 Pane 의 새 탭으로 복귀시킨다. 복귀한 도구는 백그라운드 상태에서 벗어난다.
+**FR-BG-7** `detach --restore <id> [--at <uuid>]` 는 백그라운드 도구를 **지정 Pane**(`--at` 미지정 시 현재 Pane)의 새 탭으로 복귀시킨다. 복귀한 도구는 백그라운드 상태에서 벗어난다. `--at` 의 값은 탭 uuid 이며 복귀는 Pane 단위이므로 탭 성분은 무시된다. 대상 Pane 이 없으면 백그라운드 상태를 해제하지 않는다. (`USER_CHECKLIST_FIXES_SRS` FR-BGR-1..6)
 
 **FR-BG-8** 백그라운드 도구가 1개 이상일 때 상태바 **우측 끝**에 개수 버튼을 표시한다. 버튼 클릭 시 목록을 **중앙 모달**로 표시하고, 항목 클릭 시 FR-BG-7 와 동일하게 복귀시킨다. 0개일 때 버튼은 표시하지 않는다. (UI 표면은 `USER_CHECKLIST_FIXES_SRS.md` FR-BGU-2..8 이 규정한다 — 동작 계약은 불변)
 
@@ -286,7 +286,7 @@ PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:
 | TC-BG-6g | FR-BG-4b | busy terminal + editor 가 있는 Window 닫기 → `실행 중인 것만 백그라운드로` | terminal 생존. editor 종료 |
 | TC-BG-6h | FR-BG-4c | 유일한 Window 를 `실행 중인 것만 백그라운드로` 로 닫기 | 새 빈 Window 생성. 도구는 백그라운드 유지 (자동 복귀 없음) |
 | TC-BG-6d | FR-BG-5 | 모든 Client 가 다른 Window 로 이동 / 브라우저 전부 종료 | 도구 계속 실행. 별도 detach 동작 없음 |
-| TC-BG-7 | FR-BG-7 | 백그라운드 도구 복귀 | 현재 Pane 새 탭에 부착. 스크롤백 보존. 목록에서 제거 |
+| TC-BG-7 | FR-BG-7 | 백그라운드 도구 복귀 | 현재 Pane 새 탭에 부착. 스크롤백 보존. 목록에서 제거. 대상 지정(`--at`) 케이스는 TC-BGR-1..6b |
 | TC-BG-8 | FR-BG-8 | 백그라운드 0개 | 배지 미표시 |
 | TC-BG-9 | FR-BG-9 | 백그라운드 도구 있는 상태로 데몬 재시작 | 미복원. `tools.json` 미기재 |
 | TC-BG-10 | FR-BG-11 | editor 탭에서 `detach` | 미지원 오류 |

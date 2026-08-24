@@ -86,7 +86,9 @@
 
 `location` 은 **uuid 만 허용**한다 — `dmctl list-workspace` 의 `uuid=` 컬럼 값. 좌표(`W4.P1.T1`)·라벨·`toolId` 는 400 으로 거부된다. 다른 창이 닫히면 좌표가 reflow 되어 엉뚱한 탭을 가리키기 때문이다. 서버가 broadcast 직전에 uuid → 좌표로 변환한다.
 
-`detachTab`/`restoreTool` 은 `location` 이 아니라 `toolId` 를 받는다. MCP `workspace_command` 로는 호출할 수 없다 (`toolId` 인자가 없어 `detach` CLI 전용 경로다).
+`detachTab` 은 `location` 이 아니라 `toolId` 를 받는다 — `toolId` 만으로 대상이 완전히 결정되므로 대상 지정 수단이 필요 없다. `restoreTool` 은 `toolId` 에 더해 `location`(선택)을 받는다: 지정하면 그 탭이 **속한 분할 칸**에 복귀하고(탭 성분은 무시), 없으면 브라우저가 현재 포커스한 분할 칸에 복귀한다.
+
+둘 다 MCP `workspace_command` 로는 호출할 수 없다 (`toolId` 인자가 없어 `detach` CLI 전용 경로다).
 
 ## WebSocket: `/ws?tool=<id>`
 

@@ -95,9 +95,13 @@ async function makeBackgroundTool(page: Page, request: any): Promise<string> {
     return (bg.background || []).some((b: any) => b.toolId === before);
   }, { timeout: 10000 }).toBe(true);
 
-  // 브라우저가 목록을 반영할 때까지 기다린다.
-  await expect.poll(async () => page.evaluate(() => (window as any).app._bg.length),
-    { timeout: 10000 }).toBeGreaterThan(0);
+  // 브라우저 목록에 '이 도구가' 올랐는지 확인한다. 개수만 보면 앞선 스펙이 남긴
+  // 백그라운드 도구와 구별되지 않아 뒤의 선택이 엉뚱한 행을 짚는다.
+  await expect.poll(
+    async () => page.evaluate((tid) =>
+      ((window as any).app._bg || []).some((b: any) => b.toolId === tid), before),
+    { timeout: 10000 },
+  ).toBe(true);
 
   return before as string;
 }
@@ -283,7 +287,7 @@ test.describe('FR-BGU-6..8: 백그라운드 목록 모달', () => {
     const tabsBefore = await focusedTabCount();
 
     await page.click('#sb-bg-btn');
-    await page.locator('#bg-modal .bg-row').first().click();
+    await page.locator(`#bg-modal .bg-row[data-toolid="${toolId}"]`).click();
 
     await expect.poll(async () => {
       const bg = await (await request.get('/api/tools/background')).json();

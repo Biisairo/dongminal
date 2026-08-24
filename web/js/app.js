@@ -400,7 +400,15 @@ class App {
       return;
     }
     if(action==='restoreTool'){
-      this._restoreTool(args.toolId);
+      // FR-BGR-2: location 은 탭 uuid → 서버가 좌표로 변환한 값이다. 복귀는
+      // Pane 단위이므로 T 성분은 쓰지 않는다 (newTab/splitH 와 같은 해석).
+      const opts={};
+      if(args.location){
+        const tgt=this._resolveLocation(args.location);
+        if(!tgt){console.warn('[cmd] restoreTool: 대상 없음',args.location);return}
+        opts.windowId=tgt.windowId; opts.paneId=tgt.paneId;
+      }
+      this._restoreTool(args.toolId,opts);
       return;
     }
     if(action==='closeTab' && args.location){
@@ -555,11 +563,20 @@ class App {
     if(this._bgModalOpen) this._bgModalRender();
   }
 
-  // FR-BG-7: 백그라운드 도구를 현재 분할 칸의 새 탭으로 되돌린다.
-  async _restoreTool(toolId){
+  // FR-BG-7 / FR-BGR-1: 백그라운드 도구를 지정 분할 칸(opts.paneId, 미지정 시
+  // 현재 포커스)의 새 탭으로 되돌린다.
+  async _restoreTool(toolId,opts={}){
     if(!toolId) return;
-    const pn=this.focused&&this._aw()?findPane(this._aw().layout,this.focused):null;
-    if(!pn){console.warn('[bg] 복귀할 분할 칸 없음');return}
+    // FR-BGR-5: 대상을 먼저 확정한다. 백그라운드 해제를 앞세우면 대상이 없을 때
+    // 도구가 목록에도 탭에도 없는 — 어디서도 닿을 수 없는 상태가 된다.
+    let pn=null;
+    if(opts.paneId){
+      const win=this.ws.windows.find(s=>s.id===opts.windowId)||null;
+      pn=win&&win.layout?findPane(win.layout,opts.paneId):null;
+    }else{
+      pn=this.focused&&this._aw()?findPane(this._aw().layout,this.focused):null;
+    }
+    if(!pn){console.warn('[bg] 복귀할 분할 칸 없음',opts.paneId||this.focused);return}
     if(!await this._setToolBackground(toolId,false)) return;
     if(!this.tools.has(toolId)) this._mkTool(toolId,'Shell #'+toolId);
     const t=`t${++this._t}`;
@@ -2347,6 +2364,8 @@ class App {
     }
     for(const b of this._bg){
       const row=document.createElement('div'); row.className='bg-row'; row.title='클릭하면 현재 분할 칸의 새 탭으로 복귀';
+      // .pn-tab[data-toolid] 과 같은 관행 — 어느 도구의 행인지 DOM 으로 식별한다.
+      row.dataset.toolid=b.toolId;
       const name=document.createElement('span'); name.className='bg-name'; name.textContent=b.name||('Shell #'+b.toolId);
       const cwd=document.createElement('span'); cwd.className='bg-cwd'; cwd.textContent=b.cwd||'';
       row.appendChild(name); row.appendChild(cwd);
