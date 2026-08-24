@@ -7,7 +7,7 @@
 | ~~1. 사용자 확인 피드백~~ | **완료** — 8개 항목 전부. iOS 실기기 수동 확인만 남음 ([USER_CHECKLIST_FIXES_HANDOFF.md](./USER_CHECKLIST_FIXES_HANDOFF.md)) |
 | ~~2. MCP 폐지 → 세션 스코프 스킬 주입~~ | **완료** — `6681a14`, `1013f8c` ([SKILL_INJECTION_SRS.md](./SKILL_INJECTION_SRS.md)) |
 | ~~3. 상태바 지표 재설계~~ | **완료** — `286ebd8` ([SYSTEM_STATS_SRS.md](./SYSTEM_STATS_SRS.md)) |
-| **4. AI 오케스트레이터 — 연구·설계** | **진행 중.** 0단계(알려진 결함 2건) **완료** — [WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md), FR-BGR-7. 다음은 **1단계(심화 조사)** 부터. 아래 프롬프트 |
+| **4. AI 오케스트레이터 — 연구·설계** | **진행 중.** 0단계(알려진 결함 2건) **완료** — `0ec8e02` ([WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md), FR-BGR-7). 다음은 **1단계(심화 조사)** 부터. 아래 프롬프트 |
 
 ---
 
