@@ -201,6 +201,8 @@ var apiRoutes = []apiRoute{
 		return strings.HasPrefix(p, "/api/tools/") && strings.HasSuffix(p, "/busy")
 	}, (*Server).apiToolBusy},
 	{http.MethodDelete, func(p string) bool { return strings.HasPrefix(p, "/api/tools/") }, (*Server).apiToolDelete},
+	{http.MethodGet, exactPath("/api/focus"), (*Server).apiFocusGet},
+	{http.MethodPost, exactPath("/api/focus/claim"), (*Server).apiFocusClaim},
 	{http.MethodGet, exactPath("/api/workspace"), (*Server).apiWorkspaceGet},
 	{http.MethodPut, exactPath("/api/workspace"), (*Server).apiWorkspacePut},
 	{http.MethodGet, exactPath("/api/settings"), (*Server).apiSettingsGet},

@@ -243,6 +243,19 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	sub := s.Commands.add()
 	defer s.Commands.remove(sub)
 
+	// FR-XDF-8: 구독에 clientId 를 결선한다. cmdSub 자체에는 신원이 없으므로
+	// 이 결선 없이는 구독 해제와 소유권 해제를 이을 수 없다.
+	// FR-XDF-9: 구독이 끊기면 그 Client 의 소유권을 즉시 해제한다 —
+	// grace period 없음. epoch 로 재연결 경합을 막는다 (FR-XDF-10).
+	if cid := r.URL.Query().Get("clientId"); cid != "" && s.Focus != nil {
+		ep := s.Focus.Attach(cid)
+		defer func() {
+			if s.Focus.Detach(cid, ep) {
+				s.broadcastFocusOwners()
+			}
+		}()
+	}
+
 	fmt.Fprint(w, ": connected\n\n")
 	flusher.Flush()
 

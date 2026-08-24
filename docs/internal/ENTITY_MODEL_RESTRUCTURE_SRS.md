@@ -320,7 +320,7 @@ PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:
 | 백그라운드 도구 회수 정책(TTL·한도) | FR-BG-9 이 누적을 원리적으로 차단 |
 | 원격 `closeWindow` 의 무인 백그라운드 전환 인자 | FR-BG-4. Run 이 Window 를 정리하는 시나리오는 후속 SRS |
 | `delSession` 의 editor 미저장 변경 확인 | FR-BG-4b. 현행 결손이나 개명 범위 밖 |
-| 다중 창 포커스 소유권 부채 정리 | 별도. Client 등록이 선행 |
+| 다중 창 포커스 소유권 부채 정리 | 별도. Client 등록이 선행. **부분 해소됨** — 전파 경로는 `USER_CHECKLIST_FIXES_SRS` §3.5(FR-XDF-*, 묶음 E)에서 `BroadcastChannel` → 서버 권위(`FocusRegistry`)로 옮겼고 SSE 구독에 `clientId` 가 결선됐다. 남은 것은 Client 를 1급 엔티티로 등록하는 것(`CLIENT_ATTACH_SRS`)이다 |
 
 ---
 

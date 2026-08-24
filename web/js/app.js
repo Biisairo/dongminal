@@ -15,7 +15,6 @@ class App {
     this._s=0;this._r=0;this._t=0;this._kb=false;
     this._windowFocused=typeof document!=='undefined'&&document.hasFocus?document.hasFocus():true;
     this._windowFocusOwner={}; // { windowId: clientId } — per-window focus ownership
-    this._focusCh=null; // BroadcastChannel for focus sync (lazy init)
     this._drag=null;
     this._stats={};this._latency=null;
     this._mPaneIdx=0; // mobile current pane index (volatile)
@@ -100,9 +99,9 @@ class App {
   }
 
   async init(){
-    // Set up BroadcastChannel listener BEFORE any async work so we don't
-    // miss window focus claims from other windows during init.
-    this._initFocusChannel();
+    // OS focus listeners go up before any async work — a `focus` event during
+    // init must still claim the active window.
+    this._initFocusSync();
     try{
       const stRes=await fetch('/api/state');
       this.wsETag=stRes.headers.get('ETag')||stRes.headers.get('Etag')||null;
@@ -178,8 +177,10 @@ class App {
     let retry=1000, retryCount=0, maxRetries=20;
     const connect=()=>{
       try{
-        const es=new EventSource('/api/commands/sse');
-        es.onopen=()=>{retry=1000;retryCount=0;this._attnRestore();this._activityRestore();this._bgRefresh()};
+        // FR-XDF-8: clientId 를 실어 서버가 구독↔Client 를 결선한다. 이 결선이
+        // 구독 해제 시 소유권 해제(FR-XDF-9)의 선행 조건이다.
+        const es=new EventSource('/api/commands/sse?clientId='+encodeURIComponent(this.clientId));
+        es.onopen=()=>{retry=1000;retryCount=0;this._attnRestore();this._activityRestore();this._bgRefresh();this._focusRestore()};
         es.onmessage=(e)=>{
           try{
             const m=JSON.parse(e.data);
@@ -197,6 +198,13 @@ class App {
             }
             if(m.action==='tool_activity'){
               this._onToolActivity(m.args||{});
+              return;
+            }
+            // FR-XDF-6: 전체 소유권 맵이 온다. 증분이 아니므로 통째로 갈아치우면
+            // 되고, 자기 에코 필터가 필요 없다 (FR-XDF-14 — 멱등).
+            if(m.action==='window_focus'){
+              this._windowFocusOwner=(m.args&&m.args.owners)||{};
+              this._applyFocusOverlay();
               return;
             }
             // REMOTE_COMMAND_RESULT_SRS: reqId 는 broadcast payload 의 top-level
@@ -1644,72 +1652,86 @@ class App {
   //    • If no window owns a window, all windows see it bright.
   //
   //  State:
-  //    _windowFocusOwner : { windowId → clientId }
-  //    _windowFocused      : boolean (OS focus on this window)
-  //    _focusCh            : BroadcastChannel (cross-window messaging)
+  //    _windowFocusOwner : { windowId → clientId } — server-authoritative
+  //    _windowFocused      : boolean (OS focus on this client)
+  //
+  //  Transport (FR-XDF-5/6): the server owns the map. Claims go out as
+  //  POST /api/focus/claim; every change comes back over the existing command
+  //  SSE as a `window_focus` event carrying the FULL map. The previous
+  //  BroadcastChannel('dongminal-focus') path is gone — it was same-browser
+  //  same-origin only, so it never reached another device, and under --expose
+  //  even localhost:PORT and <host-ip>:PORT were isolated (SRS §2.7).
+  //
+  //  Release (FR-XDF-9): the server releases when the SSE subscription drops.
+  //  There is no `beforeunload` handler — it does not fire on a remote device's
+  //  force-quit or network loss, which left ownership stuck forever.
   //
   //  Single entry point:
-  //    _focusWindow(sid)  — claim ownership, broadcast, resize, overlay.
+  //    _focusWindow(sid)  — claim ownership, POST, resize, overlay.
   //    Called from: setFocus, switchWindow, _focusLocation, _jumpToTool,
   //                 _mkWindow, addTab(existing), window.focus, split.
   // ═══════════════════════════════════════════════════════════════════════
 
-  // _initFocusChannel sets up cross-window messaging and OS focus listeners.
-  _initFocusChannel(){
-    if(typeof BroadcastChannel!=='undefined'){
-      this._focusCh=new BroadcastChannel('dongminal-focus');
-      this._focusCh.onmessage=(e)=>{
-        if(e.data.type==='windowFocus'){
-          this._windowFocusOwner[e.data.windowId]=e.data.id;
-          this._applyFocusOverlay();
-        }else if(e.data.type==='windowRelease'){
-          if(this._windowFocusOwner[e.data.windowId]===e.data.id){
-            delete this._windowFocusOwner[e.data.windowId];
-            this._applyFocusOverlay();
-          }
-        }
-      };
-    }
+  // _initFocusSync wires the OS focus listeners. Ownership transport lives in
+  // _focusClaim (out) and the `window_focus` SSE branch (in).
+  _initFocusSync(){
     window.addEventListener('focus',()=>{
       this._windowFocused=true;
       if(this.ws.activeWindow) this._focusWindow(this.ws.activeWindow);
     });
     window.addEventListener('blur',()=>{this._windowFocused=false});
-    window.addEventListener('beforeunload',()=>{
-      const ch=this._focusCh; if(!ch) return;
-      for(const sid of Object.keys(this._windowFocusOwner)){
-        if(this._windowFocusOwner[sid]===this.clientId){
-          ch.postMessage({type:'windowRelease',windowId:sid,id:this.clientId});
-        }
-      }
-    });
   }
 
   // _focusWindow is the SINGLE entry point for claiming window ownership.
-  // Releases old windows owned by this window, claims the new one,
-  // broadcasts via BroadcastChannel, sends resize, and updates the overlay.
+  // Applies the claim locally, posts it to the server (which broadcasts the
+  // full map to every client), sends resize, and updates the overlay.
   _focusWindow(windowId){
     if(!windowId) return;
-    if(!this._focusCh&&typeof BroadcastChannel!=='undefined'){
-      this._focusCh=new BroadcastChannel('dongminal-focus');
-    }
-    const ch=this._focusCh;
-    // Release other windows this window owns (one window → one window).
+    let changed=false;
+    // Release other windows this client owns (one client → one window).
     for(const sid of Object.keys(this._windowFocusOwner)){
       if(sid!==windowId&&this._windowFocusOwner[sid]===this.clientId){
         delete this._windowFocusOwner[sid];
-        if(ch) ch.postMessage({type:'windowRelease',windowId:sid,id:this.clientId});
+        changed=true;
       }
     }
-    // Only broadcast if ownership actually changes.
     if(this._windowFocusOwner[windowId]!==this.clientId){
       this._windowFocusOwner[windowId]=this.clientId;
-      if(ch) ch.postMessage({type:'windowFocus',windowId,id:this.clientId});
+      changed=true;
     }
+    // Only post if ownership actually changes — otherwise every click on an
+    // already-owned window would hit the server.
+    if(changed) this._focusClaim(windowId);
     // Send resize immediately (before render) so PTY matches this window's
     // size by the time the user sees the panes. Only if OS-focused.
     if(this._windowFocused) this._resendWindowSizes(windowId);
     this._applyFocusOverlay();
+  }
+
+  // _focusClaim posts ownership to the server (FR-XDF-7). The server answers by
+  // broadcasting the full owner map, which is what actually converges every
+  // client — this POST is fire-and-forget.
+  _focusClaim(windowId){
+    fetch('/api/focus/claim',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({clientId:this.clientId,windowId})}).catch(()=>{});
+  }
+
+  // _focusRestore aligns local state with the server on SSE connect
+  // (FR-XDF-11), then RE-CLAIMS if this client holds OS focus (FR-XDF-12).
+  //
+  // The re-claim is not optional. The server releases ownership the moment the
+  // subscription drops (FR-XDF-9), so after a reconnect nobody owns the window
+  // — and without re-claiming, _focusWindow's "only if ownership changes" guard
+  // would never fire again for a client that still remembers owning it.
+  // Re-claiming only when OS-focused keeps a backgrounded device from stealing
+  // the PTY size back from the active one (FR-XDF-13).
+  _focusRestore(){
+    fetch('/api/focus').then(r=>r.ok?r.json():null).then(j=>{
+      if(!j) return;
+      this._windowFocusOwner=j.owners||{};
+      this._applyFocusOverlay();
+      if(this._windowFocused&&this.ws.activeWindow) this._focusWindow(this.ws.activeWindow);
+    }).catch(()=>{});
   }
 
   // _resizeCheck returns true if this window is allowed to send resize for

@@ -19,7 +19,7 @@
 | B | `scripts/migrate.sh` 신설 + 안내문·문서 정정 | **구현 완료** (`e6463e1`) |
 | C | 모바일 키바 터치 반응·수평 슬라이드 복구 + 터치 e2e 프로젝트 | **구현 완료** (`18c7f14`) |
 | D | `restoreTool` 대상 Pane 지정 (`detach --restore <toolId> --at <uuid>`) | **구현 완료** (`a906418`) |
-| E | 크로스 기기 창 포커스 소유권 동기화 | **미착수. 골격만 — §3.5 결정 후 확정** |
+| E | 크로스 기기 창 포커스 소유권 동기화 | **구현 완료** (§3.5, FR-XDF-1..14) |
 | F | 모바일 키보드 표출 시 레이아웃 높이 체계 | **미착수. 골격만 — §3.6 결정 후 확정** |
 
 완료 묶음의 구현 결과와 함정은 [USER_CHECKLIST_FIXES_HANDOFF.md](./USER_CHECKLIST_FIXES_HANDOFF.md) 에 있다.
@@ -358,20 +358,76 @@ action 화이트리스트에 있고 `location` 변환은 action 무관하게 동
 **비목표(D)**: `restoreTool` 을 MCP `workspace_command` 에 노출하지 않는다 — `toolId`
 인자가 MCP 스키마에 없어 `location` 추가만으로는 호출 가능해지지 않으며, 이는 별개 결정이다.
 
-### 3.5 묶음 E — 크로스 기기 창 포커스 (미확정)
+### 3.5 묶음 E — 크로스 기기 창 포커스
 
-아래는 **골격**이다. `USER_CHECKLIST_FIXES_PLAN.md` §6.1 의 결정 E-1..E-5 를 해소한 뒤
-FR-XDF-* 로 확정한다.
+`USER_CHECKLIST_FIXES_PLAN.md` §6.1 의 결정 E-1..E-7 이 해소되어 확정됐다.
 
-- **목표 동작**: 서로 다른 기기·origin 의 Client 들 사이에서도 한 Window 를 보는 Client 가
-  하나로 수렴하고, 나머지 Client 에서 그 Window 가 dim 된다
-- **전송 경로**: 브라우저→서버 `POST`, 서버→브라우저 SSE(`/api/commands/sse`). 기존
-  `CommandHub.Broadcast`(`internal/server/commands.go:155`)와 `_subscribeCommands`
-  (`app.js:180`) 재사용
-- **자기 에코 필터**: `clientId`(`app.js:8`) 비교
-- **늦은 참여 복원**: `_attnRestore` · `_activityRestore` 와 동일한 스냅샷 조회 패턴
-- **해제**: SSE 구독 해제 시 서버가 소유권을 해제한다 (`beforeunload` 의존 제거)
-- **동반 이전**: `_resizeCheck`(`app.js:1699`) — 같은 상태를 읽으므로 분리 불가
+#### 3.5.1 소유권 정책
+
+**FR-XDF-1** 창 포커스 소유권의 권위는 **서버의 in-memory 상태**다. `workspace.json` 에
+영속화하지 않으며, 서버 재시작 시 전원 해제된다 (E-1).
+
+**FR-XDF-2** 획득 정책은 **last-focus-wins** 다 — 마지막으로 그 Window 를 포커스한
+Client 가 소유자가 된다. 기기 종류·화면 크기를 구분하지 않는다 (E-7). 이는 현행
+동일 브라우저 내 동작과 동일하며, 새 정책을 도입하지 않는다.
+
+**FR-XDF-3** 한 Client 는 동시에 최대 하나의 Window 만 소유한다. 새 Window 를 획득하면
+이전 소유는 해제된다 (현행 `_focusWindow` 규약 유지).
+
+**FR-XDF-4** 소유권 상태를 읽는 곳은 둘이다 — PTY 리사이즈 권한 판정
+(`_resizeCheck`, `app.js:1717`)과 dim 표시(`_applyFocusOverlay`, `app.js:1727`). 두
+경로는 **동일한 상태**를 읽고, 별도 상태를 두지 않는다 (E-4).
+
+#### 3.5.2 전파
+
+**FR-XDF-5** 전파는 서버 브로드캐스트로 한다. `BroadcastChannel('dongminal-focus')`
+(`app.js:1642`) 경로는 **제거한다** — 두 전파 경로가 같은 상태를 쓰지 않는다 (E-3).
+
+**FR-XDF-6** 브로드캐스트 페이로드는 **소유권 전체 맵**(`{windowId: clientId}`)을 싣는다.
+획득·해제를 각각의 증분 이벤트로 보내지 않는다. 근거: 전체 맵은 멱등이므로 자기 에코
+필터가 불필요하고, 부분 상태·순서 의존이 생기지 않는다. Window 수는 소수이므로 페이로드
+크기는 문제가 되지 않는다.
+
+**FR-XDF-7** 소유권 조회 표면과 획득 표면을 제공한다. 조회는 읽기 전용이고, 획득은
+`clientId` 와 `windowId` 를 받는다.
+
+#### 3.5.3 구독 결선과 해제
+
+**FR-XDF-8** SSE 구독은 `clientId` 를 실어 서버가 **구독↔Client 를 결선**할 수 있게 한다
+(E-6). 현행 `handleCommandSSE`(`internal/server/commands.go:232`)의 구독(`cmdSub`)에는
+신원이 없고 `EventSource('/api/commands/sse')`(`app.js:180`)도 `clientId` 를 보내지 않으므로,
+이 결선이 FR-XDF-9 의 선행 조건이다.
+
+**FR-XDF-9** SSE 구독이 끊기면 서버는 그 Client 가 소유한 Window 를 **즉시** 해제하고
+전파한다. grace period 를 두지 않는다 (E-2). `beforeunload` 의존(`app.js:1660`)은
+제거한다 — 원격 기기 강제 종료·네트워크 단절에서 발화하지 않는다.
+
+**FR-XDF-10** 같은 `clientId` 의 **더 새로운 구독이 존재하는 상태**에서 옛 구독의 종료가
+감지되면 해제하지 않는다. 재연결 경합에서 최신 구독이 우선한다 — 이 보호가 없으면
+새 구독의 획득이 옛 구독의 지연된 해제에 덮인다.
+
+#### 3.5.4 재연결
+
+**FR-XDF-11** SSE 연결 수립 시 Client 는 소유권 스냅샷을 조회해 로컬 상태를 서버 상태로
+맞춘다. `_attnRestore`(`app.js:710`) · `_activityRestore`(`app.js:798`)와 동일한 패턴이다.
+
+**FR-XDF-12** SSE 연결 수립 시 Client 가 **OS 포커스를 갖고 있으면** 활성 Window 의
+소유권을 **재획득**한다. 근거: FR-XDF-9 로 서버가 해제한 뒤에도 Client 의
+`_windowFocusOwner` 는 자신을 소유자로 기억하므로, 현행 `_focusWindow`
+(`app.js:1697`)의 "소유권이 실제로 바뀔 때만 전파" 조건에 걸려 **영구히 재획득하지
+않는다.** 즉시 해제(FR-XDF-9)를 택한 전제가 이 재획득이다.
+
+**FR-XDF-13** OS 포커스가 없는 Client 는 재연결 시 소유권을 주장하지 않는다. 백그라운드로
+내려간 기기가 소유권을 되찾아 활성 기기의 PTY 크기를 빼앗아서는 안 된다.
+
+**FR-XDF-14** 자신이 소유자로 기록된 브로드캐스트를 수신해도 상태가 변하지 않는다 (멱등).
+
+#### 3.5.5 비목표 (E)
+
+1. **README TODO "focused browser 자동 동기화"(마지막 이벤트 기준)** — 뿌리는 같으나
+   별건이다 (E-5, 최소 구현 원칙)
+2. **명시적 소유권 인수 UI** — FR-XDF-2 가 자동 획득이므로 인수 표면이 필요 없다
+3. **삭제된 Window 의 소유권 항목 청소** — 항목은 유한하고 아무것도 참조하지 않는다
 
 ### 3.6 묶음 F — 모바일 키보드 뷰포트 (미확정)
 
@@ -446,7 +502,32 @@ FR-MKV-* 로 확정한다.
 | TC-BGR-6 | FR-BGR-5 | 존재하지 않는 uuid 지정 | 복귀 미수행. 도구가 백그라운드 목록에 그대로 남는다 |
 | TC-BGR-7 | FR-BGR-6 | `internal/server` 기존 테스트 | 전량 통과 (무변경 확인) |
 
-### 4.5 회귀 검증 (전 묶음 공통)
+### 4.5 묶음 E — 크로스 기기 창 포커스
+
+**크로스 기기 프록시**: Playwright `browser.newContext()` 는 `BroadcastChannel` 스코프와
+`clientId`(`app.js:8`, 페이지 로드마다 `crypto.randomUUID()`)가 모두 격리되므로 다른
+기기와 동등하다. `e2e/sync.spec.ts` 가 이미 쓰는 패턴이다.
+
+**RED 전제**: TC-XDF-1 은 현행 코드에서 **실패해야 한다.** 두 컨텍스트 사이에서
+`BroadcastChannel` 이 전달되지 않으므로 dim 이 적용되지 않는다 — 이것이 §2.7 의 증상이다.
+
+| TC | FR | 절차 | 기대 |
+|---|---|---|---|
+| TC-XDF-1 | FR-XDF-5, FR-XDF-6 | 컨텍스트 A·B 로 접속. A 가 Window1 을 포커스 | B 에서 Window1 의 Pane 에 `pn-dimmed` 적용 |
+| TC-XDF-2 | FR-XDF-2 | 이어서 B 가 같은 Window 를 포커스 | A 가 dim, B 는 밝음 (last-focus-wins) |
+| TC-XDF-3 | FR-XDF-3 | A 가 Window1 소유 후 Window2 를 포커스 | Window1 소유가 해제된다 (한 Client 는 한 Window) |
+| TC-XDF-4 | FR-XDF-7 | 소유 상태에서 소유권 조회 | 스냅샷이 `{Window1: A의 clientId}` 를 반영 |
+| TC-XDF-5 | FR-XDF-9 | A 의 컨텍스트를 닫음 | B 의 dim 이 벗겨진다. grace 대기 없이 |
+| TC-XDF-6 | FR-XDF-11 | A 소유 상태에서 컨텍스트 C 를 새로 접속 | C 가 접속 직후 dim 을 본다 (늦은 참여 복원) |
+| TC-XDF-7 | FR-XDF-12 | A 에서 SSE 를 강제 종료(`_cmdES.close()`) 후 재연결 대기 | 재연결 후 소유권 스냅샷에 A 가 **다시** 소유자로 있다 |
+| TC-XDF-8 | FR-XDF-13 | OS 포커스 없는 상태(`blur`)에서 SSE 재연결 | 소유권을 주장하지 않는다 |
+| TC-XDF-9 | FR-XDF-5 | 브라우저에서 포커스 채널 객체 존재 확인 | `BroadcastChannel` 경로가 없다 |
+| TC-XDF-10 | FR-XDF-4 | B 가 A 소유 Window 의 도구에 대해 `_resizeCheck` 호출 | `false` — dim 과 리사이즈 권한이 같은 상태를 읽는다 |
+| TC-XDF-11 | FR-XDF-10 | 서버 유닛 — 같은 `clientId` 로 구독 2개를 연 뒤 **먼저 연 것**을 닫는다 | 소유권이 유지된다 (최신 구독 우선) |
+| TC-XDF-12 | FR-XDF-9 | 서버 유닛 — 구독 종료 | 소유권 해제 + 전체 맵 브로드캐스트 |
+| TC-XDF-13 | FR-XDF-14 | 자신이 소유자인 브로드캐스트 수신 | 상태 무변화 (멱등) |
+
+### 4.6 회귀 검증 (전 묶음 공통)
 
 | 대상 | 이유 |
 |---|---|
@@ -454,8 +535,16 @@ FR-MKV-* 로 확정한다.
 | `e2e/mobile-keybar.spec.ts` TC-D1/D2/T2/T3/T4 | 묶음 C 가 같은 핸들러를 재작성한다 |
 | `e2e/mobile-keybar.spec.ts` TC-A1..A4 | 묶음 F 가 높이 체계를 교체한다 (F 착수 시 개정) |
 | `internal/migrate` 유닛 | 묶음 B — 구 어휘가 입력이므로 일괄 치환 금지 |
-| `e2e/focus.spec.ts`, `focus-invariant.spec.ts`, `regression-focus.spec.ts` | 묶음 E 가 소유권 경로를 교체한다 |
-| `go test ./...` 전량 | 묶음 B·D |
+| `e2e/sync.spec.ts` | 묶음 E 가 SSE 구독 URL 에 `clientId` 를 추가한다 |
+| `internal/server` 유닛 (`commands_test.go`) | 묶음 E 가 `handleCommandSSE` 를 바꾼다 |
+| `go test ./...` 전량 | 묶음 B·D·E |
+
+**정정**: 본 SRS 초판은 `e2e/focus.spec.ts` · `focus-invariant.spec.ts` ·
+`regression-focus.spec.ts` 를 묶음 E 의 회귀 주의 대상으로 적었다. **사실이 아니다** —
+세 스펙은 `s.focusedPane` 불변식(어느 Pane 이 활성인가)만 검증하고 `_windowFocusOwner`
+(어느 Client 가 그 Window 를 보는가)는 참조하지 않는다. 두 상태는 이름만 비슷하고
+서로 무관하다. 따라서 **소유권 경로에는 기존 테스트가 없고**, TC-XDF-* 가 유일한
+안전망이다.
 
 ---
 
@@ -513,3 +602,12 @@ FR-MKV-* 로 확정한다.
 | D | `detach` 인자 파싱 | 첫 플래그에서 즉시 반환 | 플래그를 모두 모은 뒤 해석 | `--at` 이 `--restore` 앞에 와도 같은 결과여야 한다 |
 | D | `_restoreTool` 시그니처 | `(toolId)` | `(toolId, opts={})` | 대상 Pane 주입. `opts` 기본값으로 기존 호출부(모달 항목 클릭) 무변경 |
 | D | 모달 행 식별자 | (없음) | `data-toolid` | `.pn-tab[data-toolid]` 과 같은 관행. 여러 백그라운드 도구 중 특정 행을 DOM 으로 지목할 수 있다 |
+| E | 소유권 전파 경로 | `BroadcastChannel('dongminal-focus')` — 동일 브라우저·동일 origin 한정 | `POST /api/focus/claim` → SSE `window_focus` | 다른 기기와 원리적으로 통신 불가였고, `--expose` 시 `localhost:PORT` 와 `<host-ip>:PORT` 는 origin 이 달라 같은 컴퓨터의 두 탭도 격리됐다 (§2.7) |
+| E | 소유권 권위 | 각 브라우저의 로컬 `_windowFocusOwner` (합의 없음) | 서버 in-memory (`FocusRegistry`) | 권위가 없으면 기기마다 다른 소유자를 믿는다. 영속화하지 않는 이유는 클라이언트 소유권이 휘발성이기 때문이다 — 서버 재시작 시 전원 해제가 안전하다 |
+| E | 전파 페이로드 | 증분 이벤트 2종 (`windowFocus` / `windowRelease`) | 소유권 **전체 맵** 1종 (`window_focus`) | 전체 맵은 멱등이라 자기 에코 필터(`clientId` 비교)가 불필요하고, 부분 상태·순서 의존이 생기지 않는다. Window 수는 소수다 |
+| E | **PTY 리사이즈 게이팅** | 사실상 무효 — 원격 기기의 `_windowFocusOwner` 에는 자기 자신만 있어 `_resizeCheck` 가 항상 `true` 였다. **모든 기기가 각자 리사이즈하고 마지막 것이 이겼다** | 소유자 하나만 리사이즈를 보낸다 | 묶음 E 는 동기화 결손을 고치는 데 그치지 않고, 여태 발현되지 않았던 리사이즈 권한 게이팅을 **처음으로 켠다**. 이것이 리스크 HIGH 의 실체다 |
+| E | 획득 정책 | last-focus-wins (동일 브라우저 내에서만 발현) | last-focus-wins (기기 간에도 발현) | 정책은 바꾸지 않았다. 사용자 판단: 같은 Window 를 보는 두 기기 중 한쪽 렌더는 필연적으로 깨지므로 마지막 접근자가 갖는 것이 맞고, 비소유 측은 dim 으로 드러난다 (PLAN E-7) |
+| E | 소유권 해제 | `beforeunload` 에서 브라우저가 스스로 해제 | 서버가 SSE 구독 해제 시 즉시 해제 | `beforeunload` 는 원격 기기 강제 종료·네트워크 단절에서 발화하지 않아 소유권이 영구히 남았다. 재연결 경합은 `clientId` 별 epoch 로 막는다 — 옛 구독의 지연된 teardown 이 새 구독의 획득을 덮지 않는다 |
+| E | 재연결 시 소유권 | (해당 없음 — 서버 상태가 없었다) | SSE `onopen` 에서 스냅샷 정렬 + OS 포커스 시 재획득 | 즉시 해제를 택한 전제다. 재획득이 없으면 `_focusWindow` 의 "소유권이 실제로 바뀔 때만 전파" 조건에 걸려 **영구히 재획득하지 못한다.** OS 포커스가 없는 기기는 주장하지 않는다 — 백그라운드 기기가 활성 기기의 PTY 크기를 빼앗아서는 안 된다 |
+| E | `_initFocusChannel` | BroadcastChannel 생성 + OS 포커스 리스너 + `beforeunload` | `_initFocusSync` — OS 포커스 리스너만 | 채널이 없어졌으므로 이름의 "Channel" 이 사실과 어긋난다. 전파는 `_focusClaim`(송신)과 `window_focus` SSE 분기(수신)로 분리했다 |
+| E | SSE 구독 URL | `/api/commands/sse` | `/api/commands/sse?clientId=<id>` | `cmdSub` 에 신원이 없어 구독 해제와 소유권 해제를 이을 수 없었다. 쿼리 파라미터는 기존 payload 규약과 `CommandBroker` 인터페이스를 건드리지 않는다. `clientId` 없는 구독도 그대로 동작한다 (소유권 결선만 없음) |

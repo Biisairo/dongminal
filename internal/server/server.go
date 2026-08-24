@@ -40,6 +40,8 @@ type Server struct {
 	Settings    SettingsStore
 	WhoAmI      mcptool.ClientToolResolver
 	AttnTracker *AttnTracker
+	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
+	Focus *FocusRegistry
 
 	started time.Time
 
@@ -70,6 +72,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		Work:        deps.Work,
 		MCPTools:    deps.MCPTools,
 		Commands:    cmds,
+		Focus:       NewFocusRegistry(),
 		MCP:         NewMCPSessionRegistry(),
 		Settings:    settings,
 		WhoAmI:      deps.WhoAmI,
