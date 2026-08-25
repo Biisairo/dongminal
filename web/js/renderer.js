@@ -29,13 +29,17 @@ class Renderer {
     for(const s of this.app.ws.windows){
       const d=document.createElement('div');
       // FR-PAN-16: 알람이 있는 창을 사이드바에서 구분 표시
-      d.className='si'+(s.id===this.app.ws.activeWindow?' active':'')+(this.app._windowHasAttn(s)?' attn':'');
+      // FR-GIT-30: Git 창도 WINDOWS 목록의 평범한 원소다. 구분만 준다.
+      const isGit=s.type===WINDOW_TYPE_GIT;
+      d.className='si'+(s.id===this.app.ws.activeWindow?' active':'')+(this.app._windowHasAttn(s)?' attn':'')+(isGit?' git':'');
       d.dataset.sid=s.id;
+      d.dataset.windowType=s.type||WINDOW_TYPE_TERMINAL;
       d.innerHTML='<span class="si-dot"></span><span class="si-name"></span><span class="si-x">×</span>';
       d.querySelector('.si-name').textContent=s.name;
       d.addEventListener('click',e=>{if(!e.target.classList.contains('si-x'))this.app.switchWindow(s.id)});
       d.querySelector('.si-x').addEventListener('click',e=>{e.stopPropagation();this.app.delWindow(s.id)});
-      d.querySelector('.si-name').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(s,e.target)});
+      // Git 창 이름은 고정이다 — 이름변경을 달지 않는다.
+      if(!isGit) d.querySelector('.si-name').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(s,e.target)});
       d.draggable=true;
       // 재배치는 drop(즉시·깜빡임 없음) 1순위, 패널 밖 release 는 dragend 폴백. 식별자 기반 splice.
       d.addEventListener('dragstart',e=>{this.app._drag={type:'window',srcId:s.id,targetId:null,before:false,done:false};e.dataTransfer.effectAllowed='move';setTimeout(()=>d.classList.add('dragging'),0)});
@@ -99,6 +103,8 @@ class Renderer {
     const walk=n=>{if(!n)return;if(n.type==='pane'&&n.tabs)n.tabs.forEach(t=>allTabIds.add(t.id));if(n.type==='split'&&n.children)n.children.forEach(walk)};
     for(const sess of this.app.ws.windows){if(sess&&sess.layout)walk(sess.layout)}
     for(const[tid,v] of this.app.fileEditors){if(!allTabIds.has(tid)){v.destroy();this.app.fileEditors.delete(tid)}}
+    // Git 창이 사라졌으면 루트를 area 로 되돌린다. 인스턴스는 유지 — 다시 열릴 수 있다.
+    if(!this.app._gitWindow()) this.app.gitPanel.detach();
     requestAnimationFrame(()=>{
       for(const p of this.app.tools.values()){
         if(p.el.classList.contains('vis')){
@@ -182,18 +188,22 @@ class Renderer {
       // FR-PAN-9/TC-PAN-17: 사용자가 지금 보고 있는 탭(포커스+활성)은 강조하지 않음
       const tabActive=tab.id===n.activeTab;
       const tabAttn=this.app._attnHas(tab.toolId)&&!(focused&&tabActive);
-      t.className='pn-tab'+(tabActive?' active':'')+(tabAttn?' attn':'');
+      // FR-GIT-28: git 탭은 고정이다 — 닫기·이름변경·드래그를 달지 않는다.
+      // 자리가 항상 같아야 근육 기억이 선다.
+      const isGit=tab.type===TAB_TYPE_GIT;
+      t.className='pn-tab'+(tabActive?' active':'')+(tabAttn?' attn':'')+(isGit?' git':'');
       t.dataset.tabId=tab.id;
       if(tab.toolId) t.dataset.toolid=tab.toolId;
-      t.innerHTML='<span class="pn-tab-label"></span><span class="pn-tab-x">×</span>';
+      if(isGit) t.dataset.gitView=tab.gitView;
+      t.innerHTML='<span class="pn-tab-label"></span>'+(isGit?'':'<span class="pn-tab-x">×</span>');
       t.querySelector('.pn-tab-label').textContent=(tab.dirty?'● ':'')+tab.name;
       t.addEventListener('click',e=>{
         e.stopPropagation();
         if(e.target.classList.contains('pn-tab-x')) this.app.closeTab(n.id,tab.id);
         else this.app.switchTab(n.id,tab.id);
       });
-      t.querySelector('.pn-tab-label').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(tab,e.target)});
-      t.draggable=true;
+      if(!isGit) t.querySelector('.pn-tab-label').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(tab,e.target)});
+      t.draggable=!isGit;
       t.addEventListener('dragstart',e=>{this.app._drag={type:'tab',srcPaneId:n.id,tabId:tab.id};e.dataTransfer.effectAllowed='move';e.stopPropagation();setTimeout(()=>t.classList.add('dragging'),0)});
       t.addEventListener('dragend',()=>{this.app._drag=null;t.classList.remove('dragging');tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none')});
       t.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));const rect=t.getBoundingClientRect();t.classList.add(e.clientX<rect.left+rect.width/2?'drag-left':'drag-right');document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none')});
@@ -209,7 +219,12 @@ class Renderer {
     const body=document.createElement('div'); body.className='pn-body';
     const at=(n.tabs||[]).find(t=>t.id===n.activeTab);
     if(at){
-      if(at.type==='editor'){
+      if(at.type===TAB_TYPE_GIT){
+        // GitPanel 은 Git 창이 싱글턴이므로 앱에 하나다 — 탭마다 인스턴스를
+        // 만들지 않고 view 별 루트 DOM 만 캐시한다 (FR-GIT-26).
+        const el=this.app.gitPanel.elFor(at.gitView);
+        body.appendChild(el); el.classList.add('vis');
+      }else if(at.type==='editor'){
         let editor=this.app.fileEditors.get(at.id);
         if(!editor){editor=new FileEditor(at.id,at.name,at.filePath);this.app.fileEditors.set(at.id,editor)}
         body.appendChild(editor.el);editor.el.classList.add('vis');

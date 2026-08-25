@@ -47,3 +47,28 @@ var TOPTS={
   fontFamily:"'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace",
   theme:null,
 };
+
+// ── Git 창 (GIT_SRS §3.4 / FR-GIT-25~31) ──
+
+// 창의 type 은 없을 수 있다. 없으면 terminal 이다 — 기존 workspace.json 이 그대로
+// 로드돼야 한다 (FR-GIT-25). 판정은 항상 WINDOW_TYPE_GIT 인지로만 한다.
+const WINDOW_TYPE_TERMINAL='terminal';
+const WINDOW_TYPE_GIT='git';
+const TAB_TYPE_GIT='git';
+
+// Git 창은 워크스페이스 전체에 1개다 (FR-GIT-26). 이름은 고정 — 활성 리포를
+// 이름에 반영하면 창 목록에서 같은 창이 계속 이름을 바꿔 식별성이 떨어진다.
+const GIT_WINDOW_NAME='Git';
+
+// Git 창 내부의 고정 탭. 생성·삭제되지 않는다 (FR-GIT-28).
+// pending 인 탭은 M1 에서 자리만 있고 "준비 중" 을 표시한다.
+const GIT_VIEWS=[
+  {key:'changes',  name:'Changes'},
+  {key:'diff',     name:'Diff'},
+  {key:'history',  name:'History',  pending:true},
+  {key:'branches', name:'Branches', pending:true},
+  {key:'stash',    name:'Stash',    pending:true},
+  {key:'console',  name:'Console',  pending:true},
+];
+const GIT_PENDING_HINT='이후 마일스톤에서 제공됩니다';
+const GIT_NO_REPO_HINT='리포를 선택하세요';

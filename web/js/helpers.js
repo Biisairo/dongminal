@@ -109,10 +109,12 @@ function normalizeTab(t) {
 
 // FR-EM-13: 도구 타입별 능력. 백그라운드로 보낼 수 있는 도구는 서버(데몬)가
 // 소유하는 실행 실체가 있는 것뿐이다 — editor 는 브라우저 메모리에만
-// 존재하므로 탭에서 떼어낼 실체가 없다.
+// 존재하므로 탭에서 떼어낼 실체가 없다. git 탭도 같다 — PTY 가 없고, 애초에
+// 닫히지도 않는 고정 탭이다 (FR-GIT-28).
 const TOOL_CAPABILITIES = {
   terminal: { backgroundCapable: true },
   editor:   { backgroundCapable: false },
+  git:      { backgroundCapable: false },
 };
 function toolBackgroundCapable(type) {
   const cap = TOOL_CAPABILITIES[type || 'terminal'];
@@ -204,7 +206,9 @@ function clean(n,ok){
   if(!n) return null;
   if(n.type==='pane'){
     if(n.tabs) n.tabs=n.tabs.filter(t=>{
-      if(t.type==='editor') return true;
+      // 서버 도구에 매인 탭만 검사한다. editor·git 탭은 toolId 가 없어
+      // 그대로 두지 않으면 로드마다 사라진다 (FR-GIT-25).
+      if(t.type==='editor'||t.type===TAB_TYPE_GIT) return true;
       return ok.has(t.toolId);
     });
     if(!n.tabs||!n.tabs.length) return null;

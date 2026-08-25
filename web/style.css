@@ -629,3 +629,17 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .bg-box .bg-row:hover{background:var(--accent-subtle)}
 .bg-box .bg-name{color:var(--text-bright);white-space:nowrap}
 .bg-box .bg-cwd{color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Git 창 (FR-GIT-25~31) ── */
+/* 고정 탭·고정 이름 — 닫기·이름변경·드래그가 없으므로 커서로도 알린다 */
+.pn-tab.git{cursor:default}
+.si.git .si-name{cursor:default}
+.git-view{position:absolute;inset:0;display:none;overflow:auto;background:var(--bg)}
+.git-view.vis{display:block}
+.git-pending,.git-empty{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:6px;
+  color:var(--text-muted);font-size:13px;
+}
+.git-pending-name{color:var(--text-bright);font-size:14px}
+.git-pending-hint{color:var(--text-dim)}

@@ -25,6 +25,7 @@ class App {
     this._modKbd=null; // {ctrl:bool|'lock', alt:bool|'lock'}
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
+    this.gitPanel=new GitPanel(this);
   }
 
   // ── Mobile mode ──
@@ -1155,6 +1156,33 @@ class App {
 
   async addWindow(){await this._mkWindow();this.render()}
 
+  // _gitWindow 는 워크스페이스의 Git 창이다. 없으면 null (FR-GIT-26).
+  _gitWindow(){return this.ws.windows.find(s=>s&&s.type===WINDOW_TYPE_GIT)||null}
+
+  // openGitWindow 는 Git 창을 활성화한다. 없으면 만든다 — 두 번 불러도 창은
+  // 하나다 (FR-GIT-26). repo 를 주면 활성 리포까지 전환한다 (FR-GIT-15).
+  async openGitWindow(repo){
+    const win=this._gitWindow()||this._mkGitWindow(repo||null);
+    if(repo) this.gitPanel.setRepo(repo);
+    this.switchWindow(win.id);
+    return win.id;
+  }
+
+  // _mkGitWindow 는 고정 탭 6개를 갖춘 Git 창을 만든다. _mkWindow 와 달리
+  // _newTool 을 부르지 않는다 — Git 창의 초기 상태에는 PTY 가 필요 없다.
+  _mkGitWindow(repo){
+    const r=newEntityId();
+    const tabs=GIT_VIEWS.map(v=>({id:newEntityId(),name:v.name,type:TAB_TYPE_GIT,gitView:v.key}));
+    const s={
+      id:newEntityId(),name:GIT_WINDOW_NAME,type:WINDOW_TYPE_GIT,
+      // 활성 리포는 창에 붙는다 — 창이 곧 Git 표면이므로 (FR-GIT-29).
+      git:{repo:repo||null},
+      layout:{type:'pane',id:r,tabs,activeTab:tabs[0].id}
+    };
+    this.ws.windows.push(s);
+    return s;
+  }
+
   async delWindow(sid){
     const i=this.ws.windows.findIndex(s=>s.id===sid);
     if(i<0) return;
@@ -1288,6 +1316,8 @@ class App {
     if(!s) return;
     const pn=findPane(s.layout,rid); if(!pn) return;
     const tab=pn.tabs.find(t=>t.id===tid); if(!tab) return;
+    // FR-GIT-28: Git 창의 고정 탭은 생성·삭제되지 않는다.
+    if(tab.type===TAB_TYPE_GIT) return;
     const isEditor=tab.type==='editor';
     if(isEditor){
       const editor=this.fileEditors.get(tab.id);
@@ -2618,6 +2648,9 @@ class App {
     const srcRg=findPane(s.layout,srcRid);const dstRg=findPane(s.layout,dstRid);
     if(!srcRg||!dstRg)return;
     const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
+    // FR-GIT-28: git 탭은 pane 을 옮기지 않는다. draggable=false 로 드래그 시작은
+    // 막았지만, 이 경로는 드롭 핸들러 밖에서도 불릴 수 있어 여기서 한 번 더 막는다.
+    if(srcRg.tabs[ti].type===TAB_TYPE_GIT)return;
     const[tab]=srcRg.tabs.splice(ti,1);
     if(srcRg.tabs.length===0){s.layout=doRemove(s.layout,srcRid);if(this.focused===srcRid)this._setFocus(dstRid, s)}
     else if(srcRg.activeTab===tabId)srcRg.activeTab=srcRg.tabs[0].id;
@@ -2634,6 +2667,8 @@ class App {
     const srcRg=findPane(s.layout,srcRid);if(!srcRg)return;
     if(srcRid===targetRid&&srcRg.tabs.length<=1)return;
     const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
+    // FR-GIT-28: git 탭은 분할로 떼어내지지 않는다 (_moveTabToPane 과 같은 이유).
+    if(srcRg.tabs[ti].type===TAB_TYPE_GIT)return;
     const[tab]=srcRg.tabs.splice(ti,1);
     if(srcRg.tabs.length===0)s.layout=doRemove(s.layout,srcRid);
     else if(srcRg.activeTab===tabId)srcRg.activeTab=srcRg.tabs[0].id;
