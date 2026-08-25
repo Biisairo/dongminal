@@ -36,6 +36,8 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl read-output [--at <uuid>] [--bytes N]   # raw 바이트, ANSI 포함 (기본 8192)
   dmctl send-input --at <uuid> [--execute] <텍스트>   # 쉘 대상. - 또는 생략 시 stdin
   dmctl msg --to <uuid> [--from <uuid>] <메시지>      # 에이전트 대상 (신뢰 엔벨로프)
+  dmctl status [--at <uuid>] [--json]                 # 그 도구의 에이전트 상태
+  dmctl wait [--at <uuid>] --for ready|done [--timeout-ms N]  # 상태 대기 (서버 long-poll)
 
   여러 에이전트를 팀으로 묶는 절차는 /dongminal:team 스킬에 있다.
   각 서브커맨드의 상세는 dmctl <서브커맨드> --help 로 본다.
@@ -107,6 +109,10 @@ func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, 
 		return runDmctlMsg(rest, os.Stdin, stdout, stderr), true
 	case "open-editor":
 		return runDmctlOpenEditor(rest, stdout, stderr), true
+	case "status":
+		return runDmctlStatus(rest, stdout, stderr), true
+	case "wait":
+		return runDmctlWait(rest, stdout, stderr), true
 	}
 	return 0, false
 }

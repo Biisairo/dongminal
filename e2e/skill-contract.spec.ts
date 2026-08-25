@@ -204,6 +204,59 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
     expect(g.status()).toBe(404);
   });
 
+  // 묶음 S — 상태·대기 계약 (RUN_ORCHESTRATION_SRS FR-STA-1/2/5).
+  // 재작성될 Barrier 가 화면 스크래핑 대신 밟을 경로다. Go 단위 테스트는 가짜
+  // toolaccess 로 도는 반면 여기서는 실제 도구·실제 해석기를 통과한다.
+  test('activity/get 이 살아있는 도구의 상태를 낸다', async ({ request }) => {
+    const { uuid, toolId } = await firstTab(request);
+    const r = await request.get(`/api/tools/activity/get?id=${uuid}`);
+    expect(r.status()).toBe(200);
+    const body = await r.json();
+    expect(body.toolId).toBe(toolId);
+    expect(body.live, '살아있는 도구가 live=false 다').toBe(true);
+    expect(typeof body.state).toBe('string');
+
+    const miss = await request.get('/api/tools/activity/get?id=no-such-uuid');
+    expect(miss.status()).toBe(404);
+  });
+
+  test('wait 이 훅 상태 전이를 따라간다 — working 은 대기, idle 은 ready', async ({ request }) => {
+    const { uuid, toolId } = await firstTab(request);
+
+    await request.post('/api/tools/activity/set', {
+      data: { toolId, state: 'working', tool: 'Bash', detail: 'sleep 600' },
+    });
+    const busy = await (
+      await request.get(`/api/tools/activity/wait?id=${uuid}&for=ready&timeoutMs=300`)
+    ).json();
+    expect(busy.status, 'working 인데 ready 로 풀렸다').toBe('timeout');
+    expect(busy.state).toBe('working');
+
+    await request.post('/api/tools/activity/set', { data: { toolId, state: 'idle' } });
+    const ready = await (
+      await request.get(`/api/tools/activity/wait?id=${uuid}&for=ready&timeoutMs=5000`)
+    ).json();
+    expect(ready.status).toBe('ready');
+    expect(ready.reason, 'ready 근거가 훅이어야 한다').toBe('hook');
+  });
+
+  // FR-STA-5: 권한 확인 대기(waiting)는 준비완료가 아니다. 현재 스킬의 화면
+  // fingerprint 는 이 구분을 못 해 권한 대기를 준비완료로 오인한다.
+  test('waiting 은 ready 가 아니라 blocked 다', async ({ request }) => {
+    const { uuid, toolId } = await firstTab(request);
+    await request.post('/api/tools/activity/set', { data: { toolId, state: 'waiting' } });
+
+    const started = Date.now();
+    const body = await (
+      await request.get(`/api/tools/activity/wait?id=${uuid}&for=ready&timeoutMs=60000`)
+    ).json();
+    expect(body.status).toBe('blocked');
+    expect(Date.now() - started, 'blocked 는 즉시 반환해야 한다').toBeLessThan(5000);
+
+    // 뒷 스펙이 이 도구를 쓰므로 상태를 되돌린다.
+    await request.post('/api/tools/activity/set', { data: { toolId, state: 'idle' } });
+  });
+
   // MCP 는 제거됐다 (SKILL_INJECTION_SRS 묶음 F). 라우트가 되살아나면 이중
   // 접합면이 생기므로 여기서 막는다.
   test('MCP 엔드포인트는 더 이상 없다', async ({ request }) => {
