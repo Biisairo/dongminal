@@ -1,64 +1,145 @@
 # 다음 세션 프롬프트
 
-트랙 1~4 가 전부 닫혔다. 다음 세션의 후보는 아래 "별건" 표뿐이며, 새 세션 첫
-메시지로 붙여넣을 지시 블록은 지금 없다 — 무엇을 집을지는 사용자가 고른다.
+**현재 트랙: Git 창 도입 — 구현 단계 (M1 착수)**
 
-| 트랙 | 상태 |
-|---|---|
-| ~~1. 사용자 확인 피드백~~ | **완료** — 8개 항목 전부. iOS 실기기 수동 확인만 남음 ([USER_CHECKLIST_FIXES_HANDOFF.md](./USER_CHECKLIST_FIXES_HANDOFF.md)) |
-| ~~2. MCP 폐지 → 세션 스코프 스킬 주입~~ | **완료** — `6681a14`, `1013f8c` ([SKILL_INJECTION_SRS.md](./SKILL_INJECTION_SRS.md)) |
-| ~~3. 상태바 지표 재설계~~ | **완료** — `286ebd8` ([SYSTEM_STATS_SRS.md](./SYSTEM_STATS_SRS.md)) |
-| ~~4-a. 오케스트레이터 — 결함·식별자 통일~~ | **완료** — `0ec8e02`, `835a662`, `f7580a7` ([WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md)) |
-| ~~4-b. 오케스트레이터 — 조사·설계~~ | **완료** — `901bd7c` ([RUN_ORCHESTRATION_SRS.md](./RUN_ORCHESTRATION_SRS.md), [ORCHESTRATOR_RESEARCH_NOTES.md](./ORCHESTRATOR_RESEARCH_NOTES.md)) |
-| ~~4-c. 오케스트레이터 — 구현~~ | **완료** — 묶음 **S**(`228c464`)·**R**(`a958797`)·**P+A**(`c37fa48`)·**K**(`b3dc910`)·**W** ([RUN_ORCHESTRATION_SRS](./RUN_ORCHESTRATION_SRS.md)) |
+분석·스펙이 끝났다. 다음 세션은 **구현**이다. 아래 §1 지시 블록을 새 세션 첫
+메시지로 붙여넣는다.
 
 ---
 
-## 트랙 4-c 종료 — 묶음 W(worktree 격리) 요약
+## 1. 새 세션에 붙여넣을 지시 블록
 
-- `internal/worktree` 신설 — 생성(`--no-track` + `branch.<name>.base` 기록) · 정리 ·
-  안전 가드 · 직렬화. **저장소에서 파일을 지울 수 있는 유일한 경로**이며, 지우는
-  판단은 전부 이 패키지의 가드를 거친다
-- 서버 접합 — `provisionRun` / `provisionMember` / `cleanupWorktrees`.
-  격리 준비는 **레코드보다 먼저**다(경로가 uuid 파생이라 id 를 먼저 정한다). 실패하면
-  레코드가 남지 않고, 만들어 둔 트리는 롤백된다
-- CLI — `dmctl run start --isolation per-run|per-member [--base <ref>]`(조정자 cwd 를
-  실어 보낸다) · `run close [--keep-worktrees]` · `status`/`close` 가 잔여물을 낸다
-- 스킬 — `team` §3.5(격리는 선택, 기동 전 `cd`, 해체 시 잔여물) + `workflow` 의 짧은
-  참조 + 진단 표 4행. 계약 테스트가 이 절의 존재를 지킨다
-- **구현 중 스펙을 하나 고쳤다** — FR-WKT-3 의 경로 조각이 `short`(uuid 앞 8자)였는데,
-  uuid v7 의 앞 48비트가 밀리초 타임스탬프라 **같은 기간의 Run·Member 가 전부 같은
-  short 를 갖는다.** `PathSlug`(앞 8 + 뒤 8)로 개정하고 회귀 테스트를 붙였다
-- 검증 — Go 전량 통과(`build`·`vet`·`test`·`gofmt`), Playwright **187 통과**(기준선
-  184 + 신규 3), 기준선·이후 각각 2회 재현. 파괴적 동작의 검출기 3건은 **반증**으로
-  물리는지 확인했다(dirty 보존을 `--force` 로 바꾸면 실패 / 직렬화 잠금을 빼면 실패 /
-  스킬의 "격리 사유가 아니다"를 뒤집으면 실패)
-- 남은 확인: **실제 격리 팀으로 한 바퀴**는 아직 돌지 않았다(비격리 팀은 묶음 K 에서
-  돌았다). 첫 격리 Run 은 새 worktree 경로가 신뢰 목록에 없어 **폴더 신뢰 모달**에
-  걸릴 수 있다 — 스킬 §3.5 와 진단 표가 이 경로를 다룬다
+```
+dongminal 에 Git 창을 구현한다. 분석과 스펙은 끝나 있다.
 
-## 별건 — 아직 남은 것
+읽을 것 (순서대로):
+  docs/internal/GIT_SRS.md                 ← 스펙. FR-GIT-1~178, 검증 V1~V69
+  docs/internal/GIT_SURFACE_MAP.md         ← 기능 → 표면 매핑
+  docs/internal/GIT_INTEGRATION_ANALYSIS.md ← 설계 근거 (§3.5 확정 설계, §4.5 감지 전략)
 
-| 항목 | 상태 |
+구현 순서는 GIT_SRS.md §6 구현 계획의 21단계를 따른다. 이번 세션은 M1(1~8단계)을
+목표로 하되, 컨텍스트가 남으면 M2(9~11단계)까지 이어간다.
+
+작업 방식:
+- SDD+TDD. 스펙이 이미 있으므로 각 단계는 테스트 → 구현 순서다.
+- 서브에이전트를 적극적으로 쓴다. 독립적인 작업은 병렬로 띄운다 (§2 병렬화 지도 참고).
+- 컨텍스트가 꽉 차거나 토큰이 부족해질 때까지 멈추지 말고 진행한다.
+- 각 단계가 끝나면 검증(go build/vet/test, gofmt)하고 커밋한다.
+- 커밋 메시지에 AI 서명(Co-Authored-By 등)을 넣지 않는다.
+
+열린 결정은 GIT_SRS.md §7 에 있다. M1 해당분(O1~O5)은 아래 값으로 확정하고 진행한다:
+  O1 핀 목록 저장 → workspace.json 최상위 git.pinned[]
+  O2 diff 크기 상한 → 1MB
+  O3 status TTL 캐시 → 200ms
+  O4 비활성 리포 배지 → 마지막 관측값을 흐리게 + "최신 아님" 툴팁
+  O5 Git 창 이름 → 고정 "Git"
+O6 이후는 해당 마일스톤 착수 시 같은 방식으로 정한다 (권장안이 §7 에 적혀 있다).
+
+먼저 GIT_SRS.md 를 읽고, M1 1단계(internal/git)부터 시작해라.
+```
+
+---
+
+## 2. 병렬화 지도 (서브에이전트 배치)
+
+의존이 강한 구간과 병렬 가능한 구간이 갈린다. **순차 의존을 병렬로 밀면 재작업이
+생기므로** 아래 경계를 지킨다.
+
+### 2.1 병렬 가능
+
+| 묶음 | 내용 | 담당 제안 |
+|---|---|---|
+| **A** `internal/git` | Go. 다른 무엇에도 의존하지 않는다 | `code-implementer` — 가장 먼저, 단독 |
+| **D** 창 타입 `git` | 프론트+워크스페이스 스키마. A 와 무관 | `code-implementer` — A 와 **동시 착수 가능** |
+| 테스트 선작성 | 묶음 A·B 의 단위 테스트 (V1~V5) | `test-implementer` — 구현과 병렬 |
+
+A 와 D 는 접점이 없다(하나는 Go 백엔드, 하나는 워크스페이스·프론트 골격). 동시에
+띄운다.
+
+### 2.2 순차 (앞이 끝나야 뒤가 선다)
+
+```
+A(internal/git) ──▶ B서버(리포 해석 API) ──▶ C서버(signature/status) ──▶ F서버(diff-content)
+                                                     │
+D(창 타입) ──▶ 내부 고정 탭 골격 ──▶ B클라(GIT 섹션) ─┴─▶ E(Changes 읽기) ──▶ C클라(폴링 배선) ──▶ F클라(Monaco) ──▶ G(상태바)
+```
+
+- API 가 없으면 프론트가 붙을 데가 없다. **서버측을 앞세운다.**
+- `C클라(폴링)` 는 `E(파일 목록)` 뒤다 — 갱신할 대상이 있어야 폴링이 의미가 있다.
+
+### 2.3 반드시 지킬 것
+
+- **stale 가드(FR-GIT-16/54)는 2단계(B서버)부터 넣는다.** 나중에 덧붙이면 모든 비동기
+  경로를 다시 훑어야 한다.
+- **M2 는 묶음 J(안전 정책) → H(스테이징) → I(커밋) 순이다.** 파괴적 경로가 열리기
+  전에 방어가 서야 한다. 순서를 바꾸지 않는다.
+- **M4 는 레인 알고리즘(15단계)을 UI(16단계)보다 먼저 단위 테스트로 고정한다.**
+  그래프 버그를 화면으로 디버깅하는 상황을 만들지 않는다.
+
+### 2.4 참조 구현 (그대로 베끼지 말고 근거로 쓸 것)
+
+| 필요할 때 | 볼 것 |
 |---|---|
-| ~~사용자 인스턴스 v1 → v2 마이그레이션 / 구 식별자 재작성~~ | **완료** (`f7580a7`). `*.preuuid.bak` 백업. 사용자 홈은 전부 uuid v7 |
-| ~~`~/.dongminal/runs.json` 에 소비자가 없음~~ | **해소** — 묶음 R 이 이 파일을 쓴다. 기존 프로토타입 필드는 보존했다 |
-| FR-STA-4 **사다리 2단계** (어댑터가 선언한 화면 패턴) | **스펙에 남기고 구현 보류** (사용자 확정, 2026-08-25). `Readiness.ScreenPatterns` 자리는 있으나 소비자가 없다. 화면 패턴은 사용자가 하단 스테이터스라인 하나만 붙여도 깨지며, FR-SKL-2 가 삭제하려는 fingerprint 와 같은 취약성이다. 훅을 주지 않는 에이전트는 3단계(출력 3초 정적)로 판정된다 |
-| codex 선언의 미확인 필드 | `modelFlag`·`exitCommand` 는 비어 있고 `promptInjection` 은 보수적으로 `stdin-after-start` 다. 이 머신의 codex 는 PATH 에 잡히지만 실체가 끊긴 심볼릭 링크라 실측이 불가했다. D-D 상 Claude 만 검증 대상이므로 차단 사항은 아니다 |
-| ~~`POST /api/tools` 의 `cwd` 가 무시된다~~ | **해소** — `f3873c3` 이 원인이었다. macOS `/etc/zshrc_Apple_Terminal` 의 세션 복원이 셸 시작 시 저장된 디렉터리로 `cd` 해 `cmd.Dir` 를 덮어썼고, `SHELL_SESSIONS_DISABLE=1` 로 막혔다. 재실측(2026-08-25): `POST /api/tools?cwd=<경로>` 로 띄운 셸의 `pwd` 가 그 경로다. **다만 스킬 §3.5 의 `cd` 단계는 남는다** — `dmctl new-tab`/`split` 에는 `cwd` 를 실을 인자가 없어(프론트 `_newTool` 까지 배선이 없다) 탭으로 뜨는 멤버는 여전히 `~` 에서 시작한다. 그 배선이 후속 후보 |
-| ~~epoch 펜싱으로 `aborted` 된 Run 의 worktree 는 정리 경로가 없다~~ | **완료** — FR-WKT-8a 신설. `run close --force` 가 종료된 Run 에 **정리 전용 진입**으로 동작한다. `state`·`abortReason` 은 보존하고 남은 트리만 거둔다. 이미 `removed` 인 트리를 대상에서 빼 멱등이며, dirty 보존은 그대로다 (TC-WKT-5a/5b/5c) |
-| `$DONGMINAL_HOME/worktrees` 에 보존 한도가 없다 | 잔여물(dirty·머지 안 된 브랜치)은 **의도된 보존**이라 자동 삭제 대상이 아니다. 쌓이면 사용자가 직접 정리한다. `runs.json` 보존 한도와 같은 성격의 후속 후보 |
-| 같은 머신에 dongminal 인스턴스가 둘이면 `PATH` 가 엉뚱한 `dmctl` 을 잡는다 | 실측(2026-08-25). 사용자 `~/.zshrc` 가 `~/.dongminal/bin` 을 앞세우면 격리 인스턴스의 도구도 그쪽 `dmctl` 을 쓴다. 일상 사용(인스턴스 1개)에는 영향이 없어 진단 표에만 적어 뒀다 |
-| ~~웹 서버 재기동 시 죽은 WS 로의 쓰기 폭주~~ | **완료** — 데몬 모드의 출력 릴레이를 `relayOutput` 으로 떼어 내고, 쓰기가 실패하면 소켓을 닫고 끝내게 했다. 직접 모드의 `broadcast` 는 원래 이렇게 동작했고 데몬 모드만 빠져 있었다. `safeConn.send` 가 에러를 반환한다. 회귀 테스트 3건(실패 시 중단 / 정상 시 계속 / exit 전파)이며, 옛 코드로 되돌리면 첫 번째가 실패하는 것을 확인했다 |
-| ~~새로고침·재접속 시 터미널에 정체불명의 입력이 찍힌다~~ | **완료** (이번 세션에 사용자 제보로 발견). 재생된 스냅샷에 남은 터미널 **질의**에 xterm.js 가 자동 응답하고, 그 응답이 PTY 입력으로 꽂혀 프롬프트에 `1;2c60;3R56;3R…` 이 찍혔다. `stripSnapshotQueries` 가 `ESC[6n`·`ESC[0c` 만 잡고 사설 접두(`?` `>` `=`) 형태를 빼먹은 것이 원인 — `ESC[?6n` 이 한 도구 버퍼 400KB 에 1400여 건 있었다. DA(`c`)·DSR(`n`)·CPR(`R`) 로 끝나는 CSI 를 접두·인자 가리지 않고 지우도록 넓혔고, 실제 버퍼에 대고 **일반 출력은 한 건도 걸리지 않음**을 확인했다 |
-| 세션 스코프 스킬은 **에이전트 세션 시작 시점에 고정**된다 | 실측(2026-08-25). 서버를 재기동하면 `~/.dongminal/bin/agent-plugin` 은 새것으로 깔리지만, **이미 떠 있는 CC 는 옛 스킬 본문을 계속 쓴다.** 이번에 옛 본문(삭제된 `build_prompt.py`·화면 fingerprint)을 그대로 로드해 확인했고, CC 를 새로 여니 새 본문이 들어왔다. 문서화로 충분한지, 버전 표식으로 감지할지는 후속 판단 |
-| ~~`runtime.Install` 이 **삭제된 자산을 지우지 않는다**~~ | **완료** — `pruneToEmbedded` 로 설치 트리를 임베드 트리의 **거울**로 만들었다. 정리 범위는 `agent-plugin` 서브트리로 한정되고(`bin/` 의 helper symlink·`agent-hooks` 는 임베드에 없는 정상 자산이다), 설치가 생성하는 `hooks/hooks.json` 은 제외 목록에 있다. 비게 된 디렉터리도 함께 지운다 |
-| `runs.json` 보존 한도 없음 | 무한 증가. 하루 몇 건 수준이라 당장 문제는 아니지만 후속 후보 |
-| 워크스페이스 PUT 의 last-write-wins | 미해소. `Tab.runId` 표식이 동시 편집에 지워질 수 있는 근본 원인이다 (`WORKSPACE_IDENTITY_SRS` §2.4·§5). 소유권의 진실은 `runs.json` 이라 기능 영향은 없다 |
-| 도구 표시명이 전부 `Shell` | FR-UNI-8 의 의도된 결과. 불편하면 rename UX 보강이 후속 후보 |
-| `~/.dongminal/panels.json` | v1 시절 도구 기록. 소비자 없음. 삭제 여부 미정 |
-| iOS 실기기 확인 (트랙 1 묶음 F) | 사용자 수동 확인 대기 (`test-checklist.md` C11.8~C11.10) |
-| `SYSTEM_STATS_SRS` V-5·V-9 | 수동 확인 대기 (Activity Monitor 대조 / 브라우저 네트워크 탭) |
-| `CLIENT_ATTACH_SRS` | 미착수 (ENTITY_MODEL SRS §7 후속) |
-| fan-out 결과 자동 비교·병합 / diff 인라인 주석 리뷰 | **별건으로 확정.** 참조 구현에도 없다 — `RUN_ORCHESTRATION_SRS` §5 |
-| 저장소에 `LICENSE` 없음 | orca(MIT) 코드를 실제로 차용한다면 고지 의무가 생긴다. 현재는 차용하지 않는 것으로 정리 (DC-RUN-5) |
+| git 실행 래퍼 (Runner·타임아웃·안전 가드) | `internal/worktree/worktree.go:83` `execGit` |
+| 폴링 가시성 게이팅 | `web/js/app.js:2311-2316`, `SYSTEM_STATS_SRS.md` FR-STAT-17 |
+| 비터미널 탭 선례 (Monaco) | `web/js/file-editor.js` |
+| 탭 타입 확장 선례 | `docs/internal/archive/MULTI_TAB_TYPE_SPEC.md` |
+| API 라우트 등록 | `internal/server/handlers_api.go:151` `apiRoutes` |
+| 상태바 항목 | `web/js/helpers.js:85` `STATUS_ITEMS`, `app.js:2336` |
+| DAG 레인 알고리즘 (M4) | `~/personal/gitmaster-app-electron-pnpm/apps/desktop/src/renderer/features/log/laneLayout.ts` (130줄, TS→JS 거의 그대로) |
+
+### 2.5 검증
+
+```bash
+go build ./... && go vet ./... && go test ./... && gofmt -l .
+npm run e2e                 # Playwright. 기준선 187 통과
+```
+
+기준선을 먼저 재고 시작한다. 신규 테스트는 기준선 위에 얹는다.
+
+---
+
+## 3. 이번 트랙의 확정 사항 (요약 — 상세는 GIT_SRS.md)
+
+| 항목 | 결정 |
+|---|---|
+| 형태 | Git = **창(window)**, 워크스페이스에 1개 (싱글턴) |
+| 진입 | 좌측 사이드바 GIT 섹션 — `⟳` cwd 자동 + `📌` 고정 + `+ Add` |
+| 창 내부 | **고정 탭** `Changes / Diff / History / Branches / Stash / Console` |
+| Changes | 상단 고정 커밋 영역(스크롤 무관) + 좌 파일목록 + 우 diff 미리보기 + 헤더 Fetch/Pull/Push |
+| Diff | 창 전체 폭 + `‹ ›` 파일 네비게이션 |
+| History | refs 사이드바 + 커밋 리스트 + DAG(행별 SVG) + **인라인 펼침** 상세 |
+| 이동 | 단일클릭=미리보기, 더블클릭=Diff 탭 |
+| 변경 감지 | **`git status` 폴링** (신호 4종 + signature 500ms + status 1s). 라이브러리 미도입 |
+| diff 엔진 | **Monaco DiffEditor** (이미 로드 중인 자산) |
+| 모바일 | 전 기능 + 파괴적 조작에 강화된 확인 |
+| MVP | M1~M5 = P0 38개 전부 |
+
+**기각된 것과 사유** (다시 논의하지 말 것):
+
+- 우측 사이드 패널 — 260px 로 6개 표면을 못 담고 Agents 패널과 자리를 다툰다.
+  dongminal 은 분할 칸이 있어 "사이드바로 에디터 영역을 지킨다" 는 VSCode 전제가
+  성립하지 않는다
+- 일반 탭 — 창·칸마다 중복 생성되어 "Git 이 어디 열려 있는지" 를 잃는다
+- fsnotify / radovskyb·watcher / git hooks — 실측과 라이브러리 실상으로 기각
+  (ANALYSIS §4.5.3). watcher 는 그 자체가 폴링이고 2019년 유지보수 중단,
+  fsnotify 는 darwin 에서 kqueue 라 파일당 FD 를 쓰고 **에디터의 atomic save 에서
+  watch 가 유실**된다
+- 칸 최대화(zoom) — Diff 탭이 그 역할을 한다
+
+---
+
+## 4. 완료된 이전 트랙 (기록)
+
+| 트랙 | 상태 |
+|---|---|
+| 1. 사용자 확인 피드백 | 완료 — iOS 실기기 수동 확인만 남음 ([USER_CHECKLIST_FIXES_HANDOFF.md](./USER_CHECKLIST_FIXES_HANDOFF.md)) |
+| 2. MCP 폐지 → 세션 스코프 스킬 주입 | 완료 — `6681a14`, `1013f8c` ([SKILL_INJECTION_SRS.md](./SKILL_INJECTION_SRS.md)) |
+| 3. 상태바 지표 재설계 | 완료 — `286ebd8` ([SYSTEM_STATS_SRS.md](./SYSTEM_STATS_SRS.md)) |
+| 4-a. 오케스트레이터 — 결함·식별자 통일 | 완료 ([WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md)) |
+| 4-b. 오케스트레이터 — 조사·설계 | 완료 ([RUN_ORCHESTRATION_SRS.md](./RUN_ORCHESTRATION_SRS.md)) |
+| 4-c. 오케스트레이터 — 구현 | 완료 — 묶음 S·R·P+A·K·W |
+| 5. 브랜드 아이콘·파비콘 | 완료 — `7d56fbb` |
+
+**남은 별건**: 실제 격리 팀으로 한 바퀴 (첫 격리 Run 은 새 worktree 경로가 신뢰
+목록에 없어 폴더 신뢰 모달에 걸릴 수 있다), iOS 실기기 확인.
