@@ -11,6 +11,11 @@ dongminal 의 session/region/tab/pane 식별 체계를 **위치 좌표 (position
 - **엔벨로프 프로토콜**: `[DONGMINAL-AGENT-MSG ...]` 의 라우팅 키.
 - **브라우저 UI**: SSE 메시지, 내부 상태 키, focus/drag/close 처리.
 - **dongminal-team 스킬**: `~/.claude/skills/dongminal-team/SKILL.md`, `references/*.md`, `scripts/plan_layout.py`, `scripts/build_prompt.py`, `evals/test-scenarios.md`.
+
+> **후속 (2026-08-25)**: 스킬은 이후 세션 스코프 플러그인으로 옮겨졌고
+> (`internal/runtime/agentplugin/skills/`), `build_prompt.py` 와
+> `references/prompt.md` 는 **삭제됐다** — `dmctl run launch` 가 대체한다
+> (`RUN_ORCHESTRATION_SRS` 묶음 K). 아래 FR-UID-10 은 그 시점의 기록이다.
 - **로그**: `/tmp/dongminal.log` 포맷.
 
 ### 1.3 정의 (Definitions)

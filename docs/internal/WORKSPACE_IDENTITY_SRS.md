@@ -389,7 +389,7 @@ FR-WID-2 와 같은 규약이다.
 
 | 비대상 | 근거 |
 |---|---|
-| `runs.json` | 도구·창 참조 필드가 없고 커밋된 코드에 소비자가 0이다. Run 의 id 계약은 FR-UNI-15·`RUN_ORCHESTRATION_SRS` 소관 |
+| `runs.json` | (조사 시점) 도구·창 참조 필드가 없고 커밋된 코드에 소비자가 0이다. Run 의 id 계약은 FR-UNI-15·`RUN_ORCHESTRATION_SRS` 소관. **후속 (2026-08-25): 해소** — 묶음 R 이 이 파일의 소비자이며 `members[]`(toolId·tabId)·`windowId` 로 도구·창을 참조한다 |
 | `panels.json` | v1 시절 도구 기록. 소비자 0 (§5) |
 | `settings.json` | 엔터티 id 를 담지 않는다 (단축키·테마·상태바) |
 | 브라우저 `localStorage` | 저장하는 것은 UI 치수·토글뿐이다 (`sidebarWidth`·`agentsWidth`·`agentsPanelOpen`·`attn*`·`agentsPollMs`) |

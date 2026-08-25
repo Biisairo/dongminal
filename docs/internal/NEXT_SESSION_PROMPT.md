@@ -9,7 +9,7 @@
 | ~~3. 상태바 지표 재설계~~ | **완료** — `286ebd8` ([SYSTEM_STATS_SRS.md](./SYSTEM_STATS_SRS.md)) |
 | ~~4-a. 오케스트레이터 — 결함·식별자 통일~~ | **완료** — `0ec8e02`, `835a662`, `f7580a7` ([WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md)) |
 | ~~4-b. 오케스트레이터 — 조사·설계~~ | **완료** — `901bd7c` ([RUN_ORCHESTRATION_SRS.md](./RUN_ORCHESTRATION_SRS.md), [ORCHESTRATOR_RESEARCH_NOTES.md](./ORCHESTRATOR_RESEARCH_NOTES.md)) |
-| **4-c. 오케스트레이터 — 구현** | **진행 중.** 묶음 **S**(`228c464`)·**R**(`a958797`)·**P+A**(`c37fa48`)·**K** 완료. 남은 것은 **W** 하나. 아래 프롬프트 |
+| **4-c. 오케스트레이터 — 구현** | **진행 중.** 묶음 **S**(`228c464`)·**R**(`a958797`)·**P+A**(`c37fa48`)·**K**(`b3dc910`) 완료. 남은 것은 **W** 하나. 아래 프롬프트 |
 
 ---
 

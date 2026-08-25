@@ -34,7 +34,7 @@ dongminal 을 **다중 에이전트 오케스트레이터**로 만든다. 접합
 | P | 멤버 프리앰블과 보고 계약 — 평문 프리앰블, 1회 보고, 발신자 정체 기반 권한 | **완료** — 보고 권한(FR-PRE-5/6/7)은 R 과 함께, 프리앰블 본문(FR-PRE-1~4/8)은 A 와 함께 |
 | A | 에이전트 어댑터 레지스트리 — 기동·탐지·프롬프트 주입·정책 주입·훅 파서의 선언화 | **완료** (`internal/agentadapter`). FR-STA-4 2단계 소비자만 미구현 |
 | W | worktree 격리 — Run 단위 선택, 생성·명명·정리·실패 잔여물·안전 가드 | 미착수 |
-| K | 스킬 재작성 — `team`·`workflow` 를 Run 기반 전용 창 토폴로지로 | **완료**. `build_prompt.py`·`references/prompt.md` 삭제, fingerprint 0건 |
+| K | 스킬 재작성 — `team`·`workflow` 를 Run 기반 전용 창 토폴로지로 | **완료** (`b3dc910`). `build_prompt.py`·`references/prompt.md` 삭제, fingerprint 0건 |
 
 구현 순서는 의존과 리스크를 따른다 — S → R → **P+A** → W → K.
 
@@ -679,16 +679,22 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 
 ## 6. 기존 요구사항 개정 (Amendments)
 
-| 문서 | 개정 |
-|---|---|
-| `SKILL_INJECTION_SRS.md` §5 | 비목표 3건(에이전트 어댑터 레지스트리 · worktree 격리 · 태스크/Run 레코드)이 본 SRS 로 이관돼 **해소된다** |
-| `ENTITY_MODEL_RESTRUCTURE_SRS.md` FR-EM-18 | "이 필드를 읽는 동작을 추가하지 않는다"는 **본 SRS 단계에서 해제**된다. 단 "없거나 비어 있어도 정상"은 NFR-RUN-3 으로 **유지**된다 |
-| `ENTITY_MODEL_RESTRUCTURE_SRS.md` §7 | Orca 대비표의 "fan-out → **비교** → 병합"과 "MIT 공개 소스"는 부정확하다. §2.5 가 정정한다 |
-| `ENTITY_MODEL_HANDOFF.md` §4.3 | 같은 정정 (paseo 는 AGPL) |
-| `WORKSPACE_IDENTITY_SRS.md` FR-UNI-15 | Run·Member id 의 **생성 주체·수명·영속 범위**를 본 SRS 가 확정한다 (FR-RUN-1/2/3) |
-| `archive/DONGMINAL_WORKFLOW_SKILL_SRS.md` | `session: dedicated` 창 모드가 Run `projection` 으로 흡수된다 (FR-SKL-4) |
-| `archive/PANE_ATTENTION_NOTIFY_SRS.md` · `AGENT_ACTIVITY_PANEL_SRS.md` | 활동 상태에 **에이전트 소비자**가 생긴다. 수집·저장 요구는 불변이고 조회 경로만 추가된다 (FR-STA-1) |
-| `docs/internal/architecture.md` | Run 런타임·`runs.json`·어댑터 레지스트리 절 신설 |
+`반영` 열은 **해당 문서에 실제로 문장이 들어갔는지**다. 지시만 있고 적용되지 않은
+개정을 남기지 않기 위해 상태를 함께 적는다.
+
+| 문서 | 개정 | 반영 |
+|---|---|---|
+| `SKILL_INJECTION_SRS.md` §5 | 비목표 3건(에이전트 어댑터 레지스트리 · worktree 격리 · 태스크/Run 레코드)이 본 SRS 로 이관된다 | ✅ 어댑터·Run 레코드는 **해소**, worktree 는 묶음 W 대기로 표시 |
+| `SKILL_INJECTION_SRS.md` FR-SK-3 · §2.7 | `build_prompt.py` 가 묶음 K 에서 삭제됐다 (`dmctl run launch` 가 대체) | ✅ |
+| `ENTITY_MODEL_RESTRUCTURE_SRS.md` FR-EM-18 | "이 필드를 읽는 동작을 추가하지 않는다"는 **해제**된다. 단 "없거나 비어 있어도 정상"은 NFR-RUN-3 으로 **유지** | ✅ |
+| `ENTITY_MODEL_RESTRUCTURE_SRS.md` §7 | Orca 대비표의 "fan-out → **비교** → 병합"과 "MIT 공개 소스"는 부정확하다. §2.5 가 정정한다 | ✅ |
+| `ENTITY_MODEL_HANDOFF.md` §4.3 | 같은 정정 (paseo 는 AGPL) | ✅ |
+| `WORKSPACE_IDENTITY_SRS.md` FR-UNI-15 · §5 | Run·Member id 의 **생성 주체·수명·영속 범위**를 본 SRS 가 확정한다 (FR-RUN-1/2/3). `runs.json` 소비자 0 서술도 해소된다 | ✅ |
+| `archive/DONGMINAL_WORKFLOW_SKILL_SRS.md` | `session: dedicated` 창 모드가 Run `projection` 으로 흡수된다 (FR-SKL-4). 절대 원칙이 3개로 줄고 실행 엔진 스크립트가 삭제됐다 | ✅ |
+| `archive/UUID_IDENTITY_SRS.md` | 스킬 경로가 세션 스코프 플러그인으로 이동하고 `build_prompt.py` 가 삭제됐다 | ✅ |
+| `archive/AGENT_ACTIVITY_PANEL_SRS.md` | 활동 상태에 **에이전트 소비자**가 생긴다. 수집·저장 요구는 불변이고 조회 경로만 추가된다 (FR-STA-1) | ✅ |
+| `archive/PANE_ATTENTION_NOTIFY_SRS.md` | 알림 훅의 선언이 `internal/agentadapter` 의 `policyInjection` 으로 이동한다 (FR-ADP-1). 설치 방식·경로는 불변 | ✅ |
+| `docs/internal/architecture.md` | Run 런타임·`runs.json`·어댑터 레지스트리·멤버 프리앰블·스킬 절 신설 | ✅ |
 
 ---
 
@@ -710,6 +716,7 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 |---|---|
 | 2026-08-25 | 최초 작성. 1단계 심화 조사(orca MIT / paseo AGPL 실소스) 결과를 §2.5 에 반영, 착수 전 결정 D-A·D-C·D-D 확정 및 D-E 신설. 구현 미착수 |
 | 2026-08-25 | **묶음 R 구현 완료** — `internal/run` 저장소(`runs.json` 원자적 쓰기·epoch 펜싱·1:1 도구 결속·보고 권한·close 가드) + `/api/runs*` 5개 + `dmctl run start\|member\|report\|status\|close\|list`. FR-PRE-5/6/7(발신자 정체 기반 보고 권한·열거된 거부 사유·1회 보고)은 저장소와 분리할 수 없어 **묶음 P 보다 먼저** 여기서 닫혔다. FR-RUN-11a 로 close 의 도구 종료 책임을 조정자에게 옮겼다(위 개정 근거). FR-RUN-7 의 워크스페이스 표식은 **best-effort** 다 — 그 파일의 쓰기 주체는 브라우저이고 409 처리가 머지 없이 재PUT 이라(§2.4) 동시 편집에 지워질 수 있다. 소유권의 진실은 `runs.json` 이다(FR-RUN-10). Go 전량 통과, Playwright 182 통과 |
-| 2026-08-25 | **묶음 K 구현 완료** — `team`·`workflow` 스킬을 Run 기반 전용 창 토폴로지로 재작성. `scripts/build_prompt.py` 와 `references/prompt.md` 삭제(`dmctl run launch` 가 대체), 화면 fingerprint·`sleep` 재확인 루프 전량 제거, 매핑표를 `dmctl run status` 로 이관. 절대 원칙이 4개에서 3개로 줄었다 — 전용 창이 기본이 되면서 포커스 방어 규칙 대부분이 **구조로 풀렸기** 때문이다. 정의서 형식과 렌더러 기본값은 건드리지 않았다(FR-SKL-4 주석). 검증은 세 층이다: `internal/runtime` 의 스킬 계약 테스트(fingerprint·삭제 자산 참조·손조립 기동줄·필수 절차 존재)와 e2e(TC-SKL-1/3), 그리고 실제 팀 1회. **검출기가 실제로 무는지 반증으로 확인했다** — fingerprint 주입 시 실패, `keepFocus` 제거 시 실패. e2e 를 쓰다 밟은 것: `/api/commands` 는 `{action, args:{…}}` 를 받는데 평평하게 보내면 `keepFocus` 가 조용히 유실돼 전용 창이 사용자 화면을 차지한다. Go 전량 통과, Playwright 184 통과 2회 |
+| 2026-08-25 | **묶음 K 구현 완료** (`b3dc910`) — `team`·`workflow` 스킬을 Run 기반 전용 창 토폴로지로 재작성. `scripts/build_prompt.py` 와 `references/prompt.md` 삭제(`dmctl run launch` 가 대체), 화면 fingerprint·`sleep` 재확인 루프 전량 제거, 매핑표를 `dmctl run status` 로 이관. 절대 원칙이 4개에서 3개로 줄었다 — 전용 창이 기본이 되면서 포커스 방어 규칙 대부분이 **구조로 풀렸기** 때문이다. 정의서 형식과 렌더러 기본값은 건드리지 않았다(FR-SKL-4 주석). 검증은 세 층이다: `internal/runtime` 의 스킬 계약 테스트(fingerprint·삭제 자산 참조·손조립 기동줄·필수 절차 존재)와 e2e(TC-SKL-1/3), 그리고 실제 팀 1회. **검출기가 실제로 무는지 반증으로 확인했다** — fingerprint 주입 시 실패, `keepFocus` 제거 시 실패. e2e 를 쓰다 밟은 것: `/api/commands` 는 `{action, args:{…}}` 를 받는데 평평하게 보내면 `keepFocus` 가 조용히 유실돼 전용 창이 사용자 화면을 차지한다. Go 전량 통과, Playwright 184 통과 2회 |
+| 2026-08-25 | **§6 개정 전량 반영.** 지시만 있고 적용되지 않은 개정이 남지 않도록 대상 문서에 실제로 문장을 넣고, §6 표에 `반영` 열을 두어 상태를 명시했다 — `SKILL_INJECTION_SRS`(비목표 3건의 현재 상태 + `build_prompt.py` 삭제), `ENTITY_MODEL_RESTRUCTURE_SRS` FR-EM-18(읽기 금지 해제, NFR-RUN-3 유지), `WORKSPACE_IDENTITY_SRS` §5(`runs.json` 소비자 0 해소), archive 4건(`DONGMINAL_WORKFLOW_SKILL_SRS`·`UUID_IDENTITY_SRS`·`AGENT_ACTIVITY_PANEL_SRS`·`PANE_ATTENTION_NOTIFY_SRS`). 삭제된 자산(`build_prompt.py`·`references/prompt.md`)을 가리키는 문서는 전부 바로 옆에 후속 표식을 갖는다 |
 | 2026-08-25 | **묶음 P+A 구현 완료** — `internal/agentadapter` 신설(claude·codex 선언 + 훅 파서 + `LaunchLine`), `internal/run/preamble.go`(서버 조립), `GET /api/runs/preamble`, `dmctl run launch` / `run member --brief`. 착수 전 열려 있던 **프리앰블 조립 주체는 서버로 확정**했다(FR-PRE-1 주석에 근거 3개). 훅 파서 이동은 무동작 리팩터이며, 회귀 검출기인 `dmctl_activity_test.go` 를 **한 줄도 고치지 않고** 통과시키기 위해 옛 이름을 `_test.go` 스코프에서만 별칭으로 유지했다 — 프로덕션에 죽은 코드가 남지 않는다. `--brief` 를 Member 에 영속시켜 프리앰블을 **재조회 가능**하게 만들었다. 프롬프트 이스케이프를 큰따옴표+역슬래시에서 **홑따옴표 감싸기**로 바꿨고, 악성 brief(`$(...)`·백틱·`;`)로 실측해 셸이 인자 1개로 파싱하고 전개가 0건임을 확인했다. **FR-STA-4 2단계는 스펙에 남기고 구현만 보류**했다(사용자 확정) — 화면 패턴은 스테이터스라인 하나로 깨지며 FR-SKL-2 가 삭제하려는 fingerprint 와 같은 취약성이고, codex 패턴을 실측할 수 없어 추측을 코드에 넣지 않았다. Go 전량 통과, Playwright 183 통과 |
 | 2026-08-25 | **묶음 S 구현 완료** — `GET /api/tools/activity/{get,wait}` + `dmctl status` / `dmctl wait`. TC-STA-1~8 을 RED 로 세운 뒤 구현했고, e2e `skill-contract.spec.ts` 에 라이브 왕복 3건을 추가했다 (Go 전량 통과, Playwright 180 통과 2회 연속). FR-STA-4 2단계는 묶음 A 대기. 구현 중 발견해 고친 것: daemon 모드에서 liveness 확인이 데몬 RPC 라 매 tick 확인하면 30분 대기가 RPC 수만 건이 된다 → 상태 재평가 100ms / liveness 1초로 분리 (NFR-RUN-4) |

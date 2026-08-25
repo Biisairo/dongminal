@@ -26,6 +26,12 @@
 - **파라미터**: frontmatter `params` 에 선언되고 본문에서 `{{name}}` 으로 치환되는 런타임 인자.
 - **실행 엔진 규칙**: `skills/dongminal-team/SKILL.md` 의 절대 원칙 4개 + references (layout/prompt/troubleshooting) + scripts (plan_layout.py, build_prompt.py).
 
+> **후속 (2026-08-25)**: `RUN_ORCHESTRATION_SRS` 묶음 K 가 실행 엔진을 다시 썼다.
+> 절대 원칙은 **3개**로 줄었고(전용 창이 기본이 되면서 포커스 방어가 구조로
+> 풀렸다), `references/prompt.md` 와 `scripts/build_prompt.py` 는 **삭제됐다**.
+> 이 정의서의 `session: dedicated` 는 Run 의 `projection` 으로 흡수됐다 (FR-SKL-4).
+> 정의서 형식 자체는 바뀌지 않았다.
+
 ### 1.4 참고 (References)
 - `skills/dongminal-team/SKILL.md` — 절대 원칙(항상 새 팀 / 포커스 금지 / Barrier 전 Kickoff 금지 / uuid 식별), 8단계 워크플로우.
 - `skills/dongminal-team/references/models_and_patterns.md` — 패턴 카탈로그 (정의서가 정형화할 대상).

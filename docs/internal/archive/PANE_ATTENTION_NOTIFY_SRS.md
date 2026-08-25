@@ -1,5 +1,10 @@
 # SRS: 터미널 출력 감시 기반 Pane 주의 알림 (Pane Attention Notify) — IEEE 29148
 
+> **후속 (2026-08-25)**: 여기서 설치하는 알림 훅(`--settings`)의 선언이
+> `internal/agentadapter` 의 `policyInjection` 으로 옮겨갔다
+> (`RUN_ORCHESTRATION_SRS` 묶음 A). 훅 설치 방식·경로는 **불변**이며, 선언과
+> 실제 셸 래퍼가 어긋나지 않는지 `internal/runtime` 의 대조 테스트가 지킨다.
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)
