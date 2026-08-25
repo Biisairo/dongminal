@@ -207,6 +207,13 @@ var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/git/preflight"), (*Server).apiGitPreflight},
 	{http.MethodGet, exactPath("/api/git/policy"), (*Server).apiGitPolicy},
 	{http.MethodGet, exactPath("/api/git/recovery"), (*Server).apiGitRecovery},
+	// 묶음 H·I — 스테이징·커밋 (GIT_SRS FR-GIT-64~85). 저장소를 바꾸는 표면이므로
+	// POST 만 받고, 확인·preflight·undo 만료를 서버가 다시 검사한다.
+	{http.MethodPost, exactPath("/api/git/stage"), (*Server).apiGitStage},
+	{http.MethodPost, exactPath("/api/git/unstage"), (*Server).apiGitUnstage},
+	{http.MethodPost, exactPath("/api/git/discard"), (*Server).apiGitDiscard},
+	{http.MethodPost, exactPath("/api/git/commit"), (*Server).apiGitCommitCreate},
+	{http.MethodPost, exactPath("/api/git/undo-last"), (*Server).apiGitUndoLast},
 	// 묶음 L·M — 히스토리 조회 (GIT_SRS FR-GIT-113·122·136~139). 전부 읽기다.
 	{http.MethodGet, exactPath("/api/git/log"), (*Server).apiGitLog},
 	{http.MethodGet, exactPath("/api/git/commit"), (*Server).apiGitCommit},

@@ -157,6 +157,19 @@ func (st *Store) Status(ctx context.Context, repo string) (Observation, bool, er
 	return obs, false, err
 }
 
+// Invalidate 는 그 리포의 status 캐시를 만료시킨다. 쓰기 직후의 재조회가 방금 만든
+// 변경을 보지 못하면 화면이 거짓말을 한다 (FR-GIT-71).
+//
+// **마지막 관측값은 지우지 않는다** — 배지가 잠깐 사라지는 것보다 낡은 값이 낫고,
+// 곧 새 관측이 덮는다. 만료시키는 것은 "캐시로 답해도 되는 시한"뿐이다.
+func (st *Store) Invalidate(repo string) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	if s, ok := st.states[repo]; ok {
+		s.at = time.Time{}
+	}
+}
+
 // Observed 는 캐시를 **만료 여부와 무관하게** 준다. 활성이 아닌 리포의 배지가
 // 이것을 쓴다 — 그래서 폴링 대상이 활성 1개로 유지된다 (FR-GIT-24).
 func (st *Store) Observed(repo string) (Observation, bool) {

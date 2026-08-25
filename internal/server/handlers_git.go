@@ -243,20 +243,8 @@ func (s *Server) apiGitUnpin(w http.ResponseWriter, r *http.Request) {
 // 절반이며, 클라이언트가 응답만 보고 자기 요청과 짝을 맞출 수 있어야 한다.
 func (s *Server) gitRepoParam(w http.ResponseWriter, r *http.Request) (root, requested string, ok bool) {
 	requested = r.URL.Query().Get("repo")
-	if requested == "" {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "repo 인자가 없다")
-		return "", requested, false
-	}
-	if !filepath.IsAbs(requested) {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "repo 는 절대경로여야 한다")
-		return "", requested, false
-	}
-	root, err := s.Git.RepoRoot(r.Context(), requested)
-	if err != nil {
-		gitError(w, err)
-		return "", requested, false
-	}
-	return root, requested, true
+	root, ok = s.gitResolveRepo(w, r, requested)
+	return root, requested, ok
 }
 
 // GET /api/git/status?repo=<abs> — single-flight + TTL 캐시를 거친 관측 (FR-GIT-63).

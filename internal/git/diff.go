@@ -123,28 +123,35 @@ func (s *Service) DiffContent(ctx context.Context, repo, axis, p, origPath strin
 	return dc, nil
 }
 
-// diffRelPath 는 리포 상대경로를 검증한다 (FR-GIT-62). 워킹 트리 파일을 직접 읽는
-// 경로이므로 여기가 뚫리면 임의 파일 읽기다.
+// diffRelPath 는 diff 요청의 경로를 검증한다. 거부 사유가 diff 고유의 코드여야
+// 서버가 400 으로 답할 수 있다.
+func diffRelPath(p string) (string, error) { return relPath(p, ErrDiffPath) }
+
+// relPath 는 리포 상대경로를 검증한다 (FR-GIT-62). 워킹 트리 파일을 직접 읽거나
+// git 에 경로로 넘기는 자리이므로 여기가 뚫리면 임의 파일 접근이다.
 //
 // 정규화한 값을 돌려주지 않는다 — git 의 rev 와 워킹 트리 경로가 같은 문자열이어야
 // 클라이언트가 보낸 경로와 응답이 짝을 이룬다. 다듬을 여지가 있으면 거부한다.
-func diffRelPath(p string) (string, error) {
+//
+// kind 만 호출자가 갈라 받는다 — diff 와 스테이징이 같은 규칙을 쓰되 서로 다른
+// 코드로 답해야 하고, 규칙이 두 벌이면 한쪽만 고쳐져 구멍이 된다.
+func relPath(p string, kind error) (string, error) {
 	if strings.TrimSpace(p) == "" {
-		return "", fmt.Errorf("%w: 경로가 비었다", ErrDiffPath)
+		return "", fmt.Errorf("%w: 경로가 비었다", kind)
 	}
 	if filepath.IsAbs(p) || strings.HasPrefix(p, "/") {
-		return "", fmt.Errorf("%w: 절대경로는 받지 않는다: %q", ErrDiffPath, p)
+		return "", fmt.Errorf("%w: 절대경로는 받지 않는다: %q", kind, p)
 	}
 	if strings.ContainsRune(p, 0) {
-		return "", fmt.Errorf("%w: NUL 을 포함한 경로", ErrDiffPath)
+		return "", fmt.Errorf("%w: NUL 을 포함한 경로", kind)
 	}
 	for _, seg := range strings.Split(p, "/") {
 		if seg == ".." {
-			return "", fmt.Errorf("%w: 부모 참조가 있다: %q", ErrDiffPath, p)
+			return "", fmt.Errorf("%w: 부모 참조가 있다: %q", kind, p)
 		}
 	}
 	if path.Clean(p) != p {
-		return "", fmt.Errorf("%w: 정규화되지 않은 경로다: %q", ErrDiffPath, p)
+		return "", fmt.Errorf("%w: 정규화되지 않은 경로다: %q", kind, p)
 	}
 	return p, nil
 }

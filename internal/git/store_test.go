@@ -297,3 +297,36 @@ func TestStore_Service(t *testing.T) {
 		t.Fatal("Service 가 주입한 것을 주지 않는다")
 	}
 }
+
+// Invalidate 는 캐시로 답해도 되는 시한만 지운다 — 쓰기 직후의 재조회가 방금 만든
+// 변경을 봐야 하고(FR-GIT-71), 배지가 딛는 마지막 관측값은 남아야 한다.
+func TestStore_Invalidate(t *testing.T) {
+	g := newFakeGit(t)
+	st := NewStore(New(WithRunner(g.runner)), fixedClock(time.Now()))
+	ctx := context.Background()
+
+	if _, _, err := st.Status(ctx, "/r"); err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	if _, cached, _ := st.Status(ctx, "/r"); !cached {
+		t.Fatal("TTL 안의 두 번째 조회가 캐시를 쓰지 않았다")
+	}
+
+	st.Invalidate("/r")
+	if _, cached, err := st.Status(ctx, "/r"); err != nil || cached {
+		t.Fatalf("무효화 후 cached = %v, %v", cached, err)
+	}
+	if got := g.count("status"); got != 2 {
+		t.Fatalf("status 실행 %d회, want 2", got)
+	}
+	// 마지막 관측값은 지우지 않는다 — 낡은 값이 사라진 배지보다 낫다.
+	st.Invalidate("/r")
+	if _, ok := st.Observed("/r"); !ok {
+		t.Fatal("Observed 가 사라졌다")
+	}
+	// 없는 리포의 무효화는 아무것도 만들지 않는다.
+	st.Invalidate("/none")
+	if _, ok := st.Observed("/none"); ok {
+		t.Fatal("없는 리포에 관측값이 생겼다")
+	}
+}

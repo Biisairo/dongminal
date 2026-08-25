@@ -53,6 +53,11 @@ type Server struct {
 	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
 	Focus *FocusRegistry
 
+	// gitUndo 는 방금 만든 커밋을 되돌릴 권한을 쥔다 (FR-GIT-83). 제로값도 쓸 수
+	// 있다 — 클라이언트 타이머만으로는 만료를 강제할 수 없으므로 이 자리가 없어서
+	// undo 가 무제한이 되는 경로를 만들지 않는다.
+	gitUndo gitUndoStore
+
 	started time.Time
 
 	mu      sync.Mutex
