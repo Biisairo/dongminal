@@ -293,6 +293,11 @@ OSC 777 `Cwd;<pwd>` 로 갱신한다. **리포 해석에 디스크 스캔이 필
 | POST | `/api/git/checkout` · `/branch` | 체크아웃·브랜치 생성 (M5) |
 | GET | `/api/git/stash` | stash 목록 (M5) |
 | POST | `/api/git/stash/{push,apply,pop,drop}` | stash 조작 (M5). drop 은 파괴적 |
+| GET | `/api/git/policy` | 파괴적 동작 목록 (M2). 클라이언트가 목록을 복제하지 않게 한다 — FR-GIT-89 |
+| GET | `/api/git/recovery` | 세션 동안의 recovery hint (M2) — FR-GIT-93 |
+| GET | `/api/git/jobs` | 진행 중 원격 작업 목록 (M3). 상태바가 읽는다 — FR-GIT-112 |
+| GET | `/api/git/branch/validate` | 브랜치 이름 규칙 검사 (M5) — FR-GIT-159 |
+| GET | `/api/git/stash/show` | stash 미리보기 (M5) — FR-GIT-169 |
 
 - **FR-GIT-62** 리포 경로는 절대경로여야 하며, 서버는 이를
   `git rev-parse --show-toplevel` 로 재확인한 뒤 사용한다. 클라이언트가 보낸 경로를
