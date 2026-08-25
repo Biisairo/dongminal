@@ -20,7 +20,12 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [SKILL_INJECTION_SRS.md](./SKILL_INJECTION_SRS.md) | MCP 폐지와 세션 스코프 스킬 주입의 단일 진실 공급원 (IEEE 29148). 에이전트 접합면 = `dmctl` (액션) + `--plugin-dir`/`--settings` 주입 스킬·훅 (정책). **구현 완료** |
 | [RUN_ORCHESTRATION_SRS.md](./RUN_ORCHESTRATION_SRS.md) | AI 오케스트레이터의 단일 진실 공급원 (IEEE 29148). Run 레코드·상태/대기 계약·에이전트 어댑터 레지스트리·worktree 격리·프리앰블/보고 계약·스킬 재작성. 착수 전 결정 5건 확정. **묶음 S·R·P·A·K 구현 완료, W 남음** |
 | [ORCHESTRATOR_RESEARCH_NOTES.md](./ORCHESTRATOR_RESEARCH_NOTES.md) | 위 SRS 의 입력 — orca(MIT)·paseo(AGPL) **실제 소스** 조사 노트. 파일 경로 근거 포함. §9 는 기존 문서 서술을 뒤집은 5건 |
-| [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트. **트랙 1~3 완료. 트랙 4 는 묶음 S·R·P·A·K 구현 완료, 남은 것은 묶음 W** |
+| [GIT_SRS.md](./GIT_SRS.md) | **Git 창의 단일 진실 공급원** (IEEE 29148). FR-GIT-1~178, 검증 V1~V69, 21단계 구현 계획. §7 은 확정 결정 O1~O14, §7.1 은 요구사항 해석 I1~I6. **M1 구현 중** |
+| [GIT_SURFACE_MAP.md](./GIT_SURFACE_MAP.md) | 위 SRS 의 입력 — VSCode·gitMaster·Git Graph 의 기능 126개를 6개 표면(S1~S6)에 배치하고 P0/P1/P2 로 나눈 지도. **MVP = P0 38개** |
+| [GIT_INTEGRATION_ANALYSIS.md](./GIT_INTEGRATION_ANALYSIS.md) | 같은 SRS 의 설계 근거 (Informative). §3.5 확정 설계(창 싱글턴·고정 탭·Monaco DiffEditor), §4.5 변경 감지 실측(fsnotify·watcher·fsmonitor 기각 근거) |
+| [design/](./design/) | **21단계 구현 계약** (`GIT_M*_STEP*_CONTRACT.md`). 각 단계 착수 시 SRS 를 다시 해석하지 않고 이 문서를 단일 진실 공급원으로 삼는다. `design/README.md` 가 색인·픽스처 규약·검증 게이트 |
+| [GIT_MANUAL_CHECKLIST.md](./GIT_MANUAL_CHECKLIST.md) | Git 창 수동 검증 체크리스트 (V14·V60). 자동 테스트가 잡지 못하는 것만 — 배치·색·읽힘, 모바일 실기기, 성능·보안 기준. 픽스처(`scripts/git_fixture.sh`) 기준 |
+| [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트 + **§1.5 진행 상황표**(21단계 중 무엇이 끝났고 무엇이 남았는지). 트랙 1~4 완료, 현재 트랙은 **Git 창** |
 
 ## 용어
 
@@ -149,7 +154,8 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 
 | 항목 | 상태 |
 |------|------|
-| 요구 3 — AI 오케스트레이터 (`RUN_ORCHESTRATION_SRS`) | **진행 중.** 묶음 **S**(상태·대기 계약 — `dmctl status`/`wait`)·**R**(Run 레코드 — `runs.json`·epoch 펜싱·`dmctl run`)·**P**(멤버 프리앰블 — 서버 조립, `dmctl run launch`)·**A**(어댑터 레지스트리 — `internal/agentadapter`) **완료**. **K**(스킬 재작성 — 전용 창 토폴로지·화면 fingerprint 제거) **완료**. 남은 것은 **W**(worktree 격리)뿐이다. FR-STA-4 준비완료 사다리 2단계(화면 패턴)는 스펙에 남기고 구현을 보류했다 |
+| 요구 3 — AI 오케스트레이터 (`RUN_ORCHESTRATION_SRS`) | **완료.** 묶음 **S**(상태·대기 계약)·**R**(Run 레코드)·**P**(멤버 프리앰블)·**A**(어댑터 레지스트리)·**K**(스킬 재작성)·**W**(worktree 격리) 전부. FR-STA-4 준비완료 사다리 2단계(화면 패턴)는 스펙에 남기고 구현을 보류했다. **남은 별건**: 실제 격리 팀으로 한 바퀴 — 첫 격리 Run 은 새 worktree 경로가 신뢰 목록에 없어 폴더 신뢰 모달에 걸릴 수 있다 |
+| 요구 4 — Git 창 (`GIT_SRS`) | **진행 중.** M1 8단계 중 1·2·3·4·7(서버)·15 완료, 5·6·7(클라)·8 남음. M2~M5 는 계약만 서 있다. 상세는 [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) §1.5 |
 | ~~`TC-BGU-9b` 기존 실패~~ | **해소** (트랙 4 0-A). 제품 결함이 아니라 테스트가 서버 관측을 클라이언트 단정의 배리어로 쓴 것이었다. 별개로 `location` 미지정 복귀의 조용한 무효는 실재했고 FR-BGR-7 로 닫았다 |
 | ~~프론트엔드 id 가 UUID 가 아니다~~ | **해소** — 엔터티 id 는 `crypto.randomUUID()` 로 만든다. 생성 명령의 다중 실행도 함께 닫았다 ([WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md)) |
 | 워크스페이스 PUT 의 last-write-wins | 미해소. 사람 둘이 각자 브라우저에서 동시에 편집하면 한쪽이 유실된다. 오케스트레이터 경로는 FR-SXE-\* 가 덮는다 (WORKSPACE_IDENTITY_SRS §2.4·§5) |
