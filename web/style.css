@@ -676,8 +676,107 @@ body.mobile .sb-title{padding:14px 14px 8px}
   background:var(--bg);color:var(--text);
   border:1px solid var(--border);border-radius:3px;
 }
-/* 원격은 M3 다 — 자리만 있고 disabled 다 */
-.git-remote-btn:disabled,.git-commit-btn:disabled{color:var(--text-dim);cursor:not-allowed}
+/* 변형은 `▾` 다이얼로그에서만 온다 (FR-GIT-99) — 버튼과 붙여 한 벌로 보인다 */
+.git-remote-more{
+  font:inherit;font-size:10px;padding:2px 4px;cursor:pointer;
+  background:var(--bg);color:var(--text-muted);
+  border:1px solid var(--border);border-left:0;border-radius:0 3px 3px 0;
+}
+.git-head-remote .git-remote-btn{border-radius:3px 0 0 3px}
+.git-remote-btn:hover:not(:disabled),.git-remote-more:hover:not(:disabled){
+  background:var(--accent-hover);color:var(--accent);
+}
+/* 사유 없이 꺼진 버튼은 사용자가 해소할 수 없다 — title 이 그것을 맡는다 */
+.git-remote-btn:disabled,.git-commit-btn:disabled,.git-remote-more:disabled{
+  color:var(--text-dim);cursor:not-allowed;
+}
+
+/* ── 원격 작업 하나의 화면 (FR-GIT-102·103·105·108) ── */
+.git-job{display:none;flex:0 0 auto;flex-direction:column;border-bottom:1px solid var(--border)}
+.git-job.vis{display:flex}
+.git-job-bar{
+  display:flex;align-items:center;gap:8px;padding:4px 10px;
+  font-size:11px;min-width:0;
+}
+.git-job-kind{color:var(--accent);flex-shrink:0}
+.git-job-argv{
+  color:var(--text-muted);font-family:monospace;font-size:10px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;
+}
+.git-job-state{color:var(--text-muted);flex-shrink:0}
+.git-job-spacer{flex:1 1 auto}
+.git-job-cancel,.git-job-copy,.git-job-close{
+  display:none;font:inherit;font-size:10px;padding:1px 6px;cursor:pointer;flex-shrink:0;
+  background:transparent;color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-job-copy{display:inline-block}
+.git-job-cancel.vis,.git-job-close.vis{display:inline-block}
+.git-job-cancel{color:var(--attn);border-color:var(--attn)}
+.git-job-cancel:disabled{color:var(--text-dim);border-color:var(--border);cursor:not-allowed}
+/* FR-GIT-111: 충돌은 해결 UI 가 아니라 안내다 */
+.git-job-note{display:none;padding:3px 10px;font-size:11px;color:var(--attn);background:var(--attn-subtle)}
+.git-job-note.vis{display:block}
+.git-job-fail{display:none;flex-direction:column;gap:4px;padding:4px 10px 6px}
+.git-job-fail.vis{display:flex}
+.git-job-reason{font-size:11px;color:var(--danger)}
+.git-job-tail{
+  margin:0;max-height:80px;overflow:auto;white-space:pre-wrap;word-break:break-all;
+  font-family:monospace;font-size:10px;color:var(--text-muted);
+}
+/* FR-GIT-104: 자격증명을 받는 자리가 아니다 — 안내와 복사 가능한 명령만 있다 */
+.git-job-auth{display:none;flex-direction:column;gap:3px}
+.git-job-auth.vis{display:flex}
+.git-job-auth-note{font-size:11px;color:var(--attn)}
+.git-job-auth-cmd{
+  font-family:monospace;font-size:10px;color:var(--text-bright);
+  background:var(--accent-subtle);padding:3px 6px;border-radius:3px;
+  white-space:pre-wrap;word-break:break-all;
+}
+.git-job-auth-copy{
+  align-self:flex-start;font:inherit;font-size:10px;padding:1px 6px;cursor:pointer;
+  background:transparent;color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+/* FR-GIT-105: 선택지는 서버가 준 순서 그대로이고 **하나도 강조하지 않는다** —
+   생김새를 달리 주는 것이 곧 force 를 기본 제안하는 것이다 */
+.git-job-opts{display:none;flex-direction:column;gap:3px;align-items:flex-start}
+.git-job-opts.vis{display:flex}
+.git-job-opts-note{font-size:11px;color:var(--text-muted)}
+.git-job-opt{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-job-opt:hover{background:var(--accent-hover);color:var(--accent)}
+/* FR-GIT-103: 진행 표시는 stderr 로 오지만 오류가 아니다 — 색을 가르지 않는다 */
+.git-job-log{
+  margin:0;max-height:140px;overflow-y:auto;padding:0 10px 6px;
+  font-family:monospace;font-size:10px;color:var(--text-muted);
+}
+.git-job-log::-webkit-scrollbar{width:8px}
+.git-job-log::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.git-job-line{white-space:pre-wrap;word-break:break-all}
+
+/* ── `▾` 원격 옵션 다이얼로그 (FR-GIT-109·110) ── */
+.gro-modal{
+  position:fixed;inset:0;z-index:300;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;
+}
+.gro-box{
+  display:flex;flex-direction:column;gap:8px;min-width:280px;max-width:min(92vw,460px);
+  padding:14px 16px;background:var(--sidebar-bg);color:var(--text);
+  border:1px solid var(--border);border-radius:6px;font-size:12px;
+}
+.gro-head{font-size:13px;color:var(--text-bright)}
+.gro-fields{display:flex;flex-direction:column;gap:8px}
+.gro-field{display:flex;flex-direction:column;gap:3px}
+.gro-label{font-size:11px;color:var(--text-muted)}
+.gro-row{display:flex;align-items:center;gap:6px;cursor:pointer}
+.gro-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:2px}
+.gro-cancel,.gro-go{
+  font:inherit;font-size:11px;padding:3px 12px;cursor:pointer;
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.gro-go{color:var(--accent);border-color:var(--accent-border)}
 
 /* ── 커밋 영역 (FR-GIT-74~85) ── */
 /* 목록과 독립된 고정 영역이다 (FR-GIT-39) — 높이는 안쪽 textarea 가 정한다 */
@@ -1118,6 +1217,8 @@ body.mobile .git-repo-x{opacity:1;width:24px;height:24px;font-size:14px}
 /* detached 는 어느 브랜치에도 속하지 않는 상태다 — 색으로 구분한다 */
 .sb-git.sb-git-detached .sb-git-branch{color:var(--danger);font-family:monospace}
 .sb-git-dirty{color:var(--text-muted)}
+/* FR-GIT-112: 진행 중 원격 작업. chip 옆에 별도로 붙는다 */
+.sb-git-job{color:var(--attn)}
 
 /* ── 파괴적 동작 확인 (FR-GIT-90~97·174~178) ── */
 .gc-modal{

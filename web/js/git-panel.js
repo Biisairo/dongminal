@@ -38,6 +38,7 @@ class GitPanel {
     this._historyView=null;       // History 탭 (FR-GIT-113~139)
     this._branchesView=null;      // Branches 탭 (FR-GIT-147~160)
     this._stashView=null;         // Stash 탭 (FR-GIT-161~170)
+    this._remoteView=null;        // 원격 작업 (FR-GIT-98~112)
     // 커밋 축의 diff 대상 (FR-GIT-138). previewFile 과 자리를 나눈다 — 같은 자리에
     // 두면 Changes 탭의 미리보기가 커밋의 diff 를 보이면서 목록에는 아무 행도
     // 선택되지 않는다.
@@ -64,6 +65,9 @@ class GitPanel {
     // 선택과 쓰기 안내는 리포에 붙은 것이다 — 새 리포로 넘겨 오면 다른 파일을
     // 가리킨다.
     this._sel.clear(); this._anchor=null; this._note=null;
+    // 원격 작업은 리포에 붙은 것이다 — 이전 리포의 출력이 새 리포의 헤더와 함께
+    // 보이는 순간이 있어서는 안 된다. 작업 자체는 서버에서 계속 돈다.
+    if(this._remoteView) this._remoteView.detachRepo();
     // 이전 리포의 diff 가 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다.
     this._diffKey=null; this._prevKey=null; this._diffPos=0; this.commitFile=null;
     for(const v of [this._diffView,this._previewView])
@@ -196,14 +200,41 @@ class GitPanel {
         '<span class="git-head-repo"></span><span class="git-head-branch"></span>'+
         '<span class="git-head-badges"></span><span class="git-head-ab"></span>'+
         '<span class="git-head-spacer"></span>'+
-        '<span class="git-head-remote">'+
-          '<button class="git-remote-btn" data-remote="fetch" disabled>Fetch</button>'+
-          '<button class="git-remote-btn" data-remote="pull" disabled>Pull</button>'+
-          '<button class="git-remote-btn" data-remote="push" disabled>Push</button>'+
-        '</span>'+
+        // 원격 버튼은 기본 동작만 하고 변형은 `▾` 다이얼로그에서 온다
+        // (FR-GIT-98·99). 동작은 GitRemote 가 붙인다.
+        '<span class="git-head-remote">'+GIT_REMOTE_KINDS.map(k=>
+          '<button class="git-remote-btn" data-remote="'+k+'" disabled></button>'+
+          '<button class="git-remote-more" data-remote="'+k+'" disabled></button>'
+        ).join('')+'</span>'+
       '</div>'+
       // 안쪽은 GitCommit 이 채운다 (FR-GIT-74~85). 자리와 고정 성질은 여기 있다.
       '<div class="git-commit"></div>'+
+      // 원격 작업 하나의 화면 (FR-GIT-102·103·105·108). 진행 중이 아니면 접힌다.
+      '<div class="git-job">'+
+        '<div class="git-job-bar">'+
+          '<span class="git-job-kind"></span>'+
+          '<code class="git-job-argv"></code>'+
+          '<span class="git-job-state"></span>'+
+          '<span class="git-job-spacer"></span>'+
+          '<button class="git-job-cancel"></button>'+
+          '<button class="git-job-copy"></button>'+
+          '<button class="git-job-close"></button>'+
+        '</div>'+
+        '<div class="git-job-note"></div>'+
+        '<div class="git-job-fail">'+
+          '<div class="git-job-reason"></div>'+
+          '<pre class="git-job-tail"></pre>'+
+          // 자격증명을 받는 자리가 아니다 — 안내와 복사 가능한 명령뿐이다
+          // (FR-GIT-104).
+          '<div class="git-job-auth">'+
+            '<div class="git-job-auth-note"></div>'+
+            '<code class="git-job-auth-cmd"></code>'+
+            '<button class="git-job-auth-copy"></button>'+
+          '</div>'+
+          '<div class="git-job-opts"></div>'+
+        '</div>'+
+        '<pre class="git-job-log"></pre>'+
+      '</div>'+
       '<div class="git-stale-note"></div>'+
       '<div class="git-partial-note">'+
         '<div class="git-partial-msg"></div>'+
@@ -227,7 +258,13 @@ class GitPanel {
         '</div>'+
         '<div class="git-preview"></div>'+
       '</div>';
-    for(const b of el.querySelectorAll('.git-remote-btn')) b.title=GIT_REMOTE_HINT;
+    for(const b of el.querySelectorAll('.git-remote-btn'))
+      b.textContent=GIT_REMOTE_LABEL[b.dataset.remote]||'';
+    for(const b of el.querySelectorAll('.git-remote-more')) b.textContent=GIT_REMOTE_MORE;
+    for(const b of el.querySelectorAll('.git-job-cancel')) b.textContent=GIT_JOB_CANCEL;
+    el.querySelector('.git-job-copy').textContent=GIT_JOB_COPY;
+    el.querySelector('.git-job-close').textContent=GIT_JOB_CLOSE;
+    el.querySelector('.git-job-auth-copy').textContent=GIT_JOB_AUTH_COPY;
     el.querySelector('.git-partial-close').textContent=GIT_NOTE_CLOSE;
     el.querySelector('.git-partial-close')
       .addEventListener('click',()=>{this._note=null;this._paint()});
@@ -263,6 +300,9 @@ class GitPanel {
     clear.textContent=GIT_SEL_CLEAR;
     clear.addEventListener('click',()=>{this._sel.clear();this._anchor=null;this._paint()});
     this._commit().mount(el.querySelector('.git-commit'));
+    // 원격 버튼과 작업 영역의 동작 (FR-GIT-98~112). 골격은 여기 있고 상태는
+    // GitRemote 가 들고 있다 — 골격을 다시 세워도 진행 중 작업이 사라지지 않는다.
+    this._remote().bind(el);
     // FR-GIT-42: 목록 끝이 보일 때마다 다음 덩어리를 이어 그린다.
     if(this._io) this._io.disconnect();
     if(typeof IntersectionObserver!=='undefined'){
@@ -287,6 +327,7 @@ class GitPanel {
     this._paintSel(el);
     this._paintNote(el);
     this._commit().paint(s||null);
+    this._remote().paint(el);
     this._paintPreview(el);
   }
 
@@ -503,6 +544,30 @@ class GitPanel {
   _commit(){
     if(!this._commitView) this._commitView=new GitCommit(this);
     return this._commitView;
+  }
+
+  // ── 원격 작업 (FR-GIT-98~112) ──
+
+  // 원격 조각도 지연 생성한다. 진행 중 작업의 상태를 들고 있으므로 Changes 탭의
+  // 골격보다 오래 산다.
+  _remote(){
+    if(!this._remoteView) this._remoteView=new GitRemote(this);
+    return this._remoteView;
+  }
+
+  // 상태바 폴링이 받은 진행 중 작업 목록 (FR-GIT-101·112). 같은 리포의 작업이면
+  // 원격 버튼이 막히고 출력이 이어진다.
+  adoptJobs(jobs){
+    if(!this._remoteView&&!(jobs||[]).length) return;
+    this._remote().adoptJobs(jobs);
+  }
+
+  // 그룹 하나를 펼친다. pull 이 충돌로 끝나면 충돌 그룹이 접혀 있어서는 안 된다
+  // (FR-GIT-111).
+  expandGroup(key){
+    if(!this._collapsed.has(key)) return;
+    this._collapsed.delete(key);
+    this._paint();
   }
 
   // ── History 탭 (FR-GIT-113~139) ──

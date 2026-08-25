@@ -108,8 +108,7 @@ const GIT_AXIS_LABEL={
   'index-head':'index ↔ HEAD','worktree-index':'worktree ↔ index','worktree-head':'worktree ↔ HEAD',
   'commit-parent':'commit ↔ parent',
 };
-// 원격은 M3 다 — 자리만 두고 사유를 title 로 알린다.
-const GIT_REMOTE_HINT='M3 에서 제공됩니다';
+// 원격 버튼은 M3 가 살렸다 — 라벨·title·다이얼로그는 아래 원격 작업 절에 있다.
 const GIT_PREVIEW_HINT='파일을 선택하세요';
 const GIT_LOADING_HINT='불러오는 중…';
 const GIT_STALE_NOTE='갱신 실패';
@@ -163,6 +162,10 @@ const GIT_WRITE_ERR={
   git_timeout:'git 실행이 시간을 초과했습니다',
   git_failed:'git 이 실패했습니다',
   git_unavailable:'git 을 쓸 수 없습니다',
+  // 원격 작업 고유의 거부 (FR-GIT-101). 라벨을 한 자리에 둔다.
+  job_busy:'이 저장소의 원격 작업이 이미 진행 중입니다',
+  job_not_found:'그 작업을 찾을 수 없습니다',
+  no_remote:'밀 원격을 정할 수 없습니다',
 };
 
 // ── 커밋 (GIT_SRS §3A.2 / FR-GIT-74~85) ──
@@ -547,3 +550,103 @@ const GIT_STASH_DROP='Drop';
 const GIT_ACT_STASH_DROP='stash_drop';
 const GIT_STASH_DROP_TITLE='stash 를 지웁니다';
 const GIT_STASH_DROP_NOTE='gc 전이면 아래 명령으로 되살릴 수 있습니다';
+
+// ── 원격 작업 (GIT_SRS §3B.1 / FR-GIT-98~112) ──
+
+// FR-GIT-98·99: 버튼은 **기본 동작만** 한다. 변형(--prune·--rebase·force)은 `▾`
+// 다이얼로그에서만 온다 — 여기서 라벨과 사유를 붙인다.
+const GIT_REMOTE_KINDS=['fetch','pull','push'];
+const GIT_REMOTE_LABEL={fetch:'Fetch',pull:'Pull',push:'Push'};
+const GIT_REMOTE_TITLE={
+  fetch:'원격을 가져옵니다 (git fetch)',
+  pull:'가져와 현재 브랜치에 합칩니다 (git pull)',
+  push:'현재 브랜치를 원격에 밀어 올립니다 (git push)',
+};
+const GIT_REMOTE_MORE='▾';
+const GIT_REMOTE_MORE_TITLE='옵션';
+const GIT_REMOTE_WHY_NO_STATUS='저장소 상태를 아직 읽지 못했습니다';
+// FR-GIT-101: 진행 중에는 같은 리포의 다른 원격 버튼도 막는다. 사유 없이 꺼진
+// 버튼은 사용자가 해소할 수 없다.
+const GIT_REMOTE_WHY_BUSY='이 저장소의 원격 작업이 진행 중입니다';
+// argv 는 그대로 보인다 — 무엇이 실행됐는지 모르면 다이얼로그의 선택이 반영됐는지
+// 사용자가 확인할 수 없다 (FR-GIT-109·110).
+const GIT_PROGRESS_FLAG='--progress';
+// 보존 줄 수 상한. 서버의 JobLineCap 과 같은 값이다 — 더 들고 있어도 서버가 주지
+// 않는다.
+const GIT_JOB_LINE_CAP=2000;
+// SSE 가 끊기면 마지막 seq 부터 다시 잇는다 (계약 §2.3.1).
+const GIT_JOB_RETRY_MS=1000;
+const GIT_JOB_RETRY_MAX=5;
+const GIT_JOB_RUNNING='진행 중…';
+const GIT_JOB_OK='완료';
+const GIT_JOB_FAIL='실패';
+const GIT_JOB_CANCELED='취소했습니다';
+const GIT_JOB_CANCELING='취소하는 중…';
+const GIT_JOB_CLOSE='닫기';
+const GIT_JOB_COPY='출력 복사';
+const GIT_JOB_STREAM_FAIL='출력이 끊겼습니다 — 다시 잇는 중…';
+const GIT_JOB_START_FAIL='원격 작업을 시작하지 못했습니다';
+// FR-GIT-102: 취소는 **부분 적용 가능성을 알린다** — 원격에 절반이 올라간 뒤
+// 끊길 수 있다. 그 사실을 확인 문구에 명시한다.
+const GIT_ACT_JOB_CANCEL='job_cancel';
+const GIT_JOB_CANCEL='취소';
+const GIT_JOB_CANCEL_TITLE='진행 중인 원격 작업을 끊습니다';
+const GIT_JOB_CANCEL_NOTE='끊긴 시점까지 원격에 일부가 적용된 채로 끝날 수 있습니다';
+// FR-GIT-104: **자격증명을 받지 않는다.** 입력을 만들지 않고 터미널에서 수행하도록
+// 안내만 한다 — 만들지 않는 것이 유일한 보장이다.
+const GIT_JOB_AUTH_NOTE='자격증명이 필요합니다 — dongminal 은 자격증명을 받지도 저장하지도 않습니다. 터미널 탭에서 아래를 실행하세요';
+const GIT_JOB_AUTH_COPY='명령 복사';
+// FR-GIT-105: 선택지는 **서버가 준 순서 그대로** 그린다. 순서가 곧 우선순위이고
+// force 는 마지막이며 강조하지 않는다.
+const GIT_JOB_REJECT_NOTE='원격이 앞서 있어 거부됐습니다 — 아래에서 고르세요';
+// 이름은 서버(internal/git/job.go)와 같은 문자열이다. 목록과 순서는 서버가 준다.
+const GIT_JOB_FIX_REBASE='fetch_rebase';
+const GIT_JOB_FIX_MERGE='fetch_merge';
+const GIT_JOB_FIX_LEASE='force_with_lease';
+const GIT_JOB_FIX_LABEL={
+  fetch_rebase:'가져와 rebase (git pull --rebase)',
+  fetch_merge:'가져와 merge (git pull)',
+  force_with_lease:'강제로 밀어 올리기 (--force-with-lease)',
+};
+// FR-GIT-111: pull 이 충돌을 남기면 Changes 탭으로 보낸다. 해결 UI 는 M3 범위 밖이다.
+const GIT_JOB_CONFLICT_NOTE='충돌이 남았습니다 — Changes 탭의 충돌 그룹에서 확인하세요';
+// FR-GIT-100: upstream 이 없으면 Push 는 Publish 다. 서버가 실행 전에 되묻는다
+// (계약 §2.3.1 ①) — 그 확인을 이 문구가 맡는다. 파괴적이 아니므로 1단계다.
+const GIT_ACT_PUBLISH='publish';
+const GIT_PUBLISH_TITLE='upstream 을 설정하며 밀어 올립니다';
+// FR-GIT-106: force 는 `--force-with-lease` 가 기본이고 `--force` 는 2단계 확인을
+// 거친다. 이름은 서버의 파괴적 목록(/api/git/policy)의 키이며 목록을 복제하지 않는다.
+const GIT_ACT_FORCE_PUSH='force_push';
+const GIT_FORCE_PUSH_TITLE='원격의 커밋을 덮어씁니다';
+const GIT_FORCE_PUSH_NOTE='덮어쓰기 전에 아래로 원격의 현재 커밋을 적어 두세요 — 덮어쓴 뒤에는 원격의 reflog 에만 남습니다';
+// `▾` 다이얼로그 (FR-GIT-109·110). **첫 선택지가 기본이고 그것이 안전한 쪽이다**
+// (FR-GIT-97·173).
+const GIT_REMOTE_DIALOGS={
+  fetch:{title:'Fetch 옵션',run:'Fetch',fields:[
+    {key:'prune',type:'check',label:'사라진 원격 브랜치 정리 (--prune)'},
+    {key:'tags',type:'radio',label:'태그',opts:[
+      {v:'',label:'기본 (저장소 설정에 맡김)'},
+      {v:'yes',label:'모든 태그 (--tags)'},
+      {v:'no',label:'태그 없음 (--no-tags)'},
+    ]},
+  ]},
+  pull:{title:'Pull 옵션',run:'Pull',fields:[
+    {key:'mode',type:'radio',label:'합치는 방식',opts:[
+      {v:'',label:'기본 (merge)'},
+      {v:'rebase',label:'rebase (--rebase)'},
+      {v:'ff-only',label:'fast-forward 만 (--ff-only)'},
+      {v:'no-ff',label:'항상 머지 커밋 (--no-ff)'},
+    ]},
+  ]},
+  push:{title:'Push 옵션',run:'Push',fields:[
+    {key:'force',type:'radio',label:'강제',opts:[
+      {v:'',label:'강제하지 않음'},
+      {v:'lease',label:'--force-with-lease'},
+      {v:'force',label:'--force'},
+    ]},
+  ]},
+};
+// FR-GIT-112: 진행 중 원격 작업은 Git 창을 보지 않아도 알 수 있어야 한다.
+const GIT_SB_JOB_ICON='⇅';
+const GIT_SB_JOB_SUFFIX='…';
+const GIT_SB_JOB_TITLE='진행 중인 원격 작업';

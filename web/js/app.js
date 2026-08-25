@@ -2453,6 +2453,9 @@ class App {
   // ── Status Bar ──
   _initStatusBar(){
     this._stats={};this._latency=null;
+    // FR-GIT-112: 진행 중인 원격 작업. Git 창을 보지 않아도 알 수 있어야 하므로
+    // Git 창의 폴링이 아니라 상태바 폴링에 얹는다.
+    this._gitJobs=[];
     // FR-BGU-4: 진입점은 정적 요소다. 리스너를 여기서 한 번만 부착한다 —
     // 지표 재생성(_updateStatusBar) 주기에 종속되면 안 된다.
     const bgBtn=document.getElementById('sb-bg-btn');
@@ -2495,7 +2498,45 @@ class App {
       const r=await fetch('/api/stats');
       this._stats=await r.json();
     }catch{}
+    await this._pollGitJobs();
     this._updateStatusBar();
+  }
+
+  /**
+   * FR-GIT-112: 진행 중 원격 작업을 상태바에 보인다.
+   *
+   * Git 창의 폴링(FR-GIT-22)은 창이 활성일 때만 돌므로 그것에 얹으면 요구사항이
+   * 뜻을 잃는다. 이 호출은 git 을 실행하지 않는다 — 서버가 들고 있는 목록이다.
+   *
+   * 목록은 Git 창에도 넘긴다: 다른 브라우저 창이 띄운 작업도 같은 리포의 원격
+   * 버튼을 막아야 한다 (FR-GIT-101).
+   */
+  async _pollGitJobs(){
+    if(!statusBar.git){this._gitJobs=[];return}
+    let r=null,d=null;
+    try{r=await fetch('/api/git/jobs')}catch{r=null}
+    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
+    // 받지 못했으면 이전 목록을 유지한다 — 한 번의 실패로 chip 이 사라지면
+    // "작업이 끝났다" 와 "모른다" 가 같아진다.
+    if(!d||!Array.isArray(d.jobs)) return;
+    this._gitJobs=d.jobs;
+    if(this.gitPanel) this.gitPanel.adoptJobs(d.jobs);
+  }
+
+  // 방금 띄운 작업은 폴링 주기를 기다리지 않는다 (FR-GIT-112).
+  _gitJobSeen(job){
+    if(!job||!job.id) return;
+    if(!this._gitJobs) this._gitJobs=[];
+    if(this._gitJobs.some(j=>j.id===job.id)) return;
+    this._gitJobs=this._gitJobs.concat([job]);
+    this._updateStatusBar();
+  }
+
+  _gitJobEnded(id){
+    if(!id||!this._gitJobs) return;
+    const n=this._gitJobs.length;
+    this._gitJobs=this._gitJobs.filter(j=>j.id!==id);
+    if(this._gitJobs.length!==n) this._updateStatusBar();
   }
   _updateStatusBar(){
     const bar=document.getElementById('sb-items');if(!bar)return;
@@ -2547,7 +2588,12 @@ class App {
     }
     bar.innerHTML=items.join('')||'';
     // chip 은 문자열이 아니라 DOM 으로 붙인다 — 브랜치 이름에는 < 와 & 가 올 수 있다.
-    if(statusBar.git){const c=this._gitChip(); if(c) bar.appendChild(c)}
+    if(statusBar.git){
+      const c=this._gitChip(); if(c) bar.appendChild(c);
+      // FR-GIT-112: 진행 중 원격 작업은 chip 옆에 별도로 붙는다 — 브랜치 표시와
+      // 섞으면 어느 것이 관측이고 어느 것이 진행인지 구분되지 않는다.
+      const j=this._gitJobChip(); if(j) bar.appendChild(j);
+    }
     this._updateBgBtn();
   }
 
@@ -2572,6 +2618,18 @@ class App {
       d.textContent=GIT_SB_DIRTY_ICON+n;
       el.appendChild(d);
     }
+    return el;
+  }
+
+  // FR-GIT-112: 진행 중 원격 작업의 chip. 없으면 null 이다 — 빈 chip 을 보이면
+  // "작업 중" 과 "아무 일도 없음" 이 같아진다.
+  _gitJobChip(){
+    const jobs=this._gitJobs||[];
+    if(!jobs.length) return null;
+    const el=document.createElement('span');
+    el.className='sb-item sb-git-job';
+    el.textContent=GIT_SB_JOB_ICON+' '+jobs.map(j=>j.kind||'').join(' ')+GIT_SB_JOB_SUFFIX;
+    el.title=GIT_SB_JOB_TITLE+' — '+jobs.map(j=>(j.kind||'')+' @ '+(j.repo||'')).join('\n');
     return el;
   }
 
