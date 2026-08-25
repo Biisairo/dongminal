@@ -235,6 +235,19 @@ func (t *AttnTracker) Activity(toolID string) *activityState {
 	return ps.activity.Load()
 }
 
+// LastOutputAt returns the last observed output time for a tool in unix nanos,
+// 0 when no output was ever observed. Feeds the tui-quiescence fallback of the
+// readiness ladder (RUN_ORCHESTRATION_SRS FR-STA-4).
+func (t *AttnTracker) LastOutputAt(toolID string) int64 {
+	t.mu.Lock()
+	ps := t.tools[toolID]
+	t.mu.Unlock()
+	if ps == nil {
+		return 0
+	}
+	return ps.lastOutputAt.Load()
+}
+
 // ActivitySnapshot returns current activity for all tools. A "working" card
 // whose foreground process is gone is pruned so an abnormal agent exit (no
 // Stop/SessionEnd hook) doesn't leave a stale "working" card — parity with

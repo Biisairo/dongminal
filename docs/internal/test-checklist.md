@@ -528,7 +528,7 @@ Go 테스트는 전 패키지 통과, `go vet` 무경고, `gofmt` 청결. Playwr
 **Playwright 프로젝트 2개**: `chromium`(Desktop Chrome, `hasTouch:false`) 이
 `-touch.spec.ts` 를 제외한 전부를, `mobile-touch`(Pixel 7, `hasTouch:true`) 가
 `-touch.spec.ts` 만 돈다. 마우스 경로만으로는 `touchstart` 계열 결함을 볼 수
-없으므로 이 분리가 필수다 (`USER_CHECKLIST_FIXES_SRS` FR-MTB-7).
+없으므로 이 분리가 필수다 (`archive/USER_CHECKLIST_FIXES_SRS` FR-MTB-7).
 
 `e2e/fixtures.ts` 가 매 테스트 전에 워크스페이스를 비우고 미참조 도구를 회수하며
 주의 알림을 해제한다. 이 초기화가 없으면 앞선 테스트의 창·탭이 남아 "포커스된

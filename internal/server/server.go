@@ -7,6 +7,8 @@ package server
 import (
 	"bufio"
 	"context"
+	"dongminal/internal/run"
+	"dongminal/internal/worktree"
 	"fmt"
 	"io/fs"
 	"log"
@@ -39,6 +41,11 @@ type Server struct {
 	WorkIndex   toolaccess.WorkspaceReader
 	Stats       StatsSnapshotter
 	AttnTracker *AttnTracker
+	Runs        *run.Store
+	// Worktrees owns $DONGMINAL_HOME/worktrees (RUN_ORCHESTRATION_SRS 묶음 W).
+	// nil 이면 격리를 요청한 Run 만 거부되고(FR-WKT-11), isolation=none 경로는
+	// 영향이 없다 (NFR-RUN-1).
+	Worktrees *worktree.Manager
 	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
 	Focus *FocusRegistry
 
@@ -77,6 +84,8 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		WorkIndex:   deps.WorkIndex,
 		Stats:       deps.Stats,
 		AttnTracker: deps.AttnTracker,
+		Runs:        deps.Runs,
+		Worktrees:   deps.Worktrees,
 		started:     time.Now(),
 	}, nil
 }

@@ -4,20 +4,21 @@
 
 대전제:
 - dongminal 서버 실행 중, 브라우저 열림, SSE 연결됨
-- 팀장 CC 는 **한 도구** 에서만 동작. 팀원 도구는 스킬이 새로 생성한다
+- 조정자 CC 는 **한 도구** 에서만 동작. 팀원 도구는 스킬이 **전용 창에** 새로 생성한다
 - 기존에 열린 다른 도구의 CC 는 절대 팀원으로 쓰지 않는다
+- 검증의 1차 근거는 **`dmctl run status --run <uuid>` 와 `dmctl status --at <uuid>`** 다. 화면은 "왜 막혔는가"를 볼 때만 읽는다
 
 ---
 
 ## 시나리오 1 — 4명 팀 · 2라운드 통합 비평 · 수평 토론 · 최종 1회 보고
 
 이 스킬의 핵심 능력을 한꺼번에 검증하는 메인 시나리오. 다음 요소를 전부 포함:
-- **균형 4분할 레이아웃** (단순 (N-1) 회 splitH 가 아니라 focus 재분배를 써서 4등분)
+- **전용 창 + 균등 4분할** (`dmctl new-window -n` → `dmctl split-* 4 --at <시드> -n`)
 - **역할별 모델 분기** (작가·수석비평가 Opus, 일반 비평가 Sonnet)
-- **동시 기동 + inline 프롬프트** — 한 `Bash` 호출에서 `&`+`wait` 로 병렬 `dmctl send-input`, 초기 프롬프트를 `claude --model X "..."` 의 위치 인자로 전달
+- **동시 기동** — 한 `Bash` 호출에서 `&`+`wait` 로 병렬 `dmctl run launch | dmctl send-input`
 - **수평 협업** — 비평가끼리 A 를 허브로 간접 협업 (B, C 가 A 에게 각자 송신)
 - **2라운드 파이프라인** — 초안 → 1차 통합 비평 → 개정판 → 2차 통합 비평
-- **최종 단일 보고** — 수석비평가 A 만 팀장(사용자 CC)에게 `[TEAM-REPLY task-id=T-FINAL]` 1회 송신
+- **보고 계약** — 멤버 전원이 `dmctl run report` 로 정확히 한 번 보고하고, 최종 산출물 본문은 수석비평가 A 만 `dmctl msg` 로 조정자에게 송신
 
 ### 프롬프트
 > 팀원 4명 만들어서 시 비평 파이프라인 돌려줘.
@@ -29,23 +30,22 @@
 >
 > 작가와 수석비평가 A 는 Opus, 나머지 비평가는 Sonnet 으로 돌려줘.
 
-### 검증 포인트 — 레이아웃
+### 검증 포인트 — 공간 (TC-SKL-1)
 
-- [ ] `dmctl who-am-i` 로 size 획득, 셀 비율 × 2.2 규칙 적용해 긴 축 결정
-- [ ] 1차 분할 (긴 축 직교) — 팀 분할 칸 확보
-- [ ] 2차 분할 — 팀 분할 칸을 좌/우 또는 상/하로 2등분
-- [ ] 3차 분할 — focus 좌(또는 상)으로 이동 후 분할 (새 팀원 1명)
-- [ ] 4차 분할 — focus 우(또는 하)으로 이동 후 분할 (새 팀원 1명)
-- [ ] 최종 팀원 4개가 **균등 크기** (단순 연속 splitH 시의 1/2:1/4:1/8:1/8 가 아닌, 각 ~1/4 씩)
+- [ ] `dmctl new-window --name <이름> -n` 으로 **전용 창** 생성. 응답의 `newWindows[0]`·`newTabs[0].uuid` 를 그대로 쓴다 (`list-workspace` 재조회 없음)
+- [ ] 전용 창 안에서 `dmctl split-* 4 --at <시드> -n` **단일 호출**로 균등 4분할. 셀 비율 계산 없음
+- [ ] **사용자의 창·탭이 전혀 바뀌지 않는다** — 팀 구성 전후로 `dmctl list-workspace` 를 비교해 전용 창 외 차이 0
+- [ ] **포커스가 움직이지 않는다.** `focus` 액션 0회 호출
+- [ ] 팀원 탭을 모두 닫으면 전용 창이 스스로 사라진다 (`close-window` 호출 0회)
 
-### 검증 포인트 — 동시 기동 + inline 프롬프트
+### 검증 포인트 — Run 기록과 기동
 
-- [ ] 4개 `dmctl send-input` 이 **한 `Bash` 호출 안에서 `&` + `wait`** 로 병렬 실행
-- [ ] 각 `dmctl send-input` 의 `--at` 값이 **uuid** (`dmctl list-workspace` 의 `uuid=` 값) — 라벨 사용 시 즉시 NG
-- [ ] 각 호출의 `text` 가 `claude --model <opus|sonnet|...> "<role+process+protocol>"` 형태
-- [ ] 따옴표 이스케이프 정상 (`\"` 사용, 쉘 파싱 에러 없음)
-- [ ] 초기 프롬프트 안에 **팀원 uuid** (네 uuid, 동료 uuid 전부) 명시 → 팀원이 `dmctl who-am-i` 호출 안 해도 됨
-- [ ] 초기 프롬프트 안에 **실행 가능한 `dmctl msg --to <uuid>` 명령 명시** + "내장 SendMessage / SendUserMessage 쓰지 말라" 경고 포함
+- [ ] `dmctl run start --objective <목적> --window <창 uuid>` 로 Run 을 연다
+- [ ] 팀원마다 `dmctl run member ... --brief -` (여러 줄이면 heredoc). 응답의 `member=<uuid>` 를 쓴다
+- [ ] 4개 기동이 **한 `Bash` 호출 안에서 `&` + `wait`** 로 병렬 실행
+- [ ] 기동줄을 **손으로 조립하지 않는다** — `dmctl run launch --member <m> --model <model>` 의 출력을 그대로 `dmctl send-input --execute -` 에 파이프. 손으로 `claude ...` 를 쓰면 가변 인자 플래그가 프리앰블을 삼켜 빈 프롬프트로 뜬다
+- [ ] 모든 `--at` 값이 **uuid** (라벨 사용 시 즉시 NG)
+- [ ] 프리앰블에 Run·Member uuid 와 조정자 uuid 가 박혀 있어 팀원이 `who-am-i` 를 부를 필요가 없다 (`dmctl run launch --member <m> --text` 로 확인 가능)
 
 ### 검증 포인트 — 2라운드 파이프라인
 
@@ -54,8 +54,19 @@
 - [ ] A 가 자기 비평 + B + C 통합 후 작가에게 `[FROM-LEAD task-id=T-CRITIQUE-1]` 송신
 - [ ] 작가가 개정판 작성 후 다시 A/B/C 세 명에게 `[FROM-WRITER task-id=T-REVISE-1]` 송신
 - [ ] round=2 동일 사이클
-- [ ] 최종적으로 **A 만** 팀장에게 `[TEAM-REPLY task-id=T-FINAL]` 1회 송신. B, C, 작가는 팀장에게 보고 없음
-- [ ] 최종 보고에 `draft_original`, `joint_critique_1`, `draft_revised`, `joint_critique_2` 4개 필드 전부 포함
+- [ ] 최종 산출물 본문은 **A 만** 조정자에게 `dmctl msg` 로 송신 (B, C, 작가는 본문 송신 없음)
+- [ ] 그 본문에 `draft_original`, `joint_critique_1`, `draft_revised`, `joint_critique_2` 4개 필드 전부 포함
+- [ ] 멤버 4명 전원이 `dmctl run report` 로 **각자 한 번** 보고 → `dmctl run status` 에서 4명 모두 `outcome` 을 갖는다
+- [ ] 같은 멤버의 두 번째 보고는 `member_already_reported` 로 거부된다
+
+### 검증 포인트 — Barrier (TC-SKL-2)
+
+- [ ] 준비완료 확인이 **`dmctl wait --at <uuid> --for ready`** 다. `sleep` + 재확인 루프 0회
+- [ ] 화면 fingerprint(프롬프트 박스·스피너 부재·특정 텍스트)로 판정하지 않는다
+- [ ] `wait` 가 rc=5(blocked)면 **다시 기다리지 않고** 화면을 읽어 원인을 처리한다
+- [ ] `wait` 가 rc=4(타임아웃)면 체크포인트로 취급 — 그것만으로 팀원을 죽이거나 재기동하지 않는다
+- [ ] Kickoff 는 rc=0 이후에만 나간다
+- [ ] 4단계(기동)~6단계(Kickoff)가 **한 어시스턴트 턴** 안에서 끝난다
 
 ### 검증 포인트 — 수평 협업의 건강성
 
@@ -65,9 +76,11 @@
 
 ### 실측된 실패 패턴 (이 시나리오로 검증 가능)
 
-1. **답장 경로 오용**: 비평가 C 가 `dmctl msg` 대신 Claude Code 내장 `SendMessage` 를 호출해 A 가 영원히 대기. 프롬프트에 실행 명령 + 경고를 넣었는지 확인.
-2. **순차 기동 레이스**: 먼저 뜬 팀원이 아직 존재하지 않는 동료 uuid 로 메시지 시도 → "unknown uuid". 단일 메시지 병렬 기동으로 해결됐는지 확인.
-3. **라벨 드리프트**: 정리 단계에서 라벨로 `closeTab` 호출 시, 앞선 탭이 닫혀 후속 라벨이 reflow → 엉뚱한 탭 닫힘. uuid 사용 시 면역.
+1. **답장 경로 오용**: 비평가 C 가 `dmctl msg` 대신 Claude Code 내장 `SendMessage` 를 호출해 A 가 영원히 대기. 프리앰블이 실행 명령 + 금지 경고를 담고 있는지 확인.
+2. **순차 기동 레이스**: 먼저 뜬 팀원이 아직 존재하지 않는 동료에게 메시지 시도. 병렬 기동으로 해결됐는지 확인.
+3. **라벨 드리프트**: 라벨로 `close-tab` 호출 시 앞선 탭이 닫혀 후속 라벨이 reflow → 엉뚱한 탭 닫힘. uuid 사용 시 면역.
+4. **시작 모달에 막힌 기동**: 신뢰하지 않는 디렉터리에서 claude 를 띄우면 폴더 신뢰 확인 모달이 뜬다. 이때 훅은 아무것도 보고하지 않고 화면은 조용하다 — `dmctl status` 가 `state=unknown` 으로 계속 남는지 확인. 기동 전에 신뢰된 경로로 `cd` 했는지 본다.
+5. **승인 프롬프트에 막힌 보고**: 멤버가 `dmctl run report` 를 실행하려다 승인 대기(`state=waiting`)에 걸린다. 기동줄을 손으로 조립해 권한 사전 허용이 빠졌을 때 발생. `dmctl run launch` 출력을 그대로 썼는지 확인.
 
 ### 검증 포인트 — 식별자 안정성 (UUID)
 
@@ -76,13 +89,13 @@
 - [ ] 모든 `dmctl send-input` / `dmctl read-screen` 의 `--at` 가 **uuid**
 - [ ] 정리 중 한 탭 닫은 직후 `dmctl list-workspace` 재호출 없이 보관된 uuid 로 다음 탭 정리 가능 (라벨 reflow 무관)
 
-### 검증 포인트 — 정리
+### 검증 포인트 — 정리 (TC-SKL-3)
 
-- [ ] 모든 팀원 CC 에 `dmctl send-input --at <팀원_uuid> --execute "/exit"` 전송
-- [ ] 쉘 복귀 확인 (`dmctl read-screen --at <팀원_uuid>`)
-- [ ] 각 팀원 탭에 대해 `dmctl close-tab --at <팀원_uuid>` — `dmctl list-workspace` 재확인 불필요 (uuid 안정성)
-- [ ] 최종적으로 팀장 분할 칸만 남고 크기가 원복됨
-- [ ] `focus` 액션 0회 호출
+- [ ] `dmctl run close --run <uuid>` — 미보고 멤버가 있으면 **거부되고 목록이 나온다**
+- [ ] close 응답의 정리 대상(`tabId`)으로 `/exit` → `dmctl close-tab` 순서 진행
+- [ ] 팀원 탭이 모두 닫히면 전용 창 자동 소멸. `close-window` 호출 0회
+- [ ] **사용자의 창·탭 무변경**, `focus` 액션 0회 호출
+- [ ] **새 세션에서 `dmctl run status --run <uuid>` 만으로 멤버 전원과 보고 내용을 조회할 수 있다** — 매핑표를 대화 기록에 두지 않았다는 증거
 
 ---
 
@@ -94,10 +107,11 @@
 CC 기동 단계에서 지연/실패가 날 때 대응을 보는 용도. 단일 팀원이므로 레이아웃은 간단.
 
 **검증 포인트**:
-- [ ] 분할 1회 → 팀원 분할 칸 1개 → inline 프롬프트 포함 `claude` 기동
-- [ ] 답장 수신 성공 시 정상 종료
-- [ ] 답장 안 오면 `dmctl read-screen` 으로 상태 진단 (쉘 에러, claude not found, 이스케이프 실패 등 구분)
-- [ ] 실패 지속 시 사용자에게 "CC 기동 실패. 로그: <화면 일부>. 수동 확인 바람" 보고
+- [ ] 전용 창 1개 → 팀원 탭 1개 → `dmctl run launch | dmctl send-input` 로 기동
+- [ ] `dmctl wait --for ready` 의 종료 코드로 분기한다 (0/4/5 를 구분해 대응)
+- [ ] 보고가 `dmctl run status --run <uuid>` 에 `outcome` 과 함께 나타나면 정상 종료
+- [ ] 막히면 `dmctl status --at <uuid>` 로 `state` 를 먼저 보고, 그 다음에야 `dmctl read-screen` 으로 원인을 읽는다
+- [ ] 실패 지속 시 사용자에게 "기동 실패. state=<상태>, 화면: <일부>. 수동 확인 바람" 보고
 
 ---
 
@@ -122,10 +136,10 @@ CC 기동 단계에서 지연/실패가 날 때 대응을 보는 용도. 단일 
 
 ## 빠른 검증 팁
 
-**레이아웃 확인**: 브라우저에서 팀 구성 직후 화면이 의도한 대로 나뉘었는지 눈으로 확인. 특히 시나리오 1 에서 4분할이 균등한지.
+**공간 확인**: 브라우저에서 팀 구성 직후 **새 창**이 생기고 그 안이 균등 분할됐는지, 그리고 **원래 보던 창이 그대로인지** 확인. 후자가 TC-SKL-1 의 핵심이다.
 
 **진행 시각화**: 각 팀원 도구가 브라우저에서 실시간으로 보이므로 엔벨로프 주고받는 순간, CC 가 생각하는 순간, 답장하는 순간이 모두 관찰 가능. tmux team agents 대비 가장 큰 UX 이점.
 
-**멈춘 CC 진단**: 시나리오 1 에서 "A 가 C 비평 대기 중" 으로 멈춰 있다면, C 의 도구를 `dmctl read-screen` 해서 **어느 경로로 보냈는지** 확인. `dmctl msg` 가 아니라 `SendMessage` 호출이 보이면 경로 오용.
+**멈춘 CC 진단**: `dmctl run status --run <uuid>` 로 누가 어떤 state 인지 먼저 본다. `waiting` 이면 막힌 것이고, `working` 이면 진행 중이다. 그 다음에 해당 도구를 `dmctl read-screen` 해서 원인을 읽는다 — `dmctl msg` 가 아니라 `SendMessage` 호출이 보이면 경로 오용.
 
-**로그**: `/tmp/dongminal.log` 에 `[cmd] action=... delivered=N` 이 찍혀 SSE 브로드캐스트 여부 확인 가능.
+**로그**: `/tmp/dongminal.log` 에 `[cmd] action=... delivered=N` (SSE 브로드캐스트)과 `[run] start|member|report|close ...` (Run 기록 변경 전부)가 찍힌다.

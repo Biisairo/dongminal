@@ -51,6 +51,7 @@ type fakeWorkIndex struct {
 	resolve map[string]string
 	labels  map[string]string
 	coords  map[string]string
+	entries []toolaccess.WorkspaceEntry
 }
 
 func (f *fakeWorkIndex) Resolve(id string) (string, error) {
@@ -61,7 +62,7 @@ func (f *fakeWorkIndex) Resolve(id string) (string, error) {
 }
 func (f *fakeWorkIndex) Labels() map[string]string { return f.labels }
 func (f *fakeWorkIndex) Entries() []toolaccess.WorkspaceEntry {
-	return nil
+	return f.entries
 }
 func (f *fakeWorkIndex) CoordinateOf(id string) (string, error) {
 	if v, ok := f.coords[id]; ok {

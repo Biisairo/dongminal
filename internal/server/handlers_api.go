@@ -165,6 +165,18 @@ var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/tools/background"), (*Server).apiToolsBackground},
 	{http.MethodPost, exactPath("/api/tools/background/set"), (*Server).apiToolBackgroundSet},
 	{http.MethodPost, exactPath("/api/tools/activity/set"), (*Server).apiToolActivitySet},
+	// 묶음 S — 상태·대기 계약 (RUN_ORCHESTRATION_SRS FR-STA-1/2/3).
+	// dmctl status / dmctl wait 가 호출한다.
+	{http.MethodGet, exactPath("/api/tools/activity/get"), (*Server).apiToolStatus},
+	{http.MethodGet, exactPath("/api/tools/activity/wait"), (*Server).apiToolStatusWait},
+	// 묶음 R — Run 레코드 (RUN_ORCHESTRATION_SRS FR-RUN-1/2/8/11).
+	{http.MethodGet, exactPath("/api/runs"), (*Server).apiRunsGet},
+	{http.MethodPost, exactPath("/api/runs"), (*Server).apiRunStart},
+	{http.MethodPost, exactPath("/api/runs/members"), (*Server).apiRunMemberAdd},
+	{http.MethodPost, exactPath("/api/runs/report"), (*Server).apiRunReport},
+	{http.MethodPost, exactPath("/api/runs/close"), (*Server).apiRunClose},
+	// 묶음 P — 멤버 프리앰블 (RUN_ORCHESTRATION_SRS FR-PRE-1). dmctl run launch.
+	{http.MethodGet, exactPath("/api/runs/preamble"), (*Server).apiRunPreamble},
 	{http.MethodGet, func(p string) bool {
 		return strings.HasPrefix(p, "/api/tools/") && strings.HasSuffix(p, "/busy")
 	}, (*Server).apiToolBusy},

@@ -1,7 +1,7 @@
 # 인계: 사용자 확인 피드백 반영 (user_checklist.md)
 
-- **스펙**: [USER_CHECKLIST_FIXES_SRS.md](./USER_CHECKLIST_FIXES_SRS.md) — 단일 진실 공급원
-- **계획**: [USER_CHECKLIST_FIXES_PLAN.md](./USER_CHECKLIST_FIXES_PLAN.md) — 묶음·순서·열린 결정
+- **스펙**: [archive/USER_CHECKLIST_FIXES_SRS.md](./archive/USER_CHECKLIST_FIXES_SRS.md) — 단일 진실 공급원 (작업 완료로 보관됨)
+- **계획**: [archive/USER_CHECKLIST_FIXES_PLAN.md](./archive/USER_CHECKLIST_FIXES_PLAN.md) — 묶음·순서·열린 결정 (보관됨)
 - **입력**: `user_checklist.md` (리포 루트)
 
 ## 1. 현재 상태

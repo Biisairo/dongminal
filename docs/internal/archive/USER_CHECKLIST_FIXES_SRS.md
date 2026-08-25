@@ -22,7 +22,7 @@
 | E | 크로스 기기 창 포커스 소유권 동기화 | **구현 완료** (§3.5, FR-XDF-1..14) |
 | F | 모바일 키보드 표출 시 visual viewport 스크롤 상쇄 | **구현 완료** (§3.6, FR-MKV-1..11) |
 
-완료 묶음의 구현 결과와 함정은 [USER_CHECKLIST_FIXES_HANDOFF.md](./USER_CHECKLIST_FIXES_HANDOFF.md) 에 있다.
+완료 묶음의 구현 결과와 함정은 [USER_CHECKLIST_FIXES_HANDOFF.md](../USER_CHECKLIST_FIXES_HANDOFF.md) 에 있다.
 
 **미포함:** §5 비목표 참조.
 

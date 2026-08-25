@@ -162,6 +162,12 @@ MCP 툴명·좌표계·`toolId` 는 이미 맞았고, 틀린 것은 `pane` 이 *
 
 **사용자 결정**: "Orca 의 장점을 최대한 모방. 동작뿐 아니라 **실제 구현(MIT 공개 소스)도 참고**."
 
+> **정정 (2026-08-25).** 아래 대비표 두 곳이 실측과 어긋난다 — orca 에 **fan-out 결과의
+> 자동 비교·병합은 없고**(`merge_ready` 는 무동작 알림 타입이며 병합 판단은 사람이 한다),
+> **paseo 는 AGPL-3.0-or-later** 라 코드를 차용할 수 없다. 근거는
+> [ORCHESTRATOR_RESEARCH_NOTES.md](./ORCHESTRATOR_RESEARCH_NOTES.md) §2·§9, 정리된 결론은
+> [RUN_ORCHESTRATION_SRS.md](./RUN_ORCHESTRATION_SRS.md) §2.5 다.
+
 | 축 | Orca | dongminal 현재 |
 |----|------|----------------|
 | 격리 | agent 당 git worktree — 파일시스템 수준 | Pane 분할 — UI 수준만. **같은 워킹트리 공유** (repo 에 worktree 개념 0건) |

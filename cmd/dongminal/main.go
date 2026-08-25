@@ -14,11 +14,14 @@ import (
 
 	"dongminal/internal/adapters"
 	"dongminal/internal/migrate"
+	"dongminal/internal/run"
 	"dongminal/internal/runtime"
 	"dongminal/internal/runtimebin"
 	"dongminal/internal/server"
 	"dongminal/internal/sysstat"
+	"dongminal/internal/uuid"
 	"dongminal/internal/workspace"
+	"dongminal/internal/worktree"
 	"dongminal/web"
 )
 
@@ -325,6 +328,20 @@ func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.C
 
 	wa := adapters.Workspace{WS: wsMgr}
 
+	// Run 레코드 저장소 (RUN_ORCHESTRATION_SRS 묶음 R). epoch 는 이 기동의
+	// 식별자이며, 이전 세대가 열어둔 Run 을 로드 시 aborted 로 확정한다
+	// (FR-RUN-5) — 백그라운드 도구가 재기동을 넘지 못하므로(FR-BG-9) 되살릴
+	// 실체가 없다. Load 는 파일이 없거나 손상돼도 부팅을 막지 않는다.
+	runStore := run.NewStore(cfg.DataDir, uuid.NewString())
+	if err := runStore.Load(); err != nil {
+		log.Printf("run store load: %v", err)
+	}
+
+	// worktree 격리의 관리자 (묶음 W). 자기 영역은 $DONGMINAL_HOME/worktrees
+	// 아래뿐이고, 정리 대상은 Run 레코드가 정한다 (FR-WKT-9/10). 격리를 쓰지
+	// 않는 Run 은 이 객체를 건드리지 않는다.
+	worktrees := worktree.New(dataPath(cfg.DataDir, "worktrees"))
+
 	// 상태바 지표 샘플러. 커널을 주기적으로 읽어 스냅샷을 유지하므로 /api/stats 가
 	// 요청 경로에서 커널을 호출하지 않는다 (SYSTEM_STATS_SRS FR-STAT-8/9/11).
 	sampler := sysstat.NewSampler(sysstat.NewReader(), sysstat.DefaultInterval, "/")
@@ -339,6 +356,8 @@ func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.C
 			ToolIO:      pa,
 			WorkIndex:   wa,
 			Stats:       sampler,
+			Runs:        runStore,
+			Worktrees:   worktrees,
 		},
 		pm:          nil, // set by caller in direct mode
 		attnTracker: attnTracker,

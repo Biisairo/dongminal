@@ -37,9 +37,11 @@ session: dedicated
 3. lead 가 자기 비평 + critic 전원 비평을 통합 → 작가에게 `[FROM-LEAD task-id=T-CRITIQUE-1]` 송신.
 4. 작가가 개정판 작성 → 다시 전원에게 송신 (`[FROM-WRITER task-id=T-REVISE-1]`).
 5. round=2 동일 사이클.
-6. **lead 만** 팀장에게 `[TEAM-REPLY task-id=T-FINAL]` 1회 송신. 보고에 다음 4개 필드 전부 포함:
-   `draft_original`, `joint_critique_1`, `draft_revised`, `joint_critique_2`.
-7. 작가·critic 은 팀장에게 직접 보고하지 않는다.
+6. **lead 가 최종 종합을 만든다** — `draft_original`, `joint_critique_1`, `draft_revised`,
+   `joint_critique_2` 4개를 조정자에게 `dmctl msg` 로 1회 송신한다 (본문이 길기 때문).
+7. 멤버 전원은 자기 몫이 끝나면 `dmctl run report` 로 **정확히 한 번** 보고한다 —
+   이것이 조정자가 완료를 아는 근거이며, 작가·critic 도 예외가 아니다. 다만 최종
+   산출물 본문은 lead 의 메시지에만 담는다.
 
 ## 역할: writer
 
@@ -53,10 +55,12 @@ lead 의 통합 비평을 받으면 비평을 반영한 개정판을 작성한�
 1. 자체 비평 작성 (구조·정서·완성도).
 2. critic 들의 `[FROM-CRITIC]` 을 모두 수신할 때까지 대기.
 3. 자기 것 + critic 전원 비평을 모순 없이 통합해 작가에게 송신.
-2라운드 완료 후 팀장에게 최종 보고 (`T-FINAL`, 4개 필드 전부).
+2라운드 완료 후 조정자에게 최종 종합(4개 필드 전부)을 `dmctl msg` 로 송신하고,
+그 뒤 `dmctl run report --outcome succeeded` 로 보고한다.
 
 ## 역할: critic
 
 비평가 {{index}}번. 작가의 시를 수신하면 독립적으로 비평을 작성한다 —
 1번은 형식·운율 중심, 2번은 내용·이미지 중심.
-비평은 **lead 에게만** 송신한다 (작가·팀장에게 직접 송신 금지).
+비평은 **lead 에게만** 송신한다 (작가·조정자에게 직접 송신 금지).
+자기 라운드가 끝나면 `dmctl run report` 로 보고한다.

@@ -28,7 +28,7 @@ kickoff:                     # 선택 (권장). 첫 지시
   to: writer                 #   team id (count 역할이면 전개 후 첫 인스턴스)
   message: "{{topic}} 주제로 초안을 작성하라"
 report:                      # 선택 (권장). 최종 보고 규약
-  from: lead                 #   team id — 이 사람만 팀장에게 TEAM-REPLY
+  from: lead                 #   team id — 최종 산출물 본문을 조정자에게 보내는 사람
   task_id: T-FINAL
 teardown: confirm            # 선택. confirm(기본) | auto
 session: dedicated           # 선택. inline(기본 — 보스 옆 분할) | dedicated(전용 창)
@@ -78,5 +78,5 @@ count 역할에서는 {{index}} (1-base 인스턴스 번호) 사용 가능.
 
 1. **uuid 금지** — 정의서는 레이아웃·창과 무관해야 재사용 가능. team id 는 논리 이름.
 2. **자기완결** — 정의서만 읽어도 의도가 파악되게 (DC-WFS-3). 프로세스 섹션에 충분한 산문.
-3. **보고 단일화** — `report.from` 한 명만 팀장에게 보고하게 설계 (허브 패턴). 전원 보고는 팀장 컨텍스트 낭비.
+3. **보고 단일화** — 최종 산출물 **본문**은 `report.from` 한 명만 조정자에게 보내게 설계한다 (허브 패턴). 전원이 본문을 보내면 조정자 컨텍스트가 낭비된다. 완료 사실 자체는 별개다 — 멤버 전원이 `dmctl run report` 로 각자 한 번 보고하며, 그것이 조정자가 `dmctl run status` 로 진행을 아는 근거다.
 4. **파라미터는 최소** — 실행마다 진짜 바뀌는 것만. 나머지는 본문에 고정.

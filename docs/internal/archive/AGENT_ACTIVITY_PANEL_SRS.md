@@ -1,5 +1,11 @@
 # SRS: 에이전트 활동 모아보기 패널 (Agent Activity Panel) — IEEE 29148
 
+> **후속 (2026-08-25)**: 여기서 수집·저장하는 활동 상태에 **에이전트 소비자**가
+> 생겼다 — `GET /api/tools/activity/{get,wait}` 와 `dmctl status` / `dmctl wait`
+> (`RUN_ORCHESTRATION_SRS` 묶음 S). 수집·저장 요구는 **불변**이고 조회 경로만
+> 늘었다. 준비완료 판정이 화면 스크래핑에서 훅 상태로 옮겨간 근거가 이 문서가
+> 만든 상태값이다.
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)

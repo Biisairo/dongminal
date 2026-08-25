@@ -202,7 +202,7 @@ uuid→좌표로 번역**한다. 신규 서브커맨드도 이 규약을 따른�
 | `dongminal-team/SKILL.md` (190행) | 44 |
 | `dongminal-team/evals/test-scenarios.md` | 24 |
 | `dongminal-team/references/{troubleshooting,prompt}.md` | 13 + 13 |
-| `dongminal-team/scripts/build_prompt.py` | 9 |
+| `dongminal-team/scripts/build_prompt.py` (※ 이후 삭제 — FR-SK-3 주석) | 9 |
 | `dongminal-team/references/layout.md` | 9 |
 | `dongminal-team/scripts/plan_layout.py` | 6 |
 | `dongminal-workflow/SKILL.md` (119행) | 5 |
@@ -377,6 +377,11 @@ claude`)과 **공존**해야 한다. 두 훅은 서로 다른 소스에서 오�
 `dmctl` 로 갱신한다. 스크립트가 생성하는 **지시문 텍스트**가 대상이며 스크립트의
 입출력 계약은 바꾸지 않는다.
 
+> **후속 (2026-08-25)**: `build_prompt.py` 는 이후 **삭제됐다** —
+> `RUN_ORCHESTRATION_SRS` 묶음 K 에서 `dmctl run launch` 가 대체했다(프리앰블을
+> 서버가 조립한다). `plan_layout.py` 는 `inline` 토폴로지 전용으로 남아 있다.
+> 아래 §2.7 의 참조 집계표도 그 시점의 실측이며 지금의 파일 목록과 다르다.
+
 **FR-SK-4** `evals/test-scenarios.md` 의 기대 동작을 `dmctl` 기준으로 갱신한다.
 
 **FR-SK-5** `description` frontmatter 의 트리거 문구는 보존한다. 개명(FR-SK-1)이
@@ -488,9 +493,9 @@ V-M3 은 묶음 D 의 존재 이유이므로 생략할 수 없다.
 | 항목 | 근거 |
 |---|---|
 | Claude 외 에이전트로의 지시 주입 | dongminal 이 현재 지원하는 에이전트는 Claude Code 다. `dmctl` 액션 계층은 셸만 있으면 되므로 이미 에이전트 무관이고, 정책 주입 수단만 에이전트별로 다르다. 어댑터 레지스트리(§2.4)와 함께 별도 스펙 |
-| 에이전트 어댑터 레지스트리 | `parseClaudeHook`/`parseCodexHook` 의 선언화. 별도 스펙 |
-| worktree 격리 (orca) | `RUN_ORCHESTRATION_SRS` 의 착수 전 결정 사항 |
-| 태스크/Run 레코드 (paseo) | `RUN_ORCHESTRATION_SRS` |
+| ~~에이전트 어댑터 레지스트리~~ | `parseClaudeHook`/`parseCodexHook` 의 선언화. **해소됨 (2026-08-25)** — `RUN_ORCHESTRATION_SRS` 묶음 A, `internal/agentadapter` |
+| ~~worktree 격리 (orca)~~ | **해소됨 (2026-08-25)** — `RUN_ORCHESTRATION_SRS` 묶음 W, `internal/worktree`. 격리는 Run 단위 선택이며 기본은 `none` 이다 |
+| ~~태스크/Run 레코드 (paseo)~~ | **해소됨 (2026-08-25)** — `RUN_ORCHESTRATION_SRS` 묶음 R, `runs.json` |
 | 현행 알림 훅을 플러그인 `hooks/` 로 흡수 | 검증된 경로를 이번 변경에 끌어들이지 않는다 (FR-INJ-4). 플러그인이 hooks 를 담을 수 있음은 확인됐으므로 후속 정리 후보 |
 | 스킬 내용의 기능 확장 | 본 SRS 는 **접합면 교체**다. 정책은 보존한다 (FR-SK-2) |
 | MCP deprecate 유예 기간 | 전면 삭제로 결정 (§1.2 F). 이중 유지보수 경로를 남기지 않는다 |
