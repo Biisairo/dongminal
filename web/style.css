@@ -644,6 +644,115 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .git-pending-name{color:var(--text-bright);font-size:14px}
 .git-pending-hint{color:var(--text-dim)}
 
+/* ── Git Changes 탭 (FR-GIT-32~42) ── */
+/* FR-GIT-39: .git-head·.git-commit 은 flex:0 0 auto 로 고정되고 본문만 늘어난다.
+   목록 스크롤은 .git-files 안에서만 일어난다 — 커밋 영역이 목록과 함께
+   스크롤되면 이 요구사항은 실패다. */
+.git-view.git-changes{overflow:hidden}
+.git-view.git-changes.vis{display:flex;flex-direction:column}
+.git-head,.git-commit,.git-stale-note{flex:0 0 auto}
+.git-changes-body{flex:1 1 auto;min-height:0;display:flex}
+
+.git-head{
+  display:flex;align-items:center;gap:8px;padding:6px 10px;
+  border-bottom:1px solid var(--border);font-size:12px;
+}
+.git-head-repo{color:var(--text-bright);font-weight:500;white-space:nowrap}
+.git-head-branch{color:var(--accent);white-space:nowrap}
+.git-head-badges{display:flex;gap:4px;min-width:0;overflow:hidden}
+.git-head-badge{
+  padding:0 6px;border-radius:8px;font-size:10px;white-space:nowrap;
+  background:var(--accent-subtle);color:var(--accent);
+}
+.git-head-badge.git-badge-detached,.git-head-badge.git-badge-conflict{
+  background:var(--attn-subtle);color:var(--attn);
+}
+.git-head-badge.git-badge-noupstream{background:transparent;color:var(--text-muted)}
+.git-head-ab{color:var(--text-muted);font-size:11px;white-space:nowrap}
+.git-head-spacer{flex:1 1 auto}
+.git-head-remote{display:flex;gap:4px;flex-shrink:0}
+.git-remote-btn,.git-commit-btn,.git-files-mode{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+/* M1 에는 파괴적 동작이 하나도 없다 — 자리만 있고 전부 disabled 다 */
+.git-remote-btn:disabled,.git-commit-btn:disabled{color:var(--text-dim);cursor:not-allowed}
+
+.git-commit{
+  display:flex;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border);
+}
+.git-commit-msg{
+  flex:1 1 auto;min-width:0;height:48px;resize:none;
+  font:inherit;font-size:12px;padding:4px 6px;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-commit-msg:disabled{color:var(--text-dim)}
+.git-commit-side{display:flex;flex-direction:column;justify-content:space-between;gap:4px;flex-shrink:0}
+.git-commit-amend{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-dim)}
+
+/* 오류·진행 상황은 목록을 지우지 않고 한 줄로 알린다 (§3.7) */
+.git-stale-note{display:none;padding:3px 10px;font-size:11px;color:var(--attn);background:var(--attn-subtle)}
+.git-stale-note.vis{display:block}
+.git-stale-note.loading{color:var(--text-muted);background:transparent}
+
+.git-files{
+  flex:0 0 42%;min-width:180px;overflow-y:auto;
+  border-right:1px solid var(--border);
+}
+.git-files::-webkit-scrollbar{width:6px}
+.git-files::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.git-files-bar{
+  position:sticky;top:0;z-index:1;display:flex;gap:4px;padding:4px 6px;
+  background:var(--bg);border-bottom:1px solid var(--border);
+}
+.git-files-mode.active{background:var(--accent-active);color:var(--text-bright);border-color:var(--accent-border)}
+.git-group-head{
+  display:flex;align-items:center;gap:5px;padding:3px 8px;cursor:pointer;
+  font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);
+}
+.git-group-head:hover{background:var(--accent-hover)}
+.git-group-caret{width:9px;flex-shrink:0}
+.git-group-name{color:var(--text)}
+.git-file,.git-dir{
+  display:flex;align-items:center;gap:6px;padding:1px 6px 1px 6px;
+  font-size:12px;white-space:nowrap;cursor:pointer;
+}
+.git-file:hover,.git-dir:hover{background:var(--accent-hover)}
+.git-file.sel{background:var(--accent-active)}
+.git-file-st{width:10px;flex-shrink:0;text-align:center;color:var(--text-muted);font-family:monospace}
+.git-file-path{overflow:hidden;text-overflow:ellipsis}
+/* 충돌 행은 구분만 한다 (FR-GIT-37). M1 은 해결하지 않는다 */
+.git-file.conflict .git-file-st,.git-file.conflict .git-file-path{color:var(--danger)}
+.git-dir-caret{width:9px;flex-shrink:0;color:var(--text-muted)}
+.git-dir-name{color:var(--text-muted)}
+/* FR-GIT-42: 다음 덩어리를 이어 그릴 지점 */
+.git-file-more{padding:3px 8px;font-size:11px;color:var(--text-dim)}
+
+.git-preview{flex:1 1 auto;min-width:0;overflow:auto;position:relative}
+.git-preview-empty{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--text-dim);font-size:12px;
+}
+.git-preview-target{padding:10px;font-size:12px}
+.git-preview-path{color:var(--text-bright);word-break:break-all}
+.git-preview-axis{color:var(--text-muted);font-size:11px;margin-top:3px}
+
+/* FR-GIT-41: M1 전용 최소 메뉴. 공통 프레임워크는 M4 다 */
+.git-ctxmenu{
+  position:fixed;z-index:3000;min-width:140px;padding:3px;
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);font-size:12px;
+}
+.git-ctx-item{padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap}
+.git-ctx-item:hover{background:var(--accent-subtle);color:var(--text-bright)}
+
+/* 모바일은 상하로 쌓는다 — 좁은 폭에서 목록과 미리보기를 나란히 둘 수 없다 */
+body.mobile .git-changes-body{flex-direction:column}
+body.mobile .git-files{flex:1 1 50%;border-right:none;border-bottom:1px solid var(--border)}
+body.mobile .git-file,body.mobile .git-dir{padding-top:5px;padding-bottom:5px}
+
 /* ── Git 사이드바 (FR-GIT-13~17) ── */
 /* FR-GIT-17: 두 목록이 서로를 굶기지 않는다. min-height:0 이 없으면 flex 자식이
    내용 높이 아래로 줄어들지 않아 한쪽이 사이드바 밖으로 밀린다. */

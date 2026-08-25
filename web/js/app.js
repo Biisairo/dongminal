@@ -1193,6 +1193,19 @@ class App {
     const add=document.getElementById('git-add-repo');
     if(add) add.addEventListener('click',()=>this._gitAddRepo());
     this._startGitReposPoll();
+    this.gitPanel.init();
+  }
+
+  // _gitSignal 은 즉시 신호의 단일 진입점이다 (FR-GIT-18). 어디서 왔는지는 라벨로만
+  // 남기고 처리는 GitPanel 이 한다 — 디바운스와 게이팅이 한 곳에 있어야 한다.
+  _gitSignal(kind){ if(this.gitPanel) this.gitPanel.signal(kind) }
+
+  // FR-GIT-41 의 Open File. addTab 의 editor 분기를 그대로 쓴다 — 이미 열려 있으면
+  // 그 탭으로 이동한다.
+  _gitOpenFile(filePath){
+    const w=this._gitWindow(); if(!w||!w.layout) return;
+    const rid=(this.focused&&findPane(w.layout,this.focused))?this.focused:firstPane(w.layout)?.id;
+    if(rid) this.addTab(rid,'editor',{filePath});
   }
 
   // 목록은 주기적으로 갱신하되 탭이 숨겨졌으면 건너뛴다 — 보이지 않는 섹션을
@@ -1335,6 +1348,8 @@ class App {
     this._mPaneIdx=0;
     if(this.isMobile && this._drawerOpen) this._toggleDrawer(false);
     this._focusWindow(sid);
+    // FR-GIT-22: Git 창이 활성인지가 폴링 게이팅의 조건 하나다 — 창 전환은 재평가 시점이다.
+    this.gitPanel._reschedule();
     this._save(); this.render();
   }
 
@@ -2209,7 +2224,9 @@ class App {
 
 
   async _saveSettings(){
-    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,layoutPresets,defaultPreset})})}catch{}
+    // 블롭 전체를 갈아치우므로 읽어 쓰는 값은 전부 실어야 한다 — git 주기(FR-GIT-23)는
+    // UI 가 없지만 여기서 빠지면 다른 설정을 건드릴 때 조용히 사라진다.
+    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset})})}catch{}
   }
 
   // ── Modal & Theme ──

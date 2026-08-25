@@ -232,6 +232,8 @@ class TerminalTool {
     this._cwd=cwd;
     if(app)app._cwd=cwd;
     if(app)app._updateStatusBar();
+    // precmd·에이전트 hook 은 같은 OSC 경로를 탄다 — 셸 명령 직후의 즉시 신호다 (FR-GIT-18).
+    if(app)app._gitSignal('cwd');
   }
   _downloadFile(path){
     const a=document.createElement('a');

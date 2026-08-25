@@ -85,3 +85,52 @@ const GIT_NOT_REPO_LABEL='저장소 아님';
 // FR-GIT-12: M1 에는 공통 다이얼로그 규약이 없다 (M5 묶음 P). prompt·alert 를 쓴다.
 const GIT_ADD_REPO_PROMPT='추가할 리포 경로 (절대경로)';
 const GIT_PIN_FAIL_LABEL='리포 추가 실패';
+
+// ── Changes 탭 (GIT_SRS §3.3 / FR-GIT-32~42) ──
+
+// 그룹 순서. 충돌이 맨 위인 이유는 그것이 먼저 해결돼야 하는 상태이기 때문이다.
+const GIT_GROUPS=[
+  {key:'conflicts',name:'Conflicts'},
+  {key:'staged',   name:'Staged'},
+  {key:'changes',  name:'Changes'},
+  {key:'untracked',name:'Untracked'},
+];
+// 그룹이 diff 축을 결정한다 (FR-GIT-52). 값은 /api/git/diff-content 의 axis 인자다.
+const GIT_AXIS={STAGED:'index-head',UNSTAGED:'worktree-index',CONFLICT:'worktree-head'};
+const GIT_GROUP_AXIS={
+  staged:GIT_AXIS.STAGED,   changes:GIT_AXIS.UNSTAGED,
+  untracked:GIT_AXIS.UNSTAGED, conflicts:GIT_AXIS.CONFLICT,
+};
+const GIT_AXIS_LABEL={
+  'index-head':'index ↔ HEAD','worktree-index':'worktree ↔ index','worktree-head':'worktree ↔ HEAD',
+};
+// M1 에는 파괴적 동작이 하나도 없다 — 자리만 두고 사유를 title 로 알린다.
+const GIT_COMMIT_HINT='M2 에서 제공됩니다';
+const GIT_REMOTE_HINT='M3 에서 제공됩니다';
+const GIT_PREVIEW_HINT='파일을 선택하세요';
+const GIT_LOADING_HINT='불러오는 중…';
+const GIT_STALE_NOTE='갱신 실패';
+const GIT_ERR_NOT_REPO='저장소가 아닙니다';
+const GIT_ERR_GIT_MISSING='git 을 찾을 수 없습니다';
+// 파일 목록은 한 번에 다 그리지 않는다 (FR-GIT-42). 스크롤이 끝에 닿을 때마다
+// 이만큼 늘린다.
+const GIT_FILE_ROW_CHUNK=200;
+const GIT_FILE_VIEW_KEY='gitFileView'; // 플랫/트리 선택은 기기별 취향이다
+// 우클릭 메뉴 (FR-GIT-41). **저장소를 바꾸는 항목은 하나도 없다.**
+const GIT_CTX_ITEMS=[
+  {key:'openChanges',label:'Open Changes'},
+  {key:'openFile',   label:'Open File'},
+  {key:'copyPath',   label:'Copy Path'},
+];
+
+// ── 변경 감지 3계층 (GIT_SRS §3.3 / FR-GIT-18~24) ──
+
+// 기본 주기(ms). 0 이면 그 계층을 끈다 (FR-GIT-23).
+const GIT_SIGNATURE_POLL_MS=500;
+const GIT_STATUS_POLL_MS=1000;
+// 즉시 신호는 몰아서 온다 — 셸 훅·에디터 저장·포커스 복귀가 겹친다. 하나로 합쳐
+// status 를 연발하지 않게 한다 (FR-GIT-20).
+const GIT_SIGNAL_DEBOUNCE_MS=150;
+// 주기는 설정으로 덮을 수 있다 (FR-GIT-23) — statsInterval 과 같은 방식이다.
+var gitSignatureInterval=GIT_SIGNATURE_POLL_MS;
+var gitStatusInterval=GIT_STATUS_POLL_MS;

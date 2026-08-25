@@ -192,6 +192,8 @@ class FileEditor {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       this._dirty = false;
       this._updateTabLabel();
+      // 파일 저장은 즉시 신호다 (FR-GIT-18) — 작업 트리가 방금 바뀌었다.
+      if (typeof app !== 'undefined' && app) app._gitSignal('write');
     } catch (e) {
       console.error('[FileEditor] save error:', e);
       // Visual feedback — flash the editor border red briefly
