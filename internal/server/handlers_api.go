@@ -175,6 +175,8 @@ var apiRoutes = []apiRoute{
 	{http.MethodPost, exactPath("/api/runs/members"), (*Server).apiRunMemberAdd},
 	{http.MethodPost, exactPath("/api/runs/report"), (*Server).apiRunReport},
 	{http.MethodPost, exactPath("/api/runs/close"), (*Server).apiRunClose},
+	// 묶음 P — 멤버 프리앰블 (RUN_ORCHESTRATION_SRS FR-PRE-1). dmctl run launch.
+	{http.MethodGet, exactPath("/api/runs/preamble"), (*Server).apiRunPreamble},
 	{http.MethodGet, func(p string) bool {
 		return strings.HasPrefix(p, "/api/tools/") && strings.HasSuffix(p, "/busy")
 	}, (*Server).apiToolBusy},

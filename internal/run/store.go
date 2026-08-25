@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"dongminal/internal/agentadapter"
 	"dongminal/internal/uuid"
 )
 
@@ -94,6 +95,7 @@ type Member struct {
 	RunID         string      `json:"runId,omitempty"`
 	Role          string      `json:"role"`
 	Agent         string      `json:"agent"`
+	Brief         string      `json:"brief,omitempty"`
 	ToolID        string      `json:"toolId"`
 	TabID         string      `json:"tabId,omitempty"`
 	Worktree      *Worktree   `json:"worktree,omitempty"`
@@ -135,6 +137,7 @@ var (
 	ErrUnknownRun        = errors.New("unknown_run")
 	ErrRunClosed         = errors.New("run_closed")
 	ErrSenderNotMember   = errors.New("sender_not_member")
+	ErrUnknownMember     = errors.New("unknown_member")
 	ErrRunMemberMismatch = errors.New("run_member_mismatch")
 	ErrAlreadyReported   = errors.New("member_already_reported")
 	ErrToolAlreadyMember = errors.New("tool_already_member")
@@ -298,8 +301,12 @@ func (s *Store) Start(opt StartOptions) (Record, error) {
 
 // MemberSpec is the input of AddMember.
 type MemberSpec struct {
-	Role     string
-	Agent    string
+	Role  string
+	Agent string
+	// Brief 는 이 멤버가 할 일의 본문이다. 프리앰블에 그대로 실리며, 기록에
+	// 남기는 이유는 조정자가 컨텍스트를 잃어도 프리앰블을 다시 만들 수 있어야
+	// 하기 때문이다 (FR-PRE-1).
+	Brief    string
 	ToolID   string
 	TabID    string
 	Worktree *Worktree
@@ -310,6 +317,11 @@ type MemberSpec struct {
 func (s *Store) AddMember(runID string, spec MemberSpec) (Member, error) {
 	if strings.TrimSpace(spec.Role) == "" || strings.TrimSpace(spec.Agent) == "" || strings.TrimSpace(spec.ToolID) == "" {
 		return Member{}, fmt.Errorf("%w: role·agent·toolId 는 모두 필요하다", ErrInvalidArgument)
+	}
+	// FR-ADP-3: 알 수 없는 에이전트 id 를 기록에 들이지 않는다. 들어오면 훅도
+	// 프리앰블도 기동줄도 만들 수 없는 멤버가 남고, 그 사실이 한참 뒤에야 드러난다.
+	if _, err := agentadapter.Get(strings.TrimSpace(spec.Agent)); err != nil {
+		return Member{}, fmt.Errorf("%w: %v", ErrInvalidArgument, err)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -329,6 +341,7 @@ func (s *Store) AddMember(runID string, spec MemberSpec) (Member, error) {
 		RunID:     runID,
 		Role:      strings.TrimSpace(spec.Role),
 		Agent:     strings.TrimSpace(spec.Agent),
+		Brief:     strings.TrimSpace(spec.Brief),
 		ToolID:    spec.ToolID,
 		TabID:     spec.TabID,
 		Worktree:  spec.Worktree,
@@ -461,6 +474,26 @@ func (s *Store) MemberByTool(toolID string) (Member, bool) {
 		return Member{}, false
 	}
 	return s.runs[ri].Members[mi], true
+}
+
+// FindMember resolves a member id to its Run and member row, across every Run
+// regardless of state. This is what makes a preamble re-derivable: a
+// coordinator that lost its context can still recover what a member was told
+// (FR-PRE-1), and a closed Run stays inspectable.
+func (s *Store) FindMember(memberID string) (Record, Member, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if memberID == "" {
+		return Record{}, Member{}, false
+	}
+	for ri := range s.runs {
+		for mi := range s.runs[ri].Members {
+			if s.runs[ri].Members[mi].ID == memberID {
+				return s.runs[ri], s.runs[ri].Members[mi], true
+			}
+		}
+	}
+	return Record{}, Member{}, false
 }
 
 // findByTool locates a tool's member among OPEN runs only. Callers hold s.mu.

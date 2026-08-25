@@ -326,6 +326,54 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
     await request.post('/api/tools/activity/set', { data: { toolId, state: 'idle' } });
   });
 
+  // FR-PRE-1/3: 프리앰블은 평문이며 Run·Member uuid 가 박혀 있고, 기록에서
+  // 다시 만들 수 있어야 한다. 조립 주체는 서버다 — 조정자가 uuid 를 옮겨 적지
+  // 않는 것이 이 경로의 요점이다.
+  test('멤버 프리앰블이 조립되고 기록에서 재조회된다', async ({ request }) => {
+    const { uuid, toolId } = await firstTab(request);
+    const run = await (
+      await request.post('/api/runs', {
+        data: { objective: '프리앰블 확인', projection: 'inline', isolation: 'none' },
+      })
+    ).json();
+
+    const member = await (
+      await request.post('/api/runs/members', {
+        data: { runId: run.id, role: 'e2e-critic', agent: 'claude', id: uuid, brief: '형식만 본다' },
+      })
+    ).json();
+
+    const p: string = member.preamble;
+    expect(p, '생성 응답에 프리앰블이 없다').toBeTruthy();
+    expect(p.trimStart().startsWith('{'), '프리앰블은 평문이다').toBe(false);
+    for (const want of [run.id, member.id, '형식만 본다', 'dmctl run report', 'AskUserQuestion']) {
+      expect(p, `프리앰블에 ${want} 가 없다`).toContain(want);
+    }
+    // 자리표시자가 아니라 실제 uuid 가 박힌 실행 가능한 예제여야 한다.
+    expect(p).toContain(`dmctl run report --run ${run.id} --member ${member.id}`);
+    // 화면 fingerprint 는 이 계열에서 추방 대상이다 (FR-SKL-2).
+    for (const banned of ['Thinking...', '[대기]']) {
+      expect(p).not.toContain(banned);
+    }
+
+    // 재조회가 같은 텍스트를 낸다 — 붙여넣기가 실패해도 되찾을 수 있다.
+    const again = await request.get(`/api/runs/preamble?member=${member.id}`);
+    expect(again.status()).toBe(200);
+    expect((await again.json()).preamble).toBe(p);
+
+    // FR-ADP-3: 알 수 없는 에이전트 id 는 기록에 들어가지 못한다.
+    const bogus = await request.post('/api/runs/members', {
+      data: { runId: run.id, role: 'x', agent: 'gpt-9', id: uuid },
+    });
+    expect(bogus.status()).toBe(400);
+    expect((await bogus.json()).detail).toContain('gpt-9');
+
+    await request.post('/api/runs/report', {
+      data: { toolId, outcome: 'succeeded', summary: '했다. 봤다. 남았다.' },
+    });
+    await request.post('/api/runs/close', { data: { runId: run.id } });
+  });
+
   // FR-RUN-7: 멤버 등록은 탭에 runId 표식을 남기고 close 가 되돌린다.
   // 표식은 보조이며 진실은 runs.json 이다 — 그래서 실패해도 등록은 성공한다.
   test('멤버 등록이 워크스페이스에 runId 표식을 남긴다', async ({ request }) => {

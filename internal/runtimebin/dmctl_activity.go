@@ -1,9 +1,11 @@
 package runtimebin
 
 import (
-	"encoding/json"
+	"fmt"
 	"io"
 	"os"
+
+	"dongminal/internal/agentadapter"
 )
 
 const dmctlActivityHelp = `dmctl activity <agent>
@@ -14,18 +16,20 @@ const dmctlActivityHelp = `dmctl activity <agent>
   실행을 막지 않도록 항상 0 으로 종료한다(실패는 조용히 무시).
 `
 
-// activityReport is the parsed result of an agent hook event.
-type activityReport struct {
-	State  string
-	Tool   string
-	Detail string
-}
-
 // runDmctlActivity reports the calling tool's current agent activity to the
 // server. It ALWAYS exits 0: it runs as an agent hook (e.g. claude PreToolUse)
 // where a non-zero exit could block the agent's tool call (NFR-AAP-5). Every
 // failure path — no agent arg, unreadable stdin, unparseable event, missing
 // DONGMINAL_TOOL_ID, server error — is silent.
+//
+// 훅 파서는 어댑터 레지스트리에서 온다 (FR-ADP-2). 예전의 `switch agent` 는
+// 여기 없다.
+//
+// 알 수 없는 에이전트 id 는 stderr 로 **명확히** 말하되 종료 코드는 0 을 지킨다.
+// FR-ADP-3(명확한 오류)과 NFR-AAP-5(훅은 비0 로 끝나지 않는다)가 만나는 자리이며,
+// 후자가 이긴다 — 여기서 비0 을 내면 사용자의 에이전트가 도구 호출을 못 한다.
+// 오케스트레이션 경로(`dmctl run member`·POST /api/runs/members)는 같은 입력을
+// 비0/4xx 로 거부하므로, 잘못된 id 가 조용히 통과하는 경로는 없다.
 func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	for _, a := range args {
 		if a == "-h" || a == "--help" {
@@ -36,19 +40,16 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	if len(args) == 0 {
 		return 0
 	}
-	agent := args[0]
+	adapter, err := agentadapter.Get(args[0])
+	if err != nil {
+		fmt.Fprintf(stderr, "dmctl activity: %v\n", err)
+		return 0
+	}
 	data, err := io.ReadAll(io.LimitReader(stdin, 1<<16))
 	if err != nil {
 		return 0
 	}
-	var rep activityReport
-	var ok bool
-	switch agent {
-	case "claude":
-		rep, ok = parseClaudeHook(data)
-	case "codex":
-		rep, ok = parseCodexHook(data)
-	}
+	rep, ok := adapter.HookParse(data)
 	if !ok {
 		return 0
 	}
@@ -61,65 +62,6 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	return 0
 }
 
-// parseClaudeHook maps a Claude Code hook event (stdin JSON) to an activity
-// report. Covers all lifecycle hooks (FR-AAP-7): PreToolUse/PostToolUse →
-// working (+tool/detail), UserPromptSubmit → working (+prompt), SubagentStop/
-// PreCompact → working, Notification → waiting, Stop → done, SessionEnd →
-// ended (removes the card), SessionStart → idle (+source). Unknown ignored.
-func parseClaudeHook(data []byte) (activityReport, bool) {
-	var ev struct {
-		Event     string          `json:"hook_event_name"`
-		ToolName  string          `json:"tool_name"`
-		ToolInput json.RawMessage `json:"tool_input"`
-		Prompt    string          `json:"prompt"`
-		Source    string          `json:"source"`
-	}
-	if err := json.Unmarshal(data, &ev); err != nil {
-		return activityReport{}, false
-	}
-	switch ev.Event {
-	case "PreToolUse", "PostToolUse":
-		return activityReport{State: "working", Tool: ev.ToolName, Detail: claudeToolDetail(ev.ToolName, ev.ToolInput)}, true
-	case "UserPromptSubmit":
-		return activityReport{State: "working", Detail: ev.Prompt}, true
-	case "SubagentStop", "PreCompact":
-		return activityReport{State: "working"}, true
-	case "Notification":
-		return activityReport{State: "waiting"}, true
-	case "Stop":
-		return activityReport{State: "done"}, true
-	case "SessionEnd":
-		return activityReport{State: "ended"}, true
-	case "SessionStart":
-		return activityReport{State: "idle", Detail: ev.Source}, true
-	}
-	return activityReport{}, false
-}
-
-// claudeToolDetail pulls the most informative argument out of a tool_input for
-// display (FR-AAP-7). Unknown tools yield an empty detail.
-func claudeToolDetail(tool string, input json.RawMessage) string {
-	var m map[string]any
-	if err := json.Unmarshal(input, &m); err != nil {
-		return ""
-	}
-	pick := func(k string) string {
-		if v, ok := m[k].(string); ok {
-			return v
-		}
-		return ""
-	}
-	switch tool {
-	case "Bash":
-		return pick("command")
-	case "Edit", "Write", "Read", "NotebookEdit":
-		return pick("file_path")
-	case "Grep", "Glob":
-		return pick("pattern")
-	}
-	return ""
-}
-
 // reportCodexActivity also reports codex turn-complete as activity (done) when
 // `dmctl notify codex <json>` is invoked, so the activity panel shows codex
 // state alongside the attention alarm without changing the codex wrapper
@@ -129,29 +71,17 @@ func reportCodexActivity(label string, args []string, toolID string) {
 	if label != "codex" || toolID == "" {
 		return
 	}
+	adapter, err := agentadapter.Get(label)
+	if err != nil {
+		return
+	}
 	for _, a := range args {
 		if len(a) > 0 && a[0] == '{' {
-			if rep, ok := parseCodexHook([]byte(a)); ok {
+			if rep, ok := adapter.HookParse([]byte(a)); ok {
 				httpPostJSON(baseURL()+"/api/tools/activity/set",
 					map[string]any{"toolId": toolID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail})
 			}
 			return
 		}
 	}
-}
-
-// parseCodexHook maps a Codex notify event to an activity report. Codex's
-// standard notify emits only agent-turn-complete → done; it has no pre-tool
-// event, so tool/detail stay empty (FR-AAP-9 / AAP-2).
-func parseCodexHook(data []byte) (activityReport, bool) {
-	var ev struct {
-		Type string `json:"type"`
-	}
-	if err := json.Unmarshal(data, &ev); err != nil {
-		return activityReport{}, false
-	}
-	if ev.Type == "agent-turn-complete" {
-		return activityReport{State: "done"}, true
-	}
-	return activityReport{}, false
 }

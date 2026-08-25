@@ -41,7 +41,8 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
 
 오케스트레이션 실행 기록 — 누가 어느 Run 의 팀원인가:
   dmctl run start --objective <목적> [--projection <p>] [--isolation <i>]
-  dmctl run member --run <uuid> --role <이름> --agent <id> --at <탭 uuid>
+  dmctl run member --run <uuid> --role <이름> --agent <id> --at <탭 uuid> [--brief -]
+  dmctl run launch --member <uuid> [--model <m>]   # 기동줄(프리앰블 포함)을 낸다
   dmctl run report --outcome succeeded|failed --summary <3문장>
   dmctl run status [--run <uuid>] / dmctl run list / dmctl run close --run <uuid>
 

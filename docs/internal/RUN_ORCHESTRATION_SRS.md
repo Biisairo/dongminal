@@ -31,8 +31,8 @@ dongminal 을 **다중 에이전트 오케스트레이터**로 만든다. 접합
 |---|---|---|
 | S | 상태·대기 계약 — `dmctl status` / `dmctl wait`, 준비완료 판정 사다리, `waiting ≠ ready` | **완료** (`228c464`). 사다리 2단계만 A 대기 |
 | R | Run 레코드 — 스키마·영속(`runs.json`)·상태기계·epoch 펜싱·접합 필드 소비 | **완료** (`a958797`) |
-| P | 멤버 프리앰블과 보고 계약 — 평문 프리앰블, 1회 보고, 발신자 정체 기반 권한 | 보고 권한(FR-PRE-5/6/7)은 R 과 함께 **완료**. 프리앰블 본문 남음 |
-| A | 에이전트 어댑터 레지스트리 — 기동·탐지·프롬프트 주입·정책 주입·훅 파서의 선언화 | 미착수 |
+| P | 멤버 프리앰블과 보고 계약 — 평문 프리앰블, 1회 보고, 발신자 정체 기반 권한 | **완료** — 보고 권한(FR-PRE-5/6/7)은 R 과 함께, 프리앰블 본문(FR-PRE-1~4/8)은 A 와 함께 |
+| A | 에이전트 어댑터 레지스트리 — 기동·탐지·프롬프트 주입·정책 주입·훅 파서의 선언화 | **완료** (`internal/agentadapter`). FR-STA-4 2단계 소비자만 미구현 |
 | W | worktree 격리 — Run 단위 선택, 생성·명명·정리·실패 잔여물·안전 가드 | 미착수 |
 | K | 스킬 재작성 — `team`·`workflow` 를 Run 기반 전용 창 토폴로지로 | 미착수 |
 
@@ -282,9 +282,19 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 2. 어댑터가 선언한 준비완료 화면 패턴이 관측됨 (묶음 A. 훅이 없는 에이전트용)
 3. 도구가 live 이고 마지막 출력 이후 **3000ms** 동안 출력이 없음 (정적 폴백)
 
-> **구현 현황**: 1·3 단계는 묶음 S 에서 구현됐고, **2 단계는 비어 있다** — 선언의
-> 출처인 어댑터 레지스트리가 묶음 A 이기 때문이다. 그때까지 훅을 주지 않는 에이전트는
-> 3 단계로 판정된다. 자리는 `evaluateWait`(`internal/server/handlers_status.go`)에 있다.
+> **구현 현황 (묶음 A 이후)**: 1·3 단계만 구현돼 있고 **2 단계는 여전히 비어 있다.**
+> 어댑터 레지스트리에 선언 자리(`Readiness.ScreenPatterns`)는 생겼으나 **소비자를
+> 만들지 않았다** — 의도적인 보류다.
+>
+> 근거: 화면 패턴은 사용자가 하단 스테이터스라인 하나만 붙여도 깨진다. 그것은
+> FR-SKL-2 가 team 스킬의 `╭─`·`Thinking...`·`[대기]` fingerprint 를 **삭제
+> 대상**으로 삼는 이유와 정확히 같은 취약성이며, 선언으로 옮긴다고 사라지지 않는다.
+> 검증 대상인 Claude 는 훅으로 1 단계에서 끝나므로 2 단계를 타지 않고(FR-ADP-4),
+> 2 단계가 실제로 필요한 codex 의 화면 패턴은 이 환경에서 실측하지 못했다 —
+> 추측한 패턴을 넣으면 아무도 검증하지 않은 판정 근거가 코드에 남는다.
+>
+> 훅을 주지 않는 에이전트는 3 단계(출력 3초 정적)로 판정된다. 자리는
+> `evaluateWait`(`internal/server/handlers_status.go`)에 그대로 있다.
 
 **FR-STA-4a** 정적 폴백은 **훅 상태가 아예 없을 때만** 적용한다. 훅이 `working` 을
 보고했다면 그것이 이긴다 — 출력이 멎었다는 것은 사고 중이라는 뜻이지 준비완료가 아니다.
@@ -325,6 +335,12 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 
 **FR-ADP-3** 알 수 없는 에이전트 id 는 **명확한 오류**로 실패해야 한다. 조용히 성공하거나
 기본 에이전트로 폴백해서는 안 된다 (NFR-EM-1 의 정신).
+
+> **구현 시 확정**: 종료 코드에는 예외가 하나 있다. `dmctl activity <agent>` 는
+> 에이전트 훅으로 실행되므로 비0 종료가 사용자의 도구 호출을 막는다(NFR-AAP-5).
+> 이 경로만 **stderr 로 명확히 말하되 rc=0** 을 지킨다. 오케스트레이션 경로
+> (`dmctl run member`·`run launch`·`POST /api/runs/members`)는 rc=2 / 400 으로
+> 거부하므로, 잘못된 id 가 기록에 들어가는 통로는 없다.
 
 **FR-ADP-4** **검증 대상은 Claude Code 다** (D-D). codex 는 선언을 유지하되 best-effort
 이며, 활동 해상도가 낮다는 사실(§2.4)을 레지스트리 주석과 스킬 문서에 명시한다. codex
@@ -407,6 +423,23 @@ git worktree add --no-track -b <branch> <path> [<base>]
 `dmctl` 예제에 Run·Member uuid 를 박아 넣은 텍스트를 도구에 붙여넣는다. 전달은 기존
 `send-input`(bracketed paste + 120ms submit 지연) 경로를 쓴다.
 
+> **조립 주체 = 서버** (착수 전 열려 있던 설계 질문, 구현 시 확정). 근거 셋:
+> ① 서버는 멤버 생성 시점에 Run·Member uuid·조정자·격리·worktree 를 이미 전부
+> 알고 있어 왕복이 없고, **조정자가 uuid 를 옮겨 적는 결함 계열**이 원천 차단된다.
+> ② 프리앰블에 적힌 규칙은 서버가 실제로 강제하는 계약(1회 보고·outcome 필수·
+> 발신자 정체 권한)의 문장화라, 강제 코드와 같은 패키지(`internal/run`)에 두어야
+> 둘이 갈라지지 않는다. ③ 역할 본문만 정책이므로 스킬이 `--brief` 로 넣고 서버가
+> 합성한다 — 계층 경계는 SKILL_INJECTION_SRS §2.3 그대로다.
+>
+> CLI 가 하는 일은 그 평문을 **어댑터가 선언한 기동 방식으로 감싸는 것**뿐이다
+> (`dmctl run launch`). 프롬프트는 홑따옴표로 감싼다 — 기존 빌더의 큰따옴표 +
+> 역슬래시 이스케이프는 `"`·`$`·백틱·`\` 를 각각 처리해야 하고 하나만 빠져도 셸이
+> 본문을 전개한다.
+>
+> `--brief` 는 Member 레코드에 영속한다(FR-RUN-2 확장). 프리앰블이 **재조회
+> 가능**해야 하기 때문이다 — 붙여넣기가 실패했거나 조정자가 컨텍스트를 잃어도
+> `GET /api/runs/preamble?member=` 가 같은 텍스트를 다시 만든다.
+
 **FR-PRE-2** 프리앰블에 담기는 행동 규칙은 **각 예제 바로 위**에 둔다. 산문 블록으로
 몰지 않는다 — LLM 독자는 예제에 정박하고 뒤따르는 산문은 훑는다.
 
@@ -426,6 +459,10 @@ git worktree add --no-track -b <branch> <path> [<base>]
 **FR-PRE-4** 격리된 Run 의 프리앰블에는 **worktree 경로와 base 브랜치**를 적는다.
 멤버가 자기가 어디서 일하는지 화면에서 추론하지 않아도 되게 한다.
 
+> **구현 현황**: 렌더링은 구현돼 있고 단위 테스트가 지킨다(TC-PRE-4). 다만 아직
+> worktree 를 **만드는 주체가 없어**(묶음 W) `Member.Worktree` 가 항상 nil 이므로
+> 실사용에서는 이 절이 나오지 않는다. W 가 그 필드를 채우면 그대로 켜진다.
+
 **FR-PRE-5** **보고의 권한은 발신자의 정체로 판정한다.** 서버는 보고를 받은 도구
 (`DONGMINAL_TOOL_ID`, 없으면 `/api/whoami` 와 같은 remoteAddr→PID 폴백)로 멤버를
 결정한다. 본문에 실린 `runId`/`memberId` 는 **대조용**이며, 불일치하면 거부한다.
@@ -434,6 +471,11 @@ git worktree add --no-track -b <branch> <path> [<base>]
 **FR-PRE-6** 보고 거부 사유는 **타입으로 열거**한다 — `sender_not_member`,
 `run_closed`, `member_already_reported`, `run_member_mismatch`, `unknown_run`.
 조용한 성공이나 뭉뚱그린 오류를 내지 않는다.
+
+> **구현 시 추가**: 프리앰블 **조회** 실패에는 `unknown_member`(404)를 쓴다. 위
+> 목록은 전부 보고(report)의 사유이며, 그중 `sender_not_member` 를 조회에
+> 재사용하면 조정자가 **권한 문제로 오진**한다 — 조회 실패와 권한 실패는 대응이
+> 다르다.
 
 **FR-PRE-7** 이미 보고한 멤버의 재보고는 거부한다(`member_already_reported`). 정확히
 한 번 규약의 서버측 강제다.
@@ -529,8 +571,9 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 | TC-STA-7 | FR-STA-3 | 대기 중 서버 요청 수 계측 | 폴링 루프 없음 (요청 1건) |
 | TC-STA-8 | FR-STA-8 | direct·daemon 두 모드 | 동일 결과 |
 | TC-ADP-1 | FR-ADP-2 | 기존 훅 이벤트 전수 | `parseClaudeHook`/`parseCodexHook` 회귀 0 (기존 테스트 보존) |
-| TC-ADP-2 | FR-ADP-3 | 알 수 없는 에이전트 id | 명확한 오류, rc≠0 |
+| TC-ADP-2 | FR-ADP-3 | 알 수 없는 에이전트 id | 명확한 오류, rc≠0 (훅 경로만 rc=0 + stderr — FR-ADP-3 주석) |
 | TC-ADP-3 | FR-ADP-5 | Claude 멤버 기동 후 `~/.claude` 비교 | 사용자 영구 설정 무변경 |
+| TC-ADP-4 | FR-ADP-1 | 레지스트리의 `policyInjection` ↔ 설치된 셸 래퍼 대조 | 선언과 실제 주입기가 일치. 어긋나면 실패 |
 | TC-WKT-1 | FR-WKT-2 | `isolation=per-member` 로 Run 시작 | worktree N개. `git config branch.<b>.base` 기록. upstream 없음 |
 | TC-WKT-2 | FR-WKT-3/4 | 같은 role 로 두 번째 Run | 경로가 다르다 (uuid 파생) |
 | TC-WKT-3 | FR-WKT-6 | 브랜치명 `-x` | 거부 |
@@ -544,6 +587,9 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 | TC-PRE-2 | FR-PRE-7 | 같은 멤버가 두 번 보고 | 두 번째 `member_already_reported` |
 | TC-PRE-3 | FR-PRE-3 | 보고 시 `--outcome` 누락 | 사용법 오류(rc=2) |
 | TC-PRE-4 | FR-PRE-1/4 | 격리 Run 의 프리앰블 | worktree 경로·base 포함 |
+| TC-PRE-5 | FR-PRE-1 | 같은 멤버의 프리앰블 재조회 | 생성 시점과 **같은 텍스트**. brief 영속이 근거 |
+| TC-PRE-6 | FR-PRE-2 | 프리앰블의 모든 `dmctl` 예제 | 각 예제 **바로 윗줄**이 규칙 주석 |
+| TC-PRE-7 | FR-PRE-1 | 셸 메타문자를 담은 brief 로 기동줄 생성 | 셸이 프롬프트를 인자 1개로 파싱. 전개·실행 0건 |
 | TC-SKL-1 | FR-SKL-1 | `team` 실행 중 사용자 창 관찰 | 포커스·레이아웃 무변경 |
 | TC-SKL-2 | FR-SKL-2 | 스킬 본문 검색 | `╭─`·`Thinking...`·`[대기]` fingerprint 0건 |
 | TC-SKL-3 | FR-SKL-3 | 팀 구성 후 새 세션에서 `run status` | 멤버 전원 조회 가능 |
@@ -619,4 +665,5 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 |---|---|
 | 2026-08-25 | 최초 작성. 1단계 심화 조사(orca MIT / paseo AGPL 실소스) 결과를 §2.5 에 반영, 착수 전 결정 D-A·D-C·D-D 확정 및 D-E 신설. 구현 미착수 |
 | 2026-08-25 | **묶음 R 구현 완료** — `internal/run` 저장소(`runs.json` 원자적 쓰기·epoch 펜싱·1:1 도구 결속·보고 권한·close 가드) + `/api/runs*` 5개 + `dmctl run start\|member\|report\|status\|close\|list`. FR-PRE-5/6/7(발신자 정체 기반 보고 권한·열거된 거부 사유·1회 보고)은 저장소와 분리할 수 없어 **묶음 P 보다 먼저** 여기서 닫혔다. FR-RUN-11a 로 close 의 도구 종료 책임을 조정자에게 옮겼다(위 개정 근거). FR-RUN-7 의 워크스페이스 표식은 **best-effort** 다 — 그 파일의 쓰기 주체는 브라우저이고 409 처리가 머지 없이 재PUT 이라(§2.4) 동시 편집에 지워질 수 있다. 소유권의 진실은 `runs.json` 이다(FR-RUN-10). Go 전량 통과, Playwright 182 통과 |
+| 2026-08-25 | **묶음 P+A 구현 완료** — `internal/agentadapter` 신설(claude·codex 선언 + 훅 파서 + `LaunchLine`), `internal/run/preamble.go`(서버 조립), `GET /api/runs/preamble`, `dmctl run launch` / `run member --brief`. 착수 전 열려 있던 **프리앰블 조립 주체는 서버로 확정**했다(FR-PRE-1 주석에 근거 3개). 훅 파서 이동은 무동작 리팩터이며, 회귀 검출기인 `dmctl_activity_test.go` 를 **한 줄도 고치지 않고** 통과시키기 위해 옛 이름을 `_test.go` 스코프에서만 별칭으로 유지했다 — 프로덕션에 죽은 코드가 남지 않는다. `--brief` 를 Member 에 영속시켜 프리앰블을 **재조회 가능**하게 만들었다. 프롬프트 이스케이프를 큰따옴표+역슬래시에서 **홑따옴표 감싸기**로 바꿨고, 악성 brief(`$(...)`·백틱·`;`)로 실측해 셸이 인자 1개로 파싱하고 전개가 0건임을 확인했다. **FR-STA-4 2단계는 스펙에 남기고 구현만 보류**했다(사용자 확정) — 화면 패턴은 스테이터스라인 하나로 깨지며 FR-SKL-2 가 삭제하려는 fingerprint 와 같은 취약성이고, codex 패턴을 실측할 수 없어 추측을 코드에 넣지 않았다. Go 전량 통과, Playwright 183 통과 |
 | 2026-08-25 | **묶음 S 구현 완료** — `GET /api/tools/activity/{get,wait}` + `dmctl status` / `dmctl wait`. TC-STA-1~8 을 RED 로 세운 뒤 구현했고, e2e `skill-contract.spec.ts` 에 라이브 왕복 3건을 추가했다 (Go 전량 통과, Playwright 180 통과 2회 연속). FR-STA-4 2단계는 묶음 A 대기. 구현 중 발견해 고친 것: daemon 모드에서 liveness 확인이 데몬 RPC 라 매 tick 확인하면 30분 대기가 RPC 수만 건이 된다 → 상태 재평가 100ms / liveness 1초로 분리 (NFR-RUN-4) |

@@ -31,6 +31,9 @@ func (s *Server) runsReady(w http.ResponseWriter) bool {
 type memberView struct {
 	run.Member
 	State run.MemberState `json:"state"`
+	// Preamble 은 멤버 생성 응답에서만 채워진다 (FR-PRE-1). 목록·상태 조회에
+	// 매번 실으면 응답이 멤버 수만큼 부풀고, 조회의 쓰임과도 무관하다.
+	Preamble string `json:"preamble,omitempty"`
 }
 
 // runView is a Record whose members carry derived state.
@@ -92,6 +95,8 @@ func writeRunError(w http.ResponseWriter, err error, extra map[string]any) {
 		status, name = http.StatusNotFound, run.ErrUnknownRun.Error()
 	case errors.Is(err, run.ErrSenderNotMember):
 		status, name = http.StatusForbidden, run.ErrSenderNotMember.Error()
+	case errors.Is(err, run.ErrUnknownMember):
+		status, name = http.StatusNotFound, run.ErrUnknownMember.Error()
 	case errors.Is(err, run.ErrRunMemberMismatch):
 		status, name = http.StatusForbidden, run.ErrRunMemberMismatch.Error()
 	case errors.Is(err, run.ErrRunClosed):
@@ -183,6 +188,7 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 		RunID string `json:"runId"`
 		Role  string `json:"role"`
 		Agent string `json:"agent"`
+		Brief string `json:"brief"`
 		ID    string `json:"id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -196,6 +202,7 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 	m, err := s.Runs.AddMember(body.RunID, run.MemberSpec{
 		Role:   body.Role,
 		Agent:  body.Agent,
+		Brief:  body.Brief,
 		ToolID: toolID,
 		TabID:  s.tabIDOfTool(toolID),
 	})
@@ -203,12 +210,41 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 		writeRunError(w, err, nil)
 		return
 	}
+	view := memberView{Member: m, State: s.deriveMemberState(m)}
 	if rec, ok := s.Runs.Get(body.RunID); ok {
 		s.markWorkspaceRun(rec, m.TabID, rec.ID)
+		// 프리앰블을 응답에 실어 보낸다 — 조정자가 uuid 를 손으로 옮겨 적을 일이
+		// 없어야 그 계열의 결함이 사라진다 (FR-PRE-1).
+		view.Preamble = run.Preamble(rec, m)
 	}
 	log.Printf("[run] member run=%s member=%s role=%s agent=%s tool=%s tab=%s",
 		body.RunID, m.ID, m.Role, m.Agent, m.ToolID, m.TabID)
-	writeJSON(w, memberView{Member: m, State: s.deriveMemberState(m)})
+	writeJSON(w, view)
+}
+
+// apiRunPreamble implements GET /api/runs/preamble?member= (FR-PRE-1).
+//
+// 별도 조회 경로를 두는 이유는 프리앰블이 **재조회 가능해야** 하기 때문이다 —
+// 붙여넣기가 실패했거나 조정자가 컨텍스트를 잃었을 때, 기록에서 같은 텍스트를
+// 다시 만들 수 있어야 한다. 재조립이 결정적인 근거는 brief 를 Member 에
+// 영속하는 것이다.
+func (s *Server) apiRunPreamble(w http.ResponseWriter, r *http.Request) {
+	if !s.runsReady(w) {
+		return
+	}
+	memberID := r.URL.Query().Get("member")
+	rec, m, ok := s.Runs.FindMember(memberID)
+	if !ok {
+		// sender_not_member 를 쓰지 않는다 — 그것은 보고 **권한**의 사유이고,
+		// 여기서 실패한 것은 조회다. 뭉뚱그리면 조정자가 권한 문제로 오진한다.
+		writeRunError(w, run.ErrUnknownMember, map[string]any{"memberId": memberID})
+		return
+	}
+	writeJSON(w, map[string]any{
+		"runId": rec.ID, "memberId": m.ID, "role": m.Role, "agent": m.Agent,
+		"tabId": m.TabID, "toolId": m.ToolID, "runState": rec.State,
+		"preamble": run.Preamble(rec, m),
+	})
 }
 
 // apiRunReport implements POST /api/runs/report (FR-PRE-2/5/7).

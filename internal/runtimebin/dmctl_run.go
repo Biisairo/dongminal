@@ -9,14 +9,18 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
 	"strings"
+
+	"dongminal/internal/agentadapter"
 )
 
 const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
 
 사용법:
   dmctl run start  --objective <목적> [--projection <p>] [--isolation <i>] [--window <uuid>]
-  dmctl run member --run <uuid> --role <이름> --agent <id> --at <탭 uuid>
+  dmctl run member --run <uuid> --role <이름> --agent <id> --at <탭 uuid> [--brief <할 일>|-]
+  dmctl run launch --member <uuid> [--model <m>] [--text] [--json]
   dmctl run report --outcome succeeded|failed --summary <3문장> [--files a,b] [--run <uuid>] [--member <uuid>]
   dmctl run status [--run <uuid>]
   dmctl run close  --run <uuid> [--force]
@@ -26,7 +30,20 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
                  전용 창이 기본이다 — 사용자 작업 공간을 침범하지 않는다.
   --isolation    none(기본) | per-run | per-member
                  격리는 명시적 선택이다. 병렬·편의는 격리 사유가 아니다.
-  --json         서버 응답을 그대로 낸다.
+  --brief        이 멤버가 할 일의 본문. 프리앰블에 실리고 기록에 남는다.
+                 값이 - 이면 stdin 에서 읽는다. 여러 줄이면 heredoc 을 써라.
+  --model        기동할 모델. 그 에이전트의 모델 플래그가 확인된 경우에만 붙는다.
+  --text         기동줄 대신 프리앰블 본문만 낸다.
+  --json         서버 응답을 그대로 낸다 (launch 는 조립 결과를 낸다).
+
+멤버를 띄우는 순서는 셋이다 — 지키지 않으면 첫 지시가 유실된다:
+
+  1) dmctl run launch --member <uuid> | dmctl send-input --at <탭 uuid> --execute -
+  2) dmctl wait --at <탭 uuid> --for ready          # 준비완료 확인 (FR-PRE-8)
+  3) dmctl msg --to <탭 uuid> ...                   # Kickoff
+
+2 를 건너뛰고 3 을 보내면 에이전트가 아직 뜨지 않아 셸에 텍스트가 찍히고 증발한다.
+화면 모양으로 준비완료를 판정하지 마라 — wait 가 훅 상태를 근거로 판정한다.
 
 보고(report)의 권한은 **발신 도구의 정체**다. --run/--member 는 대조용이며
 생략이 정상이다 — 남의 id 를 알아도 남의 몫을 보고할 수 없다.
@@ -42,6 +59,8 @@ type runFlags struct {
 	member     string
 	role       string
 	agent      string
+	brief      string
+	model      string
 	at         string
 	objective  string
 	projection string
@@ -51,11 +70,16 @@ type runFlags struct {
 	summary    string
 	files      string
 	force      bool
+	textOut    bool
 	jsonOut    bool
 }
 
-// runDmctlRun implements FR-RUN-8.
+// runDmctlRun implements FR-RUN-8. stdin 은 --brief - 만 소비한다.
 func runDmctlRun(args []string, stdout, stderr io.Writer) int {
+	return runDmctlRunStdin(os.Stdin, args, stdout, stderr)
+}
+
+func runDmctlRunStdin(stdin io.Reader, args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, dmctlRunHelp)
 		return 2
@@ -73,7 +97,9 @@ func runDmctlRun(args []string, stdout, stderr io.Writer) int {
 	case "start":
 		return runSubStart(f, stdout, stderr)
 	case "member":
-		return runSubMember(f, stdout, stderr)
+		return runSubMember(f, stdin, stdout, stderr)
+	case "launch":
+		return runSubLaunch(f, stdout, stderr)
 	case "report":
 		return runSubReport(f, stdout, stderr)
 	case "status", "list":
@@ -90,6 +116,7 @@ func parseRunFlags(sub string, args []string, stdout, stderr io.Writer) (runFlag
 	f := runFlags{}
 	str := map[string]*string{
 		"--run": &f.run, "--member": &f.member, "--role": &f.role, "--agent": &f.agent,
+		"--brief": &f.brief, "--model": &f.model,
 		"--at": &f.at, "-l": &f.at, "--objective": &f.objective, "--projection": &f.projection,
 		"--isolation": &f.isolation, "--window": &f.window, "--outcome": &f.outcome,
 		"--summary": &f.summary, "--files": &f.files,
@@ -107,6 +134,11 @@ func parseRunFlags(sub string, args []string, stdout, stderr io.Writer) (runFlag
 		}
 		if a == "--json" {
 			f.jsonOut = true
+			i++
+			continue
+		}
+		if a == "--text" {
+			f.textOut = true
 			i++
 			continue
 		}
@@ -169,13 +201,30 @@ func runSubStart(f runFlags, stdout, stderr io.Writer) int {
 	return 0
 }
 
-func runSubMember(f runFlags, stdout, stderr io.Writer) int {
+func runSubMember(f runFlags, stdin io.Reader, stdout, stderr io.Writer) int {
 	if f.run == "" || f.role == "" || f.agent == "" || f.at == "" {
 		fmt.Fprintln(stderr, "run member: --run·--role·--agent·--at 는 모두 필수다")
 		return 2
 	}
+	// brief 는 보통 여러 줄이다. 값 - 는 stdin 을 뜻하며 send-input·msg 와 같은 규약이고
+	// (FR-DMA-4/5), 조정자가 셸 따옴표와 씨름하지 않게 하는 것이 요점이다.
+	// 지목하지 않았으면 읽지 않는다 — 읽으면 파이프 없는 호출이 멈춘다.
+	if f.brief == "-" {
+		data, err := io.ReadAll(stdin)
+		if err != nil {
+			fmt.Fprintf(stderr, "run member: stdin 읽기 실패: %v\n", err)
+			return 2
+		}
+		f.brief = strings.TrimRight(string(data), "\n")
+	}
+	// 알 수 없는 에이전트 id 는 도구를 만들기 전에 여기서 걸러 준다. 서버도
+	// 같은 검사를 하지만(FR-ADP-3), 조정자에게는 왕복 전에 알려 주는 편이 낫다.
+	if _, err := agentadapter.Get(f.agent); err != nil {
+		fmt.Fprintf(stderr, "run member: %v\n", err)
+		return 2
+	}
 	raw, code := runPost("/api/runs/members", map[string]any{
-		"runId": f.run, "role": f.role, "agent": f.agent, "id": f.at,
+		"runId": f.run, "role": f.role, "agent": f.agent, "id": f.at, "brief": f.brief,
 	}, stderr)
 	if code != 0 {
 		return code
@@ -191,6 +240,66 @@ func runSubMember(f runFlags, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "member=%s  role=%s  agent=%s  toolId=%s  tabId=%s  state=%s\n",
 		m.ID, m.Role, m.Agent, m.ToolID, m.TabID, m.State)
+	return 0
+}
+
+// runSubLaunch 은 멤버를 띄울 때 셸에 넣을 것을 낸다 (FR-PRE-1).
+//
+// 프리앰블 본문은 **서버가 조립한다** — Run·Member uuid·조정자·worktree 를 서버가
+// 이미 알고 있고, 그 안의 규칙은 서버가 실제로 강제하는 계약의 문장화이기
+// 때문이다. CLI 가 하는 일은 그 평문을 어댑터가 선언한 기동 방식으로 감싸는
+// 것뿐이다 — 셸에 타이핑하는 일은 클라이언트의 몫이다.
+func runSubLaunch(f runFlags, stdout, stderr io.Writer) int {
+	if f.member == "" {
+		fmt.Fprintln(stderr, "run launch: --member 는 필수다 (run member 가 낸 uuid)")
+		return 2
+	}
+	q := url.Values{}
+	q.Set("member", f.member)
+	raw, code := runGet("/api/runs/preamble?"+q.Encode(), stderr)
+	if code != 0 {
+		return code
+	}
+	var got struct {
+		RunID    string `json:"runId"`
+		MemberID string `json:"memberId"`
+		Role     string `json:"role"`
+		Agent    string `json:"agent"`
+		TabID    string `json:"tabId"`
+		Preamble string `json:"preamble"`
+	}
+	if err := json.Unmarshal(raw, &got); err != nil {
+		fmt.Fprintf(stderr, "dmctl: invalid preamble response: %v\n", err)
+		return 1
+	}
+	// 기록에 알 수 없는 에이전트가 들어 있다면 기본 에이전트로 폴백하지 않는다
+	// (FR-ADP-3) — 엉뚱한 CLI 로 띄우면 멤버가 조용히 응답 불능이 된다.
+	adapter, err := agentadapter.Get(got.Agent)
+	if err != nil {
+		fmt.Fprintf(stderr, "run launch: %v\n", err)
+		return 1
+	}
+	if f.textOut {
+		fmt.Fprint(stdout, got.Preamble)
+		return 0
+	}
+	line := adapter.LaunchLine(f.model, got.Preamble)
+	if f.jsonOut {
+		blob, err := json.Marshal(map[string]any{
+			"runId": got.RunID, "memberId": got.MemberID, "role": got.Role,
+			"agent": adapter.ID, "tabId": got.TabID,
+			"promptInjection": string(adapter.PromptInjection),
+			"launch":          line,
+			"preamble":        got.Preamble,
+		})
+		if err != nil {
+			fmt.Fprintf(stderr, "dmctl: %v\n", err)
+			return 1
+		}
+		writeRawJSON(stdout, blob)
+		return 0
+	}
+	fmt.Fprintln(stdout, line)
 	return 0
 }
 
