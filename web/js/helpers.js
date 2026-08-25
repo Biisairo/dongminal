@@ -87,6 +87,7 @@ const STATUS_ITEMS={
   latency:{label:'레이턴시',def:true},
   location:{label:'현재 위치 (dmctl 대상)',def:true},
   cwd:{label:'현재 디렉토리',def:true},
+  git:{label:'Git (브랜치·변경 수)',def:true},
   memory:{label:'메모리',def:true},
   hostname:{label:'호스트명',def:false},
   cpu:{label:'CPU',def:false},

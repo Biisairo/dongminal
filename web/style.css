@@ -815,3 +815,67 @@ body.mobile .git-file,body.mobile .git-dir{padding-top:5px;padding-bottom:5px}
 body.mobile #git-repos{max-height:none}
 body.mobile .git-repo{height:40px;font-size:13px}
 body.mobile .git-repo-x{opacity:1;width:24px;height:24px;font-size:14px}
+
+/* ── 상태바 Git chip (FR-GIT-57~59) ── */
+/* 클릭은 Git 창 활성화뿐이다 — chip 에서의 조작은 없다 */
+.sb-git{cursor:pointer}
+.sb-git-branch{color:var(--accent)}
+.sb-git:hover .sb-git-branch{color:var(--text-bright)}
+/* detached 는 어느 브랜치에도 속하지 않는 상태다 — 색으로 구분한다 */
+.sb-git.sb-git-detached .sb-git-branch{color:var(--danger);font-family:monospace}
+.sb-git-dirty{color:var(--text-muted)}
+
+/* ── 파괴적 동작 확인 (FR-GIT-90~97·174~178) ── */
+.gc-modal{
+  position:fixed;inset:0;z-index:300;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;
+}
+/* 테두리 색이 파괴적이라는 사실을 먼저 알린다 */
+.gc-box{
+  display:flex;flex-direction:column;
+  min-width:300px;max-width:min(560px,92vw);max-height:80vh;
+  background:var(--bg);border:1px solid var(--danger);border-radius:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);font-size:12px;color:var(--text);
+}
+.gc-head{flex:0 0 auto;padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text-bright)}
+/* FR-GIT-178: 목록 위에 알리기만 한다 — 실행을 막지 않는다 */
+.gc-changed{flex:0 0 auto;display:none;padding:6px 12px;color:var(--attn);background:var(--attn-subtle)}
+.gc-changed.vis{display:block}
+.gc-count{flex:0 0 auto;padding:8px 12px 4px;color:var(--text-muted)}
+/* FR-GIT-177: 목록이 확인 버튼을 화면 밖으로 밀지 않는다 */
+.gc-targets{flex:1 1 auto;min-height:0;max-height:40vh;overflow-y:auto;margin:0;padding:0 12px 8px;list-style:none}
+.gc-target{padding:2px 0;font-family:monospace;word-break:break-all}
+.gc-hint,.gc-err{flex:0 0 auto;display:none;padding:8px 12px;border-top:1px solid var(--border)}
+.gc-hint.vis,.gc-err.vis{display:block}
+.gc-hint-label{color:var(--text-bright);margin-bottom:4px}
+.gc-hint-note{color:var(--text-muted);margin-bottom:4px}
+.gc-hint-cmd{display:block;padding:6px 8px;background:var(--sidebar-bg);border-radius:4px;
+  font-family:monospace;word-break:break-all;color:var(--text-bright)}
+.gc-err-reason{color:var(--danger);margin-bottom:4px}
+/* stderr tail 은 원문 그대로 보존한다 (FR-GIT-96) */
+.gc-err-tail{max-height:24vh;overflow:auto;margin:0;padding:6px 8px;background:var(--sidebar-bg);
+  border-radius:4px;font-family:monospace;font-size:11px;color:var(--text-muted);white-space:pre}
+.gc-copy{margin-top:6px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);
+  background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer}
+.gc-copy:hover{color:var(--text-bright);border-color:var(--accent)}
+.gc-actions{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:10px 12px;
+  border-top:1px solid var(--border)}
+.gc-progress{flex:1;color:var(--text-muted)}
+.gc-cancel,.gc-go{padding:5px 14px;border-radius:4px;border:1px solid var(--border);
+  background:transparent;font-size:12px;cursor:pointer}
+/* FR-GIT-97: 기본 선택지는 취소다 — 강조도 취소에 준다 */
+.gc-cancel{border-color:var(--accent);color:var(--accent)}
+.gc-go{border-color:var(--danger);color:var(--danger)}
+.gc-cancel:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.gc-cancel:disabled,.gc-go:disabled{opacity:.5;cursor:default}
+/* FR-GIT-94·177: 모바일에서는 실행 버튼을 목록과 분리된 별도 행에 두고
+   구분선과 여백으로 목록에서 떼어 놓는다 */
+.gc-box.mobile{width:calc(100vw - 24px);max-width:none;max-height:calc(100vh - 32px)}
+.gc-box.mobile .gc-targets{max-height:35vh}
+.gc-box.mobile .gc-actions{
+  flex-direction:column;align-items:stretch;gap:10px;
+  margin-top:10px;padding:12px;border-top:2px solid var(--border);
+}
+.gc-box.mobile .gc-progress{flex:0 0 auto}
+.gc-box.mobile .gc-cancel,.gc-box.mobile .gc-go{padding:12px;font-size:13px}

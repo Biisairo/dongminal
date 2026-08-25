@@ -2448,6 +2448,12 @@ class App {
     // 지표 재생성(_updateStatusBar) 주기에 종속되면 안 된다.
     const bgBtn=document.getElementById('sb-bg-btn');
     if(bgBtn) bgBtn.addEventListener('click',e=>{e.stopPropagation();this._bgModalToggle()});
+    // FR-GIT-58: chip 은 _updateStatusBar 가 매번 다시 만든다 — 리스너를 거기서
+    // 붙이면 갱신마다 누적된다. 정적 컨테이너에 위임해 여기서 한 번만 붙인다.
+    const sbItems=document.getElementById('sb-items');
+    if(sbItems) sbItems.addEventListener('click',e=>{
+      if(e.target.closest&&e.target.closest('.sb-git')) this.openGitWindow();
+    });
     this._startStatsPoll();
     this._renderStatusBarSettings();
   }
@@ -2531,7 +2537,33 @@ class App {
       if(parts.length)items.push(`<span class="sb-item">↑ ${parts.join(' │ ')}</span>`);
     }
     bar.innerHTML=items.join('')||'';
+    // chip 은 문자열이 아니라 DOM 으로 붙인다 — 브랜치 이름에는 < 와 & 가 올 수 있다.
+    if(statusBar.git){const c=this._gitChip(); if(c) bar.appendChild(c)}
     this._updateBgBtn();
+  }
+
+  // FR-GIT-57·59: 활성 리포의 마지막 관측을 chip 으로 만든다. 리포가 없거나
+  // 관측이 없으면 null 이다 — 빈 chip 이나 '-' 를 보이면 "변경 없음" 과
+  // "모른다" 가 같아진다.
+  _gitChip(){
+    const g=this.gitPanel;
+    const s=(g&&g.repo&&g._status&&g._status.status)||null;
+    if(!s) return null;
+    const el=document.createElement('span');
+    el.className='sb-item sb-git'+(s.detached?' sb-git-detached':'');
+    el.title=(g.repo||'')+' — '+GIT_SB_TITLE;
+    const b=document.createElement('span'); b.className='sb-git-branch';
+    // detached 면 브랜치 자리에 해시 앞 7자가 온다 (.git-head-branch 와 같은 규약).
+    b.textContent=GIT_SB_BRANCH_ICON+' '+(s.detached?(s.oid||'').slice(0,7):(s.branch||''));
+    el.appendChild(b);
+    // 변경 수가 0 이면 숫자를 붙이지 않는다.
+    const n=s.total||0;
+    if(n){
+      const d=document.createElement('span'); d.className='sb-git-dirty';
+      d.textContent=GIT_SB_DIRTY_ICON+n;
+      el.appendChild(d);
+    }
+    return el;
   }
 
   // FR-BGU-2..5: 진입점은 상태바 우측 끝의 정적 버튼이다. 지표 재생성과
@@ -2629,7 +2661,7 @@ class App {
     el.appendChild(iRow);
     // Item toggles
     for(const[k,v]of Object.entries(STATUS_ITEMS)){
-      const row=document.createElement('div');row.className='sbs-row';
+      const row=document.createElement('div');row.className='sbs-row';row.dataset.item=k;
       const label=document.createElement('span');label.textContent=v.label;
       const toggle=document.createElement('label');
       const inp=document.createElement('input');inp.type='checkbox';inp.checked=!!statusBar[k];

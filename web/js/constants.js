@@ -123,6 +123,31 @@ const GIT_CTX_ITEMS=[
   {key:'copyPath',   label:'Copy Path'},
 ];
 
+// ── 상태바 chip (GIT_SRS §3.7 / FR-GIT-57~59) ──
+
+// 기존 상태바 항목의 이모지(📁·💻)와 달리 글자 기호를 쓴다 — 폭이 일정해 chip 이
+// 갱신마다 흔들리지 않는다 (GIT_SURFACE_MAP S6).
+const GIT_SB_BRANCH_ICON='⎇';
+const GIT_SB_DIRTY_ICON='●';
+const GIT_SB_TITLE='Git 창 열기';
+
+// ── 파괴적 동작 확인 (GIT_SRS §3A.3 / FR-GIT-90~97·174~178) ──
+
+const GIT_CONFIRM_TITLE='되돌릴 수 없는 동작입니다';
+const GIT_CONFIRM_CONTINUE='계속';
+const GIT_CONFIRM_RUN='실행';
+const GIT_CONFIRM_CANCEL='취소';
+const GIT_CONFIRM_COPY='복사';
+const GIT_CONFIRM_HINT_LABEL='복구 수단';
+const GIT_CONFIRM_RUNNING='실행 중…';
+const GIT_CONFIRM_FAIL='동작이 실패했습니다';
+// FR-GIT-92: 값을 얻지 못한 hint 를 조용히 빈 칸으로 두지 않는다.
+const GIT_CONFIRM_NO_HINT='복구 수단이 없습니다 — 이 동작은 되돌릴 수 없습니다';
+// FR-GIT-178: 알리기만 한다. 다시 열게 강제하지도, 실행을 막지도 않는다.
+const GIT_CONFIRM_CHANGED='대상이 변경되었습니다';
+// FR-GIT-91: 개수는 목록과 함께 보이는 것이다 — 개수만 보이면 요구사항 실패다.
+const GIT_CONFIRM_COUNT_LABEL='대상';
+
 // ── 변경 감지 3계층 (GIT_SRS §3.3 / FR-GIT-18~24) ──
 
 // 기본 주기(ms). 0 이면 그 계층을 끈다 (FR-GIT-23).

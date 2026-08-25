@@ -59,6 +59,8 @@ class GitPanel {
     this._seq++; this._busy=false; this._again=false; this._sigBusy=false;
     if(this._sigT){clearTimeout(this._sigT);this._sigT=null}
     for(const v of GIT_VIEWS) if(this._els.has(v.key)) this._render(v.key);
+    // 마지막 관측을 버렸으므로 chip 도 사라져야 한다 (FR-GIT-59).
+    this.app._updateStatusBar();
     this._stop(); this._reschedule();
     // 활성 리포는 창에 붙어 영속한다 (FR-GIT-29). switchWindow 가 이미 활성인
     // 창에서는 조기 반환하므로 여기서 직접 저장한다 — 저장을 그쪽에 맡기면
@@ -735,6 +737,10 @@ class GitPanel {
     this._paint();
     // 활성 리포의 배지가 따라 갱신된다. 다른 리포는 서버의 마지막 관측값이다.
     this.app._gitReposRefresh();
+    // 상태바 chip 은 Git 창 밖에서도 보이므로 관측마다 갱신한다 (FR-GIT-57).
+    this.app._updateStatusBar();
+    // FR-GIT-178: 확인 다이얼로그가 열려 있으면 대상 변경을 알린다.
+    if(typeof GitConfirm!=='undefined') GitConfirm.notify(this._lastSig);
   }
 
   _applyError(code){
