@@ -36,6 +36,7 @@ description: 재사용 가능한 멀티 CC 워크플로우 정의서의 작성·
 
 작성 규칙:
 - 형식은 `references/definition-format.md` 의 스키마를 따른다.
+- **`session: dedicated` 를 명시한다.** 렌더러의 하위호환 기본값은 `inline` 이지만, 새로 만드는 정의서는 전용 창을 쓴다 — 사용자 화면을 침범하지 않고, 같은 워크플로우를 여러 개 병렬로 돌릴 수 있다.
 - **uuid 를 정의서에 절대 하드코딩하지 않는다** — team id 는 논리 이름, 실행 시 uuid 로 매핑.
 - 저장 전 전문을 사용자에게 보여 확인. 동명 파일 존재 시 덮어쓰기 확인.
 - 저장 후 `python3 scripts/render_workflow.py <파일> --list-params` 로 검증 통과 확인.
@@ -45,49 +46,85 @@ description: 재사용 가능한 멀티 CC 워크플로우 정의서의 작성·
 ### 0. 로드·검증·치환
 
 ```bash
-python3 scripts/render_workflow.py ~/.dongminal/workflows/<name>.md --json --param topic=... 
+python3 scripts/render_workflow.py ~/.dongminal/workflows/<name>.md --json --param topic=...
 ```
 
 - rc=1 + "필수 파라미터 누락" → **팀 생성 시작 전에** 사용자에게 누락 param 질문.
-- 출력 JSON: `team[]` (count 전개 + 인스턴스별 `role_prompt`), `kickoff`, `report`, `teardown`, `process`.
+- 출력 JSON: `team[]` (count 전개 + 인스턴스별 `role_prompt`), `kickoff`, `report`, `teardown`, `process`, `session`.
 
-### 창 모드 — JSON `session` 필드로 분기
+### 정의서 → Run 파라미터 사상
 
-**`dedicated` (전용 창 — 권장)**: 워크플로우가 자기만의 창에서 실행. 사용자 화면 완전 무손상, 사이드바가 잡 대시보드 역할.
-
-1. `dmctl new-window --name <워크플로우 이름> -n` — 백그라운드 창 생성. **응답의 `newTabs[0]` = 시드 도구의 {uuid, toolId}** (재조회 불필요), `newWindows[0]` = 창 uuid.
-2. 시드에 `dmctl split-h N --at <시드 uuid> -n` (또는 `split-v`) — 전용 창이라 보스 화면 비율 무관, `plan_layout.py` 없이 단순 균등 분할로 충분. **응답의 `newTabs` 가 새 팀원 도구의 {uuid, toolId} 배열** — 이게 팀원 식별자다. (`list-workspace` diff/이름필터 불필요 — 생성 명령이 직접 반환)
-3. 이후 부팅·Barrier·Kickoff 는 아래 inline 과 동일.
-5. **해체**: 팀원 전부 `/exit` → `closeTab(location=<uuid>)` 연쇄. 마지막 탭이 닫히면 창이 자동 제거된다 — `closeWindow` 은 사용하지 않는다 (포커스 안전 보장 없음).
-
-**`inline` (기본)**: 보스 분할 칸 옆 분할 — `/dongminal:team` 1~3단계 그대로.
-
-### 1~8. 팀 구성·실행 — /dongminal:team 규칙 그대로
-
-이하 모든 단계는 **`/dongminal:team` 스킬의 절대 원칙 4개**를 따른다 (상세는 `../team/SKILL.md` 와 그 references — 본 스킬에서 재정의하지 않음):
-
-1. 항상 새 팀 — 기존 도구 재사용 금지
-2. 사용자 포커스 금지 — 모든 레이아웃 명령은 `--at <uuid>` + `-n`, `dmctl focus` 금지
-3. Barrier 전 Kickoff 금지 — 대기 프롬프트로 부팅, 같은 턴 안에서 Barrier → Kickoff
-4. 식별자는 항상 uuid
-
-정의서 → `/dongminal:team` 단계 매핑:
-
-| `/dongminal:team` 단계 | 정의서에서 가져오는 것 |
+| 정의서 | Run |
 |---|---|
-| 1. 레이아웃 계획 | 팀원 수 = JSON `team` 배열 길이. inline 이면 `plan_layout.py --n <길이>`, dedicated 면 위 창 모드 절차. **분할·창 생성 응답의 `newTabs` 로 팀원 uuid+toolId 즉시 확보** (`list-workspace` diff 대체) |
-| 4. 팀원 부팅 | 팀원별 `build_prompt.py --model <model> --role <role>` + **`role_prompt` 를 역할 상세로 주입**. `process` 는 `--process` 인자로 |
-| 6. Kickoff | `kickoff.to` 의 인스턴스 uuid 에게 `kickoff.message` 송신 |
-| 7. 답장 대기 | `report.from` 의 `[TEAM-REPLY task-id=<report.task_id>]` 가 최종 보고 |
-| 8. 해체 | `teardown: confirm`(기본) → 사용자 확인 후 `/exit`. `teardown: auto` → 보고 직후 자동 `/exit` (closeTab 은 항상 사용자 확인) |
+| `session: dedicated` | `dmctl run start --window <전용 창 uuid>` (기본 projection) |
+| `session: inline` | 조정자 창을 분할. `--window` 없이 `--projection inline` |
+| `description` (또는 목적 한 줄) | `dmctl run start --objective` |
+| `team[].id` | `dmctl run member --role` + `dmctl rename-tab` |
+| `team[].model` | `dmctl run launch --model` |
+| `team[].role` + `role_prompt` + `process` | `dmctl run member --brief -` 의 stdin 본문 |
+| `kickoff.to` / `kickoff.message` | Barrier 통과 후 `dmctl msg --to <그 인스턴스 탭>` |
+| `report.from` / `report.task_id` | `dmctl run status --run <uuid>` 에서 그 멤버의 보고를 읽는다 |
+| `teardown: confirm\|auto` | `dmctl run close --run <uuid>` 시점 정책 |
 
-team id ↔ uuid 매핑표는 부팅 직후 작성해 보관한다 (예: `writer → 550e84..`). kickoff·진단·해체 모두 이 매핑으로.
+**team id ↔ uuid 매핑표를 대화 기록에 보관하지 않는다.** 진실은 `dmctl run status --run <uuid>` 이며, `role` 이 곧 team id 다. 컨텍스트가 압축돼도 Run id 하나로 전원을 되찾는다.
 
-**역할명 부여** — 분할 칸 확보 직후, 부팅 전에 각 팀원 탭에 역할명을 붙인다 (사이드바·탭바 관전성):
+### 1. 공간 확보
 
+**`dedicated`** (권장):
+
+```bash
+dmctl new-window --name "<워크플로우 이름>" -n
 ```
-dmctl rename-tab --at <uuid> <team id>    # 팀원마다
+
+응답의 `newWindows[0]` = 창 uuid, `newTabs[0].uuid` = 시드 탭. 그 안에서 팀원 수만큼 분할한다:
+
+```bash
+dmctl split-h "$N" --at "$SEED" -n
 ```
+
+전용 창이라 사용자 화면 비율과 무관하다 — 단순 균등 분할로 충분하고 `plan_layout.py` 가 필요 없다.
+
+**`inline`**: 조정자 창을 분할한다 — `/dongminal:team` 의 `references/layout.md` 절차(`plan_layout.py`)를 따른다.
+
+### 2~7. 실행 — `/dongminal:team` 워크플로우 그대로
+
+이하 모든 단계는 **`/dongminal:team` 의 절대 원칙 3개**를 따른다 (상세는 `../team/SKILL.md` — 본 스킬에서 재정의하지 않는다):
+
+1. 항상 새 팀, 전용 창에서
+2. Kickoff 는 `dmctl wait --for ready` 뒤에만
+3. 매핑표는 기록(`dmctl run status`)에 있다
+
+정의서가 채우는 값만 다르다:
+
+```bash
+RUN=$(dmctl run start --objective "<description>" --window "$WIN" | sed -n 's/^run=\([^ ]*\).*/\1/p')
+
+# team[] 각 인스턴스마다
+dmctl rename-tab --at "$TAB" "<team id>"
+dmctl run member --run "$RUN" --role "<team id>" --agent claude --at "$TAB" --brief - <<'B'
+<role 한 줄> + <role_prompt> + <process 요약>
+B
+
+# 병렬 기동 (한 Bash 호출에서 & + wait)
+dmctl run launch --member "$M" --model "<team[].model>" | dmctl send-input --at "$TAB" --execute - &
+```
+
+Barrier(`dmctl wait --for ready`) → `kickoff.to` 에게 `kickoff.message` 송신 → `dmctl status` 로 `working` 확인까지 **같은 턴 안에서** 끝낸다.
+
+### 8. 해체
+
+`report.from` 의 보고가 기록에 들어오면 (`dmctl run status --run "$RUN"` 에서 그 멤버가 `done`/`failed`) 사용자에게 결과를 보고한다.
+
+- `teardown: confirm` (기본) — 사용자 확인 후 정리
+- `teardown: auto` — 보고 직후 자동 정리. 단 **탭 제거는 항상 사용자 확인**
+
+```bash
+dmctl run close --run "$RUN"          # 미보고 멤버가 있으면 거부 + 목록
+dmctl send-input --at "$TAB" --execute "/exit"
+dmctl close-tab --at "$TAB"
+```
+
+마지막 탭이 닫히면 전용 창은 스스로 사라진다 — `close-window` 를 쓰지 않는다.
 
 ## list / show / edit / delete
 
@@ -104,16 +141,18 @@ ls ${DONGMINAL_HOME:-~/.dongminal}/workflows/*.md   # list (없으면 "(없음)"
 ## 체크리스트 (run)
 
 1. [ ] `render_workflow.py --json` 검증 통과 (param 누락 시 먼저 질문)
-2. [ ] 팀원 N 분할 칸 확보 — `session` 필드 분기: dedicated 면 `dmctl new-window --name <이름> -n` → **분할 응답 newTabs 로 팀원 uuid+toolId 수집** / inline 이면 `/dongminal:team` 1~3단계
-3. [ ] team id ↔ uuid 매핑표 작성 + `renameTab` 으로 각 탭에 역할명 부여
-4. [ ] 팀원별 `build_prompt.py` + `role_prompt` 로 병렬 부팅
-5. [ ] 같은 턴: Barrier → `kickoff.to` 에게 `kickoff.message` 송신 → Thinking 확인
-6. [ ] `report.from` 의 TEAM-REPLY 수신 → 사용자 보고
-7. [ ] teardown 정책대로 해체
+2. [ ] `session` 분기 — `dedicated` 면 `dmctl new-window --name <이름> -n` → `split-h "$N" --at <시드> -n`, `inline` 이면 `../team/references/layout.md` 절차
+3. [ ] `dmctl run start --objective <description> --window <창 uuid>` → RUN
+4. [ ] team 인스턴스마다 `rename-tab` + `dmctl run member ... --brief -` (role + role_prompt + process)
+5. [ ] **한 `Bash` 호출에서 `&` + `wait`** 로 `dmctl run launch --member <m> --model <model> | dmctl send-input --at <탭> --execute -`
+6. [ ] **같은 턴 안에서** 인스턴스마다 `dmctl wait --at <탭> --for ready` → `kickoff.to` 에게 `kickoff.message` → `dmctl status` 로 `working` 확인
+7. [ ] `dmctl run status --run "$RUN"` 로 `report.from` 의 보고 확인 → 사용자 보고
+8. [ ] `teardown` 정책대로 `dmctl run close` → `/exit` → `close-tab`
 
 ## 더 깊이 읽을 때
 
 - `references/definition-format.md` — 정의서 스키마 전체 명세 + 예시
 - `templates/poem-critique.md` — 예시 정의서 (복사해서 시작점으로)
-- `../team/references/` — 레이아웃·프롬프트·트러블슈팅 (실행 엔진)
+- `../team/SKILL.md` — 실행 엔진 (워크플로우·Barrier·해체)
+- `../team/references/troubleshooting.md` — 실패 모드 진단
 - `evals/test-scenarios.md` — 검증 시나리오

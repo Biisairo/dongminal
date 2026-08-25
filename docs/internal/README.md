@@ -18,9 +18,9 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [SYSTEM_STATS_SRS.md](./SYSTEM_STATS_SRS.md) | 상태바 지표 수집 재설계 (IEEE 29148). `/api/stats` 요청당 프로세스 6개·1.5초를 커널 직접 호출로 제거 + 메모리 계산식 정정. **구현 완료** (§4.1 실측) |
 | [WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md) | 식별자와 단일 실행자의 단일 진실 공급원 (IEEE 29148). 묶음 I(엔터티 id → uuid)·X(생성 명령 단일 실행자)·**U(모든 발급 지점을 uuid 로 통일 + 형태 판별 제거)**. **구현 완료** |
 | [SKILL_INJECTION_SRS.md](./SKILL_INJECTION_SRS.md) | MCP 폐지와 세션 스코프 스킬 주입의 단일 진실 공급원 (IEEE 29148). 에이전트 접합면 = `dmctl` (액션) + `--plugin-dir`/`--settings` 주입 스킬·훅 (정책). **구현 완료** |
-| [RUN_ORCHESTRATION_SRS.md](./RUN_ORCHESTRATION_SRS.md) | AI 오케스트레이터의 단일 진실 공급원 (IEEE 29148). Run 레코드·상태/대기 계약·에이전트 어댑터 레지스트리·worktree 격리·프리앰블/보고 계약·스킬 재작성. 착수 전 결정 5건 확정. **묶음 S·R·P·A 구현 완료, W·K 남음** |
+| [RUN_ORCHESTRATION_SRS.md](./RUN_ORCHESTRATION_SRS.md) | AI 오케스트레이터의 단일 진실 공급원 (IEEE 29148). Run 레코드·상태/대기 계약·에이전트 어댑터 레지스트리·worktree 격리·프리앰블/보고 계약·스킬 재작성. 착수 전 결정 5건 확정. **묶음 S·R·P·A·K 구현 완료, W 남음** |
 | [ORCHESTRATOR_RESEARCH_NOTES.md](./ORCHESTRATOR_RESEARCH_NOTES.md) | 위 SRS 의 입력 — orca(MIT)·paseo(AGPL) **실제 소스** 조사 노트. 파일 경로 근거 포함. §9 는 기존 문서 서술을 뒤집은 5건 |
-| [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트. **트랙 1~3 완료. 트랙 4 는 묶음 S·R·P·A 구현 완료, 다음은 묶음 W** |
+| [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트. **트랙 1~3 완료. 트랙 4 는 묶음 S·R·P·A·K 구현 완료, 남은 것은 묶음 W** |
 
 ## 용어
 
@@ -149,7 +149,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 
 | 항목 | 상태 |
 |------|------|
-| 요구 3 — AI 오케스트레이터 (`RUN_ORCHESTRATION_SRS`) | **진행 중.** 묶음 **S**(상태·대기 계약 — `dmctl status`/`wait`)·**R**(Run 레코드 — `runs.json`·epoch 펜싱·`dmctl run`)·**P**(멤버 프리앰블 — 서버 조립, `dmctl run launch`)·**A**(어댑터 레지스트리 — `internal/agentadapter`) **완료**. 남은 것은 **W**(worktree 격리) · **K**(스킬 재작성). FR-STA-4 준비완료 사다리 2단계(화면 패턴)는 스펙에 남기고 구현을 보류했다 |
+| 요구 3 — AI 오케스트레이터 (`RUN_ORCHESTRATION_SRS`) | **진행 중.** 묶음 **S**(상태·대기 계약 — `dmctl status`/`wait`)·**R**(Run 레코드 — `runs.json`·epoch 펜싱·`dmctl run`)·**P**(멤버 프리앰블 — 서버 조립, `dmctl run launch`)·**A**(어댑터 레지스트리 — `internal/agentadapter`) **완료**. **K**(스킬 재작성 — 전용 창 토폴로지·화면 fingerprint 제거) **완료**. 남은 것은 **W**(worktree 격리)뿐이다. FR-STA-4 준비완료 사다리 2단계(화면 패턴)는 스펙에 남기고 구현을 보류했다 |
 | ~~`TC-BGU-9b` 기존 실패~~ | **해소** (트랙 4 0-A). 제품 결함이 아니라 테스트가 서버 관측을 클라이언트 단정의 배리어로 쓴 것이었다. 별개로 `location` 미지정 복귀의 조용한 무효는 실재했고 FR-BGR-7 로 닫았다 |
 | ~~프론트엔드 id 가 UUID 가 아니다~~ | **해소** — 엔터티 id 는 `crypto.randomUUID()` 로 만든다. 생성 명령의 다중 실행도 함께 닫았다 ([WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md)) |
 | 워크스페이스 PUT 의 last-write-wins | 미해소. 사람 둘이 각자 브라우저에서 동시에 편집하면 한쪽이 유실된다. 오케스트레이터 경로는 FR-SXE-\* 가 덮는다 (WORKSPACE_IDENTITY_SRS §2.4·§5) |

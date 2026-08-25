@@ -9,7 +9,7 @@
 | ~~3. 상태바 지표 재설계~~ | **완료** — `286ebd8` ([SYSTEM_STATS_SRS.md](./SYSTEM_STATS_SRS.md)) |
 | ~~4-a. 오케스트레이터 — 결함·식별자 통일~~ | **완료** — `0ec8e02`, `835a662`, `f7580a7` ([WORKSPACE_IDENTITY_SRS.md](./WORKSPACE_IDENTITY_SRS.md)) |
 | ~~4-b. 오케스트레이터 — 조사·설계~~ | **완료** — `901bd7c` ([RUN_ORCHESTRATION_SRS.md](./RUN_ORCHESTRATION_SRS.md), [ORCHESTRATOR_RESEARCH_NOTES.md](./ORCHESTRATOR_RESEARCH_NOTES.md)) |
-| **4-c. 오케스트레이터 — 구현** | **진행 중.** 묶음 **S**(`228c464`)·**R**(`a958797`)·**P+A** 완료. 다음은 **W**, 이어서 K. 아래 프롬프트 |
+| **4-c. 오케스트레이터 — 구현** | **진행 중.** 묶음 **S**(`228c464`)·**R**(`a958797`)·**P+A**(`c37fa48`)·**K** 완료. 남은 것은 **W** 하나. 아래 프롬프트 |
 
 ---
 
@@ -37,14 +37,18 @@
 
 **현재 상태 (2026-08-25)**
 
-- HEAD 는 묶음 P+A 커밋. `go build`·`go vet`·`go test ./...`·`gofmt -l` 전부 깨끗
-- Playwright **183 통과 / 0 실패** (2회 연속 재현) — 이것이 이번 기준선이다.
-  이전 기준선 182 에서 1 증가한 것은 프리앰블 e2e 왕복을 추가했기 때문이다
+- HEAD 는 묶음 K 커밋. `go build`·`go vet`·`go test ./...`·`gofmt -l` 전부 깨끗
+- Playwright **184 통과 / 0 실패** (2회 연속 재현) — 이것이 이번 기준선이다
 - 이미 쓸 수 있는 것:
   - `dmctl status` / `dmctl wait --for ready|done` (묶음 S)
   - `dmctl run start|member|launch|report|status|close|list` (묶음 R+P)
   - `internal/agentadapter` — 에이전트 선언 테이블 (묶음 A)
   - `internal/run/preamble.go` — 서버가 조립하는 평문 프리앰블 (묶음 P)
+  - `team`·`workflow` 스킬이 위를 **실제로 쓴다** (묶음 K). 전용 창 토폴로지가 기본
+- **실제 팀으로 한 바퀴 검증했다** — 기동 → 프리앰블 → `wait --for ready` → Kickoff
+  → `run report` → `run status` → `run close`. 그 과정에서 나온 결함 2건은 고쳤다
+  (`82ca4fc`: 정적 폴백이 시작 모달을 준비완료로 오인 / 멤버가 승인 프롬프트에 막혀
+  보고 불가)
 
 **이번 범위 — 묶음 W (FR-WKT-1~12)**
 
@@ -63,14 +67,6 @@
 - 비git 디렉터리에서 격리 Run 은 **명확히 실패**한다. `none` 으로 조용히 낮추지
   마라 (FR-WKT-11)
 
-**이미 준비된 접합점**
-
-- `run.Worktree{Path,Branch,Base}` 필드와 `MemberSpec.Worktree` 는 이미 있다.
-  **채우는 주체만 없다**
-- `internal/run/preamble.go` 는 `m.Worktree != nil` 이면 경로·브랜치·base 절을
-  **이미 렌더링한다** (FR-PRE-4, TC-PRE-4 가 지킨다). W 가 필드를 채우면 그대로 켜진다
-- `dmctl run close` 는 이미 정리 대상 목록을 돌려준다. 여기에 잔여물을 더하면 된다
-
 **작업 규약**
 
 - 신규 동작은 **RED 를 먼저 확인**한다. 스펙 §4.1 의 TC-WKT-1~9 가 출발점
@@ -83,27 +79,26 @@
 - 커밋은 사용자 확인 후에만. 커밋 메시지에 AI 서명 금지
 - **paseo 코드를 옮기지 마라** (AGPL). orca(MIT)도 설계만 가져오고 코드는 새로 쓴다
 
-**그다음 (이번 범위 아님)**
+**묶음 W 를 마치면 트랙 4-c 가 끝난다.** 그 뒤로 남는 것은 아래 "별건" 표뿐이다.
 
-- **K** — 스킬 재작성. `team` 을 전용 창 토폴로지로 옮기고 화면 fingerprint 를
-  제거한다. e2e 필수. **P+A 가 남긴 정리 항목이 여기 있다** (아래 표 참조)
+**이미 준비된 접합점 — W 가 채우면 그대로 켜진다**
+
+- `run.Worktree{Path,Branch,Base}` 필드와 `MemberSpec.Worktree` 는 있다. **채우는
+  주체만 없다.** `dmctl run start --isolation per-run|per-member` 도 이미 기록된다
+- `internal/run/preamble.go` 는 `m.Worktree != nil` 이면 경로·브랜치·base 절을
+  **이미 렌더링한다** (FR-PRE-4, TC-PRE-4 가 지킨다)
+- `dmctl run close` 는 이미 정리 대상 목록을 돌려준다. 여기에 잔여물을 더하면 된다
+- `team`·`workflow` 스킬은 격리를 아직 언급하지 않는다 — W 가 그 절을 추가한다
+
+**실측으로 알게 된 것 (W 에서 걸릴 수 있다)**
+
+- 도구의 셸은 **`~` 에서 시작한다.** `POST /api/tools` 의 `cwd` 는 반영되지 않는다.
+  worktree 로 멤버를 보내려면 스킬이 명시적으로 `cd` 를 보내야 한다
+- 에이전트는 **신뢰하지 않는 디렉터리에서 시작 모달**을 띄운다. 새로 만든 worktree
+  경로는 정의상 신뢰 목록에 없으므로, 격리 Run 의 첫 기동이 여기서 멈출 수 있다.
+  이 상태에서 훅은 아무것도 보고하지 않는다(`state=unknown`) — FR-STA-4b 덕분에
+  준비완료로 오인되지는 않고 타임아웃(체크포인트)으로 돌아온다
 ```
-
----
-
-## 묶음 K 가 반드시 처리해야 할 것 (P+A 가 남긴 것)
-
-P+A 는 새 경로를 만들었을 뿐 **스킬을 바꾸지 않았다** — 스킬 재작성은 K 의 범위이고,
-스킬을 건드리면 e2e 가 따라와야 하기 때문이다. 그래서 지금 저장소에는 프리앰블
-생성기가 **둘** 있다.
-
-| 항목 | 내용 |
-|---|---|
-| `skills/team/scripts/build_prompt.py` **삭제** | `dmctl run launch` 가 대체한다. 참조처: `team/SKILL.md:113,204`, `team/references/prompt.md`, `workflow/SKILL.md:79,109` |
-| `team/references/prompt.md` **재작성** | 문서 전체가 build_prompt.py 사용법이다. `run member --brief` → `run launch` → `wait --for ready` → Kickoff 3단계로 바꾼다 |
-| `[대기]` 텍스트 제거 | 프리앰블이 "보고 전까지 대기"를 구조로 강제하므로 이 마커가 불필요하다. `troubleshooting.md:10` 도 함께 (TC-SKL-2 는 이 문자열이 0건이길 요구한다) |
-| 이스케이프 절 삭제 | `prompt.md` §"이스케이프와 heredoc" 의 큰따옴표 규칙은 **더 이상 사실이 아니다.** `run launch` 는 홑따옴표로 감싸므로 호출자가 이스케이프를 신경 쓸 일이 없다 |
-| 팀원 매핑표 → `dmctl run status` | 프리앰블이 이미 그 예제를 담고 있다 (FR-SKL-3) |
 
 ---
 
@@ -115,6 +110,8 @@ P+A 는 새 경로를 만들었을 뿐 **스킬을 바꾸지 않았다** — 스
 | ~~`~/.dongminal/runs.json` 에 소비자가 없음~~ | **해소** — 묶음 R 이 이 파일을 쓴다. 기존 프로토타입 필드는 보존했다 |
 | FR-STA-4 **사다리 2단계** (어댑터가 선언한 화면 패턴) | **스펙에 남기고 구현 보류** (사용자 확정, 2026-08-25). `Readiness.ScreenPatterns` 자리는 있으나 소비자가 없다. 화면 패턴은 사용자가 하단 스테이터스라인 하나만 붙여도 깨지며, FR-SKL-2 가 삭제하려는 fingerprint 와 같은 취약성이다. 훅을 주지 않는 에이전트는 3단계(출력 3초 정적)로 판정된다 |
 | codex 선언의 미확인 필드 | `modelFlag`·`exitCommand` 는 비어 있고 `promptInjection` 은 보수적으로 `stdin-after-start` 다. 이 머신의 codex 는 PATH 에 잡히지만 실체가 끊긴 심볼릭 링크라 실측이 불가했다. D-D 상 Claude 만 검증 대상이므로 차단 사항은 아니다 |
+| `POST /api/tools` 의 `cwd` 가 무시된다 | 실측(2026-08-25). 셸이 항상 `~` 에서 뜬다. 스킬은 `dmctl send-input --execute 'cd <경로>'` 로 우회하고 있다. 묶음 W 에 직접 걸리므로 후속 후보 |
+| 같은 머신에 dongminal 인스턴스가 둘이면 `PATH` 가 엉뚱한 `dmctl` 을 잡는다 | 실측(2026-08-25). 사용자 `~/.zshrc` 가 `~/.dongminal/bin` 을 앞세우면 격리 인스턴스의 도구도 그쪽 `dmctl` 을 쓴다. 일상 사용(인스턴스 1개)에는 영향이 없어 진단 표에만 적어 뒀다 |
 | `runs.json` 보존 한도 없음 | 무한 증가. 하루 몇 건 수준이라 당장 문제는 아니지만 후속 후보 |
 | 워크스페이스 PUT 의 last-write-wins | 미해소. `Tab.runId` 표식이 동시 편집에 지워질 수 있는 근본 원인이다 (`WORKSPACE_IDENTITY_SRS` §2.4·§5). 소유권의 진실은 `runs.json` 이라 기능 영향은 없다 |
 | 도구 표시명이 전부 `Shell` | FR-UNI-8 의 의도된 결과. 불편하면 rename UX 보강이 후속 후보 |

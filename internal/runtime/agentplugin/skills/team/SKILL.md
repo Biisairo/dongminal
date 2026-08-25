@@ -17,12 +17,13 @@ dongminal 의 창/분할 칸/탭/도구 + 신뢰 채널 (`dmctl msg`) 로 **여�
 
 ---
 
-## 절대 원칙 (4가지)
+## 절대 원칙 (3가지)
 
-1. **항상 새 팀** — 기존 열린 CC 도구는 절대 팀원으로 재사용하지 않는다. 사용자 맥락 훼손 방지 + 팀원은 깨끗한 컨텍스트에서 지시받아야 작업이 명확하다.
-2. **사용자 포커스 금지** — 모든 레이아웃 명령은 `--at <uuid>` + `--no-focus`. `dmctl focus` 는 **복원 목적 포함 어떤 경우에도 호출 금지**. 이유와 상세는 `references/layout.md`.
-3. **Barrier 전 Kickoff 금지** — inline 프롬프트엔 첫 작업 지시를 **절대** 넣지 않는다. 전원 CC 준비 완료 확인 후 `dmctl msg` 로 Kickoff. 위반 시 데드락 실화 — `references/prompt.md`.
-4. **식별자는 항상 UUID** — 팀원 식별·라우팅·정리 모든 단계에서 `dmctl who-am-i` / `dmctl list-workspace` 의 `uuid=<36자>` 필드를 사용한다. `W?.P?.T?` 라벨은 사람 가독성용 좌표일 뿐, 다른 창이 닫히면 reflow 되어 다른 탭을 가리키게 된다. 계층 팀·정리·해체 단계에서 라벨 보관 시 즉시 깨짐. **항상 uuid 로 보관·전달.**
+1. **항상 새 팀, 전용 창에서** — 기존 열린 CC 도구를 팀원으로 재사용하지 않는다. 팀은 자기 창(`dmctl new-window -n`)에서 산다. 사용자 창을 쪼개지 않으므로 사용자 작업 공간을 침범할 일 자체가 없다.
+2. **Kickoff 는 `dmctl wait --for ready` 뒤에만** — 첫 작업 지시를 기동 프롬프트에 넣지 않는다. 준비완료는 **화면 모양이 아니라 훅 상태**로 판정한다. 위반 시 데드락 실화.
+3. **매핑표는 기록에 있다** — 팀원 uuid 를 대화 기록에 보관하지 않는다. `dmctl run status --run <uuid>` 가 진실이다. 컨텍스트가 압축돼도 팀을 정리할 수 있다.
+
+> `dmctl focus` 는 호출하지 않는다. 전용 창이 기본이라 포커스를 되돌릴 일이 없고, 사용자가 그 사이 다른 곳으로 옮겼을 수 있어 "원위치 복원" 이 오히려 엉뚱한 곳으로 보낸다.
 
 ---
 
@@ -32,133 +33,122 @@ dongminal 의 창/분할 칸/탭/도구 + 신뢰 채널 (`dmctl msg`) 로 **여�
 
 | 명령 | 용도 |
 |------|------|
-| `dmctl who-am-i` | 팀장 식별자 (`uuid=` `short=`) + `size=COLSxROWS` 획득 |
-| `dmctl list-workspace [--json]` | 팀원 도구의 라벨·**uuid**·shellPid 식별 |
-| `dmctl split-h [N] --at <uuid> -n` | 가로 분할 (좌↔우). N 지정 시 N 균등 분할 |
-| `dmctl split-v [N] --at <uuid> -n` | 세로 분할 (상↕하). N 지정 시 N 균등 분할 |
+| `dmctl who-am-i` | 조정자(나) 식별자 |
+| `dmctl new-window --name <이름> -n` | Run 전용 창. 응답의 `newWindows[0]`·`newTabs[0]` 를 쓴다 |
+| `dmctl split-h [N] --at <uuid> -n` | 전용 창 안에서 분할. 응답 `newTabs` 가 팀원 탭들 |
+| `dmctl rename-tab --at <uuid> <이름>` | 역할명 부여 (사이드바 관전성) |
+| `dmctl run start\|member\|launch\|status\|close` | 실행 기록. 아래 워크플로우가 전부다 |
+| `dmctl wait --at <uuid> --for ready\|done` | 상태 대기 (서버 long-poll). 폴링 루프 금지 |
+| `dmctl status --at <uuid>` | 그 도구의 에이전트 상태 (막힌 팀원 진단) |
+| `dmctl send-input --at <uuid> --execute -` | 도구의 **셸**에 명령 주입 |
+| `dmctl msg --to <uuid> -` | 팀원과의 신뢰 채널 (에이전트 대상) |
 | `dmctl close-tab --at <uuid>` | 탭 제거. 포커스 불변 |
-| `dmctl rename-tab --at <uuid> <이름>` | 역할명 부여 |
-| `dmctl send-input --at <uuid> --execute <텍스트>` | 새 도구의 쉘에 `claude` 명령 주입 |
-| `dmctl msg --to <uuid> <메시지>` | 팀원과의 신뢰 채널 |
-| `dmctl read-screen --at <uuid>` | Barrier 확인, 멈춘 CC 진단 |
 
 세부는 `dmctl <명령> --help`.
 
-**식별자 형식**: `--at` / `--to` 는 uuid·toolId·라벨 어느 형식이든 받지만, **이 스킬에서는 항상 uuid 사용**.
+**식별자는 항상 uuid.** `--at`/`--to` 는 라벨도 받지만 `W?.P?.T?` 는 다른 창이 닫히면 reflow 되어 다른 탭을 가리킨다. 생성 명령의 응답이 uuid 를 직접 주므로 `list-workspace` 로 되찾을 일이 없다.
 
-**`--from` 은 생략한다** — `dmctl msg` 는 `$DONGMINAL_TOOL_ID` 로 발신자를 자동 채운다. 팀장이 자기 uuid 를 `msg` 에 넘길 이유가 없다 (레이아웃 `--at` 에는 여전히 필요).
+**`--from` 은 넘기지 않는다** — `dmctl msg` 가 `$DONGMINAL_TOOL_ID` 로 발신자를 자동으로 채운다.
 
-**긴 본문은 heredoc 으로 stdin 에 넘긴다.** 위치 인자로 넘기면 셸 인용 지옥에 빠진다:
+**긴 본문은 heredoc 으로 stdin 에.** 위치 인자로 넘기면 셸 인용 지옥에 빠진다. 종료자는 **반드시 열 0**:
 
 ```bash
-dmctl msg --to "$MEMBER_UUID" - <<'MSG'
+dmctl msg --to "$MEMBER_TAB" - <<'MSG'
 여러 줄
 지시문
 MSG
 ```
 
-**병렬 실행은 `&` + `wait`** — 여러 팀원에게 동시에 보낼 때 한 `Bash` 호출 안에서 백그라운드로 돌린다 (아래 4단계).
-
 ---
 
 ## 워크플로우
 
-### 1. 팀장 정보 + 레이아웃 계획
+### 1. Run 전용 창 만들기
 
 ```bash
-dmctl who-am-i
+dmctl new-window --name "team-<목적>" -n
 ```
 
-출력 라인의 `uuid=<36자>` 를 BOSS 로, `size=COLSxROWS` 를 레이아웃 입력으로 캡처한다. `label=<W?.P?.T?>` 는 사람이 보는 출력용. **이 단계 이후 모든 식별은 uuid 사용.**
-
-레이아웃은 스크립트가 계산한다 (셀 비율 2.2 보정, 긴 축 판정, 직교 N 등분):
-
-```bash
-python scripts/plan_layout.py --cols <COLS> --rows <ROWS> --n <N> --boss <BOSS_UUID>
-```
-
-출력 JSON 의 `primary_split` / `orthogonal_split` 지시를 그대로 따른다. `location` 자리에 `BOSS_UUID` 를 넣는다.
-
-### 2. 1차 분할
-
-`plan` 의 `primary_split` 대로:
-
-```bash
-dmctl split-h --at "$BOSS_UUID" -n     # 또는 split-v
-```
-
-`dmctl` 은 생성 명령의 응답 JSON 을 그대로 출력하고, 거기에 **방금 생긴 SEED 의 uuid 가 들어 있다**:
+응답에서 두 값을 캡처한다 — `newWindows[0]` = **창 uuid**, `newTabs[0].uuid` = **첫 팀원 탭**.
 
 ```json
-{"ok":true,"action":"splitH","delivered":1,"newTabs":[{"uuid":"<SEED_UUID>","toolId":"7"}],...}
+{"ok":true,"newWindows":["<WIN>"],"newTabs":[{"uuid":"<T1>","toolId":"..."}],"timedOut":false}
 ```
 
-`newTabs[0].uuid` 를 SEED 로 캡처한다. `list-workspace` 로 이전 목록과 비교할 필요가 없다. `timedOut: true` 면 브라우저 echo 가 늦은 것이므로 그때만 `dmctl list-workspace` 로 확인한다.
+`delivered=0` 이면 브라우저가 SSE 를 구독하지 않은 것이다 — 사용자에게 새로고침을 요청한다. `timedOut: true` 면 브라우저 echo 가 늦은 것이므로 그때만 `dmctl list-workspace` 로 확인한다.
 
-### 3. 직교 축 N 등분 (N≥2 일 때만)
+### 2. 팀원 수만큼 분할
+
+N 명이면 첫 탭을 포함해 N 개가 필요하므로 `N` 을 그대로 넘긴다:
 
 ```bash
-dmctl split-v "$N" --at "$SEED_UUID" -n     # 또는 split-h
+dmctl split-h "$N" --at "$T1" -n      # 또는 split-v
 ```
 
-단일 호출로 정확히 N 균등 분할. 응답의 `newTabs` 배열이 **팀원 uuid 전부**다. SEED 자신도 팀원 한 명이므로, 팀원 목록은 `SEED_UUID` + `newTabs[*].uuid` 다.
+응답 `newTabs` 가 나머지 팀원 탭이다. 팀원 탭 목록 = `T1` + `newTabs[*].uuid`.
 
-> 팁: `dmctl list-workspace` 의 각 행에는 `uuid=<full>  short=<8자>` 가 붙는다. short 는 로그 가독성용 별칭. 라우팅·인자 전달에는 항상 full uuid 사용.
+**전용 창이라 사용자 화면 비율과 무관하다** — 단순 균등 분할로 충분하고 레이아웃 계산이 필요 없다. (사용자 창을 쪼개는 `inline` 모드를 굳이 쓸 때만 `scripts/plan_layout.py` 가 필요하다. `references/layout.md` 참조.)
 
-### 4. 팀원 CC 병렬 부팅 (대기 프롬프트)
-
-각 팀원 프롬프트는 빌더로 생성:
+역할명을 붙인다:
 
 ```bash
-python scripts/build_prompt.py \
-  --model <opus|sonnet|haiku> --my-label <팀원UUID> --boss <BOSS_UUID> \
-  --role "<한 줄 역할>" \
-  --teammate <UUID>:<역할> [--teammate ...] \
-  [--process "<통신 흐름>"] [--reply-to <허브UUID>]
+dmctl rename-tab --at "$T1" "작가"
 ```
 
-스크립트 인자명은 역사적으로 `--my-label`/`--boss`/`--teammate <id>:<role>` 이지만 식별자 형식을 검사하지 않으므로 uuid 값 그대로 통과한다. 빌더는 `[대기]` 지시를 자동 포함한다. 직접 쓰지 말 것.
-
-**하나의 `Bash` 호출에서 병렬로** 전원 기동:
+### 3. Run 열고 멤버 등록
 
 ```bash
-for i in 1 2 3; do
-  eval "uuid=\$MEMBER_$i"; eval "prompt=\$PROMPT_$i"
-  printf '%s' "$prompt" | dmctl send-input --at "$uuid" --execute - &
+RUN=$(dmctl run start --objective "<한 줄 목적>" --window "$WIN" | sed -n 's/^run=\([^ ]*\).*/\1/p')
+```
+
+팀원마다 등록한다. `--brief` 가 그 팀원이 할 일이며, **여러 줄이면 `-` 로 stdin** 에 넘긴다:
+
+```bash
+dmctl run member --run "$RUN" --role "작가" --agent claude --at "$T1" --brief - <<'B'
+'아침' 을 주제로 짧은 시를 쓴다. 다 쓰면 비평가에게 넘기지 말고 곧바로 보고한다.
+B
+```
+
+출력의 `member=<uuid>` 를 캡처한다. 서버가 이 시점에 **프리앰블을 조립**한다 — 역할·목적·Run/Member uuid·보고 규약이 들어간 평문이며, 조정자가 uuid 를 옮겨 적을 일이 없다.
+
+### 4. 팀원 병렬 기동
+
+`dmctl run launch` 가 **셸에 그대로 넣을 기동줄**을 만든다 (프리앰블 포함, 권한 사전 허용 포함, 인용 처리 완료). 파이프만 하면 된다:
+
+```bash
+for pair in "$M1:$T1" "$M2:$T2"; do
+  m=${pair%%:*}; t=${pair##*:}
+  dmctl run launch --member "$m" --model sonnet | dmctl send-input --at "$t" --execute - &
 done
 wait
 ```
 
-병렬이 중요한 이유: 순차 기동 시 먼저 뜬 팀원이 아직 존재하지 않는 동료 uuid 에 송신 시도 → unknown uuid.
+**하나의 `Bash` 호출에서 `&` + `wait`** 로 병렬 기동한다. 순차 기동하면 먼저 뜬 팀원이 아직 없는 동료에게 송신을 시도한다.
 
-### 5. Barrier — 전원 CC 준비 완료 확인
+> **도구의 셸은 `~` 에서 시작한다.** 특정 디렉터리에서 일해야 하면 기동 전에 `dmctl send-input --at "$t" --execute 'cd <절대경로>'` 를 먼저 보낸다. 신뢰하지 않는 디렉터리에서 claude 를 띄우면 **폴더 신뢰 확인 모달**이 떠서 기동이 멈춘다.
 
-> ⚠️ **턴 종료 금지** — 4단계(병렬 부팅) 부터 6단계(Kickoff) 까지는 **반드시 하나의 어시스턴트 턴 안에서 연속 실행**한다. "90초 후 kickoff" 같은 예고만 남기고 턴을 끝내면 영원히 재진입되지 않아 팀이 정지한다. `ScheduleWakeup` / 사용자 응답 대기로 빠지지 말 것. 대기는 오직 아래 도구 호출로 표현한다.
->
-> **`Thinking...` 차단 정책** — Barrier 단계는 본질적으로 **모델이 출력 없이 도구 호출만 반복하는 구간**이다. "잠시 기다리겠습니다" 같은 텍스트도 출력하지 말 것 — 텍스트가 들어가는 순간 모델이 "응답 끝"으로 인식해 턴 종료 위험이 커진다. Barrier 통과 후 Kickoff 직전까지 무발화 도구 체인 유지.
+### 5. Barrier — 준비완료 확인
 
-**대기 표현 — 반드시 도구 호출로**:
+> ⚠️ **턴 종료 금지** — 4단계(기동)부터 6단계(Kickoff)까지는 **하나의 어시스턴트 턴 안에서 연속 실행**한다. "잠시 후 kickoff" 같은 예고만 남기고 턴을 끝내면 재진입되지 않아 팀이 정지한다. 대기는 오직 아래 도구 호출로 표현한다.
 
-1. 4단계 병렬 부팅 직후, **첫 확인 전 최소 8초 대기를 명시 도구 호출로** 삽입:
-   - `Bash(command="sleep 8", description="CC 부팅 대기")` — 가장 단순
-   - 또는 다른 유의미한 동시 작업이 있으면 그걸로 8초+ 채워도 됨
-2. 대기 후 전원 확인. 한 `Bash` 호출로 묶는다:
-   ```bash
-   for u in "$M1" "$M2" "$M3"; do echo "=== $u ==="; dmctl read-screen --at "$u" --bytes 4000; done
-   ```
-   준비 완료 조건 (모두 충족):
-   - `╭─` / `>` 프롬프트 박스 노출
-   - 화면에 `Thinking...` 부재
-   - **초기 프롬프트의 `[대기]` 텍스트가 화면에 보임** (CC가 초기 프롬프트를 실제 처리했다는 fingerprint — 단순 부팅과 구분)
-3. 미준비 팀원이 있으면 `sleep 3` → 미준비 팀원만 재확인. **최대 10회 (≈30초) 자동 재시도**. 한두 번 미준비로 절대 종료/보고 후 종료 하지 말 것.
-4. 30초 누적 미준비면 실패 판정 — 해당 도구의 화면을 진단 (`claude: command not found`, 쿼터 초과, 쉘 파싱 에러 등).
+```bash
+for t in "$T1" "$T2"; do dmctl wait --at "$t" --for ready --timeout-ms 180000; done
+```
+
+서버가 붙잡아 준다. `sleep` 루프를 돌리지 않는다. 종료 코드가 결과다:
+
+| rc | 뜻 | 대응 |
+|----|-----|------|
+| 0 | 준비완료 | 다음 팀원, 전원 끝나면 Kickoff |
+| 5 | **blocked** — 팀원이 권한 확인 등을 기다린다 | `dmctl read-screen --at <uuid>` 로 무엇을 묻는지 보고 처리. 시간이 지난다고 풀리지 않는다 |
+| 4 | 타임아웃 — **실패가 아니라 체크포인트** | 마지막 관측 상태를 보고 계속 기다릴지 진단할지 정한다. 이것만으로 팀원을 죽이거나 재기동하지 않는다 |
+
+**화면 모양으로 준비완료를 판정하지 않는다.** 프롬프트 박스 유무·스피너 부재 같은 fingerprint 는 에이전트 버전이나 사용자의 스테이터스라인 하나로 깨지고, 무엇보다 **권한 대기와 준비완료를 구분하지 못한다.**
 
 ### 6. Kickoff — 첫 작업 지시
 
-작업 개시자(들)에게 첫 지시 전송:
-
 ```bash
-dmctl msg --to "$STARTER_UUID" - <<'MSG'
+dmctl msg --to "$STARTER_TAB" - <<'MSG'
 [TEAM-KICKOFF task-id=<id>]
 status: START
 <짧은 태스크>
@@ -166,61 +156,67 @@ status: START
 MSG
 ```
 
-엔벨로프 헤더의 `from=...` `to=...` 는 서버가 사람 가독성용 라벨로 정규화해 표시한다. 신뢰 라우팅 키는 내부적으로 uuid 기준.
+프리앰블에 이미 역할·목적·보고 규약이 있으므로 kickoff 는 짧아도 된다. 송신 후 `dmctl status --at "$STARTER_TAB"` 로 `working` 으로 넘어갔는지 확인한다. `idle` 그대로면 `dmctl send-input --at "$STARTER_TAB" --execute ""` 로 엔터를 보강하고 재확인한다. 이 확인까지가 같은 턴에서 끝나야 한다.
 
-초기 프롬프트에 이미 역할·프로토콜이 있으므로 kickoff 메시지는 짧아도 된다. 송신 후 `sleep 2` → `dmctl read-screen --at "$STARTER_UUID"` 으로 수신측이 처리 시작(`Thinking...`)했는지 확인. `Thinking...` 미관측 시 `dmctl send-input --at "$STARTER_UUID" --execute ""` 로 엔터 보강 후 재확인 (TUI reconciliation 지연 대비, troubleshooting 참고). 이 확인까지가 같은 턴에서 끝나야 한다 — 그 다음에야 7단계(턴 종료) 로 진행.
+### 7. 턴 종료 → 보고 대기
 
-### 7. 팀장 턴 종료 → 답장 대기
+조정자는 팀원을 실시간 감시하지 않는다. 팀원의 질문·중간 공유는 엔벨로프로 다음 사용자 턴처럼 자동 도착한다. 폴링 불필요.
 
-팀장 CC 는 팀원을 실시간 감시하지 않는다. 팀원 답장은 엔벨로프 `[DONGMINAL-AGENT-MSG from=... to=...]...[/DONGMINAL-AGENT-MSG]` 로 다음 사용자 턴처럼 자동 도착. 엔벨로프 내부 `[TEAM-REPLY task-id=...]` 파싱해 결과 활용. 폴링 불필요.
+**최종 결과는 기록에서 읽는다:**
 
-여러 명의 답장이 순차 도착하면 부분 처리하거나 "현재 M/N 완료" 로 보고하고 다음 턴에서 마저 받는다. 비정상 지연은 `dmctl read-screen --at <팀원_UUID>` 로 해당 도구 진단.
+```bash
+dmctl run status --run "$RUN"
+```
+
+멤버별 `state` 와 보고된 `outcome`·요약이 나온다. `state` 는 조회 시점에 파생된다 — 도구가 죽었으면 `lost`, 훅이 말한 대로 `working`/`waiting`, 보고를 마쳤으면 `done`/`failed`. **보고는 기록이 관측을 이긴다.**
+
+특정 팀원의 완료만 기다리려면 `dmctl wait --at <uuid> --for done`.
 
 ### 8. 팀 해체 (사용자 확인 후)
 
-1. **CC 종료 (포커스 안전, CC 종료만)**:
 ```bash
-for u in "$M1" "$M2" "$M3"; do dmctl send-input --at "$u" --execute "/exit"; done
+dmctl run close --run "$RUN"
 ```
-탭은 쉘 상태로 남는다 (사용자가 중간 로그를 볼 수 있음).
 
-2. **탭까지 제거**: `/exit` 먼저 → 쉘 복귀 확인 → 보관해둔 팀원 uuid 들에 대해
+미보고 멤버가 있으면 **거부하고 목록을 낸다** — 보고하지 않은 팀원은 완료의 증거가 아니다. 정말 접으려면 `--force`.
+
+`close` 는 도구를 닫지 않는다. 정리 대상(`role`/`toolId`/`tabId`)을 돌려주므로 조정자가 순서대로 마무리한다:
+
 ```bash
-for u in "$M1" "$M2" "$M3"; do dmctl close-tab --at "$u"; done
+dmctl send-input --at "$t" --execute "/exit"    # 팀원마다. 대화를 저장하고 정상 종료
+# 쉘 복귀 확인 후
+dmctl close-tab --at "$t"
 ```
-- **uuid 기반이라 라벨 reflow 영향 없음**: 한 탭을 닫으면 다른 팀원의 라벨은 옮겨질 수 있지만 uuid 는 그대로. `list-workspace` 재확인이 더는 필수가 아니다.
-- `--at` 지정 `close-tab` 은 서버가 포커스를 움직이지 않는다. `dmctl focus` 는 **호출 금지**.
 
-`/exit` 를 먼저 하는 이유: 실행 중 CC 를 바로 닫으면 "프로세스 종료?" 다이얼로그가 뜨기 때문.
+`/exit` 를 먼저 하는 이유: 실행 중인 CC 의 탭을 바로 닫으면 브라우저가 "프로세스 종료?" 확인창을 띄워 무인 정리가 그 자리에서 막힌다. 마지막 탭이 닫히면 **전용 창은 스스로 사라진다** — `close-window` 를 쓰지 않는다.
 
 ---
 
 ## 체크리스트
 
-1. [ ] `dmctl who-am-i` → BOSS **uuid** + size (라벨은 보조 표시용)
-2. [ ] `scripts/plan_layout.py` 로 분할 계획 (`--boss <BOSS_UUID>`)
-3. [ ] 1차 분할 `dmctl split-* --at "$BOSS_UUID" -n` → 응답 `newTabs[0].uuid` = SEED
-4. [ ] (N≥2) 직교 축 `dmctl split-* "$N" --at "$SEED_UUID" -n` → 응답 `newTabs` = 팀원 **uuid** 들
-5. [ ] 팀원별 `scripts/build_prompt.py` 로 대기 프롬프트 생성 (`--my-label <팀원_UUID>` `--boss <BOSS_UUID>` `--teammate <UUID>:<role>`)
-6. [ ] **한 `Bash` 호출에서 `&` + `wait`** 로 `dmctl send-input --at <팀원_UUID> --execute -` 전원 기동
-7. [ ] **같은 턴 안에서** `sleep 8` → Barrier `dmctl read-screen --at <팀원_UUID>` (준비 fingerprint: `╭─` + `Thinking...` 부재 + `[대기]` 텍스트). 미준비면 `sleep 3` → 재확인 최대 10회
-8. [ ] **같은 턴 안에서** `dmctl msg --to <UUID>` Kickoff → `sleep 2` → `dmctl read-screen --at <UUID>` 으로 `Thinking...` 확인
-9. [ ] 위 7~8 까지 끝낸 **다음에야** 팀장 턴 종료 — 답장 대기
-10. [ ] 답장 파싱 → 결과 종합 → 사용자에 보고
-11. [ ] 정리 여부 확인. 기본 `dmctl send-input --at <UUID> --execute "/exit"`. 요청 시 `dmctl close-tab --at <UUID>`. `dmctl focus` 금지.
+1. [ ] `dmctl new-window --name <이름> -n` → `newWindows[0]`=WIN, `newTabs[0].uuid`=T1
+2. [ ] `dmctl split-h "$N" --at "$T1" -n` → `newTabs` = 나머지 팀원 탭
+3. [ ] `dmctl rename-tab --at <탭> <역할명>` 팀원마다
+4. [ ] `dmctl run start --objective <목적> --window "$WIN"` → RUN
+5. [ ] 팀원마다 `dmctl run member --run "$RUN" --role <역할> --agent claude --at <탭> --brief -` → member uuid
+6. [ ] **한 `Bash` 호출에서 `&` + `wait`** 로 `dmctl run launch --member <m> | dmctl send-input --at <탭> --execute -`
+7. [ ] **같은 턴 안에서** 팀원마다 `dmctl wait --at <탭> --for ready` (rc=5 면 진단, rc=4 는 체크포인트)
+8. [ ] **같은 턴 안에서** `dmctl msg --to <시작 팀원>` Kickoff → `dmctl status` 로 `working` 확인
+9. [ ] 위 6~8 을 끝낸 **다음에야** 턴 종료 — 보고 대기
+10. [ ] `dmctl run status --run "$RUN"` 로 결과 종합 → 사용자에 보고
+11. [ ] 정리 확인 → `dmctl run close --run "$RUN"` → `/exit` → `dmctl close-tab`
 
 ---
 
 ## 더 깊이 읽을 때
 
-- `references/layout.md` — 셀 비율 2.2, 긴 축/직교 축 휴리스틱, 포커스 안전 설계
-- `references/prompt.md` — 초기 프롬프트 구조, 데드락 원인, 이스케이프
 - `references/troubleshooting.md` — 실패 모드 진단 표 + 로그 위치
+- `references/layout.md` — 전용 창이 기본인 이유, `inline` 을 쓸 때의 레이아웃 계산
 - `references/models_and_patterns.md` — 모델 선택 가이드 + 팀 패턴 카탈로그
-- `evals/test-scenarios.md` — 검증 시나리오 (4인 팀 비평 파이프라인 등)
+- `evals/test-scenarios.md` — 검증 시나리오
 
 재사용할 팀 구성은 정의서로 저장한다 — `/dongminal:workflow`.
 
 ## tmux team agents 대비 장점
 
-브라우저에서 팀 활동 실시간 관찰, 신뢰 채널 명시, 레이아웃이 터미널 비율에 맞춰 자동 조정, **식별자가 uuid 라 창 닫힘에 따른 라벨 reflow 무관**. 접합면이 셸 명령이라 Claude Code 외 에이전트도 같은 방식으로 참여할 수 있다.
+브라우저에서 팀 활동 실시간 관찰, 신뢰 채널 명시, **팀이 전용 창에 살아 사용자 작업 공간과 겹치지 않음**, 식별자가 uuid 라 창 닫힘에 따른 reflow 무관, **실행 기록이 파일에 남아 컨텍스트 압축을 넘어감**. 접합면이 셸 명령이라 Claude Code 외 에이전트도 같은 방식으로 참여할 수 있다.

@@ -19,6 +19,21 @@ async function waitForInit(page: any) {
 }
 
 // dmctl list-workspace 가 /api/state 를 읽어 만드는 행에서 스킬이 캡처하는 값들.
+// windowFocusMap 은 창별 "지금 보고 있는 탭"이다. `-n`(keepFocus)이 실제로
+// 보장하는 것이 이것이며, /api/focus 의 owners(어느 클라이언트가 그 창의 포커스를
+// 소유하나)와는 다른 개념이다 — 새 창이 owners 항목을 갖는 것은 정상이고 등록도
+// 비동기라 경합한다.
+async function windowFocusMap(request: any): Promise<Record<string, string>> {
+  const state = await (await request.get('/api/state')).json();
+  const wins = state?.workspace?.windows ?? [];
+  // 관측 대상이 없으면 "전후가 같다"가 공허하게 참이 된다. 실재를 못박는다.
+  expect(wins.length, '워크스페이스에 창이 없다 — 단정이 공허해진다').toBeGreaterThan(0);
+  const out: Record<string, string> = {};
+  const walk = (node: any): string => node?.activeTab ?? (node?.children ?? []).map(walk).join(',');
+  for (const w of wins) out[w.id] = walk(w.layout);
+  return out;
+}
+
 async function firstTab(request: any): Promise<{ uuid: string; toolId: string }> {
   const state = await (await request.get('/api/state')).json();
   const walk = (n: any): any => {
@@ -372,6 +387,97 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
       data: { toolId, outcome: 'succeeded', summary: '했다. 봤다. 남았다.' },
     });
     await request.post('/api/runs/close', { data: { runId: run.id } });
+  });
+
+  // TC-SKL-1/3 — team 스킬이 의존하는 전용 창 절차의 기본 동작.
+  //
+  // 스킬 본문은 산문이라 테스트되지 않는다. 대신 그 절차가 **딛고 서는 것**을
+  // 여기서 못박는다 — 전용 창 생성이 사용자 공간을 건드리지 않는다는 것, 그리고
+  // 팀 매핑이 대화 기록 없이 기록만으로 되찾힌다는 것.
+  test('전용 창 Run 이 사용자 공간을 건드리지 않고 기록만으로 되찾힌다', async ({ page, request }) => {
+    // 포커스는 **클라이언트 상태**다. 워크스페이스 JSON 으로는 관측되지 않으므로
+    // 브라우저를 띄워 거기서 읽는다 (§4.3: 브라우저 트리를 단정할 거면 브라우저를 본다).
+    await waitForInit(page);
+    const clientActive = () => page.evaluate(() => (window as any).app.ws.activeWindow);
+    const activeBefore = await clientActive();
+    expect(activeBefore, '클라이언트 활성 창을 못 읽었다 — 단정이 공허해진다').toBeTruthy();
+
+    const wsBefore = await (await request.get('/api/state')).json();
+    const focusBefore = await windowFocusMap(request);
+
+    // 1. 전용 창 — 응답이 창·시드 uuid 를 직접 준다 (list-workspace 재조회 없음).
+    const win = await (
+      await request.post('/api/commands', {
+        // 페이로드는 {action, args:{...}} 다 — dmctl 과 같은 형태여야 keepFocus 가
+        // 브라우저까지 도달한다. 평평하게 보내면 조용히 유실되고, 전용 창이
+        // 사용자 화면을 차지한다 (이 테스트를 쓰다 실제로 밟았다).
+        data: { action: 'newWindow', args: { name: 'e2e-run-window', keepFocus: true } },
+      })
+    ).json();
+    expect(win.ok, `newWindow 실패: ${JSON.stringify(win)}`).toBeTruthy();
+    const winId: string = win.newWindows?.[0];
+    const seed: string = win.newTabs?.[0]?.uuid;
+    expect(winId, '창 uuid 가 응답에 없다').toBeTruthy();
+    expect(seed, '시드 탭 uuid 가 응답에 없다').toBeTruthy();
+
+    // 2. 사용자의 창들이 **그대로**다 — 전용 창이 방어를 구조로 푸는 근거다.
+    //    새 창만 늘고, 기존 창의 활성 탭은 하나도 움직이지 않아야 한다.
+    const focusWithRun = await windowFocusMap(request);
+    expect(Object.keys(focusWithRun), '전용 창이 워크스페이스에 나타나지 않았다').toContain(winId);
+    delete focusWithRun[winId];
+    expect(focusWithRun, '전용 창 생성이 사용자 창의 활성 탭을 옮겼다').toEqual(focusBefore);
+
+    // 3. TC-SKL-1 의 핵심 — 사용자가 **보고 있는 창이 바뀌지 않았다.**
+    //    keepFocus 를 빼면 여기서 걸린다 (그 반증도 확인했다).
+    await expect
+      .poll(clientActive, { timeout: 5_000 })
+      .toBe(activeBefore);
+    expect(winId, '전용 창이 사용자 화면을 차지했다').not.toBe(await clientActive());
+
+    // 4. Run 을 열고 시드를 멤버로 묶는다.
+    const run = await (
+      await request.post('/api/runs', {
+        data: { objective: 'e2e 전용 창', projection: 'dedicated-window', windowId: winId },
+      })
+    ).json();
+    const member = await (
+      await request.post('/api/runs/members', {
+        data: { runId: run.id, role: 'e2e-worker', agent: 'claude', id: seed, brief: '아무것도 하지 않는다' },
+      })
+    ).json();
+    expect(member.tabId).toBe(seed);
+
+    // 5. TC-SKL-3: 매핑표 없이 기록만으로 멤버 전원을 되찾는다.
+    const status = await (await request.get(`/api/runs?id=${run.id}`)).json();
+    expect(status.members).toHaveLength(1);
+    expect(status.members[0].role).toBe('e2e-worker');
+    expect(status.members[0].tabId).toBe(seed);
+    expect(status.windowId).toBe(winId);
+
+    // 6. 미보고 멤버가 있으면 close 가 거부된다 — 정리 가드.
+    const refused = await request.post('/api/runs/close', { data: { runId: run.id } });
+    expect(refused.status()).toBe(409);
+
+    await request.post('/api/runs/report', {
+      data: { toolId: member.toolId, outcome: 'succeeded', summary: '했다. 봤다. 남았다.' },
+    });
+    const closed = await request.post('/api/runs/close', { data: { runId: run.id } });
+    expect(closed.status()).toBe(200);
+
+    // 7. 정리 — 팀원 탭을 닫으면 전용 창은 스스로 사라진다 (close-window 불필요).
+    await request.post('/api/commands', { data: { action: 'closeTab', args: { location: seed } } });
+    await expect
+      .poll(async () => {
+        const st = await (await request.get('/api/state')).json();
+        return JSON.stringify(st).includes(winId);
+      }, { timeout: 10_000 })
+      .toBe(false);
+
+    // 8. TC-SKL-1: 사용자 공간이 전후로 같다 — 전용 창은 흔적을 남기지 않는다.
+    const wsAfter = await (await request.get('/api/state')).json();
+    expect(JSON.stringify(wsAfter)).toBe(JSON.stringify(wsBefore));
+    expect(await windowFocusMap(request)).toEqual(focusBefore);
+    expect(await clientActive()).toBe(activeBefore);
   });
 
   // FR-RUN-7: 멤버 등록은 탭에 runId 표식을 남기고 close 가 되돌린다.
