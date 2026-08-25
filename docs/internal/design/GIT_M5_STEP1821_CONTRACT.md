@@ -37,6 +37,12 @@ func (s *Service) BranchCreate(ctx context.Context, repo string, o BranchCreateO
 
 // ValidBranchName 은 git 의 이름 규칙을 확인한다 (FR-GIT-159).
 // `git check-ref-format --branch <name>` 을 쓴다 — 규칙을 직접 구현하지 않는다.
+//
+// 실측 (git 2.50.1): 유효하면 exit 0 + 이름을 그대로 출력, 무효하면 exit 128 +
+// stderr `fatal: 'x' is not a valid branch name`. 이름이 `-` 로 시작할 수 있으니
+// **`--` 뒤에 두거나 guardArgs 가 거부하지 않는지 먼저 확인해라** — 현재
+// guardArgs 는 `-` 로 시작하는 args[0] 만 막으므로 뒤따르는 인자는 통과하지만,
+// git 이 그것을 옵션으로 읽는다. `--branch` 다음 인자로 오므로 실제로는 안전하다.
 func (s *Service) ValidBranchName(ctx context.Context, repo, name string) error
 ```
 

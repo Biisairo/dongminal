@@ -115,6 +115,10 @@ func (s *Service) Preflight(ctx context.Context, repo string) (Preflight, error)
   `guardArgs` 가 `config` 뒤에 `--get`·`--get-all`·`--list`·`--type` 외의 인자를
   거부해야 한다 — `git config user.name x` 는 쓰기이므로 읽기 경로로 흘러선 안 된다.
   이 검사를 테스트로 고정한다.
+- **실측 (git 2.50.1): 설정되지 않은 키는 exit 1 이고 stderr 가 비어 있다.**
+  `Exec` 은 exit≠0 을 `*ExecError` 로 올리므로, preflight 는 **exit 1 을 "미설정"
+  으로 다뤄야 한다.** 오류로 올려보내면 user.name 이 없는 저장소에서 preflight
+  자체가 500 이 되어 차단 사유를 보여줄 수 없다. exit 1 이 아닌 실패는 오류다.
 - `commit.gpgsign` 과 `commit.template` 도 `config --get` 으로 읽는다.
   template 은 경로이므로 그 파일을 읽어 내용을 담는다. 없으면 빈 문자열.
   파일 읽기는 크기 상한(`DiffMaxBytes` 재사용)을 건다.
