@@ -108,6 +108,245 @@ DONGMINAL_TOOL_ID=<도구 id>  # detach 가 자기 도구를 식별하는 근거
 주체는 브라우저이고 그쪽 409 처리가 머지 없이 재PUT 이므로 동시 편집에 지워질 수
 있다. 소유권의 진실은 `runs.json` 이다.
 
+## 오케스트레이션 다이어그램
+
+아래 넷은 산문이 이미 말한 것을 **그림으로 다시 말하지 않는다** — 글로는 조립해야만
+보이는 것(축의 직교성, 소유 경계, 판단이 갈리는 분기, 타입 간 결속)만 담았다.
+
+### 축 — Run 은 계층의 레벨이 아니다
+
+```mermaid
+flowchart LR
+  subgraph SPACE["공간 계층 — 사람이 보는 것"]
+    W["Window"] --> P["Pane"] --> T["Tab"] --> TL["Tool<br/>PTY + 셸"]
+  end
+  subgraph AXIS["실행 축 — 기록이 아는 것"]
+    R["Run<br/>runs.json"] -- "members" --> M["Member<br/>role · brief · outcome"]
+  end
+  M -- "1 : 1 결속" --> TL
+```
+
+계층으로 만들면 "공간을 차지하지 않고 백그라운드로만 도는 팀"을 표현할 수 없다.
+투영(`dedicated-window` | `background` | `inline`)이 선택인 이유가 이것이다. Member 와
+Tool 의 1:1 결속은 보고 권한의 근거이기도 하다 — 한 도구는 열린 Run 하나에만 속한다.
+
+### 프로세스 경계 — 누가 무엇을 소유하는가
+
+```mermaid
+flowchart LR
+  subgraph BR["브라우저"]
+    XT["xterm 터미널"]
+    WSJ["workspace.json 쓰기 주체"]
+  end
+  subgraph SRV["웹 서버 — dongminal"]
+    API["HTTP · WS · SSE"]
+    RS["run.Store<br/>runs.json"]
+    WM["worktree.Manager<br/>$DONGMINAL_HOME/worktrees"]
+    AD["agentadapter<br/>선언 테이블"]
+    ACT["활동 상태<br/>working·waiting·idle·done"]
+  end
+  subgraph DMN["dongminald — PTY 데몬"]
+    PTY["PTY 소유 · 재기동을 넘는다"]
+  end
+  subgraph TOOL["도구 (탭 하나)"]
+    SH["셸 + dmctl"]
+    AG["claude 에이전트"]
+  end
+  XT -- "키 입력 (WS)" --> API
+  API -- "RPC" --> PTY
+  PTY -- "출력" --> API
+  API -- "화면 (WS)" --> XT
+  PTY --> SH
+  SH --> AG
+  AG -- "훅: dmctl activity" --> ACT
+  SH -- "dmctl run / status / wait (HTTP)" --> API
+  API --> RS
+  API --> WM
+  API --> AD
+  ACT --> API
+  API -- "SSE 명령" --> BR
+  WSJ -- "PUT" --> API
+```
+
+에이전트가 서버에 말을 거는 통로는 **도구 셸의 `dmctl` 하나**다. 상태의 원천은 훅이고,
+화면은 진단에만 쓴다.
+
+### 팀 한 바퀴 — 판단이 갈리는 두 분기
+
+```mermaid
+flowchart TD
+  A["dmctl new-window -n"] --> B["dmctl split-h N"]
+  B --> C["dmctl run start"]
+  C --> ISO{"--isolation ?"}
+  ISO -- "none (기본)" --> M["dmctl run member --brief -<br/>서버가 프리앰블 조립"]
+  ISO -- "per-run / per-member" --> G["조정자 cwd 로 저장소·base 확정"]
+  G --> GF{"git 저장소인가"}
+  GF -- "아니다" --> ERR["not_a_git_repo<br/>none 으로 낮추지 않는다"]
+  GF -- "맞다" --> WT["worktree 생성<br/>--no-track · branch.base 기록"]
+  WT --> M
+  M --> CD["격리면: send-input 'cd worktree'"]
+  CD --> L["dmctl run launch | send-input<br/>한 Bash 호출에서 병렬"]
+  L --> WAIT["dmctl wait --for ready"]
+  WAIT --> RC{"rc"}
+  RC -- "5 blocked" --> DIAG["read-screen 으로 진단"]
+  RC -- "4 timeout" --> CKPT["체크포인트 — 죽이지 않는다"]
+  DIAG --> WAIT
+  CKPT --> WAIT
+  RC -- "0 ready" --> K["dmctl msg 로 Kickoff"]
+  K --> WORK["멤버 작업"]
+  WORK --> REP["dmctl run report<br/>1회 · --outcome 필수"]
+  REP --> ST["dmctl run status"]
+  ST --> CL["dmctl run close"]
+  CL --> UN{"미보고 멤버"}
+  UN -- "있다" --> REFUSE["거부 + 목록<br/>--force 로만"]
+  UN -- "없다" --> CLEAN{"작업 트리"}
+  CLEAN -- "clean" --> RM["worktree 제거 · 브랜치 -d"]
+  CLEAN -- "dirty" --> KEEP["보존 + 잔여물 보고"]
+  CLEAN -- "--keep-worktrees" --> KEEPALL["전부 보존 (kept)"]
+  RM --> EXIT["/exit → close-tab"]
+  KEEP --> EXIT
+  KEEPALL --> EXIT
+  EXIT --> DONE["마지막 탭에서 전용 창 자동 소멸"]
+```
+
+기동부터 Kickoff 까지는 **하나의 어시스턴트 턴** 안에서 끝나야 한다. 그리고 `brief` 는
+기동 프롬프트에 실리므로 멤버는 뜨자마자 시작한다 — 팀원 간 협업 지시를 brief 에 담으면
+상대가 아직 없을 때 송신해 데드락이 된다.
+
+### 타입 — 세 패키지가 각자 하나씩만 안다
+
+```mermaid
+classDiagram
+  direction LR
+  class Store {
+    -dir string
+    -epoch string
+    +Load() error
+    +Start(StartOptions) Record
+    +AddMember(runID, MemberSpec) Member
+    +Report(senderToolID, ReportSpec) Member
+    +Close(runID, force) Record
+    +MarkWorktrees(runID, marks) error
+    +MemberByTool(toolID) Member
+  }
+  class Record {
+    +ID string
+    +Short string
+    +Objective string
+    +Projection projection
+    +Isolation isolation
+    +State state
+    +Epoch string
+    +CoordinatorToolID string
+    +WindowID string
+    +Repo string
+    +Base string
+    +WorktreeTargets() List~Worktree~
+  }
+  class Member {
+    +ID string
+    +Role string
+    +Agent string
+    +Brief string
+    +ToolID string
+    +TabID string
+    +State memberState
+    +Outcome outcome
+    +Summary string
+    +Reported() bool
+  }
+  class Worktree {
+    +Path string
+    +Branch string
+    +Base string
+    +Removed bool
+    +Residue string
+    +Detail string
+  }
+  class Manager {
+    -root string
+    -mu Mutex
+    -git Runner
+    +Resolve(cwd, base) Repo
+    +Create(Spec) error
+    +Remove(RemoveSpec) Result
+    +Rollback(Spec)
+    +BranchExists(repo, branch) bool
+    +Path(runSlug, leaf) string
+  }
+  class Result {
+    +Path string
+    +Branch string
+    +Removed bool
+    +Residue string
+    +Detail string
+  }
+  class Adapter {
+    +ID string
+    +DetectCmd string
+    +Launch List~string~
+    +ModelFlag string
+    +PromptInjection promptInjection
+    +ArgvSeparator string
+    +PolicyInjection PolicyInjection
+    +HookParse func
+    +Readiness Readiness
+    +ExitCommand string
+    +LaunchLine(model, prompt) string
+  }
+  class Server {
+    +Runs Store
+    +Worktrees Manager
+    +provisionRun(iso, cwd, base)
+    +provisionMember(rec, role)
+    +cleanupWorktrees(rec, keep) List~Result~
+    +deriveMemberState(m) memberState
+  }
+  Store "1" o-- "*" Record : 영속
+  Record "1" *-- "*" Member : members
+  Record "1" --> "0..1" Worktree : per-run 공유 트리
+  Member "1" --> "0..1" Worktree : per-member 전용 트리
+  Server --> Store : 기록
+  Server --> Manager : 파일시스템
+  Server --> Adapter : 기동·훅 파싱
+  Manager ..> Result : 정리 결과
+  Result ..> Worktree : MarkWorktrees 로 기록에 반영
+```
+
+`Worktree` 가 기록과 파일시스템의 접점이다 — 생성 시 경로·브랜치·base 를 받고, 정리 뒤에는
+`Removed`·`Residue` 가 채워져 `run status` 가 나중에도 잔여물을 말한다.
+
+### 상태 — 무엇이 권위인가
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  [*] --> open : run start
+  open --> closed : run close (미보고 없음 · 또는 --force)
+  open --> aborted : 서버 재기동 · epoch 펜싱
+  closed --> [*]
+  aborted --> [*]
+```
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  [*] --> starting : run member
+  starting --> ready : 훅 idle/done
+  ready --> working : 훅 working
+  working --> waiting : 훅 Notification (권한 대기)
+  waiting --> working : 사람이 응답
+  working --> done : run report --outcome succeeded
+  working --> failed : run report --outcome failed
+  starting --> lost : 도구 사망
+  working --> lost : 도구 사망
+  done --> [*]
+  failed --> [*]
+```
+
+멤버 상태는 대부분 조회 시점에 파생되고, **보고는 기록이 관측을 이긴다** — 보고를 마친
+멤버는 프롬프트로 돌아가 유휴가 되어도 `done` 이다. `waiting` 은 준비완료가 아니다.
+
 ## 에이전트 어댑터 레지스트리 (`internal/agentadapter`)
 
 에이전트별 지식은 **선언 테이블 하나**다. 전에는 훅 파서가 `dmctl_activity.go` 의
