@@ -87,6 +87,23 @@ type Adapter struct {
 	ModelFlag string
 	// PromptInjection 은 초기 프롬프트 전달 방식이다.
 	PromptInjection PromptInjection
+	// ArgvSeparator 는 위치 인자 프롬프트 **바로 앞**에 넣는 구분자다.
+	//
+	// 없으면 가변 인자 플래그가 프롬프트를 삼킨다. 실측으로 밟았다 —
+	// `claude --allowedTools 'Bash(dmctl:*)' '<프리앰블>'` 은 --allowedTools 가
+	// <tools...> 가변 인자라 프리앰블까지 도구 이름으로 먹고, 에이전트는 빈
+	// 프롬프트로 뜬다. 조용히 실패하므로 화면을 보기 전에는 알 수 없다.
+	ArgvSeparator string
+	// MemberArgs 는 Run 멤버로 띄울 때 덧붙는 인자다.
+	//
+	// 멤버는 보고·질문을 dmctl 로 해야 하는데, 기본 기동에서는 그 **첫 명령이
+	// 승인 프롬프트에 걸려** 무인 팀이 성립하지 않는다. 실측했다 — 멤버가
+	// 프리앰블대로 run report 를 만들었지만 승인 대기에서 멈췄고, 조정자가
+	// 팀원 수만큼 승인해 줘야 했다.
+	//
+	// 사전 허용은 **dmctl 로만 한정**한다. 전면 우회는 멤버에게 사용자가 주지
+	// 않은 권한을 주는 것이라 선택지가 아니다.
+	MemberArgs []string
 	// PolicyInjection 은 세션 스코프 정책 주입 방식이다.
 	PolicyInjection PolicyInjection
 	// HookParse 는 훅 stdin JSON 을 활동 보고로 바꾼다. 이 필드가 `switch agent`
@@ -140,11 +157,18 @@ func (a Adapter) LaunchLine(model, prompt string) string {
 	if model != "" && a.ModelFlag != "" {
 		parts = append(parts, a.ModelFlag, model)
 	}
-	line := strings.Join(parts, " ")
-	if a.PromptInjection == PromptArgv && prompt != "" {
-		line += " " + shellQuote(prompt)
+	for _, arg := range a.MemberArgs {
+		parts = append(parts, shellQuote(arg))
 	}
-	return line
+	if a.PromptInjection == PromptArgv && prompt != "" {
+		// 구분자는 프롬프트 바로 앞이어야 한다 — 뒤에 오는 플래그가 있으면
+		// 그것까지 프롬프트로 먹힌다.
+		if a.ArgvSeparator != "" {
+			parts = append(parts, a.ArgvSeparator)
+		}
+		parts = append(parts, shellQuote(prompt))
+	}
+	return strings.Join(parts, " ")
 }
 
 // shellQuote wraps s in single quotes so no shell expansion can touch it.

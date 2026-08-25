@@ -158,3 +158,54 @@ func TestLaunchLine_StdinAfterStartCarriesNoPrompt(t *testing.T) {
 		}
 	}
 }
+
+// FR-ADP-1 / 실측: 멤버는 보고·질문을 dmctl 로 해야 하는데, 기본 기동에서는 그
+// 첫 명령이 승인 프롬프트에 걸려 무인 팀이 성립하지 않는다. 실제로 haiku 멤버를
+// 띄워 확인했다 — 프리앰블대로 run report 를 만들었지만 승인 대기에서 멈췄다.
+func TestMemberArgs_PreAuthorizeDmctlOnly(t *testing.T) {
+	claude, _ := Get("claude")
+	line := claude.LaunchLine("haiku", "안녕")
+
+	if !strings.Contains(line, "--allowedTools") {
+		t.Fatalf("멤버 기동줄이 dmctl 을 사전 허용하지 않는다: %q", line)
+	}
+	if !strings.Contains(line, "dmctl") {
+		t.Fatalf("허용 대상에 dmctl 이 없다: %q", line)
+	}
+	// 최소 권한이어야 한다 — 전면 우회 플래그는 선언에 들어오면 안 된다.
+	for _, banned := range []string{"bypassPermissions", "dangerously", "dontAsk"} {
+		if strings.Contains(line, banned) {
+			t.Fatalf("과도한 권한 플래그가 선언됐다: %q (%q)", banned, line)
+		}
+	}
+}
+
+// 실측으로 확인한 함정: --allowedTools 는 가변 인자(<tools...>)라 뒤따르는 위치
+// 인자 프롬프트까지 삼킨다. 실제로 프리앰블이 도구 이름으로 먹혀 빈 프롬프트로
+// 기동됐다. 구분자가 그것을 막는다.
+func TestLaunchLine_SeparatorProtectsThePromptFromVariadicFlags(t *testing.T) {
+	claude, _ := Get("claude")
+	line := claude.LaunchLine("haiku", "프리앰블 본문")
+
+	sep := strings.Index(line, " -- ")
+	if sep < 0 {
+		t.Fatalf("프롬프트 앞 구분자가 없다 — 가변 인자 플래그가 프롬프트를 삼킨다: %q", line)
+	}
+	// 구분자는 프롬프트 **바로 앞**이어야 한다. 플래그가 그 뒤에 오면 무의미하다.
+	if !strings.HasPrefix(line[sep+4:], "'프리앰블 본문'") {
+		t.Fatalf("구분자 뒤가 프롬프트가 아니다: %q", line[sep+4:])
+	}
+	if strings.Index(line, "--allowedTools") > sep {
+		t.Fatalf("허용 플래그가 구분자 뒤에 있다 — 프롬프트로 먹힌다: %q", line)
+	}
+}
+
+// 인자 값에도 셸 메타문자가 있다. Bash(dmctl:*) 의 괄호·별표가 전개되면
+// 기동 자체가 깨지거나 엉뚱한 값이 전달된다.
+func TestLaunchLine_QuotesMemberArgValues(t *testing.T) {
+	claude, _ := Get("claude")
+	line := claude.LaunchLine("", "x")
+	if strings.Contains(line, "Bash(dmctl:*)") && !strings.Contains(line, "'Bash(dmctl:*)'") {
+		t.Fatalf("인자 값이 인용되지 않아 셸이 전개한다: %q", line)
+	}
+}

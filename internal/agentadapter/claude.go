@@ -12,6 +12,10 @@ var claudeAdapter = Adapter{
 	Launch:          []string{"claude"},
 	ModelFlag:       "--model",
 	PromptInjection: PromptArgv, // claude [options] [command] [prompt]
+	ArgvSeparator:   "--",
+	// 멤버가 보고·질문을 할 수 있게 dmctl 만 사전 허용한다. 그 외 명령은
+	// 그대로 승인을 받는다 — 멤버에게 사용자가 주지 않은 권한을 주지 않는다.
+	MemberArgs: []string{"--allowedTools", "Bash(dmctl:*)"},
 	PolicyInjection: PolicyInjection{
 		// 알림 훅은 --settings, 오케스트레이션 스킬은 --plugin-dir 로 붙는다.
 		// 둘 다 per-invocation 이라 사용자의 ~/.claude 를 건드리지 않는다.

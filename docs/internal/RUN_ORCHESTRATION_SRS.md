@@ -300,6 +300,24 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 보고했다면 그것이 이긴다 — 출력이 멎었다는 것은 사고 중이라는 뜻이지 준비완료가 아니다.
 또한 정적 폴백은 **`ready` 전용**이다. 침묵은 완료(`done`)의 근거가 될 수 없다.
 
+**FR-STA-4b** (2026-08-25 신설, 실측 근거) 정적 폴백은 **어댑터가 훅으로 준비완료를
+말하지 않는 에이전트에만** 적용한다(`Readiness.Hooks=false`). 훅을 주는 에이전트는
+훅을 기다리다 타임아웃(체크포인트)으로 돌아간다.
+
+> **근거 — 실제로 밟았다.** Claude Code 를 멤버로 띄우자 **폴더 신뢰 확인 모달**이
+> 떴는데, 그 상태에서 화면은 조용하고(`quietMs=21023`) 훅은 아무것도 보고하지
+> 않아(`state=unknown`) 정적 폴백이 그것을 준비완료로 판정했다 —
+> `dmctl wait --for ready` 가 `reason=quiescence`, `waitedMs=0` 으로 rc=0 을 냈다.
+> 거기서 Kickoff 를 보내면 모달이 삼킨다. 이는 FR-PRE-8 이 막으려던 데드락과
+> 같은 결말이다.
+>
+> 시작 모달은 시간이 지난다고 풀리지 않으므로, 침묵을 근거로 삼는 대신 훅을
+> 기다리다 체크포인트로 돌려주는 것이 정직하다. 어떤 에이전트가 도는지는 Run 멤버
+> 기록이 안다. 멤버가 아닌 도구는 알 수 없으므로 기존 동작을 유지한다(NFR-RUN-1).
+>
+> 이것이 `Readiness` 필드의 첫 실질 소비자다. 사다리 2단계(화면 패턴)는 여전히
+> 구현하지 않는다 — 화면 패턴이었다면 스테이터스라인 하나로 다시 깨졌을 것이다.
+
 **FR-STA-5** **`waiting` 은 준비완료가 아니다.** 훅 상태가 `waiting` 이면 `wait` 은
 대기를 계속하지 않고 **즉시 `blocked` 로 반환**한다(rc=5). 권한 확인 대기는 시간이
 지난다고 해소되지 않으며, 사람이나 조정자의 개입이 필요하다.
@@ -326,8 +344,26 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 | `promptInjection` | 프롬프트 전달 방식 — `argv` \| `stdin-after-start` |
 | `policyInjection` | 정책 주입 방식 — Claude 는 `--plugin-dir`/`--settings`, codex 는 `-c`/AGENTS.md |
 | `hookParse` | 훅 stdin JSON → `activityReport` 변환 (함수 값) |
-| `readiness` | 훅 기반인지, 화면 패턴 폴백이 필요한지 (FR-STA-4 의 2단계) |
+| `readiness` | 훅 기반인지, 화면 패턴 폴백이 필요한지 (FR-STA-4 의 2단계, FR-STA-4b) |
 | `exitCommand` | 정중한 종료 지시 (Claude `/exit`) |
+| `argvSeparator` | 위치 인자 프롬프트 **바로 앞**의 구분자 (Claude `--`) |
+| `memberArgs` | Run 멤버로 띄울 때 덧붙는 인자 (Claude `--allowedTools "Bash(dmctl:*)"`) |
+
+> **뒤 두 필드는 2026-08-25 실측으로 추가됐다.**
+>
+> - `memberArgs` — 멤버가 보고·질문을 하려면 `dmctl` 을 실행해야 하는데, 기본
+>   기동에서는 그 **첫 명령이 승인 프롬프트에 걸린다.** 실제로 haiku 멤버가
+>   프리앰블대로 `run report` 를 만들었으나 승인 대기에서 멈췄고, 서버 로그에
+>   `/api/runs/report` 가 0건이었다. 조정자가 팀원 수만큼 승인해 줘야 하므로
+>   무인 팀이 성립하지 않는다. 사전 허용은 **`dmctl` 로만 한정**한다 — 전면
+>   우회는 멤버에게 사용자가 주지 않은 권한을 주는 것이라 선택지가 아니다.
+> - `argvSeparator` — `--allowedTools` 는 가변 인자(`<tools...>`)라 뒤따르는 위치
+>   인자 프롬프트까지 삼킨다. 실제로 프리앰블이 도구 이름으로 먹혀 **빈 프롬프트로
+>   기동**됐고, 화면을 보기 전에는 알 수 없었다. orca 의 `argvPromptSeparator`
+>   가 존재하는 이유와 같다 (`ORCHESTRATOR_RESEARCH_NOTES` §4.1).
+>
+> 둘을 적용한 뒤 전 사슬을 다시 실측했다 — 기동에서 보고 기록까지 **10초**,
+> 승인 프롬프트 0건, `run status` 가 `state=done outcome=succeeded` 로 반영.
 
 **FR-ADP-2** `dmctl_activity.go` 의 `switch agent { case "claude": … case "codex": … }`
 를 제거하고 레지스트리 조회로 대체한다. 훅 파서 자체(`parseClaudeHook` 등)는 각
@@ -574,6 +610,9 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 | TC-ADP-2 | FR-ADP-3 | 알 수 없는 에이전트 id | 명확한 오류, rc≠0 (훅 경로만 rc=0 + stderr — FR-ADP-3 주석) |
 | TC-ADP-3 | FR-ADP-5 | Claude 멤버 기동 후 `~/.claude` 비교 | 사용자 영구 설정 무변경 |
 | TC-ADP-4 | FR-ADP-1 | 레지스트리의 `policyInjection` ↔ 설치된 셸 래퍼 대조 | 선언과 실제 주입기가 일치. 어긋나면 실패 |
+| TC-ADP-5 | FR-ADP-1 | 멤버 기동줄 생성 | `dmctl` 만 사전 허용. 전면 우회 플래그 0건 |
+| TC-ADP-6 | FR-ADP-1 | 가변 인자 플래그 + 위치 인자 프롬프트 | 프롬프트 바로 앞에 구분자. 프롬프트가 먹히지 않음 |
+| TC-STA-9 | FR-STA-4b | 훅 기반 멤버가 `state=unknown` + 3초 정적 | ready 로 판정하지 **않는다**. 훅 없는 에이전트는 종전대로 ready |
 | TC-WKT-1 | FR-WKT-2 | `isolation=per-member` 로 Run 시작 | worktree N개. `git config branch.<b>.base` 기록. upstream 없음 |
 | TC-WKT-2 | FR-WKT-3/4 | 같은 role 로 두 번째 Run | 경로가 다르다 (uuid 파생) |
 | TC-WKT-3 | FR-WKT-6 | 브랜치명 `-x` | 거부 |

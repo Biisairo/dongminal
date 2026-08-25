@@ -14,6 +14,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"dongminal/internal/agentadapter"
 )
 
 const (
@@ -112,13 +114,44 @@ func (s *Server) toolStatusOf(toolID string, live bool) toolStatus {
 	return st
 }
 
+// quiescenceAllowed reports whether the static fallback (FR-STA-4 3단계) may
+// decide readiness for this tool.
+//
+// **훅으로 준비완료를 말하는 에이전트에는 쓰지 않는다.** 실측으로 밟은 결함이다 —
+// Claude Code 멤버가 폴더 신뢰 확인 모달에 막혀 있는 동안 화면은 조용하고
+// (quietMs=21023) 훅은 아무것도 보고하지 않아(state=unknown), 폴백이 그 상태를
+// 준비완료로 오인해 `wait --for ready` 가 waitedMs=0 으로 성공을 냈다. 거기서
+// Kickoff 를 보내면 모달이 삼킨다. 시작 모달은 시간이 지난다고 풀리지 않으므로,
+// 훅을 주는 에이전트는 훅을 기다리다 타임아웃(체크포인트)으로 돌아가는 편이 정직하다.
+//
+// 어떤 에이전트가 도는지는 Run 멤버 기록이 안다. 멤버가 아닌 도구는 알 수 없으므로
+// 기존 동작(폴백 허용)을 유지한다 — Run 을 쓰지 않는 경로는 전후가 같다 (NFR-RUN-1).
+func (s *Server) quiescenceAllowed(toolID string) bool {
+	if s.Runs == nil {
+		return true
+	}
+	m, ok := s.Runs.MemberByTool(toolID)
+	if !ok {
+		return true
+	}
+	ad, err := agentadapter.Get(m.Agent)
+	if err != nil {
+		return true
+	}
+	return !ad.Readiness.Hooks
+}
+
 // evaluateWait applies the readiness ladder (FR-STA-4) and the blocked rule
 // (FR-STA-5). It returns settled=false while the caller should keep waiting.
 //
-// 사다리의 2단계(어댑터가 선언한 준비완료 화면 패턴)는 여기 비어 있다 — 어댑터
-// 레지스트리가 묶음 A 이기 때문이다. 훅을 주지 않는 에이전트는 그때까지 3단계
-// (정적 폴백)로 판정된다.
-func evaluateWait(cond string, st toolStatus) (status, reason string, settled bool) {
+// 사다리의 2단계(어댑터가 선언한 준비완료 화면 패턴)는 여기 비어 있다 —
+// 스펙에는 남아 있으나 구현을 보류했다. 화면 패턴은 사용자가 하단 스테이터스라인
+// 하나만 붙여도 깨지며, FR-SKL-2 가 스킬에서 삭제하려는 fingerprint 와 같은
+// 취약성이기 때문이다.
+//
+// allowQuiescence 는 3단계 적용 여부이며 출처는 어댑터 선언이다
+// (quiescenceAllowed 참조).
+func evaluateWait(cond string, st toolStatus, allowQuiescence bool) (status, reason string, settled bool) {
 	if !st.Live {
 		return "gone", "tool 이 사라졌다", true
 	}
@@ -137,7 +170,7 @@ func evaluateWait(cond string, st toolStatus) (status, reason string, settled bo
 		return "done", "hook", true
 	}
 	// 정적 폴백은 ready 전용이다 — 침묵은 완료의 근거가 아니다.
-	if cond == "ready" && st.State == activityStateUnknown && st.QuietMs >= readyQuietMS {
+	if allowQuiescence && cond == "ready" && st.State == activityStateUnknown && st.QuietMs >= readyQuietMS {
 		return "ready", "quiescence", true
 	}
 	return "", "", false
@@ -192,6 +225,8 @@ func (s *Server) apiToolStatusWait(w http.ResponseWriter, r *http.Request) {
 	deadline := start.Add(time.Duration(timeoutMS) * time.Millisecond)
 	ticker := time.NewTicker(waitPollInterval)
 	defer ticker.Stop()
+	// 폴백 적용 여부는 대기 중에 바뀌지 않는다 — 루프 밖에서 한 번만 정한다.
+	allowQuiescence := s.quiescenceAllowed(toolID)
 	// resolveToolID 가 방금 liveness 를 증명했다.
 	live, liveCheckedAt := true, time.Now()
 	for {
@@ -199,7 +234,7 @@ func (s *Server) apiToolStatusWait(w http.ResponseWriter, r *http.Request) {
 			live, liveCheckedAt = s.toolLive(toolID), time.Now()
 		}
 		st := s.toolStatusOf(toolID, live)
-		if status, reason, settled := evaluateWait(cond, st); settled {
+		if status, reason, settled := evaluateWait(cond, st, allowQuiescence); settled {
 			writeWaitResult(w, st, status, reason, start, timeoutMS)
 			return
 		}
