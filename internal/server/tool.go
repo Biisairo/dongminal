@@ -226,6 +226,11 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 		// PANE_ATTENTION_NOTIFY_SRS: lets `dmctl notify` (incl. detached agent
 		// hooks that have no controlling tty) identify this tool to the server.
 		"DONGMINAL_TOOL_ID=" + id,
+		// macOS /etc/zshrc_Apple_Terminal 은 상속된 TERM_SESSION_ID 로 세션
+		// 저장/복원을 켠다. 모든 도구가 같은 ID 를 물려받아 같은 .session 파일을
+		// 지우려 들면서 rm 오류가 뜬다. 이 변수는 /etc/zshrc 보다 먼저 보여야
+		// 하므로 ZDOTDIR/.zshrc 가 아니라 프로세스 환경에서 준다.
+		"SHELL_SESSIONS_DISABLE=1",
 	}
 	if u, err := user.Current(); err == nil {
 		env = append(env, "USER="+u.Username, "LOGNAME="+u.Username)
