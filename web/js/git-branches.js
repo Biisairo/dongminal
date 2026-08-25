@@ -97,6 +97,10 @@ class GitBranches {
     this._load();
   }
 
+  // ref 를 바꾼 쓰기 뒤에 `GitPanel.afterRefWrite` 가 부른다 (FR-GIT-160). status
+  // 하나로는 어느 브랜치가 생겼는지 사라졌는지 알 수 없으므로 목록을 다시 받는다.
+  reload(){return this._load()}
+
   _adopt(){
     this._repo=this.panel.repo;
     this.reset();

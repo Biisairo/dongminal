@@ -49,9 +49,24 @@ async function openHistory(page: Page, repo: string) {
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-history/);
 }
 
+const git = (repo: string, ...args: string[]) =>
+  execFileSync('git', ['-C', repo, ...args]).toString().trim();
+
 const menu = (page: Page) => page.locator('.git-menu');
 const items = (page: Page) => menu(page).locator('.git-menu-item');
 const hist = (page: Page) => page.locator('#area .pn-body .git-view.git-history');
+const confirmBox = (page: Page) => page.locator('#git-confirm .gc-box');
+const choice = (page: Page) => page.locator('#git-choice .gch-box');
+const create = (page: Page) => page.locator('#git-br-create .gbc-box');
+
+// HEAD 가 아닌 커밋 행. 이미 HEAD 인 커밋으로는 옮겨 간 것도 시작점을 고정한 것도
+// 볼 수 없다.
+async function otherCommit(page: Page, repo: string) {
+  const head = git(repo, 'rev-parse', 'HEAD');
+  const row = hist(page).locator(`.git-hist-row[data-oid]:not([data-oid="${head}"])`).first();
+  await expect(row).toBeVisible({ timeout: 15000 });
+  return { head, row, oid: (await row.getAttribute('data-oid'))! };
+}
 
 // 가짜 kind 를 선언한다 — 프레임워크가 항목 집합만으로 동작해야 한다 (V52).
 // 실행 결과는 window.__menuRan 에 남긴다.
@@ -207,29 +222,70 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
     expect(copied[1]).not.toBe(oid);
   });
 
-  test('N7 (V66 / FR-GIT-141): 여기서 브랜치 생성은 M4 에서 막혀 있고 사유를 보인다', async ({ page }) => {
+  test('N7 (V66 / FR-GIT-141·158): 커밋 우클릭에서 그 커밋을 시작점으로 브랜치를 만든다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'n7');
     await waitForInit(page);
-    await openHistory(page, fx('basic'));
-    const row = hist(page).locator('.git-hist-row[data-oid]').first();
-    await expect(row).toBeVisible({ timeout: 15000 });
+    await openHistory(page, repo);
+    const { head, row, oid } = await otherCommit(page, repo);
+
     await row.click({ button: 'right' });
     const it = items(page).filter({ hasText: '브랜치 생성' });
-    await expect(it).toHaveClass(/disabled/);
-    await expect(it).toHaveAttribute('title', /M5/);
+    await expect(it).not.toHaveClass(/disabled/);
+    await it.click();
+
+    // 18단계의 생성 다이얼로그를 그대로 쓴다 — 같은 것을 두 벌로 만들지 않는다.
+    await expect(create(page)).toBeVisible();
+    // 시작점은 우클릭한 커밋으로 고정돼 열린다 (FR-GIT-158).
+    await expect(create(page).locator('.gbc-start')).toHaveValue(oid);
+    // 만든 뒤 옮겨 가지 않는 것이 기본이다 (FR-GIT-97·173).
+    await expect(create(page).locator('.gbc-checkout')).not.toBeChecked();
+
+    // 이름 검사는 입력 단계에서 돈다 (FR-GIT-159) — 판정이 올 때까지 실행이 막힌다.
+    await create(page).locator('.gbc-name').fill('from-commit');
+    await expect(create(page).locator('.gbc-go')).toBeEnabled({ timeout: 15000 });
+    await create(page).locator('.gbc-go').click();
+    await expect(create(page)).toHaveCount(0, { timeout: 15000 });
+
+    // 브랜치가 그 커밋을 가리키고, HEAD 는 움직이지 않았다.
+    expect(git(repo, 'rev-parse', 'from-commit')).toBe(oid);
+    expect(git(repo, 'rev-parse', 'HEAD')).toBe(head);
   });
 
-  test('N8 (V66 / FR-GIT-144): dirty 면 Checkout (detached) 가 막히고 사유를 보인다', async ({ page }) => {
-    // basic 은 워킹 트리에 변경이 있는 픽스처다 (3그룹).
+  test('N8 (V66 / FR-GIT-144·157, O14): dirty 면 3선택을 거치고 기본은 취소다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'n8');
+    writeFileSync(join(repo, 'f.txt'), 'dirty\n');
     await waitForInit(page);
-    await openHistory(page, fx('basic'));
-    const row = hist(page).locator('.git-hist-row[data-oid]').first();
-    await expect(row).toBeVisible({ timeout: 15000 });
+    await openHistory(page, repo);
+    const { head, row } = await otherCommit(page, repo);
     // 판정은 status 를 딛는다 — 폴링이 한 번 온 뒤에 본다.
     await expect(hist(page).locator('.git-hist-row.uncommitted')).toHaveCount(1, { timeout: 15000 });
+
     await row.click({ button: 'right' });
     const it = items(page).filter({ hasText: 'detached' });
-    await expect(it).toHaveClass(/disabled/);
-    await expect(it).toHaveAttribute('title', /M5/);
+    // 더 이상 막지 않는다 — dirty 는 묶음 N 의 처리를 따른다 (FR-GIT-144).
+    await expect(it).not.toHaveClass(/disabled/);
+    await it.click();
+
+    // detached 사전 경고는 dirty 여도 그대로 1단계다.
+    await expect(confirmBox(page)).toBeVisible({ timeout: 15000 });
+    await expect(confirmBox(page)).toHaveClass(/soft/);
+    await confirmBox(page).locator('.gc-go').click();
+
+    // 그 다음이 묶음 N 의 3선택이다 — Branches 탭과 같은 흐름이다 (FR-GIT-157).
+    await expect(choice(page)).toBeVisible({ timeout: 15000 });
+    const opts = choice(page).locator('.gch-opt');
+    await expect(opts).toHaveCount(3);
+    await expect(opts.nth(0)).toHaveAttribute('data-opt', 'cancel');
+    await expect(opts.nth(1)).toHaveAttribute('data-opt', 'stash');
+    await expect(opts.nth(2)).toHaveAttribute('data-opt', 'force');
+    // 기본은 취소다 (FR-GIT-97, O14) — 강제가 기본이 아니다.
+    await expect(choice(page).locator('.gch-opt[data-opt="cancel"]')).toBeFocused();
+
+    // Esc 는 취소이고, 취소는 아무것도 하지 않는다 (FR-GIT-176).
+    await page.keyboard.press('Escape');
+    await expect(choice(page)).toHaveCount(0);
+    expect(git(repo, 'rev-parse', 'HEAD')).toBe(head);
+    expect(git(repo, 'status', '--porcelain')).not.toBe('');
   });
 
   test('N9 (V66 / FR-GIT-144): clean 이면 detached 경고를 1단계 거친 뒤 checkout 한다', async ({ page }) => {
@@ -275,5 +331,29 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
     await expect(menu(page)).toBeVisible();
     await expect(page.locator('.git-ctxmenu')).toHaveCount(0);
     await expect(items(page).filter({ hasText: 'Copy Path' })).toHaveCount(1);
+  });
+
+  test('N11 (V66 / FR-GIT-144·157): dirty 에서 stash 후 진행하면 변경이 stash 로 남고 detached 가 된다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'n11');
+    writeFileSync(join(repo, 'f.txt'), 'keep-me\n');
+    await waitForInit(page);
+    await openHistory(page, repo);
+    const { oid, row } = await otherCommit(page, repo);
+    await expect(hist(page).locator('.git-hist-row.uncommitted')).toHaveCount(1, { timeout: 15000 });
+
+    await row.click({ button: 'right' });
+    await items(page).filter({ hasText: 'detached' }).click();
+    await expect(confirmBox(page)).toBeVisible({ timeout: 15000 });
+    await confirmBox(page).locator('.gc-go').click();
+    await expect(choice(page)).toBeVisible({ timeout: 15000 });
+    await choice(page).locator('.gch-opt[data-opt="stash"]').click();
+
+    await expect
+      .poll(() => git(repo, 'rev-parse', 'HEAD'), { timeout: 20000 })
+      .toBe(oid);
+    expect(git(repo, 'branch', '--show-current')).toBe('');
+    // 변경은 버려지지 않았다.
+    expect(git(repo, 'stash', 'list')).not.toBe('');
+    expect(git(repo, 'status', '--porcelain')).toBe('');
   });
 });

@@ -445,10 +445,8 @@ const GIT_DIFF_REV_RANGE='..';
 
 // ── 컨텍스트 메뉴 프레임워크 (GIT_SRS §3C.2 / FR-GIT-146) ──
 
-const GIT_MENU_M5='M5 에서 제공됩니다';
-const GIT_MENU_DIRTY='미커밋 변경이 있습니다';
 // FR-GIT-144: detached 가 됨을 사전 경고한다. 파괴적이 아니므로 1단계 확인이다 —
-// dirty 면 M4 시점에 차단한다 (강제를 기본으로 만들지 않는다, O14).
+// dirty 면 그 뒤에 묶음 N 의 3선택이 이어진다 (FR-GIT-157, O14).
 const GIT_CHECKOUT_DETACHED_ACT='checkout_detached';
 const GIT_CHECKOUT_DETACHED_TITLE='HEAD 가 브랜치를 떠납니다 (detached)';
 

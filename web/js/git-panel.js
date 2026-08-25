@@ -649,6 +649,10 @@ class GitPanel {
   checkoutRef(ref,o){return GitBranches.checkout(this,ref,o||{})}
   checkoutRemote(short){return GitBranches.checkoutRemote(this,short)}
 
+  // FR-GIT-141: 커밋 우클릭의 "여기서 브랜치 생성". 18단계의 생성 다이얼로그에
+  // 시작점만 고정해 넘긴다 — 이름 검증도 그것이 이미 안다 (FR-GIT-158·159).
+  createBranchFrom(oid){return GitBranches.create(this,{startRef:oid||''})}
+
   /**
    * ref 를 바꾼 쓰기 하나의 뒷정리 (FR-GIT-160·170).
    *
@@ -697,7 +701,7 @@ class GitPanel {
   }
 
   // 워킹 트리에 남은 변경의 개수. History 의 미커밋 변경 행(FR-GIT-127)과
-  // Checkout (detached) 의 차단 판정(FR-GIT-144)이 같은 값을 딛는다.
+  // checkout 의 dirty 판정(FR-GIT-157)이 같은 값을 딛는다.
   dirtyCount(){
     const s=this._status&&this._status.status; if(!s) return 0;
     let n=0;
@@ -724,14 +728,6 @@ class GitPanel {
   // Diff 탭이 보일 대상. 커밋 축이 있으면 그것이 먼저다 — Changes 탭의 미리보기는
   // previewFile 만 본다 (§3.2).
   _diffTarget(){return this.commitFile||this.previewFile}
-
-  // FR-GIT-144: detached 로 옮긴다. 사전 경고는 GitMenu 가 이미 받았다 — 강제는
-  // 쓰지 않는다 (dirty 면 항목 자체가 막힌다).
-  async checkoutDetached(oid){
-    const res=await this.post('/api/git/checkout',{repo:this.repo,ref:oid,detach:true});
-    if(!res.ok){this.applyWriteFail(res);return}
-    this.adopt(res.data);
-  }
 
   _selKey(group,path){return group+'\x00'+path}
 

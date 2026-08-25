@@ -24,19 +24,20 @@ function gitMenuPanel(){return (window.app&&app.gitPanel)||null}
 const GIT_MENUS={
   // 커밋 (FR-GIT-140~144). 저장소를 바꾸는 항목은 checkout 하나다.
   commit:[
-    // FR-GIT-141: 생성 다이얼로그는 M5 묶음 P 다. 자리만 열어 두고 사유를 보인다.
-    {id:'branch-from',label:'여기서 브랜치 생성…',disabled:()=>GIT_MENU_M5},
+    // FR-GIT-141: 18단계의 생성 다이얼로그를 시작점만 이 커밋으로 고정해 연다 —
+    // 이름 검증(FR-GIT-159)까지 그것이 이미 안다.
+    {id:'branch-from',label:'여기서 브랜치 생성…',
+     run:t=>gitMenuPanel().createBranchFrom(t.oid)},
     {id:'copy-hash',   label:'커밋 해시 복사',run:t=>gitMenuPanel().copyText(t.oid)},
     {id:'copy-subject',label:'커밋 제목 복사',run:t=>gitMenuPanel().copyText(t.subject)},
     {sep:true},
-    // FR-GIT-144: detached 가 됨을 사전 경고한다. dirty 면 M5 묶음 N 의 처리를
-    // 따라야 하므로 M4 에서는 차단한다 — 강제를 기본으로 만들지 않는다 (O14).
+    // FR-GIT-144: detached 가 됨을 사전 경고하고, dirty 면 묶음 N 의 3선택을
+    // 거친다 — 태그 메뉴와 같은 경로다. 판정을 두 벌로 만들지 않는다.
     {id:'checkout-detached',label:'Checkout (detached)',warn:true,
      action:GIT_CHECKOUT_DETACHED_ACT,title:GIT_CHECKOUT_DETACHED_TITLE,
      targets:t=>[t.abbrev+(t.subject?' '+t.subject:'')],
      hint:()=>({note:GIT_DETACHED_NOTE,command:''}),
-     disabled:()=>gitMenuPanel().isDirty()?GIT_MENU_DIRTY+' — '+GIT_MENU_M5:'',
-     run:t=>gitMenuPanel().checkoutDetached(t.oid)},
+     run:t=>gitMenuPanel().checkoutRef(t.oid,{detach:true})},
   ],
   // 파일 (S1 목록 / History 상세 목록). 저장소를 바꾸는 항목이 하나도 없다
   // (FR-GIT-41) — 5단계의 GIT_CTX_ITEMS 를 그대로 옮긴 것이다.
