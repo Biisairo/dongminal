@@ -91,6 +91,14 @@ type DiffSide struct {
 1. **존재 확인 → 크기**
    - blob 쪽(`:<p>` / `HEAD:<p>`): `git cat-file -s <rev>` 로 크기를 얻는다.
      실패하면 `absent`.
+
+     실측 (git 2.50.1): 없는 경로는 **exit 128** 이고 stderr 가
+     `fatal: path 'x' does not exist in 'HEAD'` 다. HEAD 자체가 없는 저장소
+     (초기 커밋 전)는 `fatal: invalid object name 'HEAD'.` 다.
+     이 둘은 `internal/git` 의 `classify` 가 분류하지 않으므로 일반 `*ExecError`
+     로 온다 — **`ExecError.Stderr` 를 보고 `absent` 로 옮긴다.** 오류로 올려
+     보내면 새 파일·삭제 파일의 diff 가 전부 500 이 된다.
+     그 밖의 exit 128 은 오류다. 조용히 `absent` 로 뭉개지 않는다.
    - 워킹 트리 쪽: `os.Stat`. `IsNotExist` 면 `absent`. 디렉터리면 `absent`.
 2. **크기 상한** — `size > DiffMaxBytes` 면 `too_large` (본문을 읽지 않는다).
 3. **본문 읽기** — blob 은 `git show <rev>`, 워킹 트리는 `os.ReadFile`.
