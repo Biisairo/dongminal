@@ -200,6 +200,8 @@ var apiRoutes = []apiRoute{
 	{http.MethodPost, exactPath("/api/git/repos/unpin"), (*Server).apiGitUnpin},
 	{http.MethodGet, exactPath("/api/git/status"), (*Server).apiGitStatus},
 	{http.MethodGet, exactPath("/api/git/signature"), (*Server).apiGitSignature},
+	// 묶음 F — diff 양쪽 내용 (GIT_SRS FR-GIT-44~48). commit-parent 축은 M4 다.
+	{http.MethodGet, exactPath("/api/git/diff-content"), (*Server).apiGitDiffContent},
 	{http.MethodGet, exactPath("/api/stats"), (*Server).apiStats},
 }
 

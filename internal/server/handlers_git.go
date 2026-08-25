@@ -305,3 +305,57 @@ func (s *Server) apiGitSignature(w http.ResponseWriter, r *http.Request) {
 		"signature": sig,
 	})
 }
+
+// gitErrNotFound 는 "요청한 것이 없다"다. 리포는 있으나 그 축의 양쪽에 파일이 없는
+// 경우이며, 저장소가 아닌 것(not_a_git_repo)과 구분되어야 한다.
+const gitErrNotFound = "not_found"
+
+// gitDiffRequested 는 클라이언트가 보낸 값 그대로다 — stale 가드(FR-GIT-54)의
+// 서버측 절반이며, 식별자는 (리포, 축, 경로) 다. 해석된 루트가 이 자리를 대신하면
+// 클라이언트는 응답과 자기 요청의 짝을 맞출 수 없다.
+type gitDiffRequested struct {
+	Repo     string `json:"repo"`
+	Axis     string `json:"axis"`
+	Path     string `json:"path"`
+	OrigPath string `json:"origPath"`
+}
+
+type gitDiffResponse struct {
+	Requested gitDiffRequested `json:"requested"`
+	git.DiffContent
+}
+
+// GET /api/git/diff-content?repo=&axis=&path=&origPath= — 한 축의 양쪽 전체 내용
+// (FR-GIT-44~48). **unified diff 텍스트를 주지 않는다** — Monaco DiffEditor 가 두
+// 모델을 요구하고, diff 계산은 그쪽의 일이다 (FR-GIT-43).
+func (s *Server) apiGitDiffContent(w http.ResponseWriter, r *http.Request) {
+	if s.Git == nil {
+		gitUnavailable(w)
+		return
+	}
+	root, requested, ok := s.gitRepoParam(w, r)
+	if !ok {
+		return
+	}
+	q := r.URL.Query()
+	req := gitDiffRequested{Repo: requested, Axis: q.Get("axis"), Path: q.Get("path"), OrigPath: q.Get("origPath")}
+	dc, err := s.Git.Service().DiffContent(r.Context(), root, req.Axis, req.Path, req.OrigPath)
+	if err != nil {
+		gitDiffError(w, err)
+		return
+	}
+	gitJSON(w, http.StatusOK, gitDiffResponse{Requested: req, DiffContent: dc})
+}
+
+// gitDiffError 는 diff 고유의 거부를 코드로 옮긴 뒤 나머지를 공용 규약에 넘긴다.
+// 잘못된 요청을 500 으로 뭉개면 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다.
+func gitDiffError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, git.ErrDiffAxis), errors.Is(err, git.ErrDiffPath):
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
+	case errors.Is(err, git.ErrDiffBothAbsent):
+		gitFail(w, http.StatusNotFound, gitErrNotFound, gitTail(err.Error()))
+	default:
+		gitError(w, err)
+	}
+}
