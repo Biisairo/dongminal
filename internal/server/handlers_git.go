@@ -306,6 +306,10 @@ type gitDiffRequested struct {
 	Axis     string `json:"axis"`
 	Path     string `json:"path"`
 	OrigPath string `json:"origPath"`
+	// commit-parent 축만 쓴다 (FR-GIT-138·139). stale 가드의 식별자가
+	// (리포, 축, 경로, 리비전) 이므로 리비전도 되돌려준다 (FR-GIT-54·145).
+	Oid       string `json:"oid"`
+	ParentOid string `json:"parentOid"`
 }
 
 type gitDiffResponse struct {
@@ -326,8 +330,18 @@ func (s *Server) apiGitDiffContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	req := gitDiffRequested{Repo: requested, Axis: q.Get("axis"), Path: q.Get("path"), OrigPath: q.Get("origPath")}
-	dc, err := s.Git.Service().DiffContent(r.Context(), root, req.Axis, req.Path, req.OrigPath)
+	req := gitDiffRequested{
+		Repo: requested, Axis: q.Get("axis"), Path: q.Get("path"), OrigPath: q.Get("origPath"),
+		Oid: q.Get("oid"), ParentOid: q.Get("parentOid"),
+	}
+	// 커밋 축은 리비전을 인자로 받으므로 진입점이 다르다 (git.DiffCommit 주석 참고).
+	var dc git.DiffContent
+	var err error
+	if req.Axis == git.AxisCommitParent {
+		dc, err = s.Git.Service().DiffCommit(r.Context(), root, req.Oid, req.ParentOid, req.Path, req.OrigPath)
+	} else {
+		dc, err = s.Git.Service().DiffContent(r.Context(), root, req.Axis, req.Path, req.OrigPath)
+	}
 	if err != nil {
 		gitDiffError(w, err)
 		return
@@ -339,9 +353,9 @@ func (s *Server) apiGitDiffContent(w http.ResponseWriter, r *http.Request) {
 // 잘못된 요청을 500 으로 뭉개면 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다.
 func gitDiffError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, git.ErrDiffAxis), errors.Is(err, git.ErrDiffPath):
+	case errors.Is(err, git.ErrDiffAxis), errors.Is(err, git.ErrDiffPath), errors.Is(err, git.ErrUnsafeRev):
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	case errors.Is(err, git.ErrDiffBothAbsent):
+	case errors.Is(err, git.ErrDiffBothAbsent), errors.Is(err, git.ErrRevNotFound):
 		gitFail(w, http.StatusNotFound, gitErrNotFound, gitTail(err.Error()))
 	default:
 		gitError(w, err)
