@@ -155,7 +155,9 @@ func TestAPIGitDiffContent_Rejects(t *testing.T) {
 	}{
 		{"repo 누락", "/api/git/diff-content?axis=index-head&path=a.txt", http.StatusBadRequest, "bad_request"},
 		{"축 누락", base + "&path=a.txt", http.StatusBadRequest, "bad_request"},
-		{"모르는 축", base + "&axis=commit-parent&path=a.txt", http.StatusBadRequest, "bad_request"},
+		{"모르는 축", base + "&axis=bogus-axis&path=a.txt", http.StatusBadRequest, "bad_request"},
+		// 커밋 축은 리비전이 필수다 — 빈 oid 는 `:<path>` 가 되어 index 를 가리킨다.
+		{"커밋 축 oid 누락", base + "&axis=commit-parent&path=a.txt", http.StatusBadRequest, "bad_request"},
 		{"경로 누락", base + "&axis=index-head", http.StatusBadRequest, "bad_request"},
 		{"부모 참조", base + "&axis=index-head&path=../secret", http.StatusBadRequest, "bad_request"},
 		{"절대경로", base + "&axis=index-head&path=/etc/passwd", http.StatusBadRequest, "bad_request"},

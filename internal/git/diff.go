@@ -346,6 +346,11 @@ const AxisCommitParent = "commit-parent"
 // parentOid 가 비면 루트 커밋이다 — original 쪽은 absent 이고 오류가 아니다.
 // 그 커밋이 저장소의 시작이라는 사실을 빈 diff 로 뭉개지 않는다 (FR-GIT-45).
 func (s *Service) DiffCommit(ctx context.Context, repo, oid, parentOid, p, origPath string) (DiffContent, error) {
+	// oid 가 비면 `:<path>` 가 되어 **index 를 가리킨다** — 커밋 축이 조용히 다른
+	// 축이 된다. 빈 값은 거부한다.
+	if strings.TrimSpace(oid) == "" {
+		return DiffContent{}, fmt.Errorf("%w: oid 가 비었다", ErrUnsafeRev)
+	}
 	if err := checkRev("oid", oid); err != nil {
 		return DiffContent{}, err
 	}
