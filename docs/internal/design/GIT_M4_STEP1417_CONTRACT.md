@@ -49,8 +49,18 @@ func (s *Service) Log(ctx context.Context, q LogQuery) ([]Commit, error)
 
 - 포맷은 **NUL 구분**이다 (FR-GIT-113). 메시지에 개행이 있으므로 줄 기반 파싱은
   틀린다.
-  `--pretty=format:%H%x00%h%x00%P%x00%an%x00%ae%x00%at%x00%ct%x00%D%x00%s%x00%x00`
-  — 필드 9개 뒤에 빈 필드 하나로 레코드를 끊는다.
+
+  ```
+  git log -z --pretty=format:%H%x00%h%x00%P%x00%an%x00%ae%x00%at%x00%ct%x00%D%x00%s
+  ```
+
+  **`-z` 를 반드시 준다.** 실측으로 확인한 것 (git 2.50.1):
+  - `-z` 없이 `--pretty=format:` 만 쓰면 git 이 레코드 **사이에 `\n` 을 끼운다.**
+    그러면 다음 레코드의 첫 필드가 `\n<hash>` 가 되어 조용히 틀린다.
+  - `-z` 를 주면 NUL 이 **스트림 전체의 순수 구분자**가 된다 — 레코드마다 끝을
+    표시하지 않고, 마지막에도 NUL 이 붙지 않는다 (3레코드 × 2필드 = NUL 5개).
+  - 따라서 파서는 **레코드당 정확히 9개 필드를 소비**한다. 레코드 종료 표식
+    필드를 두지 않는다. 남은 토큰이 9개 미만이면 오류다.
 - 정렬: `date` → 기본, `author-date` → `--author-date-order`,
   `topo` → `--topo-order` (FR-GIT-128).
 - 필터는 가능한 것을 git 옵션으로 내려보낸다 (FR-GIT-130):
