@@ -320,7 +320,7 @@ PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:
 | 백그라운드 도구 회수 정책(TTL·한도) | FR-BG-9 이 누적을 원리적으로 차단 |
 | 원격 `closeWindow` 의 무인 백그라운드 전환 인자 | FR-BG-4. Run 이 Window 를 정리하는 시나리오는 후속 SRS |
 | `delSession` 의 editor 미저장 변경 확인 | FR-BG-4b. 현행 결손이나 개명 범위 밖 |
-| 다중 창 포커스 소유권 부채 정리 | 별도. Client 등록이 선행. **부분 해소됨** — 전파 경로는 `USER_CHECKLIST_FIXES_SRS` §3.5(FR-XDF-*, 묶음 E)에서 `BroadcastChannel` → 서버 권위(`FocusRegistry`)로 옮겼고 SSE 구독에 `clientId` 가 결선됐다. 남은 것은 Client 를 1급 엔티티로 등록하는 것(`CLIENT_ATTACH_SRS`)이다 |
+| 다중 창 포커스 소유권 부채 정리 | 별도. Client 등록이 선행. **부분 해소됨** — 전파 경로는 `archive/USER_CHECKLIST_FIXES_SRS` §3.5(FR-XDF-*, 묶음 E)에서 `BroadcastChannel` → 서버 권위(`FocusRegistry`)로 옮겼고 SSE 구독에 `clientId` 가 결선됐다. 남은 것은 Client 를 1급 엔티티로 등록하는 것(`CLIENT_ATTACH_SRS`)이다 |
 
 ---
 
@@ -363,6 +363,13 @@ P4 는 재기동을 요구한다(alias 미제공). P5 는 P2 에 의존한다. P
 | 리뷰 | diff 인라인 주석 → 에이전트로 되돌림 | 없음 |
 | 착수 | GitHub/Linear 태스크에서 worktree 개설 | 없음 |
 | 실행 상태 | 워크트리가 실체 | **없음** — `workflows/*.md` 정의서만 있고 런타임 실체 부재 |
+
+> **정정 (2026-08-25).** 위 표와 아래 문단의 "fan-out → **비교** → 병합"은 실측과
+> 어긋난다 — orca 에 자동 비교·병합은 없다. paseo 는 AGPL 이라 코드 차용도 불가다.
+> 근거는 `ORCHESTRATOR_RESEARCH_NOTES.md` §2·§9, 결론은 `RUN_ORCHESTRATION_SRS.md`
+> §2.5·§5. FR-EM-17/18 의 접합 필드는 `RUN_ORCHESTRATION_SRS` 묶음 R 이 **소비하기
+> 시작했다** — "읽는 동작을 추가하지 않는다"는 그 단계에서 해제됐고, "없어도 정상"은
+> NFR-RUN-3 으로 유지된다.
 
 후속 SRS 는 **Orca 의 장점을 최대한 도입한다.** 동작 명세뿐 아니라 **Orca 의 실제 구현(MIT 라이선스 공개 소스)을 읽어 구현 패턴을 참고한다** — worktree 생성·정리, 에이전트 프로세스 감독, diff 주석의 에이전트 왕복, 다중 에이전트 상태 표현. 도입 대상 — worktree 격리, fan-out→비교→병합, diff 인라인 주석 리뷰, 태스크 연동, Run 의 실행 실체. dongminal 의 신뢰 채널 기반 협업 토폴로지는 Orca 에 없는 축이므로 제거하지 않고 병존시킨다.
 

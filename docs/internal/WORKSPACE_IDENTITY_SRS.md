@@ -45,7 +45,7 @@
 ### 1.4 참고 (References)
 
 - `docs/internal/ENTITY_MODEL_RESTRUCTURE_SRS.md` — 엔티티 모델, 좌표계
-- `docs/internal/USER_CHECKLIST_FIXES_SRS.md` §3.5 — FR-XDF-\*, `FocusRegistry`
+- `docs/internal/archive/USER_CHECKLIST_FIXES_SRS.md` §3.5 — FR-XDF-\*, `FocusRegistry`
 - `docs/internal/archive/REMOTE_COMMAND_RESULT_SRS.md` — `creatingActions`, `reqId` echo
 - `docs/internal/archive/UUID_IDENTITY_SRS.md` — 컬럼명·필드명만 적용되고 실제 id 체계에는
   적용되지 않았다 (§2.5)
@@ -520,7 +520,7 @@ pid 확인)과 `scripts/migrate.sh` 의 `/api/ping` 확인(FR-MIG-6). 묶음 M �
 |---|---|
 | `archive/UUID_IDENTITY_SRS.md` | 컬럼명(`uuid=`)·필드명(`TabUUID`)만 적용됐고 실제 id 체계는 카운터로 남아 있었다. 본 SRS FR-WID-1 이 그 간극을 닫는다 |
 | `archive/REMOTE_COMMAND_RESULT_SRS.md` | `creatingActions` 는 `reqId` echo 대상 집합으로 유지. 단일 실행자 대상 집합(FR-SXE-1)은 그보다 넓다 (`openEditorTab`·`restoreTool` 포함) — 두 집합을 분리한다 |
-| `USER_CHECKLIST_FIXES_SRS.md` §3.5 | `FocusRegistry` 에 실행자 선출 책임이 추가된다. 소유권 의미(FR-XDF-\*)는 불변 |
+| `archive/USER_CHECKLIST_FIXES_SRS.md` §3.5 | `FocusRegistry` 에 실행자 선출 책임이 추가된다. 소유권 의미(FR-XDF-\*)는 불변 |
 | `docs/internal/README.md` | "프론트엔드 id 가 UUID 가 아니다" 항목 해소. 사용자 인스턴스 마이그레이션 항목은 §2.6 대로 이미 완료. `internal/uuid` "죽은 패키지" 항목은 FR-UNI-6 으로 해소 |
 | 본 SRS §2.5 | "엔터티 id 는 전 계층에서 opaque 문자열"은 **엔터티 id 에 한해** 맞다. `toolId` 에는 형태 가정이 두 곳 있었다 (§2.7). FR-UNI-10~12 가 이를 걷어낸다 |
 | 본 SRS §3.1 FR-WID-1 | `crypto.randomUUID()` 직접 호출을 `newUUID()` 경유로 개정한다 (FR-UNI-3/5). 보안 컨텍스트가 아닌 접속에서 직접 호출은 예외를 던진다 |

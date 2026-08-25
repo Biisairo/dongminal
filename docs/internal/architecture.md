@@ -7,10 +7,9 @@ cmd/dongminal/         # composition root (main)
 internal/
   adapters/            # internal/{server,workspace} → internal/toolaccess 인터페이스 브리지
   clientpid/           # 원격 TCP(remoteAddr) → client PID (ps/lsof)
-    tools/             # list_workspace, read_output, read_screen, send_input, who_am_i 등
   migrate/             # v1 → v2 엔티티 스키마 1회성 변환 (진입점: `./scripts/migrate.sh`)
   outbuf/              # PTY 출력 바운디드 버퍼 (Stream — readPTY 와 WS/HTTP 리더 통합)
-  run/                 # Run(오케스트레이션 실행)의 공간 계층 접합면 타입 (Projection)
+  run/                 # Run(오케스트레이션 실행) 레코드 — runs.json 저장소 + 투영/격리 타입
   runtime/             # helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
     shellhooks/        # bash-hook.sh, zdotdir/.zshrc (실제 파일)
   runtimebin/          # dmctl/edit/download/detach multi-call CLI 구현
@@ -36,7 +35,7 @@ docs/
 
 **helper CLI** 는 `internal/runtimebin` 의 multi-call dispatch 로 dongminal 바이너리 자체가 처리하므로, `bin/<name>` 은 실행 파일을 가리키는 symlink (미지원 환경에선 복사) 다. `runtimebin.HelperNames()` 가 단일 소스:
 
-- `dmctl` — `/api/commands` 로 워크스페이스 action 브로드캐스트 + `list-workspace`/`who-am-i`/`notify`/`activity`.
+- `dmctl` — `/api/commands` 로 워크스페이스 action 브로드캐스트 + `list-workspace`/`who-am-i`/`notify`/`activity` + 에이전트 접합면(`read-screen`/`send-input`/`msg`/`status`/`wait`/`run`). 아래 "에이전트 접합면과 Run" 절.
 - `edit` — `POST /api/commands` 로 `openEditorTab` 브로드캐스트 (내장 편집기 탭).
 - `download` — OSC 777 `Download;<abs>` 출력.
 - `detach` — 현재 도구를 백그라운드로 보내고 탭을 닫는다 (`--list` / `--restore <id>`).
@@ -69,6 +68,42 @@ DONGMINAL_TOOL_ID=<도구 id>  # detach 가 자기 도구를 식별하는 근거
 도구 타입은 `terminal` 과 `editor` 두 가지다 (`web/js/helpers.js` 의 capability 맵). `editor` 는 `backgroundCapable=false` 이므로 detach 대상이 아니다 (FR-BG-11).
 
 과거의 code-server 통합(`internal/server/codeserver.go`, `/cs/<id>/` 리버스 프록시, `CodeServerManager`)은 `8dc0a3f` 에서 이 내장 편집기로 대체되며 제거됐다.
+
+## 에이전트 접합면과 Run
+
+도구 안에서 도는 에이전트가 워크스페이스를 조회·조작하는 경로다. **액션은 `dmctl`
+서브커맨드, 정책은 세션 스코프로 주입되는 스킬**이며 MCP 는 없다
+(`SKILL_INJECTION_SRS`). 셸만 있으면 되므로 에이전트 종류에 매이지 않는다.
+
+| 엔드포인트 | dmctl | 쓰임 |
+|---|---|---|
+| `GET /api/tools/output` | `read-screen` / `read-output` | 다른 도구의 화면·출력 |
+| `POST /api/tools/input` | `send-input` | 붙여넣기(bracketed paste + 120ms submit) |
+| `POST /api/tools/message` | `msg` | 에이전트 간 신뢰 엔벨로프 |
+| `POST /api/tools/activity/set` | `activity` (훅 브리지) | 에이전트 상태 보고 |
+| `GET /api/tools/activity/get` | `status` | 그 도구의 에이전트 상태 |
+| `GET /api/tools/activity/wait` | `wait --for ready\|done` | 상태 대기 (**서버 long-poll**) |
+| `POST /api/runs`·`/members`·`/report`·`/close`, `GET /api/runs` | `run …` | 실행 기록 |
+
+**준비완료 판정은 화면이 아니라 훅이다.** `dmctl activity` 가 보고한
+`working/waiting/done/idle` 이 1차 근거이고, 훅이 없는 에이전트만 "출력이 3초 정적"
+폴백으로 판정한다. `waiting`(권한 확인 대기)은 준비완료가 아니라 `blocked` 로 즉시
+반환한다 — 시간이 지난다고 풀리지 않기 때문이다. 타임아웃은 실패가 아니라
+체크포인트다 (`RUN_ORCHESTRATION_SRS` 묶음 S).
+
+**Run 은 공간 계층과 직교한 실행 축**이다 (`internal/run`). `runs.json` 에 영속되며,
+서버 기동마다 발급하는 epoch 로 이전 세대가 열어둔 Run 을 로드 시 `aborted` 로
+확정한다 — 백그라운드 도구가 재기동을 넘지 못하므로 되살릴 실체가 없다. 멤버 상태는
+저장하지 않고 **조회 시점에 파생**한다(도구가 죽었으면 `lost`, 훅 상태가 그대로).
+단 보고를 마친 멤버는 기록이 관측을 이긴다.
+
+보고(`run report`)의 권한은 **발신 도구의 정체**다 — 페이로드에 실린 id 를 아는 것은
+권한이 아니다. PID 부모 체인 해석이 우선이고 `DONGMINAL_TOOL_ID` 는 daemon 모드
+폴백이다.
+
+`Tab.runId` · `Window.ownerRunId` 표식은 **best-effort** 다. `workspace.json` 의 쓰기
+주체는 브라우저이고 그쪽 409 처리가 머지 없이 재PUT 이므로 동시 편집에 지워질 수
+있다. 소유권의 진실은 `runs.json` 이다.
 
 ## 커맨드 브로드캐스트 (`internal/server/commands.go`)
 
