@@ -9,8 +9,9 @@ import { test, expect } from './fixtures';
 
 const VIEWS = ['changes', 'diff', 'history', 'branches', 'stash', 'console'];
 const NAMES = ['Changes', 'Diff', 'History', 'Branches', 'Stash', 'Console'];
-// history 는 16·17단계가 채웠다 — 남은 준비 중 탭은 3개다.
-const PENDING = ['branches', 'stash', 'console'];
+// branches·stash 는 18·19단계가 채웠다 — 남은 준비 중 탭은 console 하나다.
+const PENDING = ['console'];
+const READY = ['changes', 'history', 'branches', 'stash'];
 const PENDING_HINT = '이후 마일스톤에서 제공됩니다';
 
 async function waitForInit(page: Page) {
@@ -86,7 +87,7 @@ test.describe('묶음 D — Git 창 골격', () => {
     await expect(tabs.locator('.pn-tab-label')).toHaveText(NAMES);
   });
 
-  test('E4 (V20): 미구현 3개 탭은 준비 중 안내를 보인다', async ({ page }) => {
+  test('E4 (V20): 미구현 탭은 준비 중 안내를 보인다', async ({ page }) => {
     await waitForInit(page);
     await openGit(page);
     for (const v of PENDING) {
@@ -95,8 +96,8 @@ test.describe('묶음 D — Git 창 골격', () => {
       await expect(pending, `${v} 탭에 준비 중 안내가 없다`).toBeVisible();
       await expect(pending).toContainText(PENDING_HINT);
     }
-    // changes·history 는 준비 중이 아니다 — 5단계와 16·17단계가 채운다.
-    for (const v of ['changes', 'history']) {
+    // 채워진 탭은 준비 중이 아니다 — 5단계·16·17단계·18·19단계가 채운다.
+    for (const v of READY) {
       await page.locator(`#area .pn-tab[data-git-view="${v}"]`).click();
       await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(new RegExp('git-' + v));
       await expect(page.locator('#area .pn-body .git-view.vis .git-pending')).toHaveCount(0);
@@ -176,7 +177,7 @@ test.describe('묶음 D — Git 창 골격', () => {
   test('E8 (V21): 새로고침 후 창·탭·활성 탭이 보존된다', async ({ page }) => {
     await waitForInit(page);
     await openGit(page);
-    await page.locator('#area .pn-tab[data-git-view="branches"]').click();
+    await page.locator('#area .pn-tab[data-git-view="console"]').click();
     await page.evaluate(() => (window as any).app._save());
 
     await page.reload();
@@ -184,7 +185,7 @@ test.describe('묶음 D — Git 창 골격', () => {
     await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
     expect(await gitWindowCount(page)).toBe(1);
     await expect(page.locator('#area .pn-tab.active[data-git-view]'))
-      .toHaveAttribute('data-git-view', 'branches');
+      .toHaveAttribute('data-git-view', 'console');
     await expect(page.locator('#area .pn-body .git-view.vis .git-pending')).toBeVisible();
   });
 });

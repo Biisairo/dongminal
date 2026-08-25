@@ -1749,13 +1749,15 @@ class App {
                 // git.pinned 는 서버가 권위로 쓴다 (FR-GIT-11). 409 재시도가 우리
                 // 본문으로 덮으면 핀이 사라진다 — 서버의 git 을 채택한다.
                 //
-                // 단, git.drafts 는 클라이언트가 주인이다 (O6) — 통째로 채택하면
-                // 방금 입력한 커밋 메시지가 재시도에서 사라진다 (FR-GIT-75).
+                // 단, git.drafts 와 git.favorites 는 클라이언트가 주인이다
+                // (O6·O13) — 통째로 채택하면 방금 입력한 커밋 메시지와 방금 고정한
+                // 즐겨찾기가 재시도에서 사라진다 (FR-GIT-75·149).
                 const rem=await gr.json();
                 if(rem&&rem.git){
-                  const mine=this.ws.git&&this.ws.git.drafts;
+                  const mine=this.ws.git||{};
                   this.ws.git=rem.git;
-                  if(mine) this.ws.git.drafts=Object.assign({},rem.git.drafts||{},mine);
+                  for(const k of ['drafts','favorites'])
+                    if(mine[k]) this.ws.git[k]=Object.assign({},rem.git[k]||{},mine[k]);
                 }
               }
             }catch{}

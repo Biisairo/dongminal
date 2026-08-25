@@ -1,0 +1,405 @@
+/**
+ * Dongminal — Git Stash 탭 (GIT_SRS §3D.2 / FR-GIT-161~170)
+ *
+ * 목록은 `/api/git/stash` 다. 조작(`push`/`apply`/`pop`/`drop`)의 응답에는 **실행
+ * 후 목록과 status 가 함께** 오므로 폴링 주기를 기다리지 않고 그것으로 갱신한다
+ * (FR-GIT-170).
+ *
+ * 두 가지를 조용히 넘기지 않는다:
+ *
+ * - **pop 이 충돌로 끝나면 git 이 stash 를 남긴다** (FR-GIT-165, 검증 V57). 서버가
+ *   실패 응답에 `stashKept` 와 남은 목록을 함께 주는 이유는 사용자가 그 자리에서
+ *   "작업은 사라지지 않았다" 를 확인해야 하기 때문이다.
+ * - **담을 것이 없으면 생성이 비활성이고 사유가 보인다** (FR-GIT-167). 사유 없이
+ *   꺼진 버튼은 사용자가 해소할 수 없다.
+ */
+class GitStash {
+  constructor(panel){
+    this.panel=panel;
+    this.app=panel.app;
+    this._el=null;
+    this._repo=undefined;
+    this.reset();
+  }
+
+  reset(){
+    this._list=[];
+    this._err=null;
+    this._loading=false;
+    this._note=null;   // {kind,msg} — pop 잔류·실패 안내
+    this._sel=null;    // 선택된 stash 인덱스 (FR-GIT-169)
+    this._files=null;
+    this._filesErr=null;
+    this._filesFor=null;
+  }
+
+  // stash 하나의 사람이 읽는 이름. 확인 다이얼로그의 대상 목록도 이것을 쓴다 —
+  // 인덱스만 보이면 무엇을 지우는지 알 수 없다 (FR-GIT-91).
+  static label(s){
+    if(!s) return '';
+    return GitStash.ref(s.index)+' '+(s.message||'');
+  }
+
+  static ref(i){return 'stash@{'+i+'}'}
+
+  // ── 골격 ──
+
+  mount(el){
+    if(!el) return;
+    this._el=el;
+    el.innerHTML=
+      '<div class="git-stash-bar">'+
+        '<button class="git-stash-new"></button>'+
+        '<span class="git-stash-why"></span>'+
+      '</div>'+
+      '<div class="git-stash-note">'+
+        '<span class="git-stash-note-msg"></span>'+
+        '<button class="git-stash-note-close"></button>'+
+      '</div>'+
+      '<div class="git-stash-main">'+
+        '<div class="git-stash-list"></div>'+
+        '<div class="git-stash-preview">'+
+          '<div class="git-stash-preview-head"></div>'+
+          '<div class="git-stash-files"></div>'+
+        '</div>'+
+      '</div>';
+    el.querySelector('.git-stash-new').textContent=GIT_STASH_NEW;
+    el.querySelector('.git-stash-note-close').textContent=GIT_NOTE_CLOSE;
+    el.querySelector('.git-stash-new').addEventListener('click',()=>this._create());
+    el.querySelector('.git-stash-note-close').addEventListener('click',()=>{
+      this._note=null; this._paintNote();
+    });
+    this._repo=undefined;
+  }
+
+  unmount(){
+    this._el=null;
+    this._repo=undefined;
+  }
+
+  // ── 칠하기 ──
+
+  paint(){
+    if(!this._el) return;
+    if(this.panel.repo!==this._repo) this._adopt();
+    if(!this._el) return;
+    this._paintBar();
+    this._paintNote();
+    this._paintList();
+    this._paintPreview();
+  }
+
+  // 폴링이 새 status 를 얻을 때마다 불린다. 목록에 영향을 주는 것은 "담을 것이
+  // 있는지" 하나뿐이다 (FR-GIT-167) — 목록 자체는 stash 조작으로만 바뀐다.
+  paintStatus(){
+    if(!this._el||this.panel.repo!==this._repo) return;
+    this._paintBar();
+  }
+
+  _adopt(){
+    this._repo=this.panel.repo;
+    this.reset();
+    if(!this._repo) return;
+    this._load();
+  }
+
+  /**
+   * 생성 가능 여부와 사유 (FR-GIT-167).
+   *
+   * untracked 뿐이면 "담을 것이 없다" 가 **아니다** — `--include-untracked` 를 켜면
+   * 담긴다. 그러므로 버튼은 열어 두고 그 사실을 다이얼로그가 판정한다. 진짜로
+   * 아무 변경도 없을 때만 막는다.
+   */
+  _why(){
+    const s=this.panel.statusOf();
+    if(!s) return GIT_LOADING_HINT;
+    const n=(s.staged||[]).length+(s.changes||[]).length+(s.conflicts||[]).length+
+      (s.untracked||[]).length;
+    return n?'':GIT_STASH_NOTHING;
+  }
+
+  _paintBar(){
+    const el=this._el;
+    const why=this._why();
+    const btn=el.querySelector('.git-stash-new');
+    btn.disabled=!!why;
+    btn.title=why;
+    const w=el.querySelector('.git-stash-why');
+    w.textContent=why;
+    w.classList.toggle('vis',!!why);
+  }
+
+  _paintNote(){
+    const box=this._el.querySelector('.git-stash-note');
+    const n=this._note;
+    box.classList.toggle('vis',!!n);
+    box.dataset.kind=(n&&n.kind)||'';
+    box.querySelector('.git-stash-note-msg').textContent=(n&&n.msg)||'';
+  }
+
+  _paintList(){
+    const box=this._el.querySelector('.git-stash-list');
+    box.innerHTML='';
+    if(this._err){
+      const d=document.createElement('div'); d.className='git-stash-empty';
+      d.textContent=this._err;
+      box.appendChild(d);
+      return;
+    }
+    if(!this._list.length){
+      const d=document.createElement('div'); d.className='git-stash-empty';
+      d.textContent=this._loading?GIT_LOADING_HINT:GIT_STASH_EMPTY;
+      box.appendChild(d);
+      return;
+    }
+    for(const s of this._list) box.appendChild(this._rowEl(s));
+  }
+
+  _rowEl(s){
+    const d=document.createElement('div');
+    d.className='git-stash-row'+(this._sel===s.index?' sel':'');
+    d.dataset.index=String(s.index);
+    const r=document.createElement('span'); r.className='git-stash-ref';
+    r.textContent=GitStash.ref(s.index);
+    const m=document.createElement('span'); m.className='git-stash-msg';
+    m.textContent=s.message||''; m.title=s.message||'';
+    const b=document.createElement('span'); b.className='git-stash-base';
+    b.textContent=s.base||'';
+    // O12 와 같은 규약: 상대시간이 기본이고 절대시간은 title 로 항상 닿는다.
+    const t=document.createElement('span'); t.className='git-stash-date';
+    const abs=GitHistory.absTime(s.atUnixMs);
+    t.textContent=GitHistory.relTime(s.atUnixMs); t.title=abs;
+    d.appendChild(r); d.appendChild(m); d.appendChild(b); d.appendChild(t);
+    d.addEventListener('click',()=>this._select(s.index));
+    d.addEventListener('contextmenu',ev=>{ev.preventDefault();GitMenu.open('stash',s,ev)});
+    return d;
+  }
+
+  // ── 미리보기 (FR-GIT-169) ──
+
+  _select(i){
+    if(this._sel===i){this._sel=null;this._files=null;this._filesFor=null}
+    else{this._sel=i;this._files=null;this._filesErr=null;this._loadFiles(i)}
+    this._paintList();
+    this._paintPreview();
+  }
+
+  _paintPreview(){
+    const el=this._el.querySelector('.git-stash-preview');
+    const head=el.querySelector('.git-stash-preview-head');
+    const box=el.querySelector('.git-stash-files');
+    box.innerHTML='';
+    if(this._sel==null){
+      head.textContent=GIT_STASH_PICK;
+      return;
+    }
+    if(this._filesErr){head.textContent=this._filesErr;return}
+    if(!this._files){head.textContent=GIT_LOADING_HINT;return}
+    head.textContent=this._files.length
+      ?GIT_STASH_FILES+' ('+this._files.length+')':GIT_STASH_NO_FILES;
+    for(const f of this._files) box.appendChild(this._fileEl(this._sel,f));
+  }
+
+  _fileEl(index,f){
+    const d=document.createElement('div');
+    d.className='git-stash-file'; d.dataset.path=f.path;
+    const st=document.createElement('span'); st.className='git-stash-file-st';
+    st.textContent=f.status;
+    const p=document.createElement('span'); p.className='git-stash-file-path';
+    p.textContent=f.origPath?f.origPath+' → '+f.path:f.path;
+    d.title=p.textContent;
+    d.appendChild(st); d.appendChild(p);
+    // 축은 커밋 축이다 — stash 는 커밋이므로 `stash@{n}^` 과 비교한다.
+    d.addEventListener('click',()=>this.panel.showCommitDiff({
+      repo:this._repo,axis:GIT_AXIS.COMMIT,
+      oid:GitStash.ref(index),parentOid:GitStash.ref(index)+'^',
+      path:f.path,origPath:f.origPath||'',
+    }));
+    return d;
+  }
+
+  // ── 질의 ──
+
+  async _load(){
+    const repo=this._repo; if(!repo) return;
+    const tok=this.panel.token();
+    this._loading=true;
+    let r=null,d=null;
+    try{r=await fetch('/api/git/stash?repo='+encodeURIComponent(repo))}catch{r=null}
+    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
+    if(this.panel.isStale(tok)) return;
+    this._loading=false;
+    if(!d||!d.requested||d.requested.repo!==repo){
+      this._err=GIT_STASH_LOAD_FAIL;
+      if(this._el) this.paint();
+      return;
+    }
+    this._err=null;
+    this._list=Array.isArray(d.stashes)?d.stashes:[];
+    if(this._el) this.paint();
+  }
+
+  async _loadFiles(index){
+    const repo=this._repo; if(!repo) return;
+    const tok=this.panel.token();
+    const q=new URLSearchParams({repo,index:String(index)});
+    let r=null,d=null;
+    try{r=await fetch('/api/git/stash/show?'+q.toString())}catch{r=null}
+    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
+    if(this.panel.isStale(tok)) return;
+    // 뒤늦게 온 다른 stash 의 응답을 자기 것으로 읽지 않는다.
+    if(this._sel!==index) return;
+    const req=d&&d.requested;
+    if(!d||!req||req.repo!==repo||req.index!==index){
+      this._filesErr=GIT_STASH_PREVIEW_FAIL;
+      this._paintPreview();
+      return;
+    }
+    this._filesErr=null;
+    this._files=Array.isArray(d.files)?d.files:[];
+    this._filesFor=index;
+    this._paintPreview();
+  }
+
+  /**
+   * 조작 응답 하나의 처리 (FR-GIT-165·170).
+   *
+   * **실패 응답도 목록을 싣고 온다.** pop 이 충돌로 끝난 경우가 그것이며, 그 자리에
+   * "stash 를 남겨 두었습니다" 를 보인다 — 조용히 넘기면 사용자가 작업을 잃었다고
+   * 오해한다.
+   */
+  adoptWrite(res){
+    const d=(res&&res.data)||{};
+    if(Array.isArray(d.stashes)) this._list=d.stashes;
+    if(res&&res.ok){
+      this._note=null;
+      // 선택은 인덱스로 매겨진 것이므로 목록이 바뀌면 뜻을 잃는다.
+      this._sel=null; this._files=null; this._filesFor=null;
+    }else if(d.stashKept){
+      this._note={kind:'stash_kept',
+        msg:GIT_STASH_KEPT+(d.stashKeptReason?' — '+d.stashKeptReason:'')};
+    }else{
+      this._note={kind:(d.error||'fail'),msg:this.panel.writeError(res)};
+    }
+    if(this._el) this.paint();
+  }
+
+  // stash 생성 다이얼로그 (FR-GIT-166).
+  _create(){
+    if(this._why()) return;
+    new GitStashCreate(this.panel)._show();
+  }
+}
+
+/**
+ * stash 생성 다이얼로그 (FR-GIT-166, 검증 V58).
+ *
+ * 메시지 / `--include-untracked` / `--keep-index` 3필드다. 옵션의 기본값은 안전한
+ * 쪽이므로 둘 다 꺼져 있다 (FR-GIT-97).
+ *
+ * untracked 뿐인 저장소에서는 `--include-untracked` 없이 담길 것이 없다 — 그것을
+ * 실행 전에 보인다 (FR-GIT-167). 서버도 `nothing_to_stash` 로 막지만, 실행해 보고
+ * 알려 주면 사용자는 왜 아무 일도 없었는지 모른다.
+ */
+class GitStashCreate {
+  constructor(panel){
+    this.panel=panel;
+    this.repo=panel.repo;
+    this.busy=false;
+  }
+
+  _show(){
+    const ov=document.createElement('div'); ov.id='git-stash-create'; ov.className='gsc-modal';
+    ov.innerHTML=
+      '<div class="gsc-box" role="dialog" aria-modal="true">'+
+        '<div class="gsc-head"></div>'+
+        '<input class="gsc-msg" type="text">'+
+        '<label class="gsc-optrow">'+
+          '<input class="gsc-untracked" type="checkbox"><span></span></label>'+
+        '<label class="gsc-optrow">'+
+          '<input class="gsc-keepindex" type="checkbox"><span></span></label>'+
+        '<div class="gsc-why"></div>'+
+        '<div class="gsc-err"></div>'+
+        '<div class="gsc-actions">'+
+          '<span class="gsc-progress"></span>'+
+          '<button type="button" class="gsc-cancel"></button>'+
+          '<button type="button" class="gsc-go"></button>'+
+        '</div>'+
+      '</div>';
+    document.body.appendChild(ov);
+    this.ov=ov;
+    const b=ov.querySelector('.gsc-box');
+    this.box=b;
+    b.querySelector('.gsc-head').textContent=GIT_STASH_CREATE_TITLE;
+    b.querySelector('.gsc-msg').placeholder=GIT_STASH_MSG_PLACEHOLDER;
+    const spans=b.querySelectorAll('.gsc-optrow span');
+    spans[0].textContent=GIT_STASH_OPT_UNTRACKED;
+    spans[1].textContent=GIT_STASH_OPT_KEEPINDEX;
+    b.querySelector('.gsc-cancel').textContent=GIT_CONFIRM_CANCEL;
+    b.querySelector('.gsc-go').textContent=GIT_STASH_CREATE_RUN;
+    b.querySelector('.gsc-untracked').addEventListener('change',()=>this._paint());
+    b.querySelector('.gsc-cancel').addEventListener('click',()=>this._close(false));
+    b.querySelector('.gsc-go').addEventListener('click',()=>this._run());
+    this._key=e=>{
+      if(e.key!=='Escape') return;
+      e.preventDefault(); e.stopPropagation();
+      if(!this.busy) this._close(false);
+    };
+    document.addEventListener('keydown',this._key,true);
+    b.querySelector('.gsc-msg').focus();
+    this._paint();
+    return new Promise(res=>{this._resolve=res});
+  }
+
+  // 이 옵션으로 담길 것이 있는지 (FR-GIT-167). 서버의 StashableCount 와 같은 규칙이다.
+  _why(){
+    const s=this.panel.statusOf();
+    if(!s) return GIT_LOADING_HINT;
+    const u=!!this.box.querySelector('.gsc-untracked').checked;
+    const n=(s.staged||[]).length+(s.changes||[]).length+(s.conflicts||[]).length+
+      (u?(s.untracked||[]).length:0);
+    if(n) return '';
+    return (s.untracked||[]).length?GIT_STASH_UNTRACKED_ONLY:GIT_STASH_NOTHING;
+  }
+
+  _paint(){
+    const b=this.box; if(!b) return;
+    const why=this._why();
+    const w=b.querySelector('.gsc-why');
+    w.textContent=why; w.classList.toggle('vis',!!why);
+    b.querySelector('.gsc-progress').textContent=this.busy?GIT_CONFIRM_RUNNING:'';
+    b.querySelector('.gsc-go').disabled=this.busy||!!why;
+    b.querySelector('.gsc-cancel').disabled=this.busy;
+  }
+
+  async _run(){
+    if(this.busy||this._why()) return;
+    const b=this.box;
+    this.busy=true; this._paint();
+    const res=await this.panel.post('/api/git/stash/push',{
+      repo:this.repo,
+      message:(b.querySelector('.gsc-msg').value||'').trim(),
+      includeUntracked:!!b.querySelector('.gsc-untracked').checked,
+      keepIndex:!!b.querySelector('.gsc-keepindex').checked,
+    });
+    this.busy=false;
+    this.panel.afterStashWrite(res);
+    if(res.ok){this._close(true);return}
+    const err=b.querySelector('.gsc-err');
+    err.textContent=this.panel.writeError(res);
+    err.classList.add('vis');
+    this._paint();
+  }
+
+  _close(v){
+    document.removeEventListener('keydown',this._key,true);
+    if(this.ov) this.ov.remove();
+    this.ov=null; this.box=null;
+    const r=this._resolve; this._resolve=null;
+    if(r) r(!!v);
+  }
+}
+
+// 고전 스크립트의 class 선언은 window 의 속성이 되지 않는다 — GitPanel 과 e2e 가
+// 창 밖에서 부르므로 명시적으로 붙인다 (git-confirm.js 와 같은 규약).
+window.GitStash=GitStash;

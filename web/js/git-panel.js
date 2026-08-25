@@ -36,6 +36,8 @@ class GitPanel {
     this._note=null;              // 쓰기 실패·부분 적용 안내 (FR-GIT-73)
     this._commitView=null;        // 커밋 영역 (FR-GIT-74~85)
     this._historyView=null;       // History 탭 (FR-GIT-113~139)
+    this._branchesView=null;      // Branches 탭 (FR-GIT-147~160)
+    this._stashView=null;         // Stash 탭 (FR-GIT-161~170)
     // 커밋 축의 diff 대상 (FR-GIT-138). previewFile 과 자리를 나눈다 — 같은 자리에
     // 두면 Changes 탭의 미리보기가 커밋의 diff 를 보이면서 목록에는 아무 행도
     // 선택되지 않는다.
@@ -101,6 +103,10 @@ class GitPanel {
       // 붙은 뒤에 한 번 더 칠해야 스크롤 위치와 펼친 상세가 되돌아온다.
       requestAnimationFrame(()=>{if(this._historyView) this._historyView.paint()});
     }
+    // Branches·Stash 도 탭이 활성일 때 받는다 — 열지 않은 탭이 refs·stash 를 미리
+    // 받아 둘 이유가 없다.
+    if(view==='branches') this._renderBranches(el);
+    if(view==='stash') this._renderStash(el);
     return el;
   }
 
@@ -112,6 +118,8 @@ class GitPanel {
     // 남아 있어서는 안 된다 (FR-GIT-83).
     this._commit().unmount();
     this._history().unmount();
+    this._branches().unmount();
+    this._stash().unmount();
     const area=document.getElementById('area');
     for(const el of this._els.values()){
       el.classList.remove('vis');
@@ -139,6 +147,8 @@ class GitPanel {
     if(view==='changes'){this._renderChanges(el);return}
     if(view==='diff'){this._renderDiff(el);return}
     if(view==='history'){this._renderHistory(el);return}
+    if(view==='branches'){this._renderBranches(el);return}
+    if(view==='stash'){this._renderStash(el);return}
     el.innerHTML='';
     if(!this.repo){
       const d=document.createElement('div'); d.className='git-empty';
@@ -171,6 +181,10 @@ class GitPanel {
     // History 는 status 에서 미커밋 변경 행만 딛는다 (FR-GIT-127) — 목록 전체를
     // 폴링마다 다시 그리면 스크롤이 매초 흔들린다.
     if(this._historyView) this._historyView.paintStatus();
+    // Branches 는 현재 브랜치만, Stash 는 "담을 것이 있는지" 만 딛는다
+    // (FR-GIT-152·167).
+    if(this._branchesView) this._branchesView.paintStatus();
+    if(this._stashView) this._stashView.paintStatus();
   }
 
   // FR-GIT-39: .git-head·.git-commit 은 flex:0 0 auto 이고 목록 스크롤은
@@ -512,6 +526,111 @@ class GitPanel {
     this._history().paint();
   }
 
+  // ── Branches 탭 (FR-GIT-147~160) ──
+
+  _branches(){
+    if(!this._branchesView) this._branchesView=new GitBranches(this);
+    return this._branchesView;
+  }
+
+  _renderBranches(el){
+    if(!this.repo){
+      el.dataset.built=''; el.innerHTML='';
+      this._branches().unmount();
+      const d=document.createElement('div'); d.className='git-empty';
+      d.textContent=this._errMsg||GIT_NO_REPO_HINT;
+      el.appendChild(d);
+      return;
+    }
+    if(el.dataset.built!=='1'){this._branches().mount(el);el.dataset.built='1'}
+    this._branches().paint();
+  }
+
+  // ── Stash 탭 (FR-GIT-161~170) ──
+
+  _stash(){
+    if(!this._stashView) this._stashView=new GitStash(this);
+    return this._stashView;
+  }
+
+  _renderStash(el){
+    if(!this.repo){
+      el.dataset.built=''; el.innerHTML='';
+      this._stash().unmount();
+      const d=document.createElement('div'); d.className='git-empty';
+      d.textContent=this._errMsg||GIT_NO_REPO_HINT;
+      el.appendChild(d);
+      return;
+    }
+    if(el.dataset.built!=='1'){this._stash().mount(el);el.dataset.built='1'}
+    this._stash().paint();
+  }
+
+  // 마지막 유효 status. Branches 의 현재 브랜치와 Stash 의 "담을 것이 있는지" 가
+  // 같은 값을 딛는다 (FR-GIT-152·167).
+  statusOf(){return (this._status&&this._status.status)||null}
+
+  // 지금 HEAD 가 가리키는 이름. detached 면 커밋 해시다 — 둘을 같게 보면 detached
+  // 로 옮겨 간 것을 목록이 알아채지 못한다.
+  headName(){
+    const s=this.statusOf(); if(!s) return null;
+    return s.detached?('#'+(s.oid||'')):(s.branch||'');
+  }
+
+  // ── 브랜치·태그 쓰기 (GIT_MENUS branch·tag 가 부른다) ──
+  // 실행은 git-branches.js 에 있다 — 메뉴는 History 의 refs 사이드바에서도 열리므로
+  // Branches 탭 인스턴스에 묶여 있으면 그쪽에서 쓸 수 없다.
+
+  checkoutRef(ref,o){return GitBranches.checkout(this,ref,o||{})}
+  checkoutRemote(short){return GitBranches.checkoutRemote(this,short)}
+
+  /**
+   * ref 를 바꾼 쓰기 하나의 뒷정리 (FR-GIT-160·170).
+   *
+   * 응답에 실린 실행 후 status 로 화면을 갱신하고 **refs 를 다시 받는다** — status
+   * 만으로는 새 브랜치가 생겼는지, 어느 것이 사라졌는지 알 수 없다.
+   */
+  afterRefWrite(d){
+    this.adopt(d);
+    if(this._branchesView) this._branchesView.reload();
+    if(this._historyView) this._historyView.reloadRefs();
+  }
+
+  // ── stash 쓰기 (GIT_MENUS stash 가 부른다) ──
+
+  async stashApply(index,withIndex){
+    const res=await this.post('/api/git/stash/apply',
+      {repo:this.repo,index,withIndex:!!withIndex});
+    this.afterStashWrite(res);
+  }
+
+  async stashPop(index){
+    const res=await this.post('/api/git/stash/pop',{repo:this.repo,index});
+    this.afterStashWrite(res);
+  }
+
+  // drop 은 파괴적이다 (FR-GIT-89·168). 2단계 확인과 recovery hint 는 GitMenu 가
+  // 이미 거쳤으므로 여기서는 `confirm` 을 실어 보낸다 — 서버도 그것을 요구한다.
+  async stashDrop(index){
+    const res=await this.post('/api/git/stash/drop',
+      {repo:this.repo,index,confirm:true});
+    this.afterStashWrite(res);
+  }
+
+  /**
+   * stash 쓰기 하나의 뒷정리 (FR-GIT-165·170).
+   *
+   * **실패 응답도 status 와 목록을 싣고 온다** — pop 이 충돌로 끝나면 stash 가
+   * 남으므로 그 사실을 Stash 탭이 그 자리에서 알려야 한다.
+   */
+  afterStashWrite(res){
+    const d=(res&&res.data)||{};
+    if(d.status) this.adopt(d);
+    // 실패 사유는 Stash 탭이 보인다 — Changes 탭의 안내로 보내면 사용자가 조작한
+    // 자리에서 결과를 읽을 수 없다.
+    this._stash().adoptWrite(res);
+  }
+
   // 워킹 트리에 남은 변경의 개수. History 의 미커밋 변경 행(FR-GIT-127)과
   // Checkout (detached) 의 차단 판정(FR-GIT-144)이 같은 값을 딛는다.
   dirtyCount(){
@@ -851,7 +970,12 @@ class GitPanel {
   // FR-GIT-138·139: `<parent>..<commit>` 를 짧은 해시로 보인다. 루트 커밋은 부모가
   // 없으므로 그 사실을 적는다 — 빈 자리로 두면 해시를 못 읽은 것과 구분되지 않는다.
   _revLabel(f){
-    const short=o=>(o||'').slice(0,GIT_DIFF_REV_ABBREV);
+    // 40자 이상의 16진 문자열만 줄인다 — `stash@{0}` 같은 ref 를 자르면 무엇과
+    // 비교하는지 읽을 수 없다 (FR-GIT-169).
+    const short=o=>{
+      const v=o||'';
+      return /^[0-9a-f]{40,}$/.test(v)?v.slice(0,GIT_DIFF_REV_ABBREV):v;
+    };
     return (GIT_AXIS_LABEL[f.axis]||f.axis)+' \u00b7 '+
       (f.parentOid?short(f.parentOid):GIT_DETAIL_ROOT)+GIT_DIFF_REV_RANGE+short(f.oid);
   }

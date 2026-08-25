@@ -1176,3 +1176,188 @@ body.mobile .git-repo-x{opacity:1;width:24px;height:24px;font-size:14px}
 }
 .gc-box.mobile .gc-progress{flex:0 0 auto}
 .gc-box.mobile .gc-cancel,.gc-box.mobile .gc-go{padding:12px;font-size:13px}
+
+/* ── Git Branches 탭 (FR-GIT-147~160) ── */
+/* 트리만 스크롤한다. 바는 고정이다 — 바가 목록과 함께 스크롤되면 많은 브랜치에서
+   검색과 생성에 닿을 수 없다. */
+.git-view.git-branches{overflow:hidden}
+.git-view.git-branches.vis{display:flex;flex-direction:column}
+.git-br-bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 8px;
+  border-bottom:1px solid var(--border);font-size:12px;
+}
+.git-br-spacer{flex:1 1 auto}
+.git-br-search{
+  font:inherit;font-size:11px;padding:2px 6px;width:160px;min-width:0;
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-br-new,.git-br-retry{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-br-new:hover,.git-br-retry:hover{background:var(--accent-hover);color:var(--accent)}
+/* 사유를 보이되 목록은 지우지 않는다 (FR-GIT-132 과 같은 규약) */
+.git-br-note{
+  display:none;flex:0 0 auto;align-items:center;gap:8px;
+  padding:3px 10px;font-size:11px;color:var(--attn);background:var(--attn-subtle);
+}
+.git-br-note.vis{display:flex}
+.git-br-note-msg{flex:1 1 auto;min-width:0}
+.git-br-tree{flex:1 1 auto;min-height:0;overflow-y:auto;font-size:12px;padding:4px 0}
+.git-br-tree::-webkit-scrollbar{width:8px}
+.git-br-tree::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.git-br-empty{padding:10px;color:var(--text-muted);font-size:11px}
+/* FR-GIT-148·149·150: 그룹과 접두사 그룹은 같은 골격이다 — 한쪽만 고쳐지지 않게 */
+.git-br-group-head,.git-br-pfx-head{
+  display:flex;align-items:center;gap:4px;padding:3px 8px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;
+}
+.git-br-group-head:hover,.git-br-pfx-head:hover{background:var(--accent-hover)}
+.git-br-group-name{color:var(--text-bright)}
+.git-br-pfx-name{color:var(--text)}
+.git-br-group-count,.git-br-pfx-count{color:var(--text-dim);font-size:10px}
+.git-br-twist{flex:0 0 auto;width:10px;color:var(--text-dim);font-size:9px}
+.git-br-pfx-head{padding-left:20px}
+.git-br-pfx-body>.git-br-row{padding-left:44px}
+.git-br-group-body>.git-br-row{padding-left:28px}
+.git-br-row{
+  display:flex;align-items:center;gap:6px;padding:2px 8px;
+  white-space:nowrap;overflow:hidden;
+}
+.git-br-row:hover{background:var(--accent-hover)}
+/* FR-GIT-152: 현재 브랜치를 구분 표시한다 */
+.git-br-row.current .git-br-name{color:var(--accent)}
+.git-br-cur{flex:0 0 auto;color:var(--accent);font-size:11px}
+/* FR-GIT-149: ★ 는 꺼진 상태에서도 자리를 지킨다 — 자리가 흔들리면 누를 수 없다 */
+.git-br-fav{flex:0 0 auto;width:12px;color:var(--border);cursor:pointer;font-size:11px}
+.git-br-fav:hover{color:var(--text-muted)}
+.git-br-fav.on{color:var(--accent)}
+.git-br-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.git-br-ab{flex:0 0 auto;color:var(--text-muted);font-size:10px}
+.git-br-up{flex:0 0 auto;color:var(--text-dim);font-size:10px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* upstream 이 사라진 것은 ahead/behind 0 과 다르다 — 색과 글자로 함께 알린다 */
+.git-br-gone{flex:0 0 auto;color:var(--attn);font-size:10px}
+
+/* ── 선택지가 셋 이상인 결정 (FR-GIT-156·157) ── */
+.gch-modal{
+  position:fixed;inset:0;z-index:300;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;
+}
+.gch-box{
+  display:flex;flex-direction:column;min-width:300px;max-width:min(520px,92vw);
+  background:var(--bg);border:1px solid var(--attn);border-radius:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);font-size:12px;color:var(--text);
+}
+.gch-head{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text-bright)}
+.gch-note{display:none;padding:8px 12px;color:var(--text-muted)}
+.gch-note.vis{display:block}
+/* FR-GIT-177 과 같은 규약: 좁은 폭에서도 선택지가 잘리지 않게 세로로 쌓는다 */
+.gch-opts{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-top:1px solid var(--border)}
+.gch-opt{
+  padding:8px 12px;border-radius:4px;border:1px solid var(--border);
+  background:transparent;color:var(--text);font:inherit;font-size:12px;
+  cursor:pointer;text-align:left;
+}
+.gch-opt:hover{background:var(--accent-hover)}
+/* O14: 기본 선택은 첫 항목이 아니라 포커스가 가리킨다 — 위험한 항목은 색으로 구분 */
+.gch-opt.danger{border-color:var(--danger);color:var(--danger)}
+.gch-opt:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* ── 브랜치 생성 · stash 생성 다이얼로그 (FR-GIT-158·166) ── */
+/* 20단계의 공통 다이얼로그 규약이 이 두 골격을 흡수한다 — 지금은 형태만 공유한다 */
+.gbc-modal,.gsc-modal{
+  position:fixed;inset:0;z-index:300;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;
+}
+.gbc-box,.gsc-box{
+  display:flex;flex-direction:column;gap:8px;padding:12px;
+  min-width:320px;max-width:min(520px,92vw);
+  background:var(--bg);border:1px solid var(--accent-border);border-radius:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);font-size:12px;color:var(--text);
+}
+.gbc-head,.gsc-head{color:var(--text-bright)}
+.gbc-name,.gbc-start,.gsc-msg{
+  font:inherit;font-size:12px;padding:5px 8px;min-width:0;
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.gbc-startrow{display:flex;flex-direction:column;gap:4px}
+.gbc-checkoutrow,.gsc-optrow{display:flex;align-items:center;gap:6px;color:var(--text-muted)}
+/* track 모드는 원격 ref 를 다른 이름의 로컬로 가져오는 것이다 (FR-GIT-156) —
+   시작점과 checkout 여부는 뜻이 없다 */
+.gbc-box.tracking .gbc-startrow,.gbc-box.tracking .gbc-checkoutrow{display:none}
+/* FR-GIT-159·167: 왜 실행할 수 없는지 보인다 — 사유 없이 꺼진 버튼은 해소할 수 없다 */
+.gbc-why,.gsc-why{display:none;color:var(--attn);font-size:11px}
+.gbc-why.vis,.gsc-why.vis{display:block}
+.gbc-err,.gsc-err{display:none;color:var(--danger);font-size:11px;word-break:break-all}
+.gbc-err.vis,.gsc-err.vis{display:block}
+.gbc-actions,.gsc-actions{display:flex;align-items:center;gap:8px;padding-top:4px}
+.gbc-progress,.gsc-progress{flex:1;color:var(--text-muted)}
+.gbc-cancel,.gbc-go,.gsc-cancel,.gsc-go{
+  padding:5px 14px;border-radius:4px;border:1px solid var(--border);
+  background:transparent;font:inherit;font-size:12px;cursor:pointer;
+}
+.gbc-cancel,.gsc-cancel{border-color:var(--border);color:var(--text-muted)}
+.gbc-go,.gsc-go{border-color:var(--accent);color:var(--accent)}
+.gbc-go:disabled,.gsc-go:disabled,.gbc-cancel:disabled,.gsc-cancel:disabled{
+  opacity:.5;cursor:default;
+}
+
+/* ── Git Stash 탭 (FR-GIT-161~170) ── */
+.git-view.git-stash{overflow:hidden}
+.git-view.git-stash.vis{display:flex;flex-direction:column}
+.git-stash-bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:4px 8px;
+  border-bottom:1px solid var(--border);font-size:12px;
+}
+.git-stash-new{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-stash-new:hover:not(:disabled){background:var(--accent-hover);color:var(--accent)}
+.git-stash-new:disabled{color:var(--text-dim);cursor:not-allowed}
+/* FR-GIT-167: 사유 없이 꺼진 버튼은 사용자가 해소할 수 없다 */
+.git-stash-why{display:none;color:var(--text-muted);font-size:11px;min-width:0;overflow:hidden}
+.git-stash-why.vis{display:block}
+/* FR-GIT-165: pop 이 충돌로 끝나면 stash 가 남는다 — 그 사실을 그 자리에서 알린다 */
+.git-stash-note{
+  display:none;flex:0 0 auto;align-items:center;gap:8px;
+  padding:4px 10px;font-size:11px;color:var(--attn);background:var(--attn-subtle);
+}
+.git-stash-note.vis{display:flex}
+.git-stash-note-msg{flex:1 1 auto;min-width:0}
+.git-stash-note-close{
+  font:inherit;font-size:10px;padding:1px 6px;cursor:pointer;flex-shrink:0;
+  background:transparent;color:var(--attn);border:1px solid var(--attn);border-radius:3px;
+}
+.git-stash-main{flex:1 1 auto;min-height:0;display:flex}
+.git-stash-list{flex:1 1 auto;min-width:0;overflow-y:auto;font-size:12px}
+.git-stash-list::-webkit-scrollbar{width:8px}
+.git-stash-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.git-stash-empty{padding:10px;color:var(--text-muted);font-size:11px}
+.git-stash-row{
+  display:flex;align-items:center;gap:8px;padding:3px 10px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;
+}
+.git-stash-row:hover{background:var(--accent-hover)}
+.git-stash-row.sel{background:var(--accent-active)}
+.git-stash-ref{flex:0 0 auto;color:var(--accent);font-family:monospace;font-size:11px}
+.git-stash-msg{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.git-stash-base{flex:0 0 auto;color:var(--text-muted);font-size:10px}
+.git-stash-date{flex:0 0 auto;color:var(--text-dim);font-size:10px}
+/* FR-GIT-169: 선택한 stash 의 변경 파일. 클릭하면 Diff 탭이 커밋 축으로 연다 */
+.git-stash-preview{
+  flex:0 0 auto;width:260px;min-width:0;overflow-y:auto;
+  border-left:1px solid var(--border);font-size:11px;
+}
+.git-stash-preview::-webkit-scrollbar{width:6px}
+.git-stash-preview::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.git-stash-preview-head{padding:4px 8px;color:var(--text-dim);text-transform:uppercase;font-size:10px}
+.git-stash-file{
+  display:flex;align-items:center;gap:6px;padding:2px 8px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;
+}
+.git-stash-file:hover{background:var(--accent-hover)}
+.git-stash-file-st{flex:0 0 auto;width:12px;color:var(--accent);font-family:monospace}
+.git-stash-file-path{min-width:0;overflow:hidden;text-overflow:ellipsis}

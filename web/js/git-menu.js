@@ -45,15 +45,43 @@ const GIT_MENUS={
     {id:'openFile',   label:'Open File',   run:t=>app._gitOpenFile(gitMenuPanel().absPath(t))},
     {id:'copyPath',   label:'Copy Path',   run:t=>gitMenuPanel().copyText(gitMenuPanel().absPath(t))},
   ],
-  // 브랜치·태그 (FR-GIT-154·FR-GIT-146). 실행은 M5 묶음 N·O 이고, M4 는 이름
-  // 복사와 필터(사이드바 클릭)만 한다.
+  // 브랜치·태그 (FR-GIT-154·155·156·160). 로컬과 원격은 **뜻이 다른 두 항목**이다 —
+  // 원격 ref 로 그냥 옮겨 가면 detached 가 되므로 같은 이름의 로컬을 만들며 추적을
+  // 설정한다 (FR-GIT-156). 어느 쪽이 왜 막혔는지는 사유로 알린다.
   branch:[
     {id:'copy-name',label:'브랜치 이름 복사',run:t=>gitMenuPanel().copyText(t.short)},
-    {id:'checkout', label:'Checkout',disabled:()=>GIT_MENU_M5},
+    {id:'checkout', label:'Checkout',
+     disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_MENU_REMOTE_REF:(t.isHead?GIT_MENU_CURRENT:''),
+     run:t=>gitMenuPanel().checkoutRef(t.short,{})},
+    {id:'checkout-local',label:GIT_BR_CHECKOUT_LOCAL,
+     disabled:t=>t.kind===GIT_REF_KIND_REMOTE?'':GIT_MENU_LOCAL_ONLY,
+     run:t=>gitMenuPanel().checkoutRemote(t.short)},
   ],
   tag:[
     {id:'copy-name',label:'태그 이름 복사',run:t=>gitMenuPanel().copyText(t.short)},
-    {id:'checkout', label:'Checkout (detached)',disabled:()=>GIT_MENU_M5},
+    // 태그는 브랜치가 아니므로 옮겨 가면 detached 다 — 사전 경고를 1단계 거친다
+    // (FR-GIT-144 와 같은 규약).
+    {id:'checkout', label:'Checkout (detached)',warn:true,
+     action:GIT_CHECKOUT_DETACHED_ACT,title:GIT_CHECKOUT_DETACHED_TITLE,
+     targets:t=>[t.short],
+     hint:()=>({note:GIT_DETACHED_NOTE,command:''}),
+     run:t=>gitMenuPanel().checkoutRef(t.short,{detach:true})},
+  ],
+  // stash (FR-GIT-162~164·168). drop 만 파괴적이며 확인은 프레임워크가 거친다 —
+  // 항목이 확인 코드를 따로 쓰지 않는다.
+  stash:[
+    {id:'apply',      label:GIT_STASH_APPLY,      run:t=>gitMenuPanel().stashApply(t.index,false)},
+    {id:'apply-index',label:GIT_STASH_APPLY_INDEX,run:t=>gitMenuPanel().stashApply(t.index,true)},
+    {id:'pop',        label:GIT_STASH_POP,        run:t=>gitMenuPanel().stashPop(t.index)},
+    {sep:true},
+    {id:'drop',label:GIT_STASH_DROP,destructive:true,
+     action:GIT_ACT_STASH_DROP,title:GIT_STASH_DROP_TITLE,
+     targets:t=>[GitStash.label(t)],
+     // hint 는 지워질 stash 의 sha 로 만든다 — 안내문만 남기면 되살릴 수 없다
+     // (FR-GIT-92·168). 서버도 실행 전에 같은 것을 HintLog 에 남긴다.
+     hint:t=>({note:GIT_STASH_DROP_NOTE,
+       command:'git stash store -m '+gitShQuote(t.message||'')+' '+(t.oid||'')}),
+     run:t=>gitMenuPanel().stashDrop(t.index)},
   ],
   // 미커밋 변경 행 (FR-GIT-127).
   uncommitted:[

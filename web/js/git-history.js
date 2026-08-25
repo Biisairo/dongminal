@@ -647,6 +647,12 @@ class GitHistory {
     this.paint();
   }
 
+  // ref 를 바꾼 쓰기 뒤에 사이드바를 다시 채운다 (FR-GIT-160). 목록은 _adopt 에서만
+  // 받으므로 이것이 없으면 checkout 한 브랜치가 사이드바에 나타나지 않는다.
+  reloadRefs(){
+    if(this._el&&this.panel.repo===this._repo) this._loadRefs();
+  }
+
   async _loadRefs(){
     const repo=this._repo; if(!repo) return;
     const tok=this.panel.token();

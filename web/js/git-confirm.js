@@ -37,11 +37,16 @@ class GitConfirm {
    * 처럼 되돌릴 수 있지만 뜻을 먼저 알려야 하는 동작이 있다 (FR-GIT-72·87).
    * 파괴적 목록에 있는 동작은 요청과 무관하게 2단계다 — 목록에 든 동작이 1단계로
    * 줄어들 수 있으면 방어가 뜻을 잃는다 (FR-GIT-90).
+   *
+   * `stages:2` 는 **파괴적 목록에 이름이 없지만 파괴적인** 동작을 위한 것이다 —
+   * 강제 checkout 은 `ExecWrite{Destructive:true}` 이지만 `/api/git/policy` 의
+   * 목록에는 없다 (계약 §1.1). 목록을 프론트에 복제하는 대신 호출자가 단계를
+   * 올린다. 목록에 든 동작은 여전히 이 값과 무관하게 2단계다.
    */
   static async open({action,title,targets,hint,mobile,run,stages}){
     // 파괴적 확인은 한 번에 하나다 — 겹치면 어느 대상의 확인인지 알 수 없다.
     if(GitConfirm._cur) return false;
-    const n=await GitConfirm.destructive(action)?2:(stages===1?1:0);
+    const n=await GitConfirm.destructive(action)?2:(stages===2?2:(stages===1?1:0));
     if(!n){
       if(typeof run!=='function') return true;
       const res=await run();
