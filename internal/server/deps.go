@@ -5,6 +5,7 @@ import (
 	"dongminal/internal/sysstat"
 	"dongminal/internal/toolaccess"
 	"dongminal/internal/workspace"
+	"dongminal/internal/worktree"
 	"time"
 )
 
@@ -100,6 +101,10 @@ type Deps struct {
 	// (RUN_ORCHESTRATION_SRS 묶음 R). nil 이면 /api/runs* 가 503 이며 그 밖의
 	// 동작에는 영향이 없다 (NFR-RUN-1).
 	Runs *run.Store
+	// Worktrees 는 격리 Run 의 작업 트리를 만들고 정리한다 (묶음 W). nil 이면
+	// 격리를 요청한 Run 시작이 거부된다 — 조용히 none 으로 낮추지 않는다
+	// (FR-WKT-11).
+	Worktrees *worktree.Manager
 	// WorkIndex resolves tool identifiers (uuid / toolId / label) and labels
 	// them back for the agent-message envelope (FR-API-3/4). Nil → 503.
 	WorkIndex toolaccess.WorkspaceReader

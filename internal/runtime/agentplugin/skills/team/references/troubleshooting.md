@@ -43,6 +43,10 @@ dmctl status --at "$MEMBER_TAB"   # 그 팀원의 에이전트 상태
 | 여러 줄 본문이 잘림 / 셸이 멈춤 | 위치 인자로 넘기며 인용 실패, 또는 heredoc 종료자를 들여씀 | `- <<'MSG'` 로 stdin 사용. **종료자는 반드시 열 0** |
 | `dmctl msg` submit 안 됨 (드묾) | 수신측 TUI reconciliation 지연 | `dmctl send-input --at <uuid> --execute ""` 로 엔터 보강 |
 | 팀원 CC 죽음 | claude 프로세스/쉘 종료 | `dmctl run status` 에서 그 멤버가 `lost`. 중간 결과는 `dmctl read-output --at <uuid>` 로 구출 |
+| 격리 Run 시작이 `not_a_git_repo` 로 거부됨 | 조정자 셸의 cwd 가 git 저장소가 아니다 | `cd <저장소>` 후 다시 시작한다. **비격리로 낮추어 진행하지 마라** — 격리를 요청했다는 사실이 그대로 사라진다 |
+| 격리 팀원이 조정자의 트리를 고쳤다 | 기동 전에 `cd <worktree>` 를 보내지 않았다 | 도구의 셸은 `~` 에서 시작한다. 등록 출력의 `worktree=<경로>` 로 먼저 보낸다 |
+| `run close` 출력에 "잔여물" 이 있다 | 그 worktree 에 고친 파일이 남아 있어 지우지 않았다 (`dirty`) | **정상 동작이다.** 경로를 사용자에게 그대로 전달한다. 사용자가 커밋·병합하거나 직접 지운다. 조정자가 대신 지우지 마라 |
+| 잔여물 사유가 `branch-retained` | 트리는 지웠지만 머지되지 않은 커밋이 있어 브랜치를 남겼다 | 브랜치 이름을 사용자에게 전달한다. `-D` 로 지우면 그 커밋이 사라진다 |
 | 컨텍스트 압축 후 팀원이 누군지 모르겠음 | 매핑을 대화 기록에 보관했다 | 보관하지 마라. `dmctl run status --run <uuid>` 가 진실이다. Run id 만 있으면 전원을 되찾는다 |
 
 ## 화면을 읽어야 할 때
@@ -57,3 +61,4 @@ dmctl status --at "$MEMBER_TAB"   # 그 팀원의 에이전트 상태
 - `[toolio] input tool=... textLen=N` — `dmctl send-input` 도달
 - `[toolio] message from=... to=... msgLen=N` — `dmctl msg` 도달
 - `[run] start|member|report|close ...` — Run 기록의 변경 전부
+- `[run] worktree 잔여물 ...` — 정리하지 못한 작업 트리와 그 사유

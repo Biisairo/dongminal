@@ -8,12 +8,14 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 
 	"dongminal/internal/run"
 	"dongminal/internal/workspace"
+	"dongminal/internal/worktree"
 )
 
 // runsReady guards every handler: a wiring without the store answers 503
@@ -109,6 +111,18 @@ func writeRunError(w http.ResponseWriter, err error, extra map[string]any) {
 		status, name = http.StatusConflict, run.ErrUnreportedMembers.Error()
 	case errors.Is(err, run.ErrInvalidArgument):
 		status, name = http.StatusBadRequest, run.ErrInvalidArgument.Error()
+	// 격리 실패는 사유를 뭉뚱그리지 않는다 (FR-WKT-11) — 조정자가 "저장소가
+	// 아니다"와 "인자가 위험하다"에 다르게 대응해야 한다.
+	case errors.Is(err, worktree.ErrNotRepo):
+		status, name = http.StatusBadRequest, worktree.ErrNotRepo.Error()
+	case errors.Is(err, worktree.ErrGitMissing):
+		status, name = http.StatusBadRequest, worktree.ErrGitMissing.Error()
+	case errors.Is(err, worktree.ErrUnsafeArgument):
+		status, name = http.StatusBadRequest, worktree.ErrUnsafeArgument.Error()
+	case errors.Is(err, worktree.ErrUnsafePath):
+		status, name = http.StatusBadRequest, worktree.ErrUnsafePath.Error()
+	case errors.Is(err, errIsolationUnavailable):
+		status, name = http.StatusServiceUnavailable, errIsolationUnavailable.Error()
 	}
 	body := map[string]any{"error": name, "detail": err.Error()}
 	for k, v := range extra {
@@ -152,6 +166,11 @@ func (s *Server) apiRunStart(w http.ResponseWriter, r *http.Request) {
 		Isolation  string `json:"isolation"`
 		WindowID   string `json:"windowId"`
 		ToolID     string `json:"toolId"`
+		// Cwd 는 조정자의 작업 디렉터리다. 격리 Run 의 저장소·base 가 여기서
+		// 나온다 (FR-WKT-5) — 서버의 cwd 가 아니라 **조정자의** cwd 여야 하므로
+		// dmctl 이 실어 보낸다.
+		Cwd  string `json:"cwd"`
+		Base string `json:"base"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
@@ -160,14 +179,31 @@ func (s *Server) apiRunStart(w http.ResponseWriter, r *http.Request) {
 	if body.Isolation == "" {
 		body.Isolation = string(run.IsolationNone)
 	}
-	rec, err := s.Runs.Start(run.StartOptions{
+	iso := run.Isolation(body.Isolation)
+	if !iso.Valid() {
+		writeRunError(w, fmt.Errorf("%w: 알 수 없는 isolation: %q", run.ErrInvalidArgument, iso), nil)
+		return
+	}
+	// 격리 준비가 **레코드보다 먼저**다 (FR-WKT-3/11). 비git 디렉터리·git 부재는
+	// 여기서 명확히 실패하고, 실패한 Run 은 기록에 남지 않는다.
+	prov, err := s.provisionRun(iso, body.Cwd, body.Base)
+	if err != nil {
+		writeRunError(w, err, nil)
+		return
+	}
+	opts := run.StartOptions{
 		Objective:         body.Objective,
 		Projection:        run.Projection(body.Projection),
-		Isolation:         run.Isolation(body.Isolation),
+		Isolation:         iso,
 		CoordinatorToolID: s.callerToolID(r, body.ToolID),
 		WindowID:          body.WindowID,
-	})
+	}
+	if prov != nil {
+		opts.ID, opts.Repo, opts.Base, opts.Worktree = prov.ID, prov.Repo, prov.Base, prov.Worktree
+	}
+	rec, err := s.Runs.Start(opts)
 	if err != nil {
+		s.rollbackRun(prov)
 		writeRunError(w, err, nil)
 		return
 	}
@@ -199,14 +235,29 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	rec, known := s.Runs.Get(body.RunID)
+	if !known {
+		writeRunError(w, run.ErrUnknownRun, nil)
+		return
+	}
+	// 작업 트리를 멤버 등록보다 먼저 만든다 — 등록이 거부되면 되돌릴 수 있지만,
+	// 반대 순서로는 트리 없는 멤버가 기록에 남는다 (FR-WKT-3).
+	mi, err := s.provisionMember(rec, body.Role)
+	if err != nil {
+		writeRunError(w, err, nil)
+		return
+	}
 	m, err := s.Runs.AddMember(body.RunID, run.MemberSpec{
-		Role:   body.Role,
-		Agent:  body.Agent,
-		Brief:  body.Brief,
-		ToolID: toolID,
-		TabID:  s.tabIDOfTool(toolID),
+		ID:       mi.ID,
+		Role:     body.Role,
+		Agent:    body.Agent,
+		Brief:    body.Brief,
+		ToolID:   toolID,
+		TabID:    s.tabIDOfTool(toolID),
+		Worktree: mi.Worktree,
 	})
 	if err != nil {
+		s.rollbackMember(mi)
 		writeRunError(w, err, nil)
 		return
 	}
@@ -293,6 +344,9 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		RunID string `json:"runId"`
 		Force bool   `json:"force"`
+		// KeepWorktrees 는 전부 보존한다 (FR-WKT-8). 보존도 **보고**된다 —
+		// 조용히 남는 자원이 없어야 한다 (FR-WKT-12).
+		KeepWorktrees bool `json:"keepWorktrees"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
@@ -319,10 +373,19 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 			"tabId": m.TabID, "agent": m.Agent, "live": s.toolLive(m.ToolID),
 		})
 	}
-	log.Printf("[run] close id=%s members=%d force=%v", rec.ID, len(rec.Members), body.Force)
+	trees := s.cleanupWorktrees(rec, body.KeepWorktrees)
+	residue := 0
+	for _, t := range trees {
+		if !t.Removed {
+			residue++
+		}
+	}
+	log.Printf("[run] close id=%s members=%d force=%v worktrees=%d residue=%d",
+		rec.ID, len(rec.Members), body.Force, len(trees), residue)
 	writeJSON(w, map[string]any{
 		"id": rec.ID, "short": rec.Short, "state": rec.State,
 		"closedAt": rec.ClosedAt, "windowId": rec.WindowID, "cleanup": cleanup,
+		"worktrees": trees, "residue": residue,
 	})
 }
 

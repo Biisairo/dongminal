@@ -101,6 +101,8 @@ dmctl rename-tab --at "$T1" "작가"
 RUN=$(dmctl run start --objective "<한 줄 목적>" --window "$WIN" | sed -n 's/^run=\([^ ]*\).*/\1/p')
 ```
 
+격리가 필요하면 여기서 `--isolation` 을 준다 (아래 3.5). **기본은 격리 없음**이다.
+
 팀원마다 등록한다. `--brief` 가 그 팀원이 할 일이며, **여러 줄이면 `-` 로 stdin** 에 넘긴다:
 
 ```bash
@@ -110,6 +112,52 @@ B
 ```
 
 출력의 `member=<uuid>` 를 캡처한다. 서버가 이 시점에 **프리앰블을 조립**한다 — 역할·목적·Run/Member uuid·보고 규약이 들어간 평문이며, 조정자가 uuid 를 옮겨 적을 일이 없다.
+
+> **brief 는 기동 프롬프트에 실린다.** 멤버는 뜨자마자 그 일을 시작한다. 그러니 brief 에는 **혼자 끝낼 수 있는 일**만 적고, 다른 팀원에게 말을 거는 지시(리뷰 넘기기·순서 협의)는 넣지 마라 — 상대가 아직 없을 때 송신해 데드락이 된다. 팀원 간 협업은 Barrier 뒤 Kickoff 로 연다.
+
+### 3.5 격리 — 쓸 때만 (기본: 안 쓴다)
+
+격리는 팀원마다 **별도 git worktree** 에서 일하게 하는 선택이다. 기본값은 `none`
+이고, 그대로 두는 것이 정상이다.
+
+| 값 | 뜻 |
+|----|-----|
+| `none` (기본) | 전원이 조정자의 작업 트리를 공유한다 |
+| `per-run` | 팀 전체가 worktree 하나를 공유한다. 사용자 트리와는 분리 |
+| `per-member` | 팀원마다 worktree 하나. 같은 파일을 동시에 고치는 팬아웃용 |
+
+**"독립 태스크·병렬 실행·편의" 는 격리 사유가 아니다.** 신뢰 채널로 서로의 산출물을
+읽는 협업 토폴로지는 **파일 공유를 전제**하므로, 격리하면 오히려 깨진다. 같은 파일을
+동시에 고칠 것이 확실할 때만 쓴다.
+
+```bash
+RUN=$(dmctl run start --objective "<목적>" --window "$WIN" --isolation per-member \
+      | sed -n 's/^run=\([^ ]*\).*/\1/p')
+```
+
+- **조정자의 셸 cwd 가 그 저장소여야 한다.** git 저장소가 아니면 Run 시작이 **실패**
+  한다 — 조용히 비격리로 낮추지 않는다. 필요하면 `cd` 를 먼저 하고 시작하라
+- 갈라져 나올 지점은 기본이 **현재 HEAD** 다. 바꾸려면 `--base <ref>`
+- 멤버 등록 출력에 `worktree=<경로>` 가 함께 나온다. 경로·브랜치는 uuid 에서
+  파생되며 **재사용되지 않는다**
+
+**격리 Run 에서는 기동 전에 반드시 그 경로로 보낸다** — 도구의 셸은 `~` 에서 시작하고,
+`cd` 없이 띄우면 팀원이 조정자의 트리를 고친다:
+
+```bash
+LINE=$(dmctl run member --run "$RUN" --role "작가" --agent claude --at "$T1" --brief - <<'B'
+<할 일>
+B
+)
+WT=$(printf '%s' "$LINE" | sed -n 's/.*worktree=\([^ ]*\).*/\1/p')
+
+dmctl send-input --at "$T1" --execute "cd '$WT'"
+```
+
+새 worktree 경로는 정의상 **신뢰 목록에 없다.** 기동 직후 폴더 신뢰 확인 모달이 뜰 수
+있고, 그 상태에서는 훅이 아무것도 보고하지 않아 `dmctl wait` 가 rc=4(타임아웃)로
+돌아온다. **실패가 아니라 체크포인트다** — `dmctl read-screen --at <탭>` 으로 무엇을
+묻는지 보고 응답한 뒤 다시 기다린다.
 
 ### 4. 팀원 병렬 기동
 
@@ -125,7 +173,7 @@ wait
 
 **하나의 `Bash` 호출에서 `&` + `wait`** 로 병렬 기동한다. 순차 기동하면 먼저 뜬 팀원이 아직 없는 동료에게 송신을 시도한다.
 
-> **도구의 셸은 `~` 에서 시작한다.** 특정 디렉터리에서 일해야 하면 기동 전에 `dmctl send-input --at "$t" --execute 'cd <절대경로>'` 를 먼저 보낸다. 신뢰하지 않는 디렉터리에서 claude 를 띄우면 **폴더 신뢰 확인 모달**이 떠서 기동이 멈춘다.
+> **도구의 셸은 `~` 에서 시작한다.** 특정 디렉터리에서 일해야 하면 기동 전에 `dmctl send-input --at "$t" --execute 'cd <절대경로>'` 를 먼저 보낸다. 신뢰하지 않는 디렉터리에서 claude 를 띄우면 **폴더 신뢰 확인 모달**이 떠서 기동이 멈춘다. 격리 Run 이면 그 절대 경로가 곧 멤버의 worktree 다 (3.5).
 
 ### 5. Barrier — 준비완료 확인
 
@@ -188,6 +236,13 @@ dmctl send-input --at "$t" --execute "/exit"    # 팀원마다. 대화를 저장
 dmctl close-tab --at "$t"
 ```
 
+격리 Run 에서 탭을 남겨 둘 거면 `/exit` 뒤에 `dmctl send-input --at "$t" --execute "cd ~"` 를 보낸다. 그러지 않으면 셸의 cwd 가 방금 지워진 worktree 라 이후 명령이 전부 실패한다.
+
+격리 Run 이면 `close` 가 작업 트리도 정리한다. **clean 한 트리만 지운다** — 고친
+파일이 남아 있으면 지우지 않고 **잔여물로 보고**하며, 그 목록은 이후의
+`dmctl run status --run "$RUN"` 에도 남는다. 사용자에게 그대로 전달하라. 전부
+남기려면 `dmctl run close --run "$RUN" --keep-worktrees`.
+
 `/exit` 를 먼저 하는 이유: 실행 중인 CC 의 탭을 바로 닫으면 브라우저가 "프로세스 종료?" 확인창을 띄워 무인 정리가 그 자리에서 막힌다. 마지막 탭이 닫히면 **전용 창은 스스로 사라진다** — `close-window` 를 쓰지 않는다.
 
 ---
@@ -197,14 +252,15 @@ dmctl close-tab --at "$t"
 1. [ ] `dmctl new-window --name <이름> -n` → `newWindows[0]`=WIN, `newTabs[0].uuid`=T1
 2. [ ] `dmctl split-h "$N" --at "$T1" -n` → `newTabs` = 나머지 팀원 탭
 3. [ ] `dmctl rename-tab --at <탭> <역할명>` 팀원마다
-4. [ ] `dmctl run start --objective <목적> --window "$WIN"` → RUN
+4. [ ] `dmctl run start --objective <목적> --window "$WIN"` → RUN (격리가 필요할 때만 `--isolation`)
 5. [ ] 팀원마다 `dmctl run member --run "$RUN" --role <역할> --agent claude --at <탭> --brief -` → member uuid
-6. [ ] **한 `Bash` 호출에서 `&` + `wait`** 로 `dmctl run launch --member <m> | dmctl send-input --at <탭> --execute -`
-7. [ ] **같은 턴 안에서** 팀원마다 `dmctl wait --at <탭> --for ready` (rc=5 면 진단, rc=4 는 체크포인트)
-8. [ ] **같은 턴 안에서** `dmctl msg --to <시작 팀원>` Kickoff → `dmctl status` 로 `working` 확인
-9. [ ] 위 6~8 을 끝낸 **다음에야** 턴 종료 — 보고 대기
-10. [ ] `dmctl run status --run "$RUN"` 로 결과 종합 → 사용자에 보고
-11. [ ] 정리 확인 → `dmctl run close --run "$RUN"` → `/exit` → `dmctl close-tab`
+6. [ ] 격리 Run 이면 팀원마다 `dmctl send-input --at <탭> --execute "cd '<worktree>'"` 를 먼저 보낸다
+7. [ ] **한 `Bash` 호출에서 `&` + `wait`** 로 `dmctl run launch --member <m> | dmctl send-input --at <탭> --execute -`
+8. [ ] **같은 턴 안에서** 팀원마다 `dmctl wait --at <탭> --for ready` (rc=5 면 진단, rc=4 는 체크포인트)
+9. [ ] **같은 턴 안에서** `dmctl msg --to <시작 팀원>` Kickoff → `dmctl status` 로 `working` 확인
+10. [ ] 위 7~9 를 끝낸 **다음에야** 턴 종료 — 보고 대기
+11. [ ] `dmctl run status --run "$RUN"` 로 결과 종합 → 사용자에 보고
+12. [ ] 정리 확인 → `dmctl run close --run "$RUN"` (잔여물이 나오면 사용자에게 전달) → `/exit` → `dmctl close-tab`
 
 ---
 

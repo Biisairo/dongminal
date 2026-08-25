@@ -66,6 +66,11 @@ python3 scripts/render_workflow.py ~/.dongminal/workflows/<name>.md --json --par
 | `report.from` / `report.task_id` | `dmctl run status --run <uuid>` 에서 그 멤버의 보고를 읽는다 |
 | `teardown: confirm\|auto` | `dmctl run close --run <uuid>` 시점 정책 |
 
+**격리는 정의서의 항목이 아니다.** 정의서가 아니라 실행 시점의 선택이며, 기본은
+`none` 이다. 팀원들이 같은 파일을 동시에 고치는 구성일 때만 `dmctl run start` 에
+`--isolation per-member` 를 더하고, 그 뒤 절차(기동 전 `cd`, 해체 시 잔여물 보고)는
+`/dongminal:team` 의 §3.5 를 그대로 따른다.
+
 **team id ↔ uuid 매핑표를 대화 기록에 보관하지 않는다.** 진실은 `dmctl run status --run <uuid>` 이며, `role` 이 곧 team id 다. 컨텍스트가 압축돼도 Run id 하나로 전원을 되찾는다.
 
 ### 1. 공간 확보

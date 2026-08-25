@@ -18,18 +18,22 @@ import (
 const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
 
 사용법:
-  dmctl run start  --objective <목적> [--projection <p>] [--isolation <i>] [--window <uuid>]
+  dmctl run start  --objective <목적> [--projection <p>] [--isolation <i>] [--base <ref>] [--window <uuid>]
   dmctl run member --run <uuid> --role <이름> --agent <id> --at <탭 uuid> [--brief <할 일>|-]
   dmctl run launch --member <uuid> [--model <m>] [--text] [--json]
   dmctl run report --outcome succeeded|failed --summary <3문장> [--files a,b] [--run <uuid>] [--member <uuid>]
   dmctl run status [--run <uuid>]
-  dmctl run close  --run <uuid> [--force]
+  dmctl run close  --run <uuid> [--force] [--keep-worktrees]
   dmctl run list
 
   --projection   dedicated-window(기본) | background | inline
                  전용 창이 기본이다 — 사용자 작업 공간을 침범하지 않는다.
   --isolation    none(기본) | per-run | per-member
                  격리는 명시적 선택이다. 병렬·편의는 격리 사유가 아니다.
+                 per-run 은 Run 전체가 트리 하나를 공유하고, per-member 는
+                 멤버마다 하나다. 격리 Run 은 **이 셸의 cwd 가 git 저장소일 때만**
+                 시작된다 — 아니면 none 으로 낮추지 않고 그 자리에서 실패한다.
+  --base         worktree 가 갈라져 나올 ref. 기본은 이 셸 cwd 의 HEAD 다.
   --brief        이 멤버가 할 일의 본문. 프리앰블에 실리고 기록에 남는다.
                  값이 - 이면 stdin 에서 읽는다. 여러 줄이면 heredoc 을 써라.
   --model        기동할 모델. 그 에이전트의 모델 플래그가 확인된 경우에만 붙는다.
@@ -49,6 +53,11 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
 생략이 정상이다 — 남의 id 를 알아도 남의 몫을 보고할 수 없다.
 
 close 는 미보고 멤버가 있으면 거부하고 목록을 낸다. --force 로만 넘어간다.
+
+격리 Run 의 정리 규칙: 작업 트리가 clean 이면 worktree 를 지우고 브랜치는 머지된
+경우에만 지운다. **dirty 면 지우지 않고 잔여물로 보고한다** — 사용자 작업을 조용히
+삭제하지 않는다. 전부 남기려면 --keep-worktrees. 정리하지 못한 것은 close 출력과
+이후의 run status 양쪽에 남는다.
 close 는 도구를 닫지 않는다 — 정리 대상을 돌려주므로, 조정자가 에이전트를
 종료(예: /exit)시킨 뒤 dmctl close-tab --at <탭 uuid> 로 마무리한다. 실행 중인
 도구의 탭을 서버가 바로 닫으면 브라우저가 확인창을 띄워 무인 정리가 막힌다.
@@ -69,7 +78,9 @@ type runFlags struct {
 	outcome    string
 	summary    string
 	files      string
+	base       string
 	force      bool
+	keepTrees  bool
 	textOut    bool
 	jsonOut    bool
 }
@@ -119,7 +130,7 @@ func parseRunFlags(sub string, args []string, stdout, stderr io.Writer) (runFlag
 		"--brief": &f.brief, "--model": &f.model,
 		"--at": &f.at, "-l": &f.at, "--objective": &f.objective, "--projection": &f.projection,
 		"--isolation": &f.isolation, "--window": &f.window, "--outcome": &f.outcome,
-		"--summary": &f.summary, "--files": &f.files,
+		"--summary": &f.summary, "--files": &f.files, "--base": &f.base,
 	}
 	for i := 0; i < len(args); {
 		a := args[i]
@@ -129,6 +140,11 @@ func parseRunFlags(sub string, args []string, stdout, stderr io.Writer) (runFlag
 		}
 		if a == "--force" {
 			f.force = true
+			i++
+			continue
+		}
+		if a == "--keep-worktrees" {
+			f.keepTrees = true
 			i++
 			continue
 		}
@@ -182,6 +198,28 @@ func runSubStart(f runFlags, stdout, stderr io.Writer) int {
 	}
 	if f.window != "" {
 		body["windowId"] = f.window
+	}
+	if f.isolation != "none" {
+		// 격리의 저장소·base 는 **조정자의 cwd** 에서 나온다 (FR-WKT-5). 서버는
+		// 조정자가 어디서 일하는지 알 방법이 없으므로 여기서 실어 보낸다.
+		wd, err := os.Getwd()
+		if err != nil {
+			fmt.Fprintf(stderr, "run start: 현재 디렉터리를 알 수 없다: %v\n", err)
+			return 1
+		}
+		body["cwd"] = wd
+		if f.base != "" {
+			// - 로 시작하는 인자는 git 플래그로 오인된다 (FR-WKT-6). 서버도 막지만
+			// 왕복 전에 알려 주는 편이 낫다.
+			if strings.HasPrefix(f.base, "-") {
+				fmt.Fprintf(stderr, "run start: --base 는 - 로 시작할 수 없다: %q\n", f.base)
+				return 2
+			}
+			body["base"] = f.base
+		}
+	} else if f.base != "" {
+		fmt.Fprintln(stderr, "run start: --base 는 격리 Run 에만 쓴다 (--isolation per-run|per-member)")
+		return 2
 	}
 	raw, code := runPost("/api/runs", body, stderr)
 	if code != 0 {
@@ -238,8 +276,15 @@ func runSubMember(f runFlags, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "dmctl: invalid member response: %v\n", err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "member=%s  role=%s  agent=%s  toolId=%s  tabId=%s  state=%s\n",
+	line := fmt.Sprintf("member=%s  role=%s  agent=%s  toolId=%s  tabId=%s  state=%s",
 		m.ID, m.Role, m.Agent, m.ToolID, m.TabID, m.State)
+	// 격리 Run 이면 작업 트리를 같은 줄에 낸다 — 조정자가 기동 전에 cd 로
+	// 보내야 하는 경로이고(도구의 셸은 ~ 에서 시작한다), 한 줄에서 뽑을 수
+	// 있어야 스킬이 왕복을 더 만들지 않는다.
+	if m.Worktree != nil && m.Worktree.Path != "" {
+		line += fmt.Sprintf("  worktree=%s  branch=%s", m.Worktree.Path, m.Worktree.Branch)
+	}
+	fmt.Fprintln(stdout, line)
 	return 0
 }
 
@@ -391,7 +436,9 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "run close: --run 은 필수다")
 		return 2
 	}
-	raw, code := runPost("/api/runs/close", map[string]any{"runId": f.run, "force": f.force}, stderr)
+	raw, code := runPost("/api/runs/close", map[string]any{
+		"runId": f.run, "force": f.force, "keepWorktrees": f.keepTrees,
+	}, stderr)
 	if code != 0 {
 		return code
 	}
@@ -408,6 +455,7 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 			TabID  string `json:"tabId"`
 			Live   bool   `json:"live"`
 		} `json:"cleanup"`
+		Worktrees []runWorktree `json:"worktrees"`
 	}
 	if err := json.Unmarshal(raw, &rec); err != nil {
 		fmt.Fprintf(stderr, "dmctl: invalid close response: %v\n", err)
@@ -420,29 +468,61 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "  role=%s  toolId=%s  tabId=%s  live=%v\n", c.Role, c.ToolID, c.TabID, c.Live)
 		}
 	}
+	// 잔여물은 조용히 남기지 않는다 (FR-WKT-12). 지운 것은 굳이 나열하지 않는다 —
+	// 목록이 길어지면 정작 남은 것이 묻힌다.
+	var left []runWorktree
+	for _, wt := range rec.Worktrees {
+		if !wt.Removed {
+			left = append(left, wt)
+		}
+	}
+	if len(left) > 0 {
+		fmt.Fprintf(stdout, "잔여물 %d건 (지우지 않았다):\n", len(left))
+		for _, wt := range left {
+			line := fmt.Sprintf("  %s  branch=%s  사유=%s", wt.Path, wt.Branch, wt.Residue)
+			if wt.Detail != "" {
+				line += "  (" + wt.Detail + ")"
+			}
+			fmt.Fprintln(stdout, line)
+		}
+	}
 	return 0
 }
 
+// runWorktree 는 격리 멤버의 작업 트리와 그 정리 결과다 (FR-WKT-12).
+type runWorktree struct {
+	Path    string `json:"path"`
+	Branch  string `json:"branch"`
+	Base    string `json:"base"`
+	Removed bool   `json:"removed"`
+	Residue string `json:"residue"`
+	Detail  string `json:"detail"`
+}
+
 type runMember struct {
-	ID      string `json:"id"`
-	Role    string `json:"role"`
-	Agent   string `json:"agent"`
-	ToolID  string `json:"toolId"`
-	TabID   string `json:"tabId"`
-	State   string `json:"state"`
-	Outcome string `json:"outcome"`
-	Summary string `json:"summary"`
+	ID       string       `json:"id"`
+	Role     string       `json:"role"`
+	Agent    string       `json:"agent"`
+	ToolID   string       `json:"toolId"`
+	TabID    string       `json:"tabId"`
+	State    string       `json:"state"`
+	Outcome  string       `json:"outcome"`
+	Summary  string       `json:"summary"`
+	Worktree *runWorktree `json:"worktree"`
 }
 
 type runRecord struct {
-	ID         string      `json:"id"`
-	Short      string      `json:"short"`
-	Objective  string      `json:"objective"`
-	Projection string      `json:"projection"`
-	Isolation  string      `json:"isolation"`
-	State      string      `json:"state"`
-	WindowID   string      `json:"windowId"`
-	Members    []runMember `json:"members"`
+	ID         string       `json:"id"`
+	Short      string       `json:"short"`
+	Objective  string       `json:"objective"`
+	Projection string       `json:"projection"`
+	Isolation  string       `json:"isolation"`
+	State      string       `json:"state"`
+	WindowID   string       `json:"windowId"`
+	Repo       string       `json:"repo"`
+	Base       string       `json:"base"`
+	Worktree   *runWorktree `json:"worktree"`
+	Members    []runMember  `json:"members"`
 }
 
 func printRun(stdout io.Writer, rec runRecord, withMembers bool) {
@@ -450,6 +530,12 @@ func printRun(stdout io.Writer, rec runRecord, withMembers bool) {
 		rec.ID, rec.Short, rec.State, rec.Projection, rec.Isolation, len(rec.Members), rec.Objective)
 	if !withMembers {
 		return
+	}
+	if rec.Repo != "" {
+		fmt.Fprintf(stdout, "  repo=%s  base=%s\n", rec.Repo, rec.Base)
+	}
+	if rec.Worktree != nil {
+		printWorktree(stdout, *rec.Worktree, "  공유 트리")
 	}
 	for _, m := range rec.Members {
 		line := fmt.Sprintf("  role=%s  state=%s  agent=%s  toolId=%s  tabId=%s", m.Role, m.State, m.Agent, m.ToolID, m.TabID)
@@ -460,7 +546,26 @@ func printRun(stdout io.Writer, rec runRecord, withMembers bool) {
 		if m.Summary != "" {
 			fmt.Fprintf(stdout, "    %s\n", m.Summary)
 		}
+		if m.Worktree != nil {
+			printWorktree(stdout, *m.Worktree, "    트리")
+		}
 	}
+}
+
+// printWorktree 는 작업 트리 한 줄이다. 잔여물이 있으면 그 사실을 함께 낸다 —
+// 조회는 close 를 지켜보지 못한 세션이 잔여물을 알 유일한 경로다 (FR-WKT-12).
+func printWorktree(stdout io.Writer, wt runWorktree, label string) {
+	line := fmt.Sprintf("%s %s  branch=%s", label, wt.Path, wt.Branch)
+	if wt.Base != "" {
+		line += "  base=" + wt.Base
+	}
+	switch {
+	case wt.Residue != "":
+		line += "  잔여물=" + wt.Residue
+	case wt.Removed:
+		line += "  (정리됨)"
+	}
+	fmt.Fprintln(stdout, line)
 }
 
 // runPost/runGet share the error rendering: an enumerated refusal reason is

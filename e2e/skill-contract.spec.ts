@@ -1,3 +1,8 @@
+import { execFileSync } from 'child_process';
+import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+
 import { test, expect } from './fixtures';
 
 // /dongminal:team 과 /dongminal:workflow 스킬이 실제로 밟는 접합면을 라이브 서버에서
@@ -621,5 +626,119 @@ test.describe('detach CLI 의 HTTP 계약 (라이브)', () => {
     const st = await (await request.get('/api/state')).json();
     expect((st.tools || []).some((t: any) => t.id === single),
       'detach 한 도구가 종료됐다').toBe(true);
+  });
+});
+
+// 묶음 W — worktree 격리 (RUN_ORCHESTRATION_SRS §3.4). 여기서만 확인할 수 있는
+// 것은 **실제 바이너리의 배선**이다: Go 테스트는 서버 구조체에 관리자를 직접
+// 꽂지만, 운영 경로에서는 main 이 $DONGMINAL_HOME/worktrees 로 만들어 주입한다.
+//
+// 대상 저장소는 이 스펙이 만든 임시 저장소다 — 운영 저장소·사용자 홈을 건드리지
+// 않는다 (§4.3, 함정 1~3).
+test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
+  let repo = '';
+
+  test.beforeAll(() => {
+    repo = mkdtempSync(join(tmpdir(), 'dmn-e2e-repo-'));
+    repo = realpathSync(repo);
+    const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, stdio: 'pipe' });
+    git('init', '-b', 'main');
+    git('config', 'user.email', 'e2e@example.com');
+    git('config', 'user.name', 'e2e');
+    writeFileSync(join(repo, 'README.md'), 'x\n');
+    git('add', '.');
+    git('commit', '-m', 'init');
+  });
+
+  test.afterAll(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
+
+  test('격리 Run 이 트리를 만들고 close 가 정리한다', async ({ page, request }) => {
+    await waitForInit(page);
+    const { uuid, toolId } = await firstTab(request);
+
+    const started = await request.post('/api/runs', {
+      data: { objective: 'e2e 격리', projection: 'inline', isolation: 'per-run', cwd: repo },
+    });
+    expect(started.status(), await started.text()).toBe(200);
+    const run = await started.json();
+    expect(run.repo).toBe(repo);
+    expect(run.base).toBe('main');
+    const wt = run.worktree;
+    expect(wt?.path, '공유 worktree 가 없다').toBeTruthy();
+    // 관리 루트 밖에 만들면 정리의 안전 가드가 무의미해진다 (FR-WKT-10). 루트는
+    // $DONGMINAL_HOME/worktrees 다. (playwright.config 의 E2E_HOME 을 여기서 읽지
+    // 않는 이유: 그 값은 모듈 평가 시점의 Date.now()·pid 라 워커 프로세스에서
+    // 다시 계산되어 서버가 쓰는 값과 어긋난다.)
+    expect(wt.path, `worktrees 루트 밖이다: ${wt.path}`)
+      .toMatch(/dongminal-e2e-[^/]+\/worktrees\//);
+    expect(existsSync(wt.path), '경로가 실제로 만들어지지 않았다').toBe(true);
+    // --no-track: base 의 upstream 을 물려받지 않는다 (FR-WKT-2).
+    expect(() => execFileSync('git', ['rev-parse', '--abbrev-ref', `${wt.branch}@{upstream}`],
+      { cwd: wt.path, stdio: 'pipe' })).toThrow();
+
+    const added = await request.post('/api/runs/members', {
+      data: { runId: run.id, role: 'e2e-writer', agent: 'claude', id: uuid },
+    });
+    expect(added.status()).toBe(200);
+    const member = await added.json();
+    expect(member.worktree.path, 'per-run 멤버는 공유 트리를 받는다').toBe(wt.path);
+    // FR-PRE-4: 멤버가 자기 작업 위치를 화면에서 추론하게 두지 않는다.
+    expect(member.preamble).toContain(wt.path);
+
+    await request.post('/api/runs/report', {
+      data: { toolId, outcome: 'succeeded', summary: '했다. 봤다. 남았다.' },
+    });
+    const closed = await request.post('/api/runs/close', { data: { runId: run.id } });
+    expect(closed.status()).toBe(200);
+    const body = await closed.json();
+    expect(body.worktrees).toHaveLength(1);
+    expect(body.worktrees[0].removed, `잔여물: ${JSON.stringify(body.worktrees[0])}`).toBe(true);
+    expect(body.residue).toBe(0);
+    expect(existsSync(wt.path), 'clean 트리가 정리되지 않았다').toBe(false);
+
+    await request.post('/api/tools/activity/set', { data: { toolId, state: 'idle' } });
+  });
+
+  test('dirty 트리는 보존되고 잔여물로 보고된다', async ({ page, request }) => {
+    await waitForInit(page);
+    const { uuid, toolId } = await firstTab(request);
+
+    const run = await (await request.post('/api/runs', {
+      data: { objective: 'e2e 잔여물', projection: 'inline', isolation: 'per-member', cwd: repo },
+    })).json();
+    const member = await (await request.post('/api/runs/members', {
+      data: { runId: run.id, role: 'e2e-dirty', agent: 'claude', id: uuid },
+    })).json();
+    const path = member.worktree.path;
+    // 경로 확인 뒤에만 쓴다 — 빈 값이면 join 이 이 저장소 안에 파일을 만든다 (§4.3).
+    expect(path, `worktrees 루트 밖이다: ${path}`).toMatch(/dongminal-e2e-[^/]+\/worktrees\//);
+    const work = join(path, '작업물.txt');
+    writeFileSync(work, '지우면 안 된다\n');
+
+    const closed = await (await request.post('/api/runs/close',
+      { data: { runId: run.id, force: true } })).json();
+    expect(closed.worktrees[0].residue).toBe('dirty');
+    expect(closed.residue).toBe(1);
+    expect(existsSync(work), '사용자 작업이 삭제됐다').toBe(true);
+
+    // 기록이 잔여물을 기억한다 — close 를 지켜보지 못한 세션이 알 유일한 경로다.
+    const status = await (await request.get(`/api/runs?id=${run.id}`)).json();
+    expect(status.members[0].worktree.residue).toBe('dirty');
+
+    rmSync(path, { recursive: true, force: true });
+    execFileSync('git', ['worktree', 'prune'], { cwd: repo, stdio: 'pipe' });
+    await request.post('/api/tools/activity/set', { data: { toolId, state: 'idle' } });
+  });
+
+  test('비git 디렉터리의 격리 Run 은 명확히 실패한다', async ({ request }) => {
+    const plain = realpathSync(mkdtempSync(join(tmpdir(), 'dmn-e2e-plain-')));
+    const r = await request.post('/api/runs', {
+      data: { objective: 'e2e 비git', projection: 'inline', isolation: 'per-member', cwd: plain },
+    });
+    expect(r.status()).toBe(400);
+    expect((await r.json()).error).toBe('not_a_git_repo');
+    rmSync(plain, { recursive: true, force: true });
   });
 });

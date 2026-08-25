@@ -494,7 +494,7 @@ V-M3 은 묶음 D 의 존재 이유이므로 생략할 수 없다.
 |---|---|
 | Claude 외 에이전트로의 지시 주입 | dongminal 이 현재 지원하는 에이전트는 Claude Code 다. `dmctl` 액션 계층은 셸만 있으면 되므로 이미 에이전트 무관이고, 정책 주입 수단만 에이전트별로 다르다. 어댑터 레지스트리(§2.4)와 함께 별도 스펙 |
 | ~~에이전트 어댑터 레지스트리~~ | `parseClaudeHook`/`parseCodexHook` 의 선언화. **해소됨 (2026-08-25)** — `RUN_ORCHESTRATION_SRS` 묶음 A, `internal/agentadapter` |
-| worktree 격리 (orca) | `RUN_ORCHESTRATION_SRS` 묶음 W. **아직 미착수** |
+| ~~worktree 격리 (orca)~~ | **해소됨 (2026-08-25)** — `RUN_ORCHESTRATION_SRS` 묶음 W, `internal/worktree`. 격리는 Run 단위 선택이며 기본은 `none` 이다 |
 | ~~태스크/Run 레코드 (paseo)~~ | **해소됨 (2026-08-25)** — `RUN_ORCHESTRATION_SRS` 묶음 R, `runs.json` |
 | 현행 알림 훅을 플러그인 `hooks/` 로 흡수 | 검증된 경로를 이번 변경에 끌어들이지 않는다 (FR-INJ-4). 플러그인이 hooks 를 담을 수 있음은 확인됐으므로 후속 정리 후보 |
 | 스킬 내용의 기능 확장 | 본 SRS 는 **접합면 교체**다. 정책은 보존한다 (FR-SK-2) |

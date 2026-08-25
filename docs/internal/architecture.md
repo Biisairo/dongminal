@@ -20,6 +20,7 @@ internal/
   toolline/            # dmctl 공용 한 줄 렌더러 (byte-level 동일 출력 보장)
   uuid/                # 엔티티 uuid(UUID v7) 생성·파싱
   workspace/           # workspace.json 인덱싱·resolve·영속화 (Manager + FilePersister)
+  worktree/            # Run 격리의 git worktree 생성·정리 + 안전 가드 (파괴적 동작의 유일한 경로)
 web/                   # 프론트엔드 자산 (HTML/CSS/JS) + embed.FS()
 scripts/               # start/stop/health/migrate.sh (개발자·운영자 대상)
 .env / .env.example    # start.sh 가 자동 로드하는 환경변수(PORT, BINARY, LOG, DONGMINAL_HOME)
@@ -170,6 +171,36 @@ CLI(`dmctl run launch`)가 하는 일은 그 평문을 어댑터가 선언한 �
 명령에서 승인 대기에 걸리고, 인자 구분자(`--`)가 빠지면 가변 인자 플래그가 프리앰블을
 삼켜 빈 프롬프트로 뜬다. 둘 다 실제 팀을 띄워 밟은 결함이며, 스킬이 기동줄을
 직접 쓰지 못하게 `internal/runtime` 의 계약 테스트가 막는다.
+
+## worktree 격리 (`internal/worktree`)
+
+격리는 **Run 단위 선택**이고 기본은 `none` 이다. "독립 태스크·병렬 실행·편의"는
+격리 사유가 아니다 — 신뢰 채널 협업 토폴로지 일부는 **파일 공유를 전제**하므로
+격리하면 오히려 깨진다. `per-run` 은 Run 전체가 트리 하나를 공유하고 `per-member`
+는 멤버마다 하나다.
+
+생성은 `git worktree add --no-track -b <branch> <path> [<base>]` 다. `--no-track`
+이 핵심이다 — base 의 upstream 을 물려받으면 push 전에 `git status` 가 "behind by
+N" 을 오보한다. 대신 `push.autoSetupRemote` 를 걸고, 생성 base 를
+`branch.<name>.base` 에 남긴다(나중에 "이 브랜치가 무엇에서 갈라졌나"를 물을 유일한
+근거). 저장소와 base 는 **조정자의 cwd** 에서 확정한다 — 서버의 cwd 가 아니므로
+`dmctl run start` 가 실어 보낸다. git 저장소가 아니면 **명확히 실패**하며, 조용히
+`none` 으로 낮추지 않는다.
+
+경로·브랜치는 uuid 에서 파생하고 **재사용하지 않는다** — 에이전트 CLI 는 대화
+이력을 cwd 로 키잉하므로 지워진 경로를 다시 쓰면 새 멤버가 남의 이력을 물려받는다.
+조각은 `short`(앞 8자)가 아니라 `run.PathSlug`(앞 8 + 뒤 8)다: uuid v7 의 앞 48비트는
+밀리초 타임스탬프라 **같은 기간에 열린 Run 은 전부 같은 short 를 갖는다.**
+
+정리는 `run close` 가 한다. **clean 한 트리만 지우고 브랜치는 `-d`(머지된 것만)로
+지운다.** dirty 면 지우지 않고 **잔여물로 보고**한다 — 사용자 작업의 조용한 삭제는
+금지다. `-D` 는 생성 실패의 롤백에서만 쓴다(사용자 작업이 없다는 것이 확실한 경우).
+정리 대상은 **Run 레코드에 등록된 것뿐**이며, 같은 루트 아래에 사용자가 만든 트리가
+있어도 건드리지 않는다. 제거 전에 경로가 실제로 `$DONGMINAL_HOME/worktrees/` 아래인지
+확인하고, 저장소 자신·파일시스템 루트·`..` 이탈은 거부한다. 정리 결과는 레코드에
+영속되므로 `run status` 가 나중에도 잔여물을 말한다.
+
+worktree 조작은 **직렬화**한다. 공용 common-dir 을 건드려 병렬 팬아웃에서 경합한다.
 
 ## 스킬 (`internal/runtime/agentplugin/skills`)
 

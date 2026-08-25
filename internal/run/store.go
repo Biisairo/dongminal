@@ -82,11 +82,18 @@ const (
 	OutcomeFailed    Outcome = "failed"
 )
 
-// Worktree 는 격리된 멤버의 작업 트리다 (묶음 W 가 채운다).
+// Worktree 는 격리된 멤버의 작업 트리다 (묶음 W).
+//
+// Removed·Residue 는 정리 **결과**다. 기록에 남기는 이유는 FR-WKT-12 다 — 지우지
+// 못한 자원은 조용히 남지 않고, close 를 지켜보지 못한 다음 세션도 run status 로
+// 그 사실을 읽을 수 있어야 한다.
 type Worktree struct {
-	Path   string `json:"path"`
-	Branch string `json:"branch"`
-	Base   string `json:"base,omitempty"`
+	Path    string `json:"path"`
+	Branch  string `json:"branch"`
+	Base    string `json:"base,omitempty"`
+	Removed bool   `json:"removed,omitempty"`
+	Residue string `json:"residue,omitempty"`
+	Detail  string `json:"detail,omitempty"`
 }
 
 // Member 는 Run 에 속한 참여자 하나이며 Tool 과 1:1 이다 (FR-RUN-2).
@@ -122,9 +129,15 @@ type Record struct {
 	CoordinatorToolID string     `json:"coordinatorToolId,omitempty"`
 	WindowID          string     `json:"windowId,omitempty"`
 	Members           []Member   `json:"members,omitempty"`
-	CreatedAt         int64      `json:"createdAt"`
-	ClosedAt          int64      `json:"closedAt,omitempty"`
-	AbortReason       string     `json:"abortReason,omitempty"`
+	// Repo·Base·Worktree 는 격리 Run 에서만 채워진다 (FR-WKT-5). Repo 는 Run 을
+	// 연 시점 조정자 cwd 의 저장소 루트이고, Base 는 그때의 HEAD 다 — 나중에
+	// "이 브랜치가 무엇에서 갈라졌나"를 물을 근거이며 정리의 대상 저장소다.
+	Repo        string    `json:"repo,omitempty"`
+	Base        string    `json:"base,omitempty"`
+	Worktree    *Worktree `json:"worktree,omitempty"` // per-run 의 공유 트리
+	CreatedAt   int64     `json:"createdAt"`
+	ClosedAt    int64     `json:"closedAt,omitempty"`
+	AbortReason string    `json:"abortReason,omitempty"`
 }
 
 type fileBody struct {
@@ -258,11 +271,19 @@ func (s *Store) save() error {
 
 // StartOptions is the input of Start.
 type StartOptions struct {
+	// ID 를 호출자가 미리 정할 수 있다. 격리 Run 이 그렇게 한다 — worktree 경로가
+	// run.short 에서 파생되므로(FR-WKT-3) 레코드가 생기기 **전에** id 가 필요하고,
+	// 생성이 실패하면 레코드가 아예 없어야 고아 Run 이 남지 않는다. 비우면 저장소가
+	// 발급한다.
+	ID                string
 	Objective         string
 	Projection        Projection
 	Isolation         Isolation
 	CoordinatorToolID string
 	WindowID          string
+	Repo              string
+	Base              string
+	Worktree          *Worktree
 }
 
 // Start opens a Run.
@@ -279,10 +300,13 @@ func (s *Store) Start(opt StartOptions) (Record, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	id := s.newID()
+	id := strings.TrimSpace(opt.ID)
+	if id == "" {
+		id = s.newID()
+	}
 	rec := Record{
 		ID:                id,
-		Short:             shortOf(id),
+		Short:             Short(id),
 		Objective:         strings.TrimSpace(opt.Objective),
 		Projection:        opt.Projection,
 		Isolation:         opt.Isolation,
@@ -290,6 +314,9 @@ func (s *Store) Start(opt StartOptions) (Record, error) {
 		Epoch:             s.epoch,
 		CoordinatorToolID: opt.CoordinatorToolID,
 		WindowID:          opt.WindowID,
+		Repo:              opt.Repo,
+		Base:              opt.Base,
+		Worktree:          opt.Worktree,
 		CreatedAt:         s.now(),
 	}
 	s.runs = append([]Record{rec}, s.runs...)
@@ -301,6 +328,9 @@ func (s *Store) Start(opt StartOptions) (Record, error) {
 
 // MemberSpec is the input of AddMember.
 type MemberSpec struct {
+	// ID 는 StartOptions.ID 와 같은 이유로 미리 정할 수 있다 — worktree 경로가
+	// member.short 에서 파생된다 (FR-WKT-3).
+	ID    string
 	Role  string
 	Agent string
 	// Brief 는 이 멤버가 할 일의 본문이다. 프리앰블에 그대로 실리며, 기록에
@@ -336,8 +366,12 @@ func (s *Store) AddMember(runID string, spec MemberSpec) (Member, error) {
 	if _, _, ok := s.findByTool(spec.ToolID); ok {
 		return Member{}, ErrToolAlreadyMember
 	}
+	memberID := strings.TrimSpace(spec.ID)
+	if memberID == "" {
+		memberID = s.newID()
+	}
 	m := Member{
-		ID:        s.newID(),
+		ID:        memberID,
 		RunID:     runID,
 		Role:      strings.TrimSpace(spec.Role),
 		Agent:     strings.TrimSpace(spec.Agent),
@@ -445,6 +479,67 @@ func (s *Store) Close(runID string, force bool) (Record, []Member, error) {
 	return out, pending, nil
 }
 
+// WorktreeMark 는 정리 한 건의 결과다. Path 로 대상을 지목한다.
+type WorktreeMark struct {
+	Path    string
+	Removed bool
+	Residue string
+	Detail  string
+}
+
+// MarkWorktrees 는 정리 결과를 기록에 반영한다 (FR-WKT-12).
+//
+// Path 로 지목하는 이유는 per-run 의 공유 트리가 레코드와 멤버 양쪽에 걸려 있기
+// 때문이다 — 같은 경로를 가리키는 모든 자리에 같은 결과가 적혀야 조회가 엇갈리지
+// 않는다.
+func (s *Store) MarkWorktrees(runID string, marks []WorktreeMark) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	idx := s.indexOf(runID)
+	if idx < 0 {
+		return ErrUnknownRun
+	}
+	rec := &s.runs[idx]
+	for _, mk := range marks {
+		if mk.Path == "" {
+			continue
+		}
+		apply := func(w *Worktree) {
+			if w == nil || w.Path != mk.Path {
+				return
+			}
+			w.Removed, w.Residue, w.Detail = mk.Removed, mk.Residue, mk.Detail
+		}
+		apply(rec.Worktree)
+		for mi := range rec.Members {
+			apply(rec.Members[mi].Worktree)
+		}
+	}
+	return s.save()
+}
+
+// WorktreeTargets 는 이 Run 이 **만든** worktree 만 돌려준다 (FR-WKT-9).
+//
+// 정리의 유일한 근거다. 파일시스템을 훑어 "worktree 처럼 보이는 것"을 지우지
+// 않는다 — 사용자가 만든 트리가 그 안에 있어도 알 방법이 없기 때문이다.
+func (r Record) WorktreeTargets() []Worktree {
+	seen := map[string]bool{}
+	var out []Worktree
+	add := func(w *Worktree) {
+		if w == nil || w.Path == "" || seen[w.Path] {
+			return
+		}
+		seen[w.Path] = true
+		out = append(out, *w)
+	}
+	add(r.Worktree)
+	for _, m := range r.Members {
+		add(m.Worktree)
+	}
+	return out
+}
+
 // Get returns a Run by id.
 func (s *Store) Get(runID string) (Record, bool) {
 	s.mu.Lock()
@@ -545,11 +640,28 @@ func (s *Store) indexOf(runID string) int {
 	return -1
 }
 
-// shortOf is the log/path-friendly alias — the first 8 chars of the uuid, the
-// same rule workspace labels already use.
-func shortOf(id string) string {
+// Short is the log/path-friendly alias — the first 8 chars of the uuid, the
+// same rule workspace labels already use. worktree 경로·브랜치가 이 값에서
+// 파생되므로(FR-WKT-3) 호출자도 같은 규칙을 쓸 수 있어야 한다.
+func Short(id string) string {
 	if len(id) <= 8 {
 		return id
 	}
 	return id[:8]
+}
+
+// PathSlug 는 uuid 에서 **충돌하지 않는** 경로·브랜치 조각을 만든다 (FR-WKT-3/4).
+//
+// short 만으로는 부족하다 — uuid v7 의 앞 48비트는 밀리초 타임스탬프이고, 그
+// 상위 32비트(=앞 8자)는 49일에 한 번 바뀐다. 즉 **같은 기간에 열린 Run·Member 는
+// 전부 같은 short 를 갖는다.** 실측으로 확인했다: 연속으로 만든 Run 두 개가
+// 01a0370c 로 같았고, short 로 만든 경로가 그대로 겹쳤다. 뒤 8자는 난수 구간이라
+// 여기에 붙여 유일성을 회복한다. 경로 재사용은 남의 대화 이력을 물려주는 것이므로
+// (FR-WKT-4) 이 유일성은 편의가 아니라 요구사항이다.
+func PathSlug(id string) string {
+	clean := strings.ReplaceAll(id, "-", "")
+	if len(clean) < 16 {
+		return Short(id)
+	}
+	return Short(id) + "-" + clean[len(clean)-8:]
 }

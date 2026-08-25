@@ -21,6 +21,7 @@ import (
 	"dongminal/internal/sysstat"
 	"dongminal/internal/uuid"
 	"dongminal/internal/workspace"
+	"dongminal/internal/worktree"
 	"dongminal/web"
 )
 
@@ -336,6 +337,11 @@ func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.C
 		log.Printf("run store load: %v", err)
 	}
 
+	// worktree 격리의 관리자 (묶음 W). 자기 영역은 $DONGMINAL_HOME/worktrees
+	// 아래뿐이고, 정리 대상은 Run 레코드가 정한다 (FR-WKT-9/10). 격리를 쓰지
+	// 않는 Run 은 이 객체를 건드리지 않는다.
+	worktrees := worktree.New(dataPath(cfg.DataDir, "worktrees"))
+
 	// 상태바 지표 샘플러. 커널을 주기적으로 읽어 스냅샷을 유지하므로 /api/stats 가
 	// 요청 경로에서 커널을 호출하지 않는다 (SYSTEM_STATS_SRS FR-STAT-8/9/11).
 	sampler := sysstat.NewSampler(sysstat.NewReader(), sysstat.DefaultInterval, "/")
@@ -351,6 +357,7 @@ func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.C
 			WorkIndex:   wa,
 			Stats:       sampler,
 			Runs:        runStore,
+			Worktrees:   worktrees,
 		},
 		pm:          nil, // set by caller in direct mode
 		attnTracker: attnTracker,

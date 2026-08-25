@@ -33,7 +33,7 @@ dongminal 을 **다중 에이전트 오케스트레이터**로 만든다. 접합
 | R | Run 레코드 — 스키마·영속(`runs.json`)·상태기계·epoch 펜싱·접합 필드 소비 | **완료** (`a958797`) |
 | P | 멤버 프리앰블과 보고 계약 — 평문 프리앰블, 1회 보고, 발신자 정체 기반 권한 | **완료** — 보고 권한(FR-PRE-5/6/7)은 R 과 함께, 프리앰블 본문(FR-PRE-1~4/8)은 A 와 함께 |
 | A | 에이전트 어댑터 레지스트리 — 기동·탐지·프롬프트 주입·정책 주입·훅 파서의 선언화 | **완료** (`internal/agentadapter`). FR-STA-4 2단계 소비자만 미구현 |
-| W | worktree 격리 — Run 단위 선택, 생성·명명·정리·실패 잔여물·안전 가드 | 미착수 |
+| W | worktree 격리 — Run 단위 선택, 생성·명명·정리·실패 잔여물·안전 가드 | **완료** (`internal/worktree`). FR-WKT-3 의 명명 규칙만 개정 — 아래 주석 |
 | K | 스킬 재작성 — `team`·`workflow` 를 Run 기반 전용 창 토폴로지로 | **완료** (`b3dc910`). `build_prompt.py`·`references/prompt.md` 삭제, fingerprint 0건 |
 
 구현 순서는 의존과 리스크를 따른다 — S → R → **P+A** → W → K.
@@ -418,9 +418,19 @@ git worktree add --no-track -b <branch> <path> [<base>]
 **FR-WKT-3** 경로와 브랜치 이름은 **Run·Member 의 uuid 에서 파생**한다.
 
 ```
-경로:    $DONGMINAL_HOME/worktrees/<run.short>/<member.short>
-브랜치:  dmn/<run.short>/<role>
+경로:    $DONGMINAL_HOME/worktrees/<run.slug>/<member.slug>
+브랜치:  dmn/<run.slug>/<role>
 ```
+
+`slug` 는 `<uuid 앞 8자>-<uuid 뒤 8자>` 다 (`run.PathSlug`). **착수 시 이 자리는
+`short`(앞 8자)였고, 구현 중 그것이 유일하지 않다는 것이 드러나 개정했다** — uuid v7
+의 앞 48비트는 밀리초 타임스탬프이고 그 상위 32비트(=앞 8자)는 49일에 한 번 바뀐다.
+즉 같은 기간에 열린 Run·Member 는 **전부 같은 short 를 갖는다.** 실측으로 확인했다:
+연속으로 만든 Run 두 개가 `01a0370c` 로 같았고, short 로 만든 경로가 그대로 겹쳐
+두 번째 멤버의 worktree 생성이 실패했다(TC-WKT-2 계열 테스트가 잡았다). 뒤 8자는
+난수 구간이라 여기에 붙여 유일성을 회복한다. `role` 은 ASCII 슬러그로 환원하며,
+환원 결과가 비면(한글 역할명 등) member slug 로 떨어진다. 같은 이름의 브랜치가 이미
+있으면 `-<member.slug>` 를 덧붙인다 — 남의 브랜치를 재사용하지 않는다.
 
 **FR-WKT-4** **경로를 재사용하지 않는다.** uuid 파생이 이를 자동으로 보장한다. 근거:
 에이전트 CLI 는 대화 이력을 **cwd 로 키잉**하므로, 지워진 worktree 의 경로를 다시 쓰면
@@ -441,6 +451,12 @@ git worktree add --no-track -b <branch> <path> [<base>]
 - **생성 실패의 롤백일 때만** `-D` 를 쓴다 — 사용자 작업이 없다는 것이 확실한 경우
 - `--keep-worktrees` 면 전부 보존한다
 
+> **알려진 구멍 (묶음 W 구현에서 확인, 미해소)**: 이 규칙의 진입점은 `run close`
+> 하나이고 close 는 `open` 인 Run 만 받는다. 따라서 epoch 펜싱으로 `aborted` 된 Run
+> (FR-RUN-5)의 worktree 는 기록에 남을 뿐 정리 경로가 없다. dirty 였다면 보존이
+> 정답이므로 실제 누수는 clean 인 경우뿐이고, 빈도가 낮아 이번 범위에 넣지 않았다.
+> 후속에서 `close --force` 를 종료된 Run 의 정리에도 열어 주는 형태가 후보다.
+
 **FR-WKT-9** 정리 대상은 **Run 이 만든 worktree 만**이다 (FR-RUN-10). 판정 근거는 Run
 레코드의 `members[].worktree` 다. 등록되지 않은 worktree 는 발견되더라도 건드리지 않는다.
 
@@ -451,7 +467,9 @@ git worktree add --no-track -b <branch> <path> [<base>]
 시작은 **명확한 오류로 실패**한다. 조용히 `none` 으로 낮추지 않는다.
 
 **FR-WKT-12** 정리하지 못한 자원은 **잔여물로 보고**한다(`run status` 와 `run close` 의
-출력). 조용히 남기지 않는다.
+출력). 조용히 남기지 않는다. 사유는 열거한다 — `dirty` · `kept` · `unsafe-path` ·
+`remove-failed` · `branch-retained`. 결과는 Run 레코드에 영속되므로 close 를 지켜보지
+못한 다음 세션도 `run status` 로 같은 사실을 읽는다.
 
 ### 3.5 묶음 P — 프리앰블과 보고 계약 (FR-PRE-\*)
 
@@ -495,9 +513,9 @@ git worktree add --no-track -b <branch> <path> [<base>]
 **FR-PRE-4** 격리된 Run 의 프리앰블에는 **worktree 경로와 base 브랜치**를 적는다.
 멤버가 자기가 어디서 일하는지 화면에서 추론하지 않아도 되게 한다.
 
-> **구현 현황**: 렌더링은 구현돼 있고 단위 테스트가 지킨다(TC-PRE-4). 다만 아직
-> worktree 를 **만드는 주체가 없어**(묶음 W) `Member.Worktree` 가 항상 nil 이므로
-> 실사용에서는 이 절이 나오지 않는다. W 가 그 필드를 채우면 그대로 켜진다.
+> **구현 현황**: 묶음 W 가 `Member.Worktree` 를 채우면서 **실사용에서 켜졌다.**
+> 단위 테스트(TC-PRE-4)에 더해 라이브 e2e 가 격리 Run 의 프리앰블에 경로가 실리는
+> 것을 확인한다.
 
 **FR-PRE-5** **보고의 권한은 발신자의 정체로 판정한다.** 서버는 보고를 받은 도구
 (`DONGMINAL_TOOL_ID`, 없으면 `/api/whoami` 와 같은 remoteAddr→PID 폴백)로 멤버를
@@ -627,6 +645,9 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 | TC-WKT-7 | FR-WKT-10 | 저장소 자신·루트·`..` 경로 | 전부 거부 |
 | TC-WKT-8 | FR-WKT-11 | 비git 디렉터리에서 격리 Run | 명확한 실패. `none` 으로 낮추지 않음 |
 | TC-WKT-9 | FR-WKT-7 | 동시 멤버 생성 | worktree 조작이 직렬화됨 |
+| TC-WKT-10 | FR-WKT-4 | 연속 생성한 식별자 16개의 경로 조각 | 전부 다르다 (short 로는 겹친다 — FR-WKT-3 주석) |
+| TC-WKT-11 | FR-WKT-11 | 격리 Run 시작 시 `cwd` 미제공 | 거부. 서버 cwd 로 추측하지 않는다 |
+| TC-WKT-12 | FR-WKT-2/8/12 | 라이브 서버에서 격리 Run 한 바퀴 | 트리 생성 → 프리앰블 → close 정리. dirty 는 보존 + 잔여물 |
 | TC-PRE-1 | FR-PRE-5 | 다른 도구가 남의 memberId 로 보고 | `sender_not_member` 거부 |
 | TC-PRE-2 | FR-PRE-7 | 같은 멤버가 두 번 보고 | 두 번째 `member_already_reported` |
 | TC-PRE-3 | FR-PRE-3 | 보고 시 `--outcome` 누락 | 사용법 오류(rc=2) |
@@ -684,7 +705,7 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 
 | 문서 | 개정 | 반영 |
 |---|---|---|
-| `SKILL_INJECTION_SRS.md` §5 | 비목표 3건(에이전트 어댑터 레지스트리 · worktree 격리 · 태스크/Run 레코드)이 본 SRS 로 이관된다 | ✅ 어댑터·Run 레코드는 **해소**, worktree 는 묶음 W 대기로 표시 |
+| `SKILL_INJECTION_SRS.md` §5 | 비목표 3건(에이전트 어댑터 레지스트리 · worktree 격리 · 태스크/Run 레코드)이 본 SRS 로 이관된다 | ✅ 셋 다 **해소** (worktree 는 묶음 W) |
 | `SKILL_INJECTION_SRS.md` FR-SK-3 · §2.7 | `build_prompt.py` 가 묶음 K 에서 삭제됐다 (`dmctl run launch` 가 대체) | ✅ |
 | `ENTITY_MODEL_RESTRUCTURE_SRS.md` FR-EM-18 | "이 필드를 읽는 동작을 추가하지 않는다"는 **해제**된다. 단 "없거나 비어 있어도 정상"은 NFR-RUN-3 으로 **유지** | ✅ |
 | `ENTITY_MODEL_RESTRUCTURE_SRS.md` §7 | Orca 대비표의 "fan-out → **비교** → 병합"과 "MIT 공개 소스"는 부정확하다. §2.5 가 정정한다 | ✅ |
@@ -719,4 +740,5 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 | 2026-08-25 | **묶음 K 구현 완료** (`b3dc910`) — `team`·`workflow` 스킬을 Run 기반 전용 창 토폴로지로 재작성. `scripts/build_prompt.py` 와 `references/prompt.md` 삭제(`dmctl run launch` 가 대체), 화면 fingerprint·`sleep` 재확인 루프 전량 제거, 매핑표를 `dmctl run status` 로 이관. 절대 원칙이 4개에서 3개로 줄었다 — 전용 창이 기본이 되면서 포커스 방어 규칙 대부분이 **구조로 풀렸기** 때문이다. 정의서 형식과 렌더러 기본값은 건드리지 않았다(FR-SKL-4 주석). 검증은 세 층이다: `internal/runtime` 의 스킬 계약 테스트(fingerprint·삭제 자산 참조·손조립 기동줄·필수 절차 존재)와 e2e(TC-SKL-1/3), 그리고 실제 팀 1회. **검출기가 실제로 무는지 반증으로 확인했다** — fingerprint 주입 시 실패, `keepFocus` 제거 시 실패. e2e 를 쓰다 밟은 것: `/api/commands` 는 `{action, args:{…}}` 를 받는데 평평하게 보내면 `keepFocus` 가 조용히 유실돼 전용 창이 사용자 화면을 차지한다. Go 전량 통과, Playwright 184 통과 2회 |
 | 2026-08-25 | **§6 개정 전량 반영.** 지시만 있고 적용되지 않은 개정이 남지 않도록 대상 문서에 실제로 문장을 넣고, §6 표에 `반영` 열을 두어 상태를 명시했다 — `SKILL_INJECTION_SRS`(비목표 3건의 현재 상태 + `build_prompt.py` 삭제), `ENTITY_MODEL_RESTRUCTURE_SRS` FR-EM-18(읽기 금지 해제, NFR-RUN-3 유지), `WORKSPACE_IDENTITY_SRS` §5(`runs.json` 소비자 0 해소), archive 4건(`DONGMINAL_WORKFLOW_SKILL_SRS`·`UUID_IDENTITY_SRS`·`AGENT_ACTIVITY_PANEL_SRS`·`PANE_ATTENTION_NOTIFY_SRS`). 삭제된 자산(`build_prompt.py`·`references/prompt.md`)을 가리키는 문서는 전부 바로 옆에 후속 표식을 갖는다 |
 | 2026-08-25 | **묶음 P+A 구현 완료** — `internal/agentadapter` 신설(claude·codex 선언 + 훅 파서 + `LaunchLine`), `internal/run/preamble.go`(서버 조립), `GET /api/runs/preamble`, `dmctl run launch` / `run member --brief`. 착수 전 열려 있던 **프리앰블 조립 주체는 서버로 확정**했다(FR-PRE-1 주석에 근거 3개). 훅 파서 이동은 무동작 리팩터이며, 회귀 검출기인 `dmctl_activity_test.go` 를 **한 줄도 고치지 않고** 통과시키기 위해 옛 이름을 `_test.go` 스코프에서만 별칭으로 유지했다 — 프로덕션에 죽은 코드가 남지 않는다. `--brief` 를 Member 에 영속시켜 프리앰블을 **재조회 가능**하게 만들었다. 프롬프트 이스케이프를 큰따옴표+역슬래시에서 **홑따옴표 감싸기**로 바꿨고, 악성 brief(`$(...)`·백틱·`;`)로 실측해 셸이 인자 1개로 파싱하고 전개가 0건임을 확인했다. **FR-STA-4 2단계는 스펙에 남기고 구현만 보류**했다(사용자 확정) — 화면 패턴은 스테이터스라인 하나로 깨지며 FR-SKL-2 가 삭제하려는 fingerprint 와 같은 취약성이고, codex 패턴을 실측할 수 없어 추측을 코드에 넣지 않았다. Go 전량 통과, Playwright 183 통과 |
+| 2026-08-25 | **묶음 W 구현 완료** — `internal/worktree`(생성·제거·안전 가드·직렬화) + 서버 접합(`provisionRun`/`provisionMember`/`cleanupWorktrees`) + `dmctl run start --isolation\|--base` · `run close --keep-worktrees` + 스킬 §3.5. TC-WKT-1~9 를 RED 로 세운 뒤 구현했고, 파괴적 동작의 검출기 셋(dirty 보존·직렬화·격리 규칙)은 **반증으로 물리는지 확인했다** — `--force` 로 바꾸면 실패, 잠금을 빼면 실패, 스킬의 "격리 사유가 아니다"를 뒤집으면 실패. 구현 중 드러난 것: (1) **`short` 는 유일하지 않다** — uuid v7 의 앞 8자는 타임스탬프 상위 비트라 같은 기간의 Run 이 전부 겹친다. FR-WKT-3 을 `PathSlug`(앞 8 + 뒤 8)로 개정했고 회귀 테스트를 붙였다. (2) 격리 준비는 **레코드보다 먼저**여야 한다 — 경로가 uuid 파생이므로 id 를 먼저 정하고(`StartOptions.ID`/`MemberSpec.ID`), 생성이 실패하면 레코드가 아예 없어야 고아가 남지 않는다. (3) 정리 결과를 레코드에 영속해 `run status` 가 잔여물을 계속 말하게 했다. Go 전량 통과, Playwright 187 통과 2회 |
 | 2026-08-25 | **묶음 S 구현 완료** — `GET /api/tools/activity/{get,wait}` + `dmctl status` / `dmctl wait`. TC-STA-1~8 을 RED 로 세운 뒤 구현했고, e2e `skill-contract.spec.ts` 에 라이브 왕복 3건을 추가했다 (Go 전량 통과, Playwright 180 통과 2회 연속). FR-STA-4 2단계는 묶음 A 대기. 구현 중 발견해 고친 것: daemon 모드에서 liveness 확인이 데몬 RPC 라 매 tick 확인하면 30분 대기가 RPC 수만 건이 된다 → 상태 재평가 100ms / liveness 1초로 분리 (NFR-RUN-4) |
