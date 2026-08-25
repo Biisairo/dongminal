@@ -31,6 +31,11 @@ class GitPanel {
     this._diffPos=0;              // 목록에서 사라진 대상을 클램프할 기준 (FR-GIT-53)
     this._sideBy=null;            // FR-GIT-51 의 보기 모드
     this._ignWs=null;             // FR-GIT-50 의 공백무시 토글
+    this._sel=new Set();          // 다중 선택 (FR-GIT-69). group\0path
+    this._anchor=null;            // Shift 범위 선택의 기준 행
+    this._note=null;              // 쓰기 실패·부분 적용 안내 (FR-GIT-73)
+    this._commitView=null;        // 커밋 영역 (FR-GIT-74~85)
+    this._writing=false;          // 쓰기 한 번은 한 번이다 — 겹쳐 보내지 않는다
   }
 
   // 활성 리포. Git 창의 win.git.repo 가 진실이고 이것은 그 읽기다 (FR-GIT-29).
@@ -49,6 +54,9 @@ class GitPanel {
     // (FR-GIT-16). 화면을 "불러오는 중" 으로 되돌린다.
     this._status=null; this._lastSig=null; this._staleNote=false;
     this._shown.clear(); this.previewFile=null; this._closeCtx();
+    // 선택과 쓰기 안내는 리포에 붙은 것이다 — 새 리포로 넘겨 오면 다른 파일을
+    // 가리킨다.
+    this._sel.clear(); this._anchor=null; this._note=null;
     // 이전 리포의 diff 가 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다.
     this._diffKey=null; this._prevKey=null; this._diffPos=0;
     for(const v of [this._diffView,this._previewView])
@@ -87,6 +95,9 @@ class GitPanel {
   // 창은 다시 열릴 수 있다.
   detach(){
     this._stop(); this._closeCtx(); this._destroyViews();
+    // 창이 사라지면 커밋 영역의 토스트도 함께 사라진다 — 진입점이 화면 없이
+    // 남아 있어서는 안 된다 (FR-GIT-83).
+    this._commit().unmount();
     const area=document.getElementById('area');
     for(const el of this._els.values()){
       el.classList.remove('vis');
@@ -128,6 +139,8 @@ class GitPanel {
   _renderChanges(el){
     if(!this.repo){
       el.dataset.built=''; el.innerHTML='';
+      // 골격을 버렸으므로 커밋 영역도 자기 DOM 을 놓아야 한다.
+      this._commit().unmount();
       const d=document.createElement('div'); d.className='git-empty';
       d.textContent=this._errMsg||GIT_NO_REPO_HINT;
       el.appendChild(d);
@@ -157,39 +170,67 @@ class GitPanel {
           '<button class="git-remote-btn" data-remote="push" disabled>Push</button>'+
         '</span>'+
       '</div>'+
-      '<div class="git-commit">'+
-        '<textarea class="git-commit-msg" disabled></textarea>'+
-        '<div class="git-commit-side">'+
-          '<label class="git-commit-amend"><input type="checkbox" disabled>amend</label>'+
-          '<button class="git-commit-btn" disabled>Commit ▾</button>'+
-        '</div>'+
-      '</div>'+
+      // 안쪽은 GitCommit 이 채운다 (FR-GIT-74~85). 자리와 고정 성질은 여기 있다.
+      '<div class="git-commit"></div>'+
       '<div class="git-stale-note"></div>'+
+      '<div class="git-partial-note">'+
+        '<div class="git-partial-msg"></div>'+
+        '<ul class="git-partial-list"></ul>'+
+        '<button class="git-partial-close"></button>'+
+      '</div>'+
       '<div class="git-changes-body">'+
         '<div class="git-files">'+
           '<div class="git-files-bar">'+
             '<button class="git-files-mode" data-mode="tree">트리</button>'+
             '<button class="git-files-mode" data-mode="flat">플랫</button>'+
+            '<span class="git-files-spacer"></span>'+
+            '<span class="git-sel">'+
+              '<span class="git-sel-count"></span>'+
+              '<button class="git-sel-act" data-act="stage"></button>'+
+              '<button class="git-sel-act" data-act="unstage"></button>'+
+              '<button class="git-sel-act" data-act="discard"></button>'+
+              '<button class="git-sel-clear"></button>'+
+            '</span>'+
           '</div>'+
         '</div>'+
         '<div class="git-preview"></div>'+
       '</div>';
     for(const b of el.querySelectorAll('.git-remote-btn')) b.title=GIT_REMOTE_HINT;
-    const msg=el.querySelector('.git-commit-msg');
-    msg.placeholder=GIT_COMMIT_HINT; msg.title=GIT_COMMIT_HINT;
-    el.querySelector('.git-commit-btn').title=GIT_COMMIT_HINT;
+    el.querySelector('.git-partial-close').textContent=GIT_NOTE_CLOSE;
+    el.querySelector('.git-partial-close')
+      .addEventListener('click',()=>{this._note=null;this._paint()});
     const files=el.querySelector('.git-files');
     for(const g of GIT_GROUPS){
       const d=document.createElement('div'); d.className='git-group'; d.dataset.group=g.key;
       d.innerHTML='<div class="git-group-head"><span class="git-group-caret"></span>'+
-        '<span class="git-group-name"></span><span class="git-group-count"></span></div>'+
+        '<span class="git-group-name"></span><span class="git-group-count"></span>'+
+        '<span class="git-group-spacer"></span></div>'+
         '<div class="git-group-rows"></div>';
       d.querySelector('.git-group-name').textContent=g.name;
       d.querySelector('.git-group-head').addEventListener('click',()=>this._toggleGroup(g.key));
+      // 그룹별 일괄 (FR-GIT-66·67·68). 그룹이 이미 tracked / untracked 를
+      // 가르므로 그룹별 일괄이 곧 그 구분이다.
+      const act=GIT_GROUP_BULK[g.key];
+      if(act){
+        const b=document.createElement('button');
+        b.className='git-group-bulk'; b.dataset.act=act;
+        b.textContent=GIT_BULK_LABEL[act];
+        // 헤더 클릭은 접기다 — 일괄 버튼이 그것을 함께 일으키지 않는다.
+        b.addEventListener('click',ev=>{ev.stopPropagation();this._bulk(g.key,act)});
+        d.querySelector('.git-group-head').appendChild(b);
+      }
       files.appendChild(d);
     }
     for(const b of el.querySelectorAll('.git-files-mode'))
       b.addEventListener('click',()=>this._setFileView(b.dataset.mode));
+    for(const b of el.querySelectorAll('.git-sel-act')){
+      b.textContent=GIT_SEL_LABEL[b.dataset.act];
+      b.addEventListener('click',()=>this._run(b.dataset.act,this._selTargets(b.dataset.act)));
+    }
+    const clear=el.querySelector('.git-sel-clear');
+    clear.textContent=GIT_SEL_CLEAR;
+    clear.addEventListener('click',()=>{this._sel.clear();this._anchor=null;this._paint()});
+    this._commit().mount(el.querySelector('.git-commit'));
     // FR-GIT-42: 목록 끝이 보일 때마다 다음 덩어리를 이어 그린다.
     if(this._io) this._io.disconnect();
     if(typeof IntersectionObserver!=='undefined'){
@@ -211,6 +252,9 @@ class GitPanel {
     note.classList.toggle('loading',loading);
     for(const g of GIT_GROUPS) this._paintGroup(el,g,(s&&s[g.key])||[]);
     this._paintMode(el);
+    this._paintSel(el);
+    this._paintNote(el);
+    this._commit().paint(s||null);
     this._paintPreview(el);
   }
 
@@ -246,6 +290,9 @@ class GitPanel {
   _paintGroup(el,g,entries){
     const box=el.querySelector('.git-group[data-group="'+g.key+'"]'); if(!box) return;
     box.querySelector('.git-group-count').textContent='('+entries.length+')';
+    // 빈 그룹에 일괄 동작은 뜻이 없다.
+    const bulk=box.querySelector('.git-group-bulk');
+    if(bulk) bulk.disabled=!entries.length;
     const collapsed=this._collapsed.has(g.key)||!entries.length;
     box.classList.toggle('collapsed',collapsed);
     box.querySelector('.git-group-caret').textContent=collapsed?'▸':'▾';
@@ -330,19 +377,44 @@ class GitPanel {
     const d=document.createElement('div');
     // 충돌 행은 따로 구분한다 (FR-GIT-37). M1 은 표시만 한다.
     d.className='git-file'+(e.conflict?' conflict':'');
+    // FR-GIT-70: staged 와 unstaged 를 동시에 가진 파일은 일부만 스테이지된 것이다.
+    const partial=!!(e.staged&&e.unstaged);
+    if(partial) d.classList.add('partial');
     d.dataset.path=e.path; d.dataset.group=group;
     if(e.origPath) d.dataset.origPath=e.origPath;
     if(depth) d.style.paddingLeft=(6+depth*12)+'px';
     const sel=this.previewFile;
     if(sel&&sel.group===group&&sel.path===e.path) d.classList.add('sel');
+    // 체크박스는 다중 선택이다 (FR-GIT-69). indeterminate 는 선택이 아니라 일부만
+    // 스테이지된 상태를 뜻한다 (FR-GIT-70).
+    const cb=document.createElement('input');
+    cb.type='checkbox'; cb.className='git-file-check';
+    cb.checked=this._sel.has(this._selKey(group,e.path));
+    cb.indeterminate=partial;
+    if(partial) cb.title=GIT_PARTIAL_TITLE;
+    cb.addEventListener('click',ev=>{ev.stopPropagation();this._check(group,e.path,ev)});
     const st=document.createElement('span'); st.className='git-file-st';
     st.textContent=this._stateChar(group,e);
     const p=document.createElement('span'); p.className='git-file-path';
     // rename/copy 는 원본과 대상을 둘 다 보인다 (FR-GIT-36).
     p.textContent=e.origPath?e.origPath+' → '+e.path
       :(this._treeMode()?e.path.split('/').pop():e.path);
-    d.title=(e.origPath?e.origPath+' → '+e.path:e.path)+(e.score?' ('+e.score+'%)':'');
-    d.appendChild(st); d.appendChild(p);
+    d.title=(e.origPath?e.origPath+' → '+e.path:e.path)+(e.score?' ('+e.score+'%)':'')+
+      (partial?' — '+GIT_PARTIAL_TITLE:'');
+    d.appendChild(cb); d.appendChild(st); d.appendChild(p);
+    // 행 인라인 동작 (FR-GIT-64·65·89). 그룹이 할 수 있는 것만 붙인다.
+    const acts=document.createElement('span'); acts.className='git-file-acts';
+    for(const a of (GIT_ROW_ACTS[group]||[])){
+      const b=document.createElement('button');
+      b.className='git-file-act'; b.dataset.act=a;
+      b.textContent=GIT_ACT_LABEL[a]; b.title=GIT_ACT_TITLE[a];
+      b.addEventListener('click',ev=>{
+        ev.stopPropagation();
+        this._run(a,[{group,path:e.path,origPath:e.origPath||''}]);
+      });
+      acts.appendChild(b);
+    }
+    d.appendChild(acts);
     d.addEventListener('click',()=>this._select(group,e));
     d.addEventListener('dblclick',()=>this._openDiff(group,e));
     d.addEventListener('contextmenu',ev=>{ev.preventDefault();this._ctxMenu(ev,group,e)});
@@ -388,6 +460,203 @@ class GitPanel {
     for(const b of el.querySelectorAll('.git-files-mode'))
       b.classList.toggle('active',(b.dataset.mode==='tree')===tree);
     el.querySelector('.git-files').classList.toggle('tree',tree);
+  }
+
+  // ── 스테이징 (FR-GIT-64~73) ──
+
+  // 커밋 영역은 지연 생성한다 — Git 창을 열지 않은 브라우저 창은 만들지 않는다.
+  _commit(){
+    if(!this._commitView) this._commitView=new GitCommit(this);
+    return this._commitView;
+  }
+
+  _selKey(group,path){return group+'\x00'+path}
+
+  _group(key){
+    const s=this._status&&this._status.status;
+    return (s&&s[key])||[];
+  }
+
+  // 선택은 status 에 남아 있는 것만 뜻한다 — 사라진 경로의 선택은 저절로 잊힌다.
+  _selected(){
+    const out=[];
+    for(const g of GIT_GROUPS)
+      for(const e of this._group(g.key))
+        if(this._sel.has(this._selKey(g.key,e.path)))
+          out.push({group:g.key,path:e.path,origPath:e.origPath||''});
+    return out;
+  }
+
+  // rename 은 index 에서 (원본 삭제 + 대상 추가) 두 경로다 (FR-GIT-36). 대상만
+  // 되돌리면 원본의 삭제가 index 에 남아 **반쪽만 언스테이지된다** — 짝을 함께
+  // 보낸다. stage 는 원본이 워킹 트리에 없으므로 대상만 보낸다.
+  _paths(act,items){
+    const out=[];
+    for(const i of items){
+      out.push(i.path);
+      if(act==='unstage'&&i.origPath) out.push(i.origPath);
+    }
+    return out;
+  }
+
+  // 동작이 뜻을 갖는 대상만 남긴다 — staged 행을 stage 하거나 untracked 행을
+  // unstage 하는 것은 아무 일도 하지 않는다.
+  _selTargets(act){
+    const sel=this._selected();
+    if(act==='unstage') return sel.filter(i=>i.group!=='untracked');
+    return sel.filter(i=>i.group!=='staged');
+  }
+
+  // Shift 는 화면에 보이는 순서대로 범위를 고른다 (FR-GIT-69) — 그룹 경계를
+  // 넘어도 목록의 순서가 그대로 기준이다.
+  _check(group,path,ev){
+    const key=this._selKey(group,path);
+    if(ev&&ev.shiftKey&&this._anchor) this._range(group,path);
+    else if(this._sel.has(key)) this._sel.delete(key);
+    else this._sel.add(key);
+    this._anchor={group,path};
+    this._paint();
+  }
+
+  _range(group,path){
+    const el=this._els.get('changes'); if(!el) return;
+    const rows=Array.from(el.querySelectorAll('.git-file'));
+    const at=r=>rows.findIndex(x=>x.dataset.group===r.group&&x.dataset.path===r.path);
+    const a=at(this._anchor),b=at({group,path});
+    if(a<0||b<0){this._sel.add(this._selKey(group,path));return}
+    const lo=Math.min(a,b),hi=Math.max(a,b);
+    for(let i=lo;i<=hi;i++)
+      this._sel.add(this._selKey(rows[i].dataset.group,rows[i].dataset.path));
+  }
+
+  // 그룹 일괄은 그려진 행이 아니라 그룹 **전체**다 (FR-GIT-66·67) — 목록이
+  // 잘려 보이는 것과 대상 범위는 별개다.
+  _bulk(group,act){
+    this._run(act,this._group(group).map(e=>({group,path:e.path,origPath:e.origPath||''})));
+  }
+
+  // 쓰기 한 번의 단일 경로다. 충돌 stage 의 뜻 알림과 discard 의 2단계 확인이
+  // 여기서 갈린다.
+  async _run(act,items){
+    if(!items.length||this._writing||!this.repo) return;
+    if(act==='discard'){this._discard(items);return}
+    // FR-GIT-72: 충돌 파일의 stage 는 "해결됨 표시" 다. 실행 **전에** 그 뜻을
+    // 알린다. 파괴적이 아니므로 1단계 확인이다.
+    const conflicts=items.filter(i=>i.group==='conflicts').map(i=>i.path);
+    if(act==='stage'&&conflicts.length){
+      const ok=await GitConfirm.open({
+        action:GIT_ACT_RESOLVE,title:GIT_RESOLVE_TITLE,targets:conflicts,
+        hint:{note:GIT_RESOLVE_NOTE,command:'git reset -q HEAD -- '+conflicts.map(gitShQuote).join(' ')},
+        stages:1,
+      });
+      if(!ok) return;
+    }
+    const url=act==='stage'?'/api/git/stage':'/api/git/unstage';
+    const res=await this.post(url,{repo:this.repo,paths:this._paths(act,items)});
+    this._after(res,items);
+  }
+
+  // discard 는 파괴적이다 (FR-GIT-89). 판정은 서버의 목록이 하고(GitConfirm),
+  // 확인은 2단계이며, 실행 요청에는 confirm 을 함께 보낸다 — 서버도 그것을
+  // 요구한다.
+  async _discard(items){
+    const tracked=items.filter(i=>i.group!=='untracked').map(i=>i.path);
+    const untracked=items.filter(i=>i.group==='untracked').map(i=>i.path);
+    const targets=tracked.concat(untracked);
+    if(!targets.length) return;
+    const repo=this.repo;
+    await GitConfirm.open({
+      action:GIT_ACT_DISCARD,title:GIT_DISCARD_TITLE,targets,
+      // O8: stash 를 자동 생성하지 않는다 — 실행할 명령을 보여 준다.
+      hint:{note:GIT_DISCARD_NOTE,command:'git stash push -- '+targets.map(gitShQuote).join(' ')},
+      run:async()=>{
+        const res=await this.post('/api/git/discard',{repo,tracked,untracked,confirm:true});
+        this._after(res,items);
+        if(res.ok) return {ok:true};
+        // 사유와 stderr tail 은 다이얼로그 안에서 보인다 (FR-GIT-96·175).
+        return {ok:false,reason:this.writeReason(res),stderrTail:(res.data&&res.data.message)||''};
+      },
+    });
+  }
+
+  // 쓰기 응답 하나의 처리. 성공이면 안내를 지우고 처리한 대상을 선택에서 뺀다.
+  _after(res,items){
+    if(res.ok){
+      this._note=null;
+      for(const i of items) this._sel.delete(this._selKey(i.group,i.path));
+      this.adopt(res.data);
+      return;
+    }
+    this.applyWriteFail(res);
+  }
+
+  // FR-GIT-73 · §7.1 I2: 실패를 조용히 넘기지 않는다. 부분 적용이면 무엇이
+  // 바뀌었는지까지 보인다 — git 이 주지 않는 원자성을 흉내 내지 않는다.
+  applyWriteFail(res){
+    const d=res.data||{};
+    this._note={msg:this.writeError(res),partial:!!d.partial,changed:d.changed||[]};
+    if(d.status) this.adopt(d); else this._paint();
+  }
+
+  // POST 한 번. ok 는 **서버가 ok:true 를 준 것**이다 — 200 이지만 본문이 없는
+  // 응답을 성공으로 읽지 않는다.
+  async post(url,body){
+    this._writing=true;
+    let r=null,d=null;
+    try{
+      r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body)});
+    }catch{r=null}
+    if(r){try{d=await r.json()}catch{d=null}}
+    this._writing=false;
+    return {ok:!!(r&&r.ok&&d&&d.ok),code:r?r.status:0,data:d};
+  }
+
+  writeReason(res){
+    const d=res.data||{};
+    return GIT_WRITE_ERR[d.error]||GIT_WRITE_FAIL;
+  }
+
+  writeError(res){
+    const m=(res.data&&res.data.message)||'';
+    return this.writeReason(res)+(m?': '+m:'');
+  }
+
+  // 응답에 실린 **실행 후** status 로 화면을 즉시 갱신한다 (FR-GIT-71) — 폴링
+  // 주기를 기다리지 않는다.
+  //
+  // signature 는 쓰기 응답에 없으므로 _lastSig 를 그대로 둔다. 다음 signature
+  // 폴링이 차이를 보고 한 번 더 재조회하는 것은 해롭지 않다.
+  adopt(d){
+    if(!d||!d.status||d.requested!==this.repo) return;
+    this._status=Object.assign({},this._status||{},
+      {requested:d.requested,repo:d.repo,status:d.status});
+    this._errMsg=null; this._staleNote=false;
+    this._paint();
+    this.app._gitReposRefresh();
+    this.app._updateStatusBar();
+  }
+
+  _paintSel(el){
+    const sel=this._selected();
+    const box=el.querySelector('.git-sel'); if(!box) return;
+    box.classList.toggle('vis',!!sel.length);
+    el.querySelector('.git-sel-count').textContent=sel.length?'선택 '+sel.length+'개':'';
+    for(const b of el.querySelectorAll('.git-sel-act'))
+      b.disabled=!this._selTargets(b.dataset.act).length;
+  }
+
+  _paintNote(el){
+    const box=el.querySelector('.git-partial-note'); if(!box) return;
+    const n=this._note;
+    box.classList.toggle('vis',!!n);
+    box.querySelector('.git-partial-msg').textContent=
+      n?(n.partial?n.msg+' — '+GIT_PARTIAL_NOTE:n.msg):'';
+    const ul=box.querySelector('.git-partial-list'); ul.innerHTML='';
+    for(const p of (n&&n.changed)||[]){
+      const li=document.createElement('li'); li.className='git-partial-path';
+      li.textContent=p; ul.appendChild(li);
+    }
   }
 
   // ── 선택과 이동 (FR-GIT-52) ──
@@ -625,22 +894,23 @@ class GitPanel {
     if(act==='openChanges'){this._openDiff(group,e);return}
     const abs=(this.repo||'')+'/'+e.path;
     if(act==='openFile'){this.app._gitOpenFile(abs);return}
-    if(act==='copyPath') this._copyPath(abs);
+    if(act==='copyPath') this.copyText(abs);
   }
 
   // 복사 유틸이 기존에 없다. clipboard 가 막힌 환경(비보안 컨텍스트)에서는
   // 임시 textarea 로 떨어진다.
-  _copyPath(abs){
+  copyText(text){
+    if(!text) return;
     if(navigator.clipboard&&navigator.clipboard.writeText){
-      navigator.clipboard.writeText(abs).catch(()=>this._copyFallback(abs));
+      navigator.clipboard.writeText(text).catch(()=>this._copyFallback(text));
       return;
     }
-    this._copyFallback(abs);
+    this._copyFallback(text);
   }
 
-  _copyFallback(abs){
+  _copyFallback(text){
     const ta=document.createElement('textarea');
-    ta.value=abs; ta.style.cssText='position:fixed;left:-9999px;top:0';
+    ta.value=text; ta.style.cssText='position:fixed;left:-9999px;top:0';
     document.body.appendChild(ta); ta.select();
     try{document.execCommand('copy')}catch{}
     ta.remove();
@@ -775,6 +1045,17 @@ class GitPanel {
     this._lastSig=v;
     this.collect();
   }
+}
+
+/**
+ * recovery hint 의 명령에 넣을 경로를 감싼다 (FR-GIT-92). 저장소에는 공백·따옴표·
+ * 한글이 든 경로가 있고, 사용자가 그 명령을 **붙여 그대로 실행**하므로 셸이 읽는
+ * 형태여야 한다.
+ */
+function gitShQuote(p){
+  const s=String(p==null?'':p);
+  if(/^[A-Za-z0-9._\/@=+:,-]+$/.test(s)) return s;
+  return "'"+s.replace(/'/g,"'\\''")+"'";
 }
 
 /**

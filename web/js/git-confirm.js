@@ -32,16 +32,22 @@ class GitConfirm {
    * 버튼을 줄 자리가 없다. run 은 `{ok:true}` 또는
    * `{ok:false,reason,stderrTail}` 를 준다. run 이 없으면 확인만 하고 실행은
    * 호출자가 한다.
+   *
+   * `stages:1` 은 파괴적이 **아닌** 동작의 1단계 확인이다 — 충돌 파일의 stage
+   * 처럼 되돌릴 수 있지만 뜻을 먼저 알려야 하는 동작이 있다 (FR-GIT-72·87).
+   * 파괴적 목록에 있는 동작은 요청과 무관하게 2단계다 — 목록에 든 동작이 1단계로
+   * 줄어들 수 있으면 방어가 뜻을 잃는다 (FR-GIT-90).
    */
-  static async open({action,title,targets,hint,mobile,run}){
+  static async open({action,title,targets,hint,mobile,run,stages}){
     // 파괴적 확인은 한 번에 하나다 — 겹치면 어느 대상의 확인인지 알 수 없다.
     if(GitConfirm._cur) return false;
-    if(!await GitConfirm.destructive(action)){
+    const n=await GitConfirm.destructive(action)?2:(stages===1?1:0);
+    if(!n){
       if(typeof run!=='function') return true;
       const res=await run();
       return !!(res&&res.ok);
     }
-    const c=new GitConfirm({action,title,targets,hint,mobile,run});
+    const c=new GitConfirm({action,title,targets,hint,mobile,run,stages:n});
     return c._show();
   }
 
@@ -93,6 +99,8 @@ class GitConfirm {
     this.run=typeof o.run==='function'?o.run:null;
     // 모바일 판정은 호출자가 덮을 수 있다. 기본은 app.isMobile (FR-GIT-94).
     this.mobile=o.mobile===undefined?!!(window.app&&app.isMobile):!!o.mobile;
+    // 단계 수는 open 이 정한다 — 파괴적이면 2, 그 밖에 확인이 필요한 것은 1.
+    this.stages=o.stages===1?1:2;
     this.stage=1;
     this.busy=false;
     this.changed=false;
@@ -157,6 +165,8 @@ class GitConfirm {
   _paint(){
     const b=this.box; if(!b) return;
     b.classList.toggle('mobile',this.mobile);
+    // 1단계 확인은 파괴적이 아니다 — 테두리 색으로 그것을 구분한다.
+    b.classList.toggle('soft',this.stages===1);
     b.dataset.action=this.action;
     b.dataset.stage=String(this.stage);
     b.querySelector('.gc-head').textContent=this.title;
@@ -171,10 +181,13 @@ class GitConfirm {
       const li=document.createElement('li'); li.className='gc-target'; li.textContent=t;
       ul.appendChild(li);
     }
-    // 2단계에서만 recovery hint 를 보인다. 목록은 두 단계 모두 남는다 — 무엇을
-    // 잃는지가 실행 직전에도 보여야 한다.
+    // 마지막 단계에서만 recovery hint 를 보인다. 목록은 모든 단계에 남는다 —
+    // 무엇을 잃는지가 실행 직전에도 보여야 한다.
+    //
+    // 1단계 확인은 파괴적이 아니므로 hint 가 없을 때 "되돌릴 수 없다"고 말하지
+    // 않는다 — 그것은 사실이 아니다.
     const hint=b.querySelector('.gc-hint');
-    hint.classList.toggle('vis',this.stage===2);
+    hint.classList.toggle('vis',this.stage===this.stages&&(this.stages>1||!!this.hint));
     hint.querySelector('.gc-hint-label').textContent=GIT_CONFIRM_HINT_LABEL;
     hint.querySelector('.gc-hint-note').textContent=
       (this.hint&&this.hint.note)||(this.hint?'':GIT_CONFIRM_NO_HINT);
@@ -188,7 +201,7 @@ class GitConfirm {
     b.querySelector('.gc-progress').textContent=this.busy?GIT_CONFIRM_RUNNING:'';
     const cancel=b.querySelector('.gc-cancel'),go=b.querySelector('.gc-go');
     cancel.textContent=GIT_CONFIRM_CANCEL;
-    go.textContent=this.stage===1?GIT_CONFIRM_CONTINUE:GIT_CONFIRM_RUN;
+    go.textContent=this.stage<this.stages?GIT_CONFIRM_CONTINUE:GIT_CONFIRM_RUN;
     cancel.disabled=this.busy; go.disabled=this.busy;
   }
 
@@ -200,8 +213,8 @@ class GitConfirm {
 
   async _advance(){
     if(this.busy) return;
-    if(this.stage===1){
-      this.stage=2; this.err=null; this._paint(); this._focus();
+    if(this.stage<this.stages){
+      this.stage++; this.err=null; this._paint(); this._focus();
       return;
     }
     if(!this.run){this._close(true);return}

@@ -104,8 +104,7 @@ const GIT_GROUP_AXIS={
 const GIT_AXIS_LABEL={
   'index-head':'index ↔ HEAD','worktree-index':'worktree ↔ index','worktree-head':'worktree ↔ HEAD',
 };
-// M1 에는 파괴적 동작이 하나도 없다 — 자리만 두고 사유를 title 로 알린다.
-const GIT_COMMIT_HINT='M2 에서 제공됩니다';
+// 원격은 M3 다 — 자리만 두고 사유를 title 로 알린다.
 const GIT_REMOTE_HINT='M3 에서 제공됩니다';
 const GIT_PREVIEW_HINT='파일을 선택하세요';
 const GIT_LOADING_HINT='불러오는 중…';
@@ -122,6 +121,100 @@ const GIT_CTX_ITEMS=[
   {key:'openFile',   label:'Open File'},
   {key:'copyPath',   label:'Copy Path'},
 ];
+
+// ── 스테이징 (GIT_SRS §3A.1 / FR-GIT-64~73) ──
+
+// 그룹별 일괄 동작. tracked / untracked 구분은 그룹이 이미 하고 있으므로 그룹별
+// 일괄이 곧 FR-GIT-68 이다 — 버튼을 더 만들지 않는다. conflicts 는 일괄이 없다:
+// 충돌 stage 는 "해결됨 표시" 라 한 번에 밀어 넣을 동작이 아니다 (FR-GIT-72).
+const GIT_GROUP_BULK={staged:'unstage',changes:'stage',untracked:'stage'};
+// 행 hover 버튼. 그룹이 할 수 있는 동작만 보인다 — staged 행의 `+` 는 뜻이 없다.
+const GIT_ROW_ACTS={
+  staged:['unstage'], changes:['stage','discard'],
+  untracked:['stage','discard'], conflicts:['stage'],
+};
+const GIT_ACT_LABEL={stage:'+',unstage:'−',discard:'↺'};
+const GIT_ACT_TITLE={stage:'스테이지',unstage:'언스테이지',discard:'변경 버리기'};
+const GIT_BULK_LABEL={stage:'모두 스테이지',unstage:'모두 언스테이지'};
+const GIT_SEL_LABEL={stage:'스테이지',unstage:'언스테이지',discard:'버리기'};
+const GIT_SEL_CLEAR='해제';
+// FR-GIT-70: staged 와 unstaged 를 동시에 가진 파일. 체크박스의 indeterminate 와
+// 행 클래스 둘로 구분한다 — 색만으로는 무엇이 다른지 알 수 없다.
+const GIT_PARTIAL_TITLE='일부만 스테이지됨';
+// FR-GIT-72: 충돌 파일의 stage 는 "해결됨 표시" 다. 파괴적이 아니므로 1단계 확인이다.
+const GIT_ACT_RESOLVE='resolve_mark';
+const GIT_RESOLVE_TITLE='충돌을 해결됨으로 표시합니다';
+const GIT_RESOLVE_NOTE='스테이지한 뒤에도 언스테이지로 되돌릴 수 있습니다';
+// FR-GIT-89~92: discard. 파괴적 판정은 /api/git/policy 가 한다 — 이 이름은 그
+// 목록의 키이고, 목록을 프론트에 복제하지 않는다.
+const GIT_ACT_DISCARD='discard';
+const GIT_DISCARD_TITLE='워킹 트리의 변경을 폐기합니다';
+// O8: stash 를 자동 생성하지 않는다 — 안내만 한다.
+const GIT_DISCARD_NOTE='폐기 전에 아래를 실행하면 stash 로 남습니다 (자동 실행하지 않습니다)';
+// FR-GIT-73 · §7.1 I2: git 은 경로별로 처리해 진짜 롤백이 없다. 부분 적용을
+// 조용히 넘기지 않는 것이 요구사항이고, 그것을 이 안내가 맡는다.
+const GIT_PARTIAL_NOTE='일부만 적용됐습니다 — 아래 경로가 바뀌었습니다';
+const GIT_WRITE_FAIL='동작이 실패했습니다';
+const GIT_NOTE_CLOSE='닫기';
+const GIT_WRITE_ERR={
+  bad_request:'잘못된 요청입니다',
+  confirmation_required:'확인이 필요합니다',
+  not_a_git_repo:GIT_ERR_NOT_REPO,
+  git_missing:GIT_ERR_GIT_MISSING,
+  git_timeout:'git 실행이 시간을 초과했습니다',
+  git_failed:'git 이 실패했습니다',
+  git_unavailable:'git 을 쓸 수 없습니다',
+};
+
+// ── 커밋 (GIT_SRS §3A.2 / FR-GIT-74~85) ──
+
+const GIT_COMMIT_PLACEHOLDER='커밋 메시지';
+// FR-GIT-74: 기본 2줄에서 시작해 입력만큼 자라고, 이 줄 수를 넘으면 내부
+// 스크롤로 넘긴다. 경계 드래그 결과는 기기별이라 localStorage 에 남는다.
+const GIT_COMMIT_ROWS=2;
+const GIT_COMMIT_MAX_ROWS=12;
+const GIT_COMMIT_LINE_PX=17;   // lineHeight 를 읽지 못하는 환경의 대체값
+const GIT_COMMIT_HEIGHT_KEY='gitCommitHeight';
+// FR-GIT-75 · O6: draft 는 ws.git.drafts[<repo>] 다. 입력이 멈춘 뒤 저장한다 —
+// 키 하나마다 PUT 을 보내지 않는다.
+const GIT_COMMIT_DRAFT_DEBOUNCE_MS=300;
+const GIT_COMMIT_BTN='Commit';
+const GIT_COMMIT_MORE='▾';
+const GIT_COMMIT_AMEND='amend';
+// FR-GIT-79: VSCode 의 조합 명령 20개를 이 체크박스 3개가 대체한다. **선택을
+// localStorage 에 남기지 않는다** — no-verify 가 기억되면 훅이 조용히 계속 꺼진다.
+const GIT_COMMIT_OPTS=[
+  {key:'signoff', label:'sign-off (--signoff)'},
+  {key:'noVerify',label:'no-verify (--no-verify)'},
+  {key:'all',     label:'commit all (-a)'},
+];
+const GIT_COMMIT_GPG='서명 커밋'; // FR-GIT-85
+// FR-GIT-84: 왜 못 누르는지 보이지 않으면 요구사항 실패다.
+const GIT_COMMIT_WHY_EMPTY='커밋 메시지를 입력하세요';
+const GIT_COMMIT_WHY_NOTHING='staged 변경이 없습니다 — 파일을 스테이지하거나 commit all 을 켜세요';
+const GIT_COMMIT_RUNNING='커밋 중…';
+// FR-GIT-81·83 · O7: 5초 고정. 만료는 서버 토큰이 함께 강제한다.
+const GIT_UNDO_MS=5000;
+const GIT_UNDO_TEXT='커밋했습니다';
+const GIT_UNDO_LABEL='되돌리기';
+const GIT_UNDO_FAIL='되돌릴 수 없습니다 — undo 창이 지났습니다';
+// FR-GIT-88: 무엇이 왜 막혔고 어떻게 푸는지를 함께 보인다. Fix 는 복사 가능하다.
+const GIT_PREFLIGHT_TITLE='커밋 전 검사가 막았습니다';
+const GIT_PREFLIGHT_FIX='해소';
+const GIT_PREFLIGHT_COPY='복사';
+// FR-GIT-87: 막지 않고 알린다. 파괴적이 아니므로 1단계 확인이다.
+const GIT_ACT_DETACHED='commit_detached';
+const GIT_DETACHED_TITLE='이 커밋은 어느 브랜치에도 속하지 않습니다';
+// preflight 가 아직 오지 않았어도 status 가 detached 를 안다 — 경고가 응답 왕복에
+// 걸려 조용히 넘어가지 않게 그때의 사유를 여기 둔다.
+const GIT_DETACHED_REASON='HEAD 가 브랜치를 가리키지 않습니다 (detached)';
+const GIT_DETACHED_NOTE='브랜치를 만들어 이 커밋을 가리키게 하면 남습니다';
+// preflight 의 코드값. 서버(internal/git/preflight.go)와 같은 문자열이다.
+const GIT_WARN_DETACHED='detached_head';
+const GIT_ERR_PREFLIGHT='preflight_blocked';
+const GIT_ERR_UNDO_EXPIRED='undo_expired';
+const GIT_ERR_EMPTY_MESSAGE='empty_message';
+const GIT_ERR_NOTHING_STAGED='nothing_staged';
 
 // ── 상태바 chip (GIT_SRS §3.7 / FR-GIT-57~59) ──
 

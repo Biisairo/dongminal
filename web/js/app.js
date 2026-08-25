@@ -1747,9 +1747,16 @@ class App {
               if(gr.ok){
                 this.wsETag=gr.headers.get('ETag')||gr.headers.get('Etag')||null;
                 // git.pinned 는 서버가 권위로 쓴다 (FR-GIT-11). 409 재시도가 우리
-                // 본문으로 덮으면 핀이 사라진다 — 서버의 git 을 통째로 채택한다.
+                // 본문으로 덮으면 핀이 사라진다 — 서버의 git 을 채택한다.
+                //
+                // 단, git.drafts 는 클라이언트가 주인이다 (O6) — 통째로 채택하면
+                // 방금 입력한 커밋 메시지가 재시도에서 사라진다 (FR-GIT-75).
                 const rem=await gr.json();
-                if(rem&&rem.git) this.ws.git=rem.git;
+                if(rem&&rem.git){
+                  const mine=this.ws.git&&this.ws.git.drafts;
+                  this.ws.git=rem.git;
+                  if(mine) this.ws.git.drafts=Object.assign({},rem.git.drafts||{},mine);
+                }
               }
             }catch{}
             this._savePending=true;

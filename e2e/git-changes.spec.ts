@@ -52,7 +52,7 @@ const group = (page: Page, key: string) => changes(page).locator(`.git-group[dat
 const rows = (page: Page, key: string) => group(page, key).locator('.git-file');
 
 test.describe('묶음 E — Changes 탭', () => {
-  test('C1 (V22): 헤더에 리포명·브랜치가 나오고 파괴적 버튼은 전부 disabled 다', async ({ page }) => {
+  test('C1 (V22): 헤더에 리포명·브랜치가 나오고 원격 버튼은 전부 disabled 다', async ({ page }) => {
     const repo = fx('basic');
     await waitForInit(page);
     await openGit(page, repo);
@@ -62,15 +62,18 @@ test.describe('묶음 E — Changes 탭', () => {
     await expect(head.locator('.git-head-repo')).toHaveAttribute('title', repo);
     await expect(head.locator('.git-head-branch')).toHaveText('main', { timeout: 10000 });
 
-    // M1 에는 파괴적 동작이 하나도 없다 — 자리만 있고 사유를 title 로 알린다.
+    // 원격은 M3 다 — 자리만 있고 사유를 title 로 알린다.
     const remote = head.locator('.git-head-remote button');
     await expect(remote).toHaveCount(3);
     expect(await remote.evaluateAll((els) => els.every((e) => (e as HTMLButtonElement).disabled)),
       '원격 버튼이 활성화돼 있다').toBe(true);
+    // 커밋 영역은 M2 에서 살아 있다 (FR-GIT-74~85). 메시지가 비어 있으므로
+    // Commit 만 disabled 이고 그 사유가 보인다 (FR-GIT-84).
     const commit = changes(page).locator('.git-commit');
-    await expect(commit.locator('.git-commit-msg')).toBeDisabled();
+    await expect(commit.locator('.git-commit-msg')).toBeEnabled();
+    await expect(commit.locator('.git-commit-amend input')).toBeEnabled();
     await expect(commit.locator('.git-commit-btn')).toBeDisabled();
-    await expect(commit.locator('.git-commit-amend input')).toBeDisabled();
+    await expect(commit.locator('.git-commit-why')).toBeVisible();
   });
 
   test('C2 (V22): detached HEAD 저장소에서 detached 배지가 나온다', async ({ page }) => {

@@ -650,7 +650,7 @@ body.mobile .sb-title{padding:14px 14px 8px}
    스크롤되면 이 요구사항은 실패다. */
 .git-view.git-changes{overflow:hidden}
 .git-view.git-changes.vis{display:flex;flex-direction:column}
-.git-head,.git-commit,.git-stale-note{flex:0 0 auto}
+.git-head,.git-commit,.git-stale-note,.git-partial-note{flex:0 0 auto}
 .git-changes-body{flex:1 1 auto;min-height:0;display:flex}
 
 .git-head{
@@ -676,21 +676,88 @@ body.mobile .sb-title{padding:14px 14px 8px}
   background:var(--bg);color:var(--text);
   border:1px solid var(--border);border-radius:3px;
 }
-/* M1 에는 파괴적 동작이 하나도 없다 — 자리만 있고 전부 disabled 다 */
+/* 원격은 M3 다 — 자리만 있고 disabled 다 */
 .git-remote-btn:disabled,.git-commit-btn:disabled{color:var(--text-dim);cursor:not-allowed}
 
+/* ── 커밋 영역 (FR-GIT-74~85) ── */
+/* 목록과 독립된 고정 영역이다 (FR-GIT-39) — 높이는 안쪽 textarea 가 정한다 */
 .git-commit{
-  display:flex;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border);
+  display:flex;flex-direction:column;gap:4px;
+  padding:6px 10px 0;border-bottom:1px solid var(--border);
 }
+.git-commit-main{display:flex;gap:8px;min-width:0}
 .git-commit-msg{
-  flex:1 1 auto;min-width:0;height:48px;resize:none;
-  font:inherit;font-size:12px;padding:4px 6px;
+  flex:1 1 auto;min-width:0;resize:none;overflow-y:auto;
+  font:inherit;font-size:12px;padding:4px 6px;line-height:17px;
   background:var(--bg);color:var(--text);
   border:1px solid var(--border);border-radius:3px;
 }
 .git-commit-msg:disabled{color:var(--text-dim)}
 .git-commit-side{display:flex;flex-direction:column;justify-content:space-between;gap:4px;flex-shrink:0}
-.git-commit-amend{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-dim)}
+.git-commit-amend{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-dim);cursor:pointer}
+/* FR-GIT-85: 서명이 활성이면 그 사실을 보인다 */
+.git-commit-gpg{display:none;font-size:10px;color:var(--accent);white-space:nowrap}
+.git-commit-gpg.vis{display:block}
+.git-commit-go{position:relative;display:flex;gap:0}
+.git-commit-btn{border-top-right-radius:0;border-bottom-right-radius:0}
+.git-commit-more{
+  font:inherit;font-size:11px;padding:2px 6px;cursor:pointer;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-left:none;
+  border-top-right-radius:3px;border-bottom-right-radius:3px;
+}
+.git-commit-more.active{background:var(--accent-active);color:var(--text-bright)}
+/* FR-GIT-79: 조합 명령 20개를 대체하는 옵션 3개. 기억하지 않으므로 항상 꺼진 채 열린다 */
+.git-commit-menu{
+  display:none;position:absolute;right:0;top:calc(100% + 3px);z-index:20;
+  min-width:170px;padding:4px;font-size:11px;
+  background:var(--bg);border:1px solid var(--border);border-radius:5px;
+  box-shadow:0 6px 24px rgba(0,0,0,.5);
+}
+.git-commit-menu.vis{display:block}
+.git-commit-opt{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:3px;cursor:pointer;color:var(--text)}
+.git-commit-opt:hover{background:var(--accent-hover)}
+/* FR-GIT-84: 왜 못 누르는지 보인다 */
+.git-commit-why{display:none;padding:0 2px 2px;font-size:11px;color:var(--text-muted)}
+.git-commit-why.vis{display:block}
+.git-commit-why.err{color:var(--danger)}
+/* FR-GIT-74: 경계 드래그. 높이는 기기별로 localStorage 에 남는다 */
+.git-commit-resize{
+  flex:0 0 auto;height:6px;margin:0 -10px;cursor:ns-resize;
+  background:transparent;
+}
+.git-commit-resize:hover{background:var(--accent-hover)}
+/* FR-GIT-88: 무엇이 왜 막혔고 어떻게 푸는지를 함께 보인다 */
+.git-preflight{display:none;margin:0 -10px;padding:6px 10px;border-top:1px solid var(--border);
+  background:var(--attn-subtle);font-size:11px}
+.git-preflight.vis{display:block}
+.git-preflight-head{color:var(--attn);margin-bottom:4px}
+.git-preflight-block{margin-bottom:4px}
+.git-preflight-reason{color:var(--text-bright);word-break:break-all}
+.git-preflight-fix{display:flex;align-items:center;gap:6px;margin-top:2px;flex-wrap:wrap}
+.git-preflight-fix-label{color:var(--text-muted);flex-shrink:0}
+.git-preflight-cmd{flex:1 1 auto;min-width:0;padding:2px 6px;border-radius:3px;
+  background:var(--sidebar-bg);color:var(--text-bright);font-family:monospace;word-break:break-all}
+.git-preflight-copy{
+  font:inherit;font-size:10px;padding:1px 6px;cursor:pointer;flex-shrink:0;
+  background:transparent;color:var(--text-muted);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-preflight-copy:hover{color:var(--text-bright);border-color:var(--accent)}
+
+/* FR-GIT-81·83 · O7: 5초 뒤 사라진다. 사라진 뒤에는 진입점이 DOM 에 없다 */
+.git-undo-toast{
+  position:fixed;z-index:400;left:50%;bottom:52px;transform:translateX(-50%);
+  display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:12px;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--accent-border);border-radius:6px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+}
+.git-undo-btn{
+  font:inherit;font-size:11px;padding:3px 10px;cursor:pointer;
+  background:transparent;color:var(--accent);
+  border:1px solid var(--accent);border-radius:4px;
+}
 
 /* 오류·진행 상황은 목록을 지우지 않고 한 줄로 알린다 (§3.7) */
 .git-stale-note{display:none;padding:3px 10px;font-size:11px;color:var(--attn);background:var(--attn-subtle)}
@@ -704,10 +771,23 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .git-files::-webkit-scrollbar{width:6px}
 .git-files::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 .git-files-bar{
-  position:sticky;top:0;z-index:1;display:flex;gap:4px;padding:4px 6px;
+  position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:4px;padding:4px 6px;
   background:var(--bg);border-bottom:1px solid var(--border);
 }
 .git-files-mode.active{background:var(--accent-active);color:var(--text-bright);border-color:var(--accent-border)}
+.git-files-spacer{flex:1 1 auto}
+/* FR-GIT-69: 선택이 있을 때만 보인다 — 없을 때 자리를 차지할 이유가 없다 */
+.git-sel{display:none;align-items:center;gap:4px;flex-shrink:0}
+.git-sel.vis{display:flex}
+.git-sel-count{font-size:10px;color:var(--text-muted);white-space:nowrap}
+.git-sel-act,.git-sel-clear{
+  font:inherit;font-size:10px;padding:1px 6px;cursor:pointer;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-sel-act:disabled{color:var(--text-dim);cursor:not-allowed}
+.git-sel-act[data-act="discard"]{color:var(--danger);border-color:var(--border)}
+.git-sel-act[data-act="discard"]:disabled{color:var(--text-dim)}
 .git-group-head{
   display:flex;align-items:center;gap:5px;padding:3px 8px;cursor:pointer;
   font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);
@@ -715,14 +795,49 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .git-group-head:hover{background:var(--accent-hover)}
 .git-group-caret{width:9px;flex-shrink:0}
 .git-group-name{color:var(--text)}
+.git-group-spacer{flex:1 1 auto}
+/* FR-GIT-66·67·68: 그룹별 일괄. 그룹이 tracked / untracked 를 이미 가른다 */
+.git-group-bulk{
+  font:inherit;font-size:10px;padding:1px 6px;cursor:pointer;flex-shrink:0;
+  text-transform:none;letter-spacing:normal;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-group-bulk:disabled{color:var(--text-dim);cursor:not-allowed}
 .git-file,.git-dir{
   display:flex;align-items:center;gap:6px;padding:1px 6px 1px 6px;
   font-size:12px;white-space:nowrap;cursor:pointer;
 }
 .git-file:hover,.git-dir:hover{background:var(--accent-hover)}
 .git-file.sel{background:var(--accent-active)}
+.git-file-check{flex-shrink:0;width:11px;height:11px;cursor:pointer}
 .git-file-st{width:10px;flex-shrink:0;text-align:center;color:var(--text-muted);font-family:monospace}
-.git-file-path{overflow:hidden;text-overflow:ellipsis}
+.git-file-path{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* FR-GIT-70: 일부만 스테이지된 파일. 체크박스의 indeterminate 와 함께 구분한다 */
+.git-file.partial .git-file-st{color:var(--attn)}
+/* 행 인라인 동작. 자리는 늘 잡고 hover 에서만 보인다 — 행 높이가 흔들리지 않는다 */
+.git-file-acts{display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity .1s}
+.git-file:hover .git-file-acts,.git-file:focus-within .git-file-acts{opacity:1}
+.git-file-act{
+  font:inherit;font-size:11px;line-height:1;padding:1px 5px;cursor:pointer;
+  background:transparent;color:var(--text-muted);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-file-act:hover{color:var(--text-bright);border-color:var(--accent)}
+.git-file-act[data-act="discard"]:hover{color:var(--danger);border-color:var(--danger)}
+
+/* FR-GIT-73 · §7.1 I2: 부분 적용을 조용히 넘기지 않는다 */
+.git-partial-note{display:none;padding:4px 10px;font-size:11px;
+  color:var(--attn);background:var(--attn-subtle)}
+.git-partial-note.vis{display:block}
+.git-partial-msg{word-break:break-all}
+.git-partial-list{margin:2px 0 0;padding:0 0 0 14px;max-height:80px;overflow-y:auto;color:var(--text)}
+.git-partial-path{font-family:monospace;word-break:break-all}
+.git-partial-close{
+  margin-top:4px;font:inherit;font-size:10px;padding:1px 8px;cursor:pointer;
+  background:transparent;color:var(--text-muted);
+  border:1px solid var(--border);border-radius:3px;
+}
 /* 충돌 행은 구분만 한다 (FR-GIT-37). M1 은 해결하지 않는다 */
 .git-file.conflict .git-file-st,.git-file.conflict .git-file-path{color:var(--danger)}
 .git-dir-caret{width:9px;flex-shrink:0;color:var(--text-muted)}
@@ -750,6 +865,9 @@ body.mobile .sb-title{padding:14px 14px 8px}
 body.mobile .git-changes-body{flex-direction:column}
 body.mobile .git-files{flex:1 1 50%;border-right:none;border-bottom:1px solid var(--border)}
 body.mobile .git-file,body.mobile .git-dir{padding-top:5px;padding-bottom:5px}
+/* 모바일에는 hover 가 없다 — 인라인 동작을 늘 보인다 */
+body.mobile .git-file-acts{opacity:1}
+body.mobile .git-file-check{width:14px;height:14px}
 
 /* ── Git diff (FR-GIT-49~56) ── */
 /* Monaco 는 컨테이너 크기를 읽어 배치한다 — 호스트가 높이를 잃으면 diff 가
@@ -869,6 +987,9 @@ body.mobile .git-repo-x{opacity:1;width:24px;height:24px;font-size:14px}
 .gc-go{border-color:var(--danger);color:var(--danger)}
 .gc-cancel:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .gc-cancel:disabled,.gc-go:disabled{opacity:.5;cursor:default}
+/* 1단계 확인(FR-GIT-72·87)은 파괴적이 아니다 — 색으로 그것을 구분한다 */
+.gc-box.soft{border-color:var(--accent-border)}
+.gc-box.soft .gc-go{border-color:var(--accent);color:var(--accent)}
 /* FR-GIT-94·177: 모바일에서는 실행 버튼을 목록과 분리된 별도 행에 두고
    구분선과 여백으로 목록에서 떼어 놓는다 */
 .gc-box.mobile{width:calc(100vw - 24px);max-width:none;max-height:calc(100vh - 32px)}
