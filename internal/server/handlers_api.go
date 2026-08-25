@@ -207,6 +207,10 @@ var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/git/preflight"), (*Server).apiGitPreflight},
 	{http.MethodGet, exactPath("/api/git/policy"), (*Server).apiGitPolicy},
 	{http.MethodGet, exactPath("/api/git/recovery"), (*Server).apiGitRecovery},
+	// 묶음 L·M — 히스토리 조회 (GIT_SRS FR-GIT-113·122·136~139). 전부 읽기다.
+	{http.MethodGet, exactPath("/api/git/log"), (*Server).apiGitLog},
+	{http.MethodGet, exactPath("/api/git/commit"), (*Server).apiGitCommit},
+	{http.MethodGet, exactPath("/api/git/refs"), (*Server).apiGitRefs},
 	{http.MethodGet, exactPath("/api/stats"), (*Server).apiStats},
 }
 

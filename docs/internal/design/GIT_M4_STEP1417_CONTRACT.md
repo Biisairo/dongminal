@@ -18,17 +18,26 @@ GIT_SRS.md §3C 다. 검증은 V45~V52·V64·V65·V66.
 ```go
 // internal/git/log.go
 
+// CommitRef 는 %D 에서 뽑은 배지 하나다. 종류와 HEAD 여부를 이름 문자열에 남기지
+// 않는다 — 표시 계층이 `HEAD -> `·`tag: ` 를 다시 파싱하면 파싱이 두 곳에 생긴다.
+type CommitRef struct {
+    Name   string `json:"name"`   // main, origin/main, v1.0
+    Kind   string `json:"kind"`   // local | remote | tag. 모르는 네임스페이스면 ""
+    IsHead bool   `json:"isHead"`
+}
+
 // Commit 은 목록 한 줄이다. 부모 목록이 그래프의 유일한 입력이다 (FR-GIT-117).
 type Commit struct {
-    Oid        string   `json:"oid"`
-    Abbrev     string   `json:"abbrev"`
-    Parents    []string `json:"parents"`
-    AuthorName string   `json:"authorName"`
-    AuthorMail string   `json:"authorMail"`
-    AuthorAt   int64    `json:"authorAtUnixMs"`
-    CommitAt   int64    `json:"commitAtUnixMs"`
-    Subject    string   `json:"subject"`
-    Refs       []string `json:"refs"` // %D 의 ref 이름들
+    Oid        string      `json:"oid"`
+    Abbrev     string      `json:"abbrev"`
+    Parents    []string    `json:"parents"` // 루트 커밋은 [] (nil 금지 — 레인 입력)
+    AuthorName string      `json:"authorName"`
+    AuthorMail string      `json:"authorMail"`
+    AuthorAt   int64       `json:"authorAtUnixMs"`
+    CommitAt   int64       `json:"commitAtUnixMs"`
+    Subject    string      `json:"subject"`
+    Refs       []CommitRef `json:"refs"`   // %D 의 배지들
+    IsHead     bool        `json:"isHead"` // HEAD 가 이 커밋이다 (detached 포함)
 }
 
 type LogQuery struct {
@@ -66,9 +75,18 @@ func (s *Service) Log(ctx context.Context, q LogQuery) ([]Commit, error)
 - 필터는 가능한 것을 git 옵션으로 내려보낸다 (FR-GIT-130):
   `--author=`, `--since=`, `--until=`, `--grep=`, `-- <path>`.
 - `Ref` 가 비면 `--all`. 있으면 그 ref 하나 (FR-GIT-123).
-- 페이징은 `--skip=<n> -n <limit>` (FR-GIT-114: 초기 300, 이후 100).
+- 페이징은 `--skip=<n> -n <limit>` (FR-GIT-114: 초기 300, 이후 100). 상한은
+  `LogMaxLimit`(2000) 이며 초과 요청은 오류가 아니라 상한으로 접는다. 응답은 실제로
+  쓰인 개수를 `limit` 으로 알린다 — 접힌 것을 숨기면 클라이언트가 페이징을 어긋나게
+  계산한다.
 - `%D` 는 `HEAD -> main, origin/main, tag: v1` 형태다. 쉼표로 쪼개고
   `HEAD -> ` 접두를 뗀 뒤 HEAD 표식을 따로 담는다 (FR-GIT-126).
+  **`--decorate=full` 을 함께 준다** — 짧은 형태로는 슬래시가 든 로컬 브랜치
+  (`feature/a`)와 원격 브랜치를 가릴 수 없고, 배지 종류를 이름 모양으로 추측하게
+  된다.
+- 모르는 정렬값은 `ErrLogOrder` 로 거부한다 (서버 400). 옵션처럼 생긴 ref·oid 는
+  `ErrUnsafeRev` 로 거부한다 (400). 없는 리비전은 `ErrRevNotFound` (404) 이며,
+  저장소 실패(500)와 구분된다.
 
 ```go
 // internal/git/commitdetail.go
@@ -86,7 +104,7 @@ type CommitDetail struct {
     CommitterMail string       `json:"committerMail"`
     Body          string       `json:"body"`   // 메시지 전문 (FR-GIT-136)
     Files         []CommitFile `json:"files"`  // FR-GIT-137
-    ParentIndex   int          `json:"parentIndex"` // 어느 부모와 비교했는지
+    ParentIndex   int          `json:"parentIndex"` // 어느 부모와 비교했는지. 루트면 -1
 }
 
 // CommitDetail 은 커밋 하나의 상세다. 머지 커밋은 비교 부모를 골라야 하므로
@@ -94,10 +112,18 @@ type CommitDetail struct {
 func (s *Service) CommitDetail(ctx context.Context, repo, oid string, parentIndex int) (CommitDetail, error)
 ```
 
-- 파일 목록: `diff-tree --no-commit-id --name-status -r -z -m <oid>^<n+1> <oid>`
-  — 머지 커밋에서 부모를 지정하려면 `<oid>^<n+1>..<oid>` 를 쓴다. 부모가 없으면
-  (루트 커밋) `diff-tree --root` 로 간다.
-- `-z` 이므로 rename 은 `R100\0old\0new` 세 조각이다.
+- 파일 목록: `diff-tree --no-commit-id --name-status -r -z -M <oid>^<n+1> <oid>`
+  — 머지 커밋에서 부모를 지정하려면 두 트리를 명시한다. 부모가 없으면
+  (루트 커밋) `diff-tree … -M --root <oid>` 로 간다.
+  - **`-M` 이 필요하다.** diff-tree 는 plumbing 이라 rename 을 스스로 찾지 않고,
+    없으면 rename 이 D+A 두 줄로 갈라져 origPath 를 잃는다 (git 2.50.1 실측).
+    `-C`(copy 탐지)는 주지 않는다 — 비용이 크고 요구된 것이 아니다.
+  - `-m` 은 주지 않는다. 두 트리를 명시하는 형태에서는 아무 일도 하지 않으며(실측),
+    하는 일이 없는 플래그는 다음 사람을 헷갈리게 한다.
+  - 범위를 벗어난 부모 번호는 `ErrCommitParent` 로 거부한다 (400). 클램프하면
+    사용자는 자기가 고르지 않은 부모와의 비교를 보고 있다고 모른 채 읽는다.
+- `-z` 이므로 rename 은 `R100\0old\0new` 세 조각이다. `diff-tree -z` 는 log 와 달리
+  **모든 필드를 NUL 로 끝낸다** — 꼬리 빈 토큰을 떼야 한다 (실측).
 
 ```go
 // internal/git/refs.go
@@ -110,6 +136,7 @@ type Ref struct {
     Upstream  string `json:"upstream,omitempty"`
     Ahead     int    `json:"ahead"`
     Behind    int    `json:"behind"`
+    Gone      bool   `json:"gone,omitempty"` // upstream 이 사라졌다 (`[gone]`)
     IsHead    bool   `json:"isHead"`
     Subject   string `json:"subject,omitempty"`
     AtUnixMs  int64  `json:"atUnixMs"`
@@ -120,8 +147,20 @@ func (s *Service) Refs(ctx context.Context, repo string) ([]Ref, error)
 
 `for-each-ref --format=…%00…` 로 한 번에 얻는다:
 `%(refname)`, `%(objectname)`, `%(upstream:short)`, `%(upstream:track)`,
-`%(HEAD)`, `%(contents:subject)`, `%(committerdate:unix)`.
-`%(upstream:track)` 은 `[ahead 2, behind 1]` 형태 — 정규식으로 뽑는다.
+`%(HEAD)`, `%(contents:subject)`, `%(creatordate:unix)`.
+
+- **`for-each-ref` 에는 `-z` 가 없다** (git 2.50.1 은 `unknown switch 'z'`). 레코드는
+  개행으로 끝나고 필드만 NUL 로 나뉜다 — 실을 필드가 모두 한 줄짜리이므로 모호하지
+  않다. 필드 수가 7이 아닌 줄은 오류다.
+- 시각은 `%(committerdate:unix)` 가 아니라 **`%(creatordate:unix)`** 다.
+  committerdate 는 annotated tag 에서 비어 오고(태그 객체에는 committer 가 없다,
+  실측) 그러면 사이드바가 1970년을 보인다. creatordate 는 커밋이면 committerdate,
+  태그면 taggerdate 를 준다.
+- 패턴 `refs/heads refs/remotes refs/tags` 를 명시한다 — 주지 않으면 `refs/stash`·
+  `refs/notes` 가 함께 와서 종류 없는 항목이 사이드바에 섞인다.
+- `%(upstream:track)` 은 `[ahead 2, behind 1]` 형태 — 정규식으로 뽑는다. 한쪽만
+  있는 경우(`[ahead 2]`)와 `[gone]` 을 각각 따로 본다. 위치로 세면 `[behind 1]` 이
+  ahead 로 읽힌다.
 
 ### 1.1 라우트
 
@@ -131,7 +170,25 @@ func (s *Service) Refs(ctx context.Context, repo string) ([]Ref, error)
 | GET | `/api/git/commit?repo=&oid=&parent=<n>` |
 | GET | `/api/git/refs?repo=` |
 
-전부 `requested` 를 에코한다 (stale 가드, FR-GIT-133·145).
+전부 `requested` 를 에코한다 (stale 가드, FR-GIT-133·145). 식별자는
+`/log` = (repo, ref, skip, limit, order, author, since, until, path, grep),
+`/commit` = (repo, oid, parent), `/refs` = (repo) 다. 해석된 루트는 별도 `repo`
+필드이며 `requested.repo` 자리를 대신하지 않는다.
+
+응답 본문:
+
+| 라우트 | 최상위 키 |
+|---|---|
+| `/log` | `requested`, `repo`, `limit`(실제로 쓰인 개수), `commits` |
+| `/commit` | `requested`, `repo`, + `CommitDetail` 평탄화 |
+| `/refs` | `requested`, `repo`, `refs` |
+
+`commits`·`refs`·`files`·`parents` 는 비어도 `null` 이 아니라 `[]` 다 — 레인 계산과
+사이드바가 배열을 요구한다.
+
+**16단계 주의:** `buildLaneGraph` 의 입력은 `{hash, parents}` 이고 이 응답의 커밋은
+`{oid, parents}` 다. 목록을 레인 계산에 넘길 때 `oid → hash` 로 옮긴다 (서버가
+`hash` 를 따로 싣지 않는다 — 같은 값을 두 이름으로 실으면 어느 쪽이 진실인지 모른다).
 
 ## 2. 15단계 — 레인 알고리즘 (FR-GIT-117~121, 검증 V46)
 
@@ -198,6 +255,20 @@ Playwright 없이 돌 수 있는 자리에 둔다 — 이 저장소에 JS 단위
   높이를 예외로 들고 오프셋 계산에 더한다 (**펼침은 한 번에 하나만** 허용한다 —
   여러 개를 허용하면 가변 높이 문제가 되돌아온다).
 - 끝에 닿으면 100개 추가 로드 (FR-GIT-115). 로딩 중 표시를 둔다.
+
+### 3.1.1 레인 그래프 입력 변환 (놓치기 쉬운 지점)
+
+`buildLaneGraph` 는 `[{hash, parents}]` 를 받고, `/api/git/log` 는 `[{oid, parents, …}]`
+를 준다. **필드 이름이 다르므로 명시적으로 옮긴다.**
+
+```js
+const graph = clampLanes(
+  buildLaneGraph(commits.map(c => ({hash: c.oid, parents: c.parents}))),
+  app.isMobile ? GIT_LANE_MAX_MOBILE : GIT_LANE_MAX_DESKTOP);
+```
+
+`git-lanes.js` 를 고쳐 `oid` 를 함께 받게 만들지 않는다 — 순수 함수의 입력이
+서버 응답 형태에 묶이면 다음 형태 변경마다 알고리즘을 건드려야 한다.
 
 ### 3.2 행별 인라인 SVG (FR-GIT-118·119, 검증 V47)
 
