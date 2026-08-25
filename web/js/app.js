@@ -955,7 +955,7 @@ class App {
   // FR-PAN-16: 제목 배지 + notification center 배지/팝오버 갱신
   _attnRefresh(){
     const n=this._attn.size;
-    document.title=(n?'('+n+') ':'')+'Terminal'; // FR-PAN-13b
+    document.title=(n?'('+n+') ':'')+'Dongminal'; // FR-PAN-13b
     // 사이드바 창 알람 표시 갱신 (전체 재렌더 없이)
     document.querySelectorAll('#windows .si').forEach(el=>{
       const s=this.ws.windows.find(x=>x.id===el.dataset.sid);
