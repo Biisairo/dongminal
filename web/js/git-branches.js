@@ -358,9 +358,10 @@ class GitBranches {
     if(!panel||!panel.repo) return;
     const opts=Object.assign({repo:panel.repo,ref:ref||''},o||{});
     if(!panel.isDirty()) return GitBranches._send(panel,opts);
-    const pick=await GitChoice.open({
-      action:'checkout_dirty',title:GIT_DIRTY_TITLE,note:GIT_DIRTY_NOTE,
-      options:GIT_DIRTY_OPTS,def:GIT_DIRTY_OPT_CANCEL,
+    const pick=await GitDialog.open({
+      id:'git-choice',ns:'gch',action:'checkout_dirty',
+      title:GIT_DIRTY_TITLE,body:GIT_DIRTY_NOTE,
+      choices:GIT_DIRTY_OPTS,def:GIT_DIRTY_OPT_CANCEL,
     });
     if(pick===GIT_DIRTY_OPT_FORCE) return GitBranches._force(panel,opts);
     // 취소와 모르는 값은 아무것도 하지 않는다 — 기본은 항상 안전한 쪽이다 (O14).
@@ -386,7 +387,7 @@ class GitBranches {
   // 강제는 워킹 트리의 변경을 버린다. 서버의 파괴적 목록에 없는 이름이므로 확인
   // 단계를 **명시적으로 2** 로 요구한다 (계약 §1.1).
   static _force(panel,opts){
-    return GitConfirm.open({
+    return GitDialog.confirm({
       action:GIT_ACT_CHECKOUT_FORCE,title:GIT_FORCE_TITLE,
       targets:[opts.create||opts.ref||''],
       hint:{note:GIT_FORCE_NOTE,command:'git stash push -u'},
@@ -429,9 +430,10 @@ class GitBranches {
     const ids=Array.isArray(d.options)?d.options:[];
     const options=ids.map(id=>({id,label:GIT_BR_CONFLICT_LABEL[id]||id,
       danger:id==='checkout_existing'}));
-    const pick=await GitChoice.open({
-      action:'branch_exists',title:GIT_BR_CONFLICT_TITLE,note:d.message||'',
-      options,def:'cancel',
+    const pick=await GitDialog.open({
+      id:'git-choice',ns:'gch',action:'branch_exists',
+      title:GIT_BR_CONFLICT_TITLE,body:d.message||'',
+      choices:options,def:'cancel',
     });
     if(pick==='checkout_existing')
       return GitBranches._send(panel,{repo:opts.repo,ref:d.branch||''});
@@ -448,93 +450,20 @@ class GitBranches {
 }
 
 /**
- * 선택지가 셋 이상인 결정 (FR-GIT-157·156).
- *
- * `GitConfirm` 은 계속/취소 두 갈래이므로 여기 있는 것은 그것과 다른 것이다 —
- * **기본 선택은 제시 순서와 별개**다: dirty checkout 은 취소가 첫 항목이지만 이름
- * 충돌은 서버가 준 순서의 마지막이 취소다 (계약 §1.2.1).
- *
- * `Esc` 와 `Enter` 는 둘 다 기본 선택이다 — 기본은 항상 안전한 쪽이다 (O14,
- * FR-GIT-97·176). 20단계의 공통 다이얼로그 규약이 이것을 흡수한다.
- */
-class GitChoice {
-  static open({action,title,note,options,def}){
-    // 한 번에 하나다 — 겹치면 어느 결정인지 알 수 없다.
-    if(GitChoice._cur) return Promise.resolve(def||'');
-    return new GitChoice({action,title,note,options,def})._show();
-  }
-
-  constructor(o){
-    this.action=o.action||'';
-    this.title=o.title||'';
-    this.note=o.note||'';
-    this.options=Array.isArray(o.options)?o.options:[];
-    this.def=o.def||((this.options[0]||{}).id)||'';
-  }
-
-  _show(){
-    const ov=document.createElement('div'); ov.id='git-choice'; ov.className='gch-modal';
-    ov.innerHTML=
-      '<div class="gch-box" role="dialog" aria-modal="true">'+
-        '<div class="gch-head"></div>'+
-        '<div class="gch-note"></div>'+
-        '<div class="gch-opts"></div>'+
-      '</div>';
-    this.ov=ov;
-    const box=ov.querySelector('.gch-box');
-    box.dataset.action=this.action;
-    box.querySelector('.gch-head').textContent=this.title;
-    const n=box.querySelector('.gch-note');
-    n.textContent=this.note; n.classList.toggle('vis',!!this.note);
-    const opts=box.querySelector('.gch-opts');
-    let defBtn=null;
-    for(const o of this.options){
-      const b=document.createElement('button');
-      b.type='button';
-      b.className='gch-opt'+(o.danger?' danger':'');
-      b.dataset.opt=o.id;
-      b.textContent=o.label||o.id;
-      b.addEventListener('click',()=>this._close(o.id));
-      opts.appendChild(b);
-      if(o.id===this.def) defBtn=b;
-    }
-    document.body.appendChild(ov);
-    // 기본 선택에 포커스가 있어야 한다 (O14) — 위험한 항목에 있으면 실패다.
-    if(defBtn) defBtn.focus();
-    this._key=e=>{
-      if(e.key!=='Escape'&&e.key!=='Enter') return;
-      e.preventDefault(); e.stopPropagation();
-      this._close(this.def);
-    };
-    document.addEventListener('keydown',this._key,true);
-    GitChoice._cur=this;
-    return new Promise(res=>{this._resolve=res});
-  }
-
-  _close(id){
-    document.removeEventListener('keydown',this._key,true);
-    if(this.ov) this.ov.remove();
-    this.ov=null;
-    if(GitChoice._cur===this) GitChoice._cur=null;
-    const r=this._resolve; this._resolve=null;
-    if(r) r(id||'');
-  }
-}
-
-GitChoice._cur=null;
-
-/**
  * 브랜치 생성 다이얼로그 (FR-GIT-158, 검증 V68).
  *
- * 이름 / 시작점 / 생성 후 checkout 3필드다. 이름은 입력 중
- * `/api/git/branch/validate` 로 검사하고 **위반이면 실행을 막는다** (FR-GIT-159) —
- * 서버도 같은 것을 막지만, 실행해 보고 알려 주면 사용자는 왜 막혔는지 모른다.
+ * 골격은 20단계의 `GitDialog` 다 (FR-GIT-171) — 이름 / 시작점 / 생성 후 checkout
+ * 3필드를 그것에 선언하고, 이 클래스는 이름 검사와 실행만 안다.
+ *
+ * 이름은 입력 중 `/api/git/branch/validate` 로 검사하고 **위반이면 실행을 막는다**
+ * (FR-GIT-159) — 서버도 같은 것을 막지만, 실행해 보고 알려 주면 사용자는 왜
+ * 막혔는지 모른다.
  *
  * `exists:true` 는 규칙 위반이 아니다 (계약 §1.2.1) — "다른 이름을 쓰세요" 를
  * 보이려면 그 구분이 필요하다.
  *
  * `track` 이 주어지면 원격 ref 를 다른 이름의 로컬로 가져오는 것이므로(FR-GIT-156)
- * 시작점과 checkout 여부는 뜻이 없다 — 그 두 필드를 숨긴다.
+ * 시작점과 checkout 여부는 뜻이 없다 — 그 두 필드를 만들지 않는다.
  */
 class GitBranchCreate {
   constructor(panel,o){
@@ -544,153 +473,89 @@ class GitBranchCreate {
     this.name0=o.name||'';
     this.start0=o.startRef||'';
     this.why='';      // 사람이 읽는 사유
-    this.whyKind='';  // '' | empty | invalid | exists | fail
-    this.busy=false;
+    this.whyKind='';  // '' | empty | pending | invalid | exists | fail
     this._seq=0;
   }
 
   _show(){
-    const ov=document.createElement('div'); ov.id='git-br-create'; ov.className='gbc-modal';
-    ov.innerHTML=
-      '<div class="gbc-box" role="dialog" aria-modal="true">'+
-        '<div class="gbc-head"></div>'+
-        '<input class="gbc-name" type="text">'+
-        '<div class="gbc-why"></div>'+
-        '<label class="gbc-startrow"><span></span>'+
-          '<input class="gbc-start" type="text"></label>'+
-        '<label class="gbc-checkoutrow">'+
-          '<input class="gbc-checkout" type="checkbox"><span></span></label>'+
-        '<div class="gbc-err"></div>'+
-        '<div class="gbc-actions">'+
-          '<span class="gbc-progress"></span>'+
-          '<button type="button" class="gbc-cancel"></button>'+
-          '<button type="button" class="gbc-go"></button>'+
-        '</div>'+
-      '</div>';
-    document.body.appendChild(ov);
-    this.ov=ov;
-    const b=ov.querySelector('.gbc-box');
-    this.box=b;
-    b.querySelector('.gbc-head').textContent=GIT_BR_CREATE_TITLE;
-    b.querySelector('.gbc-name').placeholder=GIT_BR_NAME_PLACEHOLDER;
-    b.querySelector('.gbc-start').placeholder=GIT_BR_START_PLACEHOLDER;
-    b.querySelector('.gbc-startrow span').textContent='';
-    b.querySelector('.gbc-checkoutrow span').textContent=GIT_BR_CREATE_CHECKOUT;
-    b.querySelector('.gbc-cancel').textContent=GIT_CONFIRM_CANCEL;
-    b.querySelector('.gbc-go').textContent=GIT_BR_CREATE_RUN;
-    b.querySelector('.gbc-name').value=this.name0;
-    b.querySelector('.gbc-start').value=this.start0;
-    // 옵션의 기본값은 안전한 쪽이다 (FR-GIT-97) — 만든 뒤 옮겨 가지 않는다.
-    b.querySelector('.gbc-checkout').checked=false;
-    b.classList.toggle('tracking',!!this.track);
-    b.querySelector('.gbc-name').addEventListener('input',()=>this._onName());
-    b.querySelector('.gbc-cancel').addEventListener('click',()=>this._close(false));
-    b.querySelector('.gbc-go').addEventListener('click',()=>this._run());
-    this._key=e=>{
-      if(e.key!=='Escape') return;
-      e.preventDefault(); e.stopPropagation();
-      if(!this.busy) this._close(false);
-    };
-    document.addEventListener('keydown',this._key,true);
-    b.querySelector('.gbc-name').focus();
-    this._paint();
-    this._onName();
-    return new Promise(res=>{this._resolve=res});
+    return GitDialog.open({
+      id:'git-br-create',ns:'gbc',action:'branch_create',
+      title:GIT_BR_CREATE_TITLE,runLabel:GIT_BR_CREATE_RUN,focus:'name',
+      fields:[
+        {key:'name',type:GIT_DIALOG_TEXT,cls:'gbc-name',
+         placeholder:GIT_BR_NAME_PLACEHOLDER,value:this.name0},
+        {key:'startRef',type:GIT_DIALOG_TEXT,cls:'gbc-start',fieldCls:'gbc-startrow',
+         placeholder:GIT_BR_START_PLACEHOLDER,value:this.start0,hidden:!!this.track},
+        // 옵션의 기본값은 안전한 쪽이다 (FR-GIT-173) — 만든 뒤 옮겨 가지 않는다.
+        {key:'checkout',type:GIT_DIALOG_CHECK,cls:'gbc-checkout',fieldCls:'gbc-checkoutrow',
+         label:GIT_BR_CREATE_CHECKOUT,hidden:!!this.track},
+      ],
+      validate:(v,d,key)=>this._onName(v,d,key),
+      run:v=>this._run(v),
+    });
   }
 
-  _name(){return (this.box.querySelector('.gbc-name').value||'').trim()}
-
-  // 입력 중 검사한다. 키 하나마다 보내지 않고 멈춘 뒤에 보낸다 — 이름은 짧지만
+  // 이름만 검사한다. 키 하나마다 보내지 않고 멈춘 뒤에 보낸다 — 이름은 짧지만
   // 검사는 git 실행이다.
-  _onName(){
+  _onName(v,d,key){
+    if(key&&key!=='name') return {kind:this.whyKind,why:this.why};
     if(this._t) clearTimeout(this._t);
-    const name=this._name();
-    if(!name){
-      this._set('empty',GIT_BR_WHY_EMPTY);
-      return;
-    }
+    const name=(v.name||'').trim();
+    if(!name) return this._set('empty',GIT_BR_WHY_EMPTY);
+    this._t=setTimeout(()=>{this._t=null;this._validate(name,d)},GIT_BR_VALIDATE_DEBOUNCE_MS);
     // 검사 중에는 실행을 막는다 — 판정을 모르는 동안 실행을 열어 두면 규칙 위반이
     // 그대로 지나간다 (FR-GIT-159).
-    this._set('pending','');
-    this._t=setTimeout(()=>{this._t=null;this._validate(name)},GIT_BR_VALIDATE_DEBOUNCE_MS);
+    return this._set(GIT_DIALOG_WHY_PENDING,'');
   }
 
-  async _validate(name){
+  async _validate(name,d){
+    if(!d.alive()) return;
     const seq=++this._seq;
     const q=new URLSearchParams({repo:this.repo,name});
-    let r=null,d=null;
+    let r=null,dt=null;
     try{r=await fetch('/api/git/branch/validate?'+q.toString())}catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
+    if(r&&r.ok){try{dt=await r.json()}catch{dt=null}}
     // 뒤늦게 온 이전 이름의 판정을 지금 이름의 것으로 읽지 않는다.
-    if(seq!==this._seq||!this.box) return;
-    const req=d&&d.requested;
-    if(!d||!req||req.name!==name||req.repo!==this.repo){
-      this._set('fail',GIT_BR_VALIDATE_FAIL);
-      return;
+    if(seq!==this._seq||!d.alive()) return;
+    const req=dt&&dt.requested;
+    if(!dt||!req||req.name!==name||req.repo!==this.repo){
+      this._tell(d,'fail',GIT_BR_VALIDATE_FAIL); return;
     }
-    if(!d.ok){this._set('invalid',d.reason||GIT_BR_VALIDATE_FAIL);return}
+    if(!dt.ok){this._tell(d,'invalid',dt.reason||GIT_BR_VALIDATE_FAIL);return}
     // 이미 있는 이름은 규칙 위반이 아니다 — 사유가 달라야 사용자가 무엇을 할지 안다.
-    if(d.exists){this._set('exists',GIT_BR_WHY_EXISTS);return}
-    this._set('','');
+    if(dt.exists){this._tell(d,'exists',GIT_BR_WHY_EXISTS);return}
+    this._tell(d,'','');
   }
 
-  _set(kind,why){
-    this.whyKind=kind; this.why=why;
-    this._paint();
+  _set(kind,why){this.whyKind=kind;this.why=why;return {kind,why}}
+
+  _tell(d,kind,why){
+    this._set(kind,why);
+    d.setWhy(kind,why);
   }
 
-  _paint(){
-    const b=this.box; if(!b) return;
-    const why=b.querySelector('.gbc-why');
-    // pending 은 사유가 없다 — 검사 중임을 문구로 떠들지 않고 실행만 막는다.
-    why.textContent=this.why;
-    why.dataset.why=this.whyKind==='pending'?'':this.whyKind;
-    why.classList.toggle('vis',!!this.why);
-    b.querySelector('.gbc-progress').textContent=this.busy?GIT_CONFIRM_RUNNING:'';
-    const go=b.querySelector('.gbc-go'),cancel=b.querySelector('.gbc-cancel');
-    go.disabled=this.busy||this.whyKind!=='';
-    cancel.disabled=this.busy;
-  }
-
-  async _run(){
-    if(this.busy||this.whyKind!=='') return;
-    const name=this._name();
-    this.busy=true; this._paint();
-    const b=this.box;
+  async _run(v){
+    const name=(v.name||'').trim();
     const res=this.track
       ? await this.panel.post('/api/git/checkout',
           {repo:this.repo,ref:'',create:name,track:this.track})
       : await this.panel.post('/api/git/branch',{
           repo:this.repo,name,
-          startRef:(b.querySelector('.gbc-start').value||'').trim(),
-          checkout:!!b.querySelector('.gbc-checkout').checked,
+          startRef:(v.startRef||'').trim(),
+          checkout:!!v.checkout,
         });
-    this.busy=false;
     if(res.ok){
       // 조작 후 목록·상태를 갱신한다 (FR-GIT-160).
       this.panel.afterRefWrite(res.data);
-      this._close(true);
-      return;
+      return {ok:true};
     }
-    // 실패 사유는 다이얼로그 안에 남긴다 — 닫아 버리면 읽을 자리가 사라진다
+    // 실패 사유는 다이얼로그 안에 남는다 — 닫아 버리면 읽을 자리가 사라진다
     // (FR-GIT-175).
-    const err=b.querySelector('.gbc-err');
-    err.textContent=this.panel.writeError(res);
-    err.classList.add('vis');
-    this._paint();
-  }
-
-  _close(v){
-    if(this._t){clearTimeout(this._t);this._t=null}
-    document.removeEventListener('keydown',this._key,true);
-    if(this.ov) this.ov.remove();
-    this.ov=null; this.box=null;
-    const r=this._resolve; this._resolve=null;
-    if(r) r(!!v);
+    return {ok:false,reason:this.panel.writeReason(res),
+      stderrTail:(res.data&&res.data.message)||''};
   }
 }
 
 // 고전 스크립트의 class 선언은 window 의 속성이 되지 않는다 — GitPanel 과 e2e 가
 // 창 밖에서 부르므로 명시적으로 붙인다 (git-confirm.js 와 같은 규약).
 window.GitBranches=GitBranches;
-window.GitChoice=GitChoice;

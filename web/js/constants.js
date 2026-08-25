@@ -243,6 +243,23 @@ const GIT_CONFIRM_CHANGED='대상이 변경되었습니다';
 // FR-GIT-91: 개수는 목록과 함께 보이는 것이다 — 개수만 보이면 요구사항 실패다.
 const GIT_CONFIRM_COUNT_LABEL='대상';
 
+// ── 다이얼로그 공통 골격 (GIT_SRS §3D.3 / FR-GIT-171~178) ──
+
+// 골격의 기본 이름. 흡수한 다이얼로그는 자기 id·클래스 접두를 그대로 유지한다 —
+// 공유하는 것은 골격이고 이름은 각자의 것이다.
+const GIT_DIALOG_ID='git-dialog';
+const GIT_DIALOG_NS='gd';
+// 필드 종류. **자격증명을 받는 종류는 없다** (FR-GIT-104).
+const GIT_DIALOG_TEXT='text';
+const GIT_DIALOG_CHECK='check';
+const GIT_DIALOG_RADIO='radio';
+// 실행을 막는 사유의 종류. `pending` 은 사유를 보이지 않고 실행만 막는다 —
+// 판정을 모르는 동안 열어 두면 위반이 그대로 지나간다 (FR-GIT-159).
+const GIT_DIALOG_WHY='why';
+const GIT_DIALOG_WHY_PENDING='pending';
+// FR-GIT-178 의 상태 지문에 넣는 그룹. 대상 파일들의 `xy` 조합이다.
+const GIT_DIALOG_FP_GROUPS=['staged','changes','conflicts','untracked'];
+
 // ── 변경 감지 3계층 (GIT_SRS §3.3 / FR-GIT-18~24) ──
 
 // 기본 주기(ms). 0 이면 그 계층을 끈다 (FR-GIT-23).

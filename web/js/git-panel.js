@@ -807,7 +807,7 @@ class GitPanel {
     // 알린다. 파괴적이 아니므로 1단계 확인이다.
     const conflicts=items.filter(i=>i.group==='conflicts').map(i=>i.path);
     if(act==='stage'&&conflicts.length){
-      const ok=await GitConfirm.open({
+      const ok=await GitDialog.confirm({
         action:GIT_ACT_RESOLVE,title:GIT_RESOLVE_TITLE,targets:conflicts,
         hint:{note:GIT_RESOLVE_NOTE,command:'git reset -q HEAD -- '+conflicts.map(gitShQuote).join(' ')},
         stages:1,
@@ -828,7 +828,7 @@ class GitPanel {
     const targets=tracked.concat(untracked);
     if(!targets.length) return;
     const repo=this.repo;
-    await GitConfirm.open({
+    await GitDialog.confirm({
       action:GIT_ACT_DISCARD,title:GIT_DISCARD_TITLE,targets,
       // O8: stash 를 자동 생성하지 않는다 — 실행할 명령을 보여 준다.
       hint:{note:GIT_DISCARD_NOTE,command:'git stash push -- '+targets.map(gitShQuote).join(' ')},
@@ -1270,8 +1270,9 @@ class GitPanel {
     this.app._gitReposRefresh();
     // 상태바 chip 은 Git 창 밖에서도 보이므로 관측마다 갱신한다 (FR-GIT-57).
     this.app._updateStatusBar();
-    // FR-GIT-178: 확인 다이얼로그가 열려 있으면 대상 변경을 알린다.
+    // FR-GIT-178: 다이얼로그가 열려 있으면 대상 변경을 알린다. 실행은 막지 않는다.
     if(typeof GitConfirm!=='undefined') GitConfirm.notify(this._lastSig);
+    if(typeof GitDialog!=='undefined') GitDialog.notify();
   }
 
   _applyError(code){

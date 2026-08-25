@@ -178,14 +178,14 @@ class GitMenu {
    * 쓰면 새 항목마다 방어를 다시 만들어야 하고, 한 곳이 빠지면 조용히 사라진다.
    *
    * `stages:1` 을 늘 넘긴다. 파괴적 목록(서버 `/api/git/policy`)에 든 action 은
-   * `GitConfirm.open` 이 요청과 무관하게 2단계로 올린다 — 목록에 없는 action 이
+   * `GitConfirm` 이 요청과 무관하게 2단계로 올린다 — 목록에 없는 action 이
    * 확인 없이 지나가는 일이 없게 바닥을 1단계로 둔다.
    */
   static async _pick(it,target){
     GitMenu.close();
     if(typeof it.run!=='function') return;
     if(it.warn||it.destructive){
-      const ok=await GitConfirm.open({
+      const ok=await GitDialog.confirm({
         action:it.action||it.id,
         title:it.title||it.label,
         targets:it.targets?it.targets(target):[],

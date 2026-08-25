@@ -294,8 +294,9 @@ class GitStash {
 /**
  * stash 생성 다이얼로그 (FR-GIT-166, 검증 V58).
  *
- * 메시지 / `--include-untracked` / `--keep-index` 3필드다. 옵션의 기본값은 안전한
- * 쪽이므로 둘 다 꺼져 있다 (FR-GIT-97).
+ * 골격은 20단계의 `GitDialog` 다 (FR-GIT-171) — 메시지 / `--include-untracked` /
+ * `--keep-index` 3필드를 그것에 선언하고, 이 클래스는 담길 것이 있는지의 판정과
+ * 실행만 안다. 옵션의 기본값은 안전한 쪽이므로 둘 다 꺼져 있다 (FR-GIT-173).
  *
  * untracked 뿐인 저장소에서는 `--include-untracked` 없이 담길 것이 없다 — 그것을
  * 실행 전에 보인다 (FR-GIT-167). 서버도 `nothing_to_stash` 로 막지만, 실행해 보고
@@ -305,98 +306,50 @@ class GitStashCreate {
   constructor(panel){
     this.panel=panel;
     this.repo=panel.repo;
-    this.busy=false;
   }
 
   _show(){
-    const ov=document.createElement('div'); ov.id='git-stash-create'; ov.className='gsc-modal';
-    ov.innerHTML=
-      '<div class="gsc-box" role="dialog" aria-modal="true">'+
-        '<div class="gsc-head"></div>'+
-        '<input class="gsc-msg" type="text">'+
-        '<label class="gsc-optrow">'+
-          '<input class="gsc-untracked" type="checkbox"><span></span></label>'+
-        '<label class="gsc-optrow">'+
-          '<input class="gsc-keepindex" type="checkbox"><span></span></label>'+
-        '<div class="gsc-why"></div>'+
-        '<div class="gsc-err"></div>'+
-        '<div class="gsc-actions">'+
-          '<span class="gsc-progress"></span>'+
-          '<button type="button" class="gsc-cancel"></button>'+
-          '<button type="button" class="gsc-go"></button>'+
-        '</div>'+
-      '</div>';
-    document.body.appendChild(ov);
-    this.ov=ov;
-    const b=ov.querySelector('.gsc-box');
-    this.box=b;
-    b.querySelector('.gsc-head').textContent=GIT_STASH_CREATE_TITLE;
-    b.querySelector('.gsc-msg').placeholder=GIT_STASH_MSG_PLACEHOLDER;
-    const spans=b.querySelectorAll('.gsc-optrow span');
-    spans[0].textContent=GIT_STASH_OPT_UNTRACKED;
-    spans[1].textContent=GIT_STASH_OPT_KEEPINDEX;
-    b.querySelector('.gsc-cancel').textContent=GIT_CONFIRM_CANCEL;
-    b.querySelector('.gsc-go').textContent=GIT_STASH_CREATE_RUN;
-    b.querySelector('.gsc-untracked').addEventListener('change',()=>this._paint());
-    b.querySelector('.gsc-cancel').addEventListener('click',()=>this._close(false));
-    b.querySelector('.gsc-go').addEventListener('click',()=>this._run());
-    this._key=e=>{
-      if(e.key!=='Escape') return;
-      e.preventDefault(); e.stopPropagation();
-      if(!this.busy) this._close(false);
-    };
-    document.addEventListener('keydown',this._key,true);
-    b.querySelector('.gsc-msg').focus();
-    this._paint();
-    return new Promise(res=>{this._resolve=res});
+    return GitDialog.open({
+      id:'git-stash-create',ns:'gsc',action:'stash_push',
+      title:GIT_STASH_CREATE_TITLE,runLabel:GIT_STASH_CREATE_RUN,focus:'message',
+      fields:[
+        {key:'message',type:GIT_DIALOG_TEXT,cls:'gsc-msg',
+         placeholder:GIT_STASH_MSG_PLACEHOLDER},
+        {key:'includeUntracked',type:GIT_DIALOG_CHECK,cls:'gsc-untracked',
+         fieldCls:'gsc-optrow',label:GIT_STASH_OPT_UNTRACKED},
+        {key:'keepIndex',type:GIT_DIALOG_CHECK,cls:'gsc-keepindex',
+         fieldCls:'gsc-optrow',label:GIT_STASH_OPT_KEEPINDEX},
+      ],
+      validate:v=>this._why(v),
+      run:v=>this._run(v),
+    });
   }
 
   // 이 옵션으로 담길 것이 있는지 (FR-GIT-167). 서버의 StashableCount 와 같은 규칙이다.
-  _why(){
+  _why(v){
     const s=this.panel.statusOf();
     if(!s) return GIT_LOADING_HINT;
-    const u=!!this.box.querySelector('.gsc-untracked').checked;
     const n=(s.staged||[]).length+(s.changes||[]).length+(s.conflicts||[]).length+
-      (u?(s.untracked||[]).length:0);
+      (v.includeUntracked?(s.untracked||[]).length:0);
     if(n) return '';
     return (s.untracked||[]).length?GIT_STASH_UNTRACKED_ONLY:GIT_STASH_NOTHING;
   }
 
-  _paint(){
-    const b=this.box; if(!b) return;
-    const why=this._why();
-    const w=b.querySelector('.gsc-why');
-    w.textContent=why; w.classList.toggle('vis',!!why);
-    b.querySelector('.gsc-progress').textContent=this.busy?GIT_CONFIRM_RUNNING:'';
-    b.querySelector('.gsc-go').disabled=this.busy||!!why;
-    b.querySelector('.gsc-cancel').disabled=this.busy;
-  }
-
-  async _run(){
-    if(this.busy||this._why()) return;
-    const b=this.box;
-    this.busy=true; this._paint();
+  async _run(v){
     const res=await this.panel.post('/api/git/stash/push',{
       repo:this.repo,
-      message:(b.querySelector('.gsc-msg').value||'').trim(),
-      includeUntracked:!!b.querySelector('.gsc-untracked').checked,
-      keepIndex:!!b.querySelector('.gsc-keepindex').checked,
+      message:(v.message||'').trim(),
+      includeUntracked:!!v.includeUntracked,
+      keepIndex:!!v.keepIndex,
     });
-    this.busy=false;
+    // 조작 응답은 실행 후 목록과 status 를 함께 싣고 온다 (FR-GIT-170) — 실패
+    // 응답도 그렇다.
     this.panel.afterStashWrite(res);
-    if(res.ok){this._close(true);return}
-    const err=b.querySelector('.gsc-err');
-    err.textContent=this.panel.writeError(res);
-    err.classList.add('vis');
-    this._paint();
-  }
-
-  _close(v){
-    document.removeEventListener('keydown',this._key,true);
-    if(this.ov) this.ov.remove();
-    this.ov=null; this.box=null;
-    const r=this._resolve; this._resolve=null;
-    if(r) r(!!v);
+    if(res.ok) return {ok:true};
+    // 실패 사유는 다이얼로그 안에 남는다 — 닫아 버리면 읽을 자리가 사라진다
+    // (FR-GIT-175).
+    return {ok:false,reason:this.panel.writeReason(res),
+      stderrTail:(res.data&&res.data.message)||''};
   }
 }
 

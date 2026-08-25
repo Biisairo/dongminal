@@ -280,7 +280,7 @@ class GitRemote {
     const s=this.panel.statusOf()||{};
     const target=s.upstream||(s.branch||'');
     const repo=this.panel.repo||'';
-    await GitConfirm.open({
+    await GitDialog.confirm({
       action:GIT_ACT_FORCE_PUSH,title:GIT_FORCE_PUSH_TITLE,targets:[target],
       hint:{note:GIT_FORCE_PUSH_NOTE,
         command:'git -C '+gitShQuote(repo)+' rev-parse '+(target||'HEAD')},
@@ -298,7 +298,7 @@ class GitRemote {
   // 1단계이며, 무엇이 설정되는지는 서버가 준 계획으로 보인다.
   async _publish(plan,body){
     const target=(plan.remote||'')+'/'+(plan.branch||'');
-    const ok=await GitConfirm.open({
+    const ok=await GitDialog.confirm({
       action:GIT_ACT_PUBLISH,title:GIT_PUBLISH_TITLE,targets:[target],stages:1,
     });
     if(!ok) return;
@@ -317,7 +317,7 @@ class GitRemote {
   async cancel(){
     const job=this._job;
     if(!job||this._canceling) return;
-    const ok=await GitConfirm.open({
+    const ok=await GitDialog.confirm({
       action:GIT_ACT_JOB_CANCEL,title:GIT_JOB_CANCEL_TITLE,stages:1,
       targets:[(GIT_REMOTE_LABEL[job.kind]||job.kind||'')],
       hint:{note:GIT_JOB_CANCEL_NOTE,command:''},
@@ -504,9 +504,9 @@ class GitRemote {
 /**
  * `▾` 옵션 다이얼로그 (FR-GIT-109·110, 검증 V62).
  *
- * 필드 정의는 GIT_REMOTE_DIALOGS 에 있다 — fetch·pull·push 가 같은 골격을 쓰고
- * 다이얼로그마다 코드를 복제하지 않는다. **첫 선택지가 기본이고 그것이 안전한
- * 쪽이다** (FR-GIT-97·173).
+ * 골격은 20단계의 `GitDialog` 다 (FR-GIT-171) — 필드 정의는 GIT_REMOTE_DIALOGS 에
+ * 있고 fetch·pull·push 가 같은 골격을 쓰므로 다이얼로그마다 코드를 복제하지 않는다.
+ * **첫 선택지가 기본이고 그것이 안전한 쪽이다** (FR-GIT-97·173).
  *
  * 여기 만드는 입력은 체크박스와 라디오뿐이다 — 자격증명을 받는 자리는 없다
  * (FR-GIT-104).
@@ -519,94 +519,27 @@ class GitRemoteOpts {
   }
 
   _show(){
-    const ov=document.createElement('div');
-    ov.id='git-remote-opts'; ov.className='gro-modal'; ov.dataset.kind=this.kind;
-    ov.innerHTML=
-      '<div class="gro-box" role="dialog" aria-modal="true">'+
-        '<div class="gro-head"></div>'+
-        '<div class="gro-fields"></div>'+
-        '<div class="gro-actions">'+
-          '<button type="button" class="gro-cancel"></button>'+
-          '<button type="button" class="gro-go"></button>'+
-        '</div>'+
-      '</div>';
-    document.body.appendChild(ov);
-    this.ov=ov;
-    const b=ov.querySelector('.gro-box');
-    this.box=b;
-    b.querySelector('.gro-head').textContent=this.def.title;
-    b.querySelector('.gro-cancel').textContent=GIT_CONFIRM_CANCEL;
-    b.querySelector('.gro-go').textContent=this.def.run;
-    this._fields(b.querySelector('.gro-fields'));
-    b.querySelector('.gro-cancel').addEventListener('click',()=>this._close());
-    b.querySelector('.gro-go').addEventListener('click',()=>this._run());
-    this._key=e=>{
-      if(e.key!=='Escape') return;
-      e.preventDefault(); e.stopPropagation();
-      this._close();
-    };
-    document.addEventListener('keydown',this._key,true);
-    b.querySelector('.gro-cancel').focus();
-  }
-
-  _fields(host){
-    for(const f of this.def.fields){
-      const box=document.createElement('div');
-      box.className='gro-field'; box.dataset.key=f.key;
-      if(f.type==='check'){
-        box.appendChild(this._row(f.key,'checkbox','',f.label,false));
-        host.appendChild(box);
-        continue;
-      }
-      const lab=document.createElement('div');
-      lab.className='gro-label'; lab.textContent=f.label;
-      box.appendChild(lab);
-      // 첫 선택지가 기본이다 (FR-GIT-97).
-      for(let i=0;i<f.opts.length;i++){
-        const o=f.opts[i];
-        box.appendChild(this._row(f.key,'radio',o.v,o.label,i===0));
-      }
-      host.appendChild(box);
-    }
-  }
-
-  _row(key,type,value,label,on){
-    const l=document.createElement('label');
-    l.className='gro-row';
-    const i=document.createElement('input');
-    i.type=type; i.dataset.key=key; i.value=value; i.checked=!!on;
-    if(type==='radio') i.name='gro-'+key;
-    const s=document.createElement('span');
-    s.textContent=label;
-    l.appendChild(i); l.appendChild(s);
-    return l;
+    return GitDialog.open({
+      id:'git-remote-opts',ns:'gro',action:this.kind,
+      title:this.def.title,runLabel:this.def.run,fields:this.def.fields,
+      // 작업 하나의 수명은 패널의 `.git-job` 이 보인다 (FR-GIT-102·103) — 진행
+      // 출력·취소·실패 사유가 거기 있으므로 다이얼로그는 시작만 하고 물러난다.
+      run:v=>{this._start(this._body(v));return {ok:true}},
+    });
   }
 
   // 값의 이름은 API 그대로다 (계약 §2.2). tags 는 3상태이므로 null|true|false 로
   // 옮긴다 — null 이면 저장소의 tagOpt 설정을 우리가 덮지 않는다.
-  _body(){
-    const v={};
-    for(const i of this.box.querySelectorAll('.gro-row input')){
-      if(i.type==='checkbox') v[i.dataset.key]=i.checked;
-      else if(i.checked) v[i.dataset.key]=i.value;
-    }
+  _body(v){
     if(this.kind==='fetch')
       return {prune:!!v.prune,tags:v.tags===''?null:v.tags==='yes'};
     if(this.kind==='pull') return {mode:v.mode||''};
     return {force:v.force||''};
   }
 
-  _run(){
-    const body=this._body();
-    this._close();
+  _start(body){
     if(this.kind==='push'){this.remote._push(body.force);return}
     this.remote.run(this.kind,body);
-  }
-
-  _close(){
-    document.removeEventListener('keydown',this._key,true);
-    if(this.ov) this.ov.remove();
-    this.ov=null; this.box=null;
   }
 }
 

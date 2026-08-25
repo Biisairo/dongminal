@@ -360,7 +360,7 @@ class GitCommit {
     // 아니므로 1단계 확인이다.
     const det=this._warning(GIT_WARN_DETACHED);
     if(det){
-      const ok=await GitConfirm.open({
+      const ok=await GitDialog.confirm({
         action:GIT_ACT_DETACHED,title:GIT_DETACHED_TITLE,targets:[det.reason||''],
         hint:{note:GIT_DETACHED_NOTE,command:'git switch -c <새 브랜치>'},
         stages:1,
