@@ -51,6 +51,9 @@ const changes = (page: Page) => page.locator('#area .pn-body .git-view.git-chang
 const group = (page: Page, key: string) => changes(page).locator(`.git-group[data-group="${key}"]`);
 const rows = (page: Page, key: string) => group(page, key).locator('.git-file');
 
+// constants.js 의 전역 상수 — <script> 로 로드되므로 import 대상이 아니다.
+declare const GIT_FILE_ROW_CHUNK: number;
+
 test.describe('묶음 E — Changes 탭', () => {
   test('C1 (V22): 헤더에 리포명·브랜치와 살아 있는 원격 버튼이 나온다', async ({ page }) => {
     const repo = fx('basic');
@@ -191,6 +194,35 @@ test.describe('묶음 E — Changes 탭', () => {
     await expect(commit).toBeInViewport();
     const after = (await commit.boundingBox())!;
     expect(Math.abs(after.y - before.y), '커밋 영역이 목록과 함께 스크롤됐다').toBeLessThan(1);
+  });
+
+  test('C10 (V25 / FR-GIT-42): 파일이 많아도 한 번에 다 그리지 않고 이어 그린다', async ({ page }) => {
+    const repo = fx('many-files'); // 변경 파일 2000개
+    await waitForInit(page);
+    await openGit(page, repo);
+    await expect(rows(page, 'changes').first()).toBeVisible({ timeout: 20000 });
+
+    // 개수 배지는 전부를 세지만 DOM 은 첫 덩어리만 갖는다 — 수천 행을 한 번에
+    // 만들면 렌더가 화면을 멈춘다.
+    // constants.js 의 const 는 window 프로퍼티가 아니다 — 전역 식별자로 읽는다.
+    const chunk = await page.evaluate(() => GIT_FILE_ROW_CHUNK);
+    expect(chunk, '청크 상수를 읽지 못했다').toBeGreaterThan(0);
+    await expect(group(page, 'changes').locator('.git-group-head'))
+      .toContainText('2000');
+    const first = await rows(page, 'changes').count();
+    expect(first, `첫 렌더가 ${first}행이다 — 청크(${chunk})를 넘으면 이어 그리는 것이 아니다`)
+      .toBeLessThanOrEqual(chunk);
+
+    // 끝까지 스크롤하면 다음 덩어리가 이어진다.
+    const more = group(page, 'changes').locator('.git-file-more');
+    await expect(more).toHaveCount(1);
+    await more.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() => rows(page, 'changes').count(), { timeout: 20000 })
+      .toBeGreaterThan(first);
+
+    // 그래도 전부를 그리지는 않는다 — 이어 그리기가 무한 확장이면 뜻이 없다.
+    expect(await rows(page, 'changes').count()).toBeLessThan(2000);
   });
 
   test('C9 (FR-GIT-36): rename 한 파일이 원본 → 대상 으로 보인다', async ({ page }) => {

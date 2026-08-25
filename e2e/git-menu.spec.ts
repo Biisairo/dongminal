@@ -179,7 +179,7 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
     expect(await page.evaluate(() => (window as any).__menuRan)).toEqual(['w', 'd']);
   });
 
-  test('N6 (FR-GIT-142·143): 커밋 우클릭에서 해시·제목을 복사한다', async ({ page }) => {
+  test('N6 (V66 / FR-GIT-142·143): 커밋 우클릭에서 해시·제목을 복사한다', async ({ page }) => {
     const repo = fx('basic');
     await waitForInit(page);
     // 클립보드가 막힌 환경을 흉내내지 않고, 실제 복사 호출을 가로챈다.
@@ -207,7 +207,7 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
     expect(copied[1]).not.toBe(oid);
   });
 
-  test('N7 (FR-GIT-141): 여기서 브랜치 생성은 M4 에서 막혀 있고 사유를 보인다', async ({ page }) => {
+  test('N7 (V66 / FR-GIT-141): 여기서 브랜치 생성은 M4 에서 막혀 있고 사유를 보인다', async ({ page }) => {
     await waitForInit(page);
     await openHistory(page, fx('basic'));
     const row = hist(page).locator('.git-hist-row[data-oid]').first();
@@ -218,7 +218,7 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
     await expect(it).toHaveAttribute('title', /M5/);
   });
 
-  test('N8 (FR-GIT-144): dirty 면 Checkout (detached) 가 막히고 사유를 보인다', async ({ page }) => {
+  test('N8 (V66 / FR-GIT-144): dirty 면 Checkout (detached) 가 막히고 사유를 보인다', async ({ page }) => {
     // basic 은 워킹 트리에 변경이 있는 픽스처다 (3그룹).
     await waitForInit(page);
     await openHistory(page, fx('basic'));
@@ -232,7 +232,7 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
     await expect(it).toHaveAttribute('title', /M5/);
   });
 
-  test('N9 (FR-GIT-144): clean 이면 detached 경고를 1단계 거친 뒤 checkout 한다', async ({ page }) => {
+  test('N9 (V66 / FR-GIT-144): clean 이면 detached 경고를 1단계 거친 뒤 checkout 한다', async ({ page }) => {
     const repo = copyFx('with-remote', 'n9'); // clean 워킹 트리
     await waitForInit(page);
     await openHistory(page, repo);

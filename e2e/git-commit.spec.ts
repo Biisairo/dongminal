@@ -280,7 +280,7 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
     await expect(msg(page)).toHaveValue('e13 사용자가 쓴 것');
   });
 
-  test('E14 (FR-GIT-85): GPG 서명이 활성이면 그 사실을 보인다', async ({ page }) => {
+  test('E14 (V61 / FR-GIT-85): GPG 서명이 활성이면 그 사실을 보인다', async ({ page }) => {
     const repo = copyFx('basic', 'e14');
     execFileSync('git', ['-C', repo, 'config', 'commit.gpgsign', 'true']);
     await waitForInit(page);
