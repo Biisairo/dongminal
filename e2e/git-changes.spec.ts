@@ -149,9 +149,10 @@ test.describe('묶음 E — Changes 탭', () => {
     const row = rows(page, 'untracked').first();
     await expect(row).toBeVisible({ timeout: 10000 });
     await row.click({ button: 'right' });
-    const menu = page.locator('.git-ctxmenu');
+    // 17단계가 이 메뉴를 GitMenu 프레임워크로 흡수했다 (FR-GIT-146).
+    const menu = page.locator('.git-menu');
     await expect(menu).toBeVisible();
-    await expect(menu.locator('.git-ctx-item')).toHaveText(['Open Changes', 'Open File', 'Copy Path']);
+    await expect(menu.locator('.git-menu-item')).toHaveText(['Open Changes', 'Open File', 'Copy Path']);
 
     // M1 에는 저장소를 바꾸는 항목이 하나도 없다 (FR-GIT-41).
     const text = (await menu.textContent()) || '';

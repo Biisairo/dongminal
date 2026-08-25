@@ -65,7 +65,7 @@ const GIT_WINDOW_NAME='Git';
 const GIT_VIEWS=[
   {key:'changes',  name:'Changes'},
   {key:'diff',     name:'Diff'},
-  {key:'history',  name:'History',  pending:true},
+  {key:'history',  name:'History'},
   {key:'branches', name:'Branches', pending:true},
   {key:'stash',    name:'Stash',    pending:true},
   {key:'console',  name:'Console',  pending:true},
@@ -96,13 +96,17 @@ const GIT_GROUPS=[
   {key:'untracked',name:'Untracked'},
 ];
 // 그룹이 diff 축을 결정한다 (FR-GIT-52). 값은 /api/git/diff-content 의 axis 인자다.
-const GIT_AXIS={STAGED:'index-head',UNSTAGED:'worktree-index',CONFLICT:'worktree-head'};
+// commit-parent 는 다른 셋과 달리 리비전을 인자로 받는다 (FR-GIT-138·139) —
+// worktree·index·HEAD 는 암묵적 리비전이지만 커밋 축은 두 커밋을 명시해야 한다.
+const GIT_AXIS={STAGED:'index-head',UNSTAGED:'worktree-index',CONFLICT:'worktree-head',
+  COMMIT:'commit-parent'};
 const GIT_GROUP_AXIS={
   staged:GIT_AXIS.STAGED,   changes:GIT_AXIS.UNSTAGED,
   untracked:GIT_AXIS.UNSTAGED, conflicts:GIT_AXIS.CONFLICT,
 };
 const GIT_AXIS_LABEL={
   'index-head':'index ↔ HEAD','worktree-index':'worktree ↔ index','worktree-head':'worktree ↔ HEAD',
+  'commit-parent':'commit ↔ parent',
 };
 // 원격은 M3 다 — 자리만 두고 사유를 title 로 알린다.
 const GIT_REMOTE_HINT='M3 에서 제공됩니다';
@@ -115,12 +119,7 @@ const GIT_ERR_GIT_MISSING='git 을 찾을 수 없습니다';
 // 이만큼 늘린다.
 const GIT_FILE_ROW_CHUNK=200;
 const GIT_FILE_VIEW_KEY='gitFileView'; // 플랫/트리 선택은 기기별 취향이다
-// 우클릭 메뉴 (FR-GIT-41). **저장소를 바꾸는 항목은 하나도 없다.**
-const GIT_CTX_ITEMS=[
-  {key:'openChanges',label:'Open Changes'},
-  {key:'openFile',   label:'Open File'},
-  {key:'copyPath',   label:'Copy Path'},
-];
+// 우클릭 메뉴는 GIT_MENUS.file 이다 (FR-GIT-41·146, git-menu.js).
 
 // ── 스테이징 (GIT_SRS §3A.1 / FR-GIT-64~73) ──
 
@@ -292,3 +291,143 @@ const GIT_DIFF_ERR={
   not_a_git_repo:GIT_ERR_NOT_REPO,
   git_missing:GIT_ERR_GIT_MISSING,
 };
+
+// ── History 탭 (GIT_SRS §3C / FR-GIT-113~134) ──
+
+// 가상 스크롤 (FR-GIT-116). **고정 행 높이**로 계산한다 — 가변 높이는 10,000행에서
+// 측정 비용이 스크롤을 먹는다. 값은 목록의 CSS 변수로 실려 CSS 와 JS 가 같은
+// 숫자를 딛는다.
+const GIT_HIST_ROW_H=26;
+const GIT_HIST_ROW_H_MOBILE=34; // 손가락으로 짚을 수 있는 높이
+const GIT_HIST_OVERSCAN=6;      // 화면 위·아래로 더 그리는 여유 행
+// 인라인 상세(FR-GIT-135)의 높이. **펼침은 한 번에 하나만** 허용하므로 오프셋
+// 계산은 행 하나의 예외만 알면 된다 — 여러 개를 허용하면 가변 높이 문제가
+// 되돌아온다. 내용이 넘치면 상세 안에서 스크롤한다.
+const GIT_HIST_DETAIL_H=240;
+
+// 페이징 (FR-GIT-114·115). 서버의 LogInitialLimit·LogPageLimit 과 같은 값이다.
+const GIT_LOG_INITIAL=300;
+const GIT_LOG_PAGE=100;
+// 스크롤 끝에서 이만큼 남았을 때 다음 페이지를 부른다.
+const GIT_LOG_NEAR_END_PX=200;
+
+// 레인 (O11). 20 은 실제 저장소에서 압축이 거의 걸리지 않는 값이고, 모바일은
+// 그래프 열이 메시지를 밀어내지 않는 선이다.
+const GIT_LANE_MAX_DESKTOP=20;
+const GIT_LANE_MAX_MOBILE=10;
+const GIT_HIST_LANE_W=12; // 레인 하나의 폭(px)
+const GIT_HIST_DOT_R=3;
+// 레인 색은 **현재 테마의 팔레트**에서 뽑는다 (FR-GIT-119). 여기 두는 것은 색이
+// 아니라 팔레트의 키다 — 색 리터럴을 코드에 두면 테마를 바꿔도 그래프가 따라오지
+// 않는다 (V47).
+const GIT_LANE_COLOR_KEYS=[
+  'blue','green','yellow','magenta','cyan','red',
+  'brightBlue','brightGreen','brightYellow','brightMagenta','brightCyan','brightRed',
+];
+
+// 정렬 (FR-GIT-128). 값은 /api/git/log 의 order 인자다.
+const GIT_HIST_ORDERS=[
+  {key:'date',       label:'date'},
+  {key:'author-date',label:'author-date'},
+  {key:'topo',       label:'topo'},
+];
+
+// 필터 (FR-GIT-130). 가능한 것을 git 옵션으로 내려보낸다 — 키는 질의 인자 이름이다.
+const GIT_HIST_FILTERS=[
+  {key:'author',label:'Author'},
+  {key:'since', label:'Since'},
+  {key:'until', label:'Until'},
+  {key:'path',  label:'Path'},
+];
+const GIT_HIST_APPLY='적용';
+
+// 검색 두 모드 (FR-GIT-129). **두 결과가 다를 수 있음이 드러나야 한다.**
+const GIT_SEARCH_LOADED='loaded';
+const GIT_SEARCH_REPO='repo';
+const GIT_SEARCH_PLACEHOLDER='검색';
+const GIT_SEARCH_MODE_LABEL={loaded:'로드된 범위',repo:'저장소 전체'};
+const GIT_SEARCH_MODE_TITLE={
+  loaded:'이미 받은 커밋만 걸러냅니다 — 즉시',
+  repo:'git 에 grep 을 내려보냅니다 — 느립니다',
+};
+// 로드 범위에서 0건이면 저장소 전체를 권한다 — 권하지 않으면 사용자는 "없다"와
+// "아직 안 받았다"를 구분할 수 없다.
+const GIT_SEARCH_NONE='로드된 %n개 중에는 없습니다';
+const GIT_SEARCH_TRY_REPO='저장소 전체를 검색';
+
+// jump (FR-GIT-131). 상한을 넘으면 찾지 못했다고 알린다 — 무한히 받아 오지 않는다.
+const GIT_JUMP_MAX_PAGES=20;
+const GIT_JUMP_PLACEHOLDER='해시·브랜치·태그';
+const GIT_JUMP_GO='이동';
+const GIT_JUMP_NOT_FOUND='찾지 못했습니다';
+const GIT_JUMP_SEARCHING='찾는 중…';
+// 찾은 행은 잠깐 강조한다 — 스크롤만 하면 어느 줄로 갔는지 알 수 없다.
+const GIT_JUMP_FLASH_MS=2000;
+
+// 날짜 (O12). 상대시간이 기본이고 절대시간은 title 로 항상 닿는다. 선택은 기기별
+// 취향이라 localStorage 에 남는다 (gitFileView·gitDiffSideBySide 와 같은 방식).
+const GIT_DATE_FORMAT_KEY='gitDateFormat';
+const GIT_DATE_RELATIVE='relative';
+const GIT_DATE_ABSOLUTE='absolute';
+const GIT_REL_NOW='방금';
+// [단위 길이(ms), 접미사]. 큰 단위부터 본다.
+const GIT_REL_UNITS=[
+  [31536000000,'년'],[2592000000,'개월'],[604800000,'주'],
+  [86400000,'일'],[3600000,'시간'],[60000,'분'],
+];
+
+// 컬럼 반응형 (FR-GIT-125). `ResizeObserver` 로 목록 폭을 본다 — 미디어 쿼리는 창
+// 폭이라 분할 안의 Git 창에서 쓸 수 없다. 숨김 순서는 Commit → Date → Author 이고
+// 그래프·메시지는 항상 남는다.
+const GIT_HIST_BREAKS=[
+  {w:720,cls:'hide-hash'},
+  {w:560,cls:'hide-date'},
+  {w:420,cls:'hide-author'},
+];
+
+// refs 사이드바 (FR-GIT-122·123)
+const GIT_REF_GROUPS=[
+  {kind:'local', name:'Local'},
+  {kind:'remote',name:'Remote'},
+  {kind:'tag',   name:'Tags'},
+];
+const GIT_REF_ALL='전체 (--all)';
+// upstream 이 사라진 것은 ahead/behind 0 과 **다르다** — 구분하지 않으면 사용자가
+// 동기화된 브랜치로 읽는다 (계약 §2.5).
+const GIT_REF_GONE='upstream 사라짐';
+const GIT_HIST_REF_KEY='gitHistRef'; // 리포별 선택. 실제 키는 <이것>:<repo>
+
+// 미커밋 변경 행 (FR-GIT-127). 클릭 → Changes 탭 (표면 지도 S4).
+const GIT_HIST_UNCOMMITTED='미커밋 변경';
+
+// 실패와 상태 (FR-GIT-132). **이미 로드된 목록을 지우지 않는다.**
+const GIT_HIST_LOAD_FAIL='커밋 목록을 불러오지 못했습니다';
+const GIT_HIST_DETAIL_FAIL='커밋 상세를 불러오지 못했습니다';
+const GIT_HIST_EMPTY='커밋이 없습니다';
+const GIT_HIST_LOADING='불러오는 중…';
+const GIT_HIST_END='마지막입니다';
+const GIT_HIST_LOADED_N='%n개 로드';
+// FR-GIT-120: 상한을 넘어 접힌 행. 표식 없이 접으면 그래프가 조용히 틀려 보인다.
+const GIT_HIST_COMPRESSED='레인 상한을 넘어 압축됐습니다';
+
+// ── 커밋 상세 (GIT_SRS §3C.2 / FR-GIT-135~145) ──
+
+const GIT_DETAIL_PARENTS='부모';
+const GIT_DETAIL_FILES='변경 파일';
+const GIT_DETAIL_NO_FILES='변경 파일이 없습니다';
+const GIT_DETAIL_PARENT_PICK='비교 부모';
+const GIT_DETAIL_ROOT='루트 커밋';
+// FR-GIT-138: 커밋 축의 대상은 워킹 트리 목록과 다른 축이다 — 어느 두 리비전을
+// 비교하는지 함께 보인다. 축 이름만 보이면 사용자는 어느 부모와의 비교인지 알 수
+// 없다 (FR-GIT-139).
+const GIT_DIFF_REV_ABBREV=8;
+const GIT_DIFF_REV_RANGE='..';
+
+// ── 컨텍스트 메뉴 프레임워크 (GIT_SRS §3C.2 / FR-GIT-146) ──
+
+const GIT_MENU_M5='M5 에서 제공됩니다';
+const GIT_MENU_DIRTY='미커밋 변경이 있습니다';
+// FR-GIT-144: detached 가 됨을 사전 경고한다. 파괴적이 아니므로 1단계 확인이다 —
+// dirty 면 M4 시점에 차단한다 (강제를 기본으로 만들지 않는다, O14).
+const GIT_CHECKOUT_DETACHED_ACT='checkout_detached';
+const GIT_CHECKOUT_DETACHED_TITLE='HEAD 가 브랜치를 떠납니다 (detached)';

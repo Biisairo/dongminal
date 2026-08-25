@@ -54,6 +54,9 @@ function applyThemeObj(t){
   document.getElementById('area').style.background=ui.bg;
   for(const p of app.tools.values()){if(p.term)p.term.options.theme=t.terminal}
   if(typeof FileEditor!=='undefined'&&FileEditor.applyTheme) FileEditor.applyTheme();
+  // FR-GIT-119: 레인 색은 테마 팔레트에서 파생한다 — 테마를 바꾸면 그래프도
+  // 따라 바뀐다 (V47).
+  if(typeof GitHistory!=='undefined'&&GitHistory.applyTheme) GitHistory.applyTheme();
 }
 
 function getCurrentTheme(){return customTheme||THEMES[currentThemeName]}

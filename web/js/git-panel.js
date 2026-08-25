@@ -35,6 +35,11 @@ class GitPanel {
     this._anchor=null;            // Shift 범위 선택의 기준 행
     this._note=null;              // 쓰기 실패·부분 적용 안내 (FR-GIT-73)
     this._commitView=null;        // 커밋 영역 (FR-GIT-74~85)
+    this._historyView=null;       // History 탭 (FR-GIT-113~139)
+    // 커밋 축의 diff 대상 (FR-GIT-138). previewFile 과 자리를 나눈다 — 같은 자리에
+    // 두면 Changes 탭의 미리보기가 커밋의 diff 를 보이면서 목록에는 아무 행도
+    // 선택되지 않는다.
+    this.commitFile=null;
     this._writing=false;          // 쓰기 한 번은 한 번이다 — 겹쳐 보내지 않는다
   }
 
@@ -53,12 +58,12 @@ class GitPanel {
     // 이전 리포의 목록이 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다
     // (FR-GIT-16). 화면을 "불러오는 중" 으로 되돌린다.
     this._status=null; this._lastSig=null; this._staleNote=false;
-    this._shown.clear(); this.previewFile=null; this._closeCtx();
+    this._shown.clear(); this.previewFile=null; GitMenu.close();
     // 선택과 쓰기 안내는 리포에 붙은 것이다 — 새 리포로 넘겨 오면 다른 파일을
     // 가리킨다.
     this._sel.clear(); this._anchor=null; this._note=null;
     // 이전 리포의 diff 가 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다.
-    this._diffKey=null; this._prevKey=null; this._diffPos=0;
+    this._diffKey=null; this._prevKey=null; this._diffPos=0; this.commitFile=null;
     for(const v of [this._diffView,this._previewView])
       if(v) v.clear(path?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);
     if(path) this._errMsg=null;
@@ -88,16 +93,25 @@ class GitPanel {
     // 보므로 다시 붙은 뒤 한 번 재배치한다.
     const v=view==='diff'?this._diffView:(view==='changes'?this._previewView:null);
     if(v) requestAnimationFrame(()=>v.layout());
+    // History 는 탭이 활성일 때만 목록을 받는다 — 열지 않은 탭이 10,000 커밋을
+    // 미리 받아 둘 이유가 없다.
+    if(view==='history'){
+      this._renderHistory(el);
+      // 여기서는 루트가 아직 pane 본문에 붙기 전이라 목록의 높이가 0 이다 —
+      // 붙은 뒤에 한 번 더 칠해야 스크롤 위치와 펼친 상세가 되돌아온다.
+      requestAnimationFrame(()=>{if(this._historyView) this._historyView.paint()});
+    }
     return el;
   }
 
   // Git 창이 사라졌을 때 루트를 area 로 되돌린다. 인스턴스는 살아 있다 —
   // 창은 다시 열릴 수 있다.
   detach(){
-    this._stop(); this._closeCtx(); this._destroyViews();
+    this._stop(); GitMenu.close(); this._destroyViews();
     // 창이 사라지면 커밋 영역의 토스트도 함께 사라진다 — 진입점이 화면 없이
     // 남아 있어서는 안 된다 (FR-GIT-83).
     this._commit().unmount();
+    this._history().unmount();
     const area=document.getElementById('area');
     for(const el of this._els.values()){
       el.classList.remove('vis');
@@ -124,6 +138,7 @@ class GitPanel {
     }
     if(view==='changes'){this._renderChanges(el);return}
     if(view==='diff'){this._renderDiff(el);return}
+    if(view==='history'){this._renderHistory(el);return}
     el.innerHTML='';
     if(!this.repo){
       const d=document.createElement('div'); d.className='git-empty';
@@ -153,6 +168,9 @@ class GitPanel {
   _paint(){
     const c=this._els.get('changes'); if(c) this._renderChanges(c);
     const d=this._els.get('diff'); if(d) this._renderDiff(d);
+    // History 는 status 에서 미커밋 변경 행만 딛는다 (FR-GIT-127) — 목록 전체를
+    // 폴링마다 다시 그리면 스크롤이 매초 흔들린다.
+    if(this._historyView) this._historyView.paintStatus();
   }
 
   // FR-GIT-39: .git-head·.git-commit 은 flex:0 0 auto 이고 목록 스크롤은
@@ -417,7 +435,10 @@ class GitPanel {
     d.appendChild(acts);
     d.addEventListener('click',()=>this._select(group,e));
     d.addEventListener('dblclick',()=>this._openDiff(group,e));
-    d.addEventListener('contextmenu',ev=>{ev.preventDefault();this._ctxMenu(ev,group,e)});
+    d.addEventListener('contextmenu',ev=>{
+      ev.preventDefault();
+      GitMenu.open('file',{group,path:e.path,origPath:e.origPath||''},ev);
+    });
     return d;
   }
 
@@ -468,6 +489,64 @@ class GitPanel {
   _commit(){
     if(!this._commitView) this._commitView=new GitCommit(this);
     return this._commitView;
+  }
+
+  // ── History 탭 (FR-GIT-113~139) ──
+
+  _history(){
+    if(!this._historyView) this._historyView=new GitHistory(this);
+    return this._historyView;
+  }
+
+  _renderHistory(el){
+    if(!this.repo){
+      el.dataset.built=''; el.innerHTML='';
+      // 골격을 버렸으므로 History 도 자기 DOM 을 놓아야 한다.
+      this._history().unmount();
+      const d=document.createElement('div'); d.className='git-empty';
+      d.textContent=this._errMsg||GIT_NO_REPO_HINT;
+      el.appendChild(d);
+      return;
+    }
+    if(el.dataset.built!=='1'){this._history().mount(el);el.dataset.built='1'}
+    this._history().paint();
+  }
+
+  // 워킹 트리에 남은 변경의 개수. History 의 미커밋 변경 행(FR-GIT-127)과
+  // Checkout (detached) 의 차단 판정(FR-GIT-144)이 같은 값을 딛는다.
+  dirtyCount(){
+    const s=this._status&&this._status.status; if(!s) return 0;
+    let n=0;
+    for(const g of GIT_GROUPS) n+=(s[g.key]||[]).length;
+    return n;
+  }
+
+  isDirty(){return this.dirtyCount()>0}
+
+  /**
+   * FR-GIT-138: 커밋 상세의 파일을 Diff 탭에 `commit-parent` 축으로 보인다.
+   *
+   * f 는 {repo,axis,path,origPath,oid,parentOid} 다 — 그대로 질의 인자가 된다.
+   * `parentOid` 가 비면 루트 커밋이고 original 쪽이 absent 로 온다 (오류가 아니다).
+   * 머지 커밋에서는 고른 부모의 oid 가 들어온다 (FR-GIT-139).
+   */
+  showCommitDiff(f){
+    if(!f||!f.oid) return;
+    this.commitFile=f;
+    this.openView('diff');
+    this._paint();
+  }
+
+  // Diff 탭이 보일 대상. 커밋 축이 있으면 그것이 먼저다 — Changes 탭의 미리보기는
+  // previewFile 만 본다 (§3.2).
+  _diffTarget(){return this.commitFile||this.previewFile}
+
+  // FR-GIT-144: detached 로 옮긴다. 사전 경고는 GitMenu 가 이미 받았다 — 강제는
+  // 쓰지 않는다 (dirty 면 항목 자체가 막힌다).
+  async checkoutDetached(oid){
+    const res=await this.post('/api/git/checkout',{repo:this.repo,ref:oid,detach:true});
+    if(!res.ok){this.applyWriteFail(res);return}
+    this.adopt(res.data);
   }
 
   _selKey(group,path){return group+'\x00'+path}
@@ -662,6 +741,8 @@ class GitPanel {
   // ── 선택과 이동 (FR-GIT-52) ──
 
   _select(group,e){
+    // 워킹 트리 파일을 골랐다 — 커밋 축의 대상은 놓는다.
+    this.commitFile=null;
     this.previewFile={
       repo:this.repo,group,axis:GIT_GROUP_AXIS[group],
       path:e.path,origPath:e.origPath||'',
@@ -673,9 +754,15 @@ class GitPanel {
 
   _openDiff(group,e){
     this._select(group,e);
+    this.openView('diff');
+  }
+
+  // 고정 탭 하나를 활성화한다 (FR-GIT-28). History 의 미커밋 변경 행이 Changes 를
+  // 여는 것과 파일 클릭이 Diff 를 여는 것이 같은 경로다.
+  openView(view){
     const w=this.app._gitWindow(); if(!w||!w.layout) return;
     for(const pn of this.app._flattenPanes(w.layout)){
-      const t=(pn.tabs||[]).find(x=>x.type===TAB_TYPE_GIT&&x.gitView==='diff');
+      const t=(pn.tabs||[]).find(x=>x.type===TAB_TYPE_GIT&&x.gitView===view);
       if(t){this.app.switchTab(pn.id,t.id);return}
     }
   }
@@ -715,6 +802,7 @@ class GitPanel {
         '<span class="git-diff-path"></span>'+
         '<span class="git-diff-pos"></span>'+
         '<span class="git-diff-gone"></span>'+
+        '<span class="git-diff-rev"></span>'+
         '<span class="git-diff-spacer"></span>'+
         '<button class="git-diff-mode"></button>'+
         '<label class="git-diff-ws"><input type="checkbox"></label>'+
@@ -732,25 +820,40 @@ class GitPanel {
 
   _paintDiff(el){
     const list=this._fileList();
-    const f=this.previewFile;
-    const i=this._diffIndex(list);
+    // 커밋 축의 대상은 워킹 트리 목록에 없다 — ‹ › 와 n/m 과 "사라졌습니다" 는
+    // 그 목록의 것이므로 커밋 축에서는 뜻이 없다 (FR-GIT-53).
+    const cf=this.commitFile;
+    const f=this._diffTarget();
+    const i=cf?-1:this._diffIndex(list);
     if(i>=0) this._diffPos=i;
     // 목록이 비면 0/0 이고 ‹ › 는 disabled 다.
-    for(const b of el.querySelectorAll('.git-diff-nav')) b.disabled=!list.length;
+    for(const b of el.querySelectorAll('.git-diff-nav')) b.disabled=!list.length||!!cf;
     el.querySelector('.git-diff-path').textContent=
-      f?(f.origPath?f.origPath+' \u2192 '+f.path:f.path):'';
+      f?(f.origPath&&f.origPath!==f.path?f.origPath+' \u2192 '+f.path:f.path):'';
     el.querySelector('.git-diff-pos').textContent=
-      list.length?(i>=0?(i+1)+'/'+list.length:'\u2013/'+list.length):'0/0';
+      cf?'':(list.length?(i>=0?(i+1)+'/'+list.length:'\u2013/'+list.length):'0/0');
     // 대상이 목록에서 사라졌으면(커밋·discard) 그 사실만 알린다 — 아무 파일이나
     // 임의로 보이지 않는다 (§3.3).
     const gone=el.querySelector('.git-diff-gone');
-    const lost=!!(f&&i<0&&list.length);
+    const lost=!cf&&!!(f&&i<0&&list.length);
     gone.textContent=lost?GIT_DIFF_GONE_NOTE:'';
     gone.classList.toggle('vis',lost);
+    // 커밋 축은 어느 두 리비전을 비교하는지 함께 보인다 (FR-GIT-139).
+    const rev=el.querySelector('.git-diff-rev');
+    rev.textContent=cf?this._revLabel(cf):'';
+    rev.classList.toggle('vis',!!cf);
     el.querySelector('.git-diff-mode').textContent=
       this._sideBySidePref()?GIT_DIFF_MODE_LABEL.side:GIT_DIFF_MODE_LABEL.inline;
     el.querySelector('.git-diff-ws input').checked=this._ignoreWsPref();
     this._showTarget(this._diff(),f,'_diffKey');
+  }
+
+  // FR-GIT-138·139: `<parent>..<commit>` 를 짧은 해시로 보인다. 루트 커밋은 부모가
+  // 없으므로 그 사실을 적는다 — 빈 자리로 두면 해시를 못 읽은 것과 구분되지 않는다.
+  _revLabel(f){
+    const short=o=>(o||'').slice(0,GIT_DIFF_REV_ABBREV);
+    return (GIT_AXIS_LABEL[f.axis]||f.axis)+' \u00b7 '+
+      (f.parentOid?short(f.parentOid):GIT_DETAIL_ROOT)+GIT_DIFF_REV_RANGE+short(f.oid);
   }
 
   // FR-GIT-53: ‹ › 가 도는 순서는 Changes 탭의 목록과 같다 — 그룹 순서를 이어
@@ -785,7 +888,9 @@ class GitPanel {
   // 대상이 그대로면 다시 부르지 않는다 — status 폴링마다 diff 를 재요청하면
   // 스크롤과 접힘이 매초 초기화된다.
   _showTarget(view,f,slot){
-    const key=f?[f.repo,f.axis,f.path,f.origPath].join('\u0000'):'';
+    // 식별자는 (리포, 축, 경로, 리비전) 이다 (FR-GIT-54·145) — 리비전이 빠지면
+    // 머지 커밋에서 부모를 바꿔도 같은 대상으로 보여 다시 받지 않는다.
+    const key=f?[f.repo,f.axis,f.path,f.origPath,f.oid||'',f.parentOid||''].join('\u0000'):'';
     if(this[slot]===key) return;
     this[slot]=key;
     if(!f){view.clear(this.repo?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);return}
@@ -856,46 +961,13 @@ class GitPanel {
     this._paint();
   }
 
-  // ── 우클릭 (FR-GIT-41) ──
-  // M1 전용 최소 구현이다. 공통 프레임워크는 M4 다 (FR-GIT-146).
+  // ── 우클릭 (FR-GIT-41·146) ──
+  // 메뉴는 GitMenu 프레임워크가 그린다 — 5단계의 자체 메뉴를 그것이 흡수했다.
+  // 여기 남는 것은 항목이 부르는 동작뿐이다.
 
-  _ctxMenu(ev,group,e){
-    this._closeCtx();
-    const m=document.createElement('div'); m.className='git-ctxmenu';
-    for(const it of GIT_CTX_ITEMS){
-      const b=document.createElement('div'); b.className='git-ctx-item'; b.dataset.act=it.key;
-      b.textContent=it.label;
-      b.addEventListener('click',()=>{this._closeCtx();this._ctxRun(it.key,group,e)});
-      m.appendChild(b);
-    }
-    document.body.appendChild(m);
-    m.style.left=Math.max(0,Math.min(ev.clientX,window.innerWidth-m.offsetWidth-4))+'px';
-    m.style.top=Math.max(0,Math.min(ev.clientY,window.innerHeight-m.offsetHeight-4))+'px';
-    this._ctx=m;
-    this._ctxOff=ev2=>{if(!m.contains(ev2.target))this._closeCtx()};
-    this._ctxKey=ev2=>{if(ev2.key==='Escape')this._closeCtx()};
-    this._ctxScroll=()=>this._closeCtx();
-    // 이 메뉴를 띄운 contextmenu 는 이미 지나갔으므로 지금 붙여도 자기 이벤트로
-    // 닫히지 않는다. Esc·바깥 클릭·스크롤로 닫힌다.
-    document.addEventListener('mousedown',this._ctxOff,true);
-    document.addEventListener('keydown',this._ctxKey,true);
-    window.addEventListener('scroll',this._ctxScroll,true);
-  }
+  absPath(t){return (this.repo||'')+'/'+t.path}
 
-  _closeCtx(){
-    if(!this._ctx) return;
-    this._ctx.remove(); this._ctx=null;
-    document.removeEventListener('mousedown',this._ctxOff,true);
-    document.removeEventListener('keydown',this._ctxKey,true);
-    window.removeEventListener('scroll',this._ctxScroll,true);
-  }
-
-  _ctxRun(act,group,e){
-    if(act==='openChanges'){this._openDiff(group,e);return}
-    const abs=(this.repo||'')+'/'+e.path;
-    if(act==='openFile'){this.app._gitOpenFile(abs);return}
-    if(act==='copyPath') this.copyText(abs);
-  }
+  openFileDiff(t){this._openDiff(t.group,{path:t.path,origPath:t.origPath||''})}
 
   // 복사 유틸이 기존에 없다. clipboard 가 막힌 환경(비보안 컨텍스트)에서는
   // 임시 textarea 로 떨어진다.
@@ -1088,7 +1160,8 @@ class GitDiffView {
 
   get el(){return this._el}
 
-  // (리포, 축, 경로) 를 받아 내용을 불러 그린다. stale 가드를 자기가 건다.
+  // (리포, 축, 경로, 리비전) 을 받아 내용을 불러 그린다. stale 가드를 자기가 건다.
+  // 리비전(oid·parentOid)은 커밋 축만 쓴다 (FR-GIT-138).
   async show(target,token){
     const seq=++this._seq;
     if(!target||!target.repo||!target.path){this.clear(GIT_PREVIEW_HINT);return}
@@ -1107,6 +1180,9 @@ class GitDiffView {
     // 수 있다 (FR-GIT-54).
     const q=d.body.requested||{};
     if(q.repo!==target.repo||q.axis!==target.axis||q.path!==target.path) return;
+    // 리비전까지 본다 — 머지 커밋에서 비교 부모를 바꿨을 때 이전 응답이 화면에
+    // 닿아서는 안 된다 (FR-GIT-54·145).
+    if((q.oid||'')!==(target.oid||'')||(q.parentOid||'')!==(target.parentOid||'')) return;
     const a=d.body.original||{},b=d.body.modified||{};
     // 한쪽이라도 본문이 없으면 에디터를 만들지 않고 서버가 준 사유를 보인다
     // (FR-GIT-46·47·48).
@@ -1146,6 +1222,10 @@ class GitDiffView {
     let u='/api/git/diff-content?repo='+encodeURIComponent(target.repo)+
       '&axis='+encodeURIComponent(target.axis)+'&path='+encodeURIComponent(target.path);
     if(target.origPath) u+='&origPath='+encodeURIComponent(target.origPath);
+    // 커밋 축만 리비전을 싣는다 (FR-GIT-138). oid 는 필수이고, parentOid 가 비면
+    // 루트 커밋이다 — 서버가 그것을 absent 로 답한다.
+    if(target.oid) u+='&oid='+encodeURIComponent(target.oid);
+    if(target.parentOid) u+='&parentOid='+encodeURIComponent(target.parentOid);
     let r=null,d=null;
     try{r=await fetch(u)}catch{r=null}
     if(r){try{d=await r.json()}catch{d=null}}
