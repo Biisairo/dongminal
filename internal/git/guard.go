@@ -11,15 +11,26 @@ import (
 // writeCommands 와 교집합이 없어야 한다 (FR-GIT-95) — 겹치면 어느 경로로도 실행
 // 가능한 명령이 생긴다. 그래서 symbolic-ref 는 여기 없다: 읽기에는
 // `rev-parse --abbrev-ref` 로 충분하고, ref 를 옮기는 것은 쓰기 경로의 일이다.
+// check-ref-format 은 저장소를 읽지도 쓰지도 않는 순수 검사다 (FR-GIT-159) —
+// 이름 규칙을 우리가 다시 구현하지 않기 위한 유일한 수단이다.
 var readCommands = map[string]bool{
 	"rev-parse": true, "status": true, "diff": true, "diff-tree": true,
 	"diff-index": true, "show": true, "log": true, "for-each-ref": true,
-	"cat-file": true, "ls-files": true, "config": true,
+	"cat-file": true, "ls-files": true, "config": true, "check-ref-format": true,
 }
 
 // unsafePrefixes 는 임의 명령 실행 또는 파일 쓰기로 가는 인자들이다. 읽기
 // 명령에 붙어도 읽기가 아니게 된다.
 var unsafePrefixes = []string{"--upload-pack", "--receive-pack", "--exec-path", "--output", "-o"}
+
+// checkRefFormat* 은 `git check-ref-format` 을 브랜치 이름 검사 하나로 묶는 값이다.
+// 다른 형태(`--normalize`, `--allow-onelevel`, 여러 이름)를 받지 않는 이유는 그것이
+// 이 패키지가 쓰지 않는 동작이고, 받는 형태가 넓어지면 무엇이 검사되는지 말할 수
+// 없게 되기 때문이다.
+const (
+	checkRefFormatBranch = "--branch"
+	checkRefFormatArgs   = 2 // --branch <name>
+)
 
 // configReadFlags 는 `git config` 를 읽기로 유지하는 플래그다. 값이 필요한 것은
 // `--type=bool` 처럼 `=` 형태로만 받는다 — 값을 별도 인자로 받으면 그것이 플래그의
@@ -31,8 +42,22 @@ func guardArgs(args []string) error {
 	if err := guardCommon(args, readCommands, "읽기"); err != nil {
 		return err
 	}
-	if args[0] == "config" {
+	switch args[0] {
+	case "config":
 		return guardConfigArgs(args[1:])
+	case "check-ref-format":
+		return guardCheckRefFormatArgs(args[1:])
+	}
+	return nil
+}
+
+// guardCheckRefFormatArgs 는 인자를 `--branch <name>` 하나로 묶는다. 이름은
+// `--branch` 다음 인자로 오므로 `-` 로 시작해도 git 이 옵션으로 읽지 않는다
+// (git 2.50.1 실측) — 그래도 호출자가 checkRefArg 로 먼저 걸러낸다.
+func guardCheckRefFormatArgs(rest []string) error {
+	if len(rest) != checkRefFormatArgs || rest[0] != checkRefFormatBranch {
+		return fmt.Errorf("%w: check-ref-format 은 %s 와 이름 하나만 받는다: %q",
+			ErrUnsafeArgument, checkRefFormatBranch, rest)
 	}
 	return nil
 }

@@ -226,6 +226,19 @@ var apiRoutes = []apiRoute{
 	{http.MethodPost, exactPath("/api/git/job/cancel"), (*Server).apiGitJobCancel},
 	{http.MethodGet, exactPath("/api/git/job/events"), (*Server).apiGitJobEvents},
 	{http.MethodGet, exactPath("/api/git/jobs"), (*Server).apiGitJobs},
+	// 묶음 N — 브랜치 (GIT_SRS FR-GIT-155~160). 목록은 /api/git/refs 가 이미
+	// 준다 (FR-GIT-147) — 여기에 새 조회를 만들지 않는다.
+	{http.MethodPost, exactPath("/api/git/checkout"), (*Server).apiGitCheckout},
+	{http.MethodPost, exactPath("/api/git/branch"), (*Server).apiGitBranchCreate},
+	{http.MethodGet, exactPath("/api/git/branch/validate"), (*Server).apiGitBranchValidate},
+	// 묶음 O — stash (GIT_SRS FR-GIT-161~170). drop 은 파괴적이므로 confirm 을
+	// 서버가 다시 검사한다.
+	{http.MethodGet, exactPath("/api/git/stash"), (*Server).apiGitStashList},
+	{http.MethodGet, exactPath("/api/git/stash/show"), (*Server).apiGitStashShow},
+	{http.MethodPost, exactPath("/api/git/stash/push"), (*Server).apiGitStashPush},
+	{http.MethodPost, exactPath("/api/git/stash/apply"), (*Server).apiGitStashApply},
+	{http.MethodPost, exactPath("/api/git/stash/pop"), (*Server).apiGitStashPop},
+	{http.MethodPost, exactPath("/api/git/stash/drop"), (*Server).apiGitStashDrop},
 	{http.MethodGet, exactPath("/api/stats"), (*Server).apiStats},
 }
 

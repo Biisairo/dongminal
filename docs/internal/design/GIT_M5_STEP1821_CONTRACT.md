@@ -64,6 +64,25 @@ func (s *Service) ValidBranchName(ctx context.Context, repo, name string) error
 
 `force:true` 는 `confirm:true` 없이 400.
 
+### 1.2.1 서버가 확정한 계약 (구현 중 추가 — UI 는 이것을 따른다)
+
+- `GET /api/git/branch/validate?repo=&name=` 응답에 **`exists`** 가 있다.
+  이름이 이미 있는 것은 규칙 위반이 아니므로(FR-GIT-156) `ok:true, exists:true` 로
+  갈라 준다 — 생성 다이얼로그가 "다른 이름을 쓰세요" 를 보이려면 이 구분이 필요하다.
+  `requested` 도 함께 온다 (stale 가드).
+- `POST /api/git/checkout` 이 로컬 이름 충돌을 만나면 **409 `branch_exists`** +
+  `{branch, track, options:["checkout_existing","create_other_name","cancel"]}` 다.
+  `options` 의 순서가 제시 순서이며 **`cancel` 이 기본 선택**이다 (O14).
+- `POST /api/git/stash/pop` 이 충돌로 끝나면 **409 `stash_kept`** 이고 본문에
+  `stashKept`·`stashKeptReason`·`stashKeptOid` + 조작 후 `stashes` 가 온다
+  (FR-GIT-165). 실패인데도 목록을 함께 주는 이유는 사용자가 stash 가 남은 것을
+  그 자리에서 확인해야 하기 때문이다.
+- `POST /api/git/stash/push` 가 담을 것이 없으면 **409 `nothing_to_stash`** + 사유다
+  (FR-GIT-167). `git stash push` 자체는 exit 0 으로 조용히 아무것도 하지 않으므로
+  서버가 미리 막는다.
+- 파괴적 동작(`stash/drop`, `checkout` 의 `force`)은 `confirm:true` 없이 400
+  `confirmation_required` 다.
+
 ### 1.3 UI
 
 ```
