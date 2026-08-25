@@ -1,0 +1,307 @@
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"dongminal/internal/git"
+)
+
+// /api/git/* — 리포 해석·핀·상태·시그니처 (GIT_SRS §3.8 FR-GIT-60~63).
+//
+// 모든 실패는 JSON 본문이며 **클라이언트가 종류를 구분할 수 있어야 한다.** 상태
+// 코드만으로는 프록시가 만든 500 과 git 실패를 가릴 수 없다.
+const (
+	gitErrBadRequest  = "bad_request"
+	gitErrNotRepo     = "not_a_git_repo"
+	gitErrMissing     = "git_missing"
+	gitErrTimeout     = "git_timeout"
+	gitErrUnavailable = "git_unavailable"
+	gitErrFailed      = "git_failed"
+)
+
+// gitMessageMax 는 오류 본문에 실을 메시지 길이 상한이다. git 의 stderr 는 1MiB
+// 까지 보존되므로(FR-GIT-6) 그대로 실으면 응답이 로그가 된다.
+const gitMessageMax = 2048
+
+func gitJSON(w http.ResponseWriter, code int, body any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(body)
+}
+
+func gitFail(w http.ResponseWriter, code int, name, msg string) {
+	gitJSON(w, code, map[string]any{"error": name, "message": msg})
+}
+
+// gitUnavailable 은 git 표면만 닫는다. 다른 엔드포인트에는 영향이 없다.
+func gitUnavailable(w http.ResponseWriter) {
+	gitFail(w, http.StatusServiceUnavailable, gitErrUnavailable, "git 서비스가 구성되지 않았다")
+}
+
+// gitErrorCode 는 실패를 클라이언트가 분기할 수 있는 코드로 옮긴다. 분류되지 않은
+// 실패는 500 이며, 사유는 stderr tail 로 남는다 (FR-GIT-96 의 정신).
+func gitErrorCode(err error) (int, string) {
+	switch {
+	case errors.Is(err, git.ErrNotRepo):
+		return http.StatusNotFound, gitErrNotRepo
+	case errors.Is(err, git.ErrGitMissing):
+		return http.StatusServiceUnavailable, gitErrMissing
+	case errors.Is(err, git.ErrTimeout):
+		return http.StatusGatewayTimeout, gitErrTimeout
+	}
+	return http.StatusInternalServerError, gitErrFailed
+}
+
+func gitError(w http.ResponseWriter, err error) {
+	code, name := gitErrorCode(err)
+	gitFail(w, code, name, gitTail(err.Error()))
+}
+
+// gitTail 은 뒤쪽을 남긴다 — git 의 실패 이유는 stderr 끝에 있다.
+func gitTail(msg string) string {
+	if len(msg) <= gitMessageMax {
+		return msg
+	}
+	return strings.ToValidUTF8(msg[len(msg)-gitMessageMax:], "")
+}
+
+// GET /api/git/repos?tool=<toolId> — follow 후보 + 핀 목록 + 각 배지.
+func (s *Server) apiGitRepos(w http.ResponseWriter, r *http.Request) {
+	if s.Git == nil {
+		gitUnavailable(w)
+		return
+	}
+	gitJSON(w, http.StatusOK, map[string]any{
+		"follow": s.gitFollowEntry(r.Context(), s.gitFollowCwd(r)),
+		"pinned": s.gitPinnedEntries(r.Context()),
+	})
+}
+
+// gitFollowCwd 는 /api/cwd 와 같은 규약이다 — tool 이 비면 서버의 cwd 다.
+func (s *Server) gitFollowCwd(r *http.Request) string {
+	if id := r.URL.Query().Get("tool"); id != "" && s.Tools != nil {
+		if cwd := s.Tools.Cwd(id); cwd != "" {
+			return cwd
+		}
+	}
+	cwd, _ := os.Getwd()
+	return cwd
+}
+
+// gitFollowEntry 는 cwd 가 속한 리포를 확정한다. 저장소가 아니면 path 는 비고
+// 사유만 실린다 — **마지막 유효 리포를 유지하지 않는다** (FR-GIT-10).
+func (s *Server) gitFollowEntry(ctx context.Context, cwd string) map[string]any {
+	e := map[string]any{"cwd": cwd, "isRepo": false, "path": "", "name": "", "reason": "", "badge": nil}
+	root, err := s.Git.RepoRoot(ctx, cwd)
+	if err != nil {
+		_, name := gitErrorCode(err)
+		e["reason"] = name
+		return e
+	}
+	e["isRepo"] = true
+	e["path"] = root
+	e["name"] = filepath.Base(root)
+	e["badge"] = s.gitBadge(root)
+	return e
+}
+
+// gitPinnedEntries 는 핀 목록을 순서 그대로 준다. 저장소가 아니게 된 핀은
+// **목록에서 지우지 않고** isRepo:false 로 보인다 — 지울지는 사용자가 정한다.
+func (s *Server) gitPinnedEntries(ctx context.Context) []map[string]any {
+	pins, err := s.gitPinsRead()
+	if err != nil {
+		return []map[string]any{}
+	}
+	out := make([]map[string]any, 0, len(pins))
+	for _, p := range pins {
+		e := map[string]any{"path": p, "name": filepath.Base(p), "isRepo": false, "reason": "", "badge": nil}
+		if _, err := s.Git.RepoRoot(ctx, p); err != nil {
+			_, name := gitErrorCode(err)
+			e["reason"] = name
+		} else {
+			e["isRepo"] = true
+			e["badge"] = s.gitBadge(p)
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+// gitBadge 는 Store.Observed 만 읽는다. **이 경로는 git status 를 실행하지 않는다**
+// (FR-GIT-24) — 배지 때문에 핀 전부를 폴링하면 비용이 항목 수에 비례한다.
+// 관측 이력이 없으면 null 이고, 최신 여부는 observedAtUnixMs 로 판정한다 (O4).
+func (s *Server) gitBadge(root string) map[string]any {
+	obs, ok := s.Git.Observed(root)
+	if !ok {
+		return nil
+	}
+	return map[string]any{
+		"total":            obs.Status.Total,
+		"branch":           obs.Status.Branch,
+		"detached":         obs.Status.Detached,
+		"observedAtUnixMs": obs.ObservedAtUnixMs,
+	}
+}
+
+type gitPathReq struct {
+	Path string `json:"path"`
+}
+
+func gitDecodePath(w http.ResponseWriter, r *http.Request) (string, bool) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "본문을 읽지 못했다: "+err.Error())
+		return "", false
+	}
+	var req gitPathReq
+	if err := json.Unmarshal(body, &req); err != nil {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "본문이 JSON 이 아니다: "+err.Error())
+		return "", false
+	}
+	if req.Path == "" {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "path 가 없다")
+		return "", false
+	}
+	return req.Path, true
+}
+
+// POST /api/git/repos/pin — 저장소를 재확인한 뒤 그 루트를 핀한다 (FR-GIT-12·62).
+func (s *Server) apiGitPin(w http.ResponseWriter, r *http.Request) {
+	if s.Git == nil {
+		gitUnavailable(w)
+		return
+	}
+	path, ok := gitDecodePath(w, r)
+	if !ok {
+		return
+	}
+	if !filepath.IsAbs(path) {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "path 는 절대경로여야 한다")
+		return
+	}
+	// 클라이언트가 보낸 경로를 그대로 저장하지 않는다. 하위 디렉터리를 핀하면
+	// 같은 리포가 여러 항목으로 갈라진다.
+	root, err := s.Git.RepoRoot(r.Context(), path)
+	if err != nil {
+		gitError(w, err)
+		return
+	}
+	pins, err := s.gitPinsMutate(func(cur []string) []string {
+		for _, p := range cur {
+			if p == root {
+				return cur // 멱등
+			}
+		}
+		// 정렬하지 않는다 — 사용자가 추가한 순서가 목록 순서다.
+		return append(cur, root)
+	})
+	if err != nil {
+		gitFail(w, http.StatusInternalServerError, gitErrFailed, gitTail(err.Error()))
+		return
+	}
+	gitJSON(w, http.StatusOK, map[string]any{"root": root, "pinned": pins})
+}
+
+// POST /api/git/repos/unpin — 저장된 값과 문자열이 정확히 같은 항목을 지운다.
+// rev-parse 를 하지 않는다 — 저장소가 아니게 된 핀도 지울 수 있어야 한다.
+func (s *Server) apiGitUnpin(w http.ResponseWriter, r *http.Request) {
+	if s.Git == nil {
+		gitUnavailable(w)
+		return
+	}
+	path, ok := gitDecodePath(w, r)
+	if !ok {
+		return
+	}
+	pins, err := s.gitPinsMutate(func(cur []string) []string {
+		out := make([]string, 0, len(cur))
+		for _, p := range cur {
+			if p != path {
+				out = append(out, p)
+			}
+		}
+		return out
+	})
+	if err != nil {
+		gitFail(w, http.StatusInternalServerError, gitErrFailed, gitTail(err.Error()))
+		return
+	}
+	gitJSON(w, http.StatusOK, map[string]any{"pinned": pins})
+}
+
+// gitRepoParam 은 repo 인자를 정규 루트로 옮긴다. 클라이언트가 보낸 경로를 그대로
+// 신뢰해 파일을 읽지 않는다 (FR-GIT-62).
+//
+// requested 는 클라이언트가 보낸 값 그대로다 — stale 가드(FR-GIT-16)의 서버측
+// 절반이며, 클라이언트가 응답만 보고 자기 요청과 짝을 맞출 수 있어야 한다.
+func (s *Server) gitRepoParam(w http.ResponseWriter, r *http.Request) (root, requested string, ok bool) {
+	requested = r.URL.Query().Get("repo")
+	if requested == "" {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "repo 인자가 없다")
+		return "", requested, false
+	}
+	if !filepath.IsAbs(requested) {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "repo 는 절대경로여야 한다")
+		return "", requested, false
+	}
+	root, err := s.Git.RepoRoot(r.Context(), requested)
+	if err != nil {
+		gitError(w, err)
+		return "", requested, false
+	}
+	return root, requested, true
+}
+
+// GET /api/git/status?repo=<abs> — single-flight + TTL 캐시를 거친 관측 (FR-GIT-63).
+func (s *Server) apiGitStatus(w http.ResponseWriter, r *http.Request) {
+	if s.Git == nil {
+		gitUnavailable(w)
+		return
+	}
+	root, requested, ok := s.gitRepoParam(w, r)
+	if !ok {
+		return
+	}
+	obs, cached, err := s.Git.Status(r.Context(), root)
+	if err != nil {
+		gitError(w, err)
+		return
+	}
+	gitJSON(w, http.StatusOK, map[string]any{
+		"repo":             root,
+		"requested":        requested,
+		"cached":           cached,
+		"observedAtUnixMs": obs.ObservedAtUnixMs,
+		"signature":        obs.Signature,
+		"status":           obs.Status,
+	})
+}
+
+// GET /api/git/signature?repo=<abs> — 감지용 경량 시그니처 (FR-GIT-19).
+func (s *Server) apiGitSignature(w http.ResponseWriter, r *http.Request) {
+	if s.Git == nil {
+		gitUnavailable(w)
+		return
+	}
+	root, requested, ok := s.gitRepoParam(w, r)
+	if !ok {
+		return
+	}
+	sig, err := s.Git.Signature(r.Context(), root)
+	if err != nil {
+		gitError(w, err)
+		return
+	}
+	gitJSON(w, http.StatusOK, map[string]any{
+		"repo":      root,
+		"requested": requested,
+		"signature": sig,
+	})
+}

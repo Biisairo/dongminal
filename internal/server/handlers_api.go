@@ -193,6 +193,13 @@ var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/file/read"), (*Server).apiFileRead},
 	{http.MethodPost, exactPath("/api/file/write"), (*Server).apiFileWrite},
 	{"", exactPath("/api/ping"), (*Server).apiPing},
+	// 묶음 B·C — 리포 해석·핀·변경 감지 (GIT_SRS FR-GIT-60/61). UI 는 이 표면
+	// 위에만 서고, git 실행 결과를 다른 경로로 얻지 않는다.
+	{http.MethodGet, exactPath("/api/git/repos"), (*Server).apiGitRepos},
+	{http.MethodPost, exactPath("/api/git/repos/pin"), (*Server).apiGitPin},
+	{http.MethodPost, exactPath("/api/git/repos/unpin"), (*Server).apiGitUnpin},
+	{http.MethodGet, exactPath("/api/git/status"), (*Server).apiGitStatus},
+	{http.MethodGet, exactPath("/api/git/signature"), (*Server).apiGitSignature},
 	{http.MethodGet, exactPath("/api/stats"), (*Server).apiStats},
 }
 

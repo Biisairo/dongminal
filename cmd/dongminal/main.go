@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"dongminal/internal/adapters"
+	"dongminal/internal/git"
 	"dongminal/internal/migrate"
 	"dongminal/internal/run"
 	"dongminal/internal/runtime"
@@ -346,6 +347,10 @@ func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.C
 	// 요청 경로에서 커널을 호출하지 않는다 (SYSTEM_STATS_SRS FR-STAT-8/9/11).
 	sampler := sysstat.NewSampler(sysstat.NewReader(), sysstat.DefaultInterval, "/")
 
+	// git 조회 앞의 single-flight + TTL 캐시 (GIT_SRS 묶음 C). 브라우저 창이
+	// 여러 개여도 git 실행 횟수가 창 수에 비례하지 않게 한다 (FR-GIT-63).
+	gitStore := git.NewStore(git.New())
+
 	return builtDeps{
 		deps: server.Deps{
 			Tools:       toolHub,
@@ -358,6 +363,7 @@ func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.C
 			Stats:       sampler,
 			Runs:        runStore,
 			Worktrees:   worktrees,
+			Git:         gitStore,
 		},
 		pm:          nil, // set by caller in direct mode
 		attnTracker: attnTracker,

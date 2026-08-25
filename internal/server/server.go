@@ -7,6 +7,7 @@ package server
 import (
 	"bufio"
 	"context"
+	"dongminal/internal/git"
 	"dongminal/internal/run"
 	"dongminal/internal/worktree"
 	"fmt"
@@ -46,6 +47,9 @@ type Server struct {
 	// nil 이면 격리를 요청한 Run 만 거부되고(FR-WKT-11), isolation=none 경로는
 	// 영향이 없다 (NFR-RUN-1).
 	Worktrees *worktree.Manager
+	// Git 은 git 조회 앞의 single-flight·TTL 캐시다 (GIT_SRS 묶음 A~C). nil 이면
+	// /api/git/* 만 503 이고 그 밖의 동작에는 영향이 없다 (FR-GIT-60).
+	Git *git.Store
 	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
 	Focus *FocusRegistry
 
@@ -86,6 +90,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		AttnTracker: deps.AttnTracker,
 		Runs:        deps.Runs,
 		Worktrees:   deps.Worktrees,
+		Git:         deps.Git,
 		started:     time.Now(),
 	}, nil
 }
