@@ -257,6 +257,113 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
     await request.post('/api/tools/activity/set', { data: { toolId, state: 'idle' } });
   });
 
+  // 묶음 R — Run 레코드 (RUN_ORCHESTRATION_SRS FR-RUN-1/2/6/7/11, FR-PRE-5).
+  // 조정자가 팀원 매핑을 대화 기록이 아니라 서버에 두는 경로다.
+  test('run 기록이 시작·등록·보고·종료를 한 바퀴 돈다', async ({ request }) => {
+    const { uuid, toolId } = await firstTab(request);
+
+    const started = await request.post('/api/runs', {
+      data: { objective: 'e2e 계약 확인', projection: 'inline', isolation: 'none' },
+    });
+    expect(started.status()).toBe(200);
+    const run = await started.json();
+    expect(run.state).toBe('open');
+    expect(run.id, 'run id 가 없다').toBeTruthy();
+
+    const added = await request.post('/api/runs/members', {
+      data: { runId: run.id, role: 'e2e-writer', agent: 'claude', id: uuid },
+    });
+    expect(added.status()).toBe(200);
+    const member = await added.json();
+    expect(member.toolId).toBe(toolId);
+    // 조정자가 이후 명령의 location 으로 쓰는 값이다 (FR-RUN-9).
+    expect(member.tabId).toBe(uuid);
+
+    // 같은 도구를 두 번 등록하면 1:1 이 깨진다.
+    const dup = await request.post('/api/runs/members', {
+      data: { runId: run.id, role: 'dup', agent: 'claude', id: uuid },
+    });
+    expect(dup.status()).toBe(409);
+
+    // 상태는 조회 시점에 파생된다 — 훅이 working 을 보고하면 멤버도 working 이다.
+    await request.post('/api/tools/activity/set', { data: { toolId, state: 'working' } });
+    const status = await (await request.get(`/api/runs?id=${run.id}`)).json();
+    expect(status.members[0].state).toBe('working');
+
+    // 미보고 멤버가 있으면 close 는 거부된다.
+    const refused = await request.post('/api/runs/close', { data: { runId: run.id } });
+    expect(refused.status()).toBe(409);
+    expect((await refused.json()).error).toBe('unreported_members');
+
+    // 보고 권한은 발신 도구다. 멤버가 아닌 정체로는 보고할 수 없다.
+    const forged = await request.post('/api/runs/report', {
+      data: { toolId: 'no-such-tool', outcome: 'succeeded', summary: 'x' },
+    });
+    expect(forged.status()).toBe(403);
+    expect((await forged.json()).error).toBe('sender_not_member');
+
+    const reported = await request.post('/api/runs/report', {
+      data: { toolId, outcome: 'succeeded', summary: '했다. 봤다. 남았다.' },
+    });
+    expect(reported.status()).toBe(200);
+    expect((await reported.json()).state).toBe('done');
+
+    // 정확히 한 번이다.
+    const again = await request.post('/api/runs/report', {
+      data: { toolId, outcome: 'succeeded', summary: '또' },
+    });
+    expect(again.status()).toBe(409);
+
+    const closed = await request.post('/api/runs/close', { data: { runId: run.id } });
+    expect(closed.status()).toBe(200);
+    const body = await closed.json();
+    expect(body.state).toBe('closed');
+    // 도구를 서버가 닫지 않는다 — 정리 대상만 돌려준다 (FR-BG-3 의 확인창 회피).
+    expect(body.cleanup[0].tabId).toBe(uuid);
+    const stillThere = await request.get(`/api/tools/activity/get?id=${uuid}`);
+    expect(stillThere.status(), 'close 가 도구를 종료했다').toBe(200);
+
+    await request.post('/api/tools/activity/set', { data: { toolId, state: 'idle' } });
+  });
+
+  // FR-RUN-7: 멤버 등록은 탭에 runId 표식을 남기고 close 가 되돌린다.
+  // 표식은 보조이며 진실은 runs.json 이다 — 그래서 실패해도 등록은 성공한다.
+  test('멤버 등록이 워크스페이스에 runId 표식을 남긴다', async ({ request }) => {
+    const { uuid } = await firstTab(request);
+    const run = await (
+      await request.post('/api/runs', {
+        data: { objective: '표식 확인', projection: 'inline', isolation: 'none' },
+      })
+    ).json();
+    await request.post('/api/runs/members', {
+      data: { runId: run.id, role: 'marker', agent: 'claude', id: uuid },
+    });
+
+    const findTab = async () => {
+      const state = await (await request.get('/api/state')).json();
+      const walk = (n: any): any => {
+        if (!n) return null;
+        for (const t of n.tabs || []) if (t.id === uuid) return t;
+        for (const c of n.children || []) { const r = walk(c); if (r) return r; }
+        return null;
+      };
+      for (const w of state.workspace?.windows || []) {
+        const t = walk(w.layout);
+        if (t) return t;
+      }
+      return null;
+    };
+
+    const marked = await findTab();
+    expect(marked?.runId, '탭에 runId 표식이 없다').toBe(run.id);
+    // 표식이 기존 필드를 훼손하면 안 된다.
+    expect(marked?.toolId).toBeTruthy();
+
+    await request.post('/api/runs/close', { data: { runId: run.id, force: true } });
+    const cleared = await findTab();
+    expect(cleared?.runId, 'close 후에도 표식이 남았다').toBeUndefined();
+  });
+
   // MCP 는 제거됐다 (SKILL_INJECTION_SRS 묶음 F). 라우트가 되살아나면 이중
   // 접합면이 생기므로 여기서 막는다.
   test('MCP 엔드포인트는 더 이상 없다', async ({ request }) => {

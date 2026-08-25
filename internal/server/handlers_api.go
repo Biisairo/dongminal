@@ -169,6 +169,12 @@ var apiRoutes = []apiRoute{
 	// dmctl status / dmctl wait 가 호출한다.
 	{http.MethodGet, exactPath("/api/tools/activity/get"), (*Server).apiToolStatus},
 	{http.MethodGet, exactPath("/api/tools/activity/wait"), (*Server).apiToolStatusWait},
+	// 묶음 R — Run 레코드 (RUN_ORCHESTRATION_SRS FR-RUN-1/2/8/11).
+	{http.MethodGet, exactPath("/api/runs"), (*Server).apiRunsGet},
+	{http.MethodPost, exactPath("/api/runs"), (*Server).apiRunStart},
+	{http.MethodPost, exactPath("/api/runs/members"), (*Server).apiRunMemberAdd},
+	{http.MethodPost, exactPath("/api/runs/report"), (*Server).apiRunReport},
+	{http.MethodPost, exactPath("/api/runs/close"), (*Server).apiRunClose},
 	{http.MethodGet, func(p string) bool {
 		return strings.HasPrefix(p, "/api/tools/") && strings.HasSuffix(p, "/busy")
 	}, (*Server).apiToolBusy},

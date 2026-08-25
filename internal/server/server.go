@@ -7,6 +7,7 @@ package server
 import (
 	"bufio"
 	"context"
+	"dongminal/internal/run"
 	"fmt"
 	"io/fs"
 	"log"
@@ -39,6 +40,7 @@ type Server struct {
 	WorkIndex   toolaccess.WorkspaceReader
 	Stats       StatsSnapshotter
 	AttnTracker *AttnTracker
+	Runs        *run.Store
 	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
 	Focus *FocusRegistry
 
@@ -77,6 +79,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		WorkIndex:   deps.WorkIndex,
 		Stats:       deps.Stats,
 		AttnTracker: deps.AttnTracker,
+		Runs:        deps.Runs,
 		started:     time.Now(),
 	}, nil
 }
