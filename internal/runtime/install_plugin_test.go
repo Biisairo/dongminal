@@ -175,3 +175,75 @@ func TestInstallAgentPlugin_Overwrites(t *testing.T) {
 		t.Fatal("재설치가 전개물을 갱신하지 않았다")
 	}
 }
+
+// FR-INJ-3: 설치는 임베드 트리의 **거울**이다. 임베드에서 사라진 파일은 설치
+// 트리에서도 사라져야 한다 — 옛 세션이 그 경로를 그대로 실행할 수 있기 때문이다.
+// 실측(2026-08-25): b3dc910 에서 지운 build_prompt.py·references/prompt.md 가
+// 설치 트리에 남아 있었다.
+func TestInstallAgentPlugin_PrunesStaleAssets(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	plugin := AgentPluginDir(dir)
+
+	stale := []string{
+		"skills/team/scripts/build_prompt.py",
+		"skills/team/references/prompt.md",
+		"skills/gone/SKILL.md",
+	}
+	for _, rel := range stale {
+		p := filepath.Join(plugin, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		if err := os.WriteFile(p, []byte("옛 자산"), 0o755); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+	}
+
+	if err := Install(dir); err != nil {
+		t.Fatalf("재설치: %v", err)
+	}
+
+	for _, rel := range stale {
+		if _, err := os.Stat(filepath.Join(plugin, rel)); !os.IsNotExist(err) {
+			t.Errorf("스테일 자산이 남았다: %s (err=%v)", rel, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(plugin, "skills/gone")); !os.IsNotExist(err) {
+		t.Errorf("비게 된 디렉터리가 남았다: skills/gone")
+	}
+	// 반증: 임베드된 자산과 설치 시 **생성**되는 훅 설정은 살아 있어야 한다.
+	for _, rel := range []string{
+		"skills/team/SKILL.md",
+		"skills/team/scripts/plan_layout.py",
+		".claude-plugin/plugin.json",
+		"hooks/hooks.json",
+	} {
+		if _, err := os.Stat(filepath.Join(plugin, rel)); err != nil {
+			t.Errorf("정리가 정상 자산을 지웠다: %s: %v", rel, err)
+		}
+	}
+}
+
+// 정리 범위는 플러그인 트리 안이다. bin/ 에는 helper symlink·shell hook·
+// agent-hooks 처럼 임베드 트리에 없는 것들이 정상적으로 함께 산다.
+func TestInstall_DoesNotPruneBinDir(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	mine := filepath.Join(dir, "user-file.txt")
+	if err := os.WriteFile(mine, []byte("사용자 파일"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := Install(dir); err != nil {
+		t.Fatalf("재설치: %v", err)
+	}
+	for _, rel := range []string{"user-file.txt", "agent-hooks/claude.json", "dmctl"} {
+		if _, err := os.Lstat(filepath.Join(dir, rel)); err != nil {
+			t.Errorf("bin/ 의 %s 가 사라졌다: %v", rel, err)
+		}
+	}
+}
