@@ -29,10 +29,16 @@ git:{label:'Git (브랜치·변경 수)',def:true},
 `_updateStatusBar()` 에서, `statusBar.git` 이 참이고 `this.gitPanel` 의 마지막
 관측이 있을 때만 항목을 넣는다.
 
+표기는 `GIT_SURFACE_MAP.md` S6 를 따른다:
+
 ```
-⑂ git  ③        ← 브랜치 git, 변경 3
-⑂ a1b2c3d       ← detached (해시 앞 7자)
+⎇ git  ●3       ← 브랜치 git, 변경 3
+⎇ a1b2c3d       ← detached (해시 앞 7자)
 ```
+
+`⎇`(U+2387) 는 브랜치, `●` 는 dirty 표식이다. 기존 상태바 항목들이 쓰는
+이모지(`📁`·`💻`)와 달리 글자 기호를 쓰는 이유는 폭이 일정해 chip 이 흔들리지
+않기 때문이다.
 
 - 변경 수가 0 이면 숫자를 붙이지 않는다.
 - detached 면 `.sb-git-detached` 로 구분한다.
