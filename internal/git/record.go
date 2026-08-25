@@ -1,6 +1,9 @@
 package git
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 // Record 는 실행 한 번의 구조화된 기록이다 (FR-GIT-5). M1 은 기록만 하고
 // 표시하지 않는다 — Console 탭(M6)이 이것을 읽는다.
@@ -15,8 +18,32 @@ type Record struct {
 	StdoutBytes     int      `json:"stdoutBytes"`
 	StdoutTruncated bool     `json:"stdoutTruncated"`
 	StderrTruncated bool     `json:"stderrTruncated"`
-	Destructive     bool     `json:"destructive"` // FR-GIT-95. M1 은 항상 false
+	Destructive     bool     `json:"destructive"` // FR-GIT-95. 호출자의 선언(I5)
+	StdinBytes      int      `json:"stdinBytes"`  // FR-GIT-77. **내용은 남기지 않는다** (I6)
 	Err             string   `json:"err,omitempty"`
+}
+
+// newRecord 는 실행 결과를 기록 한 줄로 옮긴다. 읽기·쓰기가 같은 매핑을 쓰도록 한
+// 자리에 둔다 — 한쪽만 필드를 늘리면 Console 이 보는 것이 경로마다 달라진다.
+//
+// **stdin 은 받지 않는다** (I6). 파괴적 여부와 stdin 바이트 수는 쓰기 경로가
+// 자기 선언으로 채운다.
+func newRecord(dir string, argv []string, out Output, err error) Record {
+	rec := Record{
+		AtUnixMs:        time.Now().UnixMilli(),
+		Argv:            append([]string(nil), argv...),
+		Cwd:             dir,
+		ExitCode:        out.ExitCode,
+		DurationMs:      out.DurationMs,
+		Stderr:          out.Stderr,
+		StdoutBytes:     len(out.Stdout),
+		StdoutTruncated: out.StdoutTruncated,
+		StderrTruncated: out.StderrTruncated,
+	}
+	if err != nil {
+		rec.Err = err.Error()
+	}
+	return rec
 }
 
 // Recorder 는 고정 길이 링 버퍼다. 무한히 자라지 않는다.

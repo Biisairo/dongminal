@@ -5,32 +5,55 @@ import (
 	"strings"
 )
 
-// readCommands 는 M1 이 실행할 수 있는 git 하위 명령 전부다.
-// **여기 없는 것은 실행되지 않는다.** M1 에 파괴적 경로를 만들지 않는 것이
-// 목적이며(FR-GIT-7), 목록을 늘리는 것은 해당 마일스톤의 일이다.
+// readCommands 는 읽기 경로가 실행할 수 있는 git 하위 명령 전부다.
+// **여기 없는 것은 실행되지 않는다** (FR-GIT-7).
+//
+// writeCommands 와 교집합이 없어야 한다 (FR-GIT-95) — 겹치면 어느 경로로도 실행
+// 가능한 명령이 생긴다. 그래서 symbolic-ref 는 여기 없다: 읽기에는
+// `rev-parse --abbrev-ref` 로 충분하고, ref 를 옮기는 것은 쓰기 경로의 일이다.
 var readCommands = map[string]bool{
 	"rev-parse": true, "status": true, "diff": true, "diff-tree": true,
 	"diff-index": true, "show": true, "log": true, "for-each-ref": true,
-	"cat-file": true, "ls-files": true, "symbolic-ref": true,
+	"cat-file": true, "ls-files": true, "config": true,
 }
 
 // unsafePrefixes 는 임의 명령 실행 또는 파일 쓰기로 가는 인자들이다. 읽기
 // 명령에 붙어도 읽기가 아니게 된다.
 var unsafePrefixes = []string{"--upload-pack", "--receive-pack", "--exec-path", "--output", "-o"}
 
-// guardArgs 는 인자 배열을 검사한다 (FR-GIT-2, 7).
+// configReadFlags 는 `git config` 를 읽기로 유지하는 플래그다. 값이 필요한 것은
+// `--type=bool` 처럼 `=` 형태로만 받는다 — 값을 별도 인자로 받으면 그것이 플래그의
+// 값인지 설정할 값인지 가릴 수 없다.
+var configReadFlags = []string{"--get", "--get-all", "--list", "--type"}
+
+// guardArgs 는 읽기 경로의 인자 배열을 검사한다 (FR-GIT-2, 7).
+func guardArgs(args []string) error {
+	if err := guardCommon(args, readCommands, "읽기"); err != nil {
+		return err
+	}
+	if args[0] == "config" {
+		return guardConfigArgs(args[1:])
+	}
+	return nil
+}
+
+// guardCommon 은 허용 목록만 다른 공통 검사다. 읽기·쓰기 두 경로가 이 함수를
+// 나눠 쓴다 — 한쪽만 고쳐지면 다른 쪽이 구멍이 된다.
 //
 // **하위 명령이 먼저 온다.** git 전역 옵션(-c, --exec-path, --upload-pack 등)은
 // 임의 실행 경로가 되므로 이 패키지는 아예 받지 않는다.
-func guardArgs(args []string) error {
+//
+// 허용 목록을 NUL·인자 검사보다 먼저 본다 — `status\x00` 같은 값은 "목록에 없는
+// 하위 명령" 이며, 그 사실이 인자의 문제보다 앞선다.
+func guardCommon(args []string, allowed map[string]bool, list string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("%w: 인자가 없다", ErrUnsafeArgument)
 	}
 	if strings.HasPrefix(args[0], "-") {
 		return fmt.Errorf("%w: git 전역 옵션은 받지 않는다: %q", ErrUnsafeArgument, args[0])
 	}
-	if !readCommands[args[0]] {
-		return fmt.Errorf("%w: %q 는 읽기 허용 목록에 없다", ErrWriteCommand, args[0])
+	if !allowed[args[0]] {
+		return fmt.Errorf("%w: %q 는 %s 허용 목록에 없다", ErrWriteCommand, args[0], list)
 	}
 	for _, a := range args {
 		if strings.ContainsRune(a, 0) {
@@ -43,4 +66,32 @@ func guardArgs(args []string) error {
 		}
 	}
 	return nil
+}
+
+// guardConfigArgs 는 `git config` 를 읽기로 한정한다. `git config user.name x` 는
+// 설정을 쓰는 호출이므로 읽기 경로로 흘러선 안 된다 — 값 인자는 키 하나뿐이다.
+func guardConfigArgs(rest []string) error {
+	keys := 0
+	for _, a := range rest {
+		if strings.HasPrefix(a, "-") {
+			if !configReadFlag(a) {
+				return fmt.Errorf("%w: git config 의 %q 는 읽기 플래그가 아니다", ErrUnsafeArgument, a)
+			}
+			continue
+		}
+		keys++
+	}
+	if keys > 1 {
+		return fmt.Errorf("%w: git config 는 키 하나만 읽는다: %q", ErrUnsafeArgument, rest)
+	}
+	return nil
+}
+
+func configReadFlag(a string) bool {
+	for _, f := range configReadFlags {
+		if a == f || strings.HasPrefix(a, f+"=") {
+			return true
+		}
+	}
+	return false
 }

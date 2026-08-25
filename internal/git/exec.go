@@ -36,9 +36,11 @@ type Output struct {
 
 type Service struct {
 	run       Runner
+	writeRun  WriteRunner // 쓰기 경로(ExecWrite)의 실행기. nil 이면 실제 git 이다
 	timeout   time.Duration
 	maxOutput int
 	rec       *Recorder
+	hints     HintLog // FR-GIT-93. 제로값이 곧 기본 용량의 링이다
 }
 
 type Option func(*Service)
@@ -70,7 +72,7 @@ func New(opts ...Option) *Service {
 	if s.run == nil {
 		limit := s.maxOutput
 		s.run = func(ctx context.Context, dir string, args []string) (Output, error) {
-			return execGit(ctx, dir, args, limit)
+			return execGit(ctx, dir, args, limit, "")
 		}
 	}
 	return s
@@ -125,26 +127,15 @@ func (s *Service) withTimeout(ctx context.Context) (context.Context, context.Can
 }
 
 func (s *Service) record(dir string, args []string, out Output, err error) {
-	rec := Record{
-		AtUnixMs:        time.Now().UnixMilli(),
-		Argv:            append([]string(nil), args...),
-		Cwd:             dir,
-		ExitCode:        out.ExitCode,
-		DurationMs:      out.DurationMs,
-		Stderr:          out.Stderr,
-		StdoutBytes:     len(out.Stdout),
-		StdoutTruncated: out.StdoutTruncated,
-		StderrTruncated: out.StderrTruncated,
-	}
-	if err != nil {
-		rec.Err = err.Error()
-	}
-	s.rec.Add(rec)
+	s.rec.Add(newRecord(dir, args, out, err))
 }
 
-// execGit 은 기본 Runner 다. **셸을 경유하지 않는다** (FR-GIT-2) — 인자는 배열로
+// execGit 은 기본 실행이다. **셸을 경유하지 않는다** (FR-GIT-2) — 인자는 배열로
 // 그대로 전달되고, 문자열 결합으로 명령을 만들지 않는다.
-func execGit(ctx context.Context, dir string, args []string, limit int) (Output, error) {
+//
+// stdin 은 쓰기 경로만 쓴다 (FR-GIT-77). 프로세스를 띄우는 자리를 둘로 나누지 않는
+// 이유는 환경·상한·마감 처리가 두 경로에서 갈라지면 안 되기 때문이다.
+func execGit(ctx context.Context, dir string, args []string, limit int, stdin string) (Output, error) {
 	started := time.Now()
 	bin, err := exec.LookPath("git")
 	if err != nil {
@@ -157,6 +148,10 @@ func execGit(ctx context.Context, dir string, args []string, limit int) (Output,
 	cmd.Dir = dir
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
+	// 빈 stdin 에 파이프를 만들지 않는다 — 읽기 폴링이 매번 지불할 비용이 아니다.
+	if stdin != "" {
+		cmd.Stdin = strings.NewReader(stdin)
+	}
 	cmd.Env = gitEnv()
 	runErr := cmd.Run()
 

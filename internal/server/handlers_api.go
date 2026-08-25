@@ -202,6 +202,11 @@ var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/git/signature"), (*Server).apiGitSignature},
 	// 묶음 F — diff 양쪽 내용 (GIT_SRS FR-GIT-44~48). commit-parent 축은 M4 다.
 	{http.MethodGet, exactPath("/api/git/diff-content"), (*Server).apiGitDiffContent},
+	// 묶음 J — 안전 정책 (GIT_SRS FR-GIT-86~93). 파괴적 경로가 열리는 시점과
+	// 방어가 서는 시점이 같아야 한다.
+	{http.MethodGet, exactPath("/api/git/preflight"), (*Server).apiGitPreflight},
+	{http.MethodGet, exactPath("/api/git/policy"), (*Server).apiGitPolicy},
+	{http.MethodGet, exactPath("/api/git/recovery"), (*Server).apiGitRecovery},
 	{http.MethodGet, exactPath("/api/stats"), (*Server).apiStats},
 }
 

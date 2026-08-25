@@ -11,7 +11,7 @@ func TestExec_RejectsWriteCommands(t *testing.T) {
 	writes := []string{
 		"commit", "push", "add", "reset", "checkout", "stash", "clean",
 		"merge", "rebase", "pull", "fetch", "branch", "tag", "worktree",
-		"config", "restore", "switch", "cherry-pick", "revert", "apply", "rm", "mv", "init", "clone",
+		"restore", "switch", "cherry-pick", "revert", "apply", "rm", "mv", "init", "clone",
 	}
 	for _, cmd := range writes {
 		s := New(WithRunner(func(_ context.Context, _ string, _ []string) (Output, error) {
@@ -26,14 +26,17 @@ func TestExec_RejectsWriteCommands(t *testing.T) {
 }
 
 // FR-GIT-7: 허용 목록에 읽기 명령만 있다. 목록을 늘리는 것은 해당 마일스톤의 일이다.
+//
+// `config` 는 9단계가 더했다 (preflight, FR-GIT-86) — 읽기 인자만 통과하는지는
+// preflight_test.go 의 W10 이 본다. `git config user.name x` 는 여전히 거부된다.
 func TestReadCommands_ReadOnly(t *testing.T) {
-	want := []string{"rev-parse", "status", "diff", "show", "log", "for-each-ref"}
+	want := []string{"rev-parse", "status", "diff", "show", "log", "for-each-ref", "config"}
 	for _, c := range want {
 		if !readCommands[c] {
 			t.Fatalf("%s 는 M1 이 필요한 읽기 명령인데 없다", c)
 		}
 	}
-	forbidden := []string{"commit", "push", "add", "reset", "checkout", "stash", "clean", "branch", "config"}
+	forbidden := []string{"commit", "push", "add", "reset", "checkout", "stash", "clean", "branch"}
 	for _, c := range forbidden {
 		if readCommands[c] {
 			t.Fatalf("%s 가 허용 목록에 있다 — M1 에 파괴적 경로가 생겼다", c)
