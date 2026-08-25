@@ -235,6 +235,50 @@ Playwright 없이 돌 수 있는 자리에 둔다 — 이 저장소에 JS 단위
 | L7 | 루트 커밋 (부모 0개) | parentLanes 비었고 레인이 해제된다 |
 | L8 | 브랜치 머리 | isNewHead 가 참인 행만 위쪽 진입선을 갖지 않는다 |
 
+## 2.5 14단계가 실제로 준 응답 (16·17단계는 이것을 따른다)
+
+14단계(`a036af5`)가 완료됐다. **계약 §1 의 타입 이름이 아니라 아래 실제 JSON 을
+쓴다.**
+
+```
+GET /api/git/log?repo=&ref=&skip=&limit=&order=&author=&since=&until=&path=&grep=
+→ {requested:{repo,ref,skip,limit,order,author,since,until,path,grep},
+   repo, limit, commits:[Commit]}
+```
+
+`limit` 은 **실효값**이다 — 상한 클램프가 걸리면 요청값과 다르다. 추가 로드의
+`skip` 계산에 요청값이 아니라 이것을 써라.
+
+```js
+Commit = {oid, abbrev, parents:[oid], authorName, authorMail,
+          authorAtUnixMs, commitAtUnixMs, subject,
+          refs:[{name, kind, isHead}],   // kind: local|remote|tag, 모르면 ""
+          isHead}                        // HEAD 가 이 커밋 (detached 포함)
+```
+
+```
+GET /api/git/commit?repo=&oid=&parent=<n>
+→ {requested:{repo,oid,parent}, repo, …CommitDetail}
+   CommitDetail = Commit + {committerName, committerMail, body,
+                            files:[{status, path, origPath?, score?}], parentIndex}
+```
+
+```
+GET /api/git/refs?repo=
+→ {requested:{repo}, repo, refs:[Ref]}
+   Ref = {name, short, kind, oid, upstream?, ahead, behind, gone?, isHead, subject?, atUnixMs}
+```
+
+`Ref.gone` 은 upstream 이 사라졌다는 뜻이다. **ahead/behind 0 과 구분해 보여라** —
+구분하지 않으면 사용자가 동기화된 브랜치로 읽는다.
+
+`Commit.refs[].isHead` 와 `Commit.isHead` 는 다르다 — 전자는 `HEAD -> main` 처럼
+ref 에 붙은 표식이고, 후자는 detached 를 포함해 HEAD 가 그 커밋을 가리킨다는 뜻이다.
+HEAD 위치 구분(FR-GIT-126)은 둘을 함께 봐야 정확하다.
+
+diff 축 `commit-parent` 는 **아직 없다.** 7단계 서버(`internal/git/diff.go`)에
+축 3개만 있으므로, 17단계가 그 축을 더한다 (계약 §4.1).
+
 ## 3. 16단계 — History 탭 (FR-GIT-114~134)
 
 ```
