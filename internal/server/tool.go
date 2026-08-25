@@ -74,13 +74,18 @@ func (s *safeConn) writePing() error {
 	return s.conn.WriteMessage(websocket.PingMessage, nil)
 }
 
-func (s *safeConn) send(op byte, payload []byte) {
+// send writes one framed message. **에러를 반환한다** — 죽은 소켓에 계속 쓰면
+// 초당 수십 줄의 broken pipe 로그가 쌓이므로(실측 2026-08-25), 반복 송신하는
+// 호출자는 첫 실패에서 그 구독을 접어야 한다.
+func (s *safeConn) send(op byte, payload []byte) error {
 	m := make([]byte, 1+len(payload))
 	m[0] = op
 	copy(m[1:], payload)
-	if err := s.writeMsg(websocket.BinaryMessage, m); err != nil {
+	err := s.writeMsg(websocket.BinaryMessage, m)
+	if err != nil {
 		log.Printf("ws send op=0x%02x addr=%s: %v", op, s.remoteAddr(), err)
 	}
+	return err
 }
 
 // close is idempotent: sync.Once prevents double-close panics when the
@@ -478,7 +483,7 @@ func (p *Tool) addClient(c *safeConn) bool {
 	p.cmu.Lock()
 	if p.exited {
 		p.cmu.Unlock()
-		c.send(OpExit, nil)
+		_ = c.send(OpExit, nil)
 		log.Printf("[tool %s] addClient after exit addr=%s — sent OpExit", p.ID, c.remoteAddr())
 		return false
 	}

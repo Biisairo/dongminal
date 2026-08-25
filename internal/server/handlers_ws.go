@@ -41,7 +41,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// Send OpExit so the frontend knows this tool is permanently gone.
-			conn.send(OpExit, nil)
+			_ = conn.send(OpExit, nil)
 			conn.close()
 			log.Printf("ws addr=%s: tool %s not found (sent OpExit)", r.RemoteAddr, toolID)
 			return
@@ -49,7 +49,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	} else {
 		tool, err = s.Tools.Create("", cols, rows)
 		if err != nil {
-			conn.send(OpError, []byte("create failed"))
+			_ = conn.send(OpError, []byte("create failed"))
 			log.Printf("ws addr=%s: tool create error: %v", r.RemoteAddr, err)
 			return
 		}
@@ -72,7 +72,7 @@ func (s *Server) handleWSDirect(conn *safeConn, tool *Tool, cols, rows uint16, r
 	}
 	defer tool.removeClient(conn)
 
-	conn.send(OpToolID, []byte(tool.ID))
+	_ = conn.send(OpToolID, []byte(tool.ID))
 
 	// Send scrollback snapshot for existing tool
 	if snap, _ := tool.stream.Snapshot(); len(snap) > 0 {
@@ -115,7 +115,7 @@ func (s *Server) handleWSDirect(conn *safeConn, tool *Tool, cols, rows uint16, r
 // other windows. The frontend sends the correct OpResize via the WS binary
 // protocol after terminal open+fit, guarded by _resizeCheck (session ownership).
 func (s *Server) handleWSDaemon(conn *safeConn, toolID string, _ *Tool, cols, rows uint16) {
-	conn.send(OpToolID, []byte(toolID))
+	_ = conn.send(OpToolID, []byte(toolID))
 
 	// Send terminal reset to clear any stale modes (mouse tracking, etc.)
 	// from a previous connection.
@@ -161,20 +161,7 @@ func (s *Server) handleWSDaemon(conn *safeConn, toolID string, _ *Tool, cols, ro
 	// ToolClient readLoop (OnOutput), not here, so it is not tied to this WS
 	// subscription. On tool exit (exitCh closed) we send OpExit and close the
 	// socket so the browser tears the terminal down (parity with direct mode).
-	go func() {
-		for {
-			select {
-			case data := <-outputCh:
-				conn.send(OpOutput, data)
-			case <-exitCh:
-				conn.send(OpExit, nil)
-				conn.close()
-				return
-			case <-done:
-				return
-			}
-		}
-	}()
+	go relayOutput(conn, toolID, outputCh, exitCh, done)
 
 	go pingLoop(conn, done)
 
@@ -252,6 +239,33 @@ func readWS(conn *safeConn, tool *Tool) {
 
 // readWSDirect is the original WS read loop kept for direct mode.
 func readWSDirect(conn *safeConn, tool *Tool) { readWS(conn, tool) }
+
+// relayOutput pumps live tool output to one WS client until the tool exits,
+// the handler returns, or **a write fails**.
+//
+// 쓰기 실패는 그 구독의 끝이다. 예전에는 실패를 로그만 남기고 계속 펌프했는데,
+// 브라우저가 사라진 소켓(서버 재기동 직후의 옛 연결)에 초당 수십 회를 재시도하며
+// broken pipe 를 쏟아냈다 — 읽기 루프가 pongWait 로 깨질 때까지 26초간 로그가
+// 7.7MB 로 불었다 (실측 2026-08-25). 소켓을 닫으면 읽기 루프가 곧바로 풀리고
+// 핸들러의 defer 가 구독을 해제한다.
+func relayOutput(conn *safeConn, toolID string, outputCh <-chan []byte, exitCh <-chan struct{}, done <-chan struct{}) {
+	for {
+		select {
+		case data := <-outputCh:
+			if err := conn.send(OpOutput, data); err != nil {
+				log.Printf("[tool %s] output relay stopped addr=%s: %v", toolID, conn.remoteAddr(), err)
+				conn.close()
+				return
+			}
+		case <-exitCh:
+			_ = conn.send(OpExit, nil)
+			conn.close()
+			return
+		case <-done:
+			return
+		}
+	}
+}
 
 func pingLoop(conn *safeConn, done chan struct{}) {
 	defer func() {

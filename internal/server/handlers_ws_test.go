@@ -221,3 +221,125 @@ func TestHandleWS_NilTools(t *testing.T) {
 		t.Fatalf("status=%d want 500", resp.StatusCode)
 	}
 }
+
+// wsPair는 업그레이드된 서버측 safeConn 과 클라이언트 conn 을 돌려준다.
+// relayOutput 은 데몬 모드에서만 도는 goroutine 이라 핸들러를 통째로 세우지 않고
+// 소켓만 만들어 직접 검사한다.
+func wsPair(t *testing.T) (*safeConn, *websocket.Conn, func()) {
+	t.Helper()
+	ch := make(chan *safeConn, 1)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			t.Errorf("upgrade: %v", err)
+			return
+		}
+		ch <- newSafeConn(raw)
+		<-r.Context().Done()
+	}))
+	cli := mustWS(t, ts, "/")
+	srv := <-ch
+	return srv, cli, func() { cli.Close(); ts.Close() }
+}
+
+// 죽은 소켓에 쓰기가 실패하면 릴레이는 **그 자리에서 끝난다.**
+// 예전에는 실패를 로그만 남기고 계속 펌프해 broken pipe 로그가 폭주했다
+// (실측 2026-08-25: 26초에 7.7MB).
+func TestRelayOutput_StopsOnWriteFailure(t *testing.T) {
+	srvConn, _, cleanup := wsPair(t)
+	defer cleanup()
+
+	out := make(chan []byte, 64)
+	exit := make(chan struct{})
+	done := make(chan struct{})
+	defer close(done)
+
+	srvConn.close() // 상대가 사라진 상태를 만든다: 이후 쓰기는 전부 실패한다.
+
+	// 릴레이가 멈추지 않으면 이 채널을 계속 비워 낸다. 멈추면 곧 가득 찬다.
+	feeding := make(chan struct{})
+	go func() {
+		defer close(feeding)
+		for i := 0; i < 64; i++ {
+			out <- []byte("x")
+		}
+	}()
+
+	fin := make(chan struct{})
+	go func() { relayOutput(srvConn, "t1", out, exit, done); close(fin) }()
+
+	select {
+	case <-fin:
+	case <-time.After(3 * time.Second):
+		t.Fatal("쓰기 실패 후에도 릴레이가 살아 있다 — 폭주 경로가 되살아났다")
+	}
+	if got := len(out); got < 60 {
+		t.Fatalf("릴레이가 실패 후에도 %d 건을 더 소비했다; 첫 실패에서 끊어야 한다", 64-got)
+	}
+}
+
+// 반증: 소켓이 살아 있으면 릴레이는 멈추지 않는다 — 위 규칙이 정상 경로까지
+// 끊어 버리는 형태로 통과하지 않음을 확인한다.
+func TestRelayOutput_KeepsPumpingWhileHealthy(t *testing.T) {
+	srvConn, cli, cleanup := wsPair(t)
+	defer cleanup()
+
+	out := make(chan []byte, 4)
+	exit := make(chan struct{})
+	done := make(chan struct{})
+	fin := make(chan struct{})
+	go func() { relayOutput(srvConn, "t1", out, exit, done); close(fin) }()
+
+	for i := 0; i < 3; i++ {
+		out <- []byte("hello")
+		cli.SetReadDeadline(time.Now().Add(3 * time.Second))
+		_, msg, err := cli.ReadMessage()
+		if err != nil {
+			t.Fatalf("read %d: %v", i, err)
+		}
+		if len(msg) == 0 || msg[0] != OpOutput || string(msg[1:]) != "hello" {
+			t.Fatalf("read %d: 예상 밖 프레임 %q", i, msg)
+		}
+	}
+	select {
+	case <-fin:
+		t.Fatal("정상 소켓인데 릴레이가 끝났다")
+	default:
+	}
+
+	close(done)
+	select {
+	case <-fin:
+	case <-time.After(3 * time.Second):
+		t.Fatal("done 신호에도 릴레이가 끝나지 않는다")
+	}
+}
+
+// 도구가 종료되면 OpExit 를 보내고 소켓을 닫는다 (직접 모드와 동일).
+func TestRelayOutput_SendsExitOnToolExit(t *testing.T) {
+	srvConn, cli, cleanup := wsPair(t)
+	defer cleanup()
+
+	out := make(chan []byte)
+	exit := make(chan struct{})
+	done := make(chan struct{})
+	defer close(done)
+
+	fin := make(chan struct{})
+	go func() { relayOutput(srvConn, "t1", out, exit, done); close(fin) }()
+	close(exit)
+
+	cli.SetReadDeadline(time.Now().Add(3 * time.Second))
+	_, msg, err := cli.ReadMessage()
+	if err != nil {
+		t.Fatalf("read exit: %v", err)
+	}
+	if len(msg) == 0 || msg[0] != OpExit {
+		t.Fatalf("OpExit 가 아니다: %q", msg)
+	}
+	select {
+	case <-fin:
+	case <-time.After(3 * time.Second):
+		t.Fatal("exit 후에도 릴레이가 살아 있다")
+	}
+}
