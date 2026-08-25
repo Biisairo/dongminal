@@ -23,7 +23,14 @@ class GitPanel {
     this._shown=new Map();        // 그룹별로 그린 행 수 (FR-GIT-42)
     this._fileView=null;          // 'flat' | 'tree'
     this._seq=0;                  // status 요청 일련번호 (single-flight 소유권)
-    this.previewFile=null;        // {repo,group,axis,path,origPath} — 7단계가 읽는다
+    this.previewFile=null;        // {repo,group,axis,path,origPath}. 미리보기와 Diff 탭이 같이 쓴다
+    this._diffView=null;          // Diff 탭의 GitDiffView
+    this._previewView=null;       // Changes 탭 미리보기의 GitDiffView
+    this._diffKey=null;           // 두 뷰에 이미 보인 대상 (재요청 방지)
+    this._prevKey=null;
+    this._diffPos=0;              // 목록에서 사라진 대상을 클램프할 기준 (FR-GIT-53)
+    this._sideBy=null;            // FR-GIT-51 의 보기 모드
+    this._ignWs=null;             // FR-GIT-50 의 공백무시 토글
   }
 
   // 활성 리포. Git 창의 win.git.repo 가 진실이고 이것은 그 읽기다 (FR-GIT-29).
@@ -42,6 +49,10 @@ class GitPanel {
     // (FR-GIT-16). 화면을 "불러오는 중" 으로 되돌린다.
     this._status=null; this._lastSig=null; this._staleNote=false;
     this._shown.clear(); this.previewFile=null; this._closeCtx();
+    // 이전 리포의 diff 가 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다.
+    this._diffKey=null; this._prevKey=null; this._diffPos=0;
+    for(const v of [this._diffView,this._previewView])
+      if(v) v.clear(path?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);
     if(path) this._errMsg=null;
     // 진행 중인 요청의 소유권을 끊는다 — 그 응답은 가드에 걸려 버려지고, 새 리포는
     // 앞선 요청이 끝나기를 기다리지 않는다.
@@ -63,13 +74,17 @@ class GitPanel {
       this._els.set(view,el);
       this._render(view);
     }
+    // 탭 전환마다 루트가 DOM 에서 떼였다 붙는다 — Monaco 는 그 사이 크기를 0 으로
+    // 보므로 다시 붙은 뒤 한 번 재배치한다.
+    const v=view==='diff'?this._diffView:(view==='changes'?this._previewView:null);
+    if(v) requestAnimationFrame(()=>v.layout());
     return el;
   }
 
   // Git 창이 사라졌을 때 루트를 area 로 되돌린다. 인스턴스는 살아 있다 —
   // 창은 다시 열릴 수 있다.
   detach(){
-    this._stop(); this._closeCtx();
+    this._stop(); this._closeCtx(); this._destroyViews();
     const area=document.getElementById('area');
     for(const el of this._els.values()){
       el.classList.remove('vis');
@@ -95,6 +110,7 @@ class GitPanel {
       return;
     }
     if(view==='changes'){this._renderChanges(el);return}
+    if(view==='diff'){this._renderDiff(el);return}
     el.innerHTML='';
     if(!this.repo){
       const d=document.createElement('div'); d.className='git-empty';
@@ -120,8 +136,8 @@ class GitPanel {
   }
 
   _paint(){
-    const el=this._els.get('changes'); if(!el) return;
-    this._renderChanges(el);
+    const c=this._els.get('changes'); if(c) this._renderChanges(c);
+    const d=this._els.get('diff'); if(d) this._renderDiff(d);
   }
 
   // FR-GIT-39: .git-head·.git-commit 은 flex:0 0 auto 이고 목록 스크롤은
@@ -379,6 +395,8 @@ class GitPanel {
       repo:this.repo,group,axis:GIT_GROUP_AXIS[group],
       path:e.path,origPath:e.origPath||'',
     };
+    const i=this._diffIndex(this._fileList());
+    if(i>=0) this._diffPos=i;
     this._paint();
   }
 
@@ -391,22 +409,180 @@ class GitPanel {
     }
   }
 
-  // 미리보기는 5단계에서 대상과 축을 보이는 자리다. 실제 diff 는 7단계가 채운다.
+  // 미리보기는 Diff 탭과 같은 뷰를 좁은 자리에 둔 것이다 (§3.2·§3.4). 골격은 한 번만
+  // 세운다 — 폴링마다 다시 만들면 Monaco 인스턴스가 매초 버려진다.
   _paintPreview(el){
     const p=el.querySelector('.git-preview'); if(!p) return;
-    const f=this.previewFile;
-    p.innerHTML='';
-    const d=document.createElement('div');
-    if(!f){
-      d.className='git-preview-empty'; d.textContent=GIT_PREVIEW_HINT;
-    }else{
-      d.className='git-preview-target';
-      d.innerHTML='<div class="git-preview-path"></div><div class="git-preview-axis"></div>';
-      d.querySelector('.git-preview-path').textContent=
-        f.origPath?f.origPath+' → '+f.path:f.path;
-      d.querySelector('.git-preview-axis').textContent=GIT_AXIS_LABEL[f.axis]||f.axis;
+    if(p.dataset.built!=='1'){
+      p.innerHTML='<div class="git-preview-target">'+
+        '<div class="git-preview-path"></div><div class="git-preview-axis"></div></div>'+
+        '<div class="git-preview-body"></div>';
+      p.querySelector('.git-preview-body').appendChild(this._preview().el);
+      p.dataset.built='1';
     }
-    p.appendChild(d);
+    const f=this.previewFile;
+    const t=p.querySelector('.git-preview-target');
+    t.classList.toggle('vis',!!f);
+    t.querySelector('.git-preview-path').textContent=
+      f?(f.origPath?f.origPath+' → '+f.path:f.path):'';
+    t.querySelector('.git-preview-axis').textContent=f?(GIT_AXIS_LABEL[f.axis]||f.axis):'';
+    this._showTarget(this._preview(),f,'_prevKey');
+  }
+
+  // ── Diff 탭 (FR-GIT-49~56) ──
+
+  _renderDiff(el){
+    if(el.dataset.built!=='1') this._buildDiff(el);
+    this._paintDiff(el);
+  }
+
+  _buildDiff(el){
+    el.innerHTML=
+      '<div class="git-diff-bar">'+
+        '<button class="git-diff-nav" data-nav="prev">\u2039</button>'+
+        '<button class="git-diff-nav" data-nav="next">\u203a</button>'+
+        '<span class="git-diff-path"></span>'+
+        '<span class="git-diff-pos"></span>'+
+        '<span class="git-diff-gone"></span>'+
+        '<span class="git-diff-spacer"></span>'+
+        '<button class="git-diff-mode"></button>'+
+        '<label class="git-diff-ws"><input type="checkbox"></label>'+
+      '</div>'+
+      '<div class="git-diff-body"></div>';
+    el.querySelector('.git-diff-ws').appendChild(document.createTextNode(GIT_DIFF_WS_LABEL));
+    el.querySelector('.git-diff-body').appendChild(this._diff().el);
+    for(const b of el.querySelectorAll('.git-diff-nav'))
+      b.addEventListener('click',()=>this._diffMove(b.dataset.nav==='next'?1:-1));
+    el.querySelector('.git-diff-mode').addEventListener('click',()=>this._toggleSideBySide());
+    el.querySelector('.git-diff-ws input')
+      .addEventListener('change',ev=>this._setIgnoreWs(ev.target.checked));
+    el.dataset.built='1';
+  }
+
+  _paintDiff(el){
+    const list=this._fileList();
+    const f=this.previewFile;
+    const i=this._diffIndex(list);
+    if(i>=0) this._diffPos=i;
+    // 목록이 비면 0/0 이고 ‹ › 는 disabled 다.
+    for(const b of el.querySelectorAll('.git-diff-nav')) b.disabled=!list.length;
+    el.querySelector('.git-diff-path').textContent=
+      f?(f.origPath?f.origPath+' \u2192 '+f.path:f.path):'';
+    el.querySelector('.git-diff-pos').textContent=
+      list.length?(i>=0?(i+1)+'/'+list.length:'\u2013/'+list.length):'0/0';
+    // 대상이 목록에서 사라졌으면(커밋·discard) 그 사실만 알린다 — 아무 파일이나
+    // 임의로 보이지 않는다 (§3.3).
+    const gone=el.querySelector('.git-diff-gone');
+    const lost=!!(f&&i<0&&list.length);
+    gone.textContent=lost?GIT_DIFF_GONE_NOTE:'';
+    gone.classList.toggle('vis',lost);
+    el.querySelector('.git-diff-mode').textContent=
+      this._sideBySidePref()?GIT_DIFF_MODE_LABEL.side:GIT_DIFF_MODE_LABEL.inline;
+    el.querySelector('.git-diff-ws input').checked=this._ignoreWsPref();
+    this._showTarget(this._diff(),f,'_diffKey');
+  }
+
+  // FR-GIT-53: ‹ › 가 도는 순서는 Changes 탭의 목록과 같다 — 그룹 순서를 이어
+  // 평탄화한 것이다.
+  _fileList(){
+    const s=this._status&&this._status.status;
+    if(!s||!this.repo) return [];
+    const out=[];
+    for(const g of GIT_GROUPS)
+      for(const e of (s[g.key]||[]))
+        out.push({repo:this.repo,group:g.key,axis:GIT_GROUP_AXIS[g.key],
+          path:e.path,origPath:e.origPath||''});
+    return out;
+  }
+
+  _diffIndex(list){
+    const f=this.previewFile; if(!f) return -1;
+    return list.findIndex(x=>x.group===f.group&&x.path===f.path);
+  }
+
+  // 대상이 목록에서 사라졌으면 마지막 위치를 경계로 클램프한다 (§3.3).
+  _diffMove(delta){
+    const list=this._fileList(); if(!list.length) return;
+    const cur=this._diffIndex(list);
+    let i=cur<0?this._diffPos:cur+delta;
+    i=Math.max(0,Math.min(list.length-1,i));
+    this._diffPos=i;
+    const t=list[i];
+    this._select(t.group,{path:t.path,origPath:t.origPath});
+  }
+
+  // 대상이 그대로면 다시 부르지 않는다 — status 폴링마다 diff 를 재요청하면
+  // 스크롤과 접힘이 매초 초기화된다.
+  _showTarget(view,f,slot){
+    const key=f?[f.repo,f.axis,f.path,f.origPath].join('\u0000'):'';
+    if(this[slot]===key) return;
+    this[slot]=key;
+    if(!f){view.clear(this.repo?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);return}
+    view.show(f,this.token());
+  }
+
+  // 두 인스턴스는 같은 클래스다 (§3.2). 미리보기는 좁은 자리이므로 inline 을
+  // 기본으로 둔다 (§3.4).
+  _diff(){
+    if(!this._diffView) this._diffView=new GitDiffView({
+      inlineBreakpoint:GIT_DIFF_OPTIONS.renderSideBySideInlineBreakpoint,
+      sideBySide:this._sideBySidePref(),
+      ignoreWhitespace:this._ignoreWsPref(),
+      isStale:tok=>this.isStale(tok),
+    });
+    return this._diffView;
+  }
+
+  _preview(){
+    if(!this._previewView) this._previewView=new GitDiffView({
+      inlineBreakpoint:GIT_PREVIEW_INLINE_BREAKPOINT,
+      sideBySide:false,
+      ignoreWhitespace:this._ignoreWsPref(),
+      isStale:tok=>this.isStale(tok),
+    });
+    return this._previewView;
+  }
+
+  _destroyViews(){
+    if(!this._diffView&&!this._previewView) return;
+    if(this._diffView){this._diffView.destroy();this._diffView=null}
+    if(this._previewView){this._previewView.destroy();this._previewView=null}
+    this._diffKey=null; this._prevKey=null;
+    // 골격이 버린 뷰의 DOM 을 들고 있다 — 다시 열릴 때 새 뷰로 세운다.
+    for(const [k,el] of this._els) if(k==='changes'||k==='diff') el.dataset.built='';
+  }
+
+  // 보기 모드와 공백무시는 기기별 취향이라 localStorage 에 남는다 (§3.3).
+  _sideBySidePref(){
+    if(this._sideBy==null){
+      let v=null; try{v=localStorage.getItem(GIT_DIFF_SIDE_KEY)}catch{}
+      this._sideBy=v!=='0';
+    }
+    return this._sideBy;
+  }
+
+  _ignoreWsPref(){
+    if(this._ignWs==null){
+      let v=null; try{v=localStorage.getItem(GIT_DIFF_WS_KEY)}catch{}
+      // 기본은 공백을 무시하지 않는다 — git 과 같은 판정이다 (FR-GIT-50).
+      this._ignWs=v==='1';
+    }
+    return this._ignWs;
+  }
+
+  _toggleSideBySide(){
+    this._sideBy=!this._sideBySidePref();
+    try{localStorage.setItem(GIT_DIFF_SIDE_KEY,this._sideBy?'1':'0')}catch{}
+    this._diff().setSideBySide(this._sideBy);
+    this._paint();
+  }
+
+  _setIgnoreWs(on){
+    this._ignWs=!!on;
+    try{localStorage.setItem(GIT_DIFF_WS_KEY,this._ignWs?'1':'0')}catch{}
+    // 미리보기와 Diff 탭은 같은 상태다.
+    for(const v of [this._diffView,this._previewView]) if(v) v.setIgnoreWhitespace(this._ignWs);
+    this._paint();
   }
 
   // ── 우클릭 (FR-GIT-41) ──
@@ -592,5 +768,132 @@ class GitPanel {
     if(v===this._lastSig) return;
     this._lastSig=v;
     this.collect();
+  }
+}
+
+/**
+ * Monaco DiffEditor 한 개를 감싼다 (FR-GIT-43) — diff 하이라이트를 자체
+ * 구현하지 않는다.
+ *
+ * Changes 탭의 미리보기와 Diff 탭은 같은 것을 다른 크기로 보이는 것이므로 이
+ * 클래스를 두 번 인스턴스화한다 (§3.2).
+ *
+ * 인스턴스는 탭·리포 전환에서 반드시 정리된다 (FR-GIT-56) — Monaco 에디터는
+ * DOM 을 떼는 것으로 해제되지 않고, 남으면 모델과 리스너가 누적된다.
+ */
+class GitDiffView {
+  constructor(opts){
+    const o=opts||{};
+    this._breakpoint=o.inlineBreakpoint||GIT_DIFF_OPTIONS.renderSideBySideInlineBreakpoint;
+    this._sideBySide=o.sideBySide!==false;
+    this._ignoreWs=!!o.ignoreWhitespace;
+    // stale 판정의 절반은 바깥(세대·리포)이 안다. 나머지 절반은 자기 일련번호다
+    // (FR-GIT-54).
+    this._isStale=o.isStale||(()=>false);
+    this._seq=0; this._dead=false;
+    this._editor=null; this._orig=null; this._mod=null;
+    this._el=document.createElement('div');
+    this._el.className='git-diff-view';
+    this._el.innerHTML='<div class="git-diff-note"></div><div class="git-diff-host"></div>';
+    this._note=this._el.querySelector('.git-diff-note');
+    this._host=this._el.querySelector('.git-diff-host');
+  }
+
+  get el(){return this._el}
+
+  // (리포, 축, 경로) 를 받아 내용을 불러 그린다. stale 가드를 자기가 건다.
+  async show(target,token){
+    const seq=++this._seq;
+    if(!target||!target.repo||!target.path){this.clear(GIT_PREVIEW_HINT);return}
+    this._setNote(GIT_LOADING_HINT);
+    // Monaco 로드 실패는 밖으로 던지지 않는다 — Git 창의 나머지가 계속 동작해야
+    // 한다 (FR-GIT-55).
+    const loaded=await loadMonaco().then(()=>true,e=>{
+      console.error('[GitDiffView] monaco load failed:',e); return false;
+    });
+    if(this._stale(seq,token)) return;
+    if(!loaded){this.clear(GIT_DIFF_MONACO_FAIL);return}
+    const d=await this._fetch(target);
+    if(this._stale(seq,token)) return;
+    if(!d.ok){this.clear(d.msg);return}
+    // 서버가 되돌려준 요청값도 확인한다 — 같은 세대 안에서도 응답 순서가 뒤바뀔
+    // 수 있다 (FR-GIT-54).
+    const q=d.body.requested||{};
+    if(q.repo!==target.repo||q.axis!==target.axis||q.path!==target.path) return;
+    const a=d.body.original||{},b=d.body.modified||{};
+    // 한쪽이라도 본문이 없으면 에디터를 만들지 않고 서버가 준 사유를 보인다
+    // (FR-GIT-46·47·48).
+    if(!GIT_DIFF_DRAWABLE.has(a.kind)||!GIT_DIFF_DRAWABLE.has(b.kind)){
+      this.clear(d.body.note||GIT_DIFF_LOAD_FAIL); return;
+    }
+    this._draw(target.path,a.content||'',b.content||'',d.body.note||'');
+  }
+
+  // 본문 대신 안내를 보인다. 에디터와 모델은 함께 버린다 (FR-GIT-56).
+  clear(message){
+    this._seq++;
+    this._setNote(message||'');
+    if(this._editor){this._editor.dispose();this._editor=null}
+    this._dropModels(this._orig,this._mod);
+    this._orig=null; this._mod=null;
+    this._host.innerHTML='';
+  }
+
+  setSideBySide(on){ // FR-GIT-51
+    this._sideBySide=!!on;
+    if(this._editor) this._editor.updateOptions({renderSideBySide:this._sideBySide});
+  }
+
+  setIgnoreWhitespace(on){ // FR-GIT-50 의 사용자 토글
+    this._ignoreWs=!!on;
+    if(this._editor) this._editor.updateOptions({ignoreTrimWhitespace:this._ignoreWs});
+  }
+
+  layout(){ if(this._editor) this._editor.layout() }
+
+  destroy(){ this._dead=true; this.clear('') }
+
+  _stale(seq,token){return this._dead||seq!==this._seq||this._isStale(token)}
+
+  async _fetch(target){
+    let u='/api/git/diff-content?repo='+encodeURIComponent(target.repo)+
+      '&axis='+encodeURIComponent(target.axis)+'&path='+encodeURIComponent(target.path);
+    if(target.origPath) u+='&origPath='+encodeURIComponent(target.origPath);
+    let r=null,d=null;
+    try{r=await fetch(u)}catch{r=null}
+    if(r){try{d=await r.json()}catch{d=null}}
+    if(!r||!d) return {ok:false,msg:GIT_DIFF_LOAD_FAIL};
+    if(!r.ok) return {ok:false,msg:GIT_DIFF_ERR[d.error]||GIT_DIFF_LOAD_FAIL};
+    return {ok:true,body:d};
+  }
+
+  _draw(path,orig,mod,note){
+    this._setNote(note);
+    const lang=monacoLang(path);
+    if(!this._editor){
+      this._editor=monaco.editor.createDiffEditor(this._host,Object.assign({},GIT_DIFF_OPTIONS,{
+        renderSideBySide:this._sideBySide,
+        renderSideBySideInlineBreakpoint:this._breakpoint,
+        ignoreTrimWhitespace:this._ignoreWs,
+        theme:monacoTheme(),
+      }));
+    }
+    const prevO=this._orig,prevM=this._mod;
+    this._orig=monaco.editor.createModel(orig,lang);
+    this._mod=monaco.editor.createModel(mod,lang);
+    this._editor.setModel({original:this._orig,modified:this._mod});
+    // 이전 모델은 새 모델을 붙인 뒤에 버린다 — 먼저 버리면 에디터가 사라진 모델을
+    // 읽는다 (FR-GIT-56).
+    this._dropModels(prevO,prevM);
+    requestAnimationFrame(()=>this.layout());
+  }
+
+  _dropModels(){
+    for(const m of arguments) if(m) m.dispose();
+  }
+
+  _setNote(text){
+    this._note.textContent=text||'';
+    this._note.classList.toggle('vis',!!text);
   }
 }

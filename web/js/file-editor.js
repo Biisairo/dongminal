@@ -41,6 +41,122 @@ const LANG_MAP = {
   '.vim': 'viml',
 };
 
+// Monaco 테마 이름. CSS 변수에서 파생하므로 테마가 바뀌면 이 이름의 정의가
+// 갱신된다 — 에디터와 diff 뷰가 같은 이름을 쓰므로 함께 따라온다.
+const MONACO_THEME = 'dongminal';
+const MONACO_THEME_FALLBACK = 'vs-dark';
+
+// 진행 중인 로드 Promise. 대기 중인 호출자들이 이것을 공유한다.
+let monacoLoading = null;
+
+/**
+ * Monaco 는 CDN 로드다. 한 번만 로드하고 대기 중인 호출자들이 같은 Promise 를
+ * 공유한다. 실패는 캐시하지 않는다 — 네트워크가 돌아오면 다시 시도할 수 있어야
+ * 한다.
+ */
+function loadMonaco() {
+  if (typeof monaco !== 'undefined') return Promise.resolve();
+  if (monacoLoading) return monacoLoading;
+  monacoLoading = new Promise((resolve, reject) => {
+    const boot = () => {
+      require.config({ paths: { vs: MONACO_CDN } });
+      require(['vs/editor/editor.main'], () => resolve(), (err) => reject(err));
+    };
+    // loader.js 는 이미 붙어 있을 수 있다 — 앞선 시도가 모듈 단계에서 실패한
+    // 경우다. 그때 script 를 다시 붙이면 loader 가 중복 정의된다.
+    if (typeof require !== 'undefined' && require.config) { boot(); return }
+    const script = document.createElement('script');
+    script.src = MONACO_CDN + '/loader.js';
+    script.onload = boot;
+    script.onerror = () => reject(new Error('Failed to load Monaco loader'));
+    document.head.appendChild(script);
+  });
+  monacoLoading.catch(() => { monacoLoading = null });
+  return monacoLoading;
+}
+
+// 테마는 CSS 변수에서 파생한다. 테마를 바꾸면 diff 색도 따라 바뀐다.
+function monacoTheme() {
+  if (typeof monaco === 'undefined') return MONACO_THEME_FALLBACK;
+  try {
+    const style = getComputedStyle(document.documentElement);
+    const bg = style.getPropertyValue('--bg').trim();
+    const fg = style.getPropertyValue('--text').trim();
+    const accent = style.getPropertyValue('--accent').trim();
+    if (!bg || !fg) return MONACO_THEME_FALLBACK;
+
+    const [br, gr, bb] = monacoRGB(bg);
+    const lum = (0.299 * br + 0.587 * gr + 0.114 * bb) / 255;
+
+    monaco.editor.defineTheme(MONACO_THEME, {
+      base: lum < 0.5 ? 'vs-dark' : 'vs',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': bg,
+        'editor.foreground': fg,
+        'editorCursor.foreground': accent || fg,
+        'editor.lineHighlightBackground': monacoMix(fg, bg, 0.08),
+        'editor.selectionBackground': monacoMix(fg, bg, 0.15),
+        'editorLineNumber.foreground': monacoMix(fg, bg, 0.4),
+        'editorLineNumber.activeForeground': fg,
+      },
+    });
+    return MONACO_THEME;
+  } catch (e) {
+    console.error('[Monaco] defineTheme error:', e);
+    return MONACO_THEME_FALLBACK;
+  }
+}
+
+// 파일 경로 → Monaco 언어 id. 확장자를 모르면 plaintext 다.
+function monacoLang(path) {
+  return LANG_MAP[monacoExt(path)] || 'plaintext';
+}
+
+function monacoRGB(color) {
+  if (!color) return [0, 0, 0];
+  if (color.startsWith('#')) {
+    const h = color.replace('#', '');
+    return [
+      parseInt(h.substring(0, 2), 16),
+      parseInt(h.substring(2, 4), 16),
+      parseInt(h.substring(4, 6), 16),
+    ];
+  }
+  const m = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+  if (m) return [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
+  return [0, 0, 0];
+}
+
+function monacoMix(c1, c2, ratio) {
+  const [r1, g1, b1] = monacoRGB(c1);
+  const [r2, g2, b2] = monacoRGB(c2);
+  return '#' + [r1, g1, b1].map((v, i) =>
+    Math.round(v * ratio + [r2, g2, b2][i] * (1 - ratio)).toString(16).padStart(2, '0')
+  ).join('');
+}
+
+function monacoExt(path) {
+  const base = path.split('/').pop() || '';
+  const dot = base.lastIndexOf('.');
+  if (dot >= 0) {
+    const ext = base.substring(dot).toLowerCase();
+    if (LANG_MAP[ext]) return ext;
+  }
+  if (dot >= 0) {
+    const prev = base.lastIndexOf('.', dot - 1);
+    if (prev >= 0) {
+      const doubleExt = base.substring(prev).toLowerCase();
+      if (LANG_MAP[doubleExt]) return doubleExt;
+    }
+  }
+  const lower = base.toLowerCase();
+  if (lower === 'dockerfile') return '.dockerfile';
+  if (lower === 'makefile' || lower === 'gnumakefile') return '.makefile';
+  return '';
+}
+
 class FileEditor {
   constructor(id, name, filePath) {
     this.id = id;
@@ -75,44 +191,7 @@ class FileEditor {
   }
 
   _loadMonaco() {
-    return new Promise((resolve, reject) => {
-      // Already loaded by another editor instance
-      if (typeof monaco !== 'undefined') {
-        resolve();
-        return;
-      }
-      // Already loading — wait for it
-      if (FileEditor._monacoLoading) {
-        const check = () => {
-          if (typeof monaco !== 'undefined') resolve();
-          else if (FileEditor._monacoError) reject(FileEditor._monacoError);
-          else setTimeout(check, 50);
-        };
-        check();
-        return;
-      }
-      FileEditor._monacoLoading = true;
-
-      const script = document.createElement('script');
-      script.src = MONACO_CDN + '/loader.js';
-      script.onload = () => {
-        require.config({ paths: { vs: MONACO_CDN } });
-        require(['vs/editor/editor.main'], () => {
-          FileEditor._monacoLoading = false;
-          resolve();
-        }, (err) => {
-          FileEditor._monacoLoading = false;
-          FileEditor._monacoError = err;
-          reject(err);
-        });
-      };
-      script.onerror = () => {
-        FileEditor._monacoLoading = false;
-        FileEditor._monacoError = new Error('Failed to load Monaco loader');
-        reject(FileEditor._monacoError);
-      };
-      document.head.appendChild(script);
-    });
+    return loadMonaco();
   }
 
   async _fetchFile() {
@@ -124,13 +203,10 @@ class FileEditor {
   _createEditor(content) {
     this.el.innerHTML = '';
 
-    const ext = this._ext(this.filePath);
-    const lang = LANG_MAP[ext] || 'plaintext';
-
     this._editor = monaco.editor.create(this.el, {
       value: content,
-      language: lang,
-      theme: this._resolveTheme(),
+      language: monacoLang(this.filePath),
+      theme: monacoTheme(),
       automaticLayout: true,
       minimap: { enabled: true, scale: 1, showSlider: 'mouseover' },
       lineNumbers: 'on',
@@ -235,83 +311,6 @@ class FileEditor {
       tabEl.textContent = (this._dirty ? '● ' : '') + this.name;
     }
   }
-  _resolveTheme() {
-    try {
-      const style = getComputedStyle(document.documentElement);
-      const bg = style.getPropertyValue('--bg').trim();
-      const fg = style.getPropertyValue('--text').trim();
-      const accent = style.getPropertyValue('--accent').trim();
-      if (!bg || !fg) return 'vs-dark';
-
-      const [br, gr, bb] = this._parseRGB(bg);
-      const lum = (0.299 * br + 0.587 * gr + 0.114 * bb) / 255;
-      const base = lum < 0.5 ? 'vs-dark' : 'vs';
-
-      monaco.editor.defineTheme('dongminal', {
-        base: base,
-        inherit: true,
-        rules: [],
-        colors: {
-          'editor.background': bg,
-          'editor.foreground': fg,
-          'editorCursor.foreground': accent || fg,
-          'editor.lineHighlightBackground': this._mix(fg, bg, 0.08),
-          'editor.selectionBackground': this._mix(fg, bg, 0.15),
-          'editorLineNumber.foreground': this._mix(fg, bg, 0.4),
-          'editorLineNumber.activeForeground': fg,
-        },
-      });
-      return 'dongminal';
-    } catch (e) {
-      console.error('[FileEditor] defineTheme error:', e);
-      return 'vs-dark';
-    }
-  }
-
-
-  _parseRGB(color) {
-    if (!color) return [0, 0, 0];
-    if (color.startsWith('#')) {
-      const h = color.replace('#', '');
-      return [
-        parseInt(h.substring(0, 2), 16),
-        parseInt(h.substring(2, 4), 16),
-        parseInt(h.substring(4, 6), 16),
-      ];
-    }
-    const m = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-    if (m) return [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
-    return [0, 0, 0];
-  }
-
-  _mix(c1, c2, ratio) {
-    const [r1, g1, b1] = this._parseRGB(c1);
-    const [r2, g2, b2] = this._parseRGB(c2);
-    return '#' + [r1, g1, b1].map((v, i) =>
-      Math.round(v * ratio + [r2, g2, b2][i] * (1 - ratio)).toString(16).padStart(2, '0')
-    ).join('');
-  }
-
-
-  _ext(path) {
-    const base = path.split('/').pop() || '';
-    const dot = base.lastIndexOf('.');
-    if (dot >= 0) {
-      const ext = base.substring(dot).toLowerCase();
-      if (LANG_MAP[ext]) return ext;
-    }
-    if (dot >= 0) {
-      const prev = base.lastIndexOf('.', dot - 1);
-      if (prev >= 0) {
-        const doubleExt = base.substring(prev).toLowerCase();
-        if (LANG_MAP[doubleExt]) return doubleExt;
-      }
-    }
-    const lower = base.toLowerCase();
-    if (lower === 'dockerfile') return '.dockerfile';
-    if (lower === 'makefile' || lower === 'gnumakefile') return '.makefile';
-    return '';
-  }
   _esc(s) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
@@ -332,46 +331,11 @@ class FileEditor {
   }
 }
 
-// Re-define Monaco theme from current CSS variables and update all live editors.
+// 테마 전환 훅 (helpers.js applyThemeObj). 이름이 같은 테마를 다시 정의하고
+// setTheme 을 부르면 살아 있는 에디터와 diff 뷰가 함께 따라온다 (FR-GIT-49).
 FileEditor.applyTheme = function() {
   if (typeof monaco === 'undefined') return;
-  try {
-    const style = getComputedStyle(document.documentElement);
-    const bg = style.getPropertyValue('--bg').trim();
-    const fg = style.getPropertyValue('--text').trim();
-    const accent = style.getPropertyValue('--accent').trim();
-    const dim = style.getPropertyValue('--text-dim').trim();
-    if (!bg || !fg) return;
-
-    const p = (c) => {
-      if (!c) return [0,0,0];
-      if (c.startsWith('#')) { const h=c.replace('#',''); return [parseInt(h.substring(0,2),16),parseInt(h.substring(2,4),16),parseInt(h.substring(4,6),16)] }
-      const m=c.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/); if(m) return [parseInt(m[1]),parseInt(m[2]),parseInt(m[3])];
-    };
-    const toHex = (r,g,b) => '#'+[r,g,b].map(c=>Math.round(c).toString(16).padStart(2,'0')).join('');
-    const mix = (c1, c2, r) => { const [r1,g1,b1]=p(c1); const [r2,g2,b2]=p(c2); return toHex(r1*r+r2*(1-r), g1*r+g2*(1-r), b1*r+b2*(1-r)) };
-
-    const [br, gr, bb] = p(bg);
-    const lum = (0.299*br + 0.587*gr + 0.114*bb)/255;
-    const base = lum < 0.5 ? 'vs-dark' : 'vs';
-
-    monaco.editor.defineTheme('dongminal', {
-      base, inherit: true, rules: [],
-      colors: {
-        'editor.background': bg,
-        'editor.foreground': fg,
-        'editorCursor.foreground': accent || fg,
-        'editor.lineHighlightBackground': mix(fg, bg, 0.08),
-        'editor.selectionBackground': mix(fg, bg, 0.15),
-        'editorLineNumber.foreground': mix(fg, bg, 0.4),
-        'editorLineNumber.activeForeground': fg,
-      },
-    });
-
-    if (typeof app !== 'undefined' && app.fileEditors) {
-      for (const e of app.fileEditors.values()) {
-        if (e._editor) monaco.editor.setTheme('dongminal');
-      }
-    }
-  } catch (e) { console.error('[FileEditor] applyTheme error:', e); }
+  const name = monacoTheme();
+  if (name !== MONACO_THEME) return;
+  monaco.editor.setTheme(name);
 };

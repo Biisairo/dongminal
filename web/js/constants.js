@@ -134,3 +134,43 @@ const GIT_SIGNAL_DEBOUNCE_MS=150;
 // 주기는 설정으로 덮을 수 있다 (FR-GIT-23) — statsInterval 과 같은 방식이다.
 var gitSignatureInterval=GIT_SIGNATURE_POLL_MS;
 var gitStatusInterval=GIT_STATUS_POLL_MS;
+
+// ── Diff (GIT_SRS §3.6 / FR-GIT-43~56) ──
+
+// DiffEditor 옵션. ignoreTrimWhitespace 는 Monaco 기본값(true)을 뒤집는다 —
+// git 은 공백 변경을 변경으로 취급하기 때문이다 (FR-GIT-50).
+const GIT_DIFF_OPTIONS={
+  renderSideBySide:true,
+  useInlineViewWhenSpaceIsLimited:true,
+  renderSideBySideInlineBreakpoint:900,
+  hideUnchangedRegions:{enabled:true},
+  ignoreTrimWhitespace:false,
+  readOnly:true,
+  originalEditable:false,
+  automaticLayout:true,
+  scrollBeyondLastLine:false,
+  renderOverviewRuler:false,
+};
+// Changes 탭의 미리보기는 좁다. 접기와 inline 전환을 더 이르게 건다.
+const GIT_PREVIEW_INLINE_BREAKPOINT=560;
+// 서버의 DiffSide.kind (FR-GIT-45~48). text 와 absent 만 본문을 그린다 —
+// absent 는 빈 내용으로 다뤄야 추가·삭제 파일의 diff 가 성립한다.
+const GIT_DIFF_DRAWABLE=new Set(['text','absent']);
+// 보기 모드와 공백무시는 기기별 취향이다 (§3.3).
+const GIT_DIFF_SIDE_KEY='gitDiffSideBySide';
+const GIT_DIFF_WS_KEY='gitDiffIgnoreWs';
+const GIT_DIFF_MODE_LABEL={side:'side-by-side',inline:'unified'};
+const GIT_DIFF_WS_LABEL='공백무시';
+// FR-GIT-55: Monaco 로드 실패는 Git 창의 나머지를 멈추지 않는다 — diff 자리에만
+// 사유를 보인다.
+const GIT_DIFF_MONACO_FAIL='에디터를 불러올 수 없습니다 — 네트워크를 확인하세요';
+const GIT_DIFF_LOAD_FAIL='diff 를 불러오지 못했습니다';
+// 커밋·discard 로 대상이 목록에서 사라진 경우 (§3.3). 아무 파일이나 임의로
+// 보이지 않고 사실만 알린다.
+const GIT_DIFF_GONE_NOTE='선택한 파일이 목록에서 사라졌습니다';
+const GIT_DIFF_ERR={
+  bad_request:'잘못된 diff 요청입니다',
+  not_found:'파일을 찾을 수 없습니다',
+  not_a_git_repo:GIT_ERR_NOT_REPO,
+  git_missing:GIT_ERR_GIT_MISSING,
+};
