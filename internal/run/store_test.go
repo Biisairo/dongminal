@@ -414,3 +414,28 @@ func TestStore_CloseReportsOwnedResourcesOnly(t *testing.T) {
 		t.Fatalf("정리 대상은 등록된 것만이다: %+v", closed)
 	}
 }
+
+// FR-WKT-8a: Sweep 는 **끝난 Run 전용**이다. 열려 있는 Run 은 close 가 다뤄야
+// 한다 — 정리만 하고 상태를 남겨 두면 멤버가 아직 일하는 트리를 지우게 된다.
+func TestStore_SweepRefusesOpenRun(t *testing.T) {
+	s := newTestStore(t, "e")
+	rec, _ := s.Start(StartOptions{Objective: "x", Projection: Inline, Isolation: IsolationNone})
+
+	if _, err := s.Sweep(rec.ID); !errors.Is(err, ErrRunOpen) {
+		t.Fatalf("열린 Run 에 정리 재진입이 통과했다: %v", err)
+	}
+	if _, err := s.Sweep("없는-run"); !errors.Is(err, ErrUnknownRun) {
+		t.Fatalf("모르는 Run 의 사유가 다르다: %v", err)
+	}
+
+	if _, _, err := s.Close(rec.ID, true); err != nil {
+		t.Fatalf("close 실패: %v", err)
+	}
+	got, err := s.Sweep(rec.ID)
+	if err != nil {
+		t.Fatalf("닫힌 Run 의 정리 재진입이 거부됐다: %v", err)
+	}
+	if got.State != Closed {
+		t.Fatalf("정리가 상태를 바꿨다: %+v", got)
+	}
+}

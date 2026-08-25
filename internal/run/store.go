@@ -147,8 +147,10 @@ type fileBody struct {
 
 // 거부 사유는 타입으로 열거한다 (FR-PRE-6) — 조용한 성공도, 뭉뚱그린 오류도 아니다.
 var (
-	ErrUnknownRun        = errors.New("unknown_run")
-	ErrRunClosed         = errors.New("run_closed")
+	ErrUnknownRun = errors.New("unknown_run")
+	ErrRunClosed  = errors.New("run_closed")
+	// ErrRunOpen 은 정리 재진입(Sweep)을 아직 열려 있는 Run 에 쓴 경우다.
+	ErrRunOpen           = errors.New("run_open")
 	ErrSenderNotMember   = errors.New("sender_not_member")
 	ErrUnknownMember     = errors.New("unknown_member")
 	ErrRunMemberMismatch = errors.New("run_member_mismatch")
@@ -479,6 +481,25 @@ func (s *Store) Close(runID string, force bool) (Record, []Member, error) {
 	return out, pending, nil
 }
 
+// Sweep 는 이미 끝난 Run(closed·aborted)의 **정리 재진입**이다 (FR-WKT-8a).
+//
+// 상태를 바꾸지 않는다. 끝난 사실은 기록이고 정리가 그것을 고쳐 쓰지 않는다 —
+// aborted 가 closed 로 둔갑하면 왜 끝났는지 아는 유일한 근거가 사라진다. 미보고
+// 멤버 검사도 하지 않는다(FR-RUN-11): 기다릴 보고가 남아 있지 않다.
+func (s *Store) Sweep(runID string) (Record, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	idx := s.indexOf(runID)
+	if idx < 0 {
+		return Record{}, ErrUnknownRun
+	}
+	if s.runs[idx].State == Open {
+		return Record{}, ErrRunOpen
+	}
+	return s.runs[idx], nil
+}
+
 // WorktreeMark 는 정리 한 건의 결과다. Path 로 대상을 지목한다.
 type WorktreeMark struct {
 	Path    string
@@ -527,7 +548,9 @@ func (r Record) WorktreeTargets() []Worktree {
 	seen := map[string]bool{}
 	var out []Worktree
 	add := func(w *Worktree) {
-		if w == nil || w.Path == "" || seen[w.Path] {
+		// 이미 제거된 트리는 대상이 아니다 — 정리 재진입(FR-WKT-8a)이 사라진
+		// 경로를 다시 지우려 들면 없던 잔여물을 만들어 낸다.
+		if w == nil || w.Path == "" || w.Removed || seen[w.Path] {
 			return
 		}
 		seen[w.Path] = true

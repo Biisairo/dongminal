@@ -53,6 +53,9 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
 생략이 정상이다 — 남의 id 를 알아도 남의 몫을 보고할 수 없다.
 
 close 는 미보고 멤버가 있으면 거부하고 목록을 낸다. --force 로만 넘어간다.
+이미 끝난 Run(closed·aborted)에 --force 를 주면 **정리 전용**으로 동작한다 — 남은
+worktree 만 거두고 state·중단 사유는 그대로 둔다. 서버 재기동으로 aborted 된 Run 의
+트리는 이 경로로 지운다.
 
 격리 Run 의 정리 규칙: 작업 트리가 clean 이면 worktree 를 지우고 브랜치는 머지된
 경우에만 지운다. **dirty 면 지우지 않고 잔여물로 보고한다** — 사용자 작업을 조용히
@@ -456,12 +459,17 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 			Live   bool   `json:"live"`
 		} `json:"cleanup"`
 		Worktrees []runWorktree `json:"worktrees"`
+		Swept     bool          `json:"swept"`
 	}
 	if err := json.Unmarshal(raw, &rec); err != nil {
 		fmt.Fprintf(stderr, "dmctl: invalid close response: %v\n", err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "run=%s  state=%s\n", rec.ID, rec.State)
+	if rec.Swept {
+		fmt.Fprintf(stdout, "run=%s  state=%s  (정리 전용 — 상태는 바꾸지 않았다)\n", rec.ID, rec.State)
+	} else {
+		fmt.Fprintf(stdout, "run=%s  state=%s\n", rec.ID, rec.State)
+	}
 	if len(rec.Cleanup) > 0 {
 		fmt.Fprintln(stdout, "정리 대상 (에이전트 종료 후 dmctl close-tab --at <tabId>):")
 		for _, c := range rec.Cleanup {

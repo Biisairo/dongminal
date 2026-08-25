@@ -103,6 +103,8 @@ func writeRunError(w http.ResponseWriter, err error, extra map[string]any) {
 		status, name = http.StatusForbidden, run.ErrRunMemberMismatch.Error()
 	case errors.Is(err, run.ErrRunClosed):
 		status, name = http.StatusConflict, run.ErrRunClosed.Error()
+	case errors.Is(err, run.ErrRunOpen):
+		status, name = http.StatusConflict, run.ErrRunOpen.Error()
 	case errors.Is(err, run.ErrAlreadyReported):
 		status, name = http.StatusConflict, run.ErrAlreadyReported.Error()
 	case errors.Is(err, run.ErrToolAlreadyMember):
@@ -352,7 +354,10 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
 		return
 	}
-	rec, pending, err := s.Runs.Close(body.RunID, body.Force)
+	// 이미 끝난 Run 에 --force 를 주면 **정리 전용 진입**이다 (FR-WKT-8a).
+	// 상태는 그대로 두고 남은 worktree 만 거둔다 — epoch 펜싱으로 aborted 된
+	// Run 은 close 를 받지 못해 트리를 지울 경로가 아예 없었다.
+	rec, pending, sweep, err := s.closeOrSweep(body.RunID, body.Force)
 	if err != nil {
 		extra := map[string]any(nil)
 		if len(pending) > 0 {
@@ -380,13 +385,26 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 			residue++
 		}
 	}
-	log.Printf("[run] close id=%s members=%d force=%v worktrees=%d residue=%d",
-		rec.ID, len(rec.Members), body.Force, len(trees), residue)
+	log.Printf("[run] close id=%s members=%d force=%v sweep=%v worktrees=%d residue=%d",
+		rec.ID, len(rec.Members), body.Force, sweep, len(trees), residue)
 	writeJSON(w, map[string]any{
 		"id": rec.ID, "short": rec.Short, "state": rec.State,
 		"closedAt": rec.ClosedAt, "windowId": rec.WindowID, "cleanup": cleanup,
-		"worktrees": trees, "residue": residue,
+		"worktrees": trees, "residue": residue, "swept": sweep,
 	})
+}
+
+// closeOrSweep 는 close 요청을 두 진입 중 하나로 보낸다 (FR-RUN-11, FR-WKT-8a).
+// 종료된 Run 에 --force 가 없으면 종전대로 run_closed 로 거부된다.
+func (s *Server) closeOrSweep(runID string, force bool) (run.Record, []run.Member, bool, error) {
+	if force {
+		if cur, ok := s.Runs.Get(runID); ok && cur.State != run.Open {
+			rec, err := s.Runs.Sweep(runID)
+			return rec, nil, true, err
+		}
+	}
+	rec, pending, err := s.Runs.Close(runID, force)
+	return rec, pending, false, err
 }
 
 // tabIDOfTool finds the tab uuid that hosts a tool. Empty when the tool is not

@@ -451,11 +451,23 @@ git worktree add --no-track -b <branch> <path> [<base>]
 - **생성 실패의 롤백일 때만** `-D` 를 쓴다 — 사용자 작업이 없다는 것이 확실한 경우
 - `--keep-worktrees` 면 전부 보존한다
 
-> **알려진 구멍 (묶음 W 구현에서 확인, 미해소)**: 이 규칙의 진입점은 `run close`
-> 하나이고 close 는 `open` 인 Run 만 받는다. 따라서 epoch 펜싱으로 `aborted` 된 Run
-> (FR-RUN-5)의 worktree 는 기록에 남을 뿐 정리 경로가 없다. dirty 였다면 보존이
-> 정답이므로 실제 누수는 clean 인 경우뿐이고, 빈도가 낮아 이번 범위에 넣지 않았다.
-> 후속에서 `close --force` 를 종료된 Run 의 정리에도 열어 주는 형태가 후보다.
+> **개정 (2026-08-25) — FR-WKT-8a 로 해소.** 초판은 이 규칙의 진입점이 `run close`
+> 하나이고 close 가 `open` 인 Run 만 받는다는 이유로, epoch 펜싱으로 `aborted` 된 Run
+> (FR-RUN-5)의 worktree 에 정리 경로가 없다고 적었다. 아래에서 연다.
+
+**FR-WKT-8a** 종료된 Run(`closed`·`aborted`)의 worktree 도 정리할 수 있어야 한다.
+`run close --force` 는 그 Run 에 대해 **정리 전용 진입**(sweep)으로 동작한다:
+
+- Run 의 `state`·`closedAt`·`abortReason` 을 **바꾸지 않는다.** 끝난 사실은 기록이며,
+  정리가 그 기록을 고쳐 쓰지 않는다. 특히 `aborted` 가 `closed` 로 둔갑하면 왜 끝났는지
+  아는 유일한 근거가 사라진다
+- 미보고 멤버 검사(FR-RUN-11)는 하지 않는다. 이미 끝난 Run 이라 보고를 기다릴 대상이 없다
+- 정리 규칙·안전 가드·잔여물 보고는 FR-WKT-8/9/10/12 와 **동일**하다. 종료 경위가
+  달라도 무엇을 지워도 되는지의 판단은 같다
+- 이미 `removed` 로 기록된 트리는 대상이 아니다. 따라서 반복 호출은 남은 잔여물만 다시
+  보고한다(멱등)
+- `--force` 없이 종료된 Run 을 close 하면 **종전대로 거부**한다(`run_closed`). 열린 Run
+  에 대한 `--force` 의 뜻(FR-RUN-11 — 미보고 멤버를 넘어간다)은 그대로다
 
 **FR-WKT-9** 정리 대상은 **Run 이 만든 worktree 만**이다 (FR-RUN-10). 판정 근거는 Run
 레코드의 `members[].worktree` 다. 등록되지 않은 worktree 는 발견되더라도 건드리지 않는다.
@@ -641,6 +653,9 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 | TC-WKT-3 | FR-WKT-6 | 브랜치명 `-x` | 거부 |
 | TC-WKT-4 | FR-WKT-8 | clean 상태로 `run close` | worktree 제거, 브랜치 `-d` |
 | TC-WKT-5 | FR-WKT-8 | **dirty** 상태로 `run close` | 제거하지 않음 + 보고. 파일 보존 |
+| TC-WKT-5a | FR-WKT-8a | `aborted` Run 을 `close --force` | 정리 수행. `state=aborted` 유지, `abortReason` 보존 |
+| TC-WKT-5b | FR-WKT-8a | `aborted` Run 을 `--force` 없이 `close` | 거부(`run_closed`). 트리 무변경 |
+| TC-WKT-5c | FR-WKT-8a | 정리된 Run 에 `close --force` 재호출 | 이미 제거된 트리는 대상 제외(멱등) |
 | TC-WKT-6 | FR-WKT-9 | 등록되지 않은 worktree 존재 | 건드리지 않음 |
 | TC-WKT-7 | FR-WKT-10 | 저장소 자신·루트·`..` 경로 | 전부 거부 |
 | TC-WKT-8 | FR-WKT-11 | 비git 디렉터리에서 격리 Run | 명확한 실패. `none` 으로 낮추지 않음 |
@@ -742,3 +757,4 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 | 2026-08-25 | **묶음 P+A 구현 완료** — `internal/agentadapter` 신설(claude·codex 선언 + 훅 파서 + `LaunchLine`), `internal/run/preamble.go`(서버 조립), `GET /api/runs/preamble`, `dmctl run launch` / `run member --brief`. 착수 전 열려 있던 **프리앰블 조립 주체는 서버로 확정**했다(FR-PRE-1 주석에 근거 3개). 훅 파서 이동은 무동작 리팩터이며, 회귀 검출기인 `dmctl_activity_test.go` 를 **한 줄도 고치지 않고** 통과시키기 위해 옛 이름을 `_test.go` 스코프에서만 별칭으로 유지했다 — 프로덕션에 죽은 코드가 남지 않는다. `--brief` 를 Member 에 영속시켜 프리앰블을 **재조회 가능**하게 만들었다. 프롬프트 이스케이프를 큰따옴표+역슬래시에서 **홑따옴표 감싸기**로 바꿨고, 악성 brief(`$(...)`·백틱·`;`)로 실측해 셸이 인자 1개로 파싱하고 전개가 0건임을 확인했다. **FR-STA-4 2단계는 스펙에 남기고 구현만 보류**했다(사용자 확정) — 화면 패턴은 스테이터스라인 하나로 깨지며 FR-SKL-2 가 삭제하려는 fingerprint 와 같은 취약성이고, codex 패턴을 실측할 수 없어 추측을 코드에 넣지 않았다. Go 전량 통과, Playwright 183 통과 |
 | 2026-08-25 | **묶음 W 구현 완료** — `internal/worktree`(생성·제거·안전 가드·직렬화) + 서버 접합(`provisionRun`/`provisionMember`/`cleanupWorktrees`) + `dmctl run start --isolation\|--base` · `run close --keep-worktrees` + 스킬 §3.5. TC-WKT-1~9 를 RED 로 세운 뒤 구현했고, 파괴적 동작의 검출기 셋(dirty 보존·직렬화·격리 규칙)은 **반증으로 물리는지 확인했다** — `--force` 로 바꾸면 실패, 잠금을 빼면 실패, 스킬의 "격리 사유가 아니다"를 뒤집으면 실패. 구현 중 드러난 것: (1) **`short` 는 유일하지 않다** — uuid v7 의 앞 8자는 타임스탬프 상위 비트라 같은 기간의 Run 이 전부 겹친다. FR-WKT-3 을 `PathSlug`(앞 8 + 뒤 8)로 개정했고 회귀 테스트를 붙였다. (2) 격리 준비는 **레코드보다 먼저**여야 한다 — 경로가 uuid 파생이므로 id 를 먼저 정하고(`StartOptions.ID`/`MemberSpec.ID`), 생성이 실패하면 레코드가 아예 없어야 고아가 남지 않는다. (3) 정리 결과를 레코드에 영속해 `run status` 가 잔여물을 계속 말하게 했다. Go 전량 통과, Playwright 187 통과 2회 |
 | 2026-08-25 | **묶음 S 구현 완료** — `GET /api/tools/activity/{get,wait}` + `dmctl status` / `dmctl wait`. TC-STA-1~8 을 RED 로 세운 뒤 구현했고, e2e `skill-contract.spec.ts` 에 라이브 왕복 3건을 추가했다 (Go 전량 통과, Playwright 180 통과 2회 연속). FR-STA-4 2단계는 묶음 A 대기. 구현 중 발견해 고친 것: daemon 모드에서 liveness 확인이 데몬 RPC 라 매 tick 확인하면 30분 대기가 RPC 수만 건이 된다 → 상태 재평가 100ms / liveness 1초로 분리 (NFR-RUN-4) |
+| 2026-08-25 | **별건 정리 — FR-WKT-8a 신설.** epoch 펜싱으로 `aborted` 된 Run 의 worktree 에 정리 경로가 없던 구멍(묶음 W 인계)을 닫았다. `run close --force` 가 종료된 Run 에 대해 **정리 전용 진입**(sweep)으로 동작한다 — `state`·`closedAt`·`abortReason` 은 건드리지 않는다. `aborted` 가 `closed` 로 둔갑하면 왜 끝났는지 아는 유일한 근거가 사라지기 때문이다. 정리 규칙·안전 가드·잔여물 보고는 FR-WKT-8/9/10/12 를 그대로 쓴다. 멱등성은 `Record.WorktreeTargets` 가 이미 `removed` 인 트리를 제외하도록 해서 얻었다 — 사라진 경로를 다시 지우려 들면 **없던 잔여물**이 생긴다. `--force` 없는 종료 Run 의 close 는 종전대로 `run_closed` 거부이며, 열린 Run 에서의 `--force`(FR-RUN-11) 의미는 불변이다. TC-WKT-5a/5b/5c + dirty 보존 1건을 RED 로 세운 뒤 구현했다 (5b 는 처음부터 GREEN — 거부는 보존되어야 하는 동작이다) |
