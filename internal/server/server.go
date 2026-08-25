@@ -58,6 +58,10 @@ type Server struct {
 	// undo 가 무제한이 되는 경로를 만들지 않는다.
 	gitUndo gitUndoStore
 
+	// gitJobs 는 원격 작업(fetch/pull/push)의 수명을 쥔다 (FR-GIT-101·102).
+	// 제로값도 쓸 수 있다 — 첫 사용에 만들어지고, Git 이 없으면 만들지 않는다.
+	gitJobs gitJobHolder
+
 	started time.Time
 
 	mu      sync.Mutex

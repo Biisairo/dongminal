@@ -144,6 +144,47 @@ SSE 는 기존 `/api/commands/sse` 의 구현 패턴을 따른다. **새 브로�
 - 정적 검증: `internal/git`·`internal/server` 에 `password`·`token`·`passphrase`
   를 담는 필드·파라미터가 없음을 테스트로 고정한다.
 
+### 2.3.1 서버가 확정한 계약 2건 (구현 중 추가 — 클라이언트는 이것을 따른다)
+
+**① Publish 는 실행 전에 서버가 한 번 되묻는다** (FR-GIT-100 의 "그 사실을
+사용자에게 알린다"를 서버측에서 강제한다).
+
+upstream 이 없는 브랜치에 `POST /api/git/push {"repo":…}` 를 보내면 실행하지 않고
+**409 `publish_required`** 와 계획을 준다:
+
+```json
+{"error":"publish_required",
+ "plan":{"publish":true,"remote":"origin","branch":"no-upstream"}}
+```
+
+실행하려면 `{"repo":…,"publish":true}` 로 다시 보낸다. 클라이언트만 알리게 두면
+`dmctl git push` 가 upstream 을 조용히 만든다. `confirm` 은 `--force` 전용이며
+별개 필드다.
+
+**② 실패 정보는 즉시 응답이 아니라 `done` 이벤트의 job 에 있다.**
+작업이 아직 끝나지 않았으므로 즉시 응답의 job 에는 있을 수 없다.
+
+| 필드 | 뜻 | FR |
+|---|---|---|
+| `authRequired` | 인증이 필요해 실패했다 — 터미널에서 수행하도록 안내한다 | 104 |
+| `rejected` + `options` | push 가 거부됐다. `["fetch_rebase","fetch_merge","force_with_lease"]` — **순서가 우선순위이고 force 가 마지막이다** | 105 |
+| `stderrTail` | 실패 사유의 마지막 N줄 | 108 |
+
+`options` 를 화면에 그릴 때 **순서를 바꾸거나 force 를 강조하지 마라** —
+FR-GIT-105 가 "force 를 기본 제안하지 않는다" 로 요구하는 것이 이 순서다.
+
+SSE 형식:
+
+```
+event: line
+data: {"seq":1,"stream":"stderr","text":"Enumerating objects: 5, done."}
+...
+event: done
+data: {job}
+```
+
+재연결은 `GET /api/git/job/events?id=<id>&after=<seq>` 다.
+
 ### 2.4 클라이언트
 
 - Changes 탭 헤더의 Fetch/Pull/Push 버튼을 살린다 (5단계가 자리를 만들어 뒀다).

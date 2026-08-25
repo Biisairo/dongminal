@@ -182,6 +182,11 @@ func gitEnv() []string {
 		// 대화형 프롬프트로 프로세스가 매달리지 않게 한다. 자격증명은 dongminal 을
 		// 통과하지 않는다 (FR-GIT-104).
 		"GIT_TERMINAL_PROMPT=0",
+		// GIT_TERMINAL_PROMPT=0 만으로는 askpass 헬퍼가 **GUI 프롬프트**를 띄울 수
+		// 있다 — 그러면 프로세스는 보이지 않는 창을 기다리며 매달린다 (O10).
+		"GIT_ASKPASS=",
+		"SSH_ASKPASS=",
+		"SSH_ASKPASS_REQUIRE=never",
 		// status 폴링(FR-GIT-18~24)이 index.lock 을 잡아 사용자의 터미널 git 과
 		// 경합하지 않게 한다.
 		"GIT_OPTIONAL_LOCKS=0",
