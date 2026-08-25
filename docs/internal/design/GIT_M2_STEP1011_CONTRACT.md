@@ -15,6 +15,74 @@ GIT_SRS.md §3A.1·§3A.2 다. 검증은 V30·V31·V32·V33·V34·V35·V61.
 | `web/style.css` | 스테이징·커밋 스타일 |
 | `e2e/git-staging.spec.ts` · `e2e/git-commit.spec.ts` | **신규** |
 
+## 0.1 9단계가 이미 세워 둔 것 (그대로 쓴다 — 다시 만들지 마라)
+
+`71ed098` 에서 안전 정책의 Go 절반이 완성됐다. 10·11단계는 그 위에 얹는다.
+
+```go
+// internal/git/write.go
+type WriteSpec struct {
+    Argv        []string
+    Destructive bool   // 호출자가 선언한다 (§7.1 I5)
+    Stdin       string // 내용은 기록에 남지 않는다 (§7.1 I6)
+}
+func (s *Service) ExecWrite(ctx context.Context, dir string, spec WriteSpec) (Output, error)
+func WithWriteRunner(r WriteRunner) Option // 쓰기까지 격리하는 테스트가 쓴다
+func (o Output) StderrTail(n int) string   // FR-GIT-96. n<=0 이면 200줄
+
+// internal/git/destructive.go
+const ActionDiscard, ActionBranchDelete, ActionStashDrop, ActionTagDelete,
+      ActionResetHard, ActionForcePush, ActionRemoteRefDelete = …
+var DestructiveActions []string
+
+// internal/git/recovery.go
+type Hint struct { Seq uint64; AtUnixMs int64; Repo, Action string
+                   Targets, Values []string; Command, Note string }
+func (s *Service) AddHint(h Hint) Hint   // Seq 를 채워 돌려준다
+func (s *Service) Hints(n int) []Hint
+
+// internal/git/preflight.go
+type Block struct { Code, Reason, Fix string }
+type Warning struct { Code, Reason string }
+type Preflight struct { Blocks []Block; Warnings []Warning; GPGSign bool; Template string }
+func (s *Service) Preflight(ctx context.Context, repo string) (Preflight, error)
+const BlockIdentityMissing, BlockMergeInProgress, BlockRebaseInProgress,
+      BlockCherryPickInProgress, BlockRevertInProgress, WarnDetachedHead = …
+```
+
+**주의 셋:**
+
+1. **`WithRunner` 는 쓰기를 막아 주지 않는다.** 쓰기 경로까지 격리하는 테스트는
+   `WithWriteRunner` 를 함께 준다. 주지 않으면 실제 git 이 돌아 테스트가 저장소를
+   바꾼다.
+2. `guardWriteArgs` 의 허용 목록(`writeCommands`)에 `add`·`reset`·`rm`·`commit`·
+   `checkout`·`clean` 이 이미 있다. **목록을 늘릴 필요가 없다.**
+3. `Exec` 은 쓰기 명령을 실행하지 못한다. HEAD 존재 판정(`rev-parse --verify HEAD`)
+   같은 읽기는 `Exec` 으로, 나머지는 `ExecWrite` 로 간다.
+
+### 서버측 헬퍼 (재사용한다)
+
+`internal/server/handlers_git.go` 의 `gitJSON`·`gitFail`·`gitError`·`gitErrorCode`·
+`gitRepoParam`(repo 를 rev-parse 로 재확인 + `requested` 에코)·`gitTail`·
+`gitUnavailable`, 그리고 오류 코드 상수 `gitErrBadRequest`·`gitErrNotRepo`·
+`gitErrMissing`·`gitErrTimeout`·`gitErrUnavailable`·`gitErrFailed`·`gitErrNotFound`.
+**새로 만들지 마라.**
+
+### 캐시 무효화
+
+`Store` 는 200ms TTL 캐시를 갖는다 (`internal/git/store.go`). 쓰기 뒤 응답에
+실행 후 `status` 를 담을 때 **캐시된 값을 주면 안 된다** — 방금 만든 변경이
+반영되지 않는다. `Store` 에 무효화 진입점이 없으므로 이 단계에서 하나 더한다:
+
+```go
+// Invalidate 는 그 리포의 캐시를 만료시킨다. 쓰기 직후의 재조회가 방금 만든
+// 변경을 보지 못하면 화면이 거짓말을 한다 (FR-GIT-71).
+func (st *Store) Invalidate(repo string)
+```
+
+**`Observed` 의 마지막 관측값은 지우지 않는다** — 배지가 잠깐 사라지는 것보다
+낡은 값이 낫고, 곧 새 관측이 덮는다.
+
 ## 1. 스테이징 (10단계, FR-GIT-64~73)
 
 ### 1.1 서버
