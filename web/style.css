@@ -21,7 +21,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   display:flex;flex-direction:column;user-select:none;
 }
 .sb-title{padding:10px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
-#windows{flex:1;overflow-y:auto}
+#windows{flex:1 1 auto;min-height:0;overflow-y:auto}
 #windows::-webkit-scrollbar{width:4px}
 #windows::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
@@ -42,12 +42,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .si:hover .si-x{opacity:1}
 .si-x:hover{color:var(--danger);background:rgba(247,118,142,.2)}
 
-#add-window,#add-preset{
+#add-window,#add-preset,#git-add-repo{
   margin:0 8px 4px;padding:4px 8px;
   background:transparent;border:1px solid var(--border);border-radius:4px;
   color:var(--text-muted);font-size:11px;cursor:pointer;text-align:left;
 }
-#add-window:hover,#add-preset:hover{background:var(--accent-hover);color:var(--accent)}
+#add-window:hover,#add-preset:hover,#git-add-repo:hover{background:var(--accent-hover);color:var(--accent)}
 #add-preset{color:var(--text-dim);opacity:.7}
 #add-preset:hover{opacity:1}
 
@@ -643,3 +643,33 @@ body.mobile .sb-title{padding:14px 14px 8px}
 }
 .git-pending-name{color:var(--text-bright);font-size:14px}
 .git-pending-hint{color:var(--text-dim)}
+
+/* ── Git 사이드바 (FR-GIT-13~17) ── */
+/* FR-GIT-17: 두 목록이 서로를 굶기지 않는다. min-height:0 이 없으면 flex 자식이
+   내용 높이 아래로 줄어들지 않아 한쪽이 사이드바 밖으로 밀린다. */
+#git-repos{flex:0 1 auto;min-height:0;max-height:40%;overflow-y:auto}
+#git-repos::-webkit-scrollbar{width:4px}
+#git-repos::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.git-sec-title{border-top:1px solid var(--border)}
+.git-repo{display:flex;align-items:center;gap:6px;height:26px;padding:0 10px;font-size:12px;cursor:pointer;transition:background .1s}
+.git-repo:hover{background:var(--accent-hover)}
+.git-repo.active{background:var(--accent-active)}
+.git-repo.active .git-repo-name{color:var(--text-bright);font-weight:500}
+/* 저장소가 아닌 항목은 흐리게 — 클릭 리스너 자체가 없다 (FR-GIT-10·11) */
+.git-repo.norepo{color:var(--text-dim);cursor:default}
+.git-repo.norepo:hover{background:transparent}
+.git-repo-icon{flex-shrink:0;font-size:10px;color:var(--text-muted)}
+.git-repo-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.git-badge{
+  flex-shrink:0;min-width:16px;padding:0 4px;border-radius:8px;text-align:center;
+  font-size:10px;background:var(--accent-subtle);color:var(--accent);
+}
+/* O4: 활성 리포가 아닌 배지는 마지막 관측값일 뿐이다 */
+.git-badge.stale{background:transparent;color:var(--text-dim)}
+.git-repo-x{width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-muted);opacity:0;cursor:pointer;border-radius:2px;flex-shrink:0}
+.git-repo:hover .git-repo-x{opacity:1}
+.git-repo-x:hover{color:var(--danger);background:var(--border)}
+/* 모바일 드로어는 전체가 스크롤된다 — 비율 상한이 목록을 두 줄로 눌러 버린다 */
+body.mobile #git-repos{max-height:none}
+body.mobile .git-repo{height:40px;font-size:13px}
+body.mobile .git-repo-x{opacity:1;width:24px;height:24px;font-size:14px}

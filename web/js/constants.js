@@ -72,3 +72,16 @@ const GIT_VIEWS=[
 ];
 const GIT_PENDING_HINT='이후 마일스톤에서 제공됩니다';
 const GIT_NO_REPO_HINT='리포를 선택하세요';
+
+// ── 좌측 GIT 섹션 (GIT_SRS §3.2 / FR-GIT-9~17) ──
+
+// GIT 섹션 목록 갱신 주기(ms). 배지는 서버의 마지막 관측값이라 자주 부를 이유가
+// 없다 — 이 호출은 git 을 실행하지 않는다 (FR-GIT-24).
+const GIT_REPOS_POLL_MS=3000;
+
+// follow 대상이 저장소가 아닐 때의 표시. 마지막 유효 리포를 남기지 않는다 (FR-GIT-10).
+const GIT_NOT_REPO_LABEL='저장소 아님';
+
+// FR-GIT-12: M1 에는 공통 다이얼로그 규약이 없다 (M5 묶음 P). prompt·alert 를 쓴다.
+const GIT_ADD_REPO_PROMPT='추가할 리포 경로 (절대경로)';
+const GIT_PIN_FAIL_LABEL='리포 추가 실패';

@@ -23,6 +23,8 @@ class App {
     this._bgModalOpen=false;
     this._bgModalKey=null; // 모달 Esc 핸들러 (열려 있을 때만 부착)
     this._modKbd=null; // {ctrl:bool|'lock', alt:bool|'lock'}
+    this._gitRepos=null; // GIT 섹션 목록 {follow,pinned} (FR-GIT-13)
+    this._gitOff=false; // git 표면이 503 이면 섹션 전체를 숨긴다
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
     this.gitPanel=new GitPanel(this);
@@ -168,6 +170,7 @@ class App {
       }
     }
     this._applyFocusOverlay();
+    this._initGitSection();
   }
 
 
@@ -1183,6 +1186,98 @@ class App {
     return s;
   }
 
+  // ── 좌측 GIT 섹션 (FR-GIT-9~17) ──
+
+  // GIT 섹션 배선. 진입점은 정적 요소이므로 리스너는 여기서 한 번만 붙인다.
+  _initGitSection(){
+    const add=document.getElementById('git-add-repo');
+    if(add) add.addEventListener('click',()=>this._gitAddRepo());
+    this._startGitReposPoll();
+  }
+
+  // 목록은 주기적으로 갱신하되 탭이 숨겨졌으면 건너뛴다 — 보이지 않는 섹션을
+  // 위해 요청을 살 이유가 없다 (_startStatsPoll 의 선례, FR-STAT-17).
+  _startGitReposPoll(){
+    if(this._gitReposInterval)clearInterval(this._gitReposInterval);
+    if(!this._gitReposVisHook){
+      this._gitReposVisHook=true;
+      document.addEventListener('visibilitychange',()=>{
+        if(!document.hidden)this._gitReposRefresh();
+      });
+    }
+    this._gitReposInterval=setInterval(()=>{
+      if(document.hidden)return;
+      this._gitReposRefresh();
+    },GIT_REPOS_POLL_MS);
+    this._gitReposRefresh();
+  }
+
+  // _gitFocusToolId 는 follow 가 딛는 도구다 — 포커스된 터미널 칸의 도구.
+  // 없으면 빈 문자열이고 서버는 자기 cwd 를 쓴다.
+  _gitFocusToolId(){const p=this._focusedTerminal();return p?p.id:''}
+
+  // _gitReposRefresh 는 GIT 섹션의 목록을 갱신한다. 실패하면 이전 목록을 유지한다 —
+  // 네트워크가 한 번 튀었다고 섹션이 비면 안 된다.
+  async _gitReposRefresh(){
+    let r;
+    try{r=await fetch('/api/git/repos?tool='+encodeURIComponent(this._gitFocusToolId()))}catch{return}
+    if(r.status===503){
+      // git 이 없거나 서비스가 구성되지 않은 환경이다. 섹션 전체를 숨긴다.
+      this._gitOff=true;this.renderer._rGitSection();return;
+    }
+    if(!r.ok) return;
+    let d;
+    try{d=await r.json()}catch{return}
+    this._gitOff=false;this._gitRepos=d;
+    // 전체 render() 를 부르지 않는다 — 터미널 재부착 비용이 크다.
+    this.renderer._rGitSection();
+  }
+
+  // FR-GIT-12: 경로를 물어 핀한다. M1 에는 공통 다이얼로그가 없으므로 prompt 를
+  // 쓴다 (다이얼로그 규약은 M5 묶음 P).
+  _gitAddRepo(){
+    const v=window.prompt(GIT_ADD_REPO_PROMPT,this._cwd||'');
+    if(v===null) return;
+    const path=v.trim(); if(!path) return;
+    this._gitPin(path);
+  }
+
+  // _gitPin 은 경로를 검증해 핀한다. 저장소가 아니면 사유를 보인다 (FR-GIT-12) —
+  // 조용히 실패하지 않는다.
+  async _gitPin(path){
+    if(!path) return false;
+    let r,d;
+    try{
+      r=await fetch('/api/git/repos/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});
+      d=await r.json();
+    }catch(err){window.alert(GIT_PIN_FAIL_LABEL+': '+err);return false}
+    if(!r.ok){window.alert(GIT_PIN_FAIL_LABEL+' ('+(d&&d.error)+'): '+(d&&d.message));return false}
+    this._gitPinsApply(d.pinned);
+    await this._gitReposRefresh();
+    return true;
+  }
+
+  async _gitUnpin(path){
+    if(!path) return false;
+    let r,d;
+    try{
+      r=await fetch('/api/git/repos/unpin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});
+      d=await r.json();
+    }catch{return false}
+    if(!r.ok) return false;
+    this._gitPinsApply(d.pinned);
+    await this._gitReposRefresh();
+    return true;
+  }
+
+  // 핀은 workspace.json 최상위 git.pinned 에 산다 (O1). 서버가 고친 값을 로컬
+  // 사본에도 반영해 둔다 — 다음 _save() 의 PUT 이 방금 만든 핀을 지우지 않게.
+  _gitPinsApply(pinned){
+    if(!Array.isArray(pinned)) return;
+    if(!this.ws.git) this.ws.git={};
+    this.ws.git.pinned=pinned;
+  }
+
   async delWindow(sid){
     const i=this.ws.windows.findIndex(s=>s.id===sid);
     if(i<0) return;
@@ -1605,6 +1700,8 @@ class App {
     });
     this._researchIfOpen();
     this._updateCwd();
+    // 칸 포커스가 바뀌면 follow 대상도 바뀔 수 있다 (FR-GIT-9).
+    this._gitReposRefresh();
     this._updateStatusBar();
     this._save();
   }
@@ -1632,7 +1729,13 @@ class App {
           if(res.status===409){
             try{
               const gr=await fetch('/api/workspace');
-              if(gr.ok) this.wsETag=gr.headers.get('ETag')||gr.headers.get('Etag')||null;
+              if(gr.ok){
+                this.wsETag=gr.headers.get('ETag')||gr.headers.get('Etag')||null;
+                // git.pinned 는 서버가 권위로 쓴다 (FR-GIT-11). 409 재시도가 우리
+                // 본문으로 덮으면 핀이 사라진다 — 서버의 git 을 통째로 채택한다.
+                const rem=await gr.json();
+                if(rem&&rem.git) this.ws.git=rem.git;
+              }
             }catch{}
             this._savePending=true;
             continue;

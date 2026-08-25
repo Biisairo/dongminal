@@ -15,7 +15,7 @@ class Renderer {
       this.app._researchIfOpen();
     }
     this.app._applyMobileMode();
-    this._rSidebar();this._rTopbar();this._rLayout();
+    this._rSidebar();this._rGitSection();this._rTopbar();this._rLayout();
     this.app._updateCwd();
     this.app._updateStatusBar();
     // Apply window focus overlay after every render so the DOM is
@@ -49,6 +49,54 @@ class Renderer {
       d.addEventListener('dragend',()=>{this.app._drag=null;d.classList.remove('dragging');el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'))});
       el.appendChild(d);
     }
+  }
+
+  // FR-GIT-13: 좌측 GIT 섹션. 데이터는 app._gitRepos 다 — 없으면 본문만 비운다.
+  _rGitSection(){
+    const el=document.getElementById('git-repos'); if(!el) return;
+    const title=document.querySelector('#sidebar .git-sec-title');
+    const add=document.getElementById('git-add-repo');
+    // git 이 없는 환경에서 빈 섹션이 자리를 차지하지 않게 한다.
+    const off=this.app._gitOff?'none':'';
+    el.style.display=off;
+    if(title)title.style.display=off;
+    if(add)add.style.display=off;
+    el.innerHTML='';
+    const d=this.app._gitRepos; if(!d) return;
+    if(d.follow) el.appendChild(this._rGitRepo(d.follow,true));
+    for(const p of d.pinned||[]) el.appendChild(this._rGitRepo(p,false));
+  }
+
+  // FR-GIT-9~11·14·15: follow 한 줄 + 핀 항목. 저장소가 아니면 흐리게 보이고
+  // 클릭 리스너를 달지 않는다 — 핀은 × 로 지울 수 있어야 하므로 남겨 둔다.
+  _rGitRepo(e,follow){
+    const path=e.path||'';
+    const active=!!path&&this.app.gitPanel.repo===path;
+    const d=document.createElement('div');
+    d.className='git-repo '+(follow?'follow':'pinned')+(e.isRepo?'':' norepo')+(active?' active':'');
+    if(path) d.dataset.gitRepo=path;
+    d.innerHTML='<span class="git-repo-icon"></span><span class="git-repo-name"></span>';
+    d.querySelector('.git-repo-icon').textContent=follow?'⟳':'📌';
+    // follow 는 마지막 유효 리포를 남기지 않는다 (FR-GIT-10) — 사유를 title 로 보인다.
+    d.querySelector('.git-repo-name').textContent=e.isRepo?e.name:(follow?GIT_NOT_REPO_LABEL:e.name);
+    d.title=e.isRepo?path:(e.reason||'')+' — '+(e.cwd||path);
+    // 배지는 서버의 마지막 관측값이다. 0 을 보일 이유는 없다 (FR-GIT-14).
+    const b=e.badge;
+    if(b&&b.total>0){
+      const s=document.createElement('span');
+      // O4: 활성 리포가 아니면 흐리게 하고 관측 시각을 알린다.
+      s.className='git-badge'+(active?'':' stale');
+      s.textContent=b.total;
+      if(!active) s.title='최신 아님 (마지막 관측: '+new Date(b.observedAtUnixMs).toLocaleTimeString()+')';
+      d.appendChild(s);
+    }
+    if(!follow){
+      const x=document.createElement('span'); x.className='git-repo-x'; x.textContent='×';
+      x.addEventListener('click',ev=>{ev.stopPropagation();this.app._gitUnpin(e.path)});
+      d.appendChild(x);
+    }
+    if(e.isRepo&&path) d.addEventListener('click',()=>this.app.openGitWindow(path));
+    return d;
   }
 
   _rTopbar(){
