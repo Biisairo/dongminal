@@ -2,32 +2,72 @@
 
 ## 패키지 레이아웃
 
+`internal/` 은 **프로세스 축**으로 묶여 있다. 판정 기준은 "링크되냐"가 아니라
+**"어느 프로세스가 실제로 실행하냐"** 다 — 단일 바이너리라 링크 클로저는 네 프로세스가
+모두 같아서 그것으로는 아무것도 갈리지 않는다. 둘 이상이 실행하는 것만 `shared/` 다.
+근거와 실측은 [PACKAGE_RESTRUCTURE_SRS.md](./PACKAGE_RESTRUCTURE_SRS.md) §2.1.
+
 ```
-cmd/dongminal/         # composition root (main)
+cmd/dongminal/           # composition root (main) — 진입점 판별 + 의존 조립
 internal/
-  adapters/            # internal/{server,shared/workspace} → internal/webserver/seam/toolaccess 인터페이스 브리지
-  agentadapter/        # 에이전트별 선언 테이블 (기동·탐지·프롬프트/정책 주입·훅 파서·종료)
-  clientpid/           # 원격 TCP(remoteAddr) → client PID (ps/lsof)
-  migrate/             # v1 → v2 엔티티 스키마 1회성 변환 (진입점: `./dongminal migrate`)
-  outbuf/              # PTY 출력 바운디드 버퍼 (Stream — readPTY 와 WS/HTTP 리더 통합)
-  run/                 # Run(오케스트레이션 실행) 레코드 — runs.json 저장소 + 투영/격리 타입 + 멤버 프리앰블
-  runtime/             # helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
-    shellhooks/        # bash-hook.sh, zdotdir/.zshrc (실제 파일)
-  runtimebin/          # dmctl/edit/download/detach multi-call CLI 구현
-  server/              # HTTP/WS/SSE 라우팅, ToolManager, CommandHub, settingsStore
-  toolaccess/          # 도구(PTY)·워크스페이스·커맨드 허브 접합면 인터페이스
-  sysstat/             # 상태바 지표를 커널에서 직접 읽는다 (cgo 격리 — mach host_statistics)
-  toolline/            # dmctl 공용 한 줄 렌더러 (byte-level 동일 출력 보장)
-  uuid/                # 엔티티 uuid(UUID v7) 생성·파싱
-  workspace/           # workspace.json 인덱싱·resolve·영속화 (Manager + FilePersister)
-  worktree/            # Run 격리의 git worktree 생성·정리 + 안전 가드 (파괴적 동작의 유일한 경로)
-web/                   # 프론트엔드 자산 (HTML/CSS/JS) + embed.FS()
-scripts/               # build.sh — 빌드 전용. 운영 동작은 바이너리의 액션 (internal/ctl/cli)
-.env / .env.example    # start.sh 가 자동 로드하는 환경변수(PORT, BINARY, LOG, DONGMINAL_HOME)
+  helper/                # ① dmctl/edit/download/detach 프로세스
+    runtimebin/          #   multi-call CLI 구현 (dmctl notify·activity 포함)
+    toolline/            #   dmctl 공용 한 줄 렌더러 (byte-level 동일 출력 보장)
+  daemon/                # ② dongminald 프로세스 — PTY 를 소유한다
+    boot/                #   데몬 진입점 (Run). 웹 서버를 재시작해도 세션이 살아남는 이유
+    ipc/                 #   PanedServer — Unix socket accept 루프 (연결 하나를 직렬 처리)
+  webserver/             # ③ 웹 서버 프로세스
+    gitapi/              #   /api/git/* 핸들러 48개 (GitServer). 라우트 테이블을 스스로 소유
+    hub/                 #   CommandHub·SSE 브로커 · FocusRegistry · AttnTracker
+    toolclient/          #   ToolClient — 데몬에 붙는 IPC 클라 (재접속 supervisor 포함)
+    seam/
+      adapters/          #     toolaccess 인터페이스 ↔ 구체 타입 브리지
+      toolaccess/        #     도구(PTY)·워크스페이스·커맨드 허브 접합면 인터페이스
+      clientpid/         #     원격 TCP(remoteAddr) → client PID (ps/lsof)
+    domain/
+      git/               #     git 실행의 유일한 경로. 아래 5패키지 (§git 절)
+        core/            #       Service + 두 초크포인트(Exec, ExecWrite) + guard·errors·record
+        query/           #       조회 — Exec 만 쓴다
+        write/           #       변경 — ExecWrite 만 쓴다
+        store/           #       TTL + single-flight 캐시
+        jobs/            #       원격 작업(fetch/pull/push) 잡 큐
+      run/               #     Run 레코드 — runs.json + 투영/격리 타입 + 멤버 프리앰블
+      worktree/          #     Run 격리의 git worktree 생성·정리 + 안전 가드
+      sysstat/           #     상태바 지표를 커널에서 직접 읽는다 (cgo 격리)
+  ctl/                   # ④ 제어 CLI 프로세스
+    cli/                 #   start/stop/health/migrate 디스패치 + 옵션 해석
+    migrate/             #   v1 → v2 엔티티 스키마 1회성 변환
+  shared/                # 둘 이상의 프로세스가 실행한다
+    workspace/           #   ①②③ — workspace.json 인덱싱·resolve·영속화
+    uuid/                #   ②③④ — 엔티티 uuid(UUID v7) 생성·파싱
+    toolhub/             #   ②③  — ToolManager·PTY·브라우저 WS·주의 알림 탐지(OSC/idle)
+    toolipc/             #   ②③  — paned 와이어 포맷만 (25줄)
+    outbuf/              #   ②③  — PTY 출력 바운디드 버퍼 (Stream)
+    runtime/             #   ②③  — helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
+      shellhooks/        #     bash-hook.sh, zdotdir/.zshrc (실제 파일)
+      agentplugin/       #     세션 스코프 주입 플러그인 (skills/team, skills/workflow)
+    agentadapter/        #   ①③  — 에이전트별 선언 테이블 (기동·탐지·주입·훅 파서·종료)
+  server/                # ③ HTTP/WS/SSE 라우팅 + settingsStore (분할 잔여 — 아래 주석)
+web/                     # 프론트엔드 자산 + embed.FS()
+  js/core/               #   App 클래스 (app.js + 주제별 app-*.js 13) + constants·helpers·main
+  js/ui/                 #   themes·renderer·term-pane·input-binding·file-editor
+  js/git/                #   git 패널 11파일
+e2e/                     # Playwright 스펙 + git 픽스처(git_fixture.sh)
+scripts/                 # build.sh — 빌드 전용. 운영 동작은 바이너리의 액션 (internal/ctl/cli)
 docs/
-  internal/            # 개발자 문서 (이 파일)
-  external/            # 사용자 문서
+  internal/              # 개발자 문서 (이 파일)
+  external/              # 사용자 문서
 ```
+
+**`internal/server` 가 프로세스 축 밖에 남아 있는 것은 미완이다.** 실질은
+`webserver/httpapi` 이고, 디렉터리 이동만 하면 축이 예외 없이 완성된다. 핸들러
+추가 분할(`handlers_api.go` 701줄)과 함께 다룰 문제로 미뤄 뒀다 —
+PACKAGE_RESTRUCTURE_SRS §5 비목표 #4.
+
+**프론트엔드는 번들러가 없다.** `index.html` 이 `<script>` 로 원본을 순서대로 로드하므로
+**로드 순서가 곧 의존성**이다. `app-*.js` 는 `Object.assign(App.prototype, …)` 로 클래스를
+확장하므로 `app.js` 뒤, `main.js` 앞이어야 한다. `app.js` 본체에 남은 접근자 11개는
+`Object.assign` 이 getter 를 값으로 복사하기 때문에 옮길 수 없다.
 
 `internal/` 는 Go 언어 레벨에서 외부 import 를 막아 캡슐화를 강제한다. 외부 의존성이 필요한 모듈은 의도적으로 `internal/` 밖(현재는 `web/` 만 해당)으로 뺀다.
 
@@ -461,7 +501,7 @@ worktree 조작은 **직렬화**한다. 공용 common-dir 을 건드려 병렬 �
 fingerprint·수동 `sleep` 루프·삭제된 자산 참조·손으로 조립한 기동줄·필수 절차의
 부재. 임베드된 트리를 직접 읽으므로 배포되는 것과 검사 대상이 같다.
 
-## 커맨드 브로드캐스트 (`internal/server/commands.go`)
+## 커맨드 브로드캐스트 (`internal/webserver/hub/commands.go`)
 
 `CommandHub` 는 SSE 구독자 집합과 버퍼 크기 16 의 채널을 관리. `POST /api/commands` 로 들어온 action 을 `allowedCmdActions` 화이트리스트로 검증 후 구독자 전원에게 브로드캐스트. 버퍼가 꽉 차면 해당 구독자에 한해 드롭 + `[cmd] subscriber channel full` 로그.
 
@@ -474,6 +514,43 @@ fingerprint·수동 `sleep` 루프·삭제된 자산 참조·손으로 조립한
 `dmctl` 은 이 중 `detachTab`·`restoreTool` 을 제외한 나머지를 서브커맨드로 노출한다. 그 둘은 `toolId` 를 대상 지정자로 받아 `detach` CLI 전용 경로다.
 
 이 화이트리스트는 생산자(브라우저 `_execRemote`, `dmctl`, `detach`)와 대조 검증된다 (`internal/server/commands_browser_test.go`). 생산자가 처리하는 action 이 여기 없으면 `POST /api/commands` 가 400 으로 거부해 브라우저 코드에 도달하지 못하는데, 스텁 서버로 테스트하는 CLI 쪽은 그 결함을 볼 수 없다.
+
+## git 실행 계층 (`internal/webserver/domain/git`)
+
+저장소의 git 실행은 **이 패키지 밖에서 일어나지 않는다** (FR-GIT-1). 그 규칙을
+`static_test.go` 가 저장소 전체를 훑어 강제한다 — 허용 목록은 이 패키지와
+`domain/worktree` 둘뿐이다.
+
+패키지 안에는 **초크포인트가 둘** 있고, 그 둘이 5분할의 경계를 정한다:
+
+| 초크포인트 | 위치 | 가드 | 적용 |
+|---|---|---|---|
+| `core.Service.Exec` | `core/exec.go` | `guardArgs` → `readCommands` 화이트리스트 | 타임아웃 · 출력상한 · 기록 |
+| `core.Service.ExecWrite` | `core/write.go` | `guardWriteArgs` | 〃 + `Destructive` 선언을 기록에 남긴다 |
+
+```
+core ←        의존 없음. Service · 두 초크포인트 · guard · errors · redact · record
+query ← core                 조회. Exec 만 쓴다
+write ← core, query          변경. ExecWrite 만 쓴다. 복합 함수가 읽기를 query 에서 얻는다
+store ← core, query          TTL + single-flight 캐시
+jobs  ← core                 원격 작업 잡 큐
+```
+
+의존은 단방향이며 순환이 없다 (`go list` 실측). **`execGit` 은 `core` 밖으로 나가지
+않는다** — 그래서 우회가 구조적으로 불가능하다. `write` 가 읽기를 필요로 할 때
+`s.Exec` 을 직접 부르지 않고 `query` 를 부르는 이유가 이것이다: 읽기는 `query` 안에서
+`Exec` 을 지나므로 가드가 그대로 걸린다.
+
+**`*Service` 메서드가 아니라 자유 함수다.** Go 는 타입의 메서드를 그 타입을 선언한
+패키지에만 둘 수 있어서, 조회·변경을 갈라내려면 `func StatusOf(s *core.Service, …)`
+형태가 강제된다. 결과 타입이 이미 `Status`·`Signature`·`Preflight` 같은 낱말을 쓰고
+있어 함수 5개에 `Of` 접미가 붙었다.
+
+HTTP 표면은 `webserver/gitapi` 다. 그쪽도 같은 이유로 `*Server` 가 아니라
+`*GitServer` 메서드이며, 넓은 `Server` 대신 인터페이스 셋(`WorkspaceStore`·
+`Broadcaster`·`ToolLocator`)의 메서드 네 개만 요구한다.
+
+자세히는 [PACKAGE_RESTRUCTURE_SRS.md](./PACKAGE_RESTRUCTURE_SRS.md) §2.3, §3.9, §8.6.
 
 ## 어댑터 패턴
 
