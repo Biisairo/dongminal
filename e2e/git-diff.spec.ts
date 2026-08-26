@@ -78,6 +78,12 @@ const selectFile = (page: Page, group: string, path: string) =>
     [group, path]
   );
 
+// diff 의 추가·삭제 줄 배경. 색을 테스트가 발명하지 않으려면 **읽어서 비교**해야
+// 한다 — 기대값을 적으면 하드코딩 금지(FR-GIT-119)를 테스트가 어긴다.
+const bgOf = (page: Page, cls: string) =>
+  diffEditor(page).locator('.' + cls).first()
+    .evaluate((el) => getComputedStyle(el).backgroundColor);
+
 test.describe('묶음 F — Diff 뷰', () => {
   test('D1 (V26): 파일 단일 클릭이 미리보기를 채운다', async ({ page }) => {
     const repo = fx('basic');
@@ -309,4 +315,56 @@ test.describe('묶음 F — Diff 뷰', () => {
     await expect(diffEditor(page)).toContainText('one');
     await expect(diff(page).locator('.git-diff-note')).toContainText('삭제된 파일');
   });
+  // ── D11 — FR-GIT-119: diff 색은 테마 팔레트에서 파생한다 (V47 과 같은 결) ──
+  //
+  // 판정은 "무슨 색인가" 가 아니다. 팔레트에서 green ↔ red 의 자리를 맞바꾸면
+  // 추가·삭제 색이 **정확히 뒤바뀌어야** 한다 — 두 색이 그 두 토큰에서 왔다는
+  // 증거이고, 색 리터럴을 테스트에 두지 않는 방법이다.
+  test('D11 (V47·FR-GIT-119): 테마를 바꾸면 diff 의 추가·삭제 색이 따라 바뀐다', async ({ page }) => {
+    const repo = copyFx('basic', 'd11');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await expect(row(page, 'changes', 'tracked.txt')).toBeVisible({ timeout: 10000 });
+
+    // 한 줄을 고쳐 추가와 삭제가 한 화면에 함께 나오게 한다 (index 쪽은 "one").
+    writeFileSync(join(repo, 'tracked.txt'), 'ONE\ntwo\n');
+    await row(page, 'changes', 'tracked.txt').dblclick();
+    await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
+
+    const ins = () => bgOf(page, 'line-insert');
+    const del = () => bgOf(page, 'line-delete');
+    await expect.poll(ins, { timeout: 20000 }).toMatch(/^rgb/);
+    await expect.poll(del, { timeout: 20000 }).toMatch(/^rgb/);
+    const ins0 = await ins();
+    const del0 = await del();
+    expect(ins0, '추가와 삭제가 같은 색이다').not.toBe(del0);
+
+    // ① 팔레트에서 두 색의 자리를 바꾸면 두 색이 서로 뒤바뀐다.
+    await page.evaluate(() => {
+      const w = window as any;
+      const t = w.getCurrentTheme();
+      const term = Object.assign({}, t.terminal);
+      const swap = term.green; term.green = term.red; term.red = swap;
+      w.customTheme = { mode: t.mode, ui: t.ui, terminal: term };
+      w.applyThemeObj(w.customTheme);
+    });
+    await expect.poll(ins, { timeout: 10000 }).toBe(del0);
+    expect(await del()).toBe(ins0);
+
+    // ② 실제 테마 전환에서도 따라 바뀐다. 이름을 박지 않고 **지금과 다른 green**
+    //    을 가진 것을 그 자리에서 고른다 — 앞선 실행이 남긴 테마와 같은 것을
+    //    고르면 "바뀌었는지" 를 볼 수 없다.
+    //    THEMES 는 고전 스크립트의 const 라 window 프로퍼티가 아니다 — 문자열
+    //    평가로 페이지의 전역 스코프에서 읽는다. customTheme 을 비우는 것만으로는
+    //    모자라다: getCurrentTheme() 은 currentThemeName 을 딛는다.
+    const picked = await page.evaluate<string>(
+      '(function(){' +
+      'var cur=getCurrentTheme().terminal.green.toLowerCase();' +
+      'var n=Object.keys(THEMES).find(function(k){' +
+      'return THEMES[k].terminal.green.toLowerCase()!==cur});' +
+      'customTheme=null;currentThemeName=n;applyThemeObj(THEMES[n]);return n})()');
+    expect(picked, '팔레트가 다른 테마가 없다').toBeTruthy();
+    await expect.poll(ins, { timeout: 10000 }).not.toBe(del0);
+  });
+
 });

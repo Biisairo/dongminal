@@ -46,6 +46,12 @@ const LANG_MAP = {
 const MONACO_THEME = 'dongminal';
 const MONACO_THEME_FALLBACK = 'vs-dark';
 
+// diff 의 추가·삭제 색은 **현재 테마의 터미널 팔레트**(green·red)에서 파생한다 —
+// 색을 하드코딩하지 않는다 (FR-GIT-119, V47). 여기 두는 것은 색이 아니라 배경과
+// 섞는 비율이다: 줄 배경은 옅게, 낱말 배경은 그 위에서 구분되도록 진하게.
+const MONACO_DIFF_LINE_MIX = 0.2;
+const MONACO_DIFF_TEXT_MIX = 0.36;
+
 // 진행 중인 로드 Promise. 대기 중인 호출자들이 이것을 공유한다.
 let monacoLoading = null;
 
@@ -88,6 +94,11 @@ function monacoTheme() {
     const [br, gr, bb] = monacoRGB(bg);
     const lum = (0.299 * br + 0.587 * gr + 0.114 * bb) / 255;
 
+    // 팔레트를 얻지 못하면 전경색으로 물러선다 — 없는 색을 발명하지 않는다.
+    const term = (typeof getCurrentTheme === 'function' && (getCurrentTheme() || {}).terminal) || {};
+    const add = term.green || fg;
+    const del = term.red || fg;
+
     monaco.editor.defineTheme(MONACO_THEME, {
       base: lum < 0.5 ? 'vs-dark' : 'vs',
       inherit: true,
@@ -100,6 +111,16 @@ function monacoTheme() {
         'editor.selectionBackground': monacoMix(fg, bg, 0.15),
         'editorLineNumber.foreground': monacoMix(fg, bg, 0.4),
         'editorLineNumber.activeForeground': fg,
+        // diffEditor.* 를 매핑하지 않으면 Monaco 의 기본 초록·빨강이 그대로 남아
+        // 테마를 바꿔도 diff 색만 따라오지 않는다 (FR-GIT-119).
+        'diffEditor.insertedLineBackground': monacoMix(add, bg, MONACO_DIFF_LINE_MIX),
+        'diffEditor.removedLineBackground': monacoMix(del, bg, MONACO_DIFF_LINE_MIX),
+        'diffEditor.insertedTextBackground': monacoMix(add, bg, MONACO_DIFF_TEXT_MIX),
+        'diffEditor.removedTextBackground': monacoMix(del, bg, MONACO_DIFF_TEXT_MIX),
+        'diffEditorGutter.insertedLineBackground': monacoMix(add, bg, MONACO_DIFF_LINE_MIX),
+        'diffEditorGutter.removedLineBackground': monacoMix(del, bg, MONACO_DIFF_LINE_MIX),
+        'diffEditorOverview.insertedForeground': add,
+        'diffEditorOverview.removedForeground': del,
       },
     });
     return MONACO_THEME;
