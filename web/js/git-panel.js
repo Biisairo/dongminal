@@ -1330,6 +1330,47 @@ function gitShQuote(p){
 }
 
 /**
+ * 바이트 수를 사람이 읽는 한 조각으로 만든다. 나누는 단위는 상태바·전송량 표시와
+ * 같은 1024 계열이다 — 같은 화면 안에서 두 계산법이 섞이면 값이 어긋나 보인다.
+ */
+function gitFmtBytes(n){
+  const b=Number(n)||0;
+  if(b<1024) return b+' B';
+  if(b<1048576) return (b/1024).toFixed(1)+' KB';
+  if(b<1073741824) return (b/1048576).toFixed(1)+' MB';
+  return (b/1073741824).toFixed(1)+' GB';
+}
+
+/**
+ * 본문을 그리지 못하는 쪽의 메타 한 줄 (FR-GIT-46·47·48).
+ *
+ * LFS 포인터는 **가리키는 객체**의 oid·크기다 — 포인터 파일 자신의 134 B 는
+ * 사용자가 묻는 것이 아니다. 서버가 싣지 않은 값은 만들지 않는다.
+ */
+function gitBlobMeta(side){
+  const s=side||{};
+  if(s.kind===GIT_LFS_KIND){
+    const oid=s.lfsOid?GIT_LFS_OID_PREFIX+s.lfsOid.slice(0,GIT_LFS_OID_ABBREV)+'…':'';
+    const size=s.lfsSize?gitFmtBytes(s.lfsSize):'';
+    return [oid,size].filter(Boolean).join(GIT_META_SEP);
+  }
+  if(GIT_META_SIZED.has(s.kind)) return s.size?gitFmtBytes(s.size):'';
+  return '';
+}
+
+/**
+ * 양쪽 메타를 안내 아래 줄들로 만든다. 같으면 한 줄이다 — 같은 값을 두 번 보이면
+ * 사용자는 두 쪽이 다르다고 읽는다.
+ */
+function gitBlobMetaLines(orig,mod){
+  const a=gitBlobMeta(orig),b=gitBlobMeta(mod);
+  if(a&&b&&a!==b){
+    return [GIT_META_SIDE.orig+GIT_META_LABEL_SEP+a,GIT_META_SIDE.mod+GIT_META_LABEL_SEP+b];
+  }
+  return [a||b].filter(Boolean);
+}
+
+/**
  * Monaco DiffEditor 한 개를 감싼다 (FR-GIT-43) — diff 하이라이트를 자체
  * 구현하지 않는다.
  *
@@ -1386,15 +1427,15 @@ class GitDiffView {
     // 한쪽이라도 본문이 없으면 에디터를 만들지 않고 서버가 준 사유를 보인다
     // (FR-GIT-46·47·48).
     if(!GIT_DIFF_DRAWABLE.has(a.kind)||!GIT_DIFF_DRAWABLE.has(b.kind)){
-      this.clear(d.body.note||GIT_DIFF_LOAD_FAIL); return;
+      this.clear(d.body.note||GIT_DIFF_LOAD_FAIL,gitBlobMetaLines(a,b)); return;
     }
     this._draw(target.path,a.content||'',b.content||'',d.body.note||'');
   }
 
   // 본문 대신 안내를 보인다. 에디터와 모델은 함께 버린다 (FR-GIT-56).
-  clear(message){
+  clear(message,meta){
     this._seq++;
-    this._setNote(message||'');
+    this._setNote(message||'',meta);
     if(this._editor){this._editor.dispose();this._editor=null}
     this._dropModels(this._orig,this._mod);
     this._orig=null; this._mod=null;
@@ -1458,8 +1499,17 @@ class GitDiffView {
     for(const m of arguments) if(m) m.dispose();
   }
 
-  _setNote(text){
+  // 안내 한 줄과 그 아래 메타 줄들 (FR-GIT-46·47·48). 메타는 별도 요소여야
+  // 사유와 값이 한 줄로 뭉치지 않는다.
+  _setNote(text,meta){
     this._note.textContent=text||'';
-    this._note.classList.toggle('vis',!!text);
+    const lines=meta||[];
+    for(const line of lines){
+      const el=document.createElement('span');
+      el.className='git-diff-meta';
+      el.textContent=line;
+      this._note.appendChild(el);
+    }
+    this._note.classList.toggle('vis',!!(text||lines.length));
   }
 }

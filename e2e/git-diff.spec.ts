@@ -78,6 +78,10 @@ const selectFile = (page: Page, group: string, path: string) =>
     [group, path]
   );
 
+// 본문을 그리지 못하는 쪽의 메타 줄 (FR-GIT-46·47·48).
+const noteLines = (page: Page) =>
+  diff(page).locator('.git-diff-note').innerText();
+
 // diff 의 추가·삭제 줄 배경. 색을 테스트가 발명하지 않으려면 **읽어서 비교**해야
 // 한다 — 기대값을 적으면 하드코딩 금지(FR-GIT-119)를 테스트가 어긴다.
 const bgOf = (page: Page, cls: string) =>
@@ -367,4 +371,56 @@ test.describe('묶음 F — Diff 뷰', () => {
     await expect.poll(ins, { timeout: 10000 }).not.toBe(del0);
   });
 
+  // ── D12 — FR-GIT-47: LFS 포인터는 포인터임과 메타를 보인다 ──
+  test('D12 (V10·FR-GIT-47): LFS 포인터가 oid 와 실제 크기를 보인다', async ({ page }) => {
+    const repo = copyFx('blobs', 'd12');
+    // 커밋된 포인터와 **다른** 포인터를 워킹 트리에 둔다 — 양쪽 메타가 갈리는
+    // 것이 LFS 파일이 바뀌었을 때의 실제 모습이다.
+    writeFileSync(join(repo, 'lfs.bin'),
+      'version https://git-lfs.github.com/spec/v1\n' +
+      'oid sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210\n' +
+      'size 987654321\n');
+    await waitForInit(page);
+    await openGit(page, repo);
+
+    const r = row(page, 'changes', 'lfs.bin');
+    await expect(r).toBeVisible({ timeout: 10000 });
+    await r.dblclick();
+    await expect(diff(page).locator('.git-diff-note'))
+      .toContainText('Git LFS 포인터', { timeout: 20000 });
+    // 본문은 그리지 않는다 — 메타만 보인다.
+    await expect(diffEditor(page)).toHaveCount(0);
+
+    const text = await noteLines(page);
+    // 양쪽 oid 앞자리. original = index(커밋된 포인터), modified = 워킹 트리.
+    expect(text).toContain('sha256:0123456789ab');
+    expect(text).toContain('sha256:fedcba987654');
+    // 포인터 자신의 크기가 아니라 **가리키는 객체의 크기**다.
+    expect(text).toContain('117.7 MB');   // 123456789 B
+    expect(text).toContain('941.9 MB');   // 987654321 B
+  });
+
+  // ── D13 — FR-GIT-46·48: 본문을 못 주는 쪽은 크기를 함께 보인다 ──
+  test('D13 (V10·FR-GIT-46·48): 바이너리와 상한 초과가 크기를 함께 보인다', async ({ page }) => {
+    const repo = fx('blobs');
+    await waitForInit(page);
+    await openGit(page, repo);
+
+    const bin = row(page, 'changes', 'bin.dat');
+    await expect(bin).toBeVisible({ timeout: 10000 });
+    await bin.dblclick();
+    await expect(diff(page).locator('.git-diff-note'))
+      .toContainText('바이너리', { timeout: 20000 });
+    // 픽스처의 두 쪽 크기다 (22 B → 31 B). 양쪽이 다르므로 각각 보인다.
+    expect(await noteLines(page)).toMatch(/22 B[\s\S]*31 B/);
+
+    await tab(page, 'changes').click();
+    const huge = row(page, 'changes', 'huge.txt');
+    await expect(huge).toBeVisible({ timeout: 10000 });
+    await huge.dblclick();
+    await expect(diff(page).locator('.git-diff-note'))
+      .toContainText('상한', { timeout: 20000 });
+    // 상한을 얼마나 넘었는지는 안내가 아니라 크기가 답한다 (1MiB 초과).
+    expect(await noteLines(page)).toMatch(/\d+\.\d MB/);
+  });
 });

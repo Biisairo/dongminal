@@ -308,6 +308,18 @@ const GIT_DIFF_LOAD_FAIL='diff 를 불러오지 못했습니다';
 // 커밋·discard 로 대상이 목록에서 사라진 경우 (§3.3). 아무 파일이나 임의로
 // 보이지 않고 사실만 알린다.
 const GIT_DIFF_GONE_NOTE='선택한 파일이 목록에서 사라졌습니다';
+// FR-GIT-46·47·48: 본문을 못 주는 쪽은 안내만으로 끝나지 않는다 — 서버가 실은
+// 메타(oid·크기)를 안내 아래 줄로 보인다. 서버가 준 값만 쓴다.
+const GIT_META_SIZED=new Set(['binary','too_large']);
+const GIT_LFS_KIND='lfs';
+// oid 는 sha256 64자다. 그대로 두면 안내 줄을 넘기므로 앞자리만 보인다 —
+// git 이 해시를 축약해 보이는 것과 같은 관례다.
+const GIT_LFS_OID_PREFIX='sha256:';
+const GIT_LFS_OID_ABBREV=12;
+const GIT_META_SEP=' · ';
+// 양쪽 메타가 다를 때만 쪽을 밝힌다. diff 에디터의 좌·우가 곧 이전·이후다.
+const GIT_META_SIDE={orig:'이전',mod:'이후'};
+const GIT_META_LABEL_SEP=': ';
 const GIT_DIFF_ERR={
   bad_request:'잘못된 diff 요청입니다',
   not_found:'파일을 찾을 수 없습니다',

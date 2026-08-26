@@ -1091,6 +1091,8 @@ body.mobile .git-file-check{width:14px;height:14px}
 /* 안내는 diff 자리에만 남는다 — Monaco 로드 실패도 여기까지다 (FR-GIT-55) */
 .git-diff-note{display:none;flex:0 0 auto;padding:6px 10px;font-size:11px;color:var(--text-muted)}
 .git-diff-note.vis{display:block}
+/* 본문을 못 주는 쪽의 메타(oid·크기) — 사유 아래 줄이다 (FR-GIT-46·47·48). */
+.git-diff-meta{display:block;margin-top:2px;color:var(--text-dim)}
 .git-diff-host{flex:1 1 auto;min-height:0}
 
 /* ── Git History 탭 (FR-GIT-113~139) ── */
