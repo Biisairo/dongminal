@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"context"
@@ -74,7 +74,7 @@ func (f *gitRemoteFake) statusOut() string {
 
 // gitRemoteServer 는 읽기와 **작업 실행기**를 함께 격리한다. run 을 주지 않으면
 // 실제 git 이 네트워크로 나간다.
-func gitRemoteServer(t *testing.T, f *gitRemoteFake, run git.JobRunner) *Server {
+func gitRemoteServer(t *testing.T, f *gitRemoteFake, run git.JobRunner) *GitServer {
 	t.Helper()
 	store := git.NewStore(git.New(
 		git.WithRunner(f.read),
@@ -83,7 +83,7 @@ func gitRemoteServer(t *testing.T, f *gitRemoteFake, run git.JobRunner) *Server 
 			return git.Output{}, nil
 		}),
 	))
-	s := &Server{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
+	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
 	s.gitJobs.run = run
 	return s
 }
@@ -124,7 +124,7 @@ func gitRemoteJobID(t *testing.T, out map[string]any) string {
 	return id
 }
 
-func gitRemoteWaitDone(t *testing.T, s *Server, id string) *git.Job {
+func gitRemoteWaitDone(t *testing.T, s *GitServer, id string) *git.Job {
 	t.Helper()
 	hub := s.gitJobs.get(s.Git)
 	deadline := time.Now().Add(3 * time.Second)
@@ -152,12 +152,12 @@ var gitRemoteEndpoints = []struct {
 	{http.MethodGet, "/api/git/jobs", ""},
 }
 
-// K1: 6개 라우트가 apiRoutes 에 등록돼 있다. UI 는 이 표면 위에만 선다.
+// K1: 6개 라우트가 gitapi.routes 에 등록돼 있다. UI 는 이 표면 위에만 선다.
 func TestGitRemoteRoutesRegistered(t *testing.T) {
 	for _, ep := range gitRemoteEndpoints {
 		path := strings.SplitN(ep.path, "?", 2)[0]
 		found := false
-		for _, rt := range apiRoutes {
+		for _, rt := range routes {
 			if rt.method != "" && rt.method != ep.method {
 				continue
 			}
@@ -167,14 +167,14 @@ func TestGitRemoteRoutesRegistered(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("%s %s 가 apiRoutes 에 없다", ep.method, path)
+			t.Errorf("%s %s 가 gitapi.routes 에 없다", ep.method, path)
 		}
 	}
 }
 
 // K2: s.Git == nil 이면 전부 503 이고 다른 동작에는 영향이 없다 (FR-GIT-60).
 func TestGitRemoteEndpoints_Unavailable(t *testing.T) {
-	s := &Server{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
+	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
 	for _, ep := range gitRemoteEndpoints {
 		code, out := gitReq(t, s, ep.method, ep.path, ep.body)
 		if code != http.StatusServiceUnavailable {
@@ -464,11 +464,11 @@ func TestGitRemote_InvalidatesStatusCacheOnDone(t *testing.T) {
 
 // gitSSE 는 SSE 응답 본문을 통째로 읽는다. 끝난 작업의 스트림은 done 이벤트 뒤에
 // 닫히므로 동기적으로 읽을 수 있다.
-func gitSSE(t *testing.T, s *Server, path string) string {
+func gitSSE(t *testing.T, s *GitServer, path string) string {
 	t.Helper()
 	r := httptest.NewRequest(http.MethodGet, path, nil)
 	rec := httptest.NewRecorder()
-	s.Handler().ServeHTTP(rec, r)
+	s.handler().ServeHTTP(rec, r)
 	if ct := rec.Header().Get("Content-Type"); ct != "text/event-stream" {
 		t.Fatalf("Content-Type = %q, body = %q", ct, rec.Body.String())
 	}

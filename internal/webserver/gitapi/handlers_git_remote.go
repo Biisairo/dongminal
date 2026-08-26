@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"encoding/json"
@@ -90,7 +90,7 @@ type gitJobIDReq struct {
 }
 
 // POST /api/git/fetch — 기본은 `fetch --progress` 다 (FR-GIT-99).
-func (s *Server) apiGitFetch(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitFetch(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -107,7 +107,7 @@ func (s *Server) apiGitFetch(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /api/git/pull — 기본은 `pull --progress` 다 (FR-GIT-99).
-func (s *Server) apiGitPull(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitPull(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -130,7 +130,7 @@ func (s *Server) apiGitPull(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/git/push — upstream 이 없으면 Publish 이고, 그 사실을 **실행 전에**
 // 알린다 (FR-GIT-100). force 는 lease 가 기본이다 (FR-GIT-106).
-func (s *Server) apiGitPush(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitPush(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -155,7 +155,7 @@ func (s *Server) apiGitPush(w http.ResponseWriter, r *http.Request) {
 
 // gitStartJob 은 작업을 띄우고 식별자를 **즉시** 돌려준다 (FR-GIT-102). 끝나기를
 // 기다리면 응답이 분 단위가 되고, 그동안 UI 는 막힌다.
-func (s *Server) gitStartJob(w http.ResponseWriter, requested, root, kind string, spec git.WriteSpec, extra map[string]any) {
+func (s *GitServer) gitStartJob(w http.ResponseWriter, requested, root, kind string, spec git.WriteSpec, extra map[string]any) {
 	jb, err := s.gitJobs.get(s.Git).Start(root, kind, spec)
 	if err != nil {
 		if errors.Is(err, git.ErrJobBusy) {
@@ -209,7 +209,7 @@ func gitPushError(w http.ResponseWriter, requested, root string, plan git.PushPl
 //
 // **부분 적용 가능성은 사라지지 않는다** — 원격에 절반이 올라간 뒤 끊길 수 있고,
 // 클라이언트의 확인 문구가 그것을 미리 알린다.
-func (s *Server) apiGitJobCancel(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitJobCancel(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -231,7 +231,7 @@ func (s *Server) apiGitJobCancel(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /api/git/jobs — 진행 중 작업 전부 (FR-GIT-112). 상태바가 폴링에 얹는다.
-func (s *Server) apiGitJobs(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitJobs(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -243,7 +243,7 @@ func (s *Server) apiGitJobs(w http.ResponseWriter, r *http.Request) {
 //
 // after 는 재연결 지점이다. 보존된 줄을 먼저 흘려보내므로 끊긴 구간이 비지 않는다.
 // 구현 규약은 /api/commands/sse 를 따른다 — 두 스트림의 형태가 갈릴 이유가 없다.
-func (s *Server) apiGitJobEvents(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitJobEvents(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -298,7 +298,7 @@ func (s *Server) apiGitJobEvents(w http.ResponseWriter, r *http.Request) {
 
 // gitJobFinal 은 done 이벤트에 실을 값이다. 보존 기간이 지나 사라졌으면 끝났다는
 // 사실만 남는다 — 클라이언트가 완료를 못 보고 기다리는 것이 더 나쁘다.
-func (s *Server) gitJobFinal(hub *git.Jobs, id string) any {
+func (s *GitServer) gitJobFinal(hub *git.Jobs, id string) any {
 	if jb, ok := hub.Get(id); ok {
 		return jb
 	}

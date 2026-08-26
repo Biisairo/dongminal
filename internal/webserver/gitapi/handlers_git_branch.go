@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"context"
@@ -46,7 +46,7 @@ type gitBranchReq struct {
 }
 
 // POST /api/git/checkout — 워킹 트리를 다른 ref 로 옮긴다 (FR-GIT-155·156·157).
-func (s *Server) apiGitCheckout(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitCheckout(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -90,7 +90,7 @@ func (s *Server) apiGitCheckout(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /api/git/branch — 브랜치를 만든다 (FR-GIT-158·159·160).
-func (s *Server) apiGitBranchCreate(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitBranchCreate(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -133,7 +133,7 @@ func (s *Server) apiGitBranchCreate(w http.ResponseWriter, r *http.Request) {
 //
 // exists 는 규칙 위반이 아니다 (FR-GIT-156) — 같은 이름이 이미 있다는 사실은 따로
 // 알려야 클라이언트가 다른 이름을 권할 수 있다.
-func (s *Server) apiGitBranchValidate(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitBranchValidate(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -176,7 +176,7 @@ func (s *Server) apiGitBranchValidate(w http.ResponseWriter, r *http.Request) {
 // 클라이언트가 목록을 복제하면 서버가 선택지를 늘려도 그것을 보이지 못한다.
 //
 // 참을 돌려주면 응답이 이미 쓰였다는 뜻이다.
-func (s *Server) gitBranchNameTaken(w http.ResponseWriter, r *http.Request, requested, root, name, track string) bool {
+func (s *GitServer) gitBranchNameTaken(w http.ResponseWriter, r *http.Request, requested, root, name, track string) bool {
 	if name == "" {
 		return false
 	}

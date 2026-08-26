@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"context"
@@ -112,11 +112,11 @@ func (f *gitM5Fake) wrote() [][]string {
 	return append([][]string(nil), f.writes...)
 }
 
-// gitM5Server 는 읽기·쓰기 둘 다 격리된 Server 를 세운다.
-func gitM5Server(t *testing.T, f *gitM5Fake) *Server {
+// gitM5Server 는 읽기·쓰기 둘 다 격리된 GitServer 를 세운다.
+func gitM5Server(t *testing.T, f *gitM5Fake) *GitServer {
 	t.Helper()
 	store := git.NewStore(git.New(git.WithRunner(f.read), git.WithWriteRunner(f.write)))
-	return &Server{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
+	return &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
 }
 
 // gitM5Endpoints 는 18·19단계가 더한 라우트 전부다.
@@ -136,13 +136,13 @@ var gitM5Endpoints = []struct {
 	{http.MethodPost, "/api/git/stash/drop", `{"repo":"/work/repo","index":0,"confirm":true}`},
 }
 
-// M1: 9개 라우트가 apiRoutes 에 등록돼 있고, Git 이 없으면 전부 503 이다.
+// M1: 9개 라우트가 gitapi.routes 에 등록돼 있고, Git 이 없으면 전부 503 이다.
 func TestGitM5Routes_RegisteredAndUnavailable(t *testing.T) {
-	s := &Server{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
+	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
 	for _, ep := range gitM5Endpoints {
 		path := strings.SplitN(ep.path, "?", 2)[0]
 		found := false
-		for _, rt := range apiRoutes {
+		for _, rt := range routes {
 			if rt.method != "" && rt.method != ep.method {
 				continue
 			}
@@ -152,7 +152,7 @@ func TestGitM5Routes_RegisteredAndUnavailable(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("%s %s 가 apiRoutes 에 없다", ep.method, path)
+			t.Errorf("%s %s 가 gitapi.routes 에 없다", ep.method, path)
 			continue
 		}
 		code, out := gitReq(t, s, ep.method, ep.path, ep.body)

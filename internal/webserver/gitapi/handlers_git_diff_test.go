@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"context"
@@ -52,10 +52,10 @@ func (f *gitDiffFake) runner(_ context.Context, _ string, args []string) (git.Ou
 	return git.Output{Stdout: body}, nil
 }
 
-func gitDiffServer(t *testing.T, f *gitDiffFake) *Server {
+func gitDiffServer(t *testing.T, f *gitDiffFake) *GitServer {
 	t.Helper()
 	store := git.NewStore(git.New(git.WithRunner(f.runner)))
-	return &Server{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
+	return &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
 }
 
 // G10 (FR-GIT-54): requested 는 클라이언트가 보낸 값 그대로다 — stale 가드의 서버측
@@ -175,7 +175,7 @@ func TestAPIGitDiffContent_Rejects(t *testing.T) {
 
 // git 표면이 구성되지 않으면 503 이고 다른 동작에는 영향이 없다.
 func TestAPIGitDiffContent_Unavailable(t *testing.T) {
-	s := &Server{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}}
+	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}}
 	code, out := gitReq(t, s, http.MethodGet, "/api/git/diff-content?repo=/r&axis=index-head&path=a.txt", "")
 	if code != http.StatusServiceUnavailable || out["error"] != "git_unavailable" {
 		t.Fatalf("code = %d, body = %v", code, out)
@@ -185,7 +185,7 @@ func TestAPIGitDiffContent_Unavailable(t *testing.T) {
 // 라우트가 표에 등록돼 있어야 한다 — UI 는 이 표면 위에만 선다 (FR-GIT-61).
 func TestAPIGitDiffContent_RouteRegistered(t *testing.T) {
 	found := false
-	for _, rt := range apiRoutes {
+	for _, rt := range routes {
 		if rt.method == http.MethodGet && rt.match("/api/git/diff-content") {
 			found = true
 		}

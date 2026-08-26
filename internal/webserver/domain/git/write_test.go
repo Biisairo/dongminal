@@ -32,7 +32,7 @@ func (f *writeFake) runner(_ context.Context, _ string, args []string, stdin str
 // 자리에 둔다 — 둘이 갈라지면 자기 검사가 아무것도 보증하지 않는다.
 var (
 	execWriteCall    = regexp.MustCompile(`\.ExecWrite\(`)
-	execWriteAllowed = regexp.MustCompile(`^internal/server/handlers_git[^/]*\.go$`)
+	execWriteAllowed = regexp.MustCompile(`^internal/webserver/gitapi/[^/]*\.go$`)
 )
 
 // W1 (V39, FR-GIT-95): 두 진입점은 서로의 목록을 실행하지 못한다. 어느 경로로도
@@ -105,7 +105,7 @@ func TestReadAndWriteCommands_Disjoint(t *testing.T) {
 }
 
 // W3 (V39, FR-GIT-95): webserver/domain/git 밖에서 ExecWrite 를 부르는 곳은
-// internal/server/handlers_git*.go 뿐이다.
+// internal/webserver/gitapi 뿐이다.
 func TestExecWriteCallers_RestrictedToServerGitHandlers(t *testing.T) {
 	root := repoRootForTest(t)
 	scanned := 0
@@ -170,12 +170,12 @@ func TestExecWriteCallerScan_PatternAndAllowList(t *testing.T) {
 	if execWriteCall.MatchString(`ExecWriteSomethingElse(ctx)`) {
 		t.Fatal("오탐: 다른 이름을 잡는다")
 	}
-	for _, rel := range []string{"internal/server/handlers_git.go", "internal/server/handlers_git_policy.go"} {
+	for _, rel := range []string{"internal/webserver/gitapi/handlers_git.go", "internal/webserver/gitapi/handlers_git_policy.go"} {
 		if !execWriteAllowed.MatchString(rel) {
 			t.Fatalf("%s 는 허용돼야 한다", rel)
 		}
 	}
-	for _, rel := range []string{"internal/server/handlers_runs.go", "cmd/dongminal/main.go", "internal/server/git_pins.go"} {
+	for _, rel := range []string{"internal/server/handlers_runs.go", "cmd/dongminal/main.go", "internal/server/deps.go"} {
 		if execWriteAllowed.MatchString(rel) {
 			t.Fatalf("%s 를 허용했다", rel)
 		}

@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"context"
@@ -81,9 +81,9 @@ func (g *gitFake) count(sub string) int {
 	return n
 }
 
-// gitTestServer 는 주입 Runner 를 쓰는 Store 로 Server 를 세운다. 시계를 고정해
+// gitTestServer 는 주입 Runner 를 쓰는 Store 로 GitServer 를 세운다. 시계를 고정해
 // TTL 이 테스트 도중 만료되지 않게 한다.
-func gitTestServer(t *testing.T, g *gitFake, opts ...git.StoreOption) (*Server, *fakePaneHub, *fakeWorkspaceStore, *fakeCommandBroker) {
+func gitTestServer(t *testing.T, g *gitFake, opts ...git.StoreOption) (*GitServer, *fakePaneHub, *fakeWorkspaceStore, *fakeCommandBroker) {
 	t.Helper()
 	at := time.Now()
 	all := append([]git.StoreOption{git.WithClock(func() time.Time { return at })}, opts...)
@@ -91,10 +91,10 @@ func gitTestServer(t *testing.T, g *gitFake, opts ...git.StoreOption) (*Server, 
 	hub := newFakePaneHub()
 	ws := newFakeWorkspaceStore()
 	cb := &fakeCommandBroker{}
-	return &Server{Tools: hub, Work: ws, Commands: cb, Git: store}, hub, ws, cb
+	return &GitServer{Tools: hub, Work: ws, Commands: cb, Git: store}, hub, ws, cb
 }
 
-func gitReq(t *testing.T, s *Server, method, path, body string) (int, map[string]any) {
+func gitReq(t *testing.T, s *GitServer, method, path, body string) (int, map[string]any) {
 	t.Helper()
 	var r *http.Request
 	if body == "" {
@@ -103,7 +103,7 @@ func gitReq(t *testing.T, s *Server, method, path, body string) (int, map[string
 		r = httptest.NewRequest(method, path, strings.NewReader(body))
 	}
 	rec := httptest.NewRecorder()
-	s.Handler().ServeHTTP(rec, r)
+	s.handler().ServeHTTP(rec, r)
 	var out map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &out)
 	return rec.Code, out
@@ -121,13 +121,13 @@ var gitEndpoints = []struct {
 	{http.MethodGet, "/api/git/signature?repo=/r", ""},
 }
 
-// H1 (V28, FR-GIT-61): 5개 라우트가 apiRoutes 에 등록돼 있다. UI 는 이 표면 위에만
+// H1 (V28, FR-GIT-61): 5개 라우트가 gitapi.routes 에 등록돼 있다. UI 는 이 표면 위에만
 // 선다 (FR-GIT-60).
 func TestGitRoutesRegistered(t *testing.T) {
 	for _, ep := range gitEndpoints {
 		path := strings.SplitN(ep.path, "?", 2)[0]
 		found := false
-		for _, rt := range apiRoutes {
+		for _, rt := range routes {
 			if rt.method != "" && rt.method != ep.method {
 				continue
 			}
@@ -137,14 +137,14 @@ func TestGitRoutesRegistered(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("%s %s 가 apiRoutes 에 없다", ep.method, path)
+			t.Errorf("%s %s 가 gitapi.routes 에 없다", ep.method, path)
 		}
 	}
 }
 
 // H2: s.Git == nil 이면 전부 503 git_unavailable 이고 다른 동작에는 영향이 없다.
 func TestGitEndpoints_Unavailable(t *testing.T) {
-	s := &Server{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
+	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
 	for _, ep := range gitEndpoints {
 		code, out := gitReq(t, s, ep.method, ep.path, ep.body)
 		if code != http.StatusServiceUnavailable {

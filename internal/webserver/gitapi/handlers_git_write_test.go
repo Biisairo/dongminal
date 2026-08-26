@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"context"
@@ -116,16 +116,16 @@ func (f *gitWriteFake) wrote() [][]string {
 	return append([][]string(nil), f.writes...)
 }
 
-// gitWriteServer 는 읽기·쓰기 둘 다 격리된 Server 를 세운다. undo 토큰의 시계도
+// gitWriteServer 는 읽기·쓰기 둘 다 격리된 GitServer 를 세운다. undo 토큰의 시계도
 // 주입한다 — TTL 검증이 실제 5초 경과에 의존하면 결정론을 잃는다.
-func gitWriteServer(t *testing.T, f *gitWriteFake) (*Server, *time.Time) {
+func gitWriteServer(t *testing.T, f *gitWriteFake) (*GitServer, *time.Time) {
 	t.Helper()
 	at := time.Now()
 	store := git.NewStore(
 		git.New(git.WithRunner(f.read), git.WithWriteRunner(f.write)),
 		git.WithClock(func() time.Time { return at }),
 	)
-	s := &Server{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
+	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
 	undoNow := at
 	s.gitUndo.now = func() time.Time { return undoNow }
 	return s, &undoNow
@@ -192,7 +192,7 @@ func TestAPIGitWriteRoutes_ReturnFreshStatus(t *testing.T) {
 }
 
 // gitIssueUndo 는 커밋 하나를 만들어 undo 토큰을 발급받는다.
-func gitIssueUndo(t *testing.T, s *Server, f *gitWriteFake) string {
+func gitIssueUndo(t *testing.T, s *GitServer, f *gitWriteFake) string {
 	t.Helper()
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":"/work/repo","message":"m"}`)
 	if code != http.StatusOK {
@@ -466,7 +466,7 @@ func TestAPIGitStage_RejectsUnsafePaths(t *testing.T) {
 
 // FR-GIT-60: git 표면이 구성되지 않았으면 503 이고, 다른 동작에는 영향이 없다.
 func TestAPIGitWrite_Unavailable(t *testing.T) {
-	s := &Server{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}}
+	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}}
 	for _, path := range []string{
 		"/api/git/stage", "/api/git/unstage", "/api/git/discard",
 		"/api/git/commit", "/api/git/undo-last",

@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"fmt"

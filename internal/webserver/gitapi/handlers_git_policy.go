@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"net/http"
@@ -13,7 +13,7 @@ import (
 //
 // 차단 사유는 **막힌 이유와 해소법을 함께** 실어 보낸다. 클라이언트가 그것을
 // 그대로 보이며, 여기서 이유를 잃으면 사용자는 갈 곳이 없다.
-func (s *Server) apiGitPreflight(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitPreflight(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -38,7 +38,7 @@ func (s *Server) apiGitPreflight(w http.ResponseWriter, r *http.Request) {
 //
 // repo 를 받지 않는다 — 정책은 저장소마다 다르지 않다. 클라이언트는 이 목록으로
 // 확인 절차를 켜므로 목록을 프론트에 복제하지 않는다.
-func (s *Server) apiGitPolicy(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitPolicy(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -47,7 +47,7 @@ func (s *Server) apiGitPolicy(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /api/git/recovery — 세션 동안 기록된 recovery hint (FR-GIT-92·93).
-func (s *Server) apiGitRecovery(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitRecovery(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return

@@ -25,8 +25,11 @@ var credWords = []string{"pass" + "word", "pass" + "wd", "pass" + "phrase", "cre
 var remoteCredWords = []string{"to" + "ken", "sec" + "ret"}
 
 // credScanDirs 는 git 표면 전부다. 한쪽만 검사하면 다른 쪽이 구멍이 된다.
+// internal/server 는 git 핸들러가 gitapi 로 옮겨간 뒤에도 남긴다 — git 코드가
+// 다시 흘러들어오면 검사 없이 통과하는 구멍이 되기 때문이다.
 var credScanDirs = []string{
 	filepath.Join("internal", "webserver", "domain", "git"),
+	filepath.Join("internal", "webserver", "gitapi"),
 	filepath.Join("internal", "server"),
 }
 
@@ -34,7 +37,7 @@ var credScanDirs = []string{
 var credRemoteFiles = []string{
 	filepath.Join("internal", "webserver", "domain", "git", "job.go"),
 	filepath.Join("internal", "webserver", "domain", "git", "remote.go"),
-	filepath.Join("internal", "server", "handlers_git_remote.go"),
+	filepath.Join("internal", "webserver", "gitapi", "handlers_git_remote.go"),
 }
 
 func credPattern(words []string) *regexp.Regexp {

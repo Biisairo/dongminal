@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"context"
@@ -61,10 +61,10 @@ func (f *gitHistFake) calls() []string {
 	return out
 }
 
-func gitHistServer(t *testing.T, f *gitHistFake) *Server {
+func gitHistServer(t *testing.T, f *gitHistFake) *GitServer {
 	t.Helper()
 	store := git.NewStore(git.New(git.WithRunner(f.runner)))
-	return &Server{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
+	return &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
 }
 
 // histLogRec 은 log -z 레코드 하나다 (9 필드, 레코드 사이에만 NUL).
@@ -81,7 +81,7 @@ func histDetailRec(oid, parents, dec, subject, body string) string {
 
 const histOid = "a1b2c3d4e5f6a7b8c9d0a1b2c3d4e5f6a7b8c9d0"
 
-// 새 라우트 3개가 apiRoutes 에 등록돼 있고, Git 이 없으면 503 이다 (기존 규약).
+// 새 라우트 3개가 gitapi.routes 에 등록돼 있고, Git 이 없으면 503 이다 (기존 규약).
 var gitHistoryEndpoints = []struct {
 	method string
 	path   string
@@ -95,7 +95,7 @@ func TestGitHistoryRoutesRegistered(t *testing.T) {
 	for _, ep := range gitHistoryEndpoints {
 		path := strings.SplitN(ep.path, "?", 2)[0]
 		found := false
-		for _, rt := range apiRoutes {
+		for _, rt := range routes {
 			if rt.method != "" && rt.method != ep.method {
 				continue
 			}
@@ -105,13 +105,13 @@ func TestGitHistoryRoutesRegistered(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("%s %s 가 apiRoutes 에 없다", ep.method, path)
+			t.Errorf("%s %s 가 gitapi.routes 에 없다", ep.method, path)
 		}
 	}
 }
 
 func TestGitHistoryEndpoints_Unavailable(t *testing.T) {
-	s := &Server{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
+	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
 	for _, ep := range gitHistoryEndpoints {
 		code, out := gitReq(t, s, ep.method, ep.path, "")
 		if code != http.StatusServiceUnavailable {

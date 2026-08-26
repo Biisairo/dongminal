@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"errors"
@@ -40,7 +40,7 @@ type gitLogResponse struct {
 
 // GET /api/git/log?repo=&ref=&skip=&limit=&order=&author=&since=&until=&path=&grep=
 // — 커밋 목록 한 페이지 (FR-GIT-113·114·123·128·130).
-func (s *Server) apiGitLog(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -91,7 +91,7 @@ type gitCommitResponse struct {
 }
 
 // GET /api/git/commit?repo=&oid=&parent=<n> — 커밋 하나의 상세 (FR-GIT-136·137·139).
-func (s *Server) apiGitCommit(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitCommit(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -130,7 +130,7 @@ type gitRefsResponse struct {
 }
 
 // GET /api/git/refs?repo= — 로컬·원격·태그 (FR-GIT-122).
-func (s *Server) apiGitRefs(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitRefs(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return

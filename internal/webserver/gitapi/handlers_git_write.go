@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"context"
@@ -71,7 +71,7 @@ type gitUndoReq struct {
 }
 
 // POST /api/git/stage — 경로들을 index 에 올린다 (FR-GIT-64·66·68·69).
-func (s *Server) apiGitStage(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitStage(w http.ResponseWriter, r *http.Request) {
 	s.gitStageRoute(w, r, func(ctx context.Context, root string, paths git.Paths) error {
 		_, err := s.Git.Service().Stage(ctx, root, paths)
 		return err
@@ -79,7 +79,7 @@ func (s *Server) apiGitStage(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /api/git/unstage — 경로들을 index 에서 내린다 (FR-GIT-65·67).
-func (s *Server) apiGitUnstage(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitUnstage(w http.ResponseWriter, r *http.Request) {
 	s.gitStageRoute(w, r, func(ctx context.Context, root string, paths git.Paths) error {
 		_, err := s.Git.Service().Unstage(ctx, root, paths)
 		return err
@@ -88,7 +88,7 @@ func (s *Server) apiGitUnstage(w http.ResponseWriter, r *http.Request) {
 
 // gitStageRoute 는 stage/unstage 의 공통 절차다. 둘은 본문과 응답이 같고 실행하는
 // 명령만 다르다.
-func (s *Server) gitStageRoute(w http.ResponseWriter, r *http.Request, run func(context.Context, string, git.Paths) error) {
+func (s *GitServer) gitStageRoute(w http.ResponseWriter, r *http.Request, run func(context.Context, string, git.Paths) error) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -118,7 +118,7 @@ func (s *Server) gitStageRoute(w http.ResponseWriter, r *http.Request, run func(
 //
 // `confirm:true` 가 없으면 실행하지 않는다. 클라이언트만 막으면
 // `dmctl git discard` 가 우회한다.
-func (s *Server) apiGitDiscard(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitDiscard(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -152,7 +152,7 @@ func (s *Server) apiGitDiscard(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/git/resolve — 충돌 파일을 한쪽으로 받고 해결됨으로 표시한다
 // (FR-GIT-224). **파괴적이다** — discard 와 같은 경로를 지난다.
-func (s *Server) apiGitResolve(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitResolve(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -188,7 +188,7 @@ func (s *Server) apiGitResolve(w http.ResponseWriter, r *http.Request) {
 //
 // **preflight 를 서버가 다시 돌린다** (FR-GIT-86). 클라이언트만 막으면
 // `dmctl git commit` 이 우회한다.
-func (s *Server) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -257,7 +257,7 @@ func (s *Server) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 // 토큰이 없거나·만료됐거나·다른 리포의 것이면 409 다. **만료된 undo 가 실행될 수
 // 있어서는 안 된다** — 탭을 멈춰 두거나 요청을 직접 보내면 클라이언트 타이머는
 // 우회된다.
-func (s *Server) apiGitUndoLast(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitUndoLast(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -300,7 +300,7 @@ func (s *Server) apiGitUndoLast(w http.ResponseWriter, r *http.Request) {
 
 // gitStatusBefore 는 실행 전 상태다. 캐시된 값을 써도 된다 — 실패했을 때 무엇이
 // 바뀌었는지를 재는 기준선이고, 200ms 안의 관측은 같은 기준선이다.
-func (s *Server) gitStatusBefore(w http.ResponseWriter, r *http.Request, root string) (git.Status, bool) {
+func (s *GitServer) gitStatusBefore(w http.ResponseWriter, r *http.Request, root string) (git.Status, bool) {
 	obs, _, err := s.Git.Status(r.Context(), root)
 	if err != nil {
 		gitError(w, err)
@@ -317,7 +317,7 @@ func (s *Server) gitStatusBefore(w http.ResponseWriter, r *http.Request, root st
 // 실패하면 실행 전과 비교해 `partial` 과 **무엇이 바뀌었는지**를 응답에 담는다
 // (FR-GIT-73, §7.1 I2). git 의 add/reset/checkout 은 경로별로 처리해 진짜 롤백이
 // 없으므로, 요구사항은 부분 적용을 조용히 넘기지 않는 것으로 만족시킨다.
-func (s *Server) gitApply(w http.ResponseWriter, r *http.Request, requested, root string, before git.Status, run func(context.Context) error) (git.Status, bool) {
+func (s *GitServer) gitApply(w http.ResponseWriter, r *http.Request, requested, root string, before git.Status, run func(context.Context) error) (git.Status, bool) {
 	runErr := run(r.Context())
 	s.Git.Invalidate(root)
 	obs, _, statusErr := s.Git.Status(r.Context(), root)
@@ -433,7 +433,7 @@ func gitDecodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
 // gitResolveRepo 는 요청이 보낸 repo 를 정규 루트로 옮긴다 (FR-GIT-62). 쿼리로 오든
 // 본문으로 오든 규약은 같다 — 클라이언트가 보낸 경로를 그대로 신뢰해 저장소를
 // 바꾸지 않는다.
-func (s *Server) gitResolveRepo(w http.ResponseWriter, r *http.Request, requested string) (string, bool) {
+func (s *GitServer) gitResolveRepo(w http.ResponseWriter, r *http.Request, requested string) (string, bool) {
 	if requested == "" {
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "repo 인자가 없다")
 		return "", false

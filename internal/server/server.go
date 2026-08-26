@@ -5,6 +5,8 @@
 package server
 
 import (
+	"dongminal/internal/webserver/gitapi"
+
 	"dongminal/internal/webserver/hub"
 
 	"dongminal/internal/shared/toolhub"
@@ -57,14 +59,9 @@ type Server struct {
 	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
 	Focus *hub.FocusRegistry
 
-	// gitUndo 는 방금 만든 커밋을 되돌릴 권한을 쥔다 (FR-GIT-83). 제로값도 쓸 수
-	// 있다 — 클라이언트 타이머만으로는 만료를 강제할 수 없으므로 이 자리가 없어서
-	// undo 가 무제한이 되는 경로를 만들지 않는다.
-	gitUndo gitUndoStore
-
-	// gitJobs 는 원격 작업(fetch/pull/push)의 수명을 쥔다 (FR-GIT-101·102).
-	// 제로값도 쓸 수 있다 — 첫 사용에 만들어지고, Git 이 없으면 만들지 않는다.
-	gitJobs gitJobHolder
+	// git 은 /api/git/* 을 소유한다. Git 이 nil 이면 이 자리도 nil 이고,
+	// handleAPI 가 라우팅 miss 로 404 를 낸다 (FR-GIT-60 의 503 은 핸들러 안에서).
+	git *gitapi.GitServer
 
 	started time.Time
 
@@ -89,7 +86,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	if settings == nil {
 		settings = newSettingsStore(settingsPath)
 	}
-	return &Server{
+	srv := &Server{
 		cfg:         cfg,
 		Tools:       deps.Tools,
 		Work:        deps.Work,
@@ -105,7 +102,14 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		Worktrees:   deps.Worktrees,
 		Git:         deps.Git,
 		started:     time.Now(),
-	}, nil
+	}
+	srv.git = &gitapi.GitServer{
+		Git:      deps.Git,
+		Work:     deps.Work,
+		Commands: cmds,
+		Tools:    deps.Tools,
+	}
+	return srv, nil
 }
 
 // Started returns the NewServer timestamp.

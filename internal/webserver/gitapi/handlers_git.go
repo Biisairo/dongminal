@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"context"
@@ -82,7 +82,7 @@ func gitTail(msg string) string {
 }
 
 // GET /api/git/repos?tool=<toolId> — follow 후보 + 핀 목록 + 각 배지.
-func (s *Server) apiGitRepos(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitRepos(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -94,7 +94,7 @@ func (s *Server) apiGitRepos(w http.ResponseWriter, r *http.Request) {
 }
 
 // gitFollowCwd 는 /api/cwd 와 같은 규약이다 — tool 이 비면 서버의 cwd 다.
-func (s *Server) gitFollowCwd(r *http.Request) string {
+func (s *GitServer) gitFollowCwd(r *http.Request) string {
 	if id := r.URL.Query().Get("tool"); id != "" && s.Tools != nil {
 		if cwd := s.Tools.Cwd(id); cwd != "" {
 			return cwd
@@ -106,7 +106,7 @@ func (s *Server) gitFollowCwd(r *http.Request) string {
 
 // gitFollowEntry 는 cwd 가 속한 리포를 확정한다. 저장소가 아니면 path 는 비고
 // 사유만 실린다 — **마지막 유효 리포를 유지하지 않는다** (FR-GIT-10).
-func (s *Server) gitFollowEntry(ctx context.Context, cwd string) map[string]any {
+func (s *GitServer) gitFollowEntry(ctx context.Context, cwd string) map[string]any {
 	e := map[string]any{"cwd": cwd, "isRepo": false, "path": "", "name": "", "reason": "", "badge": nil}
 	root, err := s.Git.RepoRoot(ctx, cwd)
 	if err != nil {
@@ -123,7 +123,7 @@ func (s *Server) gitFollowEntry(ctx context.Context, cwd string) map[string]any 
 
 // gitPinnedEntries 는 핀 목록을 순서 그대로 준다. 저장소가 아니게 된 핀은
 // **목록에서 지우지 않고** isRepo:false 로 보인다 — 지울지는 사용자가 정한다.
-func (s *Server) gitPinnedEntries(ctx context.Context) []map[string]any {
+func (s *GitServer) gitPinnedEntries(ctx context.Context) []map[string]any {
 	pins, err := s.gitPinsRead()
 	if err != nil {
 		return []map[string]any{}
@@ -146,7 +146,7 @@ func (s *Server) gitPinnedEntries(ctx context.Context) []map[string]any {
 // gitBadge 는 Store.Observed 만 읽는다. **이 경로는 git status 를 실행하지 않는다**
 // (FR-GIT-24) — 배지 때문에 핀 전부를 폴링하면 비용이 항목 수에 비례한다.
 // 관측 이력이 없으면 null 이고, 최신 여부는 observedAtUnixMs 로 판정한다 (O4).
-func (s *Server) gitBadge(root string) map[string]any {
+func (s *GitServer) gitBadge(root string) map[string]any {
 	obs, ok := s.Git.Observed(root)
 	if !ok {
 		return nil
@@ -182,7 +182,7 @@ func gitDecodePath(w http.ResponseWriter, r *http.Request) (string, bool) {
 }
 
 // POST /api/git/repos/pin — 저장소를 재확인한 뒤 그 루트를 핀한다 (FR-GIT-12·62).
-func (s *Server) apiGitPin(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitPin(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -220,7 +220,7 @@ func (s *Server) apiGitPin(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/git/repos/unpin — 저장된 값과 문자열이 정확히 같은 항목을 지운다.
 // rev-parse 를 하지 않는다 — 저장소가 아니게 된 핀도 지울 수 있어야 한다.
-func (s *Server) apiGitUnpin(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitUnpin(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -259,7 +259,7 @@ type gitReorderReq struct {
 //
 // rev-parse 를 하지 않는다 — unpin 과 같은 이유다. 저장된 문자열 그대로를 옮기는
 // 것이고, 저장소가 아니게 된 핀도 자리를 옮길 수 있어야 한다.
-func (s *Server) apiGitReorder(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitReorder(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -332,14 +332,14 @@ func gitReorderPins(cur []string, src, target string, before bool) []string {
 //
 // requested 는 클라이언트가 보낸 값 그대로다 — stale 가드(FR-GIT-16)의 서버측
 // 절반이며, 클라이언트가 응답만 보고 자기 요청과 짝을 맞출 수 있어야 한다.
-func (s *Server) gitRepoParam(w http.ResponseWriter, r *http.Request) (root, requested string, ok bool) {
+func (s *GitServer) gitRepoParam(w http.ResponseWriter, r *http.Request) (root, requested string, ok bool) {
 	requested = r.URL.Query().Get("repo")
 	root, ok = s.gitResolveRepo(w, r, requested)
 	return root, requested, ok
 }
 
 // GET /api/git/status?repo=<abs> — single-flight + TTL 캐시를 거친 관측 (FR-GIT-63).
-func (s *Server) apiGitStatus(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -364,7 +364,7 @@ func (s *Server) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /api/git/signature?repo=<abs> — 감지용 경량 시그니처 (FR-GIT-19).
-func (s *Server) apiGitSignature(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitSignature(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -411,7 +411,7 @@ type gitDiffResponse struct {
 // GET /api/git/diff-content?repo=&axis=&path=&origPath= — 한 축의 양쪽 전체 내용
 // (FR-GIT-44~48). **unified diff 텍스트를 주지 않는다** — Monaco DiffEditor 가 두
 // 모델을 요구하고, diff 계산은 그쪽의 일이다 (FR-GIT-43).
-func (s *Server) apiGitDiffContent(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitDiffContent(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return

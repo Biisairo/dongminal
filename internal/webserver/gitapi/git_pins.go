@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"encoding/json"
@@ -20,7 +20,7 @@ const (
 )
 
 // gitPinsRead 는 workspace.json 의 git.pinned[] 를 읽는다. 없으면 빈 목록이다.
-func (s *Server) gitPinsRead() ([]string, error) {
+func (s *GitServer) gitPinsRead() ([]string, error) {
 	if s.Work == nil {
 		return nil, errors.New("workspace unavailable")
 	}
@@ -33,7 +33,7 @@ func (s *Server) gitPinsRead() ([]string, error) {
 // 핀 하나를 더하다가 창 배치를 잃으면 안 된다.
 //
 // 낙관적 동시성으로 저장하고, 경합(ErrStale)이면 한 번 다시 읽어 재시도한다.
-func (s *Server) gitPinsMutate(fn func([]string) []string) ([]string, error) {
+func (s *GitServer) gitPinsMutate(fn func([]string) []string) ([]string, error) {
 	if s.Work == nil {
 		return nil, errors.New("workspace unavailable")
 	}
@@ -102,7 +102,7 @@ func gitPinsParse(raw []byte) (map[string]any, []string, error) {
 
 // broadcastWorkspaceChanged 는 apiWorkspacePut 과 같은 알림을 보낸다. 핀 변경도
 // 워크스페이스 변경이므로 클라이언트가 두 경로를 구분할 이유가 없다.
-func (s *Server) broadcastWorkspaceChanged(rev uint64) {
+func (s *GitServer) broadcastWorkspaceChanged(rev uint64) {
 	if s.Commands == nil {
 		return
 	}

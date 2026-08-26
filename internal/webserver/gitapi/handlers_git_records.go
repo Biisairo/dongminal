@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"net/http"
@@ -29,7 +29,7 @@ type gitRecordsResponse struct {
 // **리포로 거른다.** Git 창은 리포 하나에 매인 창이고, 다른 리포의 실행이 섞이면
 // 이력이 아니라 잡음이다. 거르는 기준은 요청값이 아니라 rev-parse 로 확정한
 // 루트다 (FR-GIT-62).
-func (s *Server) apiGitRecords(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitRecords(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return

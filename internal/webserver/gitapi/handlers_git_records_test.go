@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"context"
@@ -35,27 +35,27 @@ func (f *gitRecFake) runner(_ context.Context, _ string, args []string) (git.Out
 	return git.Output{}, nil
 }
 
-func gitRecServer(t *testing.T, f *gitRecFake) (*Server, *git.Service) {
+func gitRecServer(t *testing.T, f *gitRecFake) (*GitServer, *git.Service) {
 	t.Helper()
 	svc := git.New(git.WithRunner(f.runner))
-	return &Server{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: git.NewStore(svc)}, svc
+	return &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: git.NewStore(svc)}, svc
 }
 
 func TestGitRecordsRoute_Registered(t *testing.T) {
 	found := false
-	for _, rt := range apiRoutes {
+	for _, rt := range routes {
 		if rt.method == http.MethodGet && rt.match("/api/git/records") {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Fatal("GET /api/git/records 가 apiRoutes 에 없다")
+		t.Fatal("GET /api/git/records 가 gitapi.routes 에 없다")
 	}
 }
 
 func TestGitRecords_Unavailable(t *testing.T) {
-	s := &Server{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
+	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
 	code, out := gitReq(t, s, http.MethodGet, "/api/git/records?repo=/r", "")
 	if code != http.StatusServiceUnavailable {
 		t.Fatalf("code = %d, want 503", code)
@@ -195,25 +195,25 @@ func TestGitRecords_LimitParam(t *testing.T) {
 
 func TestGitReorderRoute_Registered(t *testing.T) {
 	found := false
-	for _, rt := range apiRoutes {
+	for _, rt := range routes {
 		if rt.method == http.MethodPost && rt.match("/api/git/repos/reorder") {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Fatal("POST /api/git/repos/reorder 가 apiRoutes 에 없다")
+		t.Fatal("POST /api/git/repos/reorder 가 gitapi.routes 에 없다")
 	}
 }
 
-func gitPinServer(t *testing.T) *Server {
+func gitPinServer(t *testing.T) *GitServer {
 	t.Helper()
 	f := newGitRecFake(t)
 	s, _ := gitRecServer(t, f)
 	return s
 }
 
-func seedPins(t *testing.T, s *Server, pins ...string) {
+func seedPins(t *testing.T, s *GitServer, pins ...string) {
 	t.Helper()
 	if _, err := s.gitPinsMutate(func([]string) []string { return pins }); err != nil {
 		t.Fatal(err)

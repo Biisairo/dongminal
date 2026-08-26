@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"context"
@@ -66,7 +66,7 @@ type gitStashShowResponse struct {
 }
 
 // GET /api/git/stash?repo= — stash 목록 (FR-GIT-161).
-func (s *Server) apiGitStashList(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitStashList(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -86,7 +86,7 @@ func (s *Server) apiGitStashList(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /api/git/stash/show?repo=&index= — 선택한 stash 의 변경 파일 (FR-GIT-169).
-func (s *Server) apiGitStashShow(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitStashShow(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -110,7 +110,7 @@ func (s *Server) apiGitStashShow(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /api/git/stash/push — 워킹 트리의 변경을 stash 로 옮긴다 (FR-GIT-166·167).
-func (s *Server) apiGitStashPush(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitStashPush(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -151,7 +151,7 @@ func (s *Server) apiGitStashPush(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /api/git/stash/apply — stash 를 얹고 **남긴다** (FR-GIT-163).
-func (s *Server) apiGitStashApply(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitStashApply(w http.ResponseWriter, r *http.Request) {
 	s.gitStashIndexRoute(w, r, false, func(ctx context.Context, root string, req gitStashIndexReq) (map[string]any, error) {
 		_, err := s.Git.Service().StashApply(ctx, root, req.Index, req.WithIndex)
 		return nil, err
@@ -162,7 +162,7 @@ func (s *Server) apiGitStashApply(w http.ResponseWriter, r *http.Request) {
 //
 // **충돌로 끝나면 git 이 stash 를 남긴다** (FR-GIT-165). 그 사실을 확인해 응답에
 // 담는다 — 조용히 넘기면 사용자는 작업을 잃었다고 오해한다.
-func (s *Server) apiGitStashPop(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitStashPop(w http.ResponseWriter, r *http.Request) {
 	s.gitStashIndexRoute(w, r, false, func(ctx context.Context, root string, req gitStashIndexReq) (map[string]any, error) {
 		_, kept, err := s.Git.Service().StashPopChecked(ctx, root, req.Index, req.WithIndex)
 		return map[string]any{
@@ -177,7 +177,7 @@ func (s *Server) apiGitStashPop(w http.ResponseWriter, r *http.Request) {
 //
 // `confirm:true` 가 없으면 실행하지 않는다. recovery hint 는 git 패키지가 실행
 // **전에** 남긴다 (FR-GIT-92).
-func (s *Server) apiGitStashDrop(w http.ResponseWriter, r *http.Request) {
+func (s *GitServer) apiGitStashDrop(w http.ResponseWriter, r *http.Request) {
 	s.gitStashIndexRoute(w, r, true, func(ctx context.Context, root string, req gitStashIndexReq) (map[string]any, error) {
 		_, err := s.Git.Service().StashDrop(ctx, root, req.Index)
 		return nil, err
@@ -186,7 +186,7 @@ func (s *Server) apiGitStashDrop(w http.ResponseWriter, r *http.Request) {
 
 // gitStashIndexRoute 는 apply/pop/drop 의 공통 절차다. 셋은 본문과 응답이 같고
 // 실행하는 것과 확인을 요구하는지만 다르다.
-func (s *Server) gitStashIndexRoute(w http.ResponseWriter, r *http.Request, confirm bool, run func(context.Context, string, gitStashIndexReq) (map[string]any, error)) {
+func (s *GitServer) gitStashIndexRoute(w http.ResponseWriter, r *http.Request, confirm bool, run func(context.Context, string, gitStashIndexReq) (map[string]any, error)) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -226,7 +226,7 @@ func (s *Server) gitStashIndexRoute(w http.ResponseWriter, r *http.Request, conf
 // 있어야 한다.
 //
 // extra 는 실행이 알아낸 사실이며 성공·실패 양쪽에 실린다.
-func (s *Server) gitStashApply(w http.ResponseWriter, r *http.Request, requested, root string, before git.Status, run func(context.Context) (map[string]any, error)) {
+func (s *GitServer) gitStashApply(w http.ResponseWriter, r *http.Request, requested, root string, before git.Status, run func(context.Context) (map[string]any, error)) {
 	extra, runErr := run(r.Context())
 	s.Git.Invalidate(root)
 	obs, _, statusErr := s.Git.Status(r.Context(), root)

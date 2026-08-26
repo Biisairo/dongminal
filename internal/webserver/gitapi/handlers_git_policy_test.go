@@ -1,4 +1,4 @@
-package server
+package gitapi
 
 import (
 	"net/http"
@@ -121,7 +121,7 @@ func TestAPIGitRecovery(t *testing.T) {
 
 // J4: s.Git == nil 이면 3개 전부 503 이다. git 표면만 닫힌다.
 func TestGitPolicyEndpoints_Unavailable(t *testing.T) {
-	s := &Server{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
+	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
 	for _, path := range gitPolicyEndpoints {
 		code, out := gitReq(t, s, http.MethodGet, path, "")
 		if code != http.StatusServiceUnavailable {
@@ -133,12 +133,12 @@ func TestGitPolicyEndpoints_Unavailable(t *testing.T) {
 	}
 }
 
-// J1~J3: 3개 라우트가 apiRoutes 에 등록돼 있다. UI 는 이 표면 위에만 선다.
+// J1~J3: 3개 라우트가 gitapi.routes 에 등록돼 있다. UI 는 이 표면 위에만 선다.
 func TestGitPolicyRoutesRegistered(t *testing.T) {
 	for _, ep := range gitPolicyEndpoints {
 		path := strings.SplitN(ep, "?", 2)[0]
 		found := false
-		for _, rt := range apiRoutes {
+		for _, rt := range routes {
 			if rt.method != "" && rt.method != http.MethodGet {
 				continue
 			}
@@ -148,7 +148,7 @@ func TestGitPolicyRoutesRegistered(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("%s 가 apiRoutes 에 없다", path)
+			t.Errorf("%s 가 gitapi.routes 에 없다", path)
 		}
 	}
 }
