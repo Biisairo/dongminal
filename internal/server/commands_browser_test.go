@@ -17,9 +17,9 @@ import (
 // 서버에 POST 하므로 어떤 action 이든 통과해 결함이 드러나지 않았다.
 // 생산자(브라우저)와 검증자(서버)를 직접 대조해 재발을 막는다.
 func TestAllowedCmdActions_CoversBrowserHandled(t *testing.T) {
-	src, err := os.ReadFile("../../web/js/core/app.js")
+	src, err := os.ReadFile("../../web/js/core/app-cmd.js")
 	if err != nil {
-		t.Fatalf("app.js 읽기 실패: %v", err)
+		t.Fatalf("app-cmd.js 읽기 실패: %v", err)
 	}
 	body := execRemoteBody(t, string(src))
 
@@ -38,17 +38,17 @@ func TestAllowedCmdActions_CoversBrowserHandled(t *testing.T) {
 	}
 }
 
-// execRemoteBody는 app.js 에서 _execRemote 메서드 본문만 잘라낸다.
+// execRemoteBody는 app-cmd.js 에서 _execRemote 메서드 본문만 잘라낸다.
 // 다음 메서드 선언(_resolveLocation)을 경계로 삼는다.
 func execRemoteBody(t *testing.T, src string) string {
 	t.Helper()
 	start := strings.Index(src, "_execRemote(action, args)")
 	if start < 0 {
-		t.Fatal("app.js 에서 _execRemote 를 찾지 못했다 — 테스트를 갱신하라")
+		t.Fatal("app-cmd.js 에서 _execRemote 를 찾지 못했다 — 테스트를 갱신하라")
 	}
 	end := strings.Index(src[start:], "_resolveLocation(loc)")
 	if end < 0 {
-		t.Fatal("app.js 에서 _execRemote 의 끝 경계를 찾지 못했다 — 테스트를 갱신하라")
+		t.Fatal("app-cmd.js 에서 _execRemote 의 끝 경계를 찾지 못했다 — 테스트를 갱신하라")
 	}
 	return src[start : start+end]
 }
