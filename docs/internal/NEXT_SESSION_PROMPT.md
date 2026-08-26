@@ -1,20 +1,20 @@
 <!-- 이 파일은 전체가 새 세션의 첫 메시지다. 열어서 전체 선택 → 붙여넣기. -->
 
-dongminal 저장소에서 이어서 작업한다. 브랜치 `refactoring`, 원격과 동기, 작업 트리 clean.
-**코드에 알려진 결함은 없다.**
+dongminal 저장소에서 이어서 작업한다. 브랜치 `refactoring`, 작업 트리 clean, **원격보다
+앞서 있다**(푸시는 지시 없이 하지 마라). **코드에 알려진 결함은 없다.**
 
 ## 먼저 나에게 물어라
 
 열려 있는 트랙이 둘이고 성질이 다르다. **어느 쪽으로 갈지 먼저 묻고, 답을 받은 뒤에
 움직여라.** 스스로 순서를 정하면 내가 원하지 않은 것에 시간을 쓴다.
 
-- **트랙 A — 패키지 재구성 마무리.** 14단계 전량 완료, 남은 것은 판단이 필요한 3건.
-  아래에 그 3건이 있다.
+- **트랙 A — 패키지 재구성 마무리.** 15단계까지 완료돼 프로세스 축 밖에 남은 패키지가
+  없다. 남은 것은 판단이 필요한 2건이고 아래에 있다.
 - **트랙 B — Git 창 실사.** 코드 결함은 없고 수동 검증 잔여 + 문서 흡수가 남았다.
   출발점은 `docs/internal/GIT_REMAINING.md` §1~§2.
 
-트랙 A 를 고르면 그 안에서 ①②③ 중 무엇을 할지도 다시 물어라. 셋은 규모가 다르고
-②는 안 해도 되는 일일 수 있다.
+트랙 A 를 고르면 그 안에서 ①② 중 무엇을 할지도 다시 물어라. 둘은 규모가 다르고
+①은 안 해도 되는 일일 수 있다.
 
 ---
 
@@ -26,28 +26,18 @@ docs/internal/architecture.md              §패키지 레이아웃 · §git 실
 README.md                                  §아키텍처 개요(프로세스 축) · §테스트
 ```
 
-## 트랙 A 의 남은 3건
+## 트랙 A 의 남은 2건
 
-### ① `internal/server` → `internal/webserver/httpapi` — LOW, 30분
-
-패키지 29개 중 **유일하게 프로세스 축 밖에** 남아 있다. 13파일 2,885줄이고 실질은
-`webserver/httpapi` 다. 디렉터리 이동 + `package` 개명 + import 경로 갱신뿐이다.
-
-`package http` 로 하면 표준 `net/http` 와 충돌해 전 파일에 alias 가 필요하다. 그래서
-`package httpapi` 다 (SRS FR-DIR-3 의 대안 검토).
-
-이걸 하면 프로세스 축이 예외 없이 완성된다. **셋 중 이것부터 권한다.**
-
-### ② `handlers_api.go` 672줄 · `*Server` 메서드 25개 분할 — MEDIUM
+### ① `handlers_api.go` 672줄 · `*Server` 메서드 25개 분할 — MEDIUM
 
 SRS §5 비목표 #4 로 **명시적으로 뺀 것**이다. 프로세스·역할 경계는 이미 표현됐고
 단일 파일 크기는 별개 문제라는 판단이었다.
 
-**정말 필요한지부터 나에게 확인하라.** ①·③과 달리 이건 안 해도 되는 일일 수 있다.
-착수하기로 하면 ①을 먼저 끝낸 뒤에 한다 — 같은 파일들이 두 번 움직이면 회귀 원인
-판별이 어려워진다.
+**정말 필요한지부터 나에게 확인하라.** ②와 달리 이건 안 해도 되는 일일 수 있다.
+파일은 이제 `internal/webserver/httpapi/handlers_api.go` 다 — 15단계에서 옮겨졌고,
+`*Server` 메서드이므로 가르더라도 **같은 패키지 안에서** 갈라야 한다.
 
-### ③ 격리 검증 스크립트를 저장소로 — LOW, 15분
+### ② 격리 검증 스크립트를 저장소로 — LOW, 15분
 
 이전 세션의 스크래치 디렉터리에 있었고 **스크래치는 세션 전용이라 이미 사라졌다.**
 그래서 이 항목은 "옮기기"가 아니라 "다시 쓰기"다. 21항목 검사였고 **`stop` 을 쓰지
@@ -118,6 +108,7 @@ stop 은 홈이 아니라 **포트**로 대상을 찾는다 (`internal/ctl/cli/p
 - **import 경로** — 지역 변수 `hub` 를 `cmdHub` 로 바꾸면서
   `dongminal/internal/webserver/hub` 까지 치환됨
 - BSD `sed` 는 `\b`(단어 경계)를 지원하지 않는다. 조용히 아무것도 안 바꾼다.
+  **15단계에서 또 걸렸다.** 단어 경계를 쓰지 말고, 치환한 뒤 `grep` 으로 잔여를 세라.
 
 단, 대상 패키지가 컴파일되지 않는 상태에서는 gopls 가 크로스패키지 참조를 못 잡는다.
 그때는 **정의만 승격하고 호출부는 컴파일러 오류를 따라가라** — 컴파일러가 안전망이다.
@@ -134,8 +125,8 @@ TestNoCredentialFields                            domain/git/core/credentials_st
 ```
 
 경로만 정확히 갱신하고, **임계값(`scanned < 40`)을 낮추거나 스캔 범위를 좁히지 마라.**
-`credScanDirs` 에서 `internal/server` 를 빼지 마라 — git 코드가 다시 흘러들어오면
-검사 없이 통과하는 구멍이 된다.
+`credScanDirs` 에서 `internal/webserver/httpapi`(구 `internal/server`)를 빼지 마라 —
+git 코드가 다시 흘러들어오면 검사 없이 통과하는 구멍이 된다.
 
 ---
 
@@ -158,19 +149,22 @@ TestNoCredentialFields                            domain/git/core/credentials_st
 | | 착수 전 | 현재 |
 |---|---:|---:|
 | Go 패키지 | 17 | 29 |
-| `internal/server` 소스 | 28파일 19,653줄 | 13파일 2,885줄 |
+| 프로세스 축 밖 패키지 | — | **0** (15단계에서 해소) |
+| 웹 HTTP 잔여(구 `internal/server`) | 28파일 19,653줄 | `webserver/httpapi` 13파일 2,885줄 |
 | `web/js` | 20파일 평면 | 33파일 (core/ui/git) |
 | `app.js` | 2,999줄 단일 클래스 | 본체 274줄 + 13파일 |
 | 전체 diff | — | 313파일, +8,377 / −6,410 |
+
+**`staticcheck -checks=U1000` 이 0건이다.** 15단계에서 미사용 심볼 6건(247줄)을 걷어냈다.
+새 코드를 넣은 뒤 이 검사가 다시 뜨면 그건 이번에 치운 것이 되돌아온 것이다.
 
 ```
 internal/
 ├── helper/      ① dmctl/edit/download/detach
 ├── daemon/      ② dongminald — PTY 소유
-├── webserver/   ③ 웹 서버 — gitapi, hub, toolclient, seam/, domain/
+├── webserver/   ③ 웹 서버 — httpapi, gitapi, hub, toolclient, seam/, domain/
 ├── ctl/         ④ start/stop/health/migrate
-├── shared/      2개 이상이 실행 — workspace, toolhub, toolipc, outbuf, runtime, uuid, agentadapter
-└── server/      ③ HTTP 핸들러·라우팅 (①이 옮길 대상)
+└── shared/      2개 이상이 실행 — workspace, toolhub, toolipc, outbuf, runtime, uuid, agentadapter
 ```
 
 ### 구조를 결정한 사실 두 개
@@ -182,8 +176,8 @@ internal/
 **2. Go 의 메서드-패키지 제약이 분할 형태를 강제했다.** 타입의 메서드는 그 타입을 선언한
 패키지에만 둘 수 있다. 그래서 git 핸들러 48개는 `*Server`→`*GitServer` 리시버 교체가,
 `git` 조회·변경 47개 중 34개는 자유 함수 전환이 필요했다 — 파일 이동으로는 불가능했다.
-실측은 SRS §2.3. **①을 할 때도 이 제약을 먼저 확인하라** (`*Server` 메서드는 전부
-같은 패키지로 함께 움직여야 한다).
+실측은 SRS §2.3. **①(`handlers_api.go` 분할)에도 이 제약이 그대로 걸린다** — `*Server`
+메서드는 파일을 갈라도 같은 패키지 안에 있어야 한다.
 
 ### 반복해서 틀린 것 — 측정 방법
 
