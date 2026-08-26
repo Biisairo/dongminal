@@ -335,10 +335,11 @@ test.describe('UI 개정 — 파일 선택 (FR-GIT-187~191)', () => {
   });
 });
 
-// FR-GIT-195~198 의 하한. 여기 한 곳에만 둔다 — 값이 흩어지면 한쪽만 고쳐진다.
-const MIN_HIT = 22;      // 아이콘 버튼의 히트 영역
-const MIN_LABELED = 26;  // 라벨을 가진 버튼의 높이
-const MIN_ROW = 22;      // 목록 행
+// FR-GIT-195~198 의 하한 (FR-GIT-226 으로 개정). 기준은 VSCode 가 아니라 이 앱의
+// WINDOWS 목록 행(`.si` 30px)이다. 여기 한 곳에만 둔다 — 흩어지면 한쪽만 고쳐진다.
+const MIN_HIT = 30;      // 아이콘 버튼의 히트 영역
+const MIN_LABELED = 30;  // 라벨을 가진 버튼의 높이
+const MIN_ROW = 30;      // 목록 행
 const MIN_FONT = 11;     // 컨트롤 라벨
 const MIN_LIST_FONT = 12;
 
@@ -397,6 +398,39 @@ test.describe('UI 개정 — 컨트롤 치수 (FR-GIT-195~199)', () => {
       [...document.querySelectorAll('#git-repos .git-repo')].map(e => Math.round(e.getBoundingClientRect().height)));
     expect(Math.min(...repos)).toBeGreaterThanOrEqual(MIN_ROW);
     expect(side.buttons.filter(b => b.h < MIN_HIT)).toEqual([]);
+  });
+
+  test('V103 (FR-GIT-226): 하한이 WINDOWS 목록 행(.si)과 같은 값이다', async ({ page }) => {
+    await waitForInit(page);
+    await openChanges(page, fx('basic'));
+    await waitFiles(page, 3);
+
+    // 기준은 VSCode 가 아니라 이 앱 자신의 목록 행이다 — 숫자를 두 곳에 두지
+    // 않았다는 증거로, 실제 `.si` 높이와 맞춰 본다.
+    const si = await page.evaluate(() => {
+      const e = document.querySelector('#windows .si') as HTMLElement | null;
+      return e ? Math.round(e.getBoundingClientRect().height) : -1;
+    });
+    expect(si, 'WINDOWS 행이 없다').toBeGreaterThan(0);
+    expect(MIN_ROW).toBe(si);
+    expect(MIN_HIT).toBe(si);
+    expect(MIN_LABELED).toBe(si);
+
+    // 토큰이 실제로 그 값이다.
+    const tok = await page.evaluate(() => {
+      const cs = getComputedStyle(document.documentElement);
+      return ['--git-hit', '--git-btn-h', '--git-row-min']
+        .map((n) => parseFloat(cs.getPropertyValue(n)));
+    });
+    expect(tok).toEqual([si, si, si]);
+
+    // History 의 가상 스크롤 행 높이도 같다 — CSS 와 어긋나면 목록이 틀어진다.
+    await page.locator('#area .pn-tab[data-git-view="history"]').click();
+    await expect(page.locator('#area .pn-body .git-hist-row').first())
+      .toBeVisible({ timeout: 20000 });
+    const rowH = await page.locator('#area .pn-body .git-hist-list')
+      .evaluate((el) => parseFloat(getComputedStyle(el).getPropertyValue('--git-row-h')));
+    expect(rowH).toBe(si);
   });
 
   test('V81 (FR-GIT-199): 모바일 폭에서도 하한이 지켜진다', async ({ page }) => {
@@ -714,8 +748,8 @@ test.describe('UI 개정 — 동작의 진입점 (FR-GIT-207~209)', () => {
   });
 });
 
-test.describe('UI 개정 — 사이드바 목록 배분 (FR-GIT-219)', () => {
-  test('V96 (FR-GIT-219): GIT 목록이 남는 공간을 받는다', async ({ page }) => {
+test.describe('UI 개정 — GIT 행 높이 (FR-GIT-219)', () => {
+  test('V96 (FR-GIT-219): GIT 행이 WINDOWS 행과 같은 높이이고, 영역은 항목 수만큼만 자란다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate(async (p) => {
       await (window as any).app._gitPin(p);
@@ -724,23 +758,21 @@ test.describe('UI 개정 — 사이드바 목록 배분 (FR-GIT-219)', () => {
 
     const m = await page.evaluate(() => {
       const g = document.getElementById('git-repos')!;
-      const w = document.getElementById('windows')!;
-      const cs = getComputedStyle(g);
+      const row = g.querySelector('.git-repo') as HTMLElement;
+      const si = document.querySelector('#windows .si') as HTMLElement | null;
       let content = 0;
       for (const c of [...g.children]) content += (c as HTMLElement).getBoundingClientRect().height;
       return {
-        git: g.getBoundingClientRect().height,
-        win: w.getBoundingClientRect().height,
-        content,
-        grow: cs.flexGrow,
-        maxH: cs.maxHeight,
+        row: Math.round(row.getBoundingClientRect().height),
+        si: si ? Math.round(si.getBoundingClientRect().height) : -1,
+        box: Math.round(g.getBoundingClientRect().height),
+        content: Math.round(content),
       };
     });
-    // 자라지 않으면 내용 높이에 묶인다 — 그것이 "너무 좁다" 의 실체다.
-    expect(Number(m.grow), 'GIT 목록이 자라지 않는다').toBeGreaterThan(0);
-    expect(m.git, 'GIT 목록이 내용 높이에 묶여 있다').toBeGreaterThan(m.content);
-    // 같은 규칙이면 둘의 높이가 크게 벌어지지 않는다 (내용 차이만큼만).
-    expect(m.git).toBeGreaterThan(m.win * 0.5);
+    expect(m.si, 'WINDOWS 행이 없다').toBeGreaterThan(0);
+    expect(m.row, 'GIT 행이 WINDOWS 행과 다른 높이다').toBe(m.si);
+    // 미리 영역을 키워 두지 않는다 — 항목 수만큼만이다.
+    expect(m.box, '영역이 항목 수보다 크게 잡혔다').toBeLessThanOrEqual(m.content + 8);
   });
 });
 
@@ -779,10 +811,26 @@ test.describe('UI 개정 — 핀 드래그 정렬 (FR-GIT-223)', () => {
     await dragPin(page, c, a, true);
     await expect.poll(() => pinOrder(page), { timeout: 15000 }).toEqual([c, a, b]);
 
+    // **항목 영역을 벗어난 release 도 커밋된다.** 창 목록이 이미 그렇게 한다 —
+    // 문서 전역이 drop 을 받고 마지막 dragover 가 기록한 대상으로 커밋한다.
+    await page.evaluate(({ s, d }) => {
+      const dt = new DataTransfer();
+      const from = document.querySelector(`#git-repos .git-repo[data-git-repo="${s}"]`)!;
+      const to = document.querySelector(`#git-repos .git-repo[data-git-repo="${d}"]`)!;
+      const r = to.getBoundingClientRect();
+      from.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
+      to.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer: dt, clientY: r.bottom - 2 }));
+      // 목록 밖(본문)에서 손을 뗀다.
+      document.getElementById('area')!
+        .dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt, clientY: 5 }));
+      from.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt }));
+    }, { s: c, d: a });
+    await expect.poll(() => pinOrder(page), { timeout: 15000 }).toEqual([a, c, b]);
+
     // 서버가 권위로 쓴다 (O1) — 새로고침해도 남는다.
     await page.reload();
     await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-    await expect.poll(() => pinOrder(page), { timeout: 20000 }).toEqual([c, a, b]);
+    await expect.poll(() => pinOrder(page), { timeout: 20000 }).toEqual([a, c, b]);
   });
 
   test('V100 (FR-GIT-223): follow 항목은 끌 수 없다', async ({ page }) => {

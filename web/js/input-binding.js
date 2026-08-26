@@ -25,8 +25,10 @@ class InputBinding {
     // 문서 전역 DnD 수락(1회 바인딩): 드래그 중 화면 전체를 드롭 수락 영역으로 만들어
     // native snap-back(미수락 release 시 원위치 복귀 애니메이션)을 패널 안/밖 어디서든 제거,
     // drop 에서 마지막 dragover 가 기록한 대상 기준 즉시 커밋. FR-AAP-21 / 창 사이드바 공유.
-    document.addEventListener('dragover',e=>{const dr=this.app._drag;if(dr&&(dr.type==='window'||dr.type==='agent'))e.preventDefault()});
-    document.addEventListener('drop',e=>{const dr=this.app._drag;if(!dr)return;if(dr.type==='window'){e.preventDefault();this.app._reorderWindows(dr)}else if(dr.type==='agent'){e.preventDefault();this.app._reorderAgents(dr)}});
+    // GIT 핀(FR-GIT-223)도 같은 목록에 든다 — 빠지면 항목 영역을 벗어난 release 가
+    // 조용히 아무 일도 하지 않는다.
+    document.addEventListener('dragover',e=>{const dr=this.app._drag;if(dr&&(dr.type==='window'||dr.type==='agent'||dr.type==='gitpin'))e.preventDefault()});
+    document.addEventListener('drop',e=>{const dr=this.app._drag;if(!dr)return;if(dr.type==='window'){e.preventDefault();this.app._reorderWindows(dr)}else if(dr.type==='agent'){e.preventDefault();this.app._reorderAgents(dr)}else if(dr.type==='gitpin'){e.preventDefault();this.app._gitReorder(dr)}});
     const sb=document.getElementById('sidebar'),sbh=document.getElementById('sb-handle');
     sbh.addEventListener('mousedown',e=>{e.preventDefault();
       const sx=e.clientX,sw=sb.offsetWidth;

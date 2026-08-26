@@ -375,7 +375,7 @@ const GIT_CON_POLL_MS=2000;
 // 가상 스크롤 (FR-GIT-116). **고정 행 높이**로 계산한다 — 가변 높이는 10,000행에서
 // 측정 비용이 스크롤을 먹는다. 값은 목록의 CSS 변수로 실려 CSS 와 JS 가 같은
 // 숫자를 딛는다.
-const GIT_HIST_ROW_H=26;
+const GIT_HIST_ROW_H=30;   // = --git-row-min (FR-GIT-226). CSS 와 어긋나면 가상 스크롤이 틀어진다
 const GIT_HIST_ROW_H_MOBILE=34; // 손가락으로 짚을 수 있는 높이
 const GIT_HIST_OVERSCAN=6;      // 화면 위·아래로 더 그리는 여유 행
 // 인라인 상세(FR-GIT-135)의 높이. **펼침은 한 번에 하나만** 허용하므로 오프셋

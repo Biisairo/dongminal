@@ -259,8 +259,19 @@ class GitHistory {
 
   // ── refs 사이드바 (FR-GIT-122·123) ──
 
+  /**
+   * refs 사이드바를 칠한다.
+   *
+   * **뼈대가 그대로면 요소를 다시 만들지 않는다.** 다시 만들면 더블클릭의 두 번째
+   * 클릭이 새 요소에 떨어져 브라우저가 `dblclick` 을 만들지 않는다 — 단일 클릭의
+   * 필터가 곧바로 목록을 다시 그리므로(`_setRef` → `_reload` → `paint`) 체크아웃이
+   * 되다 말다 한다 (FR-GIT-222). 바뀌는 것이 선택뿐이면 선택만 고친다.
+   */
   _paintRefs(){
     const box=this._el.querySelector('.git-refs');
+    const sig=this._refsSig();
+    if(box.dataset.sig===sig){this._paintRefSel(box);return}
+    box.dataset.sig=sig;
     box.innerHTML='';
     const all=document.createElement('div');
     all.className='git-refs-all'+(this._ref?'':' sel');
@@ -278,6 +289,20 @@ class GitHistory {
       }
       box.appendChild(d);
     }
+  }
+
+  // 뼈대를 이루는 값 전부다. 하나라도 바뀌면 다시 만든다 — 선택(`_ref`)은 여기
+  // 없다: 그것만 바뀌는 것이 흔한 경우이고, 그때 다시 만들지 않는 것이 목적이다.
+  _refsSig(){
+    return (this._refs||[]).map(r=>[r.kind,r.name,r.short,r.ahead,r.behind,
+      r.isHead?1:0,r.gone?1:0,r.subject||''].join('\u0001')).join('\u0000');
+  }
+
+  _paintRefSel(box){
+    const all=box.querySelector('.git-refs-all');
+    if(all) all.classList.toggle('sel',!this._ref);
+    for(const d of box.querySelectorAll('.git-ref'))
+      d.classList.toggle('sel',this._ref===d.dataset.ref);
   }
 
   _refEl(r,kind){

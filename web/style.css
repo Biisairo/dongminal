@@ -45,8 +45,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .si:hover .si-x{opacity:1}
 .si-x:hover{color:var(--danger);background:rgba(247,118,142,.2)}
 
+/* FR-GIT-226: 사이드바 목록 행이 30px 이 되었으므로 그 아래 버튼도 같은 높이를
+   갖는다. 같은 패널의 같은 계열인데 한쪽만 낮으면 "너무 낮다" 가 한 줄 아래에서
+   그대로 반복된다. */
 #add-window,#add-preset,#git-add-repo{
-  margin:0 8px 4px;padding:4px 8px;
+  margin:0 8px 4px;padding:4px 8px;min-height:30px;
   background:transparent;border:1px solid var(--border);border-radius:4px;
   color:var(--text-muted);font-size:11px;cursor:pointer;text-align:left;
 }
@@ -190,7 +193,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 
 /* ── Settings button ── */
 #settings-btn{
-  margin:0 8px 8px;padding:6px;
+  margin:0 8px 8px;padding:6px;min-height:30px;
   background:transparent;border:1px solid var(--border);border-radius:4px;
   color:var(--text-muted);font-size:13px;cursor:pointer;text-align:center;
   transition:background .15s,color .15s;
@@ -980,10 +983,10 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .git-group-name{color:var(--text)}
 .git-group-spacer{flex:1 1 auto}
 /* FR-GIT-66·67·68: 그룹별 일괄. 그룹이 tracked / untracked 를 이미 가른다 */
-/* FR-GIT-196·198: 라벨을 가진 버튼은 높이 26px, 글꼴 11px 이 하한이다 */
+/* FR-GIT-196·198·226: 라벨을 가진 버튼의 높이 하한. 값은 토큰에 있다 */
 .git-group-bulk{
   font:inherit;font-size:11px;padding:0 8px;cursor:pointer;flex-shrink:0;
-  min-height:26px;text-transform:none;letter-spacing:normal;
+  min-height:var(--git-btn-h);text-transform:none;letter-spacing:normal;
   background:var(--bg);color:var(--text);
   border:1px solid var(--border);border-radius:3px;
 }
@@ -998,7 +1001,7 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .git-file,.git-dir{
   --git-depth:0;
   display:flex;align-items:center;gap:6px;padding:0 6px 0 9px;
-  min-height:22px;font-size:12px;white-space:nowrap;cursor:pointer;
+  min-height:var(--git-row-min);font-size:12px;white-space:nowrap;cursor:pointer;
   border-left:3px solid transparent;
   background-image:repeating-linear-gradient(to right,
     var(--border) 0 1px, transparent 1px var(--git-indent));
@@ -1018,10 +1021,10 @@ body.mobile .sb-title{padding:14px 14px 8px}
 /* 행 인라인 동작. 자리는 늘 잡고 hover 에서만 보인다 — 행 높이가 흔들리지 않는다 */
 .git-file-acts{display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity .1s}
 .git-file:hover .git-file-acts,.git-file:focus-within .git-file-acts{opacity:1}
-/* FR-GIT-195: 아이콘 하나짜리 버튼도 22×22 히트 영역을 갖는다 */
+/* FR-GIT-195·226: 아이콘 하나짜리 버튼도 행과 같은 히트 영역을 갖는다 */
 .git-file-act{
   font:inherit;font-size:12px;line-height:1;cursor:pointer;
-  min-width:22px;min-height:22px;padding:0 5px;
+  min-width:var(--git-hit);min-height:var(--git-hit);padding:0 5px;
   display:flex;align-items:center;justify-content:center;
   background:transparent;color:var(--text-muted);
   border:1px solid var(--border);border-radius:3px;
@@ -1037,7 +1040,7 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .git-partial-list{margin:2px 0 0;padding:0 0 0 14px;max-height:80px;overflow-y:auto;color:var(--text)}
 .git-partial-path{font-family:monospace;word-break:break-all}
 .git-partial-close{
-  margin-top:4px;font:inherit;font-size:11px;padding:0 8px;min-height:26px;cursor:pointer;
+  margin-top:4px;font:inherit;font-size:11px;padding:0 8px;min-height:var(--git-btn-h);cursor:pointer;
   background:transparent;color:var(--text-muted);
   border:1px solid var(--border);border-radius:3px;
 }
@@ -1287,6 +1290,22 @@ body.mobile .git-file-check{width:14px;height:14px}
 body.mobile .git-refs{width:110px}
 body.mobile .git-hist-f{width:60px}
 
+/* ── Git 창의 글자 선택 (FR-GIT-225) ── */
+/* 더블클릭은 낱말을 선택한다 — 그것이 제스처와 겹친다 (FR-GIT-52·222). 사이드바가
+   이미 쓰는 규칙(`#sidebar`)을 Git 창에도 건다.
+   **본문은 예외다**: 선택해서 복사하는 것이 목적인 자리는 그대로 둔다. 목록의
+   해시·제목·경로·브랜치 이름은 우클릭 메뉴에 복사 항목이 있어 막히지 않는다. */
+.git-view{user-select:none;-webkit-user-select:none}
+.git-view .monaco-editor,
+.git-view .git-diff-host,
+.git-view .git-job-log,
+.git-view .git-job-tail,
+.git-view .git-job-auth-cmd,
+.git-view .git-con-detail,
+.git-view .git-hist-d-body,
+.git-view input,
+.git-view textarea{user-select:text;-webkit-user-select:text}
+
 /* ── Git Console 탭 (FR-GIT-218) ── */
 /* 바는 고정이고 목록만 스크롤한다 — 바가 함께 스크롤되면 500줄에서 토글에 닿을
    수 없다. */
@@ -1327,11 +1346,10 @@ body.mobile .git-hist-f{width:60px}
 /* ── Git 사이드바 (FR-GIT-13~17) ── */
 /* FR-GIT-17: 두 목록이 서로를 굶기지 않는다. min-height:0 이 없으면 flex 자식이
    내용 높이 아래로 줄어들지 않아 한쪽이 사이드바 밖으로 밀린다. */
-/* FR-GIT-219: 두 목록이 **같은 규칙**으로 공간을 나눈다. grow 가 0 이면 GIT 목록은
-   내용 높이에 묶이고 남는 공간을 WINDOWS 가 전부 가져간다 (실측 475px vs 78px).
-   40% 상한은 폐기했다 — 목적은 상한이 아니라 서로를 굶기지 않는 것이고
-   (FR-GIT-17), 그것은 같은 규칙을 쓸 때 저절로 성립한다. */
-#git-repos{flex:1 1 auto;min-height:0;overflow-y:auto}
+/* FR-GIT-17: 두 목록이 서로를 굶기지 않는다. GIT 목록은 **항목 수만큼만** 자란다 —
+   미리 영역을 키워 두지 않는다 (FR-GIT-219). 상한은 WINDOWS 를 굶기지 않기 위한
+   것이다. */
+#git-repos{flex:0 1 auto;min-height:0;max-height:40%;overflow-y:auto}
 /* FR-GIT-214: 목록 → `+ Add` → ⚙ 이 잇달아 놓인다. 벌리지 않으면 세 덩이가 한
    덩이로 읽혀 목록의 마지막 행이 버튼처럼 보인다. ⚙ 은 GIT 섹션에 속하지 않으므로
    그쪽을 더 넓게 둔다. (WINDOWS 는 버튼이 목록 **위**라 같은 값이어도 이 문제가
@@ -1341,7 +1359,9 @@ body.mobile .git-hist-f{width:60px}
 #git-repos::-webkit-scrollbar{width:4px}
 #git-repos::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 .git-sec-title{border-top:var(--git-sec-divider)}
-.git-repo{display:flex;align-items:center;gap:6px;height:26px;padding:0 10px;font-size:12px;cursor:pointer;transition:background .1s}
+/* FR-GIT-219: 행 높이는 WINDOWS 목록의 `.si` 와 같다 (30px). 같은 자리·같은
+   생김새의 두 목록이 다른 높이면 사용자가 GIT 쪽을 좁다고 읽는다. */
+.git-repo{display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;font-size:12px;cursor:pointer;transition:background .1s}
 .git-repo:hover{background:var(--accent-hover)}
 .git-repo.active{background:var(--accent-active)}
 .git-repo.active .git-repo-name{color:var(--text-bright);font-weight:500}
@@ -1563,18 +1583,19 @@ body.mobile .git-repo-x{opacity:1;width:24px;height:24px;font-size:14px}
 .git-stash-file-st{flex:0 0 auto;width:12px;color:var(--accent);font-family:monospace}
 .git-stash-file-path{min-width:0;overflow:hidden;text-overflow:ellipsis}
 
-/* ── Git 컨트롤 치수 하한 (GIT_UI_REVISION_SRS FR-GIT-195~199) ──
-   VSCode 기준: action bar 아이콘 버튼 22×22, button 26, list row 22.
+/* ── Git 컨트롤 치수 하한 (FR-GIT-195~199, **FR-GIT-226 으로 개정**) ──
+   기준은 VSCode(22/26)가 아니라 **이 앱의 WINDOWS 목록 행(`.si` 30px)** 이다 —
+   같은 앱 안에서 목록마다 다른 높이를 쓸 이유가 없다 (사용자 검토).
    값은 여기 한 번만 둔다 — 선택자마다 흩어지면 한쪽만 고쳐진다.
    `min-*` 만 쓰므로 모바일의 더 큰 값은 그대로 남는다 (FR-GIT-199). */
-:root{--git-hit:22px;--git-btn-h:26px;--git-row-min:22px;
+:root{--git-hit:30px;--git-btn-h:30px;--git-row-min:30px;
   /* GIT_TREE_INDENT · GIT_TREE_PAD0 (constants.js) 과 같은 값 */
   --git-indent:12px;--git-tree-pad0:9px}
 
 .git-view button,.git-dialog button,#git-confirm button,.git-menu-item{
   min-height:var(--git-btn-h);min-width:var(--git-hit);
 }
-/* 행 인라인 동작만 22 다 — 26 이면 22px 행을 밀어 올린다 (VSCode 도 같다) */
+/* FR-GIT-226 으로 세 값이 같아졌다 — 행 인라인 동작의 예외가 사라졌다 */
 .git-view .git-file-act{min-height:var(--git-hit);min-width:var(--git-hit)}
 /* 입력도 같은 눈높이여야 옆 버튼과 어긋나 보이지 않는다 */
 /* 체크박스·라디오는 제외한다 — 이 하한을 먹이면 14px 상자가 26px 로 늘어나
@@ -1587,8 +1608,10 @@ body.mobile .git-repo-x{opacity:1;width:24px;height:24px;font-size:14px}
 .git-diff-ws{min-height:var(--git-hit)}
 /* FR-GIT-198: 컨트롤 라벨은 11px 미만이 되지 않는다 */
 .git-remote-more,.git-hist-smode{font-size:11px}
-/* FR-GIT-197: 목록 행 (파일 행은 .git-file 규칙이 이미 잡는다) */
+/* FR-GIT-197·226: 목록 행 (파일 행은 .git-file 규칙이 이미 잡는다) */
 .git-br-row,.git-stash-row,.git-br-group-head,.git-br-pfx-head{min-height:var(--git-row-min)}
+/* refs 사이드바의 행도 목록 행이다 — 빠져 있었다 */
+.git-refs-all,.git-ref{min-height:var(--git-row-min)}
 #git-repos .git-repo{min-height:var(--git-row-min)}
 #git-repos .git-repo-x{min-width:var(--git-hit);min-height:var(--git-hit)}
 
@@ -1654,7 +1677,7 @@ select{
 }
 select:hover{border-color:var(--accent)}
 select:focus{border-color:var(--accent);outline:none}
-/* FR-GIT-206: 컨트롤을 담은 행은 손이 닿는 높이여야 한다 */
+/* FR-GIT-206·226: 컨트롤을 담은 행은 손이 닿는 높이여야 한다 */
 .git-dialog-row,.git-commit-amend,.git-commit-opt,.git-diff-ws{
-  min-height:22px;display:flex;align-items:center;gap:6px;cursor:pointer;
+  min-height:var(--git-row-min);display:flex;align-items:center;gap:6px;cursor:pointer;
 }
