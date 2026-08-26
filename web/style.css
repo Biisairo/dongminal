@@ -5,6 +5,9 @@
   --accent:#7aa2f7;--text:#a9b1d6;--text-muted:#565f89;
   --text-bright:#c0caf5;--text-dim:#414868;--danger:#f7768e;
   --accent-border:#3d59a1;
+  /* FR-GIT-216: JS 가 테마에서 파생해 덮어쓴다. 여기 값은 첫 페인트용이다 */
+  --border-strong:#565c76;
+  --git-sec-divider:2px solid var(--border-strong);
   --accent-hover:rgba(122,162,247,.1);--accent-active:rgba(122,162,247,.12);
   --accent-subtle:rgba(122,162,247,.08);
   --attn:#e0af68;--attn-subtle:rgba(224,175,104,.16);--attn-glow:rgba(224,175,104,.5);
@@ -951,8 +954,10 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .git-files-spacer{flex:1 1 auto}
 /* FR-GIT-69: 선택이 있을 때만 보인다 — 없을 때 자리를 차지할 이유가 없다 */
 /* FR-GIT-212: 그룹을 선으로 나눈다. 첫 그룹 위에는 없다 — 목록의 시작이지
-   경계가 아니다 */
-.git-group+.git-group{border-top:1px solid var(--border)}
+   경계가 아니다.
+   FR-GIT-216: 굵기·색을 행 구분선과 다르게 한다. 같으면 그것이 섹션의 시작인지
+   그저 또 하나의 선인지 읽히지 않는다. 값은 `--git-sec-divider` 한 곳에 있다 */
+.git-group+.git-group{border-top:var(--git-sec-divider)}
 .git-group-head{
   display:flex;align-items:center;gap:5px;padding:3px 8px;cursor:pointer;
   font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);
@@ -1164,6 +1169,8 @@ body.mobile .git-file-check{width:14px;height:14px}
 }
 .git-refs-all:hover,.git-ref:hover{background:var(--accent-hover)}
 .git-refs-all.sel,.git-ref.sel{background:var(--accent-active);color:var(--text-bright)}
+/* FR-GIT-216: refs 사이드바의 그룹도 섹션이다 */
+.git-refs-group+.git-refs-group{border-top:var(--git-sec-divider)}
 .git-refs-head{padding:4px 8px 2px;color:var(--text-dim);font-size:10px;text-transform:uppercase}
 .git-ref-short{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .git-ref.head .git-ref-short{color:var(--accent)}
@@ -1271,9 +1278,15 @@ body.mobile .git-hist-f{width:60px}
 /* FR-GIT-17: 두 목록이 서로를 굶기지 않는다. min-height:0 이 없으면 flex 자식이
    내용 높이 아래로 줄어들지 않아 한쪽이 사이드바 밖으로 밀린다. */
 #git-repos{flex:0 1 auto;min-height:0;max-height:40%;overflow-y:auto}
+/* FR-GIT-214: 목록 → `+ Add` → ⚙ 이 잇달아 놓인다. 벌리지 않으면 세 덩이가 한
+   덩이로 읽혀 목록의 마지막 행이 버튼처럼 보인다. ⚙ 은 GIT 섹션에 속하지 않으므로
+   그쪽을 더 넓게 둔다. (WINDOWS 는 버튼이 목록 **위**라 같은 값이어도 이 문제가
+   없다 — 그래서 공유 규칙을 고치지 않고 여기서 덮는다.) */
+#git-repos{margin-bottom:6px}
+#git-add-repo{margin-bottom:10px}
 #git-repos::-webkit-scrollbar{width:4px}
 #git-repos::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.git-sec-title{border-top:1px solid var(--border)}
+.git-sec-title{border-top:var(--git-sec-divider)}
 .git-repo{display:flex;align-items:center;gap:6px;height:26px;padding:0 10px;font-size:12px;cursor:pointer;transition:background .1s}
 .git-repo:hover{background:var(--accent-hover)}
 .git-repo.active{background:var(--accent-active)}
@@ -1395,6 +1408,9 @@ body.mobile .git-repo-x{opacity:1;width:24px;height:24px;font-size:14px}
 .git-br-tree::-webkit-scrollbar{width:8px}
 .git-br-tree::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 .git-br-empty{padding:10px;color:var(--text-muted);font-size:11px}
+/* FR-GIT-216: 그룹(로컬·원격·태그)은 섹션이다. 접두사 묶음(`.git-br-pfx`)은 그룹
+   **안**의 하위 묶음이므로 대상이 아니다 */
+.git-br-group+.git-br-group{border-top:var(--git-sec-divider)}
 /* FR-GIT-148·149·150: 그룹과 접두사 그룹은 같은 골격이다 — 한쪽만 고쳐지지 않게 */
 .git-br-group-head,.git-br-pfx-head{
   display:flex;align-items:center;gap:4px;padding:3px 8px;cursor:pointer;
@@ -1532,8 +1548,8 @@ body.mobile .git-repo-x{opacity:1;width:24px;height:24px;font-size:14px}
 .git-repo.active .git-repo-dot{background:var(--accent)}
 /* 가리키는 리포가 없으면 상태도 없다 (FR-GIT-194) */
 .git-repo-dot.none{background:transparent}
-/* follow 는 늘 최상단 1줄이다 — 그 아래 선이 핀 목록과 나눈다 */
-.git-repo.follow{border-bottom:1px solid var(--border)}
+/* follow 는 늘 최상단 1줄이다 — 그 아래 선이 핀 목록과 나눈다 (FR-GIT-216) */
+.git-repo.follow{border-bottom:var(--git-sec-divider)}
 
 /* ── Git 창의 감춘 진입점 (FR-GIT-180) ── */
 .git-hidden{display:none !important}

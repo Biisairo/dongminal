@@ -29,6 +29,18 @@ function pickAttnColor(t){
   return best;
 }
 
+// 섹션 경계선은 행 구분선보다 진해야 구분이 된다 (FR-GIT-216). 팔레트에 그런 색이
+// 없고, `--text-dim` 같은 기존 토큰을 빌리면 테마마다 밝기 관계가 달라 어떤 테마
+// 에서는 오히려 흐려진다 — border 를 text 쪽으로 섞으면 밝은 테마·어두운 테마 모두
+// 에서 바탕과의 대비가 반드시 커진다.
+function mixHex(a,b,t){
+  const x=hexRgb(a),y=hexRgb(b);
+  if(!x||!y) return a;
+  const c=k=>Math.round(x[k]+(y[k]-x[k])*t).toString(16).padStart(2,'0');
+  return '#'+c('r')+c('g')+c('b');
+}
+const BORDER_STRONG_MIX=.35;
+
 function applyThemeObj(t){
   const s=document.documentElement.style;
   const ui=t.ui;
@@ -42,6 +54,7 @@ function applyThemeObj(t){
   s.setProperty('--text-dim',ui.textDim);
   s.setProperty('--danger',ui.danger);
   s.setProperty('--accent-border',ui.accentBorder);
+  s.setProperty('--border-strong',mixHex(ui.border,ui.text,BORDER_STRONG_MIX));
   s.setProperty('--accent-hover',hexToRgba(ui.accent,.1));
   s.setProperty('--accent-active',hexToRgba(ui.accent,.12));
   s.setProperty('--accent-subtle',hexToRgba(ui.accent,.08));

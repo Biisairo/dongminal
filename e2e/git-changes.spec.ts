@@ -105,6 +105,37 @@ test.describe('묶음 E — Changes 탭', () => {
     await expect(changes(page).locator('.git-head .git-badge-noupstream')).toBeVisible({ timeout: 10000 });
   });
 
+  // FR-GIT-215: git 의 기본값(-u normal)은 추적되지 않는 **디렉터리**를 `newdir/`
+  // 한 줄로 접는다. 접힌 행은 트리 보기에서 이름이 빈 문자열이 되고, 클릭해도
+  // 디렉터리 경로로 diff 를 걸어 아무것도 열리지 않는다.
+  test('C4b (V92·FR-GIT-215): 새 디렉터리 안의 파일이 자기 이름으로 뜨고 열린다', async ({ page }) => {
+    const repo = copyFx('basic', 'c4b');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await expect(rows(page, 'untracked').first()).toBeVisible({ timeout: 10000 });
+
+    execFileSync('mkdir', ['-p', join(repo, 'newdir', 'nested')]);
+    writeFileSync(join(repo, 'newdir', 'nested', 'doc.md'), '# hi\n');
+
+    // 디렉터리가 아니라 **파일**이 목록에 온다.
+    const doc = group(page, 'untracked').locator('.git-file[data-path="newdir/nested/doc.md"]');
+    await expect(doc).toBeVisible({ timeout: 10000 });
+    // 접힌 디렉터리 항목은 없다.
+    const paths = await rows(page, 'untracked').evaluateAll(
+      (els) => els.map((e) => (e as HTMLElement).dataset.path || ''));
+    expect(paths.filter((p) => p.endsWith('/')), '디렉터리가 항목으로 왔다').toEqual([]);
+    // 이름이 비어 있는 행이 없다.
+    const names = await rows(page, 'untracked').locator('.git-file-path').allTextContents();
+    expect(names.filter((n) => !n.trim()), '이름이 빈 행이 있다').toEqual([]);
+
+    // 클릭하면 미리보기가 그 파일을 연다.
+    await doc.click();
+    await expect(changes(page).locator('.git-preview .git-preview-path'))
+      .toHaveText('newdir/nested/doc.md', { timeout: 10000 });
+    await expect(changes(page).locator('.git-preview .monaco-diff-editor'))
+      .toContainText('hi', { timeout: 20000 });
+  });
+
   test('C4 (V23): 파일을 만들면 untracked 그룹 개수가 늘고 행이 보인다', async ({ page }) => {
     const repo = copyFx('basic', 'c4');
     await waitForInit(page);

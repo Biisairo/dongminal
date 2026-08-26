@@ -105,6 +105,27 @@ func TestExec_CallerDeadlineWins(t *testing.T) {
 	}
 }
 
+// FR-GIT-217: 취소는 마감 초과의 대칭이다. 호출자가 요청을 거둬들인 것이지
+// 서버가 실패한 것이 아니므로, 신호로 죽은 실행을 일반 실패로 올리면 안 된다.
+func TestExec_CallerCancelIsErrCanceled(t *testing.T) {
+	runner := func(ctx context.Context, _ string, _ []string) (Output, error) {
+		<-ctx.Done()
+		return Output{ExitCode: -1}, ctx.Err()
+	}
+	s := New(WithRunner(runner), WithTimeout(10*time.Second))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { time.Sleep(20 * time.Millisecond); cancel() }()
+	_, err := s.Exec(ctx, "/tmp/repo", "status")
+	if !errors.Is(err, ErrCanceled) {
+		t.Fatalf("err = %v, want ErrCanceled", err)
+	}
+	// 마감 초과와 섞이지 않는다 — 둘은 다른 상태 코드로 간다 (504 vs 499).
+	if errors.Is(err, ErrTimeout) {
+		t.Fatalf("취소가 ErrTimeout 으로도 분류됐다: %v", err)
+	}
+}
+
 // 케이스 2 의 반대편: 호출자가 마감을 주지 않으면 기본 상한이 걸린다 (FR-GIT-3).
 func TestExec_DefaultTimeoutApplied(t *testing.T) {
 	var budget time.Duration

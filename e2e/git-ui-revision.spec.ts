@@ -714,6 +714,142 @@ test.describe('UI 개정 — 동작의 진입점 (FR-GIT-207~209)', () => {
   });
 });
 
+// FR-GIT-216: 섹션 경계의 굵기 하한. 색은 테스트가 정하지 않는다 — 테마에서
+// 파생하므로 "행 구분선과 다른가" 로만 판정한다.
+const SEC_BORDER_W = 2;
+
+// 경계선을 읽는다. **조회와 계산을 한 번의 evaluate 안에서** 한다 — 1초 폴링이
+// 목록을 다시 그리므로 밖에서 잡은 요소는 계산 시점에 떨어져 나갈 수 있고,
+// 떨어진 요소의 getComputedStyle 은 빈 값을 준다.
+const edges = (page: Page, sel: string, side: 'top' | 'bottom') =>
+  page.evaluate(([q, s]) => {
+    return [...document.querySelectorAll(q)].map((el) => {
+      const c = getComputedStyle(el);
+      return {
+        w: parseFloat(c.getPropertyValue(`border-${s}-width`)) || 0,
+        color: c.getPropertyValue(`border-${s}-color`),
+      };
+    });
+  }, [sel, side] as const);
+
+const rootVar = (page: Page, name: string) =>
+  page.evaluate((n) => getComputedStyle(document.documentElement)
+    .getPropertyValue(n).trim(), name);
+
+test.describe('UI 개정 — 섹션 경계 (FR-GIT-216)', () => {
+  test('V93 (FR-GIT-216): 섹션 경계가 행 구분선과 다른 굵기·색으로 그려진다', async ({ page }) => {
+    await waitForInit(page);
+    await page.evaluate(async (p) => {
+      await (window as any).app._gitPin(p);
+    }, fx('basic'));
+    await openChanges(page, fx('basic'));
+    await waitFiles(page, 3);
+
+    // 진한 색은 팔레트에서 빌리지 않고 border 를 text 쪽으로 섞어 만든다.
+    const strong = await rootVar(page, '--border-strong');
+    const plain = await rootVar(page, '--border');
+    expect(strong, '--border-strong 이 없다').toBeTruthy();
+    expect(strong.toLowerCase(), '섹션 색이 행 구분선과 같다').not.toBe(plain.toLowerCase());
+
+    // ① Changes 그룹 — 첫 그룹 위에는 없고, 둘째부터 경계를 갖는다.
+    await expect.poll(async () => (await edges(page, '#area .pn-body .git-group', 'top')).length,
+      { timeout: 15000 }).toBeGreaterThanOrEqual(2);
+    const groups = await edges(page, '#area .pn-body .git-group', 'top');
+    expect(groups[0].w, '첫 그룹 위에 선이 있다').toBe(0);
+    expect(groups[1].w).toBeGreaterThanOrEqual(SEC_BORDER_W);
+
+    // 같은 화면의 행과 달라야 한다 — 굵기든 색이든.
+    const rowLine = (await edges(page, '#area .pn-body .git-file', 'top'))[0];
+    expect(groups[1].w + '/' + groups[1].color, '섹션 경계가 행과 구별되지 않는다')
+      .not.toBe(rowLine.w + '/' + rowLine.color);
+
+    // ② 사이드바 — WINDOWS ↔ GIT 경계와 follow ↔ 핀 경계.
+    const secTitle = (await edges(page, '.git-sec-title', 'top'))[0];
+    expect(secTitle.w).toBeGreaterThanOrEqual(SEC_BORDER_W);
+    const follow = (await edges(page, '#git-repos .git-repo.follow', 'bottom'))[0];
+    expect(follow.w).toBeGreaterThanOrEqual(SEC_BORDER_W);
+
+    // ③ 테마를 바꾸면 따라 바뀐다 — 색을 하드코딩하지 않았다는 증거다.
+    const before = groups[1].color;
+    await page.evaluate<string>(
+      '(function(){' +
+      "var cur=getComputedStyle(document.documentElement).getPropertyValue('--border').trim().toLowerCase();" +
+      'var n=Object.keys(THEMES).find(function(k){' +
+      'return THEMES[k].ui.border.toLowerCase()!==cur});' +
+      'customTheme=null;currentThemeName=n;applyThemeObj(THEMES[n]);return n})()');
+    await expect.poll(async () =>
+      (await edges(page, '#area .pn-body .git-group', 'top'))[1].color,
+      { timeout: 10000 }).not.toBe(before);
+  });
+
+  test('V93 (FR-GIT-216): Branches 그룹과 refs 그룹도 같은 경계를 갖는다', async ({ page }) => {
+    await waitForInit(page);
+    await openGit(page, fx('with-remote'));
+
+    // Branches — 로컬·원격·태그 그룹.
+    await page.locator('#area .pn-tab[data-git-view="branches"]').click();
+    await expect.poll(async () => (await edges(page, '#area .pn-body .git-br-group', 'top')).length,
+      { timeout: 20000 }).toBeGreaterThanOrEqual(2);
+    const br = await edges(page, '#area .pn-body .git-br-group', 'top');
+    expect(br[0].w, '첫 그룹 위에 선이 있다').toBe(0);
+    expect(br[1].w).toBeGreaterThanOrEqual(SEC_BORDER_W);
+    // 접두사 묶음은 섹션이 아니다 — 있어도 경계를 갖지 않는다.
+    const pfx = await edges(page, '#area .pn-body .git-br-pfx', 'top');
+    expect(pfx.filter((p) => p.w >= SEC_BORDER_W), '접두사 묶음이 섹션처럼 그려졌다').toEqual([]);
+
+    // History refs — 로컬·원격·태그 그룹.
+    await page.locator('#area .pn-tab[data-git-view="history"]').click();
+    await expect.poll(async () => (await edges(page, '#area .pn-body .git-refs-group', 'top')).length,
+      { timeout: 20000 }).toBeGreaterThanOrEqual(2);
+    const rf = await edges(page, '#area .pn-body .git-refs-group', 'top');
+    expect(rf[0].w, '첫 refs 그룹 위에 선이 있다').toBe(0);
+    expect(rf[1].w).toBeGreaterThanOrEqual(SEC_BORDER_W);
+  });
+});
+
+// FR-GIT-214 의 간격 하한. 값은 여기 한 곳에만 둔다.
+const MIN_GAP_LIST_ADD = 6;
+const MIN_GAP_ADD_SETTINGS = 10;
+
+// GIT 섹션의 세 덩이 사이 간격. 여백은 margin 이라 요소 사각형 사이의 빈 거리로
+// 잰다 — 계산된 margin 값을 읽으면 서로 상쇄되는 경우를 놓친다.
+const sectionGaps = (page: Page) =>
+  page.evaluate(() => {
+    const r = (id: string) => document.getElementById(id)!.getBoundingClientRect();
+    const list = r('git-repos'), add = r('git-add-repo'), set = r('settings-btn');
+    return { listAdd: add.top - list.bottom, addSettings: set.top - add.bottom };
+  });
+
+test.describe('UI 개정 — GIT 섹션의 간격 (FR-GIT-214)', () => {
+  test('V91 (FR-GIT-214): 목록·+ Add·설정이 서로 붙지 않는다', async ({ page }) => {
+    await waitForInit(page);
+    await page.evaluate(async (p) => {
+      await (window as any).app._gitPin(p);
+    }, fx('basic'));
+    await expect.poll(() => gitRepos(page).count(), { timeout: 20000 }).toBeGreaterThanOrEqual(1);
+
+    const g = await sectionGaps(page);
+    expect(g.listAdd, '목록과 + Add 가 붙어 있다').toBeGreaterThanOrEqual(MIN_GAP_LIST_ADD);
+    expect(g.addSettings, '+ Add 와 설정이 붙어 있다').toBeGreaterThanOrEqual(MIN_GAP_ADD_SETTINGS);
+    // ⚙ 은 GIT 섹션에 속하지 않는다 — 뒤쪽이 더 넓어야 세 덩이가 한 무리로 읽히지
+    // 않는다.
+    expect(g.addSettings, '설정이 GIT 섹션과 같은 무리로 읽힌다').toBeGreaterThan(g.listAdd);
+  });
+
+  test('V91 (FR-GIT-214): 모바일 폭에서도 간격이 지켜진다', async ({ page }) => {
+    await waitForInit(page);
+    await page.setViewportSize({ width: 420, height: 800 });
+    await page.waitForTimeout(600);
+    // 모바일은 드로어다 — 열어야 사이드바가 화면에 선다.
+    await page.evaluate(() => (window as any).app.openDrawer && (window as any).app.openDrawer());
+    await page.waitForTimeout(300);
+
+    const g = await sectionGaps(page);
+    expect(g.listAdd).toBeGreaterThanOrEqual(MIN_GAP_LIST_ADD);
+    expect(g.addSettings).toBeGreaterThanOrEqual(MIN_GAP_ADD_SETTINGS);
+  });
+});
+
 test.describe('UI 개정 — GIT 섹션 표식 (FR-GIT-192~194)', () => {
   test('V79 (FR-GIT-192·193·194): 이모지가 없고 점이 활성 리포를 나타내며 follow 아래에 구분선이 있다', async ({ page }) => {
     await waitForInit(page);

@@ -166,6 +166,12 @@ func execGit(ctx context.Context, dir string, args []string, limit int, stdin st
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return out, fmt.Errorf("%w: git %s 가 %dms 에서 마감을 넘겼다", ErrTimeout, strings.Join(args, " "), out.DurationMs)
 	}
+	// 마감 초과 다음에 본다 — 마감 초과도 취소이지만 뜻이 이미 정해졌다.
+	// stderr 의 `signal: killed` 로 판정하지 않는다: 사용자가 보낸 진짜 kill 과
+	// 구분되지 않는다 (FR-GIT-217).
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return out, fmt.Errorf("%w: git %s 를 호출자가 취소했다", ErrCanceled, strings.Join(args, " "))
+	}
 	if cmd.ProcessState != nil {
 		out.ExitCode = cmd.ProcessState.ExitCode()
 	}

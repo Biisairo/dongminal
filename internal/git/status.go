@@ -234,8 +234,13 @@ func finalizeStatus(st *Status) {
 // Status 는 리포 하나의 상태를 관측한다. 캐시·single-flight 는 Store 의 일이다.
 //
 // --ignored 를 주지 않는다 — 무시된 파일은 관심 대상이 아니고 비용만 든다.
+//
+// --untracked-files=all 은 반드시 준다 (FR-GIT-215). git 기본값(normal)은 추적되지
+// 않는 디렉터리를 `newdir/` **한 줄로 접어** 안의 파일을 하나도 열거하지 않는다.
+// 접힌 항목은 파일이 아니므로 이름도 diff 도 개수도 성립하지 않는다 — FR-GIT-34 가
+// 분류 대상으로 못박은 것은 "변경 **파일**" 이다.
 func (s *Service) Status(ctx context.Context, repo string) (Status, error) {
-	out, err := s.Exec(ctx, repo, "status", "--porcelain=v2", "-z", "--branch")
+	out, err := s.Exec(ctx, repo, "status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all")
 	if err != nil {
 		return Status{}, err
 	}

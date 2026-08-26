@@ -7,7 +7,7 @@
 >
 > - 요구사항: [`./GIT_SRS.md`](./GIT_SRS.md) (FR-GIT-1~178)
 > - **개정**: [`./GIT_UI_REVISION_SRS.md`](./GIT_UI_REVISION_SRS.md) (FR-GIT-179~213).
->   FR-GIT-27·30 을 폐기하고 13·41·69 를 개정했다 — **그쪽이 본 문서보다 앞선다**
+>   FR-GIT-27·30 을 폐기하고 13·35·41·69 를 개정했다 — **그쪽이 본 문서보다 앞선다**
 > - 설계 근거: [`./design/`](./design/)
 > - 수동 검증: [`./GIT_MANUAL_CHECKLIST.md`](./GIT_MANUAL_CHECKLIST.md) (1·2회차 실사 기록 포함)
 >

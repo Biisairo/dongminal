@@ -22,6 +22,7 @@ const (
 	gitErrNotRepo     = "not_a_git_repo"
 	gitErrMissing     = "git_missing"
 	gitErrTimeout     = "git_timeout"
+	gitErrCanceled    = "git_canceled"
 	gitErrUnavailable = "git_unavailable"
 	gitErrFailed      = "git_failed"
 )
@@ -47,6 +48,10 @@ func gitUnavailable(w http.ResponseWriter) {
 
 // gitErrorCode 는 실패를 클라이언트가 분기할 수 있는 코드로 옮긴다. 분류되지 않은
 // 실패는 500 이며, 사유는 stderr tail 로 남는다 (FR-GIT-96 의 정신).
+// 499 는 표준 코드가 아니라 nginx 관례라 Go 에 상수가 없다. 이름을 여기 한 번만
+// 두고 그것만 쓴다 (FR-GIT-217).
+const statusClientClosed = 499
+
 func gitErrorCode(err error) (int, string) {
 	switch {
 	case errors.Is(err, git.ErrNotRepo):
@@ -55,6 +60,10 @@ func gitErrorCode(err error) (int, string) {
 		return http.StatusServiceUnavailable, gitErrMissing
 	case errors.Is(err, git.ErrTimeout):
 		return http.StatusGatewayTimeout, gitErrTimeout
+	case errors.Is(err, git.ErrCanceled):
+		// 서버가 실패한 것이 아니라 요청이 사라진 것이다 (FR-GIT-217). 500 으로
+		// 적으면 진짜 장애와 로그에서 구분되지 않는다.
+		return statusClientClosed, gitErrCanceled
 	}
 	return http.StatusInternalServerError, gitErrFailed
 }

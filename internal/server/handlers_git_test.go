@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -564,5 +566,25 @@ func TestGitStatus_ConcurrentSingleFlight(t *testing.T) {
 	}
 	if got := g.count("status"); got != 1 {
 		t.Fatalf("status 실행 %d회, want 1", got)
+	}
+}
+
+// FR-GIT-217 (V94): 브라우저가 언로드하며 취소한 요청은 서버의 실패가 아니다.
+// 500 으로 적으면 진짜 장애와 로그에서 구분되지 않는다.
+func TestGitErrorCode_CanceledIsClientClosed(t *testing.T) {
+	code, name := gitErrorCode(fmt.Errorf("wrapped: %w", git.ErrCanceled))
+	if code != statusClientClosed {
+		t.Fatalf("code = %d, want %d", code, statusClientClosed)
+	}
+	if name != gitErrCanceled {
+		t.Fatalf("name = %q, want %q", name, gitErrCanceled)
+	}
+	// 마감 초과는 그대로 504 다 — 둘을 한 코드로 뭉치지 않는다.
+	if c, _ := gitErrorCode(git.ErrTimeout); c != http.StatusGatewayTimeout {
+		t.Fatalf("timeout code = %d, want 504", c)
+	}
+	// 그 밖의 실패는 여전히 500 이다.
+	if c, _ := gitErrorCode(errors.New("boom")); c != http.StatusInternalServerError {
+		t.Fatalf("generic code = %d, want 500", c)
 	}
 }

@@ -233,7 +233,9 @@ func TestParseStatusV2_GroupsSorted(t *testing.T) {
 }
 
 // Service.Status 는 --ignored 를 주지 않는다. 무시된 파일은 관심 대상이 아니고
-// 비용만 든다.
+// 비용만 든다. 반대로 --untracked-files=all 은 **반드시** 준다 (FR-GIT-215) —
+// git 기본값(normal)은 추적되지 않는 디렉터리를 한 줄로 접어 안의 파일을 하나도
+// 열거하지 않는다.
 func TestServiceStatus_Argv(t *testing.T) {
 	var got []string
 	s := New(WithRunner(func(_ context.Context, _ string, args []string) (Output, error) {
@@ -244,7 +246,7 @@ func TestServiceStatus_Argv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
-	want := []string{"status", "--porcelain=v2", "-z", "--branch"}
+	want := []string{"status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all"}
 	if strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Fatalf("argv = %q, want %q", got, want)
 	}
