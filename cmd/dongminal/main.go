@@ -273,7 +273,7 @@ func main() {
 	os.Exit(cli.Dispatch(os.Args[1:], serve, os.Stdout, os.Stderr))
 }
 
-// resolveHome은 데몬 경로의 홈 해석이다. 액션 경로는 internal/cli 가
+// resolveHome은 데몬 경로의 홈 해석이다. 액션 경로는 internal/ctl/cli 가
 // 플래그까지 반영해 해석한 값을 serve 에 넘긴다.
 func resolveHome() (string, error) {
 	home := os.Getenv("DONGMINAL_HOME")

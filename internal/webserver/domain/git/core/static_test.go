@@ -15,7 +15,7 @@ const gitLiteral = `"gi` + `t"`
 
 var directExec = regexp.MustCompile(`exec\.` + `Command(Context)?\([^)]*` + gitLiteral)
 
-// 허용 예외는 FR-GIT-1 이 명시한 두 곳뿐이다 — internal/worktree 는 Run 격리 전용
+// 허용 예외는 FR-GIT-1 이 명시한 두 곳뿐이다 — internal/webserver/domain/worktree 는 Run 격리 전용
 // 경로이고, internal/webserver/domain/git 자신이 그 단일 지점이다.
 var execAllowed = []string{
 	filepath.Join("internal", "webserver", "domain", "worktree"),

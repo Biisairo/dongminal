@@ -131,7 +131,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 |------|------|
 | [UUID_IDENTITY_SRS.md](./archive/UUID_IDENTITY_SRS.md) — UUID 기반 엔티티 정체성 | 2026-05 |
 | [DMCTL_UUID_FINALIZE_SRS.md](./archive/DMCTL_UUID_FINALIZE_SRS.md) — dmctl UUID 전환 마무리 (location uuid-only 정책) | 2026-05 |
-| [DMCTL_WHO_AM_I_SRS.md](./archive/DMCTL_WHO_AM_I_SRS.md) — `who-am-i` 추가 + 출력 라인 통일 (`internal/toolline`) | 2026-06 |
+| [DMCTL_WHO_AM_I_SRS.md](./archive/DMCTL_WHO_AM_I_SRS.md) — `who-am-i` 추가 + 출력 라인 통일 (`internal/helper/toolline`) | 2026-06 |
 | [LIST_PANES_NAME_FILTER_SRS.md](./archive/LIST_PANES_NAME_FILTER_SRS.md) — 이름 필터 (현 `list_workspace`) | 2026-06 |
 | [REMOTE_SESSION_TAB_CREATE_SRS.md](./archive/REMOTE_SESSION_TAB_CREATE_SRS.md) — `newWindow`/`newTab` 의 keepFocus·name | 2026-06 |
 | [RENAME_TAB_SESSION_SRS.md](./archive/RENAME_TAB_SESSION_SRS.md) — `renameTab`/`renameWindow` | 2026-06 |
@@ -164,7 +164,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | 워크스페이스 PUT 의 last-write-wins | 미해소. 사람 둘이 각자 브라우저에서 동시에 편집하면 한쪽이 유실된다. 오케스트레이터 경로는 FR-SXE-\* 가 덮는다 (WORKSPACE_IDENTITY_SRS §2.4·§5) |
 | ~~사용자 인스턴스 v1 → v2 마이그레이션~~ | **완료** (2026-08-24 12:24). `~/.dongminal` 에 `.v1.bak` 3개, `panes.json`→`tools.json` 전환 확인 |
 | `~/.dongminal/runs.json` | 커밋된 코드에 소비자가 없는 산출물. 실행 중 바이너리에 문자열조차 없다 — 출처 불명의 Run 레코드 프로토타입 |
-| ~~`internal/uuid`(Go v7) 가 죽은 패키지~~ | **해소** — 묶음 U 가 `toolId`·`reqId` 의 단일 생성기로 삼았다 (FR-UNI-6) |
+| ~~`internal/shared/uuid`(Go v7) 가 죽은 패키지~~ | **해소** — 묶음 U 가 `toolId`·`reqId` 의 단일 생성기로 삼았다 (FR-UNI-6) |
 | ~~`toolId` 가 서버 카운터~~ | **해소** — uuid. 카운터가 영속되지 않아 모든 도구가 닫힌 상태로 재기동하면 `"1"` 부터 재사용됐다 (WORKSPACE_IDENTITY_SRS §2.7) |
 | ~~LAN 노출 시 엔터티 생성 실패~~ | **해소** — `crypto.randomUUID` 는 보안 컨텍스트 전용이라 `--expose` 접속에서 undefined 였고 폴백이 없었다. `newUUID()` 가 `getRandomValues` 로 폴백한다 (FR-UNI-3) |
 | `~/.dongminal/panels.json` | v1 시절 도구 기록. 소비자 없음. 삭제 여부 미정 |

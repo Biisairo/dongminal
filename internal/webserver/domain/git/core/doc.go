@@ -9,6 +9,6 @@
 // 실행 기록은 남기기만 하며 표시하지 않는다 (Console 탭, M6). 셸을 경유하지 않고
 // (FR-GIT-2), 실패를 빈 결과로 낮추지 않는다 (FR-GIT-8).
 //
-// internal/worktree 는 Run 격리 전용 경로로 자기 git 실행을 그대로 유지한다 —
+// internal/webserver/domain/worktree 는 Run 격리 전용 경로로 자기 git 실행을 그대로 유지한다 —
 // FR-GIT-1 이 명시한 유일한 예외다.
 package core

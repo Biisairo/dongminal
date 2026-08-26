@@ -46,7 +46,7 @@ const (
 // PolicyInjection 은 세션 스코프 정책(훅·스킬)을 주입하는 방식이다 (FR-ADP-5).
 //
 // 값(경로)은 런타임에 정해지므로 여기엔 **플래그 이름만** 둔다. 실제 주입은
-// internal/runtime 의 셸 래퍼가 하고, 그 래퍼가 이 선언과 어긋나지 않는지는
+// internal/shared/runtime 의 셸 래퍼가 하고, 그 래퍼가 이 선언과 어긋나지 않는지는
 // runtime 패키지의 대조 테스트가 지킨다.
 type PolicyInjection struct {
 	// Flags 는 기동 커맨드에 덧붙는 세션 스코프 인자의 이름들이다.

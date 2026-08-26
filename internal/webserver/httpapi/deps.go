@@ -17,7 +17,7 @@ import (
 // tests can inject a fake without bringing up the real persister. Only the
 // methods actually consumed by HTTP handlers in this package are listed —
 // Resolve / Labels / Entries / InvalidateTool are callers' concerns
-// (internal/adapters/* + main).
+// (internal/webserver/seam/adapters/* + main).
 type WorkspaceStore interface {
 	Raw() []byte
 	CurrentRev() uint64

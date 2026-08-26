@@ -5,7 +5,7 @@
 // 전제하기 때문이다.
 //
 // 이 파일이 저장소에서 파일을 지울 수 있는 유일한 접합점이다. 그래서 지우는
-// 판단은 전부 internal/worktree 의 가드를 거치고, **무엇이 정리 대상인지**는
+// 판단은 전부 internal/webserver/domain/worktree 의 가드를 거치고, **무엇이 정리 대상인지**는
 // Run 레코드만이 정한다 (FR-WKT-9).
 package httpapi
 

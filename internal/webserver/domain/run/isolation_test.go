@@ -10,7 +10,7 @@ import (
 )
 
 // 묶음 W 의 기록 절반 (RUN_ORCHESTRATION_SRS §3.4). 격리의 git 조작은
-// internal/worktree 가 하고, 여기서는 **무엇이 누구의 것이며 무엇이 남았는가**를
+// internal/webserver/domain/worktree 가 하고, 여기서는 **무엇이 누구의 것이며 무엇이 남았는가**를
 // 기록으로 붙잡는다 (FR-WKT-9/12).
 
 // FR-WKT-3/4/9: id 를 호출자가 미리 정할 수 있어야 worktree 를 **레코드가 생기기

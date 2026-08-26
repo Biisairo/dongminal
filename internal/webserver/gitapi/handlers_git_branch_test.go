@@ -79,7 +79,7 @@ func (f *gitM5Fake) read(_ context.Context, dir string, args []string) (core.Out
 }
 
 // fakeCheckRefFormat 은 git 의 판정을 흉내 낸다. 규칙 전체가 아니라 **응답의 형태**가
-// 검사 대상이다 — 실제 규칙은 internal/git 의 단위 테스트가 진짜 git 으로 본다.
+// 검사 대상이다 — 실제 규칙은 internal/webserver/domain/git 의 단위 테스트가 진짜 git 으로 본다.
 func fakeCheckRefFormat(name string) core.Output {
 	if strings.ContainsAny(name, " ~^:?*[\\") || strings.Contains(name, "..") || strings.HasSuffix(name, ".lock") {
 		return core.Output{ExitCode: 128, Stderr: "fatal: '" + name + "' is not a valid branch name\n"}
