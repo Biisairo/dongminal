@@ -1,6 +1,10 @@
-package server
+package ipc
 
 import (
+	"dongminal/internal/shared/toolhub"
+
+	"dongminal/internal/shared/toolipc"
+
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
@@ -15,13 +19,13 @@ import (
 // ── Protocol tests ──────────────────────────────────────────────────────
 
 func TestPanedJSONLinesFraming(t *testing.T) {
-	req := panedRequest{ID: 1, Method: "hello", Params: json.RawMessage(`{"server_pid":123}`)}
+	req := toolipc.PanedRequest{ID: 1, Method: "hello", Params: json.RawMessage(`{"server_pid":123}`)}
 	b, err := json.Marshal(req)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
 	b = append(b, '\n')
-	var decoded panedRequest
+	var decoded toolipc.PanedRequest
 	if err := json.Unmarshal(bytes.TrimSuffix(b, []byte{'\n'}), &decoded); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
@@ -48,7 +52,7 @@ func TestPanedBase64RoundTrip(t *testing.T) {
 // newTestConn builds a panedConn over an in-memory pipe via the real
 // newPanedConn path (queue + writeLoop). The peer end is drained so writes
 // never block.
-func newTestConn(pm *ToolManager) *panedConn {
+func newTestConn(pm *toolhub.ToolManager) *panedConn {
 	c1, c2 := net.Pipe()
 	pc := newPanedConn(c1, pm)
 	go func() { _, _ = io.Copy(io.Discard, c2) }()
@@ -56,7 +60,7 @@ func newTestConn(pm *ToolManager) *panedConn {
 }
 
 func TestPanedMethodDispatch(t *testing.T) {
-	pc := newTestConn(NewToolManager(t.TempDir(), nil))
+	pc := newTestConn(toolhub.NewToolManager(t.TempDir(), nil))
 	tests := []struct {
 		name   string
 		method string
@@ -75,19 +79,19 @@ func TestPanedMethodDispatch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pc.dispatch(&panedRequest{ID: 1, Method: tt.method, Params: json.RawMessage(tt.params)})
+			pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: tt.method, Params: json.RawMessage(tt.params)})
 		})
 	}
 }
 
 func TestPanedUnknownMethod(t *testing.T) {
 	var buf bytes.Buffer
-	pc := &panedConn{pm: NewToolManager(t.TempDir(), nil), encoder: json.NewEncoder(&buf)}
-	pc.dispatch(&panedRequest{ID: 1, Method: "bogus", Params: json.RawMessage(`{}`)})
+	pc := &panedConn{pm: toolhub.NewToolManager(t.TempDir(), nil), encoder: json.NewEncoder(&buf)}
+	pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: "bogus", Params: json.RawMessage(`{}`)})
 
 	raw := bytes.TrimRight(buf.Bytes(), "\n")
 	t.Logf("raw output: %s", raw)
-	var resp panedError
+	var resp toolipc.PanedError
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
@@ -97,15 +101,15 @@ func TestPanedUnknownMethod(t *testing.T) {
 }
 
 func TestPanedHelloReturnsToolIDs(t *testing.T) {
-	pm := NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(t.TempDir(), nil)
 	pm.Create("/tmp", 80, 24)
 	pm.Create("/tmp", 80, 24)
 
 	var buf bytes.Buffer
 	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&buf)}
-	pc.dispatch(&panedRequest{ID: 1, Method: "hello", Params: json.RawMessage(`{"server_pid":1}`)})
+	pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: "hello", Params: json.RawMessage(`{"server_pid":1}`)})
 
-	var resp panedResponse
+	var resp toolipc.PanedResponse
 	json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &resp)
 	resultMap := resp.Result.(map[string]interface{})
 	toolIDs := resultMap["tool_ids"].([]interface{})
@@ -115,7 +119,7 @@ func TestPanedHelloReturnsToolIDs(t *testing.T) {
 }
 
 func TestPanedKillRemovesTool(t *testing.T) {
-	pm := NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(t.TempDir(), nil)
 	// toolId 는 uuid 이므로 생성 결과에서 받아야 한다 (FR-UNI-7). 이전에는 첫 도구가
 	// 항상 "1" 이라는 카운터 전제에 의존했다.
 	tl, err := pm.Create("/tmp", 80, 24)
@@ -128,7 +132,7 @@ func TestPanedKillRemovesTool(t *testing.T) {
 		t.Fatal("tool should be live before kill")
 	}
 	params, _ := json.Marshal(map[string]string{"id": tl.ID})
-	pc.dispatch(&panedRequest{ID: 1, Method: "kill", Params: params})
+	pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: "kill", Params: params})
 	time.Sleep(200 * time.Millisecond) // allow async cleanup
 	if pm.IsLive(tl.ID) {
 		t.Fatal("tool should be dead after kill")
@@ -189,7 +193,7 @@ func TestPanedPushOutputStopped(t *testing.T) {
 func shortPath(t *testing.T, name string) string { return t.TempDir() + "/" + name }
 
 func TestPanedServerListenAccept(t *testing.T) {
-	pm := NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(t.TempDir(), nil)
 	pm.Create("/tmp", 80, 24)
 
 	sockPath := shortPath(t, "t.sock")
@@ -219,8 +223,8 @@ func TestPanedServerListenAccept(t *testing.T) {
 	}
 	enc := json.NewEncoder(conn)
 	dec := json.NewDecoder(conn)
-	enc.Encode(panedRequest{ID: 1, Method: "hello", Params: json.RawMessage(`{"server_pid":1}`)})
-	var resp panedResponse
+	enc.Encode(toolipc.PanedRequest{ID: 1, Method: "hello", Params: json.RawMessage(`{"server_pid":1}`)})
+	var resp toolipc.PanedResponse
 	if err := dec.Decode(&resp); err != nil {
 		t.Fatalf("hello response: %v", err)
 	}
@@ -231,7 +235,7 @@ func TestPanedServerListenAccept(t *testing.T) {
 }
 
 func TestPanedServerCloseCleanup(t *testing.T) {
-	pm := NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(t.TempDir(), nil)
 	sockPath := shortPath(t, "c.sock")
 	pidPath := shortPath(t, "c.pid")
 
@@ -248,20 +252,20 @@ func TestPanedServerCloseCleanup(t *testing.T) {
 }
 
 func TestPanedCreateWriteSnapshotFlow(t *testing.T) {
-	pm := NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(t.TempDir(), nil)
 	var buf bytes.Buffer
 	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&buf)}
 
-	pc.dispatch(&panedRequest{ID: 1, Method: "create", Params: json.RawMessage(`{"cwd":"/tmp","cols":80,"rows":24}`)})
+	pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: "create", Params: json.RawMessage(`{"cwd":"/tmp","cols":80,"rows":24}`)})
 	buf.Reset()
 
 	data := base64.StdEncoding.EncodeToString([]byte("echo test\n"))
-	pc.dispatch(&panedRequest{ID: 2, Method: "write", Params: json.RawMessage(fmt.Sprintf(`{"id":"1","data":"%s"}`, data))})
+	pc.dispatch(&toolipc.PanedRequest{ID: 2, Method: "write", Params: json.RawMessage(fmt.Sprintf(`{"id":"1","data":"%s"}`, data))})
 
 	buf.Reset()
-	pc.dispatch(&panedRequest{ID: 3, Method: "snapshot", Params: json.RawMessage(`{"id":"1"}`)})
+	pc.dispatch(&toolipc.PanedRequest{ID: 3, Method: "snapshot", Params: json.RawMessage(`{"id":"1"}`)})
 
-	var resp panedResponse
+	var resp toolipc.PanedResponse
 	json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &resp)
 	if _, ok := resp.Result.(map[string]interface{})["data"]; !ok {
 		t.Fatal("snapshot missing data")
@@ -269,11 +273,11 @@ func TestPanedCreateWriteSnapshotFlow(t *testing.T) {
 }
 
 func TestPanedRestore(t *testing.T) {
-	pm := NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(t.TempDir(), nil)
 	var buf bytes.Buffer
 	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&buf)}
 
-	pc.dispatch(&panedRequest{ID: 1, Method: "restore", Params: json.RawMessage(`{"id":"5","name":"R","cwd":"/home","cols":100,"rows":30}`)})
+	pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: "restore", Params: json.RawMessage(`{"id":"5","name":"R","cwd":"/home","cols":100,"rows":30}`)})
 
 	if !pm.IsLive("5") {
 		t.Fatal("restored tool should be live")
@@ -284,14 +288,14 @@ func TestPanedRestore(t *testing.T) {
 // already served by a live daemon (concurrent cold-start guard).
 func TestPanedListenRejectsLiveSocket(t *testing.T) {
 	sock := t.TempDir() + "/s"
-	ps1 := NewPanedServer(NewToolManager(t.TempDir(), nil), sock, "")
+	ps1 := NewPanedServer(toolhub.NewToolManager(t.TempDir(), nil), sock, "")
 	if err := ps1.Listen(); err != nil {
 		t.Fatalf("Listen1: %v", err)
 	}
 	defer ps1.Close()
 	go func() { ps1.Accept() }()
 
-	ps2 := NewPanedServer(NewToolManager(t.TempDir(), nil), sock, "")
+	ps2 := NewPanedServer(toolhub.NewToolManager(t.TempDir(), nil), sock, "")
 	if err := ps2.Listen(); err == nil {
 		ps2.Close()
 		t.Fatal("Listen2 should reject a live socket, got nil error")
@@ -301,13 +305,13 @@ func TestPanedListenRejectsLiveSocket(t *testing.T) {
 // TestPanedListenRemovesStaleSocket verifies a stale (dead) socket is replaced.
 func TestPanedListenRemovesStaleSocket(t *testing.T) {
 	sock := t.TempDir() + "/s"
-	ps1 := NewPanedServer(NewToolManager(t.TempDir(), nil), sock, "")
+	ps1 := NewPanedServer(toolhub.NewToolManager(t.TempDir(), nil), sock, "")
 	if err := ps1.Listen(); err != nil {
 		t.Fatalf("Listen1: %v", err)
 	}
 	ps1.Close() // socket file may linger but no listener
 
-	ps2 := NewPanedServer(NewToolManager(t.TempDir(), nil), sock, "")
+	ps2 := NewPanedServer(toolhub.NewToolManager(t.TempDir(), nil), sock, "")
 	if err := ps2.Listen(); err != nil {
 		t.Fatalf("Listen2 should reclaim stale socket: %v", err)
 	}

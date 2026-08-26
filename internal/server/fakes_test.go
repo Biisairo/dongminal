@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/shared/toolhub"
+
 	"sync"
 	"time"
 
@@ -11,7 +13,7 @@ import (
 
 type fakePaneHub struct {
 	mu       sync.Mutex
-	tools    map[string]*Tool
+	tools    map[string]*toolhub.Tool
 	cwds     map[string]string
 	busies   map[string]bool
 	created  []string
@@ -22,17 +24,17 @@ type fakePaneHub struct {
 }
 
 func newFakePaneHub() *fakePaneHub {
-	return &fakePaneHub{tools: map[string]*Tool{}, cwds: map[string]string{}, busies: map[string]bool{}}
+	return &fakePaneHub{tools: map[string]*toolhub.Tool{}, cwds: map[string]string{}, busies: map[string]bool{}}
 }
 
 func (f *fakePaneHub) seed(id, name string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.tools[id] = &Tool{ID: id, Name: name}
+	f.tools[id] = &toolhub.Tool{ID: id, Name: name}
 }
 
 // setCwd records the working directory the hub reports for tool id via Cwd().
-// Mirrors the live cwd a real ToolManager/ToolClient would resolve.
+// Mirrors the live cwd a real toolhub.ToolManager/toolclient.ToolClient would resolve.
 func (f *fakePaneHub) setCwd(id, cwd string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -47,7 +49,7 @@ func (f *fakePaneHub) Cwd(id string) string {
 }
 
 // setBusy records the busy state the hub reports for tool id via Busy().
-// Mirrors the live foreground-process state a real ToolManager/ToolClient
+// Mirrors the live foreground-process state a real toolhub.ToolManager/toolclient.ToolClient
 // would resolve (daemon mode routes through the busy RPC).
 func (f *fakePaneHub) setBusy(id string, busy bool) {
 	f.mu.Lock()
@@ -72,12 +74,12 @@ func (f *fakePaneHub) List() []map[string]interface{} {
 	return out
 }
 
-func (f *fakePaneHub) Create(cwd string, cols, rows uint16) (*Tool, error) {
+func (f *fakePaneHub) Create(cwd string, cols, rows uint16) (*toolhub.Tool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.nextID++
 	id := "fake" + itoa(f.nextID)
-	p := &Tool{ID: id, Name: "Fake " + id}
+	p := &toolhub.Tool{ID: id, Name: "Fake " + id}
 	f.tools[id] = p
 	f.created = append(f.created, id)
 	f.lastCols = cols
@@ -86,7 +88,7 @@ func (f *fakePaneHub) Create(cwd string, cols, rows uint16) (*Tool, error) {
 	return p, nil
 }
 
-func (f *fakePaneHub) Get(id string) *Tool {
+func (f *fakePaneHub) Get(id string) *toolhub.Tool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.tools[id]
@@ -101,12 +103,12 @@ func (f *fakePaneHub) Delete(id string) {
 func (f *fakePaneHub) IsLive(id string) bool                     { return f.Get(id) != nil }
 func (f *fakePaneHub) Write(id string, data []byte) error        { return nil }
 func (f *fakePaneHub) Resize(id string, cols, rows uint16) error { return nil }
-func (f *fakePaneHub) SnapshotTool(id string) (ToolSnapshot, error) {
-	return ToolSnapshot{}, nil
+func (f *fakePaneHub) SnapshotTool(id string) (toolhub.ToolSnapshot, error) {
+	return toolhub.ToolSnapshot{}, nil
 }
-func (f *fakePaneHub) IsDaemon() bool                    { return false }
-func (f *fakePaneHub) SetBackground(string, bool) bool   { return false }
-func (f *fakePaneHub) BackgroundList() []BackgroundEntry { return nil }
+func (f *fakePaneHub) IsDaemon() bool                            { return false }
+func (f *fakePaneHub) SetBackground(string, bool) bool           { return false }
+func (f *fakePaneHub) BackgroundList() []toolhub.BackgroundEntry { return nil }
 
 func itoa(n int) string {
 	if n == 0 {

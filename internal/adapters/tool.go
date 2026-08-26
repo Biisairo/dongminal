@@ -4,23 +4,24 @@
 package adapters
 
 import (
+	"dongminal/internal/shared/toolhub"
+
 	"fmt"
 	"time"
 
-	"dongminal/internal/server"
 	"dongminal/internal/toolaccess"
 
 	"github.com/creack/pty"
 )
 
-// Tool은 server.ToolManager 를 toolaccess.ToolReader 로 어댑트한다.
+// Tool은 toolhub.ToolManager 를 toolaccess.ToolReader 로 어댑트한다.
 // PM이 nil이면 (daemon mode) ToolHub 를 사용한다.
 type Tool struct {
-	PM  *server.ToolManager
-	Hub server.ToolHub
+	PM  *toolhub.ToolManager
+	Hub toolhub.ToolHub
 }
 
-func (a Tool) getPane(id string) *server.Tool {
+func (a Tool) getPane(id string) *toolhub.Tool {
 	if a.PM != nil {
 		return a.PM.Get(id)
 	}
@@ -30,17 +31,17 @@ func (a Tool) getPane(id string) *server.Tool {
 	return nil
 }
 
-func (a Tool) listPanes() []*server.Tool {
+func (a Tool) listPanes() []*toolhub.Tool {
 	if a.PM != nil {
 		return a.PM.Snapshot()
 	}
 	// ToolHub doesn't have Snapshot; build from List
-	var out []*server.Tool
+	var out []*toolhub.Tool
 	if a.Hub != nil {
 		for _, m := range a.Hub.List() {
 			id, _ := m["id"].(string)
 			name, _ := m["name"].(string)
-			out = append(out, &server.Tool{ID: id, Name: name})
+			out = append(out, &toolhub.Tool{ID: id, Name: name})
 		}
 	}
 	return out

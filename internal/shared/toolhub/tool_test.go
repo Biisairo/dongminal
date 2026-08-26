@@ -1,4 +1,4 @@
-package server
+package toolhub
 
 import (
 	"net/http"

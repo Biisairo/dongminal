@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/shared/toolhub"
+
 	"bytes"
 	"encoding/json"
 	"io"
@@ -14,7 +16,7 @@ import (
 )
 
 func TestHandleAPI_ToolBusy(t *testing.T) {
-	pm := NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(t.TempDir(), nil)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -32,13 +34,13 @@ func TestHandleAPI_ToolBusy(t *testing.T) {
 }
 
 // TestHandleAPI_ToolBusy_DaemonMode reproduces DAEMON_PANE_BUSY_RESOLVE_SRS FR-1.
-// In daemon mode Get(id) returns a cmd-less Tool, so the handler must resolve
-// busy via ToolHub.Busy(id) (daemon busy RPC) rather than Get(id).IsBusy().
-// fakePaneHub mirrors ToolClient: Get returns a cmd-less Tool while Busy reports
+// In daemon mode Get(id) returns a cmd-less toolhub.Tool, so the handler must resolve
+// busy via toolhub.ToolHub.Busy(id) (daemon busy RPC) rather than Get(id).IsBusy().
+// fakePaneHub mirrors toolclient.ToolClient: Get returns a cmd-less toolhub.Tool while Busy reports
 // the live foreground-process state.
 func TestHandleAPI_ToolBusy_DaemonMode(t *testing.T) {
 	hub := newFakePaneHub()
-	hub.seed("p1", "Tool 1")
+	hub.seed("p1", "toolhub.Tool 1")
 	hub.setBusy("p1", true)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: hub})
 	ts := httptest.NewServer(srv.Handler())
@@ -56,7 +58,7 @@ func TestHandleAPI_ToolBusy_DaemonMode(t *testing.T) {
 }
 
 func TestHandleAPI_DeleteTool(t *testing.T) {
-	pm := NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(t.TempDir(), nil)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -257,7 +259,7 @@ func TestHandleAPI_Download_RelativePath(t *testing.T) {
 }
 
 func TestHandleAPI_Cwd(t *testing.T) {
-	pm := NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(t.TempDir(), nil)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -486,7 +488,7 @@ func TestHandleAPI_CreateTool_OversizedCols(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	// 8000 > MaxTerminalDim(4096) → fallback to defaults; tool still created.
+	// 8000 > toolhub.MaxTerminalDim(4096) → fallback to defaults; tool still created.
 	resp := mustPost(t, ts.URL+"/api/tools?cols=8000&rows=24", "application/json", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
@@ -528,7 +530,7 @@ func TestHandleAPI_Cwd_WithTool(t *testing.T) {
 }
 
 // DAEMON_CWDPANE_RESOLVE_SRS FR-5: /api/cwd resolves the tool's live cwd via
-// ToolHub.Cwd, not the server process working directory (daemon-mode bug).
+// toolhub.ToolHub.Cwd, not the server process working directory (daemon-mode bug).
 func TestHandleAPI_Cwd_ResolvesLiveCwd(t *testing.T) {
 	pm := newFakePaneHub()
 	pm.seed("p1", "P1")
@@ -564,8 +566,8 @@ func TestHandleAPI_ToolsCreate_CwdToolRef(t *testing.T) {
 }
 
 // DAEMON_CWDPANE_RESOLVE_SRS FR-1: cwdTool must resolve to the reference tool's
-// live cwd via ToolHub.Cwd, not the server process working directory. In daemon
-// mode Get() returns a cmd-less Tool whose Cwd() falls back to os.Getwd(), so the
+// live cwd via toolhub.ToolHub.Cwd, not the server process working directory. In daemon
+// mode Get() returns a cmd-less toolhub.Tool whose Cwd() falls back to os.Getwd(), so the
 // handler must go through the hub's Cwd(id) instead of Get(id).Cwd().
 func TestHandleAPI_ToolsCreate_CwdToolRef_ResolvesLiveCwd(t *testing.T) {
 	pm := newFakePaneHub()

@@ -1,6 +1,8 @@
 package adapters
 
 import (
+	"dongminal/internal/shared/toolhub"
+
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,7 +17,7 @@ func (s *stubPersister) Read() ([]byte, error)   { return s.data, nil }
 func (s *stubPersister) Write(data []byte) error { s.data = data; return nil }
 
 func TestToolAdapter_EmptyManager(t *testing.T) {
-	pm := server.NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(t.TempDir(), nil)
 	a := Tool{PM: pm}
 	if got := a.List(); len(got) != 0 {
 		t.Errorf("List=%v want []", got)
@@ -35,7 +37,7 @@ func TestToolAdapter_EmptyManager(t *testing.T) {
 }
 
 func TestWorkspaceAdapter_ResolveAndLabels(t *testing.T) {
-	pm := server.NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(t.TempDir(), nil)
 	dir := t.TempDir()
 	wsMgr, err := workspace.New(pm, workspace.FilePersister{Path: filepath.Join(dir, "ws.json")})
 	if err != nil {
@@ -57,7 +59,7 @@ func TestWorkspaceAdapter_ResolveAndLabels(t *testing.T) {
 }
 
 func TestWorkspaceAdapter_EntriesShape(t *testing.T) {
-	pm := server.NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(t.TempDir(), nil)
 	dir := t.TempDir()
 	wsPath := filepath.Join(dir, "ws.json")
 	blob := []byte(`{"schemaVersion": 2, "windows":[{"id":"s1","name":"S","layout":{"type":"pane","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"T","toolId":"42"}]}}],"activeWindow":"s1"}`)
@@ -89,13 +91,13 @@ type fakeHub struct {
 }
 
 func (f fakeHub) List() []map[string]interface{} { return f.list }
-func (f fakeHub) Create(string, uint16, uint16) (*server.Tool, error) {
+func (f fakeHub) Create(string, uint16, uint16) (*toolhub.Tool, error) {
 	return nil, nil
 }
-func (f fakeHub) Get(id string) *server.Tool {
+func (f fakeHub) Get(id string) *toolhub.Tool {
 	for _, m := range f.list {
 		if m["id"] == id {
-			return &server.Tool{ID: id}
+			return &toolhub.Tool{ID: id}
 		}
 	}
 	return nil
@@ -105,13 +107,13 @@ func (f fakeHub) Busy(string) bool                    { return false }
 func (f fakeHub) Delete(string)                       {}
 func (f fakeHub) Write(string, []byte) error          { return nil }
 func (f fakeHub) Resize(string, uint16, uint16) error { return nil }
-func (f fakeHub) SnapshotTool(string) (server.ToolSnapshot, error) {
-	return server.ToolSnapshot{}, nil
+func (f fakeHub) SnapshotTool(string) (toolhub.ToolSnapshot, error) {
+	return toolhub.ToolSnapshot{}, nil
 }
-func (f fakeHub) IsLive(string) bool                       { return true }
-func (f fakeHub) IsDaemon() bool                           { return true }
-func (f fakeHub) SetBackground(string, bool) bool          { return false }
-func (f fakeHub) BackgroundList() []server.BackgroundEntry { return nil }
+func (f fakeHub) IsLive(string) bool                        { return true }
+func (f fakeHub) IsDaemon() bool                            { return true }
+func (f fakeHub) SetBackground(string, bool) bool           { return false }
+func (f fakeHub) BackgroundList() []toolhub.BackgroundEntry { return nil }
 
 // TestToolAdapter_DaemonListShellPID verifies daemon-mode List() carries the
 // shell PID from the hub payload (decoded as float64), which whoami relies on

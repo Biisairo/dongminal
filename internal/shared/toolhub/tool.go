@@ -1,4 +1,4 @@
-package server
+package toolhub
 
 import (
 	"bytes"
@@ -39,68 +39,68 @@ const (
 
 const (
 	writeWait  = 10 * time.Second
-	pongWait   = 60 * time.Second
-	pingPeriod = (pongWait * 9) / 10
+	PongWait   = 60 * time.Second
+	PingPeriod = (PongWait * 9) / 10
 	bufMax     = 1 << 20
 )
 
-var upgrader = websocket.Upgrader{
+var Upgrader = websocket.Upgrader{
 	ReadBufferSize:  8192,
 	WriteBufferSize: 8192,
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
-// ── safeConn ─────────────────────────────────────────
+// ── SafeConn ─────────────────────────────────────────
 
-type safeConn struct {
+type SafeConn struct {
 	mu        sync.Mutex
 	conn      *websocket.Conn
 	closeOnce sync.Once
 }
 
-func newSafeConn(c *websocket.Conn) *safeConn { return &safeConn{conn: c} }
+func NewSafeConn(c *websocket.Conn) *SafeConn { return &SafeConn{conn: c} }
 
-func (s *safeConn) writeMsg(typ int, data []byte) error {
+func (s *SafeConn) WriteMsg(typ int, data []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.conn.SetWriteDeadline(time.Now().Add(writeWait))
 	return s.conn.WriteMessage(typ, data)
 }
 
-func (s *safeConn) writePing() error {
+func (s *SafeConn) WritePing() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.conn.SetWriteDeadline(time.Now().Add(pingPeriod + writeWait))
+	s.conn.SetWriteDeadline(time.Now().Add(PingPeriod + writeWait))
 	return s.conn.WriteMessage(websocket.PingMessage, nil)
 }
 
-// send writes one framed message. **에러를 반환한다** — 죽은 소켓에 계속 쓰면
+// Send writes one framed message. **에러를 반환한다** — 죽은 소켓에 계속 쓰면
 // 초당 수십 줄의 broken pipe 로그가 쌓이므로(실측 2026-08-25), 반복 송신하는
 // 호출자는 첫 실패에서 그 구독을 접어야 한다.
-func (s *safeConn) send(op byte, payload []byte) error {
+func (s *SafeConn) Send(op byte, payload []byte) error {
 	m := make([]byte, 1+len(payload))
 	m[0] = op
 	copy(m[1:], payload)
-	err := s.writeMsg(websocket.BinaryMessage, m)
+	err := s.WriteMsg(websocket.BinaryMessage, m)
 	if err != nil {
-		log.Printf("ws send op=0x%02x addr=%s: %v", op, s.remoteAddr(), err)
+		log.Printf("ws send op=0x%02x addr=%s: %v", op, s.RemoteAddr(), err)
 	}
 	return err
 }
 
-// close is idempotent: sync.Once prevents double-close panics when the
-// deferred close races with an error-path close (e.g. readWS closing on
+// Close is idempotent: sync.Once prevents double-Close panics when the
+// deferred Close races with an error-path Close (e.g. readWS closing on
 // read error while the WS handler's defer also fires).
-func (s *safeConn) close() {
+func (s *SafeConn) Close() {
 	s.closeOnce.Do(func() {
 		s.conn.Close()
 	})
 }
-func (s *safeConn) remoteAddr() string                  { return s.conn.RemoteAddr().String() }
-func (s *safeConn) setReadLimit(l int64)                { s.conn.SetReadLimit(l) }
-func (s *safeConn) setReadDeadline(t time.Time) error   { return s.conn.SetReadDeadline(t) }
-func (s *safeConn) setPongHandler(h func(string) error) { s.conn.SetPongHandler(h) }
-func (s *safeConn) readMessage() (int, []byte, error)   { return s.conn.ReadMessage() }
+func (s *SafeConn) RemoteAddr() string                  { return s.conn.RemoteAddr().String() }
+func (s *SafeConn) SetReadLimit(l int64)                { s.conn.SetReadLimit(l) }
+func (s *SafeConn) SetReadDeadline(t time.Time) error   { return s.conn.SetReadDeadline(t) }
+func (s *SafeConn) SetPongHandler(h func(string) error) { s.conn.SetPongHandler(h) }
+func (s *SafeConn) ReadMessage() (int, []byte, error)   { return s.conn.ReadMessage() }
 
 // ── Tool ────────────────────────────────────────────
 
@@ -129,17 +129,17 @@ type Tool struct {
 	cmd      *exec.Cmd
 	stream   *outbuf.Stream
 	cmu      sync.Mutex
-	cls      []*safeConn
+	cls      []*SafeConn
 	exited   bool
 	done     chan struct{}
 	once     sync.Once
-	restored bool
+	Restored bool
 
 	// Attention state (PANE_ATTENTION_NOTIFY_SRS). attnCarry is touched only
 	// by the readPTY goroutine (no lock). The atomics are shared with the
 	// idle sweeper / input / query goroutines. onAttention/onAttentionClear/
 	// allowBell are set once in StartTool before readPTY starts (race-free).
-	lastOutputAt     atomic.Int64
+	LastOutputAt     atomic.Int64
 	attnArmed        atomic.Bool
 	attention        atomic.Bool
 	attnCarry        []byte
@@ -155,7 +155,7 @@ type Tool struct {
 	relay atomic.Pointer[toolRelay]
 	wired atomic.Bool
 
-	activity   atomic.Pointer[activityState]
+	activity   atomic.Pointer[ActivityState]
 	onActivity func(id, state, tool, detail string)
 }
 
@@ -207,6 +207,32 @@ type ToolHooks struct {
 	OnAttentionClear func(id string)
 	OnActivity       func(id, state, tool, detail string)
 	AllowBell        bool
+}
+
+// NewDetachedTool은 PTY 없이 훅만 배선된 Tool 을 만든다. 셸을 띄우지 않으므로
+// 프로세스도 파일 디스크립터도 만들지 않는다 — 데몬 모드에서 원격 도구를
+// 대리하는 합성 Tool 과, 주의/활동 배선을 검증하는 테스트가 쓰는 경로다.
+// hooks 가 nil 이면 훅 없는 빈 Tool 이 된다.
+func NewDetachedTool(id string, hooks *ToolHooks) *Tool {
+	p := &Tool{ID: id}
+	if hooks != nil {
+		p.onAttention = hooks.OnAttention
+		p.onAttentionClear = hooks.OnAttentionClear
+		p.onActivity = hooks.OnActivity
+		p.allowBell = hooks.AllowBell
+	}
+	return p
+}
+
+// NewAttendingTool은 주의 상태가 이미 올라간 PTY 없는 도구를 만든다. armed 가
+// true 면 유휴 감시까지 무장된 상태가 된다. 주의 알림 종단(clear / clear-all)의
+// 동작을 다른 패키지에서 검증하려면 이 시작 상태가 필요하다 — 실제 경로로는
+// PTY 출력 관찰을 거쳐야만 도달하기 때문이다.
+func NewAttendingTool(id string, hooks *ToolHooks, armed bool) *Tool {
+	p := NewDetachedTool(id, hooks)
+	p.attention.Store(true)
+	p.attnArmed.Store(armed)
+	return p
 }
 
 // StartTool spawns a shell under a new PTY. Exported for tool manager + tests.
@@ -329,14 +355,14 @@ func (p *Tool) broadcast(msg []byte) {
 		p.cmu.Unlock()
 		return
 	}
-	snap := make([]*safeConn, len(p.cls))
+	snap := make([]*SafeConn, len(p.cls))
 	copy(snap, p.cls)
 	p.cmu.Unlock()
 	for _, c := range snap {
-		if err := c.writeMsg(websocket.BinaryMessage, msg); err != nil {
-			log.Printf("[tool %s] broadcast error addr=%s: %v", p.ID, c.remoteAddr(), err)
-			p.removeClient(c)
-			c.close()
+		if err := c.WriteMsg(websocket.BinaryMessage, msg); err != nil {
+			log.Printf("[tool %s] broadcast error addr=%s: %v", p.ID, c.RemoteAddr(), err)
+			p.RemoveClient(c)
+			c.Close()
 		}
 	}
 }
@@ -348,7 +374,7 @@ func (p *Tool) observeOutput(chunk []byte) { p.observeOutputAt(chunk, attnNow())
 
 // observeOutputAt is observeOutput with an injectable timestamp (tests).
 func (p *Tool) observeOutputAt(chunk []byte, now int64) {
-	p.lastOutputAt.Store(now)
+	p.LastOutputAt.Store(now)
 	p.attnArmed.Store(true)
 	if p.onAttention == nil {
 		return
@@ -361,7 +387,7 @@ func (p *Tool) observeOutputAt(chunk []byte, now int64) {
 		p.attnCarry = nil
 		return
 	}
-	sig, carry := detectAttentionSignal(scan, p.allowBell, attnMaxCarry)
+	sig, carry := DetectAttentionSignal(scan, p.allowBell, AttnMaxCarry)
 	p.attnCarry = carry
 	if sig {
 		p.setAttention("signaled")
@@ -382,11 +408,11 @@ func (p *Tool) setAttention(reason string) bool {
 	return false
 }
 
-// signalAttention raises attention and ALWAYS notifies (not edge-gated). Used
+// SignalAttention raises attention and ALWAYS notifies (not edge-gated). Used
 // by explicit agent signals (`dmctl notify` → set endpoint): each discrete
 // completion/waiting event must re-alert the user even if a prior unattended
 // alarm is still active. The state itself stays idempotent (already-true).
-func (p *Tool) signalAttention(reason string) {
+func (p *Tool) SignalAttention(reason string) {
 	p.attention.Store(true)
 	if p.onAttention != nil {
 		p.onAttention(p.ID, reason)
@@ -405,12 +431,12 @@ func (p *Tool) clearAttention() bool {
 	return false
 }
 
-// attend marks the tool as attended-to: disarms idle and clears attention.
+// Attend marks the tool as attended-to: disarms idle and clears attention.
 // Invoked only via the explicit focus/clear endpoints — NOT on raw WS input,
 // because xterm replies to terminal queries (cursor-position/device-attribute
 // reports an agent's TUI emits) arrive as OpInput too and would spuriously
 // clear a just-raised alarm. Real "user attended" is signalled by focus.
-func (p *Tool) attend() {
+func (p *Tool) Attend() {
 	p.attnArmed.Store(false)
 	p.clearAttention()
 }
@@ -418,6 +444,16 @@ func (p *Tool) attend() {
 // attnBusyProbe reports whether a tool has a running foreground process. It is
 // a package variable so tests can substitute a deterministic probe.
 var attnBusyProbe = func(p *Tool) bool { return p.IsBusy() }
+
+// SetAttnBusyProbe는 유휴 탐지와 활동 스냅샷 정리가 쓰는 전경 프로세스 검사를
+// 교체하고, 이전 검사로 되돌리는 함수를 돌려준다. 다른 패키지의 테스트가 이것을
+// 필요로 하는 이유는 NewDetachedTool 로 만든 도구에 프로세스가 없어 항상
+// "busy 아님"으로 읽히고, 그러면 working 상태가 정리 대상이 되기 때문이다.
+func SetAttnBusyProbe(f func(*Tool) bool) (restore func()) {
+	prev := attnBusyProbe
+	attnBusyProbe = f
+	return func() { attnBusyProbe = prev }
+}
 
 // maybeIdle fires L2 (idle) attention when an armed tool has been quiet for at
 // least threshold. It disarms after firing so it fires once per quiet edge;
@@ -431,7 +467,7 @@ func (p *Tool) maybeIdle(now, threshold int64) {
 	if threshold <= 0 || !p.attnArmed.Load() {
 		return
 	}
-	if now-p.lastOutputAt.Load() < threshold {
+	if now-p.LastOutputAt.Load() < threshold {
 		return
 	}
 	p.attnArmed.Store(false)
@@ -448,14 +484,14 @@ func (p *Tool) maybeIdle(now, threshold int64) {
 // Attention reports whether the tool currently needs attention.
 func (p *Tool) Attention() bool { return p.attention.Load() }
 
-type activityState struct {
+type ActivityState struct {
 	State     string `json:"state"`
 	Tool      string `json:"tool,omitempty"`
 	Detail    string `json:"detail,omitempty"`
 	UpdatedAt int64  `json:"updatedAt"`
 }
 
-type activitySnap struct {
+type ActivitySnap struct {
 	ToolID    string `json:"toolId"`
 	State     string `json:"state"`
 	Tool      string `json:"tool,omitempty"`
@@ -463,38 +499,38 @@ type activitySnap struct {
 	UpdatedAt int64  `json:"updatedAt"`
 }
 
-func (p *Tool) setActivity(state, tool, detail string) {
+func (p *Tool) SetActivity(state, tool, detail string) {
 	if state == "ended" {
 		p.activity.Store(nil) // 종료 → 카드 제거(스냅샷에서 빠짐)
 	} else {
-		p.activity.Store(&activityState{State: state, Tool: tool, Detail: detail, UpdatedAt: attnNow()})
+		p.activity.Store(&ActivityState{State: state, Tool: tool, Detail: detail, UpdatedAt: attnNow()})
 	}
 	if p.onActivity != nil {
 		p.onActivity(p.ID, state, tool, detail)
 	}
 }
 
-func (p *Tool) Activity() *activityState { return p.activity.Load() }
+func (p *Tool) Activity() *ActivityState { return p.activity.Load() }
 
-// addClient registers c. Returns false when the tool has already exited; in
+// AddClient registers c. Returns false when the tool has already exited; in
 // that case OpExit is sent to c immediately (outside cmu) and c is left
 // untouched in the caller's possession. Caller must NOT hold cmu.
-func (p *Tool) addClient(c *safeConn) bool {
+func (p *Tool) AddClient(c *SafeConn) bool {
 	p.cmu.Lock()
 	if p.exited {
 		p.cmu.Unlock()
-		_ = c.send(OpExit, nil)
-		log.Printf("[tool %s] addClient after exit addr=%s — sent OpExit", p.ID, c.remoteAddr())
+		_ = c.Send(OpExit, nil)
+		log.Printf("[tool %s] addClient after exit addr=%s — sent OpExit", p.ID, c.RemoteAddr())
 		return false
 	}
 	p.cls = append(p.cls, c)
 	n := len(p.cls)
 	p.cmu.Unlock()
-	log.Printf("[tool %s] client connected addr=%s total=%d", p.ID, c.remoteAddr(), n)
+	log.Printf("[tool %s] client connected addr=%s total=%d", p.ID, c.RemoteAddr(), n)
 	return true
 }
 
-func (p *Tool) removeClient(c *safeConn) {
+func (p *Tool) RemoveClient(c *SafeConn) {
 	p.cmu.Lock()
 	for i, v := range p.cls {
 		if v == c {
@@ -504,7 +540,7 @@ func (p *Tool) removeClient(c *safeConn) {
 	}
 	n := len(p.cls)
 	p.cmu.Unlock()
-	log.Printf("[tool %s] client disconnected addr=%s remaining=%d", p.ID, c.remoteAddr(), n)
+	log.Printf("[tool %s] client disconnected addr=%s remaining=%d", p.ID, c.RemoteAddr(), n)
 }
 
 func (p *Tool) resize(c, r uint16) error {
@@ -517,6 +553,27 @@ func (p *Tool) resize(c, r uint16) error {
 
 // Wait returns a channel closed when the tool terminates (test helper).
 func (p *Tool) Wait() <-chan struct{} { return p.done }
+
+// WireRelayOnce는 이 도구의 출력·종료 릴레이를 평생 한 번만 설치한다.
+// build 는 이전 릴레이의 종료 콜백(없으면 nil)을 받아 교체 콜백 한 쌍을
+// 돌려준다. 이미 배선된 도구면 build 를 호출하지 않고 false 를 돌려준다 —
+// 중복 배선은 종료 핸들러를 중첩시키고 push 를 재발생시킨다 (FR-12).
+//
+// 데몬의 socket 서버(internal/daemon/ipc)가 유일한 호출자다. relay 의 내부
+// 표현(atomic.Pointer[toolRelay])을 패키지 밖으로 내보내지 않기 위해 불변식을
+// 여기에 둔다.
+func (p *Tool) WireRelayOnce(build func(prevExit func(string)) (onOutput func(string, []byte), onExit func(string))) bool {
+	if !p.wired.CompareAndSwap(false, true) {
+		return false
+	}
+	var baseExit func(string)
+	if prev := p.relay.Load(); prev != nil {
+		baseExit = prev.onExit
+	}
+	onOutput, onExit := build(baseExit)
+	p.relay.Store(&toolRelay{onOutput: onOutput, onExit: onExit})
+	return true
+}
 
 // PTMX exposes the underlying PTY master for tests.
 func (p *Tool) PTMX() *os.File { return p.ptmx }
@@ -562,7 +619,7 @@ func (p *Tool) kill() {
 		// Phase 1: atomic mark + snapshot under cmu.
 		p.cmu.Lock()
 		p.exited = true
-		snap := make([]*safeConn, len(p.cls))
+		snap := make([]*SafeConn, len(p.cls))
 		copy(snap, p.cls)
 		p.cmu.Unlock()
 
@@ -570,7 +627,7 @@ func (p *Tool) kill() {
 		// the tool is dying anyway and clients will close on their side.
 		exitMsg := []byte{OpExit}
 		for _, c := range snap {
-			_ = c.writeMsg(websocket.BinaryMessage, exitMsg)
+			_ = c.WriteMsg(websocket.BinaryMessage, exitMsg)
 		}
 
 		// Phase 3: tear down PTY/process/stream.
@@ -596,7 +653,7 @@ func (p *Tool) kill() {
 		}
 		// tool 종료 → 활동 카드 제거(셸 exit/Ctrl+C 등, SessionEnd hook 없이도).
 		if p.activity.Load() != nil {
-			p.setActivity("ended", "", "")
+			p.SetActivity("ended", "", "")
 		}
 	})
 }
@@ -649,7 +706,7 @@ func NewToolManager(dataDir string, invalidator func(string)) *ToolManager {
 		tools:         make(map[string]*Tool),
 		dataDir:       dataDir,
 		invalidator:   invalidator,
-		idleThreshold: int64(attentionIdleThreshold()),
+		idleThreshold: int64(AttentionIdleThreshold()),
 		allowBell:     attentionAllowBell(),
 	}
 }
@@ -683,10 +740,10 @@ func (m *ToolManager) attnHooks() *ToolHooks {
 
 // ActivitySnapshot returns the current activity of every tool that has reported
 // one, sorted by id (FR-AAP-4; lets a late-joining client restore cards).
-func (m *ToolManager) ActivitySnapshot() []activitySnap {
+func (m *ToolManager) ActivitySnapshot() []ActivitySnap {
 	type item struct {
 		id string
-		a  *activityState
+		a  *ActivityState
 		p  *Tool
 	}
 	m.mu.RLock()
@@ -700,12 +757,12 @@ func (m *ToolManager) ActivitySnapshot() []activitySnap {
 	// busy check (pgrep) runs outside the lock. A `working` card whose agent
 	// process is gone is pruned so an abnormal exit (no Stop/SessionEnd hook)
 	// doesn't leave a stale "working" (FR-AAP-20).
-	out := []activitySnap{}
+	out := []ActivitySnap{}
 	for _, it := range items {
 		if it.a.State == "working" && !attnBusyProbe(it.p) {
 			continue
 		}
-		out = append(out, activitySnap{ToolID: it.id, State: it.a.State, Tool: it.a.Tool, Detail: it.a.Detail, UpdatedAt: it.a.UpdatedAt})
+		out = append(out, ActivitySnap{ToolID: it.id, State: it.a.State, Tool: it.a.Tool, Detail: it.a.Detail, UpdatedAt: it.a.UpdatedAt})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ToolID < out[j].ToolID })
 	return out
@@ -772,7 +829,7 @@ func (m *ToolManager) ClearAllAttention() int {
 	n := 0
 	for _, p := range tools {
 		if p.Attention() {
-			p.attend()
+			p.Attend()
 			n++
 		}
 	}
@@ -840,10 +897,22 @@ func (m *ToolManager) Restore(id, name, cwd string, cols, rows uint16) error {
 	if err != nil {
 		return err
 	}
-	p.restored = true
+	p.Restored = true
 	m.tools[id] = p
 	log.Printf("[tool %s] restored total=%d", id, len(m.tools))
 	return nil
+}
+
+// Adopt은 이미 만들어진 Tool 을 자기 ID 로 레지스트리에 등록한다. PTY 를 띄우지
+// 않으므로 Create/Restore 와 달리 프로세스를 만들지 않는다 — 데몬 모드의 합성
+// Tool 과 핸들러 테스트 픽스처가 쓰는 경로다.
+func (m *ToolManager) Adopt(p *Tool) {
+	if p == nil || p.ID == "" {
+		return
+	}
+	m.mu.Lock()
+	m.tools[p.ID] = p
+	m.mu.Unlock()
 }
 
 func (m *ToolManager) Get(id string) *Tool {

@@ -1,6 +1,12 @@
-package server
+package toolclient
 
 import (
+	"dongminal/internal/daemon/ipc"
+
+	"dongminal/internal/shared/toolhub"
+
+	"dongminal/internal/shared/toolipc"
+
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -14,8 +20,8 @@ import (
 // ── ToolClient tests ────────────────────────────────────────────────────
 
 func TestToolClientRequestResponse(t *testing.T) {
-	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
-		return panedResponse{ID: req.ID, Result: map[string]interface{}{"echo": req.Method}}
+	sockPath := startFakePaned(t, func(req toolipc.PanedRequest) interface{} {
+		return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{"echo": req.Method}}
 	})
 	pc, err := DialToolClient(sockPath)
 	if err != nil {
@@ -33,8 +39,8 @@ func TestToolClientRequestResponse(t *testing.T) {
 }
 
 func TestToolClientCreate(t *testing.T) {
-	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
-		return panedResponse{ID: req.ID, Result: map[string]interface{}{
+	sockPath := startFakePaned(t, func(req toolipc.PanedRequest) interface{} {
+		return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 			"id": "99", "name": "S99", "pid": 12345, "cols": 80, "rows": 24,
 		}}
 	})
@@ -48,8 +54,8 @@ func TestToolClientCreate(t *testing.T) {
 }
 
 func TestToolClientList(t *testing.T) {
-	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
-		return panedResponse{ID: req.ID, Result: map[string]interface{}{
+	sockPath := startFakePaned(t, func(req toolipc.PanedRequest) interface{} {
+		return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 			"tools": []interface{}{
 				map[string]interface{}{"id": "1", "name": "S1"},
 				map[string]interface{}{"id": "2", "name": "S2"},
@@ -65,13 +71,13 @@ func TestToolClientList(t *testing.T) {
 
 func TestToolClientWriteBase64(t *testing.T) {
 	var received string
-	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
+	sockPath := startFakePaned(t, func(req toolipc.PanedRequest) interface{} {
 		var p struct {
 			Data string `json:"data"`
 		}
 		json.Unmarshal(req.Params, &p)
 		received = p.Data
-		return panedResponse{ID: req.ID, Result: struct{}{}}
+		return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
 	})
 	pc, _ := DialToolClient(sockPath)
 	defer pc.Close()
@@ -85,13 +91,13 @@ func TestToolClientWriteBase64(t *testing.T) {
 
 func TestToolClientDelete(t *testing.T) {
 	var killed string
-	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
+	sockPath := startFakePaned(t, func(req toolipc.PanedRequest) interface{} {
 		var p struct {
 			ID string `json:"id"`
 		}
 		json.Unmarshal(req.Params, &p)
 		killed = p.ID
-		return panedResponse{ID: req.ID, Result: struct{}{}}
+		return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
 	})
 	pc, _ := DialToolClient(sockPath)
 	defer pc.Close()
@@ -106,7 +112,7 @@ func TestToolClientResize(t *testing.T) {
 		id         string
 		cols, rows uint16
 	}
-	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
+	sockPath := startFakePaned(t, func(req toolipc.PanedRequest) interface{} {
 		var p struct {
 			ID   string `json:"id"`
 			Cols uint16 `json:"cols"`
@@ -114,7 +120,7 @@ func TestToolClientResize(t *testing.T) {
 		}
 		json.Unmarshal(req.Params, &p)
 		resized.id, resized.cols, resized.rows = p.ID, p.Cols, p.Rows
-		return panedResponse{ID: req.ID, Result: struct{}{}}
+		return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
 	})
 	pc, _ := DialToolClient(sockPath)
 	defer pc.Close()
@@ -125,8 +131,8 @@ func TestToolClientResize(t *testing.T) {
 }
 
 func TestToolClientSnapshot(t *testing.T) {
-	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
-		return panedResponse{ID: req.ID, Result: map[string]interface{}{
+	sockPath := startFakePaned(t, func(req toolipc.PanedRequest) interface{} {
+		return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 			"data":           base64.StdEncoding.EncodeToString([]byte("buffered")),
 			"totalBytesIn":   float64(100),
 			"totalBytesDrop": float64(5),
@@ -143,8 +149,8 @@ func TestToolClientSnapshot(t *testing.T) {
 
 func TestToolClientPushOutput(t *testing.T) {
 	outputCh := make(chan []byte, 1)
-	sockPath := startFakePaned(t, func(req panedRequest) interface{} {
-		return panedResponse{ID: req.ID, Result: map[string]interface{}{
+	sockPath := startFakePaned(t, func(req toolipc.PanedRequest) interface{} {
+		return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 			"version": 1, "tool_ids": []interface{}{"1"},
 		}}
 	})
@@ -170,8 +176,8 @@ func TestToolClientReconnect(t *testing.T) {
 	dataDir := d + "/d"
 	os.MkdirAll(dataDir, 0o755)
 
-	pm1 := NewToolManager(dataDir, nil)
-	ps1 := NewPanedServer(pm1, sockPath, "")
+	pm1 := toolhub.NewToolManager(dataDir, nil)
+	ps1 := ipc.NewPanedServer(pm1, sockPath, "")
 	ps1.Listen()
 	go func() { ps1.Accept() }()
 
@@ -182,7 +188,7 @@ func TestToolClientReconnect(t *testing.T) {
 	ps1.Close()
 	time.Sleep(200 * time.Millisecond)
 
-	pm2 := NewToolManager(dataDir, nil)
+	pm2 := toolhub.NewToolManager(dataDir, nil)
 	pm2.LoadAll(map[string]struct{}{toolID: {}})
 	if !pm2.IsLive(toolID) {
 		t.Fatalf("tool %s should be live after LoadAll", toolID)
@@ -191,23 +197,22 @@ func TestToolClientReconnect(t *testing.T) {
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-func startFakePaned(t *testing.T, handler func(panedRequest) interface{}) string {
+func startFakePaned(t *testing.T, handler func(toolipc.PanedRequest) interface{}) string {
 	t.Helper()
 	sockPath := t.TempDir() + "/s"
-	pm := NewToolManager(t.TempDir(), nil)
 	ln, _ := net.Listen("unix", sockPath)
 
 	go func() {
 		conn, _ := ln.Accept()
-		pc := &panedConn{conn: conn, pm: pm, encoder: json.NewEncoder(conn)}
+		enc := json.NewEncoder(conn)
 		dec := json.NewDecoder(conn)
 		for {
-			var req panedRequest
+			var req toolipc.PanedRequest
 			if err := dec.Decode(&req); err != nil {
 				return
 			}
 			resp := handler(req)
-			pc.encoder.Encode(resp)
+			enc.Encode(resp)
 		}
 	}()
 	time.Sleep(10 * time.Millisecond)
@@ -222,7 +227,7 @@ func TestToolClientAutoReconnect(t *testing.T) {
 	dataDir := d + "/d"
 	os.MkdirAll(dataDir, 0o755)
 
-	acceptLoop := func(ps *PanedServer) {
+	acceptLoop := func(ps *ipc.PanedServer) {
 		for {
 			if err := ps.Accept(); err != nil {
 				return
@@ -230,8 +235,8 @@ func TestToolClientAutoReconnect(t *testing.T) {
 		}
 	}
 
-	pm1 := NewToolManager(dataDir, nil)
-	ps1 := NewPanedServer(pm1, sockPath, "")
+	pm1 := toolhub.NewToolManager(dataDir, nil)
+	ps1 := ipc.NewPanedServer(pm1, sockPath, "")
 	if err := ps1.Listen(); err != nil {
 		t.Fatalf("Listen1: %v", err)
 	}
@@ -251,9 +256,9 @@ func TestToolClientAutoReconnect(t *testing.T) {
 	time.Sleep(150 * time.Millisecond)
 
 	// Bring up a replacement daemon on the same socket.
-	pm2 := NewToolManager(dataDir, nil)
+	pm2 := toolhub.NewToolManager(dataDir, nil)
 	pm2.LoadAll(allToolIDs(dataDir))
-	ps2 := NewPanedServer(pm2, sockPath, "")
+	ps2 := ipc.NewPanedServer(pm2, sockPath, "")
 	if err := ps2.Listen(); err != nil {
 		t.Fatalf("Listen2: %v", err)
 	}
@@ -307,13 +312,13 @@ func TestToolClientCallTimeout(t *testing.T) {
 }
 
 // TestToolClientConnected verifies Connected() reflects live/lost/closed state,
-// so handleWS can avoid false OpExit during a daemon reconnect window (edge D).
+// so handleWS can avoid false toolhub.OpExit during a daemon reconnect window (edge D).
 func TestToolClientConnected(t *testing.T) {
 	d := t.TempDir()
 	sockPath := d + "/s"
 	os.MkdirAll(d+"/d", 0o755)
-	pm := NewToolManager(d+"/d", nil)
-	ps := NewPanedServer(pm, sockPath, "")
+	pm := toolhub.NewToolManager(d+"/d", nil)
+	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
 	}
@@ -355,7 +360,7 @@ func allToolIDs(dataDir string) map[string]struct{} {
 	if err != nil {
 		return out
 	}
-	var states []ToolState
+	var states []toolhub.ToolState
 	if json.Unmarshal(b, &states) != nil {
 		return out
 	}

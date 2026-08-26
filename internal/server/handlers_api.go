@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/shared/toolhub"
+
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -289,7 +291,7 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "tools unavailable", 500)
 		return
 	}
-	cols, rows := ParseSize(r)
+	cols, rows := toolhub.ParseSize(r)
 	cwd := r.URL.Query().Get("cwd")
 	if cwd == "" {
 		if refID := r.URL.Query().Get("cwdTool"); refID != "" {
@@ -355,7 +357,7 @@ func (s *Server) apiToolAttentionSet(w http.ResponseWriter, r *http.Request) {
 				s.AttnTracker.SignalAttention(req.ToolID, reason)
 			}
 		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
-			tool.signalAttention(reason)
+			tool.SignalAttention(reason)
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -377,7 +379,7 @@ func (s *Server) apiToolAttentionClear(w http.ResponseWriter, r *http.Request) {
 		if s.AttnTracker != nil {
 			s.AttnTracker.Attend(req.ToolID)
 		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
-			tool.attend()
+			tool.Attend()
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -388,10 +390,10 @@ func (s *Server) apiToolAttentionClear(w http.ResponseWriter, r *http.Request) {
 // reported one, so a late-joining / reconnecting client can restore cards
 // (FR-AAP-4).
 func (s *Server) apiToolsActivity(w http.ResponseWriter, r *http.Request) {
-	acts := []activitySnap{}
+	acts := []toolhub.ActivitySnap{}
 	if s.AttnTracker != nil {
 		acts = s.AttnTracker.ActivitySnapshot()
-	} else if al, ok := s.Tools.(interface{ ActivitySnapshot() []activitySnap }); ok {
+	} else if al, ok := s.Tools.(interface{ ActivitySnapshot() []toolhub.ActivitySnap }); ok {
 		if got := al.ActivitySnapshot(); got != nil {
 			acts = got
 		}
@@ -421,7 +423,7 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 				sanitizeActivityField(req.Tool, activityToolMax),
 				sanitizeActivityField(req.Detail, activityDetailMax))
 		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
-			tool.setActivity(req.State, sanitizeActivityField(req.Tool, activityToolMax), sanitizeActivityField(req.Detail, activityDetailMax))
+			tool.SetActivity(req.State, sanitizeActivityField(req.Tool, activityToolMax), sanitizeActivityField(req.Detail, activityDetailMax))
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -669,7 +671,7 @@ func (s *Server) apiStats(w http.ResponseWriter, r *http.Request) {
 // apiToolsBackground lists the tools currently sent to the background,
 // oldest transition first (FR-BG-6).
 func (s *Server) apiToolsBackground(w http.ResponseWriter, r *http.Request) {
-	list := []BackgroundEntry{}
+	list := []toolhub.BackgroundEntry{}
 	if s.Tools != nil {
 		if got := s.Tools.BackgroundList(); got != nil {
 			list = got

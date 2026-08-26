@@ -1,8 +1,7 @@
-package server
+package toolhub
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"strconv"
 	"time"
@@ -16,9 +15,9 @@ import (
 //   L2 (idle):     output quiescence after activity (handled by the sweeper).
 
 const (
-	// attnMaxCarry bounds the per-tool carry holding an unterminated OSC
+	// AttnMaxCarry bounds the per-tool carry holding an unterminated OSC
 	// fragment that spans a read boundary. Beyond this the fragment is dropped.
-	attnMaxCarry = 512
+	AttnMaxCarry = 512
 	// attnDefaultIdleMS is the default L2 idle threshold. 0 would disable L2.
 	attnDefaultIdleMS = 10000
 	// attnTickMS is the idle sweeper tick period.
@@ -29,9 +28,9 @@ const (
 // tests can substitute a deterministic clock (mirrors toolBusyProbe).
 var attnNow = func() int64 { return time.Now().UnixNano() }
 
-// attentionIdleThreshold resolves the L2 idle threshold: env override
+// AttentionIdleThreshold resolves the L2 idle threshold: env override
 // (DONGMINAL_ATTENTION_IDLE_MS) or the named default. 0 disables L2.
-func attentionIdleThreshold() time.Duration {
+func AttentionIdleThreshold() time.Duration {
 	ms := attnDefaultIdleMS
 	if v := os.Getenv("DONGMINAL_ATTENTION_IDLE_MS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
@@ -47,7 +46,7 @@ func attentionAllowBell() bool {
 	return os.Getenv("DONGMINAL_ATTENTION_BELL") == "1"
 }
 
-// detectAttentionSignal scans b (already prepended with any prior carry) for
+// DetectAttentionSignal scans b (already prepended with any prior carry) for
 // terminal notification escape sequences and, when allowBell is set, a bare
 // BEL. It is observe-only and never mutates the live stream. It returns
 // whether a signal was found and a bounded carry — an unterminated trailing
@@ -63,7 +62,7 @@ func attentionAllowBell() bool {
 // starts fresh without the carry, so a single legitimate notification
 // spanning two reads will still be detected as long as the OSC body is
 // shorter than maxCarry.
-func detectAttentionSignal(b []byte, allowBell bool, maxCarry int) (bool, []byte) {
+func DetectAttentionSignal(b []byte, allowBell bool, maxCarry int) (bool, []byte) {
 	i, n := 0, len(b)
 	for i < n {
 		c := b[i]
@@ -153,28 +152,3 @@ func boundedCarry(frag []byte, maxCarry int) []byte {
 }
 
 // toolAttentionPayload / toolAttentionClearPayload build the SSE event bodies
-// broadcast via CommandHub. Keys are lowerCamelCase.
-func toolAttentionPayload(toolID, reason string) []byte {
-	b, _ := json.Marshal(map[string]any{
-		"action": "tool_attention",
-		"args":   map[string]any{"toolId": toolID, "reason": reason},
-	})
-	return b
-}
-
-func toolAttentionClearPayload(toolID string) []byte {
-	b, _ := json.Marshal(map[string]any{
-		"action": "tool_attention_clear",
-		"args":   map[string]any{"toolId": toolID},
-	})
-	return b
-}
-
-// WireAttention connects tool attention transitions to SSE broadcasts. Called
-// from the composition root once both the ToolManager and CommandHub exist.
-func WireAttention(pm *ToolManager, hub CommandBroker) {
-	pm.SetAttentionNotifier(
-		func(id, reason string) { hub.Broadcast(toolAttentionPayload(id, reason)) },
-		func(id string) { hub.Broadcast(toolAttentionClearPayload(id)) },
-	)
-}

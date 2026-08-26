@@ -1,5 +1,7 @@
 package server
 
+import "dongminal/internal/shared/toolhub"
+
 import "testing"
 
 // FR-BG: 백그라운드 전환은 도구를 탭 생명주기에서 떼어낸다. 상태는 데몬
@@ -8,7 +10,7 @@ import "testing"
 
 func TestSetBackground_MarksAndLists(t *testing.T) {
 	dir := t.TempDir()
-	m := NewToolManager(dir, nil)
+	m := toolhub.NewToolManager(dir, nil)
 	defer func() {
 		for _, p := range m.Snapshot() {
 			m.Delete(p.ID)
@@ -39,7 +41,7 @@ func TestSetBackground_MarksAndLists(t *testing.T) {
 
 func TestSetBackground_RestoreClearsFlag(t *testing.T) {
 	dir := t.TempDir()
-	m := NewToolManager(dir, nil)
+	m := toolhub.NewToolManager(dir, nil)
 	defer func() {
 		for _, p := range m.Snapshot() {
 			m.Delete(p.ID)
@@ -63,7 +65,7 @@ func TestSetBackground_RestoreClearsFlag(t *testing.T) {
 }
 
 func TestSetBackground_UnknownToolIsNoop(t *testing.T) {
-	m := NewToolManager(t.TempDir(), nil)
+	m := toolhub.NewToolManager(t.TempDir(), nil)
 	if m.SetBackground("nope", true) {
 		t.Error("존재하지 않는 도구에 true 반환")
 	}
@@ -74,7 +76,7 @@ func TestSetBackground_UnknownToolIsNoop(t *testing.T) {
 
 func TestSetBackground_DeleteRemovesFromList(t *testing.T) {
 	dir := t.TempDir()
-	m := NewToolManager(dir, nil)
+	m := toolhub.NewToolManager(dir, nil)
 	tl, err := m.Create(dir, 80, 24)
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
@@ -89,7 +91,7 @@ func TestSetBackground_DeleteRemovesFromList(t *testing.T) {
 // FR-BG-9/FR-EM-12: 백그라운드 도구는 tools.json 에 기재되지 않는다.
 func TestSaveAll_ExcludesBackgroundTools(t *testing.T) {
 	dir := t.TempDir()
-	m := NewToolManager(dir, nil)
+	m := toolhub.NewToolManager(dir, nil)
 	defer func() {
 		for _, p := range m.Snapshot() {
 			m.Delete(p.ID)
@@ -108,7 +110,7 @@ func TestSaveAll_ExcludesBackgroundTools(t *testing.T) {
 	m.SaveAll()
 
 	refs := map[string]struct{}{keep.ID: {}, bg.ID: {}}
-	m2 := NewToolManager(dir, nil)
+	m2 := toolhub.NewToolManager(dir, nil)
 	m2.LoadAll(refs)
 	defer func() {
 		for _, p := range m2.Snapshot() {

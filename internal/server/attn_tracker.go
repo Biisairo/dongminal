@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/shared/toolhub"
+
 	"bytes"
 	"sync"
 	"sync/atomic"
@@ -8,7 +10,7 @@ import (
 )
 
 // AttnTracker manages per-tool attention and activity state in dongminal's
-// memory. Used in daemon mode where ToolManager lives in dongminald and
+// memory. Used in daemon mode where toolhub.ToolManager lives in dongminald and
 // dongminal needs its own attention/activity detection (DAEMON_SPLIT_SRS).
 type AttnTracker struct {
 	mu    sync.Mutex
@@ -34,13 +36,13 @@ type attnPaneState struct {
 	attention    atomic.Bool
 	attnCarry    []byte
 	allowBell    bool
-	activity     atomic.Pointer[activityState]
+	activity     atomic.Pointer[toolhub.ActivityState]
 }
 
 // DefaultIdleMS returns the L2 idle threshold in milliseconds, honoring the
 // DONGMINAL_ATTENTION_IDLE_MS override. Daemon-mode wiring uses it so L2 idle
 // behaves identically to direct mode (FR-15).
-func DefaultIdleMS() int { return int(attentionIdleThreshold() / time.Millisecond) }
+func DefaultIdleMS() int { return int(toolhub.AttentionIdleThreshold() / time.Millisecond) }
 
 // NewAttnTracker creates an attention/activity tracker wired to the SSE hub.
 func NewAttnTracker(hub CommandBroker, idleMS int) *AttnTracker {
@@ -63,7 +65,7 @@ func NewAttnTracker(hub CommandBroker, idleMS int) *AttnTracker {
 }
 
 // SetBusyProbe installs the foreground-process check used by the L2 idle
-// sweeper. In daemon mode this is wired to ToolClient.Busy (a busy RPC to
+// sweeper. In daemon mode this is wired to toolclient.ToolClient.Busy (a busy RPC to
 // dongminald). Without it, idle never fires (matching direct mode, where a
 // bare prompt must not raise an alarm — DAEMON_SPLIT_SRS FR-15).
 func (t *AttnTracker) SetBusyProbe(f func(string) bool) {
@@ -120,7 +122,7 @@ func (t *AttnTracker) FeedOutput(toolID string, data []byte) {
 		scan = append(append([]byte(nil), ps.attnCarry...), data...)
 	}
 	if bytes.IndexByte(scan, 0x1b) >= 0 || bytes.IndexByte(scan, 0x07) >= 0 {
-		sig, carry := detectAttentionSignal(scan, ps.allowBell, attnMaxCarry)
+		sig, carry := toolhub.DetectAttentionSignal(scan, ps.allowBell, toolhub.AttnMaxCarry)
 		ps.attnCarry = carry
 		if sig {
 			if ps.attention.CompareAndSwap(false, true) {
@@ -214,7 +216,7 @@ func (t *AttnTracker) SetActivity(toolID, state, tool, detail string) {
 	if state == "ended" {
 		ps.activity.Store(nil)
 	} else {
-		ps.activity.Store(&activityState{
+		ps.activity.Store(&toolhub.ActivityState{
 			State:     state,
 			Tool:      tool,
 			Detail:    detail,
@@ -225,7 +227,7 @@ func (t *AttnTracker) SetActivity(toolID, state, tool, detail string) {
 }
 
 // Activity returns the current activity state for a tool.
-func (t *AttnTracker) Activity(toolID string) *activityState {
+func (t *AttnTracker) Activity(toolID string) *toolhub.ActivityState {
 	t.mu.Lock()
 	ps := t.tools[toolID]
 	t.mu.Unlock()
@@ -251,18 +253,18 @@ func (t *AttnTracker) LastOutputAt(toolID string) int64 {
 // ActivitySnapshot returns current activity for all tools. A "working" card
 // whose foreground process is gone is pruned so an abnormal agent exit (no
 // Stop/SessionEnd hook) doesn't leave a stale "working" card — parity with
-// direct-mode ToolManager.ActivitySnapshot (FR-AAP-20). The busy probe (an RPC
+// direct-mode toolhub.ToolManager.ActivitySnapshot (FR-AAP-20). The busy probe (an RPC
 // to dongminald) runs outside the lock.
-func (t *AttnTracker) ActivitySnapshot() []activitySnap {
+func (t *AttnTracker) ActivitySnapshot() []toolhub.ActivitySnap {
 	t.mu.Lock()
 	probe := t.busyProbe
-	items := make([]activitySnap, 0, len(t.tools))
+	items := make([]toolhub.ActivitySnap, 0, len(t.tools))
 	for id, ps := range t.tools {
 		a := ps.activity.Load()
 		if a == nil {
 			continue
 		}
-		items = append(items, activitySnap{
+		items = append(items, toolhub.ActivitySnap{
 			ToolID:    id,
 			State:     a.State,
 			Tool:      a.Tool,
@@ -272,7 +274,7 @@ func (t *AttnTracker) ActivitySnapshot() []activitySnap {
 	}
 	t.mu.Unlock()
 
-	out := []activitySnap{}
+	out := []toolhub.ActivitySnap{}
 	for _, it := range items {
 		if it.State == "working" && probe != nil && !probe(it.ToolID) {
 			continue
@@ -306,7 +308,7 @@ func (t *AttnTracker) sweepIdle() {
 		ps.attnArmed.Store(false)
 		// Idle only fires when a foreground process is actually running (an
 		// agent waiting on the user); a bare shell at its prompt must not raise
-		// an alarm. Mirrors direct-mode Tool.maybeIdle (FR-15).
+		// an alarm. Mirrors direct-mode toolhub.Tool.maybeIdle (FR-15).
 		if probe == nil || !probe(ps.id) {
 			continue
 		}

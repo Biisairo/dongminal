@@ -1,4 +1,4 @@
-package server
+package toolhub
 
 import (
 	"net/http"
@@ -33,6 +33,7 @@ func echoWSHandler() http.HandlerFunc {
 }
 
 // dialEcho returns a client-side *websocket.Conn pointed at the test server.
+// dialEcho returns a client-side *websocket.Conn pointed at the test server.
 func dialEcho(t *testing.T, ts *httptest.Server) *websocket.Conn {
 	t.Helper()
 	url := strings.Replace(ts.URL, "http://", "ws://", 1)
@@ -43,6 +44,7 @@ func dialEcho(t *testing.T, ts *httptest.Server) *websocket.Conn {
 	return c
 }
 
+// TC-L3-1: addClient on exited Tool must reject and not register.
 // TC-L3-1: addClient on exited Tool must reject and not register.
 func TestTool_AddClientRejectedAfterExit(t *testing.T) {
 	p, err := StartTool("t-exit", "test", "", 80, 24, nil, nil)
@@ -57,9 +59,9 @@ func TestTool_AddClientRejectedAfterExit(t *testing.T) {
 
 	conn := dialEcho(t, ts)
 	defer conn.Close()
-	sc := newSafeConn(conn)
+	sc := NewSafeConn(conn)
 
-	if ok := p.addClient(sc); ok {
+	if ok := p.AddClient(sc); ok {
 		t.Fatalf("addClient returned true for exited tool")
 	}
 	p.cmu.Lock()
@@ -70,6 +72,7 @@ func TestTool_AddClientRejectedAfterExit(t *testing.T) {
 	}
 }
 
+// TC-L3-2: concurrent broadcast/addClient/removeClient must be race-clean.
 // TC-L3-2: concurrent broadcast/addClient/removeClient must be race-clean.
 func TestTool_BroadcastAddRemoveRace(t *testing.T) {
 	p, err := StartTool("t-race", "race", "", 80, 24, nil, nil)
@@ -91,15 +94,15 @@ func TestTool_BroadcastAddRemoveRace(t *testing.T) {
 			defer wg.Done()
 			c := dialEcho(t, ts)
 			defer c.Close()
-			sc := newSafeConn(c)
+			sc := NewSafeConn(c)
 			for {
 				select {
 				case <-stop:
 					return
 				default:
 				}
-				if p.addClient(sc) {
-					p.removeClient(sc)
+				if p.AddClient(sc) {
+					p.RemoveClient(sc)
 				}
 			}
 		}()
@@ -127,49 +130,3 @@ func TestTool_BroadcastAddRemoveRace(t *testing.T) {
 }
 
 // TC-L5-1: CommandHub concurrent add/remove/Broadcast must be race-clean.
-func TestCommandHub_AddRemoveBroadcastRace(t *testing.T) {
-	h := NewCommandHub()
-	const subscribers = 16
-	var wg sync.WaitGroup
-	stop := make(chan struct{})
-
-	for i := 0; i < subscribers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for {
-				select {
-				case <-stop:
-					return
-				default:
-				}
-				s := h.add()
-				select {
-				case <-s.ch:
-				default:
-				}
-				h.remove(s)
-			}
-		}()
-	}
-
-	for i := 0; i < 8; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			payload := []byte("event")
-			for {
-				select {
-				case <-stop:
-					return
-				default:
-				}
-				h.Broadcast(payload)
-			}
-		}()
-	}
-
-	time.Sleep(200 * time.Millisecond)
-	close(stop)
-	wg.Wait()
-}

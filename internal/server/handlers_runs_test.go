@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/shared/toolhub"
+
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -30,16 +32,14 @@ func (*callerErr) Error() string { return "no caller" }
 
 // runsServer wires a direct-mode Server with a Run store and the toolaccess
 // fakes. caller is what the PID-chain resolver reports for every request.
-func runsServer(t *testing.T, caller string) (*Server, *ToolManager, *run.Store, *fakeWhoAmI) {
+func runsServer(t *testing.T, caller string) (*Server, *toolhub.ToolManager, *run.Store, *fakeWhoAmI) {
 	t.Helper()
-	m := NewToolManager("", nil)
+	m := toolhub.NewToolManager("", nil)
 	io := newFakeToolIO()
 	wi := &fakeWorkIndex{resolve: map[string]string{}, labels: map[string]string{}, coords: map[string]string{}}
 	for _, id := range []string{"tool-a", "tool-b"} {
-		p := &Tool{ID: id}
-		m.mu.Lock()
-		m.tools[id] = p
-		m.mu.Unlock()
+		p := &toolhub.Tool{ID: id}
+		m.Adopt(p)
 		io.setHas(id, true)
 		wi.resolve[id] = id
 	}
@@ -207,8 +207,8 @@ func TestApiRunStatus_DerivesMemberState(t *testing.T) {
 	_, _ = postRun(t, s, "/api/runs/members", `{"runId":"`+runID+`","role":"b","agent":"claude","id":"tool-b"}`)
 
 	// 훅 상태를 넣으면 그대로 파생된다.
-	m.Get("tool-a").setActivity("working", "Bash", "go test")
-	m.Get("tool-b").setActivity("waiting", "", "")
+	m.Get("tool-a").SetActivity("working", "Bash", "go test")
+	m.Get("tool-b").SetActivity("waiting", "", "")
 
 	code, out := getRun(t, s, "/api/runs?id="+runID)
 	if code != http.StatusOK {
@@ -227,7 +227,7 @@ func TestApiRunStatus_DerivesMemberState(t *testing.T) {
 		t.Fatalf("죽은 도구의 멤버는 lost 여야 한다: %+v", members["b"])
 	}
 	// 보고한 멤버는 관측이 아니라 기록이 이긴다.
-	m.Get("tool-a").setActivity("working", "", "")
+	m.Get("tool-a").SetActivity("working", "", "")
 	_, _ = postRun(t, s, "/api/runs/report", `{"outcome":"succeeded","summary":"끝"}`)
 	_, out = getRun(t, s, "/api/runs?id="+runID)
 	members = memberMap(t, out)

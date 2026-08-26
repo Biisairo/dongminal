@@ -1,5 +1,7 @@
 package server
 
+import "dongminal/internal/shared/toolhub"
+
 import "sync"
 
 // ── Phase 1: ExpandedToolHub + fake (DAEMON_SPLIT_SRS Phase 1) ─────────
@@ -7,8 +9,8 @@ import "sync"
 // ExpandedToolHub is the target interface shape for Phase 1.
 type ExpandedToolHub interface {
 	List() []map[string]interface{}
-	Create(cwd string, cols, rows uint16) (*Tool, error)
-	Get(id string) *Tool
+	Create(cwd string, cols, rows uint16) (*toolhub.Tool, error)
+	Get(id string) *toolhub.Tool
 	Delete(id string)
 	Restore(id, name, cwd string, cols, rows uint16) error
 	IsLive(id string) bool
@@ -18,11 +20,11 @@ type ExpandedToolHub interface {
 	Resize(id string, cols, rows uint16) error
 	Cwd(id string) string
 	Busy(id string) bool
-	SnapshotTool(id string) (ToolSnapshot, error)
+	SnapshotTool(id string) (toolhub.ToolSnapshot, error)
 }
 
-// _ ensures *ToolManager implements ExpandedToolHub.
-var _ ExpandedToolHub = (*ToolManager)(nil)
+// _ ensures *toolhub.ToolManager implements ExpandedToolHub.
+var _ ExpandedToolHub = (*toolhub.ToolManager)(nil)
 
 // _ ensures *expandedToolHubFake implements ExpandedToolHub.
 var _ ExpandedToolHub = (*expandedToolHubFake)(nil)
@@ -46,7 +48,7 @@ type fakePaneEntry struct {
 	Rows     uint16
 	Live     bool
 	Busy     bool
-	Snapshot ToolSnapshot
+	Snapshot toolhub.ToolSnapshot
 }
 
 func newExpandedPaneHubFake() *expandedToolHubFake {
@@ -72,25 +74,25 @@ func (f *expandedToolHubFake) List() []map[string]interface{} {
 	return out
 }
 
-func (f *expandedToolHubFake) Create(_ string, cols, rows uint16) (*Tool, error) {
+func (f *expandedToolHubFake) Create(_ string, cols, rows uint16) (*toolhub.Tool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.nextID++
 	id := fakeID(f.nextID)
-	e := &fakePaneEntry{ID: id, Name: "Fake " + id, Cols: cols, Rows: rows, Live: true, Snapshot: ToolSnapshot{Data: []byte{}}}
+	e := &fakePaneEntry{ID: id, Name: "Fake " + id, Cols: cols, Rows: rows, Live: true, Snapshot: toolhub.ToolSnapshot{Data: []byte{}}}
 	f.tools[id] = e
 	f.created = append(f.created, id)
-	return &Tool{ID: id, Name: e.Name}, nil
+	return &toolhub.Tool{ID: id, Name: e.Name}, nil
 }
 
-func (f *expandedToolHubFake) Get(id string) *Tool {
+func (f *expandedToolHubFake) Get(id string) *toolhub.Tool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	e := f.tools[id]
 	if e == nil || !e.Live {
 		return nil
 	}
-	return &Tool{ID: e.ID, Name: e.Name}
+	return &toolhub.Tool{ID: e.ID, Name: e.Name}
 }
 
 func (f *expandedToolHubFake) Delete(id string) {
@@ -105,7 +107,7 @@ func (f *expandedToolHubFake) Delete(id string) {
 func (f *expandedToolHubFake) Restore(id, name, cwd string, cols, rows uint16) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.tools[id] = &fakePaneEntry{ID: id, Name: name, Cwd: cwd, Cols: cols, Rows: rows, Live: true, Snapshot: ToolSnapshot{Data: []byte{}}}
+	f.tools[id] = &fakePaneEntry{ID: id, Name: name, Cwd: cwd, Cols: cols, Rows: rows, Live: true, Snapshot: toolhub.ToolSnapshot{Data: []byte{}}}
 	f.restored = append(f.restored, id)
 	return nil
 }
@@ -155,13 +157,13 @@ func (f *expandedToolHubFake) Busy(id string) bool {
 	return false
 }
 
-func (f *expandedToolHubFake) SnapshotTool(id string) (ToolSnapshot, error) {
+func (f *expandedToolHubFake) SnapshotTool(id string) (toolhub.ToolSnapshot, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if e := f.tools[id]; e != nil {
 		return e.Snapshot, nil
 	}
-	return ToolSnapshot{}, nil
+	return toolhub.ToolSnapshot{}, nil
 }
 
 func (f *expandedToolHubFake) setCwd(id, cwd string) {
@@ -180,7 +182,7 @@ func (f *expandedToolHubFake) setBusy(id string, busy bool) {
 	}
 }
 
-func (f *expandedToolHubFake) setSnapshot(id string, snap ToolSnapshot) {
+func (f *expandedToolHubFake) setSnapshot(id string, snap toolhub.ToolSnapshot) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if e := f.tools[id]; e != nil {

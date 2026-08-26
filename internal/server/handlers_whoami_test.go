@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/shared/toolhub"
+
 	"encoding/json"
 	"errors"
 	"io"
@@ -25,7 +27,7 @@ func (f fakeWhoAmIResolver) ResolveClientPane(string) (string, int, error) {
 func TestApiWhoAmI_HappyPath(t *testing.T) {
 	pm := newFakePaneHub()
 	pm.seed("p1", "Shell #1")
-	pm.tools["p1"] = &Tool{ID: "p1", Name: "Shell #1"}
+	pm.tools["p1"] = &toolhub.Tool{ID: "p1", Name: "Shell #1"}
 	// override List to inject sizeCols/sizeRows for toolID p1.
 	fpm := &sizedPaneHub{fakePaneHub: pm, cols: 80, rows: 24}
 	fw := newFakeWorkspaceStore()

@@ -5,6 +5,8 @@
 package server
 
 import (
+	"dongminal/internal/shared/toolhub"
+
 	"bufio"
 	"context"
 	"dongminal/internal/git"
@@ -33,7 +35,7 @@ type Config struct {
 // Server owns the HTTP server lifecycle.
 type Server struct {
 	cfg         Config
-	Tools       ToolHub
+	Tools       toolhub.ToolHub
 	Work        WorkspaceStore
 	Commands    CommandBroker
 	Settings    SettingsStore

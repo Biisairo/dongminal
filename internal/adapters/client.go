@@ -1,10 +1,11 @@
 package adapters
 
 import (
+	"dongminal/internal/shared/toolhub"
+
 	"fmt"
 
 	"dongminal/internal/clientpid"
-	"dongminal/internal/server"
 )
 
 // Client는 원격 TCP 연결(remoteAddr) 로부터 클라이언트 PID 를 구하고,
@@ -12,8 +13,8 @@ import (
 // /api/whoami 의 toolId 폴백 경로가 쓴다.
 // PM이 nil이면 (daemon mode) Hub 를 통해 tool 목록을 얻는다.
 type Client struct {
-	PM  *server.ToolManager
-	Hub server.ToolHub
+	PM  *toolhub.ToolManager
+	Hub toolhub.ToolHub
 }
 
 func (r Client) ResolveClientPane(remoteAddr string) (string, int, error) {

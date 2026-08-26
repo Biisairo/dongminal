@@ -1,4 +1,4 @@
-package server
+package toolhub
 
 import (
 	"sync"
@@ -8,13 +8,13 @@ import (
 // newActivityPane builds a bare Tool wired with a capturing activity notifier,
 // without spawning a PTY/shell (activity state is independent of the shell).
 func newActivityPane(id string, mu *sync.Mutex, events *[]string) *Tool {
-	p := &Tool{ID: id}
-	p.onActivity = func(pid, state, tool, detail string) {
-		mu.Lock()
-		*events = append(*events, pid+":"+state+":"+tool+":"+detail)
-		mu.Unlock()
-	}
-	return p
+	return NewDetachedTool(id, &ToolHooks{
+		OnActivity: func(pid, state, tool, detail string) {
+			mu.Lock()
+			*events = append(*events, pid+":"+state+":"+tool+":"+detail)
+			mu.Unlock()
+		},
+	})
 }
 
 // FR-AAP-2 / TC-AAP-8: setActivity fires on every transition (not edge-gated)
@@ -24,8 +24,8 @@ func TestTool_SetActivity_AlwaysFiresAndOverwrites(t *testing.T) {
 	var events []string
 	p := newActivityPane("1", &mu, &events)
 
-	p.setActivity("working", "Bash", "npm test")
-	p.setActivity("done", "", "")
+	p.SetActivity("working", "Bash", "npm test")
+	p.SetActivity("done", "", "")
 
 	if len(events) != 2 {
 		t.Fatalf("each transition must fire, got %v", events)
@@ -44,11 +44,11 @@ func TestTool_SetActivity_EndedClears(t *testing.T) {
 	var mu sync.Mutex
 	var events []string
 	p := newActivityPane("1", &mu, &events)
-	p.setActivity("working", "Bash", "x")
+	p.SetActivity("working", "Bash", "x")
 	if p.Activity() == nil {
 		t.Fatalf("working should be set")
 	}
-	p.setActivity("ended", "", "")
+	p.SetActivity("ended", "", "")
 	if p.Activity() != nil {
 		t.Fatalf("ended must clear activity, got %+v", p.Activity())
 	}
@@ -73,9 +73,9 @@ func TestToolManager_ActivitySnapshot(t *testing.T) {
 	attnBusyProbe = func(*Tool) bool { return true } // agents alive
 	m := NewToolManager("", nil)
 	p1 := &Tool{ID: "1"}
-	p1.setActivity("working", "Edit", "app.js")
+	p1.SetActivity("working", "Edit", "app.js")
 	p5 := &Tool{ID: "5"}
-	p5.setActivity("done", "", "")
+	p5.SetActivity("done", "", "")
 	p2 := &Tool{ID: "2"} // no activity reported → excluded
 	m.mu.Lock()
 	m.tools["1"] = p1
@@ -103,9 +103,9 @@ func TestToolManager_ActivitySnapshot_PrunesDeadWorking(t *testing.T) {
 	attnBusyProbe = func(*Tool) bool { return false } // agent dead
 	m := NewToolManager("", nil)
 	pw := &Tool{ID: "1"}
-	pw.setActivity("working", "Bash", "x")
+	pw.SetActivity("working", "Bash", "x")
 	pd := &Tool{ID: "2"}
-	pd.setActivity("done", "", "")
+	pd.SetActivity("done", "", "")
 	m.mu.Lock()
 	m.tools["1"] = pw
 	m.tools["2"] = pd
@@ -120,7 +120,7 @@ func TestToolManager_ActivitySnapshot_PrunesDeadWorking(t *testing.T) {
 // FR-AAP-2: a tool with no activity notifier wired must not panic on setActivity.
 func TestTool_SetActivity_NilNotifierSafe(t *testing.T) {
 	p := &Tool{ID: "1"}
-	p.setActivity("working", "Bash", "ls")
+	p.SetActivity("working", "Bash", "ls")
 	if got := p.Activity(); got == nil || got.State != "working" {
 		t.Fatalf("activity stored without notifier, got %+v", got)
 	}

@@ -1,6 +1,10 @@
 package server
 
 import (
+	"dongminal/internal/webserver/toolclient"
+
+	"dongminal/internal/shared/toolhub"
+
 	"encoding/binary"
 	"log"
 	"net/http"
@@ -16,40 +20,40 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "tools unavailable", http.StatusInternalServerError)
 		return
 	}
-	raw, err := upgrader.Upgrade(w, r, nil)
+	raw, err := toolhub.Upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("ws upgrade addr=%s: %v", r.RemoteAddr, err)
 		return
 	}
-	conn := newSafeConn(raw)
-	defer conn.close()
+	conn := toolhub.NewSafeConn(raw)
+	defer conn.Close()
 
 	toolID := r.URL.Query().Get("tool")
 	log.Printf("ws connected addr=%s tool=%s", r.RemoteAddr, toolID)
 
-	cols, rows := ParseSize(r)
-	var tool *Tool
+	cols, rows := toolhub.ParseSize(r)
+	var tool *toolhub.Tool
 
 	if toolID != "" {
 		tool = s.Tools.Get(toolID)
 		if tool == nil {
 			// During a daemon reconnect window Get() fails transiently. Don't
 			// declare the tool gone — just close so the browser shows "재연결 중"
-			// and keeps retrying; OpExit is reserved for a genuinely absent tool.
+			// and keeps retrying; toolhub.OpExit is reserved for a genuinely absent tool.
 			if dc, ok := s.Tools.(interface{ Connected() bool }); ok && !dc.Connected() {
 				log.Printf("ws addr=%s: tool %s lookup during daemon reconnect; closing for retry", r.RemoteAddr, toolID)
 				return
 			}
-			// Send OpExit so the frontend knows this tool is permanently gone.
-			_ = conn.send(OpExit, nil)
-			conn.close()
-			log.Printf("ws addr=%s: tool %s not found (sent OpExit)", r.RemoteAddr, toolID)
+			// Send toolhub.OpExit so the frontend knows this tool is permanently gone.
+			_ = conn.Send(toolhub.OpExit, nil)
+			conn.Close()
+			log.Printf("ws addr=%s: tool %s not found (sent toolhub.OpExit)", r.RemoteAddr, toolID)
 			return
 		}
 	} else {
 		tool, err = s.Tools.Create("", cols, rows)
 		if err != nil {
-			_ = conn.send(OpError, []byte("create failed"))
+			_ = conn.Send(toolhub.OpError, []byte("create failed"))
 			log.Printf("ws addr=%s: tool create error: %v", r.RemoteAddr, err)
 			return
 		}
@@ -65,68 +69,68 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleWSDirect is the original (non-daemon) WebSocket handler.
-func (s *Server) handleWSDirect(conn *safeConn, tool *Tool, cols, rows uint16, remoteAddr string) {
-	if !tool.addClient(conn) {
-		log.Printf("ws addr=%s: tool %s already exited; sent OpExit", remoteAddr, tool.ID)
+func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, cols, rows uint16, remoteAddr string) {
+	if !tool.AddClient(conn) {
+		log.Printf("ws addr=%s: tool %s already exited; sent toolhub.OpExit", remoteAddr, tool.ID)
 		return
 	}
-	defer tool.removeClient(conn)
+	defer tool.RemoveClient(conn)
 
-	_ = conn.send(OpToolID, []byte(tool.ID))
+	_ = conn.Send(toolhub.OpToolID, []byte(tool.ID))
 
 	// Send scrollback snapshot for existing tool
-	if snap, _ := tool.stream.Snapshot(); len(snap) > 0 {
+	if snap, _ := tool.Stream().Snapshot(); len(snap) > 0 {
 		snap = stripSnapshotQueries(stripOSC777(snap))
 		if len(snap) > 0 {
 			msg := make([]byte, 1+len(snap))
-			msg[0] = OpOutput
+			msg[0] = toolhub.OpOutput
 			copy(msg[1:], snap)
-			if err := conn.writeMsg(websocket.BinaryMessage, msg); err != nil {
+			if err := conn.WriteMsg(websocket.BinaryMessage, msg); err != nil {
 				log.Printf("[tool %s] snapshot send error addr=%s: %v", tool.ID, remoteAddr, err)
 				return
 			}
 		}
 	}
-	if tool.restored {
-		tool.restored = false
+	if tool.Restored {
+		tool.Restored = false
 		reset := []byte("\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l")
 		msg := make([]byte, 1+len(reset))
-		msg[0] = OpOutput
+		msg[0] = toolhub.OpOutput
 		copy(msg[1:], reset)
-		if err := conn.writeMsg(websocket.BinaryMessage, msg); err != nil {
+		if err := conn.WriteMsg(websocket.BinaryMessage, msg); err != nil {
 			log.Printf("[tool %s] reset send error addr=%s: %v", tool.ID, remoteAddr, err)
 			return
 		}
 	}
 
 	done := make(chan struct{})
-	go pingLoop(conn, tool.done)
+	go pingLoop(conn, tool.Wait())
 	readWSDirect(conn, tool)
 	log.Printf("ws disconnected addr=%s tool=%s", remoteAddr, tool.ID)
 	_ = done
 }
 
 // handleWSDaemon is the daemon-mode WebSocket handler.
-// It uses ToolHub methods (which go through ToolClient RPC) instead of
-// Tool struct internals.
+// It uses toolhub.ToolHub methods (which go through toolclient.ToolClient RPC) instead of
+// toolhub.Tool struct internals.
 // Note: we do NOT resize the PTY from the URL query params here. When a
 // new window opens, the frontend creates WS connections for ALL tools with
 // default cols/rows (120x40), which would incorrectly resize tools owned by
-// other windows. The frontend sends the correct OpResize via the WS binary
+// other windows. The frontend sends the correct toolhub.OpResize via the WS binary
 // protocol after terminal open+fit, guarded by _resizeCheck (session ownership).
-func (s *Server) handleWSDaemon(conn *safeConn, toolID string, _ *Tool, cols, rows uint16) {
-	_ = conn.send(OpToolID, []byte(toolID))
+func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhub.Tool, cols, rows uint16) {
+	_ = conn.Send(toolhub.OpToolID, []byte(toolID))
 
 	// Send terminal reset to clear any stale modes (mouse tracking, etc.)
 	// from a previous connection.
 	reset := []byte("\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l")
-	if err := conn.writeMsg(websocket.BinaryMessage, append([]byte{OpOutput}, reset...)); err != nil {
+	if err := conn.WriteMsg(websocket.BinaryMessage, append([]byte{toolhub.OpOutput}, reset...)); err != nil {
 		return
 	}
 
-	pc, ok := s.Tools.(*ToolClient)
+	pc, ok := s.Tools.(*toolclient.ToolClient)
 	if !ok {
-		log.Printf("[tool %s] daemon mode but ToolHub is not *ToolClient", toolID)
+		log.Printf("[tool %s] daemon mode but toolhub.ToolHub is not *toolclient.ToolClient", toolID)
 		return
 	}
 
@@ -145,9 +149,9 @@ func (s *Server) handleWSDaemon(conn *safeConn, toolID string, _ *Tool, cols, ro
 		snapData := stripSnapshotQueries(stripOSC777(snap.Data))
 		if len(snapData) > 0 {
 			msg := make([]byte, 1+len(snapData))
-			msg[0] = OpOutput
+			msg[0] = toolhub.OpOutput
 			copy(msg[1:], snapData)
-			if err := conn.writeMsg(websocket.BinaryMessage, msg); err != nil {
+			if err := conn.WriteMsg(websocket.BinaryMessage, msg); err != nil {
 				log.Printf("[tool %s] snapshot send error: %v", toolID, err)
 				return
 			}
@@ -158,22 +162,22 @@ func (s *Server) handleWSDaemon(conn *safeConn, toolID string, _ *Tool, cols, ro
 	defer close(done)
 
 	// Output relay goroutine. Attention/activity detection happens once in the
-	// ToolClient readLoop (OnOutput), not here, so it is not tied to this WS
-	// subscription. On tool exit (exitCh closed) we send OpExit and close the
+	// toolclient.ToolClient readLoop (OnOutput), not here, so it is not tied to this WS
+	// subscription. On tool exit (exitCh closed) we send toolhub.OpExit and close the
 	// socket so the browser tears the terminal down (parity with direct mode).
 	go relayOutput(conn, toolID, outputCh, exitCh, done)
 
 	go pingLoop(conn, done)
 
 	// Read loop: input → dongminald, resize → dongminald
-	conn.setReadLimit(1 << 20)
-	conn.setReadDeadline(time.Now().Add(pongWait))
-	conn.setPongHandler(func(string) error {
-		conn.setReadDeadline(time.Now().Add(pongWait))
+	conn.SetReadLimit(1 << 20)
+	conn.SetReadDeadline(time.Now().Add(toolhub.PongWait))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(toolhub.PongWait))
 		return nil
 	})
 	for {
-		_, msg, err := conn.readMessage()
+		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseNoStatusReceived) &&
 				!strings.Contains(err.Error(), "use of closed network connection") {
@@ -185,9 +189,9 @@ func (s *Server) handleWSDaemon(conn *safeConn, toolID string, _ *Tool, cols, ro
 			continue
 		}
 		switch msg[0] {
-		case OpInput:
+		case toolhub.OpInput:
 			_ = pc.Write(toolID, msg[1:])
-		case OpResize:
+		case toolhub.OpResize:
 			if len(msg) >= 5 {
 				c := binary.BigEndian.Uint16(msg[1:3])
 				ro := binary.BigEndian.Uint16(msg[3:5])
@@ -197,24 +201,24 @@ func (s *Server) handleWSDaemon(conn *safeConn, toolID string, _ *Tool, cols, ro
 	}
 }
 
-func readWS(conn *safeConn, tool *Tool) {
+func readWS(conn *toolhub.SafeConn, tool *toolhub.Tool) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[tool %s] readWS panic addr=%s: %v\n%s", tool.ID, conn.remoteAddr(), r, debug.Stack())
+			log.Printf("[tool %s] readWS panic addr=%s: %v\n%s", tool.ID, conn.RemoteAddr(), r, debug.Stack())
 		}
 	}()
-	conn.setReadLimit(1 << 20)
-	conn.setReadDeadline(time.Now().Add(pongWait))
-	conn.setPongHandler(func(string) error {
-		conn.setReadDeadline(time.Now().Add(pongWait))
+	conn.SetReadLimit(1 << 20)
+	conn.SetReadDeadline(time.Now().Add(toolhub.PongWait))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(toolhub.PongWait))
 		return nil
 	})
 	for {
-		_, msg, err := conn.readMessage()
+		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseNoStatusReceived) &&
 				!strings.Contains(err.Error(), "use of closed network connection") {
-				log.Printf("[tool %s] readWS error addr=%s: %v", tool.ID, conn.remoteAddr(), err)
+				log.Printf("[tool %s] readWS error addr=%s: %v", tool.ID, conn.RemoteAddr(), err)
 			}
 			return
 		}
@@ -222,44 +226,44 @@ func readWS(conn *safeConn, tool *Tool) {
 			continue
 		}
 		switch msg[0] {
-		case OpInput:
-			if _, err := tool.ptmx.Write(msg[1:]); err != nil {
+		case toolhub.OpInput:
+			if _, err := tool.PTMX().Write(msg[1:]); err != nil {
 				log.Printf("[tool %s] ptmx write error: %v", tool.ID, err)
 				return
 			}
-		case OpResize:
+		case toolhub.OpResize:
 			if len(msg) >= 5 {
 				c := binary.BigEndian.Uint16(msg[1:3])
 				ro := binary.BigEndian.Uint16(msg[3:5])
-				tool.resize(c, ro)
+				tool.Resize(c, ro)
 			}
 		}
 	}
 }
 
 // readWSDirect is the original WS read loop kept for direct mode.
-func readWSDirect(conn *safeConn, tool *Tool) { readWS(conn, tool) }
+func readWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool) { readWS(conn, tool) }
 
 // relayOutput pumps live tool output to one WS client until the tool exits,
 // the handler returns, or **a write fails**.
 //
 // 쓰기 실패는 그 구독의 끝이다. 예전에는 실패를 로그만 남기고 계속 펌프했는데,
 // 브라우저가 사라진 소켓(서버 재기동 직후의 옛 연결)에 초당 수십 회를 재시도하며
-// broken pipe 를 쏟아냈다 — 읽기 루프가 pongWait 로 깨질 때까지 26초간 로그가
+// broken pipe 를 쏟아냈다 — 읽기 루프가 toolhub.PongWait 로 깨질 때까지 26초간 로그가
 // 7.7MB 로 불었다 (실측 2026-08-25). 소켓을 닫으면 읽기 루프가 곧바로 풀리고
 // 핸들러의 defer 가 구독을 해제한다.
-func relayOutput(conn *safeConn, toolID string, outputCh <-chan []byte, exitCh <-chan struct{}, done <-chan struct{}) {
+func relayOutput(conn *toolhub.SafeConn, toolID string, outputCh <-chan []byte, exitCh <-chan struct{}, done <-chan struct{}) {
 	for {
 		select {
 		case data := <-outputCh:
-			if err := conn.send(OpOutput, data); err != nil {
-				log.Printf("[tool %s] output relay stopped addr=%s: %v", toolID, conn.remoteAddr(), err)
-				conn.close()
+			if err := conn.Send(toolhub.OpOutput, data); err != nil {
+				log.Printf("[tool %s] output relay stopped addr=%s: %v", toolID, conn.RemoteAddr(), err)
+				conn.Close()
 				return
 			}
 		case <-exitCh:
-			_ = conn.send(OpExit, nil)
-			conn.close()
+			_ = conn.Send(toolhub.OpExit, nil)
+			conn.Close()
 			return
 		case <-done:
 			return
@@ -267,19 +271,19 @@ func relayOutput(conn *safeConn, toolID string, outputCh <-chan []byte, exitCh <
 	}
 }
 
-func pingLoop(conn *safeConn, done chan struct{}) {
+func pingLoop(conn *toolhub.SafeConn, done <-chan struct{}) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("pingLoop panic addr=%s: %v\n%s", conn.remoteAddr(), r, debug.Stack())
+			log.Printf("pingLoop panic addr=%s: %v\n%s", conn.RemoteAddr(), r, debug.Stack())
 		}
 	}()
-	t := time.NewTicker(pingPeriod)
+	t := time.NewTicker(toolhub.PingPeriod)
 	defer t.Stop()
 	for {
 		select {
 		case <-t.C:
-			if err := conn.writePing(); err != nil {
-				log.Printf("pingLoop error addr=%s: %v", conn.remoteAddr(), err)
+			if err := conn.WritePing(); err != nil {
+				log.Printf("pingLoop error addr=%s: %v", conn.RemoteAddr(), err)
 				return
 			}
 		case <-done:

@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/shared/toolhub"
+
 	"encoding/json"
 	"strings"
 )
@@ -48,8 +50,8 @@ func toolActivityPayload(toolID, state, tool, detail string) []byte {
 }
 
 // WireActivity connects tool activity transitions to SSE broadcasts. Called
-// from the composition root once both the ToolManager and CommandHub exist.
-func WireActivity(pm *ToolManager, hub CommandBroker) {
+// from the composition root once both the toolhub.ToolManager and CommandHub exist.
+func WireActivity(pm *toolhub.ToolManager, hub CommandBroker) {
 	pm.SetActivityNotifier(func(id, state, tool, detail string) {
 		hub.Broadcast(toolActivityPayload(id, state, tool, detail))
 	})

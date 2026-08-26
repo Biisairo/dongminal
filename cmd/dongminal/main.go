@@ -1,6 +1,8 @@
 package main
 
 import (
+	"dongminal/internal/shared/toolhub"
+
 	"context"
 	"errors"
 	"fmt"
@@ -14,6 +16,7 @@ import (
 
 	"dongminal/internal/adapters"
 	"dongminal/internal/cli"
+	"dongminal/internal/daemon/ipc"
 	"dongminal/internal/git"
 	"dongminal/internal/run"
 	"dongminal/internal/runtime"
@@ -21,6 +24,7 @@ import (
 	"dongminal/internal/server"
 	"dongminal/internal/sysstat"
 	"dongminal/internal/uuid"
+	"dongminal/internal/webserver/toolclient"
 	"dongminal/internal/workspace"
 	"dongminal/internal/worktree"
 	"dongminal/web"
@@ -46,7 +50,7 @@ func dataPath(dataDir, name string) string {
 // statements, ensuring the goroutine exits promptly. The wrapper goroutine
 // here (lines 50-53) is fire-and-forget: it writes its result to a buffered
 // channel and exits, regardless of whether the outer select consumes it.
-func dialOrStartDaemon(home string) *server.ToolClient {
+func dialOrStartDaemon(home string) *toolclient.ToolClient {
 	sockPath := filepath.Join(home, "paned.sock")
 
 	// spawn is handed to the reconnect supervisor so it can respawn dongminald
@@ -57,12 +61,12 @@ func dialOrStartDaemon(home string) *server.ToolClient {
 	// If the old dongminal is still shutting down, this blocks until
 	// dongminald processes the new connection. Add a timeout via goroutine.
 	type result struct {
-		pc  *server.ToolClient
+		pc  *toolclient.ToolClient
 		err error
 	}
 	ch := make(chan result, 1)
 	go func() {
-		pc, err := server.DialPaneClientWithReconnect(sockPath, spawn)
+		pc, err := toolclient.DialPaneClientWithReconnect(sockPath, spawn)
 		ch <- result{pc, err}
 	}()
 
@@ -93,7 +97,7 @@ func dialOrStartDaemon(home string) *server.ToolClient {
 	// Wait for daemon socket to appear
 	for i := 0; i < 20; i++ {
 		time.Sleep(100 * time.Millisecond)
-		pc, err := server.DialPaneClientWithReconnect(sockPath, spawn)
+		pc, err := toolclient.DialPaneClientWithReconnect(sockPath, spawn)
 		if err == nil {
 			log.Printf("connected to newly started dongminald")
 			return pc
@@ -159,13 +163,13 @@ func runDaemon(home string) {
 		log.Fatalf("runtime install: %v", err)
 	}
 
-	pm := server.NewToolManager(home, nil)
+	pm := toolhub.NewToolManager(home, nil)
 	pm.LoadAll(referencedTools(dataPath(home, "workspace.json")))
 
 	sockPath := filepath.Join(home, "paned.sock")
 	pidPath := filepath.Join(home, "paned.pid")
 
-	ps := server.NewPanedServer(pm, sockPath, pidPath)
+	ps := ipc.NewPanedServer(pm, sockPath, pidPath)
 	if err := ps.Listen(); err != nil {
 		log.Fatalf("dongminald listen: %v", err)
 	}
@@ -200,14 +204,14 @@ func runDaemon(home string) {
 
 type builtDeps struct {
 	deps        server.Deps
-	pm          *server.ToolManager
+	pm          *toolhub.ToolManager
 	attnTracker *server.AttnTracker
 	sampler     *sysstat.Sampler
 	wsMgr       *workspace.Manager
 }
 
 func buildDeps(cfg server.Config) (builtDeps, error) {
-	pm := server.NewToolManager(cfg.DataDir, nil)
+	pm := toolhub.NewToolManager(cfg.DataDir, nil)
 	cmdHub := server.NewCommandHub()
 	// Wire attention SSE before LoadAll so restored tools also get detection.
 	server.WireAttention(pm, cmdHub)
@@ -232,7 +236,7 @@ func buildDeps(cfg server.Config) (builtDeps, error) {
 // buildDepsWithHub is the daemon-mode variant that uses a ToolHub (ToolClient)
 // instead of a direct ToolManager. Attention/activity are not wired here
 // because in daemon mode they are driven by output push events from dongminald.
-func buildDepsWithHub(cfg server.Config, hub server.ToolHub) (builtDeps, error) {
+func buildDepsWithHub(cfg server.Config, hub toolhub.ToolHub) (builtDeps, error) {
 	cmdHub := server.NewCommandHub()
 
 	// Attention/activity tracker for daemon mode (in-memory in dongminal).
@@ -250,7 +254,7 @@ func buildDepsWithHub(cfg server.Config, hub server.ToolHub) (builtDeps, error) 
 // buildCommonDeps wires up the managers shared by both direct and daemon modes.
 // toolHub provides Liveness (IsLive) for the workspace manager and ToolHub for
 // the tool adapters.
-func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.CommandHub, attnTracker *server.AttnTracker) (builtDeps, error) {
+func buildCommonDeps(cfg server.Config, toolHub toolhub.ToolHub, cmdHub *server.CommandHub, attnTracker *server.AttnTracker) (builtDeps, error) {
 
 	wsMgr, err := workspace.New(toolHub, workspace.FilePersister{Path: dataPath(cfg.DataDir, "workspace.json")})
 	if err != nil {
@@ -259,10 +263,10 @@ func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.C
 
 	var pa adapters.Tool
 	var resolver adapters.Client
-	if _, ok := toolHub.(*server.ToolManager); ok {
+	if _, ok := toolHub.(*toolhub.ToolManager); ok {
 		// Direct mode: use the concrete ToolManager for richer adapter access.
-		pa = adapters.Tool{PM: toolHub.(*server.ToolManager)}
-		resolver = adapters.Client{PM: toolHub.(*server.ToolManager)}
+		pa = adapters.Tool{PM: toolHub.(*toolhub.ToolManager)}
+		resolver = adapters.Client{PM: toolHub.(*toolhub.ToolManager)}
 	} else {
 		pa = adapters.Tool{Hub: toolHub}
 		resolver = adapters.Client{Hub: toolHub}

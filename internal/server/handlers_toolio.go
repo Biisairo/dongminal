@@ -3,8 +3,8 @@
 // dmctl 이 호출하는 HTTP 엔드포인트로 옮겼다.
 //
 // 세 핸들러 모두 toolaccess 인터페이스(Deps.ToolIO / Deps.WorkIndex)만 경유한다.
-// 구현은 internal/adapters 이고, 그쪽이 direct 모드(ToolManager)와 daemon 모드
-// (ToolHub) 의 이중 경로 + bracketed paste + submit 지연을 이미 캡슐화하므로
+// 구현은 internal/adapters 이고, 그쪽이 direct 모드(toolhub.ToolManager)와 daemon 모드
+// (toolhub.ToolHub) 의 이중 경로 + bracketed paste + submit 지연을 이미 캡슐화하므로
 // 두 모드에서 동일하게 동작한다 (FR-API-6).
 package server
 

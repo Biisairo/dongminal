@@ -1,6 +1,10 @@
-package server
+package toolclient
 
 import (
+	"dongminal/internal/shared/toolhub"
+
+	"dongminal/internal/shared/toolipc"
+
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -12,7 +16,7 @@ import (
 )
 
 // ToolClient is a dongminal-side client that connects to dongminald
-// over a Unix socket and implements the ToolHub interface via JSON-RPC
+// over a Unix socket and implements the toolhub.ToolHub interface via JSON-RPC
 // style request/response (DAEMON_SPLIT_SRS Phase 3).
 const (
 	// panedCallTimeout bounds a single RPC. On expiry the connection is
@@ -50,7 +54,7 @@ type ToolClient struct {
 
 	// Per-tool WS subscribers: output channel → its exit-signal channel. The
 	// exit channel is closed when the tool exits so the WS handler can send
-	// OpExit and tear down (parity with direct-mode tool.kill).
+	// toolhub.OpExit and tear down (parity with direct-mode tool.kill).
 	subMu   sync.RWMutex
 	subbers map[string]map[chan []byte]chan struct{}
 	dropped atomic.Int64
@@ -270,7 +274,7 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 		if err := json.Unmarshal(raw, &ev); err != nil {
 			return
 		}
-		// Signal every WS subscriber of this tool so it can send OpExit and
+		// Signal every WS subscriber of this tool so it can send toolhub.OpExit and
 		// tear down (parity with direct-mode tool.kill). Closing + removing
 		// under subMu means no concurrent output dispatch sends on a closed chan.
 		pc.subMu.Lock()
@@ -322,7 +326,7 @@ func (pc *ToolClient) call(method string, params interface{}) (map[string]interf
 	enc := pc.enc
 	pc.mu.Unlock()
 
-	req := panedRequest{ID: id, Method: method}
+	req := toolipc.PanedRequest{ID: id, Method: method}
 	paramBytes, _ := json.Marshal(params)
 	req.Params = paramBytes
 
@@ -341,10 +345,10 @@ func (pc *ToolClient) call(method string, params interface{}) (map[string]interf
 		if !ok {
 			return nil, fmt.Errorf("paned connection lost")
 		}
-		var resp panedResponse
+		var resp toolipc.PanedResponse
 		if err := json.Unmarshal(raw, &resp); err != nil {
 			// Try error response
-			var errResp panedError
+			var errResp toolipc.PanedError
 			if err2 := json.Unmarshal(raw, &errResp); err2 == nil {
 				return nil, fmt.Errorf("paned error: %s", errResp.Error.Message)
 			}
@@ -423,7 +427,7 @@ func (pc *ToolClient) Connected() bool {
 	}
 }
 
-// ── ToolHub implementation ──────────────────────────────────────────────
+// ── toolhub.ToolHub implementation ──────────────────────────────────────────────
 
 func (pc *ToolClient) List() []map[string]interface{} {
 	resp, err := pc.call("list", struct{}{})
@@ -448,7 +452,7 @@ func (pc *ToolClient) List() []map[string]interface{} {
 	return out
 }
 
-func (pc *ToolClient) Create(cwd string, cols, rows uint16) (*Tool, error) {
+func (pc *ToolClient) Create(cwd string, cols, rows uint16) (*toolhub.Tool, error) {
 	resp, err := pc.call("create", map[string]interface{}{
 		"cwd": cwd, "cols": cols, "rows": rows,
 	})
@@ -457,16 +461,16 @@ func (pc *ToolClient) Create(cwd string, cols, rows uint16) (*Tool, error) {
 	}
 	id, _ := resp["id"].(string)
 	name, _ := resp["name"].(string)
-	return &Tool{ID: id, Name: name}, nil
+	return &toolhub.Tool{ID: id, Name: name}, nil
 }
 
-func (pc *ToolClient) Get(id string) *Tool {
+func (pc *ToolClient) Get(id string) *toolhub.Tool {
 	// ToolClient doesn't have local state; we check liveness via List
 	tools := pc.List()
 	for _, m := range tools {
 		if m["id"].(string) == id {
 			name, _ := m["name"].(string)
-			return &Tool{ID: id, Name: name}
+			return &toolhub.Tool{ID: id, Name: name}
 		}
 	}
 	return nil
@@ -532,7 +536,7 @@ func (pc *ToolClient) SetBackground(id string, bg bool) bool {
 	return ok
 }
 
-func (pc *ToolClient) BackgroundList() []BackgroundEntry {
+func (pc *ToolClient) BackgroundList() []toolhub.BackgroundEntry {
 	resp, err := pc.call("backgroundlist", map[string]interface{}{})
 	if err != nil {
 		return nil
@@ -545,24 +549,24 @@ func (pc *ToolClient) BackgroundList() []BackgroundEntry {
 	if err != nil {
 		return nil
 	}
-	var out []BackgroundEntry
+	var out []toolhub.BackgroundEntry
 	if json.Unmarshal(blob, &out) != nil {
 		return nil
 	}
 	return out
 }
 
-func (pc *ToolClient) SnapshotTool(id string) (ToolSnapshot, error) {
+func (pc *ToolClient) SnapshotTool(id string) (toolhub.ToolSnapshot, error) {
 	resp, err := pc.call("snapshot", map[string]interface{}{"id": id})
 	if err != nil {
-		return ToolSnapshot{}, err
+		return toolhub.ToolSnapshot{}, err
 	}
 	dataStr, _ := resp["data"].(string)
 	data, _ := base64.StdEncoding.DecodeString(dataStr)
 	totalIn, _ := resp["totalBytesIn"].(float64)
 	totalDrop, _ := resp["totalBytesDrop"].(float64)
 	retained, _ := resp["retained"].(float64)
-	return ToolSnapshot{
+	return toolhub.ToolSnapshot{
 		Data:           data,
 		TotalBytesIn:   int64(totalIn),
 		TotalBytesDrop: int64(totalDrop),
@@ -570,5 +574,5 @@ func (pc *ToolClient) SnapshotTool(id string) (ToolSnapshot, error) {
 	}, nil
 }
 
-// Ensure ToolClient implements ToolHub.
-var _ ToolHub = (*ToolClient)(nil)
+// Ensure ToolClient implements toolhub.ToolHub.
+var _ toolhub.ToolHub = (*ToolClient)(nil)

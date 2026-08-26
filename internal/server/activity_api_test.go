@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/shared/toolhub"
+
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,13 +13,11 @@ import (
 
 // FR-AAP-3 / TC-AAP-6: activity set endpoint — known / unknown / missing / bad-state.
 func TestApiToolActivitySet(t *testing.T) {
-	m := NewToolManager("", nil)
+	m := toolhub.NewToolManager("", nil)
 	var mu sync.Mutex
 	var events []string
 	p := newActivityPane("9", &mu, &events)
-	m.mu.Lock()
-	m.tools["9"] = p
-	m.mu.Unlock()
+	m.Adopt(p)
 	s := &Server{Tools: m}
 
 	// known tool → updates + notifier fires.
@@ -74,14 +74,11 @@ func TestSanitizeActivityField(t *testing.T) {
 
 // FR-AAP-4 / TC-AAP-7: activity snapshot endpoint returns reported tools.
 func TestApiToolsActivity_Endpoint(t *testing.T) {
-	defer func(o func(*Tool) bool) { attnBusyProbe = o }(attnBusyProbe)
-	attnBusyProbe = func(*Tool) bool { return true } // agent alive
-	m := NewToolManager("", nil)
-	p1 := &Tool{ID: "1"}
-	p1.setActivity("working", "Edit", "app.js")
-	m.mu.Lock()
-	m.tools["1"] = p1
-	m.mu.Unlock()
+	defer toolhub.SetAttnBusyProbe(func(*toolhub.Tool) bool { return true })() // agent alive
+	m := toolhub.NewToolManager("", nil)
+	p1 := &toolhub.Tool{ID: "1"}
+	p1.SetActivity("working", "Edit", "app.js")
+	m.Adopt(p1)
 	s := &Server{Tools: m}
 
 	rec := httptest.NewRecorder()

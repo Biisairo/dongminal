@@ -1,6 +1,10 @@
-package server
+package ipc
 
 import (
+	"dongminal/internal/shared/toolhub"
+
+	"dongminal/internal/shared/toolipc"
+
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -13,29 +17,6 @@ import (
 	"sync/atomic"
 )
 
-// ── Protocol types ──────────────────────────────────────────────────────
-
-type panedRequest struct {
-	ID     int64           `json:"id"`
-	Method string          `json:"method"`
-	Params json.RawMessage `json:"params"`
-}
-
-type panedResponse struct {
-	ID     int64       `json:"id"`
-	Result interface{} `json:"result"`
-}
-
-type panedError struct {
-	ID    int64       `json:"id"`
-	Error panedErrObj `json:"error"`
-}
-
-type panedErrObj struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
 // ── Connection handler ──────────────────────────────────────────────────
 
 // panedOutQueue bounds the per-connection outbound buffer. Output pushes are
@@ -45,7 +26,7 @@ const panedOutQueue = 1024
 
 type panedConn struct {
 	conn    net.Conn
-	pm      *ToolManager
+	pm      *toolhub.ToolManager
 	encoder *json.Encoder
 	stopped atomic.Bool
 
@@ -60,10 +41,10 @@ type panedConn struct {
 	writerEnd chan struct{}
 
 	// wireTool is set by PanedServer to hook tool output/exit into this conn.
-	wireTool func(p *Tool)
+	wireTool func(p *toolhub.Tool)
 }
 
-func newPanedConn(conn net.Conn, pm *ToolManager) *panedConn {
+func newPanedConn(conn net.Conn, pm *toolhub.ToolManager) *panedConn {
 	pc := &panedConn{
 		conn:      conn,
 		pm:        pm,
@@ -136,7 +117,7 @@ func (pc *panedConn) handle() error {
 	defer pc.stop()
 	dec := json.NewDecoder(pc.conn)
 	for {
-		var req panedRequest
+		var req toolipc.PanedRequest
 		if err := dec.Decode(&req); err != nil {
 			return err
 		}
@@ -147,7 +128,7 @@ func (pc *panedConn) handle() error {
 	}
 }
 
-func (pc *panedConn) dispatch(req *panedRequest) {
+func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 	var resp interface{}
 	switch req.Method {
 	case "hello":
@@ -175,14 +156,14 @@ func (pc *panedConn) dispatch(req *panedRequest) {
 	case "backgroundlist":
 		resp = pc.backgroundList(req)
 	default:
-		resp = panedError{ID: req.ID, Error: panedErrObj{Code: -32601, Message: "unknown method: " + req.Method}}
+		resp = toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32601, Message: "unknown method: " + req.Method}}
 	}
 	pc.enqueue(resp, false)
 }
 
 // ── Request handlers ────────────────────────────────────────────────────
 
-func (pc *panedConn) hello(req *panedRequest) interface{} {
+func (pc *panedConn) hello(req *toolipc.PanedRequest) interface{} {
 	tools := pc.pm.List()
 	ids := make([]string, 0, len(tools))
 	for _, m := range tools {
@@ -190,35 +171,35 @@ func (pc *panedConn) hello(req *panedRequest) interface{} {
 			ids = append(ids, id)
 		}
 	}
-	return panedResponse{ID: req.ID, Result: map[string]interface{}{
+	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 		"version":  1,
 		"tool_ids": ids,
 	}}
 }
 
-func (pc *panedConn) create(req *panedRequest) interface{} {
+func (pc *panedConn) create(req *toolipc.PanedRequest) interface{} {
 	var p struct {
 		Cwd  string `json:"cwd"`
 		Cols uint16 `json:"cols"`
 		Rows uint16 `json:"rows"`
 	}
 	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
 	tool, err := pc.pm.Create(p.Cwd, p.Cols, p.Rows)
 	if err != nil {
-		return panedError{ID: req.ID, Error: panedErrObj{Code: -32603, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32603, Message: err.Error()}}
 	}
 	if pc.wireTool != nil {
 		pc.wireTool(tool)
 	}
-	return panedResponse{ID: req.ID, Result: map[string]interface{}{
+	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 		"id": tool.ID, "name": tool.Name, "pid": tool.CmdProcessPID(),
 		"cols": p.Cols, "rows": p.Rows,
 	}}
 }
 
-func (pc *panedConn) restore(req *panedRequest) interface{} {
+func (pc *panedConn) restore(req *toolipc.PanedRequest) interface{} {
 	var p struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
@@ -227,79 +208,79 @@ func (pc *panedConn) restore(req *panedRequest) interface{} {
 		Rows uint16 `json:"rows"`
 	}
 	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
 	if err := pc.pm.Restore(p.ID, p.Name, p.Cwd, p.Cols, p.Rows); err != nil {
-		return panedError{ID: req.ID, Error: panedErrObj{Code: -32603, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32603, Message: err.Error()}}
 	}
 	if pc.wireTool != nil {
 		if restored := pc.pm.Get(p.ID); restored != nil {
 			pc.wireTool(restored)
 		}
 	}
-	return panedResponse{ID: req.ID, Result: map[string]interface{}{
+	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 		"id": p.ID, "cols": p.Cols, "rows": p.Rows,
 	}}
 }
 
-func (pc *panedConn) kill(req *panedRequest) interface{} {
+func (pc *panedConn) kill(req *toolipc.PanedRequest) interface{} {
 	var p struct {
 		ID string `json:"id"`
 	}
 	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
 	pc.pm.Delete(p.ID)
-	return panedResponse{ID: req.ID, Result: struct{}{}}
+	return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
 }
 
-func (pc *panedConn) write(req *panedRequest) interface{} {
+func (pc *panedConn) write(req *toolipc.PanedRequest) interface{} {
 	var p struct {
 		ID   string `json:"id"`
 		Data string `json:"data"`
 	}
 	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
 	raw, err := base64.StdEncoding.DecodeString(p.Data)
 	if err != nil {
-		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: "invalid base64"}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: "invalid base64"}}
 	}
 	pc.pm.Write(p.ID, raw)
-	return panedResponse{ID: req.ID, Result: struct{}{}}
+	return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
 }
 
-func (pc *panedConn) resize(req *panedRequest) interface{} {
+func (pc *panedConn) resize(req *toolipc.PanedRequest) interface{} {
 	var p struct {
 		ID   string `json:"id"`
 		Cols uint16 `json:"cols"`
 		Rows uint16 `json:"rows"`
 	}
 	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
 	pc.pm.Resize(p.ID, p.Cols, p.Rows)
-	return panedResponse{ID: req.ID, Result: struct{}{}}
+	return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
 }
 
-func (pc *panedConn) list(req *panedRequest) interface{} {
-	return panedResponse{ID: req.ID, Result: map[string]interface{}{
+func (pc *panedConn) list(req *toolipc.PanedRequest) interface{} {
+	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 		"tools": pc.pm.List(),
 	}}
 }
 
-func (pc *panedConn) snapshot(req *panedRequest) interface{} {
+func (pc *panedConn) snapshot(req *toolipc.PanedRequest) interface{} {
 	var p struct {
 		ID string `json:"id"`
 	}
 	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
 	snap, err := pc.pm.SnapshotTool(p.ID)
 	if err != nil {
-		return panedError{ID: req.ID, Error: panedErrObj{Code: -32603, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32603, Message: err.Error()}}
 	}
-	return panedResponse{ID: req.ID, Result: map[string]interface{}{
+	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 		"data":           base64.StdEncoding.EncodeToString(snap.Data),
 		"totalBytesIn":   snap.TotalBytesIn,
 		"totalBytesDrop": snap.TotalBytesDrop,
@@ -307,45 +288,45 @@ func (pc *panedConn) snapshot(req *panedRequest) interface{} {
 	}}
 }
 
-func (pc *panedConn) cwd(req *panedRequest) interface{} {
+func (pc *panedConn) cwd(req *toolipc.PanedRequest) interface{} {
 	var p struct {
 		ID string `json:"id"`
 	}
 	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
-	return panedResponse{ID: req.ID, Result: map[string]interface{}{
+	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 		"cwd": pc.pm.Cwd(p.ID),
 	}}
 }
 
-func (pc *panedConn) busy(req *panedRequest) interface{} {
+func (pc *panedConn) busy(req *toolipc.PanedRequest) interface{} {
 	var p struct {
 		ID string `json:"id"`
 	}
 	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
-	return panedResponse{ID: req.ID, Result: map[string]interface{}{
+	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 		"busy": pc.pm.Busy(p.ID),
 	}}
 }
 
-func (pc *panedConn) setBackground(req *panedRequest) interface{} {
+func (pc *panedConn) setBackground(req *toolipc.PanedRequest) interface{} {
 	var p struct {
 		ID         string `json:"id"`
 		Background bool   `json:"background"`
 	}
 	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return panedError{ID: req.ID, Error: panedErrObj{Code: -32602, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
-	return panedResponse{ID: req.ID, Result: map[string]interface{}{
+	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 		"ok": pc.pm.SetBackground(p.ID, p.Background),
 	}}
 }
 
-func (pc *panedConn) backgroundList(req *panedRequest) interface{} {
-	return panedResponse{ID: req.ID, Result: map[string]interface{}{
+func (pc *panedConn) backgroundList(req *toolipc.PanedRequest) interface{} {
+	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 		"background": pc.pm.BackgroundList(),
 	}}
 }
@@ -371,7 +352,7 @@ func (pc *panedConn) pushOutputData(toolID string, data []byte) {
 // ── Unix socket server ──────────────────────────────────────────────────
 
 type PanedServer struct {
-	pm       *ToolManager
+	pm       *toolhub.ToolManager
 	sockPath string
 	pidPath  string
 
@@ -380,7 +361,7 @@ type PanedServer struct {
 	currConn *panedConn
 }
 
-func NewPanedServer(pm *ToolManager, sockPath, pidPath string) *PanedServer {
+func NewPanedServer(pm *toolhub.ToolManager, sockPath, pidPath string) *PanedServer {
 	return &PanedServer{pm: pm, sockPath: sockPath, pidPath: pidPath}
 }
 
@@ -427,34 +408,26 @@ func (ps *PanedServer) Accept() error {
 	// needs to be wired ONCE for its lifetime — reconnects reuse the same
 	// closures and just swap currConn. `p.wired` guards against re-wiring
 	// (which would nest exit handlers and re-trigger pushes). (FR-12)
-	pc.wireTool = func(p *Tool) {
-		if !p.wired.CompareAndSwap(false, true) {
-			return
-		}
-		var baseExit func(string)
-		if prev := p.relay.Load(); prev != nil {
-			baseExit = prev.onExit
-		}
-		p.relay.Store(&toolRelay{
-			onOutput: func(toolID string, data []byte) {
-				ps.mu.Lock()
-				c := ps.currConn
-				ps.mu.Unlock()
-				if c != nil {
-					c.pushOutputData(toolID, data)
+	pc.wireTool = func(p *toolhub.Tool) {
+		p.WireRelayOnce(func(baseExit func(string)) (func(string, []byte), func(string)) {
+			return func(toolID string, data []byte) {
+					ps.mu.Lock()
+					c := ps.currConn
+					ps.mu.Unlock()
+					if c != nil {
+						c.pushOutputData(toolID, data)
+					}
+				}, func(toolID string) {
+					ps.mu.Lock()
+					c := ps.currConn
+					ps.mu.Unlock()
+					if c != nil {
+						c.pushExit(toolID, 0)
+					}
+					if baseExit != nil {
+						baseExit(toolID)
+					}
 				}
-			},
-			onExit: func(toolID string) {
-				ps.mu.Lock()
-				c := ps.currConn
-				ps.mu.Unlock()
-				if c != nil {
-					c.pushExit(toolID, 0)
-				}
-				if baseExit != nil {
-					baseExit(toolID)
-				}
-			},
 		})
 	}
 	for _, p := range ps.pm.Snapshot() {

@@ -11,6 +11,8 @@
 package server
 
 import (
+	"dongminal/internal/shared/toolhub"
+
 	"net/http"
 	"strconv"
 	"time"
@@ -31,7 +33,7 @@ const (
 
 	// 상태 재평가는 메모리 읽기라 촘촘해도 싸다.
 	waitPollInterval = 100 * time.Millisecond
-	// liveness 는 daemon 모드에서 데몬 RPC 다 (ToolClient.Get → list). 매 tick
+	// liveness 는 daemon 모드에서 데몬 RPC 다 (toolclient.ToolClient.Get → list). 매 tick
 	// 확인하면 30분 대기가 RPC 수만 건이 된다 — L2 idle 스위퍼와 같은 1초 주기로
 	// 낮춘다 (NFR-RUN-4).
 	waitLivenessInterval = 1 * time.Second
@@ -62,8 +64,8 @@ type waitResult struct {
 
 // toolActivity reads the hook-reported activity. Daemon mode keeps it in the
 // AttnTracker (dongminald owns the PTY, dongminal owns the observation);
-// direct mode keeps it on the Tool itself.
-func (s *Server) toolActivity(toolID string) *activityState {
+// direct mode keeps it on the toolhub.Tool itself.
+func (s *Server) toolActivity(toolID string) *toolhub.ActivityState {
 	if s.AttnTracker != nil {
 		return s.AttnTracker.Activity(toolID)
 	}
@@ -83,7 +85,7 @@ func (s *Server) toolLastOutputAt(toolID string) int64 {
 	}
 	if s.Tools != nil {
 		if p := s.Tools.Get(toolID); p != nil {
-			return p.lastOutputAt.Load()
+			return p.LastOutputAt.Load()
 		}
 	}
 	return 0

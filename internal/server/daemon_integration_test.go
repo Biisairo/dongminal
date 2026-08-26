@@ -1,6 +1,12 @@
 package server
 
 import (
+	"dongminal/internal/daemon/ipc"
+
+	"dongminal/internal/webserver/toolclient"
+
+	"dongminal/internal/shared/toolhub"
+
 	"encoding/base64"
 	"encoding/json"
 	"os"
@@ -18,8 +24,8 @@ func TestDaemonFullFlow(t *testing.T) {
 	os.MkdirAll(dataDir, 0o755)
 
 	// Start dongminald
-	pm := NewToolManager(dataDir, nil)
-	ps := NewPanedServer(pm, sockPath, "")
+	pm := toolhub.NewToolManager(dataDir, nil)
+	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
 	}
@@ -28,9 +34,9 @@ func TestDaemonFullFlow(t *testing.T) {
 	go func() { ps.Accept() }()
 
 	// Connect dongminal
-	pc, err := DialToolClient(sockPath)
+	pc, err := toolclient.DialToolClient(sockPath)
 	if err != nil {
-		t.Fatalf("DialToolClient: %v", err)
+		t.Fatalf("toolclient.DialToolClient: %v", err)
 	}
 	defer pc.Close()
 
@@ -204,15 +210,15 @@ func TestDaemonReconnectPreservesTools(t *testing.T) {
 	dataDir := dir + "/d"
 	os.MkdirAll(dataDir, 0o755)
 
-	// Start dongminald with a tool created directly in ToolManager
-	pm := NewToolManager(dataDir, nil)
+	// Start dongminald with a tool created directly in toolhub.ToolManager
+	pm := toolhub.NewToolManager(dataDir, nil)
 	p, err := pm.Create("/tmp", 80, 24)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 	toolID := p.ID
 
-	ps := NewPanedServer(pm, sockPath, "")
+	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
 	}
@@ -220,7 +226,7 @@ func TestDaemonReconnectPreservesTools(t *testing.T) {
 
 	// First dongminal connection
 	go func() { ps.Accept() }()
-	pc1, err := DialToolClient(sockPath)
+	pc1, err := toolclient.DialToolClient(sockPath)
 	if err != nil {
 		t.Fatalf("Dial1: %v", err)
 	}
@@ -243,7 +249,7 @@ func TestDaemonReconnectPreservesTools(t *testing.T) {
 
 	// Second dongminal connects
 	go func() { ps.Accept() }()
-	pc2, err := DialToolClient(sockPath)
+	pc2, err := toolclient.DialToolClient(sockPath)
 	if err != nil {
 		t.Fatalf("Dial2: %v", err)
 	}
@@ -367,8 +373,8 @@ func bytesRepeat(n int, b byte) []byte {
 func TestDaemonToolCreateDeleteLifecycle(t *testing.T) {
 	sockPath := t.TempDir() + "/s"
 
-	pm := NewToolManager(t.TempDir(), nil)
-	ps := NewPanedServer(pm, sockPath, "")
+	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
 	}
@@ -376,9 +382,9 @@ func TestDaemonToolCreateDeleteLifecycle(t *testing.T) {
 
 	go func() { ps.Accept() }()
 
-	pc, err := DialToolClient(sockPath)
+	pc, err := toolclient.DialToolClient(sockPath)
 	if err != nil {
-		t.Fatalf("DialToolClient: %v", err)
+		t.Fatalf("toolclient.DialToolClient: %v", err)
 	}
 	defer pc.Close()
 
@@ -421,8 +427,8 @@ func TestDaemonPanedServerSocketCleanup(t *testing.T) {
 		f.Close()
 	}
 
-	pm := NewToolManager(t.TempDir(), nil)
-	ps := NewPanedServer(pm, sockPath, pidPath)
+	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	ps := ipc.NewPanedServer(pm, sockPath, pidPath)
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
 	}
@@ -493,17 +499,17 @@ func TestDaemonConcurrentPushAndRequest(t *testing.T) {
 	dataDir := dir + "/d"
 	os.MkdirAll(dataDir, 0o755)
 
-	pm := NewToolManager(dataDir, nil)
-	ps := NewPanedServer(pm, sockPath, "")
+	pm := toolhub.NewToolManager(dataDir, nil)
+	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
 	}
 	defer ps.Close()
 	go func() { ps.Accept() }()
 
-	pc, err := DialToolClient(sockPath)
+	pc, err := toolclient.DialToolClient(sockPath)
 	if err != nil {
-		t.Fatalf("DialToolClient: %v", err)
+		t.Fatalf("toolclient.DialToolClient: %v", err)
 	}
 	defer pc.Close()
 
@@ -645,20 +651,20 @@ func TestDaemonAttnTrackerL2IdleSuppressedWhileWorking(t *testing.T) {
 }
 
 // TestDaemonExitClosesSubscriber verifies a tool exit closes the per-subscriber
-// exit channel so the WS handler can send OpExit (parity with direct mode).
+// exit channel so the WS handler can send toolhub.OpExit (parity with direct mode).
 func TestDaemonExitClosesSubscriber(t *testing.T) {
 	dir := t.TempDir()
 	sockPath := dir + "/s"
 	os.MkdirAll(dir+"/d", 0o755)
-	pm := NewToolManager(dir+"/d", nil)
-	ps := NewPanedServer(pm, sockPath, "")
+	pm := toolhub.NewToolManager(dir+"/d", nil)
+	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
 	}
 	defer ps.Close()
 	go func() { ps.Accept() }()
 
-	pc, err := DialToolClient(sockPath)
+	pc, err := toolclient.DialToolClient(sockPath)
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
@@ -676,7 +682,7 @@ func TestDaemonExitClosesSubscriber(t *testing.T) {
 
 	select {
 	case <-exitCh:
-		// good: WS handler would now send OpExit
+		// good: WS handler would now send toolhub.OpExit
 	case <-time.After(3 * time.Second):
 		t.Fatal("exitCh not closed after tool exit — browser terminal would hang")
 	}
@@ -688,15 +694,15 @@ func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
 	dir := t.TempDir()
 	sockPath := dir + "/s"
 	os.MkdirAll(dir+"/d", 0o755)
-	pm := NewToolManager(dir+"/d", nil)
-	ps := NewPanedServer(pm, sockPath, "")
+	pm := toolhub.NewToolManager(dir+"/d", nil)
+	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
 	}
 	defer ps.Close()
 	go func() { ps.Accept() }()
 
-	pc, err := DialToolClient(sockPath)
+	pc, err := toolclient.DialToolClient(sockPath)
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}

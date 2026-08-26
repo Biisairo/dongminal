@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/shared/toolhub"
+
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -13,9 +15,9 @@ import (
 
 func seedTools(t *testing.T, dir string, ids ...string) {
 	t.Helper()
-	states := make([]ToolState, 0, len(ids))
+	states := make([]toolhub.ToolState, 0, len(ids))
 	for _, id := range ids {
-		states = append(states, ToolState{ID: id, Name: "Shell #" + id, Cwd: dir})
+		states = append(states, toolhub.ToolState{ID: id, Name: "Shell #" + id, Cwd: dir})
 	}
 	b, err := json.Marshal(states)
 	if err != nil {
@@ -30,7 +32,7 @@ func TestLoadAll_SkipsUnreferencedTools(t *testing.T) {
 	dir := t.TempDir()
 	seedTools(t, dir, "1", "2", "3")
 
-	m := NewToolManager(dir, nil)
+	m := toolhub.NewToolManager(dir, nil)
 	defer func() {
 		for _, p := range m.Snapshot() {
 			m.Delete(p.ID)
@@ -57,7 +59,7 @@ func TestLoadAll_NilRefsRestoresNothing(t *testing.T) {
 	dir := t.TempDir()
 	seedTools(t, dir, "1", "2")
 
-	m := NewToolManager(dir, nil)
+	m := toolhub.NewToolManager(dir, nil)
 	m.LoadAll(map[string]struct{}{})
 	if got := len(m.Snapshot()); got != 0 {
 		t.Errorf("복원된 도구 = %d, want 0", got)
@@ -68,7 +70,7 @@ func TestLoadAll_AllReferencedRestoresAll(t *testing.T) {
 	dir := t.TempDir()
 	seedTools(t, dir, "5", "6")
 
-	m := NewToolManager(dir, nil)
+	m := toolhub.NewToolManager(dir, nil)
 	defer func() {
 		for _, p := range m.Snapshot() {
 			m.Delete(p.ID)
@@ -83,7 +85,7 @@ func TestLoadAll_AllReferencedRestoresAll(t *testing.T) {
 
 func TestLoadAll_MissingFileIsNoop(t *testing.T) {
 	dir := t.TempDir()
-	m := NewToolManager(dir, nil)
+	m := toolhub.NewToolManager(dir, nil)
 	m.LoadAll(map[string]struct{}{"1": {}})
 	if got := len(m.Snapshot()); got != 0 {
 		t.Errorf("복원된 도구 = %d, want 0", got)
