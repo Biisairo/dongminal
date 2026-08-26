@@ -131,6 +131,43 @@ function normalizeLayout(n) {
   return n;
 }
 
+/**
+ * FR-GIT-186: Git 창은 **닫힌 창**이다 (FR-GIT-179) — 고정 탭 6개뿐이고 분할이
+ * 없다. 개정 이전 워크스페이스는 그 안에 터미널·편집기 탭과 분할 칸을 가질 수
+ * 있으므로, 로드 시 **일반 창으로 옮긴다.** 조용히 버리지 않는다 — 사용자의
+ * 작업 상태다.
+ *
+ * `mkWindow()` 는 받을 일반 창이 하나도 없을 때 부르는 콜백이고 새 창을 반환해야
+ * 한다 (O19). 반환값은 옮긴 탭 수다.
+ */
+function migrateGitWindows(windows,mkWindow){
+  if(!Array.isArray(windows)) return 0;
+  const panesOf=n=>!n?[]:(n.type==='pane'?[n]:(n.children||[]).flatMap(panesOf));
+  let moved=0;
+  for(const s of windows){
+    if(!s||s.type!==WINDOW_TYPE_GIT||!s.layout) continue;
+    const panes=panesOf(s.layout);
+    const keep=[],out=[];
+    for(const p of panes)
+      for(const t of (p.tabs||[])) (t&&t.type===TAB_TYPE_GIT?keep:out).push(t);
+    // 이미 규격대로면 건드리지 않는다 — 단일 칸 + 고정 탭만.
+    if(!out.length&&panes.length<2) continue;
+    const wasActive=panes.map(p=>p.activeTab).find(id=>keep.some(t=>t.id===id));
+    s.layout={type:'pane',id:panes[0]?panes[0].id:newEntityId(),
+      tabs:keep,activeTab:wasActive||(keep[0]&&keep[0].id)||null};
+    delete s.focusedPane;
+    if(!out.length) continue;
+    let dst=windows.find(w=>w&&w.type!==WINDOW_TYPE_GIT&&w.layout);
+    if(!dst) dst=mkWindow&&mkWindow();
+    const dp=dst&&firstPane(dst.layout);
+    if(!dp) continue;
+    if(!Array.isArray(dp.tabs)) dp.tabs=[];
+    for(const t of out){dp.tabs.push(t);moved++}
+    if(!dp.activeTab&&dp.tabs.length) dp.activeTab=dp.tabs[0].id;
+  }
+  return moved;
+}
+
 function doSplit(n,rid,nrs,dir){
   // nrs: 단일 pane 또는 pane 배열
   const list=Array.isArray(nrs)?nrs:[nrs];

@@ -98,23 +98,24 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
 
     // conflicts(0) + staged(2) + changes(2) + untracked(1)
     await expect(allRows(page)).toHaveCount(5, { timeout: 10000 });
-    const sel = changes(page).locator('.git-sel');
-    await expect(sel).toBeHidden();
+    const selected = changes(page).locator('.git-file.sel');
 
-    // 체크박스 하나 → 선택 1개.
-    await allRows(page).nth(2).locator('.git-file-check').click();
-    await expect(sel).toBeVisible();
-    await expect(changes(page).locator('.git-sel-count')).toHaveText('선택 1개');
+    // 행 클릭 하나 → 선택 1개 (FR-GIT-187: 체크박스가 아니라 행이 대상이다).
+    await allRows(page).nth(2).click();
+    await expect(selected).toHaveCount(1);
 
-    // Shift 는 목록 순서대로 범위를 고른다 (FR-GIT-69).
-    await allRows(page).nth(4).locator('.git-file-check').click({ modifiers: ['Shift'] });
-    await expect(changes(page).locator('.git-sel-count')).toHaveText('선택 3개');
+    // Shift 는 목록 순서대로 범위를 고른다 (FR-GIT-69·188).
+    await allRows(page).nth(4).click({ modifiers: ['Shift'] });
+    await expect(selected).toHaveCount(3);
 
-    await changes(page).locator('.git-sel-act[data-act="stage"]').click();
+    // FR-GIT-207·208: 진입점은 행 인라인 버튼 하나이고, 누른 행이 선택 안에
+    // 있으면 선택 전체가 대상이다.
+    await allRows(page).nth(4).hover();
+    await allRows(page).nth(4).locator('.git-file-act[data-act="stage"]').click();
     await expect(count(page, 'changes')).toHaveText('(0)', { timeout: 5000 });
     await expect(count(page, 'untracked')).toHaveText('(0)');
     // 처리한 대상은 선택에서 빠진다 — 같은 선택이 남아 다음 동작에 끌려가지 않는다.
-    await expect(sel).toBeHidden();
+    await expect(selected).toHaveCount(0);
   });
 
   test('E2 (V32): 일부만 staged 인 파일이 구분 표시된다', async ({ page }) => {
@@ -126,16 +127,18 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     await expect(r).toBeVisible({ timeout: 10000 });
     await expect(r).toHaveClass(/partial/);
     await expect(r).toHaveAttribute('title', /일부만 스테이지됨/);
-    // FR-GIT-70: 체크박스의 indeterminate 로도 구분한다.
-    expect(await r.locator('.git-file-check')
-      .evaluate((el) => (el as HTMLInputElement).indeterminate),
-      'indeterminate 가 아니다').toBe(true);
-
-    // 온전히 staged 인 파일은 partial 이 아니다.
+    // FR-GIT-190: 체크박스의 indeterminate 가 아니라 상태 문자 색으로 구분한다.
     const clean = row(page, 'staged', 'renamed to.txt');
     await expect(clean).not.toHaveClass(/partial/);
-    expect(await clean.locator('.git-file-check')
-      .evaluate((el) => (el as HTMLInputElement).indeterminate)).toBe(false);
+    const colors = await page.evaluate(() => {
+      const st = (sel: string) =>
+        getComputedStyle(document.querySelector(sel + ' .git-file-st') as Element).color;
+      return {
+        partial: st('#area .pn-body .git-file.partial'),
+        plain: st('#area .pn-body .git-file:not(.partial)'),
+      };
+    });
+    expect(colors.partial).not.toBe(colors.plain);
   });
 
   test('E8 (V37): discard 가 2단계 확인을 거치고 파일 목록을 보인다', async ({ page }) => {
@@ -159,7 +162,7 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     // 2단계는 recovery hint 를 보인다 (FR-GIT-92). stash 는 안내만이다 (O8).
     await expect(box.locator('.gc-hint')).toBeVisible();
     await expect(box.locator('.gc-hint-cmd')).toContainText('git stash push -- tracked.txt');
-    await expect(box.locator('.gc-go')).toHaveText('실행');
+    await expect(box.locator('.gc-go')).toHaveText('Run');
 
     await box.locator('.gc-go').click();
     await expect(box).toHaveCount(0, { timeout: 10000 });
@@ -195,7 +198,7 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     await expect(box.locator('.gc-head')).toHaveText('충돌을 해결됨으로 표시합니다');
     await expect(box.locator('.gc-target')).toHaveText(['c.txt']);
     // 파괴적이 아니므로 1단계다 — 바로 실행 버튼이다.
-    await expect(box.locator('.gc-go')).toHaveText('실행');
+    await expect(box.locator('.gc-go')).toHaveText('Run');
 
     await box.locator('.gc-go').click();
     await expect(box).toHaveCount(0, { timeout: 10000 });

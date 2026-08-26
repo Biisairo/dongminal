@@ -24,6 +24,8 @@ class App {
     this._bgModalKey=null; // 모달 Esc 핸들러 (열려 있을 때만 부착)
     this._modKbd=null; // {ctrl:bool|'lock', alt:bool|'lock'}
     this._gitRepos=null; // GIT 섹션 목록 {follow,pinned} (FR-GIT-13)
+    this._lastPlainWindow=null; // Open File 이 돌아갈 일반 창 (FR-GIT-185, O15)
+    this._lastTermTool=null;    // follow 가 딛는 마지막 터미널 (FR-GIT-210)
     this._gitOff=false; // git 표면이 503 이면 섹션 전체를 숨긴다
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
@@ -130,6 +132,8 @@ class App {
           if(s.layout) normalizeLayout(s.layout);
         }
         this.ws.windows=this.ws.windows.filter(s=>s&&s.layout);
+        // FR-GIT-186: 개정 이전에 Git 창 안에 들어간 탭을 일반 창으로 옮긴다.
+        this._migrateGitWindow();
         if(!this.ws.windows.find(s=>s.id===this.ws.activeWindow))
           this.ws.activeWindow=this.ws.windows[0]?.id||null;
       }
@@ -275,6 +279,8 @@ class App {
       if(s.layout) normalizeLayout(s.layout);
     }
     sv.windows=sv.windows.filter(s=>s&&s.layout);
+    // FR-GIT-186: 다른 브라우저 창이 개정 이전 모양을 보내올 수 있다.
+    this._migrateGitWindow(sv.windows);
     if(!sv.windows.find(s=>s.id===sv.activeWindow))
       sv.activeWindow=sv.windows[0]?.id||null;
     // Preserve per-window viewport state: activeWindow and each window's
@@ -1162,6 +1168,33 @@ class App {
   // _gitWindow 는 워크스페이스의 Git 창이다. 없으면 null (FR-GIT-26).
   _gitWindow(){return this.ws.windows.find(s=>s&&s.type===WINDOW_TYPE_GIT)||null}
 
+  // FR-GIT-179·182: Git 창은 닫힌 창이고 창 목록·순환의 대상이 아니다. 판정은
+  // 이 두 곳에만 둔다 — 조건이 흩어지면 한 곳이 빠져도 조용히 지나간다.
+  _isGitWin(s){return !!(s&&s.type===WINDOW_TYPE_GIT)}
+  _plainWindows(){return this.ws.windows.filter(s=>!this._isGitWin(s))}
+
+  // FR-GIT-183: Git 창을 닫는다. 다시 열면 새로 만들어진다 (FR-GIT-26 유지).
+  _gitCloseWindow(){
+    const w=this._gitWindow(); if(!w) return;
+    this.delWindow(w.id);
+  }
+
+  // FR-GIT-186: 개정 이전 워크스페이스의 Git 창 안 탭을 일반 창으로 옮긴다.
+  // 판정과 이동은 helpers 의 순수 함수가 한다 — 로드 경로가 둘이라 여기서 두 벌로
+  // 만들면 한쪽만 고쳐진다.
+  _migrateGitWindow(list){
+    const ws=list||this.ws.windows;
+    const n=migrateGitWindows(ws,()=>{
+      // 받을 일반 창이 없으면 껍데기 창을 만든다 (O19). PTY 는 붙이지 않는다 —
+      // 옮겨 온 탭이 이미 자기 실체를 들고 온다.
+      const w={id:newEntityId(),name:'Window',
+        layout:{type:'pane',id:newEntityId(),tabs:[],activeTab:null}};
+      ws.push(w);
+      return w;
+    });
+    if(n) this._save();
+  }
+
   // openGitWindow 는 Git 창을 활성화한다. 없으면 만든다 — 두 번 불러도 창은
   // 하나다 (FR-GIT-26). repo 를 주면 활성 리포까지 전환한다 (FR-GIT-15).
   async openGitWindow(repo){
@@ -1200,12 +1233,23 @@ class App {
   // 남기고 처리는 GitPanel 이 한다 — 디바운스와 게이팅이 한 곳에 있어야 한다.
   _gitSignal(kind){ if(this.gitPanel) this.gitPanel.signal(kind) }
 
-  // FR-GIT-41 의 Open File. addTab 의 editor 분기를 그대로 쓴다 — 이미 열려 있으면
-  // 그 탭으로 이동한다.
-  _gitOpenFile(filePath){
-    const w=this._gitWindow(); if(!w||!w.layout) return;
-    const rid=(this.focused&&findPane(w.layout,this.focused))?this.focused:firstPane(w.layout)?.id;
-    if(rid) this.addTab(rid,'editor',{filePath});
+  /**
+   * FR-GIT-41·185 의 Open File. addTab 의 editor 분기를 그대로 쓴다 — 이미 열려
+   * 있으면 그 탭으로 이동한다.
+   *
+   * **Git 창에는 열지 않는다** (FR-GIT-179). 대상은 직전에 활성이었던 일반 창이고,
+   * 없으면 만든다 (O15). 연 뒤 그 창을 활성화한다 — 열었는데 보이지 않으면
+   * 사용자는 실패로 읽는다.
+   */
+  async _gitOpenFile(filePath){
+    if(!filePath) return;
+    const plain=this._plainWindows();
+    let w=plain.find(s=>s.id===this._lastPlainWindow)||plain[0];
+    if(!w) w=await this._mkWindow();
+    if(!w||!w.layout) return;
+    this.switchWindow(w.id);
+    const rid=(w.focusedPane&&findPane(w.layout,w.focusedPane))?w.focusedPane:firstPane(w.layout)?.id;
+    if(rid) await this.addTab(rid,'editor',{filePath,windowId:w.id});
   }
 
   // 목록은 주기적으로 갱신하되 탭이 숨겨졌으면 건너뛴다 — 보이지 않는 섹션을
@@ -1225,9 +1269,23 @@ class App {
     this._gitReposRefresh();
   }
 
-  // _gitFocusToolId 는 follow 가 딛는 도구다 — 포커스된 터미널 칸의 도구.
-  // 없으면 빈 문자열이고 서버는 자기 cwd 를 쓴다.
-  _gitFocusToolId(){const p=this._focusedTerminal();return p?p.id:''}
+  /**
+   * _gitFocusToolId 는 follow 가 딛는 도구다 (FR-GIT-9).
+   *
+   * 포커스가 터미널이 아닐 때(Git 창·편집기 탭) **마지막 터미널을 유지한다.**
+   * 빈 값을 보내면 서버가 자기 cwd 로 답하는데, 그것은 사용자가 가 본 적 없는
+   * 리포다 — Git 창에 들어간 순간 follow 가 dongminal 로 바뀌는 결함이 그것이었다.
+   * follow 는 "포커스된 터미널의 cwd" 이고, 터미널을 떠났다고 다른 리포를
+   * 가리켜서는 안 된다 (FR-GIT-10 의 "임의로 유지하지 않는다"와 같은 뜻이다).
+   */
+  _gitFocusToolId(){
+    const p=this._focusedTerminal();
+    if(p){this._lastTermTool=p.id; return p.id}
+    // 사라진 도구를 가리키면 서버가 다시 자기 cwd 로 답한다 — 살아 있는 것만 쓴다.
+    if(this._lastTermTool&&this.tools.has(this._lastTermTool)) return this._lastTermTool;
+    this._lastTermTool=null;
+    return '';
+  }
 
   // _gitReposRefresh 는 GIT 섹션의 목록을 갱신한다. 실패하면 이전 목록을 유지한다 —
   // 네트워크가 한 번 튀었다고 섹션이 비면 안 된다.
@@ -1336,6 +1394,9 @@ class App {
       return;
     }
     const cur=this._aw();if(cur)cur.focusedPane=this.focused;
+    // FR-GIT-185: Open File 이 돌아갈 창을 기억한다 — 규칙이 하나여야 "어디에
+    // 열렸는지 모르겠다"가 없다 (O15).
+    if(cur&&!this._isGitWin(cur)) this._lastPlainWindow=cur.id;
     this.ws.activeWindow=sid;
     // Persist per-window activeWindow to sessionStorage (survives refresh,
     // independent across windows).
@@ -1381,6 +1442,8 @@ class App {
     // opts.windowId 지정 시 비활성 창의 pane 에도 추가 가능 (FR-RST-4).
     const s = opts.windowId ? this.ws.windows.find(x => x.id === opts.windowId) : this._aw();
     if (!s) return;
+    // FR-GIT-179: Git 창의 탭은 고정 6개뿐이다 — 더할 수 없다.
+    if (this._isGitWin(s)) return;
     const pn = findPane(s.layout, rid); if (!pn) return;
     if (type === 'editor') {
       if (!opts.filePath) { console.warn('[addTab] editor tab requires filePath'); return }
@@ -1520,6 +1583,8 @@ class App {
     if(this.isMobile && !opts.force) return;
     const tgtWindowId=opts.targetWindow||this.ws.activeWindow;
     let s=this.ws.windows.find(x=>x.id===tgtWindowId);
+    // FR-GIT-179: Git 창은 닫힌 창이다 — 분할 칸을 만들 수 없다.
+    if(this._isGitWin(s)) return;
     const tgtPaneId=opts.targetPane||(tgtWindowId===this.ws.activeWindow?this.focused:null);
     if(!s||!tgtPaneId) return;
     let count=parseInt(opts.count,10); if(!Number.isFinite(count)||count<2) count=2;
@@ -1604,16 +1669,17 @@ class App {
     const i=pn.tabs.findIndex(t=>t.id===pn.activeTab);if(i<0)return;
     this.switchTab(pn.id,pn.tabs[(i+1)%pn.tabs.length].id);
   }
-  switchWindowPrev(){
-    const arr=this.ws.windows;if(arr.length<2)return;
-    const i=arr.findIndex(s=>s.id===this.ws.activeWindow);if(i<0)return;
-    this.switchWindow(arr[(i-1+arr.length)%arr.length].id);
+  // FR-GIT-182: 순환은 일반 창만 돈다. Git 창에 있으면 순환의 첫 창으로 **나간다**
+  // — 단축키가 막다른 길이 되면 사용자는 고장으로 읽는다 (FR-GIT-184).
+  _cycleWindow(step){
+    const arr=this._plainWindows(); if(!arr.length) return;
+    const i=arr.findIndex(s=>s.id===this.ws.activeWindow);
+    if(i<0){this.switchWindow(arr[0].id);return}
+    if(arr.length<2) return;
+    this.switchWindow(arr[(i+step+arr.length)%arr.length].id);
   }
-  switchWindowNext(){
-    const arr=this.ws.windows;if(arr.length<2)return;
-    const i=arr.findIndex(s=>s.id===this.ws.activeWindow);if(i<0)return;
-    this.switchWindow(arr[(i+1)%arr.length].id);
-  }
+  switchWindowPrev(){this._cycleWindow(-1)}
+  switchWindowNext(){this._cycleWindow(1)}
   paneNavigate(dir){
     const s=this._aw();if(!s||!this.focused)return;
     const path=findPath(s.layout,this.focused);if(!path||path.length<2)return;
@@ -2864,6 +2930,8 @@ class App {
 
   _moveTabToPane(srcRid,tabId,dstRid,beforeTabId,insertBefore){
     const s=this._aw();if(!s)return;
+    // FR-GIT-181: Git 창은 탭을 받지도 내주지도 않는다.
+    if(this._isGitWin(s))return;
     const srcRg=findPane(s.layout,srcRid);const dstRg=findPane(s.layout,dstRid);
     if(!srcRg||!dstRg)return;
     const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
@@ -2883,6 +2951,8 @@ class App {
 
   _splitPaneWithTab(srcRid,tabId,targetRid,zone){
     const s=this._aw();if(!s)return;
+    // FR-GIT-179·181: Git 창에는 분할 칸이 생기지 않는다.
+    if(this._isGitWin(s))return;
     const srcRg=findPane(s.layout,srcRid);if(!srcRg)return;
     if(srcRid===targetRid&&srcRg.tabs.length<=1)return;
     const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;

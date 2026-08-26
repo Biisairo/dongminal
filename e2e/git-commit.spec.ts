@@ -303,7 +303,7 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
     const box = page.locator('#git-confirm .gc-box');
     await expect(box).toBeVisible({ timeout: 10000 });
     await expect(box.locator('.gc-head')).toHaveText('이 커밋은 어느 브랜치에도 속하지 않습니다');
-    await expect(box.locator('.gc-go')).toHaveText('실행');
+    await expect(box.locator('.gc-go')).toHaveText('Run');
     await box.locator('.gc-cancel').click();
     await expect(box).toHaveCount(0);
     expect(commits(repo), '취소했는데 커밋이 만들어졌다').toBe(before);

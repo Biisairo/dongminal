@@ -244,16 +244,9 @@ class GitPanel {
       '<div class="git-changes-body">'+
         '<div class="git-files">'+
           '<div class="git-files-bar">'+
-            '<button class="git-files-mode" data-mode="tree">트리</button>'+
-            '<button class="git-files-mode" data-mode="flat">플랫</button>'+
+            '<button class="git-files-mode" data-mode="tree">Tree</button>'+
+            '<button class="git-files-mode" data-mode="flat">Flat</button>'+
             '<span class="git-files-spacer"></span>'+
-            '<span class="git-sel">'+
-              '<span class="git-sel-count"></span>'+
-              '<button class="git-sel-act" data-act="stage"></button>'+
-              '<button class="git-sel-act" data-act="unstage"></button>'+
-              '<button class="git-sel-act" data-act="discard"></button>'+
-              '<button class="git-sel-clear"></button>'+
-            '</span>'+
           '</div>'+
         '</div>'+
         '<div class="git-preview"></div>'+
@@ -292,13 +285,6 @@ class GitPanel {
     }
     for(const b of el.querySelectorAll('.git-files-mode'))
       b.addEventListener('click',()=>this._setFileView(b.dataset.mode));
-    for(const b of el.querySelectorAll('.git-sel-act')){
-      b.textContent=GIT_SEL_LABEL[b.dataset.act];
-      b.addEventListener('click',()=>this._run(b.dataset.act,this._selTargets(b.dataset.act)));
-    }
-    const clear=el.querySelector('.git-sel-clear');
-    clear.textContent=GIT_SEL_CLEAR;
-    clear.addEventListener('click',()=>{this._sel.clear();this._anchor=null;this._paint()});
     this._commit().mount(el.querySelector('.git-commit'));
     // 원격 버튼과 작업 영역의 동작 (FR-GIT-98~112). 골격은 여기 있고 상태는
     // GitRemote 가 들고 있다 — 골격을 다시 세워도 진행 중 작업이 사라지지 않는다.
@@ -324,7 +310,6 @@ class GitPanel {
     note.classList.toggle('loading',loading);
     for(const g of GIT_GROUPS) this._paintGroup(el,g,(s&&s[g.key])||[]);
     this._paintMode(el);
-    this._paintSel(el);
     this._paintNote(el);
     this._commit().paint(s||null);
     this._remote().paint(el);
@@ -456,16 +441,13 @@ class GitPanel {
     d.dataset.path=e.path; d.dataset.group=group;
     if(e.origPath) d.dataset.origPath=e.origPath;
     if(depth) d.style.paddingLeft=(6+depth*12)+'px';
-    const sel=this.previewFile;
-    if(sel&&sel.group===group&&sel.path===e.path) d.classList.add('sel');
-    // 체크박스는 다중 선택이다 (FR-GIT-69). indeterminate 는 선택이 아니라 일부만
-    // 스테이지된 상태를 뜻한다 (FR-GIT-70).
-    const cb=document.createElement('input');
-    cb.type='checkbox'; cb.className='git-file-check';
-    cb.checked=this._sel.has(this._selKey(group,e.path));
-    cb.indeterminate=partial;
-    if(partial) cb.title=GIT_PARTIAL_TITLE;
-    cb.addEventListener('click',ev=>{ev.stopPropagation();this._check(group,e.path,ev)});
+    // FR-GIT-187·189: 선택은 행 자체다 (체크박스 없음). 선택(`sel`)과 포커스
+    // (`cur`, 미리보기 대상)를 나눈다 — 같게 그리면 미리보기가 어느 행을 보이는지
+    // 알 수 없다.
+    if(this._sel.has(this._selKey(group,e.path))) d.classList.add('sel');
+    const cur=this.previewFile;
+    if(cur&&cur.group===group&&cur.path===e.path) d.classList.add('cur');
+    // FR-GIT-190: 일부만 스테이지된 상태는 상태 문자 색으로 알린다.
     const st=document.createElement('span'); st.className='git-file-st';
     st.textContent=this._stateChar(group,e);
     const p=document.createElement('span'); p.className='git-file-path';
@@ -474,7 +456,7 @@ class GitPanel {
       :(this._treeMode()?e.path.split('/').pop():e.path);
     d.title=(e.origPath?e.origPath+' → '+e.path:e.path)+(e.score?' ('+e.score+'%)':'')+
       (partial?' — '+GIT_PARTIAL_TITLE:'');
-    d.appendChild(cb); d.appendChild(st); d.appendChild(p);
+    d.appendChild(st); d.appendChild(p);
     // 행 인라인 동작 (FR-GIT-64·65·89). 그룹이 할 수 있는 것만 붙인다.
     const acts=document.createElement('span'); acts.className='git-file-acts';
     for(const a of (GIT_ROW_ACTS[group]||[])){
@@ -483,12 +465,12 @@ class GitPanel {
       b.textContent=GIT_ACT_LABEL[a]; b.title=GIT_ACT_TITLE[a];
       b.addEventListener('click',ev=>{
         ev.stopPropagation();
-        this._run(a,[{group,path:e.path,origPath:e.origPath||''}]);
+        this._run(a,this._rowTargets(a,group,e.path,e.origPath));
       });
       acts.appendChild(b);
     }
     d.appendChild(acts);
-    d.addEventListener('click',()=>this._select(group,e));
+    d.addEventListener('click',ev=>this._select(group,e,ev));
     d.addEventListener('dblclick',()=>this._openDiff(group,e));
     d.addEventListener('contextmenu',ev=>{
       ev.preventDefault();
@@ -760,23 +742,27 @@ class GitPanel {
 
   // 동작이 뜻을 갖는 대상만 남긴다 — staged 행을 stage 하거나 untracked 행을
   // unstage 하는 것은 아무 일도 하지 않는다.
-  _selTargets(act){
-    const sel=this._selected();
-    if(act==='unstage') return sel.filter(i=>i.group!=='untracked');
-    return sel.filter(i=>i.group!=='staged');
+  _fit(act,items){
+    if(act==='unstage') return items.filter(i=>i.group!=='untracked');
+    return items.filter(i=>i.group!=='staged');
+  }
+
+  /**
+   * FR-GIT-208: 행 인라인 버튼의 대상.
+   *
+   * 누른 행이 **선택 안에 있으면 선택 전체**가, 밖이면 그 행 하나가 대상이다 —
+   * 여러 개를 골라 두고 그 중 아무 행에서나 누르면 골라 둔 것에 걸린다.
+   * 선택 밖의 행을 누르는 것은 "이 행만" 이라는 뜻이므로 선택을 끌어오지 않는다.
+   */
+  _rowTargets(act,group,path,origPath){
+    const one=[{group,path,origPath:origPath||''}];
+    if(!this._sel.has(this._selKey(group,path))) return this._fit(act,one);
+    const all=this._fit(act,this._selected());
+    return all.length?all:this._fit(act,one);
   }
 
   // Shift 는 화면에 보이는 순서대로 범위를 고른다 (FR-GIT-69) — 그룹 경계를
   // 넘어도 목록의 순서가 그대로 기준이다.
-  _check(group,path,ev){
-    const key=this._selKey(group,path);
-    if(ev&&ev.shiftKey&&this._anchor) this._range(group,path);
-    else if(this._sel.has(key)) this._sel.delete(key);
-    else this._sel.add(key);
-    this._anchor={group,path};
-    this._paint();
-  }
-
   _range(group,path){
     const el=this._els.get('changes'); if(!el) return;
     const rows=Array.from(el.querySelectorAll('.git-file'));
@@ -896,15 +882,6 @@ class GitPanel {
     this.app._updateStatusBar();
   }
 
-  _paintSel(el){
-    const sel=this._selected();
-    const box=el.querySelector('.git-sel'); if(!box) return;
-    box.classList.toggle('vis',!!sel.length);
-    el.querySelector('.git-sel-count').textContent=sel.length?'선택 '+sel.length+'개':'';
-    for(const b of el.querySelectorAll('.git-sel-act'))
-      b.disabled=!this._selTargets(b.dataset.act).length;
-  }
-
   _paintNote(el){
     const box=el.querySelector('.git-partial-note'); if(!box) return;
     const n=this._note;
@@ -920,7 +897,30 @@ class GitPanel {
 
   // ── 선택과 이동 (FR-GIT-52) ──
 
-  _select(group,e){
+  /**
+   * FR-GIT-52·188: 행 클릭 하나가 **선택과 미리보기를 함께** 정한다.
+   *
+   * - 클릭: 선택을 그 행 하나로 바꾼다. 앵커도 그 행이다.
+   * - `Cmd`/`Ctrl` + 클릭: 그 행을 토글한다.
+   * - `Shift` + 클릭: 앵커부터 그 행까지 범위로 **바꾼다** (더하지 않는다) —
+   *   더하면 앵커를 옮길 때마다 선택이 눈덩이처럼 불어난다.
+   *
+   * 어느 경우든 미리보기는 방금 누른 행이다. 그것이 포커스 행이다.
+   */
+  _select(group,e,ev){
+    const key=this._selKey(group,e.path);
+    const multi=!!(ev&&(ev.metaKey||ev.ctrlKey));
+    const range=!!(ev&&ev.shiftKey&&this._anchor);
+    if(range){
+      this._sel.clear();
+      this._range(group,e.path);
+    }else if(multi){
+      if(this._sel.has(key)) this._sel.delete(key); else this._sel.add(key);
+      this._anchor={group,path:e.path};
+    }else{
+      this._sel.clear(); this._sel.add(key);
+      this._anchor={group,path:e.path};
+    }
     // 워킹 트리 파일을 골랐다 — 커밋 축의 대상은 놓는다.
     this.commitFile=null;
     this.previewFile={

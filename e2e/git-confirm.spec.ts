@@ -135,7 +135,7 @@ test.describe('묶음 J — 파괴적 동작의 2단계 확인', () => {
     await expect(hint.locator('.gc-hint-cmd')).toHaveText('git stash push -- a.txt b.txt');
     // 무엇을 잃는지가 실행 직전에도 보인다.
     await expect(page.locator('#git-confirm .gc-target')).toHaveCount(2);
-    await expect(go(page)).toHaveText('실행');
+    await expect(go(page)).toHaveText('Run');
   });
 
   test('J8b (V37): hint 가 없으면 되돌릴 수 없다는 사실을 보인다', async ({ page }) => {
@@ -251,7 +251,7 @@ test.describe('묶음 J — 파괴적 동작의 2단계 확인', () => {
     await go(page).click();
     await expect(go(page)).toBeDisabled();
     await expect(cancel(page)).toBeDisabled();
-    await expect(page.locator('#git-confirm .gc-progress')).toContainText('실행 중');
+    await expect(page.locator('#git-confirm .gc-progress')).toContainText('Running');
 
     // 실행 중에는 Esc 도 취소하지 않는다.
     await page.keyboard.press('Escape');

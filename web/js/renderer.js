@@ -27,19 +27,20 @@ class Renderer {
   _rSidebar(){
     const el=document.getElementById('windows'); el.innerHTML='';
     for(const s of this.app.ws.windows){
+      // FR-GIT-182: Git 창은 WINDOWS 목록에 없다 — 진입점은 GIT 섹션의 리포
+      // 항목뿐이다. 진입점이 둘이면 창 목록의 `Git` 은 "어느 리포인지 모르는 창"이
+      // 된다.
+      if(this.app._isGitWin(s)) continue;
       const d=document.createElement('div');
       // FR-PAN-16: 알람이 있는 창을 사이드바에서 구분 표시
-      // FR-GIT-30: Git 창도 WINDOWS 목록의 평범한 원소다. 구분만 준다.
-      const isGit=s.type===WINDOW_TYPE_GIT;
-      d.className='si'+(s.id===this.app.ws.activeWindow?' active':'')+(this.app._windowHasAttn(s)?' attn':'')+(isGit?' git':'');
+      d.className='si'+(s.id===this.app.ws.activeWindow?' active':'')+(this.app._windowHasAttn(s)?' attn':'');
       d.dataset.sid=s.id;
       d.dataset.windowType=s.type||WINDOW_TYPE_TERMINAL;
       d.innerHTML='<span class="si-dot"></span><span class="si-name"></span><span class="si-x">×</span>';
       d.querySelector('.si-name').textContent=s.name;
       d.addEventListener('click',e=>{if(!e.target.classList.contains('si-x'))this.app.switchWindow(s.id)});
       d.querySelector('.si-x').addEventListener('click',e=>{e.stopPropagation();this.app.delWindow(s.id)});
-      // Git 창 이름은 고정이다 — 이름변경을 달지 않는다.
-      if(!isGit) d.querySelector('.si-name').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(s,e.target)});
+      d.querySelector('.si-name').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(s,e.target)});
       d.draggable=true;
       // 재배치는 drop(즉시·깜빡임 없음) 1순위, 패널 밖 release 는 dragend 폴백. 식별자 기반 splice.
       d.addEventListener('dragstart',e=>{this.app._drag={type:'window',srcId:s.id,targetId:null,before:false,done:false};e.dataTransfer.effectAllowed='move';setTimeout(()=>d.classList.add('dragging'),0)});
@@ -75,8 +76,12 @@ class Renderer {
     const d=document.createElement('div');
     d.className='git-repo '+(follow?'follow':'pinned')+(e.isRepo?'':' norepo')+(active?' active':'');
     if(path) d.dataset.gitRepo=path;
-    d.innerHTML='<span class="git-repo-icon"></span><span class="git-repo-name"></span>';
-    d.querySelector('.git-repo-icon').textContent=follow?'⟳':'📌';
+    // FR-GIT-192: 이모지를 쓰지 않는다. 표식은 WINDOWS 목록의 점(`.si-dot`)과 같은
+    // 어휘이며 **활성 리포 여부만** 나타낸다 (O18) — follow·핀 구분은 배치가 한다
+    // (FR-GIT-193). 저장소가 아닌 follow 는 가리키는 리포가 없으므로 점이 없다
+    // (FR-GIT-194).
+    d.innerHTML='<span class="git-repo-dot"></span><span class="git-repo-name"></span>';
+    if(!e.isRepo) d.querySelector('.git-repo-dot').classList.add('none');
     // follow 는 마지막 유효 리포를 남기지 않는다 (FR-GIT-10) — 사유를 title 로 보인다.
     d.querySelector('.git-repo-name').textContent=e.isRepo?e.name:(follow?GIT_NOT_REPO_LABEL:e.name);
     d.title=e.isRepo?path:(e.reason||'')+' — '+(e.cwd||path);
@@ -102,6 +107,16 @@ class Renderer {
   _rTopbar(){
     const a=this.app._aw();
     document.getElementById('window-name').textContent=a?a.name:'';
+    // FR-GIT-180·183: Git 창에서는 분할 진입점을 감추고 닫기를 그 자리에 둔다.
+    const isGit=this.app._isGitWin(a);
+    for(const id of ['split-h','split-v']){
+      const b=document.getElementById(id);
+      if(b) b.classList.toggle('git-hidden',isGit);
+    }
+    const mAdd=document.getElementById('m-add-tab');
+    if(mAdd) mAdd.classList.toggle('git-hidden',isGit);
+    const close=document.getElementById('git-close');
+    if(close) close.style.display=isGit?'':'none';
     const ind=document.getElementById('m-pane-indicator');
     if(ind){
       const n=this.app._mobilePaneCount();
@@ -258,12 +273,18 @@ class Renderer {
       t.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));const s=this.app._aw();if(!s)return;if(srcPaneId===n.id){const pn=findPane(s.layout,n.id);if(!pn)return;const si=pn.tabs.findIndex(tt=>tt.id===tabId);const di=pn.tabs.findIndex(tt=>tt.id===tab.id);if(si<0||di<0||si===di)return;const rect=t.getBoundingClientRect();const insBefore=e.clientX<rect.left+rect.width/2;const[moved]=pn.tabs.splice(si,1);let ins=pn.tabs.findIndex(tt=>tt.id===tab.id);if(!insBefore)ins++;pn.tabs.splice(ins,0,moved);pn.activeTab=tabId;this.app._save();this.app.render()}else{const rect=t.getBoundingClientRect();this.app._moveTabToPane(srcPaneId,tabId,n.id,tab.id,e.clientX<rect.left+rect.width/2)}});
       tabs.appendChild(t);
     }
-    const add=document.createElement('button'); add.className='pn-tab-add'; add.textContent='+';
-    add.addEventListener('click',e=>{e.stopPropagation();this.app.addTab(n.id)});
+    // FR-GIT-180: Git 창에는 `+` 자리를 만들지 않는다 — 눌리지만 아무 일도 하지
+    // 않는 버튼은 고장으로 읽힌다.
+    const gitWin=this.app._isGitWin(this.app._aw());
+    if(!gitWin){
+      const add=document.createElement('button'); add.className='pn-tab-add'; add.textContent='+';
+      add.addEventListener('click',e=>{e.stopPropagation();this.app.addTab(n.id)});
+      tabs.appendChild(add);
+    }
     tabs.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();if(this.app._drag.srcPaneId!==n.id)tabs.classList.add('drag-target')});
     tabs.addEventListener('dragleave',e=>{if(!tabs.contains(e.relatedTarget))tabs.classList.remove('drag-target')});
     tabs.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();tabs.classList.remove('drag-target');tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;const s=this.app._aw();if(!s)return;if(srcPaneId===n.id){const pn=findPane(s.layout,n.id);if(!pn)return;const si=pn.tabs.findIndex(t=>t.id===tabId);if(si<0)return;const[moved]=pn.tabs.splice(si,1);pn.tabs.push(moved);pn.activeTab=tabId;this.app._save();this.app.render()}else{this.app._moveTabToPane(srcPaneId,tabId,n.id,null,false)}});
-    tabs.appendChild(add); el.appendChild(tabs);
+    el.appendChild(tabs);
     const body=document.createElement('div'); body.className='pn-body';
     const at=(n.tabs||[]).find(t=>t.id===n.activeTab);
     if(at){

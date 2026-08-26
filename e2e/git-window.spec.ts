@@ -38,7 +38,9 @@ test.describe('묶음 D — Git 창 골격', () => {
     const second = await openGit(page);
     expect(second, '두 번째 호출이 다른 창을 만들었다').toBe(first);
     expect(await gitWindowCount(page)).toBe(1);
-    await expect(page.locator('#windows .si[data-window-type="git"]')).toHaveCount(1);
+    // FR-GIT-182 (GIT_UI_REVISION_SRS): Git 창은 WINDOWS 목록에 없다 — 진입점은
+    // GIT 섹션의 리포 항목뿐이다.
+    await expect(page.locator('#windows .si[data-window-type="git"]')).toHaveCount(0);
   });
 
   test('E2 (V8): type 없는 창을 담은 워크스페이스도 정상 로드된다', async ({ page, request }) => {
@@ -120,7 +122,7 @@ test.describe('묶음 D — Git 창 골격', () => {
     expect(await gitWindowCount(page)).toBe(1);
   });
 
-  test('E5b (V20): git 탭은 드래그로도 떼어내지지 않는다', async ({ page }) => {
+  test('E5b (V20 / FR-GIT-181): git 탭은 드래그로도 떼어내지지 않는다', async ({ page }) => {
     await waitForInit(page);
     await openGit(page);
     const tabs = page.locator('#area .pn-tab[data-git-view]');
@@ -128,50 +130,56 @@ test.describe('묶음 D — Git 창 골격', () => {
     // draggable=false 로 드래그 시작 자체를 막는다 (FR-GIT-28).
     expect(await tabs.evaluateAll((els) => els.every((e) => (e as HTMLElement).draggable))).toBe(false);
 
-    await page.click('#split-h');
-    await expect(page.locator('#area .pn')).toHaveCount(2);
-
-    // 드롭 경로를 직접 불러도 git 탭은 원래 pane 에 남는다.
-    const perPane = await page.evaluate(() => {
+    // 드롭 경로를 직접 불러도 Git 창은 단일 칸 + 고정 탭 6개 그대로다.
+    // (분할 자체가 막혔으므로 옮겨 갈 다른 칸이 애초에 없다 — FR-GIT-179.)
+    const after = await page.evaluate(() => {
       const app = (window as any).app;
-      const panes = () => app._gitWindow().layout.children;
-      const src = panes().find((c: any) => (c.tabs || []).some((t: any) => t.type === 'git'));
-      const dst = panes().find((c: any) => c.id !== src.id);
-      const gid = src.tabs[0].id;
-      app._moveTabToPane(src.id, gid, dst.id, null, false);
-      app._splitPaneWithTab(src.id, gid, dst.id, 'right');
-      return panes().map((c: any) => (c.tabs || []).filter((t: any) => t.type === 'git').length);
+      const pane = app._gitWindow().layout;
+      const gid = pane.tabs[0].id;
+      app._moveTabToPane(pane.id, gid, pane.id, null, false);
+      app._splitPaneWithTab(pane.id, gid, pane.id, 'right');
+      return { type: app._gitWindow().layout.type, tabs: (app._gitWindow().layout.tabs || []).length };
     });
-    expect(perPane, 'git 탭이 다른 pane 으로 흩어졌다').toEqual([6, 0]);
+    expect(after).toEqual({ type: 'pane', tabs: 6 });
     await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
-    await expect(page.locator('#area .pn')).toHaveCount(2);
+    await expect(page.locator('#area .pn')).toHaveCount(1);
   });
 
-  test('E6 (V19): Git 창에서 분할하면 터미널 pane 이 생기고 Git 탭은 남는다', async ({ page }) => {
+  test('E6 (FR-GIT-179·180): Git 창은 분할되지 않고 분할 진입점도 없다', async ({ page }) => {
+    // GIT_UI_REVISION_SRS 로 FR-GIT-27 이 폐기됐다 — Git 창은 닫힌 창이다.
     await waitForInit(page);
     await openGit(page);
     await expect(page.locator('#area .pn')).toHaveCount(1);
 
-    await page.click('#split-h');
-    await expect(page.locator('#area .pn')).toHaveCount(2);
+    await expect(page.locator('#split-h:visible')).toHaveCount(0);
+    await page.evaluate(async () => {
+      const a = (window as any).app;
+      await a.executeAction('splitH');
+      await a.executeAction('splitV');
+    });
+    await page.waitForTimeout(1200);
+    await expect(page.locator('#area .pn')).toHaveCount(1);
     await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
-    await page.waitForSelector('#area .pn .xterm-helper-textarea', { timeout: 15000 });
     expect(await gitWindowCount(page)).toBe(1);
   });
 
-  test('E7 (V19): 창 전환 단축키로 Git 창을 지나갈 수 있다', async ({ page }) => {
+  test('E7 (FR-GIT-182·184): 창 전환 단축키는 Git 창을 지나가지 않는다', async ({ page }) => {
+    // GIT_UI_REVISION_SRS 로 FR-GIT-30 이 폐기됐다.
     await waitForInit(page);
     const gid = await openGit(page);
     const other = await page.evaluate(
       (g) => (window as any).app.ws.windows.find((w: any) => w.id !== g)?.id, gid);
     expect(other, '비교할 다른 창이 없다').toBeTruthy();
 
+    // Git 창에서 순환을 돌면 **나간다** — 단축키가 막다른 길이 되지 않는다.
     expect(await activeWindow(page)).toBe(gid);
     await page.evaluate(() => (window as any).app.executeAction('windowNext'));
     expect(await activeWindow(page)).toBe(other);
+    // 일반 창이 하나뿐이므로 더 눌러도 그 자리다 — Git 창으로 돌아가지 않는다.
     await page.evaluate(() => (window as any).app.executeAction('windowNext'));
-    expect(await activeWindow(page)).toBe(gid);
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+    expect(await activeWindow(page)).toBe(other);
+    await page.evaluate(() => (window as any).app.executeAction('windowPrev'));
+    expect(await activeWindow(page)).toBe(other);
   });
 
   test('E8 (V21): 새로고침 후 창·탭·활성 탭이 보존된다', async ({ page }) => {

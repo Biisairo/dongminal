@@ -133,9 +133,7 @@ const GIT_ROW_ACTS={
 };
 const GIT_ACT_LABEL={stage:'+',unstage:'−',discard:'↺'};
 const GIT_ACT_TITLE={stage:'스테이지',unstage:'언스테이지',discard:'변경 버리기'};
-const GIT_BULK_LABEL={stage:'모두 스테이지',unstage:'모두 언스테이지'};
-const GIT_SEL_LABEL={stage:'스테이지',unstage:'언스테이지',discard:'버리기'};
-const GIT_SEL_CLEAR='해제';
+const GIT_BULK_LABEL={stage:'Stage All',unstage:'Unstage All'};
 // FR-GIT-70: staged 와 unstaged 를 동시에 가진 파일. 체크박스의 indeterminate 와
 // 행 클래스 둘로 구분한다 — 색만으로는 무엇이 다른지 알 수 없다.
 const GIT_PARTIAL_TITLE='일부만 스테이지됨';
@@ -153,7 +151,7 @@ const GIT_DISCARD_NOTE='폐기 전에 아래를 실행하면 stash 로 남습니
 // 조용히 넘기지 않는 것이 요구사항이고, 그것을 이 안내가 맡는다.
 const GIT_PARTIAL_NOTE='일부만 적용됐습니다 — 아래 경로가 바뀌었습니다';
 const GIT_WRITE_FAIL='동작이 실패했습니다';
-const GIT_NOTE_CLOSE='닫기';
+const GIT_NOTE_CLOSE='Close';
 const GIT_WRITE_ERR={
   bad_request:'잘못된 요청입니다',
   confirmation_required:'확인이 필요합니다',
@@ -198,12 +196,12 @@ const GIT_COMMIT_RUNNING='커밋 중…';
 // FR-GIT-81·83 · O7: 5초 고정. 만료는 서버 토큰이 함께 강제한다.
 const GIT_UNDO_MS=5000;
 const GIT_UNDO_TEXT='커밋했습니다';
-const GIT_UNDO_LABEL='되돌리기';
+const GIT_UNDO_LABEL='Undo';
 const GIT_UNDO_FAIL='되돌릴 수 없습니다 — undo 창이 지났습니다';
 // FR-GIT-88: 무엇이 왜 막혔고 어떻게 푸는지를 함께 보인다. Fix 는 복사 가능하다.
 const GIT_PREFLIGHT_TITLE='커밋 전 검사가 막았습니다';
 const GIT_PREFLIGHT_FIX='해소';
-const GIT_PREFLIGHT_COPY='복사';
+const GIT_PREFLIGHT_COPY='Copy';
 // FR-GIT-87: 막지 않고 알린다. 파괴적이 아니므로 1단계 확인이다.
 const GIT_ACT_DETACHED='commit_detached';
 const GIT_DETACHED_TITLE='이 커밋은 어느 브랜치에도 속하지 않습니다';
@@ -230,11 +228,11 @@ const GIT_SB_TITLE='Git 창 열기';
 
 const GIT_CONFIRM_TITLE='되돌릴 수 없는 동작입니다';
 const GIT_CONFIRM_CONTINUE='계속';
-const GIT_CONFIRM_RUN='실행';
-const GIT_CONFIRM_CANCEL='취소';
-const GIT_CONFIRM_COPY='복사';
+const GIT_CONFIRM_RUN='Run';
+const GIT_CONFIRM_CANCEL='Cancel';
+const GIT_CONFIRM_COPY='Copy';
 const GIT_CONFIRM_HINT_LABEL='복구 수단';
-const GIT_CONFIRM_RUNNING='실행 중…';
+const GIT_CONFIRM_RUNNING='Running…';
 const GIT_CONFIRM_FAIL='동작이 실패했습니다';
 // FR-GIT-92: 값을 얻지 못한 hint 를 조용히 빈 칸으로 두지 않는다.
 const GIT_CONFIRM_NO_HINT='복구 수단이 없습니다 — 이 동작은 되돌릴 수 없습니다';
@@ -297,7 +295,7 @@ const GIT_DIFF_DRAWABLE=new Set(['text','absent']);
 const GIT_DIFF_SIDE_KEY='gitDiffSideBySide';
 const GIT_DIFF_WS_KEY='gitDiffIgnoreWs';
 const GIT_DIFF_MODE_LABEL={side:'side-by-side',inline:'unified'};
-const GIT_DIFF_WS_LABEL='공백무시';
+const GIT_DIFF_WS_LABEL='Ignore Whitespace';
 // FR-GIT-55: Monaco 로드 실패는 Git 창의 나머지를 멈추지 않는다 — diff 자리에만
 // 사유를 보인다.
 const GIT_DIFF_MONACO_FAIL='에디터를 불러올 수 없습니다 — 네트워크를 확인하세요';
@@ -359,7 +357,7 @@ const GIT_HIST_FILTERS=[
   {key:'until', label:'Until'},
   {key:'path',  label:'Path'},
 ];
-const GIT_HIST_APPLY='적용';
+const GIT_HIST_APPLY='Apply';
 
 // 검색 두 모드 (FR-GIT-129). **두 결과가 다를 수 있음이 드러나야 한다.**
 const GIT_SEARCH_LOADED='loaded';
@@ -373,12 +371,12 @@ const GIT_SEARCH_MODE_TITLE={
 // 로드 범위에서 0건이면 저장소 전체를 권한다 — 권하지 않으면 사용자는 "없다"와
 // "아직 안 받았다"를 구분할 수 없다.
 const GIT_SEARCH_NONE='로드된 %n개 중에는 없습니다';
-const GIT_SEARCH_TRY_REPO='저장소 전체를 검색';
+const GIT_SEARCH_TRY_REPO='Search Whole Repo';
 
 // jump (FR-GIT-131). 상한을 넘으면 찾지 못했다고 알린다 — 무한히 받아 오지 않는다.
 const GIT_JUMP_MAX_PAGES=20;
 const GIT_JUMP_PLACEHOLDER='해시·브랜치·태그';
-const GIT_JUMP_GO='이동';
+const GIT_JUMP_GO='Go';
 const GIT_JUMP_NOT_FOUND='찾지 못했습니다';
 const GIT_JUMP_SEARCHING='찾는 중…';
 // 찾은 행은 잠깐 강조한다 — 스크롤만 하면 어느 줄로 갔는지 알 수 없다.
@@ -470,10 +468,10 @@ const GIT_BR_GROUPS=[
   {key:GIT_REF_KIND_TAG,   name:'태그'},
 ];
 const GIT_BR_SEARCH_PLACEHOLDER='이름 검색';
-const GIT_BR_NEW='+ 새 브랜치';
+const GIT_BR_NEW='+ New Branch';
 const GIT_BR_EMPTY='이름이 일치하는 ref 가 없습니다';
 const GIT_BR_LOAD_FAIL='브랜치 목록을 불러오지 못했습니다';
-const GIT_BR_RETRY='다시 시도';
+const GIT_BR_RETRY='Retry';
 // 즐겨찾기는 workspace.json 최상위 git.favorites[<repo>] 다 (O13). 접힘 상태는
 // 기기별 취향이라 localStorage 다 (FR-GIT-150) — 실제 키는 <이것>:<repo>.
 const GIT_BR_FAV_FIELD='favorites';
@@ -499,9 +497,9 @@ const GIT_DIRTY_OPT_CANCEL='cancel';
 const GIT_DIRTY_OPT_STASH='stash';
 const GIT_DIRTY_OPT_FORCE='force';
 const GIT_DIRTY_OPTS=[
-  {id:GIT_DIRTY_OPT_CANCEL,label:'취소'},
-  {id:GIT_DIRTY_OPT_STASH, label:'stash 후 진행'},
-  {id:GIT_DIRTY_OPT_FORCE, label:'강제 (변경 버림)',danger:true},
+  {id:GIT_DIRTY_OPT_CANCEL,label:'Cancel'},
+  {id:GIT_DIRTY_OPT_STASH, label:'Stash and continue'},
+  {id:GIT_DIRTY_OPT_FORCE, label:'Force (discard changes)',danger:true},
 ];
 const GIT_DIRTY_TITLE='미커밋 변경이 있는 상태의 checkout';
 const GIT_DIRTY_NOTE='워킹 트리에 변경이 남아 있습니다 — 무엇을 할지 고르세요';
@@ -516,9 +514,9 @@ const GIT_STASH_BEFORE_MSG='checkout 전 자동 stash';
 // 서버가 선택지를 늘려도 그것을 보이지 못한다. 라벨만 여기서 붙인다.
 const GIT_BR_CONFLICT_TITLE='같은 이름의 로컬 브랜치가 이미 있습니다';
 const GIT_BR_CONFLICT_LABEL={
-  checkout_existing:'기존 브랜치로 checkout',
-  create_other_name:'다른 이름으로 생성',
-  cancel:'취소',
+  checkout_existing:'Checkout existing branch',
+  create_other_name:'Create with another name',
+  cancel:'Cancel',
 };
 const GIT_BR_RENAME_SUFFIX='-2'; // 다른 이름을 권할 때의 기본 후보
 
@@ -527,7 +525,7 @@ const GIT_BR_CREATE_TITLE='새 브랜치';
 const GIT_BR_NAME_PLACEHOLDER='브랜치 이름';
 const GIT_BR_START_PLACEHOLDER='시작점 (비우면 현재 HEAD)';
 const GIT_BR_CREATE_CHECKOUT='만든 뒤 checkout';
-const GIT_BR_CREATE_RUN='생성';
+const GIT_BR_CREATE_RUN='Create';
 const GIT_BR_WHY_EMPTY='이름을 입력하세요';
 const GIT_BR_WHY_EXISTS='같은 이름이 이미 있습니다 — 다른 이름을 쓰세요';
 const GIT_BR_VALIDATE_FAIL='이름을 검사하지 못했습니다';
@@ -535,7 +533,7 @@ const GIT_BR_VALIDATE_DEBOUNCE_MS=200;
 
 // ── Stash 탭 (GIT_SRS §3D.2 / FR-GIT-161~170) ──
 
-const GIT_STASH_NEW='+ 새 stash';
+const GIT_STASH_NEW='+ New Stash';
 const GIT_STASH_EMPTY='stash 가 없습니다';
 const GIT_STASH_LOAD_FAIL='stash 목록을 불러오지 못했습니다';
 const GIT_STASH_PREVIEW_FAIL='stash 미리보기를 불러오지 못했습니다';
@@ -554,7 +552,7 @@ const GIT_STASH_CREATE_TITLE='stash 생성';
 const GIT_STASH_MSG_PLACEHOLDER='메시지 (선택)';
 const GIT_STASH_OPT_UNTRACKED='추적되지 않는 파일 포함 (--include-untracked)';
 const GIT_STASH_OPT_KEEPINDEX='index 는 그대로 남김 (--keep-index)';
-const GIT_STASH_CREATE_RUN='생성';
+const GIT_STASH_CREATE_RUN='Create';
 // 우클릭 항목 (FR-GIT-162~164·168)
 const GIT_STASH_APPLY='Apply';
 const GIT_STASH_APPLY_INDEX='Apply (--index)';
@@ -597,20 +595,20 @@ const GIT_JOB_OK='완료';
 const GIT_JOB_FAIL='실패';
 const GIT_JOB_CANCELED='취소했습니다';
 const GIT_JOB_CANCELING='취소하는 중…';
-const GIT_JOB_CLOSE='닫기';
-const GIT_JOB_COPY='출력 복사';
+const GIT_JOB_CLOSE='Close';
+const GIT_JOB_COPY='Copy Output';
 const GIT_JOB_STREAM_FAIL='출력이 끊겼습니다 — 다시 잇는 중…';
 const GIT_JOB_START_FAIL='원격 작업을 시작하지 못했습니다';
 // FR-GIT-102: 취소는 **부분 적용 가능성을 알린다** — 원격에 절반이 올라간 뒤
 // 끊길 수 있다. 그 사실을 확인 문구에 명시한다.
 const GIT_ACT_JOB_CANCEL='job_cancel';
-const GIT_JOB_CANCEL='취소';
+const GIT_JOB_CANCEL='Cancel';
 const GIT_JOB_CANCEL_TITLE='진행 중인 원격 작업을 끊습니다';
 const GIT_JOB_CANCEL_NOTE='끊긴 시점까지 원격에 일부가 적용된 채로 끝날 수 있습니다';
 // FR-GIT-104: **자격증명을 받지 않는다.** 입력을 만들지 않고 터미널에서 수행하도록
 // 안내만 한다 — 만들지 않는 것이 유일한 보장이다.
 const GIT_JOB_AUTH_NOTE='자격증명이 필요합니다 — dongminal 은 자격증명을 받지도 저장하지도 않습니다. 터미널 탭에서 아래를 실행하세요';
-const GIT_JOB_AUTH_COPY='명령 복사';
+const GIT_JOB_AUTH_COPY='Copy Command';
 // FR-GIT-105: 선택지는 **서버가 준 순서 그대로** 그린다. 순서가 곧 우선순위이고
 // force 는 마지막이며 강조하지 않는다.
 const GIT_JOB_REJECT_NOTE='원격이 앞서 있어 거부됐습니다 — 아래에서 고르세요';

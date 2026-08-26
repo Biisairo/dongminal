@@ -11,6 +11,8 @@ class InputBinding {
     document.getElementById('split-h').addEventListener('click',()=>this.app.split('horizontal'));
     document.getElementById('split-v').addEventListener('click',()=>this.app.split('vertical'));
     document.getElementById('agents-toggle').addEventListener('click',()=>this.app._agentsToggle());
+    // FR-GIT-183: Git 창은 WINDOWS 목록에 없으므로 닫는 길이 자기 상단 바에 있다.
+    document.getElementById('git-close').addEventListener('click',()=>this.app._gitCloseWindow());
     const ap=document.getElementById('agents-panel'),aph=document.getElementById('agents-handle');
     try{if(localStorage.getItem('agentsPanelOpen')==='1'){ap.classList.add('open');aph.classList.add('open');document.getElementById('agents-toggle').classList.add('open');this.app._agentsStartPoll()}}catch{}
     aph.addEventListener('mousedown',e=>{e.preventDefault();
