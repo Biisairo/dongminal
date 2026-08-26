@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/query"
 )
 
 // /api/git/{preflight,policy,recovery} — 안전 정책 표면 (GIT_SRS §3A.3
@@ -22,7 +23,7 @@ func (s *GitServer) apiGitPreflight(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pf, err := s.Git.Service().Preflight(r.Context(), root)
+	pf, err := query.PreflightOf(s.Git.Service(), r.Context(), root)
 	if err != nil {
 		gitError(w, err)
 		return

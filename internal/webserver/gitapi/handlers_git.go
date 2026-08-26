@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/query"
 )
 
 // /api/git/* — 리포 해석·핀·상태·시그니처 (GIT_SRS §3.8 FR-GIT-60~63).
@@ -405,7 +406,7 @@ type gitDiffRequested struct {
 
 type gitDiffResponse struct {
 	Requested gitDiffRequested `json:"requested"`
-	core.DiffContent
+	query.DiffContent
 }
 
 // GET /api/git/diff-content?repo=&axis=&path=&origPath= — 한 축의 양쪽 전체 내용
@@ -425,13 +426,13 @@ func (s *GitServer) apiGitDiffContent(w http.ResponseWriter, r *http.Request) {
 		Repo: requested, Axis: q.Get("axis"), Path: q.Get("path"), OrigPath: q.Get("origPath"),
 		Oid: q.Get("oid"), ParentOid: q.Get("parentOid"),
 	}
-	// 커밋 축은 리비전을 인자로 받으므로 진입점이 다르다 (core.DiffCommit 주석 참고).
-	var dc core.DiffContent
+	// 커밋 축은 리비전을 인자로 받으므로 진입점이 다르다 (query.DiffCommit 주석 참고).
+	var dc query.DiffContent
 	var err error
-	if req.Axis == core.AxisCommitParent {
-		dc, err = s.Git.Service().DiffCommit(r.Context(), root, req.Oid, req.ParentOid, req.Path, req.OrigPath)
+	if req.Axis == query.AxisCommitParent {
+		dc, err = query.DiffCommit(s.Git.Service(), r.Context(), root, req.Oid, req.ParentOid, req.Path, req.OrigPath)
 	} else {
-		dc, err = s.Git.Service().DiffContent(r.Context(), root, req.Axis, req.Path, req.OrigPath)
+		dc, err = query.DiffContentOf(s.Git.Service(), r.Context(), root, req.Axis, req.Path, req.OrigPath)
 	}
 	if err != nil {
 		gitDiffError(w, err)
@@ -444,9 +445,9 @@ func (s *GitServer) apiGitDiffContent(w http.ResponseWriter, r *http.Request) {
 // 잘못된 요청을 500 으로 뭉개면 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다.
 func gitDiffError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, core.ErrDiffAxis), errors.Is(err, core.ErrDiffPath), errors.Is(err, core.ErrUnsafeRev):
+	case errors.Is(err, query.ErrDiffAxis), errors.Is(err, query.ErrDiffPath), errors.Is(err, query.ErrUnsafeRev):
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	case errors.Is(err, core.ErrDiffBothAbsent), errors.Is(err, core.ErrRevNotFound):
+	case errors.Is(err, query.ErrDiffBothAbsent), errors.Is(err, query.ErrRevNotFound):
 		gitFail(w, http.StatusNotFound, gitErrNotFound, gitTail(err.Error()))
 	default:
 		gitError(w, err)

@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/query"
 )
 
 // /api/git/log·/commit·/refs — 히스토리 조회 (GIT_SRS §3C FR-GIT-113·122·136~139).
@@ -34,8 +34,8 @@ type gitLogResponse struct {
 	Repo      string          `json:"repo"`
 	// Limit 은 실제로 쓰인 개수다. 상한으로 접힌 것을 알리지 않으면 클라이언트는
 	// 자기가 요청한 만큼 받았다고 믿고 페이징을 어긋나게 계산한다 (FR-GIT-114).
-	Limit   int           `json:"limit"`
-	Commits []core.Commit `json:"commits"`
+	Limit   int            `json:"limit"`
+	Commits []query.Commit `json:"commits"`
 }
 
 // GET /api/git/log?repo=&ref=&skip=&limit=&order=&author=&since=&until=&path=&grep=
@@ -63,7 +63,7 @@ func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 		Author: q.Get("author"), Since: q.Get("since"), Until: q.Get("until"),
 		Path: q.Get("path"), Grep: q.Get("grep"),
 	}
-	commits, err := s.Git.Service().Log(r.Context(), core.LogQuery{
+	commits, err := query.Log(s.Git.Service(), r.Context(), query.LogQuery{
 		Repo: root, Ref: req.Ref, Skip: req.Skip, Limit: req.Limit, Order: req.Order,
 		Author: req.Author, Since: req.Since, Until: req.Until, Path: req.Path, Grep: req.Grep,
 	})
@@ -72,7 +72,7 @@ func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	gitJSON(w, http.StatusOK, gitLogResponse{
-		Requested: req, Repo: root, Limit: core.LogLimit(req.Limit), Commits: commits,
+		Requested: req, Repo: root, Limit: query.LogLimit(req.Limit), Commits: commits,
 	})
 }
 
@@ -87,7 +87,7 @@ type gitCommitRequested struct {
 type gitCommitResponse struct {
 	Requested gitCommitRequested `json:"requested"`
 	Repo      string             `json:"repo"`
-	core.CommitDetail
+	query.CommitDetail
 }
 
 // GET /api/git/commit?repo=&oid=&parent=<n> — 커밋 하나의 상세 (FR-GIT-136·137·139).
@@ -111,7 +111,7 @@ func (s *GitServer) apiGitCommit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req := gitCommitRequested{Repo: requested, Oid: oid, Parent: parent}
-	d, err := s.Git.Service().CommitDetail(r.Context(), root, oid, parent)
+	d, err := query.CommitDetailOf(s.Git.Service(), r.Context(), root, oid, parent)
 	if err != nil {
 		gitHistoryError(w, err)
 		return
@@ -126,7 +126,7 @@ type gitRefsRequested struct {
 type gitRefsResponse struct {
 	Requested gitRefsRequested `json:"requested"`
 	Repo      string           `json:"repo"`
-	Refs      []core.Ref       `json:"refs"`
+	Refs      []query.Ref      `json:"refs"`
 }
 
 // GET /api/git/refs?repo= — 로컬·원격·태그 (FR-GIT-122).
@@ -139,7 +139,7 @@ func (s *GitServer) apiGitRefs(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	refs, err := s.Git.Service().Refs(r.Context(), root)
+	refs, err := query.Refs(s.Git.Service(), r.Context(), root)
 	if err != nil {
 		gitHistoryError(w, err)
 		return
@@ -169,9 +169,9 @@ func gitCountParam(w http.ResponseWriter, q url.Values, name string) (int, bool)
 // 알 수 없다.
 func gitHistoryError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, core.ErrLogOrder), errors.Is(err, core.ErrUnsafeRev), errors.Is(err, core.ErrCommitParent):
+	case errors.Is(err, query.ErrLogOrder), errors.Is(err, query.ErrUnsafeRev), errors.Is(err, query.ErrCommitParent):
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	case errors.Is(err, core.ErrRevNotFound):
+	case errors.Is(err, query.ErrRevNotFound):
 		gitFail(w, http.StatusNotFound, gitErrNotFound, gitTail(err.Error()))
 	default:
 		gitError(w, err)

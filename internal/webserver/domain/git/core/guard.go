@@ -1,7 +1,10 @@
 package core
 
 import (
+	"errors"
 	"fmt"
+	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -28,7 +31,8 @@ var unsafePrefixes = []string{"--upload-pack", "--receive-pack", "--exec-path", 
 // 이 패키지가 쓰지 않는 동작이고, 받는 형태가 넓어지면 무엇이 검사되는지 말할 수
 // 없게 되기 때문이다.
 const (
-	checkRefFormatBranch = "--branch"
+	// CheckRefFormatBranch 는 query 의 이름 검사가 붙이는 플래그다 (FR-GIT-159).
+	CheckRefFormatBranch = "--branch"
 	checkRefFormatArgs   = 2 // --branch <name>
 )
 
@@ -55,9 +59,9 @@ func guardArgs(args []string) error {
 // `--branch` 다음 인자로 오므로 `-` 로 시작해도 git 이 옵션으로 읽지 않는다
 // (git 2.50.1 실측) — 그래도 호출자가 checkRefArg 로 먼저 걸러낸다.
 func guardCheckRefFormatArgs(rest []string) error {
-	if len(rest) != checkRefFormatArgs || rest[0] != checkRefFormatBranch {
+	if len(rest) != checkRefFormatArgs || rest[0] != CheckRefFormatBranch {
 		return fmt.Errorf("%w: check-ref-format 은 %s 와 이름 하나만 받는다: %q",
-			ErrUnsafeArgument, checkRefFormatBranch, rest)
+			ErrUnsafeArgument, CheckRefFormatBranch, rest)
 	}
 	return nil
 }
@@ -119,4 +123,58 @@ func configReadFlag(a string) bool {
 		}
 	}
 	return false
+}
+
+// RelPath 는 리포 상대경로를 검증한다 (FR-GIT-62). 워킹 트리 파일을 직접 읽거나
+// git 에 경로로 넘기는 자리이므로 여기가 뚫리면 임의 파일 접근이다.
+//
+// 정규화한 값을 돌려주지 않는다 — git 의 rev 와 워킹 트리 경로가 같은 문자열이어야
+// 클라이언트가 보낸 경로와 응답이 짝을 이룬다. 다듬을 여지가 있으면 거부한다.
+//
+// kind 만 호출자가 갈라 받는다 — diff 와 스테이징이 같은 규칙을 쓰되 서로 다른
+// 코드로 답해야 하고, 규칙이 두 벌이면 한쪽만 고쳐져 구멍이 된다.
+func RelPath(p string, kind error) (string, error) {
+	if strings.TrimSpace(p) == "" {
+		return "", fmt.Errorf("%w: 경로가 비었다", kind)
+	}
+	if filepath.IsAbs(p) || strings.HasPrefix(p, "/") {
+		return "", fmt.Errorf("%w: 절대경로는 받지 않는다: %q", kind, p)
+	}
+	if strings.ContainsRune(p, 0) {
+		return "", fmt.Errorf("%w: NUL 을 포함한 경로", kind)
+	}
+	for _, seg := range strings.Split(p, "/") {
+		if seg == ".." {
+			return "", fmt.Errorf("%w: 부모 참조가 있다: %q", kind, p)
+		}
+	}
+	if path.Clean(p) != p {
+		return "", fmt.Errorf("%w: 정규화되지 않은 경로다: %q", kind, p)
+	}
+	return p, nil
+}
+
+// ErrRefName 은 git 의 ref 이름 규칙을 어긴 이름이다 (FR-GIT-159). 이름 검사는
+// 조회(check-ref-format)와 변경(브랜치 생성) 양쪽이 쓰므로 사유도 여기 둔다.
+var ErrRefName = errors.New("ref_name_invalid")
+
+// CheckRefArg 는 위치 인자로 들어갈 ref 이름을 본다 (FR-GIT-62). query 의 checkRev 와
+// 같은 정신이되 더 좁다 — 옵션처럼 생긴 값과 범위 표현을 인자로 넘기기 전에 막는다.
+//
+// **규칙 전체를 여기서 판정하지 않는다.** 그것은 check-ref-format 의 일이며, 여기서
+// 막는 것은 git 에 넘기는 순간 뜻이 달라지는 값뿐이다.
+func CheckRefArg(name, val string) error {
+	if strings.TrimSpace(val) == "" {
+		return fmt.Errorf("%w: %s 가 비었다", ErrRefName, name)
+	}
+	if strings.HasPrefix(val, "-") {
+		return fmt.Errorf("%w: %s 는 - 로 시작할 수 없다: %q", ErrRefName, name, val)
+	}
+	if strings.ContainsRune(val, 0) {
+		return fmt.Errorf("%w: %s 에 NUL 이 있다", ErrRefName, name)
+	}
+	if strings.Contains(val, "..") {
+		return fmt.Errorf("%w: %s 에 범위 표현(..) 이 있다: %q", ErrRefName, name, val)
+	}
+	return nil
 }

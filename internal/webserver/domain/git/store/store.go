@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/query"
 )
 
 // 상한과 주기는 상수로 못박는다 — 호출 지점마다 다른 숫자가 흩어지면 상한이
@@ -20,9 +21,9 @@ const (
 
 // Observation 은 관측 한 번 + 언제 관측했는지다.
 type Observation struct {
-	Status           core.Status    `json:"status"`
-	Signature        core.Signature `json:"signature"`
-	ObservedAtUnixMs int64          `json:"observedAtUnixMs"`
+	Status           query.Status    `json:"status"`
+	Signature        query.Signature `json:"signature"`
+	ObservedAtUnixMs int64           `json:"observedAtUnixMs"`
 }
 
 // Store 는 git 조회 앞에 서서 세 가지를 한다.
@@ -186,12 +187,12 @@ func (st *Store) Observed(repo string) (Observation, bool) {
 }
 
 // Signature 는 gitdir 해석을 캐시해 감지 경로에서 git 이 돌지 않게 한다.
-func (st *Store) Signature(ctx context.Context, repo string) (core.Signature, error) {
+func (st *Store) Signature(ctx context.Context, repo string) (query.Signature, error) {
 	gitDir, commonDir, err := st.gitDirs(ctx, repo)
 	if err != nil {
-		return core.Signature{}, err
+		return query.Signature{}, err
 	}
-	return core.ReadSignature(gitDir, commonDir)
+	return query.ReadSignature(gitDir, commonDir)
 }
 
 // RepoRoot 는 TTL 캐시를 거친다. 핀 목록이 길어도 rev-parse 가 항목 수만큼
@@ -238,7 +239,7 @@ func (st *Store) gitDirs(ctx context.Context, repo string) (string, string, erro
 // observe 는 status 와 signature 를 한 번에 채운다. signature 는 stat 2회라
 // 사실상 무료이고, 클라이언트가 status 직후 signature 를 또 부르지 않게 한다.
 func (st *Store) observe(ctx context.Context, repo string) (Observation, error) {
-	status, err := st.svc.Status(ctx, repo)
+	status, err := query.StatusOf(st.svc, ctx, repo)
 	if err != nil {
 		return Observation{}, err
 	}

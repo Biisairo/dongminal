@@ -81,6 +81,10 @@ func New(opts ...Option) *Service {
 // Records 는 최근 기록을 준다 (최신이 마지막). n<=0 이면 보유분 전부다.
 func (s *Service) Records(n int) []Record { return s.rec.Recent(n) }
 
+// MaxOutput 은 출력 상한이다 (FR-GIT-6). 상한에서 잘린 출력을 "온전한 결과"로
+// 답할 수 없는 조회들이 사유에 이 값을 적으므로, 패키지 밖에서도 읽어야 한다.
+func (s *Service) MaxOutput() int { return s.maxOutput }
+
 // Exec 은 이 패키지의 단일 진입점이다 (FR-GIT-1).
 //
 // 거부된 호출도 기록에 남는다 (FR-GIT-5) — 무엇이 왜 거부됐는지 Console 이

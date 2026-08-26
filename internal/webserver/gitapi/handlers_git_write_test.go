@@ -13,6 +13,7 @@ import (
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
+	"dongminal/internal/webserver/domain/git/write"
 )
 
 // 묶음 H·I 서버측 — /api/git/{stage,unstage,discard,commit,undo-last}
@@ -216,7 +217,7 @@ func TestAPIGitUndoLast_Expires(t *testing.T) {
 	s, now := gitWriteServer(t, f)
 	tok := gitIssueUndo(t, s, f)
 
-	*now = now.Add(core.UndoTTL + time.Millisecond)
+	*now = now.Add(write.UndoTTL + time.Millisecond)
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", `{"repo":"/work/repo","undoToken":"`+tok+`"}`)
 	if code != http.StatusConflict || out["error"] != "undo_expired" {
 		t.Fatalf("code = %d, body = %v", code, out)

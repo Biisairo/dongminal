@@ -12,7 +12,9 @@ import (
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/jobs"
+	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/store"
+	"dongminal/internal/webserver/domain/git/write"
 )
 
 // /api/git/{fetch,pull,push} + /api/git/job{s,/cancel,/events} — 원격 작업 표면
@@ -105,7 +107,7 @@ func (s *GitServer) apiGitFetch(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s.gitStartJob(w, req.Repo, root, "fetch", core.FetchSpec(core.FetchOpts{Prune: req.Prune, Tags: req.Tags}), nil)
+	s.gitStartJob(w, req.Repo, root, "fetch", write.FetchSpec(write.FetchOpts{Prune: req.Prune, Tags: req.Tags}), nil)
 }
 
 // POST /api/git/pull — 기본은 `pull --progress` 다 (FR-GIT-99).
@@ -122,7 +124,7 @@ func (s *GitServer) apiGitPull(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	spec, err := core.PullSpec(core.PullOpts{Mode: req.Mode})
+	spec, err := write.PullSpec(write.PullOpts{Mode: req.Mode})
 	if err != nil {
 		gitRemoteError(w, err)
 		return
@@ -145,7 +147,7 @@ func (s *GitServer) apiGitPush(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	spec, plan, err := s.Git.Service().PushSpec(r.Context(), root, core.PushOpts{
+	spec, plan, err := write.PushSpec(s.Git.Service(), r.Context(), root, write.PushOpts{
 		Force: req.Force, Confirm: req.Confirm, Publish: req.Publish,
 	})
 	if err != nil {
@@ -180,11 +182,11 @@ func (s *GitServer) gitStartJob(w http.ResponseWriter, requested, root, kind str
 // 알 수 없다.
 func gitRemoteError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, core.ErrForceConfirm):
+	case errors.Is(err, write.ErrForceConfirm):
 		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired, gitTail(err.Error()))
-	case errors.Is(err, core.ErrPullMode), errors.Is(err, core.ErrPushForce), errors.Is(err, core.ErrDetachedPush):
+	case errors.Is(err, write.ErrPullMode), errors.Is(err, write.ErrPushForce), errors.Is(err, write.ErrDetachedPush):
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	case errors.Is(err, core.ErrNoRemote):
+	case errors.Is(err, query.ErrNoRemote):
 		gitFail(w, http.StatusConflict, gitErrNoRemote, gitTail(err.Error()))
 	default:
 		gitError(w, err)
@@ -193,8 +195,8 @@ func gitRemoteError(w http.ResponseWriter, err error) {
 
 // gitPushError 는 Publish 확인 요구만 따로 다룬다. **계획을 함께 보낸다** —
 // 무엇이 설정되는지 모르면 사용자가 확인할 수 없다 (FR-GIT-100).
-func gitPushError(w http.ResponseWriter, requested, root string, plan core.PushPlan, err error) {
-	if errors.Is(err, core.ErrPublishRequired) {
+func gitPushError(w http.ResponseWriter, requested, root string, plan write.PushPlan, err error) {
+	if errors.Is(err, write.ErrPublishRequired) {
 		gitJSON(w, http.StatusConflict, map[string]any{
 			"error":     gitErrPublishRequired,
 			"message":   gitTail(err.Error()),

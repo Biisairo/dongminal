@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/store"
 )
 
@@ -205,9 +206,9 @@ func TestAPIGitLog_ReportsEffectiveLimit(t *testing.T) {
 		query string
 		want  float64
 	}{
-		{"", float64(core.LogInitialLimit)},
+		{"", float64(query.LogInitialLimit)},
 		{"&limit=100", 100},
-		{"&limit=999999", float64(core.LogMaxLimit)},
+		{"&limit=999999", float64(query.LogMaxLimit)},
 	} {
 		code, out := gitReq(t, s, http.MethodGet, "/api/git/log?repo="+f.root+tc.query, "")
 		if code != http.StatusOK {

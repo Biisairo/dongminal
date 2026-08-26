@@ -90,3 +90,32 @@ func TestGuardArgs_Allows(t *testing.T) {
 		}
 	}
 }
+
+// W10: `config` 는 읽기 목록에 있으나 읽기 인자만 통과한다.
+// `git config user.name x` 는 쓰기이므로 읽기 경로로 흘러선 안 된다.
+func TestGuardArgs_ConfigReadOnly(t *testing.T) {
+	ok := [][]string{
+		{"config", "--get", "user.name"},
+		{"config", "--get-all", "remote.origin.url"},
+		{"config", "--list"},
+		{"config", "--type=bool", "--get", "commit.gpgsign"},
+	}
+	for _, args := range ok {
+		if err := guardArgs(args); err != nil {
+			t.Fatalf("guardArgs(%q) = %v, want nil", args, err)
+		}
+	}
+	bad := [][]string{
+		{"config", "user.name", "x"},
+		{"config", "--unset", "user.name"},
+		{"config", "--add", "remote.origin.url", "git@example.com"},
+		{"config", "--global", "--get", "user.name"},
+		{"config", "--file=/etc/passwd", "--list"},
+		{"config", "--get", "user.name", "extra"},
+	}
+	for _, args := range bad {
+		if err := guardArgs(args); !errors.Is(err, ErrUnsafeArgument) {
+			t.Fatalf("guardArgs(%q) = %v, want ErrUnsafeArgument", args, err)
+		}
+	}
+}

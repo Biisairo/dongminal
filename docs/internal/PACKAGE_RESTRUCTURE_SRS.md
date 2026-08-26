@@ -672,7 +672,99 @@ alias 가 필요해진다 — FR-DIR-3(alias 불필요)과 충돌한다. 클라�
 신설: `internal/server/tool_fixtures_test.go` — 종단 테스트용 픽스처 헬퍼
 (`attnHooks`, `newAttnPane`, `newAttendingPane`, `newActivityPane`).
 
-### 8.6 진행 상황
+### 8.6 D-5: `git` 5분할의 실측 이탈 (단계 8·9)
+
+**FR-GIT-1·2·3 의 파일 목록은 초크포인트 기준으로 다시 놓았다.** 어느 패키지에
+두느냐를 정하는 것은 파일 이름이 아니라 **그 함수가 git 을 어느 진입점으로
+실행하는가**다 — FR-GIT-8 이 그 기준이며, 스펙의 파일 목록과 어긋난 곳은 목록을
+고쳤다.
+
+| 파일 | 스펙 | 실제 | 근거 |
+|---|---|---|---|
+| `recovery.go` | write | **core** | `Service.hints` 가 비공개 필드다. `HintLog`·`Hint` 가 core 밖이면 `AddHint`/`Hints` 가 성립하지 않는다 |
+| `destructive.go` | write | **core** | `Hint.Action` 이 core 의 필드이고 core 의 HintLog 테스트가 그 낱말을 딛는다 |
+| `preflight.go` | write | **query** | `Exec` 만 쓴다. write 에 두면 그 파일 하나가 FR-GIT-8 을 깨뜨린다 |
+| `resolve.go` | query | **write** | `execPaths` → `ExecWrite` 로 간다. 파괴적이며 hint 를 남긴다 |
+| `stash.go` | 함수 단위 분산 | **전부 write** | `stash` 가 `writeCommands` 에 있어 `stash list`·`stash show` 까지 `ExecWrite` 로 간다 (파일 머리 주석의 기존 설명). 초크포인트로 가르면 조회 함수도 write 다 |
+| `remote.go` | 함수 단위 분산 | **query** `DefaultRemote`·`remoteNames`·`ErrNoRemote` / **write** `FetchSpec`·`PullSpec`·`PushSpec`·옵션 / **core** 세척기 | FR-GIT-5 그대로. write 쪽은 git 을 실행하지 않고 `WriteSpec` 만 만든다 — 실제 실행은 `jobs` 다 |
+| `stage.go` | write | **write** + `HasHead` → query | `rev-parse --verify HEAD` 는 조회다 |
+| `commit.go` | write | **write** + `LastCommitMessage` → query | `log -1` 은 조회다 |
+| `branch.go` | 함수 단위 분산 | **query** `ValidBranchName`·`LocalBranchExists` / **write** 나머지 | FR-GIT-5 그대로 |
+| `diff.go` | `diff.go` + `diff_commit.go` | 둘로 갈랐다 | FR-GIT-2 의 목록에 맞췄다 |
+
+**의존 방향 — `write → query` 를 허용했다.** 복합 함수(`PushSpec` 의 upstream
+확인, `StashPopChecked` 의 목록 재조회, `Discard`/`Unstage` 의 HEAD 확인,
+`checkNewBranchName`)는 읽기가 필요하다. 선택은 셋이었다:
+
+1. write 가 `s.Exec` 을 직접 부른다 → **FR-GIT-8 위반**
+2. 복합 함수와 그것이 읽는 `Status`·`StashList` 를 전부 core 로 올린다 →
+   `status.go` 가 core 로 가고 core 가 다시 커진다
+3. write 가 query 를 부른다 → 읽기는 query 안에서 `Exec` 을 지나고, 의존은
+   여전히 **단방향**이다 (FR-GIT-9 가 금지한 것은 상호 참조다)
+
+3 을 택했다. 실측: write 안의 `s.Exec(` 0건, query 안의 `ExecWrite` 0건.
+`go list` 로 확인한 방향은 `core ← query ← {write, store}`, `core ← jobs` 다.
+
+**자유 함수 전환은 47개가 아니라 34개다.** FR-GIT-4 의 47 은 `*Service` 메서드
+전체 수이고, 그중 13개는 core 에 남는 Service 자신의 것이다 — `Exec`,
+`ExecWrite`, `Records`, `MaxOutput`, `AddHint`, `Hints`, `GitDirs`, `RepoRoot`
+와 비공개 `deny`·`withTimeout`·`record`·`writeRunner`·`denyWrite`.
+
+**함수 이름 5개에 `Of` 접미를 붙였다.** Go 는 같은 패키지에서 타입과 함수가 이름을
+나눠 가질 수 없고, `Status`·`Signature`·`Preflight`·`CommitDetail`·`DiffContent`
+는 **결과 타입이 이미 그 낱말을 쓰고 있다.** 그래서 함수는 `StatusOf`·
+`SignatureOf`·`PreflightOf`·`CommitDetailOf`·`DiffContentOf` 다. 타입을 core 로
+올려 이름을 비우는 길도 있었으나 그러면 값 타입이 core 로 흩어진다.
+
+**export 승격은 5개가 아니라 11개 + 신규 API 1개다.**
+
+| 승격 | 쓰는 곳 | 근거 |
+|---|---|---|
+| `readSignature` → `ReadSignature` | store | FR-GIT-6 (파일은 query 로 갔다) |
+| `gitEnv` → `Env` | jobs | FR-GIT-7 |
+| `guardWriteArgs` → `GuardWriteArgs` | jobs | FR-GIT-7 |
+| `sanitizeArgv` → `SanitizeArgv` | jobs | FR-GIT-7 |
+| `sanitizeRemote` → `SanitizeRemote` | jobs | FR-GIT-7 |
+| `recordWrite` → `RecordWrite` | jobs | §2.3.2 의 측정이 비공개 **메서드** 접근을 잡지 않았다 — D-1 과 같은 종류의 과소 추정 |
+| `relPath` → `RelPath` | query·write | FR-GIT-9 공통부 (core/guard.go) |
+| `unixSecToMilli` → `UnixSecToMilli` | query·write | FR-GIT-9 공통부 (core/time.go) |
+| `checkRefArg` → `CheckRefArg` + `ErrRefName` | query·write | FR-GIT-9 공통부 (core/guard.go) |
+| `checkRefFormatBranch` → `CheckRefFormatBranch` | query | 가드가 묶은 인자 형태를 조회가 그대로 붙인다 |
+| `hasHead` → `HasHead`, `defaultRemote` → `DefaultRemote` | write | 자유 함수 전환의 귀결 |
+
+신규 API 1개는 `Service.MaxOutput() int` 다. 출력이 상한에서 잘렸다는 **사유에
+그 값을 적는** 조회 4곳(`log`·`refs`·`commitdetail`·`stash`)이 `s.maxOutput` 을
+읽고 있었다. 필드는 비공개로 두고 읽기만 노출했다 (D-2 와 같은 방식).
+
+`xe.kind` 접근 5곳은 승격 없이 기존 `ExecError.Unwrap()` 으로 바꿨다 — 같은 값을
+주는 공개 메서드가 이미 있었다.
+
+**테스트 재배치 (컴파일러가 확정)**
+
+| 파일 | 이동 | 근거 |
+|---|---|---|
+| `status`·`log`·`diff`·`diff_commit`·`commitdetail`·`refs`·`signature`·`preflight_test` | → query | 대상이 조회다 |
+| `stage`·`stash`·`resolve_test` | → write | 대상이 변경이다 |
+| `branch_test` | **3분할** | 이름 검사 2개 → query, `guardArgs` 검사 1개 → core, 나머지 → write |
+| `commit_test` | 2분할 | `LastCommitMessage` 1개 → query, 나머지 → write |
+| `remote_test` | 2분할 | `TestSanitizeRemote` → core, 나머지 → write |
+| `destructive_test` | → core | `destructive.go` 와 함께 |
+| `preflight_test` 의 `TestGuardArgs_ConfigReadOnly` | → `core/guard_test.go` | `guardArgs` 는 core 비공개다 |
+
+신설: `query/fixture_test.go`, `write/fixture_test.go` — `gitPath`·`tempRepo`·
+`gitRun` 등 실제 git 픽스처의 복제다. 테스트 헬퍼는 패키지 경계를 넘지 못한다
+(D-4 와 같은 이유). `resolve_test.go` 의 `s.rec = NewRecorder(…)` 는
+`core.WithRecorder(…)` 로 바꿨다 — 같은 일을 공개 옵션으로 하는 것이다.
+
+**보호 테스트는 약화시키지 않았다.** `credScanDirs` 에 query·write 를 더했다
+(`ReadDir` 은 하위 디렉터리를 훑지 않으므로 새 패키지는 명시해야 한다).
+`credRemoteFiles` 에 `query/remote.go`·`write/remote.go` 를 더했다 — 원격 표면이
+셋으로 갈렸고 셋 다 강한 검사(`token`·`secret` 금지)를 받아야 한다. 임계값
+`scanned < 40` 은 그대로 두었고 실제 스캔은 59파일이다.
+`static_test.go`·`write_test.go` 의 허용 경로는 접두어 매칭이라 하위 디렉터리가
+그대로 걸려 갱신이 필요 없었다.
+
+### 8.7 진행 상황
 
 | 단계 | 묶음 | 상태 | 검증 |
 |---|---|---|---|
@@ -680,4 +772,10 @@ alias 가 필요해진다 — FR-DIR-3(alias 불필요)과 충돌한다. 클라�
 | 1 | A | 완료 | `go test` 통과 |
 | 2 | B | 완료 | `go build`·`vet`·`test`·`gofmt` 통과 |
 | 3 | A | 완료 | 전량 통과 + 격리 인스턴스에서 데몬 기동·`paned.sock` 생성·`/api/ping`·도구 생성(IPC 왕복) 확인 |
-| 4~14 | C~J | 미착수 | |
+| 4 | C | 완료 | `f604d9d` — 프로세스 축 재배치 |
+| 5 | D | 완료 | `5e638b7` — `daemon/boot` |
+| 6 | H | 완료 | `c043b34` — `webserver/hub` |
+| 7 | H | 완료 | `70c6c25` — `webserver/gitapi` + `*GitServer` |
+| 8 | I | 완료 | `go build`·`vet`·`test`·`gofmt` 통과. `core`/`store`/`jobs` |
+| 9 | I | 완료 | 전량 통과 + TC-GIT-1(`execGit` 0건) + 의존 방향 `go list` 확인. §8.6 |
+| 10~14 | E·J·F·G | 미착수 | |

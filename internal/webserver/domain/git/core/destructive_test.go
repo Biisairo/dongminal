@@ -1,6 +1,8 @@
 package core
 
-import "testing"
+import (
+	"testing"
+)
 
 // 묶음 J — 파괴적 동작 목록 (GIT_SRS §3A.3 FR-GIT-89, 검증 V37).
 

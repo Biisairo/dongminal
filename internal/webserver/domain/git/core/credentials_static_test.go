@@ -31,6 +31,8 @@ var remoteCredWords = []string{"to" + "ken", "sec" + "ret"}
 // 다시 흘러들어오면 검사 없이 통과하는 구멍이 되기 때문이다.
 var credScanDirs = []string{
 	filepath.Join("internal", "webserver", "domain", "git", "core"),
+	filepath.Join("internal", "webserver", "domain", "git", "query"),
+	filepath.Join("internal", "webserver", "domain", "git", "write"),
 	filepath.Join("internal", "webserver", "domain", "git", "store"),
 	filepath.Join("internal", "webserver", "domain", "git", "jobs"),
 	filepath.Join("internal", "webserver", "gitapi"),
@@ -41,6 +43,8 @@ var credScanDirs = []string{
 var credRemoteFiles = []string{
 	filepath.Join("internal", "webserver", "domain", "git", "jobs", "job.go"),
 	filepath.Join("internal", "webserver", "domain", "git", "core", "remote.go"),
+	filepath.Join("internal", "webserver", "domain", "git", "query", "remote.go"),
+	filepath.Join("internal", "webserver", "domain", "git", "write", "remote.go"),
 	filepath.Join("internal", "webserver", "gitapi", "handlers_git_remote.go"),
 }
 

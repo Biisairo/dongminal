@@ -12,6 +12,7 @@ import (
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
+	"dongminal/internal/webserver/domain/git/write"
 )
 
 // 묶음 N 서버측 — /api/git/{checkout,branch} + /api/git/branch/validate
@@ -218,8 +219,8 @@ func TestAPIGitCheckout_RemoteBranchNameConflict(t *testing.T) {
 		t.Fatalf("branch/track = %v / %v", out["branch"], out["track"])
 	}
 	opts, _ := out["options"].([]any)
-	if len(opts) != len(core.BranchConflictOptions) {
-		t.Fatalf("options = %v, want %v", opts, core.BranchConflictOptions)
+	if len(opts) != len(write.BranchConflictOptions) {
+		t.Fatalf("options = %v, want %v", opts, write.BranchConflictOptions)
 	}
 	if got := f.wrote(); len(got) != 0 {
 		t.Fatalf("거부됐는데 실행됐다: %v", got)
