@@ -431,6 +431,21 @@ test.describe('UI 개정 — 컨트롤 치수 (FR-GIT-195~199)', () => {
     const rowH = await page.locator('#area .pn-body .git-hist-list')
       .evaluate((el) => parseFloat(getComputedStyle(el).getPropertyValue('--git-row-h')));
     expect(rowH).toBe(si);
+
+    // refs 그룹 머리글은 글자만 든 단순 컨테이너다 — 그 그룹에 값이 없으면
+    // 줄어든다. 비어 있는 그룹도 자리를 알아볼 수 있어야 한다.
+    const heads = await page.evaluate(() =>
+      [...document.querySelectorAll('#area .pn-body .git-refs-head')]
+        .map((e) => Math.round((e as HTMLElement).getBoundingClientRect().height)));
+    expect(heads.length, 'refs 그룹 머리글이 없다').toBeGreaterThanOrEqual(1);
+    expect(Math.min(...heads), '머리글이 하한 아래로 줄었다: ' + JSON.stringify(heads))
+      .toBeGreaterThanOrEqual(si);
+    // 비어 있는 그룹 자체도 그만큼은 된다.
+    const groups = await page.evaluate(() =>
+      [...document.querySelectorAll('#area .pn-body .git-refs-group')]
+        .map((e) => Math.round((e as HTMLElement).getBoundingClientRect().height)));
+    expect(Math.min(...groups), '빈 refs 그룹이 줄었다: ' + JSON.stringify(groups))
+      .toBeGreaterThanOrEqual(si);
   });
 
   test('V81 (FR-GIT-199): 모바일 폭에서도 하한이 지켜진다', async ({ page }) => {
@@ -1017,7 +1032,12 @@ test.describe('UI 개정 — GIT 섹션 표식 (FR-GIT-192~194)', () => {
       await (window as any).app._gitPin(p);
     }, fx('with-remote'));
     await openGit(page, fx('basic'));
-    await expect.poll(() => gitRepos(page).count(), { timeout: 20000 }).toBeGreaterThanOrEqual(3);
+    // 합계로 기다리면 follow 가 아직 없을 때 핀 수만으로 통과했다가 아래에서
+    // 터진다 — 둘을 따로 기다린다.
+    await expect.poll(() => page.locator('#git-repos .git-repo:not(.follow)').count(),
+      { timeout: 20000 }).toBeGreaterThanOrEqual(2);
+    await expect.poll(() => page.locator('#git-repos .git-repo.follow').count(),
+      { timeout: 20000 }).toBe(1);
 
     // 이모지를 쓰지 않는다.
     const text = await page.evaluate(() => document.getElementById('git-repos')!.textContent || '');

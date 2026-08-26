@@ -1187,7 +1187,13 @@ body.mobile .git-file-check{width:14px;height:14px}
 .git-refs-all.sel,.git-ref.sel{background:var(--accent-active);color:var(--text-bright)}
 /* FR-GIT-216: refs 사이드바의 그룹도 섹션이다 */
 .git-refs-group+.git-refs-group{border-top:var(--git-sec-divider)}
-.git-refs-head{padding:4px 8px 2px;color:var(--text-dim);font-size:10px;text-transform:uppercase}
+/* FR-GIT-226: 글자만 든 **단순 컨테이너**라 그룹에 값이 없으면 18px 로 줄어든다.
+   비어 있는 그룹도 자리를 알아볼 수 있어야 한다 — 목록 행과 같은 하한을 준다.
+   (행 안의 인라인 span 은 대상이 아니다. 늘리면 행이 두 배가 된다.) */
+.git-refs-head{
+  display:flex;align-items:center;min-height:var(--git-row-min);
+  padding:4px 8px 2px;color:var(--text-dim);font-size:10px;text-transform:uppercase;
+}
 .git-ref-short{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .git-ref.head .git-ref-short{color:var(--accent)}
 .git-ref-ab{flex-shrink:0;color:var(--text-muted);font-size:10px}
@@ -1574,7 +1580,11 @@ body.mobile .git-repo-x{opacity:1;width:24px;height:24px;font-size:14px}
 }
 .git-stash-preview::-webkit-scrollbar{width:6px}
 .git-stash-preview::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-.git-stash-preview-head{padding:4px 8px;color:var(--text-dim);text-transform:uppercase;font-size:10px}
+/* FR-GIT-226: 같은 이유 — 머리글이 내용 없이 줄어들지 않는다 */
+.git-stash-preview-head{
+  display:flex;align-items:center;min-height:var(--git-row-min);
+  padding:4px 8px;color:var(--text-dim);text-transform:uppercase;font-size:10px;
+}
 .git-stash-file{
   display:flex;align-items:center;gap:6px;padding:2px 8px;cursor:pointer;
   white-space:nowrap;overflow:hidden;
