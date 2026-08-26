@@ -118,6 +118,11 @@ const GIT_ERR_GIT_MISSING='git 을 찾을 수 없습니다';
 // 이만큼 늘린다.
 const GIT_FILE_ROW_CHUNK=200;
 const GIT_FILE_VIEW_KEY='gitFileView'; // 플랫/트리 선택은 기기별 취향이다
+// FR-GIT-211: 트리의 들여쓰기 단위. 행의 padding 과 깊이 세로선이 **같은 값**을
+// 딛는다 — 두 곳에 적으면 한쪽만 고쳐져 선이 글자와 어긋난다. CSS 는 이 값을
+// `--git-indent` 로 받는다.
+const GIT_TREE_INDENT=12;
+const GIT_TREE_PAD0=6;
 // 우클릭 메뉴는 GIT_MENUS.file 이다 (FR-GIT-41·146, git-menu.js).
 
 // ── 스테이징 (GIT_SRS §3A.1 / FR-GIT-64~73) ──

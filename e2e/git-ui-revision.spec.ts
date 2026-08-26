@@ -536,6 +536,107 @@ test.describe('UI 개정 — 라디오 (FR-GIT-203~206)', () => {
   });
 });
 
+test.describe('UI 개정 — 커밋 영역의 정렬 (FR-GIT-213)', () => {
+  test('V90 (FR-GIT-213): 입력창이 폭을 다 쓰고 amend·Commit 이 그 아래 한 줄에 선다', async ({ page }) => {
+    await waitForInit(page);
+    await openChanges(page, fx('basic'));
+    const area = page.locator('#area .pn-body .git-commit');
+    await expect(area).toBeVisible({ timeout: 15000 });
+
+    const read = () => page.evaluate(() => {
+      const q = (s: string) => document.querySelector('#area .pn-body ' + s) as HTMLElement;
+      const box = (s: string) => { const e = q(s); const r = e.getBoundingClientRect();
+        return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height),
+                 cy: Math.round(r.y + r.height / 2), bottom: Math.round(r.bottom) }; };
+      return {
+        main: box('.git-commit-main'),
+        msg: box('.git-commit-msg'),
+        amend: box('.git-commit-amend'),
+        go: box('.git-commit-go'),
+      };
+    });
+
+    const a = await read();
+    // 입력창이 커밋 영역의 폭을 (거의) 다 쓴다 — 오른쪽에 세로 칸이 없다.
+    expect(a.msg.w).toBeGreaterThan(a.main.w - 4);
+    // amend·Commit 은 입력창 **아래**에 있다.
+    expect(a.amend.y).toBeGreaterThanOrEqual(a.msg.bottom - 1);
+    expect(a.go.y).toBeGreaterThanOrEqual(a.msg.bottom - 1);
+    // 그리고 서로 같은 가로줄이다 (세로 중심이 어긋나지 않는다).
+    expect(Math.abs(a.amend.cy - a.go.cy)).toBeLessThanOrEqual(1);
+    // 둘은 왼쪽에 **붙어** 선다 — 양끝으로 밀면 한 벌인 것이 상관없어 보인다.
+    expect(a.amend.x).toBeLessThan(a.go.x);
+    const gap = a.go.x - (a.amend.x + a.amend.w);
+    expect(gap, '두 컨트롤이 떨어져 있다: ' + gap + 'px').toBeLessThanOrEqual(16);
+    expect(a.go.x).toBeLessThan(a.main.x + a.main.w / 2);
+
+    // 입력창이 자라도 그 줄의 정렬은 그대로다 (FR-GIT-74 로 높이가 변한다).
+    await page.locator('#area .pn-body .git-commit-msg').fill('a\nb\nc\nd\ne\nf');
+    await page.waitForTimeout(600);
+    const b = await read();
+    expect(b.msg.h).toBeGreaterThan(a.msg.h);
+    expect(Math.abs(b.amend.cy - b.go.cy)).toBeLessThanOrEqual(1);
+    expect(b.msg.w).toBeGreaterThan(b.main.w - 4);
+  });
+});
+
+test.describe('UI 개정 — 목록의 구조 (FR-GIT-211~212)', () => {
+  test('V88 (FR-GIT-211): 트리 보기의 행이 깊이만큼 세로선을 갖는다', async ({ page }) => {
+    await waitForInit(page);
+    await openChanges(page, fx('basic'));
+    await waitFiles(page, 3);
+    await page.locator('#area .pn-body .git-files-mode[data-mode="tree"]').click();
+    await page.waitForTimeout(600);
+
+    const rows = () => page.evaluate(() =>
+      [...document.querySelectorAll('#area .pn-body .git-file, #area .pn-body .git-dir')]
+        .map((e) => {
+          const s = getComputedStyle(e);
+          return {
+            depth: Number(s.getPropertyValue('--git-depth').trim() || 0),
+            image: s.backgroundImage,
+            width: s.backgroundSize.split(' ')[0],
+          };
+        }));
+
+    const tree = await rows();
+    // basic 픽스처는 `디렉터리 한글/` 아래에 파일이 있어 깊이 1 이상인 행이 있다.
+    const deep = tree.filter((r) => r.depth > 0);
+    expect(deep.length, '들여쓴 행이 없다').toBeGreaterThan(0);
+    for (const r of deep) {
+      expect(r.image, '세로선이 없다: ' + JSON.stringify(r)).toContain('gradient');
+      // 선이 깊이만큼 그려진다 — 깊이 1 이면 한 칸(12px) 폭이다.
+      expect(r.width).toBe(r.depth * 12 + 'px');
+    }
+    // 깊이 0 인 행에는 선이 없다 (폭 0).
+    const flatRows = tree.filter((r) => r.depth === 0);
+    expect(flatRows.length).toBeGreaterThan(0);
+    for (const r of flatRows) expect(r.width).toBe('0px');
+
+    // 플랫 보기에는 들여쓴 행 자체가 없다.
+    await page.locator('#area .pn-body .git-files-mode[data-mode="flat"]').click();
+    await page.waitForTimeout(600);
+    expect((await rows()).every((r) => r.depth === 0)).toBe(true);
+  });
+
+  test('V89 (FR-GIT-212): 그룹이 선으로 나뉘고 첫 그룹 위에는 선이 없다', async ({ page }) => {
+    await waitForInit(page);
+    await openChanges(page, fx('basic'));
+    await waitFiles(page, 3);
+
+    const borders = await page.evaluate(() =>
+      [...document.querySelectorAll('#area .pn-body .git-group')].map((e) => ({
+        group: (e as HTMLElement).dataset.group,
+        top: getComputedStyle(e).borderTopWidth,
+      })));
+    expect(borders.length).toBe(4);
+    expect(borders[0].top, '첫 그룹 위에 선이 있다').toBe('0px');
+    for (const b of borders.slice(1)) {
+      expect(b.top, '구분선이 없다: ' + b.group).not.toBe('0px');
+    }
+  });
+});
+
 test.describe('UI 개정 — follow 의 근거 (FR-GIT-210)', () => {
   test('V87 (FR-GIT-210): Git 창에 들어가도 follow 가 서버 cwd 의 리포로 바뀌지 않는다', async ({ page }) => {
     const repo = fx('with-remote');

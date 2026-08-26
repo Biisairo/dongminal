@@ -411,7 +411,7 @@ class GitPanel {
       const d=document.createElement('div');
       d.className='git-dir'+(collapsed?' collapsed':'');
       d.dataset.dir=path;
-      d.style.paddingLeft=(6+depth*12)+'px';
+      this._indent(d,depth);
       d.innerHTML='<span class="git-dir-caret"></span><span class="git-dir-name"></span>';
       d.querySelector('.git-dir-caret').textContent=collapsed?'▸':'▾';
       d.querySelector('.git-dir-name').textContent=label;
@@ -431,6 +431,19 @@ class GitPanel {
     }
   }
 
+  /**
+   * FR-GIT-211: 트리의 들여쓰기와 **깊이 세로선**.
+   *
+   * 트리 행은 중첩 DOM 이 아니라 패딩으로 들여쓴 평평한 목록이다 — 조상 요소가
+   * 없으니 선을 걸 자리도 없다. 그래서 깊이를 행에 실어 CSS 가 배경으로 그 수만큼
+   * 반복해 그린다. 패딩과 선이 같은 상수를 딛는다.
+   */
+  _indent(el,depth){
+    const d=depth||0;
+    el.style.setProperty('--git-depth',d);
+    if(d) el.style.paddingLeft=(GIT_TREE_PAD0+d*GIT_TREE_INDENT)+'px';
+  }
+
   _rowEl(group,e,depth){
     const d=document.createElement('div');
     // 충돌 행은 따로 구분한다 (FR-GIT-37). M1 은 표시만 한다.
@@ -440,7 +453,7 @@ class GitPanel {
     if(partial) d.classList.add('partial');
     d.dataset.path=e.path; d.dataset.group=group;
     if(e.origPath) d.dataset.origPath=e.origPath;
-    if(depth) d.style.paddingLeft=(6+depth*12)+'px';
+    this._indent(d,depth);
     // FR-GIT-187·189: 선택은 행 자체다 (체크박스 없음). 선택(`sel`)과 포커스
     // (`cur`, 미리보기 대상)를 나눈다 — 같게 그리면 미리보기가 어느 행을 보이는지
     // 알 수 없다.

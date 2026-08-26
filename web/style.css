@@ -843,21 +843,33 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .git-commit{
   display:flex;flex-direction:column;gap:4px;
   padding:6px 10px 0;border-bottom:1px solid var(--border);
+  /* FR-GIT-213 으로 Commit 이 영역의 아래끝으로 내려왔다. `▾` 메뉴는 그 아래로
+     열리므로 파일 목록 위를 덮는다 — 쌓임 순서를 여기서 올려 두지 않으면 뒤에
+     오는 형제(.git-changes-body)가 메뉴를 가려 클릭이 먹지 않는다. */
+  position:relative;z-index:5;
 }
-.git-commit-main{display:flex;gap:8px;min-width:0}
+/* FR-GIT-213: 입력창이 폭을 다 쓰고, 옵션·실행이 그 아래 한 줄에 **왼쪽으로 모여**
+   선다. 옆에 세우면 입력창 높이에 따라 amend 와 Commit 사이 간격이 계속 달라지고,
+   양끝으로 밀면 한 벌인 것이 서로 상관없어 보인다. 파일 목록이 왼쪽이므로 눈이
+   그쪽에서 내려온다. */
+.git-commit-main{display:flex;flex-direction:column;gap:6px;min-width:0}
+/* 높이는 _grow()·_drag() 가 직접 정한다 — 세로 flex 에서 늘고 줄면 드래그한
+   높이가 도로 접힌다 (FR-GIT-74). 폭은 stretch 가 채운다. */
 .git-commit-msg{
-  flex:1 1 auto;min-width:0;resize:none;overflow-y:auto;
+  flex:0 0 auto;min-width:0;resize:none;overflow-y:auto;
   font:inherit;font-size:12px;padding:4px 6px;line-height:17px;
   background:var(--bg);color:var(--text);
   border:1px solid var(--border);border-radius:3px;
 }
 .git-commit-msg:disabled{color:var(--text-dim)}
-.git-commit-side{display:flex;flex-direction:column;justify-content:space-between;gap:4px;flex-shrink:0}
-.git-commit-amend{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-dim);cursor:pointer}
+.git-commit-bar{display:flex;align-items:center;gap:8px;min-width:0}
+.git-commit-spacer{flex:1 1 auto}
+/* 라벨이 체크박스보다 흐리면 무엇을 켜는 것인지 읽히지 않는다 */
+.git-commit-amend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);cursor:pointer;flex-shrink:0}
 /* FR-GIT-85: 서명이 활성이면 그 사실을 보인다 */
-.git-commit-gpg{display:none;font-size:10px;color:var(--accent);white-space:nowrap}
+.git-commit-gpg{display:none;font-size:11px;color:var(--accent);white-space:nowrap;flex-shrink:0}
 .git-commit-gpg.vis{display:block}
-.git-commit-go{position:relative;display:flex;gap:0}
+.git-commit-go{position:relative;display:flex;gap:0;flex-shrink:0}
 .git-commit-btn{border-top-right-radius:0;border-bottom-right-radius:0}
 .git-commit-more{
   font:inherit;font-size:11px;padding:2px 6px;cursor:pointer;
@@ -867,8 +879,10 @@ body.mobile .sb-title{padding:14px 14px 8px}
 }
 .git-commit-more.active{background:var(--accent-active);color:var(--text-bright)}
 /* FR-GIT-79: 조합 명령 20개를 대체하는 옵션 3개. 기억하지 않으므로 항상 꺼진 채 열린다 */
+/* FR-GIT-213 으로 Commit 이 왼쪽에 서므로 메뉴도 **오른쪽으로 펼친다**.
+   `right:0` 이면 버튼 왼쪽으로 자라 `.git-view` 의 overflow 에 잘려 누를 수 없다. */
 .git-commit-menu{
-  display:none;position:absolute;right:0;top:calc(100% + 3px);z-index:20;
+  display:none;position:absolute;left:0;top:calc(100% + 3px);z-index:20;
   min-width:170px;padding:4px;font-size:11px;
   background:var(--bg);border:1px solid var(--border);border-radius:5px;
   box-shadow:0 6px 24px rgba(0,0,0,.5);
@@ -936,6 +950,9 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .git-files-mode.active{background:var(--accent-active);color:var(--text-bright);border-color:var(--accent-border)}
 .git-files-spacer{flex:1 1 auto}
 /* FR-GIT-69: 선택이 있을 때만 보인다 — 없을 때 자리를 차지할 이유가 없다 */
+/* FR-GIT-212: 그룹을 선으로 나눈다. 첫 그룹 위에는 없다 — 목록의 시작이지
+   경계가 아니다 */
+.git-group+.git-group{border-top:1px solid var(--border)}
 .git-group-head{
   display:flex;align-items:center;gap:5px;padding:3px 8px;cursor:pointer;
   font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);
@@ -954,16 +971,27 @@ body.mobile .sb-title{padding:14px 14px 8px}
 }
 .git-group-bulk:disabled{color:var(--text-dim);cursor:not-allowed}
 /* FR-GIT-197: 행 자체가 클릭 대상이다 (FR-GIT-187) — 히트 영역이 곧 행 높이이므로
-   VSCode 의 목록 행(22px)을 하한으로 둔다. 좌측 여백은 포커스 바가 쓴다 */
+   VSCode 의 목록 행(22px)을 하한으로 둔다. 좌측 여백은 포커스 바가 쓴다.
+
+   FR-GIT-211: 깊이 세로선은 **행의 배경**이다. 트리 행이 중첩 DOM 이 아니라
+   패딩으로 들여쓴 평평한 목록이라 선을 걸 조상 요소가 없다 — `--git-depth` 만큼
+   반복해 그린다. 그래서 아래 hover·선택은 `background-color` 여야 한다:
+   `background` 축약을 쓰면 이 선이 함께 지워진다. */
 .git-file,.git-dir{
+  --git-depth:0;
   display:flex;align-items:center;gap:6px;padding:0 6px 0 9px;
   min-height:22px;font-size:12px;white-space:nowrap;cursor:pointer;
   border-left:3px solid transparent;
+  background-image:repeating-linear-gradient(to right,
+    var(--border) 0 1px, transparent 1px var(--git-indent));
+  background-repeat:no-repeat;
+  background-position:var(--git-tree-pad0) 0;
+  background-size:calc(var(--git-depth) * var(--git-indent)) 100%;
 }
-.git-file:hover,.git-dir:hover{background:var(--accent-hover)}
+.git-file:hover,.git-dir:hover{background-color:var(--accent-hover)}
 /* FR-GIT-189: 선택은 배경, 포커스(미리보기 대상)는 좌측 바다. 둘을 배경 농도로만
    나누면 테마에 따라 구분이 사라진다 (O17) */
-.git-file.sel{background:var(--accent-active)}
+.git-file.sel{background-color:var(--accent-active)}
 .git-file.cur{border-left-color:var(--accent)}
 .git-file-st{width:10px;flex-shrink:0;text-align:center;color:var(--text-muted);font-family:monospace}
 .git-file-path{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -1467,7 +1495,9 @@ body.mobile .git-repo-x{opacity:1;width:24px;height:24px;font-size:14px}
    VSCode 기준: action bar 아이콘 버튼 22×22, button 26, list row 22.
    값은 여기 한 번만 둔다 — 선택자마다 흩어지면 한쪽만 고쳐진다.
    `min-*` 만 쓰므로 모바일의 더 큰 값은 그대로 남는다 (FR-GIT-199). */
-:root{--git-hit:22px;--git-btn-h:26px;--git-row-min:22px}
+:root{--git-hit:22px;--git-btn-h:26px;--git-row-min:22px;
+  /* GIT_TREE_INDENT · GIT_TREE_PAD0 (constants.js) 과 같은 값 */
+  --git-indent:12px;--git-tree-pad0:9px}
 
 .git-view button,.git-dialog button,#git-confirm button,.git-menu-item{
   min-height:var(--git-btn-h);min-width:var(--git-hit);

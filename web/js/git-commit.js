@@ -41,9 +41,12 @@ class GitCommit {
     if(!el) return;
     this._el=el;
     el.innerHTML=
+      // 입력창은 폭을 다 쓰고, 옵션과 실행은 그 아래 한 줄에 **왼쪽으로 모아**
+      // 선다 (FR-GIT-213). 옆에 세우면 입력창 높이에 따라 둘 사이 간격이 계속
+      // 달라지고, 양끝으로 밀면 서로 상관없는 것처럼 멀어진다.
       '<div class="git-commit-main">'+
         '<textarea class="git-commit-msg"></textarea>'+
-        '<div class="git-commit-side">'+
+        '<div class="git-commit-bar">'+
           '<label class="git-commit-amend"><input type="checkbox"><span></span></label>'+
           '<span class="git-commit-gpg"></span>'+
           '<div class="git-commit-go">'+
@@ -51,6 +54,7 @@ class GitCommit {
             '<button class="git-commit-more"></button>'+
             '<div class="git-commit-menu"></div>'+
           '</div>'+
+          '<span class="git-commit-spacer"></span>'+
         '</div>'+
       '</div>'+
       '<div class="git-commit-why"></div>'+
