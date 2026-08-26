@@ -134,7 +134,7 @@ grep -rn "lfsOid\|lfsSize" web/js/   # → 0건이면 안 그리고 있는 것�
 | `12ed17d` | **D-1 / FR-GIT-119** — `defineTheme` 이 `diffEditor.*` 를 매핑하지 않아 diff 색만 Monaco 기본값에 고정됐다. 테마의 `terminal.green`·`red` 를 배경과 섞어 파생한다 (e2e D11) |
 | `756b1b8` | **D-2 / FR-GIT-47** — 서버가 싣는 LFS 메타를 클라이언트가 그리지 않았다. 해석 I9 로 확정하고 FR-GIT-46·48 의 크기까지 함께 보인다 (e2e D12·D13) |
 | `4c7151a` | **2차 사용자 검토 4건** — FR-GIT-215 untracked 디렉터리 붕괴(P0) · FR-GIT-216 섹션 경계 · FR-GIT-214 GIT 섹션 간격 · FR-GIT-217 취소 요청 499 |
-| (이번) | **FR-GIT-218 Console 탭** — Recorder 의 실행 기록을 읽는 화면. `GET /api/git/records` + `GitConsole`. 폴링은 기본에서 감추고 토글로 연다 |
+| `04146a6` | **FR-GIT-218 Console 탭** — Recorder 의 실행 기록을 읽는 화면. `GET /api/git/records` + `GitConsole`. 폴링은 기본에서 감추고 토글로 연다 |
 
 **함께 잡은 결함 5건** (전부 실사에서 나왔다):
 
