@@ -132,12 +132,6 @@ func (g *gatedPersister) writes() int {
 	defer g.mu.Unlock()
 	return g.wrote
 }
-func (g *gatedPersister) bytes() []byte {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	return append([]byte(nil), g.data...)
-}
-
 func waitFor(t *testing.T, cond func() bool, timeout time.Duration, msg string) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)

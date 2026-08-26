@@ -63,17 +63,3 @@ func httpGet(url string) (status int, respBody []byte, err error) {
 	data, err := io.ReadAll(resp.Body)
 	return resp.StatusCode, data, err
 }
-
-func httpPostEmpty(url string) (status int, respBody []byte, err error) {
-	req, err := http.NewRequest(http.MethodPost, url, nil)
-	if err != nil {
-		return 0, nil, err
-	}
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return 0, nil, err
-	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	return resp.StatusCode, data, err
-}

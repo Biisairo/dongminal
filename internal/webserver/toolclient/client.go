@@ -63,7 +63,6 @@ type ToolClient struct {
 type earlyPush struct {
 	event string
 	tool  string
-	data  []byte
 	code  int
 }
 

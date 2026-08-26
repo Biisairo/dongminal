@@ -89,12 +89,6 @@ func (f *fakeCommandBroker) Broadcast(payload []byte) int {
 	return 1
 }
 
-func (f *fakeCommandBroker) count() int {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return len(f.published)
-}
-
 // ── 테스트 핸들러 ────────────────────────────────────
 
 // handler는 Handle 을 http.Handler 로 감싼다. 라우팅 miss 는 운영과 같은 404 다

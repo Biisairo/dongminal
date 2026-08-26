@@ -12,11 +12,6 @@ import (
 	"dongminal/internal/shared/workspace"
 )
 
-type stubPersister struct{ data []byte }
-
-func (s *stubPersister) Read() ([]byte, error)   { return s.data, nil }
-func (s *stubPersister) Write(data []byte) error { s.data = data; return nil }
-
 func TestToolAdapter_EmptyManager(t *testing.T) {
 	pm := toolhub.NewToolManager(t.TempDir(), nil)
 	a := Tool{PM: pm}

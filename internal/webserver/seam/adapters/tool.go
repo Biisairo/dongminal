@@ -1,5 +1,5 @@
-// Package adapters는 internal/{server,workspace} 의 구체 타입을
-// internal/toolaccess 인터페이스로 브리지하는 어댑터들을 모은다.
+// Package adapters는 internal/webserver/httpapi·internal/shared/workspace 의 구체
+// 타입을 internal/webserver/seam/toolaccess 인터페이스로 브리지하는 어댑터들을 모은다.
 // main 패키지에서 쓰이던 wiring 코드를 한 곳으로 정리한다.
 package adapters
 
@@ -19,16 +19,6 @@ import (
 type Tool struct {
 	PM  *toolhub.ToolManager
 	Hub toolhub.ToolHub
-}
-
-func (a Tool) getPane(id string) *toolhub.Tool {
-	if a.PM != nil {
-		return a.PM.Get(id)
-	}
-	if a.Hub != nil {
-		return a.Hub.Get(id)
-	}
-	return nil
 }
 
 func (a Tool) listPanes() []*toolhub.Tool {
