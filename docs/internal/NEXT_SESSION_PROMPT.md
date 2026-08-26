@@ -51,7 +51,7 @@ dongminal Git 창 트랙을 이어간다. **코드에 알려진 결함은 없다
   go build ./... && go vet ./... && go test ./... -race && gofmt -l .
   npx playwright test --retries=1
 
-  ※ --retries=1 의 근거는 GIT_REMAINING.md §5 에 있다. 전체 실행은 부하에 민감해
+  ※ --retries=1 의 근거는 GIT_REMAINING.md §4 에 있다. 전체 실행은 부하에 민감해
     0~1건이 간헐 실패하며 제품 결함이 아님을 확인했다. 진짜 실패는 두 번 모두
     실패하므로 게이트의 뜻은 그대로다.
 
@@ -61,7 +61,7 @@ dongminal Git 창 트랙을 이어간다. **코드에 알려진 결함은 없다
   PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
   → web/ 자산은 embed 라 고칠 때마다 다시 빌드해야 화면에 반영된다.
 
-하지 말 것 (GIT_REMAINING.md §4):
+하지 말 것 (GIT_REMAINING.md §3):
 - Console 탭의 "준비 중"을 고치지 마라. 표시는 의도적으로 P1(비목표)이다.
 - 비목표(hunk 스테이징·merge editor·인터랙티브 rebase·브랜치 삭제·clone/init 등)를
   구현하지 마라.

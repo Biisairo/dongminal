@@ -5,7 +5,7 @@
 > [`./GIT_UI_REVISION_SRS.md`](./GIT_UI_REVISION_SRS.md) (FR-GIT-179~213).
 > 그 문서가 **FR-GIT-27·30 을 폐기**하고 **13·35·41·69 를 개정**했으며, 충돌하면
 > **개정 문서가 앞선다**. 트랙을 닫을 때 본문에 흡수한다
-> (`./GIT_REMAINING.md §3`).
+> (`./GIT_REMAINING.md §2`).
 
 ## 1. 개요 (Introduction)
 

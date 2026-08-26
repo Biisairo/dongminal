@@ -3,37 +3,22 @@
 > MVP 코드는 1~20단계가 끝났고(`525ca24`), 미구현이던 P0 2건도 끝났다(`967c097`).
 > 그 뒤 사용자 검토로 UI 를 개정했고(`f6b0ef1` · `0ad7ba6`), 21단계 실사에서 나온
 > 결함 2건(diff 테마 색 · LFS 메타)도 끝났다(`12ed17d` · `756b1b8`).
+> **2차 사용자 검토 4건**(untracked 붕괴 · 섹션 경계 · GIT 섹션 간격 · 취소 요청)도
+> 끝났다(`4c7151a`).
+> **알려진 코드 결함은 없다** — 남은 것은 실사와 문서다.
 > 이 문서는 **아직 끝나지 않은 것만** 담는다.
 >
 > - 요구사항: [`./GIT_SRS.md`](./GIT_SRS.md) (FR-GIT-1~178)
 > - **개정**: [`./GIT_UI_REVISION_SRS.md`](./GIT_UI_REVISION_SRS.md) (FR-GIT-179~213).
->   FR-GIT-27·30 을 폐기하고 13·35·41·69 를 개정했다 — **그쪽이 본 문서보다 앞선다**
+>   FR-GIT-27·30 을 폐기하고 13·35·41·69 를 개정했다 (FR-GIT-179~217) — **그쪽이 본 문서보다 앞선다**
 > - 설계 근거: [`./design/`](./design/)
 > - 수동 검증: [`./GIT_MANUAL_CHECKLIST.md`](./GIT_MANUAL_CHECKLIST.md) (1·2회차 실사 기록 포함)
 >
-> 갱신: 2026-08-26 (결함 2건 완료)
+> 갱신: 2026-08-26 (실사 결함 2건 + 2차 검토 4건 완료)
 
 ---
 
-## 1. 로그 위생 1건 (P1)
-
-**증상**: 페이지를 새로고침할 때마다 서버 로그에 `/api/git/status`·`/signature`·
-`/refs` 가 **500** 으로 서너 줄 남는다. 본문은
-`{"error":"git_failed","message":"git rev-parse --show-toplevel: signal: killed"}`.
-
-**진단**: 브라우저가 언로드하며 취소한 요청이다. 핸들러가 `r.Context()` 를 그대로
-git 실행에 넘기므로 요청이 끊기면 `exec.CommandContext` 가 git 을 SIGKILL 하고,
-그 오류가 500 이 된다.
-
-**화면에는 영향이 없다** — 같은 순간 셸에서 0.25초 간격으로 60회 폴링한 것은
-**전부 200** 이었고, 새로고침 후 UI 에 오류 표시가 남지 않는다.
-
-**고칠 값어치**: 진짜 장애와 구분되지 않는 로그가 남는다. 취소된 요청은
-`context.Canceled` 로 갈라 499(또는 무기록)로 마감하는 것이 맞다.
-
----
-
-## 2. 21단계 수동 검증의 남은 항목
+## 1. 수동 검증의 남은 항목
 
 1회차(2026-08-26)에서 G1~G5 를 훑었다. 결과는
 [`./GIT_MANUAL_CHECKLIST.md`](./GIT_MANUAL_CHECKLIST.md) 에 항목별로 적혀 있다.
@@ -72,7 +57,7 @@ PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
 
 ---
 
-## 3. 문서 정리 (트랙을 닫을 때)
+## 2. 문서 정리 (트랙을 닫을 때)
 
 - [ ] `GIT_UI_REVISION_SRS.md` 의 FR-GIT-179~213 을 `GIT_SRS.md` 본문에 흡수하고,
       폐기된 FR-GIT-27·30 을 그쪽 본문에서 지운다
@@ -82,7 +67,7 @@ PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
 
 ---
 
-## 4. 의도적으로 남긴 것 (고치지 마라)
+## 3. 의도적으로 남긴 것 (고치지 마라)
 
 | 항목 | 근거 |
 |---|---|
@@ -96,7 +81,7 @@ PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
 
 ---
 
-## 5. 알려진 간헐 실패 (제품 결함 아님)
+## 4. 알려진 간헐 실패 (제품 결함 아님)
 
 전체 e2e 실행에서 **0~1건이 간헐적으로 실패한다.**
 
@@ -117,7 +102,7 @@ PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
 
 ---
 
-## 6. 이 트랙 밖의 남은 별건
+## 5. 이 트랙 밖의 남은 별건
 
 | 항목 | 상태 |
 |---|---|
