@@ -17,6 +17,7 @@ internal/
     boot/                #   데몬 진입점 (Run). 웹 서버를 재시작해도 세션이 살아남는 이유
     ipc/                 #   PanedServer — Unix socket accept 루프 (연결 하나를 직렬 처리)
   webserver/             # ③ 웹 서버 프로세스
+    httpapi/             #   HTTP/WS/SSE 라우팅 + settingsStore + 잔여 핸들러 (Server)
     gitapi/              #   /api/git/* 핸들러 48개 (GitServer). 라우트 테이블을 스스로 소유
     hub/                 #   CommandHub·SSE 브로커 · FocusRegistry · AttnTracker
     toolclient/          #   ToolClient — 데몬에 붙는 IPC 클라 (재접속 supervisor 포함)
@@ -47,7 +48,6 @@ internal/
       shellhooks/        #     bash-hook.sh, zdotdir/.zshrc (실제 파일)
       agentplugin/       #     세션 스코프 주입 플러그인 (skills/team, skills/workflow)
     agentadapter/        #   ①③  — 에이전트별 선언 테이블 (기동·탐지·주입·훅 파서·종료)
-  server/                # ③ HTTP/WS/SSE 라우팅 + settingsStore (분할 잔여 — 아래 주석)
 web/                     # 프론트엔드 자산 + embed.FS()
   js/core/               #   App 클래스 (app.js + 주제별 app-*.js 13) + constants·helpers·main
   js/ui/                 #   themes·renderer·term-pane·input-binding·file-editor
@@ -59,9 +59,13 @@ docs/
   external/              # 사용자 문서
 ```
 
-**`internal/server` 가 프로세스 축 밖에 남아 있는 것은 미완이다.** 실질은
-`webserver/httpapi` 이고, 디렉터리 이동만 하면 축이 예외 없이 완성된다. 핸들러
-추가 분할(`handlers_api.go` 701줄)과 함께 다룰 문제로 미뤄 뒀다 —
+**프로세스 축에 예외는 없다.** 마지막까지 축 밖에 있던 `internal/server` 가
+`internal/webserver/httpapi` 로 들어오면서 모든 패키지가 네 프로세스 중 하나 또는
+`shared/` 에 속한다. 판정 기준은 링크 클로저가 아니라 **실행**이다 — 단일 바이너리라
+클로저는 네 프로세스가 모두 같고, 그것으로는 아무것도 갈리지 않는다.
+
+`handlers_api.go`(672줄, `*Server` 메서드 25개)의 추가 분할은 여전히 열려 있다.
+프로세스·역할 경계는 이미 표현됐고 단일 파일 크기는 별개 문제라는 판단이다 —
 PACKAGE_RESTRUCTURE_SRS §5 비목표 #4.
 
 **프론트엔드는 번들러가 없다.** `index.html` 이 `<script>` 로 원본을 순서대로 로드하므로
@@ -89,7 +93,7 @@ PACKAGE_RESTRUCTURE_SRS §5 비목표 #4.
 
 **agent-hooks** — `installAgentHooks` 가 `bin/agent-hooks/` 에 Claude Code hooks settings 를 생성한다. hook 커맨드는 `dmctl` 을 절대경로로 참조해, PATH 앞쪽의 낡은 `dmctl` 이 `notify` 를 모르는 사고를 막는다.
 
-도구 스폰 시 `StartTool` 이 환경을 덧붙인다 (`internal/server/tool.go`):
+도구 스폰 시 `StartTool` 이 환경을 덧붙인다 (`internal/shared/toolhub/tool.go`):
 
 ```
 PATH=<기존>:$DONGMINAL_HOME/bin
@@ -513,7 +517,7 @@ fingerprint·수동 `sleep` 루프·삭제된 자산 참조·손으로 조립한
 
 `dmctl` 은 이 중 `detachTab`·`restoreTool` 을 제외한 나머지를 서브커맨드로 노출한다. 그 둘은 `toolId` 를 대상 지정자로 받아 `detach` CLI 전용 경로다.
 
-이 화이트리스트는 생산자(브라우저 `_execRemote`, `dmctl`, `detach`)와 대조 검증된다 (`internal/server/commands_browser_test.go`). 생산자가 처리하는 action 이 여기 없으면 `POST /api/commands` 가 400 으로 거부해 브라우저 코드에 도달하지 못하는데, 스텁 서버로 테스트하는 CLI 쪽은 그 결함을 볼 수 없다.
+이 화이트리스트는 생산자(브라우저 `_execRemote`, `dmctl`, `detach`)와 대조 검증된다 (`internal/webserver/httpapi/commands_browser_test.go`). 생산자가 처리하는 action 이 여기 없으면 `POST /api/commands` 가 400 으로 거부해 브라우저 코드에 도달하지 못하는데, 스텁 서버로 테스트하는 CLI 쪽은 그 결함을 볼 수 없다.
 
 ## git 실행 계층 (`internal/webserver/domain/git`)
 
@@ -586,7 +590,7 @@ HTTP `PUT /api/workspace` 핸들러는 `Save(blob, ifMatch)` 호출 → 인덱�
 
 또한 `/api/tools` POST 에 `cwdTool=<refToolId>` 쿼리 지원 → 클라이언트가 `/api/cwd` 사전 조회할 필요 없음 (RT 1 건 제거).
 
-## 터미널 스냅샷 재생 (`internal/server/snapshot_clean.go`)
+## 터미널 스냅샷 재생 (`internal/webserver/httpapi/snapshot_clean.go`)
 
 브라우저가 붙거나 새로고침하면 서버가 도구의 스크롤백을 그대로 되뿌린다. 이 재생분은
 **살아 있는 출력이 아니라 기록**이므로, 클라이언트 터미널이 답장할 거리를 남겨서는
@@ -628,7 +632,7 @@ WS 구독 쪽 규칙도 같은 뿌리다: 데몬 모드의 출력 릴레이(`rel
 
 ## 테스트
 
-- `internal/server/*_test.go` — HTTP 라우팅, DI, 도구 CRUD, 커맨드 화이트리스트의 생산자 대조.
+- `internal/webserver/httpapi/*_test.go` — HTTP 라우팅, DI, 도구 CRUD, 커맨드 화이트리스트의 생산자 대조.
 - `internal/shared/workspace/*_test.go` — Save 비차단·coalescing·Close flush, parse, resolve.
 - `internal/shared/outbuf/*_test.go` — Feed/Snapshot/compaction/통계.
 - `internal/shared/runtime/*_test.go` — bin/ 전개, 세션 스코프 플러그인·훅 생성.

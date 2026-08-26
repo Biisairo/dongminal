@@ -19,7 +19,6 @@ import (
 	"dongminal/internal/ctl/cli"
 	"dongminal/internal/daemon/boot"
 	"dongminal/internal/helper/runtimebin"
-	"dongminal/internal/server"
 	"dongminal/internal/shared/runtime"
 	"dongminal/internal/shared/uuid"
 	"dongminal/internal/shared/workspace"
@@ -28,6 +27,7 @@ import (
 	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/domain/sysstat"
 	"dongminal/internal/webserver/domain/worktree"
+	"dongminal/internal/webserver/httpapi"
 	"dongminal/internal/webserver/seam/adapters"
 	"dongminal/internal/webserver/toolclient"
 	"dongminal/web"
@@ -137,14 +137,14 @@ func startDaemon(home string) error {
 }
 
 type builtDeps struct {
-	deps        server.Deps
+	deps        httpapi.Deps
 	pm          *toolhub.ToolManager
 	attnTracker *hub.AttnTracker
 	sampler     *sysstat.Sampler
 	wsMgr       *workspace.Manager
 }
 
-func buildDeps(cfg server.Config) (builtDeps, error) {
+func buildDeps(cfg httpapi.Config) (builtDeps, error) {
 	pm := toolhub.NewToolManager(cfg.DataDir, nil)
 	cmdHub := hub.NewCommandHub()
 	// Wire attention SSE before LoadAll so restored tools also get detection.
@@ -170,7 +170,7 @@ func buildDeps(cfg server.Config) (builtDeps, error) {
 // buildDepsWithHub is the daemon-mode variant that uses a ToolHub (ToolClient)
 // instead of a direct ToolManager. Attention/activity are not wired here
 // because in daemon mode they are driven by output push events from dongminald.
-func buildDepsWithHub(cfg server.Config, toolHub toolhub.ToolHub) (builtDeps, error) {
+func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub) (builtDeps, error) {
 	cmdHub := hub.NewCommandHub()
 
 	// Attention/activity tracker for daemon mode (in-memory in dongminal).
@@ -188,7 +188,7 @@ func buildDepsWithHub(cfg server.Config, toolHub toolhub.ToolHub) (builtDeps, er
 // buildCommonDeps wires up the managers shared by both direct and daemon modes.
 // toolHub provides Liveness (IsLive) for the workspace manager and ToolHub for
 // the tool adapters.
-func buildCommonDeps(cfg server.Config, toolHub toolhub.ToolHub, cmdHub *hub.CommandHub, attnTracker *hub.AttnTracker) (builtDeps, error) {
+func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.CommandHub, attnTracker *hub.AttnTracker) (builtDeps, error) {
 
 	wsMgr, err := workspace.New(toolHub, workspace.FilePersister{Path: dataPath(cfg.DataDir, "workspace.json")})
 	if err != nil {
@@ -231,7 +231,7 @@ func buildCommonDeps(cfg server.Config, toolHub toolhub.ToolHub, cmdHub *hub.Com
 	gitStore := store.NewStore(core.New())
 
 	return builtDeps{
-		deps: server.Deps{
+		deps: httpapi.Deps{
 			Tools:       toolHub,
 			Work:        wsMgr,
 			Commands:    cmdHub,
@@ -304,7 +304,7 @@ func serve(home, host, port string) int {
 		return 1
 	}
 
-	cfg := server.Config{Port: port, DataDir: home, StaticFS: web.FS()}
+	cfg := httpapi.Config{Port: port, DataDir: home, StaticFS: web.FS()}
 
 	// Try daemon mode: connect to dongminald if available
 	panedClient := dialOrStartDaemon(home)
@@ -343,7 +343,7 @@ func serve(home, host, port string) int {
 	}
 	log.Printf("workspace manager ready rev=%d bytes=%d", bd.wsMgr.CurrentRev(), len(bd.wsMgr.Raw()))
 
-	srv, err := server.New(cfg, bd.deps)
+	srv, err := httpapi.New(cfg, bd.deps)
 	if err != nil {
 		log.Printf("server init: %v", err)
 		return 1

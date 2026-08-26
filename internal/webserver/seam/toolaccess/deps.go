@@ -1,6 +1,6 @@
 // Package toolaccess 는 도구(PTY)·워크스페이스·커맨드 허브에 대한 읽기·쓰기 접합면을
-// 인터페이스로 정의한다. 구체 타입(internal/server, internal/workspace)을 소비자에게
-// 노출하지 않기 위한 경계이며, 구현은 internal/adapters 가 제공한다.
+// 인터페이스로 정의한다. 구체 타입(internal/webserver/httpapi, internal/shared/workspace)을 소비자에게
+// 노출하지 않기 위한 경계이며, 구현은 internal/webserver/seam/adapters 가 제공한다.
 package toolaccess
 
 // ToolInfo is a minimal summary of a live tool for tool consumption.

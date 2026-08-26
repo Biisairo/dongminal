@@ -828,6 +828,7 @@ alias 가 필요해진다 — FR-DIR-3(alias 불필요)과 충돌한다. 클라�
 | 12 | F | 완료 | 참조처 갱신 — e2e 4곳, `commands_browser_test.go`, `README.md`, `architecture.md`, `getting-started.md`, `docs/internal/README.md`. §8.8 |
 | 13 | G | 완료 | README 테스트 절 신설(e2e 절차 + 격리 실행 안내), `build.sh` 주석 |
 | 14 | — | 완료 | §8.10 |
+| 15 | H | 완료 | §8.11 — `server` → `webserver/httpapi`. FR-SRV-6 충족, 프로세스 축 밖 0개 |
 
 ### 8.10 최종 검증 (단계 14)
 
@@ -873,3 +874,65 @@ jobs  ← core
 정리는 `start` 가 출력한 PID 와 격리 홈의 `paned.pid` 만 직접 kill 한다. 운영
 인스턴스를 대상으로 삼지 않는 가드(URL 이 58146 이거나 홈이 `~/.dongminal` 이면
 중단)를 넣었다. 이 재구성 내내 운영 인스턴스 PID 는 변하지 않았다.
+
+### 8.11 단계 15: `internal/server` → `internal/webserver/httpapi`
+
+**FR-DIR-3·FR-SRV-6 이 처음부터 `httpapi` 를 명세했다.** 묶음 H 는 `gitapi`·`hub` 를
+갈라내는 데까지만 갔고 잔여는 `internal/server` 라는 이름·위치로 남았다 — 그래서
+29개 패키지 중 이것 하나만 프로세스 축 밖에 있었다. 이 단계는 새 결정이 아니라
+**FR-SRV-6 의 뒤늦은 충족**이다.
+
+`package http` 로 하면 표준 `net/http` 와 충돌해 전 파일에 alias 가 필요해진다.
+`httpapi` 는 그 대안이다 (FR-DIR-3).
+
+**범위가 좁았던 이유.** 묶음 H 가 이미 의존 방향을 단방향으로 정리해 둔 덕에,
+`dongminal/internal/server` 를 import 하는 곳은 `cmd/dongminal/main.go` **하나뿐**이었다
+(`Deps`·`Config`·`New` 참조 7곳). 나머지는 디렉터리 이동과 `package` 선언 46개 개명이다.
+
+**컴파일러가 잡지 못한 것 3건.** 디렉터리가 한 단계 깊어지는 이동이라 경로 문자열이
+문제였다. 셋 다 `go build` 는 통과한다.
+
+| 위치 | 내용 | 발현 |
+|---|---|---|
+| `commands_browser_test.go:20` | `os.ReadFile("../../web/js/core/app-cmd.js")` | 테스트 실행 시 파일 없음 — `../../../` 로 정정 |
+| `credentials_static_test.go` `credScanDirs` | `internal/server` 를 `os.ReadDir` | `t.Fatalf` — 새 경로로 **치환**(항목 삭제 아님) |
+| `write_test.go` W3 자기검사 | 부정 예시 경로 문자열 2개 | 정규식 매칭이라 실패하지 않지만 실경로와 어긋남 |
+
+보호 테스트의 임계값(`scanned < 40`)과 스캔 범위는 그대로다. `execWriteAllowed` 는
+`internal/webserver/gitapi/` 로 앵커돼 있어 `httpapi` 는 여전히 거부된다 — 검사 강도가
+줄지 않았다.
+
+**BSD `sed` 의 `\b` 가 또 조용히 실패했다.** §8.6 에 적힌 것과 같은 함정이다.
+`s|\bserver\.Deps\b|...|` 가 아무것도 바꾸지 않았고 빌드는 그대로 통과해서, `grep` 으로
+확인하지 않았으면 다음 단계까지 끌고 갈 뻔했다. 단어 경계 대신 **치환 후 `grep` 으로
+잔여를 세는 것**이 확실하다.
+
+**검증**
+
+| 항목 | 결과 |
+|---|---|
+| `go build ./...` | 통과 |
+| `go vet ./...` | 통과 |
+| `go test ./...` | 25패키지 전량 통과 (`dongminal/internal/webserver/httpapi` 34.1s) |
+| `gofmt -l internal/ cmd/ web/` | 무변경 |
+| `npx playwright test` | **398 통과 / 0 실패** — 기준선과 동일 |
+
+기준선은 §8.10 과 동일한 조건에서 다시 떴다 — Go 전량 통과 / e2e **398 통과 0 실패**.
+§8.10 이 flaky 로 판정한 2건(`git-ui-revision.spec.ts:1026` V79,
+`background-restore-at.spec.ts:264` TC-BGR-9)은 이번 기준선에서 둘 다 통과했다.
+
+**최종 규모**
+
+패키지 수는 변하지 않는다 — 이동이지 분할이 아니다. 바뀐 것은 **프로세스 축 밖에
+남은 패키지가 1개에서 0개가 된 것**이다.
+
+| | 단계 14 후 | 단계 15 후 |
+|---|---|---|
+| 프로세스 축 밖 패키지 | `internal/server` 1개 | **0개** |
+| 잔여 패키지 위치 | `internal/server` | `internal/webserver/httpapi` |
+| 소스(비테스트) | 13파일 2,885줄 | 13파일 2,885줄 (무변경) |
+| 테스트 | 33파일 | 33파일 (무변경) |
+
+`handlers_api.go` 는 착수 시점 701줄에서 **672줄**이다 — 단계 7에서 git 라우트 36행이
+`gitapi` 로 빠졌다. §5 비목표 #4 의 701줄은 착수 시점 기록이므로 고치지 않았다.
+추가 분할은 여전히 비목표다.

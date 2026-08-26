@@ -175,7 +175,7 @@ func TestExecWriteCallerScan_PatternAndAllowList(t *testing.T) {
 			t.Fatalf("%s 는 허용돼야 한다", rel)
 		}
 	}
-	for _, rel := range []string{"internal/server/handlers_runs.go", "cmd/dongminal/main.go", "internal/server/deps.go"} {
+	for _, rel := range []string{"internal/webserver/httpapi/handlers_runs.go", "cmd/dongminal/main.go", "internal/webserver/httpapi/deps.go"} {
 		if execWriteAllowed.MatchString(rel) {
 			t.Fatalf("%s 를 허용했다", rel)
 		}

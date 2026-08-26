@@ -131,11 +131,12 @@ dongminal/
 │   │   ├── boot/            #   데몬 진입점 (runDaemon)
 │   │   └── ipc/             #   PanedServer — Unix socket accept 루프
 │   ├── webserver/           # ③ 웹 서버 프로세스 — HTTP/WS/SSE
+│   │   ├── httpapi/         #   HTTP/WS/SSE 라우팅 + settingsStore + 잔여 핸들러
 │   │   ├── gitapi/          #   /api/git/* 핸들러 (GitServer)
 │   │   ├── hub/             #   CommandHub·SSE·FocusRegistry·AttnTracker
 │   │   ├── toolclient/      #   ToolClient — 데몬에 붙는 IPC 클라
 │   │   ├── seam/            #   접합면
-│   │   │   ├── adapters/    #     toolaccess ↔ server/workspace 브리지
+│   │   │   ├── adapters/    #     toolaccess ↔ httpapi/workspace 브리지
 │   │   │   ├── toolaccess/  #     도구·워크스페이스·커맨드 인터페이스
 │   │   │   └── clientpid/   #     remoteAddr → client PID
 │   │   └── domain/          #   도메인
@@ -147,17 +148,16 @@ dongminal/
 │   ├── ctl/                 # ④ 제어 CLI 프로세스
 │   │   ├── cli/             #   start/stop/health/migrate 디스패치
 │   │   └── migrate/         #   v1 → v2 엔티티 스키마 마이그레이션
-│   ├── shared/              # 둘 이상의 프로세스가 실행
-│   │   ├── workspace/       #   ①②③ — workspace.json Manager (atomic + async writer)
-│   │   ├── uuid/            #   ②③④ — 엔티티 uuid 생성·검증
-│   │   ├── toolhub/         #   ②③  — ToolManager·PTY·브라우저 WS·주의 탐지
-│   │   ├── toolipc/         #   ②③  — paned 와이어 포맷
-│   │   ├── outbuf/          #   ②③  — PTY 출력 바운디드 스트림
-│   │   ├── runtime/         #   ②③  — bin/ 설치 + 임베드 shellhooks·agentplugin
-│   │   │   ├── shellhooks/  #     bash-hook.sh, zdotdir/.zshrc (cwd 훅 + claude/codex 래퍼)
-│   │   │   └── agentplugin/ #     세션 스코프 주입 플러그인 (skills/team, skills/workflow)
-│   │   └── agentadapter/    #   ①③  — 에이전트 hook JSON 해석
-│   └── server/              # ③ 웹 서버의 HTTP 핸들러·라우팅·배선 (분할 잔여)
+│   └── shared/              # 둘 이상의 프로세스가 실행
+│       ├── workspace/       #   ①②③ — workspace.json Manager (atomic + async writer)
+│       ├── uuid/            #   ②③④ — 엔티티 uuid 생성·검증
+│       ├── toolhub/         #   ②③  — ToolManager·PTY·브라우저 WS·주의 탐지
+│       ├── toolipc/         #   ②③  — paned 와이어 포맷
+│       ├── outbuf/          #   ②③  — PTY 출력 바운디드 스트림
+│       ├── runtime/         #   ②③  — bin/ 설치 + 임베드 shellhooks·agentplugin
+│       │   ├── shellhooks/  #     bash-hook.sh, zdotdir/.zshrc (cwd 훅 + claude/codex 래퍼)
+│       │   └── agentplugin/ #     세션 스코프 주입 플러그인 (skills/team, skills/workflow)
+│       └── agentadapter/    #   ①③  — 에이전트 hook JSON 해석
 ├── web/                     # 프론트엔드 (HTML/CSS/JS, go:embed)
 │   └── js/
 │       ├── core/            #   App 클래스(app.js + 주제별 app-*.js 13) + constants·helpers·main

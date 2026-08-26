@@ -17,7 +17,7 @@ type CmdSub struct {
 }
 
 // Messages는 이 구독에 브로드캐스트된 payload 채널이다. Closed는 구독이 닫힐
-// 때 신호가 오는 채널이다. 둘 다 수신 전용으로 내보내 SSE 핸들러(internal/server)
+// 때 신호가 오는 채널이다. 둘 다 수신 전용으로 내보내 SSE 핸들러(internal/webserver/httpapi)
 // 가 select 만 할 수 있게 한다 — 채널 자체를 노출하면 핸들러가 닫거나 쓸 수 있다.
 func (s *CmdSub) Messages() <-chan []byte { return s.ch }
 func (s *CmdSub) Closed() <-chan struct{} { return s.done }

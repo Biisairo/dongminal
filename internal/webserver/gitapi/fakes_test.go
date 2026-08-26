@@ -8,7 +8,7 @@ import (
 )
 
 // gitapi 가 요구하는 표면은 ToolLocator·WorkspaceStore·Broadcaster 세 인터페이스의
-// 메서드 네 개뿐이다. 그래서 이 fake 들도 그만큼만 구현한다 — internal/server 의
+// 메서드 네 개뿐이다. 그래서 이 fake 들도 그만큼만 구현한다 — internal/webserver/httpapi 의
 // 전체 ToolHub fake 를 끌어올 이유가 없다. 다만 동작(rev 증가, ErrStale, save 계수)은
 // 원본과 같게 유지한다: 다르게 만들면 회귀와 fake 결함을 구별할 수 없다.
 

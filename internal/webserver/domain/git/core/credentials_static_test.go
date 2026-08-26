@@ -27,7 +27,7 @@ var remoteCredWords = []string{"to" + "ken", "sec" + "ret"}
 // credScanDirs 는 git 표면 전부다. 한쪽만 검사하면 다른 쪽이 구멍이 된다.
 // git 이 5패키지로 갈린 뒤에도 **디렉터리 하나도 빠지지 않아야 한다** — ReadDir 은
 // 하위 디렉터리를 훑지 않으므로 새 패키지가 생기면 여기에 더해야 한다.
-// internal/server 는 git 핸들러가 gitapi 로 옮겨간 뒤에도 남긴다 — git 코드가
+// internal/webserver/httpapi 는 git 핸들러가 gitapi 로 옮겨간 뒤에도 남긴다 — git 코드가
 // 다시 흘러들어오면 검사 없이 통과하는 구멍이 되기 때문이다.
 var credScanDirs = []string{
 	filepath.Join("internal", "webserver", "domain", "git", "core"),
@@ -36,7 +36,7 @@ var credScanDirs = []string{
 	filepath.Join("internal", "webserver", "domain", "git", "store"),
 	filepath.Join("internal", "webserver", "domain", "git", "jobs"),
 	filepath.Join("internal", "webserver", "gitapi"),
-	filepath.Join("internal", "server"),
+	filepath.Join("internal", "webserver", "httpapi"),
 }
 
 // credRemoteFiles 는 원격 작업의 표면이다. 자격증명이 들어올 수 있는 유일한 경로다.
