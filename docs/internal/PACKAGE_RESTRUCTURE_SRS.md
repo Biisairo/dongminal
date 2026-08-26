@@ -828,3 +828,48 @@ alias 가 필요해진다 — FR-DIR-3(alias 불필요)과 충돌한다. 클라�
 | 12 | F | 완료 | 참조처 갱신 — e2e 4곳, `commands_browser_test.go`, `README.md`, `architecture.md`, `getting-started.md`, `docs/internal/README.md`. §8.8 |
 | 13 | G | 완료 | README 테스트 절 신설(e2e 절차 + 격리 실행 안내), `build.sh` 주석 |
 | 14 | — | 완료 | §8.10 |
+
+### 8.10 최종 검증 (단계 14)
+
+| 항목 | 결과 |
+|---|---|
+| `go build ./...` | 통과 |
+| `go vet ./...` (테스트 포함) | 통과 |
+| `go test ./...` | 전량 통과 |
+| `gofmt -l internal/ cmd/ web/` | 무변경 |
+| `npx playwright test` | **398 통과 / 0 실패** |
+| 격리 인스턴스 실동작 21항목 | 전부 통과 |
+
+**기준선을 넘어섰다.** §8.1 의 기준선은 397 통과 / 1 실패(`git-ui-revision.spec.ts:1026`
+V79)였는데 최종은 398 통과 / 0 실패다. 그 1건은 회귀가 아니라 flaky 였다 — 재구성
+도중 다른 flaky 1건(`background-restore-at.spec.ts:264` TC-BGR-9)이 한 번 실패했다가
+단독 실행과 이후 전량 실행에서 모두 통과한 것으로 확인했다.
+
+**초크포인트 불변 (FR-GIT-8, TC-GIT-1)**
+
+```
+core ←        (의존 없음)
+query ← core
+write ← core, query
+store ← core, query
+jobs  ← core
+```
+
+`go list` 로 확인한 실측이며 순환이 없다. `execGit` 호출은 `core` 밖 0건,
+`write` 안의 `s.Exec(` 0건, `query` 안의 `ExecWrite` 0건.
+
+**최종 규모**
+
+| | 착수 전 | 최종 |
+|---|---:|---:|
+| Go 패키지 | 17 | 29 |
+| `internal/server` 소스 | 28파일 | 13파일 2,885줄 |
+| `web/js` | 20파일 (평면) | 33파일 (core/ui/git) |
+| `app.js` | 2,999줄 단일 클래스 | 본체 274줄 + 13파일 |
+| 전체 diff | — | 313파일, +8,377 / −6,410 |
+
+**격리 검증 도구**: `stop` 을 쓰지 않는다. `start --isolated`(임시 홈 + 빈 포트,
+`internal/ctl/cli/start.go:45` 가 격리 모드에서 `killPort` 를 건너뛴다)로 띄우고,
+정리는 `start` 가 출력한 PID 와 격리 홈의 `paned.pid` 만 직접 kill 한다. 운영
+인스턴스를 대상으로 삼지 않는 가드(URL 이 58146 이거나 홈이 `~/.dongminal` 이면
+중단)를 넣었다. 이 재구성 내내 운영 인스턴스 PID 는 변하지 않았다.
