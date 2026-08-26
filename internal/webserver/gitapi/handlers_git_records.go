@@ -3,7 +3,7 @@ package gitapi
 import (
 	"net/http"
 
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
 )
 
 // 묶음 Q — Console 탭 (GIT_UI_REVISION_SRS FR-GIT-218, 검증 V95).
@@ -19,7 +19,7 @@ type gitRecordsRequested struct {
 type gitRecordsResponse struct {
 	Requested gitRecordsRequested `json:"requested"`
 	Repo      string              `json:"repo"`
-	Records   []git.Record        `json:"records"`
+	Records   []core.Record       `json:"records"`
 	Total     int                 `json:"total"`
 }
 
@@ -46,7 +46,7 @@ func (s *GitServer) apiGitRecords(w http.ResponseWriter, r *http.Request) {
 	// 보유분 전부를 받아 거른 뒤 자른다 — 먼저 자르면 다른 리포의 기록이 자리를
 	// 차지해 그 리포의 이력이 조용히 짧아진다.
 	all := s.Git.Service().Records(0)
-	out := make([]git.Record, 0, len(all))
+	out := make([]core.Record, 0, len(all))
 	for i := len(all) - 1; i >= 0; i-- { // Recent 는 최신이 마지막이다
 		if all[i].Cwd != root {
 			continue

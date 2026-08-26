@@ -3,7 +3,8 @@ package gitapi
 import (
 	"net/http"
 
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/query"
 )
 
 // /api/git/{preflight,policy,recovery} — 안전 정책 표면 (GIT_SRS §3A.3
@@ -22,7 +23,7 @@ func (s *GitServer) apiGitPreflight(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pf, err := s.Git.Service().Preflight(r.Context(), root)
+	pf, err := query.PreflightOf(s.Git.Service(), r.Context(), root)
 	if err != nil {
 		gitError(w, err)
 		return
@@ -43,7 +44,7 @@ func (s *GitServer) apiGitPolicy(w http.ResponseWriter, r *http.Request) {
 		gitUnavailable(w)
 		return
 	}
-	gitJSON(w, http.StatusOK, map[string]any{"destructive": git.DestructiveActions})
+	gitJSON(w, http.StatusOK, map[string]any{"destructive": core.DestructiveActions})
 }
 
 // GET /api/git/recovery — 세션 동안 기록된 recovery hint (FR-GIT-92·93).

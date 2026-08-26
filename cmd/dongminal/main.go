@@ -23,7 +23,8 @@ import (
 	"dongminal/internal/shared/runtime"
 	"dongminal/internal/shared/uuid"
 	"dongminal/internal/shared/workspace"
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/domain/sysstat"
 	"dongminal/internal/webserver/domain/worktree"
@@ -227,7 +228,7 @@ func buildCommonDeps(cfg server.Config, toolHub toolhub.ToolHub, cmdHub *hub.Com
 
 	// git 조회 앞의 single-flight + TTL 캐시 (GIT_SRS 묶음 C). 브라우저 창이
 	// 여러 개여도 git 실행 횟수가 창 수에 비례하지 않게 한다 (FR-GIT-63).
-	gitStore := git.NewStore(git.New())
+	gitStore := store.NewStore(core.New())
 
 	return builtDeps{
 		deps: server.Deps{

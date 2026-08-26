@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
 )
 
 // 묶음 O 서버측 — /api/git/stash{,/push,/apply,/pop,/drop,/show}
@@ -170,11 +170,11 @@ func TestAPIGitStashPop_ConflictKeepsStash(t *testing.T) {
 	f := newGitM5Fake(t)
 	f.stashes = gitStashTwo
 	// git 은 충돌로 끝나면 exit 1 이고 stash 를 지우지 않는다 — 목록을 그대로 둔다.
-	f.writeErr = func(argv []string) (git.Output, error) {
+	f.writeErr = func(argv []string) (core.Output, error) {
 		if argv[1] == "pop" {
-			return git.Output{ExitCode: 1, Stderr: "CONFLICT (content): Merge conflict in a.txt\n"}, nil
+			return core.Output{ExitCode: 1, Stderr: "CONFLICT (content): Merge conflict in a.txt\n"}, nil
 		}
-		return git.Output{}, nil
+		return core.Output{}, nil
 	}
 	s := gitM5Server(t, f)
 
@@ -237,7 +237,7 @@ func TestAPIGitStashDrop_RecordsHint(t *testing.T) {
 		t.Fatalf("hints = %v", rec["hints"])
 	}
 	h, _ := hints[0].(map[string]any)
-	if h["action"] != git.ActionStashDrop {
+	if h["action"] != core.ActionStashDrop {
 		t.Fatalf("action = %v", h["action"])
 	}
 	vals, _ := h["values"].([]any)

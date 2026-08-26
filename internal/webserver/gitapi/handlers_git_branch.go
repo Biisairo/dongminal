@@ -5,7 +5,9 @@ import (
 	"errors"
 	"net/http"
 
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/query"
+	"dongminal/internal/webserver/domain/git/write"
 )
 
 // /api/git/{checkout,branch} + /api/git/branch/validate — 브랜치 표면
@@ -65,10 +67,10 @@ func (s *GitServer) apiGitCheckout(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	opts := git.CheckoutOpts{Ref: req.Ref, Create: req.Create, Track: req.Track, Detach: req.Detach, Force: req.Force}
+	opts := write.CheckoutOpts{Ref: req.Ref, Create: req.Create, Track: req.Track, Detach: req.Detach, Force: req.Force}
 	// 잘못된 요청은 실행 **전에** 답한다. gitApply 를 지나면 코드가 500 이 되고,
 	// 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다.
-	if _, err := git.CheckoutArgs(opts); err != nil {
+	if _, err := write.CheckoutArgs(opts); err != nil {
 		gitBranchError(w, err)
 		return
 	}
@@ -80,7 +82,7 @@ func (s *GitServer) apiGitCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := s.Git.Service().Checkout(ctx, root, opts)
+		_, err := write.Checkout(s.Git.Service(), ctx, root, opts)
 		return err
 	})
 	if !ok {
@@ -103,8 +105,8 @@ func (s *GitServer) apiGitBranchCreate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	opts := git.BranchCreateOpts{Name: req.Name, StartRef: req.StartRef, Checkout: req.Checkout}
-	if _, err := git.BranchCreateArgs(opts); err != nil {
+	opts := write.BranchCreateOpts{Name: req.Name, StartRef: req.StartRef, Checkout: req.Checkout}
+	if _, err := write.BranchCreateArgs(opts); err != nil {
 		gitBranchError(w, err)
 		return
 	}
@@ -116,7 +118,7 @@ func (s *GitServer) apiGitBranchCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := s.Git.Service().BranchCreate(ctx, root, opts)
+		_, err := write.BranchCreate(s.Git.Service(), ctx, root, opts)
 		return err
 	})
 	if !ok {
@@ -150,8 +152,8 @@ func (s *GitServer) apiGitBranchValidate(w http.ResponseWriter, r *http.Request)
 		"reason":    "",
 		"exists":    false,
 	}
-	if err := s.Git.Service().ValidBranchName(r.Context(), root, name); err != nil {
-		if !errors.Is(err, git.ErrRefName) {
+	if err := query.ValidBranchName(s.Git.Service(), r.Context(), root, name); err != nil {
+		if !errors.Is(err, core.ErrRefName) {
 			// 이름의 문제가 아니라 저장소·git 의 문제다. 판정으로 뭉개면 사용자는
 			// 이름을 고치며 헤맨다.
 			gitError(w, err)
@@ -161,7 +163,7 @@ func (s *GitServer) apiGitBranchValidate(w http.ResponseWriter, r *http.Request)
 		gitJSON(w, http.StatusOK, body)
 		return
 	}
-	exists, err := s.Git.Service().LocalBranchExists(r.Context(), root, name)
+	exists, err := query.LocalBranchExists(s.Git.Service(), r.Context(), root, name)
 	if err != nil {
 		gitError(w, err)
 		return
@@ -180,11 +182,11 @@ func (s *GitServer) gitBranchNameTaken(w http.ResponseWriter, r *http.Request, r
 	if name == "" {
 		return false
 	}
-	if err := s.Git.Service().ValidBranchName(r.Context(), root, name); err != nil {
+	if err := query.ValidBranchName(s.Git.Service(), r.Context(), root, name); err != nil {
 		gitBranchError(w, err)
 		return true
 	}
-	exists, err := s.Git.Service().LocalBranchExists(r.Context(), root, name)
+	exists, err := query.LocalBranchExists(s.Git.Service(), r.Context(), root, name)
 	if err != nil {
 		gitError(w, err)
 		return true
@@ -199,7 +201,7 @@ func (s *GitServer) gitBranchNameTaken(w http.ResponseWriter, r *http.Request, r
 		"repo":      root,
 		"branch":    name,
 		"track":     track,
-		"options":   git.BranchConflictOptions,
+		"options":   write.BranchConflictOptions,
 	})
 	return true
 }
@@ -209,11 +211,11 @@ func (s *GitServer) gitBranchNameTaken(w http.ResponseWriter, r *http.Request, r
 // 알 수 없다.
 func gitBranchError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, git.ErrRefName):
+	case errors.Is(err, core.ErrRefName):
 		gitFail(w, http.StatusBadRequest, gitErrRefName, gitTail(err.Error()))
-	case errors.Is(err, git.ErrCheckoutTarget):
+	case errors.Is(err, write.ErrCheckoutTarget):
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	case errors.Is(err, git.ErrBranchExists):
+	case errors.Is(err, write.ErrBranchExists):
 		gitFail(w, http.StatusConflict, gitErrBranchExists, gitTail(err.Error()))
 	default:
 		gitError(w, err)

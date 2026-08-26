@@ -14,7 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/store"
 )
 
 // 묶음 B·C 서버측 — /api/git/* (GIT_SRS §3.8 FR-GIT-60~63, 검증 V3·V4·V13·V16·V28·V29).
@@ -25,14 +26,14 @@ var gitStatusFixture = strings.Join([]string{
 	"? a.txt",
 }, "\x00") + "\x00"
 
-// gitFake 은 server 계층용 git.Runner 다. **호출 argv 를 전부 기록한다** —
+// gitFake 은 server 계층용 core.Runner 다. **호출 argv 를 전부 기록한다** —
 // "무엇을 실행하지 않았는가"를 검사해야 하기 때문이다 (FR-GIT-24).
 type gitFake struct {
 	mu     sync.Mutex
 	argvs  [][]string
 	gitDir string
 	// root 가 nil 이면 요청 dir 를 그대로 루트로 답한다.
-	root func(dir string) (git.Output, error)
+	root func(dir string) (core.Output, error)
 	// statusHold 는 status 진입 시 호출된다. single-flight 를 관찰할 지점이다.
 	statusHold func()
 }
@@ -48,7 +49,7 @@ func newGitFake(t *testing.T) *gitFake {
 	return &gitFake{gitDir: dir}
 }
 
-func (g *gitFake) runner(_ context.Context, dir string, args []string) (git.Output, error) {
+func (g *gitFake) runner(_ context.Context, dir string, args []string) (core.Output, error) {
 	g.mu.Lock()
 	g.argvs = append(g.argvs, append([]string(nil), args...))
 	g.mu.Unlock()
@@ -57,16 +58,16 @@ func (g *gitFake) runner(_ context.Context, dir string, args []string) (git.Outp
 		if g.root != nil {
 			return g.root(dir)
 		}
-		return git.Output{Stdout: dir + "\n"}, nil
+		return core.Output{Stdout: dir + "\n"}, nil
 	case args[0] == "rev-parse":
-		return git.Output{Stdout: g.gitDir + "\n" + g.gitDir + "\n"}, nil
+		return core.Output{Stdout: g.gitDir + "\n" + g.gitDir + "\n"}, nil
 	case args[0] == "status":
 		if g.statusHold != nil {
 			g.statusHold()
 		}
-		return git.Output{Stdout: gitStatusFixture}, nil
+		return core.Output{Stdout: gitStatusFixture}, nil
 	}
-	return git.Output{}, nil
+	return core.Output{}, nil
 }
 
 func (g *gitFake) count(sub string) int {
@@ -83,11 +84,11 @@ func (g *gitFake) count(sub string) int {
 
 // gitTestServer 는 주입 Runner 를 쓰는 Store 로 GitServer 를 세운다. 시계를 고정해
 // TTL 이 테스트 도중 만료되지 않게 한다.
-func gitTestServer(t *testing.T, g *gitFake, opts ...git.StoreOption) (*GitServer, *fakePaneHub, *fakeWorkspaceStore, *fakeCommandBroker) {
+func gitTestServer(t *testing.T, g *gitFake, opts ...store.StoreOption) (*GitServer, *fakePaneHub, *fakeWorkspaceStore, *fakeCommandBroker) {
 	t.Helper()
 	at := time.Now()
-	all := append([]git.StoreOption{git.WithClock(func() time.Time { return at })}, opts...)
-	store := git.NewStore(git.New(git.WithRunner(g.runner)), all...)
+	all := append([]store.StoreOption{store.WithClock(func() time.Time { return at })}, opts...)
+	store := store.NewStore(core.New(core.WithRunner(g.runner)), all...)
 	hub := newFakePaneHub()
 	ws := newFakeWorkspaceStore()
 	cb := &fakeCommandBroker{}
@@ -164,7 +165,7 @@ func TestGitRepos_Follow(t *testing.T) {
 		s, hub, _, _ := gitTestServer(t, g)
 		hub.seed("t1", "T1")
 		hub.setCwd("t1", "/work/repo/sub")
-		g.root = func(string) (git.Output, error) { return git.Output{Stdout: "/work/repo\n"}, nil }
+		g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
 
 		code, out := gitReq(t, s, http.MethodGet, "/api/git/repos?tool=t1", "")
 		if code != 200 {
@@ -191,8 +192,8 @@ func TestGitRepos_Follow(t *testing.T) {
 		s, hub, _, _ := gitTestServer(t, g)
 		hub.seed("t1", "T1")
 		hub.setCwd("t1", "/tmp/plain")
-		g.root = func(string) (git.Output, error) {
-			return git.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
+		g.root = func(string) (core.Output, error) {
+			return core.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
 		}
 
 		code, out := gitReq(t, s, http.MethodGet, "/api/git/repos?tool=t1", "")
@@ -215,7 +216,7 @@ func TestGitRepos_BadgeFromObservation(t *testing.T) {
 	s, hub, _, _ := gitTestServer(t, g)
 	hub.seed("t1", "T1")
 	hub.setCwd("t1", "/work/repo")
-	g.root = func(string) (git.Output, error) { return git.Output{Stdout: "/work/repo\n"}, nil }
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
 
 	if code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo=/work/repo", ""); code != 200 {
 		t.Fatalf("status code=%d body=%v", code, out)
@@ -271,8 +272,8 @@ func TestGitRepos_PinnedNotRepoKept(t *testing.T) {
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
 	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":["/gone"]}}`)
-	g.root = func(string) (git.Output, error) {
-		return git.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
+	g.root = func(string) (core.Output, error) {
+		return core.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
 	}
 
 	code, out := gitReq(t, s, http.MethodGet, "/api/git/repos", "")
@@ -294,8 +295,8 @@ func TestGitRepos_PinnedNotRepoKept(t *testing.T) {
 func TestGitPin_RejectsNonRepo(t *testing.T) {
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
-	g.root = func(string) (git.Output, error) {
-		return git.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
+	g.root = func(string) (core.Output, error) {
+		return core.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
 	}
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":"/tmp/plain"}`)
 	if code != http.StatusNotFound {
@@ -325,7 +326,7 @@ func TestGitPin_RejectsRelativePath(t *testing.T) {
 func TestGitPin_StoresRevParseRoot(t *testing.T) {
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
-	g.root = func(string) (git.Output, error) { return git.Output{Stdout: "/work/repo\n"}, nil }
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":"/work/repo/sub/dir"}`)
 	if code != 200 {
@@ -349,7 +350,7 @@ func TestGitPin_IdempotentAndPreservesOtherKeys(t *testing.T) {
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
 	ws.raw = []byte(`{"schemaVersion":2,"windows":[{"id":"w1"}],"activeWindow":"w1"}`)
-	g.root = func(string) (git.Output, error) { return git.Output{Stdout: "/work/repo\n"}, nil }
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
 
 	for i := 0; i < 2; i++ {
 		code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":"/work/repo"}`)
@@ -391,7 +392,7 @@ func TestGitPin_IdempotentAndPreservesOtherKeys(t *testing.T) {
 func TestGitPin_BroadcastsWorkspaceChanged(t *testing.T) {
 	g := newGitFake(t)
 	s, _, _, cb := gitTestServer(t, g)
-	g.root = func(string) (git.Output, error) { return git.Output{Stdout: "/work/repo\n"}, nil }
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
 
 	if code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":"/work/repo"}`); code != 200 {
 		t.Fatalf("pin code=%d body=%v", code, out)
@@ -420,7 +421,7 @@ func TestGitPin_BroadcastsWorkspaceChanged(t *testing.T) {
 func TestGitStatusSignature_EchoesRequested(t *testing.T) {
 	g := newGitFake(t)
 	s, _, _, _ := gitTestServer(t, g)
-	g.root = func(string) (git.Output, error) { return git.Output{Stdout: "/work/repo\n"}, nil }
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
 
 	for _, path := range []string{"/api/git/status", "/api/git/signature"} {
 		code, out := gitReq(t, s, http.MethodGet, path+"?repo=/work/repo/sub", "")
@@ -444,7 +445,7 @@ func TestGitStatusSignature_EchoesRequested(t *testing.T) {
 func TestGitStatus_ReconfirmsRepo(t *testing.T) {
 	g := newGitFake(t)
 	s, _, _, _ := gitTestServer(t, g)
-	g.root = func(string) (git.Output, error) { return git.Output{Stdout: "/work/repo\n"}, nil }
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
 
 	code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo=/work/repo/deep/sub", "")
 	if code != 200 {
@@ -476,23 +477,23 @@ func TestGitStatus_ErrorMapping(t *testing.T) {
 	cases := []struct {
 		name     string
 		query    string
-		root     func(string) (git.Output, error)
+		root     func(string) (core.Output, error)
 		wantCode int
 		wantErr  string
 	}{
 		{"repo 누락", "", nil, http.StatusBadRequest, gitErrBadRequest},
 		{"상대경로", "?repo=rel", nil, http.StatusBadRequest, gitErrBadRequest},
-		{"저장소 아님", "?repo=/x", func(string) (git.Output, error) {
-			return git.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
+		{"저장소 아님", "?repo=/x", func(string) (core.Output, error) {
+			return core.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
 		}, http.StatusNotFound, gitErrNotRepo},
-		{"git 없음", "?repo=/x", func(string) (git.Output, error) {
-			return git.Output{ExitCode: -1}, git.ErrGitMissing
+		{"git 없음", "?repo=/x", func(string) (core.Output, error) {
+			return core.Output{ExitCode: -1}, core.ErrGitMissing
 		}, http.StatusServiceUnavailable, gitErrMissing},
-		{"마감 초과", "?repo=/x", func(string) (git.Output, error) {
-			return git.Output{ExitCode: -1}, git.ErrTimeout
+		{"마감 초과", "?repo=/x", func(string) (core.Output, error) {
+			return core.Output{ExitCode: -1}, core.ErrTimeout
 		}, http.StatusGatewayTimeout, gitErrTimeout},
-		{"그 밖", "?repo=/x", func(string) (git.Output, error) {
-			return git.Output{ExitCode: 1, Stderr: "fatal: boom"}, nil
+		{"그 밖", "?repo=/x", func(string) (core.Output, error) {
+			return core.Output{ExitCode: 1, Stderr: "fatal: boom"}, nil
 		}, http.StatusInternalServerError, gitErrFailed},
 	}
 	for _, tc := range cases {
@@ -514,8 +515,8 @@ func TestGitStatus_ErrorMapping(t *testing.T) {
 	}
 	t.Run("stderr tail 보존", func(t *testing.T) {
 		g := newGitFake(t)
-		g.root = func(string) (git.Output, error) {
-			return git.Output{ExitCode: 1, Stderr: "fatal: something specific"}, nil
+		g.root = func(string) (core.Output, error) {
+			return core.Output{ExitCode: 1, Stderr: "fatal: something specific"}, nil
 		}
 		s, _, _, _ := gitTestServer(t, g)
 		_, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo=/x", "")
@@ -572,7 +573,7 @@ func TestGitStatus_ConcurrentSingleFlight(t *testing.T) {
 // FR-GIT-217 (V94): 브라우저가 언로드하며 취소한 요청은 서버의 실패가 아니다.
 // 500 으로 적으면 진짜 장애와 로그에서 구분되지 않는다.
 func TestGitErrorCode_CanceledIsClientClosed(t *testing.T) {
-	code, name := gitErrorCode(fmt.Errorf("wrapped: %w", git.ErrCanceled))
+	code, name := gitErrorCode(fmt.Errorf("wrapped: %w", core.ErrCanceled))
 	if code != statusClientClosed {
 		t.Fatalf("code = %d, want %d", code, statusClientClosed)
 	}
@@ -580,7 +581,7 @@ func TestGitErrorCode_CanceledIsClientClosed(t *testing.T) {
 		t.Fatalf("name = %q, want %q", name, gitErrCanceled)
 	}
 	// 마감 초과는 그대로 504 다 — 둘을 한 코드로 뭉치지 않는다.
-	if c, _ := gitErrorCode(git.ErrTimeout); c != http.StatusGatewayTimeout {
+	if c, _ := gitErrorCode(core.ErrTimeout); c != http.StatusGatewayTimeout {
 		t.Fatalf("timeout code = %d, want 504", c)
 	}
 	// 그 밖의 실패는 여전히 500 이다.

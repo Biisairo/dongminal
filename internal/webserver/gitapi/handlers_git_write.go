@@ -13,7 +13,9 @@ import (
 	"time"
 
 	"dongminal/internal/shared/uuid"
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/query"
+	"dongminal/internal/webserver/domain/git/write"
 )
 
 // /api/git/{stage,unstage,discard,commit,undo-last} — 저장소를 바꾸는 표면
@@ -72,23 +74,23 @@ type gitUndoReq struct {
 
 // POST /api/git/stage — 경로들을 index 에 올린다 (FR-GIT-64·66·68·69).
 func (s *GitServer) apiGitStage(w http.ResponseWriter, r *http.Request) {
-	s.gitStageRoute(w, r, func(ctx context.Context, root string, paths git.Paths) error {
-		_, err := s.Git.Service().Stage(ctx, root, paths)
+	s.gitStageRoute(w, r, func(ctx context.Context, root string, paths write.Paths) error {
+		_, err := write.Stage(s.Git.Service(), ctx, root, paths)
 		return err
 	})
 }
 
 // POST /api/git/unstage — 경로들을 index 에서 내린다 (FR-GIT-65·67).
 func (s *GitServer) apiGitUnstage(w http.ResponseWriter, r *http.Request) {
-	s.gitStageRoute(w, r, func(ctx context.Context, root string, paths git.Paths) error {
-		_, err := s.Git.Service().Unstage(ctx, root, paths)
+	s.gitStageRoute(w, r, func(ctx context.Context, root string, paths write.Paths) error {
+		_, err := write.Unstage(s.Git.Service(), ctx, root, paths)
 		return err
 	})
 }
 
 // gitStageRoute 는 stage/unstage 의 공통 절차다. 둘은 본문과 응답이 같고 실행하는
 // 명령만 다르다.
-func (s *GitServer) gitStageRoute(w http.ResponseWriter, r *http.Request, run func(context.Context, string, git.Paths) error) {
+func (s *GitServer) gitStageRoute(w http.ResponseWriter, r *http.Request, run func(context.Context, string, write.Paths) error) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
@@ -106,7 +108,7 @@ func (s *GitServer) gitStageRoute(w http.ResponseWriter, r *http.Request, run fu
 		return
 	}
 	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		return run(ctx, root, git.Paths(req.Paths))
+		return run(ctx, root, write.Paths(req.Paths))
 	})
 	if !ok {
 		return
@@ -141,7 +143,7 @@ func (s *GitServer) apiGitDiscard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := s.Git.Service().Discard(ctx, root, git.Paths(req.Tracked), git.Paths(req.Untracked))
+		_, err := write.Discard(s.Git.Service(), ctx, root, write.Paths(req.Tracked), write.Paths(req.Untracked))
 		return err
 	})
 	if !ok {
@@ -175,7 +177,7 @@ func (s *GitServer) apiGitResolve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := s.Git.Service().Resolve(ctx, root, req.Side, git.Paths(req.Paths))
+		_, err := write.Resolve(s.Git.Service(), ctx, root, req.Side, write.Paths(req.Paths))
 		return err
 	})
 	if !ok {
@@ -207,7 +209,7 @@ func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pf, err := s.Git.Service().Preflight(r.Context(), root)
+	pf, err := query.PreflightOf(s.Git.Service(), r.Context(), root)
 	if err != nil {
 		gitError(w, err)
 		return
@@ -233,7 +235,7 @@ func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := s.Git.Service().Commit(ctx, root, git.CommitOpts{
+		_, err := write.Commit(s.Git.Service(), ctx, root, write.CommitOpts{
 			Message:  req.Message,
 			Amend:    req.Amend,
 			SignOff:  req.SignOff,
@@ -278,7 +280,7 @@ func (s *GitServer) apiGitUndoLast(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 메시지는 되돌리기 **전에** 읽는다 — 되돌린 뒤에는 그 커밋이 HEAD 가 아니다.
-	msg, err := s.Git.Service().LastCommitMessage(r.Context(), root)
+	msg, err := query.LastCommitMessage(s.Git.Service(), r.Context(), root)
 	if err != nil {
 		gitError(w, err)
 		return
@@ -288,7 +290,7 @@ func (s *GitServer) apiGitUndoLast(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := s.Git.Service().UndoLast(ctx, root)
+		_, err := write.UndoLast(s.Git.Service(), ctx, root)
 		return err
 	})
 	if !ok {
@@ -300,11 +302,11 @@ func (s *GitServer) apiGitUndoLast(w http.ResponseWriter, r *http.Request) {
 
 // gitStatusBefore 는 실행 전 상태다. 캐시된 값을 써도 된다 — 실패했을 때 무엇이
 // 바뀌었는지를 재는 기준선이고, 200ms 안의 관측은 같은 기준선이다.
-func (s *GitServer) gitStatusBefore(w http.ResponseWriter, r *http.Request, root string) (git.Status, bool) {
+func (s *GitServer) gitStatusBefore(w http.ResponseWriter, r *http.Request, root string) (query.Status, bool) {
 	obs, _, err := s.Git.Status(r.Context(), root)
 	if err != nil {
 		gitError(w, err)
-		return git.Status{}, false
+		return query.Status{}, false
 	}
 	return obs.Status, true
 }
@@ -317,7 +319,7 @@ func (s *GitServer) gitStatusBefore(w http.ResponseWriter, r *http.Request, root
 // 실패하면 실행 전과 비교해 `partial` 과 **무엇이 바뀌었는지**를 응답에 담는다
 // (FR-GIT-73, §7.1 I2). git 의 add/reset/checkout 은 경로별로 처리해 진짜 롤백이
 // 없으므로, 요구사항은 부분 적용을 조용히 넘기지 않는 것으로 만족시킨다.
-func (s *GitServer) gitApply(w http.ResponseWriter, r *http.Request, requested, root string, before git.Status, run func(context.Context) error) (git.Status, bool) {
+func (s *GitServer) gitApply(w http.ResponseWriter, r *http.Request, requested, root string, before query.Status, run func(context.Context) error) (query.Status, bool) {
 	runErr := run(r.Context())
 	s.Git.Invalidate(root)
 	obs, _, statusErr := s.Git.Status(r.Context(), root)
@@ -329,7 +331,7 @@ func (s *GitServer) gitApply(w http.ResponseWriter, r *http.Request, requested, 
 		// 실행은 됐고 재조회가 실패했다. 결과를 성공으로 보이면 화면이 낡은 목록을
 		// 유지하므로 실패로 답한다.
 		gitError(w, statusErr)
-		return git.Status{}, false
+		return query.Status{}, false
 	}
 
 	code, name := gitWriteErrorCode(runErr)
@@ -340,7 +342,7 @@ func (s *GitServer) gitApply(w http.ResponseWriter, r *http.Request, requested, 
 		"repo":      root,
 		"partial":   false,
 	}
-	var be *git.BatchError
+	var be *write.BatchError
 	if errors.As(runErr, &be) && be.Partial() {
 		body["partial"] = true
 	}
@@ -352,14 +354,14 @@ func (s *GitServer) gitApply(w http.ResponseWriter, r *http.Request, requested, 
 		body["status"] = obs.Status
 	}
 	gitJSON(w, code, body)
-	return git.Status{}, false
+	return query.Status{}, false
 }
 
 // gitWriteErrorCode 는 쓰기 고유의 거부를 코드로 옮긴 뒤 나머지를 공용 규약에
 // 넘긴다. 잘못된 요청을 500 으로 뭉개면 클라이언트는 자기 요청이 틀렸다는 것을
 // 알 수 없다.
 func gitWriteErrorCode(err error) (int, string) {
-	if errors.Is(err, git.ErrUnsafeArgument) || errors.Is(err, git.ErrWriteCommand) {
+	if errors.Is(err, core.ErrUnsafeArgument) || errors.Is(err, core.ErrWriteCommand) {
 		return http.StatusBadRequest, gitErrBadRequest
 	}
 	return gitErrorCode(err)
@@ -367,7 +369,7 @@ func gitWriteErrorCode(err error) (int, string) {
 
 // gitWriteOK 는 쓰기 성공 응답이다. **실행 후 status 를 함께 담는다** (FR-GIT-71)
 // — 클라이언트가 폴링 주기를 기다리지 않는다.
-func gitWriteOK(w http.ResponseWriter, requested, root string, st git.Status, extra map[string]any) {
+func gitWriteOK(w http.ResponseWriter, requested, root string, st query.Status, extra map[string]any) {
 	body := map[string]any{
 		"requested": requested,
 		"repo":      root,
@@ -383,7 +385,7 @@ func gitWriteOK(w http.ResponseWriter, requested, root string, st git.Status, ex
 
 // gitStatusDelta 는 실행 전후로 달라진 경로들이다. 이름으로 말해야 사용자가 부분
 // 적용을 확인할 수 있다 — "무언가 바뀌었다"는 안내는 확인할 수 없다.
-func gitStatusDelta(before, after git.Status) []string {
+func gitStatusDelta(before, after query.Status) []string {
 	b, a := gitEntryStates(before), gitEntryStates(after)
 	seen := map[string]bool{}
 	out := []string{}
@@ -405,9 +407,9 @@ func gitStatusDelta(before, after git.Status) []string {
 
 // gitEntryStates 는 경로 → XY 다. 한 파일이 staged 와 changes 에 동시에 들 수 있어
 // (FR-GIT-70) 그룹을 합쳐 경로로 모은다 — XY 가 그 구분을 이미 담고 있다.
-func gitEntryStates(st git.Status) map[string]string {
+func gitEntryStates(st query.Status) map[string]string {
 	out := map[string]string{}
-	for _, group := range [][]git.FileEntry{st.Staged, st.Changes, st.Untracked, st.Conflicts} {
+	for _, group := range [][]query.FileEntry{st.Staged, st.Changes, st.Untracked, st.Conflicts} {
 		for _, e := range group {
 			out[e.Path] = e.XY
 		}
@@ -475,7 +477,7 @@ func (u *gitUndoStore) issue(repo string) string {
 		u.tickets = map[string]undoTicket{}
 	}
 	u.pruneLocked()
-	t := undoTicket{token: uuid.NewString(), expires: u.clock().Add(git.UndoTTL)}
+	t := undoTicket{token: uuid.NewString(), expires: u.clock().Add(write.UndoTTL)}
 	u.tickets[repo] = t
 	return t.token
 }

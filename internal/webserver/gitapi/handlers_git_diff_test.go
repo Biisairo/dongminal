@@ -8,7 +8,8 @@ import (
 	"strconv"
 	"testing"
 
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/store"
 )
 
 // 묶음 F 서버측 — /api/git/diff-content (GIT_SRS §3.6 FR-GIT-44~48·54·62, 검증 V10).
@@ -34,27 +35,27 @@ func newGitDiffFake(t *testing.T) *gitDiffFake {
 	return &gitDiffFake{root: root, gitDir: gitDir, blobs: map[string]string{}}
 }
 
-func (f *gitDiffFake) runner(_ context.Context, _ string, args []string) (git.Output, error) {
+func (f *gitDiffFake) runner(_ context.Context, _ string, args []string) (core.Output, error) {
 	switch {
 	case args[0] == "rev-parse" && len(args) > 1 && args[1] == "--show-toplevel":
-		return git.Output{Stdout: f.root + "\n"}, nil
+		return core.Output{Stdout: f.root + "\n"}, nil
 	case args[0] == "rev-parse":
-		return git.Output{Stdout: f.gitDir + "\n" + f.gitDir + "\n"}, nil
+		return core.Output{Stdout: f.gitDir + "\n" + f.gitDir + "\n"}, nil
 	}
 	rev := args[len(args)-1]
 	body, ok := f.blobs[rev]
 	if !ok {
-		return git.Output{ExitCode: 128, Stderr: "fatal: path 'x' does not exist in 'HEAD'\n"}, nil
+		return core.Output{ExitCode: 128, Stderr: "fatal: path 'x' does not exist in 'HEAD'\n"}, nil
 	}
 	if args[0] == "cat-file" {
-		return git.Output{Stdout: strconv.Itoa(len(body)) + "\n"}, nil
+		return core.Output{Stdout: strconv.Itoa(len(body)) + "\n"}, nil
 	}
-	return git.Output{Stdout: body}, nil
+	return core.Output{Stdout: body}, nil
 }
 
 func gitDiffServer(t *testing.T, f *gitDiffFake) *GitServer {
 	t.Helper()
-	store := git.NewStore(git.New(git.WithRunner(f.runner)))
+	store := store.NewStore(core.New(core.WithRunner(f.runner)))
 	return &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
 }
 

@@ -8,7 +8,7 @@
 package gitapi
 
 import (
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/store"
 )
 
 // WorkspaceStore는 핀 목록을 읽고 쓰기 위한 최소 표면이다 (git_pins.go).
@@ -30,7 +30,7 @@ type ToolLocator interface {
 // GitServer는 /api/git/* 핸들러의 리시버다. 필드는 핸들러가 실제로 쓰는 것만
 // 담는다 — 넓은 Server 를 그대로 들고 오면 경계를 옮긴 의미가 없다.
 type GitServer struct {
-	Git      *git.Store
+	Git      *store.Store
 	Work     WorkspaceStore
 	Commands Broadcaster
 	Tools    ToolLocator

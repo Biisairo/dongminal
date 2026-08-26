@@ -10,7 +10,11 @@ import (
 	"sync"
 	"time"
 
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/jobs"
+	"dongminal/internal/webserver/domain/git/query"
+	"dongminal/internal/webserver/domain/git/store"
+	"dongminal/internal/webserver/domain/git/write"
 )
 
 // /api/git/{fetch,pull,push} + /api/git/job{s,/cancel,/events} — 원격 작업 표면
@@ -41,21 +45,21 @@ const gitJobKeepAlive = 15 * time.Second
 // run 은 테스트가 주입한다. 주지 않으면 실제 git 이 네트워크로 나간다.
 type gitJobHolder struct {
 	mu   sync.Mutex
-	jobs *git.Jobs
-	run  git.JobRunner
+	jobs *jobs.Jobs
+	run  jobs.JobRunner
 }
 
 // get 은 허브를 지연 생성한다. 완료 훅으로 status 캐시를 만료시킨다 —
 // ahead/behind 가 폴링 주기를 기다리면 화면이 그만큼 거짓말을 한다 (FR-GIT-107).
-func (h *gitJobHolder) get(store *git.Store) *git.Jobs {
+func (h *gitJobHolder) get(store *store.Store) *jobs.Jobs {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.jobs == nil {
-		opts := []git.JobsOption{git.WithOnDone(func(jb *git.Job) { store.Invalidate(jb.Repo) })}
+		opts := []jobs.JobsOption{jobs.WithOnDone(func(jb *jobs.Job) { store.Invalidate(jb.Repo) })}
 		if h.run != nil {
-			opts = append(opts, git.WithJobRunner(h.run))
+			opts = append(opts, jobs.WithJobRunner(h.run))
 		}
-		h.jobs = git.NewJobs(store.Service(), opts...)
+		h.jobs = jobs.NewJobs(store.Service(), opts...)
 	}
 	return h.jobs
 }
@@ -103,7 +107,7 @@ func (s *GitServer) apiGitFetch(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s.gitStartJob(w, req.Repo, root, "fetch", git.FetchSpec(git.FetchOpts{Prune: req.Prune, Tags: req.Tags}), nil)
+	s.gitStartJob(w, req.Repo, root, "fetch", write.FetchSpec(write.FetchOpts{Prune: req.Prune, Tags: req.Tags}), nil)
 }
 
 // POST /api/git/pull — 기본은 `pull --progress` 다 (FR-GIT-99).
@@ -120,7 +124,7 @@ func (s *GitServer) apiGitPull(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	spec, err := git.PullSpec(git.PullOpts{Mode: req.Mode})
+	spec, err := write.PullSpec(write.PullOpts{Mode: req.Mode})
 	if err != nil {
 		gitRemoteError(w, err)
 		return
@@ -143,7 +147,7 @@ func (s *GitServer) apiGitPush(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	spec, plan, err := s.Git.Service().PushSpec(r.Context(), root, git.PushOpts{
+	spec, plan, err := write.PushSpec(s.Git.Service(), r.Context(), root, write.PushOpts{
 		Force: req.Force, Confirm: req.Confirm, Publish: req.Publish,
 	})
 	if err != nil {
@@ -155,10 +159,10 @@ func (s *GitServer) apiGitPush(w http.ResponseWriter, r *http.Request) {
 
 // gitStartJob 은 작업을 띄우고 식별자를 **즉시** 돌려준다 (FR-GIT-102). 끝나기를
 // 기다리면 응답이 분 단위가 되고, 그동안 UI 는 막힌다.
-func (s *GitServer) gitStartJob(w http.ResponseWriter, requested, root, kind string, spec git.WriteSpec, extra map[string]any) {
+func (s *GitServer) gitStartJob(w http.ResponseWriter, requested, root, kind string, spec core.WriteSpec, extra map[string]any) {
 	jb, err := s.gitJobs.get(s.Git).Start(root, kind, spec)
 	if err != nil {
-		if errors.Is(err, git.ErrJobBusy) {
+		if errors.Is(err, jobs.ErrJobBusy) {
 			gitFail(w, http.StatusConflict, gitErrJobBusy, gitTail(err.Error()))
 			return
 		}
@@ -178,11 +182,11 @@ func (s *GitServer) gitStartJob(w http.ResponseWriter, requested, root, kind str
 // 알 수 없다.
 func gitRemoteError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, git.ErrForceConfirm):
+	case errors.Is(err, write.ErrForceConfirm):
 		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired, gitTail(err.Error()))
-	case errors.Is(err, git.ErrPullMode), errors.Is(err, git.ErrPushForce), errors.Is(err, git.ErrDetachedPush):
+	case errors.Is(err, write.ErrPullMode), errors.Is(err, write.ErrPushForce), errors.Is(err, write.ErrDetachedPush):
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	case errors.Is(err, git.ErrNoRemote):
+	case errors.Is(err, query.ErrNoRemote):
 		gitFail(w, http.StatusConflict, gitErrNoRemote, gitTail(err.Error()))
 	default:
 		gitError(w, err)
@@ -191,8 +195,8 @@ func gitRemoteError(w http.ResponseWriter, err error) {
 
 // gitPushError 는 Publish 확인 요구만 따로 다룬다. **계획을 함께 보낸다** —
 // 무엇이 설정되는지 모르면 사용자가 확인할 수 없다 (FR-GIT-100).
-func gitPushError(w http.ResponseWriter, requested, root string, plan git.PushPlan, err error) {
-	if errors.Is(err, git.ErrPublishRequired) {
+func gitPushError(w http.ResponseWriter, requested, root string, plan write.PushPlan, err error) {
+	if errors.Is(err, write.ErrPublishRequired) {
 		gitJSON(w, http.StatusConflict, map[string]any{
 			"error":     gitErrPublishRequired,
 			"message":   gitTail(err.Error()),
@@ -298,7 +302,7 @@ func (s *GitServer) apiGitJobEvents(w http.ResponseWriter, r *http.Request) {
 
 // gitJobFinal 은 done 이벤트에 실을 값이다. 보존 기간이 지나 사라졌으면 끝났다는
 // 사실만 남는다 — 클라이언트가 완료를 못 보고 기다리는 것이 더 나쁘다.
-func (s *GitServer) gitJobFinal(hub *git.Jobs, id string) any {
+func (s *GitServer) gitJobFinal(hub *jobs.Jobs, id string) any {
 	if jb, ok := hub.Get(id); ok {
 		return jb
 	}
