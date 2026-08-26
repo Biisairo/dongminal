@@ -7,7 +7,7 @@
 ## 빠른 시작
 
 ```bash
-./scripts/build.sh                    # 빌드 (저장소의 유일한 스크립트)
+./scripts/build.sh                    # 빌드
 
 ./dongminal                           # 도움말 (-h, --help 도 동일)
 ./dongminal start                     # 실행 (localhost only, 포트 58146, 창 유지)
@@ -60,6 +60,21 @@ e2e 는 `go run ./cmd/dongminal start --foreground` 로 포트 58147 에 서버�
 `dongminal stop` 은 홈이 아니라 **포트**로 대상을 찾는다. `--port` 없이 부르면
 기본 포트(58146)의 인스턴스를 정지시키므로, 격리 인스턴스를 접을 때는 `start` 가
 출력한 정지 명령(`--port`·`--home` 이 채워진 형태)을 그대로 쓴다.
+
+그 절차를 스크립트로 굳혀 둔 것이 아래다. 격리 인스턴스를 띄워 21항목을 훑고
+스스로 정리한다 — `stop` 을 쓰지 않고 `start` 가 출력한 PID 와 격리 홈의
+`paned.pid` 만 직접 kill 하며, URL 이 58146 이거나 홈이 격리 홈이 아니면 아무것도
+건드리지 않고 중단한다:
+
+```bash
+scripts/verify-isolated.sh
+```
+
+검사 범위는 데몬 기동·`paned.sock`·`/api/ping`, 도구 생성(PTY+IPC 왕복)·조회·busy
+RPC·출력 조회, 워크스페이스·설정·상태 조회, git 읽기 표면 8종과 없는 git 경로의
+404, `index.html` 이 실제로 로드하는 `<script>` 전량 200, 구 평면 경로(`/js/app.js`)
+404 다. git 검사 대상은 **실제 리포**여야 한다 — 비-git 디렉터리는 `ErrNotRepo` 로
+정당하게 404 라서 라우팅 누락과 구별되지 않는다.
 
 ## 문서
 
@@ -164,7 +179,7 @@ dongminal/
 │       ├── ui/              #   themes·renderer·term-pane·input-binding·file-editor
 │       └── git/             #   git 패널 11파일
 ├── e2e/                     # Playwright 스펙 + git 픽스처
-├── scripts/                 # build.sh — 빌드 (운영 동작은 바이너리의 액션)
+├── scripts/                 # build.sh — 빌드 / verify-isolated.sh — 격리 실동작 검증
 ├── docs/
 │   ├── external/            # 사용자 가이드
 │   └── internal/            # 개발자 문서 (RFC, TODO, 아키텍처)
