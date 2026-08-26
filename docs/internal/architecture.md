@@ -5,7 +5,7 @@
 ```
 cmd/dongminal/         # composition root (main)
 internal/
-  adapters/            # internal/{server,workspace} → internal/toolaccess 인터페이스 브리지
+  adapters/            # internal/{server,shared/workspace} → internal/webserver/seam/toolaccess 인터페이스 브리지
   agentadapter/        # 에이전트별 선언 테이블 (기동·탐지·프롬프트/정책 주입·훅 파서·종료)
   clientpid/           # 원격 TCP(remoteAddr) → client PID (ps/lsof)
   migrate/             # v1 → v2 엔티티 스키마 1회성 변환 (진입점: `./dongminal migrate`)
@@ -22,7 +22,7 @@ internal/
   workspace/           # workspace.json 인덱싱·resolve·영속화 (Manager + FilePersister)
   worktree/            # Run 격리의 git worktree 생성·정리 + 안전 가드 (파괴적 동작의 유일한 경로)
 web/                   # 프론트엔드 자산 (HTML/CSS/JS) + embed.FS()
-scripts/               # build.sh — 빌드 전용. 운영 동작은 바이너리의 액션 (internal/cli)
+scripts/               # build.sh — 빌드 전용. 운영 동작은 바이너리의 액션 (internal/ctl/cli)
 .env / .env.example    # start.sh 가 자동 로드하는 환경변수(PORT, BINARY, LOG, DONGMINAL_HOME)
 docs/
   internal/            # 개발자 문서 (이 파일)
@@ -31,11 +31,11 @@ docs/
 
 `internal/` 는 Go 언어 레벨에서 외부 import 를 막아 캡슐화를 강제한다. 외부 의존성이 필요한 모듈은 의도적으로 `internal/` 밖(현재는 `web/` 만 해당)으로 뺀다.
 
-## 런타임 헬퍼 배포 (`internal/runtime`)
+## 런타임 헬퍼 배포 (`internal/shared/runtime`)
 
 `runtime.Install(binDir)` 이 `main()` 초기화에서 `$DONGMINAL_HOME/bin/` 을 채운다.
 
-**helper CLI** 는 `internal/runtimebin` 의 multi-call dispatch 로 dongminal 바이너리 자체가 처리하므로, `bin/<name>` 은 실행 파일을 가리키는 symlink (미지원 환경에선 복사) 다. `runtimebin.HelperNames()` 가 단일 소스:
+**helper CLI** 는 `internal/helper/runtimebin` 의 multi-call dispatch 로 dongminal 바이너리 자체가 처리하므로, `bin/<name>` 은 실행 파일을 가리키는 symlink (미지원 환경에선 복사) 다. `runtimebin.HelperNames()` 가 단일 소스:
 
 - `dmctl` — `/api/commands` 로 워크스페이스 action 브로드캐스트 + `list-workspace`/`who-am-i`/`notify`/`activity` + 에이전트 접합면(`read-screen`/`send-input`/`msg`/`status`/`wait`/`run`). 아래 "에이전트 접합면과 Run" 절.
 - `edit` — `POST /api/commands` 로 `openEditorTab` 브로드캐스트 (내장 편집기 탭).
@@ -60,14 +60,14 @@ DONGMINAL_PORT=<서버 포트>   # main() 이 setenv, 자식 PTY 가 상속
 DONGMINAL_TOOL_ID=<도구 id>  # detach 가 자기 도구를 식별하는 근거
 ```
 
-## 파일 편집기 (`web/js/file-editor.js`)
+## 파일 편집기 (`web/js/ui/file-editor.js`)
 
 `edit <path>` 는 `POST /api/commands` 로 `openEditorTab` 을 브로드캐스트하고, 브라우저가 그 탭에 Monaco Editor 를 띄운다. 서버 쪽 표면은 파일 I/O 두 개뿐이다.
 
 - `GET /api/file/read?path=<abs>` — 절대경로만 허용. 디렉터리·심볼릭 링크 이탈은 거부.
 - `POST /api/file/write` — 바디 `{path, content}`.
 
-도구 타입은 `terminal` 과 `editor` 두 가지다 (`web/js/helpers.js` 의 capability 맵). `editor` 는 `backgroundCapable=false` 이므로 detach 대상이 아니다 (FR-BG-11).
+도구 타입은 `terminal` 과 `editor` 두 가지다 (`web/js/core/helpers.js` 의 capability 맵). `editor` 는 `backgroundCapable=false` 이므로 detach 대상이 아니다 (FR-BG-11).
 
 과거의 code-server 통합(`internal/server/codeserver.go`, `/cs/<id>/` 리버스 프록시, `CodeServerManager`)은 `8dc0a3f` 에서 이 내장 편집기로 대체되며 제거됐다.
 
@@ -94,7 +94,7 @@ DONGMINAL_TOOL_ID=<도구 id>  # detach 가 자기 도구를 식별하는 근거
 반환한다 — 시간이 지난다고 풀리지 않기 때문이다. 타임아웃은 실패가 아니라
 체크포인트다 (`RUN_ORCHESTRATION_SRS` 묶음 S).
 
-**Run 은 공간 계층과 직교한 실행 축**이다 (`internal/run`). `runs.json` 에 영속되며,
+**Run 은 공간 계층과 직교한 실행 축**이다 (`internal/webserver/domain/run`). `runs.json` 에 영속되며,
 서버 기동마다 발급하는 epoch 로 이전 세대가 열어둔 Run 을 로드 시 `aborted` 로
 확정한다 — 백그라운드 도구가 재기동을 넘지 못하므로 되살릴 실체가 없다. 멤버 상태는
 저장하지 않고 **조회 시점에 파생**한다(도구가 죽었으면 `lost`, 훅 상태가 그대로).
@@ -347,7 +347,7 @@ stateDiagram-v2
 멤버 상태는 대부분 조회 시점에 파생되고, **보고는 기록이 관측을 이긴다** — 보고를 마친
 멤버는 프롬프트로 돌아가 유휴가 되어도 `done` 이다. `waiting` 은 준비완료가 아니다.
 
-## 에이전트 어댑터 레지스트리 (`internal/agentadapter`)
+## 에이전트 어댑터 레지스트리 (`internal/shared/agentadapter`)
 
 에이전트별 지식은 **선언 테이블 하나**다. 전에는 훅 파서가 `dmctl_activity.go` 의
 `switch agent` 에 박혀 있었고, 기동 커맨드·정책 주입 방식·종료 지시는 **코드에 아예
@@ -369,8 +369,8 @@ stateDiagram-v2
 `agent-turn-complete` 하나뿐이라 준비완료를 훅으로 알 수 없고(`readiness.hooks=false`),
 출력 3초 정적 폴백으로 판정된다.
 
-정책 주입은 **세션 스코프**다. 실제 주입기는 `internal/runtime` 의 셸 래퍼이고,
-그 래퍼가 레지스트리 선언과 어긋나지 않는지는 `internal/runtime` 의 대조 테스트가
+정책 주입은 **세션 스코프**다. 실제 주입기는 `internal/shared/runtime` 의 셸 래퍼이고,
+그 래퍼가 레지스트리 선언과 어긋나지 않는지는 `internal/shared/runtime` 의 대조 테스트가
 지킨다 — 이 대조가 없으면 선언은 아무도 읽지 않는 산문으로 되돌아간다.
 
 `readiness.screenPatterns` 는 준비완료 판정 사다리 2단계의 자리지만 **소비자가
@@ -378,7 +378,7 @@ stateDiagram-v2
 깨지며, 그것은 team 스킬의 `╭─`·`Thinking...` fingerprint 를 없애려는 이유와 같은
 취약성이다.
 
-## 멤버 프리앰블 (`internal/run/preamble.go`)
+## 멤버 프리앰블 (`internal/webserver/domain/run/preamble.go`)
 
 멤버 기동 시 주입하는 역할·프로토콜 지시문이며 **평문**이다. 구조화 페이로드가
 아니라, 실제 실행할 `dmctl` 예제에 Run·Member uuid 를 박아 넣은 텍스트를
@@ -409,9 +409,9 @@ CLI(`dmctl run launch`)가 하는 일은 그 평문을 어댑터가 선언한 �
 만든다 — 권한 사전 허용(`--allowedTools "Bash(dmctl:*)"`)이 빠지면 멤버가 첫 보고
 명령에서 승인 대기에 걸리고, 인자 구분자(`--`)가 빠지면 가변 인자 플래그가 프리앰블을
 삼켜 빈 프롬프트로 뜬다. 둘 다 실제 팀을 띄워 밟은 결함이며, 스킬이 기동줄을
-직접 쓰지 못하게 `internal/runtime` 의 계약 테스트가 막는다.
+직접 쓰지 못하게 `internal/shared/runtime` 의 계약 테스트가 막는다.
 
-## worktree 격리 (`internal/worktree`)
+## worktree 격리 (`internal/webserver/domain/worktree`)
 
 격리는 **Run 단위 선택**이고 기본은 `none` 이다. "독립 태스크·병렬 실행·편의"는
 격리 사유가 아니다 — 신뢰 채널 협업 토폴로지 일부는 **파일 공유를 전제**하므로
@@ -441,7 +441,7 @@ N" 을 오보한다. 대신 `push.autoSetupRemote` 를 걸고, 생성 base 를
 
 worktree 조작은 **직렬화**한다. 공용 common-dir 을 건드려 병렬 팬아웃에서 경합한다.
 
-## 스킬 (`internal/runtime/agentplugin/skills`)
+## 스킬 (`internal/shared/runtime/agentplugin/skills`)
 
 `team`(1회성 팀)과 `workflow`(재사용 정의서) 둘이며, **정책만 담고 액션은 전부
 `dmctl`** 이다. 세션 스코프로 주입되므로 사용자의 `~/.claude` 를 건드리지 않는다.
@@ -457,7 +457,7 @@ worktree 조작은 **직렬화**한다. 공용 common-dir 을 건드려 병렬 �
 컨텍스트 압축을 넘어간다.
 
 스킬은 산문이라 컴파일도 테스트도 되지 않는다. 그래서 되돌아가면 곧바로 걸리는
-것만이라도 검출기로 세워 뒀다 (`internal/runtime/skills_contract_test.go`) — 화면
+것만이라도 검출기로 세워 뒀다 (`internal/shared/runtime/skills_contract_test.go`) — 화면
 fingerprint·수동 `sleep` 루프·삭제된 자산 참조·손으로 조립한 기동줄·필수 절차의
 부재. 임베드된 트리를 직접 읽으므로 배포되는 것과 검사 대상이 같다.
 
@@ -477,16 +477,16 @@ fingerprint·수동 `sleep` 루프·삭제된 자산 참조·손으로 조립한
 
 ## 어댑터 패턴
 
-`internal/toolaccess` 는 `ToolReader`, `WorkspaceReader`, `CommandBroadcaster`, `ClientToolResolver` 같은 **인터페이스만** 정의한다. 구체 타입(`server.ToolManager`, `workspace.Manager`, `server.CommandHub`)은 그 인터페이스를 직접 구현하지 않는다. 대신 `internal/adapters` 가 브리지 역할을 한다.
+`internal/webserver/seam/toolaccess` 는 `ToolReader`, `WorkspaceReader`, `CommandBroadcaster`, `ClientToolResolver` 같은 **인터페이스만** 정의한다. 구체 타입(`toolhub.ToolManager`, `workspace.Manager`, `hub.CommandHub`)은 그 인터페이스를 직접 구현하지 않는다. 대신 `internal/webserver/seam/adapters` 가 브리지 역할을 한다.
 
-- `adapters.Tool` — `*server.ToolManager` 를 `toolaccess.ToolReader` 로.
+- `adapters.Tool` — `*toolhub.ToolManager` 를 `toolaccess.ToolReader` 로.
 - `adapters.Workspace` — `*workspace.Manager` 를 `toolaccess.WorkspaceReader` 로.
-- `adapters.Command` — `*server.CommandHub` 를 `toolaccess.CommandBroadcaster` 로.
-- `adapters.Client` — `*server.ToolManager` + `clientpid` 를 `toolaccess.ClientToolResolver` 로.
+- `adapters.Command` — `*hub.CommandHub` 를 `toolaccess.CommandBroadcaster` 로.
+- `adapters.Client` — `*toolhub.ToolManager` + `clientpid` 를 `toolaccess.ClientToolResolver` 로.
 
 import 방향은 단방향 (`adapters → {toolaccess, server, workspace, clientpid}`). server/workspace 는 toolaccess 를 몰라도 되며, toolaccess 는 server/workspace 의 구체 타입을 몰라도 된다. 테스트에서 인터페이스를 mock 하기 쉽다.
 
-`adapters.Tool` 은 direct 모드(`*server.ToolManager`)와 daemon 모드(`server.ToolHub`) 의 이중 경로, bracketed paste, submit 지연을 한곳에 캡슐화한다. `/api/tools/{output,input,message}` 가 두 모드에서 동일하게 동작하는 근거다 — 이 어댑터를 우회해 핸들러에서 PTY 를 직접 만지면 daemon 모드가 깨진다.
+`adapters.Tool` 은 direct 모드(`*toolhub.ToolManager`)와 daemon 모드(`server.ToolHub`) 의 이중 경로, bracketed paste, submit 지연을 한곳에 캡슐화한다. `/api/tools/{output,input,message}` 가 두 모드에서 동일하게 동작하는 근거다 — 이 어댑터를 우회해 핸들러에서 PTY 를 직접 만지면 daemon 모드가 깨진다.
 
 ## 성능: 핫패스 비차단
 
@@ -505,7 +505,7 @@ HTTP `PUT /api/workspace` 핸들러는 `Save(blob, ifMatch)` 호출 → 인덱�
 
 ### 클라이언트 낙관적 UI (성능 재개선 턴)
 
-`web/js/app.js` 의 `split`, `closeTab`, `addTab` 은 레이아웃 mutation + `render()` 를 **즉시** 실행하고 `_kill`, `_save` 를 await 하지 않고 fire-and-forget. `_save()` 는 내부 직렬화 큐로 ETag 경쟁을 방지하고 coalescing 수행.
+`web/js/core/app-layout.js` 의 `split`, `closeTab`, `addTab` 은 레이아웃 mutation + `render()` 를 **즉시** 실행하고 `_kill`, `_save` 를 await 하지 않고 fire-and-forget. `_save()` 는 내부 직렬화 큐로 ETag 경쟁을 방지하고 coalescing 수행.
 
 또한 `/api/tools` POST 에 `cwdTool=<refToolId>` 쿼리 지원 → 클라이언트가 `/api/cwd` 사전 조회할 필요 없음 (RT 1 건 제거).
 
@@ -552,9 +552,9 @@ WS 구독 쪽 규칙도 같은 뿌리다: 데몬 모드의 출력 릴레이(`rel
 ## 테스트
 
 - `internal/server/*_test.go` — HTTP 라우팅, DI, 도구 CRUD, 커맨드 화이트리스트의 생산자 대조.
-- `internal/workspace/*_test.go` — Save 비차단·coalescing·Close flush, parse, resolve.
-- `internal/outbuf/*_test.go` — Feed/Snapshot/compaction/통계.
-- `internal/runtime/*_test.go` — bin/ 전개, 세션 스코프 플러그인·훅 생성.
-- `internal/runtimebin/*_test.go` — dmctl 서브커맨드 플래그 파싱·HTTP 호출.
+- `internal/shared/workspace/*_test.go` — Save 비차단·coalescing·Close flush, parse, resolve.
+- `internal/shared/outbuf/*_test.go` — Feed/Snapshot/compaction/통계.
+- `internal/shared/runtime/*_test.go` — bin/ 전개, 세션 스코프 플러그인·훅 생성.
+- `internal/helper/runtimebin/*_test.go` — dmctl 서브커맨드 플래그 파싱·HTTP 호출.
 
 Go 관례대로 `*_test.go` 는 각 패키지 안에 공존. Black-box 테스트가 필요한 경우 `package xxx_test` 를 사용.

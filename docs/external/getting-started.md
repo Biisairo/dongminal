@@ -98,7 +98,7 @@ DONGMINAL_HOST=0.0.0.0 ./dongminal start       # 동등한 형태
 
 ### 런타임 헬퍼 배포 (자동)
 
-서버 기동 시 `internal/runtime` 이 `$DONGMINAL_HOME/bin/` 을 채웁니다. helper CLI 는 dongminal 바이너리를 가리키는 symlink, 셸 훅은 `go:embed` 로 번들한 실제 파일입니다.
+서버 기동 시 `internal/shared/runtime` 이 `$DONGMINAL_HOME/bin/` 을 채웁니다. helper CLI 는 dongminal 바이너리를 가리키는 symlink, 셸 훅은 `go:embed` 로 번들한 실제 파일입니다.
 
 - `bin/dmctl` — 워크스페이스 원격 제어 CLI (분할/탭/포커스/목록/알림)
 - `bin/edit` — 내장 편집기 탭으로 파일 열기

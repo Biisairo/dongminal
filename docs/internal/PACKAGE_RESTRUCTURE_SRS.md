@@ -764,7 +764,52 @@ alias 가 필요해진다 — FR-DIR-3(alias 불필요)과 충돌한다. 클라�
 `static_test.go`·`write_test.go` 의 허용 경로는 접두어 매칭이라 하위 디렉터리가
 그대로 걸려 갱신이 필요 없었다.
 
-### 8.7 진행 상황
+### 8.7 D-6: `web/js` 재배치와 `app.js` 분할의 실측 이탈 (단계 10·11)
+
+**D-6a (실질) FR-REF-1 표가 불완전했다.** `e2e/git-lanes.spec.ts` 는 9행(주석)만
+표에 있었으나, 실제로 파일을 읽는 곳은 37행
+`const LANES_JS = join(process.cwd(), 'web','js','git-lanes.js')` 다. 주석만 고치면
+그 스펙 파일 전체가 ENOENT 로 죽는다. 37행도 갱신했다.
+
+**D-6b (실질) FR-REF-1 표에 `internal/server/commands_browser_test.go` 가 없었다.**
+이 테스트는 `web/js/app.js` 를 경로로 읽어 `_execRemote` 본문에서 action 을 추출한다.
+단계 10 에서 `web/js/core/app.js` 로, 단계 11 에서 `web/js/core/app-cmd.js` 로 두 번
+바뀌었다 — `_execRemote` 와 그 경계인 `_resolveLocation` 이 함께 `app-cmd.js` 로 갔다.
+
+**D-6c (실측차) §2.4 의 "159 메서드" 는 158 이다.** 총 멤버 170 = `constructor` 1 +
+접근자 11 + 메서드 158. 접근자·constructor 포함 방식의 차이다. §2.4 의 차단 요인
+판정 3건(`#` 은 CSS 선택자 · `for…in` 없음 · `static` 없음)은 실측과 일치했다.
+
+**D-6d (해석) FR-APP-2 표는 주제·대표 메서드만 주고 149개 전량 분류표가 없었다.**
+§2.4 의 뭉치 개수와 `app.js` 자체의 섹션 주석으로 확정했다. §2.4 의 접두어 개수와
+어긋난 곳: layout 21(§2.4 "20"), tool 12("11"), focus 11("14"), git 23("22") —
+§2.4 는 접두어 근사치이고(`openGitWindow` 는 `_git*` 가 아니다) 파일 경계는 주제로
+갈랐다. 분류가 전량 소진임은 스크립트가 강제한다(미분류·중복·부재를 에러로 낸다).
+
+**D-6e (사소)** `index.html:12` 의 `style.css?v=146` 은 그대로 두었다. FR-JS-3 은
+`<script>` 를 대상으로 하고 `style.css` 는 무변경이라 캐시 무효화 이유가 없다.
+
+**FR-APP-3(본문 불변) 의 증거** — 추정이 아니라 텍스트 대조다:
+원본 AST 멤버 170개 ↔ 새 14파일의 멤버·속성 대조에서 누락 0 / 초과 0 / 중복 0이고,
+소스 텍스트 170개가 **바이트 단위 동일**하다. 줄 단위 다중집합 대조에서 원본 2,999줄이
+전부 잔존하며 차이는 객체 리터럴 구분용 쉼표 149개뿐이다.
+
+**FR-APP-4 의 증거**: 실브라우저에서 `App.prototype` descriptor 6개가 여전히 get/set
+함수다(값 복사되지 않았다). 접근자 반환값 `auto|768|boolean|true|false|5000`.
+
+### 8.8 D-7: 문서 갱신 범위 (단계 12)
+
+**완료 기록인 SRS 문서의 경로는 고치지 않았다.** `RUN_ORCHESTRATION_SRS.md`,
+`GIT_UI_REVISION_SRS.md`, `ORCHESTRATOR_RESEARCH_NOTES.md` 등은 그 시점의 사실을
+적은 기록이다. 새 경로로 고치면 기록이 거짓이 된다. 살아 있는 포인터
+(`architecture.md`, `README.md`, `getting-started.md`, `docs/internal/README.md`)만
+갱신했다.
+
+**README 아키텍처 다이어그램을 프로세스 축으로 다시 그렸다.** 기존 다이어그램은
+데몬과 웹 서버를 "Go Server (PTY hub)" 한 상자로 묶어, PTY 소유자가 누구인지를
+가리고 있었다 — 이번 재구성이 코드에서 갈라낸 바로 그 경계다.
+
+### 8.9 진행 상황
 
 | 단계 | 묶음 | 상태 | 검증 |
 |---|---|---|---|
@@ -778,4 +823,8 @@ alias 가 필요해진다 — FR-DIR-3(alias 불필요)과 충돌한다. 클라�
 | 7 | H | 완료 | `70c6c25` — `webserver/gitapi` + `*GitServer` |
 | 8 | I | 완료 | `go build`·`vet`·`test`·`gofmt` 통과. `core`/`store`/`jobs` |
 | 9 | I | 완료 | 전량 통과 + TC-GIT-1(`execGit` 0건) + 의존 방향 `go list` 확인. §8.6 |
-| 10~14 | E·J·F·G | 미착수 | |
+| 10 | E | 완료 | `fd93ae4` — `web/js` 3폴더. TC-JS-1(embed) + 격리 인스턴스에서 js 20개 200, 구 평면 경로 404 |
+| 11 | J | 완료 | `3d8511a` — `app.js` 14분할. TC-APP-1(바이트 단위 대조) + 실브라우저 요청 138건 전부 200, console error 0 |
+| 12 | F | 완료 | 참조처 갱신 — e2e 4곳, `commands_browser_test.go`, `README.md`, `architecture.md`, `getting-started.md`, `docs/internal/README.md`. §8.8 |
+| 13 | G | 완료 | README 테스트 절 신설(e2e 절차 + 격리 실행 안내), `build.sh` 주석 |
+| 14 | — | 완료 | §8.10 |

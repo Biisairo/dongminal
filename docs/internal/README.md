@@ -49,7 +49,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | **Run** | 오케스트레이션 실행 인스턴스 (미구현) |
 
 `paned`·`paned.sock`·`paned.pid` 는 **데몬 프로세스의 이름**이며 개명 대상이 아니다.
-`internal/migrate` 안의 `panes.json`·`region`·`paneId` 는 **구 어휘가 입력**이라
+`internal/ctl/migrate` 안의 `panes.json`·`region`·`paneId` 는 **구 어휘가 입력**이라
 그대로 둔다.
 
 ## 보관 (`archive/`) — 완료된 작업의 기록
