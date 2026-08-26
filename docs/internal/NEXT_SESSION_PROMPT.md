@@ -1,6 +1,6 @@
 # 다음 세션 프롬프트
 
-**현재 트랙: Git 창 — 코드 1~20단계 완료. 남은 것은 미구현 2건 + 21단계 수동 검증.**
+**현재 트랙: Git 창 — MVP 코드 완료 + UI 개정 완료. 남은 것은 결함 2건 + 검증 잔여 + 문서 흡수.**
 
 아래 §1 지시 블록을 새 세션 첫 메시지로 붙여넣는다.
 
@@ -9,92 +9,117 @@
 ## 1. 새 세션에 붙여넣을 지시 블록
 
 ```
-dongminal Git 창 트랙을 마무리한다. MVP 코드는 1~20단계가 끝나 있다.
+dongminal Git 창 트랙을 이어간다. 이번 세션의 일은 **결함 2건 수정**이다.
 
 읽을 것 (순서대로):
-  docs/internal/GIT_REMAINING.md          ← 이번 세션의 작업 목록. 여기가 출발점이다
-  docs/internal/GIT_SRS.md                ← 스펙. FR-GIT-1~178, §7 결정, §7.1 해석 I1~I8
-  docs/internal/design/README.md          ← 계약 색인·픽스처·검증 게이트
-  docs/internal/GIT_MANUAL_CHECKLIST.md   ← 21단계 절차
+  docs/internal/GIT_REMAINING.md          ← 출발점. §1 이 이번 세션의 일이다
+  docs/internal/GIT_UI_REVISION_SRS.md    ← 개정 SRS (FR-GIT-179~213). GIT_SRS 보다 앞선다
+  docs/internal/GIT_SRS.md                ← 원 명세 (FR-GIT-1~178) + §7.1 해석 I1~I8
+  docs/internal/GIT_MANUAL_CHECKLIST.md   ← 1회차 실사 기록. 이 두 결함이 나온 자리다
 
-이번 세션의 일은 셋이다. 순서대로 한다.
+■ D-1 (먼저) — diff 의 추가·삭제 색이 테마를 따르지 않는다 (G5.11 / FR-GIT-119)
 
-■ 1) 미구현 2건을 구현한다 (GIT_REMAINING.md §1)
-  G-1 FR-GIT-141 커밋에서 "여기서 브랜치 생성"  (web/js/git-menu.js:28)
-  G-2 FR-GIT-144 dirty 상태의 Checkout (Detached) (web/js/git-menu.js:38)
+  실측: 다크 3종 + 라이트 2종 **전부**에서 `.line-insert` 배경이
+  `rgba(155,185,85,0.2)` (Monaco vs-dark 기본 `#9bb955`) 로 고정이다.
+  원인: `web/js/file-editor.js:91` 의 `defineTheme` 이 `editor.*` 만 매핑하고
+  `diffEditor.*` 를 하나도 매핑하지 않는다.
 
-  둘 다 "M5 에서 제공됩니다"로 막아 둔 P0 항목이고, 막을 당시엔 없던 것이
-  지금은 전부 있다. 기존 것을 재사용해라 — 같은 판정을 두 벌로 만들지 마라:
-    · 브랜치 생성 다이얼로그·이름 검증 → GitBranches (web/js/git-branches.js)
-    · dirty 3선택(취소/stash 후 진행/강제) → GitBranches 의 흐름
-    · 파괴적 2단계 확인 → GitConfirm (web/js/git-confirm.js)
-    · 다이얼로그 골격 → GitDialog (web/js/git-dialog.js)
+  · 색을 하드코딩하지 마라. 테마 토큰에서 파생한다 — `web/js/themes.js` 의
+    `terminal.green`·`terminal.red` 가 테마마다 정의돼 있고,
+    `web/js/file-editor.js:132` 의 `monacoMix()` 가 두 색을 섞는 함수다.
+    FR-GIT-119 의 "하드코딩 색 부재" 와 같은 규약이다.
+  · 편집기 배경·전경은 **이미 테마를 따른다** (라이트 테마의 흰 배경까지 확인).
+    고칠 것은 diff 색뿐이다.
+  · 검증은 V47(그래프 색) 과 같은 결로 세운다: 여러 테마에서
+    `.line-insert`·`.line-delete` 배경이 **서로 달라지는지**.
 
-  기본은 항상 안전한 쪽이다 (FR-GIT-97, O14) — dirty 기본 선택은 취소다.
+■ D-2 — LFS 포인터의 메타가 화면에 없다 (G5.9 / FR-GIT-47)
 
-  e2e 두 개가 지금 "막혀 있음"을 고정하고 있으니 함께 바꾼다:
-    e2e/git-menu.spec.ts N7(FR-GIT-141) · N8(FR-GIT-144)
-    N9(clean 경로)는 그대로 유효하다 — 건드리지 마라.
+  서버는 이미 준다: `/api/git/diff-content` 가
+  `{"kind":"lfs","size":134,"lfsOid":"0123…","lfsSize":123456789}` 를 싣는다.
+  클라이언트가 `note` 만 그린다 (`grep -n "lfs" web/js/*.js` → 0건).
 
-■ 2) 21단계 수동 검증 (GIT_MANUAL_CHECKLIST.md)
-  scripts/git_fixture.sh 로 저장소 10종을 만들고 dongminal 을 띄운 뒤 G1~G6 과
-  보안 S.1~S.4 를 훑는다. 각 항목을 ☑ / ✗(사유) 로 문서에 기록한다.
-  · 결함이 나와도 그 자리에서 고치지 말고 먼저 전부 훑는다. 목록을 모은 뒤
-    우선순위를 정한다.
-  · 화면 배치·색·읽힘은 스펙이 정하지 않은 것이 많다. "결함"과 "취향"을 구분해
-    기록한다.
-  · G7(모바일 실기기)은 사용자 몫이다. 내게 넘겨라.
-
-■ 3) 마무리
-  GIT_REMAINING.md 를 갱신하고, 트랙이 닫히면 design/ 계약 문서를
-  docs/internal/archive/ 로 옮긴다 (archive 규칙: 옮긴 뒤 갱신하지 않는다).
+  · 문면("포인터임을 표시하고 메타만 보인다")이 두 가지로 읽힌다. 어느 쪽이든
+    지금은 메타가 하나도 없어 미달이다 — 구현하며 GIT_SRS §7.1 에 해석을 적는다.
+  · 바이너리(FR-GIT-46)도 서버가 `size` 를 준다. 같이 보일지는 판단해서 정하고,
+    범위를 넓혔으면 그 사실을 적는다.
 
 작업 방식:
-- 스펙이 이미 있으므로 각 항목은 테스트 → 구현 순서다.
-- 서브에이전트를 쓸 거면 JS 레인 하나만 쓴다. 남은 일이 전부 web/js/ 라
-  둘을 띄우면 같은 파일에서 충돌한다.
+- 스펙이 이미 있으므로 각 항목은 **테스트 → 구현** 순서다.
+- 결함마다 검증을 새로 세운다. "고쳤다"의 근거가 코드가 아니라 테스트여야 한다.
 - 각 항목이 끝나면 검증하고 커밋한다. 커밋 메시지에 AI 서명(Co-Authored-By 등)을
   넣지 않는다.
 
-검증 (기준선: Go 전부 통과 / Playwright 348):
+검증 (기준선: Go 전부 통과 / Playwright 371):
   go build ./... && go vet ./... && go test ./... -race && gofmt -l .
   npx playwright test --retries=1
 
-  ※ --retries=1 을 주는 이유는 GIT_REMAINING.md §4 에 있다. 전체 실행은 부하에
-    민감해 0~1건이 간헐 실패하며, 제품 결함이 아님을 이미 확인했다. 진짜 실패는
-    두 번 모두 실패하므로 게이트의 뜻은 그대로다.
+  ※ --retries=1 의 근거는 GIT_REMAINING.md §6 에 있다. 전체 실행은 부하에 민감해
+    0~1건이 간헐 실패하며 제품 결함이 아님을 확인했다. 진짜 실패는 두 번 모두
+    실패하므로 게이트의 뜻은 그대로다.
 
-하지 말 것 (GIT_REMAINING.md §2):
-- Console 탭의 "준비 중"을 고치지 마라. 표시는 의도적으로 P1(비목표)이고 자리와
-  기록은 이미 MVP 에 들어 있다.
+화면을 봐야 하면 **격리 인스턴스**를 쓴다 (사용자가 쓰는 58146 을 건드리지 않는다):
+  scripts/git_fixture.sh /tmp/dm-git-fixtures
+  go build -o /tmp/dm-manual-bin ./cmd/dongminal
+  PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
+  → web/ 자산은 embed 라 고칠 때마다 다시 빌드해야 화면에 반영된다.
+
+하지 말 것 (GIT_REMAINING.md §5):
+- Console 탭의 "준비 중"을 고치지 마라. 표시는 의도적으로 P1(비목표)이다.
 - 비목표(hunk 스테이징·merge editor·인터랙티브 rebase·브랜치 삭제·clone/init 등)를
   구현하지 마라.
 - 자격증명 저장·중계 경로를 만들지 마라. 의도적 배제다 (FR-GIT-104).
+- 안내문·툴팁을 영어로 바꾸지 마라. 버튼만 영어다 (FR-GIT-202).
+
+D-1·D-2 가 끝나면 다음 후보는 GIT_REMAINING.md §2(로그 위생) 와 §3(검증 잔여:
+G6 상태바 · 보안 S.1~S.4) 다. 어느 쪽으로 갈지는 그때 사용자에게 묻는다.
 ```
 
 ---
 
-## 2. 감사할 때 조심할 것 (이번 세션에서 실제로 당한 것)
+## 2. 감사할 때 조심할 것
+
+### 2.1 "언급"과 "구현"은 다르다
 
 FR 번호가 코드에 **언급되는지**만 기계로 확인하면 **"막아 두고 사유를 보이는 것"도
-통과한다.** 실제로 `FR-GIT-1~178 전부 참조됨`이라는 감사가 초록이었는데
-141·144 는 미구현이었다.
-
-차단 표식을 함께 훑어라:
+통과한다.** 실제로 `FR-GIT-1~178 전부 참조됨`이라는 감사가 초록이었는데 141·144 는
+미구현이었다.
 
 ```bash
 grep -rn "disabled:()=>\|disabled: (" web/js/git-*.js
 grep -rn "제공됩니다\|준비 중\|pending:true" web/js/constants.js
 ```
 
+### 2.2 "서버가 준다"와 "화면에 보인다"도 다르다
+
+이번에 나온 결함 2건이 **둘 다 그 모양**이다 — 서버는 옳은 값을 싣고 클라이언트가
+그리지 않는다. API 응답만 보고 충족을 판단하지 마라.
+
+```bash
+# 서버가 주는 필드가 화면 코드에서 쓰이는지
+grep -rn "lfsOid\|lfsSize" web/js/   # → 0건이면 안 그리고 있는 것이다
+```
+
+### 2.3 문자열 상수는 `window` 프로퍼티가 아니다
+
+`constants.js` 의 `const` 는 `window.X` 로 읽히지 않는다 (e2e 에서 조용히
+`undefined`). `function` 선언과 `window.X=X` 로 명시한 것만 붙는다. e2e 에서는
+문자열 평가(`page.evaluate("THEMES['…']")`)로 전역 스코프를 읽는다.
+
+### 2.4 `:checked` 는 즉시 다시 계산되지 않는다
+
+`el.checked = true` 직후의 `getComputedStyle` 은 **이전 값**을 준다. e2e 에서
+상태를 세우고 렌더 결과를 볼 때는 `expect.poll` 로 감싼다. 또 1초 폴링이 다시
+칠하는 화면(Changes 의 amend)에서는 직접 세운 상태가 되돌아간다 — 다이얼로그처럼
+다시 칠하지 않는 자리를 고른다.
+
 ---
 
 ## 3. 완료된 것 (기록)
 
-### Git 창 — 1~20단계
+### 3.1 Git 창 — 1~20단계 (이전 세션들)
 
 기준선: `go test ./... -race` 전부 통과 · gofmt clean · Playwright **187 → 348**.
-FR-GIT-1~178 구현(§1 의 2건 제외), 검증 V1~V59·V62~V69 자동화.
 
 | 마일스톤 | 단계 | 커밋 |
 |---|---|---|
@@ -105,31 +130,49 @@ FR-GIT-1~178 구현(§1 의 2건 제외), 검증 V1~V59·V62~V69 자동화.
 | **M5 참조** | 18 N(Branches) · 19 O(Stash) · 20 P(다이얼로그 규약) | `c9f8134` `7dd4130` `525ca24` |
 | 기반 | 설계 계약 21단계 · 결정 O1~O14 · 해석 I1~I8 · 픽스처 10종 · 수동 체크리스트 · `-race` 게이트 복구 | `67bc325` `6157476` `ddb4307` `cece980` `a2c3abe` `b8a288a` |
 
-### 구현 중 실측으로 잡은 함정 (다시 밟지 마라 — 근거는 계약 문서에 있다)
+### 3.2 이번 세션 (2026-08-26)
+
+| 커밋 | 내용 |
+|---|---|
+| `967c097` | **미구현 P0 2건** — FR-GIT-141 "여기서 브랜치 생성" · FR-GIT-144 dirty 의 Checkout (detached). 둘 다 기존 M5 자산을 재사용했다. 함께 `GitBranches.reload` 부재를 고쳤다 |
+| `f6b0ef1` | **사용자 검토 UI 개정** — FR-GIT-179~210. Git 창을 닫힌 창으로(27·30 폐기), 파일 선택을 행 클릭+보조키로, GIT 섹션 이모지 제거, VSCode 치수 하한, 버튼 라벨 영문화, 폼 컨트롤 테마화 |
+| `0ad7ba6` | **FR-GIT-211~213** — 트리 깊이 세로선 · 그룹 구분선 · 커밋 영역 정렬 |
+
+**함께 잡은 결함 5건** (전부 실사에서 나왔다):
+
+| 결함 | 무엇이 잘못이었나 |
+|---|---|
+| `GitBranches.reload` 부재 | `afterRefWrite` 가 부르는데 없었다 → 두 뷰가 살아 있을 때 ref 쓰기가 TypeError. 성공한 조작이 다이얼로그에 사유를 안고 남았다 |
+| follow 가 서버 cwd 로 넘어감 | 포커스가 터미널이 아니면 빈 `tool` 이 가고 서버가 자기 cwd 로 답했다 → 가 본 적 없는 리포가 follow 에 떴다. 마지막 터미널을 유지하도록 고쳤다 (FR-GIT-210) |
+| 라디오가 타원 | 입력 높이 하한 `input:not([type=checkbox])` 이 라디오까지 잡아 14px 상자를 26px 로 늘렸다 |
+| 커밋 옵션 메뉴가 잘림 | Commit 이 왼쪽으로 가면서 `right:0` 메뉴가 왼쪽으로 자라 `.git-view` 의 overflow 에 잘려 누를 수 없었다 |
+| 드래그 높이가 도로 접힘 | 세로 flex 에서 textarea 가 `flex:1 1 auto` 라 줄어들었다. 높이는 `_grow()`·`_drag()` 가 정하므로 `flex:0 0 auto` |
+
+### 3.3 구현 중 실측으로 잡은 함정 (다시 밟지 마라)
 
 | 함정 | 결과 |
 |---|---|
 | `git log` 에 `-z` 를 주지 않으면 git 이 **레코드 사이에 개행을 끼운다** | 다음 레코드의 첫 필드가 오염돼 조용히 틀린 목록이 된다 |
-| `git config --get` 은 **미설정 시 exit 1** (stderr 비어 있음) | 오류로 올리면 identity 없는 저장소에서 preflight 자체가 막혀 차단 사유를 못 보인다 |
+| `git config --get` 은 **미설정 시 exit 1** | 오류로 올리면 identity 없는 저장소에서 preflight 자체가 막혀 차단 사유를 못 보인다 |
 | 없는 blob 은 **exit 128** + `does not exist in 'HEAD'` | 오류로 올리면 새 파일·삭제 파일의 diff 가 전부 500 이 된다 |
-| `git check-ref-format --branch '@{-1}'` 이 **exit 0 으로 다른 브랜치 이름을 출력** | 종료 코드만 믿으면 사용자가 입력한 것과 다른 브랜치가 조작된다 (§7.1 I8) |
+| `git check-ref-format --branch '@{-1}'` 이 **exit 0 으로 다른 이름을 출력** | 종료 코드만 믿으면 사용자가 입력한 것과 다른 브랜치가 조작된다 (§7.1 I8) |
 | `commit-parent` 축의 빈 `oid` 는 `:<path>` = **index** | 커밋 축이 조용히 다른 축이 된다 |
 | `constants.js` 의 `const` 는 **`window` 프로퍼티가 아니다** | e2e 가 `window.X` 로 읽으면 조용히 undefined |
 | 소스에 **리터럴 NUL 바이트** | grep·diff 가 파일을 바이너리로 취급해 조사 도구가 무력화된다 |
+| CSS `background` 축약이 `background-image` 를 지운다 | 행 hover·선택이 트리 깊이 세로선을 함께 지웠다 (`background-color` 로 바꿔야 한다) |
+| `web/` 자산은 `go:embed` 다 | 고친 뒤 **다시 빌드하지 않으면** 화면에 반영되지 않는다 |
 
-### 병렬 운영에서 배운 것
+### 3.4 병렬 운영에서 배운 것
 
 - **Go 레인 1개 + JS 레인 1개.** 같은 레인에 둘을 띄우면
   `internal/server/handlers_api.go` 의 라우트 표와 `web/js/*.js` 에서 충돌한다.
 - **Playwright 는 동시에 두 번 돌 수 없다** — 고정 포트 58147 +
   `reuseExistingServer:false`.
 - `git add <디렉터리>` 는 **다른 에이전트의 미완성 변경을 삼킨다.** 파일을 명시해
-  add 한다 (실제로 한 번 삼켜 히스토리를 되돌렸다).
-- **실측을 계약 문서에 먼저 반영하면 뒤 단계가 같은 함정을 밟지 않는다.**
-- **에이전트 산출물은 독립 검증한다.** 그렇게 찾은 실제 결함: detached 경고의
-  preflight 경합, 리터럴 NUL, `commit-parent` 축의 빈 oid, `@{-1}` 이름 확장.
+  add 한다.
+- **에이전트 산출물은 독립 검증한다.**
 
-### 이전 트랙
+### 3.5 이전 트랙
 
 | 트랙 | 상태 |
 |---|---|
@@ -141,12 +184,14 @@ FR-GIT-1~178 구현(§1 의 2건 제외), 검증 V1~V59·V62~V69 자동화.
 
 ---
 
-## 4. 이번 트랙의 확정 사항 (다시 논의하지 말 것)
+## 4. 확정 사항 (다시 논의하지 말 것)
+
+### 4.1 원 설계
 
 | 항목 | 결정 |
 |---|---|
 | 형태 | Git = **창(window)**, 워크스페이스에 1개 (싱글턴) |
-| 진입 | 좌측 사이드바 GIT 섹션 — `⟳` cwd 자동 + `📌` 고정 + `+ Add` |
+| 진입 | 좌측 사이드바 GIT 섹션 — follow(cwd 자동) + 핀 + `+ Add` |
 | 창 내부 | **고정 탭** `Changes / Diff / History / Branches / Stash / Console` |
 | 변경 감지 | **`git status` 폴링** (즉시 신호 4종 + signature 500ms + status 1s) |
 | diff 엔진 | **Monaco DiffEditor** |
@@ -155,3 +200,19 @@ FR-GIT-1~178 구현(§1 의 2건 제외), 검증 V1~V59·V62~V69 자동화.
 
 기각된 것: 우측 사이드 패널 · 일반 탭 · fsnotify/watcher/git hooks · 칸 최대화(zoom).
 사유는 `GIT_INTEGRATION_ANALYSIS.md` §4.5.3 과 `GIT_SRS.md` §5 에 있다.
+
+### 4.2 UI 개정 (`GIT_UI_REVISION_SRS.md`)
+
+| 항목 | 결정 |
+|---|---|
+| Git 창 | **닫힌 창** — 분할 불가, 탭 추가 불가, 드롭 불가 (FR-GIT-27 폐기) |
+| 진입점 | GIT 섹션의 리포 항목 **하나뿐**. WINDOWS 목록·창 전환 순환에서 제외 (FR-GIT-30 폐기) |
+| Git 창 닫기 | Git 창 자신의 상단 바 |
+| `Open File` | Git 창이 아니라 **직전 활성 일반 창**에 연다 |
+| 파일 선택 | 체크박스 없음. 클릭=선택 교체+미리보기 · Cmd/Ctrl=토글 · Shift=범위 |
+| 동작 진입점 | **행 인라인 버튼 하나.** 누른 행이 선택 안이면 선택 전체가 대상 |
+| GIT 섹션 표식 | 이모지 없음. WINDOWS 의 점과 같은 어휘 + follow 아래 구분선 |
+| 치수 | 아이콘 버튼 22×22 · 라벨 버튼 26 · 목록 행 22 · 글꼴 11(목록 12) |
+| 버튼 라벨 | **영어.** 안내문·툴팁·placeholder 는 한글 |
+| 체크박스·라디오 | 테마 토큰. 켜짐은 accent 로 꽉 찬 상자, **체크 표식(✓)은 그리지 않는다** |
+| 커밋 영역 | 입력창이 폭을 다 쓰고, amend·Commit 은 그 아래 한 줄에 **왼쪽으로 모여** |

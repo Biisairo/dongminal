@@ -1,59 +1,118 @@
 # Git 창 — 남은 작업과 알려진 결함
 
-> MVP 코드는 1~20단계가 끝났다 (`525ca24`). 이 문서는 **아직 끝나지 않은 것만**
-> 담는다. 완료된 설계 근거는 `./design/`, 요구사항은 `./GIT_SRS.md` 다.
+> MVP 코드는 1~20단계가 끝났고(`525ca24`), 미구현이던 P0 2건도 끝났다(`967c097`).
+> 그 뒤 사용자 검토로 UI 를 개정했다(`f6b0ef1` · `0ad7ba6`).
+> 이 문서는 **아직 끝나지 않은 것만** 담는다.
 >
-> 작성: 2026-08-26
+> - 요구사항: [`./GIT_SRS.md`](./GIT_SRS.md) (FR-GIT-1~178)
+> - **개정**: [`./GIT_UI_REVISION_SRS.md`](./GIT_UI_REVISION_SRS.md) (FR-GIT-179~213).
+>   FR-GIT-27·30 을 폐기하고 13·41·69 를 개정했다 — **그쪽이 본 문서보다 앞선다**
+> - 설계 근거: [`./design/`](./design/)
+> - 수동 검증: [`./GIT_MANUAL_CHECKLIST.md`](./GIT_MANUAL_CHECKLIST.md) (1회차 실사 기록 포함)
+>
+> 갱신: 2026-08-26
 
 ---
 
-## 1. 미구현 요구사항 2건 (P0 — MVP 범위 안이다)
+## 1. 결함 2건 (다음 세션의 일)
 
-둘 다 `web/js/git-menu.js` 의 **커밋 우클릭 메뉴**에 있고, "M5 에서 제공됩니다"로
-막아 둔 채 남았다. 막을 당시(16·17단계)에는 M5 가 없었지만 **지금은 있다** —
-`c9f8134`(서버)·`7dd4130`(클라)·`525ca24`(다이얼로그 규약)로 필요한 것이 전부 섰다.
+21단계 수동 검증 1회차에서 실사로 나온 것이다. 둘 다 **서버는 이미 옳은 값을 주고
+클라이언트가 그리지 않는다**는 같은 모양이다.
 
-### G-1. FR-GIT-141 — 커밋에서 "여기서 브랜치 생성"
-
-| | |
-|---|---|
-| 위치 | `web/js/git-menu.js:28` — `{id:'branch-from', … disabled:()=>GIT_MENU_M5}` |
-| 표면 지도 | S4 P0 (`GIT_SURFACE_MAP.md` §3 S4 / `GIT_SRS.md` §9 A.2) |
-| 막힌 이유 | 16·17단계 시점에 `POST /api/git/branch` 와 생성 다이얼로그가 없었다 |
-| 지금 있는 것 | `POST /api/git/branch`, `GET /api/git/branch/validate`(`ok`·`reason`·`exists`), `GitBranches` 의 생성 다이얼로그(FR-GIT-158), `GitDialog` 골격 |
-| 할 일 | `disabled` 를 없애고 `run` 을 붙인다. **시작점을 그 커밋으로 고정**해 다이얼로그를 연다 (`startRef = target.oid`). 이름 검증은 입력 단계에서 `validate` 로 한다 (FR-GIT-159) |
-| 주의 | `ok:true, exists:true` 는 규칙 위반이 아니라 "이미 있다" 다 — 다른 문구를 보여야 한다 |
-| 고쳐야 할 e2e | `e2e/git-menu.spec.ts` **N7** — 지금은 "막혀 있고 사유를 보인다"를 고정한다. 실제 생성까지 확인하는 테스트로 바꾼다 |
-
-### G-2. FR-GIT-144 — dirty 상태의 `Checkout (Detached)`
+### D-1. G5.11 / FR-GIT-119 — diff 의 추가·삭제 색이 테마를 따르지 않는다
 
 | | |
 |---|---|
-| 위치 | `web/js/git-menu.js:38` — `disabled:()=>panel.isDirty()? … +GIT_MENU_M5 : ''` |
-| 요구 문면 | "detached 상태가 됨을 사전 경고하고, **dirty 상태면 묶음 P 의 처리를 따른다**" |
-| 막힌 이유 | 묶음 N(dirty 3선택)과 묶음 P(다이얼로그 규약)가 아직 없었다 |
-| 지금 있는 것 | `GitBranches` 의 dirty checkout 3선택(`취소` / `stash 후 진행` / `강제`), `GitConfirm` 2단계, `GitDialog` |
-| 할 일 | dirty 일 때 차단 대신 **같은 3선택을 거치게** 한다. `GitBranches` 의 흐름을 재사용한다 — 같은 판정을 두 벌로 만들지 않는다 |
-| 주의 | **기본은 취소다** (FR-GIT-97·157, O14). 강제는 파괴적이므로 `GitConfirm` 2단계 |
-| 고쳐야 할 e2e | `e2e/git-menu.spec.ts` **N8** — 지금은 "막히고 사유를 보인다"를 고정한다. 3선택이 뜨고 기본이 취소임을 확인하는 테스트로 바꾼다. **N9(clean 경로)는 그대로 유효하다** |
+| 증상 | 테마를 바꿔도 diff 의 추가/삭제 줄 색이 그대로다. 라이트 테마에서 특히 어긋난다 |
+| 실측 | 다크 3종(Tokyo Night·Dracula·Nord) + 라이트 2종(GitHub Light·Solarized Light) 전부에서 `.line-insert` 배경이 `rgba(155, 185, 85, 0.2)` (Monaco 의 vs-dark 기본 `#9bb955`) 로 **고정** |
+| 원인 | `web/js/file-editor.js:91` 의 `monaco.editor.defineTheme` 이 `editor.background`·`foreground`·`editorCursor`·`lineHighlight`·`selection`·`lineNumber` 만 매핑한다. **`diffEditor.*` 를 하나도 매핑하지 않아** 기본값이 그대로 남는다 |
+| 매핑해야 할 키 | `diffEditor.insertedTextBackground`·`removedTextBackground`·`insertedLineBackground`·`removedLineBackground`·`diffEditorGutter.insertedLineBackground`·`removedLineBackground`·`diffEditorOverview.insertedForeground`·`removedForeground` |
+| 색의 출처 | 하드코딩하지 말 것. 테마 토큰에서 파생한다 — 터미널 팔레트의 `green`·`red` 가 테마마다 정의돼 있다(`web/js/themes.js` 의 `terminal.green`/`terminal.red`). `web/js/file-editor.js:132` 의 `monacoMix()` 가 두 색을 섞는 함수다 |
+| 주의 | 편집기 배경·전경은 **이미 테마를 따른다** (라이트 테마에서 흰 배경까지 확인). 고칠 것은 diff 색뿐이다 |
+| 검증 | 기존 V47(FR-GIT-118·119 "테마 전환 시 그래프 색, 하드코딩 색 부재")과 같은 결의 e2e 를 diff 에 대해 세운다. 판정은 **여러 테마에서 `.line-insert`·`.line-delete` 배경이 서로 달라지는지** |
 
-### 왜 자동 감사가 이것을 놓쳤나 (다음에도 같은 함정이 있다)
+### D-2. G5.9 / FR-GIT-47 — LFS 포인터의 메타가 화면에 없다
 
-FR 번호가 코드에 **언급되는지**만 기계로 확인하면 "막아 두고 사유를 보이는 것"도
-통과한다. 실제로 이번에 `FR-GIT-1~178 전부 참조됨`이라는 감사가 초록이었는데
-141·144 는 미구현이었다.
+| | |
+|---|---|
+| 요구 문면 | "Git LFS 포인터는 포인터임을 표시하고 **메타만 보인다**" |
+| 증상 | `blobs/lfs.bin` 의 diff 가 `Git LFS 포인터입니다 — 실제 내용은 받아오지 않았습니다` 안내 하나뿐이고 oid·크기가 없다 |
+| 서버는 준다 | `GET /api/git/diff-content?...&path=lfs.bin` 이 양쪽에 `{"kind":"lfs","size":134,"lfsOid":"0123…","lfsSize":123456789}` 를 싣는다 |
+| 원인 | 클라이언트가 `note` 만 그린다. `web/js/git-panel.js` 의 diff note 경로에 `lfs` 분기가 없다 (`grep -n "lfs" web/js/*.js` → 0건) |
+| 문면의 모호함 | "메타만 보인다" 는 ① 내용 대신 메타를 보인다 ② 내용을 받아오지 않는다 둘로 읽힌다. 어느 쪽이든 **지금은 메타가 하나도 없으므로** 미달이다. 구현하며 §7.1 에 해석을 적는다 |
+| 참고 | 바이너리(FR-GIT-46)는 뷰어 요구가 "안내" 뿐이라 지금 상태로 충족이다. 다만 서버가 `size` 를 주므로 같이 보이면 일관된다 — 범위에 넣을지는 판단 |
+| 검증 | e2e — `blobs/lfs.bin` 의 diff 안내에 `lfsOid` 앞 몇 자와 크기가 나타난다 |
 
-**감사할 때는 언급이 아니라 `disabled`·`pending`·"제공됩니다" 같은 차단 표식을
-함께 훑어야 한다:**
+---
+
+## 2. 로그 위생 1건 (P1)
+
+**증상**: 페이지를 새로고침할 때마다 서버 로그에 `/api/git/status`·`/signature`·
+`/refs` 가 **500** 으로 서너 줄 남는다. 본문은
+`{"error":"git_failed","message":"git rev-parse --show-toplevel: signal: killed"}`.
+
+**진단**: 브라우저가 언로드하며 취소한 요청이다. 핸들러가 `r.Context()` 를 그대로
+git 실행에 넘기므로 요청이 끊기면 `exec.CommandContext` 가 git 을 SIGKILL 하고,
+그 오류가 500 이 된다.
+
+**화면에는 영향이 없다** — 같은 순간 셸에서 0.25초 간격으로 60회 폴링한 것은
+**전부 200** 이었고, 새로고침 후 UI 에 오류 표시가 남지 않는다.
+
+**고칠 값어치**: 진짜 장애와 구분되지 않는 로그가 남는다. 취소된 요청은
+`context.Canceled` 로 갈라 499(또는 무기록)로 마감하는 것이 맞다.
+
+---
+
+## 3. 21단계 수동 검증의 남은 항목
+
+1회차(2026-08-26)에서 G1~G5 를 훑었다. 결과는
+[`./GIT_MANUAL_CHECKLIST.md`](./GIT_MANUAL_CHECKLIST.md) 에 항목별로 적혀 있다.
+
+**남은 것**
+
+| 범위 | 내용 |
+|---|---|
+| G1.10 | 브라우저 창 2개에서 핀 추가가 양쪽에 반영되는지 |
+| G4.6 | `many-files` 기준 추가 CPU 3% 이하 |
+| G4.8 | 리포 빠른 왕복 전환에서 이전 목록 + 새 헤더가 섞이는 순간이 없는지 |
+| G5.12 | 오프라인에서 diff 영역만 사유를 보이고 목록·헤더는 동작하는지 |
+| G5.13 | 탭·리포 20회 왕복 후 메모리 계단 상승 없음 |
+| **G6.1~G6.5** | 상태바 chip 전부 |
+| **S.1~S.4** | 보안 기준 전부 |
+| M2~M5 묶음 | H·I / J / K / L·M / N·O·P 의 수동 항목 |
+| V61 | GPG 서명 — 서명 키가 있는 환경에서만 실사 가능 |
+| **G7** | 모바일 실기기 — **사용자 몫** |
+
+- 결함이 나오면 **그 자리에서 고치지 말고 먼저 전부 훑는다.** 목록을 모은 뒤
+  우선순위를 정한다.
+- 화면 배치·색·읽힘은 스펙이 정하지 않은 것이 많으므로 **"결함"과 "취향"을
+  구분해** 기록한다.
+
+**격리 인스턴스로 하는 것이 안전하다** — 사용자가 쓰는 dongminal(포트 58146)과
+워크스페이스를 공유하면 검증이 남긴 창·핀이 사용자 것을 오염시킨다.
 
 ```bash
-grep -rn "disabled:()=>\|disabled: (" web/js/git-*.js
-grep -rn "제공됩니다\|준비 중\|pending:true" web/js/constants.js
+scripts/git_fixture.sh /tmp/dm-git-fixtures
+go build -o /tmp/dm-manual-bin ./cmd/dongminal
+PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
 ```
+
+> 자산은 `web/embed.go` 로 **바이너리에 박힌다**. `web/` 을 고쳤으면 다시 빌드해야
+> 화면에 반영된다.
 
 ---
 
-## 2. 의도적으로 남긴 것 (고치지 마라)
+## 4. 문서 정리 (트랙을 닫을 때)
+
+- [ ] `GIT_UI_REVISION_SRS.md` 의 FR-GIT-179~213 을 `GIT_SRS.md` 본문에 흡수하고,
+      폐기된 FR-GIT-27·30 을 그쪽 본문에서 지운다
+- [ ] `design/` 의 계약 문서를 `docs/internal/archive/` 로 옮긴다
+      (archive 규칙: 옮긴 뒤 갱신하지 않는다)
+- [ ] `GIT_SURFACE_MAP.md` 의 P0 대응표에 개정 반영
+
+---
+
+## 5. 의도적으로 남긴 것 (고치지 마라)
 
 | 항목 | 근거 |
 |---|---|
@@ -63,54 +122,32 @@ grep -rn "제공됩니다\|준비 중\|pending:true" web/js/constants.js
 | 브랜치 삭제 · 태그 생성/삭제 · cherry-pick/revert/reset · merge/rebase 실행 | 비목표 P1. **메뉴 프레임워크(FR-GIT-146)가 자리를 열어 두었으므로 항목 선언만 더하면 된다** |
 | 자격증명 저장·중계 | **의도적 배제** (FR-GIT-104). 되살리지 마라 |
 | clone / init | 비목표 P2. 터미널로 충분 |
+| 안내문·툴팁이 한글인 것 | FR-GIT-202 — 버튼만 영어다. 설명은 읽는 사람의 말이어야 한다 |
 
 ---
 
-## 3. 21단계 — MVP 수동 검증 (V14 · V60 · V61)
+## 6. 알려진 간헐 실패 (제품 결함 아님)
 
-자동 테스트가 덮지 못하는 것만 남았다. 절차와 항목은
-[`GIT_MANUAL_CHECKLIST.md`](./GIT_MANUAL_CHECKLIST.md) 에 있다 (G1~G7 + 보안 S.1~S.4).
-
-```bash
-scripts/git_fixture.sh /tmp/dm-git-fixtures   # 저장소 10종, 2.3초
-scripts/start.sh
-```
-
-- **G7(모바일 실기기)은 사용자만 할 수 있다.** iOS/Android 실기기 확인은 넘긴다.
-- V61(GPG 서명)은 서명 키가 있는 환경에서만 실사할 수 있다.
-- 결함이 나오면 **그 자리에서 고치지 말고 먼저 전부 훑는다.** 화면 배치·색·읽힘은
-  스펙이 정하지 않은 것이 많으므로 **"결함"과 "취향"을 구분해** 기록한다.
-
----
-
-## 4. 알려진 간헐 실패 (제품 결함 아님)
-
-전체 e2e 348개 실행에서 **0~1건이 간헐적으로 실패한다.**
+전체 e2e 실행에서 **0~1건이 간헐적으로 실패한다.**
 
 | 테스트 | 성질 |
 |---|---|
-| `background-restore-at` TC-BGR-9 | **Git 이전부터 있던 테스트.** "창이 비는 과도 상태를 명중" 시키려는 것이라 본질적으로 타이밍 의존이다 (실패 문구가 그렇게 말한다) |
+| `background-restore-at` TC-BGR-9 | **Git 이전부터 있던 테스트.** "창이 비는 과도 상태를 명중" 시키려는 것이라 본질적으로 타이밍 의존이다 |
 | `git-stash` S2 · S3 | 우클릭 → 메뉴 항목 → git 상태 확인. 부하가 걸리면 기본 5초 단정이 흔들린다 |
+| `git-commit` E11 | textarea 높이 드래그. 같은 성질 |
 
-확인한 근거:
-
-- 단독 반복 **10/10 통과**, `e2e/git-*.spec.ts` **161개 전체 통과**
-- 실패하는 테스트가 실행마다 다르다 — 특정 테스트의 논리 문제가 아니라 부하다
-- `e2e/fixtures.ts` 머리말이 이 성질을 이미 설명한다: 고아 도구가 쌓이면 WS open 이
-  늦어져 대기가 타임아웃한다
-- **Stash 뷰의 폴링은 목록을 다시 그리지 않는다** (`paintStatus` 는 바만 갱신) —
-  열린 컨텍스트 메뉴가 폴링에 닫히는 경합은 코드로 확인해 배제했다
+확인한 근거: 단독 반복 통과 · 실패하는 테스트가 실행마다 다르다 ·
+`e2e/fixtures.ts` 머리말이 이 성질을 이미 설명한다(고아 도구가 쌓이면 WS open 이
+늦어진다).
 
 **권고**: 전체 실행은 `npx playwright test --retries=1` 로 돌린다. 진짜 실패는 두 번
-모두 실패하므로 게이트의 뜻이 약해지지 않는다.
-`playwright.config.ts` 의 로컬 `retries` 를 1로 올리는 것은 게이트의 뜻을 바꾸는
-결정이므로 **사용자 판단에 맡긴다** (CI 는 이미 `retries: 2` 다).
+모두 실패하므로 게이트의 뜻이 약해지지 않는다. `playwright.config.ts` 의 로컬
+`retries` 를 1로 올리는 것은 게이트의 뜻을 바꾸는 결정이므로 **사용자 판단에
+맡긴다** (CI 는 이미 `retries: 2`).
 
 ---
 
-## 5. 이 트랙 밖의 남은 별건
-
-`README.md` §남은 작업 과 중복이지만 여기 모아 둔다.
+## 7. 이 트랙 밖의 남은 별건
 
 | 항목 | 상태 |
 |---|---|
