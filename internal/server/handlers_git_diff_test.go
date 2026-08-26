@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	"dongminal/internal/git"
+	"dongminal/internal/webserver/domain/git"
 )
 
 // 묶음 F 서버측 — /api/git/diff-content (GIT_SRS §3.6 FR-GIT-44~48·54·62, 검증 V10).

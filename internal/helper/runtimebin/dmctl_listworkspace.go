@@ -6,8 +6,8 @@ import (
 	"io"
 	"strings"
 
-	"dongminal/internal/toolline"
-	"dongminal/internal/workspace"
+	"dongminal/internal/helper/toolline"
+	"dongminal/internal/shared/workspace"
 )
 
 // dmctlListWorkspace implements `dmctl list-workspace`. /api/state 호출 후 workspace

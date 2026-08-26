@@ -13,9 +13,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"dongminal/internal/run"
-	"dongminal/internal/workspace"
-	"dongminal/internal/worktree"
+	"dongminal/internal/shared/workspace"
+	"dongminal/internal/webserver/domain/run"
+	"dongminal/internal/webserver/domain/worktree"
 )
 
 // runsReady guards every handler: a wiring without the store answers 503

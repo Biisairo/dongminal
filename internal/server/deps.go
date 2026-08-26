@@ -3,12 +3,12 @@ package server
 import (
 	"dongminal/internal/shared/toolhub"
 
-	"dongminal/internal/git"
-	"dongminal/internal/run"
-	"dongminal/internal/sysstat"
-	"dongminal/internal/toolaccess"
-	"dongminal/internal/workspace"
-	"dongminal/internal/worktree"
+	"dongminal/internal/shared/workspace"
+	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/run"
+	"dongminal/internal/webserver/domain/sysstat"
+	"dongminal/internal/webserver/domain/worktree"
+	"dongminal/internal/webserver/seam/toolaccess"
 	"time"
 )
 

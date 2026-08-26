@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/git"
+	"dongminal/internal/webserver/domain/git"
 )
 
 // FR-GIT-218 (V95) — Console 탭이 읽는 실행 기록. 기록은 이미 Recorder 에 있고,

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"dongminal/internal/git"
+	"dongminal/internal/webserver/domain/git"
 )
 
 // /api/git/stash{,/push,/apply,/pop,/drop,/show} — stash 표면

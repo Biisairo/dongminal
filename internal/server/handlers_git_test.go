@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"dongminal/internal/git"
+	"dongminal/internal/webserver/domain/git"
 )
 
 // 묶음 B·C 서버측 — /api/git/* (GIT_SRS §3.8 FR-GIT-60~63, 검증 V3·V4·V13·V16·V28·V29).

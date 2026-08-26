@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/worktree"
+	"dongminal/internal/webserver/domain/worktree"
 )
 
 // 묶음 W 의 접합 절반 (RUN_ORCHESTRATION_SRS §3.4, TC-WKT-1/2/6/8/12).

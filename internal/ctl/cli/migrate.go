@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"dongminal/internal/migrate"
+	"dongminal/internal/ctl/migrate"
 )
 
 // targetFlags는 기본값이 아닌 대상을 가리킬 때 안내에 덧붙일 플래그다.

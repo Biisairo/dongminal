@@ -16,10 +16,10 @@ const gitLiteral = `"gi` + `t"`
 var directExec = regexp.MustCompile(`exec\.` + `Command(Context)?\([^)]*` + gitLiteral)
 
 // 허용 예외는 FR-GIT-1 이 명시한 두 곳뿐이다 — internal/worktree 는 Run 격리 전용
-// 경로이고, internal/git 자신이 그 단일 지점이다.
+// 경로이고, internal/webserver/domain/git 자신이 그 단일 지점이다.
 var execAllowed = []string{
-	filepath.Join("internal", "worktree"),
-	filepath.Join("internal", "git"),
+	filepath.Join("internal", "webserver", "domain", "worktree"),
+	filepath.Join("internal", "webserver", "domain", "git"),
 }
 
 // V1 (FR-GIT-1): 저장소의 다른 곳에서 git 을 직접 실행하지 않는다.
@@ -71,7 +71,7 @@ func TestNoDirectGitExecOutsidePackage(t *testing.T) {
 		t.Fatalf("검사한 .go 파일이 %d 개뿐이다 — 탐색이 깨졌다", scanned)
 	}
 	if len(offenders) > 0 {
-		t.Fatalf("internal/git 밖에서 git 을 직접 실행한다 (FR-GIT-1):\n%s", strings.Join(offenders, "\n"))
+		t.Fatalf("webserver/domain/git 밖에서 git 을 직접 실행한다 (FR-GIT-1):\n%s", strings.Join(offenders, "\n"))
 	}
 }
 

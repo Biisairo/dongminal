@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"dongminal/internal/git"
+	"dongminal/internal/webserver/domain/git"
 )
 
 // /api/git/{fetch,pull,push} + /api/git/job{s,/cancel,/events} — 원격 작업 표면

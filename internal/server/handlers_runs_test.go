@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/run"
-	"dongminal/internal/toolaccess"
+	"dongminal/internal/webserver/domain/run"
+	"dongminal/internal/webserver/seam/toolaccess"
 )
 
 // 묶음 R — Run 레코드의 서버 계층 (RUN_ORCHESTRATION_SRS §3.1, TC-RUN-5~11).

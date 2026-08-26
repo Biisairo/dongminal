@@ -12,7 +12,7 @@ import (
 	"os"
 	"strings"
 
-	"dongminal/internal/agentadapter"
+	"dongminal/internal/shared/agentadapter"
 )
 
 const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록

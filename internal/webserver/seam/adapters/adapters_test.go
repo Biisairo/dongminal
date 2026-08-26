@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"dongminal/internal/server"
-	"dongminal/internal/workspace"
+	"dongminal/internal/shared/workspace"
 )
 
 type stubPersister struct{ data []byte }

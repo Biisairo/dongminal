@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"dongminal/internal/toolaccess"
+	"dongminal/internal/webserver/seam/toolaccess"
 )
 
 // 묶음 S — 상태·대기 계약 (RUN_ORCHESTRATION_SRS §3.2, TC-STA-1~8).

@@ -3,7 +3,7 @@ package server
 import (
 	"net/http"
 
-	"dongminal/internal/git"
+	"dongminal/internal/webserver/domain/git"
 )
 
 // /api/git/{preflight,policy,recovery} — 안전 정책 표면 (GIT_SRS §3A.3

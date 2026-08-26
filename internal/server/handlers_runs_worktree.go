@@ -14,9 +14,9 @@ import (
 	"fmt"
 	"log"
 
-	"dongminal/internal/run"
-	"dongminal/internal/uuid"
-	"dongminal/internal/worktree"
+	"dongminal/internal/shared/uuid"
+	"dongminal/internal/webserver/domain/run"
+	"dongminal/internal/webserver/domain/worktree"
 )
 
 // errIsolationUnavailable 은 격리를 요청했는데 서버에 worktree 관리자가 없는

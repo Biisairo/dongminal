@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/runtimebin"
+	"dongminal/internal/helper/runtimebin"
 )
 
 func TestInstallShellHooks(t *testing.T) {

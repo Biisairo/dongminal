@@ -17,7 +17,7 @@ import (
 	"strconv"
 	"time"
 
-	"dongminal/internal/agentadapter"
+	"dongminal/internal/shared/agentadapter"
 )
 
 const (

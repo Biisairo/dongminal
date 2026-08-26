@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/git"
+	"dongminal/internal/webserver/domain/git"
 )
 
 // 묶음 J 서버측 — /api/git/preflight·policy·recovery (GIT_SRS §3A.3, 검증 V36·V37).

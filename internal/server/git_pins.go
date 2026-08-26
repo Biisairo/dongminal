@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"dongminal/internal/workspace"
+	"dongminal/internal/shared/workspace"
 )
 
 // 핀 목록은 workspace.json 최상위 `git.pinned[]` 에 산다 (FR-GIT-11, O1). 창

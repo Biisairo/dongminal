@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"dongminal/internal/toolaccess"
+	"dongminal/internal/webserver/seam/toolaccess"
 
 	"github.com/creack/pty"
 )

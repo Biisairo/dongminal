@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"dongminal/internal/git"
+	"dongminal/internal/webserver/domain/git"
 )
 
 // /api/git/log·/commit·/refs — 히스토리 조회 (GIT_SRS §3C FR-GIT-113·122·136~139).

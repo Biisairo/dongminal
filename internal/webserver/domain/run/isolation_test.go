@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"dongminal/internal/uuid"
+	"dongminal/internal/shared/uuid"
 )
 
 // 묶음 W 의 기록 절반 (RUN_ORCHESTRATION_SRS §3.4). 격리의 git 조작은

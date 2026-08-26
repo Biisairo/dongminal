@@ -18,7 +18,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"dongminal/internal/runtimebin"
+	"dongminal/internal/helper/runtimebin"
 )
 
 //go:embed all:shellhooks

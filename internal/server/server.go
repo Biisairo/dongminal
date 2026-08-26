@@ -9,9 +9,9 @@ import (
 
 	"bufio"
 	"context"
-	"dongminal/internal/git"
-	"dongminal/internal/run"
-	"dongminal/internal/worktree"
+	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/run"
+	"dongminal/internal/webserver/domain/worktree"
 	"fmt"
 	"io/fs"
 	"log"
@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"dongminal/internal/toolaccess"
+	"dongminal/internal/webserver/seam/toolaccess"
 )
 
 // Config carries process-level knobs.

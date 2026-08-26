@@ -26,14 +26,14 @@ var remoteCredWords = []string{"to" + "ken", "sec" + "ret"}
 
 // credScanDirs 는 git 표면 전부다. 한쪽만 검사하면 다른 쪽이 구멍이 된다.
 var credScanDirs = []string{
-	filepath.Join("internal", "git"),
+	filepath.Join("internal", "webserver", "domain", "git"),
 	filepath.Join("internal", "server"),
 }
 
 // credRemoteFiles 는 원격 작업의 표면이다. 자격증명이 들어올 수 있는 유일한 경로다.
 var credRemoteFiles = []string{
-	filepath.Join("internal", "git", "job.go"),
-	filepath.Join("internal", "git", "remote.go"),
+	filepath.Join("internal", "webserver", "domain", "git", "job.go"),
+	filepath.Join("internal", "webserver", "domain", "git", "remote.go"),
 	filepath.Join("internal", "server", "handlers_git_remote.go"),
 }
 

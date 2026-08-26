@@ -1,8 +1,8 @@
 package adapters
 
 import (
-	"dongminal/internal/toolaccess"
-	"dongminal/internal/workspace"
+	"dongminal/internal/shared/workspace"
+	"dongminal/internal/webserver/seam/toolaccess"
 )
 
 // Workspace는 workspace.Manager 를 toolaccess.WorkspaceReader 로 어댑트한다.

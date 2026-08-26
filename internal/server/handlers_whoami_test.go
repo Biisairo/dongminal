@@ -10,7 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"dongminal/internal/workspace"
+	"dongminal/internal/shared/workspace"
 )
 
 type fakeWhoAmIResolver struct {

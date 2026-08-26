@@ -19,8 +19,8 @@ import (
 	"sync"
 	"time"
 
-	"dongminal/internal/agentadapter"
-	"dongminal/internal/uuid"
+	"dongminal/internal/shared/agentadapter"
+	"dongminal/internal/shared/uuid"
 )
 
 // schemaVersion 은 1을 유지한다 (FR-RUN-3) — 프로토타입이 이미 1로 쓰여 있고

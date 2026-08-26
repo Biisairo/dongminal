@@ -5,7 +5,7 @@ import (
 
 	"fmt"
 
-	"dongminal/internal/clientpid"
+	"dongminal/internal/webserver/seam/clientpid"
 )
 
 // Client는 원격 TCP 연결(remoteAddr) 로부터 클라이언트 PID 를 구하고,

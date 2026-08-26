@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"dongminal/internal/toolaccess"
+	"dongminal/internal/webserver/seam/toolaccess"
 )
 
 // 이 파일은 MCP 폐지(SKILL_INJECTION_SRS 묶음 F)로 사라진

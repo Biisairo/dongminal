@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/git"
+	"dongminal/internal/webserver/domain/git"
 )
 
 // 묶음 O 서버측 — /api/git/stash{,/push,/apply,/pop,/drop,/show}

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/workspace"
+	"dongminal/internal/shared/workspace"
 )
 
 type liveSet map[string]struct{}

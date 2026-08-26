@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"dongminal/internal/run"
-	"dongminal/internal/worktree"
+	"dongminal/internal/webserver/domain/run"
+	"dongminal/internal/webserver/domain/worktree"
 )
 
 // FR-WKT-8a — 종료된 Run 의 정리 진입 (TC-WKT-5a/5b/5c).

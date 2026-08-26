@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"dongminal/internal/agentadapter"
+	"dongminal/internal/shared/agentadapter"
 )
 
 const dmctlActivityHelp = `dmctl activity <agent>

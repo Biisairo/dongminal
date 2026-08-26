@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"dongminal/internal/git"
-	"dongminal/internal/uuid"
+	"dongminal/internal/shared/uuid"
+	"dongminal/internal/webserver/domain/git"
 )
 
 // /api/git/{stage,unstage,discard,commit,undo-last} — 저장소를 바꾸는 표면

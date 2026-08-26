@@ -104,7 +104,7 @@ func TestReadAndWriteCommands_Disjoint(t *testing.T) {
 	}
 }
 
-// W3 (V39, FR-GIT-95): internal/git 밖에서 ExecWrite 를 부르는 곳은
+// W3 (V39, FR-GIT-95): webserver/domain/git 밖에서 ExecWrite 를 부르는 곳은
 // internal/server/handlers_git*.go 뿐이다.
 func TestExecWriteCallers_RestrictedToServerGitHandlers(t *testing.T) {
 	root := repoRootForTest(t)
@@ -130,7 +130,7 @@ func TestExecWriteCallers_RestrictedToServerGitHandlers(t *testing.T) {
 			return rerr
 		}
 		rel = filepath.ToSlash(rel)
-		if strings.HasPrefix(rel, "internal/git/") || execWriteAllowed.MatchString(rel) {
+		if strings.HasPrefix(rel, "internal/webserver/domain/git/") || execWriteAllowed.MatchString(rel) {
 			return nil
 		}
 		scanned++

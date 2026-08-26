@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/agentadapter"
+	"dongminal/internal/shared/agentadapter"
 )
 
 // shellWrappers reads the installed wrappers that actually inject policy.

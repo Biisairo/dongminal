@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"dongminal/internal/git"
+	"dongminal/internal/webserver/domain/git"
 )
 
 // 묶음 N 서버측 — /api/git/{checkout,branch} + /api/git/branch/validate

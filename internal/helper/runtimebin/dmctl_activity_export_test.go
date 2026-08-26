@@ -1,6 +1,6 @@
 package runtimebin
 
-import "dongminal/internal/agentadapter"
+import "dongminal/internal/shared/agentadapter"
 
 // 훅 파서는 어댑터 레지스트리로 옮겼다 (FR-ADP-2). 이동은 **무동작 리팩터**이고,
 // 그것을 증명하는 회귀 검출기가 dmctl_activity_test.go 다 — 그 테스트를 한 줄도

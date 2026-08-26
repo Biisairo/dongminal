@@ -2,7 +2,7 @@ package adapters
 
 import (
 	"dongminal/internal/server"
-	"dongminal/internal/toolaccess"
+	"dongminal/internal/webserver/seam/toolaccess"
 )
 
 // Command는 server.CommandHub 를 toolaccess.CommandBroadcaster 로 어댑트한다.

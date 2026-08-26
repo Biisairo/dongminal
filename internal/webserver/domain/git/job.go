@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"dongminal/internal/uuid"
+	"dongminal/internal/shared/uuid"
 )
 
 // 원격 작업은 다른 git 실행과 성질이 다르다: 초 단위가 아니라 분 단위이고, 출력이

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/git"
+	"dongminal/internal/webserver/domain/git"
 )
 
 // 묶음 L·M 서버측 — /api/git/log·/commit·/refs (GIT_SRS §3C FR-GIT-113~114·122~123·

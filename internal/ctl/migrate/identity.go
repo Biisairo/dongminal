@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"dongminal/internal/uuid"
+	"dongminal/internal/shared/uuid"
 )
 
 // IdentityReport는 구 식별자 재작성의 결과다 (FR-MGU-10).

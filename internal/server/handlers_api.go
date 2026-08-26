@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"dongminal/internal/workspace"
+	"dongminal/internal/shared/workspace"
 )
 
 // settingsStore is a simple JSON blob persisted to <dataDir>/settings.json.

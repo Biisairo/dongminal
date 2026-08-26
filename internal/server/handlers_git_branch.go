@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"dongminal/internal/git"
+	"dongminal/internal/webserver/domain/git"
 )
 
 // /api/git/{checkout,branch} + /api/git/branch/validate — 브랜치 표면

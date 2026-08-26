@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"dongminal/internal/sysstat"
+	"dongminal/internal/webserver/domain/sysstat"
 )
 
 // SYSTEM_STATS_SRS 묶음 A~C 의 서버측 검증.

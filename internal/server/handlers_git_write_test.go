@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"dongminal/internal/git"
+	"dongminal/internal/webserver/domain/git"
 )
 
 // 묶음 H·I 서버측 — /api/git/{stage,unstage,discard,commit,undo-last}

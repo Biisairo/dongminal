@@ -21,8 +21,8 @@ import (
 	"syscall"
 	"time"
 
-	"dongminal/internal/outbuf"
-	"dongminal/internal/uuid"
+	"dongminal/internal/shared/outbuf"
+	"dongminal/internal/shared/uuid"
 
 	"github.com/creack/pty"
 	"github.com/gorilla/websocket"

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"dongminal/internal/uuid"
+	"dongminal/internal/shared/uuid"
 )
 
 type cmdSub struct {

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"dongminal/internal/git"
+	"dongminal/internal/webserver/domain/git"
 )
 
 // 묶음 K 서버측 — /api/git/{fetch,pull,push} + /api/git/job* (GIT_SRS §3B.1,

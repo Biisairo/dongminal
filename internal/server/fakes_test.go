@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"dongminal/internal/workspace"
+	"dongminal/internal/shared/workspace"
 )
 
 // ── fakePaneHub ─────────────────────────────────────

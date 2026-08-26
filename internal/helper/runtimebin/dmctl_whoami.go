@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"dongminal/internal/toolline"
+	"dongminal/internal/helper/toolline"
 )
 
 // dmctlWhoAmI implements `dmctl who-am-i` (DMCTL_WHO_AM_I_SRS FR-DMC-WAI-1~3).
