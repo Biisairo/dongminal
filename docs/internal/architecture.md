@@ -65,9 +65,11 @@ docs/
 `shared/` 에 속한다. 판정 기준은 링크 클로저가 아니라 **실행**이다 — 단일 바이너리라
 클로저는 네 프로세스가 모두 같고, 그것으로는 아무것도 갈리지 않는다.
 
-`handlers_api.go`(672줄, `*Server` 메서드 25개)의 추가 분할은 여전히 열려 있다.
-프로세스·역할 경계는 이미 표현됐고 단일 파일 크기는 별개 문제라는 판단이다 —
-PACKAGE_RESTRUCTURE_SRS §5 비목표 #4.
+`httpapi` 안의 핸들러는 **무엇을 손볼 때 함께 봐야 하는가**로 갈라 뒀다.
+`handlers_files.go` 가 경로를 사용자 입력에서 받는 유일한 면이고(`safeResolve`·
+`uniquePath` 가 여기 있다), `handlers_attention.go` 는 같은 `AttnTracker` 상태를 읽는
+종단 8개, `handlers_settings.go` 는 서버가 해석하지 않는 JSON blob 이다.
+`handlers_api.go` 에는 라우트 테이블과 디스패처가 남는다.
 
 **프론트엔드는 번들러가 없다.** `index.html` 이 `<script>` 로 원본을 순서대로 로드하므로
 **로드 순서가 곧 의존성**이다. `app-*.js` 는 `Object.assign(App.prototype, …)` 로 클래스를
