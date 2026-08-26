@@ -10,6 +10,9 @@ func TestDestructiveActions_CoversFR89(t *testing.T) {
 	want := []string{
 		ActionDiscard, ActionBranchDelete, ActionStashDrop, ActionTagDelete,
 		ActionResetHard, ActionForcePush, ActionRemoteRefDelete,
+		// FR-GIT-224: 충돌 파일을 한쪽으로 덮는다 — 워킹 트리의 손대던 내용을
+		// 잃고 되살릴 값이 없다.
+		ActionResolveSide,
 	}
 	if len(DestructiveActions) != len(want) {
 		t.Fatalf("DestructiveActions = %v, want %v", DestructiveActions, want)

@@ -263,10 +263,14 @@ class GitBranches {
       d.appendChild(g);
     }
     d.title=(r.name||'')+(r.upstream?' → '+r.upstream:'')+(r.subject?'\n'+r.subject:'');
+    const kind=r.kind===GIT_REF_KIND_TAG?'tag':'branch';
     d.addEventListener('contextmenu',ev=>{
       ev.preventDefault();
-      GitMenu.open(r.kind===GIT_REF_KIND_TAG?'tag':'branch',r,ev);
+      GitMenu.open(kind,r,ev);
     });
+    // FR-GIT-222: 더블클릭은 그 행의 기본 동작이다. 메뉴와 **같은 경로**로 간다 —
+    // dirty 3선택도 이름 충돌 처리도 그대로 걸린다.
+    d.addEventListener('dblclick',()=>GitMenu.runPrimary(kind,r));
     return d;
   }
 

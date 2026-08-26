@@ -714,6 +714,115 @@ test.describe('UI 개정 — 동작의 진입점 (FR-GIT-207~209)', () => {
   });
 });
 
+test.describe('UI 개정 — 사이드바 목록 배분 (FR-GIT-219)', () => {
+  test('V96 (FR-GIT-219): GIT 목록이 남는 공간을 받는다', async ({ page }) => {
+    await waitForInit(page);
+    await page.evaluate(async (p) => {
+      await (window as any).app._gitPin(p);
+    }, fx('basic'));
+    await expect.poll(() => gitRepos(page).count(), { timeout: 20000 }).toBeGreaterThanOrEqual(1);
+
+    const m = await page.evaluate(() => {
+      const g = document.getElementById('git-repos')!;
+      const w = document.getElementById('windows')!;
+      const cs = getComputedStyle(g);
+      let content = 0;
+      for (const c of [...g.children]) content += (c as HTMLElement).getBoundingClientRect().height;
+      return {
+        git: g.getBoundingClientRect().height,
+        win: w.getBoundingClientRect().height,
+        content,
+        grow: cs.flexGrow,
+        maxH: cs.maxHeight,
+      };
+    });
+    // 자라지 않으면 내용 높이에 묶인다 — 그것이 "너무 좁다" 의 실체다.
+    expect(Number(m.grow), 'GIT 목록이 자라지 않는다').toBeGreaterThan(0);
+    expect(m.git, 'GIT 목록이 내용 높이에 묶여 있다').toBeGreaterThan(m.content);
+    // 같은 규칙이면 둘의 높이가 크게 벌어지지 않는다 (내용 차이만큼만).
+    expect(m.git).toBeGreaterThan(m.win * 0.5);
+  });
+});
+
+// FR-GIT-223: 핀 재배치. WINDOWS 목록·활동 카드와 **같은 native DnD** 경로다 —
+// 하나의 DataTransfer 를 공유하는 합성 이벤트로 그 경로를 그대로 지난다.
+async function dragPin(page: Page, src: string, dst: string, before = true) {
+  await page.evaluate(({ s, d, b }) => {
+    const dt = new DataTransfer();
+    const from = document.querySelector(`#git-repos .git-repo[data-git-repo="${s}"]`)!;
+    const to = document.querySelector(`#git-repos .git-repo[data-git-repo="${d}"]`)!;
+    const r = to.getBoundingClientRect();
+    const y = b ? r.top + 2 : r.bottom - 2;
+    from.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
+    to.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer: dt, clientY: y }));
+    to.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt, clientY: y }));
+    from.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt }));
+  }, { s: src, d: dst, b: before });
+}
+
+const pinOrder = (page: Page) =>
+  page.evaluate(() => [...document.querySelectorAll('#git-repos .git-repo')]
+    .filter((e) => !e.classList.contains('follow'))
+    .map((e) => (e as HTMLElement).dataset.gitRepo));
+
+test.describe('UI 개정 — 핀 드래그 정렬 (FR-GIT-223)', () => {
+  test('V100 (FR-GIT-223): 핀을 끌어 순서를 바꾸고 새로고침 후에도 남는다', async ({ page }) => {
+    const a = fx('basic'), b = fx('with-remote'), c = fx('stashes');
+    await waitForInit(page);
+    for (const p of [a, b, c]) {
+      await page.evaluate(async (x) => { await (window as any).app._gitPin(x) }, p);
+    }
+    await expect.poll(async () => (await pinOrder(page)).length, { timeout: 20000 }).toBe(3);
+    expect(await pinOrder(page)).toEqual([a, b, c]);
+
+    // 마지막을 맨 앞으로.
+    await dragPin(page, c, a, true);
+    await expect.poll(() => pinOrder(page), { timeout: 15000 }).toEqual([c, a, b]);
+
+    // 서버가 권위로 쓴다 (O1) — 새로고침해도 남는다.
+    await page.reload();
+    await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+    await expect.poll(() => pinOrder(page), { timeout: 20000 }).toEqual([c, a, b]);
+  });
+
+  test('V100 (FR-GIT-223): follow 항목은 끌 수 없다', async ({ page }) => {
+    await waitForInit(page);
+    await page.evaluate(async (x) => { await (window as any).app._gitPin(x) }, fx('basic'));
+    await expect.poll(() => gitRepos(page).count(), { timeout: 20000 }).toBeGreaterThanOrEqual(1);
+
+    const follow = page.locator('#git-repos .git-repo.follow');
+    if (await follow.count()) {
+      // 핀이 아니고 늘 최상단 1줄이다 (FR-GIT-193).
+      await expect(follow).not.toHaveAttribute('draggable', 'true');
+    }
+    // 핀 항목은 끌 수 있다.
+    await expect(page.locator('#git-repos .git-repo:not(.follow)').first())
+      .toHaveAttribute('draggable', 'true');
+  });
+});
+
+test.describe('UI 개정 — 그룹 머리글 높이 (FR-GIT-220)', () => {
+  test('V97 (FR-GIT-220): 일괄 버튼이 없는 그룹도 머리글 높이가 같다', async ({ page }) => {
+    await waitForInit(page);
+    await openChanges(page, fx('conflict'));
+    await expect.poll(async () =>
+      (await page.locator('#area .pn-body .git-group').count()), { timeout: 20000 })
+      .toBeGreaterThanOrEqual(2);
+
+    const heads = await page.evaluate(() =>
+      [...document.querySelectorAll('#area .pn-body .git-group')].map((g) => ({
+        group: (g as HTMLElement).dataset.group,
+        h: Math.round((g.querySelector('.git-group-head') as HTMLElement).getBoundingClientRect().height),
+        bulk: !!g.querySelector('.git-group-bulk'),
+      })));
+    expect(heads.length).toBeGreaterThanOrEqual(2);
+    // 일괄이 없는 그룹이 실제로 있어야 이 테스트가 뜻을 갖는다.
+    expect(heads.some((x) => !x.bulk), '일괄 없는 그룹이 목록에 없다').toBe(true);
+    const uniq = [...new Set(heads.map((x) => x.h))];
+    expect(uniq, '머리글 높이가 그룹마다 다르다: ' + JSON.stringify(heads)).toHaveLength(1);
+  });
+});
+
 // FR-GIT-216: 섹션 경계의 굵기 하한. 색은 테스트가 정하지 않는다 — 테마에서
 // 파생하므로 "행 구분선과 다른가" 로만 판정한다.
 const SEC_BORDER_W = 2;

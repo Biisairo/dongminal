@@ -10,6 +10,8 @@ const (
 	ActionResetHard       = "reset_hard"
 	ActionForcePush       = "force_push"
 	ActionRemoteRefDelete = "remote_ref_delete"
+	// FR-GIT-224: 충돌 파일을 한쪽으로 덮는다 — 워킹 트리의 손댄 내용을 잃는다.
+	ActionResolveSide = "resolve_side"
 )
 
 // DestructiveActions 는 2단계 확인과 recovery hint 를 반드시 거치는 동작이다
@@ -17,5 +19,5 @@ const (
 // 동작이 생겨도 클라이언트가 그것을 막지 못한다.
 var DestructiveActions = []string{
 	ActionDiscard, ActionBranchDelete, ActionStashDrop, ActionTagDelete,
-	ActionResetHard, ActionForcePush, ActionRemoteRefDelete,
+	ActionResetHard, ActionForcePush, ActionRemoteRefDelete, ActionResolveSide,
 }

@@ -30,6 +30,9 @@ class GitRemote {
     this._job=null;       // 진행 중 작업. 내가 띄운 것이거나 /api/git/jobs 로 주워 온 것
     this._jobRepo=null;   // 그 작업의 저장소 (서버가 정규화한 루트)
     this._done=null;      // 끝난 작업. 실패 사유·선택지·인증 안내를 여기서 읽는다
+    // FR-GIT-221: 끝난 작업의 로그를 펼쳐 둘지. null 이면 결과가 정한다 —
+    // 성공은 접고 실패는 편다. 사용자가 바를 누르면 그 뜻이 이 값에 남는다.
+    this._logOpen=null;
     this._busy=false;     // 시작 요청이 오가는 중 — 이때도 버튼을 막는다
     this._canceling=false;
     this._err=null;       // 시작 자체가 실패한 사유
@@ -57,6 +60,13 @@ class GitRemote {
     const box=el.querySelector('.git-job'); if(!box) return;
     box.querySelector('.git-job-cancel').addEventListener('click',()=>this.cancel());
     box.querySelector('.git-job-copy').addEventListener('click',()=>this._copyLog());
+    // FR-GIT-221: 접힌 로그는 사라진 것이 아니다 — 바를 누르면 다시 펼쳐진다.
+    // 바 안의 버튼은 자기 일을 한다.
+    box.querySelector('.git-job-bar').addEventListener('click',ev=>{
+      if(ev.target.closest('button')) return;
+      this._logOpen=this._logCollapsed();
+      this._paint();
+    });
     box.querySelector('.git-job-close').addEventListener('click',()=>{
       this._done=null; this._err=null; this._conflict=false;
       this._lines=[]; this._total=0;
@@ -71,6 +81,7 @@ class GitRemote {
   detachRepo(){
     this._closeStream();
     this._job=null; this._jobRepo=null; this._done=null; this._err=null;
+    this._logOpen=null;
     this._conflict=false; this._busy=false; this._canceling=false;
     this._lines=[]; this._total=0; this._seq=0;
     this._pending=null;
@@ -135,8 +146,24 @@ class GitRemote {
     const note=box.querySelector('.git-job-note');
     note.textContent=this._conflict?GIT_JOB_CONFLICT_NOTE:'';
     note.classList.toggle('vis',this._conflict);
+    box.classList.toggle('log-collapsed',this._logCollapsed());
     this._paintFail(box);
     this._paintLog(box);
+  }
+
+  /**
+   * FR-GIT-221: 성공으로 끝난 작업만 접는다.
+   *
+   * 진행 중이면 접지 않는다 — 출력이 진행 상황이다 (FR-GIT-103). 실패·취소·충돌도
+   * 접지 않는다 — 사유·stderr tail·후속 선택지가 사용자가 그 화면을 보는 이유다.
+   * 사용자가 바를 눌렀으면 그 뜻이 결과보다 앞선다.
+   */
+  _logCollapsed(){
+    if(this._logOpen!=null) return !this._logOpen;
+    if(this._job||this._busy) return false;
+    const d=this._done;
+    if(!d||this._err||this._conflict) return false;
+    return !d.canceled&&!d.exitCode&&!d.err;
   }
 
   _state(){
@@ -248,6 +275,7 @@ class GitRemote {
     const repo=this.panel.repo;
     if(!repo) return {ok:false,code:0,data:{}};
     this._busy=true; this._err=null; this._done=null; this._conflict=false;
+    this._logOpen=null;
     this._paint();
     const res=await this._post('/api/git/'+kind,Object.assign({repo},body||{}));
     this._busy=false;
@@ -340,6 +368,7 @@ class GitRemote {
     this._jobRepo=job.repo||this.panel.repo;
     this._done=null; this._err=null; this._conflict=false;
     this._lines=[]; this._total=0; this._seq=0;
+    this._logOpen=null;
     this._canceling=!!job.canceled; this._streamErr=false; this._retries=0;
     this._openStream();
     // 상태바는 폴링 주기를 기다리지 않는다 (FR-GIT-112).

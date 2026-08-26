@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process';
-import { realpathSync, rmSync, writeFileSync } from 'fs';
+import { readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
@@ -267,5 +267,94 @@ test.describe('묶음 E — Changes 탭', () => {
     await expect(row).toHaveAttribute('data-orig-path', 'renamed from.txt');
     // title 에 유사도가 실린다 (R100).
     await expect(row).toHaveAttribute('title', /100/);
+  });
+
+  // ── FR-GIT-224 (V101): 충돌 파일마다 한쪽을 골라 해결한다 ──
+  //
+  // 3-way merge editor 는 여전히 비목표다. 이것은 파일 단위로 한쪽을 통째로 받는
+  // 것뿐이고, **checkout --ours 만으로는 해결되지 않는다** — index 의 unmerged
+  // stage 가 남아 파일이 Conflicts 에서 빠지지 않는다 (실측). add 가 뒤따른다.
+  test('C12 (V101·FR-GIT-224): Ours 를 고르면 그 쪽 내용으로 해결된다', async ({ page }) => {
+    const repo = copyFx('conflict', 'c12');
+    await waitForInit(page);
+    await openGit(page, repo);
+
+    const r = rows(page, 'conflicts').first();
+    await expect(r).toBeVisible({ timeout: 15000 });
+    const path = await r.getAttribute('data-path');
+    expect(path).toBeTruthy();
+
+    await r.hover();
+    await r.locator('.git-file-act[data-act="ours"]').click();
+
+    // 파괴적이다 — 2단계 확인을 거친다 (FR-GIT-89·95).
+    const box = page.locator('#git-confirm .gc-box');
+    await expect(box).toBeVisible({ timeout: 10000 });
+    await page.locator('#git-confirm .gc-go').click();
+    await expect(box).toHaveAttribute('data-stage', '2');
+    await page.locator('#git-confirm .gc-go').click();
+
+    // 충돌 그룹에서 빠진다 — `checkout --ours` 만으로는 unmerged 가 남으므로
+    // (실측) 여기서 빠졌다는 것이 곧 `add` 까지 갔다는 뜻이다.
+    await expect(group(page, 'conflicts').locator(`.git-file[data-path="${path}"]`))
+      .toHaveCount(0, { timeout: 20000 });
+    // ours 쪽이 HEAD 와 같으면 add 뒤 index == HEAD 라 **어느 그룹에도 없다** —
+    // staged 를 단정하면 git 이 옳은데 테스트가 틀린다.
+    await expect(changes(page).locator(`.git-file[data-path="${path}"]`))
+      .toHaveCount(0, { timeout: 10000 });
+
+    // 워킹 트리가 ours 쪽 내용이다 — 충돌 표식이 남아 있으면 해결이 아니다.
+    const body = readFileSync(join(repo, path!), 'utf8');
+    expect(body).not.toContain('<<<<<<<');
+    expect(body.trim()).toBe('main');
+  });
+
+  test('C13 (V101·FR-GIT-224): Theirs 도 같은 경로로 간다', async ({ page }) => {
+    const repo = copyFx('conflict', 'c13');
+    await waitForInit(page);
+    await openGit(page, repo);
+
+    const r = rows(page, 'conflicts').first();
+    await expect(r).toBeVisible({ timeout: 15000 });
+    const path = await r.getAttribute('data-path');
+    await r.hover();
+    await r.locator('.git-file-act[data-act="theirs"]').click();
+    const box = page.locator('#git-confirm .gc-box');
+    await expect(box).toBeVisible({ timeout: 10000 });
+    await page.locator('#git-confirm .gc-go').click();
+    await page.locator('#git-confirm .gc-go').click();
+    await expect(group(page, 'staged').locator(`.git-file[data-path="${path}"]`))
+      .toBeVisible({ timeout: 20000 });
+    expect(readFileSync(join(repo, path!), 'utf8')).not.toContain('<<<<<<<');
+  });
+
+  test('C14 (V101·FR-GIT-224): 취소하면 충돌이 그대로 남는다', async ({ page }) => {
+    const repo = copyFx('conflict', 'c14');
+    await waitForInit(page);
+    await openGit(page, repo);
+
+    const r = rows(page, 'conflicts').first();
+    await expect(r).toBeVisible({ timeout: 15000 });
+    const path = await r.getAttribute('data-path');
+    const before = readFileSync(join(repo, path!), 'utf8');
+    await r.hover();
+    await r.locator('.git-file-act[data-act="ours"]').click();
+    await expect(page.locator('#git-confirm .gc-box')).toBeVisible({ timeout: 10000 });
+    await page.locator('#git-confirm .gc-cancel').click();
+
+    await page.waitForTimeout(1200);
+    await expect(group(page, 'conflicts').locator(`.git-file[data-path="${path}"]`))
+      .toBeVisible();
+    expect(readFileSync(join(repo, path!), 'utf8')).toBe(before);
+  });
+
+  // 충돌 전부를 한쪽으로 미는 일괄은 두지 않는다 — 한 번의 실수로 되돌릴 수 없는
+  // 양을 잃는다 (FR-GIT-72 와 같은 판단).
+  test('C15 (V101·FR-GIT-224): 충돌 그룹에는 일괄이 없다', async ({ page }) => {
+    const repo = copyFx('conflict', 'c15');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await expect(rows(page, 'conflicts').first()).toBeVisible({ timeout: 15000 });
+    await expect(group(page, 'conflicts').locator('.git-group-bulk')).toHaveCount(0);
   });
 });

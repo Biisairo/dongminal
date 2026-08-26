@@ -205,6 +205,9 @@ test.describe('13단계 — 원격 작업', () => {
     await btn(page, 'push').click();
     await jobEnded(page, '완료');
 
+    // 끝난 작업의 로그는 접힌다 (FR-GIT-221) — 여기서 보는 것은 "줄 단위로
+    // 도착했는가" 이지 "끝난 뒤에도 펼쳐져 있는가" 가 아니다. 펼쳐서 본다.
+    await job(page).locator('.git-job-bar').click();
     // git 은 진행 표시를 \r 로 덮어쓴다 — 서버가 그것을 개별 줄로 가르므로
     // 화면에도 여러 줄이 온다.
     await expect(lines(page).first()).toBeVisible();
@@ -278,6 +281,54 @@ test.describe('13단계 — 원격 작업', () => {
     await jobArgv(page, /--force-with-lease/);
     // 자격증명을 받는 자리는 어디에도 없다 (FR-GIT-104).
     await expect(page.locator('input[type="password"]')).toHaveCount(0);
+  });
+
+  // ── FR-GIT-221 (V98): 끝난 작업의 로그가 자리를 계속 차지하지 않는다 ──
+  //
+  // 진행 중에 출력을 보이는 것은 요구사항이다 (FR-GIT-103). 끝난 뒤에도 그런
+  // 이유는 없다 — 성공은 접고, 실패는 사유·후속 선택지가 거기 있으므로 남긴다.
+  test('R20 (V98 / FR-GIT-221): 성공한 작업은 로그를 접고 바만 남긴다', async ({ page }) => {
+    const { repo, remote } = copyPair('r20');
+    // 받아올 것이 있어야 로그에 줄이 생긴다 — 빈 로그는 펼쳐도 높이가 0 이라
+    // "접혔는지" 를 가리지 못한다.
+    advanceRemote(remote, 'for-r20');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await ready(page);
+
+    await btn(page, 'fetch').click();
+    await jobEnded(page, '완료');
+
+    // 무엇을 실행했고 어떻게 끝났는지는 남는다.
+    await expect(job(page)).toHaveClass(/vis/);
+    await expect(job(page).locator('.git-job-argv')).toBeVisible();
+    // 로그는 접힌다.
+    await expect(lines(page).first()).toHaveCount(1); // 받아온 줄이 있다
+    await expect(log(page)).toBeHidden();
+
+    // 사라지는 것이 아니라 접히는 것이다 — 바를 누르면 다시 펼쳐진다.
+    await job(page).locator('.git-job-bar').click();
+    await expect(log(page)).toBeVisible();
+    await job(page).locator('.git-job-bar').click();
+    await expect(log(page)).toBeHidden();
+  });
+
+  test('R21 (V98 / FR-GIT-221): 실패한 작업은 접지 않는다', async ({ page }) => {
+    const { repo, remote } = copyPair('r21');
+    advanceRemote(remote, 'ahead-of-us');
+    writeFileSync(join(repo, 'mine.txt'), 'mine\n');
+    git(repo, 'add', '-A');
+    git(repo, 'commit', '-qm', 'mine');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await ready(page);
+
+    await btn(page, 'push').click();
+    await jobEnded(page, '실패');
+    // 사유와 후속 선택지가 거기 있다 — 그것이 이 화면을 보는 이유다.
+    await expect(log(page)).toBeVisible();
+    await expect(job(page).locator('.git-job-tail')).toContainText('rejected');
+    await expect(opts(page).first()).toBeVisible();
   });
 
   test('R16 (V63 / FR-GIT-112): 진행 중 작업이 상태바에 보인다', async ({ page }) => {

@@ -68,6 +68,41 @@ class Renderer {
     for(const p of d.pinned||[]) el.appendChild(this._rGitRepo(p,false));
   }
 
+  /**
+   * 핀 재배치의 native DnD. WINDOWS 목록(`_rSidebar`)과 같은 규약이다 —
+   * drop(즉시) 1순위 + dragend 는 시각 정리만, `done` 으로 중복 커밋을 막는다.
+   *
+   * 다른 점은 커밋 지점 하나다: 창 순서는 클라이언트가 `workspace.json` 에 쓰지만
+   * **핀 순서는 서버가 권위로 쓴다** (O1) — `_gitReorder` 가 서버를 지난다.
+   */
+  _bindPinDrag(d,path){
+    const list=document.getElementById('git-repos');
+    const clear=()=>list&&list.querySelectorAll('.git-repo').forEach(x=>
+      x.classList.remove('drag-above','drag-below'));
+    d.draggable=true;
+    d.addEventListener('dragstart',e=>{
+      this.app._drag={type:'gitpin',src:path,target:null,before:false,done:false};
+      if(e.dataTransfer) e.dataTransfer.effectAllowed='move';
+      setTimeout(()=>d.classList.add('dragging'),0);
+    });
+    d.addEventListener('dragover',e=>{
+      const dr=this.app._drag; if(!dr||dr.type!=='gitpin') return;
+      e.preventDefault(); clear();
+      const r=d.getBoundingClientRect();
+      const before=(e.clientY-r.top)<r.height/2;
+      dr.target=path; dr.before=before;
+      d.classList.add(before?'drag-above':'drag-below');
+    });
+    d.addEventListener('drop',e=>{
+      const dr=this.app._drag; if(!dr||dr.type!=='gitpin') return;
+      e.preventDefault(); e.stopPropagation(); clear();
+      this.app._gitReorder(dr);
+    });
+    d.addEventListener('dragend',()=>{
+      this.app._drag=null; d.classList.remove('dragging'); clear();
+    });
+  }
+
   // FR-GIT-9~11·14·15: follow 한 줄 + 핀 항목. 저장소가 아니면 흐리게 보이고
   // 클릭 리스너를 달지 않는다 — 핀은 × 로 지울 수 있어야 하므로 남겨 둔다.
   _rGitRepo(e,follow){
@@ -101,6 +136,9 @@ class Renderer {
       d.appendChild(x);
     }
     if(e.isRepo&&path) d.addEventListener('click',()=>this.app.openGitWindow(path));
+    // FR-GIT-223: 핀은 WINDOWS 목록과 **같은 제스처**로 순서를 바꾼다. follow 는
+    // 핀이 아니고 늘 최상단 1줄이므로(FR-GIT-193) 끌 수도, 그 위에 놓을 수도 없다.
+    if(!follow&&path) this._bindPinDrag(d,path);
     return d;
   }
 

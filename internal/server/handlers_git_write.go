@@ -46,6 +46,14 @@ type gitDiscardReq struct {
 	Confirm   bool     `json:"confirm"`
 }
 
+// gitResolveReq 는 충돌 해결 한 번의 본문이다 (FR-GIT-224).
+type gitResolveReq struct {
+	Repo    string   `json:"repo"`
+	Side    string   `json:"side"` // ours | theirs
+	Paths   []string `json:"paths"`
+	Confirm bool     `json:"confirm"`
+}
+
 // gitCommitReq 는 커밋 한 번의 본문이다. 메시지는 **본문으로만** 받는다 — 쿼리
 // 파라미터는 접근 로그에 남는다 (FR-GIT-61).
 type gitCommitReq struct {
@@ -134,6 +142,40 @@ func (s *Server) apiGitDiscard(w http.ResponseWriter, r *http.Request) {
 	}
 	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
 		_, err := s.Git.Service().Discard(ctx, root, git.Paths(req.Tracked), git.Paths(req.Untracked))
+		return err
+	})
+	if !ok {
+		return
+	}
+	gitWriteOK(w, req.Repo, root, after, nil)
+}
+
+// POST /api/git/resolve — 충돌 파일을 한쪽으로 받고 해결됨으로 표시한다
+// (FR-GIT-224). **파괴적이다** — discard 와 같은 경로를 지난다.
+func (s *Server) apiGitResolve(w http.ResponseWriter, r *http.Request) {
+	if s.Git == nil {
+		gitUnavailable(w)
+		return
+	}
+	var req gitResolveReq
+	if !gitDecodeBody(w, r, &req) {
+		return
+	}
+	if !req.Confirm {
+		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
+			"파괴적 동작은 confirm:true 를 요구한다 (FR-GIT-89)")
+		return
+	}
+	root, ok := s.gitResolveRepo(w, r, req.Repo)
+	if !ok {
+		return
+	}
+	before, ok := s.gitStatusBefore(w, r, root)
+	if !ok {
+		return
+	}
+	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
+		_, err := s.Git.Service().Resolve(ctx, root, req.Side, git.Paths(req.Paths))
 		return err
 	})
 	if !ok {

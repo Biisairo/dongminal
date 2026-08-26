@@ -21,6 +21,17 @@
 // 실행하는지는 패널이 안다.
 function gitMenuPanel(){return (window.app&&app.gitPanel)||null}
 
+/**
+ * FR-GIT-222: 행 더블클릭이 고르는 후보다. 순서가 우선순위이고, 비활성이 아닌
+ * 첫 항목이 그 행의 기본 동작이 된다.
+ *
+ * **태그는 없다.** 태그 체크아웃은 detached 가 되는 동작이라 경고가 필요하고
+ * (FR-GIT-144), 경고가 필요한 것을 가벼운 제스처에 싣지 않는다.
+ */
+const GIT_MENU_PRIMARY={
+  branch:['checkout','checkout-local'],
+};
+
 const GIT_MENUS={
   // 커밋 (FR-GIT-140~144). 저장소를 바꾸는 항목은 checkout 하나다.
   commit:[
@@ -98,6 +109,33 @@ class GitMenu {
    * ev 는 좌표만 쓴다 (`clientX`/`clientY`) — 합성 객체로도 열 수 있어야 검증이
    * 프레임워크만 볼 수 있다 (V52).
    */
+  /**
+   * FR-GIT-222: 행의 **기본 동작**. 더블클릭이 메뉴와 같은 경로로 가도록 항목을
+   * 여기서 고른다 — 조건을 두 곳에 적으면 두 진입점의 뜻이 갈라진다.
+   *
+   * 후보를 순서대로 보고 **비활성이 아닌 첫 항목**을 고른다. 후보가 없거나
+   * (태그처럼) 전부 비활성이면 아무 일도 하지 않는다 — 더블클릭이 메뉴보다
+   * 관대해지면 사용자가 메뉴에서 막힌 것을 제스처로 통과시킬 수 있다.
+   */
+  static primary(kind,target){
+    const ids=GIT_MENU_PRIMARY[kind]; if(!ids) return null;
+    const items=GIT_MENUS[kind]||[];
+    for(const id of ids){
+      const it=items.find(x=>!x.sep&&x.id===id);
+      if(!it||(it.disabled&&it.disabled(target))) continue;
+      return it;
+    }
+    return null;
+  }
+
+  // 확인 게이트(_pick)를 그대로 지난다 — 더블클릭이 확인을 건너뛰지 않는다.
+  static runPrimary(kind,target){
+    const it=GitMenu.primary(kind,target);
+    if(!it) return false;
+    GitMenu._pick(it,target);
+    return true;
+  }
+
   static open(kind,target,ev){
     GitMenu.close();
     const items=GIT_MENUS[kind]; if(!items||!items.length) return;
@@ -205,3 +243,4 @@ GitMenu._cur=null;
 // e2e 가 창 밖에서 부르므로 명시적으로 붙인다 (git-confirm.js 와 같은 규약).
 window.GitMenu=GitMenu;
 window.GIT_MENUS=GIT_MENUS;
+window.GIT_MENU_PRIMARY=GIT_MENU_PRIMARY;

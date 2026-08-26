@@ -245,6 +245,88 @@ func (s *Server) apiGitUnpin(w http.ResponseWriter, r *http.Request) {
 	gitJSON(w, http.StatusOK, map[string]any{"pinned": pins})
 }
 
+// gitReorderReq 는 핀 하나의 이동이다 (FR-GIT-223).
+//
+// **목록 전체를 받지 않는다.** 전체를 받으면 그 사이에 다른 브라우저 창이 핀을
+// 더했을 때 그것을 조용히 지운다. (src, target, before) 는 그때도 뜻이 유지된다.
+type gitReorderReq struct {
+	Src    string `json:"src"`
+	Target string `json:"target"`
+	Before bool   `json:"before"`
+}
+
+// POST /api/git/repos/reorder — 핀 순서를 바꾼다 (FR-GIT-223).
+//
+// rev-parse 를 하지 않는다 — unpin 과 같은 이유다. 저장된 문자열 그대로를 옮기는
+// 것이고, 저장소가 아니게 된 핀도 자리를 옮길 수 있어야 한다.
+func (s *Server) apiGitReorder(w http.ResponseWriter, r *http.Request) {
+	if s.Git == nil {
+		gitUnavailable(w)
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "본문을 읽지 못했다: "+err.Error())
+		return
+	}
+	var req gitReorderReq
+	if err := json.Unmarshal(body, &req); err != nil {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "본문이 JSON 이 아니다: "+err.Error())
+		return
+	}
+	if req.Src == "" {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "src 가 없다")
+		return
+	}
+	pins, err := s.gitPinsMutate(func(cur []string) []string {
+		return gitReorderPins(cur, req.Src, req.Target, req.Before)
+	})
+	if err != nil {
+		gitFail(w, http.StatusInternalServerError, gitErrFailed, gitTail(err.Error()))
+		return
+	}
+	gitJSON(w, http.StatusOK, map[string]any{"pinned": pins})
+}
+
+// gitReorderPins 는 src 를 빼서 target 앞/뒤에 넣는다.
+//
+// src 가 없으면 **아무것도 바꾸지 않는다** — 목록에 없는 것을 옮기려는 요청은
+// 이미 화면이 낡았다는 뜻이고, 그때 순서를 흔들면 사용자가 보지 않은 변경이 남는다.
+// target 이 없으면 맨 끝이다 — 끌어다 놓은 곳이 사라졌다고 조작을 통째로 잃지 않는다.
+func gitReorderPins(cur []string, src, target string, before bool) []string {
+	si := -1
+	for i, p := range cur {
+		if p == src {
+			si = i
+			break
+		}
+	}
+	if si < 0 || src == target {
+		return cur
+	}
+	out := make([]string, 0, len(cur))
+	out = append(out, cur[:si]...)
+	out = append(out, cur[si+1:]...)
+
+	ti := -1
+	for i, p := range out {
+		if p == target {
+			ti = i
+			break
+		}
+	}
+	if ti < 0 {
+		return append(out, src)
+	}
+	if !before {
+		ti++
+	}
+	out = append(out, "")
+	copy(out[ti+1:], out[ti:])
+	out[ti] = src
+	return out
+}
+
 // gitRepoParam 은 repo 인자를 정규 루트로 옮긴다. 클라이언트가 보낸 경로를 그대로
 // 신뢰해 파일을 읽지 않는다 (FR-GIT-62).
 //

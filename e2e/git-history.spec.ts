@@ -552,4 +552,31 @@ test.describe('17단계 — 커밋 상세', () => {
     await waitLoaded(page, 1);
     await expect(hist(page).locator('.git-hist-detail')).toHaveCount(0);
   });
+
+  // ── FR-GIT-222 (V99): refs 사이드바에서도 같은 제스처가 같은 뜻이다 ──
+  test('H12 (V99 / FR-GIT-222): refs 의 로컬 브랜치 더블클릭이 checkout 한다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'h12');
+    await waitForInit(page);
+    await openHistory(page, repo);
+    await waitLoaded(page, 1);
+
+    const local = '.git-refs-group[data-kind="local"] .git-ref';
+    await expect.poll(() => hist(page).locator(local).count(), { timeout: 20000 })
+      .toBeGreaterThanOrEqual(2);
+    // `.git-ref:not(.head)` 는 **형제 필터**다 — locator.locator() 는 자손을 찾는다.
+    const target = hist(page).locator(local + ':not(.head)').first();
+    const short = (await target.locator('.git-ref-short').textContent())!.trim();
+    expect(short).toBeTruthy();
+
+    await target.dblclick();
+    // 목록이 다시 그려지므로 조회와 판정을 한 번의 evaluate 안에서 한다.
+    await expect.poll(async () => page.evaluate((sel) => {
+      const e = document.querySelector(sel + '.head .git-ref-short');
+      return e ? (e.textContent || '').trim() : '';
+    }, local), { timeout: 20000 }).toBe(short);
+
+    // 단일 클릭의 필터는 살아 있고, 더블클릭이 그것을 **되돌리지 않는다**.
+    const sel = await hist(page).locator('.git-ref.sel').count();
+    expect(sel, '더블클릭이 필터를 되돌렸다').toBeGreaterThan(0);
+  });
 });

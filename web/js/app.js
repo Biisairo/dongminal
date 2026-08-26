@@ -1313,6 +1313,27 @@ class App {
     this._gitPin(path);
   }
 
+  /**
+   * FR-GIT-223: 핀 순서 재배치. 창 순서와 달리 **서버가 권위**이므로(O1) 여기서
+   * 배열을 고치지 않고 서버가 준 목록을 받는다.
+   *
+   * 목록 전체가 아니라 (src, target, before) 를 보낸다 — 그 사이에 다른 창이 핀을
+   * 더했을 때 전체를 보내면 그것을 조용히 지운다.
+   */
+  async _gitReorder(dr){
+    if(!dr||dr.done||!dr.src||!dr.target||dr.src===dr.target) return;
+    dr.done=true;
+    let r=null,d=null;
+    try{
+      r=await fetch('/api/git/repos/reorder',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({src:dr.src,target:dr.target,before:!!dr.before})});
+    }catch{r=null}
+    if(r){try{d=await r.json()}catch{d=null}}
+    if(!r||!r.ok||!d) return;
+    this._gitPinsApply(d.pinned);
+  }
+
   // _gitPin 은 경로를 검증해 핀한다. 저장소가 아니면 사유를 보인다 (FR-GIT-12) —
   // 조용히 실패하지 않는다.
   async _gitPin(path){

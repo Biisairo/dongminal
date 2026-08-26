@@ -198,6 +198,8 @@ var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/git/repos"), (*Server).apiGitRepos},
 	{http.MethodPost, exactPath("/api/git/repos/pin"), (*Server).apiGitPin},
 	{http.MethodPost, exactPath("/api/git/repos/unpin"), (*Server).apiGitUnpin},
+	// FR-GIT-223: 핀 순서는 서버가 권위로 쓴다 (O1) — 재배치도 서버를 지난다.
+	{http.MethodPost, exactPath("/api/git/repos/reorder"), (*Server).apiGitReorder},
 	{http.MethodGet, exactPath("/api/git/status"), (*Server).apiGitStatus},
 	{http.MethodGet, exactPath("/api/git/signature"), (*Server).apiGitSignature},
 	// 묶음 F — diff 양쪽 내용 (GIT_SRS FR-GIT-44~48). commit-parent 축은 M4 다.
@@ -212,6 +214,8 @@ var apiRoutes = []apiRoute{
 	{http.MethodPost, exactPath("/api/git/stage"), (*Server).apiGitStage},
 	{http.MethodPost, exactPath("/api/git/unstage"), (*Server).apiGitUnstage},
 	{http.MethodPost, exactPath("/api/git/discard"), (*Server).apiGitDiscard},
+	// FR-GIT-224: 충돌 파일을 한쪽으로 해결한다. 파괴적이라 discard 와 같은 규약이다.
+	{http.MethodPost, exactPath("/api/git/resolve"), (*Server).apiGitResolve},
 	{http.MethodPost, exactPath("/api/git/commit"), (*Server).apiGitCommitCreate},
 	{http.MethodPost, exactPath("/api/git/undo-last"), (*Server).apiGitUndoLast},
 	// 묶음 L·M — 히스토리 조회 (GIT_SRS FR-GIT-113·122·136~139). 전부 읽기다.

@@ -482,7 +482,11 @@ class GitPanel {
     for(const a of (GIT_ROW_ACTS[group]||[])){
       const b=document.createElement('button');
       b.className='git-file-act'; b.dataset.act=a;
-      b.textContent=GIT_ACT_LABEL[a]; b.title=GIT_ACT_TITLE[a];
+      b.textContent=GIT_ACT_LABEL[a];
+      // ours·theirs 는 진행 중인 조작에 따라 뜻이 뒤집힌다 (FR-GIT-224).
+      b.title=(a==='ours'||a==='theirs')
+        ? (GIT_SIDE_TITLE[this._op()]||GIT_SIDE_TITLE[''])[a]
+        : GIT_ACT_TITLE[a];
       b.addEventListener('click',ev=>{
         ev.stopPropagation();
         this._run(a,this._rowTargets(a,group,e.path,e.origPath));
@@ -825,6 +829,7 @@ class GitPanel {
   async _run(act,items){
     if(!items.length||this._writing||!this.repo) return;
     if(act==='discard'){this._discard(items);return}
+    if(act==='ours'||act==='theirs'){this._resolveSide(act,items);return}
     // FR-GIT-72: 충돌 파일의 stage 는 "해결됨 표시" 다. 실행 **전에** 그 뜻을
     // 알린다. 파괴적이 아니므로 1단계 확인이다.
     const conflicts=items.filter(i=>i.group==='conflicts').map(i=>i.path);
@@ -839,6 +844,46 @@ class GitPanel {
     const url=act==='stage'?'/api/git/stage':'/api/git/unstage';
     const res=await this.post(url,{repo:this.repo,paths:this._paths(act,items)});
     this._after(res,items);
+  }
+
+  /**
+   * 진행 중인 조작. preflight 가 이미 안다 — 두 번 묻지 않는다.
+   * 모르면 빈 문자열이고, 그때 툴팁은 양쪽을 다 밝힌다 (FR-GIT-224).
+   */
+  _op(){
+    const pf=this._commit()._pf;
+    for(const b of (pf&&pf.blocks)||[]){
+      const op=GIT_OP_BY_BLOCK[b.code];
+      if(op) return op;
+    }
+    return '';
+  }
+
+  /**
+   * 충돌 파일을 한쪽으로 받아 해결한다 (FR-GIT-224).
+   *
+   * **파괴적이다** — 워킹 트리의 충돌 표식과 손대던 내용이 사라지고 git 에 저장된
+   * 적이 없어 되살릴 값이 없다. discard 와 같은 규약을 지난다: 판정은 서버의
+   * 목록이 하고(GitConfirm), 확인은 2단계이며, 요청에 confirm 을 함께 보낸다.
+   */
+  async _resolveSide(side,items){
+    const paths=items.filter(i=>i.group==='conflicts').map(i=>i.path);
+    if(!paths.length) return;
+    const repo=this.repo;
+    const label=(GIT_SIDE_TITLE[this._op()]||GIT_SIDE_TITLE[''])[side];
+    await GitDialog.confirm({
+      action:GIT_ACT_RESOLVE_SIDE,
+      title:GIT_RESOLVE_SIDE_TITLE,
+      targets:paths,
+      hint:{note:label+'. '+GIT_RESOLVE_SIDE_NOTE,
+        command:'git checkout -m -- '+paths.map(gitShQuote).join(' ')},
+      run:async()=>{
+        const res=await this.post('/api/git/resolve',{repo,side,paths,confirm:true});
+        this._after(res,items);
+        if(res.ok) return {ok:true};
+        return {ok:false,reason:this.writeReason(res),stderrTail:(res.data&&res.data.message)||''};
+      },
+    });
   }
 
   // discard 는 파괴적이다 (FR-GIT-89). 판정은 서버의 목록이 하고(GitConfirm),

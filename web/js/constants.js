@@ -134,9 +134,11 @@ const GIT_GROUP_BULK={staged:'unstage',changes:'stage',untracked:'stage'};
 // 행 hover 버튼. 그룹이 할 수 있는 동작만 보인다 — staged 행의 `+` 는 뜻이 없다.
 const GIT_ROW_ACTS={
   staged:['unstage'], changes:['stage','discard'],
-  untracked:['stage','discard'], conflicts:['stage'],
+  untracked:['stage','discard'], conflicts:['ours','theirs','stage'],
 };
-const GIT_ACT_LABEL={stage:'+',unstage:'−',discard:'↺'};
+const GIT_ACT_LABEL={stage:'+',unstage:'−',discard:'↺',ours:'Ours',theirs:'Theirs'};
+// ours·theirs 의 툴팁은 **진행 중인 조작에 따라 달라지므로** 여기 두지 않는다 —
+// 행이 GIT_SIDE_TITLE 에서 그때 고른다 (FR-GIT-224).
 const GIT_ACT_TITLE={stage:'스테이지',unstage:'언스테이지',discard:'변경 버리기'};
 const GIT_BULK_LABEL={stage:'Stage All',unstage:'Unstage All'};
 // FR-GIT-70: staged 와 unstaged 를 동시에 가진 파일. 체크박스의 indeterminate 와
@@ -146,6 +148,27 @@ const GIT_PARTIAL_TITLE='일부만 스테이지됨';
 const GIT_ACT_RESOLVE='resolve_mark';
 const GIT_RESOLVE_TITLE='충돌을 해결됨으로 표시합니다';
 const GIT_RESOLVE_NOTE='스테이지한 뒤에도 언스테이지로 되돌릴 수 있습니다';
+// FR-GIT-224: 충돌 파일 하나를 한쪽으로 받아 해결한다. **파괴적이다** — 워킹
+// 트리의 충돌 표식과 손대던 내용이 사라지고 되살릴 값이 없다.
+//
+// **`ours`/`theirs` 의 뜻은 진행 중인 조작에 따라 뒤집힌다.** merge 중에는 ours 가
+// 현재 브랜치이지만 rebase 중에는 ours 가 올려놓는 대상이고 내 커밋이 theirs 다.
+// 라벨은 git 의 낱말 그대로 두고(FR-GIT-200) 툴팁이 어느 쪽인지 밝힌다.
+const GIT_ACT_RESOLVE_SIDE='resolve_side';
+const GIT_RESOLVE_SIDE_TITLE='한쪽 내용으로 덮고 해결됨으로 표시합니다';
+const GIT_RESOLVE_SIDE_NOTE='충돌 표식과 손대던 내용은 되살릴 값이 없습니다. 충돌 상태로 되돌리려면 아래를 실행합니다';
+// 진행 중인 조작별 설명. 모르면 둘 다 밝힌다 — 틀린 한쪽을 단정하지 않는다.
+const GIT_SIDE_TITLE={
+  merge:{ours:'현재 브랜치(ours) 쪽 내용으로 덮습니다',theirs:'병합해 들어오는(theirs) 쪽 내용으로 덮습니다'},
+  rebase:{ours:'올려놓는 대상(ours) 쪽 내용으로 덮습니다 — 내 커밋이 아닙니다',
+          theirs:'내 커밋(theirs) 쪽 내용으로 덮습니다'},
+  '':{ours:'ours 쪽 내용으로 덮습니다 (rebase 중에는 올려놓는 대상 쪽입니다)',
+      theirs:'theirs 쪽 내용으로 덮습니다 (rebase 중에는 내 커밋 쪽입니다)'},
+};
+// preflight 의 코드값 → 조작 이름.
+const GIT_OP_BY_BLOCK={merge_in_progress:'merge',rebase_in_progress:'rebase',
+  cherry_pick_in_progress:'rebase',revert_in_progress:'rebase'};
+
 // FR-GIT-89~92: discard. 파괴적 판정은 /api/git/policy 가 한다 — 이 이름은 그
 // 목록의 키이고, 목록을 프론트에 복제하지 않는다.
 const GIT_ACT_DISCARD='discard';

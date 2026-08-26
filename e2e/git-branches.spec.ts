@@ -381,4 +381,51 @@ test.describe('18단계 — Branches 탭', () => {
     await expect(menu(page)).toHaveAttribute('data-kind', 'tag');
     await expect(items(page).filter({ hasText: 'detached' })).toHaveCount(1);
   });
+
+  // ── FR-GIT-222 (V99): 더블클릭은 그 행의 기본 동작이다 ──
+  //
+  // 체크아웃은 이미 우클릭 메뉴에 있었다. 없던 것은 기능이 아니라 발견
+  // 가능성이다 — 사용자가 두 번 "안 된다" 고 읽었다면 그 진입점은 없는 것과 같다.
+  test('B12 (V99 / FR-GIT-222): 로컬 브랜치 더블클릭이 checkout 한다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'b12');
+    await waitForInit(page);
+    await openBranches(page, repo);
+    await waitRefs(page, 2);
+
+    const cur = await br(page).locator('.git-br-row.current').getAttribute('data-short');
+    const other = await rows(page).evaluateAll((els, c) =>
+      els.map((e) => (e as HTMLElement).dataset.short)
+        .filter((n) => n && n !== c)[0], cur);
+    expect(other, '다른 로컬 브랜치가 없다').toBeTruthy();
+
+    await row(page, other!).dblclick();
+    // 메뉴와 같은 경로로 간다 — dirty 3선택도 이름 충돌도 그대로 걸린다.
+    await expect.poll(async () =>
+      br(page).locator('.git-br-row.current').getAttribute('data-short'),
+      { timeout: 20000 }).toBe(other);
+  });
+
+  test('B13 (V99 / FR-GIT-222): 현재 브랜치와 태그의 더블클릭은 아무 일도 하지 않는다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'b13');
+    await waitForInit(page);
+    await openBranches(page, repo);
+    await waitRefs(page, 2);
+
+    const cur = await br(page).locator('.git-br-row.current').getAttribute('data-short');
+    await row(page, cur!).dblclick();
+    // 더블클릭이 메뉴보다 관대해지면 두 진입점의 뜻이 갈라진다 — 확인창도 뜨지 않는다.
+    await page.waitForTimeout(700);
+    await expect(confirm(page)).toBeHidden();
+    await expect(choice(page)).toBeHidden();
+    expect(await br(page).locator('.git-br-row.current').getAttribute('data-short')).toBe(cur);
+
+    // 태그는 detached 가 되는 동작이라 가벼운 제스처에 싣지 않는다.
+    const tag = br(page).locator('.git-br-group[data-group="tags"] .git-br-row').first();
+    if (await tag.count()) {
+      await tag.dblclick();
+      await page.waitForTimeout(700);
+      await expect(confirm(page)).toBeHidden();
+      expect(await br(page).locator('.git-br-row.current').getAttribute('data-short')).toBe(cur);
+    }
+  });
 });

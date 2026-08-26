@@ -298,11 +298,19 @@ class GitHistory {
       g.textContent=GIT_REF_GONE; d.appendChild(g);
     }
     d.title=r.name+(r.upstream?' → '+r.upstream:'')+(r.subject?'\n'+r.subject:'');
-    d.addEventListener('click',()=>this._setRef(this._ref===r.name?null:r.name));
+    // 더블클릭의 두 번째 클릭이 선택을 다시 토글하면 필터가 원래대로 돌아간다 —
+    // MouseEvent.detail 이 클릭 횟수다 (FR-GIT-222).
+    d.addEventListener('click',ev=>{
+      if(ev.detail>1) return;
+      this._setRef(this._ref===r.name?null:r.name);
+    });
+    const mkind=kind==='tag'?'tag':'branch';
     d.addEventListener('contextmenu',ev=>{
       ev.preventDefault();
-      GitMenu.open(kind==='tag'?'tag':'branch',r,ev);
+      GitMenu.open(mkind,r,ev);
     });
+    // FR-GIT-222: Branches 탭과 **같은 제스처가 같은 뜻**을 갖는다.
+    d.addEventListener('dblclick',()=>GitMenu.runPrimary(mkind,r));
     return d;
   }
 
