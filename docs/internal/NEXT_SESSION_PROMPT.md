@@ -1,6 +1,7 @@
 # 다음 세션 프롬프트
 
-**현재 트랙: Git 창 — MVP 코드 완료 + UI 개정 완료. 남은 것은 결함 2건 + 검증 잔여 + 문서 흡수.**
+**현재 트랙: Git 창 — MVP 코드 · UI 개정 · 실사 결함 2건 완료. 남은 것은 로그 위생
+1건 + 수동 검증 잔여 + 문서 흡수. 코드에 알려진 결함은 없다.**
 
 아래 §1 지시 블록을 새 세션 첫 메시지로 붙여넣는다.
 
@@ -9,52 +10,48 @@
 ## 1. 새 세션에 붙여넣을 지시 블록
 
 ```
-dongminal Git 창 트랙을 이어간다. 이번 세션의 일은 **결함 2건 수정**이다.
+dongminal Git 창 트랙을 이어간다. **코드에 알려진 결함은 없다** — 남은 것은
+로그 위생 1건과 수동 검증 잔여, 그리고 트랙을 닫는 문서 작업이다.
 
 읽을 것 (순서대로):
-  docs/internal/GIT_REMAINING.md          ← 출발점. §1 이 이번 세션의 일이다
+  docs/internal/GIT_REMAINING.md          ← 출발점. §1~§3 이 남은 일이다
   docs/internal/GIT_UI_REVISION_SRS.md    ← 개정 SRS (FR-GIT-179~213). GIT_SRS 보다 앞선다
-  docs/internal/GIT_SRS.md                ← 원 명세 (FR-GIT-1~178) + §7.1 해석 I1~I8
-  docs/internal/GIT_MANUAL_CHECKLIST.md   ← 1회차 실사 기록. 이 두 결함이 나온 자리다
+  docs/internal/GIT_SRS.md                ← 원 명세 (FR-GIT-1~178) + §7.1 해석 I1~I9
+  docs/internal/GIT_MANUAL_CHECKLIST.md   ← 실사 기록 1·2회차
 
-■ D-1 (먼저) — diff 의 추가·삭제 색이 테마를 따르지 않는다 (G5.11 / FR-GIT-119)
+**먼저 사용자에게 어느 쪽으로 갈지 묻는다.** 셋 다 성질이 다르고, 순서를
+자기가 정하면 사용자가 원하지 않은 것에 시간을 쓴다.
 
-  실측: 다크 3종 + 라이트 2종 **전부**에서 `.line-insert` 배경이
-  `rgba(155,185,85,0.2)` (Monaco vs-dark 기본 `#9bb955`) 로 고정이다.
-  원인: `web/js/file-editor.js:91` 의 `defineTheme` 이 `editor.*` 만 매핑하고
-  `diffEditor.*` 를 하나도 매핑하지 않는다.
+  ① 로그 위생 (GIT_REMAINING §1) — 작고 닫힌 일이다
+      새로고침 때 브라우저가 취소한 요청을 핸들러가 그대로 git 에 넘겨
+      exec.CommandContext 가 git 을 SIGKILL 하고, 그 오류가 500 이 된다.
+      화면에는 영향이 없지만 진짜 장애와 로그에서 구분되지 않는다.
+      고칠 방향: context.Canceled 를 갈라 499(또는 무기록)로 마감한다.
+      검증은 Go 단위 — 취소된 컨텍스트로 부른 핸들러가 500 을 남기지 않는다.
 
-  · 색을 하드코딩하지 마라. 테마 토큰에서 파생한다 — `web/js/themes.js` 의
-    `terminal.green`·`terminal.red` 가 테마마다 정의돼 있고,
-    `web/js/file-editor.js:132` 의 `monacoMix()` 가 두 색을 섞는 함수다.
-    FR-GIT-119 의 "하드코딩 색 부재" 와 같은 규약이다.
-  · 편집기 배경·전경은 **이미 테마를 따른다** (라이트 테마의 흰 배경까지 확인).
-    고칠 것은 diff 색뿐이다.
-  · 검증은 V47(그래프 색) 과 같은 결로 세운다: 여러 테마에서
-    `.line-insert`·`.line-delete` 배경이 **서로 달라지는지**.
+  ② 검증 잔여 (GIT_REMAINING §2) — 실사다. 격리 인스턴스가 필요하다
+      G6 상태바 chip 5건 · 보안 S.1~S.4 · G1.10 · G4.6 · G4.8 · G5.12 · G5.13 ·
+      M2~M5 묶음의 수동 항목. **결함이 나와도 그 자리에서 고치지 말고 먼저
+      전부 훑는다** — 목록을 모은 뒤 우선순위를 정한다.
+      S.1~S.4 는 자동화가 가능한 성질이다(로그·요청 본문·경로 거부). 실사로
+      한 번 보고, 재발을 막을 값어치가 있으면 e2e/Go 로 굳힌다.
 
-■ D-2 — LFS 포인터의 메타가 화면에 없다 (G5.9 / FR-GIT-47)
-
-  서버는 이미 준다: `/api/git/diff-content` 가
-  `{"kind":"lfs","size":134,"lfsOid":"0123…","lfsSize":123456789}` 를 싣는다.
-  클라이언트가 `note` 만 그린다 (`grep -n "lfs" web/js/*.js` → 0건).
-
-  · 문면("포인터임을 표시하고 메타만 보인다")이 두 가지로 읽힌다. 어느 쪽이든
-    지금은 메타가 하나도 없어 미달이다 — 구현하며 GIT_SRS §7.1 에 해석을 적는다.
-  · 바이너리(FR-GIT-46)도 서버가 `size` 를 준다. 같이 보일지는 판단해서 정하고,
-    범위를 넓혔으면 그 사실을 적는다.
+  ③ 문서 흡수 (GIT_REMAINING §3) — 트랙을 닫는 일이다
+      GIT_UI_REVISION_SRS 의 FR-GIT-179~213 을 GIT_SRS 본문에 흡수하고,
+      폐기된 FR-GIT-27·30 을 본문에서 지운다. design/ 을 archive/ 로 옮기고
+      GIT_SURFACE_MAP 의 P0 대응표에 개정을 반영한다.
 
 작업 방식:
 - 스펙이 이미 있으므로 각 항목은 **테스트 → 구현** 순서다.
-- 결함마다 검증을 새로 세운다. "고쳤다"의 근거가 코드가 아니라 테스트여야 한다.
+- "고쳤다"의 근거가 코드가 아니라 테스트여야 한다.
 - 각 항목이 끝나면 검증하고 커밋한다. 커밋 메시지에 AI 서명(Co-Authored-By 등)을
   넣지 않는다.
 
-검증 (기준선: Go 전부 통과 / Playwright 371):
+검증 (기준선: Go 전부 통과 / Playwright 374 — 373 passed + 알려진 flaky 1):
   go build ./... && go vet ./... && go test ./... -race && gofmt -l .
   npx playwright test --retries=1
 
-  ※ --retries=1 의 근거는 GIT_REMAINING.md §6 에 있다. 전체 실행은 부하에 민감해
+  ※ --retries=1 의 근거는 GIT_REMAINING.md §5 에 있다. 전체 실행은 부하에 민감해
     0~1건이 간헐 실패하며 제품 결함이 아님을 확인했다. 진짜 실패는 두 번 모두
     실패하므로 게이트의 뜻은 그대로다.
 
@@ -64,15 +61,12 @@ dongminal Git 창 트랙을 이어간다. 이번 세션의 일은 **결함 2건 
   PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
   → web/ 자산은 embed 라 고칠 때마다 다시 빌드해야 화면에 반영된다.
 
-하지 말 것 (GIT_REMAINING.md §5):
+하지 말 것 (GIT_REMAINING.md §4):
 - Console 탭의 "준비 중"을 고치지 마라. 표시는 의도적으로 P1(비목표)이다.
 - 비목표(hunk 스테이징·merge editor·인터랙티브 rebase·브랜치 삭제·clone/init 등)를
   구현하지 마라.
 - 자격증명 저장·중계 경로를 만들지 마라. 의도적 배제다 (FR-GIT-104).
 - 안내문·툴팁을 영어로 바꾸지 마라. 버튼만 영어다 (FR-GIT-202).
-
-D-1·D-2 가 끝나면 다음 후보는 GIT_REMAINING.md §2(로그 위생) 와 §3(검증 잔여:
-G6 상태바 · 보안 S.1~S.4) 다. 어느 쪽으로 갈지는 그때 사용자에게 묻는다.
 ```
 
 ---
@@ -92,8 +86,9 @@ grep -rn "제공됩니다\|준비 중\|pending:true" web/js/constants.js
 
 ### 2.2 "서버가 준다"와 "화면에 보인다"도 다르다
 
-이번에 나온 결함 2건이 **둘 다 그 모양**이다 — 서버는 옳은 값을 싣고 클라이언트가
-그리지 않는다. API 응답만 보고 충족을 판단하지 마라.
+21단계 실사에서 나온 결함 2건이 **둘 다 그 모양이었다** — 서버는 옳은 값을 싣고
+클라이언트가 그리지 않는다. API 응답만 보고 충족을 판단하지 마라. (둘 다 고쳤다.
+아래 grep 은 다음 필드에 같은 감사를 걸 때의 본이다.)
 
 ```bash
 # 서버가 주는 필드가 화면 코드에서 쓰이는지
@@ -130,13 +125,15 @@ grep -rn "lfsOid\|lfsSize" web/js/   # → 0건이면 안 그리고 있는 것�
 | **M5 참조** | 18 N(Branches) · 19 O(Stash) · 20 P(다이얼로그 규약) | `c9f8134` `7dd4130` `525ca24` |
 | 기반 | 설계 계약 21단계 · 결정 O1~O14 · 해석 I1~I8 · 픽스처 10종 · 수동 체크리스트 · `-race` 게이트 복구 | `67bc325` `6157476` `ddb4307` `cece980` `a2c3abe` `b8a288a` |
 
-### 3.2 이번 세션 (2026-08-26)
+### 3.2 21단계 이후 (2026-08-26)
 
 | 커밋 | 내용 |
 |---|---|
 | `967c097` | **미구현 P0 2건** — FR-GIT-141 "여기서 브랜치 생성" · FR-GIT-144 dirty 의 Checkout (detached). 둘 다 기존 M5 자산을 재사용했다. 함께 `GitBranches.reload` 부재를 고쳤다 |
 | `f6b0ef1` | **사용자 검토 UI 개정** — FR-GIT-179~210. Git 창을 닫힌 창으로(27·30 폐기), 파일 선택을 행 클릭+보조키로, GIT 섹션 이모지 제거, VSCode 치수 하한, 버튼 라벨 영문화, 폼 컨트롤 테마화 |
 | `0ad7ba6` | **FR-GIT-211~213** — 트리 깊이 세로선 · 그룹 구분선 · 커밋 영역 정렬 |
+| `12ed17d` | **D-1 / FR-GIT-119** — `defineTheme` 이 `diffEditor.*` 를 매핑하지 않아 diff 색만 Monaco 기본값에 고정됐다. 테마의 `terminal.green`·`red` 를 배경과 섞어 파생한다 (e2e D11) |
+| `756b1b8` | **D-2 / FR-GIT-47** — 서버가 싣는 LFS 메타를 클라이언트가 그리지 않았다. 해석 I9 로 확정하고 FR-GIT-46·48 의 크기까지 함께 보인다 (e2e D12·D13) |
 
 **함께 잡은 결함 5건** (전부 실사에서 나왔다):
 
@@ -161,6 +158,9 @@ grep -rn "lfsOid\|lfsSize" web/js/   # → 0건이면 안 그리고 있는 것�
 | 소스에 **리터럴 NUL 바이트** | grep·diff 가 파일을 바이너리로 취급해 조사 도구가 무력화된다 |
 | CSS `background` 축약이 `background-image` 를 지운다 | 행 hover·선택이 트리 깊이 세로선을 함께 지웠다 (`background-color` 로 바꿔야 한다) |
 | `web/` 자산은 `go:embed` 다 | 고친 뒤 **다시 빌드하지 않으면** 화면에 반영되지 않는다 |
+| 터미널 팔레트는 **CSS 변수가 아니다** | `--bg`·`--text` 는 `:root` 에 실리지만 `terminal.green`·`red` 는 `getCurrentTheme()` 에만 있다. Monaco 테마를 CSS 변수만으로 세우면 diff 색을 파생할 수 없다 |
+| `applyThemeObj(THEMES[n])` 은 `currentThemeName` 을 **바꾸지 않는다** | 그래서 `getCurrentTheme()` 이 여전히 이전 테마를 답한다. e2e 에서 테마를 갈 때 `customTheme=null` 만으로는 모자라고 `currentThemeName` 도 세워야 한다 |
+| Monaco 의 `diffEditor.*` 기본값은 `inherit:true` 로도 **덮이지 않는다** | base 테마(vs/vs-dark)의 초록·빨강이 그대로 남는다. 키를 하나하나 매핑해야 한다 |
 
 ### 3.4 병렬 운영에서 배운 것
 

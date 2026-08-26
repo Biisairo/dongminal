@@ -1,51 +1,21 @@
 # Git 창 — 남은 작업과 알려진 결함
 
 > MVP 코드는 1~20단계가 끝났고(`525ca24`), 미구현이던 P0 2건도 끝났다(`967c097`).
-> 그 뒤 사용자 검토로 UI 를 개정했다(`f6b0ef1` · `0ad7ba6`).
+> 그 뒤 사용자 검토로 UI 를 개정했고(`f6b0ef1` · `0ad7ba6`), 21단계 실사에서 나온
+> 결함 2건(diff 테마 색 · LFS 메타)도 끝났다(`12ed17d` · `756b1b8`).
 > 이 문서는 **아직 끝나지 않은 것만** 담는다.
 >
 > - 요구사항: [`./GIT_SRS.md`](./GIT_SRS.md) (FR-GIT-1~178)
 > - **개정**: [`./GIT_UI_REVISION_SRS.md`](./GIT_UI_REVISION_SRS.md) (FR-GIT-179~213).
 >   FR-GIT-27·30 을 폐기하고 13·41·69 를 개정했다 — **그쪽이 본 문서보다 앞선다**
 > - 설계 근거: [`./design/`](./design/)
-> - 수동 검증: [`./GIT_MANUAL_CHECKLIST.md`](./GIT_MANUAL_CHECKLIST.md) (1회차 실사 기록 포함)
+> - 수동 검증: [`./GIT_MANUAL_CHECKLIST.md`](./GIT_MANUAL_CHECKLIST.md) (1·2회차 실사 기록 포함)
 >
-> 갱신: 2026-08-26
+> 갱신: 2026-08-26 (결함 2건 완료)
 
 ---
 
-## 1. 결함 2건 (다음 세션의 일)
-
-21단계 수동 검증 1회차에서 실사로 나온 것이다. 둘 다 **서버는 이미 옳은 값을 주고
-클라이언트가 그리지 않는다**는 같은 모양이다.
-
-### D-1. G5.11 / FR-GIT-119 — diff 의 추가·삭제 색이 테마를 따르지 않는다
-
-| | |
-|---|---|
-| 증상 | 테마를 바꿔도 diff 의 추가/삭제 줄 색이 그대로다. 라이트 테마에서 특히 어긋난다 |
-| 실측 | 다크 3종(Tokyo Night·Dracula·Nord) + 라이트 2종(GitHub Light·Solarized Light) 전부에서 `.line-insert` 배경이 `rgba(155, 185, 85, 0.2)` (Monaco 의 vs-dark 기본 `#9bb955`) 로 **고정** |
-| 원인 | `web/js/file-editor.js:91` 의 `monaco.editor.defineTheme` 이 `editor.background`·`foreground`·`editorCursor`·`lineHighlight`·`selection`·`lineNumber` 만 매핑한다. **`diffEditor.*` 를 하나도 매핑하지 않아** 기본값이 그대로 남는다 |
-| 매핑해야 할 키 | `diffEditor.insertedTextBackground`·`removedTextBackground`·`insertedLineBackground`·`removedLineBackground`·`diffEditorGutter.insertedLineBackground`·`removedLineBackground`·`diffEditorOverview.insertedForeground`·`removedForeground` |
-| 색의 출처 | 하드코딩하지 말 것. 테마 토큰에서 파생한다 — 터미널 팔레트의 `green`·`red` 가 테마마다 정의돼 있다(`web/js/themes.js` 의 `terminal.green`/`terminal.red`). `web/js/file-editor.js:132` 의 `monacoMix()` 가 두 색을 섞는 함수다 |
-| 주의 | 편집기 배경·전경은 **이미 테마를 따른다** (라이트 테마에서 흰 배경까지 확인). 고칠 것은 diff 색뿐이다 |
-| 검증 | 기존 V47(FR-GIT-118·119 "테마 전환 시 그래프 색, 하드코딩 색 부재")과 같은 결의 e2e 를 diff 에 대해 세운다. 판정은 **여러 테마에서 `.line-insert`·`.line-delete` 배경이 서로 달라지는지** |
-
-### D-2. G5.9 / FR-GIT-47 — LFS 포인터의 메타가 화면에 없다
-
-| | |
-|---|---|
-| 요구 문면 | "Git LFS 포인터는 포인터임을 표시하고 **메타만 보인다**" |
-| 증상 | `blobs/lfs.bin` 의 diff 가 `Git LFS 포인터입니다 — 실제 내용은 받아오지 않았습니다` 안내 하나뿐이고 oid·크기가 없다 |
-| 서버는 준다 | `GET /api/git/diff-content?...&path=lfs.bin` 이 양쪽에 `{"kind":"lfs","size":134,"lfsOid":"0123…","lfsSize":123456789}` 를 싣는다 |
-| 원인 | 클라이언트가 `note` 만 그린다. `web/js/git-panel.js` 의 diff note 경로에 `lfs` 분기가 없다 (`grep -n "lfs" web/js/*.js` → 0건) |
-| 문면의 모호함 | "메타만 보인다" 는 ① 내용 대신 메타를 보인다 ② 내용을 받아오지 않는다 둘로 읽힌다. 어느 쪽이든 **지금은 메타가 하나도 없으므로** 미달이다. 구현하며 §7.1 에 해석을 적는다 |
-| 참고 | 바이너리(FR-GIT-46)는 뷰어 요구가 "안내" 뿐이라 지금 상태로 충족이다. 다만 서버가 `size` 를 주므로 같이 보이면 일관된다 — 범위에 넣을지는 판단 |
-| 검증 | e2e — `blobs/lfs.bin` 의 diff 안내에 `lfsOid` 앞 몇 자와 크기가 나타난다 |
-
----
-
-## 2. 로그 위생 1건 (P1)
+## 1. 로그 위생 1건 (P1)
 
 **증상**: 페이지를 새로고침할 때마다 서버 로그에 `/api/git/status`·`/signature`·
 `/refs` 가 **500** 으로 서너 줄 남는다. 본문은
@@ -63,12 +33,12 @@ git 실행에 넘기므로 요청이 끊기면 `exec.CommandContext` 가 git 을
 
 ---
 
-## 3. 21단계 수동 검증의 남은 항목
+## 2. 21단계 수동 검증의 남은 항목
 
 1회차(2026-08-26)에서 G1~G5 를 훑었다. 결과는
 [`./GIT_MANUAL_CHECKLIST.md`](./GIT_MANUAL_CHECKLIST.md) 에 항목별로 적혀 있다.
 
-**남은 것**
+**남은 것** (G5.8~G5.11 은 2회차에 닫혔다)
 
 | 범위 | 내용 |
 |---|---|
@@ -102,7 +72,7 @@ PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
 
 ---
 
-## 4. 문서 정리 (트랙을 닫을 때)
+## 3. 문서 정리 (트랙을 닫을 때)
 
 - [ ] `GIT_UI_REVISION_SRS.md` 의 FR-GIT-179~213 을 `GIT_SRS.md` 본문에 흡수하고,
       폐기된 FR-GIT-27·30 을 그쪽 본문에서 지운다
@@ -112,7 +82,7 @@ PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
 
 ---
 
-## 5. 의도적으로 남긴 것 (고치지 마라)
+## 4. 의도적으로 남긴 것 (고치지 마라)
 
 | 항목 | 근거 |
 |---|---|
@@ -126,7 +96,7 @@ PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
 
 ---
 
-## 6. 알려진 간헐 실패 (제품 결함 아님)
+## 5. 알려진 간헐 실패 (제품 결함 아님)
 
 전체 e2e 실행에서 **0~1건이 간헐적으로 실패한다.**
 
@@ -147,7 +117,7 @@ PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
 
 ---
 
-## 7. 이 트랙 밖의 남은 별건
+## 6. 이 트랙 밖의 남은 별건
 
 | 항목 | 상태 |
 |---|---|
