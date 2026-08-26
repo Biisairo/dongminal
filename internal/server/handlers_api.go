@@ -193,6 +193,58 @@ var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/file/read"), (*Server).apiFileRead},
 	{http.MethodPost, exactPath("/api/file/write"), (*Server).apiFileWrite},
 	{"", exactPath("/api/ping"), (*Server).apiPing},
+	// 묶음 B·C — 리포 해석·핀·변경 감지 (GIT_SRS FR-GIT-60/61). UI 는 이 표면
+	// 위에만 서고, git 실행 결과를 다른 경로로 얻지 않는다.
+	{http.MethodGet, exactPath("/api/git/repos"), (*Server).apiGitRepos},
+	{http.MethodPost, exactPath("/api/git/repos/pin"), (*Server).apiGitPin},
+	{http.MethodPost, exactPath("/api/git/repos/unpin"), (*Server).apiGitUnpin},
+	// FR-GIT-223: 핀 순서는 서버가 권위로 쓴다 (O1) — 재배치도 서버를 지난다.
+	{http.MethodPost, exactPath("/api/git/repos/reorder"), (*Server).apiGitReorder},
+	{http.MethodGet, exactPath("/api/git/status"), (*Server).apiGitStatus},
+	{http.MethodGet, exactPath("/api/git/signature"), (*Server).apiGitSignature},
+	// 묶음 F — diff 양쪽 내용 (GIT_SRS FR-GIT-44~48). commit-parent 축은 M4 다.
+	{http.MethodGet, exactPath("/api/git/diff-content"), (*Server).apiGitDiffContent},
+	// 묶음 J — 안전 정책 (GIT_SRS FR-GIT-86~93). 파괴적 경로가 열리는 시점과
+	// 방어가 서는 시점이 같아야 한다.
+	{http.MethodGet, exactPath("/api/git/preflight"), (*Server).apiGitPreflight},
+	{http.MethodGet, exactPath("/api/git/policy"), (*Server).apiGitPolicy},
+	{http.MethodGet, exactPath("/api/git/recovery"), (*Server).apiGitRecovery},
+	// 묶음 H·I — 스테이징·커밋 (GIT_SRS FR-GIT-64~85). 저장소를 바꾸는 표면이므로
+	// POST 만 받고, 확인·preflight·undo 만료를 서버가 다시 검사한다.
+	{http.MethodPost, exactPath("/api/git/stage"), (*Server).apiGitStage},
+	{http.MethodPost, exactPath("/api/git/unstage"), (*Server).apiGitUnstage},
+	{http.MethodPost, exactPath("/api/git/discard"), (*Server).apiGitDiscard},
+	// FR-GIT-224: 충돌 파일을 한쪽으로 해결한다. 파괴적이라 discard 와 같은 규약이다.
+	{http.MethodPost, exactPath("/api/git/resolve"), (*Server).apiGitResolve},
+	{http.MethodPost, exactPath("/api/git/commit"), (*Server).apiGitCommitCreate},
+	{http.MethodPost, exactPath("/api/git/undo-last"), (*Server).apiGitUndoLast},
+	// 묶음 L·M — 히스토리 조회 (GIT_SRS FR-GIT-113·122·136~139). 전부 읽기다.
+	{http.MethodGet, exactPath("/api/git/log"), (*Server).apiGitLog},
+	{http.MethodGet, exactPath("/api/git/commit"), (*Server).apiGitCommit},
+	{http.MethodGet, exactPath("/api/git/refs"), (*Server).apiGitRefs},
+	// 묶음 Q — Console 탭의 실행 기록 (FR-GIT-218).
+	{http.MethodGet, exactPath("/api/git/records"), (*Server).apiGitRecords},
+	// 묶음 K — 원격 작업 (GIT_SRS FR-GIT-98~112). fetch/pull/push 는 작업 식별자만
+	// 돌려주고, 진행은 job/events 로 흐른다.
+	{http.MethodPost, exactPath("/api/git/fetch"), (*Server).apiGitFetch},
+	{http.MethodPost, exactPath("/api/git/pull"), (*Server).apiGitPull},
+	{http.MethodPost, exactPath("/api/git/push"), (*Server).apiGitPush},
+	{http.MethodPost, exactPath("/api/git/job/cancel"), (*Server).apiGitJobCancel},
+	{http.MethodGet, exactPath("/api/git/job/events"), (*Server).apiGitJobEvents},
+	{http.MethodGet, exactPath("/api/git/jobs"), (*Server).apiGitJobs},
+	// 묶음 N — 브랜치 (GIT_SRS FR-GIT-155~160). 목록은 /api/git/refs 가 이미
+	// 준다 (FR-GIT-147) — 여기에 새 조회를 만들지 않는다.
+	{http.MethodPost, exactPath("/api/git/checkout"), (*Server).apiGitCheckout},
+	{http.MethodPost, exactPath("/api/git/branch"), (*Server).apiGitBranchCreate},
+	{http.MethodGet, exactPath("/api/git/branch/validate"), (*Server).apiGitBranchValidate},
+	// 묶음 O — stash (GIT_SRS FR-GIT-161~170). drop 은 파괴적이므로 confirm 을
+	// 서버가 다시 검사한다.
+	{http.MethodGet, exactPath("/api/git/stash"), (*Server).apiGitStashList},
+	{http.MethodGet, exactPath("/api/git/stash/show"), (*Server).apiGitStashShow},
+	{http.MethodPost, exactPath("/api/git/stash/push"), (*Server).apiGitStashPush},
+	{http.MethodPost, exactPath("/api/git/stash/apply"), (*Server).apiGitStashApply},
+	{http.MethodPost, exactPath("/api/git/stash/pop"), (*Server).apiGitStashPop},
+	{http.MethodPost, exactPath("/api/git/stash/drop"), (*Server).apiGitStashDrop},
 	{http.MethodGet, exactPath("/api/stats"), (*Server).apiStats},
 }
 

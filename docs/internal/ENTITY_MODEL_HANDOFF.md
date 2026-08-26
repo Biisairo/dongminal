@@ -145,13 +145,13 @@ MCP 툴명·좌표계·`toolId` 는 이미 맞았고, 틀린 것은 `pane` 이 *
 현재 `~/.dongminal` 은 **v1 그대로**이고 구 바이너리가 돌고 있어 정상이다. 순서를 반드시 지켜야 한다.
 
 ```bash
-./scripts/stop.sh --all          # 데몬까지 완전 정지 (필수)
-./scripts/migrate.sh --dry-run   # 변환 내용 확인
-./scripts/migrate.sh             # 실행 (*.v1.bak 백업 자동)
-./scripts/start.sh
+./dongminal stop --all          # 데몬까지 완전 정지 (필수)
+./dongminal migrate --dry-run   # 변환 내용 확인
+./dongminal migrate             # 실행 (*.v1.bak 백업 자동)
+./dongminal start
 ```
 
-- `dongminal` 은 PATH 에 설치되지 않으므로(설치되는 helper 는 dmctl/edit/download/detach 뿐) `./scripts/migrate.sh` 가 진입점이다. 스크립트는 매번 재빌드하고, 서버가 포트에서 응답하면 변환을 거부한다 (`USER_CHECKLIST_FIXES_SRS` FR-MIG-3/6).
+- `dongminal` 은 PATH 에 설치되지 않으므로(설치되는 helper 는 dmctl/edit/download/detach 뿐) `./dongminal migrate` 가 진입점이다. 스크립트는 매번 재빌드하고, 서버가 포트에서 응답하면 변환을 거부한다 (`USER_CHECKLIST_FIXES_SRS` FR-MIG-3/6).
 - 정지하지 않으면 `ErrDaemonRunning` 으로 거부된다 — 살아있는 데몬이 `SaveAll` 로 `tools.json` 을 되살려 산출물을 덮어쓰기 때문이다.
 - 마이그레이션 없이 새 바이너리를 띄우면 `schemaVersion` 게이트가 안내를 출력하고 종료한다.
 - 마이그레이션은 `workspace.json`(v2 스키마) + `panes.json`→`tools.json`(고아 폐기) + `settings.json`(단축키 id·레이아웃 프리셋)을 한 번에 처리하며 멱등하다.
@@ -185,7 +185,7 @@ MCP 툴명·좌표계·`toolId` 는 이미 맞았고, 틀린 것은 `pane` 이 *
 | 항목 | 성격 | 비고 |
 |------|------|------|
 | ~~e2e 실패 17개~~ | **해소** | P8 에서 전수 진단. 115개 전원 통과, 2회 연속 재현 |
-| `paned` 어휘 | 의도적 유지 | 데몬 프로세스·`paned.sock`·`paned.pid` 는 `scripts/*.sh` 와 실행 중 인스턴스의 계약. SRS 개명 목록에 없다 |
+| `paned` 어휘 | 의도적 유지 | 데몬 프로세스·`paned.sock`·`paned.pid` 는 CLI 액션과 실행 중 인스턴스의 계약. SRS 개명 목록에 없다 |
 | `pane`/`paneId`/`pane_uuid`/`newPanes`/`type:"pane"` | **정당** | Pane = 분할 칸. 공간 계층의 실체이므로 개명 대상이 아니다 |
 | `internal/migrate` 의 `panes.json`·`region`·`paneId` | **정당** | 구 어휘가 입력이다 (함정 2) |
 | `delSession` 의 editor 미저장 확인 부재 | 기존 결함 | SRS 비목표에 명시 |

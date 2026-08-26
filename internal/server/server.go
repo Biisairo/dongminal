@@ -7,6 +7,7 @@ package server
 import (
 	"bufio"
 	"context"
+	"dongminal/internal/git"
 	"dongminal/internal/run"
 	"dongminal/internal/worktree"
 	"fmt"
@@ -46,8 +47,20 @@ type Server struct {
 	// nil 이면 격리를 요청한 Run 만 거부되고(FR-WKT-11), isolation=none 경로는
 	// 영향이 없다 (NFR-RUN-1).
 	Worktrees *worktree.Manager
+	// Git 은 git 조회 앞의 single-flight·TTL 캐시다 (GIT_SRS 묶음 A~C). nil 이면
+	// /api/git/* 만 503 이고 그 밖의 동작에는 영향이 없다 (FR-GIT-60).
+	Git *git.Store
 	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
 	Focus *FocusRegistry
+
+	// gitUndo 는 방금 만든 커밋을 되돌릴 권한을 쥔다 (FR-GIT-83). 제로값도 쓸 수
+	// 있다 — 클라이언트 타이머만으로는 만료를 강제할 수 없으므로 이 자리가 없어서
+	// undo 가 무제한이 되는 경로를 만들지 않는다.
+	gitUndo gitUndoStore
+
+	// gitJobs 는 원격 작업(fetch/pull/push)의 수명을 쥔다 (FR-GIT-101·102).
+	// 제로값도 쓸 수 있다 — 첫 사용에 만들어지고, Git 이 없으면 만들지 않는다.
+	gitJobs gitJobHolder
 
 	started time.Time
 
@@ -86,6 +99,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		AttnTracker: deps.AttnTracker,
 		Runs:        deps.Runs,
 		Worktrees:   deps.Worktrees,
+		Git:         deps.Git,
 		started:     time.Now(),
 	}, nil
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"dongminal/internal/toolaccess"
@@ -18,6 +19,10 @@ import (
 // send_agent_message 에 대한 것이었다.
 
 type fakeToolIO struct {
+	// has 는 핸들러 goroutine 이 읽는 동안 테스트가 쓴다 — "대기 중 도구가
+	// 사라진다" 를 흉내 내는 테스트가 그렇게 한다. 그래서 접근을 mu 로 감싸고
+	// setHas 로만 쓴다. 감싸지 않으면 race detector 가 테스트를 실패시킨다.
+	mu       sync.Mutex
 	has      map[string]bool
 	snap     map[string][]byte
 	dropped  int64
@@ -36,7 +41,18 @@ func newFakeToolIO() *fakeToolIO {
 }
 
 func (f *fakeToolIO) List() []toolaccess.ToolInfo { return nil }
-func (f *fakeToolIO) Has(id string) bool          { return f.has[id] }
+func (f *fakeToolIO) Has(id string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.has[id]
+}
+
+// setHas 는 has 를 쓰는 유일한 경로다. 테스트가 map 을 직접 만지면 잠금이 무의미해진다.
+func (f *fakeToolIO) setHas(id string, v bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.has[id] = v
+}
 func (f *fakeToolIO) Snapshot(id string) ([]byte, int64, bool) {
 	d, ok := f.snap[id]
 	return d, f.dropped, ok
@@ -80,7 +96,7 @@ func (f *fakeWorkIndex) IsKnownTabID(id string) bool {
 func toolIOServer(t *testing.T) (*httptest.Server, *fakeToolIO, *fakeWorkIndex) {
 	t.Helper()
 	io := newFakeToolIO()
-	io.has["p1"] = true
+	io.setHas("p1", true)
 	wi := &fakeWorkIndex{
 		resolve: map[string]string{
 			"p1":                                   "p1",

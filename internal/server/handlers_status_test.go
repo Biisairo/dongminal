@@ -23,7 +23,7 @@ func statusServer(t *testing.T) (*Server, *ToolManager, *Tool) {
 	m.mu.Unlock()
 
 	io := newFakeToolIO()
-	io.has["p1"] = true
+	io.setHas("p1", true)
 	wi := &fakeWorkIndex{
 		resolve: map[string]string{
 			"p1":                                   "p1",
@@ -228,7 +228,7 @@ func TestApiToolStatusWait_ToolDisappears(t *testing.T) {
 
 	go func() {
 		time.Sleep(120 * time.Millisecond)
-		io.has["p1"] = false
+		io.setHas("p1", false)
 	}()
 
 	code, out := getWait(t, s, "id=p1&for=ready&timeoutMs=5000")
@@ -260,7 +260,7 @@ func TestApiToolStatusWait_ArgumentValidation(t *testing.T) {
 // TC-STA-8 (FR-STA-8): direct 모드와 daemon 모드가 같은 결과를 낸다.
 func TestToolStatus_DirectDaemonParity(t *testing.T) {
 	io := newFakeToolIO()
-	io.has["p1"] = true
+	io.setHas("p1", true)
 	wi := &fakeWorkIndex{resolve: map[string]string{"p1": "p1"}, labels: map[string]string{}, coords: map[string]string{}}
 
 	// direct: 상태는 ToolManager 의 Tool 에 있다.

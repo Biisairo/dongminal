@@ -13,10 +13,15 @@ window.__dongminalDebug={
   if(saved.shortcuts) Object.assign(shortcuts,saved.shortcuts);
   if(saved.statusBar) Object.assign(statusBar,saved.statusBar);
   if(saved.statsInterval) statsInterval=saved.statsInterval;
+  // FR-GIT-23: 0 은 그 계층을 끈다는 뜻이므로 truthy 검사로는 안 된다.
+  if(saved.gitSignatureInterval!==undefined) gitSignatureInterval=saved.gitSignatureInterval;
+  if(saved.gitStatusInterval!==undefined) gitStatusInterval=saved.gitStatusInterval;
   if(saved.layoutPresets) layoutPresets=saved.layoutPresets;
   if(saved.defaultPreset!==undefined) defaultPreset=saved.defaultPreset;
   if(saved.customTheme){customTheme=saved.customTheme;applyThemeObj(customTheme)}
   else if(saved.themeName&&THEMES[saved.themeName]){currentThemeName=saved.themeName;applyThemeObj(THEMES[currentThemeName])}
+  // 설정 변경은 감지 계층의 재평가 시점이다 (FR-GIT-23).
+  app.gitPanel._reschedule();
 }}catch{}})();
 
 app.init();

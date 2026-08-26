@@ -29,6 +29,18 @@ function pickAttnColor(t){
   return best;
 }
 
+// 섹션 경계선은 행 구분선보다 진해야 구분이 된다 (FR-GIT-216). 팔레트에 그런 색이
+// 없고, `--text-dim` 같은 기존 토큰을 빌리면 테마마다 밝기 관계가 달라 어떤 테마
+// 에서는 오히려 흐려진다 — border 를 text 쪽으로 섞으면 밝은 테마·어두운 테마 모두
+// 에서 바탕과의 대비가 반드시 커진다.
+function mixHex(a,b,t){
+  const x=hexRgb(a),y=hexRgb(b);
+  if(!x||!y) return a;
+  const c=k=>Math.round(x[k]+(y[k]-x[k])*t).toString(16).padStart(2,'0');
+  return '#'+c('r')+c('g')+c('b');
+}
+const BORDER_STRONG_MIX=.35;
+
 function applyThemeObj(t){
   const s=document.documentElement.style;
   const ui=t.ui;
@@ -42,6 +54,7 @@ function applyThemeObj(t){
   s.setProperty('--text-dim',ui.textDim);
   s.setProperty('--danger',ui.danger);
   s.setProperty('--accent-border',ui.accentBorder);
+  s.setProperty('--border-strong',mixHex(ui.border,ui.text,BORDER_STRONG_MIX));
   s.setProperty('--accent-hover',hexToRgba(ui.accent,.1));
   s.setProperty('--accent-active',hexToRgba(ui.accent,.12));
   s.setProperty('--accent-subtle',hexToRgba(ui.accent,.08));
@@ -54,6 +67,9 @@ function applyThemeObj(t){
   document.getElementById('area').style.background=ui.bg;
   for(const p of app.tools.values()){if(p.term)p.term.options.theme=t.terminal}
   if(typeof FileEditor!=='undefined'&&FileEditor.applyTheme) FileEditor.applyTheme();
+  // FR-GIT-119: 레인 색은 테마 팔레트에서 파생한다 — 테마를 바꾸면 그래프도
+  // 따라 바뀐다 (V47).
+  if(typeof GitHistory!=='undefined'&&GitHistory.applyTheme) GitHistory.applyTheme();
 }
 
 function getCurrentTheme(){return customTheme||THEMES[currentThemeName]}
@@ -87,6 +103,7 @@ const STATUS_ITEMS={
   latency:{label:'레이턴시',def:true},
   location:{label:'현재 위치 (dmctl 대상)',def:true},
   cwd:{label:'현재 디렉토리',def:true},
+  git:{label:'Git (브랜치·변경 수)',def:true},
   memory:{label:'메모리',def:true},
   hostname:{label:'호스트명',def:false},
   cpu:{label:'CPU',def:false},
@@ -109,10 +126,12 @@ function normalizeTab(t) {
 
 // FR-EM-13: 도구 타입별 능력. 백그라운드로 보낼 수 있는 도구는 서버(데몬)가
 // 소유하는 실행 실체가 있는 것뿐이다 — editor 는 브라우저 메모리에만
-// 존재하므로 탭에서 떼어낼 실체가 없다.
+// 존재하므로 탭에서 떼어낼 실체가 없다. git 탭도 같다 — PTY 가 없고, 애초에
+// 닫히지도 않는 고정 탭이다 (FR-GIT-28).
 const TOOL_CAPABILITIES = {
   terminal: { backgroundCapable: true },
   editor:   { backgroundCapable: false },
+  git:      { backgroundCapable: false },
 };
 function toolBackgroundCapable(type) {
   const cap = TOOL_CAPABILITIES[type || 'terminal'];
@@ -123,6 +142,43 @@ function normalizeLayout(n) {
   if (n.type === 'pane' && n.tabs) n.tabs.forEach(normalizeTab);
   if (n.type === 'split' && n.children) n.children.forEach(normalizeLayout);
   return n;
+}
+
+/**
+ * FR-GIT-186: Git 창은 **닫힌 창**이다 (FR-GIT-179) — 고정 탭 6개뿐이고 분할이
+ * 없다. 개정 이전 워크스페이스는 그 안에 터미널·편집기 탭과 분할 칸을 가질 수
+ * 있으므로, 로드 시 **일반 창으로 옮긴다.** 조용히 버리지 않는다 — 사용자의
+ * 작업 상태다.
+ *
+ * `mkWindow()` 는 받을 일반 창이 하나도 없을 때 부르는 콜백이고 새 창을 반환해야
+ * 한다 (O19). 반환값은 옮긴 탭 수다.
+ */
+function migrateGitWindows(windows,mkWindow){
+  if(!Array.isArray(windows)) return 0;
+  const panesOf=n=>!n?[]:(n.type==='pane'?[n]:(n.children||[]).flatMap(panesOf));
+  let moved=0;
+  for(const s of windows){
+    if(!s||s.type!==WINDOW_TYPE_GIT||!s.layout) continue;
+    const panes=panesOf(s.layout);
+    const keep=[],out=[];
+    for(const p of panes)
+      for(const t of (p.tabs||[])) (t&&t.type===TAB_TYPE_GIT?keep:out).push(t);
+    // 이미 규격대로면 건드리지 않는다 — 단일 칸 + 고정 탭만.
+    if(!out.length&&panes.length<2) continue;
+    const wasActive=panes.map(p=>p.activeTab).find(id=>keep.some(t=>t.id===id));
+    s.layout={type:'pane',id:panes[0]?panes[0].id:newEntityId(),
+      tabs:keep,activeTab:wasActive||(keep[0]&&keep[0].id)||null};
+    delete s.focusedPane;
+    if(!out.length) continue;
+    let dst=windows.find(w=>w&&w.type!==WINDOW_TYPE_GIT&&w.layout);
+    if(!dst) dst=mkWindow&&mkWindow();
+    const dp=dst&&firstPane(dst.layout);
+    if(!dp) continue;
+    if(!Array.isArray(dp.tabs)) dp.tabs=[];
+    for(const t of out){dp.tabs.push(t);moved++}
+    if(!dp.activeTab&&dp.tabs.length) dp.activeTab=dp.tabs[0].id;
+  }
+  return moved;
 }
 
 function doSplit(n,rid,nrs,dir){
@@ -204,7 +260,9 @@ function clean(n,ok){
   if(!n) return null;
   if(n.type==='pane'){
     if(n.tabs) n.tabs=n.tabs.filter(t=>{
-      if(t.type==='editor') return true;
+      // 서버 도구에 매인 탭만 검사한다. editor·git 탭은 toolId 가 없어
+      // 그대로 두지 않으면 로드마다 사라진다 (FR-GIT-25).
+      if(t.type==='editor'||t.type===TAB_TYPE_GIT) return true;
       return ok.has(t.toolId);
     });
     if(!n.tabs||!n.tabs.length) return null;

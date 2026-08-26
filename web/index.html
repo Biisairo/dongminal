@@ -9,7 +9,7 @@
   <link rel="icon" href="assets/favicon-16.png" sizes="16x16" type="image/png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="vendor/xterm.css">
-  <link rel="stylesheet" href="style.css?v=103">
+  <link rel="stylesheet" href="style.css?v=146">
   <script>try{var w=parseInt(localStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px')}catch(e){}</script>
 </head>
 <body>
@@ -20,6 +20,11 @@
     <button id="add-window">+ New</button>
     <button id="add-preset" title="기본 프리셋으로 새 창">★ Preset</button>
     <div id="windows"></div>
+
+    <div class="sb-title git-sec-title">Git</div>
+    <div id="git-repos"></div>
+    <button id="git-add-repo" title="리포 추가">+ Add</button>
+
     <button id="settings-btn" title="Settings">⚙</button>
   </div>
   <div id="sb-handle"></div>
@@ -35,6 +40,8 @@
       <button class="tbtn" id="attn-badge" title="주의 알림" style="display:none">🔔<span class="attn-count">0</span></button>
       <button class="tbtn desktop-only" id="split-h" title="Split Horizontal (Ctrl+Shift+H)">Split H</button>
       <button class="tbtn desktop-only" id="split-v" title="Split Vertical (Ctrl+Shift+V)">Split V</button>
+      <!-- FR-GIT-183: Git 창은 WINDOWS 목록에 없으므로 닫는 길을 여기 둔다. -->
+      <button class="tbtn" id="git-close" title="Git 창 닫기" style="display:none">Close Git</button>
       <button class="tbtn desktop-only" id="agents-toggle" title="에이전트 모아보기">Agents</button>
       <button class="mtbtn mobile-only" id="m-search-btn" title="검색">🔍</button>
       <button class="mtbtn mobile-only" id="m-add-tab" title="새 탭">+</button>
@@ -148,14 +155,25 @@
 <script src="vendor/addon-web-links.js"></script>
 <script src="vendor/addon-unicode11.js"></script>
 <script src="vendor/addon-search.js"></script>
-<script src="js/constants.js?v=125"></script>
-<script src="js/helpers.js?v=125"></script>
-<script src="js/themes.js?v=125"></script>
-<script src="js/term-pane.js?v=125"></script>
-<script src="js/file-editor.js?v=125"></script>
-<script src="js/input-binding.js?v=125"></script>
-<script src="js/renderer.js?v=125"></script>
-<script src="js/app.js?v=125"></script>
-<script src="js/main.js?v=125"></script>
+<script src="js/constants.js?v=146"></script>
+<script src="js/helpers.js?v=146"></script>
+<script src="js/themes.js?v=146"></script>
+<script src="js/term-pane.js?v=146"></script>
+<script src="js/file-editor.js?v=146"></script>
+<script src="js/input-binding.js?v=146"></script>
+<script src="js/git-panel.js?v=146"></script>
+<script src="js/git-confirm.js?v=146"></script>
+<script src="js/git-dialog.js?v=146"></script>
+<script src="js/git-commit.js?v=146"></script>
+<script src="js/git-lanes.js?v=146"></script>
+<script src="js/git-menu.js?v=146"></script>
+<script src="js/git-history.js?v=146"></script>
+<script src="js/git-branches.js?v=146"></script>
+<script src="js/git-stash.js?v=146"></script>
+<script src="js/git-console.js?v=146"></script>
+<script src="js/git-remote.js?v=146"></script>
+<script src="js/renderer.js?v=146"></script>
+<script src="js/app.js?v=146"></script>
+<script src="js/main.js?v=146"></script>
 </body>
 </html>

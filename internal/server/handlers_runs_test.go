@@ -40,7 +40,7 @@ func runsServer(t *testing.T, caller string) (*Server, *ToolManager, *run.Store,
 		m.mu.Lock()
 		m.tools[id] = p
 		m.mu.Unlock()
-		io.has[id] = true
+		io.setHas(id, true)
 		wi.resolve[id] = id
 	}
 	wi.resolve["tab-a"] = "tool-a"
@@ -220,7 +220,7 @@ func TestApiRunStatus_DerivesMemberState(t *testing.T) {
 	}
 
 	// 도구가 사라지면 lost.
-	s.ToolIO.(*fakeToolIO).has["tool-b"] = false
+	s.ToolIO.(*fakeToolIO).setHas("tool-b", false)
 	_, out = getRun(t, s, "/api/runs?id="+runID)
 	members = memberMap(t, out)
 	if members["b"]["state"] != "lost" {

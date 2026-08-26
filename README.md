@@ -7,16 +7,24 @@
 ## 빠른 시작
 
 ```bash
-./scripts/start.sh                    # 빌드 + 실행 (localhost only, 포트 58146, 창 유지)
-PORT=8080 ./scripts/start.sh          # 포트 지정
-./scripts/start.sh --expose           # LAN 노출 실행 (사내망 다른 기기 접근 허용)
-./scripts/start.sh --restart-daemon   # dongminald까지 재시작 (창 초기화)
-./scripts/stop.sh                     # 중지 (창 유지)
-./scripts/stop.sh --all               # 전체 중지 (dongminald 포함)
-./scripts/health.sh                   # 헬스 체크
-./scripts/migrate.sh --dry-run        # v1 → v2 스키마 변환 계획 확인
-./scripts/migrate.sh                  # v1 → v2 스키마 변환 (서버 정지 후)
+./scripts/build.sh                    # 빌드 (저장소의 유일한 스크립트)
+
+./dongminal                           # 도움말 (-h, --help 도 동일)
+./dongminal start                     # 실행 (localhost only, 포트 58146, 창 유지)
+PORT=8080 ./dongminal start           # 포트 지정 (--port 8080 도 동일)
+./dongminal start --expose            # LAN 노출 실행 (사내망 다른 기기 접근 허용)
+./dongminal start --restart-daemon    # dongminald까지 재시작 (창 초기화)
+./dongminal start --open              # 실행 후 frameless window 열기
+./dongminal start --isolated          # 임시 홈 + 빈 포트로 격리 실행 (운영 인스턴스 무관)
+./dongminal start --foreground        # 터미널을 점유하며 실행 (^C 로 정지)
+./dongminal stop                      # 중지 (창 유지)
+./dongminal stop --all                # 전체 중지 (dongminald 포함)
+./dongminal health                    # 헬스 체크
+./dongminal migrate --dry-run         # 스키마 변환 계획 확인
+./dongminal migrate                   # 스키마 변환 (서버 정지 후)
 ```
+
+액션 없이 실행하면 도움말이 나옵니다. 액션별 옵션은 `./dongminal <action> --help`.
 
 브라우저에서 `http://localhost:<PORT>/` 접속. `--expose` 로 띄운 경우 같은 네트워크의 다른 기기에서 `http://<host-ip>:<PORT>/` 로도 접근됩니다.
 
@@ -84,11 +92,10 @@ dongminal/
 │   ├── uuid/            # 엔티티 uuid 생성·검증
 │   └── workspace/       # workspace.json Manager (atomic + async writer)
 ├── web/                 # 프론트엔드 (HTML/CSS/JS, go:embed)
-├── scripts/             # start/stop/health/migrate (운영자용)
+├── scripts/             # build.sh — 빌드 (운영 동작은 바이너리의 액션)
 ├── docs/
 │   ├── external/        # 사용자 가이드
 │   └── internal/        # 개발자 문서 (RFC, TODO, 아키텍처)
-├── .env.example         # PORT, BINARY, LOG, DONGMINAL_HOME 샘플
 ├── go.mod
 └── README.md
 ```

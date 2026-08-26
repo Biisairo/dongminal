@@ -1,6 +1,7 @@
 package server
 
 import (
+	"dongminal/internal/git"
 	"dongminal/internal/run"
 	"dongminal/internal/sysstat"
 	"dongminal/internal/toolaccess"
@@ -111,6 +112,9 @@ type Deps struct {
 	// Stats supplies the status-bar metrics snapshot. Nil → /api/stats returns
 	// only hostname and srvUptime (SYSTEM_STATS_SRS FR-STAT-7).
 	Stats StatsSnapshotter
+	// Git 은 모든 git 조회가 통과하는 지점이다 (GIT_SRS 묶음 A~C). nil 이면
+	// /api/git/* 이 전부 503 이며 그 밖의 동작에는 영향이 없다 (FR-GIT-60).
+	Git *git.Store
 }
 
 // StatsSnapshotter is satisfied by *sysstat.Sampler. Kept as an interface so the

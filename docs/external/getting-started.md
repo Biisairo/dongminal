@@ -12,70 +12,89 @@
 ```bash
 git clone <repo>
 cd dongminal
-./scripts/start.sh             # 빌드 + 실행 (기본: localhost only, 포트 58146)
+./scripts/build.sh             # 빌드 — 저장소의 유일한 스크립트
+./dongminal start              # 실행 (기본: localhost only, 포트 58146)
 ```
 
-`start.sh` 는 다음을 수행합니다.
+운영 동작은 모두 바이너리의 **액션**입니다. 액션 없이 실행하면 도움말이 나옵니다.
 
-1. 레포 루트의 `.env` 가 있으면 자동 `source`.
-2. `--expose` / `--local` 플래그를 해석해 `DONGMINAL_HOST` 결정 (기본 `127.0.0.1`).
-3. 대상 포트를 점유한 이전 프로세스가 있으면 `lsof` 로 종료.
-4. `go build -o $BINARY ./cmd/dongminal` 로 빌드.
-5. `PORT=$PORT DONGMINAL_HOST=$DONGMINAL_HOST DONGMINAL_HOME=$DONGMINAL_HOME ./$BINARY` 로 백그라운드 기동, 로그는 `$LOG` 로 리다이렉트.
-6. 포트 바인드 확인 후 `http://$DONGMINAL_HOST:$PORT` 안내 출력 (`local-only` / `exposed to LAN` 표기).
+```bash
+./dongminal                    # 도움말 (-h, --help 도 동일)
+./dongminal <action> --help    # 액션별 옵션
+```
+
+| 액션 | 설명 |
+|---|---|
+| `start` | 서버를 띄운다 |
+| `stop` | 서버를 정지한다 |
+| `migrate` | 워크스페이스 데이터를 최신 스키마로 변환한다 (1회성) |
+| `health` | 서버와 dongminald 의 상태를 확인한다 |
+
+`start` 는 다음을 수행합니다.
+
+1. `--expose` 를 해석해 바인드 주소 결정 (기본 `127.0.0.1`).
+2. 대상 포트를 점유한 이전 프로세스가 있으면 `lsof` 로 종료. **`--isolated` 일 때는 하지 않습니다.**
+3. `--restart-daemon` 이면 dongminald 를 정지하고 `paned.pid`·`paned.sock` 을 제거.
+4. 자기 자신을 `start --foreground` 로 재실행해 백그라운드로 띄우고, 로그를 `$DONGMINAL_LOG` 로 리다이렉트.
+5. `/api/ping` 이 응답할 때까지 최대 5초 대기.
+6. 결과 안내 출력 (`local-only` / `LAN 노출` 표기). `--open` 이면 frameless window 를 엽니다.
+
+빌드는 하지 않습니다 — `./scripts/build.sh` 의 책임입니다.
+
+### `start` 옵션
+
+| 옵션 | 설명 |
+|---|---|
+| `--expose` | `0.0.0.0` 에 바인드 (사내망 다른 기기에서 접근 가능) |
+| `--restart-daemon` | dongminald 도 재시작 (터미널 세션을 잃습니다) |
+| `--isolated` | 임시 홈 + 비어 있는 포트로 띄웁니다. 운영 인스턴스를 건드리지 않습니다 |
+| `--open` | 준비되면 frameless window(Chrome `--app`)를 엽니다 |
+| `--foreground` | 터미널을 점유하며 실행 (`^C` 로 정지) |
+| `--port <n>` / `--home <path>` | 모든 액션 공통. 환경변수보다 우선합니다 |
 
 ### 외부 노출/비노출 선택
 
 기본값은 **localhost 전용**(127.0.0.1) 으로, 동일 PC 외에는 접근할 수 없습니다. 사내망의 다른 기기에서도 접근하려면 `--expose` 로 띄워야 합니다.
 
 ```bash
-./scripts/internal.sh             # 127.0.0.1 바인딩 (동일 PC 에서만 접근)
-./scripts/external.sh             # 0.0.0.0 바인딩 (사내망 다른 기기에서도 접근)
-
-# 동등한 형태
-./scripts/start.sh --local
-./scripts/start.sh --expose
-DONGMINAL_HOST=0.0.0.0 ./scripts/start.sh
+./dongminal start                              # 127.0.0.1 바인딩 (동일 PC 에서만 접근)
+./dongminal start --expose                     # 0.0.0.0 바인딩 (사내망 다른 기기에서도 접근)
+DONGMINAL_HOST=0.0.0.0 ./dongminal start       # 동등한 형태
 ```
 
-`internal.sh` / `external.sh` 는 `start.sh` 의 얇은 래퍼이며, 추가 인자도 그대로 전달됩니다.
+### 격리 실행
 
-바이너리를 직접 실행할 수도 있습니다(빌드는 수동).
+운영 인스턴스(`~/.dongminal`, 포트 58146)를 건드리지 않고 별도 인스턴스를 띄웁니다. 검증·실험용입니다.
 
 ```bash
-go build -o dongminal ./cmd/dongminal
-PORT=58146 ./dongminal                              # localhost only (기본값 127.0.0.1, 포트 미지정 시 8080)
-PORT=58146 DONGMINAL_HOST=0.0.0.0 ./dongminal       # LAN 노출
+./dongminal start --isolated
+# → 임시 홈과 빈 포트를 골라 띄우고, 정지 명령을 함께 출력합니다.
+#   격리 홈은 자동으로 지우지 않습니다.
 ```
 
-중지 / 헬스 체크:
+`--port` / `--home` 을 함께 주면 그 값이 이깁니다.
+
+### 중지 / 헬스 체크
 
 ```bash
-./scripts/stop.sh                 # 포트 점유 프로세스 종료
-./scripts/health.sh               # HTTP GET 으로 응답 확인
+./dongminal stop                  # 서버만 정지 (dongminald 는 세션 유지)
+./dongminal stop --all            # dongminald 까지 정지
+./dongminal health                # HTTP 응답 + dongminald 소켓·pid 확인
 ```
 
 ## 환경 변수
 
 | 변수 | 기본 | 설명 |
 |------|------|------|
-| `PORT` | `58146` (start.sh) / `8080` (바이너리 직접 실행) | HTTP 서버 포트 |
+| `PORT` | `58146` | HTTP 서버 포트. `--port` 가 우선 |
 | `DONGMINAL_HOME` | `~/.dongminal` | 설치 루트. `bin/`(런타임 헬퍼), `settings.json`, `workspace.json`, `tools.json` 모두 이 아래. 없으면 서버 기동 시 자동 생성 |
 | `DONGMINAL_PORT` | = `PORT` | 서버가 자식 PTY 프로세스에 주입. `dmctl`, `edit` 가 서버로 HTTP 콜 할 때 사용 |
-| `DONGMINAL_HOST` | `127.0.0.1` | HTTP 서버 바인딩 주소. `127.0.0.1` 은 동일 PC 전용, `0.0.0.0` 은 LAN 노출. `dmctl` 도 이 값으로 서버에 접속 |
-| `LOG` | `/tmp/dongminal.log` | `start.sh` 가 서버 로그를 리다이렉트할 파일 |
-| `BINARY` | `dongminal` | 빌드될 바이너리 이름 |
+| `DONGMINAL_HOST` | `127.0.0.1` | HTTP 서버 바인딩 주소. `127.0.0.1` 은 동일 PC 전용, `0.0.0.0` 은 LAN 노출. `--expose` 가 우선. `dmctl` 도 이 값으로 서버에 접속 |
+| `DONGMINAL_LOG` | `/tmp/dongminal.log` | `start` 가 배경 모드에서 서버 로그를 리다이렉트할 파일 |
+| `BINARY` | `dongminal` | `./scripts/build.sh` 가 만들 바이너리 이름 |
 
-### `.env` 로드
-
-레포 루트의 `.env` 는 `start.sh` / `stop.sh` / `health.sh` 가 자동으로 `set -a; source .env; set +a` 방식으로 로드합니다. 샘플은 `.env.example`:
-
-```
-PORT=58146
-BINARY=dongminal
-LOG=/tmp/dongminal.log
-DONGMINAL_HOME=~/.dongminal
-```
+우선순위는 **플래그 > 환경변수 > 기본값**입니다. 레포 루트의 `.env` 는 더 이상
+읽히지 않습니다 — 셸 환경변수로 주거나 `--port`/`--home` 을 쓰세요.
 
 ### 런타임 헬퍼 배포 (자동)
 

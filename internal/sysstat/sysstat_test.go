@@ -2,6 +2,7 @@ package sysstat
 
 import (
 	"errors"
+	"sync"
 	"testing"
 	"time"
 )
@@ -100,7 +101,11 @@ func TestCPUTicksBusyTotal(t *testing.T) {
 
 // ── fake Reader ──────────────────────────────────────
 
+// fakeReader 는 샘플러 goroutine 과 테스트 goroutine 이 **동시에** 만진다 —
+// Start 가 띄운 루프가 CPUTicks 를 부르는 동안 테스트가 calls 를 읽는다. 그래서
+// 상태를 mu 로 감싼다. 감싸지 않으면 race detector 가 테스트를 실패시킨다.
 type fakeReader struct {
+	mu       sync.Mutex
 	ticks    []CPUTicks
 	tickIdx  int
 	tickErr  error
@@ -115,6 +120,8 @@ type fakeReader struct {
 }
 
 func (f *fakeReader) CPUTicks() (CPUTicks, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.calls++
 	if f.tickErr != nil {
 		return CPUTicks{}, f.tickErr
@@ -128,6 +135,14 @@ func (f *fakeReader) CPUTicks() (CPUTicks, error) {
 	v := f.ticks[f.tickIdx]
 	f.tickIdx++
 	return v, nil
+}
+
+// callCount 는 CPUTicks 호출 횟수다. 샘플러 goroutine 이 쓰는 값이므로 테스트는
+// 이 접근자로만 읽는다.
+func (f *fakeReader) callCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.calls
 }
 
 func (f *fakeReader) Mem() (MemInfo, error) { return f.mem, f.memErr }
@@ -247,12 +262,12 @@ func TestSampler_SnapshotDoesNotReadKernel(t *testing.T) {
 	r := &fakeReader{ticks: []CPUTicks{{Idle: 1}, {Idle: 2}}}
 	s := NewSampler(r, time.Hour, "/")
 	s.sample()
-	before := r.calls
+	before := r.callCount()
 	for i := 0; i < 100; i++ {
 		s.Snapshot()
 	}
-	if r.calls != before {
-		t.Fatalf("Snapshot 이 커널을 %d 회 더 호출했다", r.calls-before)
+	if now := r.callCount(); now != before {
+		t.Fatalf("Snapshot 이 커널을 %d 회 더 호출했다", now-before)
 	}
 }
 
@@ -274,10 +289,10 @@ func TestSampler_StopsOnChannelClose(t *testing.T) {
 	close(stop)
 
 	time.Sleep(30 * time.Millisecond)
-	after := r.calls
+	after := r.callCount()
 	time.Sleep(60 * time.Millisecond)
-	if r.calls != after {
-		t.Fatalf("stopCh 닫힘 후에도 샘플링이 계속됐다 (%d → %d)", after, r.calls)
+	if now := r.callCount(); now != after {
+		t.Fatalf("stopCh 닫힘 후에도 샘플링이 계속됐다 (%d → %d)", after, now)
 	}
 }
 

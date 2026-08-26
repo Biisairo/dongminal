@@ -23,8 +23,13 @@ class App {
     this._bgModalOpen=false;
     this._bgModalKey=null; // 모달 Esc 핸들러 (열려 있을 때만 부착)
     this._modKbd=null; // {ctrl:bool|'lock', alt:bool|'lock'}
+    this._gitRepos=null; // GIT 섹션 목록 {follow,pinned} (FR-GIT-13)
+    this._lastPlainWindow=null; // Open File 이 돌아갈 일반 창 (FR-GIT-185, O15)
+    this._lastTermTool=null;    // follow 가 딛는 마지막 터미널 (FR-GIT-210)
+    this._gitOff=false; // git 표면이 503 이면 섹션 전체를 숨긴다
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
+    this.gitPanel=new GitPanel(this);
   }
 
   // ── Mobile mode ──
@@ -127,6 +132,8 @@ class App {
           if(s.layout) normalizeLayout(s.layout);
         }
         this.ws.windows=this.ws.windows.filter(s=>s&&s.layout);
+        // FR-GIT-186: 개정 이전에 Git 창 안에 들어간 탭을 일반 창으로 옮긴다.
+        this._migrateGitWindow();
         if(!this.ws.windows.find(s=>s.id===this.ws.activeWindow))
           this.ws.activeWindow=this.ws.windows[0]?.id||null;
       }
@@ -167,6 +174,7 @@ class App {
       }
     }
     this._applyFocusOverlay();
+    this._initGitSection();
   }
 
 
@@ -271,6 +279,8 @@ class App {
       if(s.layout) normalizeLayout(s.layout);
     }
     sv.windows=sv.windows.filter(s=>s&&s.layout);
+    // FR-GIT-186: 다른 브라우저 창이 개정 이전 모양을 보내올 수 있다.
+    this._migrateGitWindow(sv.windows);
     if(!sv.windows.find(s=>s.id===sv.activeWindow))
       sv.activeWindow=sv.windows[0]?.id||null;
     // Preserve per-window viewport state: activeWindow and each window's
@@ -1155,6 +1165,211 @@ class App {
 
   async addWindow(){await this._mkWindow();this.render()}
 
+  // _gitWindow 는 워크스페이스의 Git 창이다. 없으면 null (FR-GIT-26).
+  _gitWindow(){return this.ws.windows.find(s=>s&&s.type===WINDOW_TYPE_GIT)||null}
+
+  // FR-GIT-179·182: Git 창은 닫힌 창이고 창 목록·순환의 대상이 아니다. 판정은
+  // 이 두 곳에만 둔다 — 조건이 흩어지면 한 곳이 빠져도 조용히 지나간다.
+  _isGitWin(s){return !!(s&&s.type===WINDOW_TYPE_GIT)}
+  _plainWindows(){return this.ws.windows.filter(s=>!this._isGitWin(s))}
+
+  // FR-GIT-183: Git 창을 닫는다. 다시 열면 새로 만들어진다 (FR-GIT-26 유지).
+  _gitCloseWindow(){
+    const w=this._gitWindow(); if(!w) return;
+    this.delWindow(w.id);
+  }
+
+  // FR-GIT-186: 개정 이전 워크스페이스의 Git 창 안 탭을 일반 창으로 옮긴다.
+  // 판정과 이동은 helpers 의 순수 함수가 한다 — 로드 경로가 둘이라 여기서 두 벌로
+  // 만들면 한쪽만 고쳐진다.
+  _migrateGitWindow(list){
+    const ws=list||this.ws.windows;
+    const n=migrateGitWindows(ws,()=>{
+      // 받을 일반 창이 없으면 껍데기 창을 만든다 (O19). PTY 는 붙이지 않는다 —
+      // 옮겨 온 탭이 이미 자기 실체를 들고 온다.
+      const w={id:newEntityId(),name:'Window',
+        layout:{type:'pane',id:newEntityId(),tabs:[],activeTab:null}};
+      ws.push(w);
+      return w;
+    });
+    if(n) this._save();
+  }
+
+  // openGitWindow 는 Git 창을 활성화한다. 없으면 만든다 — 두 번 불러도 창은
+  // 하나다 (FR-GIT-26). repo 를 주면 활성 리포까지 전환한다 (FR-GIT-15).
+  async openGitWindow(repo){
+    const win=this._gitWindow()||this._mkGitWindow(repo||null);
+    if(repo) this.gitPanel.setRepo(repo);
+    this.switchWindow(win.id);
+    return win.id;
+  }
+
+  // _mkGitWindow 는 고정 탭 6개를 갖춘 Git 창을 만든다. _mkWindow 와 달리
+  // _newTool 을 부르지 않는다 — Git 창의 초기 상태에는 PTY 가 필요 없다.
+  _mkGitWindow(repo){
+    const r=newEntityId();
+    const tabs=GIT_VIEWS.map(v=>({id:newEntityId(),name:v.name,type:TAB_TYPE_GIT,gitView:v.key}));
+    const s={
+      id:newEntityId(),name:GIT_WINDOW_NAME,type:WINDOW_TYPE_GIT,
+      // 활성 리포는 창에 붙는다 — 창이 곧 Git 표면이므로 (FR-GIT-29).
+      git:{repo:repo||null},
+      layout:{type:'pane',id:r,tabs,activeTab:tabs[0].id}
+    };
+    this.ws.windows.push(s);
+    return s;
+  }
+
+  // ── 좌측 GIT 섹션 (FR-GIT-9~17) ──
+
+  // GIT 섹션 배선. 진입점은 정적 요소이므로 리스너는 여기서 한 번만 붙인다.
+  _initGitSection(){
+    const add=document.getElementById('git-add-repo');
+    if(add) add.addEventListener('click',()=>this._gitAddRepo());
+    this._startGitReposPoll();
+    this.gitPanel.init();
+  }
+
+  // _gitSignal 은 즉시 신호의 단일 진입점이다 (FR-GIT-18). 어디서 왔는지는 라벨로만
+  // 남기고 처리는 GitPanel 이 한다 — 디바운스와 게이팅이 한 곳에 있어야 한다.
+  _gitSignal(kind){ if(this.gitPanel) this.gitPanel.signal(kind) }
+
+  /**
+   * FR-GIT-41·185 의 Open File. addTab 의 editor 분기를 그대로 쓴다 — 이미 열려
+   * 있으면 그 탭으로 이동한다.
+   *
+   * **Git 창에는 열지 않는다** (FR-GIT-179). 대상은 직전에 활성이었던 일반 창이고,
+   * 없으면 만든다 (O15). 연 뒤 그 창을 활성화한다 — 열었는데 보이지 않으면
+   * 사용자는 실패로 읽는다.
+   */
+  async _gitOpenFile(filePath){
+    if(!filePath) return;
+    const plain=this._plainWindows();
+    let w=plain.find(s=>s.id===this._lastPlainWindow)||plain[0];
+    if(!w) w=await this._mkWindow();
+    if(!w||!w.layout) return;
+    this.switchWindow(w.id);
+    const rid=(w.focusedPane&&findPane(w.layout,w.focusedPane))?w.focusedPane:firstPane(w.layout)?.id;
+    if(rid) await this.addTab(rid,'editor',{filePath,windowId:w.id});
+  }
+
+  // 목록은 주기적으로 갱신하되 탭이 숨겨졌으면 건너뛴다 — 보이지 않는 섹션을
+  // 위해 요청을 살 이유가 없다 (_startStatsPoll 의 선례, FR-STAT-17).
+  _startGitReposPoll(){
+    if(this._gitReposInterval)clearInterval(this._gitReposInterval);
+    if(!this._gitReposVisHook){
+      this._gitReposVisHook=true;
+      document.addEventListener('visibilitychange',()=>{
+        if(!document.hidden)this._gitReposRefresh();
+      });
+    }
+    this._gitReposInterval=setInterval(()=>{
+      if(document.hidden)return;
+      this._gitReposRefresh();
+    },GIT_REPOS_POLL_MS);
+    this._gitReposRefresh();
+  }
+
+  /**
+   * _gitFocusToolId 는 follow 가 딛는 도구다 (FR-GIT-9).
+   *
+   * 포커스가 터미널이 아닐 때(Git 창·편집기 탭) **마지막 터미널을 유지한다.**
+   * 빈 값을 보내면 서버가 자기 cwd 로 답하는데, 그것은 사용자가 가 본 적 없는
+   * 리포다 — Git 창에 들어간 순간 follow 가 dongminal 로 바뀌는 결함이 그것이었다.
+   * follow 는 "포커스된 터미널의 cwd" 이고, 터미널을 떠났다고 다른 리포를
+   * 가리켜서는 안 된다 (FR-GIT-10 의 "임의로 유지하지 않는다"와 같은 뜻이다).
+   */
+  _gitFocusToolId(){
+    const p=this._focusedTerminal();
+    if(p){this._lastTermTool=p.id; return p.id}
+    // 사라진 도구를 가리키면 서버가 다시 자기 cwd 로 답한다 — 살아 있는 것만 쓴다.
+    if(this._lastTermTool&&this.tools.has(this._lastTermTool)) return this._lastTermTool;
+    this._lastTermTool=null;
+    return '';
+  }
+
+  // _gitReposRefresh 는 GIT 섹션의 목록을 갱신한다. 실패하면 이전 목록을 유지한다 —
+  // 네트워크가 한 번 튀었다고 섹션이 비면 안 된다.
+  async _gitReposRefresh(){
+    let r;
+    try{r=await fetch('/api/git/repos?tool='+encodeURIComponent(this._gitFocusToolId()))}catch{return}
+    if(r.status===503){
+      // git 이 없거나 서비스가 구성되지 않은 환경이다. 섹션 전체를 숨긴다.
+      this._gitOff=true;this.renderer._rGitSection();return;
+    }
+    if(!r.ok) return;
+    let d;
+    try{d=await r.json()}catch{return}
+    this._gitOff=false;this._gitRepos=d;
+    // 전체 render() 를 부르지 않는다 — 터미널 재부착 비용이 크다.
+    this.renderer._rGitSection();
+  }
+
+  // FR-GIT-12: 경로를 물어 핀한다. M1 에는 공통 다이얼로그가 없으므로 prompt 를
+  // 쓴다 (다이얼로그 규약은 M5 묶음 P).
+  _gitAddRepo(){
+    const v=window.prompt(GIT_ADD_REPO_PROMPT,this._cwd||'');
+    if(v===null) return;
+    const path=v.trim(); if(!path) return;
+    this._gitPin(path);
+  }
+
+  /**
+   * FR-GIT-223: 핀 순서 재배치. 창 순서와 달리 **서버가 권위**이므로(O1) 여기서
+   * 배열을 고치지 않고 서버가 준 목록을 받는다.
+   *
+   * 목록 전체가 아니라 (src, target, before) 를 보낸다 — 그 사이에 다른 창이 핀을
+   * 더했을 때 전체를 보내면 그것을 조용히 지운다.
+   */
+  async _gitReorder(dr){
+    if(!dr||dr.done||!dr.src||!dr.target||dr.src===dr.target) return;
+    dr.done=true;
+    let r=null,d=null;
+    try{
+      r=await fetch('/api/git/repos/reorder',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({src:dr.src,target:dr.target,before:!!dr.before})});
+    }catch{r=null}
+    if(r){try{d=await r.json()}catch{d=null}}
+    if(!r||!r.ok||!d) return;
+    this._gitPinsApply(d.pinned);
+  }
+
+  // _gitPin 은 경로를 검증해 핀한다. 저장소가 아니면 사유를 보인다 (FR-GIT-12) —
+  // 조용히 실패하지 않는다.
+  async _gitPin(path){
+    if(!path) return false;
+    let r,d;
+    try{
+      r=await fetch('/api/git/repos/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});
+      d=await r.json();
+    }catch(err){window.alert(GIT_PIN_FAIL_LABEL+': '+err);return false}
+    if(!r.ok){window.alert(GIT_PIN_FAIL_LABEL+' ('+(d&&d.error)+'): '+(d&&d.message));return false}
+    this._gitPinsApply(d.pinned);
+    await this._gitReposRefresh();
+    return true;
+  }
+
+  async _gitUnpin(path){
+    if(!path) return false;
+    let r,d;
+    try{
+      r=await fetch('/api/git/repos/unpin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});
+      d=await r.json();
+    }catch{return false}
+    if(!r.ok) return false;
+    this._gitPinsApply(d.pinned);
+    await this._gitReposRefresh();
+    return true;
+  }
+
+  // 핀은 workspace.json 최상위 git.pinned 에 산다 (O1). 서버가 고친 값을 로컬
+  // 사본에도 반영해 둔다 — 다음 _save() 의 PUT 이 방금 만든 핀을 지우지 않게.
+  _gitPinsApply(pinned){
+    if(!Array.isArray(pinned)) return;
+    if(!this.ws.git) this.ws.git={};
+    this.ws.git.pinned=pinned;
+  }
+
   async delWindow(sid){
     const i=this.ws.windows.findIndex(s=>s.id===sid);
     if(i<0) return;
@@ -1200,6 +1415,9 @@ class App {
       return;
     }
     const cur=this._aw();if(cur)cur.focusedPane=this.focused;
+    // FR-GIT-185: Open File 이 돌아갈 창을 기억한다 — 규칙이 하나여야 "어디에
+    // 열렸는지 모르겠다"가 없다 (O15).
+    if(cur&&!this._isGitWin(cur)) this._lastPlainWindow=cur.id;
     this.ws.activeWindow=sid;
     // Persist per-window activeWindow to sessionStorage (survives refresh,
     // independent across windows).
@@ -1212,6 +1430,8 @@ class App {
     this._mPaneIdx=0;
     if(this.isMobile && this._drawerOpen) this._toggleDrawer(false);
     this._focusWindow(sid);
+    // FR-GIT-22: Git 창이 활성인지가 폴링 게이팅의 조건 하나다 — 창 전환은 재평가 시점이다.
+    this.gitPanel._reschedule();
     this._save(); this.render();
   }
 
@@ -1243,6 +1463,8 @@ class App {
     // opts.windowId 지정 시 비활성 창의 pane 에도 추가 가능 (FR-RST-4).
     const s = opts.windowId ? this.ws.windows.find(x => x.id === opts.windowId) : this._aw();
     if (!s) return;
+    // FR-GIT-179: Git 창의 탭은 고정 6개뿐이다 — 더할 수 없다.
+    if (this._isGitWin(s)) return;
     const pn = findPane(s.layout, rid); if (!pn) return;
     if (type === 'editor') {
       if (!opts.filePath) { console.warn('[addTab] editor tab requires filePath'); return }
@@ -1288,6 +1510,8 @@ class App {
     if(!s) return;
     const pn=findPane(s.layout,rid); if(!pn) return;
     const tab=pn.tabs.find(t=>t.id===tid); if(!tab) return;
+    // FR-GIT-28: Git 창의 고정 탭은 생성·삭제되지 않는다.
+    if(tab.type===TAB_TYPE_GIT) return;
     const isEditor=tab.type==='editor';
     if(isEditor){
       const editor=this.fileEditors.get(tab.id);
@@ -1380,6 +1604,8 @@ class App {
     if(this.isMobile && !opts.force) return;
     const tgtWindowId=opts.targetWindow||this.ws.activeWindow;
     let s=this.ws.windows.find(x=>x.id===tgtWindowId);
+    // FR-GIT-179: Git 창은 닫힌 창이다 — 분할 칸을 만들 수 없다.
+    if(this._isGitWin(s)) return;
     const tgtPaneId=opts.targetPane||(tgtWindowId===this.ws.activeWindow?this.focused:null);
     if(!s||!tgtPaneId) return;
     let count=parseInt(opts.count,10); if(!Number.isFinite(count)||count<2) count=2;
@@ -1464,16 +1690,17 @@ class App {
     const i=pn.tabs.findIndex(t=>t.id===pn.activeTab);if(i<0)return;
     this.switchTab(pn.id,pn.tabs[(i+1)%pn.tabs.length].id);
   }
-  switchWindowPrev(){
-    const arr=this.ws.windows;if(arr.length<2)return;
-    const i=arr.findIndex(s=>s.id===this.ws.activeWindow);if(i<0)return;
-    this.switchWindow(arr[(i-1+arr.length)%arr.length].id);
+  // FR-GIT-182: 순환은 일반 창만 돈다. Git 창에 있으면 순환의 첫 창으로 **나간다**
+  // — 단축키가 막다른 길이 되면 사용자는 고장으로 읽는다 (FR-GIT-184).
+  _cycleWindow(step){
+    const arr=this._plainWindows(); if(!arr.length) return;
+    const i=arr.findIndex(s=>s.id===this.ws.activeWindow);
+    if(i<0){this.switchWindow(arr[0].id);return}
+    if(arr.length<2) return;
+    this.switchWindow(arr[(i+step+arr.length)%arr.length].id);
   }
-  switchWindowNext(){
-    const arr=this.ws.windows;if(arr.length<2)return;
-    const i=arr.findIndex(s=>s.id===this.ws.activeWindow);if(i<0)return;
-    this.switchWindow(arr[(i+1)%arr.length].id);
-  }
+  switchWindowPrev(){this._cycleWindow(-1)}
+  switchWindowNext(){this._cycleWindow(1)}
   paneNavigate(dir){
     const s=this._aw();if(!s||!this.focused)return;
     const path=findPath(s.layout,this.focused);if(!path||path.length<2)return;
@@ -1575,6 +1802,8 @@ class App {
     });
     this._researchIfOpen();
     this._updateCwd();
+    // 칸 포커스가 바뀌면 follow 대상도 바뀔 수 있다 (FR-GIT-9).
+    this._gitReposRefresh();
     this._updateStatusBar();
     this._save();
   }
@@ -1602,7 +1831,22 @@ class App {
           if(res.status===409){
             try{
               const gr=await fetch('/api/workspace');
-              if(gr.ok) this.wsETag=gr.headers.get('ETag')||gr.headers.get('Etag')||null;
+              if(gr.ok){
+                this.wsETag=gr.headers.get('ETag')||gr.headers.get('Etag')||null;
+                // git.pinned 는 서버가 권위로 쓴다 (FR-GIT-11). 409 재시도가 우리
+                // 본문으로 덮으면 핀이 사라진다 — 서버의 git 을 채택한다.
+                //
+                // 단, git.drafts 와 git.favorites 는 클라이언트가 주인이다
+                // (O6·O13) — 통째로 채택하면 방금 입력한 커밋 메시지와 방금 고정한
+                // 즐겨찾기가 재시도에서 사라진다 (FR-GIT-75·149).
+                const rem=await gr.json();
+                if(rem&&rem.git){
+                  const mine=this.ws.git||{};
+                  this.ws.git=rem.git;
+                  for(const k of ['drafts','favorites'])
+                    if(mine[k]) this.ws.git[k]=Object.assign({},rem.git[k]||{},mine[k]);
+                }
+              }
             }catch{}
             this._savePending=true;
             continue;
@@ -2076,7 +2320,9 @@ class App {
 
 
   async _saveSettings(){
-    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,layoutPresets,defaultPreset})})}catch{}
+    // 블롭 전체를 갈아치우므로 읽어 쓰는 값은 전부 실어야 한다 — git 주기(FR-GIT-23)는
+    // UI 가 없지만 여기서 빠지면 다른 설정을 건드릴 때 조용히 사라진다.
+    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset})})}catch{}
   }
 
   // ── Modal & Theme ──
@@ -2294,10 +2540,19 @@ class App {
   // ── Status Bar ──
   _initStatusBar(){
     this._stats={};this._latency=null;
+    // FR-GIT-112: 진행 중인 원격 작업. Git 창을 보지 않아도 알 수 있어야 하므로
+    // Git 창의 폴링이 아니라 상태바 폴링에 얹는다.
+    this._gitJobs=[];
     // FR-BGU-4: 진입점은 정적 요소다. 리스너를 여기서 한 번만 부착한다 —
     // 지표 재생성(_updateStatusBar) 주기에 종속되면 안 된다.
     const bgBtn=document.getElementById('sb-bg-btn');
     if(bgBtn) bgBtn.addEventListener('click',e=>{e.stopPropagation();this._bgModalToggle()});
+    // FR-GIT-58: chip 은 _updateStatusBar 가 매번 다시 만든다 — 리스너를 거기서
+    // 붙이면 갱신마다 누적된다. 정적 컨테이너에 위임해 여기서 한 번만 붙인다.
+    const sbItems=document.getElementById('sb-items');
+    if(sbItems) sbItems.addEventListener('click',e=>{
+      if(e.target.closest&&e.target.closest('.sb-git')) this.openGitWindow();
+    });
     this._startStatsPoll();
     this._renderStatusBarSettings();
   }
@@ -2330,7 +2585,45 @@ class App {
       const r=await fetch('/api/stats');
       this._stats=await r.json();
     }catch{}
+    await this._pollGitJobs();
     this._updateStatusBar();
+  }
+
+  /**
+   * FR-GIT-112: 진행 중 원격 작업을 상태바에 보인다.
+   *
+   * Git 창의 폴링(FR-GIT-22)은 창이 활성일 때만 돌므로 그것에 얹으면 요구사항이
+   * 뜻을 잃는다. 이 호출은 git 을 실행하지 않는다 — 서버가 들고 있는 목록이다.
+   *
+   * 목록은 Git 창에도 넘긴다: 다른 브라우저 창이 띄운 작업도 같은 리포의 원격
+   * 버튼을 막아야 한다 (FR-GIT-101).
+   */
+  async _pollGitJobs(){
+    if(!statusBar.git){this._gitJobs=[];return}
+    let r=null,d=null;
+    try{r=await fetch('/api/git/jobs')}catch{r=null}
+    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
+    // 받지 못했으면 이전 목록을 유지한다 — 한 번의 실패로 chip 이 사라지면
+    // "작업이 끝났다" 와 "모른다" 가 같아진다.
+    if(!d||!Array.isArray(d.jobs)) return;
+    this._gitJobs=d.jobs;
+    if(this.gitPanel) this.gitPanel.adoptJobs(d.jobs);
+  }
+
+  // 방금 띄운 작업은 폴링 주기를 기다리지 않는다 (FR-GIT-112).
+  _gitJobSeen(job){
+    if(!job||!job.id) return;
+    if(!this._gitJobs) this._gitJobs=[];
+    if(this._gitJobs.some(j=>j.id===job.id)) return;
+    this._gitJobs=this._gitJobs.concat([job]);
+    this._updateStatusBar();
+  }
+
+  _gitJobEnded(id){
+    if(!id||!this._gitJobs) return;
+    const n=this._gitJobs.length;
+    this._gitJobs=this._gitJobs.filter(j=>j.id!==id);
+    if(this._gitJobs.length!==n) this._updateStatusBar();
   }
   _updateStatusBar(){
     const bar=document.getElementById('sb-items');if(!bar)return;
@@ -2381,7 +2674,50 @@ class App {
       if(parts.length)items.push(`<span class="sb-item">↑ ${parts.join(' │ ')}</span>`);
     }
     bar.innerHTML=items.join('')||'';
+    // chip 은 문자열이 아니라 DOM 으로 붙인다 — 브랜치 이름에는 < 와 & 가 올 수 있다.
+    if(statusBar.git){
+      const c=this._gitChip(); if(c) bar.appendChild(c);
+      // FR-GIT-112: 진행 중 원격 작업은 chip 옆에 별도로 붙는다 — 브랜치 표시와
+      // 섞으면 어느 것이 관측이고 어느 것이 진행인지 구분되지 않는다.
+      const j=this._gitJobChip(); if(j) bar.appendChild(j);
+    }
     this._updateBgBtn();
+  }
+
+  // FR-GIT-57·59: 활성 리포의 마지막 관측을 chip 으로 만든다. 리포가 없거나
+  // 관측이 없으면 null 이다 — 빈 chip 이나 '-' 를 보이면 "변경 없음" 과
+  // "모른다" 가 같아진다.
+  _gitChip(){
+    const g=this.gitPanel;
+    const s=(g&&g.repo&&g._status&&g._status.status)||null;
+    if(!s) return null;
+    const el=document.createElement('span');
+    el.className='sb-item sb-git'+(s.detached?' sb-git-detached':'');
+    el.title=(g.repo||'')+' — '+GIT_SB_TITLE;
+    const b=document.createElement('span'); b.className='sb-git-branch';
+    // detached 면 브랜치 자리에 해시 앞 7자가 온다 (.git-head-branch 와 같은 규약).
+    b.textContent=GIT_SB_BRANCH_ICON+' '+(s.detached?(s.oid||'').slice(0,7):(s.branch||''));
+    el.appendChild(b);
+    // 변경 수가 0 이면 숫자를 붙이지 않는다.
+    const n=s.total||0;
+    if(n){
+      const d=document.createElement('span'); d.className='sb-git-dirty';
+      d.textContent=GIT_SB_DIRTY_ICON+n;
+      el.appendChild(d);
+    }
+    return el;
+  }
+
+  // FR-GIT-112: 진행 중 원격 작업의 chip. 없으면 null 이다 — 빈 chip 을 보이면
+  // "작업 중" 과 "아무 일도 없음" 이 같아진다.
+  _gitJobChip(){
+    const jobs=this._gitJobs||[];
+    if(!jobs.length) return null;
+    const el=document.createElement('span');
+    el.className='sb-item sb-git-job';
+    el.textContent=GIT_SB_JOB_ICON+' '+jobs.map(j=>j.kind||'').join(' ')+GIT_SB_JOB_SUFFIX;
+    el.title=GIT_SB_JOB_TITLE+' — '+jobs.map(j=>(j.kind||'')+' @ '+(j.repo||'')).join('\n');
+    return el;
   }
 
   // FR-BGU-2..5: 진입점은 상태바 우측 끝의 정적 버튼이다. 지표 재생성과
@@ -2479,7 +2815,7 @@ class App {
     el.appendChild(iRow);
     // Item toggles
     for(const[k,v]of Object.entries(STATUS_ITEMS)){
-      const row=document.createElement('div');row.className='sbs-row';
+      const row=document.createElement('div');row.className='sbs-row';row.dataset.item=k;
       const label=document.createElement('span');label.textContent=v.label;
       const toggle=document.createElement('label');
       const inp=document.createElement('input');inp.type='checkbox';inp.checked=!!statusBar[k];
@@ -2615,9 +2951,14 @@ class App {
 
   _moveTabToPane(srcRid,tabId,dstRid,beforeTabId,insertBefore){
     const s=this._aw();if(!s)return;
+    // FR-GIT-181: Git 창은 탭을 받지도 내주지도 않는다.
+    if(this._isGitWin(s))return;
     const srcRg=findPane(s.layout,srcRid);const dstRg=findPane(s.layout,dstRid);
     if(!srcRg||!dstRg)return;
     const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
+    // FR-GIT-28: git 탭은 pane 을 옮기지 않는다. draggable=false 로 드래그 시작은
+    // 막았지만, 이 경로는 드롭 핸들러 밖에서도 불릴 수 있어 여기서 한 번 더 막는다.
+    if(srcRg.tabs[ti].type===TAB_TYPE_GIT)return;
     const[tab]=srcRg.tabs.splice(ti,1);
     if(srcRg.tabs.length===0){s.layout=doRemove(s.layout,srcRid);if(this.focused===srcRid)this._setFocus(dstRid, s)}
     else if(srcRg.activeTab===tabId)srcRg.activeTab=srcRg.tabs[0].id;
@@ -2631,9 +2972,13 @@ class App {
 
   _splitPaneWithTab(srcRid,tabId,targetRid,zone){
     const s=this._aw();if(!s)return;
+    // FR-GIT-179·181: Git 창에는 분할 칸이 생기지 않는다.
+    if(this._isGitWin(s))return;
     const srcRg=findPane(s.layout,srcRid);if(!srcRg)return;
     if(srcRid===targetRid&&srcRg.tabs.length<=1)return;
     const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
+    // FR-GIT-28: git 탭은 분할로 떼어내지지 않는다 (_moveTabToPane 과 같은 이유).
+    if(srcRg.tabs[ti].type===TAB_TYPE_GIT)return;
     const[tab]=srcRg.tabs.splice(ti,1);
     if(srcRg.tabs.length===0)s.layout=doRemove(s.layout,srcRid);
     else if(srcRg.activeTab===tabId)srcRg.activeTab=srcRg.tabs[0].id;

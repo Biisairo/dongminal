@@ -162,7 +162,7 @@ web/js/app.js:501-502  Pane·Tab 카운터 seeding
 
 #### (1) `crypto.randomUUID()` 는 보안 컨텍스트 전용이다
 
-`./scripts/start.sh --expose`(README) 와 `DONGMINAL_HOST=0.0.0.0`
+`./dongminal start --expose`(README) 와 `DONGMINAL_HOST=0.0.0.0`
 (`docs/external/getting-started.md`)는 평문 HTTP 로 LAN 에 노출한다. 그 주소로 접속한
 브라우저는 보안 컨텍스트가 아니므로 `crypto.randomUUID` 가 **undefined** 이고, 폴백이
 없는 `newEntityId()` 는 탭·분할·창 생성 전부를 TypeError 로 죽인다. 모바일 모드가
@@ -377,7 +377,8 @@ FR-WID-2 와 같은 규약이다.
 
 #### M-1. 대상
 
-**FR-MGU-1** `dongminal migrate`(진입점 `scripts/migrate.sh`)는 v1→v2 스키마 변환에
+**FR-MGU-1** `dongminal migrate`(진입점 — 2026-08-26 `CLI_CONSOLIDATION_SRS` 로
+`scripts/migrate.sh` 폐지, 바이너리 액션 `./dongminal migrate` 가 진입점)는 v1→v2 스키마 변환에
 이어 **구 식별자 재작성**을 수행한다. 대상은 아래 두 파일이 담은 엔터티 id 전부다.
 
 | 파일 | 재작성 대상 | 갱신할 참조 |
@@ -436,7 +437,7 @@ FR-MGU-6 이 보존한 끊어진 참조를 보고한다. `--dry-run` 은 이 리
 건드리지 않는다.
 
 **FR-MGU-11** 실행 중 거부는 기존 경로가 그대로 덮는다 — `ErrDaemonRunning`(데몬
-pid 확인)과 `scripts/migrate.sh` 의 `/api/ping` 확인(FR-MIG-6). 묶음 M 은 추가
+pid 확인)과 migrate 액션의 `/api/ping` 확인(FR-MIG-6 → 현행 FR-ACT-12). 묶음 M 은 추가
 요구를 두지 않는다.
 
 > **리스크 (MEDIUM).** `toolId` 재작성은 `tools.json` 의 `id` 를 바꾸고, 재기동 시
