@@ -6,7 +6,7 @@ import { test, expect } from './fixtures';
 
 // GIT_M4_STEP1417_CONTRACT §2 — 15단계 레인 알고리즘. 검증 V46 (FR-GIT-117~121).
 //
-// 이 저장소에 JS 단위 테스트 러너가 없으므로 web/js/git-lanes.js 를 빈 페이지에
+// 이 저장소에 JS 단위 테스트 러너가 없으므로 web/js/git/lanes.js 를 빈 페이지에
 // 넣고 page.evaluate 로 순수 함수만 시험한다. DOM 도 앱도 띄우지 않으므로 사실상
 // 단위 테스트다 — 레인 알고리즘은 16단계 UI 보다 먼저 고정한다 (SRS §6).
 
@@ -34,7 +34,7 @@ interface LaneGraph {
 declare function buildLaneGraph(commits: LaneCommit[]): LaneGraph;
 declare function clampLanes(graph: LaneGraph, max: number): LaneGraph;
 
-const LANES_JS = join(process.cwd(), 'web', 'js', 'git-lanes.js');
+const LANES_JS = join(process.cwd(), 'web', 'js', 'git', 'lanes.js');
 
 // 앱을 띄우지 않는다. about:blank 에 파일 하나만 넣는다.
 async function loadLanes(page: Page) {

@@ -1,6 +1,10 @@
 package main
 
 import (
+	"dongminal/internal/webserver/hub"
+
+	"dongminal/internal/shared/toolhub"
+
 	"context"
 	"errors"
 	"fmt"
@@ -12,17 +16,20 @@ import (
 	"syscall"
 	"time"
 
-	"dongminal/internal/adapters"
-	"dongminal/internal/cli"
-	"dongminal/internal/git"
-	"dongminal/internal/run"
-	"dongminal/internal/runtime"
-	"dongminal/internal/runtimebin"
-	"dongminal/internal/server"
-	"dongminal/internal/sysstat"
-	"dongminal/internal/uuid"
-	"dongminal/internal/workspace"
-	"dongminal/internal/worktree"
+	"dongminal/internal/ctl/cli"
+	"dongminal/internal/daemon/boot"
+	"dongminal/internal/helper/runtimebin"
+	"dongminal/internal/shared/runtime"
+	"dongminal/internal/shared/uuid"
+	"dongminal/internal/shared/workspace"
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/store"
+	"dongminal/internal/webserver/domain/run"
+	"dongminal/internal/webserver/domain/sysstat"
+	"dongminal/internal/webserver/domain/worktree"
+	"dongminal/internal/webserver/httpapi"
+	"dongminal/internal/webserver/seam/adapters"
+	"dongminal/internal/webserver/toolclient"
 	"dongminal/web"
 )
 
@@ -46,7 +53,7 @@ func dataPath(dataDir, name string) string {
 // statements, ensuring the goroutine exits promptly. The wrapper goroutine
 // here (lines 50-53) is fire-and-forget: it writes its result to a buffered
 // channel and exits, regardless of whether the outer select consumes it.
-func dialOrStartDaemon(home string) *server.ToolClient {
+func dialOrStartDaemon(home string) *toolclient.ToolClient {
 	sockPath := filepath.Join(home, "paned.sock")
 
 	// spawn is handed to the reconnect supervisor so it can respawn dongminald
@@ -57,12 +64,12 @@ func dialOrStartDaemon(home string) *server.ToolClient {
 	// If the old dongminal is still shutting down, this blocks until
 	// dongminald processes the new connection. Add a timeout via goroutine.
 	type result struct {
-		pc  *server.ToolClient
+		pc  *toolclient.ToolClient
 		err error
 	}
 	ch := make(chan result, 1)
 	go func() {
-		pc, err := server.DialPaneClientWithReconnect(sockPath, spawn)
+		pc, err := toolclient.DialPaneClientWithReconnect(sockPath, spawn)
 		ch <- result{pc, err}
 	}()
 
@@ -93,7 +100,7 @@ func dialOrStartDaemon(home string) *server.ToolClient {
 	// Wait for daemon socket to appear
 	for i := 0; i < 20; i++ {
 		time.Sleep(100 * time.Millisecond)
-		pc, err := server.DialPaneClientWithReconnect(sockPath, spawn)
+		pc, err := toolclient.DialPaneClientWithReconnect(sockPath, spawn)
 		if err == nil {
 			log.Printf("connected to newly started dongminald")
 			return pc
@@ -129,89 +136,20 @@ func startDaemon(home string) error {
 	return nil
 }
 
-// referencedTools reads workspace.json and returns the tool ids its tabs point
-// at (FR-EM-14). A missing file yields an empty set — nothing to restore. A
-// parse/schema failure also yields an empty set after logging: respawning
-// unreachable shells is worse than starting empty, and the schema gate in the
-// web server will tell the user to migrate.
-func referencedTools(path string) map[string]struct{} {
-	blob, err := os.ReadFile(path)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			log.Printf("workspace 읽기: %v", err)
-		}
-		return map[string]struct{}{}
-	}
-	refs, err := workspace.ReferencedToolIDs(blob)
-	if err != nil {
-		log.Printf("workspace 참조 해석 실패 — 도구를 복원하지 않습니다: %v", err)
-		return map[string]struct{}{}
-	}
-	return refs
-}
-
-// runDaemon is the entry point for dongminald (DAEMON_SPLIT_SRS Phase 2).
-// It creates a ToolManager, loads tools.json, and listens on a Unix socket.
-func runDaemon(home string) {
-	log.Printf("dongminald starting home=%s", home)
-
-	if err := runtime.Install(filepath.Join(home, "bin")); err != nil {
-		log.Fatalf("runtime install: %v", err)
-	}
-
-	pm := server.NewToolManager(home, nil)
-	pm.LoadAll(referencedTools(dataPath(home, "workspace.json")))
-
-	sockPath := filepath.Join(home, "paned.sock")
-	pidPath := filepath.Join(home, "paned.pid")
-
-	ps := server.NewPanedServer(pm, sockPath, pidPath)
-	if err := ps.Listen(); err != nil {
-		log.Fatalf("dongminald listen: %v", err)
-	}
-
-	// On signal, close the listener to unblock Accept() and save state.
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
-	defer stop()
-
-	go func() {
-		<-ctx.Done()
-		ps.Close()
-	}()
-
-	log.Printf("dongminald listening on %s", sockPath)
-
-	// Accept loop. Each connection is handled serially; when it drops,
-	// the daemon waits for the next dongminal to connect.
-	for {
-		if err := ps.Accept(); err != nil {
-			select {
-			case <-ctx.Done():
-				log.Printf("dongminald shutting down, saving %d tools...", len(pm.Snapshot()))
-				pm.SaveAll()
-				return
-			default:
-			}
-			log.Printf("dongminald accept: %v", err)
-			// Continue accepting — transient errors are not fatal.
-		}
-	}
-}
-
 type builtDeps struct {
-	deps        server.Deps
-	pm          *server.ToolManager
-	attnTracker *server.AttnTracker
+	deps        httpapi.Deps
+	pm          *toolhub.ToolManager
+	attnTracker *hub.AttnTracker
 	sampler     *sysstat.Sampler
 	wsMgr       *workspace.Manager
 }
 
-func buildDeps(cfg server.Config) (builtDeps, error) {
-	pm := server.NewToolManager(cfg.DataDir, nil)
-	cmdHub := server.NewCommandHub()
+func buildDeps(cfg httpapi.Config) (builtDeps, error) {
+	pm := toolhub.NewToolManager(cfg.DataDir, nil)
+	cmdHub := hub.NewCommandHub()
 	// Wire attention SSE before LoadAll so restored tools also get detection.
-	server.WireAttention(pm, cmdHub)
-	server.WireActivity(pm, cmdHub)
+	hub.WireAttention(pm, cmdHub)
+	hub.WireActivity(pm, cmdHub)
 
 	bd, err := buildCommonDeps(cfg, pm, cmdHub, nil)
 	if err != nil {
@@ -232,25 +170,25 @@ func buildDeps(cfg server.Config) (builtDeps, error) {
 // buildDepsWithHub is the daemon-mode variant that uses a ToolHub (ToolClient)
 // instead of a direct ToolManager. Attention/activity are not wired here
 // because in daemon mode they are driven by output push events from dongminald.
-func buildDepsWithHub(cfg server.Config, hub server.ToolHub) (builtDeps, error) {
-	cmdHub := server.NewCommandHub()
+func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub) (builtDeps, error) {
+	cmdHub := hub.NewCommandHub()
 
 	// Attention/activity tracker for daemon mode (in-memory in dongminal).
 	// L1 OSC detection works from terminal escape sequences. L2 idle detection
 	// uses the busy RPC to dongminald to check foreground process status, so a
 	// bare prompt does not raise a bogus alarm (FR-15).
-	attnTracker := server.NewAttnTracker(cmdHub, server.DefaultIdleMS())
-	if bp, ok := hub.(interface{ Busy(string) bool }); ok {
+	attnTracker := hub.NewAttnTracker(cmdHub, hub.DefaultIdleMS())
+	if bp, ok := toolHub.(interface{ Busy(string) bool }); ok {
 		attnTracker.SetBusyProbe(bp.Busy)
 	}
 
-	return buildCommonDeps(cfg, hub, cmdHub, attnTracker)
+	return buildCommonDeps(cfg, toolHub, cmdHub, attnTracker)
 }
 
 // buildCommonDeps wires up the managers shared by both direct and daemon modes.
 // toolHub provides Liveness (IsLive) for the workspace manager and ToolHub for
 // the tool adapters.
-func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.CommandHub, attnTracker *server.AttnTracker) (builtDeps, error) {
+func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.CommandHub, attnTracker *hub.AttnTracker) (builtDeps, error) {
 
 	wsMgr, err := workspace.New(toolHub, workspace.FilePersister{Path: dataPath(cfg.DataDir, "workspace.json")})
 	if err != nil {
@@ -259,10 +197,10 @@ func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.C
 
 	var pa adapters.Tool
 	var resolver adapters.Client
-	if _, ok := toolHub.(*server.ToolManager); ok {
+	if _, ok := toolHub.(*toolhub.ToolManager); ok {
 		// Direct mode: use the concrete ToolManager for richer adapter access.
-		pa = adapters.Tool{PM: toolHub.(*server.ToolManager)}
-		resolver = adapters.Client{PM: toolHub.(*server.ToolManager)}
+		pa = adapters.Tool{PM: toolHub.(*toolhub.ToolManager)}
+		resolver = adapters.Client{PM: toolHub.(*toolhub.ToolManager)}
 	} else {
 		pa = adapters.Tool{Hub: toolHub}
 		resolver = adapters.Client{Hub: toolHub}
@@ -290,10 +228,10 @@ func buildCommonDeps(cfg server.Config, toolHub server.ToolHub, cmdHub *server.C
 
 	// git 조회 앞의 single-flight + TTL 캐시 (GIT_SRS 묶음 C). 브라우저 창이
 	// 여러 개여도 git 실행 횟수가 창 수에 비례하지 않게 한다 (FR-GIT-63).
-	gitStore := git.NewStore(git.New())
+	gitStore := store.NewStore(core.New())
 
 	return builtDeps{
-		deps: server.Deps{
+		deps: httpapi.Deps{
 			Tools:       toolHub,
 			Work:        wsMgr,
 			Commands:    cmdHub,
@@ -328,14 +266,14 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		runDaemon(home)
+		boot.Run(home)
 		return
 	}
 
 	os.Exit(cli.Dispatch(os.Args[1:], serve, os.Stdout, os.Stderr))
 }
 
-// resolveHome은 데몬 경로의 홈 해석이다. 액션 경로는 internal/cli 가
+// resolveHome은 데몬 경로의 홈 해석이다. 액션 경로는 internal/ctl/cli 가
 // 플래그까지 반영해 해석한 값을 serve 에 넘긴다.
 func resolveHome() (string, error) {
 	home := os.Getenv("DONGMINAL_HOME")
@@ -366,14 +304,14 @@ func serve(home, host, port string) int {
 		return 1
 	}
 
-	cfg := server.Config{Port: port, DataDir: home, StaticFS: web.FS()}
+	cfg := httpapi.Config{Port: port, DataDir: home, StaticFS: web.FS()}
 
 	// Try daemon mode: connect to dongminald if available
 	panedClient := dialOrStartDaemon(home)
 
 	var bd builtDeps
 	var err error
-	var attnTracker *server.AttnTracker
+	var attnTracker *hub.AttnTracker
 	if panedClient != nil {
 		// Daemon mode: ToolClient implements ToolHub
 		bd, err = buildDepsWithHub(cfg, panedClient)
@@ -405,7 +343,7 @@ func serve(home, host, port string) int {
 	}
 	log.Printf("workspace manager ready rev=%d bytes=%d", bd.wsMgr.CurrentRev(), len(bd.wsMgr.Raw()))
 
-	srv, err := server.New(cfg, bd.deps)
+	srv, err := httpapi.New(cfg, bd.deps)
 	if err != nil {
 		log.Printf("server init: %v", err)
 		return 1

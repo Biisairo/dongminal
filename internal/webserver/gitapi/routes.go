@@ -1,0 +1,75 @@
+package gitapi
+
+import (
+	"net/http"
+	"strings"
+)
+
+// route는 method+path 매처와 핸들러를 묶는다. httpapi 의 apiRoute 와 같은 형태다
+// — /api/git/* 만 이 테이블이 소유하고, 나머지는 httpapi 가 갖는다.
+type route struct {
+	method string // "" 이면 아무 method 나 매칭
+	match  func(path string) bool
+	handle func(g *GitServer, w http.ResponseWriter, r *http.Request)
+}
+
+func exactPath(p string) func(string) bool {
+	return func(s string) bool { return s == p }
+}
+
+var routes = []route{
+	{http.MethodGet, exactPath("/api/git/repos"), (*GitServer).apiGitRepos},
+	{http.MethodPost, exactPath("/api/git/repos/pin"), (*GitServer).apiGitPin},
+	{http.MethodPost, exactPath("/api/git/repos/unpin"), (*GitServer).apiGitUnpin},
+	{http.MethodPost, exactPath("/api/git/repos/reorder"), (*GitServer).apiGitReorder},
+	{http.MethodGet, exactPath("/api/git/status"), (*GitServer).apiGitStatus},
+	{http.MethodGet, exactPath("/api/git/signature"), (*GitServer).apiGitSignature},
+	{http.MethodGet, exactPath("/api/git/diff-content"), (*GitServer).apiGitDiffContent},
+	{http.MethodGet, exactPath("/api/git/preflight"), (*GitServer).apiGitPreflight},
+	{http.MethodGet, exactPath("/api/git/policy"), (*GitServer).apiGitPolicy},
+	{http.MethodGet, exactPath("/api/git/recovery"), (*GitServer).apiGitRecovery},
+	{http.MethodPost, exactPath("/api/git/stage"), (*GitServer).apiGitStage},
+	{http.MethodPost, exactPath("/api/git/unstage"), (*GitServer).apiGitUnstage},
+	{http.MethodPost, exactPath("/api/git/discard"), (*GitServer).apiGitDiscard},
+	{http.MethodPost, exactPath("/api/git/resolve"), (*GitServer).apiGitResolve},
+	{http.MethodPost, exactPath("/api/git/commit"), (*GitServer).apiGitCommitCreate},
+	{http.MethodPost, exactPath("/api/git/undo-last"), (*GitServer).apiGitUndoLast},
+	{http.MethodGet, exactPath("/api/git/log"), (*GitServer).apiGitLog},
+	{http.MethodGet, exactPath("/api/git/commit"), (*GitServer).apiGitCommit},
+	{http.MethodGet, exactPath("/api/git/refs"), (*GitServer).apiGitRefs},
+	{http.MethodGet, exactPath("/api/git/records"), (*GitServer).apiGitRecords},
+	{http.MethodPost, exactPath("/api/git/fetch"), (*GitServer).apiGitFetch},
+	{http.MethodPost, exactPath("/api/git/pull"), (*GitServer).apiGitPull},
+	{http.MethodPost, exactPath("/api/git/push"), (*GitServer).apiGitPush},
+	{http.MethodPost, exactPath("/api/git/job/cancel"), (*GitServer).apiGitJobCancel},
+	{http.MethodGet, exactPath("/api/git/job/events"), (*GitServer).apiGitJobEvents},
+	{http.MethodGet, exactPath("/api/git/jobs"), (*GitServer).apiGitJobs},
+	// 묶음 N — 브랜치 (GIT_SRS FR-GIT-155~160). 목록은 /api/git/refs 가 이미
+	{http.MethodPost, exactPath("/api/git/checkout"), (*GitServer).apiGitCheckout},
+	{http.MethodPost, exactPath("/api/git/branch"), (*GitServer).apiGitBranchCreate},
+	{http.MethodGet, exactPath("/api/git/branch/validate"), (*GitServer).apiGitBranchValidate},
+	{http.MethodGet, exactPath("/api/git/stash"), (*GitServer).apiGitStashList},
+	{http.MethodGet, exactPath("/api/git/stash/show"), (*GitServer).apiGitStashShow},
+	{http.MethodPost, exactPath("/api/git/stash/push"), (*GitServer).apiGitStashPush},
+	{http.MethodPost, exactPath("/api/git/stash/apply"), (*GitServer).apiGitStashApply},
+	{http.MethodPost, exactPath("/api/git/stash/pop"), (*GitServer).apiGitStashPop},
+	{http.MethodPost, exactPath("/api/git/stash/drop"), (*GitServer).apiGitStashDrop},
+}
+
+// Handle은 /api/git/* 요청을 처리하고 처리 여부를 돌려준다. false 면 호출자가
+// 404 를 낸다 — 라우팅 실패를 이 패키지가 삼키지 않는다.
+func (g *GitServer) Handle(w http.ResponseWriter, r *http.Request) bool {
+	if !strings.HasPrefix(r.URL.Path, "/api/git/") {
+		return false
+	}
+	for _, rt := range routes {
+		if rt.method != "" && rt.method != r.Method {
+			continue
+		}
+		if rt.match(r.URL.Path) {
+			rt.handle(g, w, r)
+			return true
+		}
+	}
+	return false
+}
