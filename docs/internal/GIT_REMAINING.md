@@ -3,18 +3,18 @@
 > MVP 코드는 1~20단계가 끝났고(`525ca24`), 미구현이던 P0 2건도 끝났다(`967c097`).
 > 그 뒤 사용자 검토로 UI 를 개정했고(`f6b0ef1` · `0ad7ba6`), 21단계 실사에서 나온
 > 결함 2건(diff 테마 색 · LFS 메타)도 끝났다(`12ed17d` · `756b1b8`).
-> **2차 사용자 검토 4건**(untracked 붕괴 · 섹션 경계 · GIT 섹션 간격 · 취소 요청)도
-> 끝났다(`4c7151a`).
+> **2차 검토 4건**(`4c7151a`) · **Console 탭**(`04146a6`) · **3차 검토 11건**
+> (`62cf54e` · `6bd2d69` · `fd78ae4`)까지 끝났다.
 > **알려진 코드 결함은 없다** — 남은 것은 실사와 문서다.
 > 이 문서는 **아직 끝나지 않은 것만** 담는다.
 >
 > - 요구사항: [`./GIT_SRS.md`](./GIT_SRS.md) (FR-GIT-1~178)
-> - **개정**: [`./GIT_UI_REVISION_SRS.md`](./GIT_UI_REVISION_SRS.md) (FR-GIT-179~213).
->   FR-GIT-27·30 을 폐기하고 13·28·35·41·69 를 개정했다 (FR-GIT-179~217) — **그쪽이 본 문서보다 앞선다**
+> - **개정**: [`./GIT_UI_REVISION_SRS.md`](./GIT_UI_REVISION_SRS.md) (FR-GIT-179~226).
+>   FR-GIT-27·30 을 폐기하고 13·28·35·41·69·195~197 을 개정했다 — **그쪽이 본 문서보다 앞선다**
 > - 설계 근거: [`./design/`](./design/)
 > - 수동 검증: [`./GIT_MANUAL_CHECKLIST.md`](./GIT_MANUAL_CHECKLIST.md) (1·2회차 실사 기록 포함)
 >
-> 갱신: 2026-08-26 (실사 결함 2건 + 2차 검토 4건 완료)
+> 갱신: 2026-08-26 (실사 결함 2건 + 2·3차 검토 + Console 탭 완료)
 
 ---
 
@@ -59,8 +59,9 @@ PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
 
 ## 2. 문서 정리 (트랙을 닫을 때)
 
-- [ ] `GIT_UI_REVISION_SRS.md` 의 FR-GIT-179~213 을 `GIT_SRS.md` 본문에 흡수하고,
-      폐기된 FR-GIT-27·30 을 그쪽 본문에서 지운다
+- [ ] `GIT_UI_REVISION_SRS.md` 의 **FR-GIT-179~226** 을 `GIT_SRS.md` 본문에 흡수하고,
+      폐기된 FR-GIT-27·30 을 그쪽 본문에서 지운다. 개정된 13·28·35·41·69·195~197 은
+      본문 쪽을 개정 문면으로 바꾼다
 - [ ] `design/` 의 계약 문서를 `docs/internal/archive/` 로 옮긴다
       (archive 규칙: 옮긴 뒤 갱신하지 않는다)
 - [ ] `GIT_SURFACE_MAP.md` 의 P0 대응표에 개정 반영

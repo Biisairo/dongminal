@@ -11,34 +11,32 @@
 
 ```
 dongminal Git 창 트랙을 이어간다. **코드에 알려진 결함은 없다** — 남은 것은
-로그 위생 1건과 수동 검증 잔여, 그리고 트랙을 닫는 문서 작업이다.
+수동 검증 잔여와 트랙을 닫는 문서 작업뿐이다.
 
 읽을 것 (순서대로):
-  docs/internal/GIT_REMAINING.md          ← 출발점. §1~§3 이 남은 일이다
-  docs/internal/GIT_UI_REVISION_SRS.md    ← 개정 SRS (FR-GIT-179~213). GIT_SRS 보다 앞선다
+  docs/internal/GIT_REMAINING.md          ← 출발점. §1~§2 가 남은 일이다
+  docs/internal/GIT_UI_REVISION_SRS.md    ← 개정 SRS (FR-GIT-179~226). GIT_SRS 보다 앞선다
   docs/internal/GIT_SRS.md                ← 원 명세 (FR-GIT-1~178) + §7.1 해석 I1~I9
-  docs/internal/GIT_MANUAL_CHECKLIST.md   ← 실사 기록 1·2회차
+  docs/internal/GIT_MANUAL_CHECKLIST.md   ← 실사 기록 1·2회차 + 예정 G8·G9
 
-**먼저 사용자에게 어느 쪽으로 갈지 묻는다.** 셋 다 성질이 다르고, 순서를
-자기가 정하면 사용자가 원하지 않은 것에 시간을 쓴다.
+**먼저 사용자에게 어느 쪽으로 갈지 묻는다.** 둘은 성질이 다르고, 순서를 자기가
+정하면 사용자가 원하지 않은 것에 시간을 쓴다.
 
-  ① 로그 위생 (GIT_REMAINING §1) — 작고 닫힌 일이다
-      새로고침 때 브라우저가 취소한 요청을 핸들러가 그대로 git 에 넘겨
-      exec.CommandContext 가 git 을 SIGKILL 하고, 그 오류가 500 이 된다.
-      화면에는 영향이 없지만 진짜 장애와 로그에서 구분되지 않는다.
-      고칠 방향: context.Canceled 를 갈라 499(또는 무기록)로 마감한다.
-      검증은 Go 단위 — 취소된 컨텍스트로 부른 핸들러가 500 을 남기지 않는다.
+  ① 검증 잔여 (GIT_REMAINING §1) — 실사다. 격리 인스턴스가 필요하다
+      G8(2차 검토 후) · G9(3차 검토 후) · G6 상태바 chip 5건 · 보안 S.1~S.4 ·
+      G1.10 · G4.6 · G4.8 · G5.12 · G5.13 · M2~M5 묶음의 수동 항목.
+      **결함이 나와도 그 자리에서 고치지 말고 먼저 전부 훑는다** — 목록을 모은
+      뒤 우선순위를 정한다.
+      자동이 답하지 못하는 자리를 먼저 봐라: **G9.10**(rebase 충돌의 ours/theirs
+      툴팁 — 뜻이 뒤집히는 곳) 과 **G8.6**(untracked 가 많은 리포에서 `-uall` 의
+      체감 비용 — 이번 변경에서 유일하게 되돌릴 수도 있는 자리).
+      S.1~S.4 는 자동화가 가능한 성질이다(로그·요청 본문·경로 거부). 실사로 한 번
+      보고, 재발을 막을 값어치가 있으면 e2e/Go 로 굳힌다.
 
-  ② 검증 잔여 (GIT_REMAINING §2) — 실사다. 격리 인스턴스가 필요하다
-      G6 상태바 chip 5건 · 보안 S.1~S.4 · G1.10 · G4.6 · G4.8 · G5.12 · G5.13 ·
-      M2~M5 묶음의 수동 항목. **결함이 나와도 그 자리에서 고치지 말고 먼저
-      전부 훑는다** — 목록을 모은 뒤 우선순위를 정한다.
-      S.1~S.4 는 자동화가 가능한 성질이다(로그·요청 본문·경로 거부). 실사로
-      한 번 보고, 재발을 막을 값어치가 있으면 e2e/Go 로 굳힌다.
-
-  ③ 문서 흡수 (GIT_REMAINING §3) — 트랙을 닫는 일이다
-      GIT_UI_REVISION_SRS 의 FR-GIT-179~213 을 GIT_SRS 본문에 흡수하고,
-      폐기된 FR-GIT-27·30 을 본문에서 지운다. design/ 을 archive/ 로 옮기고
+  ② 문서 흡수 (GIT_REMAINING §2) — 트랙을 닫는 일이다
+      GIT_UI_REVISION_SRS 의 **FR-GIT-179~226** 을 GIT_SRS 본문에 흡수하고,
+      폐기된 FR-GIT-27·30 을 본문에서 지운다. 개정된 13·28·35·41·69·195~197 은
+      본문 쪽을 개정 문면으로 바꾼다. design/ 을 archive/ 로 옮기고
       GIT_SURFACE_MAP 의 P0 대응표에 개정을 반영한다.
 
 작업 방식:
@@ -47,7 +45,7 @@ dongminal Git 창 트랙을 이어간다. **코드에 알려진 결함은 없다
 - 각 항목이 끝나면 검증하고 커밋한다. 커밋 메시지에 AI 서명(Co-Authored-By 등)을
   넣지 않는다.
 
-검증 (기준선: Go 전부 통과 / Playwright 374 — 373 passed + 알려진 flaky 1):
+검증 (기준선: Go 전부 통과 / Playwright 397 + 알려진 flaky 1):
   go build ./... && go vet ./... && go test ./... -race && gofmt -l .
   npx playwright test --retries=1
 
@@ -135,6 +133,9 @@ grep -rn "lfsOid\|lfsSize" web/js/   # → 0건이면 안 그리고 있는 것�
 | `756b1b8` | **D-2 / FR-GIT-47** — 서버가 싣는 LFS 메타를 클라이언트가 그리지 않았다. 해석 I9 로 확정하고 FR-GIT-46·48 의 크기까지 함께 보인다 (e2e D12·D13) |
 | `4c7151a` | **2차 사용자 검토 4건** — FR-GIT-215 untracked 디렉터리 붕괴(P0) · FR-GIT-216 섹션 경계 · FR-GIT-214 GIT 섹션 간격 · FR-GIT-217 취소 요청 499 |
 | `04146a6` | **FR-GIT-218 Console 탭** — Recorder 의 실행 기록을 읽는 화면. `GET /api/git/records` + `GitConsole`. 폴링은 기본에서 감추고 토글로 연다 |
+| `62cf54e` | **3차 사용자 검토 7건** — FR-GIT-219~224. 사이드바 배분 · 그룹 머리글 높이 · 끝난 작업 로그 접기 · 브랜치 더블클릭(두 자리) · 핀 드래그 정렬 · 충돌의 ours/theirs |
+| `6bd2d69` | **정정·결함 4건** — FR-GIT-219 재해석(행 높이) · FR-GIT-226 치수 하한 30px · History 체크아웃이 되다 말던 원인 · 드래그 영역 밖 release · 더블클릭 글자 선택 |
+| `fd78ae4` | **FR-GIT-226 보강** — 빈 refs 그룹의 머리글이 줄어들지 않는다 |
 
 **함께 잡은 결함 5건** (전부 실사에서 나왔다):
 
@@ -163,6 +164,11 @@ grep -rn "lfsOid\|lfsSize" web/js/   # → 0건이면 안 그리고 있는 것�
 | `getComputedStyle().getPropertyValue()` 는 **kebab-case 만 받는다** | `getPropertyValue('borderTopWidth')` 는 오류가 아니라 조용히 `''` 다 |
 | 1초 폴링이 목록을 다시 그린다 | e2e 에서 밖에서 잡은 요소가 계산 시점에 떨어져 나가고, **떨어진 요소의 `getComputedStyle` 은 빈 값**을 준다. 조회와 계산을 한 번의 `evaluate` 안에서 한다 |
 | 자격증명 정적 검사(V43)는 **이름만 본다** | 자격증명을 *지우는* 함수도 이름에 그 낱말이 있으면 잡힌다. 검사를 느슨하게 하지 말고 **이름을 바꾼다** (`RedactSecrets`) |
+| 요소를 다시 만들면 **`dblclick` 이 죽는다** | 단일 클릭이 목록을 재렌더하면 두 번째 클릭이 새 노드에 떨어져 브라우저가 `dblclick` 을 만들지 않는다. 되다 말다 해서 e2e 가 타이밍으로 통과한다 — 뼈대가 같으면 요소를 다시 만들지 마라 (FR-GIT-222) |
+| 문서 전역 DnD 수락 목록에 **새 타입을 빼면** | 항목 영역을 벗어난 release 가 조용히 아무 일도 하지 않는다. `input-binding.js` 의 `dragover`·`drop` 두 곳 모두에 넣어야 한다 (FR-GIT-223) |
+| `git checkout --ours -- <p>` 는 **워킹 트리만 바꾼다** | index 의 unmerged stage 가 남아 파일이 충돌 목록에서 빠지지 않는다. `add` 가 뒤따라야 해결이다 (실측, FR-GIT-224) |
+| 파괴적 목록의 정적 가드는 **개수를 못박는다** | 새 파괴적 동작을 더하면 `TestDestructiveActions_CoversFR89` 가 실패한다 — 가드가 의도대로 도는 것이다. 목록을 늘렸으면 테스트도 함께 늘린다 |
+| 사용자가 말한 "높이"가 **무엇의 높이인지** | "리스트 높이"를 컨테이너로 읽고 영역을 키웠다가 되돌렸다. 실제로는 **행 높이**였다 — 치수 요청은 대상을 확인하고 시작한다 |
 | 터미널 팔레트는 **CSS 변수가 아니다** | `--bg`·`--text` 는 `:root` 에 실리지만 `terminal.green`·`red` 는 `getCurrentTheme()` 에만 있다. Monaco 테마를 CSS 변수만으로 세우면 diff 색을 파생할 수 없다 |
 | `applyThemeObj(THEMES[n])` 은 `currentThemeName` 을 **바꾸지 않는다** | 그래서 `getCurrentTheme()` 이 여전히 이전 테마를 답한다. e2e 에서 테마를 갈 때 `customTheme=null` 만으로는 모자라고 `currentThemeName` 도 세워야 한다 |
 | Monaco 의 `diffEditor.*` 기본값은 `inherit:true` 로도 **덮이지 않는다** | base 테마(vs/vs-dark)의 초록·빨강이 그대로 남는다. 키를 하나하나 매핑해야 한다 |
