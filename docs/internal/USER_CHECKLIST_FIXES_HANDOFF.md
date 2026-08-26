@@ -50,7 +50,8 @@ bash scripts/test_migrate.sh   28 통과
 
 ### 묶음 B — 마이그레이션 진입점 (`e6463e1`)
 
-`scripts/migrate.sh` 가 사용자 진입점이다. `dongminal` 은 PATH 에 없다 —
+`scripts/migrate.sh` 가 사용자 진입점이었다. (2026-08-26 `CLI_CONSOLIDATION_SRS`
+로 폐지 — 지금의 진입점은 `./dongminal migrate` 다.) `dongminal` 은 PATH 에 없다 —
 `runtimebin` 이 설치하는 helper 는 `dmctl`·`edit`·`download`·`detach` 4개뿐이다.
 
 스크립트가 지키는 세 가지(전부 구현 중 실제로 밟은 함정에서 나왔다 — SRS §2.5a):

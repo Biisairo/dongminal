@@ -13,7 +13,7 @@ import (
 // ErrDaemonRunning은 dongminald 가 살아있을 때 반환된다. 데몬은 pane 생성·
 // 삭제마다 SaveAll 로 도구 컬렉션을 다시 쓰므로, 마이그레이션 산출물이
 // 즉시 덮어써지고 폐기한 고아가 되살아난다.
-var ErrDaemonRunning = errors.New("dongminald 가 실행 중입니다 — `./scripts/stop.sh --all` 로 정지한 뒤 다시 실행하세요")
+var ErrDaemonRunning = errors.New("dongminald 가 실행 중입니다 — `dongminal stop --all` 로 정지한 뒤 다시 실행하세요")
 
 const (
 	workspaceFile = "workspace.json"

@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"dongminal/internal/adapters"
+	"dongminal/internal/cli"
 	"dongminal/internal/git"
-	"dongminal/internal/migrate"
 	"dongminal/internal/run"
 	"dongminal/internal/runtime"
 	"dongminal/internal/runtimebin"
@@ -148,65 +148,6 @@ func referencedTools(path string) map[string]struct{} {
 		return map[string]struct{}{}
 	}
 	return refs
-}
-
-// runMigrate executes the one-shot v2 entity-model migration and prints a
-// report. Exits non-zero on failure so scripts can gate on it.
-func runMigrate(home string, args []string) {
-	dryRun := false
-	for _, a := range args {
-		switch a {
-		case "--dry-run", "-n":
-			dryRun = true
-		default:
-			fmt.Fprintf(os.Stderr, "unknown flag: %s\n사용법: dongminal migrate [--dry-run]\n", a)
-			os.Exit(2)
-		}
-	}
-	rep, err := migrate.Apply(home, dryRun)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "마이그레이션 실패: %v\n변경된 파일 없음.\n", err)
-		os.Exit(1)
-	}
-	if rep.Empty {
-		fmt.Printf("마이그레이션 대상 없음 (%s)\n", home)
-		return
-	}
-	if dryRun {
-		fmt.Println("[dry-run] 파일을 변경하지 않습니다.")
-	}
-	if rep.AlreadyMigrated {
-		fmt.Println("이미 v2 스키마입니다. 참조 정리만 수행합니다.")
-	}
-	fmt.Printf("Window %d개, Tool %d개\n", rep.Windows, rep.Tools)
-	if len(rep.Orphans) > 0 {
-		fmt.Printf("고아 도구 %d개 폐기: %v\n", len(rep.Orphans), rep.Orphans)
-	}
-	if len(rep.GhostRefs) > 0 {
-		fmt.Printf("agentsOrder 유령 참조 %d개 제거: %v\n", len(rep.GhostRefs), rep.GhostRefs)
-	}
-	if len(rep.ShortcutsRenamed) > 0 {
-		fmt.Printf("단축키 id %d개 개명: %v\n", len(rep.ShortcutsRenamed), rep.ShortcutsRenamed)
-	}
-	if len(rep.BrokenRefs) > 0 {
-		fmt.Printf("경고: 탭이 참조하나 도구가 없음 %d개: %v\n", len(rep.BrokenRefs), rep.BrokenRefs)
-	}
-	// 묶음 M: 구 식별자 재작성 (FR-MGU-10)
-	if id := rep.Identity; id.Total() > 0 {
-		fmt.Printf("구 식별자 %d개를 uuid 로 재작성: 창 %d, 분할 칸 %d, 탭 %d, 도구 %d\n",
-			id.Total(), id.Windows, id.Panes, id.Tabs, id.Tools)
-	} else {
-		fmt.Println("구 식별자 없음 — 재작성할 것이 없습니다.")
-	}
-	if d := rep.Identity.Dangling; len(d) > 0 {
-		fmt.Printf("경고: 대상이 없어 값을 보존한 참조 %d개: %v\n", len(d), d)
-	}
-	if !dryRun {
-		fmt.Println("백업: *.v1.bak (workspace/tools/settings)")
-		if rep.Identity.Total() > 0 {
-			fmt.Println("백업: *.preuuid.bak (식별자 재작성 직전 상태)")
-		}
-	}
 }
 
 // runDaemon is the entry point for dongminald (DAEMON_SPLIT_SRS Phase 2).
@@ -377,57 +318,52 @@ func main() {
 		os.Exit(code)
 	}
 
-	// Daemon subcommand: "dongminal d" starts dongminald (PTY daemon).
-	// The symlink "dongminald" is also handled: runtimebin.Dispatch
-	// won't match it, so we fall through here and check argv[1].
-	daemonMode := false
-	if len(os.Args) > 1 && os.Args[1] == "d" {
-		daemonMode = true
-	}
-	if filepath.Base(os.Args[0]) == "dongminald" {
-		daemonMode = true
-	}
-
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 
-	// Resolve DONGMINAL_HOME early — both daemon and server need it.
-	home := os.Getenv("DONGMINAL_HOME")
-	if home == "" {
-		userHome, err := os.UserHomeDir()
+	// 데몬 진입점. `dongminal d` 이거나 argv[0] basename 이 dongminald 인
+	// 경우다 — 내부 진입점이므로 액션 목록에 없다 (FR-CLI-8). startDaemon()
+	// 이 `exe d` 로 자식을 띄우는 계약을 유지한다.
+	if (len(os.Args) > 1 && os.Args[1] == "d") || filepath.Base(os.Args[0]) == "dongminald" {
+		home, err := resolveHome()
 		if err != nil {
-			log.Fatalf("홈 디렉터리 확인 실패: %v", err)
+			log.Fatal(err)
 		}
-		home = filepath.Join(userHome, ".dongminal")
-	}
-	if err := os.MkdirAll(home, 0o755); err != nil {
-		log.Fatalf("DONGMINAL_HOME 생성 실패: %v", err)
-	}
-	os.Setenv("DONGMINAL_HOME", home)
-
-	// Migrate subcommand: "dongminal migrate [--dry-run]" converts
-	// workspace.json/tools.json to the v2 entity model
-	// (ENTITY_MODEL_RESTRUCTURE_SRS P1). Runs standalone and exits.
-	if len(os.Args) > 1 && os.Args[1] == "migrate" {
-		runMigrate(home, os.Args[2:])
-		return
-	}
-
-	if daemonMode {
 		runDaemon(home)
 		return
 	}
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "58146"
+	os.Exit(cli.Dispatch(os.Args[1:], serve, os.Stdout, os.Stderr))
+}
+
+// resolveHome은 데몬 경로의 홈 해석이다. 액션 경로는 internal/cli 가
+// 플래그까지 반영해 해석한 값을 serve 에 넘긴다.
+func resolveHome() (string, error) {
+	home := os.Getenv("DONGMINAL_HOME")
+	if home == "" {
+		userHome, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("홈 디렉터리 확인 실패: %w", err)
+		}
+		home = filepath.Join(userHome, ".dongminal")
 	}
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		return "", fmt.Errorf("DONGMINAL_HOME 생성 실패: %w", err)
+	}
+	os.Setenv("DONGMINAL_HOME", home)
+	return home, nil
+}
+
+// serve는 웹 서버를 이 프로세스로 실행한다 (FR-FG-1). `dongminal start
+// --foreground` 의 실체이며, 배경 모드는 자기 자신을 이 형태로 재실행한다.
+func serve(home, host, port string) int {
+	os.Setenv("DONGMINAL_HOME", home)
+	// helper multi-call(dmctl/edit/…)이 서버 주소를 찾는 값이다.
 	os.Setenv("DONGMINAL_PORT", port)
-	host := os.Getenv("DONGMINAL_HOST")
-	if host == "" {
-		host = "127.0.0.1"
-	}
+	os.Setenv("DONGMINAL_HOST", host)
+
 	if err := runtime.Install(filepath.Join(home, "bin")); err != nil {
-		log.Fatalf("runtime install: %v", err)
+		log.Printf("runtime install: %v", err)
+		return 1
 	}
 
 	cfg := server.Config{Port: port, DataDir: home, StaticFS: web.FS()}
@@ -459,18 +395,20 @@ func main() {
 		// 스키마 미달은 사용자가 조치할 수 있는 상태다 — 스택 대신 안내를 낸다.
 		if errors.Is(err, workspace.ErrSchemaTooOld) {
 			log.Printf("workspace.json 이 구 스키마입니다.")
-			log.Printf("  1) 서버와 데몬을 완전히 정지: ./scripts/stop.sh --all")
-			log.Printf("  2) 변환 내용 확인:            ./scripts/migrate.sh --dry-run")
-			log.Printf("  3) 변환 실행:                 ./scripts/migrate.sh")
-			os.Exit(1)
+			log.Printf("  1) 서버와 데몬을 완전히 정지: dongminal stop --all")
+			log.Printf("  2) 변환 내용 확인:            dongminal migrate --dry-run")
+			log.Printf("  3) 변환 실행:                 dongminal migrate")
+			return 1
 		}
-		log.Fatalf("buildDeps: %v", err)
+		log.Printf("buildDeps: %v", err)
+		return 1
 	}
 	log.Printf("workspace manager ready rev=%d bytes=%d", bd.wsMgr.CurrentRev(), len(bd.wsMgr.Raw()))
 
 	srv, err := server.New(cfg, bd.deps)
 	if err != nil {
-		log.Fatalf("server init: %v", err)
+		log.Printf("server init: %v", err)
+		return 1
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
@@ -512,7 +450,9 @@ func main() {
 	}
 	_ = bd.wsMgr.Close()
 	if runErr != nil {
-		log.Fatalf("server fatal: %v", runErr)
+		log.Printf("server fatal: %v", runErr)
+		return 1
 	}
 	log.Printf("server stopped")
+	return 0
 }

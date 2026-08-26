@@ -9,17 +9,17 @@ import { test, expect } from './fixtures';
 // GIT_M2_STEP1011_CONTRACT §3 — 스테이징 클라이언트. 검증 V30·V32·V37
 // (E1·E2·E8 + FR-GIT-72).
 //
-// 테스트 저장소는 scripts/git_fixture.sh 가 만든다 (design/README.md) — 테스트
+// 테스트 저장소는 e2e/git_fixture.sh 가 만든다 (design/README.md) — 테스트
 // 안에서 git init 을 되풀이하지 않는다. 상태를 **바꾸는** 테스트는 픽스처를
 // 복사해 쓴다.
 
 const FIXTURES = '/tmp/dm-git-fx-staging-' + process.pid;
 
 test.beforeAll(() => {
-  execFileSync('bash', ['scripts/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
 });
 test.afterAll(() => {
-  execFileSync('bash', ['scripts/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
 });
 
 const fx = (name: string) => realpathSync(join(FIXTURES, name));

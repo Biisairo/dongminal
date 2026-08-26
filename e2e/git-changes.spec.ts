@@ -8,16 +8,16 @@ import { test, expect } from './fixtures';
 
 // GIT_M1_STEP56_CONTRACT §4 — Changes 탭. 검증 V22·V23·V24 + FR-GIT-36·39.
 //
-// 테스트 저장소는 scripts/git_fixture.sh 가 만든다 (design/README.md) — 테스트
+// 테스트 저장소는 e2e/git_fixture.sh 가 만든다 (design/README.md) — 테스트
 // 안에서 git init 을 되풀이하지 않는다.
 
 const FIXTURES = '/tmp/dm-git-fx-changes-' + process.pid;
 
 test.beforeAll(() => {
-  execFileSync('bash', ['scripts/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
 });
 test.afterAll(() => {
-  execFileSync('bash', ['scripts/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
 });
 
 // 서버는 rev-parse 로 정규화한 루트를 준다 (macOS 의 /tmp → /private/tmp).

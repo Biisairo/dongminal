@@ -54,9 +54,10 @@ dongminal Git 창 트랙을 이어간다. **코드에 알려진 결함은 없다
     실패하므로 게이트의 뜻은 그대로다.
 
 화면을 봐야 하면 **격리 인스턴스**를 쓴다 (사용자가 쓰는 58146 을 건드리지 않는다):
-  scripts/git_fixture.sh /tmp/dm-git-fixtures
-  go build -o /tmp/dm-manual-bin ./cmd/dongminal
-  PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
+  e2e/git_fixture.sh /tmp/dm-git-fixtures
+  ./scripts/build.sh
+  ./dongminal start --isolated --open
+  → 임시 홈 + 빈 포트를 자동으로 고른다. 정지 명령은 실행 결과에 함께 나온다.
   → web/ 자산은 embed 라 고칠 때마다 다시 빌드해야 화면에 반영된다.
 
 하지 말 것 (GIT_REMAINING.md §3):

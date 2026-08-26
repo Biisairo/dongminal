@@ -10,7 +10,7 @@ workspace.json
 settings.json
 panes.json
 
-# Local env (.env.example 은 추적)
+# Local env (더 이상 읽히지 않는다 — CLI_CONSOLIDATION_SRS §7)
 /.env
 
 # Go test / coverage

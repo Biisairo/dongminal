@@ -47,9 +47,10 @@
 워크스페이스를 공유하면 검증이 남긴 창·핀이 사용자 것을 오염시킨다.
 
 ```bash
-scripts/git_fixture.sh /tmp/dm-git-fixtures
-go build -o /tmp/dm-manual-bin ./cmd/dongminal
-PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
+e2e/git_fixture.sh /tmp/dm-git-fixtures
+./scripts/build.sh
+./dongminal start --isolated --open
+# → 임시 홈과 빈 포트를 골라 띄우고, 정지 명령을 함께 출력한다.
 ```
 
 > 자산은 `web/embed.go` 로 **바이너리에 박힌다**. `web/` 을 고쳤으면 다시 빌드해야

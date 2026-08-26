@@ -8,17 +8,17 @@ import { test, expect } from './fixtures';
 
 // GIT_M4_STEP1417_CONTRACT §3·§4·§5 — History 탭. 검증 V47~V51 · V64 · V65 + V48 성능.
 //
-// 테스트 저장소는 scripts/git_fixture.sh 가 만든다 (design/README.md).
+// 테스트 저장소는 e2e/git_fixture.sh 가 만든다 (design/README.md).
 // 성능은 many-commits(10,000 커밋)로만 본다 — 그보다 작은 저장소에서는 가상
 // 스크롤과 전부 그리기가 구분되지 않는다.
 
 const FIXTURES = '/tmp/dm-git-fx-hist-' + process.pid;
 
 test.beforeAll(() => {
-  execFileSync('bash', ['scripts/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
 });
 test.afterAll(() => {
-  execFileSync('bash', ['scripts/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
 });
 
 const fx = (name: string) => realpathSync(join(FIXTURES, name));

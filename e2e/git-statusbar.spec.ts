@@ -8,15 +8,15 @@ import { test, expect } from './fixtures';
 
 // GIT_M1_STEP8_CONTRACT §3 — 상태바 chip. 검증 V27 (FR-GIT-57·58·59).
 //
-// 테스트 저장소는 scripts/git_fixture.sh 가 만든다 (design/README.md).
+// 테스트 저장소는 e2e/git_fixture.sh 가 만든다 (design/README.md).
 
 const FIXTURES = '/tmp/dm-git-fx-sb-' + process.pid;
 
 test.beforeAll(() => {
-  execFileSync('bash', ['scripts/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
 });
 test.afterAll(() => {
-  execFileSync('bash', ['scripts/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
 });
 
 // 서버는 rev-parse 로 정규화한 루트를 준다 (macOS 의 /tmp → /private/tmp).

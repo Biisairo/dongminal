@@ -8,17 +8,17 @@ import { test, expect } from './fixtures';
 
 // GIT_M5_STEP1821_CONTRACT §1.3 — Branches 탭. 검증 V53~V55 · V67 · V68.
 //
-// 테스트 저장소는 scripts/git_fixture.sh 가 만든다 (design/README.md). 쓰기를
+// 테스트 저장소는 e2e/git_fixture.sh 가 만든다 (design/README.md). 쓰기를
 // 하는 스펙은 **복사본**에서 돈다 — 원본을 옮기면 뒤따르는 스펙이 다른 저장소를
 // 본다.
 
 const FIXTURES = '/tmp/dm-git-fx-br-' + process.pid;
 
 test.beforeAll(() => {
-  execFileSync('bash', ['scripts/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
 });
 test.afterAll(() => {
-  execFileSync('bash', ['scripts/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
 });
 
 const fx = (name: string) => realpathSync(join(FIXTURES, name));

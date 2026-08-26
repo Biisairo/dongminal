@@ -7,8 +7,8 @@
 # 그대로다.
 #
 # 사용:
-#   scripts/git_fixture.sh [출력디렉터리]     # 기본: /tmp/dm-git-fixtures
-#   scripts/git_fixture.sh --clean [디렉터리] # 지운다
+#   e2e/git_fixture.sh [출력디렉터리]     # 기본: /tmp/dm-git-fixtures
+#   e2e/git_fixture.sh --clean [디렉터리] # 지운다
 #
 # 이 스크립트는 **읽기 검증용 저장소를 만들 뿐이고 사용자의 저장소를 건드리지
 # 않는다.** 출력 디렉터리 밖에는 어떤 파일도 쓰지 않는다.
@@ -189,4 +189,4 @@ printf 'wip3\n' >> "$d/f.txt"
 say stashes "stash 2개 + 현재 변경 1개"
 
 echo
-echo "완료. 정리: scripts/git_fixture.sh --clean $OUT"
+echo "완료. 정리: e2e/git_fixture.sh --clean $OUT"

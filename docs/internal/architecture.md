@@ -8,7 +8,7 @@ internal/
   adapters/            # internal/{server,workspace} → internal/toolaccess 인터페이스 브리지
   agentadapter/        # 에이전트별 선언 테이블 (기동·탐지·프롬프트/정책 주입·훅 파서·종료)
   clientpid/           # 원격 TCP(remoteAddr) → client PID (ps/lsof)
-  migrate/             # v1 → v2 엔티티 스키마 1회성 변환 (진입점: `./scripts/migrate.sh`)
+  migrate/             # v1 → v2 엔티티 스키마 1회성 변환 (진입점: `./dongminal migrate`)
   outbuf/              # PTY 출력 바운디드 버퍼 (Stream — readPTY 와 WS/HTTP 리더 통합)
   run/                 # Run(오케스트레이션 실행) 레코드 — runs.json 저장소 + 투영/격리 타입 + 멤버 프리앰블
   runtime/             # helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
@@ -22,7 +22,7 @@ internal/
   workspace/           # workspace.json 인덱싱·resolve·영속화 (Manager + FilePersister)
   worktree/            # Run 격리의 git worktree 생성·정리 + 안전 가드 (파괴적 동작의 유일한 경로)
 web/                   # 프론트엔드 자산 (HTML/CSS/JS) + embed.FS()
-scripts/               # start/stop/health/migrate.sh (개발자·운영자 대상)
+scripts/               # build.sh — 빌드 전용. 운영 동작은 바이너리의 액션 (internal/cli)
 .env / .env.example    # start.sh 가 자동 로드하는 환경변수(PORT, BINARY, LOG, DONGMINAL_HOME)
 docs/
   internal/            # 개발자 문서 (이 파일)

@@ -6,8 +6,8 @@
 **준비**
 
 ```bash
-scripts/git_fixture.sh /tmp/dm-git-fixtures     # 저장소 10종
-scripts/start.sh                                # dongminal
+e2e/git_fixture.sh /tmp/dm-git-fixtures   # 저장소 10종
+./scripts/build.sh && ./dongminal start   # dongminal
 ```
 
 각 항목은 `☐` → `☑`(정상) / `✗`(결함, 사유 기록) / `–`(미실시) / `※`(개정으로 문면이

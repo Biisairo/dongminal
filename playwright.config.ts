@@ -36,7 +36,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'go run cmd/dongminal/main.go',
+    command: 'go run ./cmd/dongminal start --foreground',
     url: 'http://localhost:58147/api/ping',
     reuseExistingServer: false,
     env: {
