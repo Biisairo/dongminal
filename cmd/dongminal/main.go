@@ -1,6 +1,8 @@
 package main
 
 import (
+	"dongminal/internal/webserver/hub"
+
 	"dongminal/internal/shared/toolhub"
 
 	"context"
@@ -136,17 +138,17 @@ func startDaemon(home string) error {
 type builtDeps struct {
 	deps        server.Deps
 	pm          *toolhub.ToolManager
-	attnTracker *server.AttnTracker
+	attnTracker *hub.AttnTracker
 	sampler     *sysstat.Sampler
 	wsMgr       *workspace.Manager
 }
 
 func buildDeps(cfg server.Config) (builtDeps, error) {
 	pm := toolhub.NewToolManager(cfg.DataDir, nil)
-	cmdHub := server.NewCommandHub()
+	cmdHub := hub.NewCommandHub()
 	// Wire attention SSE before LoadAll so restored tools also get detection.
-	server.WireAttention(pm, cmdHub)
-	server.WireActivity(pm, cmdHub)
+	hub.WireAttention(pm, cmdHub)
+	hub.WireActivity(pm, cmdHub)
 
 	bd, err := buildCommonDeps(cfg, pm, cmdHub, nil)
 	if err != nil {
@@ -167,25 +169,25 @@ func buildDeps(cfg server.Config) (builtDeps, error) {
 // buildDepsWithHub is the daemon-mode variant that uses a ToolHub (ToolClient)
 // instead of a direct ToolManager. Attention/activity are not wired here
 // because in daemon mode they are driven by output push events from dongminald.
-func buildDepsWithHub(cfg server.Config, hub toolhub.ToolHub) (builtDeps, error) {
-	cmdHub := server.NewCommandHub()
+func buildDepsWithHub(cfg server.Config, toolHub toolhub.ToolHub) (builtDeps, error) {
+	cmdHub := hub.NewCommandHub()
 
 	// Attention/activity tracker for daemon mode (in-memory in dongminal).
 	// L1 OSC detection works from terminal escape sequences. L2 idle detection
 	// uses the busy RPC to dongminald to check foreground process status, so a
 	// bare prompt does not raise a bogus alarm (FR-15).
-	attnTracker := server.NewAttnTracker(cmdHub, server.DefaultIdleMS())
-	if bp, ok := hub.(interface{ Busy(string) bool }); ok {
+	attnTracker := hub.NewAttnTracker(cmdHub, hub.DefaultIdleMS())
+	if bp, ok := toolHub.(interface{ Busy(string) bool }); ok {
 		attnTracker.SetBusyProbe(bp.Busy)
 	}
 
-	return buildCommonDeps(cfg, hub, cmdHub, attnTracker)
+	return buildCommonDeps(cfg, toolHub, cmdHub, attnTracker)
 }
 
 // buildCommonDeps wires up the managers shared by both direct and daemon modes.
 // toolHub provides Liveness (IsLive) for the workspace manager and ToolHub for
 // the tool adapters.
-func buildCommonDeps(cfg server.Config, toolHub toolhub.ToolHub, cmdHub *server.CommandHub, attnTracker *server.AttnTracker) (builtDeps, error) {
+func buildCommonDeps(cfg server.Config, toolHub toolhub.ToolHub, cmdHub *hub.CommandHub, attnTracker *hub.AttnTracker) (builtDeps, error) {
 
 	wsMgr, err := workspace.New(toolHub, workspace.FilePersister{Path: dataPath(cfg.DataDir, "workspace.json")})
 	if err != nil {
@@ -308,7 +310,7 @@ func serve(home, host, port string) int {
 
 	var bd builtDeps
 	var err error
-	var attnTracker *server.AttnTracker
+	var attnTracker *hub.AttnTracker
 	if panedClient != nil {
 		// Daemon mode: ToolClient implements ToolHub
 		bd, err = buildDepsWithHub(cfg, panedClient)

@@ -1,5 +1,7 @@
 package server
 
+import "dongminal/internal/webserver/hub"
+
 import "testing"
 
 // WORKSPACE_IDENTITY_SRS §4 TC-UNI-15 — reqId 는 canonical uuid 다 (FR-UNI-14).
@@ -9,7 +11,7 @@ import "testing"
 func TestNewReqId_IsUUID(t *testing.T) {
 	seen := make(map[string]struct{}, 64)
 	for i := 0; i < 64; i++ {
-		id := NewReqId()
+		id := hub.NewReqId()
 		if !uuidRe.MatchString(id) {
 			t.Fatalf("reqId=%q 가 uuid 형식이 아니다", id)
 		}

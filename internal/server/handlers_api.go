@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/webserver/hub"
+
 	"dongminal/internal/shared/toolhub"
 
 	"encoding/json"
@@ -413,17 +415,17 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 		Tool   string `json:"tool"`
 		Detail string `json:"detail"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" || !validActivityState(req.State) {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" || !hub.ValidActivityState(req.State) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 	if s.Tools != nil {
 		if s.AttnTracker != nil {
 			s.AttnTracker.SetActivity(req.ToolID, req.State,
-				sanitizeActivityField(req.Tool, activityToolMax),
-				sanitizeActivityField(req.Detail, activityDetailMax))
+				hub.SanitizeActivityField(req.Tool, hub.ActivityToolMax),
+				hub.SanitizeActivityField(req.Detail, hub.ActivityDetailMax))
 		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
-			tool.SetActivity(req.State, sanitizeActivityField(req.Tool, activityToolMax), sanitizeActivityField(req.Detail, activityDetailMax))
+			tool.SetActivity(req.State, hub.SanitizeActivityField(req.Tool, hub.ActivityToolMax), hub.SanitizeActivityField(req.Detail, hub.ActivityDetailMax))
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")

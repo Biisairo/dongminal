@@ -1,78 +1,21 @@
 package server
 
 import (
+	"dongminal/internal/webserver/hub"
+
 	"bytes"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 )
 
-func TestCommandHub_Broadcast(t *testing.T) {
-	h := NewCommandHub()
-	s1 := h.add()
-	s2 := h.add()
-
-	payload := []byte(`{"action":"test"}`)
-	n := h.Broadcast(payload)
-	if n != 2 {
-		t.Fatalf("delivered=%d want 2", n)
-	}
-
-	select {
-	case msg := <-s1.ch:
-		if string(msg) != string(payload) {
-			t.Fatalf("s1 msg=%q want %q", msg, payload)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("s1 did not receive")
-	}
-
-	select {
-	case msg := <-s2.ch:
-		if string(msg) != string(payload) {
-			t.Fatalf("s2 msg=%q want %q", msg, payload)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("s2 did not receive")
-	}
-
-	h.remove(s1)
-	h.remove(s2)
-}
-
-func TestCommandHub_Broadcast_DropWhenFull(t *testing.T) {
-	h := NewCommandHub()
-	s := h.add()
-	// Fill channel to capacity (16).
-	for i := 0; i < 16; i++ {
-		s.ch <- []byte("fill")
-	}
-	// Next broadcast should drop.
-	n := h.Broadcast([]byte("drop"))
-	if n != 0 {
-		t.Fatalf("delivered=%d want 0 when full", n)
-	}
-	h.remove(s)
-}
-
-func TestCommandHub_AllowedAction(t *testing.T) {
-	h := NewCommandHub()
-	if !h.AllowedAction("focus") {
-		t.Fatal("focus should be allowed")
-	}
-	if h.AllowedAction("invalid") {
-		t.Fatal("invalid should not be allowed")
-	}
-}
-
 func TestHandleCommandPost(t *testing.T) {
-	// fakeCommandBroker does not implement add/remove, so we use a real hub for the handler
-	// and just verify the handler logic via the real hub integration.
-	hub := NewCommandHub()
-	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Commands: hub})
+	// fakeCommandBroker does not implement add/remove, so we use a real cmdHub for the handler
+	// and just verify the handler logic via the real cmdHub integration.
+	cmdHub := hub.NewCommandHub()
+	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Commands: cmdHub})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

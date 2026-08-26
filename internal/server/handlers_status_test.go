@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/webserver/hub"
+
 	"dongminal/internal/shared/toolhub"
 
 	"encoding/json"
@@ -270,8 +272,8 @@ func TestToolStatus_DirectDaemonParity(t *testing.T) {
 	dp.SetActivity("working", "Edit", "a.go")
 	direct := &Server{Tools: m, ToolIO: io, WorkIndex: wi}
 
-	// daemon: 상태는 AttnTracker 에 있고 Tools.Get 은 합성 toolhub.Tool 을 준다.
-	tracker := NewAttnTracker(NewCommandHub(), 0)
+	// daemon: 상태는 hub.AttnTracker 에 있고 Tools.Get 은 합성 toolhub.Tool 을 준다.
+	tracker := hub.NewAttnTracker(hub.NewCommandHub(), 0)
 	tracker.SetActivity("p1", "working", "Edit", "a.go")
 	daemon := &Server{Tools: m, ToolIO: io, WorkIndex: wi, AttnTracker: tracker}
 

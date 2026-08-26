@@ -5,6 +5,8 @@
 package server
 
 import (
+	"dongminal/internal/webserver/hub"
+
 	"dongminal/internal/shared/toolhub"
 
 	"bufio"
@@ -37,13 +39,13 @@ type Server struct {
 	cfg         Config
 	Tools       toolhub.ToolHub
 	Work        WorkspaceStore
-	Commands    CommandBroker
+	Commands    hub.CommandBroker
 	Settings    SettingsStore
 	WhoAmI      toolaccess.ClientToolResolver
 	ToolIO      toolaccess.ToolReader
 	WorkIndex   toolaccess.WorkspaceReader
 	Stats       StatsSnapshotter
-	AttnTracker *AttnTracker
+	AttnTracker *hub.AttnTracker
 	Runs        *run.Store
 	// Worktrees owns $DONGMINAL_HOME/worktrees (RUN_ORCHESTRATION_SRS 묶음 W).
 	// nil 이면 격리를 요청한 Run 만 거부되고(FR-WKT-11), isolation=none 경로는
@@ -53,7 +55,7 @@ type Server struct {
 	// /api/git/* 만 503 이고 그 밖의 동작에는 영향이 없다 (FR-GIT-60).
 	Git *git.Store
 	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
-	Focus *FocusRegistry
+	Focus *hub.FocusRegistry
 
 	// gitUndo 는 방금 만든 커밋을 되돌릴 권한을 쥔다 (FR-GIT-83). 제로값도 쓸 수
 	// 있다 — 클라이언트 타이머만으로는 만료를 강제할 수 없으므로 이 자리가 없어서
@@ -71,11 +73,11 @@ type Server struct {
 }
 
 // New constructs a Server from cfg + deps. If deps.Commands is nil, a fresh
-// CommandHub is created.
+// hub.CommandHub is created.
 func New(cfg Config, deps Deps) (*Server, error) {
 	cmds := deps.Commands
 	if cmds == nil {
-		cmds = NewCommandHub()
+		cmds = hub.NewCommandHub()
 	}
 	settingsPath := ""
 	if cfg.DataDir != "" {
@@ -92,7 +94,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		Tools:       deps.Tools,
 		Work:        deps.Work,
 		Commands:    cmds,
-		Focus:       NewFocusRegistry(),
+		Focus:       hub.NewFocusRegistry(),
 		Settings:    settings,
 		WhoAmI:      deps.WhoAmI,
 		ToolIO:      deps.ToolIO,

@@ -63,7 +63,7 @@ type waitResult struct {
 }
 
 // toolActivity reads the hook-reported activity. Daemon mode keeps it in the
-// AttnTracker (dongminald owns the PTY, dongminal owns the observation);
+// hub.AttnTracker (dongminald owns the PTY, dongminal owns the observation);
 // direct mode keeps it on the toolhub.Tool itself.
 func (s *Server) toolActivity(toolID string) *toolhub.ActivityState {
 	if s.AttnTracker != nil {

@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/webserver/hub"
+
 	"dongminal/internal/daemon/ipc"
 
 	"dongminal/internal/webserver/toolclient"
@@ -41,8 +43,8 @@ func TestDaemonFullFlow(t *testing.T) {
 	defer pc.Close()
 
 	// Create attention tracker (simulating dongminal's setup)
-	hub := NewCommandHub()
-	tracker := NewAttnTracker(hub, 500) // 500ms idle threshold for fast test
+	cmdHub := hub.NewCommandHub()
+	tracker := hub.NewAttnTracker(cmdHub, 500) // 500ms idle threshold for fast test
 
 	// Wire exit → activity cleanup
 	pc.OnExit = func(toolID string, code int) {
@@ -53,9 +55,9 @@ func TestDaemonFullFlow(t *testing.T) {
 	// Record SSE broadcasts
 	var sseMu sync.Mutex
 	var sseEvents []string
-	sub := hub.add()
+	sub := cmdHub.Add()
 	go func() {
-		for msg := range sub.ch {
+		for msg := range sub.Messages() {
 			var ev struct {
 				Action string `json:"action"`
 				Args   struct {
@@ -71,7 +73,7 @@ func TestDaemonFullFlow(t *testing.T) {
 			}
 		}
 	}()
-	defer hub.remove(sub)
+	defer cmdHub.Remove(sub)
 
 	// Create a tool
 	tool, err := pc.Create("/tmp", 80, 24)
@@ -146,16 +148,16 @@ func TestDaemonFullFlow(t *testing.T) {
 }
 
 // TestDaemonAttentionDetection verifies L1 OSC attention detection
-// in daemon mode via AttnTracker.
+// in daemon mode via hub.AttnTracker.
 func TestDaemonAttentionDetection(t *testing.T) {
-	hub := NewCommandHub()
-	tracker := NewAttnTracker(hub, 10000)
+	cmdHub := hub.NewCommandHub()
+	tracker := hub.NewAttnTracker(cmdHub, 10000)
 
 	var sseMu sync.Mutex
 	var attentionEvents []string
-	sub := hub.add()
+	sub := cmdHub.Add()
 	go func() {
-		for msg := range sub.ch {
+		for msg := range sub.Messages() {
 			var ev struct {
 				Action string `json:"action"`
 			}
@@ -165,7 +167,7 @@ func TestDaemonAttentionDetection(t *testing.T) {
 			sseMu.Unlock()
 		}
 	}()
-	defer hub.remove(sub)
+	defer cmdHub.Remove(sub)
 
 	// Feed output with OSC 9 notification
 	oscNotify := []byte("\x1b]9;done\x07")
@@ -309,16 +311,16 @@ func TestDaemonBase64RoundTrip(t *testing.T) {
 // TestDaemonAttnTrackerL2Idle verifies L2 idle detection fires
 // after the threshold when no new output arrives.
 func TestDaemonAttnTrackerL2Idle(t *testing.T) {
-	hub := NewCommandHub()
-	tracker := NewAttnTracker(hub, 200) // 200ms threshold
+	cmdHub := hub.NewCommandHub()
+	tracker := hub.NewAttnTracker(cmdHub, 200) // 200ms threshold
 	// Idle only fires when a foreground process is running (FR-15).
 	tracker.SetBusyProbe(func(string) bool { return true })
 
 	var sseMu sync.Mutex
 	var attentionReasons []string
-	sub := hub.add()
+	sub := cmdHub.Add()
 	go func() {
-		for msg := range sub.ch {
+		for msg := range sub.Messages() {
 			var ev struct {
 				Action string `json:"action"`
 				Args   struct {
@@ -333,7 +335,7 @@ func TestDaemonAttnTrackerL2Idle(t *testing.T) {
 			}
 		}
 	}()
-	defer hub.remove(sub)
+	defer cmdHub.Remove(sub)
 
 	// Feed initial output to arm the idle detector
 	tracker.FeedOutput("p1", []byte("prompt"))
@@ -453,8 +455,8 @@ func TestDaemonPanedServerSocketCleanup(t *testing.T) {
 // TestDaemonAttnTrackerMultipleTools verifies attention tracking
 // works independently for multiple tools.
 func TestDaemonAttnTrackerMultipleTools(t *testing.T) {
-	hub := NewCommandHub()
-	tracker := NewAttnTracker(hub, 10000)
+	cmdHub := hub.NewCommandHub()
+	tracker := hub.NewAttnTracker(cmdHub, 10000)
 
 	// Signal attention for tool A (FeedOutput first to register)
 	tracker.FeedOutput("A", []byte("prompt"))
@@ -557,15 +559,15 @@ func TestDaemonConcurrentPushAndRequest(t *testing.T) {
 // TestDaemonAttnTrackerL2IdleBusyGate verifies idle does NOT fire when the
 // busy probe reports no foreground process (a bare prompt) — FR-15.
 func TestDaemonAttnTrackerL2IdleBusyGate(t *testing.T) {
-	hub := NewCommandHub()
-	tracker := NewAttnTracker(hub, 100)
+	cmdHub := hub.NewCommandHub()
+	tracker := hub.NewAttnTracker(cmdHub, 100)
 	tracker.SetBusyProbe(func(string) bool { return false }) // not busy
 
 	var mu sync.Mutex
 	var reasons []string
-	sub := hub.add()
+	sub := cmdHub.Add()
 	go func() {
-		for msg := range sub.ch {
+		for msg := range sub.Messages() {
 			var ev struct {
 				Action string `json:"action"`
 			}
@@ -575,7 +577,7 @@ func TestDaemonAttnTrackerL2IdleBusyGate(t *testing.T) {
 			mu.Unlock()
 		}
 	}()
-	defer hub.remove(sub)
+	defer cmdHub.Remove(sub)
 
 	tracker.FeedOutput("p1", []byte("prompt"))
 	stopCh := make(chan struct{})
@@ -596,15 +598,15 @@ func TestDaemonAttnTrackerL2IdleBusyGate(t *testing.T) {
 // when the agent is actively working (activity state "working"). A thinking
 // agent that pauses output is not waiting for input.
 func TestDaemonAttnTrackerL2IdleSuppressedWhileWorking(t *testing.T) {
-	hub := NewCommandHub()
-	tracker := NewAttnTracker(hub, 100)
+	cmdHub := hub.NewCommandHub()
+	tracker := hub.NewAttnTracker(cmdHub, 100)
 	tracker.SetBusyProbe(func(string) bool { return true }) // busy
 
 	var mu sync.Mutex
 	var reasons []string
-	sub := hub.add()
+	sub := cmdHub.Add()
 	go func() {
-		for msg := range sub.ch {
+		for msg := range sub.Messages() {
 			var ev struct {
 				Action string `json:"action"`
 			}
@@ -614,7 +616,7 @@ func TestDaemonAttnTrackerL2IdleSuppressedWhileWorking(t *testing.T) {
 			mu.Unlock()
 		}
 	}()
-	defer hub.remove(sub)
+	defer cmdHub.Remove(sub)
 
 	tracker.FeedOutput("p1", []byte("output"))
 	tracker.SetActivity("p1", "working", "bash", "running")
@@ -708,15 +710,15 @@ func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
 	}
 	defer pc.Close()
 
-	hub := NewCommandHub()
-	tracker := NewAttnTracker(hub, 10000)
+	cmdHub := hub.NewCommandHub()
+	tracker := hub.NewAttnTracker(cmdHub, 10000)
 	pc.OnOutput = tracker.FeedOutput // wire detection like main.go
 
 	var mu sync.Mutex
 	var attn bool
-	sub := hub.add()
+	sub := cmdHub.Add()
 	go func() {
-		for msg := range sub.ch {
+		for msg := range sub.Messages() {
 			var ev struct {
 				Action string `json:"action"`
 			}
@@ -728,7 +730,7 @@ func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
 			}
 		}
 	}()
-	defer hub.remove(sub)
+	defer cmdHub.Remove(sub)
 
 	tool, err := pc.Create("/tmp", 80, 24)
 	if err != nil {

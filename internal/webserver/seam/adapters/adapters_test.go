@@ -1,13 +1,14 @@
 package adapters
 
 import (
+	"dongminal/internal/webserver/hub"
+
 	"dongminal/internal/shared/toolhub"
 
 	"os"
 	"path/filepath"
 	"testing"
 
-	"dongminal/internal/server"
 	"dongminal/internal/shared/workspace"
 )
 
@@ -76,7 +77,7 @@ func TestWorkspaceAdapter_EntriesShape(t *testing.T) {
 }
 
 func TestCommandAdapter_Wraps(t *testing.T) {
-	hub := server.NewCommandHub()
+	hub := hub.NewCommandHub()
 	a := Command{Hub: hub}
 	// AllowedAction is determined by hub policy; just ensure the call doesn't panic.
 	_ = a.AllowedAction("workspace_changed")

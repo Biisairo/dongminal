@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/webserver/hub"
+
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -108,7 +110,7 @@ func TestFocus_StaleSubscriptionCloseKeepsOwnership(t *testing.T) {
 
 // FR-XDF-3: 한 Client 는 한 Window 만 소유한다.
 func TestFocus_ClaimReleasesPreviousWindow(t *testing.T) {
-	f := NewFocusRegistry()
+	f := hub.NewFocusRegistry()
 	if !f.Claim("cliA", "W1") {
 		t.Fatal("첫 획득이 변화 없음으로 보고됐다")
 	}
@@ -127,7 +129,7 @@ func TestFocus_ClaimReleasesPreviousWindow(t *testing.T) {
 // FR-XDF-2: last-focus-wins — 기존 소유자를 협상 없이 밀어낸다.
 // FR-XDF-14: 같은 획득의 반복은 변화가 아니다 (브로드캐스트를 만들지 않는다).
 func TestFocus_LastFocusWinsAndIdempotent(t *testing.T) {
-	f := NewFocusRegistry()
+	f := hub.NewFocusRegistry()
 	f.Claim("cliA", "W1")
 	if !f.Claim("cliB", "W1") {
 		t.Fatal("소유자 교체가 변화 없음으로 보고됐다")
@@ -143,7 +145,7 @@ func TestFocus_LastFocusWinsAndIdempotent(t *testing.T) {
 // Snapshot 은 복사본이어야 한다 — 호출자가 내부 맵을 들고 가면 잠금 밖에서
 // 소유권을 수정할 수 있게 된다.
 func TestFocus_SnapshotIsCopy(t *testing.T) {
-	f := NewFocusRegistry()
+	f := hub.NewFocusRegistry()
 	f.Claim("cliA", "W1")
 	snap := f.Snapshot()
 	snap["W1"] = "tampered"
@@ -155,7 +157,7 @@ func TestFocus_SnapshotIsCopy(t *testing.T) {
 
 // 빈 인자는 상태를 바꾸지 않는다.
 func TestFocus_EmptyArgsAreNoops(t *testing.T) {
-	f := NewFocusRegistry()
+	f := hub.NewFocusRegistry()
 	if f.Claim("", "W1") || f.Claim("cliA", "") {
 		t.Fatal("빈 인자 획득이 변화로 보고됐다")
 	}
@@ -196,7 +198,7 @@ func TestFocus_ClaimRejectsBadBody(t *testing.T) {
 
 // TC-SXE-1: live 구독이 없으면 지명하지 않는다 (FR-SXE-5).
 func TestExecutor_NoLiveSubscriptionYieldsEmpty(t *testing.T) {
-	f := NewFocusRegistry()
+	f := hub.NewFocusRegistry()
 	if got := f.Executor(); got != "" {
 		t.Fatalf("Executor()=%q want \"\" — live 구독이 없다", got)
 	}
@@ -209,7 +211,7 @@ func TestExecutor_NoLiveSubscriptionYieldsEmpty(t *testing.T) {
 
 // TC-SXE-1: 주장 이력이 없으면 가장 오래된 live 구독을 쓴다 (FR-SXE-4 폴백).
 func TestExecutor_FallsBackToOldestLiveSubscription(t *testing.T) {
-	f := NewFocusRegistry()
+	f := hub.NewFocusRegistry()
 	f.Attach("cliA")
 	f.Attach("cliB")
 	f.Attach("cliC")
@@ -220,7 +222,7 @@ func TestExecutor_FallsBackToOldestLiveSubscription(t *testing.T) {
 
 // TC-SXE-1: 가장 최근에 포커스를 주장한 live Client 가 실행자다 (FR-SXE-4).
 func TestExecutor_PrefersMostRecentFocusClaimer(t *testing.T) {
-	f := NewFocusRegistry()
+	f := hub.NewFocusRegistry()
 	f.Attach("cliA")
 	f.Attach("cliB")
 	f.Claim("cliB", "W1")
@@ -240,7 +242,7 @@ func TestExecutor_PrefersMostRecentFocusClaimer(t *testing.T) {
 
 // TC-SXE-1: 주장 이력이 있어도 live 가 아니면 후보가 아니다.
 func TestExecutor_IgnoresClaimersThatAreNotLive(t *testing.T) {
-	f := NewFocusRegistry()
+	f := hub.NewFocusRegistry()
 	f.Attach("cliA")
 	ep := f.Attach("cliB")
 	f.Claim("cliB", "W1")
@@ -252,7 +254,7 @@ func TestExecutor_IgnoresClaimersThatAreNotLive(t *testing.T) {
 
 // TC-SXE-2: 실행자가 끊기면 남은 live 중에서 다시 고른다.
 func TestExecutor_ReelectsAfterDetach(t *testing.T) {
-	f := NewFocusRegistry()
+	f := hub.NewFocusRegistry()
 	epA := f.Attach("cliA")
 	f.Attach("cliB")
 	f.Claim("cliA", "W1")
@@ -267,7 +269,7 @@ func TestExecutor_ReelectsAfterDetach(t *testing.T) {
 
 // 재연결(새 Attach)은 옛 epoch 의 Detach 로 무효화되지 않는다 — FR-XDF-10 과 같은 규칙.
 func TestExecutor_StaleDetachDoesNotRemoveReattachedClient(t *testing.T) {
-	f := NewFocusRegistry()
+	f := hub.NewFocusRegistry()
 	old := f.Attach("cliA")
 	f.Attach("cliA") // 재연결
 	f.Detach("cliA", old)

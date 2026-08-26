@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/webserver/hub"
+
 	"dongminal/internal/shared/toolhub"
 
 	"sync"
@@ -204,19 +206,19 @@ func (f *fakeWorkspaceStore) IsKnownTabID(id string) bool {
 type fakeCommandBroker struct {
 	mu             sync.Mutex
 	published      [][]byte
-	awaitResult    CmdResult
+	awaitResult    hub.CmdResult
 	awaitDelivered int
 	awaitTimedOut  bool
 	deliverCalls   []string // reqIds passed to DeliverResult
 }
 
-func (f *fakeCommandBroker) add() *cmdSub {
-	return &cmdSub{ch: make(chan []byte, 1), done: make(chan struct{})}
+func (f *fakeCommandBroker) Add() *hub.CmdSub {
+	return hub.NewCmdSub()
 }
 
-func (f *fakeCommandBroker) remove(s *cmdSub) {
+func (f *fakeCommandBroker) Remove(s *hub.CmdSub) {
 	if s != nil {
-		s.once.Do(func() { close(s.done) })
+		s.Close()
 	}
 }
 
@@ -227,14 +229,14 @@ func (f *fakeCommandBroker) Broadcast(payload []byte) int {
 	return 1
 }
 
-func (f *fakeCommandBroker) BroadcastAndAwait(payload []byte, reqId string, timeout time.Duration) (CmdResult, int, bool) {
+func (f *fakeCommandBroker) BroadcastAndAwait(payload []byte, reqId string, timeout time.Duration) (hub.CmdResult, int, bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.published = append(f.published, append([]byte(nil), payload...))
 	return f.awaitResult, f.awaitDelivered, f.awaitTimedOut
 }
 
-func (f *fakeCommandBroker) DeliverResult(reqId string, res CmdResult) {
+func (f *fakeCommandBroker) DeliverResult(reqId string, res hub.CmdResult) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.deliverCalls = append(f.deliverCalls, reqId)

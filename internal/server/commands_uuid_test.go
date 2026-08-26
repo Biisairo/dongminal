@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/webserver/hub"
+
 	"encoding/json"
 	"errors"
 	"io"
@@ -29,18 +31,18 @@ func (m *memPersister) Write(data []byte) error { m.data = append([]byte(nil), d
 // 통과한다 (NFR-UID-0 행위 보존).
 func TestHandleCommandPost_TranslatesUUIDLocation(t *testing.T) {
 	uuid := "550e8400-e29b-41d4-a716-446655440003"
-	hub := NewCommandHub()
+	cmdHub := hub.NewCommandHub()
 	ws := newFakeWorkspaceStore()
 	ws.coordMap = map[string]string{uuid: "W2.P1.T1"}
 
-	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Commands: hub, Work: ws})
+	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Commands: cmdHub, Work: ws})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 
 	// SSE 구독자 추가 — broadcast 결과를 받기 위함.
-	sub := hub.add()
-	defer hub.remove(sub)
+	sub := cmdHub.Add()
+	defer cmdHub.Remove(sub)
 
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -57,7 +59,7 @@ func TestHandleCommandPost_TranslatesUUIDLocation(t *testing.T) {
 	}
 
 	select {
-	case payload := <-sub.ch:
+	case payload := <-sub.Messages():
 		var got struct {
 			Action string          `json:"action"`
 			Args   json.RawMessage `json:"args"`
@@ -80,11 +82,11 @@ func TestHandleCommandPost_TranslatesUUIDLocation(t *testing.T) {
 // FR-DMC-9 (정책 강화): 좌표는 더 이상 pass-through 되지 않고 400 거부.
 // uuid 만 받는다. (이전 NFR-UID-0 의 coordinate pass-through 는 의도적으로 폐기)
 func TestHandleCommandPost_CoordinateRejected(t *testing.T) {
-	hub := NewCommandHub()
+	cmdHub := hub.NewCommandHub()
 	ws := newFakeWorkspaceStore()
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: hub, Work: ws})
-	sub := hub.add()
-	defer hub.remove(sub)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: cmdHub, Work: ws})
+	sub := cmdHub.Add()
+	defer cmdHub.Remove(sub)
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -98,7 +100,7 @@ func TestHandleCommandPost_CoordinateRejected(t *testing.T) {
 		t.Errorf("status=%d want 400 (coordinate must be rejected)", resp.StatusCode)
 	}
 	select {
-	case <-sub.ch:
+	case <-sub.Messages():
 		t.Fatal("coordinate input should not have been broadcast")
 	default:
 	}
@@ -123,13 +125,13 @@ func TestHandleCommandPost_FullStackUUID_ReflowSafety(t *testing.T) {
 		t.Fatalf("Save: %v", err)
 	}
 
-	hub := NewCommandHub()
-	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Commands: hub, Work: ws})
+	cmdHub := hub.NewCommandHub()
+	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Commands: cmdHub, Work: ws})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	sub := hub.add()
-	defer hub.remove(sub)
+	sub := cmdHub.Add()
+	defer cmdHub.Remove(sub)
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -145,7 +147,7 @@ func TestHandleCommandPost_FullStackUUID_ReflowSafety(t *testing.T) {
 			t.Fatalf("status=%d body=%s", resp.StatusCode, b)
 		}
 		select {
-		case p := <-sub.ch:
+		case p := <-sub.Messages():
 			return p
 		default:
 			t.Fatal("no broadcast")
@@ -187,13 +189,13 @@ func TestHandleCommandPost_FullStackUUID_ReflowSafety(t *testing.T) {
 // 신규 필드 노출 + 기존 ok/delivered 무변화 (NFR-DMC-0).
 func TestHandleCommandPost_ResponseExposesTranslation(t *testing.T) {
 	uuid := "550e8400-e29b-41d4-a716-446655440003"
-	hub := NewCommandHub()
+	cmdHub := hub.NewCommandHub()
 	ws := newFakeWorkspaceStore()
 	ws.coordMap = map[string]string{uuid: "W2.P1.T1"}
 
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: hub, Work: ws})
-	sub := hub.add()
-	defer hub.remove(sub)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: cmdHub, Work: ws})
+	sub := cmdHub.Add()
+	defer cmdHub.Remove(sub)
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -227,11 +229,11 @@ func TestHandleCommandPost_ResponseExposesTranslation(t *testing.T) {
 
 // TC-DMC-13 (FR-DMC-9): 좌표 입력은 400 거부, broadcast 없음.
 func TestHandleCommandPost_ResponseCoordinateRejected(t *testing.T) {
-	hub := NewCommandHub()
+	cmdHub := hub.NewCommandHub()
 	ws := newFakeWorkspaceStore()
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: hub, Work: ws})
-	sub := hub.add()
-	defer hub.remove(sub)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: cmdHub, Work: ws})
+	sub := cmdHub.Add()
+	defer cmdHub.Remove(sub)
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -248,7 +250,7 @@ func TestHandleCommandPost_ResponseCoordinateRejected(t *testing.T) {
 		}
 	}
 	select {
-	case <-sub.ch:
+	case <-sub.Messages():
 		t.Fatal("rejected inputs should not be broadcast")
 	default:
 	}
@@ -256,11 +258,11 @@ func TestHandleCommandPost_ResponseCoordinateRejected(t *testing.T) {
 
 // TC-DMC-7: location 없는 액션은 빈 문자열로 채움.
 func TestHandleCommandPost_ResponseNoLocation(t *testing.T) {
-	hub := NewCommandHub()
+	cmdHub := hub.NewCommandHub()
 	ws := newFakeWorkspaceStore()
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: hub, Work: ws})
-	sub := hub.add()
-	defer hub.remove(sub)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: cmdHub, Work: ws})
+	sub := cmdHub.Add()
+	defer cmdHub.Remove(sub)
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -287,12 +289,12 @@ func TestHandleCommandPost_ResponseNoLocation(t *testing.T) {
 }
 
 func TestHandleCommandPost_UnknownUUIDReturns400(t *testing.T) {
-	hub := NewCommandHub()
+	cmdHub := hub.NewCommandHub()
 	ws := newFakeWorkspaceStore()
 	uuid := "ffffffff-ffff-7fff-bfff-ffffffffffff"
 	ws.coordErr = map[string]error{uuid: errors.New("unknown uuid")}
 
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: hub, Work: ws})
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Commands: cmdHub, Work: ws})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 

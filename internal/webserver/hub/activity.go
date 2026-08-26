@@ -1,4 +1,4 @@
-package server
+package hub
 
 import (
 	"dongminal/internal/shared/toolhub"
@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	activityToolMax   = 64
-	activityDetailMax = 512
+	ActivityToolMax   = 64
+	ActivityDetailMax = 512
 )
 
 var activityStates = map[string]bool{
@@ -20,12 +20,12 @@ var activityStates = map[string]bool{
 	"ended":   true, // 종료 신호 — 카드 제거(상태로 저장하지 않음)
 }
 
-func validActivityState(s string) bool { return activityStates[s] }
+func ValidActivityState(s string) bool { return activityStates[s] }
 
-// sanitizeActivityField strips control chars and bounds the length of a
+// SanitizeActivityField strips control chars and bounds the length of a
 // tool/detail field before it is stored or rendered (NFR-AAP-3). Mirrors
 // runtimebin.sanitizeNotifyLabel; the two live in different packages.
-func sanitizeActivityField(s string, max int) string {
+func SanitizeActivityField(s string, max int) string {
 	s = strings.Map(func(r rune) rune {
 		if r < 0x20 || r == 0x7f {
 			return -1

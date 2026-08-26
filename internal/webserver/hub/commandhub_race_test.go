@@ -1,4 +1,4 @@
-package server
+package hub
 
 import (
 	"sync"
@@ -23,12 +23,12 @@ func TestCommandHub_AddRemoveBroadcastRace(t *testing.T) {
 					return
 				default:
 				}
-				s := h.add()
+				s := h.Add()
 				select {
 				case <-s.ch:
 				default:
 				}
-				h.remove(s)
+				h.Remove(s)
 			}
 		}()
 	}

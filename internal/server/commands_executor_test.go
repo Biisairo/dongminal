@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/webserver/hub"
+
 	"encoding/json"
 	"io"
 	"net/http"
@@ -16,21 +18,21 @@ import (
 // 생성 명령을 건너뛸 수 있다. 필드가 빠지면 모든 클라이언트가 각자 실행해
 // PTY 를 중복 생성한다 (SRS §2.1).
 
-// execSetup 은 실제 hub 를 쓰는 서버와, 페이로드를 가로챌 구독 하나를 만든다.
-func execSetup(t *testing.T) (*Server, *httptest.Server, *cmdSub) {
+// execSetup 은 실제 cmdHub 를 쓰는 서버와, 페이로드를 가로챌 구독 하나를 만든다.
+func execSetup(t *testing.T) (*Server, *httptest.Server, *hub.CmdSub) {
 	t.Helper()
 	// 생성 명령은 echo 를 기다린다. 테스트에는 echo 하는 브라우저가 없으므로
 	// 대기를 짧게 만든다 (NFR-RCR-1 의 env 훅).
 	t.Setenv("DONGMINAL_CMD_RESULT_TIMEOUT_MS", "150")
-	hub := NewCommandHub()
-	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Commands: hub})
+	cmdHub := hub.NewCommandHub()
+	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Commands: cmdHub})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
-	sub := hub.add()
-	t.Cleanup(func() { hub.remove(sub) })
+	sub := cmdHub.Add()
+	t.Cleanup(func() { cmdHub.Remove(sub) })
 	return srv, ts, sub
 }
 
@@ -49,12 +51,12 @@ func postCmd(t *testing.T, ts *httptest.Server, body string) {
 
 // nextPayload 는 구독이 받은 다음 페이로드를 파싱한다. window_focus 처럼
 // 명령이 아닌 브로드캐스트는 건너뛴다.
-func nextPayload(t *testing.T, sub *cmdSub, wantAction string) map[string]any {
+func nextPayload(t *testing.T, sub *hub.CmdSub, wantAction string) map[string]any {
 	t.Helper()
 	deadline := time.After(3 * time.Second)
 	for {
 		select {
-		case msg := <-sub.ch:
+		case msg := <-sub.Messages():
 			var m map[string]any
 			if err := json.Unmarshal(msg, &m); err != nil {
 				t.Fatalf("페이로드 파싱: %v (%s)", err, msg)

@@ -1,6 +1,8 @@
 package server
 
 import (
+	"dongminal/internal/webserver/hub"
+
 	"dongminal/internal/shared/toolhub"
 
 	"dongminal/internal/shared/workspace"
@@ -9,7 +11,6 @@ import (
 	"dongminal/internal/webserver/domain/sysstat"
 	"dongminal/internal/webserver/domain/worktree"
 	"dongminal/internal/webserver/seam/toolaccess"
-	"time"
 )
 
 // WorkspaceStore is implemented by *workspace.Manager; kept as an interface so
@@ -36,18 +37,6 @@ type WorkspaceStore interface {
 	Entries() []workspace.TabEntry
 }
 
-// CommandBroker abstracts *CommandHub. Methods stay unexported — the SSE
-// handler is package-internal, so only same-package types satisfy it.
-type CommandBroker interface {
-	add() *cmdSub
-	remove(*cmdSub)
-	Broadcast(payload []byte) int
-	// BroadcastAndAwait / DeliverResult support creating-command result
-	// correlation (REMOTE_COMMAND_RESULT_SRS).
-	BroadcastAndAwait(payload []byte, reqId string, timeout time.Duration) (CmdResult, int, bool)
-	DeliverResult(reqId string, res CmdResult)
-}
-
 // SettingsStore abstracts the in-memory + on-disk settings blob holder.
 type SettingsStore interface {
 	get() []byte
@@ -59,9 +48,9 @@ type SettingsStore interface {
 type Deps struct {
 	Tools       toolhub.ToolHub
 	Work        WorkspaceStore
-	Commands    CommandBroker
+	Commands    hub.CommandBroker
 	Settings    SettingsStore
-	AttnTracker *AttnTracker // daemon mode: attention/activity tracking in dongminal
+	AttnTracker *hub.AttnTracker // daemon mode: attention/activity tracking in dongminal
 	// WhoAmI resolves a request's RemoteAddr to the originating tool via
 	// PID parent-chain walking. /api/whoami uses it (FR-API-WAI-1). Nil → 500.
 	WhoAmI toolaccess.ClientToolResolver

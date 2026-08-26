@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"dongminal/internal/webserver/hub"
 )
 
 // 브라우저의 _execRemote 가 명시적으로 처리하는 action 은 모두 서버
@@ -30,8 +32,8 @@ func TestAllowedCmdActions_CoversBrowserHandled(t *testing.T) {
 		t.Fatalf("_execRemote 에서 추출한 action 이 %d 개뿐 — 파싱이 깨졌다", len(seen))
 	}
 	for a := range seen {
-		if !allowedCmdActions[a] {
-			t.Errorf("브라우저는 %q 를 처리하지만 allowedCmdActions 에 없다 — /api/commands 가 400 으로 거부한다", a)
+		if !hub.AllowedCmdActions[a] {
+			t.Errorf("브라우저는 %q 를 처리하지만 hub.AllowedCmdActions 에 없다 — /api/commands 가 400 으로 거부한다", a)
 		}
 	}
 }
@@ -62,8 +64,8 @@ func TestAllowedCmdActions_CoversCLIProducers(t *testing.T) {
 		"renameWindow",                                // dmctl rename-window
 		"paneUp", "paneDown", "paneLeft", "paneRight", // dmctl tool-{up,down,left,right}
 	} {
-		if !allowedCmdActions[a] {
-			t.Errorf("CLI 가 보내는 %q 가 allowedCmdActions 에 없다", a)
+		if !hub.AllowedCmdActions[a] {
+			t.Errorf("CLI 가 보내는 %q 가 hub.AllowedCmdActions 에 없다", a)
 		}
 	}
 }

@@ -1,4 +1,4 @@
-package server
+package hub
 
 import (
 	"dongminal/internal/shared/toolhub"
