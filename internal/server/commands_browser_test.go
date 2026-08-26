@@ -17,7 +17,7 @@ import (
 // 서버에 POST 하므로 어떤 action 이든 통과해 결함이 드러나지 않았다.
 // 생산자(브라우저)와 검증자(서버)를 직접 대조해 재발을 막는다.
 func TestAllowedCmdActions_CoversBrowserHandled(t *testing.T) {
-	src, err := os.ReadFile("../../web/js/app.js")
+	src, err := os.ReadFile("../../web/js/core/app.js")
 	if err != nil {
 		t.Fatalf("app.js 읽기 실패: %v", err)
 	}

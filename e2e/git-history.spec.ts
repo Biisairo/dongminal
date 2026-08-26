@@ -141,7 +141,7 @@ test.describe('16단계 — History 탭', () => {
   });
 
   test('H4b (V47): git-history.js·git-lanes.js 에 색 리터럴이 없다', async () => {
-    for (const f of ['web/js/git-history.js', 'web/js/git-lanes.js', 'web/js/git-menu.js']) {
+    for (const f of ['web/js/git/history.js', 'web/js/git/lanes.js', 'web/js/git/menu.js']) {
       const src = readFileSync(f, 'utf8');
       expect(src, f + ' 에 #rrggbb 리터럴이 있다').not.toMatch(/#[0-9a-fA-F]{6}\b/);
       expect(src, f + ' 에 #rgb 리터럴이 있다').not.toMatch(/['"]#[0-9a-fA-F]{3}['"]/);

@@ -384,7 +384,7 @@ test.describe('13단계 — 원격 작업', () => {
 
   test('R18 (V43 / FR-GIT-104): 원격 표면에 자격증명을 받는 자리가 없다', async ({ page, request }) => {
     // 만들지 않는 것이 유일한 보장이다 — 소스에 그 자리가 없음을 고정한다.
-    const r = await request.get('/js/git-remote.js');
+    const r = await request.get('/js/git/remote.js');
     expect(r.ok()).toBe(true);
     const src = await r.text();
     expect(src).not.toMatch(/password|passphrase|secret/i);
