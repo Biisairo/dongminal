@@ -11,7 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/store"
 )
 
 // 묶음 H·I 서버측 — /api/git/{stage,unstage,discard,commit,undo-last}
@@ -42,7 +43,7 @@ type gitWriteFake struct {
 	message  string
 	writes   [][]string
 	stdins   []string
-	writeErr func(argv []string) (git.Output, error)
+	writeErr func(argv []string) (core.Output, error)
 	// onWrite 는 쓰기 성공 직후에 불린다. 쓰기가 상태를 바꾸는 것을 흉내 낸다.
 	onWrite func(f *gitWriteFake, argv []string)
 }
@@ -61,24 +62,24 @@ func newGitWriteFake(t *testing.T) *gitWriteFake {
 	}
 }
 
-func (f *gitWriteFake) read(_ context.Context, dir string, args []string) (git.Output, error) {
+func (f *gitWriteFake) read(_ context.Context, dir string, args []string) (core.Output, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	switch {
 	case args[0] == "rev-parse" && args[1] == "--show-toplevel":
-		return git.Output{Stdout: dir + "\n"}, nil
+		return core.Output{Stdout: dir + "\n"}, nil
 	case args[0] == "rev-parse" && args[1] == "--verify":
-		return git.Output{Stdout: strings.Repeat("a", 40) + "\n"}, nil
+		return core.Output{Stdout: strings.Repeat("a", 40) + "\n"}, nil
 	case args[0] == "rev-parse":
-		return git.Output{Stdout: f.gitDir + "\n" + f.gitDir + "\n"}, nil
+		return core.Output{Stdout: f.gitDir + "\n" + f.gitDir + "\n"}, nil
 	case args[0] == "status":
-		return git.Output{Stdout: f.status}, nil
+		return core.Output{Stdout: f.status}, nil
 	case args[0] == "log":
-		return git.Output{Stdout: f.message + "\n"}, nil
+		return core.Output{Stdout: f.message + "\n"}, nil
 	case args[0] == "config":
-		return git.Output{Stdout: f.configValue(args)}, nil
+		return core.Output{Stdout: f.configValue(args)}, nil
 	}
-	return git.Output{}, nil
+	return core.Output{}, nil
 }
 
 // configValue 는 preflight 가 읽는 네 키만 답한다. 미설정은 빈 문자열이다.
@@ -96,7 +97,7 @@ func (f *gitWriteFake) configValue(args []string) string {
 	return ""
 }
 
-func (f *gitWriteFake) write(_ context.Context, _ string, args []string, stdin string) (git.Output, error) {
+func (f *gitWriteFake) write(_ context.Context, _ string, args []string, stdin string) (core.Output, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.writes = append(f.writes, append([]string(nil), args...))
@@ -107,7 +108,7 @@ func (f *gitWriteFake) write(_ context.Context, _ string, args []string, stdin s
 	if f.onWrite != nil {
 		f.onWrite(f, args)
 	}
-	return git.Output{}, nil
+	return core.Output{}, nil
 }
 
 func (f *gitWriteFake) wrote() [][]string {
@@ -121,9 +122,9 @@ func (f *gitWriteFake) wrote() [][]string {
 func gitWriteServer(t *testing.T, f *gitWriteFake) (*GitServer, *time.Time) {
 	t.Helper()
 	at := time.Now()
-	store := git.NewStore(
-		git.New(git.WithRunner(f.read), git.WithWriteRunner(f.write)),
-		git.WithClock(func() time.Time { return at }),
+	store := store.NewStore(
+		core.New(core.WithRunner(f.read), core.WithWriteRunner(f.write)),
+		store.WithClock(func() time.Time { return at }),
 	)
 	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
 	undoNow := at
@@ -215,7 +216,7 @@ func TestAPIGitUndoLast_Expires(t *testing.T) {
 	s, now := gitWriteServer(t, f)
 	tok := gitIssueUndo(t, s, f)
 
-	*now = now.Add(git.UndoTTL + time.Millisecond)
+	*now = now.Add(core.UndoTTL + time.Millisecond)
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", `{"repo":"/work/repo","undoToken":"`+tok+`"}`)
 	if code != http.StatusConflict || out["error"] != "undo_expired" {
 		t.Fatalf("code = %d, body = %v", code, out)
@@ -422,10 +423,10 @@ func TestAPIGitCommit_MessageStaysInStdin(t *testing.T) {
 // `partial` 과 **무엇이 바뀌었는지**로 보고된다. 조용히 넘기지 않는다.
 func TestAPIGitStage_ReportsPartial(t *testing.T) {
 	f := newGitWriteFake(t)
-	f.writeErr = func(argv []string) (git.Output, error) {
+	f.writeErr = func(argv []string) (core.Output, error) {
 		// 실행은 됐고 실패했다 — git 은 경로별로 처리하므로 앞쪽은 이미 적용됐다.
 		f.status = gitWriteStatus("a.txt", "M.") + gitWriteStatus("b.txt", ".M")
-		return git.Output{ExitCode: 1, Stderr: "error: pathspec 'b.txt' did not match"}, nil
+		return core.Output{ExitCode: 1, Stderr: "error: pathspec 'b.txt' did not match"}, nil
 	}
 	f.status = gitWriteStatus("a.txt", ".M")
 	s, _ := gitWriteServer(t, f)

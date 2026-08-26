@@ -7,7 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/store"
 )
 
 // 묶음 L·M 서버측 — /api/git/log·/commit·/refs (GIT_SRS §3C FR-GIT-113~114·122~123·
@@ -34,23 +35,23 @@ func newGitHistFake(t *testing.T) *gitHistFake {
 	return &gitHistFake{root: root, gitDir: t.TempDir()}
 }
 
-func (f *gitHistFake) runner(_ context.Context, _ string, args []string) (git.Output, error) {
+func (f *gitHistFake) runner(_ context.Context, _ string, args []string) (core.Output, error) {
 	switch {
 	case args[0] == "rev-parse" && len(args) > 1 && args[1] == "--show-toplevel":
-		return git.Output{Stdout: f.root + "\n"}, nil
+		return core.Output{Stdout: f.root + "\n"}, nil
 	case args[0] == "rev-parse":
-		return git.Output{Stdout: f.gitDir + "\n" + f.gitDir + "\n"}, nil
+		return core.Output{Stdout: f.gitDir + "\n" + f.gitDir + "\n"}, nil
 	}
 	f.argvs = append(f.argvs, append([]string(nil), args...))
 	switch args[0] {
 	case "log":
-		return git.Output{Stdout: f.logOut}, nil
+		return core.Output{Stdout: f.logOut}, nil
 	case "diff-tree":
-		return git.Output{Stdout: f.treeOut}, nil
+		return core.Output{Stdout: f.treeOut}, nil
 	case "for-each-ref":
-		return git.Output{Stdout: f.refsOut}, nil
+		return core.Output{Stdout: f.refsOut}, nil
 	}
-	return git.Output{ExitCode: 128, Stderr: "fatal: 예상하지 못한 호출\n"}, nil
+	return core.Output{ExitCode: 128, Stderr: "fatal: 예상하지 못한 호출\n"}, nil
 }
 
 func (f *gitHistFake) calls() []string {
@@ -63,7 +64,7 @@ func (f *gitHistFake) calls() []string {
 
 func gitHistServer(t *testing.T, f *gitHistFake) *GitServer {
 	t.Helper()
-	store := git.NewStore(git.New(git.WithRunner(f.runner)))
+	store := store.NewStore(core.New(core.WithRunner(f.runner)))
 	return &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
 }
 
@@ -204,9 +205,9 @@ func TestAPIGitLog_ReportsEffectiveLimit(t *testing.T) {
 		query string
 		want  float64
 	}{
-		{"", float64(git.LogInitialLimit)},
+		{"", float64(core.LogInitialLimit)},
 		{"&limit=100", 100},
-		{"&limit=999999", float64(git.LogMaxLimit)},
+		{"&limit=999999", float64(core.LogMaxLimit)},
 	} {
 		code, out := gitReq(t, s, http.MethodGet, "/api/git/log?repo="+f.root+tc.query, "")
 		if code != http.StatusOK {

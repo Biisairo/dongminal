@@ -8,7 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/store"
 )
 
 // FR-GIT-218 (V95) — Console 탭이 읽는 실행 기록. 기록은 이미 Recorder 에 있고,
@@ -25,20 +26,20 @@ func newGitRecFake(t *testing.T) *gitRecFake {
 	return &gitRecFake{root: root}
 }
 
-func (f *gitRecFake) runner(_ context.Context, _ string, args []string) (git.Output, error) {
+func (f *gitRecFake) runner(_ context.Context, _ string, args []string) (core.Output, error) {
 	if args[0] == "rev-parse" && len(args) > 1 && args[1] == "--show-toplevel" {
-		return git.Output{Stdout: f.root + "\n"}, nil
+		return core.Output{Stdout: f.root + "\n"}, nil
 	}
 	if args[0] == "boom" {
-		return git.Output{ExitCode: 1, Stderr: "fatal: https://u:tok@host/x 로 붙지 못했다\n"}, nil
+		return core.Output{ExitCode: 1, Stderr: "fatal: https://u:tok@host/x 로 붙지 못했다\n"}, nil
 	}
-	return git.Output{}, nil
+	return core.Output{}, nil
 }
 
-func gitRecServer(t *testing.T, f *gitRecFake) (*GitServer, *git.Service) {
+func gitRecServer(t *testing.T, f *gitRecFake) (*GitServer, *core.Service) {
 	t.Helper()
-	svc := git.New(git.WithRunner(f.runner))
-	return &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: git.NewStore(svc)}, svc
+	svc := core.New(core.WithRunner(f.runner))
+	return &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store.NewStore(svc)}, svc
 }
 
 func TestGitRecordsRoute_Registered(t *testing.T) {
@@ -132,7 +133,7 @@ func TestGitRecords_CarriesWriteFlag(t *testing.T) {
 	f := newGitRecFake(t)
 	s, svc := gitRecServer(t, f)
 	svc.Exec(context.Background(), f.root, "status")
-	svc.ExecWrite(context.Background(), f.root, git.WriteSpec{Argv: []string{"add", "a.txt"}})
+	svc.ExecWrite(context.Background(), f.root, core.WriteSpec{Argv: []string{"add", "a.txt"}})
 
 	_, out := gitReq(t, s, http.MethodGet, "/api/git/records?repo="+f.root, "")
 	recs, _ := out["records"].([]any)

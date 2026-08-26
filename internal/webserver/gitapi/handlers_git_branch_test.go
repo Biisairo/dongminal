@@ -10,7 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/store"
 )
 
 // 묶음 N 서버측 — /api/git/{checkout,branch} + /api/git/branch/validate
@@ -36,7 +37,7 @@ type gitM5Fake struct {
 	stashes  string          // stash list 의 stdout
 	show     string          // stash show 의 stdout
 	writes   [][]string
-	writeErr func(argv []string) (git.Output, error)
+	writeErr func(argv []string) (core.Output, error)
 	// onWrite 는 쓰기 성공 직후에 불린다. 쓰기가 상태를 바꾸는 것을 흉내 낸다.
 	onWrite func(f *gitM5Fake, argv []string)
 }
@@ -54,46 +55,46 @@ func newGitM5Fake(t *testing.T) *gitM5Fake {
 	}
 }
 
-func (f *gitM5Fake) read(_ context.Context, dir string, args []string) (git.Output, error) {
+func (f *gitM5Fake) read(_ context.Context, dir string, args []string) (core.Output, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	switch {
 	case args[0] == "rev-parse" && args[1] == "--show-toplevel":
-		return git.Output{Stdout: dir + "\n"}, nil
+		return core.Output{Stdout: dir + "\n"}, nil
 	case args[0] == "rev-parse" && args[1] == "--verify":
 		name := strings.TrimPrefix(args[2], "refs/heads/")
 		if f.branches[name] {
-			return git.Output{Stdout: strings.Repeat("a", 40) + "\n"}, nil
+			return core.Output{Stdout: strings.Repeat("a", 40) + "\n"}, nil
 		}
-		return git.Output{ExitCode: 128, Stderr: "fatal: Needed a single revision\n"}, nil
+		return core.Output{ExitCode: 128, Stderr: "fatal: Needed a single revision\n"}, nil
 	case args[0] == "rev-parse":
-		return git.Output{Stdout: f.gitDir + "\n" + f.gitDir + "\n"}, nil
+		return core.Output{Stdout: f.gitDir + "\n" + f.gitDir + "\n"}, nil
 	case args[0] == "status":
-		return git.Output{Stdout: f.status}, nil
+		return core.Output{Stdout: f.status}, nil
 	case args[0] == "check-ref-format":
 		return fakeCheckRefFormat(args[2]), nil
 	}
-	return git.Output{}, nil
+	return core.Output{}, nil
 }
 
 // fakeCheckRefFormat 은 git 의 판정을 흉내 낸다. 규칙 전체가 아니라 **응답의 형태**가
 // 검사 대상이다 — 실제 규칙은 internal/git 의 단위 테스트가 진짜 git 으로 본다.
-func fakeCheckRefFormat(name string) git.Output {
+func fakeCheckRefFormat(name string) core.Output {
 	if strings.ContainsAny(name, " ~^:?*[\\") || strings.Contains(name, "..") || strings.HasSuffix(name, ".lock") {
-		return git.Output{ExitCode: 128, Stderr: "fatal: '" + name + "' is not a valid branch name\n"}
+		return core.Output{ExitCode: 128, Stderr: "fatal: '" + name + "' is not a valid branch name\n"}
 	}
-	return git.Output{Stdout: name + "\n"}
+	return core.Output{Stdout: name + "\n"}
 }
 
-func (f *gitM5Fake) write(_ context.Context, _ string, args []string, _ string) (git.Output, error) {
+func (f *gitM5Fake) write(_ context.Context, _ string, args []string, _ string) (core.Output, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if args[0] == "stash" && len(args) > 1 {
 		switch args[1] {
 		case "list":
-			return git.Output{Stdout: f.stashes}, nil
+			return core.Output{Stdout: f.stashes}, nil
 		case "show":
-			return git.Output{Stdout: f.show}, nil
+			return core.Output{Stdout: f.show}, nil
 		}
 	}
 	f.writes = append(f.writes, append([]string(nil), args...))
@@ -103,7 +104,7 @@ func (f *gitM5Fake) write(_ context.Context, _ string, args []string, _ string) 
 	if f.onWrite != nil {
 		f.onWrite(f, args)
 	}
-	return git.Output{}, nil
+	return core.Output{}, nil
 }
 
 func (f *gitM5Fake) wrote() [][]string {
@@ -115,7 +116,7 @@ func (f *gitM5Fake) wrote() [][]string {
 // gitM5Server 는 읽기·쓰기 둘 다 격리된 GitServer 를 세운다.
 func gitM5Server(t *testing.T, f *gitM5Fake) *GitServer {
 	t.Helper()
-	store := git.NewStore(git.New(git.WithRunner(f.read), git.WithWriteRunner(f.write)))
+	store := store.NewStore(core.New(core.WithRunner(f.read), core.WithWriteRunner(f.write)))
 	return &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
 }
 
@@ -217,8 +218,8 @@ func TestAPIGitCheckout_RemoteBranchNameConflict(t *testing.T) {
 		t.Fatalf("branch/track = %v / %v", out["branch"], out["track"])
 	}
 	opts, _ := out["options"].([]any)
-	if len(opts) != len(git.BranchConflictOptions) {
-		t.Fatalf("options = %v, want %v", opts, git.BranchConflictOptions)
+	if len(opts) != len(core.BranchConflictOptions) {
+		t.Fatalf("options = %v, want %v", opts, core.BranchConflictOptions)
 	}
 	if got := f.wrote(); len(got) != 0 {
 		t.Fatalf("거부됐는데 실행됐다: %v", got)

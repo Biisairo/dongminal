@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
 )
 
 // 묶음 J 서버측 — /api/git/preflight·policy·recovery (GIT_SRS §3A.3, 검증 V36·V37).
@@ -72,10 +72,10 @@ func TestAPIGitPolicy(t *testing.T) {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
 	got, ok := out["destructive"].([]any)
-	if !ok || len(got) != len(git.DestructiveActions) {
-		t.Fatalf("destructive = %v, want %v", out["destructive"], git.DestructiveActions)
+	if !ok || len(got) != len(core.DestructiveActions) {
+		t.Fatalf("destructive = %v, want %v", out["destructive"], core.DestructiveActions)
 	}
-	for i, want := range git.DestructiveActions {
+	for i, want := range core.DestructiveActions {
 		if got[i] != want {
 			t.Fatalf("destructive[%d] = %v, want %q", i, got[i], want)
 		}
@@ -95,9 +95,9 @@ func TestAPIGitRecovery(t *testing.T) {
 		t.Fatalf("초기 hints = %v", out["hints"])
 	}
 
-	s.Git.Service().AddHint(git.Hint{
+	s.Git.Service().AddHint(core.Hint{
 		Repo:    "/work/repo",
-		Action:  git.ActionBranchDelete,
+		Action:  core.ActionBranchDelete,
 		Targets: []string{"feature"},
 		Values:  []string{"1111111111111111111111111111111111111111"},
 		Command: "git branch feature 1111111111111111111111111111111111111111",
@@ -111,7 +111,7 @@ func TestAPIGitRecovery(t *testing.T) {
 		t.Fatalf("hints = %v", out["hints"])
 	}
 	h := hints[0].(map[string]any)
-	if h["action"] != git.ActionBranchDelete || h["seq"] != float64(1) {
+	if h["action"] != core.ActionBranchDelete || h["seq"] != float64(1) {
 		t.Fatalf("hint = %v", h)
 	}
 	if h["command"] == "" || h["atUnixMs"] == float64(0) {

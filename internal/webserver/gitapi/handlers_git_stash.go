@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
 )
 
 // /api/git/stash{,/push,/apply,/pop,/drop,/show} — stash 표면
@@ -49,7 +49,7 @@ type gitStashListRequested struct {
 type gitStashListResponse struct {
 	Requested gitStashListRequested `json:"requested"`
 	Repo      string                `json:"repo"`
-	Stashes   []git.Stash           `json:"stashes"`
+	Stashes   []core.Stash          `json:"stashes"`
 }
 
 // gitStashShowRequested 의 식별자는 (리포, 인덱스) 다 — stale 가드의 서버측
@@ -62,7 +62,7 @@ type gitStashShowRequested struct {
 type gitStashShowResponse struct {
 	Requested gitStashShowRequested `json:"requested"`
 	Repo      string                `json:"repo"`
-	Files     []git.CommitFile      `json:"files"`
+	Files     []core.CommitFile     `json:"files"`
 }
 
 // GET /api/git/stash?repo= — stash 목록 (FR-GIT-161).
@@ -129,17 +129,17 @@ func (s *GitServer) apiGitStashPush(w http.ResponseWriter, r *http.Request) {
 	}
 	// 담을 것이 없으면 **실행하지 않는다** (FR-GIT-167). git 은 그 실행을 exit 0 으로
 	// 끝내므로 성공으로 답하면 사용자는 만들어지지 않은 stash 를 찾는다.
-	if git.StashableCount(before, req.IncludeUntracked) == 0 {
+	if core.StashableCount(before, req.IncludeUntracked) == 0 {
 		gitJSON(w, http.StatusConflict, map[string]any{
 			"error":     gitErrNothingToStash,
-			"message":   git.StashEmptyReason(before, req.IncludeUntracked),
+			"message":   core.StashEmptyReason(before, req.IncludeUntracked),
 			"requested": req.Repo,
 			"repo":      root,
 			"status":    before,
 		})
 		return
 	}
-	opts := git.StashPushOpts{
+	opts := core.StashPushOpts{
 		Message:          req.Message,
 		IncludeUntracked: req.IncludeUntracked,
 		KeepIndex:        req.KeepIndex,
@@ -201,7 +201,7 @@ func (s *GitServer) gitStashIndexRoute(w http.ResponseWriter, r *http.Request, c
 		return
 	}
 	// 인덱스는 인자로 넘기기 전에 본다 — `stash@{-1}` 은 git 에서 다른 뜻이 된다.
-	if _, err := git.StashRef(req.Index); err != nil {
+	if _, err := core.StashRef(req.Index); err != nil {
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
 		return
 	}
@@ -226,7 +226,7 @@ func (s *GitServer) gitStashIndexRoute(w http.ResponseWriter, r *http.Request, c
 // 있어야 한다.
 //
 // extra 는 실행이 알아낸 사실이며 성공·실패 양쪽에 실린다.
-func (s *GitServer) gitStashApply(w http.ResponseWriter, r *http.Request, requested, root string, before git.Status, run func(context.Context) (map[string]any, error)) {
+func (s *GitServer) gitStashApply(w http.ResponseWriter, r *http.Request, requested, root string, before core.Status, run func(context.Context) (map[string]any, error)) {
 	extra, runErr := run(r.Context())
 	s.Git.Invalidate(root)
 	obs, _, statusErr := s.Git.Status(r.Context(), root)
@@ -271,9 +271,9 @@ func gitStashErrorCode(err error, extra map[string]any) (int, string) {
 		return http.StatusConflict, gitErrStashKept
 	}
 	switch {
-	case errors.Is(err, git.ErrStashEmpty):
+	case errors.Is(err, core.ErrStashEmpty):
 		return http.StatusConflict, gitErrNothingToStash
-	case errors.Is(err, git.ErrStashNotFound):
+	case errors.Is(err, core.ErrStashNotFound):
 		return http.StatusNotFound, gitErrNotFound
 	}
 	return gitWriteErrorCode(err)
@@ -282,9 +282,9 @@ func gitStashErrorCode(err error, extra map[string]any) (int, string) {
 // gitStashError 는 읽기 경로(목록·미리보기)의 거부를 코드로 옮긴다.
 func gitStashError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, git.ErrStashNotFound):
+	case errors.Is(err, core.ErrStashNotFound):
 		gitFail(w, http.StatusNotFound, gitErrNotFound, gitTail(err.Error()))
-	case errors.Is(err, git.ErrUnsafeArgument):
+	case errors.Is(err, core.ErrUnsafeArgument):
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
 	default:
 		gitError(w, err)

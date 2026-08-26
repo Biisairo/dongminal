@@ -13,7 +13,7 @@ import (
 
 	"bufio"
 	"context"
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/domain/worktree"
 	"fmt"
@@ -55,7 +55,7 @@ type Server struct {
 	Worktrees *worktree.Manager
 	// Git 은 git 조회 앞의 single-flight·TTL 캐시다 (GIT_SRS 묶음 A~C). nil 이면
 	// /api/git/* 만 503 이고 그 밖의 동작에는 영향이 없다 (FR-GIT-60).
-	Git *git.Store
+	Git *store.Store
 	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
 	Focus *hub.FocusRegistry
 

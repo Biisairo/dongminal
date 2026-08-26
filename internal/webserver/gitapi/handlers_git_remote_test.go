@@ -13,7 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/jobs"
+	"dongminal/internal/webserver/domain/git/store"
 )
 
 // 묶음 K 서버측 — /api/git/{fetch,pull,push} + /api/git/job* (GIT_SRS §3B.1,
@@ -48,20 +50,20 @@ func newGitRemoteFake(t *testing.T) *gitRemoteFake {
 	}
 }
 
-func (f *gitRemoteFake) read(_ context.Context, dir string, args []string) (git.Output, error) {
+func (f *gitRemoteFake) read(_ context.Context, dir string, args []string) (core.Output, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	switch {
 	case args[0] == "rev-parse" && len(args) > 1 && args[1] == "--show-toplevel":
-		return git.Output{Stdout: dir + "\n"}, nil
+		return core.Output{Stdout: dir + "\n"}, nil
 	case args[0] == "rev-parse":
-		return git.Output{Stdout: f.gitDir + "\n" + f.gitDir + "\n"}, nil
+		return core.Output{Stdout: f.gitDir + "\n" + f.gitDir + "\n"}, nil
 	case args[0] == "status":
-		return git.Output{Stdout: f.statusOut()}, nil
+		return core.Output{Stdout: f.statusOut()}, nil
 	case args[0] == "config":
-		return git.Output{Stdout: f.config}, nil
+		return core.Output{Stdout: f.config}, nil
 	}
-	return git.Output{}, nil
+	return core.Output{}, nil
 }
 
 func (f *gitRemoteFake) statusOut() string {
@@ -74,13 +76,13 @@ func (f *gitRemoteFake) statusOut() string {
 
 // gitRemoteServer 는 읽기와 **작업 실행기**를 함께 격리한다. run 을 주지 않으면
 // 실제 git 이 네트워크로 나간다.
-func gitRemoteServer(t *testing.T, f *gitRemoteFake, run git.JobRunner) *GitServer {
+func gitRemoteServer(t *testing.T, f *gitRemoteFake, run jobs.JobRunner) *GitServer {
 	t.Helper()
-	store := git.NewStore(git.New(
-		git.WithRunner(f.read),
-		git.WithWriteRunner(func(context.Context, string, []string, string) (git.Output, error) {
+	store := store.NewStore(core.New(
+		core.WithRunner(f.read),
+		core.WithWriteRunner(func(context.Context, string, []string, string) (core.Output, error) {
 			t.Error("원격 작업이 쓰기 경로로 흘렀다")
-			return git.Output{}, nil
+			return core.Output{}, nil
 		}),
 	))
 	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
@@ -89,7 +91,7 @@ func gitRemoteServer(t *testing.T, f *gitRemoteFake, run git.JobRunner) *GitServ
 }
 
 // gitRemoteHold 는 취소되거나 풀릴 때까지 매달리는 실행기다.
-func gitRemoteHold(release <-chan struct{}) git.JobRunner {
+func gitRemoteHold(release <-chan struct{}) jobs.JobRunner {
 	return func(ctx context.Context, _ string, _ []string, emit func(string, string)) (int, error) {
 		emit("stderr", "remote: 세는 중")
 		select {
@@ -102,7 +104,7 @@ func gitRemoteHold(release <-chan struct{}) git.JobRunner {
 }
 
 // gitRemoteEmit 은 준 줄을 내고 곧 끝나는 실행기다.
-func gitRemoteEmit(lines ...string) git.JobRunner {
+func gitRemoteEmit(lines ...string) jobs.JobRunner {
 	return func(_ context.Context, _ string, _ []string, emit func(string, string)) (int, error) {
 		for _, l := range lines {
 			emit("stderr", l)
@@ -124,7 +126,7 @@ func gitRemoteJobID(t *testing.T, out map[string]any) string {
 	return id
 }
 
-func gitRemoteWaitDone(t *testing.T, s *GitServer, id string) *git.Job {
+func gitRemoteWaitDone(t *testing.T, s *GitServer, id string) *jobs.Job {
 	t.Helper()
 	hub := s.gitJobs.get(s.Git)
 	deadline := time.Now().Add(3 * time.Second)

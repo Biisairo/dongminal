@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"dongminal/internal/webserver/domain/git"
+	"dongminal/internal/webserver/domain/git/core"
 )
 
 // /api/git/* — 리포 해석·핀·상태·시그니처 (GIT_SRS §3.8 FR-GIT-60~63).
@@ -54,13 +54,13 @@ const statusClientClosed = 499
 
 func gitErrorCode(err error) (int, string) {
 	switch {
-	case errors.Is(err, git.ErrNotRepo):
+	case errors.Is(err, core.ErrNotRepo):
 		return http.StatusNotFound, gitErrNotRepo
-	case errors.Is(err, git.ErrGitMissing):
+	case errors.Is(err, core.ErrGitMissing):
 		return http.StatusServiceUnavailable, gitErrMissing
-	case errors.Is(err, git.ErrTimeout):
+	case errors.Is(err, core.ErrTimeout):
 		return http.StatusGatewayTimeout, gitErrTimeout
-	case errors.Is(err, git.ErrCanceled):
+	case errors.Is(err, core.ErrCanceled):
 		// 서버가 실패한 것이 아니라 요청이 사라진 것이다 (FR-GIT-217). 500 으로
 		// 적으면 진짜 장애와 로그에서 구분되지 않는다.
 		return statusClientClosed, gitErrCanceled
@@ -405,7 +405,7 @@ type gitDiffRequested struct {
 
 type gitDiffResponse struct {
 	Requested gitDiffRequested `json:"requested"`
-	git.DiffContent
+	core.DiffContent
 }
 
 // GET /api/git/diff-content?repo=&axis=&path=&origPath= — 한 축의 양쪽 전체 내용
@@ -425,10 +425,10 @@ func (s *GitServer) apiGitDiffContent(w http.ResponseWriter, r *http.Request) {
 		Repo: requested, Axis: q.Get("axis"), Path: q.Get("path"), OrigPath: q.Get("origPath"),
 		Oid: q.Get("oid"), ParentOid: q.Get("parentOid"),
 	}
-	// 커밋 축은 리비전을 인자로 받으므로 진입점이 다르다 (git.DiffCommit 주석 참고).
-	var dc git.DiffContent
+	// 커밋 축은 리비전을 인자로 받으므로 진입점이 다르다 (core.DiffCommit 주석 참고).
+	var dc core.DiffContent
 	var err error
-	if req.Axis == git.AxisCommitParent {
+	if req.Axis == core.AxisCommitParent {
 		dc, err = s.Git.Service().DiffCommit(r.Context(), root, req.Oid, req.ParentOid, req.Path, req.OrigPath)
 	} else {
 		dc, err = s.Git.Service().DiffContent(r.Context(), root, req.Axis, req.Path, req.OrigPath)
@@ -444,9 +444,9 @@ func (s *GitServer) apiGitDiffContent(w http.ResponseWriter, r *http.Request) {
 // 잘못된 요청을 500 으로 뭉개면 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다.
 func gitDiffError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, git.ErrDiffAxis), errors.Is(err, git.ErrDiffPath), errors.Is(err, git.ErrUnsafeRev):
+	case errors.Is(err, core.ErrDiffAxis), errors.Is(err, core.ErrDiffPath), errors.Is(err, core.ErrUnsafeRev):
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	case errors.Is(err, git.ErrDiffBothAbsent), errors.Is(err, git.ErrRevNotFound):
+	case errors.Is(err, core.ErrDiffBothAbsent), errors.Is(err, core.ErrRevNotFound):
 		gitFail(w, http.StatusNotFound, gitErrNotFound, gitTail(err.Error()))
 	default:
 		gitError(w, err)
