@@ -21,14 +21,14 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [RUN_ORCHESTRATION_SRS.md](./RUN_ORCHESTRATION_SRS.md) | AI 오케스트레이터의 단일 진실 공급원 (IEEE 29148). Run 레코드·상태/대기 계약·에이전트 어댑터 레지스트리·worktree 격리·프리앰블/보고 계약·스킬 재작성. 착수 전 결정 5건 확정. **묶음 S·R·P·A·K 구현 완료, W 남음** |
 | [ORCHESTRATOR_RESEARCH_NOTES.md](./ORCHESTRATOR_RESEARCH_NOTES.md) | 위 SRS 의 입력 — orca(MIT)·paseo(AGPL) **실제 소스** 조사 노트. 파일 경로 근거 포함. §9 는 기존 문서 서술을 뒤집은 5건 |
 | [GIT_SRS.md](./GIT_SRS.md) | **Git 창의 단일 진실 공급원** (IEEE 29148). FR-GIT-1~178, 검증 V1~V69, 21단계 구현 계획. §7 은 확정 결정 O1~O14, §7.1 은 요구사항 해석 I1~I8 |
-| [GIT_REMAINING.md](./GIT_REMAINING.md) | **Git 트랙에서 아직 끝나지 않은 것만.** 미구현 P0 2건, 의도적으로 남긴 것(고치지 마라), 21단계 수동 검증, 알려진 간헐 실패. **다음 세션의 출발점** |
+| [GIT_REMAINING.md](./GIT_REMAINING.md) | **Git 트랙에서 아직 끝나지 않은 것 전부.** §1 사용자 검토 10건(오류 3 + 개선 7, 미착수) · §2 수동 실사 잔여 · §3 문서 흡수 · §4 P1/P2 로 미뤄둔 기능(**2026-08-27 지시로 범위 안**, §4.1 의 자격증명·한글 안내문만 예외) · §5 알려진 간헐 실패 · §6 트랙 밖 별건. **목표는 여기 남은 전부를 끝내는 것이고, 이것이 다음 세션의 출발점이다** |
 | [GIT_SURFACE_MAP.md](./GIT_SURFACE_MAP.md) | 위 SRS 의 입력 — VSCode·gitMaster·Git Graph 의 기능 126개를 6개 표면(S1~S6)에 배치하고 P0/P1/P2 로 나눈 지도. **MVP = P0 38개** |
 | [GIT_INTEGRATION_ANALYSIS.md](./GIT_INTEGRATION_ANALYSIS.md) | 같은 SRS 의 설계 근거 (Informative). §3.5 확정 설계(창 싱글턴·고정 탭·Monaco DiffEditor), §4.5 변경 감지 실측(fsnotify·watcher·fsmonitor 기각 근거) |
 | [design/](./design/) | **21단계 구현 계약** (`GIT_M*_STEP*_CONTRACT.md`). 각 단계 착수 시 SRS 를 다시 해석하지 않고 이 문서를 단일 진실 공급원으로 삼는다. `design/README.md` 가 색인·픽스처 규약·검증 게이트 |
-| [PACKAGE_RESTRUCTURE_SRS.md](./PACKAGE_RESTRUCTURE_SRS.md) | **프로세스 축 패키지 재구성의 단일 진실 공급원** (IEEE 29148). `internal/` 을 helper·daemon·webserver·ctl + `shared/` 로 재배치하고, 대형 패키지 3개(`server` 19,653줄 · `git` 10,936줄 · `app.js` 2,999줄)를 역할별로 갈랐다. §2.1 의 프로세스×패키지 실행 행렬과 §2.3 의 Go 메서드-패키지 제약 실측이 구조를 결정한 근거다. **14단계 전량 구현 완료** (§8.10). §8 은 스펙 이탈 D-1~D-7 — 특히 D-1·D-5 는 측정 방법의 결함(경계를 넘는 비공개 멤버 접근을 놓쳤다)을 기록한다 |
+| [PACKAGE_RESTRUCTURE_SRS.md](./PACKAGE_RESTRUCTURE_SRS.md) | **프로세스 축 패키지 재구성의 단일 진실 공급원** (IEEE 29148). `internal/` 을 helper·daemon·webserver·ctl + `shared/` 로 재배치하고, 대형 패키지 3개(`server` 19,653줄 · `git` 10,936줄 · `app.js` 2,999줄)를 역할별로 갈랐다. §2.1 의 프로세스×패키지 실행 행렬과 §2.3 의 Go 메서드-패키지 제약 실측이 구조를 결정한 근거다. **16단계 전량 구현 완료** (§8.10·§8.11·§8.12) — 프로세스 축 밖 패키지 0개, `handlers_api.go` 701→262줄. §8 은 스펙 이탈 D-1~D-7 과 15·16단계 기록 — 특히 D-1·D-5 는 측정 방법의 결함(경계를 넘는 비공개 멤버 접근을 놓쳤다)을, §8.12 는 §5 비목표 #4 를 철회한 근거를 담는다 |
 | [CLI_CONSOLIDATION_SRS.md](./CLI_CONSOLIDATION_SRS.md) | 운영 스크립트 8개를 바이너리 액션 4개(`start`/`stop`/`migrate`/`health`)로 통합하고 `scripts/` 에 `build.sh` 하나만 남긴 근거 (IEEE 29148). **구현 완료** |
 | [GIT_MANUAL_CHECKLIST.md](./GIT_MANUAL_CHECKLIST.md) | Git 창 수동 검증 체크리스트 (V14·V60). 자동 테스트가 잡지 못하는 것만 — 배치·색·읽힘, 모바일 실기기, 성능·보안 기준. 픽스처(`e2e/git_fixture.sh`) 기준 |
-| [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트. **열려 있는 트랙 둘** — A: 패키지 재구성 마무리(판단 필요 3건), B: Git 창 실사(`GIT_REMAINING.md` 가 출발점). §2 는 확인이 필요한 미해결 사실(원격 푸시), §3 은 반복해서 틀린 측정 방법 |
+| [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트(파일 전체가 그대로 첫 메시지다). **열려 있는 것은 Git 창 하나** — 재구성 트랙은 16단계로 닫혔다. `GIT_REMAINING.md` 가 출발점이고, 착수 전에 물어야 할 것(단축키 배정 · "원래 있던 윈도우"의 정의 · 자격증명 배제 유지 여부)과 반복하면 안 되는 함정(`stop` 의 포트 기반 대상 선정, BSD `sed` 의 `\b`, 보호 테스트 약화)을 담는다 |
 
 ## 용어
 
