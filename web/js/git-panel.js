@@ -38,6 +38,7 @@ class GitPanel {
     this._historyView=null;       // History 탭 (FR-GIT-113~139)
     this._branchesView=null;      // Branches 탭 (FR-GIT-147~160)
     this._stashView=null;         // Stash 탭 (FR-GIT-161~170)
+    this._consoleView=null;       // Console 탭 (FR-GIT-218)
     this._remoteView=null;        // 원격 작업 (FR-GIT-98~112)
     // 커밋 축의 diff 대상 (FR-GIT-138). previewFile 과 자리를 나눈다 — 같은 자리에
     // 두면 Changes 탭의 미리보기가 커밋의 diff 를 보이면서 목록에는 아무 행도
@@ -68,6 +69,9 @@ class GitPanel {
     // 원격 작업은 리포에 붙은 것이다 — 이전 리포의 출력이 새 리포의 헤더와 함께
     // 보이는 순간이 있어서는 안 된다. 작업 자체는 서버에서 계속 돈다.
     if(this._remoteView) this._remoteView.detachRepo();
+    // 앞 리포의 실행 기록이 새 리포의 이력에 섞이면 이력이 아니라 잡음이다
+    // (FR-GIT-218).
+    if(this._consoleView) this._consoleView.reset();
     // 이전 리포의 diff 가 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다.
     this._diffKey=null; this._prevKey=null; this._diffPos=0; this.commitFile=null;
     for(const v of [this._diffView,this._previewView])
@@ -111,6 +115,7 @@ class GitPanel {
     // 받아 둘 이유가 없다.
     if(view==='branches') this._renderBranches(el);
     if(view==='stash') this._renderStash(el);
+    if(view==='console') this._renderConsole(el);
     return el;
   }
 
@@ -124,6 +129,7 @@ class GitPanel {
     this._history().unmount();
     this._branches().unmount();
     this._stash().unmount();
+    this._console().unmount();
     const area=document.getElementById('area');
     for(const el of this._els.values()){
       el.classList.remove('vis');
@@ -153,6 +159,7 @@ class GitPanel {
     if(view==='history'){this._renderHistory(el);return}
     if(view==='branches'){this._renderBranches(el);return}
     if(view==='stash'){this._renderStash(el);return}
+    if(view==='console'){this._renderConsole(el);return}
     el.innerHTML='';
     if(!this.repo){
       const d=document.createElement('div'); d.className='git-empty';
@@ -606,6 +613,26 @@ class GitPanel {
     this._branches().paint();
   }
 
+  // ── Console 탭 (FR-GIT-218) ──
+
+  _console(){
+    if(!this._consoleView) this._consoleView=new GitConsole(this);
+    return this._consoleView;
+  }
+
+  _renderConsole(el){
+    if(!this.repo){
+      el.dataset.built=''; el.innerHTML='';
+      this._console().unmount();
+      const d=document.createElement('div'); d.className='git-empty';
+      d.textContent=this._errMsg||GIT_NO_REPO_HINT;
+      el.appendChild(d);
+      return;
+    }
+    if(el.dataset.built!=='1'){this._console().mount(el);el.dataset.built='1'}
+    this._console().paint();
+  }
+
   // ── Stash 탭 (FR-GIT-161~170) ──
 
   _stash(){
@@ -867,6 +894,9 @@ class GitPanel {
     }catch{r=null}
     if(r){try{d=await r.json()}catch{d=null}}
     this._writing=false;
+    // 모든 쓰기가 이 한 곳을 지난다 — 방금 실행한 명령이 Console 의 맨 위에
+    // 있어야 한다 (FR-GIT-218).
+    if(this._consoleView) this._consoleView.reload();
     return {ok:!!(r&&r.ok&&d&&d.ok),code:r?r.status:0,data:d};
   }
 

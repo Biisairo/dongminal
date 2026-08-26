@@ -3,7 +3,7 @@
 > ⚠️ **이 문서는 단독으로 최신이 아니다.**
 > MVP 구현 후 사용자 검토로 UI 를 개정했다 —
 > [`./GIT_UI_REVISION_SRS.md`](./GIT_UI_REVISION_SRS.md) (FR-GIT-179~213).
-> 그 문서가 **FR-GIT-27·30 을 폐기**하고 **13·35·41·69 를 개정**했으며, 충돌하면
+> 그 문서가 **FR-GIT-27·30 을 폐기**하고 **13·28·35·41·69 를 개정**했으며, 충돌하면
 > **개정 문서가 앞선다**. 트랙을 닫을 때 본문에 흡수한다
 > (`./GIT_REMAINING.md §2`).
 
@@ -144,7 +144,8 @@ OSC 777 `Cwd;<pwd>` 로 갱신한다. **리포 해석에 디스크 스캔이 필
   30초이며 호출자가 축소할 수 있다.
 - **FR-GIT-4** 실행 단위는 `Runner` 로 주입 가능해야 한다 (`internal/worktree` 선례).
 - **FR-GIT-5** 실행마다 `argv`·`cwd`·`exitCode`·`durationMs`·`stderr` 를 구조화해
-  기록한다. M1 에서는 기록만 하고 표시하지 않는다 — Console 탭(M6)이 이 기록을 읽는다.
+  기록한다. M1 에서는 기록만 하고 표시하지 않는다 — **Console 탭(FR-GIT-218)이 이
+  기록을 읽는다.**
 - **FR-GIT-6** stdout·stderr 보존량에 상한을 두고, 초과 시 잘렸음을 표시한다.
 - **FR-GIT-7** 이 패키지는 M1 에서 **저장소를 변경하는 명령을 제공하지 않는다.**
   제공하는 것은 `rev-parse`·`status`·`diff`·`show`·`log`·`for-each-ref` 계열의
@@ -645,7 +646,7 @@ MVP(M1~M5)에서 하지 않는다. 각 항목은 후속 또는 범위 밖이다.
 | 항목 | 우선 | 사유 |
 |---|---|---|
 | hunk / line 단위 스테이징 | P1/P2 | 파일 단위로 MVP 성립. `apply --cached --unidiff-zero` 경로와 실패 시 원본 보존 설계가 별도로 필요 |
-| Console 탭 **표시** | P1 | 자리(FR-GIT-28)와 **기록(FR-GIT-5)은 MVP 에 포함**. 화면만 이후 |
+| ~~Console 탭 **표시**~~ | ~~P1~~ | **더 이상 비목표가 아니다** — `GIT_UI_REVISION_SRS` FR-GIT-218 이 MVP 로 올렸다 (사용자 결정) |
 | 3-way merge editor | P2 | 난이도 최상위. MVP 후 재평가 |
 | 인터랙티브 rebase GUI | P2 | 난이도 최상위. `GIT_SEQUENCE_EDITOR` 후킹 설계 필요 |
 | 멀티 리포 일괄 조작 | — | 단일 리포 확정으로 **범위 밖** (ANALYSIS §3.5.1) |

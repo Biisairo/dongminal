@@ -1274,6 +1274,43 @@ body.mobile .git-file-check{width:14px;height:14px}
 body.mobile .git-refs{width:110px}
 body.mobile .git-hist-f{width:60px}
 
+/* ── Git Console 탭 (FR-GIT-218) ── */
+/* 바는 고정이고 목록만 스크롤한다 — 바가 함께 스크롤되면 500줄에서 토글에 닿을
+   수 없다. */
+.git-view.git-console{overflow:hidden}
+.git-view.git-console.vis{display:flex;flex-direction:column}
+.git-con-bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 8px;
+  border-bottom:1px solid var(--border);font-size:12px;
+}
+.git-con-reads{display:flex;align-items:center;gap:4px;cursor:pointer;min-height:var(--git-row-min)}
+.git-con-spacer{flex:1 1 auto}
+.git-con-count{color:var(--text-dim);font-size:11px}
+.git-con-list{flex:1 1 auto;min-height:0;overflow-y:auto;font-size:12px}
+.git-con-list::-webkit-scrollbar{width:8px}
+.git-con-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.git-con-note{padding:10px;color:var(--text-muted);font-size:11px}
+.git-con-row{
+  display:flex;align-items:center;gap:8px;padding:0 8px;cursor:pointer;
+  min-height:var(--git-row-min);white-space:nowrap;
+}
+.git-con-row:hover{background:var(--accent-hover)}
+.git-con-time{flex:0 0 auto;color:var(--text-dim);font-size:11px;font-variant-numeric:tabular-nums}
+.git-con-argv{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,monospace}
+.git-con-badges{flex:0 0 auto;display:flex;gap:4px}
+.git-con-badge{padding:0 4px;border-radius:8px;font-size:10px}
+.git-con-badge.destructive{background:var(--attn-subtle);color:var(--attn)}
+.git-con-dur{flex:0 0 auto;color:var(--text-dim);font-size:11px;font-variant-numeric:tabular-nums}
+.git-con-exit{flex:0 0 auto;color:var(--danger);font-size:11px}
+/* 실패는 argv 자체를 물들인다 — 배지 하나로는 500줄에서 눈에 걸리지 않는다 */
+.git-con-row.fail .git-con-argv{color:var(--danger)}
+.git-con-detail{padding:4px 8px 8px 8px;background:var(--sidebar-bg);font-size:11px}
+.git-con-cwd{color:var(--text-muted);word-break:break-all}
+.git-con-stderr{
+  margin-top:4px;white-space:pre-wrap;word-break:break-all;
+  color:var(--text);font-family:ui-monospace,monospace;max-height:180px;overflow-y:auto;
+}
+
 /* ── Git 사이드바 (FR-GIT-13~17) ── */
 /* FR-GIT-17: 두 목록이 서로를 굶기지 않는다. min-height:0 이 없으면 flex 자식이
    내용 높이 아래로 줄어들지 않아 한쪽이 사이드바 밖으로 밀린다. */

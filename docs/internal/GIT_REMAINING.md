@@ -10,7 +10,7 @@
 >
 > - 요구사항: [`./GIT_SRS.md`](./GIT_SRS.md) (FR-GIT-1~178)
 > - **개정**: [`./GIT_UI_REVISION_SRS.md`](./GIT_UI_REVISION_SRS.md) (FR-GIT-179~213).
->   FR-GIT-27·30 을 폐기하고 13·35·41·69 를 개정했다 (FR-GIT-179~217) — **그쪽이 본 문서보다 앞선다**
+>   FR-GIT-27·30 을 폐기하고 13·28·35·41·69 를 개정했다 (FR-GIT-179~217) — **그쪽이 본 문서보다 앞선다**
 > - 설계 근거: [`./design/`](./design/)
 > - 수동 검증: [`./GIT_MANUAL_CHECKLIST.md`](./GIT_MANUAL_CHECKLIST.md) (1·2회차 실사 기록 포함)
 >
@@ -71,7 +71,6 @@ PORT=58200 DONGMINAL_HOME=/tmp/dm-manual-home /tmp/dm-manual-bin
 
 | 항목 | 근거 |
 |---|---|
-| **Console 탭이 "준비 중"** | `GIT_SRS.md` §5 비목표 — "Console 탭 **표시**는 P1. 자리(FR-GIT-28)와 기록(FR-GIT-5)은 MVP 에 포함, 화면만 이후". `internal/git` 의 `Recorder` 가 이미 실행을 기록하고 있으므로 화면만 붙이면 된다 |
 | hunk/line 단위 스테이징 | 비목표 P1/P2 |
 | 3-way merge editor · 인터랙티브 rebase | 비목표 P2 |
 | 브랜치 삭제 · 태그 생성/삭제 · cherry-pick/revert/reset · merge/rebase 실행 | 비목표 P1. **메뉴 프레임워크(FR-GIT-146)가 자리를 열어 두었으므로 항목 선언만 더하면 된다** |

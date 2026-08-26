@@ -68,7 +68,7 @@ const GIT_VIEWS=[
   {key:'history',  name:'History'},
   {key:'branches', name:'Branches'},
   {key:'stash',    name:'Stash'},
-  {key:'console',  name:'Console',  pending:true},
+  {key:'console',  name:'Console'},
 ];
 const GIT_PENDING_HINT='이후 마일스톤에서 제공됩니다';
 const GIT_NO_REPO_HINT='리포를 선택하세요';
@@ -326,6 +326,26 @@ const GIT_DIFF_ERR={
   not_a_git_repo:GIT_ERR_NOT_REPO,
   git_missing:GIT_ERR_GIT_MISSING,
 };
+
+// ── Console 탭 (GIT_UI_REVISION_SRS FR-GIT-218) ──
+
+// Console 은 터미널이 아니다. dongminal 이 사용자를 대신해 실행한 git 명령의
+// 기록이며, 그 명령들은 서버 프로세스 안에서 돌아 사용자의 터미널에는 남지 않는다.
+//
+// 폴링(FR-GIT-18~24)은 1초에 한 번 기록되므로 거르지 않으면 목록이 그것으로만
+// 찬다. 기본은 쓰기와 실패만 보이고, 토글이 읽기까지 연다.
+const GIT_CON_READS_LABEL='Show Reads';
+const GIT_CON_REFRESH='Refresh';
+const GIT_CON_EMPTY='아직 실행한 명령이 없습니다';
+const GIT_CON_EMPTY_READS='기록이 없습니다';
+const GIT_CON_FAIL='기록을 불러오지 못했습니다';
+const GIT_CON_DESTRUCTIVE='파괴적';
+const GIT_CON_CWD='cwd';
+// 읽기까지 열었을 때만 큰 목록이 된다. 그 전에는 쓰기만 남아 훨씬 짧다.
+const GIT_CON_LIMIT=500;
+// 쓰기가 끝나면 곧바로 다시 읽는다 — 방금 한 일이 이력의 맨 위에 있어야 한다.
+// 그 밖에는 탭이 활성일 때만 받는다 (History·Branches·Stash 와 같은 규약).
+const GIT_CON_POLL_MS=2000;
 
 // ── History 탭 (GIT_SRS §3C / FR-GIT-113~134) ──
 

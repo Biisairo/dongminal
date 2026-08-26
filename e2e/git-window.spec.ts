@@ -9,9 +9,9 @@ import { test, expect } from './fixtures';
 
 const VIEWS = ['changes', 'diff', 'history', 'branches', 'stash', 'console'];
 const NAMES = ['Changes', 'Diff', 'History', 'Branches', 'Stash', 'Console'];
-// branches·stash 는 18·19단계가 채웠다 — 남은 준비 중 탭은 console 하나다.
-const PENDING = ['console'];
-const READY = ['changes', 'history', 'branches', 'stash'];
+// 준비 중 탭은 더 이상 없다 — console 도 FR-GIT-218 이 채웠다.
+const PENDING: string[] = [];
+const READY = ['changes', 'history', 'branches', 'stash', 'console'];
 const PENDING_HINT = '이후 마일스톤에서 제공됩니다';
 
 async function waitForInit(page: Page) {
@@ -89,7 +89,7 @@ test.describe('묶음 D — Git 창 골격', () => {
     await expect(tabs.locator('.pn-tab-label')).toHaveText(NAMES);
   });
 
-  test('E4 (V20): 미구현 탭은 준비 중 안내를 보인다', async ({ page }) => {
+  test('E4 (V20): 고정 탭 6개가 모두 채워져 있다', async ({ page }) => {
     await waitForInit(page);
     await openGit(page);
     for (const v of PENDING) {
@@ -98,7 +98,7 @@ test.describe('묶음 D — Git 창 골격', () => {
       await expect(pending, `${v} 탭에 준비 중 안내가 없다`).toBeVisible();
       await expect(pending).toContainText(PENDING_HINT);
     }
-    // 채워진 탭은 준비 중이 아니다 — 5단계·16·17단계·18·19단계가 채운다.
+    // 채워진 탭은 준비 중이 아니다. Console 은 FR-GIT-218 이 채웠다.
     for (const v of READY) {
       await page.locator(`#area .pn-tab[data-git-view="${v}"]`).click();
       await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(new RegExp('git-' + v));
@@ -194,6 +194,7 @@ test.describe('묶음 D — Git 창 골격', () => {
     expect(await gitWindowCount(page)).toBe(1);
     await expect(page.locator('#area .pn-tab.active[data-git-view]'))
       .toHaveAttribute('data-git-view', 'console');
-    await expect(page.locator('#area .pn-body .git-view.vis .git-pending')).toBeVisible();
+    // 활성 탭의 본문이 그 탭의 것이어야 한다 — 이름만 살아남아서는 안 된다.
+    await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-console/);
   });
 });

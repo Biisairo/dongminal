@@ -19,8 +19,12 @@ type Record struct {
 	StdoutTruncated bool     `json:"stdoutTruncated"`
 	StderrTruncated bool     `json:"stderrTruncated"`
 	Destructive     bool     `json:"destructive"` // FR-GIT-95. 호출자의 선언(I5)
-	StdinBytes      int      `json:"stdinBytes"`  // FR-GIT-77. **내용은 남기지 않는다** (I6)
-	Err             string   `json:"err,omitempty"`
+	// Write 는 하위 명령이 writeCommands 에 있는지다 (FR-GIT-218). Destructive 와
+	// 다르다 — `add` 는 쓰기지만 파괴적이지 않다. Console 이 폴링을 감출 때
+	// 딛는 값이고, 판정을 새로 만들지 않으려고 실행 경로와 같은 목록을 쓴다.
+	Write      bool   `json:"write"`
+	StdinBytes int    `json:"stdinBytes"` // FR-GIT-77. **내용은 남기지 않는다** (I6)
+	Err        string `json:"err,omitempty"`
 }
 
 // newRecord 는 실행 결과를 기록 한 줄로 옮긴다. 읽기·쓰기가 같은 매핑을 쓰도록 한
@@ -31,6 +35,7 @@ type Record struct {
 func newRecord(dir string, argv []string, out Output, err error) Record {
 	rec := Record{
 		AtUnixMs:        time.Now().UnixMilli(),
+		Write:           IsWriteCommand(argv),
 		Argv:            append([]string(nil), argv...),
 		Cwd:             dir,
 		ExitCode:        out.ExitCode,

@@ -218,6 +218,8 @@ var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/git/log"), (*Server).apiGitLog},
 	{http.MethodGet, exactPath("/api/git/commit"), (*Server).apiGitCommit},
 	{http.MethodGet, exactPath("/api/git/refs"), (*Server).apiGitRefs},
+	// 묶음 Q — Console 탭의 실행 기록 (FR-GIT-218).
+	{http.MethodGet, exactPath("/api/git/records"), (*Server).apiGitRecords},
 	// 묶음 K — 원격 작업 (GIT_SRS FR-GIT-98~112). fetch/pull/push 는 작업 식별자만
 	// 돌려주고, 진행은 job/events 로 흐른다.
 	{http.MethodPost, exactPath("/api/git/fetch"), (*Server).apiGitFetch},

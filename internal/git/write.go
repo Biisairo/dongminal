@@ -26,6 +26,13 @@ var writeCommands = map[string]bool{
 	"update-ref": true, "symbolic-ref": true,
 }
 
+// IsWriteCommand 는 argv 의 하위 명령이 쓰기 목록에 있는지 답한다 (FR-GIT-218).
+// 목록을 두 벌 두지 않으려고 노출한다 — Console 이 감추는 기준과 ExecWrite 가
+// 막는 기준이 어긋나면, 화면이 "쓰기가 아니다" 라고 한 것이 실제로는 쓰기다.
+func IsWriteCommand(argv []string) bool {
+	return len(argv) > 0 && writeCommands[argv[0]]
+}
+
 // WriteSpec 은 쓰기 한 번의 요청이다.
 //
 // Destructive 는 **호출자가 선언한다** (I5) — 하위 명령만으로는 판정되지 않는다.

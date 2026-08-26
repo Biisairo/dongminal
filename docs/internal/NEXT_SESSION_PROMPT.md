@@ -62,7 +62,6 @@ dongminal Git 창 트랙을 이어간다. **코드에 알려진 결함은 없다
   → web/ 자산은 embed 라 고칠 때마다 다시 빌드해야 화면에 반영된다.
 
 하지 말 것 (GIT_REMAINING.md §3):
-- Console 탭의 "준비 중"을 고치지 마라. 표시는 의도적으로 P1(비목표)이다.
 - 비목표(hunk 스테이징·merge editor·인터랙티브 rebase·브랜치 삭제·clone/init 등)를
   구현하지 마라.
 - 자격증명 저장·중계 경로를 만들지 마라. 의도적 배제다 (FR-GIT-104).
@@ -134,6 +133,8 @@ grep -rn "lfsOid\|lfsSize" web/js/   # → 0건이면 안 그리고 있는 것�
 | `0ad7ba6` | **FR-GIT-211~213** — 트리 깊이 세로선 · 그룹 구분선 · 커밋 영역 정렬 |
 | `12ed17d` | **D-1 / FR-GIT-119** — `defineTheme` 이 `diffEditor.*` 를 매핑하지 않아 diff 색만 Monaco 기본값에 고정됐다. 테마의 `terminal.green`·`red` 를 배경과 섞어 파생한다 (e2e D11) |
 | `756b1b8` | **D-2 / FR-GIT-47** — 서버가 싣는 LFS 메타를 클라이언트가 그리지 않았다. 해석 I9 로 확정하고 FR-GIT-46·48 의 크기까지 함께 보인다 (e2e D12·D13) |
+| `4c7151a` | **2차 사용자 검토 4건** — FR-GIT-215 untracked 디렉터리 붕괴(P0) · FR-GIT-216 섹션 경계 · FR-GIT-214 GIT 섹션 간격 · FR-GIT-217 취소 요청 499 |
+| (이번) | **FR-GIT-218 Console 탭** — Recorder 의 실행 기록을 읽는 화면. `GET /api/git/records` + `GitConsole`. 폴링은 기본에서 감추고 토글로 연다 |
 
 **함께 잡은 결함 5건** (전부 실사에서 나왔다):
 
@@ -158,6 +159,10 @@ grep -rn "lfsOid\|lfsSize" web/js/   # → 0건이면 안 그리고 있는 것�
 | 소스에 **리터럴 NUL 바이트** | grep·diff 가 파일을 바이너리로 취급해 조사 도구가 무력화된다 |
 | CSS `background` 축약이 `background-image` 를 지운다 | 행 hover·선택이 트리 깊이 세로선을 함께 지웠다 (`background-color` 로 바꿔야 한다) |
 | `web/` 자산은 `go:embed` 다 | 고친 뒤 **다시 빌드하지 않으면** 화면에 반영되지 않는다 |
+| `git status` 의 `-u` 기본값(`normal`)이 **추적되지 않는 디렉터리를 접는다** | `newdir/` 한 줄만 오고 안의 파일이 하나도 열거되지 않는다. 항목이 파일이라고 전제한 화면에서 이름이 빈 행이 되고 클릭이 죽는다 (FR-GIT-215) |
+| `getComputedStyle().getPropertyValue()` 는 **kebab-case 만 받는다** | `getPropertyValue('borderTopWidth')` 는 오류가 아니라 조용히 `''` 다 |
+| 1초 폴링이 목록을 다시 그린다 | e2e 에서 밖에서 잡은 요소가 계산 시점에 떨어져 나가고, **떨어진 요소의 `getComputedStyle` 은 빈 값**을 준다. 조회와 계산을 한 번의 `evaluate` 안에서 한다 |
+| 자격증명 정적 검사(V43)는 **이름만 본다** | 자격증명을 *지우는* 함수도 이름에 그 낱말이 있으면 잡힌다. 검사를 느슨하게 하지 말고 **이름을 바꾼다** (`RedactSecrets`) |
 | 터미널 팔레트는 **CSS 변수가 아니다** | `--bg`·`--text` 는 `:root` 에 실리지만 `terminal.green`·`red` 는 `getCurrentTheme()` 에만 있다. Monaco 테마를 CSS 변수만으로 세우면 diff 색을 파생할 수 없다 |
 | `applyThemeObj(THEMES[n])` 은 `currentThemeName` 을 **바꾸지 않는다** | 그래서 `getCurrentTheme()` 이 여전히 이전 테마를 답한다. e2e 에서 테마를 갈 때 `customTheme=null` 만으로는 모자라고 `currentThemeName` 도 세워야 한다 |
 | Monaco 의 `diffEditor.*` 기본값은 `inherit:true` 로도 **덮이지 않는다** | base 테마(vs/vs-dark)의 초록·빨강이 그대로 남는다. 키를 하나하나 매핑해야 한다 |
