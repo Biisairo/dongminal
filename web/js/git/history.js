@@ -839,6 +839,31 @@ class GitHistory {
     this._reload();
   }
 
+  /**
+   * FR-GIT-275: 그 경로의 커밋만 보인다 (File history).
+   *
+   * **새 조회를 만들지 않는다** — path 필터가 이미 있으므로(FR-GIT-129) 그것을
+   * 채워 다시 받는 것이 전부다. 입력에도 값을 넣는 이유는 사용자가 왜 목록이
+   * 좁아졌는지 보고 지울 수 있어야 하기 때문이다.
+   */
+  filterPath(path){
+    if(!path) return;
+    // **_adopt 의 reset 이 필터를 지운다.** 아직 이 리포를 받지 않았다면 여기서
+    // 받아들이되 거르지 않은 목록을 먼저 받지는 않는다 — 두 요청이 겹치면 나중에
+    // 온 쪽이 이겨 필터가 무시된 목록이 남는다.
+    if(this.panel.repo!==this._repo){
+      this._repo=this.panel.repo;
+      this.reset();
+      if(!this._repo) return;
+      this._ref=this._savedRef();
+      this._loadRefs();
+    }
+    this._filters.path=path;
+    this._barRepo=null;   // _paintBar 가 입력값을 필터에서 다시 채운다
+    this._err=null;
+    return this._reload();
+  }
+
   // ── 검색 (FR-GIT-129, 검증 V49) ──
 
   _search(v){

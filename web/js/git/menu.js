@@ -84,7 +84,17 @@ const GIT_MENUS={
     {id:'openChanges',label:'Open Changes',run:t=>gitMenuPanel().openFileDiff(t)},
     // FR-GIT-236: 행 인라인 동작과 같은 자리를 지난다 — 두 벌로 두면 한쪽만 고쳐진다.
     {id:'openFile',   label:'Open File',   run:t=>gitMenuPanel()._run('openFile',[t])},
+    // FR-GIT-274: 워킹 트리가 아니라 `HEAD:<path>` 의 내용이다. 여는 자리는
+    // Open File 과 같다 — Git 창이 아닌 창이다 (FR-GIT-179·185).
+    {id:'openFileHead',label:GIT_FILE_OPEN_HEAD,run:t=>gitMenuPanel().openFileAtHead(t)},
     {id:'copyPath',   label:'Copy Path',   run:t=>gitMenuPanel().copyText(gitMenuPanel().absPath(t))},
+    {sep:true},
+    // FR-GIT-275: path 필터가 이미 있으므로(FR-GIT-129) 그것을 채워 탭을 여는 것이
+    // 전부다 — 새 조회를 만들지 않는다.
+    {id:'fileHistory',label:GIT_FILE_HISTORY,run:t=>gitMenuPanel().openFileHistory(t)},
+    // FR-GIT-273: **git 실행이 아니라 파일 쓰기다.** 저장소 루트의 `.gitignore`
+    // 하나만 대상이며, 경로가 그 안인지는 서버가 다시 본다.
+    {id:'ignore',     label:GIT_FILE_IGNORE,run:t=>gitMenuPanel().ignorePath(t)},
   ],
   // 브랜치·태그 (FR-GIT-154·155·156·160). 로컬과 원격은 **뜻이 다른 두 항목**이다 —
   // 원격 ref 로 그냥 옮겨 가면 detached 가 되므로 같은 이름의 로컬을 만들며 추적을
@@ -149,10 +159,32 @@ const GIT_MENUS={
      hint:t=>({note:GIT_STASH_DROP_NOTE,
        command:'git stash store -m '+gitShQuote(t.message||'')+' '+(t.oid||'')}),
      run:t=>gitMenuPanel().stashDrop(t.index)},
+    {sep:true},
+    // FR-GIT-272: 그 stash 를 새 브랜치에 적용하며 옮겨 간다. **파괴적이 아니다**
+    // — git 은 적용이 끝난 뒤에만 stash 를 지운다.
+    {id:'branch-from',label:GIT_STASH_BRANCH,run:t=>gitMenuPanel().stashBranch(t)},
+    {id:'copy-name',  label:GIT_STASH_COPY_NAME,run:t=>gitMenuPanel().copyText(GitStash.ref(t.index))},
+    {id:'copy-hash',  label:GIT_STASH_COPY_HASH,run:t=>gitMenuPanel().copyText(t.oid)},
   ],
-  // 미커밋 변경 행 (FR-GIT-127).
+  // 미커밋 변경 행 (FR-GIT-127·277).
   uncommitted:[
     {id:'open-changes',label:'Changes 탭 열기',run:()=>gitMenuPanel().openView('changes')},
+    {sep:true},
+    // FR-GIT-277: 생성 다이얼로그를 그대로 다시 쓴다 — 두 벌로 두면 한쪽만 고쳐진다.
+    {id:'stash',label:GIT_UNC_STASH,
+     disabled:()=>gitMenuPanel().dirtyCount()?'':GIT_UNC_NOTHING,
+     run:()=>gitMenuPanel().stashCreate()},
+    // mixed 다 — index 만 HEAD 로 되돌리고 워킹 트리는 그대로 둔다. 파괴적이
+    // 아니므로 확인을 붙이지 않는다 (FR-GIT-97).
+    {id:'reset',label:GIT_UNC_RESET,run:()=>gitMenuPanel().uncommittedReset()},
+    // **파괴적이다** (FR-GIT-277). 되살릴 수 없으므로 hint 는 되돌리는 명령이
+    // 아니라 먼저 담아 두는 명령이다.
+    {id:'clean',label:GIT_UNC_CLEAN,destructive:true,
+     action:GIT_ACT_CLEAN_UNTRACKED,title:GIT_UNC_CLEAN_TITLE,
+     disabled:()=>gitMenuPanel().untrackedPaths().length?'':GIT_UNC_NOTHING,
+     targets:()=>gitMenuPanel().untrackedPaths(),
+     hint:()=>({note:GIT_UNC_CLEAN_NOTE,command:GIT_UNC_CLEAN_CMD}),
+     run:()=>gitMenuPanel().uncommittedClean()},
   ],
 };
 

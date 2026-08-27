@@ -435,3 +435,104 @@ func writeFile(t *testing.T, dir, name, body string) {
 		t.Fatal(err)
 	}
 }
+
+// 묶음 F — Branch from stash (GIT_ACTIONS_SRS §3.6 FR-GIT-272, 검증 V199).
+
+// T20 (FR-GIT-272): argv 는 `stash branch <name> <stash>` 다. 순서를 고정하는
+// 이유는 테스트가 **무엇을 실행하지 않았는가**까지 볼 수 있어야 하기 때문이다.
+func TestStashBranchArgs(t *testing.T) {
+	got, err := StashBranchArgs("feat/a", 2)
+	if err != nil {
+		t.Fatalf("StashBranchArgs: %v", err)
+	}
+	if fmt.Sprint(got) != fmt.Sprint([]string{"stash", "branch", "feat/a", "stash@{2}"}) {
+		t.Fatalf("argv = %v", got)
+	}
+}
+
+// T21 (FR-GIT-250.3): 이름·인덱스는 실행 **전에** 본다. 클라이언트만 막으면 API
+// 직접 호출이 우회한다.
+func TestStashBranchArgs_Rejects(t *testing.T) {
+	cases := []struct {
+		name  string
+		index int
+	}{
+		{"", 0},
+		{"   ", 0},
+		{"--force", 0},
+		{"a..b", 0},
+		{"ok", -1},
+	}
+	for _, c := range cases {
+		if got, err := StashBranchArgs(c.name, c.index); err == nil {
+			t.Fatalf("StashBranchArgs(%q,%d) = %v, want error", c.name, c.index, got)
+		}
+	}
+}
+
+// T22 (V199): 실행은 ExecWrite 하나만 지나고, **파괴적이 아니다** — stash 를
+// 적용해 새 브랜치로 옮겨 갈 뿐 잃는 것이 없다.
+func TestStashBranch_ExecutesOnce(t *testing.T) {
+	repo := tempRepoWithStashes(t)
+	f := newStashWriteFake(t)
+	s := core.New(core.WithWriteRunner(f.runner))
+
+	if _, err := StashBranch(s, context.Background(), repo, "feat/a", 0); err != nil {
+		t.Fatalf("StashBranch: %v", err)
+	}
+	if len(f.argvs) != 1 {
+		t.Fatalf("실행 %d회: %v", len(f.argvs), f.argvs)
+	}
+	if fmt.Sprint(f.argvs[0]) != fmt.Sprint([]string{"stash", "branch", "feat/a", "stash@{0}"}) {
+		t.Fatalf("argv = %v", f.argvs[0])
+	}
+	recs := s.Records(0)
+	if recs[len(recs)-1].Destructive {
+		t.Fatal("stash branch 는 파괴적이 아니다")
+	}
+}
+
+// T23 (V199): 없는 인덱스는 **실행하지 않는다.** 없는 stash 로 브랜치를 만들다 만
+// 상태를 남기지 않으려면 실행 전에 목록으로 확인해야 한다.
+func TestStashBranch_MissingIndex(t *testing.T) {
+	repo := tempRepoWithStashes(t)
+	f := newStashWriteFake(t)
+	s := core.New(core.WithWriteRunner(f.runner))
+
+	if _, err := StashBranch(s, context.Background(), repo, "feat/a", 9); !errors.Is(err, ErrStashNotFound) {
+		t.Fatalf("err = %v, want ErrStashNotFound", err)
+	}
+	if len(f.argvs) != 0 {
+		t.Fatalf("실행하지 않아야 한다: %v", f.argvs)
+	}
+}
+
+// T24 (V199): 진짜 저장소에서 stash 가 적용된 채 새 브랜치로 옮겨 간다.
+func TestStashBranch_Real(t *testing.T) {
+	repo := tempRepoWithStashes(t)
+	ctx := context.Background()
+	s := core.New()
+
+	before, err := StashList(s, ctx, repo)
+	if err != nil {
+		t.Fatalf("StashList: %v", err)
+	}
+	if _, err := StashBranch(s, ctx, repo, "from-stash", 0); err != nil {
+		t.Fatalf("StashBranch: %v", err)
+	}
+	after, err := StashList(s, ctx, repo)
+	if err != nil {
+		t.Fatalf("StashList(2): %v", err)
+	}
+	// stash branch 는 성공하면 그 stash 를 지운다.
+	if len(after) != len(before)-1 {
+		t.Fatalf("stash = %d개, want %d", len(after), len(before)-1)
+	}
+	st, err := query.StatusOf(s, ctx, repo)
+	if err != nil {
+		t.Fatalf("StatusOf: %v", err)
+	}
+	if st.Branch != "from-stash" {
+		t.Fatalf("branch = %q, want from-stash", st.Branch)
+	}
+}

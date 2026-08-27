@@ -89,6 +89,22 @@ Object.assign(App.prototype, {
   },
 
   /**
+   * FR-GIT-274: `HEAD:<path>` 의 내용을 연다 (Open File (HEAD)).
+   *
+   * **Open File 과 같은 규약이다** — Git 창이 아닌 창에 연다 (FR-GIT-179·185).
+   * 다른 것은 여는 대상뿐이다: 서버가 HEAD 의 내용을 저장소 밖에 놓아 준 경로이며,
+   * 탭 이름에 그것이 HEAD 의 것임을 적는다 — 워킹 트리의 파일과 구분되지 않으면
+   * 사용자가 그 자리에서 편집한 것이 저장소에 반영된다고 오해한다.
+   */
+  async _gitOpenFileHead(openPath,relPath){
+    if(!openPath) return;
+    const w=await this._gitPlainTarget(); if(!w) return;
+    const rid=this._gitPaneOf(w);
+    const name=((relPath||openPath).split('/').pop())+GIT_HEAD_TAB_SUFFIX;
+    if(rid) await this.addTab(rid,'editor',{filePath:openPath,name,windowId:w.id});
+  },
+
+  /**
    * FR-GIT-244: worktree 에서 터미널 탭을 연다. Open File 과 **같은 대상 창**을
    * 쓴다 — Git 창에는 열지 않는다 (FR-GIT-179).
    */

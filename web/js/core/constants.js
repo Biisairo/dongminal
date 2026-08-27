@@ -901,3 +901,41 @@ const GIT_REMOTE_URL={
   [GIT_TAG_KIND_PUSH]:'/api/git/tag/push',
   [GIT_TAG_KIND_DELETE_REMOTE]:'/api/git/tag/delete-remote',
 };
+// ── stash·파일·미커밋 동작 (FR-GIT-272~277) ──
+// 안내문은 한국어, 버튼은 영어다 (FR-GIT-202). 확인은 항목이 쓰지 않는다 —
+// `warn`/`destructive` 선언만 하면 GitMenu 가 GitDialog/GitConfirm 을 거친다.
+
+// stash 우클릭 (FR-GIT-272)
+const GIT_STASH_BRANCH='Branch from stash…';
+const GIT_STASH_COPY_NAME='stash 이름 복사';
+const GIT_STASH_COPY_HASH='stash 해시 복사';
+const GIT_STASH_BRANCH_TITLE='stash 에서 브랜치를 만듭니다';
+const GIT_STASH_BRANCH_RUN='Create';
+const GIT_STASH_BRANCH_NAME_PH='브랜치 이름';
+const GIT_STASH_BRANCH_NEED_NAME='브랜치 이름이 필요합니다';
+// stash 목록 필터 (FR-GIT-272). 메시지와 기준 브랜치를 함께 본다.
+const GIT_STASH_FILTER_PH='메시지·브랜치 필터';
+const GIT_STASH_FILTER_NONE='필터에 맞는 stash 가 없습니다';
+
+// 파일 우클릭 (FR-GIT-273·274·275)
+const GIT_FILE_IGNORE='Add to .gitignore';
+const GIT_FILE_OPEN_HEAD='Open File (HEAD)';
+const GIT_FILE_HISTORY='File history';
+const GIT_IGNORE_FAIL='.gitignore 에 추가하지 못했습니다';
+const GIT_IGNORE_DUP='이미 .gitignore 에 있습니다';
+const GIT_HEAD_OPEN_FAIL='HEAD 의 내용을 열지 못했습니다';
+// 워킹 트리의 파일과 구분되지 않으면 사용자는 그 자리의 편집이 저장소에 반영된다고
+// 오해한다 — 탭 이름이 그것을 말한다.
+const GIT_HEAD_TAB_SUFFIX=' (HEAD)';
+
+// 미커밋 행 (FR-GIT-277). Clean 만 파괴적이다.
+const GIT_UNC_STASH='Stash…';
+const GIT_UNC_RESET='Reset (mixed)';
+const GIT_UNC_CLEAN='Clean';
+const GIT_ACT_CLEAN_UNTRACKED='clean_untracked';
+const GIT_UNC_CLEAN_TITLE='추적되지 않는 파일을 지웁니다';
+// 되살릴 수 없으므로 hint 는 되돌리는 명령이 아니라 **먼저 담아 두는** 명령이다
+// (discard 의 선례, FR-GIT-92).
+const GIT_UNC_CLEAN_NOTE='추적되지 않는 파일은 git 에 저장된 적이 없어 지운 뒤에는 되살릴 수 없습니다. 지우기 전에 아래 명령으로 담아 둘 수 있습니다.';
+const GIT_UNC_CLEAN_CMD='git stash push -u';
+const GIT_UNC_NOTHING='대상이 없습니다';

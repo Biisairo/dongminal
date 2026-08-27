@@ -257,6 +257,47 @@ func StashDrop(s *core.Service, ctx context.Context, repo string, index int) (co
 	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: []string{"stash", "drop", ref}, Destructive: true})
 }
 
+// StashBranchArgs 는 `stash branch <name> <stash>` 의 argv 다 (FR-GIT-272).
+//
+// **실행하지 않는다** — 서버가 잘못된 이름·인덱스를 실행 전에 400 으로 답할 수
+// 있어야 하고, 테스트가 무엇을 실행하지 않았는가를 볼 수 있어야 한다
+// (FR-GIT-250 ①, `CheckoutArgs` 의 선례).
+//
+// 이름 규칙 전체는 여기서 판정하지 않는다 — 그것은 `query.ValidBranchName` 이
+// git 에 물어 답한다. 여기서 막는 것은 git 에 넘기는 순간 뜻이 달라지는 값뿐이다.
+func StashBranchArgs(name string, index int) ([]string, error) {
+	if err := core.CheckRefArg("name", name); err != nil {
+		return nil, err
+	}
+	ref, err := StashRef(index)
+	if err != nil {
+		return nil, err
+	}
+	return []string{"stash", "branch", name, ref}, nil
+}
+
+// StashBranch 는 stash 를 새 브랜치에 적용하며 옮겨 간다 (FR-GIT-272, 검증 V199).
+//
+// **파괴적이 아니다.** git 은 적용이 끝난 뒤에만 그 stash 를 지우므로 잃는 것이
+// 없다 — 실패하면 stash 는 그대로 남는다.
+//
+// 없는 인덱스는 **실행하지 않는다.** git 에 그대로 넘기면 브랜치를 만들다 만
+// 상태가 남을 수 있고, 사용자는 왜 그 브랜치가 생겼는지 알 수 없다.
+func StashBranch(s *core.Service, ctx context.Context, repo, name string, index int) (core.Output, error) {
+	argv, err := StashBranchArgs(name, index)
+	if err != nil {
+		return denied(), err
+	}
+	list, err := StashList(s, ctx, repo)
+	if err != nil {
+		return denied(), err
+	}
+	if _, ok := stashAt(list, index); !ok {
+		return denied(), stashMissing(index, len(list))
+	}
+	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: argv})
+}
+
 // StashPreview 는 stash 가 바꾼 파일 목록이다 (FR-GIT-169).
 //
 // `-z` 이므로 rename 은 세 조각이다 — 커밋 상세와 **같은 파서**를 쓴다. 파서가 두

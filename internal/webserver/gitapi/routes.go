@@ -67,6 +67,12 @@ var routes = []route{
 	{http.MethodPost, exactPath("/api/git/tag/delete"), (*GitServer).apiGitTagDelete},
 	{http.MethodPost, exactPath("/api/git/tag/push"), (*GitServer).apiGitTagPush},
 	{http.MethodPost, exactPath("/api/git/tag/delete-remote"), (*GitServer).apiGitTagDeleteRemote},
+	// 묶음 F — stash·파일·미커밋 행 (GIT_ACTIONS_SRS §3.6 FR-GIT-272~275·277).
+	{http.MethodPost, exactPath("/api/git/stash/branch"), (*GitServer).apiGitStashBranch},
+	{http.MethodPost, exactPath("/api/git/ignore"), (*GitServer).apiGitIgnoreAdd},
+	{http.MethodGet, exactPath("/api/git/file-head"), (*GitServer).apiGitFileHead},
+	{http.MethodPost, exactPath("/api/git/uncommitted/reset"), (*GitServer).apiGitUncommittedReset},
+	{http.MethodPost, exactPath("/api/git/uncommitted/clean"), (*GitServer).apiGitUncommittedClean},
 	// 묶음 W7 — Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5, FR-GIT-240~243).
 	{http.MethodGet, exactPath("/api/git/worktrees"), (*GitServer).apiGitWorktrees},
 	{http.MethodPost, exactPath("/api/git/worktrees/create"), (*GitServer).apiGitWorktreeCreate},

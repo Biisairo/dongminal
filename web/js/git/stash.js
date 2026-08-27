@@ -24,6 +24,7 @@ class GitStash {
 
   reset(){
     this._list=[];
+    this._filter='';    // 메시지·기준 브랜치 필터 (FR-GIT-272)
     this._err=null;
     this._loading=false;
     this._note=null;   // {kind,msg} — pop 잔류·실패 안내
@@ -50,6 +51,7 @@ class GitStash {
     el.innerHTML=
       '<div class="git-stash-bar">'+
         '<button class="git-stash-new"></button>'+
+        '<input class="git-stash-filter" type="text">'+
         '<span class="git-stash-why"></span>'+
       '</div>'+
       '<div class="git-stash-note">'+
@@ -66,6 +68,14 @@ class GitStash {
     el.querySelector('.git-stash-new').textContent=GIT_STASH_NEW;
     el.querySelector('.git-stash-note-close').textContent=GIT_NOTE_CLOSE;
     el.querySelector('.git-stash-new').addEventListener('click',()=>this._create());
+    // FR-GIT-272: 필터는 **이미 받아 둔 목록**에만 건다 — 다시 받을 이유가 없고,
+    // 키 하나마다 요청을 사면 목록이 깜빡인다.
+    const fi=el.querySelector('.git-stash-filter');
+    fi.placeholder=GIT_STASH_FILTER_PH;
+    fi.addEventListener('input',ev=>{
+      this._filter=ev.target.value;
+      this._paintList();
+    });
     el.querySelector('.git-stash-note-close').addEventListener('click',()=>{
       this._note=null; this._paintNote();
     });
@@ -127,6 +137,10 @@ class GitStash {
     const w=el.querySelector('.git-stash-why');
     w.textContent=why;
     w.classList.toggle('vis',!!why);
+    // 리포가 바뀌면 reset 이 필터를 비운다 — 입력도 그것을 따라간다. 치는 중에는
+    // 둘이 같으므로 이 대입이 사용자의 입력을 되돌리지 않는다.
+    const fi=el.querySelector('.git-stash-filter');
+    if(fi.value!==this._filter) fi.value=this._filter;
   }
 
   _paintNote(){
@@ -146,13 +160,30 @@ class GitStash {
       box.appendChild(d);
       return;
     }
-    if(!this._list.length){
+    const list=this.visible();
+    if(!list.length){
       const d=document.createElement('div'); d.className='git-stash-empty';
-      d.textContent=this._loading?GIT_LOADING_HINT:GIT_STASH_EMPTY;
+      // 목록이 있는데 안 보이는 것과 stash 자체가 없는 것은 다른 사실이다 —
+      // 뭉개면 사용자는 자기 stash 가 사라진 것으로 읽는다.
+      d.textContent=this._loading?GIT_LOADING_HINT
+        :(this._list.length?GIT_STASH_FILTER_NONE:GIT_STASH_EMPTY);
       box.appendChild(d);
       return;
     }
-    for(const s of this._list) box.appendChild(this._rowEl(s));
+    for(const s of list) box.appendChild(this._rowEl(s));
+  }
+
+  /**
+   * FR-GIT-272: 필터에 맞는 stash 만. 메시지와 **기준 브랜치**를 함께 본다 —
+   * 브랜치로 찾는 것이 stash 를 고르는 두 번째 단서다.
+   *
+   * 대소문자를 가리지 않는다. 필터가 비면 목록 전체다.
+   */
+  visible(){
+    const q=(this._filter||'').trim().toLowerCase();
+    if(!q) return this._list;
+    return this._list.filter(s=>
+      ((s.message||'')+' '+(s.base||'')).toLowerCase().includes(q));
   }
 
   _rowEl(s){
@@ -353,6 +384,57 @@ class GitStashCreate {
   }
 }
 
+/**
+ * Branch from stash 다이얼로그 (FR-GIT-272, 검증 V199).
+ *
+ * 골격은 20단계의 `GitDialog` 다 (FR-GIT-171) — 이름 한 필드를 선언하고, 이 클래스는
+ * 실행만 안다. **파괴적이 아니다**: git 은 적용이 끝난 뒤에만 그 stash 를 지우므로
+ * 실패하면 stash 가 그대로 남는다.
+ *
+ * 이름 규칙 전체를 여기서 판정하지 않는다 — 그것은 서버가 git 에 묻는다
+ * (FR-GIT-159). 여기서 막는 것은 비어 있는 이름뿐이다.
+ */
+class GitStashBranch {
+  constructor(panel,stash){
+    this.panel=panel;
+    this.repo=panel.repo;
+    this.stash=stash;
+  }
+
+  _show(){
+    return GitDialog.open({
+      id:'git-stash-branch',ns:'gsb',action:'stash_branch',
+      title:GIT_STASH_BRANCH_TITLE,runLabel:GIT_STASH_BRANCH_RUN,focus:'name',
+      // 무엇에서 만드는지 보이지 않으면 사용자는 어느 stash 인지 알 수 없다
+      // (FR-GIT-91 의 정신).
+      body:GitStash.label(this.stash),
+      fields:[
+        {key:'name',type:GIT_DIALOG_TEXT,cls:'gsb-name',
+         placeholder:GIT_STASH_BRANCH_NAME_PH},
+      ],
+      validate:v=>(v.name||'').trim()?'':GIT_STASH_BRANCH_NEED_NAME,
+      run:v=>this._run(v),
+    });
+  }
+
+  async _run(v){
+    const res=await this.panel.post('/api/git/stash/branch',{
+      repo:this.repo,index:this.stash.index,name:(v.name||'').trim(),
+    });
+    // 조작 응답은 실행 후 목록과 status 를 함께 싣고 온다 (FR-GIT-170) — 실패
+    // 응답도 그렇다. **ref 가 바뀌므로 refs 도 다시 받는다** (FR-GIT-160):
+    // status 만으로는 새 브랜치가 생겼는지 알 수 없다.
+    this.panel.afterStashRefWrite(res);
+    if(res.ok) return {ok:true};
+    // 실패 사유는 다이얼로그 안에 남는다 — 닫아 버리면 읽을 자리가 사라진다
+    // (FR-GIT-175).
+    return {ok:false,reason:this.panel.writeReason(res),
+      stderrTail:(res.data&&res.data.message)||''};
+  }
+}
+
 // 고전 스크립트의 class 선언은 window 의 속성이 되지 않는다 — GitPanel 과 e2e 가
 // 창 밖에서 부르므로 명시적으로 붙인다 (git-confirm.js 와 같은 규약).
 window.GitStash=GitStash;
+window.GitStashCreate=GitStashCreate;
+window.GitStashBranch=GitStashBranch;

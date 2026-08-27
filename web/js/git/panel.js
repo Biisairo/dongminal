@@ -864,6 +864,106 @@ class GitPanel {
     this._stash().adoptWrite(res);
   }
 
+  // ── 묶음 F — stash·파일·미커밋 행 (FR-GIT-272~275·277) ──
+  // 실행은 도메인별 클래스에 있다 — 여기 있는 것은 메뉴가 부르는 한 줄뿐이다.
+
+  // FR-GIT-272: Branch from stash. 다이얼로그는 git-stash.js 가 안다.
+  stashBranch(s){return new GitStashBranch(this,s)._show()}
+
+  // FR-GIT-277: 미커밋 행의 Stash. 생성 다이얼로그를 그대로 다시 쓴다.
+  stashCreate(){return new GitStashCreate(this)._show()}
+
+  /**
+   * stash 쓰기이면서 **ref 도 바꾸는** 것의 뒷정리 (FR-GIT-160·170).
+   *
+   * Branch from stash 하나가 그것이다 — stash 목록과 refs 가 함께 바뀌므로 둘 다
+   * 다시 받는다. status 만으로는 새 브랜치가 생겼는지 알 수 없다.
+   */
+  afterStashRefWrite(res){
+    this.afterStashWrite(res);
+    if(!res||!res.ok) return;
+    if(this._branchesView) this._branchesView.reload();
+    if(this._historyView) this._historyView.reloadRefs();
+  }
+
+  // FR-GIT-277: untracked 경로들. Clean 의 대상 목록과 비활성 판정이 같은 값을
+  // 딛는다 — 두 벌로 두면 한쪽만 고쳐진다.
+  untrackedPaths(){
+    const s=this.statusOf();
+    return ((s&&s.untracked)||[]).map(e=>e.path);
+  }
+
+  // mixed 다 — index 만 HEAD 로 되돌리고 워킹 트리는 그대로 둔다.
+  async uncommittedReset(){
+    if(this._writing) return;
+    const res=await this.post('/api/git/uncommitted/reset',{repo:this.repo});
+    this._after(res,[]);
+  }
+
+  // **파괴적이다** (FR-GIT-277). 2단계 확인과 recovery hint 는 GitMenu 가 이미
+  // 거쳤으므로 여기서는 `confirm` 을 실어 보낸다 — 서버도 그것을 요구한다.
+  async uncommittedClean(){
+    if(this._writing) return;
+    const res=await this.post('/api/git/uncommitted/clean',
+      {repo:this.repo,confirm:true});
+    this._after(res,[]);
+  }
+
+  /**
+   * FR-GIT-273: 경로를 `.gitignore` 에 덧붙인다. **git 실행이 아니라 파일 쓰기다.**
+   *
+   * 이미 있던 줄은 서버가 `skipped` 로 답한다 — "추가했습니다" 로 뭉개면 사용자는
+   * 아무 일도 아니었던 것을 성공으로 읽는다 (V200).
+   */
+  async ignorePath(t){
+    if(!t||!t.path||this._writing) return;
+    const res=await this.post('/api/git/ignore',{repo:this.repo,paths:[t.path]});
+    if(!res.ok){
+      this._note={msg:GIT_IGNORE_FAIL+': '+this.writeError(res)};
+      this._paint();
+      return;
+    }
+    const d=res.data||{};
+    this._after(res,[]);
+    // 이미 있던 줄은 `skipped` 로 온다 — 그 사실을 보이지 않으면 사용자는 아무 일도
+    // 아니었던 것을 성공으로 읽는다 (V200).
+    if(!(d.added||[]).length){this._note={msg:GIT_IGNORE_DUP+': '+t.path};this._paint()}
+  }
+
+  // FR-GIT-275: path 필터를 채워 History 탭을 연다. **새 조회를 만들지 않는다** —
+  // 필터는 FR-GIT-129 로 이미 있다.
+  openFileHistory(t){
+    if(!t||!t.path) return;
+    // **탭을 먼저 연다.** 아직 마운트되지 않은 History 는 mount 가 `_repo` 를 비우고,
+    // 그 뒤 첫 paint 의 `_adopt` → `reset` 이 방금 채운 필터를 지운다. 열어 둔 뒤에
+    // 채우면 두 경우 모두 성립한다 — 이미 받아들였으면 그대로, 아니면 filterPath 가
+    // 스스로 받아들인다.
+    this.openView('history');
+    this._history().filterPath(t.path);
+  }
+
+  /**
+   * FR-GIT-274: 워킹 트리가 아니라 `HEAD:<path>` 의 내용을 연다.
+   *
+   * 여는 자리는 Open File 과 같은 규약이다 — Git 창이 아닌 창이다
+   * (FR-GIT-179·185). 조회는 서버가 diff 의 `cat-file` 경로를 그대로 쓴다.
+   */
+  async openFileAtHead(t){
+    if(!t||!t.path||!this.repo) return;
+    const q=new URLSearchParams({repo:this.repo,path:t.path});
+    let r=null,d=null;
+    try{r=await fetch('/api/git/file-head?'+q.toString())}catch{r=null}
+    if(r){try{d=await r.json()}catch{d=null}}
+    if(!r||!r.ok||!d||!d.openPath){
+      // 사유를 그 자리에 보인다 — 빈 편집기를 열면 사용자는 파일이 비었다고 읽는다.
+      this._note={msg:GIT_HEAD_OPEN_FAIL+((d&&d.message)?': '+d.message:'')};
+      this._paint();
+      return;
+    }
+    this._note=null;
+    this.app._gitOpenFileHead(d.openPath,t.path);
+  }
+
   // 워킹 트리에 남은 변경의 개수. History 의 미커밋 변경 행(FR-GIT-127)과
   // checkout 의 dirty 판정(FR-GIT-157)이 같은 값을 딛는다.
   dirtyCount(){

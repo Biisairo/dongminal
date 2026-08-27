@@ -186,6 +186,52 @@ func (s *GitServer) apiGitStashDrop(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// gitStashBranchReq 는 Branch from stash 의 본문이다 (FR-GIT-272).
+type gitStashBranchReq struct {
+	Repo  string `json:"repo"`
+	Index int    `json:"index"`
+	Name  string `json:"name"`
+}
+
+// POST /api/git/stash/branch — stash 를 새 브랜치에 적용하며 옮겨 간다
+// (FR-GIT-272, 검증 V199).
+//
+// **파괴적이 아니다** — git 은 적용이 끝난 뒤에만 그 stash 를 지운다. 이름은 실행
+// **전에** 검증한다 (FR-GIT-250.3): 클라이언트만 막으면 API 직접 호출이 우회한다.
+func (s *GitServer) apiGitStashBranch(w http.ResponseWriter, r *http.Request) {
+	if s.Git == nil {
+		gitUnavailable(w)
+		return
+	}
+	var req gitStashBranchReq
+	if !gitDecodeBody(w, r, &req) {
+		return
+	}
+	// 순수 함수가 argv 를 만들 수 있는지로 판정한다 — 판정이 두 벌이면 한쪽만
+	// 고쳐진다 (FR-GIT-250 ①).
+	if _, err := write.StashBranchArgs(req.Name, req.Index); err != nil {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
+		return
+	}
+	root, ok := s.gitResolveRepo(w, r, req.Repo)
+	if !ok {
+		return
+	}
+	// 이름 규칙 전체는 git 에 묻는다 — 우리가 다시 구현하지 않는다 (FR-GIT-159).
+	if err := query.ValidBranchName(s.Git.Service(), r.Context(), root, req.Name); err != nil {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
+		return
+	}
+	before, ok := s.gitStatusBefore(w, r, root)
+	if !ok {
+		return
+	}
+	s.gitStashApply(w, r, req.Repo, root, before, func(ctx context.Context) (map[string]any, error) {
+		_, err := write.StashBranch(s.Git.Service(), ctx, root, req.Name, req.Index)
+		return nil, err
+	})
+}
+
 // gitStashIndexRoute 는 apply/pop/drop 의 공통 절차다. 셋은 본문과 응답이 같고
 // 실행하는 것과 확인을 요구하는지만 다르다.
 func (s *GitServer) gitStashIndexRoute(w http.ResponseWriter, r *http.Request, confirm bool, run func(context.Context, string, gitStashIndexReq) (map[string]any, error)) {
