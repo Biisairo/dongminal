@@ -66,6 +66,11 @@ type Deps struct {
 	// 격리를 요청한 Run 시작이 거부된다 — 조용히 none 으로 낮추지 않는다
 	// (FR-WKT-11).
 	Worktrees *worktree.Manager
+	// UserWorktrees 는 Git 창 Worktrees 탭이 쓰는 사용자 worktree 영역의 Manager 다
+	// (FR-WKT-13) — root 는 $DONGMINAL_HOME/git-worktrees 로 Worktrees(위 필드,
+	// Run 격리 영역)의 형제이며 별개의 Manager 인스턴스다. nil 이면 그 탭의
+	// 목록·생성·제거가 전부 503 이다 — Run 격리에는 영향이 없다.
+	UserWorktrees *worktree.Manager
 	// WorkIndex resolves tool identifiers (uuid / toolId / label) and labels
 	// them back for the agent-message envelope (FR-API-3/4). Nil → 503.
 	WorkIndex toolaccess.WorkspaceReader

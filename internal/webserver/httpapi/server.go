@@ -103,11 +103,17 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		Git:         deps.Git,
 		started:     time.Now(),
 	}
+	runWorktreeRoot := ""
+	if deps.Worktrees != nil {
+		runWorktreeRoot = deps.Worktrees.Root()
+	}
 	srv.git = &gitapi.GitServer{
-		Git:      deps.Git,
-		Work:     deps.Work,
-		Commands: cmds,
-		Tools:    deps.Tools,
+		Git:             deps.Git,
+		Work:            deps.Work,
+		Commands:        cmds,
+		Tools:           deps.Tools,
+		UserWorktrees:   deps.UserWorktrees,
+		RunWorktreeRoot: runWorktreeRoot,
 	}
 	return srv, nil
 }

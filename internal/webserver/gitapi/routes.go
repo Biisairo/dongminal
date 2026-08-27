@@ -54,6 +54,10 @@ var routes = []route{
 	{http.MethodPost, exactPath("/api/git/stash/apply"), (*GitServer).apiGitStashApply},
 	{http.MethodPost, exactPath("/api/git/stash/pop"), (*GitServer).apiGitStashPop},
 	{http.MethodPost, exactPath("/api/git/stash/drop"), (*GitServer).apiGitStashDrop},
+	// 묶음 W7 — Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5, FR-GIT-240~243).
+	{http.MethodGet, exactPath("/api/git/worktrees"), (*GitServer).apiGitWorktrees},
+	{http.MethodPost, exactPath("/api/git/worktrees/create"), (*GitServer).apiGitWorktreeCreate},
+	{http.MethodPost, exactPath("/api/git/worktrees/remove"), (*GitServer).apiGitWorktreeRemove},
 }
 
 // Handle은 /api/git/* 요청을 처리하고 처리 여부를 돌려준다. false 면 호출자가

@@ -104,6 +104,29 @@ func TestReadAndWriteCommands_Disjoint(t *testing.T) {
 	}
 }
 
+// V158 (FR-GIT-246): `git worktree` 는 한 하위 명령 안에 읽기(list)와 쓰기
+// (add·remove)가 함께 있어 readCommands·writeCommands 어느 쪽에 넣어도
+// FR-GIT-95 의 교집합-금지 불변식이 뜻을 잃는다. 그래서 **어느 목록에도 없어야
+// 한다** — worktree 의 git 실행은 전부 internal/webserver/domain/worktree 안에서
+// 한다 (도메인 밖 실행은 core/static_test.go 의 execAllowed 예외가 이미 막는다).
+// 이 테스트는 그 결정을 회귀로부터 지킨다: 나중에 누가 I7 을 구현하며 별 생각 없이
+// "worktree" 를 두 맵 중 하나에 추가하면 여기서 즉시 걸린다.
+func TestWorktreeCommand_NotInEitherList(t *testing.T) {
+	if readCommands["worktree"] {
+		t.Fatal("worktree 가 readCommands 에 있다 — FR-GIT-246 위반: worktree add/remove 가 읽기 경로로 나갈 수 있다")
+	}
+	if writeCommands["worktree"] {
+		t.Fatal("worktree 가 writeCommands 에 있다 — FR-GIT-246 위반: worktree list 가 쓰기 경로에서 막힌다")
+	}
+	// 교집합 자체가 비어 있다는 불변식도 이 테스트가 다시 확인한다 — W2 와 같은
+	// 사실이지만 V158 로 스펙에서 직접 추적할 수 있어야 한다.
+	for cmd := range readCommands {
+		if writeCommands[cmd] {
+			t.Fatalf("%q 가 두 목록에 모두 있다 (FR-GIT-95)", cmd)
+		}
+	}
+}
+
 // W3 (V39, FR-GIT-95): webserver/domain/git 밖에서 ExecWrite 를 부르는 곳은
 // internal/webserver/gitapi 뿐이다.
 func TestExecWriteCallers_RestrictedToServerGitHandlers(t *testing.T) {

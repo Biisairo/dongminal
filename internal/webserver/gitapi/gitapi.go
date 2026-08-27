@@ -9,6 +9,7 @@ package gitapi
 
 import (
 	"dongminal/internal/webserver/domain/git/store"
+	"dongminal/internal/webserver/domain/worktree"
 )
 
 // WorkspaceStore는 핀 목록을 읽고 쓰기 위한 최소 표면이다 (git_pins.go).
@@ -43,4 +44,15 @@ type GitServer struct {
 	// gitJobs 는 원격 작업(fetch/pull/push)의 수명을 쥔다 (FR-GIT-101·102).
 	// 제로값도 쓸 수 있다 — 첫 사용에 만들어지고, Git 이 없으면 만들지 않는다.
 	gitJobs gitJobHolder
+
+	// UserWorktrees 는 사용자 worktree 영역의 Manager 다 (FR-WKT-13) —
+	// $DONGMINAL_HOME/git-worktrees 를 자기 root 로 갖는, Run 격리 Manager 와는
+	// 별개의 인스턴스다. worktree 의 git 실행은 전부 여기(domain/worktree)를 지난다
+	// (FR-GIT-246) — domain/git 의 화이트리스트를 넓히지 않는다. nil 이면
+	// Worktrees 탭의 목록·생성·제거가 전부 503 이다.
+	UserWorktrees *worktree.Manager
+	// RunWorktreeRoot 는 Run 격리 영역의 root 경로 문자열뿐이다 (FR-GIT-240 소유
+	// 판정) — Run 의 Manager 전체를 들고 오지 않는다. 이 패키지가 그 Manager 로
+	// git 을 실행할 일이 없기 때문이다(worktree 실행은 UserWorktrees 하나로 충분).
+	RunWorktreeRoot string
 }

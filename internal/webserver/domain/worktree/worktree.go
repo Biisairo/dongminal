@@ -11,6 +11,8 @@ package worktree
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -242,14 +244,25 @@ type Spec struct {
 // 가 "behind by N" 을 오보한다. 대신 push.autoSetupRemote 를 걸어 첫 push 가
 // upstream 을 만들게 한다. 이 두 config 는 best-effort 이며 실패해도 롤백하지
 // 않는다 — worktree 자체는 이미 쓸 수 있는 상태다.
+//
+// **Branch 가 비면 새 브랜치를 만들지 않는다** (FR-GIT-242) — `Base` 를 그대로
+// 체크아웃한다: `git worktree add <path> <base>`. 사용자 worktree 생성에서
+// "새 브랜치를 만들 것인지"가 선택이기 때문에 생긴 갈래이며, Run 격리는 항상
+// Branch 를 채우므로(worktree.Branch 의 fallback 이 절대 빈 문자열을 주지 않는다)
+// 그 경로는 이 분기를 타지 않는다 — 기존 동작이 그대로 유지된다.
 func (m *Manager) Create(s Spec) error {
-	if err := validRef(s.Branch); err != nil {
-		return err
+	if s.Branch != "" {
+		if err := validRef(s.Branch); err != nil {
+			return err
+		}
 	}
 	if s.Base != "" {
 		if err := validRef(s.Base); err != nil {
 			return err
 		}
+	}
+	if s.Branch == "" && s.Base == "" {
+		return fmt.Errorf("%w: branch 나 base 중 하나는 있어야 한다", ErrUnsafeArgument)
 	}
 	if err := m.checkPath(s.Path); err != nil {
 		return err
@@ -265,15 +278,20 @@ func (m *Manager) Create(s Spec) error {
 	if err := os.MkdirAll(filepath.Dir(s.Path), 0o755); err != nil {
 		return err
 	}
-	args := []string{"worktree", "add", "--no-track", "-b", s.Branch, s.Path}
-	if s.Base != "" {
-		args = append(args, s.Base)
+	var args []string
+	if s.Branch != "" {
+		args = []string{"worktree", "add", "--no-track", "-b", s.Branch, s.Path}
+		if s.Base != "" {
+			args = append(args, s.Base)
+		}
+	} else {
+		args = []string{"worktree", "add", s.Path, s.Base}
 	}
 	if _, err := m.git(s.Repo, args...); err != nil {
 		return err
 	}
 	_, _ = m.git(s.Path, "config", "push.autoSetupRemote", "true")
-	if s.Base != "" {
+	if s.Branch != "" && s.Base != "" {
 		// 생성 base 를 repo config 에 영속한다 — 나중에 "이 브랜치는 무엇에서
 		// 갈라져 나왔나"를 물을 유일한 근거다.
 		_, _ = m.git(s.Repo, "config", "branch."+s.Branch+".base", s.Base)
@@ -417,20 +435,112 @@ func (m *Manager) isDirty(path string) (bool, error) {
 
 // gone confirms the path is no longer a registered worktree AND no longer on
 // disk. 호출자는 repoLock(repo) 를 쥐고 있다 (FR-WKT-7, 개정).
+//
+// List 를 그대로 쓴다 — git worktree list --porcelain 을 다시 파싱하지 않는다
+// (FR-GIT-246: worktree 의 git 실행·파싱은 이 패키지 안에서 한 곳으로 모은다,
+// 두 벌로 두면 한쪽만 고쳐진다).
 func (m *Manager) gone(repo, path string) bool {
 	if _, err := os.Stat(path); err == nil {
 		return false
 	}
-	out, err := m.git(repo, "worktree", "list", "--porcelain")
+	entries, err := m.List(repo)
 	if err != nil {
 		return false // 확인할 수 없으면 사라졌다고 단정하지 않는다
 	}
-	for _, ln := range strings.Split(out, "\n") {
-		if strings.TrimSpace(ln) == "worktree "+path {
+	for _, e := range entries {
+		if e.Path == path {
 			return false
 		}
 	}
 	return true
+}
+
+// Entry 는 `git worktree list` 한 줄이다 (FR-GIT-240). 화면이 보일 최소 정보만
+// 남긴다 — 경로·브랜치(또는 detached)·main 여부. 소유(사용자/Run/바깥) 판정은 이
+// 패키지가 Run 을 모르므로(패키지 doc 참고) 호출자의 일이다.
+type Entry struct {
+	Path     string
+	Branch   string
+	Detached bool
+	// Main 은 이 항목이 git 의 main worktree(저장소를 clone·init 한 자리)인지다
+	// (V162). **파싱 순서에서 낸다** — "조회에 쓴 경로와 같다"로 판정하지 않는다.
+	// 후자는 main worktree 를 링크드 worktree 에서 조회하면(예: 사용자가 그 링크드
+	// worktree 를 활성 리포로 열고 다시 조회하면) 판정이 조회 대상을 따라 옮겨간다 —
+	// "main" 배지가 탐색 위치를 따라다니는 결함이었다.
+	Main bool
+}
+
+// List 는 repo 의 worktree 전부를 `git worktree list --porcelain` 그대로 준다
+// (FR-GIT-240) — main worktree 도 포함한다(그 명령이 포함하므로, 빼면 목록이
+// 진실과 달라진다).
+//
+// **이 저장소에서 그 명령을 실행하는 자리는 여기 하나뿐이다** (FR-GIT-246) — gone
+// 도 이 함수를 부른다. domain/git 의 읽기 화이트리스트를 넓히지 않는 이유이기도
+// 하다: worktree 는 한 하위 명령에 읽기(list)와 쓰기(add·remove)가 함께 있어
+// 그 목록들의 교집합-금지 불변식(FR-GIT-95)과 맞지 않는다.
+func (m *Manager) List(repo string) ([]Entry, error) {
+	out, err := m.git(repo, "worktree", "list", "--porcelain")
+	if err != nil {
+		return nil, err
+	}
+	return parseWorktreeList(out), nil
+}
+
+// parseWorktreeList 는 porcelain 출력을 해석한다. 레코드는 빈 줄로 갈린다 —
+// `worktree <path>` 로 시작하고 `HEAD <sha>`·`branch <ref>`(또는 `detached`)가
+// 뒤따른다 (git worktree add --help, PORCELAIN FORMAT).
+//
+// **첫 레코드가 main worktree 다 (Entry.Main, V162).** 근거는 git-worktree(1)
+// 매뉴얼의 list 절 — "The main worktree is listed first, followed by each of the
+// linked worktrees." — 이며, 이 파일이 실측으로도 확인한다
+// (TestList_MainIsAlwaysFirstEntry). 순서에 의존한다는 사실을 여기 명시적으로
+// 적어 두는 이유는, 예전에 "조회 대상 경로와 같다"로 판정했다가 링크드 worktree
+// 를 활성 리포로 열면 main 배지가 그리로 옮겨가던 결함을 겪었기 때문이다 — 근거
+// 없이 가정을 재도입하는 사고가 다시 나지 않게 한다.
+func parseWorktreeList(out string) []Entry {
+	var entries []Entry
+	var cur *Entry
+	flush := func() {
+		if cur != nil {
+			entries = append(entries, *cur)
+			cur = nil
+		}
+	}
+	for _, ln := range strings.Split(out, "\n") {
+		ln = strings.TrimRight(ln, "\r")
+		switch {
+		case ln == "":
+			flush()
+		case strings.HasPrefix(ln, "worktree "):
+			flush()
+			cur = &Entry{Path: strings.TrimPrefix(ln, "worktree "), Main: len(entries) == 0}
+		case ln == "detached":
+			if cur != nil {
+				cur.Detached = true
+			}
+		case strings.HasPrefix(ln, "branch "):
+			if cur != nil {
+				cur.Branch = strings.TrimPrefix(strings.TrimPrefix(ln, "branch "), "refs/heads/")
+			}
+		}
+	}
+	flush()
+	return entries
+}
+
+// RepoBucket 은 사용자 worktree 영역의 저장소별 버킷 이름이다 (FR-WKT-13, V159):
+//
+//	<베이스이름>-<정규화된 루트의 해시 앞자리>
+//
+// 베이스이름을 남기는 이유는 FR-GIT-242 가 "만들어진 경로를 보인다"고 요구하기
+// 때문이다 — 해시만 쓰면 사람이 그 경로가 어느 저장소인지 알 수 없다. 해시를
+// 더하는 이유는 베이스이름만으로는 서로 다른 저장소(동명의 리포)를 가르지 못하기
+// 때문이다 — Run 영역이 uuid 파생으로 경로를 절대 재사용하지 않는 것과 같은
+// 이유다(FR-WKT-4). safeSegment 를 그대로 쓴다 — 새 정규화 규칙을 만들지 않는다.
+func RepoBucket(root string) string {
+	clean := filepath.Clean(root)
+	sum := sha256.Sum256([]byte(clean))
+	return safeSegment(filepath.Base(clean), "repo") + "-" + hex.EncodeToString(sum[:])[:8]
 }
 
 // checkPath 는 위험 경로를 거부한다 (FR-WKT-10). 제거 전에 경로가 실제로
@@ -538,3 +648,9 @@ func validRef(name string) error {
 	}
 	return nil
 }
+
+// CheckName 은 사용자 worktree 의 이름·브랜치를 검사한다 (FR-GIT-242) — "-" 로
+// 시작하는 값을 거부하는 것은 FR-WKT-6 과 같은 근거(git 플래그 오인)다. validRef
+// 를 그대로 드러낸다 — 이름·ref·브랜치가 결국 같은 git 인자 자리로 가므로 규칙을
+// 두 벌 두지 않는다.
+func CheckName(name string) error { return validRef(name) }
