@@ -159,7 +159,7 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
     await openGit(page, repo);
 
     await row.click({ button: 'right' });
-    await page.locator('.git-menu .git-menu-item', { hasText: 'Open File' }).click();
+    await page.locator('.git-menu .git-menu-item[data-id="openFile"]').click();
 
     const calls = await page.evaluate(() => (window as any).__openFileCalls);
     expect(calls.length, `_gitOpenFile 이 두 경로에서 각각 불려야 한다: ${JSON.stringify(calls)}`).toBe(2);

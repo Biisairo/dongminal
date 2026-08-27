@@ -192,7 +192,13 @@ test.describe('묶음 E — Changes 탭', () => {
     // 17단계가 이 메뉴를 GitMenu 프레임워크로 흡수했다 (FR-GIT-146).
     const menu = page.locator('.git-menu');
     await expect(menu).toBeVisible();
-    await expect(menu.locator('.git-menu-item')).toHaveText(['Open Changes', 'Open File', 'Copy Path']);
+    // FR-GIT-273·274·275 로 항목이 늘었다 (GIT_ACTIONS_SRS §3.6). **저장소를 바꾸는
+    // 항목이 하나도 없다**는 것이 이 시험의 본체이고(FR-GIT-41), 그 단정은 아래에
+    // 그대로 있다 — 개수는 그 사실의 대리 지표였을 뿐이다.
+    await expect(menu.locator('.git-menu-item')).toHaveText([
+      'Open Changes', 'Open File', 'Open File (HEAD)', 'Copy Path',
+      'File history', 'Add to .gitignore',
+    ]);
 
     // M1 에는 저장소를 바꾸는 항목이 하나도 없다 (FR-GIT-41).
     const text = (await menu.textContent()) || '';

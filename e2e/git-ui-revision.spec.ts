@@ -177,7 +177,7 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
     await waitFiles(page);
 
     await files(page).first().click({ button: 'right' });
-    await page.locator('.git-menu .git-menu-item', { hasText: 'Open File' }).click();
+    await page.locator('.git-menu .git-menu-item[data-id="openFile"]').click();
 
     // 편집기 탭이 생기고, 그 탭이 있는 창이 활성이며, 그 창은 Git 창이 아니다.
     await expect.poll(() => page.evaluate(() => {
