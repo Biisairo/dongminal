@@ -24,6 +24,21 @@ const MKB_DOUBLE_TAP_MS=350;
 const MKB_TAP_SLOP_PX=10;
 const MKB_GHOST_CLICK_MS=700;
 
+// 모바일 TUI 입력·스크롤 교정 (MOBILE_TUI_INPUT_SCROLL_SRS FR-MTI-18).
+// TOUCH_GAIN: xterm 의 터치 경로는 손가락 이동을 1:1 픽셀로만 스크롤한다 —
+//   실측 200px = 11행(화면 37행). 2.5배면 200px 이 화면 3/4 를 넘긴다.
+// TOUCH_SLOP: 이 거리를 넘기 전에는 탭으로 보고 xterm 에 그대로 넘긴다.
+// FLING_*: 손을 뗀 뒤의 관성. 프레임당 DECAY 를 곱하고 MIN_V 밑에서 멈춘다.
+// KB_EPS: 키보드 높이 잡음. 이 미만의 변화로는 재적용하지 않는다.
+// KB_UP: 이 높이를 넘으면 소프트 키보드가 떠 있다고 본다.
+const MTI_TOUCH_GAIN=2.5;
+const MTI_TOUCH_SLOP_PX=8;
+const MTI_FLING_DECAY=0.93;
+const MTI_FLING_MIN_V=0.4;
+const MTI_FLING_MAX_V=120;
+const MTI_KB_EPS_PX=4;
+const MOBILE_KB_UP_PX=80;
+
 // 복귀 대상 Pane 을 기다리는 상한 (FR-BGR-7). delWindow 는 마지막 창을 지운 뒤
 // _mkWindow 를 await 하는데, 그 사이 ws.windows 가 비어 대상 Pane 이 없다.
 // PTY 생성 왕복 한 번이면 끝나는 과도 상태이므로 짧게 기다렸다 재시도한다.

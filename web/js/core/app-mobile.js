@@ -118,36 +118,14 @@ Object.assign(App.prototype, {
       'Home':'Home','End':'End','PgUp':'Page Up','PgDn':'Page Down',
     };
     this._modKbd={ctrl:false,alt:false};
-    const refresh=()=>{
-      bar.querySelectorAll('.mkb-btn[data-mod]').forEach(b=>{
-        const m=b.dataset.mod, st=this._modKbd[m];
-        b.classList.toggle('sticky', st===true);
-        b.classList.toggle('locked', st==='lock');
-      });
-    };
+    const refresh=()=>this._mkbRefresh();
+    // FR-MTI-15~17: sticky 규칙은 TerminalTool 한 곳에만 둔다 — 키바 경로와
+    // 키보드 경로가 서로 다른 규칙을 쓰면 어느 쪽도 신뢰할 수 없다.
     const sendToFocused=(s)=>{
       const p=this._focusedTerminal();
       if(!p) return;
-      let out=s;
-      // Ctrl modifier: convert printable a-z/A-Z to ctrl code (1-26)
-      if(this._modKbd.ctrl && s.length===1){
-        const c=s.charCodeAt(0);
-        if(c>=0x40 && c<=0x7e) out=String.fromCharCode(c & 0x1f);
-      }
-      // Alt prefix: ESC + char
-      if(this._modKbd.alt && out.length>=1 && !out.startsWith('')){
-        out=''+out;
-      }
       if(p.term){try{p.term.focus()}catch{}}
-      try{
-        const bts=enc.encode(out);
-        const msg=new Uint8Array(1+bts.length);msg[0]=OP.INPUT;msg.set(bts,1);
-        p._send(msg);
-      }catch{}
-      // Clear sticky (not lock)
-      if(this._modKbd.ctrl===true) this._modKbd.ctrl=false;
-      if(this._modKbd.alt===true) this._modKbd.alt=false;
-      refresh();
+      p._sendText(p._applyStickyMods(s));
     };
     const showTip=(text, btn)=>{
       let tip=document.getElementById('mkb-tip');
@@ -161,6 +139,10 @@ Object.assign(App.prototype, {
     for(const k of keys){
       const b=document.createElement('button');
       b.className='mkb-btn';b.textContent=k.label;b.type='button';
+      // FR-MTI-14: 버튼이 포커스를 가져가면 소프트 키보드가 내려가고, 이어지는
+      // term.focus() 가 다시 올려 visualViewport 이벤트가 폭주한다. 스와이프로
+      // 판정된 터치(preventDefault 를 하지 않는 경로)에서도 그 일이 없어야 한다.
+      b.tabIndex=-1;
       const full=FULL_NAMES[k.label]||k.label;
       b.title=full;b.setAttribute('aria-label',full);
       if(k.mod){b.dataset.mod=k.mod}
@@ -242,52 +224,83 @@ Object.assign(App.prototype, {
     // visualViewport tracking — keyboard up/down detection
     if(window.visualViewport){
       const vv=window.visualViewport;
-      const kbH_PX=()=>{
-        const v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--m-kb-h'));
-        return isFinite(v)?v:38;
-      };
-      const apply=()=>{
-        if(!this.isMobile){
-          document.body.classList.remove('keyboard-up');
-          document.body.style.paddingTop='';
-          document.body.style.paddingBottom='';
-          bar.style.bottom='';
-          return;
-        }
-        // FR-MKV-3: layout viewport 가 키보드만큼 함께 줄어드는 환경
-        // (interactive-widget=resizes-content 를 지원하는 Chromium·Firefox)에서는
-        // innerHeight 도 줄어 kbH 가 0 에 수렴하므로 이 보정이 스스로 비활성된다.
-        // 엔진 판별을 하지 않는 이유다. WebKit 은 그 키를 무시하므로 여기가 유일한 수단이다.
-        const kbH=Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-        const isUp=kbH > 80;
-        document.body.classList.toggle('keyboard-up', isUp);
-        if(isUp){
-          bar.style.bottom = kbH + 'px';
-          // FR-MKV-4: WebKit 은 포커스된 요소를 드러내려 visual viewport 를 위로
-          // 스크롤한다. 그 스크롤은 overflow:hidden 으로 막을 수 없고 레이아웃은
-          // layout viewport 좌표계에 그대로 남으므로, 상쇄하지 않으면 화면 상단
-          // (topbar)이 가시 영역 밖으로 밀린다 — 사용자가 본 증상이 이것이다.
-          //
-          // padding-top 으로 상쇄하면 body 의 content box 가
-          // [offsetTop, innerHeight-kbH-키바높이] 로 내려앉아 가시 영역 안에 정확히
-          // 들어간다. kbH 는 이미 offsetTop 을 뺀 값이므로 padding-bottom 계산은
-          // 바뀌지 않고, 키바(position:fixed, bottom:kbH)와도 틈 없이 맞물린다.
-          //
-          // transform 이 아니라 padding 인 이유: transform 은 fixed 자손의 컨테이닝
-          // 블록을 만들어 키바의 bottom 기준을 layout viewport 에서 #app 으로 바꾼다.
-          document.body.style.paddingTop = vv.offsetTop + 'px';
-          document.body.style.paddingBottom = (kbH + kbH_PX()) + 'px';
-        }else{
-          bar.style.bottom = '';
-          document.body.style.paddingTop = '';
-          document.body.style.paddingBottom = '';
-        }
-        // Refit terminal
-        for(const p of this.tools.values()){if(p.el.classList.contains('vis'))p.doFit()}
-      };
+      const apply=()=>this._mobileVvApply();
       vv.addEventListener('resize', apply);
       vv.addEventListener('scroll', apply);
       apply();
     }
+  },
+
+  // FR-MTI-12: visualViewport 의 scroll 은 WebKit 이 캐럿을 드러낼 때마다 연속
+  // 발화한다. 그때마다 fit 하면 PTY SIGWINCH 가 이벤트 수만큼 나가고, TUI 는
+  // 매번 프레임 전체를 다시 그린다 — 입력이 씹히는 원인이다. 프레임당 1회로 묶는다.
+  _scheduleMobileFit(){
+    if(this._mFitRaf) return;
+    this._mFitRaf=requestAnimationFrame(()=>{
+      this._mFitRaf=null;
+      for(const p of this.tools.values()){if(p.el.classList.contains('vis'))p.doFit()}
+    });
+  },
+
+  _mobileVvApply(){
+    const vv=window.visualViewport;
+    if(!vv) return;
+    const bar=document.getElementById('mobile-keybar');
+    const kbH_PX=()=>{
+      const v=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--m-kb-h'));
+      return isFinite(v)?v:38;
+    };
+    if(!this.isMobile){
+      document.body.classList.remove('keyboard-up');
+      document.body.style.paddingTop='';
+      document.body.style.paddingBottom='';
+      if(bar) bar.style.bottom='';
+      this._mKbH=null;this._mKbOff=null;
+      this._scheduleMobileFit();
+      return;
+    }
+    // FR-MKV-3: layout viewport 가 키보드만큼 함께 줄어드는 환경
+    // (interactive-widget=resizes-content 를 지원하는 Chromium·Firefox)에서는
+    // innerHeight 도 줄어 kbH 가 0 에 수렴하므로 이 보정이 스스로 비활성된다.
+    // 엔진 판별을 하지 않는 이유다. WebKit 은 그 키를 무시하므로 여기가 유일한 수단이다.
+    const kbH=Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    const off=vv.offsetTop;
+    const isUp=kbH > MOBILE_KB_UP_PX;
+    // FR-MTI-13: 잡음 수준의 변화로는 레이아웃도 fit 도 건드리지 않는다.
+    if(document.body.classList.contains('keyboard-up')===isUp
+       && typeof this._mKbH==='number' && Math.abs(kbH-this._mKbH)<MTI_KB_EPS_PX
+       && typeof this._mKbOff==='number' && Math.abs(off-this._mKbOff)<MTI_KB_EPS_PX) return;
+    this._mKbH=kbH;this._mKbOff=off;
+    document.body.classList.toggle('keyboard-up', isUp);
+    if(isUp){
+      if(bar) bar.style.bottom = kbH + 'px';
+      // FR-MKV-4: WebKit 은 포커스된 요소를 드러내려 visual viewport 를 위로
+      // 스크롤한다. 그 스크롤은 overflow:hidden 으로 막을 수 없고 레이아웃은
+      // layout viewport 좌표계에 그대로 남으므로, 상쇄하지 않으면 화면 상단
+      // (topbar)이 가시 영역 밖으로 밀린다.
+      //
+      // padding-top 으로 상쇄하면 body 의 content box 가
+      // [offsetTop, innerHeight-kbH-키바높이] 로 내려앉아 가시 영역 안에 정확히
+      // 들어간다. kbH 는 이미 offsetTop 을 뺀 값이므로 padding-bottom 계산은
+      // 바뀌지 않고, 키바(position:fixed, bottom:kbH)와도 틈 없이 맞물린다.
+      //
+      // transform 이 아니라 padding 인 이유: transform 은 fixed 자손의 컨테이닝
+      // 블록을 만들어 키바의 bottom 기준을 layout viewport 에서 #app 으로 바꾼다.
+      document.body.style.paddingTop = off + 'px';
+      document.body.style.paddingBottom = (kbH + kbH_PX()) + 'px';
+    }else{
+      if(bar) bar.style.bottom = '';
+      document.body.style.paddingTop = '';
+      document.body.style.paddingBottom = '';
+    }
+    this._scheduleMobileFit();
+  },
+
+  _mkbRefresh(){
+    document.querySelectorAll('#mobile-keybar .mkb-btn[data-mod]').forEach(b=>{
+      const m=b.dataset.mod, st=this._modKbd&&this._modKbd[m];
+      b.classList.toggle('sticky', st===true);
+      b.classList.toggle('locked', st==='lock');
+    });
   },
 });

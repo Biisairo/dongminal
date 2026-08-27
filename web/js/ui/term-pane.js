@@ -55,28 +55,7 @@ class TerminalTool {
       if(e.ctrlKey&&!e.metaKey) e.preventDefault();
     });
     this.term.onData(d=>{
-      let out=d;
-      // Apply mobile sticky modifier (Ctrl/Alt) to virtual-keyboard input
-      const A=window.app;
-      if(A && A.isMobile && A._modKbd && out.length===1){
-        const mk=A._modKbd;
-        const c=out.charCodeAt(0);
-        if(mk.ctrl && c>=0x40 && c<=0x7e) out=String.fromCharCode(c & 0x1f);
-        if(mk.alt) out='\x1b'+out;
-        let changed=false;
-        if(mk.ctrl===true){mk.ctrl=false;changed=true}
-        if(mk.alt===true){mk.alt=false;changed=true}
-        if(changed){
-          document.querySelectorAll('#mobile-keybar .mkb-btn[data-mod]').forEach(b=>{
-            const mm=b.dataset.mod, st=mk[mm];
-            b.classList.toggle('sticky', st===true);
-            b.classList.toggle('locked', st==='lock');
-          });
-        }
-      }
-      const b=enc.encode(out);
-      const m=new Uint8Array(1+b.length);m[0]=OP.INPUT;m.set(b,1);
-      this._send(m);
+      this._sendText(this._applyStickyMods(d));
     });
     this.term.onResize(({cols,rows})=>{
       // Only the OS-focused window that owns the pane's window may send resize.
@@ -86,10 +65,156 @@ class TerminalTool {
       new DataView(m.buffer).setUint16(3,rows,false);
       this._send(m);
     });
+    // FR-MTI-1: 모바일 소프트 키보드 입력을 xterm 의 CompositionHelper 경로에서
+    // 떼어낸다. 그 경로는 setTimeout(0) 뒤에 누적된 textarea 값을 diff 하므로,
+    // 같은 tick 에 두 글자가 오면 중복 전송하고(a,b,c → "abc","bc","c"),
+    // Enter 가 textarea 를 비우면 직전 글자를 잃는다. beforeinput 을 취소하면
+    // textarea 값이 변하지 않아 그 diff 가 항상 빈 값이 된다.
+    const ta=this.box.querySelector('.xterm-helper-textarea');
+    if(ta){
+      // FR-MTI-19: 물리 키보드로 들어온 키는 xterm 이 이미 전송한다. 그 키에
+      // 딸린 beforeinput 까지 우리가 보내면 글자가 두 번 들어간다. 두 신호로
+      // 판정한다 — 둘 중 하나만으로는 새지 않는 경로가 남는다:
+      //   · keydown 이 preventDefault 됐다 → xterm 이 _keyDown 에서 전송했다
+      //   · keypress 가 왔다 → xterm 이 _keyPress 에서 전송했다. Space 가 이
+      //     경로이며 preventDefault 를 하지 않아 beforeinput 이 그대로 온다
+      // 소프트 키보드는 keypress 를 내지 않으므로 두 경로가 정확히 갈린다.
+      ta.addEventListener('keydown',e=>{this._xtHandledKey=e.defaultPrevented},false);
+      ta.addEventListener('keypress',()=>{this._xtHandledKey=true},false);
+      ta.addEventListener('keyup',()=>{this._xtHandledKey=false},false);
+      ta.addEventListener('beforeinput',e=>this._onBeforeInput(e),true);
+    }
+    this._initTouchScroll();
     try{this.fit.fit()}catch{}
     for(const d of this._buf) try{this.term.write(d)}catch{}
     this._buf=[];
     if(this.term) this.term.scrollToBottom();
+  }
+
+  // ── 입력 (MOBILE_TUI_INPUT_SCROLL_SRS §3.1 / §3.5) ──
+
+  _sendText(s){
+    if(!s) return;
+    const b=enc.encode(s);
+    const m=new Uint8Array(1+b.length);m[0]=OP.INPUT;m.set(b,1);
+    this._send(m);
+  }
+
+  // FR-MTI-15~17: sticky 는 입력 길이와 무관하게 첫 코드포인트로 판정하고,
+  // 대상이 아니어도 소비한다 — 잔존하면 다음 입력을 오염시킨다.
+  _applyStickyMods(s){
+    const A=window.app;
+    if(!(A && A.isMobile && A._modKbd)) return s;
+    const mk=A._modKbd;
+    if(!mk.ctrl && !mk.alt) return s;
+    let out=s;
+    const c=out.codePointAt(0);
+    if(mk.ctrl && c>=0x40 && c<=0x7e) out=String.fromCharCode(c & 0x1f)+out.slice(1);
+    if(mk.alt && c>=0x20 && c<=0x7e) out='\x1b'+out;
+    let changed=false;
+    if(mk.ctrl===true){mk.ctrl=false;changed=true}
+    if(mk.alt===true){mk.alt=false;changed=true}
+    if(changed && A._mkbRefresh) A._mkbRefresh();
+    return out;
+  }
+
+  _onBeforeInput(e){
+    const handled=this._xtHandledKey;
+    this._xtHandledKey=false;                     // 일회 소비
+    const A=window.app;
+    if(!A || !A.isMobile) return;                 // FR-MTI-4
+    if(e.inputType!=='insertText') return;        // FR-MTI-3
+    if(e.isComposing) return;                     // FR-MTI-2
+    if(handled) return;                           // FR-MTI-19
+    if(!e.data) return;
+    e.preventDefault();
+    this._sendText(this._applyStickyMods(e.data));
+  }
+
+  // ── 터치 스크롤 (MOBILE_TUI_INPUT_SCROLL_SRS §3.2) ──
+
+  // FR-MTI-8: capture 단계에서 가로채 xterm 의 1:1 터치 경로와 선택 경로에
+  // 도달하지 않게 한다. xterm 쪽은 감도 배율도 관성도 없다.
+  _initTouchScroll(){
+    const opt={capture:true,passive:false};
+    this.el.addEventListener('touchstart',e=>this._tsStart(e),opt);
+    this.el.addEventListener('touchmove',e=>this._tsMove(e),opt);
+    this.el.addEventListener('touchend',e=>this._tsEnd(e),opt);
+    this.el.addEventListener('touchcancel',e=>this._tsEnd(e),opt);
+  }
+
+  _tsMobile(){return !!(window.app && window.app.isMobile)}
+
+  _tsStart(e){
+    this._flingStop();
+    this._tsY0=null;
+    if(!this._tsMobile()) return;
+    if(!e.touches || e.touches.length!==1) return;
+    this._tsY0=e.touches[0].clientY;
+    this._tsY=this._tsY0;
+    this._tsActive=false;this._tsResid=0;this._tsV=0;
+  }
+
+  _tsMove(e){
+    if(this._tsY0===null||this._tsY0===undefined) return;
+    if(!this._tsMobile()) return;
+    if(!e.touches || e.touches.length!==1) return;
+    const y=e.touches[0].clientY;
+    if(!this._tsActive){
+      // FR-MTI-9: slop 이내는 탭이다 — 그대로 통과시켜 포커스·선택을 남긴다.
+      if(Math.abs(y-this._tsY0)<MTI_TOUCH_SLOP_PX) return;
+      this._tsActive=true;
+      this._tsY=y;   // slop 소진분은 버린다. 시작이 튀지 않는다
+    }
+    const dy=this._tsY-y;
+    this._tsY=y;this._tsV=dy;
+    e.preventDefault();e.stopPropagation();
+    this._touchScrollBy(dy*MTI_TOUCH_GAIN);
+  }
+
+  _tsEnd(e){
+    const wasActive=this._tsActive;
+    this._tsY0=null;this._tsActive=false;
+    if(!wasActive) return;
+    e.preventDefault();e.stopPropagation();
+    // FR-MTI-7: 마지막 관측 속도에서 시작해 프레임마다 감쇠한다.
+    let v=this._tsV*MTI_TOUCH_GAIN;
+    if(Math.abs(v)>MTI_FLING_MAX_V) v=v<0?-MTI_FLING_MAX_V:MTI_FLING_MAX_V;
+    if(Math.abs(v)<MTI_FLING_MIN_V) return;
+    const step=()=>{
+      this._flingId=null;
+      this._touchScrollBy(v);
+      v*=MTI_FLING_DECAY;
+      if(Math.abs(v)<MTI_FLING_MIN_V) return;
+      this._flingId=requestAnimationFrame(step);
+    };
+    this._flingId=requestAnimationFrame(step);
+  }
+
+  _flingStop(){
+    if(this._flingId){cancelAnimationFrame(this._flingId);this._flingId=null}
+  }
+
+  _rowHeightPx(){
+    const sc=this.el.querySelector('.xterm-screen');
+    if(sc && this.term && this.term.rows>0){
+      const h=sc.clientHeight/this.term.rows;
+      if(h>0) return h;
+    }
+    return 0;
+  }
+
+  // FR-MTI-10: scrollLines 로 ydisp 와 DOM scrollTop 을 함께 움직이고,
+  // 행에 못 미친 픽셀은 누적해 다음 이동에서 쓴다.
+  _touchScrollBy(px){
+    if(!this.term) return;
+    const rowH=this._rowHeightPx();
+    if(!(rowH>0)) return;
+    this._tsResid=(this._tsResid||0)+px;
+    const lines=Math.trunc(this._tsResid/rowH);
+    if(!lines) return;
+    this._tsResid-=lines*rowH;
+    try{this.term.scrollLines(lines)}catch{}
   }
   connect() {
     const p=location.protocol==='https:'?'wss:':'ws:';
@@ -269,6 +394,7 @@ class TerminalTool {
   }
   destroy(){
     this._destroyed=true;
+    this._flingStop();
     if(this._pendingWs&&this._pendingWs!==this.ws){
       try{this._pendingWs.onopen=null;this._pendingWs.onclose=null;this._pendingWs.onerror=null;this._pendingWs.onmessage=null;this._pendingWs.close()}catch{}
       this._pendingWs=null;
