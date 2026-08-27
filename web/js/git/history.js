@@ -489,25 +489,24 @@ class GitHistory {
     const x=l=>l*W+W/2;
     const col=l=>pal[l%pal.length]||'';
     const p=[];
+    // 세그먼트의 위 끝은 이 행의 공간, 아래 끝은 다음 행의 공간이다 — 갈래가 왼쪽으로
+    // 당겨지면 그 이동을 **이 행 안에서** 이어 그린다 (FR-GIT-228·229).
+    const line=(x1,y1,x2,y2,c)=>x1===x2
+      ?'<line class="git-lane-line" x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+
+        '" stroke="'+c+'"/>'
+      :'<path class="git-lane-line" fill="none" d="M'+x1+' '+y1+' C'+x1+' '+y2+' '+
+        x2+' '+y1+' '+x2+' '+y2+'" stroke="'+c+'"/>';
     // 통과 레인은 이 행을 지나가는 선이다.
-    for(const l of row.passThrough)
-      p.push('<line class="git-lane-line" x1="'+x(l)+'" y1="0" x2="'+x(l)+'" y2="'+rowH+
-        '" stroke="'+col(l)+'"/>');
+    for(const s of row.passThrough)
+      p.push(line(x(s.top),0,x(s.bottom),rowH,col(s.color)));
     // FR-GIT-121: 어느 자식도 예약하지 않은 커밋은 위쪽 진입선을 갖지 않는다.
+    // 진입선은 위 끝과 점이 같은 공간이라 늘 곧다.
     if(!row.isNewHead)
-      p.push('<line class="git-lane-line" x1="'+x(row.lane)+'" y1="0" x2="'+x(row.lane)+
-        '" y2="'+mid+'" stroke="'+col(row.lane)+'"/>');
-    for(const pl of row.parentLanes){
-      if(pl===row.lane)
-        p.push('<line class="git-lane-line" x1="'+x(pl)+'" y1="'+mid+'" x2="'+x(pl)+
-          '" y2="'+rowH+'" stroke="'+col(pl)+'"/>');
-      else
-        p.push('<path class="git-lane-line" fill="none" d="M'+x(row.lane)+' '+mid+
-          ' C'+x(row.lane)+' '+rowH+' '+x(pl)+' '+mid+' '+x(pl)+' '+rowH+
-          '" stroke="'+col(pl)+'"/>');
-    }
+      p.push(line(x(row.lane),0,x(row.lane),mid,col(row.color)));
+    for(const pl of row.parentLanes)
+      p.push(line(x(row.lane),mid,x(pl.col),rowH,col(pl.color)));
     p.push('<circle class="git-lane-dot" cx="'+x(row.lane)+'" cy="'+mid+'" r="'+R+
-      '" fill="'+col(row.lane)+'"/>');
+      '" fill="'+col(row.color)+'"/>');
     // FR-GIT-120: 접힌 행에는 표식을 세운다 — 표식 없이 접으면 그래프가 조용히
     // 틀려 보인다. 색은 CSS 가 테마 변수로 준다.
     if(row.compressed)
