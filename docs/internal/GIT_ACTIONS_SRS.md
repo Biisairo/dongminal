@@ -456,6 +456,21 @@ merge·rebase·cherry-pick·revert 를 열면 **충돌로 멈춘 중간 상태**
 **남은 것은 6개 요구사항이며 전부 P2 이거나 화면이 큰 것들이다.** 접수한 말의 본체
 (브랜치·태그·커밋의 기본 동작)는 전부 섰다.
 
+## 6.2 남은 6건의 착수점과 먼저 정할 것 (다음 세션)
+
+**조사한 사실만 적는다.** 아래 "가드" 는 `core/guard.go` 의 `readCommands` /
+`core/write.go` 의 `writeCommands` 를 말하며, 지금 어디에도 없는 하위 명령은 그것을
+넓히는 결정이 먼저다 (§2.3-1: 그 목록은 한 곳이고 교집합은 비어야 한다).
+
+| # | 요구사항 | 착수점 (2026-08-27 확인) | 먼저 정할 것 |
+|---|---|---|---|
+| **276** | Blame | 조회가 없다 — `query/blame.go` 를 새로 만든다. `blame` 은 **읽기 목록에 없다**(가드 확장 필요). 대상 진입점은 이미 있다: `GIT_MENUS.file` 의 항목 하나. 큰 파일 상한·잘림은 `query/diff.go` 의 규약을 물려받으면 된다 | **어디에 그리는가.** 고정 탭은 7개이고(`GIT_VIEWS`) Blame 은 그중 어디에도 속하지 않는다 — 8번째 탭인가, Diff 탭의 모드인가, 편집기 탭의 곁인가. G9(이전 리비전 연쇄)를 이번에 넣을지도 함께 |
+| **280** | 커밋 mute · reflog 포함 | 목록 질의는 `query/log.go`, 화면 상태와 필터 바는 `history.js`(`_filters`·`_paintBar`). `reflog` 는 가드에 없다 — `log --reflog` 로 가면 넓히지 않아도 된다 | **mute 의 판정 근거.** "비-조상"을 서버가 `merge-base --is-ancestor`(이미 읽기 목록에 있다)로 답할지, 클라이언트가 레인 그래프에서 파생할지. 후자면 조회가 늘지 않는다 |
+| **282** | author override · 리포 전환 드롭다운 | 커밋 옵션은 `write.CommitOpts`(지금 Message·Amend·SignOff·NoVerify·All 뿐) + `GIT_COMMIT_OPTS`. 드롭다운의 정보원은 `app._gitRepos` 이고 헤더는 `panel.js` `_paintHead` | **author 를 어디까지 받는가.** `--author="이름 <메일>"` 한 줄인가, 이름·메일 두 필드인가. 형식이 틀리면 git 이 거부하므로 실행 전 검증 자리가 필요하다 |
+| **283** | 3-way merge editor | 충돌 파일은 `status.conflicts`, ours/theirs 는 `write/resolve.go` 가 이미 안다. Monaco 는 `panel.js` 의 diff 뷰(`GitDiffView`)가 들고 있다 | **범위.** 줄 단위 채택까지인가, 표시와 한쪽 채택(이미 있는 `resolve`)까지인가. 전자는 Monaco 위의 별도 모드가 필요하다 |
+| **284** | 인터랙티브 rebase | **주의: `core.Env` 가 `GIT_SEQUENCE_EDITOR=true` 를 박는다** (FR-GIT-252 가 `--continue` 의 매달림을 막으려고 넣었다). todo 를 우리가 편집하려면 **그 실행에서만** 다른 값을 줘야 하고, 그 자리는 `ExecWrite` 하나뿐이다 | **todo 를 누가 쓰는가.** dongminal 이 편집기 자리에 서려면 자기 자신을 `GIT_SEQUENCE_EDITOR` 로 세우는 작은 실행 파일이 필요하다 — 그 표면을 열지 여부 |
+| **285** | clone / init | `clone`·`init` 둘 다 가드에 없다. init 은 대상 디렉터리만 있으면 끝난다 | **경로를 누가 정하는가.** worktree 는 서버가 정했다(FR-WKT-13) — clone 대상도 같은 규약으로 갈지, 사용자가 절대경로를 주게 할지. **clone 은 인증에 걸린다**: FR-GIT-104 를 유지하므로 실패하면 터미널에서 실행할 명령을 보이는 것까지가 이 요구사항이다 (§1.2 의 미결과 이어진다) |
+
 ## 7. 변경 기록
 
 | 날짜 | 내용 |
