@@ -831,3 +831,5 @@ const GIT_OP_ACT_TITLE={
 const GIT_ACT_OP_ABORT='operation_abort';
 const GIT_OP_ABORT_TITLE='진행 중인 작업을 중단합니다';
 const GIT_OP_ABORT_NOTE='이 작업 중 해결한 내용이 사라집니다 — 저장소가 시작 전 상태로 돌아갑니다.';
+// 진행 중 작업 때문에 막힌 메뉴 항목의 사유 (FR-GIT-252).
+const GIT_MENU_OP_BUSY='%s — 먼저 그 작업을 끝내거나 중단하세요';

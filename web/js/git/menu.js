@@ -22,6 +22,24 @@
 function gitMenuPanel(){return (window.app&&app.gitPanel)||null}
 
 /**
+ * FR-GIT-252: 진행 중 작업이 있으면 **새 작업을 시작할 수 없다.**
+ *
+ * merge·rebase·cherry-pick·revert 가 멈춘 상태에서 또 하나를 시작하면 git 이
+ * 거부하고, 그 거부는 exit 128 의 문구로만 온다. 항목을 막되 **사유를 보인다** —
+ * 왜 못 누르는지 보이지 않으면 사용자는 고장으로 읽는다 (FR-GIT-180).
+ *
+ * 판정 근거는 관측 하나다 (`status.operation`, FR-GIT-251) — 항목마다 다시 세면
+ * 한 곳이 빠져도 조용히 지나간다.
+ */
+function gitOpBusy(){
+  const p=gitMenuPanel(); if(!p||typeof p.statusOf!=='function') return '';
+  const op=(p.statusOf()||{}).operation;
+  const kind=(op&&op.kind)||'';
+  if(!kind) return '';
+  return GIT_MENU_OP_BUSY.replace('%s',GIT_OP_LABEL[kind]||kind);
+}
+
+/**
  * FR-GIT-222: 행 더블클릭이 고르는 후보다. 순서가 우선순위이고, 비활성이 아닌
  * 첫 항목이 그 행의 기본 동작이 된다.
  *
@@ -245,3 +263,4 @@ GitMenu._cur=null;
 window.GitMenu=GitMenu;
 window.GIT_MENUS=GIT_MENUS;
 window.GIT_MENU_PRIMARY=GIT_MENU_PRIMARY;
+window.gitOpBusy=gitOpBusy;
