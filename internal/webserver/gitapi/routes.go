@@ -38,6 +38,9 @@ var routes = []route{
 	{http.MethodGet, exactPath("/api/git/commit"), (*GitServer).apiGitCommit},
 	{http.MethodGet, exactPath("/api/git/refs"), (*GitServer).apiGitRefs},
 	{http.MethodGet, exactPath("/api/git/records"), (*GitServer).apiGitRecords},
+	// FR-GIT-281: 기록 하나를 다시 실행한다. 클라이언트는 seq 만 보내고 argv 는
+	// 서버가 자기 기록에서 꺼낸다 — 문자열을 받아 실행하면 임의 명령 표면이 된다.
+	{http.MethodPost, exactPath("/api/git/records/replay"), (*GitServer).apiGitReplay},
 	{http.MethodPost, exactPath("/api/git/fetch"), (*GitServer).apiGitFetch},
 	{http.MethodPost, exactPath("/api/git/pull"), (*GitServer).apiGitPull},
 	{http.MethodPost, exactPath("/api/git/push"), (*GitServer).apiGitPush},

@@ -833,3 +833,14 @@ const GIT_OP_ABORT_TITLE='진행 중인 작업을 중단합니다';
 const GIT_OP_ABORT_NOTE='이 작업 중 해결한 내용이 사라집니다 — 저장소가 시작 전 상태로 돌아갑니다.';
 // 진행 중 작업 때문에 막힌 메뉴 항목의 사유 (FR-GIT-252).
 const GIT_MENU_OP_BUSY='%s — 먼저 그 작업을 끝내거나 중단하세요';
+
+// ── Console 의 검색·replay (GIT_ACTIONS_SRS §3.8 / FR-GIT-281) ──
+const GIT_CON_SEARCH_PH='명령·경로·오류 검색';
+const GIT_CON_REPLAY='Replay';
+const GIT_CON_REPLAY_TITLE='이 명령을 다시 실행합니다';
+// 다시 도는 것도 같은 문을 지난다 — 그래서 이 실행도 기록에 남고, 원래 것이
+// 파괴적이었으면 확인도 2단계다.
+const GIT_CON_REPLAY_NOTE='서버가 자기 기록에서 꺼낸 명령을 그대로 다시 실행합니다. 저장소 상태가 그때와 다르면 결과도 다릅니다.';
+const GIT_ACT_REPLAY='replay';
+const GIT_CON_REPLAY_FAIL='다시 실행하지 못했습니다';
+const GIT_CON_SEARCH_NONE='검색과 일치하는 기록이 없습니다';

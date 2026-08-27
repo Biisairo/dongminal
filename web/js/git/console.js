@@ -15,6 +15,7 @@ class GitConsole {
     this._el=null;
     this._recs=[];
     this._reads=false;     // 폴링까지 볼지 (기본은 쓰기·실패만)
+    this._q='';            // 텍스트 검색 (FR-GIT-281)
     this._open=new Set();  // 펼친 행의 seq
     this._err='';
     this._seq=0;           // 요청 일련번호. stale 응답을 버린다 (FR-GIT-54)
@@ -29,6 +30,7 @@ class GitConsole {
     el.innerHTML=
       '<div class="git-con-bar">'+
         '<label class="git-con-reads"><input type="checkbox"><span></span></label>'+
+        '<input class="git-con-search" type="search">'+
         '<span class="git-con-spacer"></span>'+
         '<span class="git-con-count"></span>'+
         '<button class="git-con-refresh"></button>'+
@@ -41,6 +43,11 @@ class GitConsole {
       this._paintList();
       this.reload();
     });
+    const q=el.querySelector('.git-con-search');
+    q.placeholder=GIT_CON_SEARCH_PH;
+    // 검색은 **이미 받은 기록 안에서** 거른다 — 서버로 질의를 보내지 않는다.
+    // 버퍼가 유한하므로(FR-GIT-5) 그 안이 곧 전부다.
+    q.addEventListener('input',ev=>{this._q=ev.target.value||'';this._paintList()});
     el.querySelector('.git-con-refresh').addEventListener('click',()=>this.reload());
     this.reload();
   }
@@ -101,8 +108,14 @@ class GitConsole {
   // 기본은 쓰기와 실패만이다. 실패는 읽기라도 감추지 않는다 — 사용자가 Console 을
   // 여는 이유가 대개 그것이다.
   _visible(){
-    if(this._reads) return this._recs;
-    return this._recs.filter(r=>r.write||r.exitCode!==0||r.err);
+    const base=this._reads?this._recs:this._recs.filter(r=>r.write||r.exitCode!==0||r.err);
+    const q=this._q.trim().toLowerCase();
+    if(!q) return base;
+    // 보이는 값 전부를 대상으로 한다 — 사용자가 Console 을 여는 이유는 대개
+    // "그 명령"이나 "그 오류"를 찾는 것이다.
+    return base.filter(r=>[
+      'git '+(r.argv||[]).join(' '),r.cwd||'',r.stderr||'',r.err||'',
+    ].join('\n').toLowerCase().indexOf(q)>=0);
   }
 
   /**
@@ -125,7 +138,7 @@ class GitConsole {
     const recs=this._visible();
     if(cnt) cnt.textContent=recs.length?String(recs.length):'';
     // 근거는 화면이 읽는 값 전부다 (FR-RPT-2) — 사유·빈 사유의 종류·기록·펼침 상태.
-    const sig=JSON.stringify([this._err||'',this._reads?1:0,
+    const sig=JSON.stringify([this._err||'',this._reads?1:0,this._q,
       recs.map(r=>[r.seq,r.argv,r.exitCode,r.err||'',r.durationMs,r.write?1:0,
                    r.destructive?1:0,r.atUnixMs,r.cwd||'',r.stderr||'',
                    this._open.has(r.seq)?1:0])]);
@@ -140,7 +153,8 @@ class GitConsole {
     }
     if(!recs.length){
       const d=document.createElement('div'); d.className='git-con-note';
-      d.textContent=this._reads?GIT_CON_EMPTY_READS:GIT_CON_EMPTY;
+      d.textContent=this._q.trim()?GIT_CON_SEARCH_NONE
+        :(this._reads?GIT_CON_EMPTY_READS:GIT_CON_EMPTY);
       list.appendChild(d); return;
     }
     const frag=document.createDocumentFragment();
@@ -171,9 +185,14 @@ class GitConsole {
     dur.textContent=rec.durationMs+'ms';
     const ex=document.createElement('span'); ex.className='git-con-exit';
     ex.textContent=failed?'exit '+rec.exitCode:'';
+    // FR-GIT-281: 같은 명령을 다시 돌린다. **클릭이 행으로 올라가지 않는다** —
+    // 올라가면 상세가 여닫혀 목록이 다시 그려지고 버튼이 사라진다.
+    const rp=document.createElement('button'); rp.className='git-con-replay';
+    rp.textContent=GIT_CON_REPLAY; rp.title=GIT_CON_REPLAY_TITLE;
+    rp.addEventListener('click',ev=>{ev.stopPropagation();this._replay(rec)});
 
     row.appendChild(t); row.appendChild(a); row.appendChild(b);
-    row.appendChild(dur); row.appendChild(ex);
+    row.appendChild(dur); row.appendChild(ex); row.appendChild(rp);
     row.addEventListener('click',()=>{
       if(this._open.has(rec.seq)) this._open.delete(rec.seq); else this._open.add(rec.seq);
       this._paintList();
@@ -192,6 +211,40 @@ class GitConsole {
       p.textContent=msg; d.appendChild(p);
     }
     frag.appendChild(d);
+  }
+
+  /**
+   * replay (FR-GIT-281).
+   *
+   * **argv 를 보내지 않는다** — `seq` 만 보내고 서버가 자기 기록에서 꺼낸다. 쓰기
+   * 기록은 확인을 거치며, 원래가 파괴적이었으면 2단계다. 읽기는 저장소를 바꾸지
+   * 않으므로 그대로 돈다.
+   */
+  _replay(rec){
+    if(!rec||!rec.seq) return;
+    if(!rec.write) return this._postReplay(rec);
+    return GitDialog.confirm({
+      action:GIT_ACT_REPLAY,title:GIT_CON_REPLAY_TITLE,
+      targets:['git '+(rec.argv||[]).join(' ')],
+      hint:{note:GIT_CON_REPLAY_NOTE,
+        command:'git -C '+gitShQuote(rec.cwd||'')+' '+(rec.argv||[]).join(' ')},
+      stages:rec.destructive?2:1,
+      run:async()=>{
+        const res=await this._postReplay(rec);
+        if(res.ok) return {ok:true};
+        return {ok:false,reason:this.panel.writeReason(res),
+          stderrTail:(res.data&&res.data.message)||''};
+      },
+    });
+  }
+
+  async _postReplay(rec){
+    const res=await this.panel.post('/api/git/records/replay',
+      {repo:this.panel.repo,seq:rec.seq,confirm:!!rec.write});
+    // 방금 실행한 것이 목록 맨 위에 있어야 한다 (FR-GIT-218) — panel.post 가 이미
+    // reload 를 부르지만, 상태도 함께 갱신한다.
+    if(res.ok) this.panel.adopt(res.data);
+    return res;
   }
 
   static time(ms){

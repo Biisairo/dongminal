@@ -138,3 +138,67 @@ test.describe('묶음 Q — Console 탭', () => {
     }, { timeout: 15000 }).toBe(false);
   });
 });
+
+// ── GIT_ACTIONS_SRS §3.8 / FR-GIT-281 (V207 의 Console 부분) ──
+//
+// 검색과 replay. **replay 의 핵심은 argv 를 클라이언트가 보내지 않는다는 것**이며,
+// 그 사실은 Go 단위(handlers_git_replay_test.go)가 지킨다 — 여기서는 화면이 그
+// 경로를 실제로 태우는지 본다.
+test.describe('묶음 H — Console 의 검색·replay (FR-GIT-281)', () => {
+  const search = (page: Page) => con(page).locator('.git-con-search');
+
+  test('K10 (FR-GIT-281): 검색이 이미 받은 기록을 거른다 — 일치가 없으면 그 사실을 말한다', async ({ page }) => {
+    const repo = copyFx('basic', 'k10');
+    await waitForInit(page);
+    await openConsole(page, repo);
+    // 읽기까지 보이게 해 거를 것을 충분히 만든다.
+    await con(page).locator('.git-con-reads input').check();
+    await expect.poll(() => rows(page).count(), { timeout: 15000 }).toBeGreaterThan(0);
+
+    const all = await argvs(page);
+    const token = (all.find((s) => s.includes('status')) || all[0]).split(' ')[1];
+    await search(page).fill(token);
+    await expect.poll(async () => {
+      const shown = await argvs(page);
+      return shown.length > 0 && shown.every((s) => s.includes(token));
+    }, { timeout: 10000 }).toBe(true);
+
+    // 없는 것을 찾으면 빈 목록이 아니라 **사유**가 뜬다.
+    await search(page).fill('zzz-없는명령-zzz');
+    await expect(rows(page)).toHaveCount(0, { timeout: 10000 });
+    await expect(con(page).locator('.git-con-note')).toBeVisible();
+
+    // 지우면 돌아온다 — 거르기는 화면 상태이지 데이터가 아니다.
+    await search(page).fill('');
+    await expect.poll(() => rows(page).count(), { timeout: 10000 }).toBeGreaterThan(0);
+  });
+
+  test('K11 (FR-GIT-281·89): 쓰기 기록의 replay 는 확인을 거치고 같은 명령을 다시 남긴다', async ({ page }) => {
+    const repo = copyFx('basic', 'k11');
+    await waitForInit(page);
+    await openGit(page, repo);
+    // 쓰기를 하나 만든다 — 스테이지는 파괴적이 아니므로 확인은 1단계다.
+    await page.evaluate(async (r) => {
+      await (window as any).app.gitPanel.post('/api/git/stage',
+        { repo: r, paths: ['tracked.txt'] });
+    }, repo);
+    await tab(page, 'console').click();
+    await expect(con(page)).toHaveClass(/vis/);
+
+    const row = rows(page).filter({ hasText: 'add' }).first();
+    await expect(row, '쓰기 기록이 안 보인다').toBeVisible({ timeout: 15000 });
+    const before = (await argvs(page)).filter((s) => s.includes('add')).length;
+
+    await row.hover();
+    await row.locator('.git-con-replay').click();
+    // 쓰기이므로 확인을 거친다 (파괴적이 아니라 1단계).
+    await expect(page.locator('#git-confirm .gc-box')).toBeVisible({ timeout: 10000 });
+    await page.locator('#git-confirm .gc-go').click();
+    await expect(page.locator('#git-confirm'), '성공했는데 확인 상자가 안 닫혔다')
+      .toHaveCount(0, { timeout: 15000 });
+
+    // 다시 실행된 것도 기록에 남는다 — 같은 문을 지났다는 증거다.
+    await expect.poll(async () => (await argvs(page)).filter((s) => s.includes('add')).length,
+      { timeout: 15000 }).toBeGreaterThan(before);
+  });
+});
