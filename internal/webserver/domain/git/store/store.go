@@ -243,10 +243,18 @@ func (st *Store) observe(ctx context.Context, repo string) (Observation, error) 
 	if err != nil {
 		return Observation{}, err
 	}
-	sig, err := st.Signature(ctx, repo)
+	gitDir, commonDir, err := st.gitDirs(ctx, repo)
 	if err != nil {
 		return Observation{}, err
 	}
+	sig, err := query.ReadSignature(gitDir, commonDir)
+	if err != nil {
+		return Observation{}, err
+	}
+	// FR-GIT-251: 진행 중 작업은 gitdir 안의 표식이 답한다 — stat 몇 번이라 여기서
+	// 채우는 것이 사실상 무료다. status 안에서 채우면 rev-parse 가 폴링마다 한 번씩
+	// 더 돌고, 그 값은 이미 캐시돼 있다.
+	status.Operation = query.DetectOperation(gitDir)
 	return Observation{Status: status, Signature: sig, ObservedAtUnixMs: st.now().UnixMilli()}, nil
 }
 

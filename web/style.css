@@ -660,7 +660,7 @@ body.mobile .sb-title{padding:14px 14px 8px}
    스크롤되면 이 요구사항은 실패다. */
 .git-view.git-changes{overflow:hidden}
 .git-view.git-changes.vis{display:flex;flex-direction:column}
-.git-head,.git-commit,.git-stale-note,.git-partial-note{flex:0 0 auto}
+.git-head,.git-commit,.git-stale-note,.git-partial-note,.git-op-bar{flex:0 0 auto}
 .git-changes-body{flex:1 1 auto;min-height:0;display:flex}
 
 .git-head{
@@ -953,6 +953,30 @@ body.mobile .sb-title{padding:14px 14px 8px}
 }
 
 /* 오류·진행 상황은 목록을 지우지 않고 한 줄로 알린다 (§3.7) */
+/* 진행 중 작업 (FR-GIT-252). 상태만 보이고 출구가 없으면 사용자가 갇힌다 —
+   그래서 사유와 버튼이 **같은 줄**에 있다. 색은 테마 변수에서 파생한다. */
+.git-op-bar{
+  display:none;align-items:center;gap:8px;padding:4px 10px;font-size:11px;
+  color:var(--attn);background:var(--attn-subtle);
+  border-bottom:1px solid var(--border);
+}
+.git-op-bar.vis{display:flex}
+.git-op-kind{font-weight:500;white-space:nowrap}
+.git-op-at{color:var(--text-muted);font-family:monospace;white-space:nowrap}
+.git-op-spacer{flex:1 1 auto}
+.git-op-act{
+  display:none;font:inherit;font-size:11px;padding:0 8px;min-height:var(--git-btn-h);
+  cursor:pointer;white-space:nowrap;
+  background:transparent;color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-op-act.vis{display:inline-block}
+.git-op-act:hover{color:var(--text-bright);border-color:var(--accent)}
+/* 중단은 되돌릴 수 없다 — 파괴적인 것은 색으로도 구분한다 (.git-wt-act 의 remove 와
+   같은 어휘다. 새 토큰을 만들지 않는다). */
+.git-op-act[data-act="abort"]{color:var(--danger)}
+.git-op-act[data-act="abort"]:hover{color:var(--danger);border-color:var(--danger)}
+
 .git-stale-note{display:none;padding:3px 10px;font-size:11px;color:var(--attn);background:var(--attn-subtle)}
 .git-stale-note.vis{display:block}
 .git-stale-note.loading{color:var(--text-muted);background:transparent}

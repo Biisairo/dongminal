@@ -5,6 +5,7 @@ import (
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/query"
+	"dongminal/internal/webserver/domain/git/write"
 )
 
 // /api/git/{preflight,policy,recovery} — 안전 정책 표면 (GIT_SRS §3A.3
@@ -44,7 +45,16 @@ func (s *GitServer) apiGitPolicy(w http.ResponseWriter, r *http.Request) {
 		gitUnavailable(w)
 		return
 	}
-	gitJSON(w, http.StatusOK, map[string]any{"destructive": core.DestructiveActions})
+	// FR-GIT-252: 진행 중 작업의 **출구 목록도 서버가 권위다.** 클라이언트가 이것을
+	// 복제하면 merge 에 없는 `skip` 버튼이 생기고, 눌리면 exit 128 로만 실패한다.
+	ops := map[string][]string{}
+	for _, k := range []string{query.OpMerge, query.OpRebase, query.OpCherryPick, query.OpRevert} {
+		ops[k] = write.OperationActions(k)
+	}
+	gitJSON(w, http.StatusOK, map[string]any{
+		"destructive": core.DestructiveActions,
+		"operations":  ops,
+	})
 }
 
 // GET /api/git/recovery — 세션 동안 기록된 recovery hint (FR-GIT-92·93).

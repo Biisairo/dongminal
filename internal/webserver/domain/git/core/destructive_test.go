@@ -15,6 +15,8 @@ func TestDestructiveActions_CoversFR89(t *testing.T) {
 		// FR-GIT-224: 충돌 파일을 한쪽으로 덮는다 — 워킹 트리의 손대던 내용을
 		// 잃고 되살릴 값이 없다.
 		ActionResolveSide,
+		// FR-GIT-250.1 (GIT_ACTIONS_SRS): 동작 표면 완성판이 여는 것들.
+		ActionRebase, ActionCommitDrop, ActionCleanUntracked, ActionOperationAbort,
 	}
 	if len(DestructiveActions) != len(want) {
 		t.Fatalf("DestructiveActions = %v, want %v", DestructiveActions, want)

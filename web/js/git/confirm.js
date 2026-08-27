@@ -65,12 +65,31 @@ class GitConfirm {
    * 사라진다. 기본은 항상 안전한 쪽이다 (FR-GIT-97).
    */
   static async destructive(action){
+    const p=await GitConfirm.policy();
+    // 받지 못했으면 **파괴적으로 본다** — 모르는 것을 확인 없이 지나보내지 않는다.
+    return p?p.destructive.has(action):true;
+  }
+
+  /**
+   * FR-GIT-252: 진행 중 작업의 **출구 목록도 같은 자리에서 온다.** 클라이언트가
+   * 복제하면 merge 에 없는 `skip` 버튼이 생기고, 눌리면 exit 128 로만 실패한다.
+   * 모르면 **빈 목록**이다 — 없는 버튼을 그리는 것보다 안 그리는 쪽이 안전하다.
+   */
+  static async operations(kind){
+    const p=await GitConfirm.policy();
+    const list=p&&p.operations&&p.operations[kind];
+    return Array.isArray(list)?list:[];
+  }
+
+  // 정책 한 벌을 캐시한다. 실패는 캐시하지 않는다 — 한 번 튀었다고 세션 내내
+  // 정책 없이 돌면 확인 절차가 조용히 약해진다.
+  static async policy(){
     if(!GitConfirm._policy){
       if(!GitConfirm._policyP) GitConfirm._policyP=GitConfirm._fetchPolicy();
       GitConfirm._policy=await GitConfirm._policyP;
       GitConfirm._policyP=null;
     }
-    return GitConfirm._policy?GitConfirm._policy.has(action):true;
+    return GitConfirm._policy;
   }
 
   static async _fetchPolicy(){
@@ -78,7 +97,11 @@ class GitConfirm {
     try{r=await fetch('/api/git/policy')}catch{return null}
     if(!r.ok) return null;
     try{d=await r.json()}catch{return null}
-    return Array.isArray(d&&d.destructive)?new Set(d.destructive):null;
+    if(!d||!Array.isArray(d.destructive)) return null;
+    return {
+      destructive:new Set(d.destructive),
+      operations:(d.operations&&typeof d.operations==='object')?d.operations:{},
+    };
   }
 
   /**

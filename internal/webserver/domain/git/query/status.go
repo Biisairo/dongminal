@@ -40,6 +40,10 @@ type Status struct {
 	Untracked   []FileEntry `json:"untracked"`
 	Conflicts   []FileEntry `json:"conflicts"`
 	Total       int         `json:"total"` // **서로 다른 경로의 개수.** 배지용 (FR-GIT-14)
+	// Operation 은 충돌로 멈춘 중간 상태다 (FR-GIT-251). porcelain 은 이것을 주지
+	// 않으므로 gitdir 의 표식에서 파생하며, 관측을 만드는 자리(store.observe)가
+	// 채운다 — 여기서 채우면 status 마다 rev-parse 가 한 번씩 더 돈다.
+	Operation Operation `json:"operation"`
 }
 
 // porcelain v2 의 자리표시자와 필드 수. 숫자를 파싱 코드에 흩뿌리면 어느 레코드

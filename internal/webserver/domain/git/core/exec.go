@@ -203,6 +203,12 @@ func Env() []string {
 		// 페이저는 출력을 붙잡는다.
 		"GIT_PAGER=cat",
 		"PAGER=cat",
+		// 편집기를 기다리며 매달리지 않게 한다 (FR-GIT-252 의 `--continue` 경로).
+		// `true` 는 파일을 고치지 않고 즉시 성공하므로 git 이 준비해 둔 메시지
+		// (MERGE_MSG·rebase 의 todo)를 **그대로** 쓴다 — 사람이 없는 자리에서
+		// 편집기를 여는 것은 매달림이지 선택이 아니다.
+		"GIT_EDITOR=true",
+		"GIT_SEQUENCE_EDITOR=true",
 		// stderr 분류가 로케일에 흔들리지 않게 한다.
 		"LC_ALL=C",
 	)

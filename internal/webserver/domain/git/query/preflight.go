@@ -69,29 +69,37 @@ type Preflight struct {
 
 // inProgressChecks 는 진행 중 상태 판정이다. 하나라도 있으면 커밋을 막고, 그
 // 해소법을 함께 준다 (FR-GIT-86·88).
+//
+// **표식 이름을 여기 적지 않는다** (FR-GIT-251) — `operationMarkers` 가 그것의 유일한
+// 근거이고 여기서는 종류만 가리킨다. 두 벌로 두면 한쪽만 고쳐져, 커밋은 막히는데
+// 진행 중 표시와 출구는 안 보이는 상태가 된다.
+//
+// 여기서는 **일치하는 것을 모두** 막는다 — `DetectOperation` 이 하나만 고르는 것과
+// 다른 질문이기 때문이다: 저것은 "지금 어느 작업 중인가"(출구를 고르려고), 이것은
+// "커밋을 막을 이유 전부"(FR-GIT-88 이 사유마다 해소법을 요구한다)다.
 var inProgressChecks = []struct {
 	code   string
-	names  []string
+	kind   string
 	reason string
 	fix    string
 }{
 	{
-		BlockMergeInProgress, []string{mergeHeadFile},
+		BlockMergeInProgress, OpMerge,
 		"머지가 진행 중입니다 — 지금 커밋하면 머지 커밋이 됩니다",
 		"충돌을 해결한 뒤 커밋하거나, `git merge --abort` 로 머지를 되돌리세요",
 	},
 	{
-		BlockRebaseInProgress, []string{rebaseMergeDir, rebaseApplyDir},
+		BlockRebaseInProgress, OpRebase,
 		"리베이스가 진행 중입니다 — 이 상태의 커밋은 리베이스의 일부가 됩니다",
 		"`git rebase --continue` 로 진행하거나 `git rebase --abort` 로 되돌리세요",
 	},
 	{
-		BlockCherryPickInProgress, []string{cherryPickHeadFile},
+		BlockCherryPickInProgress, OpCherryPick,
 		"체리픽이 진행 중입니다",
 		"`git cherry-pick --continue` 로 진행하거나 `git cherry-pick --abort` 로 되돌리세요",
 	},
 	{
-		BlockRevertInProgress, []string{revertHeadFile},
+		BlockRevertInProgress, OpRevert,
 		"리버트가 진행 중입니다",
 		"`git revert --continue` 로 진행하거나 `git revert --abort` 로 되돌리세요",
 	},
@@ -122,7 +130,7 @@ func PreflightOf(s *core.Service, ctx context.Context, repo string) (Preflight, 
 		return Preflight{}, err
 	}
 	for _, c := range inProgressChecks {
-		if anyExists(gitDir, c.names) {
+		if anyExists(gitDir, markersOf(c.kind)) {
 			pf.Blocks = append(pf.Blocks, Block{Code: c.code, Reason: c.reason, Fix: c.fix})
 		}
 	}

@@ -46,6 +46,9 @@ var routes = []route{
 	{http.MethodGet, exactPath("/api/git/jobs"), (*GitServer).apiGitJobs},
 	// 묶음 N — 브랜치 (GIT_SRS FR-GIT-155~160). 목록은 /api/git/refs 가 이미
 	{http.MethodPost, exactPath("/api/git/checkout"), (*GitServer).apiGitCheckout},
+	// FR-GIT-252: 진행 중 작업의 출구(계속·건너뛰기·중단). 종류는 본문이 정한다 —
+	// 경로를 종류마다 두면 새 작업이 늘 때 라우트가 함께 늘어난다.
+	{http.MethodPost, exactPath("/api/git/operation"), (*GitServer).apiGitOperation},
 	{http.MethodPost, exactPath("/api/git/branch"), (*GitServer).apiGitBranchCreate},
 	{http.MethodGet, exactPath("/api/git/branch/validate"), (*GitServer).apiGitBranchValidate},
 	{http.MethodGet, exactPath("/api/git/stash"), (*GitServer).apiGitStashList},

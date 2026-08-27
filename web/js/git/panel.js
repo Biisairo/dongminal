@@ -257,6 +257,16 @@ class GitPanel {
         '</div>'+
         '<pre class="git-job-log"></pre>'+
       '</div>'+
+      // FR-GIT-252: 진행 중 작업과 **나갈 길**. 상태만 보이고 출구가 없으면
+      // 사용자는 GUI 안에 갇힌다.
+      '<div class="git-op-bar">'+
+        '<span class="git-op-kind"></span>'+
+        '<span class="git-op-at"></span>'+
+        '<span class="git-op-spacer"></span>'+
+        '<button class="git-op-act" data-act="'+GIT_OP_CONTINUE+'"></button>'+
+        '<button class="git-op-act" data-act="'+GIT_OP_SKIP+'"></button>'+
+        '<button class="git-op-act" data-act="'+GIT_OP_ABORT+'"></button>'+
+      '</div>'+
       '<div class="git-stale-note"></div>'+
       '<div class="git-partial-note">'+
         '<div class="git-partial-msg"></div>'+
@@ -283,6 +293,11 @@ class GitPanel {
     el.querySelector('.git-partial-close').textContent=GIT_NOTE_CLOSE;
     el.querySelector('.git-partial-close')
       .addEventListener('click',()=>{this._note=null;this._paint()});
+    for(const b of el.querySelectorAll('.git-op-act')){
+      b.textContent=GIT_OP_ACT_LABEL[b.dataset.act]||'';
+      b.title=GIT_OP_ACT_TITLE[b.dataset.act]||'';
+      b.addEventListener('click',()=>this.runOperation(b.dataset.act));
+    }
     const rf=el.querySelector('.git-head-refresh');
     rf.textContent=GIT_REFRESH_LABEL; rf.title=GIT_REFRESH_TITLE;
     rf.addEventListener('click',()=>this.refresh());
@@ -333,6 +348,7 @@ class GitPanel {
     note.classList.toggle('vis',!!note.textContent);
     // 아직 불러오는 중인 것은 오류가 아니다 — 같은 자리에 다른 색으로 알린다.
     note.classList.toggle('loading',loading);
+    this._paintOp(el,s);
     for(const g of GIT_GROUPS) this._paintGroup(el,g,(s&&s[g.key])||[]);
     this._paintMode(el);
     this._paintNote(el);
@@ -1088,6 +1104,77 @@ class GitPanel {
     this._paint();
     this.app._gitReposRefresh();
     this.app._updateStatusBar();
+  }
+
+  /**
+   * 진행 중 작업 줄 (FR-GIT-252).
+   *
+   * **출구 목록은 서버가 준다** (`/api/git/policy` 의 operations) — 여기서 복제하면
+   * merge 에 없는 Skip 이 생기고, 눌리면 exit 128 로만 실패한다. 아직 못 받았으면
+   * 버튼을 그리지 않는다: 없는 버튼을 그리는 것보다 안 그리는 쪽이 안전하다.
+   */
+  _paintOp(el,s){
+    const box=el.querySelector('.git-op-bar'); if(!box) return;
+    const op=(s&&s.operation)||null;
+    const kind=(op&&op.kind)||'';
+    box.classList.toggle('vis',!!kind);
+    box.dataset.kind=kind;
+    if(!kind) return;
+    box.querySelector('.git-op-kind').textContent=GIT_OP_LABEL[kind]||kind;
+    // 리베이스의 "몇 번째 중". 알 수 없으면 비운다 — 반쪽짜리 진행 표시는 없는
+    // 것보다 나쁘다.
+    box.querySelector('.git-op-at').textContent=(op.total>0)
+      ? GIT_OP_AT.replace('%n',String(op.at||0)).replace('%t',String(op.total)) : '';
+    const acts=this._opActions(kind);
+    for(const b of box.querySelectorAll('.git-op-act'))
+      b.classList.toggle('vis',acts.indexOf(b.dataset.act)>=0);
+  }
+
+  // 정책은 한 번만 받아 들고 있는다. 받으면 그때 다시 그린다 — 판정을 그리기에
+  // 업지 않는다 (FR-RPT-8).
+  _opActions(kind){
+    if(this._opActs) return this._opActs[kind]||[];
+    if(!this._opActsP){
+      this._opActsP=GitConfirm.policy().then(p=>{
+        this._opActs=(p&&p.operations)||{};
+        this._opActsP=null;
+        this._paint();
+      });
+    }
+    return [];
+  }
+
+  /**
+   * 출구 하나를 실행한다 (FR-GIT-252).
+   *
+   * **중단만 2단계 확인이다** — 그 작업 중 해결한 내용이 사라지고 되살릴 값이 없다.
+   * 계속·건너뛰기는 되돌릴 것이 없다. 서버도 같은 것을 요구한다(confirm) —
+   * 클라이언트만 막으면 API 직접 호출이 우회한다.
+   */
+  runOperation(action){
+    const op=(this.statusOf()||{}).operation||{};
+    const kind=op.kind||''; if(!kind) return;
+    if(action!==GIT_OP_ABORT) return this._runOp(kind,action,false);
+    return GitDialog.confirm({
+      action:GIT_ACT_OP_ABORT,title:GIT_OP_ABORT_TITLE,
+      targets:[GIT_OP_LABEL[kind]||kind],
+      hint:{note:GIT_OP_ABORT_NOTE,command:'git '+kind+' --abort'},
+      stages:2,
+      run:async()=>{
+        const res=await this._runOp(kind,action,true);
+        if(res.ok) return {ok:true};
+        return {ok:false,reason:this.writeReason(res),
+          stderrTail:(res.data&&res.data.message)||''};
+      },
+    });
+  }
+
+  async _runOp(kind,action,confirm){
+    const res=await this.post('/api/git/operation',
+      {repo:this.repo,kind,action,confirm:!!confirm});
+    if(res.ok){this._note=null; this.adopt(res.data)}
+    else this.applyWriteFail(res);
+    return res;
   }
 
   _paintNote(el){
