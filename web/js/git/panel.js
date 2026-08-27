@@ -17,6 +17,7 @@ class GitPanel {
     this._lastSig=null;  // FR-GIT-19 의 비교 대상
     this._errMsg=null;
     this._staleNote=false;
+    this._refreshing=false;       // FR-GIT-238 의 새로고침이 도는 중 (겹쳐 부르지 않는다)
     this._gitMissing=false;
     this._collapsed=new Set();    // 접힌 그룹. 뷰의 성질이라 리포 전환에도 남는다
     this._dirCollapsed=new Set(); // 접힌 트리 디렉터리 (group:path)
@@ -211,6 +212,9 @@ class GitPanel {
         '<span class="git-head-repo"></span><span class="git-head-branch"></span>'+
         '<span class="git-head-badges"></span><span class="git-head-ab"></span>'+
         '<span class="git-head-spacer"></span>'+
+        // FR-GIT-238: 새로고침. **`.git-head-remote` 밖**에 둔다 — 안에 넣으면 원격
+        // 버튼을 세는 기존 단정이 깨진다.
+        '<button class="git-head-refresh"></button>'+
         // 원격 버튼은 기본 동작만 하고 변형은 `▾` 다이얼로그에서 온다
         // (FR-GIT-98·99). 동작은 GitRemote 가 붙인다.
         '<span class="git-head-remote">'+GIT_REMOTE_KINDS.map(k=>
@@ -272,6 +276,9 @@ class GitPanel {
     el.querySelector('.git-partial-close').textContent=GIT_NOTE_CLOSE;
     el.querySelector('.git-partial-close')
       .addEventListener('click',()=>{this._note=null;this._paint()});
+    const rf=el.querySelector('.git-head-refresh');
+    rf.textContent=GIT_REFRESH_LABEL; rf.title=GIT_REFRESH_TITLE;
+    rf.addEventListener('click',()=>this.refresh());
     const files=el.querySelector('.git-files');
     for(const g of GIT_GROUPS){
       const d=document.createElement('div'); d.className='git-group'; d.dataset.group=g.key;
@@ -505,9 +512,7 @@ class GitPanel {
     const st=document.createElement('span'); st.className='git-file-st';
     st.textContent=this._stateChar(group,e);
     const p=document.createElement('span'); p.className='git-file-path';
-    // rename/copy 는 원본과 대상을 둘 다 보인다 (FR-GIT-36).
-    p.textContent=e.origPath?e.origPath+' → '+e.path
-      :(this._treeMode()?e.path.split('/').pop():e.path);
+    this._fillPath(p,e);
     d.title=(e.origPath?e.origPath+' → '+e.path:e.path)+(e.score?' ('+e.score+'%)':'')+
       (partial?' — '+GIT_PARTIAL_TITLE:'');
     d.appendChild(st); d.appendChild(p);
@@ -523,7 +528,11 @@ class GitPanel {
         : GIT_ACT_TITLE[a];
       b.addEventListener('click',ev=>{
         ev.stopPropagation();
-        this._run(a,this._rowTargets(a,group,e.path,e.origPath));
+        // FR-GIT-236: Open File 은 선택을 끌어오지 않는다 — `_rowTargets` 는 쓰기
+        // 동작의 규약이고, 그것을 그대로 쓰면 고른 수만큼 편집기 탭이 열린다.
+        this._run(a, a==='openFile'
+          ? [{group,path:e.path,origPath:e.origPath||''}]
+          : this._rowTargets(a,group,e.path,e.origPath));
       });
       acts.appendChild(b);
     }
@@ -535,6 +544,40 @@ class GitPanel {
       GitMenu.open('file',{group,path:e.path,origPath:e.origPath||''},ev);
     });
     return d;
+  }
+
+  /**
+   * FR-GIT-237: 경로 표시를 디렉터리와 파일명으로 가른다.
+   *
+   * **합쳐진 글자는 바뀌지 않는다** — 요소를 나누는 것이지 글자를 바꾸는 것이
+   * 아니다. 대비는 색과 굵기로 내고 색은 테마 변수에서 파생한다 (`style.css`).
+   */
+  _fillPath(p,e){
+    const seg=full=>{
+      const i=full.lastIndexOf('/');
+      // 디렉터리가 없는 경로는 그 요소를 **만들지 않는다** — 빈 요소가 자리를
+      // 먹으면 안 된다.
+      if(i>=0){
+        const d=document.createElement('span');
+        d.className='git-file-path-dir'; d.textContent=full.slice(0,i+1);
+        p.appendChild(d);
+      }
+      const n=document.createElement('span');
+      n.className='git-file-path-name'; n.textContent=full.slice(i+1);
+      p.appendChild(n);
+    };
+    // rename/copy 는 원본과 대상을 둘 다 보인다 (FR-GIT-36) — 같은 규칙을 두 번
+    // 적용하고 화살표만 가장 약하게 둔다. 예외를 만들지 않는다.
+    if(e.origPath){
+      seg(e.origPath);
+      const a=document.createElement('span');
+      a.className='git-file-path-arrow'; a.textContent=' → ';
+      p.appendChild(a);
+      seg(e.path);
+      return;
+    }
+    // 트리 보기는 디렉터리가 이미 행으로 갈려 있어 파일명만 남는다.
+    seg(this._treeMode()?e.path.split('/').pop():e.path);
   }
 
   // 상태문자는 xy 에서 뽑는다 — 그룹이 어느 축을 보는지가 곧 X/Y 선택이다.
@@ -861,7 +904,14 @@ class GitPanel {
   // 쓰기 한 번의 단일 경로다. 충돌 stage 의 뜻 알림과 discard 의 2단계 확인이
   // 여기서 갈린다.
   async _run(act,items){
-    if(!items.length||this._writing||!this.repo) return;
+    if(!items.length||!this.repo) return;
+    // FR-GIT-236: Open File 은 쓰기가 아니므로 진행 중인 쓰기에 막히지 않는다.
+    // 우클릭 메뉴도 이 자리를 지난다 — 두 벌로 두면 한쪽만 고쳐진다.
+    if(act==='openFile'){
+      for(const i of items) this.app._gitOpenFile(this.absPath(i));
+      return;
+    }
+    if(this._writing) return;
     if(act==='discard'){this._discard(items);return}
     if(act==='ours'||act==='theirs'){this._resolveSide(act,items);return}
     // FR-GIT-72: 충돌 파일의 stage 는 "해결됨 표시" 다. 실행 **전에** 그 뜻을
@@ -1296,6 +1346,38 @@ class GitPanel {
     document.body.appendChild(ta); ta.select();
     try{document.execCommand('copy')}catch{}
     ta.remove();
+  }
+
+  /**
+   * FR-GIT-238: 새로고침. **전부 다시 받는다** — status·History·Branches·Console 넷
+   * 이다. 어느 탭을 보고 있는지에 따라 달라지지 않는다: 같은 버튼이 늘 같은 일을
+   * 한다. `collect()` 하나로는 끝나지 않는다 — 그것은 status 만 받고 Console 을
+   * 건드리지 않는다.
+   *
+   * **자기 계기다** (FR-RPT-5). 관측 동일성 가드의 대상이 아니므로 값이 같아도 다시
+   * 받는다.
+   *
+   * 실패는 각 경로가 이미 자기 자리에 알린다 — 새 표현을 만들지 않는다. status 의
+   * 실패는 `.git-stale-note` 로 드러난다.
+   */
+  async refresh(){
+    if(this._refreshing||!this.repo) return;
+    this._refreshing=true; this._paintRefresh();
+    const jobs=[this.collect()];
+    if(this._historyView) jobs.push(this._historyView.reload());
+    if(this._branchesView) jobs.push(this._branchesView.reload());
+    if(this._consoleView) jobs.push(this._consoleView.reload());
+    // 하나가 실패해도 나머지를 기다린다 — 넷은 서로의 성공에 걸려 있지 않다.
+    await Promise.allSettled(jobs);
+    this._refreshing=false; this._paintRefresh();
+  }
+
+  // 받는 동안 진입점은 다시 눌리지 않는다 (FR-GIT-238). `_refreshing` 이 실제
+  // 방어이고 `disabled` 는 그것을 화면에 보이는 것이다.
+  _paintRefresh(){
+    const el=this._els.get('changes'); if(!el) return;
+    const b=el.querySelector('.git-head-refresh');
+    if(b) b.disabled=this._refreshing;
   }
 
   // ── 변경 감지 3계층 (FR-GIT-18~24) ──

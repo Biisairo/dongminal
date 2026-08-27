@@ -100,6 +100,8 @@ class Renderer {
   }
 
   // 행의 **보이는 값 전부**다 (FR-RPT-2) — `_rGitRepo` 가 읽는 것과 1:1 로 맞춘다.
+  // FR-GIT-239 주: 자리 칸의 유무는 `it.follow` 에서 파생하므로 이 시그니처가 이미
+  // 그것을 읽고 있다 (아래 첫 항목). 새로 읽는 값이 없어 더할 것이 없다.
   _gitRepoSig(it){
     const e=it.e,b=e.badge||{};
     return [
@@ -175,6 +177,12 @@ class Renderer {
       const x=document.createElement('span'); x.className='git-repo-x'; x.textContent='×';
       x.addEventListener('click',ev=>{ev.stopPropagation();this.app._gitUnpin(e.path)});
       d.appendChild(x);
+    }else{
+      // FR-GIT-239: follow 행은 **자리만** 잡는다. `×` 를 만들지 않는다 — follow 는
+      // 지울 수 있는 것이 아니다 (FR-GIT-193). 자리 폭은 `.git-repo-x` 와 **같은
+      // 선언에서** 받으므로 모바일에서도 어긋나지 않는다.
+      const slot=document.createElement('span'); slot.className='git-repo-xslot';
+      d.appendChild(slot);
     }
     if(e.isRepo&&path) d.addEventListener('click',()=>this.app.openGitWindow(path));
     // FR-GIT-223: 핀은 WINDOWS 목록과 **같은 제스처**로 순서를 바꾼다. follow 는

@@ -772,11 +772,26 @@ class GitHistory {
     this._ver++; this._paintRows();
   }
 
+  /**
+   * FR-GIT-238: 새로고침이 부르는 **공개** 진입점. 목록과 refs 를 함께 다시 받는다 —
+   * refs 만 받으면 커밋 목록의 HEAD 표식이 낡는다 (FR-GIT-233 과 같은 자리).
+   *
+   * `_reload` 를 밖에서 부르지 않기 위해 있다. 경계를 넘는 호출은 다음 변경에서
+   * 조용히 깨진다.
+   *
+   * **스크롤과 펼친 상세가 맨 위로 돌아간다** — "전부 다시 받는다" 의 값이며
+   * 사용자가 그것을 골랐다 (GIT_REVIEW4_SRS §3.6 결정 표).
+   */
+  reload(){
+    if(!this._el||this.panel.repo!==this._repo) return;
+    return Promise.all([this._loadRefs(),this._reload()]);
+  }
+
   // 목록을 처음부터 다시 받는다. 실패해도 이전 목록은 화면에 남는다.
   _reload(){
     this._open=null; this._detail=null; this._detailErr=null;
     this._jumped=null; this._note='';
-    this._load(false);
+    return this._load(false);
   }
 
   _applyFilters(){

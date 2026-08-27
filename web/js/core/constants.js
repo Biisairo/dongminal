@@ -112,6 +112,9 @@ const GIT_AXIS_LABEL={
 const GIT_PREVIEW_HINT='파일을 선택하세요';
 const GIT_LOADING_HINT='불러오는 중…';
 const GIT_STALE_NOTE='갱신 실패';
+// FR-GIT-238: 새로고침. 이모지를 쓰지 않는다 (FR-GIT-187·192 와 같은 어휘).
+const GIT_REFRESH_LABEL='⟳';
+const GIT_REFRESH_TITLE='새로고침 — 상태·History·Branches·Console 을 전부 다시 받는다';
 const GIT_ERR_NOT_REPO='저장소가 아닙니다';
 const GIT_ERR_GIT_MISSING='git 을 찾을 수 없습니다';
 // 파일 목록은 한 번에 다 그리지 않는다 (FR-GIT-42). 스크롤이 끝에 닿을 때마다
@@ -132,14 +135,16 @@ const GIT_TREE_PAD0=6;
 // 충돌 stage 는 "해결됨 표시" 라 한 번에 밀어 넣을 동작이 아니다 (FR-GIT-72).
 const GIT_GROUP_BULK={staged:'unstage',changes:'stage',untracked:'stage'};
 // 행 hover 버튼. 그룹이 할 수 있는 동작만 보인다 — staged 행의 `+` 는 뜻이 없다.
+// FR-GIT-236: Open File 이 먼저다 — 읽는 동작을 쓰는 동작 앞에 둔다. 되돌리기가
+// 늘 끝에 오므로 파괴적인 것이 손에서 가장 멀다.
 const GIT_ROW_ACTS={
-  staged:['unstage'], changes:['stage','discard'],
-  untracked:['stage','discard'], conflicts:['ours','theirs','stage'],
+  staged:['openFile','unstage'], changes:['openFile','stage','discard'],
+  untracked:['openFile','stage','discard'], conflicts:['openFile','ours','theirs','stage'],
 };
-const GIT_ACT_LABEL={stage:'+',unstage:'−',discard:'↺',ours:'Ours',theirs:'Theirs'};
+const GIT_ACT_LABEL={openFile:'↗',stage:'+',unstage:'−',discard:'↺',ours:'Ours',theirs:'Theirs'};
 // ours·theirs 의 툴팁은 **진행 중인 조작에 따라 달라지므로** 여기 두지 않는다 —
 // 행이 GIT_SIDE_TITLE 에서 그때 고른다 (FR-GIT-224).
-const GIT_ACT_TITLE={stage:'스테이지',unstage:'언스테이지',discard:'변경 버리기'};
+const GIT_ACT_TITLE={openFile:'파일 열기',stage:'스테이지',unstage:'언스테이지',discard:'변경 버리기'};
 const GIT_BULK_LABEL={stage:'Stage All',unstage:'Unstage All'};
 // FR-GIT-70: staged 와 unstaged 를 동시에 가진 파일. 체크박스의 indeterminate 와
 // 행 클래스 둘로 구분한다 — 색만으로는 무엇이 다른지 알 수 없다.
