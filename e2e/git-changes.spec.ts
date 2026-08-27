@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process';
 import { readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
-import { Page } from '@playwright/test';
+import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
 
@@ -362,5 +362,46 @@ test.describe('묶음 E — Changes 탭', () => {
     await openGit(page, repo);
     await expect(rows(page, 'conflicts').first()).toBeVisible({ timeout: 15000 });
     await expect(group(page, 'conflicts').locator('.git-group-bulk')).toHaveCount(0);
+  });
+});
+
+test.describe('FR-GIT-282 — 헤더의 리포 전환 드롭다운', () => {
+  // 핀은 서버가 rev-parse 로 재확인한 root 를 저장한다 (macOS 의 /tmp → /private/tmp).
+  async function pin(request: APIRequestContext, path: string) {
+    const r = await request.post('/api/git/repos/pin', { data: { path } });
+    expect(r.ok(), `pin 실패: ${await r.text()}`).toBeTruthy();
+    return (await r.json()).root as string;
+  }
+
+  test('C-RD1 (V207): 리포명을 누르면 목록이 열리고 고른 리포로 창이 바뀐다', async ({ page, request }) => {
+    // 핀은 waitForInit **뒤**다 — 브라우저의 첫 워크스페이스 저장이 앞선 핀을
+    // 덮는다 (git-sidebar.spec.ts 의 선례).
+    await waitForInit(page);
+    const basic = await pin(request, fx('basic'));
+    const other = await pin(request, fx('with-remote'));
+    // 핀은 워크스페이스 리비전을 올린다 — 브라우저가 그것을 받기 전에 창을 열면
+    // 창의 저장이 어긋난 리비전으로 나간다. 목록이 3초 폴링으로 도착한 뒤 연다.
+    await expect
+      .poll(() => page.evaluate(() => ((window as any).app._gitRepos?.pinned || []).length),
+        { timeout: 20000 })
+      .toBe(2);
+
+    await openGit(page, basic);
+    const head = changes(page).locator('.git-head');
+    await expect(head.locator('.git-head-repo')).toHaveText('basic', { timeout: 10000 });
+
+    await head.locator('.git-head-repo').click();
+    const menu = page.locator('.git-menu[data-kind="repo"]');
+    await expect(menu).toBeVisible();
+    // 핀 둘이 다 있고, 지금 보고 있는 것이 표시된다 — 표시가 없으면 사용자는
+    // 목록에서 자기 자리를 잃는다.
+    await expect(menu.locator('.git-menu-item')).toHaveCount(2);
+    await expect(menu.locator('.git-menu-item.cur')).toHaveCount(1);
+
+    await menu.locator(`.git-menu-item[data-id="${other}"]`).click();
+    await expect(head.locator('.git-head-repo')).toHaveText('with-remote', { timeout: 10000 });
+    await expect(head.locator('.git-head-repo')).toHaveAttribute('title', other);
+    // 헤더만 바뀌고 목록이 앞 리포의 것이면 사용자는 남의 변경을 자기 것으로 읽는다.
+    await expect(page.evaluate(() => (window as any).app.gitPanel.repo)).resolves.toBe(other);
   });
 });

@@ -667,7 +667,8 @@ body.mobile .sb-title{padding:14px 14px 8px}
   display:flex;align-items:center;gap:8px;padding:6px 10px;
   border-bottom:1px solid var(--border);font-size:12px;
 }
-.git-head-repo{color:var(--text-bright);font-weight:500;white-space:nowrap}
+.git-head-repo{color:var(--text-bright);font-weight:500;white-space:nowrap;cursor:pointer}
+.git-head-repo:hover{color:var(--accent)}
 .git-head-branch{color:var(--accent);white-space:nowrap}
 .git-head-badges{display:flex;gap:4px;min-width:0;overflow:hidden}
 .git-head-badge{
@@ -1113,6 +1114,8 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .git-menu-item{padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap}
 .git-menu-item:hover,.git-menu-item.active{background:var(--accent-subtle);color:var(--text-bright)}
 /* 왜 못 누르는지는 title 이 말한다 — 색만으로는 사용자가 고장으로 읽는다 */
+/* FR-GIT-282: 지금 서 있는 자리 */
+.git-menu-item.cur{color:var(--accent);font-weight:500}
 .git-menu-item.disabled{color:var(--text-dim);cursor:not-allowed}
 .git-menu-item.disabled:hover{background:transparent;color:var(--text-dim)}
 .git-menu-sep{height:1px;margin:3px 6px;background:var(--border)}

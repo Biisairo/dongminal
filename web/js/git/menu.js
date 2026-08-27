@@ -313,8 +313,18 @@ class GitMenu {
   }
 
   static open(kind,target,ev){
+    GitMenu.openList(GIT_MENUS[kind],kind,target,ev);
+  }
+
+  /**
+   * openList 는 **항목을 인자로** 받는다 — 리포 목록처럼 선언으로 고정할 수 없는
+   * 것을 위한 자리다 (FR-GIT-282).
+   *
+   * open 과 같은 _pick 을 지난다. 확인 게이트를 두 벌로 두면 한쪽만 고쳐진다.
+   */
+  static openList(items,kind,target,ev){
     GitMenu.close();
-    const items=GIT_MENUS[kind]; if(!items||!items.length) return;
+    if(!items||!items.length) return;
     const m=document.createElement('div');
     m.className='git-menu'; m.dataset.kind=kind;
     for(const it of items){
@@ -328,6 +338,11 @@ class GitMenu {
       // disabled 는 사유를 title 에 보인다 — 왜 못 누르는지 보이지 않으면
       // 사용자는 고장으로 읽는다.
       const why=it.disabled?(it.disabled(target)||''):'';
+      // 지금 서 있는 자리를 표시한다 (FR-GIT-282) — 표시가 없으면 목록이 자기
+      // 위치를 알려 주지 못한다.
+      if(it.cur) b.classList.add('cur');
+      // 툴팁은 `tip` 이다 — `title` 은 확인 다이얼로그의 제목으로 이미 쓰인다.
+      if(it.tip&&!why) b.title=it.tip;
       if(why){b.classList.add('disabled'); b.title=why}
       else b.addEventListener('click',()=>GitMenu._pick(it,target));
       m.appendChild(b);

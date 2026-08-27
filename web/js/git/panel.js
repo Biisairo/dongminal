@@ -307,6 +307,9 @@ class GitPanel {
     const rf=el.querySelector('.git-head-refresh');
     rf.textContent=GIT_REFRESH_LABEL; rf.title=GIT_REFRESH_TITLE;
     rf.addEventListener('click',()=>this.refresh());
+    // FR-GIT-282: 리포명 자체가 전환 자리다. 헤더에 새 버튼을 더하면 원격 버튼을
+    // 세는 기존 단정이 흔들린다 (.git-head-refresh 가 밖에 선 것과 같은 이유).
+    el.querySelector('.git-head-repo').addEventListener('click',ev=>this._openRepoPicker(ev));
     const files=el.querySelector('.git-files');
     for(const g of GIT_GROUPS){
       const d=document.createElement('div'); d.className='git-group'; d.dataset.group=g.key;
@@ -392,6 +395,39 @@ class GitPanel {
 
   // 그룹 (FR-GIT-34·42). 빈 그룹도 개수를 보인다 — 숨기면 "없다"와 "모른다"가
   // 같아진다.
+  /**
+   * FR-GIT-282: 지금 열 수 있는 리포를 그 자리에서 고른다.
+   *
+   * 목록은 좌측 GIT 섹션과 **같은 정보원**(`app._gitRepos`)이다 — 두 벌로 두면
+   * 사이드바에는 있는 리포가 여기에는 없는 상태가 생긴다.
+   */
+  _openRepoPicker(ev){
+    const items=this._repoChoices().map(c=>({
+      id:c.path, label:c.name, tip:c.path,
+      cur:c.path===this.repo,
+      run:()=>this.setRepo(c.path),
+    }));
+    if(!items.length) return;
+    GitMenu.openList(items,'repo',null,ev);
+  }
+
+  _repoChoices(){
+    const d=this.app._gitRepos||{};
+    const out=[],seen=new Set();
+    const name=p=>p.split('/').filter(Boolean).pop()||p;
+    const add=e=>{
+      if(!e||!e.path||!e.isRepo||seen.has(e.path)) return;
+      seen.add(e.path);
+      out.push({path:e.path,name:e.name||name(e.path)});
+    };
+    add(d.follow);
+    for(const p of d.pinned||[]) add(p);
+    // 지금 보고 있는 리포가 목록에 없으면 앞에 세운다 — 없으면 사용자는 자기가
+    // 어디에 서 있는지 목록에서 찾지 못한다.
+    if(this.repo&&!seen.has(this.repo)) out.unshift({path:this.repo,name:name(this.repo)});
+    return out;
+  }
+
   _paintGroup(el,g,entries){
     const box=el.querySelector('.git-group[data-group="'+g.key+'"]'); if(!box) return;
     box.querySelector('.git-group-count').textContent='('+entries.length+')';
