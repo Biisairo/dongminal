@@ -50,10 +50,54 @@ type Runner func(dir string, args ...string) (string, error)
 // Manager 는 $DONGMINAL_HOME/worktrees 아래만을 자기 영역으로 삼는다.
 type Manager struct {
 	root string
-	// mu 는 worktree 생성·제거를 직렬화한다 (FR-WKT-7). git worktree 는 공용
-	// common-dir 를 건드리므로 병렬 팬아웃에서 경합한다.
-	mu  sync.Mutex
-	git Runner
+	git  Runner
+}
+
+// repoLocksMu 와 repoLocks 는 worktree 생성·제거의 직렬화 단위다 (FR-WKT-7, 개정).
+//
+// **개정 사실**: 이전에는 Manager 의 인스턴스 필드(mu)가 이 자리였다. 근거는 지금도
+// 같다 — git worktree 가 저장소의 공용 common-dir 를 건드리므로 병렬 팬아웃에서
+// 경합한다. 근거는 **저장소**를 말하는데 구현은 **인스턴스**를 잠갔다 — Manager 가
+// 하나뿐이던 동안은(생성 지점이 cmd/dongminal/main.go 하나) 둘이 우연히 같았을
+// 뿐이다. I7 이 사용자 영역용 두 번째 Manager 를 두면서 그 우연이 깨진다: 두
+// 인스턴스가 같은 저장소를 대상으로 해도 각자의 mu 만 잠가 경합이 그대로 열린다
+// (D13). 그래서 잠금을 인스턴스 밖, 패키지 전역으로 옮기고 저장소 경로로 키를
+// 잡는다 — 몇 개의 Manager 가 있든 같은 저장소를 대상으로 하면 같은 잠금을 문다.
+//
+// 저장소별 잠금은 지우지 않는다. 저장소 수는 사람이 열거나 핀한 리포 수준이라
+// 무한히 늘지 않고(§ 세션당 수십 개 규모), sync.Mutex 하나(포인터+8바이트)를 그
+// 저장소가 살아있는 동안 들고 있는 비용은 무시할 만하다. TTL 이나 참조 카운팅으로
+// 정리하면 "언제 지워도 안전한가"라는 새 판단이 필요해지고, 그 판단이 틀리면 서로
+// 다른 잠금이 같은 저장소를 가리키게 된다 — 그 위험이 무한정 늘지 않는 맵을 그냥
+// 두는 비용보다 크다.
+var (
+	repoLocksMu sync.Mutex
+	repoLocks   = map[string]*sync.Mutex{}
+)
+
+// repoLock 은 정규화한 저장소 경로의 잠금을 돌려준다 (FR-WKT-7, 개정).
+//
+// **정규화는 여기서 한다** — 호출자가 Resolve 의 canonical 값을 그대로 넘긴다는
+// 관례에 기대지 않는다. Manager 가 하나뿐일 때는 인스턴스 자체가 경계였으니 이
+// 관례가 어긋날 자리가 없었지만, 둘이 되면 그 관례가 양쪽 모두에서 지켜져야 하고
+// 한쪽만 어긋나도(트레일링 슬래시 하나로도) 잠금이 조용히 갈라진다.
+//
+// filepath.Clean 만 쓴다 — symlink 는 따라가지 않는다. 심볼릭 링크를 실제로
+// 풀려면 stat 이 필요한데, 그러면 존재하지 않는 경로(테스트의 가짜 저장소,
+// Rollback 이 이미 지워진 대상을 다시 가리키는 경우)에서 판정이 흔들린다. 유일한
+// 프로덕션 호출자(httpapi)는 이미 Resolve 가 `git rev-parse --show-toplevel` 로
+// 심볼릭 링크를 푼 값을 그대로 넘기므로, 여기서는 표기 차이(트레일링 슬래시 등)만
+// 바로잡으면 충분하다.
+func repoLock(repo string) *sync.Mutex {
+	key := filepath.Clean(repo)
+	repoLocksMu.Lock()
+	defer repoLocksMu.Unlock()
+	l, ok := repoLocks[key]
+	if !ok {
+		l = &sync.Mutex{}
+		repoLocks[key] = l
+	}
+	return l
 }
 
 type Option func(*Manager)
@@ -68,11 +112,44 @@ func New(root string, opts ...Option) *Manager {
 	if abs, err := filepath.Abs(clean); err == nil {
 		clean = abs
 	}
+	// **심볼릭 링크를 여기서 푼다** (FR-WKT-13 전제, V163). `git worktree list`
+	// 는 항상 realpath 를 보고하는데, checkPath·gitUnderRoot(gitapi) 는 문자열
+	// prefix 로만 판정한다. 데이터 디렉터리 자체가 symlink 경유면(macOS
+	// `/tmp`→`/private/tmp` 등) 그 판정이 영원히 어긋난다 — 사용자 것도 Run 것도
+	// 전부 영역 밖으로 보이고, 정당한 제거가 unsafe_path 로 거부된다. **여기 한
+	// 곳에서 풀어야** Path·checkPath·gone·Root 가 전부 한 번에 맞는다 — 판정하는
+	// 자리마다 각자 풀면 한 곳이 빠질 수 있고, 그 한 곳이 보호 전체를 여는 자리가
+	// 될 수 있다.
+	clean = resolveSymlinksPrefix(clean)
 	m := &Manager{root: clean, git: execGit}
 	for _, o := range opts {
 		o(m)
 	}
 	return m
+}
+
+// resolveSymlinksPrefix 는 p 를 realpath 로 만든다. **p 자신은 아직 없을 수 있다**
+// (첫 실행 — worktrees 디렉터리는 첫 worktree 를 만들 때 비로소 생긴다,
+// Create:MkdirAll 참고). filepath.EvalSymlinks 는 없는 경로에서 실패하므로,
+// **존재하는 가장 깊은 조상까지만 풀고 나머지 조각을 그대로 이어 붙인다** — 그러면
+// 아직 없는 경로에서도 판정이 흔들리지 않는다.
+func resolveSymlinksPrefix(p string) string {
+	dir := p
+	var tail []string
+	for {
+		resolved, err := filepath.EvalSymlinks(dir)
+		if err == nil {
+			return filepath.Join(append([]string{resolved}, tail...)...)
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// 파일시스템 루트까지 왔는데도 못 풀었다 — 포기하고 원본을 돌려준다.
+			// (권한 문제 등 EvalSymlinks 가 항상 실패하는 드문 환경.)
+			return p
+		}
+		tail = append([]string{filepath.Base(dir)}, tail...)
+		dir = parent
+	}
 }
 
 func (m *Manager) Root() string { return m.root }
@@ -181,8 +258,9 @@ func (m *Manager) Create(s Spec) error {
 		return fmt.Errorf("%w: repo 가 비었다", ErrNotRepo)
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	lock := repoLock(s.Repo)
+	lock.Lock()
+	defer lock.Unlock()
 
 	if err := os.MkdirAll(filepath.Dir(s.Path), 0o755); err != nil {
 		return err
@@ -210,8 +288,9 @@ func (m *Manager) BranchExists(repo, branch string) bool {
 	if repo == "" || validRef(branch) != nil {
 		return false
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	lock := repoLock(repo)
+	lock.Lock()
+	defer lock.Unlock()
 	_, err := m.git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/"+branch)
 	return err == nil
 }
@@ -224,8 +303,9 @@ func (m *Manager) Rollback(s Spec) {
 	if m.checkPath(s.Path) != nil || strings.TrimSpace(s.Repo) == "" {
 		return
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	lock := repoLock(s.Repo)
+	lock.Lock()
+	defer lock.Unlock()
 	_, _ = m.git(s.Repo, "worktree", "remove", "--force", s.Path)
 	_, _ = m.git(s.Repo, "worktree", "prune")
 	if validRef(s.Branch) == nil {
@@ -276,8 +356,9 @@ func (m *Manager) Remove(s RemoveSpec) Result {
 		return res
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	lock := repoLock(s.Repo)
+	lock.Lock()
+	defer lock.Unlock()
 
 	if _, err := os.Stat(s.Path); errors.Is(err, os.ErrNotExist) {
 		// 경로가 이미 없다 — 등록만 남았을 수 있으므로 정리하고 성공으로 본다.
@@ -310,7 +391,8 @@ func (m *Manager) Remove(s RemoveSpec) Result {
 }
 
 // deleteBranch 는 머지된 브랜치만 지운다. 남으면 잔여물이다 — 사용자의 커밋을
-// -D 로 날리는 것보다 남기는 편이 언제나 낫다. 호출자는 m.mu 를 쥐고 있다.
+// -D 로 날리는 것보다 남기는 편이 언제나 낫다. 호출자는 repoLock(s.Repo) 를
+// 쥐고 있다 (FR-WKT-7, 개정).
 func (m *Manager) deleteBranch(s RemoveSpec, res *Result) {
 	if s.Repo == "" || validRef(s.Branch) != nil {
 		return
@@ -323,7 +405,8 @@ func (m *Manager) deleteBranch(s RemoveSpec, res *Result) {
 }
 
 // isDirty reports whether the working tree has anything a person could lose —
-// 추적되지 않는 파일도 포함한다. 호출자는 m.mu 를 쥐고 있다.
+// 추적되지 않는 파일도 포함한다. 호출자는 repoLock(path 의 repo) 를 쥐고 있다
+// (FR-WKT-7, 개정).
 func (m *Manager) isDirty(path string) (bool, error) {
 	out, err := m.git(path, "status", "--porcelain")
 	if err != nil {
@@ -333,7 +416,7 @@ func (m *Manager) isDirty(path string) (bool, error) {
 }
 
 // gone confirms the path is no longer a registered worktree AND no longer on
-// disk. 호출자는 m.mu 를 쥐고 있다.
+// disk. 호출자는 repoLock(repo) 를 쥐고 있다 (FR-WKT-7, 개정).
 func (m *Manager) gone(repo, path string) bool {
 	if _, err := os.Stat(path); err == nil {
 		return false
