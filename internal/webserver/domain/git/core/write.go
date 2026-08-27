@@ -17,8 +17,12 @@ const DefaultStderrTailLines = 200
 //
 // 두 목록의 교집합은 비어 있어야 한다. 겹치면 "어느 경로로도 실행 가능한 명령"이
 // 생겨 단일 경로가 뜻을 잃는다.
+//
+// `apply` 는 부분 스테이징이 여는 유일한 새 하위 명령이다 (FR-GIT-278). 패치는
+// **서버가 만들어 stdin 으로만** 넣는다 (D6) — 클라이언트가 만든 패치 문자열이
+// 여기 닿는 경로는 없다. 파일 인자를 받지 않으므로 임의 파일을 읽지도 않는다.
 var writeCommands = map[string]bool{
-	"add": true, "reset": true, "rm": true, "commit": true,
+	"add": true, "reset": true, "rm": true, "commit": true, "apply": true,
 	"checkout": true, "restore": true, "clean": true,
 	"stash": true, "branch": true, "tag": true,
 	"fetch": true, "pull": true, "push": true,

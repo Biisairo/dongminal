@@ -1828,3 +1828,42 @@ select:focus{border-color:var(--accent);outline:none}
 .git-dialog-row,.git-commit-amend,.git-commit-opt,.git-diff-ws{
   min-height:var(--git-row-min);display:flex;align-items:center;gap:6px;cursor:pointer;
 }
+
+/* ── 부분 스테이징 (GIT_ACTIONS_SRS §3.7 FR-GIT-278·279) ──
+   조각은 Monaco 아래 자기 자리에 선다. Monaco 는 두 모델을 그릴 뿐 hunk 의 경계를
+   모르므로, 경계 위에 서는 동작은 이 목록이 갖는다.
+   버튼·행의 치수 하한은 위의 `.git-view button` 이 이미 준다 (FR-GIT-226). */
+.git-hunks{
+  display:none;flex:0 0 auto;max-height:42%;overflow:auto;
+  border-top:var(--git-sec-divider);
+  /* 색은 여기 한 번만 둔다 — 전역 테마에 +/- 색이 없다 */
+  --git-hunk-add:#9ece6a;--git-hunk-del:var(--danger);
+}
+.git-hunks.vis{display:block}
+.git-hunk-note{padding:5px 10px;font-size:11px;color:var(--text-muted)}
+.git-hunk{border-bottom:1px solid var(--border)}
+.git-hunk-head{
+  display:flex;align-items:center;gap:6px;padding:2px 8px;font-size:11px;
+  background:var(--sidebar-bg);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:1;
+}
+.git-hunk-header{color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.git-hunk-range{color:var(--accent);flex-shrink:0}
+.git-hunk-spacer{flex:1 1 auto}
+.git-hunk-act,.git-hunk-clear{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-hunk-act:disabled{color:var(--text-dim);cursor:not-allowed}
+/* revert 는 파괴적이다 — 색으로도 그 사실이 보여야 한다 (FR-GIT-89·279) */
+.git-hunk-act[data-act="revert"]{color:var(--attn)}
+.git-hunk-body{font-family:ui-monospace,monospace;font-size:11px;line-height:1.5}
+.git-hunk-line{padding:0 10px;white-space:pre;cursor:pointer}
+.git-hunk-line.add{color:var(--git-hunk-add)}
+.git-hunk-line.del{color:var(--git-hunk-del)}
+.git-hunk-line.meta{color:var(--text-dim)}
+/* 고른 범위는 배경으로 말한다 — 글자색만 바꾸면 +/- 의 뜻과 겹친다 */
+.git-hunk-line.sel{background:var(--accent-active)}
+/* 조각 동작이 거부된 사유. 누른 자리가 Diff 탭이므로 여기 보인다 (FR-GIT-278). */
+.git-hunk-note.fail{color:var(--danger)}

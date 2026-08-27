@@ -73,6 +73,10 @@ var routes = []route{
 	{http.MethodGet, exactPath("/api/git/file-head"), (*GitServer).apiGitFileHead},
 	{http.MethodPost, exactPath("/api/git/uncommitted/reset"), (*GitServer).apiGitUncommittedReset},
 	{http.MethodPost, exactPath("/api/git/uncommitted/clean"), (*GitServer).apiGitUncommittedClean},
+	// 묶음 G — 부분 스테이징 (GIT_ACTIONS_SRS §3.7, FR-GIT-278·279). 패치는 서버가
+	// 만든다 — hunks 로 경계를 받고, patch 로는 좌표만 보낸다 (D6).
+	{http.MethodGet, exactPath("/api/git/hunks"), (*GitServer).apiGitHunks},
+	{http.MethodPost, exactPath("/api/git/patch"), (*GitServer).apiGitPatch},
 	// 묶음 W7 — Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5, FR-GIT-240~243).
 	{http.MethodGet, exactPath("/api/git/worktrees"), (*GitServer).apiGitWorktrees},
 	{http.MethodPost, exactPath("/api/git/worktrees/create"), (*GitServer).apiGitWorktreeCreate},

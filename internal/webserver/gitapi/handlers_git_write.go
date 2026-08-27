@@ -361,6 +361,11 @@ func (s *GitServer) gitApply(w http.ResponseWriter, r *http.Request, requested, 
 // 넘긴다. 잘못된 요청을 500 으로 뭉개면 클라이언트는 자기 요청이 틀렸다는 것을
 // 알 수 없다.
 func gitWriteErrorCode(err error) (int, string) {
+	// 부분 스테이징의 거부는 그 자리(handlers_git_patch.go)가 안다 — stale 을 400 으로
+	// 뭉개면 "다시 받아서 다시 고르라"는 뜻이 사라진다 (FR-GIT-278).
+	if code, name, ok := gitPatchErrorCode(err); ok {
+		return code, name
+	}
 	if errors.Is(err, core.ErrUnsafeArgument) || errors.Is(err, core.ErrWriteCommand) {
 		return http.StatusBadRequest, gitErrBadRequest
 	}

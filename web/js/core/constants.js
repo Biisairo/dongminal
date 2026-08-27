@@ -939,3 +939,49 @@ const GIT_UNC_CLEAN_TITLE='추적되지 않는 파일을 지웁니다';
 const GIT_UNC_CLEAN_NOTE='추적되지 않는 파일은 git 에 저장된 적이 없어 지운 뒤에는 되살릴 수 없습니다. 지우기 전에 아래 명령으로 담아 둘 수 있습니다.';
 const GIT_UNC_CLEAN_CMD='git stash push -u';
 const GIT_UNC_NOTHING='대상이 없습니다';
+// ── 부분 스테이징 (FR-GIT-278·279) ──
+//
+// 패치는 **서버가 만든다** (GIT_ACTIONS_SRS D6). 클라이언트는 좌표만 보낸다 —
+// (경로, 축, hunk 번호, 줄 범위, 관측 식별자). 패치 문자열을 만드는 코드가 이쪽에
+// 없어야 하고, 그래서 여기에는 라벨과 축 표만 있다.
+const GIT_PATCH_STAGE='stage';
+const GIT_PATCH_UNSTAGE='unstage';
+const GIT_PATCH_REVERT='revert';
+// 부분 스테이징이 있는 축은 둘뿐이다 — 서버가 그 둘만 받는다. 충돌·커밋 축에는
+// 방향이 정해지지 않아 조각을 넣을 수 없다.
+const GIT_HUNK_AXES=new Set([GIT_AXIS.UNSTAGED,GIT_AXIS.STAGED]);
+// 축마다 붙는 동작. **방향이 축에서 갈린다** — worktree↔index 는 올리고 버리는
+// 축이고, index↔HEAD 는 내리는 축이다.
+const GIT_HUNK_ACTS={
+  [GIT_AXIS.UNSTAGED]:[GIT_PATCH_STAGE,GIT_PATCH_REVERT],
+  [GIT_AXIS.STAGED]:[GIT_PATCH_UNSTAGE],
+};
+// 버튼은 영어다 (FR-GIT-202). 줄 범위를 골랐을 때는 라벨이 바뀐다 — 무엇에 걸리는
+// 동작인지 누르기 전에 보여야 한다.
+const GIT_HUNK_LABEL={stage:'Stage hunk',unstage:'Unstage hunk',revert:'Revert hunk'};
+const GIT_HUNK_LINE_LABEL={stage:'Stage lines',unstage:'Unstage lines',revert:'Revert lines'};
+const GIT_HUNK_TITLE={
+  stage:'이 조각만 스테이지합니다',
+  unstage:'이 조각만 스테이지에서 내립니다',
+  revert:'이 조각을 워킹 트리에서 버립니다 — 되돌릴 수 없습니다',
+};
+const GIT_HUNK_LINE_CLASS={'+':' add','-':' del',' ':'','\\':' meta'};
+const GIT_HUNK_LOADING='조각을 불러오는 중…';
+const GIT_HUNK_LOAD_FAIL='조각을 불러오지 못했습니다';
+const GIT_HUNK_NONE='이 파일에는 나눌 조각이 없습니다';
+const GIT_HUNK_HINT='줄을 누르면 범위가 잡힙니다 — Shift 로 넓히고, 같은 줄을 다시 누르면 놓습니다';
+const GIT_HUNK_SEL_LABEL='선택 ';
+const GIT_HUNK_SEL_SEP='~';
+const GIT_HUNK_CLEAR='Clear';
+const GIT_HUNK_CLEAR_TITLE='줄 선택을 지웁니다';
+const GIT_HUNK_TARGET_SEP=' · ';
+// revert 는 파괴적이다 (FR-GIT-279) — discard 와 같은 뜻이므로 그 이름을 쓴다.
+const GIT_HUNK_REVERT_TITLE='고른 줄을 워킹 트리에서 버립니다';
+// O8 의 선례: stash 를 자동 생성하지 않는다 — 실행할 명령을 보여 준다.
+const GIT_HUNK_REVERT_NOTE='버리기 전에 아래를 실행하면 파일 전체가 stash 로 남습니다 (자동 실행하지 않습니다)';
+// 부분 스테이징 고유의 거부. 목록을 두 벌 두지 않으려고 기존 표에 얹는다 —
+// 쓰기 실패의 사유를 읽는 자리는 GIT_WRITE_ERR 하나뿐이어야 한다.
+Object.assign(GIT_WRITE_ERR,{
+  stale_observation:'그 사이 파일이 바뀌었습니다 — 조각을 다시 받아 고르세요',
+  patch_empty:'고른 범위에 바뀐 줄이 없습니다',
+});

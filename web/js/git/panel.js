@@ -30,6 +30,11 @@ class GitPanel {
     this._previewView=null;       // Changes 탭 미리보기의 GitDiffView
     this._diffKey=null;           // 두 뷰에 이미 보인 대상 (재요청 방지)
     this._prevKey=null;
+    // 부분 스테이징 (FR-GIT-278·279). 조각은 서버가 만든 diff 에서 온다 — 여기서
+    // 만들지 않는다. _hunkKey 는 이미 받아 둔 대상, _hunks 는 그 관측이다.
+    this._hunkKey=null;
+    this._hunks=null;             // {diffId,list,note} 또는 {err}
+    this._hunkSel=null;           // {hunk,from,to,anchor} — 한 덩어리 안의 줄 범위
     this._diffPos=0;              // 목록에서 사라진 대상을 클램프할 기준 (FR-GIT-53)
     this._sideBy=null;            // FR-GIT-51 의 보기 모드
     this._ignWs=null;             // FR-GIT-50 의 공백무시 토글
@@ -81,6 +86,7 @@ class GitPanel {
     if(this._consoleView) this._consoleView.reset();
     // 이전 리포의 diff 가 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다.
     this._diffKey=null; this._prevKey=null; this._diffPos=0; this.commitFile=null;
+    this._hunkKey=null; this._hunks=null; this._hunkSel=null;
     for(const v of [this._diffView,this._previewView])
       if(v) v.clear(path?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);
     if(path) this._errMsg=null;
@@ -1394,9 +1400,13 @@ class GitPanel {
         '<button class="git-diff-mode"></button>'+
         '<label class="git-diff-ws"><input type="checkbox"></label>'+
       '</div>'+
-      '<div class="git-diff-body"></div>';
+      '<div class="git-diff-body"></div>'+
+      // 부분 스테이징의 자리다 (FR-GIT-278). Monaco 는 두 모델을 그릴 뿐이고
+      // hunk 의 경계를 모른다 — 조각과 그 동작은 서버가 준 경계 위에 선다.
+      '<div class="git-hunks"></div>';
     el.querySelector('.git-diff-ws').appendChild(document.createTextNode(GIT_DIFF_WS_LABEL));
     el.querySelector('.git-diff-body').appendChild(this._diff().el);
+    el.querySelector('.git-hunks').addEventListener('click',ev=>this._hunkClick(ev));
     for(const b of el.querySelectorAll('.git-diff-nav'))
       b.addEventListener('click',()=>this._diffMove(b.dataset.nav==='next'?1:-1));
     el.querySelector('.git-diff-mode').addEventListener('click',()=>this._toggleSideBySide());
@@ -1433,6 +1443,212 @@ class GitPanel {
       this._sideBySidePref()?GIT_DIFF_MODE_LABEL.side:GIT_DIFF_MODE_LABEL.inline;
     el.querySelector('.git-diff-ws input').checked=this._ignoreWsPref();
     this._showTarget(this._diff(),f,'_diffKey');
+    this._paintHunks(el,cf?null:f);
+  }
+
+  // ── 부분 스테이징 (FR-GIT-278·279) ──
+  //
+  // 패치는 **서버가 만든다** (D6). 여기서 만드는 것은 좌표뿐이다 —
+  // (경로, 축, hunk 번호, 줄 범위, 관측 식별자). 패치 문자열을 조립하는 코드가
+  // 이 파일에 없어야 하고, 있으면 그것이 임의 쓰기 표면이 된다.
+
+  _paintHunks(el,f){
+    const box=el.querySelector('.git-hunks'); if(!box) return;
+    const on=!!(f&&f.repo&&GIT_HUNK_AXES.has(f.axis));
+    box.classList.toggle('vis',on);
+    if(!on){
+      this._hunkKey=null; this._hunks=null; this._hunkSel=null;
+      box.dataset.sig=''; box.innerHTML=''; return;
+    }
+    // 대상이 그대로면 다시 부르지 않는다 — 폴링마다 재요청하면 스크롤과 줄 선택이
+    // 매초 초기화된다 (_showTarget 과 같은 규약).
+    const key=[f.repo,f.axis,f.path].join('\u0000');
+    if(this._hunkKey!==key){
+      this._hunkKey=key; this._hunks=null; this._hunkSel=null;
+      // 다른 대상으로 옮겨 갔을 때만 사유를 지운다 — 같은 대상을 다시 받는 것은
+      // 방금 그 거부가 일으킨 일이다.
+      if(this._hunkErrKey!==key){this._hunkErr=null; this._hunkErrKey=null}
+      this._loadHunks(f,key);
+    }
+    this._drawHunks(box,f);
+  }
+
+  async _loadHunks(f,key){
+    const tok=this.token();
+    const u='/api/git/hunks?repo='+encodeURIComponent(f.repo)+
+      '&axis='+encodeURIComponent(f.axis)+'&path='+encodeURIComponent(f.path);
+    let r=null,d=null;
+    try{r=await fetch(u)}catch{r=null}
+    if(r){try{d=await r.json()}catch{d=null}}
+    if(this.isStale(tok)||this._hunkKey!==key) return;
+    // 서버가 되돌려준 요청값도 확인한다 — 같은 세대 안에서도 응답 순서가 뒤바뀔 수
+    // 있다 (FR-GIT-54). 짝이 맞지 않는 응답이 화면에 닿아서는 안 된다.
+    const q=(d&&d.requested)||{};
+    if(!r||!r.ok||!d||q.repo!==f.repo||q.axis!==f.axis||q.path!==f.path){
+      this._hunks={err:GIT_HUNK_LOAD_FAIL}; this._paint(); return;
+    }
+    this._hunks={diffId:d.diffId||'',list:d.hunks||[],note:d.note||''};
+    this._paint();
+  }
+
+  _drawHunks(box,f){
+    const h=this._hunks,sel=this._hunkSel;
+    // 같은 관측·같은 선택이면 다시 그리지 않는다 — 폴링마다 다시 그리면 스크롤이
+    // 매초 맨 위로 돌아간다.
+    const sig=[this._hunkKey,h?(h.err||h.diffId||'-'):'',
+      sel?[sel.hunk,sel.from,sel.to].join(','):'',this._hunkErr||'',
+      // 쓰기 중에는 버튼이 비활성이다 — 그 상태도 그림의 일부이므로 식별자에 든다.
+      this._writing?'w':''].join('\u0000');
+    if(box.dataset.sig===sig) return;
+    box.dataset.sig=sig;
+    box.innerHTML='';
+    const note=document.createElement('div');
+    note.className='git-hunk-note';
+    if(!h){note.textContent=GIT_HUNK_LOADING;box.appendChild(note);return}
+    if(h.err){note.textContent=h.err;box.appendChild(note);return}
+    if(!h.list.length){note.textContent=h.note||GIT_HUNK_NONE;box.appendChild(note);return}
+    note.textContent=this._hunkErr||GIT_HUNK_HINT;
+    note.classList.toggle('fail',!!this._hunkErr);
+    box.appendChild(note);
+    for(const hunk of h.list) box.appendChild(this._hunkEl(hunk,f,sel));
+  }
+
+  _hunkEl(hunk,f,sel){
+    const has=!!(sel&&sel.hunk===hunk.index);
+    const el=document.createElement('div');
+    el.className='git-hunk'+(has?' sel':'');
+    el.dataset.hunk=String(hunk.index);
+    const head=document.createElement('div');
+    head.className='git-hunk-head';
+    head.appendChild(gitHunkSpan('git-hunk-header',hunk.header||''));
+    if(has){
+      head.appendChild(gitHunkSpan('git-hunk-range',
+        GIT_HUNK_SEL_LABEL+sel.from+GIT_HUNK_SEL_SEP+sel.to));
+      const c=document.createElement('button');
+      c.className='git-hunk-clear'; c.textContent=GIT_HUNK_CLEAR; c.title=GIT_HUNK_CLEAR_TITLE;
+      head.appendChild(c);
+    }
+    head.appendChild(gitHunkSpan('git-hunk-spacer',''));
+    // 붙는 동작은 축이 정한다 — 방향이 축에서 갈린다 (FR-GIT-278).
+    for(const act of (GIT_HUNK_ACTS[f.axis]||[])){
+      const b=document.createElement('button');
+      b.className='git-hunk-act'; b.dataset.act=act;
+      b.textContent=has?GIT_HUNK_LINE_LABEL[act]:GIT_HUNK_LABEL[act];
+      b.title=GIT_HUNK_TITLE[act];
+      b.disabled=this._writing;
+      head.appendChild(b);
+    }
+    el.appendChild(head);
+    const body=document.createElement('div');
+    body.className='git-hunk-body';
+    const lines=hunk.lines||[];
+    for(let i=0;i<lines.length;i++){
+      const n=i+1,l=lines[i];
+      const row=document.createElement('div');
+      row.className='git-hunk-line'+(GIT_HUNK_LINE_CLASS[l[0]]||'')+
+        ((has&&n>=sel.from&&n<=sel.to)?' sel':'');
+      row.dataset.i=String(n);
+      row.textContent=l;
+      body.appendChild(row);
+    }
+    el.appendChild(body);
+    return el;
+  }
+
+  _hunkClick(ev){
+    const btn=ev.target.closest('.git-hunk-act');
+    if(btn){
+      const h=btn.closest('.git-hunk');
+      if(h) this._hunkAct(btn.dataset.act,Number(h.dataset.hunk));
+      return;
+    }
+    if(ev.target.closest('.git-hunk-clear')){this._hunkSel=null;this._paint();return}
+    const line=ev.target.closest('.git-hunk-line');
+    if(!line) return;
+    const h=line.closest('.git-hunk'); if(!h) return;
+    this._hunkPick(Number(h.dataset.hunk),Number(line.dataset.i),!!ev.shiftKey);
+  }
+
+  /**
+   * 줄 선택은 **한 덩어리 안에서만** 잡힌다 — 덩어리를 넘는 범위는 패치가 되지
+   * 않는다. 다른 덩어리를 누르면 선택이 그쪽으로 옮겨간다.
+   *
+   * 같은 한 줄을 다시 누르면 놓는다 — 선택을 지울 길이 Clear 뿐이면 한 줄을 잘못
+   * 고른 사용자가 갇힌다.
+   */
+  _hunkPick(hunk,i,extend){
+    const s=this._hunkSel;
+    if(extend&&s&&s.hunk===hunk){
+      this._hunkSel={hunk,from:Math.min(s.anchor,i),to:Math.max(s.anchor,i),anchor:s.anchor};
+    }else if(s&&s.hunk===hunk&&s.from===i&&s.to===i){
+      this._hunkSel=null;
+    }else{
+      this._hunkSel={hunk,from:i,to:i,anchor:i};
+    }
+    this._paint();
+  }
+
+  /**
+   * 조각 하나의 동작. 보내는 것은 좌표뿐이다 — 패치는 서버가 자기가 만든 diff 에서
+   * 잘라 짓는다 (D6).
+   *
+   * `diffId` 는 화면이 본 관측의 식별자다. 서버가 다시 만든 diff 와 다르면 409 로
+   * 거부되고, 그때 화면은 조각을 다시 받는다 — 낡은 번호로 다른 곳을 고치지 않는다.
+   */
+  async _hunkAct(op,idx){
+    const f=this.commitFile?null:this._diffTarget();
+    const h=this._hunks;
+    if(!f||!h||!h.list||!h.list[idx]||this._writing) return;
+    const sel=(this._hunkSel&&this._hunkSel.hunk===idx)?this._hunkSel:null;
+    const body={repo:f.repo,axis:f.axis,path:f.path,op,hunk:idx,
+      from:sel?sel.from:0,to:sel?sel.to:0,diffId:h.diffId};
+    if(op===GIT_PATCH_REVERT){this._hunkRevert(body,f,h.list[idx],sel);return}
+    this._afterHunk(await this.post('/api/git/patch',body));
+  }
+
+  /**
+   * revert 는 **파괴적이다** (FR-GIT-279) — 워킹 트리의 그 줄을 버린다. discard 와
+   * 같은 규약을 지난다: 판정은 서버의 목록이 하고(GitConfirm), 확인은 2단계이며,
+   * 실행 요청에 confirm 을 함께 보낸다 — 서버도 그것을 요구한다.
+   */
+  async _hunkRevert(body,f,hunk,sel){
+    const label=sel?(GIT_HUNK_SEL_LABEL+sel.from+GIT_HUNK_SEL_SEP+sel.to):(hunk.header||'');
+    await GitDialog.confirm({
+      action:GIT_ACT_DISCARD,
+      title:GIT_HUNK_REVERT_TITLE,
+      targets:[f.path+GIT_HUNK_TARGET_SEP+label],
+      // O8 의 선례: stash 를 자동 생성하지 않는다 — 실행할 명령을 보여 준다.
+      hint:{note:GIT_HUNK_REVERT_NOTE,command:'git stash push -- '+gitShQuote(f.path)},
+      run:async()=>{
+        const res=await this.post('/api/git/patch',Object.assign({confirm:true},body));
+        this._afterHunk(res);
+        if(res.ok) return {ok:true};
+        return {ok:false,reason:this.writeReason(res),stderrTail:(res.data&&res.data.message)||''};
+      },
+    });
+  }
+
+  /**
+   * 조각 쓰기 한 번의 처리.
+   *
+   * 성공이든 실패든 **관측을 놓는다** — 조각을 적용하면 남은 덩어리의 번호가 밀리고,
+   * 실패가 stale 이었다면 화면이 보던 것이 이미 낡은 것이다. 어느 쪽이든 다음
+   * 그리기에서 다시 받는다.
+   */
+  _afterHunk(res){
+    // **거부 사유는 누른 자리에 보인다.** `applyWriteFail` 의 안내 줄은 Changes 탭
+    // 골격에만 있어(`.git-partial-note`) Diff 탭에서 낸 실패는 화면에 자국을 남기지
+    // 않는다 — 조각을 누른 사람은 Diff 탭에 있다 (FR-GIT-278 의 stale 거부가 이
+    // 자리를 실제로 필요로 한다).
+    this._hunkErr=res.ok?null:this.writeError(res);
+    // 사유는 **그 대상의 것**이다. 아래에서 목록을 다시 받으려고 키를 비우므로,
+    // 어느 대상의 사유인지 따로 들고 있어야 다시 받는 그 회차에 지워지지 않는다.
+    this._hunkErrKey=res.ok?null:this._hunkKey;
+    this._hunkKey=null; this._hunks=null; this._hunkSel=null;
+    // Monaco 의 두 모델도 낡았다 — 같은 대상이라도 내용이 바뀌었다 (FR-GIT-71).
+    this._diffKey=null; this._prevKey=null;
+    if(res.ok){this._note=null; this.adopt(res.data); return}
+    this.applyWriteFail(res);
   }
 
   // FR-GIT-138·139: `<parent>..<commit>` 를 짧은 해시로 보인다. 루트 커밋은 부모가
@@ -1516,6 +1732,7 @@ class GitPanel {
     if(this._diffView){this._diffView.destroy();this._diffView=null}
     if(this._previewView){this._previewView.destroy();this._previewView=null}
     this._diffKey=null; this._prevKey=null;
+    this._hunkKey=null; this._hunks=null; this._hunkSel=null;
     // 골격이 버린 뷰의 DOM 을 들고 있다 — 다시 열릴 때 새 뷰로 세운다.
     for(const [k,el] of this._els) if(k==='changes'||k==='diff') el.dataset.built='';
   }
@@ -1774,6 +1991,18 @@ class GitPanel {
  * 한글이 든 경로가 있고, 사용자가 그 명령을 **붙여 그대로 실행**하므로 셸이 읽는
  * 형태여야 한다.
  */
+/**
+ * 조각 머리의 텍스트 한 조각 (FR-GIT-278). 값은 **textContent 로만** 넣는다 —
+ * hunk 의 본문은 사용자의 파일 내용이고, 그것을 마크업으로 넣으면 파일이 화면을
+ * 고칠 수 있다.
+ */
+function gitHunkSpan(cls,text){
+  const el=document.createElement('span');
+  el.className=cls;
+  el.textContent=text;
+  return el;
+}
+
 function gitShQuote(p){
   const s=String(p==null?'':p);
   if(/^[A-Za-z0-9._\/@=+:,-]+$/.test(s)) return s;
