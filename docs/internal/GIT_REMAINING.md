@@ -45,29 +45,51 @@ FR-GIT-117·119 개정). 남은 것은 개선 7건(§1.2)이다.
 | E2 ✅ | **그래프 모양이 VSCode 의 Git Graph 확장과 다르다.** gitgraph 및 다른 graph 도구는 기본적으로 **모든 선을 왼쪽으로 붙여** 그리는데, 이쪽은 그러지 않아 **두 번째 그래프가 혼자 떨어져 있는 모양**이 보인다. 그리는 로직이 잘못됐다 | `web/js/git/lanes.js`(125줄) `buildLaneGraph`. 이 로직은 레인 인덱스를 커밋 간에 **유지**하고, 비워진 레인은 **뒤쪽만** 잘라낸다(`while … pop()`). 중간에 빈 레인이 생기면 그대로 남는다 — 왼쪽 붙임(compaction)이 없다는 것이 원인 후보다. FR-GIT-117~121 과 충돌하는지 먼저 확인할 것 |
 | E3 ✅ | 히스토리에서 **브랜치 더블클릭 체크아웃이 구현되지 않았다** | `history.js`(857줄)·`branches.js`(569줄). 스펙에 있는데 빠진 것인지, 스펙에 없던 것인지부터 가른다 |
 
-### 1.2 개선 7건
+### 1.2 개선 7건 — 미착수 (다음 세션의 출발점)
 
-| # | 내용 |
-|---|---|
-| I1 | changes 각 행에 **open file 버튼 추가**. 현재 staging·되돌리기 둘뿐 → open file · staging · 되돌리기 |
-| I2 | changes 의 **경로 표시가 너무 흐리다 → 진하게.** 다만 파일명과 같으면 보기 불편하므로 **차이가 있게**. 파일명도 더 잘 보이면 좋겠다 |
-| I3 | **git 새로고침 버튼**이 필요하다 |
-| I4 | git 리스트에서 **live 와 pin 의 수정사항 개수 위치가 다르다.** live 는 pin 과 달리 삭제 버튼이 없어서 그 버튼 영역만큼 오른쪽으로 붙는다. 통일해야 한다 |
-| I5 | **단축키** — git 으로 바로가기 · git pin/live 리스트 순회 |
-| I6 | git 에서 단축키로 window 로 돌아갈 때(window 순회 단축키) **원래 있던 윈도우로 우선 이동** |
-| I7 | git 에 **워크트리 생성·제거·관리 탭 및 기능** 추가 |
+접수한 말과, 착수 전에 확인해 둔 자리다. **조사만 했고 아무것도 고치지 않았다.**
 
-**I7 은 규모가 다르다.** 나머지가 국소 UI·동작 변경인 데 비해 이것은 신규 기능이고,
-`internal/webserver/domain/worktree` 가 이미 Run 격리용으로 worktree 를 만들고 지운다
-(안전 가드 포함). 그 가드와 어떻게 만나는지를 스펙에서 먼저 정해야 한다 — 사용자가
-만든 worktree 를 Run 정리가 지우면 안 된다.
+| # | 접수한 말 | 착수점 (2026-08-27 확인) |
+|---|---|---|
+| I1 | changes 각 행에 **open file 버튼 추가**. 현재 staging·되돌리기 둘뿐 → open file · staging · 되돌리기 | 행 동작은 **선언**이다: `constants.js` `GIT_ROW_ACTS`(그룹별 동작)와 `GIT_ACT_LABEL`·`GIT_ACT_TITLE`. 실행은 `panel.js` `_run`·`_rowTargets`. `openFile` 은 이미 우클릭 메뉴에 있다(`GIT_MENUS.file` → `app._gitOpenFile(panel.absPath(t))`) — 같은 경로를 쓴다. **FR-GIT-41(개정)에 걸린다: Open File 은 Git 창이 아닌 창에 편집기 탭을 연다** |
+| I2 | changes 의 **경로 표시가 너무 흐리다 → 진하게.** 다만 파일명과 같으면 보기 불편하므로 **차이가 있게**. 파일명도 더 잘 보이면 좋겠다 | `.git-file-path` 는 색 선언이 없어 행 색을 물려받고, 지금 한 span 에 경로 전체가 들어간다(`panel.js` `_rowEl`). 평평한 보기에서 "디렉터리는 흐리게 · 파일명은 진하게"로 가르려면 **span 을 둘로 나눠야 한다.** 트리 보기는 이미 파일명만 보인다. 색은 하드코딩하지 않는다 — 테마 변수(`--text-muted`·`--text-bright`)를 쓴다 |
+| I3 | **git 새로고침 버튼**이 필요하다 | 자리는 Changes 헤더(`panel.js` `_buildChanges` 의 `.git-head`, `.git-head-spacer` 뒤). 동작은 이미 있다: `panel.collect()`(status) + `_historyView.reload()`·`_branchesView.reload()`·`_consoleView.reload()`. **무엇까지 다시 받을지가 결정이다** — status 만인가, 활성 탭까지인가, 전부인가 |
+| I4 | git 리스트에서 **live 와 pin 의 수정사항 개수 위치가 다르다.** live 는 pin 과 달리 삭제 버튼이 없어서 그 버튼 영역만큼 오른쪽으로 붙는다. 통일해야 한다 | `renderer.js` `_rGitRepo` 가 `!follow` 일 때만 `.git-repo-x` 를 붙인다. `.git-repo-x` 는 16px + gap 6px 이고 `flex-shrink:0` 이다. follow 행에 **자리만 잡는 빈 칸**을 두는 것이 가장 작다 (행 인라인 동작이 이미 쓰는 규약: "자리는 늘 잡고 hover 에서만 보인다"). 모바일은 24px 이므로 CSS 도 같이 본다 |
+| I5 | **단축키** — git 으로 바로가기 · git pin/live 리스트 순회 | 쓰이고 있는 키: `Ctrl+Shift+{[ ] H V N T W D A ↑↓←→}` · `Ctrl+Tab` (`helpers.js` `SHORTCUT_DEFAULTS`). 설정 UI 와 영속이 이미 그 맵을 딛는다 — 항목을 더하면 `SHORTCUT_LABELS` 도 함께. **FR-GIT-181 로 Git 창은 창 순회 대상이 아니므로, Git 창 안에서는 `Ctrl+Shift+[ ]` 가 비어 있다** (모드 의존 재해석이 가능하다는 뜻) |
+| I6 | git 에서 단축키로 window 로 돌아갈 때(window 순회 단축키) **원래 있던 윈도우로 우선 이동** | 순회는 `app-layout.js` 의 `_cycleWindow` 하나를 지난다 (`switchWindowNext/Prev` → `app.js:176` 에서 단축키와 결선). 활성 창은 `ws.activeWindow`(+`sessionStorage`). Git 창은 목록에 없다(FR-GIT-182) |
+| I7 | git 에 **워크트리 생성·제거·관리 탭 및 기능** 추가 | 아래 별도 |
 
-**I5·I6 는 결정이 필요하다.** 키 배정과 "원래 있던 윈도우"의 정의(마지막으로 포커스가
-있던 창인지, git 창을 열기 직전 창인지)는 코드를 봐서 답이 나오지 않는다. 사용자에게
-물어라.
+#### I5·I6 — 결정이 필요하다 (코드를 봐도 답이 나오지 않는다)
 
-**권고 순서**: 오류 3건 → 국소 UI(I1~I4) → 결정 필요(I5·I6) → I7 → 수동 실사(§2).
-오류를 먼저 두는 것은 UI 를 손대면 E1 같은 증상의 원인이 가려질 수 있기 때문이다.
+- **I5 키 배정.** 후보 둘을 함께 물어라. ① 새 키를 더한다 (예: `Ctrl+Shift+KeyG` = Git
+  창으로, `Ctrl+Shift+Comma`/`Period` = 리포 순회). ② Git 창 안에서는 창 순회 키
+  (`Ctrl+Shift+[ ]`)를 **리포 순회로 재해석**한다 — 키를 늘리지 않지만 모드 의존이다.
+- **I6 "원래 있던 윈도우"의 정의.** ① 마지막으로 포커스가 있던 일반 창 ② Git 창을
+  열기 직전의 창. 단순한 경우에는 둘이 같고, Git 창을 떠났다 돌아온 뒤에 갈린다.
+
+#### I7 — 규모가 다르다. 스펙을 먼저 쓴다
+
+신규 기능이고 `internal/webserver/domain/worktree` 가 이미 Run 격리용으로 worktree 를
+만들고 지운다. **경계를 스펙에서 먼저 정해라 — 사용자가 만든 worktree 를 Run 정리가
+지우면 안 된다.** 그 가드를 읽어 둔 결과는 이렇다 (2026-08-27).
+
+- `Manager` 는 **`$DONGMINAL_HOME/worktrees` 아래만** 자기 영역으로 삼는다.
+  `checkPath` 가 그 밖의 경로·루트 자신·저장소 자신을 `unsafe_path` 로 거부하고,
+  `Remove` 는 거부당하면 `residue` 를 남긴다 (FR-WKT-8).
+- 경로 규약은 `Path(runShort, leaf)` = `$DONGMINAL_HOME/worktrees/<run.short>/<member.short>`.
+- **전체를 쓸어내는 경로가 없다.** `Remove` 는 `RemoveSpec` 하나씩이고, 정리는 Run 이
+  자기가 만든 것만 대상으로 한다. 즉 **경로만 갈라 두면 구조적으로 안전하다.**
+- 따라서 물을 것은 "사용자 worktree 를 어디에 만드는가"다. ① Run 영역 밖(예: 저장소
+  옆 형제 디렉터리) — `checkPath` 가 Run 정리의 손을 아예 막는다 ② 같은 루트의 예약된
+  이름공간(`worktrees/user/<name>`) ③ 사용자가 경로를 직접 지정.
+- 어느 쪽이든 **보호 테스트를 하나 세워라**: Run 정리가 사용자 worktree 경로를
+  거부한다는 것을 이름이 아니라 동작으로 고정한다.
+
+범위도 정해야 한다 — 목록·생성·제거까지인가, 고른 worktree 를 **Git 창의 활성 리포로
+여는 것**까지인가. 후자가 없으면 만들어도 쓸 길이 없다.
+
+**권고 순서**: 국소 UI(I1~I4) → 결정 필요(I5·I6) → I7. I1~I4 는 서로 독립이라 하나씩
+끊어 커밋할 수 있다.
 
 ### 1.3 오류 3건에서 나온 것 (완료)
 
