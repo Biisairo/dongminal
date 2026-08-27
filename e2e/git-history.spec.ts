@@ -666,3 +666,72 @@ test.describe('4차 검토 — 커밋 행의 ref 배지 (V121~V123)', () => {
     }
   });
 });
+
+// ── GIT_REVIEW4_SRS §3.7.1 / FR-GIT-248 (V165~V167) ──
+//
+// E5: FR-GIT-233 은 **표식**을 관측 파생으로 옮겼지만 배지가 `GitMenu` 에 넘기는
+// **대상**은 `git log` decoration 의 `isHead` 를 그대로 실었다. 체크아웃해도 커밋
+// 목록은 다시 받지 않으므로(FR-GIT-233 의 근거) 떠나온 브랜치는 영원히 "현재
+// 브랜치"로 비활성이 되고, `GitMenu.primary` 가 null 을 돌려 **요청조차 나가지
+// 않는다.** 체크아웃이 실패한 것이 아니라 실행되지 않은 것이다.
+test.describe('5차 검토 — HEAD 판정의 근거 (V165~V167)', () => {
+  const badges = (page: Page) => hist(page).locator('.git-hist-badge');
+  const badge = (page: Page, name: string) =>
+    badges(page).filter({ hasText: new RegExp('^' + name + '$') }).first();
+  const refItem = (page: Page, name: string) =>
+    hist(page).locator('.git-refs .git-ref[data-ref$="/' + name + '"]').first();
+  const headName = (page: Page) => page.evaluate(() => (window as any).app.gitPanel.headName());
+
+  test('H26 (V165 / FR-GIT-248): 떠나온 브랜치의 배지를 더블클릭하면 되돌아온다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'h248a');
+    await waitForInit(page);
+    await openHistory(page, repo);
+    await waitLoaded(page, 1);
+    expect(await headName(page), '픽스처의 시작 브랜치가 main 이 아니다').toBe('main');
+
+    // 간다 — 낡은 decoration 에서도 `isHead` 가 false 라 지금도 통과하는 방향이다.
+    await badge(page, 'no-upstream').dblclick();
+    await expect.poll(() => headName(page), { timeout: 20000 }).toBe('no-upstream');
+
+    // 돌아온다 — 커밋 목록을 다시 받지 않은 상태이므로 decoration 은 여전히
+    // `HEAD -> main` 이다. 판정이 관측에서 오지 않으면 여기서 아무 일도 안 일어난다.
+    await badge(page, 'main').dblclick();
+    await expect.poll(() => headName(page), { timeout: 20000 }).toBe('main');
+  });
+
+  test('H27 (V166 / FR-GIT-248): 창 밖 체크아웃 뒤 사이드바의 표식과 판정이 함께 따라온다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'h248b');
+    await waitForInit(page);
+    await openHistory(page, repo);
+    await waitLoaded(page, 1);
+    await expect(refItem(page, 'main')).toHaveClass(/\bhead\b/, { timeout: 20000 });
+
+    // 창 밖에서 옮긴다 — refs 를 다시 받는 계기(afterRefWrite)가 없다.
+    execFileSync('git', ['-C', repo, 'checkout', '-q', 'no-upstream']);
+    await expect.poll(() => headName(page), { timeout: 20000 }).toBe('no-upstream');
+
+    // 표식이 따라 움직인다 (refs 응답은 그대로인데도).
+    await expect(refItem(page, 'no-upstream')).toHaveClass(/\bhead\b/, { timeout: 20000 });
+    await expect(refItem(page, 'main')).not.toHaveClass(/\bhead\b/);
+
+    // 떠나온 항목의 더블클릭이 체크아웃한다.
+    await refItem(page, 'main').dblclick();
+    await expect.poll(() => headName(page), { timeout: 20000 }).toBe('main');
+  });
+
+  test('H28 (V167 / FR-GIT-248): detached 에서는 어느 ref 에도 HEAD 표식이 서지 않는다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'h248c');
+    await waitForInit(page);
+    await openHistory(page, repo);
+    await waitLoaded(page, 1);
+    await expect(refItem(page, 'main')).toHaveClass(/\bhead\b/, { timeout: 20000 });
+
+    execFileSync('git', ['-C', repo, 'checkout', '-q', '--detach', 'HEAD']);
+    await expect.poll(
+      () => page.evaluate(() => !!((window as any).app.gitPanel.statusOf() || {}).detached),
+      { timeout: 20000 }).toBe(true);
+
+    await expect(hist(page).locator('.git-refs .git-ref.head')).toHaveCount(0, { timeout: 20000 });
+    await expect(hist(page).locator('.git-hist-badge.head')).toHaveCount(0);
+  });
+});

@@ -210,6 +210,10 @@ class GitHistory {
     const o=(this.panel.statusOf()||{}).oid||'';
     if(n===this._dirtyN&&h===this._headName&&o===this._headOid) return;
     this._dirtyN=n; this._headName=h; this._headOid=o; this._ver++;
+    // FR-GIT-248: 사이드바의 HEAD 표식도 같은 관측에서 파생한다. 이 경로는 refs 를
+    // 다시 받지 않으므로(`_paintRefs` 의 뼈대가 그대로다) 표식만 고친다 —
+    // 창 밖에서 체크아웃한 경우가 이 자리다.
+    this._paintRefSel(this._el.querySelector('.git-refs'));
     this._paintRows();
   }
 
@@ -304,17 +308,31 @@ class GitHistory {
       r.isHead?1:0,r.gone?1:0,r.subject||''].join('\u0001')).join('\u0000');
   }
 
+  /**
+   * 뼈대를 다시 만들지 않고 고치는 것들. 선택과 **HEAD 표식**이다.
+   *
+   * FR-GIT-248: 표식은 관측에서 파생하므로 refs 응답이 그대로여도 움직인다 —
+   * 창 밖(터미널)에서 체크아웃하면 refs 를 다시 받는 계기가 없다.
+   */
   _paintRefSel(box){
+    if(!box) return;
     const all=box.querySelector('.git-refs-all');
     if(all) all.classList.toggle('sel',!this._ref);
-    for(const d of box.querySelectorAll('.git-ref'))
+    for(const d of box.querySelectorAll('.git-ref')){
       d.classList.toggle('sel',this._ref===d.dataset.ref);
+      d.classList.toggle('head',
+        this._isHeadRef(d.dataset.kind,d.dataset.short,d.dataset.head==='1'));
+    }
   }
 
   _refEl(r,kind){
     const d=document.createElement('div');
-    d.className='git-ref'+(this._ref===r.name?' sel':'')+(r.isHead?' head':'');
-    d.dataset.ref=r.name;
+    // FR-GIT-248: 표식도 판정도 관측에서 온다. decoration/for-each-ref 의 값은
+    // 관측이 아직 없을 때의 폴백으로만 쓰이므로 요소에 남겨 둔다.
+    d.className='git-ref'+(this._ref===r.name?' sel':'')+
+      (this._isHeadRef(r.kind,r.short,r.isHead)?' head':'');
+    d.dataset.ref=r.name; d.dataset.kind=r.kind; d.dataset.short=r.short;
+    d.dataset.head=r.isHead?'1':'';
     const s=document.createElement('span'); s.className='git-ref-short'; s.textContent=r.short;
     const ab=document.createElement('span'); ab.className='git-ref-ab';
     const parts=[];
@@ -336,12 +354,16 @@ class GitHistory {
       this._setRef(this._ref===r.name?null:r.name);
     });
     const mkind=kind==='tag'?'tag':'branch';
+    // FR-GIT-248: 배지와 같은 규약이다 — 대상은 누를 때 만들고 HEAD 여부는 관측에서
+    // 파생한다. 나머지 필드는 서버가 준 Ref 그대로다.
+    const target=()=>Object.assign({},r,
+      {isHead:this._isHeadRef(r.kind,r.short,r.isHead)});
     d.addEventListener('contextmenu',ev=>{
       ev.preventDefault();
-      GitMenu.open(mkind,r,ev);
+      GitMenu.open(mkind,target(),ev);
     });
     // FR-GIT-222: Branches 탭과 **같은 제스처가 같은 뜻**을 갖는다.
-    d.addEventListener('dblclick',()=>GitMenu.runPrimary(mkind,r));
+    d.addEventListener('dblclick',()=>GitMenu.runPrimary(mkind,target()));
     return d;
   }
 
@@ -469,13 +491,26 @@ class GitHistory {
     return c.oid===s.oid;
   }
 
-  _refIsHead(r){
+  /**
+   * FR-GIT-248: ref 가 HEAD 인지는 **한 근거에서만** 온다 — 살아 있는 관측이다.
+   *
+   * 표식이든 동작 대상이든 이 값을 쓴다. 두 벌이면 보이는 것과 되는 것이 갈린다 —
+   * 배지의 대상이 decoration 의 낡은 `isHead` 를 실어 **떠나온 브랜치로 돌아오는
+   * 체크아웃이 실행되지 않았다** (E5). 요청이 나가지 않으므로 실패도 아니었다.
+   *
+   * short 는 배지의 이름이자 사이드바 Ref 의 `short` 다 — 사이드바의 `name` 은 전체
+   * refname 이라 `status.branch` 와 비교할 수 없다.
+   */
+  _isHeadRef(kind,short,fallback){
     const s=this.panel.statusOf();
-    if(!s) return !!r.isHead;
+    if(!s) return !!fallback;
     // detached 는 어느 브랜치도 HEAD 가 아니다 (FR-GIT-144 의 상태와 맞는다).
     if(s.detached) return false;
-    return r.kind===GIT_REF_KIND_LOCAL&&!!s.branch&&r.name===s.branch;
+    return kind===GIT_REF_KIND_LOCAL&&!!s.branch&&short===s.branch;
   }
+
+  // 배지의 ref 는 `name` 이 곧 짧은 이름이다 (`shortRefName` 이 이미 뗐다).
+  _refIsHead(r){return this._isHeadRef(r.kind,r.name,r.isHead)}
 
   /**
    * FR-GIT-126 의 배지이면서 **그 ref 를 대상으로 하는 자리**다 (FR-GIT-232).
@@ -497,12 +532,16 @@ class GitHistory {
     // 않는다 — 배지는 보이되 대상이 아니다.
     if(!mkind) return b;
     // 메뉴가 보는 모양은 refs 사이드바의 Ref 와 같다 — `short` 가 그 이름이다.
-    const target={short:r.name,name:r.name,kind:r.kind,isHead:!!r.isHead};
+    //
+    // FR-GIT-248: 대상은 **누를 때** 만든다. 그릴 때 굳혀 두면 그 뒤 도착한 관측이
+    // 반영되지 않는다 — 커밋 목록은 체크아웃 뒤에도 다시 받지 않으므로(FR-GIT-233)
+    // decoration 의 `isHead` 는 떠나온 브랜치에 그대로 남는다.
+    const target=()=>({short:r.name,name:r.name,kind:r.kind,isHead:this._refIsHead(r)});
     b.addEventListener('click',ev=>ev.stopPropagation());
-    b.addEventListener('dblclick',ev=>{ev.stopPropagation();GitMenu.runPrimary(mkind,target)});
+    b.addEventListener('dblclick',ev=>{ev.stopPropagation();GitMenu.runPrimary(mkind,target())});
     b.addEventListener('contextmenu',ev=>{
       ev.preventDefault(); ev.stopPropagation();
-      GitMenu.open(mkind,target,ev);
+      GitMenu.open(mkind,target(),ev);
     });
     return b;
   }

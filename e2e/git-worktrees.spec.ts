@@ -437,3 +437,79 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
     expect(kept).toBe(n);
   });
 });
+
+// ── GIT_REVIEW4_SRS §3.7.2 / FR-GIT-249 (V168~V170) ──
+//
+// E6: 서버의 pin 은 멱등이라 이미 있는 경로면 목록을 그대로 두고 200 을 준다.
+// 버튼이 핀 상태를 보이지 않으니 사용자는 같은 문구("핀했습니다")만 다시 받고,
+// 아무 일도 일어나지 않은 것을 고장으로 읽는다.
+test.describe('묶음 N — Worktrees 행의 핀 토글 (FR-GIT-249)', () => {
+  const pinned = async (request: APIRequestContext) =>
+    ((await (await request.get('/api/workspace')).json())?.git?.pinned || []) as string[];
+  const act = (page: Page, name: string, a: string) =>
+    wtRows(page).filter({ hasText: name }).locator(`.git-wt-act[data-act="${a}"]`);
+
+  test('V168 (FR-GIT-249): 핀 여부를 버튼이 보인다 — Pin ↔ Unpin 토글이다', async ({ page, request }) => {
+    const repo = copyFx('basic', 'v168');
+    const wtPath = await createUserWorktree(request, repo, 'v168-toggle', 'main', true);
+
+    await waitForInit(page);
+    await openWorktrees(page, repo);
+    await expect(wtRows(page).filter({ hasText: 'v168-toggle' })).toHaveCount(1, { timeout: 15000 });
+
+    // 핀되지 않은 경로는 Pin 이다.
+    await expect(act(page, 'v168-toggle', 'pin')).toHaveCount(1);
+    await expect(act(page, 'v168-toggle', 'unpin')).toHaveCount(0);
+
+    await act(page, 'v168-toggle', 'pin').click();
+    await expect.poll(async () => (await pinned(request)).includes(wtPath), { timeout: 10000 }).toBe(true);
+    // 핀된 뒤에는 Unpin 이다 — 다른 계기 없이 그 자리에서 바뀐다.
+    await expect(act(page, 'v168-toggle', 'unpin')).toHaveCount(1, { timeout: 15000 });
+    await expect(act(page, 'v168-toggle', 'pin')).toHaveCount(0);
+
+    // 그리고 그것이 실제로 핀을 푼다.
+    await act(page, 'v168-toggle', 'unpin').click();
+    await expect.poll(async () => (await pinned(request)).includes(wtPath), { timeout: 10000 }).toBe(false);
+    await expect(act(page, 'v168-toggle', 'pin')).toHaveCount(1, { timeout: 15000 });
+  });
+
+  test('V169 (FR-GIT-249 · RPT-2·8): 바깥에서 핀이 바뀌어도 버튼이 따라온다', async ({ page, request }) => {
+    const repo = copyFx('basic', 'v169');
+    const wtPath = await createUserWorktree(request, repo, 'v169-outside-change', 'main', true);
+
+    await waitForInit(page);
+    await openWorktrees(page, repo);
+    await expect(wtRows(page).filter({ hasText: 'v169-outside-change' })).toHaveCount(1, { timeout: 15000 });
+    await act(page, 'v169-outside-change', 'pin').click();
+    await expect(act(page, 'v169-outside-change', 'unpin')).toHaveCount(1, { timeout: 15000 });
+
+    // 좌측 GIT 섹션의 × 로 푼다 — Worktrees 탭이 부른 것이 아니다. 상태 관측은
+    // 그대로이므로, 판정이 그리기에 업혀 있으면 버튼이 낡은 채로 남는다 (FR-RPT-8).
+    const x = page.locator(`#git-repos .git-repo[data-git-repo="${wtPath}"] .git-repo-x`);
+    await expect(x, '사이드바에 핀 행이 없다').toHaveCount(1, { timeout: 15000 });
+    await x.click();
+    await expect.poll(async () => (await pinned(request)).includes(wtPath), { timeout: 10000 }).toBe(false);
+    await expect(act(page, 'v169-outside-change', 'pin')).toHaveCount(1, { timeout: 15000 });
+  });
+
+  test('V170 (FR-GIT-249): 실패는 그 탭의 안내 줄에만 뜬다 — alert 을 띄우지 않는다', async ({ page, request }) => {
+    const repo = copyFx('basic', 'v170');
+    const wtPath = await createUserWorktree(request, repo, 'v170-gone', 'main', true);
+
+    await waitForInit(page);
+    let alerts = 0;
+    page.on('dialog', (d) => { alerts += 1; void d.dismiss(); });
+    await openWorktrees(page, repo);
+    await expect(wtRows(page).filter({ hasText: 'v170-gone' })).toHaveCount(1, { timeout: 15000 });
+
+    // 목록을 다시 받지 않은 채 대상만 사라지게 한다 — 서버의 rev-parse 가 실패한다.
+    rmSync(wtPath, { recursive: true, force: true });
+    await act(page, 'v170-gone', 'pin').click();
+
+    const note = wt(page).locator('.git-wt-note.vis .git-wt-note-msg');
+    await expect(note, '실패 사유가 탭에 안 보인다').toBeVisible({ timeout: 15000 });
+    expect((await note.textContent())!.trim().length).toBeGreaterThan(0);
+    expect(alerts, 'alert 이 떴다 — 같은 사실을 두 번 알린다').toBe(0);
+    expect((await pinned(request)).includes(wtPath), '실패했는데 핀이 들어갔다').toBe(false);
+  });
+});

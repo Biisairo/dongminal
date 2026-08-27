@@ -779,6 +779,12 @@ class GitPanel {
   checkoutRef(ref,o){return GitBranches.checkout(this,ref,o||{})}
   checkoutRemote(short){return GitBranches.checkoutRemote(this,short)}
 
+  // FR-GIT-249: 핀 목록이 바뀌었을 수 있다. 그것을 읽는 목록에만 넘긴다 — 판정을
+  // 다시 그리기에 업지 않기 위한 통지 경로다 (FR-RPT-8, GitDialog.notify 와 같은 규약).
+  notifyPins(){
+    if(this._worktreesView) this._worktreesView.notifyPins();
+  }
+
   // FR-GIT-141: 커밋 우클릭의 "여기서 브랜치 생성". 18단계의 생성 다이얼로그에
   // 시작점만 고정해 넘긴다 — 이름 검증도 그것이 이미 안다 (FR-GIT-158·159).
   createBranchFrom(oid){return GitBranches.create(this,{startRef:oid||''})}

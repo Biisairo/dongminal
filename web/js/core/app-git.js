@@ -168,6 +168,10 @@ Object.assign(App.prototype, {
     this._gitOff=false;this._gitRepos=d;
     // 전체 render() 를 부르지 않는다 — 터미널 재부착 비용이 크다.
     this.renderer._rGitSection();
+    // FR-GIT-249 (FR-RPT-8): 핀 목록이 **도착하는 자리**다. Worktrees 행의 핀 버튼이
+    // 이 값을 읽으므로 여기서 알린다 — 상태 폴링의 다시 그리기에 업으면 관측이 같은
+    // 회차에 버튼이 낡은 채로 남는다 (FR-GIT-227).
+    if(this.gitPanel&&this.gitPanel.notifyPins) this.gitPanel.notifyPins();
   },
 
   // FR-GIT-12: 경로를 물어 핀한다. M1 에는 공통 다이얼로그가 없으므로 prompt 를
@@ -202,14 +206,19 @@ Object.assign(App.prototype, {
 
   // _gitPin 은 경로를 검증해 핀한다. 저장소가 아니면 사유를 보인다 (FR-GIT-12) —
   // 조용히 실패하지 않는다.
-  async _gitPin(path){
+  //
+  // FR-GIT-249: `quiet` 는 **자기 안내 자리를 가진 호출자**의 것이다 (Worktrees 탭).
+  // 그런 자리에서 alert 까지 띄우면 같은 사실을 두 번 알리게 된다. 이 섹션의 저장소
+  // 추가는 보일 자리가 alert 뿐이므로 기본은 그대로다.
+  async _gitPin(path,o){
     if(!path) return false;
+    const quiet=!!(o&&o.quiet);
     let r,d;
     try{
       r=await fetch('/api/git/repos/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});
       d=await r.json();
-    }catch(err){window.alert(GIT_PIN_FAIL_LABEL+': '+err);return false}
-    if(!r.ok){window.alert(GIT_PIN_FAIL_LABEL+' ('+(d&&d.error)+'): '+(d&&d.message));return false}
+    }catch(err){if(!quiet)window.alert(GIT_PIN_FAIL_LABEL+': '+err);return false}
+    if(!r.ok){if(!quiet)window.alert(GIT_PIN_FAIL_LABEL+' ('+(d&&d.error)+'): '+(d&&d.message));return false}
     this._gitPinsApply(d.pinned);
     await this._gitReposRefresh();
     return true;

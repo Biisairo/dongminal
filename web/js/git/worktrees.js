@@ -112,11 +112,29 @@ class GitWorktrees {
 
   _sig(e){
     return [e.path,e.branch||'',e.detached?1:0,e.owner||'',e.main?1:0,
-      this._canOpen(e)?1:0].join('\u0001');
+      this._canOpen(e)?1:0,this._isPinned(e.path)?1:0].join('\u0001');
   }
 
   // 활성 리포 행에는 열기를 붙이지 않는다 — 이미 그것이다 (FR-GIT-180 의 근거).
   _canOpen(e){return this.panel.repo!==e.path}
+
+  /**
+   * FR-GIT-249: 핀 여부의 근거는 좌측 GIT 섹션과 **같은 목록**이다 — 두 벌로 세면
+   * 어긋난다. 비교는 문자열 일치다 (unpin 이 그렇게 지운다, FR-GIT-12).
+   */
+  _isPinned(path){
+    const d=this.app._gitRepos;
+    return !!(d&&Array.isArray(d.pinned)&&d.pinned.some(p=>p&&p.path===path));
+  }
+
+  /**
+   * FR-GIT-249 (FR-RPT-8): 핀 목록이 **도착하는 자리**에서 불린다 — 판정을 그리기에
+   * 업으면 상태 관측이 같은 회차에 버튼이 낡은 채로 남는다 (FR-GIT-227). 행의
+   * `_sig` 가 핀 여부를 읽으므로 바뀐 행만 다시 만들어진다.
+   */
+  notifyPins(){
+    if(this._el&&this.panel.repo===this._repo) this._paintList();
+  }
 
   _rowEl(e){
     const d=document.createElement('div');
@@ -167,24 +185,37 @@ class GitWorktrees {
   _actsOf(e){
     const acts=[];
     if(this._canOpen(e)) acts.push('open');
-    acts.push('pin','term');
+    // FR-GIT-249: 핀은 **상태의 토글**이다. 이미 핀된 것에 Pin 을 다시 보이면 서버의
+    // 멱등 응답이 성공으로 와서 "핀했습니다" 만 뜨고 아무 일도 일어나지 않는다 —
+    // 사용자는 그것을 고장으로 읽는다 (FR-GIT-180 과 같은 근거).
+    acts.push(this._isPinned(e.path)?'unpin':'pin','term');
     if(e.owner==='user'&&!e.main) acts.push('remove');
     return acts;
   }
 
   _act(act,e){
     if(act==='open'){this.panel.setRepo(e.path);return}
-    if(act==='pin'){this._pin(e);return}
+    if(act==='pin'||act==='unpin'){this._pin(e,act==='unpin');return}
     // FR-GIT-244: 터미널은 **Git 창이 아닌 창**에 연다 (FR-GIT-41·185 와 같은 경로).
     if(act==='term'){this.app._gitOpenTerminal(e.path);return}
     if(act==='remove'){this._remove(e);return}
   }
 
-  async _pin(e){
-    const ok=await this.app._gitPin(e.path);
-    this._note=ok?{kind:'pinned',msg:GIT_WT_PINNED+e.path}
-                 :{kind:'fail',msg:GIT_WT_PIN_FAIL};
+  /**
+   * 핀·해제 (FR-GIT-249). 안내는 **한 일**을 말한다.
+   *
+   * 실패는 이 탭의 안내 줄에만 보인다 — `_gitPin` 의 `alert` 은 보일 자리가 그것뿐인
+   * 호출자(좌측 GIT 섹션의 저장소 추가, FR-GIT-12)의 것이다. 같은 사실을 두 번
+   * 알리면 사용자는 두 가지 일이 일어난 줄로 읽는다.
+   */
+  async _pin(e,off){
+    const ok=off?await this.app._gitUnpin(e.path)
+                :await this.app._gitPin(e.path,{quiet:true});
+    this._note=ok?{kind:off?'unpinned':'pinned',msg:(off?GIT_WT_UNPINNED:GIT_WT_PINNED)+e.path}
+                 :{kind:'fail',msg:off?GIT_WT_UNPIN_FAIL:GIT_WT_PIN_FAIL};
+    if(!this._el) return;
     this._paintNote();
+    this._paintList();
   }
 
   // ── 질의 ──

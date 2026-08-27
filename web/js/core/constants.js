@@ -763,10 +763,13 @@ const GIT_WT_OWN_TITLE={
 };
 // 행 동작 (FR-GIT-244). 제거는 사용자 것에만 붙고, 열기는 활성 리포 행에 붙지
 // 않는다 — 눌리지만 아무 일도 하지 않는 버튼은 고장으로 읽힌다 (FR-GIT-180).
-const GIT_WT_ACT_LABEL={open:'Open',pin:'Pin',term:'Shell',remove:'Remove'};
+// FR-GIT-249: 핀은 **상태의 토글**이다 — 이미 핀된 것에 Pin 을 다시 보이면 눌러도
+// 아무 일이 없고(서버 pin 은 멱등이다) 사용자는 그것을 고장으로 읽는다.
+const GIT_WT_ACT_LABEL={open:'Open',pin:'Pin',unpin:'Unpin',term:'Shell',remove:'Remove'};
 const GIT_WT_ACT_TITLE={
   open:'이 worktree 를 활성 리포로 엽니다',
   pin:'GIT 섹션에 핀합니다',
+  unpin:'GIT 섹션의 핀을 풉니다',
   term:'이 worktree 에서 터미널 탭을 엽니다 (Git 창이 아닌 창)',
   remove:'이 worktree 를 지웁니다',
 };
@@ -780,6 +783,8 @@ const GIT_WT_NEED_REF='대상 ref 가 필요합니다';
 const GIT_WT_CREATED='만들었습니다: ';
 const GIT_WT_PINNED='핀했습니다: ';
 const GIT_WT_PIN_FAIL='핀하지 못했습니다';
+const GIT_WT_UNPINNED='핀을 풀었습니다: ';
+const GIT_WT_UNPIN_FAIL='핀을 풀지 못했습니다';
 const GIT_WT_REMOVE_TITLE='worktree 를 지웁니다';
 const GIT_WT_REMOVE_NOTE='디렉터리가 사라집니다. 저장하지 않은 변경이 남아 있으면 거부됩니다.';
 // 제거는 200 으로 오면서 `removed:false` 일 수 있다 — 사유를 그 자리에 보인다
@@ -791,3 +796,38 @@ const GIT_WT_RESIDUE={
   'branch-retained':'트리는 지웠으나 브랜치가 남았습니다',
 };
 const GIT_WT_REMOVE_FAIL='worktree 를 지우지 못했습니다';
+
+// ── 진행 중 작업 (GIT_ACTIONS_SRS §3.1 / FR-GIT-251·252) ──
+//
+// merge·rebase·cherry-pick·revert 가 충돌로 멈추면 중간 상태가 남는다. 그 사실과
+// **나갈 길**이 함께 보이지 않으면 사용자는 GUI 안에 갇힌다.
+const GIT_OP_MERGE='merge';
+const GIT_OP_REBASE='rebase';
+const GIT_OP_CHERRY='cherry-pick';
+const GIT_OP_REVERT='revert';
+const GIT_OP_LABEL={
+  [GIT_OP_MERGE]:'머지가 진행 중입니다',
+  [GIT_OP_REBASE]:'리베이스가 진행 중입니다',
+  [GIT_OP_CHERRY]:'체리픽이 진행 중입니다',
+  [GIT_OP_REVERT]:'리버트가 진행 중입니다',
+};
+// 리베이스의 "몇 번째 중". 보이지 않으면 사용자는 끝났는지 알 수 없다.
+const GIT_OP_AT='%n/%t';
+const GIT_OP_CONTINUE='continue';
+const GIT_OP_SKIP='skip';
+const GIT_OP_ABORT='abort';
+// 순서는 서버가 준다 (`/api/git/policy` 의 operations) — 목록을 여기 복제하면
+// merge 에 없는 Skip 이 생기고, 눌리면 exit 128 로만 실패한다. 이 표는 **라벨**뿐이다.
+const GIT_OP_ACT_LABEL={
+  [GIT_OP_CONTINUE]:'Continue',
+  [GIT_OP_SKIP]:'Skip',
+  [GIT_OP_ABORT]:'Abort',
+};
+const GIT_OP_ACT_TITLE={
+  [GIT_OP_CONTINUE]:'해결한 내용으로 이어서 진행합니다',
+  [GIT_OP_SKIP]:'이 커밋을 건너뜁니다',
+  [GIT_OP_ABORT]:'작업을 중단하고 시작 전 상태로 돌아갑니다',
+};
+const GIT_ACT_OP_ABORT='operation_abort';
+const GIT_OP_ABORT_TITLE='진행 중인 작업을 중단합니다';
+const GIT_OP_ABORT_NOTE='이 작업 중 해결한 내용이 사라집니다 — 저장소가 시작 전 상태로 돌아갑니다.';
