@@ -13,9 +13,21 @@ Object.assign(App.prototype, {
   _isGitWin(s){return !!(s&&s.type===WINDOW_TYPE_GIT)},
   _plainWindows(){return this.ws.windows.filter(s=>!this._isGitWin(s))},
 
-  // FR-GIT-183: Git 창을 닫는다. 다시 열면 새로 만들어진다 (FR-GIT-26 유지).
+  /**
+   * FR-GIT-183·183a: Git 창을 닫는다. 다시 열면 새로 만들어진다 (FR-GIT-26 유지).
+   *
+   * 가는 곳은 **직전에 활성이었던 일반 창**이다 — `Open File` 이 딛는 값과 같은
+   * 것이다 (FR-GIT-185, O15). 그냥 지우면 `delWindow` 가 창 목록에서 이웃한 창을
+   * 고르고, 그것은 사용자가 있던 자리가 아니다.
+   *
+   * **먼저 옮기고 나서 지운다.** 지운 뒤 옮기면 두 번 그리게 되고, 그 사이 한 번은
+   * 엉뚱한 창이 보인다.
+   */
   _gitCloseWindow(){
     const w=this._gitWindow(); if(!w) return;
+    const plain=this._plainWindows();
+    const back=plain.find(s=>s.id===this._lastPlainWindow)||plain[0];
+    if(back) this.switchWindow(back.id);
     this.delWindow(w.id);
   },
 

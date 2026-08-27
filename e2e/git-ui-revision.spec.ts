@@ -171,6 +171,31 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
       (window as any).app.ws.windows.filter((w: any) => w.type === 'git').length)).toBe(1);
   });
 
+  // FR-GIT-183a: 닫은 뒤 가는 곳은 **직전에 활성이었던 일반 창**이다. 창 목록에서
+  // 이웃한 창으로 가면 사용자는 자기가 있던 자리로 돌아오지 못한다.
+  test('V73b (FR-GIT-183a): Close Git 은 직전에 보던 일반 창으로 돌아간다', async ({ page }) => {
+    await waitForInit(page);
+    // 일반 창 셋을 만들고 **가운데**에 선다 — 이웃으로 가는 것과 구별되어야 한다.
+    const ids = await page.evaluate(async () => {
+      const a = (window as any).app;
+      await a.addWindow();
+      await a.addWindow();
+      return a.ws.windows.filter((w: any) => w.type !== 'git').map((w: any) => w.id);
+    });
+    expect(ids.length).toBeGreaterThanOrEqual(3);
+    const from = ids[1];
+    await page.evaluate((id) => (window as any).app.switchWindow(id), from);
+    expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(from);
+
+    await openGit(page, fx('basic'));
+    await expect(page.locator('#git-close:visible')).toHaveCount(1);
+    await page.click('#git-close');
+
+    await expect.poll(() => page.evaluate(() =>
+      (window as any).app.ws.windows.filter((w: any) => w.type === 'git').length)).toBe(0);
+    expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(from);
+  });
+
   test('V74 (FR-GIT-41·185): Open File 은 Git 창이 아닌 창에 열고 그 창을 활성화한다', async ({ page }) => {
     await waitForInit(page);
     await openChanges(page, copyFx('basic', 'v74'));

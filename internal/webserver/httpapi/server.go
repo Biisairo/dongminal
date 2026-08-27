@@ -125,7 +125,9 @@ func (s *Server) Started() time.Time { return s.started }
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	if s.cfg.StaticFS != nil {
-		mux.Handle("/", http.FileServer(http.FS(s.cfg.StaticFS)))
+		// 정적 자산에는 내용 기반 ETag 를 붙인다 — go:embed 파일은 ModTime 이 zero 라
+		// FileServer 만으로는 검증자가 하나도 없다 (static.go).
+		mux.Handle("/", newStaticHandler(s.cfg.StaticFS))
 	}
 	mux.HandleFunc("/ws", s.handleWS)
 	mux.HandleFunc("/api/", s.handleAPI)
