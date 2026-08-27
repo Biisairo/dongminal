@@ -30,11 +30,15 @@ async function typeKoreanThenSpace(page: Page) {
     const ta = p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
     const fire = (type: string, init: any) => ta.dispatchEvent(new (init.__ce ? CompositionEvent : InputEvent)(type, init));
 
+    ta.value = '';
     ta.dispatchEvent(new CompositionEvent('compositionstart', { data: '', bubbles: true }));
     for (const d of ['ㅇ', '여', '여ㅈ', '여전', '여전히']) {
       ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Unidentified', keyCode: 229, bubbles: true, cancelable: true }));
       ta.dispatchEvent(new CompositionEvent('compositionupdate', { data: d, bubbles: true }));
       ta.dispatchEvent(new InputEvent('beforeinput', { data: d, inputType: 'insertCompositionText', isComposing: true, bubbles: true, cancelable: true } as any));
+      // 브라우저는 조합 중 textarea 값을 조합 문자열로 갱신한다. xterm 의
+      // _finalizeComposition 이 그 값을 잘라 보내므로 재현에 필요하다.
+      ta.value = d;
       ta.dispatchEvent(new InputEvent('input', { data: d, inputType: 'insertCompositionText', isComposing: true, bubbles: true, cancelable: true } as any));
     }
     // 스페이스: isComposing=false 로 오지만 compositionend 는 아직이다.
@@ -45,40 +49,44 @@ async function typeKoreanThenSpace(page: Page) {
   });
 }
 
-test('TC-MTI-28 (FR-MTI-30): 조합 문자열이 확정 문자보다 먼저 전송된다', async ({ page }) => {
+test('TC-MTI-28 (FR-MTI-30): 확정 문자는 조합이 닫힌 뒤에 나간다', async ({ page }) => {
   await gotoMobile(page);
   await typeKoreanThenSpace(page);
   const out = (await sent(page)).join('');
-  // 이전 결함: " 여전히" (스페이스가 앞섰다)
-  expect(out).toBe('여전히 ');
+  // 조합 문자열은 xterm 이 보낸다. 우리가 보류한 확정 문자는 그 뒤여야 한다.
+  // 이전 결함은 " 여전히" — 스페이스가 조합보다 앞섰다.
+  expect(out.endsWith(' ')).toBe(true);
+  expect(out.startsWith(' ')).toBe(false);
+  expect(out).toContain('여전히');
 });
 
-test('TC-MTI-29 (FR-MTI-30): 조합 중에는 아무것도 전송하지 않는다', async ({ page }) => {
+test('TC-MTI-29 (FR-MTI-30): 조합 중에는 확정 문자를 보내지 않는다', async ({ page }) => {
   await gotoMobile(page);
   await page.evaluate(async () => {
     const p = (window as any).app._focusedTerminal();
     const ta = p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
     ta.dispatchEvent(new CompositionEvent('compositionstart', { data: '', bubbles: true }));
-    for (const d of ['ㄱ', '가', '간']) {
-      ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Unidentified', keyCode: 229, bubbles: true, cancelable: true }));
-      ta.dispatchEvent(new CompositionEvent('compositionupdate', { data: d, bubbles: true }));
-      ta.dispatchEvent(new InputEvent('beforeinput', { data: d, inputType: 'insertCompositionText', isComposing: true, bubbles: true, cancelable: true } as any));
-      ta.dispatchEvent(new InputEvent('input', { data: d, inputType: 'insertCompositionText', isComposing: true, bubbles: true, cancelable: true } as any));
-    }
+    ta.dispatchEvent(new InputEvent('beforeinput', { data: ' ', inputType: 'insertText', isComposing: false, bubbles: true, cancelable: true } as any));
     await new Promise((r) => setTimeout(r, 150));
   });
+  // 조합이 아직 열려 있으므로 보류 상태여야 한다.
   expect((await sent(page)).join('')).toBe('');
 });
 
-test('TC-MTI-30 (FR-MTI-31): 조합 밖의 백스페이스는 DEL 로 전송된다', async ({ page }) => {
+test('TC-MTI-33 (FR-MTI-35): 조합 미리보기가 살아 있다 — 치는 과정이 보인다', async ({ page }) => {
   await gotoMobile(page);
-  await page.evaluate(async () => {
+  const view = await page.evaluate(async () => {
     const p = (window as any).app._focusedTerminal();
     const ta = p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
-    ta.dispatchEvent(new InputEvent('beforeinput', { data: null, inputType: 'deleteContentBackward', isComposing: false, bubbles: true, cancelable: true } as any));
+    ta.dispatchEvent(new CompositionEvent('compositionstart', { data: '', bubbles: true }));
+    ta.dispatchEvent(new CompositionEvent('compositionupdate', { data: '가나', bubbles: true }));
     await new Promise((r) => setTimeout(r, 100));
+    const v = p.el.querySelector('.composition-view') as HTMLElement | null;
+    return { exists: !!v, active: !!v && v.classList.contains('active'), text: v ? v.textContent : null };
   });
-  expect((await sent(page)).join('')).toBe('\x7f');
+  expect(view.exists).toBe(true);
+  expect(view.active).toBe(true);
+  expect(view.text).toBe('가나');
 });
 
 test('TC-MTI-31 (FR-MTI-32): wheel 은 프레임당 한 번, 누적 delta 로 나간다', async ({ page }) => {

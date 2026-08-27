@@ -83,20 +83,19 @@ class TerminalTool {
       ta.addEventListener('keypress',()=>{this._xtHandledKey=true},false);
       ta.addEventListener('keyup',()=>{this._xtHandledKey=false},false);
       ta.addEventListener('beforeinput',e=>this._onBeforeInput(e),true);
-      // FR-MTI-30: IME 경로를 통째로 우리가 전담한다.
+      // FR-MTI-30(개정): 조합 자체는 xterm 에 맡기고, 조합을 확정시키는 문자만
+      // 그 뒤로 미룬다.
       //
-      // 반쪽 개입이 순서를 망쳤다. insertText 만 가로채면 조합을 확정시키는
-      // 문자(스페이스·마침표)가 조합 문자열보다 먼저 나간다 — 실측 로그:
-      //     SEND " " → compositionend "여전히" → SEND "여전히"
-      // 터미널에는 " 여전히" 가 되고, 지웠다 다시 친 단어는 뒤섞인다
-      // ("여전해" 지우고 "여전한거같아" → "거같아야전해").
+      // 확정 문자(스페이스·마침표)는 isComposing=false 로 오지만 compositionend
+      // 보다 앞선다. 즉시 보내면 조합 문자열보다 먼저 나가 순서가 뒤집힌다 —
+      //     SEND " " → compositionend "여전히" → SEND "여전히"   ⇒ " 여전히"
+      // 그래서 조합이 닫힐 때까지 보류한다.
       //
-      // 조합의 전송 시점을 한 곳에서 정하지 않으면 순서를 보장할 수 없으므로,
-      // xterm 의 CompositionHelper 를 끄고 compositionend 에서만 보낸다.
-      // keyCode 229(IME)만 차단하고 일반 키는 그대로 xterm 이 처리한다.
+      // 조합의 전송·미리보기는 건드리지 않는다. CompositionHelper 를 끄면
+      // .composition-view 가 죽어 조합 중인 글자가 보이지 않고(데스크톱까지),
+      // 증분 계산(_dataAlreadySent)도 사라져 확정마다 누적 전체가 다시 나간다.
       ta.addEventListener('compositionstart',()=>{this._imeOpen=true},true);
-      ta.addEventListener('compositionend',e=>this._imeClose(e),true);
-      this._muteXtermComposition();
+      ta.addEventListener('compositionend',()=>this._imeClose(),true);
     }
     this._initTouchScroll();
     try{this.fit.fit()}catch{}
@@ -137,14 +136,6 @@ class TerminalTool {
     this._xtHandledKey=false;                     // 일회 소비
     const A=window.app;
     if(!A || !A.isMobile) return;                 // FR-MTI-4
-    // FR-MTI-31: 조합을 우리가 전담하면 삭제도 우리 몫이다. 조합이 열려 있는
-    // 동안의 삭제는 조합 갱신이므로 보내지 않는다(compositionend 가 결과를 낸다).
-    if(this._imeMuted && !this._imeOpen &&
-       (e.inputType==='deleteContentBackward'||e.inputType==='deleteWordBackward')){
-      e.preventDefault();
-      this._sendText(e.inputType==='deleteWordBackward'?'\x17':'\x7f');
-      return;
-    }
     if(e.inputType!=='insertText') return;        // FR-MTI-3
     if(e.isComposing) return;                     // FR-MTI-2
     if(handled) return;                           // FR-MTI-19
@@ -160,34 +151,14 @@ class TerminalTool {
     this._sendText(this._applyStickyMods(e.data));
   }
 
-  // FR-MTI-30: 조합이 닫히면 확정 문자열을 보내고, 그 뒤에 보류분을 보낸다.
-  // 순서가 여기서 한 번에 정해진다.
-  _imeClose(e){
+  // FR-MTI-30: 조합이 닫히면 보류분을 보낸다. 조합 문자열은 xterm 이
+  // compositionend 에서 setTimeout(0) 으로 보내므로, 그 뒤에 나가도록 한 틱 더
+  // 미룬다. 이 순서가 " 여전히" 를 "여전히 " 로 되돌린다.
+  _imeClose(){
     this._imeOpen=false;
     const q=this._imeQueue; this._imeQueue='';
-    if(this._imeMuted && e && e.data) this._sendText(this._applyStickyMods(e.data));
-    if(q) this._sendText(this._applyStickyMods(q));
-  }
-
-  // xterm 의 CompositionHelper 를 끈다. 전송 시점을 우리가 독점해야 순서를
-  // 보장할 수 있다 — 그쪽은 setTimeout(0) 뒤에 누적된 textarea 값을 diff 해서
-  // 보내므로 우리 전송과 순서가 엇갈린다.
-  //
-  // 비공개 필드에 손대는 대신 실패를 감당한다: 구조가 바뀌어 찾지 못하면
-  // _imeMuted 가 false 로 남고, 기존 xterm 경로가 그대로 동작한다.
-  _muteXtermComposition(){
-    this._imeMuted=false;
-    try{
-      const ch=this.term && this.term._core && this.term._core._compositionHelper;
-      if(!ch || typeof ch.keydown!=='function') return;
-      ch.compositionstart=()=>{};
-      ch.compositionupdate=()=>{};
-      ch.compositionend=()=>{};
-      // keyCode 229 는 IME 가 만든 keydown 이다. 그것만 막고(false) 나머지는
-      // 통과시켜(true) Enter·방향키가 평소대로 처리되게 한다.
-      ch.keydown=(ev)=>!ev||ev.keyCode!==229;
-      this._imeMuted=true;
-    }catch{}
+    if(!q) return;
+    setTimeout(()=>setTimeout(()=>this._sendText(this._applyStickyMods(q)),0),0);
   }
 
   // ── 터치 스크롤 (MOBILE_TUI_INPUT_SCROLL_SRS §3.2) ──
