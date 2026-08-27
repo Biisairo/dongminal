@@ -209,6 +209,11 @@ e2e/git_fixture.sh /tmp/dm-git-fixtures
 할 일이다. 다만 미룬 근거는 지워지지 않았으니, 착수 순서를 정할 때 그 근거를 다시
 읽어라 — P2 로 민 것들은 대체로 "터미널로 충분하다"는 판단이었다.
 
+> **2026-08-27 갱신: 이 표의 대부분이 끝났다.** 범위와 진행은
+> `GIT_ACTIONS_SRS.md`(FR-GIT-250~285)가 단일 진실 공급원이며, 남은 것은 그 문서
+> §6.1 의 6개(Blame · mute/reflog · author override·리포 드롭다운 · merge editor ·
+> 인터랙티브 rebase · clone/init)뿐이다.
+
 | 항목 | 원래 근거 | 규모 |
 |---|---|---|
 | 브랜치 삭제 · 태그 생성/삭제 · cherry-pick/revert/reset · merge/rebase 실행 | 비목표 P1 | **가장 작다.** 메뉴 프레임워크(FR-GIT-146)가 자리를 열어 두었으므로 **항목 선언만 더하면 된다.** 실행 경로는 `domain/git/write` 의 `ExecWrite` 초크포인트를 지나야 하고, 파괴적 명령은 `Destructive` 선언이 기록에 남는다 (FR-GIT-95, I5) |
