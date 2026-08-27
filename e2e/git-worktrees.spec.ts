@@ -513,3 +513,27 @@ test.describe('묶음 N — Worktrees 행의 핀 토글 (FR-GIT-249)', () => {
     expect((await pinned(request)).includes(wtPath), '실패했는데 핀이 들어갔다').toBe(false);
   });
 });
+
+test.describe('행 동작은 hover 없이 보인다', () => {
+  // hover 로만 드러나면 있는 줄 모르고, 터치에는 hover 가 없어 아예 누를 수 없다.
+  // Changes 행과 Worktrees 행이 **같은 규약**을 쓰므로 둘을 함께 고정한다.
+  test('W-VIS1: 마우스를 올리지 않아도 Worktrees 행과 Changes 행의 버튼이 보인다', async ({ page }) => {
+    const repo = copyFx('basic', 'wtvis');
+    await waitForInit(page);
+    await openWorktrees(page, repo);
+    await expect(wtRows(page).first()).toBeVisible({ timeout: 20000 });
+
+    // 마우스를 목록 밖 먼 곳에 둔다 — 어느 행에도 hover 가 걸리지 않게.
+    await page.mouse.move(0, 0);
+    const wtActs = wtRows(page).first().locator('.git-wt-acts');
+    await expect(wtActs).toHaveCSS('opacity', '1');
+    await expect(wtActs.locator('.git-wt-act').first()).toBeVisible();
+
+    await page.click('#area .pn-tab[data-git-view="changes"]');
+    const fileActs = page.locator('#area .pn-body .git-view.git-changes .git-file .git-file-acts').first();
+    await expect(fileActs).toBeVisible({ timeout: 20000 });
+    await page.mouse.move(0, 0);
+    await expect(fileActs).toHaveCSS('opacity', '1');
+    await expect(fileActs.locator('.git-file-act').first()).toBeVisible();
+  });
+});

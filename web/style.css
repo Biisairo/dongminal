@@ -1063,9 +1063,9 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .git-file-path-arrow{color:var(--text-muted)}
 /* FR-GIT-190: 일부만 스테이지된 파일은 상태 문자 색으로 구분한다 */
 .git-file.partial .git-file-st{color:var(--attn)}
-/* 행 인라인 동작. 자리는 늘 잡고 hover 에서만 보인다 — 행 높이가 흔들리지 않는다 */
-.git-file-acts{display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity .1s}
-.git-file:hover .git-file-acts,.git-file:focus-within .git-file-acts{opacity:1}
+/* 행 인라인 동작. **항상 보인다** — hover 로만 드러나면 있는 줄 모르고, 터치에는
+   hover 가 없다. 강조는 버튼 자신의 :hover 가 한다 */
+.git-file-acts{display:flex;gap:2px;flex-shrink:0}
 /* FR-GIT-195·226: 아이콘 하나짜리 버튼도 행과 같은 히트 영역을 갖는다 */
 .git-file-act{
   font:inherit;font-size:12px;line-height:1;cursor:pointer;
@@ -1125,7 +1125,6 @@ body.mobile .git-changes-body{flex-direction:column}
 body.mobile .git-files{flex:1 1 50%;border-right:none;border-bottom:1px solid var(--border)}
 body.mobile .git-file,body.mobile .git-dir{padding-top:5px;padding-bottom:5px}
 /* 모바일에는 hover 가 없다 — 인라인 동작을 늘 보인다 */
-body.mobile .git-file-acts{opacity:1}
 body.mobile .git-file-check{width:14px;height:14px}
 
 /* ── Git diff (FR-GIT-49~56) ── */
@@ -1738,9 +1737,8 @@ body.mobile .git-repo-x{opacity:1;font-size:14px}
 .git-wt-main{flex-shrink:0;font-size:10px;padding:0 4px;border-radius:8px;
   background:var(--accent-subtle);color:var(--accent)}
 .git-wt-rowspacer{flex:0 0 4px}
-/* 행 인라인 동작. 자리는 늘 잡고 hover 에서만 보인다 — .git-file-acts 와 같은 규약 */
-.git-wt-acts{display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity .1s}
-.git-wt-row:hover .git-wt-acts,.git-wt-row:focus-within .git-wt-acts{opacity:1}
+/* 행 인라인 동작. 항상 보인다 — .git-file-acts 와 같은 규약 */
+.git-wt-acts{display:flex;gap:2px;flex-shrink:0}
 .git-wt-act{
   font:inherit;font-size:11px;line-height:1;cursor:pointer;padding:0 6px;
   display:flex;align-items:center;justify-content:center;
