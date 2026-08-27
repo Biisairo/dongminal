@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/domain/worktree"
 )
 
@@ -329,5 +330,50 @@ func TestApiRunClose_KeepWorktrees(t *testing.T) {
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("보존을 요청했는데 지워졌다: %v", err)
+	}
+}
+
+// V154 (FR-WKT-14): Run 정리가 사용자 worktree 경로를 **동작으로** 거부한다.
+//
+// 지금 코드에서 Run 레코드의 Worktree 필드는 provisionRun/provisionMember 가
+// s.Worktrees.Path(...) 로 직접 만든 경로만 갖는다 — 사용자 영역 경로가 그 필드에
+// 들어올 입력 경로는 없다(조사로 확인). 그래서 이 테스트는 **"만약 들어온다면"을
+// 강제로 만들어 고정한다** — 이름 규약이 아니라 checkPath 의 구조적 거부가 실제로
+// 작동하는지를 cleanupWorktrees 경로 그대로 지나가며 확인한다 (FR-WKT-13).
+func TestCleanupWorktrees_RejectsUserAreaSiblingPath(t *testing.T) {
+	s, repo, mgr := isolatedServer(t, "tool-a")
+
+	// FR-WKT-13: 사용자 영역은 <home>/git-worktrees 로, Run 영역(mgr.Root() ==
+	// <home>/worktrees)의 형제다.
+	userArea := filepath.Join(filepath.Dir(mgr.Root()), "git-worktrees", "repo", "feature")
+	if err := os.MkdirAll(filepath.Dir(userArea), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, repo, "worktree", "add", "--no-track", "-b", "user-branch", userArea)
+	if _, err := os.Stat(userArea); err != nil {
+		t.Fatalf("사용자 worktree 준비 실패: %v", err)
+	}
+
+	// Run 레코드를 직접 조립한다 — HTTP 경로로는 이런 레코드가 만들어질 수 없다는
+	// 것이 바로 위 주석의 사실이다. 여기서는 cleanupWorktrees 자체의 거부를 본다.
+	rec := run.Record{
+		ID:        "forged-run",
+		Repo:      repo,
+		Isolation: run.IsolationPerRun,
+		Worktree:  &run.Worktree{Path: userArea, Branch: "user-branch"},
+	}
+
+	trees := s.cleanupWorktrees(rec, false)
+	if len(trees) != 1 {
+		t.Fatalf("정리 대상 1개를 기대했다: %+v", trees)
+	}
+	if trees[0].Removed || trees[0].Residue != worktree.ResidueUnsafePath {
+		t.Fatalf("사용자 영역 경로가 거부되지 않았다: %+v", trees[0])
+	}
+	if _, err := os.Stat(userArea); err != nil {
+		t.Fatalf("사용자 worktree 가 지워졌다: %v", err)
+	}
+	if br := gitRun(t, repo, "branch", "--list", "user-branch"); br == "" {
+		t.Fatal("사용자의 브랜치가 사라졌다")
 	}
 }

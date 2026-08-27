@@ -54,7 +54,8 @@ const GIT_MENUS={
   // (FR-GIT-41) — 5단계의 GIT_CTX_ITEMS 를 그대로 옮긴 것이다.
   file:[
     {id:'openChanges',label:'Open Changes',run:t=>gitMenuPanel().openFileDiff(t)},
-    {id:'openFile',   label:'Open File',   run:t=>app._gitOpenFile(gitMenuPanel().absPath(t))},
+    // FR-GIT-236: 행 인라인 동작과 같은 자리를 지난다 — 두 벌로 두면 한쪽만 고쳐진다.
+    {id:'openFile',   label:'Open File',   run:t=>gitMenuPanel()._run('openFile',[t])},
     {id:'copyPath',   label:'Copy Path',   run:t=>gitMenuPanel().copyText(gitMenuPanel().absPath(t))},
   ],
   // 브랜치·태그 (FR-GIT-154·155·156·160). 로컬과 원격은 **뜻이 다른 두 항목**이다 —

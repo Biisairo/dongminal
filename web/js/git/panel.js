@@ -1,8 +1,9 @@
 /**
  * Dongminal — Git 창의 표면 (GIT_SRS §3.4)
  *
- * Git 창은 워크스페이스에 하나이므로(FR-GIT-26) 이 객체도 앱에 하나다. 고정 탭
- * 6개는 각자 루트 DOM 을 갖고, 활성 탭의 루트만 pane 본문에 붙는다.
+ * Git 창은 워크스페이스에 하나이므로(FR-GIT-26) 이 객체도 앱에 하나다. GIT_VIEWS 의
+ * 고정 탭은 각자 루트 DOM 을 갖고, 활성 탭의 루트만 pane 본문에 붙는다 — 숫자를 여기
+ * 적지 않는다 (FR-GIT-28 이 개정될 때 이 주석이 낡는다).
  *
  * 활성 리포가 바뀌면 진행 중인 응답은 전부 버린다 (FR-GIT-16). 세대 카운터
  * 하나로 판정한다 — 나중에 비동기 경로를 하나씩 훑어 가드를 덧붙이는 상황을
@@ -17,6 +18,7 @@ class GitPanel {
     this._lastSig=null;  // FR-GIT-19 의 비교 대상
     this._errMsg=null;
     this._staleNote=false;
+    this._refreshing=false;       // FR-GIT-238 의 새로고침이 도는 중 (겹쳐 부르지 않는다)
     this._gitMissing=false;
     this._collapsed=new Set();    // 접힌 그룹. 뷰의 성질이라 리포 전환에도 남는다
     this._dirCollapsed=new Set(); // 접힌 트리 디렉터리 (group:path)
@@ -39,12 +41,15 @@ class GitPanel {
     this._branchesView=null;      // Branches 탭 (FR-GIT-147~160)
     this._stashView=null;         // Stash 탭 (FR-GIT-161~170)
     this._consoleView=null;       // Console 탭 (FR-GIT-218)
+    this._worktreesView=null;     // Worktrees 탭 (FR-GIT-240~244)
     this._remoteView=null;        // 원격 작업 (FR-GIT-98~112)
     // 커밋 축의 diff 대상 (FR-GIT-138). previewFile 과 자리를 나눈다 — 같은 자리에
     // 두면 Changes 탭의 미리보기가 커밋의 diff 를 보이면서 목록에는 아무 행도
     // 선택되지 않는다.
     this.commitFile=null;
     this._writing=false;          // 쓰기 한 번은 한 번이다 — 겹쳐 보내지 않는다
+    // FR-GIT-227: 마지막으로 그린 관측. null 이면 다음 관측은 무조건 그린다.
+    this._obsSig=null;
   }
 
   // 활성 리포. Git 창의 win.git.repo 가 진실이고 이것은 그 읽기다 (FR-GIT-29).
@@ -62,6 +67,8 @@ class GitPanel {
     // 이전 리포의 목록이 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다
     // (FR-GIT-16). 화면을 "불러오는 중" 으로 되돌린다.
     this._status=null; this._lastSig=null; this._staleNote=false;
+    // 관측을 버렸으므로 근거도 버린다 — 새 리포의 첫 관측은 무조건 그린다.
+    this._obsSig=null;
     this._shown.clear(); this.previewFile=null; GitMenu.close();
     // 선택과 쓰기 안내는 리포에 붙은 것이다 — 새 리포로 넘겨 오면 다른 파일을
     // 가리킨다.
@@ -116,6 +123,9 @@ class GitPanel {
     if(view==='branches') this._renderBranches(el);
     if(view==='stash') this._renderStash(el);
     if(view==='console') this._renderConsole(el);
+    // Worktrees 도 탭이 활성일 때 받는다 — 열지 않은 탭이 목록을 미리 받아 둘
+    // 이유가 없다 (FR-STAT-17 과 같은 원칙).
+    if(view==='worktrees') this._renderWorktrees(el);
     return el;
   }
 
@@ -130,6 +140,7 @@ class GitPanel {
     this._branches().unmount();
     this._stash().unmount();
     this._console().unmount();
+    this._worktrees().unmount();
     const area=document.getElementById('area');
     for(const el of this._els.values()){
       el.classList.remove('vis');
@@ -160,6 +171,7 @@ class GitPanel {
     if(view==='branches'){this._renderBranches(el);return}
     if(view==='stash'){this._renderStash(el);return}
     if(view==='console'){this._renderConsole(el);return}
+    if(view==='worktrees'){this._renderWorktrees(el);return}
     el.innerHTML='';
     if(!this.repo){
       const d=document.createElement('div'); d.className='git-empty';
@@ -207,6 +219,9 @@ class GitPanel {
         '<span class="git-head-repo"></span><span class="git-head-branch"></span>'+
         '<span class="git-head-badges"></span><span class="git-head-ab"></span>'+
         '<span class="git-head-spacer"></span>'+
+        // FR-GIT-238: 새로고침. **`.git-head-remote` 밖**에 둔다 — 안에 넣으면 원격
+        // 버튼을 세는 기존 단정이 깨진다.
+        '<button class="git-head-refresh"></button>'+
         // 원격 버튼은 기본 동작만 하고 변형은 `▾` 다이얼로그에서 온다
         // (FR-GIT-98·99). 동작은 GitRemote 가 붙인다.
         '<span class="git-head-remote">'+GIT_REMOTE_KINDS.map(k=>
@@ -268,6 +283,9 @@ class GitPanel {
     el.querySelector('.git-partial-close').textContent=GIT_NOTE_CLOSE;
     el.querySelector('.git-partial-close')
       .addEventListener('click',()=>{this._note=null;this._paint()});
+    const rf=el.querySelector('.git-head-refresh');
+    rf.textContent=GIT_REFRESH_LABEL; rf.title=GIT_REFRESH_TITLE;
+    rf.addEventListener('click',()=>this.refresh());
     const files=el.querySelector('.git-files');
     for(const g of GIT_GROUPS){
       const d=document.createElement('div'); d.className='git-group'; d.dataset.group=g.key;
@@ -362,33 +380,59 @@ class GitPanel {
     box.classList.toggle('collapsed',collapsed);
     box.querySelector('.git-group-caret').textContent=collapsed?'▸':'▾';
     const rows=box.querySelector('.git-group-rows');
-    rows.innerHTML='';
-    if(collapsed) return;
+    if(collapsed){rows.innerHTML=''; return}
     const limit=this._shown.get(g.key)||GIT_FILE_ROW_CHUNK;
-    // 행은 DocumentFragment 로 한 번에 붙인다 — 수천 행을 innerHTML 로 만들지 않는다.
-    const frag=document.createDocumentFragment();
+    // 그릴 행을 먼저 **기술**하고, 요소는 reconcileList 가 필요한 것만 만든다
+    // (FR-GIT-227 / FR-RPT-3) — 목록을 비우고 다시 만들면 hover·더블클릭·우클릭이
+    // 매 회차 끊긴다. 평평한 보기와 트리 보기가 같은 기술을 낸다.
+    const items=[];
     const drawn=this._treeMode()
-      ?this._emitTree(frag,g.key,entries,limit)
-      :this._emitFlat(frag,g.key,entries,limit);
-    rows.appendChild(frag);
-    if(drawn<entries.length){
-      const more=document.createElement('div');
-      more.className='git-file-more'; more.dataset.group=g.key;
-      more.textContent='… '+(entries.length-drawn)+' 개 더';
-      rows.appendChild(more);
-      if(this._io) this._io.observe(more);
-    }
+      ?this._emitTree(items,g.key,entries,limit)
+      :this._emitFlat(items,g.key,entries,limit);
+    if(drawn<entries.length) items.push({t:'more',group:g.key,n:entries.length-drawn});
+    reconcileList(rows,items,{
+      key:it=>it.t+':'+(it.t==='file'?it.e.path:it.t==='dir'?it.path:''),
+      sig:it=>this._itemSig(it),
+      build:it=>this._itemEl(it),
+    });
   }
 
-  _emitFlat(frag,group,entries,limit){
+  // 행의 **보이는 값 전부**다 (FR-RPT-2). 하나라도 빠지면 그 값의 변화가 화면에
+  // 닿지 않는다 — 좁히지 않는다.
+  _itemSig(it){
+    if(it.t==='dir') return [it.depth,it.label,it.collapsed?1:0].join('\u0001');
+    if(it.t==='more') return String(it.n);
+    const e=it.e,group=it.group;
+    return [
+      it.depth,e.path,e.origPath||'',e.staged||'',e.unstaged||'',
+      e.conflict?1:0,e.score||'',this._stateChar(group,e),
+      this._sel.has(this._selKey(group,e.path))?1:0,
+      (this.previewFile&&this.previewFile.group===group&&this.previewFile.path===e.path)?1:0,
+      this._treeMode()?1:0,
+      // ours·theirs 의 title 이 진행 중인 조작에 따라 뒤집힌다 (FR-GIT-224).
+      this._op()||'',
+    ].join('\u0001');
+  }
+
+  _itemEl(it){
+    if(it.t==='dir') return this._dirEl(it);
+    if(it.t==='file') return this._rowEl(it.group,it.e,it.depth);
+    const more=document.createElement('div');
+    more.className='git-file-more'; more.dataset.group=it.group;
+    more.textContent='… '+it.n+' 개 더';
+    if(this._io) this._io.observe(more);
+    return more;
+  }
+
+  _emitFlat(items,group,entries,limit){
     const n=Math.min(limit,entries.length);
-    for(let i=0;i<n;i++) frag.appendChild(this._rowEl(group,entries[i],0));
+    for(let i=0;i<n;i++) items.push({t:'file',group,e:entries[i],depth:0});
     return n;
   }
 
   // 트리 보기 (FR-GIT-38). 자식이 하나뿐인 중간 디렉터리는 합쳐 보인다 —
   // 깊은 트리에서 줄 수를 줄인다.
-  _emitTree(frag,group,entries,limit){
+  _emitTree(items,group,entries,limit){
     const root={dirs:new Map(),files:[]};
     for(const e of entries){
       const parts=e.path.split('/');
@@ -401,11 +445,11 @@ class GitPanel {
       n.files.push(e);
     }
     const st={drawn:0,limit};
-    this._emitDir(frag,group,root,'',0,st);
+    this._emitDir(items,group,root,'',0,st);
     return st.drawn;
   }
 
-  _emitDir(frag,group,node,prefix,depth,st){
+  _emitDir(items,group,node,prefix,depth,st){
     if(st.drawn>=st.limit) return;
     for(const [name,child] of node.dirs){
       let label=name,cur=child,path=prefix+name;
@@ -413,29 +457,33 @@ class GitPanel {
         const [n2,c2]=cur.dirs.entries().next().value;
         label+='/'+n2; path+='/'+n2; cur=c2;
       }
-      const key=group+':'+path;
-      const collapsed=this._dirCollapsed.has(key);
-      const d=document.createElement('div');
-      d.className='git-dir'+(collapsed?' collapsed':'');
-      d.dataset.dir=path;
-      this._indent(d,depth);
-      d.innerHTML='<span class="git-dir-caret"></span><span class="git-dir-name"></span>';
-      d.querySelector('.git-dir-caret').textContent=collapsed?'▸':'▾';
-      d.querySelector('.git-dir-name').textContent=label;
-      d.addEventListener('click',()=>{
-        if(this._dirCollapsed.has(key)) this._dirCollapsed.delete(key);
-        else this._dirCollapsed.add(key);
-        this._paint();
-      });
-      frag.appendChild(d);
-      if(!collapsed) this._emitDir(frag,group,cur,path+'/',depth+1,st);
+      const collapsed=this._dirCollapsed.has(group+':'+path);
+      items.push({t:'dir',group,path,label,depth,collapsed});
+      if(!collapsed) this._emitDir(items,group,cur,path+'/',depth+1,st);
       if(st.drawn>=st.limit) return;
     }
     for(const e of node.files){
       if(st.drawn>=st.limit) return;
       st.drawn++;
-      frag.appendChild(this._rowEl(group,e,depth));
+      items.push({t:'file',group,e,depth});
     }
+  }
+
+  _dirEl(it){
+    const key=it.group+':'+it.path;
+    const d=document.createElement('div');
+    d.className='git-dir'+(it.collapsed?' collapsed':'');
+    d.dataset.dir=it.path;
+    this._indent(d,it.depth);
+    d.innerHTML='<span class="git-dir-caret"></span><span class="git-dir-name"></span>';
+    d.querySelector('.git-dir-caret').textContent=it.collapsed?'▸':'▾';
+    d.querySelector('.git-dir-name').textContent=it.label;
+    d.addEventListener('click',()=>{
+      if(this._dirCollapsed.has(key)) this._dirCollapsed.delete(key);
+      else this._dirCollapsed.add(key);
+      this._paint();
+    });
+    return d;
   }
 
   /**
@@ -471,9 +519,7 @@ class GitPanel {
     const st=document.createElement('span'); st.className='git-file-st';
     st.textContent=this._stateChar(group,e);
     const p=document.createElement('span'); p.className='git-file-path';
-    // rename/copy 는 원본과 대상을 둘 다 보인다 (FR-GIT-36).
-    p.textContent=e.origPath?e.origPath+' → '+e.path
-      :(this._treeMode()?e.path.split('/').pop():e.path);
+    this._fillPath(p,e);
     d.title=(e.origPath?e.origPath+' → '+e.path:e.path)+(e.score?' ('+e.score+'%)':'')+
       (partial?' — '+GIT_PARTIAL_TITLE:'');
     d.appendChild(st); d.appendChild(p);
@@ -489,7 +535,11 @@ class GitPanel {
         : GIT_ACT_TITLE[a];
       b.addEventListener('click',ev=>{
         ev.stopPropagation();
-        this._run(a,this._rowTargets(a,group,e.path,e.origPath));
+        // FR-GIT-236: Open File 은 선택을 끌어오지 않는다 — `_rowTargets` 는 쓰기
+        // 동작의 규약이고, 그것을 그대로 쓰면 고른 수만큼 편집기 탭이 열린다.
+        this._run(a, a==='openFile'
+          ? [{group,path:e.path,origPath:e.origPath||''}]
+          : this._rowTargets(a,group,e.path,e.origPath));
       });
       acts.appendChild(b);
     }
@@ -501,6 +551,40 @@ class GitPanel {
       GitMenu.open('file',{group,path:e.path,origPath:e.origPath||''},ev);
     });
     return d;
+  }
+
+  /**
+   * FR-GIT-237: 경로 표시를 디렉터리와 파일명으로 가른다.
+   *
+   * **합쳐진 글자는 바뀌지 않는다** — 요소를 나누는 것이지 글자를 바꾸는 것이
+   * 아니다. 대비는 색과 굵기로 내고 색은 테마 변수에서 파생한다 (`style.css`).
+   */
+  _fillPath(p,e){
+    const seg=full=>{
+      const i=full.lastIndexOf('/');
+      // 디렉터리가 없는 경로는 그 요소를 **만들지 않는다** — 빈 요소가 자리를
+      // 먹으면 안 된다.
+      if(i>=0){
+        const d=document.createElement('span');
+        d.className='git-file-path-dir'; d.textContent=full.slice(0,i+1);
+        p.appendChild(d);
+      }
+      const n=document.createElement('span');
+      n.className='git-file-path-name'; n.textContent=full.slice(i+1);
+      p.appendChild(n);
+    };
+    // rename/copy 는 원본과 대상을 둘 다 보인다 (FR-GIT-36) — 같은 규칙을 두 번
+    // 적용하고 화살표만 가장 약하게 둔다. 예외를 만들지 않는다.
+    if(e.origPath){
+      seg(e.origPath);
+      const a=document.createElement('span');
+      a.className='git-file-path-arrow'; a.textContent=' → ';
+      p.appendChild(a);
+      seg(e.path);
+      return;
+    }
+    // 트리 보기는 디렉터리가 이미 행으로 갈려 있어 파일명만 남는다.
+    seg(this._treeMode()?e.path.split('/').pop():e.path);
   }
 
   // 상태문자는 xy 에서 뽑는다 — 그룹이 어느 축을 보는지가 곧 X/Y 선택이다.
@@ -635,6 +719,26 @@ class GitPanel {
     }
     if(el.dataset.built!=='1'){this._console().mount(el);el.dataset.built='1'}
     this._console().paint();
+  }
+
+  // ── Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5 / FR-GIT-240~244) ──
+
+  _worktrees(){
+    if(!this._worktreesView) this._worktreesView=new GitWorktrees(this);
+    return this._worktreesView;
+  }
+
+  _renderWorktrees(el){
+    if(!this.repo){
+      el.dataset.built=''; el.innerHTML='';
+      this._worktrees().unmount();
+      const d=document.createElement('div'); d.className='git-empty';
+      d.textContent=this._errMsg||GIT_NO_REPO_HINT;
+      el.appendChild(d);
+      return;
+    }
+    if(el.dataset.built!=='1'){this._worktrees().mount(el);el.dataset.built='1'}
+    this._worktrees().paint();
   }
 
   // ── Stash 탭 (FR-GIT-161~170) ──
@@ -827,7 +931,14 @@ class GitPanel {
   // 쓰기 한 번의 단일 경로다. 충돌 stage 의 뜻 알림과 discard 의 2단계 확인이
   // 여기서 갈린다.
   async _run(act,items){
-    if(!items.length||this._writing||!this.repo) return;
+    if(!items.length||!this.repo) return;
+    // FR-GIT-236: Open File 은 쓰기가 아니므로 진행 중인 쓰기에 막히지 않는다.
+    // 우클릭 메뉴도 이 자리를 지난다 — 두 벌로 두면 한쪽만 고쳐진다.
+    if(act==='openFile'){
+      for(const i of items) this.app._gitOpenFile(this.absPath(i));
+      return;
+    }
+    if(this._writing) return;
     if(act==='discard'){this._discard(items);return}
     if(act==='ours'||act==='theirs'){this._resolveSide(act,items);return}
     // FR-GIT-72: 충돌 파일의 stage 는 "해결됨 표시" 다. 실행 **전에** 그 뜻을
@@ -965,6 +1076,9 @@ class GitPanel {
     this._status=Object.assign({},this._status||{},
       {requested:d.requested,repo:d.repo,status:d.status});
     this._errMsg=null; this._staleNote=false;
+    // 사용자가 부른 쓰기의 응답이다 — 화면은 반드시 바뀐다 (FR-RPT-5). 다만 근거는
+    // 갱신해 둔다: 곧 오는 폴링이 같은 관측으로 한 번 더 그리지 않게 한다.
+    this._obsSig=JSON.stringify(d.status||null);
     this._paint();
     this.app._gitReposRefresh();
     this.app._updateStatusBar();
@@ -1261,6 +1375,43 @@ class GitPanel {
     ta.remove();
   }
 
+  /**
+   * FR-GIT-238: 새로고침. **전부 다시 받는다** — status · History · Branches ·
+   * Console · Worktrees 다. 어느 탭을 보고 있는지에 따라 달라지지 않는다: 같은
+   * 버튼이 늘 같은 일을 한다. `collect()` 하나로는 끝나지 않는다 — 그것은 status
+   * 만 받고 Console 을 건드리지 않는다.
+   *
+   * 범위는 **이미 만들어진 뷰 전부**다. 탭의 뷰는 처음 열 때 지연 생성되므로 한 번도
+   * 열지 않은 탭은 대상이 아니다 — 보인 적이 없는 것은 낡을 수 없고, 열 때 새로
+   * 받는다.
+   *
+   * **자기 계기다** (FR-RPT-5). 관측 동일성 가드의 대상이 아니므로 값이 같아도 다시
+   * 받는다.
+   *
+   * 실패는 각 경로가 이미 자기 자리에 알린다 — 새 표현을 만들지 않는다. status 의
+   * 실패는 `.git-stale-note` 로 드러난다.
+   */
+  async refresh(){
+    if(this._refreshing||!this.repo) return;
+    this._refreshing=true; this._paintRefresh();
+    const jobs=[this.collect()];
+    if(this._historyView) jobs.push(this._historyView.reload());
+    if(this._branchesView) jobs.push(this._branchesView.reload());
+    if(this._consoleView) jobs.push(this._consoleView.reload());
+    if(this._worktreesView) jobs.push(this._worktreesView.reload());
+    // 하나가 실패해도 나머지를 기다린다 — 넷은 서로의 성공에 걸려 있지 않다.
+    await Promise.allSettled(jobs);
+    this._refreshing=false; this._paintRefresh();
+  }
+
+  // 받는 동안 진입점은 다시 눌리지 않는다 (FR-GIT-238). `_refreshing` 이 실제
+  // 방어이고 `disabled` 는 그것을 화면에 보이는 것이다.
+  _paintRefresh(){
+    const el=this._els.get('changes'); if(!el) return;
+    const b=el.querySelector('.git-head-refresh');
+    if(b) b.disabled=this._refreshing;
+  }
+
   // ── 변경 감지 3계층 (FR-GIT-18~24) ──
 
   // init 은 재평가 계기를 붙인다. 폴링과 즉시 신호는 게이팅이 다르므로 같은
@@ -1339,6 +1490,9 @@ class GitPanel {
     if(this.isStale(tok)) return;
     if(!r){
       // 네트워크 오류 — 이전 화면을 유지한다. **목록을 지우지 않는다.**
+      // 사유가 붙은 화면은 관측으로 그린 화면이 아니다 — 근거를 버려 회복하는
+      // 관측이 값이 같아도 다시 그리게 한다 (FR-GIT-227).
+      this._obsSig=null;
       this._staleNote=true; this._paint(); return;
     }
     if(!r.ok){this._applyError(d&&d.error);return}
@@ -1349,17 +1503,34 @@ class GitPanel {
     // 헛되이 변화를 보고하지 않게 한다.
     this._lastSig=(d.signature&&d.signature.value)||'';
     this._errMsg=null; this._staleNote=false;
-    this._paint();
+    /**
+     * FR-GIT-227 (FR-RPT-1·2): 관측이 지난 회차와 같으면 다시 그리지 않는다.
+     *
+     * 폴링이 1초마다 도는데 그때마다 목록을 새로 만들면 화면은 그대로인 채 요소만
+     * 버려진다 — hover 로만 보이는 행 버튼이 매초 깜빡이고, 더블클릭의 두 번째
+     * 클릭이 새 요소에 떨어져 `dblclick` 이 만들어지지 않는다 (FR-GIT-52).
+     *
+     * 근거는 **화면이 읽는 값 전부**다. 그리는 쪽이 보는 것은 `_status.status`
+     * 하나이고(`statusOf`), `observedAtUnixMs`·`cached` 는 회차마다 달라지지만
+     * 화면에 닿지 않는다 — 그것까지 넣으면 근거가 늘 달라 가드가 죽는다.
+     */
+    const obs=JSON.stringify(d.status||null);
+    if(obs!==this._obsSig){this._obsSig=obs; this._paint()}
     // 활성 리포의 배지가 따라 갱신된다. 다른 리포는 서버의 마지막 관측값이다.
     this.app._gitReposRefresh();
     // 상태바 chip 은 Git 창 밖에서도 보이므로 관측마다 갱신한다 (FR-GIT-57).
     this.app._updateStatusBar();
+    // FR-GIT-111 (FR-RPT-8): 충돌 판정은 관측마다 돈다 — 다시 그리기에 업히면
+    // 관측이 같은 회차에 판정이 멈춘다.
+    if(this._remoteView) this._remoteView.notifyStatus();
     // FR-GIT-178: 다이얼로그가 열려 있으면 대상 변경을 알린다. 실행은 막지 않는다.
     if(typeof GitConfirm!=='undefined') GitConfirm.notify(this._lastSig);
     if(typeof GitDialog!=='undefined') GitDialog.notify();
   }
 
   _applyError(code){
+    // 사유가 붙은 화면은 관측으로 그린 화면이 아니다 (FR-GIT-227).
+    this._obsSig=null;
     if(code==='not_a_git_repo'){
       this._errMsg=GIT_ERR_NOT_REPO; this._status=null;
       this.setRepo(null);

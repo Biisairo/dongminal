@@ -37,7 +37,7 @@ async function waitForInit(page: Page) {
 
 async function openGit(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
 }
 
 const tab = (page: Page, v: string) => page.locator(`#area .pn-tab[data-git-view="${v}"]`);

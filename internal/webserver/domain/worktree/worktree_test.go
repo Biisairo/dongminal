@@ -118,6 +118,12 @@ func TestPathAndBranch_DeriveFromIdentifiers(t *testing.T) {
 }
 
 // TC-WKT-3 / FR-WKT-6: - 로 시작하는 인자는 거부한다 (git 플래그 오인).
+//
+// **동작 변경(FR-GIT-242)**: 이전에는 Branch 가 비면 항상 ErrUnsafeArgument 였다.
+// 이제는 Branch 가 비어도 Base 가 있으면 "새 브랜치 없이 체크아웃"이라는 유효한
+// 요청이다(TestCreate_ChecksOutExistingRefWithoutNewBranch 가 그 성공 경로를
+// 본다) — 그래서 여기서는 **Branch·Base 가 둘 다 빈** 경우로 케이스를 바꿨다.
+// 그 경우는 지금도 거부된다: 체크아웃할 대상도, 만들 브랜치도 없기 때문이다.
 func TestCreate_RejectsDashLeadingArguments(t *testing.T) {
 	repo := tempRepo(t)
 	m := tempManager(t)
@@ -129,7 +135,7 @@ func TestCreate_RejectsDashLeadingArguments(t *testing.T) {
 	}{
 		{"branch", Spec{Repo: repo, Path: good, Branch: "-x", Base: "main"}},
 		{"base", Spec{Repo: repo, Path: good, Branch: "dmn/a/b", Base: "-x"}},
-		{"empty branch", Spec{Repo: repo, Path: good, Branch: "", Base: "main"}},
+		{"branch·base 둘 다 빔", Spec{Repo: repo, Path: good, Branch: "", Base: ""}},
 	}
 	for _, c := range cases {
 		if err := m.Create(c.spec); !errors.Is(err, ErrUnsafeArgument) {
@@ -220,6 +226,11 @@ func TestRemove_UnmergedBranchIsResidue(t *testing.T) {
 }
 
 // TC-WKT-7 / FR-WKT-10: 위험 경로는 전부 거부한다.
+//
+// V153 (FR-WKT-13): 사용자 worktree 영역(`$DONGMINAL_HOME/git-worktrees`)은 Run
+// 격리 영역(`$DONGMINAL_HOME/worktrees`)의 형제다. Run 의 Manager 는 root 아래만
+// 다루므로 그 형제 경로에는 구조적으로 닿지 않는다 — checkPath 가 "등록 범위 밖"과
+// 같은 사유로 거부한다.
 func TestRemove_RejectsRiskyPaths(t *testing.T) {
 	repo := tempRepo(t)
 	m := tempManager(t)
@@ -227,6 +238,10 @@ func TestRemove_RejectsRiskyPaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// FR-WKT-13: m.Root() 는 <home>/worktrees 다. 사용자 영역은 <home>/git-worktrees
+	// 이며 형제 디렉터리다 — outside(순수 무관 디렉터리)와는 다른 케이스로, "루트와
+	// 이름이 닮았지만 실제로는 형제"라는 실수를 별도로 잡는다.
+	userArea := filepath.Join(filepath.Dir(m.Root()), "git-worktrees", "repo", "feature")
 
 	risky := []struct {
 		name string
@@ -239,6 +254,7 @@ func TestRemove_RejectsRiskyPaths(t *testing.T) {
 		{"경로 이탈", filepath.Join(m.Root(), "..", "..", "etc")},
 		{"루트 자신", m.Root()},
 		{"등록 범위 밖", outside},
+		{"사용자 worktree 영역(FR-WKT-13, V153)", userArea},
 	}
 	for _, c := range risky {
 		res := m.Remove(RemoveSpec{Repo: repo, Path: c.path, Branch: "dmn/a/b"})
@@ -284,6 +300,79 @@ func TestResolve_NonRepoFails(t *testing.T) {
 	}
 }
 
+// V163 (FR-WKT-13 전제): 데이터 디렉터리 자체가 symlink 경유여도 소유 판정·제거가
+// 동작한다.
+//
+// `git worktree list` 는 항상 realpath 를 보고하는데(아래에서 List 로 직접
+// 확인한다), New 가 심볼릭 링크를 풀지 않으면 checkPath 의 문자열 prefix 판정이
+// 영원히 어긋난다 — macOS 의 `/tmp`→`/private/tmp` 처럼 데이터 디렉터리 자체가
+// symlink 경유인 흔한 경우에, 사용자 것도 Run 것도 전부 영역 밖으로 보이고
+// 정당한 제거가 unsafe_path 로 거부된다(다른 팀원이 e2e 로 잡은 결함).
+//
+// 합성 문자열로는 이 결함이 재현되지 않는다 — 실제 심볼릭 링크를 만든다.
+func TestNew_ResolvesSymlinkedRoot(t *testing.T) {
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	realDir := filepath.Join(base, "actual")
+	if err := os.MkdirAll(realDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	linkDir := filepath.Join(base, "link")
+	if err := os.Symlink(realDir, linkDir); err != nil {
+		t.Skip("이 환경은 심볼릭 링크를 만들 수 없다")
+	}
+
+	// 심링크를 지나는 경로로 Manager 를 만든다 — "worktrees" 는 아직 없는
+	// 하위 디렉터리다(첫 실행과 같다, Create 가 비로소 MkdirAll 한다).
+	m := New(filepath.Join(linkDir, "worktrees"))
+	wantRoot := filepath.Join(realDir, "worktrees")
+	if m.Root() != wantRoot {
+		t.Fatalf("Root() 가 realpath 가 아니다: got %q want %q", m.Root(), wantRoot)
+	}
+
+	repo := tempRepo(t)
+	spec := Spec{Repo: repo, Path: m.Path("run1234", "mem5678"), Branch: "dmn/run1234/writer", Base: "main"}
+	if err := m.Create(spec); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// 전제 확인: git worktree list 가 실제로 realpath 를 보고하는가. 이게 깨지면
+	// 이 테스트 전체가 무의미하다.
+	entries, err := m.List(repo)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	var reported string
+	for _, e := range entries {
+		if e.Path != repo {
+			reported = e.Path
+		}
+	}
+	if reported != spec.Path {
+		t.Fatalf("git worktree list 가 realpath 를 안 준다 — 이 테스트의 전제가 깨졌다: got %q want %q", reported, spec.Path)
+	}
+
+	// gone() 도 같은 realpath 정합성에 기댄다(List 를 그대로 쓰므로 원리상
+	// List 가 맞으면 같이 맞지만, checkPath·Remove 의 내부 분기 구조와 무관하게
+	// 직접 확인한다 — Remove 는 정상 삭제 시 gone() 을 안 거치는 경로도 있다).
+	if m.gone(repo, spec.Path) {
+		t.Fatalf("gone() 이 아직 있는 worktree(%q) 를 사라졌다고 본다", spec.Path)
+	}
+
+	// symlink 를 지나는 root 아래의 정당한 worktree 가 제거된다 — checkPath 가
+	// 거부하면(수정 전 결함) Residue 가 unsafe-path 로 남는다.
+	res := m.Remove(RemoveSpec{Repo: repo, Path: spec.Path, Branch: spec.Branch})
+	if !res.Removed || res.Residue != "" {
+		t.Fatalf("symlink 경유 root 아래의 정당한 worktree 가 거부됐다: %+v", res)
+	}
+
+	if !m.gone(repo, spec.Path) {
+		t.Fatalf("gone() 이 지워진 worktree(%q) 를 여전히 있다고 본다", spec.Path)
+	}
+}
+
 // TC-WKT-9 / FR-WKT-7: worktree 조작은 직렬화한다. 공용 common-dir 을 건드린다.
 func TestOperations_AreSerialized(t *testing.T) {
 	var cur, max int32
@@ -311,5 +400,261 @@ func TestOperations_AreSerialized(t *testing.T) {
 	wg.Wait()
 	if max > 1 {
 		t.Fatalf("worktree 조작이 병렬로 돌았다 (최대 동시 %d)", max)
+	}
+}
+
+// V157 (FR-WKT-7 개정, D13): 같은 저장소를 대상으로 하는 **두 Manager 인스턴스**의
+// 생성·제거는 직렬화되어야 한다. 지금 mu 는 인스턴스 필드(worktree.go:55)이고
+// FR-WKT-7 의 근거("git worktree 가 저장소의 공용 common-dir 를 건드린다")는
+// **저장소**를 말하는데 구현은 **인스턴스**를 잠근다 — 그래서 이 테스트는 지금
+// 실패해야 한다(RED). FR-WKT-7 이 저장소 단위 직렬화로 개정 구현되면 통과한다.
+//
+// time.Sleep 으로 "겹칠 기회"를 만들지 않는다(부하에서 흔들린다). 대신 러너가
+// 채널로 막혀 확정적으로 임계구역에 머문다 — 직렬화가 없으면 두 번째 호출이 반드시
+// 그 사이에 들어온다. 직렬화가 이미 있다면(미래) 두 번째는 짧은 상한 안에 들어오지
+// 않고, 첫 번째를 풀어준 뒤에야 뒤이어 들어온다 — 그때도 데드락 없이 끝난다.
+func TestOperations_SerializeAcrossManagersForSameRepo(t *testing.T) {
+	const repo = "/repo"
+	var cur, max int32
+	release := make(chan struct{})
+	entered := make(chan struct{}, 2)
+
+	// Create 는 git 을 여러 번 부른다(worktree add, push.autoSetupRemote 설정,
+	// base 기록 — worktree.go:194,197,201). 임계구역 관찰은 실제 저장소 변경이
+	// 일어나는 "worktree add" 호출 하나로만 좁힌다 — 그러지 않으면 부수 config
+	// 호출까지 채널을 막아서 버퍼가 넘친다.
+	runner := func(dir string, args ...string) (string, error) {
+		if len(args) < 2 || args[0] != "worktree" {
+			return "", nil
+		}
+		n := atomic.AddInt32(&cur, 1)
+		for {
+			old := atomic.LoadInt32(&max)
+			if n <= old || atomic.CompareAndSwapInt32(&max, old, n) {
+				break
+			}
+		}
+		entered <- struct{}{}
+		<-release
+		atomic.AddInt32(&cur, -1)
+		return "", nil
+	}
+
+	// FR-WKT-13 처럼 서로 다른 root 를 가진 두 Manager — Run 영역용 하나, 사용자
+	// 영역용 하나를 흉내낸다. 대상 저장소(repo)는 같다.
+	m1 := New(filepath.Join(t.TempDir(), "worktrees"), WithRunner(runner))
+	m2 := New(filepath.Join(t.TempDir(), "git-worktrees"), WithRunner(runner))
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		_ = m1.Create(Spec{Repo: repo, Path: m1.Path("run1234", "a"), Branch: "dmn/run1234/a", Base: "main"})
+	}()
+	go func() {
+		defer wg.Done()
+		_ = m2.Create(Spec{Repo: repo, Path: m2.Path("run1234", "b"), Branch: "dmn/run1234/b", Base: "main"})
+	}()
+
+	<-entered
+	select {
+	case <-entered:
+		// 상한 안에 둘 다 임계구역에 있었다 — 직렬화되지 않았다.
+	case <-time.After(200 * time.Millisecond):
+		// 두 번째가 아직 안 왔다 — 직렬화됐을 수 있다. 첫 번째를 풀어 마저 재확인한다.
+	}
+	close(release)
+	wg.Wait()
+
+	if max > 1 {
+		t.Fatalf("서로 다른 Manager 인스턴스가 같은 저장소에서 동시에 실행됐다 (최대 동시 %d) — FR-WKT-7(개정) 미구현, D13 근거", max)
+	}
+}
+
+// V160 (FR-WKT-7 개정): 잠금 키는 Manager 안에서 정규화된다 — 호출자가 같은
+// 저장소를 다른 표기(트레일링 슬래시)로 줘도 같은 잠금을 문다. Resolve 가 항상
+// canonical 값을 주는 프로덕션 경로에서는 안 드러나지만, 그 관례에 기대지 않는다는
+// 것을 여기서 직접 확인한다.
+func TestOperations_SerializeSameRepoDifferentSpelling(t *testing.T) {
+	var cur, max int32
+	release := make(chan struct{})
+	entered := make(chan struct{}, 2)
+
+	runner := func(dir string, args ...string) (string, error) {
+		if len(args) < 2 || args[0] != "worktree" {
+			return "", nil
+		}
+		n := atomic.AddInt32(&cur, 1)
+		for {
+			old := atomic.LoadInt32(&max)
+			if n <= old || atomic.CompareAndSwapInt32(&max, old, n) {
+				break
+			}
+		}
+		entered <- struct{}{}
+		<-release
+		atomic.AddInt32(&cur, -1)
+		return "", nil
+	}
+
+	m := New(filepath.Join(t.TempDir(), "worktrees"), WithRunner(runner))
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		_ = m.Create(Spec{Repo: "/repo", Path: m.Path("run1234", "a"), Branch: "dmn/run1234/a", Base: "main"})
+	}()
+	go func() {
+		defer wg.Done()
+		// 같은 저장소, 트레일링 슬래시만 다른 표기.
+		_ = m.Create(Spec{Repo: "/repo/", Path: m.Path("run1234", "b"), Branch: "dmn/run1234/b", Base: "main"})
+	}()
+
+	<-entered
+	select {
+	case <-entered:
+	case <-time.After(200 * time.Millisecond):
+	}
+	close(release)
+	wg.Wait()
+
+	if max > 1 {
+		t.Fatalf("같은 저장소를 다른 표기로 줬는데 잠금이 갈라졌다 (최대 동시 %d) — 잠금 키가 정규화되지 않았다", max)
+	}
+}
+
+// V159 (FR-WKT-13): 베이스이름이 같고 루트가 다른 두 저장소의 <repo> 버킷이
+// 갈라진다. 같은 저장소를 다른 표기로 줘도 같은 버킷이다.
+func TestRepoBucket_SeparatesSameBasenameDifferentRoots(t *testing.T) {
+	a := RepoBucket("/home/x/app")
+	b := RepoBucket("/home/y/app")
+	if a == b {
+		t.Fatalf("베이스이름이 같은 서로 다른 저장소가 같은 버킷을 쓴다: %q", a)
+	}
+	if !strings.HasPrefix(a, "app-") || !strings.HasPrefix(b, "app-") {
+		t.Fatalf("버킷이 베이스이름으로 시작하지 않는다 — FR-GIT-242 의 '경로를 보인다'가 사람이 읽을 수 없다: a=%q b=%q", a, b)
+	}
+	// 같은 저장소, 트레일링 슬래시만 다른 표기 — 같은 버킷이어야 한다.
+	if RepoBucket("/home/x/app") != RepoBucket("/home/x/app/") {
+		t.Fatal("같은 저장소를 다른 표기로 줬는데 버킷이 갈라졌다")
+	}
+}
+
+// FR-GIT-240/246: List 는 main worktree 를 포함해 전부를 준다. gone() 이 같은
+// 함수를 쓴다는 사실은 소스 리뷰로 이미 확인했다 — 여기서는 List 자체의 파싱을
+// 본다(분리·detached·branch 셋 다).
+func TestList_IncludesMainAndParsesEntries(t *testing.T) {
+	repo := tempRepo(t)
+	m := tempManager(t)
+	spec := Spec{Repo: repo, Path: m.Path("run1234", "mem5678"), Branch: "dmn/run1234/writer", Base: "main"}
+	if err := m.Create(spec); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	// detach 된 세 번째 worktree 도 하나 만든다. git 이 물리 경로로 답하므로(맥OS
+	// /var → /private/var) 심볼릭 링크를 미리 푼다 — tempRepo 와 같은 이유다.
+	detachedParent, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	detachedPath := filepath.Join(detachedParent, "detached")
+	if _, err := m.git(repo, "worktree", "add", "--detach", detachedPath, "main"); err != nil {
+		t.Fatalf("detach worktree 준비 실패: %v", err)
+	}
+
+	entries, err := m.List(repo)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	byPath := map[string]Entry{}
+	for _, e := range entries {
+		byPath[e.Path] = e
+	}
+	if _, ok := byPath[repo]; !ok {
+		t.Fatalf("main worktree 가 목록에 없다: %+v", entries)
+	}
+	linked, ok := byPath[spec.Path]
+	if !ok || linked.Branch != spec.Branch || linked.Detached {
+		t.Fatalf("연결된 worktree 항목이 어긋난다: %+v", linked)
+	}
+	det, ok := byPath[detachedPath]
+	if !ok || !det.Detached || det.Branch != "" {
+		t.Fatalf("detached worktree 항목이 어긋난다: %+v", det)
+	}
+	if !byPath[repo].Main {
+		t.Fatalf("main worktree 항목에 Main 이 서지 않았다: %+v", byPath[repo])
+	}
+	if linked.Main || det.Main {
+		t.Fatalf("main 이 아닌 항목에 Main 이 섰다: linked=%+v det=%+v", linked, det)
+	}
+}
+
+// V162: main worktree 판정은 porcelain 출력의 **순서**에서 나며, List 를 무엇의
+// 디렉터리에서 호출했는지(조회 경로)를 따라가지 않는다.
+//
+// **판정문**: 링크드 worktree 를 대상으로 List 를 다시 호출해도(그 worktree 를
+// 활성 리포로 연 뒤 다시 조회하는 것과 같다) main 배지는 원래 main worktree 에
+// 그대로 남는다.
+//
+// 예전엔 main 을 "조회에 쓴 경로와 같다"로 판정했다 — 그러면 사용자가 Worktrees
+// 탭에서 어떤 worktree 를 "Open"(활성 리포로 전환)한 뒤 다시 목록을 보면 main
+// 배지가 그 worktree 로 옮겨갔다. 이 테스트는 그 결함을 고정한다.
+func TestList_MainStaysOnOriginRegardlessOfQueryPath(t *testing.T) {
+	repo := tempRepo(t)
+	m := tempManager(t)
+	spec := Spec{Repo: repo, Path: m.Path("run1234", "mem5678"), Branch: "dmn/run1234/writer", Base: "main"}
+	if err := m.Create(spec); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// repo 자신에서 조회 — main 은 repo 다.
+	entries, err := m.List(repo)
+	if err != nil {
+		t.Fatalf("List(repo): %v", err)
+	}
+	assertMainIs(t, entries, repo)
+
+	// **링크드 worktree 의 경로에서** 같은 저장소를 다시 조회한다 — git worktree
+	// list 는 어느 worktree 디렉터리에서 불러도 같은 전체 목록을 준다(공용
+	// 관리 영역을 읽으므로). main 배지는 여전히 repo 에 있어야 한다 — spec.Path
+	// (지금 조회에 쓴 경로) 로 옮겨가면 안 된다.
+	entries, err = m.List(spec.Path)
+	if err != nil {
+		t.Fatalf("List(spec.Path): %v", err)
+	}
+	assertMainIs(t, entries, repo)
+}
+
+func assertMainIs(t *testing.T, entries []Entry, wantMainPath string) {
+	t.Helper()
+	for _, e := range entries {
+		if e.Path == wantMainPath && !e.Main {
+			t.Fatalf("%s 가 main 이어야 하는데 아니다: %+v", wantMainPath, entries)
+		}
+		if e.Path != wantMainPath && e.Main {
+			t.Fatalf("%s 가 아닌 %s 에 main 이 섰다: %+v", wantMainPath, e.Path, entries)
+		}
+	}
+}
+
+// FR-GIT-242: Branch 가 비면 새 브랜치 없이 Base 를 그대로 체크아웃한다.
+func TestCreate_ChecksOutExistingRefWithoutNewBranch(t *testing.T) {
+	repo := tempRepo(t)
+	m := tempManager(t)
+	// main 은 이미 repo 자신에 체크아웃돼 있어 다른 worktree 가 그대로 쓸 수 없다
+	// (git 이 "already used by worktree" 로 거부한다) — 아무 데도 체크아웃되지 않은
+	// 별도 브랜치를 대상 ref 로 쓴다.
+	git(t, repo, "branch", "other")
+	path := m.Path("bucket", "existing-ref")
+
+	if err := m.Create(Spec{Repo: repo, Path: path, Base: "other"}); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if got := git(t, path, "rev-parse", "--abbrev-ref", "HEAD"); got != "other" {
+		t.Fatalf("other 를 그대로 체크아웃해야 한다: %q", got)
+	}
+	// 새 브랜치를 만들지 않았다 — dmn/ 접두 브랜치가 하나도 없어야 한다.
+	if out := git(t, repo, "branch", "--list", "dmn/*"); out != "" {
+		t.Fatalf("새 브랜치가 생겼다: %q", out)
 	}
 }

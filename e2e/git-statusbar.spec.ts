@@ -32,7 +32,7 @@ async function waitForInit(page: Page) {
 
 async function openGit(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
 }
 
 const chip = (page: Page) => page.locator('#sb-items .sb-git');
@@ -116,7 +116,7 @@ test.describe('묶음 G — 상태바 chip', () => {
     await waitForInit(page);
     // 리포 없이 Git 창을 연다 — 마지막 관측이 없으므로 항목을 넣지 않는다.
     await page.evaluate(() => (window as any).app.openGitWindow());
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
     await page.evaluate(() => (window as any).app._updateStatusBar());
     await expect(chip(page)).toHaveCount(0);
 

@@ -681,7 +681,7 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .git-head-ab{color:var(--text-muted);font-size:11px;white-space:nowrap}
 .git-head-spacer{flex:1 1 auto}
 .git-head-remote{display:flex;gap:4px;flex-shrink:0}
-.git-remote-btn,.git-commit-btn,.git-files-mode{
+.git-remote-btn,.git-commit-btn,.git-files-mode,.git-head-refresh{
   font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;
   background:var(--bg);color:var(--text);
   border:1px solid var(--border);border-radius:3px;
@@ -697,9 +697,14 @@ body.mobile .sb-title{padding:14px 14px 8px}
   background:var(--accent-hover);color:var(--accent);
 }
 /* 사유 없이 꺼진 버튼은 사용자가 해소할 수 없다 — title 이 그것을 맡는다 */
-.git-remote-btn:disabled,.git-commit-btn:disabled,.git-remote-more:disabled{
+.git-remote-btn:disabled,.git-commit-btn:disabled,.git-remote-more:disabled,
+.git-head-refresh:disabled{
   color:var(--text-dim);cursor:not-allowed;
 }
+/* FR-GIT-238: 새로고침. 헤더가 좁아져도 줄어들지 않고, 원격 버튼 한 벌과 붙어
+   보이지 않게 사이를 벌린다 */
+.git-head-refresh{flex-shrink:0;margin-right:6px}
+.git-head-refresh:hover:not(:disabled){background:var(--accent-hover);color:var(--accent)}
 
 /* ── 원격 작업 하나의 화면 (FR-GIT-102·103·105·108) ── */
 .git-job{display:none;flex:0 0 auto;flex-direction:column;border-bottom:1px solid var(--border)}
@@ -1016,6 +1021,21 @@ body.mobile .sb-title{padding:14px 14px 8px}
 .git-file.cur{border-left-color:var(--accent)}
 .git-file-st{width:10px;flex-shrink:0;text-align:center;color:var(--text-muted);font-family:monospace}
 .git-file-path{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* FR-GIT-237: 경로는 디렉터리와 파일명으로 갈린다.
+
+   **구별의 보장 축은 굵기이고 색은 보강이다.** `--text` 와 `--text-bright` 가 같은
+   값인 테마가 45개 중 12개다 (Dracula · Rosé Pine · Cobalt² · Everforest · Kanagawa ·
+   Vesper · Vitesse Dark · Monokai Pro · GitHub Light · Tokyo Night Light ·
+   Catppuccin Latte · Rosé Pine Dawn) — 색만으로 가르면 그 테마들에서 구별이 사라지고,
+   그것이 접수한 말("파일명과 같으면 보기 불편하다") 그 자체가 된다.
+
+   디렉터리를 `--text-muted` 로 내리면 45개 전부에서 색이 갈리지만 **지금보다 흐려진다** —
+   접수한 말("경로 표시가 너무 흐리다 → 진하게")과 반대라 택하지 않는다.
+
+   "밝다"가 아니라 **대비가 강하다**다: 라이트 테마에서 강조는 더 어두운 쪽이다. */
+.git-file-path-dir{color:var(--text)}
+.git-file-path-name{color:var(--text-bright);font-weight:600}
+.git-file-path-arrow{color:var(--text-muted)}
 /* FR-GIT-190: 일부만 스테이지된 파일은 상태 문자 색으로 구분한다 */
 .git-file.partial .git-file-st{color:var(--attn)}
 /* 행 인라인 동작. 자리는 늘 잡고 hover 에서만 보인다 — 행 높이가 흔들리지 않는다 */
@@ -1045,7 +1065,9 @@ body.mobile .sb-title{padding:14px 14px 8px}
   border:1px solid var(--border);border-radius:3px;
 }
 /* 충돌 행은 구분만 한다 (FR-GIT-37). M1 은 해결하지 않는다 */
-.git-file.conflict .git-file-st,.git-file.conflict .git-file-path{color:var(--danger)}
+.git-file.conflict .git-file-st,.git-file.conflict .git-file-path,
+.git-file.conflict .git-file-path-dir,.git-file.conflict .git-file-path-name,
+.git-file.conflict .git-file-path-arrow{color:var(--danger)}
 .git-dir-caret{width:9px;flex-shrink:0;color:var(--text-muted)}
 .git-dir-name{color:var(--text-muted)}
 /* FR-GIT-42: 다음 덩어리를 이어 그릴 지점 */
@@ -1381,13 +1403,17 @@ body.mobile .git-hist-f{width:60px}
 }
 /* O4: 활성 리포가 아닌 배지는 마지막 관측값일 뿐이다 */
 .git-badge.stale{background:transparent;color:var(--text-dim)}
-.git-repo-x{width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-muted);opacity:0;cursor:pointer;border-radius:2px;flex-shrink:0}
+/* FR-GIT-239: follow 행의 자리 칸(`.git-repo-xslot`)은 `×` 와 **같은 선언에서** 폭을
+   받는다 — 두 곳에 따로 쓰면 모바일에서 어긋난다. 자리만 잡으므로 동작·색은 없다. */
+.git-repo-x,.git-repo-xslot{width:16px;height:16px;flex-shrink:0}
+.git-repo-x{display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-muted);opacity:0;cursor:pointer;border-radius:2px}
 .git-repo:hover .git-repo-x{opacity:1}
 .git-repo-x:hover{color:var(--danger);background:var(--border)}
 /* 모바일 드로어는 전체가 스크롤된다 — 비율 상한이 목록을 두 줄로 눌러 버린다 */
 body.mobile #git-repos{max-height:none}
 body.mobile .git-repo{height:40px;font-size:13px}
-body.mobile .git-repo-x{opacity:1;width:24px;height:24px;font-size:14px}
+body.mobile .git-repo-x,body.mobile .git-repo-xslot{width:24px;height:24px}
+body.mobile .git-repo-x{opacity:1;font-size:14px}
 
 /* ── 상태바 Git chip (FR-GIT-57~59) ── */
 /* 클릭은 Git 창 활성화뿐이다 — chip 에서의 조작은 없다 */
@@ -1527,9 +1553,9 @@ body.mobile .git-repo-x{opacity:1;width:24px;height:24px;font-size:14px}
    좁은 폭에서의 줄바꿈처럼 그 다이얼로그만의 것이다 */
 /* 결정을 요구하는 다이얼로그다 — 실행/취소 두 갈래가 아니다 */
 .gch-box{border-color:var(--attn)}
-.gbc-box,.gsc-box{border-color:var(--accent-border)}
+.gbc-box,.gsc-box,.gwc-box{border-color:var(--accent-border)}
 /* 옵션 문구는 본문보다 약하게 — 값이 아니라 설명이다 */
-.gbc-checkoutrow,.gsc-optrow{color:var(--text-muted)}
+.gbc-checkoutrow,.gsc-optrow,.gwc-optrow{color:var(--text-muted)}
 
 /* ── Git Stash 탭 (FR-GIT-161~170) ── */
 .git-view.git-stash{overflow:hidden}
@@ -1593,6 +1619,65 @@ body.mobile .git-repo-x{opacity:1;width:24px;height:24px;font-size:14px}
 .git-stash-file-st{flex:0 0 auto;width:12px;color:var(--accent);font-family:monospace}
 .git-stash-file-path{min-width:0;overflow:hidden;text-overflow:ellipsis}
 
+/* ── Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5 / FR-GIT-240~244) ── */
+.git-worktrees{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.git-wt-head{
+  display:flex;align-items:center;gap:8px;flex:0 0 auto;
+  padding:4px 10px;border-bottom:1px solid var(--border);
+}
+.git-wt-spacer{flex:1 1 auto}
+.git-wt-note{display:none;padding:4px 10px;font-size:11px;
+  color:var(--attn);background:var(--attn-subtle)}
+.git-wt-note.vis{display:flex;align-items:center;gap:8px}
+.git-wt-note-msg{flex:1 1 auto;min-width:0;word-break:break-all}
+.git-wt-list{flex:1 1 auto;min-height:0;overflow-y:auto}
+.git-wt-empty{display:none;padding:6px 10px;font-size:11px;color:var(--text-dim)}
+.git-wt-empty.vis{display:block}
+/* FR-GIT-197·226: 목록 행의 높이 하한은 한 곳(--git-row-min)에서 온다 */
+.git-wt-row{
+  display:flex;align-items:center;gap:8px;padding:0 6px 0 10px;
+  min-height:var(--git-row-min);font-size:12px;white-space:nowrap;
+}
+.git-wt-row:hover{background-color:var(--accent-hover)}
+/* 경로가 이 행의 본체다 — 좁아지면 이것만 줄어든다. 만들어진 경로를 보이는 자리이므로
+   (FR-GIT-242) 가장 강조한다 */
+.git-wt-path{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  color:var(--text-bright)}
+.git-wt-branch{flex-shrink:0;color:var(--accent)}
+.git-wt-branch.detached{color:var(--text-muted);font-style:italic}
+/* 사용자 것은 표식이 없다 — 그것이 기본이기 때문이다 (FR-GIT-240). 요소는 늘 있고
+   글자만 비므로 자리를 먹지 않는다 */
+.git-wt-own{flex-shrink:0;font-size:10px;color:var(--text-muted)}
+.git-wt-main{flex-shrink:0;font-size:10px;padding:0 4px;border-radius:8px;
+  background:var(--accent-subtle);color:var(--accent)}
+.git-wt-rowspacer{flex:0 0 4px}
+/* 행 인라인 동작. 자리는 늘 잡고 hover 에서만 보인다 — .git-file-acts 와 같은 규약 */
+.git-wt-acts{display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity .1s}
+.git-wt-row:hover .git-wt-acts,.git-wt-row:focus-within .git-wt-acts{opacity:1}
+.git-wt-act{
+  font:inherit;font-size:11px;line-height:1;cursor:pointer;padding:0 6px;
+  display:flex;align-items:center;justify-content:center;
+  background:transparent;color:var(--text-muted);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-wt-act:hover{color:var(--text-bright);border-color:var(--accent)}
+.git-wt-act[data-act="remove"]:hover{color:var(--danger);border-color:var(--danger)}
+/* 머리의 생성 진입점과 안내 닫기. 같은 자리를 쓰는 Stash 탭(.git-stash-new ·
+   .git-stash-note-close)과 같은 어휘여야 한다 — 규칙이 없으면 브라우저 기본 베벨로
+   떠서 어두운 테마에서 튄다 */
+.git-wt-add{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-wt-add:hover:not(:disabled){background:var(--accent-hover);color:var(--accent)}
+.git-wt-add:disabled{color:var(--text-dim);cursor:not-allowed}
+.git-wt-note-close{
+  flex-shrink:0;font:inherit;font-size:11px;padding:0 8px;cursor:pointer;
+  background:transparent;color:var(--text-muted);
+  border:1px solid var(--border);border-radius:3px;
+}
+
 /* ── Git 컨트롤 치수 하한 (FR-GIT-195~199, **FR-GIT-226 으로 개정**) ──
    기준은 VSCode(22/26)가 아니라 **이 앱의 WINDOWS 목록 행(`.si` 30px)** 이다 —
    같은 앱 안에서 목록마다 다른 높이를 쓸 이유가 없다 (사용자 검토).
@@ -1623,7 +1708,9 @@ body.mobile .git-repo-x{opacity:1;width:24px;height:24px;font-size:14px}
 /* refs 사이드바의 행도 목록 행이다 — 빠져 있었다 */
 .git-refs-all,.git-ref{min-height:var(--git-row-min)}
 #git-repos .git-repo{min-height:var(--git-row-min)}
-#git-repos .git-repo-x{min-width:var(--git-hit);min-height:var(--git-hit)}
+/* FR-GIT-239: 히트 영역도 자리 칸이 함께 받는다 — 이 값이 실제 폭을 정하므로
+   한쪽만 받으면 두 행의 오른쪽 끝이 어긋난다 */
+#git-repos .git-repo-x,#git-repos .git-repo-xslot{min-width:var(--git-hit);min-height:var(--git-hit)}
 
 /* ── GIT 섹션 표식 (FR-GIT-192~194) ──
    WINDOWS 목록의 `.si-dot` 과 같은 어휘다. 활성 리포 여부만 나타내고

@@ -222,6 +222,12 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 	// 않는 Run 은 이 객체를 건드리지 않는다.
 	worktrees := worktree.New(dataPath(cfg.DataDir, "worktrees"))
 
+	// Git 창 Worktrees 탭의 사용자 worktree 관리자 (FR-WKT-13) — 위 worktrees 와는
+	// 별개의 Manager 인스턴스이며 root 만 형제(git-worktrees)다. checkPath 가 서로의
+	// root 밖을 거부하므로 이 둘이 갈라진 것만으로 Run 정리가 사용자 worktree 를
+	// 건드리지 않는다는 것이 구조적으로 보장된다 — 그 사실이 I7 안전의 전부다.
+	userWorktrees := worktree.New(dataPath(cfg.DataDir, "git-worktrees"))
+
 	// 상태바 지표 샘플러. 커널을 주기적으로 읽어 스냅샷을 유지하므로 /api/stats 가
 	// 요청 경로에서 커널을 호출하지 않는다 (SYSTEM_STATS_SRS FR-STAT-8/9/11).
 	sampler := sysstat.NewSampler(sysstat.NewReader(), sysstat.DefaultInterval, "/")
@@ -232,17 +238,18 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 
 	return builtDeps{
 		deps: httpapi.Deps{
-			Tools:       toolHub,
-			Work:        wsMgr,
-			Commands:    cmdHub,
-			AttnTracker: attnTracker,
-			WhoAmI:      resolver,
-			ToolIO:      pa,
-			WorkIndex:   wa,
-			Stats:       sampler,
-			Runs:        runStore,
-			Worktrees:   worktrees,
-			Git:         gitStore,
+			Tools:         toolHub,
+			Work:          wsMgr,
+			Commands:      cmdHub,
+			AttnTracker:   attnTracker,
+			WhoAmI:        resolver,
+			ToolIO:        pa,
+			WorkIndex:     wa,
+			Stats:         sampler,
+			Runs:          runStore,
+			Worktrees:     worktrees,
+			UserWorktrees: userWorktrees,
+			Git:           gitStore,
 		},
 		pm:          nil, // set by caller in direct mode
 		attnTracker: attnTracker,

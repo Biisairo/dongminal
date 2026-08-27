@@ -44,7 +44,7 @@ Object.assign(App.prototype, {
     return win.id;
   },
 
-  // _mkGitWindow 는 고정 탭 6개를 갖춘 Git 창을 만든다. _mkWindow 와 달리
+  // _mkGitWindow 는 GIT_VIEWS 의 고정 탭을 갖춘 Git 창을 만든다. _mkWindow 와 달리
   // _newTool 을 부르지 않는다 — Git 창의 초기 상태에는 PTY 가 필요 없다.
   _mkGitWindow(repo){
     const r=newEntityId();
@@ -83,13 +83,39 @@ Object.assign(App.prototype, {
    */
   async _gitOpenFile(filePath){
     if(!filePath) return;
+    const w=await this._gitPlainTarget(); if(!w) return;
+    const rid=this._gitPaneOf(w);
+    if(rid) await this.addTab(rid,'editor',{filePath,windowId:w.id});
+  },
+
+  /**
+   * FR-GIT-244: worktree 에서 터미널 탭을 연다. Open File 과 **같은 대상 창**을
+   * 쓴다 — Git 창에는 열지 않는다 (FR-GIT-179).
+   */
+  async _gitOpenTerminal(cwd){
+    if(!cwd) return;
+    const w=await this._gitPlainTarget(); if(!w) return;
+    const rid=this._gitPaneOf(w);
+    if(rid) await this.addTab(rid,'terminal',{cwd,windowId:w.id,name:cwd.split('/').pop()});
+  },
+
+  /**
+   * FR-GIT-185 의 대상 창. 직전에 활성이었던 일반 창이고, 없으면 만든다. 연 뒤
+   * 활성화하는 것까지 여기서 한다 — 열었는데 보이지 않으면 사용자는 실패로 읽는다.
+   *
+   * Open File 과 터미널 열기가 이 한 자리를 쓴다 — 두 벌로 두면 한쪽만 고쳐진다.
+   */
+  async _gitPlainTarget(){
     const plain=this._plainWindows();
     let w=plain.find(s=>s.id===this._lastPlainWindow)||plain[0];
     if(!w) w=await this._mkWindow();
-    if(!w||!w.layout) return;
+    if(!w||!w.layout) return null;
     this.switchWindow(w.id);
-    const rid=(w.focusedPane&&findPane(w.layout,w.focusedPane))?w.focusedPane:firstPane(w.layout)?.id;
-    if(rid) await this.addTab(rid,'editor',{filePath,windowId:w.id});
+    return w;
+  },
+
+  _gitPaneOf(w){
+    return (w.focusedPane&&findPane(w.layout,w.focusedPane))?w.focusedPane:firstPane(w.layout)?.id;
   },
 
   // 목록은 주기적으로 갱신하되 탭이 숨겨졌으면 건너뛴다 — 보이지 않는 섹션을

@@ -89,6 +89,13 @@ class GitRemote {
 
   // ── 칠하기 ──
 
+  /**
+   * FR-RPT-8: 충돌 판정은 **관측 경로**에 있다 (`notifyStatus`) — 다시 그리기에
+   * 업히면 안 된다. 관측이 같으면 그리지 않으므로(FR-RPT-1) 판정도 멈춘다.
+   *
+   * 여기에도 남겨 둔 것은 다른 계기의 다시 그리기에서도 뜻이 같기 때문이다 —
+   * 판정 자체가 멱등이다.
+   */
   paint(el){
     if(!el) return;
     // 충돌 판정은 새 status 가 도착한 뒤에만 뜻이 있다 (FR-GIT-111).
@@ -449,6 +456,12 @@ class GitRemote {
     // FR-GIT-107: 작업이 끝나면 ahead/behind 와 상태를 갱신한다 — 폴링 주기를
     // 기다리면 화면이 그만큼 거짓말을 한다.
     this.panel.collect();
+  }
+
+  // 관측이 하나 올 때마다 `GitPanel._applyStatus` 가 부른다 (FR-RPT-8). 화면을
+  // 그리는지와 무관하게 판정이 돌아야 한다.
+  notifyStatus(){
+    if(this._pending) this._checkConflict();
   }
 
   // FR-GIT-111: 충돌이 남았으면 Changes 탭으로 보내고 충돌 그룹을 펼친다.

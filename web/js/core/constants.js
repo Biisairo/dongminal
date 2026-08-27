@@ -69,6 +69,9 @@ const GIT_VIEWS=[
   {key:'branches', name:'Branches'},
   {key:'stash',    name:'Stash'},
   {key:'console',  name:'Console'},
+  // FR-GIT-28 (개정): 고정 탭이 7개가 된다. 요청이 "관리 **탭**" 이었으므로 기존 탭
+  // 안에 밀어 넣지 않는다 — 그러면 Branches 탭이 두 가지 일을 한다.
+  {key:'worktrees', name:'Worktrees'},
 ];
 const GIT_PENDING_HINT='이후 마일스톤에서 제공됩니다';
 const GIT_NO_REPO_HINT='리포를 선택하세요';
@@ -112,6 +115,9 @@ const GIT_AXIS_LABEL={
 const GIT_PREVIEW_HINT='파일을 선택하세요';
 const GIT_LOADING_HINT='불러오는 중…';
 const GIT_STALE_NOTE='갱신 실패';
+// FR-GIT-238: 새로고침. 이모지를 쓰지 않는다 (FR-GIT-187·192 와 같은 어휘).
+const GIT_REFRESH_LABEL='⟳';
+const GIT_REFRESH_TITLE='새로고침 — 상태·History·Branches·Console 을 전부 다시 받는다';
 const GIT_ERR_NOT_REPO='저장소가 아닙니다';
 const GIT_ERR_GIT_MISSING='git 을 찾을 수 없습니다';
 // 파일 목록은 한 번에 다 그리지 않는다 (FR-GIT-42). 스크롤이 끝에 닿을 때마다
@@ -132,14 +138,16 @@ const GIT_TREE_PAD0=6;
 // 충돌 stage 는 "해결됨 표시" 라 한 번에 밀어 넣을 동작이 아니다 (FR-GIT-72).
 const GIT_GROUP_BULK={staged:'unstage',changes:'stage',untracked:'stage'};
 // 행 hover 버튼. 그룹이 할 수 있는 동작만 보인다 — staged 행의 `+` 는 뜻이 없다.
+// FR-GIT-236: Open File 이 먼저다 — 읽는 동작을 쓰는 동작 앞에 둔다. 되돌리기가
+// 늘 끝에 오므로 파괴적인 것이 손에서 가장 멀다.
 const GIT_ROW_ACTS={
-  staged:['unstage'], changes:['stage','discard'],
-  untracked:['stage','discard'], conflicts:['ours','theirs','stage'],
+  staged:['openFile','unstage'], changes:['openFile','stage','discard'],
+  untracked:['openFile','stage','discard'], conflicts:['openFile','ours','theirs','stage'],
 };
-const GIT_ACT_LABEL={stage:'+',unstage:'−',discard:'↺',ours:'Ours',theirs:'Theirs'};
+const GIT_ACT_LABEL={openFile:'↗',stage:'+',unstage:'−',discard:'↺',ours:'Ours',theirs:'Theirs'};
 // ours·theirs 의 툴팁은 **진행 중인 조작에 따라 달라지므로** 여기 두지 않는다 —
 // 행이 GIT_SIDE_TITLE 에서 그때 고른다 (FR-GIT-224).
-const GIT_ACT_TITLE={stage:'스테이지',unstage:'언스테이지',discard:'변경 버리기'};
+const GIT_ACT_TITLE={openFile:'파일 열기',stage:'스테이지',unstage:'언스테이지',discard:'변경 버리기'};
 const GIT_BULK_LABEL={stage:'Stage All',unstage:'Unstage All'};
 // FR-GIT-70: staged 와 unstaged 를 동시에 가진 파일. 체크박스의 indeterminate 와
 // 행 클래스 둘로 구분한다 — 색만으로는 무엇이 다른지 알 수 없다.
@@ -723,3 +731,48 @@ const GIT_REMOTE_DIALOGS={
 const GIT_SB_JOB_ICON='⇅';
 const GIT_SB_JOB_SUFFIX='…';
 const GIT_SB_JOB_TITLE='진행 중인 원격 작업';
+
+// ── Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5 / FR-GIT-240~244) ──
+
+const GIT_WT_ADD='+ New Worktree';
+const GIT_WT_EMPTY='worktree 가 없습니다';
+const GIT_WT_LOAD_FAIL='worktree 목록을 불러오지 못했습니다';
+const GIT_WT_DETACHED='detached';
+const GIT_WT_MAIN='main';
+// 소유 표식 (FR-GIT-240). **사용자 것은 표식이 없다** — 그것이 기본이기 때문이다.
+// 이모지를 쓰지 않는다 (FR-GIT-187·192).
+const GIT_WT_OWN_LABEL={run:'Run',outside:'외부'};
+const GIT_WT_OWN_TITLE={
+  run:'Run 격리가 만든 worktree 입니다 — 여기서 지울 수 없습니다',
+  outside:'dongminal 밖에서 만든 worktree 입니다 — 여기서 지울 수 없습니다',
+};
+// 행 동작 (FR-GIT-244). 제거는 사용자 것에만 붙고, 열기는 활성 리포 행에 붙지
+// 않는다 — 눌리지만 아무 일도 하지 않는 버튼은 고장으로 읽힌다 (FR-GIT-180).
+const GIT_WT_ACT_LABEL={open:'Open',pin:'Pin',term:'Shell',remove:'Remove'};
+const GIT_WT_ACT_TITLE={
+  open:'이 worktree 를 활성 리포로 엽니다',
+  pin:'GIT 섹션에 핀합니다',
+  term:'이 worktree 에서 터미널 탭을 엽니다 (Git 창이 아닌 창)',
+  remove:'이 worktree 를 지웁니다',
+};
+const GIT_WT_CREATE_TITLE='새 worktree 를 만듭니다';
+const GIT_WT_CREATE_RUN='Create';
+const GIT_WT_NAME_PH='이름 — 디렉터리 이름이 됩니다';
+const GIT_WT_REF_PH='대상 ref — 브랜치·태그·커밋';
+const GIT_WT_OPT_NEWBRANCH='이 이름으로 새 브랜치를 만든다';
+const GIT_WT_NEED_NAME='이름이 필요합니다';
+const GIT_WT_NEED_REF='대상 ref 가 필요합니다';
+const GIT_WT_CREATED='만들었습니다: ';
+const GIT_WT_PINNED='핀했습니다: ';
+const GIT_WT_PIN_FAIL='핀하지 못했습니다';
+const GIT_WT_REMOVE_TITLE='worktree 를 지웁니다';
+const GIT_WT_REMOVE_NOTE='디렉터리가 사라집니다. 저장하지 않은 변경이 남아 있으면 거부됩니다.';
+// 제거는 200 으로 오면서 `removed:false` 일 수 있다 — 사유를 그 자리에 보인다
+// (FR-GIT-243: 사용자의 작업을 지우지 않는다).
+const GIT_WT_RESIDUE={
+  'dirty':'저장하지 않은 변경이 있어 지우지 않았습니다',
+  'unsafe-path':'이 경로는 지울 수 있는 영역이 아닙니다',
+  'remove-failed':'git 이 제거하지 못했습니다',
+  'branch-retained':'트리는 지웠으나 브랜치가 남았습니다',
+};
+const GIT_WT_REMOVE_FAIL='worktree 를 지우지 못했습니다';
