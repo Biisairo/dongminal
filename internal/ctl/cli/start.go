@@ -39,6 +39,13 @@ func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 		return 1
 	}
 
+	// ── 자기 종료 회피 ──────────────────────────────────────
+	// 도구 안에서 데몬을 내리면 이 프로세스도 PTY 와 함께 죽어 서버 기동에
+	// 도달하지 못한다. 재시작 전량을 대리에게 넘기고 돌아온다 (FR-ACT-3a).
+	if handedOff, code := handOffRestart(o, home, stdout, stderr); handedOff {
+		return code
+	}
+
 	// ── 사전 정리 ────────────────────────────────────────────
 	// 격리 실행은 기존 서버를 건드리지 않는다 (FR-ISO-2). 빈 포트를 고른
 	// 이상 죽일 대상이 없고, 운영 인스턴스를 죽이는 사고를 구조로 막는다.

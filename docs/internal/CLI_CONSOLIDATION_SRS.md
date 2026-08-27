@@ -168,6 +168,28 @@ DONGMINAL_HOME=~/.dongminal ← main.go 기본값과 동일
 
 **FR-ACT-3** `--restart-daemon` 은 FR-ACT-1 ②의 데몬 재시작 경로를 켠다.
 
+**FR-ACT-3a** `--restart-daemon` 이 dongminal 도구 안에서 실행되면(환경변수
+`DONGMINAL_TOOL_ID` 가 있으면), FR-ACT-1 의 ①~⑤ 를 새 세션(`setsid`)의 대리
+프로세스에 위임하고 즉시 종료 코드 0 으로 돌아온다. 대리는 같은 인자에
+`DONGMINAL_RESTART_RUNNER=1` 만 더해 자기 자신을 재실행한 것이며,
+stdout/stderr 은 `<home>/restart.log` 다. 위임 사실과 로그 경로를 알린다.
+
+근거: 도구의 셸은 dongminald 의 자식이고 제어 터미널은 그 PTY 다
+(`internal/shared/toolhub/tool.go` 의 `StartTool`). 데몬을 종료하면 PTY 마스터가
+닫혀 셸과 그 자식인 이 명령 자신이 SIGHUP 으로 죽고, ③ 서버 기동에 도달하지
+못한다 — 데몬만 내려간 상태로 끝나 복구에 외부 터미널이 필요해진다. 대리는
+제어 터미널이 없고 PTY fd 를 들지 않으므로 살아남아 ①~⑤ 를 끝낸다.
+`--foreground` 여부와 무관하게 위임한다 — 도구 안에서 데몬을 내리는 실행은
+어느 쪽이든 자기 종료로 끝나기 때문이다.
+
+**FR-ACT-3b** 대리 프로세스(`DONGMINAL_RESTART_RUNNER` 가 설정된 실행)는 다시
+위임하지 않는다. 도구 밖(`DONGMINAL_TOOL_ID` 없음)의 `--restart-daemon` 도
+위임하지 않고 그 자리에서 수행한다 — 자기 종료가 일어나지 않으므로 진행
+상황을 터미널에서 그대로 본다.
+
+**FR-ACT-3c** 대리 기동에 실패하면 데몬을 종료하지 않고 종료 코드 1 로 알린다.
+근거: 데몬을 먼저 내린 뒤 대리가 없으면 복구 수단까지 사라진다.
+
 **FR-ACT-4** `start` 는 `go build` 를 하지 않는다. 빌드는 `scripts/build.sh`
 의 책임이다 (§2.3).
 
@@ -317,6 +339,8 @@ macOS 는 `open -na "Google Chrome" --args --app=<url>`, Linux 는
 | TC-ACT-3 | FR-ACT-6/7 | `stop` 후 `paned.pid` 생존, `stop --all` 후 소멸 | 소켓·pid 제거 확인 |
 | TC-ACT-4 | FR-ACT-12 | 서버 기동 상태에서 `migrate` | rc=1, 파일 무변경 |
 | TC-ACT-5 | FR-ACT-11 | 격리 홈에 v1 픽스처 → `migrate --dry-run` → `migrate` | 계획 출력 후 무변경, 이어서 v2 + `*.v1.bak` |
+| TC-ACT-6 | FR-ACT-3a/3b | 위임 판정 — (도구 안/밖) × (대리/비대리) × (`--restart-daemon` 유/무) | 도구 안 · 비대리 · 플래그 있음 조합만 위임 (Go 단위) |
+| TC-ACT-7 | FR-ACT-3a | 도구 탭에서 `start --restart-daemon` | 탭은 끊긴다. 브라우저 새로고침 시 새 서버·새 데몬이 응답하고 `restart.log` 마지막 줄이 `✅ dongminal running` |
 | TC-ISO-1 | FR-ISO-1/2 | 운영 서버 기동 중 `start --isolated` | 운영 서버 생존, 새 포트에 별도 인스턴스 |
 | TC-ISO-2 | FR-ISO-3 | `start --isolated --port 58200` | 58200 사용 |
 | TC-FG-1 | FR-FG-1 | `start --foreground` | 프롬프트 미반환, ping 응답, `^C` 로 정지 |
@@ -325,7 +349,8 @@ macOS 는 `open -na "Google Chrome" --args --app=<url>`, Linux 는
 | TC-REF-1 | FR-REF-1/2 | `npx playwright test` | 기준선 유지 |
 
 **Go 단위 테스트를 두는 지점** (순수 함수로 분리 가능한 것만):
-플래그 파싱(FR-CLI-4..7, FR-CLI-9, FR-ACT-2/3/6), help 텍스트가 액션 4개를
+플래그 파싱(FR-CLI-4..7, FR-CLI-9, FR-ACT-2/3/6), 재시작 위임 판정
+(FR-ACT-3a/3b), help 텍스트가 액션 4개를
 모두 포함하는지(FR-CLI-3), 빈 포트 선택(FR-ISO-1), 옵션 우선순위 해석
 (FR-CLI-9, FR-ISO-3), 브라우저 명령 조립(FR-OPN-2).
 프로세스 kill·detach·실 네트워크는 단위 테스트 대상이 아니다 — TC-ACT/TC-FG 의
@@ -392,6 +417,7 @@ e2e 전량이 "서버가 안 뜬다" 로 죽는다. 원인이 제품이 아니�
 | 7 | `BINARY` 환경변수가 실행 경로도 결정 | `scripts/build.sh` 의 출력 이름만 결정 | 실행은 실행된 바이너리 자신 |
 | 8 | `scripts/git_fixture.sh` | `e2e/git_fixture.sh` | FR-SCR-3 |
 | 9 | frameless window = 별도 스크립트 | `start --open` | 사용자 요구 |
+| 10 | 도구 안에서 `start --restart-daemon` → 데몬만 내려가고 서버는 뜨지 않음 | 대리 프로세스가 재시작을 끝까지 수행 | FR-ACT-3a. 데몬을 내리는 순간 명령 자신이 SIGHUP 으로 죽어 서버 기동에 도달하지 못했다. 도구 밖 실행은 종전과 동일 |
 
 **변경 1·2 의 파급**: 무인자 실행에 의존하던 곳은 두 군데뿐이다 —
 `playwright.config.ts` (FR-REF-2 로 처리) 와 문서의 수동 검증 예시
@@ -418,3 +444,4 @@ e2e 전량이 "서버가 안 뜬다" 로 죽는다. 원인이 제품이 아니�
 |---|---|
 | 2026-08-26 | 최초 작성 |
 | 2026-08-26 | **구현 완료.** 검증 결과 — Go `build`/`vet`/`test -race`/`gofmt` 전량 통과 (`internal/cli` 신규 테스트 27개 포함), Playwright 396 통과 + flaky 2 (재시도 통과, 기준선과 동일 성격). CLI 실측: TC-CLI-1..7 / TC-ACT-1·3·4·5 / TC-ISO-1·2 / TC-OPN 통과. **TC-ISO-1 은 운영 인스턴스(pid 28098, 포트 58146) 가 격리 실행 전후로 그대로 살아 있음을 확인해 반증했다.** TC-FG-1/2 는 Playwright `webServer`(`start --foreground`)와 배경 모드 실측으로 확인. §3 대비 추가 구현 1건 — `migrate` 의 실행중 거부 안내가 대상 인스턴스를 가리키도록 `--port`/`--home` 을 덧붙인다(기본값이 아닐 때만). 격리 인스턴스에 대해 `dongminal stop --all` 만 안내하면 그 명령이 운영 인스턴스를 향하기 때문이다 |
+| 2026-08-27 | **FR-ACT-3a/3b/3c 추가** — 도구 안에서의 `--restart-daemon` 을 setsid 대리 프로세스에 위임한다. 데몬을 내리면 명령 자신이 함께 죽어 서버가 뜨지 않던 결함(§7 변경 10). 도구 밖 경로는 코드 경로가 바뀌지 않는다 |

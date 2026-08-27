@@ -46,7 +46,7 @@ cd dongminal
 | 옵션 | 설명 |
 |---|---|
 | `--expose` | `0.0.0.0` 에 바인드 (사내망 다른 기기에서 접근 가능) |
-| `--restart-daemon` | dongminald 도 재시작 (터미널 세션을 잃습니다) |
+| `--restart-daemon` | dongminald 도 재시작 (터미널 세션을 잃습니다). dongminal 도구 안에서 실행하면 재시작을 대리 프로세스가 이어서 수행하고 출력은 `$DONGMINAL_HOME/restart.log` 에 남습니다 — 데몬을 내리는 순간 명령 자신도 함께 끊기기 때문입니다 |
 | `--isolated` | 임시 홈 + 비어 있는 포트로 띄웁니다. 운영 인스턴스를 건드리지 않습니다 |
 | `--open` | 준비되면 frameless window(Chrome `--app`)를 엽니다 |
 | `--foreground` | 터미널을 점유하며 실행 (`^C` 로 정지) |

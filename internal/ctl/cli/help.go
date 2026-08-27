@@ -36,6 +36,8 @@ func Usage(action string) string {
 옵션:
   --expose          0.0.0.0 에 바인드한다 (사내망 다른 기기에서 접근 가능)
   --restart-daemon  dongminald 도 재시작한다 (터미널 세션을 잃는다)
+                    도구 안에서 쓰면 대리 프로세스가 이어서 수행하고
+                    출력은 $DONGMINAL_HOME/restart.log 에 남는다
   --isolated        임시 홈 + 비어 있는 포트로 띄운다. 운영 인스턴스를 건드리지 않는다
   --open            준비되면 frameless window(Chrome --app)를 연다
   --foreground      터미널을 점유하며 실행한다 (^C 로 정지)
