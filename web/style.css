@@ -1579,6 +1579,9 @@ body.mobile .git-repo-x{opacity:1;font-size:14px}
   white-space:nowrap;overflow:hidden;
 }
 .git-br-row:hover{background:var(--accent-hover)}
+/* FR-GIT-254: 일괄 삭제의 대상은 눈에 보여야 한다 — 무엇이 지워질지 모르는 선택은
+   선택이 아니다. hover 와 구분되도록 왼쪽에 표시를 함께 준다 */
+.git-br-row.sel{background:var(--accent-hover);box-shadow:inset 2px 0 0 var(--accent)}
 /* FR-GIT-152: 현재 브랜치를 구분 표시한다 */
 .git-br-row.current .git-br-name{color:var(--accent)}
 .git-br-cur{flex:0 0 auto;color:var(--accent);font-size:11px}

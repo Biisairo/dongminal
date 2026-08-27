@@ -32,6 +32,29 @@ class GitBranches {
     this._q='';
     this._head=null;   // 현재 브랜치. 바뀌면 목록의 ✓ 가 따라야 한다
     this._barRepo=null;
+    // FR-GIT-254: 일괄 삭제의 대상. **로컬 브랜치만** 담는다 — 원격 ref 와 태그는
+    // 이 동작의 대상이 아니다. 리포가 바뀌면 함께 비워진다 (FR-GIT-16).
+    this._sel=new Set();
+  }
+
+  // ── 다중 선택 (FR-GIT-254) ──
+
+  // 목록에 남아 있는 로컬 브랜치만 뜻이 있다 — 사라진 이름의 선택은 저절로 잊힌다
+  // (Changes 탭의 선택과 같은 규약).
+  selection(){
+    const live=new Set(this._refs.filter(r=>r.kind===GIT_REF_KIND_LOCAL).map(r=>r.short));
+    return [...this._sel].filter(s=>live.has(s));
+  }
+
+  clearSelection(){
+    if(!this._sel.size) return;
+    this._sel.clear();
+    this._paintTree();
+  }
+
+  _toggleSel(short){
+    if(this._sel.has(short)) this._sel.delete(short); else this._sel.add(short);
+    this._paintTree();
   }
 
   // ── 골격 ──
@@ -240,7 +263,10 @@ class GitBranches {
 
   _rowEl(r){
     const d=document.createElement('div');
-    d.className='git-br-row'+(r.isHead?' current':'');
+    // FR-GIT-254: 일괄 삭제의 대상은 눈에 보여야 한다 — 무엇이 지워질지 모르는
+    // 선택은 선택이 아니다.
+    const picked=r.kind===GIT_REF_KIND_LOCAL&&this._sel.has(r.short);
+    d.className='git-br-row'+(r.isHead?' current':'')+(picked?' sel':'');
     d.dataset.ref=r.name||''; d.dataset.short=r.short||''; d.dataset.kind=r.kind||'';
     // FR-GIT-149: 태그는 고정 대상이 아니므로 ★ 자리를 주지 않는다.
     if(r.kind!==GIT_REF_KIND_TAG){
@@ -278,12 +304,26 @@ class GitBranches {
       g.textContent=GIT_REF_GONE;
       d.appendChild(g);
     }
-    d.title=(r.name||'')+(r.upstream?' → '+r.upstream:'')+(r.subject?'\n'+r.subject:'');
+    d.title=(r.name||'')+(r.upstream?' → '+r.upstream:'')+(r.subject?'\n'+r.subject:'')
+      +(r.kind===GIT_REF_KIND_LOCAL?'\n'+GIT_BR_SEL_TITLE:'');
     const kind=r.kind===GIT_REF_KIND_TAG?'tag':'branch';
     d.addEventListener('contextmenu',ev=>{
       ev.preventDefault();
       GitMenu.open(kind,r,ev);
     });
+    /**
+     * FR-GIT-254: `Cmd`/`Ctrl` + 클릭으로 여러 개를 고른다. 그냥 클릭은 선택을
+     * 비운다 — 지난 선택이 남아 있으면 다음 삭제가 보이지 않는 대상까지 가져간다.
+     *
+     * 로컬 브랜치만 고를 수 있다. 원격 ref 와 태그는 이 동작의 대상이 아니며,
+     * 고를 수 있는 것처럼 보이면 사용자가 지울 수 있다고 읽는다.
+     */
+    if(r.kind===GIT_REF_KIND_LOCAL){
+      d.addEventListener('click',ev=>{
+        if(ev.metaKey||ev.ctrlKey){this._toggleSel(r.short);return}
+        this.clearSelection();
+      });
+    }
     // FR-GIT-222: 더블클릭은 그 행의 기본 동작이다. 메뉴와 **같은 경로**로 간다 —
     // dirty 3선택도 이름 충돌 처리도 그대로 걸린다.
     d.addEventListener('dblclick',()=>GitMenu.runPrimary(kind,r));
@@ -471,6 +511,248 @@ class GitBranches {
     if(!panel||!panel.repo) return;
     return new GitBranchCreate(panel,o||{})._show();
   }
+
+  // ── 묶음 B — 브랜치 동작 (GIT_ACTIONS_SRS §3.2 FR-GIT-253~259 · §3.5 FR-GIT-268) ──
+  //
+  // 접수한 말의 본체다: "branch 삭제, 이름변경 등 기본적인 기능들이 없다."
+  //
+  // 실행이 **static** 인 것은 checkout 과 같은 이유다 — 우클릭 메뉴는 History 탭의
+  // refs 사이드바에서도 열리므로 Branches 탭 인스턴스에 묶여 있으면 그쪽에서 쓸 수
+  // 없다. 다중 선택만 인스턴스의 것이며, 없으면 우클릭한 행 하나가 대상이다.
+  //
+  // 확인은 여기서 쓰지 않는다 — `GIT_MENUS.branch` 의 `destructive` 선언을
+  // 프레임워크가 이미 거쳤다 (FR-GIT-146·172). 여기서는 그것을 거쳤음을 `confirm`
+  // 으로 실어 보낸다. 서버도 같은 것을 요구한다.
+
+  // 원격 ref 의 `origin/feat` 를 원격과 브랜치로 나눈다. 첫 `/` 만 보는 것은 브랜치
+  // 이름에 `/` 가 흔하기 때문이다 (`origin/feature/a`) — checkoutRemote 와 같은 규칙이다.
+  static _split(short){
+    const s=short||'';
+    const i=s.indexOf(GIT_BR_PREFIX_SEP);
+    return i<0?{remote:s,branch:''}:{remote:s.slice(0,i),branch:s.slice(i+1)};
+  }
+
+  /**
+   * 쓰기 하나의 공통 뒷정리. 성공이면 목록·상태를 갱신하고 (FR-GIT-160), 충돌이면
+   * **실패가 아니라 진행 중 상태**로 다룬다 (FR-GIT-251·255).
+   */
+  static async _run(panel,url,body){
+    const res=await panel.post(url,Object.assign({repo:panel.repo},body||{}));
+    if(res.ok){panel.afterRefWrite(res.data);return res}
+    if(GitBranches._conflicted(panel,res)) return res;
+    panel.applyWriteFail(res);
+    return res;
+  }
+
+  /**
+   * FR-GIT-255: merge·rebase 가 충돌로 멈춘 것은 실패가 아니다 — 저장소에 중간
+   * 상태가 남았고 출구는 묶음 A 가 준다 (FR-GIT-252).
+   *
+   * pull 이 쓰는 경로 그대로 Changes 탭으로 보내고 충돌 그룹을 펼친다 (FR-GIT-111).
+   */
+  static _conflicted(panel,res){
+    const d=(res&&res.data)||{};
+    const st=d.status;
+    if(!st) return false;
+    if(!((st.operation&&st.operation.kind)||(st.conflicts||[]).length)) return false;
+    panel.adopt(d);
+    panel.branchNote(GIT_BR_MERGE_CONFLICT_NOTE);
+    panel.expandGroup('conflicts');
+    panel.openView('changes');
+    return true;
+  }
+
+  // FR-GIT-253: 이름 변경. 이름 검사는 생성과 **같은 자리**를 쓴다.
+  static rename(panel,target){
+    if(!panel||!panel.repo||!target) return;
+    return new GitBranchRename(panel,target.short||'')._show();
+  }
+
+  /**
+   * FR-GIT-254: 삭제. 기본은 `-d` 이고 대상은 다중 선택이 있으면 그것이다.
+   *
+   * **일괄 삭제는 `-d` 로만** 한다 — 확인 하나가 여러 개를 강제 삭제하는 자리를
+   * 만들지 않는다. 서버도 같은 것을 막는다.
+   */
+  static del(panel,target){
+    if(!panel||!panel.repo||!target) return;
+    return GitBranches._delete(panel,GitBranches.targetsOf(panel,target),false);
+  }
+
+  /**
+   * 삭제 대상. 다중 선택 안의 행을 눌렀으면 선택 전체이고, 밖의 행이면 그 행
+   * 하나다 — 보이는 것과 지워지는 것이 어긋나면 사용자는 무엇을 잃는지 알 수 없다.
+   */
+  static targetsOf(panel,target){
+    const one=[(target&&target.short)||''];
+    const v=panel&&panel._branchesView;
+    if(!v||typeof v.selection!=='function') return one;
+    const sel=v.selection();
+    return sel.indexOf(target.short)<0?one:sel;
+  }
+
+  static async _delete(panel,names,force){
+    const res=await panel.post('/api/git/branch/delete',
+      {repo:panel.repo,names,force:!!force,confirm:true});
+    if(res.ok){
+      if(panel._branchesView) panel._branchesView.clearSelection();
+      panel.afterRefWrite(res.data);
+      return res;
+    }
+    const d=res.data||{};
+    // 미머지는 실패가 아니라 **선택**이다 (FR-GIT-254) — 이름 충돌의 3선택과 같은 규약.
+    if(res.code===409&&d.error==='branch_not_merged'){
+      await GitBranches._unmerged(panel,d);
+      return res;
+    }
+    panel.applyWriteFail(res);
+    return res;
+  }
+
+  /**
+   * 미머지 거부 뒤의 선택지는 **서버가 준 순서 그대로**다 — 목록을 프론트가
+   * 복제하면 서버가 선택지를 줄여도(다중 삭제에는 `-D` 가 없다) 그것을 따르지
+   * 못한다. 기본은 취소다 (O14).
+   */
+  static async _unmerged(panel,d){
+    const ids=Array.isArray(d.options)?d.options:[];
+    const options=ids.map(id=>({id,label:GIT_BR_UNMERGED_LABEL[id]||id,
+      danger:id==='force_delete'}));
+    const pick=await GitDialog.open({
+      id:'git-choice',ns:'gch',action:'branch_not_merged',
+      title:GIT_BR_UNMERGED_TITLE,body:d.message||'',
+      choices:options,def:'cancel',
+    });
+    if(pick!=='force_delete') return;
+    return GitBranches._delete(panel,[d.branch||''],true);
+  }
+
+  /**
+   * FR-GIT-255: merge. 다이얼로그가 **영향 범위를 실행 전에 보인다** (G11) —
+   * ff 로 끝나는지와 들어올 커밋 수다. 원격 ref 의 `Pull/Merge` 도 이 자리다.
+   */
+  static async merge(panel,ref){
+    if(!panel||!panel.repo||!ref) return;
+    const pv=await GitBranches._preview(panel,ref);
+    return GitDialog.open({
+      id:'git-br-merge',ns:'gbm',action:'branch_merge',
+      title:GIT_BR_MERGE_TITLE,runLabel:GIT_BR_MERGE_RUN,
+      body:GitBranches._impact(ref,pv),
+      fields:GIT_BR_MERGE_FIELDS,
+      run:async v=>{
+        const res=await GitBranches._run(panel,'/api/git/branch/merge',
+          {ref,mode:v.mode||''});
+        if(res.ok) return {ok:true};
+        // 충돌이면 화면은 이미 Changes 탭으로 옮겨 갔다 — 다이얼로그가 실패를
+        // 되풀이해 보일 자리가 아니다 (FR-GIT-251).
+        const st=(res.data&&res.data.status)||{};
+        if((st.operation&&st.operation.kind)||'') return {ok:true};
+        return {ok:false,reason:panel.writeReason(res),
+          stderrTail:(res.data&&res.data.message)||''};
+      },
+    });
+  }
+
+  // 영향 범위 조회. 실패해도 머지를 막지 않는다 — 그 사실을 문구로 알린다.
+  static async _preview(panel,ref){
+    const q=new URLSearchParams({repo:panel.repo,ref});
+    let r=null,d=null;
+    try{r=await fetch('/api/git/branch/merge-preview?'+q.toString())}catch{r=null}
+    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
+    const req=d&&d.requested;
+    if(!d||!req||req.ref!==ref||req.repo!==panel.repo) return null;
+    return d.preview||null;
+  }
+
+  // 사람이 읽는 영향 범위. 개수만 보이면 머지 커밋이 생기는지 알 수 없고, ff 여부만
+  // 보이면 무엇이 들어오는지 알 수 없다 — 둘 다 적는다 (G11).
+  static _impact(ref,pv){
+    if(!pv) return ref+' · '+GIT_BR_MERGE_PREVIEW_FAIL;
+    const parts=[ref];
+    if(pv.upToDate) parts.push(GIT_BR_MERGE_UPTODATE);
+    else parts.push(pv.ff?GIT_BR_MERGE_FF:GIT_BR_MERGE_NOFF);
+    parts.push(GIT_BR_MERGE_INCOMING.replace('%n',String(pv.incoming||0)));
+    if(pv.diverged>0) parts.push(GIT_BR_MERGE_DIVERGED.replace('%n',String(pv.diverged)));
+    return parts.join(' · ');
+  }
+
+  // FR-GIT-256: rebase. 2단계 확인과 hint 는 메뉴 프레임워크가 이미 거쳤으므로
+  // 여기서는 `confirm` 을 실어 보낸다 — 서버도 그것을 요구한다.
+  static rebase(panel,ref){
+    if(!panel||!panel.repo||!ref) return;
+    return GitBranches._run(panel,'/api/git/branch/rebase',{ref,confirm:true});
+  }
+
+  // FR-GIT-257: upstream 설정. 후보는 **이미 받아 둔 원격 ref 목록**에서 온다.
+  static setUpstream(panel,target){
+    if(!panel||!panel.repo||!target) return;
+    return new GitBranchUpstream(panel,target)._show();
+  }
+
+  static unsetUpstream(panel,target){
+    if(!panel||!panel.repo||!target) return;
+    return GitBranches._run(panel,'/api/git/branch/upstream',
+      {branch:target.short||'',unset:true});
+  }
+
+  /**
+   * FR-GIT-258: 브랜치 push. upstream 이 없으면 publish 이며 **그 사실을 실행 전에**
+   * 알린다 — 대상이 현재 브랜치가 아니어도 같다 (FR-GIT-100 의 규약을 넓힌 것).
+   *
+   * 목록의 upstream 이 낡았을 수 있으므로 서버의 거부(409)도 같은 자리로 받는다.
+   */
+  static async push(panel,target){
+    if(!panel||!panel.repo||!target) return;
+    const branch=target.short||'';
+    if(!target.upstream) return GitBranches._publish(panel,branch,{});
+    const res=await panel._remote().run('branch/push',{branch});
+    const d=(res&&res.data)||{};
+    if(!res.ok&&res.code===409&&d.error==='publish_required')
+      return GitBranches._publish(panel,branch,d.plan||{});
+    return res;
+  }
+
+  // 파괴적이 아니므로 1단계다 (FR-GIT-100). 무엇이 설정되는지는 계획이 있으면
+  // 그것을 보인다 — 없어도 "publish 다" 라는 사실은 전해진다.
+  static async _publish(panel,branch,plan){
+    const target=(plan&&plan.remote)
+      ?(plan.remote+GIT_BR_PREFIX_SEP+(plan.branch||branch)):branch;
+    const ok=await GitDialog.confirm({
+      action:GIT_ACT_PUBLISH,title:GIT_PUBLISH_TITLE,targets:[target],stages:1,
+    });
+    if(!ok) return;
+    return panel._remote().run('branch/push',{branch,publish:true});
+  }
+
+  // FR-GIT-268: 원격 ref 를 같은 이름의 로컬 ref 로 갱신한다. 원격 작업이므로 기존
+  // job 경로를 탄다 — 진행·취소·실패 사유가 그 자리에 있다.
+  static fetchInto(panel,short){
+    if(!panel||!panel.repo) return;
+    const p=GitBranches._split(short);
+    if(!p.branch) return;
+    return panel._remote().run('branch/fetch',{remote:p.remote,branch:p.branch});
+  }
+
+  // FR-GIT-268: 원격 ref 삭제. 2단계 확인은 메뉴 프레임워크가 거쳤다 (파괴적 목록에
+  // `remote_ref_delete` 가 있다) — 여기서는 `confirm` 을 실어 보낸다.
+  static deleteRemote(panel,short){
+    if(!panel||!panel.repo) return;
+    const p=GitBranches._split(short);
+    if(!p.branch) return;
+    return panel._remote().run('branch/delete-remote',
+      {remote:p.remote,branch:p.branch,confirm:true});
+  }
+
+  /**
+   * 원격 ref 를 되살리는 push (FR-GIT-250.2). **지우기 전 oid** 를 싣는다 — 목록이
+   * 그 값을 이미 준다 (/api/git/refs). 값이 없으면 명령을 만들지 않는다: 되살리지
+   * 못하는 명령을 보이는 것이 빈 안내문보다 나쁘다.
+   */
+  static restoreRemoteCmd(t){
+    const p=GitBranches._split((t&&t.short)||'');
+    if(!p.branch||!t.oid) return '';
+    return 'git push '+p.remote+' '+t.oid+':refs/heads/'+p.branch;
+  }
 }
 
 /**
@@ -583,3 +865,103 @@ class GitBranchCreate {
 // 고전 스크립트의 class 선언은 window 의 속성이 되지 않는다 — GitPanel 과 e2e 가
 // 창 밖에서 부르므로 명시적으로 붙인다 (git-confirm.js 와 같은 규약).
 window.GitBranches=GitBranches;
+
+/**
+ * 이름 변경 다이얼로그 (FR-GIT-253).
+ *
+ * 이름 검사는 생성 다이얼로그의 것을 **그대로 물려받는다** — 규칙 검사·중복 확인이
+ * 두 벌이면 한쪽만 고쳐진다 (FR-GIT-159). 처음 값이 현재 이름이므로 그대로 두면
+ * `exists` 로 실행이 막힌다: 바꾸지 않은 이름으로의 변경은 변경이 아니다.
+ */
+class GitBranchRename extends GitBranchCreate {
+  constructor(panel,from){
+    super(panel,{name:from});
+    this.from=from;
+  }
+
+  _show(){
+    return GitDialog.open({
+      id:'git-br-rename',ns:'gbr',action:'branch_rename',
+      title:GIT_BR_RENAME_TITLE,runLabel:GIT_BR_RENAME_RUN,focus:'name',
+      fields:[
+        {key:'name',type:GIT_DIALOG_TEXT,cls:'gbr-name',
+         placeholder:GIT_BR_RENAME_PLACEHOLDER,value:this.from},
+      ],
+      validate:(v,d,key)=>this._onName(v,d,key),
+      run:v=>this._run(v),
+    });
+  }
+
+  async _run(v){
+    const res=await this.panel.post('/api/git/branch/rename',
+      {repo:this.repo,from:this.from,to:(v.name||'').trim()});
+    if(res.ok){
+      // 조작 후 목록·상태를 갱신한다 (FR-GIT-160) — 상태바의 브랜치 이름도 따라간다.
+      this.panel.afterRefWrite(res.data);
+      return {ok:true};
+    }
+    // 실패 사유는 다이얼로그 안에 남는다 — 닫아 버리면 읽을 자리가 사라진다
+    // (FR-GIT-175).
+    return {ok:false,reason:this.panel.writeReason(res),
+      stderrTail:(res.data&&res.data.message)||''};
+  }
+}
+
+/**
+ * upstream 설정 다이얼로그 (FR-GIT-257).
+ *
+ * **후보 목록을 새로 받지 않는다** — Branches 탭이 이미 들고 있는 원격 ref 로
+ * 검사한다 (FR-GIT-147). 목록을 얻을 수 없는 자리(History 의 refs 사이드바)에서는
+ * 검사를 건너뛴다: 모르는 것을 틀렸다고 말하지 않는다.
+ */
+class GitBranchUpstream {
+  constructor(panel,target){
+    this.panel=panel;
+    this.repo=panel.repo;
+    this.branch=target.short||'';
+    this.value=target.upstream||'';
+  }
+
+  _show(){
+    return GitDialog.open({
+      id:'git-br-upstream',ns:'gbu',action:'branch_upstream',
+      title:GIT_BR_UPSTREAM_TITLE,runLabel:GIT_BR_UPSTREAM_RUN,focus:'upstream',
+      fields:[
+        {key:'upstream',type:GIT_DIALOG_TEXT,cls:'gbu-up',
+         placeholder:GIT_BR_UPSTREAM_PLACEHOLDER,value:this.value},
+      ],
+      validate:v=>this._check(v),
+      run:v=>this._run(v),
+    });
+  }
+
+  _check(v){
+    const up=(v.upstream||'').trim();
+    if(!up) return {kind:'empty',why:GIT_BR_UPSTREAM_WHY_EMPTY};
+    const known=this._remotes();
+    if(known&&known.indexOf(up)<0) return {kind:'unknown',why:GIT_BR_UPSTREAM_WHY_UNKNOWN};
+    return {kind:'',why:''};
+  }
+
+  // 알 수 없으면 null 이다 — 빈 배열로 답하면 모든 이름이 틀린 것이 된다.
+  _remotes(){
+    const v=this.panel._branchesView;
+    if(!v||!Array.isArray(v._refs)||!v._refs.length) return null;
+    return v._refs.filter(r=>r.kind===GIT_REF_KIND_REMOTE).map(r=>r.short);
+  }
+
+  async _run(v){
+    const res=await this.panel.post('/api/git/branch/upstream',
+      {repo:this.repo,branch:this.branch,upstream:(v.upstream||'').trim()});
+    if(res.ok){
+      this.panel.afterRefWrite(res.data);
+      return {ok:true};
+    }
+    return {ok:false,reason:this.panel.writeReason(res),
+      stderrTail:(res.data&&res.data.message)||''};
+  }
+}
+
+window.GitBranchCreate=GitBranchCreate;
+window.GitBranchRename=GitBranchRename;
+window.GitBranchUpstream=GitBranchUpstream;

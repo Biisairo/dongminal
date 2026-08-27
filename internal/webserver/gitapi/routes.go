@@ -61,6 +61,17 @@ var routes = []route{
 	{http.MethodPost, exactPath("/api/git/operation"), (*GitServer).apiGitOperation},
 	{http.MethodPost, exactPath("/api/git/branch"), (*GitServer).apiGitBranchCreate},
 	{http.MethodGet, exactPath("/api/git/branch/validate"), (*GitServer).apiGitBranchValidate},
+	// 묶음 B — 브랜치 동작 (GIT_ACTIONS_SRS §3.2 FR-GIT-253~259 · §3.5 FR-GIT-268).
+	// 원격으로 나가는 셋(push · fetch into local · 원격 ref 삭제)만 job 경로다.
+	{http.MethodPost, exactPath("/api/git/branch/rename"), (*GitServer).apiGitBranchRename},
+	{http.MethodPost, exactPath("/api/git/branch/delete"), (*GitServer).apiGitBranchDelete},
+	{http.MethodPost, exactPath("/api/git/branch/merge"), (*GitServer).apiGitBranchMerge},
+	{http.MethodPost, exactPath("/api/git/branch/rebase"), (*GitServer).apiGitBranchRebase},
+	{http.MethodPost, exactPath("/api/git/branch/upstream"), (*GitServer).apiGitBranchUpstream},
+	{http.MethodGet, exactPath("/api/git/branch/merge-preview"), (*GitServer).apiGitBranchMergePreview},
+	{http.MethodPost, exactPath("/api/git/branch/push"), (*GitServer).apiGitBranchPush},
+	{http.MethodPost, exactPath("/api/git/branch/fetch"), (*GitServer).apiGitBranchFetchInto},
+	{http.MethodPost, exactPath("/api/git/branch/delete-remote"), (*GitServer).apiGitBranchDeleteRemote},
 	{http.MethodGet, exactPath("/api/git/stash"), (*GitServer).apiGitStashList},
 	{http.MethodGet, exactPath("/api/git/stash/show"), (*GitServer).apiGitStashShow},
 	{http.MethodPost, exactPath("/api/git/stash/push"), (*GitServer).apiGitStashPush},

@@ -140,6 +140,62 @@ const GIT_MENUS={
     {id:'checkout-local',label:GIT_BR_CHECKOUT_LOCAL,
      disabled:t=>t.kind===GIT_REF_KIND_REMOTE?'':GIT_MENU_LOCAL_ONLY,
      run:t=>gitMenuPanel().checkoutRemote(t.short)},
+    {sep:true},
+    // 묶음 B — 접수한 말의 본체 (GIT_ACTIONS_SRS §3.2 FR-GIT-253~259).
+    //
+    // merge·rebase 는 **진행 중 작업을 먼저 본다** (FR-GIT-252) — 판정은 gitOpBusy()
+    // 한 자리이고, 항목마다 다시 세면 한 곳이 빠져도 조용히 지나간다.
+    // FR-GIT-259: 커밋 메뉴의 `branch-from` 과 **같은 함수**를 시작점만 바꿔 부른다.
+    {id:'branch-from',label:GIT_BR_CREATE_FROM,
+     run:t=>gitMenuPanel().createBranchFrom(t.short)},
+    {id:'rename',label:GIT_BR_RENAME,
+     disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:'',
+     run:t=>gitMenuPanel().branchRename(t)},
+    {id:'merge',label:GIT_BR_MERGE,
+     disabled:t=>gitOpBusy()||(t.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:(t.isHead?GIT_BR_WHY_SELF:'')),
+     run:t=>gitMenuPanel().branchMerge(t.short)},
+    // rebase 는 파괴적이다 (`rebase`) — 커밋 해시가 바뀐다. hint 는 rebase 전 HEAD 다.
+    {id:'rebase',label:GIT_BR_REBASE,destructive:true,
+     action:GIT_ACT_REBASE,title:GIT_BR_REBASE_TITLE,
+     disabled:t=>gitOpBusy()||(t.isHead?GIT_BR_WHY_SELF:''),
+     targets:t=>[t.short],
+     hint:()=>({note:GIT_BR_REBASE_NOTE,
+       command:'git reset --hard '+(((gitMenuPanel().statusOf()||{}).oid)||'')}),
+     run:t=>gitMenuPanel().branchRebase(t.short)},
+    {sep:true},
+    {id:'upstream-set',label:GIT_BR_SET_UPSTREAM,
+     disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:'',
+     run:t=>gitMenuPanel().branchSetUpstream(t)},
+    {id:'upstream-unset',label:GIT_BR_UNSET_UPSTREAM,
+     disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:(t.upstream?'':GIT_BR_WHY_NO_UPSTREAM),
+     run:t=>gitMenuPanel().branchUnsetUpstream(t)},
+    {id:'push',label:GIT_BR_PUSH,
+     disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:'',
+     run:t=>gitMenuPanel().branchPush(t)},
+    {sep:true},
+    // 삭제는 파괴적이다 (`branch_delete`). hint 는 **지우기 전 oid** 로 만든다
+    // (FR-GIT-250.2) — 목록이 그 값을 이미 싣고 있다 (/api/git/refs).
+    {id:'delete',label:GIT_BR_DELETE,destructive:true,
+     action:GIT_ACT_BRANCH_DELETE,title:GIT_BR_DELETE_TITLE,
+     disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:(t.isHead?GIT_MENU_CURRENT:''),
+     targets:t=>gitMenuPanel().branchDeleteTargets(t),
+     hint:t=>({note:GIT_BR_DELETE_NOTE,command:'git branch '+t.short+' '+(t.oid||'')}),
+     run:t=>gitMenuPanel().branchDelete(t)},
+    {sep:true},
+    // 원격 브랜치의 세 항목 (FR-GIT-268). 로컬에서는 비활성이고 사유가 보인다.
+    {id:'remote-pull',label:GIT_BR_REMOTE_PULL,
+     disabled:t=>gitOpBusy()||(t.kind===GIT_REF_KIND_REMOTE?'':GIT_MENU_LOCAL_ONLY),
+     run:t=>gitMenuPanel().branchMerge(t.short)},
+    {id:'remote-fetch',label:GIT_BR_REMOTE_FETCH,
+     disabled:t=>t.kind===GIT_REF_KIND_REMOTE?'':GIT_MENU_LOCAL_ONLY,
+     run:t=>gitMenuPanel().branchFetchInto(t.short)},
+    {id:'remote-delete',label:GIT_BR_REMOTE_DELETE,destructive:true,
+     action:GIT_ACT_REMOTE_REF_DELETE,title:GIT_BR_REMOTE_DELETE_TITLE,
+     disabled:t=>t.kind===GIT_REF_KIND_REMOTE?'':GIT_MENU_LOCAL_ONLY,
+     targets:t=>[t.short],
+     hint:t=>({note:GIT_BR_REMOTE_DELETE_NOTE,
+       command:GitBranches.restoreRemoteCmd(t)}),
+     run:t=>gitMenuPanel().branchDeleteRemote(t.short)},
   ],
   // 태그 (FR-GIT-260~262). 생성은 대상을 묻지 않고 열린다 — 비우면 HEAD 다.
   //

@@ -801,6 +801,23 @@ class GitPanel {
   checkoutRef(ref,o){return GitBranches.checkout(this,ref,o||{})}
   checkoutRemote(short){return GitBranches.checkoutRemote(this,short)}
 
+  // 묶음 B — 브랜치 동작 (GIT_ACTIONS_SRS §3.2 FR-GIT-253~259 · §3.5 FR-GIT-268).
+  // 여기도 포워더뿐이다 — 실행은 git-branches.js 에 있다.
+  branchRename(t){return GitBranches.rename(this,t)}
+  branchDelete(t){return GitBranches.del(this,t)}
+  branchDeleteTargets(t){return GitBranches.targetsOf(this,t)}
+  branchMerge(ref){return GitBranches.merge(this,ref)}
+  branchRebase(ref){return GitBranches.rebase(this,ref)}
+  branchSetUpstream(t){return GitBranches.setUpstream(this,t)}
+  branchUnsetUpstream(t){return GitBranches.unsetUpstream(this,t)}
+  branchPush(t){return GitBranches.push(this,t)}
+  branchFetchInto(short){return GitBranches.fetchInto(this,short)}
+  branchDeleteRemote(short){return GitBranches.deleteRemote(this,short)}
+
+  // FR-GIT-255: 머지·리베이스의 충돌은 실패가 아니라 진행 중 상태다 — 사유를
+  // Changes 탭 머리에 남기고 화면을 그리로 보낸다 (FR-GIT-111 과 같은 경로).
+  branchNote(msg){this._note={msg,partial:false,changed:[]};this._paint()}
+
   // FR-GIT-249: 핀 목록이 바뀌었을 수 있다. 그것을 읽는 목록에만 넘긴다 — 판정을
   // 다시 그리기에 업지 않기 위한 통지 경로다 (FR-RPT-8, GitDialog.notify 와 같은 규약).
   notifyPins(){

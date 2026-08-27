@@ -20,10 +20,11 @@ var readCommands = map[string]bool{
 	"rev-parse": true, "status": true, "diff": true, "diff-tree": true,
 	"diff-index": true, "show": true, "log": true, "for-each-ref": true,
 	"cat-file": true, "ls-files": true, "config": true, "check-ref-format": true,
-	// rev-list 는 범위의 커밋 수를 세는 자리다 (FR-GIT-265 의 "영향 커밋 수").
-	// log 로 세면 커밋마다 한 줄이 출력 상한을 먹는다 — 세는 것이 목적일 때는
-	// --count 가 그 일의 이름이다.
-	"rev-list": true,
+	// 범위의 커밋 수와 조상 여부는 실행 **전에** 답해야 하는 것들이다 —
+	// reset 의 영향 커밋 수(FR-GIT-265)와 merge 의 영향 범위(FR-GIT-255)가 그것이다.
+	// log 로 세면 커밋마다 한 줄이 출력 상한을 먹는다. 둘 다 순수 읽기이며
+	// writeCommands 와 겹치지 않는다 (FR-GIT-95 의 교집합-금지).
+	"rev-list": true, "merge-base": true,
 }
 
 // unsafePrefixes 는 임의 명령 실행 또는 파일 쓰기로 가는 인자들이다. 읽기

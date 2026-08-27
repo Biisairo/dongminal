@@ -234,3 +234,340 @@ func tempRepoWithRemote(t *testing.T) string {
 	gitRun(t, repo, "fetch", "-q", "origin")
 	return repo
 }
+
+// ── 묶음 B — 브랜치 동작 (GIT_ACTIONS_SRS §3.2 FR-GIT-253~259 · §3.5 FR-GIT-268) ──
+//
+// 검증 V171·V172·V174 가 여기 산다: `…Args` 는 git 을 돌리지 않고, 파괴 선언은
+// **옵션에서 파생하며**, ref 를 지우는 동작의 hint 에는 **지우기 전 oid** 가 있다.
+
+// B20 (FR-GIT-253): rename 은 `-m` 하나뿐이다. `-M` 을 만들 자리가 없다 —
+// 기존 ref 를 덮는 것은 이름 변경이 아니다.
+func TestBranchRenameArgs(t *testing.T) {
+	got, err := BranchRenameArgs(BranchRenameOpts{From: "old", To: "new"})
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	want := []string{"branch", "-m", "old", "new"}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("argv = %v, want %v", got, want)
+	}
+	for _, o := range []BranchRenameOpts{
+		{From: "", To: "new"}, {From: "old", To: ""},
+		{From: "-x", To: "new"}, {From: "old", To: "a..b"},
+		{From: "same", To: "same"},
+	} {
+		if argv, err := BranchRenameArgs(o); err == nil {
+			t.Fatalf("%+v 가 거부되지 않았다: %v", o, argv)
+		}
+	}
+}
+
+// B21 (FR-GIT-254): `-d` 가 기본이고 `-D` 는 명시할 때만이다. **다중 선택 일괄
+// 삭제는 `-d` 로만** — 한 번의 확인으로 여러 개를 강제 삭제하는 자리를 만들지 않는다.
+func TestBranchDeleteArgs(t *testing.T) {
+	cases := []struct {
+		opts BranchDeleteOpts
+		want []string
+	}{
+		{BranchDeleteOpts{Names: []string{"feat"}}, []string{"branch", "-d", "feat"}},
+		{BranchDeleteOpts{Names: []string{"feat"}, Force: true}, []string{"branch", "-D", "feat"}},
+		{BranchDeleteOpts{Names: []string{"a", "b"}}, []string{"branch", "-d", "a", "b"}},
+	}
+	for _, c := range cases {
+		got, err := BranchDeleteArgs(c.opts)
+		if err != nil {
+			t.Fatalf("%+v: %v", c.opts, err)
+		}
+		if fmt.Sprint(got) != fmt.Sprint(c.want) {
+			t.Fatalf("argv = %v, want %v", got, c.want)
+		}
+	}
+	for _, o := range []BranchDeleteOpts{
+		{Names: nil},
+		{Names: []string{}},
+		{Names: []string{"-x"}},
+		{Names: []string{"a", "b"}, Force: true}, // 일괄 강제 삭제는 없다
+	} {
+		if argv, err := BranchDeleteArgs(o); err == nil {
+			t.Fatalf("%+v 가 거부되지 않았다: %v", o, argv)
+		} else if !errors.Is(err, ErrBranchDelete) && !errors.Is(err, core.ErrRefName) {
+			t.Fatalf("%+v 의 오류가 분류되지 않았다: %v", o, err)
+		}
+	}
+}
+
+// B22 (FR-GIT-250.2 / V174): 삭제 hint 는 **지우기 전 oid** 로 만든 되살릴 명령이다.
+// 안내문만 남기면 되살릴 수 없다.
+func TestBranchDelete_HintCarriesPreDeleteOid(t *testing.T) {
+	repo := tempRepoWithBranch(t, "feat")
+	f := &writeFake{}
+	s := core.New(core.WithRunner(realReader(t, repo)), core.WithWriteRunner(f.runner))
+	ctx := context.Background()
+
+	oid, err := query.BranchOid(s, ctx, repo, "feat")
+	if err != nil {
+		t.Fatalf("BranchOid: %v", err)
+	}
+	if _, plan, err := BranchDelete(s, ctx, repo, BranchDeleteOpts{Names: []string{"feat"}}); err != nil {
+		t.Fatalf("BranchDelete: %v (plan=%+v)", err, plan)
+	} else if len(plan.Oids) != 1 || plan.Oids[0] != oid {
+		t.Fatalf("plan.Oids = %v, want [%s]", plan.Oids, oid)
+	}
+	hints := s.Hints(0)
+	if len(hints) != 1 {
+		t.Fatalf("hint 가 %d개다: %+v", len(hints), hints)
+	}
+	h := hints[0]
+	if h.Action != core.ActionBranchDelete {
+		t.Fatalf("Action = %q, want %q", h.Action, core.ActionBranchDelete)
+	}
+	if len(h.Values) != 1 || h.Values[0] != oid {
+		t.Fatalf("Values = %v, want [%s]", h.Values, oid)
+	}
+	if want := "git branch feat " + oid; h.Command != want {
+		t.Fatalf("Command = %q, want %q", h.Command, want)
+	}
+}
+
+// B23 (FR-GIT-254 / V172): 삭제는 `-d` 든 `-D` 든 **파괴적으로 선언된다** —
+// 되살리려면 reflog 나 hint 의 oid 가 필요하다. 그 선언이 기록에 남는다.
+func TestBranchDelete_DestructiveInRecord(t *testing.T) {
+	for _, force := range []bool{false, true} {
+		repo := tempRepoWithBranch(t, "feat")
+		f := &writeFake{}
+		s := core.New(core.WithRunner(realReader(t, repo)), core.WithWriteRunner(f.runner))
+		if _, _, err := BranchDelete(s, context.Background(), repo,
+			BranchDeleteOpts{Names: []string{"feat"}, Force: force}); err != nil {
+			t.Fatalf("force=%v: %v", force, err)
+		}
+		recs := s.Records(0)
+		if len(recs) == 0 || !recs[len(recs)-1].Destructive {
+			t.Fatalf("force=%v: 파괴적으로 선언되지 않았다", force)
+		}
+	}
+}
+
+// B24 (FR-GIT-255): merge 의 방식은 셋이고 기본은 플래그 없음이다. 모르는 방식은
+// **실행 전에** 오류다 — 통과시키면 다이얼로그가 제공하지 않는 플래그가 흘러든다.
+func TestMergeArgs(t *testing.T) {
+	cases := []struct {
+		mode string
+		want []string
+	}{
+		{MergeDefault, []string{"merge", "side"}},
+		{MergeFFOnly, []string{"merge", "--ff-only", "side"}},
+		{MergeNoFF, []string{"merge", "--no-ff", "side"}},
+		{MergeSquash, []string{"merge", "--squash", "side"}},
+	}
+	for _, c := range cases {
+		got, err := MergeArgs(MergeOpts{Ref: "side", Mode: c.mode})
+		if err != nil {
+			t.Fatalf("%q: %v", c.mode, err)
+		}
+		if fmt.Sprint(got) != fmt.Sprint(c.want) {
+			t.Fatalf("%q: argv = %v, want %v", c.mode, got, c.want)
+		}
+	}
+	if _, err := MergeArgs(MergeOpts{Ref: "side", Mode: "octopus"}); !errors.Is(err, ErrMergeMode) {
+		t.Fatalf("err = %v, want ErrMergeMode", err)
+	}
+	if _, err := MergeArgs(MergeOpts{Ref: ""}); !errors.Is(err, core.ErrRefName) {
+		t.Fatalf("err = %v, want ErrRefName", err)
+	}
+}
+
+// B25 (FR-GIT-256 / V172·V174): rebase 는 **파괴적이다** — 커밋 해시가 바뀐다.
+// hint 는 `git reset --hard <원래 HEAD oid>` 이며 값이 실려 있다.
+func TestRebase_DestructiveAndHint(t *testing.T) {
+	repo := tempRepoWithBranch(t, "feat")
+	f := &writeFake{}
+	s := core.New(core.WithRunner(realReader(t, repo)), core.WithWriteRunner(f.runner))
+	ctx := context.Background()
+
+	head, err := query.BranchOid(s, ctx, repo, "main")
+	if err != nil {
+		t.Fatalf("BranchOid: %v", err)
+	}
+	if _, err := Rebase(s, ctx, repo, RebaseOpts{Ref: "feat"}); err != nil {
+		t.Fatalf("Rebase: %v", err)
+	}
+	recs := s.Records(0)
+	if len(recs) == 0 || !recs[len(recs)-1].Destructive {
+		t.Fatal("rebase 가 파괴적으로 선언되지 않았다")
+	}
+	hints := s.Hints(0)
+	if len(hints) != 1 {
+		t.Fatalf("hint 가 %d개다", len(hints))
+	}
+	if hints[0].Action != core.ActionRebase {
+		t.Fatalf("Action = %q, want %q", hints[0].Action, core.ActionRebase)
+	}
+	if want := "git reset --hard " + head; hints[0].Command != want {
+		t.Fatalf("Command = %q, want %q", hints[0].Command, want)
+	}
+}
+
+// B26 (FR-GIT-256): `--onto` 는 옵션이다. 주면 위치 인자보다 앞선다.
+func TestRebaseArgs(t *testing.T) {
+	got, err := RebaseArgs(RebaseOpts{Ref: "main"})
+	if err != nil || fmt.Sprint(got) != fmt.Sprint([]string{"rebase", "main"}) {
+		t.Fatalf("argv = %v, err = %v", got, err)
+	}
+	got, err = RebaseArgs(RebaseOpts{Ref: "main", Onto: "v1"})
+	if err != nil || fmt.Sprint(got) != fmt.Sprint([]string{"rebase", "--onto", "v1", "main"}) {
+		t.Fatalf("argv = %v, err = %v", got, err)
+	}
+	if _, err := RebaseArgs(RebaseOpts{}); !errors.Is(err, core.ErrRefName) {
+		t.Fatalf("err = %v, want ErrRefName", err)
+	}
+}
+
+// B27 (FR-GIT-257): set 과 unset 은 다른 argv 이고 **둘 다 파괴적이 아니다** —
+// 되돌리는 것이 set 하나다.
+func TestUpstreamArgs(t *testing.T) {
+	got, err := UpstreamArgs(UpstreamOpts{Branch: "feat", Upstream: "origin/feat"})
+	want := []string{"branch", "--set-upstream-to=origin/feat", "feat"}
+	if err != nil || fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("argv = %v, err = %v, want %v", got, err, want)
+	}
+	got, err = UpstreamArgs(UpstreamOpts{Branch: "feat", Unset: true})
+	want = []string{"branch", "--unset-upstream", "feat"}
+	if err != nil || fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("argv = %v, err = %v, want %v", got, err, want)
+	}
+	for _, o := range []UpstreamOpts{
+		{Branch: "feat"},                               // upstream 도 unset 도 없다
+		{Branch: "", Upstream: "origin/feat"},          // 대상이 없다
+		{Branch: "feat", Upstream: "-x"},               // 옵션처럼 생긴 값
+		{Branch: "feat", Upstream: "o/f", Unset: true}, // 둘을 함께 받지 않는다
+	} {
+		if argv, err := UpstreamArgs(o); err == nil {
+			t.Fatalf("%+v 가 거부되지 않았다: %v", o, argv)
+		}
+	}
+	f := &writeFake{}
+	s := core.New(core.WithWriteRunner(f.runner))
+	if _, err := SetUpstream(s, context.Background(), "/tmp/repo",
+		UpstreamOpts{Branch: "feat", Unset: true}); err != nil {
+		t.Fatalf("SetUpstream: %v", err)
+	}
+	if recs := s.Records(0); len(recs) == 0 || recs[len(recs)-1].Destructive {
+		t.Fatal("upstream 조작이 파괴적으로 선언됐다 — 되돌리는 것이 set 하나다")
+	}
+}
+
+// B28 (FR-GIT-268): 원격 ref 를 같은 이름의 로컬로 가져오는 fetch 와, 원격 ref 를
+// 지우는 push 는 **다른 항목**이다. 삭제만 파괴적이며 hint 는 되살리는 push 다.
+func TestRemoteBranchSpecs(t *testing.T) {
+	spec, err := RemoteFetchSpec(RemoteBranchOpts{Remote: "origin", Branch: "feat"})
+	want := []string{"fetch", progressFlag, "origin", "feat:feat"}
+	if err != nil || fmt.Sprint(spec.Argv) != fmt.Sprint(want) {
+		t.Fatalf("argv = %v, err = %v, want %v", spec.Argv, err, want)
+	}
+	if spec.Destructive {
+		t.Fatal("fetch 가 파괴적으로 선언됐다")
+	}
+
+	repo := tempRepoWithRemote(t)
+	s := core.New()
+	ctx := context.Background()
+	dspec, err := RemoteBranchDeleteSpec(s, ctx, repo, RemoteBranchOpts{Remote: "origin", Branch: "feat"})
+	if err != nil {
+		t.Fatalf("RemoteBranchDeleteSpec: %v", err)
+	}
+	want = []string{"push", progressFlag, "origin", "--delete", "feat"}
+	if fmt.Sprint(dspec.Argv) != fmt.Sprint(want) {
+		t.Fatalf("argv = %v, want %v", dspec.Argv, want)
+	}
+	if !dspec.Destructive {
+		t.Fatal("원격 ref 삭제가 파괴적으로 선언되지 않았다")
+	}
+	hints := s.Hints(0)
+	if len(hints) != 1 || hints[0].Action != core.ActionRemoteRefDelete {
+		t.Fatalf("hint = %+v", hints)
+	}
+	oid, err := query.RemoteBranchOid(s, ctx, repo, "origin/feat")
+	if err != nil {
+		t.Fatalf("RemoteBranchOid: %v", err)
+	}
+	if len(hints[0].Values) != 1 || hints[0].Values[0] != oid {
+		t.Fatalf("Values = %v, want [%s] — 지우기 전 oid 가 없으면 되살릴 수 없다", hints[0].Values, oid)
+	}
+	if want := "git push origin " + oid + ":refs/heads/feat"; hints[0].Command != want {
+		t.Fatalf("Command = %q, want %q", hints[0].Command, want)
+	}
+}
+
+// B29 (FR-GIT-258): 대상이 **현재 브랜치가 아니어도** upstream 이 없으면 publish 다.
+// 그 사실을 실행 전에 알려야 하므로 계획만 돌려주고 멈춘다.
+func TestBranchPushSpec_PublishForNonCurrentBranch(t *testing.T) {
+	repo := tempRepoWithBranch(t, "feat") // feat 에는 upstream 이 없다
+	gitRun(t, repo, "remote", "add", "origin", filepath.Join(t.TempDir(), "r.git"))
+	s := core.New()
+	ctx := context.Background()
+
+	_, plan, err := BranchPushSpec(s, ctx, repo, BranchPushOpts{Branch: "feat"})
+	if !errors.Is(err, ErrPublishRequired) {
+		t.Fatalf("err = %v, want ErrPublishRequired", err)
+	}
+	if !plan.Publish || plan.Remote != "origin" || plan.Branch != "feat" {
+		t.Fatalf("plan = %+v", plan)
+	}
+	spec, plan, err := BranchPushSpec(s, ctx, repo, BranchPushOpts{Branch: "feat", Publish: true})
+	if err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	want := []string{"push", progressFlag, "-u", "origin", "feat"}
+	if fmt.Sprint(spec.Argv) != fmt.Sprint(want) {
+		t.Fatalf("argv = %v, want %v", spec.Argv, want)
+	}
+	if spec.Destructive {
+		t.Fatal("force 가 아닌 push 가 파괴적으로 선언됐다")
+	}
+	if !plan.Publish {
+		t.Fatalf("plan = %+v", plan)
+	}
+}
+
+// B30 (FR-GIT-258 / V172): force 는 `--force` 만 2단계 확인을 요구하고, 둘 다
+// 파괴적이다 — 판정이 **옵션에서 파생한다**.
+func TestBranchPushSpec_Force(t *testing.T) {
+	repo := tempRepoWithRemote(t)
+	gitRun(t, repo, "checkout", "-q", "-b", "feat", "--track", "origin/feat")
+	gitRun(t, repo, "checkout", "-q", "main")
+	s := core.New()
+	ctx := context.Background()
+
+	if _, _, err := BranchPushSpec(s, ctx, repo, BranchPushOpts{Branch: "feat", Force: PushForce}); !errors.Is(err, ErrForceConfirm) {
+		t.Fatalf("err = %v, want ErrForceConfirm", err)
+	}
+	spec, _, err := BranchPushSpec(s, ctx, repo, BranchPushOpts{Branch: "feat", Force: PushLease})
+	if err != nil {
+		t.Fatalf("lease: %v", err)
+	}
+	if !spec.Destructive {
+		t.Fatal("force push 가 파괴적으로 선언되지 않았다")
+	}
+	want := []string{"push", progressFlag, "--force-with-lease", "origin", "feat"}
+	if fmt.Sprint(spec.Argv) != fmt.Sprint(want) {
+		t.Fatalf("argv = %v, want %v", spec.Argv, want)
+	}
+	if _, _, err := BranchPushSpec(s, ctx, repo, BranchPushOpts{Branch: "feat", Force: "yolo"}); !errors.Is(err, ErrPushForce) {
+		t.Fatalf("err = %v, want ErrPushForce", err)
+	}
+}
+
+// B31 (FR-GIT-253): 새 이름의 검사는 생성과 **같은 자리**를 쓴다 — 이미 있는
+// 이름으로는 실행되지 않는다.
+func TestBranchRename_RejectsTakenName(t *testing.T) {
+	repo := tempRepoWithBranch(t, "feat")
+	f := &writeFake{}
+	s := core.New(core.WithRunner(realReader(t, repo)), core.WithWriteRunner(f.runner))
+	if _, err := BranchRename(s, context.Background(), repo,
+		BranchRenameOpts{From: "feat", To: "main"}); !errors.Is(err, ErrBranchExists) {
+		t.Fatalf("err = %v, want ErrBranchExists", err)
+	}
+	if len(f.argvs) != 0 {
+		t.Fatalf("거부됐는데 실행됐다: %v", f.argvs)
+	}
+}

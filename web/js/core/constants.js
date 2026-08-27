@@ -1120,3 +1120,96 @@ const GIT_CO_RANGE_TWO='..';
 // 여럿이 손대면 한쪽의 추가가 다른 쪽을 지운다.
 GIT_WRITE_ERR.merge_parent_required='머지 커밋은 기준 부모를 골라야 합니다';
 GIT_WRITE_ERR.reset_mode_invalid='모르는 reset 모드입니다';
+// ── 브랜치 동작 (GIT_ACTIONS_SRS §3.2 / FR-GIT-253~259 · §3.5 FR-GIT-268) ──
+//
+// 접수한 말의 본체다: "branch 삭제, 이름변경 등 기본적인 기능들이 없다."
+// 안내문은 한국어이고 메뉴 항목·버튼은 영어다 (FR-GIT-202).
+
+// 메뉴 항목의 라벨. 로컬과 원격은 **뜻이 다른 항목**이라 같은 메뉴에 함께 서고,
+// 어느 쪽이 왜 막혔는지는 사유로 알린다 (checkout·checkout-local 과 같은 규약).
+const GIT_BR_RENAME='Rename…';
+const GIT_BR_DELETE='Delete';
+const GIT_BR_MERGE='Merge into current';
+const GIT_BR_REBASE='Rebase onto…';
+const GIT_BR_SET_UPSTREAM='Set upstream…';
+const GIT_BR_UNSET_UPSTREAM='Unset upstream';
+const GIT_BR_PUSH='Push';
+const GIT_BR_CREATE_FROM='Create Branch from…';
+const GIT_BR_REMOTE_PULL='Pull/Merge';
+const GIT_BR_REMOTE_FETCH='Fetch into local';
+const GIT_BR_REMOTE_DELETE='Delete remote branch';
+
+// 비활성 사유. 왜 못 누르는지 보이지 않으면 사용자는 고장으로 읽는다 (FR-GIT-180).
+const GIT_BR_LOCAL_ONLY='로컬 브랜치에서만 쓸 수 있습니다';
+const GIT_BR_WHY_SELF='현재 브랜치입니다 — 자기 자신에는 합칠 수 없습니다';
+const GIT_BR_WHY_NO_UPSTREAM='upstream 이 설정돼 있지 않습니다';
+const GIT_BR_WHY_NO_HEAD='현재 브랜치를 알 수 없습니다 (detached)';
+
+// Rename (FR-GIT-253). 이름 검사는 생성 다이얼로그와 **같은 자리**를 쓴다.
+const GIT_BR_RENAME_TITLE='브랜치 이름 변경';
+const GIT_BR_RENAME_RUN='Rename';
+const GIT_BR_RENAME_PLACEHOLDER='새 브랜치 이름';
+
+// Delete (FR-GIT-254). action 은 서버의 파괴적 목록(/api/git/policy)의 키다 —
+// 목록을 프론트에 복제하지 않는다.
+const GIT_ACT_BRANCH_DELETE='branch_delete';
+const GIT_BR_DELETE_TITLE='브랜치를 지웁니다';
+const GIT_BR_DELETE_NOTE='지우기 전 커밋으로 되돌리려면 아래를 실행하세요 (자동 실행하지 않습니다)';
+// 미머지 거부는 **실패가 아니라 선택지다.** 목록과 순서는 서버가 주고 라벨만 여기 있다.
+const GIT_BR_UNMERGED_TITLE='아직 합쳐지지 않은 브랜치입니다';
+const GIT_BR_UNMERGED_LABEL={
+  force_delete:'Delete anyway (-D)',
+  cancel:'Cancel',
+};
+// 다중 선택은 Cmd/Ctrl + 클릭이고, 일괄 삭제는 `-d` 로만 한다 (FR-GIT-254).
+const GIT_BR_SEL_TITLE='Cmd/Ctrl + 클릭으로 여러 개를 고를 수 있습니다';
+
+// Merge (FR-GIT-255). 다이얼로그는 **영향 범위를 먼저 보인다** (G11).
+const GIT_BR_MERGE_TITLE='현재 브랜치에 합칩니다';
+const GIT_BR_MERGE_RUN='Merge';
+// 첫 선택지가 기본이고 그것이 안전한 쪽이다 (FR-GIT-97·173).
+const GIT_BR_MERGE_FIELDS=[
+  {key:'mode',type:GIT_DIALOG_RADIO,label:'합치는 방식',opts:[
+    {v:'',label:'기본 (git 에 맡김)'},
+    {v:'ff-only',label:'fast-forward 만 (--ff-only)'},
+    {v:'no-ff',label:'항상 머지 커밋 (--no-ff)'},
+    {v:'squash',label:'한 커밋으로 (--squash)'},
+  ]},
+];
+const GIT_BR_MERGE_FF='fast-forward 로 끝납니다 — 머지 커밋이 생기지 않습니다';
+const GIT_BR_MERGE_NOFF='갈라져 있습니다 — 머지 커밋이 생깁니다';
+const GIT_BR_MERGE_UPTODATE='이미 합쳐져 있습니다 — 들어올 커밋이 없습니다';
+const GIT_BR_MERGE_INCOMING='들어올 커밋 %n개';
+const GIT_BR_MERGE_DIVERGED='이쪽에만 있는 커밋 %n개';
+const GIT_BR_MERGE_PREVIEW_FAIL='영향 범위를 확인하지 못했습니다';
+// FR-GIT-255: 충돌은 실패가 아니라 **진행 중 상태다** (FR-GIT-251) — pull 이 쓰는
+// 경로 그대로 Changes 탭으로 보내고 충돌 그룹을 펼친다 (FR-GIT-111).
+const GIT_BR_MERGE_CONFLICT_NOTE='충돌이 남았습니다 — Changes 탭의 충돌 그룹에서 해결한 뒤 Continue 를 누르세요';
+
+// Rebase (FR-GIT-256). **파괴적이다** — action 이 서버 목록의 키이므로 단계 수를
+// 이쪽에서 정하지 않는다.
+const GIT_ACT_REBASE='rebase';
+const GIT_BR_REBASE_TITLE='현재 브랜치를 이 ref 위로 다시 얹습니다';
+const GIT_BR_REBASE_NOTE='커밋 해시가 바뀝니다 — 되돌리려면 아래로 원래 자리로 돌아가세요';
+
+// Set / Unset upstream (FR-GIT-257). 대상 목록은 **이미 받아 둔 원격 ref 목록**에서
+// 온다 — 새 조회를 만들지 않는다.
+const GIT_BR_UPSTREAM_TITLE='upstream 설정';
+const GIT_BR_UPSTREAM_RUN='Set';
+const GIT_BR_UPSTREAM_PLACEHOLDER='원격 ref (예: origin/main)';
+const GIT_BR_UPSTREAM_WHY_EMPTY='원격 ref 를 적으세요';
+const GIT_BR_UPSTREAM_WHY_UNKNOWN='그 이름의 원격 ref 가 목록에 없습니다';
+
+// 원격 브랜치 (FR-GIT-268). 삭제는 파괴적이며 hint 는 **되살리는 push** 다.
+// GIT_ACT_REMOTE_REF_DELETE 는 태그 원격 삭제(FR-GIT-261)가 이미 선언했다 —
+// 원격에서 ref 를 지우는 것은 대상이 브랜치든 태그든 같은 동작이므로 이름도 하나다.
+const GIT_BR_REMOTE_DELETE_TITLE='원격의 브랜치를 지웁니다';
+const GIT_BR_REMOTE_DELETE_NOTE='되살리려면 아래를 실행하세요 — 지운 뒤에는 원격의 reflog 에만 남습니다';
+
+// 서버가 새로 주는 거부 코드의 라벨. 표를 옮기지 않고 **덧붙인다** — 기존 목록은
+// 그대로 두고 이 블록이 자기 몫만 더한다.
+Object.assign(GIT_WRITE_ERR,{
+  branch_not_merged:'아직 합쳐지지 않은 브랜치입니다',
+  branch_is_current:'현재 브랜치는 지울 수 없습니다',
+  publish_required:'upstream 설정 확인이 필요합니다',
+});
