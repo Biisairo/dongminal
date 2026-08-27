@@ -49,6 +49,8 @@ class GitHistory {
     this._parentIdx=0;
     this._jumped=null;
     this._dirtyN=0;
+    // FR-GIT-233: 마지막으로 그린 HEAD. 바뀌면 표식을 다시 그린다.
+    this._headName=null; this._headOid='';
     this._ver=0;          // 목록이 바뀐 세대. 행 창을 다시 그릴 판단에 쓴다
     this._winKey=null;
     this._top=0;          // 마지막 스크롤 위치. 탭을 떠났다 돌아올 때 되돌린다
@@ -202,8 +204,12 @@ class GitHistory {
   paintStatus(){
     if(!this._el||this.panel.repo!==this._repo) return;
     const n=this.panel.dirtyCount();
-    if(n===this._dirtyN) return;
-    this._dirtyN=n; this._ver++;
+    // FR-GIT-233: HEAD 표식을 관측에서 파생하므로 HEAD 가 움직이면 행을 다시 그려야
+    // 한다 — 미커밋 개수만 보면 체크아웃 직후의 표식이 낡은 채로 남는다.
+    const h=this.panel.headName();
+    const o=(this.panel.statusOf()||{}).oid||'';
+    if(n===this._dirtyN&&h===this._headName&&o===this._headOid) return;
+    this._dirtyN=n; this._headName=h; this._headOid=o; this._ver++;
     this._paintRows();
   }
 
@@ -444,11 +450,68 @@ class GitHistory {
     return d;
   }
 
+  /**
+   * FR-GIT-233: HEAD 표식은 **살아 있는 관측에서 파생한다.**
+   *
+   * `git log` 의 decoration 은 목록을 받은 시점의 사실이다. 체크아웃은 refs 사이드바만
+   * 다시 받으므로(`afterRefWrite` → `reloadRefs`) 커밋 목록의 표식은 그대로 낡는다 —
+   * 눌러서 체크아웃한 배지의 표식이 움직이지 않는 것이 그것이었다.
+   *
+   * 목록을 다시 받는 대신 파생한다. 요청이 늘지 않고, 스크롤과 펼친 상세가 맨 위로
+   * 돌아가지 않는다.
+   *
+   * 관측이 아직 없으면 decoration 을 그대로 쓴다 — 첫 그리기가 표식 없이 보이지
+   * 않게 한다.
+   */
+  _commitIsHead(c){
+    const s=this.panel.statusOf();
+    if(!s||!s.oid) return !!c.isHead;
+    return c.oid===s.oid;
+  }
+
+  _refIsHead(r){
+    const s=this.panel.statusOf();
+    if(!s) return !!r.isHead;
+    // detached 는 어느 브랜치도 HEAD 가 아니다 (FR-GIT-144 의 상태와 맞는다).
+    if(s.detached) return false;
+    return r.kind===GIT_REF_KIND_LOCAL&&!!s.branch&&r.name===s.branch;
+  }
+
+  /**
+   * FR-GIT-126 의 배지이면서 **그 ref 를 대상으로 하는 자리**다 (FR-GIT-232).
+   *
+   * Branches 탭·refs 사이드바와 같은 경로를 탄다 — 더블클릭은 `GitMenu.runPrimary`,
+   * 우클릭은 그 ref 의 메뉴다. 조건을 여기 다시 적으면 세 진입점의 뜻이 갈라진다.
+   *
+   * **클릭을 행으로 올리지 않는다.** 올리면 첫 클릭이 상세를 여닫아 행 창이 다시
+   * 만들어지고(`_ver` → `_paintRows`), 두 번째 클릭이 새 요소에 떨어져 브라우저가
+   * `dblclick` 을 만들지 않는다. 그래서 배지의 단일 클릭은 아무 일도 하지 않는다.
+   */
+  _badgeEl(r){
+    const b=document.createElement('span');
+    b.className='git-hist-badge '+(r.kind||'unknown')+(this._refIsHead(r)?' head':'');
+    b.textContent=r.name; b.title=r.name;
+    const mkind=r.kind===GIT_REF_KIND_TAG?'tag'
+      :(r.kind===GIT_REF_KIND_LOCAL||r.kind===GIT_REF_KIND_REMOTE)?'branch':'';
+    // 종류를 모르는 ref(`shortRefName` 이 네임스페이스를 모를 때)로 저장소를 바꾸지
+    // 않는다 — 배지는 보이되 대상이 아니다.
+    if(!mkind) return b;
+    // 메뉴가 보는 모양은 refs 사이드바의 Ref 와 같다 — `short` 가 그 이름이다.
+    const target={short:r.name,name:r.name,kind:r.kind,isHead:!!r.isHead};
+    b.addEventListener('click',ev=>ev.stopPropagation());
+    b.addEventListener('dblclick',ev=>{ev.stopPropagation();GitMenu.runPrimary(mkind,target)});
+    b.addEventListener('contextmenu',ev=>{
+      ev.preventDefault(); ev.stopPropagation();
+      GitMenu.open(mkind,target,ev);
+    });
+    return b;
+  }
+
   _rowEl(idx,maxLanes,rowH){
     const c=this._view[idx];
     const row=this._graph&&this._graph.rows[idx];
     const d=document.createElement('div');
-    d.className='git-hist-row'+(c.isHead?' head':'')+
+    d.className='git-hist-row'+(this._commitIsHead(c)?' head':'')+
       (this._open===c.oid?' open':'')+(this._jumped===c.oid?' jumped':'');
     d.dataset.oid=c.oid;
     const g=document.createElement('span'); g.className='git-hist-graph';
@@ -457,12 +520,7 @@ class GitHistory {
     if(row&&row.compressed) g.title=GIT_HIST_COMPRESSED;
     const m=document.createElement('span'); m.className='git-hist-msg';
     // FR-GIT-126: 배지는 종류를 구분하고, HEAD 표식은 따로 붙는다.
-    for(const r of c.refs||[]){
-      const b=document.createElement('span');
-      b.className='git-hist-badge '+(r.kind||'unknown')+(r.isHead?' head':'');
-      b.textContent=r.name; b.title=r.name;
-      m.appendChild(b);
-    }
+    for(const r of c.refs||[]) m.appendChild(this._badgeEl(r));
     const s=document.createElement('span'); s.className='git-hist-subject';
     s.textContent=c.subject; s.title=c.subject;
     m.appendChild(s);
@@ -476,7 +534,10 @@ class GitHistory {
     const h=document.createElement('span'); h.className='git-hist-hash';
     h.textContent=c.abbrev; h.title=c.oid;
     d.appendChild(g); d.appendChild(m); d.appendChild(a); d.appendChild(t); d.appendChild(h);
-    d.addEventListener('click',()=>this._toggle(c));
+    // FR-GIT-232: 두 번째 클릭으로 상세를 여닫지 않는다 — 더블클릭이 제스처로 쓰이는
+    // 자리에서 첫 클릭의 되돌림이 되면 목록이 두 번 다시 그려진다 (refs 사이드바와
+    // 같은 규약. MouseEvent.detail 이 클릭 횟수다).
+    d.addEventListener('click',ev=>{if(ev.detail>1)return; this._toggle(c)});
     d.addEventListener('contextmenu',ev=>{ev.preventDefault();GitMenu.open('commit',c,ev)});
     return d;
   }

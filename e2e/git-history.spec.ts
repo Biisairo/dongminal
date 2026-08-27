@@ -580,3 +580,89 @@ test.describe('17단계 — 커밋 상세', () => {
     expect(sel, '더블클릭이 필터를 되돌렸다').toBeGreaterThan(0);
   });
 });
+
+// ── GIT_REVIEW4_SRS §3.4 / FR-GIT-232 (V121~V123) ──
+//
+// 커밋 행의 ref 배지에는 리스너가 하나도 없었다. FR-GIT-222 는 Branches 탭과 refs
+// 사이드바만 덮었고, 사용자가 말한 "히스토리에서 브랜치 더블클릭"은 이 자리였다.
+test.describe('4차 검토 — 커밋 행의 ref 배지 (V121~V123)', () => {
+  const badge = (page: Page, kind: string) =>
+    hist(page).locator(`.git-hist-badge.${kind}`);
+
+  test('H20 (V121 / FR-GIT-232): 커밋 행의 로컬 브랜치 배지 더블클릭이 checkout 한다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'h13');
+    await waitForInit(page);
+    await openHistory(page, repo);
+    await waitLoaded(page, 1);
+
+    // 현재 브랜치가 아닌 로컬 배지를 고른다 — 현재 브랜치는 아무 일도 하지 않는다.
+    const target = badge(page, 'local').and(hist(page).locator('.git-hist-badge:not(.head)')).first();
+    await expect(target).toBeVisible({ timeout: 20000 });
+    const name = (await target.textContent())!.trim();
+    expect(name).toBeTruthy();
+
+    await target.dblclick();
+    // 체크아웃이 실제로 일어났다.
+    await expect.poll(async () => page.evaluate(() => (window as any).app.gitPanel.headName()),
+      { timeout: 20000 }).toBe(name);
+    // FR-GIT-233 (V125): 그 배지에 HEAD 표식이 서고, 이전 브랜치의 표식은 사라진다.
+    // 목록이 다시 그려지므로 조회와 판정을 한 번의 evaluate 안에서 한다.
+    await expect.poll(async () => page.evaluate(() =>
+      [...document.querySelectorAll('.git-hist-badge.local.head')]
+        .map(e => (e.textContent || '').trim()).join(','),
+    ), { timeout: 20000 }).toBe(name);
+  });
+
+  test('H21 (V122 / FR-GIT-232): 현재 브랜치 배지와 태그 배지의 더블클릭은 아무 일도 하지 않는다', async ({ page }) => {
+    const repo = copyFx('basic', 'h14');
+    await waitForInit(page);
+    await openHistory(page, repo);
+    await waitLoaded(page, 1);
+
+    const head = badge(page, 'local').and(hist(page).locator('.git-hist-badge.head')).first();
+    await expect(head).toBeVisible({ timeout: 20000 });
+    const was = (await head.textContent())!.trim();
+    await head.dblclick();
+    // 이름이 그대로고, 상세도 열리지 않는다 (배지 클릭은 행으로 올라가지 않는다).
+    await expect(head).toHaveText(was);
+    await expect(hist(page).locator('.git-hist-detail')).toHaveCount(0);
+
+    const tag = badge(page, 'tag').first();
+    if (await tag.count()) {
+      const before = await page.evaluate(() => (window as any).app.gitPanel.headName());
+      await tag.dblclick();
+      await page.waitForTimeout(500);
+      expect(await page.evaluate(() => (window as any).app.gitPanel.headName())).toBe(before);
+      await expect(hist(page).locator('.git-hist-detail')).toHaveCount(0);
+    }
+  });
+
+  test('H22 (V123 / FR-GIT-232): 배지 단일 클릭은 상세를 열지 않고, 우클릭은 ref 메뉴를 연다', async ({ page }) => {
+    const repo = copyFx('basic', 'h15');
+    await waitForInit(page);
+    await openHistory(page, repo);
+    await waitLoaded(page, 1);
+
+    const b = badge(page, 'local').first();
+    await expect(b).toBeVisible({ timeout: 20000 });
+    await b.click();
+    await page.waitForTimeout(200);
+    await expect(hist(page).locator('.git-hist-detail')).toHaveCount(0);
+
+    // 우클릭은 branch 메뉴다 — 커밋 메뉴가 아니다.
+    await b.click({ button: 'right' });
+    const menu = page.locator('.git-menu');
+    await expect(menu).toHaveCount(1);
+    expect(await menu.getAttribute('data-kind')).toBe('branch');
+    await page.keyboard.press('Escape');
+
+    // 태그 배지의 우클릭은 tag 메뉴다.
+    const tag = badge(page, 'tag').first();
+    if (await tag.count()) {
+      await tag.click({ button: 'right' });
+      await expect(menu).toHaveCount(1);
+      expect(await menu.getAttribute('data-kind')).toBe('tag');
+      await page.keyboard.press('Escape');
+    }
+  });
+});
