@@ -140,7 +140,10 @@ func TestExecWriteCallers_RestrictedToServerGitHandlers(t *testing.T) {
 		}
 		if d.IsDir() {
 			switch d.Name() {
-			case "node_modules", ".git", "e2e":
+			// `.claude` 는 도구가 저장소 안에 만드는 자리다 — 그 아래의 worktree 는
+			// **이 저장소의 사본**이지 소스가 아니다. 세면 같은 호출이 사본 수만큼
+			// 중복으로 잡혀 가드가 항상 실패한다.
+			case "node_modules", ".git", ".claude", "e2e":
 				return filepath.SkipDir
 			}
 			return nil
