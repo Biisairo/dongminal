@@ -1461,6 +1461,8 @@ body.mobile .git-hist-f{width:60px}
    미리 영역을 키워 두지 않는다 (FR-GIT-219). 상한은 WINDOWS 를 굶기지 않기 위한
    것이다. */
 #git-repos{flex:0 1 auto;min-height:0;max-height:40%;overflow-y:auto}
+/* FR-FLW-11: 비었을 때도 자리가 보인다 — 빈 자리는 고장처럼 읽힌다 */
+.git-repos-none{padding:4px 8px;font-size:11px;color:var(--text-dim)}
 /* FR-GIT-214: 목록 → `+ Add` → ⚙ 이 잇달아 놓인다. 벌리지 않으면 세 덩이가 한
    덩이로 읽혀 목록의 마지막 행이 버튼처럼 보인다. ⚙ 은 GIT 섹션에 속하지 않으므로
    그쪽을 더 넓게 둔다. (WINDOWS 는 버튼이 목록 **위**라 같은 값이어도 이 문제가
@@ -1498,15 +1500,8 @@ body.mobile .git-repo{height:40px;font-size:13px}
 body.mobile .git-repo-x,body.mobile .git-repo-xslot{width:24px;height:24px}
 body.mobile .git-repo-x{opacity:1;font-size:14px}
 
-/* ── 상태바 Git chip (FR-GIT-57~59) ── */
-/* 클릭은 Git 창 활성화뿐이다 — chip 에서의 조작은 없다 */
-.sb-git{cursor:pointer}
-.sb-git-branch{color:var(--accent)}
-.sb-git:hover .sb-git-branch{color:var(--text-bright)}
-/* detached 는 어느 브랜치에도 속하지 않는 상태다 — 색으로 구분한다 */
-.sb-git.sb-git-detached .sb-git-branch{color:var(--danger);font-family:monospace}
-.sb-git-dirty{color:var(--text-muted)}
-/* FR-GIT-112: 진행 중 원격 작업. chip 옆에 별도로 붙는다 */
+/* ── 상태바 Git (FR-GIT-112) ── */
+/* 진행 중 원격 작업만 남는다 — 브랜치 chip 은 FR-FLW-12 가 걷어냈다 */
 .sb-git-job{color:var(--attn)}
 
 /* ── 파괴적 동작 확인 (FR-GIT-90~97·174~178) ── */
@@ -1815,7 +1810,6 @@ body.mobile .git-repo-x{opacity:1;font-size:14px}
 /* 가리키는 리포가 없으면 상태도 없다 (FR-GIT-194) */
 .git-repo-dot.none{background:transparent}
 /* follow 는 늘 최상단 1줄이다 — 그 아래 선이 핀 목록과 나눈다 (FR-GIT-216) */
-.git-repo.follow{border-bottom:var(--git-sec-divider)}
 
 /* ── Git 창의 감춘 진입점 (FR-GIT-180) ── */
 .git-hidden{display:none !important}

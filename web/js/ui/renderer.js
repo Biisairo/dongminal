@@ -89,23 +89,29 @@ class Renderer {
      * 로만 보이는 `×` 가 3초마다 깜빡이고, 더 나쁜 것은 **끌고 있던 핀이 DOM 에서
      * 빠져 재배치가 조용히 실패하는 것**이다 (FR-GIT-223).
      */
-    const items=[];
-    if(d.follow) items.push({follow:true,e:d.follow});
-    for(const p of d.pinned||[]) items.push({follow:false,e:p});
+    // FR-FLW-1: 핀만 그린다. follow 행은 없다 — 활성 리포는 사용자가 고른 것이다.
+    //
+    // FR-FLW-11: 비었을 때 자리를 비워 두지 않는다. follow 행이 늘 한 줄을
+    // 채우고 있었으므로 이 섹션은 빈 적이 없었다 — 이제는 있다.
+    const items=(d.pinned||[]).map(e=>({e}));
+    el.classList.toggle('empty',!items.length);
+    if(!items.length){
+      el.innerHTML='<div class="git-repos-none"></div>';
+      el.firstElementChild.textContent=GIT_REPOS_NONE;
+      return;
+    }
     reconcileList(el,items,{
-      key:it=>it.follow?'follow':'pin:'+(it.e.path||''),
+      key:it=>'pin:'+(it.e.path||''),
       sig:it=>this._gitRepoSig(it),
-      build:it=>this._rGitRepo(it.e,it.follow),
+      build:it=>this._rGitRepo(it.e),
     });
   }
 
   // 행의 **보이는 값 전부**다 (FR-RPT-2) — `_rGitRepo` 가 읽는 것과 1:1 로 맞춘다.
-  // FR-GIT-239 주: 자리 칸의 유무는 `it.follow` 에서 파생하므로 이 시그니처가 이미
-  // 그것을 읽고 있다 (아래 첫 항목). 새로 읽는 값이 없어 더할 것이 없다.
   _gitRepoSig(it){
     const e=it.e,b=e.badge||{};
     return [
-      it.follow?1:0,e.path||'',e.isRepo?1:0,e.name||'',e.reason||'',e.cwd||'',
+      e.path||'',e.isRepo?1:0,e.name||'',e.reason||'',e.cwd||'',
       b.total>0?b.total:0,b.total>0?(b.observedAtUnixMs||0):0,
       (!!e.path&&this.app.gitPanel.repo===e.path)?1:0,
     ].join('\u0001');
@@ -146,22 +152,19 @@ class Renderer {
     });
   }
 
-  // FR-GIT-9~11·14·15: follow 한 줄 + 핀 항목. 저장소가 아니면 흐리게 보이고
-  // 클릭 리스너를 달지 않는다 — 핀은 × 로 지울 수 있어야 하므로 남겨 둔다.
-  _rGitRepo(e,follow){
+  // FR-GIT-11·14·15: 핀 항목. 저장소가 아니면 흐리게 보이고 클릭 리스너를 달지
+  // 않는다 — 핀은 × 로 지울 수 있어야 하므로 목록에는 남겨 둔다.
+  _rGitRepo(e){
     const path=e.path||'';
     const active=!!path&&this.app.gitPanel.repo===path;
     const d=document.createElement('div');
-    d.className='git-repo '+(follow?'follow':'pinned')+(e.isRepo?'':' norepo')+(active?' active':'');
+    d.className='git-repo pinned'+(e.isRepo?'':' norepo')+(active?' active':'');
     if(path) d.dataset.gitRepo=path;
     // FR-GIT-192: 이모지를 쓰지 않는다. 표식은 WINDOWS 목록의 점(`.si-dot`)과 같은
-    // 어휘이며 **활성 리포 여부만** 나타낸다 (O18) — follow·핀 구분은 배치가 한다
-    // (FR-GIT-193). 저장소가 아닌 follow 는 가리키는 리포가 없으므로 점이 없다
-    // (FR-GIT-194).
+    // 어휘이며 **활성 리포 여부만** 나타낸다 (O18).
     d.innerHTML='<span class="git-repo-dot"></span><span class="git-repo-name"></span>';
     if(!e.isRepo) d.querySelector('.git-repo-dot').classList.add('none');
-    // follow 는 마지막 유효 리포를 남기지 않는다 (FR-GIT-10) — 사유를 title 로 보인다.
-    d.querySelector('.git-repo-name').textContent=e.isRepo?e.name:(follow?GIT_NOT_REPO_LABEL:e.name);
+    d.querySelector('.git-repo-name').textContent=e.name;
     d.title=e.isRepo?path:(e.reason||'')+' — '+(e.cwd||path);
     // 배지는 서버의 마지막 관측값이다. 0 을 보일 이유는 없다 (FR-GIT-14).
     const b=e.badge;
@@ -173,21 +176,12 @@ class Renderer {
       if(!active) s.title='최신 아님 (마지막 관측: '+new Date(b.observedAtUnixMs).toLocaleTimeString()+')';
       d.appendChild(s);
     }
-    if(!follow){
-      const x=document.createElement('span'); x.className='git-repo-x'; x.textContent='×';
-      x.addEventListener('click',ev=>{ev.stopPropagation();this.app._gitUnpin(e.path)});
-      d.appendChild(x);
-    }else{
-      // FR-GIT-239: follow 행은 **자리만** 잡는다. `×` 를 만들지 않는다 — follow 는
-      // 지울 수 있는 것이 아니다 (FR-GIT-193). 자리 폭은 `.git-repo-x` 와 **같은
-      // 선언에서** 받으므로 모바일에서도 어긋나지 않는다.
-      const slot=document.createElement('span'); slot.className='git-repo-xslot';
-      d.appendChild(slot);
-    }
+    const x=document.createElement('span'); x.className='git-repo-x'; x.textContent='×';
+    x.addEventListener('click',ev=>{ev.stopPropagation();this.app._gitUnpin(e.path)});
+    d.appendChild(x);
     if(e.isRepo&&path) d.addEventListener('click',()=>this.app.openGitWindow(path));
-    // FR-GIT-223: 핀은 WINDOWS 목록과 **같은 제스처**로 순서를 바꾼다. follow 는
-    // 핀이 아니고 늘 최상단 1줄이므로(FR-GIT-193) 끌 수도, 그 위에 놓을 수도 없다.
-    if(!follow&&path) this._bindPinDrag(d,path);
+    // FR-GIT-223: 핀은 WINDOWS 목록과 **같은 제스처**로 순서를 바꾼다.
+    if(path) this._bindPinDrag(d,path);
     return d;
   }
 

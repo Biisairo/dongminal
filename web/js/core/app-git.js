@@ -152,28 +152,48 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * _gitFocusToolId 는 follow 가 딛는 도구다 (FR-GIT-9).
+   * _gitTermToolId 는 `+ Add` 가 "지금 터미널의 리포" 를 물을 때 딛는 도구다
+   * (FR-FLW-6). **목록은 이것을 쓰지 않는다** — 목록은 핀에서만 온다.
    *
    * 포커스가 터미널이 아닐 때(Git 창·편집기 탭) **마지막 터미널을 유지한다.**
    * 빈 값을 보내면 서버가 자기 cwd 로 답하는데, 그것은 사용자가 가 본 적 없는
-   * 리포다 — Git 창에 들어간 순간 follow 가 dongminal 로 바뀌는 결함이 그것이었다.
-   * follow 는 "포커스된 터미널의 cwd" 이고, 터미널을 떠났다고 다른 리포를
-   * 가리켜서는 안 된다 (FR-GIT-10 의 "임의로 유지하지 않는다"와 같은 뜻이다).
+   * 리포다 — Git 창에 들어간 순간 대상이 dongminal 자신으로 바뀌는 결함이
+   * 그것이었다 (D-FLW-6, 옛 FR-GIT-210).
    */
-  _gitFocusToolId(){
+  _gitTermToolId(){
     const p=this._focusedTerminal();
     if(p){this._lastTermTool=p.id; return p.id}
     // 사라진 도구를 가리키면 서버가 다시 자기 cwd 로 답한다 — 살아 있는 것만 쓴다.
     if(this._lastTermTool&&this.tools.has(this._lastTermTool)) return this._lastTermTool;
-    this._lastTermTool=null;
-    return '';
+    // 기억이 없으면 워크스페이스에서 찾는다. 포커스 훅은 **포커스가 바뀔 때만**
+    // 돌아서, 처음부터 터미널에 있다가 Git 창으로 넘어간 경우 기억이 빈다.
+    this._lastTermTool=this._anyTermToolId();
+    return this._lastTermTool||'';
+  },
+
+  // 일반 창의 활성 탭 중 터미널인 것. 여러 개면 마지막으로 쓴 창을 먼저 본다 —
+  // 그것이 사용자가 방금 떠나온 자리다.
+  _anyTermToolId(){
+    const wins=this.ws.windows.filter(w=>w.type!==WINDOW_TYPE_GIT);
+    const order=wins.slice().sort((a,b)=>
+      (b.id===this._lastPlainWindow?1:0)-(a.id===this._lastPlainWindow?1:0));
+    for(const w of order){
+      const pn=w.focusedPane?findPane(w.layout,w.focusedPane):firstPane(w.layout);
+      for(const p of [pn,firstPane(w.layout)]){
+        if(!p) continue;
+        const tab=p.tabs.find(t=>t.id===p.activeTab);
+        if(tab&&tab.type==='terminal'&&this.tools.has(tab.toolId)) return tab.toolId;
+      }
+    }
+    return null;
   },
 
   // _gitReposRefresh 는 GIT 섹션의 목록을 갱신한다. 실패하면 이전 목록을 유지한다 —
   // 네트워크가 한 번 튀었다고 섹션이 비면 안 된다.
   async _gitReposRefresh(){
     let r;
-    try{r=await fetch('/api/git/repos?tool='+encodeURIComponent(this._gitFocusToolId()))}catch{return}
+    // FR-FLW-2: 목록은 핀만 답한다 — 도구 인자를 싣지 않는다.
+    try{r=await fetch('/api/git/repos')}catch{return}
     if(r.status===503){
       // git 이 없거나 서비스가 구성되지 않은 환경이다. 섹션 전체를 숨긴다.
       this._gitOff=true;this.renderer._rGitSection();return;
@@ -192,11 +212,51 @@ Object.assign(App.prototype, {
 
   // FR-GIT-12: 경로를 물어 핀한다. M1 에는 공통 다이얼로그가 없으므로 prompt 를
   // 쓴다 (다이얼로그 규약은 M5 묶음 P).
-  _gitAddRepo(){
-    const v=window.prompt(GIT_ADD_REPO_PROMPT,this._cwd||'');
-    if(v===null) return;
-    const path=v.trim(); if(!path) return;
-    this._gitPin(path);
+  /**
+   * FR-FLW-5~10 — 리포 추가.
+   *
+   * follow 행이 하던 일(핀하지 않은 리포로 가는 한 번의 클릭)을 여기가 대신한다.
+   * 그래서 **여는 순간 지금 터미널의 리포를 물어 채운다** — 경로를 타이핑하게
+   * 하면 대신하지 못한다. 브라우저 프롬프트를 쓰지 않는 이유는 거부 사유를 보일
+   * 자리가 없기 때문이다 (D-FLW-4).
+   */
+  async _gitAddRepo(){
+    const at=await this._gitRepoAt();
+    const here=(at&&at.isRepo&&at.path)?at.path:'';
+    // 저장소가 아니면 사유를 본문에 보인다 — 빈 칸만 두면 사용자는 고장으로 읽는다.
+    const why=here?'':GIT_ADD_REPO_NO_TERM.replace('%s',(at&&(at.reason||at.cwd))||'');
+    return GitDialog.open({
+      id:'git-add-repo-dlg',ns:'gar',action:'repo_pin',
+      title:GIT_ADD_REPO_TITLE,runLabel:GIT_ADD_REPO_RUN,focus:'path',
+      body:here?GIT_ADD_REPO_HERE.replace('%s',here):why,
+      fields:[
+        {key:'path',type:GIT_DIALOG_TEXT,cls:'gar-path',value:here,
+         placeholder:GIT_ADD_REPO_PROMPT},
+      ],
+      validate:v=>(v.path||'').trim()?'':GIT_ADD_REPO_NEED_PATH,
+      run:v=>this._gitAddRepoRun((v.path||'').trim()),
+    });
+  },
+
+  // FR-FLW-6: 화면에 상주시키지 않는다 — 여는 순간 한 번 묻는 것이 전부다.
+  async _gitRepoAt(){
+    try{
+      const r=await fetch('/api/git/repo-at?tool='+encodeURIComponent(this._gitTermToolId()));
+      if(!r.ok) return null;
+      return await r.json();
+    }catch{return null}
+  },
+
+  /**
+   * FR-FLW-7·8: 실패는 사유를 보이고 **닫지 않는다.** 이미 핀된 것은 실패가
+   * 아니므로 성공으로 답하되, 목록이 늘지 않은 이유를 알린다.
+   */
+  async _gitAddRepoRun(path){
+    const before=((this._gitRepos||{}).pinned||[]).length;
+    const d=await this._gitPin(path);
+    if(!d||!d.ok) return {ok:false,reason:(d&&d.reason)||GIT_ADD_REPO_FAIL};
+    if(d.pinned&&d.pinned.length===before) return {ok:false,reason:GIT_ADD_REPO_DUP};
+    return {ok:true};
   },
 
   /**
@@ -226,18 +286,22 @@ Object.assign(App.prototype, {
   // FR-GIT-249: `quiet` 는 **자기 안내 자리를 가진 호출자**의 것이다 (Worktrees 탭).
   // 그런 자리에서 alert 까지 띄우면 같은 사실을 두 번 알리게 된다. 이 섹션의 저장소
   // 추가는 보일 자리가 alert 뿐이므로 기본은 그대로다.
-  async _gitPin(path,o){
-    if(!path) return false;
-    const quiet=!!(o&&o.quiet);
+  /**
+   * 핀 하나를 추가한다. **결과를 돌려주고 스스로 알리지 않는다** — 사유를 보일
+   * 자리는 호출자마다 다르다 (`+ Add` 는 다이얼로그, Worktrees 는 그 탭의 안내 줄).
+   * 같은 사실을 두 번 알리면 사용자는 두 가지 일이 일어난 줄로 읽는다.
+   */
+  async _gitPin(path){
+    if(!path) return {ok:false,reason:GIT_PIN_FAIL_LABEL};
     let r,d;
     try{
       r=await fetch('/api/git/repos/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});
       d=await r.json();
-    }catch(err){if(!quiet)window.alert(GIT_PIN_FAIL_LABEL+': '+err);return false}
-    if(!r.ok){if(!quiet)window.alert(GIT_PIN_FAIL_LABEL+' ('+(d&&d.error)+'): '+(d&&d.message));return false}
+    }catch(err){return {ok:false,reason:GIT_PIN_FAIL_LABEL+': '+err}}
+    if(!r.ok) return {ok:false,reason:(d&&d.message)||GIT_PIN_FAIL_LABEL};
     this._gitPinsApply(d.pinned);
     await this._gitReposRefresh();
-    return true;
+    return {ok:true,pinned:d.pinned||[]};
   },
 
   async _gitUnpin(path){
@@ -298,32 +362,6 @@ Object.assign(App.prototype, {
     if(this._gitJobs.length!==n) this._updateStatusBar();
   },
 
-  // FR-GIT-57·59: 활성 리포의 마지막 관측을 chip 으로 만든다. 리포가 없거나
-  // 관측이 없으면 null 이다 — 빈 chip 이나 '-' 를 보이면 "변경 없음" 과
-  // "모른다" 가 같아진다.
-  _gitChip(){
-    const g=this.gitPanel;
-    const s=(g&&g.repo&&g._status&&g._status.status)||null;
-    if(!s) return null;
-    const el=document.createElement('span');
-    el.className='sb-item sb-git'+(s.detached?' sb-git-detached':'');
-    el.title=(g.repo||'')+' — '+GIT_SB_TITLE;
-    const b=document.createElement('span'); b.className='sb-git-branch';
-    // detached 면 브랜치 자리에 해시 앞 7자가 온다 (.git-head-branch 와 같은 규약).
-    b.textContent=GIT_SB_BRANCH_ICON+' '+(s.detached?(s.oid||'').slice(0,7):(s.branch||''));
-    el.appendChild(b);
-    // 변경 수가 0 이면 숫자를 붙이지 않는다.
-    const n=s.total||0;
-    if(n){
-      const d=document.createElement('span'); d.className='sb-git-dirty';
-      d.textContent=GIT_SB_DIRTY_ICON+n;
-      el.appendChild(d);
-    }
-    return el;
-  },
-
-  // FR-GIT-112: 진행 중 원격 작업의 chip. 없으면 null 이다 — 빈 chip 을 보이면
-  // "작업 중" 과 "아무 일도 없음" 이 같아진다.
   _gitJobChip(){
     const jobs=this._gitJobs||[];
     if(!jobs.length) return null;

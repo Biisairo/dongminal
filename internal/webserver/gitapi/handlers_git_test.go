@@ -157,9 +157,36 @@ func TestGitEndpoints_Unavailable(t *testing.T) {
 	}
 }
 
-// H3 (V3, FR-GIT-9/10): follow 가 저장소일 때와 아닐 때. 저장소가 아니면 path 는
-// 비고 사유가 실린다 — 마지막 유효 리포를 유지하지 않는다.
-func TestGitRepos_Follow(t *testing.T) {
+// V-FLW-2 (FR-FLW-2): 목록은 **핀만** 답한다. follow 키가 남아 있으면 아무도 읽지
+// 않는 값을 위해 3초마다 rev-parse 가 한 번 더 돈다.
+func TestGitRepos_NoFollow(t *testing.T) {
+	g := newGitFake(t)
+	s, hub, _, _ := gitTestServer(t, g)
+	hub.seed("t1", "T1")
+	hub.setCwd("t1", "/work/repo/sub")
+	roots := 0
+	g.root = func(string) (core.Output, error) {
+		roots++
+		return core.Output{Stdout: "/work/repo\n"}, nil
+	}
+
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/repos?tool=t1", "")
+	if code != 200 {
+		t.Fatalf("code=%d body=%v", code, out)
+	}
+	if _, ok := out["follow"]; ok {
+		t.Fatalf("follow 가 아직 응답에 있다: %v", out)
+	}
+	// 핀이 없으므로 rev-parse 는 한 번도 돌지 않아야 한다 — `?tool=` 을 실어도
+	// 그것을 딛는 조회가 남아 있으면 안 된다.
+	if roots != 0 {
+		t.Fatalf("rev-parse 가 %d 번 돌았다 — 핀이 없는데 무엇을 확정했나", roots)
+	}
+}
+
+// V-FLW-2 (FR-FLW-6): `+ Add` 가 여는 순간에만 도는 전용 조회. 저장소면 루트를,
+// 아니면 path 를 비우고 사유만 답한다 — 마지막 유효 리포를 유지하지 않는다.
+func TestGitRepoAt(t *testing.T) {
 	t.Run("저장소", func(t *testing.T) {
 		g := newGitFake(t)
 		s, hub, _, _ := gitTestServer(t, g)
@@ -167,23 +194,18 @@ func TestGitRepos_Follow(t *testing.T) {
 		hub.setCwd("t1", "/work/repo/sub")
 		g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
 
-		code, out := gitReq(t, s, http.MethodGet, "/api/git/repos?tool=t1", "")
+		code, out := gitReq(t, s, http.MethodGet, "/api/git/repo-at?tool=t1", "")
 		if code != 200 {
 			t.Fatalf("code=%d body=%v", code, out)
 		}
-		follow, _ := out["follow"].(map[string]any)
-		if follow["cwd"] != "/work/repo/sub" {
-			t.Fatalf("cwd=%v", follow["cwd"])
+		if out["cwd"] != "/work/repo/sub" {
+			t.Fatalf("cwd=%v", out["cwd"])
 		}
-		if follow["isRepo"] != true || follow["path"] != "/work/repo" || follow["name"] != "repo" {
-			t.Fatalf("follow=%v", follow)
+		if out["isRepo"] != true || out["path"] != "/work/repo" || out["name"] != "repo" {
+			t.Fatalf("out=%v", out)
 		}
-		if follow["reason"] != "" {
-			t.Fatalf("reason=%v", follow["reason"])
-		}
-		// 관측 이력이 없으면 배지는 null 이다 (FR-GIT-24).
-		if follow["badge"] != nil {
-			t.Fatalf("badge=%v, want null", follow["badge"])
+		if out["reason"] != "" {
+			t.Fatalf("reason=%v", out["reason"])
 		}
 	})
 
@@ -196,39 +218,54 @@ func TestGitRepos_Follow(t *testing.T) {
 			return core.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
 		}
 
-		code, out := gitReq(t, s, http.MethodGet, "/api/git/repos?tool=t1", "")
+		code, out := gitReq(t, s, http.MethodGet, "/api/git/repo-at?tool=t1", "")
 		if code != 200 {
 			t.Fatalf("code=%d body=%v", code, out)
 		}
-		follow, _ := out["follow"].(map[string]any)
-		if follow["isRepo"] != false || follow["path"] != "" {
-			t.Fatalf("follow=%v", follow)
+		if out["isRepo"] != false || out["path"] != "" {
+			t.Fatalf("out=%v", out)
 		}
-		if follow["reason"] != gitErrNotRepo {
-			t.Fatalf("reason=%v, want %q", follow["reason"], gitErrNotRepo)
+		if out["reason"] != gitErrNotRepo {
+			t.Fatalf("reason=%v, want %q", out["reason"], gitErrNotRepo)
+		}
+	})
+
+	t.Run("라우트 등록", func(t *testing.T) {
+		found := false
+		for _, rt := range routes {
+			if (rt.method == "" || rt.method == http.MethodGet) && rt.match("/api/git/repo-at") {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatal("GET /api/git/repo-at 이 gitapi.routes 에 없다")
 		}
 	})
 }
 
-// 배지는 Store.Observed 만 읽는다. status 를 한 번 관측한 뒤에야 값이 생긴다.
+// 배지는 Store.Observed 만 읽는다. status 를 한 번 관측한 뒤에야 값이 생긴다
+// (FR-GIT-14 — follow 가 사라져도 핀 행의 배지는 그대로다).
 func TestGitRepos_BadgeFromObservation(t *testing.T) {
 	g := newGitFake(t)
-	s, hub, _, _ := gitTestServer(t, g)
-	hub.seed("t1", "T1")
-	hub.setCwd("t1", "/work/repo")
+	s, _, ws, _ := gitTestServer(t, g)
+	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":["/work/repo"]}}`)
 	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
 
 	if code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo=/work/repo", ""); code != 200 {
 		t.Fatalf("status code=%d body=%v", code, out)
 	}
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/repos?tool=t1", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/repos", "")
 	if code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
-	follow, _ := out["follow"].(map[string]any)
-	badge, _ := follow["badge"].(map[string]any)
+	pinned, _ := out["pinned"].([]any)
+	if len(pinned) != 1 {
+		t.Fatalf("pinned=%v", out["pinned"])
+	}
+	e, _ := pinned[0].(map[string]any)
+	badge, _ := e["badge"].(map[string]any)
 	if badge == nil {
-		t.Fatalf("badge 가 없다: %v", follow)
+		t.Fatalf("badge 가 없다: %v", e)
 	}
 	if badge["total"] != float64(1) || badge["branch"] != "main" || badge["detached"] != false {
 		t.Fatalf("badge=%v", badge)

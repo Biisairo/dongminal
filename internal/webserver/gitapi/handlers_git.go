@@ -82,20 +82,35 @@ func gitTail(msg string) string {
 	return strings.ToValidUTF8(msg[len(msg)-gitMessageMax:], "")
 }
 
-// GET /api/git/repos?tool=<toolId> — follow 후보 + 핀 목록 + 각 배지.
+// GET /api/git/repos — 핀 목록과 각 배지 (FR-FLW-2).
+//
+// **follow 는 없다.** 그 조회는 `+ Add` 가 여는 순간에만 도는 /api/git/repo-at 로
+// 옮겼다 — 목록에 실으면 아무도 읽지 않는 값을 위해 3초마다 rev-parse 가 한 번 더
+// 돈다 (D-FLW-2).
 func (s *GitServer) apiGitRepos(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
 	}
 	gitJSON(w, http.StatusOK, map[string]any{
-		"follow": s.gitFollowEntry(r.Context(), s.gitFollowCwd(r)),
 		"pinned": s.gitPinnedEntries(r.Context()),
 	})
 }
 
-// gitFollowCwd 는 /api/cwd 와 같은 규약이다 — tool 이 비면 서버의 cwd 다.
-func (s *GitServer) gitFollowCwd(r *http.Request) string {
+// GET /api/git/repo-at?tool=<toolId> — 그 도구의 cwd 가 속한 리포 (FR-FLW-6).
+//
+// 화면에 상주하지 않는다. `+ Add` 다이얼로그가 열릴 때 한 번 부르는 것이 전부이며,
+// 상주시키면 그것이 곧 follow 의 부활이다 (D-FLW-3).
+func (s *GitServer) apiGitRepoAt(w http.ResponseWriter, r *http.Request) {
+	if s.Git == nil {
+		gitUnavailable(w)
+		return
+	}
+	gitJSON(w, http.StatusOK, s.gitRepoAtEntry(r.Context(), s.gitToolCwd(r)))
+}
+
+// gitToolCwd 는 /api/cwd 와 같은 규약이다 — tool 이 비면 서버의 cwd 다.
+func (s *GitServer) gitToolCwd(r *http.Request) string {
 	if id := r.URL.Query().Get("tool"); id != "" && s.Tools != nil {
 		if cwd := s.Tools.Cwd(id); cwd != "" {
 			return cwd
@@ -105,10 +120,13 @@ func (s *GitServer) gitFollowCwd(r *http.Request) string {
 	return cwd
 }
 
-// gitFollowEntry 는 cwd 가 속한 리포를 확정한다. 저장소가 아니면 path 는 비고
-// 사유만 실린다 — **마지막 유효 리포를 유지하지 않는다** (FR-GIT-10).
-func (s *GitServer) gitFollowEntry(ctx context.Context, cwd string) map[string]any {
-	e := map[string]any{"cwd": cwd, "isRepo": false, "path": "", "name": "", "reason": "", "badge": nil}
+// gitRepoAtEntry 는 cwd 가 속한 리포를 확정한다. 저장소가 아니면 path 는 비고
+// 사유만 실린다 — **마지막 유효 리포를 유지하지 않는다.**
+//
+// 배지를 싣지 않는다 — 이 값은 목록이 아니라 `+ Add` 의 기본값이며, 아직 핀되지
+// 않은 리포의 변경 개수는 어차피 관측된 적이 없다 (FR-GIT-24).
+func (s *GitServer) gitRepoAtEntry(ctx context.Context, cwd string) map[string]any {
+	e := map[string]any{"cwd": cwd, "isRepo": false, "path": "", "name": "", "reason": ""}
 	root, err := s.Git.RepoRoot(ctx, cwd)
 	if err != nil {
 		_, name := gitErrorCode(err)
@@ -118,7 +136,6 @@ func (s *GitServer) gitFollowEntry(ctx context.Context, cwd string) map[string]a
 	e["isRepo"] = true
 	e["path"] = root
 	e["name"] = filepath.Base(root)
-	e["badge"] = s.gitBadge(root)
 	return e
 }
 

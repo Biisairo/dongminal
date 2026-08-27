@@ -163,18 +163,19 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     await openGit(page, fx('basic'));
     const sel = '#sb-items .sb-item';
     await expect(page.locator(sel).first()).toBeVisible();
-    // git chip 은 첫 관측이 온 뒤에 붙는다 — 붙기 전에 표식을 심으면 "새로 만들어졌다"
-    // 와 "아직 없었다" 가 구별되지 않는다.
-    await expect(page.locator('#sb-items .sb-git')).toHaveCount(1);
+    // 값이 스스로 바뀌지 않는 지표 하나를 대표로 삼는다. git chip 이 그 자리였으나
+    // 철회됐고(FR-FLW-12), 연결 상태는 같은 성질이면서 늘 켜져 있다.
+    const stable = '#sb-items .sb-item:has(.sb-dot)';
+    await expect(page.locator(stable)).toHaveCount(1);
     const n = await markAll(page, sel);
     expect(n).toBeGreaterThan(0);
     await page.waitForTimeout(POLLS);
     // 지표에는 값이 스스로 바뀌는 것(지연·CPU·업타임)이 섞여 있다. 그런 값이 바뀌면
     // 그 항목은 다시 만들어지는 것이 맞다 (FR-RPT-2). 지켜야 하는 것은 **값이
-    // 그대로인 항목**이고, git chip 이 그것이다 — 리포 경로를 title 로 보이는 자리다.
+    // 그대로인 항목**이다.
     const m = await markCount(page, sel);
     expect(m.kept).toBeGreaterThan(0);
-    expect(await markCount(page, '#sb-items .sb-git')).toEqual({ kept: 1, total: 1 });
+    expect(await markCount(page, stable)).toEqual({ kept: 1, total: 1 });
   });
 
   test('P8 (V110 / FR-RPT-7 #4): Console 기록 행과 펼친 상세가 폴링에 살아남는다', async ({ page }) => {

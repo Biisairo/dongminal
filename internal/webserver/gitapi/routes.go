@@ -19,6 +19,7 @@ func exactPath(p string) func(string) bool {
 
 var routes = []route{
 	{http.MethodGet, exactPath("/api/git/repos"), (*GitServer).apiGitRepos},
+	{http.MethodGet, exactPath("/api/git/repo-at"), (*GitServer).apiGitRepoAt},
 	{http.MethodPost, exactPath("/api/git/repos/pin"), (*GitServer).apiGitPin},
 	{http.MethodPost, exactPath("/api/git/repos/unpin"), (*GitServer).apiGitUnpin},
 	{http.MethodPost, exactPath("/api/git/repos/reorder"), (*GitServer).apiGitReorder},

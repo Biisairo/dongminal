@@ -453,85 +453,39 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
   });
 });
 
-test.describe('묶음 L — I4 live/pin 배지 자리 (FR-GIT-239)', () => {
-  test('V140 (FR-GIT-239): follow 행과 핀 행의 변경 개수 배지의 오른쪽 끝 x 가 같다', async ({ page, request }) => {
-    await waitForInit(page);
-    const followDir = makeRepoWithChange('dm-repo-i140-');
-    const pinDir = makeRepoWithChange('dm-repo-i140p-');
-    const pinRoot = await pin(request, pinDir);
-
-    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
-    await page.click('#area .pn.focused .xterm-screen');
-    await cd(page, followDir);
-
-    for (const r of [followDir, pinRoot]) {
+test.describe('묶음 L — 핀 행 배지 자리 (FR-GIT-239 축소)', () => {
+  // FR-GIT-239 는 follow 행과 핀 행의 오른쪽 끝을 맞추는 것이었다. follow 행이
+  // 사라졌으므로(FR-FLW-1) 남는 계약은 **핀 행끼리** 어긋나지 않는 것이다 —
+  // 자리 폭이 여전히 한 선언에서 나오는지를 본다.
+  async function twoPinnedWithBadge(page: any, request: any, tag: string) {
+    const a = await pin(request, makeRepoWithChange('dm-repo-' + tag + 'a-'));
+    const b = await pin(request, makeRepoWithChange('dm-repo-' + tag + 'b-'));
+    for (const r of [a, b]) {
       const st = await request.get('/api/git/status?repo=' + encodeURIComponent(r));
       expect(st.ok(), `status 실패: ${await st.text()}`).toBeTruthy();
     }
+    await expect(pinned(page, a).locator('.git-badge')).toHaveText('1', { timeout: 15000 });
+    await expect(pinned(page, b).locator('.git-badge')).toHaveText('1', { timeout: 15000 });
+    const rightX = (root: string) =>
+      pinned(page, root).locator('.git-badge').evaluate((el: Element) => el.getBoundingClientRect().right);
+    return [await rightX(a), await rightX(b)];
+  }
 
-    const follow = page.locator('#git-repos .git-repo.follow');
-    const pin1 = pinned(page, pinRoot);
-    await expect(follow.locator('.git-badge'), 'follow 행에 배지가 없다').toHaveText('1', { timeout: 15000 });
-    await expect(pin1.locator('.git-badge'), '핀 행에 배지가 없다').toHaveText('1', { timeout: 15000 });
-
-    const rightX = (loc: ReturnType<typeof pinned>) =>
-      loc.locator('.git-badge').evaluate((el) => el.getBoundingClientRect().right);
-    const followX = await rightX(follow as any);
-    const pinX = await rightX(pin1);
-    expect(Math.abs(followX - pinX), `follow 배지 x=${followX}, 핀 배지 x=${pinX}`).toBeLessThan(1);
+  test('V140 (FR-GIT-239): 핀 행들의 변경 개수 배지의 오른쪽 끝 x 가 같다', async ({ page, request }) => {
+    await waitForInit(page);
+    const [xa, xb] = await twoPinnedWithBadge(page, request, 'i140');
+    expect(Math.abs(xa - xb), `배지 x = ${xa} / ${xb}`).toBeLessThan(1);
   });
 
-  test('V141 (FR-GIT-239): 모바일 폭에서도 배지의 오른쪽 끝 x 가 같다 — 자리 폭이 한 곳에서 나온다', async ({ page, request }) => {
+  test('V141 (FR-GIT-239): 모바일 폭에서도 배지의 오른쪽 끝 x 가 같다 — 자리 폭이 한 곳에서 나온다', async ({
+    page,
+    request,
+  }) => {
     await waitForInit(page, 'mobile');
     await expect(page.locator('body')).toHaveClass(/mobile/);
-
-    const followDir = makeRepoWithChange('dm-repo-i141-');
-    const pinDir = makeRepoWithChange('dm-repo-i141p-');
-    const pinRoot = await pin(request, pinDir);
-
-    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
-    await page.click('#area .pn.focused .xterm-screen');
-    await cd(page, followDir);
-
-    for (const r of [followDir, pinRoot]) {
-      const st = await request.get('/api/git/status?repo=' + encodeURIComponent(r));
-      expect(st.ok(), `status 실패: ${await st.text()}`).toBeTruthy();
-    }
-
-    const follow = page.locator('#git-repos .git-repo.follow');
-    const pin1 = pinned(page, pinRoot);
-    await expect(follow.locator('.git-badge'), 'follow 행에 배지가 없다').toHaveText('1', { timeout: 15000 });
-    await expect(pin1.locator('.git-badge'), '핀 행에 배지가 없다').toHaveText('1', { timeout: 15000 });
-
-    const rightX = (loc: ReturnType<typeof pinned>) =>
-      loc.locator('.git-badge').evaluate((el) => el.getBoundingClientRect().right);
-    const followX = await rightX(follow as any);
-    const pinX = await rightX(pin1);
-    expect(Math.abs(followX - pinX), `모바일: follow 배지 x=${followX}, 핀 배지 x=${pinX}`).toBeLessThan(1);
+    const [xa, xb] = await twoPinnedWithBadge(page, request, 'i141');
+    expect(Math.abs(xa - xb), `모바일: 배지 x = ${xa} / ${xb}`).toBeLessThan(1);
   });
 
-  test('V142 (FR-GIT-239 / FR-GIT-193 회귀): follow 행에 × 가 생기지 않았다 — 자리만 잡고 지울 수는 없다', async ({ page }) => {
-    await waitForInit(page);
-    const followDir = makeRepoWithChange('dm-repo-i142-');
-
-    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
-    await page.click('#area .pn.focused .xterm-screen');
-    await cd(page, followDir);
-
-    const follow = page.locator('#git-repos .git-repo.follow');
-    await expect(follow).toHaveAttribute('data-git-repo', followDir, { timeout: 15000 });
-
-    // follow 는 지울 수 있는 대상이 아니다(FR-GIT-193). 자리를 잡는 빈 칸이
-    // 생기는 것은 괜찮지만(FR-GIT-239), 눈에 보이는 × 글자나 그것을 누르면
-    // _gitUnpin 을 부르는 요소가 있으면 안 된다.
-    const text = (await follow.textContent()) || '';
-    expect(text, 'follow 행에 × 글자가 보인다').not.toContain('×');
-
-    const clickable = await follow.evaluate((el) => {
-      const x = el.querySelector('.git-repo-x');
-      if (!x) return null;
-      return { text: (x.textContent || '').trim(), title: x.getAttribute('title') || '' };
-    });
-    if (clickable) expect(clickable.text, 'follow 행의 .git-repo-x 에 × 글자가 남아 있다').not.toBe('×');
-  });
+  // V142 (follow 행에 × 가 생기지 않았다) 는 대상이 사라져 철회했다 — 행이 없다.
 });

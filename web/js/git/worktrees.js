@@ -204,13 +204,12 @@ class GitWorktrees {
   /**
    * 핀·해제 (FR-GIT-249). 안내는 **한 일**을 말한다.
    *
-   * 실패는 이 탭의 안내 줄에만 보인다 — `_gitPin` 의 `alert` 은 보일 자리가 그것뿐인
-   * 호출자(좌측 GIT 섹션의 저장소 추가, FR-GIT-12)의 것이다. 같은 사실을 두 번
-   * 알리면 사용자는 두 가지 일이 일어난 줄로 읽는다.
+   * 실패는 이 탭의 안내 줄에만 보인다 — `_gitPin` 은 결과만 돌려주고 스스로
+   * 알리지 않는다. 같은 사실을 두 번 알리면 사용자는 두 가지 일이 일어난 줄로 읽는다.
    */
   async _pin(e,off){
     const ok=off?await this.app._gitUnpin(e.path)
-                :await this.app._gitPin(e.path,{quiet:true});
+                :(await this.app._gitPin(e.path)).ok;
     this._note=ok?{kind:off?'unpinned':'pinned',msg:(off?GIT_WT_UNPINNED:GIT_WT_PINNED)+e.path}
                  :{kind:'fail',msg:off?GIT_WT_UNPIN_FAIL:GIT_WT_PIN_FAIL};
     if(!this._el) return;

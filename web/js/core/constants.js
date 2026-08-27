@@ -97,11 +97,19 @@ const GIT_NO_REPO_HINT='리포를 선택하세요';
 // 없다 — 이 호출은 git 을 실행하지 않는다 (FR-GIT-24).
 const GIT_REPOS_POLL_MS=3000;
 
-// follow 대상이 저장소가 아닐 때의 표시. 마지막 유효 리포를 남기지 않는다 (FR-GIT-10).
-const GIT_NOT_REPO_LABEL='저장소 아님';
-
-// FR-GIT-12: M1 에는 공통 다이얼로그 규약이 없다 (M5 묶음 P). prompt·alert 를 쓴다.
-const GIT_ADD_REPO_PROMPT='추가할 리포 경로 (절대경로)';
+// FR-GIT-12 · FR-FLW-5~10: 리포 추가. follow 행이 하던 일(핀하지 않은 리포로 가는
+// 한 번의 클릭)을 이 다이얼로그가 대신하므로 **지금 터미널의 리포가 미리 채워진다.**
+// FR-FLW-11: 핀이 하나도 없을 때. follow 행이 늘 한 줄을 채우고 있었으므로 이
+// 섹션은 빈 적이 없었다 — 이제는 있고, 빈 자리는 고장처럼 보인다.
+const GIT_REPOS_NONE='+ Add 로 리포를 추가하세요';
+const GIT_ADD_REPO_TITLE='리포 추가';
+const GIT_ADD_REPO_RUN='추가';
+const GIT_ADD_REPO_PROMPT='리포 경로 (절대경로)';
+const GIT_ADD_REPO_HERE='지금 터미널: %s';
+const GIT_ADD_REPO_NO_TERM='지금 터미널은 저장소가 아닙니다 (%s) — 경로를 직접 넣으세요';
+const GIT_ADD_REPO_NEED_PATH='경로가 필요합니다';
+const GIT_ADD_REPO_DUP='이미 목록에 있습니다';
+const GIT_ADD_REPO_FAIL='리포를 추가하지 못했습니다';
 const GIT_PIN_FAIL_LABEL='리포 추가 실패';
 
 // ── Changes 탭 (GIT_SRS §3.3 / FR-GIT-32~42) ──
@@ -266,14 +274,6 @@ const GIT_ERR_PREFLIGHT='preflight_blocked';
 const GIT_ERR_UNDO_EXPIRED='undo_expired';
 const GIT_ERR_EMPTY_MESSAGE='empty_message';
 const GIT_ERR_NOTHING_STAGED='nothing_staged';
-
-// ── 상태바 chip (GIT_SRS §3.7 / FR-GIT-57~59) ──
-
-// 기존 상태바 항목의 이모지(📁·💻)와 달리 글자 기호를 쓴다 — 폭이 일정해 chip 이
-// 갱신마다 흔들리지 않는다 (GIT_SURFACE_MAP S6).
-const GIT_SB_BRANCH_ICON='⎇';
-const GIT_SB_DIRTY_ICON='●';
-const GIT_SB_TITLE='Git 창 열기';
 
 // ── 파괴적 동작 확인 (GIT_SRS §3A.3 / FR-GIT-90~97·174~178) ──
 

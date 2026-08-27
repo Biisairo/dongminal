@@ -15,12 +15,6 @@ Object.assign(App.prototype, {
     // 지표 재생성(_updateStatusBar) 주기에 종속되면 안 된다.
     const bgBtn=document.getElementById('sb-bg-btn');
     if(bgBtn) bgBtn.addEventListener('click',e=>{e.stopPropagation();this._bgModalToggle()});
-    // FR-GIT-58: chip 은 _updateStatusBar 가 매번 다시 만든다 — 리스너를 거기서
-    // 붙이면 갱신마다 누적된다. 정적 컨테이너에 위임해 여기서 한 번만 붙인다.
-    const sbItems=document.getElementById('sb-items');
-    if(sbItems) sbItems.addEventListener('click',e=>{
-      if(e.target.closest&&e.target.closest('.sb-git')) this.openGitWindow();
-    });
     this._startStatsPoll();
     this._renderStatusBarSettings();
   },
@@ -116,11 +110,10 @@ Object.assign(App.prototype, {
       if(this._stats.srvUptime)parts.push('서버 '+this._stats.srvUptime);
       if(parts.length)push('uptime',`<span class="sb-item">↑ ${parts.join(' │ ')}</span>`);
     }
-    // chip 은 문자열이 아니라 DOM 으로 붙인다 — 브랜치 이름에는 < 와 & 가 올 수 있다.
-    // FR-GIT-112: 진행 중 원격 작업은 chip 옆에 별도로 붙는다 — 브랜치 표시와
-    // 섞으면 어느 것이 관측이고 어느 것이 진행인지 구분되지 않는다.
+    // FR-GIT-112: 진행 중 원격 작업. **브랜치 chip 은 없다** (FR-FLW-12) —
+    // 활성 리포는 사용자가 고른 것이고 터미널을 따라가지 않으므로, 하단바에
+    // 상주하는 브랜치 표시는 "지금 있는 곳" 으로 오해되기만 했다.
     if(statusBar.git){
-      const c=this._gitChip(); if(c) items.push({k:'git',el:c});
       const j=this._gitJobChip(); if(j) items.push({k:'gitjob',el:j});
     }
     // 근거는 그려질 마크업 전부다 (FR-RPT-2). 문자열 지표는 그 문자열이고, chip 은

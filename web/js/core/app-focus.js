@@ -47,8 +47,9 @@ Object.assign(App.prototype, {
     });
     this._researchIfOpen();
     this._updateCwd();
-    // 칸 포커스가 바뀌면 follow 대상도 바뀔 수 있다 (FR-GIT-9).
-    this._gitReposRefresh();
+    // FR-FLW-3: 목록은 핀에서만 오므로 포커스와 무관하다 — 여기서 새로 조회하지
+    // 않는다. `+ Add` 가 딛는 마지막 터미널만 갱신한다 (D-FLW-6).
+    this._gitTermToolId();
     this._updateStatusBar();
     this._save();
   },

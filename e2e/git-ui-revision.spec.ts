@@ -686,25 +686,29 @@ test.describe('UI 개정 — 목록의 구조 (FR-GIT-211~212)', () => {
   });
 });
 
-test.describe('UI 개정 — follow 의 근거 (FR-GIT-210)', () => {
-  test('V87 (FR-GIT-210): Git 창에 들어가도 follow 가 서버 cwd 의 리포로 바뀌지 않는다', async ({ page }) => {
+test.describe('UI 개정 — 터미널의 리포를 딛는 근거 (D-FLW-6, 옛 FR-GIT-210)', () => {
+  // follow 행은 사라졌지만(FR-FLW-1) 그것이 잡아낸 사실은 그대로다: 포커스가
+  // 터미널을 떠나면 서버는 자기 cwd(=dongminal 저장소)로 답한다. 이제 그 값을
+  // 딛는 것은 `+ Add` 이므로 계약도 그 자리로 옮긴다.
+  test('V87 (D-FLW-6): Git 창을 보는 중에 연 + Add 가 마지막 터미널의 리포를 채운다', async ({ page }) => {
     const repo = fx('with-remote');
     await waitForInit(page);
 
-    // 터미널을 그 리포로 옮긴다 — follow 가 그것을 가리켜야 한다.
     const ta = page.locator('#area .pn.focused .xterm-helper-textarea');
     await ta.fill('cd ' + repo);
     await ta.press('Enter');
-    const followName = () => page.evaluate(() =>
-      (document.querySelector('#git-repos .git-repo.follow .git-repo-name') as HTMLElement)?.textContent || '');
-    await expect.poll(followName, { timeout: 20000 }).toBe('with-remote');
+    await ta.fill('echo moved_ok');
+    await ta.press('Enter');
+    await expect(page.locator('#area .pn.focused .xterm-rows')).toContainText('moved_ok', { timeout: 15000 });
 
     // Git 창으로 들어간다 — 포커스가 터미널을 떠난다.
     await openGit(page, repo);
-    await page.waitForTimeout(4000);   // GIT_REPOS_POLL_MS 를 넉넉히 넘긴다
 
-    // follow 는 그대로다. 서버의 cwd(=dongminal 저장소)로 넘어가면 실패다.
-    expect(await followName()).toBe('with-remote');
+    await page.click('#git-add-repo');
+    const dlg = page.locator('#git-add-repo-dlg');
+    await expect(dlg).toBeVisible({ timeout: 10000 });
+    // dongminal 자신이 아니라 마지막 터미널의 리포다.
+    await expect(dlg.locator('.gar-path')).toHaveValue(repo, { timeout: 15000 });
   });
 });
 
@@ -935,11 +939,10 @@ test.describe('UI 개정 — 섹션 경계 (FR-GIT-216)', () => {
     expect(groups[1].w + '/' + groups[1].color, '섹션 경계가 행과 구별되지 않는다')
       .not.toBe(rowLine.w + '/' + rowLine.color);
 
-    // ② 사이드바 — WINDOWS ↔ GIT 경계와 follow ↔ 핀 경계.
+    // ② 사이드바 — WINDOWS ↔ GIT 경계. follow ↔ 핀 경계는 follow 가 사라지면서
+    // 함께 없어졌다 (FR-FLW-1).
     const secTitle = (await edges(page, '.git-sec-title', 'top'))[0];
     expect(secTitle.w).toBeGreaterThanOrEqual(SEC_BORDER_W);
-    const follow = (await edges(page, '#git-repos .git-repo.follow', 'bottom'))[0];
-    expect(follow.w).toBeGreaterThanOrEqual(SEC_BORDER_W);
 
     // ③ 테마를 바꾸면 따라 바뀐다 — 색을 하드코딩하지 않았다는 증거다.
     const before = groups[1].color;
@@ -1023,7 +1026,7 @@ test.describe('UI 개정 — GIT 섹션의 간격 (FR-GIT-214)', () => {
 });
 
 test.describe('UI 개정 — GIT 섹션 표식 (FR-GIT-192~194)', () => {
-  test('V79 (FR-GIT-192·193·194): 이모지가 없고 점이 활성 리포를 나타내며 follow 아래에 구분선이 있다', async ({ page }) => {
+  test('V79 (FR-GIT-192): 이모지가 없고 점이 활성 리포를 나타낸다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate(async (p) => {
       await (window as any).app._gitPin(p);
@@ -1032,12 +1035,8 @@ test.describe('UI 개정 — GIT 섹션 표식 (FR-GIT-192~194)', () => {
       await (window as any).app._gitPin(p);
     }, fx('with-remote'));
     await openGit(page, fx('basic'));
-    // 합계로 기다리면 follow 가 아직 없을 때 핀 수만으로 통과했다가 아래에서
-    // 터진다 — 둘을 따로 기다린다.
-    await expect.poll(() => page.locator('#git-repos .git-repo:not(.follow)').count(),
-      { timeout: 20000 }).toBeGreaterThanOrEqual(2);
-    await expect.poll(() => page.locator('#git-repos .git-repo.follow').count(),
-      { timeout: 20000 }).toBe(1);
+    await expect.poll(() => page.locator('#git-repos .git-repo').count(),
+      { timeout: 20000 }).toBe(2);
 
     // 이모지를 쓰지 않는다.
     const text = await page.evaluate(() => document.getElementById('git-repos')!.textContent || '');
@@ -1052,27 +1051,15 @@ test.describe('UI 개정 — GIT 섹션 표식 (FR-GIT-192~194)', () => {
         return {
           repo: (r.dataset.gitRepo || '').split('/').pop(),
           active: r.classList.contains('active'),
-          follow: r.classList.contains('follow'),
           hasDot: !!d,
           bg: d ? getComputedStyle(d).backgroundColor : null,
         };
       });
     });
     const active = dots.find(d => d.active)!;
-    const idle = dots.find(d => !d.active && !d.follow)!;
+    const idle = dots.find(d => !d.active)!;
     expect(active.hasDot).toBe(true);
     expect(idle.hasDot).toBe(true);
     expect(active.bg).not.toBe(idle.bg);
-
-    // follow 는 최상단 1줄이고 그 아래에 구분선이 있다 (표식이 아니라 배치로 나눈다).
-    expect(dots[0].follow).toBe(true);
-    expect(dots.filter(d => d.follow).length).toBe(1);
-    const sep = await page.evaluate(() => {
-      const f = document.querySelector('#git-repos .git-repo.follow') as HTMLElement;
-      const s = getComputedStyle(f);
-      return { w: s.borderBottomWidth, style: s.borderBottomStyle };
-    });
-    expect(sep.w).not.toBe('0px');
-    expect(sep.style).not.toBe('none');
   });
 });
