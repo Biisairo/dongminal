@@ -40,6 +40,9 @@ const MTI_KB_EPS_PX=4;
 const MOBILE_KB_UP_PX=80;
 // 스크롤 제스처 뒤에 오는 합성 마우스 이벤트를 무시하는 창 (FR-MTI-29).
 const MTI_SYNTH_MOUSE_MS=700;
+// 새 버전(index.html 의 ?v=) 확인 주기. 열려 있는 페이지가 옛 JS 를 계속
+// 돌리는 것을 사용자가 알 수 있게 한다 (FR-MTI-33).
+const VERSION_CHECK_MS=60000;
 
 // 복귀 대상 Pane 을 기다리는 상한 (FR-BGR-7). delWindow 는 마지막 창을 지운 뒤
 // _mkWindow 를 await 하는데, 그 사이 ws.windows 가 비어 대상 Pane 이 없다.

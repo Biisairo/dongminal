@@ -36,7 +36,18 @@ func (h *staticHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if tag := h.etagFor(r.URL.Path); tag != "" {
 		w.Header().Set("ETag", tag)
 	}
+	// HTML 은 항상 재검증한다. ETag 만 있고 Cache-Control 이 없으면 브라우저는
+	// heuristic freshness 로 재검증을 건너뛸 수 있고, 그러면 새 빌드를 띄워도
+	// index.html 이 옛 `?v=` 를 가리켜 옛 JS 가 계속 돈다. 나머지 자산은 `?v=`
+	// 로 무효화되므로 ETag 만으로 충분하다.
+	if isHTMLPath(r.URL.Path) {
+		w.Header().Set("Cache-Control", "no-cache")
+	}
 	h.next.ServeHTTP(w, r)
+}
+
+func isHTMLPath(p string) bool {
+	return p == "/" || strings.HasSuffix(p, "/") || strings.HasSuffix(p, ".html")
 }
 
 // etagFor 는 경로의 내용 해시를 준다. 디렉터리·없는 파일은 빈 값이며, 그때는

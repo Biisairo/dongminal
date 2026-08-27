@@ -406,3 +406,89 @@ TUI 프레임 전체를 다시 그려 **화면이 요동친 것**이다.
 | `interactive-widget` | `resizes-content` — 키보드가 layout viewport 축소 | `resizes-visual` | FR-MTI-27 |
 | 터치 스크롤 실행 | `term.scrollLines` — 스크롤백이 있어야 동작 | 합성 `wheel` → xterm 이 분기 | FR-MTI-28 |
 | 스크롤 제스처의 합성 클릭 | TUI 에 클릭으로 전달 | 차단 | FR-MTI-29 |
+
+---
+
+## 8. 개정 3 — IME 전송 순서와 버벅임 (FR-MTI-30~33)
+
+§7 의 교정(`resizes-visual` + wheel 경로)으로 **스크롤은 실기기에서 동작하기
+시작했다.** 남은 두 증상의 근거는 두 번째 실기기 로그와 사용자 관찰이다.
+
+### 8.1 전송 순서 뒤바뀜 — 반쪽 개입의 대가
+
+로그가 잡은 것:
+
+```
+1964.44 SEND " "                          ← 우리 훅이 확정 문자를 먼저 보냈다
+1964.45 compositionend data="여전히"
+1964.45 SEND "여전히"                      ← xterm 이 조합 문자열을 나중에 보냈다
+```
+
+터미널에는 `" 여전히"` 가 들어간다. 다음 단어는 `".안되는데"` 가 된다. 지웠다
+다시 친 경우엔 더 나빠진다 — 사용자 관찰: "여전해" 를 지우고 "여전한거같아" 를
+쳤더니 **`거같아야전해`** 가 나왔다.
+
+원인은 **전송 시점을 두 주체가 나눠 가진 것**이다. FR-MTI-1 은 `insertText` 만
+가로챘고, 조합 문자열은 xterm 의 `CompositionHelper` 가 `setTimeout(0)` 뒤에
+보낸다. 확정 문자(`isComposing=false` 로 오지만 `compositionend` 보다 앞선다)는
+우리가 즉시 보내므로 항상 조합보다 먼저 나간다. 순서를 보장할 방법이 없다.
+
+- **FR-MTI-30** 모바일의 IME 경로는 **한 주체가 전담한다.** `CompositionHelper` 의
+  `compositionstart`/`update`/`end` 를 끄고, `keydown` 은 `keyCode 229` 만 차단해
+  일반 키(Enter·방향키)는 xterm 이 계속 처리하게 한다. 전송은 `compositionend`
+  한 곳에서 한다 — 확정 문자열을 먼저, 보류된 확정 문자를 그 뒤에.
+  조합 중(`compositionstart`~`compositionend`)에는 아무것도 보내지 않는다.
+
+  비공개 필드(`term._core._compositionHelper`)에 손대는 대신 실패를 감당한다.
+  구조가 바뀌어 찾지 못하면 `_imeMuted` 가 false 로 남고 기존 xterm 경로가
+  그대로 동작한다.
+- **FR-MTI-31** 조합을 전담하면 삭제도 우리 몫이다. 조합 **밖**의
+  `deleteContentBackward` 는 `DEL(0x7f)`, `deleteWordBackward` 는 `0x17` 로 보낸다.
+  조합 **중**의 삭제는 조합 갱신이므로 보내지 않는다 — `compositionend` 가 결과를 낸다.
+
+### 8.2 버벅임 — 리포트 폭주
+
+사용자 관찰: 스크롤이 되지만 "버벅인다". 터치는 한 프레임에 여러 번 발화하고,
+그때마다 wheel 을 보내면 마우스 리포팅이 켜진 TUI 가 리포트 폭주를 받아 프레임을
+따라 그리다 밀린다.
+
+- **FR-MTI-32** wheel 디스패치는 `requestAnimationFrame` 으로 병합한다.
+  프레임당 한 번, 그 프레임에 누적된 delta 로 보낸다. 관성 종료·도구 파괴 시
+  대기 중인 프레임도 함께 취소한다.
+
+### 8.3 옛 페이지로 검증한 사고 — 재발 방지
+
+세 번째 검증이 실패로 보인 것은 교정이 틀려서가 아니라 **폰이 32분 전에 로드한
+페이지를 쓰고 있었기 때문**이다. 로그의 타임스탬프가 전부 `1939~1982초` 였고,
+`innerH` 가 `387↔759` 로 변한다는 것(= `resizes-content` 동작)과 wheel 리포트가
+0 개라는 것이 그 증거였다. 서버 재시작은 WebSocket 만 끊고 문서는 살려둔다.
+
+- **FR-MTI-33** 열려 있는 페이지가 옛 코드를 돌리고 있으면 사용자에게 알린다.
+  `index.html` 의 `core/main.js?v=` 를 `VERSION_CHECK_MS` 주기와 탭 복귀 시점에
+  비교해, 다르면 배너와 새로고침 버튼을 띄운다. **자동 새로고침은 하지 않는다** —
+  터미널 세션 중에 화면이 갈리면 곤란하다.
+- **FR-MTI-34** HTML 응답에 `Cache-Control: no-cache` 를 붙여 항상 재검증하게 한다.
+  ETag 만 있고 `Cache-Control` 이 없으면 브라우저가 heuristic freshness 로 재검증을
+  건너뛸 수 있고, 그러면 새 빌드를 띄워도 `index.html` 이 옛 `?v=` 를 가리킨다.
+  나머지 자산은 `?v=` 로 무효화되므로 ETag 만으로 충분하다.
+
+### 8.4 검증
+
+| ID | 요구 | 검증 |
+|---|---|---|
+| TC-MTI-28 | FR-MTI-30 | 조합 문자열이 확정 문자보다 먼저 전송된다 (`"여전히 "`, 이전 결함은 `" 여전히"`) |
+| TC-MTI-29 | FR-MTI-30 | 조합 중에는 아무것도 전송하지 않는다 |
+| TC-MTI-30 | FR-MTI-31 | 조합 밖의 백스페이스가 `DEL` 로 전송된다 |
+| TC-MTI-31 | FR-MTI-32 | `_touchScrollBy` 10 회가 wheel 1 회(누적 delta)로 병합된다 |
+| TC-MTI-32 | FR-MTI-33 | 새 버전이 감지되면 배너가 뜬다 |
+
+### 8.5 동작 변경 기록
+
+| 항목 | 이전 | 이후 | 이유 |
+|---|---|---|---|
+| 모바일 IME 전송 주체 | 우리(insertText) + xterm(조합) 분할 | 우리가 전담, xterm 조합 경로 정지 | FR-MTI-30 |
+| 조합 확정 문자 순서 | 조합 문자열보다 먼저 | 나중 | FR-MTI-30 |
+| 모바일 백스페이스 | xterm 의 textarea diff | `DEL` 직접 전송 | FR-MTI-31 |
+| wheel 디스패치 | 터치 발화마다 | 프레임당 1회 누적 | FR-MTI-32 |
+| 새 버전 | 알 수 없음 | 배너로 알림 | FR-MTI-33 |
+| HTML 캐시 | 검증자만(ETag) | `no-cache` 로 항상 재검증 | FR-MTI-34 |

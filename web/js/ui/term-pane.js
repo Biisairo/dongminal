@@ -83,6 +83,20 @@ class TerminalTool {
       ta.addEventListener('keypress',()=>{this._xtHandledKey=true},false);
       ta.addEventListener('keyup',()=>{this._xtHandledKey=false},false);
       ta.addEventListener('beforeinput',e=>this._onBeforeInput(e),true);
+      // FR-MTI-30: IME 경로를 통째로 우리가 전담한다.
+      //
+      // 반쪽 개입이 순서를 망쳤다. insertText 만 가로채면 조합을 확정시키는
+      // 문자(스페이스·마침표)가 조합 문자열보다 먼저 나간다 — 실측 로그:
+      //     SEND " " → compositionend "여전히" → SEND "여전히"
+      // 터미널에는 " 여전히" 가 되고, 지웠다 다시 친 단어는 뒤섞인다
+      // ("여전해" 지우고 "여전한거같아" → "거같아야전해").
+      //
+      // 조합의 전송 시점을 한 곳에서 정하지 않으면 순서를 보장할 수 없으므로,
+      // xterm 의 CompositionHelper 를 끄고 compositionend 에서만 보낸다.
+      // keyCode 229(IME)만 차단하고 일반 키는 그대로 xterm 이 처리한다.
+      ta.addEventListener('compositionstart',()=>{this._imeOpen=true},true);
+      ta.addEventListener('compositionend',e=>this._imeClose(e),true);
+      this._muteXtermComposition();
     }
     this._initTouchScroll();
     try{this.fit.fit()}catch{}
@@ -123,12 +137,57 @@ class TerminalTool {
     this._xtHandledKey=false;                     // 일회 소비
     const A=window.app;
     if(!A || !A.isMobile) return;                 // FR-MTI-4
+    // FR-MTI-31: 조합을 우리가 전담하면 삭제도 우리 몫이다. 조합이 열려 있는
+    // 동안의 삭제는 조합 갱신이므로 보내지 않는다(compositionend 가 결과를 낸다).
+    if(this._imeMuted && !this._imeOpen &&
+       (e.inputType==='deleteContentBackward'||e.inputType==='deleteWordBackward')){
+      e.preventDefault();
+      this._sendText(e.inputType==='deleteWordBackward'?'\x17':'\x7f');
+      return;
+    }
     if(e.inputType!=='insertText') return;        // FR-MTI-3
     if(e.isComposing) return;                     // FR-MTI-2
     if(handled) return;                           // FR-MTI-19
     if(!e.data) return;
     e.preventDefault();
+    // FR-MTI-30: 조합이 아직 닫히지 않았으면 보류한다. isComposing 은 이미
+    // false 로 오지만 compositionend 는 그 뒤에 온다 — 그 사이에 보내면
+    // 조합 문자열보다 앞선다.
+    if(this._imeOpen){
+      this._imeQueue=(this._imeQueue||'')+e.data;
+      return;
+    }
     this._sendText(this._applyStickyMods(e.data));
+  }
+
+  // FR-MTI-30: 조합이 닫히면 확정 문자열을 보내고, 그 뒤에 보류분을 보낸다.
+  // 순서가 여기서 한 번에 정해진다.
+  _imeClose(e){
+    this._imeOpen=false;
+    const q=this._imeQueue; this._imeQueue='';
+    if(this._imeMuted && e && e.data) this._sendText(this._applyStickyMods(e.data));
+    if(q) this._sendText(this._applyStickyMods(q));
+  }
+
+  // xterm 의 CompositionHelper 를 끈다. 전송 시점을 우리가 독점해야 순서를
+  // 보장할 수 있다 — 그쪽은 setTimeout(0) 뒤에 누적된 textarea 값을 diff 해서
+  // 보내므로 우리 전송과 순서가 엇갈린다.
+  //
+  // 비공개 필드에 손대는 대신 실패를 감당한다: 구조가 바뀌어 찾지 못하면
+  // _imeMuted 가 false 로 남고, 기존 xterm 경로가 그대로 동작한다.
+  _muteXtermComposition(){
+    this._imeMuted=false;
+    try{
+      const ch=this.term && this.term._core && this.term._core._compositionHelper;
+      if(!ch || typeof ch.keydown!=='function') return;
+      ch.compositionstart=()=>{};
+      ch.compositionupdate=()=>{};
+      ch.compositionend=()=>{};
+      // keyCode 229 는 IME 가 만든 keydown 이다. 그것만 막고(false) 나머지는
+      // 통과시켜(true) Enter·방향키가 평소대로 처리되게 한다.
+      ch.keydown=(ev)=>!ev||ev.keyCode!==229;
+      this._imeMuted=true;
+    }catch{}
   }
 
   // ── 터치 스크롤 (MOBILE_TUI_INPUT_SCROLL_SRS §3.2) ──
@@ -212,6 +271,7 @@ class TerminalTool {
 
   _flingStop(){
     if(this._flingId){cancelAnimationFrame(this._flingId);this._flingId=null}
+    if(this._wheelRaf){cancelAnimationFrame(this._wheelRaf);this._wheelRaf=null;this._wheelPend=0}
   }
 
   // FR-MTI-22/26: 소프트 키보드를 내린다. 모바일에서만 의미가 있다.
@@ -232,8 +292,21 @@ class TerminalTool {
   //   · OFF, 스크롤백 있음 → viewport 스크롤
   //   · OFF, alt screen    → 위/아래 방향키로 변환
   // 픽셀→행 누적도 xterm 의 getLinesScrolled 가 이미 한다(_wheelPartialScroll).
+  // FR-MTI-32: 터치는 한 프레임에 여러 번 발화한다. 그때마다 wheel 을 보내면
+  // 마우스 리포팅이 켜진 TUI 가 리포트 폭주를 받아 프레임을 따라 그리다 밀린다
+  // — 실기기에서 "버벅인다" 로 나타난다. 프레임당 한 번, 누적 delta 로 보낸다.
   _touchScrollBy(px){
-    if(!px) return;                       // 움직이지 않은 프레임은 보내지 않는다
+    if(!px) return;
+    this._wheelPend=(this._wheelPend||0)+px;
+    if(this._wheelRaf) return;
+    this._wheelRaf=requestAnimationFrame(()=>{
+      this._wheelRaf=null;
+      const d=this._wheelPend; this._wheelPend=0;
+      if(d) this._dispatchWheel(d);
+    });
+  }
+
+  _dispatchWheel(px){
     const el=this.term&&this.term.element;
     if(!el) return;
     const r=el.getBoundingClientRect();
