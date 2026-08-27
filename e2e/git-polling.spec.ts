@@ -188,4 +188,103 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     await expect(view.locator('.git-file[data-path="only-in-slow.txt"]')).toHaveCount(0);
     await expect(view.locator('.git-head-repo')).toHaveAttribute('title', fast);
   });
+
+  /**
+   * 회귀 (D-POLL-1): signature 계층이 status 폴링과 **공존한 채로 계속 돈다.**
+   *
+   * `_pollSignature` 가 단일 비행 플래그를 status 의 일련번호(`_seq`)로 되돌리던
+   * 동안, `collect()` 가 관측마다 그 값을 올려 signature 응답은 늘 "내 것이 아니다"
+   * 로 판정됐다. 플래그가 참으로 굳어 감지 계층이 첫 1초에 죽었다.
+   *
+   * 두 주기가 겹치는 순간(1000ms)마다 재현되므로, 첫 회차만 세면 통과해 버린다 —
+   * **기준 구간을 지난 뒤의 증가분**을 본다.
+   */
+  test('P7 (회귀): status 폴링과 함께 돌아도 signature 폴링이 죽지 않는다', async ({ page, request }) => {
+    await defaultIntervals(request);
+    const repo = fx('basic');
+    await waitForInit(page);
+    const sig = counter(page, '/api/git/signature');
+    await openGit(page, repo);
+
+    // 두 주기가 최소 두 번 겹칠 만큼 기다린다 — 고착은 그 겹침에서 일어난다.
+    await page.waitForTimeout(2200);
+    const base = sig.n;
+    await page.waitForTimeout(2600);
+    // 500ms 주기면 2.6초에 5회다. 절반만 와도 "살아 있다" 로 본다.
+    expect(sig.n - base, 'signature 폴링이 멈췄다 (단일 비행 플래그 고착)')
+      .toBeGreaterThanOrEqual(3);
+  });
+
+  /**
+   * 회귀 (D-POLL-2): 뷰의 `reload()` 가 동기 throw 해도 새로고침이 잠기지 않는다.
+   *
+   * `refresh()` 는 `_refreshing` 을 세운 뒤 jobs 배열을 만들면서 **async 가 아닌**
+   * `reload()` 들을 부른다. 그 자리의 throw 는 `Promise.allSettled` 앞이라 아무것도
+   * 삼켜 주지 못했고, 플래그가 참으로 남아 버튼이 disabled 로 굳었다.
+   */
+  test('P8 (회귀): 뷰의 reload() 가 터져도 새로고침 진입점이 잠기지 않는다', async ({ page, request }) => {
+    await defaultIntervals(request);
+    const repo = fx('basic');
+    await waitForInit(page);
+    await openGit(page, repo);
+
+    // 탭을 한 번도 열지 않으면 뷰가 없어 refresh 의 대상이 아니다 — 사용자가
+    // History 를 둘러본 상태를 만든 뒤 그 reload 만 터지게 한다.
+    await page.evaluate(() => {
+      const p = (window as any).app.gitPanel;
+      p._history().reload = () => { throw new Error('reload boom') };
+    });
+
+    const btn = page.locator('#area .pn-body .git-view.git-changes .git-head-refresh');
+    await btn.click();
+
+    await expect(btn, '새로고침 버튼이 disabled 로 굳었다').toBeEnabled({ timeout: 3000 });
+    expect(await page.evaluate(() => (window as any).app.gitPanel._refreshing),
+      '_refreshing 이 참으로 남았다').toBe(false);
+
+    // 잠기지 않았음의 증명은 "두 번째 누름이 실제로 요청을 낸다" 다.
+    const st = counter(page, '/api/git/status');
+    await btn.click();
+    await expect.poll(() => st.n, { timeout: 3000 }).toBeGreaterThanOrEqual(1);
+  });
+
+  /**
+   * 회귀 (D-POLL-3): `_paint()` 가 터진 회차는 다시 그리기 근거를 남기지 않는다.
+   *
+   * `_obsSig` 를 `_paint()` **전에** 기록하던 동안, 한 번의 throw 로 그 관측이
+   * "이미 그렸다" 로 남았다. 같은 값이 계속 와도 가드가 걸러 화면이 낡은 채로
+   * 굳었고, 사유는 어디에도 보이지 않았다.
+   */
+  test('P9 (회귀): _paint 가 한 번 터져도 다음 관측이 다시 그린다', async ({ page, request }) => {
+    await defaultIntervals(request);
+    const repo = copyFx('basic', 'p9-paint');
+    await waitForInit(page);
+    await openGit(page, repo);
+
+    const view = page.locator('#area .pn-body .git-view.git-changes');
+    // 첫 관측이 그려진 뒤부터 시작한다 — 그래야 뒤이은 변경이 "새 관측" 이다.
+    await expect(view.locator('.git-head-repo')).toHaveAttribute('title', repo);
+
+    // **새 파일을 담은 관측의 첫 그리기만** 터지게 한다. 아무 _paint 나 터뜨리면
+    // 다른 계기(탭 전환·신호)가 그 한 번을 소모해 결함이 있어도 통과한다.
+    await page.evaluate((needle) => {
+      const p = (window as any).app.gitPanel;
+      const orig = p._paint.bind(p);
+      let left = 1;
+      p._paint = function () {
+        const st = this._status && this._status.status;
+        if (left > 0 && st && JSON.stringify(st).includes(needle)) {
+          left--;
+          throw new Error('paint boom');
+        }
+        return orig();
+      };
+    }, 'after-paint-throw.txt');
+
+    writeFileSync(join(repo, 'after-paint-throw.txt'), 'x');
+
+    await expect(view.locator('.git-file[data-path="after-paint-throw.txt"]'),
+      '_paint 가 한 번 터진 뒤 화면이 낡은 채로 굳었다')
+      .toBeVisible({ timeout: 10000 });
+  });
 });

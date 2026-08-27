@@ -2006,14 +2006,26 @@ class GitPanel {
   async refresh(){
     if(this._refreshing||!this.repo) return;
     this._refreshing=true; this._paintRefresh();
-    const jobs=[this.collect()];
-    if(this._historyView) jobs.push(this._historyView.reload());
-    if(this._branchesView) jobs.push(this._branchesView.reload());
-    if(this._consoleView) jobs.push(this._consoleView.reload());
-    if(this._worktreesView) jobs.push(this._worktreesView.reload());
-    // 하나가 실패해도 나머지를 기다린다 — 넷은 서로의 성공에 걸려 있지 않다.
-    await Promise.allSettled(jobs);
-    this._refreshing=false; this._paintRefresh();
+    /**
+     * 플래그 해제는 `finally` 가 한다 (선례: `_wsApply` 의 `_wsApplyInflight`).
+     *
+     * 뷰의 `reload()` 는 async 가 아니다 — 동기 throw 가 나면 배열을 만드는 이
+     * 자리에서 터진다. `Promise.allSettled` 는 그 앞이므로 아무것도 삼켜 주지
+     * 못하고, `_refreshing` 이 참으로 남아 **진입점이 영구히 잠긴다.** 버튼은
+     * disabled 인 채로 굳고, 사용자에게는 "새로고침이 아무 일도 하지 않는다" 로
+     * 보인다.
+     */
+    try{
+      const jobs=[this.collect()];
+      if(this._historyView) jobs.push(this._historyView.reload());
+      if(this._branchesView) jobs.push(this._branchesView.reload());
+      if(this._consoleView) jobs.push(this._consoleView.reload());
+      if(this._worktreesView) jobs.push(this._worktreesView.reload());
+      // 하나가 실패해도 나머지를 기다린다 — 넷은 서로의 성공에 걸려 있지 않다.
+      await Promise.allSettled(jobs);
+    }finally{
+      this._refreshing=false; this._paintRefresh();
+    }
   }
 
   // 받는 동안 진입점은 다시 눌리지 않는다 (FR-GIT-238). `_refreshing` 이 실제
@@ -2125,9 +2137,14 @@ class GitPanel {
      * 근거는 **화면이 읽는 값 전부**다. 그리는 쪽이 보는 것은 `_status.status`
      * 하나이고(`statusOf`), `observedAtUnixMs`·`cached` 는 회차마다 달라지지만
      * 화면에 닿지 않는다 — 그것까지 넣으면 근거가 늘 달라 가드가 죽는다.
+     *
+     * **근거는 그린 뒤에 기록한다.** 먼저 기록하면 `_paint()` 가 한 번 터진 순간
+     * 그 관측이 "이미 그렸다" 로 남아, 같은 값이 계속 와도 다시 그리지 않는다 —
+     * 화면은 낡은 채로 영구히 굳고 사유는 어디에도 보이지 않는다. 순서를 뒤집으면
+     * 실패한 회차는 근거를 남기지 않으므로 다음 관측이 다시 시도한다.
      */
     const obs=JSON.stringify(d.status||null);
-    if(obs!==this._obsSig){this._obsSig=obs; this._paint()}
+    if(obs!==this._obsSig){this._paint(); this._obsSig=obs}
     // 활성 리포의 배지가 따라 갱신된다. 다른 리포는 서버의 마지막 관측값이다.
     this.app._gitReposRefresh();
     // 상태바 chip 은 Git 창 밖에서도 보이므로 관측마다 갱신한다 (FR-GIT-57).
@@ -2162,12 +2179,16 @@ class GitPanel {
     const repo=this.repo; if(!repo) return;
     if(this._sigBusy) return;
     this._sigBusy=true;
-    const seq=this._seq;
     const tok=this.token();
     let r=null,d=null;
     try{r=await fetch('/api/git/signature?repo='+encodeURIComponent(repo))}catch{r=null}
     if(r&&r.ok){try{d=await r.json()}catch{d=null}}
-    if(this._seq===seq) this._sigBusy=false;
+    // 단일 비행 플래그는 **무조건** 되돌린다. 여기서 `_seq` 로 소유권을 따지면
+    // 안 된다 — 그것은 status 의 일련번호이고 `collect()` 가 관측마다 올린다.
+    // 상태 폴링이 도는 동안 signature 응답은 늘 "내 것이 아니다" 로 판정되어
+    // 플래그가 영구히 참으로 남고, 감지 계층이 첫 회차에 죽는다 (FR-GIT-19).
+    // 리포가 바뀐 경우의 되돌림은 이미 `setRepo` 가 한다.
+    this._sigBusy=false;
     if(!d||this.isStale(tok)||d.requested!==tok.repo) return;
     const v=(d.signature&&d.signature.value)||'';
     if(v===this._lastSig) return;
