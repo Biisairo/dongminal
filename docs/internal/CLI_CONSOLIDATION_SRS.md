@@ -154,7 +154,7 @@ DONGMINAL_HOME=~/.dongminal ← main.go 기본값과 동일
 #### start
 
 **FR-ACT-1** `dongminal start` 는 현행 `scripts/start.sh` 와 동등한 결과를 낸다:
-① 대상 포트를 점유한 프로세스를 종료(TERM → 1초 → KILL),
+① 대상 포트를 **LISTEN 으로** 점유한 프로세스를 종료(TERM → 1초 → KILL),
 ② `--restart-daemon` 이면 `paned.pid` 로 dongminald 를 종료하고 `paned.pid`·
 `paned.sock` 을 제거, 아니면 소켓 존재 여부를 한 줄로 알린다,
 ③ 서버를 띄운다,
@@ -189,6 +189,21 @@ stdout/stderr 은 `<home>/restart.log` 다. 위임 사실과 로그 경로를 �
 
 **FR-ACT-3c** 대리 기동에 실패하면 데몬을 종료하지 않고 종료 코드 1 로 알린다.
 근거: 데몬을 먼저 내린 뒤 대리가 없으면 복구 수단까지 사라진다.
+
+**FR-ACT-3d** ③ 에서 detach 되는 서버에는 `DONGMINAL_RESTART_RUNNER` 와
+`DONGMINAL_TOOL_ID` 를 물려주지 않는다.
+
+근거: 서버는 dongminald 를, dongminald 는 도구 셸을 자식으로 낳는다
+(`StartTool`). 대리의 환경을 그대로 물려주면 이 두 값이 그 사슬을 타고 모든 도구
+셸에 심긴다. 그러면 다음 도구 안 `--restart-daemon` 이 FR-ACT-3b 의 "대리" 조건에
+걸려 위임을 건너뛰고, 그 자리에서 서버와 데몬을 내리다 자기 PTY 와 함께 죽는다 —
+서버도 데몬도 돌아오지 않는다. 즉 위임 재시작 1회가 그 다음 위임 재시작을
+무력화하므로, 증상은 "한 번씩 실패" 로 나타난다.
+
+`DONGMINAL_TOOL_ID` 는 도구 셸이 자기 값으로 덮어쓰므로 도구의 자기 식별을
+망가뜨리지는 않는다. 그래도 물려주지 않는다 — 서버와 dongminald 는 도구가
+아니고, 그 env 를 물려받은 다른 자식(도구 셸이 아닌 경로)이 "도구 안" 으로
+오인되면 FR-ACT-3a 의 판정이 틀린다.
 
 **FR-ACT-4** `start` 는 `go build` 를 하지 않는다. 빌드는 `scripts/build.sh`
 의 책임이다 (§2.3).
@@ -340,6 +355,7 @@ macOS 는 `open -na "Google Chrome" --args --app=<url>`, Linux 는
 | TC-ACT-4 | FR-ACT-12 | 서버 기동 상태에서 `migrate` | rc=1, 파일 무변경 |
 | TC-ACT-5 | FR-ACT-11 | 격리 홈에 v1 픽스처 → `migrate --dry-run` → `migrate` | 계획 출력 후 무변경, 이어서 v2 + `*.v1.bak` |
 | TC-ACT-6 | FR-ACT-3a/3b | 위임 판정 — (도구 안/밖) × (대리/비대리) × (`--restart-daemon` 유/무) | 도구 안 · 비대리 · 플래그 있음 조합만 위임 (Go 단위) |
+| TC-ACT-6a | FR-ACT-3d | 위임 재시작을 연달아 2회 — 두 번째도 도구 탭에서 실행 | 2회 모두 `restart.log` 에 `✅ dongminal running`, 도구 셸 env 에 `DONGMINAL_RESTART_RUNNER` 없음 |
 | TC-ACT-7 | FR-ACT-3a | 도구 탭에서 `start --restart-daemon` | 탭은 끊긴다. 브라우저 새로고침 시 새 서버·새 데몬이 응답하고 `restart.log` 마지막 줄이 `✅ dongminal running` |
 | TC-ISO-1 | FR-ISO-1/2 | 운영 서버 기동 중 `start --isolated` | 운영 서버 생존, 새 포트에 별도 인스턴스 |
 | TC-ISO-2 | FR-ISO-3 | `start --isolated --port 58200` | 58200 사용 |
@@ -444,4 +460,5 @@ e2e 전량이 "서버가 안 뜬다" 로 죽는다. 원인이 제품이 아니�
 |---|---|
 | 2026-08-26 | 최초 작성 |
 | 2026-08-26 | **구현 완료.** 검증 결과 — Go `build`/`vet`/`test -race`/`gofmt` 전량 통과 (`internal/cli` 신규 테스트 27개 포함), Playwright 396 통과 + flaky 2 (재시도 통과, 기준선과 동일 성격). CLI 실측: TC-CLI-1..7 / TC-ACT-1·3·4·5 / TC-ISO-1·2 / TC-OPN 통과. **TC-ISO-1 은 운영 인스턴스(pid 28098, 포트 58146) 가 격리 실행 전후로 그대로 살아 있음을 확인해 반증했다.** TC-FG-1/2 는 Playwright `webServer`(`start --foreground`)와 배경 모드 실측으로 확인. §3 대비 추가 구현 1건 — `migrate` 의 실행중 거부 안내가 대상 인스턴스를 가리키도록 `--port`/`--home` 을 덧붙인다(기본값이 아닐 때만). 격리 인스턴스에 대해 `dongminal stop --all` 만 안내하면 그 명령이 운영 인스턴스를 향하기 때문이다 |
+| 2026-08-28 | **FR-ACT-3d 추가, FR-ACT-1① 정정** — 위임 재시작이 "한 번씩 실패" 하던 결함 2건. ① 대리의 env 를 서버에 그대로 물려줘 `DONGMINAL_RESTART_RUNNER` 가 dongminald → 도구 셸까지 심겼고, 다음 도구 안 재시작이 자신을 대리로 오인해 위임을 건너뛰었다(실행 중 서버·데몬·도구 셸 env 에서 실측). ② `lsof -ti :port` 가 그 포트에 접속한 클라이언트까지 잡아, 서버를 내리는 자리에서 대시보드를 띄운 브라우저 렌더러를 함께 KILL 했다(실측: Chrome Helper pid 가 대상에 포함). 클라이언트의 재접속 시도가 종료 확인에 걸리면 `❌ 포트를 비우지 못했습니다` 로 오판해 데몬 종료 전에 중단한다 |
 | 2026-08-27 | **FR-ACT-3a/3b/3c 추가** — 도구 안에서의 `--restart-daemon` 을 setsid 대리 프로세스에 위임한다. 데몬을 내리면 명령 자신이 함께 죽어 서버가 뜨지 않던 결함(§7 변경 10). 도구 밖 경로는 코드 경로가 바뀌지 않는다 |

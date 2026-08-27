@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -297,5 +298,30 @@ func TestWithEnv_Overrides(t *testing.T) {
 	}
 	if seen["PATH"] != 1 {
 		t.Error("무관한 환경변수가 사라졌다")
+	}
+}
+
+// FR-ACT-3a/3b: 대리 표식과 도구 식별자는 detach 되는 서버에 물려주지 않는다.
+// 새 값도 주지 않고 지운다 — 사슬을 타고 도구 셸까지 흘러가면 다음 도구 안
+// 재시작이 위임을 건너뛴다.
+
+func TestWithEnv_Drops(t *testing.T) {
+	got := withEnv([]string{
+		"PATH=/bin",
+		EnvRestartRunner + "=1",
+		EnvToolID + "=tool-7",
+	}, map[string]string{EnvPort: "2"}, EnvRestartRunner, EnvToolID)
+
+	for _, e := range got {
+		k, _, _ := strings.Cut(e, "=")
+		if k == EnvRestartRunner || k == EnvToolID {
+			t.Errorf("%s 가 자식 환경에 남았다", e)
+		}
+	}
+	if !slices.Contains(got, "PATH=/bin") {
+		t.Error("무관한 환경변수가 사라졌다")
+	}
+	if !slices.Contains(got, EnvPort+"=2") {
+		t.Error("새 값이 붙지 않았다")
 	}
 }

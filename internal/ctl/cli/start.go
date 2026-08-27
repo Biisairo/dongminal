@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -119,7 +120,12 @@ func startDetached(o StartOpts, home, host, port string, stdout, stderr io.Write
 		EnvPort: port,
 		EnvHome: home,
 		EnvHost: host,
-	})
+	},
+		// 서버는 dongminald 를, dongminald 는 도구 셸을 자식으로 낳는다. 이 두
+		// 값이 그 사슬을 타고 도구 셸까지 흘러가면 다음 재시작이 자신을 대리로
+		// 오인해 위임을 건너뛰고, 그 자리에서 데몬을 내리다 자기 PTY 와 함께
+		// 죽는다 — 서버도 데몬도 돌아오지 않는다 (FR-ACT-3a/3b).
+		EnvRestartRunner, EnvToolID)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
@@ -176,15 +182,17 @@ func pingHost(host string) string {
 	return host
 }
 
-// withEnv는 base 에서 kv 의 키를 걷어내고 새 값을 붙인다. 중복 키를 남기면
-// 자식이 어느 값을 볼지가 플랫폼에 달린다 (FR-FG-4).
-func withEnv(base []string, kv map[string]string) []string {
+// withEnv는 base 에서 kv 의 키와 drop 의 키를 걷어내고 kv 의 새 값을 붙인다
+// (FR-FG-4). drop 은 자식에게 물려주면 안 되는 값을 지우는 자리다 — 새 값을
+// 주지 않으므로, 덮어쓰기로는 지울 수 없는 상속을 여기서 끊는다.
+func withEnv(base []string, kv map[string]string, drop ...string) []string {
 	out := make([]string, 0, len(base)+len(kv))
 	for _, e := range base {
 		k, _, _ := strings.Cut(e, "=")
-		if _, drop := kv[k]; !drop {
-			out = append(out, e)
+		if _, replaced := kv[k]; replaced || slices.Contains(drop, k) {
+			continue
 		}
+		out = append(out, e)
 	}
 	for k, v := range kv {
 		out = append(out, k+"="+v)

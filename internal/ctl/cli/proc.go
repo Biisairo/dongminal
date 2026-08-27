@@ -31,10 +31,15 @@ func FreePort() (string, error) {
 	return strconv.Itoa(l.Addr().(*net.TCPAddr).Port), nil
 }
 
-// pidsOnPort는 포트를 점유한 pid 목록이다. lsof 가 없으면 빈 목록 —
-// "점유 없음" 과 구분하지 않는다. 기존 스크립트와 같은 판단이다.
+// pidsOnPort는 포트를 LISTEN 으로 점유한 pid 목록이다. lsof 가 없으면 빈 목록 —
+// "점유 없음" 과 구분하지 않는다.
+//
+// -sTCP:LISTEN 이 없으면 그 포트에 접속한 클라이언트까지 잡힌다. 브라우저 탭이
+// 바로 그 클라이언트라, 서버를 내리는 자리에서 사용자의 렌더러 프로세스를 함께
+// KILL 하고(탭이 죽어 새 서버에 다시 붙지 못한다), 클라이언트의 재접속 시도가
+// 종료 확인 스냅샷에 걸리면 "포트를 비우지 못했다" 로 오판해 재시작을 중단한다.
 func pidsOnPort(port string) []int {
-	out, err := exec.Command("lsof", "-ti", ":"+port).Output()
+	out, err := exec.Command("lsof", "-ti", ":"+port, "-sTCP:LISTEN").Output()
 	if err != nil {
 		return nil
 	}
