@@ -77,6 +77,39 @@ const GIT_MENUS={
      targets:t=>[t.abbrev+(t.subject?' '+t.subject:'')],
      hint:()=>({note:GIT_DETACHED_NOTE,command:''}),
      run:t=>gitMenuPanel().checkoutRef(t.oid,{detach:true})},
+    {sep:true},
+    // 묶음 D — 커밋 동작 (GIT_ACTIONS_SRS §3.4 / FR-GIT-263~266).
+    //
+    // 넷 다 `gitOpBusy()` 를 **먼저** 부른다 (FR-GIT-252) — 진행 중 작업이 있으면
+    // 새 작업을 시작할 수 없고, 판정 근거는 관측 하나다. 그 뒤에 오는 것이 그
+    // 항목만의 사유이며, 사유가 없으면 항목은 늘 열려 있다.
+    {id:'cherry-pick',label:GIT_CO_CHERRY_LABEL,
+     disabled:t=>gitOpBusy()||GitCommitOps.whyHead(t),
+     run:t=>GitCommitOps.cherryPick(gitMenuPanel(),t)},
+    {id:'revert',label:GIT_CO_REVERT_LABEL,
+     disabled:()=>gitOpBusy(),
+     run:t=>GitCommitOps.revert(gitMenuPanel(),t)},
+    // reset 은 **파괴 여부가 옵션에서 파생하므로**(`--hard` 만) 여기서
+    // destructive 를 선언하지 않는다 — 선언하면 세 모드 전부가 2단계가 된다.
+    {id:'reset',label:GIT_CO_RESET_LABEL,
+     disabled:t=>gitOpBusy()||GitCommitOps.whyHead(t),
+     run:t=>GitCommitOps.reset(gitMenuPanel(),t)},
+    // drop 은 언제나 파괴적이다 (`commit_drop`). 2단계 확인과 recovery hint 는
+    // 프레임워크가 거친다 — 항목이 확인 코드를 따로 쓰지 않는다 (FR-GIT-89·92).
+    {id:'drop',label:GIT_CO_DROP_LABEL,destructive:true,
+     action:GIT_ACT_COMMIT_DROP,title:GIT_CO_DROP_TITLE,
+     disabled:t=>gitOpBusy()||GitCommitOps.whyDrop(t),
+     targets:t=>[GitCommitOps.label(t)],
+     hint:()=>({note:GIT_CO_DROP_NOTE,
+       command:GitCommitOps._restoreCmd(gitMenuPanel())}),
+     run:t=>GitCommitOps.drop(gitMenuPanel(),t)},
+    {sep:true},
+    // FR-GIT-267: 커밋 둘을 고르는 길. 기준을 표시해 두면 Compare with 의 리비전
+    // 칸이 그것으로 채워진다 — `A..B` 입력도 같은 칸으로 들어온다.
+    {id:'compare-mark',label:GIT_CO_MARK_LABEL,
+     run:t=>GitCommitOps.mark(gitMenuPanel(),t)},
+    {id:'compare-with',label:GIT_CO_COMPARE_LABEL,
+     run:t=>GitCommitOps.compare(gitMenuPanel(),t)},
   ],
   // 파일 (S1 목록 / History 상세 목록). 저장소를 바꾸는 항목이 하나도 없다
   // (FR-GIT-41) — 5단계의 GIT_CTX_ITEMS 를 그대로 옮긴 것이다.

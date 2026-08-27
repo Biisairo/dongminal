@@ -785,6 +785,19 @@ class GitHistory {
     if(this._el&&this.panel.repo===this._repo) this._loadRefs();
   }
 
+  /**
+   * FR-GIT-267: 비교 기준으로 표시한 커밋을 바에 적는다. 표시가 보이지 않으면
+   * 사용자는 자기가 무엇을 골랐는지 모른 채 Compare with 를 연다.
+   *
+   * `_note` 를 쓴다 — 그것이 이미 "목록을 지우지 않고 사실을 보이는" 자리이고
+   * (FR-GIT-132), 같은 뜻의 자리를 두 벌로 만들면 한쪽만 고쳐진다.
+   */
+  noteCompareMark(label){
+    if(!this._el) return;
+    this._note=label?GIT_CO_COMPARE_MARKED.replace('%s',label):'';
+    this._paintBar();
+  }
+
   async _loadRefs(){
     const repo=this._repo; if(!repo) return;
     const tok=this.panel.token();

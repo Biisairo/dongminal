@@ -20,6 +20,10 @@ var readCommands = map[string]bool{
 	"rev-parse": true, "status": true, "diff": true, "diff-tree": true,
 	"diff-index": true, "show": true, "log": true, "for-each-ref": true,
 	"cat-file": true, "ls-files": true, "config": true, "check-ref-format": true,
+	// rev-list 는 범위의 커밋 수를 세는 자리다 (FR-GIT-265 의 "영향 커밋 수").
+	// log 로 세면 커밋마다 한 줄이 출력 상한을 먹는다 — 세는 것이 목적일 때는
+	// --count 가 그 일의 이름이다.
+	"rev-list": true,
 }
 
 // unsafePrefixes 는 임의 명령 실행 또는 파일 쓰기로 가는 인자들이다. 읽기

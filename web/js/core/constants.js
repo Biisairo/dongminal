@@ -1047,3 +1047,76 @@ const GIT_PP_LEASE='--force-with-lease 로 밀기';
 const GIT_PUSH_FORCE_LEASE='lease';
 const GIT_PP_UPSTREAM='이 원격을 upstream 으로 설정 (-u)';
 const GIT_PP_WHY_BRANCH='대상 브랜치가 필요합니다';
+// ── 커밋 동작 (GIT_ACTIONS_SRS §3.4 / FR-GIT-263~267) ──
+//
+// History 의 커밋 행이 줄 수 있는 것들이다. 안내문은 한국어, 버튼은 영어다
+// (FR-GIT-202). 파괴 여부는 **옵션에서 파생한다** — `reset --soft` 는 안전하고
+// `--hard` 는 아니므로 항목 하나가 두 성질을 갖는다 (FR-GIT-250.1).
+
+const GIT_CO_CHERRY_LABEL='Cherry-pick';
+const GIT_CO_REVERT_LABEL='Revert…';
+const GIT_CO_RESET_LABEL='Reset to here…';
+const GIT_CO_DROP_LABEL='Drop';
+const GIT_CO_MARK_LABEL='비교 기준으로 표시';
+const GIT_CO_COMPARE_LABEL='Compare with…';
+
+// 항목이 막히는 사유. `gitOpBusy()` 다음에 오는 그 항목만의 사유다 (FR-GIT-252).
+const GIT_CO_WHY_IS_HEAD='현재 HEAD 커밋입니다';
+const GIT_CO_WHY_ROOT='첫 커밋에는 부모가 없습니다';
+const GIT_CO_WHY_MERGE_DROP='머지 커밋은 이 방법으로 뺄 수 없습니다';
+
+// 머지 커밋의 기준 부모 (FR-GIT-263·264). **묻지 않고 고르면 틀린 부모를 집는다.**
+const GIT_CO_MAINLINE_LABEL='기준으로 삼을 부모를 고르세요 (머지 커밋)';
+const GIT_CO_MAINLINE_OPT='부모 %n — %s';
+// 충돌은 실패가 아니라 진행 중 상태다 (FR-GIT-251·252) — 출구는 Changes 탭에 있다.
+const GIT_CO_CONFLICT_NOTE='충돌로 멈추면 Changes 탭 머리에 출구(Continue·Skip·Abort)가 보입니다.';
+
+const GIT_CO_CHERRY_TITLE='이 커밋을 현재 브랜치에 얹습니다';
+const GIT_CO_CHERRY_RUN='Cherry-pick';
+const GIT_CO_REVERT_TITLE='이 커밋을 되돌리는 커밋을 만듭니다';
+const GIT_CO_REVERT_RUN='Revert';
+const GIT_CO_REVERT_NOCOMMIT='커밋하지 않고 워킹 트리·index 에만 적용 (--no-commit)';
+
+// Reset to here (FR-GIT-265). 첫 선택지가 기본이고 파괴적인 것이 마지막이다 (O14).
+const GIT_CO_RESET_TITLE='현재 브랜치를 이 커밋으로 옮깁니다';
+const GIT_CO_RESET_RUN='Reset';
+const GIT_CO_RESET_MODE_LABEL='어디까지 되돌릴지';
+// 값은 서버의 `write.ResetModes` 와 같은 문자열이어야 한다. 순서가 제시 순서이고
+// **첫 값이 기본**이다 (FR-GIT-173) — 파괴적인 것이 마지막이다.
+const GIT_CO_RESET_MODE_HARD='hard';
+const GIT_CO_RESET_MODES=['mixed','soft',GIT_CO_RESET_MODE_HARD];
+const GIT_CO_RESET_MODE_LABELS={
+  mixed:'Mixed — index 를 되돌리고 워킹 트리는 남깁니다 (기본)',
+  soft:'Soft — 커밋만 되돌리고 index·워킹 트리는 그대로 둡니다',
+  hard:'Hard — 워킹 트리까지 되돌립니다 (저장하지 않은 변경을 잃습니다)',
+};
+const GIT_CO_RESET_COUNT='이 커밋 뒤의 %n개 커밋이 영향을 받습니다';
+const GIT_CO_RESET_COUNT_FAIL='영향 커밋 수를 세지 못했습니다';
+const GIT_ACT_RESET_HARD='reset_hard';
+const GIT_CO_RESET_HARD_TITLE='워킹 트리까지 이 커밋으로 되돌립니다';
+const GIT_CO_RESET_HARD_NOTE='저장하지 않은 변경은 git 에 남은 적이 없어 되살릴 값이 없습니다. 아래 명령이 원래 HEAD 로 되돌립니다.';
+
+// Drop (FR-GIT-266). 이름은 서버의 파괴적 목록과 같아야 한다 (FR-GIT-89).
+const GIT_ACT_COMMIT_DROP='commit_drop';
+const GIT_CO_DROP_TITLE='이 커밋을 히스토리에서 뺍니다';
+const GIT_CO_DROP_NOTE='뒤따르는 커밋의 해시가 전부 바뀝니다. 아래 명령이 원래 HEAD 로 되돌립니다.';
+
+// Compare with (FR-GIT-267). **새 축을 만들지 않는다** — 두 리비전은 이미 있는
+// commit ↔ parent 축(FR-GIT-138)의 두 끝으로 그대로 들어간다.
+const GIT_CO_COMPARE_TITLE='두 리비전을 비교합니다';
+const GIT_CO_COMPARE_RUN='Compare';
+const GIT_CO_COMPARE_THIS='이 커밋: %s';
+const GIT_CO_COMPARE_MARKED='비교 기준: %s';
+const GIT_CO_COMPARE_REV_PH='비교할 리비전, 또는 범위 A..B / A...B';
+const GIT_CO_COMPARE_PATH_PH='비교할 파일 경로 (리포 기준 상대경로)';
+const GIT_CO_WHY_NO_REV='리비전을 입력하세요';
+const GIT_CO_WHY_NO_PATH='비교할 파일 경로를 입력하세요';
+const GIT_CO_COMPARE_FAIL='리비전을 확인하지 못했습니다';
+// 범위 표현. `...` 는 merge-base 를 왼쪽으로 잡으므로 `..` 와 뜻이 다르다.
+const GIT_CO_RANGE_SYM='...';
+const GIT_CO_RANGE_TWO='..';
+
+// 커밋 동작 고유의 거부 코드. 목록 리터럴을 건드리지 않고 더한다 — 같은 표에
+// 여럿이 손대면 한쪽의 추가가 다른 쪽을 지운다.
+GIT_WRITE_ERR.merge_parent_required='머지 커밋은 기준 부모를 골라야 합니다';
+GIT_WRITE_ERR.reset_mode_invalid='모르는 reset 모드입니다';

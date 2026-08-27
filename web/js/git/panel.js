@@ -824,6 +824,29 @@ class GitPanel {
   tagPushAll(){return GitTag.push(this,'',true)}
 
   /**
+   * 커밋 동작 하나의 뒷정리 (묶음 D, FR-GIT-263~266).
+   *
+   * **실패 응답도 status 를 싣고 온다** — cherry-pick·revert·drop 이 충돌로 멈추면
+   * 실패 코드로 오지만 저장소에는 진행 중 상태가 남는다 (FR-GIT-251). 그것을
+   * 반영하지 않으면 Changes 탭 머리의 출구가 보이지 않는다.
+   *
+   * 커밋 목록 자체가 바뀌므로 refs 만이 아니라 History 를 다시 받는다.
+   */
+  afterCommitOp(res){
+    if(res&&res.ok){this._note=null; this.adopt(res.data)}
+    // 실패도 status 를 싣고 온다 — `applyWriteFail` 이 그것을 반영하므로 충돌로
+    // 멈춘 cherry-pick 의 진행 중 상태가 Changes 탭에 그대로 나타난다.
+    else this.applyWriteFail(res||{});
+    if(this._historyView) this._historyView.reload();
+    if(this._branchesView) this._branchesView.reload();
+  }
+
+  // FR-GIT-267: 비교 기준의 표시. History 가 그것을 보이는 자리를 안다.
+  noteCompareMark(label){
+    if(this._historyView) this._historyView.noteCompareMark(label);
+  }
+
+  /**
    * ref 를 바꾼 쓰기 하나의 뒷정리 (FR-GIT-160·170).
    *
    * 응답에 실린 실행 후 status 로 화면을 갱신하고 **refs 를 다시 받는다** — status

@@ -84,6 +84,14 @@ var routes = []route{
 	// 만든다 — hunks 로 경계를 받고, patch 로는 좌표만 보낸다 (D6).
 	{http.MethodGet, exactPath("/api/git/hunks"), (*GitServer).apiGitHunks},
 	{http.MethodPost, exactPath("/api/git/patch"), (*GitServer).apiGitPatch},
+	// 묶음 D — 커밋 동작 (GIT_ACTIONS_SRS §3.4, FR-GIT-263~267). cherry-pick 과
+	// revert 는 부모 선택 규약이 같지만 뜻이 다른 두 동작이므로 경로도 둘이다 —
+	// 하나에 몰면 화면이 무엇을 실행했는지 기록에서 갈라 볼 수 없다.
+	{http.MethodPost, exactPath("/api/git/cherry-pick"), (*GitServer).apiGitCherryPick},
+	{http.MethodPost, exactPath("/api/git/revert"), (*GitServer).apiGitRevert},
+	{http.MethodPost, exactPath("/api/git/reset"), (*GitServer).apiGitReset},
+	{http.MethodPost, exactPath("/api/git/drop"), (*GitServer).apiGitDrop},
+	{http.MethodGet, exactPath("/api/git/commit-range"), (*GitServer).apiGitCommitRange},
 	// 묶음 W7 — Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5, FR-GIT-240~243).
 	{http.MethodGet, exactPath("/api/git/worktrees"), (*GitServer).apiGitWorktrees},
 	{http.MethodPost, exactPath("/api/git/worktrees/create"), (*GitServer).apiGitWorktreeCreate},
