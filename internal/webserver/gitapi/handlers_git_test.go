@@ -626,3 +626,24 @@ func TestGitErrorCode_CanceledIsClientClosed(t *testing.T) {
 		t.Fatalf("generic code = %d, want 500", c)
 	}
 }
+
+// FR-RMS-4 (V-RMS-1·2·3): 소실은 자기 코드로 나간다. `not_a_git_repo` 와 같은 404 인
+// 이유는 둘 다 "네가 지목한 것이 거기 없다" 이기 때문이고, 클라이언트는 상태 코드가
+// 아니라 `error` 필드로 분기한다.
+func TestGitErrorCode_RepoMissing(t *testing.T) {
+	code, name := gitErrorCode(fmt.Errorf("wrapped: %w", core.ErrRepoMissing))
+	if code != http.StatusNotFound {
+		t.Fatalf("code = %d, want 404", code)
+	}
+	if name != gitErrRepoMissing {
+		t.Fatalf("name = %q, want %q", name, gitErrRepoMissing)
+	}
+	// 저장소 아님과 뭉개지지 않는다 — 사유가 갈려 있어야 오탐을 오탐으로 읽는다.
+	if _, n := gitErrorCode(core.ErrNotRepo); n != gitErrNotRepo {
+		t.Fatalf("not_a_git_repo name = %q", n)
+	}
+	// 분류되지 않은 실패는 여전히 500/git_failed 다 (FR-RMS-5).
+	if c, n := gitErrorCode(errors.New("boom")); c != http.StatusInternalServerError || n != gitErrFailed {
+		t.Fatalf("generic = (%d, %q), want (500, %q)", c, n, gitErrFailed)
+	}
+}

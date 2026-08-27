@@ -12,7 +12,11 @@ import (
 var (
 	ErrGitMissing = errors.New("git_missing")
 	ErrNotRepo    = errors.New("not_a_git_repo")
-	ErrTimeout    = errors.New("git_timeout")
+	// 작업 디렉터리 자체가 없다 (GIT_REPO_MISSING_SRS FR-RMS-1). ErrNotRepo 와
+	// 갈라 두는 이유는 사용자가 "사라졌다" 는 표시가 참인지 판정할 수 있어야 하기
+	// 때문이다 — 뭉개면 권한 오류와 손상된 .git 까지 소실로 보고된다 (D-RMS-2).
+	ErrRepoMissing = errors.New("repo_missing")
+	ErrTimeout     = errors.New("git_timeout")
 	// 호출자가 요청을 거둬들였다 (FR-GIT-217). 서버의 실패가 아니므로 마감
 	// 초과(ErrTimeout)와도, 일반 실패와도 갈라 둔다.
 	ErrCanceled       = errors.New("git_canceled")
@@ -22,7 +26,7 @@ var (
 
 // kinds 는 분류 가능한 사유 전부다. 이미 분류된 오류를 다시 감싸지 않기 위한
 // 판정에도 쓴다.
-var kinds = []error{ErrGitMissing, ErrNotRepo, ErrTimeout, ErrCanceled, ErrUnsafeArgument, ErrWriteCommand}
+var kinds = []error{ErrGitMissing, ErrNotRepo, ErrRepoMissing, ErrTimeout, ErrCanceled, ErrUnsafeArgument, ErrWriteCommand}
 
 // ExecError 는 실패한 실행 그 자체다. stderr 를 잃지 않는 것이 목적이다.
 type ExecError struct {

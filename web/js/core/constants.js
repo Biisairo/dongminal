@@ -148,6 +148,16 @@ const GIT_REFRESH_LABEL='⟳';
 const GIT_REFRESH_TITLE='새로고침 — 상태·History·Branches·Console 을 전부 다시 받는다';
 const GIT_ERR_NOT_REPO='저장소가 아닙니다';
 const GIT_ERR_GIT_MISSING='git 을 찾을 수 없습니다';
+// ── 소실 (GIT_REPO_MISSING_SRS FR-RMS-8·17) ──
+//
+// 사유 코드를 화면에 함께 싣는다. "사라졌다" 는 표시가 참인지 사용자가 판정할 수
+// 있어야 하고, 그 판정의 근거가 코드다 (접수한 말의 뒤 문장).
+const GIT_ERR_REPO_MISSING='이 폴더가 사라졌습니다';
+const GIT_RMS_PIN_REASON='폴더가 없습니다';
+const GIT_RMS_REASON_PREFIX='사유: ';
+const GIT_RMS_CODE='repo_missing';
+const GIT_RMS_UNPIN='핀 제거';
+const GIT_RMS_RECHECK='다시 확인';
 // 파일 목록은 한 번에 다 그리지 않는다 (FR-GIT-42). 스크롤이 끝에 닿을 때마다
 // 이만큼 늘린다.
 const GIT_FILE_ROW_CHUNK=200;
@@ -220,6 +230,9 @@ const GIT_WRITE_ERR={
   bad_request:'잘못된 요청입니다',
   confirmation_required:'확인이 필요합니다',
   not_a_git_repo:GIT_ERR_NOT_REPO,
+  // FR-RMS-17: 사이드바 핀 행의 title 도 이 표를 지난다 — 사유 코드를 날것으로
+  // 보이면 사용자는 그것이 무엇인지 모른다.
+  repo_missing:GIT_RMS_PIN_REASON,
   git_missing:GIT_ERR_GIT_MISSING,
   git_timeout:'git 실행이 시간을 초과했습니다',
   git_failed:'git 이 실패했습니다',
@@ -322,6 +335,19 @@ const GIT_STATUS_POLL_MS=1000;
 // 즉시 신호는 몰아서 온다 — 셸 훅·에디터 저장·포커스 복귀가 겹친다. 하나로 합쳐
 // status 를 연발하지 않게 한다 (FR-GIT-20).
 const GIT_SIGNAL_DEBOUNCE_MS=150;
+/**
+ * 실패했을 때의 주기 (GIT_REPO_MISSING_SRS FR-RMS-13·23).
+ *
+ * 소실은 **확정된 사실**이므로 점증할 이유가 없다 — 곧바로 이 값으로 간다.
+ * 그 밖의 실패는 일시적일 수 있으므로 기준 × 2ⁿ 으로 늘리되 같은 값을 상한으로
+ * 둔다. 상한을 하나로 맞추는 이유는 "가장 느릴 때" 가 화면마다 다르면 사용자가
+ * 두 가지 규칙을 배워야 하기 때문이다 (D-RMS-9).
+ */
+const GIT_REPO_MISSING_POLL_MS=30000;
+const GIT_FAIL_BACKOFF_MAX_MS=30000;
+// 안내에 실을 재확인 주기 (초). 상수에서 파생한다 — 두 곳에 적으면 갈린다.
+const GIT_RMS_AUTO_NOTE=(GIT_REPO_MISSING_POLL_MS/1000)+
+  '초마다 다시 확인합니다 — 폴더가 돌아오면 자동으로 복구됩니다';
 // 주기는 설정으로 덮을 수 있다 (FR-GIT-23) — statsInterval 과 같은 방식이다.
 var gitSignatureInterval=GIT_SIGNATURE_POLL_MS;
 var gitStatusInterval=GIT_STATUS_POLL_MS;

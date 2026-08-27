@@ -309,3 +309,60 @@ func TestExecGit_Environment(t *testing.T) {
 		t.Fatalf("DurationMs = %d", out.DurationMs)
 	}
 }
+
+// ── 소실 (GIT_REPO_MISSING_SRS FR-RMS-1·2·5, 검증 V-RMS-1·3) ──
+
+// 작업 디렉터리가 없으면 ErrRepoMissing 이다. git 은 실행조차 되지 못했으므로
+// 읽을 stderr 가 없다 — 판정은 chdir 의 ENOENT 로 한다 (D-RMS-1).
+func TestExec_RepoMissing(t *testing.T) {
+	gitPath(t)
+	gone := filepath.Join(t.TempDir(), "gone")
+	s := New()
+	_, err := s.Exec(context.Background(), gone, "rev-parse", "--show-toplevel")
+	if !errors.Is(err, ErrRepoMissing) {
+		t.Fatalf("err = %v, want ErrRepoMissing", err)
+	}
+	// 사라진 경로가 사유에 실려야 한다 — 사용자가 어느 폴더인지 알아야 한다.
+	if !strings.Contains(err.Error(), gone) {
+		t.Fatalf("사유에 경로가 없다: %v", err)
+	}
+}
+
+// FR-RMS-5: git 이 실행되어 stderr 로 실패한 것은 소실이 아니다. 여기가 넓어지면
+// 오탐이 소실로 위장해 "사라졌다는 표시가 참인지" 판정할 수 없게 된다 (D-RMS-2).
+func TestExec_RepoMissingDoesNotSwallowOtherFailures(t *testing.T) {
+	cases := []struct {
+		name   string
+		stderr string
+		exit   int
+	}{
+		{"권한 오류", "fatal: could not read Username for 'https://x': Permission denied\n", 128},
+		{"손상된 .git", "fatal: not a git repository: '.git'\n", 128},
+		{"알 수 없는 옵션", "error: unknown option `zz'\n", 129},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := New(WithRunner(func(_ context.Context, _ string, _ []string) (Output, error) {
+				return Output{Stderr: tc.stderr, ExitCode: tc.exit}, nil
+			}))
+			_, err := s.Exec(context.Background(), "/tmp/repo", "status")
+			if errors.Is(err, ErrRepoMissing) {
+				t.Fatalf("stderr 로 실패한 것을 소실로 승격했다: %v", err)
+			}
+		})
+	}
+}
+
+// git 바이너리가 없는 것은 소실이 아니다 — 그것은 ErrGitMissing 의 몫이다.
+// 둘 다 ENOENT 라 Op 로 좁히지 않으면 섞인다 (§2.2).
+func TestExec_GitMissingIsNotRepoMissing(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	s := New()
+	_, err := s.Exec(context.Background(), t.TempDir(), "rev-parse", "--show-toplevel")
+	if errors.Is(err, ErrRepoMissing) {
+		t.Fatalf("git 없음을 소실로 분류했다: %v", err)
+	}
+	if !errors.Is(err, ErrGitMissing) {
+		t.Fatalf("err = %v, want ErrGitMissing", err)
+	}
+}

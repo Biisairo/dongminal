@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -181,6 +182,15 @@ func execGit(ctx context.Context, dir string, args []string, limit int, stdin st
 	}
 	if runErr != nil && out.ExitCode <= 0 {
 		// 프로세스를 시작조차 못했거나 신호로 죽었다 — exit 코드로 설명되지 않는다.
+		//
+		// FR-RMS-2: 그중 **작업 디렉터리가 없는 것**만 소실로 분류한다. git 은
+		// 실행되지 못했으므로 읽을 stderr 가 없다 — 근거는 chdir 의 ENOENT 다.
+		// `Op` 로 좁히는 이유는 git 바이너리가 사라진 경우도 ENOENT 이고 그것은
+		// 이미 ErrGitMissing 의 몫이기 때문이다 (§2.2).
+		var pe *fs.PathError
+		if errors.As(runErr, &pe) && pe.Op == "chdir" && errors.Is(runErr, fs.ErrNotExist) {
+			return out, fmt.Errorf("%w: %v", ErrRepoMissing, runErr)
+		}
 		return out, fmt.Errorf("git %s: %w", strings.Join(args, " "), runErr)
 	}
 	return out, nil

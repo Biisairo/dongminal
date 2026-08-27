@@ -165,7 +165,10 @@ class Renderer {
     d.innerHTML='<span class="git-repo-dot"></span><span class="git-repo-name"></span>';
     if(!e.isRepo) d.querySelector('.git-repo-dot').classList.add('none');
     d.querySelector('.git-repo-name').textContent=e.name;
-    d.title=e.isRepo?path:(e.reason||'')+' — '+(e.cwd||path);
+    // FR-RMS-17: 사유는 사람이 읽는 문구로 옮긴다 — `repo_missing` 을 날것으로
+    // 보이면 사용자는 그것이 무엇인지 모르고, 그러면 알린 것이 아니다.
+    const why=e.reason?(GIT_WRITE_ERR[e.reason]||e.reason):'';
+    d.title=e.isRepo?path:why+' — '+(e.cwd||path);
     // 배지는 서버의 마지막 관측값이다. 0 을 보일 이유는 없다 (FR-GIT-14).
     const b=e.badge;
     if(b&&b.total>0){

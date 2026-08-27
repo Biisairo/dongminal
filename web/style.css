@@ -659,6 +659,30 @@ body.mobile .sb-title{padding:14px 14px 8px}
 }
 .git-pending-name{color:var(--text-bright);font-size:14px}
 .git-pending-hint{color:var(--text-dim)}
+/* 소실 (GIT_REPO_MISSING_SRS FR-RMS-8·19). .git-empty 와 같은 자리·같은 배치이며,
+   다른 것은 색뿐이다 — 이것은 "아직 고르지 않았다" 가 아니라 사실의 보고다. */
+.git-missing{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;padding:16px;
+  color:var(--text-muted);font-size:13px;text-align:center;
+}
+.git-missing-title{color:var(--attn);font-size:14px;font-weight:600}
+/* 경로는 길고 끊을 곳이 없다 — 넘치면 가로 스크롤 대신 줄을 접는다. */
+.git-missing-path{
+  max-width:100%;color:var(--text-bright);font-family:var(--mono,monospace);
+  font-size:12px;word-break:break-all;
+}
+.git-missing-reason{color:var(--text-dim);font-size:11px}
+.git-missing-acts{display:flex;gap:8px;margin-top:4px}
+.git-missing-acts button{
+  background:var(--btn-bg,transparent);border:1px solid var(--border);border-radius:4px;
+  color:var(--text-bright);font:inherit;font-size:12px;padding:4px 12px;cursor:pointer;
+}
+.git-missing-acts button:hover{background:var(--hover-bg,var(--border))}
+.git-missing-auto{color:var(--text-dim);font-size:11px;margin-top:2px}
+/* 소실 상태의 Changes 머리는 리포 이름만 싣는다 — 브랜치는 사라진 폴더의 것이라
+   지금 참인지 알 수 없다. */
+.git-view.git-changes>.git-head{position:relative;z-index:1}
 
 /* ── Git Changes 탭 (FR-GIT-32~42) ── */
 /* FR-GIT-39: .git-head·.git-commit 은 flex:0 0 auto 로 고정되고 본문만 늘어난다.

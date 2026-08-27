@@ -19,8 +19,11 @@ import (
 // 모든 실패는 JSON 본문이며 **클라이언트가 종류를 구분할 수 있어야 한다.** 상태
 // 코드만으로는 프록시가 만든 500 과 git 실패를 가릴 수 없다.
 const (
-	gitErrBadRequest  = "bad_request"
-	gitErrNotRepo     = "not_a_git_repo"
+	gitErrBadRequest = "bad_request"
+	gitErrNotRepo    = "not_a_git_repo"
+	// GIT_REPO_MISSING_SRS FR-RMS-4: 폴더 자체가 사라졌다. 저장소가 아닌 것과
+	// 갈라 두어야 클라이언트가 "사라졌습니다" 를 확정으로 말할 수 있다.
+	gitErrRepoMissing = "repo_missing"
 	gitErrMissing     = "git_missing"
 	gitErrTimeout     = "git_timeout"
 	gitErrCanceled    = "git_canceled"
@@ -57,6 +60,10 @@ func gitErrorCode(err error) (int, string) {
 	switch {
 	case errors.Is(err, core.ErrNotRepo):
 		return http.StatusNotFound, gitErrNotRepo
+	// 저장소 아님과 같은 404 다 — 둘 다 "네가 지목한 것이 거기 없다" 이고, 갈리는
+	// 것은 상태 코드가 아니라 `error` 필드다 (FR-RMS-4).
+	case errors.Is(err, core.ErrRepoMissing):
+		return http.StatusNotFound, gitErrRepoMissing
 	case errors.Is(err, core.ErrGitMissing):
 		return http.StatusServiceUnavailable, gitErrMissing
 	case errors.Is(err, core.ErrTimeout):

@@ -25,6 +25,10 @@ class GitPanel {
     this._shown=new Map();        // 그룹별로 그린 행 수 (FR-GIT-42)
     this._fileView=null;          // 'flat' | 'tree'
     this._seq=0;                  // status 요청 일련번호 (single-flight 소유권)
+    // 소실 상태의 저장소 경로. null 이면 소실이 아니다 (FR-RMS-6).
+    this._missing=null;
+    // 연속으로 성공하지 못한 관측의 수. 주기 백오프의 근거다 (FR-RMS-22).
+    this._failStreak=0;
     this.previewFile=null;        // {repo,group,axis,path,origPath}. 미리보기와 Diff 탭이 같이 쓴다
     this._diffView=null;          // Diff 탭의 GitDiffView
     this._previewView=null;       // Changes 탭 미리보기의 GitDiffView
@@ -72,6 +76,9 @@ class GitPanel {
     // 이전 리포의 목록이 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다
     // (FR-GIT-16). 화면을 "불러오는 중" 으로 되돌린다.
     this._status=null; this._lastSig=null; this._staleNote=false;
+    // 소실과 실패 누적은 **리포에 붙은 것**이다 — 새 리포로 넘겨 오면 남의 사실이
+    // 된다 (FR-RMS-6·22).
+    this._missing=null; this._failStreak=0;
     // 관측을 버렸으므로 근거도 버린다 — 새 리포의 첫 관측은 무조건 그린다.
     this._obsSig=null;
     this._shown.clear(); this.previewFile=null; GitMenu.close();
@@ -120,20 +127,20 @@ class GitPanel {
     if(v) requestAnimationFrame(()=>v.layout());
     // History 는 탭이 활성일 때만 목록을 받는다 — 열지 않은 탭이 10,000 커밋을
     // 미리 받아 둘 이유가 없다.
+    // 아래의 탭별 재조회는 **`_render` 를 지난다** — 직접 `_renderHistory` 를 부르면
+    // 소실 분기(FR-RMS-20)를 건너뛰어 소실 안내가 제 내용으로 덮인다.
     if(view==='history'){
-      this._renderHistory(el);
+      this._render(view);
       // 여기서는 루트가 아직 pane 본문에 붙기 전이라 목록의 높이가 0 이다 —
       // 붙은 뒤에 한 번 더 칠해야 스크롤 위치와 펼친 상세가 되돌아온다.
-      requestAnimationFrame(()=>{if(this._historyView) this._historyView.paint()});
+      requestAnimationFrame(()=>{if(!this._missing&&this._historyView) this._historyView.paint()});
     }
     // Branches·Stash 도 탭이 활성일 때 받는다 — 열지 않은 탭이 refs·stash 를 미리
     // 받아 둘 이유가 없다.
-    if(view==='branches') this._renderBranches(el);
-    if(view==='stash') this._renderStash(el);
-    if(view==='console') this._renderConsole(el);
-    // Worktrees 도 탭이 활성일 때 받는다 — 열지 않은 탭이 목록을 미리 받아 둘
-    // 이유가 없다 (FR-STAT-17 과 같은 원칙).
-    if(view==='worktrees') this._renderWorktrees(el);
+    // Worktrees 도 같다 — 열지 않은 탭이 목록을 미리 받아 둘 이유가 없다
+    // (FR-STAT-17 과 같은 원칙).
+    if(view==='branches'||view==='stash'||view==='console'||view==='worktrees')
+      this._render(view);
     return el;
   }
 
@@ -173,6 +180,9 @@ class GitPanel {
       el.appendChild(d);
       return;
     }
+    // FR-RMS-19·20: 소실은 탭을 가리지 않는다. **분기는 이 한 자리다** — 일곱
+    // 자리에 두면 한 곳이 빠져도 조용히 지나간다.
+    if(this._missing){this._renderMissing(el,view);return}
     if(view==='changes'){this._renderChanges(el);return}
     if(view==='diff'){this._renderDiff(el);return}
     if(view==='history'){this._renderHistory(el);return}
@@ -186,6 +196,117 @@ class GitPanel {
       d.textContent=GIT_NO_REPO_HINT;
       el.appendChild(d);
     }
+  }
+
+  // ── 소실 (GIT_REPO_MISSING_SRS FR-RMS-6~11·19~21) ──
+
+  /**
+   * 소실 상태로 들어간다. **한 번만 한다** — 30초마다 오는 같은 사유에 매번
+   * 골격을 부수면 사용자가 누르려던 버튼이 손 밑에서 교체된다 (FR-GIT-227 의 정신).
+   *
+   * 뷰의 해제는 `detach()` 와 같은 모양이다. Monaco 는 DOM 을 떼는 것으로 풀리지
+   * 않으므로 `_destroyViews()` 를 지나야 하고(FR-GIT-56), 나머지 뷰도 자기 DOM 을
+   * 놓아야 다시 붙일 때 두 벌이 되지 않는다.
+   */
+  _enterMissing(){
+    if(this._missing===this.repo) return;
+    this._missing=this.repo;
+    // 사라진 폴더의 파일 목록을 남기지 않는다 (FR-RMS-6) — 남으면 정상으로 읽힌다.
+    this._status=null; this._errMsg=null; this._staleNote=false; this._obsSig=null;
+    this._sel.clear(); this._anchor=null; this.previewFile=null; GitMenu.close();
+    this._destroyViews();
+    this._commit().unmount();
+    this._history().unmount();
+    this._branches().unmount();
+    this._stash().unmount();
+    this._console().unmount();
+    this._worktrees().unmount();
+    this._paintAllViews();
+  }
+
+  // 복구 (FR-RMS-11). 골격은 소실 안내가 차지했으므로 각 뷰가 다시 세운다 —
+  // `_renderMissing` 이 `built` 를 비워 둔 것이 그 표식이다.
+  _leaveMissing(){
+    if(!this._missing) return;
+    this._missing=null; this._obsSig=null;
+    this._paintAllViews();
+  }
+
+  // FR-RMS-21: 대상은 **이미 만들어진 뷰 전부**다. 한 번도 열지 않은 탭은 보인 적이
+  // 없으므로 낡을 수 없고, 열 때 새로 그린다 (`refresh()` 의 범위 규약과 같다).
+  _paintAllViews(){
+    for(const key of Array.from(this._els.keys())) this._render(key);
+  }
+
+  /**
+   * FR-RMS-19: 소실을 보이는 한 벌. Changes 만 머리를 함께 세운다 — 어느 리포의
+   * 이야기인지가 사라지면 사용자는 무엇이 없어졌는지 모른다.
+   */
+  _renderMissing(el,view){
+    el.dataset.built=''; el.innerHTML='';
+    if(view==='changes'){
+      const head=document.createElement('div'); head.className='git-head';
+      const name=document.createElement('span'); name.className='git-head-repo';
+      const repo=this._missing||'';
+      name.textContent=repo.split('/').filter(Boolean).pop()||repo;
+      name.title=repo;
+      head.appendChild(name);
+      el.appendChild(head);
+    }
+    el.appendChild(this._missingBlock());
+  }
+
+  /**
+   * FR-RMS-20: 안내를 만드는 **유일한 자리**. 문구·경로·사유·버튼이 탭마다 갈리면
+   * 그것은 같은 사실이 아니게 된다.
+   *
+   * FR-RMS-12: 경로는 `textContent` 로만 넣는다 — 사용자의 폴더 이름이고, 마크업으로
+   * 넣으면 파일 이름이 화면을 고칠 수 있다.
+   */
+  _missingBlock(){
+    const repo=this._missing||'';
+    const box=document.createElement('div'); box.className='git-missing';
+    const add=(cls,text)=>{
+      const d=document.createElement('div'); d.className=cls; d.textContent=text;
+      box.appendChild(d); return d;
+    };
+    add('git-missing-title',GIT_ERR_REPO_MISSING);
+    add('git-missing-path',repo);
+    add('git-missing-reason',GIT_RMS_REASON_PREFIX+GIT_RMS_CODE);
+    const acts=document.createElement('div'); acts.className='git-missing-acts';
+    // FR-RMS-10: 핀되지 않은 리포에 핀 제거를 보이지 않는다 — 없는 핀을 지우는
+    // 버튼은 거짓말이다.
+    if(this._missingPinned()){
+      const un=document.createElement('button');
+      un.className='git-missing-unpin'; un.textContent=GIT_RMS_UNPIN;
+      un.addEventListener('click',()=>this._missingUnpin());
+      acts.appendChild(un);
+    }
+    const re=document.createElement('button');
+    re.className='git-missing-recheck'; re.textContent=GIT_RMS_RECHECK;
+    // FR-RMS-16·27: 사용자의 계기는 주기를 기다리지 않는다. 기존 새로고침을 지난다.
+    re.addEventListener('click',()=>this.refresh());
+    acts.appendChild(re);
+    box.appendChild(acts);
+    add('git-missing-auto',GIT_RMS_AUTO_NOTE);
+    return box;
+  }
+
+  _missingPinned(){
+    const pins=((this.app._gitRepos||{}).pinned)||[];
+    return pins.some(p=>p&&p.path===this._missing);
+  }
+
+  /**
+   * FR-RMS-9: 제거는 **기존 경로를 지난다** (`_gitUnpin`) — 새 경로를 만들면 핀의
+   * 권위가 둘이 된다 (O1: 서버가 권위).
+   *
+   * 지운 뒤에는 활성 리포를 놓는다. 사라진 폴더의 핀까지 없앤 사용자에게 그 화면을
+   * 계속 보일 이유가 없고, 돌아갈 곳은 "리포를 선택하세요" 다.
+   */
+  async _missingUnpin(){
+    const path=this._missing; if(!path) return;
+    if(await this.app._gitUnpin(path)) this.setRepo(null);
   }
 
   // ── Changes 탭 (FR-GIT-32~42) ──
@@ -207,6 +328,8 @@ class GitPanel {
   }
 
   _paint(){
+    // 소실은 status 가 없는 상태다 — 아래의 칠하기는 전부 그것을 딛는다 (FR-RMS-19).
+    if(this._missing){this._paintAllViews();return}
     const c=this._els.get('changes'); if(c) this._renderChanges(c);
     const d=this._els.get('diff'); if(d) this._renderDiff(d);
     // History 는 status 에서 미커밋 변경 행만 딛는다 (FR-GIT-127) — 목록 전체를
@@ -859,6 +982,9 @@ class GitPanel {
   // FR-GIT-249: 핀 목록이 바뀌었을 수 있다. 그것을 읽는 목록에만 넘긴다 — 판정을
   // 다시 그리기에 업지 않기 위한 통지 경로다 (FR-RPT-8, GitDialog.notify 와 같은 규약).
   notifyPins(){
+    // FR-RMS-10: 소실 안내의 `핀 제거` 는 핀 여부를 딛는다. 핀이 바깥에서 바뀌면
+    // 버튼이 따라와야 한다 — 안 그러면 방금 핀한 리포에 진입점이 없다 (FR-RPT-8).
+    if(this._missing) this._paintAllViews();
     if(this._worktreesView) this._worktreesView.notifyPins();
   }
 
@@ -2071,16 +2197,47 @@ class GitPanel {
 
   // 조건이 거짓이면 clearInterval 로 완전히 멈춘다 — 콜백에서 return 으로 넘기지
   // 않는다. 참이 되면 즉시 1회 수집하고 주기를 건다 (FR-STAT-17 과 같은 규약).
-  _reschedule(){
-    if(!this._pollOk()){this._stop();return}
-    const sig=gitSignatureInterval,st=gitStatusInterval;
-    if(this._pollOn&&this._pollSig===sig&&this._pollSt===st) return;
+  /**
+   * 유효 주기 (GIT_REPO_MISSING_SRS FR-RMS-13·23·25·26).
+   *
+   * **기준 0 은 0 으로 남는다.** 0 은 "그 계층을 끈다" 는 뜻이므로(FR-GIT-23),
+   * 실패가 그것을 되살리면 사용자가 끈 것이 저절로 켜진다.
+   *
+   * 소실은 확정된 사실이라 점증하지 않고 곧바로 고정 주기다. 그 밖의 실패는
+   * 일시적일 수 있으므로 기준 × 2ⁿ 으로 늘리되 같은 값을 상한으로 둔다.
+   */
+  _cadence(st,sig){
+    const fix=v=>v>0?GIT_REPO_MISSING_POLL_MS:0;
+    if(this._missing) return {st:fix(st),sig:fix(sig)};
+    const n=this._failStreak;
+    if(n<=0) return {st,sig};
+    const slow=v=>v>0?Math.min(v*Math.pow(2,n),GIT_FAIL_BACKOFF_MAX_MS):0;
+    return {st:slow(st),sig:slow(sig)};
+  }
+
+  /**
+   * 주기만 다시 건다. **즉시 수집을 하지 않는다** (FR-RMS-28).
+   *
+   * `_reschedule()` 은 "참이 되면 즉시 1회 수집" 을 계약으로 갖는다 (FR-GIT-22).
+   * 관측 결과로 주기를 바꾸는 자리에서 그것을 부르면 관측이 관측을 부른다 —
+   * 실패·성공이 번갈아 오는 동안 요청이 배로 늘어난다 (D-RMS-10).
+   */
+  // 다시 걸었으면 true 다 — 호출자가 "즉시 1회 수집" 을 붙일지 그것으로 정한다.
+  _applyCadence(){
+    if(!this._pollOk()){this._stop();return false}
+    const {st,sig}=this._cadence(gitStatusInterval,gitSignatureInterval);
+    if(this._pollOn&&this._pollSig===sig&&this._pollSt===st) return false;
     this._stop();
     this._pollOn=true; this._pollSig=sig; this._pollSt=st;
-    // 주기 0 은 그 계층을 걸지 않는다 (FR-GIT-23). 상수는 여기서 한 번만 읽는다.
+    // 주기 0 은 그 계층을 걸지 않는다 (FR-GIT-23).
     if(sig>0) this._sigPoll=setInterval(()=>this._pollSignature(),sig);
     if(st>0) this._stPoll=setInterval(()=>this.collect(),st);
-    this.collect();
+    return true;
+  }
+
+  // 조건이 참이 되면 즉시 1회 수집하고 주기를 건다 (FR-GIT-22).
+  _reschedule(){
+    if(this._applyCadence()) this.collect();
   }
 
   _stop(){
@@ -2117,11 +2274,17 @@ class GitPanel {
       // 사유가 붙은 화면은 관측으로 그린 화면이 아니다 — 근거를 버려 회복하는
       // 관측이 값이 같아도 다시 그리게 한다 (FR-GIT-227).
       this._obsSig=null;
+      this._fail();
       this._staleNote=true; this._paint(); return;
     }
     if(!r.ok){this._applyError(d&&d.error);return}
     // ② 서버가 되돌려준 요청값 확인. 같은 세대 안에서도 응답 순서가 뒤바뀔 수 있다.
     if(!d||d.requested!==tok.repo) return;
+    // 관측이 성공했다 — 누적을 놓고 주기를 기준으로 되돌린다 (FR-RMS-24).
+    // 소실이었다면 여기가 복구 지점이다 (FR-RMS-11).
+    this._failStreak=0;
+    this._leaveMissing();
+    this._applyCadence();
     this._status=d;
     // 응답에 signature 가 함께 오므로 그 값으로 갱신한다 — 직후 signature 폴링이
     // 헛되이 변화를 보고하지 않게 한다.
@@ -2157,9 +2320,26 @@ class GitPanel {
     if(typeof GitDialog!=='undefined') GitDialog.notify();
   }
 
+  // 성공하지 못한 관측 하나. 사유를 가리지 않는다 (FR-RMS-22) — 갈래마다 다른
+  // 규칙을 두면 "가장 느릴 때" 가 화면마다 달라진다.
+  _fail(){
+    this._failStreak++;
+    this._applyCadence();
+  }
+
   _applyError(code){
     // 사유가 붙은 화면은 관측으로 그린 화면이 아니다 (FR-GIT-227).
     this._obsSig=null;
+    // FR-RMS-6·7: 소실은 **활성 리포를 해제하지 않는다.** 해제하면 무엇을 다시 볼지
+    // 잃어 자동 복구가 불가능해진다 (D-RMS-5). 주기는 백오프가 아니라 고정이다
+    // (FR-RMS-26) — 확정된 사실은 점증할 이유가 없다.
+    if(code===GIT_RMS_CODE){
+      this._failStreak=0;
+      this._enterMissing();
+      this._applyCadence();
+      return;
+    }
+    this._fail();
     if(code==='not_a_git_repo'){
       this._errMsg=GIT_ERR_NOT_REPO; this._status=null;
       this.setRepo(null);
