@@ -24,32 +24,50 @@ class Renderer {
     this.app._applyFocusOverlay();
   }
 
+  /**
+   * FR-RPT-3: 목록을 비우고 다시 만들지 않는다.
+   *
+   * `render()` 는 사용자 행동뿐 아니라 **SSE `workspace_changed`** 로도 불린다 —
+   * 다른 브라우저나 다른 에이전트의 `dmctl` 이 워크스페이스를 고치면 사용자가
+   * 아무것도 하지 않았는데 이 목록이 다시 만들어진다. 그러면 hover 로만 보이는
+   * `×` 가 사라지고, 이름변경 더블클릭의 두 번째 클릭이 새 요소에 떨어지고,
+   * 끌고 있던 창이 DOM 에서 빠져 재배치가 조용히 실패한다.
+   */
   _rSidebar(){
-    const el=document.getElementById('windows'); el.innerHTML='';
-    for(const s of this.app.ws.windows){
-      // FR-GIT-182: Git 창은 WINDOWS 목록에 없다 — 진입점은 GIT 섹션의 리포
-      // 항목뿐이다. 진입점이 둘이면 창 목록의 `Git` 은 "어느 리포인지 모르는 창"이
-      // 된다.
-      if(this.app._isGitWin(s)) continue;
-      const d=document.createElement('div');
-      // FR-PAN-16: 알람이 있는 창을 사이드바에서 구분 표시
-      d.className='si'+(s.id===this.app.ws.activeWindow?' active':'')+(this.app._windowHasAttn(s)?' attn':'');
-      d.dataset.sid=s.id;
-      d.dataset.windowType=s.type||WINDOW_TYPE_TERMINAL;
-      d.innerHTML='<span class="si-dot"></span><span class="si-name"></span><span class="si-x">×</span>';
-      d.querySelector('.si-name').textContent=s.name;
-      d.addEventListener('click',e=>{if(!e.target.classList.contains('si-x'))this.app.switchWindow(s.id)});
-      d.querySelector('.si-x').addEventListener('click',e=>{e.stopPropagation();this.app.delWindow(s.id)});
-      d.querySelector('.si-name').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(s,e.target)});
-      d.draggable=true;
-      // 재배치는 drop(즉시·깜빡임 없음) 1순위, 패널 밖 release 는 dragend 폴백. 식별자 기반 splice.
-      d.addEventListener('dragstart',e=>{this.app._drag={type:'window',srcId:s.id,targetId:null,before:false,done:false};e.dataTransfer.effectAllowed='move';setTimeout(()=>d.classList.add('dragging'),0)});
-      d.addEventListener('dragover',e=>{const dr=this.app._drag;if(!dr||dr.type!=='window')return;e.preventDefault();el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'));const rect=d.getBoundingClientRect();const before=e.clientY<rect.top+rect.height/2;d.classList.add(before?'drag-above':'drag-below');dr.targetId=s.id;dr.before=before});
-      d.addEventListener('drop',e=>{const dr=this.app._drag;if(!dr||dr.type!=='window')return;e.preventDefault();e.stopPropagation();this.app._reorderWindows(dr)});
-      // dragend 는 시각 정리만 — 패널 밖 release 는 취소(순서 불변, snap-back 깜빡임 방지).
-      d.addEventListener('dragend',()=>{this.app._drag=null;d.classList.remove('dragging');el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'))});
-      el.appendChild(d);
-    }
+    const el=document.getElementById('windows');
+    const wins=this.app.ws.windows.filter(s=>!this.app._isGitWin(s));
+    reconcileList(el,wins,{
+      key:s=>s.id,
+      // `_siEl` 이 읽는 값 전부다 (FR-RPT-2).
+      sig:s=>[s.name||'',s.type||WINDOW_TYPE_TERMINAL,
+              s.id===this.app.ws.activeWindow?1:0,
+              this.app._windowHasAttn(s)?1:0].join('\u0001'),
+      build:s=>this._siEl(el,s),
+    });
+  }
+
+  // FR-GIT-182: Git 창은 WINDOWS 목록에 없다 — 진입점은 GIT 섹션의 리포 항목뿐이다.
+  // 진입점이 둘이면 창 목록의 `Git` 은 "어느 리포인지 모르는 창"이 된다. 걸러내는
+  // 것은 `_rSidebar` 이고 여기는 만들기만 한다.
+  _siEl(el,s){
+    const d=document.createElement('div');
+    // FR-PAN-16: 알람이 있는 창을 사이드바에서 구분 표시
+    d.className='si'+(s.id===this.app.ws.activeWindow?' active':'')+(this.app._windowHasAttn(s)?' attn':'');
+    d.dataset.sid=s.id;
+    d.dataset.windowType=s.type||WINDOW_TYPE_TERMINAL;
+    d.innerHTML='<span class="si-dot"></span><span class="si-name"></span><span class="si-x">×</span>';
+    d.querySelector('.si-name').textContent=s.name;
+    d.addEventListener('click',e=>{if(!e.target.classList.contains('si-x'))this.app.switchWindow(s.id)});
+    d.querySelector('.si-x').addEventListener('click',e=>{e.stopPropagation();this.app.delWindow(s.id)});
+    d.querySelector('.si-name').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(s,e.target)});
+    d.draggable=true;
+    // 재배치는 drop(즉시·깜빡임 없음) 1순위, 패널 밖 release 는 dragend 폴백. 식별자 기반 splice.
+    d.addEventListener('dragstart',e=>{this.app._drag={type:'window',srcId:s.id,targetId:null,before:false,done:false};e.dataTransfer.effectAllowed='move';setTimeout(()=>d.classList.add('dragging'),0)});
+    d.addEventListener('dragover',e=>{const dr=this.app._drag;if(!dr||dr.type!=='window')return;e.preventDefault();el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'));const rect=d.getBoundingClientRect();const before=e.clientY<rect.top+rect.height/2;d.classList.add(before?'drag-above':'drag-below');dr.targetId=s.id;dr.before=before});
+    d.addEventListener('drop',e=>{const dr=this.app._drag;if(!dr||dr.type!=='window')return;e.preventDefault();e.stopPropagation();this.app._reorderWindows(dr)});
+    // dragend 는 시각 정리만 — 패널 밖 release 는 취소(순서 불변, snap-back 깜빡임 방지).
+    d.addEventListener('dragend',()=>{this.app._drag=null;d.classList.remove('dragging');el.querySelectorAll('.si').forEach(si=>si.classList.remove('drag-above','drag-below'))});
+    return d;
   }
 
   // FR-GIT-13: 좌측 GIT 섹션. 데이터는 app._gitRepos 다 — 없으면 본문만 비운다.
@@ -62,10 +80,33 @@ class Renderer {
     el.style.display=off;
     if(title)title.style.display=off;
     if(add)add.style.display=off;
-    el.innerHTML='';
-    const d=this.app._gitRepos; if(!d) return;
-    if(d.follow) el.appendChild(this._rGitRepo(d.follow,true));
-    for(const p of d.pinned||[]) el.appendChild(this._rGitRepo(p,false));
+    const d=this.app._gitRepos;
+    if(!d){el.innerHTML=''; return}
+    /**
+     * FR-RPT-3: 목록을 비우고 다시 만들지 않는다.
+     *
+     * 이 함수는 `_gitReposRefresh` 가 **3초마다** 부른다. 요소를 새로 만들면 hover
+     * 로만 보이는 `×` 가 3초마다 깜빡이고, 더 나쁜 것은 **끌고 있던 핀이 DOM 에서
+     * 빠져 재배치가 조용히 실패하는 것**이다 (FR-GIT-223).
+     */
+    const items=[];
+    if(d.follow) items.push({follow:true,e:d.follow});
+    for(const p of d.pinned||[]) items.push({follow:false,e:p});
+    reconcileList(el,items,{
+      key:it=>it.follow?'follow':'pin:'+(it.e.path||''),
+      sig:it=>this._gitRepoSig(it),
+      build:it=>this._rGitRepo(it.e,it.follow),
+    });
+  }
+
+  // 행의 **보이는 값 전부**다 (FR-RPT-2) — `_rGitRepo` 가 읽는 것과 1:1 로 맞춘다.
+  _gitRepoSig(it){
+    const e=it.e,b=e.badge||{};
+    return [
+      it.follow?1:0,e.path||'',e.isRepo?1:0,e.name||'',e.reason||'',e.cwd||'',
+      b.total>0?b.total:0,b.total>0?(b.observedAtUnixMs||0):0,
+      (!!e.path&&this.app.gitPanel.repo===e.path)?1:0,
+    ].join('\u0001');
   }
 
   /**

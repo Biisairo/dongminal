@@ -56,19 +56,31 @@ Object.assign(App.prototype, {
     await this._pollGitJobs();
     this._updateStatusBar();
   },
+  /**
+   * FR-RPT-3: 지표를 통째로 다시 만들지 않는다.
+   *
+   * 이 함수는 stats 폴링과 git status 폴링에서 **1초마다** 불린다. 지표에 제스처는
+   * 없지만 `title` 툴팁이 있고, 요소를 다시 만들면 브라우저가 표시 중인 툴팁을
+   * 닫는다 — chip 을 hover 해서 리포 경로를 읽는 일이 되지 않는다.
+   *
+   * **컨테이너 단위 가드로는 부족하다.** 지연·CPU·업타임은 매 회차 값이 달라
+   * "전체가 같으면 그리지 않는다" 가 거의 발동하지 않는다. 그래서 지표를 **항목으로**
+   * 다루고, 값이 바뀐 항목만 다시 만든다.
+   */
   _updateStatusBar(){
     const bar=document.getElementById('sb-items');if(!bar)return;
     const items=[];
+    const push=(k,html)=>items.push({k,html});
     if(statusBar.connection){
       const ok=this._latency!==null;
-      items.push(`<span class="sb-item"><span class="sb-dot ${ok?'ok':'err'}"></span>${ok?'연결됨':'끊김'}</span>`);
+      push('connection',`<span class="sb-item"><span class="sb-dot ${ok?'ok':'err'}"></span>${ok?'연결됨':'끊김'}</span>`);
     }
     if(statusBar.latency&&this._latency!==null){
-      items.push(`<span class="sb-item">${this._latency}ms</span>`);
+      push('latency',`<span class="sb-item">${this._latency}ms</span>`);
     }
     if(statusBar.location){
       const loc=this._locationLabel();
-      if(loc)items.push(`<span class="sb-item" title="dmctl 대상: ${loc}">📍 ${loc}</span>`);
+      if(loc)push('location',`<span class="sb-item" title="dmctl 대상: ${loc}">📍 ${loc}</span>`);
     }
     if(statusBar.cwd){
       const cwd=this._cwd||'~';
@@ -76,42 +88,53 @@ Object.assign(App.prototype, {
       let short=cwd.replace(/^\/Users\/[^/]+/,'~');
       const parts=short.split('/');
       if(parts.length>4)short='~/.../'+parts.slice(-3).join('/');
-      items.push(`<span class="sb-item">📁 ${short}</span>`);
+      push('cwd',`<span class="sb-item">📁 ${short}</span>`);
     }
     if(statusBar.hostname&&this._stats.hostname){
-      items.push(`<span class="sb-item">💻 ${this._stats.hostname}</span>`);
+      push('hostname',`<span class="sb-item">💻 ${this._stats.hostname}</span>`);
     }
     if(statusBar.cpu&&this._stats.cpu!==undefined){
-      items.push(`<span class="sb-item">CPU ${this._stats.cpu}%</span>`);
+      push('cpu',`<span class="sb-item">CPU ${this._stats.cpu}%</span>`);
     }
     if(statusBar.memory&&this._stats.memTotal){
       const used=this._fmtBytes(this._stats.memUsed);
       const total=this._fmtBytes(this._stats.memTotal);
-      items.push(`<span class="sb-item">MEM ${used}/${total}</span>`);
+      push('memory',`<span class="sb-item">MEM ${used}/${total}</span>`);
     }
     if(statusBar.disk&&this._stats.diskPct){
-      items.push(`<span class="sb-item">DISK ${this._stats.diskPct}%</span>`);
+      push('disk',`<span class="sb-item">DISK ${this._stats.diskPct}%</span>`);
     }
     if(statusBar.termsize){
       const p=this._focusedTerminal();
       if(p&&p.term){
-        items.push(`<span class="sb-item">${p.term.cols}×${p.term.rows}</span>`);
+        push('termsize',`<span class="sb-item">${p.term.cols}×${p.term.rows}</span>`);
       }
     }
     if(statusBar.uptime){
       const parts=[];
       if(this._stats.sysUptime)parts.push('시스템 '+this._stats.sysUptime);
       if(this._stats.srvUptime)parts.push('서버 '+this._stats.srvUptime);
-      if(parts.length)items.push(`<span class="sb-item">↑ ${parts.join(' │ ')}</span>`);
+      if(parts.length)push('uptime',`<span class="sb-item">↑ ${parts.join(' │ ')}</span>`);
     }
-    bar.innerHTML=items.join('')||'';
     // chip 은 문자열이 아니라 DOM 으로 붙인다 — 브랜치 이름에는 < 와 & 가 올 수 있다.
+    // FR-GIT-112: 진행 중 원격 작업은 chip 옆에 별도로 붙는다 — 브랜치 표시와
+    // 섞으면 어느 것이 관측이고 어느 것이 진행인지 구분되지 않는다.
     if(statusBar.git){
-      const c=this._gitChip(); if(c) bar.appendChild(c);
-      // FR-GIT-112: 진행 중 원격 작업은 chip 옆에 별도로 붙는다 — 브랜치 표시와
-      // 섞으면 어느 것이 관측이고 어느 것이 진행인지 구분되지 않는다.
-      const j=this._gitJobChip(); if(j) bar.appendChild(j);
+      const c=this._gitChip(); if(c) items.push({k:'git',el:c});
+      const j=this._gitJobChip(); if(j) items.push({k:'gitjob',el:j});
     }
+    // 근거는 그려질 마크업 전부다 (FR-RPT-2). 문자열 지표는 그 문자열이고, chip 은
+    // DOM 이므로 `outerHTML` 이다.
+    reconcileList(bar,items,{
+      key:i=>i.k,
+      sig:i=>i.html!==undefined?i.html:i.el.outerHTML,
+      build:i=>{
+        if(i.el) return i.el;
+        const t=document.createElement('template');
+        t.innerHTML=i.html;
+        return t.content.firstElementChild;
+      },
+    });
     this._updateBgBtn();
   },
 

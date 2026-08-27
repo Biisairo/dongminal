@@ -105,6 +105,18 @@ class GitConsole {
     return this._recs.filter(r=>r.write||r.exitCode!==0||r.err);
   }
 
+  /**
+   * FR-RPT-1: 그릴 내용이 그대로면 다시 그리지 않는다.
+   *
+   * `reload` 가 **2초마다** 부른다. 기록은 대개 그대로인데 목록을 다시 만들면 펼친
+   * 상세에서 **고른 글자가 지워진다** — stderr 는 복사해 쓰는 자리라 FR-GIT-225 가
+   * 명시적으로 선택을 허용한 곳이다. 2초마다 선택이 사라지면 그 예외를 둔 뜻이
+   * 없어진다.
+   *
+   * 한 기록이 행+상세 두 요소로 펼쳐지므로 행 동일성(FR-RPT-3)은 쓰지 않는다 —
+   * 키 하나에 요소 하나가 대응하지 않는다 (SRS D5). 펼침은 자기 계기이므로
+   * (FR-RPT-5) 그때 다시 그리는 것은 옳다.
+   */
   _paintList(){
     if(!this._el) return;
     const list=this._el.querySelector('.git-con-list');
@@ -112,6 +124,15 @@ class GitConsole {
     if(!list) return;
     const recs=this._visible();
     if(cnt) cnt.textContent=recs.length?String(recs.length):'';
+    // 근거는 화면이 읽는 값 전부다 (FR-RPT-2) — 사유·빈 사유의 종류·기록·펼침 상태.
+    const sig=JSON.stringify([this._err||'',this._reads?1:0,
+      recs.map(r=>[r.seq,r.argv,r.exitCode,r.err||'',r.durationMs,r.write?1:0,
+                   r.destructive?1:0,r.atUnixMs,r.cwd||'',r.stderr||'',
+                   this._open.has(r.seq)?1:0])]);
+    paintIfChanged(list,sig,()=>this._drawList(list,recs));
+  }
+
+  _drawList(list,recs){
     list.innerHTML='';
     if(this._err){
       const d=document.createElement('div'); d.className='git-con-note';

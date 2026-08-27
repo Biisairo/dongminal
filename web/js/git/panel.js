@@ -45,6 +45,8 @@ class GitPanel {
     // 선택되지 않는다.
     this.commitFile=null;
     this._writing=false;          // 쓰기 한 번은 한 번이다 — 겹쳐 보내지 않는다
+    // FR-GIT-227: 마지막으로 그린 관측. null 이면 다음 관측은 무조건 그린다.
+    this._obsSig=null;
   }
 
   // 활성 리포. Git 창의 win.git.repo 가 진실이고 이것은 그 읽기다 (FR-GIT-29).
@@ -62,6 +64,8 @@ class GitPanel {
     // 이전 리포의 목록이 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다
     // (FR-GIT-16). 화면을 "불러오는 중" 으로 되돌린다.
     this._status=null; this._lastSig=null; this._staleNote=false;
+    // 관측을 버렸으므로 근거도 버린다 — 새 리포의 첫 관측은 무조건 그린다.
+    this._obsSig=null;
     this._shown.clear(); this.previewFile=null; GitMenu.close();
     // 선택과 쓰기 안내는 리포에 붙은 것이다 — 새 리포로 넘겨 오면 다른 파일을
     // 가리킨다.
@@ -362,33 +366,59 @@ class GitPanel {
     box.classList.toggle('collapsed',collapsed);
     box.querySelector('.git-group-caret').textContent=collapsed?'▸':'▾';
     const rows=box.querySelector('.git-group-rows');
-    rows.innerHTML='';
-    if(collapsed) return;
+    if(collapsed){rows.innerHTML=''; return}
     const limit=this._shown.get(g.key)||GIT_FILE_ROW_CHUNK;
-    // 행은 DocumentFragment 로 한 번에 붙인다 — 수천 행을 innerHTML 로 만들지 않는다.
-    const frag=document.createDocumentFragment();
+    // 그릴 행을 먼저 **기술**하고, 요소는 reconcileList 가 필요한 것만 만든다
+    // (FR-GIT-227 / FR-RPT-3) — 목록을 비우고 다시 만들면 hover·더블클릭·우클릭이
+    // 매 회차 끊긴다. 평평한 보기와 트리 보기가 같은 기술을 낸다.
+    const items=[];
     const drawn=this._treeMode()
-      ?this._emitTree(frag,g.key,entries,limit)
-      :this._emitFlat(frag,g.key,entries,limit);
-    rows.appendChild(frag);
-    if(drawn<entries.length){
-      const more=document.createElement('div');
-      more.className='git-file-more'; more.dataset.group=g.key;
-      more.textContent='… '+(entries.length-drawn)+' 개 더';
-      rows.appendChild(more);
-      if(this._io) this._io.observe(more);
-    }
+      ?this._emitTree(items,g.key,entries,limit)
+      :this._emitFlat(items,g.key,entries,limit);
+    if(drawn<entries.length) items.push({t:'more',group:g.key,n:entries.length-drawn});
+    reconcileList(rows,items,{
+      key:it=>it.t+':'+(it.t==='file'?it.e.path:it.t==='dir'?it.path:''),
+      sig:it=>this._itemSig(it),
+      build:it=>this._itemEl(it),
+    });
   }
 
-  _emitFlat(frag,group,entries,limit){
+  // 행의 **보이는 값 전부**다 (FR-RPT-2). 하나라도 빠지면 그 값의 변화가 화면에
+  // 닿지 않는다 — 좁히지 않는다.
+  _itemSig(it){
+    if(it.t==='dir') return [it.depth,it.label,it.collapsed?1:0].join('\u0001');
+    if(it.t==='more') return String(it.n);
+    const e=it.e,group=it.group;
+    return [
+      it.depth,e.path,e.origPath||'',e.staged||'',e.unstaged||'',
+      e.conflict?1:0,e.score||'',this._stateChar(group,e),
+      this._sel.has(this._selKey(group,e.path))?1:0,
+      (this.previewFile&&this.previewFile.group===group&&this.previewFile.path===e.path)?1:0,
+      this._treeMode()?1:0,
+      // ours·theirs 의 title 이 진행 중인 조작에 따라 뒤집힌다 (FR-GIT-224).
+      this._op()||'',
+    ].join('\u0001');
+  }
+
+  _itemEl(it){
+    if(it.t==='dir') return this._dirEl(it);
+    if(it.t==='file') return this._rowEl(it.group,it.e,it.depth);
+    const more=document.createElement('div');
+    more.className='git-file-more'; more.dataset.group=it.group;
+    more.textContent='… '+it.n+' 개 더';
+    if(this._io) this._io.observe(more);
+    return more;
+  }
+
+  _emitFlat(items,group,entries,limit){
     const n=Math.min(limit,entries.length);
-    for(let i=0;i<n;i++) frag.appendChild(this._rowEl(group,entries[i],0));
+    for(let i=0;i<n;i++) items.push({t:'file',group,e:entries[i],depth:0});
     return n;
   }
 
   // 트리 보기 (FR-GIT-38). 자식이 하나뿐인 중간 디렉터리는 합쳐 보인다 —
   // 깊은 트리에서 줄 수를 줄인다.
-  _emitTree(frag,group,entries,limit){
+  _emitTree(items,group,entries,limit){
     const root={dirs:new Map(),files:[]};
     for(const e of entries){
       const parts=e.path.split('/');
@@ -401,11 +431,11 @@ class GitPanel {
       n.files.push(e);
     }
     const st={drawn:0,limit};
-    this._emitDir(frag,group,root,'',0,st);
+    this._emitDir(items,group,root,'',0,st);
     return st.drawn;
   }
 
-  _emitDir(frag,group,node,prefix,depth,st){
+  _emitDir(items,group,node,prefix,depth,st){
     if(st.drawn>=st.limit) return;
     for(const [name,child] of node.dirs){
       let label=name,cur=child,path=prefix+name;
@@ -413,29 +443,33 @@ class GitPanel {
         const [n2,c2]=cur.dirs.entries().next().value;
         label+='/'+n2; path+='/'+n2; cur=c2;
       }
-      const key=group+':'+path;
-      const collapsed=this._dirCollapsed.has(key);
-      const d=document.createElement('div');
-      d.className='git-dir'+(collapsed?' collapsed':'');
-      d.dataset.dir=path;
-      this._indent(d,depth);
-      d.innerHTML='<span class="git-dir-caret"></span><span class="git-dir-name"></span>';
-      d.querySelector('.git-dir-caret').textContent=collapsed?'▸':'▾';
-      d.querySelector('.git-dir-name').textContent=label;
-      d.addEventListener('click',()=>{
-        if(this._dirCollapsed.has(key)) this._dirCollapsed.delete(key);
-        else this._dirCollapsed.add(key);
-        this._paint();
-      });
-      frag.appendChild(d);
-      if(!collapsed) this._emitDir(frag,group,cur,path+'/',depth+1,st);
+      const collapsed=this._dirCollapsed.has(group+':'+path);
+      items.push({t:'dir',group,path,label,depth,collapsed});
+      if(!collapsed) this._emitDir(items,group,cur,path+'/',depth+1,st);
       if(st.drawn>=st.limit) return;
     }
     for(const e of node.files){
       if(st.drawn>=st.limit) return;
       st.drawn++;
-      frag.appendChild(this._rowEl(group,e,depth));
+      items.push({t:'file',group,e,depth});
     }
+  }
+
+  _dirEl(it){
+    const key=it.group+':'+it.path;
+    const d=document.createElement('div');
+    d.className='git-dir'+(it.collapsed?' collapsed':'');
+    d.dataset.dir=it.path;
+    this._indent(d,it.depth);
+    d.innerHTML='<span class="git-dir-caret"></span><span class="git-dir-name"></span>';
+    d.querySelector('.git-dir-caret').textContent=it.collapsed?'▸':'▾';
+    d.querySelector('.git-dir-name').textContent=it.label;
+    d.addEventListener('click',()=>{
+      if(this._dirCollapsed.has(key)) this._dirCollapsed.delete(key);
+      else this._dirCollapsed.add(key);
+      this._paint();
+    });
+    return d;
   }
 
   /**
@@ -965,6 +999,9 @@ class GitPanel {
     this._status=Object.assign({},this._status||{},
       {requested:d.requested,repo:d.repo,status:d.status});
     this._errMsg=null; this._staleNote=false;
+    // 사용자가 부른 쓰기의 응답이다 — 화면은 반드시 바뀐다 (FR-RPT-5). 다만 근거는
+    // 갱신해 둔다: 곧 오는 폴링이 같은 관측으로 한 번 더 그리지 않게 한다.
+    this._obsSig=JSON.stringify(d.status||null);
     this._paint();
     this.app._gitReposRefresh();
     this.app._updateStatusBar();
@@ -1339,6 +1376,9 @@ class GitPanel {
     if(this.isStale(tok)) return;
     if(!r){
       // 네트워크 오류 — 이전 화면을 유지한다. **목록을 지우지 않는다.**
+      // 사유가 붙은 화면은 관측으로 그린 화면이 아니다 — 근거를 버려 회복하는
+      // 관측이 값이 같아도 다시 그리게 한다 (FR-GIT-227).
+      this._obsSig=null;
       this._staleNote=true; this._paint(); return;
     }
     if(!r.ok){this._applyError(d&&d.error);return}
@@ -1349,17 +1389,34 @@ class GitPanel {
     // 헛되이 변화를 보고하지 않게 한다.
     this._lastSig=(d.signature&&d.signature.value)||'';
     this._errMsg=null; this._staleNote=false;
-    this._paint();
+    /**
+     * FR-GIT-227 (FR-RPT-1·2): 관측이 지난 회차와 같으면 다시 그리지 않는다.
+     *
+     * 폴링이 1초마다 도는데 그때마다 목록을 새로 만들면 화면은 그대로인 채 요소만
+     * 버려진다 — hover 로만 보이는 행 버튼이 매초 깜빡이고, 더블클릭의 두 번째
+     * 클릭이 새 요소에 떨어져 `dblclick` 이 만들어지지 않는다 (FR-GIT-52).
+     *
+     * 근거는 **화면이 읽는 값 전부**다. 그리는 쪽이 보는 것은 `_status.status`
+     * 하나이고(`statusOf`), `observedAtUnixMs`·`cached` 는 회차마다 달라지지만
+     * 화면에 닿지 않는다 — 그것까지 넣으면 근거가 늘 달라 가드가 죽는다.
+     */
+    const obs=JSON.stringify(d.status||null);
+    if(obs!==this._obsSig){this._obsSig=obs; this._paint()}
     // 활성 리포의 배지가 따라 갱신된다. 다른 리포는 서버의 마지막 관측값이다.
     this.app._gitReposRefresh();
     // 상태바 chip 은 Git 창 밖에서도 보이므로 관측마다 갱신한다 (FR-GIT-57).
     this.app._updateStatusBar();
+    // FR-GIT-111 (FR-RPT-8): 충돌 판정은 관측마다 돈다 — 다시 그리기에 업히면
+    // 관측이 같은 회차에 판정이 멈춘다.
+    if(this._remoteView) this._remoteView.notifyStatus();
     // FR-GIT-178: 다이얼로그가 열려 있으면 대상 변경을 알린다. 실행은 막지 않는다.
     if(typeof GitConfirm!=='undefined') GitConfirm.notify(this._lastSig);
     if(typeof GitDialog!=='undefined') GitDialog.notify();
   }
 
   _applyError(code){
+    // 사유가 붙은 화면은 관측으로 그린 화면이 아니다 (FR-GIT-227).
+    this._obsSig=null;
     if(code==='not_a_git_repo'){
       this._errMsg=GIT_ERR_NOT_REPO; this._status=null;
       this.setRepo(null);
