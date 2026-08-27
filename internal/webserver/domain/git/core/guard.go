@@ -26,15 +26,24 @@ var readCommands = map[string]bool{
 // 명령에 붙어도 읽기가 아니게 된다.
 var unsafePrefixes = []string{"--upload-pack", "--receive-pack", "--exec-path", "--output", "-o"}
 
-// checkRefFormat* 은 `git check-ref-format` 을 브랜치 이름 검사 하나로 묶는 값이다.
-// 다른 형태(`--normalize`, `--allow-onelevel`, 여러 이름)를 받지 않는 이유는 그것이
-// 이 패키지가 쓰지 않는 동작이고, 받는 형태가 넓어지면 무엇이 검사되는지 말할 수
-// 없게 되기 때문이다.
+// checkRefFormat* 은 `git check-ref-format` 을 이름 검사 **둘**로 묶는 값이다.
+// 그 밖의 형태(`--allow-onelevel`, 여러 이름)를 받지 않는 이유는 그것이 이 패키지가
+// 쓰지 않는 동작이고, 받는 형태가 넓어지면 무엇이 검사되는지 말할 수 없게 되기
+// 때문이다.
 const (
-	// CheckRefFormatBranch 는 query 의 이름 검사가 붙이는 플래그다 (FR-GIT-159).
+	// CheckRefFormatBranch 는 query 의 브랜치 이름 검사가 붙이는 플래그다
+	// (FR-GIT-159).
 	CheckRefFormatBranch = "--branch"
-	checkRefFormatArgs   = 2 // --branch <name>
+	// CheckRefFormatNormalize 는 태그 이름 검사가 붙이는 플래그다 (FR-GIT-260).
+	// `--branch` 는 브랜치 이름 규칙이라 태그에 쓸 수 없고, 태그는 전체 ref
+	// (`refs/tags/<name>`) 로 물어야 한다.
+	CheckRefFormatNormalize = "--normalize"
+	checkRefFormatArgs      = 2 // <플래그> <이름>
 )
+
+// checkRefFormatFlags 는 받을 수 있는 플래그 전부다. 목록으로 두는 이유는 새 이름
+// 검사가 생길 때 허용 형태가 코드 여기저기로 흩어지지 않게 하기 위함이다.
+var checkRefFormatFlags = []string{CheckRefFormatBranch, CheckRefFormatNormalize}
 
 // configReadFlags 는 `git config` 를 읽기로 유지하는 플래그다. 값이 필요한 것은
 // `--type=bool` 처럼 `=` 형태로만 받는다 — 값을 별도 인자로 받으면 그것이 플래그의
@@ -55,15 +64,19 @@ func guardArgs(args []string) error {
 	return nil
 }
 
-// guardCheckRefFormatArgs 는 인자를 `--branch <name>` 하나로 묶는다. 이름은
-// `--branch` 다음 인자로 오므로 `-` 로 시작해도 git 이 옵션으로 읽지 않는다
+// guardCheckRefFormatArgs 는 인자를 `<플래그> <name>` 하나로 묶는다. 이름은
+// 플래그 다음 인자로 오므로 `-` 로 시작해도 git 이 옵션으로 읽지 않는다
 // (git 2.50.1 실측) — 그래도 호출자가 checkRefArg 로 먼저 걸러낸다.
 func guardCheckRefFormatArgs(rest []string) error {
-	if len(rest) != checkRefFormatArgs || rest[0] != CheckRefFormatBranch {
-		return fmt.Errorf("%w: check-ref-format 은 %s 와 이름 하나만 받는다: %q",
-			ErrUnsafeArgument, CheckRefFormatBranch, rest)
+	if len(rest) == checkRefFormatArgs {
+		for _, f := range checkRefFormatFlags {
+			if rest[0] == f {
+				return nil
+			}
+		}
 	}
-	return nil
+	return fmt.Errorf("%w: check-ref-format 은 %v 중 하나와 이름 하나만 받는다: %q",
+		ErrUnsafeArgument, checkRefFormatFlags, rest)
 }
 
 // guardCommon 은 허용 목록만 다른 공통 검사다. 읽기·쓰기 두 경로가 이 함수를

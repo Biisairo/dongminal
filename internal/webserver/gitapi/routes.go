@@ -60,6 +60,13 @@ var routes = []route{
 	{http.MethodPost, exactPath("/api/git/stash/apply"), (*GitServer).apiGitStashApply},
 	{http.MethodPost, exactPath("/api/git/stash/pop"), (*GitServer).apiGitStashPop},
 	{http.MethodPost, exactPath("/api/git/stash/drop"), (*GitServer).apiGitStashDrop},
+	// 묶음 C — 태그 (GIT_ACTIONS_SRS §3.3, FR-GIT-260~262). 목록은 /api/git/refs 가
+	// 이미 준다. 삭제가 둘인 것은 로컬과 원격이 다른 항목이기 때문이다 (FR-GIT-261).
+	{http.MethodPost, exactPath("/api/git/tag"), (*GitServer).apiGitTagCreate},
+	{http.MethodGet, exactPath("/api/git/tag/validate"), (*GitServer).apiGitTagValidate},
+	{http.MethodPost, exactPath("/api/git/tag/delete"), (*GitServer).apiGitTagDelete},
+	{http.MethodPost, exactPath("/api/git/tag/push"), (*GitServer).apiGitTagPush},
+	{http.MethodPost, exactPath("/api/git/tag/delete-remote"), (*GitServer).apiGitTagDeleteRemote},
 	// 묶음 W7 — Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5, FR-GIT-240~243).
 	{http.MethodGet, exactPath("/api/git/worktrees"), (*GitServer).apiGitWorktrees},
 	{http.MethodPost, exactPath("/api/git/worktrees/create"), (*GitServer).apiGitWorktreeCreate},

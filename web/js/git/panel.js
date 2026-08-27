@@ -805,6 +805,18 @@ class GitPanel {
   // 시작점만 고정해 넘긴다 — 이름 검증도 그것이 이미 안다 (FR-GIT-158·159).
   createBranchFrom(oid){return GitBranches.create(this,{startRef:oid||''})}
 
+  // ── 태그 쓰기 (GIT_MENUS tag·commit 이 부른다, FR-GIT-260~262) ──
+  // 실행은 git/tag.js 에 있다 — 브랜치와 같은 이유로 static 이다: 태그 메뉴는
+  // History 의 커밋 배지에서도 열린다.
+  //
+  // 삭제가 둘인 것은 로컬과 원격이 **다른 항목**이기 때문이다 (FR-GIT-261).
+
+  createTag(oid){return GitTag.create(this,{ref:oid||''})}
+  tagDelete(name){return GitTag.deleteLocal(this,name)}
+  tagDeleteRemote(name){return GitTag.deleteRemote(this,name)}
+  tagPush(name){return GitTag.push(this,name,false)}
+  tagPushAll(){return GitTag.push(this,'',true)}
+
   /**
    * ref 를 바꾼 쓰기 하나의 뒷정리 (FR-GIT-160·170).
    *

@@ -844,3 +844,60 @@ const GIT_CON_REPLAY_NOTE='서버가 자기 기록에서 꺼낸 명령을 그대
 const GIT_ACT_REPLAY='replay';
 const GIT_CON_REPLAY_FAIL='다시 실행하지 못했습니다';
 const GIT_CON_SEARCH_NONE='검색과 일치하는 기록이 없습니다';
+// ── 태그 동작 (GIT_ACTIONS_SRS §3.3 / FR-GIT-260~262) ──
+
+// 안내문은 한국어, 버튼은 영어다 (FR-GIT-202).
+const GIT_TAG_NEW='새 태그 생성…';
+const GIT_TAG_CREATE_AT='여기에 태그 생성…';
+const GIT_TAG_CREATE_TITLE='새 태그를 만듭니다';
+const GIT_TAG_CREATE_RUN='Create Tag';
+const GIT_TAG_NAME_PH='태그 이름 — v1.0.0';
+const GIT_TAG_REF_PH='대상 — 비우면 HEAD';
+const GIT_TAG_MSG_PH='태그 메시지 — annotated·signed 에만 쓰입니다';
+// 종류 (FR-GIT-260). **첫 선택지가 기본이고 그것이 안전한 쪽이다** (FR-GIT-173) —
+// lightweight 는 객체를 만들지 않으므로 메시지도 서명 키도 필요 없다. 값은 서버의
+// `write.TagKinds` 와 같은 문자열이다.
+const GIT_TAG_KIND_LIGHT='';
+const GIT_TAG_KIND_ANNOTATED='annotated';
+const GIT_TAG_KIND_SIGNED='signed';
+const GIT_TAG_KIND_LABEL='종류';
+const GIT_TAG_KIND_OPTS=[
+  {v:GIT_TAG_KIND_LIGHT,    label:'lightweight (ref 만 만든다)'},
+  {v:GIT_TAG_KIND_ANNOTATED,label:'annotated (-a · 메시지가 남는다)'},
+  {v:GIT_TAG_KIND_SIGNED,   label:'signed (-s · 서명 키가 필요하다)'},
+];
+// 입력 중 판정 (FR-GIT-260). 브랜치 생성과 같은 어휘를 쓴다 — 사유가 달라야
+// 사용자가 무엇을 할지 안다.
+const GIT_TAG_WHY_EMPTY='태그 이름이 필요합니다';
+const GIT_TAG_WHY_EXISTS='같은 이름의 태그가 이미 있습니다 — 다른 이름을 쓰세요';
+const GIT_TAG_WHY_NEED_MSG='annotated·signed 태그에는 메시지가 필요합니다';
+const GIT_TAG_VALIDATE_FAIL='태그 이름을 검사하지 못했습니다';
+// 메뉴 항목 (FR-GIT-261·262). 로컬과 원격은 **다른 항목**이다 — 하나가 다른 하나를
+// 자동으로 하지 않는다.
+const GIT_TAG_PUSH='Push to remote';
+const GIT_TAG_PUSH_ALL='Push all tags';
+const GIT_TAG_DELETE='Delete (local)';
+const GIT_TAG_DELETE_REMOTE='Delete (remote)';
+// 확인 (FR-GIT-89·92). 이름은 서버의 파괴적 목록(/api/git/policy)의 키이며 목록을
+// 복제하지 않는다.
+const GIT_ACT_TAG_DELETE='tag_delete';
+const GIT_ACT_REMOTE_REF_DELETE='remote_ref_delete';
+const GIT_TAG_DELETE_TITLE='로컬 태그를 지웁니다';
+const GIT_TAG_DELETE_NOTE='로컬에서만 지웁니다 — 원격의 같은 태그는 그대로 남습니다. 아래 명령으로 되살릴 수 있습니다';
+const GIT_TAG_DELETE_REMOTE_TITLE='원격의 태그를 지웁니다';
+const GIT_TAG_DELETE_REMOTE_NOTE='원격에서만 지웁니다 — 로컬의 같은 태그는 그대로 남습니다. 아래 명령으로 되살릴 수 있습니다';
+// 되살릴 oid 를 화면에서 얻지 못한 경우의 자리. 서버는 실행 **전에** 진짜 oid 로
+// hint 를 남기므로(FR-GIT-92) 복구 수단 자체가 사라지는 것은 아니다.
+const GIT_TAG_OID_UNKNOWN='<oid — /api/git/recovery 에 기록된 값>';
+// 원격 이름을 클라이언트가 정하지 않는다 (FR-GIT-100 과 같은 규약) — 요청은 빈
+// 값으로 보내고 서버가 정한다. 이 값은 **확인 문구에 보일 명령**의 자리를 채울
+// 뿐이며, 저장소의 upstream 에서 뽑지 못했을 때만 쓰인다.
+const GIT_TAG_REMOTE_FALLBACK='origin';
+// 원격을 지나는 태그 동작의 라우트. `GitRemote.run` 은 kind 로 URL 을 만들므로
+// 기본 규칙(`/api/git/<kind>`)과 다른 것만 여기 둔다 (FR-GIT-262).
+const GIT_TAG_KIND_PUSH='tag-push';
+const GIT_TAG_KIND_DELETE_REMOTE='tag-delete-remote';
+const GIT_REMOTE_URL={
+  [GIT_TAG_KIND_PUSH]:'/api/git/tag/push',
+  [GIT_TAG_KIND_DELETE_REMOTE]:'/api/git/tag/delete-remote',
+};

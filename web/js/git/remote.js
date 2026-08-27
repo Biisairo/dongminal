@@ -284,7 +284,11 @@ class GitRemote {
     this._busy=true; this._err=null; this._done=null; this._conflict=false;
     this._logOpen=null;
     this._paint();
-    const res=await this._post('/api/git/'+kind,Object.assign({repo},body||{}));
+    // 라우트는 kind 에서 파생한다. 기본 규칙(`/api/git/<kind>`)과 다른 것만
+    // GIT_REMOTE_URL 에 있다 — 태그 push·원격 삭제가 그것이며(FR-GIT-262), 그것들도
+    // **같은 job 경로**를 타야 하므로 새 실행 경로를 만들지 않는다.
+    const res=await this._post(GIT_REMOTE_URL[kind]||('/api/git/'+kind),
+      Object.assign({repo},body||{}));
     this._busy=false;
     const job=res.data&&res.data.job;
     if(res.ok&&job&&job.id){this._attach(job);return res}

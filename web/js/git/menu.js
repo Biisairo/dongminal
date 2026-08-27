@@ -21,6 +21,12 @@
 // 실행하는지는 패널이 안다.
 function gitMenuPanel(){return (window.app&&app.gitPanel)||null}
 
+// FR-GIT-250.2: 파괴적 태그 항목의 확인 문구에 실을 **지우기 전 oid**. 값을 모르면
+// 지어내지 않는다 — 서버가 실행 전에 진짜 oid 로 hint 를 남긴다 (FR-GIT-92).
+function gitTagOid(t){
+  return GitTag.oidOf(gitMenuPanel(),t)||GIT_TAG_OID_UNKNOWN;
+}
+
 /**
  * FR-GIT-252: 진행 중 작업이 있으면 **새 작업을 시작할 수 없다.**
  *
@@ -57,6 +63,10 @@ const GIT_MENUS={
     // 이름 검증(FR-GIT-159)까지 그것이 이미 안다.
     {id:'branch-from',label:'여기서 브랜치 생성…',
      run:t=>gitMenuPanel().createBranchFrom(t.oid)},
+    // FR-GIT-260: 태그 생성의 **같은 다이얼로그**를 대상만 이 커밋으로 고정해 연다
+    // — 이름 검증도 종류 선택도 그것이 이미 안다.
+    {id:'tag-from',label:GIT_TAG_CREATE_AT,
+     run:t=>gitMenuPanel().createTag(t.oid)},
     {id:'copy-hash',   label:'커밋 해시 복사',run:t=>gitMenuPanel().copyText(t.oid)},
     {id:'copy-subject',label:'커밋 제목 복사',run:t=>gitMenuPanel().copyText(t.subject)},
     {sep:true},
@@ -88,7 +98,14 @@ const GIT_MENUS={
      disabled:t=>t.kind===GIT_REF_KIND_REMOTE?'':GIT_MENU_LOCAL_ONLY,
      run:t=>gitMenuPanel().checkoutRemote(t.short)},
   ],
+  // 태그 (FR-GIT-260~262). 생성은 대상을 묻지 않고 열린다 — 비우면 HEAD 다.
+  //
+  // **삭제가 둘인 것이 이 메뉴의 요점이다** (FR-GIT-261): 로컬과 원격은 다른
+  // 항목이고 하나가 다른 하나를 자동으로 하지 않는다. 둘 다 `destructive:true`
+  // 이므로 2단계 확인은 프레임워크가 거치고, 항목은 **되살리는 명령**만 선언한다
+  // — 그 명령은 지우기 전 oid 를 싣는다 (FR-GIT-92·250.2).
   tag:[
+    {id:'create',label:GIT_TAG_NEW,run:()=>gitMenuPanel().createTag('')},
     {id:'copy-name',label:'태그 이름 복사',run:t=>gitMenuPanel().copyText(t.short)},
     // 태그는 브랜치가 아니므로 옮겨 가면 detached 다 — 사전 경고를 1단계 거친다
     // (FR-GIT-144 와 같은 규약).
@@ -97,6 +114,25 @@ const GIT_MENUS={
      targets:t=>[t.short],
      hint:()=>({note:GIT_DETACHED_NOTE,command:''}),
      run:t=>gitMenuPanel().checkoutRef(t.short,{detach:true})},
+    {sep:true},
+    // push 는 파괴적이 아니다 — 원격에 없던 ref 를 더할 뿐이다. 원격 작업이므로
+    // job 경로를 탄다 (FR-GIT-262·101~104).
+    {id:'push',    label:GIT_TAG_PUSH,    run:t=>gitMenuPanel().tagPush(t.short)},
+    {id:'push-all',label:GIT_TAG_PUSH_ALL,run:()=>gitMenuPanel().tagPushAll()},
+    {sep:true},
+    {id:'delete',label:GIT_TAG_DELETE,destructive:true,
+     action:GIT_ACT_TAG_DELETE,title:GIT_TAG_DELETE_TITLE,
+     targets:t=>[t.short],
+     hint:t=>({note:GIT_TAG_DELETE_NOTE,
+       command:'git tag '+t.short+' '+gitTagOid(t)}),
+     run:t=>gitMenuPanel().tagDelete(t.short)},
+    {id:'delete-remote',label:GIT_TAG_DELETE_REMOTE,destructive:true,
+     action:GIT_ACT_REMOTE_REF_DELETE,title:GIT_TAG_DELETE_REMOTE_TITLE,
+     targets:t=>[t.short],
+     hint:t=>({note:GIT_TAG_DELETE_REMOTE_NOTE,
+       command:'git push '+GitTag.remoteOf(gitMenuPanel())+' '+gitTagOid(t)+
+         ':refs/tags/'+t.short}),
+     run:t=>gitMenuPanel().tagDeleteRemote(t.short)},
   ],
   // stash (FR-GIT-162~164·168). drop 만 파괴적이며 확인은 프레임워크가 거친다 —
   // 항목이 확인 코드를 따로 쓰지 않는다.
