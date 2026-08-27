@@ -42,8 +42,9 @@
 
 ### 2.2 가정
 
-- **A-1** 대상 TUI 는 마우스 리포팅을 켜지 않는다(실측). 마우스 리포팅을 켜는 TUI 는
-  xterm 이 터치를 처리하지 않으므로 본 SRS 범위 밖이다.
+- **A-1** ~~대상 TUI 는 마우스 리포팅을 켜지 않는다(실측).~~ **철회 — §7.2.**
+  실기기 로그에서 SGR 마우스 리포트가 실제로 전송된다. 교정은 마우스 리포팅이
+  켜져 있든 꺼져 있든 올바르게 동작해야 한다(FR-MTI-28).
 - **A-2** 대상 TUI 는 alternate screen 을 쓰지 않으므로 스크롤백이 존재한다.
   alt screen TUI 는 스크롤할 대상이 없어 원리상 제외된다.
 
@@ -285,3 +286,123 @@ helper textarea 에 포커스를 주고 그 포커스는 계속 유지되므로:
 | 모바일 첫 로드/재렌더 | render 가 focus → 키보드 등장 | focus 하지 않음 | FR-MTI-25 |
 | 모바일 터미널 탭 | 앱 포커스만 이동 | 터미널에 focus (키보드 등장) | FR-MTI-25 |
 | 키보드 내리기 | 수단 없음 | 키바 버튼 | FR-MTI-26 |
+
+---
+
+## 7. 개정 2 — 실기기 로그가 지목한 근본 원인 (FR-MTI-27~29)
+
+§3·§6 의 교정은 실기기에서 증상을 없애지 못했다. 세 번째 시도에서야 `?diag=1`
+오버레이(`web/js/ui/diag.js`)로 **실기기 이벤트를 직접 받았고**, 그 로그가 앞선
+두 판정을 모두 뒤집었다. 이 절의 근거는 전부 그 로그다
+(Android 10 / Chrome 151 / 360×731 / dpr 3).
+
+### 7.1 로그가 말한 것
+
+**환경은 정상이었다.** 교정이 적용되지 않은 것이 아니다.
+
+```
+isMobile=true displayMode=auto bp=768   body.mobile=true
+tp.touchAction=none                     ← FR-MTI-23 적용됨
+hasTouchScrollHook=true hasBeforeInput=true
+ver=js/ui/term-pane.js?v=149            ← 새 코드 로드됨
+```
+
+**터치 핸들러도 정상이었다.**
+
+```
+touchstart n=1 y=488 cancelable=true tsActive=false dp=false
+touchmove  n=1 y=479 cancelable=true tsActive=false dp=true
+touchmove  n=1 y=477 cancelable=true tsActive=true  dp=true
+```
+
+slop 을 넘기며 `tsActive=true` 가 되고 `preventDefault` 도 걸린다. 그런데
+**제스처 내내 `vY=0` 이었다.** 스크롤이 실행되지 않은 것이 아니라, **스크롤할
+내용이 없었다.**
+
+```
+term.onScroll  vY=14 baseY=14 len=28 rows=14
+window.resize innerH=387 | vY=0 baseY=0 len=14 rows=14     ← 스크롤백 소멸
+window.resize innerH=759 | vY=0 baseY=0 len=13 rows=13
+window.resize innerH=759 | vY=0 baseY=0 len=33 rows=33
+```
+
+`window.resize` **17 회**, PTY `RESIZE` **17 회**. `innerH` 가
+`731 ↔ 387 ↔ 759 ↔ 746 ↔ 402` 로 왕복하며 `rows` 가 `33 ↔ 13` 을 오간다.
+그리고 **rows 가 늘어날 때 xterm 은 스크롤백을 화면으로 흡수한다** —
+`baseY=14 len=28` 이 `baseY=0 len=33` 이 된다. 스크롤백이 사라진다.
+
+**이 TUI 는 마우스 리포팅을 켜고 있었다.**
+
+```
+SEND "\u001b[<35;32;22M"      ← SGR motion 리포트
+SEND "\u001b[<0;32;22M"       ← 버튼 press
+SEND "\u001b[<0;32;22m"       ← release
+```
+
+**입력은 정상이었다.**
+
+```
+compositionstart data=""
+compositionupdate data="ㄱ" → "가" → "간" → "가나" → …
+```
+
+한글 조합 중 전송은 없다. `SEND "cc"` 는 중복이 아니라 사용자가 실제로 입력한
+두 글자이고, Enter 가 `_finalizeComposition` 을 통해 조합을 확정시킨 결과다.
+사용자가 말한 "글씨가 불안하다" 는 입력 유실이 아니라, 17 회의 SIGWINCH 가
+TUI 프레임 전체를 다시 그려 **화면이 요동친 것**이다.
+
+### 7.2 정정 — 앞선 두 판정의 오류
+
+- **§0.1 의 "대상 TUI 는 마우스 리포팅을 켜지 않는다" 는 틀렸다.** 그 근거는
+  PTY 로 `claude` 를 6 초(뒤에 20 초로 재시도) 캡처한 것이었으나, 캡처는 초기
+  화면(1216 B)에서 멈춰 TUI 가 완전히 초기화된 뒤의 DECSET 을 보지 못했다.
+  실기기에서는 SGR 리포트가 실제로 전송된다. **가정 A-1 은 철회한다.**
+- **§6.2 의 사슬은 순서가 틀렸다.** 키보드 재표시가 첫 고리가 아니다. 첫 고리는
+  **layout viewport 축소**이고, 그것이 rows 왕복 → 스크롤백 소멸 → 재렌더를
+  일으킨다. FR-MTI-22(스크롤 시 blur)와 FR-MTI-25(탭만 focus)는 유효한 개선이지만
+  주원인이 아니었다.
+
+### 7.3 요구사항
+
+- **FR-MTI-27** `interactive-widget` 은 `resizes-visual` 이다.
+  **이 요구는 `USER_CHECKLIST_FIXES_SRS` 의 FR-MKV-2 를 개정한다** — 그 문서가
+  `resizes-content` 를 택한 근거는 "layout viewport 가 줄어 `height:100%` 사슬이
+  그대로 옳아지고, `kbH≈0` 이 되어 JS 경로가 스스로 비활성된다" 였다. 그 부수
+  효과가 터미널에는 해로웠다: rows 가 키보드와 함께 왕복하고, 늘어날 때마다
+  스크롤백이 소멸한다. 검증 `TC-MKV-9` 도 함께 개정한다. `resizes-content` 는
+  소프트 키보드가 layout viewport 를 줄여 `window resize` 를 연발하게 하고, 그
+  fit 이 rows 를 왕복시켜 스크롤백을 소멸시킨다. `resizes-visual` 에서는
+  `window.innerHeight` 가 유지되므로 rows 가 고정되고, 키보드 높이는
+  `visualViewport` 로 관측된다 — FR-MKV-3/4 의 보정과 FR-MTI-12/13 의 병합·임계가
+  비로소 실제로 작동하는 경로가 된다.
+- **FR-MTI-28** 터치 스크롤은 **합성 `wheel` 이벤트를 xterm 의 `term.element` 에
+  디스패치**하는 방식으로 수행한다. `scrollLines` 를 직접 호출하던 이전 구현은
+  스크롤백이 있을 때만 동작했고, 화면을 재렌더하는 TUI 에는 스크롤백이 rows 만큼
+  밖에 없다. wheel 로 넘기면 xterm 이 상태에 맞게 갈라준다.
+  - 마우스 리포팅 ON → 프로토콜에 맞는 휠 리포트 전송 → **TUI 가 스크롤한다**
+  - OFF + 스크롤백 → viewport 스크롤
+  - OFF + alt screen → 위/아래 방향키로 변환
+
+  픽셀→행 누적도 xterm 의 `getLinesScrolled`(`_wheelPartialScroll`)가 이미 한다.
+  이동이 0 인 프레임은 보내지 않는다.
+- **FR-MTI-29** 스크롤로 판정된 제스처가 만든 합성 마우스 이벤트
+  (`mousedown`/`mouseup`/`click`)는 `MTI_SYNTH_MOUSE_MS` 동안 차단한다.
+  마우스 리포팅이 켜진 TUI 는 그것을 클릭으로 받는다 — 로그에서 스크롤 제스처가
+  실제로 `ESC[<0;32;22M/m` 을 보내고 있었다.
+
+### 7.4 검증
+
+| ID | 요구 | 검증 |
+|---|---|---|
+| TC-MTI-24 | FR-MTI-27 | viewport meta 가 `interactive-widget=resizes-visual` 이다 |
+| TC-MTI-25 | FR-MTI-28 | 스크롤백이 없는 상태에서도 터치 드래그가 wheel 로 넘어가고, 감도 배율이 실린다 |
+| TC-MTI-26 | FR-MTI-28 | 마우스 리포팅(1000+1006)이 켜지면 SGR 휠 리포트가 전송된다 |
+| TC-MTI-27 | FR-MTI-29 | 제스처 직후의 `mousedown` 이 차단된다 |
+
+### 7.5 동작 변경 기록
+
+| 항목 | 이전 | 이후 | 이유 |
+|---|---|---|---|
+| `interactive-widget` | `resizes-content` — 키보드가 layout viewport 축소 | `resizes-visual` | FR-MTI-27 |
+| 터치 스크롤 실행 | `term.scrollLines` — 스크롤백이 있어야 동작 | 합성 `wheel` → xterm 이 분기 | FR-MTI-28 |
+| 스크롤 제스처의 합성 클릭 | TUI 에 클릭으로 전달 | 차단 | FR-MTI-29 |

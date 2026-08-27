@@ -225,12 +225,18 @@ test.describe('묶음 F — 모바일 키보드 뷰포트 (FR-MKV-*)', () => {
     expect((await pads(page)).top).toBe('60px');
   });
 
-  test('TC-MKV-9: viewport meta 가 interactive-widget=resizes-content 를 선언한다 (FR-MKV-2)', async ({ page }) => {
+  // FR-MKV-2 는 FR-MTI-27 로 개정됐다 (MOBILE_TUI_INPUT_SCROLL_SRS §7).
+  // resizes-content 는 실기기에서 소프트 키보드가 layout viewport 를 줄여
+  // window resize 를 17회 연발시키고, 그 fit 이 rows 를 33↔13 왕복시켜
+  // xterm 이 스크롤백을 화면으로 흡수해 없애버렸다 — 스크롤할 내용 자체가
+  // 사라졌다. resizes-visual 은 innerHeight 를 유지해 rows 를 고정한다.
+  test('TC-MKV-9: viewport meta 가 interactive-widget=resizes-visual 을 선언한다 (FR-MTI-27)', async ({ page }) => {
     await page.goto('/');
     const content = await page.locator('meta[name="viewport"]').getAttribute('content');
     expect(content).not.toBeNull();
     const flat = content!.replace(/\s/g, '');
-    expect(flat).toContain('interactive-widget=resizes-content');
+    expect(flat).toContain('interactive-widget=resizes-visual');
+    expect(flat).not.toContain('resizes-content');
     expect(flat).toContain('viewport-fit=cover');   // 기존 선언 유지 (REQ-B-2)
   });
 

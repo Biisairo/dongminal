@@ -141,6 +141,16 @@ class TerminalTool {
     this.el.addEventListener('touchmove',e=>this._tsMove(e),opt);
     this.el.addEventListener('touchend',e=>this._tsEnd(e),opt);
     this.el.addEventListener('touchcancel',e=>this._tsEnd(e),opt);
+    // FR-MTI-29: Chrome 은 제스처가 끝난 뒤 합성 마우스 이벤트를 낸다. 마우스
+    // 리포팅이 켜진 TUI 에는 그것이 클릭으로 전달된다 — 실기기 로그에서 스크롤
+    // 제스처가 ESC[<0;32;22M/m 을 보내고 있었다. 스크롤한 것을 클릭으로 받으면
+    // TUI 가 엉뚱하게 반응한다. 스크롤로 판정된 제스처의 합성분만 막는다.
+    for(const t of ['mousedown','mouseup','click']){
+      this.el.addEventListener(t,e=>{
+        if(!this._tsSuppressUntil||Date.now()>this._tsSuppressUntil) return;
+        e.preventDefault();e.stopPropagation();
+      },true);
+    }
   }
 
   _tsMobile(){return !!(window.app && window.app.isMobile)}
@@ -185,6 +195,7 @@ class TerminalTool {
     this._tsY0=null;this._tsActive=false;
     if(!wasActive) return;
     e.preventDefault();e.stopPropagation();
+    this._tsSuppressUntil=Date.now()+MTI_SYNTH_MOUSE_MS;   // FR-MTI-29
     // FR-MTI-7: 마지막 관측 속도에서 시작해 프레임마다 감쇠한다.
     let v=this._tsV*MTI_TOUCH_GAIN;
     if(Math.abs(v)>MTI_FLING_MAX_V) v=v<0?-MTI_FLING_MAX_V:MTI_FLING_MAX_V;
@@ -209,26 +220,30 @@ class TerminalTool {
     if(ta && document.activeElement===ta){try{ta.blur()}catch{}}
   }
 
-  _rowHeightPx(){
-    const sc=this.el.querySelector('.xterm-screen');
-    if(sc && this.term && this.term.rows>0){
-      const h=sc.clientHeight/this.term.rows;
-      if(h>0) return h;
-    }
-    return 0;
-  }
-
-  // FR-MTI-10: scrollLines 로 ydisp 와 DOM scrollTop 을 함께 움직이고,
-  // 행에 못 미친 픽셀은 누적해 다음 이동에서 쓴다.
+  // FR-MTI-28: 스크롤을 직접 처리하지 않고 xterm 의 wheel 경로로 넘긴다.
+  //
+  // scrollLines 로 직접 움직이던 이전 구현은 스크롤백이 있을 때만 동작했다.
+  // 실기기 로그에서 이 TUI 는 마우스 리포팅을 켜고 있었고(SGR 리포트가 실제로
+  // 전송됐다), 그런 TUI 는 스크롤을 스크롤백이 아니라 자기가 처리한다 — 화면을
+  // 재렌더하므로 스크롤백은 rows 만큼밖에 없다(실측 len==rows, 제스처 내내 vY=0).
+  //
+  // 합성 wheel 을 넘기면 xterm 이 상태에 맞게 갈라준다:
+  //   · 마우스 리포팅 ON  → 프로토콜(SGR/일반)에 맞는 휠 리포트 전송 → TUI 가 스크롤
+  //   · OFF, 스크롤백 있음 → viewport 스크롤
+  //   · OFF, alt screen    → 위/아래 방향키로 변환
+  // 픽셀→행 누적도 xterm 의 getLinesScrolled 가 이미 한다(_wheelPartialScroll).
   _touchScrollBy(px){
-    if(!this.term) return;
-    const rowH=this._rowHeightPx();
-    if(!(rowH>0)) return;
-    this._tsResid=(this._tsResid||0)+px;
-    const lines=Math.trunc(this._tsResid/rowH);
-    if(!lines) return;
-    this._tsResid-=lines*rowH;
-    try{this.term.scrollLines(lines)}catch{}
+    if(!px) return;                       // 움직이지 않은 프레임은 보내지 않는다
+    const el=this.term&&this.term.element;
+    if(!el) return;
+    const r=el.getBoundingClientRect();
+    try{
+      el.dispatchEvent(new WheelEvent('wheel',{
+        deltaY:px, deltaX:0, deltaMode:0,
+        clientX:r.left+r.width/2, clientY:r.top+r.height/2,
+        bubbles:true, cancelable:true,
+      }));
+    }catch{}
   }
   connect() {
     const p=location.protocol==='https:'?'wss:':'ws:';

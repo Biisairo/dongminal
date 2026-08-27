@@ -371,7 +371,7 @@
 | 엔진 | 확인 대상 | 왜 |
 |---|---|---|
 | **iOS Safari** | C11.8~C11.10 **전부.** 특히 키보드가 뜬 직후 topbar 가 보이는지 | `interactive-widget` 미지원이라 JS 보정(`padding-top = vv.offsetTop`)이 유일한 수단이다. Playwright `webkit` 프로젝트는 가상 키보드를 띄우지 않으므로 대체가 안 된다 |
-| **Android Chrome** | C11.8~C11.10 | `interactive-widget=resizes-content` 로 layout viewport 가 줄어드는 경로. JS 보정은 비활성이어야 한다 |
+| **Android Chrome** | C11.8~C11.10 | `interactive-widget=resizes-visual` (FR-MTI-27 이 FR-MKV-2 를 개정). layout viewport 가 줄지 않으므로 rows 가 고정되고, 키보드 높이는 `visualViewport` 로 관측해 JS 보정이 **작동해야** 한다 |
 | **Samsung Internet** | C11.8~C11.10 | Chromium 기반이므로 Chrome 과 같아야 한다. 다르면 그 버전의 Chromium 이 108 미달인지 확인한다 |
 
 **iOS 에서 특히 볼 것 — 진동(oscillation).** 보정은 포커스된 textarea 를 가시 영역 안에
