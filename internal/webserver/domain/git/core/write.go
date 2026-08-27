@@ -28,7 +28,16 @@ var writeCommands = map[string]bool{
 	"fetch": true, "pull": true, "push": true,
 	"merge": true, "rebase": true, "cherry-pick": true, "revert": true,
 	"update-ref": true, "symbolic-ref": true,
+	// FR-GIT-269: 원격 목록의 add/remove. 목록 **조회**는 여기 오지 않는다 —
+	// query/remote.go 가 `config --list` 로 이미 얻으므로 읽기 허용 목록을 늘릴
+	// 일이 없고, 그래서 두 목록의 교집합도 그대로 비어 있다 (FR-GIT-95).
+	"remote": true,
 }
+
+// remoteSubArgs 는 `git remote` 가 지날 수 있는 하위 명령과 그 뒤 인자 수다
+// (FR-GIT-269). **add·remove 둘뿐이다** — set-url·prune·update 는 이 표면이
+// 제공하지 않는 동작이고, 열어 두면 화면에 없는 변경이 API 직접 호출로 들어온다.
+var remoteSubArgs = map[string]int{"add": 2, "remove": 1}
 
 // IsWriteCommand 는 argv 의 하위 명령이 쓰기 목록에 있는지 답한다 (FR-GIT-218).
 // 목록을 두 벌 두지 않으려고 노출한다 — Console 이 감추는 기준과 ExecWrite 가
@@ -89,7 +98,38 @@ func (s *Service) ExecWrite(ctx context.Context, dir string, spec WriteSpec) (Ou
 
 // GuardWriteArgs 는 guardArgs 와 같은 안전 검사를 하고 허용 목록만 바꾼다
 // (FR-GIT-2). 목록에 없는 명령은 읽기든 미지의 것이든 여기서 멈춘다.
-func GuardWriteArgs(args []string) error { return guardCommon(args, writeCommands, "쓰기") }
+func GuardWriteArgs(args []string) error {
+	if err := guardCommon(args, writeCommands, "쓰기"); err != nil {
+		return err
+	}
+	if args[0] == "remote" {
+		return guardRemoteArgs(args[1:])
+	}
+	return nil
+}
+
+// guardRemoteArgs 는 `git remote` 를 add/remove 두 모양으로 한정한다
+// (FR-GIT-269). 인자 수까지 못박는 이유는 남는 인자가 곧 다른 동작이기 때문이다 —
+// `remote add -f <name> <url>` 은 fetch 까지 하는 다른 명령이다.
+func guardRemoteArgs(rest []string) error {
+	if len(rest) == 0 {
+		return fmt.Errorf("%w: git remote 는 하위 명령을 요구한다", ErrUnsafeArgument)
+	}
+	want, ok := remoteSubArgs[rest[0]]
+	if !ok {
+		return fmt.Errorf("%w: git remote 의 %q 는 이 표면이 제공하지 않는다", ErrUnsafeArgument, rest[0])
+	}
+	if len(rest)-1 != want {
+		return fmt.Errorf("%w: git remote %s 는 인자 %d 개를 받는다: %q", ErrUnsafeArgument, rest[0], want, rest[1:])
+	}
+	// 위치 인자에 옵션처럼 생긴 값이 오면 git 이 그것을 옵션으로 읽는다.
+	for _, a := range rest[1:] {
+		if strings.HasPrefix(a, "-") {
+			return fmt.Errorf("%w: git remote 의 인자는 - 로 시작할 수 없다: %q", ErrUnsafeArgument, a)
+		}
+	}
+	return nil
+}
 
 // writeRunner 는 주입된 실행기 또는 기본 구현이다. 기본 구현이 execGit 을 그대로
 // 쓰는 이유는 환경·상한·마감 처리가 읽기와 갈라지면 안 되기 때문이다.

@@ -1867,3 +1867,53 @@ select:focus{border-color:var(--accent);outline:none}
 .git-hunk-line.sel{background:var(--accent-active)}
 /* 조각 동작이 거부된 사유. 누른 자리가 Diff 탭이므로 여기 보인다 (FR-GIT-278). */
 .git-hunk-note.fail{color:var(--danger)}
+/* ── 원격 동작 (FR-GIT-269~271) ────────────────────────────────────────────
+   Sync·Preview 는 `.git-head-remote` **밖**이다 — 안에 넣으면 "원격 버튼 한 벌은
+   세 쌍" 이라는 기존 단정이 깨진다 (FR-GIT-238 의 새로고침과 같은 이유). */
+.git-remote-sync,.git-push-preview{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;margin-right:6px;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-remote-sync:hover:not(:disabled),.git-push-preview:hover:not(:disabled){
+  background:var(--accent-hover);color:var(--accent);
+}
+/* 사유 없이 꺼진 버튼은 사용자가 해소할 수 없다 — title 이 그것을 맡는다 */
+.git-remote-sync:disabled,.git-push-preview:disabled{color:var(--text-dim);cursor:not-allowed}
+
+/* Branches 탭의 원격 목록 (FR-GIT-269). 트리가 스크롤을 갖고 이 영역은 고정이다 */
+.git-br-remotes{flex:0 0 auto;border-top:1px solid var(--border);font-size:12px}
+.git-rm-head{display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:11px}
+.git-rm-title{color:var(--accent)}
+.git-rm-count{color:var(--text-muted)}
+.git-rm-spacer{flex:1 1 auto}
+.git-rm-add{
+  font:inherit;font-size:10px;padding:1px 6px;cursor:pointer;
+  background:transparent;color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-rm-add:hover:not(:disabled){background:var(--accent-hover);color:var(--accent)}
+.git-rm-add:disabled{color:var(--text-dim);cursor:not-allowed}
+.git-rm-note{display:none;padding:3px 10px;font-size:11px;color:var(--danger)}
+.git-rm-note.vis{display:block}
+.git-rm-rows{max-height:140px;overflow-y:auto;padding-bottom:4px}
+.git-rm-empty{padding:6px 10px;color:var(--text-muted);font-size:11px}
+.git-rm-row{
+  display:flex;align-items:center;gap:8px;padding:2px 10px;min-width:0;
+  min-height:var(--git-row-min);
+}
+.git-rm-name{flex-shrink:0}
+.git-rm-url{
+  flex:1 1 auto;min-width:0;color:var(--text-muted);font-size:10px;font-family:monospace;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.git-rm-del{
+  font:inherit;font-size:10px;padding:1px 6px;cursor:pointer;flex-shrink:0;
+  background:transparent;color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-rm-del:hover{background:var(--accent-hover);color:var(--accent)}
+
+/* Push 미리보기 (FR-GIT-271). 본문이 올라갈 커밋 목록이므로 줄바꿈을 보존한다 */
+.gpp-note{
+  white-space:pre-wrap;word-break:break-all;max-height:180px;overflow-y:auto;
+  font-family:monospace;font-size:11px;
+}

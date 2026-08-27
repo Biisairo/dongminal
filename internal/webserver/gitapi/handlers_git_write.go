@@ -366,6 +366,11 @@ func gitWriteErrorCode(err error) (int, string) {
 	if code, name, ok := gitPatchErrorCode(err); ok {
 		return code, name
 	}
+	// 원격 목록의 거부는 handlers_git_remote.go 가 판정한다 (FR-GIT-269) —
+	// 판정을 여기 복제하면 두 벌이 되고, 두 벌은 반드시 갈라진다.
+	if code, name, ok := gitRemoteListError(err); ok {
+		return code, name
+	}
 	if errors.Is(err, core.ErrUnsafeArgument) || errors.Is(err, core.ErrWriteCommand) {
 		return http.StatusBadRequest, gitErrBadRequest
 	}

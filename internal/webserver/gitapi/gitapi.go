@@ -44,6 +44,9 @@ type GitServer struct {
 	// gitJobs 는 원격 작업(fetch/pull/push)의 수명을 쥔다 (FR-GIT-101·102).
 	// 제로값도 쓸 수 있다 — 첫 사용에 만들어지고, Git 이 없으면 만들지 않는다.
 	gitJobs gitJobHolder
+	// gitSyncs 는 Sync 한 번의 두 단계를 잇는다 (FR-GIT-270). 순서 판정이 서버에
+	// 있어야 "앞이 실패하면 뒤를 돌리지 않는다"가 API 직접 호출에도 선다.
+	gitSyncs gitSyncHolder
 
 	// UserWorktrees 는 사용자 worktree 영역의 Manager 다 (FR-WKT-13) —
 	// $DONGMINAL_HOME/git-worktrees 를 자기 root 로 갖는, Run 격리 Manager 와는

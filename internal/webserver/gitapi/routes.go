@@ -47,6 +47,13 @@ var routes = []route{
 	{http.MethodPost, exactPath("/api/git/job/cancel"), (*GitServer).apiGitJobCancel},
 	{http.MethodGet, exactPath("/api/git/job/events"), (*GitServer).apiGitJobEvents},
 	{http.MethodGet, exactPath("/api/git/jobs"), (*GitServer).apiGitJobs},
+	// 묶음 E — 원격 목록·Sync·Push preview (GIT_ACTIONS_SRS FR-GIT-269~271).
+	{http.MethodGet, exactPath("/api/git/remotes"), (*GitServer).apiGitRemotes},
+	{http.MethodPost, exactPath("/api/git/remote/add"), (*GitServer).apiGitRemoteAdd},
+	{http.MethodPost, exactPath("/api/git/remote/remove"), (*GitServer).apiGitRemoteRemove},
+	{http.MethodPost, exactPath("/api/git/sync"), (*GitServer).apiGitSync},
+	{http.MethodGet, exactPath("/api/git/sync"), (*GitServer).apiGitSyncState},
+	{http.MethodGet, exactPath("/api/git/push/preview"), (*GitServer).apiGitPushPreview},
 	// 묶음 N — 브랜치 (GIT_SRS FR-GIT-155~160). 목록은 /api/git/refs 가 이미
 	{http.MethodPost, exactPath("/api/git/checkout"), (*GitServer).apiGitCheckout},
 	// FR-GIT-252: 진행 중 작업의 출구(계속·건너뛰기·중단). 종류는 본문이 정한다 —

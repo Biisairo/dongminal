@@ -985,3 +985,65 @@ Object.assign(GIT_WRITE_ERR,{
   stale_observation:'그 사이 파일이 바뀌었습니다 — 조각을 다시 받아 고르세요',
   patch_empty:'고른 범위에 바뀐 줄이 없습니다',
 });
+// ── 원격 동작 (FR-GIT-269~271) ──
+
+// FR-GIT-269: Branches 탭의 원격 목록. **URL 은 서버가 자격증명을 지운 값이다**
+// (FR-GIT-104) — 화면이 다시 가리지 않는다. 가리는 자리가 둘이면 한쪽만 고쳐진다.
+const GIT_RM_TITLE='Remotes';
+const GIT_RM_ADD='+ Add Remote';
+const GIT_RM_ADD_TITLE='새 원격을 더합니다 (git remote add)';
+const GIT_RM_EMPTY='원격이 없습니다';
+const GIT_RM_LOAD_FAIL='원격 목록을 불러오지 못했습니다';
+const GIT_RM_REMOVE='Remove';
+const GIT_RM_REMOVE_TITLE='이 원격 설정을 지웁니다 (git remote remove)';
+const GIT_RM_PUSH_PREFIX='push → ';
+// 자격증명이 박힌 URL 은 그 자리가 가려져 온다. 가려졌다는 사실을 말하지 않으면
+// 사용자는 URL 이 그렇게 저장돼 있다고 읽는다.
+const GIT_RM_MASK='***';
+const GIT_RM_MASK_TITLE='URL 에 자격증명이 박혀 있어 그 자리를 가렸습니다';
+// 생성 다이얼로그 (FR-GIT-171 의 골격을 그대로 쓴다).
+const GIT_RM_CREATE_TITLE='새 원격을 더합니다';
+const GIT_RM_CREATE_RUN='Add';
+const GIT_RM_NAME_PH='이름 — origin, upstream 처럼';
+const GIT_RM_URL_PH='URL — https://… 또는 git@host:path.git';
+const GIT_RM_WHY_NAME='이름이 필요합니다';
+const GIT_RM_WHY_URL='URL 이 필요합니다';
+const GIT_RM_ADD_FAIL='원격을 더하지 못했습니다';
+// remove 는 **파괴적이 아니다** — 저장소의 객체는 그대로이고 설정만 사라진다.
+// 그래서 1단계이며, 그럼에도 되살릴 명령을 보인다 (FR-GIT-92·269).
+const GIT_ACT_REMOTE_REMOVE='remote_remove';
+const GIT_RM_REMOVE_CONFIRM_TITLE='원격 설정을 지웁니다';
+const GIT_RM_REMOVE_NOTE='가져온 객체와 refs/remotes 는 남습니다. 아래로 되살릴 수 있습니다';
+const GIT_RM_REMOVE_FAIL='원격을 지우지 못했습니다';
+
+// FR-GIT-270: Sync 는 pull 후 push 를 한 진입점으로 묶는다. **앞이 실패하면 뒤를
+// 돌리지 않는다** — 그 판정은 서버가 하고 화면은 그 사실을 보인다.
+const GIT_SYNC_LABEL='Sync';
+const GIT_SYNC_TITLE='가져와 합친 뒤 밀어 올립니다 (pull → push)';
+// 단계는 라벨로 보인다 — "1/2" 가 없으면 사용자는 무엇이 도는지 모른다.
+const GIT_SYNC_STEP_LABEL={pull:'Sync 1/2 — Pull',push:'Sync 2/2 — Push'};
+const GIT_SYNC_STOPPED='pull 이 끝나지 않아 push 를 돌리지 않았습니다';
+const GIT_SYNC_START_FAIL='Sync 를 시작하지 못했습니다';
+// 두 번째 단계의 작업 식별자는 서버가 준다. 폴링 간격·횟수는 상수로 못박는다.
+const GIT_SYNC_POLL_MS=250;
+const GIT_SYNC_POLL_MAX=60;
+
+// FR-GIT-271: Push preview. 밀기 전에 올라갈 커밋을 보이고, 대상을 고치게 하며,
+// force-with-lease 를 그 자리에서 켠다 — force 는 기존 확인 규약을 그대로 탄다
+// (FR-GIT-106, GIT_ACT_FORCE_PUSH).
+const GIT_PP_LABEL='Preview';
+const GIT_PP_BTN_TITLE='밀기 전에 올라갈 커밋을 봅니다';
+const GIT_PP_TITLE='Push 미리보기';
+const GIT_PP_RUN='Push';
+const GIT_PP_FAIL='미리보기를 불러오지 못했습니다';
+const GIT_PP_NONE='올라갈 커밋이 없습니다';
+const GIT_PP_COUNT_PREFIX='올라갈 커밋 ';
+const GIT_PP_COUNT_SUFFIX='개';
+const GIT_PP_PUBLISH_NOTE='원격에 이 브랜치가 없습니다 — 미는 순간 만들어지고, 아래는 이 브랜치의 커밋입니다';
+const GIT_PP_REMOTE_LABEL='대상 원격';
+const GIT_PP_BRANCH_LABEL='대상 브랜치';
+const GIT_PP_LEASE='--force-with-lease 로 밀기';
+// force 세기의 이름은 서버(write.PushLease)와 같은 문자열이다.
+const GIT_PUSH_FORCE_LEASE='lease';
+const GIT_PP_UPSTREAM='이 원격을 upstream 으로 설정 (-u)';
+const GIT_PP_WHY_BRANCH='대상 브랜치가 필요합니다';

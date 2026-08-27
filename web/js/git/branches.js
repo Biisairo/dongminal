@@ -51,7 +51,10 @@ class GitBranches {
         '<span class="git-br-note-msg"></span>'+
         '<button class="git-br-retry"></button>'+
       '</div>'+
-      '<div class="git-br-tree"></div>';
+      '<div class="git-br-tree"></div>'+
+      // FR-GIT-269: 원격 목록. 트리 **아래**에 둔다 — 브랜치가 이 탭의 본체이고
+      // 원격 설정은 그것을 보조한다. 채우는 것은 GitRemoteList 다 (remote.js).
+      '<div class="git-br-remotes"></div>';
     el.querySelector('.git-br-search').placeholder=GIT_BR_SEARCH_PLACEHOLDER;
     el.querySelector('.git-br-new').textContent=GIT_BR_NEW;
     el.querySelector('.git-br-retry').textContent=GIT_BR_RETRY;
@@ -64,14 +67,26 @@ class GitBranches {
       this._err=null; this._load();
     });
     this._el.dataset.repo='';
+    // FR-GIT-269: 원격 목록은 자기 상태를 스스로 든다 — 골격 자리만 내준다.
+    this._remotes().mount(el.querySelector('.git-br-remotes'));
     // 골격이 새로 세워졌으므로 다음 paint 가 리포 상태를 다시 채운다.
     this._repo=undefined;
   }
 
   unmount(){
+    if(this._remotesView) this._remotesView.unmount();
     this._el=null;
     this._repo=undefined;
   }
+
+  // FR-GIT-269: 원격 목록 (remote.js 가 소유한다). 지연 생성이며, 목록을 다시
+  // 받아야 하는 쪽(원격 add/remove 를 밖에서 한 경우)이 reloadRemotes 를 부른다.
+  _remotes(){
+    if(!this._remotesView) this._remotesView=new GitRemoteList(this.panel);
+    return this._remotesView;
+  }
+
+  reloadRemotes(){return this._remotes().reload()}
 
   // ── 칠하기 ──
 
@@ -81,6 +96,7 @@ class GitBranches {
     if(!this._el) return;
     this._paintBar();
     this._paintTree();
+    this._remotes().paint();
   }
 
   /**
