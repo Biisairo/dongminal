@@ -6,7 +6,7 @@
 | 항목 | 값 |
 |---|---|
 | 문서 | GIT_FOLLOW_REMOVAL_SRS |
-| 상태 | 초안 |
+| 상태 | **구현 완료** (2026-08-27) — V-FLW-1~10 전부 e2e 로 섰다 |
 | 날짜 | 2026-08-27 |
 | 선행 | GIT_SRS(FR-GIT-9~15·57~59) · GIT_UI_REVISION_SRS(FR-GIT-193·194·210) · GIT_REVIEW4_SRS(FR-GIT-239) |
 
