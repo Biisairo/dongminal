@@ -1193,6 +1193,13 @@ body.mobile .git-file-check{width:14px;height:14px}
   background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
 }
 .git-hist-filters{display:flex;gap:3px;min-width:0}
+/* FR-GIT-280: 켜져 있음이 라벨로 보인다 — 목록에 없던 커밋이 왜 있는지의 유일한 근거다 */
+.git-hist-reflog{
+  display:flex;align-items:center;gap:3px;flex-shrink:0;cursor:pointer;
+  font-size:11px;color:var(--text-muted);
+}
+.git-hist-reflog input{margin:0;cursor:pointer}
+.git-hist-reflog:has(input:checked){color:var(--accent)}
 .git-hist-apply,.git-hist-jump-go,.git-hist-retry,.git-hist-searchrepo{
   font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;
   background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;

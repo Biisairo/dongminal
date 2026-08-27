@@ -96,6 +96,10 @@ type LogQuery struct {
 	Until  string
 	Path   string
 	Grep   string
+	// Reflog 는 reflog 가 언급하는 커밋을 시작점에 더한다 (FR-GIT-280). 어떤 ref
+	// 도 가리키지 않게 된 커밋 — reset 으로 되돌린 것, 지운 브랜치의 끝 — 이
+	// 그때만 목록에 들어온다.
+	Reflog bool
 }
 
 // Log 는 커밋 목록 한 페이지를 준다 (FR-GIT-113).
@@ -161,6 +165,11 @@ func logArgs(q LogQuery) ([]string, error) {
 		if f.val != "" {
 			args = append(args, f.flag+f.val)
 		}
+	}
+	// --reflog 는 ref 집합을 **더하는** 옵션이므로 --all 이든 지정 ref 든 그 앞에
+	// 둔다. 위치 인자 앞이어야 git 이 옵션으로 읽는다.
+	if q.Reflog {
+		args = append(args, "--reflog")
 	}
 	if q.Ref == "" {
 		args = append(args, "--all")

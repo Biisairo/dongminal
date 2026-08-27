@@ -27,6 +27,7 @@ type gitLogRequested struct {
 	Until  string `json:"until"`
 	Path   string `json:"path"`
 	Grep   string `json:"grep"`
+	Reflog bool   `json:"reflog"`
 }
 
 type gitLogResponse struct {
@@ -38,8 +39,8 @@ type gitLogResponse struct {
 	Commits []query.Commit `json:"commits"`
 }
 
-// GET /api/git/log?repo=&ref=&skip=&limit=&order=&author=&since=&until=&path=&grep=
-// — 커밋 목록 한 페이지 (FR-GIT-113·114·123·128·130).
+// GET /api/git/log?repo=&ref=&skip=&limit=&order=&author=&since=&until=&path=&grep=&reflog=
+// — 커밋 목록 한 페이지 (FR-GIT-113·114·123·128·130·280).
 func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
@@ -58,14 +59,19 @@ func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	reflog, ok := gitBoolParam(w, q, "reflog")
+	if !ok {
+		return
+	}
 	req := gitLogRequested{
 		Repo: requested, Ref: q.Get("ref"), Skip: skip, Limit: limit, Order: q.Get("order"),
 		Author: q.Get("author"), Since: q.Get("since"), Until: q.Get("until"),
-		Path: q.Get("path"), Grep: q.Get("grep"),
+		Path: q.Get("path"), Grep: q.Get("grep"), Reflog: reflog,
 	}
 	commits, err := query.Log(s.Git.Service(), r.Context(), query.LogQuery{
 		Repo: root, Ref: req.Ref, Skip: req.Skip, Limit: req.Limit, Order: req.Order,
 		Author: req.Author, Since: req.Since, Until: req.Until, Path: req.Path, Grep: req.Grep,
+		Reflog: req.Reflog,
 	})
 	if err != nil {
 		gitHistoryError(w, err)
@@ -151,6 +157,21 @@ func (s *GitServer) apiGitRefs(w http.ResponseWriter, r *http.Request) {
 //
 // 읽지 못한 값을 조용히 0 으로 낮추지 않는다 — skip 이 0 이 되면 추가 로드가 같은
 // 페이지를 되풀이하고, 사용자는 목록이 늘지 않는 이유를 알 수 없다.
+// gitBoolParam 은 토글 하나를 읽는다. 빈 값은 꺼짐이고, 모르는 값은 **거부한다** —
+// 조용히 꺼진 것으로 낮추면 사용자는 켰다고 믿는 토글이 꺼진 목록을 본다.
+func gitBoolParam(w http.ResponseWriter, q url.Values, name string) (bool, bool) {
+	raw := q.Get(name)
+	if raw == "" {
+		return false, true
+	}
+	v, err := strconv.ParseBool(raw)
+	if err != nil {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, name+" 는 참·거짓이어야 한다: "+raw)
+		return false, false
+	}
+	return v, true
+}
+
 func gitCountParam(w http.ResponseWriter, q url.Values, name string) (int, bool) {
 	raw := q.Get(name)
 	if raw == "" {

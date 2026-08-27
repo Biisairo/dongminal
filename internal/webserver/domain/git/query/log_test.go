@@ -191,6 +191,8 @@ func TestLog_Argv(t *testing.T) {
 		{"필터", LogQuery{Author: "김", Since: "2024-01-01", Until: "2024-02-01", Grep: "fix me"},
 			base + " -n 300 --author=김 --since=2024-01-01 --until=2024-02-01 --grep=fix me --all"},
 		{"경로는_구분자_뒤", LogQuery{Path: "d ir/한글.txt"}, base + " -n 300 --all -- d ir/한글.txt"},
+		{"reflog", LogQuery{Reflog: true}, base + " -n 300 --reflog --all"},
+		{"reflog_ref와_함께", LogQuery{Reflog: true, Ref: "refs/heads/main"}, base + " -n 300 --reflog refs/heads/main"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := &logFake{}
@@ -411,5 +413,45 @@ func TestLog_RealGit_EmptyRepo(t *testing.T) {
 	}
 	if len(cs) != 0 {
 		t.Fatalf("cs = %+v", cs)
+	}
+}
+
+// L11 (FR-GIT-280): reflog 토글이 **어떤 ref 도 가리키지 않게 된 커밋**을 목록에
+// 들인다. 껐을 때 그 커밋이 보이면 토글이 무의미하므로 양쪽을 다 본다 — 켠 쪽만
+// 보면 "원래 보이던 것"과 구분되지 않는다.
+func TestLog_RealGit_Reflog(t *testing.T) {
+	repo := tempRepo(t)
+	writeFile(t, repo, "dropped.txt", "x\n")
+	gitIn(t, repo, "add", "-A")
+	gitIn(t, repo, "commit", "-m", "버려질 커밋")
+	// reset 은 ref 를 되돌릴 뿐 커밋을 지우지 않는다 — 그 커밋은 이제 reflog 로만
+	// 닿는다. Git Graph 의 reflog 토글이 겨냥하는 상태가 정확히 이것이다.
+	gitIn(t, repo, "reset", "--hard", "HEAD~1")
+
+	s := core.New()
+	ctx := context.Background()
+	has := func(cs []Commit, subject string) bool {
+		for _, c := range cs {
+			if c.Subject == subject {
+				return true
+			}
+		}
+		return false
+	}
+
+	off, err := Log(s, ctx, LogQuery{Repo: repo, Order: LogOrderTopo})
+	if err != nil {
+		t.Fatalf("Log(off): %v", err)
+	}
+	if has(off, "버려질 커밋") {
+		t.Fatalf("토글이 꺼졌는데 reflog 커밋이 보인다: %+v", off)
+	}
+
+	on, err := Log(s, ctx, LogQuery{Repo: repo, Order: LogOrderTopo, Reflog: true})
+	if err != nil {
+		t.Fatalf("Log(on): %v", err)
+	}
+	if !has(on, "버려질 커밋") {
+		t.Fatalf("reflog 커밋이 목록에 없다: %+v", on)
 	}
 }

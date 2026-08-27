@@ -41,6 +41,7 @@ class GitHistory {
     this._ref=null;        // 선택된 ref. _adopt 가 리포별 저장값으로 채운다
     this._order=GIT_HIST_ORDERS[0].key;
     this._filters={};
+    this._reflog=false;
     this._q='';
     this._mode=GIT_SEARCH_LOADED;
     this._open=null;      // 펼친 커밋의 oid. 한 번에 하나다
@@ -104,6 +105,7 @@ class GitHistory {
         '<select class="git-hist-order"></select>'+
         '<span class="git-hist-filters"></span>'+
         '<button class="git-hist-apply"></button>'+
+        '<label class="git-hist-reflog"><input type="checkbox"><span></span></label>'+
         '<span class="git-hist-spacer"></span>'+
         '<input class="git-hist-jump" type="text">'+
         '<button class="git-hist-jump-go"></button>'+
@@ -148,6 +150,10 @@ class GitHistory {
       i.addEventListener('keydown',ev=>{if(ev.key==='Enter')this._applyFilters()});
       fbox.appendChild(i);
     }
+    const rl=el.querySelector('.git-hist-reflog');
+    rl.querySelector('span').textContent=GIT_HIST_REFLOG;
+    rl.title=GIT_HIST_REFLOG_TITLE;
+    rl.querySelector('input').addEventListener('change',ev=>{this._reflog=ev.target.checked;this._reload()});
     ord.addEventListener('change',ev=>{this._order=ev.target.value;this._reload()});
     el.querySelector('.git-hist-apply').addEventListener('click',()=>this._applyFilters());
     el.querySelector('.git-hist-retry').addEventListener('click',()=>{this._err=null;this._reload()});
@@ -236,6 +242,7 @@ class GitHistory {
       el.querySelector('.git-hist-order').value=this._order;
       el.querySelector('.git-hist-jump').value='';
       for(const i of el.querySelectorAll('.git-hist-f')) i.value=this._filters[i.dataset.f]||'';
+      el.querySelector('.git-hist-reflog input').checked=this._reflog;
     }
     // FR-GIT-129: 현재 모드를 라벨로 보인다. 두 결과가 다를 수 있음이 드러나야 한다.
     const m=el.querySelector('.git-hist-smode');
@@ -760,6 +767,9 @@ class GitHistory {
       author:this._filters.author||'',since:this._filters.since||'',
       until:this._filters.until||'',path:this._filters.path||'',
       grep:this._mode===GIT_SEARCH_REPO?this._q.trim():'',
+      // 꺼졌을 때도 보낸다 — requested 로 되돌아와야 늦게 온 응답이 어느 토글의
+      // 것인지 _sameReq 가 가른다.
+      reflog:this._reflog,
     };
     this._loading=true; this._err=null;
     this._paintBar(); this._paintFoot();

@@ -250,6 +250,50 @@ func TestAPIGitLog_RejectsBadParams(t *testing.T) {
 	}
 }
 
+// H-L3 (FR-GIT-280): reflog 토글이 질의 인자로 내려가고 requested 에 그대로
+// 돌아온다. 되돌아오지 않으면 클라이언트는 늦게 온 응답이 어느 토글의 것인지
+// 구분하지 못한다.
+func TestAPIGitLog_ReflogToggle(t *testing.T) {
+	for _, tc := range []struct {
+		query string
+		want  bool
+	}{
+		{"", false},
+		{"&reflog=0", false},
+		{"&reflog=1", true},
+		{"&reflog=true", true},
+	} {
+		f := newGitHistFake(t)
+		s := gitHistServer(t, f)
+		code, out := gitReq(t, s, http.MethodGet, "/api/git/log?repo="+f.root+tc.query, "")
+		if code != http.StatusOK {
+			t.Fatalf("%q → %d, body %v", tc.query, code, out)
+		}
+		req, _ := out["requested"].(map[string]any)
+		if req["reflog"] != tc.want {
+			t.Fatalf("%q requested.reflog = %#v, want %v", tc.query, req["reflog"], tc.want)
+		}
+		call := strings.Join(f.calls(), " | ")
+		if got := strings.Contains(call, " --reflog "); got != tc.want {
+			t.Fatalf("%q argv --reflog = %v, want %v: %s", tc.query, got, tc.want, call)
+		}
+	}
+}
+
+// 모르는 값은 400 이다 — 조용히 false 로 낮추면 사용자는 켰다고 믿는 토글이 꺼진
+// 목록을 본다 (FR-GIT-128 과 같은 이유).
+func TestAPIGitLog_RejectsBadReflog(t *testing.T) {
+	f := newGitHistFake(t)
+	s := gitHistServer(t, f)
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/log?repo="+f.root+"&reflog=yes", "")
+	if code != http.StatusBadRequest || out["error"] != gitErrBadRequest {
+		t.Fatalf("code = %d, body = %v", code, out)
+	}
+	if len(f.argvs) != 0 {
+		t.Fatalf("거부했는데 실행했다: %v", f.calls())
+	}
+}
+
 // H-M1 (FR-GIT-145): /commit 은 (repo, oid, parent) 를 되돌린다.
 func TestAPIGitCommit_EchoesRequested(t *testing.T) {
 	f := newGitHistFake(t)

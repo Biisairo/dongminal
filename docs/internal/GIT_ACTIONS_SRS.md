@@ -38,6 +38,10 @@ checkout 계열만** 올렸다. 그래서 화면에는 브랜치·태그가 보�
 - **범위 밖(이미 그렇게 적힌 것)**: 표면 지도 §4 가 **미배치**로 명시한 6건 —
   G1 멀티 리포 일괄, G8 `git log -L`, GG4 Code Review 추적, 에디터 gutter
   decoration, autofetch, timeline 뷰. 누락이 아니라 배치하지 않기로 한 것이다.
+- **범위 밖(2026-08-27 사용자가 뺀 것)**: 커밋 **mute**(GG2) · **FR-GIT-283**
+  merge editor · **FR-GIT-284** 인터랙티브 rebase · **FR-GIT-285** clone/init.
+  mute 는 요구사항에서 **철회**한다 (D7). 283~285 는 요구사항으로 남되 이 판이
+  **착수하지 않는다** (D9) — §6.2 의 착수점은 다음 판을 위해 그대로 둔다.
 - **미결(사용자 결정 대기)**: 자격증명 저장·중계. FR-GIT-104 의 **의도적 배제**이며
   `TestNoCredentialFields` 가 필드 이름만으로 막고 있다 (GIT_REMAINING §4.1).
   되살리려면 그 보호 테스트를 여는 결정이 먼저다. **이 문서는 그것을 열지 않는다.**
@@ -105,7 +109,7 @@ checkout 계열만** 올렸다. 그래서 화면에는 브랜치·태그가 보�
 | **line range stage / unstage / revert** | P2 | ❌ | — |
 | 커밋 목록·가상 스크롤·DAG·refs·상세·파일목록·검색·필터·jump·uncommitted 행 | P0/P1 | ✅ | `history.js` |
 | commit range 비교 (`A..B`, `A...B`) | P2 | ❌ | — |
-| 커밋 mute (비-조상·머지) | P2 | ❌ | — |
+| ~~커밋 mute (비-조상·머지)~~ | P2 | ⊘ | **철회** — 2026-08-27 사용자 결정 (D7) |
 | reflog 언급 커밋 포함 | P2 | ❌ | — |
 | 다중 커밋 선택 비교 | P2 | ❌ | — |
 | Console argv·exitCode·duration·stdout/stderr·복사 | P1 | ✅ | `console.js` |
@@ -338,8 +342,9 @@ merge·rebase·cherry-pick·revert 를 열면 **충돌로 멈춘 중간 상태**
 
 ### 3.8 묶음 H — 읽기 보강
 
-- **FR-GIT-280** 커밋 **mute**(비-조상·머지 커밋을 흐리게) · **reflog 언급 커밋 포함**
-  토글. 둘 다 목록 질의의 인자이고 화면 상태다.
+- **FR-GIT-280** 커밋 목록에 **reflog 언급 커밋 포함** 토글. 목록 질의의 인자이고
+  화면 상태다 — `log --reflog` 한 인자라 읽기 가드를 넓히지 않는다.
+  (커밋 **mute** 는 2026-08-27 철회했다 — D7.)
 - **FR-GIT-281** Console 의 **level 토글 · 텍스트 검색 · replay**.
   replay 는 **같은 argv 를 다시 실행**하는 것이므로 쓰기였다면 2단계 확인을 거친다.
 - **FR-GIT-282** 커밋의 **author override** · Changes 헤더의 **리포 전환 드롭다운**.
@@ -396,7 +401,7 @@ merge·rebase·cherry-pick·revert 를 열면 **충돌로 멈춘 중간 상태**
 | **V204** | GIT-278 | 단위 | hunk 패치를 **서버가** 만든다. 클라이언트가 보낸 패치 문자열을 실행하는 경로가 없다 |
 | **V205** | GIT-278 | e2e | hunk 하나만 스테이지되고 나머지는 남는다. 관측이 바뀌었으면 거부된다 |
 | **V206** | GIT-279 | e2e | 줄 범위 stage/unstage/revert 가 그 범위에만 적용된다. revert 는 2단계 확인이다 |
-| **V207** | GIT-280·281·282 | e2e | mute·reflog 토글 · Console level/검색/replay · author override · 리포 드롭다운 각각 동작한다. replay 의 쓰기는 2단계 확인이다 |
+| **V207** | GIT-280·281·282 | e2e | reflog 토글 · Console level/검색/replay · author override · 리포 드롭다운 각각 동작한다. replay 의 쓰기는 2단계 확인이다 |
 | **V208** | GIT-283 | e2e | merge editor 가 ours/theirs/base 를 보이고 줄 단위 채택이 결과 파일에 반영된다 |
 | **V209** | GIT-284 | e2e | 인터랙티브 rebase 의 순서·동작 편집이 실제 결과에 반영되고, 중단이 원래 상태로 되돌린다 |
 | **V210** | GIT-285 | e2e | clone/init 이 동작하고, clone 이 인증으로 실패하면 **터미널에서 실행할 명령**을 보인다 (자격증명을 받지 않는다) |
@@ -427,6 +432,9 @@ merge·rebase·cherry-pick·revert 를 열면 **충돌로 멈춘 중간 상태**
 | **D4** | `-D`·`--hard`·`rebase`·`drop`·`clean` 은 **파괴적**으로 선언한다 | 되돌리려면 reflog 가 필요한 것은 전부 파괴적이다. 판정을 하위 명령이 아니라 옵션에서 파생한다 |
 | **D5** | 자격증명은 **열지 않는다** | FR-GIT-104 의 의도적 배제. 여는 것은 별도 결정이며 `TestNoCredentialFields` 를 약화하는 일이다 |
 | **D6** | hunk 패치는 **서버가 만든다** | 클라이언트가 만든 패치를 받으면 `git apply` 가 임의 쓰기 표면이 된다 |
+| **D7** | 커밋 **mute** 를 요구사항에서 **철회**한다 | 2026-08-27 사용자 결정. 흐리게 그리는 것 하나를 위해 "HEAD 의 조상인가"를 커밋마다 판정해야 하고, 그 판정을 어디서 하든 값이 늘거나 조회가 는다. 얻는 것이 표시 하나뿐이다 |
+| **D8** | Blame(FR-GIT-276)은 **Diff 탭의 모드**로 그린다 | 2026-08-27 사용자 결정. 고정 탭을 8개로 늘리지 않는다 — Diff 탭이 Monaco·파일 선택·큰 파일 잘림 규약을 이미 들고 있어 물려받을 것이 가장 많다 |
+| **D9** | 283·284·285 는 이 판이 **착수하지 않는다** | 2026-08-27 사용자 결정. 셋 다 새 표면(Monaco 별도 모드 · `GIT_SEQUENCE_EDITOR` 대체 · 인증)을 여는 것이라 남은 읽기 보강과 성격이 다르다. 요구사항과 착수점은 그대로 남긴다 |
 
 ## 6. 추적성 (Traceability)
 
@@ -450,13 +458,17 @@ merge·rebase·cherry-pick·revert 를 열면 **충돌로 멈춘 중간 상태**
 | F stash·파일·미커밋 | 272~275 · 277 | ✅ |
 | G 부분 스테이징 | 278·279 | ✅ |
 | H 읽기 보강 | **281 Console** | ✅ |
-| H 읽기 보강 | 276 Blame · 280 mute·reflog · 282 author override·리포 드롭다운 | ⬜ |
-| I 최상위 난이도 | 283 merge editor · 284 인터랙티브 rebase · 285 clone/init | ⬜ |
+| H 읽기 보강 | **276 Blame · 280 reflog · 282 author override·리포 드롭다운** | ⬜ 이 판 |
+| I 최상위 난이도 | 283 merge editor · 284 인터랙티브 rebase · 285 clone/init | ⬜ 다음 판 (D9) |
+| — | ~~커밋 mute~~ | ⊘ 철회 (D7) |
 
-**남은 것은 6개 요구사항이며 전부 P2 이거나 화면이 큰 것들이다.** 접수한 말의 본체
+**남은 것은 5개 요구사항이며 전부 P2 이거나 화면이 큰 것들이다.** 접수한 말의 본체
 (브랜치·태그·커밋의 기본 동작)는 전부 섰다.
 
-## 6.2 남은 6건의 착수점과 먼저 정할 것 (다음 세션)
+**이 판의 범위는 묶음 H 셋이다** (2026-08-27 사용자 결정): `280 → 282 → 276`.
+셋 다 **읽기와 화면**이고 새 쓰기 동작은 282 의 author override 하나뿐이다.
+
+## 6.2 남은 5건의 착수점과 먼저 정할 것
 
 **조사한 사실만 적는다.** 아래 "가드" 는 `core/guard.go` 의 `readCommands` /
 `core/write.go` 의 `writeCommands` 를 말하며, 지금 어디에도 없는 하위 명령은 그것을
@@ -464,8 +476,8 @@ merge·rebase·cherry-pick·revert 를 열면 **충돌로 멈춘 중간 상태**
 
 | # | 요구사항 | 착수점 (2026-08-27 확인) | 먼저 정할 것 |
 |---|---|---|---|
-| **276** | Blame | 조회가 없다 — `query/blame.go` 를 새로 만든다. `blame` 은 **읽기 목록에 없다**(가드 확장 필요). 대상 진입점은 이미 있다: `GIT_MENUS.file` 의 항목 하나. 큰 파일 상한·잘림은 `query/diff.go` 의 규약을 물려받으면 된다 | **어디에 그리는가.** 고정 탭은 7개이고(`GIT_VIEWS`) Blame 은 그중 어디에도 속하지 않는다 — 8번째 탭인가, Diff 탭의 모드인가, 편집기 탭의 곁인가. G9(이전 리비전 연쇄)를 이번에 넣을지도 함께 |
-| **280** | 커밋 mute · reflog 포함 | 목록 질의는 `query/log.go`, 화면 상태와 필터 바는 `history.js`(`_filters`·`_paintBar`). `reflog` 는 가드에 없다 — `log --reflog` 로 가면 넓히지 않아도 된다 | **mute 의 판정 근거.** "비-조상"을 서버가 `merge-base --is-ancestor`(이미 읽기 목록에 있다)로 답할지, 클라이언트가 레인 그래프에서 파생할지. 후자면 조회가 늘지 않는다 |
+| **276** | Blame | 조회가 없다 — `query/blame.go` 를 새로 만든다. `blame` 은 **읽기 목록에 없다**(가드 확장 필요). 대상 진입점은 이미 있다: `GIT_MENUS.file` 의 항목 하나. 큰 파일 상한·잘림은 `query/diff.go` 의 규약을 물려받으면 된다 | **해소됨 (D8): Diff 탭의 모드.** 고정 탭은 7개로 두고 Diff 탭이 blame 모드를 갖는다. 남은 것 하나 — G9(이전 리비전 연쇄)를 이번에 넣을지는 구현하며 정한다 |
+| **280** | reflog 포함 | 목록 질의는 `query/log.go`, 화면 상태와 필터 바는 `history.js`(`_filters`·`_paintBar`). `reflog` 는 가드에 없다 — `log --reflog` 로 가면 넓히지 않아도 된다 | **해소됨.** mute 를 철회했으므로(D7) 남은 결정이 없다 — 질의 인자 하나와 필터 바 항목 하나다 |
 | **282** | author override · 리포 전환 드롭다운 | 커밋 옵션은 `write.CommitOpts`(지금 Message·Amend·SignOff·NoVerify·All 뿐) + `GIT_COMMIT_OPTS`. 드롭다운의 정보원은 `app._gitRepos` 이고 헤더는 `panel.js` `_paintHead` | **author 를 어디까지 받는가.** `--author="이름 <메일>"` 한 줄인가, 이름·메일 두 필드인가. 형식이 틀리면 git 이 거부하므로 실행 전 검증 자리가 필요하다 |
 | **283** | 3-way merge editor | 충돌 파일은 `status.conflicts`, ours/theirs 는 `write/resolve.go` 가 이미 안다. Monaco 는 `panel.js` 의 diff 뷰(`GitDiffView`)가 들고 있다 | **범위.** 줄 단위 채택까지인가, 표시와 한쪽 채택(이미 있는 `resolve`)까지인가. 전자는 Monaco 위의 별도 모드가 필요하다 |
 | **284** | 인터랙티브 rebase | **주의: `core.Env` 가 `GIT_SEQUENCE_EDITOR=true` 를 박는다** (FR-GIT-252 가 `--continue` 의 매달림을 막으려고 넣었다). todo 를 우리가 편집하려면 **그 실행에서만** 다른 값을 줘야 하고, 그 자리는 `ExecWrite` 하나뿐이다 | **todo 를 누가 쓰는가.** dongminal 이 편집기 자리에 서려면 자기 자신을 `GIT_SEQUENCE_EDITOR` 로 세우는 작은 실행 파일이 필요하다 — 그 표면을 열지 여부 |
@@ -475,4 +487,5 @@ merge·rebase·cherry-pick·revert 를 열면 **충돌로 멈춘 중간 상태**
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-08-27 (2) | 범위 조정. 커밋 **mute 를 철회**하고(D7) 283·284·285 를 다음 판으로 미뤘다(D9). Blame 을 **Diff 탭의 모드**로 확정했다(D8). 이 판의 범위는 `280 → 282 → 276` 이다 |
 | 2026-08-27 | 문서 신설. 표면 지도 126항목을 소스와 전수 대조해 **미구현 33항목**을 확정하고 FR-GIT-250~285 로 요구사항화했다. P0 는 남아 있지 않다 — 남은 것은 전부 P1·P2 이며, 그래서 증상이 "보이는데 못 한다"였다. 진행 중 작업(묶음 A)을 다른 묶음의 전제로 앞세운 것이 이 판의 유일한 순서 결정이다 |

@@ -735,3 +735,43 @@ test.describe('5차 검토 — HEAD 판정의 근거 (V165~V167)', () => {
     await expect(hist(page).locator('.git-hist-badge.head')).toHaveCount(0);
   });
 });
+
+test.describe('FR-GIT-280 — reflog 언급 커밋 포함', () => {
+  // 토글이 겨냥하는 상태는 "어떤 ref 도 가리키지 않게 된 커밋" 이다. reset --hard
+  // 로 되돌린 커밋이 정확히 그것이며, reflog 로만 닿는다.
+  //
+  // 표식은 다른 픽스처 제목의 부분 문자열이 아니어야 한다 — 부분 문자열이면
+  // hasText 가 남의 행을 집는다.
+  const DROPPED = 'ZZDROPPEDBYRESET';
+
+  function repoWithDroppedCommit(tag: string) {
+    const repo = copyFx('basic', tag);
+    writeFileSync(join(repo, 'dropped.txt'), 'x\n');
+    execFileSync('git', ['-C', repo, 'add', '-A']);
+    execFileSync('git', ['-C', repo, 'commit', '-qm', DROPPED]);
+    execFileSync('git', ['-C', repo, 'reset', '--hard', '-q', 'HEAD~1']);
+    return repo;
+  }
+
+  test('H-RL1 (V207): 토글을 켜면 버려진 커밋이 목록에 들어오고, 끄면 다시 나간다', async ({ page }) => {
+    const repo = repoWithDroppedCommit('reflog');
+    await waitForInit(page);
+    await openHistory(page, repo);
+    await waitLoaded(page, 1);
+
+    const dropped = hist(page).locator('.git-hist-row[data-oid]', { hasText: DROPPED });
+    const toggle = hist(page).locator('.git-hist-reflog input');
+    const before = await loadedCount(page);
+    await expect(dropped).toHaveCount(0);
+
+    await toggle.check();
+    await expect.poll(() => loadedCount(page), { timeout: 20000 }).toBe(before + 1);
+    await expect(dropped).toHaveCount(1);
+
+    // 끈 것이 화면에 반영되지 않으면 사용자는 껐다고 믿는 목록에서 그 커밋을
+    // 계속 본다.
+    await toggle.uncheck();
+    await expect.poll(() => loadedCount(page), { timeout: 20000 }).toBe(before);
+    await expect(dropped).toHaveCount(0);
+  });
+});

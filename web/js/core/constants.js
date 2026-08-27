@@ -442,6 +442,11 @@ const GIT_HIST_FILTERS=[
 ];
 const GIT_HIST_APPLY='Apply';
 
+// reflog 포함 (FR-GIT-280). 어떤 ref 도 가리키지 않게 된 커밋 — reset 으로 되돌린
+// 것, 지운 브랜치의 끝 — 은 이 토글로만 목록에 들어온다.
+const GIT_HIST_REFLOG='reflog';
+const GIT_HIST_REFLOG_TITLE='어떤 ref 도 가리키지 않는 커밋을 reflog 에서 찾아 함께 보인다';
+
 // 검색 두 모드 (FR-GIT-129). **두 결과가 다를 수 있음이 드러나야 한다.**
 const GIT_SEARCH_LOADED='loaded';
 const GIT_SEARCH_REPO='repo';
