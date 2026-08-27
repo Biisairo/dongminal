@@ -43,7 +43,7 @@ async function waitForInit(page: Page) {
 
 async function openBranches(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
   await page.click('#area .pn-tab[data-git-view="branches"]');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-branches/);
 }
@@ -179,7 +179,7 @@ test.describe('18단계 — Branches 탭', () => {
     // 새로고침 후에도 남는다 (FR-GIT-149: 고정 목록은 영속한다).
     // 활성 창이 Git 창이므로 포커스된 분할 칸에 터미널이 없다 — 탭이 서기를 기다린다.
     await page.reload();
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6, { timeout: 15000 });
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7, { timeout: 15000 });
     await page.click('#area .pn-tab[data-git-view="branches"]');
     await waitRefs(page, 2);
     await expect(group(page, 'fav').locator('.git-br-row[data-short="no-upstream"]')).toHaveCount(1);

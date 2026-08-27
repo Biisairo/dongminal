@@ -53,7 +53,8 @@ async function waitForInit(page: Page, mode: 'desktop' | 'mobile' = 'desktop') {
 
 async function openGit(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+  // GIT_REVIEW4_SRS §3.6.5 FR-GIT-28(개정): 고정 탭이 Worktrees 를 더해 7개다.
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
 }
 
@@ -111,11 +112,11 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
       return has(w.layout) ? 'ok' : 'no-editor';
     }), { timeout: 20000 }).toBe('ok');
 
-    // Git 창은 고정 탭 6개 그대로다 (FR-GIT-185 유지, V74 와 같은 방법).
+    // Git 창은 고정 탭 7개 그대로다 (FR-GIT-185 유지, V74 와 같은 방법).
     expect(await page.evaluate(() => {
       const g = (window as any).app.ws.windows.find((w: any) => w.type === 'git');
       return (g.layout.tabs || []).length;
-    })).toBe(6);
+    })).toBe(7);
   });
 
   test('V133 (FR-GIT-236): 디렉터리 행·그룹 머리에는 Open File 이 없고, 인라인 버튼과 우클릭 메뉴가 같은 함수를 지난다', async ({ page }) => {
@@ -265,10 +266,26 @@ test.describe('묶음 J — I2 경로 표시 분리 (FR-GIT-237)', () => {
     });
   }
 
-  test('V135 (FR-GIT-237): 평평한 보기에서 디렉터리와 파일명이 다른 요소이고, 계산된 색이 서로 다르며 파일명이 더 강조된다', async ({ page }) => {
+  // THEMES 는 고전 스크립트의 const 라 window 프로퍼티가 아니다 — 문자열 평가로
+  // 페이지의 전역 스코프에서 읽는다(e2e/git-ui-revision.spec.ts:541 의 선례와 같은
+  // 함정). 테마는 설정으로 영속하므로(같은 선례:557) 앞선 테스트가 남긴 테마에
+  // 기대면 전량 실행에서만 깨진다 — 실제로 GitHub Light(text===textBright) 가
+  // 남아 있을 때 이 파일의 V135/V136 이 정확히 그렇게 깨졌다. 그래서 여기서부터는
+  // **테스트가 테마를 스스로 정한다**(applyThemeName) — 어느 테마가 남아 있었든
+  // 무관하다.
+  async function applyThemeName(page: Page, name: string) {
+    await page.evaluate(`applyThemeObj(THEMES[${JSON.stringify(name)}])`);
+  }
+
+  test('V135 (FR-GIT-237): 평평한 보기에서 디렉터리와 파일명이 다른 요소이고, 파일명의 font-weight 와 대비가 디렉터리보다 크다', async ({ page }) => {
     await waitForInit(page);
     await openGit(page, copyFx('basic', 'v135'));
     await waitFiles(page, 3);
+
+    // text !== textBright 인 테마를 명시적으로 적용한다 — 45개 테마 중 12개는
+    // 둘이 같아 색만으로는 대비를 볼 수 없다(조정자 확인, 예: Dracula·GitHub
+    // Light). Tokyo Night 는 다르다(#a9b1d6 ≠ #c0caf5).
+    await applyThemeName(page, 'Tokyo Night');
 
     const row = rows(page, 'changes').filter({ hasText: '디렉터리 한글/파일 이름.txt' });
     await expect(row, '중첩 경로 행을 찾지 못했다').toHaveCount(1, { timeout: 10000 });
@@ -282,6 +299,13 @@ test.describe('묶음 J — I2 경로 표시 분리 (FR-GIT-237)', () => {
     // (git-changes.spec.ts:128·266)이 텍스트로 걸려 있다.
     const full = ((await row.locator('.git-file-path').textContent()) || '').trim();
     expect(full).toBe('디렉터리 한글/파일 이름.txt');
+
+    // 구별을 **보장하는** 축은 font-weight 다 — 45개 테마 전부에서 참이어야
+    // 하는 유일한 축이다(색은 12개 테마에서 갈리지 않는다). 색 대비는 보강 축이라
+    // 아래에서 별도로 확인한다.
+    const dirWeight = await dirLoc.evaluate((el) => parseInt(getComputedStyle(el).fontWeight, 10));
+    const nameWeight = await nameLoc.evaluate((el) => parseInt(getComputedStyle(el).fontWeight, 10));
+    expect(nameWeight, '파일명의 font-weight 가 디렉터리보다 크지 않다').toBeGreaterThan(dirWeight);
 
     const dirColor = await dirLoc.evaluate((el) => getComputedStyle(el).color);
     const nameColor = await nameLoc.evaluate((el) => getComputedStyle(el).color);
@@ -303,30 +327,28 @@ test.describe('묶음 J — I2 경로 표시 분리 (FR-GIT-237)', () => {
     await expect(dirLoc, '디렉터리 요소(.git-file-path-dir)가 없다').toHaveCount(1, { timeout: 5000 });
     await expect(nameLoc, '파일명 요소(.git-file-path-name)가 없다').toHaveCount(1, { timeout: 5000 });
 
-    const dirBefore = await dirLoc.evaluate((el) => getComputedStyle(el).color);
-    const nameBefore = await nameLoc.evaluate((el) => getComputedStyle(el).color);
+    // 같은 값끼리 맞바꾸는 스왑은 text===textBright 인 테마(예: Dracula)에서
+    // 아무것도 안 바꾼다(조정자 확인) — 그래서 스왑이 아니라 **테마 자체를
+    // 갈아 낀다.** 둘 다 text!==textBright 인 서로 다른 테마 두 개를 순서대로
+    // 적용한다.
+    await applyThemeName(page, 'Tokyo Night');
+    const dir1 = await dirLoc.evaluate((el) => getComputedStyle(el).color);
+    const name1 = await nameLoc.evaluate((el) => getComputedStyle(el).color);
+    expect(dir1, '테마 안에서도 디렉터리·파일명 색이 같다').not.toBe(name1);
 
-    // H4(V47)·V119 와 같은 방법 — 팔레트를 발명하지 않고 현재 테마의 두 값을
-    // 맞바꿔 넣는다. §3.6.2: 디렉터리는 `--text`, 파일명은 `--text-bright` 다
-    // (`--text-muted` 는 화살표 몫이라 디렉터리는 움직이지 않는다) — 그래서
-    // 스왑 대상은 text ↔ textBright 다.
-    await page.evaluate(() => {
-      const w = window as any;
-      const t = w.getCurrentTheme();
-      const ui = Object.assign({}, t.ui);
-      const swap = ui.text; ui.text = ui.textBright; ui.textBright = swap;
-      w.customTheme = { mode: t.mode, ui, terminal: t.terminal };
-      w.applyThemeObj(w.customTheme);
-    });
-
+    await applyThemeName(page, 'One Dark');
     await expect.poll(() => dirLoc.evaluate((el) => getComputedStyle(el).color), { timeout: 10000 })
-      .not.toBe(dirBefore);
+      .not.toBe(dir1);
     await expect.poll(() => nameLoc.evaluate((el) => getComputedStyle(el).color), { timeout: 10000 })
-      .not.toBe(nameBefore);
+      .not.toBe(name1);
 
-    const dirAfter = await dirLoc.evaluate((el) => getComputedStyle(el).color);
-    const nameAfter = await nameLoc.evaluate((el) => getComputedStyle(el).color);
-    expect(dirAfter, '테마를 바꾼 뒤에도 디렉터리·파일명 색이 같다').not.toBe(nameAfter);
+    const dir2 = await dirLoc.evaluate((el) => getComputedStyle(el).color);
+    const name2 = await nameLoc.evaluate((el) => getComputedStyle(el).color);
+    expect(dir2, '테마를 바꾼 뒤에도 디렉터리·파일명 색이 같다').not.toBe(name2);
+
+    // 테마는 설정으로 영속한다 — 뒤 테스트에 흘리지 않게 기본값으로 되돌린다
+    // (e2e/git-ui-revision.spec.ts:557 과 같은 정리).
+    await applyThemeName(page, 'Tokyo Night');
   });
 
   test('V137 (FR-GIT-237): 저장소 뿌리의 파일은 디렉터리 요소를 만들지 않는다', async ({ page }) => {

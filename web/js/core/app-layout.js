@@ -139,7 +139,8 @@ Object.assign(App.prototype, {
     // opts.windowId 지정 시 비활성 창의 pane 에도 추가 가능 (FR-RST-4).
     const s = opts.windowId ? this.ws.windows.find(x => x.id === opts.windowId) : this._aw();
     if (!s) return;
-    // FR-GIT-179: Git 창의 탭은 고정 6개뿐이다 — 더할 수 없다.
+    // FR-GIT-179: Git 창의 탭은 GIT_VIEWS 의 고정 탭뿐이다 — 더할 수 없다
+    // (FR-GIT-28 개정으로 7개다. 숫자를 여기 적지 않는다 — 선언이 하나뿐이다).
     if (this._isGitWin(s)) return;
     const pn = findPane(s.layout, rid); if (!pn) return;
     if (type === 'editor') {
@@ -167,7 +168,10 @@ Object.assign(App.prototype, {
       return;
     }
     const ref = this._paneNewToolRef(s, rid);
-    const p = await this._newTool(ref.cwd || null, ref.cwd ? null : (ref.cwdTool || null));
+    // FR-GIT-244: 호출자가 cwd 를 주면 그것이 이긴다 — worktree 에서 터미널을 열 때
+    // 기준은 pane 의 cwd 가 아니라 그 worktree 다. 주지 않으면 기존 동작 그대로다.
+    const cwd = opts.cwd || ref.cwd || null;
+    const p = await this._newTool(cwd, cwd ? null : (ref.cwdTool || null));
     const t = newEntityId();
     const name = (typeof opts.name === 'string' && opts.name ? opts.name : 'Shell').slice(0, 64);
     pn.tabs.push({ id: t, name, type: 'terminal', toolId: p.id });

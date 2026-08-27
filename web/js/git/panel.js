@@ -1,8 +1,9 @@
 /**
  * Dongminal — Git 창의 표면 (GIT_SRS §3.4)
  *
- * Git 창은 워크스페이스에 하나이므로(FR-GIT-26) 이 객체도 앱에 하나다. 고정 탭
- * 6개는 각자 루트 DOM 을 갖고, 활성 탭의 루트만 pane 본문에 붙는다.
+ * Git 창은 워크스페이스에 하나이므로(FR-GIT-26) 이 객체도 앱에 하나다. GIT_VIEWS 의
+ * 고정 탭은 각자 루트 DOM 을 갖고, 활성 탭의 루트만 pane 본문에 붙는다 — 숫자를 여기
+ * 적지 않는다 (FR-GIT-28 이 개정될 때 이 주석이 낡는다).
  *
  * 활성 리포가 바뀌면 진행 중인 응답은 전부 버린다 (FR-GIT-16). 세대 카운터
  * 하나로 판정한다 — 나중에 비동기 경로를 하나씩 훑어 가드를 덧붙이는 상황을
@@ -40,6 +41,7 @@ class GitPanel {
     this._branchesView=null;      // Branches 탭 (FR-GIT-147~160)
     this._stashView=null;         // Stash 탭 (FR-GIT-161~170)
     this._consoleView=null;       // Console 탭 (FR-GIT-218)
+    this._worktreesView=null;     // Worktrees 탭 (FR-GIT-240~244)
     this._remoteView=null;        // 원격 작업 (FR-GIT-98~112)
     // 커밋 축의 diff 대상 (FR-GIT-138). previewFile 과 자리를 나눈다 — 같은 자리에
     // 두면 Changes 탭의 미리보기가 커밋의 diff 를 보이면서 목록에는 아무 행도
@@ -121,6 +123,9 @@ class GitPanel {
     if(view==='branches') this._renderBranches(el);
     if(view==='stash') this._renderStash(el);
     if(view==='console') this._renderConsole(el);
+    // Worktrees 도 탭이 활성일 때 받는다 — 열지 않은 탭이 목록을 미리 받아 둘
+    // 이유가 없다 (FR-STAT-17 과 같은 원칙).
+    if(view==='worktrees') this._renderWorktrees(el);
     return el;
   }
 
@@ -135,6 +140,7 @@ class GitPanel {
     this._branches().unmount();
     this._stash().unmount();
     this._console().unmount();
+    this._worktrees().unmount();
     const area=document.getElementById('area');
     for(const el of this._els.values()){
       el.classList.remove('vis');
@@ -165,6 +171,7 @@ class GitPanel {
     if(view==='branches'){this._renderBranches(el);return}
     if(view==='stash'){this._renderStash(el);return}
     if(view==='console'){this._renderConsole(el);return}
+    if(view==='worktrees'){this._renderWorktrees(el);return}
     el.innerHTML='';
     if(!this.repo){
       const d=document.createElement('div'); d.className='git-empty';
@@ -712,6 +719,26 @@ class GitPanel {
     }
     if(el.dataset.built!=='1'){this._console().mount(el);el.dataset.built='1'}
     this._console().paint();
+  }
+
+  // ── Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5 / FR-GIT-240~244) ──
+
+  _worktrees(){
+    if(!this._worktreesView) this._worktreesView=new GitWorktrees(this);
+    return this._worktreesView;
+  }
+
+  _renderWorktrees(el){
+    if(!this.repo){
+      el.dataset.built=''; el.innerHTML='';
+      this._worktrees().unmount();
+      const d=document.createElement('div'); d.className='git-empty';
+      d.textContent=this._errMsg||GIT_NO_REPO_HINT;
+      el.appendChild(d);
+      return;
+    }
+    if(el.dataset.built!=='1'){this._worktrees().mount(el);el.dataset.built='1'}
+    this._worktrees().paint();
   }
 
   // ── Stash 탭 (FR-GIT-161~170) ──
@@ -1349,10 +1376,14 @@ class GitPanel {
   }
 
   /**
-   * FR-GIT-238: 새로고침. **전부 다시 받는다** — status·History·Branches·Console 넷
-   * 이다. 어느 탭을 보고 있는지에 따라 달라지지 않는다: 같은 버튼이 늘 같은 일을
-   * 한다. `collect()` 하나로는 끝나지 않는다 — 그것은 status 만 받고 Console 을
-   * 건드리지 않는다.
+   * FR-GIT-238: 새로고침. **전부 다시 받는다** — status · History · Branches ·
+   * Console · Worktrees 다. 어느 탭을 보고 있는지에 따라 달라지지 않는다: 같은
+   * 버튼이 늘 같은 일을 한다. `collect()` 하나로는 끝나지 않는다 — 그것은 status
+   * 만 받고 Console 을 건드리지 않는다.
+   *
+   * 범위는 **이미 만들어진 뷰 전부**다. 탭의 뷰는 처음 열 때 지연 생성되므로 한 번도
+   * 열지 않은 탭은 대상이 아니다 — 보인 적이 없는 것은 낡을 수 없고, 열 때 새로
+   * 받는다.
    *
    * **자기 계기다** (FR-RPT-5). 관측 동일성 가드의 대상이 아니므로 값이 같아도 다시
    * 받는다.
@@ -1367,6 +1398,7 @@ class GitPanel {
     if(this._historyView) jobs.push(this._historyView.reload());
     if(this._branchesView) jobs.push(this._branchesView.reload());
     if(this._consoleView) jobs.push(this._consoleView.reload());
+    if(this._worktreesView) jobs.push(this._worktreesView.reload());
     // 하나가 실패해도 나머지를 기다린다 — 넷은 서로의 성공에 걸려 있지 않다.
     await Promise.allSettled(jobs);
     this._refreshing=false; this._paintRefresh();

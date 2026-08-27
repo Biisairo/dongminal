@@ -69,6 +69,9 @@ const GIT_VIEWS=[
   {key:'branches', name:'Branches'},
   {key:'stash',    name:'Stash'},
   {key:'console',  name:'Console'},
+  // FR-GIT-28 (개정): 고정 탭이 7개가 된다. 요청이 "관리 **탭**" 이었으므로 기존 탭
+  // 안에 밀어 넣지 않는다 — 그러면 Branches 탭이 두 가지 일을 한다.
+  {key:'worktrees', name:'Worktrees'},
 ];
 const GIT_PENDING_HINT='이후 마일스톤에서 제공됩니다';
 const GIT_NO_REPO_HINT='리포를 선택하세요';
@@ -728,3 +731,48 @@ const GIT_REMOTE_DIALOGS={
 const GIT_SB_JOB_ICON='⇅';
 const GIT_SB_JOB_SUFFIX='…';
 const GIT_SB_JOB_TITLE='진행 중인 원격 작업';
+
+// ── Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5 / FR-GIT-240~244) ──
+
+const GIT_WT_ADD='+ New Worktree';
+const GIT_WT_EMPTY='worktree 가 없습니다';
+const GIT_WT_LOAD_FAIL='worktree 목록을 불러오지 못했습니다';
+const GIT_WT_DETACHED='detached';
+const GIT_WT_MAIN='main';
+// 소유 표식 (FR-GIT-240). **사용자 것은 표식이 없다** — 그것이 기본이기 때문이다.
+// 이모지를 쓰지 않는다 (FR-GIT-187·192).
+const GIT_WT_OWN_LABEL={run:'Run',outside:'외부'};
+const GIT_WT_OWN_TITLE={
+  run:'Run 격리가 만든 worktree 입니다 — 여기서 지울 수 없습니다',
+  outside:'dongminal 밖에서 만든 worktree 입니다 — 여기서 지울 수 없습니다',
+};
+// 행 동작 (FR-GIT-244). 제거는 사용자 것에만 붙고, 열기는 활성 리포 행에 붙지
+// 않는다 — 눌리지만 아무 일도 하지 않는 버튼은 고장으로 읽힌다 (FR-GIT-180).
+const GIT_WT_ACT_LABEL={open:'Open',pin:'Pin',term:'Shell',remove:'Remove'};
+const GIT_WT_ACT_TITLE={
+  open:'이 worktree 를 활성 리포로 엽니다',
+  pin:'GIT 섹션에 핀합니다',
+  term:'이 worktree 에서 터미널 탭을 엽니다 (Git 창이 아닌 창)',
+  remove:'이 worktree 를 지웁니다',
+};
+const GIT_WT_CREATE_TITLE='새 worktree 를 만듭니다';
+const GIT_WT_CREATE_RUN='Create';
+const GIT_WT_NAME_PH='이름 — 디렉터리 이름이 됩니다';
+const GIT_WT_REF_PH='대상 ref — 브랜치·태그·커밋';
+const GIT_WT_OPT_NEWBRANCH='이 이름으로 새 브랜치를 만든다';
+const GIT_WT_NEED_NAME='이름이 필요합니다';
+const GIT_WT_NEED_REF='대상 ref 가 필요합니다';
+const GIT_WT_CREATED='만들었습니다: ';
+const GIT_WT_PINNED='핀했습니다: ';
+const GIT_WT_PIN_FAIL='핀하지 못했습니다';
+const GIT_WT_REMOVE_TITLE='worktree 를 지웁니다';
+const GIT_WT_REMOVE_NOTE='디렉터리가 사라집니다. 저장하지 않은 변경이 남아 있으면 거부됩니다.';
+// 제거는 200 으로 오면서 `removed:false` 일 수 있다 — 사유를 그 자리에 보인다
+// (FR-GIT-243: 사용자의 작업을 지우지 않는다).
+const GIT_WT_RESIDUE={
+  'dirty':'저장하지 않은 변경이 있어 지우지 않았습니다',
+  'unsafe-path':'이 경로는 지울 수 있는 영역이 아닙니다',
+  'remove-failed':'git 이 제거하지 못했습니다',
+  'branch-retained':'트리는 지웠으나 브랜치가 남았습니다',
+};
+const GIT_WT_REMOVE_FAIL='worktree 를 지우지 못했습니다';

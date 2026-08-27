@@ -40,7 +40,7 @@ async function waitForInit(page: Page) {
 
 async function openGit(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
 }
 
 async function openChanges(page: Page, repo: string) {
@@ -85,7 +85,7 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
       tabs: document.querySelectorAll('#area .pn-tab').length,
     }));
     expect(after).toEqual(before);
-    expect(after.tabs).toBe(6);
+    expect(after.tabs).toBe(7);
   });
 
   test('V71 (FR-GIT-181): Git 창은 드롭 대상이 되지 않는다', async ({ page }) => {
@@ -95,7 +95,7 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
     // 고정 탭은 드래그를 시작할 수 없다 (FR-GIT-28).
     const draggables = await page.evaluate(() =>
       [...document.querySelectorAll('#area .pn-tab[data-git-view]')].map(t => (t as HTMLElement).draggable));
-    expect(draggables).toEqual([false, false, false, false, false, false]);
+    expect(draggables).toEqual([false, false, false, false, false, false, false]);
 
     // 드롭 경로를 직접 불러도 Git 창의 구조는 그대로다 — 드래그 시작을 막는 것과
     // 별개로 경로 자체가 막혀 있어야 한다.
@@ -113,7 +113,7 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
       };
     });
     expect(after.layoutType).toBe('pane');
-    expect(after.tabTypes).toEqual(['git', 'git', 'git', 'git', 'git', 'git']);
+    expect(after.tabTypes).toEqual(['git', 'git', 'git', 'git', 'git', 'git', 'git']);
     expect(after.panes).toBe(1);
   });
 
@@ -190,11 +190,11 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
       return has(w.layout) ? 'ok' : 'no-editor';
     }), { timeout: 20000 }).toBe('ok');
 
-    // Git 창은 고정 탭 6개 그대로다.
+    // Git 창은 고정 탭 7개 그대로다.
     expect(await page.evaluate(() => {
       const g = (window as any).app.ws.windows.find((w: any) => w.type === 'git');
       return (g.layout.tabs || []).length;
-    })).toBe(6);
+    })).toBe(7);
   });
 
   test('V75 (FR-GIT-186): 개정 이전 워크스페이스의 Git 창 안 탭은 일반 창으로 옮겨진다', async ({ page }) => {

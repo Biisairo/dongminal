@@ -7,11 +7,12 @@ import { test, expect } from './fixtures';
 // Git 창을 여는 UI 진입점은 4단계에 생긴다. 여기서는 계약 §6 대로 app 메서드를
 // 직접 부른다.
 
-const VIEWS = ['changes', 'diff', 'history', 'branches', 'stash', 'console'];
-const NAMES = ['Changes', 'Diff', 'History', 'Branches', 'Stash', 'Console'];
-// 준비 중 탭은 더 이상 없다 — console 도 FR-GIT-218 이 채웠다.
+// GIT_REVIEW4_SRS §3.6.5 FR-GIT-28(개정): 고정 탭이 6→7 로 늘었다 — Worktrees.
+const VIEWS = ['changes', 'diff', 'history', 'branches', 'stash', 'console', 'worktrees'];
+const NAMES = ['Changes', 'Diff', 'History', 'Branches', 'Stash', 'Console', 'Worktrees'];
+// 준비 중 탭은 더 이상 없다 — console 도 FR-GIT-218 이 채웠고, worktrees 도 I7 이 채운다.
 const PENDING: string[] = [];
-const READY = ['changes', 'history', 'branches', 'stash', 'console'];
+const READY = ['changes', 'history', 'branches', 'stash', 'console', 'worktrees'];
 const PENDING_HINT = '이후 마일스톤에서 제공됩니다';
 
 async function waitForInit(page: Page) {
@@ -33,7 +34,7 @@ test.describe('묶음 D — Git 창 골격', () => {
   test('E1 (V8): openGitWindow 를 두 번 불러도 Git 창은 하나다', async ({ page }) => {
     await waitForInit(page);
     const first = await openGit(page);
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
 
     const second = await openGit(page);
     expect(second, '두 번째 호출이 다른 창을 만들었다').toBe(first);
@@ -79,17 +80,17 @@ test.describe('묶음 D — Git 창 골격', () => {
     expect(await gitWindowCount(page)).toBe(1);
   });
 
-  test('E3 (V20): 고정 탭 6개가 순서대로 있다', async ({ page }) => {
+  test('E3 (V20 / V143): 고정 탭 7개가 순서대로 있다', async ({ page }) => {
     await waitForInit(page);
     await openGit(page);
     const tabs = page.locator('#area .pn-tab[data-git-view]');
-    await expect(tabs).toHaveCount(6);
+    await expect(tabs).toHaveCount(7);
     const order = await tabs.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.gitView));
     expect(order).toEqual(VIEWS);
     await expect(tabs.locator('.pn-tab-label')).toHaveText(NAMES);
   });
 
-  test('E4 (V20): 고정 탭 6개가 모두 채워져 있다', async ({ page }) => {
+  test('E4 (V20): 고정 탭 7개가 모두 채워져 있다', async ({ page }) => {
     await waitForInit(page);
     await openGit(page);
     for (const v of PENDING) {
@@ -109,7 +110,7 @@ test.describe('묶음 D — Git 창 골격', () => {
   test('E5 (V20): git 탭은 닫히지 않는다', async ({ page }) => {
     await waitForInit(page);
     await openGit(page);
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
     await expect(page.locator('#area .pn-tab[data-git-view] .pn-tab-x')).toHaveCount(0);
 
     // closeTab 을 직접 불러도 고정 탭은 남는다 (FR-GIT-28).
@@ -118,7 +119,7 @@ test.describe('묶음 D — Git 창 골격', () => {
       const w = app._gitWindow();
       return app.closeTab(w.layout.id, w.layout.tabs[0].id);
     });
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
     expect(await gitWindowCount(page)).toBe(1);
   });
 
@@ -126,11 +127,11 @@ test.describe('묶음 D — Git 창 골격', () => {
     await waitForInit(page);
     await openGit(page);
     const tabs = page.locator('#area .pn-tab[data-git-view]');
-    await expect(tabs).toHaveCount(6);
+    await expect(tabs).toHaveCount(7);
     // draggable=false 로 드래그 시작 자체를 막는다 (FR-GIT-28).
     expect(await tabs.evaluateAll((els) => els.every((e) => (e as HTMLElement).draggable))).toBe(false);
 
-    // 드롭 경로를 직접 불러도 Git 창은 단일 칸 + 고정 탭 6개 그대로다.
+    // 드롭 경로를 직접 불러도 Git 창은 단일 칸 + 고정 탭 7개 그대로다.
     // (분할 자체가 막혔으므로 옮겨 갈 다른 칸이 애초에 없다 — FR-GIT-179.)
     const after = await page.evaluate(() => {
       const app = (window as any).app;
@@ -140,8 +141,8 @@ test.describe('묶음 D — Git 창 골격', () => {
       app._splitPaneWithTab(pane.id, gid, pane.id, 'right');
       return { type: app._gitWindow().layout.type, tabs: (app._gitWindow().layout.tabs || []).length };
     });
-    expect(after).toEqual({ type: 'pane', tabs: 6 });
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+    expect(after).toEqual({ type: 'pane', tabs: 7 });
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
     await expect(page.locator('#area .pn')).toHaveCount(1);
   });
 
@@ -159,7 +160,7 @@ test.describe('묶음 D — Git 창 골격', () => {
     });
     await page.waitForTimeout(1200);
     await expect(page.locator('#area .pn')).toHaveCount(1);
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
     expect(await gitWindowCount(page)).toBe(1);
   });
 
@@ -182,19 +183,23 @@ test.describe('묶음 D — Git 창 골격', () => {
     expect(await activeWindow(page)).toBe(other);
   });
 
-  test('E8 (V21): 새로고침 후 창·탭·활성 탭이 보존된다', async ({ page }) => {
+  test('E8 (V21 / V143): 새로고침 후 창·탭·활성 탭이 보존된다 — 마지막(7번째) 탭도 예외가 아니다', async ({ page }) => {
     await waitForInit(page);
     await openGit(page);
-    await page.locator('#area .pn-tab[data-git-view="console"]').click();
+    // Worktrees 는 새로 늘어난 **마지막(7번째)** 고정 탭이다 — 새로고침 보존이
+    // 6개짜리 옛 목록에만 통하고 새로 늘어난 탭에는 안 통하는 회귀를 잡는다.
+    await page.locator('#area .pn-tab[data-git-view="worktrees"]').click();
     await page.evaluate(() => (window as any).app._save());
 
     await page.reload();
     await page.waitForSelector('#area .pn-tab[data-git-view]', { timeout: 15000 });
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+    await expect(page.locator('#area .pn-tab[data-git-view]').last())
+      .toHaveAttribute('data-git-view', 'worktrees');
     expect(await gitWindowCount(page)).toBe(1);
     await expect(page.locator('#area .pn-tab.active[data-git-view]'))
-      .toHaveAttribute('data-git-view', 'console');
+      .toHaveAttribute('data-git-view', 'worktrees');
     // 활성 탭의 본문이 그 탭의 것이어야 한다 — 이름만 살아남아서는 안 된다.
-    await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-console/);
+    await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-worktrees/);
   });
 });

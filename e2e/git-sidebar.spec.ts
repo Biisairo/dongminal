@@ -129,7 +129,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     await expect(item).toHaveCount(1, { timeout: 10000 });
 
     await item.click();
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
     expect(await page.evaluate(() => (window as any).app.gitPanel.repo)).toBe(root);
     const gid = await page.evaluate(() => (window as any).app._gitWindow().id);
     expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(gid);

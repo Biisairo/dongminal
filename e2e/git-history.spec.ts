@@ -40,7 +40,7 @@ async function waitForInit(page: Page) {
 
 async function openHistory(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
   await page.click('#area .pn-tab[data-git-view="history"]');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-history/);
 }

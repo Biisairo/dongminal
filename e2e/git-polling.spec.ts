@@ -51,7 +51,7 @@ async function waitForInit(page: Page) {
 
 async function openGit(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(6);
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
 }
 
 // 요청 수는 가로채기로 센다 — 클라이언트 내부 카운터를 믿으면 "요청을 실제로
