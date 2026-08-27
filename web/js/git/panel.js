@@ -87,6 +87,8 @@ class GitPanel {
     // 이전 리포의 diff 가 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다.
     this._diffKey=null; this._prevKey=null; this._diffPos=0; this.commitFile=null;
     this._hunkKey=null; this._hunks=null; this._hunkSel=null;
+    // blame 은 파일에 붙은 것이다 — 새 리포로 넘겨 오면 다른 파일을 가리킨다.
+    this._blameOn=false; this._blameKey=null; this._blameData=null; this._blameErr=null;
     for(const v of [this._diffView,this._previewView])
       if(v) v.clear(path?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);
     if(path) this._errMsg=null;
@@ -1473,8 +1475,15 @@ class GitPanel {
         '<span class="git-diff-gone"></span>'+
         '<span class="git-diff-rev"></span>'+
         '<span class="git-diff-spacer"></span>'+
+        '<button class="git-diff-blame"></button>'+
         '<button class="git-diff-mode"></button>'+
         '<label class="git-diff-ws"><input type="checkbox"></label>'+
+      '</div>'+
+      // FR-GIT-276: blame 은 Diff 탭의 **모드**다 (D8). 두 본문이 함께 보이면
+      // 사용자는 무엇을 보고 있는지 모른다 — 켜진 쪽만 보인다.
+      '<div class="git-blame">'+
+        '<div class="git-blame-note"></div>'+
+        '<div class="git-blame-rows"></div>'+
       '</div>'+
       '<div class="git-diff-body"></div>'+
       // 부분 스테이징의 자리다 (FR-GIT-278). Monaco 는 두 모델을 그릴 뿐이고
@@ -1485,6 +1494,9 @@ class GitPanel {
     el.querySelector('.git-hunks').addEventListener('click',ev=>this._hunkClick(ev));
     for(const b of el.querySelectorAll('.git-diff-nav'))
       b.addEventListener('click',()=>this._diffMove(b.dataset.nav==='next'?1:-1));
+    const bl=el.querySelector('.git-diff-blame');
+    bl.textContent=GIT_BLAME_TOGGLE; bl.title=GIT_BLAME_TOGGLE_TITLE;
+    bl.addEventListener('click',()=>{this._blameOn=!this._blameOn; this._paint()});
     el.querySelector('.git-diff-mode').addEventListener('click',()=>this._toggleSideBySide());
     el.querySelector('.git-diff-ws input')
       .addEventListener('change',ev=>this._setIgnoreWs(ev.target.checked));
@@ -1518,8 +1530,110 @@ class GitPanel {
     el.querySelector('.git-diff-mode').textContent=
       this._sideBySidePref()?GIT_DIFF_MODE_LABEL.side:GIT_DIFF_MODE_LABEL.inline;
     el.querySelector('.git-diff-ws input').checked=this._ignoreWsPref();
+    el.querySelector('.git-diff-blame').classList.toggle('on',!!this._blameOn);
     this._showTarget(this._diff(),f,'_diffKey');
-    this._paintHunks(el,cf?null:f);
+    // blame 모드에서는 hunk 조각이 뜻을 잃는다 — 부분 스테이징의 대상은 diff 다.
+    this._paintHunks(el,(cf||this._blameOn)?null:f);
+    this._paintBlame(el);
+  }
+
+  // ── Blame (FR-GIT-276) ──
+  //
+  // Diff 탭의 모드다 (D8). 대상은 **지금 diff 가 보는 파일**을 따른다 — 별도
+  // 대상을 들면 ‹ › 로 파일을 옮겼을 때 blame 만 앞 파일에 남는다.
+
+  _blameTarget(){
+    if(!this._blameOn) return null;
+    const cf=this.commitFile;
+    if(cf&&cf.path) return {path:cf.path,rev:cf.oid||''};
+    const f=this._diffTarget();
+    return f&&f.path?{path:f.path,rev:''}:null;
+  }
+
+  _paintBlame(el){
+    const box=el.querySelector('.git-blame'); if(!box) return;
+    const t=this._blameTarget();
+    box.classList.toggle('vis',!!t);
+    el.querySelector('.git-diff-body').classList.toggle('off',!!t);
+    if(!t){
+      this._blameKey=null; this._blameData=null; this._blameErr=null;
+      box.dataset.sig=''; return;
+    }
+    // 대상이 그대로면 다시 부르지 않는다 — 폴링마다 재요청하면 스크롤이 매초
+    // 초기화된다 (_paintHunks 와 같은 규약).
+    const key=[this.repo||'',t.rev,t.path].join('\u0000');
+    if(this._blameKey!==key){
+      this._blameKey=key; this._blameData=null; this._blameErr=null;
+      this._loadBlame(t,key);
+    }
+    this._drawBlame(box);
+  }
+
+  async _loadBlame(t,key){
+    const tok=this.token();
+    const u='/api/git/blame?repo='+encodeURIComponent(this.repo||'')+
+      '&rev='+encodeURIComponent(t.rev)+'&path='+encodeURIComponent(t.path);
+    let r=null,d=null;
+    try{r=await fetch(u)}catch{r=null}
+    if(r){try{d=await r.json()}catch{d=null}}
+    if(this.isStale(tok)||this._blameKey!==key) return;
+    // 서버가 되돌려준 요청값도 확인한다 — 같은 세대 안에서도 응답 순서가 뒤바뀔 수
+    // 있다 (FR-GIT-54).
+    const q=(d&&d.requested)||{};
+    if(!r||!r.ok||!d||q.path!==t.path||q.rev!==t.rev){
+      // 거부 사유는 **누른 자리**에 보인다 — 서버가 준 문구가 있으면 그것을 쓴다.
+      this._blameErr=(d&&d.message)||GIT_BLAME_FAIL;
+      this._paint(); return;
+    }
+    this._blameData={lines:d.lines||[],commits:d.commits||{}};
+    this._paint();
+  }
+
+  _drawBlame(box){
+    const d=this._blameData;
+    // 판정 근거는 이 렌더러가 읽는 값 전부다 (FR-RPT-2).
+    const sig=[this._blameKey,this._blameErr||'',d?d.lines.length:-1].join('\u0000');
+    if(box.dataset.sig===sig) return;
+    box.dataset.sig=sig;
+    const note=box.querySelector('.git-blame-note');
+    const rows=box.querySelector('.git-blame-rows');
+    const msg=this._blameErr||(!d?GIT_BLAME_LOADING:(d.lines.length?'':GIT_BLAME_EMPTY));
+    note.textContent=msg; note.classList.toggle('vis',!!msg);
+    rows.innerHTML='';
+    if(!d||!d.lines.length) return;
+    const frag=document.createDocumentFragment();
+    for(const ln of d.lines) frag.appendChild(this._blameRow(ln,d.commits[ln.oid]||{}));
+    rows.appendChild(frag);
+  }
+
+  _blameRow(ln,c){
+    const el=document.createElement('div');
+    el.className='git-blame-row'+(c.uncommitted?' uncommitted':'');
+    el.dataset.line=String(ln.line);
+    el.dataset.oid=ln.oid;
+    const mk=(cls,text,title)=>{
+      const s=document.createElement('span'); s.className=cls; s.textContent=text;
+      if(title) s.title=title;
+      el.appendChild(s);
+    };
+    // 미커밋 줄은 커밋 자리를 비운다 — 해시를 그리면 사용자는 없는 커밋을 열려고 한다.
+    mk('git-blame-oid',c.uncommitted?'\u2013':ln.oid.slice(0,7),
+       c.uncommitted?GIT_BLAME_UNCOMMITTED:(c.summary||ln.oid));
+    mk('git-blame-author',c.uncommitted?GIT_BLAME_UNCOMMITTED:(c.authorName||''),
+       c.authorMail?c.authorName+' <'+c.authorMail+'>':'');
+    // 상대시간이 기본이고 절대시간은 title 로 항상 닿는다 (History 의 O12 규약).
+    const abs=c.authorAt?GitHistory.absTime(c.authorAt):'';
+    mk('git-blame-date',c.uncommitted||!c.authorAt?'':GitHistory.relTime(c.authorAt),abs);
+    mk('git-blame-num',String(ln.line),'');
+    mk('git-blame-text',ln.text,'');
+    return el;
+  }
+
+  // FR-GIT-276: 파일 메뉴의 진입점. Diff 탭을 열고 그 파일을 blame 으로 본다.
+  openBlame(t){
+    if(!t||!t.path) return;
+    this._blameOn=true;
+    this._openDiff(t.group,{path:t.path,origPath:t.origPath||''});
   }
 
   // ── 부분 스테이징 (FR-GIT-278·279) ──

@@ -25,6 +25,9 @@ var readCommands = map[string]bool{
 	// log 로 세면 커밋마다 한 줄이 출력 상한을 먹는다. 둘 다 순수 읽기이며
 	// writeCommands 와 겹치지 않는다 (FR-GIT-95 의 교집합-금지).
 	"rev-list": true, "merge-base": true,
+	// 줄마다 어느 커밋에서 왔는지는 blame 만 답한다 (FR-GIT-276). 순수 읽기이며
+	// writeCommands 와 겹치지 않는다.
+	"blame": true,
 }
 
 // unsafePrefixes 는 임의 명령 실행 또는 파일 쓰기로 가는 인자들이다. 읽기

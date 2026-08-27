@@ -119,3 +119,14 @@ func TestGuardArgs_ConfigReadOnly(t *testing.T) {
 		}
 	}
 }
+
+// FR-GIT-276: blame 은 읽기다. 목록을 넓히는 것은 그 요구사항의 일이며, 넓힌 뒤에도
+// 쓰기 목록과 겹치지 않아야 한다 (FR-GIT-95 의 교집합-금지).
+func TestReadCommands_Blame(t *testing.T) {
+	if !readCommands["blame"] {
+		t.Fatal("blame 이 읽기 목록에 없다 — FR-GIT-276 이 실행되지 못한다")
+	}
+	if writeCommands["blame"] {
+		t.Fatal("blame 이 쓰기 목록에도 있다 — 교집합이 생겼다 (FR-GIT-95)")
+	}
+}

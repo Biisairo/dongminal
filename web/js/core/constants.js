@@ -926,6 +926,18 @@ const GIT_STASH_FILTER_NONE='필터에 맞는 stash 가 없습니다';
 const GIT_FILE_IGNORE='Add to .gitignore';
 const GIT_FILE_OPEN_HEAD='Open File (HEAD)';
 const GIT_FILE_HISTORY='File history';
+
+// Blame (FR-GIT-276). 고정 탭을 늘리지 않고 Diff 탭의 **모드**로 둔다 (D8) —
+// Diff 탭이 Monaco·파일 선택·큰 파일 잘림 규약을 이미 들고 있다.
+const GIT_FILE_BLAME='Blame';
+const GIT_BLAME_TOGGLE='Blame';
+const GIT_BLAME_TOGGLE_TITLE='줄마다 어느 커밋에서 왔는지 보인다';
+const GIT_BLAME_LOADING='blame 을 읽는 중…';
+const GIT_BLAME_FAIL='blame 을 읽지 못했습니다';
+// 아직 커밋되지 않은 줄. git 은 author 를 "Not Committed Yet" 으로 답하지만 그것을
+// 사람 이름 자리에 그대로 두면 작성자로 읽힌다.
+const GIT_BLAME_UNCOMMITTED='아직 커밋되지 않음';
+const GIT_BLAME_EMPTY='blame 할 내용이 없습니다';
 const GIT_IGNORE_FAIL='.gitignore 에 추가하지 못했습니다';
 const GIT_IGNORE_DUP='이미 .gitignore 에 있습니다';
 const GIT_HEAD_OPEN_FAIL='HEAD 의 내용을 열지 못했습니다';

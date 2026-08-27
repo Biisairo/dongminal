@@ -35,6 +35,7 @@ var routes = []route{
 	{http.MethodPost, exactPath("/api/git/commit"), (*GitServer).apiGitCommitCreate},
 	{http.MethodPost, exactPath("/api/git/undo-last"), (*GitServer).apiGitUndoLast},
 	{http.MethodGet, exactPath("/api/git/log"), (*GitServer).apiGitLog},
+	{http.MethodGet, exactPath("/api/git/blame"), (*GitServer).apiGitBlame},
 	{http.MethodGet, exactPath("/api/git/commit"), (*GitServer).apiGitCommit},
 	{http.MethodGet, exactPath("/api/git/refs"), (*GitServer).apiGitRefs},
 	{http.MethodGet, exactPath("/api/git/records"), (*GitServer).apiGitRecords},

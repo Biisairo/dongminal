@@ -1155,6 +1155,35 @@ body.mobile .git-file-check{width:14px;height:14px}
 }
 .git-diff-ws{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);flex-shrink:0;cursor:pointer}
 .git-diff-body{flex:1 1 auto;min-height:0;position:relative}
+.git-diff-body.off{display:none}
+
+/* FR-GIT-276: blame 은 Diff 탭의 모드다 (D8). 켜진 쪽만 보인다 */
+.git-blame{display:none;flex:1 1 auto;min-height:0;flex-direction:column;overflow:auto}
+.git-blame.vis{display:flex}
+/* 거부 사유는 누른 자리에 보인다 — Diff 탭에서 낸 실패의 자리가 여기다 */
+.git-blame-note{
+  display:none;flex:0 0 auto;padding:6px 10px;font-size:12px;color:var(--text-muted);
+  border-bottom:1px solid var(--border);
+}
+.git-blame-note.vis{display:block}
+.git-blame-rows{flex:1 1 auto;font-family:ui-monospace,monospace;font-size:12px;line-height:18px}
+.git-blame-row{display:flex;align-items:baseline;gap:8px;padding:0 10px;white-space:pre}
+.git-blame-row:hover{background:var(--accent-subtle)}
+.git-blame-oid{flex:0 0 auto;width:60px;color:var(--accent);cursor:default}
+.git-blame-author{flex:0 0 auto;width:110px;overflow:hidden;text-overflow:ellipsis;color:var(--text-muted)}
+.git-blame-date{flex:0 0 auto;width:80px;color:var(--text-dim)}
+.git-blame-num{flex:0 0 auto;width:46px;text-align:right;color:var(--text-dim)}
+.git-blame-text{flex:1 1 auto;color:var(--text)}
+/* 아직 커밋되지 않은 줄은 커밋된 줄과 구분되어야 한다 */
+.git-blame-row.uncommitted .git-blame-oid,
+.git-blame-row.uncommitted .git-blame-author{color:var(--text-dim);font-style:italic}
+/* 켜져 있음이 보여야 한다 — 사용자가 왜 diff 대신 blame 을 보는지의 근거다 */
+.git-diff-blame{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-diff-blame:hover{background:var(--accent-hover);color:var(--accent)}
+.git-diff-blame.on{background:var(--accent-active);color:var(--accent)}
 
 /* GitDiffView — 미리보기와 Diff 탭이 같은 골격을 쓴다 (§3.2) */
 .git-diff-view{position:absolute;inset:0;display:flex;flex-direction:column}

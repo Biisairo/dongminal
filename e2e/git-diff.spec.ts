@@ -424,3 +424,75 @@ test.describe('묶음 F — Diff 뷰', () => {
     expect(await noteLines(page)).toMatch(/\d+\.\d MB/);
   });
 });
+
+test.describe('FR-GIT-276 — Blame (Diff 탭의 모드)', () => {
+  const menu = (page: Page) => page.locator('.git-menu');
+  const item = (page: Page, id: string) => menu(page).locator(`.git-menu-item[data-id="${id}"]`);
+  const blame = (page: Page) => diff(page).locator('.git-blame');
+  const blameRow = (page: Page, n: number) => blame(page).locator(`.git-blame-row[data-line="${n}"]`);
+
+  // 픽스처는 커밋 둘과 미커밋 한 줄을 갖는다 — 줄마다 다른 커밋을 가리키는 것과
+  // 미커밋 줄의 구분을 한 파일에서 다 본다.
+  function repoWithHistory(tag: string) {
+    const repo = copyFx('basic', tag);
+    const git = (...a: string[]) => execFileSync('git', ['-C', repo, ...a], { stdio: 'ignore' });
+    writeFileSync(join(repo, 'bl.txt'), '첫째 줄\n둘째 줄\n');
+    git('add', '-A');
+    git('commit', '-qm', 'AAFIRSTCOMMIT');
+    writeFileSync(join(repo, 'bl.txt'), '첫째 줄\n고친 둘째\n');
+    git('add', '-A');
+    git('commit', '-qm', 'BBSECONDCOMMIT');
+    writeFileSync(join(repo, 'bl.txt'), '첫째 줄\n고친 둘째\n아직 커밋 안 한 줄\n');
+    return repo;
+  }
+
+  test('BL1 (V211·FR-GIT-276): 파일 메뉴의 Blame 이 Diff 탭을 blame 모드로 연다', async ({ page }) => {
+    const repo = repoWithHistory('bl1');
+    await waitForInit(page);
+    await openGit(page, repo);
+
+    const r = row(page, 'changes', 'bl.txt');
+    await expect(r).toBeVisible({ timeout: 20000 });
+    await r.click({ button: 'right' });
+    await expect(menu(page)).toBeVisible();
+    await item(page, 'blame').click();
+
+    await expect(tab(page, 'diff')).toHaveClass(/active/);
+    await expect(blame(page)).toBeVisible({ timeout: 20000 });
+    // blame 모드에서는 diff 편집기가 자리를 비운다 — 둘이 함께 보이면 사용자는
+    // 무엇을 보고 있는지 모른다.
+    await expect(diffEditor(page)).toBeHidden();
+
+    await expect(blameRow(page, 1)).toContainText('첫째 줄');
+    await expect(blameRow(page, 2)).toContainText('고친 둘째');
+    await expect(blameRow(page, 3)).toContainText('아직 커밋 안 한 줄');
+    // 줄마다 제 커밋을 가리킨다.
+    await expect(blameRow(page, 1).locator('.git-blame-oid')).toHaveAttribute('title', /AAFIRSTCOMMIT/);
+    await expect(blameRow(page, 2).locator('.git-blame-oid')).toHaveAttribute('title', /BBSECONDCOMMIT/);
+    // 미커밋 줄을 커밋으로 그리면 사용자는 없는 커밋을 열려고 한다.
+    await expect(blameRow(page, 3)).toHaveClass(/uncommitted/);
+
+    // 끄면 diff 로 돌아온다.
+    await diff(page).locator('.git-diff-blame').click();
+    await expect(blame(page)).toBeHidden();
+    await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
+  });
+
+  // 인계 규약 2: 거부 사유는 **누른 자리**에 보인다. Diff 탭에서 낸 실패가 화면에
+  // 아무 자국도 남기지 않으면 사용자는 고장으로 읽는다.
+  test('BL2 (V211): blame 할 수 없는 파일은 Diff 탭 안에서 사유를 보인다', async ({ page }) => {
+    const repo = repoWithHistory('bl2');
+    writeFileSync(join(repo, 'untracked-new.txt'), 'x\n');
+    await waitForInit(page);
+    await openGit(page, repo);
+
+    const r = row(page, 'untracked', 'untracked-new.txt');
+    await expect(r).toBeVisible({ timeout: 20000 });
+    await r.click({ button: 'right' });
+    await expect(menu(page)).toBeVisible();
+    await item(page, 'blame').click();
+
+    await expect(diff(page).locator('.git-blame-note')).toBeVisible({ timeout: 20000 });
+    await expect(diff(page).locator('.git-blame-row')).toHaveCount(0);
+  });
+});

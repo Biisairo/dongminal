@@ -192,12 +192,13 @@ test.describe('묶음 E — Changes 탭', () => {
     // 17단계가 이 메뉴를 GitMenu 프레임워크로 흡수했다 (FR-GIT-146).
     const menu = page.locator('.git-menu');
     await expect(menu).toBeVisible();
-    // FR-GIT-273·274·275 로 항목이 늘었다 (GIT_ACTIONS_SRS §3.6). **저장소를 바꾸는
-    // 항목이 하나도 없다**는 것이 이 시험의 본체이고(FR-GIT-41), 그 단정은 아래에
-    // 그대로 있다 — 개수는 그 사실의 대리 지표였을 뿐이다.
+    // FR-GIT-273·274·275 로 항목이 늘었고 FR-GIT-276(Blame)이 하나 더 늘렸다
+    // (GIT_ACTIONS_SRS §3.6·§3.8). **저장소를 바꾸는 항목이 하나도 없다**는 것이
+    // 이 시험의 본체이고(FR-GIT-41), 그 단정은 아래에 그대로 있다 — 개수는 그
+    // 사실의 대리 지표였을 뿐이다.
     await expect(menu.locator('.git-menu-item')).toHaveText([
       'Open Changes', 'Open File', 'Open File (HEAD)', 'Copy Path',
-      'File history', 'Add to .gitignore',
+      'File history', 'Blame', 'Add to .gitignore',
     ]);
 
     // M1 에는 저장소를 바꾸는 항목이 하나도 없다 (FR-GIT-41).
@@ -379,8 +380,14 @@ test.describe('FR-GIT-282 — 헤더의 리포 전환 드롭다운', () => {
     await waitForInit(page);
     const basic = await pin(request, fx('basic'));
     const other = await pin(request, fx('with-remote'));
-    // 핀은 워크스페이스 리비전을 올린다 — 브라우저가 그것을 받기 전에 창을 열면
-    // 창의 저장이 어긋난 리비전으로 나간다. 목록이 3초 폴링으로 도착한 뒤 연다.
+    // 핀은 **워크스페이스**를 바꾼다. 브라우저가 그 개정을 받기 전에 창을 열면
+    // 뒤늦게 도착한 워크스페이스가 방금 만든 창을 지운다. 그래서 도착 판정을
+    // 3초 폴링 목록(`_gitRepos`)이 아니라 워크스페이스 자체에서 한다.
+    await expect
+      .poll(() => page.evaluate(() => ((window as any).app.ws?.git?.pinned || []).length),
+        { timeout: 20000 })
+      .toBe(2);
+    // 목록 자체는 별도 폴링으로 온다 — 도착 전에 열면 현재 리포 하나만 보인다.
     await expect
       .poll(() => page.evaluate(() => ((window as any).app._gitRepos?.pinned || []).length),
         { timeout: 20000 })

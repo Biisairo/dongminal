@@ -125,6 +125,8 @@ const GIT_MENUS={
     // FR-GIT-275: path 필터가 이미 있으므로(FR-GIT-129) 그것을 채워 탭을 여는 것이
     // 전부다 — 새 조회를 만들지 않는다.
     {id:'fileHistory',label:GIT_FILE_HISTORY,run:t=>gitMenuPanel().openFileHistory(t)},
+    // FR-GIT-276: 고정 탭을 늘리지 않는다 — Diff 탭을 blame 모드로 연다 (D8).
+    {id:'blame',      label:GIT_FILE_BLAME,  run:t=>gitMenuPanel().openBlame(t)},
     // FR-GIT-273: **git 실행이 아니라 파일 쓰기다.** 저장소 루트의 `.gitignore`
     // 하나만 대상이며, 경로가 그 안인지는 서버가 다시 본다.
     {id:'ignore',     label:GIT_FILE_IGNORE,run:t=>gitMenuPanel().ignorePath(t)},
