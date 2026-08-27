@@ -376,6 +376,8 @@ test.describe('Mobile keybar tooltips (SRS REQ-T-1..T-4)', () => {
     End: 'End',
     PgUp: 'Page Up',
     PgDn: 'Page Down',
+    // FR-MTI-26: 키보드를 내리는 버튼. 키를 보내지 않는다.
+    '⌨': '키보드 내리기',
   };
 
   test('TC-T1: every key button has matching title and aria-label', async ({ page }) => {

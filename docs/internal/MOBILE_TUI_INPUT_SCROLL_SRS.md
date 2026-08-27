@@ -190,3 +190,98 @@
 | 키바 버튼 포커스 | 스와이프 시 포커스 탈취 가능 | 포커스 받지 않음 | FR-MTI-14 |
 | sticky modifier | 여러 문자 입력 시 잔존 | 항상 소비 | FR-MTI-15 |
 | Alt + 비 ASCII | `ESC` + 문자 | 프리픽스 없음 | FR-MTI-17 |
+
+---
+
+## 6. 개정 — Android Chrome 실기기 (FR-MTI-20~26)
+
+§3 의 교정은 Chromium 모바일 에뮬레이션에서 검증했고 실기기(Android Chrome)에서는
+증상이 남았다. 원인은 **에뮬레이션에 없는 두 요소**다 — 실제 소프트 키보드와,
+터치가 합성하는 마우스 이벤트.
+
+### 6.1 확정된 실책
+
+**§3.3 은 Android Chrome 이 타지 않는 경로를 고쳤다.** `index.html` 은
+`interactive-widget=resizes-content` 를 선언하고 Chrome 은 이를 지원한다. 그래서
+키보드가 뜰 때 layout viewport 가 함께 줄어 `window.innerHeight` 도 줄고,
+`kbH = innerHeight - vv.height - vv.offsetTop` 은 0 에 수렴한다 — FR-MKV-3 이
+의도한 자기 비활성이다. 실제로 발화하는 것은 `window` 의 `resize` 이고,
+`web/js/core/main.js` 의 그 핸들러는 **디바운스 없이 즉시 `doFit()`** 한다.
+FR-MTI-12 의 병합은 그 경로에 걸리지 않았다.
+
+### 6.2 증상의 단일 사슬
+
+Android Chrome 은 focus 된 입력 요소가 있는 동안 사용자가 페이지를 탭하면
+키보드를 **재표시**한다. dongminal 은 최초 render 에서 `p.focus()` 로
+helper textarea 에 포커스를 주고 그 포커스는 계속 유지되므로:
+
+```
+스크롤하려고 화면을 만진다
+  → 키보드 재표시                          ("시도때도없이 키보드가 올라온다")
+  → layout viewport 축소 → window resize
+  → main.js 가 즉시 doFit → rows 급변(실측 37→19) → PTY SIGWINCH → TUI 전체 재렌더
+  → 제스처가 끊기고 진행 중인 IME 조합이 깨진다   ("글씨가 불안하다")
+```
+
+스크롤이 듣지 않는 것은 그 위에 **경합**이 하나 더 겹친 결과다. `.xterm-viewport` 는
+`overflow-y:scroll` 이고 터미널 영역의 `touch-action` 이 `auto` 이므로 Chrome 은
+터치 드래그를 네이티브 스크롤로 선점한다. 선점된 뒤에는 `preventDefault` 가 무시되어
+브라우저의 `scrollTop` 변경(→ xterm `_handleScroll` → `ydisp`)과 우리 핸들러의
+`scrollLines` 가 같은 상태를 양쪽에서 밀며 서로 상쇄한다.
+
+> **정정.** 이 절의 초안은 "리사이즈가 보던 위치를 날린다"를 사슬에 넣었다.
+> TC-MTI-16/17 로 측정한 결과 xterm 은 rows 가 바뀔 때 **하단으로부터의 거리를 이미
+> 보존**한다(40 행 위 → 40 행 위, 하단 → 하단). 절대 위치(`viewportY`)만 rows 만큼
+> 달라지는 것이고 사용자가 보는 내용은 유지된다. 따라서 리사이즈는 재렌더·조합 파괴의
+> 원인이지 스크롤 위치 손실의 원인이 아니다.
+
+### 6.3 요구사항
+
+- **FR-MTI-20** `window` 의 `resize` 핸들러가 부르는 fit 도 FR-MTI-12 와 같은
+  rAF 병합을 거친다. 모바일·데스크톱 공통이다 — 창 드래그 리사이즈에서도
+  프레임당 1회로 충분하다.
+- **FR-MTI-21** fit 으로 `rows` 가 바뀔 때 **하단으로부터의 거리**가 보존되어야 한다.
+  **xterm 이 이미 이를 보장한다(측정 확인).** 구현 없이 회귀 방지로만 검증한다 —
+  FR-MTI-20 의 병합이 이 성질을 깨지 않아야 하기 때문이다.
+- **FR-MTI-22** 스크롤 제스처로 판정된 터치는 **helper textarea 를 blur** 한다.
+  제스처가 끝나도 자동으로 되돌리지 않는다 — 되돌리면 키보드가 다시 올라온다.
+  입력 재개는 사용자가 터미널을 탭하는 명시적 조작이다.
+- **FR-MTI-23** 모바일에서 터미널 영역의 `touch-action` 은 `none` 이다.
+  브라우저가 네이티브 스크롤을 선점하면 이후 `preventDefault` 가 무시되어
+  우리 핸들러와 이중으로 움직인다.
+- **FR-MTI-24** ~~`touchmove` 를 slop 판정 이전에도 `preventDefault` 한다.~~ **철회.**
+  FR-MTI-23 이 브라우저의 제스처 선점 자체를 없애므로 불필요하고, slop 이내를
+  취소하면 Chrome 이 그 제스처의 합성 마우스 이벤트를 억제해 **탭 → 포커스 경로가
+  함께 죽는다**(FR-MTI-25 와 충돌). slop 이내는 그대로 통과시킨다.
+- **FR-MTI-25** 모바일에서 키보드를 올리는 경로는 **터미널을 탭하는 것 하나뿐이다.**
+  - `.pn` 의 포커스 이동(`mousedown`)에서 그 pane 의 터미널에 focus 한다.
+  - `render()` 의 자동 focus 는 모바일에서 수행하지 않는다. 그것이 없으면 첫 로드와
+    모든 재렌더가 키보드를 올린다. 데스크톱은 기존대로 focus 한다.
+- **FR-MTI-26** 모바일 키바에 키보드를 내리는 버튼을 둔다. 누르면 focus 된
+  helper textarea 를 blur 한다. 키를 보내는 버튼이 아니므로 sticky modifier 를
+  소비하지 않는다.
+
+### 6.4 검증
+
+| ID | 요구 | 검증 |
+|---|---|---|
+| TC-MTI-15 | FR-MTI-20 | `window resize` 이벤트 다수가 프레임당 fit 1 회로 병합된다 |
+| TC-MTI-16 | FR-MTI-21 | 하단에서 40 행 위를 보던 상태에서 rows 가 바뀌어도 40 행 위를 본다 |
+| TC-MTI-17 | FR-MTI-21 | 하단에 있었으면 리사이즈 후에도 하단에 있다 |
+| TC-MTI-18 | FR-MTI-22 | 스크롤 제스처 후 activeElement 가 helper textarea 가 아니다 |
+| TC-MTI-19 | FR-MTI-24 | (철회) |
+| TC-MTI-23 | FR-MTI-25 | 모바일 첫 로드에서 helper textarea 가 focus 되지 않는다 |
+| TC-MTI-20 | FR-MTI-25 | 터미널 탭(`.pn` mousedown) 후 helper textarea 가 focus 된다 |
+| TC-MTI-21 | FR-MTI-26 | 키보드 내리기 버튼이 있고, 누르면 blur 되며 키를 보내지 않는다 |
+| TC-MTI-22 | FR-MTI-23 | 모바일에서 터미널 영역의 `touch-action` 이 `none` 이다 |
+
+### 6.5 동작 변경 기록
+
+| 항목 | 이전 | 이후 | 이유 |
+|---|---|---|---|
+| `window resize` 시 fit | 이벤트마다 즉시 | 프레임당 1회 | FR-MTI-20 |
+| 모바일 터미널 `touch-action` | `auto` — 네이티브 스크롤이 선점·경합 | `none` | FR-MTI-23 |
+| 스크롤 제스처 중 포커스 | textarea 유지 → 키보드 재표시 | blur | FR-MTI-22 |
+| 모바일 첫 로드/재렌더 | render 가 focus → 키보드 등장 | focus 하지 않음 | FR-MTI-25 |
+| 모바일 터미널 탭 | 앱 포커스만 이동 | 터미널에 focus (키보드 등장) | FR-MTI-25 |
+| 키보드 내리기 | 수단 없음 | 키바 버튼 | FR-MTI-26 |

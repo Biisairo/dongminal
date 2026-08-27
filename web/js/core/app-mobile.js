@@ -110,12 +110,17 @@ Object.assign(App.prototype, {
       {label:'End',send:'[F'},
       {label:'PgUp',send:'[5~'},
       {label:'PgDn',send:'[6~'},
+      // FR-MTI-26: 키보드를 내리는 명시적 탈출구. Android Chrome 은 focus 된
+      // 입력 요소가 있으면 탭마다 키보드를 재표시하므로, 포커스를 놓는 길이
+      // 사용자에게 있어야 한다. 키를 보내지 않으므로 send 도 mod 도 없다.
+      {label:'⌨',act:'hidekb'},
     ];
     const FULL_NAMES={
       'Esc':'Escape','Tab':'Tab','Ctrl':'Control (modifier)','Alt':'Alt (modifier)',
       '↑':'Arrow Up','↓':'Arrow Down','←':'Arrow Left','→':'Arrow Right',
       '|':'Pipe','~':'Tilde','/':'Slash','-':'Hyphen',
       'Home':'Home','End':'End','PgUp':'Page Up','PgDn':'Page Down',
+      '⌨':'키보드 내리기',
     };
     this._modKbd={ctrl:false,alt:false};
     const refresh=()=>this._mkbRefresh();
@@ -146,6 +151,7 @@ Object.assign(App.prototype, {
       const full=FULL_NAMES[k.label]||k.label;
       b.title=full;b.setAttribute('aria-label',full);
       if(k.mod){b.dataset.mod=k.mod}
+      if(k.act){b.dataset.act=k.act}
       // 마우스 경로에서만 포커스 탈취를 막는다. touchstart 에서 preventDefault
       // 하면 브라우저가 합성 click 과 스크롤을 함께 취소해, 실기기에서 버튼이
       // 아무 반응도 하지 않고 키바 슬라이드도 막힌다 (FR-MTB-1/3).
@@ -162,6 +168,12 @@ Object.assign(App.prototype, {
         if(pressTimer){clearTimeout(pressTimer);pressTimer=null}
       };
       const activate=()=>{
+        if(k.act==='hidekb'){
+          const p=this._focusedTerminal();
+          if(p&&p._blurInput) p._blurInput();
+          else{const ae=document.activeElement;if(ae&&ae.blur)try{ae.blur()}catch{}}
+          return;
+        }
         if(k.mod){
           const now=Date.now();
           const dbl=(now-lastTap)<MKB_DOUBLE_TAP_MS;
@@ -231,16 +243,24 @@ Object.assign(App.prototype, {
     }
   },
 
-  // FR-MTI-12: visualViewport 의 scroll 은 WebKit 이 캐럿을 드러낼 때마다 연속
-  // 발화한다. 그때마다 fit 하면 PTY SIGWINCH 가 이벤트 수만큼 나가고, TUI 는
-  // 매번 프레임 전체를 다시 그린다 — 입력이 씹히는 원인이다. 프레임당 1회로 묶는다.
-  _scheduleMobileFit(){
+  // FR-MTI-12/20: 뷰포트 변화마다 fit 하면 PTY SIGWINCH 가 이벤트 수만큼 나가고
+  // TUI 는 매번 프레임 전체를 다시 그린다 — 입력이 씹히는 원인이다. 프레임당
+  // 1회로 묶는다.
+  //
+  // 두 계기가 이 함수를 공유한다. WebKit 은 키보드를 visualViewport 로만 알리고
+  // (FR-MKV-3), Android Chrome 은 interactive-widget=resizes-content 를 지원해
+  // layout viewport 가 함께 줄어 window resize 로 알린다. 후자에서는 kbH 가 0 에
+  // 수렴해 vv 경로가 스스로 비활성되므로, window resize 쪽도 반드시 묶여야 한다.
+  _scheduleFit(){
     if(this._mFitRaf) return;
     this._mFitRaf=requestAnimationFrame(()=>{
       this._mFitRaf=null;
       for(const p of this.tools.values()){if(p.el.classList.contains('vis'))p.doFit()}
     });
   },
+
+  // 이전 이름. 모바일 전용이 아니게 되었으므로 _scheduleFit 을 쓴다.
+  _scheduleMobileFit(){ this._scheduleFit() },
 
   _mobileVvApply(){
     const vv=window.visualViewport;
@@ -256,7 +276,7 @@ Object.assign(App.prototype, {
       document.body.style.paddingBottom='';
       if(bar) bar.style.bottom='';
       this._mKbH=null;this._mKbOff=null;
-      this._scheduleMobileFit();
+      this._scheduleFit();
       return;
     }
     // FR-MKV-3: layout viewport 가 키보드만큼 함께 줄어드는 환경
@@ -293,7 +313,7 @@ Object.assign(App.prototype, {
       document.body.style.paddingTop = '';
       document.body.style.paddingBottom = '';
     }
-    this._scheduleMobileFit();
+    this._scheduleFit();
   },
 
   _mkbRefresh(){

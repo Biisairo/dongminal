@@ -45,6 +45,9 @@ window.addEventListener('resize',()=>{
   const wasMobile=document.body.classList.contains('mobile');
   const nowMobile=app.isMobile;
   if(wasMobile!==nowMobile){app.render()}
-  else{for(const p of app.tools.values())if(p.el.classList.contains('vis'))p.doFit()}
+  // FR-MTI-20: Android Chrome 은 소프트 키보드를 window resize 로 알린다
+  // (interactive-widget=resizes-content). 그 연속 발화마다 즉시 fit 하면
+  // SIGWINCH 가 그만큼 나가 TUI 가 프레임 전체를 다시 그린다.
+  else{app._scheduleFit()}
 });
 window.addEventListener('beforeunload',e=>{if(app.tools.size>0)e.preventDefault()});

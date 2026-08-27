@@ -519,6 +519,12 @@ body.mobile .drawer-close{display:flex}
 body.mobile .sh{display:none !important}
 /* on mobile, terminal area uses full width (no flex split rendering happens via JS) */
 
+/* FR-MTI-23: 터미널의 터치 스크롤은 우리 핸들러가 전담한다. auto 로 두면
+   .xterm-viewport(overflow-y:scroll)에서 Chrome 이 네이티브 스크롤을 선점하고,
+   선점된 뒤에는 preventDefault 가 무시되어 브라우저의 scrollTop 변경과
+   우리의 scrollLines 가 같은 상태를 양쪽에서 밀며 서로 상쇄한다. */
+body.mobile .tp{touch-action:none}
+
 /* mobile content takes full width (no sidebar push) */
 body.mobile #content{width:100%}
 /* reserve space at the bottom for the always-visible keybar + iOS safe-area; JS may override paddingBottom inline when the virtual keyboard is up */

@@ -296,7 +296,12 @@ class Renderer {
           }
         }
       }
-      if(this.app.focused){
+      // FR-MTI-25: 모바일에서는 render 가 터미널에 focus 하지 않는다. focus 된
+      // 입력 요소가 있으면 Android Chrome 이 탭마다 키보드를 재표시하므로, 첫
+      // 로드와 모든 재렌더가 키보드를 불러들이게 된다. 모바일에서 키보드를
+      // 올리는 길은 사용자가 터미널을 탭하는 것 하나뿐이다 (_buildPane 의
+      // mousedown). 편집기는 그 대상이 아니다 — 자기 UI 를 가진다.
+      if(this.app.focused && !this.app.isMobile){
         const pn=findPane(s.layout,this.app.focused);
         if(pn){const tab=pn.tabs.find(t=>t.id===pn.activeTab);if(tab){
           if(tab.type==='editor'){const v=this.app.fileEditors.get(tab.id);if(v)v.el.focus()}
@@ -387,7 +392,20 @@ class Renderer {
     body.addEventListener('dragleave',e=>{if(!body.contains(e.relatedTarget))this.app._clearBodyDropIndicator(body)});
     body.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='tab')return;const zone=this.app._getDragZone(body,e);const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;this.app._clearBodyDropIndicator(body);if(zone==='center'){if(srcPaneId===n.id)return;this.app._moveTabToPane(srcPaneId,tabId,n.id,null,false)}else{this.app._splitPaneWithTab(srcPaneId,tabId,n.id,zone)}});
     el.appendChild(body);
-    el.addEventListener('mousedown',()=>this.app.setFocus(n.id));
+    el.addEventListener('mousedown',()=>{
+      this.app.setFocus(n.id);
+      // FR-MTI-25: 모바일에서 키보드를 올리는 유일한 경로. render 는 focus 하지
+      // 않으므로(위) 여기서 하지 않으면 모바일에서 입력을 시작할 길이 없다.
+      // 스크롤 제스처는 touchmove 가 blur 하고 합성 mousedown 도 만들지 않는다.
+      if(this.app.isMobile){
+        const pn=findPane(this.app._aw()?.layout,n.id);
+        const tab=pn&&(pn.tabs||[]).find(t=>t.id===pn.activeTab);
+        if(tab&&tab.type!=='editor'){
+          const p=this.app.tools.get(tab.toolId);
+          if(p) p.focus();
+        }
+      }
+    });
     return el;
   }
 

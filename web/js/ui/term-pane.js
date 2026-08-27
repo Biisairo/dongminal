@@ -162,9 +162,17 @@ class TerminalTool {
     const y=e.touches[0].clientY;
     if(!this._tsActive){
       // FR-MTI-9: slop 이내는 탭이다 — 그대로 통과시켜 포커스·선택을 남긴다.
+      // 여기서 preventDefault 하면 Chrome 이 이 제스처의 합성 마우스 이벤트를
+      // 억제해 탭 → 포커스 경로까지 죽는다 (FR-MTI-24 철회 근거).
       if(Math.abs(y-this._tsY0)<MTI_TOUCH_SLOP_PX) return;
       this._tsActive=true;
       this._tsY=y;   // slop 소진분은 버린다. 시작이 튀지 않는다
+      // FR-MTI-22: Android Chrome 은 focus 된 입력 요소가 있는 동안 페이지를
+      // 탭하면 키보드를 재표시한다. 스크롤하려고 만졌을 뿐인데 키보드가 올라오고,
+      // 그것이 window resize → fit → 재렌더로 이어진다. 제스처가 스크롤로
+      // 확정된 순간 포커스를 놓는다. 제스처가 끝나도 되돌리지 않는다 —
+      // 되돌리면 키보드가 다시 올라온다.
+      this._blurInput();
     }
     const dy=this._tsY-y;
     this._tsY=y;this._tsV=dy;
@@ -193,6 +201,12 @@ class TerminalTool {
 
   _flingStop(){
     if(this._flingId){cancelAnimationFrame(this._flingId);this._flingId=null}
+  }
+
+  // FR-MTI-22/26: 소프트 키보드를 내린다. 모바일에서만 의미가 있다.
+  _blurInput(){
+    const ta=this.el.querySelector('.xterm-helper-textarea');
+    if(ta && document.activeElement===ta){try{ta.blur()}catch{}}
   }
 
   _rowHeightPx(){

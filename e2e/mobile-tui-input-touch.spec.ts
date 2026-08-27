@@ -236,6 +236,12 @@ test.describe('FR-MTI-14: 키바 버튼은 포커스를 받지 않는다', () =>
       els.map((e) => (e as HTMLElement).tabIndex));
     expect(new Set(tabs)).toEqual(new Set([-1]));
 
+    // FR-MTI-25 이후 첫 로드에는 포커스가 없다. 이 검증의 대상은 "키바가 이미
+    // 있는 포커스를 빼앗지 않는가" 이므로 먼저 명시적으로 포커스를 준다.
+    await page.evaluate(() => {
+      const p = (window as any).app._focusedTerminal();
+      (p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement).focus();
+    });
     const box = await page.locator('#mobile-keybar .mkb-btn').first().boundingBox();
     const client = await page.context().newCDPSession(page);
     const x = box!.x + box!.width / 2, y = box!.y + box!.height / 2;
@@ -275,6 +281,9 @@ test.describe('FR-MTI-19: 물리 키보드 중복 방지', () => {
   test('TC-MTI-14: 모바일 폭에서 물리 키보드 입력이 중복 전송되지 않는다', async ({ page }) => {
     await gotoMobile(page);
     await installSendSpy(page);
+    // FR-MTI-25: 모바일에서 입력 포커스는 터미널을 탭해야 생긴다.
+    await page.locator('#area .pn.focused').first().dispatchEvent('mousedown');
+    await page.waitForTimeout(150);
     await clearSent(page);
     // page.keyboard.type 은 keydown/char/keyup 을 보낸다 — xterm 이 keydown 을
     // 처리한 뒤 char 의 beforeinput 이 오는 경로다.
