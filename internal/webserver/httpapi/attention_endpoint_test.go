@@ -158,3 +158,33 @@ func TestClearAllAttention_AndEndpoint(t *testing.T) {
 		t.Fatalf("clear notifier should fire for the 2 attention tools, got %v", clear)
 	}
 }
+
+// ATTENTION_LIFECYCLE_GIT_OBSERVE_SRS V-ATL-6: 도구를 지우면 그 알람도 복원 목록
+// 에서 사라진다. 직접 모드는 Delete → kill() 이, 데몬 모드는 Forget 이 한다.
+// 이 결함이 살아 있는 동안, 닫은 탭의 알람은 `모두 제거` 전까지 배지에 남았다.
+func TestApiToolDelete_ClearsAttention(t *testing.T) {
+	// Delete 가 SaveAll 을 부르므로 dataDir 를 준다 — 빈 값이면 패키지 디렉터리에
+	// tools.json 을 떨군다.
+	m := toolhub.NewToolManager(t.TempDir(), nil)
+	m.Adopt(toolhub.NewAttendingTool("del", nil, false))
+	m.Adopt(toolhub.NewAttendingTool("keep", nil, false))
+
+	s := &Server{Tools: m}
+	rec := httptest.NewRecorder()
+	s.apiToolDelete(rec, httptest.NewRequest(http.MethodDelete, "/api/tools/del", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete code=%d", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	s.apiToolsAttention(rec, httptest.NewRequest(http.MethodGet, "/api/tools/attention", nil))
+	var got struct {
+		ToolIds []string `json:"toolIds"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(got.ToolIds) != 1 || got.ToolIds[0] != "keep" {
+		t.Fatalf("삭제한 도구의 알람이 남았다: %v", got.ToolIds)
+	}
+}

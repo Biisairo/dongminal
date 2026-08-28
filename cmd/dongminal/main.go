@@ -219,6 +219,10 @@ func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub) (builtDeps, e
 	if bp, ok := toolHub.(interface{ Busy(string) bool }); ok {
 		attnTracker.SetBusyProbe(bp.Busy)
 	}
+	// FR-ATL-6: 종료 통지를 놓쳐도 죽은 도구의 알람이 복원되지 않게 한다.
+	if lp, ok := toolHub.(interface{ IsLive(string) bool }); ok {
+		attnTracker.SetLiveProbe(lp.IsLive)
+	}
 
 	return buildCommonDeps(cfg, toolHub, cmdHub, attnTracker)
 }
@@ -365,8 +369,12 @@ func serve(home, host, port string) int {
 		// readLoop goroutine), and tool exit → activity cleanup.
 		if attnTracker != nil {
 			panedClient.OnOutput = attnTracker.FeedOutput
+			// FR-ATL-3: 활동만 내리고 주의를 남기면 죽은 도구의 알람이 배지에
+			// 남는다. 두 레이어를 같은 콜백에서 함께 정리한다 — Forget 이
+			// 주의 해제(에지)와 상태 폐기를 한 번에 한다.
 			panedClient.OnExit = func(toolID string, code int) {
 				attnTracker.SetActivity(toolID, "ended", "", "")
+				attnTracker.Forget(toolID)
 			}
 			// FR-TAN-7: PTY 를 dongminald 가 들고 있으므로 전경 이름은 IPC push
 			// 로 온다. direct 모드의 WireForeground 와 같은 Broadcast 에 잇는다.

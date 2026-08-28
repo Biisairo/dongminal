@@ -227,6 +227,11 @@ func (s *Server) apiToolDelete(w http.ResponseWriter, r *http.Request) {
 	if s.Tools != nil {
 		s.Tools.Delete(id)
 	}
+	// FR-ATL-5: 데몬 모드에서 이미 죽어 있던 도구를 지우는 경로에는 OnExit 가
+	// 오지 않는다. 직접 모드는 Delete → kill() 이 이미 해제하므로 여기는 no-op 다.
+	if s.AttnTracker != nil {
+		s.AttnTracker.Forget(id)
+	}
 	w.WriteHeader(200)
 }
 

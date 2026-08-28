@@ -36,13 +36,45 @@ Object.assign(App.prototype, {
     this._attnRefresh();
   },
 
-  // FR-PAN-12: 합류/재연결 시 현재 주의 집합 복원(기존 것 병합)
+  /**
+   * FR-PAN-12 · FR-ATL-8: 합류/재연결 시 현재 주의 집합을 복원한다.
+   *
+   * 서버 집합이 **권위**다. 지금까지 이 함수는 병합만 했고, 그래서 죽은 도구의
+   * 알람이 새로고침으로도 사라지지 않았다 — `_fgApply` 가 "목록에 없는 도구의
+   * 이름은 지운다"고 하는 것과 같은 규약이 여기만 빠져 있었다.
+   *
+   * FR-ATL-9: 지운 id 에 clear 를 보내지 않는다. 서버가 이미 모르는 것을 다시
+   * 지우라고 말할 이유가 없다.
+   *
+   * **지울 후보는 요청을 떠나기 전에 확정한다.** 응답은 요청 시점의 서버 상태이고,
+   * 그 사이 SSE 로 새 알람이 올라올 수 있다 — 이 함수는 SSE 가 열리는 바로 그
+   * 순간에 불린다(`es.onopen`). 응답이 도착한 시점의 집합을 지우면 그 새 알람이
+   * 태어나자마자 사라진다.
+   */
   _attnRestore(){
+    const before=new Set(this._attn.keys());
     fetch('/api/tools/attention').then(r=>r.ok?r.json():null).then(j=>{
       if(!j||!Array.isArray(j.toolIds)) return;
-      for(const pid of j.toolIds){if(!this._attn.has(pid))this._attn.set(pid,{reason:'signaled'})}
+      const live=new Set(j.toolIds);
+      for(const pid of live){if(!this._attn.has(pid))this._attn.set(pid,{reason:'signaled'})}
+      for(const pid of before){if(!live.has(pid))this._attnDrop(pid)}
       this._attnRefresh();
+      // FR-ATL-10: 복원 경로만 "보고 있으면 해제" 밖에 있었다 — 새로고침 직후
+      // 지금 보고 있는 도구의 알람이 배지에만 남았다. 조건은 NFR-PAN-10 과 같다.
+      const browserFocused=(typeof document!=='undefined'&&typeof document.hasFocus==='function')?document.hasFocus():true;
+      if(browserFocused) this._attnClearFocused();
     }).catch(()=>{});
+  },
+
+  /**
+   * FR-ATL-7·8: 알람을 **로컬에서만** 뗀다. 서버에 알리지 않는다 — 대상이 이미
+   * 없는(죽었거나 곧 죽일) 도구이기 때문이다. 서버에도 알려야 하는 해제는
+   * `_attnClear` 다.
+   */
+  _attnDrop(toolId){
+    if(!toolId) return false;
+    this._attnCloseNotif(toolId);
+    return this._attn.delete(toolId);
   },
 
   // FR-PAN-11: 로컬 즉시 제거 + 백엔드 해제(다른 브라우저로 전파)
@@ -109,16 +141,36 @@ Object.assign(App.prototype, {
     return null;
   },
 
-  // FR-PAN-16: 해당 pane 으로 포커스 이동(_setFocus 가 _attnClearFocused 로 해제)
+  /**
+   * FR-PAN-16: 해당 pane 으로 포커스 이동(_setFocus 가 _attnClearFocused 로 해제).
+   *
+   * 탭이 없는 도구도 온다 — 백그라운드로 보냈거나 Run 이 만든 헤드리스 멤버다.
+   * 그때 조용히 return 하면 클릭이 아무 일도 하지 않고, 그 알람은 `모두 제거`
+   * 말고는 없앨 방법이 없다. FR-ATJ-1·2 로 두 갈래를 준다: 백그라운드면 복귀,
+   * 어디에도 없으면 해제. **클릭이 아무 일도 하지 않는 경우는 없다.**
+   */
   _jumpToTool(toolId){
     const loc=this._findToolLocation(toolId);
-    if(!loc) return;
+    if(!loc){this._attnLand(toolId);return}
     this.ws.activeWindow=loc.win.id;
     try{sessionStorage.setItem('activeWindow', loc.win.id)}catch{}
     loc.pane.activeTab=loc.tab.id;
     this._setFocus(loc.pane.id, loc.win);
     this._focusWindow(loc.win.id);
     this.render();
+  },
+
+  /**
+   * FR-ATJ-1·2·3: 탭이 없는 도구의 알람이 착지하는 자리. 판정은 여기 하나다 —
+   * 알림 센터와 활동 카드가 둘 다 `_jumpToTool` 을 지나므로 두 벌로 만들지 않는다.
+   */
+  _attnLand(toolId){
+    const bg=(this._bg||[]).some(b=>b&&b.toolId===toolId);
+    // 백그라운드 도구는 되돌릴 자리가 있다 — ⏻ 모달의 복귀와 같은 경로다.
+    if(bg){this._restoreTool(toolId);return}
+    // 어디에도 없으면 알람만 거둔다. 서버에도 알린다 — 다른 브라우저의 배지도
+    // 같이 내려가야 한다.
+    this._attnClear(toolId);
   },
 
   // FR-PAN-16: 제목 배지 + notification center 배지/팝오버 갱신

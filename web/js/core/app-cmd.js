@@ -195,9 +195,13 @@ Object.assign(App.prototype, {
     for(const id of ok){
       if(!this.tools.has(id)) this._mkTool(id, nameOf.get(id)||id);
     }
+    // FR-ATL-7: 서버가 모르는 도구는 죽은 도구다. 이름을 지우는 `_fgApply` 와
+    // 같은 규약으로 알람도 함께 거둔다.
+    let attnDropped=false;
     for(const [id,p] of Array.from(this.tools.entries())){
-      if(!ok.has(id)){ try{p.destroy()}catch{} this.tools.delete(id) }
+      if(!ok.has(id)){ try{p.destroy()}catch{} this.tools.delete(id); if(this._attnDrop(id)) attnDropped=true }
     }
+    if(attnDropped) this._attnRefresh();
     for(const s of sv.windows){
       if(!s||!s.id) continue;
       s.layout=clean(s.layout, ok);

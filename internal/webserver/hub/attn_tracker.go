@@ -23,6 +23,11 @@ type AttnTracker struct {
 	ticker        *time.Ticker
 	stop          chan struct{}
 
+	// liveProbe 는 "그 도구가 아직 있는가" 다 (FR-ATL-6). busyProbe 와 묻는 것이
+	// 다르다 — 저쪽은 전경 프로세스, 이쪽은 도구 자체의 존재다. nil 이면 이
+	// 필드가 없던 때와 완전히 같다.
+	liveProbe func(string) bool
+
 	// Output observation per tool
 	onAttention      func(id, reason string)
 	onAttentionClear func(id string)
@@ -72,6 +77,34 @@ func (t *AttnTracker) SetBusyProbe(f func(string) bool) {
 	t.mu.Lock()
 	t.busyProbe = f
 	t.mu.Unlock()
+}
+
+// SetLiveProbe installs the liveness check used by AttentionIDs (FR-ATL-6). In
+// daemon mode this is wired to toolclient.ToolClient.IsLive. It is the second
+// line of defence behind Forget: if a tool exit notice is ever missed, a dead
+// tool's alarm still must not be restored to a joining browser.
+func (t *AttnTracker) SetLiveProbe(f func(string) bool) {
+	t.mu.Lock()
+	t.liveProbe = f
+	t.mu.Unlock()
+}
+
+// Forget drops a tool's tracked state entirely (FR-ATL-4). Called when the tool
+// exits or is deleted. Attention is released first — and broadcast only on the
+// edge (NFR-PAN-3) — so a browser holding the alarm hears about it; without
+// this the map grew without bound and dead tools kept their badge.
+func (t *AttnTracker) Forget(toolID string) {
+	t.mu.Lock()
+	ps := t.tools[toolID]
+	delete(t.tools, toolID)
+	onClear := t.onAttentionClear
+	t.mu.Unlock()
+	if ps == nil {
+		return
+	}
+	if ps.attention.CompareAndSwap(true, false) && onClear != nil {
+		onClear(toolID)
+	}
 }
 
 // StartSweeper launches the L2 idle sweeper goroutine. stopCh closes on
@@ -176,17 +209,29 @@ func (t *AttnTracker) Attention(toolID string) bool {
 	return ps.attention.Load()
 }
 
-// AttentionIDs returns all tool IDs currently needing attention.
+// AttentionIDs returns all tool IDs currently needing attention. Dead tools are
+// filtered out when a liveness probe is installed (FR-ATL-6); the probe (an RPC
+// to dongminald) runs outside the lock.
 func (t *AttnTracker) AttentionIDs() []string {
 	t.mu.Lock()
-	defer t.mu.Unlock()
+	probe := t.liveProbe
 	var ids []string
 	for id, ps := range t.tools {
 		if ps.attention.Load() {
 			ids = append(ids, id)
 		}
 	}
-	return ids
+	t.mu.Unlock()
+	if probe == nil {
+		return ids
+	}
+	out := ids[:0]
+	for _, id := range ids {
+		if probe(id) {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 // ClearAllAttention clears attention for all tools.

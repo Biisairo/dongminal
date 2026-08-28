@@ -119,14 +119,18 @@ Object.assign(App.prototype, {
     try{const r=await fetch('/api/cwd?tool='+p.id);const d=await r.json();return d.cwd||null}catch{return null}
   },
 
+  // FR-ATL-7: 지우는 도구의 알람은 로컬에서 먼저 뗀다. 서버 브로드캐스트를
+  // 기다리면 그 사이 배지가 없는 도구를 가리키고, 통지가 유실되면 영영 남는다.
   async _kill(pid){
     const p=this.tools.get(pid);
     if(p){p.destroy();this.tools.delete(pid)}
+    if(this._attnDrop(pid)) this._attnRefresh();
     try{await fetch(`/api/tools/${pid}`,{method:'DELETE'})}catch{}
   },
   _killTool(pid){
     const p=this.tools.get(pid);
     if(p){p.destroy();this.tools.delete(pid)}
+    if(this._attnDrop(pid)) this._attnRefresh();
     fetch(`/api/tools/${pid}`,{method:'DELETE'}).catch(()=>{});
   },
 

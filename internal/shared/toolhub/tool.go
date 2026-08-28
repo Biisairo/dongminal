@@ -661,6 +661,12 @@ func (p *Tool) kill() {
 		if p.activity.Load() != nil {
 			p.SetActivity("ended", "", "")
 		}
+		// FR-ATL-1·2 (NFR-PAN-8): 주의도 같은 자리에서 내린다. 활동만 정리하고
+		// 주의를 남겨 두었던 것이, 닫은 탭의 알람이 배지에 남던 원인이다.
+		// disarm 까지 하는 이유는 Attend 와 같다 — 죽은 도구가 idle 로 다시
+		// 깨어나면 안 된다.
+		p.attnArmed.Store(false)
+		p.clearAttention()
 	})
 }
 
