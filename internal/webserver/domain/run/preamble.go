@@ -39,6 +39,13 @@ func Preamble(rec Record, m Member) string {
 		w("[작업]")
 		w("%s", brief)
 	}
+	// FR-CBG-9: 승계로 만들어진 멤버에게는 인수인계 절이 붙는다. 절의 조립은
+	// store_context.go 의 HandoffClause 가 하고 여기서는 자리만 준다 — 묶음 C 가
+	// 이 파일에 남기는 흔적을 이 네 줄로 묶기 위해서다.
+	if clause := HandoffClause(rec, m); clause != "" {
+		w("")
+		w("%s", strings.TrimRight(clause, "\n"))
+	}
 	// FR-PRE-4: 격리된 Run 이면 어디서 일하는지를 적어 준다. 멤버가 자기 작업
 	// 위치를 화면에서 추론하게 두면 엉뚱한 트리를 고친다.
 	if m.Worktree != nil && m.Worktree.Path != "" {

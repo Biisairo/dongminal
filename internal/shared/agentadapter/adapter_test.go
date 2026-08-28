@@ -209,3 +209,64 @@ func TestLaunchLine_QuotesMemberArgValues(t *testing.T) {
 		t.Fatalf("인자 값이 인용되지 않아 셸이 전개한다: %q", line)
 	}
 }
+
+// FR-CBG-1 / V-CBG-3: 훅이 실어 오는 컨텍스트 신호가 파서를 통과해야 한다.
+// 지금까지 transcript_path 와 session_id 는 여기서 버려지고 있었다.
+func TestParseClaudeHook_CarriesContextSignals(t *testing.T) {
+	claude, _ := Get("claude")
+	r, ok := claude.HookParse([]byte(
+		`{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls"},` +
+			`"session_id":"s-1","transcript_path":"/tmp/t.jsonl"}`))
+	if !ok {
+		t.Fatal("PreToolUse 를 파서가 받아들이지 않았다")
+	}
+	if r.Transcript != "/tmp/t.jsonl" || r.SessionID != "s-1" {
+		t.Fatalf("컨텍스트 신호가 유실됐다: %+v", r)
+	}
+	// 곁들이 값이 늘었다고 기존 매핑이 흔들리면 안 된다 (NFR-CBG-2).
+	if r.State != "working" || r.Tool != "Bash" || r.Detail != "ls" {
+		t.Fatalf("활동 매핑이 바뀌었다: %+v", r)
+	}
+	if r.Compacted {
+		t.Fatal("PreToolUse 는 압축 신호가 아니다")
+	}
+
+	// V-CBG-3: transcript_path 가 없으면 **비어 있다.** 빈 문자열이 "모른다"이며,
+	// 소비자가 이것을 0 바이트로 읽으면 안 된다.
+	r, _ = claude.HookParse([]byte(`{"hook_event_name":"Stop"}`))
+	if r.Transcript != "" || r.SessionID != "" {
+		t.Fatalf("없는 신호를 파서가 지어냈다: %+v", r)
+	}
+}
+
+// FR-CBG-1 / V-CBG-2: PreCompact 는 **확정 신호**다. 활동 상태는 종전대로
+// working 을 유지하되 Compacted 가 선다.
+func TestParseClaudeHook_PreCompactIsAConfirmedSignal(t *testing.T) {
+	claude, _ := Get("claude")
+	r, ok := claude.HookParse([]byte(`{"hook_event_name":"PreCompact","transcript_path":"/tmp/t.jsonl"}`))
+	if !ok || r.State != "working" {
+		t.Fatalf("PreCompact → working 이 깨졌다: %+v ok=%v", r, ok)
+	}
+	if !r.Compacted {
+		t.Fatal("PreCompact 가 압축 신호를 세우지 않았다 (FR-CBG-1)")
+	}
+	// SubagentStop 은 같은 working 이지만 압축이 아니다 — 둘이 한 case 에
+	// 묶여 있던 것을 갈랐으므로 그 경계를 고정한다.
+	r, _ = claude.HookParse([]byte(`{"hook_event_name":"SubagentStop"}`))
+	if r.State != "working" || r.Compacted {
+		t.Fatalf("SubagentStop 이 압축으로 오인됐다: %+v", r)
+	}
+}
+
+// FR-CBG-5 / O-2: 신호를 주지 않는 어댑터는 **비운다.** codex 는 컨텍스트를
+// 추정할 근거가 없으므로 추정하지 않는다.
+func TestParseCodexHook_ClaimsNoContextSignal(t *testing.T) {
+	codex, _ := Get("codex")
+	r, ok := codex.HookParse([]byte(`{"type":"agent-turn-complete"}`))
+	if !ok {
+		t.Fatal("codex turn-complete 가 파싱되지 않았다")
+	}
+	if r.Transcript != "" || r.SessionID != "" || r.Compacted {
+		t.Fatalf("codex 가 갖지 않은 신호를 지어냈다: %+v", r)
+	}
+}

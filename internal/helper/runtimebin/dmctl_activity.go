@@ -59,7 +59,61 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	}
 	body := map[string]any{"toolId": toolID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail}
 	httpPostJSON(baseURL()+"/api/tools/activity/set", body)
+	reportContext(rep, toolID)
 	return 0
+}
+
+// contextObservePath 는 컨텍스트 관측의 수신 종단이다 (ORCHESTRATION_V2_SRS
+// 묶음 C). activity 와 **별도 종단**인 이유는 둘의 실패가 서로를 막으면 안 되기
+// 때문이다 (NFR-CBG-2) — 관측 층의 오류가 활동 보고를 삼키면 사람이 보는 패널이
+// 먼저 죽는다.
+const contextObservePath = "/api/runs/context"
+
+// reportContext 는 이 훅이 실어 온 컨텍스트 신호를 서버에 넘긴다 (FR-CBG-1~4).
+//
+// **보내는 것은 숫자와 식별자뿐이다** — transcript 의 바이트 수, 세션 id, 그리고
+// 압축이 일어났다는 사실. 파일 내용은 어떤 형태로도 이 페이로드에 들어가지 않고
+// (NFR-4), 경로조차 보내지 않는다 — 서버는 그 파일을 열 이유가 없다. 그 사실은
+// dmctl_activity_context_test.go 가 카나리아로 고정한다 (V-CBG-11).
+//
+// 신호가 하나도 없으면 아무것도 보내지 않는다. 관측하지 못한 것을 0 으로
+// 보내면 서버가 그것을 값으로 읽는다 — 모르는 것은 모르는 채로 둔다 (FR-CBG-5).
+func reportContext(rep agentadapter.Report, toolID string) {
+	if rep.Transcript == "" && !rep.Compacted {
+		return
+	}
+	body := map[string]any{"toolId": toolID}
+	if rep.Compacted {
+		body["compacted"] = true
+	}
+	if rep.SessionID != "" {
+		body["sessionId"] = rep.SessionID
+	}
+	if size, ok := transcriptSize(rep.Transcript); ok {
+		body["bytes"] = size
+	}
+	httpPostJSON(baseURL()+contextObservePath, body)
+}
+
+// transcriptSize 는 transcript 의 **크기만** 잰다 — stat 1회이며 파일을 열지도
+// 읽지도 파싱하지도 않는다 (NFR-CBG-1). 훅은 에이전트의 핫패스이고, 대화가
+// 길어질수록 커지는 파일을 매 도구 호출마다 훑는 것은 그 자리에서 감당할 수
+// 없다.
+//
+// 내용은 호출자에게도 돌려주지 않는다. 반환 타입이 숫자뿐인 것이 NFR-4 의 첫
+// 방벽이다 — 내용을 실어 나를 통로가 애초에 없어야 한다.
+//
+// 접근 실패는 오류가 아니라 **모름**이다 (NFR-CBG-2). ok=false 로 낼 뿐 훅을
+// 실패시키지 않는다.
+func transcriptSize(path string) (size int64, ok bool) {
+	if path == "" {
+		return 0, false
+	}
+	st, err := os.Stat(path)
+	if err != nil || st.IsDir() {
+		return 0, false
+	}
+	return st.Size(), true
 }
 
 // reportCodexActivity also reports codex turn-complete as activity (done) when

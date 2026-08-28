@@ -69,10 +69,18 @@ worktree 만 거두고 state·중단 사유는 그대로 둔다. 서버 재기�
 경우에만 지운다. **dirty 면 지우지 않고 잔여물로 보고한다** — 사용자 작업을 조용히
 삭제하지 않는다. 전부 남기려면 --keep-worktrees. 정리하지 못한 것은 close 출력과
 이후의 run status 양쪽에 남는다.
+컨텍스트가 찬 멤버는 **승계**한다 (succeed). 같은 역할·brief·작업 트리를 새 멤버에게
+그대로 물려주며, 격리 Run 이어도 worktree 를 새로 만들지 않는다 — 진행 중인 작업이
+거기 있다. 승계는 이전 멤버에게 인수인계 요약을 청하고 기다렸다가(상한 --timeout-ms)
+새 멤버를 만들며, 무응답이면 요약 없이 진행하고 그 사실을 프리앰블에 적는다.
+이전 멤버는 succeeded 가 되고 close 의 미보고 검사에서 면제되지만, 그 **도구는 살아
+있다** — 인수인계를 다 읽었으면 /exit → close-tab 으로 조정자가 정리한다.
 
 handoff 는 승계당하는 멤버가 자기 요약을 남기는 명령이다. 권한은 발신 도구의
 정체이며 --member 는 대조용이라 생략이 정상이다 — 남의 몫을 대신 남길 수 없다.
 
+status 의 ctx= 는 전부 **추정**이다 (~ 표기). transcript 크기에서 환산한 값이고,
+신호를 주지 않는 에이전트는 ctx=— (unknown) 으로 남는다. 모른다와 괜찮다는 다르다.
 
 close 는 도구를 닫지 않는다 — 정리 대상을 돌려주므로, 조정자가 에이전트를
 종료(예: /exit)시킨 뒤 dmctl close-tab --at <탭 uuid> 로 마무리한다. 실행 중인
@@ -658,6 +666,11 @@ func printRun(stdout io.Writer, rec runRecord, withMembers bool) {
 	if !withMembers {
 		return
 	}
+	// FR-CBG-14: 컨텍스트가 위태로운 멤버는 **머리줄**에 낸다. 조정자가 멤버
+	// 목록을 끝까지 읽지 않아도 보여야 한다.
+	if alert := contextHeadline(rec.Members); alert != "" {
+		fmt.Fprintf(stdout, "  %s\n", alert)
+	}
 	if rec.Repo != "" {
 		fmt.Fprintf(stdout, "  repo=%s  base=%s\n", rec.Repo, rec.Base)
 	}
@@ -671,6 +684,10 @@ func printRun(stdout io.Writer, rec runRecord, withMembers bool) {
 		}
 		if m.Outcome != "" {
 			line += "  outcome=" + m.Outcome
+		}
+		line += "  " + m.contextCell()
+		if m.SucceededFrom != "" {
+			line += "  승계←" + m.SucceededFrom
 		}
 		fmt.Fprintln(stdout, line)
 		if m.Summary != "" {
@@ -760,3 +777,28 @@ func printRunRefusal(stderr io.Writer, status int, path string, raw []byte) {
 	}
 }
 
+// contextHeadline 은 warn 이상인 멤버를 한 줄로 요약한다 (FR-CBG-14).
+// 아무도 위태롭지 않으면 빈 문자열이며, 그때는 아무것도 찍지 않는다 — 조용할
+// 때 조용한 것이 경고를 경고답게 만든다.
+func contextHeadline(members []runMember) string {
+	var warn, critical []string
+	for _, m := range members {
+		switch m.ContextLevel {
+		case "warn":
+			warn = append(warn, m.Role)
+		case "critical":
+			critical = append(critical, m.Role)
+		}
+	}
+	if len(warn) == 0 && len(critical) == 0 {
+		return ""
+	}
+	parts := []string{}
+	if len(critical) > 0 {
+		parts = append(parts, fmt.Sprintf("critical %d명(%s)", len(critical), strings.Join(critical, ", ")))
+	}
+	if len(warn) > 0 {
+		parts = append(parts, fmt.Sprintf("warn %d명(%s)", len(warn), strings.Join(warn, ", ")))
+	}
+	return "컨텍스트 주의(추정): " + strings.Join(parts, "  ") + " — 승계는 dmctl run succeed"
+}

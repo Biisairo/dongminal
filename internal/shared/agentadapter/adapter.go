@@ -31,6 +31,18 @@ type Report struct {
 	State  string
 	Tool   string
 	Detail string
+
+	// 묶음 C — 컨텍스트 관측의 원천이다 (ORCHESTRATION_V2_SRS FR-CBG-1). 훅
+	// 페이로드가 이미 실어 오지만 여기까지 오지 못하던 값들이다.
+	//
+	// 신호를 주지 않는 에이전트에서는 **비어 있다.** 빈 값을 0 이나 ok 로 바꿔
+	// 읽지 마라 — "모른다"와 "괜찮다"는 다르다 (FR-CBG-5).
+	SessionID string
+	// Transcript 는 대화 기록 파일의 **경로**다. 소비자는 크기·줄 수만 재며
+	// 내용을 서버로 보내지 않는다 (NFR-4).
+	Transcript string
+	// Compacted 는 컨텍스트 압축이 일어났다는 **확정 신호**다. 추정이 아니다.
+	Compacted bool
 }
 
 // PromptInjection 은 초기 프롬프트를 에이전트에 전달하는 방식이다.

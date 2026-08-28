@@ -36,34 +36,50 @@ var claudeAdapter = Adapter{
 //
 // 이 함수는 dmctl_activity.go 에서 여기로 **무동작 이동**했다 (FR-ADP-2).
 // 매핑을 "개선"하지 않는다 — 회귀 검출기는 runtimebin/dmctl_activity_test.go 다.
+//
+// 묶음 C 가 더한 것은 **상태 매핑이 아니라 곁들이 값**이다 (FR-CBG-1):
+// session_id·transcript_path 는 모든 이벤트에서 그대로 실리고, PreCompact 는
+// working 을 유지한 채 Compacted 를 세운다. 활동 상태 어휘는 한 글자도 바뀌지
+// 않는다 — 컨텍스트 관측이 activity 패널의 동작을 바꾸면 안 된다 (NFR-CBG-2).
 func parseClaudeHook(data []byte) (Report, bool) {
 	var ev struct {
-		Event     string          `json:"hook_event_name"`
-		ToolName  string          `json:"tool_name"`
-		ToolInput json.RawMessage `json:"tool_input"`
-		Prompt    string          `json:"prompt"`
-		Source    string          `json:"source"`
+		Event      string          `json:"hook_event_name"`
+		ToolName   string          `json:"tool_name"`
+		ToolInput  json.RawMessage `json:"tool_input"`
+		Prompt     string          `json:"prompt"`
+		Source     string          `json:"source"`
+		SessionID  string          `json:"session_id"`
+		Transcript string          `json:"transcript_path"`
 	}
 	if err := json.Unmarshal(data, &ev); err != nil {
 		return Report{}, false
 	}
+	var rep Report
 	switch ev.Event {
 	case "PreToolUse", "PostToolUse":
-		return Report{State: "working", Tool: ev.ToolName, Detail: claudeToolDetail(ev.ToolName, ev.ToolInput)}, true
+		rep = Report{State: "working", Tool: ev.ToolName, Detail: claudeToolDetail(ev.ToolName, ev.ToolInput)}
+	case "SubagentStop":
+		rep = Report{State: "working"}
+	case "PreCompact":
+		// 압축은 추정이 아니라 확정이다. 크기가 작아 보여도 정보는 이미
+		// 유실됐으므로 소비자는 이 신호를 크기보다 우선한다 (FR-CBG-1).
+		rep = Report{State: "working", Compacted: true}
 	case "UserPromptSubmit":
-		return Report{State: "working", Detail: ev.Prompt}, true
-	case "SubagentStop", "PreCompact":
-		return Report{State: "working"}, true
+		rep = Report{State: "working", Detail: ev.Prompt}
 	case "Notification":
-		return Report{State: "waiting"}, true
+		rep = Report{State: "waiting"}
 	case "Stop":
-		return Report{State: "done"}, true
+		rep = Report{State: "done"}
 	case "SessionEnd":
-		return Report{State: "ended"}, true
+		rep = Report{State: "ended"}
 	case "SessionStart":
-		return Report{State: "idle", Detail: ev.Source}, true
+		rep = Report{State: "idle", Detail: ev.Source}
+	default:
+		return Report{}, false
 	}
-	return Report{}, false
+	rep.SessionID = ev.SessionID
+	rep.Transcript = ev.Transcript
+	return rep, true
 }
 
 // claudeToolDetail pulls the most informative argument out of a tool_input for

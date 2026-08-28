@@ -72,7 +72,19 @@ const (
 	Failed   MemberState = "failed"
 	Lost     MemberState = "lost"
 	Released MemberState = "released"
+	// Succeeded 는 일을 **마친** 것이 아니라 **넘긴** 것이다 (FR-CBG-10).
+	// done 도 failed 도 아니며, 그 일은 승계자가 마친다. 따라서 Close 의 미보고
+	// 검사에서 보고한 것으로 친다 — 아래 settled 를 보라.
+	Succeeded MemberState = "succeeded"
 )
+
+// settled 는 Close 의 미보고 검사에서 "더 기다릴 것이 없다" 로 치는 상태다.
+//
+// Released 는 조정자가 명시적으로 놓아준 멤버이고, Succeeded 는 후임에게 일을
+// 넘긴 멤버다 (FR-CBG-10). 둘 다 보고를 기다리는 것이 무의미하다.
+func (m Member) settled() bool {
+	return m.Reported() || m.State == Released || m.State == Succeeded
+}
 
 // Outcome 은 보고의 결말이다. 실패를 산문에만 담지 않게 하는 장치다 (FR-PRE-3).
 type Outcome string
@@ -121,8 +133,27 @@ type Member struct {
 	// 어떤 탭도 이 도구를 참조하지 않는다. 부착(FR-HLM-6)되면 TabID 가 채워진다.
 	Headless bool `json:"headless,omitempty"`
 
+	// 묶음 C — 컨텍스트 예산 (FR-CBG-3). 전부 서버측 **추정**이다.
+	//
+	// ContextLevel 은 추정이 불가능할 때 **빈 값**으로 남는다 (FR-CBG-5) —
+	// "모른다" 와 "괜찮다" 는 다르므로 ok 로도 "unknown" 문자열로도 채우지 않는다.
+	// omitempty 가 그 의미를 그대로 실어 나른다.
+	ContextBytes int64   `json:"contextBytes,omitempty"` // transcript 크기 (stat 1회)
+	ContextRatio float64 `json:"contextRatio,omitempty"` // 0.0~1.0+ 추정 사용률
+	ContextLevel string  `json:"contextLevel,omitempty"` // "" | ok | warn | critical
+	ContextAt    int64   `json:"contextAt,omitempty"`    // 마지막 관측 시각
+	CompactCount int     `json:"compactCount,omitempty"` // PreCompact 도달 횟수
+	SessionID    string  `json:"sessionId,omitempty"`    // 멤버 ↔ 에이전트 세션 결속
 
+	// 묶음 C — 승계 (FR-CBG-9/10). 양방향으로 기록해 사슬을 어느 쪽에서도 따라갈
+	// 수 있게 한다.
+	SucceededBy   string `json:"succeededBy,omitempty"`   // 이 멤버를 승계한 새 멤버
+	SucceededFrom string `json:"succeededFrom,omitempty"` // 이 멤버가 승계한 이전 멤버
 
+	// HandoffSummary 는 이 멤버가 후임에게 남긴 인수인계 요약이다. SRS §3.3.3 이
+	// 필드를 명시하지 않았지만 FR-CBG-9 의 3단계(새 멤버 프리앰블에 인수인계 절을
+	// 넣는다)가 저장 위치를 요구한다 — 프리앰블 조립은 승계 호출보다 뒤에 일어난다.
+	HandoffSummary string `json:"handoffSummary,omitempty"`
 }
 
 // Reported reports whether the member has sent its one terminal report.
@@ -481,7 +512,7 @@ func (s *Store) Close(runID string, force bool) (Record, []Member, error) {
 	}
 	var pending []Member
 	for _, m := range rec.Members {
-		if !m.Reported() && m.State != Released {
+		if !m.settled() {
 			pending = append(pending, m)
 		}
 	}
