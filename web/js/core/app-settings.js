@@ -8,7 +8,26 @@ Object.assign(App.prototype, {
   async _saveSettings(){
     // 블롭 전체를 갈아치우므로 읽어 쓰는 값은 전부 실어야 한다 — git 주기(FR-GIT-23)는
     // UI 가 없지만 여기서 빠지면 다른 설정을 건드릴 때 조용히 사라진다.
-    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset})})}catch{}
+    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames})})}catch{}
+  },
+
+  // FR-TAN-19: Settings ▸ Display 의 `프로세스 이름을 탭 이름으로`. 기본은 켬.
+  //
+  // 값이 서버에 있는 이유는 FR-TAN-18 이다 — `dmctl list-workspace` 가 화면과
+  // 같은 이름을 내려면 표시 규칙에 진실이 하나여야 하고, 브라우저 탭별 저장
+  // (displayMode 가 쓰는 sessionStorage)으로는 그것이 서지 않는다.
+  _initFgNames(){
+    const cb=document.getElementById('ds-fgnames');
+    if(!cb) return;
+    cb.checked=fgTabNames;
+    cb.addEventListener('change',()=>{
+      fgTabNames=cb.checked;
+      // FR-TAN-20: 끄면 **즉시** 전 탭이 기본 이름(또는 수동 이름)으로 돌아간다.
+      // 켜면 이미 들고 있는 파생 이름이 그대로 다시 보인다 — 다음 조회를
+      // 기다릴 필요가 없다.
+      this._fgRepaint();
+      this._saveSettings();
+    });
   },
 
   // ── Modal & Theme ──
@@ -23,6 +42,8 @@ Object.assign(App.prototype, {
       const dsBp=document.getElementById('ds-bp');
       if(dsMode) dsMode.value=this.displayMode;
       if(dsBp) dsBp.value=this.mobileBreakpoint;
+      const dsFg=document.getElementById('ds-fgnames');
+      if(dsFg) dsFg.checked=fgTabNames;
       // Auto-close drawer when opening settings on mobile
       if(this.isMobile && this._drawerOpen){this._toggleDrawer(false);this._rTopbar()}
     });
@@ -38,6 +59,7 @@ Object.assign(App.prototype, {
         if(tab.dataset.tab==='presets')this._renderPresets();
       });
     });
+    this._initFgNames();
   },
 
   _renderThemePanel(){
@@ -226,3 +248,19 @@ Object.assign(App.prototype, {
     this._recording=null;
   },
 });
+
+// FR-TAN-19 의 값을 서버에서 읽어 온다. main.js 의 설정 로더가 키를 하나씩
+// 나열하는 구조라 이 값만 따로 받는다 — 로더에 한 줄 붙이는 편이 요청이 하나
+// 줄지만, 그 파일은 이 작업의 소유가 아니다.
+(async()=>{
+  try{
+    const r=await fetch('/api/settings');
+    if(!r.ok) return;
+    const saved=await r.json();
+    if(saved.fgTabNames===undefined) return; // 저장된 적 없으면 기본값(켬)
+    fgTabNames=!!saved.fgTabNames;
+    if(window.app&&app._fgRepaint) app._fgRepaint();
+    const cb=document.getElementById('ds-fgnames');
+    if(cb) cb.checked=fgTabNames;
+  }catch{}
+})();

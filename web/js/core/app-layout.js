@@ -21,8 +21,48 @@ Object.assign(App.prototype, {
 
   // ── 탭 이름의 출처 (CONVENIENCE_SRS 묶음 N) ──
 
+  // FR-TAN-2: 사용자·에이전트가 명시적으로 준 이름이다. 자동 갱신 대상에서
+  // 빠진다 (FR-TAN-15).
+  _tabToManual(tab){
+    if(tab) tab.nameSource=NAME_SOURCE_MANUAL;
+  },
 
+  // FR-TAN-21/22: 자동으로 되돌린다. 이름도 기본값으로 함께 돌린다 — 되돌린
+  // 탭에 전경 프로그램이 없으면 `Shell` 이어야 하고(FR-TAN-12), 예전 수동
+  // 이름이 남아 있으면 그 상태를 표현할 방법이 없다.
+  //
+  // `nameSource` 키를 지우는 것은 저장을 줄이려는 것이 아니라, auto 가
+  // "출처가 없다"는 뜻이기 때문이다 — `tabNameSource` 가 같은 값을 낸다.
+  _tabToAuto(tab){
+    if(!tab) return;
+    delete tab.nameSource;
+    tab.name=TAB_NAME_DEFAULT;
+  },
 
+  /**
+   * 탭 이름 인라인 편집. 창 이름(`_rename`)과 갈라져 있는 이유는 **빈 문자열의
+   * 뜻이 다르기** 때문이다 — 탭에서는 자동 복귀 명령이고(FR-TAN-21), 창에는
+   * 그런 개념이 없어 지금처럼 취소로 남는다.
+   */
+  _renameTab(tab, el){
+    const old=tab.name;
+    const input=document.createElement('input');
+    input.type='text'; input.value=old; input.className='rename-input';
+    el.replaceWith(input); input.focus(); input.select();
+    const done=()=>{
+      const v=input.value.trim();
+      // FR-TAN-21: 비워서 확정하면 자동으로 돌아간다. 지금까지 빈 이름은 그냥
+      // 거부돼 동작이 비어 있었고, 여기에 뜻을 준다.
+      if(!v){ this._tabToAuto(tab); this._save() }
+      else if(v!==old){ tab.name=v; this._tabToManual(tab); this._save() }
+      this.render();
+    };
+    input.addEventListener('blur', done, {once:true});
+    input.addEventListener('keydown', e=>{
+      if(e.key==='Enter'){e.preventDefault();input.blur()}
+      if(e.key==='Escape'){input.value=old;input.blur()}
+    });
+  },
 
   async _mkWindow(opts={}){
     const p=await this._newTool();
@@ -30,6 +70,9 @@ Object.assign(App.prototype, {
     const name=(typeof opts.name==='string'&&opts.name?opts.name:'Window').slice(0,64);
     const s={
       id:newEntityId(),name,
+      // `opts.name` 은 **창** 이름이다 — 안의 탭은 이름을 받은 적이 없으므로
+      // auto 로 태어난다 (FR-TAN-1). `nameSource` 를 적지 않는 것이 auto 다.
+      layout:{type:'pane',id:r,tabs:[{id:t,name:TAB_NAME_DEFAULT,type:'terminal',toolId:p.id}],activeTab:t}
     };
     this.ws.windows.push(s);
     // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-2: keepFocus 면 창은 사이드바에만
@@ -207,6 +250,13 @@ Object.assign(App.prototype, {
     const cwd = opts.cwd || ref.cwd || null;
     const p = await this._newTool(cwd, cwd ? null : (ref.cwdTool || null));
     const t = newEntityId();
+    const given = typeof opts.name === 'string' && opts.name;
+    const name = (given ? opts.name : TAB_NAME_DEFAULT).slice(0, 64);
+    // FR-TAN-2: `dmctl new-tab --name` 으로 받은 이름은 manual 이다 — 워크플로우·
+    // team 스킬의 역할명이 이 경로를 지나므로 그것만으로 만족된다.
+    const tab = { id: t, name, type: 'terminal', toolId: p.id };
+    if (given) tab.nameSource = NAME_SOURCE_MANUAL;
+    pn.tabs.push(tab);
     // FR-RST-4: keepFocus 면 대상 pane 의 활성 탭도 바꾸지 않는다 (백그라운드 추가).
     if (!opts.keepFocus) pn.activeTab = t;
     this.render();

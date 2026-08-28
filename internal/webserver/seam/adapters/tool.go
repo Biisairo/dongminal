@@ -47,14 +47,26 @@ func (a Tool) List() []toolaccess.ToolInfo {
 		for _, m := range maps {
 			id, _ := m["id"].(string)
 			name, _ := m["name"].(string)
-			out = append(out, toolaccess.ToolInfo{ID: id, Name: name, ShellPID: mapInt(m["pid"])})
+			// 데몬 모드: 전경 조회는 PTY 를 가진 데몬이 하고, 결과는 목록
+			// 응답에 실려 온다 (FR-TAN-7). 여기서 tcgetpgrp 를 부를 수는
+			// 없다 — Size() 가 PTMX 대신 List 를 쓰는 것과 같은 사정이다.
+			fg, _ := m["fgName"].(string)
+			out = append(out, toolaccess.ToolInfo{
+				ID: id, Name: name, ShellPID: mapInt(m["pid"]), ForegroundName: fg,
+			})
 		}
 		return out
+	}
+	var fg map[string]string
+	if a.PM != nil {
+		fg = a.PM.ForegroundNames()
 	}
 	tools := a.listPanes()
 	out := make([]toolaccess.ToolInfo, 0, len(tools))
 	for _, p := range tools {
-		out = append(out, toolaccess.ToolInfo{ID: p.ID, Name: p.Name, ShellPID: p.CmdProcessPID()})
+		out = append(out, toolaccess.ToolInfo{
+			ID: p.ID, Name: p.Name, ShellPID: p.CmdProcessPID(), ForegroundName: fg[p.ID],
+		})
 	}
 	return out
 }

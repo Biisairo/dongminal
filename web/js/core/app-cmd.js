@@ -13,7 +13,7 @@ Object.assign(App.prototype, {
         // FR-XDF-8: clientId 를 실어 서버가 구독↔Client 를 결선한다. 이 결선이
         // 구독 해제 시 소유권 해제(FR-XDF-9)의 선행 조건이다.
         const es=new EventSource('/api/commands/sse?clientId='+encodeURIComponent(this.clientId));
-        es.onopen=()=>{retry=1000;retryCount=0;this._attnRestore();this._activityRestore();this._bgRefresh();this._focusRestore()};
+        es.onopen=()=>{retry=1000;retryCount=0;this._attnRestore();this._activityRestore();this._bgRefresh();this._focusRestore();this._fgRestore()};
         es.onmessage=(e)=>{
           try{
             const m=JSON.parse(e.data);
@@ -38,6 +38,12 @@ Object.assign(App.prototype, {
             }
             if(m.action==='tool_activity'){
               this._onToolActivity(m.args||{});
+              return;
+            }
+            // FR-TAN-8/9: 전경 프로세스 이름이 **바뀌었을 때만** 온다. 서버가
+            // 이미 중복을 걸렀으므로 여기서 또 거르지 않는다.
+            if(m.action==='tool_foreground'){
+              this._onToolForeground(m.args||{});
               return;
             }
             // FR-XDF-6: 전체 소유권 맵이 온다. 증분이 아니므로 통째로 갈아치우면
@@ -98,7 +104,70 @@ Object.assign(App.prototype, {
     finally{this._wsApplyInflight=false}
   },
 
+  // ── 전경 프로세스 이름 (CONVENIENCE_SRS 묶음 N) ──
+
+  // FR-TAN-8: 값이 바뀐 도구 하나가 SSE 로 왔다. name 이 빈 문자열이면 전경
+  // 프로그램이 끝난 것이며 탭 이름은 기본값으로 돌아간다 (FR-TAN-12).
+  _onToolForeground({toolId,name}={}){
+    if(!toolId) return;
+    const m=this._fgMap();
+    if(name) m.set(toolId,name); else m.delete(toolId);
+    this._fgRepaint(toolId);
+  },
+
+  _fgMap(){ return this._fgNames||(this._fgNames=new Map()) },
+
+  // 합류/재연결 시의 스냅샷 복원 (`_attnRestore` 와 같은 규약). SSE 는 **변화**
+  // 만 나르므로, 합류 시점에 이미 떠 있던 전경 프로그램은 이것으로만 보인다.
+  _fgRestore(){
+    fetch('/api/state').then(r=>r.ok?r.json():null).then(j=>{
+      if(j) this._fgApply(j.tools||[]);
+    }).catch(()=>{});
+  },
+
+  // `/api/state` 의 도구 목록(`fgName` 포함)을 런타임 Map 에 반영한다. 목록에
+  // 없는 도구의 이름은 지운다 — 죽은 도구의 이름이 남으면 안 된다.
+  _fgApply(tools){
+    const m=this._fgMap();
+    const seen=new Set();
+    let changed=false;
+    for(const p of tools||[]){
+      if(!p||!p.id) continue;
+      seen.add(p.id);
+      const n=p.fgName||'';
+      if((m.get(p.id)||'')===n) continue;
+      if(n) m.set(p.id,n); else m.delete(p.id);
+      changed=true;
+    }
+    for(const id of Array.from(m.keys())){
+      if(!seen.has(id)){m.delete(id);changed=true}
+    }
+    if(changed) this._fgRepaint();
+  },
+
+  /**
+   * 탭 라벨만 제자리에서 고쳐 쓴다. `render()` 를 부르지 않는 이유는 FR-RPT-3
+   * 과 같다 — 파생 이름은 프로그램이 뜨고 질 때마다 바뀌므로, 그때마다 레이아웃
+   * 을 다시 만들면 터미널이 재부착·재fit 되고 스크롤백 복원이 매번 돈다.
+   *
+   * toolId 를 주면 그 도구의 탭만, 안 주면 전부 (설정 토글 — FR-TAN-20).
+   */
+  _fgRepaint(toolId){
+    for(const s of this.ws.windows){
+      if(!s||!s.layout) continue;
+      for(const pn of this._flattenPanes(s.layout)){
+        for(const tab of (pn.tabs||[])){
+          if(toolId&&tab.toolId!==toolId) continue;
+          if(!toolId&&!tab.toolId) continue;
+          const el=document.querySelector('.pn-tab[data-tab-id="'+CSS.escape(tab.id)+'"] .pn-tab-label');
+          if(el) el.textContent=this.renderer._tabDisplayName(tab);
+        }
+      }
+    }
+  },
+
   _applyRemoteWorkspace(sv, serverPanes){
+    this._fgApply(serverPanes);
     const ok=new Set((serverPanes||[]).map(p=>p.id));
     const nameOf=new Map((serverPanes||[]).map(p=>[p.id,p.name]));
     for(const id of ok){
@@ -185,11 +254,17 @@ Object.assign(App.prototype, {
     }
     // RENAME_TAB_SESSION_SRS FR-RNS-1/2: 순수 데이터 변경 — 포커스 무영향.
     if(action==='renameTab'||action==='renameWindow'){
-      if(!args.location||!args.name){console.warn('[cmd] '+action+': location/name 필수');return}
+      // FR-TAN-22: `rename-tab --auto` 는 이름 없이 온다 — 자동으로 되돌리는
+      // 것이 그 명령의 전부다. 창 이름에는 출처가 없으므로 해당 없다.
+      const toAuto=action==='renameTab'&&!!args.auto;
+      if(!args.location||(!args.name&&!toAuto)){console.warn('[cmd] '+action+': location/name 필수');return}
       const tgt=this._resolveLocation(args.location);
       if(!tgt){console.warn('[cmd] '+action+': 대상 없음',args.location);return}
+      if(toAuto){ this._tabToAuto(tgt.tab); this._save(); this.render(); return }
       const name=String(args.name).slice(0,64);
-      if(action==='renameTab') tgt.tab.name=name;
+      // FR-TAN-2: 에이전트가 준 이름도 사용자가 준 이름과 같은 자격이다 —
+      // 역할명이 다음 조회에 지워지면 안 된다.
+      if(action==='renameTab'){ tgt.tab.name=name; this._tabToManual(tgt.tab) }
       else tgt.win.name=name;
       this._save(); this.render();
       return;

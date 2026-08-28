@@ -48,9 +48,18 @@ type ToolClient struct {
 	// goroutine (attention/activity detection — DAEMON_SPLIT_SRS §6.2); it is
 	// independent of WS subscribers so detection works even with no browser and
 	// never double-counts or races attnCarry across multiple subscribers.
-	OnOutput    func(toolID string, data []byte)
-	OnExit      func(toolID string, code int)
-	earlyPushes []earlyPush
+	OnOutput func(toolID string, data []byte)
+	OnExit   func(toolID string, code int)
+	// OnForeground fires when a tool's foreground process name changes
+	// (CONVENIENCE_SRS FR-TAN-9). The daemon only pushes on change, so this
+	// never repeats a value. nil disables the callback; the same name also
+	// rides in every List() response, so nothing is lost by leaving it unset.
+	//
+	// Install it with SetOnForeground, not by assignment — readLoop reads this
+	// under pc.mu and the daemon can push `fg` before the caller has finished
+	// wiring.
+	OnForeground func(toolID, name string)
+	earlyPushes  []earlyPush
 
 	// Per-tool WS subscribers: output channel → its exit-signal channel. The
 	// exit channel is closed when the tool exits so the WS handler can send
@@ -64,6 +73,21 @@ type earlyPush struct {
 	event string
 	tool  string
 	code  int
+}
+
+// SetOnForeground 는 fg 콜백을 **잠금 안에서** 건다. 맨 대입을 쓰지 마라 —
+// readLoop 는 DialToolClient 시점에 이미 돌고 있고, `fg` 푸시는 WS 구독과
+// 무관하게 도착한다. 데몬은 연결 직후 값을 밀 수 있으므로 배선이 끝나기 전에
+// readLoop 가 이 필드를 읽는 창이 실재한다 — 읽기만 잠그면 레이스는 남는다
+// (`go test -race` 3회 중 1회 관측, 2026-08-28).
+//
+// 같은 계열이 둘 더 있다 — `OnOutput`·`OnExit` 도 맨 대입으로 걸리고 있어
+// 같은 창을 안는다. 이 묶음(CONVENIENCE_SRS FR-TAN-9)의 범위 밖이라 손대지
+// 않았다. 그 둘을 고칠 사람은 이 setter 를 본으로 삼으면 된다.
+func (pc *ToolClient) SetOnForeground(cb func(toolID, name string)) {
+	pc.mu.Lock()
+	pc.OnForeground = cb
+	pc.mu.Unlock()
 }
 
 // DialToolClient connects to the dongminald Unix socket, sends hello, and
@@ -264,6 +288,20 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 					log.Printf("toolclient: WS output backpressure tool=%s dropped=%d (slow browser?)", ev.Tool, n)
 				}
 			}
+		}
+	case "fg":
+		var ev struct {
+			Tool string `json:"tool"`
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(raw, &ev); err != nil {
+			return
+		}
+		pc.mu.Lock()
+		cb := pc.OnForeground
+		pc.mu.Unlock()
+		if cb != nil {
+			cb(ev.Tool, ev.Name)
 		}
 	case "exit":
 		var ev struct {

@@ -120,6 +120,10 @@ for(const[k,v]of Object.entries(STATUS_ITEMS))statusBar[k]=v.def;
 var statsInterval=3000;
 var layoutPresets=[]; // [{name, layout}] — layout = stripped layout tree
 var defaultPreset=-1; // index into layoutPresets, -1 = none
+// CONVENIENCE_SRS FR-TAN-19: 전경 프로세스 이름을 탭 이름으로 쓸지. 기본은 켬.
+// /api/settings blob 에 실린다 — 브라우저 탭별이 아니라 서버의 값이어야
+// `dmctl list-workspace` 가 화면과 같은 이름을 낼 수 있다 (FR-TAN-18).
+var fgTabNames=true;
 
 // ── Layout helpers ──
 
@@ -290,4 +294,39 @@ const TAB_NAME_DEFAULT='Shell';
 const NAME_SOURCE_AUTO='auto';
 const NAME_SOURCE_MANUAL='manual';
 
+/**
+ * 탭 이름의 출처 (FR-TAN-1). `auto` 인 탭만 전경 프로세스에서 파생한 이름을
+ * 받는다.
+ *
+ * 저장된 값이 없으면 **읽는 자리에서** 정한다 (FR-TAN-4). 마이그레이션을
+ * 워크스페이스에 써 넣지 않는 이유는 FR-TAN-16 과 같다 — `nameSource` 는
+ * 사용자가 실제로 이름을 준 순간에만 생겨야 하고, 로드가 그것을 지어내면
+ * 지어낸 값이 영속된다.
+ *
+ * 이 규칙은 완전하지 않다 — 예전에 사용자가 탭 이름을 직접 `Shell` 로
+ * 지정했다면 auto 로 강등된다. SRS 가 그 손실을 회복 가능한 것으로 보고
+ * 수용했다. 더 정교하게 만들지 않는다.
+ */
+function tabNameSource(tab){
+  if(!tab) return NAME_SOURCE_AUTO;
+  // FR-TAN-3: editor·run·git 탭의 이름은 콘텐츠에서 파생된다 — 본 묶음의
+  // 대상이 아니므로 manual 로 고정한다.
+  if(tab.type==='editor'||tab.type==='run'||tab.type===TAB_TYPE_GIT) return NAME_SOURCE_MANUAL;
+  if(tab.nameSource===NAME_SOURCE_MANUAL||tab.nameSource===NAME_SOURCE_AUTO) return tab.nameSource;
+  return tab.name===TAB_NAME_DEFAULT?NAME_SOURCE_AUTO:NAME_SOURCE_MANUAL;
+}
 
+/**
+ * 탭이 화면에 내는 이름 (FR-TAN-15). 파생 이름을 받을 수 있는 것은
+ * `nameSource==='auto'` 인 탭뿐이며, `manual` 은 어떤 경우에도 덮이지 않는다.
+ * 설정이 꺼져 있으면 아무도 파생을 받지 않는다 (FR-TAN-20).
+ *
+ * `fgNames` 는 toolId → 파생 이름의 런타임 Map 이다. 워크스페이스에 들어가지
+ * 않는다 — 파생 이름은 현재 상태의 표시이지 이력이 아니다 (FR-TAN-16).
+ */
+function tabName(tab,fgNames){
+  if(!tab) return '';
+  if(!fgTabNames||tabNameSource(tab)!==NAME_SOURCE_AUTO) return tab.name;
+  const fg=fgNames&&tab.toolId?fgNames.get(tab.toolId):'';
+  return fg||tab.name;
+}

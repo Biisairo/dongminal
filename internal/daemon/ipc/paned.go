@@ -342,6 +342,16 @@ func (pc *panedConn) pushExit(toolID string, code int) {
 	}, false)
 }
 
+// pushForeground notifies dongminal that a tool's foreground process name
+// changed (FR-TAN-9). Droppable: the same value also rides in every `list`
+// response, so a push lost to backpressure self-heals on the next poll — and
+// a name update must never stall the daemon.
+func (pc *panedConn) pushForeground(toolID, name string) {
+	pc.enqueue(map[string]interface{}{
+		"event": "fg", "tool": toolID, "name": name,
+	}, true)
+}
+
 func (pc *panedConn) pushOutputData(toolID string, data []byte) {
 	pc.enqueue(map[string]interface{}{
 		"event": "output", "tool": toolID,
@@ -362,7 +372,19 @@ type PanedServer struct {
 }
 
 func NewPanedServer(pm *toolhub.ToolManager, sockPath, pidPath string) *PanedServer {
-	return &PanedServer{pm: pm, sockPath: sockPath, pidPath: pidPath}
+	ps := &PanedServer{pm: pm, sockPath: sockPath, pidPath: pidPath}
+	// PTY 를 소유한 것은 데몬이므로 전경 조회도 여기서 일어난다 (FR-TAN-7).
+	// 값은 list 응답에도 실리고, 바뀐 순간에는 이 push 로도 나간다 — 어느
+	// 연결이 현재인지는 wireTool 과 같이 호출 시점에 푼다.
+	pm.SetForegroundNotifier(func(toolID, name string) {
+		ps.mu.Lock()
+		c := ps.currConn
+		ps.mu.Unlock()
+		if c != nil {
+			c.pushForeground(toolID, name)
+		}
+	})
+	return ps
 }
 
 func (ps *PanedServer) Listen() error {

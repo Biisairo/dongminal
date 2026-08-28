@@ -173,6 +173,9 @@ func buildDeps(cfg httpapi.Config) (builtDeps, error) {
 	// Wire attention SSE before LoadAll so restored tools also get detection.
 	hub.WireAttention(pm, cmdHub)
 	hub.WireActivity(pm, cmdHub)
+	// CONVENIENCE_SRS FR-TAN-7: direct 모드는 PTY 를 자기가 들고 있으므로 전경
+	// 조회도 여기서 일어난다. 데몬 모드의 짝은 serve() 의 OnForeground 다.
+	hub.WireForeground(pm, cmdHub)
 
 	// FR-HLM-3: 지난 세대의 헤드리스 도구를 **펜싱 전에** 읽는다. buildCommonDeps
 	// 안의 runStore.Load 가 열린 Run 을 aborted 로 확정하므로(FR-RUN-5), 그 뒤에
@@ -365,6 +368,9 @@ func serve(home, host, port string) int {
 			panedClient.OnExit = func(toolID string, code int) {
 				attnTracker.SetActivity(toolID, "ended", "", "")
 			}
+			// FR-TAN-7: PTY 를 dongminald 가 들고 있으므로 전경 이름은 IPC push
+			// 로 온다. direct 모드의 WireForeground 와 같은 Broadcast 에 잇는다.
+			panedClient.SetOnForeground(hub.BroadcastForeground(bd.deps.Commands))
 			panedClient.FlushEarlyPushes()
 		}
 	} else {
@@ -412,6 +418,10 @@ func serve(home, host, port string) int {
 	if bd.sampler != nil {
 		bd.sampler.Start(ctx.Done())
 	}
+	// FR-TAN-8: 전경 조회를 돌리는 주체. 두 모드가 이 하나를 쓴다 — List() 가
+	// direct 에서는 ForegroundNames() 를 직접 부르고, 데몬에서는 list RPC 가
+	// 되어 dongminald 안에서 같은 일을 시킨다.
+	hub.StartForegroundPoll(bd.deps.Tools, ctx.Done())
 	exposure := "local-only"
 	if host == "0.0.0.0" || host == "::" {
 		exposure = "exposed to LAN"

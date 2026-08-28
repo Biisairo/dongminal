@@ -22,6 +22,7 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl tab-next / tab-prev
   dmctl tool-up / tool-down / tool-left / tool-right
   dmctl rename-tab --at <uuid> <이름>      # 탭 표시 이름 변경 (역할명 부여 등)
+  dmctl rename-tab --at <uuid> --auto      # 탭 이름을 자동(전경 프로세스)으로 되돌린다
   dmctl rename-window --at <uuid> <이름>  # 그 도구가 속한 창 이름 변경
   dmctl open-editor --at <uuid> [--name <이름>] <파일 절대경로>
   dmctl list-workspace [--json]         # 열린 도구 목록 (uuid 포함, ▶=현재 포커스)
@@ -202,6 +203,23 @@ func runDmctlRename(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) i
 	if parsed.name == "" && parsed.positional != "" {
 		parsed.name = parsed.positional
 	}
+	// FR-TAN-22: --auto 는 이름을 지우는 것이 아니라 **출처**를 되돌린다. 이름과
+	// 함께 오면 둘 중 무엇을 원한 것인지 알 수 없으므로 거부한다 — 추측하지 않는다.
+	if parsed.auto {
+		if cmd != "rename-tab" {
+			fmt.Fprintln(stderr, "--auto 는 rename-tab 에만 쓴다 (창 이름에는 출처가 없다)")
+			return 2
+		}
+		if parsed.name != "" {
+			fmt.Fprintln(stderr, "--auto 와 이름은 함께 쓸 수 없다")
+			return 2
+		}
+		if parsed.location == "" {
+			fmt.Fprintln(stderr, "usage: dmctl rename-tab --at <uuid> --auto")
+			return 2
+		}
+		return dmctlPost(action, parsed.buildArgs(), stdout, stderr)
+	}
 	if parsed.location == "" || parsed.name == "" {
 		fmt.Fprintf(stderr, "usage: dmctl %s --at <uuid> <name>  (또는 --name <name>)\n", cmd)
 		return 2
@@ -229,6 +247,7 @@ type dmctlParsed struct {
 	count      *int
 	keepFocus  bool
 	name       string
+	auto       bool
 	positional string
 }
 
@@ -245,6 +264,9 @@ func (p dmctlParsed) buildArgs() map[string]any {
 	}
 	if p.name != "" {
 		out["name"] = p.name
+	}
+	if p.auto {
+		out["auto"] = true
 	}
 	return out
 }
@@ -278,6 +300,10 @@ func parseDmctlFlags(args []string) (dmctlParsed, error) {
 			p.name = a[7:]
 		case a == "--no-focus" || a == "-n":
 			p.keepFocus = true
+		// CONVENIENCE_SRS FR-TAN-22: 탭 이름을 자동(전경 프로세스 파생)으로
+		// 되돌린다. rename-tab 전용이며 이름과 함께 쓰지 않는다.
+		case a == "--auto":
+			p.auto = true
 		case a == "-h" || a == "--help":
 			// caller handles top-level help; ignore here
 		case a == "--":

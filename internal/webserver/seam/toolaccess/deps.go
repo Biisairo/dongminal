@@ -8,6 +8,12 @@ type ToolInfo struct {
 	ID       string
 	Name     string
 	ShellPID int
+
+	// ForegroundName is the tool's foreground process name, or "" when the
+	// shell sits at a prompt or the lookup failed (CONVENIENCE_SRS FR-TAN-5/6).
+	// The lookup happens in whichever process owns the PTY, so this is filled
+	// identically in direct and daemon mode (FR-TAN-7).
+	ForegroundName string
 }
 
 // ToolReader exposes read/write access to PTY-backed tools without leaking

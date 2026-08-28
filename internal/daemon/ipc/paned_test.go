@@ -16,6 +16,45 @@ import (
 	"time"
 )
 
+// toolTempDir 는 ToolManager 의 데이터 디렉터리를 내주되, **비동기 기록이 멎은
+// 뒤에** 정리되도록 한다.
+//
+// ToolManager.Create/Delete 는 `go m.SaveAll()` 로 tools.json 을 비동기 기록한다
+// (toolhub/tool.go:928·1008). 그 쓰기가 t.TempDir() 정리보다 늦으면 정리가
+// `directory not empty` 로 실패하고, **본문이 통과한 뒤에 테스트가 깨진다.**
+// 전량 병렬 실행에서만 드러난다 (2026-08-28 관측).
+//
+// httpapi/background_test.go 에 같은 이유의 짝이 있다. 한쪽만 고치면 다른 쪽이
+// 남는다 — 원인은 toolhub 의 fire-and-forget 저장이고 테스트가 그것을 기다릴
+// 수단이 없다는 것이다.
+func toolTempDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	t.Cleanup(func() {
+		prev, stable := "", 0
+		for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); {
+			cur := ""
+			if ents, err := os.ReadDir(dir); err == nil {
+				for _, e := range ents {
+					if info, err := e.Info(); err == nil {
+						cur += fmt.Sprintf("%s:%d:%d;", e.Name(), info.Size(), info.ModTime().UnixNano())
+					}
+				}
+			}
+			if cur == prev {
+				if stable++; stable >= 2 {
+					return
+				}
+			} else {
+				stable = 0
+			}
+			prev = cur
+			time.Sleep(20 * time.Millisecond)
+		}
+	})
+	return dir
+}
+
 // ── Protocol tests ──────────────────────────────────────────────────────
 
 func TestPanedJSONLinesFraming(t *testing.T) {
@@ -60,7 +99,7 @@ func newTestConn(pm *toolhub.ToolManager) *panedConn {
 }
 
 func TestPanedMethodDispatch(t *testing.T) {
-	pc := newTestConn(toolhub.NewToolManager(t.TempDir(), nil))
+	pc := newTestConn(toolhub.NewToolManager(toolTempDir(t), nil))
 	tests := []struct {
 		name   string
 		method string
@@ -86,7 +125,7 @@ func TestPanedMethodDispatch(t *testing.T) {
 
 func TestPanedUnknownMethod(t *testing.T) {
 	var buf bytes.Buffer
-	pc := &panedConn{pm: toolhub.NewToolManager(t.TempDir(), nil), encoder: json.NewEncoder(&buf)}
+	pc := &panedConn{pm: toolhub.NewToolManager(toolTempDir(t), nil), encoder: json.NewEncoder(&buf)}
 	pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: "bogus", Params: json.RawMessage(`{}`)})
 
 	raw := bytes.TrimRight(buf.Bytes(), "\n")
@@ -101,7 +140,7 @@ func TestPanedUnknownMethod(t *testing.T) {
 }
 
 func TestPanedHelloReturnsToolIDs(t *testing.T) {
-	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(toolTempDir(t), nil)
 	pm.Create("/tmp", 80, 24)
 	pm.Create("/tmp", 80, 24)
 
@@ -119,7 +158,7 @@ func TestPanedHelloReturnsToolIDs(t *testing.T) {
 }
 
 func TestPanedKillRemovesTool(t *testing.T) {
-	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(toolTempDir(t), nil)
 	// toolId 는 uuid 이므로 생성 결과에서 받아야 한다 (FR-UNI-7). 이전에는 첫 도구가
 	// 항상 "1" 이라는 카운터 전제에 의존했다.
 	tl, err := pm.Create("/tmp", 80, 24)
@@ -193,7 +232,7 @@ func TestPanedPushOutputStopped(t *testing.T) {
 func shortPath(t *testing.T, name string) string { return t.TempDir() + "/" + name }
 
 func TestPanedServerListenAccept(t *testing.T) {
-	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(toolTempDir(t), nil)
 	pm.Create("/tmp", 80, 24)
 
 	sockPath := shortPath(t, "t.sock")
@@ -235,7 +274,7 @@ func TestPanedServerListenAccept(t *testing.T) {
 }
 
 func TestPanedServerCloseCleanup(t *testing.T) {
-	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(toolTempDir(t), nil)
 	sockPath := shortPath(t, "c.sock")
 	pidPath := shortPath(t, "c.pid")
 
@@ -252,7 +291,7 @@ func TestPanedServerCloseCleanup(t *testing.T) {
 }
 
 func TestPanedCreateWriteSnapshotFlow(t *testing.T) {
-	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(toolTempDir(t), nil)
 	var buf bytes.Buffer
 	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&buf)}
 
@@ -273,7 +312,7 @@ func TestPanedCreateWriteSnapshotFlow(t *testing.T) {
 }
 
 func TestPanedRestore(t *testing.T) {
-	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(toolTempDir(t), nil)
 	var buf bytes.Buffer
 	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&buf)}
 
@@ -288,14 +327,14 @@ func TestPanedRestore(t *testing.T) {
 // already served by a live daemon (concurrent cold-start guard).
 func TestPanedListenRejectsLiveSocket(t *testing.T) {
 	sock := t.TempDir() + "/s"
-	ps1 := NewPanedServer(toolhub.NewToolManager(t.TempDir(), nil), sock, "")
+	ps1 := NewPanedServer(toolhub.NewToolManager(toolTempDir(t), nil), sock, "")
 	if err := ps1.Listen(); err != nil {
 		t.Fatalf("Listen1: %v", err)
 	}
 	defer ps1.Close()
 	go func() { ps1.Accept() }()
 
-	ps2 := NewPanedServer(toolhub.NewToolManager(t.TempDir(), nil), sock, "")
+	ps2 := NewPanedServer(toolhub.NewToolManager(toolTempDir(t), nil), sock, "")
 	if err := ps2.Listen(); err == nil {
 		ps2.Close()
 		t.Fatal("Listen2 should reject a live socket, got nil error")
@@ -305,15 +344,76 @@ func TestPanedListenRejectsLiveSocket(t *testing.T) {
 // TestPanedListenRemovesStaleSocket verifies a stale (dead) socket is replaced.
 func TestPanedListenRemovesStaleSocket(t *testing.T) {
 	sock := t.TempDir() + "/s"
-	ps1 := NewPanedServer(toolhub.NewToolManager(t.TempDir(), nil), sock, "")
+	ps1 := NewPanedServer(toolhub.NewToolManager(toolTempDir(t), nil), sock, "")
 	if err := ps1.Listen(); err != nil {
 		t.Fatalf("Listen1: %v", err)
 	}
 	ps1.Close() // socket file may linger but no listener
 
-	ps2 := NewPanedServer(toolhub.NewToolManager(t.TempDir(), nil), sock, "")
+	ps2 := NewPanedServer(toolhub.NewToolManager(toolTempDir(t), nil), sock, "")
 	if err := ps2.Listen(); err != nil {
 		t.Fatalf("Listen2 should reclaim stale socket: %v", err)
 	}
 	ps2.Close()
+}
+
+// ── 전경 프로세스 이름 (CONVENIENCE_SRS 묶음 N) ──────────────────────────
+
+// TestPanedListCarriesForegroundName은 list 응답이 전경 이름을 싣고 나가는 것을
+// 고정한다 (FR-TAN-7). 이름만을 위한 새 method 를 만들지 않는다 — 기존 도구
+// 목록에 편승한다 (FR-TAN-8, NFR-CNV-2).
+func TestPanedListCarriesForegroundName(t *testing.T) {
+	t.Setenv("SHELL", "/bin/sh")
+	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	tl, err := pm.Create(t.TempDir(), 80, 24)
+	if err != nil {
+		t.Skipf("PTY 생성 불가(환경): %v", err)
+	}
+	defer pm.Delete(tl.ID)
+	if err := pm.Write(tl.ID, []byte("sleep 30\n")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	fgOf := func() string {
+		var buf bytes.Buffer
+		pc := &panedConn{pm: pm, encoder: json.NewEncoder(&buf)}
+		pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: "list", Params: json.RawMessage(`{}`)})
+		var resp toolipc.PanedResponse
+		json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &resp)
+		result, _ := resp.Result.(map[string]interface{})
+		tools, _ := result["tools"].([]interface{})
+		for _, item := range tools {
+			m, _ := item.(map[string]interface{})
+			if id, _ := m["id"].(string); id == tl.ID {
+				name, _ := m["fgName"].(string)
+				return name
+			}
+		}
+		return "<도구 없음>"
+	}
+
+	deadline := time.Now().Add(10 * time.Second)
+	var got string
+	for time.Now().Before(deadline) {
+		if got = fgOf(); got == "sleep" {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("list 의 fgName=%q — sleep 이어야 한다", got)
+}
+
+// TestPanedPushForeground은 전경 이름 push 의 와이어 모양을 고정한다.
+func TestPanedPushForeground(t *testing.T) {
+	var buf bytes.Buffer
+	pc := &panedConn{encoder: json.NewEncoder(&buf)}
+	pc.pushForeground("t1", "claude")
+
+	var ev map[string]interface{}
+	if err := json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &ev); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if ev["event"] != "fg" || ev["tool"] != "t1" || ev["name"] != "claude" {
+		t.Fatalf("push=%v", ev)
+	}
 }

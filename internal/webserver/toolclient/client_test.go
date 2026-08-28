@@ -369,3 +369,138 @@ func allToolIDs(dataDir string) map[string]struct{} {
 	}
 	return out
 }
+
+// ── 전경 프로세스 이름 (CONVENIENCE_SRS 묶음 N) ──────────────────────────
+
+// TestToolClientForegroundNameOverIPC는 전경 이름이 데몬에서 조회되어 목록
+// 응답에 실려 오는 것을 고정한다 (FR-TAN-7, V-TAN-9).
+//
+// R1 이 HIGH 인 이유가 이것이다 — PTY 를 가진 것은 데몬이고, 웹 서버는 PTMX 가
+// 없어 스스로 tcgetpgrp 을 부를 수 없다. 여기서 두 모드가 같은 값을 내는지를
+// 직접 비교한다: pm.List()가 direct 모드가 보는 것이고, pc.List()가 데몬 모드가
+// 소켓 너머로 받는 것이다.
+func TestToolClientForegroundNameOverIPC(t *testing.T) {
+	t.Setenv("SHELL", "/bin/sh")
+	d := t.TempDir()
+	sockPath := d + "/s"
+	dataDir := d + "/d"
+	os.MkdirAll(dataDir, 0o755)
+
+	pm := toolhub.NewToolManager(dataDir, nil)
+	ps := ipc.NewPanedServer(pm, sockPath, "")
+	if err := ps.Listen(); err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	defer ps.Close()
+	go func() {
+		for {
+			if err := ps.Accept(); err != nil {
+				return
+			}
+		}
+	}()
+
+	fgCh := make(chan string, 16)
+	pc, err := DialToolClient(sockPath)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer pc.Close()
+	// SetOnForeground 로 건다 — dial 직후부터 readLoop 가 이 필드를 읽으므로
+	// 맨 대입은 잠금을 지나지 않는다 (client.go 의 setter 주석).
+	pc.SetOnForeground(func(_, name string) { fgCh <- name })
+
+	tool, err := pc.Create(dataDir, 80, 24)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer pm.Delete(tool.ID)
+	if err := pc.Write(tool.ID, []byte("sleep 30\n")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	fgOf := func(list []map[string]interface{}) string {
+		for _, m := range list {
+			if id, _ := m["id"].(string); id == tool.ID {
+				n, _ := m["fgName"].(string)
+				return n
+			}
+		}
+		return "<도구 없음>"
+	}
+
+	deadline := time.Now().Add(10 * time.Second)
+	var daemonName string
+	for time.Now().Before(deadline) {
+		daemonName = fgOf(pc.List())
+		if daemonName == "sleep" {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if daemonName != "sleep" {
+		t.Fatalf("데몬 모드 fgName=%q — sleep 이어야 한다", daemonName)
+	}
+	if direct := fgOf(pm.List()); direct != daemonName {
+		t.Fatalf("direct 모드 fgName=%q, 데몬 모드=%q — 같아야 한다 (C-1)", direct, daemonName)
+	}
+
+	// 값이 바뀐 순간에는 push 로도 나간다 (FR-TAN-9).
+	select {
+	case name := <-fgCh:
+		if name != "sleep" {
+			t.Fatalf("fg push=%q want sleep", name)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("전경 이름이 바뀌었는데 fg push 가 오지 않았다")
+	}
+}
+
+// TestToolClientForegroundPushDispatch는 fg push 이벤트가 콜백으로 전달되는
+// 것을 고정한다. 콜백이 없으면 조용히 버려진다 — 같은 값이 목록 응답에도
+// 실리므로 잃는 것이 없다.
+func TestToolClientForegroundPushDispatch(t *testing.T) {
+	sockPath := t.TempDir() + "/s"
+	ln, err := net.Listen("unix", sockPath)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		enc := json.NewEncoder(conn)
+		dec := json.NewDecoder(conn)
+		for {
+			var req toolipc.PanedRequest
+			if err := dec.Decode(&req); err != nil {
+				return
+			}
+			enc.Encode(toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{"version": 1}})
+			enc.Encode(map[string]interface{}{"event": "fg", "tool": "t1", "name": "claude"})
+		}
+	}()
+
+	pc, err := DialToolClient(sockPath)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer pc.Close()
+
+	got := make(chan [2]string, 4)
+	// 맨 대입이 아니라 setter 다 — 이 fake 는 hello 응답 직후 곧바로 `fg` 를
+	// 밀므로, readLoop 가 배선보다 먼저 이 필드를 읽는다.
+	pc.SetOnForeground(func(id, name string) { got <- [2]string{id, name} })
+	pc.call("list", struct{}{})
+
+	select {
+	case ev := <-got:
+		if ev[0] != "t1" || ev[1] != "claude" {
+			t.Fatalf("fg push=%v want [t1 claude]", ev)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("fg push 가 콜백에 닿지 않았다")
+	}
+}

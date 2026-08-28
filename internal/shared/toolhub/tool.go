@@ -701,6 +701,13 @@ type ToolManager struct {
 	// 차단하며, 그래서 TTL·개수 한도·회수 스케줄러가 필요 없다.
 	background map[string]int64
 
+	// 전경 프로세스 이름 캐시 (CONVENIENCE_SRS FR-TAN-8/9). fgMu 가 캐시와
+	// 알림 콜백을, fgFlight 가 조회의 single-flight 를 지킨다. 조회 자체는
+	// 두 락 밖에서 돈다 — 구현은 foreground.go 에 있다.
+	fgMu     sync.Mutex
+	fgFlight sync.Mutex
+	fgCache  map[string]fgEntry
+	fgNotify func(id, name string)
 }
 
 // BackgroundEntry는 백그라운드 도구 한 건의 조회 결과다 (FR-BG-6).
@@ -959,6 +966,9 @@ func (m *ToolManager) Get(id string) *Tool {
 }
 
 func (m *ToolManager) List() []map[string]interface{} {
+	// 전경 이름은 m.mu 를 잡기 전에 구한다 (FR-TAN-7/8). 자체 캐시가 있어
+	// 목록 요청이 잦아도 조회 주기는 fgRefreshInterval 로 묶여 있다.
+	fg := m.ForegroundNames()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	var out []map[string]interface{}
@@ -976,6 +986,7 @@ func (m *ToolManager) List() []map[string]interface{} {
 		out = append(out, map[string]interface{}{
 			"id": p.ID, "name": p.Name, "pid": pid,
 			"sizeCols": cols, "sizeRows": rows,
+			"fgName": fg[p.ID],
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i]["id"].(string) < out[j]["id"].(string) })

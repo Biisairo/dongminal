@@ -333,6 +333,15 @@ class Renderer {
     return null;
   }
 
+  // 탭 하나가 탭 바에 **보이는 이름**이다. 단일 자리인 이유는 CONVENIENCE_SRS
+  // FR-TAN-17 이다 — 전경 프로세스에서 파생한 이름이 붙을 때, 탭 바와 사이드바와
+  // dmctl list-workspace 가 서로 다른 것을 말하면 안 된다.
+  //
+  // 판정과 파생은 `tabName` 한 곳에 있다 (helpers.js) — dmctl 이 같은 규칙을
+  // Go 로 다시 쓰므로, 브라우저 안에서만이라도 자리가 둘이면 안 된다.
+  _tabDisplayName(tab){
+    return (tab.dirty?'● ':'')+tabName(tab,this.app._fgNames);
+  }
 
   // 활성 탭의 **본문**을 pane body 에 붙인다. 타입별로 실체가 다르다 — git 은
   // 싱글턴 패널의 view DOM, editor 는 FileEditor 인스턴스, terminal 은 PTY 를 든
@@ -395,6 +404,9 @@ class Renderer {
         if(e.target.classList.contains('pn-tab-x')) this.app.closeTab(n.id,tab.id);
         else this.app.switchTab(n.id,tab.id);
       });
+      // 탭은 `_renameTab` 이다 — 창의 `_rename` 과 달리 빈 문자열에 뜻이 있다
+      // (FR-TAN-21).
+      if(!isGit) t.querySelector('.pn-tab-label').addEventListener('dblclick',e=>{e.stopPropagation();this.app._renameTab(tab,e.target)});
       t.draggable=!isGit;
       t.addEventListener('dragstart',e=>{this.app._drag={type:'tab',srcPaneId:n.id,tabId:tab.id};e.dataTransfer.effectAllowed='move';e.stopPropagation();setTimeout(()=>t.classList.add('dragging'),0)});
       t.addEventListener('dragend',()=>{this.app._drag=null;t.classList.remove('dragging');tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none')});
