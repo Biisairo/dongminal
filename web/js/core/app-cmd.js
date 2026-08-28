@@ -104,6 +104,16 @@ Object.assign(App.prototype, {
         const sv=st&&st.workspace;
         const sp=(st&&st.tools)||[];
         if(!sv||!sv.windows) break;
+        // UX_REVISION_SRS FR-GRR-4: **낡은 스냅샷을 적용하지 않는다.**
+        //
+        // 진입 시점의 가드(`_saveInflight`·rev 비교)는 요청을 **보내기 전**의
+        // 판단이다. 응답을 기다리는 사이에 우리 PUT 이 끝나면 이 스냅샷은 과거가
+        // 되고, 그것을 적용하면 방금 만든 것이 사라진다 — Git 창을 연 직후가 그
+        // 창구다 (`_mkGitWindow` 는 로컬 배열에만 넣고 저장은 뒤따른다).
+        // 적용 **직전에** 다시 본다. `_gitReposRefresh` 의 세대 검사와 같은 정신이다.
+        const now=this.wsETag?parseInt(this.wsETag,10):-1;
+        const got=et?parseInt(et,10):-1;
+        if(got>=0&&now>=0&&got<now) continue;
         this._applyRemoteWorkspace(sv, sp);
         if(et) this.wsETag=et;
       }while(this._wsApplyPending);

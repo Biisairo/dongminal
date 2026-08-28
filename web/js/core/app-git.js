@@ -64,21 +64,9 @@ Object.assign(App.prototype, {
   // openGitWindow 는 Git 창을 활성화한다. 없으면 만든다 — 두 번 불러도 창은
   // 하나다 (FR-GIT-26). repo 를 주면 활성 리포까지 전환한다 (FR-GIT-15).
   async openGitWindow(repo){
-    const existing=this._gitWindow();
-    const win=existing||this._mkGitWindow(repo||null);
+    const win=this._gitWindow()||this._mkGitWindow(repo||null);
     if(repo) this.gitPanel.setRepo(repo);
     this.switchWindow(win.id);
-    // UX_REVISION_SRS FR-GRR-4: **새로 만든 창은 저장이 끝나야 남는다.**
-    //
-    // `_mkGitWindow` 는 로컬 배열에만 창을 넣고, 저장은 `switchWindow` 가
-    // fire-and-forget 으로 건다. 그 사이에 워크스페이스 동기화가 도착하면
-    // (`_applyRemoteWorkspace` 가 `this.ws=sv` 로 통째 교체한다) 방금 만든 창이
-    // **서버가 모르는 창**이라 사라진다 — 화면에는 탭 0개짜리 빈 Git 창이 남는다.
-    // 저장이 끝나기를 기다리면 그 사이 온 SSE 는 `_saveInflight` 가드가 미루고,
-    // 완료 시점에 자기 에코로 버려진다.
-    //
-    // 이미 있던 창을 여는 경우는 기다릴 것이 없다 — 서버가 이미 안다.
-    if(!existing) await this._save();
     return win.id;
   },
 

@@ -33,10 +33,16 @@ const RUN_NODE_H = 52;
 const RUN_COORD_Y = 24;
 const RUN_ROW_Y = 168;
 const RUN_MIN_W = 720;
-// FR-FIT-2·3·4: 그래프를 분할 칸 폭에 맞춘다. 축소만 하고(상한 1) 하한 아래로는
-// 축소 대신 가로 스크롤로 돌아간다 — 읽을 수 없게 만드는 fit 은 fit 이 아니다.
-// 0.5 는 노드 부제(10px)가 5px 가 되는 지점이며 그 아래는 글자가 아니다.
+// FR-FIT-2·3·4: 그래프를 분할 칸 폭에 맞춘다.
+//
+// 하한 0.5 는 노드 부제(10px)가 5px 가 되는 지점이며 그 아래는 글자가 아니다 —
+// 더 줄이는 대신 가로 스크롤로 돌아간다. 읽을 수 없게 만드는 fit 은 fit 이 아니다.
+//
+// 상한 1.5 는 "꽉 차게" 와 "포스터가 되지 않게" 의 경계다. 상한이 1 이면 멤버가
+// 적은 Run 이 넓은 화면 한가운데 작게 떠 접수한 말("화면 크기에 맞게 꽉 차도록")을
+// 어긴다. 2 를 넘기면 노드 제목이 24px 가 되어 대시보드가 아니라 표지가 된다.
 const RUN_FIT_MIN = 0.5;
+const RUN_FIT_MAX = 1.5;
 
 function runSvg(tag, attrs) {
   const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -437,9 +443,8 @@ Object.assign(App.prototype, {
   /**
    * FR-FIT-1~4: 그래프를 감싼 칸의 폭에 맞춘다.
    *
-   * 확대하지 않는다 (배율 상한 1) — 멤버 둘짜리 Run 의 노드가 화면을 채우도록
-   * 부풀면 대시보드가 아니라 포스터가 된다. 하한(RUN_FIT_MIN) 아래로는 더
-   * 줄이지 않고 가로 스크롤에 맡긴다.
+   * 배율은 [RUN_FIT_MIN, RUN_FIT_MAX] 로 잘린다 — 좁으면 줄이되 읽을 수 있는
+   * 데까지만(그 아래는 가로 스크롤), 넓으면 키우되 표지가 되지 않을 만큼만.
    *
    * 폭을 재는 대상은 wrap 이며, 그 값이 0 이면(아직 붙지 않은 DOM) 아무것도
    * 하지 않는다 — 0 으로 나눈 배율은 그래프를 사라지게 한다.
@@ -455,7 +460,7 @@ Object.assign(App.prototype, {
     const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
     const avail = wrap.clientWidth - pad;
     if (avail <= 0) return;
-    const scale = Math.min(1, Math.max(RUN_FIT_MIN, avail / w));
+    const scale = Math.min(RUN_FIT_MAX, Math.max(RUN_FIT_MIN, avail / w));
     svg.setAttribute('width', Math.round(w * scale));
     svg.setAttribute('height', Math.round(h * scale));
   },

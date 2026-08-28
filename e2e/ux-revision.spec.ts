@@ -415,9 +415,11 @@ test.describe('묶음 F — 대시보드 맞춤 (FR-FIT-*)', () => {
 
     const svg = page.locator('.run-view .run-graph');
     await expect(svg).toBeVisible({ timeout: 10000 });
-    // 멤버가 없으면 그래프 폭은 RUN_MIN_W(720)이다. 1280 뷰포트에서는 축소되지
-    // 않아야 한다 (FR-FIT-3).
-    await expect.poll(async () => Number(await svg.getAttribute('width')), { timeout: 10000 }).toBe(720);
+    // 멤버가 없으면 배치 폭은 RUN_MIN_W(720)이다. 1280 뷰포트에서는 남는 폭만큼
+    // **키우되 상한(1.5배)을 넘지 않는다** (FR-FIT-3).
+    await expect.poll(async () => Number(await svg.getAttribute('width')), { timeout: 10000 })
+      .toBeGreaterThan(720);
+    expect(Number(await svg.getAttribute('width'))).toBeLessThanOrEqual(720 * 1.5);
 
     // 칸을 좁힌다 — 사이드바를 넓혀 콘텐츠를 줄인다.
     await page.setViewportSize({ width: 700, height: 720 });
