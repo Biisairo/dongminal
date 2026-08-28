@@ -502,7 +502,7 @@ func (s *GitServer) apiGitSync(w http.ResponseWriter, r *http.Request) {
 		"repo":      root,
 		"job":       jb,
 		"plan":      plan,
-		"sync":      run.snapshot(),
+		"sync":      s.gitSyncs.snapshotOf(run),
 	})
 }
 
@@ -707,7 +707,14 @@ type gitSyncRun struct {
 	push core.WriteSpec
 }
 
-func (r *gitSyncRun) snapshot() map[string]any {
+// snapshotLocked 는 **gitSyncHolder.mu 를 쥔 채로만** 부른다 — 이름의 Locked 가
+// 그 계약이며 sweepLocked 와 같은 관례다.
+//
+// 잠금이 필요한 이유: runSyncChain 이 백그라운드에서 advance/stop/finish 로 이
+// 필드들을 쓰는 동안 요청 핸들러가 같은 필드를 읽는다. 잠금 밖에서 부르면
+// 데이터 레이스다 (2026-08-28, `go test -race ./internal/webserver/gitapi/` 가
+// TestGitSync_RunsPullThenPush 에서 실제 실패로 드러냈다).
+func (r *gitSyncRun) snapshotLocked() map[string]any {
 	return map[string]any{
 		"id": r.ID, "repo": r.Repo, "requested": r.Requested,
 		"steps": write.SyncSteps, "step": r.Step,
@@ -777,7 +784,17 @@ func (h *gitSyncHolder) get(id string) (map[string]any, bool) {
 	if !ok {
 		return nil, false
 	}
-	return run.snapshot(), true
+	return run.snapshotLocked(), true
+}
+
+// snapshotOf 는 홀더 밖에서 쥐고 있는 run 의 스냅샷을 잠금 안에서 뜬다.
+//
+// begin 이 포인터를 돌려주므로 호출자는 id 없이도 run 을 들고 있다. 그 포인터를
+// 그대로 읽으면 잠금을 지나지 않으므로, 읽는 길을 여기 하나로 모은다.
+func (h *gitSyncHolder) snapshotOf(run *gitSyncRun) map[string]any {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return run.snapshotLocked()
 }
 
 // sweepLocked 는 상한을 넘은 오래된 것을 버린다. 끝난 sync 를 영원히 들고 있으면
