@@ -31,6 +31,23 @@ async function firstTab(page) {
   });
 }
 
+/**
+ * 서버가 보내는 renameTab 명령을 흉내낸다.
+ *
+ * **좌표를 넘긴다.** dmctl 은 uuid 를 보내지만 서버의 `translateLocationUUID`
+ * (commands.go)가 그것을 좌표(`W1.P1.T1`)로 바꿔 SSE 에 싣는다 — 브라우저의
+ * `_resolveLocation` 이 푸는 것은 좌표뿐이다. 여기서 uuid 를 그대로 넣으면
+ * 서버 한 단계를 건너뛴 채 "대상 없음" 으로 조용히 끝난다.
+ */
+async function renameRemote(page, coord: string, args: Record<string, unknown>) {
+  await page.evaluate(([c, a]) =>
+    (window as any).app._execRemote('renameTab', Object.assign({ location: c }, a)),
+    [coord, args] as any);
+}
+
+// 활성 창의 첫 pane 첫 탭을 가리키는 좌표. 서버가 내는 라벨과 같은 형식이다.
+const FIRST_TAB_COORD = 'W1.P1.T1';
+
 // 서버가 보내는 tool_foreground SSE 를 흉내낸다 (FR-TAN-8).
 async function pushForeground(page, toolId: string, name: string) {
   await page.evaluate(([id, n]) => (window as any).app._onToolForeground({ toolId: id, name: n }),
@@ -66,9 +83,7 @@ test.describe('전경 프로세스 기반 탭 이름 (묶음 N)', () => {
   test('V-TAN-4 rename 후 프로세스가 떠도 이름이 유지된다', async ({ page }) => {
     await waitForInit(page);
     const tab = await firstTab(page);
-    await page.evaluate(([tid, pid]) =>
-      (window as any).app._execRemote('renameTab', { location: tid, name: '비평가' }),
-      [tab.id, tab.paneId]);
+    await renameRemote(page, FIRST_TAB_COORD, { name: '비평가' });
     await expect(labelOf(page, tab.id)).toHaveText('비평가');
     await pushForeground(page, tab.toolId, 'vim');
     await expect(labelOf(page, tab.id)).toHaveText('비평가');
@@ -110,11 +125,9 @@ test.describe('전경 프로세스 기반 탭 이름 (묶음 N)', () => {
   test('V-TAN-6 dmctl rename-tab --auto 가 같은 일을 한다', async ({ page }) => {
     await waitForInit(page);
     const tab = await firstTab(page);
-    await page.evaluate((tid) =>
-      (window as any).app._execRemote('renameTab', { location: tid, name: '비평가' }), tab.id);
+    await renameRemote(page, FIRST_TAB_COORD, { name: '비평가' });
     expect((await firstTab(page)).nameSource).toBe('manual');
-    await page.evaluate((tid) =>
-      (window as any).app._execRemote('renameTab', { location: tid, auto: true }), tab.id);
+    await renameRemote(page, FIRST_TAB_COORD, { auto: true });
     const back = await firstTab(page);
     expect(back.nameSource).toBeUndefined();
     expect(back.name).toBe('Shell');

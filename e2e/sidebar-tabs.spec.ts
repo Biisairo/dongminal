@@ -30,7 +30,15 @@ async function waitForInit(page: Page) {
     sessionStorage.setItem('displayMode', 'desktop');
     // 활성 탭은 localStorage 에 산다 (FR-SBT-6). 앞선 테스트의 값이 남으면
     // "최초 접속" 을 단정하는 항목이 오염된다.
-    localStorage.removeItem('sidebarTab');
+    //
+    // **첫 로드에서만 지운다.** initScript 는 reload 에서도 실행되므로 그냥
+    // 지우면 "탭을 고르고 새로고침하면 돌아온다"(T2)를 재는 순간 테스트가
+    // 자기 검증 대상을 지운다. sessionStorage 는 reload 를 넘어 살고 새
+    // 컨텍스트에서는 비어 있으므로, 테스트 간 격리는 그대로다.
+    if (!sessionStorage.getItem('sbTabCleared')) {
+      localStorage.removeItem('sidebarTab');
+      sessionStorage.setItem('sbTabCleared', '1');
+    }
   });
   await page.goto('/');
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });

@@ -1,4 +1,8 @@
-import { Page } from '@playwright/test';
+import { execFileSync } from 'child_process';
+import { realpathSync } from 'fs';
+import { join } from 'path';
+
+import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
 
@@ -13,6 +17,32 @@ async function init(page: Page) {
   });
   await page.goto('/');
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+}
+
+const FIXTURES = '/tmp/dm-git-fx-uxr-' + process.pid;
+
+test.beforeAll(() => {
+  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+});
+test.afterAll(() => {
+  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+});
+
+const fx = (name: string) => realpathSync(join(FIXTURES, name));
+
+// 보낸 경로가 아니라 응답의 root 로 항목을 찾아야 한다 (git-sidebar 와 같은 규약).
+async function pin(request: APIRequestContext, path: string) {
+  const r = await request.post('/api/git/repos/pin', { data: { path } });
+  expect(r.ok(), `pin 실패: ${await r.text()}`).toBeTruthy();
+  return (await r.json()).root as string;
+}
+
+async function unpinAll(request: APIRequestContext) {
+  const r = await request.get('/api/git/repos');
+  if (!r.ok()) return;
+  for (const e of ((await r.json()).pinned || []) as any[]) {
+    if (e && e.path) await request.post('/api/git/repos/unpin', { data: { path: e.path } });
+  }
 }
 
 // ── 묶음 B — 사이드바 블루프린트 ──
@@ -62,6 +92,49 @@ test.describe('묶음 B — 사이드바 리스트 블루프린트 (FR-BLP-*)', 
     const shown = await page.evaluate(() =>
       [...document.querySelectorAll('#windows .si')].map(e => (e as HTMLElement).dataset.sid));
     expect(shown).toEqual(after);
+  });
+});
+
+test.describe('묶음 B — 목록 순회 (FR-BLP-15~18)', () => {
+  test('V-BLP-5: 두 목록이 같은 순회 규약을 쓴다', async ({ page, request }) => {
+    await unpinAll(request);
+    await init(page);
+
+    // ① 창 목록: 창이 하나면 아무 일도 하지 않는다.
+    const only = await page.evaluate(() => (window as any).app.ws.activeWindow);
+    await page.evaluate(() => (window as any).app.executeAction('windowNext'));
+    expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(only);
+
+    // ② 창 목록: 둘이면 감싸며 돈다.
+    await page.evaluate(() => (window as any).app.addWindow());
+    await expect(page.locator('#windows .si')).toHaveCount(2, { timeout: 10000 });
+    const ids = await page.evaluate(() => (window as any).app.ws.windows.map((w: any) => w.id));
+    const from = await page.evaluate(() => (window as any).app.ws.activeWindow);
+    await page.evaluate(() => (window as any).app.executeAction('windowNext'));
+    const after = await page.evaluate(() => (window as any).app.ws.activeWindow);
+    expect(ids, '순회가 목록 밖으로 나갔다').toContain(after);
+    expect(after, '순회가 제자리에 머물렀다').not.toBe(from);
+    // 끝에서 감싼다 — 두 개짜리 목록에서 두 번 돌면 제자리다.
+    await page.evaluate(() => (window as any).app.executeAction('windowNext'));
+    expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(from);
+
+    // ③ Git 목록: **목록 밖에 있으면 첫 항목으로 들어간다.**
+    //    핀이 하나뿐이고 그 리포를 보고 있지 않은 상태다 — 예전 Git 쪽 구현은
+    //    `length < 2` 로 먼저 걸러 아무 일도 하지 않았고, 창 쪽은 들어갔다.
+    const root = await pin(request, fx('basic'));
+    await expect.poll(() => page.evaluate(() =>
+      ((window as any).app._gitRepos?.pinned || []).length), { timeout: 20000 }).toBe(1);
+    await page.locator('.sb-tab[data-panel="git"]').click();
+    expect(await page.evaluate(() => (window as any).app.gitPanel.repo || null)).toBeNull();
+
+    await page.evaluate(() => (window as any).app.executeAction('windowNext'));
+    await expect.poll(() => page.evaluate(() =>
+      (window as any).app.gitPanel.repo), { timeout: 10000 }).toBe(root);
+
+    // ④ 그 하나에 들어간 뒤로는 더 돌 곳이 없다 — 창 목록이 하나일 때와 같다.
+    await page.evaluate(() => (window as any).app.executeAction('windowNext'));
+    expect(await page.evaluate(() => (window as any).app.gitPanel.repo)).toBe(root);
+    await unpinAll(request);
   });
 });
 

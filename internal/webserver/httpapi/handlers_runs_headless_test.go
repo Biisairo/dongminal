@@ -263,6 +263,15 @@ func newHeadlessFixture(t *testing.T) *headlessFixture {
 }
 
 // actions 는 지금까지 배달된 명령 이름들이다.
+// resetActions 는 방송 기록을 비운다. "이 단계가 쓴 명령" 을 재는 검사는 그
+// 단계 **직전에** 기준점을 잡아야 한다 — 앞 단계(헤드리스 생성)가 남긴 것까지
+// 세면 무엇을 재는지 알 수 없다.
+func (f *headlessFixture) resetActions() {
+	f.seenMu.Lock()
+	defer f.seenMu.Unlock()
+	f.seen = nil
+}
+
 func (f *headlessFixture) actions() []string {
 	f.seenMu.Lock()
 	defer f.seenMu.Unlock()
@@ -420,6 +429,10 @@ func TestRunAttachDetach_DoesNotChangeMemberState(t *testing.T) {
 	toolID, _ := m["toolId"].(string)
 
 	before := memberSnapshot(t, f, memberID)
+
+	// 생성 단계가 남긴 방송(FR-BGV-1 의 `tools_background_changed`)은 여기서
+	// 재려는 것이 아니다 — 아래 검사는 **부착이** 쓴 명령을 센다.
+	f.resetActions()
 
 	// 부착 — 브라우저가 탭을 만드는 것을 흉내 낸다.
 	go func() {

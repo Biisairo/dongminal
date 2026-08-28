@@ -164,23 +164,39 @@ test.describe('묶음 D — Git 창 골격', () => {
     expect(await gitWindowCount(page)).toBe(1);
   });
 
-  test('E7 (FR-GIT-182·184): 창 전환 단축키는 Git 창을 지나가지 않는다', async ({ page }) => {
-    // GIT_UI_REVISION_SRS 로 FR-GIT-30 이 폐기됐다.
+  /**
+   * E7 개정 (FR-SBT-31·34 + UX_REVISION_SRS FR-BLP-15~18).
+   *
+   * 옛 계약은 "Git 창에서 순환을 돌면 일반 창으로 **나간다**"(FR-GIT-184)였다.
+   * `GIT_SIDEBAR_TABS_SRS` 가 순회 키를 **활성 사이드바 탭의 목록 순회**로
+   * 재정의하면서 그것이 성립하지 않게 됐다 — Git 창이 활성이면 탭도 Git 이 되고
+   * (FR-SBT-14), 그때 순회 대상은 창이 아니라 핀 리포다.
+   *
+   * 막다른 길이 되지 않는다는 요구는 살아 있고, 그것을 지키는 것이 **탭**이다
+   * (FR-SBT-34: 떠나는 길이 사이드바 탭으로 상시 존재한다). 여기서는 그 두
+   * 가지를 본다 — 순회가 창을 건드리지 않는다는 것, 그리고 나가는 길이 있다는 것.
+   */
+  test('E7 개정 (FR-SBT-31·34): Git 창에서 순회는 창을 건드리지 않고, 나가는 길은 탭이다', async ({ page }) => {
     await waitForInit(page);
     const gid = await openGit(page);
     const other = await page.evaluate(
       (g) => (window as any).app.ws.windows.find((w: any) => w.id !== g)?.id, gid);
     expect(other, '비교할 다른 창이 없다').toBeTruthy();
-
-    // Git 창에서 순환을 돌면 **나간다** — 단축키가 막다른 길이 되지 않는다.
     expect(await activeWindow(page)).toBe(gid);
-    await page.evaluate(() => (window as any).app.executeAction('windowNext'));
+    // Git 창이 활성이면 사이드바 탭도 Git 이다 (FR-SBT-14).
+    expect(await page.evaluate(() => (window as any).app._sbTab)).toBe('git');
+
+    // 순회 대상은 핀 리포다. 핀이 없으므로 아무 일도 하지 않는다 — 창 목록을
+    // 건드리지 않는 것이 요점이다.
+    for (const act of ['windowNext', 'windowPrev', 'windowNext']) {
+      await page.evaluate((a) => (window as any).app.executeAction(a), act);
+      expect(await activeWindow(page), `${act} 가 창을 바꿨다`).toBe(gid);
+    }
+
+    // FR-SBT-34: 나가는 길은 Windows 탭이다 — 막다른 길이 아니다.
+    await page.evaluate(() => (window as any).app._sbJumpTo(1));
     expect(await activeWindow(page)).toBe(other);
-    // 일반 창이 하나뿐이므로 더 눌러도 그 자리다 — Git 창으로 돌아가지 않는다.
-    await page.evaluate(() => (window as any).app.executeAction('windowNext'));
-    expect(await activeWindow(page)).toBe(other);
-    await page.evaluate(() => (window as any).app.executeAction('windowPrev'));
-    expect(await activeWindow(page)).toBe(other);
+    expect(await page.evaluate(() => (window as any).app._sbTab)).toBe('windows');
   });
 
   test('E8 (V21 / V143): 새로고침 후 창·탭·활성 탭이 보존된다 — 마지막(7번째) 탭도 예외가 아니다', async ({ page }) => {

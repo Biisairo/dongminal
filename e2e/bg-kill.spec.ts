@@ -298,7 +298,12 @@ test.describe('FR-BGK-2·12: 모바일 배치와 Run 소속', () => {
     const plain = (await makeBackgroundTools(page, request, 1))[0];
 
     // isolation 은 기본값(none)이다 — 작업 트리를 만들지 않으므로 git 이 필요 없다.
-    const runRes = await request.post('/api/runs', { data: { objective: '묶음 X 검증' } });
+    // projection 은 서버가 기본값을 채우지 않는다 — "투영을 정하지 않은 Run 은
+    // 없다" 가 그 타입의 계약이다 (run.go Projection.Valid). isolation 만 none 으로
+    // 채워진다.
+    const runRes = await request.post('/api/runs', {
+      data: { objective: '묶음 X 검증', projection: 'dedicated-window' },
+    });
     expect(runRes.status(), 'Run 시작 실패 — 묶음 R 종단에 의존한다').toBe(200);
     const runId = (await runRes.json()).id as string;
 

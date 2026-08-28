@@ -78,6 +78,11 @@ func (s *Server) createHeadlessTool(cwd string) (string, error) {
 	}
 	s.Tools.SetBackground(tool.ID, true)
 	log.Printf("[run] headless tool=%s cwd=%s %dx%d", tool.ID, cwd, headlessCols, headlessRows)
+	// UX_REVISION_SRS FR-BGV-1: 브라우저의 ⏻ 목록은 **자기 행동**(detach·복귀)과
+	// SSE 재연결로만 갱신된다. 서버가 만든 백그라운드 도구를 알리지 않으면 배지가
+	// 0 인 채로 남고, 사용자는 모달을 열거나 새로고침해야 그것을 본다 —
+	// FR-HLM-2("헤드리스 도구는 ⏻ 목록에 함께 보인다")가 그 사이 성립하지 않는다.
+	s.broadcastLayout("tools_background_changed", nil)
 	return tool.ID, nil
 }
 

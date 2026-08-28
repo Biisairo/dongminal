@@ -27,10 +27,14 @@ const SidebarList = {
     if (!d) return;
     const el = document.getElementById(d.containerId);
     if (!el) return;
+    // FR-BLP-7: 컨테이너의 생김새(남은 높이 전부 + 세로 스크롤)도 공통이다.
+    el.classList.add('sbl-list');
     // 데이터가 아직 없는 목록(Git 은 첫 응답 전)은 **비우기만** 한다. 빈 안내를
     // 그리면 "없다" 와 "아직 모른다" 가 같은 화면이 된다.
     if (d.ready && !d.ready(app)) { el.innerHTML = ''; return }
-    const items = (d.items(app) || []).map(it => d.row(app, it));
+    // 키는 서술자 최상위에 있다 — reconcile 과 순회(cycle)가 **같은 키**를 봐야
+    // 하기 때문이다. 행 안에 두면 순회가 그 값을 얻으려고 행을 만들어야 한다.
+    const items = (d.items(app) || []).map(it => Object.assign({ key: d.key(it) }, d.row(app, it)));
     el.classList.toggle('empty', !items.length);
     if (!items.length) {
       // FR-BLP-4: 빈 목록 표시도 블루프린트의 것이다. 문구만 서술자가 준다.
@@ -155,40 +159,47 @@ const SidebarList = {
     if (!d || !d.reorder) return;
     if (!dr || dr.done || !dr.src || !dr.target || dr.src === dr.target) return;
     dr.done = true;
+    // apply 는 **로컬 순서만** 바꾼다. 영속은 commit 이 한다 — 창은 워크스페이스에
+    // 쓰고 핀은 서버를 지난다 (FR-GIT-223). 두 목록의 구조가 같고 타깃만 다르다.
     if (!d.reorder.apply(app, dr)) return;
-    d.reorder.repaint ? d.reorder.repaint(app) : app.render();
+    // 바뀐 것은 이 목록의 순서뿐이다 — 전체를 다시 그리면 터미널이 재부착된다.
+    this.paint(app, def);
     if (d.reorder.commit) d.reorder.commit(app, dr);
+  },
+
+  /**
+   * UX_REVISION_SRS FR-BLP-15~18: 목록 순회. **두 목록이 같은 규약을 쓴다.**
+   *
+   * 규약은 창 순회가 세운 것 그대로다.
+   *   ① 목록이 비면 아무 일도 하지 않는다
+   *   ② 지금 있는 곳이 목록 **밖**이면 첫 항목으로 들어간다 — 순회 키가 막다른
+   *      길이 되지 않는다 (FR-GIT-184 가 창에 대해 세운 것)
+   *   ③ 항목이 하나뿐이면 아무 일도 하지 않는다
+   *   ④ 끝에서 감싼다
+   *
+   * 지금까지 `_cycleWindow` 와 `_gitCycleRepo` 가 이 규약을 각자 구현했고, 그래서
+   * ②가 한쪽에만 있었다 — 핀이 하나인데 그 리포를 보고 있지 않으면 Git 쪽은
+   * 아무 일도 하지 않았다. 창 쪽이라면 그 하나로 들어갔을 상황이다.
+   */
+  cycle(app, def, step) {
+    const d = def && def.list;
+    const c = d && d.cycle;
+    if (!c) return;
+    let arr = d.items(app) || [];
+    // 순회 대상이 목록보다 좁을 수 있다 — Git 은 저장소가 아닌 핀을 뺀다
+    // (FR-GIT-11: 목록에서도 클릭 리스너가 붙지 않는 항목이다).
+    if (c.filter) arr = arr.filter(c.filter);
+    if (!arr.length) return;
+    const cur = c.currentKey(app);
+    const i = arr.findIndex(it => d.key(it) === cur);
+    if (i < 0) { c.open(app, arr[0]); return }
+    if (arr.length < 2) return;
+    c.open(app, arr[(i + step + arr.length) % arr.length]);
   },
 
   // 서술자 배열 전체에서 이 드래그 타입을 가진 탭을 찾는다. 문서 전역 drop 이
   // 쓴다 — 그쪽은 어느 탭의 드래그인지 타입 문자열로만 안다.
   defByDragType(type) {
     return SB_TAB_DEFS.find(d => d.list && d.list.reorder && d.list.reorder.type === type) || null;
-  },
-
-  /**
-   * FR-BLP-9: 패널의 액션 버튼 행. 서술자가 준 목록에서 그린다 — 버튼이 목록
-   * **위**에 오는 것은 두 패널이 공유하는 골격이다 (FR-BLP-5·8).
-   *
-   * 버튼 요소는 index.html 에 정적으로 있다. 여기서는 자리와 순서만 맞춘다 —
-   * 만들어 넣으면 id 로 잡는 기존 배선(app-git._initGitSection 등)이 끊긴다.
-   */
-  layoutActions(def) {
-    const d = def && def.list;
-    if (!d || !d.actions || !d.actions.length) return;
-    const panel = document.getElementById(def.panelId);
-    const listEl = document.getElementById(d.containerId);
-    if (!panel || !listEl) return;
-    let bar = panel.querySelector('.sb-actions');
-    if (!bar) {
-      bar = document.createElement('div');
-      bar.className = 'sb-actions';
-      panel.insertBefore(bar, panel.firstChild);
-    }
-    for (const id of d.actions) {
-      const b = document.getElementById(id);
-      if (b && b.parentElement !== bar) bar.appendChild(b);
-    }
-    if (listEl.previousElementSibling !== bar) panel.insertBefore(bar, listEl);
   },
 };

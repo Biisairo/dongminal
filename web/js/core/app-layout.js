@@ -484,15 +484,6 @@ Object.assign(App.prototype, {
     const i=pn.tabs.findIndex(t=>t.id===pn.activeTab);if(i<0)return;
     this.switchTab(pn.id,pn.tabs[(i+1)%pn.tabs.length].id);
   },
-  // FR-GIT-182: 순환은 일반 창만 돈다. Git 창에 있으면 순환의 첫 창으로 **나간다**
-  // — 단축키가 막다른 길이 되면 사용자는 고장으로 읽는다 (FR-GIT-184).
-  _cycleWindow(step){
-    const arr=this._plainWindows(); if(!arr.length) return;
-    const i=arr.findIndex(s=>s.id===this.ws.activeWindow);
-    if(i<0){this.switchWindow(arr[0].id);return}
-    if(arr.length<2) return;
-    this.switchWindow(arr[(i+step+arr.length)%arr.length].id);
-  },
   // 순회 키(Ctrl+Shift+[ ])의 **단일 디스패치 지점**이다.
   //
   // GIT_SIDEBAR_TABS_SRS FR-SBT-31/33: 이 키는 활성 사이드바 탭의 목록을 순회한다
@@ -501,8 +492,10 @@ Object.assign(App.prototype, {
   //
   _cycleActive(step){
     const d=this._sbTabs.find(t=>t.id===this._sbTab);
-    if(!d||!d.cycle) return;
-    d.cycle(this,step);
+    if(!d) return;
+    // UX_REVISION_SRS FR-BLP-15: 순회 규약은 블루프린트 한 자리에 있다. 탭마다
+    // 자기 순회를 구현하던 때는 같은 규약이라고 적어 두고도 서로 달랐다.
+    SidebarList.cycle(this,d,step);
   },
   switchWindowPrev(){this._cycleActive(-1)},
   switchWindowNext(){this._cycleActive(1)},

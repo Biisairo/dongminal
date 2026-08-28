@@ -45,21 +45,6 @@ Object.assign(App.prototype, {
     this.delWindow(w.id);
   },
 
-  /**
-   * FR-SBT-31·32: `Git` 탭이 활성일 때의 순회 대상은 **핀 리포 목록**이다.
-   *
-   * 규약은 창 순회(`_cycleWindow`)와 같다 — 끝에서 감싸고, 목록이 비었거나 1개면
-   * 아무 일도 하지 않는다. 저장소가 아닌 핀은 제외한다: 목록에서도 클릭 리스너가
-   * 붙지 않는 항목이므로(FR-GIT-11) 순회로 도달하면 안 된다.
-   */
-  _gitCycleRepo(step){
-    const arr=((this._gitRepos||{}).pinned||[]).filter(e=>e&&e.isRepo&&e.path);
-    if(arr.length<2) return;
-    const i=arr.findIndex(e=>e.path===this.gitPanel.repo);
-    const next=i<0?arr[0]:arr[(i+step+arr.length)%arr.length];
-    this.openGitWindow(next.path);
-  },
-
   // FR-GIT-186: 개정 이전 워크스페이스의 Git 창 안 탭을 일반 창으로 옮긴다.
   // 판정과 이동은 helpers 의 순수 함수가 한다 — 로드 경로가 둘이라 여기서 두 벌로
   // 만들면 한쪽만 고쳐진다.
@@ -232,9 +217,19 @@ Object.assign(App.prototype, {
   // _gitReposRefresh 는 GIT 섹션의 목록을 갱신한다. 실패하면 이전 목록을 유지한다 —
   // 네트워크가 한 번 튀었다고 섹션이 비면 안 된다.
   async _gitReposRefresh(){
+    // UX_REVISION_SRS FR-GRR-1: **낡은 응답이 새 목록을 덮지 않는다.**
+    //
+    // 이 함수는 3초 폴링과 핀/해제 직후 양쪽에서 불린다. 핀이 쌓여 응답이 느려지면
+    // 먼저 떠난 폴링이 나중에 도착해 방금 추가한 핀이 없는 목록으로 되돌린다 —
+    // 그러면 소실 화면의 `핀 제거` 처럼 **핀 여부로 갈리는 UI** 가 사라진다.
+    // 실측으로 밟았다: 단독 실행은 통과하고 스펙 여럿을 이어 돌리면 M5 가 실패했다.
+    // `gitPanel.collect` 의 `_seq` 와 같은 규약이다.
+    const seq=(this._gitReposSeq=(this._gitReposSeq||0)+1);
+    const stale=()=>seq!==this._gitReposSeq;
     let r;
     // FR-FLW-2: 목록은 핀만 답한다 — 도구 인자를 싣지 않는다.
     try{r=await fetch('/api/git/repos')}catch{return}
+    if(stale()) return;
     if(r.status===503){
       // git 이 없거나 서비스가 구성되지 않은 환경이다. 섹션 전체를 숨긴다.
       this._gitOff=true;this.renderer._rGitSection();this.renderer._rSbTabs();return;
@@ -242,6 +237,7 @@ Object.assign(App.prototype, {
     if(!r.ok) return;
     let d;
     try{d=await r.json()}catch{return}
+    if(stale()) return;
     this._gitOff=false;this._gitRepos=d;
     // 전체 render() 를 부르지 않는다 — 터미널 재부착 비용이 크다.
     this.renderer._rGitSection();

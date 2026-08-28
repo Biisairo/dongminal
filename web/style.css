@@ -23,26 +23,46 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   background:var(--sidebar-bg);border-right:1px solid var(--border);
   display:flex;flex-direction:column;user-select:none;
 }
-#windows{flex:1 1 auto;min-height:0;overflow-y:auto}
-#windows::-webkit-scrollbar{width:4px}
-#windows::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+/* UX_REVISION_SRS FR-BLP-7: 목록 컨테이너. 탭이 한 번에 하나만 보이므로 목록은
+   **패널의 남은 높이 전부**를 쓴다 (FR-SBT-3). min-height:0 은 필수다 — flex
+   자식이 내용 높이 아래로 줄지 않으면 스크롤 대신 사이드바 밖으로 밀린다. */
+.sbl-list{flex:1 1 auto;min-height:0;overflow-y:auto;margin-bottom:6px}
+.sbl-list::-webkit-scrollbar{width:4px}
+.sbl-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
-.si{display:flex;align-items:center;height:30px;padding:0 10px;cursor:pointer;transition:background .1s}
-.si:hover{background:var(--accent-hover)}
-.si.active{background:var(--accent-active)}
-.si-dot{width:5px;height:5px;border-radius:50%;margin-right:8px;background:var(--text-dim);flex-shrink:0}
-.si.active .si-dot{background:var(--accent)}
-.si-name{flex:1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.si.active .si-name{color:var(--text-bright);font-weight:500}
+/* ── 사이드바 리스트의 행 (UX_REVISION_SRS FR-BLP-7) ──
+   두 목록은 **같은 것**이므로 생김새도 한 자리에서 정한다. `.si`·`.git-repo` 는
+   각자의 **차이**만 갖는다 — 값을 두 벌로 두면 한쪽만 고쳐지고, 실제로 그랬다
+   (x 의 hover 배경이 서로 달랐고 gap 도 달랐다).
+   기준은 WINDOWS 목록의 값이다. */
+.sbl-list{--sbl-hit:30px}
+.sbl-item{display:flex;align-items:center;gap:8px;height:30px;padding:0 10px;font-size:12px;cursor:pointer;transition:background .1s}
+.sbl-item:hover{background:var(--accent-hover)}
+.sbl-item.active{background:var(--accent-active)}
+.sbl-dot{width:5px;height:5px;border-radius:50%;background:var(--text-dim);flex-shrink:0}
+.sbl-item.active .sbl-dot{background:var(--accent)}
+.sbl-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sbl-item.active .sbl-name{color:var(--text-bright);font-weight:500}
 .rename-input{
   font:inherit;font-size:12px;background:var(--bg);color:var(--text-bright);
   border:1px solid var(--accent-border);border-radius:2px;
   padding:0 3px;outline:none;width:100%;height:100%;box-sizing:border-box;
   min-width:40px;max-width:120px;
 }
-.si-x{width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-muted);opacity:0;cursor:pointer;border-radius:2px}
-.si:hover .si-x{opacity:1}
-.si-x:hover{color:var(--danger);background:rgba(247,118,142,.2)}
+/* 히트 영역은 **두 목록이 같다.** 창 목록은 16px, Git 목록은 30px 이었다 —
+   접근성 하한(FR-GIT-195: 터치에 hover 가 없다)이 있는 쪽으로 맞춘다. */
+.sbl-x{
+  width:16px;height:16px;min-width:var(--sbl-hit);min-height:var(--sbl-hit);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:12px;
+  color:var(--text-muted);opacity:0;cursor:pointer;border-radius:2px;
+}
+.sbl-item:hover .sbl-x{opacity:1}
+.sbl-x:hover{color:var(--danger);background:rgba(247,118,142,.2)}
+/* 배지는 창 목록에 아직 없지만 자리는 공통이다 — 다음 탭이 그냥 쓴다. */
+.sbl-badge{
+  flex-shrink:0;min-width:16px;padding:0 4px;border-radius:8px;text-align:center;
+  font-size:10px;background:var(--accent-subtle);color:var(--accent);
+}
 
 /* FR-GIT-226: 사이드바 목록 행이 30px 이 되었으므로 그 아래 버튼도 같은 높이를
    갖는다. 같은 패널의 같은 계열인데 한쪽만 낮으면 "너무 낮다" 가 한 줄 아래에서
@@ -149,8 +169,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 /* 주의 알림 강조 — 포커스(--accent)·위험(--danger)과 구분되는 테마색 --attn, 굵은 실선+글로우로 가시성 강화 (FR-PAN-10) */
 .pn-tab.attn{color:var(--attn);background:var(--attn-subtle);font-weight:600;box-shadow:inset 0 -3px 0 var(--attn)}
 .pn.attn{border-color:var(--attn);box-shadow:inset 0 0 0 2px var(--attn),0 0 12px -1px var(--attn-glow)}
-.si.attn{box-shadow:inset 3px 0 0 var(--attn)}
-.si.attn .si-dot{background:var(--attn);box-shadow:0 0 6px var(--attn-glow)}
+/* FR-PAN-16: 알람 표식. 공통 클래스로 쓴다 — 다음 목록도 `attn` 을 줄 수 있다. */
+.sbl-item.attn{box-shadow:inset 3px 0 0 var(--attn)}
+.sbl-item.attn .sbl-dot{background:var(--attn);box-shadow:0 0 6px var(--attn-glow)}
 
 /* 에이전트 활동 모아보기 패널 (AGENT_ACTIVITY_PANEL_SRS) — 좌측 사이드바와 대칭 */
 #agents-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border);position:relative;display:none}
@@ -574,8 +595,8 @@ body.mobile #window-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;wh
 body.mobile .pn-drop-indicator{display:none !important}
 
 /* enlarge touch targets on mobile */
-body.mobile .si{height:40px;font-size:13px}
-body.mobile .si-x{opacity:1;width:24px;height:24px;font-size:14px}
+body.mobile .sbl-item{height:40px;font-size:13px}
+body.mobile .sbl-x{opacity:1;width:24px;height:24px;font-size:14px}
 body.mobile .pn-tab{padding:0 14px;font-size:13px}
 body.mobile .pn-tab-x{opacity:1;width:18px;height:18px}
 body.mobile .pn-tab-add{width:32px;font-size:18px}
@@ -585,17 +606,14 @@ body.mobile #add-window,body.mobile #add-preset,body.mobile #settings-btn{paddin
 .pn-tabs.drag-target{background:var(--accent-hover);box-shadow:inset 0 -2px 0 var(--accent)}
 
 /* ── Drag reorder indicators ── */
-.si.dragging{opacity:.35}
-.si.drag-above{box-shadow:inset 0 2px 0 var(--accent)}
-.si.drag-below{box-shadow:inset 0 -2px 0 var(--accent)}
+.sbl-item.drag-above{box-shadow:inset 0 2px 0 var(--accent)}
+.sbl-item.drag-below{box-shadow:inset 0 -2px 0 var(--accent)}
 /* UX_REVISION_SRS FR-MOV-7: 탭을 받는 창. 재배치의 위/아래 선과 뜻이 다르므로
    표식도 다르다 — 테두리 전체를 두르면 "이 안으로" 가 한눈에 읽힌다. */
-.si.drop-into{box-shadow:inset 0 0 0 2px var(--accent);background-color:var(--accent-hover)}
+.sbl-item.drop-into{box-shadow:inset 0 0 0 2px var(--accent);background-color:var(--accent-hover)}
 /* FR-GIT-223: 핀 재배치의 표식은 WINDOWS 목록과 같은 어휘다 — 같은 자리·같은
    생김새의 두 목록이 다르게 보이면 사용자가 다른 것으로 읽는다. */
-.git-repo.dragging{opacity:.35}
-.git-repo.drag-above{box-shadow:inset 0 2px 0 var(--accent)}
-.git-repo.drag-below{box-shadow:inset 0 -2px 0 var(--accent)}
+
 .pn-tab.dragging{opacity:.35}
 .pn-tab.drag-left{box-shadow:inset 2px 0 0 var(--accent)}
 .pn-tab.drag-right{box-shadow:inset -2px 0 0 var(--accent)}
@@ -1504,47 +1522,30 @@ body.mobile .git-hist-f{width:60px}
 }
 
 /* ── Git 사이드바 (FR-GIT-13~17) ── */
-/* FR-SBT-3 (D-5): 두 목록은 더 이상 같은 컬럼에서 높이를 다투지 않는다 — 탭이
-   한 번에 하나만 보이므로 GIT 목록은 **패널의 남은 높이 전부**를 쓴다. 옛
-   `max-height:40%` 는 세로 공존의 산물이었고, 공존이 사라지면 근거도 사라진다.
-   min-height:0 은 남는다 — flex 자식이 내용 높이 아래로 줄어들지 않으면 스크롤
-   대신 사이드바 밖으로 밀린다. */
-#git-repos{flex:1 1 auto;min-height:0;overflow-y:auto}
+/* FR-SBT-3 (D-5): 두 목록은 더 이상 같은 컬럼에서 높이를 다투지 않는다. 컨테이너
+   규칙은 `.sbl-list` 한 자리에 있다 (FR-BLP-7) — 옛 `max-height:40%` 는 세로
+   공존의 산물이었고, 공존이 사라지면 근거도 사라진다. */
 /* FR-FLW-11: 비었을 때도 자리가 보인다 — 빈 자리는 고장처럼 읽힌다 */
 .git-repos-none{padding:4px 8px;font-size:11px;color:var(--text-dim)}
 /* 옛 FR-GIT-214 의 여백 보정은 사라졌다 — `+ Add` 가 목록 **위**로 올라가면서
    (UX_REVISION_SRS FR-BLP-8) WINDOWS 와 같은 배치가 되었고, 그 배치에는 애초에
    이 문제가 없다고 그 조항이 이미 적어 두었다. */
-#git-repos{margin-bottom:6px}
-#git-repos::-webkit-scrollbar{width:4px}
-#git-repos::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+
 /* FR-GIT-219: 행 높이는 WINDOWS 목록의 `.si` 와 같다 (30px). 같은 자리·같은
    생김새의 두 목록이 다른 높이면 사용자가 GIT 쪽을 좁다고 읽는다. */
-.git-repo{display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;font-size:12px;cursor:pointer;transition:background .1s}
-.git-repo:hover{background:var(--accent-hover)}
-.git-repo.active{background:var(--accent-active)}
-.git-repo.active .git-repo-name{color:var(--text-bright);font-weight:500}
+/* 행·이름·×·배지의 생김새는 `.sbl-*` 이 정한다 (FR-BLP-7). 여기 남는 것은
+   **Git 목록에만 있는 것**뿐이다. */
 /* 저장소가 아닌 항목은 흐리게 — 클릭 리스너 자체가 없다 (FR-GIT-10·11) */
 .git-repo.norepo{color:var(--text-dim);cursor:default}
 .git-repo.norepo:hover{background:transparent}
-.git-repo-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.git-badge{
-  flex-shrink:0;min-width:16px;padding:0 4px;border-radius:8px;text-align:center;
-  font-size:10px;background:var(--accent-subtle);color:var(--accent);
-}
 /* O4: 활성 리포가 아닌 배지는 마지막 관측값일 뿐이다 */
 .git-badge.stale{background:transparent;color:var(--text-dim)}
-/* FR-GIT-239: follow 행의 자리 칸(`.git-repo-xslot`)은 `×` 와 **같은 선언에서** 폭을
-   받는다 — 두 곳에 따로 쓰면 모바일에서 어긋난다. 자리만 잡으므로 동작·색은 없다. */
-.git-repo-x,.git-repo-xslot{width:16px;height:16px;flex-shrink:0}
-.git-repo-x{display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-muted);opacity:0;cursor:pointer;border-radius:2px}
-.git-repo:hover .git-repo-x{opacity:1}
-.git-repo-x:hover{color:var(--danger);background:var(--border)}
-/* 모바일 드로어는 전체가 스크롤된다 — 비율 상한이 목록을 두 줄로 눌러 버린다 */
-body.mobile #git-repos{max-height:none}
-body.mobile .git-repo{height:40px;font-size:13px}
-body.mobile .git-repo-x,body.mobile .git-repo-xslot{width:24px;height:24px}
-body.mobile .git-repo-x{opacity:1;font-size:14px}
+/* FR-GIT-239: follow 행의 자리 칸(`.git-repo-xslot`)은 `×` 와 같은 폭을 받는다 —
+   `×` 자신의 폭은 `.sbl-x` 가 준다. 자리만 잡으므로 동작·색은 없다. */
+.git-repo-xslot{width:16px;height:16px;flex-shrink:0}
+
+body.mobile .git-repo-xslot{width:24px;height:24px}
 
 /* ── 상태바 Git (FR-GIT-112) ── */
 /* 진행 중 원격 작업만 남는다 — 브랜치 chip 은 FR-FLW-12 가 걷어냈다 */
@@ -1839,19 +1840,18 @@ body.mobile .git-repo-x{opacity:1;font-size:14px}
 .git-br-row,.git-stash-row,.git-br-group-head,.git-br-pfx-head{min-height:var(--git-row-min)}
 /* refs 사이드바의 행도 목록 행이다 — 빠져 있었다 */
 .git-refs-all,.git-ref{min-height:var(--git-row-min)}
-#git-repos .git-repo{min-height:var(--git-row-min)}
-/* FR-GIT-239: 히트 영역도 자리 칸이 함께 받는다 — 이 값이 실제 폭을 정하므로
-   한쪽만 받으면 두 행의 오른쪽 끝이 어긋난다 */
-#git-repos .git-repo-x,#git-repos .git-repo-xslot{min-width:var(--git-hit);min-height:var(--git-hit)}
+/* 사이드바 목록의 행 높이·히트 영역은 `.sbl-item`·`.sbl-x` 가 정한다 (FR-BLP-7).
+   두 목록이 같아야 하므로 Git 쪽 사본을 두지 않는다 — 값이 같아도 두 벌이면
+   한쪽만 고쳐진다. `--git-row-min` 과 같은 30px 이므로 FR-GIT-197·226 은 그대로
+   지켜진다. */
+/* FR-GIT-239: 자리 칸은 `×` 와 같은 폭을 받는다 — 한쪽만 받으면 두 행의 오른쪽
+   끝이 어긋난다. `×` 자신의 하한은 `.sbl-x` 가 준다. */
+#git-repos .git-repo-xslot{min-width:var(--sbl-hit);min-height:var(--sbl-hit)}
 
 /* ── GIT 섹션 표식 (FR-GIT-192~194) ──
    WINDOWS 목록의 `.si-dot` 과 같은 어휘다. 활성 리포 여부만 나타내고
    (O18), follow·핀 구분은 배치가 한다 (FR-GIT-193). */
-.git-repo-dot{
-  width:5px;height:5px;border-radius:50%;flex-shrink:0;
-  background:var(--text-dim);
-}
-.git-repo.active .git-repo-dot{background:var(--accent)}
+/* 점 자체는 `.sbl-dot` 이다 — 여기 남는 것은 Git 에만 있는 상태다. */
 /* 가리키는 리포가 없으면 상태도 없다 (FR-GIT-194) */
 .git-repo-dot.none{background:transparent}
 /* follow 는 늘 최상단 1줄이다 — 그 아래 선이 핀 목록과 나눈다 (FR-GIT-216) */

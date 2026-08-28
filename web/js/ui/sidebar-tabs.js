@@ -34,8 +34,8 @@ const SB_TAB_DEFS=[
     // FR-SBT-22·23: 마지막으로 활성이었던 일반 창. 대상 계산은 `_gitBackTarget` 한
     // 자리다 — `_gitCloseWindow` 와 같은 것이므로 두 벌로 만들지 않는다 (FR-SBT-36).
     onActivate:app=>{const w=app._gitBackTarget();if(w)app.switchWindow(w.id)},
-    cycle:(app,dir)=>app._cycleWindow(dir),
-    // UX_REVISION_SRS FR-BLP-1~3: 목록의 서술자. 그리는 일은 SidebarList 가 한다.
+    // UX_REVISION_SRS FR-BLP-1~3: 목록의 서술자. 그리는 일도 순회도 SidebarList 가
+    // 한다 — 이 탭이 주는 것은 **타깃뿐**이다.
     list:{
       containerId:'windows',
       // FR-BLP-6: 기존 클래스는 보존한다 — e2e 와 CSS 가 그 위에 서 있다.
@@ -43,8 +43,13 @@ const SB_TAB_DEFS=[
       actions:['add-window','add-preset'],
       // FR-GIT-182: Git 창은 이 목록에 없다 — 진입점은 GIT 탭의 리포 항목뿐이다.
       items:app=>app._plainWindows(),
+      key:s=>s.id,
+      // FR-BLP-15~18: 순회. 규약은 블루프린트가 갖고, 여기는 타깃만 준다.
+      cycle:{
+        currentKey:app=>app.ws.activeWindow,
+        open:(app,s)=>app.switchWindow(s.id),
+      },
       row:(app,s)=>({
-        key:s.id,
         name:s.name,
         active:s.id===app.ws.activeWindow,
         // FR-PAN-16: 알람이 있는 창을 사이드바에서 구분 표시.
@@ -57,16 +62,16 @@ const SB_TAB_DEFS=[
       }),
       reorder:{
         type:'window',
-        // 창 순서는 클라이언트가 workspace.json 에 쓴다 — 서버 확정이 없다.
         apply:(app,dr)=>{
           const arr=app.ws.windows;
           const si=arr.findIndex(x=>x.id===dr.src); if(si<0) return false;
           const[moved]=arr.splice(si,1);
           let ti=arr.findIndex(x=>x.id===dr.target);
           if(ti<0) arr.push(moved); else { if(!dr.before) ti++; arr.splice(ti,0,moved) }
-          app._save();
           return true;
         },
+        // 창 순서는 클라이언트가 workspace.json 에 쓴다 — 서버 확정이 없다.
+        commit:app=>app._save(),
       },
     },
   },
@@ -78,7 +83,6 @@ const SB_TAB_DEFS=[
     badge:app=>((app._gitRepos||{}).pinned||[]).filter(e=>e&&e.badge&&e.badge.total>0).length,
     // FR-SBT-25: Git 창이 없으면 만들지 않는다 — 창은 여전히 리포를 골라야 생긴다.
     onActivate:app=>{const w=app._gitWindow();if(w)app.switchWindow(w.id)},
-    cycle:(app,dir)=>app._gitCycleRepo(dir),
     list:{
       containerId:'git-repos',
       itemClass:'git-repo pinned',dotClass:'git-repo-dot',
@@ -90,6 +94,15 @@ const SB_TAB_DEFS=[
       emptyText:GIT_REPOS_NONE,emptyClass:'git-repos-none',
       // FR-FLW-1: 핀만 그린다. follow 행은 없다.
       items:app=>((app._gitRepos||{}).pinned||[]),
+      key:e=>'pin:'+((e&&e.path)||''),
+      // FR-SBT-31·32 + FR-BLP-15~18: 순회 대상은 핀 리포다. 저장소가 아닌 핀은
+      // 뺀다 — 목록에서도 클릭 리스너가 붙지 않는 항목이므로 순회로 도달하면
+      // 안 된다 (FR-GIT-11).
+      cycle:{
+        filter:e=>!!(e&&e.isRepo&&e.path),
+        currentKey:app=>app.gitPanel.repo?('pin:'+app.gitPanel.repo):null,
+        open:(app,e)=>app.openGitWindow(e.path),
+      },
       row:(app,e)=>{
         const path=e.path||'';
         const active=!!path&&app.gitPanel.repo===path;
@@ -97,7 +110,6 @@ const SB_TAB_DEFS=[
         // FR-RMS-17: 사유는 사람이 읽는 문구로 옮긴다.
         const why=e.reason?(GIT_WRITE_ERR[e.reason]||e.reason):'';
         return {
-          key:'pin:'+path,
           name:e.name,
           active,
           // FR-GIT-11: 저장소가 아니면 흐리게 보이고 여는 동작이 없다.
@@ -141,8 +153,6 @@ const SB_TAB_DEFS=[
           }
           return true;
         },
-        // 전체 render() 는 터미널 재부착 비용이 크다 — 이 섹션만 다시 그린다.
-        repaint:app=>app.renderer._rGitSection(),
         // FR-BLP-11·12: 서버 확정. 실패하면 서버가 아는 순서로 되돌린다.
         commit:(app,dr)=>app._gitReorder(dr),
       },

@@ -36,6 +36,13 @@ Object.assign(App.prototype, {
               this._onRunChanged(m.args||{});
               return;
             }
+            // UX_REVISION_SRS FR-BGV-1: 서버가 백그라운드 도구를 늘리거나 줄였다.
+            // 목록만 다시 받는다 — 워크스페이스는 바뀌지 않았으므로 다시 그리지
+            // 않는다 (`_bgRefresh` 가 배지까지 갱신한다).
+            if(m.action==='tools_background_changed'){
+              this._bgRefresh();
+              return;
+            }
             if(m.action==='tool_activity'){
               this._onToolActivity(m.args||{});
               return;
@@ -194,6 +201,12 @@ Object.assign(App.prototype, {
     for(const s of this.ws.windows){
       if(s.focusedPane) localFocus.set(s.id, s.focusedPane);
     }
+    // UX_REVISION_SRS FR-GRR-2: 활성 리포도 **이 브라우저가 보고 있는 것**이다
+    // (FR-GIT-29 로 Git 창에 붙어 있다). activeWindow·focusedPane 과 같은 범주인데
+    // 보존 목록에서 빠져 있어, 리포를 전환한 직후 워크스페이스 동기화가 오면
+    // 이전 리포로 되돌아갔다 — 그 화면이 무엇을 가리키는지가 조용히 바뀐다.
+    const localGit=this._gitWindow();
+    const localRepo=(localGit&&localGit.git&&localGit.git.repo)||null;
     this.ws=sv;
     if(localActive && this.ws.windows.some(s=>s.id===localActive)){
       this.ws.activeWindow=localActive;
@@ -202,6 +215,12 @@ Object.assign(App.prototype, {
     for(const s of this.ws.windows){
       const rid=localFocus.get(s.id);
       if(rid && s.layout && findPane(s.layout, rid)) s.focusedPane=rid;
+    }
+    // FR-GRR-2: 로컬이 보던 리포가 이긴다. 로컬에 값이 없으면(첫 로드) 서버 것을
+    // 그대로 쓴다 — 복원은 그 경로다.
+    if(localRepo){
+      const gw=this._gitWindow();
+      if(gw){ if(!gw.git) gw.git={}; gw.git.repo=localRepo }
     }
     if('displayMode' in this.ws) delete this.ws.displayMode;
     if('mobileBreakpoint' in this.ws) delete this.ws.mobileBreakpoint;
