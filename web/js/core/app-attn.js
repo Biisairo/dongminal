@@ -121,6 +121,9 @@ Object.assign(App.prototype, {
       const s=this.ws.windows.find(x=>x.id===el.dataset.sid);
       el.classList.toggle('attn', !!(s&&this._windowHasAttn(s)));
     });
+    // GIT_SIDEBAR_TABS_SRS FR-SBT-13: 같은 사실을 사이드바 탭 배지도 보인다 —
+    // Windows 탭이 비활성이면 목록의 `.si.attn` 이 보이지 않기 때문이다.
+    this._sbUpdateBadges();
     // 탭/리전 강조도 타깃 토글 — 전체 render() 를 피해 포커스 플리커(xterm blur/refocus)를 막는다.
     document.querySelectorAll('#area .pn-tab[data-toolid]').forEach(t=>{
       const pn=t.closest('.pn');

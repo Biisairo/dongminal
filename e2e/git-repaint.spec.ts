@@ -5,7 +5,7 @@ import { realpathSync } from 'fs';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, openGitTab } from './fixtures';
 
 // GIT_REVIEW4_SRS §3.2·§3.5 — 바깥 계기의 다시 그리기.
 // 검증 V104~V113 (FR-RPT-1~7, FR-GIT-227).
@@ -149,6 +149,8 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
       });
       await (window as any).app._gitReposRefresh();
     }, fx('basic'));
+    // 요소 보존을 보려면 요소가 화면에 있어야 한다 — GIT 패널은 탭 뒤다 (FR-SBT-2).
+    await openGitTab(page);
     const sel = '#git-repos .git-repo';
     await expect(page.locator(sel).first()).toBeVisible();
     const n = await markAll(page, sel);

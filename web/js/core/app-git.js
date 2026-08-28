@@ -14,21 +14,50 @@ Object.assign(App.prototype, {
   _plainWindows(){return this.ws.windows.filter(s=>!this._isGitWin(s))},
 
   /**
-   * FR-GIT-183·183a: Git 창을 닫는다. 다시 열면 새로 만들어진다 (FR-GIT-26 유지).
+   * FR-GIT-183a → FR-SBT-23·24: Git 창을 떠날 때 가는 창.
    *
-   * 가는 곳은 **직전에 활성이었던 일반 창**이다 — `Open File` 이 딛는 값과 같은
-   * 것이다 (FR-GIT-185, O15). 그냥 지우면 `delWindow` 가 창 목록에서 이웃한 창을
-   * 고르고, 그것은 사용자가 있던 자리가 아니다.
+   * **직전에 활성이었던 일반 창**이고, 그 창이 이미 닫혔거나 기억이 없으면 일반 창
+   * 목록의 첫 번째다. 일반 창이 하나도 없으면 null 이다.
+   *
+   * 옛 `Close Git` 버튼과 `Windows` 탭이 같은 곳으로 가야 하므로 계산은 여기 하나다
+   * (FR-SBT-36) — 두 벌로 만들면 한쪽만 고쳐진다.
+   */
+  _gitBackTarget(){
+    const plain=this._plainWindows();
+    return plain.find(s=>s.id===this._lastPlainWindow)||plain[0]||null;
+  },
+
+  /**
+   * FR-GIT-183: Git 창을 닫는다. 다시 열면 새로 만들어진다 (FR-GIT-26 유지).
+   *
+   * **FR-SBT-34 로 이 함수를 부르는 UI 는 사라졌다.** 남겨 두는 이유가 둘이다
+   * (FR-SBT-36): ① 복귀 대상 계산(`_gitBackTarget`)이 `Windows` 탭과 같은 것이라
+   * 여기가 그 규칙의 집이다 ② Git 창을 파괴해야 하는 경로(마이그레이션·복구)가
+   * 나중에 필요해질 때 되살리는 것보다 남겨 두는 편이 싸다.
    *
    * **먼저 옮기고 나서 지운다.** 지운 뒤 옮기면 두 번 그리게 되고, 그 사이 한 번은
    * 엉뚱한 창이 보인다.
    */
   _gitCloseWindow(){
     const w=this._gitWindow(); if(!w) return;
-    const plain=this._plainWindows();
-    const back=plain.find(s=>s.id===this._lastPlainWindow)||plain[0];
+    const back=this._gitBackTarget();
     if(back) this.switchWindow(back.id);
     this.delWindow(w.id);
+  },
+
+  /**
+   * FR-SBT-31·32: `Git` 탭이 활성일 때의 순회 대상은 **핀 리포 목록**이다.
+   *
+   * 규약은 창 순회(`_cycleWindow`)와 같다 — 끝에서 감싸고, 목록이 비었거나 1개면
+   * 아무 일도 하지 않는다. 저장소가 아닌 핀은 제외한다: 목록에서도 클릭 리스너가
+   * 붙지 않는 항목이므로(FR-GIT-11) 순회로 도달하면 안 된다.
+   */
+  _gitCycleRepo(step){
+    const arr=((this._gitRepos||{}).pinned||[]).filter(e=>e&&e.isRepo&&e.path);
+    if(arr.length<2) return;
+    const i=arr.findIndex(e=>e.path===this.gitPanel.repo);
+    const next=i<0?arr[0]:arr[(i+step+arr.length)%arr.length];
+    this.openGitWindow(next.path);
   },
 
   // FR-GIT-186: 개정 이전 워크스페이스의 Git 창 안 탭을 일반 창으로 옮긴다.
@@ -208,7 +237,7 @@ Object.assign(App.prototype, {
     try{r=await fetch('/api/git/repos')}catch{return}
     if(r.status===503){
       // git 이 없거나 서비스가 구성되지 않은 환경이다. 섹션 전체를 숨긴다.
-      this._gitOff=true;this.renderer._rGitSection();return;
+      this._gitOff=true;this.renderer._rGitSection();this.renderer._rSbTabs();return;
     }
     if(!r.ok) return;
     let d;
@@ -216,6 +245,9 @@ Object.assign(App.prototype, {
     this._gitOff=false;this._gitRepos=d;
     // 전체 render() 를 부르지 않는다 — 터미널 재부착 비용이 크다.
     this.renderer._rGitSection();
+    // FR-SBT-8·12: 탭의 표시 여부(`_gitOff`)와 배지(변경 있는 핀 수)가 이 값에서
+    // 나온다 — 목록이 도착하는 자리에서 함께 고친다.
+    this.renderer._rSbTabs();
     // FR-GIT-249 (FR-RPT-8): 핀 목록이 **도착하는 자리**다. Worktrees 행의 핀 버튼이
     // 이 값을 읽으므로 여기서 알린다 — 상태 폴링의 다시 그리기에 업으면 관측이 같은
     // 회차에 버튼이 낡은 채로 남는다 (FR-GIT-227).

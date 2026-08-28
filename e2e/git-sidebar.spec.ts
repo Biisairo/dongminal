@@ -5,7 +5,7 @@ import { basename, join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, openGitTab } from './fixtures';
 
 // GIT_M1_STEP4_CONTRACT §4 — 좌측 GIT 섹션. 검증 V17·V16·V3·V7.
 //
@@ -58,16 +58,24 @@ const pinned = (page: Page, root: string) =>
   page.locator(`#git-repos .git-repo.pinned[data-git-repo="${root}"]`);
 
 test.describe('묶음 B — 좌측 GIT 섹션', () => {
-  test('S1 (V17·V-FLW-10): GIT 섹션 제목·+ Add·목록이 사이드바에 있다', async ({ page }) => {
+  // FR-SBT-1·2·7 로 GIT 섹션은 **탭 뒤**로 옮겨졌다. 옛 `.git-sec-title` 은 사라지고
+  // 탭 이름이 그 역할을 대신하므로(§3.9.1) 제목 검사는 탭 라벨 검사가 된다.
+  test('S1 (V17·V-FLW-10·V-SBT-1·2): GIT 탭 뒤에 + Add·목록이 있다', async ({ page }) => {
     await waitForInit(page);
-    await expect(page.locator('#sidebar .git-sec-title')).toHaveText('Git');
+    // V-SBT-1: 최초 접속은 Windows 활성, Git 패널 숨김.
+    await expect(page.locator('.sb-tab[data-panel="windows"]')).toHaveClass(/active/);
+    await expect(page.locator('#sb-panel-git')).toBeHidden();
+    // WINDOWS 목록은 그대로 남는다 — 옮겨진 것은 GIT 쪽이다.
+    await expect(page.locator('#windows .si')).toHaveCount(1);
+
+    await expect(page.locator('.sb-tab[data-panel="git"] .sb-tab-label')).toHaveText('Git');
+    await openGitTab(page);
+    await expect(page.locator('#sb-panel-windows')).toBeHidden();
     await expect(page.locator('#git-repos')).toBeVisible();
     await expect(page.locator('#git-add-repo')).toBeVisible();
     // FR-FLW-11: follow 행이 사라져 이 섹션은 처음으로 빌 수 있게 됐다. 빈 자리는
     // 고장처럼 읽히므로 안내가 자리를 지킨다.
     await expect(page.locator('#git-repos .git-repos-none')).toBeVisible({ timeout: 10000 });
-    // WINDOWS 목록은 그대로 남는다 — GIT 섹션은 아래에 덧붙는다.
-    await expect(page.locator('#windows .si')).toHaveCount(1);
   });
 
   // V-FLW-1·4·5 (FR-FLW-1·4·5) — follow 를 지운 자리.
@@ -88,6 +96,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     await expect(page.locator('#git-repos .git-repo.follow')).toHaveCount(0);
     await expect(page.locator('#git-repos .git-repo')).toHaveCount(0, { timeout: 10000 });
 
+    await openGitTab(page);
     await page.click('#git-add-repo');
     const dlg = page.locator('#git-add-repo-dlg');
     await expect(dlg).toBeVisible({ timeout: 10000 });
@@ -109,6 +118,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     await waitForInit(page);
     const termWin = await page.evaluate(() => (window as any).app.ws.activeWindow);
     const root = await pin(request, makeRepo('dm-repo-flw4-'));
+    await openGitTab(page);
     await pinned(page, root).click();
     await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
     expect(await page.evaluate(() => (window as any).app.gitPanel.repo)).toBe(root);
@@ -134,6 +144,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     const before = await page.locator('#git-repos .git-repo').count();
     const dir = mkdtempSync(join(tmpdir(), 'dm-norepo-'));
 
+    await openGitTab(page);
     await page.click('#git-add-repo');
     const dlg = page.locator('#git-add-repo-dlg');
     await expect(dlg).toBeVisible({ timeout: 10000 });
@@ -154,6 +165,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     const root = await pin(request, makeRepo('dm-repo-dup-'));
     await expect(pinned(page, root)).toHaveCount(1, { timeout: 10000 });
 
+    await openGitTab(page);
     await page.click('#git-add-repo');
     const dlg = page.locator('#git-add-repo-dlg');
     await expect(dlg).toBeVisible({ timeout: 10000 });
@@ -167,6 +179,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
   test('S4 (V16): 핀한 리포가 목록에 나오고 × 로 사라진다', async ({ page, request }) => {
     await waitForInit(page);
     const root = await pin(request, makeRepo('dm-repo-a-'));
+    await openGitTab(page);
     const item = pinned(page, root);
     await expect(item).toHaveCount(1, { timeout: 10000 });
     await expect(item.locator('.git-repo-name')).toHaveText(basename(root));
@@ -180,6 +193,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
   test('S5 (V17): 항목 클릭이 Git 창을 활성화하고 그 리포를 활성으로 만든다', async ({ page, request }) => {
     await waitForInit(page);
     const root = await pin(request, makeRepo('dm-repo-b-'));
+    await openGitTab(page);
     const item = pinned(page, root);
     await expect(item).toHaveCount(1, { timeout: 10000 });
 
@@ -201,6 +215,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
       const st = await request.get('/api/git/status?repo=' + encodeURIComponent(r));
       expect(st.ok(), `status 실패: ${await st.text()}`).toBeTruthy();
     }
+    await openGitTab(page);
     const a = pinned(page, ra), b = pinned(page, rb);
     await expect(a.locator('.git-badge')).toHaveText('1', { timeout: 10000 });
     await expect(b.locator('.git-badge')).toHaveText('1', { timeout: 10000 });
@@ -212,19 +227,34 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     await expect(b.locator('.git-badge')).toHaveAttribute('title', /최신 아님/);
   });
 
-  test('S7 (V17): 창이 많아 WINDOWS 목록이 넘쳐도 GIT 섹션이 보인다', async ({ page }) => {
+  // FR-SBT-3 (D-5) 로 **전제가 바뀌었다.** 두 목록은 더 이상 같은 컬럼에서 높이를
+  // 다투지 않으므로 "창이 많으면 GIT 이 밀린다" 는 상황 자체가 성립하지 않는다.
+  // 남는 계약은 그보다 강하다 — 보이는 패널이 사이드바의 **남은 높이 전부**를 쓴다.
+  test('S7 (V17·V-SBT-2·3): 창이 많아도 각 탭이 사이드바의 남은 높이를 쓴다', async ({ page }) => {
     await waitForInit(page);
-    // 사이드바 높이를 줄여 두 목록이 서로를 굶기는 상황을 만든다 (FR-GIT-17).
     await page.setViewportSize({ width: 1280, height: 400 });
     for (let i = 0; i < 10; i++) await page.evaluate(() => (window as any).app.addWindow());
     await expect(page.locator('#windows .si')).toHaveCount(11);
 
+    const sb = (await page.locator('#sidebar').boundingBox())!;
+    const tabs = (await page.locator('#sb-tabs').boundingBox())!;
+    const set = (await page.locator('#settings-btn').boundingBox())!;
+    // V-SBT-3: WINDOWS 목록은 40% 가 아니라 남은 높이 전부로 스크롤한다.
+    const wins = (await page.locator('#sb-panel-windows').boundingBox())!;
+    expect(wins.y, 'WINDOWS 패널이 탭 바 아래에서 시작하지 않는다')
+      .toBeGreaterThanOrEqual(tabs.y + tabs.height - 1);
+    expect(wins.height, 'WINDOWS 패널이 남은 높이를 쓰지 않는다')
+      .toBeGreaterThan((set.y - (tabs.y + tabs.height)) * 0.9);
+
+    await openGitTab(page);
     await expect(page.locator('#git-repos')).toBeInViewport();
     await expect(page.locator('#git-add-repo')).toBeInViewport();
     const box = (await page.locator('#git-repos').boundingBox())!;
-    const sb = (await page.locator('#sidebar').boundingBox())!;
     expect(box.y + box.height, 'GIT 목록이 사이드바 밖으로 밀렸다')
       .toBeLessThanOrEqual(sb.y + sb.height + 1);
+    // V-SBT-2: 40% 상한이 사라졌다 — 남은 높이 전부를 쓴다.
+    expect(box.height, 'GIT 목록이 아직 사이드바 높이의 절반 아래다')
+      .toBeGreaterThan(sb.height * 0.5);
   });
   test('S8 (V16): 서버가 쓴 핀은 클라이언트의 409 재시도 저장에도 살아남는다', async ({ page, request }) => {
     await waitForInit(page);

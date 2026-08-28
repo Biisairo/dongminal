@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, openGitTab } from './fixtures';
 
 // GIT_UI_REVISION_SRS §4 — 검증 V70~V79.
 //
@@ -147,33 +147,54 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
     expect(seen).not.toContain('git');
   });
 
-  test('V73 (FR-GIT-183·184): Git 창은 자기 상단 바로 닫고, 열려 있어도 다른 창으로 나갈 수 있다', async ({ page }) => {
+  /**
+   * **개정 (FR-SBT-34·35).** 상단 바의 `Close Git` 은 사라졌다 — 탭이 생기면서
+   * Git 창을 **떠나는 길**이 상시 존재하게 됐고, 떠나기 위해 닫을 이유가 없어졌다.
+   * 그래서 "창 파괴 → 재생성" 부분은 검증할 UI 경로가 없다 (§4.1.1).
+   *
+   * 남는 성질은 FR-GIT-184 하나다 — Git 창이 **열려 있어도** 다른 창으로 나갈 수
+   * 있다. 나가는 길이 사이드바 탭이 되었으므로(FR-SBT-22) 트리거만 바뀐다.
+   */
+  test('V73 (FR-GIT-184·FR-SBT-22): Git 창이 열려 있어도 다른 창으로 나갈 수 있다', async ({ page }) => {
     await waitForInit(page);
     await openGit(page, fx('basic'));
+    // Git 창에 들어가면 사이드바가 따라온다 (FR-SBT-14).
+    await expect(page.locator('.sb-tab[data-panel="git"]')).toHaveClass(/active/);
+    // 상단 바에는 더 이상 닫기 버튼이 없다 (FR-SBT-34).
+    await expect(page.locator('#git-close')).toHaveCount(0);
 
-    // 나가는 길: WINDOWS 목록의 일반 창 클릭.
-    await page.click('#windows .si');
+    // 나가는 길: `Windows` 탭. 창 목록이 아니라 탭이 문이다 (FR-GIT-182 는 그대로).
+    await page.click('.sb-tab[data-panel="windows"]');
     await expect.poll(() => page.evaluate(() => {
       const a = (window as any).app;
       return (a.ws.windows.find((w: any) => w.id === a.ws.activeWindow) || {}).type || 'terminal';
     })).toBe('terminal');
 
-    // 다시 들어가서 상단 바의 닫기로 닫는다.
-    await openGit(page, fx('basic'));
-    await expect(page.locator('#git-close:visible')).toHaveCount(1);
-    await page.click('#git-close');
-    await expect.poll(() => page.evaluate(() =>
-      (window as any).app.ws.windows.filter((w: any) => w.type === 'git').length)).toBe(0);
+    // 떠나는 것과 닫는 것은 다르다 (FR-SBT-35) — Git 창은 그대로 남는다.
+    expect(await page.evaluate(() =>
+      (window as any).app.ws.windows.filter((w: any) => w.type === 'git').length)).toBe(1);
 
-    // 리포 항목을 다시 누르면 새로 만들어진다 (FR-GIT-26 유지).
-    await openGit(page, fx('basic'));
+    // 그리고 언제든 다시 들어간다 — 두 번째 창이 생기지 않는다 (FR-GIT-26 유지).
+    await page.click('.sb-tab[data-panel="git"]');
+    await expect.poll(() => page.evaluate(() => {
+      const a = (window as any).app;
+      return (a.ws.windows.find((w: any) => w.id === a.ws.activeWindow) || {}).type || 'terminal';
+    })).toBe('git');
     expect(await page.evaluate(() =>
       (window as any).app.ws.windows.filter((w: any) => w.type === 'git').length)).toBe(1);
   });
 
-  // FR-GIT-183a: 닫은 뒤 가는 곳은 **직전에 활성이었던 일반 창**이다. 창 목록에서
-  // 이웃한 창으로 가면 사용자는 자기가 있던 자리로 돌아오지 못한다.
-  test('V73b (FR-GIT-183a): Close Git 은 직전에 보던 일반 창으로 돌아간다', async ({ page }) => {
+  /**
+   * FR-GIT-183a → **FR-SBT-23·24 로 계승.** 가는 곳은 여전히 **직전에 활성이었던
+   * 일반 창**(`_lastPlainWindow`)이다. 창 목록에서 이웃한 창으로 가면 사용자는
+   * 자기가 있던 자리로 돌아오지 못한다.
+   *
+   * 트리거만 `#git-close` 클릭 → `Windows` 탭 클릭으로 바뀐다. 창 3개 중 **가운데**
+   * 에 서는 설정은 그대로 유효하다 — 이웃으로 가는 것과 구별되어야 하기 때문이다.
+   * 이 스펙 하나가 I6("원래 있던 윈도우로 돌아간다")을 이름이 아니라 동작으로
+   * 고정한다 (V-SBT-9).
+   */
+  test('V73b (FR-SBT-23·24, 옛 FR-GIT-183a): Windows 탭은 직전에 보던 일반 창으로 돌아간다', async ({ page }) => {
     await waitForInit(page);
     // 일반 창 셋을 만들고 **가운데**에 선다 — 이웃으로 가는 것과 구별되어야 한다.
     const ids = await page.evaluate(async () => {
@@ -188,12 +209,14 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
     expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(from);
 
     await openGit(page, fx('basic'));
-    await expect(page.locator('#git-close:visible')).toHaveCount(1);
-    await page.click('#git-close');
+    await page.click('.sb-tab[data-panel="windows"]');
 
+    // 이웃(ids[0]·ids[2])이 아니라 떠나온 그 창이다.
     await expect.poll(() => page.evaluate(() =>
-      (window as any).app.ws.windows.filter((w: any) => w.type === 'git').length)).toBe(0);
-    expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(from);
+      (window as any).app.ws.activeWindow)).toBe(from);
+    // FR-SBT-35: 떠났을 뿐 Git 창은 파괴되지 않는다.
+    expect(await page.evaluate(() =>
+      (window as any).app.ws.windows.filter((w: any) => w.type === 'git').length)).toBe(1);
   });
 
   test('V74 (FR-GIT-41·185): Open File 은 Git 창이 아닌 창에 열고 그 창을 활성화한다', async ({ page }) => {
@@ -427,16 +450,20 @@ test.describe('UI 개정 — 컨트롤 치수 (FR-GIT-195~199)', () => {
 
   test('V103 (FR-GIT-226): 하한이 WINDOWS 목록 행(.si)과 같은 값이다', async ({ page }) => {
     await waitForInit(page);
-    await openChanges(page, fx('basic'));
-    await waitFiles(page, 3);
 
     // 기준은 VSCode 가 아니라 이 앱 자신의 목록 행이다 — 숫자를 두 곳에 두지
     // 않았다는 증거로, 실제 `.si` 높이와 맞춰 본다.
+    //
+    // **Git 창에 들어가기 전에 잰다.** 들어가면 사이드바가 `Git` 탭을 따라가므로
+    // (FR-SBT-14) WINDOWS 목록이 숨고, 숨은 요소의 사각형은 0 이다.
     const si = await page.evaluate(() => {
       const e = document.querySelector('#windows .si') as HTMLElement | null;
       return e ? Math.round(e.getBoundingClientRect().height) : -1;
     });
     expect(si, 'WINDOWS 행이 없다').toBeGreaterThan(0);
+
+    await openChanges(page, fx('basic'));
+    await waitFiles(page, 3);
     expect(MIN_ROW).toBe(si);
     expect(MIN_HIT).toBe(si);
     expect(MIN_LABELED).toBe(si);
@@ -793,30 +820,32 @@ test.describe('UI 개정 — 동작의 진입점 (FR-GIT-207~209)', () => {
 });
 
 test.describe('UI 개정 — GIT 행 높이 (FR-GIT-219)', () => {
-  test('V96 (FR-GIT-219): GIT 행이 WINDOWS 행과 같은 높이이고, 영역은 항목 수만큼만 자란다', async ({ page }) => {
+  // **개정 (FR-SBT-3 · D-5).** "영역은 항목 수만큼만 자란다" 는 `max-height:40%` 와
+  // 짝이던 규약이고, 둘 다 **세로 공존**의 산물이었다. 탭이 공존을 없앴으므로
+  // GIT 목록은 이제 패널의 남은 높이를 쓴다 — 그 부분은 여기서 검증하지 않는다
+  // (V-SBT-2 가 `git-sidebar` S7 에서 반대 방향으로 고정한다).
+  //
+  // 남는 계약은 행 높이 하나다: GIT 행과 WINDOWS 행이 같아야 한다 (FR-GIT-219).
+  // 두 목록은 이제 동시에 보이지 않으므로 각각 탭을 열어 잰다.
+  test('V96 (FR-GIT-219): GIT 행이 WINDOWS 행과 같은 높이다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate(async (p) => {
       await (window as any).app._gitPin(p);
     }, fx('basic'));
     await expect.poll(() => gitRepos(page).count(), { timeout: 20000 }).toBeGreaterThanOrEqual(1);
 
+    const si = await page.evaluate(() => {
+      const el = document.querySelector('#windows .si') as HTMLElement | null;
+      return el ? Math.round(el.getBoundingClientRect().height) : -1;
+    });
+    await openGitTab(page);
     const m = await page.evaluate(() => {
       const g = document.getElementById('git-repos')!;
       const row = g.querySelector('.git-repo') as HTMLElement;
-      const si = document.querySelector('#windows .si') as HTMLElement | null;
-      let content = 0;
-      for (const c of [...g.children]) content += (c as HTMLElement).getBoundingClientRect().height;
-      return {
-        row: Math.round(row.getBoundingClientRect().height),
-        si: si ? Math.round(si.getBoundingClientRect().height) : -1,
-        box: Math.round(g.getBoundingClientRect().height),
-        content: Math.round(content),
-      };
+      return { row: Math.round(row.getBoundingClientRect().height) };
     });
-    expect(m.si, 'WINDOWS 행이 없다').toBeGreaterThan(0);
-    expect(m.row, 'GIT 행이 WINDOWS 행과 다른 높이다').toBe(m.si);
-    // 미리 영역을 키워 두지 않는다 — 항목 수만큼만이다.
-    expect(m.box, '영역이 항목 수보다 크게 잡혔다').toBeLessThanOrEqual(m.content + 8);
+    expect(si, 'WINDOWS 행이 없다').toBeGreaterThan(0);
+    expect(m.row, 'GIT 행이 WINDOWS 행과 다른 높이다').toBe(si);
   });
 });
 
@@ -848,6 +877,8 @@ test.describe('UI 개정 — 핀 드래그 정렬 (FR-GIT-223)', () => {
     for (const p of [a, b, c]) {
       await page.evaluate(async (x) => { await (window as any).app._gitPin(x) }, p);
     }
+    // 드래그는 행의 사각형을 읽는다 — 숨은 패널의 사각형은 0 이다 (FR-SBT-2).
+    await openGitTab(page);
     await expect.poll(async () => (await pinOrder(page)).length, { timeout: 20000 }).toBe(3);
     expect(await pinOrder(page)).toEqual([a, b, c]);
 
@@ -880,6 +911,7 @@ test.describe('UI 개정 — 핀 드래그 정렬 (FR-GIT-223)', () => {
   test('V100 (FR-GIT-223): follow 항목은 끌 수 없다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate(async (x) => { await (window as any).app._gitPin(x) }, fx('basic'));
+    await openGitTab(page);
     await expect.poll(() => gitRepos(page).count(), { timeout: 20000 }).toBeGreaterThanOrEqual(1);
 
     const follow = page.locator('#git-repos .git-repo.follow');
@@ -964,10 +996,10 @@ test.describe('UI 개정 — 섹션 경계 (FR-GIT-216)', () => {
     expect(groups[1].w + '/' + groups[1].color, '섹션 경계가 행과 구별되지 않는다')
       .not.toBe(rowLine.w + '/' + rowLine.color);
 
-    // ② 사이드바 — WINDOWS ↔ GIT 경계. follow ↔ 핀 경계는 follow 가 사라지면서
-    // 함께 없어졌다 (FR-FLW-1).
-    const secTitle = (await edges(page, '.git-sec-title', 'top'))[0];
-    expect(secTitle.w).toBeGreaterThanOrEqual(SEC_BORDER_W);
+    // ② 사이드바의 WINDOWS ↔ GIT 경계는 **대상이 사라졌다** (FR-SBT-1·§3.9.1).
+    // 두 목록이 세로로 쌓여 있지 않으므로 그을 경계가 없고, `.git-sec-title` 자체가
+    // 없어졌다. 가르는 일은 탭 바가 한다 — 그것은 섹션 경계가 아니라 컨트롤이므로
+    // FR-GIT-216 의 대상이 아니다. (follow ↔ 핀 경계도 FR-FLW-1 로 이미 사라졌다.)
 
     // ③ 테마를 바꾸면 따라 바뀐다 — 색을 하드코딩하지 않았다는 증거다.
     const before = groups[1].color;
@@ -1027,6 +1059,8 @@ test.describe('UI 개정 — GIT 섹션의 간격 (FR-GIT-214)', () => {
       await (window as any).app._gitPin(p);
     }, fx('basic'));
     await expect.poll(() => gitRepos(page).count(), { timeout: 20000 }).toBeGreaterThanOrEqual(1);
+    // 간격은 요소 사각형 사이의 빈 거리다 — 숨은 패널에서는 잴 수 없다 (FR-SBT-2).
+    await openGitTab(page);
 
     const g = await sectionGaps(page);
     expect(g.listAdd, '목록과 + Add 가 붙어 있다').toBeGreaterThanOrEqual(MIN_GAP_LIST_ADD);
@@ -1043,6 +1077,7 @@ test.describe('UI 개정 — GIT 섹션의 간격 (FR-GIT-214)', () => {
     // 모바일은 드로어다 — 열어야 사이드바가 화면에 선다.
     await page.evaluate(() => (window as any).app.openDrawer && (window as any).app.openDrawer());
     await page.waitForTimeout(300);
+    await openGitTab(page);
 
     const g = await sectionGaps(page);
     expect(g.listAdd).toBeGreaterThanOrEqual(MIN_GAP_LIST_ADD);

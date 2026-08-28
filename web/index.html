@@ -20,6 +20,20 @@
 <div id="app">
   <div id="drawer-backdrop"></div>
   <div id="sidebar">
+    <!-- GIT_SIDEBAR_TABS_SRS FR-SBT-1·18·21: 탭 버튼은 서술자 배열에서 그린다
+         (sidebar-tabs.js). 여기 비워 두는 것이 "새 탭 = 서술자 1개" 를 지키는
+         자리다 — 탭이 늘어도 이 파일을 다시 열지 않는다. -->
+    <div id="sb-tabs"></div>
+    <div class="sb-panel" id="sb-panel-windows">
+      <button id="add-window">+ New</button>
+      <button id="add-preset" title="기본 프리셋으로 새 창">★ Preset</button>
+      <div id="windows"></div>
+    </div>
+    <div class="sb-panel" id="sb-panel-git" hidden>
+      <div id="git-repos"></div>
+      <button id="git-add-repo" title="리포 추가">+ Add</button>
+    </div>
+    <!-- FR-SBT-4: 탭 밖 최하단. 어느 탭에서나 보인다. -->
     <button id="settings-btn" title="Settings">⚙</button>
   </div>
   <div id="sb-handle"></div>
@@ -156,6 +170,49 @@
 <script src="vendor/addon-web-links.js"></script>
 <script src="vendor/addon-unicode11.js"></script>
 <script src="vendor/addon-search.js"></script>
+<script src="js/core/constants.js?v=159"></script>
+<script src="js/core/helpers.js?v=159"></script>
+<script src="js/ui/repaint.js?v=159"></script>
+<!-- 사이드바 탭 (GIT_SIDEBAR_TABS_SRS). renderer.js 앞이어야 한다 — 렌더러가
+     활성 탭 상태를 읽는다. -->
+<script src="js/ui/sidebar-tabs.js?v=159"></script>
+<script src="js/ui/themes.js?v=159"></script>
+<script src="js/ui/term-pane.js?v=159"></script>
+<script src="js/ui/file-editor.js?v=159"></script>
+<script src="js/ui/input-binding.js?v=159"></script>
+<script src="js/git/panel.js?v=159"></script>
+<script src="js/git/confirm.js?v=159"></script>
+<script src="js/git/dialog.js?v=159"></script>
+<script src="js/git/commit.js?v=159"></script>
+<script src="js/git/lanes.js?v=159"></script>
+<script src="js/git/menu.js?v=159"></script>
+<script src="js/git/history.js?v=159"></script>
+<script src="js/git/branches.js?v=159"></script>
+<script src="js/git/stash.js?v=159"></script>
+<script src="js/git/tag.js?v=159"></script>
+<script src="js/git/console.js?v=159"></script>
+<script src="js/git/worktrees.js?v=159"></script>
+<script src="js/git/remote.js?v=159"></script>
+<script src="js/git/commit-ops.js?v=159"></script>
+<script src="js/ui/renderer.js?v=159"></script>
+<script src="js/core/app.js?v=159"></script>
+<script src="js/core/app-cmd.js?v=159"></script>
+<script src="js/core/app-tool.js?v=159"></script>
+<script src="js/core/app-layout.js?v=159"></script>
+<script src="js/core/app-focus.js?v=159"></script>
+<script src="js/core/app-attn.js?v=159"></script>
+<script src="js/core/app-agents.js?v=159"></script>
+<script src="js/core/app-git.js?v=159"></script>
+<!-- Run 시각화 (ORCHESTRATION_V2_SRS 묶음 V). app.js 뒤 — prototype 확장. -->
+<script src="js/core/app-runs.js?v=159"></script>
+<script src="js/core/app-search.js?v=159"></script>
+<script src="js/core/app-mobile.js?v=159"></script>
+<script src="js/core/app-settings.js?v=159"></script>
+<script src="js/core/app-statusbar.js?v=159"></script>
+<script src="js/core/app-presets.js?v=159"></script>
+<script src="js/core/app-dnd.js?v=159"></script>
+<script src="js/core/main.js?v=159"></script>
+<script src="js/ui/version-watch.js?v=159"></script>
 <!-- 실기기 진단. ?diag=1 로 접속할 때만 동작한다 -->
 <script src="js/ui/diag.js?v=159"></script>
 </body>

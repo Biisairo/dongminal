@@ -27,6 +27,9 @@ class App {
     this._lastPlainWindow=null; // Open File 이 돌아갈 일반 창 (FR-GIT-185, O15)
     this._lastTermTool=null;    // follow 가 딛는 마지막 터미널 (FR-GIT-210)
     this._gitOff=false; // git 표면이 503 이면 섹션 전체를 숨긴다
+    // 사이드바 탭 (GIT_SIDEBAR_TABS_SRS §3.9.2). 활성 탭은 클라이언트의 것이다 (D-1).
+    this._sbTab=SidebarTabs.restore();
+    this._sbBusy=false; // FR-SBT-14 ↔ 22 의 재진입 가드
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
     this.gitPanel=new GitPanel(this);
@@ -183,6 +186,9 @@ class App {
       agentsToggle:()=>this._agentsToggle(),
       toggleSearch:()=>this.toggleSearch(),
     };
+    // FR-SBT-21·26: 직행 키는 서술자 배열에서 파생한다 — 탭이 늘어도 이 맵을
+    // 손으로 늘리지 않는다.
+    for(let i=0;i<SB_TAB_DEFS.length&&i<9;i++) map[sbTabAction(i)]=()=>this._sbJumpTo(i+1);
     return map[action]?.();
   }
 
@@ -264,6 +270,15 @@ class App {
       if(e.key==='Escape'){input.value=old;input.blur()}
     });
   }
+
+  // ── 사이드바 탭 (GIT_SIDEBAR_TABS_SRS §3.9.2, 위임) ──
+
+  // 지금 보이는 탭들. 배열 순서가 표시 순서다 (FR-SBT-18).
+  get _sbTabs(){ return SidebarTabs.visible(this) }
+  _sbSetTab(id){ SidebarTabs.setTab(this,id) }
+  _sbSyncTabToWindow(){ SidebarTabs.syncToWindow(this) }
+  _sbUpdateBadges(){ SidebarTabs.updateBadges(this) }
+  _sbJumpTo(n){ SidebarTabs.jumpTo(this,n) }
 
   // ── Render (위임) ──
 

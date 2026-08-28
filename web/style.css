@@ -1481,6 +1481,12 @@ body.mobile .git-hist-f{width:60px}
 }
 
 /* ── Git 사이드바 (FR-GIT-13~17) ── */
+/* FR-SBT-3 (D-5): 두 목록은 더 이상 같은 컬럼에서 높이를 다투지 않는다 — 탭이
+   한 번에 하나만 보이므로 GIT 목록은 **패널의 남은 높이 전부**를 쓴다. 옛
+   `max-height:40%` 는 세로 공존의 산물이었고, 공존이 사라지면 근거도 사라진다.
+   min-height:0 은 남는다 — flex 자식이 내용 높이 아래로 줄어들지 않으면 스크롤
+   대신 사이드바 밖으로 밀린다. */
+#git-repos{flex:1 1 auto;min-height:0;overflow-y:auto}
 /* FR-FLW-11: 비었을 때도 자리가 보인다 — 빈 자리는 고장처럼 읽힌다 */
 .git-repos-none{padding:4px 8px;font-size:11px;color:var(--text-dim)}
 /* FR-GIT-214: 목록 → `+ Add` → ⚙ 이 잇달아 놓인다. 벌리지 않으면 세 덩이가 한
@@ -1979,6 +1985,9 @@ select:focus{border-color:var(--accent);outline:none}
    종료)이 함께 만지는 핫스팟이다. 각자 **자기 섹션 안에만 append** 하고 기존 규칙을
    수정하지 않으면 병렬 중 충돌이 나지 않는다.
    
+   기존 규칙을 고쳐야 하는 경우는 하나뿐이다 — WS-6 의 #git-repos max-height 제거
+   (FR-SBT-3). 그 한 줄은 WS-6 소유로 명시한다 (style.css:1492).
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 /* --- track: runs (WS-5 · ORCHESTRATION_V2_SRS 묶음 V) --- */
 
@@ -2120,9 +2129,48 @@ body.mobile .run-view .run-card{min-height:44px}
 .run-view .run-tl-kind.k-succeed{color:var(--text-bright)}
 .run-view .run-tl-text{flex:1 1 auto;min-width:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
+/* --- track: sidebar-tabs (WS-6 · GIT_SIDEBAR_TABS_SRS) --- */
 
+/* FR-SBT-1·5: 탭 바. 두 탭이 너비를 균등 분할하고(flex:1) 이름이 넘치면
+   말줄임한다 — `--sb-w` 최소값 100px 에서도 두 이름이 읽혀야 한다 (C-2). */
+#sb-tabs{
+  display:flex;flex:0 0 auto;
+  border-bottom:1px solid var(--border);
+}
+.sb-tab{
+  flex:1 1 0;min-width:0;height:30px;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  background:transparent;border:none;border-bottom:2px solid transparent;
+  color:var(--text-muted);font-family:inherit;font-size:11px;font-weight:600;
+  cursor:pointer;padding:0 4px;transition:background .1s,color .1s;
+}
+.sb-tab-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb-tab:hover{background:var(--accent-hover);color:var(--accent)}
+.sb-tab.active{color:var(--text-bright);border-bottom-color:var(--accent);background:var(--accent-active)}
+.sb-tab[hidden]{display:none}
 
+/* FR-SBT-12·13: 배지는 **비활성 탭에서만** 보인다 — 활성 탭은 목록에 그 정보가
+   이미 있다. 색은 테마 변수에서 온다 (NFR-SBT-3). */
+.sb-tab-badge{
+  flex-shrink:0;min-width:14px;padding:0 4px;border-radius:7px;
+  font-size:9px;font-weight:700;line-height:14px;text-align:center;
+  background:var(--accent-subtle);color:var(--accent);
+}
+.sb-tab-badge[hidden]{display:none}
+.sb-tab[data-panel="windows"] .sb-tab-badge{background:var(--attn-subtle);color:var(--attn)}
 
+/* FR-SBT-2·3: 숨김은 display:none 이다. visibility/opacity 로 숨기면 숨은 패널이
+   자리를 차지해 "보이는 쪽이 전체 높이를 쓴다" 는 목적 자체가 무너진다. */
+/* 옛 `.sb-title` 이 만들던 탭 바와 본문 사이의 간격을 여기서 준다. */
+.sb-panel{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;padding-top:8px}
+.sb-panel[hidden]{display:none}
 
+/* FR-SBT-16·17: 모바일 드로어에서 탭 바는 상단에 고정되고 패널만 스크롤한다.
+   터치 타깃은 최소 44px (데스크톱 30px 은 `.si`·버튼과 맞춘 값이다). */
+/* 드로어 닫기 `✕` 는 사이드바 우상단에 절대 배치된다 (app-mobile.js) — 자리를
+   비워 두지 않으면 마지막 탭 위에 겹친다. */
+body.mobile #sb-tabs{position:sticky;top:0;z-index:1;background:var(--sidebar-bg);padding-right:36px}
+body.mobile .sb-tab{height:44px;font-size:12px}
+body.mobile .sb-tab-badge{min-width:18px;padding:0 6px;font-size:11px;line-height:18px;border-radius:9px}
 
 

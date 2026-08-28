@@ -118,6 +118,33 @@ DONGMINAL_TOOL_ID=<도구 id>  # detach 가 자기 도구를 식별하는 근거
 
 과거의 code-server 통합(`internal/server/codeserver.go`, `/cs/<id>/` 리버스 프록시, `CodeServerManager`)은 `8dc0a3f` 에서 이 내장 편집기로 대체되며 제거됐다.
 
+## 사이드바 탭 (`web/js/ui/sidebar-tabs.js`)
+
+좌측 사이드바는 `Windows`·`Git` 두 목록을 세로로 쌓지 않고 **탭으로 가른다**
+(`GIT_SIDEBAR_TABS_SRS`). 한 번에 하나만 보이고, 보이는 쪽이 사이드바의 남은 높이
+전부를 쓴다.
+
+**새 탭을 더하는 비용은 서술자 1개다** (FR-SBT-21). `sidebar-tabs.js` 의
+`SB_TAB_DEFS` 배열에 한 항목을 넣고 `index.html` 에 패널 래퍼(`<div class="sb-panel"
+id="sb-panel-…">`) 하나를 두면 끝이다. 아래 넷이 그 배열에서 **파생**되므로 따로
+열지 않는다.
+
+| 파생되는 것 | 어디서 |
+|---|---|
+| 탭 버튼과 순서 | `SidebarTabs.paint` — `index.html` 의 `#sb-tabs` 는 비어 있다 |
+| 직행 키 `Ctrl+Shift+{n}` | 배열 인덱스. `SHORTCUT_DEFAULTS`·`SHORTCUT_LABELS`·`shortcuts` 를 로드 시점에 함께 채운다 |
+| `executeAction` 의 `sidebarTab{n}` | `app.js` 가 배열을 돌며 만든다 |
+| 설정 화면의 단축키 목록 | `app-settings.js` 의 `사이드바 탭` 그룹 |
+
+서술자의 훅은 `app` 을 인자로 받는다 — 배열이 모듈 수준 상수여야 단축키 등록이 App
+인스턴스보다 먼저 돌 수 있기 때문이다 (로드 순서상 `sidebar-tabs.js` 는 `app.js`
+앞이다).
+
+`onActivate`·`cycle` 이 이 탭을 **조작**으로 만든다. 탭을 고르면 콘텐츠 창이 따라
+바뀌고(FR-SBT-22), 창이 바뀌면 탭이 따라온다(FR-SBT-14). 두 방향이 서로를 부르므로
+`_sbBusy` 가 재진입을 한 번에 끊는다. 순회 키(`Ctrl+Shift+[ ]`)는 새 키를 만들지 않고
+**활성 탭의 `cycle`** 로 디스패치된다 (`app-layout.js` 의 `_cycleActive`).
+
 ## 에이전트 접합면과 Run
 
 도구 안에서 도는 에이전트가 워크스페이스를 조회·조작하는 경로다. **액션은 `dmctl`

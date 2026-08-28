@@ -76,6 +76,8 @@ function getCurrentTheme(){return customTheme||THEMES[currentThemeName]}
 
 // ── Shortcut state ──
 
+// 사이드바 탭의 직행 키(`sidebarTab1`~)는 **여기 없다.** 서술자 배열에서 파생되며
+// sidebar-tabs.js 가 이 맵과 SHORTCUT_LABELS·shortcuts 를 함께 늘린다 (FR-SBT-30).
 const SHORTCUT_DEFAULTS={
   windowNext:'Ctrl+Shift+BracketRight',windowPrev:'Ctrl+Shift+BracketLeft',
   tabNext:'Ctrl+Tab',tabPrev:'Ctrl+Shift+Tab',
@@ -86,6 +88,9 @@ const SHORTCUT_DEFAULTS={
   agentsToggle:'Ctrl+Shift+KeyA',
 };
 const SHORTCUT_LABELS={
+  // GIT_SIDEBAR_TABS_SRS FR-SBT-31·33: 이 키는 **활성 사이드바 탭의 목록**을 순회한다
+  // (Windows 탭이면 창, Git 탭이면 리포). 모드 의존이 되었으므로 설명이 따라간다.
+  windowNext:'다음 항목 (활성 탭 기준)',windowPrev:'이전 항목 (활성 탭 기준)',
   tabNext:'다음 탭',tabPrev:'이전 탭',
   paneUp:'Pane ↑',paneDown:'Pane ↓',paneLeft:'Pane ←',paneRight:'Pane →',
   splitH:'가로 분할',splitV:'세로 분할',

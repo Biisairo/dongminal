@@ -79,4 +79,26 @@ export const test = base.extend<{ cleanTools: void }>({
   ],
 });
 
+/**
+ * GIT_SIDEBAR_TABS_SRS §4.1 — Git 패널은 이제 사이드바 탭 뒤에 있다 (FR-SBT-1·2).
+ *
+ * `Windows` 가 기본 탭이므로(FR-SBT-7) Git 요소를 **보거나 누르는** 스펙은 먼저
+ * 탭을 열어야 한다. 스펙마다 탭 클릭을 흩뿌리지 않고 여기 한 줄로 둔다.
+ *
+ * 탭 자체가 화면에 없는 상황(모바일 드로어가 닫혀 있다)에서는 클릭 대신 같은
+ * 진입점을 직접 부른다 — 그런 스펙이 재려는 것은 탭 전환이 아니라 그 뒤의 패널이다.
+ */
+export async function openGitTab(page: any) {
+  const tab = page.locator('.sb-tab[data-panel="git"]');
+  const box = await tab.boundingBox();
+  const vp = page.viewportSize();
+  // 모바일 드로어가 닫혀 있으면 사이드바는 화면 밖으로 밀려 있다 — 눌릴 수 없다.
+  const clickable = !!box && box.y >= 0 && box.x >= 0 && (!vp || box.y + box.height <= vp.height);
+  if (clickable) await tab.click();
+  else await page.evaluate(() => (window as any).app._sbSetTab('git'));
+  await page.waitForFunction(
+    () => !document.getElementById('sb-panel-git')?.hasAttribute('hidden'),
+    undefined, { timeout: 10000 });
+}
+
 export { expect };

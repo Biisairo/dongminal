@@ -414,6 +414,19 @@ Object.assign(App.prototype, {
     if(arr.length<2) return;
     this.switchWindow(arr[(i+step+arr.length)%arr.length].id);
   },
+  // 순회 키(Ctrl+Shift+[ ])의 **단일 디스패치 지점**이다.
+  //
+  // GIT_SIDEBAR_TABS_SRS FR-SBT-31/33: 이 키는 활성 사이드바 탭의 목록을 순회한다
+  // — Windows 탭이면 창, Git 탭이면 리포. 새 키를 만들지 않고 대상만 바뀐다.
+  // cycle 을 제공하지 않는 탭이 활성이면 아무 일도 하지 않는다 (FR-SBT-20).
+  //
+  _cycleActive(step){
+    const d=this._sbTabs.find(t=>t.id===this._sbTab);
+    if(!d||!d.cycle) return;
+    d.cycle(this,step);
+  },
+  switchWindowPrev(){this._cycleActive(-1)},
+  switchWindowNext(){this._cycleActive(1)},
   paneNavigate(dir){
     const s=this._aw();if(!s||!this.focused)return;
     const path=findPath(s.layout,this.focused);if(!path||path.length<2)return;

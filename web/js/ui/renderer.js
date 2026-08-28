@@ -24,6 +24,17 @@ class Renderer {
     this.app._applyFocusOverlay();
   }
 
+  /**
+   * GIT_SIDEBAR_TABS_SRS FR-SBT-1·14: 사이드바 탭 바.
+   *
+   * 그리기 전에 **활성 창 → 탭**을 맞춘다 (FR-SBT-14). 반대 방향(탭 → 창)은
+   * `SidebarTabs.setTab` 이 하며, 재진입 가드가 둘이 서로를 부르는 순환을 끊는다
+   * (§3.9.2, V-SBT-10).
+   */
+  _rSbTabs(){
+    this.app._sbSyncTabToWindow();
+    SidebarTabs.paint(this.app);
+  }
 
   /**
    * FR-RPT-3: 목록을 비우고 다시 만들지 않는다.
@@ -72,6 +83,9 @@ class Renderer {
   }
 
   // FR-GIT-13: 좌측 GIT 섹션. 데이터는 app._gitRepos 다 — 없으면 본문만 비운다.
+  //
+  // FR-SBT-8: git 이 없는 환경(`_gitOff`)에서 요소를 하나씩 감추던 일은 사라졌다 —
+  // 감추는 단위가 **탭**이 되었고, 그 판정은 서술자의 `visible()` 한 곳에 있다.
   _rGitSection(){
     const el=document.getElementById('git-repos'); if(!el) return;
     const d=this.app._gitRepos;
@@ -185,6 +199,8 @@ class Renderer {
   _rTopbar(){
     const a=this.app._aw();
     document.getElementById('window-name').textContent=a?a.name:'';
+    // FR-GIT-180: Git 창에서는 분할 진입점을 감춘다. (FR-GIT-183 의 `Close Git`
+    // 은 폐기됐다 — 떠나는 길이 사이드바 탭으로 상시 존재한다, FR-SBT-34.)
     const isGit=this.app._isGitWin(a);
     for(const id of ['split-h','split-v']){
       const b=document.getElementById(id);

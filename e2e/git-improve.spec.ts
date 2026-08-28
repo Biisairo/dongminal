@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, openGitTab } from './fixtures';
 
 // GIT_REVIEW4_SRS §3.6.1~§3.6.4 — 개선 I1~I4. 검증 V132~V142
 // (FR-GIT-236~239).
@@ -464,6 +464,8 @@ test.describe('묶음 L — 핀 행 배지 자리 (FR-GIT-239 축소)', () => {
       const st = await request.get('/api/git/status?repo=' + encodeURIComponent(r));
       expect(st.ok(), `status 실패: ${await st.text()}`).toBeTruthy();
     }
+    // 배지의 x 좌표를 잰다 — 숨은 패널에서는 둘 다 0 이라 검사가 헛돈다 (FR-SBT-2).
+    await openGitTab(page);
     await expect(pinned(page, a).locator('.git-badge')).toHaveText('1', { timeout: 15000 });
     await expect(pinned(page, b).locator('.git-badge')).toHaveText('1', { timeout: 15000 });
     const rightX = (root: string) =>
