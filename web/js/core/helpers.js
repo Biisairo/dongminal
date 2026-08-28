@@ -86,7 +86,6 @@ const SHORTCUT_DEFAULTS={
   agentsToggle:'Ctrl+Shift+KeyA',
 };
 const SHORTCUT_LABELS={
-  windowNext:'다음 창',windowPrev:'이전 창',
   tabNext:'다음 탭',tabPrev:'이전 탭',
   paneUp:'Pane ↑',paneDown:'Pane ↓',paneLeft:'Pane ←',paneRight:'Pane →',
   splitH:'가로 분할',splitV:'세로 분할',
@@ -260,9 +259,13 @@ function clean(n,ok){
   if(!n) return null;
   if(n.type==='pane'){
     if(n.tabs) n.tabs=n.tabs.filter(t=>{
-      // 서버 도구에 매인 탭만 검사한다. editor·git 탭은 toolId 가 없어
-      // 그대로 두지 않으면 로드마다 사라진다 (FR-GIT-25).
-      if(t.type==='editor'||t.type===TAB_TYPE_GIT) return true;
+      // 서버 도구에 매인 탭만 검사한다. editor·git·run 탭은 toolId 가 없어
+      // 그대로 두지 않으면 로드마다 사라진다 (FR-GIT-25, FR-RVZ-9).
+      //
+      // `!t.toolId` 로 일반화하지 않는 이유는 toolId 없는 terminal 탭
+      // (저장 중 끊긴 손상 워크스페이스)이 그때 영원히 남기 때문이다 —
+      // 클릭해도 아무것도 열리지 않는 그 유령 탭을 버리는 것이 clean() 의 목적이다.
+      if(t.type==='editor'||t.type==='run'||t.type===TAB_TYPE_GIT) return true;
       return ok.has(t.toolId);
     });
     if(!n.tabs||!n.tabs.length) return null;
@@ -275,3 +278,11 @@ function clean(n,ok){
   if(n.children.length===1) return n.children[0];
   return n;
 }
+
+// ── 탭 이름의 출처 (CONVENIENCE_SRS 묶음 N) ──
+
+const TAB_NAME_DEFAULT='Shell';
+const NAME_SOURCE_AUTO='auto';
+const NAME_SOURCE_MANUAL='manual';
+
+

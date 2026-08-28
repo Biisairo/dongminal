@@ -376,6 +376,24 @@ func TestToolMessage_WrapsInEnvelope(t *testing.T) {
 	}
 }
 
+// FR-RVZ-14: 메시지 기록 훅은 배달의 **관문이 아니다.** Run 저장소가 아무 Run 도
+// 모르는 배선에서도 응답과 전달 내용이 그대로여야 한다 — 관측이 팀 통신을 멈추게
+// 하면 본말전도다. 기록이 실제로 쌓이는 경로는 handlers_runs_graph_test.go 가 본다.
+func TestToolMessage_RecordingHookDoesNotGateDelivery(t *testing.T) {
+	ts, io, _ := toolIOServer(t)
+	resp, body := postJSON(t, ts.URL+"/api/tools/message",
+		map[string]any{"to": "p1", "from": "p2", "message": "리뷰 부탁"})
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d want 200", resp.StatusCode)
+	}
+	if len(io.pastes) != 1 {
+		t.Fatalf("pastes=%d want 1", len(io.pastes))
+	}
+	if body["len"] != float64(len("리뷰 부탁")) {
+		t.Fatalf("응답 len=%v want %d", body["len"], len("리뷰 부탁"))
+	}
+}
+
 // FR-API-3: uuid 로 들어온 from/to 는 사람 가독성용 라벨로 정규화된다.
 func TestToolMessage_NormalizesUUIDToLabel(t *testing.T) {
 	ts, io, _ := toolIOServer(t)

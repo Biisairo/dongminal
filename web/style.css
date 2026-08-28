@@ -23,7 +23,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   background:var(--sidebar-bg);border-right:1px solid var(--border);
   display:flex;flex-direction:column;user-select:none;
 }
-.sb-title{padding:10px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
 #windows{flex:1 1 auto;min-height:0;overflow-y:auto}
 #windows::-webkit-scrollbar{width:4px}
 #windows::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
@@ -578,8 +577,6 @@ body.mobile .pn-tab{padding:0 14px;font-size:13px}
 body.mobile .pn-tab-x{opacity:1;width:18px;height:18px}
 body.mobile .pn-tab-add{width:32px;font-size:18px}
 body.mobile #add-window,body.mobile #add-preset,body.mobile #settings-btn{padding:8px;font-size:12px}
-body.mobile #windows{padding-top:8px}
-body.mobile .sb-title{padding:14px 14px 8px}
 
 /* ── Tab bar drag target ── */
 .pn-tabs.drag-target{background:var(--accent-hover);box-shadow:inset 0 -2px 0 var(--accent)}
@@ -1484,12 +1481,6 @@ body.mobile .git-hist-f{width:60px}
 }
 
 /* ── Git 사이드바 (FR-GIT-13~17) ── */
-/* FR-GIT-17: 두 목록이 서로를 굶기지 않는다. min-height:0 이 없으면 flex 자식이
-   내용 높이 아래로 줄어들지 않아 한쪽이 사이드바 밖으로 밀린다. */
-/* FR-GIT-17: 두 목록이 서로를 굶기지 않는다. GIT 목록은 **항목 수만큼만** 자란다 —
-   미리 영역을 키워 두지 않는다 (FR-GIT-219). 상한은 WINDOWS 를 굶기지 않기 위한
-   것이다. */
-#git-repos{flex:0 1 auto;min-height:0;max-height:40%;overflow-y:auto}
 /* FR-FLW-11: 비었을 때도 자리가 보인다 — 빈 자리는 고장처럼 읽힌다 */
 .git-repos-none{padding:4px 8px;font-size:11px;color:var(--text-dim)}
 /* FR-GIT-214: 목록 → `+ Add` → ⚙ 이 잇달아 놓인다. 벌리지 않으면 세 덩이가 한
@@ -1500,7 +1491,6 @@ body.mobile .git-hist-f{width:60px}
 #git-add-repo{margin-bottom:10px}
 #git-repos::-webkit-scrollbar{width:4px}
 #git-repos::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.git-sec-title{border-top:var(--git-sec-divider)}
 /* FR-GIT-219: 행 높이는 WINDOWS 목록의 `.si` 와 같다 (30px). 같은 자리·같은
    생김새의 두 목록이 다른 높이면 사용자가 GIT 쪽을 좁다고 읽는다. */
 .git-repo{display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;font-size:12px;cursor:pointer;transition:background .1s}
@@ -1981,3 +1971,158 @@ select:focus{border-color:var(--accent);outline:none}
   white-space:pre-wrap;word-break:break-all;max-height:180px;overflow-y:auto;
   font-family:monospace;font-size:11px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PARALLEL_DELIVERY_PLAN Step 0-9 — 트랙별 CSS 섹션 경계
+   
+   style.css 는 세 워크스트림(WS-5 Run 시각화 · WS-6 사이드바 탭 · WS-8 백그라운드
+   종료)이 함께 만지는 핫스팟이다. 각자 **자기 섹션 안에만 append** 하고 기존 규칙을
+   수정하지 않으면 병렬 중 충돌이 나지 않는다.
+   
+
+/* --- track: runs (WS-5 · ORCHESTRATION_V2_SRS 묶음 V) --- */
+
+/* FR-RVZ-2: Run 목록 모달. 백그라운드 도구 모달(.bg-modal)과 같은 상호작용
+   규약을 쓰므로 치수·그림자도 그것을 따른다 — 두 모달이 다르게 생기면 같은
+   규약이라는 사실이 화면에서 사라진다. */
+.runs-modal{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;
+}
+.runs-box{
+  min-width:360px;max-width:min(680px,92vw);max-height:70vh;overflow-y:auto;
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);padding:4px;font-size:12px;
+}
+.runs-box .runs-head{padding:8px 10px;color:var(--text-muted);border-bottom:1px solid var(--border)}
+.runs-box .runs-err{padding:10px;color:var(--danger)}
+/* FR-RVZ-4: 빈 목록은 안내다. 두 줄이며 아래가 다음 행동이다. */
+.runs-box .runs-empty{padding:14px 10px}
+.runs-box .runs-empty-t{color:var(--text-bright)}
+.runs-box .runs-empty-h{margin-top:4px;color:var(--text-muted);font-family:monospace;font-size:11px}
+.runs-box .runs-row{
+  display:flex;gap:8px;align-items:baseline;min-height:30px;
+  padding:8px 10px;border-radius:4px;cursor:pointer;
+}
+.runs-box .runs-row:hover{background:var(--accent-subtle)}
+.runs-box .runs-short{color:var(--text-bright);font-family:monospace;flex-shrink:0}
+/* FR-RVZ-3: 목적은 한 줄로 자른다 — 행 높이가 목적 길이에 흔들리면 목록이 아니다. */
+.runs-box .runs-obj{flex:1 1 auto;min-width:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.runs-box .runs-state{font-size:11px;padding:1px 6px;border-radius:3px;border:1px solid var(--border);color:var(--text-muted);flex-shrink:0}
+.runs-box .runs-state.st-open{color:var(--accent);border-color:var(--accent-border)}
+.runs-box .runs-state.st-aborted{color:var(--danger);border-color:var(--danger)}
+.runs-box .runs-members{color:var(--text-muted);font-size:11px;white-space:nowrap;flex-shrink:0}
+.runs-box .runs-iso{color:var(--text-muted);font-size:11px;white-space:nowrap;flex-shrink:0}
+/* V-RVZ-6: 컨텍스트 경고 배지. 값이 없으면 이 요소 자체가 만들어지지 않는다. */
+.runs-box .runs-ctx{font-size:11px;white-space:nowrap;flex-shrink:0}
+.runs-box .runs-ctx.lv-warn{color:var(--attn)}
+.runs-box .runs-ctx.lv-critical{color:var(--danger)}
+.runs-box .runs-ago{color:var(--text-dim);font-size:11px;white-space:nowrap;flex-shrink:0}
+/* 터치. hover 없이 닿아야 하므로 히트 영역만 키운다 (.bg-row 와 같은 44px 규약). */
+body.mobile .runs-box .runs-row{min-height:44px}
+
+/* FR-RVZ-6: 네 번째 탭 타입의 본문. .file-editor 와 같은 층위이므로 표시 규약도
+   같다 — pane body 에 붙은 뒤 `.vis` 가 붙는다. */
+.run-view{position:absolute;inset:0;display:none;overflow:auto;background:var(--bg)}
+.run-view.vis{display:block}
+/* FR-RVZ-9: 사라진 Run. 탭은 남으므로 본문만 이 문구로 바뀐다. */
+.run-view .run-miss{display:none;padding:24px;color:var(--text-muted);font-size:13px}
+.run-view .run-miss.vis{display:block}
+.run-view .run-miss.err{color:var(--danger)}
+.run-view .run-body{display:none;flex-direction:column;gap:1px}
+.run-view .run-body.vis{display:flex}
+
+/* FR-RVZ-10: 네 영역. 경계선 하나로 나눈다 — 영역마다 상자를 그리면 대시보드가
+   아니라 카드 더미가 된다. */
+.run-view .run-summary{
+  display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;
+  padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;
+}
+.run-view .run-sum-short{color:var(--text-bright);font-family:monospace}
+/* 목적은 늘어나지 않는다 — 늘리면 넓은 화면에서 나머지 요약 항목이 오른쪽
+   끝으로 밀려나 한 덩어리로 읽히지 않는다. 길면 자른다. */
+.run-view .run-sum-obj{flex:0 1 auto;min-width:0;max-width:44%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.run-view .run-sum-state,.run-view .run-sum-iso,
+.run-view .run-sum-ago,.run-view .run-sum-members{color:var(--text-muted);font-size:11px;white-space:nowrap}
+
+/* FR-RVZ-11: SVG 를 직접 그린다. 폭은 멤버 수가 정하므로 좁은 칸에서는 가로로
+   스크롤한다 — 줄이면 20명짜리 Run 에서 노드가 겹친다. */
+.run-view .run-graph-wrap{overflow-x:auto;overflow-y:hidden;border-bottom:1px solid var(--border);padding:6px 0}
+.run-view .run-graph{display:block}
+
+/* FR-RVZ-12: 노드 시각 규약. 색은 전부 테마 변수다.
+   `--run-ok` 만 여기서 정한다 — 전역 테마에 "성공" 색이 없다 (.git-hunks 가
+   +/- 색에 대해 세운 것과 같은 규약이며, 값을 두는 자리는 이 한 곳이다). */
+.run-view{--run-ok:#9ece6a}
+.run-view .run-node .run-node-box{fill:var(--sidebar-bg);stroke:var(--border);stroke-width:1.5}
+.run-view .run-node .run-node-role{fill:var(--text-bright);font-size:12px;font-family:inherit}
+.run-view .run-node .run-node-sub{fill:var(--text-muted);font-size:10px;font-family:inherit}
+.run-view .run-node.coord .run-node-box{stroke:var(--accent-border)}
+.run-view .run-node.state-working .run-node-box{stroke:var(--accent);stroke-width:2}
+.run-view .run-node.state-waiting .run-node-box{stroke:var(--attn);stroke-width:2}
+.run-view .run-node.state-done .run-node-box{stroke:var(--run-ok)}
+.run-view .run-node.state-failed .run-node-box{stroke:var(--danger);stroke-width:2}
+.run-view .run-node.state-lost .run-node-box{stroke:var(--text-dim)}
+.run-view .run-node.state-lost .run-node-role{fill:var(--text-dim)}
+/* succeeded 는 점선이다. 헤드리스의 점선과 간격이 달라 겹쳐도 구분된다. */
+.run-view .run-node.state-succeeded .run-node-box{stroke:var(--text-muted);stroke-dasharray:2 3}
+/* V-RVZ-5: 헤드리스 = 점선 테두리. 상태색은 그대로 두고 선만 끊는다. */
+.run-view .run-node.headless .run-node-box{stroke-dasharray:5 3}
+/* V-RVZ-6: 컨텍스트 게이지. 노드 하단에 붙는다. */
+.run-view .run-gauge-bg{fill:var(--border)}
+.run-view .run-gauge.lv-ok{fill:var(--text-muted)}
+.run-view .run-gauge.lv-warn{fill:var(--attn)}
+.run-view .run-gauge.lv-critical{fill:var(--danger)}
+
+.run-view .run-edge{fill:none;stroke:var(--border-strong)}
+/* 최근 30초 내 통신. 굵기는 건수가 정하므로 강조는 색으로만 한다. */
+.run-view .run-edge.recent{stroke:var(--accent)}
+/* V-RVZ-7: 승계 화살표는 굵다. 메시지 엣지의 굵기 상한(4)보다 위여야 "굵은
+   화살표" 가 승계만 가리킨다. */
+.run-view .run-edge-succ{stroke:var(--text-bright);stroke-width:5}
+.run-view .run-mk path{fill:var(--border-strong)}
+.run-view .run-mk-recent path{fill:var(--accent)}
+.run-view .run-mk-succ path{fill:var(--text-bright)}
+
+/* FR-RVZ-13: 멤버 카드. 클릭하면 그 멤버의 도구로 간다. */
+.run-view .run-cards{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border)}
+/* 멤버가 없으면 자리도 없다 — 빈 띠는 덜 그려진 화면으로 읽힌다. */
+.run-view .run-cards:empty{display:none}
+.run-view .run-card{
+  display:flex;gap:6px;align-items:baseline;min-height:28px;
+  padding:5px 9px;font-size:11px;cursor:pointer;
+  background:var(--sidebar-bg);border:1px solid var(--border);border-left-width:3px;border-radius:4px;
+}
+.run-view .run-card:hover{background:var(--accent-subtle)}
+.run-view .run-card.state-working{border-left-color:var(--accent)}
+.run-view .run-card.state-waiting{border-left-color:var(--attn)}
+.run-view .run-card.state-done{border-left-color:var(--run-ok)}
+.run-view .run-card.state-failed{border-left-color:var(--danger)}
+.run-view .run-card.state-lost{border-left-color:var(--text-dim)}
+.run-view .run-card.headless{border-style:dashed;border-left-style:solid}
+.run-view .run-card-role{color:var(--text-bright);white-space:nowrap}
+.run-view .run-card-agent,.run-view .run-card-state,
+.run-view .run-card-compact,.run-view .run-card-wt,
+.run-view .run-card-headless{color:var(--text-muted);white-space:nowrap}
+.run-view .run-card-wt{max-width:180px;overflow:hidden;text-overflow:ellipsis}
+.run-view .run-card-ctx{white-space:nowrap;color:var(--text-muted)}
+.run-view .run-card-ctx.lv-warn{color:var(--attn)}
+.run-view .run-card-ctx.lv-critical{color:var(--danger)}
+body.mobile .run-view .run-card{min-height:44px}
+
+/* FR-RVZ-10: 타임라인. */
+.run-view .run-timeline{padding:8px 14px 16px;font-size:11px}
+.run-view .run-tl-row{display:flex;gap:8px;align-items:baseline;padding:2px 0}
+.run-view .run-tl-at{color:var(--text-dim);font-family:monospace;flex-shrink:0}
+.run-view .run-tl-kind{color:var(--text-muted);flex:0 0 84px}
+.run-view .run-tl-kind.k-run_start,.run-view .run-tl-kind.k-close{color:var(--accent)}
+.run-view .run-tl-kind.k-succeed{color:var(--text-bright)}
+.run-view .run-tl-text{flex:1 1 auto;min-width:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+
+
+
+
+
+

@@ -29,6 +29,13 @@ Object.assign(App.prototype, {
               this._onToolAttentionClear(m.args||{});
               return;
             }
+            // FR-RVZ-16: Run 이 바뀌었다. 열려 있는 그 Run 의 탭만 /graph 를
+            // 다시 부른다 — 폴링하지 않으며, 열린 Run 탭이 없으면 아무 요청도
+            // 나가지 않는다.
+            if(m.action==='run_changed'){
+              this._onRunChanged(m.args||{});
+              return;
+            }
             if(m.action==='tool_activity'){
               this._onToolActivity(m.args||{});
               return;

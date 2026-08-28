@@ -180,6 +180,25 @@ type Record struct {
 	CreatedAt   int64     `json:"createdAt"`
 	ClosedAt    int64     `json:"closedAt,omitempty"`
 	AbortReason string    `json:"abortReason,omitempty"`
+
+	// 묶음 V — 메시지 로그 (FR-RVZ-14). 관계 그래프의 유일한 원천이다.
+	// 최근 500건만 보관하며 초과분은 앞에서 버린다.
+	Messages []MsgEvent `json:"messages,omitempty"`
+}
+
+// MsgEvent 는 신뢰 채널 통신 하나의 **사실**이다 (FR-RVZ-14).
+//
+// **본문은 담지 않는다.** 팀 통신은 산출물이 아니라 과정이고, 영속시킬 이유가 없다.
+// 또한 본문에는 코드·비밀이 실릴 수 있다 (NFR-RVZ-3).
+//
+// 발신·수신 중 어느 쪽도 그 Run 의 멤버가 아니면 기록하지 않는다 — 팀 밖 통신은
+// Run 의 관심사가 아니다.
+type MsgEvent struct {
+	From string `json:"from"` // 발신 멤버 uuid (조정자는 "coordinator")
+	To   string `json:"to"`   // 수신 멤버 uuid
+	At   int64  `json:"at"`
+	Kind string `json:"kind,omitempty"` // agent | server-alert
+	Size int    `json:"size"`           // 본문 바이트 수
 }
 
 type fileBody struct {

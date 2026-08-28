@@ -15,7 +15,7 @@ class Renderer {
       this.app._researchIfOpen();
     }
     this.app._applyMobileMode();
-    this._rSidebar();this._rGitSection();this._rTopbar();this._rLayout();
+    this._rSbTabs();this._rSidebar();this._rGitSection();this._rTopbar();this._rLayout();
     this.app._updateCwd();
     this.app._updateStatusBar();
     // Apply window focus overlay after every render so the DOM is
@@ -23,6 +23,7 @@ class Renderer {
     // before the first render completes).
     this.app._applyFocusOverlay();
   }
+
 
   /**
    * FR-RPT-3: 목록을 비우고 다시 만들지 않는다.
@@ -73,13 +74,6 @@ class Renderer {
   // FR-GIT-13: 좌측 GIT 섹션. 데이터는 app._gitRepos 다 — 없으면 본문만 비운다.
   _rGitSection(){
     const el=document.getElementById('git-repos'); if(!el) return;
-    const title=document.querySelector('#sidebar .git-sec-title');
-    const add=document.getElementById('git-add-repo');
-    // git 이 없는 환경에서 빈 섹션이 자리를 차지하지 않게 한다.
-    const off=this.app._gitOff?'none':'';
-    el.style.display=off;
-    if(title)title.style.display=off;
-    if(add)add.style.display=off;
     const d=this.app._gitRepos;
     if(!d){el.innerHTML=''; return}
     /**
@@ -191,7 +185,6 @@ class Renderer {
   _rTopbar(){
     const a=this.app._aw();
     document.getElementById('window-name').textContent=a?a.name:'';
-    // FR-GIT-180·183: Git 창에서는 분할 진입점을 감추고 닫기를 그 자리에 둔다.
     const isGit=this.app._isGitWin(a);
     for(const id of ['split-h','split-v']){
       const b=document.getElementById(id);
@@ -199,8 +192,6 @@ class Renderer {
     }
     const mAdd=document.getElementById('m-add-tab');
     if(mAdd) mAdd.classList.toggle('git-hidden',isGit);
-    const close=document.getElementById('git-close');
-    if(close) close.style.display=isGit?'':'none';
     const ind=document.getElementById('m-pane-indicator');
     if(ind){
       const n=this.app._mobilePaneCount();
@@ -326,6 +317,40 @@ class Renderer {
     return null;
   }
 
+
+  // 활성 탭의 **본문**을 pane body 에 붙인다. 타입별로 실체가 다르다 — git 은
+  // 싱글턴 패널의 view DOM, editor 는 FileEditor 인스턴스, terminal 은 PTY 를 든
+  // Tool 의 DOM 이다.
+  //
+  // 분기를 함수로 뽑아 둔 이유는 ORCHESTRATION_V2_SRS FR-RVZ-6 의 네 번째 타입
+  // ('run' — Run 대시보드)이 여기 들어오기 때문이다. 병렬 중 이 파일을 여럿이
+  // 만지지 않도록 자리를 미리 갈라 둔다 (PARALLEL_DELIVERY_PLAN Step 0-4).
+  _mountTabBody(body,at){
+    if(at.type===TAB_TYPE_GIT){
+      // GitPanel 은 Git 창이 싱글턴이므로 앱에 하나다 — 탭마다 인스턴스를
+      // 만들지 않고 view 별 루트 DOM 만 캐시한다 (FR-GIT-26).
+      const el=this.app.gitPanel.elFor(at.gitView);
+      body.appendChild(el); el.classList.add('vis');
+      return;
+    }
+    if(at.type==='editor'){
+      let editor=this.app.fileEditors.get(at.id);
+      if(!editor){editor=new FileEditor(at.id,at.name,at.filePath);this.app.fileEditors.set(at.id,editor)}
+      body.appendChild(editor.el);editor.el.classList.add('vis');
+      return;
+    }
+    if(at.type==='run'){
+      // FR-RVZ-6: 네 번째 타입. editor 와 같은 비-PTY 탭이며 at.runId 를 요구한다.
+      // 루트 DOM 은 탭마다 하나로 캐시된다 — pane 을 다시 그려도 SVG 가 새로
+      // 만들어지지 않아야 hover 가 살아남는다 (NFR-RVZ-2). 구현은 app-runs.js.
+      const el=this.app._runViewEl(at);
+      body.appendChild(el); el.classList.add('vis');
+      return;
+    }
+    const p=this.app.tools.get(at.toolId);
+    if(p){body.appendChild(p.el);p.el.classList.add('vis')}
+  }
+
   _buildPane(n){
     const el=document.createElement('div');
     // FR-PAN-9: 활성탭 pane 이 주의 상태이고 pane 이 포커스 안 됐을 때만 pane 강조
@@ -348,13 +373,12 @@ class Renderer {
       if(tab.toolId) t.dataset.toolid=tab.toolId;
       if(isGit) t.dataset.gitView=tab.gitView;
       t.innerHTML='<span class="pn-tab-label"></span>'+(isGit?'':'<span class="pn-tab-x">×</span>');
-      t.querySelector('.pn-tab-label').textContent=(tab.dirty?'● ':'')+tab.name;
+      t.querySelector('.pn-tab-label').textContent=this._tabDisplayName(tab);
       t.addEventListener('click',e=>{
         e.stopPropagation();
         if(e.target.classList.contains('pn-tab-x')) this.app.closeTab(n.id,tab.id);
         else this.app.switchTab(n.id,tab.id);
       });
-      if(!isGit) t.querySelector('.pn-tab-label').addEventListener('dblclick',e=>{e.stopPropagation();this.app._rename(tab,e.target)});
       t.draggable=!isGit;
       t.addEventListener('dragstart',e=>{this.app._drag={type:'tab',srcPaneId:n.id,tabId:tab.id};e.dataTransfer.effectAllowed='move';e.stopPropagation();setTimeout(()=>t.classList.add('dragging'),0)});
       t.addEventListener('dragend',()=>{this.app._drag=null;t.classList.remove('dragging');tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none')});
@@ -376,21 +400,7 @@ class Renderer {
     el.appendChild(tabs);
     const body=document.createElement('div'); body.className='pn-body';
     const at=(n.tabs||[]).find(t=>t.id===n.activeTab);
-    if(at){
-      if(at.type===TAB_TYPE_GIT){
-        // GitPanel 은 Git 창이 싱글턴이므로 앱에 하나다 — 탭마다 인스턴스를
-        // 만들지 않고 view 별 루트 DOM 만 캐시한다 (FR-GIT-26).
-        const el=this.app.gitPanel.elFor(at.gitView);
-        body.appendChild(el); el.classList.add('vis');
-      }else if(at.type==='editor'){
-        let editor=this.app.fileEditors.get(at.id);
-        if(!editor){editor=new FileEditor(at.id,at.name,at.filePath);this.app.fileEditors.set(at.id,editor)}
-        body.appendChild(editor.el);editor.el.classList.add('vis');
-      }else{
-        const p=this.app.tools.get(at.toolId);
-        if(p){body.appendChild(p.el);p.el.classList.add('vis')}
-      }
-    }
+    if(at) this._mountTabBody(body,at);
     body.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));this.app._showBodyDropIndicator(body,this.app._getDragZone(body,e))});
     body.addEventListener('dragleave',e=>{if(!body.contains(e.relatedTarget))this.app._clearBodyDropIndicator(body)});
     body.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='tab')return;const zone=this.app._getDragZone(body,e);const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;this.app._clearBodyDropIndicator(body);if(zone==='center'){if(srcPaneId===n.id)return;this.app._moveTabToPane(srcPaneId,tabId,n.id,null,false)}else{this.app._splitPaneWithTab(srcPaneId,tabId,n.id,zone)}});

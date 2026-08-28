@@ -152,6 +152,9 @@ func (s *Server) apiToolMessage(w http.ResponseWriter, r *http.Request) {
 		writeToolIOError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	// FR-RVZ-14: 배달에 성공한 것만 Run 의 사실로 적는다. 실패는 위에서 이미
+	// 돌아갔으므로 여기 도달한 것은 전부 전달된 메시지다. 본문은 넘기지 않는다.
+	s.recordRunMessage(fromToolID, toolID, len(body.Message))
 	log.Printf("[toolio] message from=%s(input=%s) to=%s(input=%s tool=%s) msgLen=%d",
 		fromLabel, body.From, toLabel, body.To, toolID, len(body.Message))
 	writeJSON(w, map[string]any{

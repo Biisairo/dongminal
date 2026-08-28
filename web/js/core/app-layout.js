@@ -19,13 +19,17 @@ Object.assign(App.prototype, {
     this._save();this.render();
   },
 
+  // ── 탭 이름의 출처 (CONVENIENCE_SRS 묶음 N) ──
+
+
+
+
   async _mkWindow(opts={}){
     const p=await this._newTool();
     const r=newEntityId(),t=newEntityId();
     const name=(typeof opts.name==='string'&&opts.name?opts.name:'Window').slice(0,64);
     const s={
       id:newEntityId(),name,
-      layout:{type:'pane',id:r,tabs:[{id:t,name:'Shell',type:'terminal',toolId:p.id}],activeTab:t}
     };
     this.ws.windows.push(s);
     // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-2: keepFocus 면 창은 사이드바에만
@@ -143,6 +147,36 @@ Object.assign(App.prototype, {
     // (FR-GIT-28 개정으로 7개다. 숫자를 여기 적지 않는다 — 선언이 하나뿐이다).
     if (this._isGitWin(s)) return;
     const pn = findPane(s.layout, rid); if (!pn) return;
+    // FR-RVZ-6: 네 번째 탭 타입. editor 와 같은 비-PTY 경로다 — 도구를 만들지
+    // 않고 탭 레코드만 넣는다. editor 가 filePath 를 요구하듯 run 은 opts.runId 를
+    // 요구한다. _findRunTab 은 app-runs.js 에 있다 (그 파일이 이 파일 뒤에
+    // 로드되므로 호출 시점에는 프로토타입에 있다).
+    if (type === 'run') {
+      if (!opts.runId) { console.warn('[addTab] run tab requires runId'); return }
+      // FR-RVZ-7: 같은 Run 의 탭이 이미 있으면 새로 만들지 않고 그리로 옮긴다
+      // (아래 editor 의 중복 방지와 같은 규약).
+      const existing = this._findRunTab(opts.runId);
+      if (existing) {
+        const cur = this._aw(); if (cur) cur.focusedPane = this.focused;
+        this.ws.activeWindow = existing.win.id;
+        try{sessionStorage.setItem('activeWindow', existing.win.id)}catch{}
+        existing.pane.activeTab = existing.tab.id;
+        this._setFocus(existing.pane.id, existing.win);
+        this._focusWindow(existing.win.id);
+        this.render();
+        this._save();
+        return;
+      }
+      // FR-RVZ-8: 이름은 `Run <short>` 다. 여기서 한 번만 정한다 — 사용자가
+      // rename 하면 그것이 이기려면 이 값을 나중에 덮어쓰지 않아야 한다.
+      const short = opts.short || String(opts.runId).slice(0, 8);
+      const t = newEntityId();
+      pn.tabs.push({ id: t, name: (opts.name || 'Run ' + short).slice(0, 64), type: 'run', runId: opts.runId });
+      pn.activeTab = t;
+      this.render();
+      this._save();
+      return { uuid: t };
+    }
     if (type === 'editor') {
       if (!opts.filePath) { console.warn('[addTab] editor tab requires filePath'); return }
       const existing = this._findEditorTab(opts.filePath);
@@ -173,8 +207,6 @@ Object.assign(App.prototype, {
     const cwd = opts.cwd || ref.cwd || null;
     const p = await this._newTool(cwd, cwd ? null : (ref.cwdTool || null));
     const t = newEntityId();
-    const name = (typeof opts.name === 'string' && opts.name ? opts.name : 'Shell').slice(0, 64);
-    pn.tabs.push({ id: t, name, type: 'terminal', toolId: p.id });
     // FR-RST-4: keepFocus 면 대상 pane 의 활성 탭도 바꾸지 않는다 (백그라운드 추가).
     if (!opts.keepFocus) pn.activeTab = t;
     this.render();
@@ -209,7 +241,10 @@ Object.assign(App.prototype, {
       // FR-BG-3: 실행 중이면 살려둘 선택지를 준다. 프로세스가 도는 탭에는
       // 셸 프롬프트가 없어 detach 를 입력할 수 없고, 바로 그 탭이 이 창을
       // 띄우는 탭이다.
-      if(!opts.keepTool && await this._isToolBusy(tab.toolId)){
+      // run·editor 는 도구가 없다 — toolId 없이 busy 를 물으면
+      // /api/tools/undefined/busy 404 가 콘솔에 남는다 (FR-RVZ-6).
+      // editor 는 위 isEditor 게이트로 이 경로를 피하지만 run 은 그 게이트가 없다.
+      if(tab.toolId && !opts.keepTool && await this._isToolBusy(tab.toolId)){
         const r=await this._confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?',
           {bgBtn:toolBackgroundCapable(tab.type)});
         if(!r) return;
@@ -379,8 +414,6 @@ Object.assign(App.prototype, {
     if(arr.length<2) return;
     this.switchWindow(arr[(i+step+arr.length)%arr.length].id);
   },
-  switchWindowPrev(){this._cycleWindow(-1)},
-  switchWindowNext(){this._cycleWindow(1)},
   paneNavigate(dir){
     const s=this._aw();if(!s||!this.focused)return;
     const path=findPath(s.layout,this.focused);if(!path||path.length<2)return;
