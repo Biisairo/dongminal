@@ -8,6 +8,7 @@ class InputBinding {
 
   bind(){
     if(this.app._kb) return; this.app._kb=true;
+    const sbEl=document.getElementById('sidebar');
     document.getElementById('split-h').addEventListener('click',()=>this.app.split('horizontal'));
     document.getElementById('split-v').addEventListener('click',()=>this.app.split('vertical'));
     document.getElementById('agents-toggle').addEventListener('click',()=>this.app._agentsToggle());
@@ -23,11 +24,23 @@ class InputBinding {
     // 문서 전역 DnD 수락(1회 바인딩): 드래그 중 화면 전체를 드롭 수락 영역으로 만들어
     // native snap-back(미수락 release 시 원위치 복귀 애니메이션)을 패널 안/밖 어디서든 제거,
     // drop 에서 마지막 dragover 가 기록한 대상 기준 즉시 커밋. FR-AAP-21 / 창 사이드바 공유.
-    // GIT 핀(FR-GIT-223)도 같은 목록에 든다 — 빠지면 항목 영역을 벗어난 release 가
-    // 조용히 아무 일도 하지 않는다.
-    document.addEventListener('dragover',e=>{const dr=this.app._drag;if(dr&&(dr.type==='window'||dr.type==='agent'||dr.type==='gitpin'))e.preventDefault()});
-    document.addEventListener('drop',e=>{const dr=this.app._drag;if(!dr)return;if(dr.type==='window'){e.preventDefault();this.app._reorderWindows(dr)}else if(dr.type==='agent'){e.preventDefault();this.app._reorderAgents(dr)}else if(dr.type==='gitpin'){e.preventDefault();this.app._gitReorder(dr)}});
-    const sb=document.getElementById('sidebar'),sbh=document.getElementById('sb-handle');
+    //
+    // UX_REVISION_SRS FR-BLP-13: 사이드바 리스트는 **타입으로 서술자를 찾아** 한
+    // 경로로 커밋한다 — 목록이 늘어도 이 배선은 늘지 않는다. 에이전트 패널은
+    // 사이드바 리스트가 아니므로 자기 경로를 유지한다.
+    document.addEventListener('dragover',e=>{const dr=this.app._drag;if(dr&&(dr.type==='agent'||SidebarList.defByDragType(dr.type)))e.preventDefault()});
+    // FR-MOV-1: 탭 드래그가 사이드바 위에서 죽지 않게 한다. 창 항목이 자기
+    // dragover 에서 preventDefault 하지만, 항목 사이 여백에 걸치면 그 이벤트가
+    // 오지 않아 native 가 드롭을 거절한다 — 여기서 사이드바 전체를 수락한다.
+    // 드롭 자체는 창 항목만 처리하므로 여백에서 놓으면 아무 일도 없다.
+    sbEl.addEventListener('dragover',e=>{const dr=this.app._drag;if(dr&&dr.type==='tab')e.preventDefault()});
+    document.addEventListener('drop',e=>{
+      const dr=this.app._drag; if(!dr) return;
+      if(dr.type==='agent'){e.preventDefault();this.app._reorderAgents(dr);return}
+      const def=SidebarList.defByDragType(dr.type);
+      if(def){e.preventDefault();SidebarList.commit(this.app,def,dr)}
+    });
+    const sb=sbEl,sbh=document.getElementById('sb-handle');
     sbh.addEventListener('mousedown',e=>{e.preventDefault();
       const sx=e.clientX,sw=sb.offsetWidth;
       const mv=e=>{const w=sw+(e.clientX-sx);if(w>=100&&w<=400){document.documentElement.style.setProperty('--sb-w',w+'px');this.app.ws.sidebarWidth=w}};
@@ -58,6 +71,7 @@ class InputBinding {
       for(const[action,key]of Object.entries(shortcuts)){
         if(matchShortcut(e,key)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(action);return}
       }
+      this._blockBrowserDefault(e);
     },true);
     const si=document.getElementById('search-input');
     si.addEventListener('input',()=>this.app._doSearch('next'));
@@ -76,5 +90,26 @@ class InputBinding {
     this.app._initMobile();
     this.app._initMobileKeybar();
     this.app._initAttn();
+  }
+
+  /**
+   * FR-KEY-1~5: 앱 단축키가 아닌 수식키 조합의 **브라우저 기본 동작**을 막는다.
+   *
+   * 여기까지 온 키는 어느 단축키에도 매칭되지 않은 것이다. 그대로 두면 Chrome 이
+   * 저장·인쇄·찾기·북마크를 열고, 그러면 그 조합은 단축키로 쓸 수 없다 — 배정해도
+   * 브라우저가 먼저 가져간다고 사용자가 믿게 된다.
+   *
+   * **`preventDefault` 만 한다** (FR-KEY-3). 전파를 멈추면 xterm 이 키를 받지 못해
+   * 터미널이 죽는다 — 막으려는 것은 브라우저이지 앱이 아니다.
+   */
+  _blockBrowserDefault(e){
+    if(!blockBrowserKeys) return;
+    if(KEY_BLOCK_EXEMPT_BARE.has(e.code)) return;
+    // FR-KEY-2: 수식키 없는 키는 대상이 아니다. 터미널에 그냥 글자를 치는 것을
+    // 막을 이유가 없다.
+    if(!e.ctrlKey&&!e.metaKey) return;
+    if(MOD_CODES.has(e.code)) return;
+    if(KEY_BLOCK_EXEMPT_MOD.has(e.code)) return;
+    e.preventDefault();
   }
 }

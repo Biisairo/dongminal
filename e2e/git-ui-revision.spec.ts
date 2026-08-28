@@ -1040,20 +1040,28 @@ test.describe('UI 개정 — 섹션 경계 (FR-GIT-216)', () => {
 });
 
 // FR-GIT-214 의 간격 하한. 값은 여기 한 곳에만 둔다.
-const MIN_GAP_LIST_ADD = 6;
-const MIN_GAP_ADD_SETTINGS = 10;
+//
+// **UX_REVISION_SRS FR-BLP-8 로 배치가 바뀌었다.** `+ Add` 가 목록 **위**로
+// 올라가 WINDOWS 패널과 같은 골격이 되었고(FR-BLP-5), 그러면서 옛 FR-GIT-214 가
+// 막으려던 상황("목록 → + Add → ⚙ 이 한 덩이로 읽힌다")이 사라졌다 — 그 조항
+// 자신이 "WINDOWS 는 버튼이 목록 위라 이 문제가 없다" 고 적어 두었다.
+//
+// 그래서 재는 대상이 바뀐다: 이제 확인할 것은 **버튼 행과 목록이 붙지 않는가**,
+// 그리고 **두 패널의 골격이 같은가** 다.
+const MIN_GAP_ACTIONS_LIST = 4;
 
-// GIT 섹션의 세 덩이 사이 간격. 여백은 margin 이라 요소 사각형 사이의 빈 거리로
-// 잰다 — 계산된 margin 값을 읽으면 서로 상쇄되는 경우를 놓친다.
-const sectionGaps = (page: Page) =>
-  page.evaluate(() => {
-    const r = (id: string) => document.getElementById(id)!.getBoundingClientRect();
-    const list = r('git-repos'), add = r('git-add-repo'), set = r('settings-btn');
-    return { listAdd: add.top - list.bottom, addSettings: set.top - add.bottom };
-  });
+// 한 패널의 "버튼 행 → 목록" 간격. 숨은 패널은 사각형이 전부 0 이므로
+// (FR-SBT-2) **보이는 탭에서만** 잰다 — 두 패널을 한 번에 비교할 수 없다.
+// 버튼 행 전체를 기준으로 잡는 이유는 WINDOWS 가 버튼이 둘이기 때문이다.
+const panelGap = (page: Page, panelId: string, listId: string) =>
+  page.evaluate(([p, l]) => {
+    const bar = document.querySelector('#' + p + ' .sb-actions')!.getBoundingClientRect();
+    const list = document.getElementById(l)!.getBoundingClientRect();
+    return list.top - bar.bottom;
+  }, [panelId, listId]);
 
-test.describe('UI 개정 — GIT 섹션의 간격 (FR-GIT-214)', () => {
-  test('V91 (FR-GIT-214): 목록·+ Add·설정이 서로 붙지 않는다', async ({ page }) => {
+test.describe('UI 개정 — GIT 섹션의 간격 (FR-GIT-214 → FR-BLP-5·8)', () => {
+  test('V91 개정: + Add 가 목록 위에 서고 둘이 붙지 않는다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate(async (p) => {
       await (window as any).app._gitPin(p);
@@ -1062,15 +1070,16 @@ test.describe('UI 개정 — GIT 섹션의 간격 (FR-GIT-214)', () => {
     // 간격은 요소 사각형 사이의 빈 거리다 — 숨은 패널에서는 잴 수 없다 (FR-SBT-2).
     await openGitTab(page);
 
-    const g = await sectionGaps(page);
-    expect(g.listAdd, '목록과 + Add 가 붙어 있다').toBeGreaterThanOrEqual(MIN_GAP_LIST_ADD);
-    expect(g.addSettings, '+ Add 와 설정이 붙어 있다').toBeGreaterThanOrEqual(MIN_GAP_ADD_SETTINGS);
-    // ⚙ 은 GIT 섹션에 속하지 않는다 — 뒤쪽이 더 넓어야 세 덩이가 한 무리로 읽히지
-    // 않는다.
-    expect(g.addSettings, '설정이 GIT 섹션과 같은 무리로 읽힌다').toBeGreaterThan(g.listAdd);
+    const gitGap = await panelGap(page, 'sb-panel-git', 'git-repos');
+    expect(gitGap, '+ Add 와 목록이 붙어 있다').toBeGreaterThanOrEqual(MIN_GAP_ACTIONS_LIST);
+    // FR-BLP-5: 두 패널의 골격이 같다 — 같은 자리의 같은 간격이어야 "구조가
+    // 같다" 가 눈으로도 성립한다. 숨은 패널은 잴 수 없으므로 탭을 옮겨 잰다.
+    await page.locator('.sb-tab[data-panel="windows"]').click();
+    const winGap = await panelGap(page, 'sb-panel-windows', 'windows');
+    expect(Math.abs(gitGap - winGap), 'WINDOWS 패널과 간격이 다르다').toBeLessThanOrEqual(1);
   });
 
-  test('V91 (FR-GIT-214): 모바일 폭에서도 간격이 지켜진다', async ({ page }) => {
+  test('V91 개정: 모바일 폭에서도 같다', async ({ page }) => {
     await waitForInit(page);
     await page.setViewportSize({ width: 420, height: 800 });
     await page.waitForTimeout(600);
@@ -1079,9 +1088,7 @@ test.describe('UI 개정 — GIT 섹션의 간격 (FR-GIT-214)', () => {
     await page.waitForTimeout(300);
     await openGitTab(page);
 
-    const g = await sectionGaps(page);
-    expect(g.listAdd).toBeGreaterThanOrEqual(MIN_GAP_LIST_ADD);
-    expect(g.addSettings).toBeGreaterThanOrEqual(MIN_GAP_ADD_SETTINGS);
+    expect(await panelGap(page, 'sb-panel-git', 'git-repos')).toBeGreaterThanOrEqual(MIN_GAP_ACTIONS_LIST);
   });
 });
 

@@ -191,7 +191,10 @@ Object.assign(App.prototype, {
     if(!confirming&&!pending) row.title='클릭하면 현재 분할 칸의 새 탭으로 복귀';
     // .pn-tab[data-toolid] 과 같은 관행 — 어느 도구의 행인지 DOM 으로 식별한다.
     row.dataset.toolid=b.toolId;
-    const name=document.createElement('span'); name.className='bg-name'; name.textContent=b.name||DEFAULT_TOOL_NAME;
+    // FR-NAM-5: 백그라운드 도구에는 탭이 없다 — 파생 이름이 그 도구를 부르는
+    // 유일한 이름이다. 서버가 준 name 은 fallback 으로만 쓴다.
+    const name=document.createElement('span'); name.className='bg-name';
+    name.textContent=this._toolName(b.toolId,b.name);
     const cwd=document.createElement('span'); cwd.className='bg-cwd'; cwd.textContent=b.cwd||'';
     row.appendChild(name); row.appendChild(cwd);
     // FR-BGK-12: Run 소속. 묶음 H 가 오기 전에는 필드가 없고, 그때는 아무것도 붙지 않는다.
@@ -230,7 +233,7 @@ Object.assign(App.prototype, {
   _bgKillBtn(b){
     const btn=document.createElement('button');
     btn.className='tbtn bg-kill'; btn.textContent='종료';
-    btn.title=`${b.name||DEFAULT_TOOL_NAME} 종료`;
+    btn.title=`${this._toolName(b.toolId,b.name)} 종료`;
     btn.dataset.toolid=b.toolId;
     btn.addEventListener('click',e=>{e.stopPropagation();this._bgConfirmSet(b.toolId)});
     return btn;

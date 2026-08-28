@@ -114,6 +114,11 @@ dmctl new-window --name "team-<목적>" -n
 
 응답에서 두 값을 캡처한다 — `newWindows[0]` = **창 uuid**, `newTabs[0].uuid` = **첫 팀원 탭**.
 
+> **팀 창은 이 셸의 cwd 에서 열린다** (UX_REVISION_SRS FR-CWD-4). 분할로 태어나는
+> 나머지 팀원 탭도 그것을 물려받으므로, 팀 전원이 조정자와 같은 경로에서 뜬다 —
+> 프로젝트 밖에서 기동해 에이전트 정의를 찾지 못하는 일이 없다. 다른 경로에서
+> 띄우려면 `dmctl new-window` 전에 조정자 셸을 그 경로로 옮긴다.
+
 ```json
 {"ok":true,"newWindows":["<WIN>"],"newTabs":[{"uuid":"<T1>","toolId":"..."}],"timedOut":false}
 ```

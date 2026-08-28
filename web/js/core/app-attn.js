@@ -85,6 +85,15 @@ Object.assign(App.prototype, {
   },
 
   // 모든 창 layout 트리를 walk 해 toolId 를 가진 tab 위치 반환 (FR-PAN-16)
+  /**
+   * FR-NAM-1: 도구 이름을 묻는 자리는 전부 여기를 지난다. 탭이 있으면 그
+   * 탭의 규칙(FR-TAN-15)이 적용되고, 없으면 파생 이름이 답한다.
+   */
+  _toolName(toolId,fallback){
+    const loc=this._findToolLocation(toolId);
+    return toolDisplayName(toolId,this._fgNames,loc&&loc.tab,fallback);
+  },
+
   _findToolLocation(toolId){
     if(!toolId) return null;
     const walk=(node,win)=>{
@@ -181,8 +190,9 @@ Object.assign(App.prototype, {
     head.querySelector('.attn-clear-all').addEventListener('click',e=>{e.stopPropagation();this._attnClearAll()});
     center.appendChild(head);
     for(const [toolId,info] of this._attn){
-      const loc=this._findToolLocation(toolId);
-      const name=loc?loc.tab.name:toolId;
+      // FR-NAM-6: 알림도 파생 이름을 쓴다 — 화면의 탭과 다른 이름을 부르면
+      // 사용자가 어느 도구인지 못 찾는다.
+      const name=this._toolName(toolId,toolId);
       const reason=info&&info.reason==='idle'?'작업 멈춤':'알림 신호';
       const item=document.createElement('div');
       item.className='attn-item';
@@ -200,7 +210,7 @@ Object.assign(App.prototype, {
     if(!this.attnDesktop) return;
     if(typeof Notification==='undefined'||Notification.permission!=='granted') return;
     const loc=this._findToolLocation(toolId);
-    const where=loc?[loc.win&&loc.win.name,loc.tab&&loc.tab.name].filter(Boolean).join(' · '):('pane '+toolId);
+    const where=loc?[loc.win&&loc.win.name,tabName(loc.tab,this._fgNames)].filter(Boolean).join(' · '):('pane '+toolId);
     const head=reason==='done'?'✅ 작업 완료':reason==='waiting'?'⌨️ 입력 대기 중':reason==='idle'?'⏸️ 작업이 멈췄습니다':'🔔 주의가 필요합니다';
     // 같은 pane 의 이전 알림을 닫고 새로 띄운다 — tag+renotify 는 (특히 macOS 에서)
     // 조용히 갱신만 되어 재팝업이 안 되므로, close→재생성으로 매번 확실히 다시 띄운다.

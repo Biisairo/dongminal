@@ -35,6 +35,40 @@ const SB_TAB_DEFS=[
     // 자리다 — `_gitCloseWindow` 와 같은 것이므로 두 벌로 만들지 않는다 (FR-SBT-36).
     onActivate:app=>{const w=app._gitBackTarget();if(w)app.switchWindow(w.id)},
     cycle:(app,dir)=>app._cycleWindow(dir),
+    // UX_REVISION_SRS FR-BLP-1~3: 목록의 서술자. 그리는 일은 SidebarList 가 한다.
+    list:{
+      containerId:'windows',
+      // FR-BLP-6: 기존 클래스는 보존한다 — e2e 와 CSS 가 그 위에 서 있다.
+      itemClass:'si',dotClass:'si-dot',nameClass:'si-name',xClass:'si-x',
+      actions:['add-window','add-preset'],
+      // FR-GIT-182: Git 창은 이 목록에 없다 — 진입점은 GIT 탭의 리포 항목뿐이다.
+      items:app=>app._plainWindows(),
+      row:(app,s)=>({
+        key:s.id,
+        name:s.name,
+        active:s.id===app.ws.activeWindow,
+        // FR-PAN-16: 알람이 있는 창을 사이드바에서 구분 표시.
+        attn:app._windowHasAttn(s),
+        removable:true,
+        dataset:{sid:s.id,windowType:s.type||WINDOW_TYPE_TERMINAL},
+        onOpen:app=>app.switchWindow(s.id),
+        onRemove:app=>app.delWindow(s.id),
+        onRename:(app,el)=>app._rename(s,el),
+      }),
+      reorder:{
+        type:'window',
+        // 창 순서는 클라이언트가 workspace.json 에 쓴다 — 서버 확정이 없다.
+        apply:(app,dr)=>{
+          const arr=app.ws.windows;
+          const si=arr.findIndex(x=>x.id===dr.src); if(si<0) return false;
+          const[moved]=arr.splice(si,1);
+          let ti=arr.findIndex(x=>x.id===dr.target);
+          if(ti<0) arr.push(moved); else { if(!dr.before) ti++; arr.splice(ti,0,moved) }
+          app._save();
+          return true;
+        },
+      },
+    },
   },
   {
     id:'git',label:'Git',panelId:'sb-panel-git',
@@ -45,6 +79,74 @@ const SB_TAB_DEFS=[
     // FR-SBT-25: Git 창이 없으면 만들지 않는다 — 창은 여전히 리포를 골라야 생긴다.
     onActivate:app=>{const w=app._gitWindow();if(w)app.switchWindow(w.id)},
     cycle:(app,dir)=>app._gitCycleRepo(dir),
+    list:{
+      containerId:'git-repos',
+      itemClass:'git-repo pinned',dotClass:'git-repo-dot',
+      nameClass:'git-repo-name',xClass:'git-repo-x',badgeClass:'git-badge',
+      // FR-BLP-8: `+ Add` 가 목록 **위**로 온다 — 창 패널과 같은 자리다.
+      actions:['git-add-repo'],
+      // 첫 응답 전에는 "없다" 를 말하지 않는다.
+      ready:app=>!!app._gitRepos,
+      emptyText:GIT_REPOS_NONE,emptyClass:'git-repos-none',
+      // FR-FLW-1: 핀만 그린다. follow 행은 없다.
+      items:app=>((app._gitRepos||{}).pinned||[]),
+      row:(app,e)=>{
+        const path=e.path||'';
+        const active=!!path&&app.gitPanel.repo===path;
+        const b=e.badge;
+        // FR-RMS-17: 사유는 사람이 읽는 문구로 옮긴다.
+        const why=e.reason?(GIT_WRITE_ERR[e.reason]||e.reason):'';
+        return {
+          key:'pin:'+path,
+          name:e.name,
+          active,
+          // FR-GIT-11: 저장소가 아니면 흐리게 보이고 여는 동작이 없다.
+          cls:e.isRepo?'':'norepo',
+          dotCls:e.isRepo?'':'none',
+          title:e.isRepo?path:why+' — '+(e.cwd||path),
+          // 배지는 서버의 마지막 관측값이다. 0 을 보일 이유는 없다 (FR-GIT-14).
+          badge:(b&&b.total>0)?{
+            text:String(b.total),
+            // O4: 활성 리포가 아니면 흐리게 하고 관측 시각을 알린다.
+            cls:active?'':'stale',
+            title:active?'':'최신 아님 (마지막 관측: '+new Date(b.observedAtUnixMs).toLocaleTimeString()+')',
+          }:null,
+          removable:true,
+          dataset:{gitRepo:path||null},
+          onOpen:(e.isRepo&&path)?(app=>app.openGitWindow(path)):null,
+          onRemove:app=>app._gitUnpin(path),
+        };
+      },
+      reorder:{
+        type:'gitpin',
+        /**
+         * FR-BLP-10: **화면이 먼저 바뀐다.** 지금까지 이 목록은 서버 응답을 로컬
+         * 사본에 반영만 하고 다시 그리지 않아, 놓고 나서 최대 3초(폴링 주기)를
+         * 옛 순서로 기다렸다 (A15) — 그것이 접수한 말의 "딜레이" 다.
+         *
+         * 핀 순서의 권위는 여전히 서버다 (FR-GIT-223, O1). 여기서 바꾸는 것은
+         * 화면과 로컬 사본이고, 확정은 아래 commit 이 한다.
+         */
+        apply:(app,dr)=>{
+          const arr=(app._gitRepos||{}).pinned;
+          if(!Array.isArray(arr)) return false;
+          const key=p=>'pin:'+(p&&p.path||'');
+          const si=arr.findIndex(x=>key(x)===dr.src); if(si<0) return false;
+          const[moved]=arr.splice(si,1);
+          let ti=arr.findIndex(x=>key(x)===dr.target);
+          if(ti<0) arr.push(moved); else { if(!dr.before) ti++; arr.splice(ti,0,moved) }
+          // 워크스페이스 사본도 같은 순서로 맞춘다 — 다음 PUT 이 옛 순서를 싣지 않게.
+          if(app.ws.git&&Array.isArray(app.ws.git.pinned)){
+            app.ws.git.pinned=arr.map(x=>x&&x.path).filter(Boolean);
+          }
+          return true;
+        },
+        // 전체 render() 는 터미널 재부착 비용이 크다 — 이 섹션만 다시 그린다.
+        repaint:app=>app.renderer._rGitSection(),
+        // FR-BLP-11·12: 서버 확정. 실패하면 서버가 아는 순서로 되돌린다.
+        commit:(app,dr)=>app._gitReorder(dr),
+      },
+    },
   },
 ];
 

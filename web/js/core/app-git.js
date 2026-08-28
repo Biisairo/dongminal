@@ -310,18 +310,49 @@ Object.assign(App.prototype, {
    * 목록 전체가 아니라 (src, target, before) 를 보낸다 — 그 사이에 다른 창이 핀을
    * 더했을 때 전체를 보내면 그것을 조용히 지운다.
    */
+  /**
+   * FR-GIT-223 · UX_REVISION_SRS FR-BLP-11·12: 핀 순서의 **서버 확정**.
+   *
+   * 화면과 로컬 사본은 블루프린트가 이미 바꿔 놓았다 (낙관적 적용). 여기가 하는
+   * 일은 그것을 서버에 확정하는 것과, 확정하지 못했을 때 **되돌리는 것**이다 —
+   * 화면이 서버가 모르는 순서로 남으면 다음 폴링에 조용히 뒤집힌다.
+   *
+   * 인자는 블루프린트의 드래그 상태이며 키가 `pin:<path>` 다. 서버 종단은 경로를
+   * 받으므로 여기서 벗긴다 — 키 형식은 목록의 것이고 API 의 것이 아니다.
+   */
   async _gitReorder(dr){
-    if(!dr||dr.done||!dr.src||!dr.target||dr.src===dr.target) return;
-    dr.done=true;
+    if(!dr||!dr.src||!dr.target||dr.src===dr.target) return;
+    const path=k=>String(k||'').replace(/^pin:/,'');
     let r=null,d=null;
     try{
       r=await fetch('/api/git/repos/reorder',{method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({src:dr.src,target:dr.target,before:!!dr.before})});
+        body:JSON.stringify({src:path(dr.src),target:path(dr.target),before:!!dr.before})});
     }catch{r=null}
     if(r){try{d=await r.json()}catch{d=null}}
-    if(!r||!r.ok||!d) return;
+    if(!r||!r.ok||!d){
+      // FR-BLP-12: 서버가 아는 순서를 다시 받아 화면을 맞춘다.
+      await this._gitReposRefresh();
+      return;
+    }
     this._gitPinsApply(d.pinned);
+    // 서버가 확정한 순서로 목록을 정렬한다. 보통 방금 그린 것과 같지만, 그 사이
+    // 폴링이 옛 순서를 실어 왔다면 여기서 바로잡힌다.
+    this._gitPinsSort(d.pinned);
+    this.renderer._rGitSection();
+  },
+
+  // 서버가 준 경로 순서로 목록을 맞춘다. 목록에만 있는 항목(방금 도착한 핀)은
+  // 뒤에 남긴다 — 서버가 모르는 것을 버리지 않는다.
+  _gitPinsSort(order){
+    const arr=(this._gitRepos||{}).pinned;
+    if(!Array.isArray(arr)||!Array.isArray(order)) return;
+    const at=new Map(order.map((p,i)=>[p,i]));
+    arr.sort((a,b)=>{
+      const ia=at.has(a&&a.path)?at.get(a.path):Number.MAX_SAFE_INTEGER;
+      const ib=at.has(b&&b.path)?at.get(b.path):Number.MAX_SAFE_INTEGER;
+      return ia-ib;
+    });
   },
 
   // _gitPin 은 경로를 검증해 핀한다. 저장소가 아니면 사유를 보인다 (FR-GIT-12) —

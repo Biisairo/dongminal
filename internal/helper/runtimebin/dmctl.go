@@ -155,7 +155,17 @@ func runDmctlWithFlags(cmd string, parsed dmctlParsed, stdout, stderr io.Writer)
 		fmt.Fprint(stderr, dmctlHelp)
 		return 2
 	}
-	return dmctlPost(action, parsed.buildArgs(), stdout, stderr)
+	args := parsed.buildArgs()
+	// UX_REVISION_SRS FR-CWD-4: 새 창의 첫 도구는 **부른 셸의 cwd** 에서 떠야 한다.
+	// 브라우저의 포커스 분할 칸을 기준으로 삼으면 조정자가 보고 있지 않은 창의
+	// 경로를 물려받고, 팀 창 전원이 거기서 시작한다 (분할이 그것을 승계하므로).
+	// `focus` 의 sourcePane 과 같은 선례다 — 호출자 신원은 환경변수에 있다.
+	if action == "newWindow" {
+		if id := os.Getenv("DONGMINAL_TOOL_ID"); id != "" {
+			args["cwdTool"] = id
+		}
+	}
+	return dmctlPost(action, args, stdout, stderr)
 }
 
 func runDmctlSplit(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) int {

@@ -24,14 +24,23 @@
          (sidebar-tabs.js). 여기 비워 두는 것이 "새 탭 = 서술자 1개" 를 지키는
          자리다 — 탭이 늘어도 이 파일을 다시 열지 않는다. -->
     <div id="sb-tabs"></div>
+    <!-- UX_REVISION_SRS FR-BLP-5: 두 패널의 골격은 같다 — 액션 버튼 행이 먼저,
+         그 다음이 목록이다. 자리 보정은 SidebarList.layoutActions 가 한 번 더
+         한다 (옛 워크스페이스의 DOM 이 아니라 **이 문서**가 진실이지만, 배선을
+         한 자리에 두기 위해서다). -->
     <div class="sb-panel" id="sb-panel-windows">
-      <button id="add-window">+ New</button>
-      <button id="add-preset" title="기본 프리셋으로 새 창">★ Preset</button>
+      <div class="sb-actions">
+        <button id="add-window">+ New</button>
+        <button id="add-preset" title="기본 프리셋으로 새 창">★ Preset</button>
+      </div>
       <div id="windows"></div>
     </div>
     <div class="sb-panel" id="sb-panel-git" hidden>
+      <!-- FR-BLP-8: `+ Add` 는 목록 **위**다 — `+ New` 와 같은 자리. -->
+      <div class="sb-actions">
+        <button id="git-add-repo" title="리포 추가">+ Add</button>
+      </div>
       <div id="git-repos"></div>
-      <button id="git-add-repo" title="리포 추가">+ Add</button>
     </div>
     <!-- FR-SBT-4: 탭 밖 최하단. 어느 탭에서나 보인다. -->
     <button id="settings-btn" title="Settings">⚙</button>
@@ -108,6 +117,13 @@
         </div>
       </div>
       <div class="mpanel" id="panel-shortcuts" style="display:none">
+        <div class="display-settings">
+          <div class="ds-row">
+            <span>브라우저 기본 단축키 차단</span>
+            <input type="checkbox" id="sc-blockbrowser">
+          </div>
+          <div class="ds-hint">Ctrl/Cmd 조합의 브라우저 기본 동작(저장·인쇄·찾기·북마크…)을 막아 단축키로 쓸 수 있게 합니다. 복사·붙여넣기·전체선택과 F5·F11·F12 는 그대로 둡니다. Ctrl+T·Ctrl+N·Ctrl+W 처럼 브라우저가 페이지에 넘기지 않는 조합은 어떤 설정으로도 막을 수 없습니다.</div>
+        </div>
         <div class="sc-list" id="sc-list"></div>
       </div>
       <div class="mpanel" id="panel-statusbar" style="display:none">
@@ -176,6 +192,9 @@
 <!-- 사이드바 탭 (GIT_SIDEBAR_TABS_SRS). renderer.js 앞이어야 한다 — 렌더러가
      활성 탭 상태를 읽는다. -->
 <script src="js/ui/sidebar-tabs.js?v=159"></script>
+<!-- 사이드바 리스트 블루프린트 (UX_REVISION_SRS 묶음 B). 서술자(sidebar-tabs.js)
+     뒤, 렌더러 앞이어야 한다 — 렌더러가 이것으로 두 목록을 그린다. -->
+<script src="js/ui/sidebar-list.js?v=159"></script>
 <script src="js/ui/themes.js?v=159"></script>
 <script src="js/ui/term-pane.js?v=159"></script>
 <script src="js/ui/file-editor.js?v=159"></script>

@@ -272,7 +272,9 @@ Object.assign(App.prototype, {
     // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-5: newWindow/newTab 은 name/keepFocus
     // 를 전달하기 위해 명시 분기. 의미는 _mkWindow/addTab 내부에서 보장.
     if(action==='newWindow'){
-      this._mkWindow({name:args.name,keepFocus:!!args.keepFocus}).then((c)=>{
+      // FR-CWD-4: 호출한 셸의 도구가 오면 그것이 cwd 의 기준이다 — 브라우저
+      // 포커스가 어디에 있든 조정자 자신의 경로에서 창이 열린다.
+      this._mkWindow({name:args.name,keepFocus:!!args.keepFocus,cwdTool:args.cwdTool}).then((c)=>{
         this.render();
         if(args.reqId&&c) this._echoResult(args.reqId,{newWindows:[c.win],newPanes:[c.pane],newTabs:[c.tab]});
       });

@@ -526,3 +526,49 @@ func TestRunDmctlListWorkspace_ServerError(t *testing.T) {
 		t.Errorf("stderr empty")
 	}
 }
+
+// TC-CWD-1 (UX_REVISION_SRS FR-CWD-4): new-window 는 호출한 셸의 도구를 실어
+// 보낸다 — 새 창의 첫 도구가 조정자와 같은 cwd 에서 떠야 하기 때문이다.
+func TestRunDmctlNewWindowCarriesCwdTool(t *testing.T) {
+	var got map[string]any
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &got)
+		w.Write([]byte(`{"ok":true}`))
+	})
+	defer cleanup()
+	t.Setenv("DONGMINAL_TOOL_ID", "tool-caller")
+
+	var stdout, stderr bytes.Buffer
+	if rc := runDmctl([]string{"new-window", "--name", "team", "-n"}, &stdout, &stderr); rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+	args := got["args"].(map[string]any)
+	if args["cwdTool"] != "tool-caller" {
+		t.Errorf("호출자 도구가 실리지 않았다: %v", args)
+	}
+	if args["name"] != "team" || args["keepFocus"] != true {
+		t.Errorf("기존 인자가 흔들렸다: %v", args)
+	}
+}
+
+// 도구 밖(사용자 셸)에서 부르면 실을 것이 없다 — 없는 것을 지어내지 않는다.
+func TestRunDmctlNewWindowWithoutToolID(t *testing.T) {
+	var got map[string]any
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &got)
+		w.Write([]byte(`{"ok":true}`))
+	})
+	defer cleanup()
+	t.Setenv("DONGMINAL_TOOL_ID", "")
+
+	var stdout, stderr bytes.Buffer
+	if rc := runDmctl([]string{"new-window"}, &stdout, &stderr); rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+	args := got["args"].(map[string]any)
+	if _, ok := args["cwdTool"]; ok {
+		t.Errorf("빈 도구 id 를 실었다: %v", args)
+	}
+}

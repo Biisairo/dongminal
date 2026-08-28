@@ -33,6 +33,10 @@ const RUN_NODE_H = 52;
 const RUN_COORD_Y = 24;
 const RUN_ROW_Y = 168;
 const RUN_MIN_W = 720;
+// FR-FIT-2·3·4: 그래프를 분할 칸 폭에 맞춘다. 축소만 하고(상한 1) 하한 아래로는
+// 축소 대신 가로 스크롤로 돌아간다 — 읽을 수 없게 만드는 fit 은 fit 이 아니다.
+// 0.5 는 노드 부제(10px)가 5px 가 되는 지점이며 그 아래는 글자가 아니다.
+const RUN_FIT_MIN = 0.5;
 
 function runSvg(tag, attrs) {
   const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -56,7 +60,9 @@ Object.assign(App.prototype, {
   _runsModalToggle(open) {
     this._runsModalOpen = (open === undefined) ? !this._runsModalOpen : !!open;
     if (this._runsModalOpen) { this._runsRefresh(); this._runsModalRender(); return }
-    this._runsErr = null;
+    // FR-DEL-4: 모달이 닫히면 확인도 취소된다 (FR-BGK-5 와 같은 규약). 진행 중인
+    // 삭제는 남는다 — 요청은 이미 떠났고, 응답이 목록을 정리한다.
+    this._runsErr = null; this._runsConfirm = null; this._runsDelErr = null;
     const el = document.getElementById('runs-modal'); if (el) el.remove();
     if (this._runsModalKey) { document.removeEventListener('keydown', this._runsModalKey); this._runsModalKey = null }
   },
@@ -132,12 +138,80 @@ Object.assign(App.prototype, {
     const ago = this._runAgo(rv.createdAt);
     row.appendChild(runDiv('runs-ago', ago ? ago + ' 전' : ''));
 
+    // FR-DEL-6: 실패는 그 행에 남는다. 삭제 목표보다 앞에 두어 오른쪽 끝이
+    // 흔들리지 않는다 (FR-BGK-10 과 같은 자리).
+    if (this._runsDelErr && this._runsDelErr.runId === rv.id) {
+      row.appendChild(runDiv('runs-err-inline', this._runsDelErr.msg));
+    }
+    const pending = this._runsPending === rv.id;
+    const confirming = this._runsConfirm === rv.id;
+    if (pending) row.appendChild(runDiv('runs-deleting', '삭제 중…'));
+    else if (confirming) row.appendChild(this._runsConfirmEl(rv));
+    else row.appendChild(this._runsDelBtn(rv));
+
     // FR-RVZ-5: 모달이 닫히고, 현재 포커스 분할 칸에 새 탭이 생긴다.
     row.addEventListener('click', () => {
+      if (this._runsPending) return;
+      // FR-DEL-3·4: 확인이 열려 있으면 행을 건드리는 것은 **취소일 뿐**이다.
+      if (this._runsConfirm) { this._runsConfirmSet(null); return }
       this._runsModalToggle(false);
       this.addTab(this.focused, 'run', { runId: rv.id, short: rv.short });
     });
     return row;
+  },
+
+  // FR-DEL-1·2: 항상 보인다 (터치에 hover 가 없다). 행 클릭으로 새지 않는다.
+  _runsDelBtn(rv) {
+    const btn = document.createElement('button');
+    btn.className = 'tbtn runs-del'; btn.textContent = '삭제';
+    btn.title = `Run ${rv.short || ''} 을 목록과 기록에서 지운다`;
+    btn.dataset.runid = rv.id;
+    btn.addEventListener('click', e => { e.stopPropagation(); this._runsConfirmSet(rv.id) });
+    return btn;
+  },
+
+  // FR-DEL-4: 확인은 행 안에서 한다 — 모달 위의 모달은 Escape 처리와 포커스
+  // 관리를 복잡하게 만든다 (FR-BGK-4 와 같은 판단).
+  _runsConfirmEl(rv) {
+    const wrap = runDiv('runs-confirm');
+    // 삭제는 되돌릴 수 없다 (FR-DEL-7). 무엇이 함께 사라지는지 적는다.
+    const open = rv.state === 'open';
+    wrap.appendChild(runDiv('runs-q', open
+      ? '삭제? 진행 중인 Run 이며 기록도 함께 사라진다.'
+      : '삭제? 기록이 사라진다.'));
+    const yes = document.createElement('button');
+    yes.className = 'tbtn runs-yes'; yes.textContent = '예';
+    yes.addEventListener('click', e => { e.stopPropagation(); this._runsDelete(rv.id) });
+    const no = document.createElement('button');
+    no.className = 'tbtn runs-no'; no.textContent = '아니오';
+    no.addEventListener('click', e => { e.stopPropagation(); this._runsConfirmSet(null) });
+    wrap.appendChild(yes); wrap.appendChild(no);
+    return wrap;
+  },
+
+  // FR-DEL-3: 확인은 한 번에 하나다. 다른 행의 삭제를 누르면 앞의 확인은 취소된다.
+  _runsConfirmSet(runId) {
+    this._runsConfirm = runId || null;
+    this._runsDelErr = null;
+    this._runsModalRender();
+  },
+
+  // FR-DEL-5: DELETE /api/runs/{id}. 성공하면 목록만 다시 받는다 — 모달은 열린
+  // 채로 남고, 빈 목록 안내는 그 갱신이 따라온다.
+  async _runsDelete(runId) {
+    this._runsConfirm = null; this._runsDelErr = null; this._runsPending = runId;
+    this._runsModalRender();
+    let ok = false, msg = '';
+    try {
+      const r = await fetch('/api/runs/' + encodeURIComponent(runId), { method: 'DELETE' });
+      ok = r.ok;
+      if (!ok) msg = (await r.text()).trim() || `삭제 실패 (${r.status})`;
+    } catch { msg = '삭제 실패 — 서버에 닿지 못했다' }
+    this._runsPending = null;
+    if (!ok) this._runsDelErr = { runId, msg };
+    else await this._runsRefresh();
+    // 응답을 기다리는 사이에 모달이 닫혔을 수 있다 — 그때 그리면 되살아난다.
+    if (this._runsModalOpen) this._runsModalRender();
   },
 
   // ── 탭 (FR-RVZ-6~9) ──
@@ -195,6 +269,11 @@ Object.assign(App.prototype, {
     // FR-RVZ-16: 첫 마운트에서만 부른다. 다시 그리기는 요청을 만들지 않는다.
     if (!v.data && !v.err && !v.busy) this._runFetch(v);
     this._runPaint(v);
+    this._runObserveFit(v);
+    // 마운트 직후에는 wrap 이 아직 배치되지 않아 폭이 0 일 수 있다. 다음 프레임에
+    // 한 번 더 맞춘다 — ResizeObserver 가 첫 배치를 알려 주지만, 그 사이 한 프레임
+    // 동안 기본 크기로 보이는 것을 없앤다.
+    requestAnimationFrame(() => this._runFitGraph(v.root));
     return v.root;
   },
 
@@ -245,11 +324,19 @@ Object.assign(App.prototype, {
     if (!m.size) return;
     const live = this._runLiveTabIds();
     for (const [tabId, v] of Array.from(m)) {
-      if (!live.has(tabId)) { m.delete(tabId); continue }
+      if (!live.has(tabId)) { this._runDisposeView(v); m.delete(tabId); continue }
       if (v.runId !== runId) continue;
       v.err = null;
       this._runFetch(v);
     }
+  },
+
+  // 탭이 사라진 뷰의 뒷정리. 관측자와 예약된 다시 그리기를 함께 끊는다 —
+  // 둘 다 탭보다 오래 살면 안 된다.
+  _runDisposeView(v) {
+    if (!v) return;
+    if (v.ro) { try { v.ro.disconnect() } catch {} v.ro = null }
+    if (v.decay) { clearTimeout(v.decay); v.decay = null }
   },
 
   // ── 대시보드 (FR-RVZ-10~13) ──
@@ -331,9 +418,12 @@ Object.assign(App.prototype, {
 
   _runPaintGraph(root, d, members, pos) {
     const svg = root.querySelector('.run-graph');
+    // FR-FIT-5: viewBox 는 배치 좌표 그대로다 — 같은 Run 은 어디서 봐도 같은
+    // 모양이며, 맞춤은 **표시 크기**만 건드린다.
     svg.setAttribute('viewBox', `0 0 ${pos.w} ${pos.h}`);
-    svg.setAttribute('width', pos.w);
-    svg.setAttribute('height', pos.h);
+    svg.dataset.w = pos.w;
+    svg.dataset.h = pos.h;
+    this._runFitGraph(root);
     this._runDefs(svg);
 
     const at = new Map(); // 노드 id → 중심 x
@@ -342,6 +432,42 @@ Object.assign(App.prototype, {
 
     this._runPaintEdges(root, d, members, at);
     this._runPaintNodes(root, d, members, at);
+  },
+
+  /**
+   * FR-FIT-1~4: 그래프를 감싼 칸의 폭에 맞춘다.
+   *
+   * 확대하지 않는다 (배율 상한 1) — 멤버 둘짜리 Run 의 노드가 화면을 채우도록
+   * 부풀면 대시보드가 아니라 포스터가 된다. 하한(RUN_FIT_MIN) 아래로는 더
+   * 줄이지 않고 가로 스크롤에 맡긴다.
+   *
+   * 폭을 재는 대상은 wrap 이며, 그 값이 0 이면(아직 붙지 않은 DOM) 아무것도
+   * 하지 않는다 — 0 으로 나눈 배율은 그래프를 사라지게 한다.
+   */
+  _runFitGraph(root) {
+    const wrap = root.querySelector('.run-graph-wrap');
+    const svg = root.querySelector('.run-graph');
+    if (!wrap || !svg) return;
+    const w = Number(svg.dataset.w || 0), h = Number(svg.dataset.h || 0);
+    if (!w || !h) return;
+    // 좌우 여백은 wrap 의 padding 이다. clientWidth 는 그것을 포함하므로 뺀다.
+    const cs = getComputedStyle(wrap);
+    const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    const avail = wrap.clientWidth - pad;
+    if (avail <= 0) return;
+    const scale = Math.min(1, Math.max(RUN_FIT_MIN, avail / w));
+    svg.setAttribute('width', Math.round(w * scale));
+    svg.setAttribute('height', Math.round(h * scale));
+  },
+
+  // FR-FIT-6: 분할 칸이 바뀌면 다시 맞춘다. 폴링하지 않는다 — 크기 변화는
+  // 관측 가능한 사건이며, 대시보드가 그것을 물어볼 이유가 없다.
+  _runObserveFit(v) {
+    if (v.ro || typeof ResizeObserver === 'undefined') return;
+    const wrap = v.root.querySelector('.run-graph-wrap');
+    if (!wrap) return;
+    v.ro = new ResizeObserver(() => this._runFitGraph(v.root));
+    v.ro.observe(wrap);
   },
 
   // 화살촉. 색은 CSS 가 채운다 — 마커 안에서는 테마 변수를 클래스로만 만난다.

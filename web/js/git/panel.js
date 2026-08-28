@@ -699,8 +699,12 @@ class GitPanel {
     const cur=this.previewFile;
     if(cur&&cur.group===group&&cur.path===e.path) d.classList.add('cur');
     // FR-GIT-190: 일부만 스테이지된 상태는 상태 문자 색으로 알린다.
-    const st=document.createElement('span'); st.className='git-file-st';
-    st.textContent=this._stateChar(group,e);
+    // FR-STC-1·2: 그 위에 상태별 색이 얹힌다. 문자를 클래스로도 실어 CSS 가
+    // 색을 정한다 — 색표를 스타일 한 곳에 두기 위해서다 (FR-STC-3).
+    const ch=this._stateChar(group,e);
+    const st=document.createElement('span');
+    st.className='git-file-st st-'+(GIT_ST_CLASS[ch]||'other');
+    st.textContent=ch;
     const p=document.createElement('span'); p.className='git-file-path';
     this._fillPath(p,e);
     d.title=(e.origPath?e.origPath+' → '+e.path:e.path)+(e.score?' ('+e.score+'%)':'')+

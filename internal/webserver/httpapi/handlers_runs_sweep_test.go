@@ -69,12 +69,11 @@ func TestApiRunClose_SweepsAbortedRun(t *testing.T) {
 	if out["swept"] != true {
 		t.Fatalf("정리 전용 진입임을 알리지 않았다: %+v", out)
 	}
-	rec, _ := s.Runs.Get(runID)
-	if rec.State != run.Aborted || rec.AbortReason != run.AbortDaemonRestart {
-		t.Fatalf("레코드가 바뀌었다: state=%s reason=%s", rec.State, rec.AbortReason)
-	}
-	if n := len(rec.WorktreeTargets()); n != 0 {
-		t.Fatalf("정리된 트리가 아직 대상으로 남아 있다: %d건", n)
+	// UX_REVISION_SRS FR-DEL-12: 정리가 끝나고 잔여가 없으면 레코드는 사라진다.
+	// 종료 경위는 **응답**이 말한다 (위의 state·swept) — 그것이 이제 그 사실을
+	// 아는 마지막 자리다.
+	if _, ok := s.Runs.Get(runID); ok {
+		t.Fatal("잔여 없는 정리 뒤에도 레코드가 남아 있다 (FR-DEL-12)")
 	}
 }
 
@@ -94,21 +93,37 @@ func TestApiRunClose_AbortedRunRefusedWithoutForce(t *testing.T) {
 	}
 }
 
-// TC-WKT-5c: 정리는 멱등이다. 이미 제거된 트리는 다시 대상이 되지 않는다 —
-// 두 번째 호출이 "지우지 못했다"를 새로 만들어 내면 안 된다.
-func TestApiRunClose_SweepIsIdempotent(t *testing.T) {
+// TC-WKT-5c 개정 (UX_REVISION_SRS FR-DEL-12): 잔여 없는 정리는 레코드를 지우므로
+// **재진입할 대상이 없다.** 두 번째 호출은 unknown_run 이며, 이것이 멱등의 새
+// 표현이다 — 같은 트리를 두 번 지우려 들지 않는다는 보장은 그대로다.
+func TestApiRunClose_SweepLeavesNothingToReenter(t *testing.T) {
 	s, runID, _, _ := fencedRun(t)
+
+	postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`","force":true}`)
+	code, out := postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`","force":true}`)
+	if code != http.StatusNotFound {
+		t.Fatalf("재호출 want 404, got %d (%+v)", code, out)
+	}
+	if out["error"] != "unknown_run" {
+		t.Fatalf("사유가 다르다: %+v", out)
+	}
+}
+
+// 잔여가 남은 정리는 레코드를 보존하므로 **재진입이 살아 있다** (FR-DEL-9a).
+// 두 번째 호출이 "지우지 못했다"를 새로 만들어 내지 않는 것도 그대로다.
+func TestApiRunClose_SweepIsIdempotentWhileResidueRemains(t *testing.T) {
+	s, runID, path, _ := fencedRun(t)
+	if err := os.WriteFile(path+"/작업물.txt", []byte("아직 안 끝났다\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
 
 	postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`","force":true}`)
 	code, out := postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`","force":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("재호출 want 200, got %d (%+v)", code, out)
 	}
-	if n, _ := out["residue"].(float64); n != 0 {
-		t.Fatalf("두 번째 정리가 잔여물을 만들어 냈다: %+v", out["worktrees"])
-	}
-	if wts, _ := out["worktrees"].([]any); len(wts) != 0 {
-		t.Fatalf("이미 제거된 트리를 다시 대상으로 삼았다: %+v", wts)
+	if n, _ := out["residue"].(float64); n != 1 {
+		t.Fatalf("잔여물 보고가 흔들렸다: %+v", out["worktrees"])
 	}
 }
 

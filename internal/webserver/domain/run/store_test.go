@@ -439,3 +439,81 @@ func TestStore_SweepRefusesOpenRun(t *testing.T) {
 		t.Fatalf("정리가 상태를 바꿨다: %+v", got)
 	}
 }
+
+// ── 묶음 D — Run 수명 (UX_REVISION_SRS §3.1) ──
+
+// TC-DEL-1 (FR-DEL-7): 삭제한 Run 은 목록에도 파일에도 남지 않는다.
+func TestStore_DeleteRemovesRecord(t *testing.T) {
+	s := newTestStore(t, "epoch-1")
+	a, err := s.Start(StartOptions{Objective: "a", Projection: DedicatedWindow, Isolation: IsolationNone})
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	b, err := s.Start(StartOptions{Objective: "b", Projection: DedicatedWindow, Isolation: IsolationNone})
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	rec, err := s.Delete(a.ID)
+	if err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	if rec.ID != a.ID {
+		t.Fatalf("삭제한 레코드를 돌려줘야 한다: %+v", rec)
+	}
+	if _, ok := s.Get(a.ID); ok {
+		t.Fatal("삭제한 Run 이 조회된다")
+	}
+	if list := s.List(); len(list) != 1 || list[0].ID != b.ID {
+		t.Fatalf("남은 것은 b 하나여야 한다: %+v", list)
+	}
+
+	// 파일에서도 사라져야 한다 — 다음 부팅이 되살리면 삭제가 아니다.
+	reloaded := NewStore(s.dir, "epoch-1")
+	if err := reloaded.Load(); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if _, ok := reloaded.Get(a.ID); ok {
+		t.Fatal("삭제한 Run 이 재로드에서 되살아난다")
+	}
+}
+
+// TC-DEL-2 (FR-DEL-7): 없는 Run 의 삭제는 ErrUnknownRun 이다 — 조용한 성공이 아니다.
+func TestStore_DeleteUnknown(t *testing.T) {
+	s := newTestStore(t, "epoch-1")
+	if _, err := s.Delete("nope"); !errors.Is(err, ErrUnknownRun) {
+		t.Fatalf("ErrUnknownRun 이어야 한다: %v", err)
+	}
+}
+
+// TC-DEL-3 (FR-DEL-13/15): 수거 대상은 **열린** Run 중 조정자 도구가 죽은 것이며,
+// 조정자를 모르는 Run 은 대상이 아니다.
+func TestStore_ReapTargets(t *testing.T) {
+	s := newTestStore(t, "epoch-1")
+	live, _ := s.Start(StartOptions{Objective: "live", Projection: DedicatedWindow, Isolation: IsolationNone, CoordinatorToolID: "t-live"})
+	dead, _ := s.Start(StartOptions{Objective: "dead", Projection: DedicatedWindow, Isolation: IsolationNone, CoordinatorToolID: "t-dead"})
+	anon, _ := s.Start(StartOptions{Objective: "anon", Projection: DedicatedWindow, Isolation: IsolationNone})
+	ended, _ := s.Start(StartOptions{Objective: "ended", Projection: DedicatedWindow, Isolation: IsolationNone, CoordinatorToolID: "t-ended"})
+	if _, _, err := s.Close(ended.ID, true); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	alive := func(id string) bool { return id == "t-live" }
+	got := s.ReapTargets(alive)
+
+	ids := map[string]bool{}
+	for _, r := range got {
+		ids[r.ID] = true
+	}
+	if !ids[dead.ID] {
+		t.Fatal("조정자가 죽은 열린 Run 은 수거 대상이다")
+	}
+	if !ids[ended.ID] {
+		t.Fatal("이미 끝난 Run 은 수거 대상이다 (FR-DEL-12)")
+	}
+	if ids[live.ID] {
+		t.Fatal("조정자가 살아 있는 Run 을 수거하면 안 된다")
+	}
+	if ids[anon.ID] {
+		t.Fatal("조정자를 모르는 Run 은 수거 대상이 아니다 (FR-DEL-15)")
+	}
+}

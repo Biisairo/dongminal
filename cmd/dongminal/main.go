@@ -422,6 +422,9 @@ func serve(home, host, port string) int {
 	// direct 에서는 ForegroundNames() 를 직접 부르고, 데몬에서는 list RPC 가
 	// 되어 dongminald 안에서 같은 일을 시킨다.
 	hub.StartForegroundPoll(bd.deps.Tools, ctx.Done())
+	// UX_REVISION_SRS FR-DEL-14/18: 끝난 Run 과 조정자를 잃은 Run 을 거둔다.
+	// 부팅 직후 한 번 돌므로 epoch 펜싱이 aborted 로 표시한 Run 도 여기서 사라진다.
+	srv.StartRunReaper(ctx.Done())
 	exposure := "local-only"
 	if host == "0.0.0.0" || host == "::" {
 		exposure = "exposed to LAN"

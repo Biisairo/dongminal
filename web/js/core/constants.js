@@ -51,6 +51,16 @@ const RESTORE_PANE_WAIT_MS=25;
 const RESTORE_PANE_WAIT_TRIES=20;
 
 const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight','ShiftLeft','ShiftRight']);
+/**
+ * UX_REVISION_SRS FR-KEY-4: 브라우저 기본 동작을 **막지 않는** 키.
+ *
+ * 둘로 나뉜다. ① 앱이 고장났을 때의 탈출구 — 새로고침·전체화면·개발자도구.
+ * ② 클립보드와 선택 — 터미널에서 고른 글자를 복사하지 못하게 되면 그것이
+ * 차단이 아니라 고장이다. 사용자가 이 키들을 단축키로 배정하면 그때는 매칭
+ * 경로가 먼저 잡아 preventDefault 하므로 자유도는 그대로다 (FR-KEY-1).
+ */
+const KEY_BLOCK_EXEMPT_BARE=new Set(['F5','F11','F12']);
+const KEY_BLOCK_EXEMPT_MOD=new Set(['KeyC','KeyV','KeyX','KeyA','KeyI','KeyJ','KeyR']);
 
 
 // Built-in hotkeys are not user-rebindable and may match modifier variants
@@ -182,6 +192,9 @@ const GIT_ROW_ACTS={
   staged:['openFile','unstage'], changes:['openFile','stage','discard'],
   untracked:['openFile','stage','discard'], conflicts:['openFile','ours','theirs','stage'],
 };
+// UX_REVISION_SRS FR-STC-2: 상태문자 → CSS 클래스. 색은 style.css 한 자리에서
+// 정한다 (FR-STC-3). 여기 없는 문자는 `other` 로 떨어져 기존 색을 유지한다.
+const GIT_ST_CLASS={M:'mod',A:'add',D:'del',R:'ren',C:'cpy','?':'new',U:'conf'};
 const GIT_ACT_LABEL={openFile:'↗',stage:'+',unstage:'−',discard:'↺',ours:'Ours',theirs:'Theirs'};
 // ours·theirs 의 툴팁은 **진행 중인 조작에 따라 달라지므로** 여기 두지 않는다 —
 // 행이 GIT_SIDE_TITLE 에서 그때 고른다 (FR-GIT-224).

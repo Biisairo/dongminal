@@ -566,6 +566,55 @@ func (s *Store) Sweep(runID string) (Record, error) {
 	return s.runs[idx], nil
 }
 
+// Delete 는 레코드를 지운다 (UX_REVISION_SRS FR-DEL-7).
+//
+// **여기서는 worktree 를 보지 않는다.** 정리의 근거(WorktreeTargets)는 레코드에
+// 있으므로 호출자가 먼저 거두고 나서 지워야 한다 (FR-DEL-8) — 순서가 뒤집히면
+// 트리를 지울 근거가 사라져 영원히 남는다. 저장소는 파일시스템을 모르므로 그
+// 순서를 강제할 수 없고, 대신 여기 적어 둔다.
+func (s *Store) Delete(runID string) (Record, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	idx := s.indexOf(runID)
+	if idx < 0 {
+		return Record{}, ErrUnknownRun
+	}
+	rec := s.runs[idx]
+	s.runs = append(s.runs[:idx], s.runs[idx+1:]...)
+	if err := s.save(); err != nil {
+		return Record{}, err
+	}
+	return rec, nil
+}
+
+// ReapTargets 는 자동 제거 대상을 고른다 (FR-DEL-12/13/15).
+//
+// 둘이다: ① 이미 끝난 Run(closed·aborted) ② 조정자 도구가 살아 있지 않은 열린 Run.
+// 조정자를 모르는 Run(CoordinatorToolID 가 빈 값)은 **대상이 아니다** — 판정할
+// 근거가 없는 것을 죽음으로 읽으면, 근거가 없다는 이유로 남의 Run 을 지운다.
+//
+// alive 는 호출자가 준다. 저장소는 도구의 생존을 모른다.
+func (s *Store) ReapTargets(alive func(toolID string) bool) []Record {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var out []Record
+	for _, r := range s.runs {
+		if r.State != Open {
+			out = append(out, r)
+			continue
+		}
+		if r.CoordinatorToolID == "" {
+			continue
+		}
+		if alive == nil || !alive(r.CoordinatorToolID) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
 // WorktreeMark 는 정리 한 건의 결과다. Path 로 대상을 지목한다.
 type WorktreeMark struct {
 	Path    string

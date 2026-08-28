@@ -7,18 +7,6 @@
 Object.assign(App.prototype, {
   // 창 사이드바 드래그 재배치. drop(즉시) 1순위 + dragend 폴백, done 으로 중복 커밋 차단.
   // 식별자(id)로 원본/대상을 찾아 splice 후 인덱스 이동에 안전. 대상 미존재(끝 너머)면 맨 끝으로.
-  _reorderWindows(dr){
-    if(!dr||dr.done||!dr.srcId||dr.targetId==null||dr.srcId===dr.targetId) return;
-    dr.done=true;
-    const arr=this.ws.windows;
-    const si=arr.findIndex(x=>x.id===dr.srcId);
-    if(si<0) return;
-    const[moved]=arr.splice(si,1);
-    let ti=arr.findIndex(x=>x.id===dr.targetId);
-    if(ti<0){arr.push(moved)}else{if(!dr.before)ti++;arr.splice(ti,0,moved)}
-    this._save();this.render();
-  },
-
   // ── 탭 이름의 출처 (CONVENIENCE_SRS 묶음 N) ──
 
   // FR-TAN-2: 사용자·에이전트가 명시적으로 준 이름이다. 자동 갱신 대상에서
@@ -64,8 +52,34 @@ Object.assign(App.prototype, {
     });
   },
 
+  /**
+   * FR-CLS-1: 창을 닫은 뒤 갈 일반 창. `removedIdx` 는 방금 지운 자리이며 그
+   * 자리에 가장 가까운 일반 창을 고른다 — 목록에서 눈이 있던 곳 근처다.
+   * 일반 창이 없으면 null 이고, 그때의 처리는 호출자의 몫이다 (FR-CLS-2).
+   */
+  _nextActiveWindow(removedIdx){
+    const arr=this.ws.windows;
+    for(let d=0;d<arr.length;d++){
+      const a=arr[removedIdx+d], b=arr[removedIdx-d];
+      if(a&&!this._isGitWin(a)) return a;
+      if(b&&!this._isGitWin(b)) return b;
+    }
+    return null;
+  },
+
   async _mkWindow(opts={}){
-    const p=await this._newTool();
+    // FR-CWD-1: 새 창의 첫 도구도 cwd 를 승계한다. `addTab`·`split` 은 이미
+    // `_paneNewToolRef` 로 승계하고 있었고 여기만 빠져 있었다 — 그래서
+    // `dmctl new-window` 로 연 팀 창의 팀원 전원이 조정자와 다른 경로에서 떴다
+    // (FR-CWD-4). 승계할 자리가 없으면 지금처럼 서버 기본 cwd 다 (FR-CWD-2).
+    const cur=this._aw();
+    const ref=(!opts.cwd&&!opts.cwdTool&&cur&&!this._isGitWin(cur)&&this.focused)
+      ? this._paneNewToolRef(cur,this.focused) : {};
+    const cwd=opts.cwd||ref.cwd||null;
+    // FR-CWD-3: 호출자가 준 것이 이긴다. `cwdTool` 은 그 도구의 cwd 를 서버가
+    // 풀어 준다 (`/api/tools?cwdTool=`) — 브라우저는 경로를 모른 채 넘긴다.
+    const refTool=opts.cwdTool||ref.cwdTool||null;
+    const p=await this._newTool(cwd, cwd?null:refTool);
     const r=newEntityId(),t=newEntityId();
     const name=(typeof opts.name==='string'&&opts.name?opts.name:'Window').slice(0,64);
     const s={
@@ -118,8 +132,23 @@ Object.assign(App.prototype, {
     this.ws.windows.splice(i,1);
     if(!this.ws.windows.length){await this._mkWindow();this.render();return}
     if(this.ws.activeWindow===sid){
-      this.ws.activeWindow=this.ws.windows[Math.min(i,this.ws.windows.length-1)].id;
-      try{sessionStorage.setItem('activeWindow', this.ws.activeWindow)}catch{}
+      // UX_REVISION_SRS FR-CLS-1: 다음 활성 창은 **일반 창**이다. 인덱스로만
+      // 고르면 Git 창이 활성이 되고, 그러면 사이드바 탭이 Git 으로 따라간다
+      // (FR-SBT-14) — 창 하나 닫았을 뿐인데 Git 화면에 떨어진다.
+      //
+      // Git 창 자신을 닫은 경우는 `_gitCloseWindow` 가 이미 복귀 대상으로
+      // 옮겨 놓았다 (FR-CLS-3). 그 경로도 여기 규칙과 같은 곳으로 간다.
+      const next=this._nextActiveWindow(i);
+      if(next){
+        this.ws.activeWindow=next.id;
+        try{sessionStorage.setItem('activeWindow', this.ws.activeWindow)}catch{}
+      }else{
+        // FR-CLS-2: 일반 창이 남지 않았다. Git 창만 남기고 사용자를 그 안에
+        // 가두지 않는다 — 새 창을 만들고 그리로 간다.
+        await this._mkWindow();
+        this.render(); this._save();
+        return;
+      }
     }
     const a=this._aw();
     if(a&&a.layout){

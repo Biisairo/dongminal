@@ -444,11 +444,27 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 	// 앞서 세면 방금 거둔 도구까지 고아로 보고된다 (FR-HLM-5).
 	log.Printf("[run] close id=%s members=%d force=%v sweep=%v worktrees=%d residue=%d keepTools=%v",
 		rec.ID, len(rec.Members), body.Force, sweep, len(trees), residue, body.KeepTools)
+	orphans := s.orphanHeadless(rec)
+	// UX_REVISION_SRS FR-DEL-12: 끝난 Run 은 목록에 남지 않는다. 정리는 위에서
+	// 이미 끝났으므로 여기서는 레코드만 지우고 방송한다 — purgeRun 을 부르면
+	// 같은 정리를 두 번 돌게 된다.
+	//
+	// FR-DEL-9a: 남긴 것이 있으면 지우지 않는다. 잔여 worktree 도, `--keep-tools`
+	// 로 살려 둔 헤드리스 도구도, 그것이 남아 있다는 사실을 아는 자리는 레코드
+	// 하나뿐이다 (FR-WKT-12 · FR-HLM-5). 지우면 아무도 모르는 자원이 된다.
+	if residue > 0 || len(kept) > 0 {
+		log.Printf("[run] close 뒤 레코드 보존 id=%s residue=%d keptTools=%d",
+			rec.ID, residue, len(kept))
+	} else if _, err := s.Runs.Delete(rec.ID); err != nil {
+		log.Printf("[run] close 뒤 레코드 삭제 실패 id=%s: %v", rec.ID, err)
+	} else {
+		s.broadcastLayout("run_changed", map[string]any{"runId": rec.ID})
+	}
 	writeJSON(w, map[string]any{
 		"id": rec.ID, "short": rec.Short, "state": rec.State,
 		"closedAt": rec.ClosedAt, "windowId": rec.WindowID, "cleanup": cleanup,
 		"worktrees": trees, "residue": residue, "swept": sweep,
-		"keptTools": kept, "orphans": s.orphanHeadless(rec),
+		"keptTools": kept, "orphans": orphans,
 	})
 }
 

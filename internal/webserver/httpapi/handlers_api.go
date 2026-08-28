@@ -114,6 +114,9 @@ var apiRoutes = []apiRoute{
 	{http.MethodGet, func(p string) bool {
 		return strings.HasPrefix(p, "/api/runs/") && strings.HasSuffix(p, "/graph")
 	}, (*Server).apiRunGraph}, // 묶음 V (WS-5)
+	// UX_REVISION_SRS FR-DEL-5: Run 레코드 삭제. exactPath 가 아닌 이유는 id 가
+	// 경로에 오기 때문이며, /api/tools/ 의 DELETE 와 같은 모양이다.
+	{http.MethodDelete, func(p string) bool { return strings.HasPrefix(p, "/api/runs/") }, (*Server).apiRunDelete},
 	{http.MethodGet, func(p string) bool {
 		return strings.HasPrefix(p, "/api/tools/") && strings.HasSuffix(p, "/busy")
 	}, (*Server).apiToolBusy},

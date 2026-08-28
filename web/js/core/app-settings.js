@@ -8,7 +8,7 @@ Object.assign(App.prototype, {
   async _saveSettings(){
     // 블롭 전체를 갈아치우므로 읽어 쓰는 값은 전부 실어야 한다 — git 주기(FR-GIT-23)는
     // UI 가 없지만 여기서 빠지면 다른 설정을 건드릴 때 조용히 사라진다.
-    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames})})}catch{}
+    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys})})}catch{}
   },
 
   // FR-TAN-19: Settings ▸ Display 의 `프로세스 이름을 탭 이름으로`. 기본은 켬.
@@ -30,6 +30,23 @@ Object.assign(App.prototype, {
     });
   },
 
+  /**
+   * FR-KEY-6: Settings ▸ Shortcuts 의 `브라우저 기본 단축키 차단`.
+   *
+   * 값이 서버에 있는 이유는 `fgTabNames` 와 같다 — 단축키 자체가 서버 설정이고,
+   * 그 단축키가 실제로 먹히는지를 정하는 스위치가 다른 곳에 살면 두 값이
+   * 브라우저마다 어긋난다.
+   */
+  _initBlockKeys(){
+    const cb=document.getElementById('sc-blockbrowser');
+    if(!cb) return;
+    cb.checked=blockBrowserKeys;
+    cb.addEventListener('change',()=>{
+      blockBrowserKeys=cb.checked;
+      this._saveSettings();
+    });
+  },
+
   // ── Modal & Theme ──
 
   _initModal(){
@@ -44,6 +61,8 @@ Object.assign(App.prototype, {
       if(dsBp) dsBp.value=this.mobileBreakpoint;
       const dsFg=document.getElementById('ds-fgnames');
       if(dsFg) dsFg.checked=fgTabNames;
+      const scBlock=document.getElementById('sc-blockbrowser');
+      if(scBlock) scBlock.checked=blockBrowserKeys;
       // Auto-close drawer when opening settings on mobile
       if(this.isMobile && this._drawerOpen){this._toggleDrawer(false);this._rTopbar()}
     });
@@ -60,6 +79,7 @@ Object.assign(App.prototype, {
       });
     });
     this._initFgNames();
+    this._initBlockKeys();
   },
 
   _renderThemePanel(){
@@ -257,7 +277,13 @@ Object.assign(App.prototype, {
     const r=await fetch('/api/settings');
     if(!r.ok) return;
     const saved=await r.json();
-    if(saved.fgTabNames===undefined) return; // 저장된 적 없으면 기본값(켬)
+    // FR-KEY-6: 저장된 적 없으면 기본값(켬). 두 값이 각자 그렇게 판단한다.
+    if(saved.blockBrowserKeys!==undefined){
+      blockBrowserKeys=!!saved.blockBrowserKeys;
+      const bk=document.getElementById('sc-blockbrowser');
+      if(bk) bk.checked=blockBrowserKeys;
+    }
+    if(saved.fgTabNames===undefined) return;
     fgTabNames=!!saved.fgTabNames;
     if(window.app&&app._fgRepaint) app._fgRepaint();
     const cb=document.getElementById('ds-fgnames');

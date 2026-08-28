@@ -124,6 +124,9 @@ var defaultPreset=-1; // index into layoutPresets, -1 = none
 // /api/settings blob 에 실린다 — 브라우저 탭별이 아니라 서버의 값이어야
 // `dmctl list-workspace` 가 화면과 같은 이름을 낼 수 있다 (FR-TAN-18).
 var fgTabNames=true;
+// UX_REVISION_SRS FR-KEY-6: 브라우저 기본 단축키 차단. 기본은 켬 — 이 앱은
+// 터미널이고, Ctrl 조합은 브라우저보다 터미널의 것이다.
+var blockBrowserKeys=true;
 
 // ── Layout helpers ──
 
@@ -326,7 +329,21 @@ function tabNameSource(tab){
  */
 function tabName(tab,fgNames){
   if(!tab) return '';
-  if(!fgTabNames||tabNameSource(tab)!==NAME_SOURCE_AUTO) return tab.name;
-  const fg=fgNames&&tab.toolId?fgNames.get(tab.toolId):'';
-  return fg||tab.name;
+  return toolDisplayName(tab.toolId,fgNames,tab,tab.name);
+}
+
+/**
+ * 도구 하나의 표시 이름 (UX_REVISION_SRS FR-NAM-1~4).
+ *
+ * 지금까지 파생 이름을 아는 자리는 탭 하나뿐이었다 — 백그라운드 모달과 주의
+ * 알림은 `Shell` 이라고만 말했다 (FR-NAM-5·6). 탭은 **있을 수도 없을 수도**
+ * 있으므로(백그라운드 도구에는 탭이 없다) 탭을 선택 인자로 받는다.
+ *
+ * 우선순위: 탭이 manual 이면 그 이름 → 파생 이름 → fallback → `Shell`.
+ * manual 을 앞에 두는 것이 FR-TAN-15 다 — 사람이 준 이름은 덮이지 않는다.
+ */
+function toolDisplayName(toolId,fgNames,tab,fallback){
+  if(tab&&(!fgTabNames||tabNameSource(tab)!==NAME_SOURCE_AUTO)) return tab.name;
+  const fg=(fgTabNames&&fgNames&&toolId)?fgNames.get(toolId):'';
+  return fg||(tab&&tab.name)||fallback||DEFAULT_TOOL_NAME;
 }
