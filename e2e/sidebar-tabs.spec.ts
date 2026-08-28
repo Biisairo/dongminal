@@ -192,22 +192,51 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
   });
 });
 
-test.describe('묶음 T — 배지 (FR-SBT-12·13)', () => {
-  test('T9 (V-SBT-11·13): 변경 있는 핀 수가 비활성 Git 탭의 배지가 된다', async ({ page, request }) => {
+test.describe('묶음 T — 배지 (FR-SBT-13 · FR-GOB-13·14)', () => {
+  // ATTENTION_LIFECYCLE_GIT_OBSERVE_SRS V-GOB-5 (FR-GOB-13): 옛 FR-SBT-12 의
+  // Git 탭 헤더 배지는 **없어졌다.** 그 숫자를 채우던 관측이 활성 리포 하나에만
+  // 있었으므로, 다른 탭에서 보이는 값은 근거가 없었다 (D-2).
+  test('T9 (V-GOB-5): Git 탭에는 헤더 배지가 없다', async ({ page, request }) => {
     await waitForInit(page);
     const repo = fx('basic');
     await pin(page, repo);
-    // 배지는 서버의 마지막 관측값이다 (FR-GIT-24) — 관측을 한 번 일으킨다.
     const st = await request.get('/api/git/status?repo=' + encodeURIComponent(repo));
     expect(st.ok(), `status 실패: ${await st.text()}`).toBeTruthy();
     await page.evaluate(() => (window as any).app._gitReposRefresh());
 
-    const badge = tab(page, 'git').locator('.sb-tab-badge');
-    await expect(badge).toHaveText('1', { timeout: 15000 });
-
-    // V-SBT-13: 활성 탭에는 배지를 띄우지 않는다 — 목록에 이미 있다.
+    // 목록의 **행** 배지는 그대로다 (FR-GOB-14). 행 배지는 변경 **파일 수**이므로
+    // 픽스처의 값을 못박지 않고 보이는 것만 본다 — 옛 헤더 배지(변경 있는 리포
+    // 수)와 세는 것이 다르다.
     await tab(page, 'git').click();
+    await expect(page.locator('#git-repos [data-git-repo="' + repo + '"] .git-badge'))
+      .toHaveText(/^[1-9][0-9]*$/, { timeout: 15000 });
+
+    // 헤더 배지는 활성이든 아니든 뜨지 않는다.
+    const badge = tab(page, 'git').locator('.sb-tab-badge');
     await expect(badge).toBeHidden();
+    await tab(page, 'windows').click();
+    await expect(badge).toBeHidden();
+  });
+
+  // V-GOB-4 (FR-GOB-7·8·9): 관측은 Git 탭을 보고 있는 동안으로 묶인다.
+  test('T9b (V-GOB-4): observe=1 은 Git 탭이 활성일 때만 붙는다', async ({ page }) => {
+    await waitForInit(page);
+    await pin(page, fx('basic'));
+
+    const urls: string[] = [];
+    page.on('request', r => { if (r.url().includes('/api/git/repos')) urls.push(r.url()) });
+
+    await tab(page, 'windows').click();
+    urls.length = 0;
+    await page.evaluate(() => (window as any).app._gitReposRefresh());
+    await expect.poll(() => urls.length).toBeGreaterThan(0);
+    expect(urls.every(u => !u.includes('observe=1')), `windows 탭에서 관측했다: ${urls}`).toBeTruthy();
+
+    // FR-GOB-9: 들어가는 순간 관측이 한 번 돈다 — 다음 폴링을 기다리지 않는다.
+    urls.length = 0;
+    await tab(page, 'git').click();
+    await expect.poll(() => urls.filter(u => u.includes('observe=1')).length,
+      { timeout: 10000 }).toBeGreaterThan(0);
   });
 
   test('T10 (V-SBT-12): 알람 있는 창 수가 비활성 Windows 탭의 배지가 된다', async ({ page }) => {

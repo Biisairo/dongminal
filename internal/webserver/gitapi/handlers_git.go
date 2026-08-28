@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/query"
@@ -89,19 +90,68 @@ func gitTail(msg string) string {
 	return strings.ToValidUTF8(msg[len(msg)-gitMessageMax:], "")
 }
 
-// GET /api/git/repos — 핀 목록과 각 배지 (FR-FLW-2).
+// GET /api/git/repos[?observe=1] — 핀 목록과 각 배지 (FR-FLW-2, FR-GOB-1).
 //
 // **follow 는 없다.** 그 조회는 `+ Add` 가 여는 순간에만 도는 /api/git/repo-at 로
 // 옮겼다 — 목록에 실으면 아무도 읽지 않는 값을 위해 3초마다 rev-parse 가 한 번 더
 // 돈다 (D-FLW-2).
+//
+// `observe=1` 은 응답을 만들기 전에 **핀 전부를 관측**한다. 그것이 없던 동안
+// 배지를 채우는 사람은 활성 리포의 폴링 하나뿐이었고(FR-GIT-22), 그래서 클릭해
+// 연 적 없는 핀은 영원히 배지가 없었다. 기본값은 그대로다 — 관측은 Git 탭을
+// 보고 있는 동안으로 묶인다 (D-1, FR-GOB-5).
 func (s *GitServer) apiGitRepos(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
 	}
+	if r.URL.Query().Get("observe") == "1" {
+		s.gitObservePins(r.Context())
+	}
 	gitJSON(w, http.StatusOK, map[string]any{
 		"pinned": s.gitPinnedEntries(r.Context()),
 	})
+}
+
+// gitObserveMax 는 동시에 도는 관측 수의 상한이다 (FR-GOB-3). 핀이 늘어도 git
+// 프로세스가 핀 수만큼 한꺼번에 뜨지 않게 한다.
+const gitObserveMax = 4
+
+// gitObservePins 는 핀된 저장소 전부를 관측해 배지의 근거를 새로 만든다
+// (FR-GOB-1~4). 관측값을 여기서 읽지 않는다 — 쓰는 곳은 Store 의 캐시이며
+// `gitPinnedEntries` 가 그것을 읽는다. 두 단계로 나눈 덕에 응답을 만드는 코드는
+// 관측을 하든 안 하든 **같다**.
+//
+// 실패는 삼킨다. 한 핀이 저장소가 아니게 됐다고 목록 전체가 실패하면, 사용자는
+// 고칠 수 있는 한 줄 때문에 나머지를 전부 잃는다 (FR-GOB-4) — 그 핀은
+// `gitPinnedEntries` 가 `isRepo:false` 로 답한다.
+func (s *GitServer) gitObservePins(ctx context.Context) {
+	pins, err := s.gitPinsRead()
+	if err != nil || len(pins) == 0 {
+		return
+	}
+	sem := make(chan struct{}, gitObserveMax)
+	var wg sync.WaitGroup
+	for _, p := range pins {
+		// FR-GOB-6: 요청이 사라졌으면 남은 관측을 시작하지 않는다.
+		if ctx.Err() != nil {
+			break
+		}
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(repo string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			root, err := s.Git.RepoRoot(ctx, repo)
+			if err != nil {
+				return
+			}
+			// FR-GOB-2: Store 를 지난다 — single-flight 와 TTL 이 그대로 걸리므로
+			// 브라우저가 여럿이어도 git 실행 횟수가 창 수에 비례하지 않는다.
+			s.Git.Status(ctx, root)
+		}(p)
+	}
+	wg.Wait()
 }
 
 // GET /api/git/repo-at?tool=<toolId> — 그 도구의 cwd 가 속한 리포 (FR-FLW-6).

@@ -214,6 +214,19 @@ Object.assign(App.prototype, {
     return null;
   },
 
+  /**
+   * FR-GOB-8: 핀 전부를 관측할 조건. 셋이 전부 참일 때만이다.
+   *
+   * 배지의 근거를 만드는 일은 git 실행이므로 공짜가 아니다. 그래서 **보고 있을
+   * 때**로 묶는다 — Git 탭이 활성이 아니면 그 목록은 화면에 없고, 없는 것을
+   * 위해 git 을 돌릴 이유가 없다 (D-1).
+   */
+  _gitObserveOk(){
+    if(this._gitOff) return false;
+    if(typeof document!=='undefined'&&document.hidden) return false;
+    return this._sbTab==='git';
+  },
+
   // _gitReposRefresh 는 GIT 섹션의 목록을 갱신한다. 실패하면 이전 목록을 유지한다 —
   // 네트워크가 한 번 튀었다고 섹션이 비면 안 된다.
   async _gitReposRefresh(){
@@ -228,7 +241,9 @@ Object.assign(App.prototype, {
     const stale=()=>seq!==this._gitReposSeq;
     let r;
     // FR-FLW-2: 목록은 핀만 답한다 — 도구 인자를 싣지 않는다.
-    try{r=await fetch('/api/git/repos')}catch{return}
+    // FR-GOB-7·8: 관측 여부는 인자로 받지 않는다. 조건이 두 자리에 흩어지면
+    // 한쪽이 낡는다.
+    try{r=await fetch('/api/git/repos'+(this._gitObserveOk()?'?observe=1':''))}catch{return}
     if(stale()) return;
     if(r.status===503){
       // git 이 없거나 서비스가 구성되지 않은 환경이다. 섹션 전체를 숨긴다.

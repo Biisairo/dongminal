@@ -347,3 +347,16 @@ function toolDisplayName(toolId,fgNames,tab,fallback){
   const fg=(fgTabNames&&fgNames&&toolId)?fgNames.get(toolId):'';
   return fg||(tab&&tab.name)||fallback||DEFAULT_TOOL_NAME;
 }
+
+/**
+ * 배지가 낡았는가 (FR-GOB-14).
+ *
+ * 관측 시각만 본다. 옛 규칙은 "활성 리포가 아니면 낡음" 이었는데, 그때는 관측을
+ * 활성 리포만 만들었으므로 그 둘이 같은 말이었다. 이제 Git 탭 안에서는 핀 전부가
+ * 매 주기 관측되므로(FR-GOB-10) 활성 여부는 낡음과 무관하다.
+ */
+function gitBadgeStale(badge){
+  const at=badge&&badge.observedAtUnixMs;
+  if(!at) return true;
+  return (Date.now()-at)>GIT_BADGE_STALE_MS;
+}

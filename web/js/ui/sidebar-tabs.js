@@ -22,6 +22,9 @@ const SB_TAB_KEY='sidebarTab'; // FR-SBT-6: 보는 방식은 클라이언트의 
  *   badge(app)  헤더 배지 값. 0·null 이면 표시하지 않는다 (FR-SBT-12/13)
  *   visible(app)탭 자체의 표시 여부 (FR-SBT-8)
  *   onActivate(app)     활성화 시의 콘텐츠 창 전환 (FR-SBT-22)
+ *   onEnter(app)        탭이 보이게 된 직후. `silent` 여부와 **무관하게** 돈다
+ *                       (FR-GOB-9) — 콘텐츠 전환이 아니라 "이제 이 패널이
+ *                       화면에 있다" 는 사실에 딸린 일이 여기 온다
  *   cycle(app,dir)      순회 키가 이 탭에서 무엇을 순회하는지 (FR-SBT-31)
  *
  * 필드는 **창 목록이 실제로 하는 일**에서 뽑았다 — 쓰이지 않는 훅은 만들지 않는다.
@@ -85,10 +88,17 @@ const SB_TAB_DEFS=[
     id:'git',label:'Git',panelId:'sb-panel-git',
     // FR-SBT-8: git 이 없는 환경이면 탭 자체가 없다.
     visible:app=>!app._gitOff,
-    // FR-SBT-12 (D-12): 변경사항이 있는 핀 리포의 **개수**다 (변경 파일 총합이 아니다).
-    badge:app=>((app._gitRepos||{}).pinned||[]).filter(e=>e&&e.badge&&e.badge.total>0).length,
+    // FR-GOB-13: **헤더 배지가 없다.** 옛 FR-SBT-12 는 "변경사항이 있는 핀 리포의
+    // 개수" 를 보였지만, 그 숫자를 채우는 관측은 활성 리포 하나에서만 나왔다 —
+    // 클릭해 연 적 없는 핀은 세어지지 않고, 한 번 연 핀은 그때의 값이 굳었다.
+    // 관측을 Git 탭 안으로 가둔 이상(D-1) 그 밖에서 보이는 숫자는 근거가 없다.
+    // 근거 없는 숫자를 남기는 것은 "숫자는 떴는데 들어가면 확인이 안 된다" 를
+    // 고친 것이 아니다 (D-2).
     // FR-SBT-25: Git 창이 없으면 만들지 않는다 — 창은 여전히 리포를 골라야 생긴다.
     onActivate:app=>{const w=app._gitWindow();if(w)app.switchWindow(w.id)},
+    // FR-GOB-9: 들어간 순간 등록된 리포 전부를 관측한다. 다음 폴링(3초)을
+    // 기다리면 사용자는 낡은 배지를 먼저 본다.
+    onEnter:app=>{if(app._gitReposRefresh)app._gitReposRefresh()},
     list:{
       containerId:'git-repos',
       itemClass:'git-repo pinned',dotClass:'git-repo-dot',
@@ -113,6 +123,10 @@ const SB_TAB_DEFS=[
         const path=e.path||'';
         const active=!!path&&app.gitPanel.repo===path;
         const b=e.badge;
+        // FR-GOB-14: 낡음의 근거가 **활성 리포 여부**에서 **관측 시각**으로
+        // 바뀌었다. 이제 Git 탭 안에서는 모든 핀이 매 주기 관측되므로, 활성이
+        // 아니라는 것이 곧 낡았다는 뜻이 아니다 (D-1).
+        const stale=!!b&&gitBadgeStale(b);
         // FR-RMS-17: 사유는 사람이 읽는 문구로 옮긴다.
         const why=e.reason?(GIT_WRITE_ERR[e.reason]||e.reason):'';
         return {
@@ -125,9 +139,8 @@ const SB_TAB_DEFS=[
           // 배지는 서버의 마지막 관측값이다. 0 을 보일 이유는 없다 (FR-GIT-14).
           badge:(b&&b.total>0)?{
             text:String(b.total),
-            // O4: 활성 리포가 아니면 흐리게 하고 관측 시각을 알린다.
-            cls:active?'':'stale',
-            title:active?'':'최신 아님 (마지막 관측: '+new Date(b.observedAtUnixMs).toLocaleTimeString()+')',
+            cls:stale?'stale':'',
+            title:stale?'최신 아님 (마지막 관측: '+new Date(b.observedAtUnixMs).toLocaleTimeString()+')':'',
           }:null,
           removable:true,
           dataset:{gitRepo:path||null},
@@ -214,6 +227,9 @@ const SidebarTabs={
     try{localStorage.setItem(SB_TAB_KEY,id)}catch{}
     this.paint(app);
     this.restoreScroll(id);
+    // FR-GOB-9: 패널이 화면에 온 사실은 `silent` 와 무관하다 — 창 쪽에서 따라온
+    // 전환(FR-SBT-14)도 사용자에게는 똑같이 "그 탭에 들어갔다" 이다.
+    if(d.onEnter) d.onEnter(app);
     if(opts&&opts.silent) return;
     if(!d.onActivate) return;
     app._sbBusy=true;

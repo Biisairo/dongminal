@@ -205,26 +205,48 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     await expect(item).toHaveClass(/active/);
   });
 
-  test('S6 (V7·V17): 활성이 아닌 리포의 배지는 stale 로 흐려진다', async ({ page, request }) => {
+  // ATTENTION_LIFECYCLE_GIT_OBSERVE_SRS V-GOB-1·4 (FR-GOB-9·14) 로 **규칙이
+  // 바뀌었다.** 옛 S6 은 "활성이 아닌 리포의 배지는 stale" 이었는데, 그때는 관측을
+  // 활성 리포만 만들었으므로 그 둘이 같은 말이었다. 이제 Git 탭에 들어가면 핀
+  // 전부가 관측되므로, 열어 본 적 없는 리포에도 **최신** 배지가 선다.
+  test('S6 (V-GOB-1·4): Git 탭에 들어가면 핀 전부의 배지가 최신이 된다', async ({ page, request }) => {
     await waitForInit(page);
     const ra = await pin(request, makeRepo('dm-repo-c-'));
     const rb = await pin(request, makeRepo('dm-repo-d-'));
-    // 배지는 서버의 마지막 관측값이다 (FR-GIT-24). /api/git/repos 는 git 을
-    // 실행하지 않으므로 관측을 한 번 일으켜 채운다.
-    for (const r of [ra, rb]) {
-      const st = await request.get('/api/git/status?repo=' + encodeURIComponent(r));
-      expect(st.ok(), `status 실패: ${await st.text()}`).toBeTruthy();
-    }
+    // 관측을 미리 일으키지 **않는다** — 탭 진입이 스스로 만들어야 한다.
     await openGitTab(page);
     const a = pinned(page, ra), b = pinned(page, rb);
     await expect(a.locator('.git-badge')).toHaveText('1', { timeout: 10000 });
     await expect(b.locator('.git-badge')).toHaveText('1', { timeout: 10000 });
+    await expect(a.locator('.git-badge')).not.toHaveClass(/stale/);
+    await expect(b.locator('.git-badge')).not.toHaveClass(/stale/);
 
+    // 활성 리포를 골라도 나머지가 낡지 않는다 — 낡음의 근거는 관측 시각이다.
     await a.click();
     await expect(a).toHaveClass(/active/);
-    await expect(a.locator('.git-badge')).not.toHaveClass(/stale/);
-    await expect(b.locator('.git-badge')).toHaveClass(/stale/);
-    await expect(b.locator('.git-badge')).toHaveAttribute('title', /최신 아님/);
+    await expect(b.locator('.git-badge')).not.toHaveClass(/stale/, { timeout: 10000 });
+  });
+
+  // FR-GOB-14: 관측이 실제로 멎으면 낡음 표시가 선다. 시각을 뒤로 밀어 그
+  // 상태만 만든다 — 폴링을 멈출 방법이 화면에는 없기 때문이다.
+  test('S6b (V-GOB-4): 관측이 오래되면 배지가 stale 로 흐려진다', async ({ page, request }) => {
+    await waitForInit(page);
+    const ra = await pin(request, makeRepo('dm-repo-c2-'));
+    await openGitTab(page);
+    const a = pinned(page, ra);
+    await expect(a.locator('.git-badge')).toHaveText('1', { timeout: 10000 });
+
+    await page.evaluate(() => {
+      const app = (window as any).app;
+      // 폴링이 곧 최신 값을 다시 실어 오므로, 갱신을 끊고 관측 시각만 뒤로 민다.
+      app._gitReposRefresh = async () => {};
+      for (const e of (app._gitRepos.pinned || [])) {
+        if (e.badge) e.badge.observedAtUnixMs -= 60_000;
+      }
+      app.renderer._rGitSection();
+    });
+    await expect(a.locator('.git-badge')).toHaveClass(/stale/);
+    await expect(a.locator('.git-badge')).toHaveAttribute('title', /최신 아님/);
   });
 
   // FR-SBT-3 (D-5) 로 **전제가 바뀌었다.** 두 목록은 더 이상 같은 컬럼에서 높이를
