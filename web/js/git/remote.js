@@ -618,6 +618,11 @@ class GitRemote {
     // FR-GIT-107: 작업이 끝나면 ahead/behind 와 상태를 갱신한다 — 폴링 주기를
     // 기다리면 화면이 그만큼 거짓말을 한다.
     this.panel.collect();
+    // FR-GVR-1: 원격 작업이 낡게 만드는 것은 status 만이 아니다 — History 의 refs,
+    // Branches 의 ahead/behind, Console 의 기록이 함께 낡는다. **어느 뷰가 무엇에
+    // 걸리는지는 패널이 안다** (D-1). collect 를 기다리지 않는다 (FR-GVR-5) —
+    // 서로 독립이며 기다리면 화면이 그만큼 늦는다.
+    this.panel.afterRemoteJob(jb.kind);
     // FR-GIT-270: 첫 단계가 끝났다면 두 번째 단계를 서버에게 묻는다.
     this._syncNext();
   }

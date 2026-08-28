@@ -1043,6 +1043,30 @@ class GitPanel {
     if(this._historyView) this._historyView.reloadRefs();
   }
 
+  /**
+   * 원격 작업 하나의 뒷정리 (GIT_VIEW_REFRESH_SRS FR-GVR-1~4).
+   *
+   * 로컬 쓰기에는 위의 `after*Write` 가 있었는데 원격 경로에만 그 대응물이 없었다 —
+   * 그래서 push 뒤 History 가 옛 refs 를 보였다. 갱신 지식은 `remote.js` 가 아니라
+   * **여기**에 둔다 (D-1): 뷰를 아는 자리가 둘로 갈리면 한쪽만 고쳐진다.
+   *
+   * **실패해도 갱신한다** (D-3) — 실패한 push 도 Console 에 남고, 여러 ref 를 밀던
+   * 중 일부만 움직였을 수 있다.
+   */
+  afterRemoteJob(kind){
+    // 잡은 `post()` 를 지나지 않으므로 Console 이 스스로 알 길이 없다. 서버는
+    // 그것도 기록에 남기므로(jobs/job.go 의 RecordWrite) 읽으러 가기만 하면 된다.
+    if(this._consoleView) this._consoleView.reload();
+    // D-2: push 로 커밋은 늘지 않는다 — refs 만 받으면 스크롤과 펼친 상세가
+    // 살아남는다. **모르는 종류는 전체 쪽으로 다룬다** (tag-push 처럼 여기를
+    // 지나는 것이 더 있다) — 덜 받아 낡은 화면을 보이는 쪽이 더 나쁘다.
+    if(this._historyView){
+      if(kind==='push') this._historyView.reloadRefs();
+      else this._historyView.reload();
+    }
+    if(this._branchesView) this._branchesView.reload();
+  }
+
   // ── stash 쓰기 (GIT_MENUS stash 가 부른다) ──
 
   async stashApply(index,withIndex){
@@ -2149,9 +2173,12 @@ class GitPanel {
       const jobs=[this.collect()];
       if(this._historyView) jobs.push(this._historyView.reload());
       if(this._branchesView) jobs.push(this._branchesView.reload());
+      // FR-GVR-6: Stash 도 대상이다 — 빠져 있어서 터미널에서 `git stash` 한 뒤
+      // 새로고침을 눌러도 목록이 그대로였다.
+      if(this._stashView) jobs.push(this._stashView.reload());
       if(this._consoleView) jobs.push(this._consoleView.reload());
       if(this._worktreesView) jobs.push(this._worktreesView.reload());
-      // 하나가 실패해도 나머지를 기다린다 — 넷은 서로의 성공에 걸려 있지 않다.
+      // 하나가 실패해도 나머지를 기다린다 — 서로의 성공에 걸려 있지 않다.
       await Promise.allSettled(jobs);
     }finally{
       this._refreshing=false; this._paintRefresh();

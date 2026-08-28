@@ -74,7 +74,11 @@ class GitConsole {
   _start(){
     if(this._timer||!this._el) return;
     this._timer=setInterval(()=>{
-      if(document.hidden||!this._el||!this._el.classList.contains('vis')) return;
+      // `vis` 만 보면 **떠난 탭에서도 계속 받는다.** 탭을 바꾸면 `_rLayout` 이
+      // 그 본문을 통째로 버리는데, 요소에 붙은 클래스는 그대로 남기 때문이다 —
+      // 요소가 문서에 붙어 있는지까지 봐야 "보이는가" 가 된다.
+      if(document.hidden||!this._el||!this._el.isConnected) return;
+      if(!this._el.classList.contains('vis')) return;
       this.reload();
     },GIT_CON_POLL_MS);
   }

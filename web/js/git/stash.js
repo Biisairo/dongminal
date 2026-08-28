@@ -251,6 +251,10 @@ class GitStash {
 
   // ── 질의 ──
 
+  // 다른 네 뷰(History·Branches·Console·Worktrees)와 같은 이름의 진입점이다.
+  // 바깥에서 `_load()` 를 직접 부르면 뷰마다 부르는 이름이 갈린다.
+  reload(){return this._load()}
+
   async _load(){
     const repo=this._repo; if(!repo) return;
     const tok=this.panel.token();
