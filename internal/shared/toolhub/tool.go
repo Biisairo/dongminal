@@ -636,7 +636,13 @@ func (p *Tool) kill() {
 			pid = p.cmd.Process.Pid
 		}
 		log.Printf("[tool %s] killing pid=%d", p.ID, pid)
-		close(p.done)
+		// NewDetachedTool 로 만든 Tool 은 done 이 nil 이다 (PTY 도 프로세스도 없는
+		// 합성 Tool — 데몬 모드의 원격 도구 대리와 테스트가 쓴다). 무조건 닫으면
+		// close(nil chan) 으로 패닉한다. 아래 ptmx·cmd·stream 이 이미 같은 방어를
+		// 하고 있었고 이 줄만 빠져 있었다.
+		if p.done != nil {
+			close(p.done)
+		}
 		if p.ptmx != nil {
 			p.ptmx.Close()
 		}
@@ -672,7 +678,13 @@ type ToolManager struct {
 
 	dataDir     string
 	invalidator func(toolID string)
-	dirty       atomic.Bool
+
+	// ownedProvider 는 "어떤 도구가 상위 도메인의 소유인가" 를 답한다 (FR-HLM-3).
+	// toolhub 는 Run 을 알지 못하며 알아서도 안 되므로(의존 방향), 판별은 위에서
+	// 꽂는다 — invalidator 와 같은 형태다. nil 이면 아무도 소유하지 않는 것이고,
+	// 그때 동작은 이 필드가 없던 때와 **완전히 같다**.
+	ownedProvider func() map[string]struct{}
+	dirty         atomic.Bool
 
 	// Attention (PANE_ATTENTION_NOTIFY_SRS): idleThreshold/allowBell configure
 	// detection; attnNotify/attnClear bridge transitions to SSE (set via
@@ -688,6 +700,7 @@ type ToolManager struct {
 	// 재시작을 넘기지 못한다 (FR-BG-9). 이 규칙이 고아 누적을 원리적으로
 	// 차단하며, 그래서 TTL·개수 한도·회수 스케줄러가 필요 없다.
 	background map[string]int64
+
 }
 
 // BackgroundEntry는 백그라운드 도구 한 건의 조회 결과다 (FR-BG-6).
@@ -834,6 +847,30 @@ func (m *ToolManager) ClearAllAttention() int {
 		}
 	}
 	return n
+}
+
+// SetOwnedTools registers the probe that answers "which tools belong to a live
+// owner in a layer above this one" (FR-HLM-3).
+//
+// invalidator 와 같은 형태로 위에서 꽂는다 — toolhub 가 Run 을 import 하면 의존
+// 방향이 뒤집힌다. 집합을 통째로 돌려주는 이유는 SaveAll 이 도구마다 묻지 않고
+// 한 번만 묻게 하기 위해서다: 제공자가 파일을 읽을 수 있다.
+func (m *ToolManager) SetOwnedTools(f func() map[string]struct{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.ownedProvider = f
+}
+
+// ownedTools reads the probe under lock and calls it outside — 제공자가 파일
+// I/O 를 할 수 있으므로 잠금을 건너 부르지 않는다 (Cwd() 와 같은 규약).
+func (m *ToolManager) ownedTools() map[string]struct{} {
+	m.mu.RLock()
+	f := m.ownedProvider
+	m.mu.RUnlock()
+	if f == nil {
+		return nil
+	}
+	return f()
 }
 
 // SetInvalidator lets main register the workspace invalidation hook after
@@ -990,13 +1027,24 @@ func (m *ToolManager) SaveAll() {
 		snap = append(snap, p)
 	}
 	m.mu.Unlock()
+	// 소유 집합은 루프 밖에서 한 번만 묻는다 — 제공자가 파일을 읽을 수 있으므로
+	// 도구마다 부르면 SaveAll 한 번이 파일을 n번 읽는다.
+	owned := m.ownedTools()
 	states := make([]ToolState, 0, len(snap))
 	for _, p := range snap {
 		// FR-EM-12/FR-BG-9: 백그라운드 도구는 기재하지 않는다. 기재하면
 		// 재시작 시 빈 셸로 되살아나 고아가 된다 — 백그라운드로 보낸 이유가
 		// "돌고 있던 작업"이므로 빈 셸에는 의미가 없다.
+		//
+		// FR-HLM-3 이 그 규칙에 **예외 하나**를 낸다. 규칙이 사라지는 것이
+		// 아니다 — 위 근거의 핵심은 그 도구에 **소유자가 없다**는 것이고, 그래서
+		// 되살아나도 아무도 거둘 수 없다. 헤드리스 멤버의 도구는 Run 이 소유하며
+		// (owned 가 그것을 답한다), 소유자가 있으면 되살아난 뒤에도 run status 의
+		// 고아 목록과 run close 가 그것을 거둘 수 있다.
 		if m.IsBackground(p.ID) {
-			continue
+			if _, own := owned[p.ID]; !own {
+				continue
+			}
 		}
 		states = append(states, ToolState{ID: p.ID, Name: p.Name, Cwd: p.Cwd()})
 	}

@@ -42,6 +42,10 @@ type memberView struct {
 type runView struct {
 	run.Record
 	Members []memberView `json:"members"`
+	// Orphans 는 끝난 Run 에 남은 살아있는 헤드리스 도구다 (FR-HLM-5). 열린
+	// Run 에서는 비며, 그때는 아무것도 실리지 않는다 — 남은 것이 없을 때 조용한
+	// 것이 목록을 목록답게 만든다.
+	Orphans []map[string]any `json:"orphans,omitempty"`
 }
 
 // deriveMemberState resolves what a member is doing right now. A member that
@@ -71,7 +75,7 @@ func (s *Server) viewOf(rec run.Record) runView {
 	for _, m := range rec.Members {
 		members = append(members, memberView{Member: m, State: s.deriveMemberState(m)})
 	}
-	return runView{Record: rec, Members: members}
+	return runView{Record: rec, Members: members, Orphans: s.orphanHeadless(rec)}
 }
 
 // callerToolID decides who is speaking. The PID parent-chain resolution wins
@@ -109,6 +113,12 @@ func writeRunError(w http.ResponseWriter, err error, extra map[string]any) {
 		status, name = http.StatusConflict, run.ErrAlreadyReported.Error()
 	case errors.Is(err, run.ErrToolAlreadyMember):
 		status, name = http.StatusConflict, run.ErrToolAlreadyMember.Error()
+	// 묶음 H — 부착·분리의 거부 (FR-HLM-6/7). 409 인 이유는 요청이 잘못된 것이
+	// 아니라 멤버가 이미 그 상태이기 때문이다.
+	case errors.Is(err, run.ErrMemberAttached):
+		status, name = http.StatusConflict, run.ErrMemberAttached.Error()
+	case errors.Is(err, run.ErrMemberNotAttached):
+		status, name = http.StatusConflict, run.ErrMemberNotAttached.Error()
 	case errors.Is(err, run.ErrUnreportedMembers):
 		status, name = http.StatusConflict, run.ErrUnreportedMembers.Error()
 	case errors.Is(err, run.ErrInvalidArgument):
@@ -216,8 +226,10 @@ func (s *Server) apiRunStart(w http.ResponseWriter, r *http.Request) {
 
 // apiRunMemberAdd implements POST /api/runs/members (FR-RUN-2).
 //
-// 도구는 uuid·toolId·라벨 어느 형식으로도 지목할 수 있고, 탭 uuid 는 서버가
-// 채운다 — 조정자가 이후 생성·정리 명령에서 `location` 으로 쓸 값이다 (FR-RUN-9).
+// 도구는 **탭 uuid 또는 살아있는 toolId** 로 지목한다. 좌표 라벨은 400 이다
+// (FR-IDU-4) — 이 핸들러도 resolveToolID 를 지나므로 자동으로 그렇게 된다.
+// 탭 uuid 는 서버가 채운다 — 조정자가 이후 생성·정리 명령에서 `location` 으로
+// 쓸 값이다 (FR-RUN-9).
 func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 	if !s.runsReady(w) || !s.toolIOReady(w) {
 		return
@@ -228,14 +240,31 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 		Agent string `json:"agent"`
 		Brief string `json:"brief"`
 		ID    string `json:"id"`
+		// Headless 는 --at 의 배타적 대안이다 (FR-HLM-1). 참이면 서버가 Tool 을
+		// 새로 만든다 — 지목할 탭이 없기 때문이다.
+		Headless bool `json:"headless"`
+		// Cwd 는 조정자의 작업 디렉터리다. 헤드리스 멤버의 cwd 는 **서버가
+		// 확정한다** (FR-HLM-2) — 격리 Run 이면 멤버의 worktree, 아니면 이 값이다.
+		// 헤드리스 멤버에게는 cd 를 대신 쳐 줄 사람이 없다.
+		Cwd string `json:"cwd"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
 		return
 	}
-	toolID, ok := s.resolveToolID(w, body.ID)
-	if !ok {
+	// FR-HLM-1: 정확히 하나여야 한다. 서버도 같은 검사를 하는 이유는 dmctl 만이
+	// 이 종단의 호출자가 아니기 때문이다.
+	if body.Headless == (body.ID != "") {
+		writeRunError(w, fmt.Errorf(
+			"%w: --at <탭 uuid> 와 --headless 중 정확히 하나가 필요하다", run.ErrInvalidArgument), nil)
 		return
+	}
+	toolID := ""
+	if !body.Headless {
+		var ok bool
+		if toolID, ok = s.resolveToolID(w, body.ID); !ok {
+			return
+		}
 	}
 	rec, known := s.Runs.Get(body.RunID)
 	if !known {
@@ -249,6 +278,17 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 		writeRunError(w, err, nil)
 		return
 	}
+	if body.Headless {
+		cwd := body.Cwd
+		if mi.Worktree != nil && mi.Worktree.Path != "" {
+			cwd = mi.Worktree.Path
+		}
+		if toolID, err = s.createHeadlessTool(cwd); err != nil {
+			s.rollbackMember(mi)
+			writeToolIOError(w, http.StatusInternalServerError, "헤드리스 도구 생성 실패: "+err.Error())
+			return
+		}
+	}
 	m, err := s.Runs.AddMember(body.RunID, run.MemberSpec{
 		ID:       mi.ID,
 		Role:     body.Role,
@@ -257,8 +297,16 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 		ToolID:   toolID,
 		TabID:    s.tabIDOfTool(toolID),
 		Worktree: mi.Worktree,
+		Headless: body.Headless,
 	})
 	if err != nil {
+		// 보상 삭제 — 도구를 만들고 멤버 등록에 실패하면 그 도구는 누구의 것도
+		// 아니다. FR-HLM-5 가 말하는 고아(Run 이 끝난 뒤 남은 도구)와는 다른
+		// 것이며, 이쪽은 **애초에 만들지 않은 것과 같게** 되돌린다.
+		if body.Headless && s.Tools != nil {
+			s.Tools.Delete(toolID)
+			log.Printf("[run] headless 롤백 — 멤버 등록 실패: tool=%s", toolID)
+		}
 		s.rollbackMember(mi)
 		writeRunError(w, err, nil)
 		return
@@ -349,6 +397,9 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 		// KeepWorktrees 는 전부 보존한다 (FR-WKT-8). 보존도 **보고**된다 —
 		// 조용히 남는 자원이 없어야 한다 (FR-WKT-12).
 		KeepWorktrees bool `json:"keepWorktrees"`
+		// KeepTools 는 헤드리스 멤버의 도구를 종료하지 않는다 (FR-HLM-4).
+		// 보존한 도구는 이후 run status 의 고아 목록에 남는다 (FR-HLM-5).
+		KeepTools bool `json:"keepTools"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
@@ -378,6 +429,10 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 			"tabId": m.TabID, "agent": m.Agent, "live": s.toolLive(m.ToolID),
 		})
 	}
+	// 헤드리스 도구는 Run 이 소유하므로 여기서 닫는다 (FR-HLM-4). 탭 부착 멤버의
+	// 도구는 위 cleanup 목록으로 조정자에게 넘어간다 — 서버가 화면에 있는 것을
+	// 말없이 죽이지 않는다.
+	kept := s.closeHeadlessTools(rec, body.KeepTools)
 	trees := s.cleanupWorktrees(rec, body.KeepWorktrees)
 	residue := 0
 	for _, t := range trees {
@@ -385,12 +440,15 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 			residue++
 		}
 	}
-	log.Printf("[run] close id=%s members=%d force=%v sweep=%v worktrees=%d residue=%d",
-		rec.ID, len(rec.Members), body.Force, sweep, len(trees), residue)
+	// 고아 판정이 closeHeadlessTools 뒤에 오는 것은 순서가 아니라 **의미**다 —
+	// 앞서 세면 방금 거둔 도구까지 고아로 보고된다 (FR-HLM-5).
+	log.Printf("[run] close id=%s members=%d force=%v sweep=%v worktrees=%d residue=%d keepTools=%v",
+		rec.ID, len(rec.Members), body.Force, sweep, len(trees), residue, body.KeepTools)
 	writeJSON(w, map[string]any{
 		"id": rec.ID, "short": rec.Short, "state": rec.State,
 		"closedAt": rec.ClosedAt, "windowId": rec.WindowID, "cleanup": cleanup,
 		"worktrees": trees, "residue": residue, "swept": sweep,
+		"keptTools": kept, "orphans": s.orphanHeadless(rec),
 	})
 }
 

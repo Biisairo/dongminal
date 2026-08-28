@@ -16,6 +16,7 @@ import (
 	"dongminal/internal/shared/runtime"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/workspace"
+	"dongminal/internal/webserver/domain/run"
 )
 
 // referencedTools reads workspace.json and returns the tool ids its tabs point
@@ -49,7 +50,25 @@ func Run(home string) {
 	}
 
 	pm := toolhub.NewToolManager(home, nil)
-	pm.LoadAll(referencedTools(filepath.Join(home, "workspace.json")))
+	// FR-HLM-3: 헤드리스 멤버의 도구는 Run 이 소유하므로 재시작을 넘긴다.
+	// 데몬에는 Run 저장소가 없다 — runs.json 의 주인은 웹서버 프로세스다. 그래서
+	// 파일을 직접 읽는 술어를 위에서 꽂는다. toolhub 자신은 Run 을 모른 채로
+	// 남으며(의존 방향), 이 배선 패키지가 둘을 잇는 자리다.
+	pm.SetOwnedTools(func() map[string]struct{} { return run.HeadlessToolIDs(home) })
+	refs := referencedTools(filepath.Join(home, "workspace.json"))
+	headless := run.HeadlessToolIDs(home)
+	for id := range headless {
+		refs[id] = struct{}{}
+	}
+	pm.LoadAll(refs)
+	// 백그라운드 등록은 런타임 상태라 tools.json 에 없다. 되돌리지 않으면 탭에도
+	// ⏻ 목록에도 없는, 어디서도 닿을 수 없는 도구가 된다 (FR-BGR-5 와 같은 이유).
+	for id := range headless {
+		pm.SetBackground(id, true)
+	}
+	if len(headless) > 0 {
+		log.Printf("헤드리스 도구 %d개를 백그라운드로 복원", len(headless))
+	}
 
 	sockPath := filepath.Join(home, "paned.sock")
 	pidPath := filepath.Join(home, "paned.pid")

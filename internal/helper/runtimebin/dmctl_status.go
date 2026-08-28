@@ -37,9 +37,13 @@ quietMs 는 마지막 출력 이후 경과(ms)이며 -1 은 출력을 관측한 
 const dmctlWaitHelp = `dmctl wait — 도구가 조건을 만족할 때까지 기다린다
 
 사용법:
-  dmctl wait [--at <uuid>] --for ready|done [--timeout-ms N] [--json]
+  dmctl wait (--at <uuid> | --member <uuid>) --for ready|done [--timeout-ms N] [--json]
 
   --at <uuid>, -l <uuid>   대상 도구. 생략 시 현재 셸이 속한 도구.
+  --member <uuid>          Run 멤버로 지목한다. 헤드리스 멤버는 탭 uuid 가 없으므로
+                           이것이 유일한 지목 수단이다. --at 과 배타.
+                           판정 근거는 --at 과 같다(훅 상태) — 화면 스크래핑에
+                           의존하지 않으므로 헤드리스에서도 그대로 성립한다.
   --for ready              지시를 받을 수 있는 상태가 될 때까지
   --for done               한 턴을 마쳤다고 보고할 때까지
   --timeout-ms N           기본 300000(5분), 상한 1800000(30분)
@@ -63,6 +67,10 @@ type statusFlags struct {
 	cond      string
 	timeoutMS int64
 	jsonOut   bool
+	// member 는 멤버 uuid 다 (FR-HLM-11). 헤드리스 멤버는 탭 uuid 가 없으므로
+	// 이것이 그를 지목하는 수단이다. target 과 배타이며, **해석은 뒤에서** 한다 —
+	// 접합면(--at)이 보는 값은 끝까지 toolId 뿐이어야 하기 때문이다 (FR-IDU-4).
+	member string
 }
 
 // parseStatusFlags handles the `--flag value` / `--flag=value` duality every
@@ -108,6 +116,14 @@ func parseStatusFlags(cmd string, args []string, wantCond bool, stdout, stderr i
 			f.cond, step = v, n
 		case wantCond && strings.HasPrefix(a, "--for="):
 			f.cond = a[len("--for="):]
+		case wantCond && a == "--member":
+			v, n, ok := take(i, a)
+			if !ok {
+				return f, 2, false
+			}
+			f.member, step = v, n
+		case wantCond && strings.HasPrefix(a, "--member="):
+			f.member = a[len("--member="):]
 		case wantCond && (a == "--timeout-ms" || strings.HasPrefix(a, "--timeout-ms=")):
 			raw := ""
 			if a == "--timeout-ms" {
@@ -135,12 +151,22 @@ func parseStatusFlags(cmd string, args []string, wantCond bool, stdout, stderr i
 		fmt.Fprintf(stderr, "%s: --for 는 ready 또는 done 이어야 한다: %q\n", cmd, f.cond)
 		return f, 2, false
 	}
-	if f.target == "" {
-		f.target = selfToolID()
-	}
-	if f.target == "" {
-		fmt.Fprintf(stderr, "%s: 대상 도구를 알 수 없다 — --at <uuid> 를 지정하라\n", cmd)
+	// --at 과 --member 는 같은 질문에 대한 두 답이다. 둘 다 주면 어느 쪽을
+	// 버렸는지 알 수 없으므로 조용히 하나를 고르지 않는다.
+	if f.member != "" && f.target != "" {
+		fmt.Fprintf(stderr, "%s: --at 과 --member 는 함께 쓸 수 없다 — 하나만 지정하라\n", cmd)
 		return f, 2, false
+	}
+	// --member 는 여기서 해석하지 않는다. 서버 왕복이 필요하고, 파싱은 I/O 를
+	// 하지 않는 편이 시험하기 쉽다.
+	if f.member == "" {
+		if f.target == "" {
+			f.target = selfToolID()
+		}
+		if f.target == "" {
+			fmt.Fprintf(stderr, "%s: 대상 도구를 알 수 없다 — --at <uuid> 를 지정하라\n", cmd)
+			return f, 2, false
+		}
 	}
 	return f, 0, true
 }
@@ -183,6 +209,15 @@ func runDmctlWait(args []string, stdout, stderr io.Writer) int {
 	f, code, ok := parseStatusFlags("wait", args, true, stdout, stderr)
 	if !ok {
 		return code
+	}
+	// FR-HLM-11: 멤버 uuid 를 toolId 로 바꿔 두면 그 뒤는 --at 과 완전히 같은
+	// 경로다. 접합면은 toolId 만 보므로 라벨·멤버 uuid 가 id 에 섞이지 않는다.
+	if f.member != "" {
+		toolID, rc := memberToolID(f.member, stderr)
+		if rc != 0 {
+			return rc
+		}
+		f.target = toolID
 	}
 	q := url.Values{}
 	q.Set("id", f.target)

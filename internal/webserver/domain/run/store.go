@@ -97,6 +97,10 @@ type Worktree struct {
 }
 
 // Member 는 Run 에 속한 참여자 하나이며 Tool 과 1:1 이다 (FR-RUN-2).
+//
+// ORCHESTRATION_V2 의 세 묶음이 더한 필드는 전부 omitempty 이며, 기존 runs.json 은
+// 그대로 읽힌다 (마이그레이션 없음). Step 0 에서 자리만 만들었고 아직 아무도 쓰지
+// 않는다 — 채우는 것은 각 묶음의 워크스트림이다.
 type Member struct {
 	ID            string      `json:"id"`
 	RunID         string      `json:"runId,omitempty"`
@@ -112,6 +116,13 @@ type Member struct {
 	FilesModified []string    `json:"filesModified,omitempty"`
 	ReportedAt    int64       `json:"reportedAt,omitempty"`
 	CreatedAt     int64       `json:"createdAt"`
+
+	// 묶음 H — 헤드리스 멤버 (FR-HLM-2). TabID 가 비고 Headless 가 참이면
+	// 어떤 탭도 이 도구를 참조하지 않는다. 부착(FR-HLM-6)되면 TabID 가 채워진다.
+	Headless bool `json:"headless,omitempty"`
+
+
+
 }
 
 // Reported reports whether the member has sent its one terminal report.
@@ -342,6 +353,10 @@ type MemberSpec struct {
 	ToolID   string
 	TabID    string
 	Worktree *Worktree
+	// Headless 는 이 멤버가 어떤 탭에도 붙지 않음을 뜻한다 (FR-HLM-2). TabID 가
+	// 비는 것과 짝이며, 부착(FR-HLM-6)되면 TabID 가 채워지고 이 값은 false 가
+	// 된다 — 둘을 함께 보아야 "지금 화면에 있나" 를 알 수 있다.
+	Headless bool
 }
 
 // AddMember binds a tool to a Run. The binding is 1:1 — a tool that already
@@ -381,6 +396,7 @@ func (s *Store) AddMember(runID string, spec MemberSpec) (Member, error) {
 		ToolID:    spec.ToolID,
 		TabID:     spec.TabID,
 		Worktree:  spec.Worktree,
+		Headless:  spec.Headless,
 		State:     Starting,
 		CreatedAt: s.now(),
 	}

@@ -137,6 +137,20 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 }
 
+// backgroundRow is a background tool plus its Run membership, when it has one
+// (FR-HLM-9). 필드를 더하기만 하므로 기존 소비자(detach --list, ⏻ 모달)는 그대로
+// 동작한다.
+//
+// 헤드리스 멤버는 ⏻ 목록에 **함께** 나타난다 (FR-HLM-2). 그러면 사용자에게는
+// "떼어 둔 내 도구"와 "Run 이 만든 팀원"이 한 목록에 섞이므로, 어느 쪽인지 말해
+// 주지 않으면 구분할 수 없다 — 그것이 이 세 필드다.
+type backgroundRow struct {
+	toolhub.BackgroundEntry
+	RunID    string `json:"runId,omitempty"`
+	MemberID string `json:"memberId,omitempty"`
+	Role     string `json:"role,omitempty"`
+}
+
 // apiToolsBackground lists the tools currently sent to the background,
 // oldest transition first (FR-BG-6).
 func (s *Server) apiToolsBackground(w http.ResponseWriter, r *http.Request) {
@@ -146,8 +160,21 @@ func (s *Server) apiToolsBackground(w http.ResponseWriter, r *http.Request) {
 			list = got
 		}
 	}
+	rows := make([]backgroundRow, 0, len(list))
+	for _, e := range list {
+		row := backgroundRow{BackgroundEntry: e}
+		// 열린 Run 의 멤버만 표시한다 — 끝난 Run 의 도구는 더 이상 그 Run 의
+		// 것이 아니고(store.findByTool), 그쪽은 run status 의 고아 목록이 맡는다
+		// (FR-HLM-5).
+		if s.Runs != nil {
+			if m, ok := s.Runs.MemberByTool(e.ToolID); ok {
+				row.RunID, row.MemberID, row.Role = m.RunID, m.ID, m.Role
+			}
+		}
+		rows = append(rows, row)
+	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"background": list})
+	json.NewEncoder(w).Encode(map[string]any{"background": rows})
 }
 
 // apiToolBackgroundSet detaches a tool from its tab or restores it.
@@ -166,6 +193,9 @@ func (s *Server) apiToolBackgroundSet(w http.ResponseWriter, r *http.Request) {
 	if s.Tools == nil || !s.Tools.SetBackground(body.ToolID, body.Background) {
 		http.Error(w, "toolId="+body.ToolID+" 존재하지 않음", http.StatusNotFound)
 		return
+	}
+	if !body.Background {
+		s.reconcileMemberTab(body.ToolID)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"ok": true})

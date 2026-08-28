@@ -19,11 +19,12 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
 
 사용법:
   dmctl run start  --objective <목적> [--projection <p>] [--isolation <i>] [--base <ref>] [--window <uuid>]
-  dmctl run member --run <uuid> --role <이름> --agent <id> --at <탭 uuid> [--brief <할 일>|-]
+  dmctl run member --run <uuid> --role <이름> --agent <id> (--at <탭 uuid> | --headless)
+                   [--brief <할 일>|-]
   dmctl run launch --member <uuid> [--model <m>] [--text] [--json]
   dmctl run report --outcome succeeded|failed --summary <3문장> [--files a,b] [--run <uuid>] [--member <uuid>]
   dmctl run status [--run <uuid>]
-  dmctl run close  --run <uuid> [--force] [--keep-worktrees]
+  dmctl run close  --run <uuid> [--force] [--keep-worktrees] [--keep-tools]
   dmctl run list
 
   --projection   dedicated-window(기본) | background | inline
@@ -34,6 +35,13 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
                  멤버마다 하나다. 격리 Run 은 **이 셸의 cwd 가 git 저장소일 때만**
                  시작된다 — 아니면 none 으로 낮추지 않고 그 자리에서 실패한다.
   --base         worktree 가 갈라져 나올 ref. 기본은 이 셸 cwd 의 HEAD 다.
+  --headless     탭을 점유하지 않는 멤버. --at 과 배타이며 **정확히 하나**여야 한다.
+                 서버가 도구를 만들어 백그라운드(⏻)에 올린다. cwd 는 서버가
+                 정한다 — 격리 Run 이면 그 멤버의 worktree, 아니면 이 셸의 cwd.
+                 관측·제어는 탭 부착 멤버와 동등하다: toolId 로 read-screen·msg·
+                 status 가 그대로 되고, 대기는 wait --member 를 쓴다.
+  --keep-tools   close 가 헤드리스 멤버의 도구를 종료하지 않는다. 남긴 것은
+                 이후 run status 의 고아 목록에 계속 나온다.
   --brief        이 멤버가 할 일의 본문. 프리앰블에 실리고 기록에 남는다.
                  값이 - 이면 stdin 에서 읽는다. 여러 줄이면 heredoc 을 써라.
   --model        기동할 모델. 그 에이전트의 모델 플래그가 확인된 경우에만 붙는다.
@@ -61,6 +69,11 @@ worktree 만 거두고 state·중단 사유는 그대로 둔다. 서버 재기�
 경우에만 지운다. **dirty 면 지우지 않고 잔여물로 보고한다** — 사용자 작업을 조용히
 삭제하지 않는다. 전부 남기려면 --keep-worktrees. 정리하지 못한 것은 close 출력과
 이후의 run status 양쪽에 남는다.
+
+handoff 는 승계당하는 멤버가 자기 요약을 남기는 명령이다. 권한은 발신 도구의
+정체이며 --member 는 대조용이라 생략이 정상이다 — 남의 몫을 대신 남길 수 없다.
+
+
 close 는 도구를 닫지 않는다 — 정리 대상을 돌려주므로, 조정자가 에이전트를
 종료(예: /exit)시킨 뒤 dmctl close-tab --at <탭 uuid> 로 마무리한다. 실행 중인
 도구의 탭을 서버가 바로 닫으면 브라우저가 확인창을 띄워 무인 정리가 막힌다.
@@ -84,8 +97,15 @@ type runFlags struct {
 	base       string
 	force      bool
 	keepTrees  bool
+	keepTools  bool // --keep-tools  묶음 H (FR-HLM-4)
 	textOut    bool
 	jsonOut    bool
+
+	// ORCHESTRATION_V2 선등록 (PARALLEL_DELIVERY_PLAN Step 0-14). 플래그 파싱이
+	// 서브커맨드와 무관한 단일 맵이라 이 구조체가 세 워크스트림의 공통 파일이다 —
+	// 한 번에 열어 두면 이후 아무도 이 파일을 만지지 않는다.
+	headless  bool   // --headless  묶음 H (FR-HLM-1)
+	timeoutMs string // --timeout-ms 묶음 C (FR-CBG-9 의 인수인계 대기 상한)
 }
 
 // runDmctlRun implements FR-RUN-8. stdin 은 --brief - 만 소비한다.
@@ -134,6 +154,7 @@ func parseRunFlags(sub string, args []string, stdout, stderr io.Writer) (runFlag
 		"--at": &f.at, "-l": &f.at, "--objective": &f.objective, "--projection": &f.projection,
 		"--isolation": &f.isolation, "--window": &f.window, "--outcome": &f.outcome,
 		"--summary": &f.summary, "--files": &f.files, "--base": &f.base,
+		"--timeout-ms": &f.timeoutMs,
 	}
 	for i := 0; i < len(args); {
 		a := args[i]
@@ -146,8 +167,18 @@ func parseRunFlags(sub string, args []string, stdout, stderr io.Writer) (runFlag
 			i++
 			continue
 		}
+		if a == "--headless" {
+			f.headless = true
+			i++
+			continue
+		}
 		if a == "--keep-worktrees" {
 			f.keepTrees = true
+			i++
+			continue
+		}
+		if a == "--keep-tools" {
+			f.keepTools = true
 			i++
 			continue
 		}
@@ -243,8 +274,17 @@ func runSubStart(f runFlags, stdout, stderr io.Writer) int {
 }
 
 func runSubMember(f runFlags, stdin io.Reader, stdout, stderr io.Writer) int {
-	if f.run == "" || f.role == "" || f.agent == "" || f.at == "" {
-		fmt.Fprintln(stderr, "run member: --run·--role·--agent·--at 는 모두 필수다")
+	if f.run == "" || f.role == "" || f.agent == "" {
+		fmt.Fprintln(stderr, "run member: --run·--role·--agent 는 모두 필수다")
+		return 2
+	}
+	// FR-HLM-1: --at 과 --headless 는 배타이며 정확히 하나여야 한다. 거부는
+	// 무엇을 줘야 하는지 말한다 — 어느 쪽이 빠졌는지 모르면 고칠 수 없다.
+	if f.headless == (f.at != "") {
+		fmt.Fprintln(stderr,
+			"run member: --at <탭 uuid> 와 --headless 중 정확히 하나가 필요하다\n"+
+				"  --at        그 탭의 도구를 멤버로 삼는다 (기본 — 사람이 지켜본다)\n"+
+				"  --headless  탭 없이 서버가 도구를 만든다 (분할이 모자라거나 볼 이유가 없을 때)")
 		return 2
 	}
 	// brief 는 보통 여러 줄이다. 값 - 는 stdin 을 뜻하며 send-input·msg 와 같은 규약이고
@@ -264,9 +304,22 @@ func runSubMember(f runFlags, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "run member: %v\n", err)
 		return 2
 	}
-	raw, code := runPost("/api/runs/members", map[string]any{
+	body := map[string]any{
 		"runId": f.run, "role": f.role, "agent": f.agent, "id": f.at, "brief": f.brief,
-	}, stderr)
+	}
+	if f.headless {
+		body["headless"] = true
+		// 헤드리스 멤버의 cwd 는 서버가 확정하지만(FR-HLM-2), 격리가 아닌 Run 에서
+		// 그 값은 **조정자의 cwd** 다. 서버는 조정자가 어디서 일하는지 알 방법이
+		// 없으므로 run start 와 같은 이유로 여기서 실어 보낸다 (FR-WKT-5 와 같은 규약).
+		wd, err := os.Getwd()
+		if err != nil {
+			fmt.Fprintf(stderr, "run member: 현재 디렉터리를 알 수 없다: %v\n", err)
+			return 1
+		}
+		body["cwd"] = wd
+	}
+	raw, code := runPost("/api/runs/members", body, stderr)
 	if code != 0 {
 		return code
 	}
@@ -281,6 +334,11 @@ func runSubMember(f runFlags, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	line := fmt.Sprintf("member=%s  role=%s  agent=%s  toolId=%s  tabId=%s  state=%s",
 		m.ID, m.Role, m.Agent, m.ToolID, m.TabID, m.State)
+	// 헤드리스는 tabId 가 비는 것으로도 알 수 있지만, 빈 값은 "없다" 와 "아직
+	// 모른다" 를 구분하지 못한다. 의도를 명시한다 (FR-HLM-2).
+	if m.Headless {
+		line += "  headless=true"
+	}
 	// 격리 Run 이면 작업 트리를 같은 줄에 낸다 — 조정자가 기동 전에 cd 로
 	// 보내야 하는 경로이고(도구의 셸은 ~ 에서 시작한다), 한 줄에서 뽑을 수
 	// 있어야 스킬이 왕복을 더 만들지 않는다.
@@ -441,6 +499,7 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 	}
 	raw, code := runPost("/api/runs/close", map[string]any{
 		"runId": f.run, "force": f.force, "keepWorktrees": f.keepTrees,
+		"keepTools": f.keepTools,
 	}, stderr)
 	if code != 0 {
 		return code
@@ -460,6 +519,11 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 		} `json:"cleanup"`
 		Worktrees []runWorktree `json:"worktrees"`
 		Swept     bool          `json:"swept"`
+		// 묶음 H — 헤드리스 도구의 수명 (FR-HLM-4/5). KeptTools 는 --keep-tools 로
+		// 살려 둔 것이고, Orphans 는 그 결과 남은 것이다. 둘은 같은 도구를 가리키지만
+		// 하나는 **선택**의 보고이고 하나는 **상태**의 보고다.
+		KeptTools []runOrphan `json:"keptTools"`
+		Orphans   []runOrphan `json:"orphans"`
 	}
 	if err := json.Unmarshal(raw, &rec); err != nil {
 		fmt.Fprintf(stderr, "dmctl: invalid close response: %v\n", err)
@@ -470,12 +534,29 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 	} else {
 		fmt.Fprintf(stdout, "run=%s  state=%s\n", rec.ID, rec.State)
 	}
-	if len(rec.Cleanup) > 0 {
+	// 탭이 있는 멤버만 조정자의 몫이다. 헤드리스 멤버의 도구는 close 가 이미
+	// 처리했으므로(FR-HLM-4) 여기 섞으면 조정자가 없는 탭을 닫으러 간다.
+	var toClose []int
+	for i, c := range rec.Cleanup {
+		if c.TabID != "" {
+			toClose = append(toClose, i)
+		}
+	}
+	if len(toClose) > 0 {
 		fmt.Fprintln(stdout, "정리 대상 (에이전트 종료 후 dmctl close-tab --at <tabId>):")
-		for _, c := range rec.Cleanup {
+		for _, i := range toClose {
+			c := rec.Cleanup[i]
 			fmt.Fprintf(stdout, "  role=%s  toolId=%s  tabId=%s  live=%v\n", c.Role, c.ToolID, c.TabID, c.Live)
 		}
 	}
+	// 보존은 선택이므로 그 선택을 되짚어 준다 (FR-HLM-4). 보존도 **보고**된다.
+	if len(rec.KeptTools) > 0 {
+		fmt.Fprintf(stdout, "헤드리스 도구 %d건 보존 (--keep-tools):\n", len(rec.KeptTools))
+		for _, o := range rec.KeptTools {
+			fmt.Fprintf(stdout, "  role=%s  toolId=%s  memberId=%s\n", o.Role, o.ToolID, o.MemberID)
+		}
+	}
+	printOrphans(stdout, rec.Orphans)
 	// 잔여물은 조용히 남기지 않는다 (FR-WKT-12). 지운 것은 굳이 나열하지 않는다 —
 	// 목록이 길어지면 정작 남은 것이 묻힌다.
 	var left []runWorktree
@@ -517,6 +598,33 @@ type runMember struct {
 	Outcome  string       `json:"outcome"`
 	Summary  string       `json:"summary"`
 	Worktree *runWorktree `json:"worktree"`
+
+	// 묶음 H — 헤드리스 멤버 (FR-HLM-2). TabID 가 비는 것과 짝이며, 둘을 함께
+	// 보아야 "지금 화면에 있나" 를 알 수 있다.
+	Headless bool `json:"headless"`
+
+	// 묶음 C — 컨텍스트 예산 (FR-CBG-13). 전부 서버측 추정이며, ContextLevel 이
+	// 비어 있으면 **모른다**는 뜻이다 (FR-CBG-5).
+	ContextRatio  float64 `json:"contextRatio"`
+	ContextLevel  string  `json:"contextLevel"`
+	CompactCount  int     `json:"compactCount"`
+	SucceededFrom string  `json:"succeededFrom"`
+}
+
+// memberContext 는 멤버 행에 붙는 컨텍스트 조각이다 (FR-CBG-13).
+//
+// **추정임이 드러나야 한다** (NFR-CBG-3). 그래서 숫자에는 언제나 ~ 가 붙고,
+// 모르는 것은 0% 가 아니라 — 로 나온다 — 관측되지 않는 에이전트가 여유로워
+// 보이면 조정자가 그 멤버에게 큰 일을 준다.
+func (m runMember) contextCell() string {
+	if m.ContextLevel == "" {
+		return "ctx=— (unknown)"
+	}
+	cell := fmt.Sprintf("ctx=~%d%% (%s)", int(m.ContextRatio*100+0.5), m.ContextLevel)
+	if m.CompactCount > 0 {
+		cell += fmt.Sprintf(" compact=%d", m.CompactCount)
+	}
+	return cell
 }
 
 type runRecord struct {
@@ -531,6 +639,17 @@ type runRecord struct {
 	Base       string       `json:"base"`
 	Worktree   *runWorktree `json:"worktree"`
 	Members    []runMember  `json:"members"`
+
+	// Orphans 는 끝난 Run 에 남은 살아있는 헤드리스 도구다 (FR-HLM-5).
+	Orphans []runOrphan `json:"orphans"`
+}
+
+// runOrphan 은 거두지 못한 헤드리스 도구 하나다. worktree 잔여물과 같은 규약이며
+// (FR-WKT-12), 조용히 남는 자원이 없어야 한다는 것이 그 규약의 요점이다.
+type runOrphan struct {
+	MemberID string `json:"memberId"`
+	Role     string `json:"role"`
+	ToolID   string `json:"toolId"`
 }
 
 func printRun(stdout io.Writer, rec runRecord, withMembers bool) {
@@ -547,6 +666,9 @@ func printRun(stdout io.Writer, rec runRecord, withMembers bool) {
 	}
 	for _, m := range rec.Members {
 		line := fmt.Sprintf("  role=%s  state=%s  agent=%s  toolId=%s  tabId=%s", m.Role, m.State, m.Agent, m.ToolID, m.TabID)
+		if m.Headless {
+			line += "  headless=true"
+		}
 		if m.Outcome != "" {
 			line += "  outcome=" + m.Outcome
 		}
@@ -557,6 +679,23 @@ func printRun(stdout io.Writer, rec runRecord, withMembers bool) {
 		if m.Worktree != nil {
 			printWorktree(stdout, *m.Worktree, "    트리")
 		}
+	}
+	printOrphans(stdout, rec.Orphans)
+}
+
+// printOrphans 는 거두지 못한 헤드리스 도구를 낸다 (FR-HLM-5).
+//
+// 남은 것이 없으면 아무것도 찍지 않는다 — 조용할 때 조용한 것이 목록을 목록답게
+// 만든다. 거두는 길을 함께 적는 이유는 worktree 잔여물과 같다: 조회가 close 를
+// 지켜보지 못한 세션이 그것을 알 유일한 경로이므로, 알려 주고 끝내면 안 된다.
+func printOrphans(stdout io.Writer, orphans []runOrphan) {
+	if len(orphans) == 0 {
+		return
+	}
+	fmt.Fprintf(stdout, "  고아 %d건 (헤드리스 도구가 살아 있다 — dmctl run close --run <uuid> --force 로 거둔다):\n",
+		len(orphans))
+	for _, o := range orphans {
+		fmt.Fprintf(stdout, "    role=%s  toolId=%s  memberId=%s\n", o.Role, o.ToolID, o.MemberID)
 	}
 }
 
@@ -620,3 +759,4 @@ func printRunRefusal(stderr io.Writer, status int, path string, raw []byte) {
 		fmt.Fprintf(stderr, "  미보고: role=%s  state=%s  memberId=%s\n", m.Role, m.State, m.ID)
 	}
 }
+

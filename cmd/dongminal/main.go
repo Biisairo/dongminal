@@ -144,6 +144,29 @@ type builtDeps struct {
 	wsMgr       *workspace.Manager
 }
 
+// restoreHeadlessBackground puts the restored headless tools back into the
+// background registry (FR-HLM-3).
+//
+// LoadAll 은 도구를 되살리기만 한다. 백그라운드 등록은 런타임 상태라 tools.json
+// 에 없으므로 여기서 되돌려야 한다 — 등록하지 않으면 탭에도 ⏻ 목록에도 없는,
+// 어디서도 닿을 수 없는 도구가 된다 (FR-BGR-5 와 같은 이유).
+//
+// **되살아난 것은 빈 셸이다.** 그 안에서 돌던 에이전트는 돌아오지 않는다. 그럼에도
+// 되살리는 이유는 소유자 때문이다 — Run 은 재시작으로 aborted 가 되고(FR-RUN-5),
+// 그 도구는 FR-HLM-5 의 고아로 run status 에 나타나 run close 로 거둬진다.
+// 기재하지 않으면 거둘 대상조차 사라진다.
+func restoreHeadlessBackground(pm *toolhub.ToolManager, headless map[string]struct{}) {
+	restored := 0
+	for id := range headless {
+		if pm.SetBackground(id, true) {
+			restored++
+		}
+	}
+	if restored > 0 {
+		log.Printf("[run] 헤드리스 도구 %d개를 백그라운드로 복원", restored)
+	}
+}
+
 func buildDeps(cfg httpapi.Config) (builtDeps, error) {
 	pm := toolhub.NewToolManager(cfg.DataDir, nil)
 	cmdHub := hub.NewCommandHub()
@@ -151,17 +174,29 @@ func buildDeps(cfg httpapi.Config) (builtDeps, error) {
 	hub.WireAttention(pm, cmdHub)
 	hub.WireActivity(pm, cmdHub)
 
+	// FR-HLM-3: 지난 세대의 헤드리스 도구를 **펜싱 전에** 읽는다. buildCommonDeps
+	// 안의 runStore.Load 가 열린 Run 을 aborted 로 확정하므로(FR-RUN-5), 그 뒤에
+	// 물으면 되살릴 대상이 하나도 남지 않는다.
+	headless := run.HeadlessToolIDs(cfg.DataDir)
+
 	bd, err := buildCommonDeps(cfg, pm, cmdHub, nil)
 	if err != nil {
 		return builtDeps{}, err
 	}
 
 	pm.SetInvalidator(bd.wsMgr.InvalidateTool)
+	// 소유 판별을 꽂아야 SaveAll 이 헤드리스 도구를 기재한다 (FR-HLM-3). 이것이
+	// 없으면 FR-BG-9 의 제외 규칙이 그대로 적용돼 다음 부팅에 되살릴 것이 없다.
+	pm.SetOwnedTools(func() map[string]struct{} { return run.HeadlessToolIDs(cfg.DataDir) })
 	refs, err := workspace.ReferencedToolIDs(bd.wsMgr.Raw())
 	if err != nil {
 		return builtDeps{}, fmt.Errorf("workspace 참조 해석: %w", err)
 	}
+	for id := range headless {
+		refs[id] = struct{}{}
+	}
 	pm.LoadAll(refs)
+	restoreHeadlessBackground(pm, headless)
 	bd.pm = pm
 
 	return bd, nil
