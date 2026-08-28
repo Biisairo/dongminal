@@ -10,11 +10,14 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
+
+	"dongminal/internal/shared/workspace"
 )
 
 // toolIOReady reports whether the toolaccess deps were injected. Daemon/test
@@ -27,16 +30,24 @@ func (s *Server) toolIOReady(w http.ResponseWriter) bool {
 	return true
 }
 
-// resolveToolID maps an identifier (tab uuid / toolId / label) to a live toolId.
-// FR-API-4: unknown identifier or dead tool → 404.
+// resolveToolID maps an identifier (tab uuid / toolId) to a live toolId. 이
+// 함수 하나가 read-screen·read-output·send-input·msg·status·wait 의 공통 관문이다.
+//
+// FR-IDU-4: 좌표 라벨은 ResolveStrict 가 거부하고 여기서 400 이 된다 — 에이전트가
+// "잘못 불렀다"(400)와 "없다"(404)를 갈라야 하기 때문이다. 미지의 식별자나 죽은
+// 도구는 종전대로 404 다 (FR-API-4).
 func (s *Server) resolveToolID(w http.ResponseWriter, id string) (string, bool) {
 	if id == "" {
 		writeToolIOError(w, http.StatusBadRequest, "id 누락")
 		return "", false
 	}
-	toolID, err := s.WorkIndex.Resolve(id)
+	toolID, err := s.WorkIndex.ResolveStrict(id)
 	if err != nil {
-		writeToolIOError(w, http.StatusNotFound, err.Error())
+		status := http.StatusNotFound
+		if errors.Is(err, workspace.ErrLabelIdentifier) {
+			status = http.StatusBadRequest
+		}
+		writeToolIOError(w, status, err.Error())
 		return "", false
 	}
 	if !s.ToolIO.Has(toolID) {
@@ -131,10 +142,11 @@ func (s *Server) apiToolMessage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	fromLabel, toLabel := s.envelopeLabels(body.From, toolID)
+	fromLabel, toLabel, fromToolID := s.envelopeLabels(body.From, toolID)
 	envelope := fmt.Sprintf(
 		"[DONGMINAL-AGENT-MSG from=%s to=%s ts=%s]\n%s\n[/DONGMINAL-AGENT-MSG]",
-		fromLabel, toLabel, time.Now().Format("15:04:05"), body.Message,
+		envelopeParty(fromLabel, fromToolID), envelopeParty(toLabel, toolID),
+		time.Now().Format("15:04:05"), body.Message,
 	)
 	if err := s.ToolIO.SendPaste(toolID, []byte(envelope), true); err != nil {
 		writeToolIOError(w, http.StatusInternalServerError, err.Error())
@@ -148,24 +160,39 @@ func (s *Server) apiToolMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 // envelopeLabels normalizes the envelope header for human readability: a uuid or
-// toolId input is rendered as its workspace label. Routing already happened via
-// resolveToolID, so this never affects delivery (NFR-UID-0). An unresolvable
-// `from` passes through verbatim; an empty one becomes "unknown".
-func (s *Server) envelopeLabels(from, toToolID string) (string, string) {
+// toolId input is rendered as its workspace label, and the resolved toolId comes
+// back with it so the header can carry both (FR-IDU-9). An unresolvable `from`
+// passes through verbatim; an empty one becomes "unknown".
+//
+// 발신자 해석은 Resolve 를 그대로 쓴다 (FR-IDU-9). 라우팅은 이미 resolveToolID 가
+// 끝냈으므로 여기서 라벨을 받아 줘도 배달 대상은 달라지지 않는다 — 표시 전용이다.
+func (s *Server) envelopeLabels(from, toToolID string) (fromLabel, toLabel, fromToolID string) {
 	labels := s.WorkIndex.Labels()
-	fromLabel := from
+	fromLabel = from
 	if fromLabel == "" {
 		fromLabel = "unknown"
 	} else if pid, err := s.WorkIndex.Resolve(from); err == nil {
+		fromToolID = pid
 		if l, ok := labels[pid]; ok {
 			fromLabel = l
 		}
 	}
-	toLabel := toToolID
+	toLabel = toToolID
 	if l, ok := labels[toToolID]; ok {
 		toLabel = l
 	}
-	return fromLabel, toLabel
+	return fromLabel, toLabel, fromToolID
+}
+
+// envelopeParty renders one header party as "<label> (<uuid>)" (FR-IDU-9).
+// 라벨만으로는 답장할 수 없으므로 — 접합면은 uuid 만 받는다 (FR-IDU-4) — 답장에
+// 쓸 값을 헤더가 직접 들고 있어야 한다. 라벨을 못 찾았거나 라벨이 곧 uuid 면
+// 괄호를 붙이지 않는다.
+func envelopeParty(label, toolID string) string {
+	if toolID == "" || toolID == label {
+		return label
+	}
+	return label + " (" + toolID + ")"
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

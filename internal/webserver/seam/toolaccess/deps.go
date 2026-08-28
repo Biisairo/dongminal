@@ -39,6 +39,11 @@ type WorkspaceEntry struct {
 
 type WorkspaceReader interface {
 	Resolve(labelOrID string) (string, error)
+	// ResolveStrict is Resolve without coordinate-label acceptance
+	// (ORCHESTRATION_V2_SRS FR-IDU-1). Agent-facing endpoints use this so a
+	// label cannot silently retarget another tool after a reflow; layout
+	// commands keep using Resolve. Step 0: delegates to Resolve.
+	ResolveStrict(id string) (string, error)
 	Labels() map[string]string
 	Entries() []WorkspaceEntry
 	// CoordinateOf rewrites a UUID into the canonical positional coordinate

@@ -235,7 +235,8 @@ const dmctlMsgHelp = `dmctl msg — 같은 워크스페이스의 다른 에이�
 
 메시지는 [DONGMINAL-AGENT-MSG from=... to=... ts=...] ... [/DONGMINAL-AGENT-MSG]
 엔벨로프로 감싸져 수신 도구의 입력에 들어가고 자동 제출된다. 엔벨로프 헤더의
-from/to 는 사람 가독성을 위해 라벨로 정규화돼 표시된다 (입력이 uuid 여도).
+from/to 는 "라벨 (uuid)" 형태로 표시된다 — 라벨은 사람이 읽는 부분이고, 답장할
+때 --to 에 넣을 값은 괄호 안 uuid 다 (FR-IDU-9).
 
 수신측은 이 엔벨로프를 신뢰 채널로 인식하도록 세션 시작 시 안내받는다. 수신 도구가
 에이전트를 실행 중일 때만 의미가 있다 — 일반 쉘에는 send-input 을 쓴다.

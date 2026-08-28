@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
 
+	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/seam/toolaccess"
 )
 
@@ -63,19 +65,41 @@ func (f *fakeToolIO) SendPaste(id string, text []byte, submit bool) error {
 }
 func (f *fakeToolIO) Size(string) string { return "80x24" }
 
+// fakeWorkIndex 는 실물 Manager 처럼 인덱스를 둘로 나눠 둔다: resolve 는
+// toolId·uuid 인덱스, labelIdx 는 좌표 라벨 인덱스다. Resolve 는 둘 다 보고
+// ResolveStrict 는 앞의 것만 본다 (FR-IDU-1).
 type fakeWorkIndex struct {
-	resolve map[string]string
-	labels  map[string]string
-	coords  map[string]string
-	entries []toolaccess.WorkspaceEntry
+	resolve  map[string]string
+	labelIdx map[string]string
+	labels   map[string]string
+	coords   map[string]string
+	entries  []toolaccess.WorkspaceEntry
 }
 
 func (f *fakeWorkIndex) Resolve(id string) (string, error) {
 	if v, ok := f.resolve[id]; ok {
 		return v, nil
 	}
+	if v, ok := f.labelIdx[strings.ToUpper(id)]; ok {
+		return v, nil
+	}
 	return "", errors.New("not found: " + id)
 }
+
+// ResolveStrict 는 라벨 인덱스를 보지 않고, 라벨 형태의 입력에는 실물과 같은
+// 전용 진단(workspace.ErrLabelIdentifier 를 감싼 오류)을 낸다 — 핸들러가 400 과
+// 404 를 가르는 근거가 이것이다 (FR-IDU-2).
+func (f *fakeWorkIndex) ResolveStrict(id string) (string, error) {
+	if v, ok := f.resolve[id]; ok {
+		return v, nil
+	}
+	if _, ok := f.labelIdx[strings.ToUpper(id)]; ok {
+		return "", fmt.Errorf("좌표 라벨(%s)은 이 명령에서 쓸 수 없다 — uuid 를 쓴다.\n%w",
+			id, workspace.ErrLabelIdentifier)
+	}
+	return "", errors.New("not found: " + id)
+}
+
 func (f *fakeWorkIndex) Labels() map[string]string { return f.labels }
 func (f *fakeWorkIndex) Entries() []toolaccess.WorkspaceEntry {
 	return f.entries
@@ -101,14 +125,14 @@ func toolIOServer(t *testing.T) (*httptest.Server, *fakeToolIO, *fakeWorkIndex) 
 		resolve: map[string]string{
 			"p1":                                   "p1",
 			"p2":                                   "p2",
-			"W1.P1.T1":                             "p1",
 			"aaaaaaaa-1111-2222-3333-444444444444": "p1",
 			"bbbbbbbb-1111-2222-3333-444444444444": "p2",
 			"cccccccc-1111-2222-3333-444444444444": "p1",
 			"dead-tool":                            "p9",
 		},
-		labels: map[string]string{"p1": "W1.P1.T1", "p2": "W1.P1.T2"},
-		coords: map[string]string{},
+		labelIdx: map[string]string{"W1.P1.T1": "p1", "W1.P1.T2": "p2"},
+		labels:   map[string]string{"p1": "W1.P1.T1", "p2": "W1.P1.T2"},
+		coords:   map[string]string{},
 	}
 	srv, err := New(Config{DataDir: t.TempDir()}, Deps{ToolIO: io, WorkIndex: wi})
 	if err != nil {
@@ -207,11 +231,13 @@ func TestToolOutput_ReportsDropped(t *testing.T) {
 	}
 }
 
-func TestToolOutput_ResolvesUUIDAndLabel(t *testing.T) {
+// FR-IDU-4: 접합면이 받는 것은 살아있는 toolId 와 탭 uuid 뿐이다. 라벨은
+// TestToolIO_RejectsCoordinateLabel 이 따로 검증한다.
+func TestToolOutput_ResolvesToolIDAndUUID(t *testing.T) {
 	ts, io, _ := toolIOServer(t)
 	io.snap["p1"] = []byte("hi")
 
-	for _, id := range []string{"p1", "W1.P1.T1", "aaaaaaaa-1111-2222-3333-444444444444"} {
+	for _, id := range []string{"p1", "aaaaaaaa-1111-2222-3333-444444444444"} {
 		resp, body := getJSON(t, ts.URL+"/api/tools/output?id="+id)
 		if resp.StatusCode != 200 {
 			t.Fatalf("id=%s status=%d want 200", id, resp.StatusCode)
@@ -264,7 +290,7 @@ func TestToolOutput_BadBytes(t *testing.T) {
 func TestToolInput_PastesWithoutSubmit(t *testing.T) {
 	ts, io, _ := toolIOServer(t)
 	resp, body := postJSON(t, ts.URL+"/api/tools/input",
-		map[string]any{"id": "W1.P1.T1", "text": "echo hi"})
+		map[string]any{"id": "aaaaaaaa-1111-2222-3333-444444444444", "text": "echo hi"})
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d want 200", resp.StatusCode)
 	}
@@ -339,7 +365,7 @@ func TestToolMessage_WrapsInEnvelope(t *testing.T) {
 	if !got.Submit {
 		t.Fatal("에이전트 메시지는 항상 자동 엔터여야 한다")
 	}
-	if !strings.HasPrefix(got.Text, "[DONGMINAL-AGENT-MSG from=W1.P1.T2 to=W1.P1.T1 ts=") {
+	if !strings.HasPrefix(got.Text, "[DONGMINAL-AGENT-MSG from=W1.P1.T2 (p2) to=W1.P1.T1 (p1) ts=") {
 		t.Fatalf("envelope 헤더 불일치:\n%s", got.Text)
 	}
 	if !strings.HasSuffix(got.Text, "\n리뷰 부탁\n[/DONGMINAL-AGENT-MSG]") {
@@ -361,7 +387,7 @@ func TestToolMessage_NormalizesUUIDToLabel(t *testing.T) {
 	if len(io.pastes) != 1 {
 		t.Fatalf("pastes=%d want 1", len(io.pastes))
 	}
-	if !strings.Contains(io.pastes[0].Text, "from=W1.P1.T2 to=W1.P1.T1") {
+	if !strings.Contains(io.pastes[0].Text, "from=W1.P1.T2 (p2) to=W1.P1.T1 (p1)") {
 		t.Fatalf("uuid 가 라벨로 정규화되지 않았다:\n%s", io.pastes[0].Text)
 	}
 	if io.pastes[0].ToolID != "p1" {
@@ -479,5 +505,125 @@ func TestStripANSI(t *testing.T) {
 				t.Errorf("stripANSI(%q)=%q want %q", c.in, got, c.want)
 			}
 		})
+	}
+}
+
+// ── 식별자 uuid 전용화 (ORCHESTRATION_V2_SRS 묶음 I) ──
+
+const labelDiagnosisTail = "uuid 는 `dmctl list-workspace` 의 uuid= 컬럼"
+
+// V-IDU-1/3: 좌표 라벨은 접합면의 모든 표면에서 400 으로 거절되고, 문안은 어디서나
+// 같다. 그리고 대상 PTY 에는 아무것도 쓰이지 않는다 — 거절이 배달보다 앞선다.
+func TestToolIO_RejectsCoordinateLabel(t *testing.T) {
+	ts, io, _ := toolIOServer(t)
+	io.snap["p1"] = []byte("hi")
+	const label = "W1.P1.T1"
+
+	cases := []struct {
+		name string
+		call func() (*http.Response, map[string]any)
+	}{
+		{"read-output", func() (*http.Response, map[string]any) {
+			return getJSON(t, ts.URL+"/api/tools/output?id="+label)
+		}},
+		{"read-screen", func() (*http.Response, map[string]any) {
+			return getJSON(t, ts.URL+"/api/tools/output?id="+label+"&strip=1")
+		}},
+		{"status", func() (*http.Response, map[string]any) {
+			return getJSON(t, ts.URL+"/api/tools/activity/get?id="+label)
+		}},
+		{"wait", func() (*http.Response, map[string]any) {
+			return getJSON(t, ts.URL+"/api/tools/activity/wait?id="+label+"&for=ready")
+		}},
+		{"send-input", func() (*http.Response, map[string]any) {
+			return postJSON(t, ts.URL+"/api/tools/input",
+				map[string]any{"id": label, "text": "echo hi", "execute": true})
+		}},
+		{"msg", func() (*http.Response, map[string]any) {
+			return postJSON(t, ts.URL+"/api/tools/message",
+				map[string]any{"to": label, "from": "p2", "message": "리뷰 부탁"})
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			resp, body := c.call()
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("status=%d want 400 (없다가 아니라 잘못 불렀다)", resp.StatusCode)
+			}
+			msg, _ := body["error"].(string)
+			for _, want := range []string{"좌표 라벨(" + label + ")", labelDiagnosisTail} {
+				if !strings.Contains(msg, want) {
+					t.Errorf("진단에 %q 가 없다: %q", want, msg)
+				}
+			}
+		})
+	}
+	if len(io.pastes) != 0 {
+		t.Fatalf("라벨 호출이 거절됐는데 PTY 에 %d 건이 쓰였다", len(io.pastes))
+	}
+}
+
+// V-IDU-2: 같은 탭의 uuid 로 부르면 그대로 전달된다 — 좁아진 것은 라벨 입력뿐이다.
+func TestToolMessage_UUIDStillDelivers(t *testing.T) {
+	ts, io, _ := toolIOServer(t)
+	resp, _ := postJSON(t, ts.URL+"/api/tools/message", map[string]any{
+		"to":      "aaaaaaaa-1111-2222-3333-444444444444",
+		"from":    "bbbbbbbb-1111-2222-3333-444444444444",
+		"message": "리뷰 부탁",
+	})
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d want 200", resp.StatusCode)
+	}
+	if len(io.pastes) != 1 || io.pastes[0].ToolID != "p1" {
+		t.Fatalf("pastes=%+v want 1건 p1", io.pastes)
+	}
+}
+
+// V-IDU-6: 존재하지 않는 uuid 는 404 를 유지한다. 400 이 되면 "잘못 불렀다" 와
+// "없다" 를 가르는 신호가 무너진다.
+func TestToolIO_UnknownUUIDStays404(t *testing.T) {
+	ts, io, _ := toolIOServer(t)
+	resp, body := postJSON(t, ts.URL+"/api/tools/message",
+		map[string]any{"to": "ffffffff-1111-2222-3333-444444444444", "from": "p2", "message": "x"})
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status=%d want 404", resp.StatusCode)
+	}
+	if msg, _ := body["error"].(string); strings.Contains(msg, "좌표 라벨") {
+		t.Fatalf("라벨 진단이 새어 나왔다: %q", msg)
+	}
+	if len(io.pastes) != 0 {
+		t.Fatal("해석 실패인데 paste 가 나갔다")
+	}
+}
+
+// FR-IDU-9: 엔벨로프 헤더는 라벨과 uuid 를 함께 싣는다. 라벨만으로는 답장할 수
+// 없기 때문이다 (접합면은 uuid 만 받는다).
+func TestToolMessage_EnvelopeCarriesReplyableUUID(t *testing.T) {
+	ts, io, _ := toolIOServer(t)
+	postJSON(t, ts.URL+"/api/tools/message",
+		map[string]any{"to": "p1", "from": "p2", "message": "x"})
+	header := io.pastes[0].Text
+	if !strings.Contains(header, "from=W1.P1.T2 (p2)") {
+		t.Fatalf("발신자 uuid 가 헤더에 없다:\n%s", header)
+	}
+	if !strings.Contains(header, "to=W1.P1.T1 (p1)") {
+		t.Fatalf("수신자 uuid 가 헤더에 없다:\n%s", header)
+	}
+}
+
+// FR-IDU-9: 발신자 표기는 Resolve 를 그대로 쓴다 — 표시 목적이고 라우팅에 쓰이지
+// 않으므로 라벨로 온 --from 은 계속 받아 준다. 배달 대상은 --to 가 정한다.
+func TestToolMessage_SenderLabelStillDisplays(t *testing.T) {
+	ts, io, _ := toolIOServer(t)
+	resp, body := postJSON(t, ts.URL+"/api/tools/message",
+		map[string]any{"to": "p1", "from": "W1.P1.T2", "message": "x"})
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d want 200 — 발신자 라벨은 라우팅에 쓰이지 않는다", resp.StatusCode)
+	}
+	if body["from"] != "W1.P1.T2" {
+		t.Fatalf("from=%v want W1.P1.T2", body["from"])
+	}
+	if !strings.Contains(io.pastes[0].Text, "from=W1.P1.T2 (p2)") {
+		t.Fatalf("발신자 표기가 깨졌다:\n%s", io.pastes[0].Text)
 	}
 }

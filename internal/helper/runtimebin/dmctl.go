@@ -50,9 +50,19 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   각 서브커맨드의 상세는 dmctl <서브커맨드> --help 로 본다.
 
 위치 식별자 — uuid 만 허용:
+  --at / -l / --to / --from / focus 의 인자 전부가 여기에 해당한다.
   - tab uuid: list-workspace 의 "uuid=" 컬럼 값 (예: 550e8400-... 또는 짧은 형식 모두 OK).
-  - 좌표(4.1.1 / W4.P1.T1), 라벨, toolId 는 거부 (400 응답).
+  - 좌표(4.1.1)·라벨(W4.P1.T1)은 거부 (400 응답).
     이유: 라벨/좌표는 다른 창 닫힘 시 reflow 되어 다른 탭을 가리킨다.
+
+  경로별로 받는 값이 조금 다르다:
+    레이아웃 (new-tab/split-*/focus/close-*/rename-*/open-editor)
+      탭 uuid 만. 좌표·라벨·toolId 는 거부.
+    접합면 (read-screen/read-output/send-input/msg/status/wait/run member)
+      탭 uuid 또는 살아있는 toolId. 좌표·라벨은 거부.
+
+  list-workspace 의 "label=" 컬럼은 화면을 읽기 위한 표시 전용이다 — 입력 식별자가
+  아니다. 명령에 넣을 값은 언제나 "uuid=" 컬럼에서 가져온다.
   서버는 uuid 를 broadcast 직전 좌표로 번역해 브라우저에 전달한다.
 
 공통 플래그:

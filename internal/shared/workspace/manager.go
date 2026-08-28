@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -13,6 +14,12 @@ import (
 )
 
 var ErrStale = errors.New("workspace: stale revision")
+
+// ErrLabelIdentifier 는 ResolveStrict 가 좌표 라벨 형태의 입력을 거부했다는 표시다
+// (FR-IDU-2). 호출자는 errors.Is 로 이것을 갈라 "잘못 불렀다"(400)를 "없다"(404)와
+// 구분한다. 메시지 자체가 진단의 마지막 줄이다.
+var ErrLabelIdentifier = errors.New(
+	"uuid 는 `dmctl list-workspace` 의 uuid= 컬럼, 또는 생성 명령(new-tab/split-*)의 응답에 있다.")
 
 // ErrSchemaTooOld는 workspace.json 이 v2 미만일 때 반환된다 (FR-EM-2a).
 // 구 스키마를 빈 workspace 와 구별할 수 없으므로 조용히 넘기지 않고
@@ -260,6 +267,57 @@ func (m *Manager) Resolve(id string) (string, error) {
 	}
 	return "", fmt.Errorf("id 해석 실패: %s (list_workspace 로 확인)", id)
 }
+
+// ResolveStrict translates an identifier into a live toolId **without accepting
+// coordinate labels** (ORCHESTRATION_V2_SRS FR-IDU-1).
+//
+// Resolve 와 갈라지는 이유: 라벨(W1.P2.T1)은 창·분할 칸이 닫히면 다시 계산되므로,
+// 에이전트가 라벨로 팀원을 부르면 사용자가 창 하나를 닫는 순간 **다른 도구에게**
+// 메시지가 간다. 레이아웃 명령은 화면 위치가 곧 대상이라 라벨이 자연스럽지만,
+// 접합면(read-screen·send-input·msg·status·wait)은 그렇지 않다.
+//
+// 순서: 살아있는 toolId → 엔터티 uuid 인덱스 → 실패. 라벨 형태의 입력은
+// ErrLabelIdentifier 를 감싼 전용 진단으로 갈린다 (FR-IDU-2). 그 밖의 실패
+// 문안은 Resolve 와 같다 (FR-IDU-3 행위 보존).
+func (m *Manager) ResolveStrict(id string) (string, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return "", fmt.Errorf("빈 id")
+	}
+	// 1) 살아있는 toolId 인가. Resolve 와 같은 이유로 형태를 보지 않는다.
+	if m.live.IsLive(id) {
+		return id, nil
+	}
+	ix := m.idx.Load()
+	// 2) 엔터티(창·분할 칸·탭) uuid 인가.
+	if ix != nil {
+		if pid, ok := ix.uuidToID[strings.ToLower(id)]; ok {
+			if !m.live.IsLive(pid) {
+				return "", fmt.Errorf("tab id %s 은 toolId=%s 가리키지만 도구가 존재하지 않음", id, pid)
+			}
+			return pid, nil
+		}
+	}
+	// 라벨 인덱스는 조회하지 않는다. 형태 판정이 조회 뒤에 오므로 라벨과 같은
+	// 문자열의 uuid·toolId 가 있으면 그쪽이 이긴다 (FR-UNI-10 보존).
+	if isLabelForm(id) {
+		return "", fmt.Errorf(
+			"좌표 라벨(%s)은 이 명령에서 쓸 수 없다 — uuid 를 쓴다.\n"+
+				"라벨은 창·분할 칸이 닫히면 다시 계산돼 다른 탭을 가리킨다.\n%w",
+			id, ErrLabelIdentifier)
+	}
+	if isKnownToolID(ix, id) {
+		return "", fmt.Errorf("toolId=%s 존재하지 않음", id)
+	}
+	return "", fmt.Errorf("id 해석 실패: %s (list_workspace 로 확인)", id)
+}
+
+// labelForm 은 좌표 라벨의 형태다 (FR-IDU-2). 대소문자를 가리지 않는다.
+var labelForm = regexp.MustCompile(`(?i)^W\d+\.P\d+\.T\d+$`)
+
+// isLabelForm 은 ResolveStrict 의 진단 메시지를 고르는 데에만 쓴다. 해석에 쓰면
+// FR-UNI-10(해석은 조회 결과가 정한다)이 깨진다.
+func isLabelForm(s string) bool { return labelForm.MatchString(s) }
 
 // isKnownToolID reports whether id appears as a tab's toolId in the current
 // tree. FR-UNI-12: 형태가 아니라 인덱스로 판정하며, 진단 메시지에만 쓴다.

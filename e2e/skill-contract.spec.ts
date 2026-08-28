@@ -224,6 +224,42 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
     expect(g.status()).toBe(404);
   });
 
+  // ORCHESTRATION_V2_SRS FR-IDU-4: 접합면은 좌표 라벨을 **400** 으로 거부한다.
+  //
+  // 404("그런 것이 없다")와 갈라야 하는 이유는 진단이 곧 수정 지시여야 하기
+  // 때문이다 — 살아 있는 탭을 라벨로 부른 것은 "없는 대상"이 아니라 "잘못된
+  // 부름"이고, 에이전트는 그 차이를 알아야 uuid 로 고쳐 부른다.
+  //
+  // 위의 404 케이스와 짝이다: 같은 종단에 없는 uuid 를 주면 404, 살아 있는 탭의
+  // 라벨을 주면 400 이다.
+  test('접합면은 좌표 라벨을 400 으로 거부한다 (FR-IDU-4)', async ({ page, request }) => {
+    // 라벨이 **실재해야** 이 계약을 검증한다 — 없는 라벨은 그냥 404 라서
+    // "잘못된 부름" 과 "없는 대상" 이 갈리는지를 보여주지 못한다.
+    // waitForInit 이 창·분할 칸·탭 하나를 보장하므로 W1.P1.T1 이 존재한다.
+    await waitForInit(page);
+    const label = 'W1.P1.T1';
+
+    for (const [path, data] of [
+      ['/api/tools/input', { id: label, text: 'x' }],
+      ['/api/tools/message', { to: label, message: 'x' }],
+    ] as [string, any][]) {
+      const r = await request.post(path, { data });
+      expect(r.status(), `${path} 가 좌표 라벨을 통과시켰다`).toBe(400);
+      // 진단은 대안을 가리켜야 한다 (FR-IDU-2).
+      expect(await r.text()).toContain('uuid');
+    }
+
+    const g = await request.get(`/api/tools/output?id=${label}`);
+    expect(g.status(), 'GET 경로가 좌표 라벨을 통과시켰다').toBe(400);
+
+    // 레이아웃 경로는 이 변경의 대상이 아니다 (FR-IDU-5) — 예전부터 400 이고
+    // 그대로다. 두 경로가 같은 코드를 갈라 쓰지 않는다는 회귀 방어다.
+    const cmd = await request.post('/api/commands', {
+      data: { action: 'focus', args: { location: label } },
+    });
+    expect(cmd.status()).toBe(400);
+  });
+
   // 묶음 S — 상태·대기 계약 (RUN_ORCHESTRATION_SRS FR-STA-1/2/5).
   // 재작성될 Barrier 가 화면 스크래핑 대신 밟을 경로다. Go 단위 테스트는 가짜
   // toolaccess 로 도는 반면 여기서는 실제 도구·실제 해석기를 통과한다.
