@@ -11,7 +11,9 @@ Object.assign(App.prototype, {
   // FR-GIT-179·182: Git 창은 닫힌 창이고 창 목록·순환의 대상이 아니다. 판정은
   // 이 두 곳에만 둔다 — 조건이 흩어지면 한 곳이 빠져도 조용히 지나간다.
   _isGitWin(s){return !!(s&&s.type===WINDOW_TYPE_GIT)},
-  _plainWindows(){return this.ws.windows.filter(s=>!this._isGitWin(s))},
+  // EDITOR_TAB_SRS FR-EDT-45: Editor 창도 같은 근거로 창 목록·창 순회의 대상이
+  // 아니다 — 진입점은 Editor 탭의 행뿐이다. 판정을 여기 하나에 모은다.
+  _plainWindows(){return this.ws.windows.filter(s=>!this._isGitWin(s)&&!this._isEditorWin(s))},
 
   /**
    * FR-GIT-183a → FR-SBT-23·24: Git 창을 떠날 때 가는 창.
@@ -22,6 +24,29 @@ Object.assign(App.prototype, {
    * 옛 `Close Git` 버튼과 `Windows` 탭이 같은 곳으로 가야 하므로 계산은 여기 하나다
    * (FR-SBT-36) — 두 벌로 만들면 한쪽만 고쳐진다.
    */
+  /**
+   * 지금 보고 있던 리포가 목록에서 사라졌으면 그 자리를 떠난다.
+   *
+   * 핀을 지워도 Git 창은 **그 리포를 계속 보이고 있었다** — 사용자가 없앤 것이
+   * 화면에 남는다. 리포를 고르는 자리(사이드바)가 이미 비었으므로 그 창에는 갈
+   * 곳이 없다.
+   *
+   * 연동으로 같은 경로의 Editor 창도 함께 사라지므로(FR-EDT-32), 그쪽에 앉아
+   * 있었다면 재조정이 창을 빼는 순간 활성 창이 유령이 된다. 두 경우를 한
+   * 자리에서 본다.
+   */
+  _gitLeaveIfRemoved(path){
+    const w=this._aw();
+    // 지운 리포를 그대로 보이고 있는 Git 창이면 떠난다. 리포를 고르는 자리가
+    // 이미 비었으므로 그 창에는 갈 곳이 없다.
+    //
+    // 연동으로 사라지는 Editor 창은 여기서 보지 않는다 — `_edAfterChange` 가
+    // 목록이 바뀌는 모든 경로에서 그것을 이미 처리한다.
+    if(!this._isGitWin(w)||!w.git||w.git.repo!==path) return;
+    const t=this._gitBackTarget();
+    if(t) this.switchWindow(t.id);
+  },
+
   _gitBackTarget(){
     const plain=this._plainWindows();
     return plain.find(s=>s.id===this._lastPlainWindow)||plain[0]||null;
@@ -109,6 +134,10 @@ Object.assign(App.prototype, {
    */
   async _gitOpenFile(filePath){
     if(!filePath) return;
+    // FR-EDT-94·97: 편집기 탭은 일반 창에 열리지 않는다. 대상 창은 **활성 리포
+    // 경로에 연결된 Editor** 다 — 파일 경로로 고르지 않는다. 연동(FR-EDT-31)으로
+    // 핀이 걸린 리포에는 그 Editor 가 늘 있다.
+    if(this._edOn()){ await this._edOpenFile(filePath,{anchor:this._gitActiveRepo()}); return }
     const w=await this._gitPlainTarget(); if(!w) return;
     const rid=this._gitPaneOf(w);
     if(rid) await this.addTab(rid,'editor',{filePath,windowId:w.id});
@@ -124,9 +153,13 @@ Object.assign(App.prototype, {
    */
   async _gitOpenFileHead(openPath,relPath){
     if(!openPath) return;
+    const name=((relPath||openPath).split('/').pop())+GIT_HEAD_TAB_SUFFIX;
+    // FR-EDT-94·98: Open File 과 같은 규약이다 — **리포로 고른다.** 서버는 HEAD 의
+    // 내용을 저장소 밖에 놓으므로 파일로 고르면 언제나 폴백으로 떨어진다. 그 임시
+    // 파일이 탐색기 루트 밖인 것은 정상이다 (FR-EDT-99).
+    if(this._edOn()){ await this._edOpenFile(openPath,{name,anchor:this._gitActiveRepo()}); return }
     const w=await this._gitPlainTarget(); if(!w) return;
     const rid=this._gitPaneOf(w);
-    const name=((relPath||openPath).split('/').pop())+GIT_HEAD_TAB_SUFFIX;
     if(rid) await this.addTab(rid,'editor',{filePath:openPath,name,windowId:w.id});
   },
 
@@ -155,6 +188,10 @@ Object.assign(App.prototype, {
     this.switchWindow(w.id);
     return w;
   },
+
+  // FR-EDT-97: 라우팅의 기준이 되는 **활성 리포**. 창에 붙어 있는 값을 패널이
+  // 쥐고 있다 (FR-GIT-29) — 판정 자리를 늘리지 않으려고 여기 하나로 읽는다.
+  _gitActiveRepo(){ return (this.gitPanel&&this.gitPanel.repo)||'' },
 
   _gitPaneOf(w){
     return (w.focusedPane&&findPane(w.layout,w.focusedPane))?w.focusedPane:firstPane(w.layout)?.id;
@@ -200,7 +237,9 @@ Object.assign(App.prototype, {
   // 일반 창의 활성 탭 중 터미널인 것. 여러 개면 마지막으로 쓴 창을 먼저 본다 —
   // 그것이 사용자가 방금 떠나온 자리다.
   _anyTermToolId(){
-    const wins=this.ws.windows.filter(w=>w.type!==WINDOW_TYPE_GIT);
+    // 판정은 `_plainWindows` 하나다 — Git 창만 걸러 두면 Editor 창의 탭이
+    // 후보가 되는데, 거기에는 터미널 탭이 애초에 없다 (FR-EDT-54).
+    const wins=this._plainWindows();
     const order=wins.slice().sort((a,b)=>
       (b.id===this._lastPlainWindow?1:0)-(a.id===this._lastPlainWindow?1:0));
     for(const w of order){
@@ -386,6 +425,7 @@ Object.assign(App.prototype, {
     }catch(err){return {ok:false,reason:GIT_PIN_FAIL_LABEL+': '+err}}
     if(!r.ok) return {ok:false,reason:(d&&d.message)||GIT_PIN_FAIL_LABEL};
     this._gitPinsApply(d.pinned);
+    this._edApplyLinked(d);
     await this._gitReposRefresh();
     return {ok:true,pinned:d.pinned||[]};
   },
@@ -399,6 +439,8 @@ Object.assign(App.prototype, {
     }catch{return false}
     if(!r.ok) return false;
     this._gitPinsApply(d.pinned);
+    this._edApplyLinked(d);
+    this._gitLeaveIfRemoved(path);
     await this._gitReposRefresh();
     return true;
   },

@@ -279,11 +279,18 @@ test.describe('FR-BGR-7: location 미지정 복귀는 조용히 무효가 되지
     expect(toolId).toBeTruthy();
 
     // 그 순간을 명중시킨다 — 폴링해서 windows 가 비는 즉시 복귀를 건다.
+    //
+    // EDITOR_TAB_SRS FR-EDT-13: root 에디터 창이 항상 존재하므로 `ws.windows`
+    // 는 이 과도 상태에서도 결코 0 이 되지 않는다 — 일반 창(`fixtures.ts`
+    // `plainWindows` 와 같은 판정: `type` 이 `git`·`editor` 가 아닌 창)이 0 인
+    // 순간을 잰다. 폴링 루프는 페이지 안에서 타이트하게 돌아야 하므로(매
+    // 틱마다 Node 로 왕복할 수 없다) 같은 판정을 여기 인라인한다.
     const armed = page.evaluate(async (tid) => {
       const app = (window as any).app;
+      const plainCount = () => app.ws.windows.filter((w: any) => w && w.type !== 'git' && w.type !== 'editor').length;
       const t0 = performance.now();
       while (performance.now() - t0 < 15000) {
-        if (app.ws.windows.length === 0) { await app._restoreTool(tid); return true }
+        if (plainCount() === 0) { await app._restoreTool(tid); return true }
         await new Promise((r) => setTimeout(r, 1));
       }
       return false;

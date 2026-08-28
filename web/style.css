@@ -11,6 +11,11 @@
   --accent-hover:rgba(122,162,247,.1);--accent-active:rgba(122,162,247,.12);
   --accent-subtle:rgba(122,162,247,.08);
   --attn:#e0af68;--attn-subtle:rgba(224,175,104,.16);--attn-glow:rgba(224,175,104,.5);
+  /* UX_REVISION_SRS FR-STC-1~3 · EDITOR_TAB_SRS FR-EDT-70: 상태문자의 초록.
+     전역 테마에 "추가" 색이 없으므로 `.git-hunks` 가 +/- 에 세운 규약대로 값을
+     **이 한 자리에서** 정한다. Git 패널 밖(탐색기 트리)도 같은 값을 봐야 하므로
+     `.git-files` 가 아니라 여기 산다 (D-4). */
+  --git-st-add:#9ece6a;
   --m-kb-h:38px;
 }
 
@@ -67,12 +72,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 /* FR-GIT-226: 사이드바 목록 행이 30px 이 되었으므로 그 아래 버튼도 같은 높이를
    갖는다. 같은 패널의 같은 계열인데 한쪽만 낮으면 "너무 낮다" 가 한 줄 아래에서
    그대로 반복된다. */
-#add-window,#add-preset,#git-add-repo{
+#add-window,#add-preset,#git-add-repo,#editor-add{
   margin:0 8px 4px;padding:4px 8px;min-height:30px;
   background:transparent;border:1px solid var(--border);border-radius:4px;
   color:var(--text-muted);font-size:11px;cursor:pointer;text-align:left;
 }
-#add-window:hover,#add-preset:hover,#git-add-repo:hover{background:var(--accent-hover);color:var(--accent)}
+#add-window:hover,#add-preset:hover,#git-add-repo:hover,#editor-add:hover{background:var(--accent-hover);color:var(--accent)}
 /* UX_REVISION_SRS FR-BLP-5·9: 패널의 액션 버튼 행. 두 패널이 같은 골격을 쓰므로
    여백도 한 자리에서 정한다 — 한쪽만 고치면 "구조가 같다" 가 깨진다. */
 .sb-actions{display:flex;flex-direction:column;flex:0 0 auto;margin-bottom:6px}
@@ -479,6 +484,9 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   transition:border-color .15s,background .15s;
 }
 .preset-save:hover{border-color:var(--accent-border);background:var(--accent-hover)}
+/* 저장을 거절한 사유. 비어 있으면 자리를 차지하지 않는다. */
+.preset-msg{color:var(--danger);font-size:12px;line-height:1.5}
+.preset-msg:empty{display:none}
 
 /* ── Display Settings ── */
 .display-settings{display:flex;flex-direction:column;gap:10px}
@@ -1112,11 +1120,10 @@ body.mobile #add-window,body.mobile #add-preset,body.mobile #settings-btn{paddin
 .git-file-path-dir{color:var(--text)}
 .git-file-path-name{color:var(--text-bright);font-weight:600}
 .git-file-path-arrow{color:var(--text-muted)}
-/* UX_REVISION_SRS FR-STC-1~3: 상태문자의 색. 전역 테마에 "추가/삭제" 색이 없으므로
-   `.git-hunks` 가 +/- 에 대해 세운 규약대로 값을 이 한 자리에서 정한다.
-   추가는 diff 의 add 와 같은 초록, 삭제는 danger — 같은 뜻을 두 화면에서 다른
-   색으로 말하지 않는다. */
-.git-files{--git-st-add:#9ece6a}
+/* UX_REVISION_SRS FR-STC-1~3: 상태문자의 색. 추가는 diff 의 add 와 같은 초록,
+   삭제는 danger — 같은 뜻을 두 화면에서 다른 색으로 말하지 않는다.
+   `--git-st-add` 는 `:root` 에 산다 — 탐색기 트리에는 `.git-files` 조상이 없고,
+   색값의 정의 자리를 늘릴 수는 없기 때문이다 (EDITOR_TAB_SRS FR-EDT-70 / D-4). */
 .git-file-st.st-mod{color:var(--accent)}
 .git-file-st.st-add{color:var(--git-st-add)}
 .git-file-st.st-del{color:var(--danger)}
@@ -2168,8 +2175,16 @@ body.mobile .run-view .run-card{min-height:44px}
 
 /* --- track: sidebar-tabs (WS-6 · GIT_SIDEBAR_TABS_SRS) --- */
 
-/* FR-SBT-1·5: 탭 바. 두 탭이 너비를 균등 분할하고(flex:1) 이름이 넘치면
-   말줄임한다 — `--sb-w` 최소값 100px 에서도 두 이름이 읽혀야 한다 (C-2). */
+/* FR-SBT-1·5 / NFR-EDT-3: 탭 바. 균등 분할하고 이름이 넘치면 말줄임한다.
+
+   **균등 분할(`flex:1 1 0`)을 지킨다** (V-SBT-16). 내용 기준(`flex:1 1 auto`)으로
+   바꿔 봤으나 폭 최소값 100px 에서 **셋 다** 잘렸다 — 짧은 이름(`Git`)까지 자기
+   몫을 빼앗긴다. 균등 분할은 짧은 이름을 지켜 준다.
+
+   대신 셋이 되면서 기본 폭의 3등분이 칸당 50px 이 되어 `Windows` 가 좌우 패딩에
+   밀려 `Wind…` 로 잘렸으므로(실측), **글자와 패딩을 그만큼 줄인다.** 값은 실측에서
+   나온 것이다 — 11px·좌우 4px 면 42px 이 남아 48px 짜리 이름이 잘리고,
+   10px·좌우 3px 면 44px 이 남아 44px 짜리 이름이 들어간다. */
 #sb-tabs{
   display:flex;flex:0 0 auto;
   border-bottom:1px solid var(--border);
@@ -2178,8 +2193,8 @@ body.mobile .run-view .run-card{min-height:44px}
   flex:1 1 0;min-width:0;height:30px;
   display:flex;align-items:center;justify-content:center;gap:4px;
   background:transparent;border:none;border-bottom:2px solid transparent;
-  color:var(--text-muted);font-family:inherit;font-size:11px;font-weight:600;
-  cursor:pointer;padding:0 4px;transition:background .1s,color .1s;
+  color:var(--text-muted);font-family:inherit;font-size:10px;font-weight:600;
+  cursor:pointer;padding:0 3px;transition:background .1s,color .1s;
 }
 .sb-tab-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sb-tab:hover{background:var(--accent-hover);color:var(--accent)}
@@ -2238,3 +2253,111 @@ body.mobile .sb-tab-badge{min-width:18px;padding:0 6px;font-size:11px;line-heigh
 body.mobile .bg-box .bg-row{min-height:44px}
 body.mobile .bg-box .bg-kill,body.mobile .bg-box .bg-yes,body.mobile .bg-box .bg-no{min-height:32px;padding:4px 12px}
 
+
+/* ── Editor 탭 · Editor 창 (EDITOR_TAB_SRS 묶음 T·W) ── */
+
+/* FR-EDT-14: root 행은 목록의 **최하단 고정**이며 일반 목록과 같은 컨테이너에
+   그려진다. 구분은 컨테이너가 아니라 선이 준다. */
+.sbl-item.ed-root .sbl-name{color:var(--text-bright)}
+.ed-entries-none{padding:4px 8px;font-size:11px;color:var(--text-dim)}
+
+/* FR-EDT-46: 창은 좌우 둘로 나뉜다. 탐색기는 분할 트리 **밖**의 고정 영역이며
+   어떤 드롭으로도 쪼개지지 않는다 — 트리는 `.ed-area` 안에만 산다. */
+.ed-win{display:flex;position:absolute;inset:0;overflow:hidden}
+.ed-explorer{
+  flex:0 0 auto;min-width:0;display:flex;flex-direction:column;overflow:hidden;
+  background:var(--sidebar-bg);border-right:1px solid var(--border);
+}
+/* FR-EDT-47: 폭 조절 손잡이. 사이드바(`#sb-handle`)와 같은 생김새·같은 히트 확장. */
+.ed-ex-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border);position:relative}
+.ed-ex-handle:hover{background:var(--accent)}
+.ed-ex-handle::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
+/* `.pn`·`.sp` 가 `position:absolute;inset:0` 이므로 담는 쪽이 위치 기준이어야 한다. */
+.ed-area{flex:1 1 auto;position:relative;min-width:0;overflow:hidden}
+/* FR-EDT-55: pane 이 **없는** 것이지 빈 pane 이 있는 것이 아니다. */
+.ed-empty{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  padding:0 16px;text-align:center;font-size:12px;color:var(--text-dim);
+}
+/* 모바일 배치는 후속이다 (비목표 8) — 탐색기를 접을 규약이 아직 없으므로 최소
+   폭만 양보한다. */
+body.mobile .ed-explorer{max-width:40%}
+
+/* ── 탐색기 트리 (EDITOR_TAB_SRS 묶음 X) ── */
+
+/* FR-EDT-64: 새로고침은 상단에 상주한다. 머리는 스크롤에서 빠지고 트리만 구른다 —
+   수천 행에서 진입점이 화면 밖으로 밀리면 없는 것과 같다. */
+.ed-head{
+  display:flex;align-items:center;gap:6px;flex:0 0 auto;
+  height:26px;padding:0 4px 0 8px;
+  border-bottom:1px solid var(--border);
+}
+.ed-head-name{flex:1 1 auto;min-width:0;font-size:11px;color:var(--text-bright);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ed-head-btn{
+  flex:0 0 auto;width:22px;height:22px;line-height:1;
+  background:none;border:0;color:var(--text-muted);cursor:pointer;border-radius:3px;
+}
+.ed-head-btn:hover{background:var(--accent-hover);color:var(--text-bright)}
+/* FR-EDT-68: 스크롤 주체는 트리 하나다. 행은 중첩 DOM 이 아니라 패딩으로 들여쓴
+   평평한 목록이므로(FR-GIT-211 과 같은 규약) 재사용이 성립한다. */
+.ed-tree{flex:1 1 auto;min-height:0;overflow:auto;padding-bottom:6px}
+.ed-tree::-webkit-scrollbar{width:4px}
+.ed-tree::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.ed-row{
+  display:flex;align-items:center;gap:4px;
+  height:22px;font-size:12px;cursor:pointer;white-space:nowrap;
+}
+.ed-row:hover{background:var(--accent-hover)}
+.ed-row.sel{background:var(--accent-active)}
+/* 펼침 표시의 칸은 폴더가 아닌 행에서도 자리를 지킨다 — 없으면 이름이 깊이마다
+   어긋나 보인다. */
+.ed-tw{flex:0 0 10px;text-align:center;font-size:9px;color:var(--text-muted)}
+.ed-name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.ed-row.ed-dir .ed-name{color:var(--text-bright)}
+/* FR-EDT-60: 링크는 따라가지 않는다는 사실을 표시가 알린다. */
+.ed-mark{flex:0 0 auto;font-size:10px;color:var(--text-muted)}
+/* FR-EDT-63: 조회 실패는 그 폴더 행에만 남는다 — 트리는 그대로 산다. */
+.ed-row.ed-err .ed-name{color:var(--danger);text-decoration:line-through}
+.ed-tree-err,.ed-more{font-size:11px;color:var(--text-dim);padding-top:2px;padding-bottom:2px}
+
+/* FR-EDT-70 / D-4: 색은 **같은 변수와 같은 상태 클래스**를 참조한다 (GIT_ST_CLASS).
+   새 색값을 만들지 않는다 — 같은 뜻을 두 화면에서 다른 색으로 말하지 않기 위해서다.
+   `--attn` 을 쓰지 않는 이유도 Git 패널과 같다 (style.css 의 st-ren 주석). */
+.ed-row.st-mod .ed-name{color:var(--accent)}
+.ed-row.st-add .ed-name,.ed-row.st-new .ed-name{color:var(--git-st-add)}
+.ed-row.st-del .ed-name{color:var(--danger)}
+.ed-row.st-ren .ed-name,.ed-row.st-cpy .ed-name{color:var(--text-bright)}
+.ed-row.st-conf .ed-name{color:var(--danger)}
+/* FR-GIT-190 / FR-STC-4: 일부만 스테이지된 파일. **상태색보다 뒤에 와서 이긴다** —
+   Git 패널의 `.git-file.partial` 과 같은 규약이고, 같은 사실을 두 화면이 다른
+   색으로 말하지 않기 위해서다. */
+.ed-row.st-partial .ed-name{color:var(--attn)}
+/* FR-EDT-14: 고정 항목은 목록 **아래**, 패널의 맨 밑이다. 목록이 남은 높이를
+   전부 먹으므로(`.sbl-list` 가 `flex:1 1 auto`) 이 블록은 자연히 바닥에 붙는다.
+   구분선이 "목록의 끝" 과 "고정된 것" 을 가른다. */
+.sbl-fixed{flex:0 0 auto;border-top:1px solid var(--border);padding-top:4px}
+.sbl-fixed:empty{display:none}
+
+/* ── 파일 조작 (EDITOR_TAB_SRS 묶음 F · FR-EDT-79~92) ── */
+
+/* FR-EDT-81·82: 인라인 입력은 행 **자리 그대로** 선다 — 다이얼로그로 띄우면
+   어느 폴더 아래에 만드는지가 화면에서 사라진다. */
+.ed-edit{cursor:default}
+.ed-input{
+  flex:1 1 auto;min-width:0;height:18px;padding:0 4px;
+  font:inherit;font-size:12px;
+  background:var(--bg);color:var(--text-bright);
+  border:1px solid var(--accent);border-radius:2px;outline:none;
+}
+/* FR-EDT-85: 놓을 수 있는 폴더. 테두리로 알린다 — 배경만 바꾸면 hover 와 구분되지
+   않는다. */
+.ed-row.ed-drop{background:var(--accent-hover);box-shadow:inset 0 0 0 1px var(--accent)}
+/* FR-EDT-92: 조작 실패의 사유. 조회 실패(`.ed-tree-err`)와 색을 달리한다 — 하나는
+   보여 주지 못한 것이고 하나는 하지 못한 것이다. */
+.ed-op-err{
+  font-size:11px;color:var(--danger);white-space:normal;
+  padding-top:2px;padding-bottom:2px;padding-right:6px;
+}
+/* FR-EDT-83: 삭제 확인창은 `_confirmClose` 의 껍데기를 그대로 쓴다 — 줄만 여럿이다. */
+.ed-confirm-line+.ed-confirm-line{margin-top:6px}

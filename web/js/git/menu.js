@@ -355,7 +355,9 @@ class GitMenu {
     const w=m.offsetWidth, h=m.offsetHeight;
     m.style.left=Math.max(0,x+w>window.innerWidth?x-w:x)+'px';
     m.style.top=Math.max(0,y+h>window.innerHeight?y-h:y)+'px';
-    GitMenu._cur={el:m,target,i:-1};
+    // 항목을 함께 쥔다 — `openList` 는 `GIT_MENUS` 에 없는 목록도 받으므로
+    // (Editor 탐색기의 조작 메뉴가 그렇다) 키보드 실행이 그 표를 되짚을 수 없다.
+    GitMenu._cur={el:m,target,i:-1,items};
     // 이 메뉴를 띄운 contextmenu 는 이미 지나갔으므로 지금 붙여도 자기 이벤트로
     // 닫히지 않는다. Esc·바깥 클릭·스크롤·리사이즈로 닫힌다.
     GitMenu._off=e=>{if(!m.contains(e.target))GitMenu.close()};
@@ -399,7 +401,7 @@ class GitMenu {
       e.preventDefault(); e.stopPropagation();
       const all=[...c.el.querySelectorAll('.git-menu-item')];
       const el=all[c.i]; if(!el||el.classList.contains('disabled')) return;
-      const items=(GIT_MENUS[c.el.dataset.kind]||[]).filter(x=>!x.sep);
+      const items=(c.items||[]).filter(x=>!x.sep);
       const it=items.find(x=>x.id===el.dataset.id);
       if(it) GitMenu._pick(it,c.target);
     }

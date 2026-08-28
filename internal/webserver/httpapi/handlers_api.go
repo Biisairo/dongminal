@@ -132,6 +132,17 @@ var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/cwd"), (*Server).apiCwd},
 	{http.MethodGet, exactPath("/api/file/read"), (*Server).apiFileRead},
 	{http.MethodPost, exactPath("/api/file/write"), (*Server).apiFileWrite},
+	// 묶음 S — 탐색기의 디렉터리 조회·파일 조작과 Editor 목록
+	// (EDITOR_TAB_SRS FR-EDT-108~110). /api/file/* 과 달리 전부 root 를 함께 받아
+	// 그 아래로 제한한다 (D-16) — 조작은 트리에서 파생된 경로를 지운다.
+	{http.MethodGet, exactPath("/api/fs/list"), (*Server).apiFSList},
+	{http.MethodPost, exactPath("/api/fs/create"), (*Server).apiFSCreate},
+	{http.MethodPost, exactPath("/api/fs/rename"), (*Server).apiFSRename},
+	{http.MethodPost, exactPath("/api/fs/delete"), (*Server).apiFSDelete},
+	{http.MethodGet, exactPath("/api/editors"), (*Server).apiEditorsGet},
+	{http.MethodPost, exactPath("/api/editors/add"), (*Server).apiEditorsAdd},
+	{http.MethodPost, exactPath("/api/editors/remove"), (*Server).apiEditorsRemove},
+	{http.MethodPost, exactPath("/api/editors/reorder"), (*Server).apiEditorsReorder},
 	{"", exactPath("/api/ping"), (*Server).apiPing},
 	// 묶음 B·C — 리포 해석·핀·변경 감지 (GIT_SRS FR-GIT-60/61). UI 는 이 표면
 	// 위에만 서고, git 실행 결과를 다른 경로로 얻지 않는다.

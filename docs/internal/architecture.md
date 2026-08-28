@@ -107,12 +107,58 @@ DONGMINAL_PORT=<서버 포트>   # main() 이 setenv, 자식 PTY 가 상속
 DONGMINAL_TOOL_ID=<도구 id>  # detach 가 자기 도구를 식별하는 근거
 ```
 
-## 파일 편집기 (`web/js/ui/file-editor.js`)
+## 편집기 — Editor 탭과 Editor 창 (`EDITOR_TAB_SRS`)
 
-`edit <path>` 는 `POST /api/commands` 로 `openEditorTab` 을 브로드캐스트하고, 브라우저가 그 탭에 Monaco Editor 를 띄운다. 서버 쪽 표면은 파일 I/O 두 개뿐이다.
+**편집기는 일반 창에 열리지 않는다.** 경로마다 하나씩 서는 **Editor 창**에만 산다
+(FR-EDT-94). 그 창은 좌측에 파일 탐색기를, 우측에 편집기 영역을 갖는다.
 
-- `GET /api/file/read?path=<abs>` — 절대경로만 허용. 디렉터리·심볼릭 링크 이탈은 거부.
-- `POST /api/file/write` — 바디 `{path, content}`.
+```
+사이드바 탭:  Windows · Git · Editor
+Editor 탭:    [일반 행들 …] ── 구분선 ── [root 행 `~`]   ← 최하단 고정, 삭제 불가
+행 하나  =  창 하나 (`WINDOW_TYPE_EDITOR`, `editor.root`)
+```
+
+**행과 창은 재조정(reconcile)으로 맞춘다** (FR-EDT-42). 있어야 할 루트 집합은
+`[home, ...editors.list]` 이고, 재조정은 **멱등**이며 같은 루트의 창이 둘이면 id
+사전순으로 하나만 남긴다. 창을 만드는 주체가 브라우저인데 목록 변경은 SSE 로 모든
+브라우저에 도달하므로, 결정론적 중복 제거가 단일 실행자 지명
+(`singleExecutorActions`)의 자리를 대신한다.
+
+**`layout` 이 없는 Editor 창은 살아남는다.** 로드·SSE 동기화의 창 필터가
+`s.layout || s.type === 'editor'` 다 (`app.js`·`app-cmd.js`). 갓 만든 Editor 창은
+탐색기만 있고 pane 이 **없는** 것이 정상 상태이기 때문이다 (FR-EDT-55).
+
+**분할은 드래그드롭뿐이다** (FR-EDT-50·51). 단축키·버튼 분할이 없으므로 빈 pane 이
+생길 경로가 없고, pane 은 언제나 탭을 하나 이상 갖는다. 탭은 **같은 Editor 창
+안에서만** 옮겨진다 — 게이트는 창 경계를 넘는 두 자리(`app-dnd.js` 의
+`_moveTabToWindow` 출발·도착)에만 있다. 창 **안**의 이동(`_moveTabToPane`)과 드롭
+분할(`_splitPaneWithTab`)에 조건을 더하면 유일한 분할 수단이 함께 막힌다.
+
+**Git 핀과 Editor 행은 서로를 만들고 지운다** (FR-EDT-31~38a). 그 연동은
+`internal/webserver/domain/wsentry` 가 **한 번의 read-modify-write** 로 수행한다 —
+두 목록이 따로 저장되면 그 사이에 다른 브라우저가 절반만 반영된 상태를 본다. 홈은
+네 방향 모두에서 무동작이다(root 행이 이미 그 경로를 대표한다). 규칙 넷은 순수
+함수이며 서로를 호출하지 않는다 — AST 검사가 그것을 강제한다.
+
+**파일 라우팅.** `edit <path>` 는 그 경로를 루트 아래에 포함하는 창(둘 이상이면 가장
+깊은 것), 없으면 root 에디터로 간다. Git 의 `Open File` 은 **파일이 아니라 활성 리포
+경로**로 창을 고른다 — `Open File (HEAD)` 의 임시 파일은 저장소 밖에 있어 파일로
+고르면 틀린다.
+
+### 서버 표면
+
+| 종단 | 쓰임 |
+|---|---|
+| `GET /api/file/read?path=<abs>` · `POST /api/file/write` | Monaco 의 파일 I/O (기존) |
+| `GET /api/fs/list?root=&path=` | 탐색기 한 겹 조회. dot 항목 포함 전량, 정렬은 서버가 한다 |
+| `POST /api/fs/{create,rename,delete}` | 파일 조작. **`root` 를 함께 받아 그 아래로 제한한다** |
+| `GET /api/editors` · `POST /api/editors/{add,remove,reorder}` | Editor 목록. 응답에 `pinned` 를 함께 싣는다 |
+
+조작 종단이 `root` 를 요구하는 이유는 기존 `/api/file/*` 의 가드가
+`safeResolve("/", …)` 라 **사실상 무제한**이기 때문이다. 읽기·쓰기는 사용자가 경로를
+지목한 것이지만 조작은 트리 탐색에서 파생된 경로를 지운다. 그리고 루트 경계 판정에
+`safeResolve` 를 **재사용하지 않는다** — 그쪽은 `..` 접두 문자열로 판정해 `..b`·`...`
+같은 정상 이름을 이탈로 오인한다.
 
 도구 타입은 `terminal` 과 `editor` 두 가지다 (`web/js/core/helpers.js` 의 capability 맵). `editor` 는 `backgroundCapable=false` 이므로 detach 대상이 아니다 (FR-BG-11).
 
@@ -120,9 +166,9 @@ DONGMINAL_TOOL_ID=<도구 id>  # detach 가 자기 도구를 식별하는 근거
 
 ## 사이드바 탭 (`web/js/ui/sidebar-tabs.js`)
 
-좌측 사이드바는 `Windows`·`Git` 두 목록을 세로로 쌓지 않고 **탭으로 가른다**
-(`GIT_SIDEBAR_TABS_SRS`). 한 번에 하나만 보이고, 보이는 쪽이 사이드바의 남은 높이
-전부를 쓴다.
+좌측 사이드바는 `Windows`·`Git`·`Editor` 세 목록을 세로로 쌓지 않고 **탭으로
+가른다** (`GIT_SIDEBAR_TABS_SRS`, `EDITOR_TAB_SRS`). 한 번에 하나만 보이고, 보이는
+쪽이 사이드바의 남은 높이 전부를 쓴다.
 
 **새 탭을 더하는 비용은 서술자 1개다** (FR-SBT-21). `sidebar-tabs.js` 의
 `SB_TAB_DEFS` 배열에 한 항목을 넣고 `index.html` 에 패널 래퍼(`<div class="sb-panel"
@@ -132,6 +178,7 @@ id="sb-panel-…">`) 하나를 두면 끝이다. 아래 넷이 그 배열에서 
 | 파생되는 것 | 어디서 |
 |---|---|
 | 탭 버튼과 순서 | `SidebarTabs.paint` — `index.html` 의 `#sb-tabs` 는 비어 있다 |
+| 목록 렌더 호출 | `renderer.js` 의 `_rLists` 가 `list` 를 가진 서술자를 **순회**한다. 예전에는 탭 id 두 개가 하드코딩돼 있었고, 셋째 탭이 그것을 드러냈다 |
 | 직행 키 `Ctrl+Shift+{n}` | 배열 인덱스. `SHORTCUT_DEFAULTS`·`SHORTCUT_LABELS`·`shortcuts` 를 로드 시점에 함께 채운다 |
 | `executeAction` 의 `sidebarTab{n}` | `app.js` 가 배열을 돌며 만든다 |
 | 설정 화면의 단축키 목록 | `app-settings.js` 의 `사이드바 탭` 그룹 |

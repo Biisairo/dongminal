@@ -27,6 +27,10 @@ class App {
     this._lastPlainWindow=null; // Open File 이 돌아갈 일반 창 (FR-GIT-185, O15)
     this._lastTermTool=null;    // follow 가 딛는 마지막 터미널 (FR-GIT-210)
     this._gitOff=false; // git 표면이 503 이면 섹션 전체를 숨긴다
+    // Editor 탭 (EDITOR_TAB_SRS 묶음 T·E). 목록의 권위는 서버다 (FR-EDT-20).
+    this._editors=null; // {home,list[]} — 첫 응답 전에는 null (FR-EDT-29)
+    this._edOff=false;  // /api/editors 가 실패하면 탭 자체를 숨긴다 (FR-EDT-120)
+    this._lastEditorWindow=null; // Editor 탭이 돌아갈 창 (FR-EDT-7)
     // 사이드바 탭 (GIT_SIDEBAR_TABS_SRS §3.9.2). 활성 탭은 클라이언트의 것이다 (D-1).
     this._sbTab=SidebarTabs.restore();
     this._sbBusy=false; // FR-SBT-14 ↔ 22 의 재진입 가드
@@ -77,6 +81,11 @@ class App {
     // OS focus listeners go up before any async work — a `focus` event during
     // init must still claim the active window.
     this._initFocusSync();
+    // FR-EDT-120·43: Editor 표면을 **워크스페이스 처리보다 먼저** 확정한다.
+    // 재조정과 편집기 탭 마이그레이션이 둘 다 `home` 을 알아야 돌 수 있고,
+    // 모르면 둘 다 돌지 않는 것이 옳다 — 추측한 홈으로 만든 창은 나중에 서버가
+    // 알려준 홈과 어긋난 채로 남는다.
+    const edReady=this._edLoad();
     try{
       const stRes=await fetch('/api/state');
       this.wsETag=stRes.headers.get('ETag')||stRes.headers.get('Etag')||null;
@@ -85,6 +94,18 @@ class App {
       const sv=st.workspace;
       const ok=new Set(sp.map(p=>p.id));
       for(const p of sp){const pane=this._mkTool(p.id,p.name);pane._reconnecting=true;pane.el.style.opacity='0'}
+      await edReady;
+      // **창이 없어도 서버가 소유한 키는 채택한다.**
+      //
+      // 아래 분기는 `sv.windows.length` 가 0 이면 서버 스냅샷을 통째로 버린다.
+      // 그런데 `git.pinned`·`editors.list` 는 **창과 무관하게 서버가 권위**이고
+      // (FR-EDT-20, FR-GIT-31), 창이 아직 없는 워크스페이스에도 들어 있다.
+      // 버린 채로 `_mkWindow()`·재조정이 `_save()` 를 부르면 그 PUT 이 두 키를
+      // **지운다** — 핀을 걸어 둔 채 브라우저를 처음 열면 핀이 사라졌다(실측).
+      if(sv){
+        if(sv.git) this.ws.git=sv.git;
+        if(sv.editors) this.ws.editors=sv.editors;
+      }
       if(sv&&sv.windows&&sv.windows.length){
         this.ws=sv;
         // Migration: displayMode/mobileBreakpoint were briefly stored in workspace.
@@ -101,13 +122,36 @@ class App {
           s.layout=clean(s.layout,ok);
           if(s.layout) normalizeLayout(s.layout);
         }
-        this.ws.windows=this.ws.windows.filter(s=>s&&s.layout);
+        // FR-EDT-49 / D-13: **layout 이 없는 Editor 창은 지워지지 않는다.**
+        // 갓 만든 Editor 창은 pane 이 없고(FR-EDT-55) 그것이 정상이다 — 이
+        // 예외가 없으면 다음 `workspace_changed` 한 번에 사라진다 (§2.4).
+        this.ws.windows=this.ws.windows.filter(s=>s&&(s.layout||this._isEditorWin(s)));
         // FR-GIT-186: 개정 이전에 Git 창 안에 들어간 탭을 일반 창으로 옮긴다.
         this._migrateGitWindow();
+        // FR-EDT-103·104 / D-19: 일반 창에 남은 편집기 탭을 걷어낸다. `clean()`
+        // 이 아니라 여기다 — `clean` 은 편집기 탭을 보존하도록 만들어져 있고
+        // 창 타입을 알지 못한다 (§2.9).
+        if(this._migrateEditorTabs()){
+          // FR-EDT-105: 탭이 0이 된 pane 은 붕괴하고, layout 이 빈 **일반** 창은
+          // 사라진다. Editor 창은 위 필터와 같은 예외로 남는다.
+          this.ws.windows=this.ws.windows.filter(s=>s&&(s.layout||this._isEditorWin(s)));
+          this._save();
+        }
+        // FR-EDT-45 (FR-CLS-1 과 같은 근거): 활성 창의 폴백은 Editor 창이 아니다.
+        // `_save()` 가 activeWindow 를 싣지 않으므로 다른 브라우저가 만든
+        // 워크스페이스를 처음 읽을 때 이 자리가 늘 도는데, 배열의 첫 자리를
+        // 그대로 쓰면 아무 조작도 하지 않은 사용자가 편집기 화면에 떨어진다.
         if(!this.ws.windows.find(s=>s.id===this.ws.activeWindow))
-          this.ws.activeWindow=this.ws.windows[0]?.id||null;
+          this.ws.activeWindow=(this.ws.windows.find(s=>!this._isEditorWin(s))||this.ws.windows[0])?.id||null;
       }
-      if(!this.ws.windows.length) await this._mkWindow();
+      // 일반 창 하나는 늘 있어야 한다 — Editor 창만 남기고 사용자를 그 안에
+      // 가두지 않는다 (FR-CLS-2 와 같은 근거). **재조정보다 먼저** 한다: 창
+      // 목록의 순서가 곧 사이드바의 순서이고, 사용자가 만든 적 없는 Editor 창이
+      // 그 앞자리를 차지할 이유가 없다.
+      if(!this._plainWindows().length) await this._mkWindow();
+      // FR-EDT-42·43: 재조정이 도는 첫 번째 자리. 워크스페이스가 비어 있어도
+      // root 에디터 창은 있어야 한다 (FR-EDT-13).
+      if(this._edReconcile()) this._save();
     }catch(e){
       console.error('[App] init error:',e);
       if(!this.ws.windows.length) await this._mkWindow();
@@ -145,6 +189,7 @@ class App {
     }
     this._applyFocusOverlay();
     this._initGitSection();
+    this._initEditorSection();
   }
 
   _collectPanes(n, out){
@@ -229,6 +274,14 @@ class App {
                   this.ws.git=rem.git;
                   for(const k of ['drafts','favorites'])
                     if(mine[k]) this.ws.git[k]=Object.assign({},rem.git[k]||{},mine[k]);
+                }
+                // FR-EDT-21: `editors` 도 서버가 권위다. `git` 과 달리
+                // **클라이언트가 소유하는 하위 키가 없으므로** 병합 없이 서버
+                // 값을 통째로 쓴다. 목록이 바뀌었으면 창도 따라와야 한다.
+                if(rem&&rem.editors&&this._edOn()){
+                  this.ws.editors=rem.editors;
+                  this._edApply({home:this._editors.home,list:rem.editors.list});
+                  this._edReconcile();
                 }
               }
             }catch{}

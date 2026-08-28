@@ -190,6 +190,9 @@ Object.assign(App.prototype, {
 
   _applyRemoteWorkspace(sv, serverPanes){
     this._fgApply(serverPanes);
+    // FR-EDT-42·103: 마이그레이션과 재조정이 창을 고쳤으면 그 결과를 서버에
+    // 되쓴다 — 되쓰지 않으면 다음 동기화가 같은 일을 되풀이한다.
+    let edChanged=false;
     const ok=new Set((serverPanes||[]).map(p=>p.id));
     const nameOf=new Map((serverPanes||[]).map(p=>[p.id,p.name]));
     for(const id of ok){
@@ -207,11 +210,28 @@ Object.assign(App.prototype, {
       s.layout=clean(s.layout, ok);
       if(s.layout) normalizeLayout(s.layout);
     }
-    sv.windows=sv.windows.filter(s=>s&&s.layout);
+    // FR-EDT-49 / D-13: 이 필터가 `workspace_changed` 경로다. `git pin` 하나에도
+    // 이 이벤트가 오므로(§2.4) 예외가 없으면 pane 없는 Editor 창이 다음 핀 한
+    // 번에 사라진다.
+    sv.windows=sv.windows.filter(s=>s&&(s.layout||this._isEditorWin(s)));
     // FR-GIT-186: 다른 브라우저 창이 개정 이전 모양을 보내올 수 있다.
     this._migrateGitWindow(sv.windows);
+    // FR-EDT-103·106: 상시 불변식이다 — 다른 브라우저가 만든 편집기 탭도 여기서
+    // 걷힌다.
+    if(this._migrateEditorTabs(sv.windows)){
+      sv.windows=sv.windows.filter(s=>s&&(s.layout||this._isEditorWin(s)));
+      edChanged=true;
+    }
+    // FR-EDT-20·43: **재조정보다 목록이 먼저다.** 목록은 서버 권위이고
+    // `editors.list` 는 워크스페이스에 살므로 이 스냅샷이 최신값을 싣고 있다.
+    // 갱신하지 않으면 재조정이 낡은 `_editors` 를 딛어, 다른 브라우저가(또는
+    // git 핀 연동이) 만든 행의 창이 생기지 않고 지워진 행의 창이 남는다.
+    if(this._editors&&sv.editors)
+      this._edApply({home:this._editors.home,list:sv.editors.list});
+    if(this._edReconcile(sv.windows)) edChanged=true;
+    // FR-EDT-45: 활성 창의 폴백은 Editor 창이 아니다 (app.js 의 같은 자리와 한 쌍).
     if(!sv.windows.find(s=>s.id===sv.activeWindow))
-      sv.activeWindow=sv.windows[0]?.id||null;
+      sv.activeWindow=(sv.windows.find(s=>!this._isEditorWin(s))||sv.windows[0])?.id||null;
     // Preserve per-window viewport state: activeWindow and each window's
     // focusedPane. Remote structural changes (splits/tabs) are applied
     // but this window stays on its own window/pane.
@@ -254,6 +274,7 @@ Object.assign(App.prototype, {
       const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);
       if(f) this._setFocus(f.id, a);
     }
+    if(edChanged) this._save();
     this.render();
   },
 
@@ -285,6 +306,14 @@ Object.assign(App.prototype, {
     if(action==='openEditorTab'){
       const{name,filePath,location}=args;
       if(!filePath){console.warn('[cmd] openEditorTab: filePath required');return}
+      // FR-EDT-94·96: 편집기 탭은 Editor 창에서만 열린다. 대상은 **그 경로에
+      // 연결된 Editor** 이고 없으면 root 에디터다 (FR-EDT-95) — 기준 경로가 파일
+      // 자신이므로 anchor 를 따로 주지 않는다. `location` 은 따라가지 않는다:
+      // 어느 창에 열지는 루트가 정하지 사용자가 서 있던 자리가 정하지 않는다.
+      if(this._edOn()){
+        this._edOpenFile(filePath,{name:name||filePath.split('/').pop()});
+        return;
+      }
       if(location) this._focusLocation(location);
       const rid=this.focused;
       if(rid) this.addTab(rid,'editor',{name:name||filePath.split('/').pop(),filePath});

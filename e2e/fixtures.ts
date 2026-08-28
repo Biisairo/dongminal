@@ -101,4 +101,19 @@ export async function openGitTab(page: any) {
     undefined, { timeout: 10000 });
 }
 
+/**
+ * EDITOR_TAB_SRS FR-EDT-13·42: Editor 창(root 에디터 포함)이 이제 항상 최소
+ * 하나 존재한다. `ws.windows` 를 그대로 세거나 인덱싱하는 스펙은 그 창까지
+ * 세어 개수·순서가 밀린다. Git 창도 이미 같은 이유로 제외 대상이었다
+ * (`app-git.js` `_plainWindows`).
+ *
+ * 앱 내부의 `_plainWindows()` 를 재사용하지 않고 여기서 같은 조건을 독립적으로
+ * 판정한다 — 구현이 필터를 잘못 짜면 검증 쪽도 같은 실수를 공유해 결함을
+ * 가려버린다.
+ */
+export async function plainWindows(page: any): Promise<any[]> {
+  return page.evaluate(() =>
+    ((window as any).app.ws.windows || []).filter((w: any) => w && w.type !== 'git' && w.type !== 'editor'));
+}
+
 export { expect };

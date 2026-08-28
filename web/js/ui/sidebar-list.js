@@ -19,26 +19,56 @@
 
 const SidebarList = {
   /**
+   * EDITOR_TAB_SRS FR-EDT-2·6·14: 목록의 항목 = `items(app)` **뒤에** `fixed(app)`.
+   *
+   * 고정 항목은 같은 컨테이너의 마지막에 그려지고(FR-EDT-14) 순회에도 마지막
+   * 자리로 포함된다(FR-EDT-6) — 제외하면 키만으로는 그 항목에 갈 수 없다.
+   * 그리기와 순회가 **같은 함수**를 지나야 둘이 어긋나지 않는다.
+   */
+  entries(app, d) {
+    const base = (d.items ? d.items(app) : null) || [];
+    if (!d.fixed) return base;
+    return base.concat(d.fixed(app) || []);
+  },
+
+  /**
    * 탭 서술자 하나의 목록을 그린다. `def.list` 가 없으면 아무 일도 하지 않는다 —
    * 목록이 없는 탭도 있을 수 있다 (FR-BLP-2 의 "탭 하나 = 서술자 하나").
    */
   paint(app, def) {
     const d = def && def.list;
     if (!d) return;
-    const el = document.getElementById(d.containerId);
+    this._paintInto(app, def, d.containerId, (d.items ? d.items(app) : null) || [], true);
+    // FR-EDT-14: 고정 항목(root 행)은 **패널의 최하단**에 산다 — 목록의 끝이
+    // 아니다. 목록이 길어 스크롤이 생겨도 그 아래에 그대로 남아야 하므로 컨테이너를
+    // 따로 쓴다. 순회(cycle)는 여전히 `entries()` 하나를 지나므로 둘의 순서가
+    // 어긋나지 않는다.
+    if (d.fixedContainerId)
+      this._paintInto(app, def, d.fixedContainerId, (d.fixed ? d.fixed(app) : null) || [], false);
+  },
+
+  // `main` 은 "빈 안내와 ready 게이트를 지는 쪽" 이다. 고정 항목은 없을 수 있고
+  // 그때는 비어 있는 것이 정상이라 안내를 그리지 않는다.
+  _paintInto(app, def, containerId, source, main) {
+    const d = def.list;
+    const el = document.getElementById(containerId);
     if (!el) return;
     // FR-BLP-7: 컨테이너의 생김새(남은 높이 전부 + 세로 스크롤)도 공통이다.
     el.classList.add('sbl-list');
     // 데이터가 아직 없는 목록(Git 은 첫 응답 전)은 **비우기만** 한다. 빈 안내를
     // 그리면 "없다" 와 "아직 모른다" 가 같은 화면이 된다.
     if (d.ready && !d.ready(app)) { el.innerHTML = ''; return }
+    if (!main) {
+      el.classList.remove('sbl-list');
+      el.classList.add('sbl-fixed');
+    }
     // 키는 서술자 최상위에 있다 — reconcile 과 순회(cycle)가 **같은 키**를 봐야
     // 하기 때문이다. 행 안에 두면 순회가 그 값을 얻으려고 행을 만들어야 한다.
-    const items = (d.items(app) || []).map(it => Object.assign({ key: d.key(it) }, d.row(app, it)));
+    const items = source.map(it => Object.assign({ key: d.key(it) }, d.row(app, it)));
     el.classList.toggle('empty', !items.length);
     if (!items.length) {
       // FR-BLP-4: 빈 목록 표시도 블루프린트의 것이다. 문구만 서술자가 준다.
-      if (!d.emptyText) { el.innerHTML = ''; return }
+      if (!main || !d.emptyText) { el.innerHTML = ''; return }
       el.innerHTML = '<div class="' + (d.emptyClass || 'sbl-none') + '"></div>';
       el.firstElementChild.textContent = d.emptyText;
       return;
@@ -106,7 +136,9 @@ const SidebarList = {
     if (r.onRename) {
       name.addEventListener('dblclick', e => { e.stopPropagation(); r.onRename(app, e.target) });
     }
-    if (d.reorder) this._bindDrag(app, def, el, r);
+    // FR-EDT-15: 고정 항목은 재배치의 출발점도 **대상**도 아니다. 리스너를 아예
+    // 달지 않으면 둘 다 성립한다 — 대상은 dragover 가 정하기 때문이다.
+    if (d.reorder && !r.fixed) this._bindDrag(app, def, el, r);
     if (d.tabDrop) this._bindTabDrop(app, def, el, r);
     return el;
   },
@@ -218,7 +250,7 @@ const SidebarList = {
     const d = def && def.list;
     const c = d && d.cycle;
     if (!c) return;
-    let arr = d.items(app) || [];
+    let arr = this.entries(app, d);
     // 순회 대상이 목록보다 좁을 수 있다 — Git 은 저장소가 아닌 핀을 뺀다
     // (FR-GIT-11: 목록에서도 클릭 리스너가 붙지 않는 항목이다).
     if (c.filter) arr = arr.filter(c.filter);

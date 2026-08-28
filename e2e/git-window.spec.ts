@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, plainWindows } from './fixtures';
 
 // GIT_M1_STEP3_CONTRACT §6 — 묶음 D 의 Git 창 골격. 검증 V8·V19·V20·V21.
 //
@@ -75,8 +75,10 @@ test.describe('묶음 D — Git 창 골격', () => {
     expect(shape!.type, 'type 이 없는 창에 값이 주입됐다').toBeUndefined();
 
     // 같은 워크스페이스에서 Git 창을 열어도 기존 창은 남는다.
+    // EDITOR_TAB_SRS FR-EDT-13: root 에디터 창이 항상 하나 더 있으므로
+    // `ws.windows.length` 는 이제 legacy+git+editor=3 이다 — 일반 창만 센다.
     await openGit(page);
-    expect(await page.evaluate(() => (window as any).app.ws.windows.length)).toBe(2);
+    expect((await plainWindows(page)).length).toBe(1);
     expect(await gitWindowCount(page)).toBe(1);
   });
 

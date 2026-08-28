@@ -99,11 +99,13 @@ NEW=$(dmctl split-v --at "$UUID" -n | jq -r '.newTabs[0].uuid')  # 새로 생긴
 ## `edit` — 내장 편집기로 파일 열기
 
 ```
-edit <path>          # 현재 분할 칸에 편집기 탭으로 열기
+edit <path>          # 그 경로에 연결된 Editor 창에서 열기
 edit -h, --help      # 도움말
 ```
 
 동작: `POST /api/commands` 로 `openEditorTab` 을 브로드캐스트하고, 브라우저가 그 탭에 Monaco Editor 를 띄운 뒤 `GET /api/file/read` 로 내용을 읽습니다. 저장은 `POST /api/file/write`.
+
+**어느 창에서 열리는가.** 편집기는 일반 창에 열리지 않습니다. 파일 경로를 자기 루트 아래에 포함하는 **Editor 창**(좌측 패널 `Editor` 탭의 행)에서 열리며, 그런 창이 둘 이상이면 루트가 가장 깊은 것이 이깁니다. 하나도 없으면 `~` 의 root 에디터에서 열립니다.
 
 - 상대경로는 절대경로로 변환됩니다. 파일이 없거나 디렉터리면 rc=1.
 - 구독 중인 브라우저가 없으면 `delivered=0` — 페이지를 새로고침해야 합니다.
@@ -127,7 +129,7 @@ detach -h, --help        # 도움말
 동작: `DONGMINAL_TOOL_ID` 로 자기 도구를 식별해 `POST /api/commands` 로 `detachTab` 을 보냅니다. 전환과 탭 닫기를 **하나의 명령**으로 처리하는 이유는, 두 단계로 나누면 그 사이에 탭이 닫혀 도구가 종료될 수 있기 때문입니다. `--list` 는 `GET /api/tools/background` 를 직접 조회합니다.
 
 - `DONGMINAL_TOOL_ID` 가 없으면(dongminal 터미널 밖) rc=1.
-- 터미널 도구만 대상입니다. 편집기 탭은 `backgroundCapable=false` 라 브라우저가 무시합니다.
+- 터미널 도구만 대상입니다. 편집기 탭은 `backgroundCapable=false` 라 브라우저가 무시합니다 (Editor 창에만 존재합니다).
 - **데몬을 재시작하면 백그라운드 도구는 복원되지 않습니다** — 복원해도 돌던 작업이 아니라 같은 cwd 의 빈 셸이 되살아날 뿐입니다.
 
 상태 바의 `⏻ <개수>` 배지를 클릭해도 같은 목록·복귀 경로를 쓸 수 있습니다.

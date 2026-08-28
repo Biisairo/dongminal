@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab } from './fixtures';
+import { test, expect, openGitTab, plainWindows } from './fixtures';
 
 // GIT_UI_REVISION_SRS §4 — 검증 V70~V79.
 //
@@ -197,12 +197,14 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
   test('V73b (FR-SBT-23·24, 옛 FR-GIT-183a): Windows 탭은 직전에 보던 일반 창으로 돌아간다', async ({ page }) => {
     await waitForInit(page);
     // 일반 창 셋을 만들고 **가운데**에 선다 — 이웃으로 가는 것과 구별되어야 한다.
-    const ids = await page.evaluate(async () => {
+    // EDITOR_TAB_SRS FR-EDT-13: root 에디터 창도 `type!=='git'` 을 통과하므로
+    // 그 필터만으로는 안 된다 — `type!=='editor'` 도 함께 걸러야 일반 창만 남는다.
+    await page.evaluate(async () => {
       const a = (window as any).app;
       await a.addWindow();
       await a.addWindow();
-      return a.ws.windows.filter((w: any) => w.type !== 'git').map((w: any) => w.id);
     });
+    const ids = (await plainWindows(page)).map((w: any) => w.id);
     expect(ids.length).toBeGreaterThanOrEqual(3);
     const from = ids[1];
     await page.evaluate((id) => (window as any).app.switchWindow(id), from);

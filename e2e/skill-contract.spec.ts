@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { test, expect } from './fixtures';
+import { test, expect, plainWindows } from './fixtures';
 
 // /dongminal:team 과 /dongminal:workflow 스킬이 실제로 밟는 접합면을 라이브 서버에서
 // 검증한다. 스킬 문서는 명령·인자만 적혀 있어 정적 대조로는 "그 이름이 존재한다"
@@ -640,14 +640,16 @@ test.describe('detach CLI 의 HTTP 계약 (라이브)', () => {
   // 종료되지도, 백그라운드 목록에 오르지도 않아 어디서도 닿을 수 없게 됐다.
   test('FR-BG-6f: 유일한 탭을 detach 해 창이 사라져도 백그라운드에 등록된다', async ({ page, request }) => {
     await waitForInit(page);
-    const single = await page.evaluate(() => {
+    // EDITOR_TAB_SRS FR-EDT-13: root 에디터 창이 항상 하나 더 있으므로
+    // `ws.windows` 전체가 아니라 일반 창 하나만으로 "창1·분할칸1·탭1" 을 잰다.
+    const plain = await plainWindows(page);
+    const single = plain.length === 1 ? await page.evaluate((winId) => {
       const app = (window as any).app;
-      // 창 1개 · 분할 칸 1개 · 탭 1개인지 확인하고 그 도구 id 를 돌려준다.
-      if (app.ws.windows.length !== 1) return null;
-      const l = app.ws.windows[0].layout;
+      const w = app.ws.windows.find((x: any) => x.id === winId);
+      const l = w && w.layout;
       if (!l || l.type !== 'pane' || (l.tabs || []).length !== 1) return null;
       return l.tabs[0].toolId as string;
-    });
+    }, plain[0].id) : null;
     expect(single, '초기 상태가 창1·분할칸1·탭1 이 아니다').toBeTruthy();
 
     const r = await request.post('/api/commands', { data: { action: 'detachTab', args: { toolId: single } } });

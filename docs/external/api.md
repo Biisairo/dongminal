@@ -84,6 +84,16 @@
 | GET | `/api/download?path=<path>` | 파일 다운로드 |
 | GET | `/api/file/read?path=<abs>` | 편집기 탭이 파일을 읽는 경로. 절대경로만 허용 |
 | POST | `/api/file/write` | 바디 `{path, content}`. 편집기 탭의 저장 |
+| GET | `/api/fs/list?root=<abs>&path=<abs>` | 탐색기 한 겹 조회. dot 항목 포함 전량, 정렬은 서버가 한다. 응답 `{path, entries:[{name,dir,link,linkDir}], truncated}` |
+| POST | `/api/fs/create` | 바디 `{root, path, dir}` |
+| POST | `/api/fs/rename` | 바디 `{root, from, to}`. 이동도 이 종단 |
+| POST | `/api/fs/delete` | 바디 `{root, path}`. **영구 삭제** |
+| GET | `/api/editors` | `{home, list}` — root 행의 경로와 일반 행 목록 |
+| POST | `/api/editors/add` | 바디 `{path}`. 응답 `{list, pinned}` — git 핀이 함께 바뀔 수 있다 |
+| POST | `/api/editors/remove` | 바디 `{path}`. 응답 `{list, pinned}` |
+| POST | `/api/editors/reorder` | 바디 `{src, target, before}` |
+
+`/api/fs/*` 는 전부 `root` 를 함께 받아 **그 아래로만** 동작합니다. `root` 는 서버가 신뢰하지 않고 `editors.list` 또는 홈에 실재하는지 대조합니다. 오류는 `{code, message}` 이며 코드는 `bad_request`(400) · `outside_root`·`permission_denied`(403) · `not_found`(404) · `exists`(409) · `io_failed`(500) 입니다.
 
 ### 원격 제어
 

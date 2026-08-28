@@ -16,6 +16,7 @@ import (
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/domain/worktree"
+	"dongminal/internal/webserver/domain/wsentry"
 	"fmt"
 	"io/fs"
 	"log"
@@ -58,6 +59,10 @@ type Server struct {
 	Git *store.Store
 	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
 	Focus *hub.FocusRegistry
+	// Entries 는 workspace.json 최상위의 두 목록 — git.pinned[] 와 editors.list[] —
+	// 을 함께 소유한다 (EDITOR_TAB_SRS FR-EDT-116). /api/editors/* 와 /api/fs/* 의
+	// 루트 가드가 이것을 읽는다 (FR-EDT-113). Work 가 nil 이면 그 종단만 실패한다.
+	Entries *wsentry.Store
 
 	// git 은 /api/git/* 을 소유한다. Git 이 nil 이면 이 자리도 nil 이고,
 	// handleAPI 가 라우팅 miss 로 404 를 낸다 (FR-GIT-60 의 503 은 핸들러 안에서).
@@ -107,6 +112,14 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	if deps.Worktrees != nil {
 		runWorktreeRoot = deps.Worktrees.Root()
 	}
+	// FR-EDT-116(D-17): RepoRoot 를 주입한다 — 이렇게 해야 httpapi 가 gitapi 를
+	// import 하지 않고도 "Editor 루트가 저장소의 루트인가"를 판정한다. Git 이
+	// 없으면 그 연동만 서지 않고 Editor 목록 자체는 그대로 돈다.
+	var repoRoot wsentry.RepoRootFn
+	if deps.Git != nil {
+		repoRoot = deps.Git.RepoRoot
+	}
+	srv.Entries = &wsentry.Store{Work: deps.Work, Commands: cmds, RepoRoot: repoRoot}
 	srv.git = &gitapi.GitServer{
 		Git:             deps.Git,
 		Work:            deps.Work,

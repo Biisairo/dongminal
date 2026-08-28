@@ -177,6 +177,79 @@ const SB_TAB_DEFS=[
       },
     },
   },
+  {
+    // EDITOR_TAB_SRS FR-EDT-1: 세 번째 서술자. 배열 순서가 곧 탭 순서이자 직행
+    // 키 번호이므로 `Ctrl+Shift+Digit3` 은 여기서 파생된다 (FR-EDT-5).
+    id:EDITOR_TAB_ID,label:EDITOR_TAB_LABEL,panelId:EDITOR_PANEL_ID,
+    // FR-EDT-120: `/api/editors` 가 실패하면 탭 자체가 없다. `home` 을 모르면
+    // root 행을 만들 수 없고, 추측한 홈으로 창을 만들면 나중에 서버가 알려준
+    // 홈과 어긋난 창이 남는다.
+    visible:app=>app._edOn(),
+    // FR-EDT-11: **배지가 없다.** 관측할 수치가 없다 (FR-GOB-13 과 같은 근거).
+    // FR-EDT-7: 탭을 고르면 콘텐츠 창까지 바뀐다. 대상은 마지막으로 활성이었던
+    // Editor 창이고, 없으면 root 에디터 창이다.
+    onActivate:app=>{const w=app._edActivateTarget();if(w)app.switchWindow(w.id)},
+    list:{
+      containerId:EDITOR_LIST_ID,
+      // FR-EDT-14: 고정 항목(root 행)의 자리는 **패널 최하단**이다 — 목록의
+      // 끝이 아니다. 목록이 길어 스크롤이 생겨도 그 아래에 그대로 남는다.
+      fixedContainerId:EDITOR_ROOT_ID,
+      itemClass:'ed-entry',dotClass:'ed-entry-dot',
+      nameClass:'ed-entry-name',xClass:'ed-entry-x',
+      // 첫 응답 전에는 "없다" 를 말하지 않는다.
+      ready:app=>!!app._editors,
+      emptyText:EDITOR_ENTRIES_NONE,emptyClass:'ed-entries-none',
+      items:app=>app._edEntries(),
+      // FR-EDT-2·14: 목록 뒤에 고정으로 붙는 항목. root 행이 그것이며 일반
+      // 목록과 **같은 컨테이너**의 마지막에 그려진다.
+      key:e=>'ed:'+e.path,
+      fixed:app=>app._edFixed(),
+      // FR-EDT-6: 순회 대상은 `items` 뒤에 `fixed` 를 이어 붙인 순서다 — root 행이
+      // 마지막 자리로 **포함된다.** 제외하면 키만으로는 root 에 갈 수 없다.
+      cycle:{
+        currentKey:app=>{
+          const w=app._aw();
+          return app._isEditorWin(w)?('ed:'+app._edRootOf(w)):null;
+        },
+        open:(app,e)=>app._edOpenWindow(e.path),
+      },
+      row:(app,e)=>{
+        const w=app._edWindowFor(e.path);
+        return {
+          // FR-EDT-10: 표시 이름은 경로의 마지막 조각, 툴팁은 절대경로 전체.
+          // root 행의 이름은 `~` 다.
+          name:app._edName(e.path),
+          title:e.path,
+          active:!!w&&w.id===app.ws.activeWindow,
+          // FR-EDT-14: 구분선은 CSS 가 준다 — 컨테이너를 나누지 않는다.
+          cls:e.root?'ed-root':'',
+          // FR-EDT-15: root 행에는 `×` 가 없고 드래그의 출발점도 대상도 아니다.
+          fixed:!!e.root,
+          removable:!e.root,
+          dataset:{edRoot:e.path},
+          // FR-EDT-9: 행을 클릭하면 그 행의 Editor 창이 활성화된다.
+          onOpen:app=>app._edOpenWindow(e.path),
+          onRemove:e.root?null:(app=>app._edRemove(e.path)),
+        };
+      },
+      // FR-EDT-12·27: 순서는 서버가 권위다 — 핀과 같은 (src,target,before) 델타다.
+      reorder:{
+        type:'editor',
+        apply:(app,dr)=>{
+          const arr=(app._editors||{}).list;
+          if(!Array.isArray(arr)) return false;
+          const key=p=>'ed:'+p;
+          const si=arr.findIndex(x=>key(x)===dr.src); if(si<0) return false;
+          const[moved]=arr.splice(si,1);
+          let ti=arr.findIndex(x=>key(x)===dr.target);
+          if(ti<0) arr.push(moved); else { if(!dr.before) ti++; arr.splice(ti,0,moved) }
+          app._edMirror();
+          return true;
+        },
+        commit:(app,dr)=>app._edReorder(dr),
+      },
+    },
+  },
 ];
 
 /**
@@ -245,7 +318,12 @@ const SidebarTabs={
    */
   syncToWindow(app){
     if(app._isGitWin(app._aw())){this.setTab(app,'git',{silent:true});return}
+    // FR-EDT-8: Editor 창이 활성이면 탭도 `editor` 로 따라온다. 재진입은 기존
+    // `_sbBusy` 가드가 그대로 끊는다.
+    if(app._isEditorWin(app._aw())){this.setTab(app,EDITOR_TAB_ID,{silent:true});return}
     if(app._sbTab==='git'&&app._gitWindow()) this.setTab(app,'windows',{silent:true});
+    // Git 쪽과 같은 조건이다 — Editor 창이 **실제로 있을 때만** 내려온다.
+    if(app._sbTab===EDITOR_TAB_ID&&app._edWindows().length) this.setTab(app,'windows',{silent:true});
   },
 
   // FR-SBT-26·27·29: n 은 1-based 이며 **서술자 배열의 인덱스**다 — 숨은 탭이 있어도

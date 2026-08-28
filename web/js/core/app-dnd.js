@@ -14,6 +14,9 @@ Object.assign(App.prototype, {
     const s=this._aw();if(!s)return;
     // FR-GIT-181: Git 창은 탭을 받지도 내주지도 않는다.
     if(this._isGitWin(s))return;
+    // FR-EDT-53: **Editor 창은 여기서 막지 않는다.** 이 경로는 활성 창 **안**의
+    // 분할 칸끼리이며, 같은 Editor 창 안의 이동은 허용이다 (FR-EDT-51). 조건을
+    // 탭 타입 자리(:22)에 넣으면 편집기 탭이 자기 창 안에서도 못 움직인다 (§2.2).
     const srcRg=findPane(s.layout,srcRid);const dstRg=findPane(s.layout,dstRid);
     if(!srcRg||!dstRg)return;
     const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
@@ -27,7 +30,9 @@ Object.assign(App.prototype, {
     if(beforeTabId){let ins=dst.tabs.findIndex(t=>t.id===beforeTabId);if(ins<0)ins=dst.tabs.length;else if(!insertBefore)ins++;dst.tabs.splice(ins,0,tab)}
     else dst.tabs.push(tab);
     dst.activeTab=tab.id;this._setFocus(dstRid, s);
-    if(!s.layout){this._mkWindow();return}
+    // FR-EDT-55: pane 이 없는 Editor 창은 정상 상태다 — 여기서 터미널 창을
+    // 만들면 안 된다.
+    if(!s.layout&&!this._isEditorWin(s)){this._mkWindow();return}
     this._save();this.render();
   },
 
@@ -41,9 +46,12 @@ Object.assign(App.prototype, {
   _moveTabToWindow(srcRid,tabId,dstWinId){
     const src=this._aw(); if(!src) return;
     // FR-MOV-5: Git 창은 주지도 받지도 않는다 (FR-GIT-181).
-    if(this._isGitWin(src)) return;
+    // FR-EDT-53: Editor 창의 탭은 그 창 **밖으로 나가지 못한다** — 다른 Editor
+    // 창으로도, 일반 창으로도.
+    if(this._isGitWin(src)||this._isEditorWin(src)) return;
     const dst=this.ws.windows.find(w=>w&&w.id===dstWinId);
-    if(!dst||dst.id===src.id||this._isGitWin(dst)||!dst.layout) return;
+    // FR-EDT-53: 밖에서 들어오지도 못한다.
+    if(!dst||dst.id===src.id||this._isGitWin(dst)||this._isEditorWin(dst)||!dst.layout) return;
     const srcPane=findPane(src.layout,srcRid); if(!srcPane) return;
     const ti=srcPane.tabs.findIndex(t=>t.id===tabId); if(ti<0) return;
     // FR-MOV-6: git 탭은 옮기지 않는다 (FR-GIT-28).
@@ -89,6 +97,9 @@ Object.assign(App.prototype, {
     const s=this._aw();if(!s)return;
     // FR-GIT-179·181: Git 창에는 분할 칸이 생기지 않는다.
     if(this._isGitWin(s))return;
+    // FR-EDT-51: **Editor 창은 여기서 막지 않는다.** 드래그드롭이 분할이 생기는
+    // 유일한 길이므로(D-8) 이 경로는 허용이다 — 막는 자리는 단축키·버튼
+    // (`_splitInner`) 쪽이다 (FR-EDT-50).
     const srcRg=findPane(s.layout,srcRid);if(!srcRg)return;
     if(srcRid===targetRid&&srcRg.tabs.length<=1)return;
     const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
@@ -108,7 +119,8 @@ Object.assign(App.prototype, {
       return n;
     };
     s.layout=splitNode(s.layout);
-    if(!s.layout){this._mkWindow();return}
+    // FR-EDT-55: pane 이 없는 Editor 창은 정상 상태다.
+    if(!s.layout&&!this._isEditorWin(s)){this._mkWindow();return}
     this._setFocus(newRid, s);this._save();this.render();
   },
 });

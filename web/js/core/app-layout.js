@@ -59,10 +59,13 @@ Object.assign(App.prototype, {
    */
   _nextActiveWindow(removedIdx){
     const arr=this.ws.windows;
+    // FR-EDT-45: Editor 창도 대상이 아니다 — 창 하나 닫았을 뿐인데 편집기
+    // 화면에 떨어지면 안 된다 (Git 창을 거르는 것과 같은 근거).
+    const plain=s=>s&&!this._isGitWin(s)&&!this._isEditorWin(s);
     for(let d=0;d<arr.length;d++){
       const a=arr[removedIdx+d], b=arr[removedIdx-d];
-      if(a&&!this._isGitWin(a)) return a;
-      if(b&&!this._isGitWin(b)) return b;
+      if(plain(a)) return a;
+      if(plain(b)) return b;
     }
     return null;
   },
@@ -169,8 +172,11 @@ Object.assign(App.prototype, {
     const cur=this._aw();if(cur)cur.focusedPane=this.focused;
     // FR-GIT-185: Open File 이 돌아갈 창을 기억한다 — 규칙이 하나여야 "어디에
     // 열렸는지 모르겠다"가 없다 (O15).
-    if(cur&&!this._isGitWin(cur)) this._lastPlainWindow=cur.id;
+    if(cur&&!this._isGitWin(cur)&&!this._isEditorWin(cur)) this._lastPlainWindow=cur.id;
     this.ws.activeWindow=sid;
+    // FR-EDT-7: Editor 탭이 돌아갈 창을 같은 규약으로 기억한다 — 들어가는
+    // 순간에 적는다. 나갈 때 적으면 한 번도 떠난 적 없는 창을 기억하지 못한다.
+    if(this._isEditorWin(this._aw())) this._lastEditorWindow=sid;
     // Persist per-window activeWindow to sessionStorage (survives refresh,
     // independent across windows).
     try{sessionStorage.setItem('activeWindow', sid)}catch{}
@@ -218,6 +224,16 @@ Object.assign(App.prototype, {
     // FR-GIT-179: Git 창의 탭은 GIT_VIEWS 의 고정 탭뿐이다 — 더할 수 없다
     // (FR-GIT-28 개정으로 7개다. 숫자를 여기 적지 않는다 — 선언이 하나뿐이다).
     if (this._isGitWin(s)) return;
+    // FR-EDT-54: Editor 창에는 **편집기 탭만** 있다 — 터미널·run·git 탭을 만들
+    // 수 없다.
+    if (this._isEditorWin(s) && type !== 'editor') return;
+    // FR-EDT-94·106: 그 반대도 불변식이다 — 편집기 탭은 어떤 경로로도 일반
+    // 창에 생기지 않는다. Editor 표면이 없는 환경(FR-EDT-120)에서는 갈 곳이
+    // 없으므로 옛 경로가 그대로 남는다.
+    if (type === 'editor' && !this._isEditorWin(s) && this._edOn()) {
+      console.warn('[addTab] editor tab belongs to an Editor window (FR-EDT-94)');
+      return;
+    }
     const pn = findPane(s.layout, rid); if (!pn) return;
     // FR-RVZ-6: 네 번째 탭 타입. editor 와 같은 비-PTY 경로다 — 도구를 만들지
     // 않고 탭 레코드만 넣는다. editor 가 filePath 를 요구하듯 run 은 opts.runId 를
@@ -306,7 +322,10 @@ Object.assign(App.prototype, {
     const isEditor=tab.type==='editor';
     if(isEditor){
       const editor=this.fileEditors.get(tab.id);
-      if(editor && editor._dirty){
+      // EDITOR_TAB_SRS FR-EDT-91: 파일이 삭제되어 닫는 경로는 확인을 건너뛴다 —
+      // dirty 라는 사실은 삭제 확인창이 이미 밝혔고(FR-EDT-84), 여기서 취소해도
+      // 파일은 이미 없다.
+      if(editor && editor._dirty && !opts.force){
         const result=await this._confirmClose('저장되지 않은 변경사항이 있습니다.', { saveBtn: true });
         if(result==='save'){
           await editor.save();
@@ -337,6 +356,15 @@ Object.assign(App.prototype, {
     const isActive = s.id === this.ws.activeWindow;
     if(pn.tabs.length===0){
       s.layout=doRemove(s.layout,rid);
+      // FR-EDT-52·55·56: Editor 창은 pane 이 0이 되어도 남는다 — 창의 수명은
+      // 행의 수명이다 (FR-EDT-42). 빈 pane 을 남기지 않는 것과 창을 지우는 것은
+      // 다른 일이다.
+      if(!s.layout&&this._isEditorWin(s)){
+        if(isActive){this._setFocus(null,s);this._focusWindow(s.id)}
+        this.render();
+        this._save();
+        return;
+      }
       if(!s.layout){
         // FR-BG-6f: 마지막 탭이 닫혀 창까지 사라지는 경로. 아래 공통 처리에
         // 도달하지 못하고 조기 반환하므로 도구 처분을 여기서 마쳐야 한다.
@@ -400,6 +428,9 @@ Object.assign(App.prototype, {
     let s=this.ws.windows.find(x=>x.id===tgtWindowId);
     // FR-GIT-179: Git 창은 닫힌 창이다 — 분할 칸을 만들 수 없다.
     if(this._isGitWin(s)) return;
+    // FR-EDT-50·51: Editor 창에서 분할이 생기는 유일한 길은 드래그드롭이다.
+    // 단축키와 버튼은 이 자리에서 무시된다.
+    if(this._isEditorWin(s)) return;
     const tgtPaneId=opts.targetPane||(tgtWindowId===this.ws.activeWindow?this.focused:null);
     if(!s||!tgtPaneId) return;
     let count=parseInt(opts.count,10); if(!Number.isFinite(count)||count<2) count=2;

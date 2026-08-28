@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, plainWindows } from './fixtures';
 
 // UX_REVISION_SRS §4 — 검증 V-DEL-*·V-FIT-*·V-CLS-*·V-MOV-*·V-NAM-*·V-BLP-*·V-KEY-*.
 //
@@ -79,14 +79,18 @@ test.describe('묶음 B — 사이드바 리스트 블루프린트 (FR-BLP-*)', 
     await init(page);
     await page.evaluate(() => (window as any).app.addWindow());
     await expect(page.locator('#windows .si')).toHaveCount(2, { timeout: 10000 });
-    const before = await page.evaluate(() => (window as any).app.ws.windows.map((w: any) => w.id));
+    // `#windows` 목록에 실제로 보이는 항목은 일반 창뿐이다 (EDITOR_TAB_SRS
+    // FR-EDT-13: root 에디터 창은 항상 있지만 이 목록에는 안 나온다). `ws.windows`
+    // 를 그대로 인덱싱하면 드래그 src/target 이 화면에 없는 Editor 창을 집는다.
+    const before = (await plainWindows(page)).map((w: any) => w.id);
+    expect(before.length).toBeGreaterThanOrEqual(2);
     // 문서 전역 drop 이 쓰는 경로 그대로 — 항목 밖에서 놓은 경우다 (V-BLP-3).
     await page.evaluate(([src, tgt]) => {
       const app = (window as any).app;
       const def = (0, eval)('SB_TAB_DEFS').find((d: any) => d.id === 'windows');
       (0, eval)('SidebarList').commit(app, def, { type: 'window', src, target: tgt, before: true, done: false });
     }, [before[1], before[0]]);
-    const after = await page.evaluate(() => (window as any).app.ws.windows.map((w: any) => w.id));
+    const after = (await plainWindows(page)).map((w: any) => w.id);
     expect(after[0]).toBe(before[1]);
     // 화면도 같은 회차에 바뀐다 — 폴링을 기다리지 않는다.
     const shown = await page.evaluate(() =>

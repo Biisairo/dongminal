@@ -1280,3 +1280,137 @@ Object.assign(GIT_WRITE_ERR,{
   branch_is_current:'현재 브랜치는 지울 수 없습니다',
   publish_required:'upstream 설정 확인이 필요합니다',
 });
+
+// ── Editor 탭 · Editor 창 (EDITOR_TAB_SRS 묶음 T·W) ──
+
+// FR-EDT-40: 세 번째 창 타입. Git 창과 마찬가지로 판정은 이 값과의 비교 하나다.
+const WINDOW_TYPE_EDITOR='editor';
+// 탭 서술자의 고정 값들. index.html 의 패널 래퍼가 같은 id 를 쓴다 (§2.1).
+const EDITOR_TAB_ID='editor';
+const EDITOR_TAB_LABEL='Editor';
+const EDITOR_PANEL_ID='sb-panel-editor';
+const EDITOR_LIST_ID='editor-entries';
+const EDITOR_ROOT_ID='editor-root';
+// FR-EDT-10·44: root 에디터의 표시 이름. 행과 창이 같은 이름을 써야 사용자가
+// 둘을 같은 것으로 읽는다.
+const EDITOR_ROOT_NAME='~';
+const EDITOR_ENTRIES_NONE='+ Add 로 경로를 추가하세요';
+
+// FR-EDT-28: `+ Add`. 지금 터미널의 cwd 를 미리 채운다 — 경로를 타이핑하게 하면
+// 리포 추가와 달리 딛을 자리가 없다.
+const EDITOR_ADD_TITLE='Editor 추가';
+const EDITOR_ADD_RUN='추가';
+const EDITOR_ADD_PROMPT='디렉터리 경로 (절대경로)';
+const EDITOR_ADD_HERE='지금 터미널: %s';
+const EDITOR_ADD_NO_TERM='지금 터미널의 경로를 얻지 못했습니다 — 경로를 직접 넣으세요';
+const EDITOR_ADD_NEED_PATH='경로가 필요합니다';
+const EDITOR_ADD_FAIL='Editor 를 추가하지 못했습니다';
+
+// FR-EDT-55: pane 이 하나도 없는 창의 우측. 빈 pane 이 아니라 pane 이 **없는** 것이다.
+const EDITOR_EMPTY_HINT='탐색기에서 파일을 열면 여기에 나타납니다';
+
+// FR-EDT-47 / D-18: 탐색기 폭은 워크스페이스에 산다 (`window.editor.explorerWidth`).
+// 상·하한은 사이드바(`--sb-w`)의 규약을 그대로 따른다 — 같은 종류의 값이 서로 다른
+// 한계를 가질 이유가 없다.
+const EDITOR_EXPLORER_W_DEFAULT=220;
+const EDITOR_EXPLORER_W_MIN=100;
+const EDITOR_EXPLORER_W_MAX=520;
+
+// FR-EDT-110 의 종단. M2 는 목록 조회·추가·제거·재정렬만 쓴다.
+const EDITORS_API='/api/editors';
+
+// ── Editor 탐색기 (EDITOR_TAB_SRS 묶음 X · FR-EDT-57~78) ──
+
+// FR-EDT-108 의 조회 종단. 조작(create/rename/delete)은 M5 의 것이므로 여기 없다.
+const FS_LIST_API='/api/fs/list';
+// FR-EDT-71: 색의 근거는 status **하나**다 — 펼침마다 중첩 저장소를 찾으면
+// 펼침 수만큼 rev-parse 가 붙는다 (D-6).
+const GIT_STATUS_API='/api/git/status';
+
+// FR-EDT-77: 활성 Editor 창의 색 갱신 주기. `GIT_REPOS_POLL_MS` 를 **값으로 딛는다**
+// — 같은 사실을 보는 두 화면이 다른 속도로 갱신될 이유가 없고, 두 벌로 적으면
+// 한쪽만 고쳐진다.
+const EDITOR_GIT_POLL_MS=GIT_REPOS_POLL_MS;
+
+// 트리 행의 들여쓰기는 Git 패널의 트리와 같은 값을 딛는다 (GIT_TREE_PAD0·
+// GIT_TREE_INDENT) — 같은 앱 안의 두 트리가 다른 리듬으로 들여쓸 이유가 없다.
+
+// 펼침 표시. 조회 중(`BUSY`)을 따로 두는 이유는 "비었다" 와 "아직 오지 않았다" 가
+// 같은 화면이 되면 사용자가 지연을 고장으로 읽기 때문이다.
+const EDITOR_TREE_TW_OPEN='▾';
+const EDITOR_TREE_TW_CLOSED='▸';
+const EDITOR_TREE_TW_BUSY='·';
+// FR-EDT-60: 링크는 펼치지도 열지도 않는다. 표시가 그 사실과 대상 종류를 알린다.
+const EDITOR_TREE_LINK='↗';
+const EDITOR_TREE_LINK_DIR='↗/';
+// FR-EDT-64: 펼쳐져 있는 폴더만 다시 읽는다.
+const EDITOR_TREE_REFRESH='↻';
+const EDITOR_TREE_REFRESH_TITLE='새로고침 (펼친 폴더만 다시 읽습니다)';
+// FR-EDT-65: 상한을 넘긴 폴더. **조회는 실패하지 않는다** — 잘렸다는 사실만 알린다.
+const EDITOR_TREE_TRUNCATED='%s개 이상 — 잘림';
+// FR-EDT-63: 조회 실패는 그 폴더 행에만 남고 트리를 깨뜨리지 않는다.
+const EDITOR_TREE_ERR='읽지 못했습니다';
+
+// FR-EDT-74 / D-5: 폴더 색의 우선순위. 삭제(D)가 표에 **없는 것이 규칙이다** —
+// 지워진 파일은 애초에 탐색기에 없으므로 그 상태가 폴더 색을 정할 근거가 없다.
+const EDITOR_TREE_ST_RANK={U:4,A:3,'?':3,M:2,R:1,C:1};
+
+// ── 탐색기의 파일 조작 (EDITOR_TAB_SRS 묶음 F · FR-EDT-79~93) ──
+
+// FR-EDT-109 의 조작 종단 셋. **이름 변경과 이동은 같은 연산**이라 종단이 하나다 —
+// 둘을 가르면 "옮기면서 이름도 바꾸는" 경로가 어느 쪽에도 속하지 않는다.
+const FS_CREATE_API='/api/fs/create';
+const FS_RENAME_API='/api/fs/rename';
+const FS_DELETE_API='/api/fs/delete';
+
+// FR-EDT-80: 진입점은 둘이다 — 상단 버튼과 행 우클릭. 라벨은 한 자리에 둔다.
+// 파일은 원, 폴더는 사각이다 — 둘 다 플러스를 품어 "새로 만든다" 를 말하되
+// 모양으로 갈린다. `＋` 와 `＋/` 는 같은 글자가 앞에 서서 곁눈으로 구분되지
+// 않았다. 이모지를 쓰지 않는 것은 상태 기호의 기존 규약과 같다.
+const EDITOR_TREE_NEW_FILE='⊕';
+const EDITOR_TREE_NEW_FILE_TITLE='새 파일 (선택한 폴더 아래)';
+const EDITOR_TREE_NEW_DIR='⊞';
+const EDITOR_TREE_NEW_DIR_TITLE='새 폴더 (선택한 폴더 아래)';
+const EDITOR_MENU_NEW_FILE='새 파일';
+const EDITOR_MENU_NEW_DIR='새 폴더';
+const EDITOR_MENU_RENAME='이름 변경';
+const EDITOR_MENU_DELETE='삭제';
+
+// FR-EDT-83·84: 삭제 확인창. **영구 삭제**라는 사실, 폴더면 재귀와 항목 수,
+// 그리고 저장되지 않은 탭이 함께 닫힌다는 사실을 한 자리에서 밝힌다.
+const EDITOR_DEL_FILE='%s 을(를) 삭제합니다.';
+const EDITOR_DEL_DIR='%s 폴더를 재귀적으로 삭제합니다 — 그 안의 항목 %n개가 함께 사라집니다.';
+const EDITOR_DEL_PERMANENT='영구 삭제입니다. 휴지통으로 가지 않으며 되돌릴 수 없습니다.';
+const EDITOR_DEL_DIRTY='저장되지 않은 탭 %n개가 함께 닫힙니다 — %s';
+const EDITOR_DEL_COUNT_MORE='%n개 이상';
+const EDITOR_DEL_OK='영구 삭제';
+const EDITOR_DEL_CANCEL='취소';
+// 확인창의 항목 수는 클라이언트가 `list` 로 센다 — 서버에 세는 종단이 없다.
+// 상한을 두는 이유는 큰 트리에서 확인창이 열리기까지 조회가 무한정 붙기 때문이다.
+// 넘으면 "N개 이상" 으로 알린다 — 확인창이 늦게 뜨는 것보다 낫다.
+const EDITOR_DEL_COUNT_MAX=2000;
+
+// FR-EDT-92: 실패는 그 자리에 사유를 표시한다. 서버의 코드(FR-EDT-117)를 사람의
+// 말로 옮기는 자리는 여기 하나다.
+const EDITOR_FS_ERR_MSG={
+  bad_request:'요청이 올바르지 않습니다',
+  outside_root:'Editor 루트 밖은 조작할 수 없습니다',
+  permission_denied:'권한이 없습니다',
+  not_found:'대상이 없습니다',
+  exists:'같은 이름이 이미 있습니다',
+  io_failed:'파일시스템 조작에 실패했습니다',
+};
+const EDITOR_FS_ERR_UNKNOWN='조작하지 못했습니다';
+// FR-EDT-85: 서버에 묻기 전에 클라이언트가 막는 유일한 경우다 — os.Rename 은 이
+// 이동을 성공시키고 트리를 잃어버린다.
+const EDITOR_MOVE_INTO_SELF='자기 자신이나 자기 하위로는 옮길 수 없습니다';
+const EDITOR_NAME_INVALID='이름에 / 를 쓸 수 없습니다';
+
+// ── 레이아웃 프리셋 ──
+//
+// 프리셋의 대상은 **일반 창**이다. Editor 창은 pane 이 없는 것이 정상이고
+// (FR-EDT-55) 그 layout(null)을 저장하면 불러오기가 새 창의 layout 을 지워
+// 창은 사라지고 도구만 남는다. 그럴 때 저장을 거절하고 사유를 남긴다.
+const PRESET_PANEL_ID='panel-presets';
+const PRESET_MSG_CLASS='preset-msg';
+const PRESET_SAVE_NO_PLAIN='저장할 일반 창이 없습니다 — 터미널 창을 열고 다시 시도하세요';

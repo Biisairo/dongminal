@@ -1,6 +1,6 @@
 import { Page, APIRequestContext } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, plainWindows } from './fixtures';
 
 // SRS: APP_DECOMPOSE_SRS.md (S1-Phase1)
 //   불변식: this.focused === active session.focusedPane
@@ -73,16 +73,19 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     await page.waitForFunction(() => document.querySelectorAll('#area .pn').length >= 2, { timeout: 5000 });
 
     const before = await readInvariant(page);
+    const firstWin = before.activeWindow;
 
-    // Add a second session.
+    // Add a second session. EDITOR_TAB_SRS FR-EDT-13: root 에디터 창이 항상
+    // 하나 더 있으므로 `ws.windows.length` 는 이제 일반 창 둘과 무관하게 3
+    // 이상이다 — 일반 창만 센다.
     await page.evaluate(() => (window as any).app.addWindow());
-    await page.waitForFunction(() => (window as any).app.ws.windows.length === 2, { timeout: 5000 });
+    await expect.poll(async () => (await plainWindows(page)).length, { timeout: 5000 }).toBe(2);
 
     // Switch back to the first session.
-    await page.evaluate(() => {
+    await page.evaluate((id) => {
       const a = (window as any).app;
-      a.switchWindow(a.ws.windows[0].id);
-    });
+      a.switchWindow(id);
+    }, firstWin);
     await page.waitForTimeout(150);
 
     const after = await readInvariant(page);

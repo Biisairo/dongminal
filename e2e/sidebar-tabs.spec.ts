@@ -383,7 +383,12 @@ test.describe('묶음 T — 인터페이스화 (FR-SBT-18~21)', () => {
     });
     expect(ids.length).toBeGreaterThanOrEqual(2);
 
-    await page.evaluate(() => {
+    // EDITOR_TAB_SRS 로 사이드바 탭이 셋(windows·git·editor)이 됐다 — 절대
+    // 개수는 그 구성에 종속되므로, 데모 서술자를 더하기 **전** 개수를 기준선으로
+    // 잡고 증분만 잰다.
+    const before = await page.locator('.sb-tab').count();
+
+    const demoIndex = await page.evaluate(() => {
       const p = document.createElement('div');
       p.className = 'sb-panel'; p.id = 'sb-panel-demo'; p.hidden = true;
       document.getElementById('sidebar')!.appendChild(p);
@@ -392,11 +397,14 @@ test.describe('묶음 T — 인터페이스화 (FR-SBT-18~21)', () => {
       // 탭 바는 다시 만들지 않는다 — 새 서술자를 그리도록 비우고 한 번 그린다.
       document.getElementById('sb-tabs')!.innerHTML = '';
       (window as any).app.render();
+      return (SB_TAB_DEFS as any[]).length;
     });
 
-    await expect(page.locator('.sb-tab')).toHaveCount(3);
-    // 직행 키 3번의 대상이 배열 순서에서 자동으로 나온다 (FR-SBT-26).
-    await page.evaluate(() => (window as any).app.executeAction('sidebarTab3'));
+    await expect(page.locator('.sb-tab')).toHaveCount(before + 1);
+    // 직행 키는 데모 탭이 배열에서 서는 자리(1-based)에서 자동으로 나온다
+    // (FR-SBT-26) — 고정된 `sidebarTab3` 은 editor 탭이 셋째 자리를 차지한
+    // 지금 더 이상 데모 탭을 가리키지 않는다.
+    await page.evaluate((n) => (window as any).app.executeAction(`sidebarTab${n}`), demoIndex);
     expect(await activeTab(page)).toBe('demo');
     await expect(page.locator('#sb-panel-demo')).toBeVisible();
 

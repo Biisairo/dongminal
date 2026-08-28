@@ -72,10 +72,15 @@ Object.assign(App.prototype, {
       return win&&win.layout?findPane(win.layout,opts.paneId):null;
     }
     for(let i=0;i<RESTORE_PANE_WAIT_TRIES;i++){
+      // FR-EDT-54: Editor 창에는 편집기 탭만 산다. 복귀는 `addTab` 을 거치지 않고
+      // 터미널 탭을 pane 에 직접 넣으므로(`_restoreTool`) 그 게이트가 여기에도
+      // 있어야 한다 — 없으면 Editor 창에 터미널 탭이 생기고, 일반 창만 걷는
+      // `_migrateEditorTabs` 가 그것을 영원히 지나친다. Git 창도 같은 구멍이다.
       const a=this._aw();
-      const pn=(this.focused&&a&&a.layout?findPane(a.layout,this.focused):null)
-        ||(a&&a.layout?firstPane(a.layout):null)
-        ||this.ws.windows.map(s=>firstPane(s.layout)).find(Boolean)
+      const cur=this._isEditorWin(a)||this._isGitWin(a)?null:a;
+      const pn=(this.focused&&cur&&cur.layout?findPane(cur.layout,this.focused):null)
+        ||(cur&&cur.layout?firstPane(cur.layout):null)
+        ||this._plainWindows().map(s=>firstPane(s.layout)).find(Boolean)
         ||null;
       if(pn) return pn;
       // 창이 하나도 없는 것은 delWindow 가 _mkWindow 를 끝내기 전의 과도

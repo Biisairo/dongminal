@@ -10,6 +10,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 
 | 문서 | 내용 |
 |------|------|
+| [EDITOR_TAB_SRS.md](./EDITOR_TAB_SRS.md) | **Editor 탭 — 파일 탐색기와 편집기 창** (IEEE 29148). 편집기를 일반 창의 탭에서 걷어내고 경로마다 하나씩 서는 제3의 사이드바 탭으로 옮긴다. FR-EDT-1~120, V-EDT-1~96, 확정 결정 D-1~D-29. §2 는 착수 전 조사와 1차 검증으로 굳힌 사실이며 **§2.4(`layout` 없는 창이 지워진다)가 이번 작업 최대의 제약**이다. §3.7 은 VSCode 의 폴더 색이 우선순위가 아니라 **경로 사전순 우연**임을 소스로 확인하고 모사하지 않기로 한 근거를 담는다. **구현 완료** |
 | [architecture.md](./architecture.md) | 패키지 레이아웃, **에이전트 접합면과 Run**, **에이전트 어댑터 레지스트리**, **멤버 프리앰블**, 어댑터 패턴, 커맨드 브로드캐스트, 핫패스 성능, 종료 경로 |
 | [test-checklist.md](./test-checklist.md) | 백엔드·프론트엔드 동작 체크리스트 + 테스트 커버리지 현황 |
 | [ENTITY_MODEL_RESTRUCTURE_SRS.md](./ENTITY_MODEL_RESTRUCTURE_SRS.md) | 엔티티 모델(Window ─ Pane ─ Tab ─ Tool)과 백그라운드 도구의 단일 진실 공급원. 요구 1·2 완료. §7 의 Run 접합면(FR-EM-17/18)은 후속 작업의 근거다 |

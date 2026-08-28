@@ -14,6 +14,16 @@ import * as path from 'path';
 // 원래 이 SRS 의 대상은 markdown 뷰어 탭이었다. 뷰어는 8dc0a3f 에서 내장
 // 편집기(editor 탭)로 대체됐고 동작 규칙은 그대로 살아 있어(app.js
 // _paneNewToolRef), 스펙을 editor 탭으로 이관했다.
+//
+// EDITOR_TAB_SRS FR-EDT-94 로 편집기 탭은 Editor 창에서만 열린다 — 일반 창의
+// pane 에 `addTab(...,'editor')` 하는 옛 셋업은 더 이상 성립하지 않는다
+// (`app-layout.js:229-235` 가 조용히 막는다). 그 창 안에서 새 도구를 만드는
+// 옛 경로(같은 pane 의 addTab, 같은 창의 split)도 함께 막혔다 — Editor 창은
+// `type!=='editor'` 탭을 받지 않고(FR-EDT-54) 분할은 드래그드롭만 허용된다
+// (FR-EDT-50·51, D-8). 반면 `_paneNewToolRef` 의 editor 분기(app-layout.js:487-494)는
+// 그대로 살아 있고, **Editor 창에서 새 창을 여는 경로**(`_mkWindow`,
+// app-layout.js:80)가 그것을 여전히 태운다. FR-1·FR-2 는 그 경로의 두 진입점 —
+// 브라우저 내부 직접 호출과 원격 커맨드(`dmctl new-window`) — 으로 같은 규칙을 잰다.
 
 async function resetWorkspace(request) {
   const get = await request.get('/api/workspace');
@@ -48,50 +58,44 @@ async function paneCwd(request, toolId: string): Promise<string> {
   return j.cwd as string;
 }
 
+// 편집기 탭을 root 에디터 창(FR-EDT-13)에 열고, 그 창을 활성 창으로, 그
+// 탭이 있는 pane 을 포커스로 만든다 — `_edOpenFile` 이 이 셋을 함께 보장한다
+// (`app-editor.js` FR-EDT-94·102).
+async function openInEditorWindow(page, filePath: string, name: string) {
+  await page.evaluate(async ({ fp, nm }) => {
+    const a = (window as any).app;
+    const winId = await a._edOpenFile(fp, { name: nm });
+    if (!winId) throw new Error('editor tab open 실패 — _edOn() 이 꺼져 있나?');
+  }, { fp: filePath, nm: name });
+}
+
 test.describe('편집기 탭 → 새 도구의 cwd 상속', () => {
-  test('FR-1: 편집기 탭이 활성인 분할 칸의 addTab 이 그 파일의 디렉터리를 상속', async ({ page, request }) => {
+  test('FR-1: Editor 창에서 _mkWindow 로 새 창을 열면 편집 중 파일의 디렉터리를 상속', async ({ page, request }) => {
     await gotoFresh(page, request);
     const { filePath, expectedCwd } = makeFileInDir();
+    await openInEditorWindow(page, filePath, path.basename(filePath));
 
-    // 편집기 탭을 열어 포커스된 분할 칸의 활성 탭으로 만든다.
-    await page.evaluate((fp) => {
+    const toolId = await page.evaluate(async () => {
       const a = (window as any).app;
-      a.addTab(a.focused, 'editor', { name: fp.split('/').pop(), filePath: fp });
-    }, filePath);
-    await page.waitForTimeout(150);
-
-    // + new terminal tab in same pane.
-    const newPaneId = await page.evaluate(async () => {
-      const a = (window as any).app;
-      const rid = a.focused;
-      const before = new Set([...a.tools.keys()]);
-      await a.addTab(rid, 'terminal');
-      const after = [...a.tools.keys()].find((k) => !before.has(k));
-      return after as string;
+      const c = await a._mkWindow();
+      return c?.tab?.toolId as string;
     });
-    expect(newPaneId).toBeTruthy();
-    expect(await paneCwd(request, newPaneId)).toBe(expectedCwd);
+    expect(toolId).toBeTruthy();
+    expect(await paneCwd(request, toolId)).toBe(expectedCwd);
   });
 
-  test('FR-2: 같은 상태에서의 split 도 그 파일의 디렉터리를 상속', async ({ page, request }) => {
+  test('FR-2: 원격 newWindow 커맨드(dmctl new-window)도 같은 창에서 그 디렉터리를 상속', async ({ page, request }) => {
     await gotoFresh(page, request);
     const { filePath, expectedCwd } = makeFileInDir();
+    await openInEditorWindow(page, filePath, path.basename(filePath));
 
-    await page.evaluate((fp) => {
-      const a = (window as any).app;
-      a.addTab(a.focused, 'editor', { name: fp.split('/').pop(), filePath: fp });
-    }, filePath);
-    await page.waitForTimeout(150);
-
-    const newPaneId = await page.evaluate(async () => {
-      const a = (window as any).app;
-      const before = new Set([...a.tools.keys()]);
-      await a.split('h');
-      const after = [...a.tools.keys()].find((k) => !before.has(k));
-      return after as string;
-    });
-    expect(newPaneId).toBeTruthy();
-    expect(await paneCwd(request, newPaneId)).toBe(expectedCwd);
+    const win = await (
+      await request.post('/api/commands', { data: { action: 'newWindow', args: {} } })
+    ).json();
+    expect(win.ok, `newWindow 실패: ${JSON.stringify(win)}`).toBeTruthy();
+    const toolId: string = win.newTabs?.[0]?.toolId;
+    expect(toolId).toBeTruthy();
+    expect(await paneCwd(request, toolId)).toBe(expectedCwd);
   });
 
   test('FR-3: terminal 탭이 활성이면 여전히 그 도구의 cwd 를 상속 (회귀)', async ({ page, request }) => {

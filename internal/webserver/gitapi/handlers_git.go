@@ -277,20 +277,15 @@ func (s *GitServer) apiGitPin(w http.ResponseWriter, r *http.Request) {
 		gitError(w, err)
 		return
 	}
-	pins, err := s.gitPinsMutate(func(cur []string) []string {
-		for _, p := range cur {
-			if p == root {
-				return cur // 멱등
-			}
-		}
-		// 정렬하지 않는다 — 사용자가 추가한 순서가 목록 순서다.
-		return append(cur, root)
-	})
+	// PinAdd 가 멱등이며(정렬하지 않는다 — 사용자가 추가한 순서가 목록 순서다)
+	// 같은 경로의 Editor 행을 같은 저장 안에서 함께 만든다 (FR-EDT-31·35).
+	// 응답의 root 는 wsentry 가 정규화해 실제로 저장한 값이다 (FR-EDT-24).
+	stored, lists, err := s.entries().PinAdd(root)
 	if err != nil {
 		gitFail(w, http.StatusInternalServerError, gitErrFailed, gitTail(err.Error()))
 		return
 	}
-	gitJSON(w, http.StatusOK, map[string]any{"root": root, "pinned": pins})
+	gitJSON(w, http.StatusOK, map[string]any{"root": stored, "pinned": lists.Pinned, "editors": lists.Editors})
 }
 
 // POST /api/git/repos/unpin — 저장된 값과 문자열이 정확히 같은 항목을 지운다.
@@ -304,20 +299,14 @@ func (s *GitServer) apiGitUnpin(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pins, err := s.gitPinsMutate(func(cur []string) []string {
-		out := make([]string, 0, len(cur))
-		for _, p := range cur {
-			if p != path {
-				out = append(out, p)
-			}
-		}
-		return out
-	})
+	// 같은 경로의 Editor 행도 함께 사라진다 (FR-EDT-32). 홈은 예외다 —
+	// root 행은 연동으로 사라지지 않는다 (FR-EDT-38).
+	lists, err := s.entries().PinRemove(path)
 	if err != nil {
 		gitFail(w, http.StatusInternalServerError, gitErrFailed, gitTail(err.Error()))
 		return
 	}
-	gitJSON(w, http.StatusOK, map[string]any{"pinned": pins})
+	gitJSON(w, http.StatusOK, map[string]any{"pinned": lists.Pinned, "editors": lists.Editors})
 }
 
 // gitReorderReq 는 핀 하나의 이동이다 (FR-GIT-223).

@@ -10,8 +10,22 @@ Object.assign(App.prototype, {
     document.getElementById('preset-save').addEventListener('click',()=>this._savePreset());
     this._renderPresets();
   },
+  // 프리셋의 대상은 **일반 창**이다. Editor 창은 pane 이 없는 것이 정상이고
+  // (FR-EDT-55) 그 layout(null)을 저장하면 불러오기가 `_mkWindow` 로 만든 창의
+  // layout 을 null 로 덮어써, 그 창이 다음 로드의 창 필터에 지워지고 도구만 남는다.
+  //
+  // 활성 창이 Editor·Git 창이면 **직전에 활성이었던 일반 창**으로 간다 —
+  // `_gitBackTarget`(FR-GIT-183a)과 같은 규약이다. 기억이 없으면 목록의 첫 일반
+  // 창이고, 일반 창이 하나도 없으면 null 이다.
+  _presetSource(){
+    const a=this._aw();
+    if(a&&!this._isEditorWin(a)&&!this._isGitWin(a)) return a;
+    const plain=this._plainWindows();
+    return plain.find(s=>s.id===this._lastPlainWindow)||plain[0]||null;
+  },
+
   _savePreset(){
-    const s=this._aw();if(!s)return;
+    const s=this._presetSource();
     // Strip layout to just structure (remove toolIds, keep tab counts)
     const strip=n=>{
       if(!n)return null;
@@ -19,7 +33,10 @@ Object.assign(App.prototype, {
       if(n.type==='split')return{type:'split',direction:n.direction,children:n.children.map(strip),sizes:n.sizes?[...n.sizes]:null};
       return null;
     };
-    const layout=strip(s.layout);
+    const layout=s?strip(s.layout):null;
+    // 빈 layout 을 프리셋으로 남기지 않는다. 눌렀는데 아무 일도 일어나지 않으면
+    // 사용자는 고장으로 읽으므로 사유를 화면에 남긴다.
+    if(!layout){this._presetMsg(PRESET_SAVE_NO_PLAIN);return}
     const name='프리셋 '+(layoutPresets.length+1);
     layoutPresets.push({name,layout});
     this._saveSettings();
@@ -52,7 +69,10 @@ Object.assign(App.prototype, {
       }
       return null;
     };
-    s.layout=await build(preset.layout);
+    const built=await build(preset.layout);
+    // 프리셋이 빈 layout 을 담고 있어도 `_mkWindow` 가 만든 layout 을 덮어쓰지
+    // 않는다 — 덮어쓰면 창 필터(FR-EDT-49)가 그 일반 창을 지우고 도구만 남는다.
+    if(built) s.layout=built;
     this._setFocus(firstPane(s.layout)?.id||null, s);
     await this._save();this.render();
   },
@@ -86,7 +106,21 @@ Object.assign(App.prototype, {
     }
     return'';
   },
+  // 저장을 거절한 사유가 앉는 자리. 목록 위에 두어 방금 누른 버튼과 가깝게 둔다.
+  _presetMsg(text){
+    const host=document.getElementById(PRESET_PANEL_ID);if(!host)return;
+    let el=host.querySelector('.'+PRESET_MSG_CLASS);
+    if(!el){
+      el=document.createElement('div');el.className=PRESET_MSG_CLASS;
+      host.insertBefore(el,host.firstChild);
+    }
+    el.textContent=text||'';
+  },
+
   _renderPresets(){
+    // 목록이 다시 그려지는 것은 저장·삭제·이름변경이 성공했을 때다 — 지난 사유는
+    // 그 순간 더 이상 사실이 아니다.
+    this._presetMsg('');
     const el=document.getElementById('preset-list');if(!el)return;
     el.innerHTML='';
     // Update sidebar preset button visibility

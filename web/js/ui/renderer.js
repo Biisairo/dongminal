@@ -15,7 +15,7 @@ class Renderer {
       this.app._researchIfOpen();
     }
     this.app._applyMobileMode();
-    this._rSbTabs();this._rSidebar();this._rGitSection();this._rTopbar();this._rLayout();
+    this._rSbTabs();this._rLists();this._rTopbar();this._rLayout();
     this.app._updateCwd();
     this.app._updateStatusBar();
     // Apply window focus overlay after every render so the DOM is
@@ -45,20 +45,22 @@ class Renderer {
    * `×` 가 사라지고, 이름변경 더블클릭의 두 번째 클릭이 새 요소에 떨어지고,
    * 끌고 있던 창이 DOM 에서 빠져 재배치가 조용히 실패한다.
    */
-  _rSidebar(){
-    // UX_REVISION_SRS FR-BLP-1: 창 목록은 이제 블루프린트가 그린다. 이 함수가
-    // 남아 있는 이유는 호출처(render·SSE·알람)가 이름으로 부르기 때문이다 —
-    // 그 배선을 바꾸는 것은 이 SRS 의 일이 아니다.
-    SidebarList.paint(this.app,SB_TAB_DEFS.find(d=>d.id==='windows'));
+  /**
+   * EDITOR_TAB_SRS FR-EDT-4 / D-12: 목록 렌더는 **서술자 배열의 순회**다.
+   *
+   * 지금까지 탭 id 문자열이 두 번 하드코딩돼 있었고(§2.1), 셋째 탭이 목록을
+   * 가지는 순간 걸렸다. 하드코딩으로 셋째를 더하면 넷째에서 같은 일이 반복되므로
+   * 여기서 파생시킨다 — `list` 를 가진 서술자 전부를 그린다.
+   */
+  _rLists(){
+    for(const d of SB_TAB_DEFS) if(d.list) SidebarList.paint(this.app,d);
   }
 
-  // FR-GIT-13: 좌측 GIT 섹션. 데이터는 app._gitRepos 다 — 없으면 본문만 비운다.
-  //
-  // FR-BLP-1: 창 목록과 **같은 구현**을 쓴다. 두 목록의 차이는 서술자뿐이다
-  // (sidebar-tabs.js 의 `list`).
-  _rGitSection(){
-    SidebarList.paint(this.app,SB_TAB_DEFS.find(d=>d.id==='git'));
-  }
+  // UX_REVISION_SRS FR-BLP-1: 두 이름이 남아 있는 이유는 호출처(SSE·알람·git 폴링)가
+  // 이름으로 부르기 때문이다 — 그 배선을 바꾸는 것은 이 SRS 의 일이 아니다.
+  // reconcile 이므로 값이 그대로면 DOM 은 손대지 않는다 (FR-RPT-3).
+  _rSidebar(){ this._rLists() }
+  _rGitSection(){ this._rLists() }
 
   _rTopbar(){
     const a=this.app._aw();
@@ -66,12 +68,17 @@ class Renderer {
     // FR-GIT-180: Git 창에서는 분할 진입점을 감춘다. (FR-GIT-183 의 `Close Git`
     // 은 폐기됐다 — 떠나는 길이 사이드바 탭으로 상시 존재한다, FR-SBT-34.)
     const isGit=this.app._isGitWin(a);
+    // FR-EDT-50: Editor 창에서도 분할 진입점을 감춘다 — 분할이 생기는 유일한
+    // 길은 드래그드롭이다 (FR-EDT-51). 눌리지만 아무 일도 하지 않는 버튼은
+    // 고장으로 읽힌다.
+    const noSplit=isGit||this.app._isEditorWin(a);
     for(const id of ['split-h','split-v']){
       const b=document.getElementById(id);
-      if(b) b.classList.toggle('git-hidden',isGit);
+      if(b) b.classList.toggle('git-hidden',noSplit);
     }
+    // FR-EDT-54: Editor 창에는 편집기 탭만 있다 — 새 탭 버튼의 대상이 없다.
     const mAdd=document.getElementById('m-add-tab');
-    if(mAdd) mAdd.classList.toggle('git-hidden',isGit);
+    if(mAdd) mAdd.classList.toggle('git-hidden',noSplit);
     const ind=document.getElementById('m-pane-indicator');
     if(ind){
       const n=this.app._mobilePaneCount();
@@ -100,23 +107,32 @@ class Renderer {
     for(const v of this.app.fileEditors.values()){
       v.el.classList.remove('vis');area.appendChild(v.el);
     }
-    for(const c of [...area.children]){if(c.classList.contains('sp')||c.classList.contains('pn'))c.remove()}
-    if(!s?.layout) return;
-    if(!findPane(s.layout,this.app.focused)){this.app._setFocus(firstPane(s.layout)?.id||null, s)}
-    let dom;
-    if(this.app.isMobile){
-      const regs=this.app._flattenPanes(s.layout);
-      if(regs.length){
-        const fIdx=regs.findIndex(r=>r.id===this.app.focused);
-        if(fIdx>=0) this.app._mPaneIdx=fIdx;
-        else if(this.app._mPaneIdx>=regs.length) this.app._mPaneIdx=regs.length-1;
-        const target=regs[this.app._mPaneIdx];
-        if(target){this.app._setFocus(target.id, s);dom=this._buildPane(target)}
-      }
-    }else{
-      dom=this._buildNode(s.layout);
+    for(const c of [...area.children]){
+      if(c.classList.contains('sp')||c.classList.contains('pn')||c.classList.contains('ed-win'))c.remove();
     }
-    if(dom) area.appendChild(dom);
+    // FR-EDT-46: Editor 창은 좌우 둘로 나뉜다 — 좌측 탐색기는 분할 트리 **밖**의
+    // 고정 영역이므로 트리가 붙을 자리를 우측으로 바꾼다.
+    const edWin=this.app._isEditorWin(s);
+    const host=edWin?this._rEditorWin(s,area):area;
+    // FR-EDT-55: pane 이 하나도 없는 창이 있다. 그리기를 건너뛰되 **되돌아 나가지
+    // 않는다** — 아래의 죽은 편집기 회수는 그런 창이 활성일 때도 돌아야 한다.
+    if(s?.layout){
+      if(!findPane(s.layout,this.app.focused)){this.app._setFocus(firstPane(s.layout)?.id||null, s)}
+      let dom;
+      if(this.app.isMobile){
+        const regs=this.app._flattenPanes(s.layout);
+        if(regs.length){
+          const fIdx=regs.findIndex(r=>r.id===this.app.focused);
+          if(fIdx>=0) this.app._mPaneIdx=fIdx;
+          else if(this.app._mPaneIdx>=regs.length) this.app._mPaneIdx=regs.length-1;
+          const target=regs[this.app._mPaneIdx];
+          if(target){this.app._setFocus(target.id, s);dom=this._buildPane(target)}
+        }
+      }else{
+        dom=this._buildNode(s.layout);
+      }
+      if(dom) host.appendChild(dom);
+    }
     const allTabIds=new Set();
     const walk=n=>{if(!n)return;if(n.type==='pane'&&n.tabs)n.tabs.forEach(t=>allTabIds.add(t.id));if(n.type==='split'&&n.children)n.children.forEach(walk)};
     for(const sess of this.app.ws.windows){if(sess&&sess.layout)walk(sess.layout)}
@@ -175,7 +191,9 @@ class Renderer {
       // 로드와 모든 재렌더가 키보드를 불러들이게 된다. 모바일에서 키보드를
       // 올리는 길은 사용자가 터미널을 탭하는 것 하나뿐이다 (_buildPane 의
       // mousedown). 편집기는 그 대상이 아니다 — 자기 UI 를 가진다.
-      if(this.app.focused && !this.app.isMobile){
+      // `s?.layout` 을 여기서도 본다 — pane 이 없는 Editor 창(FR-EDT-55)이
+      // 활성일 때 이 블록에 도달하기 때문이다.
+      if(this.app.focused && !this.app.isMobile && s?.layout){
         const pn=findPane(s.layout,this.app.focused);
         if(pn){const tab=pn.tabs.find(t=>t.id===pn.activeTab);if(tab){
           if(tab.type==='editor'){const v=this.app.fileEditors.get(tab.id);if(v)v.el.focus()}
@@ -187,6 +205,55 @@ class Renderer {
       if(this.app._windowFocused){
         this.app._resendWindowSizes(this.app.ws.activeWindow);
       }
+    });
+  }
+
+  /**
+   * EDITOR_TAB_SRS FR-EDT-46·47·55: Editor 창의 골격.
+   *
+   * 좌측은 탐색기, 우측은 편집기 영역이다. 탐색기는 분할 트리 **밖**이므로
+   * 어떤 드롭으로도 쪼개지지 않는다 — 트리는 우측(`.ed-area`) 안에만 산다.
+   *
+   * 탐색기의 내용은 M3 의 것이다. 여기서는 자리와 폭만 잡는다.
+   * 분할 트리가 붙을 요소를 돌려준다.
+   */
+  _rEditorWin(s,area){
+    const el=document.createElement('div'); el.className='ed-win';
+    // FR-EDT-57: 탐색기는 창별 인스턴스(FileTree)가 소유한다 — 여기서는 그 요소를
+    // 붙이기만 한다. `_rLayout` 이 `.ed-win` 을 매번 새로 만들므로 트리를 여기서
+    // 만들면 펼침·선택·스크롤이 매 render 마다 사라진다 (FR-EDT-66·68).
+    const ex=this.app._edTree(s).mount();
+    ex.style.width=this.app._edExplorerWidth(s)+'px';
+    el.appendChild(ex);
+    const h=document.createElement('div'); h.className='ed-ex-handle';
+    this._rEdHandle(h,s,ex);
+    el.appendChild(h);
+    const main=document.createElement('div'); main.className='ed-area';
+    // FR-EDT-55: pane 이 없는 것이지 빈 pane 이 있는 것이 아니다 — 안내문을 둔다.
+    if(!s.layout){
+      const hint=document.createElement('div'); hint.className='ed-empty';
+      hint.textContent=EDITOR_EMPTY_HINT;
+      main.appendChild(hint);
+    }
+    el.appendChild(main);
+    area.appendChild(el);
+    return main;
+  }
+
+  // FR-EDT-47 / D-18: 폭은 워크스페이스에 저장한다 — `sidebarWidth` 와 같은
+  // 규약이다 (§2.10). 드래그 중에는 화면만 바꾸고 확정은 mouseup 한 번이다.
+  _rEdHandle(h,s,ex){
+    h.addEventListener('mousedown',e=>{
+      e.preventDefault();
+      const sx=e.clientX, start=ex.offsetWidth;
+      const clamp=w=>Math.max(EDITOR_EXPLORER_W_MIN,Math.min(EDITOR_EXPLORER_W_MAX,w));
+      const mv=ev=>{ex.style.width=clamp(start+(ev.clientX-sx))+'px'};
+      const up=ev=>{
+        document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);
+        this.app._edSetExplorerWidth(s,clamp(start+(ev.clientX-sx)));
+        for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
+      };
+      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
     });
   }
 
@@ -280,8 +347,11 @@ class Renderer {
     }
     // FR-GIT-180: Git 창에는 `+` 자리를 만들지 않는다 — 눌리지만 아무 일도 하지
     // 않는 버튼은 고장으로 읽힌다.
-    const gitWin=this.app._isGitWin(this.app._aw());
-    if(!gitWin){
+    // FR-EDT-54: Editor 창의 탭은 편집기뿐이고 `+` 가 만들 수 있는 것이 없다 —
+    // Git 창과 같은 이유로 자리를 만들지 않는다.
+    const aw=this.app._aw();
+    const noAdd=this.app._isGitWin(aw)||this.app._isEditorWin(aw);
+    if(!noAdd){
       const add=document.createElement('button'); add.className='pn-tab-add'; add.textContent='+';
       add.addEventListener('click',e=>{e.stopPropagation();this.app.addTab(n.id)});
       tabs.appendChild(add);
