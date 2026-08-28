@@ -15,6 +15,10 @@ Object.assign(App.prototype, {
     // 지표 재생성(_updateStatusBar) 주기에 종속되면 안 된다.
     const bgBtn=document.getElementById('sb-bg-btn');
     if(bgBtn) bgBtn.addEventListener('click',e=>{e.stopPropagation();this._bgModalToggle()});
+    // FR-BGK-3/4/10: 인라인 확인·진행·오류는 **데이터**로 산다. 모달은 _bgRefresh
+    // 마다 통째로 다시 그려지므로, 요소에 붙인 상태는 다시 그리기가 버린다
+    // (GIT_REMAINING §1.3 이 전수 조사한 그 부류의 결함이다).
+    this._bgConfirm=null; this._bgPending=null; this._bgError=null;
     this._startStatsPoll();
     this._renderStatusBarSettings();
   },
@@ -148,6 +152,9 @@ Object.assign(App.prototype, {
   _bgModalToggle(open){
     this._bgModalOpen = (open===undefined) ? !this._bgModalOpen : !!open;
     if(this._bgModalOpen){ this._bgRefresh(); this._bgModalRender(); return }
+    // FR-BGK-5: 모달 밖 클릭·Escape 는 모달을 닫으므로 확인도 함께 취소된다.
+    // 진행 중인 종료는 남는다 — 요청은 이미 떠났고, 응답이 목록을 정리한다.
+    this._bgConfirm=null; this._bgError=null;
     const el=document.getElementById('bg-modal'); if(el) el.remove();
     if(this._bgModalKey){document.removeEventListener('keydown',this._bgModalKey);this._bgModalKey=null}
   },
@@ -171,17 +178,122 @@ Object.assign(App.prototype, {
       const empty=document.createElement('div'); empty.className='bg-empty';
       empty.textContent='없음'; box.appendChild(empty);
     }
-    for(const b of this._bg){
-      const row=document.createElement('div'); row.className='bg-row'; row.title='클릭하면 현재 분할 칸의 새 탭으로 복귀';
-      // .pn-tab[data-toolid] 과 같은 관행 — 어느 도구의 행인지 DOM 으로 식별한다.
-      row.dataset.toolid=b.toolId;
-      const name=document.createElement('span'); name.className='bg-name'; name.textContent=b.name||DEFAULT_TOOL_NAME;
-      const cwd=document.createElement('span'); cwd.className='bg-cwd'; cwd.textContent=b.cwd||'';
-      row.appendChild(name); row.appendChild(cwd);
-      row.addEventListener('click',()=>{this._bgModalToggle(false);this._restoreTool(b.toolId)});
-      box.appendChild(row);
-    }
+    for(const b of this._bg) box.appendChild(this._bgRow(b));
     ov.appendChild(box);
+  },
+
+  // FR-BGK-1: 행 하나. 종료는 행 클릭(복귀)과 **다른 목표**다 — 겹치면 복귀하려다
+  // 죽인다. 확인·진행·오류는 this._bg* 에서 파생하므로 다시 그려도 살아남는다.
+  _bgRow(b){
+    const confirming=this._bgConfirm===b.toolId;
+    const pending=this._bgPending===b.toolId;
+    const row=document.createElement('div'); row.className='bg-row';
+    if(!confirming&&!pending) row.title='클릭하면 현재 분할 칸의 새 탭으로 복귀';
+    // .pn-tab[data-toolid] 과 같은 관행 — 어느 도구의 행인지 DOM 으로 식별한다.
+    row.dataset.toolid=b.toolId;
+    const name=document.createElement('span'); name.className='bg-name'; name.textContent=b.name||DEFAULT_TOOL_NAME;
+    const cwd=document.createElement('span'); cwd.className='bg-cwd'; cwd.textContent=b.cwd||'';
+    row.appendChild(name); row.appendChild(cwd);
+    // FR-BGK-12: Run 소속. 묶음 H 가 오기 전에는 필드가 없고, 그때는 아무것도 붙지 않는다.
+    const run=this._bgRun(b);
+    if(run){
+      const el=document.createElement('span'); el.className='bg-run';
+      el.textContent=run.role?`Run ${run.short} · ${run.role}`:`Run ${run.short}`;
+      row.appendChild(el);
+    }
+    // FR-BGK-10: 오류는 행 안에 남는다. 종료 목표보다 앞에 두어 오른쪽 끝이 흔들리지 않는다.
+    if(this._bgError&&this._bgError.toolId===b.toolId){
+      const err=document.createElement('span'); err.className='bg-err';
+      err.textContent=this._bgError.msg; row.appendChild(err);
+    }
+    if(pending){
+      // 서버가 SIGTERM 유예(3초)를 기다리므로 응답은 즉답이 아니다. 아무 표시가
+      // 없으면 사용자는 눌리지 않았다고 보고 행을 다시 누른다 — 그것이 복귀다.
+      const p=document.createElement('span'); p.className='bg-killing'; p.textContent='종료 중…';
+      row.appendChild(p);
+    }else if(confirming){
+      row.appendChild(this._bgConfirmEl(b));
+    }else{
+      row.appendChild(this._bgKillBtn(b));
+    }
+    row.addEventListener('click',()=>{
+      if(this._bgPending) return;
+      // FR-BGK-5: 확인이 열려 있으면 행을 건드리는 것은 **취소일 뿐**이다.
+      // 취소와 복귀를 한 클릭에 겹치면 확인의 의미가 사라진다.
+      if(this._bgConfirm){this._bgConfirmSet(null);return}
+      this._bgModalToggle(false);this._restoreTool(b.toolId);
+    });
+    return row;
+  },
+
+  // FR-BGK-2: 항상 보인다. hover 게이팅하지 않는다 — 터치 기기에 hover 가 없다.
+  _bgKillBtn(b){
+    const btn=document.createElement('button');
+    btn.className='tbtn bg-kill'; btn.textContent='종료';
+    btn.title=`${b.name||DEFAULT_TOOL_NAME} 종료`;
+    btn.dataset.toolid=b.toolId;
+    btn.addEventListener('click',e=>{e.stopPropagation();this._bgConfirmSet(b.toolId)});
+    return btn;
+  },
+
+  // FR-BGK-4: 확인은 행 안에서 한다. 모달 위의 모달은 Escape 처리와 포커스
+  // 관리를 복잡하게 만든다.
+  _bgConfirmEl(b){
+    const wrap=document.createElement('span'); wrap.className='bg-confirm';
+    const q=document.createElement('span'); q.className='bg-q'; q.textContent=this._bgKillQuestion(b);
+    const yes=document.createElement('button'); yes.className='tbtn bg-yes'; yes.textContent='예';
+    const no=document.createElement('button'); no.className='tbtn bg-no'; no.textContent='아니오';
+    yes.addEventListener('click',e=>{e.stopPropagation();this._bgKill(b.toolId)});
+    no.addEventListener('click',e=>{e.stopPropagation();this._bgConfirmSet(null)});
+    wrap.appendChild(q); wrap.appendChild(yes); wrap.appendChild(no);
+    return wrap;
+  },
+
+  // FR-BGK-12 / FR-HLM-9: 헤드리스 멤버는 소속을 알리고 죽인다.
+  //
+  // runId·role 은 /api/tools/background 가 **열린 Run 의 멤버에만** 싣는다
+  // (omitempty — 모르면 키가 없다). 그러니 없는 것이 정상이고, 그때는 "떼어 둔
+  // 내 도구" 다. short 는 uuid 앞 8자 (run/store.go 의 shortID 와 같은 규약).
+  _bgRun(b){
+    if(!b.runId) return null;
+    return {short:String(b.runId).slice(0,8),role:b.role||''};
+  },
+
+  _bgKillQuestion(b){
+    const run=this._bgRun(b);
+    if(!run) return '종료?';
+    return run.role
+      ? `종료? 이 도구는 Run ${run.short} 의 멤버 ${run.role} 이다.`
+      : `종료? 이 도구는 Run ${run.short} 의 멤버다.`;
+  },
+
+  // FR-BGK-5: 확인은 한 번에 하나다. 다른 행의 종료를 누르면 앞의 확인은 취소된다.
+  _bgConfirmSet(toolId){
+    this._bgConfirm=toolId||null;
+    this._bgError=null;
+    this._bgModalRender();
+  },
+
+  // FR-BGK-6~10: 종료는 POST /api/tools/kill 이다. 성공하면 목록만 다시 받는다 —
+  // 모달은 열린 채로 남고(FR-BGK-8), "없음" 과 배지 소멸은 그 갱신이 따라온다
+  // (FR-BGK-9). 실패하면 행이 남고 오류만 인라인으로 붙는다(FR-BGK-10).
+  async _bgKill(toolId){
+    this._bgConfirm=null; this._bgError=null; this._bgPending=toolId;
+    this._bgModalRender();
+    let ok=false, msg='';
+    try{
+      const r=await fetch('/api/tools/kill',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({toolId})});
+      ok=r.ok;
+      if(!ok) msg=(await r.text()).trim()||`종료 실패 (${r.status})`;
+    }catch{msg='종료 실패 — 서버에 닿지 못했다'}
+    this._bgPending=null;
+    if(!ok) this._bgError={toolId,msg};
+    else await this._bgRefresh();
+    // 응답을 기다리는 사이에 모달이 닫혔을 수 있다 — 그때 그리면 되살아난다.
+    // 목록 갱신이 실패한 회차에도 '종료 중…' 이 남지 않게 여기서 한 번 더 그린다.
+    if(this._bgModalOpen) this._bgModalRender();
   },
   _fmtBytes(b){
     if(b<1073741824)return(b/1048576).toFixed(1)+'MB';

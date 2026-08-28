@@ -96,6 +96,24 @@ var apiRoutes = []apiRoute{
 	{http.MethodPost, exactPath("/api/runs/close"), (*Server).apiRunClose},
 	// 묶음 P — 멤버 프리앰블 (RUN_ORCHESTRATION_SRS FR-PRE-1). dmctl run launch.
 	{http.MethodGet, exactPath("/api/runs/preamble"), (*Server).apiRunPreamble},
+	// ── ORCHESTRATION_V2 · CONVENIENCE ──
+	//
+	// 순서 주의: 매칭은 **첫 성공이 이긴다**(§dispatch). 아래 exactPath 들이
+	// /api/runs/{id}/graph 의 prefix 매칭보다 먼저 와야 한다.
+	{http.MethodGet, exactPath("/api/runs/peers"), (*Server).apiRunPeers},      // 묶음 P (WS-4)
+	{http.MethodPost, exactPath("/api/runs/attach"), (*Server).apiRunAttach},   // 묶음 H (WS-2)
+	{http.MethodPost, exactPath("/api/runs/detach"), (*Server).apiRunDetach},   // 묶음 H (WS-2)
+	{http.MethodPost, exactPath("/api/runs/succeed"), (*Server).apiRunSucceed}, // 묶음 C (WS-3)
+	{http.MethodPost, exactPath("/api/runs/handoff"), (*Server).apiRunHandoff}, // 묶음 C (WS-3)
+	// 관측 수신 종단. activity/set(= WS-2 파일)에 필드를 붙이는 대신 전용 경로를
+	// 둔다 — 라우트 1줄이 남의 핸들러 본문 수정보다 싸고, 컨텍스트 관측은
+	// activity(무엇을 하는가)와 직교하는 별개 레이어다.
+	{http.MethodPost, exactPath("/api/runs/context"), (*Server).apiRunContext},      // 묶음 C (WS-3)
+	{http.MethodPost, exactPath("/api/tools/headless"), (*Server).apiToolsHeadless}, // 묶음 H (WS-2)
+	{http.MethodPost, exactPath("/api/tools/kill"), (*Server).apiToolKill},          // 묶음 X (WS-8)
+	{http.MethodGet, func(p string) bool {
+		return strings.HasPrefix(p, "/api/runs/") && strings.HasSuffix(p, "/graph")
+	}, (*Server).apiRunGraph}, // 묶음 V (WS-5)
 	{http.MethodGet, func(p string) bool {
 		return strings.HasPrefix(p, "/api/tools/") && strings.HasSuffix(p, "/busy")
 	}, (*Server).apiToolBusy},

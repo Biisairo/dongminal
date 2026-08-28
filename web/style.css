@@ -2173,4 +2173,27 @@ body.mobile #sb-tabs{position:sticky;top:0;z-index:1;background:var(--sidebar-bg
 body.mobile .sb-tab{height:44px;font-size:12px}
 body.mobile .sb-tab-badge{min-width:18px;padding:0 6px;font-size:11px;line-height:18px;border-radius:9px}
 
+/* --- track: bg-kill (WS-8 · CONVENIENCE_SRS 묶음 X) --- */
+/* 종료 목표는 행 클릭(복귀)과 겹치지 않도록 오른쪽 끝에 따로 선다 (FR-BGK-1).
+   행이 baseline 정렬이므로 버튼도 그 선을 따른다. */
+.bg-box .bg-row{min-height:30px}
+.bg-box .bg-kill,.bg-box .bg-confirm,.bg-box .bg-killing{margin-left:auto;flex-shrink:0}
+/* FR-BGK-2: 항상 보인다. hover 게이팅하지 않는다 — 터치 기기에 hover 가 없고,
+   `.git-repo-x` 의 opacity:0 규약을 여기서 되풀이하지 않는다. */
+.bg-box .bg-kill{padding:2px 8px;color:var(--text-muted);border-color:var(--border)}
+.bg-box .bg-kill:hover{color:var(--danger);border-color:var(--danger);background:rgba(247,118,142,.12)}
+/* FR-BGK-4: 인라인 확인 — 행 안에서 바뀐다. 모달 위의 모달을 띄우지 않는다. */
+.bg-box .bg-confirm{display:inline-flex;gap:6px;align-items:center}
+.bg-box .bg-q{color:var(--text-bright);font-size:11px;white-space:nowrap}
+.bg-box .bg-yes{padding:2px 8px;color:var(--danger);border-color:var(--danger)}
+.bg-box .bg-yes:hover{background:rgba(247,118,142,.18);color:var(--danger);border-color:var(--danger)}
+.bg-box .bg-no{padding:2px 8px}
+.bg-box .bg-killing{color:var(--text-muted);font-size:11px;white-space:nowrap}
+/* FR-BGK-10: 오류는 행 안에 남는다 — 모달을 닫지 않는다. */
+.bg-box .bg-err{color:var(--danger);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* FR-BGK-12: 소속 Run — 묶음 H 가 오기 전에는 이 요소가 만들어지지 않는다. */
+.bg-box .bg-run{color:var(--accent);font-size:11px;white-space:nowrap;flex-shrink:0}
+/* V-BGK-12: 터치. hover 없이 닿아야 하므로 히트 영역만 키운다 (기존 44px 규약). */
+body.mobile .bg-box .bg-row{min-height:44px}
+body.mobile .bg-box .bg-kill,body.mobile .bg-box .bg-yes,body.mobile .bg-box .bg-no{min-height:32px;padding:4px 12px}
 
