@@ -20,7 +20,7 @@ import (
 // TestDaemonFullFlow verifies the complete daemon lifecycle:
 // create → write input → read output → attention detection → activity → exit cleanup.
 func TestDaemonFullFlow(t *testing.T) {
-	dir := t.TempDir()
+	dir := toolTempDir(t)
 	sockPath := dir + "/s"
 	dataDir := dir + "/d"
 	os.MkdirAll(dataDir, 0o755)
@@ -207,7 +207,7 @@ func TestDaemonAttentionDetection(t *testing.T) {
 // TestDaemonReconnectPreservesTools verifies that tools survive
 // a dongminal reconnection (dongminald stays alive).
 func TestDaemonReconnectPreservesTools(t *testing.T) {
-	dir := t.TempDir()
+	dir := toolTempDir(t)
 	sockPath := dir + "/s"
 	dataDir := dir + "/d"
 	os.MkdirAll(dataDir, 0o755)
@@ -375,7 +375,7 @@ func bytesRepeat(n int, b byte) []byte {
 func TestDaemonToolCreateDeleteLifecycle(t *testing.T) {
 	sockPath := t.TempDir() + "/s"
 
-	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(toolTempDir(t), nil)
 	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -420,7 +420,7 @@ func TestDaemonToolCreateDeleteLifecycle(t *testing.T) {
 // TestDaemonPanedServerSocketCleanup verifies that Listen removes stale
 // socket and Close cleans up.
 func TestDaemonPanedServerSocketCleanup(t *testing.T) {
-	dir := t.TempDir()
+	dir := toolTempDir(t)
 	sockPath := dir + "/s"
 	pidPath := dir + "/p"
 
@@ -429,7 +429,7 @@ func TestDaemonPanedServerSocketCleanup(t *testing.T) {
 		f.Close()
 	}
 
-	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	pm := toolhub.NewToolManager(toolTempDir(t), nil)
 	ps := ipc.NewPanedServer(pm, sockPath, pidPath)
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -496,7 +496,7 @@ func TestDaemonAttnTrackerMultipleTools(t *testing.T) {
 // Both encode onto the same json.Encoder; without writeMu serialization this
 // races and corrupts the JSON-Lines stream (FR-11). Run with -race.
 func TestDaemonConcurrentPushAndRequest(t *testing.T) {
-	dir := t.TempDir()
+	dir := toolTempDir(t)
 	sockPath := dir + "/s"
 	dataDir := dir + "/d"
 	os.MkdirAll(dataDir, 0o755)
@@ -655,7 +655,7 @@ func TestDaemonAttnTrackerL2IdleSuppressedWhileWorking(t *testing.T) {
 // TestDaemonExitClosesSubscriber verifies a tool exit closes the per-subscriber
 // exit channel so the WS handler can send toolhub.OpExit (parity with direct mode).
 func TestDaemonExitClosesSubscriber(t *testing.T) {
-	dir := t.TempDir()
+	dir := toolTempDir(t)
 	sockPath := dir + "/s"
 	os.MkdirAll(dir+"/d", 0o755)
 	pm := toolhub.NewToolManager(dir+"/d", nil)
@@ -693,7 +693,7 @@ func TestDaemonExitClosesSubscriber(t *testing.T) {
 // TestDaemonAttentionWithoutSubscriber verifies OnOutput-driven attention
 // detection fires even when no WS client is subscribed to the tool (FR-15).
 func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
-	dir := t.TempDir()
+	dir := toolTempDir(t)
 	sockPath := dir + "/s"
 	os.MkdirAll(dir+"/d", 0o755)
 	pm := toolhub.NewToolManager(dir+"/d", nil)

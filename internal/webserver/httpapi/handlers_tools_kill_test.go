@@ -45,7 +45,7 @@ func postKill(s *Server, body string) *httptest.ResponseRecorder {
 }
 
 func TestApiToolKill_RejectsMissingToolID(t *testing.T) {
-	s := &Server{Tools: toolhub.NewToolManager(t.TempDir(), nil)}
+	s := &Server{Tools: toolhub.NewToolManager(toolTempDir(t), nil)}
 	for _, body := range []string{``, `{}`, `{"toolId":""}`} {
 		if got := postKill(s, body).Code; got != http.StatusBadRequest {
 			t.Errorf("body=%q status=%d, want 400", body, got)
@@ -56,7 +56,7 @@ func TestApiToolKill_RejectsMissingToolID(t *testing.T) {
 // V-BGK-10 의 서버측 근거: 알 수 없는 도구는 404 다. 조용히 성공하면 모달이
 // 낡은 행을 지우고 사용자는 무엇이 잘못됐는지 알 수 없다.
 func TestApiToolKill_UnknownToolIs404(t *testing.T) {
-	s := &Server{Tools: toolhub.NewToolManager(t.TempDir(), nil)}
+	s := &Server{Tools: toolhub.NewToolManager(toolTempDir(t), nil)}
 	if got := postKill(s, `{"toolId":"nope"}`).Code; got != http.StatusNotFound {
 		t.Fatalf("status=%d, want 404", got)
 	}
@@ -73,7 +73,7 @@ func TestApiToolKill_NoHubIs404(t *testing.T) {
 // background 맵에서도 제거한다).
 func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
 	shortGrace(t, 200*time.Millisecond)
-	dir := t.TempDir()
+	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
 	tl, err := m.Create(dir, 80, 24)
 	if err != nil {
@@ -115,7 +115,7 @@ func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
 func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 	const grace = 400 * time.Millisecond
 	shortGrace(t, grace)
-	dir := t.TempDir()
+	dir := toolTempDir(t)
 	shell := filepath.Join(dir, "stubborn.sh")
 	ready := filepath.Join(dir, "ready")
 	// 준비 표식은 경합 제거용이다 — trap 이 걸리기 전에 SIGTERM 이 닿으면 셸은
@@ -168,7 +168,7 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 // SIGTERM 을 받고 바로 죽는 프로세스는 유예를 다 쓰지 않는다 — 유예는 상한이지
 // 대기 시간이 아니다 (FR-BGK-7).
 func TestTerminateWithGrace_ReturnsEarlyOnExit(t *testing.T) {
-	dir := t.TempDir()
+	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
 	tl, err := m.Create(dir, 80, 24)
 	if err != nil {

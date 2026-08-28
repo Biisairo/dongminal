@@ -29,7 +29,7 @@ func seedTools(t *testing.T, dir string, ids ...string) {
 }
 
 func TestLoadAll_SkipsUnreferencedTools(t *testing.T) {
-	dir := t.TempDir()
+	dir := toolTempDir(t)
 	seedTools(t, dir, "1", "2", "3")
 
 	m := toolhub.NewToolManager(dir, nil)
@@ -56,7 +56,7 @@ func TestLoadAll_SkipsUnreferencedTools(t *testing.T) {
 
 func TestLoadAll_NilRefsRestoresNothing(t *testing.T) {
 	// 참조 집합을 얻지 못한 경우(빈 workspace) 도구를 되살릴 근거가 없다.
-	dir := t.TempDir()
+	dir := toolTempDir(t)
 	seedTools(t, dir, "1", "2")
 
 	m := toolhub.NewToolManager(dir, nil)
@@ -67,7 +67,7 @@ func TestLoadAll_NilRefsRestoresNothing(t *testing.T) {
 }
 
 func TestLoadAll_AllReferencedRestoresAll(t *testing.T) {
-	dir := t.TempDir()
+	dir := toolTempDir(t)
 	seedTools(t, dir, "5", "6")
 
 	m := toolhub.NewToolManager(dir, nil)
@@ -84,7 +84,7 @@ func TestLoadAll_AllReferencedRestoresAll(t *testing.T) {
 }
 
 func TestLoadAll_MissingFileIsNoop(t *testing.T) {
-	dir := t.TempDir()
+	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
 	m.LoadAll(map[string]struct{}{"1": {}})
 	if got := len(m.Snapshot()); got != 0 {

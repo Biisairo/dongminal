@@ -16,7 +16,7 @@ var uuidRe = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4
 
 // TC-UNI-5: 도구 2개의 toolId 가 모두 uuid 형식이고 서로 다르다.
 func TestToolCreate_IDIsUUID(t *testing.T) {
-	m := toolhub.NewToolManager(t.TempDir(), nil)
+	m := toolhub.NewToolManager(toolTempDir(t), nil)
 	defer closeAllTools(m)
 
 	a, err := m.Create(t.TempDir(), 80, 24)
@@ -41,7 +41,7 @@ func TestToolCreate_IDIsUUID(t *testing.T) {
 // TC-UNI-6: 도구를 전부 닫고 새 toolhub.ToolManager 를 띄운 뒤 만든 toolId 가 이전 세션의
 // 어떤 toolId 와도 같지 않다. 카운터 시절에는 둘 다 "1" 이었다.
 func TestToolCreate_NoIDReuseAcrossRestart(t *testing.T) {
-	dir := t.TempDir()
+	dir := toolTempDir(t)
 
 	first := toolhub.NewToolManager(dir, nil)
 	p, err := first.Create(t.TempDir(), 80, 24)
@@ -52,7 +52,7 @@ func TestToolCreate_NoIDReuseAcrossRestart(t *testing.T) {
 	closeAllTools(first)
 
 	// 도구가 하나도 복원되지 않는 재기동 (tools.json 이 비었거나 없는 상태).
-	second := toolhub.NewToolManager(t.TempDir(), nil)
+	second := toolhub.NewToolManager(toolTempDir(t), nil)
 	defer closeAllTools(second)
 	q, err := second.Create(t.TempDir(), 80, 24)
 	if err != nil {
@@ -66,7 +66,7 @@ func TestToolCreate_NoIDReuseAcrossRestart(t *testing.T) {
 
 // TC-UNI-7: 표시명은 id 와 분리돼 있다 — "Shell" 고정 (FR-UNI-8).
 func TestToolCreate_NameIsIndependentOfID(t *testing.T) {
-	m := toolhub.NewToolManager(t.TempDir(), nil)
+	m := toolhub.NewToolManager(toolTempDir(t), nil)
 	defer closeAllTools(m)
 
 	p, err := m.Create(t.TempDir(), 80, 24)
@@ -81,7 +81,7 @@ func TestToolCreate_NameIsIndependentOfID(t *testing.T) {
 // TC-UNI-8: 구 정수 toolId 를 복원한 뒤 새로 만들어도 구 id 는 보존되고 신규만
 // uuid 다 — 혼재가 정상이다 (FR-UNI-9).
 func TestToolRestore_LegacyIntegerIDCoexists(t *testing.T) {
-	m := toolhub.NewToolManager(t.TempDir(), nil)
+	m := toolhub.NewToolManager(toolTempDir(t), nil)
 	defer closeAllTools(m)
 
 	if err := m.Restore("267", "Shell #267", t.TempDir(), 80, 24); err != nil {
