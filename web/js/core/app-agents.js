@@ -124,7 +124,8 @@ Object.assign(App.prototype, {
         if(it.t!=='card') return '1';
         const i=it.info||{};
         // `_agCardEl` 이 읽는 값 전부다 (FR-RPT-2).
-        return [it.loc.win.name||'',it.loc.tab.name||'',i.state||'',i.tool||'',i.detail||'',
+        // FR-NAM-6: 표시 이름이 근거에 들어간다 — 파생 이름이 바뀌면 카드도 바뀐다.
+        return [it.loc.win.name||'',this._toolName(it.toolId,it.loc.tab.name),i.state||'',i.tool||'',i.detail||'',
                 this._attnHas(it.toolId)?1:0,this._isToolFocusedActive(it.toolId)?1:0]
           .join('\u0001');
       },
@@ -155,7 +156,10 @@ Object.assign(App.prototype, {
     const card=document.createElement('div');
     card.className='ag-card'+(this._attnHas(toolId)?' attn':'')+(this._isToolFocusedActive(toolId)?' focused':'');
     card.dataset.toolid=toolId;
-    const locDiv=document.createElement('div');locDiv.className='ag-loc';locDiv.textContent=(loc.win.name||'')+' · '+(loc.tab.name||toolId);
+    // FR-NAM-1·6: 도구 이름은 한 자리에서 온다 — 에이전트 패널이 화면의 탭과
+    // 다른 이름을 부르면 어느 도구인지 짚을 수 없다.
+    const locDiv=document.createElement('div');locDiv.className='ag-loc';
+    locDiv.textContent=(loc.win.name||'')+' · '+this._toolName(toolId,loc.tab.name||toolId);
     const st=document.createElement('div');st.className='ag-state';
     if(info.state) st.classList.add(info.state); // 상태별 색(.ag-state.working 등)
     st.textContent=(AGENT_STATE_ICON[info.state]||'●')+' '+info.state+(info.tool?' · '+info.tool:'');

@@ -107,7 +107,40 @@ const SidebarList = {
       name.addEventListener('dblclick', e => { e.stopPropagation(); r.onRename(app, e.target) });
     }
     if (d.reorder) this._bindDrag(app, def, el, r);
+    if (d.tabDrop) this._bindTabDrop(app, def, el, r);
     return el;
+  },
+
+  /**
+   * FR-MOV-1·7: 항목이 **탭을 받는다.**
+   *
+   * 재배치(`_bindDrag`)와 다른 제스처다 — 저쪽은 목록 안에서 순서를 바꾸고,
+   * 이쪽은 바깥(분할 칸의 탭 바)에서 온 것을 받는다. 그래서 표식도 다르다:
+   * 위/아래 선이 아니라 테두리(`drop-into`)로 "이 안으로" 를 말한다.
+   *
+   * 받을지 말지는 서술자가 정한다 — 창 목록만 탭을 받고, 리포 목록은 받지 않는다.
+   */
+  _bindTabDrop(app, def, el, r) {
+    const d = def.list;
+    const list = document.getElementById(d.containerId);
+    const clear = () => list && list.querySelectorAll('.sbl-item').forEach(x =>
+      x.classList.remove('drop-into'));
+    el.addEventListener('dragover', e => {
+      const dr = app._drag; if (!dr || dr.type !== 'tab') return;
+      if (!d.tabDrop.accepts(app, r)) return;
+      e.preventDefault(); e.stopPropagation();
+      clear(); el.classList.add('drop-into');
+    });
+    el.addEventListener('dragleave', e => {
+      if (!el.contains(e.relatedTarget)) el.classList.remove('drop-into');
+    });
+    el.addEventListener('drop', e => {
+      const dr = app._drag; if (!dr || dr.type !== 'tab') return;
+      if (!d.tabDrop.accepts(app, r)) return;
+      e.preventDefault(); e.stopPropagation();
+      clear(); app._drag = null;
+      d.tabDrop.drop(app, r, dr);
+    });
   },
 
   /**
@@ -142,7 +175,7 @@ const SidebarList = {
       SidebarList.commit(app, def, dr);
     });
     el.addEventListener('dragend', () => {
-      app._drag = null; el.classList.remove('dragging'); clear();
+      app._drag = null; el.classList.remove('dragging', 'drop-into'); clear();
     });
   },
 

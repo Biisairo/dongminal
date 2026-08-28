@@ -49,6 +49,12 @@ const SB_TAB_DEFS=[
         currentKey:app=>app.ws.activeWindow,
         open:(app,s)=>app.switchWindow(s.id),
       },
+      // FR-MOV-1: 창 항목은 탭을 받는다. 지금 보고 있는 창은 받을 이유가 없다 —
+      // 같은 창 안의 이동은 분할 칸의 탭 바가 이미 한다.
+      tabDrop:{
+        accepts:(app,r)=>r.key!==app.ws.activeWindow,
+        drop:(app,r,dr)=>app._moveTabToWindow(dr.srcPaneId,dr.tabId,r.key),
+      },
       row:(app,s)=>({
         name:s.name,
         active:s.id===app.ws.activeWindow,

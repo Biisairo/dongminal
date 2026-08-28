@@ -138,6 +138,65 @@ test.describe('묶음 B — 목록 순회 (FR-BLP-15~18)', () => {
   });
 });
 
+// ── 묶음 W — 작업 경로 승계 ──
+
+test.describe('묶음 W — 새 창의 cwd (FR-CWD-*)', () => {
+  const toolCwd = async (request: APIRequestContext, toolId: string) =>
+    (await (await request.get('/api/cwd?tool=' + toolId)).json()).cwd as string;
+
+  test('V-CWD-1: 새 창의 첫 도구가 포커스 분할 칸의 cwd 를 물려받는다', async ({ page, request }) => {
+    await init(page);
+    // 지금 분할 칸의 도구를 어떤 디렉터리로 보낸다 — 셸에 cd 를 치는 대신
+    // 그 경로에서 만든 도구를 기준으로 삼는다 (터미널 입력은 느리고 흔들린다).
+    const here = fx('basic');
+    const base = await page.evaluate(async ([cwd]) => {
+      const app = (window as any).app;
+      await app.addTab(app.focused, 'terminal', { cwd });
+      const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
+      const pane = win.layout;
+      return pane.tabs.find((t: any) => t.id === pane.activeTab).toolId;
+    }, [here]);
+    expect(await toolCwd(request, base)).toBe(here);
+
+    // 그 상태에서 새 창을 만든다 — 1차 전에는 여기서 cwd 를 잃었다.
+    const made = await page.evaluate(async () => {
+      const app = (window as any).app;
+      const r = await app._mkWindow();
+      app.render();
+      return r.tab.toolId;
+    });
+    expect(await toolCwd(request, made), '새 창이 cwd 를 물려받지 않았다').toBe(here);
+  });
+
+  test('V-CWD-2: dmctl 이 보낸 cwdTool 이 기준이 된다', async ({ page, request }) => {
+    await init(page);
+    const here = fx('basic');
+    const caller = await page.evaluate(async ([cwd]) => {
+      const app = (window as any).app;
+      await app.addTab(app.focused, 'terminal', { cwd });
+      const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
+      const pane = win.layout;
+      return pane.tabs.find((t: any) => t.id === pane.activeTab).toolId;
+    }, [here]);
+    // 포커스를 다른 분할 칸으로 옮겨도, 호출한 셸(caller)이 기준이어야 한다
+    // (FR-CWD-4: 조정자가 어느 창을 보고 있든 자기 cwd 에서 팀 창이 열린다).
+    await page.evaluate(() => (window as any).app.split('horizontal'));
+    await page.waitForTimeout(300);
+    const made = await page.evaluate(async ([tid]) => {
+      const app = (window as any).app;
+      let out: any = null;
+      const orig = app._echoResult;
+      app._echoResult = (_: any, r: any) => { out = r };
+      app._execRemote('newWindow', { name: 'team', cwdTool: tid, reqId: 'probe' });
+      await new Promise(r => setTimeout(r, 800));
+      app._echoResult = orig;
+      return out && out.newTabs[0].toolId;
+    }, [caller]);
+    expect(made, 'newWindow 가 탭을 만들지 않았다').toBeTruthy();
+    expect(await toolCwd(request, made)).toBe(here);
+  });
+});
+
 // ── 묶음 C — 창 닫기 ──
 
 test.describe('묶음 C — 창 닫기의 활성 창 (FR-CLS-*)', () => {
@@ -171,7 +230,64 @@ test.describe('묶음 C — 창 닫기의 활성 창 (FR-CLS-*)', () => {
 // ── 묶음 M — 탭의 창 간 이동 ──
 
 test.describe('묶음 M — 탭을 다른 창으로 (FR-MOV-*)', () => {
-  test('V-MOV-1·2·9: 탭이 대상 창으로 옮겨지고 도구가 따라간다', async ({ page }) => {
+  /**
+   * V-MOV-1: **실제 드래그 제스처**로 잰다.
+   *
+   * `_moveTabToWindow` 를 직접 부르면 그 함수만 검증된다 — 그것을 부르는 배선이
+   * 빠져도 통과한다. 실제로 블루프린트로 옮기는 과정에서 창 항목의 드롭 핸들러가
+   * 사라진 적이 있고, 함수를 직접 부르는 검사는 그것을 놓쳤다.
+   *
+   * Playwright 의 `dragTo` 는 HTML5 DnD 를 합성하지 않으므로 이벤트를 직접 만든다.
+   */
+  test('V-MOV-1 (제스처): 탭을 사이드바 창 항목에 놓으면 옮겨진다', async ({ page }) => {
+    await init(page);
+    const src = await page.evaluate(async () => {
+      const app = (window as any).app;
+      await app.addTab(app.focused, 'terminal', {});
+      const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
+      const pane = win.layout;
+      return { winId: win.id, tabId: pane.activeTab };
+    });
+    const dstId = await page.evaluate(async () => {
+      const app = (window as any).app;
+      const r = await app._mkWindow({ keepFocus: true });
+      app.render();
+      return r.win;
+    });
+    await page.evaluate(id => (window as any).app.switchWindow(id), src.winId);
+    await expect(page.locator(`#windows .si[data-sid="${dstId}"]`)).toBeVisible();
+
+    // dragstart(탭) → dragover(창 항목) → drop(창 항목).
+    await page.evaluate(([tabId, dst]) => {
+      const dt = new DataTransfer();
+      const tab = document.querySelector(`.pn-tab[data-tab-id="${tabId}"]`) as HTMLElement;
+      const target = document.querySelector(`#windows .si[data-sid="${dst}"]`) as HTMLElement;
+      tab.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
+      target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
+      target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
+    }, [src.tabId, dstId] as const);
+
+    // FR-MOV-8: 옮긴 창으로 따라간다.
+    await expect.poll(() => page.evaluate(() => (window as any).app.ws.activeWindow),
+      { timeout: 10000 }).toBe(dstId);
+    const where = await page.evaluate(tabId => {
+      const app = (window as any).app;
+      for (const w of app.ws.windows) {
+        let hit: string | null = null;
+        const walk = (n: any) => {
+          if (!n || hit) return;
+          for (const t of n.tabs || []) if (t.id === tabId) hit = w.id;
+          for (const c of n.children || []) walk(c);
+        };
+        walk(w.layout);
+        if (hit) return hit;
+      }
+      return null;
+    }, src.tabId);
+    expect(where, '탭이 대상 창으로 가지 않았다').toBe(dstId);
+  });
+
+  test('V-MOV-2·9: 탭이 대상 창으로 옮겨지고 도구가 따라간다', async ({ page }) => {
     await init(page);
     // 원본 창에 탭 하나를 더한다 — 마지막 탭은 옮길 수 없다 (FR-MOV-4).
     const src = await page.evaluate(async () => {
@@ -341,6 +457,27 @@ test.describe('묶음 N — 도구 이름 (FR-NAM-*)', () => {
     await expect(row).toBeVisible({ timeout: 10000 });
     // FR-NAM-5: `Shell` 이 아니라 그 도구가 지금 돌리는 것의 이름이다.
     await expect(row.locator('.bg-name')).toHaveText('vim');
+  });
+
+  test('V-NAM-4: 에이전트 패널도 파생 이름을 쓴다', async ({ page }) => {
+    await init(page);
+    const toolId = await page.evaluate(() => {
+      const app = (window as any).app;
+      const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
+      return win.layout.tabs[0].toolId;
+    });
+    // 에이전트 패널은 활동이 관측된 도구만 카드로 만든다.
+    await page.evaluate(([id]) => {
+      const app = (window as any).app;
+      app._onToolActivity({ toolId: id, state: 'working', tool: 'Bash' });
+      if (!document.getElementById('agents-panel')!.classList.contains('open')) app._agentsToggle();
+    }, [toolId]);
+    await expect(page.locator('#agents-panel .ag-card')).toHaveCount(1, { timeout: 10000 });
+
+    await page.evaluate(([id]) =>
+      (window as any).app._onToolForeground({ toolId: id, name: 'claude' }), [toolId]);
+    // 전경 이름이 바뀌면 카드가 **그 자리에서** 따라간다 — 폴링을 기다리지 않는다.
+    await expect(page.locator('#agents-panel .ag-card .ag-loc')).toContainText('claude', { timeout: 5000 });
   });
 
   test('V-NAM-3: 수동으로 준 이름이 파생 이름을 이긴다', async ({ page }) => {

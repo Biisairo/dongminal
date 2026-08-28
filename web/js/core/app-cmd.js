@@ -171,6 +171,11 @@ Object.assign(App.prototype, {
         }
       }
     }
+    // FR-NAM-5·6: 도구 이름을 부르는 다른 표면도 따라간다. 열려 있을 때만 그린다 —
+    // 닫힌 것을 그리면 되살아난다. 둘 다 reconcile 이라 값이 그대로면 DOM 은
+    // 손대지 않는다 (FR-RPT-3).
+    if(this._agentsRender) this._agentsRender();
+    if(this._bgModalOpen) this._bgModalRender();
   },
 
   _applyRemoteWorkspace(sv, serverPanes){
