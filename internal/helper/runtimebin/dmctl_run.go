@@ -26,6 +26,11 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
   dmctl run status [--run <uuid>]
   dmctl run close  --run <uuid> [--force] [--keep-worktrees] [--keep-tools]
   dmctl run list
+  dmctl run attach --member <uuid> [--at <탭 uuid>]
+  dmctl run detach --member <uuid>
+  dmctl run peers
+  dmctl run succeed --member <uuid> (--at <탭 uuid> | --headless) [--model <m>] [--timeout-ms N]
+  dmctl run handoff [--member <uuid>] --summary <본문>|-
 
   --projection   dedicated-window(기본) | background | inline
                  전용 창이 기본이다 — 사용자 작업 공간을 침범하지 않는다.
@@ -148,6 +153,19 @@ func runDmctlRunStdin(stdin io.Reader, args []string, stdout, stderr io.Writer) 
 		return runSubStatus(sub, f, stdout, stderr)
 	case "close":
 		return runSubClose(f, stdout, stderr)
+	// ── ORCHESTRATION_V2 선등록 (PARALLEL_DELIVERY_PLAN Step 0-14) ──
+	// 구현은 각 워크스트림의 전용 파일에 있다. 여기서 case 를 열어 두면 이후
+	// 아무도 이 디스패치를 만지지 않는다.
+	case "attach":
+		return runSubAttach(f, stdout, stderr)
+	case "detach":
+		return runSubDetach(f, stdout, stderr)
+	case "succeed":
+		return runSubSucceed(f, stdout, stderr)
+	case "handoff":
+		return runSubHandoff(f, stdin, stdout, stderr)
+	case "peers":
+		return runSubPeers(f, stdout, stderr)
 	}
 	fmt.Fprintf(stderr, "run: 알 수 없는 서브커맨드: %s\n", sub)
 	fmt.Fprint(stderr, dmctlRunHelp)

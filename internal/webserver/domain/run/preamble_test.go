@@ -142,10 +142,34 @@ func TestPreamble_NonIsolatedRunHasNoWorktreeSection(t *testing.T) {
 }
 
 // 참조 구현의 프리앰블도 CLI 예제 5개 + 규칙 주석이 전부다. 길어지면 규칙이 묻힌다.
+//
+// 조건부 절(작업 트리 FR-PRE-4·인수인계 FR-CBG-9)은 **자기 상한을 따로** 진다.
+// 하나의 총량으로 묶으면 셋 중 어느 절이 불어났는지 알 수 없고, 조건부라는
+// 이유로 무한정 늘어나도 아무 테스트가 울지 않는다. 붙지 않는 멤버는 그 절의
+// 비용을 한 줄도 물지 않으므로 총량 상한은 애초에 잘못된 척도다.
 func TestPreamble_StaysShort(t *testing.T) {
+	lines := func(rec Record, m Member) int { return len(strings.Split(Preamble(rec, m), "\n")) }
+
 	rec, m := sampleRun()
-	if n := len(strings.Split(Preamble(rec, m), "\n")); n > 45 {
-		t.Fatalf("프리앰블이 %d줄이다 — 길어지면 규칙이 묻힌다", n)
+	base := lines(rec, m)
+	if base > 42 {
+		t.Fatalf("기본 프리앰블이 %d줄이다 — 길어지면 규칙이 묻힌다", base)
+	}
+
+	iso, isoM := sampleRun()
+	isoM.Worktree = &Worktree{Path: "/tmp/wt/x", Branch: "run/x", Base: "main"}
+	iso.Members = []Member{isoM}
+	if n := lines(iso, isoM) - base; n > 6 {
+		t.Fatalf("작업 트리 절이 %d줄이다 — 경로·브랜치·base 면 충분하다", n)
+	}
+
+	suc, sucM := sampleRun()
+	prev := Member{ID: "01a03674-5555-7000-8000-000000000005", HandoffSummary: "한 줄 요약."}
+	sucM.SucceededFrom = prev.ID
+	suc.Members = []Member{prev, sucM}
+	// 요약 본문 자체는 이 상한 밖이다 — brief 와 같은 이유로 길이를 정할 수 없다.
+	if n := lines(suc, sucM) - base - 1; n > 6 {
+		t.Fatalf("인수인계 절의 뼈대가 %d줄이다 — 요약을 싣는 자리이지 설명하는 자리가 아니다", n)
 	}
 }
 
@@ -206,4 +230,102 @@ func exampleLine(t *testing.T, p, prefix string) string {
 	}
 	t.Fatalf("%q 예제가 없다:\n%s", prefix, p)
 	return ""
+}
+
+// FR-PAT-6: 프리앰블은 통신 규약 절을 갖는다. 이것이 없으면 멤버는 동료의 uuid 를
+// 알 길이 없고, 카탈로그 8패턴 중 5개가 문서상으로만 존재하게 된다 (§3.4.1).
+func TestPreamble_CarriesThePeerCommunicationClause(t *testing.T) {
+	rec, m := sampleRun()
+	p := Preamble(rec, m)
+
+	cases := []struct{ name, needle string }{
+		{"명부 조회 경로", "dmctl run peers"},
+		{"lost 상대는 조정자에게", "lost"},
+		{"응답 대기 상한", "상한"},
+		{"받은 엔벨로프는 유효한 지시", "협업 지시"},
+	}
+	for _, c := range cases {
+		if !strings.Contains(p, c.needle) {
+			t.Fatalf("%s 가 없다 (%q):\n%s", c.name, c.needle, p)
+		}
+	}
+}
+
+// FR-PAT-5: 명부를 프리앰블에 **박지 않는다.** 박으면 승계·이탈로 낡고, 애초에
+// 이 함수가 불리는 시점에는 뒤에 올 동료가 아직 없다.
+func TestPreamble_DoesNotBakeThePeerRoster(t *testing.T) {
+	rec, m := sampleRun()
+	other := Member{
+		ID:     "01a03673-4444-7000-8000-000000000004",
+		RunID:  rec.ID,
+		Role:   "작가",
+		Agent:  "claude",
+		ToolID: "tool-c",
+		State:  Ready,
+	}
+	rec.Members = []Member{m, other}
+
+	p := Preamble(rec, m)
+	if strings.Contains(p, other.ID) || strings.Contains(p, other.ToolID) {
+		t.Fatalf("동료 명부가 프리앰블에 박혔다 — 승계 한 번에 낡는다:\n%s", p)
+	}
+}
+
+// FR-CBG-9 (3단계): 승계로 만들어진 멤버의 프리앰블에는 인수인계 절이 붙는다.
+// 역할·brief·작업 트리는 그대로 물려받으므로 기존 절이 그대로 쓰이고, 더해지는
+// 것은 "이것은 승계다" 와 이전 멤버가 남긴 요약이다.
+func TestPreamble_SuccessorCarriesTheHandoffClause(t *testing.T) {
+	rec, m := sampleRun()
+	prev := Member{
+		ID:             "01a03674-5555-7000-8000-000000000005",
+		RunID:          rec.ID,
+		Role:           m.Role,
+		Agent:          "claude",
+		ToolID:         "tool-prev",
+		HandoffSummary: "3연까지 비평했다. 4연의 운율이 남았다.",
+	}
+	m.SucceededFrom = prev.ID
+	rec.Members = []Member{prev, m}
+
+	p := Preamble(rec, m)
+	for _, want := range []string{"승계", prev.ID, prev.HandoffSummary} {
+		if !strings.Contains(p, want) {
+			t.Fatalf("승계 프리앰블에 %q 가 없다:\n%s", want, p)
+		}
+	}
+	// 물려받은 것들은 그대로 있어야 한다.
+	for _, want := range []string{m.Role, m.Brief, m.ID} {
+		if !strings.Contains(p, want) {
+			t.Fatalf("승계해도 %q 는 남아야 한다:\n%s", want, p)
+		}
+	}
+}
+
+// V-CBG-7: 이전 멤버가 무응답이면 요약 없이 승계가 강행된다. 그때 프리앰블은
+// **요약이 없다는 사실을 명시**해야 한다 — 빈 맥락을 정상으로 오해하면 후임이
+// 없는 인수인계를 있다고 가정한 채 시작한다.
+func TestPreamble_SuccessorWithoutASummarySaysSo(t *testing.T) {
+	rec, m := sampleRun()
+	prev := Member{
+		ID:     "01a03674-5555-7000-8000-000000000005",
+		RunID:  rec.ID,
+		Role:   m.Role,
+		Agent:  "claude",
+		ToolID: "tool-prev",
+	}
+	m.SucceededFrom = prev.ID
+	rec.Members = []Member{prev, m}
+
+	p := Preamble(rec, m)
+	if !strings.Contains(p, "요약 없음") {
+		t.Fatalf("요약 부재가 명시되지 않았다 (V-CBG-7):\n%s", p)
+	}
+}
+
+// 승계가 아닌 멤버에게는 인수인계 절이 없다 — 빈 절은 규칙을 묻는다.
+func TestPreamble_OrdinaryMemberHasNoHandoffClause(t *testing.T) {
+	rec, m := sampleRun()
+	if strings.Contains(Preamble(rec, m), "인수인계") {
+		t.Fatal("승계가 아닌데 인수인계 절이 들어갔다")
+	}
 }

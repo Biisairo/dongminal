@@ -11,8 +11,8 @@ dmctl 분할 명령 순서를 JSON 으로 돌려준다.
 식별자 — UUID 사용:
   `--boss` 는 dmctl who-am-i 의 라인 끝 `uuid=<36자>` 필드를 그대로 넣는다.
   출력의 `cmd` 필드가 그대로 실행 가능한 dmctl 명령이다.
-  toolId·라벨 호환도 되지만, 다중 창·계층 팀에서는 라벨 reflow 위험이
-  있으니 uuid 권장. 서버 /api/commands 핸들러가 broadcast 직전에
+  좌표 라벨(W1.P1.T1)은 넣지 마라 — 창·분할 칸이 닫히면 다시 계산돼
+  다른 탭을 가리킨다. 서버 /api/commands 핸들러가 broadcast 직전에
   uuid → 좌표로 자동 번역한다.
 
 사용:
@@ -80,7 +80,7 @@ def main():
     p.add_argument("--cols", type=int, required=True, help="터미널 셀 너비")
     p.add_argument("--rows", type=int, required=True, help="터미널 셀 높이")
     p.add_argument("--n", type=int, required=True, help="팀원 수")
-    p.add_argument("--boss", type=str, required=True, help="팀장 탭 식별자 (uuid 권장; toolId/라벨도 호환)")
+    p.add_argument("--boss", type=str, required=True, help="팀장 탭 uuid (좌표 라벨은 쓰지 않는다)")
     args = p.parse_args()
 
     try:

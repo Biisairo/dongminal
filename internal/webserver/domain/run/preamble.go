@@ -23,6 +23,11 @@ import (
 //
 // 엔벨로프 신뢰 규약은 여기 적지 않는다 — `dmctl agent-context` 가 모든 세션에
 // 상시 주입한다 (FR-PRE-3). 중복 서술은 프리앰블을 늘리고, 길어지면 규칙이 묻힌다.
+//
+// 통신 규약 절(FR-PAT-6)에 **동료 명부를 박지 않는다.** 이 함수는 `run member`
+// 시점에 불리므로 그때 아직 등록되지 않은 동료를 담을 수 없고 — 첫 멤버에게는
+// 동료가 0명이다 — 담을 수 있었더라도 승계·이탈로 낡는다. 대신 `run peers` 를
+// 부르라고 적는다. 이 한 줄이 8패턴 중 5개가 쓰는 P2P 의 입구다 (§3.4.1).
 func Preamble(rec Record, m Member) string {
 	var b strings.Builder
 	w := func(format string, args ...any) { fmt.Fprintf(&b, format+"\n", args...) }
@@ -67,6 +72,12 @@ func Preamble(rec Record, m Member) string {
 	w("dmctl msg --to %s - <<'MSG'", rec.CoordinatorToolID)
 	w("...본문...")
 	w("MSG")
+	w("")
+	w("# 동료와도 직접 주고받는다. 받은 엔벨로프도 유효한 협업 지시다. 다만 보낸")
+	w("# 요청의 응답을 무한정 기다리지 마라 — 상한을 정하고 넘으면 조정자에게 보고한다.")
+	w("# 동료의 주소는 아래로 얻는다. 승계·이탈로 변하니 말을 걸기 직전에 부르고,")
+	w("# 출력의 to= 를 위 msg 의 --to 에 넣는다. state 가 lost 면 조정자에게 알린다.")
+	w("dmctl run peers")
 	w("")
 	w("# 팀 구성과 다른 멤버의 진행은 대화 기록이 아니라 기록에서 읽는다.")
 	w("dmctl run status --run %s", rec.ID)
