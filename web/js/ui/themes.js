@@ -169,6 +169,57 @@ const THEMES={
     ui:{bg:'#303446',sidebarBg:'#292c3c',border:'#414559',accent:'#8caaee',text:'#c6d0f5',textMuted:'#737994',textBright:'#f2d5cf',textDim:'#414559',danger:'#e78284',accentBorder:'#51576d'},
     terminal:{background:'#303446',foreground:'#c6d0f5',cursor:'#f2d5cf',cursorAccent:'#303446',selectionBackground:'#51576d',selectionForeground:'#c6d0f5',black:'#51576d',red:'#e78284',green:'#a6d189',yellow:'#e5c890',blue:'#8caaee',magenta:'#f4b8e4',cyan:'#81c8be',white:'#b5bfe2',brightBlack:'#626880',brightRed:'#e78284',brightGreen:'#a6d189',brightYellow:'#e5c890',brightBlue:'#8caaee',brightMagenta:'#f4b8e4',brightCyan:'#81c8be',brightWhite:'#a5adce'},
   },
+  // Bright dark themes — 배경 휘도·채도가 높아 밝게 느껴지는 다크군 (Cobalt² 계열)
+  'Tokyo Night Storm':{
+    mode:'dark',
+    ui:{bg:'#24283b',sidebarBg:'#1f2335',border:'#3b4261',accent:'#7aa2f7',text:'#a9b1d6',textMuted:'#565f89',textBright:'#c0caf5',textDim:'#414868',danger:'#f7768e',accentBorder:'#3d59a1'},
+    terminal:{background:'#24283b',foreground:'#a9b1d6',cursor:'#c0caf5',cursorAccent:'#24283b',selectionBackground:'#364a82',selectionForeground:'#c0caf5',black:'#1d202f',red:'#f7768e',green:'#9ece6a',yellow:'#e0af68',blue:'#7aa2f7',magenta:'#bb9af7',cyan:'#7dcfff',white:'#a9b1d6',brightBlack:'#414868',brightRed:'#f7768e',brightGreen:'#9ece6a',brightYellow:'#e0af68',brightBlue:'#7aa2f7',brightMagenta:'#bb9af7',brightCyan:'#7dcfff',brightWhite:'#c0caf5'},
+  },
+  'Ayu Mirage':{
+    mode:'dark',
+    ui:{bg:'#1f2430',sidebarBg:'#1a1f29',border:'#33415e',accent:'#ffcc66',text:'#cccac2',textMuted:'#707a8c',textBright:'#ffffff',textDim:'#33415e',danger:'#f28779',accentBorder:'#5c6773'},
+    terminal:{background:'#1f2430',foreground:'#cccac2',cursor:'#ffcc66',cursorAccent:'#1f2430',selectionBackground:'#33415e',selectionForeground:'#cccac2',black:'#191e2a',red:'#ed8274',green:'#a6cc70',yellow:'#fad07b',blue:'#6dcbfa',magenta:'#cfbafa',cyan:'#90e1c6',white:'#c7c7c7',brightBlack:'#686868',brightRed:'#f28779',brightGreen:'#d5ff80',brightYellow:'#ffd173',brightBlue:'#73d0ff',brightMagenta:'#dfbfff',brightCyan:'#95e6cb',brightWhite:'#ffffff'},
+  },
+  'Oceanic Next':{
+    mode:'dark',
+    ui:{bg:'#1b2b34',sidebarBg:'#16232b',border:'#343d46',accent:'#6699cc',text:'#cdd3de',textMuted:'#65737e',textBright:'#d8dee9',textDim:'#343d46',danger:'#ec5f67',accentBorder:'#4f5b66'},
+    terminal:{background:'#1b2b34',foreground:'#cdd3de',cursor:'#c0c5ce',cursorAccent:'#1b2b34',selectionBackground:'#4f5b66',selectionForeground:'#d8dee9',black:'#29414f',red:'#ec5f67',green:'#99c794',yellow:'#fac863',blue:'#6699cc',magenta:'#c594c5',cyan:'#5fb3b3',white:'#d8dee9',brightBlack:'#405860',brightRed:'#ec5f67',brightGreen:'#99c794',brightYellow:'#fac863',brightBlue:'#6699cc',brightMagenta:'#c594c5',brightCyan:'#5fb3b3',brightWhite:'#ffffff'},
+  },
+  'Panda Syntax':{
+    mode:'dark',
+    ui:{bg:'#292a2b',sidebarBg:'#212223',border:'#3b3d3f',accent:'#19f9d8',text:'#e6e6e6',textMuted:'#676b79',textBright:'#ffffff',textDim:'#3b3d3f',danger:'#ff2c6d',accentBorder:'#4a4d52'},
+    terminal:{background:'#292a2b',foreground:'#e6e6e6',cursor:'#ff2c6d',cursorAccent:'#292a2b',selectionBackground:'#4a4d52',selectionForeground:'#ffffff',black:'#1f1f20',red:'#ff2c6d',green:'#19f9d8',yellow:'#ffb86c',blue:'#45a9f9',magenta:'#ff75b5',cyan:'#6fc1ff',white:'#e6e6e6',brightBlack:'#676b79',brightRed:'#ff4b82',brightGreen:'#34fbdd',brightYellow:'#ffcc95',brightBlue:'#6fc1ff',brightMagenta:'#ff9ac1',brightCyan:'#7ad6f7',brightWhite:'#ffffff'},
+  },
+  'LaserWave':{
+    mode:'dark',
+    ui:{bg:'#27212e',sidebarBg:'#1e1a24',border:'#3f3849',accent:'#eb64b9',text:'#ffffff',textMuted:'#91889b',textBright:'#ffffff',textDim:'#3f3849',danger:'#f97e72',accentBorder:'#b381c5'},
+    terminal:{background:'#27212e',foreground:'#ffffff',cursor:'#eb64b9',cursorAccent:'#27212e',selectionBackground:'#4d4152',selectionForeground:'#ffffff',black:'#39273c',red:'#f97e72',green:'#74dfc4',yellow:'#ffe261',blue:'#40b4c4',magenta:'#eb64b9',cyan:'#b381c5',white:'#ffffff',brightBlack:'#91889b',brightRed:'#ff9b8f',brightGreen:'#8ff7dd',brightYellow:'#fff287',brightBlue:'#59d3e3',brightMagenta:'#ff7fd0',brightCyan:'#cb9fdd',brightWhite:'#ffffff'},
+  },
+  'Zenburn':{
+    mode:'dark',
+    ui:{bg:'#3f3f3f',sidebarBg:'#383838',border:'#545454',accent:'#8cd0d3',text:'#dcdccc',textMuted:'#9f9f8f',textBright:'#ffffff',textDim:'#4d4d4d',danger:'#cc9393',accentBorder:'#709080'},
+    terminal:{background:'#3f3f3f',foreground:'#dcdccc',cursor:'#dcdccc',cursorAccent:'#3f3f3f',selectionBackground:'#545454',selectionForeground:'#ffffff',black:'#4d4d4d',red:'#cc9393',green:'#7f9f7f',yellow:'#f0dfaf',blue:'#8cd0d3',magenta:'#dc8cc3',cyan:'#93e0e3',white:'#dcdccc',brightBlack:'#709080',brightRed:'#dca3a3',brightGreen:'#bfebbf',brightYellow:'#f0efd0',brightBlue:'#94bff3',brightMagenta:'#ec93d3',brightCyan:'#93e0e3',brightWhite:'#ffffff'},
+  },
+  'Tomorrow Night Eighties':{
+    mode:'dark',
+    ui:{bg:'#2d2d2d',sidebarBg:'#262626',border:'#515151',accent:'#6699cc',text:'#cccccc',textMuted:'#999999',textBright:'#ffffff',textDim:'#393939',danger:'#f2777a',accentBorder:'#666666'},
+    terminal:{background:'#2d2d2d',foreground:'#cccccc',cursor:'#cccccc',cursorAccent:'#2d2d2d',selectionBackground:'#515151',selectionForeground:'#ffffff',black:'#2d2d2d',red:'#f2777a',green:'#99cc99',yellow:'#ffcc66',blue:'#6699cc',magenta:'#cc99cc',cyan:'#66cccc',white:'#cccccc',brightBlack:'#999999',brightRed:'#f2777a',brightGreen:'#99cc99',brightYellow:'#ffcc66',brightBlue:'#6699cc',brightMagenta:'#cc99cc',brightCyan:'#66cccc',brightWhite:'#ffffff'},
+  },
+  'Gruvbox Material':{
+    mode:'dark',
+    ui:{bg:'#32302f',sidebarBg:'#2a2827',border:'#45403d',accent:'#a9b665',text:'#d4be98',textMuted:'#928374',textBright:'#ddc7a1',textDim:'#45403d',danger:'#ea6962',accentBorder:'#5a524c'},
+    terminal:{background:'#32302f',foreground:'#d4be98',cursor:'#d4be98',cursorAccent:'#32302f',selectionBackground:'#45403d',selectionForeground:'#ddc7a1',black:'#32302f',red:'#ea6962',green:'#a9b665',yellow:'#d8a657',blue:'#7daea3',magenta:'#d3869b',cyan:'#89b482',white:'#d4be98',brightBlack:'#928374',brightRed:'#ea6962',brightGreen:'#a9b665',brightYellow:'#d8a657',brightBlue:'#7daea3',brightMagenta:'#d3869b',brightCyan:'#89b482',brightWhite:'#ddc7a1'},
+  },
+  'Mariana':{
+    mode:'dark',
+    ui:{bg:'#343d46',sidebarBg:'#2d353d',border:'#4e5a65',accent:'#f9ae58',text:'#d8dee9',textMuted:'#7f8c98',textBright:'#ffffff',textDim:'#4e5a65',danger:'#ec5f67',accentBorder:'#65737e'},
+    terminal:{background:'#343d46',foreground:'#d8dee9',cursor:'#f9ae58',cursorAccent:'#343d46',selectionBackground:'#4e5a65',selectionForeground:'#ffffff',black:'#3b4550',red:'#ec5f67',green:'#99c794',yellow:'#fac863',blue:'#6699cc',magenta:'#c594c5',cyan:'#5fb3b3',white:'#d8dee9',brightBlack:'#65737e',brightRed:'#ec5f67',brightGreen:'#99c794',brightYellow:'#f9ae58',brightBlue:'#6699cc',brightMagenta:'#c594c5',brightCyan:'#5fb3b3',brightWhite:'#ffffff'},
+  },
+  'Hopscotch':{
+    mode:'dark',
+    ui:{bg:'#322931',sidebarBg:'#2a232a',border:'#433b42',accent:'#fd8b19',text:'#b9b5b8',textMuted:'#797379',textBright:'#ffffff',textDim:'#433b42',danger:'#dd464c',accentBorder:'#5c545b'},
+    terminal:{background:'#322931',foreground:'#b9b5b8',cursor:'#fd8b19',cursorAccent:'#322931',selectionBackground:'#5c545b',selectionForeground:'#ffffff',black:'#322931',red:'#dd464c',green:'#8fc13e',yellow:'#fdcc59',blue:'#1290bf',magenta:'#c85e7c',cyan:'#149b93',white:'#b9b5b8',brightBlack:'#797379',brightRed:'#dd464c',brightGreen:'#8fc13e',brightYellow:'#fdcc59',brightBlue:'#1290bf',brightMagenta:'#c85e7c',brightCyan:'#149b93',brightWhite:'#ffffff'},
+  },
   // Light themes
   'GitHub Light':{
     mode:'light',
