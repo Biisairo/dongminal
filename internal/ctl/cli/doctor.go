@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"dongminal/internal/shared/platform"
@@ -33,7 +34,11 @@ const (
 	doctorProbeRows = 24
 	// doctorDetachedWait 은 콘솔 없는 자식의 결과를 기다리는 상한이다. 자식이
 	// 스스로 doctorProbeTimeout 을 걸고 결과를 쓰므로 그보다 넉넉해야 한다.
-	doctorDetachedWait = doctorProbeTimeout + 10*time.Second
+	doctorDetachedWait = doctorProbeTimeout + 30*time.Second
+	// doctorReadyWait·doctorQuietFor 는 "셸이 프롬프트를 그렸다" 로 볼 조건이다.
+	// 출력이 오고 이만큼 조용하면 준비된 것으로 본다.
+	doctorReadyWait = 15 * time.Second
+	doctorQuietFor  = 700 * time.Millisecond
 )
 
 type doctorReport struct {
@@ -263,7 +268,7 @@ func doctorProbeTerminal(r *doctorReport, p platform.Platform, label string, spe
 
 	// echo 는 sh·bash·zsh·PowerShell·cmd 가 모두 아는 몇 안 되는 명령이다.
 	const marker = "dongminal-doctor-ok"
-	got, err := doctorRoundTrip(term, "echo "+marker+"\r\n", marker, doctorProbeTimeout)
+	got, err := doctorRoundTrip(term, "echo "+marker+"\r", marker, doctorProbeTimeout)
 	switch {
 	case err != nil:
 		r.bad("[%s] 출력을 읽지 못했습니다: %v", label, err)
@@ -278,46 +283,77 @@ func doctorProbeTerminal(r *doctorReport, p platform.Platform, label string, spe
 	return true
 }
 
-// doctorRoundTrip 은 input 을 쓰고 want 가 보일 때까지 읽는다. 읽기가 막힐
-// 수 있으므로 goroutine 으로 돌리고 상한을 건다.
+// doctorRoundTrip 은 셸이 준비되기를 기다린 뒤 input 을 쓰고, want 가 보일
+// 때까지 읽는다.
+//
+// **기다림이 핵심이다.** 셸이 프롬프트를 그리기 전에 입력을 넣으면 그 입력은
+// 버려진다. pwsh 는 PSReadLine 을 올리는 데 초 단위가 걸려 고정 대기로는 맞출
+// 수 없다 — 실측에서 300ms 뒤에 넣은 입력이 통째로 사라졌다. 그래서 출력이
+// 오고 **조용해지는 것**을 준비 신호로 삼는다.
 func doctorRoundTrip(term platform.Terminal, input, want string, limit time.Duration) (string, error) {
-	type result struct {
-		data string
-		err  error
-	}
-	done := make(chan result, 1)
+	var mu sync.Mutex
 	var seen strings.Builder
+	lastAt := time.Now()
 
+	found := make(chan struct{})
+	readErr := make(chan error, 1)
 	go func() {
 		buf := make([]byte, 4096)
 		for {
 			n, err := term.Read(buf)
 			if n > 0 {
+				mu.Lock()
 				seen.Write(buf[:n])
-				if strings.Contains(seen.String(), want) {
-					done <- result{seen.String(), nil}
+				lastAt = time.Now()
+				hit := strings.Contains(seen.String(), want)
+				mu.Unlock()
+				if hit {
+					close(found)
 					return
 				}
 			}
 			if err != nil {
-				done <- result{seen.String(), err}
+				readErr <- err
 				return
 			}
 		}
 	}()
 
-	// 셸이 프롬프트를 그릴 틈을 준 뒤 명령을 넣는다. 너무 이르면 셸이
-	// 입력을 버린다.
-	time.Sleep(300 * time.Millisecond)
+	snapshot := func() (string, int, time.Duration) {
+		mu.Lock()
+		defer mu.Unlock()
+		return seen.String(), seen.Len(), time.Since(lastAt)
+	}
+
+	// 준비 대기: 출력이 한 번이라도 오고, 그 뒤 조용해지면 프롬프트가 선 것이다.
+	ready := time.Now().Add(doctorReadyWait)
+	for time.Now().Before(ready) {
+		if _, n, quiet := snapshot(); n > 0 && quiet > doctorQuietFor {
+			break
+		}
+		select {
+		case err := <-readErr:
+			got, _, _ := snapshot()
+			return got, fmt.Errorf("셸이 준비되기 전에 끊겼다: %w", err)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+
 	if _, err := term.Write([]byte(input)); err != nil {
-		return seen.String(), fmt.Errorf("입력 쓰기: %w", err)
+		got, _, _ := snapshot()
+		return got, fmt.Errorf("입력 쓰기: %w", err)
 	}
 
 	select {
-	case res := <-done:
-		return res.data, res.err
+	case <-found:
+		got, _, _ := snapshot()
+		return got, nil
+	case err := <-readErr:
+		got, _, _ := snapshot()
+		return got, err
 	case <-time.After(limit):
-		return seen.String(), fmt.Errorf("%s 안에 응답이 없습니다", limit)
+		got, _, _ := snapshot()
+		return got, fmt.Errorf("%s 안에 응답이 없습니다", limit)
 	}
 }
 
@@ -455,8 +491,9 @@ func doctorTool(r *doctorReport, home string) {
 	r.ok("도구 기동 pid=%d", tool.CmdProcessPID())
 
 	const marker = "dongminal-tool-ok"
-	time.Sleep(400 * time.Millisecond)
-	if err := tool.Write([]byte("echo " + marker + "\r\n")); err != nil {
+	// 셸이 프롬프트를 그릴 때까지 기다린다 (doctorRoundTrip 의 사정과 같다).
+	time.Sleep(3 * time.Second)
+	if err := tool.Write([]byte("echo " + marker + "\r")); err != nil {
 		r.bad("입력 실패: %v", err)
 		return
 	}
@@ -562,7 +599,7 @@ func runPTYProbe(path string, p platform.Platform, home string) int {
 	}()
 
 	const marker = "dongminal-detached-ok"
-	got, rerr := doctorRoundTrip(term, "echo "+marker+"\r\n", marker, doctorProbeTimeout)
+	got, rerr := doctorRoundTrip(term, "echo "+marker+"\r", marker, doctorProbeTimeout)
 	switch {
 	case rerr != nil:
 		fmt.Fprintf(&b, "FAIL 출력 읽기: %v (받은 바이트 %d)\n", rerr, len(got))
