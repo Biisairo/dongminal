@@ -97,6 +97,10 @@ func Run(home string) {
 			select {
 			case <-ctx.Done():
 				log.Printf("dongminald shutting down, saving %d tools...", len(pm.Snapshot()))
+				// 문을 닫고 인플라이트 저장을 거둔 뒤에 마지막 상태를 쓴다.
+				// 그러지 않으면 프로세스가 쓰기 도중에 끝나 tools.json 이
+				// 잘릴 수 있다.
+				pm.StopSaving()
 				pm.SaveAll()
 				return
 			default:

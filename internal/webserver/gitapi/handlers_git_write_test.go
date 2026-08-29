@@ -14,6 +14,8 @@ import (
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/git/write"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 H·I 서버측 — /api/git/{stage,unstage,discard,commit,undo-last}
@@ -218,7 +220,7 @@ func TestAPIGitUndoLast_Expires(t *testing.T) {
 	tok := gitIssueUndo(t, s, f)
 
 	*now = now.Add(write.UndoTTL + time.Millisecond)
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", `{"repo":`+qWorkRepo+`,"undoToken":`+jsonQ(tok)+`}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", `{"repo":`+qWorkRepo+`,"undoToken":`+testpath.JSONQuote(tok)+`}`)
 	if code != http.StatusConflict || out["error"] != "undo_expired" {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -237,12 +239,12 @@ func TestAPIGitUndoLast_NewCommitInvalidates(t *testing.T) {
 		t.Fatal("두 커밋이 같은 토큰을 받았다")
 	}
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", `{"repo":`+qWorkRepo+`,"undoToken":`+jsonQ(first)+`}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", `{"repo":`+qWorkRepo+`,"undoToken":`+testpath.JSONQuote(first)+`}`)
 	if code != http.StatusConflict || out["error"] != "undo_expired" {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
 	// 새 토큰은 살아 있다.
-	code, out = gitReq(t, s, http.MethodPost, "/api/git/undo-last", `{"repo":`+qWorkRepo+`,"undoToken":`+jsonQ(second)+`}`)
+	code, out = gitReq(t, s, http.MethodPost, "/api/git/undo-last", `{"repo":`+qWorkRepo+`,"undoToken":`+testpath.JSONQuote(second)+`}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -253,7 +255,7 @@ func TestAPIGitUndoLast_ConsumedOnce(t *testing.T) {
 	f := newGitWriteFake(t)
 	s, _ := gitWriteServer(t, f)
 	tok := gitIssueUndo(t, s, f)
-	body := `{"repo":` + qWorkRepo + `,"undoToken":` + jsonQ(tok) + `}`
+	body := `{"repo":` + qWorkRepo + `,"undoToken":` + testpath.JSONQuote(tok) + `}`
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", body)
 	if code != http.StatusOK {

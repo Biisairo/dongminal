@@ -450,6 +450,8 @@ func serve(home, host, port string) int {
 		panedClient.Close()
 	}
 	if bd.pm != nil {
+		// 문을 닫고 인플라이트 저장을 거둔 뒤에 마지막 상태를 쓴다 (boot.go 와 같다).
+		bd.pm.StopSaving()
 		bd.pm.SaveAll()
 	}
 	_ = bd.wsMgr.Close()

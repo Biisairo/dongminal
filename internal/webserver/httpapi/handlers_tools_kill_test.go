@@ -85,7 +85,7 @@ func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
 	m.SetBackground(tl.ID, true)
 	s := &Server{Tools: m}
 
-	rec := postKill(s, `{"toolId":`+jsonQ(tl.ID)+`}`)
+	rec := postKill(s, `{"toolId":`+testpath.JSONQuote(tl.ID)+`}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s, want 200", rec.Code, rec.Body.String())
 	}
@@ -103,7 +103,7 @@ func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
 	}
 
 	// 같은 도구를 다시 종료하면 404 — 행은 이미 사라졌다.
-	if again := postKill(s, `{"toolId":`+jsonQ(tl.ID)+`}`).Code; again != http.StatusNotFound {
+	if again := postKill(s, `{"toolId":`+testpath.JSONQuote(tl.ID)+`}`).Code; again != http.StatusNotFound {
 		t.Errorf("두 번째 종료 status=%d, want 404", again)
 	}
 }
@@ -149,7 +149,7 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 
 	start := time.Now()
 	done := make(chan int, 1)
-	go func() { done <- postKill(&Server{Tools: m}, `{"toolId":`+jsonQ(tl.ID)+`}`).Code }()
+	go func() { done <- postKill(&Server{Tools: m}, `{"toolId":`+testpath.JSONQuote(tl.ID)+`}`).Code }()
 
 	// 유예 도중: 아직 죽이지 않았다. 이 확인이 없으면 "그냥 유예만큼 잤다" 와
 	// 구별되지 않는다.

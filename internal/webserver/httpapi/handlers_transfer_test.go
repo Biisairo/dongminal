@@ -307,7 +307,7 @@ func TestCwd_Source(t *testing.T) {
 	wd, _ := os.Getwd()
 	// 응답은 JSON 이다 — 경로를 날것으로 찾으면 Windows 의 백슬래시가
 	// 이스케이프돼 있어 어긋난다 (FR-WTP-20).
-	if !strings.Contains(rec.Body.String(), jsonInner(wd)) {
+	if !strings.Contains(rec.Body.String(), testpath.JSONInner(wd)) {
 		t.Fatalf("폴백이 사라졌다 — 소비자 넷이 이것을 딛는다: %q", rec.Body.String())
 	}
 }

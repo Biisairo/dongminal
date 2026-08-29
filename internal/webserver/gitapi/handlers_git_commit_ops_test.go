@@ -12,6 +12,8 @@ import (
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
 	"net/url"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 D 서버측 — /api/git/{cherry-pick,revert,reset,drop} + /api/git/commit-range
@@ -207,7 +209,7 @@ func TestAPIGitReset_HardRequiresConfirm(t *testing.T) {
 		f2 := newGitCoFake(t)
 		s2 := gitCoServer(t, f2)
 		code, out := gitReq(t, s2, http.MethodPost, "/api/git/reset",
-			`{"repo":`+qWorkRepo+`,"oid":"abc123","mode":`+jsonQ(mode)+`}`)
+			`{"repo":`+qWorkRepo+`,"oid":"abc123","mode":`+testpath.JSONQuote(mode)+`}`)
 		if code != http.StatusOK {
 			t.Fatalf("mode=%q → %d %v, want 200", mode, code, out["error"])
 		}

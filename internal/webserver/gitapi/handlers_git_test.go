@@ -17,6 +17,8 @@ import (
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
 	"net/url"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 B·C 서버측 — /api/git/* (GIT_SRS §3.8 FR-GIT-60~63, 검증 V3·V4·V13·V16·V28·V29).
@@ -366,7 +368,7 @@ func TestGitPin_StoresRevParseRoot(t *testing.T) {
 	s, _, ws, _ := gitTestServer(t, g)
 	g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+jsonQ(filepath.Join(absWorkRepoSub, "dir"))+`}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+testpath.JSONQuote(filepath.Join(absWorkRepoSub, "dir"))+`}`)
 	if code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}

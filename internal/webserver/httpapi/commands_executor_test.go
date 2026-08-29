@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 실행자 지명 (WORKSPACE_IDENTITY_SRS FR-SXE-1/2/5).
@@ -78,7 +80,7 @@ func TestCommandPost_NamesExecutorForCreatingActions(t *testing.T) {
 	srv.Focus.Claim("cliB", "W1")
 
 	for _, action := range []string{"newTab", "newWindow", "splitH", "splitV", "openEditorTab", "restoreTool"} {
-		postCmd(t, ts, `{"action":`+jsonQ(action)+`,"args":{"filePath":"/tmp/x","toolId":"1"}}`)
+		postCmd(t, ts, `{"action":`+testpath.JSONQuote(action)+`,"args":{"filePath":"/tmp/x","toolId":"1"}}`)
 		m := nextPayload(t, sub, action)
 		if got, _ := m["execClientId"].(string); got != "cliB" {
 			t.Fatalf("action=%s execClientId=%q want cliB", action, got)
@@ -93,7 +95,7 @@ func TestCommandPost_NoExecutorForNonCreatingActions(t *testing.T) {
 	srv.Focus.Claim("cliA", "W1")
 
 	for _, action := range []string{"focus", "closeTab", "tabNext", "renameTab", "detachTab"} {
-		postCmd(t, ts, `{"action":`+jsonQ(action)+`,"args":{"name":"n","toolId":"1"}}`)
+		postCmd(t, ts, `{"action":`+testpath.JSONQuote(action)+`,"args":{"name":"n","toolId":"1"}}`)
 		m := nextPayload(t, sub, action)
 		if _, ok := m["execClientId"]; ok {
 			t.Fatalf("action=%s 가 execClientId 를 실었다 — 전 클라이언트가 수행해야 한다", action)

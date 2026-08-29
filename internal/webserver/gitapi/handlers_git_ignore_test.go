@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 F 서버측 — /api/git/{ignore,file-head,uncommitted/*}, /api/git/stash/branch
@@ -40,7 +42,7 @@ func TestAPIGitIgnore_RejectsEscape(t *testing.T) {
 		f := newGitM5Fake(t)
 		s := gitM5Server(t, f)
 		code, out := gitReq(t, s, http.MethodPost, "/api/git/ignore",
-			`{"repo":`+jsonQ(repo)+`,"paths":["`+p+`"]}`)
+			`{"repo":`+testpath.JSONQuote(repo)+`,"paths":["`+p+`"]}`)
 		if code != http.StatusBadRequest || out["error"] != gitErrIgnorePath {
 			t.Fatalf("%q: code = %d, out = %v", p, code, out)
 		}
@@ -59,7 +61,7 @@ func TestAPIGitIgnore_NoDuplicate(t *testing.T) {
 	repo := t.TempDir()
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
-	body := `{"repo":` + jsonQ(repo) + `,"paths":["a.txt"]}`
+	body := `{"repo":` + testpath.JSONQuote(repo) + `,"paths":["a.txt"]}`
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/ignore", body)
 	if code != http.StatusOK || out["ok"] != true {
@@ -101,7 +103,7 @@ func TestAPIGitUncommittedClean_RequiresConfirm(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/clean",
-		`{"repo":`+jsonQ(gitM5Repo)+`}`)
+		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`}`)
 	if code != http.StatusBadRequest || out["error"] != gitErrConfirmRequired {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
@@ -118,7 +120,7 @@ func TestAPIGitUncommittedClean(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/clean",
-		`{"repo":`+jsonQ(gitM5Repo)+`,"confirm":true}`)
+		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`,"confirm":true}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
@@ -135,7 +137,7 @@ func TestAPIGitUncommittedClean_NothingToClean(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/clean",
-		`{"repo":`+jsonQ(gitM5Repo)+`,"confirm":true}`)
+		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`,"confirm":true}`)
 	if code != http.StatusConflict || out["error"] != gitErrNothingToClean {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
@@ -153,7 +155,7 @@ func TestAPIGitUncommittedReset(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/reset",
-		`{"repo":`+jsonQ(gitM5Repo)+`}`)
+		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
@@ -170,7 +172,7 @@ func TestAPIGitUncommittedReset_NoHead(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/reset",
-		`{"repo":`+jsonQ(gitM5Repo)+`}`)
+		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`}`)
 	if code != http.StatusConflict || out["error"] != gitErrNoHead {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
@@ -186,7 +188,7 @@ func TestAPIGitStashBranch(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/branch",
-		`{"repo":`+jsonQ(gitM5Repo)+`,"index":1,"name":"feat/from-stash"}`)
+		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`,"index":1,"name":"feat/from-stash"}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
@@ -200,10 +202,10 @@ func TestAPIGitStashBranch(t *testing.T) {
 // 직접 호출이 우회한다.
 func TestAPIGitStashBranch_Rejects(t *testing.T) {
 	cases := []string{
-		`{"repo":` + jsonQ(gitM5Repo) + `,"index":0,"name":""}`,
-		`{"repo":` + jsonQ(gitM5Repo) + `,"index":0,"name":"--force"}`,
-		`{"repo":` + jsonQ(gitM5Repo) + `,"index":-1,"name":"ok"}`,
-		`{"repo":` + jsonQ(gitM5Repo) + `,"index":0,"name":"bad name"}`,
+		`{"repo":` + testpath.JSONQuote(gitM5Repo) + `,"index":0,"name":""}`,
+		`{"repo":` + testpath.JSONQuote(gitM5Repo) + `,"index":0,"name":"--force"}`,
+		`{"repo":` + testpath.JSONQuote(gitM5Repo) + `,"index":-1,"name":"ok"}`,
+		`{"repo":` + testpath.JSONQuote(gitM5Repo) + `,"index":0,"name":"bad name"}`,
 	}
 	for _, body := range cases {
 		f := newGitM5Fake(t)
@@ -226,7 +228,7 @@ func TestAPIGitStashBranch_MissingIndex(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/branch",
-		`{"repo":`+jsonQ(gitM5Repo)+`,"index":9,"name":"feat"}`)
+		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`,"index":9,"name":"feat"}`)
 	if code != http.StatusNotFound || out["error"] != gitErrNotFound {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}

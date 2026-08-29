@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 P — 프리앰블의 서버 계층 (RUN_ORCHESTRATION_SRS FR-PRE-1/3/4).
@@ -15,7 +17,7 @@ func TestApiRunMember_ReturnsAssembledPreamble(t *testing.T) {
 	runID := startRun(t, s)
 
 	code, out := postRun(t, s, "/api/runs/members",
-		`{"runId":`+jsonQ(runID)+`,"role":"writer","agent":"claude","id":"tool-b","brief":"초안을 쓴다"}`)
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"writer","agent":"claude","id":"tool-b","brief":"초안을 쓴다"}`)
 	if code != http.StatusOK {
 		t.Fatalf("want 200, got %d (%+v)", code, out)
 	}
@@ -40,7 +42,7 @@ func TestApiRunPreamble_IsRederivableFromTheRecord(t *testing.T) {
 	s, _, _, _ := runsServer(t, "tool-a")
 	runID := startRun(t, s)
 	_, created := postRun(t, s, "/api/runs/members",
-		`{"runId":`+jsonQ(runID)+`,"role":"writer","agent":"claude","id":"tool-b","brief":"초안을 쓴다"}`)
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"writer","agent":"claude","id":"tool-b","brief":"초안을 쓴다"}`)
 	memberID, _ := created["id"].(string)
 
 	code, out := getRun(t, s, "/api/runs/preamble?member="+memberID)
@@ -80,7 +82,7 @@ func TestApiRunMember_UnknownAgentIsRefused(t *testing.T) {
 	runID := startRun(t, s)
 
 	code, out := postRun(t, s, "/api/runs/members",
-		`{"runId":`+jsonQ(runID)+`,"role":"writer","agent":"gpt-9","id":"tool-b"}`)
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"writer","agent":"gpt-9","id":"tool-b"}`)
 	if code != http.StatusBadRequest {
 		t.Fatalf("알 수 없는 에이전트 want 400, got %d (%+v)", code, out)
 	}
@@ -90,7 +92,7 @@ func TestApiRunMember_UnknownAgentIsRefused(t *testing.T) {
 	}
 	// 거부됐으면 도구가 묶여서도 안 된다 — 같은 도구로 다시 등록할 수 있어야 한다.
 	if code, out := postRun(t, s, "/api/runs/members",
-		`{"runId":`+jsonQ(runID)+`,"role":"writer","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"writer","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
 		t.Fatalf("거부된 시도가 도구를 묶어 버렸다: %d (%+v)", code, out)
 	}
 }
@@ -101,7 +103,7 @@ func TestApiRunStatus_OmitsPreamble(t *testing.T) {
 	s, _, _, _ := runsServer(t, "tool-a")
 	runID := startRun(t, s)
 	_, _ = postRun(t, s, "/api/runs/members",
-		`{"runId":`+jsonQ(runID)+`,"role":"writer","agent":"claude","id":"tool-b","brief":"초안"}`)
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"writer","agent":"claude","id":"tool-b","brief":"초안"}`)
 
 	_, out := getRun(t, s, "/api/runs?id="+runID)
 	members, _ := out["members"].([]any)

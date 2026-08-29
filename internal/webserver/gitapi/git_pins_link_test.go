@@ -105,14 +105,14 @@ func TestGitPin_HomeMakesNoEditorRow(t *testing.T) {
 	s, _, _, _ := gitTestServer(t, g)
 	g.root = func(string) (core.Output, error) { return core.Output{Stdout: norm + "\n"}, nil }
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+jsonQ(norm)+`}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+testpath.JSONQuote(norm)+`}`)
 	if code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
 	if eds := editorsOf(t, out); len(eds) != 0 {
 		t.Fatalf("홈 핀이 editor 행을 만들었다: %v", eds)
 	}
-	code, out = gitReq(t, s, http.MethodPost, "/api/git/repos/unpin", `{"path":`+jsonQ(norm)+`}`)
+	code, out = gitReq(t, s, http.MethodPost, "/api/git/repos/unpin", `{"path":`+testpath.JSONQuote(norm)+`}`)
 	if code != 200 {
 		t.Fatalf("unpin code=%d body=%v", code, out)
 	}
@@ -138,7 +138,7 @@ func TestGitPin_NormalizesRootLikeEditorAdd(t *testing.T) {
 	s, _, _, _ := gitTestServer(t, g)
 	g.root = func(string) (core.Output, error) { return core.Output{Stdout: link + "\n"}, nil }
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+jsonQ(link)+`}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+testpath.JSONQuote(link)+`}`)
 	if code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}

@@ -88,7 +88,13 @@ func TestDaemonFullFlow(t *testing.T) {
 	// **셸이 입을 열 때까지 기다린다.** 고정 대기(200ms)로는 부하 걸린 러너에서
 	// 못 맞춘다 — 준비되기 전에 넣은 입력은 프롬프트가 먹지 못하고, 그러면
 	// 아래 "출력 없음" 으로 떨어진다. 실제로 ubuntu 를 두 번 떨어뜨렸다.
-	waitForDaemonToolOutput(t, pc, toolID, 20*time.Second)
+	waitForShellReady(t, func() int {
+		snap, err := pc.SnapshotTool(toolID)
+		if err != nil {
+			return 0
+		}
+		return len(snap.Data)
+	})
 
 	// Subscribe to output
 	outputCh := make(chan []byte, 32)
@@ -111,7 +117,7 @@ func TestDaemonFullFlow(t *testing.T) {
 	select {
 	case <-outputCh:
 		// got some output
-	case <-time.After(20 * time.Second):
+	case <-time.After(shellReadyLimit):
 		t.Fatal("no output received from tool")
 	}
 
@@ -772,29 +778,4 @@ func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	t.Fatal("attention not detected without a WS subscriber (OnOutput not wired through readLoop?)")
-}
-
-// waitForDaemonToolOutput 은 셸이 **준비될 때까지** 기다린다 — 바이트가 생긴
-// 것만으로는 부족하다. ConPTY 의 인사말은 셸보다 먼저 온다. doctor 와 같은
-// 신호(출력이 오고 조용해지는 것)를 쓴다 (§11, a36417a).
-func waitForDaemonToolOutput(t *testing.T, pc *toolclient.ToolClient, toolID string, limit time.Duration) {
-	t.Helper()
-	const quiet = 700 * time.Millisecond
-	deadline := time.Now().Add(limit)
-	var last int
-	stableSince := time.Now()
-	for time.Now().Before(deadline) {
-		if snap, err := pc.SnapshotTool(toolID); err == nil {
-			if n := len(snap.Data); n != last {
-				last, stableSince = n, time.Now()
-			} else if last > 0 && time.Since(stableSince) >= quiet {
-				return
-			}
-		}
-		time.Sleep(25 * time.Millisecond)
-	}
-	if last > 0 {
-		return
-	}
-	t.Fatalf("셸이 %v 안에 아무것도 내보내지 않았다", limit)
 }

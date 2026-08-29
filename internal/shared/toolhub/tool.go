@@ -689,10 +689,11 @@ type ToolManager struct {
 	// (WINDOWS_TEST_PARITY_SRS §5 의 간헐 실패).
 	saves sync.WaitGroup
 
-	// noSave 는 "이제 저장하지 않는다" 다. 기다리는 것만으로는 부족하다 —
-	// 기다림이 끝난 **뒤에** 도구가 죽으면 onExit → Delete → 저장이 다시
-	// 시작되고, 그 쓰기가 이미 지워진 자리로 간다.
-	noSave atomic.Bool
+	// saveMu 는 noSave 와 saves.Add 를 **한 덩어리로** 지킨다. 둘이 갈리면
+	// `Wait` 가 진행 중일 때 뒤늦은 `Add` 가 들어와 WaitGroup 이 패닉한다
+	// (sync: WaitGroup is reused before previous Wait has returned).
+	saveMu sync.Mutex
+	noSave bool
 
 	// Attention (PANE_ATTENTION_NOTIFY_SRS): idleThreshold/allowBell configure
 	// detection; attnNotify/attnClear bridge transitions to SSE (set via
@@ -1012,32 +1013,40 @@ func (m *ToolManager) Delete(id string) {
 }
 
 // saveAsync 는 저장을 요청 경로 밖으로 떨어뜨리되 **셀 수 있게** 한다.
+//
+// 문 여부 확인과 Add 를 한 락 안에서 한다. 갈라 두면 StopSaving 이 Wait 에
+// 들어간 뒤에 Add 가 도착해 WaitGroup 이 패닉할 수 있다.
 func (m *ToolManager) saveAsync() {
-	if m.noSave.Load() {
+	m.saveMu.Lock()
+	if m.noSave {
+		m.saveMu.Unlock()
 		return
 	}
 	m.saves.Add(1)
+	m.saveMu.Unlock()
+
 	go func() {
 		defer m.saves.Done()
-		// 문 닫힌 뒤에 출발한 것은 쓰지 않는다. Add 와 검사 사이의 틈은
-		// 여기서 닫힌다 — 남는 것은 카운터뿐이고 파일은 건드리지 않는다.
-		if m.noSave.Load() {
-			return
-		}
 		m.SaveAll()
 	}()
 }
 
 // StopSaving 은 **더 이상 저장을 시작하지 않게 하고**, 진행 중인 것을 기다린다.
 //
-// 기다리기만 해서는 안 되는 이유가 이 이름에 있다. 도구가 죽으면 readPTY 가
-// onExit → Delete 를 부르고 그것이 다시 저장을 떨어뜨린다. 기다림이 끝난 뒤에
-// 그 일이 일어나면 이미 치운 자리로 쓰기가 간다 — 테스트에서는 t.TempDir 정리와
-// 부딪혀 "directory not empty" 가 된다.
+// 종료 경로가 이것을 부른다. 부르지 않으면 프로세스가 인플라이트 저장 도중에
+// 끝나 `tools.json` 이 잘린 채 남을 수 있다 — 마지막 `SaveAll()` 한 번으로는
+// 이미 떠 있는 고루틴을 막지도 기다리지도 못한다.
 //
-// 종료 경로에도 그대로 쓸 수 있다.
+// 기다리기만 해서는 안 되는 이유가 이름에 있다. 도구가 죽으면 readPTY 가
+// onExit → Delete 를 부르고 그것이 다시 저장을 떨어뜨린다. 기다림이 끝난 뒤에
+// 그 일이 일어나면 이미 치운 자리로 쓰기가 간다.
+//
+// SaveAll 자신은 막지 않는다 — 문을 닫은 뒤 마지막 상태를 한 번 쓰는 것이
+// 종료 절차이기 때문이다.
 func (m *ToolManager) StopSaving() {
-	m.noSave.Store(true)
+	m.saveMu.Lock()
+	m.noSave = true
+	m.saveMu.Unlock()
 	m.saves.Wait()
 }
 

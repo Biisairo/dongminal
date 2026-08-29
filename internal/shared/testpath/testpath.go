@@ -11,6 +11,7 @@
 package testpath
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"sync"
 )
@@ -44,3 +45,25 @@ func Abs(seg ...string) string {
 
 // Root 는 볼륨 루트 자신이다. "파일시스템 루트" 를 거부하는지 보는 테스트가 쓴다.
 func Root() string { return volumeRoot() }
+
+// JSONQuote 는 값을 **JSON 문자열 리터럴로** 만든다 — 바깥 따옴표까지 포함한다.
+//
+// 테스트가 경로를 담은 본문을 문자열 결합으로 만들 때 이것을 거쳐야 한다
+// (WINDOWS_TEST_PARITY_SRS FR-WTP-20). Windows 경로를 날것으로 끼우면
+// `C:\Users` 의 `\U` 가 유효하지 않은 JSON 이스케이프가 되어 본문 전체가
+// 깨진다 — 오류가 파싱 단계에서 나므로 정작 검사하려던 것은 시작도 못 한다.
+func JSONQuote(s string) string {
+	b, err := json.Marshal(s)
+	if err != nil {
+		panic(err) // string 은 marshal 에 실패하지 않는다
+	}
+	return string(b)
+}
+
+// JSONInner 는 값이 **JSON 안에 적혔을 때의 모습**이다 — 바깥 따옴표는 뺀다.
+// 응답이나 파일의 원문에서 경로를 찾을 때 쓴다. 날것으로 대조하면 Windows 의
+// 백슬래시가 이스케이프돼 있어 언제나 어긋난다.
+func JSONInner(s string) string {
+	q := JSONQuote(s)
+	return q[1 : len(q)-1]
+}

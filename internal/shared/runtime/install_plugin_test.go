@@ -108,7 +108,7 @@ func TestInstallAgentPlugin_Hooks(t *testing.T) {
 		t.Fatalf("hooks.json must wire SessionStart, got: %v", parsed.Hooks)
 	}
 	want := dmctlPath(dir) + " agent-context"
-	if !strings.Contains(string(blob), jsonInner(want)) {
+	if !strings.Contains(string(blob), testpath.JSONInner(want)) {
 		t.Fatalf("hooks.json should invoke %q, got:\n%s", want, blob)
 	}
 }

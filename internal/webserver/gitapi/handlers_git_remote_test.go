@@ -17,6 +17,8 @@ import (
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
 	"net/url"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 K 서버측 — /api/git/{fetch,pull,push} + /api/git/job* (GIT_SRS §3B.1,
@@ -400,7 +402,7 @@ func TestGitJobCancel(t *testing.T) {
 	_, out := gitReq(t, s, http.MethodPost, "/api/git/fetch", `{"repo":`+qWorkRepo+`}`)
 	id := gitRemoteJobID(t, out)
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/job/cancel", `{"id":`+jsonQ(id)+`}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/job/cancel", `{"id":`+testpath.JSONQuote(id)+`}`)
 	if code != http.StatusOK || out["ok"] != true || out["canceled"] != true {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
