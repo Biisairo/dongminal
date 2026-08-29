@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"dongminal/internal/webserver/domain/git/core"
+	"net/url"
 )
 
 // 묶음 O 서버측 — /api/git/stash{,/push,/apply,/pop,/drop,/show}
@@ -36,7 +37,7 @@ func TestAPIGitStashList(t *testing.T) {
 	f.stashes = gitStashTwo
 	s := gitM5Server(t, f)
 
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash?repo=/work/repo", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash?repo="+url.QueryEscape(absWorkRepo), "")
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -257,7 +258,7 @@ func TestAPIGitStashShow(t *testing.T) {
 	f.show = "R094\x00old.txt\x00new.txt\x00"
 	s := gitM5Server(t, f)
 
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash/show?repo=/work/repo&index=2", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash/show?repo="+url.QueryEscape(absWorkRepo)+"&index=2", "")
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -294,7 +295,7 @@ func TestAPIGitStash_NegativeIndex(t *testing.T) {
 	}
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash/show?repo=/work/repo&index=-1", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash/show?repo="+url.QueryEscape(absWorkRepo)+"&index=-1", "")
 	if code != http.StatusBadRequest {
 		t.Fatalf("show → %d %v, want 400", code, out["error"])
 	}

@@ -16,6 +16,7 @@ import (
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
+	"net/url"
 )
 
 // 묶음 B·C 서버측 — /api/git/* (GIT_SRS §3.8 FR-GIT-60~63, 검증 V3·V4·V13·V16·V28·V29).
@@ -118,8 +119,8 @@ var gitEndpoints = []struct {
 	{http.MethodGet, "/api/git/repos", ""},
 	{http.MethodPost, "/api/git/repos/pin", `{"path":` + qR + `}`},
 	{http.MethodPost, "/api/git/repos/unpin", `{"path":` + qR + `}`},
-	{http.MethodGet, "/api/git/status?repo=/r", ""},
-	{http.MethodGet, "/api/git/signature?repo=/r", ""},
+	{http.MethodGet, "/api/git/status?repo=" + url.QueryEscape(absR), ""},
+	{http.MethodGet, "/api/git/signature?repo=" + url.QueryEscape(absR), ""},
 }
 
 // H1 (V28, FR-GIT-61): 5개 라우트가 gitapi.routes 에 등록돼 있다. UI 는 이 표면 위에만
@@ -167,7 +168,7 @@ func TestGitRepos_NoFollow(t *testing.T) {
 	roots := 0
 	g.root = func(string) (core.Output, error) {
 		roots++
-		return core.Output{Stdout: "/work/repo\n"}, nil
+		return core.Output{Stdout: absWorkRepo + "\n"}, nil
 	}
 
 	code, out := gitReq(t, s, http.MethodGet, "/api/git/repos?tool=t1", "")
@@ -192,7 +193,7 @@ func TestGitRepoAt(t *testing.T) {
 		s, hub, _, _ := gitTestServer(t, g)
 		hub.seed("t1", "T1")
 		hub.setCwd("t1", absWorkRepoSub)
-		g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
+		g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
 
 		code, out := gitReq(t, s, http.MethodGet, "/api/git/repo-at?tool=t1", "")
 		if code != 200 {
@@ -249,9 +250,9 @@ func TestGitRepos_BadgeFromObservation(t *testing.T) {
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
 	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":[` + qWorkRepo + `]}}`)
-	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
 
-	if code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo=/work/repo", ""); code != 200 {
+	if code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo="+url.QueryEscape(absWorkRepo), ""); code != 200 {
 		t.Fatalf("status code=%d body=%v", code, out)
 	}
 	code, out := gitReq(t, s, http.MethodGet, "/api/git/repos", "")
@@ -363,7 +364,7 @@ func TestGitPin_RejectsRelativePath(t *testing.T) {
 func TestGitPin_StoresRevParseRoot(t *testing.T) {
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
-	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":"/work/repo/sub/dir"}`)
 	if code != 200 {
@@ -387,7 +388,7 @@ func TestGitPin_IdempotentAndPreservesOtherKeys(t *testing.T) {
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
 	ws.raw = []byte(`{"schemaVersion":2,"windows":[{"id":"w1"}],"activeWindow":"w1"}`)
-	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
 
 	for i := 0; i < 2; i++ {
 		code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+qWorkRepo+`}`)
@@ -429,7 +430,7 @@ func TestGitPin_IdempotentAndPreservesOtherKeys(t *testing.T) {
 func TestGitPin_BroadcastsWorkspaceChanged(t *testing.T) {
 	g := newGitFake(t)
 	s, _, _, cb := gitTestServer(t, g)
-	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
 
 	if code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+qWorkRepo+`}`); code != 200 {
 		t.Fatalf("pin code=%d body=%v", code, out)
@@ -458,10 +459,10 @@ func TestGitPin_BroadcastsWorkspaceChanged(t *testing.T) {
 func TestGitStatusSignature_EchoesRequested(t *testing.T) {
 	g := newGitFake(t)
 	s, _, _, _ := gitTestServer(t, g)
-	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
 
 	for _, path := range []string{"/api/git/status", "/api/git/signature"} {
-		code, out := gitReq(t, s, http.MethodGet, path+"?repo=/work/repo/sub", "")
+		code, out := gitReq(t, s, http.MethodGet, path+"?repo="+url.QueryEscape(absWorkRepoSub), "")
 		if code != 200 {
 			t.Fatalf("%s code=%d body=%v", path, code, out)
 		}
@@ -482,9 +483,9 @@ func TestGitStatusSignature_EchoesRequested(t *testing.T) {
 func TestGitStatus_ReconfirmsRepo(t *testing.T) {
 	g := newGitFake(t)
 	s, _, _, _ := gitTestServer(t, g)
-	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
 
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo=/work/repo/deep/sub", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo="+url.QueryEscape(absWorkRepo+"/deep/sub"), "")
 	if code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
@@ -520,16 +521,16 @@ func TestGitStatus_ErrorMapping(t *testing.T) {
 	}{
 		{"repo 누락", "", nil, http.StatusBadRequest, gitErrBadRequest},
 		{"상대경로", "?repo=rel", nil, http.StatusBadRequest, gitErrBadRequest},
-		{"저장소 아님", "?repo=/x", func(string) (core.Output, error) {
+		{"저장소 아님", "?repo=" + url.QueryEscape(absX), func(string) (core.Output, error) {
 			return core.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
 		}, http.StatusNotFound, gitErrNotRepo},
-		{"git 없음", "?repo=/x", func(string) (core.Output, error) {
+		{"git 없음", "?repo=" + url.QueryEscape(absX), func(string) (core.Output, error) {
 			return core.Output{ExitCode: -1}, core.ErrGitMissing
 		}, http.StatusServiceUnavailable, gitErrMissing},
-		{"마감 초과", "?repo=/x", func(string) (core.Output, error) {
+		{"마감 초과", "?repo=" + url.QueryEscape(absX), func(string) (core.Output, error) {
 			return core.Output{ExitCode: -1}, core.ErrTimeout
 		}, http.StatusGatewayTimeout, gitErrTimeout},
-		{"그 밖", "?repo=/x", func(string) (core.Output, error) {
+		{"그 밖", "?repo=" + url.QueryEscape(absX), func(string) (core.Output, error) {
 			return core.Output{ExitCode: 1, Stderr: "fatal: boom"}, nil
 		}, http.StatusInternalServerError, gitErrFailed},
 	}
@@ -556,7 +557,7 @@ func TestGitStatus_ErrorMapping(t *testing.T) {
 			return core.Output{ExitCode: 1, Stderr: "fatal: something specific"}, nil
 		}
 		s, _, _, _ := gitTestServer(t, g)
-		_, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo=/x", "")
+		_, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo="+url.QueryEscape(absX), "")
 		if msg, _ := out["message"].(string); !strings.Contains(msg, "something specific") {
 			t.Fatalf("message=%q", msg)
 		}
@@ -587,7 +588,7 @@ func TestGitStatus_ConcurrentSingleFlight(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			ready <- struct{}{}
-			codes[i], _ = gitReq(t, s, http.MethodGet, "/api/git/status?repo=/work/repo", "")
+			codes[i], _ = gitReq(t, s, http.MethodGet, "/api/git/status?repo="+url.QueryEscape(absWorkRepo), "")
 		}(i)
 	}
 	for i := 0; i < n; i++ {

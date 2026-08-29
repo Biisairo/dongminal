@@ -13,6 +13,7 @@ import (
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/git/write"
+	"net/url"
 )
 
 // 묶음 N 서버측 — /api/git/{checkout,branch} + /api/git/branch/validate
@@ -159,9 +160,9 @@ var gitM5Endpoints = []struct {
 }{
 	{http.MethodPost, "/api/git/checkout", `{"repo":` + qWorkRepo + `,"ref":"main"}`},
 	{http.MethodPost, "/api/git/branch", `{"repo":` + qWorkRepo + `,"name":"feat"}`},
-	{http.MethodGet, "/api/git/branch/validate?repo=/work/repo&name=feat", ""},
-	{http.MethodGet, "/api/git/stash?repo=/work/repo", ""},
-	{http.MethodGet, "/api/git/stash/show?repo=/work/repo&index=0", ""},
+	{http.MethodGet, "/api/git/branch/validate?repo=" + url.QueryEscape(absWorkRepo) + "&name=feat", ""},
+	{http.MethodGet, "/api/git/stash?repo=" + url.QueryEscape(absWorkRepo), ""},
+	{http.MethodGet, "/api/git/stash/show?repo=" + url.QueryEscape(absWorkRepo) + "&index=0", ""},
 	{http.MethodPost, "/api/git/stash/push", `{"repo":` + qWorkRepo + `}`},
 	{http.MethodPost, "/api/git/stash/apply", `{"repo":` + qWorkRepo + `,"index":0}`},
 	{http.MethodPost, "/api/git/stash/pop", `{"repo":` + qWorkRepo + `,"index":0}`},
@@ -355,7 +356,7 @@ func TestAPIGitBranchValidate(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			code, out := gitReq(t, s, http.MethodGet,
-				"/api/git/branch/validate?repo=/work/repo&name="+strings.ReplaceAll(c.name, " ", "%20"), "")
+				"/api/git/branch/validate?repo="+url.QueryEscape(absWorkRepo)+"&name="+strings.ReplaceAll(c.name, " ", "%20"), "")
 			if code != http.StatusOK {
 				t.Fatalf("code = %d, body = %v", code, out)
 			}
@@ -370,7 +371,7 @@ func TestAPIGitBranchValidate(t *testing.T) {
 
 	// 이름이 이미 있는 것은 규칙 위반이 아니다. 그 사실은 따로 알린다 —
 	// 클라이언트가 생성을 막을지 다른 이름을 권할지 갈라야 한다 (FR-GIT-156).
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/branch/validate?repo=/work/repo&name=taken", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/branch/validate?repo="+url.QueryEscape(absWorkRepo)+"&name=taken", "")
 	if code != http.StatusOK || out["ok"] != true || out["exists"] != true {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -393,7 +394,7 @@ var gitBranchActionEndpoints = []struct {
 	{http.MethodPost, "/api/git/branch/merge", `{"repo":` + qWorkRepo + `,"ref":"side"}`},
 	{http.MethodPost, "/api/git/branch/rebase", `{"repo":` + qWorkRepo + `,"ref":"main","confirm":true}`},
 	{http.MethodPost, "/api/git/branch/upstream", `{"repo":` + qWorkRepo + `,"branch":"a","upstream":"origin/a"}`},
-	{http.MethodGet, "/api/git/branch/merge-preview?repo=/work/repo&ref=side", ""},
+	{http.MethodGet, "/api/git/branch/merge-preview?repo=" + url.QueryEscape(absWorkRepo) + "&ref=side", ""},
 	{http.MethodPost, "/api/git/branch/push", `{"repo":` + qWorkRepo + `,"branch":"a"}`},
 	{http.MethodPost, "/api/git/branch/fetch", `{"repo":` + qWorkRepo + `,"remote":"origin","branch":"a"}`},
 	{http.MethodPost, "/api/git/branch/delete-remote", `{"repo":` + qWorkRepo + `,"remote":"origin","branch":"a","confirm":true}`},
@@ -716,7 +717,7 @@ func TestAPIGitBranchMergePreview(t *testing.T) {
 	f.revCounts["side..HEAD"] = 0
 	s := gitM5Server(t, f)
 
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/branch/merge-preview?repo=/work/repo&ref=side", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/branch/merge-preview?repo="+url.QueryEscape(absWorkRepo)+"&ref=side", "")
 	if code != http.StatusOK {
 		t.Fatalf("→ %d %v", code, out)
 	}
@@ -734,7 +735,7 @@ func TestAPIGitBranchMergePreview(t *testing.T) {
 	f2.revCounts["side..HEAD"] = 1
 	f2.unmerged["HEAD"] = true
 	s2 := gitM5Server(t, f2)
-	code, out = gitReq(t, s2, http.MethodGet, "/api/git/branch/merge-preview?repo=/work/repo&ref=side", "")
+	code, out = gitReq(t, s2, http.MethodGet, "/api/git/branch/merge-preview?repo="+url.QueryEscape(absWorkRepo)+"&ref=side", "")
 	if code != http.StatusOK {
 		t.Fatalf("→ %d %v", code, out)
 	}
@@ -744,7 +745,7 @@ func TestAPIGitBranchMergePreview(t *testing.T) {
 	}
 
 	// 옵션처럼 생긴 ref 는 400 이다.
-	code, _ = gitReq(t, s, http.MethodGet, "/api/git/branch/merge-preview?repo=/work/repo&ref=-x", "")
+	code, _ = gitReq(t, s, http.MethodGet, "/api/git/branch/merge-preview?repo="+url.QueryEscape(absWorkRepo)+"&ref=-x", "")
 	if code != http.StatusBadRequest {
 		t.Fatalf("→ %d, want 400", code)
 	}

@@ -689,6 +689,11 @@ type ToolManager struct {
 	// (WINDOWS_TEST_PARITY_SRS §5 의 간헐 실패).
 	saves sync.WaitGroup
 
+	// noSave 는 "이제 저장하지 않는다" 다. 기다리는 것만으로는 부족하다 —
+	// 기다림이 끝난 **뒤에** 도구가 죽으면 onExit → Delete → 저장이 다시
+	// 시작되고, 그 쓰기가 이미 지워진 자리로 간다.
+	noSave atomic.Bool
+
 	// Attention (PANE_ATTENTION_NOTIFY_SRS): idleThreshold/allowBell configure
 	// detection; attnNotify/attnClear bridge transitions to SSE (set via
 	// SetAttentionNotifier from the composition root).
@@ -1008,19 +1013,33 @@ func (m *ToolManager) Delete(id string) {
 
 // saveAsync 는 저장을 요청 경로 밖으로 떨어뜨리되 **셀 수 있게** 한다.
 func (m *ToolManager) saveAsync() {
+	if m.noSave.Load() {
+		return
+	}
 	m.saves.Add(1)
 	go func() {
 		defer m.saves.Done()
+		// 문 닫힌 뒤에 출발한 것은 쓰지 않는다. Add 와 검사 사이의 틈은
+		// 여기서 닫힌다 — 남는 것은 카운터뿐이고 파일은 건드리지 않는다.
+		if m.noSave.Load() {
+			return
+		}
 		m.SaveAll()
 	}()
 }
 
-// WaitSaves 는 떨어뜨린 저장이 전부 끝날 때까지 기다린다.
+// StopSaving 은 **더 이상 저장을 시작하지 않게 하고**, 진행 중인 것을 기다린다.
 //
-// 종료 경로와 테스트가 쓴다. 테스트에서는 `t.TempDir()` 로 만든 데이터
-// 디렉터리가 저장보다 먼저 지워지는 경합을 막는다 — `t.Cleanup` 은 LIFO 라
-// TempDir 을 만든 뒤에 등록하면 그 정리보다 **먼저** 돈다.
-func (m *ToolManager) WaitSaves() { m.saves.Wait() }
+// 기다리기만 해서는 안 되는 이유가 이 이름에 있다. 도구가 죽으면 readPTY 가
+// onExit → Delete 를 부르고 그것이 다시 저장을 떨어뜨린다. 기다림이 끝난 뒤에
+// 그 일이 일어나면 이미 치운 자리로 쓰기가 간다 — 테스트에서는 t.TempDir 정리와
+// 부딪혀 "directory not empty" 가 된다.
+//
+// 종료 경로에도 그대로 쓸 수 있다.
+func (m *ToolManager) StopSaving() {
+	m.noSave.Store(true)
+	m.saves.Wait()
+}
 
 // IsLive implements the liveness interface consumed by workspace.Manager.
 func (m *ToolManager) IsLive(id string) bool { return m.Get(id) != nil }

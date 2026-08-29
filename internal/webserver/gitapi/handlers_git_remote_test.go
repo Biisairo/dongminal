@@ -16,6 +16,7 @@ import (
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
+	"net/url"
 )
 
 // 묶음 K 서버측 — /api/git/{fetch,pull,push} + /api/git/job* (GIT_SRS §3B.1,
@@ -449,13 +450,13 @@ func TestGitRemote_InvalidatesStatusCacheOnDone(t *testing.T) {
 	s := gitRemoteServer(t, f, gitRemoteEmit("끝"))
 
 	// 캐시를 채운다.
-	if code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo=/work/repo", ""); code != http.StatusOK {
+	if code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo="+url.QueryEscape(absWorkRepo), ""); code != http.StatusOK {
 		t.Fatalf("status code = %d, body = %v", code, out)
 	}
 	_, out := gitReq(t, s, http.MethodPost, "/api/git/fetch", `{"repo":`+qWorkRepo+`}`)
 	gitRemoteWaitDone(t, s, gitRemoteJobID(t, out))
 
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo=/work/repo", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo="+url.QueryEscape(absWorkRepo), "")
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}

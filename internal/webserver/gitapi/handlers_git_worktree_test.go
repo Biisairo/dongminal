@@ -14,6 +14,7 @@ import (
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/worktree"
+	"net/url"
 )
 
 // 묶음 W7 서버측 — /api/git/worktrees* (GIT_REVIEW4_SRS §3.6.5, 검증 V145·V148).
@@ -104,7 +105,7 @@ func wantNoOK(t *testing.T, out map[string]any) {
 func TestGitWorktreeRoutes_RegisteredAndUnavailable(t *testing.T) {
 	s := &GitServer{}
 	endpoints := []struct{ method, path, body string }{
-		{http.MethodGet, "/api/git/worktrees?repo=/x", ""},
+		{http.MethodGet, "/api/git/worktrees?repo=" + url.QueryEscape(absX), ""},
 		{http.MethodPost, "/api/git/worktrees/create", `{}`},
 		{http.MethodPost, "/api/git/worktrees/remove", `{}`},
 	}

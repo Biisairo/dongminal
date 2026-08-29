@@ -17,7 +17,7 @@ import (
 
 func TestHandleAPI_ToolBusy(t *testing.T) {
 	pm := toolhub.NewToolManager(t.TempDir(), nil)
-	t.Cleanup(pm.WaitSaves)
+	t.Cleanup(pm.StopSaving)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -60,7 +60,7 @@ func TestHandleAPI_ToolBusy_DaemonMode(t *testing.T) {
 
 func TestHandleAPI_DeleteTool(t *testing.T) {
 	pm := toolhub.NewToolManager(t.TempDir(), nil)
-	t.Cleanup(pm.WaitSaves)
+	t.Cleanup(pm.StopSaving)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -262,7 +262,7 @@ func TestHandleAPI_Download_RelativePath(t *testing.T) {
 
 func TestHandleAPI_Cwd(t *testing.T) {
 	pm := toolhub.NewToolManager(t.TempDir(), nil)
-	t.Cleanup(pm.WaitSaves)
+	t.Cleanup(pm.StopSaving)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()

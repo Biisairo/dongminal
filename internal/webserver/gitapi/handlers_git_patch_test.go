@@ -13,6 +13,7 @@ import (
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
+	"net/url"
 )
 
 // 묶음 G 서버측 — /api/git/{hunks,patch} (GIT_ACTIONS_SRS §3.7, 검증 V204·V205·V206).
@@ -89,7 +90,7 @@ func gitPatchServer(t *testing.T, f *gitPatchFake) *GitServer {
 func gitPatchDiffID(t *testing.T, s *GitServer) string {
 	t.Helper()
 	code, out := gitReq(t, s, http.MethodGet,
-		"/api/git/hunks?repo=/work/repo&axis=worktree-index&path=f.txt", "")
+		"/api/git/hunks?repo="+url.QueryEscape(absWorkRepo)+"&axis=worktree-index&path=f.txt", "")
 	if code != http.StatusOK {
 		t.Fatalf("GET /api/git/hunks = %d: %v", code, out)
 	}
@@ -208,7 +209,7 @@ func TestGitHunks_ReturnsBoundariesAndID(t *testing.T) {
 	f := newGitPatchFake(t)
 	s := gitPatchServer(t, f)
 	code, out := gitReq(t, s, http.MethodGet,
-		"/api/git/hunks?repo=/work/repo&axis=worktree-index&path=f.txt", "")
+		"/api/git/hunks?repo="+url.QueryEscape(absWorkRepo)+"&axis=worktree-index&path=f.txt", "")
 	if code != http.StatusOK {
 		t.Fatalf("GET /api/git/hunks = %d: %v", code, out)
 	}

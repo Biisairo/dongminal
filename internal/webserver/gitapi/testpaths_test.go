@@ -31,6 +31,7 @@ var (
 	absTmpPlain       = testpath.Abs("tmp", "plain")
 	absWorkRepo       = testpath.Abs("work", "repo")
 	absWorkRepoSub    = testpath.Abs("work", "repo", "sub")
+	absX              = testpath.Abs("x")
 )
 
 // jsonQ 는 값을 **JSON 문자열 리터럴로** 만든다 — 따옴표까지 포함한다.

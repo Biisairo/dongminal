@@ -15,6 +15,7 @@ import (
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/git/write"
+	"net/url"
 )
 
 // 묶음 E 서버측 — /api/git/{remotes,remote/add,remote/remove,sync,push/preview}
@@ -122,12 +123,12 @@ var gitActEndpoints = []struct {
 	path   string
 	body   string
 }{
-	{http.MethodGet, "/api/git/remotes?repo=/work/repo", ""},
+	{http.MethodGet, "/api/git/remotes?repo=" + url.QueryEscape(absWorkRepo), ""},
 	{http.MethodPost, "/api/git/remote/add", `{"repo":` + qWorkRepo + `,"name":"up","url":"/tmp/u.git"}`},
 	{http.MethodPost, "/api/git/remote/remove", `{"repo":` + qWorkRepo + `,"name":"origin"}`},
 	{http.MethodPost, "/api/git/sync", `{"repo":` + qWorkRepo + `}`},
 	{http.MethodGet, "/api/git/sync?id=x", ""},
-	{http.MethodGet, "/api/git/push/preview?repo=/work/repo", ""},
+	{http.MethodGet, "/api/git/push/preview?repo=" + url.QueryEscape(absWorkRepo), ""},
 }
 
 // E1: 새 표면이 전부 gitapi.routes 에 있다. UI 는 이 위에만 선다.
@@ -167,7 +168,7 @@ func TestGitRemotes_List(t *testing.T) {
 	f := newGitActFake(t)
 	f.config = "remote.origin.url=/tmp/a.git\nremote.up.url=https://u:pw@example.test/b.git\n"
 	s := gitActServer(t, f, nil)
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/remotes?repo=/work/repo", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/remotes?repo="+url.QueryEscape(absWorkRepo), "")
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -403,7 +404,7 @@ func TestGitSync_PublishAskedBeforePull(t *testing.T) {
 func TestGitPushPreview_OutgoingRange(t *testing.T) {
 	f := newGitActFake(t)
 	s := gitActServer(t, f, nil)
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/push/preview?repo=/work/repo", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/push/preview?repo="+url.QueryEscape(absWorkRepo), "")
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -431,7 +432,7 @@ func TestGitPushPreview_PublishHasNoRange(t *testing.T) {
 	f := newGitActFake(t)
 	s := gitActServer(t, f, nil)
 	code, out := gitReq(t, s, http.MethodGet,
-		"/api/git/push/preview?repo=/work/repo&remote=origin&branch=feat", "")
+		"/api/git/push/preview?repo="+url.QueryEscape(absWorkRepo)+"&remote=origin&branch=feat", "")
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -448,7 +449,7 @@ func TestGitPushPreview_RejectsUnsafeTarget(t *testing.T) {
 	f := newGitActFake(t)
 	s := gitActServer(t, f, nil)
 	for _, q := range []string{"&remote=-x&branch=main", "&remote=origin&branch=a..b"} {
-		code, out := gitReq(t, s, http.MethodGet, "/api/git/push/preview?repo=/work/repo"+q, "")
+		code, out := gitReq(t, s, http.MethodGet, "/api/git/push/preview?repo="+url.QueryEscape(absWorkRepo)+q, "")
 		if code != http.StatusBadRequest || out["error"] != gitErrBadRequest {
 			t.Errorf("%s → %d %v", q, code, out["error"])
 		}

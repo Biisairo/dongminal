@@ -28,7 +28,7 @@ func TestDetachedTool_KillDoesNotPanic(t *testing.T) {
 func TestToolManager_DeleteDetachedToolDoesNotPanic(t *testing.T) {
 	dir := t.TempDir()
 	m := NewToolManager(dir, func(string) {})
-	t.Cleanup(m.WaitSaves)
+	t.Cleanup(m.StopSaving)
 	p := NewDetachedTool("synthetic-2", nil)
 	m.Adopt(p)
 	if !m.IsLive("synthetic-2") {

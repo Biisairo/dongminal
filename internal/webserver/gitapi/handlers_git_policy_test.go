@@ -6,12 +6,13 @@ import (
 	"testing"
 
 	"dongminal/internal/webserver/domain/git/core"
+	"net/url"
 )
 
 // 묶음 J 서버측 — /api/git/preflight·policy·recovery (GIT_SRS §3A.3, 검증 V36·V37).
 
 var gitPolicyEndpoints = []string{
-	"/api/git/preflight?repo=/work/repo",
+	"/api/git/preflight?repo=" + url.QueryEscape(absWorkRepo),
 	"/api/git/policy",
 	"/api/git/recovery",
 }
@@ -22,7 +23,7 @@ func TestAPIGitPreflight(t *testing.T) {
 	g := newGitFake(t)
 	s, _, _, _ := gitTestServer(t, g)
 
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/preflight?repo=/work/repo", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/preflight?repo="+url.QueryEscape(absWorkRepo), "")
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}

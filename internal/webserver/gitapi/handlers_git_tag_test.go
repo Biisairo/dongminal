@@ -14,6 +14,7 @@ import (
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/store"
+	"net/url"
 )
 
 // 묶음 C 서버측 — /api/git/tag{,/validate,/delete,/push,/delete-remote}
@@ -126,7 +127,7 @@ var gitTagEndpoints = []struct {
 	body   string
 }{
 	{http.MethodPost, "/api/git/tag", `{"repo":` + qWorkRepo + `,"name":"v9.0"}`},
-	{http.MethodGet, "/api/git/tag/validate?repo=/work/repo&name=v9.0", ""},
+	{http.MethodGet, "/api/git/tag/validate?repo=" + url.QueryEscape(absWorkRepo) + "&name=v9.0", ""},
 	{http.MethodPost, "/api/git/tag/delete", `{"repo":` + qWorkRepo + `,"name":"v1.0","confirm":true}`},
 	{http.MethodPost, "/api/git/tag/push", `{"repo":` + qWorkRepo + `,"name":"v1.0"}`},
 	{http.MethodPost, "/api/git/tag/delete-remote", `{"repo":` + qWorkRepo + `,"name":"v1.0","confirm":true}`},
@@ -379,7 +380,7 @@ func TestAPIGitTagValidate_JudgesInBody(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			code, out := gitReq(t, s, http.MethodGet,
-				"/api/git/tag/validate?repo=/work/repo&name="+strings.ReplaceAll(c.q, " ", "%20"), "")
+				"/api/git/tag/validate?repo="+url.QueryEscape(absWorkRepo)+"&name="+strings.ReplaceAll(c.q, " ", "%20"), "")
 			if code != http.StatusOK {
 				t.Fatalf("code = %d, body = %v", code, out)
 			}

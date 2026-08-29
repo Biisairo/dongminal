@@ -35,7 +35,7 @@ func TestGitPin_CreatesEditorRow(t *testing.T) {
 	t.Setenv(testpath.HomeEnv(), t.TempDir())
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
-	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+qWorkRepo+`}`)
 	if code != 200 {
@@ -79,7 +79,7 @@ func TestGitPin_LinkedChangeSavesOnce(t *testing.T) {
 	t.Setenv(testpath.HomeEnv(), t.TempDir())
 	g := newGitFake(t)
 	s, _, ws, cb := gitTestServer(t, g)
-	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
 
 	if code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+qWorkRepo+`}`); code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)

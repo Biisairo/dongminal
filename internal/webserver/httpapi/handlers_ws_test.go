@@ -25,7 +25,7 @@ func mustWS(t *testing.T, srv *httptest.Server, path string) *websocket.Conn {
 
 func TestHandleWS_NewTool(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
-	t.Cleanup(pm.WaitSaves)
+	t.Cleanup(pm.StopSaving)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -62,7 +62,7 @@ func TestHandleWS_NewTool(t *testing.T) {
 
 func TestHandleWS_ExistingTool(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
-	t.Cleanup(pm.WaitSaves)
+	t.Cleanup(pm.StopSaving)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -112,7 +112,7 @@ func TestHandleWS_ExistingTool(t *testing.T) {
 
 func TestHandleWS_OpInput(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
-	t.Cleanup(pm.WaitSaves)
+	t.Cleanup(pm.StopSaving)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -159,7 +159,7 @@ func TestHandleWS_OpInput(t *testing.T) {
 
 func TestHandleWS_OpResize(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
-	t.Cleanup(pm.WaitSaves)
+	t.Cleanup(pm.StopSaving)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -195,7 +195,7 @@ func TestHandleWS_OpResize(t *testing.T) {
 
 func TestHandleWS_MissingTool(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
-	t.Cleanup(pm.WaitSaves)
+	t.Cleanup(pm.StopSaving)
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()

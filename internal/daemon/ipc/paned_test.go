@@ -145,7 +145,7 @@ func TestPanedUnknownMethod(t *testing.T) {
 
 func TestPanedHelloReturnsToolIDs(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
-	t.Cleanup(pm.WaitSaves)
+	t.Cleanup(pm.StopSaving)
 	pm.Create("/tmp", 80, 24)
 	pm.Create("/tmp", 80, 24)
 
@@ -164,7 +164,7 @@ func TestPanedHelloReturnsToolIDs(t *testing.T) {
 
 func TestPanedKillRemovesTool(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
-	t.Cleanup(pm.WaitSaves)
+	t.Cleanup(pm.StopSaving)
 	// toolId 는 uuid 이므로 생성 결과에서 받아야 한다 (FR-UNI-7). 이전에는 첫 도구가
 	// 항상 "1" 이라는 카운터 전제에 의존했다.
 	tl, err := pm.Create("/tmp", 80, 24)
@@ -239,7 +239,7 @@ func shortPath(t *testing.T, name string) string { return t.TempDir() + "/" + na
 
 func TestPanedServerListenAccept(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
-	t.Cleanup(pm.WaitSaves)
+	t.Cleanup(pm.StopSaving)
 	pm.Create("/tmp", 80, 24)
 
 	sockPath := shortPath(t, "t.sock")
@@ -282,7 +282,7 @@ func TestPanedServerListenAccept(t *testing.T) {
 
 func TestPanedServerCloseCleanup(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
-	t.Cleanup(pm.WaitSaves)
+	t.Cleanup(pm.StopSaving)
 	sockPath := shortPath(t, "c.sock")
 	pidPath := shortPath(t, "c.pid")
 
@@ -300,7 +300,7 @@ func TestPanedServerCloseCleanup(t *testing.T) {
 
 func TestPanedCreateWriteSnapshotFlow(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
-	t.Cleanup(pm.WaitSaves)
+	t.Cleanup(pm.StopSaving)
 	var buf bytes.Buffer
 	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&buf)}
 
@@ -322,7 +322,7 @@ func TestPanedCreateWriteSnapshotFlow(t *testing.T) {
 
 func TestPanedRestore(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
-	t.Cleanup(pm.WaitSaves)
+	t.Cleanup(pm.StopSaving)
 	var buf bytes.Buffer
 	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&buf)}
 
@@ -382,7 +382,7 @@ func TestPanedListCarriesForegroundName(t *testing.T) {
 
 	t.Setenv("SHELL", "/bin/sh")
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
-	t.Cleanup(pm.WaitSaves)
+	t.Cleanup(pm.StopSaving)
 	tl, err := pm.Create(t.TempDir(), 80, 24)
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)

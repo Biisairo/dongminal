@@ -218,7 +218,7 @@ func TestFSDeleteRejectsOtherEditorRoot(t *testing.T) {
 // 기준 삼는 조작이 파일시스템 전체를 대상으로 삼는다.
 func TestEditorAddRejectsFilesystemRoot(t *testing.T) {
 	srv, _, _ := fsTestServer(t)
-	code, out := fsReq(t, srv, "POST", "/api/editors/add", `{"path":"/"}`)
+	code, out := fsReq(t, srv, "POST", "/api/editors/add", `{"path":`+jsonQ(testpath.Root())+`}`)
 	if code == 200 {
 		t.Fatalf("파일시스템 루트가 행으로 들어갔다: %v", out)
 	}
@@ -543,7 +543,7 @@ func TestFSDelete_RejectsRootHomeAndFsRoot(t *testing.T) {
 		{home, home, fsErrBadRequest},
 		// `/` 는 어느 Editor 루트보다도 위이므로 루트 가드가 먼저 잡는다 — 거부의
 		// 사유가 더 강할 뿐 결과는 같다.
-		{home, "/", fsErrOutsideRoot},
+		{home, testpath.Root(), fsErrOutsideRoot},
 	} {
 		code, out := fsReq(t, s, http.MethodPost, "/api/fs/delete", `{"root":`+jsonQ(c.root)+`,"path":`+jsonQ(c.path)+`}`)
 		if code < 400 || out["code"] != c.want {
@@ -555,7 +555,7 @@ func TestFSDelete_RejectsRootHomeAndFsRoot(t *testing.T) {
 	}
 	// 루트가 `/` 인 극단(사용자가 `/` 를 Editor 행으로 넣은 경우)에서도 파일시스템
 	// 루트는 지워지지 않는다.
-	if err := s.fsDeletable("/", "/"); err == nil {
+	if err := s.fsDeletable(testpath.Root(), testpath.Root()); err == nil {
 		t.Fatal("파일시스템 루트의 삭제가 통과했다")
 	}
 }

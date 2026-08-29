@@ -10,6 +10,7 @@ import (
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
+	"net/url"
 )
 
 // FR-GIT-218 (V95) — Console 탭이 읽는 실행 기록. 기록은 이미 Recorder 에 있고,
@@ -57,7 +58,7 @@ func TestGitRecordsRoute_Registered(t *testing.T) {
 
 func TestGitRecords_Unavailable(t *testing.T) {
 	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/records?repo=/r", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/records?repo="+url.QueryEscape(absR), "")
 	if code != http.StatusServiceUnavailable {
 		t.Fatalf("code = %d, want 503", code)
 	}
@@ -240,13 +241,13 @@ func TestGitReorder_MovesBeforeAndAfter(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
-	if got := strings.Join(pinsOf(t, out), ","); got != "/c,/a,/b" {
+	if got := strings.Join(pinsOf(t, out), ","); got != strings.Join([]string{absC, absA, absB}, ",") {
 		t.Fatalf("pinned = %q", got)
 	}
 
 	_, out = gitReq(t, s, http.MethodPost, "/api/git/repos/reorder",
 		`{"src":`+qC+`,"target":`+qB+`,"before":false}`)
-	if got := strings.Join(pinsOf(t, out), ","); got != "/a,/b,/c" {
+	if got := strings.Join(pinsOf(t, out), ","); got != strings.Join([]string{absA, absB, absC}, ",") {
 		t.Fatalf("pinned = %q", got)
 	}
 }
@@ -257,7 +258,7 @@ func TestGitReorder_MissingTargetGoesLast(t *testing.T) {
 	seedPins(t, s, absA, absB, absC)
 	_, out := gitReq(t, s, http.MethodPost, "/api/git/repos/reorder",
 		`{"src":`+qA+`,"target":`+qGone+`,"before":true}`)
-	if got := strings.Join(pinsOf(t, out), ","); got != "/b,/c,/a" {
+	if got := strings.Join(pinsOf(t, out), ","); got != strings.Join([]string{absB, absC, absA}, ",") {
 		t.Fatalf("pinned = %q", got)
 	}
 }
@@ -267,7 +268,7 @@ func TestGitReorder_UnknownSrcIsNoop(t *testing.T) {
 	seedPins(t, s, absA, absB)
 	_, out := gitReq(t, s, http.MethodPost, "/api/git/repos/reorder",
 		`{"src":"/nope","target":`+qA+`,"before":true}`)
-	if got := strings.Join(pinsOf(t, out), ","); got != "/a,/b" {
+	if got := strings.Join(pinsOf(t, out), ","); got != strings.Join([]string{absA, absB}, ",") {
 		t.Fatalf("pinned = %q", got)
 	}
 	code, _ := gitReq(t, s, http.MethodPost, "/api/git/repos/reorder", `{"src":"","target":`+qA+`}`)

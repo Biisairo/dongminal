@@ -9,6 +9,7 @@ import (
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
+	"net/url"
 )
 
 // FR-GIT-276 — /api/git/blame. 검증 V211.
@@ -145,7 +146,7 @@ func TestAPIGitBlame_RejectsBadParams(t *testing.T) {
 // git 이 없는 환경에서는 503 이다.
 func TestAPIGitBlame_Unavailable(t *testing.T) {
 	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}}
-	code, _ := gitReq(t, s, http.MethodGet, "/api/git/blame?repo=/x&path=f.txt", "")
+	code, _ := gitReq(t, s, http.MethodGet, "/api/git/blame?repo="+url.QueryEscape(absX)+"&path=f.txt", "")
 	if code != http.StatusServiceUnavailable {
 		t.Fatalf("code = %d, want 503", code)
 	}

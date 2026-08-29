@@ -481,7 +481,7 @@ func TestList_HomeIsNotInList(t *testing.T) {
 // FR-EDT-24: 링크를 풀지 못하는(사라진) 경로는 Clean 만 한 값이 된다 — 사라진
 // 저장소의 핀도 목록에 남아야 하기 때문이다.
 func TestNormalizePath_FallsBackToCleanWhenMissing(t *testing.T) {
-	if got := NormalizePath("/no/such/dir/../dir"); got != absNoSuchDir {
+	if got := NormalizePath(filepath.Join(absNoSuchDir, "..", "dir")); got != absNoSuchDir {
 		t.Fatalf("got=%q", got)
 	}
 }
