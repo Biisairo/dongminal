@@ -147,6 +147,10 @@ type StopOpts struct {
 // DoctorOpts는 `dongminal doctor` 의 옵션이다.
 type DoctorOpts struct {
 	Common
+	// ProbePTY 는 내부용이다. 값이 있으면 의사 터미널 검사만 수행하고 결과를
+	// 그 파일에 적은 뒤 끝낸다 — doctor 가 자기 자신을 **콘솔 없는 자식**으로
+	// 띄워 서버와 같은 조건을 재현할 때 쓴다 (FR-XDG-2).
+	ProbePTY string
 }
 
 // HealthOpts는 `dongminal health` 의 옵션이다.
@@ -218,6 +222,12 @@ func ParseDoctor(args []string) (DoctorOpts, error) {
 	var o DoctorOpts
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
+		case "--probe-pty":
+			if i+1 >= len(args) {
+				return DoctorOpts{}, fmt.Errorf("--probe-pty 에 값이 없습니다")
+			}
+			i++
+			o.ProbePTY = args[i]
 		case "-h", "--help":
 			return DoctorOpts{}, ErrHelp
 		default:
