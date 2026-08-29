@@ -131,10 +131,6 @@ func startInPseudoConsole(spec ProcSpec, hpc windows.Handle) (*windows.ProcessIn
 	if err != nil {
 		return nil, fmt.Errorf("명령줄: %w", err)
 	}
-	appName, err := windows.UTF16PtrFromString(spec.Path)
-	if err != nil {
-		return nil, fmt.Errorf("실행 파일: %w", err)
-	}
 	var dir *uint16
 	if spec.Dir != "" {
 		if dir, err = windows.UTF16PtrFromString(spec.Dir); err != nil {
@@ -147,9 +143,12 @@ func startInPseudoConsole(spec ProcSpec, hpc windows.Handle) (*windows.ProcessIn
 	}
 
 	var pi windows.ProcessInformation
-	// 핸들을 물려주지 않는다 — 자식의 입출력은 의사 콘솔이 준다.
+	// lpApplicationName 은 nil 이다 — 실행 파일은 명령줄의 첫 토큰에서 찾는다.
+	// MS 의 ConPTY 예제와 같은 형태로 맞춘다. 상속을 켜는 것도 같은 이유다:
+	// 물려줄 상속 가능한 핸들이 없으므로 무해하고, 자식의 콘솔 결선이 예제와
+	// 같은 경로를 타게 된다.
 	flags := uint32(extendedStartupInfoPresent | windows.CREATE_UNICODE_ENVIRONMENT)
-	if err := windows.CreateProcess(appName, cmdLine, nil, nil, false,
+	if err := windows.CreateProcess(nil, cmdLine, nil, nil, true,
 		flags, env, dir, (*windows.StartupInfo)(unsafe.Pointer(&siEx)), &pi); err != nil {
 		return nil, fmt.Errorf("CreateProcess %s: %w", spec.Path, err)
 	}
