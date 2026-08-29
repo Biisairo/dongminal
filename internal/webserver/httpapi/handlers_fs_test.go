@@ -356,7 +356,7 @@ func TestFS_RejectsUnknownRoot(t *testing.T) {
 	other := wsentry.NormalizePath(t.TempDir())
 	seedRoot(t, ws, other)
 
-	code, out := fsReq(t, s, http.MethodGet, "/api/fs/list?root=/etc&path=/etc", "")
+	code, out := fsReq(t, s, http.MethodGet, "/api/fs/list?root="+url.QueryEscape(testpath.Abs("etc"))+"&path="+url.QueryEscape(testpath.Abs("etc")), "")
 	if code != http.StatusForbidden || out["code"] != fsErrOutsideRoot {
 		t.Fatalf("code=%d body=%v", code, out)
 	}

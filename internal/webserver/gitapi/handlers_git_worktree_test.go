@@ -15,6 +15,8 @@ import (
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/worktree"
 	"net/url"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 W7 서버측 — /api/git/worktrees* (GIT_REVIEW4_SRS §3.6.5, 검증 V145·V148).
@@ -134,7 +136,7 @@ func TestGitWorktreeRoutes_RegisteredAndUnavailable(t *testing.T) {
 
 // V145 (FR-GIT-240): 소유는 경로로만 판정한다.
 func TestGitWorktreeOwner_ClassifiesByPath(t *testing.T) {
-	userRoot := "/home/x/git-worktrees"
+	userRoot := testpath.Abs("home", "x", "git-worktrees")
 	runRoot := absHomeXWorktrees
 	cases := []struct{ path, want string }{
 		{filepath.Join(userRoot, "app-abc12345", "feature"), worktreeOwnerUser},

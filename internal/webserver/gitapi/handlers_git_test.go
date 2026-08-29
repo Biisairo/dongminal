@@ -366,7 +366,7 @@ func TestGitPin_StoresRevParseRoot(t *testing.T) {
 	s, _, ws, _ := gitTestServer(t, g)
 	g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":"/work/repo/sub/dir"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+jsonQ(filepath.Join(absWorkRepoSub, "dir"))+`}`)
 	if code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}

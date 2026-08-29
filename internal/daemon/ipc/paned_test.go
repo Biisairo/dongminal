@@ -270,12 +270,18 @@ func TestPanedServerListenAccept(t *testing.T) {
 	enc := json.NewEncoder(conn)
 	dec := json.NewDecoder(conn)
 	enc.Encode(toolipc.PanedRequest{ID: 1, Method: "hello", Params: json.RawMessage(`{"server_pid":1}`)})
+	// **푸시가 응답보다 먼저 올 수 있다.** 위에서 만든 도구의 셸이 배너를
+	// 내면 그것이 출력 푸시로 나간다 — 푸시에는 ID 가 없다(0). pwsh 는 배너를
+	// 즉시 내므로 Windows 에서 이 경합이 늘 진다. 실제 클라이언트도 ID 로
+	// 골라 받는다.
 	var resp toolipc.PanedResponse
-	if err := dec.Decode(&resp); err != nil {
-		t.Fatalf("hello response: %v", err)
-	}
-	if resp.ID != 1 {
-		t.Fatalf("id=%d want 1", resp.ID)
+	for {
+		if err := dec.Decode(&resp); err != nil {
+			t.Fatalf("hello response: %v", err)
+		}
+		if resp.ID == 1 {
+			break
+		}
 	}
 	conn.Close()
 }

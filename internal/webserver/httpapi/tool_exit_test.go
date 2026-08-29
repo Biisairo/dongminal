@@ -24,7 +24,10 @@ func TestToolOnExitAndWait(t *testing.T) {
 	// (CROSS_PLATFORM_SRS §11, a36417a).
 	waitForToolOutput(t, p, 20*time.Second)
 
-	if err := p.Write([]byte("exit\n")); err != nil {
+	// 줄 끝은 **CR** 이다. 터미널의 Enter 가 보내는 것이 그것이고, ConPTY 는
+	// LF 를 Enter 로 보지 않는다 — POSIX 의 pty 는 ICRNL 로 둘 다 받아 줘서
+	// `\n` 이 우연히 통했을 뿐이다. doctor 도 같은 이유로 \r 을 쓴다.
+	if err := p.Write([]byte("exit\r")); err != nil {
 		t.Fatalf("write exit: %v", err)
 	}
 
