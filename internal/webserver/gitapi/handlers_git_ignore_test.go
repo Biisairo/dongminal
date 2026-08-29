@@ -40,7 +40,7 @@ func TestAPIGitIgnore_RejectsEscape(t *testing.T) {
 		f := newGitM5Fake(t)
 		s := gitM5Server(t, f)
 		code, out := gitReq(t, s, http.MethodPost, "/api/git/ignore",
-			`{"repo":"`+repo+`","paths":["`+p+`"]}`)
+			`{"repo":`+jsonQ(repo)+`,"paths":["`+p+`"]}`)
 		if code != http.StatusBadRequest || out["error"] != gitErrIgnorePath {
 			t.Fatalf("%q: code = %d, out = %v", p, code, out)
 		}
@@ -101,7 +101,7 @@ func TestAPIGitUncommittedClean_RequiresConfirm(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/clean",
-		`{"repo":"`+gitM5Repo+`"}`)
+		`{"repo":`+jsonQ(gitM5Repo)+`}`)
 	if code != http.StatusBadRequest || out["error"] != gitErrConfirmRequired {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
@@ -118,7 +118,7 @@ func TestAPIGitUncommittedClean(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/clean",
-		`{"repo":"`+gitM5Repo+`","confirm":true}`)
+		`{"repo":`+jsonQ(gitM5Repo)+`,"confirm":true}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
@@ -135,7 +135,7 @@ func TestAPIGitUncommittedClean_NothingToClean(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/clean",
-		`{"repo":"`+gitM5Repo+`","confirm":true}`)
+		`{"repo":`+jsonQ(gitM5Repo)+`,"confirm":true}`)
 	if code != http.StatusConflict || out["error"] != gitErrNothingToClean {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
@@ -153,7 +153,7 @@ func TestAPIGitUncommittedReset(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/reset",
-		`{"repo":"`+gitM5Repo+`"}`)
+		`{"repo":`+jsonQ(gitM5Repo)+`}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
@@ -170,7 +170,7 @@ func TestAPIGitUncommittedReset_NoHead(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/reset",
-		`{"repo":"`+gitM5Repo+`"}`)
+		`{"repo":`+jsonQ(gitM5Repo)+`}`)
 	if code != http.StatusConflict || out["error"] != gitErrNoHead {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
@@ -186,7 +186,7 @@ func TestAPIGitStashBranch(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/branch",
-		`{"repo":"`+gitM5Repo+`","index":1,"name":"feat/from-stash"}`)
+		`{"repo":`+jsonQ(gitM5Repo)+`,"index":1,"name":"feat/from-stash"}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
@@ -226,7 +226,7 @@ func TestAPIGitStashBranch_MissingIndex(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/branch",
-		`{"repo":"`+gitM5Repo+`","index":9,"name":"feat"}`)
+		`{"repo":`+jsonQ(gitM5Repo)+`,"index":9,"name":"feat"}`)
 	if code != http.StatusNotFound || out["error"] != gitErrNotFound {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}

@@ -61,7 +61,7 @@ func TestApiRunPeers_RejectsNonMembers(t *testing.T) {
 	s, _, _, who := runsServer(t, "tool-a")
 	runID := startRun(t, s)
 	if code, out := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"작가","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
+		`{"runId":`+jsonQ(runID)+`,"role":"작가","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
 		t.Fatalf("멤버 등록 실패 %d (%+v)", code, out)
 	}
 

@@ -3,12 +3,18 @@ package core
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 )
 
 // P17: GitDirs 는 rev-parse 한 번으로 두 줄을 얻는다. 둘째 줄이 상대경로면
 // repo 기준으로 절대화한다 (git 2.50 은 `.git` 을 준다).
 func TestGitDirs(t *testing.T) {
+	// 경로를 리터럴로 적지 않는다 — 둘째 줄이 상대경로일 때 dirs.go 가
+	// filepath.Join(repo, ".git") 으로 절대화하므로, 기대값도 같은 방식으로
+	// 만들어야 Windows 에서 어긋나지 않는다 (FR-WTP-12).
+	gitDir := filepath.Join(absR, ".git")
+	wtDir := filepath.Join(gitDir, "worktrees", "w")
 	cases := []struct {
 		name       string
 		out        Output
@@ -16,8 +22,8 @@ func TestGitDirs(t *testing.T) {
 		wantCommon string
 		wantErr    error
 	}{
-		{"둘째 줄 상대경로", Output{Stdout: "/r/.git\n.git\n"}, "/r/.git", "/r/.git", nil},
-		{"worktree — 둘이 다르다", Output{Stdout: "/r/.git/worktrees/w\n/r/.git\n"}, "/r/.git/worktrees/w", "/r/.git", nil},
+		{"둘째 줄 상대경로", Output{Stdout: gitDir + "\n.git\n"}, gitDir, gitDir, nil},
+		{"worktree — 둘이 다르다", Output{Stdout: wtDir + "\n" + gitDir + "\n"}, wtDir, gitDir, nil},
 		{"빈 출력", Output{Stdout: "\n"}, "", "", ErrNotRepo},
 		{"저장소 아님", Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, "", "", ErrNotRepo},
 	}
@@ -28,7 +34,7 @@ func TestGitDirs(t *testing.T) {
 				gotArgs = args
 				return tc.out, nil
 			}))
-			gitDir, commonDir, err := s.GitDirs(context.Background(), "/r")
+			gitDir, commonDir, err := s.GitDirs(context.Background(), absR)
 			if tc.wantErr != nil {
 				if !errors.Is(err, tc.wantErr) {
 					t.Fatalf("err = %v, want %v", err, tc.wantErr)

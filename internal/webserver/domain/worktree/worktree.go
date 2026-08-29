@@ -202,7 +202,9 @@ func (m *Manager) Resolve(cwd, base string) (Repo, error) {
 		}
 		return Repo{}, fmt.Errorf("%w: %s 는 git 저장소가 아니다", ErrNotRepo, cwd)
 	}
-	top = strings.TrimSpace(top)
+	// git 출력은 OS 형태로 옮겨 담는다 — parseWorktreeList 와 같은 이유다
+	// (FR-WTP-3). Repo.Root 는 이후 경로 비교·조립에 전부 쓰인다.
+	top = normalizeGitPath(strings.TrimSpace(top))
 	if top == "" {
 		return Repo{}, fmt.Errorf("%w: %s 는 git 저장소가 아니다", ErrNotRepo, cwd)
 	}

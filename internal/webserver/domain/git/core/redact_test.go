@@ -27,7 +27,7 @@ func TestRedactSecrets(t *testing.T) {
 func TestRecordRedacted(t *testing.T) {
 	r := Record{
 		Argv:   []string{"push", "https://u:tok@host/x", "main"},
-		Cwd:    "/r",
+		Cwd:    absR,
 		Stderr: "remote: rejected https://u:tok@host/x",
 	}
 	got := r.Redacted()
@@ -59,7 +59,7 @@ func TestRecordCarriesWriteFlag(t *testing.T) {
 		{[]string{"stash", "list"}, true}, // I7: stash 는 목록도 쓰기 경로다
 		{nil, false},
 	} {
-		got := newRecord("/r", c.argv, Output{}, nil)
+		got := newRecord(absR, c.argv, Output{}, nil)
 		if got.Write != c.write {
 			t.Errorf("newRecord(%v).Write = %v, want %v", c.argv, got.Write, c.write)
 		}

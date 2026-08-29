@@ -45,7 +45,7 @@ func TestExecAndExecWrite_RejectEachOthersCommands(t *testing.T) {
 			t.Fatalf("Exec 이 쓰기 명령 %s 를 실행했다", cmd)
 			return Output{}, nil
 		}))
-		if _, err := s.Exec(ctx, "/tmp/repo", cmd); !errors.Is(err, ErrWriteCommand) {
+		if _, err := s.Exec(ctx, absTmpRepo, cmd); !errors.Is(err, ErrWriteCommand) {
 			t.Fatalf("Exec(%s) = %v, want ErrWriteCommand", cmd, err)
 		}
 	}
@@ -55,7 +55,7 @@ func TestExecAndExecWrite_RejectEachOthersCommands(t *testing.T) {
 			t.Fatalf("ExecWrite 가 읽기 명령 %s 를 실행했다", cmd)
 			return Output{}, nil
 		}))
-		_, err := s.ExecWrite(ctx, "/tmp/repo", WriteSpec{Argv: []string{cmd}})
+		_, err := s.ExecWrite(ctx, absTmpRepo, WriteSpec{Argv: []string{cmd}})
 		if !errors.Is(err, ErrWriteCommand) {
 			t.Fatalf("ExecWrite(%s) = %v, want ErrWriteCommand", cmd, err)
 		}
@@ -70,13 +70,13 @@ func TestExecWrite_SharesGuardChecks(t *testing.T) {
 		argv []string
 		want error
 	}{
-		{"빈 argv", "/tmp/repo", nil, ErrUnsafeArgument},
+		{"빈 argv", absTmpRepo, nil, ErrUnsafeArgument},
 		{"상대 경로 cwd", "repo", []string{"add", "."}, ErrUnsafeArgument},
-		{"전역 옵션", "/tmp/repo", []string{"-c", "core.pager=x", "commit"}, ErrUnsafeArgument},
-		{"NUL 포함", "/tmp/repo", []string{"add", "a\x00b"}, ErrUnsafeArgument},
-		{"임의 실행 인자", "/tmp/repo", []string{"push", "--receive-pack=/bin/sh"}, ErrUnsafeArgument},
-		{"파일 쓰기 인자", "/tmp/repo", []string{"commit", "--output=/etc/passwd"}, ErrUnsafeArgument},
-		{"목록 밖 명령", "/tmp/repo", []string{"frobnicate"}, ErrWriteCommand},
+		{"전역 옵션", absTmpRepo, []string{"-c", "core.pager=x", "commit"}, ErrUnsafeArgument},
+		{"NUL 포함", absTmpRepo, []string{"add", "a\x00b"}, ErrUnsafeArgument},
+		{"임의 실행 인자", absTmpRepo, []string{"push", "--receive-pack=/bin/sh"}, ErrUnsafeArgument},
+		{"파일 쓰기 인자", absTmpRepo, []string{"commit", "--output=/etc/passwd"}, ErrUnsafeArgument},
+		{"목록 밖 명령", absTmpRepo, []string{"frobnicate"}, ErrWriteCommand},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -215,14 +215,14 @@ func TestExecWrite_RecordsDestructiveDeclaration(t *testing.T) {
 	s := New(WithWriteRunner(f.runner))
 	ctx := context.Background()
 
-	if _, err := s.ExecWrite(ctx, "/tmp/repo", WriteSpec{Argv: []string{"clean", "-fd"}, Destructive: true}); err != nil {
+	if _, err := s.ExecWrite(ctx, absTmpRepo, WriteSpec{Argv: []string{"clean", "-fd"}, Destructive: true}); err != nil {
 		t.Fatalf("ExecWrite: %v", err)
 	}
-	if _, err := s.ExecWrite(ctx, "/tmp/repo", WriteSpec{Argv: []string{"add", "."}}); err != nil {
+	if _, err := s.ExecWrite(ctx, absTmpRepo, WriteSpec{Argv: []string{"add", "."}}); err != nil {
 		t.Fatalf("ExecWrite: %v", err)
 	}
 	// 거부돼 프로세스가 뜨지 않아도 선언은 남는다.
-	if _, err := s.ExecWrite(ctx, "/tmp/repo", WriteSpec{Argv: []string{"status"}, Destructive: true}); err == nil {
+	if _, err := s.ExecWrite(ctx, absTmpRepo, WriteSpec{Argv: []string{"status"}, Destructive: true}); err == nil {
 		t.Fatal("읽기 명령이 통과했다")
 	}
 
@@ -247,7 +247,7 @@ func TestExecWrite_StdinNotRecorded(t *testing.T) {
 	f := &writeFake{}
 	s := New(WithWriteRunner(f.runner))
 
-	if _, err := s.ExecWrite(context.Background(), "/tmp/repo",
+	if _, err := s.ExecWrite(context.Background(), absTmpRepo,
 		WriteSpec{Argv: []string{"commit", "--file=-", "--cleanup=strip"}, Stdin: msg}); err != nil {
 		t.Fatalf("ExecWrite: %v", err)
 	}

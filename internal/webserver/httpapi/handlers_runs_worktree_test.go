@@ -89,7 +89,7 @@ func mustWorktreePath(t *testing.T, mgr *worktree.Manager, out map[string]any) s
 func startIsolated(t *testing.T, s *Server, repo, isolation string) (string, map[string]any) {
 	t.Helper()
 	code, out := postRun(t, s, "/api/runs",
-		`{"objective":"격리 팬아웃","projection":"dedicated-window","isolation":"`+isolation+`","cwd":"`+repo+`"}`)
+		`{"objective":"격리 팬아웃","projection":"dedicated-window","isolation":`+jsonQ(isolation)+`,"cwd":`+jsonQ(repo)+`}`)
 	if code != http.StatusOK {
 		t.Fatalf("격리 Run 시작 want 200, got %d (%+v)", code, out)
 	}
@@ -109,7 +109,7 @@ func TestApiRun_PerMemberCreatesWorktrees(t *testing.T) {
 	paths := map[string]bool{}
 	for _, tab := range []string{"tab-a", "tab-b"} {
 		code, out := postRun(t, s, "/api/runs/members",
-			`{"runId":"`+runID+`","role":"작가","agent":"claude","id":"`+tab+`"}`)
+			`{"runId":`+jsonQ(runID)+`,"role":"작가","agent":"claude","id":`+jsonQ(tab)+`}`)
 		if code != http.StatusOK {
 			t.Fatalf("멤버 등록 want 200, got %d (%+v)", code, out)
 		}
@@ -146,7 +146,7 @@ func TestApiRun_PathsAreNeverReused(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		runID, _ := startIsolated(t, s, repo, "per-member")
 		_, out := postRun(t, s, "/api/runs/members",
-			`{"runId":"`+runID+`","role":"writer","agent":"claude","id":"tab-a"}`)
+			`{"runId":`+jsonQ(runID)+`,"role":"writer","agent":"claude","id":"tab-a"}`)
 		wt, _ := out["worktree"].(map[string]any)
 		if wt == nil {
 			t.Fatalf("worktree 가 없다: %+v", out)
@@ -156,7 +156,7 @@ func TestApiRun_PathsAreNeverReused(t *testing.T) {
 		if i == 0 {
 			first = path
 			// 다음 Run 이 같은 도구를 다시 멤버로 삼을 수 있도록 닫는다.
-			postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`","force":true,"keepWorktrees":true}`)
+			postRun(t, s, "/api/runs/close", `{"runId":`+jsonQ(runID)+`,"force":true,"keepWorktrees":true}`)
 			continue
 		}
 		if path == first {
@@ -182,7 +182,7 @@ func TestApiRun_PerRunSharesOneWorktree(t *testing.T) {
 	}
 	for _, tab := range []string{"tab-a", "tab-b"} {
 		_, out := postRun(t, s, "/api/runs/members",
-			`{"runId":"`+runID+`","role":"작가","agent":"claude","id":"`+tab+`"}`)
+			`{"runId":`+jsonQ(runID)+`,"role":"작가","agent":"claude","id":`+jsonQ(tab)+`}`)
 		wt, _ := out["worktree"].(map[string]any)
 		if wt == nil || wt["path"] != sharedPath {
 			t.Fatalf("멤버가 공유 트리를 받지 못했다: %+v", out)
@@ -199,7 +199,7 @@ func TestApiRun_IsolationFailsOutsideRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 	code, out := postRun(t, s, "/api/runs",
-		`{"objective":"격리","projection":"dedicated-window","isolation":"per-member","cwd":"`+plain+`"}`)
+		`{"objective":"격리","projection":"dedicated-window","isolation":"per-member","cwd":`+jsonQ(plain)+`}`)
 	if code != http.StatusBadRequest {
 		t.Fatalf("want 400, got %d (%+v)", code, out)
 	}
@@ -230,7 +230,7 @@ func TestApiRunClose_CleansCleanKeepsDirty(t *testing.T) {
 	paths := map[string]string{}
 	for _, tab := range []string{"tab-a", "tab-b"} {
 		_, out := postRun(t, s, "/api/runs/members",
-			`{"runId":"`+runID+`","role":"`+tab+`","agent":"claude","id":"`+tab+`"}`)
+			`{"runId":`+jsonQ(runID)+`,"role":`+jsonQ(tab)+`,"agent":"claude","id":`+jsonQ(tab)+`}`)
 		paths[tab] = mustWorktreePath(t, mgr, out)
 	}
 	dirtyFile := filepath.Join(paths["tab-b"], "작업물.txt")
@@ -238,7 +238,7 @@ func TestApiRunClose_CleansCleanKeepsDirty(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	code, out := postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`","force":true}`)
+	code, out := postRun(t, s, "/api/runs/close", `{"runId":`+jsonQ(runID)+`,"force":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("close want 200, got %d (%+v)", code, out)
 	}
@@ -286,7 +286,7 @@ func TestApiRunClose_LeavesUnregisteredWorktrees(t *testing.T) {
 	s, repo, mgr := isolatedServer(t, "tool-a")
 	runID, _ := startIsolated(t, s, repo, "per-member")
 	_, out := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"writer","agent":"claude","id":"tab-a"}`)
+		`{"runId":`+jsonQ(runID)+`,"role":"writer","agent":"claude","id":"tab-a"}`)
 	wt, _ := out["worktree"].(map[string]any)
 	if wt == nil {
 		t.Fatalf("worktree 가 없다: %+v", out)
@@ -299,7 +299,7 @@ func TestApiRunClose_LeavesUnregisteredWorktrees(t *testing.T) {
 	}
 	gitRun(t, repo, "worktree", "add", "--no-track", "-b", "mine", mine)
 
-	if code, out := postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`","force":true}`); code != http.StatusOK {
+	if code, out := postRun(t, s, "/api/runs/close", `{"runId":`+jsonQ(runID)+`,"force":true}`); code != http.StatusOK {
 		t.Fatalf("close want 200, got %d (%+v)", code, out)
 	}
 	if _, err := os.Stat(mine); err != nil {
@@ -315,11 +315,11 @@ func TestApiRunClose_KeepWorktrees(t *testing.T) {
 	s, repo, _ := isolatedServer(t, "tool-a")
 	runID, _ := startIsolated(t, s, repo, "per-run")
 	_, out := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"writer","agent":"claude","id":"tab-a"}`)
+		`{"runId":`+jsonQ(runID)+`,"role":"writer","agent":"claude","id":"tab-a"}`)
 	wt, _ := out["worktree"].(map[string]any)
 	path, _ := wt["path"].(string)
 
-	_, closed := postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`","force":true,"keepWorktrees":true}`)
+	_, closed := postRun(t, s, "/api/runs/close", `{"runId":`+jsonQ(runID)+`,"force":true,"keepWorktrees":true}`)
 	trees, _ := closed["worktrees"].([]any)
 	if len(trees) != 1 {
 		t.Fatalf("per-run 은 공유 트리 하나를 보고한다: %+v", closed["worktrees"])

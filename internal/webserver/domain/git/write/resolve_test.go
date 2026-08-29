@@ -22,7 +22,7 @@ func TestResolve_CheckoutThenAdd(t *testing.T) {
 		return core.Output{}, nil
 	}))
 
-	if _, err := Resolve(s, context.Background(), "/tmp/repo", ResolveOurs, Paths{"a.txt", "d ir/b.txt"}); err != nil {
+	if _, err := Resolve(s, context.Background(), absTmpRepo, ResolveOurs, Paths{"a.txt", "d ir/b.txt"}); err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
 	want := [][]string{
@@ -50,7 +50,7 @@ func TestResolve_TheirsSide(t *testing.T) {
 		argvs = append(argvs, append([]string(nil), args...))
 		return core.Output{}, nil
 	}))
-	if _, err := Resolve(s, context.Background(), "/tmp/repo", ResolveTheirs, Paths{"a.txt"}); err != nil {
+	if _, err := Resolve(s, context.Background(), absTmpRepo, ResolveTheirs, Paths{"a.txt"}); err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
 	if argvs[0][1] != "--theirs" {
@@ -65,7 +65,7 @@ func TestResolve_CheckoutIsDeclaredDestructive(t *testing.T) {
 	s := core.New(core.WithRunner(headRunner), core.WithWriteRunner(func(_ context.Context, _ string, args []string, _ string) (core.Output, error) {
 		return core.Output{}, nil
 	}), core.WithRecorder(core.NewRecorder(core.DefaultRecordCap)))
-	if _, err := Resolve(s, context.Background(), "/tmp/repo", ResolveOurs, Paths{"a.txt"}); err != nil {
+	if _, err := Resolve(s, context.Background(), absTmpRepo, ResolveOurs, Paths{"a.txt"}); err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
 	for _, r := range s.Records(0) {
@@ -82,10 +82,10 @@ func TestResolve_RejectsBadSideAndEmptyPaths(t *testing.T) {
 	s := core.New(core.WithRunner(headRunner), core.WithWriteRunner(func(_ context.Context, _ string, _ []string, _ string) (core.Output, error) {
 		return core.Output{}, nil
 	}))
-	if _, err := Resolve(s, context.Background(), "/tmp/repo", "mine", Paths{"a.txt"}); !errors.Is(err, core.ErrUnsafeArgument) {
+	if _, err := Resolve(s, context.Background(), absTmpRepo, "mine", Paths{"a.txt"}); !errors.Is(err, core.ErrUnsafeArgument) {
 		t.Fatalf("알 수 없는 side = %v, want ErrUnsafeArgument", err)
 	}
-	if _, err := Resolve(s, context.Background(), "/tmp/repo", ResolveOurs, nil); !errors.Is(err, core.ErrUnsafeArgument) {
+	if _, err := Resolve(s, context.Background(), absTmpRepo, ResolveOurs, nil); !errors.Is(err, core.ErrUnsafeArgument) {
 		t.Fatalf("빈 경로 = %v, want ErrUnsafeArgument", err)
 	}
 }
@@ -101,7 +101,7 @@ func TestResolve_StopsWhenCheckoutFails(t *testing.T) {
 		}
 		return core.Output{}, nil
 	}))
-	if _, err := Resolve(s, context.Background(), "/tmp/repo", ResolveOurs, Paths{"a.txt"}); err == nil {
+	if _, err := Resolve(s, context.Background(), absTmpRepo, ResolveOurs, Paths{"a.txt"}); err == nil {
 		t.Fatal("실패가 올라오지 않았다")
 	}
 	if len(argvs) != 1 {

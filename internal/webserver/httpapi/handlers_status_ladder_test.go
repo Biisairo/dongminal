@@ -80,7 +80,7 @@ func TestQuiescenceAllowed_FollowsTheMembersAdapter(t *testing.T) {
 
 	runID := startRun(t, s)
 	if code, out := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"w","agent":"claude","id":"tool-a"}`); code != 200 {
+		`{"runId":`+jsonQ(runID)+`,"role":"w","agent":"claude","id":"tool-a"}`); code != 200 {
 		t.Fatalf("멤버 등록 실패: %d %+v", code, out)
 	}
 	// claude 는 훅으로 준비완료를 말한다 → 폴백을 쓰지 않는다.

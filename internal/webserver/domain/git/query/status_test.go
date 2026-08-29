@@ -244,7 +244,7 @@ func TestServiceStatus_Argv(t *testing.T) {
 		got = args
 		return core.Output{Stdout: nulRecords(hdrOid, hdrHead)}, nil
 	}))
-	st, err := StatusOf(s, context.Background(), "/r")
+	st, err := StatusOf(s, context.Background(), absR)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -252,7 +252,7 @@ func TestServiceStatus_Argv(t *testing.T) {
 	if strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Fatalf("argv = %q, want %q", got, want)
 	}
-	if st.Repo != "/r" {
+	if st.Repo != absR {
 		t.Fatalf("Repo = %q", st.Repo)
 	}
 }
@@ -261,7 +261,7 @@ func TestServiceStatus_PropagatesNotRepo(t *testing.T) {
 	s := core.New(core.WithRunner(func(_ context.Context, _ string, _ []string) (core.Output, error) {
 		return core.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
 	}))
-	if _, err := StatusOf(s, context.Background(), "/r"); !errors.Is(err, core.ErrNotRepo) {
+	if _, err := StatusOf(s, context.Background(), absR); !errors.Is(err, core.ErrNotRepo) {
 		t.Fatalf("err = %v, want ErrNotRepo", err)
 	}
 }

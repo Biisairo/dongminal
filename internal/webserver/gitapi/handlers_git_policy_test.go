@@ -26,7 +26,7 @@ func TestAPIGitPreflight(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
-	if out["requested"] != "/work/repo" || out["repo"] != "/work/repo" {
+	if out["requested"] != absWorkRepo || out["repo"] != absWorkRepo {
 		t.Fatalf("requested/repo = %v / %v", out["requested"], out["repo"])
 	}
 	pf, ok := out["preflight"].(map[string]any)
@@ -96,7 +96,7 @@ func TestAPIGitRecovery(t *testing.T) {
 	}
 
 	s.Git.Service().AddHint(core.Hint{
-		Repo:    "/work/repo",
+		Repo:    absWorkRepo,
 		Action:  core.ActionBranchDelete,
 		Targets: []string{"feature"},
 		Values:  []string{"1111111111111111111111111111111111111111"},

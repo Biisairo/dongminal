@@ -63,14 +63,14 @@ func TestExec_ArgsPassedVerbatim(t *testing.T) {
 		gotDir, got = dir, args
 		return Output{Stdout: "ok\n"}, nil
 	}))
-	out, err := s.Exec(context.Background(), "/tmp/repo", want...)
+	out, err := s.Exec(context.Background(), absTmpRepo, want...)
 	if err != nil {
 		t.Fatalf("Exec: %v", err)
 	}
 	if out.Stdout != "ok\n" {
 		t.Fatalf("stdout %q", out.Stdout)
 	}
-	if gotDir != "/tmp/repo" {
+	if gotDir != absTmpRepo {
 		t.Fatalf("dir %q", gotDir)
 	}
 	if len(got) != len(want) {
@@ -97,7 +97,7 @@ func TestExec_CallerDeadlineWins(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
 	defer cancel()
-	if _, err := s.Exec(ctx, "/tmp/repo", "status"); !errors.Is(err, ErrTimeout) {
+	if _, err := s.Exec(ctx, absTmpRepo, "status"); !errors.Is(err, ErrTimeout) {
 		t.Fatalf("err = %v, want ErrTimeout", err)
 	}
 	if budget <= 0 || budget > time.Second {
@@ -116,7 +116,7 @@ func TestExec_CallerCancelIsErrCanceled(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() { time.Sleep(20 * time.Millisecond); cancel() }()
-	_, err := s.Exec(ctx, "/tmp/repo", "status")
+	_, err := s.Exec(ctx, absTmpRepo, "status")
 	if !errors.Is(err, ErrCanceled) {
 		t.Fatalf("err = %v, want ErrCanceled", err)
 	}
@@ -138,7 +138,7 @@ func TestExec_DefaultTimeoutApplied(t *testing.T) {
 		budget = time.Until(dl)
 		return Output{}, nil
 	}))
-	if _, err := s.Exec(context.Background(), "/tmp/repo", "status"); err != nil {
+	if _, err := s.Exec(context.Background(), absTmpRepo, "status"); err != nil {
 		t.Fatalf("Exec: %v", err)
 	}
 	if budget <= time.Second || budget > 2*time.Second {
@@ -163,7 +163,7 @@ func TestExec_ClassifiesStderr(t *testing.T) {
 			s := New(WithRunner(func(_ context.Context, _ string, _ []string) (Output, error) {
 				return Output{Stderr: tc.stderr, ExitCode: tc.exit}, nil
 			}))
-			_, err := s.Exec(context.Background(), "/tmp/repo", "status")
+			_, err := s.Exec(context.Background(), absTmpRepo, "status")
 			if err == nil {
 				t.Fatal("exit≠0 인데 오류가 없다 — 조용히 낮췄다")
 			}
@@ -171,7 +171,7 @@ func TestExec_ClassifiesStderr(t *testing.T) {
 			if !errors.As(err, &ee) {
 				t.Fatalf("err %T, want *ExecError", err)
 			}
-			if ee.ExitCode != tc.exit || ee.Stderr != tc.stderr || ee.Cwd != "/tmp/repo" {
+			if ee.ExitCode != tc.exit || ee.Stderr != tc.stderr || ee.Cwd != absTmpRepo {
 				t.Fatalf("ExecError = %+v", ee)
 			}
 			if tc.want == nil {
@@ -345,7 +345,7 @@ func TestExec_RepoMissingDoesNotSwallowOtherFailures(t *testing.T) {
 			s := New(WithRunner(func(_ context.Context, _ string, _ []string) (Output, error) {
 				return Output{Stderr: tc.stderr, ExitCode: tc.exit}, nil
 			}))
-			_, err := s.Exec(context.Background(), "/tmp/repo", "status")
+			_, err := s.Exec(context.Background(), absTmpRepo, "status")
 			if errors.Is(err, ErrRepoMissing) {
 				t.Fatalf("stderr 로 실패한 것을 소실로 승격했다: %v", err)
 			}

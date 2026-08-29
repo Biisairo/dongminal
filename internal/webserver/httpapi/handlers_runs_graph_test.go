@@ -179,7 +179,7 @@ func TestApiRunGraph_CapsMessagesAndFoldsEdges(t *testing.T) {
 	s.Commands = fb
 	runID := startRun(t, s) // 조정자 = tool-a
 	if code, out := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"작가","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
+		`{"runId":`+jsonQ(runID)+`,"role":"작가","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
 		t.Fatalf("멤버 등록 실패 %d (%+v)", code, out)
 	}
 	member, ok := store.MemberByTool("tool-b")
@@ -240,7 +240,7 @@ func TestApiToolMessage_BroadcastsRunChanged(t *testing.T) {
 	s.Commands = fb
 	runID := startRun(t, s)
 	if code, out := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"작가","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
+		`{"runId":`+jsonQ(runID)+`,"role":"작가","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
 		t.Fatalf("멤버 등록 실패 %d (%+v)", code, out)
 	}
 	before := len(publishedActions(fb, "run_changed"))

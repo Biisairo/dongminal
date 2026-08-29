@@ -112,7 +112,7 @@ func TestStore_StatusSingleFlight(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			ready <- struct{}{}
-			obs[i], _, errs[i] = st.Status(context.Background(), "/r")
+			obs[i], _, errs[i] = st.Status(context.Background(), absR)
 		}(i)
 	}
 	for i := 0; i < n; i++ {
@@ -142,10 +142,10 @@ func TestStore_StatusTTLCache(t *testing.T) {
 	st := NewStore(core.New(core.WithRunner(g.runner)), fixedClock(time.Now()))
 	ctx := context.Background()
 
-	if _, cached, err := st.Status(ctx, "/r"); err != nil || cached {
+	if _, cached, err := st.Status(ctx, absR); err != nil || cached {
 		t.Fatalf("첫 조회 cached=%v err=%v", cached, err)
 	}
-	if _, cached, err := st.Status(ctx, "/r"); err != nil || !cached {
+	if _, cached, err := st.Status(ctx, absR); err != nil || !cached {
 		t.Fatalf("두 번째 조회 cached=%v err=%v", cached, err)
 	}
 	if got := g.count("status"); got != 1 {
@@ -159,7 +159,7 @@ func TestStore_StatusTTLZero(t *testing.T) {
 	st := NewStore(core.New(core.WithRunner(g.runner)), WithStatusTTL(0), fixedClock(time.Now()))
 	ctx := context.Background()
 	for i := 0; i < 3; i++ {
-		if _, cached, err := st.Status(ctx, "/r"); err != nil || cached {
+		if _, cached, err := st.Status(ctx, absR); err != nil || cached {
 			t.Fatalf("%d번째 cached=%v err=%v", i, cached, err)
 		}
 	}
@@ -175,19 +175,19 @@ func TestStore_ObservedIgnoresTTL(t *testing.T) {
 	base := time.Now()
 	clk := base
 	st := NewStore(core.New(core.WithRunner(g.runner)), WithClock(func() time.Time { return clk }))
-	if _, _, err := st.Status(context.Background(), "/r"); err != nil {
+	if _, _, err := st.Status(context.Background(), absR); err != nil {
 		t.Fatalf("Status: %v", err)
 	}
 	clk = base.Add(time.Hour)
 
-	obs, ok := st.Observed("/r")
+	obs, ok := st.Observed(absR)
 	if !ok {
 		t.Fatal("만료된 관측값을 주지 않았다")
 	}
 	if obs.Status.Total != 1 || obs.ObservedAtUnixMs != base.UnixMilli() {
 		t.Fatalf("obs = %+v", obs)
 	}
-	if _, ok := st.Observed("/none"); ok {
+	if _, ok := st.Observed(absNone); ok {
 		t.Fatal("관측 이력이 없는 리포가 true 다")
 	}
 	if got := g.count("status"); got != 1 {
@@ -202,7 +202,7 @@ func TestStore_SingleFlightIsPerRepo(t *testing.T) {
 	release := make(chan struct{})
 	entered := make(chan struct{}, 1)
 	g.hold = func(repo string) {
-		if repo != "/slow" {
+		if repo != absSlow {
 			return
 		}
 		select {
@@ -215,13 +215,13 @@ func TestStore_SingleFlightIsPerRepo(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		_, _, err := st.Status(context.Background(), "/slow")
+		_, _, err := st.Status(context.Background(), absSlow)
 		done <- err
 	}()
 	<-entered
 
 	// /slow 가 실행 중인 동안 /fast 가 완료돼야 한다.
-	if _, _, err := st.Status(context.Background(), "/fast"); err != nil {
+	if _, _, err := st.Status(context.Background(), absFast); err != nil {
 		t.Fatalf("/fast Status: %v", err)
 	}
 	close(release)
@@ -265,11 +265,11 @@ func TestStore_RepoRootTTLCache(t *testing.T) {
 	st := NewStore(core.New(core.WithRunner(g.runner)), WithClock(func() time.Time { return clk }))
 	ctx := context.Background()
 
-	root, err := st.RepoRoot(ctx, "/r")
-	if err != nil || root != "/r" {
+	root, err := st.RepoRoot(ctx, absR)
+	if err != nil || root != absR {
 		t.Fatalf("RepoRoot = %q, %v", root, err)
 	}
-	if _, err := st.RepoRoot(ctx, "/r"); err != nil {
+	if _, err := st.RepoRoot(ctx, absR); err != nil {
 		t.Fatalf("RepoRoot: %v", err)
 	}
 	if got := g.count("rev-parse --show-toplevel"); got != 1 {
@@ -277,7 +277,7 @@ func TestStore_RepoRootTTLCache(t *testing.T) {
 	}
 
 	clk = base.Add(DefaultRepoRootTTL + time.Second)
-	if _, err := st.RepoRoot(ctx, "/r"); err != nil {
+	if _, err := st.RepoRoot(ctx, absR); err != nil {
 		t.Fatalf("RepoRoot: %v", err)
 	}
 	if got := g.count("rev-parse --show-toplevel"); got != 2 {
@@ -292,7 +292,7 @@ func TestStore_SignatureCachesGitDirs(t *testing.T) {
 	st := NewStore(core.New(core.WithRunner(g.runner)), fixedClock(time.Now()))
 	ctx := context.Background()
 	for i := 0; i < 3; i++ {
-		sig, err := st.Signature(ctx, "/r")
+		sig, err := st.Signature(ctx, absR)
 		if err != nil {
 			t.Fatalf("Signature: %v", err)
 		}
@@ -319,28 +319,28 @@ func TestStore_Invalidate(t *testing.T) {
 	st := NewStore(core.New(core.WithRunner(g.runner)), fixedClock(time.Now()))
 	ctx := context.Background()
 
-	if _, _, err := st.Status(ctx, "/r"); err != nil {
+	if _, _, err := st.Status(ctx, absR); err != nil {
 		t.Fatalf("Status: %v", err)
 	}
-	if _, cached, _ := st.Status(ctx, "/r"); !cached {
+	if _, cached, _ := st.Status(ctx, absR); !cached {
 		t.Fatal("TTL 안의 두 번째 조회가 캐시를 쓰지 않았다")
 	}
 
-	st.Invalidate("/r")
-	if _, cached, err := st.Status(ctx, "/r"); err != nil || cached {
+	st.Invalidate(absR)
+	if _, cached, err := st.Status(ctx, absR); err != nil || cached {
 		t.Fatalf("무효화 후 cached = %v, %v", cached, err)
 	}
 	if got := g.count("status"); got != 2 {
 		t.Fatalf("status 실행 %d회, want 2", got)
 	}
 	// 마지막 관측값은 지우지 않는다 — 낡은 값이 사라진 배지보다 낫다.
-	st.Invalidate("/r")
-	if _, ok := st.Observed("/r"); !ok {
+	st.Invalidate(absR)
+	if _, ok := st.Observed(absR); !ok {
 		t.Fatal("Observed 가 사라졌다")
 	}
 	// 없는 리포의 무효화는 아무것도 만들지 않는다.
-	st.Invalidate("/none")
-	if _, ok := st.Observed("/none"); ok {
+	st.Invalidate(absNone)
+	if _, ok := st.Observed(absNone); ok {
 		t.Fatal("없는 리포에 관측값이 생겼다")
 	}
 }

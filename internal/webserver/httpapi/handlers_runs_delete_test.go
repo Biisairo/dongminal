@@ -74,7 +74,7 @@ func TestApiRunClose_DeletesRecord(t *testing.T) {
 	s, _, store, _ := runsServer(t, "tool-a")
 	rec := startRunFor(t, store, "닫고 지운다", "tool-a")
 
-	code, out := postRun(t, s, "/api/runs/close", `{"runId":"`+rec.ID+`","force":true}`)
+	code, out := postRun(t, s, "/api/runs/close", `{"runId":`+jsonQ(rec.ID)+`,"force":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("close 실패 %d: %+v", code, out)
 	}

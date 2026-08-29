@@ -126,7 +126,7 @@ func TestParseRefs_Empty(t *testing.T) {
 // 와서 종류 없는 항목이 사이드바에 섞인다.
 func TestRefs_Argv(t *testing.T) {
 	f := &refsFake{stdout: ""}
-	if _, err := Refs(core.New(core.WithRunner(f.run)), context.Background(), "/repo"); err != nil {
+	if _, err := Refs(core.New(core.WithRunner(f.run)), context.Background(), absRepo); err != nil {
 		t.Fatalf("Refs: %v", err)
 	}
 	want := "for-each-ref " + refsFormat + " refs/heads refs/remotes refs/tags"

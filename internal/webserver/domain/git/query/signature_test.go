@@ -111,7 +111,7 @@ func TestSignature_MissingIndexIsNotError(t *testing.T) {
 	s := core.New(core.WithRunner(func(_ context.Context, _ string, _ []string) (core.Output, error) {
 		return core.Output{Stdout: dir + "\n" + dir + "\n"}, nil
 	}))
-	sig, err := SignatureOf(s, context.Background(), "/r")
+	sig, err := SignatureOf(s, context.Background(), absR)
 	if err != nil {
 		t.Fatalf("Signature: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestSignature_DetachedHead(t *testing.T) {
 	s := core.New(core.WithRunner(func(_ context.Context, _ string, _ []string) (core.Output, error) {
 		return core.Output{Stdout: dir + "\n" + dir + "\n"}, nil
 	}))
-	sig, err := SignatureOf(s, context.Background(), "/r")
+	sig, err := SignatureOf(s, context.Background(), absR)
 	if err != nil {
 		t.Fatalf("Signature: %v", err)
 	}

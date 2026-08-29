@@ -29,7 +29,7 @@ func fencedRun(t *testing.T) (*Server, string, string, *worktree.Manager) {
 
 	runID, _ := startIsolated(t, s, repo, "per-member")
 	code, out := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"작가","agent":"claude","id":"tab-a"}`)
+		`{"runId":`+jsonQ(runID)+`,"role":"작가","agent":"claude","id":"tab-a"}`)
 	if code != http.StatusOK {
 		t.Fatalf("멤버 등록 want 200, got %d (%+v)", code, out)
 	}
@@ -56,7 +56,7 @@ func fencedRun(t *testing.T) (*Server, string, string, *worktree.Manager) {
 func TestApiRunClose_SweepsAbortedRun(t *testing.T) {
 	s, runID, path, _ := fencedRun(t)
 
-	code, out := postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`","force":true}`)
+	code, out := postRun(t, s, "/api/runs/close", `{"runId":`+jsonQ(runID)+`,"force":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("정리 진입 want 200, got %d (%+v)", code, out)
 	}
@@ -81,7 +81,7 @@ func TestApiRunClose_SweepsAbortedRun(t *testing.T) {
 func TestApiRunClose_AbortedRunRefusedWithoutForce(t *testing.T) {
 	s, runID, path, _ := fencedRun(t)
 
-	code, out := postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`"}`)
+	code, out := postRun(t, s, "/api/runs/close", `{"runId":`+jsonQ(runID)+`}`)
 	if code != http.StatusConflict {
 		t.Fatalf("want 409, got %d (%+v)", code, out)
 	}
@@ -99,8 +99,8 @@ func TestApiRunClose_AbortedRunRefusedWithoutForce(t *testing.T) {
 func TestApiRunClose_SweepLeavesNothingToReenter(t *testing.T) {
 	s, runID, _, _ := fencedRun(t)
 
-	postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`","force":true}`)
-	code, out := postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`","force":true}`)
+	postRun(t, s, "/api/runs/close", `{"runId":`+jsonQ(runID)+`,"force":true}`)
+	code, out := postRun(t, s, "/api/runs/close", `{"runId":`+jsonQ(runID)+`,"force":true}`)
 	if code != http.StatusNotFound {
 		t.Fatalf("재호출 want 404, got %d (%+v)", code, out)
 	}
@@ -117,8 +117,8 @@ func TestApiRunClose_SweepIsIdempotentWhileResidueRemains(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`","force":true}`)
-	code, out := postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`","force":true}`)
+	postRun(t, s, "/api/runs/close", `{"runId":`+jsonQ(runID)+`,"force":true}`)
+	code, out := postRun(t, s, "/api/runs/close", `{"runId":`+jsonQ(runID)+`,"force":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("재호출 want 200, got %d (%+v)", code, out)
 	}
@@ -135,7 +135,7 @@ func TestApiRunClose_SweepKeepsDirtyTree(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	code, out := postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`","force":true}`)
+	code, out := postRun(t, s, "/api/runs/close", `{"runId":`+jsonQ(runID)+`,"force":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("want 200, got %d (%+v)", code, out)
 	}

@@ -34,7 +34,7 @@ func TestRemotes_NameAndURL(t *testing.T) {
 		"remote.pushdefault=origin",
 		"",
 	}, "\n"))
-	got, err := Remotes(svc, context.Background(), "/work/repo")
+	got, err := Remotes(svc, context.Background(), absWorkRepo)
 	if err != nil {
 		t.Fatalf("Remotes: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestRemotes_NameAndURL(t *testing.T) {
 func TestRemotes_RedactsURL(t *testing.T) {
 	svc := remotesSvc("remote.origin.url=https://user:abc123@example.test/a.git\n" +
 		"remote.origin.pushurl=https://ghp_zzzz@example.test/a.git\n")
-	got, err := Remotes(svc, context.Background(), "/work/repo")
+	got, err := Remotes(svc, context.Background(), absWorkRepo)
 	if err != nil {
 		t.Fatalf("Remotes: %v", err)
 	}
@@ -74,21 +74,21 @@ func TestRemotes_RedactsURL(t *testing.T) {
 func TestRemotes_SharesNameRuleWithDefaultRemote(t *testing.T) {
 	config := "remote.my.fork.url=/tmp/f.git\n"
 	svc := remotesSvc(config)
-	got, err := Remotes(svc, context.Background(), "/work/repo")
+	got, err := Remotes(svc, context.Background(), absWorkRepo)
 	if err != nil {
 		t.Fatalf("Remotes: %v", err)
 	}
 	if len(got) != 1 || got[0].Name != "my.fork" {
 		t.Fatalf("이름 = %+v", got)
 	}
-	def, err := DefaultRemote(svc, context.Background(), "/work/repo")
+	def, err := DefaultRemote(svc, context.Background(), absWorkRepo)
 	if err != nil || def != "my.fork" {
 		t.Fatalf("DefaultRemote = %q, %v", def, err)
 	}
 }
 
 func TestRemotes_Empty(t *testing.T) {
-	got, err := Remotes(remotesSvc("core.bare=false\n"), context.Background(), "/work/repo")
+	got, err := Remotes(remotesSvc("core.bare=false\n"), context.Background(), absWorkRepo)
 	if err != nil {
 		t.Fatalf("Remotes: %v", err)
 	}

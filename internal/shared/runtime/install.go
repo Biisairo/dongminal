@@ -153,6 +153,17 @@ func pruneToEmbedded(src embed.FS, root, dst string, keep []string) error {
 	return nil
 }
 
+// dmctlPath 는 훅이 부를 헬퍼의 **실제 파일 경로**다 (FR-WTP-50).
+//
+// 설치는 헬퍼를 `name+ExeSuffix()` 로 깐다(위 installHelpers). 훅에 적는 경로가
+// 확장자를 빼먹으면 Windows 에서 `...\bin\dmctl` 을 가리키는데 실재하는 것은
+// `dmctl.exe` 다. cmd 의 PATHEXT 해석이 이것을 가려 줄 수는 있으나, 그것은
+// 훅을 무엇이 실행하느냐에 달린 우연이다 — 같은 이름을 두 곳에서 다르게
+// 만들지 않는다.
+func dmctlPath(binDir string) string {
+	return filepath.Join(binDir, "dmctl"+platform.Current().Paths.ExeSuffix())
+}
+
 // installAgentPluginHooks writes the plugin's SessionStart hook. dmctl is
 // referenced by absolute path for the same reason installAgentHooks does it —
 // a stale dmctl earlier in PATH would not understand `agent-context`.
@@ -167,7 +178,7 @@ func installAgentPluginHooks(binDir, pluginDir string) error {
 				"matcher": "",
 				"hooks": []any{map[string]any{
 					"type":    "command",
-					"command": filepath.Join(binDir, "dmctl") + " agent-context",
+					"command": dmctlPath(binDir) + " agent-context",
 				}},
 			}},
 		},
@@ -189,7 +200,7 @@ func installAgentHooks(binDir string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	dmctl := filepath.Join(binDir, "dmctl")
+	dmctl := dmctlPath(binDir)
 	notifyHook := func(label string) map[string]any {
 		return map[string]any{"type": "command", "command": dmctl + " notify " + label}
 	}

@@ -116,8 +116,8 @@ var gitEndpoints = []struct {
 	body   string
 }{
 	{http.MethodGet, "/api/git/repos", ""},
-	{http.MethodPost, "/api/git/repos/pin", `{"path":"/r"}`},
-	{http.MethodPost, "/api/git/repos/unpin", `{"path":"/r"}`},
+	{http.MethodPost, "/api/git/repos/pin", `{"path":` + qR + `}`},
+	{http.MethodPost, "/api/git/repos/unpin", `{"path":` + qR + `}`},
 	{http.MethodGet, "/api/git/status?repo=/r", ""},
 	{http.MethodGet, "/api/git/signature?repo=/r", ""},
 }
@@ -201,7 +201,7 @@ func TestGitRepoAt(t *testing.T) {
 		if out["cwd"] != "/work/repo/sub" {
 			t.Fatalf("cwd=%v", out["cwd"])
 		}
-		if out["isRepo"] != true || out["path"] != "/work/repo" || out["name"] != "repo" {
+		if out["isRepo"] != true || out["path"] != absWorkRepo || out["name"] != "repo" {
 			t.Fatalf("out=%v", out)
 		}
 		if out["reason"] != "" {
@@ -248,7 +248,7 @@ func TestGitRepoAt(t *testing.T) {
 func TestGitRepos_BadgeFromObservation(t *testing.T) {
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
-	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":["/work/repo"]}}`)
+	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":[` + qWorkRepo + `]}}`)
 	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
 
 	if code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo=/work/repo", ""); code != 200 {
@@ -281,7 +281,7 @@ func TestGitRepos_NeverRunsStatus(t *testing.T) {
 	g := newGitFake(t)
 	s, hub, ws, _ := gitTestServer(t, g)
 	hub.seed("t1", "T1")
-	hub.setCwd("t1", "/work/repo")
+	hub.setCwd("t1", absWorkRepo)
 	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":["/a","/b","/c"]}}`)
 
 	code, out := gitReq(t, s, http.MethodGet, "/api/git/repos?tool=t1", "")
@@ -369,14 +369,14 @@ func TestGitPin_StoresRevParseRoot(t *testing.T) {
 	if code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
-	if out["root"] != "/work/repo" {
+	if out["root"] != absWorkRepo {
 		t.Fatalf("root=%v", out["root"])
 	}
 	pinned, _ := out["pinned"].([]any)
-	if len(pinned) != 1 || pinned[0] != "/work/repo" {
+	if len(pinned) != 1 || pinned[0] != absWorkRepo {
 		t.Fatalf("pinned=%v", out["pinned"])
 	}
-	if !strings.Contains(string(ws.raw), `"/work/repo"`) {
+	if !strings.Contains(string(ws.raw), qWorkRepo) {
 		t.Fatalf("workspace=%s", ws.raw)
 	}
 }
@@ -390,7 +390,7 @@ func TestGitPin_IdempotentAndPreservesOtherKeys(t *testing.T) {
 	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
 
 	for i := 0; i < 2; i++ {
-		code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":"/work/repo"}`)
+		code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+qWorkRepo+`}`)
 		if code != 200 {
 			t.Fatalf("%d번째 pin code=%d body=%v", i, code, out)
 		}
@@ -411,7 +411,7 @@ func TestGitPin_IdempotentAndPreservesOtherKeys(t *testing.T) {
 		t.Fatalf("windows=%v", doc["windows"])
 	}
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/unpin", `{"path":"/work/repo"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/unpin", `{"path":`+qWorkRepo+`}`)
 	if code != 200 {
 		t.Fatalf("unpin code=%d body=%v", code, out)
 	}
@@ -431,10 +431,10 @@ func TestGitPin_BroadcastsWorkspaceChanged(t *testing.T) {
 	s, _, _, cb := gitTestServer(t, g)
 	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
 
-	if code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":"/work/repo"}`); code != 200 {
+	if code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+qWorkRepo+`}`); code != 200 {
 		t.Fatalf("pin code=%d body=%v", code, out)
 	}
-	if code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/unpin", `{"path":"/work/repo"}`); code != 200 {
+	if code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/unpin", `{"path":`+qWorkRepo+`}`); code != 200 {
 		t.Fatalf("unpin code=%d body=%v", code, out)
 	}
 	cb.mu.Lock()
@@ -468,7 +468,7 @@ func TestGitStatusSignature_EchoesRequested(t *testing.T) {
 		if out["requested"] != "/work/repo/sub" {
 			t.Fatalf("%s requested=%v", path, out["requested"])
 		}
-		if out["repo"] != "/work/repo" {
+		if out["repo"] != absWorkRepo {
 			t.Fatalf("%s repo=%v", path, out["repo"])
 		}
 		if out["signature"] == nil {
@@ -488,14 +488,14 @@ func TestGitStatus_ReconfirmsRepo(t *testing.T) {
 	if code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
-	if out["repo"] != "/work/repo" {
+	if out["repo"] != absWorkRepo {
 		t.Fatalf("repo=%v", out["repo"])
 	}
 	if out["cached"] != false {
 		t.Fatalf("cached=%v", out["cached"])
 	}
 	st, _ := out["status"].(map[string]any)
-	if st == nil || st["repo"] != "/work/repo" || st["total"] != float64(1) {
+	if st == nil || st["repo"] != absWorkRepo || st["total"] != float64(1) {
 		t.Fatalf("status=%v", out["status"])
 	}
 	// status 는 정규화된 루트에서 실행돼야 한다.

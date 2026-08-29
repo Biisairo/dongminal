@@ -107,7 +107,7 @@ func remoteHintSvc(config string, seen *[][]string) *core.Service {
 func TestRemoteRemove_LeavesRecoveryHint(t *testing.T) {
 	var seen [][]string
 	svc := remoteHintSvc("remote.origin.url=/tmp/remote.git\n", &seen)
-	if _, err := RemoteRemove(svc, context.Background(), "/work/repo", "origin"); err != nil {
+	if _, err := RemoteRemove(svc, context.Background(), absWorkRepo, "origin"); err != nil {
 		t.Fatalf("RemoteRemove: %v", err)
 	}
 	if len(seen) != 1 || fmt.Sprint(seen[0]) != fmt.Sprint([]string{"remote", "remove", "origin"}) {
@@ -136,7 +136,7 @@ func TestRemoteRemove_LeavesRecoveryHint(t *testing.T) {
 func TestRemoteRemove_HintRedactsURL(t *testing.T) {
 	var seen [][]string
 	svc := remoteHintSvc("remote.origin.url=https://user:abc123@example.test/a.git\n", &seen)
-	if _, err := RemoteRemove(svc, context.Background(), "/work/repo", "origin"); err != nil {
+	if _, err := RemoteRemove(svc, context.Background(), absWorkRepo, "origin"); err != nil {
 		t.Fatalf("RemoteRemove: %v", err)
 	}
 	h := svc.Hints(0)
@@ -152,7 +152,7 @@ func TestRemoteRemove_HintRedactsURL(t *testing.T) {
 func TestRemoteRemove_MissingIsRejected(t *testing.T) {
 	var seen [][]string
 	svc := remoteHintSvc("remote.origin.url=/tmp/a.git\n", &seen)
-	_, err := RemoteRemove(svc, context.Background(), "/work/repo", "nope")
+	_, err := RemoteRemove(svc, context.Background(), absWorkRepo, "nope")
 	if !errors.Is(err, ErrRemoteMissing) {
 		t.Fatalf("err = %v, want ErrRemoteMissing", err)
 	}
@@ -169,7 +169,7 @@ func TestRemoteRemove_MissingIsRejected(t *testing.T) {
 func TestRemoteAdd_ExistingIsRejected(t *testing.T) {
 	var seen [][]string
 	svc := remoteHintSvc("remote.origin.url=/tmp/a.git\n", &seen)
-	_, err := RemoteAdd(svc, context.Background(), "/work/repo", "origin", "/tmp/b.git")
+	_, err := RemoteAdd(svc, context.Background(), absWorkRepo, "origin", "/tmp/b.git")
 	if !errors.Is(err, ErrRemoteExists) {
 		t.Fatalf("err = %v, want ErrRemoteExists", err)
 	}

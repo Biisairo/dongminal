@@ -197,7 +197,7 @@ func TestLog_Argv(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			f := &logFake{}
 			q := tc.q
-			q.Repo = "/repo"
+			q.Repo = absRepo
 			if _, err := Log(core.New(core.WithRunner(f.run)), context.Background(), q); err != nil {
 				t.Fatalf("Log: %v", err)
 			}
@@ -212,7 +212,7 @@ func TestLog_Argv(t *testing.T) {
 // 자기가 고른 순서로 보고 있다고 믿는다.
 func TestLog_RejectsUnknownOrder(t *testing.T) {
 	f := &logFake{}
-	_, err := Log(core.New(core.WithRunner(f.run)), context.Background(), LogQuery{Repo: "/repo", Order: "reverse"})
+	_, err := Log(core.New(core.WithRunner(f.run)), context.Background(), LogQuery{Repo: absRepo, Order: "reverse"})
 	if !errors.Is(err, ErrLogOrder) {
 		t.Fatalf("err = %v, want ErrLogOrder", err)
 	}
@@ -224,7 +224,7 @@ func TestLog_RejectsUnknownOrder(t *testing.T) {
 // ref 는 위치 인자로 들어가므로 옵션처럼 생긴 값은 받지 않는다 (FR-GIT-62).
 func TestLog_RejectsOptionLikeRef(t *testing.T) {
 	f := &logFake{}
-	_, err := Log(core.New(core.WithRunner(f.run)), context.Background(), LogQuery{Repo: "/repo", Ref: "--all"})
+	_, err := Log(core.New(core.WithRunner(f.run)), context.Background(), LogQuery{Repo: absRepo, Ref: "--all"})
 	if !errors.Is(err, ErrUnsafeRev) {
 		t.Fatalf("err = %v, want ErrUnsafeRev", err)
 	}
@@ -251,7 +251,7 @@ func TestLogLimit_Clamps(t *testing.T) {
 // 오류로 다룬다.
 func TestLog_TruncatedOutputIsError(t *testing.T) {
 	f := &logFake{stdout: logRec("a", "a", "", "n", "m", "1", "1", "", "s"), truncated: true}
-	if _, err := Log(core.New(core.WithRunner(f.run)), context.Background(), LogQuery{Repo: "/repo"}); err == nil {
+	if _, err := Log(core.New(core.WithRunner(f.run)), context.Background(), LogQuery{Repo: absRepo}); err == nil {
 		t.Fatal("오류가 아니다")
 	}
 }
@@ -260,7 +260,7 @@ func TestLog_TruncatedOutputIsError(t *testing.T) {
 // 자기 요청이 틀렸다는 것을 알 수 없다.
 func TestLog_UnknownRevIsNotFound(t *testing.T) {
 	f := &logFake{exit: 128, stderr: "fatal: ambiguous argument 'nope': unknown revision or path not in the working tree.\n"}
-	_, err := Log(core.New(core.WithRunner(f.run)), context.Background(), LogQuery{Repo: "/repo", Ref: "nope"})
+	_, err := Log(core.New(core.WithRunner(f.run)), context.Background(), LogQuery{Repo: absRepo, Ref: "nope"})
 	if !errors.Is(err, ErrRevNotFound) {
 		t.Fatalf("err = %v, want ErrRevNotFound", err)
 	}

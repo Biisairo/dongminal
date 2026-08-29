@@ -394,7 +394,7 @@ func TestOperations_AreSerialized(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			_ = m.Create(Spec{Repo: "/repo", Path: m.Path("run1234", "mem"+string(rune('a'+i))), Branch: "dmn/run1234/r", Base: "main"})
+			_ = m.Create(Spec{Repo: absRepo, Path: m.Path("run1234", "mem"+string(rune('a'+i))), Branch: "dmn/run1234/r", Base: "main"})
 		}(i)
 	}
 	wg.Wait()
@@ -414,7 +414,7 @@ func TestOperations_AreSerialized(t *testing.T) {
 // 그 사이에 들어온다. 직렬화가 이미 있다면(미래) 두 번째는 짧은 상한 안에 들어오지
 // 않고, 첫 번째를 풀어준 뒤에야 뒤이어 들어온다 — 그때도 데드락 없이 끝난다.
 func TestOperations_SerializeAcrossManagersForSameRepo(t *testing.T) {
-	const repo = "/repo"
+	var repo = absRepo
 	var cur, max int32
 	release := make(chan struct{})
 	entered := make(chan struct{}, 2)
@@ -503,7 +503,7 @@ func TestOperations_SerializeSameRepoDifferentSpelling(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_ = m.Create(Spec{Repo: "/repo", Path: m.Path("run1234", "a"), Branch: "dmn/run1234/a", Base: "main"})
+		_ = m.Create(Spec{Repo: absRepo, Path: m.Path("run1234", "a"), Branch: "dmn/run1234/a", Base: "main"})
 	}()
 	go func() {
 		defer wg.Done()

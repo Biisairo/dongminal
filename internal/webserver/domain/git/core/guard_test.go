@@ -18,7 +18,7 @@ func TestExec_RejectsWriteCommands(t *testing.T) {
 			t.Fatalf("%s 가 실행됐다 — Runner 에 도달하면 안 된다", cmd)
 			return Output{}, nil
 		}))
-		_, err := s.Exec(context.Background(), "/tmp/repo", cmd, "-m", "x")
+		_, err := s.Exec(context.Background(), absTmpRepo, cmd, "-m", "x")
 		if !errors.Is(err, ErrWriteCommand) {
 			t.Fatalf("%s: err = %v, want ErrWriteCommand", cmd, err)
 		}

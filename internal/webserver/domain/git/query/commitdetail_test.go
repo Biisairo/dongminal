@@ -127,7 +127,7 @@ func TestCommitDetail_Argv(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := &detailFake{logOut: detailRec(oid, tc.parents, "", "s", "s\n"), treeOut: "M\x00a.txt\x00"}
-			d, err := CommitDetailOf(core.New(core.WithRunner(f.run)), context.Background(), "/repo", oid, tc.index)
+			d, err := CommitDetailOf(core.New(core.WithRunner(f.run)), context.Background(), absRepo, oid, tc.index)
 			if err != nil {
 				t.Fatalf("CommitDetail: %v", err)
 			}
@@ -154,7 +154,7 @@ func TestCommitDetail_Fields(t *testing.T) {
 		logOut:  detailRec(oid, "p1 p2", "HEAD -> refs/heads/main", "제목 줄", body),
 		treeOut: "A\x00new.txt\x00",
 	}
-	d, err := CommitDetailOf(core.New(core.WithRunner(f.run)), context.Background(), "/repo", oid, 0)
+	d, err := CommitDetailOf(core.New(core.WithRunner(f.run)), context.Background(), absRepo, oid, 0)
 	if err != nil {
 		t.Fatalf("CommitDetail: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestCommitDetail_RejectsBadParentIndex(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := &detailFake{logOut: detailRec(oid, tc.parents, "", "s", "s\n")}
-			_, err := CommitDetailOf(core.New(core.WithRunner(f.run)), context.Background(), "/repo", oid, tc.index)
+			_, err := CommitDetailOf(core.New(core.WithRunner(f.run)), context.Background(), absRepo, oid, tc.index)
 			if !errors.Is(err, ErrCommitParent) {
 				t.Fatalf("err = %v, want ErrCommitParent", err)
 			}
@@ -202,7 +202,7 @@ func TestCommitDetail_RejectsBadParentIndex(t *testing.T) {
 
 func TestCommitDetail_RejectsOptionLikeOid(t *testing.T) {
 	f := &detailFake{}
-	_, err := CommitDetailOf(core.New(core.WithRunner(f.run)), context.Background(), "/repo", "--all", 0)
+	_, err := CommitDetailOf(core.New(core.WithRunner(f.run)), context.Background(), absRepo, "--all", 0)
 	if !errors.Is(err, ErrUnsafeRev) {
 		t.Fatalf("err = %v, want ErrUnsafeRev", err)
 	}
@@ -213,7 +213,7 @@ func TestCommitDetail_RejectsOptionLikeOid(t *testing.T) {
 
 func TestCommitDetail_UnknownOidIsNotFound(t *testing.T) {
 	f := &detailFake{exit: 128, stderr: "fatal: bad object deadbeef\n"}
-	_, err := CommitDetailOf(core.New(core.WithRunner(f.run)), context.Background(), "/repo", "deadbeef", 0)
+	_, err := CommitDetailOf(core.New(core.WithRunner(f.run)), context.Background(), absRepo, "deadbeef", 0)
 	if !errors.Is(err, ErrRevNotFound) {
 		t.Fatalf("err = %v, want ErrRevNotFound", err)
 	}
@@ -223,7 +223,7 @@ func TestCommitDetail_UnknownOidIsNotFound(t *testing.T) {
 // 내용 없는 커밋을 본다.
 func TestCommitDetail_EmptyLogIsNotFound(t *testing.T) {
 	f := &detailFake{logOut: ""}
-	_, err := CommitDetailOf(core.New(core.WithRunner(f.run)), context.Background(), "/repo", "a1b2c3d4", 0)
+	_, err := CommitDetailOf(core.New(core.WithRunner(f.run)), context.Background(), absRepo, "a1b2c3d4", 0)
 	if !errors.Is(err, ErrRevNotFound) {
 		t.Fatalf("err = %v, want ErrRevNotFound", err)
 	}

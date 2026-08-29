@@ -189,7 +189,7 @@ func TestEditorAdd_RejectsMissingAndFile(t *testing.T) {
 
 // V-EDT-12 (FR-EDT-26): 사라진 디렉터리의 행도 제거된다 — 문자열 완전 일치.
 func TestEditorRemove_StringMatchOnVanishedPath(t *testing.T) {
-	s, w, _ := newTestStore(t, "/home/u")
+	s, w, _ := newTestStore(t, absHomeU)
 	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":["/gone/dir","/still/here"]}}`)
 	l, err := s.EditorRemove("/gone/dir")
 	if err != nil {
@@ -202,7 +202,7 @@ func TestEditorRemove_StringMatchOnVanishedPath(t *testing.T) {
 
 // V-EDT-13 (FR-EDT-27): reorder 델타가 반영되고, 없는 src/target 은 배열을 바꾸지 않는다.
 func TestEditorReorder_Delta(t *testing.T) {
-	s, w, _ := newTestStore(t, "/home/u")
+	s, w, _ := newTestStore(t, absHomeU)
 	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":["/a","/b","/c"]}}`)
 
 	got, err := s.EditorReorder("/c", "/a", true)
@@ -237,7 +237,7 @@ func TestParse_DropsMalformedEditors(t *testing.T) {
 	}
 	want := [][]string{{}, {}, {"/ok"}, {}}
 	for i, raw := range cases {
-		s, w, _ := newTestStore(t, "/home/u")
+		s, w, _ := newTestStore(t, absHomeU)
 		w.raw = []byte(raw)
 		_, list, err := s.List()
 		if err != nil {
@@ -256,14 +256,14 @@ func TestParse_DropsMalformedEditors(t *testing.T) {
 // 태워야 그 자리가 실제로 막혔음을 안다.
 func TestParse_NullBlobDoesNotPanic(t *testing.T) {
 	for _, raw := range []string{"null", " null\n"} {
-		s, w, _ := newTestStore(t, "/home/u")
+		s, w, _ := newTestStore(t, absHomeU)
 		w.raw = []byte(raw)
 
 		home, list, err := s.List()
 		if err != nil {
 			t.Fatalf("List(%q): %v", raw, err)
 		}
-		if home != "/home/u" || len(list) != 0 {
+		if home != absHomeU || len(list) != 0 {
 			t.Fatalf("List(%q)=%q %v", raw, home, list)
 		}
 		// 쓰기 경로. 여기가 nil map 에 대입하는 자리다.
@@ -287,7 +287,7 @@ func TestParse_NullBlobDoesNotPanic(t *testing.T) {
 
 // V-EDT-15 (FR-EDT-22): 낡은 rev 로 Save 하면 1회 재시도로 성공한다.
 func TestMutate_RetriesOnceOnStale(t *testing.T) {
-	s, w, b := newTestStore(t, "/home/u")
+	s, w, b := newTestStore(t, absHomeU)
 	w.raw = []byte(`{"schemaVersion":2}`)
 	w.staleOnce = true
 	l, err := s.Mutate(func(cur Lists) Lists {
@@ -310,7 +310,7 @@ func TestMutate_RetriesOnceOnStale(t *testing.T) {
 
 func TestMutate_GivesUpAfterSecondStale(t *testing.T) {
 	w := &alwaysStale{}
-	s := &Store{Work: w, HomeFn: func() (string, error) { return "/home/u", nil }}
+	s := &Store{Work: w, HomeFn: func() (string, error) { return absHomeU, nil }}
 	// 목록을 **실제로 바꾸는** 변이여야 한다 — 무변경은 저장을 건너뛰므로
 	// (FR-EDT-27) 재시도 경로에 도달하지 않는다.
 	mut := func(c Lists) Lists { c.Editors = append(c.Editors, "/a"); return c }
@@ -328,7 +328,7 @@ func TestMutate_GivesUpAfterSecondStale(t *testing.T) {
 func TestMutate_NoopDoesNotSave(t *testing.T) {
 	w := &fakeWork{raw: []byte(`{"schemaVersion":2,"editors":{"list":["/a","/b"]}}`)}
 	b := &fakeBroker{}
-	s := &Store{Work: w, Commands: b, HomeFn: func() (string, error) { return "/home/u", nil }}
+	s := &Store{Work: w, Commands: b, HomeFn: func() (string, error) { return absHomeU, nil }}
 
 	// 목록에 없는 경로의 제거, 그리고 src 가 없는 재정렬 — 둘 다 무변경이다.
 	if _, err := s.EditorRemove("/nope"); err != nil {
@@ -455,13 +455,13 @@ func TestEditorAdd_NormalizesSymlinkedPath(t *testing.T) {
 
 // FR-EDT-29: 목록 조회는 {home, list} 를 주고 home 은 list 에 없다.
 func TestList_HomeIsNotInList(t *testing.T) {
-	s, w, _ := newTestStore(t, "/home/u")
+	s, w, _ := newTestStore(t, absHomeU)
 	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":["/a"]}}`)
 	home, list, err := s.List()
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if home != "/home/u" {
+	if home != absHomeU {
 		t.Fatalf("home=%q", home)
 	}
 	for _, p := range list {
@@ -473,7 +473,7 @@ func TestList_HomeIsNotInList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Roots: %v", err)
 	}
-	if !reflect.DeepEqual(roots, []string{"/home/u", "/a"}) {
+	if !reflect.DeepEqual(roots, []string{absHomeU, "/a"}) {
 		t.Fatalf("roots=%v", roots)
 	}
 }
@@ -495,7 +495,7 @@ func TestMutate_WithoutWorkspaceFails(t *testing.T) {
 
 // 빈 블롭에서 시작해도 Save 가 거부하지 않도록 schemaVersion 을 세운다 (FR-EM-2a).
 func TestMutate_SeedsSchemaVersionOnEmptyBlob(t *testing.T) {
-	s, w, _ := newTestStore(t, "/home/u")
+	s, w, _ := newTestStore(t, absHomeU)
 	if _, err := s.Mutate(func(c Lists) Lists { c.Editors = []string{"/a"}; return c }); err != nil {
 		t.Fatalf("Mutate: %v", err)
 	}

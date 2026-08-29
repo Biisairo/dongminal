@@ -23,7 +23,7 @@ import (
 
 // gitM5Repo 는 요청에 실을 리포 경로다. fake 의 rev-parse 가 요청 dir 을 그대로
 // 루트로 답하므로 존재하지 않아도 된다.
-const gitM5Repo = "/work/repo"
+var gitM5Repo = absWorkRepo
 
 // gitM5Fake 은 M5 표면이 딛는 읽기·쓰기를 함께 격리한다. WithRunner 만 주면 실제
 // git 이 돌아 테스트가 저장소를 바꾼다.
@@ -157,15 +157,15 @@ var gitM5Endpoints = []struct {
 	path   string
 	body   string
 }{
-	{http.MethodPost, "/api/git/checkout", `{"repo":"/work/repo","ref":"main"}`},
-	{http.MethodPost, "/api/git/branch", `{"repo":"/work/repo","name":"feat"}`},
+	{http.MethodPost, "/api/git/checkout", `{"repo":` + qWorkRepo + `,"ref":"main"}`},
+	{http.MethodPost, "/api/git/branch", `{"repo":` + qWorkRepo + `,"name":"feat"}`},
 	{http.MethodGet, "/api/git/branch/validate?repo=/work/repo&name=feat", ""},
 	{http.MethodGet, "/api/git/stash?repo=/work/repo", ""},
 	{http.MethodGet, "/api/git/stash/show?repo=/work/repo&index=0", ""},
-	{http.MethodPost, "/api/git/stash/push", `{"repo":"/work/repo"}`},
-	{http.MethodPost, "/api/git/stash/apply", `{"repo":"/work/repo","index":0}`},
-	{http.MethodPost, "/api/git/stash/pop", `{"repo":"/work/repo","index":0}`},
-	{http.MethodPost, "/api/git/stash/drop", `{"repo":"/work/repo","index":0,"confirm":true}`},
+	{http.MethodPost, "/api/git/stash/push", `{"repo":` + qWorkRepo + `}`},
+	{http.MethodPost, "/api/git/stash/apply", `{"repo":` + qWorkRepo + `,"index":0}`},
+	{http.MethodPost, "/api/git/stash/pop", `{"repo":` + qWorkRepo + `,"index":0}`},
+	{http.MethodPost, "/api/git/stash/drop", `{"repo":` + qWorkRepo + `,"index":0,"confirm":true}`},
 }
 
 // M1: 9개 라우트가 gitapi.routes 에 등록돼 있고, Git 이 없으면 전부 503 이다.
@@ -201,7 +201,7 @@ func TestAPIGitCheckout_ForceRequiresConfirm(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/checkout",
-		`{"repo":"/work/repo","ref":"main","force":true}`)
+		`{"repo":`+qWorkRepo+`,"ref":"main","force":true}`)
 	if code != http.StatusBadRequest || out["error"] != gitErrConfirmRequired {
 		t.Fatalf("code = %d, error = %v, want 400 confirmation_required", code, out["error"])
 	}
@@ -218,7 +218,7 @@ func TestAPIGitCheckout_ForceWithConfirm(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/checkout",
-		`{"repo":"/work/repo","ref":"main","force":true,"confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"ref":"main","force":true,"confirm":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -241,7 +241,7 @@ func TestAPIGitCheckout_RemoteBranchNameConflict(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/checkout",
-		`{"repo":"/work/repo","create":"feat","track":"origin/feat"}`)
+		`{"repo":`+qWorkRepo+`,"create":"feat","track":"origin/feat"}`)
 	if code != http.StatusConflict || out["error"] != gitErrBranchExists {
 		t.Fatalf("code = %d, error = %v, want 409 branch_exists", code, out["error"])
 	}
@@ -263,7 +263,7 @@ func TestAPIGitCheckout_RemoteBranchTracks(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/checkout",
-		`{"repo":"/work/repo","create":"feat","track":"origin/feat"}`)
+		`{"repo":`+qWorkRepo+`,"create":"feat","track":"origin/feat"}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -282,11 +282,11 @@ func TestAPIGitBranchRoutes_RejectBadRequests(t *testing.T) {
 		body string
 		want string
 	}{
-		{"이름 규칙 위반 (생성)", "/api/git/branch", `{"repo":"/work/repo","name":"bad name"}`, gitErrRefName},
-		{"이름 규칙 위반 (checkout)", "/api/git/checkout", `{"repo":"/work/repo","create":"a..b"}`, gitErrRefName},
-		{"- 로 시작하는 ref", "/api/git/checkout", `{"repo":"/work/repo","ref":"-x"}`, gitErrRefName},
-		{"대상 없음", "/api/git/checkout", `{"repo":"/work/repo"}`, gitErrBadRequest},
-		{"track 만", "/api/git/checkout", `{"repo":"/work/repo","track":"origin/feat"}`, gitErrBadRequest},
+		{"이름 규칙 위반 (생성)", "/api/git/branch", `{"repo":` + qWorkRepo + `,"name":"bad name"}`, gitErrRefName},
+		{"이름 규칙 위반 (checkout)", "/api/git/checkout", `{"repo":` + qWorkRepo + `,"create":"a..b"}`, gitErrRefName},
+		{"- 로 시작하는 ref", "/api/git/checkout", `{"repo":` + qWorkRepo + `,"ref":"-x"}`, gitErrRefName},
+		{"대상 없음", "/api/git/checkout", `{"repo":` + qWorkRepo + `}`, gitErrBadRequest},
+		{"track 만", "/api/git/checkout", `{"repo":` + qWorkRepo + `,"track":"origin/feat"}`, gitErrBadRequest},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -310,9 +310,9 @@ func TestAPIGitBranchCreate(t *testing.T) {
 		body string
 		want []string
 	}{
-		{`{"repo":"/work/repo","name":"feat"}`, []string{"branch", "feat"}},
-		{`{"repo":"/work/repo","name":"feat","checkout":true}`, []string{"checkout", "-b", "feat"}},
-		{`{"repo":"/work/repo","name":"feat","startRef":"abc123"}`, []string{"branch", "feat", "abc123"}},
+		{`{"repo":` + qWorkRepo + `,"name":"feat"}`, []string{"branch", "feat"}},
+		{`{"repo":` + qWorkRepo + `,"name":"feat","checkout":true}`, []string{"checkout", "-b", "feat"}},
+		{`{"repo":` + qWorkRepo + `,"name":"feat","startRef":"abc123"}`, []string{"branch", "feat", "abc123"}},
 	}
 	for _, c := range cases {
 		t.Run(fmt.Sprint(c.want), func(t *testing.T) {
@@ -388,15 +388,15 @@ var gitBranchActionEndpoints = []struct {
 	path   string
 	body   string
 }{
-	{http.MethodPost, "/api/git/branch/rename", `{"repo":"/work/repo","from":"a","to":"b"}`},
-	{http.MethodPost, "/api/git/branch/delete", `{"repo":"/work/repo","names":["a"],"confirm":true}`},
-	{http.MethodPost, "/api/git/branch/merge", `{"repo":"/work/repo","ref":"side"}`},
-	{http.MethodPost, "/api/git/branch/rebase", `{"repo":"/work/repo","ref":"main","confirm":true}`},
-	{http.MethodPost, "/api/git/branch/upstream", `{"repo":"/work/repo","branch":"a","upstream":"origin/a"}`},
+	{http.MethodPost, "/api/git/branch/rename", `{"repo":` + qWorkRepo + `,"from":"a","to":"b"}`},
+	{http.MethodPost, "/api/git/branch/delete", `{"repo":` + qWorkRepo + `,"names":["a"],"confirm":true}`},
+	{http.MethodPost, "/api/git/branch/merge", `{"repo":` + qWorkRepo + `,"ref":"side"}`},
+	{http.MethodPost, "/api/git/branch/rebase", `{"repo":` + qWorkRepo + `,"ref":"main","confirm":true}`},
+	{http.MethodPost, "/api/git/branch/upstream", `{"repo":` + qWorkRepo + `,"branch":"a","upstream":"origin/a"}`},
 	{http.MethodGet, "/api/git/branch/merge-preview?repo=/work/repo&ref=side", ""},
-	{http.MethodPost, "/api/git/branch/push", `{"repo":"/work/repo","branch":"a"}`},
-	{http.MethodPost, "/api/git/branch/fetch", `{"repo":"/work/repo","remote":"origin","branch":"a"}`},
-	{http.MethodPost, "/api/git/branch/delete-remote", `{"repo":"/work/repo","remote":"origin","branch":"a","confirm":true}`},
+	{http.MethodPost, "/api/git/branch/push", `{"repo":` + qWorkRepo + `,"branch":"a"}`},
+	{http.MethodPost, "/api/git/branch/fetch", `{"repo":` + qWorkRepo + `,"remote":"origin","branch":"a"}`},
+	{http.MethodPost, "/api/git/branch/delete-remote", `{"repo":` + qWorkRepo + `,"remote":"origin","branch":"a","confirm":true}`},
 }
 
 // BA1: 9개 라우트가 등록돼 있고, Git 이 없으면 전부 503 이다 (다른 표면과 같은 규약).
@@ -429,8 +429,8 @@ func TestGitBranchActionRoutes_RegisteredAndUnavailable(t *testing.T) {
 // `-D` 가 확인 없이 지나가는 자리를 만들지 않는다.
 func TestAPIGitBranchDelete_RequiresConfirm(t *testing.T) {
 	for _, body := range []string{
-		`{"repo":"/work/repo","names":["feat"]}`,
-		`{"repo":"/work/repo","names":["feat"],"force":true}`,
+		`{"repo":` + qWorkRepo + `,"names":["feat"]}`,
+		`{"repo":` + qWorkRepo + `,"names":["feat"],"force":true}`,
 	} {
 		f := newGitM5Fake(t)
 		f.branches["feat"] = true
@@ -451,7 +451,7 @@ func TestAPIGitBranchDelete_RefusesCurrentBranch(t *testing.T) {
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/branch/delete",
-		`{"repo":"/work/repo","names":["main"],"confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"names":["main"],"confirm":true}`)
 	if code != http.StatusConflict || out["error"] != gitErrBranchCurrent {
 		t.Fatalf("→ %d %v, want 409 %s", code, out["error"], gitErrBranchCurrent)
 	}
@@ -469,7 +469,7 @@ func TestAPIGitBranchDelete_UnmergedOffersForce(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/branch/delete",
-		`{"repo":"/work/repo","names":["feat"],"confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"names":["feat"],"confirm":true}`)
 	if code != http.StatusConflict || out["error"] != gitErrBranchNotMerged {
 		t.Fatalf("→ %d %v, want 409 %s", code, out["error"], gitErrBranchNotMerged)
 	}
@@ -490,7 +490,7 @@ func TestAPIGitBranchDelete_UnmergedOffersForce(t *testing.T) {
 	f2.unmerged["feat"] = true
 	s2 := gitM5Server(t, f2)
 	code, out = gitReq(t, s2, http.MethodPost, "/api/git/branch/delete",
-		`{"repo":"/work/repo","names":["feat"],"force":true,"confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"names":["feat"],"force":true,"confirm":true}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("→ %d %v", code, out)
 	}
@@ -508,7 +508,7 @@ func TestAPIGitBranchDelete_BulkIsSoftOnly(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/branch/delete",
-		`{"repo":"/work/repo","names":["a","b"],"force":true,"confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"names":["a","b"],"force":true,"confirm":true}`)
 	if code != http.StatusBadRequest || out["error"] != gitErrBadRequest {
 		t.Fatalf("→ %d %v, want 400", code, out["error"])
 	}
@@ -522,7 +522,7 @@ func TestAPIGitBranchDelete_BulkIsSoftOnly(t *testing.T) {
 	f2.unmerged["b"] = true
 	s2 := gitM5Server(t, f2)
 	code, out = gitReq(t, s2, http.MethodPost, "/api/git/branch/delete",
-		`{"repo":"/work/repo","names":["a","b"],"confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"names":["a","b"],"confirm":true}`)
 	if code != http.StatusConflict || out["error"] != gitErrBranchNotMerged {
 		t.Fatalf("→ %d %v, want 409 %s", code, out["error"], gitErrBranchNotMerged)
 	}
@@ -542,7 +542,7 @@ func TestAPIGitBranchDelete_ReturnsPreDeleteOids(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/branch/delete",
-		`{"repo":"/work/repo","names":["feat"],"confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"names":["feat"],"confirm":true}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("→ %d %v", code, out)
 	}
@@ -571,7 +571,7 @@ func TestAPIGitBranchRename(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/branch/rename",
-		`{"repo":"/work/repo","from":"feat","to":"feature"}`)
+		`{"repo":`+qWorkRepo+`,"from":"feat","to":"feature"}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("→ %d %v", code, out)
 	}
@@ -584,7 +584,7 @@ func TestAPIGitBranchRename(t *testing.T) {
 	f2.branches["feat"] = true
 	s2 := gitM5Server(t, f2)
 	code, out = gitReq(t, s2, http.MethodPost, "/api/git/branch/rename",
-		`{"repo":"/work/repo","from":"feat","to":"main"}`)
+		`{"repo":`+qWorkRepo+`,"from":"feat","to":"main"}`)
 	if code != http.StatusConflict || out["error"] != gitErrBranchExists {
 		t.Fatalf("→ %d %v, want 409 %s", code, out["error"], gitErrBranchExists)
 	}
@@ -594,9 +594,9 @@ func TestAPIGitBranchRename(t *testing.T) {
 
 	// 이름 규칙 위반과 같은 이름으로의 변경은 400 이며 실행되지 않는다.
 	for _, body := range []string{
-		`{"repo":"/work/repo","from":"feat","to":"bad name"}`,
-		`{"repo":"/work/repo","from":"feat","to":"feat"}`,
-		`{"repo":"/work/repo","from":"","to":"x"}`,
+		`{"repo":` + qWorkRepo + `,"from":"feat","to":"bad name"}`,
+		`{"repo":` + qWorkRepo + `,"from":"feat","to":"feat"}`,
+		`{"repo":` + qWorkRepo + `,"from":"","to":"x"}`,
 	} {
 		f3 := newGitM5Fake(t)
 		f3.branches["feat"] = true
@@ -617,10 +617,10 @@ func TestAPIGitBranchMerge(t *testing.T) {
 		body string
 		want []string
 	}{
-		{`{"repo":"/work/repo","ref":"side"}`, []string{"merge", "side"}},
-		{`{"repo":"/work/repo","ref":"side","mode":"ff-only"}`, []string{"merge", "--ff-only", "side"}},
-		{`{"repo":"/work/repo","ref":"side","mode":"no-ff"}`, []string{"merge", "--no-ff", "side"}},
-		{`{"repo":"/work/repo","ref":"side","mode":"squash"}`, []string{"merge", "--squash", "side"}},
+		{`{"repo":` + qWorkRepo + `,"ref":"side"}`, []string{"merge", "side"}},
+		{`{"repo":` + qWorkRepo + `,"ref":"side","mode":"ff-only"}`, []string{"merge", "--ff-only", "side"}},
+		{`{"repo":` + qWorkRepo + `,"ref":"side","mode":"no-ff"}`, []string{"merge", "--no-ff", "side"}},
+		{`{"repo":` + qWorkRepo + `,"ref":"side","mode":"squash"}`, []string{"merge", "--squash", "side"}},
 	} {
 		f := newGitM5Fake(t)
 		s := gitM5Server(t, f)
@@ -635,7 +635,7 @@ func TestAPIGitBranchMerge(t *testing.T) {
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
 	code, _ := gitReq(t, s, http.MethodPost, "/api/git/branch/merge",
-		`{"repo":"/work/repo","ref":"side","mode":"octopus"}`)
+		`{"repo":`+qWorkRepo+`,"ref":"side","mode":"octopus"}`)
 	if code != http.StatusBadRequest {
 		t.Fatalf("→ %d, want 400", code)
 	}
@@ -649,7 +649,7 @@ func TestAPIGitBranchRebase_RequiresConfirm(t *testing.T) {
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/branch/rebase",
-		`{"repo":"/work/repo","ref":"main"}`)
+		`{"repo":`+qWorkRepo+`,"ref":"main"}`)
 	if code != http.StatusBadRequest || out["error"] != gitErrConfirmRequired {
 		t.Fatalf("→ %d %v, want 400 %s", code, out["error"], gitErrConfirmRequired)
 	}
@@ -660,7 +660,7 @@ func TestAPIGitBranchRebase_RequiresConfirm(t *testing.T) {
 	f2 := newGitM5Fake(t)
 	s2 := gitM5Server(t, f2)
 	code, out = gitReq(t, s2, http.MethodPost, "/api/git/branch/rebase",
-		`{"repo":"/work/repo","ref":"main","onto":"v1","confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"ref":"main","onto":"v1","confirm":true}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("→ %d %v", code, out)
 	}
@@ -681,9 +681,9 @@ func TestAPIGitBranchUpstream(t *testing.T) {
 		body string
 		want []string
 	}{
-		{`{"repo":"/work/repo","branch":"feat","upstream":"origin/feat"}`,
+		{`{"repo":` + qWorkRepo + `,"branch":"feat","upstream":"origin/feat"}`,
 			[]string{"branch", "--set-upstream-to=origin/feat", "feat"}},
-		{`{"repo":"/work/repo","branch":"feat","unset":true}`,
+		{`{"repo":` + qWorkRepo + `,"branch":"feat","unset":true}`,
 			[]string{"branch", "--unset-upstream", "feat"}},
 	} {
 		f := newGitM5Fake(t)
@@ -699,7 +699,7 @@ func TestAPIGitBranchUpstream(t *testing.T) {
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
 	code, _ := gitReq(t, s, http.MethodPost, "/api/git/branch/upstream",
-		`{"repo":"/work/repo","branch":"feat"}`)
+		`{"repo":`+qWorkRepo+`,"branch":"feat"}`)
 	if code != http.StatusBadRequest {
 		t.Fatalf("→ %d, want 400 — set 인지 unset 인지 가릴 수 없다", code)
 	}
@@ -758,7 +758,7 @@ func TestAPIGitBranchPush_PublishRequired(t *testing.T) {
 	s := gitBranchJobServer(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/branch/push",
-		`{"repo":"/work/repo","branch":"feat"}`)
+		`{"repo":`+qWorkRepo+`,"branch":"feat"}`)
 	if code != http.StatusConflict || out["error"] != gitErrPublishRequired {
 		t.Fatalf("→ %d %v, want 409 %s", code, out["error"], gitErrPublishRequired)
 	}
@@ -769,7 +769,7 @@ func TestAPIGitBranchPush_PublishRequired(t *testing.T) {
 
 	// 확인이 오면 job 이 뜬다 — 원격 작업이므로 기존 job 경로를 탄다.
 	code, out = gitReq(t, s, http.MethodPost, "/api/git/branch/push",
-		`{"repo":"/work/repo","branch":"feat","publish":true}`)
+		`{"repo":`+qWorkRepo+`,"branch":"feat","publish":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("→ %d %v", code, out)
 	}
@@ -786,7 +786,7 @@ func TestAPIGitRemoteBranch_FetchAndDelete(t *testing.T) {
 	s := gitBranchJobServer(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/branch/fetch",
-		`{"repo":"/work/repo","remote":"origin","branch":"feat"}`)
+		`{"repo":`+qWorkRepo+`,"remote":"origin","branch":"feat"}`)
 	if code != http.StatusOK {
 		t.Fatalf("fetch → %d %v", code, out)
 	}
@@ -799,7 +799,7 @@ func TestAPIGitRemoteBranch_FetchAndDelete(t *testing.T) {
 	f2.remoteRefs["origin/feat"] = true
 	s2 := gitBranchJobServer(t, f2)
 	code, out = gitReq(t, s2, http.MethodPost, "/api/git/branch/delete-remote",
-		`{"repo":"/work/repo","remote":"origin","branch":"feat"}`)
+		`{"repo":`+qWorkRepo+`,"remote":"origin","branch":"feat"}`)
 	if code != http.StatusBadRequest || out["error"] != gitErrConfirmRequired {
 		t.Fatalf("→ %d %v, want 400 %s", code, out["error"], gitErrConfirmRequired)
 	}
@@ -808,7 +808,7 @@ func TestAPIGitRemoteBranch_FetchAndDelete(t *testing.T) {
 	}
 
 	code, out = gitReq(t, s2, http.MethodPost, "/api/git/branch/delete-remote",
-		`{"repo":"/work/repo","remote":"origin","branch":"feat","confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"remote":"origin","branch":"feat","confirm":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("→ %d %v", code, out)
 	}

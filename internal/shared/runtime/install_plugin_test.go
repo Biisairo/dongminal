@@ -107,8 +107,8 @@ func TestInstallAgentPlugin_Hooks(t *testing.T) {
 	if _, ok := parsed.Hooks["SessionStart"]; !ok {
 		t.Fatalf("hooks.json must wire SessionStart, got: %v", parsed.Hooks)
 	}
-	want := filepath.Join(dir, "dmctl") + " agent-context"
-	if !strings.Contains(string(blob), want) {
+	want := dmctlPath(dir) + " agent-context"
+	if !strings.Contains(string(blob), jsonInner(want)) {
 		t.Fatalf("hooks.json should invoke %q, got:\n%s", want, blob)
 	}
 }
@@ -248,7 +248,7 @@ func TestInstall_DoesNotPruneBinDir(t *testing.T) {
 	if err := Install(dir); err != nil {
 		t.Fatalf("재설치: %v", err)
 	}
-	for _, rel := range []string{"user-file.txt", "agent-hooks/claude.json", "dmctl"} {
+	for _, rel := range []string{"user-file.txt", "agent-hooks/claude.json", helperFile("dmctl")} {
 		if _, err := os.Lstat(filepath.Join(dir, rel)); err != nil {
 			t.Errorf("bin/ 의 %s 가 사라졌다: %v", rel, err)
 		}

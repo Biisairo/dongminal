@@ -62,7 +62,7 @@ func (f *preflightFake) mkdir(t *testing.T, name string) {
 
 func (f *preflightFake) preflight(t *testing.T) Preflight {
 	t.Helper()
-	pf, err := PreflightOf(core.New(core.WithRunner(f.runner)), context.Background(), "/tmp/repo")
+	pf, err := PreflightOf(core.New(core.WithRunner(f.runner)), context.Background(), absTmpRepo)
 	if err != nil {
 		t.Fatalf("Preflight: %v", err)
 	}

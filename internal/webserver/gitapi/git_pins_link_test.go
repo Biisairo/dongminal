@@ -35,11 +35,11 @@ func TestGitPin_CreatesEditorRow(t *testing.T) {
 	s, _, ws, _ := gitTestServer(t, g)
 	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":"/work/repo"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+qWorkRepo+`}`)
 	if code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
-	if eds := editorsOf(t, out); len(eds) != 1 || eds[0] != "/work/repo" {
+	if eds := editorsOf(t, out); len(eds) != 1 || eds[0] != absWorkRepo {
 		t.Fatalf("editors=%v", eds)
 	}
 	var doc map[string]any
@@ -47,7 +47,7 @@ func TestGitPin_CreatesEditorRow(t *testing.T) {
 		t.Fatalf("workspace 파싱: %v (%s)", err, ws.raw)
 	}
 	e, _ := doc["editors"].(map[string]any)
-	if list, _ := e["list"].([]any); len(list) != 1 || list[0] != "/work/repo" {
+	if list, _ := e["list"].([]any); len(list) != 1 || list[0] != absWorkRepo {
 		t.Fatalf("editors.list=%v (%s)", e, ws.raw)
 	}
 }
@@ -57,9 +57,9 @@ func TestGitUnpin_RemovesEditorRow(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
-	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":["/work/repo"]},"editors":{"list":["/work/repo","/other"]}}`)
+	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":[` + qWorkRepo + `]},"editors":{"list":[` + qWorkRepo + `,"/other"]}}`)
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/unpin", `{"path":"/work/repo"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/unpin", `{"path":`+qWorkRepo+`}`)
 	if code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
@@ -79,7 +79,7 @@ func TestGitPin_LinkedChangeSavesOnce(t *testing.T) {
 	s, _, ws, cb := gitTestServer(t, g)
 	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
 
-	if code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":"/work/repo"}`); code != 200 {
+	if code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+qWorkRepo+`}`); code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
 	if ws.saves != 1 {
@@ -103,14 +103,14 @@ func TestGitPin_HomeMakesNoEditorRow(t *testing.T) {
 	s, _, _, _ := gitTestServer(t, g)
 	g.root = func(string) (core.Output, error) { return core.Output{Stdout: norm + "\n"}, nil }
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":"`+norm+`"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+jsonQ(norm)+`}`)
 	if code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
 	if eds := editorsOf(t, out); len(eds) != 0 {
 		t.Fatalf("홈 핀이 editor 행을 만들었다: %v", eds)
 	}
-	code, out = gitReq(t, s, http.MethodPost, "/api/git/repos/unpin", `{"path":"`+norm+`"}`)
+	code, out = gitReq(t, s, http.MethodPost, "/api/git/repos/unpin", `{"path":`+jsonQ(norm)+`}`)
 	if code != 200 {
 		t.Fatalf("unpin code=%d body=%v", code, out)
 	}
@@ -136,7 +136,7 @@ func TestGitPin_NormalizesRootLikeEditorAdd(t *testing.T) {
 	s, _, _, _ := gitTestServer(t, g)
 	g.root = func(string) (core.Output, error) { return core.Output{Stdout: link + "\n"}, nil }
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":"`+link+`"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+jsonQ(link)+`}`)
 	if code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}

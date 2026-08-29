@@ -154,7 +154,7 @@ func TestPatch_RejectsWrongAxisBeforeExec(t *testing.T) {
 		{Op: PatchStage, Axis: query.AxisWorktreeHead, Path: "f.txt", DiffID: "x"},
 	}
 	for _, o := range bad {
-		if _, err := Patch(s, context.Background(), "/repo", o); !errors.Is(err, ErrPatchAxis) {
+		if _, err := Patch(s, context.Background(), absRepo, o); !errors.Is(err, ErrPatchAxis) {
 			t.Fatalf("%+v = %v, 기대 ErrPatchAxis", o, err)
 		}
 	}
@@ -169,7 +169,7 @@ func TestPatch_RequiresDiffID(t *testing.T) {
 	f := &writeFake{}
 	s := core.New(core.WithWriteRunner(f.runner))
 	o := PatchOpts{Op: PatchStage, Axis: query.AxisWorktreeIndex, Path: "f.txt"}
-	if _, err := Patch(s, context.Background(), "/repo", o); !errors.Is(err, ErrPatchStale) {
+	if _, err := Patch(s, context.Background(), absRepo, o); !errors.Is(err, ErrPatchStale) {
 		t.Fatalf("빈 diffId = %v, 기대 ErrPatchStale", err)
 	}
 	if len(f.argvs) != 0 {

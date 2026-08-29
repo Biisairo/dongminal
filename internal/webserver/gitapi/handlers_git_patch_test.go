@@ -128,7 +128,7 @@ func TestGitPatch_IgnoresClientSuppliedPatch(t *testing.T) {
 	id := gitPatchDiffID(t, s)
 
 	hostile := "--- a/../../etc/passwd\n+++ b/../../etc/passwd\n@@ -1 +1 @@\n-x\n+pwned\n"
-	body := `{"repo":"/work/repo","axis":"worktree-index","path":"f.txt","op":"stage",` +
+	body := `{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"f.txt","op":"stage",` +
 		`"hunk":0,"diffId":"` + id + `","patch":` + quoteJSON(hostile) +
 		`,"body":` + quoteJSON(hostile) + `,"content":` + quoteJSON(hostile) + `}`
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/patch", body)
@@ -157,7 +157,7 @@ func TestGitPatch_IgnoresClientSuppliedPatch(t *testing.T) {
 func TestGitPatch_RejectsStaleObservation(t *testing.T) {
 	f := newGitPatchFake(t)
 	s := gitPatchServer(t, f)
-	body := `{"repo":"/work/repo","axis":"worktree-index","path":"f.txt","op":"stage",` +
+	body := `{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"f.txt","op":"stage",` +
 		`"hunk":0,"diffId":"낡은값"}`
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/patch", body)
 	if code != http.StatusConflict {
@@ -177,7 +177,7 @@ func TestGitPatch_RevertRequiresConfirm(t *testing.T) {
 	f := newGitPatchFake(t)
 	s := gitPatchServer(t, f)
 	id := gitPatchDiffID(t, s)
-	body := `{"repo":"/work/repo","axis":"worktree-index","path":"f.txt","op":"revert",` +
+	body := `{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"f.txt","op":"revert",` +
 		`"hunk":0,"diffId":"` + id + `"}`
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/patch", body)
 	if code != http.StatusBadRequest {
@@ -237,9 +237,9 @@ func TestGitPatch_RejectsBadAxisAndOp(t *testing.T) {
 	s := gitPatchServer(t, f)
 	id := gitPatchDiffID(t, s)
 	bodies := []string{
-		`{"repo":"/work/repo","axis":"index-head","path":"f.txt","op":"stage","hunk":0,"diffId":"` + id + `"}`,
-		`{"repo":"/work/repo","axis":"worktree-index","path":"f.txt","op":"nuke","hunk":0,"diffId":"` + id + `"}`,
-		`{"repo":"/work/repo","axis":"worktree-index","path":"../x","op":"stage","hunk":0,"diffId":"` + id + `"}`,
+		`{"repo":` + qWorkRepo + `,"axis":"index-head","path":"f.txt","op":"stage","hunk":0,"diffId":"` + id + `"}`,
+		`{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"f.txt","op":"nuke","hunk":0,"diffId":"` + id + `"}`,
+		`{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"../x","op":"stage","hunk":0,"diffId":"` + id + `"}`,
 	}
 	for _, b := range bodies {
 		code, out := gitReq(t, s, http.MethodPost, "/api/git/patch", b)

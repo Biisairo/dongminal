@@ -13,7 +13,7 @@ import (
 func TestHintLog_SeqAndEviction(t *testing.T) {
 	l := NewHintLog(3)
 	for i := 0; i < 5; i++ {
-		got := l.Add(Hint{Repo: "/r", Action: ActionDiscard, Targets: []string{strconv.Itoa(i)}})
+		got := l.Add(Hint{Repo: absR, Action: ActionDiscard, Targets: []string{strconv.Itoa(i)}})
 		if got.Seq != uint64(i+1) {
 			t.Fatalf("%d 번째 Add 의 Seq = %d, want %d", i, got.Seq, i+1)
 		}
@@ -95,7 +95,7 @@ func TestServiceHints(t *testing.T) {
 		t.Fatalf("초기 hints = %d 개", len(got))
 	}
 	h := s.AddHint(Hint{
-		Repo:    "/r",
+		Repo:    absR,
 		Action:  ActionBranchDelete,
 		Targets: []string{"feature"},
 		Values:  []string{"1111111111111111111111111111111111111111"},

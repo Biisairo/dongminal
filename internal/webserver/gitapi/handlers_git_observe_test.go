@@ -84,7 +84,7 @@ func TestGitRepos_NoObserveStillNeverRunsStatus(t *testing.T) {
 func TestGitRepos_ObserveSurvivesBadPin(t *testing.T) {
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
-	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":["/bad","/good"]}}`)
+	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":["/bad",` + qGood + `]}}`)
 	g.root = func(dir string) (core.Output, error) {
 		if dir == "/bad" {
 			return core.Output{}, core.ErrNotRepo

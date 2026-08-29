@@ -20,7 +20,7 @@ func TestCommit_MessageViaStdinOnly(t *testing.T) {
 	f := &writeFake{}
 	s := core.New(core.WithWriteRunner(f.runner))
 
-	if _, err := Commit(s, context.Background(), "/tmp/repo", CommitOpts{Message: commitFixtureMessage}); err != nil {
+	if _, err := Commit(s, context.Background(), absTmpRepo, CommitOpts{Message: commitFixtureMessage}); err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
 	want := []string{"commit", "--file=-", "--cleanup=strip"}
@@ -43,7 +43,7 @@ func TestCommit_RecordKeepsOnlyStdinBytes(t *testing.T) {
 	f := &writeFake{}
 	s := core.New(core.WithWriteRunner(f.runner))
 
-	if _, err := Commit(s, context.Background(), "/tmp/repo", CommitOpts{Message: commitFixtureMessage}); err != nil {
+	if _, err := Commit(s, context.Background(), absTmpRepo, CommitOpts{Message: commitFixtureMessage}); err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
 	recs := s.Records(0)
@@ -86,7 +86,7 @@ func TestCommitOpts_Flags(t *testing.T) {
 			f := &writeFake{}
 			s := core.New(core.WithWriteRunner(f.runner))
 			c.o.Message = "m"
-			if _, err := Commit(s, context.Background(), "/tmp/repo", c.o); err != nil {
+			if _, err := Commit(s, context.Background(), absTmpRepo, c.o); err != nil {
 				t.Fatalf("Commit: %v", err)
 			}
 			if fmt.Sprint(f.argvs[0]) != fmt.Sprint(c.want) {
@@ -109,7 +109,7 @@ func TestUndoLast_SoftResetOnly(t *testing.T) {
 	f := &writeFake{}
 	s := core.New(core.WithWriteRunner(f.runner))
 
-	if _, err := UndoLast(s, context.Background(), "/tmp/repo"); err != nil {
+	if _, err := UndoLast(s, context.Background(), absTmpRepo); err != nil {
 		t.Fatalf("UndoLast: %v", err)
 	}
 	want := []string{"reset", "--soft", "HEAD@{1}"}
