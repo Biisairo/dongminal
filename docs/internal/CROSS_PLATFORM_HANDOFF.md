@@ -1,22 +1,22 @@
-# 인수인계 — 크로스플랫폼 (완료 · CI 전량 초록)
+# 인수인계 — 크로스플랫폼 (CI 전량 초록 · 남은 일은 e2e 통일 하나)
 
 > 근거 SRS 는 `CROSS_PLATFORM_SRS.md`. 실기 기록은 그 문서 §11 이다.
 > 브랜치 `crossplatform`. 워킹 트리는 깨끗하고 모두 푸시돼 있다.
 
 ## 0. 한 줄 상태
 
-**CI 잡 넷이 전부 초록이다** (run 33263400171). 남은 것은 `main` 병합뿐이다.
+**CI 잡 넷이 전부 초록이다** (run 33280678938, `8f4e706`). 세 트랙이 끝났다.
 
-두 트랙이 끝났다.
-
-1. **ConPTY** — 원인은 `STARTF_USESTDHANDLES` 하나였다(SRS §11.8). 라이브러리
-   교체는 **하지 않았다**; §11.7 의 그 결정은 실행 전에 뒤집혔다. 새 의존도
-   `go` 지시자 변경도 없다
+1. **ConPTY** — 원인은 `STARTF_USESTDHANDLES` 하나(SRS §11.8). 라이브러리 교체는
+   하지 않았다; §11.7 의 그 결정은 실행 전에 뒤집혔다. 새 의존도 `go` 지시자
+   변경도 없다
 2. **Windows 단위테스트** — 도입 이래 한 번도 통과한 적이 없던 잡이다. 실패
-   356줄을 전수로 파 내려가 **제품 결함 11건**을 꺼냈다. 근거는
-   `WINDOWS_TEST_PARITY_SRS.md` 이며 결과는 그 §10 이다
+   356줄을 전수로 파 내려가 **제품 결함 11건**을 꺼냈다.
+   근거: `WINDOWS_TEST_PARITY_SRS.md`, 결과는 그 §10
+3. **코드 감사** — 하드코딩·테스트 전용 프로덕션 코드·거짓 주석을 걷었다.
+   서브에이전트 감사 5 + 수정 5. 아래 §7
 
----
+**남은 일은 하나다 — e2e 통일(§3).** `main` 병합은 그 뒤가 낫다.
 
 ## 1. 지금 어디까지 왔나
 
@@ -97,21 +97,58 @@ pwsh 로는 제목 OSC(`\x1b]0;…pwsh.exe\a`)만 의사 콘솔로 오고, **셸
 
 ---
 
-## 3. 남은 일 — `main` 병합뿐
+## 3. 남은 일 — e2e 를 한 벌로 통일한다 (사용자 지시, 미착수)
 
-CI 넷이 초록이므로 막는 것은 없다.
+### 3.1 왜
 
-이 트랙이 두 번째로 한 일(Windows 단위테스트)은 별도 스펙에 있다 —
-`WINDOWS_TEST_PARITY_SRS.md`. 요약은 그 §10 이고, **제품 결함 11건**이 거기서
-나왔다. 사용자가 실제로 겪을 것은 셋이다.
+**세 OS 가 서로 다른 것을 검사한다.** 사용자가 물어서 확인한 결과다.
 
-- **D7** — 파일 전송(업로드·다운로드)이 Windows 에서 전부 403 이었다
-- **D11** — `exit` 를 친 탭이 닫히지 않고 영원히 남았다
-- **D1** — 데몬이 도는 중에 마이그레이션이 진행돼 상태를 덮어썼다
+| 대상 | 수단 | 어디서 | 무엇을 |
+|---|---|---|---|
+| macOS | `scripts/verify-isolated.sh` | **로컬에서 사람이 직접만** | 21항목 — ping·도구·**git 8종**·stats·settings·정적 자산 |
+| Linux | `verify.yml` 인라인 bash | CI | doctor + 종단간 5단계 |
+| Windows | `verify.yml` 인라인 PowerShell | CI | doctor + 종단간 5단계 |
 
-열어 둔 위험은 그 스펙 §10.4 의 R-5(Windows 의 경로 동일성은 문자열 동일성이
-아니다 — 대소문자·8.3 짧은 이름)와 R-6(예약 파일명)이다. **증거가 나올 때까지
-손대지 않는다.**
+문제가 넷이다.
+
+1. **macOS 는 CI 에 없다.** darwin 검증은 사람이 기억해야만 일어난다
+2. **darwin 의 21항목이 다른 두 OS 에서 한 번도 검사되지 않는다.** `git status`·
+   `log`·`refs`·`signature`·`policy`·`stash`·`records`·`jobs`, `/api/stats`,
+   `/api/settings`, 정적 자산 — Linux·Windows 에서 전무하다. 이번 감사에서 나온
+   **원격 이름 검사·자격증명 마스킹** 같은 git 계열 변경이 Windows 에서 어떻게
+   도는지 확인할 수단이 없다는 뜻이다
+3. **CI 의 doctor 계층 검사는 darwin 에서 돌지 않는다** (`verify-isolated.sh` 는
+   doctor 를 부르지 않는다)
+4. **Linux 와 Windows 종단간이 스크립트 두 벌**(bash/PowerShell)이다. 이 저장소가
+   반복해서 경계하는 "규칙을 두 벌로 두면 한쪽만 고쳐진다" 가 **검증 하네스
+   자체**에 적용된 자리다. 실제로 Windows 쪽만 고친 적이 있다
+
+### 3.2 정해진 설계 (사용자 확인 완료)
+
+- **검사 정의를 Go 한 벌로 옮긴다.** bash/PowerShell 두 벌이 사라진다.
+  `dongminal doctor` 가 이미 "서버가 쓰는 바로 그 platform 코드를 계층별로 실행"
+  하는 형태로 세 OS 에서 도니 같은 방식을 따른다
+- **CI 는 linux + windows 에서 그것을 돌린다.** 지금과 같은 비용
+- **macOS 는 CI 에 넣지 않는다** — 사용자 결정. 개발자가 로컬에서 같은 것을 돈다.
+  `verify-isolated.sh` 는 그 Go e2e 를 부르는 얇은 껍데기로 바꾸거나 대체
+- **세 OS 가 같은 목록을 돈다.** 대상별로 빠지는 항목은 **능력 질의로 명시적으로
+  건너뛰고 그 사실이 출력에 남게** 한다 — `testpath.PermChecked()`·
+  `ForegroundGroups()`·`POSIXShell()` 과 같은 규칙 (FR-WTP-30~32)
+
+### 3.3 착수 전에 읽을 것
+
+- `scripts/verify-isolated.sh` — 21항목의 실체. **격리 가드**(포트 58146 이면 중단,
+  홈이 격리 홈이 아니면 중단)를 반드시 옮겨라. 그 가드가 없어서 운영 인스턴스를
+  죽인 사고가 실제로 있었다 (스크립트 머리말)
+- `.github/workflows/verify.yml` 의 `windows-runtime`(69~127행)·`linux-runtime`
+  두 인라인 블록 — 종단간 5단계의 실체
+- `internal/ctl/cli/doctor.go` — 계층별 진단의 선례. 새 e2e 가 이것과 겹치는지
+  갈라지는지 먼저 정하라
+- **규모가 중·대다.** CLAUDE.md 규약대로 **스펙(IEEE 29148)을 먼저** 쓴다
+
+### 3.4 그 다음
+
+`main` 병합. e2e 통일 뒤가 낫다 — 통일된 검사가 병합 전에 세 OS 를 한 번 훑는다.
 
 ## 4. 검증
 
@@ -170,7 +207,13 @@ ConPTY 배관 하나로 좁혔다.
 
 ## 6. 커밋 이력 (브랜치 `crossplatform`)
 
-두 트랙이다. 아래가 **Windows 단위테스트** 트랙(WINDOWS_TEST_PARITY_SRS),
+세 트랙이다. 맨 위가 **코드 감사** 트랙(§7),
+
+    8f4e706  refactor: 환경변수 계약을 주입측·읽는측이 한 상수로 딛게 한다
+    09f9bab  refactor: 서브에이전트 감사 — 하드코딩·테스트 전용 코드·거짓 주석
+    1d0b447  docs(xplat): 두 트랙을 닫는다 — CI 잡 넷이 전부 초록이다
+
+그 아래가 **Windows 단위테스트** 트랙(WINDOWS_TEST_PARITY_SRS),
 
     e242765  fix(xplat): 셸이 스스로 끝나도 탭이 닫히지 않았다 (D11)
     ff7ad5e  fix(xplat): 셸 준비 신호를 '조용해질 때까지' 로 바꾼다
@@ -208,3 +251,71 @@ ConPTY 배관 하나로 좁혔다.
 플래그를 세우며 핸들에 파이프 끝을 넣었고(악화), d4a9e67 이 그것을 통째로
 되돌렸으며(플래그까지 함께 사라졌다), c6ac10f 가 플래그만 세우고 핸들은 0 으로
 뒀다(해결). 이력을 읽을 때 헷갈리지 않도록 적어 둔다.
+
+---
+
+## 7. 코드 감사 트랙 (이 세션에서 끝냄)
+
+사용자 지시로 서브에이전트 감사 5개(세션 diff·shared·domain·api·cli)를 돌리고,
+보고를 **전부 직접 검증한 뒤** 수정 에이전트 5개로 나눠 고쳤다. 45개 파일.
+
+### 7.1 무엇을 걷었나
+
+**테스트를 통과시키려고 존재하던 프로덕션 코드**
+`StopSaving`(내가 만든 것 — 주석이 약속한 종료 경로가 실제로 부르지 않아
+프로덕션 문제가 그대로였다), `foregroundName`, `Server.Started()`,
+`Server.Shutdown()`(호출자 0인데 주석이 "gracefully" 를 약속).
+
+**실제 결함**
+`migrate` 가 "대상 없음" 이라 말하며 `settings.json` 재작성 · `stopDaemon` 이
+항상 true 라 실패 분기가 죽은 코드 · `IPC.Endpoint` 우회 ·
+**`agentadapter.shellQuote` 가 POSIX 인용을 pwsh 에 타이핑**(아포스트로피 하나로
+명령이 깨진다).
+
+**규칙이 두 벌이던 것**
+자격증명 마스킹 정규식 둘(결과도 달랐다) · 원격 이름 검사(엄격한 쪽이 push 에만)
+· `jsonQ`/`jsonInner` 네 곳 · 셸 준비 대기 헬퍼 · 프로세스 제어 접근점 ·
+ANSI 리셋 시퀀스 · `workspace.Manager` 복제 두 쌍.
+
+**하드코딩** — `DONGMINAL_*`·기본 호스트·포트를 `internal/shared/dmenv`(의존 0)로.
+`ctl/cli` 는 `runtimebin`·`toolhub` 를 import 하므로 역방향이 순환이고,
+`shared/platform` 은 `check-seams.sh` 가 지키는 OS 이음매 전용 경계다.
+
+**죽은 코드·거짓 주석** — `[conpty] sizeof` 디버그 로그 · 쓰지 않는 `done` 채널과
+`cols`/`rows` 인자 · 미사용 `type slot` · D7 이후 도달 불가가 된 403 갈래 3곳 ·
+`core/doc.go` 가 "파괴적 경로가 없다" 고 단언하는데 `ExecWrite` 를 밖에서 28곳이
+부른다(보안 경계를 잘못 읽게 하는 문장).
+
+### 7.2 동작이 바뀐 것 — 인수인계 필수
+
+| 이전 | 이후 | 이유 |
+|---|---|---|
+| 기록에 `https://user:***@h` | `https://***@h` | `user` 자리가 토큰인 형태가 흔하고 구분 불가. FR-GIT-104/V43 에 더 부합. 사용자명 보존을 요구하는 조항은 없음을 확인 |
+| `a/b` 같은 원격 이름이 fetch·tag 에서 통과 | 실행 전 400 거부 | 엄격한 검사가 push 에만 걸려 있었다 |
+| `migrate` 가 대상 없어도 파일 재작성 | 바이트 단위 보존 | — |
+| `stop` 이 못 죽여도 ✅ + rc=0 | ❌ + rc=1, pidfile 보존 | 살아 있는 데몬의 pidfile 을 지우면 고아가 된다 |
+
+**주의**: 원격 이름 검사의 에러는 `ErrRemoteName` **과** `core.ErrRefName` 을
+이중 `%w` 로 감싼다. 하나만 감싸면 `gitapi` 의 `errors.Is(err, core.ErrRefName)` 가
+빗나가 **잘못된 요청이 400 이 아니라 500** 이 된다. 실증했다.
+
+### 7.3 감사에서 나왔지만 **손대지 않은 것**
+
+증거가 없거나 범위 밖이라 열어 둔다.
+
+- `toolhub/tool.go` 의 이름 없는 중복 리터럴 — 120×40(2곳), 8192(3곳),
+  50ms(FR-XPT-3 계약값), `"bin"`(5곳), `TERM=xterm-256color`(2곳)
+- `kill()` 이 `Close`/`Terminate`/`Kill` 오류 셋을 근거 주석 없이 버린다
+- 이관 뒤 낡은 주석 5건 (`tool.go:605,632,664,785`, `runtime/install.go:4-8`)
+- `procinfo.go` 의 `newLinuxProcInfo` 미사용 경고
+- `pty_windows.go` 의 `Close` 후 닫힌 HPCON 을 `Resize` 가 만질 수 있음
+- `WINDOWS_TEST_PARITY_SRS §10.4` 의 R-5(Windows 의 경로 동일성은 문자열
+  동일성이 아니다 — 대소문자·8.3 짧은 이름)와 R-6(예약 파일명)
+
+### 7.4 사고 기록
+
+수정 에이전트가 RED 를 확인하던 중, 주입점이 생기기 전이라 **개발 호스트의 실제
+pid 4242 에 SIGTERM/SIGKILL 이 나갔다.** 지시에 "실제 프로세스를 건드리지 않을
+방법을 먼저 확보하라" 가 빠진 것이 원인이다. 지금은 `procCtl` 이음매를 경유하므로
+재발하지 않는다. **서브에이전트에 프로세스·파일시스템을 만지는 일을 시킬 때는
+격리 수단을 먼저 지시하라.**
