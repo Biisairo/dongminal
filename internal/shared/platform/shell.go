@@ -14,6 +14,11 @@ type ShellSpec struct {
 
 // ShellProvider 는 대화형 셸의 선택과 훅 주입 방식이다.
 type ShellProvider interface {
+	// EchoCommand 는 text 한 줄을 내보내고 끝나는 명령의 argv 다. 대화형이
+	// 아니므로 프롬프트도 입력도 필요 없다 — 의사 터미널의 배관만 시험하는
+	// 자리에 쓴다.
+	EchoCommand(text string) []string
+
 	// Shell 은 이 호스트의 대화형 셸 명세를 낸다. binDir 은 헬퍼와 훅이
 	// 설치된 곳이며, 훅 주입 환경변수가 이 경로를 참조한다.
 	Shell(binDir string) ShellSpec
@@ -54,6 +59,10 @@ type posixShell struct {
 }
 
 func (s posixShell) HookRoot() string { return PosixHookRoot }
+
+func (s posixShell) EchoCommand(text string) []string {
+	return []string{s.pick(), "-c", "echo " + text}
+}
 
 func (s posixShell) Shell(binDir string) ShellSpec {
 	path := s.pick()
@@ -109,6 +118,16 @@ type windowsShell struct {
 }
 
 func (s windowsShell) HookRoot() string { return WindowsHookRoot }
+
+// cmd.exe 를 쓰는 이유는 가장 얇기 때문이다. PowerShell 은 시작에 초가 걸려
+// 배관 문제와 기동 지연이 섞인다.
+func (s windowsShell) EchoCommand(text string) []string {
+	comspec := s.env("ComSpec")
+	if comspec == "" {
+		comspec = "cmd.exe"
+	}
+	return []string{comspec, "/c", "echo " + text}
+}
 
 func (s windowsShell) Shell(binDir string) ShellSpec {
 	path := s.pick()

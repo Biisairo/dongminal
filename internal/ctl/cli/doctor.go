@@ -220,6 +220,12 @@ func doctorShell(r *doctorReport, p platform.Platform, binDir string) {
 // 한 단계도 좁힐 수 없다.
 func doctorTerminal(r *doctorReport, p platform.Platform, binDir, home string) {
 	r.section("의사 터미널 (PTY/ConPTY)")
+
+	// 셸을 빼고 배관부터 본다. 입력도 프롬프트도 필요 없는 단순 명령이
+	// ConPTY 로 흘러나오는지가 가장 아래 질문이다 — 이게 안 되면 셸·입력
+	// 타이밍을 아무리 만져도 소용없다.
+	doctorProbePlainCommand(r, p, home)
+
 	spec := p.Shell.Shell(binDir)
 
 	bare := doctorProbeTerminal(r, p, "맨 셸", platform.ShellSpec{Path: spec.Path}, home)
@@ -234,6 +240,47 @@ func doctorTerminal(r *doctorReport, p platform.Platform, binDir, home string) {
 			r.info("훅 인자: %s", a)
 		}
 	}
+}
+
+// doctorProbePlainCommand 는 **입력 없이** 한 줄을 출력하고 끝나는 명령을
+// 의사 터미널에 띄운다. 셸·프롬프트·입력 타이밍이 모두 빠지므로, 실패하면
+// 원인은 의사 터미널의 배관 그 자체다.
+func doctorProbePlainCommand(r *doctorReport, p platform.Platform, home string) {
+	const marker = "dongminal-plain-ok"
+	spec := p.Shell.EchoCommand(marker)
+	if len(spec) == 0 {
+		return
+	}
+	term, err := p.PTY.Start(platform.ProcSpec{
+		Path: spec[0], Args: spec, Env: os.Environ(), Dir: home,
+	}, doctorProbeCols, doctorProbeRows)
+	if err != nil {
+		r.bad("[단순 명령] 기동 실패: %v", err)
+		return
+	}
+	defer func() {
+		term.Kill()
+		term.Close()
+	}()
+
+	var seen strings.Builder
+	deadline := time.Now().Add(doctorProbeTimeout)
+	buf := make([]byte, 4096)
+	for time.Now().Before(deadline) {
+		n, rerr := term.Read(buf)
+		if n > 0 {
+			seen.Write(buf[:n])
+			if strings.Contains(seen.String(), marker) {
+				r.ok("[단순 명령] 출력이 의사 터미널로 나옵니다")
+				return
+			}
+		}
+		if rerr != nil {
+			break
+		}
+	}
+	r.bad("[단순 명령] 출력이 의사 터미널로 나오지 않습니다 (받은 %d바이트) — 배관 문제입니다", seen.Len())
+	r.info("받은 것: %q", doctorTrim(seen.String()))
 }
 
 // doctorProbeTerminal 은 명세 하나로 터미널을 띄워 왕복시킨다.
