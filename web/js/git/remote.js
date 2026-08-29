@@ -53,18 +53,32 @@ class GitRemote {
 
   // ── 골격 ──
 
-  // Changes 탭 골격이 세워진 직후 한 번. 리포가 사라져 골격을 버리면 다시 불린다.
+  /**
+   * 머리 한 벌의 동작 (FR-GHM-3). 머리는 Changes 밖에도 서므로 이 경로는 머리마다
+   * 한 번씩 지난다 — 어느 머리에서 눌러도 같은 `GitRemote` 하나가 받는다.
+   */
+  bindHead(head){
+    if(!head) return;
+    this._addButtons(head);
+    for(const b of head.querySelectorAll('.git-remote-btn'))
+      b.addEventListener('click',()=>this._click(b.dataset.remote));
+    for(const b of head.querySelectorAll('.git-remote-more'))
+      b.addEventListener('click',()=>this._opts(b.dataset.remote));
+    const sync=head.querySelector('.git-remote-sync');
+    if(sync) sync.addEventListener('click',()=>this.sync());
+    const prev=head.querySelector('.git-push-preview');
+    if(prev) prev.addEventListener('click',()=>this.preview());
+  }
+
+  /**
+   * 작업 화면의 동작. Changes 탭 골격이 세워진 직후 한 번이며, 리포가 사라져
+   * 골격을 버리면 다시 불린다.
+   *
+   * FR-GHM-7: 작업 화면은 **Changes 에만** 있다 — 하나의 작업에 화면이 둘이면
+   * 접기·취소 같은 사용자의 뜻이 두 벌이 된다. 머리의 배선은 `bindHead` 다.
+   */
   bind(el){
     if(!el) return;
-    this._addButtons(el);
-    for(const b of el.querySelectorAll('.git-remote-btn'))
-      b.addEventListener('click',()=>this._click(b.dataset.remote));
-    for(const b of el.querySelectorAll('.git-remote-more'))
-      b.addEventListener('click',()=>this._opts(b.dataset.remote));
-    const sync=el.querySelector('.git-remote-sync');
-    if(sync) sync.addEventListener('click',()=>this.sync());
-    const prev=el.querySelector('.git-push-preview');
-    if(prev) prev.addEventListener('click',()=>this.preview());
     const box=el.querySelector('.git-job'); if(!box) return;
     box.querySelector('.git-job-cancel').addEventListener('click',()=>this.cancel());
     box.querySelector('.git-job-copy').addEventListener('click',()=>this._copyLog());
@@ -89,10 +103,9 @@ class GitRemote {
    *
    * **`.git-head-remote` 밖에 둔다** — 안에 넣으면 "원격 버튼 한 벌은 세 쌍" 이라는
    * 기존 단정이 깨진다 (FR-GIT-238 의 새로고침과 같은 이유). 골격을 세우는 것은
-   * `GitPanel._buildChanges` 지만 이 둘은 이 파일의 동작이므로 여기서 붙인다.
+   * `GitPanel.headHTML` 이지만 이 둘은 이 파일의 동작이므로 여기서 붙인다.
    */
-  _addButtons(el){
-    const head=el.querySelector('.git-head');
+  _addButtons(head){
     const host=head&&head.querySelector('.git-head-remote');
     if(!host||head.querySelector('.git-remote-sync')) return;
     for(const d of [
@@ -131,7 +144,6 @@ class GitRemote {
     if(!el) return;
     // 충돌 판정은 새 status 가 도착한 뒤에만 뜻이 있다 (FR-GIT-111).
     if(this._pending) this._checkConflict();
-    this._paintButtons(el);
     this._paintJob(el);
   }
 
@@ -141,6 +153,9 @@ class GitRemote {
   _paint(){
     const el=this.panel._els.get('changes');
     if(el&&el.dataset.built==='1') this.paint(el);
+    // FR-GHM-6: 막힘은 리포의 사실이지 탭의 사실이 아니다 — Changes 만 고치면
+    // History 에서 두 번째 push 를 띄울 수 있다.
+    this.panel.paintHeads();
   }
 
   _why(){
@@ -148,13 +163,15 @@ class GitRemote {
     return this.busy()?GIT_REMOTE_WHY_BUSY:'';
   }
 
-  _paintButtons(el){
+  // 머리 하나의 동작부 (FR-GHM-6). 막힘 사유는 리포의 것이므로 머리가 몇이든 같다.
+  paintHead(head){
+    if(!head) return;
     const why=this._why();
-    for(const b of el.querySelectorAll('.git-remote-btn')){
+    for(const b of head.querySelectorAll('.git-remote-btn')){
       b.disabled=!!why;
       b.title=why||(GIT_REMOTE_TITLE[b.dataset.remote]||'');
     }
-    for(const b of el.querySelectorAll('.git-remote-more')){
+    for(const b of head.querySelectorAll('.git-remote-more')){
       b.disabled=!!why;
       b.title=why||GIT_REMOTE_MORE_TITLE;
     }
@@ -164,7 +181,7 @@ class GitRemote {
       {cls:'.git-remote-sync',title:GIT_SYNC_TITLE},
       {cls:'.git-push-preview',title:GIT_PP_BTN_TITLE},
     ]){
-      const b=el.querySelector(d.cls);
+      const b=head.querySelector(d.cls);
       if(!b) continue;
       b.disabled=!!why;
       b.title=why||d.title;

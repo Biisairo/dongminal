@@ -606,6 +606,9 @@ body.mobile .pn-drop-indicator{display:none !important}
 body.mobile .sbl-item{height:40px;font-size:13px}
 body.mobile .sbl-x{opacity:1;width:24px;height:24px;font-size:14px}
 body.mobile .pn-tab{padding:0 14px;font-size:13px}
+/* FR-GHM-12: Git 창의 고정 탭은 일곱이고 늘거나 줄지 않는다 (FR-GIT-28) — 390px
+   폭에서 일곱이 다 들어가려면 일반 탭의 여백을 쓸 수 없다 */
+body.mobile .pn-tab[data-git-view]{padding:0 6px;font-size:12px}
 body.mobile .pn-tab-x{opacity:1;width:18px;height:18px}
 body.mobile .pn-tab-add{width:32px;font-size:18px}
 body.mobile #add-window,body.mobile #add-preset,body.mobile #settings-btn{padding:8px;font-size:12px}
@@ -711,7 +714,8 @@ body.mobile #add-window,body.mobile #add-preset,body.mobile #settings-btn{paddin
 .git-missing-auto{color:var(--text-dim);font-size:11px;margin-top:2px}
 /* 소실 상태의 Changes 머리는 리포 이름만 싣는다 — 브랜치는 사라진 폴더의 것이라
    지금 참인지 알 수 없다. */
-.git-view.git-changes>.git-head{position:relative;z-index:1}
+/* FR-GHM-3: History 도 같은 머리를 실으므로 쌓임 순서도 같다. */
+.git-view.git-changes>.git-head,.git-view.git-history>.git-head{position:relative;z-index:1}
 
 /* ── Git Changes 탭 (FR-GIT-32~42) ── */
 /* FR-GIT-39: .git-head·.git-commit 은 flex:0 0 auto 로 고정되고 본문만 늘어난다.
@@ -722,8 +726,12 @@ body.mobile #add-window,body.mobile #add-preset,body.mobile #settings-btn{paddin
 .git-head,.git-commit,.git-stale-note,.git-partial-note,.git-op-bar{flex:0 0 auto}
 .git-changes-body{flex:1 1 auto;min-height:0;display:flex}
 
+/* FR-GHM-9: 폭이 모자라면 **잘리지 않고 줄바꿈한다**. 모바일 전용이 아니다 —
+   분할 칸에 놓인 좁은 Git 창도 같은 문제를 겪는다.
+   FR-GHM-1: 여백(.git-head-spacer)은 동작부 뒤에 있으므로 버튼은 정보부 바로
+   뒤에 모인다 — 자리는 마크업(GitPanel.headHTML)이 정한다. */
 .git-head{
-  display:flex;align-items:center;gap:8px;padding:6px 10px;
+  display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:6px 10px;
   border-bottom:1px solid var(--border);font-size:12px;
 }
 .git-head-repo{color:var(--text-bright);font-weight:500;white-space:nowrap;cursor:pointer}
@@ -765,6 +773,19 @@ body.mobile #add-window,body.mobile #add-preset,body.mobile #settings-btn{paddin
    보이지 않게 사이를 벌린다 */
 .git-head-refresh{flex-shrink:0;margin-right:6px}
 .git-head-refresh:hover:not(:disabled){background:var(--accent-hover);color:var(--accent)}
+
+/* ── 좁은 폭의 머리 (FR-GHM-10·11) ── */
+/* 줄바꿈한 머리에서 여백은 뜻이 없다 — 마지막 줄의 남은 자리를 다시 먹기만 한다 */
+body.mobile .git-head-spacer{display:none}
+body.mobile .git-head{gap:6px;padding:6px 8px}
+body.mobile .git-head-remote{gap:2px}
+/* 손가락이 닿을 크기. 라벨을 지우지 않는다 — 아이콘만 남기면 무엇을 누르는지
+   읽히지 않는다 (원격 동작은 되돌리기 어렵다) */
+body.mobile .git-remote-btn,body.mobile .git-remote-more,
+body.mobile .git-head-refresh,body.mobile .git-remote-sync,body.mobile .git-push-preview{
+  min-height:28px;
+}
+body.mobile .git-head-refresh{margin-right:2px;min-width:30px}
 
 /* ── 원격 작업 하나의 화면 (FR-GIT-102·103·105·108) ── */
 .git-job{display:none;flex:0 0 auto;flex-direction:column;border-bottom:1px solid var(--border)}

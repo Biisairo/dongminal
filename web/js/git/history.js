@@ -97,6 +97,9 @@ class GitHistory {
     if(!el) return;
     this._el=el;
     el.innerHTML=
+      // FR-GHM-3: Changes 와 **같은 머리**다. 마크업도 배선도 GitPanel 이 한 자리에서
+      // 만든다 — History 가 자기 것을 만들면 두 탭의 머리가 갈린다.
+      GitPanel.headHTML()+
       '<div class="git-hist-bar">'+
         '<span class="git-hist-search-box">'+
           '<input class="git-hist-search" type="text">'+
@@ -129,6 +132,7 @@ class GitHistory {
         '<span class="git-hist-loaded" data-n="0"></span>'+
         '<span class="git-hist-state"></span>'+
       '</div>';
+    this.panel._wireHead(el);
     this._list=el.querySelector('.git-hist-list');
     this._spTop=el.querySelector('.git-hist-sp-top');
     this._spBot=el.querySelector('.git-hist-sp-bot');

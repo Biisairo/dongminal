@@ -336,10 +336,71 @@ class GitPanel {
     // History 는 status 에서 미커밋 변경 행만 딛는다 (FR-GIT-127) — 목록 전체를
     // 폴링마다 다시 그리면 스크롤이 매초 흔들린다.
     if(this._historyView) this._historyView.paintStatus();
+    // FR-GHM-5: History 의 머리는 그 걸러내기에 업힐 수 없다 — `paintStatus` 는
+    // 미커밋 개수와 HEAD 만 근거로 삼으므로 브랜치가 그대로인 채 ahead 만 바뀌면
+    // 되돌아가고, 그러면 머리의 ↑↓ 가 Changes 와 어긋난다.
+    const h=this._els.get('history'); if(h) this._paintHeadIn(h);
     // Branches 는 현재 브랜치만, Stash 는 "담을 것이 있는지" 만 딛는다
     // (FR-GIT-152·167).
     if(this._branchesView) this._branchesView.paintStatus();
     if(this._stashView) this._stashView.paintStatus();
+  }
+
+  // ── 머리 (FR-GHM-1~8) ──
+
+  /**
+   * 머리 한 벌의 마크업. **만드는 자리는 여기 하나다** (FR-GHM-4) — 두 벌로 두면
+   * 한쪽에만 버튼이 늘어나고, 그 어긋남은 탭을 바꿔야 보인다.
+   *
+   * FR-GHM-1: 여백은 **동작부 뒤**다. 앞에 두면 버튼이 오른쪽 끝으로 밀린다.
+   */
+  static headHTML(){
+    return '<div class="git-head">'+
+      '<span class="git-head-repo"></span><span class="git-head-branch"></span>'+
+      '<span class="git-head-badges"></span><span class="git-head-ab"></span>'+
+      // FR-GIT-238: 새로고침. **`.git-head-remote` 밖**에 둔다 — 안에 넣으면 원격
+      // 버튼을 세는 기존 단정이 깨진다.
+      '<button class="git-head-refresh"></button>'+
+      // 원격 버튼은 기본 동작만 하고 변형은 `▾` 다이얼로그에서 온다
+      // (FR-GIT-98·99). 동작은 GitRemote 가 붙인다.
+      '<span class="git-head-remote">'+GIT_REMOTE_KINDS.map(k=>
+        '<button class="git-remote-btn" data-remote="'+k+'" disabled></button>'+
+        '<button class="git-remote-more" data-remote="'+k+'" disabled></button>'
+      ).join('')+'</span>'+
+      '<span class="git-head-spacer"></span>'+
+    '</div>';
+  }
+
+  /**
+   * 머리 하나에 라벨과 동작을 붙인다 (FR-GHM-3·4). 골격이 세워질 때마다 한 번이며,
+   * 뷰가 무엇이든 같은 것을 붙인다 — 머리가 같으면 동작도 같아야 한다.
+   */
+  _wireHead(el){
+    const head=el&&el.querySelector('.git-head'); if(!head) return;
+    for(const b of head.querySelectorAll('.git-remote-btn'))
+      b.textContent=GIT_REMOTE_LABEL[b.dataset.remote]||'';
+    for(const b of head.querySelectorAll('.git-remote-more')) b.textContent=GIT_REMOTE_MORE;
+    const rf=head.querySelector('.git-head-refresh');
+    rf.textContent=GIT_REFRESH_LABEL; rf.title=GIT_REFRESH_TITLE;
+    rf.addEventListener('click',()=>this.refresh());
+    // FR-GIT-282: 리포명 자체가 전환 자리다. 헤더에 새 버튼을 더하면 원격 버튼을
+    // 세는 기존 단정이 흔들린다 (.git-head-refresh 가 밖에 선 것과 같은 이유).
+    head.querySelector('.git-head-repo').addEventListener('click',ev=>this._openRepoPicker(ev));
+    this._remote().bindHead(head);
+  }
+
+  // 머리 하나를 칠한다 (FR-GHM-5·6). 머리가 없는 뷰에서는 아무것도 하지 않는다 —
+  // 부르는 쪽이 뷰마다 판별하면 뷰가 늘 때 한 곳이 빠진다.
+  _paintHeadIn(el){
+    const head=el&&el.querySelector('.git-head'); if(!head) return;
+    this._paintHead(el,this._status&&this._status.status);
+    this._remote().paintHead(head);
+  }
+
+  // 머리를 실은 뷰 전부. 목록을 따로 적지 않는다 — 머리가 있는 뷰가 곧 대상이다.
+  paintHeads(){
+    for(const el of this._els.values())
+      if(el.dataset.built==='1') this._paintHeadIn(el);
   }
 
   // FR-GIT-39: .git-head·.git-commit 은 flex:0 0 auto 이고 목록 스크롤은
@@ -347,20 +408,7 @@ class GitPanel {
   // 실패다 — 구조가 그것을 보장한다.
   _buildChanges(el){
     el.innerHTML=
-      '<div class="git-head">'+
-        '<span class="git-head-repo"></span><span class="git-head-branch"></span>'+
-        '<span class="git-head-badges"></span><span class="git-head-ab"></span>'+
-        '<span class="git-head-spacer"></span>'+
-        // FR-GIT-238: 새로고침. **`.git-head-remote` 밖**에 둔다 — 안에 넣으면 원격
-        // 버튼을 세는 기존 단정이 깨진다.
-        '<button class="git-head-refresh"></button>'+
-        // 원격 버튼은 기본 동작만 하고 변형은 `▾` 다이얼로그에서 온다
-        // (FR-GIT-98·99). 동작은 GitRemote 가 붙인다.
-        '<span class="git-head-remote">'+GIT_REMOTE_KINDS.map(k=>
-          '<button class="git-remote-btn" data-remote="'+k+'" disabled></button>'+
-          '<button class="git-remote-more" data-remote="'+k+'" disabled></button>'
-        ).join('')+'</span>'+
-      '</div>'+
+      GitPanel.headHTML()+
       // 안쪽은 GitCommit 이 채운다 (FR-GIT-74~85). 자리와 고정 성질은 여기 있다.
       '<div class="git-commit"></div>'+
       // 원격 작업 하나의 화면 (FR-GIT-102·103·105·108). 진행 중이 아니면 접힌다.
@@ -415,9 +463,7 @@ class GitPanel {
         '</div>'+
         '<div class="git-preview"></div>'+
       '</div>';
-    for(const b of el.querySelectorAll('.git-remote-btn'))
-      b.textContent=GIT_REMOTE_LABEL[b.dataset.remote]||'';
-    for(const b of el.querySelectorAll('.git-remote-more')) b.textContent=GIT_REMOTE_MORE;
+    this._wireHead(el);
     for(const b of el.querySelectorAll('.git-job-cancel')) b.textContent=GIT_JOB_CANCEL;
     el.querySelector('.git-job-copy').textContent=GIT_JOB_COPY;
     el.querySelector('.git-job-close').textContent=GIT_JOB_CLOSE;
@@ -430,12 +476,6 @@ class GitPanel {
       b.title=GIT_OP_ACT_TITLE[b.dataset.act]||'';
       b.addEventListener('click',()=>this.runOperation(b.dataset.act));
     }
-    const rf=el.querySelector('.git-head-refresh');
-    rf.textContent=GIT_REFRESH_LABEL; rf.title=GIT_REFRESH_TITLE;
-    rf.addEventListener('click',()=>this.refresh());
-    // FR-GIT-282: 리포명 자체가 전환 자리다. 헤더에 새 버튼을 더하면 원격 버튼을
-    // 세는 기존 단정이 흔들린다 (.git-head-refresh 가 밖에 선 것과 같은 이유).
-    el.querySelector('.git-head-repo').addEventListener('click',ev=>this._openRepoPicker(ev));
     const files=el.querySelector('.git-files');
     for(const g of GIT_GROUPS){
       const d=document.createElement('div'); d.className='git-group'; d.dataset.group=g.key;
@@ -476,7 +516,7 @@ class GitPanel {
 
   _paintChanges(el){
     const s=this._status&&this._status.status;
-    this._paintHead(el,s);
+    this._paintHeadIn(el);
     const note=el.querySelector('.git-stale-note');
     const loading=!s&&!this._errMsg&&!this._staleNote;
     note.textContent=this._errMsg||(this._staleNote?GIT_STALE_NOTE:(loading?GIT_LOADING_HINT:''));
@@ -867,6 +907,9 @@ class GitPanel {
     }
     if(el.dataset.built!=='1'){this._history().mount(el);el.dataset.built='1'}
     this._history().paint();
+    // FR-GHM-3·5: 머리는 History 의 것이 아니라 관측의 것이다 — GitHistory 는
+    // 자리만 내주고 칠하기는 여기서 한다.
+    this._paintHeadIn(el);
   }
 
   // ── Branches 탭 (FR-GIT-147~160) ──
