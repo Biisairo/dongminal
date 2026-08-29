@@ -79,10 +79,25 @@ func (windowsProcess) ShutdownSignals() []os.Signal {
 	return []os.Signal{os.Interrupt}
 }
 
-// Detach 는 콘솔을 떼고 자기 프로세스 그룹을 갖게 한다. POSIX 의 Setsid 에
-// 대응한다 — 부모의 콘솔이 닫혀도 이 프로세스는 살아남는다.
+// Detach 는 부모와 수명을 끊는다. POSIX 의 Setsid 에 대응한다 — 부모가 죽어도
+// 이 프로세스는 살아남는다.
+//
+// **DETACHED_PROCESS 가 아니라 CREATE_NO_WINDOW 다.** 둘 다 창을 띄우지 않지만
+// 뜻이 다르다.
+//
+//	DETACHED_PROCESS  콘솔을 **아예 만들지 않는다**
+//	CREATE_NO_WINDOW  **새 콘솔**을 만들되 창을 띄우지 않는다
+//
+// 이 차이가 실기에서 드러났다. DETACHED_PROCESS 로 띄운 데몬 안에서
+// CreatePseudoConsole 은 성공하고 초기 시퀀스(16바이트)까지 내보내지만,
+// **거기 붙은 셸의 출력이 한 바이트도 나오지 않는다.** 콘솔이 있는
+// 프로세스에서는 같은 코드가 정상 동작한다 (doctor 의 도구 검사 266바이트).
+//
+// 새 콘솔이므로 부모의 콘솔이 닫혀도 이 프로세스에는 닿지 않는다 — 끊어 띄운다는
+// 목적은 그대로 지켜진다. CREATE_NEW_PROCESS_GROUP 을 함께 주어 Ctrl+C 가
+// 부모에게서 전파되지 않게 한다.
 func (windowsProcess) Detach(cmd *exec.Cmd) {
-	sysProcAttr(cmd).CreationFlags |= windows.DETACHED_PROCESS | windows.CREATE_NEW_PROCESS_GROUP
+	sysProcAttr(cmd).CreationFlags |= windows.CREATE_NO_WINDOW | windows.CREATE_NEW_PROCESS_GROUP
 }
 
 // NewGroup 은 Job Object 를 만들고, 자식을 **중단된 채로** 띄우도록 준비한다.

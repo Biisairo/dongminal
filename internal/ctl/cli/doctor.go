@@ -31,6 +31,9 @@ const (
 	// CreatePseudoConsole 이 E_INVALIDARG 로 실패한다.
 	doctorProbeCols = 80
 	doctorProbeRows = 24
+	// doctorDetachedWait 은 콘솔 없는 자식의 결과를 기다리는 상한이다. 자식이
+	// 스스로 doctorProbeTimeout 을 걸고 결과를 쓰므로 그보다 넉넉해야 한다.
+	doctorDetachedWait = doctorProbeTimeout + 10*time.Second
 )
 
 type doctorReport struct {
@@ -500,6 +503,7 @@ func doctorDetached(r *doctorReport, p platform.Platform, home string) {
 	out := filepath.Join(home, "doctor-probe.txt")
 	_ = os.Remove(out)
 
+	r.info("서버와 같은 방식으로 자식을 띄우고 최대 %s 기다립니다...", doctorDetachedWait)
 	cmd := exec.Command(exe, "doctor", "--home", home, "--probe-pty", out)
 	cmd.Env = os.Environ()
 	// 서버·데몬과 똑같이 부모와 끊어 띄운다.
@@ -509,7 +513,7 @@ func doctorDetached(r *doctorReport, p platform.Platform, home string) {
 		return
 	}
 
-	deadline := time.Now().Add(doctorProbeTimeout + 10*time.Second)
+	deadline := time.Now().Add(doctorDetachedWait)
 	for time.Now().Before(deadline) {
 		if blob, err := os.ReadFile(out); err == nil && len(blob) > 0 {
 			_ = os.Remove(out)
@@ -528,7 +532,10 @@ func doctorDetached(r *doctorReport, p platform.Platform, home string) {
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
-	r.bad("프로브가 결과를 남기지 않았습니다 (콘솔 없이 죽었을 수 있습니다)")
+	// 결과 파일조차 없으면 자식이 결과를 쓰기 전에 막힌 것이다. 콘솔 없는
+	// 프로세스에서 의사 터미널의 읽기가 돌아오지 않는 경우가 여기 해당한다.
+	_ = cmd.Process.Kill()
+	r.bad("콘솔 없는 프로세스에서 %s 안에 결과가 나오지 않았습니다 — 서버의 조건입니다", doctorDetachedWait)
 	r.info("프로브 출력 자리: %s", out)
 }
 
@@ -558,13 +565,13 @@ func runPTYProbe(path string, p platform.Platform, home string) int {
 	got, rerr := doctorRoundTrip(term, "echo "+marker+"\r\n", marker, doctorProbeTimeout)
 	switch {
 	case rerr != nil:
-		fmt.Fprintf(&b, "FAIL 출력 읽기: %v\n", rerr)
+		fmt.Fprintf(&b, "FAIL 출력 읽기: %v (받은 바이트 %d)\n", rerr, len(got))
 		fmt.Fprintf(&b, "받은 것: %q\n", doctorTrim(got))
 	case !strings.Contains(got, marker):
-		fmt.Fprintf(&b, "FAIL 왕복 실패\n")
+		fmt.Fprintf(&b, "FAIL 왕복 실패 (받은 바이트 %d)\n", len(got))
 		fmt.Fprintf(&b, "받은 것: %q\n", doctorTrim(got))
 	default:
-		fmt.Fprintf(&b, "OK pid=%d\n", term.PID())
+		fmt.Fprintf(&b, "OK pid=%d 받은 바이트 %d\n", term.PID(), len(got))
 	}
 	_ = os.WriteFile(path, []byte(b.String()), 0o644)
 	if strings.HasPrefix(b.String(), "OK") {
