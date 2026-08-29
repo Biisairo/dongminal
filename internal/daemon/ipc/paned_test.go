@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"dongminal/internal/shared/platform"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // toolTempDir 는 ToolManager 의 데이터 디렉터리를 내주되, **비동기 기록이 멎은
@@ -365,6 +367,13 @@ func TestPanedListenRemovesStaleSocket(t *testing.T) {
 // 고정한다 (FR-TAN-7). 이름만을 위한 새 method 를 만들지 않는다 — 기존 도구
 // 목록에 편승한다 (FR-TAN-8, NFR-CNV-2).
 func TestPanedListCarriesForegroundName(t *testing.T) {
+	// 전경 프로세스 그룹은 POSIX 에만 있다 (FR-XPT-5 — Windows 의
+	// ForegroundPGID 는 (0,false) 고정). 건너뛴 사실이 출력에 남도록
+	// 빌드 태그가 아니라 Skip 으로 적는다 (FR-WTP-32).
+	if !testpath.ForegroundGroups() {
+		t.Skip("전경 프로세스 그룹이 없는 OS 다 — 붙일 이름이라는 개념이 없다")
+	}
+
 	t.Setenv("SHELL", "/bin/sh")
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
 	tl, err := pm.Create(t.TempDir(), 80, 24)

@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 파일 전송 (FILE_TRANSFER_SRS §3.1·3.2·3.4·3.5, V-FTR-1~7·11·13).
@@ -303,7 +305,9 @@ func TestCwd_Source(t *testing.T) {
 		t.Fatalf("body=%q want source=server", body)
 	}
 	wd, _ := os.Getwd()
-	if !strings.Contains(rec.Body.String(), wd) {
+	// 응답은 JSON 이다 — 경로를 날것으로 찾으면 Windows 의 백슬래시가
+	// 이스케이프돼 있어 어긋난다 (FR-WTP-20).
+	if !strings.Contains(rec.Body.String(), jsonInner(wd)) {
 		t.Fatalf("폴백이 사라졌다 — 소비자 넷이 이것을 딛는다: %q", rec.Body.String())
 	}
 }
@@ -320,5 +324,41 @@ func TestUpload_UniquePathKept(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "dup (1).txt")); err != nil {
 		t.Fatalf("자동 개명이 사라졌다: %v", err)
+	}
+}
+
+// FR-WTP-7 (D7): 전송 종단의 베이스 "/" 는 **제한 없음**을 뜻한다.
+//
+// 이 갈래가 없으면 Windows 에서 filepath.Rel("/", `C:\x`) 이 볼륨 불일치로
+// 오류를 내고, 그 오류가 403 forbidden 이 되어 업로드·다운로드가 한 건도
+// 되지 않았다. 실제로 그랬다 — 그 잡이 한 번도 초록이 아니어서 안 보였다.
+func TestSafeResolve_RootBaseImposesNoLimit(t *testing.T) {
+	for _, base := range []string{"/", testpath.Root()} {
+		for _, p := range []string{
+			testpath.Abs("x", "y.txt"),
+			testpath.Abs("tmp"),
+			testpath.Root(),
+		} {
+			got, err := safeResolve(base, p)
+			if err != nil {
+				t.Errorf("safeResolve(%q, %q): %v — 루트 베이스는 막지 않아야 한다", base, p, err)
+				continue
+			}
+			if want := filepath.Clean(p); got != want {
+				t.Errorf("safeResolve(%q, %q) = %q, want %q", base, p, got, want)
+			}
+		}
+	}
+}
+
+// 반대쪽은 그대로다 — 루트가 아닌 베이스는 여전히 이탈을 막는다.
+func TestSafeResolve_NonRootBaseStillGuards(t *testing.T) {
+	base := testpath.Abs("srv", "app")
+	if _, err := safeResolve(base, testpath.Abs("srv", "other", "f.txt")); err == nil {
+		t.Fatal("베이스 밖 경로를 통과시켰다")
+	}
+	inside := filepath.Join(base, "f.txt")
+	if got, err := safeResolve(base, inside); err != nil || got != inside {
+		t.Fatalf("safeResolve(%q, %q) = %q, %v", base, inside, got, err)
 	}
 }

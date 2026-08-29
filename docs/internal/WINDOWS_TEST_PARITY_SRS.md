@@ -172,6 +172,33 @@ Windows 의 git 은 `C:/Users/...` 를 준다. 소비처는 OS 형태를 기대�
 이 검사는 CROSS_PLATFORM_SRS FR-XBD-3 이 세운 불변식("OS 의존 호출은 platform
 안에만")의 유일한 집행 수단이다. 구멍이 있으면 불변식이 아니라 권고다.
 
+#### D5 · git 출력 경로가 정규화 없이 나가는 자리가 두 곳 더 있다
+
+D3 을 고친 뒤 §6 단계 6(잔여 재판정)에서 나왔다. 같은 결함이 두 곳 더 있다.
+
+    internal/webserver/domain/git/core/repo.go   RepoRoot
+    internal/webserver/domain/worktree/worktree.go   Manager.Resolve
+
+둘 다 `rev-parse --show-toplevel` 의 출력을 그대로 돌려준다. 그 값의 행선지가
+D3 보다 넓다 — 저장소 상태 캐시의 키(`store.go:208`), 핀 경로와의 대칭 판정
+(`wsentry.isRepoRoot`), 그리고 API 응답이다.
+
+`wsentry.isRepoRoot` 는 `NormalizePath` 가 `filepath.Clean` 을 하므로 우연히
+살아 있었다. 나머지는 아니다.
+
+#### D6 · 훅이 가리키는 헬퍼 경로에 확장자가 없다
+
+`internal/shared/runtime/install.go`
+
+설치는 헬퍼를 `name + paths.ExeSuffix()` 로 깐다(`install.go:59`) — Windows 에서
+`dmctl.exe` 다. 그런데 훅 파일에 적는 명령은 `filepath.Join(binDir, "dmctl")`
+이었다(`:170`, `:192`). 실재하지 않는 경로를 가리킨다.
+
+`cmd` 의 PATHEXT 해석이 이것을 가려 줄 수는 있다 — 확장자 없는 절대경로에
+`.exe` 를 붙여 찾아 준다. 그러나 그것은 **훅을 무엇이 실행하느냐에 달린 우연**
+이고, 같은 이름을 두 곳에서 다르게 만드는 것 자체가 결함이다. 한 규칙
+(`dmctlPath`)으로 모은다.
+
 ### 2.4 원인 ⑤ — `/proc` 은 언제나 POSIX 경로다
 
 `internal/shared/platform/procinfo.go:246` 이 `filepath.Join(procRoot, elem...)`
@@ -209,6 +236,22 @@ CROSS_PLATFORM_SRS §4.2 가 내세운 "리눅스 `/proc` 파싱까지 다른 OS
 **FR-WTP-4.** `scripts/check-seams.sh` 는 `os.FindProcess`·`syscall.Signal(`
 을 금지 패턴에 넣는다.
 *검증:* D1 을 되돌린 상태에서 검사가 실패한다(검출기의 자기 검증).
+
+**FR-WTP-5.** `RepoRoot`·`Resolve` 도 `parseWorktreeList` 와 같은 규칙을 따른다
+— git 출력 경로는 그 함수 밖으로 OS 형태로만 나간다 (D5).
+*검증:* `TestRepoRoot` 의 "정규형이 아닌 출력" 케이스. 이 케이스는 darwin 에서도
+변별한다(`/a/b/sub/..` ≠ `/a/b`).
+
+**FR-WTP-6.** 설치가 만드는 헬퍼의 이름과, 훅 파일이 그 헬퍼를 가리키는 이름은
+**한 함수에서 나온다** (D6).
+*검증:* `TestInstallAgentPlugin_Hooks`·`TestInstallAgentHooks_Activity` 가 훅
+원문에서 `dmctlPath(binDir)` 를 찾는다.
+
+**NFR-WTP-5.** 회귀 테스트의 변별력은 정직하게 적는다. D1·D2·D6 의 테스트는
+**Windows 에서만 변별한다** — 그 결함들이 Windows 에만 나타나기 때문이다.
+darwin 에서는 고치기 전에도 통과한다. 따라서 이들의 실질적 회귀 방어는
+`test (windows-latest)` 잡이 초록으로 유지되는 것이며(NFR-WTP-2), 그것이 이
+트랙이 그 잡에 집착하는 이유다. D3·D5 는 darwin 에서도 변별한다.
 
 **NFR-WTP-1.** D1~D3 의 수정은 각각 **회귀 테스트를 동반한다.** 테스트 없이 고친
 결함은 다음에 같은 자리로 돌아온다.
@@ -255,8 +298,23 @@ Windows 에서 현재 볼륨의 루트(`C:\`)를 준다. 분기가 필요 없다
 | `install_test.go` 의 헬퍼 심링크·bash/zsh 훅 | POSIX 심링크·POSIX 셸 |
 
 **FR-WTP-31.** 한 파일에 POSIX 전용과 이식 가능한 테스트가 섞여 있으면 **전용
-쪽만** `_posix_test.go` 로 분리한다. 파일 전체에 태그를 달아 이식 가능한 테스트
-까지 Windows 에서 빼지 않는다.
+쪽만** 갈라낸다. 파일 전체에 태그를 달아 이식 가능한 테스트까지 Windows 에서
+빼지 않는다. 가르는 수단은 둘이고, 고르는 기준이 있다.
+
+| 상황 | 수단 |
+|---|---|
+| 파일 전체가 POSIX 전용 개념이다 | 파일에 `//go:build !windows` |
+| 이식 가능한 파일 안의 테스트 하나·둘 | `_posix_test.go` 로 옮기거나, **능력 질의 + `t.Skip`** |
+| 이식 가능한 테스트 **안의 단언 하나** | 능력 질의로 감싼다 |
+
+**능력 질의를 쓸 때는 OS 가 아니라 능력의 이름으로 묻는다** —
+`testpath.PermChecked()`, `testpath.ForegroundGroups()`. `runtime.GOOS` 분기는
+`check-seams.sh` 가 금지하며(FR-XBD-3), 그 취지는 테스트에도 그대로 적용된다.
+
+`t.Skip` 을 태그보다 나은 선택으로 보는 경우가 있다: **건너뛴 사실이 테스트
+출력에 남는다.** 빌드 태그로 뺀 것은 조용히 사라져 FR-WTP-32 의 "기록" 을
+사람의 성실성에 맡기게 된다. 옮기는 비용(임포트 재배치)이 사유를 적는 값어치를
+넘으면 `t.Skip` 을 쓴다.
 
 **FR-WTP-32.** 태그로 뺀 것은 **Windows 에 대응물이 있는지 확인한다.** 없으면
 그 사실을 §7 에 기록한다 — 조용히 빠진 보증은 빠진 줄도 모른다.

@@ -33,3 +33,10 @@ func jsonQ(s string) string {
 var (
 	qRepo = jsonQ(absRepo)
 )
+
+// jsonInner 는 값이 **JSON 안에 적혔을 때의 모습**이다 — 바깥 따옴표는 뺀다.
+// 응답 원문에서 경로를 찾을 때 날것으로 대조하면 Windows 에서 언제나 어긋난다.
+func jsonInner(s string) string {
+	q := jsonQ(s)
+	return q[1 : len(q)-1]
+}

@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"dongminal/internal/shared/platform"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // ── ToolClient tests ────────────────────────────────────────────────────
@@ -381,6 +383,13 @@ func allToolIDs(dataDir string) map[string]struct{} {
 // 직접 비교한다: pm.List()가 direct 모드가 보는 것이고, pc.List()가 데몬 모드가
 // 소켓 너머로 받는 것이다.
 func TestToolClientForegroundNameOverIPC(t *testing.T) {
+	// 전경 프로세스 그룹은 POSIX 에만 있다 (FR-XPT-5 — Windows 의
+	// ForegroundPGID 는 (0,false) 고정). 건너뛴 사실이 출력에 남도록
+	// 빌드 태그가 아니라 Skip 으로 적는다 (FR-WTP-32).
+	if !testpath.ForegroundGroups() {
+		t.Skip("전경 프로세스 그룹이 없는 OS 다 — 붙일 이름이라는 개념이 없다")
+	}
+
 	t.Setenv("SHELL", "/bin/sh")
 	d := t.TempDir()
 	sockPath := d + "/s"

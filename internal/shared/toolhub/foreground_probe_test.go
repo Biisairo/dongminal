@@ -1,3 +1,15 @@
+//go:build !windows
+
+// 전경 프로세스 그룹은 **POSIX 에만 있는 개념**이다 (CROSS_PLATFORM_SRS
+// FR-XPT-5 — Windows 의 ForegroundPGID 는 (0,false)로 고정이다). 이 파일은
+// 그 개념 자체를 검증하므로 Windows 에서 돌 자리가 없다
+// (WINDOWS_TEST_PARITY_SRS FR-WTP-30).
+//
+// TestProcNamesBatch 도 여기 있다 — pid 1 이 존재한다는 전제를 쓴다.
+//
+// FR-WTP-32 — Windows 가 이 조건에서 잃는 보증: 전경 이름 산출 전량. 대응물은
+// 없다. 그 플랫폼에서 "붙일 이름" 이라는 개념이 없기 때문이다.
+
 package toolhub
 
 import (

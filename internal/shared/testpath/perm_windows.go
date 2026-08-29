@@ -7,3 +7,8 @@ package testpath
 // 실행 가능 여부는 확장자(.exe·.ps1)가 정한다 (FR-WTP-32: 이 조건에서
 // 빠지는 보증은 "권한 비트 보존" 하나이며, Windows 에 대응물이 없다).
 func PermChecked() bool { return false }
+
+// ForegroundGroups 는 이 OS 에 **전경 프로세스 그룹**이 있는지 알린다
+// (CROSS_PLATFORM_SRS FR-XPT-5). 능력의 이름으로 묻는다 — OS 의 이름으로
+// 가르지 않는 것이 이 저장소의 규칙이다 (FR-XBD-3).
+func ForegroundGroups() bool { return false }

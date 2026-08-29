@@ -42,6 +42,19 @@ func safeResolve(baseDir, userPath string) (string, error) {
 			return "", err
 		}
 	}
+	// 베이스가 파일시스템 루트면 **제한이 없다는 뜻**이다 — 전송 종단은
+	// safeResolve("/", …) 로 부르며, 그 "/" 는 "POSIX 루트 아래" 가 아니라
+	// "어디든" 을 적은 것이다 (handlers_fs.go:21 의 대비 설명 참조).
+	//
+	// 이 갈래가 없으면 Windows 에서 전송이 통째로 막힌다 (FR-WTP-7).
+	// filepath.Rel("/", `C:\Users\x`) 는 볼륨이 달라 오류이고, 그 오류가
+	// 그대로 403 forbidden 이 된다. 업로드도 다운로드도 한 건도 되지 않는다.
+	//
+	// POSIX 에서는 동작이 같다 — 루트를 베이스로 한 Rel 은 절대경로에 대해
+	// 언제나 성공하고 ".." 로 시작하지 않는다.
+	if isFilesystemRoot(baseDir) {
+		return cleaned, nil
+	}
 	rel, err := filepath.Rel(baseDir, cleaned)
 	if err != nil {
 		return "", err
@@ -50,6 +63,15 @@ func safeResolve(baseDir, userPath string) (string, error) {
 		return "", fmt.Errorf("path escapes base directory")
 	}
 	return cleaned, nil
+}
+
+// isFilesystemRoot 은 그 경로가 파일시스템의 꼭대기인지 본다. POSIX 는 "/",
+// Windows 는 `\` 와 `C:\` 류다. 호출부가 적는 "/" 는 Windows 에서
+// filepath.Clean 을 거치면 `\` 가 되므로 둘 다 받는다.
+func isFilesystemRoot(p string) bool {
+	c := filepath.Clean(p)
+	sep := string(filepath.Separator)
+	return c == sep || c == filepath.VolumeName(c)+sep
 }
 
 // failFn 은 전송 종단의 실패 형식이다. 두 표면이 다른 것은 이것뿐이라
