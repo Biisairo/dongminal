@@ -513,7 +513,7 @@ func parseWorktreeList(out string) []Entry {
 			flush()
 		case strings.HasPrefix(ln, "worktree "):
 			flush()
-			cur = &Entry{Path: strings.TrimPrefix(ln, "worktree "), Main: len(entries) == 0}
+			cur = &Entry{Path: normalizeGitPath(strings.TrimPrefix(ln, "worktree ")), Main: len(entries) == 0}
 		case ln == "detached":
 			if cur != nil {
 				cur.Detached = true
@@ -526,6 +526,24 @@ func parseWorktreeList(out string) []Entry {
 	}
 	flush()
 	return entries
+}
+
+// normalizeGitPath 는 git 이 낸 경로를 **OS 형태로** 옮긴다 (FR-WTP-3).
+//
+// Windows 의 git 은 `C:/Users/x` 처럼 드라이브 문자에 슬래시를 붙여 낸다. 이
+// 저장소의 다른 모든 경로는 `filepath` 가 만든 OS 형태(`C:\Users\x`)다. 두
+// 형태가 섞이면 문자열 비교가 조용히 어긋난다 — `gone` 의 `e.Path == path`
+// 와 `gitWorktreeOwner` 의 접두사 판정이 그 자리다. 그러면 Windows 에서
+// worktree 소유가 전부 "outside" 로 떨어지고, 살아 있는 worktree 를 사라졌다고
+// 본다.
+//
+// 정규화를 **파싱 경계 한 곳**에 두는 이유는 FR-GIT-246 과 같다 — 소비처마다
+// 옮기면 한 곳이 빠지고, 빠진 곳은 조용하다. POSIX 에서는 아무 변화가 없다.
+func normalizeGitPath(p string) string {
+	if strings.TrimSpace(p) == "" {
+		return p
+	}
+	return filepath.Clean(p)
 }
 
 // RepoBucket 은 사용자 worktree 영역의 저장소별 버킷 이름이다 (FR-WKT-13, V159):

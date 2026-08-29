@@ -105,7 +105,13 @@ var generatedPluginPaths = []string{"hooks", "hooks/hooks.json"}
 func pruneToEmbedded(src embed.FS, root, dst string, keep []string) error {
 	want := map[string]bool{}
 	for _, k := range keep {
-		want[k] = true
+		// keep 은 fs 형태(언제나 슬래시)로 적혀 있고, 아래에서 채우는 키는
+		// filepath.Rel 이 만드는 OS 형태다. 두 형태를 섞으면 Windows 에서
+		// "hooks/hooks.json" 이 "hooks\hooks.json" 과 달라 keep 에 걸리지
+		// 않고, **설치할 때마다 방금 만든 hooks.json 을 지운다** (FR-WTP-2).
+		// 한 조각짜리("hooks")는 두 형태가 같아 살아남으므로, 디렉터리만 남고
+		// 안이 비는 모양으로 나타났다.
+		want[filepath.FromSlash(k)] = true
 	}
 	if err := fs.WalkDir(src, root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {

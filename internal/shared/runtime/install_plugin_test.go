@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // SKILL_INJECTION_SRS 묶음 C·D 검증 (V-C1, V-C2, V-D1).
@@ -30,6 +32,11 @@ func TestInstallAgentPlugin_Layout(t *testing.T) {
 		info, err := os.Stat(filepath.Join(plugin, rel))
 		if err != nil {
 			t.Errorf("missing %s: %v", rel, err)
+			continue
+		}
+		// 존재는 어느 OS 에서나 본다. 권한 비트는 NTFS 에 없으므로 그때만
+		// 건너뛴다 (FR-WTP-31).
+		if !testpath.PermChecked() {
 			continue
 		}
 		if got := info.Mode().Perm(); got != wantMode {

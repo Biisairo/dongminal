@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
 
 func TestWindowsLogFileUsesLocalAppData(t *testing.T) {
@@ -45,6 +47,12 @@ func TestCopyExecutable(t *testing.T) {
 	}
 	if string(blob) != "payload" {
 		t.Fatalf("내용 = %q", blob)
+	}
+	// 권한 비트는 NTFS 에 없다 — Go 는 모든 파일을 -rw-rw-rw- 로 보고한다.
+	// 내용 복사는 어느 OS 에서나 검증하고, 실행 비트만 조건부로 본다
+	// (FR-WTP-31: 이식 가능한 절반을 함께 빼지 않는다).
+	if !testpath.PermChecked() {
+		return
 	}
 	fi, err := os.Stat(dst)
 	if err != nil {

@@ -24,9 +24,9 @@ OS 이음매 누출 검사
 있다. 그 밖에서 syscall.Kill·/proc 경로·lsof 같은 것이 보이면 추상화를
 우회한 것이고, 다음 플랫폼에서 조용히 깨진다.
 
-검사 대상: runtime.GOOS · syscall.Kill · syscall.SIG* · SysProcAttr ·
-unix 소켓 직접 사용 · /proc 직접 읽기 · lsof/pgrep/ps · creack/pty ·
-셸 경로 하드코딩.
+검사 대상: runtime.GOOS · syscall.Kill · syscall.SIG* · syscall.Signal ·
+os.FindProcess · SysProcAttr · unix 소켓 직접 사용 · /proc 직접 읽기 ·
+lsof/pgrep/ps · creack/pty · 셸 경로 하드코딩.
 
 예외: internal/shared/platform (추상화 그 자체),
       internal/webserver/domain/sysstat (자체 Reader 인터페이스가 이미 있다).
@@ -50,6 +50,11 @@ PATTERNS=(
   "runtime.GOOS|runtime\.GOOS"
   "syscall.Kill|syscall\.Kill\("
   "syscall.SIG*|syscall\.SIG[A-Z]"
+  # 아래 둘은 D1 이 이 검사를 그냥 통과해 들어온 뒤에 추가됐다
+  # (WINDOWS_TEST_PARITY_SRS FR-WTP-4). os.Process.Signal 은 Windows 에서
+  # Kill 외에 구현돼 있지 않아, Signal(0) 생존 확인은 조용히 늘 실패한다.
+  "os.FindProcess|os\.FindProcess\("
+  "syscall.Signal|syscall\.Signal\("
   "SysProcAttr|SysProcAttr"
   "unix 소켓 직접 사용|net\.(Listen|Dial|DialTimeout)\(\"unix\""
   "/proc 직접 읽기|\"/proc/"

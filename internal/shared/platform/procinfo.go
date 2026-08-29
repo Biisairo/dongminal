@@ -4,6 +4,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -242,8 +243,15 @@ func newLinuxProcInfo() linuxProcInfo {
 
 const procRoot = "/proc"
 
+// procPath 는 `path.Join` 을 쓴다 — `filepath.Join` 이 아니다 (FR-WTP-40).
+//
+// `/proc` 은 **리눅스 커널의 경로**이지 이 프로그램이 도는 호스트의 경로가
+// 아니다. 리눅스에서는 둘이 같지만, 이 어댑터의 판정 로직은 표 기반 fake 로
+// 어느 OS 에서나 검증된다(CROSS_PLATFORM_SRS §4.2) — 그 자리에서
+// `filepath.Join` 은 Windows 에서 `\proc\100\...` 을 만들어 fake 의 키와
+// 어긋난다. 그래서 그 보증이 Windows 에서만 조용히 사라져 있었다.
 func procPath(elem ...string) string {
-	return filepath.Join(append([]string{procRoot}, elem...)...)
+	return path.Join(append([]string{procRoot}, elem...)...)
 }
 
 // HasChildren 은 스레드마다 있는 children 목록을 훑는다. 자식은 어느 스레드가

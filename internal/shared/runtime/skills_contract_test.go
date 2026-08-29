@@ -2,7 +2,7 @@ package runtime
 
 import (
 	"io/fs"
-	"path/filepath"
+	"path"
 	"strings"
 	"testing"
 )
@@ -17,7 +17,9 @@ import (
 func skillDocs(t *testing.T) map[string]string {
 	t.Helper()
 	out := map[string]string{}
-	root := filepath.Join("agentplugin", "skills")
+	// embed.FS 의 경로는 **언제나 슬래시**다 (io/fs 규약). filepath.Join 은
+	// Windows 에서 `agentplugin\skills` 를 만들어 트리를 찾지 못한다.
+	root := path.Join("agentplugin", "skills")
 	err := fs.WalkDir(agentPluginFS, root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -84,7 +86,7 @@ func TestSkills_NoReferencesToRemovedAssets(t *testing.T) {
 // FR-SKL-1/2/3: team 스킬이 Run 기반 절차를 실제로 담고 있는지. 재작성이
 // 되돌아가면 여기서 걸린다.
 func TestTeamSkill_CarriesTheRunProcedure(t *testing.T) {
-	body := skillDocs(t)[filepath.Join("agentplugin", "skills", "team", "SKILL.md")]
+	body := skillDocs(t)[path.Join("agentplugin", "skills", "team", "SKILL.md")]
 	if body == "" {
 		t.Fatal("team/SKILL.md 를 찾지 못했다")
 	}
@@ -132,7 +134,7 @@ func TestSkills_DoNotHandAssembleAgentLaunchLines(t *testing.T) {
 // 문장이 남아 있는가**다. 참조 구현 둘 다 격리를 명시적 선택으로 두었고, 신뢰
 // 채널 협업 토폴로지 일부는 파일 공유를 전제한다 (D-A).
 func TestTeamSkill_CarriesIsolationRules(t *testing.T) {
-	body := skillDocs(t)[filepath.Join("agentplugin", "skills", "team", "SKILL.md")]
+	body := skillDocs(t)[path.Join("agentplugin", "skills", "team", "SKILL.md")]
 	if body == "" {
 		t.Fatal("team/SKILL.md 를 찾지 못했다")
 	}
