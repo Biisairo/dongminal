@@ -1281,6 +1281,15 @@ Object.assign(GIT_WRITE_ERR,{
   publish_required:'upstream 설정 확인이 필요합니다',
 });
 
+// ── 파일 전송 (FILE_TRANSFER_SRS §3.3) ──
+
+// FR-FTR-8: 완성되지 않은 OSC 시퀀스를 보류하는 상한과, 다음 청크를 기다리는
+// 시간. 상한을 넘으면 OSC 가 아니라고 보고 흘려보낸다 — 종결자 없는 입력에
+// 화면이 영영 멈추지 않게 한다.
+const OSC_CARRY_MAX=4096;
+const OSC_CARRY_MS=50;
+const TERM_UPLOAD_NO_CWD='✗ 이 터미널의 폴더를 알 수 없어 업로드하지 않았습니다';
+
 // ── Editor 탭 · Editor 창 (EDITOR_TAB_SRS 묶음 T·W) ──
 
 // FR-EDT-40: 세 번째 창 타입. Git 창과 마찬가지로 판정은 이 값과의 비교 하나다.
@@ -1362,6 +1371,9 @@ const EDITOR_TREE_ST_RANK={U:4,A:3,'?':3,M:2,R:1,C:1};
 const FS_CREATE_API='/api/fs/create';
 const FS_RENAME_API='/api/fs/rename';
 const FS_DELETE_API='/api/fs/delete';
+// FILE_TRANSFER_SRS FR-FTR-12·15 — 조회·조작과 같은 root 가드를 받는 전송 둘.
+const FS_DOWNLOAD_API='/api/fs/download';
+const FS_UPLOAD_API='/api/fs/upload';
 
 // FR-EDT-80: 진입점은 둘이다 — 상단 버튼과 행 우클릭. 라벨은 한 자리에 둔다.
 // 파일은 원, 폴더는 사각이다 — 둘 다 플러스를 품어 "새로 만든다" 를 말하되
@@ -1374,6 +1386,13 @@ const EDITOR_TREE_NEW_DIR_TITLE='새 폴더 (선택한 폴더 아래)';
 const EDITOR_MENU_NEW_FILE='새 파일';
 const EDITOR_MENU_NEW_DIR='새 폴더';
 const EDITOR_MENU_RENAME='이름 변경';
+// FR-FTR-13·18: 탐색기의 전송 둘. 다운로드는 파일에서만 활성이다 (§6 비목표).
+const EDITOR_MENU_UPLOAD='업로드';
+const EDITOR_MENU_DOWNLOAD='다운로드';
+const EDITOR_DOWNLOAD_FILE_ONLY='파일만 내려받을 수 있습니다';
+const EDITOR_UPLOAD_FAIL='%s 을(를) 올리지 못했습니다';
+// FR-FTR-23: 드래그 중 접힌 폴더가 펼쳐지기까지의 체류 시간 (D-5).
+const EDITOR_SPRING_MS=600;
 const EDITOR_MENU_DELETE='삭제';
 
 // FR-EDT-83·84: 삭제 확인창. **영구 삭제**라는 사실, 폴더면 재귀와 항목 수,
@@ -1399,6 +1418,7 @@ const EDITOR_FS_ERR_MSG={
   not_found:'대상이 없습니다',
   exists:'같은 이름이 이미 있습니다',
   io_failed:'파일시스템 조작에 실패했습니다',
+  too_large:'파일이 너무 큽니다',
 };
 const EDITOR_FS_ERR_UNKNOWN='조작하지 못했습니다';
 // FR-EDT-85: 서버에 묻기 전에 클라이언트가 막는 유일한 경우다 — os.Rename 은 이

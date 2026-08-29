@@ -51,8 +51,9 @@
 | A3.6 | `PUT /api/workspace` — workspace 저장 | `s.Work == nil` → 500; `If-Match` 불일치 → 409 + 현재 ETag; 잘못된 JSON → 400; 성공 시 200 + ETag; Commands Broadcast |
 | A3.7 | `GET /api/settings` — 설정 조회 | Settings nil → `{}` |
 | A3.8 | `PUT /api/settings` — 설정 저장 | Settings nil → no-op |
-| A3.9 | `POST /api/upload` — 파일 업로드 | FormFile 없음 → 400; dir 없음 → `.`; uniquePath 충돌 해결; Create 실패 → 500; Copy 실패 → 500; 성공 시 name/size/path 반환 |
-| A3.10 | `GET /api/download` — 파일 다운로드 | path 누락 → 400; 상대경로 → Abs 변환; 파일 없음 → 404; Content-Disposition/Length 설정 |
+| A3.9 | `POST /api/upload` — 파일 업로드 | FormFile 없음 → 400; dir 없음 → `.`; **없는 dir → 400 (FR-FTR-6)**; **상한 초과 → 413 (FR-FTR-5)**; uniquePath 충돌 해결; 성공 시 name/size/path 반환 |
+| A3.10 | `GET /api/download` — 파일 다운로드 | path 누락 → 400; 상대경로 → Abs 변환; 파일 없음 → 404 **(본문에 경로 없음)**; **디렉터리 → 400**; Content-Disposition 은 `filename`+`filename*` 두 벌 (FR-FTR-1~3) |
+| A3.11 | `GET /api/fs/download` · `POST /api/fs/upload` — 탐색기 전송 | root 대조·루트 이탈 403; 같은 이름 → 409 (덮어쓰지도 개명하지도 않는다); 헤더는 A3.10 과 동일 (FR-FTR-12·15·16) |
 | A3.11 | `GET /api/cwd` — 현재 디렉토리 | toolID 없으면 `os.Getwd()` 폴백; 도구 없어도 폴백 |
 | A3.16 | `GET /api/ping` — 헬스체크 | `ok` 반환 |
 | A3.17 | `GET /api/stats` — 시스템 통계 | top/sysctl/vm_stat/syscall.Statfs 명령 실패 시 graceful degradation |
@@ -259,7 +260,8 @@
 | C2.6 | `_onCwd` — app._cwd 갱신 및 상태바 업데이트 | |
 | C2.7 | `_downloadFile` — anchor 클릭 트리거 | download 속성; 터미널에 로그 |
 | C2.9 | `_listCodeServers` — 터미널에 테이블 렌더링 | 빈 목록; 코드서버 링크 클릭 가능 |
-| C2.10 | `_uploadFiles` — FormData POST /api/upload | cwd 기반 dir; 성공/실패 터미널 출력 |
+| C2.10 | `_uploadFiles` — FormData POST /api/upload | cwd 기반 dir; 성공/실패 터미널 출력; **`source!=='tool'` 이면 올리지 않는다**; **끝나도 엔터를 보내지 않는다** (FR-FTR-10·11) |
+| C2.11 | `_oscCarryAt` — 청크 경계의 OSC | 미완성 시퀀스를 보류하고 다음 청크에 이어 붙인다; 4096 초과면 흘려보낸다 (FR-FTR-8) |
 
 ### C4. 테마 시스템 (web/js/app.js)
 | # | 동작 | 엣지/실패 케이스 |

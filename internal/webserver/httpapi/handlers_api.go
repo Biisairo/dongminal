@@ -139,6 +139,10 @@ var apiRoutes = []apiRoute{
 	{http.MethodPost, exactPath("/api/fs/create"), (*Server).apiFSCreate},
 	{http.MethodPost, exactPath("/api/fs/rename"), (*Server).apiFSRename},
 	{http.MethodPost, exactPath("/api/fs/delete"), (*Server).apiFSDelete},
+	// 묶음 D·E — 탐색기의 전송 (FILE_TRANSFER_SRS FR-FTR-12·15). 터미널의
+	// /api/{upload,download} 와 같은 일을 하되 root 가드를 받는다.
+	{http.MethodGet, exactPath("/api/fs/download"), (*Server).apiFSDownload},
+	{http.MethodPost, exactPath("/api/fs/upload"), (*Server).apiFSUpload},
 	{http.MethodGet, exactPath("/api/editors"), (*Server).apiEditorsGet},
 	{http.MethodPost, exactPath("/api/editors/add"), (*Server).apiEditorsAdd},
 	{http.MethodPost, exactPath("/api/editors/remove"), (*Server).apiEditorsRemove},

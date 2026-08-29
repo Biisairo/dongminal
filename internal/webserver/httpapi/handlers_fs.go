@@ -32,6 +32,9 @@ const (
 	fsErrOutsideRoot = "outside_root"
 	fsErrPermission  = "permission_denied"
 	fsErrIO          = "io_failed"
+	// 전송에만 있는 코드다 (FR-FTR-5). fsStatus 의 표에 넣지 않는 것은 조작이
+	// 이것을 낼 자리가 없기 때문이다 — 413 은 부르는 쪽이 직접 준다.
+	fsErrTooLarge = "too_large"
 )
 
 // FS_LIST_MAX·FS_DELETE_MAX (FR-EDT-65·118). const 가 아닌 이유는 테스트가 상한을
@@ -469,6 +472,59 @@ func (s *Server) apiFSDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fsOK(w)
+}
+
+// ── 전송: GET /api/fs/download · POST /api/fs/upload ─
+//
+// 조회·조작과 같은 루트 가드를 받는다 (FR-EDT-112·113). 터미널 표면의
+// `/api/upload`·`/api/download` 와 다른 것은 그 가드뿐이며, 헤더와 상한은 같은
+// 함수가 만든다 (FR-FTR-4).
+
+// GET /api/fs/download?root=<abs>&path=<abs> (FR-FTR-12).
+func (s *Server) apiFSDownload(w http.ResponseWriter, r *http.Request) {
+	root, ok := s.fsRoot(w, r.URL.Query().Get("root"))
+	if !ok {
+		return
+	}
+	// 다운로드는 **실재하는** 파일을 읽는다 — 링크는 따라간다. 조작(rename·delete)이
+	// 링크 자신을 다루려고 fsResolveTarget 을 쓰는 것과 다른 자리다.
+	target, err := fsResolveExisting(root, r.URL.Query().Get("path"))
+	if err != nil {
+		fsFailErr(w, err)
+		return
+	}
+	serveDownload(w, target, jsonFail(w))
+}
+
+// POST /api/fs/upload?root=<abs>&dir=<abs> (FR-FTR-15·16).
+//
+// 같은 이름이 있으면 **거부한다.** 탐색기의 다른 조작이 전부 그렇다
+// (FR-EDT-86·115) — 터미널 업로드의 자동 개명과 다른 것은 의도다 (D-3).
+func (s *Server) apiFSUpload(w http.ResponseWriter, r *http.Request) {
+	root, ok := s.fsRoot(w, r.URL.Query().Get("root"))
+	if !ok {
+		return
+	}
+	dir, err := fsResolveExisting(root, r.URL.Query().Get("dir"))
+	if err != nil {
+		fsFailErr(w, err)
+		return
+	}
+	outPath, written, ok := uploadInto(w, r, dir, func(d, n string) (string, error) {
+		if n == "" || n == "." || n == string(filepath.Separator) {
+			return "", fsError{fsErrBadRequest, "파일 이름이 없다"}
+		}
+		// 이름이 루트 밖을 가리키지 않는지 한 번 더 본다 — d 는 이미 루트 아래이고
+		// n 은 Base 를 지났지만, 경계 판정을 이 자리에서 되풀이하는 비용이
+		// 잘못 놓인 파일 하나보다 싸다.
+		return fsUnderRoot(root, filepath.Join(d, n))
+	}, jsonFail(w))
+	if !ok {
+		return
+	}
+	fsJSON(w, http.StatusOK, map[string]any{
+		"ok": true, "name": filepath.Base(outPath), "size": written, "path": outPath,
+	})
 }
 
 // fsDeletable 은 루트 자신·홈·파일시스템 루트를 거부한다 (FR-EDT-114). 셋 다

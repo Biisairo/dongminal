@@ -7,7 +7,7 @@ class TerminalTool {
     this.id=id; this.name=name;
     this.ws=null; this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false; this._destroyed=false; this._retryDelay=0;
     this._sendQueue=[]; this._sendQueueMax=64; this._sendDropCount=0;
-    this._decoder=new TextDecoder('utf-8',{fatal:false}); this._outputBuf=''; this._flushScheduled=false;
+    this._decoder=new TextDecoder('utf-8',{fatal:false}); this._outputBuf=''; this._flushScheduled=false; this._carryTimer=null;
     this.el=document.createElement('div');
     this.el.className='tp'; this.el.dataset.toolid=id;
     this.box=document.createElement('div');
@@ -411,9 +411,41 @@ class TerminalTool {
     // even when the browser tab is hidden/backgrounded.
     setTimeout(()=>this._doFlush(),0);
   }
+
+  /**
+   * FR-FTR-8: 버퍼 끝에 **완성되지 않은 OSC 시퀀스**가 있으면 그 시작 자리를
+   * 돌려준다. 없으면 -1 이다.
+   *
+   * 이것이 없으면 `\x1b]777;Download;/pa` 와 `th\x07` 로 갈린 청크에서 명령이
+   * 통째로 사라진다 — 버퍼는 flush 마다 비고 정규식은 다음 회차에 앞부분을
+   * 보지 못한다. `Cwd` 도 같은 경로를 타므로 cwd 표시와 git 신호까지 함께 잃는다.
+   *
+   * 종결자는 BEL 과 ST(`ESC \`) 둘 다 본다. `ESC` 하나만 걸친 경우도 보류한다 —
+   * 다음 청크에 `]` 가 온다.
+   */
+  _oscCarryAt(text){
+    const i=text.lastIndexOf('\x1b]');
+    if(i>=0&&text.indexOf('\x07',i)<0&&text.indexOf('\x1b\\',i+2)<0){
+      // 종결자 없는 입력에 화면이 영영 멈추지 않게 한다 — 상한을 넘으면 OSC 가
+      // 아니라고 보고 그대로 흘려보낸다.
+      return (text.length-i>OSC_CARRY_MAX)?-1:i;
+    }
+    if(text.endsWith('\x1b')) return text.length-1;
+    return -1;
+  }
+
   _doFlush(){
     this._flushScheduled=false;
-    const text=this._outputBuf; this._outputBuf='';
+    if(this._carryTimer){clearTimeout(this._carryTimer);this._carryTimer=null}
+    let text=this._outputBuf; this._outputBuf='';
+    const cut=this._oscCarryAt(text);
+    if(cut>=0){
+      this._outputBuf=text.slice(cut); text=text.slice(0,cut);
+      // 다음 청크가 언제 올지는 모른다 — 사용자가 키를 누를 때까지 안 올 수도
+      // 있다. 보류한 것이 프롬프트의 일부이면 화면이 멈춘 것으로 보이므로,
+      // 짧은 시간 뒤에는 그냥 내보낸다.
+      this._carryTimer=setTimeout(()=>{this._carryTimer=null;this._doFlush()},OSC_CARRY_MS);
+    }
     if(!text) return;
     const re=/\x1b\]777;(\w+);([^\x07]*)\x07/g;
     let m;
@@ -433,32 +465,42 @@ class TerminalTool {
     // precmd·에이전트 hook 은 같은 OSC 경로를 탄다 — 셸 명령 직후의 즉시 신호다 (FR-GIT-18).
     if(app)app._gitSignal('cwd');
   }
+  // FR-FTR-9: 화면 기록이 실패해도 전송을 막지 않는다. term 은 pane 이 붙기
+  // 전에는 없다 — `_doFlush` 가 같은 호출을 감싸는 것과 같은 이유다.
+  _say(s){ if(this.term) try{this.term.write(s)}catch{} }
+
   _downloadFile(path){
     const a=document.createElement('a');
     a.href='/api/download?path='+encodeURIComponent(path);
     a.download='';document.body.appendChild(a);a.click();a.remove();
-    this.term.write('\x1b[2m↓ Downloading: '+path+'\x1b[0m\r\n');
+    this._say('\x1b[2m↓ Downloading: '+path+'\x1b[0m\r\n');
   }
   _uploadFiles(files){
     if(!files||!files.length)return;
     // Get cwd from server for this pane
-    fetch('/api/cwd?tool='+this.id).then(r=>r.json()).then(({cwd})=>{
+    fetch('/api/cwd?tool='+this.id).then(r=>r.json()).then(({cwd,source})=>{
+      // FR-FTR-11: 서버의 cwd 는 이 도구의 폴더가 아니다 — 보고 있지 않은 곳에
+      // 파일을 떨어뜨리지 않는다. `source` 는 그 구분을 위해 있다 (D-4).
+      if(source!=='tool'||!cwd){this._say('\x1b[31m'+TERM_UPLOAD_NO_CWD+'\x1b[0m\r\n');return}
       let i=0;
       const uploadNext=()=>{
-        if(i>=files.length){this._send(new Uint8Array([OP.INPUT,0x0d]));return;}
+        // FR-FTR-10: 끝나도 셸에 엔터를 보내지 않는다 — 그 순간 돌고 있는 것이
+        // 셸이 아니면 그 프로그램이 엔터를 받는다.
+        if(i>=files.length) return;
         const f=files[i++];
         const fd=new FormData();fd.append('file',f);
-        this.term.write('\x1b[2m↑ Uploading: '+f.name+'\x1b[0m\r\n');
+        this._say('\x1b[2m↑ Uploading: '+f.name+'\x1b[0m\r\n');
         fetch('/api/upload?dir='+encodeURIComponent(cwd),{method:'POST',body:fd})
-          .then(r=>r.json()).then(d=>{
-            this.term.write('\x1b[2m  ✓ '+d.name+' ('+this._fmtSize(d.size)+')\x1b[0m\r\n');
+          .then(r=>r.ok?r.json():Promise.reject(r))
+          .then(d=>{
+            this._say('\x1b[2m  ✓ '+d.name+' ('+this._fmtSize(d.size)+')\x1b[0m\r\n');
             uploadNext();
           }).catch(()=>{
-            this.term.write('\x1b[31m  ✗ Upload failed\x1b[0m\r\n');uploadNext();
+            this._say('\x1b[31m  ✗ Upload failed\x1b[0m\r\n');uploadNext();
           });
       };
       uploadNext();
-    });
+    }).catch(()=>this._say('\x1b[31m'+TERM_UPLOAD_NO_CWD+'\x1b[0m\r\n'));
   }
   _fmtSize(b){
     if(b<1024)return b+'B';
@@ -468,6 +510,7 @@ class TerminalTool {
   destroy(){
     this._destroyed=true;
     this._flingStop();
+    if(this._carryTimer){clearTimeout(this._carryTimer);this._carryTimer=null}
     if(this._pendingWs&&this._pendingWs!==this.ws){
       try{this._pendingWs.onopen=null;this._pendingWs.onclose=null;this._pendingWs.onerror=null;this._pendingWs.onmessage=null;this._pendingWs.close()}catch{}
       this._pendingWs=null;
