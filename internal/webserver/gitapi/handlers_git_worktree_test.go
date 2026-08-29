@@ -134,11 +134,11 @@ func TestGitWorktreeRoutes_RegisteredAndUnavailable(t *testing.T) {
 // V145 (FR-GIT-240): 소유는 경로로만 판정한다.
 func TestGitWorktreeOwner_ClassifiesByPath(t *testing.T) {
 	userRoot := "/home/x/git-worktrees"
-	runRoot := "/home/x/worktrees"
+	runRoot := absHomeXWorktrees
 	cases := []struct{ path, want string }{
 		{filepath.Join(userRoot, "app-abc12345", "feature"), worktreeOwnerUser},
 		{filepath.Join(runRoot, "run1", "mem1"), worktreeOwnerRun},
-		{"/Users/dev/other-repo", worktreeOwnerOutside},
+		{absOtherRepo, worktreeOwnerOutside},
 		// 이름이 닮았을 뿐인 형제 아닌 경로 — prefix 판정이 정확히 root+separator 인지 확인.
 		{userRoot + "-decoy/x", worktreeOwnerOutside},
 		// root 자신은 checkPath(worktree.go:515,529-531)가 "루트 자신"이라는 별도
@@ -380,7 +380,7 @@ func TestAPIGitWorktreeRemove_RejectsOutsideUserArea(t *testing.T) {
 // FR-GIT-243: 이 저장소의 worktree 가 아닌 경로는 404 다.
 func TestAPIGitWorktreeRemove_RejectsUnknownPath(t *testing.T) {
 	s, repo, _ := worktreeTestServer(t)
-	body := fmt.Sprintf(`{"repo":%q,"path":"/nope/nope","confirm":true}`, repo)
+	body := fmt.Sprintf(`{"repo":%q,"path":`+qNopeNope+`,"confirm":true}`, repo)
 	code, out := wtReq(t, s, http.MethodPost, "/api/git/worktrees/remove", body)
 	if code != http.StatusNotFound || out["error"] != gitErrNotFound {
 		t.Fatalf("want 404 not_found, got %d %+v", code, out)

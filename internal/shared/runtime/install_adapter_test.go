@@ -4,13 +4,15 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // Install 이 사용자 홈에 아무것도 쓰지 않는다는 것을 실제 파일시스템으로 확인한다.
 // 위 문자열 대조는 셸 래퍼만 보므로, 설치 경로 자체가 새는 경우를 놓친다.
 func TestInstallWritesNothingOutsideItsBinDir(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	t.Setenv(testpath.HomeEnv(), home)
 	claudeDir := filepath.Join(home, ".claude")
 	if err := os.MkdirAll(claudeDir, 0o755); err != nil {
 		t.Fatal(err)

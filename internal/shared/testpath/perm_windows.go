@@ -12,3 +12,10 @@ func PermChecked() bool { return false }
 // (CROSS_PLATFORM_SRS FR-XPT-5). 능력의 이름으로 묻는다 — OS 의 이름으로
 // 가르지 않는 것이 이 저장소의 규칙이다 (FR-XBD-3).
 func ForegroundGroups() bool { return false }
+
+// POSIXShell 은 이 OS 가 `#!/bin/sh` 스크립트를 실행할 수 있는지 알린다.
+//
+// 가짜 셸을 스크립트로 만들어 신호 처리를 시험하는 검사가 이것을 딛는다.
+// Windows 에는 그 셰뱅도, 그 신호(SIGTERM trap)도 없다 — 정중한 종료의 의미가
+// 다르다 (CROSS_PLATFORM_SRS FR-XPR-3: Ctrl+Break 뒤 강제 종료).
+func POSIXShell() bool { return false }

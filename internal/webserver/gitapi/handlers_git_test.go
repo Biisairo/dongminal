@@ -213,7 +213,7 @@ func TestGitRepoAt(t *testing.T) {
 		g := newGitFake(t)
 		s, hub, _, _ := gitTestServer(t, g)
 		hub.seed("t1", "T1")
-		hub.setCwd("t1", "/tmp/plain")
+		hub.setCwd("t1", absTmpPlain)
 		g.root = func(string) (core.Output, error) {
 			return core.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
 		}
@@ -335,7 +335,7 @@ func TestGitPin_RejectsNonRepo(t *testing.T) {
 	g.root = func(string) (core.Output, error) {
 		return core.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
 	}
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":"/tmp/plain"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":`+qTmpPlain+`}`)
 	if code != http.StatusNotFound {
 		t.Fatalf("code=%d body=%v", code, out)
 	}

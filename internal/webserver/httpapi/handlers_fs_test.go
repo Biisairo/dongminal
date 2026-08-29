@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"dongminal/internal/webserver/domain/wsentry"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // /api/fs/* · /api/editors/* 서버측 (EDITOR_TAB_SRS §3.11, V-EDT-8·10·45·65~67·82~84).
@@ -24,7 +26,7 @@ import (
 func fsTestServer(t *testing.T) (*Server, *fakeWorkspaceStore, string) {
 	t.Helper()
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	t.Setenv(testpath.HomeEnv(), home)
 	ws := newFakeWorkspaceStore()
 	srv, err := New(Config{Port: "0", DataDir: t.TempDir()}, Deps{Work: ws, Commands: &fakeCommandBroker{}})
 	if err != nil {
@@ -703,7 +705,7 @@ func TestFSRoutesRegistered(t *testing.T) {
 
 // workspace 가 없으면 이 종단만 실패한다 — 패닉하지 않고 {code,message} 를 낸다.
 func TestFS_WithoutWorkspaceFailsCleanly(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	t.Setenv(testpath.HomeEnv(), t.TempDir())
 	s, err := New(Config{Port: "0", DataDir: t.TempDir()}, Deps{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -731,6 +733,11 @@ func TestFS_WithoutWorkspaceFailsCleanly(t *testing.T) {
 func TestFSListPermissionDeniedNot404(t *testing.T) {
 	// root 는 권한 검사를 그냥 통과한다 — 그대로 두면 이 테스트는 언제나 통과하는
 	// 가짜가 된다.
+	// 권한 비트로 거부를 만드는 검사다. NTFS 에는 그 개념이 없어
+	// chmod(0o000) 이 아무 효과도 내지 않는다 (FR-WTP-31).
+	if !testpath.PermChecked() {
+		t.Skip("유닉스 권한 비트가 없는 OS 다 — 거부 상황을 만들 수 없다")
+	}
 	if os.Geteuid() == 0 {
 		t.Skip("root 로는 권한 거부를 만들 수 없다")
 	}

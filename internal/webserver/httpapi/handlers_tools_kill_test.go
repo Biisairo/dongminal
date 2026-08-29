@@ -12,6 +12,8 @@ import (
 
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 X 검증 (CONVENIENCE_SRS §3.2). 서버측은 V-BGK-8/9/10 이 닿는다 —
@@ -113,6 +115,11 @@ func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
 // SIGTERM 전달 자체는 파일 표식이 아니라 **유예를 다 쓴다는 사실**로 관측한다 —
 // 무시하지 못했다면 셸은 즉시 죽고 대기는 조기 종료됐을 것이다.
 func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
+	// 가짜 셸이 `#!/bin/sh` 스크립트이고, 검사 대상이 SIGTERM trap 이다.
+	// Windows 에는 둘 다 없다 (FR-XPR-3 — 그쪽의 정중한 종료는 Ctrl+Break 다).
+	if !testpath.POSIXShell() {
+		t.Skip("POSIX 셸 스크립트와 SIGTERM 이 없는 OS 다")
+	}
 	const grace = 400 * time.Millisecond
 	shortGrace(t, grace)
 	dir := toolTempDir(t)

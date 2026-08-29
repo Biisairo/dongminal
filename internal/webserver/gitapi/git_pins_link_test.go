@@ -9,6 +9,8 @@ import (
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/wsentry"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // Git 핀 ↔ Editor 행 연동의 서버측 (EDITOR_TAB_SRS §3.4, V-EDT-17·18·22·25·26).
@@ -30,7 +32,7 @@ func editorsOf(t *testing.T, out map[string]any) []string {
 
 // V-EDT-17·26 (FR-EDT-31·39): pin → 같은 경로 editor 행이 생기고 응답에 실린다.
 func TestGitPin_CreatesEditorRow(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	t.Setenv(testpath.HomeEnv(), t.TempDir())
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
 	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
@@ -54,10 +56,10 @@ func TestGitPin_CreatesEditorRow(t *testing.T) {
 
 // V-EDT-18·26 (FR-EDT-32·39): unpin → 같은 경로 editor 행이 사라진다.
 func TestGitUnpin_RemovesEditorRow(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	t.Setenv(testpath.HomeEnv(), t.TempDir())
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
-	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":[` + qWorkRepo + `]},"editors":{"list":[` + qWorkRepo + `,"/other"]}}`)
+	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":[` + qWorkRepo + `]},"editors":{"list":[` + qWorkRepo + `,` + qOther + `]}}`)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/unpin", `{"path":`+qWorkRepo+`}`)
 	if code != 200 {
@@ -67,14 +69,14 @@ func TestGitUnpin_RemovesEditorRow(t *testing.T) {
 		t.Fatalf("pinned=%v", out["pinned"])
 	}
 	eds := editorsOf(t, out)
-	if len(eds) != 1 || eds[0] != "/other" {
+	if len(eds) != 1 || eds[0] != absOther {
 		t.Fatalf("editors=%v", eds)
 	}
 }
 
 // V-EDT-22 (FR-EDT-35): 연동 변경이 rev 를 한 번만 올리고 브로드캐스트도 한 번이다.
 func TestGitPin_LinkedChangeSavesOnce(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	t.Setenv(testpath.HomeEnv(), t.TempDir())
 	g := newGitFake(t)
 	s, _, ws, cb := gitTestServer(t, g)
 	g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
@@ -96,7 +98,7 @@ func TestGitPin_LinkedChangeSavesOnce(t *testing.T) {
 // root 행의 근거(홈)는 목록 밖에 그대로 있다.
 func TestGitPin_HomeMakesNoEditorRow(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	t.Setenv(testpath.HomeEnv(), home)
 	norm := wsentry.NormalizePath(home)
 
 	g := newGitFake(t)
@@ -122,7 +124,7 @@ func TestGitPin_HomeMakesNoEditorRow(t *testing.T) {
 // FR-EDT-24 (D-15): 핀도 Editor 추가와 **같은** 정규화 함수를 지난다. 그러지
 // 않으면 macOS 의 /tmp → /private/tmp 에서 짝이 조용히 깨진다.
 func TestGitPin_NormalizesRootLikeEditorAdd(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	t.Setenv(testpath.HomeEnv(), t.TempDir())
 	dir := t.TempDir()
 	real := filepath.Join(dir, "real")
 	if err := os.Mkdir(real, 0o755); err != nil {

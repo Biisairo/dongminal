@@ -15,6 +15,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // TestDaemonFullFlow verifies the complete daemon lifecycle:
@@ -695,6 +697,13 @@ func TestDaemonExitClosesSubscriber(t *testing.T) {
 // TestDaemonAttentionWithoutSubscriber verifies OnOutput-driven attention
 // detection fires even when no WS client is subscribed to the tool (FR-15).
 func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
+	// 이 검사는 셸에게 `printf '\033]9;done\007'` 를 시켜 OSC 알림을 만든다 —
+	// POSIX 셸 문법이다. pwsh 에는 그 printf 도 그 이스케이프도 없다.
+	// Windows 의 같은 계층은 windows-runtime 잡의 종단간(서버→데몬→PTY)이
+	// 실제로 왕복시켜 덮는다 (FR-WTP-32).
+	if !testpath.POSIXShell() {
+		t.Skip("POSIX 셸 문법으로 OSC 를 만드는 검사다")
+	}
 	dir := toolTempDir(t)
 	sockPath := dir + "/s"
 	os.MkdirAll(dir+"/d", 0o755)
