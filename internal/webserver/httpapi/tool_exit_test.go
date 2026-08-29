@@ -47,17 +47,32 @@ func TestToolOnExitAndWait(t *testing.T) {
 	}
 }
 
-// waitForToolOutput 은 셸이 무엇이든 내보낼 때까지 기다린다. 무엇이 나오는지는
-// 셸마다 다르므로(프롬프트·배너·ConPTY 인사말) 내용을 보지 않고 **바이트가
-// 생겼는지만** 본다.
+// waitForToolOutput 은 셸이 **준비될 때까지** 기다린다.
+//
+// 바이트가 생겼는지만 보면 안 된다 — ConPTY 는 세션을 열며 인사말 16바이트
+// (`\x1b[?9001h\x1b[?1004h`)를 즉시 내보내고, 그것은 셸이 뜨기 전이다.
+// 그 시점에 넣은 입력은 프롬프트가 먹지 못하고 사라진다.
+//
+// 그래서 doctor 와 같은 신호를 쓴다 (CROSS_PLATFORM_SRS §11, a36417a):
+// **출력이 오고 조용해지는 것.** pwsh 는 PSReadLine 을 올리는 데 초 단위가
+// 걸리므로 고정 대기로는 맞출 수 없다.
 func waitForToolOutput(t *testing.T, p *toolhub.Tool, limit time.Duration) {
 	t.Helper()
+	const quiet = 700 * time.Millisecond
 	deadline := time.Now().Add(limit)
+	var last int
+	stableSince := time.Now()
 	for time.Now().Before(deadline) {
-		if blob, _ := p.Stream().Snapshot(); len(blob) > 0 {
+		blob, _ := p.Stream().Snapshot()
+		if n := len(blob); n != last {
+			last, stableSince = n, time.Now()
+		} else if last > 0 && time.Since(stableSince) >= quiet {
 			return
 		}
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(25 * time.Millisecond)
+	}
+	if last > 0 {
+		return // 조용해지지 않았지만 살아는 있다 — 더 기다리지 않는다
 	}
 	t.Fatalf("셸이 %v 안에 아무것도 내보내지 않았다", limit)
 }

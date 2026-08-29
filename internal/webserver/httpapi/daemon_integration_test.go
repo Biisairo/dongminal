@@ -774,18 +774,27 @@ func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
 	t.Fatal("attention not detected without a WS subscriber (OnOutput not wired through readLoop?)")
 }
 
-// waitForDaemonToolOutput 은 셸이 무엇이든 내보낼 때까지 기다린다. 무엇이
-// 나오는지는 셸마다 다르므로(프롬프트·배너) 내용을 보지 않고 바이트가 생겼는지만
-// 본다. 고정 대기를 이것으로 바꾼 이유는 doctor 가 먼저 밟은 함정과 같다
-// (CROSS_PLATFORM_SRS §11, a36417a).
+// waitForDaemonToolOutput 은 셸이 **준비될 때까지** 기다린다 — 바이트가 생긴
+// 것만으로는 부족하다. ConPTY 의 인사말은 셸보다 먼저 온다. doctor 와 같은
+// 신호(출력이 오고 조용해지는 것)를 쓴다 (§11, a36417a).
 func waitForDaemonToolOutput(t *testing.T, pc *toolclient.ToolClient, toolID string, limit time.Duration) {
 	t.Helper()
+	const quiet = 700 * time.Millisecond
 	deadline := time.Now().Add(limit)
+	var last int
+	stableSince := time.Now()
 	for time.Now().Before(deadline) {
-		if snap, err := pc.SnapshotTool(toolID); err == nil && len(snap.Data) > 0 {
-			return
+		if snap, err := pc.SnapshotTool(toolID); err == nil {
+			if n := len(snap.Data); n != last {
+				last, stableSince = n, time.Now()
+			} else if last > 0 && time.Since(stableSince) >= quiet {
+				return
+			}
 		}
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(25 * time.Millisecond)
+	}
+	if last > 0 {
+		return
 	}
 	t.Fatalf("셸이 %v 안에 아무것도 내보내지 않았다", limit)
 }
