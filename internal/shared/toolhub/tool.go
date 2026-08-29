@@ -682,6 +682,13 @@ type ToolManager struct {
 	ownedProvider func() map[string]struct{}
 	dirty         atomic.Bool
 
+	// saves 는 진행 중인 SaveAll 을 센다. 저장은 요청 경로를 막지 않도록
+	// 고루틴으로 떨어뜨리는데(아래 `go m.SaveAll()`), 그러면 **아무도 그것이
+	// 끝났는지 알 수 없다.** 종료 경로와 테스트가 기다릴 수 있어야 한다 —
+	// 기다리지 못해서 실제로 겪은 것이 t.TempDir 정리와의 경합이다
+	// (WINDOWS_TEST_PARITY_SRS §5 의 간헐 실패).
+	saves sync.WaitGroup
+
 	// Attention (PANE_ATTENTION_NOTIFY_SRS): idleThreshold/allowBell configure
 	// detection; attnNotify/attnClear bridge transitions to SSE (set via
 	// SetAttentionNotifier from the composition root).
@@ -921,7 +928,7 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16) (*Tool, error) {
 	m.tools[id] = p
 	log.Printf("[tool %s] registered total=%d", id, len(m.tools))
 	m.dirty.Store(true)
-	go m.SaveAll()
+	m.saveAsync()
 	return p, nil
 }
 
@@ -996,8 +1003,24 @@ func (m *ToolManager) Delete(id string) {
 		log.Printf("[tool %s] deleted remaining=%d", id, remaining)
 	}
 	m.dirty.Store(true)
-	go m.SaveAll()
+	m.saveAsync()
 }
+
+// saveAsync 는 저장을 요청 경로 밖으로 떨어뜨리되 **셀 수 있게** 한다.
+func (m *ToolManager) saveAsync() {
+	m.saves.Add(1)
+	go func() {
+		defer m.saves.Done()
+		m.SaveAll()
+	}()
+}
+
+// WaitSaves 는 떨어뜨린 저장이 전부 끝날 때까지 기다린다.
+//
+// 종료 경로와 테스트가 쓴다. 테스트에서는 `t.TempDir()` 로 만든 데이터
+// 디렉터리가 저장보다 먼저 지워지는 경합을 막는다 — `t.Cleanup` 은 LIFO 라
+// TempDir 을 만든 뒤에 등록하면 그 정리보다 **먼저** 돈다.
+func (m *ToolManager) WaitSaves() { m.saves.Wait() }
 
 // IsLive implements the liveness interface consumed by workspace.Manager.
 func (m *ToolManager) IsLive(id string) bool { return m.Get(id) != nil }

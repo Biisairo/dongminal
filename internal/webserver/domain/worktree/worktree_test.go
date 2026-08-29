@@ -508,7 +508,7 @@ func TestOperations_SerializeSameRepoDifferentSpelling(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		// 같은 저장소, 트레일링 슬래시만 다른 표기.
-		_ = m.Create(Spec{Repo: "/repo/", Path: m.Path("run1234", "b"), Branch: "dmn/run1234/b", Base: "main"})
+		_ = m.Create(Spec{Repo: absRepo + string(filepath.Separator), Path: m.Path("run1234", "b"), Branch: "dmn/run1234/b", Base: "main"})
 	}()
 
 	<-entered

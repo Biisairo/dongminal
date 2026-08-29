@@ -253,7 +253,7 @@ func TestAPIGitUndoLast_ConsumedOnce(t *testing.T) {
 	f := newGitWriteFake(t)
 	s, _ := gitWriteServer(t, f)
 	tok := gitIssueUndo(t, s, f)
-	body := `{"repo":` + qWorkRepo + `,"undoToken":"` + tok + `"}`
+	body := `{"repo":` + qWorkRepo + `,"undoToken":` + jsonQ(tok) + `}`
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", body)
 	if code != http.StatusOK {

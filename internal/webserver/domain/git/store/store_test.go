@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"dongminal/internal/webserver/domain/git/core"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 C — Store (GIT_SRS §3.3 FR-GIT-21·24·63, 검증 V5·V7·V13·V18).
@@ -241,7 +243,7 @@ func TestStore_ObservedLRUCap(t *testing.T) {
 
 	repos := make([]string, DefaultObservedCap+1)
 	for i := range repos {
-		repos[i] = fmt.Sprintf("/r%d", i)
+		repos[i] = testpath.Abs(fmt.Sprintf("r%d", i))
 		if _, _, err := st.Status(ctx, repos[i]); err != nil {
 			t.Fatalf("Status(%s): %v", repos[i], err)
 		}

@@ -302,8 +302,12 @@ func TestExecGit_Environment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Exec: %v", err)
 	}
-	if strings.TrimSpace(out.Stdout) != repo {
-		t.Fatalf("toplevel %q, want %q", out.Stdout, repo)
+	// Exec 은 원시 출력을 그대로 준다 — 경로를 OS 형태로 옮기는 것은
+	// RepoRoot 의 일이다 (FR-WTP-5). Windows 의 git 은 `C:/…` 로 답하므로
+	// 이 비교는 양쪽을 정규화한 뒤에 해야 한다. 이 검사가 보는 것은 환경이지
+	// 경로의 표기가 아니다.
+	if got := filepath.Clean(strings.TrimSpace(out.Stdout)); got != filepath.Clean(repo) {
+		t.Fatalf("toplevel %q, want %q", got, repo)
 	}
 	if out.DurationMs < 0 {
 		t.Fatalf("DurationMs = %d", out.DurationMs)

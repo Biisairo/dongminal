@@ -373,13 +373,13 @@ func TestFS_RejectsRelativePaths(t *testing.T) {
 	cases := []struct{ method, path, body string }{
 		{http.MethodGet, "/api/fs/list?root=rel&path=" + root, ""},
 		{http.MethodGet, "/api/fs/list?root=" + root + "&path=rel", ""},
-		{http.MethodPost, "/api/fs/create", `{"root":"` + root + `","path":"rel"}`},
-		{http.MethodPost, "/api/fs/rename", `{"root":"` + root + `","from":"rel","to":"` + root + `/x"}`},
-		{http.MethodPost, "/api/fs/rename", `{"root":"` + root + `","from":"` + root + `/x","to":"rel"}`},
-		{http.MethodPost, "/api/fs/delete", `{"root":"` + root + `","path":"rel"}`},
+		{http.MethodPost, "/api/fs/create", `{"root":` + jsonQ(root) + `,"path":"rel"}`},
+		{http.MethodPost, "/api/fs/rename", `{"root":` + jsonQ(root) + `,"from":"rel","to":` + jsonQ(root+"/x") + `}`},
+		{http.MethodPost, "/api/fs/rename", `{"root":` + jsonQ(root) + `,"from":` + jsonQ(root+"/x") + `,"to":"rel"}`},
+		{http.MethodPost, "/api/fs/delete", `{"root":` + jsonQ(root) + `,"path":"rel"}`},
 		{http.MethodPost, "/api/editors/add", `{"path":"rel"}`},
 		{http.MethodPost, "/api/editors/remove", `{"path":"rel"}`},
-		{http.MethodPost, "/api/editors/reorder", `{"src":"rel","target":"` + root + `"}`},
+		{http.MethodPost, "/api/editors/reorder", `{"src":"rel","target":` + jsonQ(root) + `}`},
 	}
 	for _, c := range cases {
 		code, out := fsReq(t, s, c.method, c.path, c.body)
@@ -487,9 +487,9 @@ func TestFS_RejectsOutsideRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := []struct{ path, body string }{
-		{"/api/fs/create", `{"root":"` + root + `","path":"` + outside + `/new.txt"}`},
-		{"/api/fs/delete", `{"root":"` + root + `","path":"` + victim + `"}`},
-		{"/api/fs/rename", `{"root":"` + root + `","from":"` + victim + `","to":"` + root + `/x"}`},
+		{"/api/fs/create", `{"root":` + jsonQ(root) + `,"path":` + jsonQ(outside+"/new.txt") + `}`},
+		{"/api/fs/delete", `{"root":` + jsonQ(root) + `,"path":` + jsonQ(victim) + `}`},
+		{"/api/fs/rename", `{"root":` + jsonQ(root) + `,"from":` + jsonQ(victim) + `,"to":` + jsonQ(root+"/x") + `}`},
 	}
 	for _, c := range cases {
 		code, out := fsReq(t, s, http.MethodPost, c.path, c.body)

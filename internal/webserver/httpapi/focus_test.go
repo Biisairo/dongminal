@@ -58,7 +58,7 @@ func waitOwner(t *testing.T, srv *Server, windowID, want string) {
 
 func claimHTTP(t *testing.T, ts *httptest.Server, clientID, windowID string) {
 	t.Helper()
-	body := `{"clientId":"` + clientID + `","windowId":"` + windowID + `"}`
+	body := `{"clientId":` + jsonQ(clientID) + `,"windowId":` + jsonQ(windowID) + `}`
 	resp, err := http.Post(ts.URL+"/api/focus/claim", "application/json", strings.NewReader(body))
 	if err != nil {
 		t.Fatalf("POST claim: %v", err)

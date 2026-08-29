@@ -166,6 +166,7 @@ func TestApiToolDelete_ClearsAttention(t *testing.T) {
 	// Delete 가 SaveAll 을 부르므로 dataDir 를 준다 — 빈 값이면 패키지 디렉터리에
 	// tools.json 을 떨군다.
 	m := toolhub.NewToolManager(t.TempDir(), nil)
+	t.Cleanup(m.WaitSaves)
 	m.Adopt(toolhub.NewAttendingTool("del", nil, false))
 	m.Adopt(toolhub.NewAttendingTool("keep", nil, false))
 

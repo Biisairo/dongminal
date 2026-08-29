@@ -27,8 +27,8 @@ func TestApiRunPeers_ExcludesTheCallerAndKeepsTheRest(t *testing.T) {
 	s, _, _, _ := runsServer(t, "tool-a")
 	runID := startRun(t, s)
 	for _, spec := range []string{
-		`{"runId":"` + runID + `","role":"작가","agent":"claude","id":"tool-a"}`,
-		`{"runId":"` + runID + `","role":"비평가","agent":"claude","id":"tool-b"}`,
+		`{"runId":` + jsonQ(runID) + `,"role":"작가","agent":"claude","id":"tool-a"}`,
+		`{"runId":` + jsonQ(runID) + `,"role":"비평가","agent":"claude","id":"tool-b"}`,
 	} {
 		if code, out := postRun(t, s, "/api/runs/members", spec); code != http.StatusOK {
 			t.Fatalf("멤버 등록 실패 %d (%+v)", code, out)

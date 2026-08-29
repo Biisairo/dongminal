@@ -121,3 +121,27 @@ func TestPolicyInjectionNeverTouchesUserPermanentSettings(t *testing.T) {
 		}
 	}
 }
+
+// 다른 쪽은 붙고, 둘 다 없으면 투명하게 위임한다.
+func TestInstallShellHooks_InjectBothIndependently(t *testing.T) {
+	dir := t.TempDir()
+	if err := Install(dir); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	for _, rel := range []string{"bash-hook.sh", "zdotdir/.zshrc"} {
+		blob, err := os.ReadFile(filepath.Join(dir, rel))
+		if err != nil {
+			t.Fatalf("read %s: %v", rel, err)
+		}
+		s := string(blob)
+		for _, want := range []string{"--settings", "--plugin-dir", "agent-plugin", "command claude"} {
+			if !strings.Contains(s, want) {
+				t.Errorf("%s 에 %q 없음", rel, want)
+			}
+		}
+		// 조건부 부착이어야 한다 — 무조건 붙이면 파일이 없을 때 claude 가 죽는다.
+		if !strings.Contains(s, `-f "$s"`) || !strings.Contains(s, `-d "$p"`) {
+			t.Errorf("%s: --settings/--plugin-dir 부착이 조건부가 아니다:\n%s", rel, s)
+		}
+	}
+}

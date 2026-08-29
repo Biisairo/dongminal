@@ -59,7 +59,7 @@ func TestAPIGitIgnore_NoDuplicate(t *testing.T) {
 	repo := t.TempDir()
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
-	body := `{"repo":"` + repo + `","paths":["a.txt"]}`
+	body := `{"repo":` + jsonQ(repo) + `,"paths":["a.txt"]}`
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/ignore", body)
 	if code != http.StatusOK || out["ok"] != true {
@@ -200,10 +200,10 @@ func TestAPIGitStashBranch(t *testing.T) {
 // 직접 호출이 우회한다.
 func TestAPIGitStashBranch_Rejects(t *testing.T) {
 	cases := []string{
-		`{"repo":"` + gitM5Repo + `","index":0,"name":""}`,
-		`{"repo":"` + gitM5Repo + `","index":0,"name":"--force"}`,
-		`{"repo":"` + gitM5Repo + `","index":-1,"name":"ok"}`,
-		`{"repo":"` + gitM5Repo + `","index":0,"name":"bad name"}`,
+		`{"repo":` + jsonQ(gitM5Repo) + `,"index":0,"name":""}`,
+		`{"repo":` + jsonQ(gitM5Repo) + `,"index":0,"name":"--force"}`,
+		`{"repo":` + jsonQ(gitM5Repo) + `,"index":-1,"name":"ok"}`,
+		`{"repo":` + jsonQ(gitM5Repo) + `,"index":0,"name":"bad name"}`,
 	}
 	for _, body := range cases {
 		f := newGitM5Fake(t)

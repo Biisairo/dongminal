@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"dongminal/internal/helper/runtimebin"
+	"dongminal/internal/shared/testpath"
 )
 
 // FR-AAP-8: claude.json must also wire the activity hook (PreToolUse → working)
@@ -75,6 +76,11 @@ func TestInstallHelperSymlinks(t *testing.T) {
 			continue
 		}
 		// fallback: regular file copy. Just ensure it's executable.
+		// 실행 권한 비트는 NTFS 에 없다 — Windows 에서 실행 가능 여부를 정하는
+		// 것은 확장자(.exe)이고, 그것은 위 helperFile 이 이미 본다 (FR-WTP-31).
+		if !testpath.PermChecked() {
+			continue
+		}
 		if info.Mode().Perm()&0o111 == 0 {
 			t.Errorf("%s copy not executable: mode=%o", name, info.Mode().Perm())
 		}

@@ -163,7 +163,7 @@ func TestGitRepos_NoFollow(t *testing.T) {
 	g := newGitFake(t)
 	s, hub, _, _ := gitTestServer(t, g)
 	hub.seed("t1", "T1")
-	hub.setCwd("t1", "/work/repo/sub")
+	hub.setCwd("t1", absWorkRepoSub)
 	roots := 0
 	g.root = func(string) (core.Output, error) {
 		roots++
@@ -191,14 +191,14 @@ func TestGitRepoAt(t *testing.T) {
 		g := newGitFake(t)
 		s, hub, _, _ := gitTestServer(t, g)
 		hub.seed("t1", "T1")
-		hub.setCwd("t1", "/work/repo/sub")
+		hub.setCwd("t1", absWorkRepoSub)
 		g.root = func(string) (core.Output, error) { return core.Output{Stdout: "/work/repo\n"}, nil }
 
 		code, out := gitReq(t, s, http.MethodGet, "/api/git/repo-at?tool=t1", "")
 		if code != 200 {
 			t.Fatalf("code=%d body=%v", code, out)
 		}
-		if out["cwd"] != "/work/repo/sub" {
+		if out["cwd"] != absWorkRepoSub {
 			t.Fatalf("cwd=%v", out["cwd"])
 		}
 		if out["isRepo"] != true || out["path"] != absWorkRepo || out["name"] != "repo" {
@@ -282,7 +282,7 @@ func TestGitRepos_NeverRunsStatus(t *testing.T) {
 	s, hub, ws, _ := gitTestServer(t, g)
 	hub.seed("t1", "T1")
 	hub.setCwd("t1", absWorkRepo)
-	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":["/a","/b","/c"]}}`)
+	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":[` + qA + `,` + qB + `,` + qC + `]}}`)
 
 	code, out := gitReq(t, s, http.MethodGet, "/api/git/repos?tool=t1", "")
 	if code != 200 {
@@ -296,7 +296,7 @@ func TestGitRepos_NeverRunsStatus(t *testing.T) {
 		t.Fatalf("pinned=%v", out["pinned"])
 	}
 	first, _ := pinned[0].(map[string]any)
-	if first["path"] != "/a" || first["name"] != "a" || first["isRepo"] != true {
+	if first["path"] != absA || first["name"] != "a" || first["isRepo"] != true {
 		t.Fatalf("pinned[0]=%v", first)
 	}
 	if first["badge"] != nil {
@@ -308,7 +308,7 @@ func TestGitRepos_NeverRunsStatus(t *testing.T) {
 func TestGitRepos_PinnedNotRepoKept(t *testing.T) {
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
-	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":["/gone"]}}`)
+	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":[` + qGone + `]}}`)
 	g.root = func(string) (core.Output, error) {
 		return core.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
 	}
@@ -322,7 +322,7 @@ func TestGitRepos_PinnedNotRepoKept(t *testing.T) {
 		t.Fatalf("pinned=%v", out["pinned"])
 	}
 	e, _ := pinned[0].(map[string]any)
-	if e["path"] != "/gone" || e["isRepo"] != false || e["reason"] != gitErrNotRepo {
+	if e["path"] != absGone || e["isRepo"] != false || e["reason"] != gitErrNotRepo {
 		t.Fatalf("pinned[0]=%v", e)
 	}
 }
@@ -465,7 +465,7 @@ func TestGitStatusSignature_EchoesRequested(t *testing.T) {
 		if code != 200 {
 			t.Fatalf("%s code=%d body=%v", path, code, out)
 		}
-		if out["requested"] != "/work/repo/sub" {
+		if out["requested"] != absWorkRepoSub {
 			t.Fatalf("%s requested=%v", path, out["requested"])
 		}
 		if out["repo"] != absWorkRepo {

@@ -233,10 +233,10 @@ func pinsOf(t *testing.T, out map[string]any) []string {
 
 func TestGitReorder_MovesBeforeAndAfter(t *testing.T) {
 	s := gitPinServer(t)
-	seedPins(t, s, "/a", "/b", "/c")
+	seedPins(t, s, absA, absB, absC)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/reorder",
-		`{"src":"/c","target":"/a","before":true}`)
+		`{"src":`+qC+`,"target":`+qA+`,"before":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -245,7 +245,7 @@ func TestGitReorder_MovesBeforeAndAfter(t *testing.T) {
 	}
 
 	_, out = gitReq(t, s, http.MethodPost, "/api/git/repos/reorder",
-		`{"src":"/c","target":"/b","before":false}`)
+		`{"src":`+qC+`,"target":`+qB+`,"before":false}`)
 	if got := strings.Join(pinsOf(t, out), ","); got != "/a,/b,/c" {
 		t.Fatalf("pinned = %q", got)
 	}
@@ -254,9 +254,9 @@ func TestGitReorder_MovesBeforeAndAfter(t *testing.T) {
 // 끌어다 놓은 곳이 사라졌다고 조작을 통째로 잃지 않는다.
 func TestGitReorder_MissingTargetGoesLast(t *testing.T) {
 	s := gitPinServer(t)
-	seedPins(t, s, "/a", "/b", "/c")
+	seedPins(t, s, absA, absB, absC)
 	_, out := gitReq(t, s, http.MethodPost, "/api/git/repos/reorder",
-		`{"src":"/a","target":"/gone","before":true}`)
+		`{"src":`+qA+`,"target":`+qGone+`,"before":true}`)
 	if got := strings.Join(pinsOf(t, out), ","); got != "/b,/c,/a" {
 		t.Fatalf("pinned = %q", got)
 	}
@@ -264,13 +264,13 @@ func TestGitReorder_MissingTargetGoesLast(t *testing.T) {
 
 func TestGitReorder_UnknownSrcIsNoop(t *testing.T) {
 	s := gitPinServer(t)
-	seedPins(t, s, "/a", "/b")
+	seedPins(t, s, absA, absB)
 	_, out := gitReq(t, s, http.MethodPost, "/api/git/repos/reorder",
-		`{"src":"/nope","target":"/a","before":true}`)
+		`{"src":"/nope","target":`+qA+`,"before":true}`)
 	if got := strings.Join(pinsOf(t, out), ","); got != "/a,/b" {
 		t.Fatalf("pinned = %q", got)
 	}
-	code, _ := gitReq(t, s, http.MethodPost, "/api/git/repos/reorder", `{"src":"","target":"/a"}`)
+	code, _ := gitReq(t, s, http.MethodPost, "/api/git/repos/reorder", `{"src":"","target":`+qA+`}`)
 	if code != http.StatusBadRequest {
 		t.Fatalf("빈 src → %d, want 400", code)
 	}
@@ -279,10 +279,10 @@ func TestGitReorder_UnknownSrcIsNoop(t *testing.T) {
 // git 하위의 다른 키를 건드리지 않는다 — 순서 하나 바꾸다 draft 를 잃으면 안 된다.
 func TestGitReorder_PreservesOtherGitKeys(t *testing.T) {
 	s := gitPinServer(t)
-	if _, err := s.Work.Save([]byte(`{"git":{"pinned":["/a","/b"],"drafts":{"/a":"keep"}}}`), ""); err != nil {
+	if _, err := s.Work.Save([]byte(`{"git":{"pinned":[`+qA+`,`+qB+`],"drafts":{`+qA+`:"keep"}}}`), ""); err != nil {
 		t.Fatal(err)
 	}
-	gitReq(t, s, http.MethodPost, "/api/git/repos/reorder", `{"src":"/b","target":"/a","before":true}`)
+	gitReq(t, s, http.MethodPost, "/api/git/repos/reorder", `{"src":`+qB+`,"target":`+qA+`,"before":true}`)
 	raw, _ := s.Work.Snapshot()
 	if !strings.Contains(string(raw), `"keep"`) {
 		t.Fatalf("drafts 가 사라졌다: %s", raw)

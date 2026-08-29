@@ -129,7 +129,7 @@ func TestGitPatch_IgnoresClientSuppliedPatch(t *testing.T) {
 
 	hostile := "--- a/../../etc/passwd\n+++ b/../../etc/passwd\n@@ -1 +1 @@\n-x\n+pwned\n"
 	body := `{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"f.txt","op":"stage",` +
-		`"hunk":0,"diffId":"` + id + `","patch":` + quoteJSON(hostile) +
+		`"hunk":0,"diffId":` + jsonQ(id) + `,"patch":` + quoteJSON(hostile) +
 		`,"body":` + quoteJSON(hostile) + `,"content":` + quoteJSON(hostile) + `}`
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/patch", body)
 	if code != http.StatusOK {
@@ -178,7 +178,7 @@ func TestGitPatch_RevertRequiresConfirm(t *testing.T) {
 	s := gitPatchServer(t, f)
 	id := gitPatchDiffID(t, s)
 	body := `{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"f.txt","op":"revert",` +
-		`"hunk":0,"diffId":"` + id + `"}`
+		`"hunk":0,"diffId":` + jsonQ(id) + `}`
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/patch", body)
 	if code != http.StatusBadRequest {
 		t.Fatalf("confirm 없는 revert = %d, 기대 400: %v", code, out)
@@ -237,9 +237,9 @@ func TestGitPatch_RejectsBadAxisAndOp(t *testing.T) {
 	s := gitPatchServer(t, f)
 	id := gitPatchDiffID(t, s)
 	bodies := []string{
-		`{"repo":` + qWorkRepo + `,"axis":"index-head","path":"f.txt","op":"stage","hunk":0,"diffId":"` + id + `"}`,
-		`{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"f.txt","op":"nuke","hunk":0,"diffId":"` + id + `"}`,
-		`{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"../x","op":"stage","hunk":0,"diffId":"` + id + `"}`,
+		`{"repo":` + qWorkRepo + `,"axis":"index-head","path":"f.txt","op":"stage","hunk":0,"diffId":` + jsonQ(id) + `}`,
+		`{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"f.txt","op":"nuke","hunk":0,"diffId":` + jsonQ(id) + `}`,
+		`{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"../x","op":"stage","hunk":0,"diffId":` + jsonQ(id) + `}`,
 	}
 	for _, b := range bodies {
 		code, out := gitReq(t, s, http.MethodPost, "/api/git/patch", b)

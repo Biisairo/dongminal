@@ -203,26 +203,26 @@ func TestEditorRemove_StringMatchOnVanishedPath(t *testing.T) {
 // V-EDT-13 (FR-EDT-27): reorder 델타가 반영되고, 없는 src/target 은 배열을 바꾸지 않는다.
 func TestEditorReorder_Delta(t *testing.T) {
 	s, w, _ := newTestStore(t, absHomeU)
-	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":["/a","/b","/c"]}}`)
+	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":[` + qA + `,` + qB + `,` + qC + `]}}`)
 
-	got, err := s.EditorReorder("/c", "/a", true)
+	got, err := s.EditorReorder(absC, absA, true)
 	if err != nil {
 		t.Fatalf("reorder: %v", err)
 	}
-	if !reflect.DeepEqual(got, []string{"/c", "/a", "/b"}) {
+	if !reflect.DeepEqual(got, []string{absC, absA, absB}) {
 		t.Fatalf("list=%v", got)
 	}
-	if got, err = s.EditorReorder("/zz", "/a", true); err != nil || !reflect.DeepEqual(got, []string{"/c", "/a", "/b"}) {
+	if got, err = s.EditorReorder("/zz", absA, true); err != nil || !reflect.DeepEqual(got, []string{absC, absA, absB}) {
 		t.Fatalf("없는 src 가 배열을 바꿨다: %v (%v)", got, err)
 	}
 	// 목록에 없는 target 도 배열을 그대로 둔다 — 화면이 낡았다는 뜻이므로 src 와
 	// 같은 근거다 (FR-EDT-27).
-	if got, err = s.EditorReorder("/c", "/zz", true); err != nil || !reflect.DeepEqual(got, []string{"/c", "/a", "/b"}) {
+	if got, err = s.EditorReorder(absC, "/zz", true); err != nil || !reflect.DeepEqual(got, []string{absC, absA, absB}) {
 		t.Fatalf("없는 target 이 배열을 바꿨다: %v (%v)", got, err)
 	}
 	// 빈 target 만 "맨 끝" 이다 — 목록 아래 빈 자리에 놓는 드롭이 그 값을 보낸다
 	// (FR-EDT-111).
-	if got, err = s.EditorReorder("/c", "", false); err != nil || !reflect.DeepEqual(got, []string{"/a", "/b", "/c"}) {
+	if got, err = s.EditorReorder(absC, "", false); err != nil || !reflect.DeepEqual(got, []string{absA, absB, absC}) {
 		t.Fatalf("빈 target 이 맨 끝이 아니다: %v (%v)", got, err)
 	}
 }
@@ -268,13 +268,13 @@ func TestParse_NullBlobDoesNotPanic(t *testing.T) {
 		}
 		// 쓰기 경로. 여기가 nil map 에 대입하는 자리다.
 		l, err := s.Mutate(func(cur Lists) Lists {
-			cur.Editors = append(cur.Editors, "/x")
+			cur.Editors = append(cur.Editors, absX)
 			return cur
 		})
 		if err != nil {
 			t.Fatalf("Mutate(%q): %v", raw, err)
 		}
-		if !reflect.DeepEqual(l.Editors, []string{"/x"}) {
+		if !reflect.DeepEqual(l.Editors, []string{absX}) {
 			t.Fatalf("editors=%v", l.Editors)
 		}
 		// schemaVersion 이 없는 블롭은 Save 가 거부한다 (FR-EM-2a) — 되살린 문서에
@@ -291,7 +291,7 @@ func TestMutate_RetriesOnceOnStale(t *testing.T) {
 	w.raw = []byte(`{"schemaVersion":2}`)
 	w.staleOnce = true
 	l, err := s.Mutate(func(cur Lists) Lists {
-		cur.Editors = append(cur.Editors, "/x")
+		cur.Editors = append(cur.Editors, absX)
 		return cur
 	})
 	if err != nil {
@@ -313,7 +313,7 @@ func TestMutate_GivesUpAfterSecondStale(t *testing.T) {
 	s := &Store{Work: w, HomeFn: func() (string, error) { return absHomeU, nil }}
 	// 목록을 **실제로 바꾸는** 변이여야 한다 — 무변경은 저장을 건너뛰므로
 	// (FR-EDT-27) 재시도 경로에 도달하지 않는다.
-	mut := func(c Lists) Lists { c.Editors = append(c.Editors, "/a"); return c }
+	mut := func(c Lists) Lists { c.Editors = append(c.Editors, absA); return c }
 	if _, err := s.Mutate(mut); !errors.Is(err, workspace.ErrStale) {
 		t.Fatalf("err=%v, want ErrStale", err)
 	}
@@ -326,7 +326,7 @@ func TestMutate_GivesUpAfterSecondStale(t *testing.T) {
 // `workspace_changed` 가 모든 브라우저에 나가 재조정을 돌린다 — 바뀐 것이
 // 없는데 치를 비용이 아니다.
 func TestMutate_NoopDoesNotSave(t *testing.T) {
-	w := &fakeWork{raw: []byte(`{"schemaVersion":2,"editors":{"list":["/a","/b"]}}`)}
+	w := &fakeWork{raw: []byte(`{"schemaVersion":2,"editors":{"list":[` + qA + `,` + qB + `]}}`)}
 	b := &fakeBroker{}
 	s := &Store{Work: w, Commands: b, HomeFn: func() (string, error) { return absHomeU, nil }}
 
@@ -334,7 +334,7 @@ func TestMutate_NoopDoesNotSave(t *testing.T) {
 	if _, err := s.EditorRemove("/nope"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.EditorReorder("/nope", "/a", true); err != nil {
+	if _, err := s.EditorReorder("/nope", absA, true); err != nil {
 		t.Fatal(err)
 	}
 	if w.saves != 0 {
@@ -345,7 +345,7 @@ func TestMutate_NoopDoesNotSave(t *testing.T) {
 	}
 
 	// 대조군 — 실제로 바뀌면 한 번 저장된다.
-	if _, err := s.EditorRemove("/a"); err != nil {
+	if _, err := s.EditorRemove(absA); err != nil {
 		t.Fatal(err)
 	}
 	if w.saves != 1 {
@@ -456,7 +456,7 @@ func TestEditorAdd_NormalizesSymlinkedPath(t *testing.T) {
 // FR-EDT-29: 목록 조회는 {home, list} 를 주고 home 은 list 에 없다.
 func TestList_HomeIsNotInList(t *testing.T) {
 	s, w, _ := newTestStore(t, absHomeU)
-	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":["/a"]}}`)
+	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":[` + qA + `]}}`)
 	home, list, err := s.List()
 	if err != nil {
 		t.Fatalf("List: %v", err)
@@ -473,7 +473,7 @@ func TestList_HomeIsNotInList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Roots: %v", err)
 	}
-	if !reflect.DeepEqual(roots, []string{absHomeU, "/a"}) {
+	if !reflect.DeepEqual(roots, []string{absHomeU, absA}) {
 		t.Fatalf("roots=%v", roots)
 	}
 }
@@ -481,7 +481,7 @@ func TestList_HomeIsNotInList(t *testing.T) {
 // FR-EDT-24: 링크를 풀지 못하는(사라진) 경로는 Clean 만 한 값이 된다 — 사라진
 // 저장소의 핀도 목록에 남아야 하기 때문이다.
 func TestNormalizePath_FallsBackToCleanWhenMissing(t *testing.T) {
-	if got := NormalizePath("/no/such/dir/../dir"); got != "/no/such/dir" {
+	if got := NormalizePath("/no/such/dir/../dir"); got != absNoSuchDir {
 		t.Fatalf("got=%q", got)
 	}
 }
@@ -496,7 +496,7 @@ func TestMutate_WithoutWorkspaceFails(t *testing.T) {
 // 빈 블롭에서 시작해도 Save 가 거부하지 않도록 schemaVersion 을 세운다 (FR-EM-2a).
 func TestMutate_SeedsSchemaVersionOnEmptyBlob(t *testing.T) {
 	s, w, _ := newTestStore(t, absHomeU)
-	if _, err := s.Mutate(func(c Lists) Lists { c.Editors = []string{"/a"}; return c }); err != nil {
+	if _, err := s.Mutate(func(c Lists) Lists { c.Editors = []string{absA}; return c }); err != nil {
 		t.Fatalf("Mutate: %v", err)
 	}
 	if !strings.Contains(string(w.raw), `"schemaVersion"`) {

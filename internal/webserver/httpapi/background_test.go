@@ -129,6 +129,7 @@ func TestSetBackground_RestoreClearsFlag(t *testing.T) {
 
 func TestSetBackground_UnknownToolIsNoop(t *testing.T) {
 	m := toolhub.NewToolManager(t.TempDir(), nil)
+	t.Cleanup(m.WaitSaves)
 	if m.SetBackground("nope", true) {
 		t.Error("존재하지 않는 도구에 true 반환")
 	}

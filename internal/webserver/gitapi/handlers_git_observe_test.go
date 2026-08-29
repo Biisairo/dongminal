@@ -17,7 +17,7 @@ import (
 func TestGitRepos_ObserveFillsEveryBadge(t *testing.T) {
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
-	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":["/a","/b","/c"]}}`)
+	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":[` + qA + `,` + qB + `,` + qC + `]}}`)
 
 	code, out := gitReq(t, s, http.MethodGet, "/api/git/repos?observe=1", "")
 	if code != 200 {
@@ -46,14 +46,14 @@ func TestGitRepos_ObserveFillsEveryBadge(t *testing.T) {
 func TestGitRepos_ObserveKeepsPinOrder(t *testing.T) {
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
-	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":["/a","/b","/c","/d","/e"]}}`)
+	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":[` + qA + `,` + qB + `,` + qC + `,"/d","/e"]}}`)
 
 	code, out := gitReq(t, s, http.MethodGet, "/api/git/repos?observe=1", "")
 	if code != 200 {
 		t.Fatalf("code=%d", code)
 	}
 	pinned, _ := out["pinned"].([]any)
-	want := []string{"/a", "/b", "/c", "/d", "/e"}
+	want := []string{absA, absB, absC, "/d", "/e"}
 	if len(pinned) != len(want) {
 		t.Fatalf("pinned=%v", out["pinned"])
 	}
@@ -69,7 +69,7 @@ func TestGitRepos_ObserveKeepsPinOrder(t *testing.T) {
 func TestGitRepos_NoObserveStillNeverRunsStatus(t *testing.T) {
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
-	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":["/a","/b","/c"]}}`)
+	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":[` + qA + `,` + qB + `,` + qC + `]}}`)
 
 	if code, _ := gitReq(t, s, http.MethodGet, "/api/git/repos", ""); code != 200 {
 		t.Fatalf("code=%d", code)

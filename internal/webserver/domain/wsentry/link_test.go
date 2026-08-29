@@ -38,9 +38,9 @@ func TestLinkPinAdd_HomeMakesNoEditorRow(t *testing.T) {
 
 func TestLinkPinRemove_RemovesEditorRow(t *testing.T) {
 	// V-EDT-18 (FR-EDT-32)
-	cur := Lists{Pinned: []string{"/a", "/b"}, Editors: []string{"/a", "/b"}}
-	got := LinkPinRemove(cur, "/a", absHomeU)
-	want := Lists{Pinned: []string{"/b"}, Editors: []string{"/b"}}
+	cur := Lists{Pinned: []string{absA, absB}, Editors: []string{absA, absB}}
+	got := LinkPinRemove(cur, absA, absHomeU)
+	want := Lists{Pinned: []string{absB}, Editors: []string{absB}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got=%v want=%v", got, want)
 	}
@@ -69,7 +69,7 @@ func TestLinkEditorAdd_PinsRepoRootOnly(t *testing.T) {
 	if len(root.Pinned) != 1 || root.Pinned[0] != absWorkRepo {
 		t.Fatalf("저장소 루트인데 핀이 없다: %v", root.Pinned)
 	}
-	inside := LinkEditorAdd(Lists{}, "/work/repo/sub", absHomeU, false)
+	inside := LinkEditorAdd(Lists{}, absWorkRepoSub, absHomeU, false)
 	if len(inside.Pinned) != 0 {
 		t.Fatalf("루트가 아닌데 핀이 생겼다: %v", inside.Pinned)
 	}
@@ -88,8 +88,8 @@ func TestLinkEditorAdd_HomeIsNoop(t *testing.T) {
 
 func TestLinkEditorRemove_RemovesPin(t *testing.T) {
 	// V-EDT-21 (FR-EDT-34)
-	cur := Lists{Pinned: []string{"/a"}, Editors: []string{"/a"}}
-	got := LinkEditorRemove(cur, "/a", absHomeU)
+	cur := Lists{Pinned: []string{absA}, Editors: []string{absA}}
+	got := LinkEditorRemove(cur, absA, absHomeU)
 	if len(got.Pinned) != 0 || len(got.Editors) != 0 {
 		t.Fatalf("got=%v", got)
 	}

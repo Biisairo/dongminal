@@ -376,6 +376,7 @@ func TestDaemonToolCreateDeleteLifecycle(t *testing.T) {
 	sockPath := t.TempDir() + "/s"
 
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	t.Cleanup(pm.WaitSaves)
 	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -430,6 +431,7 @@ func TestDaemonPanedServerSocketCleanup(t *testing.T) {
 	}
 
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	t.Cleanup(pm.WaitSaves)
 	ps := ipc.NewPanedServer(pm, sockPath, pidPath)
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)

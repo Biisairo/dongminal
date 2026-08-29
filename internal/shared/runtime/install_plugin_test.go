@@ -137,30 +137,6 @@ func TestInstallAgentPlugin_HooksCoexistWithSettings(t *testing.T) {
 }
 
 // FR-INJ-4/5: 셸 래퍼가 두 주입을 독립적으로 판단해야 한다. 한쪽 산출물이 없어도
-// 다른 쪽은 붙고, 둘 다 없으면 투명하게 위임한다.
-func TestInstallShellHooks_InjectBothIndependently(t *testing.T) {
-	dir := t.TempDir()
-	if err := Install(dir); err != nil {
-		t.Fatalf("Install: %v", err)
-	}
-	for _, rel := range []string{"bash-hook.sh", "zdotdir/.zshrc"} {
-		blob, err := os.ReadFile(filepath.Join(dir, rel))
-		if err != nil {
-			t.Fatalf("read %s: %v", rel, err)
-		}
-		s := string(blob)
-		for _, want := range []string{"--settings", "--plugin-dir", "agent-plugin", "command claude"} {
-			if !strings.Contains(s, want) {
-				t.Errorf("%s 에 %q 없음", rel, want)
-			}
-		}
-		// 조건부 부착이어야 한다 — 무조건 붙이면 파일이 없을 때 claude 가 죽는다.
-		if !strings.Contains(s, `-f "$s"`) || !strings.Contains(s, `-d "$p"`) {
-			t.Errorf("%s: --settings/--plugin-dir 부착이 조건부가 아니다:\n%s", rel, s)
-		}
-	}
-}
-
 // FR-INJ-3: 재설치가 전개물을 갱신해야 한다 (바이너리 갱신 시 스킬도 따라간다).
 func TestInstallAgentPlugin_Overwrites(t *testing.T) {
 	dir := t.TempDir()

@@ -1,4 +1,4 @@
-package jobs
+package run
 
 import "dongminal/internal/shared/testpath"
 
@@ -11,7 +11,5 @@ import "dongminal/internal/shared/testpath"
 // 한쪽만 바꾸면 Windows 에서 다시 어긋난다.
 
 var (
-	absWorkA    = testpath.Abs("work", "a")
-	absWorkB    = testpath.Abs("work", "b")
-	absWorkRepo = testpath.Abs("work", "repo")
+	absRepo = testpath.Abs("repo")
 )
