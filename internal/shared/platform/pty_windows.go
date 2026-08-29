@@ -49,33 +49,47 @@ func (windowsPTY) Start(spec ProcSpec, cols, rows uint16) (Terminal, error) {
 		return nil, fmt.Errorf("ConPTY 를 쓸 수 없습니다 — Windows 10 1809 이상이 필요합니다: %w", err)
 	}
 
-	// 파이프 두 쌍. 자식이 읽을 쪽(inRead)과 쓸 쪽(outWrite)은 ConPTY 에
-	// 넘긴 뒤 부모가 닫는다 — ConPTY 가 자기 몫으로 복제해 간다.
+	// 파이프 두 쌍. inRead·outWrite 는 **자식 쪽 끝**이다.
+	//
+	// 자식에게 물려줄 것이므로 상속 가능하게 만든다. 부모가 콘솔을 가진 채로
+	// 자식을 띄우면 자식이 그 콘솔에 붙어 버리는데(실측: 셸 배너와 프롬프트가
+	// 부모 콘솔에 찍히고 의사 콘솔로는 초기화 시퀀스만 왔다), 표준 입출력을
+	// 명시해 그 모호함을 없앤다.
+	sa := &windows.SecurityAttributes{InheritHandle: 1}
+	sa.Length = uint32(unsafe.Sizeof(*sa))
+
 	var inRead, inWrite, outRead, outWrite windows.Handle
-	if err := windows.CreatePipe(&inRead, &inWrite, nil, 0); err != nil {
+	if err := windows.CreatePipe(&inRead, &inWrite, sa, 0); err != nil {
 		return nil, fmt.Errorf("입력 파이프: %w", err)
 	}
-	if err := windows.CreatePipe(&outRead, &outWrite, nil, 0); err != nil {
+	if err := windows.CreatePipe(&outRead, &outWrite, sa, 0); err != nil {
 		windows.CloseHandle(inRead)
 		windows.CloseHandle(inWrite)
 		return nil, fmt.Errorf("출력 파이프: %w", err)
+	}
+	// 부모가 쥐는 끝은 물려주지 않는다 — 물려주면 자식이 죽어도 파이프가 닫히지
+	// 않아 읽기가 EOF 를 보지 못한다.
+	for _, h := range []windows.Handle{inWrite, outRead} {
+		if err := windows.SetHandleInformation(h, windows.HANDLE_FLAG_INHERIT, 0); err != nil {
+			closeAll(inRead, inWrite, outRead, outWrite)
+			return nil, fmt.Errorf("핸들 상속 해제: %w", err)
+		}
 	}
 
 	var hpc windows.Handle
 	ret, _, _ := procCreatePseudoConsole.Call(
 		packCoord(cols, rows), uintptr(inRead), uintptr(outWrite), 0,
 		uintptr(unsafe.Pointer(&hpc)))
-	// 자식 쪽 끝은 이제 부모에게 필요 없다. 닫지 않으면 자식이 끝나도 읽기가
-	// EOF 를 보지 못한다.
-	windows.CloseHandle(inRead)
-	windows.CloseHandle(outWrite)
 	if ret != 0 {
-		windows.CloseHandle(inWrite)
-		windows.CloseHandle(outRead)
+		closeAll(inRead, inWrite, outRead, outWrite)
 		return nil, fmt.Errorf("CreatePseudoConsole: %w", windows.Errno(ret))
 	}
 
-	pi, err := startInPseudoConsole(spec, hpc)
+	// 자식 쪽 끝은 CreateProcess 까지 살아 있어야 한다 — 표준 입출력으로
+	// 물려주기 때문이다. 그 뒤에 닫는다.
+	pi, err := startInPseudoConsole(spec, hpc, inRead, outWrite)
+	windows.CloseHandle(inRead)
+	windows.CloseHandle(outWrite)
 	if err != nil {
 		procClosePseudoConsole.Call(uintptr(hpc))
 		windows.CloseHandle(inWrite)
@@ -97,7 +111,7 @@ func (windowsPTY) Start(spec ProcSpec, cols, rows uint16) (Terminal, error) {
 
 // startInPseudoConsole 은 hpc 에 붙은 프로세스를 띄운다. 속성 목록에 HPCON 을
 // 싣는 것이 ConPTY 세션의 전부다.
-func startInPseudoConsole(spec ProcSpec, hpc windows.Handle) (*windows.ProcessInformation, error) {
+func startInPseudoConsole(spec ProcSpec, hpc, childIn, childOut windows.Handle) (*windows.ProcessInformation, error) {
 	attrs, err := windows.NewProcThreadAttributeList(1)
 	if err != nil {
 		return nil, fmt.Errorf("속성 목록: %w", err)
@@ -117,6 +131,12 @@ func startInPseudoConsole(spec ProcSpec, hpc windows.Handle) (*windows.ProcessIn
 	var siEx windows.StartupInfoEx
 	siEx.ProcThreadAttributeList = attrs.List()
 	siEx.Cb = uint32(unsafe.Sizeof(siEx))
+	// 표준 입출력을 의사 콘솔의 자식 쪽 끝으로 못박는다. 이것이 없으면 부모에
+	// 콘솔이 있을 때 자식이 그쪽에 붙는다 (Start 의 주석).
+	siEx.Flags |= windows.STARTF_USESTDHANDLES
+	siEx.StdInput = childIn
+	siEx.StdOutput = childOut
+	siEx.StdErr = childOut
 
 	cmdLine, err := windows.UTF16PtrFromString(windows.ComposeCommandLine(spec.Args))
 	if err != nil {
@@ -138,13 +158,23 @@ func startInPseudoConsole(spec ProcSpec, hpc windows.Handle) (*windows.ProcessIn
 	}
 
 	var pi windows.ProcessInformation
-	// 핸들을 물려주지 않는다 — ConPTY 가 자기 몫을 이미 복제해 갔다.
+	// 표준 입출력을 물려주므로 상속을 켠다. 상속 가능한 핸들은 방금 만든
+	// 자식 쪽 파이프 끝 둘뿐이다.
 	flags := uint32(extendedStartupInfoPresent | windows.CREATE_UNICODE_ENVIRONMENT)
-	if err := windows.CreateProcess(appName, cmdLine, nil, nil, false,
+	if err := windows.CreateProcess(appName, cmdLine, nil, nil, true,
 		flags, env, dir, (*windows.StartupInfo)(unsafe.Pointer(&siEx)), &pi); err != nil {
 		return nil, fmt.Errorf("CreateProcess %s: %w", spec.Path, err)
 	}
 	return &pi, nil
+}
+
+// closeAll 은 핸들 여럿을 닫는다. 실패 경로에서 하나씩 적는 것을 줄인다.
+func closeAll(hs ...windows.Handle) {
+	for _, h := range hs {
+		if h != 0 {
+			windows.CloseHandle(h)
+		}
+	}
 }
 
 // envBlock 은 "K=V" 목록을 CreateProcess 가 받는 UTF-16 블록으로 바꾼다.

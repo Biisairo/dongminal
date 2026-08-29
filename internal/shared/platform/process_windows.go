@@ -88,10 +88,10 @@ func (windowsProcess) ShutdownSignals() []os.Signal {
 //	DETACHED_PROCESS  콘솔을 **아예 만들지 않는다**
 //	CREATE_NO_WINDOW  **새 콘솔**을 만들되 창을 띄우지 않는다
 //
-// 이 차이가 실기에서 드러났다. DETACHED_PROCESS 로 띄운 데몬 안에서
-// CreatePseudoConsole 은 성공하고 초기 시퀀스(16바이트)까지 내보내지만,
-// **거기 붙은 셸의 출력이 한 바이트도 나오지 않는다.** 콘솔이 있는
-// 프로세스에서는 같은 코드가 정상 동작한다 (doctor 의 도구 검사 266바이트).
+// CREATE_NO_WINDOW 를 고르는 것은 예방이다. 의사 콘솔을 만드는 프로세스가
+// 콘솔을 아예 갖지 않는 것보다는 자기 콘솔을 갖는 편이 안전하다 — 실기에서
+// 확인된 결함의 원인은 따로 있었지만(pty_windows.go 의 표준 입출력 지정),
+// 콘솔이 없는 편이 나을 이유도 없다.
 //
 // 새 콘솔이므로 부모의 콘솔이 닫혀도 이 프로세스에는 닿지 않는다 — 끊어 띄운다는
 // 목적은 그대로 지켜진다. CREATE_NEW_PROCESS_GROUP 을 함께 주어 Ctrl+C 가
