@@ -85,8 +85,10 @@ func TestDaemonFullFlow(t *testing.T) {
 	}
 	toolID := tool.ID
 
-	// Give the shell time to start and produce output (prompt)
-	time.Sleep(200 * time.Millisecond)
+	// **셸이 입을 열 때까지 기다린다.** 고정 대기(200ms)로는 부하 걸린 러너에서
+	// 못 맞춘다 — 준비되기 전에 넣은 입력은 프롬프트가 먹지 못하고, 그러면
+	// 아래 "출력 없음" 으로 떨어진다. 실제로 ubuntu 를 두 번 떨어뜨렸다.
+	waitForDaemonToolOutput(t, pc, toolID, 20*time.Second)
 
 	// Subscribe to output
 	outputCh := make(chan []byte, 32)
@@ -109,7 +111,7 @@ func TestDaemonFullFlow(t *testing.T) {
 	select {
 	case <-outputCh:
 		// got some output
-	case <-time.After(2 * time.Second):
+	case <-time.After(20 * time.Second):
 		t.Fatal("no output received from tool")
 	}
 
@@ -770,4 +772,20 @@ func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	t.Fatal("attention not detected without a WS subscriber (OnOutput not wired through readLoop?)")
+}
+
+// waitForDaemonToolOutput 은 셸이 무엇이든 내보낼 때까지 기다린다. 무엇이
+// 나오는지는 셸마다 다르므로(프롬프트·배너) 내용을 보지 않고 바이트가 생겼는지만
+// 본다. 고정 대기를 이것으로 바꾼 이유는 doctor 가 먼저 밟은 함정과 같다
+// (CROSS_PLATFORM_SRS §11, a36417a).
+func waitForDaemonToolOutput(t *testing.T, pc *toolclient.ToolClient, toolID string, limit time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(limit)
+	for time.Now().Before(deadline) {
+		if snap, err := pc.SnapshotTool(toolID); err == nil && len(snap.Data) > 0 {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("셸이 %v 안에 아무것도 내보내지 않았다", limit)
 }
