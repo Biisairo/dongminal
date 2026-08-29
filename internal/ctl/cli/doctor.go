@@ -263,24 +263,19 @@ func doctorProbePlainCommand(r *doctorReport, p platform.Platform, home string) 
 		term.Close()
 	}()
 
-	var seen strings.Builder
-	deadline := time.Now().Add(doctorProbeTimeout)
-	buf := make([]byte, 4096)
-	for time.Now().Before(deadline) {
-		n, rerr := term.Read(buf)
-		if n > 0 {
-			seen.Write(buf[:n])
-			if strings.Contains(seen.String(), marker) {
-				r.ok("[단순 명령] 출력이 의사 터미널로 나옵니다")
-				return
-			}
-		}
-		if rerr != nil {
-			break
-		}
+	// 읽기는 goroutine 에 맡긴다. 자식이 끝나도 의사 콘솔이 파이프를 열어
+	// 두는 플랫폼(Windows)에서는 Read 가 돌아오지 않아, 그냥 반복하면 상한을
+	// 검사할 기회조차 없다.
+	got, rerr := doctorRoundTrip(term, "", marker, doctorProbeTimeout)
+	if strings.Contains(got, marker) {
+		r.ok("[단순 명령] 출력이 의사 터미널로 나옵니다")
+		return
 	}
-	r.bad("[단순 명령] 출력이 의사 터미널로 나오지 않습니다 (받은 %d바이트) — 배관 문제입니다", seen.Len())
-	r.info("받은 것: %q", doctorTrim(seen.String()))
+	r.bad("[단순 명령] 출력이 의사 터미널로 나오지 않습니다 (받은 %d바이트) — 배관 문제입니다", len(got))
+	if rerr != nil {
+		r.info("읽기: %v", rerr)
+	}
+	r.info("받은 것: %q", doctorTrim(got))
 }
 
 // doctorProbeTerminal 은 명세 하나로 터미널을 띄워 왕복시킨다.
@@ -373,8 +368,9 @@ func doctorRoundTrip(term platform.Terminal, input, want string, limit time.Dura
 	}
 
 	// 준비 대기: 출력이 한 번이라도 오고, 그 뒤 조용해지면 프롬프트가 선 것이다.
+	// 입력이 없으면 기다릴 이유가 없다 — 바로 결과를 기다린다.
 	ready := time.Now().Add(doctorReadyWait)
-	for time.Now().Before(ready) {
+	for input != "" && time.Now().Before(ready) {
 		if _, n, quiet := snapshot(); n > 0 && quiet > doctorQuietFor {
 			break
 		}
@@ -386,9 +382,12 @@ func doctorRoundTrip(term platform.Terminal, input, want string, limit time.Dura
 		}
 	}
 
-	if _, err := term.Write([]byte(input)); err != nil {
-		got, _, _ := snapshot()
-		return got, fmt.Errorf("입력 쓰기: %w", err)
+	// input 이 비면 쓸 것이 없다 — 스스로 출력하고 끝나는 명령을 볼 때다.
+	if input != "" {
+		if _, err := term.Write([]byte(input)); err != nil {
+			got, _, _ := snapshot()
+			return got, fmt.Errorf("입력 쓰기: %w", err)
+		}
 	}
 
 	select {
