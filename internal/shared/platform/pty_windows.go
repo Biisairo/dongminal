@@ -4,6 +4,7 @@ package platform
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"sync"
 	"unsafe"
@@ -49,31 +50,16 @@ func (windowsPTY) Start(spec ProcSpec, cols, rows uint16) (Terminal, error) {
 		return nil, fmt.Errorf("ConPTY 를 쓸 수 없습니다 — Windows 10 1809 이상이 필요합니다: %w", err)
 	}
 
-	// 파이프 두 쌍. inRead·outWrite 는 **자식 쪽 끝**이다.
-	//
-	// 자식에게 물려줄 것이므로 상속 가능하게 만든다. 부모가 콘솔을 가진 채로
-	// 자식을 띄우면 자식이 그 콘솔에 붙어 버리는데(실측: 셸 배너와 프롬프트가
-	// 부모 콘솔에 찍히고 의사 콘솔로는 초기화 시퀀스만 왔다), 표준 입출력을
-	// 명시해 그 모호함을 없앤다.
-	sa := &windows.SecurityAttributes{InheritHandle: 1}
-	sa.Length = uint32(unsafe.Sizeof(*sa))
-
+	// 파이프 두 쌍. inRead·outWrite 는 ConPTY 가 가져갈 끝이고, 부모는
+	// inWrite(자식에게 쓰기)·outRead(자식에서 읽기)를 쥔다. 상속은 필요 없다 —
+	// 자식은 이 파이프를 직접 만지지 않고 의사 콘솔을 통해서만 오간다.
 	var inRead, inWrite, outRead, outWrite windows.Handle
-	if err := windows.CreatePipe(&inRead, &inWrite, sa, 0); err != nil {
+	if err := windows.CreatePipe(&inRead, &inWrite, nil, 0); err != nil {
 		return nil, fmt.Errorf("입력 파이프: %w", err)
 	}
-	if err := windows.CreatePipe(&outRead, &outWrite, sa, 0); err != nil {
-		windows.CloseHandle(inRead)
-		windows.CloseHandle(inWrite)
+	if err := windows.CreatePipe(&outRead, &outWrite, nil, 0); err != nil {
+		closeAll(inRead, inWrite)
 		return nil, fmt.Errorf("출력 파이프: %w", err)
-	}
-	// 부모가 쥐는 끝은 물려주지 않는다 — 물려주면 자식이 죽어도 파이프가 닫히지
-	// 않아 읽기가 EOF 를 보지 못한다.
-	for _, h := range []windows.Handle{inWrite, outRead} {
-		if err := windows.SetHandleInformation(h, windows.HANDLE_FLAG_INHERIT, 0); err != nil {
-			closeAll(inRead, inWrite, outRead, outWrite)
-			return nil, fmt.Errorf("핸들 상속 해제: %w", err)
-		}
 	}
 
 	var hpc windows.Handle
@@ -85,11 +71,12 @@ func (windowsPTY) Start(spec ProcSpec, cols, rows uint16) (Terminal, error) {
 		return nil, fmt.Errorf("CreatePseudoConsole: %w", windows.Errno(ret))
 	}
 
-	// 자식 쪽 끝은 CreateProcess 까지 살아 있어야 한다 — 표준 입출력으로
-	// 물려주기 때문이다. 그 뒤에 닫는다.
-	pi, err := startInPseudoConsole(spec, hpc, inRead, outWrite)
+	// ConPTY 가 자기 몫으로 복제해 갔으므로 부모의 사본은 닫는다. 닫지 않으면
+	// 자식이 끝나도 읽기가 EOF 를 보지 못한다.
 	windows.CloseHandle(inRead)
 	windows.CloseHandle(outWrite)
+
+	pi, err := startInPseudoConsole(spec, hpc)
 	if err != nil {
 		procClosePseudoConsole.Call(uintptr(hpc))
 		windows.CloseHandle(inWrite)
@@ -111,7 +98,7 @@ func (windowsPTY) Start(spec ProcSpec, cols, rows uint16) (Terminal, error) {
 
 // startInPseudoConsole 은 hpc 에 붙은 프로세스를 띄운다. 속성 목록에 HPCON 을
 // 싣는 것이 ConPTY 세션의 전부다.
-func startInPseudoConsole(spec ProcSpec, hpc, childIn, childOut windows.Handle) (*windows.ProcessInformation, error) {
+func startInPseudoConsole(spec ProcSpec, hpc windows.Handle) (*windows.ProcessInformation, error) {
 	attrs, err := windows.NewProcThreadAttributeList(1)
 	if err != nil {
 		return nil, fmt.Errorf("속성 목록: %w", err)
@@ -131,12 +118,14 @@ func startInPseudoConsole(spec ProcSpec, hpc, childIn, childOut windows.Handle) 
 	var siEx windows.StartupInfoEx
 	siEx.ProcThreadAttributeList = attrs.List()
 	siEx.Cb = uint32(unsafe.Sizeof(siEx))
-	// 표준 입출력을 의사 콘솔의 자식 쪽 끝으로 못박는다. 이것이 없으면 부모에
-	// 콘솔이 있을 때 자식이 그쪽에 붙는다 (Start 의 주석).
-	siEx.Flags |= windows.STARTF_USESTDHANDLES
-	siEx.StdInput = childIn
-	siEx.StdOutput = childOut
-	siEx.StdErr = childOut
+	// 표준 입출력을 **지정하지 않는다.** 자식의 입출력은 의사 콘솔이 준다.
+	//
+	// 파이프 끝을 std 핸들로 물려주면 ConPTY 와 자식이 같은 파이프를 두고
+	// 경쟁한다 — 입력은 ConPTY 가 가져가 자식에 닿지 않고, 출력은 자식이
+	// ConPTY 를 우회해 날것으로 흘러나온다. 실측에서 정확히 그랬다.
+	log.Printf("[conpty] sizeof(StartupInfoEx)=%d sizeof(StartupInfo)=%d sizeof(HPCON)=%d attr=%#x flags=%#x",
+		unsafe.Sizeof(siEx), unsafe.Sizeof(siEx.StartupInfo), unsafe.Sizeof(hpc),
+		procThreadAttributePseudoConsole, extendedStartupInfoPresent|windows.CREATE_UNICODE_ENVIRONMENT)
 
 	cmdLine, err := windows.UTF16PtrFromString(windows.ComposeCommandLine(spec.Args))
 	if err != nil {
@@ -158,10 +147,9 @@ func startInPseudoConsole(spec ProcSpec, hpc, childIn, childOut windows.Handle) 
 	}
 
 	var pi windows.ProcessInformation
-	// 표준 입출력을 물려주므로 상속을 켠다. 상속 가능한 핸들은 방금 만든
-	// 자식 쪽 파이프 끝 둘뿐이다.
+	// 핸들을 물려주지 않는다 — 자식의 입출력은 의사 콘솔이 준다.
 	flags := uint32(extendedStartupInfoPresent | windows.CREATE_UNICODE_ENVIRONMENT)
-	if err := windows.CreateProcess(appName, cmdLine, nil, nil, true,
+	if err := windows.CreateProcess(appName, cmdLine, nil, nil, false,
 		flags, env, dir, (*windows.StartupInfo)(unsafe.Pointer(&siEx)), &pi); err != nil {
 		return nil, fmt.Errorf("CreateProcess %s: %w", spec.Path, err)
 	}
