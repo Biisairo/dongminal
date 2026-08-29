@@ -2170,7 +2170,23 @@ class GitPanel {
      * 보인다.
      */
     try{
-      const jobs=[this.collect()];
+      await Promise.allSettled([this.collect(),...this._reloadViews()]);
+    }finally{
+      this._refreshing=false; this._paintRefresh();
+    }
+  }
+
+  /**
+   * FR-GVR-8·9: Changes 밖의 뷰를 다시 받는다. **새로고침 버튼과 폴링이 같은
+   * 것을 돌린다** — 자동 경로가 수동 경로보다 적게 하면 "새로고침을 눌러야
+   * 보인다" 가 남는다 (D-8: 새로고침은 백업이다).
+   *
+   * 열지 않은 뷰는 각자의 `_el`·`_repo` 판정이 조기 반환하므로 요청이 나가지
+   * 않는다 (FR-GVR-4).
+   */
+  _reloadViews(){
+    const jobs=[];
+    {
       if(this._historyView) jobs.push(this._historyView.reload());
       if(this._branchesView) jobs.push(this._branchesView.reload());
       // FR-GVR-6: Stash 도 대상이다 — 빠져 있어서 터미널에서 `git stash` 한 뒤
@@ -2178,11 +2194,8 @@ class GitPanel {
       if(this._stashView) jobs.push(this._stashView.reload());
       if(this._consoleView) jobs.push(this._consoleView.reload());
       if(this._worktreesView) jobs.push(this._worktreesView.reload());
-      // 하나가 실패해도 나머지를 기다린다 — 서로의 성공에 걸려 있지 않다.
-      await Promise.allSettled(jobs);
-    }finally{
-      this._refreshing=false; this._paintRefresh();
     }
+    return jobs;
   }
 
   // 받는 동안 진입점은 다시 눌리지 않는다 (FR-GIT-238). `_refreshing` 이 실제
@@ -2319,7 +2332,19 @@ class GitPanel {
     this._status=d;
     // 응답에 signature 가 함께 오므로 그 값으로 갱신한다 — 직후 signature 폴링이
     // 헛되이 변화를 보고하지 않게 한다.
+    //
+    // FR-GVR-8: signature 가 움직이면 저장소가 바뀐 것이다 — Changes 밖의 뷰도
+    // 따라간다.
+    //
+    // **`_lastSig` 를 옮기는 자리가 둘이다.** 감지 폴링(`_pollSignature`)이 먼저
+    // 옮기고 `collect()` 를 부르므로, 그 경로로 온 변화는 여기 도착했을 때 이미
+    // 같은 값이다 — 그래서 그쪽에도 같은 신호가 있다. 여기는 감지 폴링을 지나지
+    // 않고 status 가 먼저 변화를 본 경우(신호·새로고침·쓰기 응답)를 맡는다.
+    // 둘 다 값 비교로 걸러지므로 한 변화에 한 번만 돈다.
+    const prevSig=this._lastSig;
     this._lastSig=(d.signature&&d.signature.value)||'';
+    // 첫 관측(`setRepo` 직후의 null)은 변화가 아니다 — 뷰는 열릴 때 스스로 받는다.
+    if(prevSig!==null&&prevSig!==this._lastSig) this._reloadViews();
     this._errMsg=null; this._staleNote=false;
     /**
      * FR-GIT-227 (FR-RPT-1·2): 관측이 지난 회차와 같으면 다시 그리지 않는다.
@@ -2405,6 +2430,10 @@ class GitPanel {
     if(v===this._lastSig) return;
     this._lastSig=v;
     this.collect();
+    // FR-GVR-8·9: Changes 밖의 뷰도 같은 변화를 딛는다. `collect()` 만 부르면
+    // 그 응답이 도착했을 때 `_lastSig` 는 이미 위에서 옮겨져 있어 `_applyStatus`
+    // 의 비교가 "같다" 로 떨어진다 — 폴링으로 오는 변화가 통째로 새 나갔다.
+    this._reloadViews();
   }
 }
 

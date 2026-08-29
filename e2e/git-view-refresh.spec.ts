@@ -355,4 +355,75 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     page.off('request', onReq);
     expect(n, `떠난 Console 이 ${n}건을 더 받았다`).toBe(0);
   });
+
+  // ── 묶음 P — 창 밖의 변화가 폴링으로 따라온다 (FR-GVR-8·9·12) ──
+
+  test('G10 (V-GVR-9): 창 밖에서 만든 커밋이 새로고침 없이 History 에 나타난다', async ({ page }) => {
+    const { repo } = copyPair('g10');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await openTab(page, 'history');
+    // 목록이 실제로 찬 뒤에 세야 한다 — 탭이 보이는 것과 받아 온 것은 다르다.
+    await expect(hist(page).locator('.git-hist-row').first()).toBeVisible({ timeout: 15000 });
+    const before = await hist(page).locator('.git-hist-row').count();
+
+    // dongminal 을 지나지 않는 변화다 — 쓰기 신호가 없으므로 폴링만이 근거다.
+    writeFileSync(join(repo, 'outside.txt'), 'x');
+    git(repo, 'add', 'outside.txt');
+    git(repo, 'commit', '-qm', 'outside commit');
+
+    await expect.poll(() => hist(page).locator('.git-hist-row').count(), { timeout: 15000 })
+      .toBe(before + 1);
+    await expect(hist(page).locator('.git-hist-row').first()).toContainText('outside commit');
+  });
+
+  test('G11 (V-GVR-10): 창 밖 git stash 가 새로고침 없이 Stash 에 나타난다', async ({ page }) => {
+    const { repo } = copyPair('g11');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await openTab(page, 'stash');
+    const rows = () => page.locator('#area .pn-body .git-view.git-stash .git-stash-row');
+    await page.waitForTimeout(800); // 첫 조회가 끝나기를 기다린다
+    const before = await rows().count();
+
+    // 추적되지 않은 파일도 담아야 `stash push` 가 확실히 항목을 만든다 —
+    // 픽스처의 작업 트리 상태에 기대지 않는다.
+    writeFileSync(join(repo, 'stash-me.txt'), 'x\n');
+    git(repo, 'stash', 'push', '-u', '-m', 'outside stash');
+
+    await expect.poll(() => rows().count(), { timeout: 15000 }).toBe(before + 1);
+  });
+
+  test('G12 (V-GVR-11): 창 밖 브랜치 생성이 새로고침 없이 Branches 에 나타난다', async ({ page }) => {
+    const { repo } = copyPair('g12');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await openTab(page, 'branches');
+    const row = page.locator('#area .pn-body .git-view.git-branches .git-br-row[data-short="outside-br"]');
+    await expect(row).toHaveCount(0);
+
+    // 브랜치 생성만으로는 signature 가 움직이지 않는다(HEAD·index·현재 ref 불변).
+    // checkout 까지 해야 HEAD 가 바뀌므로 그것이 폴링의 근거다 (FR-GVR-11).
+    git(repo, 'checkout', '-q', '-b', 'outside-br');
+
+    await expect(row).toHaveCount(1, { timeout: 15000 });
+  });
+
+  test('G13 (V-GVR-12): 변화가 없으면 뷰를 다시 받지 않는다', async ({ page }) => {
+    const { repo } = copyPair('g13');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await openTab(page, 'history');
+    await page.waitForTimeout(600);
+
+    let n = 0;
+    const onReq = (r: any) => {
+      const u = r.url();
+      if (u.includes('/api/git/log') || u.includes('/api/git/refs') || u.includes('/api/git/stash?')) n++;
+    };
+    page.on('request', onReq);
+    await page.waitForTimeout(3000); // 폴링 주기의 여러 배
+    page.off('request', onReq);
+    expect(n, `변화가 없는데 ${n}건을 받았다`).toBe(0);
+  });
 });
