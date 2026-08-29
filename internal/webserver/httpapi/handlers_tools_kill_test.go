@@ -77,6 +77,7 @@ func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
 	shortGrace(t, 200*time.Millisecond)
 	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.WaitSaves)
 	tl, err := m.Create(dir, 80, 24)
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
@@ -134,6 +135,7 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 	t.Setenv("SHELL", shell)
 
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.WaitSaves)
 	tl, err := m.Create(dir, 80, 24)
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
@@ -177,6 +179,7 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 func TestTerminateWithGrace_ReturnsEarlyOnExit(t *testing.T) {
 	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.WaitSaves)
 	tl, err := m.Create(dir, 80, 24)
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)

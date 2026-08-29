@@ -14,6 +14,7 @@ import (
 // FR-AAP-3 / TC-AAP-6: activity set endpoint — known / unknown / missing / bad-state.
 func TestApiToolActivitySet(t *testing.T) {
 	m := toolhub.NewToolManager("", nil)
+	t.Cleanup(m.WaitSaves)
 	var mu sync.Mutex
 	var events []string
 	p := newActivityPane("9", &mu, &events)
@@ -65,6 +66,7 @@ func TestApiToolActivitySet(t *testing.T) {
 func TestApiToolsActivity_Endpoint(t *testing.T) {
 	defer toolhub.SetAttnBusyProbe(func(*toolhub.Tool) bool { return true })() // agent alive
 	m := toolhub.NewToolManager("", nil)
+	t.Cleanup(m.WaitSaves)
 	p1 := &toolhub.Tool{ID: "1"}
 	p1.SetActivity("working", "Edit", "app.js")
 	m.Adopt(p1)

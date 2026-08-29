@@ -29,6 +29,7 @@ func TestDaemonFullFlow(t *testing.T) {
 
 	// Start dongminald
 	pm := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm.WaitSaves)
 	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -216,6 +217,7 @@ func TestDaemonReconnectPreservesTools(t *testing.T) {
 
 	// Start dongminald with a tool created directly in toolhub.ToolManager
 	pm := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm.WaitSaves)
 	p, err := pm.Create("/tmp", 80, 24)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -506,6 +508,7 @@ func TestDaemonConcurrentPushAndRequest(t *testing.T) {
 	os.MkdirAll(dataDir, 0o755)
 
 	pm := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm.WaitSaves)
 	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -663,6 +666,7 @@ func TestDaemonExitClosesSubscriber(t *testing.T) {
 	sockPath := dir + "/s"
 	os.MkdirAll(dir+"/d", 0o755)
 	pm := toolhub.NewToolManager(dir+"/d", nil)
+	t.Cleanup(pm.WaitSaves)
 	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -708,6 +712,7 @@ func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
 	sockPath := dir + "/s"
 	os.MkdirAll(dir+"/d", 0o755)
 	pm := toolhub.NewToolManager(dir+"/d", nil)
+	t.Cleanup(pm.WaitSaves)
 	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)

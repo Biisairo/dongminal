@@ -103,6 +103,7 @@ func TestToolManager_DirtyAndSaveAll(t *testing.T) {
 
 func TestToolManager_DataPath(t *testing.T) {
 	pm := NewToolManager("", nil)
+	t.Cleanup(pm.WaitSaves)
 	p := pm.dataPath("test.json")
 	if p != "test.json" {
 		t.Fatalf("dataPath with empty dir=%q want test.json", p)

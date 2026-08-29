@@ -35,6 +35,7 @@ func (*callerErr) Error() string { return "no caller" }
 func runsServer(t *testing.T, caller string) (*Server, *toolhub.ToolManager, *run.Store, *fakeWhoAmI) {
 	t.Helper()
 	m := toolhub.NewToolManager("", nil)
+	t.Cleanup(m.WaitSaves)
 	io := newFakeToolIO()
 	wi := &fakeWorkIndex{resolve: map[string]string{}, labels: map[string]string{}, coords: map[string]string{}}
 	for _, id := range []string{"tool-a", "tool-b"} {

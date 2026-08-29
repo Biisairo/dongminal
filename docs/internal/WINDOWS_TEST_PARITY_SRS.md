@@ -259,7 +259,43 @@ Windows 에서는 `\` 도 구분자다. `src\..\x` 는 슬래시로 나누면 **
 `VolumeName` 은 언제나 빈 문자열이므로 **그쪽 동작은 그대로다** — POSIX 의 `\`
 는 파일 이름에 쓸 수 있는 평범한 글자이며, 돌려주는 값은 원본 그대로다.
 
-### 2.6 원인 ⑤ — `/proc` 은 언제나 POSIX 경로다
+#### D9 · 테스트가 `HOME` 을 박는데 Windows 는 `USERPROFILE` 을 읽는다
+
+프로덕션은 `os.UserHomeDir()` 을 쓴다 — 옳다. 그런데 **그것이 보는 환경변수가
+OS 마다 다르다.** POSIX 는 `HOME`, Windows 는 `USERPROFILE` 이다.
+
+테스트 8곳이 `t.Setenv("HOME", 임시홈)` 으로 홈을 갈아끼웠다. Windows 에서는
+**아무 효과가 없고**, 임시 홈 대신 진짜 사용자 홈이 그대로 들어온다. 실제로
+`/api/fs/list` 응답에 `home:C:\Users\runneradmin` 이 찍혔고, 루트 판정이
+어긋났다.
+
+`testpath.HomeEnv()` 로 이 OS 의 이름을 묻는다.
+
+#### D10 · `GIT_CONFIG_GLOBAL=/dev/null` 은 Windows 경로가 아니다
+
+테스트가 전역·시스템 git 설정을 끊으려고 `/dev/null` 을 박았다(5개 파일 10곳).
+Windows 의 널 장치는 `NUL` 이다.
+
+끊기지 않으면 설치본의 전역 설정이 그대로 들어온다 — Git for Windows 는
+`core.autocrlf=true` 를 기본으로 넣으므로, 줄바꿈이 바뀌어 hunk 대조가
+어긋난다. `patch` 의 되돌리기 검사가 그렇게 깨졌다.
+
+`os.DevNull` 로 바꾼다.
+
+### 2.7 능력 질의 — OS 이름으로 가르지 않는다
+
+`internal/shared/testpath` 에 네 가지가 있다. **묻는 것은 OS 가 아니라 능력**이며,
+그것이 `check-seams.sh` 가 `runtime.GOOS` 를 금지하는 취지와 같다 (FR-XBD-3).
+
+| 질의 | 뜻 | 빠지는 보증 (FR-WTP-32) |
+|---|---|---|
+| `PermChecked()` | 유닉스 권한 비트를 보존하는가 | 권한 비트 보존·권한 거부 상황. Windows 는 확장자가 실행 가능 여부를 정한다 |
+| `ForegroundGroups()` | 전경 프로세스 그룹이 있는가 | 전경 이름 산출 전량. 대응물 없음 (FR-XPT-5) |
+| `POSIXShell()` | `#!/bin/sh` 스크립트를 실행하는가 | SIGTERM trap 을 쓰는 종료 유예 검사, POSIX 문법으로 OSC 를 만드는 검사 |
+| `HomeEnv()` | 홈을 정하는 환경변수 이름 | (없음 — 이름만 바꾸면 양쪽이 같이 검증된다) |
+
+### 2.8 원인 ⑤ — `/proc` 은 언제나 POSIX 경로다
+
 
 
 `internal/shared/platform/procinfo.go:246` 이 `filepath.Join(procRoot, elem...)`

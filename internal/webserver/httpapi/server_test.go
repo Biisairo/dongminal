@@ -80,6 +80,7 @@ func TestTwoServersInSameProcess(t *testing.T) {
 func TestCreateToolViaServer(t *testing.T) {
 	dir := t.TempDir()
 	pm := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(pm.WaitSaves)
 	srv, err := New(Config{DataDir: dir}, Deps{Tools: pm})
 	if err != nil {
 		t.Fatalf("New: %v", err)

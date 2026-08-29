@@ -74,6 +74,7 @@ func dirFingerprint(dir string) string {
 func TestSetBackground_MarksAndLists(t *testing.T) {
 	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.WaitSaves)
 	defer func() {
 		for _, p := range m.Snapshot() {
 			m.Delete(p.ID)
@@ -105,6 +106,7 @@ func TestSetBackground_MarksAndLists(t *testing.T) {
 func TestSetBackground_RestoreClearsFlag(t *testing.T) {
 	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.WaitSaves)
 	defer func() {
 		for _, p := range m.Snapshot() {
 			m.Delete(p.ID)
@@ -141,6 +143,7 @@ func TestSetBackground_UnknownToolIsNoop(t *testing.T) {
 func TestSetBackground_DeleteRemovesFromList(t *testing.T) {
 	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.WaitSaves)
 	tl, err := m.Create(dir, 80, 24)
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
@@ -156,6 +159,7 @@ func TestSetBackground_DeleteRemovesFromList(t *testing.T) {
 func TestSaveAll_ExcludesBackgroundTools(t *testing.T) {
 	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.WaitSaves)
 	defer func() {
 		for _, p := range m.Snapshot() {
 			m.Delete(p.ID)
@@ -180,6 +184,7 @@ func TestSaveAll_ExcludesBackgroundTools(t *testing.T) {
 
 	refs := map[string]struct{}{keep.ID: {}, bg.ID: {}}
 	m2 := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m2.WaitSaves)
 	m2.LoadAll(refs)
 	defer func() {
 		for _, p := range m2.Snapshot() {
@@ -208,6 +213,7 @@ func TestSaveAll_ExcludesBackgroundTools(t *testing.T) {
 func TestSaveAll_KeepsOwnedBackgroundTools(t *testing.T) {
 	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.WaitSaves)
 	defer func() {
 		for _, p := range m.Snapshot() {
 			m.Delete(p.ID)
@@ -237,6 +243,7 @@ func TestSaveAll_KeepsOwnedBackgroundTools(t *testing.T) {
 
 	refs := map[string]struct{}{plain.ID: {}, owned.ID: {}}
 	m2 := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m2.WaitSaves)
 	m2.LoadAll(refs)
 	defer func() {
 		for _, p := range m2.Snapshot() {
@@ -258,6 +265,7 @@ func TestSaveAll_KeepsOwnedBackgroundTools(t *testing.T) {
 func TestSaveAll_NoOwnerProbeKeepsLegacyBehavior(t *testing.T) {
 	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.WaitSaves)
 	defer func() {
 		for _, p := range m.Snapshot() {
 			m.Delete(p.ID)
@@ -273,6 +281,7 @@ func TestSaveAll_NoOwnerProbeKeepsLegacyBehavior(t *testing.T) {
 	m.SaveAll()              // SetOwnedTools 를 부르지 않는다
 
 	m2 := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m2.WaitSaves)
 	m2.LoadAll(map[string]struct{}{bg.ID: {}})
 	defer func() {
 		for _, p := range m2.Snapshot() {

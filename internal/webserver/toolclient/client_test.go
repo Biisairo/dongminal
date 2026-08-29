@@ -180,6 +180,7 @@ func TestToolClientReconnect(t *testing.T) {
 	os.MkdirAll(dataDir, 0o755)
 
 	pm1 := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm1.WaitSaves)
 	ps1 := ipc.NewPanedServer(pm1, sockPath, "")
 	ps1.Listen()
 	go func() { ps1.Accept() }()
@@ -192,6 +193,7 @@ func TestToolClientReconnect(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	pm2 := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm2.WaitSaves)
 	pm2.LoadAll(map[string]struct{}{toolID: {}})
 	if !pm2.IsLive(toolID) {
 		t.Fatalf("tool %s should be live after LoadAll", toolID)
@@ -239,6 +241,7 @@ func TestToolClientAutoReconnect(t *testing.T) {
 	}
 
 	pm1 := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm1.WaitSaves)
 	ps1 := ipc.NewPanedServer(pm1, sockPath, "")
 	if err := ps1.Listen(); err != nil {
 		t.Fatalf("Listen1: %v", err)
@@ -260,6 +263,7 @@ func TestToolClientAutoReconnect(t *testing.T) {
 
 	// Bring up a replacement daemon on the same socket.
 	pm2 := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm2.WaitSaves)
 	pm2.LoadAll(allToolIDs(dataDir))
 	ps2 := ipc.NewPanedServer(pm2, sockPath, "")
 	if err := ps2.Listen(); err != nil {
@@ -321,6 +325,7 @@ func TestToolClientConnected(t *testing.T) {
 	sockPath := d + "/s"
 	os.MkdirAll(d+"/d", 0o755)
 	pm := toolhub.NewToolManager(d+"/d", nil)
+	t.Cleanup(pm.WaitSaves)
 	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -397,6 +402,7 @@ func TestToolClientForegroundNameOverIPC(t *testing.T) {
 	os.MkdirAll(dataDir, 0o755)
 
 	pm := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm.WaitSaves)
 	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)

@@ -45,6 +45,7 @@ func TestToolCreate_NoIDReuseAcrossRestart(t *testing.T) {
 	dir := toolTempDir(t)
 
 	first := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(first.WaitSaves)
 	p, err := first.Create(t.TempDir(), 80, 24)
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)

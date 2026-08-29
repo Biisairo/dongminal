@@ -33,6 +33,7 @@ func TestLoadAll_SkipsUnreferencedTools(t *testing.T) {
 	seedTools(t, dir, "1", "2", "3")
 
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.WaitSaves)
 	defer func() {
 		for _, p := range m.Snapshot() {
 			m.Delete(p.ID)
@@ -60,6 +61,7 @@ func TestLoadAll_NilRefsRestoresNothing(t *testing.T) {
 	seedTools(t, dir, "1", "2")
 
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.WaitSaves)
 	m.LoadAll(map[string]struct{}{})
 	if got := len(m.Snapshot()); got != 0 {
 		t.Errorf("복원된 도구 = %d, want 0", got)
@@ -71,6 +73,7 @@ func TestLoadAll_AllReferencedRestoresAll(t *testing.T) {
 	seedTools(t, dir, "5", "6")
 
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.WaitSaves)
 	defer func() {
 		for _, p := range m.Snapshot() {
 			m.Delete(p.ID)
@@ -86,6 +89,7 @@ func TestLoadAll_AllReferencedRestoresAll(t *testing.T) {
 func TestLoadAll_MissingFileIsNoop(t *testing.T) {
 	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.WaitSaves)
 	m.LoadAll(map[string]struct{}{"1": {}})
 	if got := len(m.Snapshot()); got != 0 {
 		t.Errorf("복원된 도구 = %d, want 0", got)

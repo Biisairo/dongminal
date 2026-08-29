@@ -14,6 +14,7 @@ import (
 // TC-PAN-13: AttentionIDs + endpoint return current attention set.
 func TestToolManager_AttentionIDs_AndEndpoint(t *testing.T) {
 	m := toolhub.NewToolManager("", nil)
+	t.Cleanup(m.WaitSaves)
 	p2 := toolhub.NewAttendingTool("2", nil, false)
 	p5 := toolhub.NewAttendingTool("5", nil, false)
 	p7 := &toolhub.Tool{ID: "7"} // not in attention
@@ -44,6 +45,7 @@ func TestToolManager_AttentionIDs_AndEndpoint(t *testing.T) {
 // apiToolAttentionClear clears via the focus path and tolerates unknown tools.
 func TestApiToolAttentionClear(t *testing.T) {
 	m := toolhub.NewToolManager("", nil)
+	t.Cleanup(m.WaitSaves)
 	var mu sync.Mutex
 	var attn, clear []string
 	p := newAttendingPane("4", &mu, &attn, &clear, false)
@@ -86,6 +88,7 @@ func TestApiToolAttentionClear(t *testing.T) {
 // FR-PAN-18: dmctl notify → set endpoint flags a tool (hook bridge).
 func TestApiToolAttentionSet(t *testing.T) {
 	m := toolhub.NewToolManager("", nil)
+	t.Cleanup(m.WaitSaves)
 	var mu sync.Mutex
 	var attn, clear []string
 	p := newAttnPane("9", &mu, &attn, &clear)
@@ -127,6 +130,7 @@ func TestApiToolAttentionSet(t *testing.T) {
 // FR-PAN-17: bulk dismiss clears every attention tool and disarms them.
 func TestClearAllAttention_AndEndpoint(t *testing.T) {
 	m := toolhub.NewToolManager("", nil)
+	t.Cleanup(m.WaitSaves)
 	var mu sync.Mutex
 	var attn, clear []string
 	for _, id := range []string{"1", "2", "3"} {
