@@ -1004,3 +1004,58 @@ CI 6사이클에도 수렴하지 않았고, 사용자 결정으로 **직접 구�
 것이다.
 
 인계는 `CROSS_PLATFORM_HANDOFF.md` 에 있다.
+
+
+### 11.8 원인 재확정 — 빠진 것은 `STARTF_USESTDHANDLES` 였다
+
+§11.7 의 결정(직접 구현 포기)을 실행하려고 후보 라이브러리 두 개의 소스를 먼저
+읽었다. 교체하기 전에 **그것들이 우리와 무엇이 다른지**부터 대조한 것이 답이었다.
+
+`UserExistsError/conpty` v0.1.4 와 `aymanbagabas/go-pty` v0.2.3 의 ConPTY 기동
+경로를 우리 `startInPseudoConsole` 과 항목별로 맞췄다.
+
+| 항목 | 우리(종전) | UserExistsError | go-pty |
+|---|---|---|---|
+| `lpApplicationName` | nil | nil | argv0 |
+| `siEx.Cb` | 112 | 112 | 112 |
+| `UpdateProcThreadAttribute` 인자 | 같음 | 같음 | 같음 |
+| `CreatePseudoConsole` 후 pty 끝 닫기 | 닫음 | **안 닫음** | 닫음 |
+| `bInheritHandles` | true | false | false |
+| **`STARTF_USESTDHANDLES`** | **없음** | **있음** | **있음** |
+
+의미 있는 차이는 마지막 줄 하나다. 검증된 두 구현이 모두 **플래그를 세우고
+`hStdInput`·`hStdOutput`·`hStdError` 는 0 인 채로 둔다.** MS 의 EchoCon 예제에는
+없는 부분이라 §11.7 까지 우리 시야에 들어오지 않았다.
+
+**왜 이것이 원인인가.** `STARTF_USESTDHANDLES` 가 없으면 `CreateProcess` 는
+자식의 표준 입출력을 **부모에게서** 물려준다. 부모에게 콘솔이 있으면 그 콘솔
+핸들이 그대로 넘어간다. 그러면 자식은 의사 콘솔에 붙기는 하지만 — 그래서 conhost
+가 이미지 이름을 알고 제목 OSC(`\x1b]0;…pwsh.exe\a`)를 의사 콘솔로 흘린다 —
+정작 글자는 물려받은 부모 콘솔에 그린다.
+
+§11.7 이 설명하지 못한 채 남겨 둔 조합이 정확히 이것이다.
+
+    제목은 의사 콘솔로 오는데 텍스트는 부모 콘솔(CI 단계 로그)로 샌다
+
+`cmd /c echo` 가 16바이트만 낸 것도 같다. ConPTY 는 살아서 인사말을 보내지만
+화면 버퍼에는 아무도 그리지 않는다 — 자식이 다른 콘솔에 그리고 있었다.
+
+**0 을 넣는 것이 요점이다.** `146c99a` 는 플래그를 세우면서 그 자리에 **파이프
+끝**을 넣었고, 그 파이프는 ConPTY 자신의 것이라 ConPTY 와 자식이 경쟁했다 —
+그래서 더 나빠졌고 `d4a9e67` 이 되돌렸다. 목적은 물려줄 것을 **지정하는 것**이
+아니라 부모 콘솔을 **물려받지 않게 하는 것**이다. 비운 자리는 의사 콘솔이 채운다.
+플래그를 세운 채 핸들을 채우는 것과 비우는 것이 정반대 결과를 낸다는 점이,
+§11.7 이 "std 핸들을 물려주는 것은 오히려 해롭다" 로 잘못 일반화한 지점이다.
+
+**조치.** `siEx.StartupInfo.Flags |= windows.STARTF_USESTDHANDLES` 한 줄이다.
+`bInheritHandles` 는 §11.7 시점에 양쪽 다 실측해 무관으로 기록됐으므로 건드리지
+않았다 — 변경을 하나로 두어야 CI 가 통과했을 때 원인이 하나로 귀속된다.
+
+**§11.7 의 결정은 보류다.** 이 한 줄로 `windows-runtime` 잡이 통과하면
+NFR-XP-2(신규 의존은 `golang.org/x/sys` 뿐)와 §9 D-2 는 **번복되지 않는다.**
+통과하지 못하면 `UserExistsError/conpty` 로 교체한다 — 단일 파일이고 새 전이
+의존이 없으며 `go` 지시자를 올리지 않아도 되는 쪽이다. 그때 래퍼가 메울 곳은 두
+군데로 이미 파악돼 있다: 그 라이브러리는 raw `ReadFile` 을 쓰므로
+`ERROR_BROKEN_PIPE` 를 `io.EOF` 로 옮겨야 하고(`toolhub.readPTY` 가 `io.EOF` 를
+본다), `Close()` 가 프로세스 핸들까지 닫으므로 `Wait()` 용 핸들을 `OpenProcess`
+로 따로 쥐어야 한다(`toolhub.kill` 은 `Close` → `Wait` 순서다).

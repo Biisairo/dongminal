@@ -118,11 +118,24 @@ func startInPseudoConsole(spec ProcSpec, hpc windows.Handle) (*windows.ProcessIn
 	var siEx windows.StartupInfoEx
 	siEx.ProcThreadAttributeList = attrs.List()
 	siEx.Cb = uint32(unsafe.Sizeof(siEx))
-	// 표준 입출력을 **지정하지 않는다.** 자식의 입출력은 의사 콘솔이 준다.
+
+	// STARTF_USESTDHANDLES 를 세우되 **핸들 셋은 0 인 채로 둔다.** 이 조합이
+	// ConPTY 배관의 마지막 조각이다 (§11.8).
 	//
-	// 파이프 끝을 std 핸들로 물려주면 ConPTY 와 자식이 같은 파이프를 두고
-	// 경쟁한다 — 입력은 ConPTY 가 가져가 자식에 닿지 않고, 출력은 자식이
-	// ConPTY 를 우회해 날것으로 흘러나온다. 실측에서 정확히 그랬다.
+	// 플래그가 없으면 CreateProcess 는 자식의 표준 입출력을 **부모에게서**
+	// 물려준다. 부모에게 콘솔이 있으면 그 콘솔 핸들이 넘어가고, 자식은 의사
+	// 콘솔에 붙기는 하지만(그래서 제목 OSC 는 의사 콘솔로 온다) 정작 글자는
+	// 부모 콘솔에 그린다 — §11.6 에서 본 "제목만 오고 텍스트는 CI 로그로
+	// 새는" 조합이 이것이다.
+	//
+	// 0 을 넣는 것이 요점이다. 파이프 끝을 넣으면(146c99a) ConPTY 와 자식이
+	// 같은 파이프를 두고 경쟁해 더 나빠진다 — 그래서 d4a9e67 이 되돌렸다.
+	// 물려줄 것을 지정하는 것이 아니라 **물려받지 않게 하는 것**이 목적이다.
+	// 빈 자리는 의사 콘솔이 채운다.
+	//
+	// 검증된 두 구현이 모두 이렇게 한다: UserExistsError/conpty 의
+	// getStartupInfoExForPTY, aymanbagabas/go-pty 의 Cmd.start.
+	siEx.StartupInfo.Flags |= windows.STARTF_USESTDHANDLES
 	log.Printf("[conpty] sizeof(StartupInfoEx)=%d sizeof(StartupInfo)=%d sizeof(HPCON)=%d attr=%#x flags=%#x",
 		unsafe.Sizeof(siEx), unsafe.Sizeof(siEx.StartupInfo), unsafe.Sizeof(hpc),
 		procThreadAttributePseudoConsole, extendedStartupInfoPresent|windows.CREATE_UNICODE_ENVIRONMENT)
