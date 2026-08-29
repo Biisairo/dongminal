@@ -6,8 +6,8 @@ dongminal 저장소에서 크로스플랫폼 작업을 이어서 한다. 브랜�
 ## 0. 가장 먼저
 
 **`docs/internal/CROSS_PLATFORM_HANDOFF.md` 를 전부 읽어라.** 이 프롬프트는 그
-문서의 착수 순서일 뿐이고, 무엇을 배제했고 무엇이 확정됐는지는 거기 있다.
-근거 스펙은 `docs/internal/CROSS_PLATFORM_SRS.md` 이며 실기 기록은 그 §11 이다.
+문서의 착수 순서일 뿐이다. 근거 스펙은 `docs/internal/CROSS_PLATFORM_SRS.md` 이며
+실기 기록은 그 §11 이다.
 
 ```bash
 git branch --show-current      # crossplatform 이어야 한다
@@ -18,42 +18,40 @@ go build ./... && go vet ./...
 ## 1. 한 줄 상태
 
 OS 이음매 18종을 `internal/shared/platform` 의 인터페이스 8종 뒤로 보냈다.
-**darwin·linux·WSL 은 종단간까지 통과**하고 **Windows 만 남았다.** 원인은 직접
-구현한 ConPTY 하나로 좁혀져 있다.
+**darwin·linux·WSL·Windows 네 대상 모두 종단간까지 CI 에서 통과한다.**
 
-## 2. 이번 세션의 첫 작업 — 사용자가 이미 결정했다
+Windows ConPTY 는 해결됐다(SRS §11.8). 빠진 것은 `STARTF_USESTDHANDLES` 한 줄
+이었고, **라이브러리 교체는 하지 않았다** — §11.7 의 그 결정은 실행 전에 뒤집혔다.
+새 의존도 `go` 지시자 변경도 없다. 다시 파지 마라.
 
-**ConPTY 를 검증된 라이브러리로 교체한다.** 직접 구현이 CI 6사이클에도 수렴하지
-않아 사용자가 결정했다 (D-2 번복).
+## 2. 남은 일 — 둘
 
-바꿀 파일은 **`internal/shared/platform/pty_windows.go` 하나**다. `PTY`/`Terminal`
-인터페이스가 이미 서 있어 그 밖으로는 번지지 않는다.
+### ① `test (windows-latest)` 잡이 한 번도 통과한 적이 없다
 
-후보: `github.com/UserExistsError/conpty`, `github.com/aymanbagabas/go-pty`.
+이 트랙과 **무관한 선재 결함**이다. e8d6636 로 CI 가 들어온 이래 실행 8회 전부
+failure 또는 cancelled 다. 약 250개 테스트가 깨지고 두 패키지
+(`git/store`·`gitapi`)는 600초 타임아웃까지 간다.
 
-지켜야 할 것 둘:
+원인은 POSIX 를 전제한 테스트가 Windows 에서 도는 것이다 — 실행 권한 비트
+(`TestCopyExecutable`), `/proc` 표를 쓰는 `TestLinux*`, 셸 래퍼 문자열,
+`git` 동작 차이 등.
 
-- `pty.go` 의 `Terminal` 인터페이스 계약 (Read/Write/Close/Resize/Size/
-  ForegroundPGID/PID/Wait/Terminate/Kill). Windows 의 `ForegroundPGID` 는
-  `(0,false)` 다
-- 환경은 반드시 `dedupEnv(spec.Env, envKeyFolded)` 를 통과시켜라. 빠뜨리면
-  `PATH` 에서 `binDir` 이 밀려나 `dmctl` 이 안 잡힌다 (SRS §11.2 ①)
+FR-XBD-4 는 "Windows 보증 범위는 build·vet 과 플랫폼 독립 테스트" 라고 적었다.
+그 경계가 **코드에는 있는데 워크플로우에는 없다.** 방향은 둘이다 (SRS §10.4 R-4).
 
-**SRS 도 함께 고쳐라** — NFR-XP-2 와 §9 D-2 가 번복된다. 사유는 §11 의 실측이다.
+1. POSIX 전제 테스트에 `//go:build !windows` 를 달아 경계를 코드로 굳힌다
+2. `test` 매트릭스에서 windows 를 빼고, Windows 는 `windows-runtime` 잡
+   (build·vet + doctor + 종단간)으로만 보증한다
 
-## 3. 무엇이 이미 아닌 것으로 밝혀졌는지
+①이 FR-XBD-4 의 뜻에 맞지만 250건을 하나씩 판정해야 한다. **어느 쪽으로 갈지는
+사용자에게 물어라** — 보증 범위를 줄이는 결정이라 대신 정할 일이 아니다.
 
-다시 파지 마라. 전부 실기 또는 원본 대조로 배제했다 (HANDOFF §2.1).
+### ② `main` 병합
 
-- Go 의 Windows AF_UNIX 지원, Windows 훅 임베드, WinAPI 시그니처·상수,
-  구조체 크기(CI 실측 112/104/8), 도구 생성 크기, **콘솔의 유무**,
-  **셸·프롬프트·입력 타이밍**
+Windows 가 통과했으므로 막는 것은 없다. 다만 지금 병합하면 `main` 의 CI 도 빨간
+잡을 하나 안고 간다 — ①을 먼저 처리할지는 사용자 결정이다.
 
-확정된 사실 하나만 기억하면 된다 — 셸이 없는 `cmd /c echo` 조차 ConPTY 로
-**16바이트(`\x1b[?9001h\x1b[?1004h`)**, 즉 인사말만 오고 화면이 한 번도 그려지지
-않는다.
-
-## 4. 검증
+## 3. 검증
 
 darwin 에서:
 
@@ -73,23 +71,20 @@ JOB=$(gh run view <runId> --repo Biisairo/dongminal --json jobs \
 gh api "repos/Biisairo/dongminal/actions/jobs/$JOB/logs" | sed 's/^[0-9T:.Z-]* //'
 ```
 
-`gh` 계정은 READ 권한뿐이라 run 취소는 안 된다. 로그 조회는 되고, 푸시는 SSH 로
-나가므로 문제없다. windows-runtime 잡은 보통 2~3분이다.
+`gh` 계정은 READ 권한뿐이라 run 취소·재실행은 안 된다. 로그 조회는 되고, 푸시는
+SSH 로 나가므로 문제없다. windows-runtime 잡은 보통 2~3분이다.
 
-성공 기준: `doctor` 의 「의사 터미널」에서 **[단순 명령]이 먼저 통과**해야 한다 —
-그것이 배관의 최소 증명이다. 그 다음 [맨 셸]·[훅 얹은 셸]·[도구]·[콘솔 없는
-프로세스], 그리고 「종단간」 단계.
+`windows-runtime` 이 통과 상태를 유지하는지 보는 기준은 `doctor` 의 「의사
+터미널」에서 **[단순 명령]** 이다 — 그것이 ConPTY 배관의 최소 증명이다.
 
-## 5. 그 다음
+## 4. 알려진 간헐 실패 (내 변경과 무관, HEAD 에서 재현 확인)
 
-- Windows 통과 후 `main` 병합
-- SRS §10.4 의 "검증되지 않은 채 인도되는 것" 목록을 CI 가 덮는 만큼 줄인다
-- 기존 결함 2건 (이번 트랙과 무관, HEAD 에서 재현 확인)
-  - `web` 의 `TestAssetVersionBumpedWithAssets` — `assets.lock` 한 줄 불일치
-  - `TestApiToolDelete_ClearsAttention` — `SaveAll` 이 테스트 종료 후 `TempDir` 에
-    쓰는 경합으로 간헐 실패
+- `web` 의 `TestAssetVersionBumpedWithAssets` — `assets.lock` 한 줄 불일치
+- `TestApiToolDelete_ClearsAttention` · `TestToolClientForegroundNameOverIPC` —
+  `SaveAll` 이 테스트 종료 후 `TempDir` 에 쓰는 경합. 후자가 run 33257794325 의
+  `test (ubuntu-latest)` 를 떨어뜨렸다 (로컬 5회 반복 통과)
 
-## 6. 작업 규약
+## 5. 작업 규약
 
 - 커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 마라
 - 커밋은 사용자 확인 후에. **푸시는 CI 검증에 필요하므로 해도 된다** — 브랜치는

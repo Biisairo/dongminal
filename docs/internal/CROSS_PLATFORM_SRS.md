@@ -852,6 +852,29 @@ Job Object 배정과 스레드 재개, toolhelp 스냅샷, `GetExtendedTcpTable`
 `GetSystemTimes`/`GlobalMemoryStatusEx`, 그리고 `powershell-hook.ps1` 의 실행.
 D-1 이 정해지기 전까지 이 목록은 그대로 열려 있다.
 
+> **갱신 (§11.8 이후).** R-1 은 해소됐다. e8d6636 이 CI 에 Windows 러너를 들였고,
+> §11.8 이후 `windows-runtime` 잡이 통과한다. 그 잡은 `dongminal doctor` 로
+> ConPTY 생성/크기변경/종료·Job Object·toolhelp·로컬 IPC·`powershell-hook.ps1`
+> 을 실제로 실행하고, 종단간(서버 → 데몬 → PTY → 셸)까지 왕복시킨다. 위 목록
+> 에서 CI 가 덮지 않는 것은 `GetExtendedTcpTable`·`GetSystemTimes`·
+> `GlobalMemoryStatusEx` 뿐이다 — doctor 가 아직 보지 않는 계층이다.
+
+**R-4 (신규) — `test (windows-latest)` 잡이 한 번도 통과한 적이 없다.** 실행
+8회 전부 failure 또는 cancelled 다. 약 250개 테스트가 깨지고 두 패키지
+(`git/store`·`gitapi`)는 600초 타임아웃까지 간다. 원인은 POSIX 를 전제한
+테스트가 Windows 에서 도는 것이다 — 실행 권한 비트(`TestCopyExecutable`),
+`/proc` 표를 쓰는 `TestLinux*`, 셸 래퍼 문자열, `git` 동작 차이 등.
+
+FR-XBD-4 는 "Windows 보증 범위는 build·vet 과 플랫폼 독립 테스트" 라고 적었다.
+그 경계가 코드에는 있는데 **CI 워크플로우에는 없다.** 고칠 방향은 둘 중 하나다.
+
+1. POSIX 전제 테스트에 `//go:build !windows` 를 달아 경계를 코드로 굳힌다
+2. `test` 매트릭스에서 windows 를 빼고, Windows 는 `windows-runtime` 잡
+   (build·vet + doctor + 종단간)으로만 보증한다
+
+①이 FR-XBD-4 의 뜻에 맞지만 250건을 하나씩 판정해야 한다. 이 트랙의 범위 밖
+이므로 열어 둔다.
+
 ---
 
 ## 11. 실기 1차 피드백 (Windows)
@@ -1005,6 +1028,11 @@ CI 6사이클에도 수렴하지 않았고, 사용자 결정으로 **직접 구�
 
 인계는 `CROSS_PLATFORM_HANDOFF.md` 에 있다.
 
+> **이 절의 결론은 §11.8 이 대체한다.** 라이브러리 교체는 실행하지 않았다 —
+> 빠진 것이 `STARTF_USESTDHANDLES` 하나였고, 그 한 줄로 Windows 가 통과했다.
+> 위의 "남는 것이 없다" 는 판단이 틀린 지점은 이것이다: MS 의 EchoCon 예제를
+> 기준으로 대조했는데, **예제에 없고 검증된 구현에는 있는 것**을 보지 않았다.
+
 
 ### 11.8 원인 재확정 — 빠진 것은 `STARTF_USESTDHANDLES` 였다
 
@@ -1051,11 +1079,46 @@ CI 6사이클에도 수렴하지 않았고, 사용자 결정으로 **직접 구�
 `bInheritHandles` 는 §11.7 시점에 양쪽 다 실측해 무관으로 기록됐으므로 건드리지
 않았다 — 변경을 하나로 두어야 CI 가 통과했을 때 원인이 하나로 귀속된다.
 
-**§11.7 의 결정은 보류다.** 이 한 줄로 `windows-runtime` 잡이 통과하면
-NFR-XP-2(신규 의존은 `golang.org/x/sys` 뿐)와 §9 D-2 는 **번복되지 않는다.**
-통과하지 못하면 `UserExistsError/conpty` 로 교체한다 — 단일 파일이고 새 전이
-의존이 없으며 `go` 지시자를 올리지 않아도 되는 쪽이다. 그때 래퍼가 메울 곳은 두
-군데로 이미 파악돼 있다: 그 라이브러리는 raw `ReadFile` 을 쓰므로
-`ERROR_BROKEN_PIPE` 를 `io.EOF` 로 옮겨야 하고(`toolhub.readPTY` 가 `io.EOF` 를
-본다), `Close()` 가 프로세스 핸들까지 닫으므로 `Wait()` 용 핸들을 `OpenProcess`
-로 따로 쥐어야 한다(`toolhub.kill` 은 `Close` → `Wait` 순서다).
+**결과 — 통과했다.** run 33257794325 의 `windows-runtime` 잡이 성공했다.
+
+    ▶ 의사 터미널 (PTY/ConPTY)
+      ✅ [단순 명령] 출력이 의사 터미널로 나옵니다
+      ✅ [맨 셸] 입출력 왕복
+      ✅ [훅 얹은 셸] 입출력 왕복
+    ▶ 도구 (toolhub)
+      ✅ 입출력 왕복 (출력 251바이트)
+    ▶ 콘솔 없는 프로세스에서의 의사 터미널
+      ✅ 콘솔 없이도 동작합니다
+
+종단간(서버 → 데몬 → PTY)도 같은 잡에서 왕복했다.
+
+    PS C:\Users\runneradmin> echo dongminal-e2e-ok
+    dongminal-e2e-ok
+
+§11.7 의 배관 증명 기준인 **[단순 명령]** 이 먼저 통과했다는 것이 요점이다.
+셸도 프롬프트도 없이 16바이트만 오던 그 검사다.
+
+**따라서 §11.7 의 결정은 실행하지 않는다.** NFR-XP-2(신규 의존은
+`golang.org/x/sys` 뿐)와 §9 D-2 는 **번복되지 않는다.** 새 의존도, `go` 지시자
+변경도 없다. §11.7 의 "직접 구현 포기" 는 이 절이 대체한다.
+
+라이브러리 교체가 다시 필요해질 때를 위해 조사 결과만 남긴다.
+`UserExistsError/conpty` 가 단일 파일이고 새 전이 의존이 없으며 `go` 지시자를
+올리지 않아도 되는 쪽이다. 그때 래퍼가 메울 곳은 두 군데다: 그 라이브러리는 raw
+`ReadFile` 을 쓰므로 `ERROR_BROKEN_PIPE` 를 `io.EOF` 로 옮겨야 하고
+(`toolhub.readPTY` 가 `io.EOF` 를 본다), `Close()` 가 프로세스 핸들까지 닫으므로
+`Wait()` 용 핸들을 `OpenProcess` 로 따로 쥐어야 한다(`toolhub.kill` 은
+`Close` → `Wait` 순서다). `aymanbagabas/go-pty` 는 공학적으로 더 낫지만
+`x/crypto`·`u-root` 를 끌고 오고 `go` 지시자를 1.25.0 으로 올리게 한다.
+
+**같은 실행에서 드러난, 이 변경과 무관한 것.** `test (windows-latest)` 잡이
+실패한다. 이 잡은 e8d6636 로 CI 가 들어온 이래 **한 번도 통과한 적이 없다**
+(실행 8회 전부 failure 또는 cancelled). 약 250개 테스트가 깨지고 두 패키지
+(`git/store`·`gitapi`)는 600초 타임아웃까지 간다. POSIX 를 전제한 테스트가
+Windows 에서 도는 것으로, FR-XBD-4 가 "Windows 보증 범위는 build·vet 과 플랫폼
+독립 테스트" 라고 적어 둔 그 경계가 CI 에서는 지켜지지 않고 있다. §10.4 의 항목
+으로 옮긴다.
+
+`test (ubuntu-latest)` 의 `TestToolClientForegroundNameOverIPC` 실패는 §10.4 가
+이미 아는 `TempDir` 경합 flake 다(테스트 종료 후 `SaveAll` 이 쓴다). 로컬 5회
+반복 통과.
