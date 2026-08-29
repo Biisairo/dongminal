@@ -1,16 +1,20 @@
-# 인수인계 — 크로스플랫폼 (Windows 해결)
+# 인수인계 — 크로스플랫폼 (완료 · CI 전량 초록)
 
 > 근거 SRS 는 `CROSS_PLATFORM_SRS.md`. 실기 기록은 그 문서 §11 이다.
 > 브랜치 `crossplatform`. 워킹 트리는 깨끗하고 모두 푸시돼 있다.
 
 ## 0. 한 줄 상태
 
-**네 대상 모두 종단간까지 CI 에서 통과한다.** Windows 결함의 원인은
-`STARTF_USESTDHANDLES` 하나였고(§11.8), 라이브러리 교체는 **하지 않았다** —
-§11.7 의 그 결정은 실행 전에 뒤집혔다. 새 의존도 `go` 지시자 변경도 없다.
+**CI 잡 넷이 전부 초록이다** (run 33263400171). 남은 것은 `main` 병합뿐이다.
 
-남은 것은 `main` 병합과, 이 트랙과 무관하게 처음부터 깨져 있던
-`test (windows-latest)` 잡이다.
+두 트랙이 끝났다.
+
+1. **ConPTY** — 원인은 `STARTF_USESTDHANDLES` 하나였다(SRS §11.8). 라이브러리
+   교체는 **하지 않았다**; §11.7 의 그 결정은 실행 전에 뒤집혔다. 새 의존도
+   `go` 지시자 변경도 없다
+2. **Windows 단위테스트** — 도입 이래 한 번도 통과한 적이 없던 잡이다. 실패
+   356줄을 전수로 파 내려가 **제품 결함 11건**을 꺼냈다. 근거는
+   `WINDOWS_TEST_PARITY_SRS.md` 이며 결과는 그 §10 이다
 
 ---
 
@@ -23,11 +27,9 @@
 |---|---|---|---|---|
 | darwin | ✅ | ✅ | ✅ | ✅ (`verify-isolated.sh` 21/21) |
 | linux | ✅ | ✅ | ✅ | ✅ (CI) |
-| windows | ✅ | ❌ (§3.1 — 선재 결함) | ✅ (CI) | ✅ (CI) |
+| windows | ✅ | ✅ (CI) | ✅ (CI) | ✅ (CI) |
 
-CI 는 `.github/workflows/verify.yml` 이다. 잡 넷 중 `windows-runtime`·
-`linux-runtime`·`test (ubuntu-latest)` 가 통과하고 `test (windows-latest)` 만
-실패한다.
+CI 는 `.github/workflows/verify.yml` 이다. **잡 넷이 전부 통과한다.**
 
 ---
 
@@ -95,40 +97,21 @@ pwsh 로는 제목 OSC(`\x1b]0;…pwsh.exe\a`)만 의사 콘솔로 오고, **셸
 
 ---
 
-## 3. 남은 일
+## 3. 남은 일 — `main` 병합뿐
 
-### 3.1 `test (windows-latest)` — 이 트랙과 무관한 선재 결함
+CI 넷이 초록이므로 막는 것은 없다.
 
-**e8d6636 로 CI 가 들어온 이래 한 번도 통과한 적이 없다** (실행 8회 전부
-failure 또는 cancelled). 약 250개 테스트가 깨지고 두 패키지
-(`git/store`·`gitapi`)는 600초 타임아웃까지 간다.
+이 트랙이 두 번째로 한 일(Windows 단위테스트)은 별도 스펙에 있다 —
+`WINDOWS_TEST_PARITY_SRS.md`. 요약은 그 §10 이고, **제품 결함 11건**이 거기서
+나왔다. 사용자가 실제로 겪을 것은 셋이다.
 
-원인은 POSIX 를 전제한 테스트가 Windows 에서 도는 것이다 — 실행 권한 비트
-(`TestCopyExecutable`), `/proc` 표를 쓰는 `TestLinux*`, 셸 래퍼 문자열,
-`git` 동작 차이 등.
+- **D7** — 파일 전송(업로드·다운로드)이 Windows 에서 전부 403 이었다
+- **D11** — `exit` 를 친 탭이 닫히지 않고 영원히 남았다
+- **D1** — 데몬이 도는 중에 마이그레이션이 진행돼 상태를 덮어썼다
 
-FR-XBD-4 는 "Windows 보증 범위는 build·vet 과 플랫폼 독립 테스트" 라고 적었다.
-그 경계가 **코드에는 있는데 워크플로우에는 없다.** 방향은 둘이다 (SRS §10.4 R-4).
-
-1. POSIX 전제 테스트에 `//go:build !windows` 를 달아 경계를 코드로 굳힌다
-2. `test` 매트릭스에서 windows 를 빼고, Windows 는 `windows-runtime` 잡으로만
-   보증한다
-
-①이 FR-XBD-4 의 뜻에 맞지만 250건을 하나씩 판정해야 한다.
-
-### 3.2 `main` 병합
-
-Windows 가 통과했으므로 막는 것은 없다. §3.1 을 병합 전에 처리할지 후에 할지는
-결정이 필요하다 — 지금 상태로 병합하면 `main` 의 CI 도 빨간 잡을 하나 안고 간다.
-
-### 3.3 기존 결함 2건 (내 변경과 무관, HEAD 에서 재현 확인)
-
-- `web` 의 `TestAssetVersionBumpedWithAssets` — `assets.lock` 한 줄 불일치
-- `TestApiToolDelete_ClearsAttention` · `TestToolClientForegroundNameOverIPC` —
-  `SaveAll` 이 테스트 종료 후 `TempDir` 에 쓰는 경합으로 간헐 실패. 후자가
-  run 33257794325 의 `test (ubuntu-latest)` 를 떨어뜨렸다 (로컬 5회 반복 통과)
-
----
+열어 둔 위험은 그 스펙 §10.4 의 R-5(Windows 의 경로 동일성은 문자열 동일성이
+아니다 — 대소문자·8.3 짧은 이름)와 R-6(예약 파일명)이다. **증거가 나올 때까지
+손대지 않는다.**
 
 ## 4. 검증
 
@@ -187,19 +170,37 @@ ConPTY 배관 하나로 좁혔다.
 
 ## 6. 커밋 이력 (브랜치 `crossplatform`)
 
-    c6ac10f  fix(xplat): ConPTY 자식이 부모 콘솔을 물려받지 않게 한다 (§11.8)  ← 해결
+두 트랙이다. 아래가 **Windows 단위테스트** 트랙(WINDOWS_TEST_PARITY_SRS),
+
+    e242765  fix(xplat): 셸이 스스로 끝나도 탭이 닫히지 않았다 (D11)
+    ff7ad5e  fix(xplat): 셸 준비 신호를 '조용해질 때까지' 로 바꾼다
+    6c104ea  fix(xplat): 마지막 여섯 — 줄 끝·푸시 순서·남은 리터럴
+    49a3ed1  fix(xplat): URL 쿼리·가짜 git 출력에 남은 경로 리터럴을 걷는다
+    0279751  fix(xplat): 고정 대기를 셸 준비 대기로 바꾼다
+    6f012f0  fix(xplat): 저장 대기를 모든 ToolManager 에 붙이고 SRS 를 갱신한다
+    e943ca8  fix(xplat): OS 마다 다른 전제를 마저 걷어낸다 (D9·D10 포함)
+    a632ec2  fix(xplat): 남은 픽스처와 저장 경합을 잡는다
+    b67a0ee  fix(xplat): 경로 가드가 이 OS 의 구분자를 모두 보게 한다 (D8)
+    b95a8a5  fix(xplat): 파일 전송이 Windows 에서 통째로 막혀 있었다 (D7)
+    3d98524  fix(xplat): 테스트 픽스처의 OS 전제를 걷어내고 결함 둘을 더 고친다
+    d6dbf8f  fix(xplat): Windows 실동작 결함 4건 (D1~D4)
+
+그 위가 **ConPTY** 트랙(CROSS_PLATFORM_SRS §11)이다.
+
+    a0a8492  docs(xplat): Windows 가 통과했다 — §11.7 의 교체 결정을 접는다
+    c6ac10f  fix(xplat): ConPTY 자식이 부모 콘솔을 물려받지 않게 한다 (§11.8)
     aca7004  docs(xplat): 인계 문서와 다음 세션 프롬프트를 남긴다 (§11.7)
     0915188  fix(doctor): 단순 명령 프로브가 멈추지 않게 한다
     8363a75  test(doctor): 셸을 빼고 의사 터미널의 배관부터 시험한다
     1a428d6  fix(xplat): ConPTY 자식 생성을 MS 예제와 같은 형태로 맞춘다
-    d4a9e67  fix(xplat): ConPTY 자식에게 std 핸들을 물려주지 않는다 — 파이프 경쟁이었다
+    d4a9e67  fix(xplat): ConPTY 자식에게 std 핸들을 물려주지 않는다
     a36417a  fix(doctor): 셸이 준비된 뒤에 입력한다
     146c99a  fix(xplat): 자식의 표준 입출력을 의사 콘솔로 못박는다 — §11.6 정정
     e8d6636  ci(xplat): Windows·Linux 실기 검증을 CI 로 굳힌다 (R-1 해소)
-    8e012e8  fix(xplat): 데몬을 DETACHED_PROCESS 가 아니라 CREATE_NO_WINDOW 로 띄운다
+    8e012e8  fix(xplat): 데몬을 CREATE_NO_WINDOW 로 띄운다
     5469dbb  fix(xplat): doctor 가 도구 계층과 콘솔 없는 조건까지 본다
-    419c318  fix(xplat): Windows 실기 1차 — 결함 4건을 고치고 계층별 진단을 넣는다
-    f3de228  feat(xplat): OS 이음매를 인터페이스로 묶고 Linux·WSL·Windows-native 를 연다
+    419c318  fix(xplat): Windows 실기 1차 — 결함 4건과 계층별 진단
+    f3de228  feat(xplat): OS 이음매를 인터페이스로 묶는다
 
 `8733cb3 feat(transfer)` 는 사용자가 중간에 넣은 별개 커밋이다.
 
