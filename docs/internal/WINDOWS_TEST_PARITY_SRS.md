@@ -199,7 +199,68 @@ D3 보다 넓다 — 저장소 상태 캐시의 키(`store.go:208`), 핀 경로�
 이고, 같은 이름을 두 곳에서 다르게 만드는 것 자체가 결함이다. 한 규칙
 (`dmctlPath`)으로 모은다.
 
-### 2.4 원인 ⑤ — `/proc` 은 언제나 POSIX 경로다
+#### D7 · 파일 전송이 Windows 에서 통째로 막혀 있다
+
+`internal/webserver/httpapi/handlers_files.go`
+
+전송 종단 넷(`/api/upload`·`/api/download`·`/api/file/read`·`/api/file/write`)이
+모두 `safeResolve("/", …)` 로 경로를 푼다. 그 `"/"` 는 **"어디든"** 을 적은
+것이지 "POSIX 루트 아래" 가 아니다 (`handlers_fs.go:21` 이 그 대비를 설명한다).
+
+그런데 `safeResolve` 는 `filepath.Rel(baseDir, cleaned)` 로 봉쇄를 판정한다.
+Windows 에서 `filepath.Rel("/", "C:\Users\x")` 는 **볼륨이 달라 오류**이고,
+그 오류가 그대로 `403 forbidden` 이 된다.
+
+**업로드도 다운로드도 한 건도 되지 않는다.** `feat(transfer)` 로 들어온 기능
+전체가 Windows 에서 죽어 있었다. 테스트 여덟이 이것을 403 으로 정확히 잡고
+있었다.
+
+### 2.5 코드 전수 감사 — "경로가 OS 마다 다르다" 를 기준으로
+
+D3·D5·D6·D7 이 전부 같은 뿌리에서 나왔으므로, 프로덕션 코드
+(`internal/`·`cmd/`)를 그 기준으로 훑었다. 계열과 결과는 다음과 같다.
+
+| # | 계열 | 발견 | 판정 |
+|---|---|---|---|
+| 1 | 슬래시로 직접 조립·분해 | 13곳 | **전부 정당** — URL(`static.go`), git ref(`remote+"/"+branch`), map 키 |
+| 2 | `HasPrefix(p,"/")` 로 절대경로 판정 | 3곳 | 2곳 정당(.gitignore 줄·ref 이름), **1곳은 가드였다 → D8** |
+| 3 | 경로 접두사 봉쇄 판정 | 3곳 | `filepath.Separator` 를 쓴다 — 정당 |
+| 4 | `filepath.Rel` | 7곳 | 6곳 정당(같은 트리·오류를 거부로 처리), **1곳이 D7** |
+| 5 | `path` 와 `filepath` 혼용 | 임포트 4곳 | 전부 정당 — `/proc`·embed·URL·git pathspec |
+| 6 | `PATH` 목록 구분자 | 1곳 | `os.PathListSeparator` — 정당 |
+| 7 | 하드코딩된 POSIX 경로 | 1곳 | `platform/shell.go` 의 POSIX 폴백 — 어댑터 안이므로 정당 |
+| 8 | 파일 이름 안전 문자 | `slug` | 허용 목록 방식이라 Windows 금지문자가 자동 배제된다 — 정당 |
+| 9 | `~` 확장 | 1곳 | `~/` 만 본다. Windows 에 `~` 관용구가 없어 실질 영향 없음 |
+| 10 | 실행 파일 확장자 | — | **D6** |
+| 11 | git 출력 경로 | — | **D3 · D5** |
+
+**감사에서 확인한 것은 "슬래시를 박았는가" 만이 아니다.** 슬래시를 박은 13곳은
+대부분 정당했다 — URL·git ref·map 키는 OS 경로가 아니기 때문이다. 진짜 결함은
+**OS 경로를 다루면서 한쪽 OS 의 의미만 가정한 자리**에 있었다.
+
+#### D8 · 경로 가드가 슬래시만 구분자로 본다
+
+`internal/webserver/domain/git/core/guard.go` 의 `RelPath`
+
+    for _, seg := range strings.Split(p, "/") { if seg == ".." { 거부 } }
+    if path.Clean(p) != p { 거부 }
+
+Windows 에서는 `\` 도 구분자다. `src\..\x` 는 슬래시로 나누면 **한 조각**이라
+부모 참조 검사를 지나가고, `path.Clean` 도 슬래시만 알므로 정규형 검사에도
+걸리지 않는다. 이 값은 **git 에 경로로 넘어가는 자리**다 — 그 함수의 주석이
+스스로 "여기가 뚫리면 임의 파일 접근" 이라고 적어 두었다.
+
+같은 자리에 하나 더 있다. `filepath.IsAbs` 는 Windows 의 **드라이브 상대 경로**
+(`C:foo`)와 **볼륨 없는 루트 상대 경로**(`\foo`)를 절대경로로 보지 않는다.
+둘 다 저장소 밖을 가리킬 수 있다.
+
+조치: 검사용 사본을 `filepath.ToSlash` 로 만들어 조각을 나누고,
+`filepath.VolumeName(p) != ""` 를 거부에 더한다. POSIX 에서 `ToSlash` 는 항등,
+`VolumeName` 은 언제나 빈 문자열이므로 **그쪽 동작은 그대로다** — POSIX 의 `\`
+는 파일 이름에 쓸 수 있는 평범한 글자이며, 돌려주는 값은 원본 그대로다.
+
+### 2.6 원인 ⑤ — `/proc` 은 언제나 POSIX 경로다
+
 
 `internal/shared/platform/procinfo.go:246` 이 `filepath.Join(procRoot, elem...)`
 으로 `/proc` 경로를 만든다. Windows 에서 `\proc\100\...` 가 된다.
