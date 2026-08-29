@@ -112,12 +112,26 @@ func TestWindowsShellPrefersPwsh(t *testing.T) {
 	if spec.Path != "/usr/bin/pwsh.exe" {
 		t.Fatalf("Path = %q", spec.Path)
 	}
-	want := filepath.Join(`C:\home\bin`, PowerShellHookFile)
+	want := dotSource(filepath.Join(`C:\home\bin`, PowerShellHookFile))
 	if !slices.Contains(spec.Args, want) {
-		t.Fatalf("훅 스크립트가 인자에 없다: %v", spec.Args)
+		t.Fatalf("훅 닷소싱이 인자에 없다: %v", spec.Args)
 	}
 	if !slices.Contains(spec.Args, "-NoExit") {
 		t.Fatalf("-NoExit 이 없다 — 훅 실행 후 셸이 즉시 끝난다: %v", spec.Args)
+	}
+	// -File 은 쓰지 않는다 (dotSource 주석).
+	if slices.Contains(spec.Args, "-File") {
+		t.Fatalf("-File 을 쓰고 있다 — 대화형 유지가 불확실하다: %v", spec.Args)
+	}
+}
+
+// 경로에 아포스트로피가 있어도 문자열이 깨지지 않아야 한다. 깨지면 PowerShell
+// 이 구문 오류를 내고 훅이 통째로 실행되지 않는다.
+func TestDotSourceEscapesQuote(t *testing.T) {
+	got := dotSource(`C:\Users\O'Brien\bin\hook.ps1`)
+	want := `. 'C:\Users\O''Brien\bin\hook.ps1'`
+	if got != want {
+		t.Fatalf("dotSource = %s, want %s", got, want)
 	}
 }
 

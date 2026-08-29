@@ -122,9 +122,23 @@ func (s windowsShell) Shell(binDir string) ShellSpec {
 	spec.Args = []string{
 		"-NoLogo", "-NoExit",
 		"-ExecutionPolicy", "Bypass",
-		"-File", filepath.Join(binDir, PowerShellHookFile),
+		"-Command", dotSource(filepath.Join(binDir, PowerShellHookFile)),
 	}
 	return spec
+}
+
+// dotSource 는 스크립트를 **현재 세션 스코프로** 읽어들이는 명령을 만든다.
+//
+// -File 을 쓰지 않는 이유는 대화형 유지가 불확실해서다. -NoExit 이 -File 과
+// 함께일 때 대화형 프롬프트로 남는지가 PowerShell 판본에 따라 다르고, 남지
+// 않으면 셸이 훅만 실행하고 곧바로 죽는다 — 도구가 뜨자마자 사라진다.
+// -NoExit 과 -Command 의 조합에는 그 모호함이 없다.
+//
+// 닷소싱이라 훅이 정의한 함수가 세션에 그대로 남는 것도 이점이다.
+func dotSource(path string) string {
+	// PowerShell 의 작은따옴표 문자열에서는 작은따옴표를 겹쳐 escape 한다.
+	// 사용자 이름에 아포스트로피가 들어가는 경우가 실제로 있다 (O'Brien).
+	return ". '" + strings.ReplaceAll(path, "'", "''") + "'"
 }
 
 func (s windowsShell) pick() string {

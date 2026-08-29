@@ -1,4 +1,4 @@
-# dongminal 셸 훅 (Windows). POSIX 의 posix/bash-hook.sh · posix/zdotdir/.zshrc 와
+﻿# dongminal 셸 훅 (Windows). POSIX 의 posix/bash-hook.sh · posix/zdotdir/.zshrc 와
 # 같은 세 가지를 한다 — cwd 통지, claude 래퍼, codex 래퍼.
 #
 # 모든 정의에 global: 을 붙인다. 이 파일은 `powershell -NoExit -File` 로 실행되고,

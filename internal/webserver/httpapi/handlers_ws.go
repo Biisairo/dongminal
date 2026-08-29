@@ -53,7 +53,10 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	} else {
 		tool, err = s.Tools.Create("", cols, rows)
 		if err != nil {
-			_ = conn.Send(toolhub.OpError, []byte("create failed"))
+			// 실제 오류를 화면까지 보낸다. 고정 문구만 보내면 사용자에게는
+			// 빈 터미널과 구별되지 않고, 원인은 서버 로그에만 남는다 —
+			// 크로스플랫폼 도입 때 Windows 에서 정확히 그랬다.
+			_ = conn.Send(toolhub.OpError, []byte("도구를 만들지 못했습니다: "+err.Error()))
 			log.Printf("ws addr=%s: tool create error: %v", r.RemoteAddr, err)
 			return
 		}

@@ -1,6 +1,9 @@
 package platform
 
-import "io"
+import (
+	"io"
+	"strings"
+)
 
 // ProcSpec 은 의사 터미널에 붙일 프로세스의 명세다.
 //
@@ -16,6 +19,72 @@ type ProcSpec struct {
 	Env  []string // "K=V" 목록. 완전한 환경이며 상속하지 않는다
 	Dir  string   // 작업 디렉터리
 }
+
+// dedupEnv 는 중복 키를 **뒤엣것으로** 정리한다. 호출자가
+// `append(os.Environ(), 덧붙일것...)` 로 환경을 만드는 것이 관례이므로,
+// 정리하지 않으면 덧붙인 값이 아니라 원본이 이긴다.
+//
+// os/exec 는 Start() 안에서 이것을 해 준다. ConPTY 경로는 os/exec 를 쓸 수
+// 없으므로(§2.4) 그 정리가 사라진다 — 그래서 어댑터가 아니라 여기서, 두
+// 구현이 같은 규칙을 쓰도록 한다.
+//
+// Windows 는 환경변수 이름의 대소문자를 구분하지 않으므로 접은 이름으로
+// 비교한다. fold 가 그 차이를 담는다.
+//
+// "=" 로 시작하는 항목은 키가 없는 특수 항목이다(Windows 의 드라이브별 cwd).
+// 건드리지 않고 그대로 앞에 둔다.
+func dedupEnv(env []string, fold func(string) string) []string {
+	type slot struct{ idx int }
+	seen := make(map[string]int, len(env))
+	out := make([]string, 0, len(env))
+	for _, kv := range env {
+		if kv == "" {
+			continue
+		}
+		if strings.HasPrefix(kv, "=") {
+			out = append(out, kv)
+			continue
+		}
+		k, _, ok := strings.Cut(kv, "=")
+		if !ok {
+			out = append(out, kv)
+			continue
+		}
+		key := fold(k)
+		if i, dup := seen[key]; dup {
+			out[i] = kv // 뒤엣것이 이긴다
+			continue
+		}
+		seen[key] = len(out)
+		out = append(out, kv)
+	}
+	return out
+}
+
+// envKeyAsIs·envKeyFolded 는 dedupEnv 의 이름 비교 규칙이다.
+func envKeyAsIs(k string) string   { return k }
+func envKeyFolded(k string) string { return strings.ToUpper(k) }
+
+// clampSize 는 터미널 크기의 하한을 세운다.
+//
+// **ConPTY 는 0 을 받으면 E_INVALIDARG 로 실패한다.** POSIX 는 0x0 을 받아도
+// 커널이 기본값을 주므로 그냥 뜬다 — 그래서 크기 0 은 POSIX 에서 아무 증상도
+// 내지 않다가 Windows 에서만 "터미널이 안 뜬다" 로 나타난다. 그 함정을 두
+// 어댑터가 같은 자리에서 막는다.
+func clampSize(cols, rows uint16) (uint16, uint16) {
+	if cols == 0 {
+		cols = defaultCols
+	}
+	if rows == 0 {
+		rows = defaultRows
+	}
+	return cols, rows
+}
+
+const (
+	defaultCols = 80
+	defaultRows = 24
+)
 
 // PTY 는 의사 터미널을 만드는 능력이다.
 type PTY interface {

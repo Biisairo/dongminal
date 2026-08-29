@@ -38,6 +38,12 @@ func Dispatch(args []string, serve Serve, stdout, stderr io.Writer) int {
 			return code
 		}
 		return RunHealth(o, stdout, stderr)
+	case "doctor":
+		o, err := ParseDoctor(rest)
+		if code, done := settle(action, err, stdout, stderr); done {
+			return code
+		}
+		return RunDoctor(o, stdout, stderr)
 	case "migrate":
 		o, err := ParseMigrate(rest)
 		if code, done := settle(action, err, stdout, stderr); done {

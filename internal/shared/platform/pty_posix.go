@@ -15,9 +15,12 @@ import (
 type posixPTY struct{}
 
 func (posixPTY) Start(spec ProcSpec, cols, rows uint16) (Terminal, error) {
+	cols, rows = clampSize(cols, rows)
 	cmd := exec.Command(spec.Path, spec.Args[1:]...)
 	cmd.Args = spec.Args
-	cmd.Env = spec.Env
+	// os/exec 도 Start() 에서 같은 정리를 한다. 여기서 한 번 더 하는 것은
+	// 두 어댑터가 같은 규칙을 쓴다는 것을 눈에 보이게 하기 위해서다.
+	cmd.Env = dedupEnv(spec.Env, envKeyAsIs)
 	cmd.Dir = spec.Dir
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: cols, Rows: rows})
 	if err != nil {

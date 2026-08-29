@@ -47,7 +47,7 @@ func defaultLogFile() string { return platform.Current().Paths.DefaultLogFile() 
 
 // Actions는 help 에 나열되는 액션 이름이다. 내부 진입점 `d`(데몬)는 여기
 // 없다 — 사용자가 직접 부를 것이 아니다 (FR-CLI-8).
-var Actions = []string{"start", "stop", "migrate", "health"}
+var Actions = []string{"start", "stop", "migrate", "health", "doctor"}
 
 // Common은 모든 액션이 공유하는 옵션이다 (FR-CLI-9).
 type Common struct {
@@ -144,6 +144,11 @@ type StopOpts struct {
 	All bool
 }
 
+// DoctorOpts는 `dongminal doctor` 의 옵션이다.
+type DoctorOpts struct {
+	Common
+}
+
 // HealthOpts는 `dongminal health` 의 옵션이다.
 type HealthOpts struct {
 	Common
@@ -203,6 +208,25 @@ func ParseStop(args []string) (StopOpts, error) {
 			}
 			if !ok {
 				return StopOpts{}, unknownFlag("stop", args[i])
+			}
+		}
+	}
+	return o, nil
+}
+
+func ParseDoctor(args []string) (DoctorOpts, error) {
+	var o DoctorOpts
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "-h", "--help":
+			return DoctorOpts{}, ErrHelp
+		default:
+			ok, err := o.Common.take(args, &i)
+			if err != nil {
+				return DoctorOpts{}, err
+			}
+			if !ok {
+				return DoctorOpts{}, unknownFlag("doctor", args[i])
 			}
 		}
 	}

@@ -44,6 +44,7 @@ func packCoord(cols, rows uint16) uintptr {
 type windowsPTY struct{}
 
 func (windowsPTY) Start(spec ProcSpec, cols, rows uint16) (Terminal, error) {
+	cols, rows = clampSize(cols, rows)
 	if err := procCreatePseudoConsole.Find(); err != nil {
 		return nil, fmt.Errorf("ConPTY 를 쓸 수 없습니다 — Windows 10 1809 이상이 필요합니다: %w", err)
 	}
@@ -131,7 +132,7 @@ func startInPseudoConsole(spec ProcSpec, hpc windows.Handle) (*windows.ProcessIn
 			return nil, fmt.Errorf("작업 디렉터리: %w", err)
 		}
 	}
-	env, err := envBlock(spec.Env)
+	env, err := envBlock(dedupEnv(spec.Env, envKeyFolded))
 	if err != nil {
 		return nil, fmt.Errorf("환경 변수: %w", err)
 	}

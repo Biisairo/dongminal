@@ -78,7 +78,14 @@ scripts/check-seams.sh    # OS 의존 호출이 platform 밖에 없는지
 
 설계와 이음매 목록은 [docs/internal/CROSS_PLATFORM_SRS.md](docs/internal/CROSS_PLATFORM_SRS.md).
 
-> Windows native 는 **실기 검증 전**이다. 5개 대상의 build·vet 과 판단 로직의
+터미널이 뜨지 않거나 비어 보이면 먼저 진단을 돌린다. 서버가 쓰는 것과 같은
+플랫폼 코드를 계층별로 실제 실행해 어디서 무슨 오류로 막혔는지 알려 준다.
+
+```bash
+dongminal doctor
+```
+
+> Windows native 는 **실기 검증 중**이다. 5개 대상의 build·vet 과 판단 로직의
 > 단위 테스트까지는 통과하지만, WinAPI 호출 자체(ConPTY·Job Object·toolhelp 등)는
 > 아직 실제 Windows 에서 돌려보지 않았다. SRS §10.4 참조.
 

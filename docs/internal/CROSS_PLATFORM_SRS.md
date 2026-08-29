@@ -851,3 +851,67 @@ pipe 리스너를 직접 구현하는 것은 실기 검증 없이 인도하기�
 Job Object 배정과 스레드 재개, toolhelp 스냅샷, `GetExtendedTcpTable`,
 `GetSystemTimes`/`GlobalMemoryStatusEx`, 그리고 `powershell-hook.ps1` 의 실행.
 D-1 이 정해지기 전까지 이 목록은 그대로 열려 있다.
+
+---
+
+## 11. 실기 1차 피드백 (Windows)
+
+R-1 이 현실화됐다. Windows 에서 **UI 는 뜨는데 터미널 탭이 빈다**는 보고를 받았다.
+
+### 11.1 정적 재검증에서 확인한 것
+
+원인을 추측으로 고치지 않기 위해 검증 가능한 것부터 지웠다.
+
+| 의심 | 결과 |
+|---|---|
+| Go 가 Windows AF_UNIX 를 지원하지 않는다 | **아니다.** `net/unixsock_posix.go` 빌드 태그에 `windows` 가 있고 전용 테스트도 있다 |
+| Windows 훅이 임베드되지 않았다 | **아니다.** 두 훅 트리의 전개를 테스트로 고정했다 (`install_shellhooks_test.go`) |
+| WinAPI 시그니처·상수가 틀렸다 | **아니다.** x/sys v0.36.0 원본과 대조했고 `PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE=0x00020016` 은 `ProcThreadAttributeValue(22,F,T,F)` 로 검산했다 |
+| ConPTY 파이프를 `os.NewFile` 로 감싼 것이 막힌다 | **아니다.** `newFileFromNewFile` 이 `IsNonblock` 으로 동기 파이프를 판정해 블로킹 모드로 연다 |
+| 도구 생성이 크기 0 을 넘긴다 | **아니다.** `ParseSize` 가 120×40 을 기본으로 주고 0 을 거부한다 |
+
+### 11.2 그 과정에서 찾은 실제 결함 4건
+
+**① 환경 중복이 정리되지 않는다 (Windows 한정).**
+호출자는 `append(os.Environ(), 덧붙일것...)` 로 환경을 만든다. `os/exec` 는
+`Start()` 안에서 `dedupEnv` 로 **뒤엣것이 이기게** 정리해 준다. POSIX 어댑터는
+`exec.Cmd` 를 쓰니 그대로 적용되는데, **ConPTY 경로는 `os/exec` 를 우회하므로
+그 정리가 사라졌다.** 결과적으로 Windows 터미널의 `PATH` 는 `binDir` 이 빠진
+원본이 이겨 `dmctl`·`edit`·`download`·`detach` 가 잡히지 않는다.
+→ `platform.dedupEnv` 를 두 어댑터가 공유한다. Windows 는 이름을 접어 비교한다.
+
+**② 크기 0 의 하한이 없다.**
+POSIX 는 0×0 을 받아도 커널이 기본값을 주지만 **ConPTY 는 `E_INVALIDARG` 로
+실패한다.** 지금 경로에서는 0 이 오지 않지만, 오는 순간 POSIX 에서는 아무
+증상도 없이 Windows 에서만 깨진다. → `clampSize` 로 두 어댑터가 함께 막는다.
+
+**③ PowerShell 훅에 UTF-8 BOM 이 없다.**
+PowerShell 5.1 은 BOM 없는 `.ps1` 을 **현재 ANSI 코드페이지**로 읽는다. 이 훅에는
+한국어 주석과 문자열이 있어, CP949 오독 중 한 바이트가 따옴표로 보이면 그 자리에서
+구문 오류가 난다. → BOM 을 붙이고 테스트로 고정했다.
+
+**④ 도구 생성 실패가 화면에 닿지 않는다.**
+프론트엔드는 `OP.ERROR` 를 빨간 글씨로 정상 처리하는데, 서버가 보내던 것은
+`"create failed"` 라는 고정 문구뿐이었다. 실제 오류는 서버 로그에만 남아,
+사용자에게는 **빈 터미널과 구별되지 않았다.** → 실제 오류 문구를 실어 보낸다.
+
+### 11.3 `-File` → 닷소싱 (FR-XSH-3 정정)
+
+`powershell.exe -NoExit -File hook.ps1` 은 스크립트 실행 후 대화형으로 남는지가
+판본에 따라 불확실하다. 남지 않으면 셸이 훅만 실행하고 즉시 죽는다 — 도구가
+뜨자마자 사라진다. `-NoExit -Command ". '<경로>'"` 에는 그 모호함이 없고,
+닷소싱이라 훅이 정의한 함수가 세션에 그대로 남는다. 경로의 작은따옴표는 겹쳐
+escape 한다(사용자 이름의 아포스트로피).
+
+### 11.4 `dongminal doctor` (신설)
+
+계층이 겹겹이라 "터미널이 안 뜬다" 는 증상만으로는 셸 탐색·헬퍼 설치·의사 터미널
+기동·IPC 중 어디가 깨졌는지 가를 수 없다. 서버가 쓰는 **바로 그 platform 코드**를
+같은 순서로 실제 실행하는 진단을 넣는다.
+
+의사 터미널은 **두 번** 시험한다 — 훅 없는 맨 셸과 훅을 얹은 셸. 맨 셸이 되고
+훅 셸이 안 되면 범인은 훅이고, 둘 다 안 되면 의사 터미널이다. 이 구분이 이
+진단의 핵심이다.
+
+`doctor` 는 이 트랙의 Windows 인수 시험이기도 하다 — 실기에서 전부 통과해야
+플랫폼 계층이 그 호스트에서 동작한다고 말할 수 있다.
