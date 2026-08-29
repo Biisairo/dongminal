@@ -2,8 +2,11 @@ package agentadapter
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/platform"
 )
 
 // TC-ADP-2 / FR-ADP-3: an unknown agent id must fail clearly. Silent success
@@ -126,9 +129,58 @@ func TestLaunchLine_ArgvQuotingSurvivesShellMetacharacters(t *testing.T) {
 	if !strings.Contains(line, "둘째 줄") {
 		t.Fatalf("개행 뒤 본문이 사라졌다: %q", line)
 	}
-	// 홑따옴표는 '\'' 로 닫고 다시 여는 형태여야 한다.
-	if !strings.Contains(line, `'\''`) {
-		t.Fatalf("홑따옴표를 안전하게 처리하지 않았다: %q", line)
+	// 아포스트로피를 어떤 형태로 이스케이프하는가는 **셸이 정한다**. 그 규칙은
+	// platform 이 소유하며 거기서 검증한다 — 여기서 POSIX 형태를 못박으면
+	// Windows 에서 거짓으로 통과한다.
+	if strings.Contains(line, " it's ") {
+		t.Fatalf("아포스트로피가 인용되지 않은 채 남았다: %q", line)
+	}
+}
+
+// recordingShell 은 인용을 가로채는 대역이다. 어떤 값이 인용을 거쳤는지만 보며,
+// 인용 규칙 자체는 재현하지 않는다 (그러면 동어반복이 된다).
+type recordingShell struct{ seen []string }
+
+func (s *recordingShell) Quote(v string) string {
+	s.seen = append(s.seen, v)
+	return "«" + v + "»"
+}
+func (s *recordingShell) EchoCommand(string) []string     { return nil }
+func (s *recordingShell) Shell(string) platform.ShellSpec { return platform.ShellSpec{} }
+func (s *recordingShell) HookRoot() string                { return "" }
+
+// 이 기동줄이 타이핑되는 셸은 호스트마다 다르다. 인용을 여기서 손으로 하면
+// Windows 에서 pwsh 가 문자열을 닫지 못해 명령이 통째로 깨진다 (FR-XBD-3).
+// 셸에 갈 값이 **빠짐없이** 셸의 인용을 거치는지 본다.
+func TestLaunchLine_DelegatesQuotingToTheShell(t *testing.T) {
+	claude, _ := Get("claude")
+	sh := &recordingShell{}
+	line := claude.launchLine(sh, "sonnet", "it's a prompt")
+
+	want := append(append([]string{}, claude.MemberArgs...), "it's a prompt")
+	if !reflect.DeepEqual(sh.seen, want) {
+		t.Fatalf("인용을 거친 값 = %q, want %q", sh.seen, want)
+	}
+	for _, v := range want {
+		if !strings.Contains(line, "«"+v+"»") {
+			t.Fatalf("%q 가 인용되지 않은 채 실렸다: %q", v, line)
+		}
+	}
+	// 모델 값은 플래그 뒤의 단일 토큰이라 인용 대상이 아니다 — 종전과 같다.
+	if !strings.Contains(line, "--model sonnet") {
+		t.Fatalf("모델 플래그가 바뀌었다: %q", line)
+	}
+}
+
+// 위 대역 시험이 성립해도 공개 진입점이 **호스트의** 셸을 쓰지 않으면 소용없다.
+// 종전처럼 POSIX 규칙을 함수 안에 박아 두면 여기서 갈린다.
+func TestLaunchLine_UsesTheHostShellQuoting(t *testing.T) {
+	claude, _ := Get("claude")
+	const prompt = "it's"
+	got := claude.LaunchLine("sonnet", prompt)
+	want := claude.launchLine(platform.Current().Shell, "sonnet", prompt)
+	if got != want {
+		t.Fatalf("LaunchLine = %q, 호스트 셸 인용 = %q", got, want)
 	}
 }
 

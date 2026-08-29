@@ -294,7 +294,7 @@ func tagMissing(name string, err error) error {
 // tagRemoteArgv 는 원격을 지나는 태그 동작의 공통 앞부분이다. 진행 표시를 강제하는
 // 이유는 push 와 같다 — tty 가 아니면 git 이 진행을 내지 않는다 (FR-GIT-103).
 func tagRemoteArgv(o TagRemoteOpts) ([]string, error) {
-	if err := core.CheckRefArg("remote", o.Remote); err != nil {
+	if err := CheckRemoteName(o.Remote); err != nil {
 		return nil, err
 	}
 	if o.All == (o.Name != "") {

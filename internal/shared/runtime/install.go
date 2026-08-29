@@ -153,7 +153,8 @@ func pruneToEmbedded(src embed.FS, root, dst string, keep []string) error {
 	return nil
 }
 
-// dmctlPath 는 훅이 부를 헬퍼의 **실제 파일 경로**다 (FR-WTP-50).
+// dmctlPath 는 훅이 부를 헬퍼의 **실제 파일 경로**다
+// (WINDOWS_TEST_PARITY_SRS D6, FR-WTP-6).
 //
 // 설치는 헬퍼를 `name+ExeSuffix()` 로 깐다(위 installHelpers). 훅에 적는 경로가
 // 확장자를 빼먹으면 Windows 에서 `...\bin\dmctl` 을 가리키는데 실재하는 것은

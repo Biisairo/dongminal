@@ -33,6 +33,10 @@ func startProbeShell(t *testing.T) *Tool {
 	return p
 }
 
+// fgProbeID 는 조회 결과를 꺼낼 때 쓰는 도구 ID 다. foregroundNames 는 ID 로
+// 결과를 돌려주므로 요청과 같은 값을 쓴다.
+const fgProbeID = "fg-probe"
+
 // waitForName은 전경 이름이 want 가 될 때까지 기다린다. 셸이 명령을 fork 하고
 // 전경 그룹을 넘기기까지는 시간이 걸리므로 폴링한다.
 func waitForName(t *testing.T, p *Tool, want string) {
@@ -40,7 +44,7 @@ func waitForName(t *testing.T, p *Tool, want string) {
 	deadline := time.Now().Add(5 * time.Second)
 	var last string
 	for time.Now().Before(deadline) {
-		last = foregroundName(p.term, p.CmdProcessPID())
+		last = foregroundNames([]fgRequest{{ID: fgProbeID, Term: p.term, ShellPID: p.CmdProcessPID()}})[fgProbeID]
 		if last == want {
 			return
 		}
@@ -83,18 +87,22 @@ func TestForegroundNamePipeline(t *testing.T) {
 
 // TestForegroundNameUnavailable은 조회 실패가 조용히 이름 없음이 되는 것을
 // 고정한다 (FR-TAN-5, V-TAN-17). PTY 가 아닌 fd·닫힌 fd·없는 pid 어느 쪽도
-// 오류가 되지 않는다.
+// 오류가 되지 않는다 — 결과 맵에 그 도구가 담기지 않는 것이 "이름 없음"이다.
 func TestForegroundNameUnavailable(t *testing.T) {
-	if got := foregroundName(nil, 1); got != "" {
+	name := func(term platform.Terminal, shellPID int) string {
+		return foregroundNames([]fgRequest{{ID: fgProbeID, Term: term, ShellPID: shellPID}})[fgProbeID]
+	}
+
+	if got := name(nil, 1); got != "" {
 		t.Errorf("터미널 없음 → %q", got)
 	}
 
 	p := startProbeShell(t)
-	if got := foregroundName(p.term, 0); got != "" {
+	if got := name(p.term, 0); got != "" {
 		t.Errorf("shellPid=0 → %q", got)
 	}
 	p.term.Close()
-	if got := foregroundName(p.term, p.CmdProcessPID()); got != "" {
+	if got := name(p.term, p.CmdProcessPID()); got != "" {
 		t.Errorf("닫힌 터미널 → %q", got)
 	}
 }

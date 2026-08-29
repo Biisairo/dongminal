@@ -150,5 +150,3 @@ func boundedCarry(frag []byte, maxCarry int) []byte {
 	}
 	return append([]byte(nil), frag...)
 }
-
-// toolAttentionPayload / toolAttentionClearPayload build the SSE event bodies

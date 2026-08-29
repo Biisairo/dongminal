@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"dongminal/internal/helper/toolline"
@@ -27,7 +26,7 @@ func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	status, body, err := httpGet(baseURL() + "/api/whoami?toolId=" + os.Getenv("DONGMINAL_TOOL_ID"))
+	status, body, err := httpGet(baseURL() + "/api/whoami?toolId=" + selfToolID())
 	if err != nil {
 		fmt.Fprintf(stderr, "dmctl: %v\n", err)
 		return 1

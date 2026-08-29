@@ -26,7 +26,7 @@ OS 이음매 누출 검사
 
 검사 대상: runtime.GOOS · syscall.Kill · syscall.SIG* · syscall.Signal ·
 os.FindProcess · SysProcAttr · unix 소켓 직접 사용 · /proc 직접 읽기 ·
-lsof/pgrep/ps · creack/pty · 셸 경로 하드코딩.
+lsof/pgrep/ps · creack/pty · 셸 경로 하드코딩 · 종단 파일명 하드코딩.
 
 예외: internal/shared/platform (추상화 그 자체),
       internal/webserver/domain/sysstat (자체 Reader 인터페이스가 이미 있다).
@@ -57,6 +57,9 @@ PATTERNS=(
   "syscall.Signal|syscall\.Signal\("
   "SysProcAttr|SysProcAttr"
   "unix 소켓 직접 사용|net\.(Listen|Dial|DialTimeout)\(\"unix\""
+  # 종단 주소는 platform.IPC.Endpoint 만 만든다. 파일명을 직접 조립하면 종단
+  # 표현이 바뀔 때(named pipe 등) 한쪽만 새 주소로 옮겨가 조용히 어긋난다.
+  "종단 파일명 하드코딩|\"paned\.sock\""
   "/proc 직접 읽기|\"/proc/"
   "lsof|exec\.Command\(\"lsof\""
   "pgrep|exec\.Command\(\"pgrep\""

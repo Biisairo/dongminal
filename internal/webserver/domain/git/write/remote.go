@@ -294,12 +294,21 @@ const RemoteRemoveAction = "remote_remove"
 const remoteNameBad = "/ \t\n\r~^:?*[\\"
 
 // CheckRemoteName 은 원격 이름을 실행 **전에** 본다 (FR-GIT-250.3).
+//
+// **원격 이름이 argv 로 나가는 모든 자리가 이것을 쓴다** — push·fetch·tag 어디로
+// 나가든 `refs/remotes/<name>/…` 가 만들어지는 것은 같다. 검사를 자리마다 따로
+// 두면 느슨한 자리가 그대로 우회로가 된다.
+//
+// core.ErrRefName 도 함께 감싼다. 이름 거부를 ref 이름 문제로 옮기는 표면
+// (handlers_git_branch·handlers_git_tag)이 이미 있고, 그쪽에서 500 으로 뭉개지면
+// 사용자는 자기 요청이 틀렸다는 것을 알 수 없다.
 func CheckRemoteName(name string) error {
 	if err := core.CheckRefArg("remote", name); err != nil {
-		return fmt.Errorf("%w: %v", ErrRemoteName, err)
+		return fmt.Errorf("%w: %w", ErrRemoteName, err)
 	}
 	if strings.ContainsAny(name, remoteNameBad) {
-		return fmt.Errorf("%w: 원격 이름에 쓸 수 없는 문자가 있다: %q", ErrRemoteName, name)
+		return fmt.Errorf("%w: %w: 원격 이름에 쓸 수 없는 문자가 있다: %q",
+			ErrRemoteName, core.ErrRefName, name)
 	}
 	return nil
 }

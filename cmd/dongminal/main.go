@@ -54,7 +54,9 @@ func dataPath(dataDir, name string) string {
 // here (lines 50-53) is fire-and-forget: it writes its result to a buffered
 // channel and exits, regardless of whether the outer select consumes it.
 func dialOrStartDaemon(home string) *toolclient.ToolClient {
-	sockPath := filepath.Join(home, "paned.sock")
+	// 종단 주소는 platform 이 만든다 — 데몬(boot.Run)이 listen 하는 주소와 같은
+	// 함수에서 나와야 표현이 바뀌어도 양쪽이 함께 옮겨간다 (FR-XIP-1).
+	endpoint := platform.Current().IPC.Endpoint(home)
 
 	// spawn is handed to the reconnect supervisor so it can respawn dongminald
 	// if it dies while we are running (FR-13).
@@ -69,14 +71,14 @@ func dialOrStartDaemon(home string) *toolclient.ToolClient {
 	}
 	ch := make(chan result, 1)
 	go func() {
-		pc, err := toolclient.DialPaneClientWithReconnect(sockPath, spawn)
+		pc, err := toolclient.DialPaneClientWithReconnect(endpoint, spawn)
 		ch <- result{pc, err}
 	}()
 
 	select {
 	case r := <-ch:
 		if r.err == nil {
-			log.Printf("connected to dongminald at %s", sockPath)
+			log.Printf("connected to dongminald at %s", endpoint)
 			return r.pc
 		}
 		// Connection failed (e.g. socket doesn't exist). Start fresh daemon.
@@ -100,7 +102,7 @@ func dialOrStartDaemon(home string) *toolclient.ToolClient {
 	// Wait for daemon socket to appear
 	for i := 0; i < 20; i++ {
 		time.Sleep(100 * time.Millisecond)
-		pc, err := toolclient.DialPaneClientWithReconnect(sockPath, spawn)
+		pc, err := toolclient.DialPaneClientWithReconnect(endpoint, spawn)
 		if err == nil {
 			log.Printf("connected to newly started dongminald")
 			return pc

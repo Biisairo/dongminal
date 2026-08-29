@@ -70,8 +70,7 @@ type Server struct {
 
 	started time.Time
 
-	mu      sync.Mutex
-	httpSrv *http.Server
+	mu sync.Mutex
 }
 
 // New constructs a Server from cfg + deps. If deps.Commands is nil, a fresh
@@ -131,9 +130,6 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	return srv, nil
 }
 
-// Started returns the NewServer timestamp.
-func (s *Server) Started() time.Time { return s.started }
-
 // Handler returns the top-level http.Handler.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -153,9 +149,6 @@ func (s *Server) Handler() http.Handler {
 // Run starts the HTTP server on addr and blocks until ctx is cancelled.
 func (s *Server) Run(ctx context.Context, addr string) error {
 	srv := &http.Server{Addr: addr, Handler: s.Handler()}
-	s.mu.Lock()
-	s.httpSrv = srv
-	s.mu.Unlock()
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -174,17 +167,6 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 	case err := <-errCh:
 		return err
 	}
-}
-
-// Shutdown gracefully stops the HTTP server.
-func (s *Server) Shutdown(ctx context.Context) error {
-	s.mu.Lock()
-	srv := s.httpSrv
-	s.mu.Unlock()
-	if srv == nil {
-		return nil
-	}
-	return srv.Shutdown(ctx)
 }
 
 // --- HTTP logging middleware ------------------------------------------------

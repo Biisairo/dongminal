@@ -4,7 +4,6 @@ package platform
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"sync"
 	"unsafe"
@@ -139,9 +138,6 @@ func startInPseudoConsole(spec ProcSpec, hpc windows.Handle) (*windows.ProcessIn
 	// 검증된 두 구현이 모두 이렇게 한다: UserExistsError/conpty 의
 	// getStartupInfoExForPTY, aymanbagabas/go-pty 의 Cmd.start.
 	siEx.StartupInfo.Flags |= windows.STARTF_USESTDHANDLES
-	log.Printf("[conpty] sizeof(StartupInfoEx)=%d sizeof(StartupInfo)=%d sizeof(HPCON)=%d attr=%#x flags=%#x",
-		unsafe.Sizeof(siEx), unsafe.Sizeof(siEx.StartupInfo), unsafe.Sizeof(hpc),
-		procThreadAttributePseudoConsole, extendedStartupInfoPresent|windows.CREATE_UNICODE_ENVIRONMENT)
 
 	cmdLine, err := windows.UTF16PtrFromString(windows.ComposeCommandLine(spec.Args))
 	if err != nil {
@@ -228,7 +224,8 @@ type windowsTerminal struct {
 
 // reap 은 자식이 끝나기를 기다렸다가 **의사 콘솔을 닫는다.**
 //
-// 이것이 없으면 셸이 스스로 종료해도 읽기가 EOF 를 보지 못한다 (FR-WTP-11).
+// 이것이 없으면 셸이 스스로 종료해도 읽기가 EOF 를 보지 못한다
+// (WINDOWS_TEST_PARITY_SRS §2.6 D11).
 // 출력 파이프의 쓰기 끝을 쥔 것은 자식이 아니라 conhost 이고, conhost 는
 // ClosePseudoConsole 전까지 살아 있기 때문이다. POSIX 에서는 마지막 slave 가
 // 닫히면 master 가 EIO 를 받아 이 문제가 없다 — 그래서 이 결함은 Windows 에만

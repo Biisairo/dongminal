@@ -19,6 +19,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/outbuf"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/uuid"
@@ -248,7 +249,7 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 		"HOME=" + home,
 		// PANE_ATTENTION_NOTIFY_SRS: lets `dmctl notify` (incl. detached agent
 		// hooks that have no controlling tty) identify this tool to the server.
-		"DONGMINAL_TOOL_ID=" + id,
+		dmenv.EnvToolID + "=" + id,
 	}
 	if u, err := user.Current(); err == nil {
 		env = append(env, "USER="+u.Username, "LOGNAME="+u.Username)

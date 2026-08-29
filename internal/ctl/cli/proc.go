@@ -59,7 +59,7 @@ func killPort(port string, w io.Writer, label string) bool {
 		return true
 	}
 	fmt.Fprintf(w, "%s (포트 %s) 정지 중...\n", label, port)
-	proc := platform.Current().Process
+	proc := procCtl()
 	signalPIDs(pids, proc.Terminate)
 	time.Sleep(time.Second)
 	if pids = pidsOnPort(port); len(pids) > 0 {
@@ -69,6 +69,12 @@ func killPort(port string, w io.Writer, label string) bool {
 	}
 	return len(pidsOnPort(port)) == 0
 }
+
+// procCtl은 프로세스 제어의 접근점이다. platform.Current() 는 프로세스 수명
+// 동안 고정이라 테스트가 갈아끼울 곳이 없는데, "종료 요청에 실패하는
+// 프로세스" 는 실기로 만들 수 없다 — 권한 오류를 재현하려면 root 가 필요하고
+// SIGKILL 을 견디는 프로세스는 애초에 없다. 그 한 경우를 위한 이음매다.
+var procCtl = func() platform.Process { return platform.Current().Process }
 
 // daemonPID는 pidfile 이 가리키는 살아 있는 dongminald 의 pid 다.
 func daemonPID(home string) (int, bool) {
@@ -80,14 +86,19 @@ func daemonPID(home string) (int, bool) {
 	if err != nil || pid <= 0 {
 		return 0, false
 	}
-	if !platform.Current().Process.Alive(pid) {
+	if !procCtl().Alive(pid) {
 		return pid, false
 	}
 	return pid, true
 }
 
-// stopDaemon은 dongminald 를 종료하고 pidfile·소켓을 지운다. 이미 죽어 있으면
-// 잔여물만 치운다. 반환값은 "정지 상태로 끝났는가" 다.
+// stopDaemon은 dongminald 를 TERM → 1초 → KILL 로 종료하고 pidfile·소켓을
+// 지운다. 이미 죽어 있으면 잔여물만 치운다. 반환값은 "정지 상태로 끝났는가"
+// 이며, killPort 와 같은 형태로 **종료 시도 뒤 다시 확인해** 정한다.
+//
+// 아직 살아 있으면 잔여물을 남긴 채 false 다. 살아 있는 데몬의 pidfile 을
+// 지우면 다음 호출이 그 데몬을 찾지 못해 정지도 재접속도 할 수 없는 고아가
+// 된다 — 실패를 감추는 대신 다시 시도할 수 있는 상태로 남긴다.
 func stopDaemon(home string, w io.Writer) bool {
 	pidPath := filepath.Join(home, daemonPIDFile)
 	sockPath := filepath.Join(home, daemonSockFile)
@@ -95,10 +106,18 @@ func stopDaemon(home string, w io.Writer) bool {
 	switch {
 	case alive:
 		fmt.Fprintf(w, "dongminald 정지 중 pid=%d...\n", pid)
-		proc := platform.Current().Process
+		proc := procCtl()
 		_ = proc.Terminate(pid)
 		time.Sleep(time.Second)
-		_ = proc.Kill(pid)
+		if proc.Alive(pid) {
+			fmt.Fprintln(w, "강제 종료...")
+			_ = proc.Kill(pid)
+			time.Sleep(time.Second)
+		}
+		if proc.Alive(pid) {
+			fmt.Fprintf(w, "dongminald pid=%d 가 아직 살아 있습니다\n", pid)
+			return false
+		}
 	case pid > 0:
 		fmt.Fprintln(w, "dongminald 미실행 (낡은 pidfile 제거)")
 	default:

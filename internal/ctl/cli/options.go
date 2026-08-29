@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
 
@@ -24,7 +25,7 @@ var ErrHelp = errors.New("help requested")
 const (
 	EnvPort = "PORT"
 	EnvHome = "DONGMINAL_HOME"
-	EnvHost = "DONGMINAL_HOST"
+	EnvHost = dmenv.EnvHost
 	EnvLog  = "DONGMINAL_LOG"
 
 	// EnvRestartRunner는 이 실행이 위임된 재시작 대리임을 알린다 — 대리가
@@ -32,10 +33,13 @@ const (
 	EnvRestartRunner = "DONGMINAL_RESTART_RUNNER"
 	// EnvToolID는 도구의 셸에 심기는 도구 식별자다(toolhub.StartTool). 이
 	// 값이 있으면 지금 dongminal 도구 안에서 돌고 있다는 뜻이다 (FR-ACT-3a).
-	EnvToolID = "DONGMINAL_TOOL_ID"
+	//
+	// 이름과 기본 엔드포인트는 dmenv 가 갖는다 — 심는 쪽(toolhub)과 읽는
+	// 쪽(runtimebin)이 이 패키지를 import 할 수 없기 때문이다.
+	EnvToolID = dmenv.EnvToolID
 
-	DefaultPort = "58146"
-	DefaultHost = "127.0.0.1"
+	DefaultPort = dmenv.DefaultPort
+	DefaultHost = dmenv.DefaultHost
 
 	ExposeHost = "0.0.0.0"
 )

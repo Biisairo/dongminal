@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"dongminal/internal/shared/platform"
 )
 
 // ErrUnknownAgent 는 열거된 거부 사유다. 알 수 없는 에이전트 id 로 조용히
@@ -156,21 +158,31 @@ func IDs() []string {
 
 // LaunchLine 은 도구의 셸에 그대로 타이핑할 기동 명령줄이다.
 //
-// 프롬프트는 **홑따옴표**로 감싼다. 지금까지 쓰던 큰따옴표 + 역슬래시 이스케이프는
-// `"`·`$`·백틱·역슬래시를 각각 처리해야 하고 하나만 빠져도 셸이 프롬프트 본문을
-// 전개해 버린다. 홑따옴표 안에서는 개행을 포함해 어떤 문자도 특수하지 않으며,
-// 홑따옴표 자신만 닫았다 이스케이프하고 다시 여는 형태로 바꿔 주면 된다.
+// 프롬프트와 인자 값은 통째로 인용한다. 지금까지 쓰던 큰따옴표 + 역슬래시
+// 이스케이프는 `"`·`$`·백틱·역슬래시를 각각 처리해야 하고 하나만 빠져도 셸이
+// 프롬프트 본문을 전개해 버린다.
+//
+// **인용법 자체는 여기서 정하지 않는다.** 이 줄이 타이핑되는 셸은 호스트마다
+// 다르고(POSIX sh 냐 pwsh 냐), 홑따옴표를 이스케이프하는 방법도 그에 따라
+// 갈린다. 그 차이는 platform.ShellProvider 뒤에 있다 — 아포스트로피 하나로
+// 명령이 깨지던 자리다 (FR-XBD-3).
 //
 // promptInjection 이 argv 가 아니면 프롬프트를 싣지 않는다 — 받지 않는 자리에
 // 밀어 넣으면 조용히 유실되거나 기동이 깨진다. 그 경우 호출자가 준비완료를
 // 기다렸다가 별도로 붙여넣어야 한다 (FR-PRE-8).
 func (a Adapter) LaunchLine(model, prompt string) string {
+	return a.launchLine(platform.Current().Shell, model, prompt)
+}
+
+// launchLine 은 인용을 담당할 셸을 명시로 받는다. 두 셸의 기동줄을 한 호스트에서
+// 검증하기 위한 자리다 (CROSS_PLATFORM_SRS §4.2).
+func (a Adapter) launchLine(sh platform.ShellProvider, model, prompt string) string {
 	parts := append([]string{}, a.Launch...)
 	if model != "" && a.ModelFlag != "" {
 		parts = append(parts, a.ModelFlag, model)
 	}
 	for _, arg := range a.MemberArgs {
-		parts = append(parts, shellQuote(arg))
+		parts = append(parts, sh.Quote(arg))
 	}
 	if a.PromptInjection == PromptArgv && prompt != "" {
 		// 구분자는 프롬프트 바로 앞이어야 한다 — 뒤에 오는 플래그가 있으면
@@ -178,12 +190,7 @@ func (a Adapter) LaunchLine(model, prompt string) string {
 		if a.ArgvSeparator != "" {
 			parts = append(parts, a.ArgvSeparator)
 		}
-		parts = append(parts, shellQuote(prompt))
+		parts = append(parts, sh.Quote(prompt))
 	}
 	return strings.Join(parts, " ")
-}
-
-// shellQuote wraps s in single quotes so no shell expansion can touch it.
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

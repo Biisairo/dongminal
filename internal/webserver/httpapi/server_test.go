@@ -19,8 +19,8 @@ func TestNewServerInTempDir(t *testing.T) {
 	if srv == nil {
 		t.Fatal("srv nil")
 	}
-	if srv.Started().IsZero() {
-		t.Fatal("Started() zero — expected NewServer timestamp")
+	if srv.started.IsZero() {
+		t.Fatal("started zero — expected NewServer timestamp")
 	}
 }
 

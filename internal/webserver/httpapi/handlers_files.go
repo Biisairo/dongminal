@@ -176,6 +176,9 @@ func (s *Server) apiUpload(w http.ResponseWriter, r *http.Request) {
 	if dir == "" {
 		dir = "."
 	}
+	// dir 은 상대경로로 올 수 있다 (기본값 "."). 베이스 "/" 는 "어디든" 이라
+	// 이 호출은 경계를 좁히지 않는다 — 정규화(Clean)와 절대화(Abs)가 목적이고,
+	// 오류는 Abs 가 실패할 때(cwd 를 못 읽음)뿐이다.
 	safeDir, err := safeResolve("/", dir)
 	if err != nil {
 		http.Error(w, "forbidden", http.StatusForbidden)
@@ -296,10 +299,6 @@ func (s *Server) apiDownload(w http.ResponseWriter, r *http.Request) {
 		}
 		fp = abs
 	}
-	if _, err := safeResolve("/", fp); err != nil {
-		http.Error(w, "forbidden", http.StatusForbidden)
-		return
-	}
 	serveDownload(w, fp, textFail(w))
 }
 
@@ -329,10 +328,6 @@ func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 	}
 	if !filepath.IsAbs(fp) {
 		http.Error(w, "path must be absolute", http.StatusBadRequest)
-		return
-	}
-	if _, err := safeResolve("/", fp); err != nil {
-		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	f, err := os.Open(fp)
@@ -372,10 +367,6 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	}
 	if !filepath.IsAbs(req.Path) {
 		http.Error(w, "path must be absolute", http.StatusBadRequest)
-		return
-	}
-	if _, err := safeResolve("/", req.Path); err != nil {
-		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	if err := os.WriteFile(req.Path, []byte(req.Content), 0o644); err != nil {

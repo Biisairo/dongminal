@@ -556,7 +556,7 @@ func RemoteBranchDeleteSpec(s *core.Service, ctx context.Context, repo string, o
 }
 
 func checkRemoteBranch(o RemoteBranchOpts) error {
-	if err := core.CheckRefArg("remote", o.Remote); err != nil {
+	if err := CheckRemoteName(o.Remote); err != nil {
 		return err
 	}
 	return core.CheckRefArg("branch", o.Branch)

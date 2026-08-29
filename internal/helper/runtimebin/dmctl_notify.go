@@ -3,8 +3,9 @@ package runtimebin
 import (
 	"fmt"
 	"io"
-	"os"
 	"strings"
+
+	"dongminal/internal/shared/dmenv"
 )
 
 const dmctlNotifyHelp = `dmctl notify [label]
@@ -30,9 +31,9 @@ func runDmctlNotify(args []string, stdout, stderr io.Writer) int {
 			break
 		}
 	}
-	toolID := os.Getenv("DONGMINAL_TOOL_ID")
+	toolID := selfToolID()
 	if toolID == "" {
-		fmt.Fprintln(stderr, "dmctl notify: DONGMINAL_TOOL_ID 미설정 (dongminal tool 안에서 실행해야 함)")
+		fmt.Fprintln(stderr, "dmctl notify: "+dmenv.EnvToolID+" 미설정 (dongminal tool 안에서 실행해야 함)")
 		return 1
 	}
 	url := baseURL() + "/api/tools/attention/set"

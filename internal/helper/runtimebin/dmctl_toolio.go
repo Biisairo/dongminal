@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -19,9 +18,6 @@ const (
 	readScreenDefaultBytes = 16384
 	readOutputDefaultBytes = 8192
 )
-
-// selfToolID 는 --at 이 생략됐을 때의 기본 대상 — 이 셸이 속한 도구다.
-func selfToolID() string { return os.Getenv("DONGMINAL_TOOL_ID") }
 
 // ── read-screen / read-output ────────────────────────
 

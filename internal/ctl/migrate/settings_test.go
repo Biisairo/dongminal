@@ -124,15 +124,14 @@ func TestSettings_IsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("1차: %v", err)
 	}
+	// 2차에는 바꿀 것이 남아 있지 않다 — 그것이 멱등의 의미이며, 산출물이
+	// 없어야 Apply 가 파일을 다시 쓰지 않는다.
 	second, rep2, err := Settings(first)
 	if err != nil {
 		t.Fatalf("2차: %v", err)
 	}
-	var a, b map[string]interface{}
-	json.Unmarshal(first, &a)
-	json.Unmarshal(second, &b)
-	if !reflect.DeepEqual(a, b) {
-		t.Errorf("재실행 결과 불일치\n1차: %s\n2차: %s", first, second)
+	if second != nil {
+		t.Errorf("재실행이 산출물을 냄: %s", second)
 	}
 	if len(rep1) == 0 {
 		t.Error("1차에서 개명이 보고되지 않음")
@@ -160,10 +159,8 @@ func TestSettings_NoShortcutsKeyIsFine(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Settings: %v", err)
 	}
-	var m map[string]interface{}
-	json.Unmarshal(out, &m)
-	if m["themeName"] != "nord" {
-		t.Errorf("themeName 소실")
+	if out != nil {
+		t.Errorf("바꿀 것이 없는데 산출물 생성: %s", out)
 	}
 	if len(rep) != 0 {
 		t.Errorf("개명 보고: %v", rep)
@@ -228,5 +225,67 @@ func TestApply_NoSettingsFileIsFine(t *testing.T) {
 	}
 	if len(rep.ShortcutsRenamed) != 0 {
 		t.Errorf("settings 없는데 개명 보고: %v", rep.ShortcutsRenamed)
+	}
+}
+
+// v2Settings: 개명이 끝나고 프리셋 레이아웃도 pane 인 settings — 마이그레이션
+// 대상이 하나도 없다.
+const v2Settings = `{
+  "themeName": "nord",
+  "shortcuts": {
+    "windowNext": "Alt+Comma", "newTab": "Ctrl+Shift+KeyT"
+  },
+  "layoutPresets": [
+    {"name": "single", "layout": {"type": "pane", "tabCount": 1}}
+  ]
+}`
+
+// 바꿀 것이 없으면 산출물도 없어야 한다. 그러지 않으면 Apply 가 "대상 없음" 을
+// 찍으면서도 settings.json 을 재작성해 들여쓰기·키 순서를 파괴한다.
+func TestSettings_NoChangeReturnsNilOutput(t *testing.T) {
+	out, rep, err := Settings([]byte(v2Settings))
+	if err != nil {
+		t.Fatalf("Settings: %v", err)
+	}
+	if out != nil {
+		t.Errorf("바꾼 것이 없는데 산출물 생성: %s", out)
+	}
+	if len(rep) != 0 {
+		t.Errorf("개명 보고: %v", rep)
+	}
+}
+
+// 단축키는 그대로인데 프리셋만 구식인 경우 — 변경이므로 산출물이 있어야 한다.
+func TestSettings_PresetOnlyChangeStillEmits(t *testing.T) {
+	out, rep, err := Settings([]byte(`{"layoutPresets":[{"name":"s","layout":{"type":"region"}}]}`))
+	if err != nil {
+		t.Fatalf("Settings: %v", err)
+	}
+	if out == nil {
+		t.Fatal("프리셋이 변환됐는데 산출물이 없음")
+	}
+	if len(rep) != 0 {
+		t.Errorf("단축키 개명이 없는데 보고됨: %v", rep)
+	}
+}
+
+// Apply 수준: 마이그레이션 대상이 없으면 settings.json 이 바이트 단위로
+// 그대로여야 하고 백업도 생기지 않아야 한다.
+func TestApply_NoTargetLeavesSettingsUntouched(t *testing.T) {
+	dir := t.TempDir()
+	seed(t, dir, "settings.json", v2Settings)
+
+	rep, err := Apply(dir, false)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !rep.Empty {
+		t.Errorf("대상이 없는데 Empty=false: %+v", rep)
+	}
+	if got := read(t, dir, "settings.json"); got != v2Settings {
+		t.Errorf("settings.json 이 재작성됨:\n%s", got)
+	}
+	if exists(dir, "settings.json.v1.bak") {
+		t.Error("대상이 없는데 .v1.bak 생성됨")
 	}
 }

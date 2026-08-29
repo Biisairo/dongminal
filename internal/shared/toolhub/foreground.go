@@ -41,12 +41,6 @@ type fgRequest struct {
 // 테스트가 호스트의 PTY 동작에 기대지 않고 결정론적으로 대체할 수 있다.
 var fgProbe = foregroundNames
 
-// foregroundName 은 도구 하나의 전경 프로세스 이름을 낸다. 전경 프로그램이
-// 없거나 알아낼 수 없으면 빈 문자열이다 (FR-TAN-23).
-func foregroundName(term platform.Terminal, shellPID int) string {
-	return foregroundNames([]fgRequest{{Term: term, ShellPID: shellPID}})[""]
-}
-
 // foregroundNames 는 여러 도구를 한 번에 조회한다. 이름 읽기를 한 번의 조회로
 // 묶는 것이 이 함수가 존재하는 이유다 (NFR-XP-4).
 func foregroundNames(reqs []fgRequest) map[string]string {

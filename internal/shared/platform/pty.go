@@ -34,7 +34,6 @@ type ProcSpec struct {
 // "=" 로 시작하는 항목은 키가 없는 특수 항목이다(Windows 의 드라이브별 cwd).
 // 건드리지 않고 그대로 앞에 둔다.
 func dedupEnv(env []string, fold func(string) string) []string {
-	type slot struct{ idx int }
 	seen := make(map[string]int, len(env))
 	out := make([]string, 0, len(env))
 	for _, kv := range env {

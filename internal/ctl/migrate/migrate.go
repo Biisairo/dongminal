@@ -88,7 +88,8 @@ func Run(workspaceBlob, panesBlob []byte) (Result, error) {
 			renameKey(win, "focusedRegion", "focusedPane")
 		}
 		if layout, ok := win["layout"].(map[string]interface{}); ok {
-			convertLayout(layout, res.Report.AlreadyMigrated)
+			// 변경 여부는 쓰지 않는다 — workspace 산출은 입력 유무가 정한다.
+			_ = convertLayout(layout, res.Report.AlreadyMigrated)
 		}
 	}
 
@@ -161,24 +162,33 @@ func schemaVersionOf(ws map[string]interface{}) int {
 	return int(v)
 }
 
-func renameKey(m map[string]interface{}, from, to string) {
-	if v, ok := m[from]; ok {
-		m[to] = v
-		delete(m, from)
+// renameKey는 키를 옮긴다. 반환값은 실제로 옮겼는지다.
+func renameKey(m map[string]interface{}, from, to string) bool {
+	v, ok := m[from]
+	if !ok {
+		return false
 	}
+	m[to] = v
+	delete(m, from)
+	return true
 }
 
 // convertLayout은 레이아웃 트리를 재귀 순회해 region→pane, paneId→toolId 를
 // 적용한다. 알려지지 않은 type 은 변형하지 않고 자식만 순회한다.
-func convertLayout(node map[string]interface{}, alreadyMigrated bool) {
+//
+// 반환값은 트리에서 실제로 바꾼 것이 있는지다 — 호출자가 "쓸 것이 없으면 쓰지
+// 않는다" 를 판단하는 근거다 (Settings 참조).
+func convertLayout(node map[string]interface{}, alreadyMigrated bool) bool {
+	changed := false
 	if !alreadyMigrated {
 		if node["type"] == "region" {
 			node["type"] = "pane"
+			changed = true
 		}
 		if tabs, ok := node["tabs"].([]interface{}); ok {
 			for _, raw := range tabs {
 				if tab, ok := raw.(map[string]interface{}); ok {
-					renameKey(tab, "paneId", "toolId")
+					changed = renameKey(tab, "paneId", "toolId") || changed
 				}
 			}
 		}
@@ -186,10 +196,11 @@ func convertLayout(node map[string]interface{}, alreadyMigrated bool) {
 	if children, ok := node["children"].([]interface{}); ok {
 		for _, raw := range children {
 			if child, ok := raw.(map[string]interface{}); ok {
-				convertLayout(child, alreadyMigrated)
+				changed = convertLayout(child, alreadyMigrated) || changed
 			}
 		}
 	}
+	return changed
 }
 
 // collectToolRefs는 문서 순서대로 탭이 참조하는 도구 id 를 중복 없이 모은다.
