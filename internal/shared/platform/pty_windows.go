@@ -84,7 +84,7 @@ func (windowsPTY) Start(spec ProcSpec, cols, rows uint16) (Terminal, error) {
 		return nil, err
 	}
 
-	return &windowsTerminal{
+	t := &windowsTerminal{
 		hpc:     hpc,
 		in:      os.NewFile(uintptr(inWrite), "conpty-in"),
 		out:     os.NewFile(uintptr(outRead), "conpty-out"),
@@ -93,7 +93,10 @@ func (windowsPTY) Start(spec ProcSpec, cols, rows uint16) (Terminal, error) {
 		pid:     int(pi.ProcessId),
 		cols:    cols,
 		rows:    rows,
-	}, nil
+		exited:  make(chan struct{}),
+	}
+	go t.reap()
+	return t, nil
 }
 
 // startInPseudoConsole 은 hpc 에 붙은 프로세스를 띄운다. 속성 목록에 HPCON 을
@@ -214,6 +217,46 @@ type windowsTerminal struct {
 	cols      uint16
 	rows      uint16
 	closeOnce sync.Once
+	hpcOnce   sync.Once
+
+	// exited 는 자식이 끝나면 닫힌다. 프로세스 핸들의 소유자는 reap 하나이며
+	// Wait 는 이 채널만 본다 — 두 곳에서 같은 핸들을 기다리다 한쪽이 닫으면
+	// 다른 쪽이 닫힌 핸들을 만진다.
+	exited   chan struct{}
+	exitCode uint32
+}
+
+// reap 은 자식이 끝나기를 기다렸다가 **의사 콘솔을 닫는다.**
+//
+// 이것이 없으면 셸이 스스로 종료해도 읽기가 EOF 를 보지 못한다 (FR-WTP-11).
+// 출력 파이프의 쓰기 끝을 쥔 것은 자식이 아니라 conhost 이고, conhost 는
+// ClosePseudoConsole 전까지 살아 있기 때문이다. POSIX 에서는 마지막 slave 가
+// 닫히면 master 가 EIO 를 받아 이 문제가 없다 — 그래서 이 결함은 Windows 에만
+// 나타났다: `exit` 를 친 탭이 닫히지 않고 영원히 남는다.
+//
+// 닫기 전에 남은 출력은 conhost 가 흘려보낸다. 읽는 쪽은 그것을 다 읽은 뒤
+// EOF 를 본다.
+func (t *windowsTerminal) reap() {
+	if t.process == 0 {
+		close(t.exited)
+		return
+	}
+	if _, err := windows.WaitForSingleObject(t.process, windows.INFINITE); err == nil {
+		var code uint32
+		if windows.GetExitCodeProcess(t.process, &code) == nil {
+			t.exitCode = code
+		}
+	}
+	windows.CloseHandle(t.process)
+	t.process = 0
+	close(t.exited)
+	t.closePseudoConsole()
+}
+
+// closePseudoConsole 은 의사 콘솔을 한 번만 닫는다. reap 과 Close 가 모두
+// 부르므로 순서를 가리지 않아야 한다.
+func (t *windowsTerminal) closePseudoConsole() {
+	t.hpcOnce.Do(func() { procClosePseudoConsole.Call(uintptr(t.hpc)) })
 }
 
 func (t *windowsTerminal) Read(b []byte) (int, error)  { return t.out.Read(b) }
@@ -222,7 +265,7 @@ func (t *windowsTerminal) Write(b []byte) (int, error) { return t.in.Write(b) }
 func (t *windowsTerminal) Close() error {
 	t.closeOnce.Do(func() {
 		// 의사 콘솔을 먼저 닫아야 자식이 EOF 를 본다.
-		procClosePseudoConsole.Call(uintptr(t.hpc))
+		t.closePseudoConsole()
 		t.in.Close()
 		t.out.Close()
 		if t.thread != 0 {
@@ -255,21 +298,11 @@ func (t *windowsTerminal) ForegroundPGID() (int, bool) { return 0, false }
 
 func (t *windowsTerminal) PID() int { return t.pid }
 
+// Wait 는 reap 이 수확을 끝내기를 기다린다. 핸들을 직접 만지지 않는다.
 func (t *windowsTerminal) Wait() error {
-	if t.process == 0 {
-		return nil
-	}
-	if _, err := windows.WaitForSingleObject(t.process, windows.INFINITE); err != nil {
-		return err
-	}
-	var code uint32
-	if err := windows.GetExitCodeProcess(t.process, &code); err != nil {
-		return err
-	}
-	windows.CloseHandle(t.process)
-	t.process = 0
-	if code != 0 {
-		return fmt.Errorf("종료 코드 %d", code)
+	<-t.exited
+	if t.exitCode != 0 {
+		return fmt.Errorf("종료 코드 %d", t.exitCode)
 	}
 	return nil
 }
