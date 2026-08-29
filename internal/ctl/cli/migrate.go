@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"dongminal/internal/ctl/migrate"
+
+	"dongminal/internal/shared/dmenv"
 )
 
 // targetFlags는 기본값이 아닌 대상을 가리킬 때 안내에 덧붙일 플래그다.
@@ -36,7 +38,7 @@ func RunMigrate(o MigrateOpts, stdout, stderr io.Writer) int {
 	}
 	port := o.ResolvePort()
 
-	if !o.DryRun && ping(fmt.Sprintf("http://127.0.0.1:%s/api/ping", port), 2*time.Second) {
+	if !o.DryRun && ping(fmt.Sprintf("http://%s:%s/api/ping", dmenv.DefaultHost, port), 2*time.Second) {
 		fmt.Fprintf(stderr, "❌ dongminal 이 포트 %s 에서 실행 중입니다 — 변환하지 않았습니다.\n", port)
 		fmt.Fprintln(stderr, "   서버와 데몬을 완전히 정지한 뒤 다시 실행하세요:")
 		fmt.Fprintf(stderr, "     dongminal stop --all%s\n", targetFlags(o.Common, port, home))

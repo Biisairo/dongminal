@@ -16,6 +16,9 @@ const (
 	// 심고, dmctl 이 읽어 자신이 어느 도구 안인지 안다).
 	EnvToolID = "DONGMINAL_TOOL_ID"
 
+	// EnvHome 은 인스턴스의 홈이다. serve 가 심고 helper 가 읽는다.
+	EnvHome = "DONGMINAL_HOME"
+
 	// EnvHost·EnvPort 는 서버가 자식에게 알려 주는 자기 주소다. dmctl 은 이
 	// 값으로 서버에 되붙는다.
 	EnvHost = "DONGMINAL_HOST"

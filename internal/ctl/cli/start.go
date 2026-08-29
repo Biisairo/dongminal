@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"dongminal/internal/shared/platform"
+
+	"dongminal/internal/shared/dmenv"
 )
 
 // Serve는 서버를 이 프로세스로 실행하는 콜백이다. cmd/dongminal 이
@@ -185,7 +187,7 @@ func startDetached(o StartOpts, home, host, port string, stdout, stderr io.Write
 // pingHost는 0.0.0.0/:: 로 바인드했을 때 실제로 두드릴 주소다.
 func pingHost(host string) string {
 	if host == ExposeHost || host == "::" {
-		return "127.0.0.1"
+		return dmenv.DefaultHost
 	}
 	return host
 }

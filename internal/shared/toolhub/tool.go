@@ -233,7 +233,7 @@ func NewAttendingTool(id string, hooks *ToolHooks, armed bool) *Tool {
 // StartTool spawns a shell under a new PTY. Exported for tool manager + tests.
 func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *ToolHooks) (*Tool, error) {
 	home, _ := os.UserHomeDir()
-	binDir := filepath.Join(os.Getenv("DONGMINAL_HOME"), "bin")
+	binDir := filepath.Join(os.Getenv(dmenv.EnvHome), "bin")
 
 	// 셸 선택과 훅 주입 방식은 OS 마다 다르다. 그 차이는 platform.ShellProvider
 	// 뒤에 있고, 여기서는 어느 셸인지 묻지 않는다 (CROSS_PLATFORM_SRS FR-XSH-6).

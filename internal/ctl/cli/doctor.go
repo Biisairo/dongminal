@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/runtime"
 	"dongminal/internal/shared/toolhub"
@@ -516,7 +517,7 @@ func doctorTool(r *doctorReport, home string) {
 	r.section("도구 (toolhub)")
 
 	// StartTool 은 DONGMINAL_HOME 아래 bin 을 셸 환경에 심는다.
-	os.Setenv("DONGMINAL_HOME", home)
+	os.Setenv(dmenv.EnvHome, home)
 
 	// ToolManager 를 쓰는 이유는 이것이 서버가 부르는 바로 그 경로이기
 	// 때문이다 (httpapi 의 도구 생성 → ToolManager.Create).

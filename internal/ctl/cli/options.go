@@ -24,7 +24,7 @@ var ErrHelp = errors.New("help requested")
 
 const (
 	EnvPort = "PORT"
-	EnvHome = "DONGMINAL_HOME"
+	EnvHome = dmenv.EnvHome
 	EnvHost = dmenv.EnvHost
 	EnvLog  = "DONGMINAL_LOG"
 

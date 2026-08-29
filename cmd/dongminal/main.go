@@ -18,6 +18,7 @@ import (
 	"dongminal/internal/ctl/cli"
 	"dongminal/internal/daemon/boot"
 	"dongminal/internal/helper/runtimebin"
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/runtime"
 	"dongminal/internal/shared/uuid"
@@ -327,7 +328,7 @@ func main() {
 // resolveHome은 데몬 경로의 홈 해석이다. 액션 경로는 internal/ctl/cli 가
 // 플래그까지 반영해 해석한 값을 serve 에 넘긴다.
 func resolveHome() (string, error) {
-	home := os.Getenv("DONGMINAL_HOME")
+	home := os.Getenv(dmenv.EnvHome)
 	if home == "" {
 		userHome, err := os.UserHomeDir()
 		if err != nil {
@@ -338,17 +339,17 @@ func resolveHome() (string, error) {
 	if err := os.MkdirAll(home, 0o755); err != nil {
 		return "", fmt.Errorf("DONGMINAL_HOME 생성 실패: %w", err)
 	}
-	os.Setenv("DONGMINAL_HOME", home)
+	os.Setenv(dmenv.EnvHome, home)
 	return home, nil
 }
 
 // serve는 웹 서버를 이 프로세스로 실행한다 (FR-FG-1). `dongminal start
 // --foreground` 의 실체이며, 배경 모드는 자기 자신을 이 형태로 재실행한다.
 func serve(home, host, port string) int {
-	os.Setenv("DONGMINAL_HOME", home)
+	os.Setenv(dmenv.EnvHome, home)
 	// helper multi-call(dmctl/edit/…)이 서버 주소를 찾는 값이다.
-	os.Setenv("DONGMINAL_PORT", port)
-	os.Setenv("DONGMINAL_HOST", host)
+	os.Setenv(dmenv.EnvPort, port)
+	os.Setenv(dmenv.EnvHost, host)
 
 	if err := runtime.Install(filepath.Join(home, "bin")); err != nil {
 		log.Printf("runtime install: %v", err)
