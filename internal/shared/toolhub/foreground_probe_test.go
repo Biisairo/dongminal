@@ -1,11 +1,11 @@
-//go:build darwin || linux
-
 package toolhub
 
 import (
 	"os"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/platform"
 )
 
 // startProbeShell은 실제 PTY 위에 셸을 띄운다. 전경 조회는 커널의 PTY 상태를
@@ -28,7 +28,7 @@ func waitForName(t *testing.T, p *Tool, want string) {
 	deadline := time.Now().Add(5 * time.Second)
 	var last string
 	for time.Now().Before(deadline) {
-		last = foregroundName(p.ptmx, p.CmdProcessPID())
+		last = foregroundName(p.term, p.CmdProcessPID())
 		if last == want {
 			return
 		}
@@ -74,32 +74,26 @@ func TestForegroundNamePipeline(t *testing.T) {
 // 오류가 되지 않는다.
 func TestForegroundNameUnavailable(t *testing.T) {
 	if got := foregroundName(nil, 1); got != "" {
-		t.Errorf("ptmx=nil → %q", got)
-	}
-	f, err := os.CreateTemp(t.TempDir(), "notatty")
-	if err != nil {
-		t.Fatalf("temp: %v", err)
-	}
-	defer f.Close()
-	if got := foregroundName(f, os.Getpid()); got != "" {
-		t.Errorf("tty 가 아닌 fd → %q", got)
+		t.Errorf("터미널 없음 → %q", got)
 	}
 
 	p := startProbeShell(t)
-	if got := foregroundName(p.ptmx, 0); got != "" {
+	if got := foregroundName(p.term, 0); got != "" {
 		t.Errorf("shellPid=0 → %q", got)
 	}
-	p.ptmx.Close()
-	if got := foregroundName(p.ptmx, p.CmdProcessPID()); got != "" {
-		t.Errorf("닫힌 ptmx → %q", got)
+	p.term.Close()
+	if got := foregroundName(p.term, p.CmdProcessPID()); got != "" {
+		t.Errorf("닫힌 터미널 → %q", got)
 	}
 }
 
 // TestProcNamesBatch는 이름 읽기가 여러 pid 를 한 번에 다루는 것을 고정한다
-// (NFR-CNV-1). macOS 폴백이 도구마다 ps 를 띄우면 안 된다 (R4).
+// (NFR-CNV-1, NFR-XP-4). 구현은 platform.ProcInfo 로 옮겼지만, 이 도구가
+// 기대하는 계약은 그대로여야 하므로 검사는 여기 남는다.
 func TestProcNamesBatch(t *testing.T) {
 	self := os.Getpid()
-	got := procNames([]int{self, 1, self, -1, 0})
+	names := platform.Current().Info.Names
+	got := names([]int{self, 1, self, -1, 0})
 	if got[self] == "" {
 		t.Fatalf("자기 pid 의 이름을 못 읽었다: %v", got)
 	}
@@ -109,7 +103,7 @@ func TestProcNamesBatch(t *testing.T) {
 	if _, ok := got[-1]; ok {
 		t.Fatalf("잘못된 pid 가 결과에 들어갔다: %v", got)
 	}
-	if n := len(procNames([]int{999999999})); n != 0 {
+	if n := len(names([]int{999999999})); n != 0 {
 		t.Fatalf("없는 pid 에 %d건 — 추측하면 안 된다", n)
 	}
 }

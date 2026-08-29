@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
 )
 
@@ -108,7 +108,7 @@ func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
 // V-BGK-9: SIGTERM 을 무시하는 프로세스는 유예가 지난 뒤 SIGKILL 로 죽는다
 // (FR-BGK-7). 가짜 셸을 $SHELL 로 세워 TERM 을 받고도 살아 있게 한다.
 //
-// 무시는 **핸들러가 아니라 `trap '' TERM`(SIG_IGN)** 이어야 한다. 이 PTY 배치에서
+// 무시는 **핸들러가 아니라 `trap ” TERM`(SIG_IGN)** 이어야 한다. 이 PTY 배치에서
 // 핸들러 트랩은 실측상 셸을 살려 두지 못했다 (SIGTERM 이 그대로 죽인다). 그래서
 // SIGTERM 전달 자체는 파일 표식이 아니라 **유예를 다 쓴다는 사실**로 관측한다 —
 // 무시하지 못했다면 셸은 즉시 죽고 대기는 조기 종료됐을 것이다.
@@ -157,8 +157,8 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 	if elapsed < grace {
 		t.Errorf("소요=%v, want >= %v — 유예 없이 죽였다", elapsed, grace)
 	}
-	if err := syscall.Kill(pid, 0); err == nil {
-		t.Errorf("pid=%d 가 아직 살아 있음 — SIGKILL 로 넘어가지 않았다", pid)
+	if platform.Current().Process.Alive(pid) {
+		t.Errorf("pid=%d 가 아직 살아 있음 — 강제 종료로 넘어가지 않았다", pid)
 	}
 	if list := m.BackgroundList(); len(list) != 0 {
 		t.Errorf("종료 후 백그라운드 목록 = %+v, want 없음", list)

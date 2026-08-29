@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"dongminal/internal/webserver/seam/toolaccess"
-
-	"github.com/creack/pty"
 )
 
 // Tool은 toolhub.ToolManager 를 toolaccess.ToolReader 로 어댑트한다.
@@ -116,16 +114,16 @@ func (a Tool) Snapshot(id string) ([]byte, int64, bool) {
 func (a Tool) Size(id string) string {
 	if a.PM != nil {
 		p := a.PM.Get(id)
-		if p == nil || p.PTMX() == nil {
+		if p == nil {
 			return "?"
 		}
-		rows, cols, err := pty.Getsize(p.PTMX())
-		if err != nil {
+		cols, rows, ok := p.Size()
+		if !ok {
 			return "?"
 		}
 		return fmt.Sprintf("%dx%d", cols, rows)
 	}
-	// Daemon mode: ToolHub doesn't expose PTMX; use List for cols/rows.
+	// Daemon mode: ToolHub doesn't expose the terminal; use List for cols/rows.
 	// JSON numbers decode as float64, so coerce via mapInt.
 	if a.Hub != nil {
 		for _, m := range a.Hub.List() {
@@ -144,20 +142,20 @@ func (a Tool) Size(id string) string {
 func (a Tool) SendPaste(id string, text []byte, submit bool) error {
 	if a.PM != nil {
 		p := a.PM.Get(id)
-		if p == nil || p.PTMX() == nil {
+		if p == nil {
 			return fmt.Errorf("tool 없음: %s", id)
 		}
 		var paste []byte
 		paste = append(paste, 0x1b, '[', '2', '0', '0', '~')
 		paste = append(paste, text...)
 		paste = append(paste, 0x1b, '[', '2', '0', '1', '~')
-		if _, err := p.PTMX().Write(paste); err != nil {
-			return fmt.Errorf("ptmx write (paste): %w", err)
+		if err := p.Write(paste); err != nil {
+			return fmt.Errorf("터미널 쓰기 (paste): %w", err)
 		}
 		if submit {
 			time.Sleep(120 * time.Millisecond)
-			if _, err := p.PTMX().Write([]byte{'\r'}); err != nil {
-				return fmt.Errorf("ptmx write (submit): %w", err)
+			if err := p.Write([]byte{'\r'}); err != nil {
+				return fmt.Errorf("터미널 쓰기 (submit): %w", err)
 			}
 		}
 		return nil

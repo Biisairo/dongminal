@@ -16,7 +16,7 @@ func TestToolOnExitAndWait(t *testing.T) {
 		t.Fatalf("toolhub.StartTool: %v", err)
 	}
 
-	if _, err := p.PTMX().Write([]byte("exit\n")); err != nil {
+	if err := p.Write([]byte("exit\n")); err != nil {
 		t.Fatalf("write exit: %v", err)
 	}
 

@@ -6,17 +6,17 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
+
+	"dongminal/internal/shared/platform"
 )
 
 const (
 	daemonPIDFile  = "paned.pid"
-	daemonSockFile = "paned.sock"
+	daemonSockFile = platform.SocketFileName
 )
 
 // FreePort는 커널이 내주는 빈 TCP 포트를 받아 문자열로 돌려준다 (FR-ISO-1).
@@ -31,30 +31,23 @@ func FreePort() (string, error) {
 	return strconv.Itoa(l.Addr().(*net.TCPAddr).Port), nil
 }
 
-// pidsOnPort는 포트를 LISTEN 으로 점유한 pid 목록이다. lsof 가 없으면 빈 목록 —
+// pidsOnPort는 포트를 LISTEN 으로 점유한 pid 목록이다. 조회하지 못하면 빈 목록 —
 // "점유 없음" 과 구분하지 않는다.
 //
-// -sTCP:LISTEN 이 없으면 그 포트에 접속한 클라이언트까지 잡힌다. 브라우저 탭이
-// 바로 그 클라이언트라, 서버를 내리는 자리에서 사용자의 렌더러 프로세스를 함께
-// KILL 하고(탭이 죽어 새 서버에 다시 붙지 못한다), 클라이언트의 재접속 시도가
+// **접속만 한 클라이언트는 포함되지 않아야 한다.** 브라우저 탭이 바로 그
+// 클라이언트라, 포함하면 서버를 내리는 자리에서 사용자의 렌더러 프로세스를 함께
+// 죽이고(탭이 죽어 새 서버에 다시 붙지 못한다), 클라이언트의 재접속 시도가
 // 종료 확인 스냅샷에 걸리면 "포트를 비우지 못했다" 로 오판해 재시작을 중단한다.
+// 그 보장은 platform.ProcInfo 의 계약이다 (FR-XPI-1).
 func pidsOnPort(port string) []int {
-	out, err := exec.Command("lsof", "-ti", ":"+port, "-sTCP:LISTEN").Output()
-	if err != nil {
-		return nil
-	}
-	var pids []int
-	for _, line := range strings.Fields(string(out)) {
-		if n, err := strconv.Atoi(line); err == nil {
-			pids = append(pids, n)
-		}
-	}
-	return pids
+	return platform.Current().Info.ListenerPIDs(port)
 }
 
-func signalPIDs(pids []int, sig syscall.Signal) {
+// signalPIDs 는 pid 들에 send 를 적용한다. send 는 platform.Process 의
+// Terminate 또는 Kill 이다 — 신호 상수를 여기까지 들이지 않는다.
+func signalPIDs(pids []int, send func(int) error) {
 	for _, p := range pids {
-		_ = syscall.Kill(p, sig)
+		_ = send(p)
 	}
 }
 
@@ -66,11 +59,12 @@ func killPort(port string, w io.Writer, label string) bool {
 		return true
 	}
 	fmt.Fprintf(w, "%s (포트 %s) 정지 중...\n", label, port)
-	signalPIDs(pids, syscall.SIGTERM)
+	proc := platform.Current().Process
+	signalPIDs(pids, proc.Terminate)
 	time.Sleep(time.Second)
 	if pids = pidsOnPort(port); len(pids) > 0 {
 		fmt.Fprintf(w, "강제 종료...\n")
-		signalPIDs(pids, syscall.SIGKILL)
+		signalPIDs(pids, proc.Kill)
 		time.Sleep(time.Second)
 	}
 	return len(pidsOnPort(port)) == 0
@@ -86,7 +80,7 @@ func daemonPID(home string) (int, bool) {
 	if err != nil || pid <= 0 {
 		return 0, false
 	}
-	if syscall.Kill(pid, 0) != nil {
+	if !platform.Current().Process.Alive(pid) {
 		return pid, false
 	}
 	return pid, true
@@ -101,9 +95,10 @@ func stopDaemon(home string, w io.Writer) bool {
 	switch {
 	case alive:
 		fmt.Fprintf(w, "dongminald 정지 중 pid=%d...\n", pid)
-		_ = syscall.Kill(pid, syscall.SIGTERM)
+		proc := platform.Current().Process
+		_ = proc.Terminate(pid)
 		time.Sleep(time.Second)
-		_ = syscall.Kill(pid, syscall.SIGKILL)
+		_ = proc.Kill(pid)
 	case pid > 0:
 		fmt.Fprintln(w, "dongminald 미실행 (낡은 pidfile 제거)")
 	default:
@@ -114,9 +109,11 @@ func stopDaemon(home string, w io.Writer) bool {
 	return true
 }
 
+// socketExists 는 종단 파일이 놓여 있는지다. 살아 있는지는 묻지 않는다 —
+// 그 판정 방법은 OS 마다 다르고 platform.IPC 가 안다 (FR-XIP-2/3).
 func socketExists(home string) bool {
-	fi, err := os.Stat(filepath.Join(home, daemonSockFile))
-	return err == nil && fi.Mode()&os.ModeSocket != 0
+	transport := platform.Current().IPC
+	return transport.Exists(transport.Endpoint(home))
 }
 
 // ping은 URL 이 2xx/3xx 를 주는지 확인한다.

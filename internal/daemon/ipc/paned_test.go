@@ -14,6 +14,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/platform"
 )
 
 // toolTempDir 는 ToolManager 의 데이터 디렉터리를 내주되, **비동기 기록이 멎은
@@ -256,7 +258,7 @@ func TestPanedServerListenAccept(t *testing.T) {
 		}
 	}()
 
-	conn, err := net.Dial("unix", sockPath)
+	conn, err := platform.Current().IPC.Dial(sockPath, time.Second)
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
 	}

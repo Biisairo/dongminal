@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"dongminal/internal/shared/platform"
 )
 
 // ErrHelp는 -h/--help 가 주어졌을 때 파서가 돌려주는 센티널이다. 액션의
@@ -34,10 +36,14 @@ const (
 
 	DefaultPort = "58146"
 	DefaultHost = "127.0.0.1"
-	DefaultLog  = "/tmp/dongminal.log"
 
 	ExposeHost = "0.0.0.0"
 )
+
+// defaultLogFile 은 배경 모드 기동이 출력을 남길 자리다. 상수가 아니라 함수인
+// 것은 이 값이 OS 마다 다르기 때문이다 — POSIX 는 /tmp/dongminal.log 로 종전과
+// 같고, Windows 는 %LOCALAPPDATA% 아래다 (CROSS_PLATFORM_SRS FR-XPA-2).
+func defaultLogFile() string { return platform.Current().Paths.DefaultLogFile() }
 
 // Actions는 help 에 나열되는 액션 이름이다. 내부 진입점 `d`(데몬)는 여기
 // 없다 — 사용자가 직접 부를 것이 아니다 (FR-CLI-8).

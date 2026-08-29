@@ -3,9 +3,9 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
-	"syscall"
 	"time"
 
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
 )
 
@@ -66,7 +66,7 @@ func terminateWithGrace(tool *toolhub.Tool, grace time.Duration) {
 	if pid <= 0 {
 		return
 	}
-	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
+	if err := platform.Current().Process.Terminate(pid); err != nil {
 		return
 	}
 	select {

@@ -1,0 +1,59 @@
+package platform
+
+import "io"
+
+// ProcSpec 은 의사 터미널에 붙일 프로세스의 명세다.
+//
+// *exec.Cmd 가 아닌 이유는 Windows 다. ConPTY 세션에 프로세스를 붙이려면
+// STARTUPINFOEX 의 PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE 속성에 HPCON 을 실어
+// CreateProcess 를 불러야 하는데, os/exec 도 syscall.SysProcAttr(windows) 도
+// 프로세스/스레드 속성 목록을 노출하지 않는다. 그래서 Windows 어댑터는
+// exec.Cmd.Start() 를 쓸 수 없고 프로세스를 스스로 띄워야 한다
+// (CROSS_PLATFORM_SRS §2.4, FR-XPT-1).
+type ProcSpec struct {
+	Path string   // 실행 파일
+	Args []string // Args[0] 을 포함한 전체 argv
+	Env  []string // "K=V" 목록. 완전한 환경이며 상속하지 않는다
+	Dir  string   // 작업 디렉터리
+}
+
+// PTY 는 의사 터미널을 만드는 능력이다.
+type PTY interface {
+	// Start 는 새 의사 터미널을 만들고 그 안에 spec 을 띄운다.
+	Start(spec ProcSpec, cols, rows uint16) (Terminal, error)
+}
+
+// Terminal 은 의사 터미널의 마스터측 **과 거기 붙은 프로세스**를 함께 소유한다.
+//
+// 둘을 한 인터페이스로 묶은 것은 편의가 아니라 필연이다. POSIX 에서는 ptmx
+// 파일과 exec.Cmd 가 따로지만, Windows ConPTY 에서는 입력 파이프·출력 파이프·
+// HPCON·프로세스 핸들이 한 덩어리로 만들어지고 함께 정리되어야 한다.
+type Terminal interface {
+	// Read/Write 는 터미널 입출력이다. Close 는 터미널을 닫는다 — 프로세스를
+	// 끝내지는 않는다.
+	io.ReadWriteCloser
+
+	Resize(cols, rows uint16) error
+	Size() (cols, rows uint16, err error)
+
+	// ForegroundPGID 는 **셸이 아닌 전경 프로그램**의 프로세스 그룹 id 다.
+	//
+	// ok=false 는 세 경우를 하나로 묶는다: 전경 프로그램이 없다(셸이 프롬프트에서
+	// 대기), 조회에 실패했다, 이 플랫폼에 그 개념이 없다. 호출자에게는 셋 다
+	// "붙일 이름이 없다" 로 같으므로 나누지 않는다 (FR-TAN-6/24 승계).
+	//
+	// 셸 자신과 비교하는 일까지 이 메서드가 한다 — 셸의 프로세스 그룹을 읽는
+	// 방법 역시 OS 마다 다르기 때문이다.
+	ForegroundPGID() (pgid int, ok bool)
+
+	// PID 는 터미널에 붙은 프로세스다. 0 이면 없다.
+	PID() int
+
+	// Wait 는 프로세스 종료를 기다리고 자원을 수확한다.
+	Wait() error
+
+	// Terminate 는 정중한 종료 요청, Kill 은 즉시 종료다. 의미론은
+	// Process 인터페이스와 같다.
+	Terminate() error
+	Kill() error
+}

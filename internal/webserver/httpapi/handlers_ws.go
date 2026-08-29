@@ -227,8 +227,8 @@ func readWS(conn *toolhub.SafeConn, tool *toolhub.Tool) {
 		}
 		switch msg[0] {
 		case toolhub.OpInput:
-			if _, err := tool.PTMX().Write(msg[1:]); err != nil {
-				log.Printf("[tool %s] ptmx write error: %v", tool.ID, err)
+			if err := tool.Write(msg[1:]); err != nil {
+				log.Printf("[tool %s] 터미널 쓰기 오류: %v", tool.ID, err)
 				return
 			}
 		case toolhub.OpResize:

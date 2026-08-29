@@ -43,7 +43,7 @@ func Usage(action string) string {
   --foreground      터미널을 점유하며 실행한다 (^C 로 정지)
 ` + commonFlags + `
 
-로그: $DONGMINAL_LOG (기본: ` + DefaultLog + `) — 배경 모드에서만
+로그: $DONGMINAL_LOG (기본: ` + defaultLogFile() + `) — 배경 모드에서만
 `
 	case "stop":
 		return `사용법: dongminal stop [옵션]

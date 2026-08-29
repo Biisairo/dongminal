@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/webserver/domain/git/core"
 )
 
@@ -486,12 +486,12 @@ func jobAwaitGone(t *testing.T, pid int, d time.Duration) {
 	t.Helper()
 	deadline := time.Now().Add(d)
 	for time.Now().Before(deadline) {
-		if err := syscall.Kill(pid, 0); err != nil {
+		if !platform.Current().Process.Alive(pid) {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	syscall.Kill(pid, syscall.SIGKILL)
+	_ = platform.Current().Process.Kill(pid)
 	t.Fatalf("pid %d 가 살아 있다 — 프로세스 그룹이 끝나지 않았다", pid)
 }
 

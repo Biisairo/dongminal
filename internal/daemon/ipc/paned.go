@@ -1,6 +1,7 @@
 package ipc
 
 import (
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
 
 	"dongminal/internal/shared/toolipc"
@@ -15,6 +16,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // ── Connection handler ──────────────────────────────────────────────────
@@ -371,6 +373,10 @@ type PanedServer struct {
 	currConn *panedConn
 }
 
+// dialProbeTimeout 은 "이미 살아 있는 데몬이 있는가" 를 묻는 시도의 상한이다.
+// 로컬 종단이므로 응답은 즉시 오거나 오지 않는다.
+const dialProbeTimeout = 2 * time.Second
+
 func NewPanedServer(pm *toolhub.ToolManager, sockPath, pidPath string) *PanedServer {
 	ps := &PanedServer{pm: pm, sockPath: sockPath, pidPath: pidPath}
 	// PTY 를 소유한 것은 데몬이므로 전경 조회도 여기서 일어난다 (FR-TAN-7).
@@ -392,15 +398,16 @@ func (ps *PanedServer) Listen() error {
 	// If the existing socket still answers, another dongminald owns it — abort
 	// rather than removing it and stealing its tools. A stale socket (dial
 	// fails) is safe to remove.
-	if conn, err := net.Dial("unix", ps.sockPath); err == nil {
+	transport := platform.Current().IPC
+	if conn, err := transport.Dial(ps.sockPath, dialProbeTimeout); err == nil {
 		conn.Close()
 		return fmt.Errorf("paned: %s already served by a live daemon", ps.sockPath)
 	}
-	os.Remove(ps.sockPath)
+	transport.Remove(ps.sockPath)
 	if err := os.MkdirAll(filepath.Dir(ps.sockPath), 0o755); err != nil {
 		return err
 	}
-	ln, err := net.Listen("unix", ps.sockPath)
+	ln, err := transport.Listen(ps.sockPath)
 	if err != nil {
 		return err
 	}
@@ -470,7 +477,7 @@ func (ps *PanedServer) Close() error {
 	if ps.listener != nil {
 		ps.listener.Close()
 	}
-	os.Remove(ps.sockPath)
+	platform.Current().IPC.Remove(ps.sockPath)
 	if ps.pidPath != "" {
 		os.Remove(ps.pidPath)
 	}

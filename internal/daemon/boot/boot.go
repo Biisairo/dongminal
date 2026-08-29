@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"syscall"
 
 	"os/signal"
 
@@ -17,6 +16,8 @@ import (
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/domain/run"
+
+	"dongminal/internal/shared/platform"
 )
 
 // referencedTools reads workspace.json and returns the tool ids its tabs point
@@ -70,7 +71,7 @@ func Run(home string) {
 		log.Printf("헤드리스 도구 %d개를 백그라운드로 복원", len(headless))
 	}
 
-	sockPath := filepath.Join(home, "paned.sock")
+	sockPath := platform.Current().IPC.Endpoint(home)
 	pidPath := filepath.Join(home, "paned.pid")
 
 	ps := ipc.NewPanedServer(pm, sockPath, pidPath)
@@ -79,7 +80,7 @@ func Run(home string) {
 	}
 
 	// On signal, close the listener to unblock Accept() and save state.
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	ctx, stop := signal.NotifyContext(context.Background(), platform.Current().Process.ShutdownSignals()...)
 	defer stop()
 
 	go func() {
@@ -87,7 +88,7 @@ func Run(home string) {
 		ps.Close()
 	}()
 
-	log.Printf("dongminald listening on %s", sockPath)
+	log.Printf("dongminald listening on %s (platform=%s)", sockPath, platform.Current().OS)
 
 	// Accept loop. Each connection is handled serially; when it drops,
 	// the daemon waits for the next dongminal to connect.

@@ -12,9 +12,9 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/uuid"
 	"dongminal/internal/webserver/domain/git/core"
 )
@@ -517,8 +517,9 @@ func execStream(ctx context.Context, dir, bin string, args []string, emit func(s
 	cmd.Stdout = outW
 	cmd.Stderr = errW
 	cmd.Env = core.Env()
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Cancel = func() error { return signalGroup(cmd.Process.Pid, syscall.SIGTERM) }
+	group := platform.Current().Process.NewGroup(cmd)
+	defer group.Close()
+	cmd.Cancel = group.Terminate
 	cmd.WaitDelay = JobKillGrace
 
 	if serr := cmd.Start(); serr != nil {
@@ -528,10 +529,20 @@ func execStream(ctx context.Context, dir, bin string, args []string, emit func(s
 		errW.Close()
 		return -1, fmt.Errorf("%s %s: %w", filepath.Base(bin), strings.Join(args, " "), serr)
 	}
+	// 묶음에 넣고 자식을 놓아준다. 이것을 건너뛰면 Windows 에서 자식이 중단된
+	// 채로 남아 영영 시작되지 않는다 (CROSS_PLATFORM_SRS FR-XPR-5).
+	if berr := group.Bind(); berr != nil {
+		_ = group.Kill()
+		outR.Close()
+		outW.Close()
+		errR.Close()
+		errW.Close()
+		_ = cmd.Wait()
+		return -1, fmt.Errorf("%s %s: %w", filepath.Base(bin), strings.Join(args, " "), berr)
+	}
 	// 부모 쪽 쓰기단을 닫는다 — 닫지 않으면 자식이 끝나도 읽기가 EOF 를 못 본다.
 	outW.Close()
 	errW.Close()
-	pgid := cmd.Process.Pid
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -544,7 +555,7 @@ func execStream(ctx context.Context, dir, bin string, args []string, emit func(s
 	// 리더가 끝났어도 그룹에 남은 자식이 파이프를 잡고 있을 수 있다. 유예까지
 	// 기다린 뒤 그룹을 쓸어낸다 — 작업이 영원히 끝나지 않는 것보다 낫다.
 	if !waitFor(read, JobKillGrace) {
-		signalGroup(pgid, syscall.SIGKILL)
+		group.Kill()
 		waitFor(read, JobKillGrace)
 	}
 
@@ -562,15 +573,6 @@ func execStream(ctx context.Context, dir, bin string, args []string, emit func(s
 		return exit, fmt.Errorf("%s %s: %w", filepath.Base(bin), strings.Join(args, " "), waitErr)
 	}
 	return exit, nil
-}
-
-// signalGroup 은 프로세스 그룹 전체에 신호를 보낸다. Setpgid 로 띄웠으므로 pgid 는
-// 리더의 pid 와 같다. 남은 구성원이 없으면 ESRCH 이며 그것은 성공과 같다.
-func signalGroup(pid int, sig syscall.Signal) error {
-	if pid <= 0 {
-		return nil
-	}
-	return syscall.Kill(-pid, sig)
 }
 
 func waitFor(done <-chan struct{}, d time.Duration) bool {

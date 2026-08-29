@@ -6,7 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"syscall"
+
+	"dongminal/internal/shared/platform"
 )
 
 // restartLogFile은 위임된 재시작의 출력이 남는 곳이다. 대리 프로세스는 제어
@@ -48,9 +49,9 @@ func handOffRestart(o StartOpts, home string, stdout, stderr io.Writer) (handedO
 	cmd.Env = withEnv(os.Environ(), map[string]string{EnvRestartRunner: "1"})
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
-	// 새 세션 — 제어 터미널이 없으므로 데몬이 죽어 PTY 가 닫혀도 SIGHUP 이
-	// 오지 않는다. 부모가 먼저 죽으면 launchd 로 재부모화되어 계속 돈다.
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	// 부모와 수명을 끊는다 — 제어 터미널이 없으므로 데몬이 죽어 PTY 가 닫혀도
+	// 종료 신호가 오지 않는다. 부모가 먼저 죽으면 init 으로 재부모화되어 계속 돈다.
+	platform.Current().Process.Detach(cmd)
 	if err := cmd.Start(); err != nil {
 		// 데몬은 아직 살아 있다. 여기서 멈추는 것이 FR-ACT-3c 다 — 대리 없이
 		// 데몬을 내리면 복구 수단까지 사라진다.

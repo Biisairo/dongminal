@@ -13,12 +13,12 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"dongminal/internal/ctl/cli"
 	"dongminal/internal/daemon/boot"
 	"dongminal/internal/helper/runtimebin"
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/runtime"
 	"dongminal/internal/shared/uuid"
 	"dongminal/internal/shared/workspace"
@@ -119,7 +119,7 @@ func startDaemon(home string) error {
 	cmd := exec.Command(exe, "d")
 	cmd.Env = append(os.Environ(), "DONGMINAL_HOME="+home)
 	// Detach from parent: dongminald survives dongminal restart.
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	platform.Current().Process.Detach(cmd)
 	// Redirect output to log file so terminal stays clean.
 	logPath := filepath.Join(home, "daemon.log")
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
@@ -405,7 +405,7 @@ func serve(home, host, port string) int {
 		return 1
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	ctx, stop := signal.NotifyContext(context.Background(), platform.Current().Process.ShutdownSignals()...)
 	defer stop()
 
 	// Close daemon connection IMMEDIATELY on signal, before HTTP server shutdown.
@@ -437,7 +437,10 @@ func serve(home, host, port string) int {
 	if host == "0.0.0.0" || host == "::" {
 		exposure = "exposed to LAN"
 	}
-	log.Printf("dongminal starting on http://%s:%s (%s)", host, port, exposure)
+	// 플랫폼을 남긴다. 크로스플랫폼 문제 보고에서 가장 먼저 필요한 값이고,
+	// WSL 은 리눅스와 빌드가 같아 로그 없이는 구별되지 않는다 (FR-XWS-1).
+	log.Printf("dongminal starting on http://%s:%s (%s, platform=%s)",
+		host, port, exposure, platform.Current().OS)
 
 	runErr := srv.Run(ctx, host+":"+port)
 

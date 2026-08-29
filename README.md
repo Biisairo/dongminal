@@ -30,12 +30,65 @@ PORT=8080 ./dongminal start           # 포트 지정 (--port 8080 도 동일)
 
 상세한 설치·실행·환경변수는 [docs/external/getting-started.md](docs/external/getting-started.md).
 
+## 지원 플랫폼
+
+macOS · Linux · **WSL** · **Windows 10 1809+** (native).
+
+OS 마다 달라지는 것은 전부 `internal/shared/platform` 뒤에 있다 — PTY,
+프로세스 제어·그룹, 프로세스 조회, 셸 선택과 훅, 로컬 IPC 종단, 경로 규약,
+브라우저 실행. **그 패키지 밖에는 OS 분기가 한 줄도 없다.** 그 규칙을 강제하는
+것이 `scripts/check-seams.sh` 다.
+
+Windows 최소 버전이 1809 인 이유는 ConPTY(`CreatePseudoConsole`)다 — Windows 에서
+PTY 의미론을 얻는 유일한 공식 경로이며 그 버전에서 도입됐다.
+
+### 빌드
+
+Go 는 교차 컴파일이 기본이라 별도 툴체인이 필요 없다. 맥에서 윈도우·리눅스
+바이너리가 그대로 나온다.
+
+```bash
+scripts/build.sh                        # 호스트용 하나 → ./dongminal
+scripts/build.sh --os windows           # 윈도우용 → dist/dongminal-windows-amd64.exe
+scripts/build.sh --os linux --arch arm64
+scripts/build.sh --all                  # 배포 대상 5종 → dist/
+```
+
+대상은 darwin/arm64 · darwin/amd64 · linux/amd64 · linux/arm64 · windows/amd64 다.
+WSL 은 별도 대상이 아니다 — `linux/amd64` 를 그대로 쓴다.
+
+**cgo 주의.** 이 저장소의 cgo 는 하나뿐이다 — `sysstat` 의 mach 호출(macOS 의
+CPU 사용률·메모리 사용량). linux·windows 는 그 지표를 `/proc` 과 WinAPI 로 읽으므로
+cgo 가 필요 없고 정적 바이너리로 나온다.
+
+문제는 go 가 GOOS/GOARCH 가 호스트와 다르면 `CGO_ENABLED` 를 자동으로 0 으로
+내린다는 점이다. arm64 맥에서 `GOOS=darwin GOARCH=amd64 go build` 를 직접 부르면
+**그 바이너리만 CPU·메모리 지표를 잃는다.** `build.sh` 가 darwin 대상에 한해
+cgo 를 다시 켜므로, 손으로 `go build` 하지 말고 스크립트를 쓴다.
+
+darwin 이 아닌 호스트에서 darwin 대상을 빌드하면 cgo 를 켤 수 없다. 그때는
+건너뛰지 않고 지표가 빠진 채로 빌드하며 화면에 경고를 남긴다.
+
+### 검사
+
+```bash
+scripts/check-cross.sh    # 5개 대상 build + vet (테스트 파일까지 타입 검사)
+scripts/check-seams.sh    # OS 의존 호출이 platform 밖에 없는지
+```
+
+설계와 이음매 목록은 [docs/internal/CROSS_PLATFORM_SRS.md](docs/internal/CROSS_PLATFORM_SRS.md).
+
+> Windows native 는 **실기 검증 전**이다. 5개 대상의 build·vet 과 판단 로직의
+> 단위 테스트까지는 통과하지만, WinAPI 호출 자체(ConPTY·Job Object·toolhelp 등)는
+> 아직 실제 Windows 에서 돌려보지 않았다. SRS §10.4 참조.
+
 ## 테스트
 
 Go 테스트는 의존이 없다:
 
 ```bash
-go test ./...
+go test ./...            # 호스트(darwin·linux)
+scripts/check-cross.sh   # 5개 대상 build + vet — 테스트 파일까지 타입 검사된다
 ```
 
 e2e(Playwright)는 npm 이 필요하다. **빌드에는 필요 없다** — 프론트엔드는 번들러가

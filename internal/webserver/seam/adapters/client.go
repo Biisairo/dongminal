@@ -5,7 +5,7 @@ import (
 
 	"fmt"
 
-	"dongminal/internal/webserver/seam/clientpid"
+	"dongminal/internal/shared/platform"
 )
 
 // Client는 원격 TCP 연결(remoteAddr) 로부터 클라이언트 PID 를 구하고,
@@ -18,9 +18,12 @@ type Client struct {
 }
 
 func (r Client) ResolveClientPane(remoteAddr string) (string, int, error) {
-	clientPID, err := clientpid.FromRemoteAddr(remoteAddr)
-	if err != nil {
-		return "", 0, err
+	// 클라이언트 pid 역추적과 부모 거슬러 오르기는 OS 마다 방법이 다르다.
+	// 그 차이는 platform.ProcInfo 뒤에 있다 (CROSS_PLATFORM_SRS FR-XPI-7).
+	info := platform.Current().Info
+	clientPID, ok := info.ConnectionOwnerPID(remoteAddr)
+	if !ok {
+		return "", 0, fmt.Errorf("클라이언트 PID를 찾을 수 없음 (remoteAddr=%s)", remoteAddr)
 	}
 	toolShellPids := map[int]string{}
 	for _, p := range (Tool{PM: r.PM, Hub: r.Hub}).List() {
@@ -33,8 +36,8 @@ func (r Client) ResolveClientPane(remoteAddr string) (string, int, error) {
 		if toolID, ok := toolShellPids[current]; ok {
 			return toolID, current, nil
 		}
-		parent, err := clientpid.Parent(current)
-		if err != nil || parent <= 1 {
+		parent, ok := info.ParentPID(current)
+		if !ok || parent <= 1 {
 			break
 		}
 		current = parent

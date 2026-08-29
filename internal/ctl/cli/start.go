@@ -5,10 +5,12 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
-	"syscall"
 	"time"
+
+	"dongminal/internal/shared/platform"
 )
 
 // Serve는 서버를 이 프로세스로 실행하는 콜백이다. cmd/dongminal 이
@@ -106,7 +108,13 @@ func startDetached(o StartOpts, home, host, port string, stdout, stderr io.Write
 	}
 	logPath := os.Getenv(EnvLog)
 	if logPath == "" {
-		logPath = DefaultLog
+		logPath = defaultLogFile()
+	}
+	// 로그의 상위 디렉터리는 없을 수 있다 — POSIX 의 /tmp 와 달리
+	// %LOCALAPPDATA%\dongminal 은 첫 기동 때 존재하지 않는다 (FR-XPA-2).
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		fmt.Fprintf(stderr, "로그 디렉터리 생성 실패: %v\n", err)
+		return 1
 	}
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
@@ -128,7 +136,7 @@ func startDetached(o StartOpts, home, host, port string, stdout, stderr io.Write
 		EnvRestartRunner, EnvToolID)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	platform.Current().Process.Detach(cmd)
 
 	fmt.Fprintf(stdout, "dongminal 기동 중 %s:%s...\n", host, port)
 	if err := cmd.Start(); err != nil {

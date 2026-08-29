@@ -73,7 +73,7 @@ func TestHandleWS_ExistingTool(t *testing.T) {
 	defer pm.Delete(p.ID)
 
 	// Write something to PTY so snapshot is non-empty.
-	if _, err := p.PTMX().Write([]byte("echo hello\n")); err != nil {
+	if err := p.Write([]byte("echo hello\n")); err != nil {
 		t.Fatalf("write ptmx: %v", err)
 	}
 	time.Sleep(200 * time.Millisecond)

@@ -10,11 +10,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/platform"
 )
 
 // ── ToolClient tests ────────────────────────────────────────────────────
@@ -200,7 +201,7 @@ func TestToolClientReconnect(t *testing.T) {
 func startFakePaned(t *testing.T, handler func(toolipc.PanedRequest) interface{}) string {
 	t.Helper()
 	sockPath := t.TempDir() + "/s"
-	ln, _ := net.Listen("unix", sockPath)
+	ln, _ := platform.Current().IPC.Listen(sockPath)
 
 	go func() {
 		conn, _ := ln.Accept()
@@ -284,7 +285,7 @@ func TestToolClientCallTimeout(t *testing.T) {
 	}
 	d := t.TempDir()
 	sockPath := d + "/s"
-	ln, err := net.Listen("unix", sockPath)
+	ln, err := platform.Current().IPC.Listen(sockPath)
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
@@ -461,7 +462,7 @@ func TestToolClientForegroundNameOverIPC(t *testing.T) {
 // 실리므로 잃는 것이 없다.
 func TestToolClientForegroundPushDispatch(t *testing.T) {
 	sockPath := t.TempDir() + "/s"
-	ln, err := net.Listen("unix", sockPath)
+	ln, err := platform.Current().IPC.Listen(sockPath)
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
