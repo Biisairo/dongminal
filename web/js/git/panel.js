@@ -16,6 +16,7 @@ class GitPanel {
     this._gen=0;
     this._status=null;   // /api/git/status 의 마지막 유효 응답
     this._lastSig=null;  // FR-GIT-19 의 비교 대상
+    this._lastViewFp=null; // FR-GVR-8 의 비교 대상 (Changes 밖의 뷰)
     this._errMsg=null;
     this._staleNote=false;
     this._refreshing=false;       // FR-GIT-238 의 새로고침이 도는 중 (겹쳐 부르지 않는다)
@@ -75,7 +76,7 @@ class GitPanel {
     this._gen++;
     // 이전 리포의 목록이 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다
     // (FR-GIT-16). 화면을 "불러오는 중" 으로 되돌린다.
-    this._status=null; this._lastSig=null; this._staleNote=false;
+    this._status=null; this._lastSig=null; this._lastViewFp=null; this._staleNote=false;
     // 소실과 실패 누적은 **리포에 붙은 것**이다 — 새 리포로 넘겨 오면 남의 사실이
     // 된다 (FR-RMS-6·22).
     this._missing=null; this._failStreak=0;
@@ -952,6 +953,22 @@ class GitPanel {
   // 같은 값을 딛는다 (FR-GIT-152·167).
   statusOf(){return (this._status&&this._status.status)||null}
 
+  /**
+   * FR-GVR-8: "Changes 밖의 뷰가 낡았는가" 의 근거.
+   *
+   * signature 는 창 안의 변화를 싸게 잡지만 원격 추적 ref 를 보지 않는다. 그
+   * 구멍을 status 가 이미 들고 온 값으로 메운다 — `ahead`·`behind` 는 push·fetch
+   * 가 움직이는 바로 그 수이고, `oid`·`branch`·`upstream` 은 History·Branches 가
+   * 읽는 것이다. 파일 목록은 넣지 않는다: 그것은 Changes 의 몫이고, 넣으면 파일
+   * 하나 저장할 때마다 History 를 다시 받는다.
+   */
+  _viewFp(d){
+    const st=(d&&d.status)||{};
+    return [(d&&d.signature&&d.signature.value)||'',
+      st.oid||'',st.branch||'',st.upstream||'',
+      st.ahead||0,st.behind||0].join('\u0000');
+  }
+
   // 지금 HEAD 가 가리키는 이름. detached 면 커밋 해시다 — 둘을 같게 보면 detached
   // 로 옮겨 간 것을 목록이 알아채지 못한다.
   headName(){
@@ -1053,18 +1070,20 @@ class GitPanel {
    * **실패해도 갱신한다** (D-3) — 실패한 push 도 Console 에 남고, 여러 ref 를 밀던
    * 중 일부만 움직였을 수 있다.
    */
-  afterRemoteJob(kind){
-    // 잡은 `post()` 를 지나지 않으므로 Console 이 스스로 알 길이 없다. 서버는
-    // 그것도 기록에 남기므로(jobs/job.go 의 RecordWrite) 읽으러 가기만 하면 된다.
+  /**
+   * FR-GVR-3: 원격 작업이 끝나면 **Console 만** 다시 받는다.
+   *
+   * 잡은 `post()` 를 지나지 않으므로 Console 이 스스로 알 길이 없다. 서버는 그것도
+   * 기록에 남기므로(jobs/job.go 의 RecordWrite) 읽으러 가기만 하면 된다. **실패한
+   * 작업도 남아야 하므로** 성공 여부를 가리지 않는다 — 그리고 실패는 저장소를
+   * 바꾸지 않으니 이 경로 말고는 알릴 길이 없다.
+   *
+   * History·Branches 는 여기서 받지 않는다. 성공한 push·fetch 는 `ahead`·`behind`
+   * 를 움직이고 그것이 `_viewFp` 에 들어 있어 **폴링이 같은 회차에 잡는다** —
+   * 여기서 또 받으면 한 조작에 두 번 받는다 (D-2 철회).
+   */
+  afterRemoteJob(){
     if(this._consoleView) this._consoleView.reload();
-    // D-2: push 로 커밋은 늘지 않는다 — refs 만 받으면 스크롤과 펼친 상세가
-    // 살아남는다. **모르는 종류는 전체 쪽으로 다룬다** (tag-push 처럼 여기를
-    // 지나는 것이 더 있다) — 덜 받아 낡은 화면을 보이는 쪽이 더 나쁘다.
-    if(this._historyView){
-      if(kind==='push') this._historyView.reloadRefs();
-      else this._historyView.reload();
-    }
-    if(this._branchesView) this._branchesView.reload();
   }
 
   // ── stash 쓰기 (GIT_MENUS stash 가 부른다) ──
@@ -2170,7 +2189,8 @@ class GitPanel {
      * 보인다.
      */
     try{
-      await Promise.allSettled([this.collect(),...this._reloadViews()]);
+      // 새로고침은 **전부** 다시 받는다 — 사용자가 그것을 뜻하고 눌렀다.
+      await Promise.allSettled([this.collect(),...this._reloadViews(true)]);
     }finally{
       this._refreshing=false; this._paintRefresh();
     }
@@ -2184,7 +2204,7 @@ class GitPanel {
    * 열지 않은 뷰는 각자의 `_el`·`_repo` 판정이 조기 반환하므로 요청이 나가지
    * 않는다 (FR-GVR-4).
    */
-  _reloadViews(){
+  _reloadViews(withConsole){
     const jobs=[];
     {
       if(this._historyView) jobs.push(this._historyView.reload());
@@ -2192,7 +2212,11 @@ class GitPanel {
       // FR-GVR-6: Stash 도 대상이다 — 빠져 있어서 터미널에서 `git stash` 한 뒤
       // 새로고침을 눌러도 목록이 그대로였다.
       if(this._stashView) jobs.push(this._stashView.reload());
-      if(this._consoleView) jobs.push(this._consoleView.reload());
+      // Console 은 **기본으로 받지 않는다.** 그 목록은 dongminal 자신의 쓰기로만
+      // 늘어나고(`post()` 와 잡의 `RecordWrite`), 터미널에서 친 git 은 기록에
+      // 남지 않는다 — 폴링이 받아 봐야 늘 같은 값이다. 받는 자리는 쓰기가 끝난
+      // 곳(FR-GVR-3)과 사용자가 명시적으로 누른 새로고침(FR-GVR-6)뿐이다.
+      if(withConsole&&this._consoleView) jobs.push(this._consoleView.reload());
       if(this._worktreesView) jobs.push(this._worktreesView.reload());
     }
     return jobs;
@@ -2333,18 +2357,22 @@ class GitPanel {
     // 응답에 signature 가 함께 오므로 그 값으로 갱신한다 — 직후 signature 폴링이
     // 헛되이 변화를 보고하지 않게 한다.
     //
-    // FR-GVR-8: signature 가 움직이면 저장소가 바뀐 것이다 — Changes 밖의 뷰도
-    // 따라간다.
-    //
-    // **`_lastSig` 를 옮기는 자리가 둘이다.** 감지 폴링(`_pollSignature`)이 먼저
-    // 옮기고 `collect()` 를 부르므로, 그 경로로 온 변화는 여기 도착했을 때 이미
-    // 같은 값이다 — 그래서 그쪽에도 같은 신호가 있다. 여기는 감지 폴링을 지나지
-    // 않고 status 가 먼저 변화를 본 경우(신호·새로고침·쓰기 응답)를 맡는다.
-    // 둘 다 값 비교로 걸러지므로 한 변화에 한 번만 돈다.
-    const prevSig=this._lastSig;
     this._lastSig=(d.signature&&d.signature.value)||'';
+    // FR-GVR-8: Changes 밖의 뷰가 따라갈 근거다.
+    //
+    // **signature 만으로는 모자란다.** 그것은 HEAD·index·현재 브랜치 ref 만 보고
+    // **원격 추적 ref 를 보지 않는다** (`query/signature.go`). 그래서 터미널에서
+    // 친 `git push` 는 signature 를 한 톨도 움직이지 않는다 — History 의
+    // `origin/main` 과 Branches 의 ahead/behind 가 낡은 채로 남는다.
+    //
+    // status 응답이 이미 그 답을 싣고 온다. ahead·behind·upstream·oid 를 근거에
+    // 함께 넣으면 push 는 `ahead 1→0` 으로 드러난다 — 서버를 고치지 않고, 요청을
+    // 늘리지 않고 감지된다.
+    const fp=this._viewFp(d);
+    const prevFp=this._lastViewFp;
+    this._lastViewFp=fp;
     // 첫 관측(`setRepo` 직후의 null)은 변화가 아니다 — 뷰는 열릴 때 스스로 받는다.
-    if(prevSig!==null&&prevSig!==this._lastSig) this._reloadViews();
+    if(prevFp!==null&&prevFp!==fp) this._reloadViews();
     this._errMsg=null; this._staleNote=false;
     /**
      * FR-GIT-227 (FR-RPT-1·2): 관측이 지난 회차와 같으면 다시 그리지 않는다.
@@ -2429,11 +2457,10 @@ class GitPanel {
     const v=(d.signature&&d.signature.value)||'';
     if(v===this._lastSig) return;
     this._lastSig=v;
+    // 뷰의 갱신은 여기서 부르지 않는다. 근거(`_viewFp`)는 status 응답이 실어
+    // 오므로 `collect()` 의 응답이 도착한 자리에서 판정한다 — 여기서 부르면
+    // 아직 옛 값을 들고 다시 받는다.
     this.collect();
-    // FR-GVR-8·9: Changes 밖의 뷰도 같은 변화를 딛는다. `collect()` 만 부르면
-    // 그 응답이 도착했을 때 `_lastSig` 는 이미 위에서 옮겨져 있어 `_applyStatus`
-    // 의 비교가 "같다" 로 떨어진다 — 폴링으로 오는 변화가 통째로 새 나갔다.
-    this._reloadViews();
   }
 }
 
