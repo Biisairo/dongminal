@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync/atomic"
+	"time"
 )
 
 // Paths 는 경로 규약과 파일 설치의 OS 차이다 (FR-XPA-1).
@@ -53,7 +54,7 @@ func (posixPaths) LinkOrCopy(src, dst string) error {
 	}
 	tmp := tempSibling(dst)
 	if err := os.Symlink(src, tmp); err == nil {
-		if err := os.Rename(tmp, dst); err == nil {
+		if err := replaceFile(tmp, dst); err == nil {
 			return nil
 		}
 		_ = os.Remove(tmp)
@@ -104,6 +105,32 @@ func tempSibling(dst string) string {
 
 var tempSeq atomic.Uint64
 
+// replaceFile 은 tmp 를 dst 로 옮긴다. **목적 경로를 비우지 않는 것이 계약이다**
+// (FR-ATI-1).
+//
+// Windows 는 갓 쓴 파일을 바이러스 검사·인덱서가 잠깐 열어 두는 일이 흔하고,
+// 그동안 MoveFileEx 가 거부된다. 그 거부에 "목적 경로를 지워서" 답하면 계약이
+// 깨진다 — 실측으로 Windows CI 에서 120회 중 4회 dst 가 비었다. 일시적인
+// 거부에는 **물러섰다 다시 시도하는 것**이 옳은 답이다.
+//
+// 재시도를 다 써도 안 되면 부르는 쪽이 마지막 수단(옆으로 밀어내기)을 쓴다 —
+// 그것은 실행 중인 파일을 갱신할 때만 필요하고, 그때는 창을 피할 방법이 없다.
+func replaceFile(tmp, dst string) error {
+	var err error
+	for i := range renameTries {
+		if err = os.Rename(tmp, dst); err == nil {
+			return nil
+		}
+		time.Sleep(renameBackoff * time.Duration(i+1))
+	}
+	return err
+}
+
+const (
+	renameTries   = 10
+	renameBackoff = 20 * time.Millisecond
+)
+
 // copyExecutable 은 src 를 dst 로 복사하고 실행 권한을 준다.
 //
 // **옆에 다 쓴 뒤 rename 으로 덮는다** (FR-ATI-2). 제자리를 O_TRUNC 로 열면 그
@@ -137,14 +164,14 @@ func copyExecutable(src, dst string) error {
 		return err
 	}
 
-	if err := os.Rename(tmp, dst); err != nil {
+	if err := replaceFile(tmp, dst); err != nil {
 		aside := dst + ".old"
 		_ = os.Remove(aside)
 		if rerr := os.Rename(dst, aside); rerr != nil {
 			_ = os.Remove(tmp)
 			return err
 		}
-		if rerr := os.Rename(tmp, dst); rerr != nil {
+		if rerr := replaceFile(tmp, dst); rerr != nil {
 			// 되돌린다 — 밀어내고 못 걸면 dst 가 아예 없는 채로 끝난다.
 			_ = os.Rename(aside, dst)
 			_ = os.Remove(tmp)
