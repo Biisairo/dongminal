@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
+	"sync/atomic"
 )
 
 // Paths 는 경로 규약과 파일 설치의 OS 차이다 (FR-XPA-1).
@@ -38,17 +40,26 @@ func (posixPaths) DefaultLogFile() string { return filepath.Join("/tmp", logBase
 func (posixPaths) ExeSuffix() string { return "" }
 
 // symlink 를 먼저 시도하고 안 되면 복사한다. 종전 runtime.installHelper 와 같다.
-// 이미 같은 곳을 가리키는 symlink 면 아무 것도 하지 않는다 — 매 기동마다
-// 지웠다 다시 거는 동안 그 경로를 부르는 도구가 있으면 그 호출이 실패한다.
+// 이미 같은 곳을 가리키는 symlink 면 아무 것도 하지 않는다.
+//
+// 대상이 바뀌는 재설치는 **옆에 만들고 rename 으로 덮는다** (FR-ATI-1).
+// 지웠다 다시 거는 순서로 하면 그 사이에 dst 가 없고, 그 경로를 부르는 훅이
+// `No such file or directory` 로 죽는다 — 창은 이론상의 것이 아니라 실측
+// 5,037회다 (RECONNECT_STORM_SRS §2.3, V-ATI-1). POSIX rename(2) 은 원자적이고
+// 같은 디렉터리라 파일시스템 경계를 넘지 않는다.
 func (posixPaths) LinkOrCopy(src, dst string) error {
 	if existing, err := os.Readlink(dst); err == nil && existing == src {
 		return nil
 	}
-	if err := os.Remove(dst); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	if err := os.Symlink(src, dst); err == nil {
-		return nil
+	tmp := tempSibling(dst)
+	if err := os.Symlink(src, tmp); err == nil {
+		if err := os.Rename(tmp, dst); err == nil {
+			return nil
+		}
+		_ = os.Remove(tmp)
+	} else if !errors.Is(err, os.ErrExist) {
+		// 심링크를 아예 만들 수 없는 파일시스템이다. 복사로 물러선다.
+		_ = os.Remove(tmp)
 	}
 	return copyExecutable(src, dst)
 }
@@ -79,11 +90,30 @@ func windowsLogFile(env envFn, tempDir func() string) string {
 
 // ── 공통 ─────────────────────────────────────────────
 
+// tempSibling 은 dst 를 원자적으로 덮기 위한 **같은 디렉터리의** 임시 이름이다
+// (FR-ATI-4). 같은 디렉터리여야 하는 이유는 rename 의 원자성이 파일시스템 안에서만
+// 성립하기 때문이다 — /tmp 를 거치면 EXDEV 로 실패하거나 복사로 떨어진다.
+//
+// pid 를 넣는 이유는 두 프로세스가 동시에 설치해도 서로의 임시 파일을 건드리지
+// 않게 하려는 것이고, 카운터는 한 프로세스 안의 동시 설치를 가른다. 랜덤이 아닌
+// 이유는 실패로 남은 잔여물을 사람이 추적할 수 있게 하기 위해서다.
+func tempSibling(dst string) string {
+	n := tempSeq.Add(1)
+	return dst + ".tmp" + strconv.Itoa(os.Getpid()) + "." + strconv.FormatUint(n, 10)
+}
+
+var tempSeq atomic.Uint64
+
 // copyExecutable 은 src 를 dst 로 복사하고 실행 권한을 준다.
 //
-// dst 를 곧바로 열지 못하면 옆으로 밀어내고 다시 시도한다. Windows 는 실행 중인
+// **옆에 다 쓴 뒤 rename 으로 덮는다** (FR-ATI-2). 제자리를 O_TRUNC 로 열면 그
+// 순간부터 복사가 끝날 때까지 dst 는 빈 파일이고, 그 창에 exec 한 훅은 죽는다
+// (V-ATI-5 가 이것을 실측으로 잡는다).
+//
+// rename 이 실패하면 dst 를 옆으로 밀어내고 다시 건다. Windows 는 실행 중인
 // 파일을 덮어쓸 수 없지만 **이름은 바꿀 수 있다** — dmctl 은 에이전트가 상시
-// 부르는 것이라 갱신 시점에 돌고 있을 가능성이 높다. 밀어낸 파일은 지워지면
+// 부르는 것이라 갱신 시점에 돌고 있을 가능성이 높다. POSIX 에서는 rename 이
+// 실행 중인 파일도 덮으므로 이 갈래로 오지 않는다. 밀어낸 파일은 지워지면
 // 좋고 안 지워져도 무방하다(다음 기동이 치운다).
 func copyExecutable(src, dst string) error {
 	in, err := os.Open(src)
@@ -92,23 +122,37 @@ func copyExecutable(src, dst string) error {
 	}
 	defer in.Close()
 
-	out, err := openExecutable(dst)
+	tmp := tempSibling(dst)
+	out, err := openExecutable(tmp)
 	if err != nil {
-		aside := dst + ".old"
-		_ = os.Remove(aside)
-		if rerr := os.Rename(dst, aside); rerr != nil {
-			return err
-		}
-		defer os.Remove(aside)
-		if out, err = openExecutable(dst); err != nil {
-			return err
-		}
+		return err
 	}
 	if _, err := io.Copy(out, in); err != nil {
 		out.Close()
+		_ = os.Remove(tmp)
 		return err
 	}
-	return out.Close()
+	if err := out.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+
+	if err := os.Rename(tmp, dst); err != nil {
+		aside := dst + ".old"
+		_ = os.Remove(aside)
+		if rerr := os.Rename(dst, aside); rerr != nil {
+			_ = os.Remove(tmp)
+			return err
+		}
+		if rerr := os.Rename(tmp, dst); rerr != nil {
+			// 되돌린다 — 밀어내고 못 걸면 dst 가 아예 없는 채로 끝난다.
+			_ = os.Rename(aside, dst)
+			_ = os.Remove(tmp)
+			return rerr
+		}
+		_ = os.Remove(aside)
+	}
+	return nil
 }
 
 func openExecutable(path string) (*os.File, error) {
