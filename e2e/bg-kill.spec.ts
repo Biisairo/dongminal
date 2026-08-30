@@ -70,7 +70,7 @@ async function makeBackgroundTools(page: Page, request: any, n: number): Promise
 }
 
 async function openModal(page: Page) {
-  await page.click('#sb-bg-btn');
+  await page.click('#bg-btn');
   await expect(page.locator('#bg-modal .bg-box')).toBeVisible();
 }
 
@@ -150,7 +150,8 @@ test.describe('FR-BGK-8..10: 종료의 결과', () => {
   });
 
   // V-BGK-7 (FR-BGK-9)
-  test('TC-BGK-7: 마지막 도구를 종료하면 "없음" 과 배지 소멸', async ({ page, request }) => {
+  // STATUS_BAR_REFLOW_SRS D-3: 진입점은 사라지지 않는다 — 하이라이트가 꺼진다.
+  test('TC-BGK-7: 마지막 도구를 종료하면 "없음" 과 하이라이트 소멸', async ({ page, request }) => {
     await waitForInit(page);
     const [a] = await makeBackgroundTools(page, request, 1);
     await openModal(page);
@@ -161,7 +162,8 @@ test.describe('FR-BGK-8..10: 종료의 결과', () => {
     await row(page, a).locator('.bg-yes').click();
 
     await expect(page.locator('#bg-modal .bg-empty')).toHaveText('없음', { timeout: 15000 });
-    await expect(page.locator('#sb-bg-btn')).toBeHidden();
+    await expect(page.locator('#bg-btn')).toBeVisible();
+    await expect(page.locator('#bg-btn')).not.toHaveClass(/\bon\b/);
   });
 
   // V-BGK-10

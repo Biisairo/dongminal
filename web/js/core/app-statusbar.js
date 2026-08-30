@@ -13,8 +13,9 @@ Object.assign(App.prototype, {
     this._gitJobs=[];
     // FR-BGU-4: 진입점은 정적 요소다. 리스너를 여기서 한 번만 부착한다 —
     // 지표 재생성(_updateStatusBar) 주기에 종속되면 안 된다.
-    const bgBtn=document.getElementById('sb-bg-btn');
+    const bgBtn=document.getElementById('bg-btn');
     if(bgBtn) bgBtn.addEventListener('click',e=>{e.stopPropagation();this._bgModalToggle()});
+    this._initStatusBarReflow();
     // FR-BGK-3/4/10: 인라인 확인·진행·오류는 **데이터**로 산다. 모달은 _bgRefresh
     // 마다 통째로 다시 그려지므로, 요소에 붙인 상태는 다시 그리기가 버린다
     // (GIT_REMAINING §1.3 이 전수 조사한 그 부류의 결함이다).
@@ -135,16 +136,35 @@ Object.assign(App.prototype, {
     this._updateBgBtn();
   },
 
-  // FR-BGU-2..5: 진입점은 상태바 우측 끝의 정적 버튼이다. 지표 재생성과
-  // 수명을 공유하지 않으므로 여기서는 표시 여부와 개수만 갱신한다.
+  /**
+   * STATUS_BAR_REFLOW_SRS FR-SBR-7: 상태바가 줄을 늘리면 `#area` 가 그만큼 줄어
+   * 터미널의 cols/rows 가 어긋난다. 그 변화는 `window.resize` 를 내지 않으므로
+   * (§2.2) 상태바 자신의 크기를 계기로 삼는다.
+   */
+  _initStatusBarReflow(){
+    const bar=document.getElementById('status-bar');
+    if(!bar||typeof ResizeObserver==='undefined')return;
+    let h=null;
+    this._sbRo=new ResizeObserver(es=>{
+      const nh=es[es.length-1].contentRect.height;
+      // 첫 관측은 지금 높이를 적어 두는 일일 뿐이다 — 변한 것이 없다.
+      if(h===null){h=nh;return}
+      if(Math.abs(nh-h)<0.5)return;
+      h=nh;
+      this._scheduleFit();
+    });
+    this._sbRo.observe(bar);
+  },
+
+  // FR-SBR-8..11: 진입점은 상단바 `Runs` 와 `Agents` 사이의 정적 버튼이다.
+  // 지표 재생성과 수명을 공유하지 않으므로(FR-RPT-3) 여기서는 개수와 하이라이트만
+  // 갱신한다. **숨기지 않는다** — 나타났다 사라지는 버튼이 이웃의 자리를 흔든다 (D-3).
   _updateBgBtn(){
-    const btn=document.getElementById('sb-bg-btn');if(!btn)return;
+    const btn=document.getElementById('bg-btn');if(!btn)return;
     const n=(this._bg&&this._bg.length)||0;
-    // FR-BGU-5 (구 FR-BG-8): 0개면 UI 에 아무 흔적이 없어야 한다.
-    btn.style.display=n?'':'none';
-    if(!n) return;
-    btn.textContent=`⏻ ${n}`;
-    btn.title=`백그라운드 도구 ${n}개`;
+    btn.textContent=n?`BG ${n}`:'BG';
+    btn.title=n?`백그라운드 도구 ${n}개`:'백그라운드 도구 없음';
+    btn.classList.toggle('on',!!n);
   },
 
   // FR-BGU-6/7: 진입점 클릭 → 중앙 모달. 항목 클릭 시 현재 분할 칸의 새 탭으로

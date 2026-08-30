@@ -149,71 +149,78 @@ test.describe('FR-BGU-1: 확인창 버튼 형태 규약', () => {
   });
 });
 
-test.describe('FR-BGU-2..5: 백그라운드 진입점', () => {
-  test('TC-BGU-6: 백그라운드 도구가 0개면 진입점이 표시되지 않는다', async ({ page }) => {
+// STATUS_BAR_REFLOW_SRS 묶음 B 가 이 묶음을 개정한다 — 진입점은 상태바를 떠나
+// 상단바의 `Split H · Split V · Runs · BG · Agents` 자리에 서고(FR-SBR-8),
+// 0개여도 숨지 않는다(FR-SBR-9, 구 FR-BGU-5 폐기).
+test.describe('FR-SBR-8..13: 백그라운드 진입점', () => {
+  // V-SBR-6
+  test('TC-SBR-6: 도구가 0개여도 보이고, 하이라이트는 없다', async ({ page }) => {
     await waitForInit(page);
     await expect.poll(async () => page.evaluate(() => (window as any).app._bg.length),
       { timeout: 10000 }).toBe(0);
-    await expect(page.locator('#sb-bg-btn')).toBeHidden();
+    const btn = page.locator('#bg-btn');
+    await expect(btn).toBeVisible();
+    await expect(btn).toHaveText('BG');
+    await expect(btn).not.toHaveClass(/\bon\b/);
   });
 
-  test('TC-BGU-3: 진입점이 상태바 우측 끝에 놓인다', async ({ page, request }) => {
+  // V-SBR-5
+  test('TC-SBR-5: 진입점이 Runs 와 Agents 사이에 서고 상태바에는 없다', async ({ page }) => {
     await waitForInit(page);
-    await makeBackgroundTool(page, request);
-
-    const btn = page.locator('#sb-bg-btn');
-    await expect(btn).toBeVisible();
-
-    const geom = await page.evaluate(() => {
-      const bar = document.getElementById('status-bar')!;
-      const b = document.getElementById('sb-bg-btn')!;
-      const barBox = bar.getBoundingClientRect();
-      const btnBox = b.getBoundingClientRect();
-      const cs = getComputedStyle(bar);
-      const others = Array.from(bar.querySelectorAll('.sb-item'))
-        .map((e) => e.getBoundingClientRect().right);
+    const got = await page.evaluate(() => {
+      const bar = document.getElementById('topbar')!;
+      const ids = Array.from(bar.children).map((e) => e.id).filter(Boolean);
       return {
-        gapRight: barBox.right - btnBox.right,
-        padRight: parseFloat(cs.paddingRight),
-        maxOtherRight: others.length ? Math.max(...others) : -Infinity,
-        btnLeft: btnBox.left,
+        order: ids.filter((i) => ['split-h', 'split-v', 'runs-btn', 'bg-btn', 'agents-toggle'].includes(i)),
+        inStatusBar: document.getElementById('status-bar')!.contains(document.getElementById('bg-btn')),
       };
     });
-
-    // 우측 내부 경계(= 상태바 우측 - padding)에 밀착한다.
-    expect(geom.gapRight).toBeLessThanOrEqual(geom.padRight + 1);
-    // 어떤 지표보다도 오른쪽에 있다.
-    expect(geom.btnLeft).toBeGreaterThanOrEqual(geom.maxOtherRight);
+    expect(got.order).toEqual(['split-h', 'split-v', 'runs-btn', 'bg-btn', 'agents-toggle']);
+    expect(got.inStatusBar, '진입점이 아직 상태바에 있다').toBe(false);
   });
 
+  // V-SBR-7
+  test('TC-SBR-7: 도구가 생기면 개수가 붙고 하이라이트된다', async ({ page, request }) => {
+    await waitForInit(page);
+    const plain = await page.evaluate(() => getComputedStyle(document.getElementById('bg-btn')!).borderColor);
+
+    await makeBackgroundTool(page, request);
+    const btn = page.locator('#bg-btn');
+    await expect(btn).toHaveClass(/\bon\b/, { timeout: 10000 });
+    await expect(btn).toHaveText('BG 1');
+    const lit = await page.evaluate(() => getComputedStyle(document.getElementById('bg-btn')!).borderColor);
+    expect(lit, '하이라이트가 평소와 같은 테두리색이다').not.toBe(plain);
+  });
+
+  // V-SBR-7 (FR-SBR-10): 하이라이트는 리터럴 색이 아니다.
   test('TC-BGU-4: 진입점 색이 테마 팔레트를 따른다', async ({ page, request }) => {
     await waitForInit(page);
     await makeBackgroundTool(page, request);
-    await expect(page.locator('#sb-bg-btn')).toBeVisible();
+    await expect(page.locator('#bg-btn')).toBeVisible();
 
-    const before = await page.evaluate(() => getComputedStyle(document.getElementById('sb-bg-btn')!).color);
+    const before = await page.evaluate(() => getComputedStyle(document.getElementById('bg-btn')!).color);
 
     // 테마를 바꾸면 진입점 색도 함께 바뀐다 (리터럴 색상이 아니라는 증거).
     await page.click('#settings-btn');
     await page.locator('#theme-list .tl-item', { hasText: 'GitHub Light' }).click();
     await page.click('#modal-close');
 
-    const after = await page.evaluate(() => getComputedStyle(document.getElementById('sb-bg-btn')!).color);
+    const after = await page.evaluate(() => getComputedStyle(document.getElementById('bg-btn')!).color);
     expect(after).not.toBe(before);
   });
 
   test('TC-BGU-5: 진입점이 상태바 지표 재생성으로 파괴되지 않는다', async ({ page, request }) => {
     await waitForInit(page);
     await makeBackgroundTool(page, request);
-    await expect(page.locator('#sb-bg-btn')).toBeVisible();
+    await expect(page.locator('#bg-btn')).toBeVisible();
 
     const survived = await page.evaluate(() => {
       const app = (window as any).app;
       const mark = Symbol.for('tc-bgu-5');
-      const el = document.getElementById('sb-bg-btn') as any;
+      const el = document.getElementById('bg-btn') as any;
       el[mark] = true;
       for (let i = 0; i < 3; i++) app._updateStatusBar();
-      const now = document.getElementById('sb-bg-btn') as any;
+      const now = document.getElementById('bg-btn') as any;
       return !!(now && now[mark]);
     });
     expect(survived, '_updateStatusBar 가 진입점을 재생성했다').toBe(true);
@@ -222,12 +229,12 @@ test.describe('FR-BGU-2..5: 백그라운드 진입점', () => {
   test('TC-BGU-9: 진입점은 상태바 지표가 아니다', async ({ page, request }) => {
     await waitForInit(page);
     await makeBackgroundTool(page, request);
-    const btn = page.locator('#sb-bg-btn');
+    const btn = page.locator('#bg-btn');
     await expect(btn).toBeVisible();
     await expect(btn).not.toHaveClass(/sb-item/);
     // 지표 컨테이너 밖에 있어야 구분선 규칙(.sb-item+.sb-item)이 닿지 않는다.
     const outside = await page.evaluate(() =>
-      !document.getElementById('sb-items')!.contains(document.getElementById('sb-bg-btn')));
+      !document.getElementById('sb-items')!.contains(document.getElementById('bg-btn')));
     expect(outside, '진입점이 지표 컨테이너 안에 있다').toBe(true);
   });
 });
@@ -237,7 +244,7 @@ test.describe('FR-BGU-6..8: 백그라운드 목록 모달', () => {
     await waitForInit(page);
     await makeBackgroundTool(page, request);
 
-    await page.click('#sb-bg-btn');
+    await page.click('#bg-btn');
     const modal = page.locator('#bg-modal .bg-box');
     await expect(modal).toBeVisible();
 
@@ -256,12 +263,12 @@ test.describe('FR-BGU-6..8: 백그라운드 목록 모달', () => {
     await waitForInit(page);
     await makeBackgroundTool(page, request);
 
-    await page.click('#sb-bg-btn');
+    await page.click('#bg-btn');
     await expect(page.locator('#bg-modal')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.locator('#bg-modal')).toHaveCount(0);
 
-    await page.click('#sb-bg-btn');
+    await page.click('#bg-btn');
     await expect(page.locator('#bg-modal')).toBeVisible();
     // 오버레이 자체(중앙 박스 밖)를 클릭한다.
     await page.locator('#bg-modal').click({ position: { x: 5, y: 5 } });
@@ -286,7 +293,7 @@ test.describe('FR-BGU-6..8: 백그라운드 목록 모달', () => {
     });
     const tabsBefore = await focusedTabCount();
 
-    await page.click('#sb-bg-btn');
+    await page.click('#bg-btn');
     await page.locator(`#bg-modal .bg-row[data-toolid="${toolId}"]`).click();
 
     // 배리어는 클라이언트 상태여야 한다. _restoreTool 은 서버의 백그라운드

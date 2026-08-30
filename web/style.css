@@ -100,7 +100,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .spacer{flex:1}
 
 /* 주의 알림 배지 + 센터 팝오버 (FR-PAN-16) */
-#attn-badge{position:relative;color:var(--attn);border-color:var(--attn)}
+#attn-badge{position:relative;color:var(--attn);border-color:var(--attn);
+  animation:attn-pulse-badge 2s ease-in-out infinite}
 #attn-badge .attn-count{margin-left:4px;font-size:10px;font-weight:600}
 #attn-center{
   display:none;position:fixed;z-index:200;
@@ -172,11 +173,59 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .pn-tab-add:hover{color:var(--accent)}
 
 /* 주의 알림 강조 — 포커스(--accent)·위험(--danger)과 구분되는 테마색 --attn, 굵은 실선+글로우로 가시성 강화 (FR-PAN-10) */
-.pn-tab.attn{color:var(--attn);background:var(--attn-subtle);font-weight:600;box-shadow:inset 0 -3px 0 var(--attn)}
-.pn.attn{border-color:var(--attn);box-shadow:inset 0 0 0 2px var(--attn),0 0 12px -1px var(--attn-glow)}
+
+/* ATTENTION_PULSE_SRS FR-ATP-1: 표식은 2초 주기로 숨쉰다 — 1초에 걸쳐 사라지고
+   1초에 걸쳐 돌아온다. ease-in-out 이 양 끝을 느리게 만든다.
+   FR-ATP-3/D-1: 움직이는 것은 **요소가 아니라 표식을 그리는 속성**이다. 요소에
+   opacity 를 걸면 터미널 화면과 탭·창 이름이 함께 사라진다 (§2.2).
+   FR-ATP-4: 두께를 가진 표식은 색만 잃고 크기를 유지한다 — 글자가 흔들리면
+   알림이 아니라 방해다.
+   FR-ATP-7: 양 끝(0%·100%)의 모습이 개정 전의 정지 표식과 같다. */
+@keyframes attn-pulse-ring{
+  0%,100%{opacity:1}
+  50%{opacity:0}
+}
+@keyframes attn-pulse-tab{
+  0%,100%{background:var(--attn-subtle);box-shadow:inset 0 -3px 0 var(--attn)}
+  50%{background:transparent;box-shadow:inset 0 -3px 0 transparent}
+}
+/* 왼쪽 3px 바 하나로 알리는 자리들 — 사이드바 항목과 에이전트 카드가 같은 표식이다. */
+@keyframes attn-pulse-bar{
+  0%,100%{box-shadow:inset 3px 0 0 var(--attn)}
+  50%{box-shadow:inset 3px 0 0 transparent}
+}
+/* 점은 사라지지 않고 평소 색으로 돌아간다 — 자리가 비면 목록이 흔들린다. */
+@keyframes attn-pulse-dot{
+  0%,100%{background:var(--attn);box-shadow:0 0 6px var(--attn-glow)}
+  50%{background:var(--text-dim);box-shadow:0 0 6px transparent}
+}
+/* 배지 둘은 글자가 곧 내용이다 — 글자색을 두고 테두리·배경만 숨쉰다 (D-2). */
+@keyframes attn-pulse-badge{
+  0%,100%{border-color:var(--attn)}
+  50%{border-color:var(--attn-subtle)}
+}
+@keyframes attn-pulse-chip{
+  0%,100%{background:var(--attn-subtle)}
+  50%{background:transparent}
+}
+
+.pn-tab.attn{color:var(--attn);background:var(--attn-subtle);font-weight:600;box-shadow:inset 0 -3px 0 var(--attn);
+  animation:attn-pulse-tab 2s ease-in-out infinite}
+/* FR-ATP-8: 분할 칸의 링은 **자식 위에 뜬 겹**이다.
+   개정 전에는 2px 테두리 + 안쪽 2px 그림자였는데, 안쪽 그림자는 요소의 배경 층에
+   그려지고 자식(탭 줄·터미널)이 그 위를 덮는다. 덮이는 정도가 면마다 달라 실측
+   두께가 **위 2px · 왼쪽 3px · 아래 4px** 로 어긋나 모서리가 우그러져 보였다 (§2.4).
+   겹 하나로 그리면 어느 면에서나 같은 두께이고, 겹에는 내용이 없으므로 맥박을
+   opacity 로 줄 수 있다 (D-5). */
+.pn.attn::after{
+  content:'';position:absolute;inset:-2px;z-index:35;pointer-events:none;
+  box-shadow:inset 0 0 0 3px var(--attn),0 0 12px -1px var(--attn-glow);
+  animation:attn-pulse-ring 2s ease-in-out infinite;
+}
 /* FR-PAN-16: 알람 표식. 공통 클래스로 쓴다 — 다음 목록도 `attn` 을 줄 수 있다. */
-.sbl-item.attn{box-shadow:inset 3px 0 0 var(--attn)}
-.sbl-item.attn .sbl-dot{background:var(--attn);box-shadow:0 0 6px var(--attn-glow)}
+.sbl-item.attn{box-shadow:inset 3px 0 0 var(--attn);animation:attn-pulse-bar 2s ease-in-out infinite}
+.sbl-item.attn .sbl-dot{background:var(--attn);box-shadow:0 0 6px var(--attn-glow);
+  animation:attn-pulse-dot 2s ease-in-out infinite}
 
 /* 에이전트 활동 모아보기 패널 (AGENT_ACTIVITY_PANEL_SRS) — 좌측 사이드바와 대칭 */
 #agents-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border);position:relative;display:none}
@@ -192,9 +241,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .ag-empty{padding:12px 10px;font-size:12px;color:var(--text-dim)}
 .ag-card{padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
 .ag-card:hover{background:var(--accent-hover)}
-.ag-card.attn{box-shadow:inset 3px 0 0 var(--attn)}
+.ag-card.attn{box-shadow:inset 3px 0 0 var(--attn);animation:attn-pulse-bar 2s ease-in-out infinite}
 .ag-card.focused{background:var(--accent-active)}
-.ag-card.focused.attn{box-shadow:inset 3px 0 0 var(--attn)}
+.ag-card.focused.attn{box-shadow:inset 3px 0 0 var(--attn);animation:attn-pulse-bar 2s ease-in-out infinite}
 .ag-card.dragging{opacity:.35}
 .ag-card.drag-above{box-shadow:inset 0 2px 0 var(--accent)}
 .ag-card.drag-below{box-shadow:inset 0 -2px 0 var(--accent)}
@@ -422,14 +471,19 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .pn-dimmed .tp-overlay{display:none !important}
 
 /* ── Status Bar ── */
+/* FR-SBR-4: 높이는 내용이 정한다. 한 줄일 때는 종전과 같은 22px 이다. */
 .status-bar{
   display:flex;align-items:center;gap:2px;
   padding:2px 10px;flex-shrink:0;
   background:var(--sidebar-bg);border-top:1px solid var(--border);
-  font-size:11px;color:var(--text-muted);height:22px;
+  font-size:11px;color:var(--text-muted);min-height:22px;
 }
 .status-bar.hidden{display:none}
-.sb-item{display:flex;align-items:center;gap:3px;padding:0 6px}
+/* FR-SBR-2: 눌리지 않는다. 폭이 모자라면 줄을 넘길 일이지 글자를 겹칠 일이 아니다.
+   FR-SBR-6: 한 줄보다 넓은 지표는 그 지표만 잘린다.
+   FR-SBR-5: 음수 마진 1px — 줄의 첫 항목 구분선만 컨테이너 밖으로 나가 잘린다 (D-5). */
+.sb-item{display:flex;align-items:center;gap:3px;padding:0 6px;line-height:16px;
+  flex-shrink:0;max-width:100%;white-space:nowrap;margin-left:-1px}
 .sb-item+.sb-item{border-left:1px solid var(--border)}
 .sb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .sb-dot.ok{background:#4caf50}
@@ -676,12 +730,14 @@ body.mobile #soft-reload-btn{padding:8px;font-size:12px}
 .fe-error-path{font-family:monospace;font-size:12px;color:var(--text-muted);margin-top:8px;word-break:break-all}
 
 /* ── 백그라운드 도구 진입점·모달 (FR-BGU-2..8) ── */
-/* 지표 컨테이너. 진입점은 이 밖에 있어야 .sb-item+.sb-item 구분선이 닿지 않는다. */
-#sb-items{display:flex;align-items:center;gap:2px;min-width:0;overflow:hidden}
-/* 상태바 우측 끝 진입점. .tbtn 규약을 쓰되 22px 상태바에 맞춰 여백만 줄인다. */
-#sb-bg-btn{margin-left:auto;flex-shrink:0;padding:1px 8px;font-size:11px;
-  color:var(--accent);border-color:var(--accent-border)}
-#sb-bg-btn:hover{background:var(--accent-active);color:var(--accent);border-color:var(--accent)}
+/* FR-SBR-1: 폭이 모자라면 다음 줄로 넘긴다. 줄 수는 내용과 폭이 정한다 (D-2).
+   overflow:hidden 은 FR-SBR-5 의 클리핑 담당이다 — 가로로 잘라내는 역할이 아니다
+   (줄바꿈이 넘칠 것을 남기지 않는다). */
+#sb-items{display:flex;flex-wrap:wrap;align-items:center;gap:2px;
+  flex:1;min-width:0;overflow:hidden}
+/* FR-SBR-10: 하이라이트는 팔레트를 쓴다. 평소에는 이웃 .tbtn 과 같은 얼굴이다. */
+#bg-btn.on{color:var(--accent);border-color:var(--accent);background:var(--accent-active)}
+body.mobile #bg-btn{padding:4px 6px}
 .bg-modal{
   position:fixed;inset:0;z-index:200;
   background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
@@ -2264,7 +2320,16 @@ body.mobile .run-view .run-card{min-height:44px}
   background:var(--accent-subtle);color:var(--accent);
 }
 .sb-tab-badge[hidden]{display:none}
-.sb-tab[data-panel="windows"] .sb-tab-badge{background:var(--attn-subtle);color:var(--attn)}
+.sb-tab[data-panel="windows"] .sb-tab-badge{background:var(--attn-subtle);color:var(--attn);
+  animation:attn-pulse-chip 2s ease-in-out infinite}
+
+/* FR-ATP-5: 움직임을 원하지 않는 사람에게는 개정 전의 정지 표식이 남는다 —
+   끄는 쪽이 기본 상태보다 어두워서는 안 되므로 정적 선언을 그대로 둔 채 맥박만 멎힌다. */
+@media (prefers-reduced-motion:reduce){
+  .pn.attn::after,.pn-tab.attn,.sbl-item.attn,.sbl-item.attn .sbl-dot,
+  .ag-card.attn,.ag-card.focused.attn,#attn-badge,
+  .sb-tab[data-panel="windows"] .sb-tab-badge{animation:none}
+}
 
 /* FR-SBT-2·3: 숨김은 display:none 이다. visibility/opacity 로 숨기면 숨은 패널이
    자리를 차지해 "보이는 쪽이 전체 높이를 쓴다" 는 목적 자체가 무너진다. */

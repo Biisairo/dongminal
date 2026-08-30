@@ -458,7 +458,7 @@ test.describe('묶음 N — 도구 이름 (FR-NAM-*)', () => {
     await page.evaluate(([id]) =>
       (window as any).app._execRemote('detachTab', { toolId: id }), [toolId]);
 
-    await page.locator('#sb-bg-btn').click();
+    await page.locator('#bg-btn').click();
     const row = page.locator(`#bg-modal .bg-row[data-toolid="${toolId}"]`);
     await expect(row).toBeVisible({ timeout: 10000 });
     // FR-NAM-5: `Shell` 이 아니라 그 도구가 지금 돌리는 것의 이름이다.
