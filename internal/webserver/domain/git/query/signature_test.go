@@ -20,7 +20,7 @@ func gitIn(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command(gitPath(t), args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null")
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_SYSTEM="+os.DevNull)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
 	}
@@ -111,7 +111,7 @@ func TestSignature_MissingIndexIsNotError(t *testing.T) {
 	s := core.New(core.WithRunner(func(_ context.Context, _ string, _ []string) (core.Output, error) {
 		return core.Output{Stdout: dir + "\n" + dir + "\n"}, nil
 	}))
-	sig, err := SignatureOf(s, context.Background(), "/r")
+	sig, err := SignatureOf(s, context.Background(), absR)
 	if err != nil {
 		t.Fatalf("Signature: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestSignature_DetachedHead(t *testing.T) {
 	s := core.New(core.WithRunner(func(_ context.Context, _ string, _ []string) (core.Output, error) {
 		return core.Output{Stdout: dir + "\n" + dir + "\n"}, nil
 	}))
-	sig, err := SignatureOf(s, context.Background(), "/r")
+	sig, err := SignatureOf(s, context.Background(), absR)
 	if err != nil {
 		t.Fatalf("Signature: %v", err)
 	}

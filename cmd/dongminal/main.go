@@ -13,12 +13,13 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"dongminal/internal/ctl/cli"
 	"dongminal/internal/daemon/boot"
 	"dongminal/internal/helper/runtimebin"
+	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/runtime"
 	"dongminal/internal/shared/uuid"
 	"dongminal/internal/shared/workspace"
@@ -54,7 +55,9 @@ func dataPath(dataDir, name string) string {
 // here (lines 50-53) is fire-and-forget: it writes its result to a buffered
 // channel and exits, regardless of whether the outer select consumes it.
 func dialOrStartDaemon(home string) *toolclient.ToolClient {
-	sockPath := filepath.Join(home, "paned.sock")
+	// 종단 주소는 platform 이 만든다 — 데몬(boot.Run)이 listen 하는 주소와 같은
+	// 함수에서 나와야 표현이 바뀌어도 양쪽이 함께 옮겨간다 (FR-XIP-1).
+	endpoint := platform.Current().IPC.Endpoint(home)
 
 	// spawn is handed to the reconnect supervisor so it can respawn dongminald
 	// if it dies while we are running (FR-13).
@@ -69,14 +72,14 @@ func dialOrStartDaemon(home string) *toolclient.ToolClient {
 	}
 	ch := make(chan result, 1)
 	go func() {
-		pc, err := toolclient.DialPaneClientWithReconnect(sockPath, spawn)
+		pc, err := toolclient.DialPaneClientWithReconnect(endpoint, spawn)
 		ch <- result{pc, err}
 	}()
 
 	select {
 	case r := <-ch:
 		if r.err == nil {
-			log.Printf("connected to dongminald at %s", sockPath)
+			log.Printf("connected to dongminald at %s", endpoint)
 			return r.pc
 		}
 		// Connection failed (e.g. socket doesn't exist). Start fresh daemon.
@@ -100,7 +103,7 @@ func dialOrStartDaemon(home string) *toolclient.ToolClient {
 	// Wait for daemon socket to appear
 	for i := 0; i < 20; i++ {
 		time.Sleep(100 * time.Millisecond)
-		pc, err := toolclient.DialPaneClientWithReconnect(sockPath, spawn)
+		pc, err := toolclient.DialPaneClientWithReconnect(endpoint, spawn)
 		if err == nil {
 			log.Printf("connected to newly started dongminald")
 			return pc
@@ -119,7 +122,7 @@ func startDaemon(home string) error {
 	cmd := exec.Command(exe, "d")
 	cmd.Env = append(os.Environ(), "DONGMINAL_HOME="+home)
 	// Detach from parent: dongminald survives dongminal restart.
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	platform.Current().Process.Detach(cmd)
 	// Redirect output to log file so terminal stays clean.
 	logPath := filepath.Join(home, "daemon.log")
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
@@ -325,28 +328,28 @@ func main() {
 // resolveHome은 데몬 경로의 홈 해석이다. 액션 경로는 internal/ctl/cli 가
 // 플래그까지 반영해 해석한 값을 serve 에 넘긴다.
 func resolveHome() (string, error) {
-	home := os.Getenv("DONGMINAL_HOME")
+	home := os.Getenv(dmenv.EnvHome)
 	if home == "" {
 		userHome, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("홈 디렉터리 확인 실패: %w", err)
 		}
-		home = filepath.Join(userHome, ".dongminal")
+		home = filepath.Join(userHome, dmenv.DefaultHomeDir)
 	}
 	if err := os.MkdirAll(home, 0o755); err != nil {
 		return "", fmt.Errorf("DONGMINAL_HOME 생성 실패: %w", err)
 	}
-	os.Setenv("DONGMINAL_HOME", home)
+	os.Setenv(dmenv.EnvHome, home)
 	return home, nil
 }
 
 // serve는 웹 서버를 이 프로세스로 실행한다 (FR-FG-1). `dongminal start
 // --foreground` 의 실체이며, 배경 모드는 자기 자신을 이 형태로 재실행한다.
 func serve(home, host, port string) int {
-	os.Setenv("DONGMINAL_HOME", home)
+	os.Setenv(dmenv.EnvHome, home)
 	// helper multi-call(dmctl/edit/…)이 서버 주소를 찾는 값이다.
-	os.Setenv("DONGMINAL_PORT", port)
-	os.Setenv("DONGMINAL_HOST", host)
+	os.Setenv(dmenv.EnvPort, port)
+	os.Setenv(dmenv.EnvHost, host)
 
 	if err := runtime.Install(filepath.Join(home, "bin")); err != nil {
 		log.Printf("runtime install: %v", err)
@@ -405,7 +408,7 @@ func serve(home, host, port string) int {
 		return 1
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	ctx, stop := signal.NotifyContext(context.Background(), platform.Current().Process.ShutdownSignals()...)
 	defer stop()
 
 	// Close daemon connection IMMEDIATELY on signal, before HTTP server shutdown.
@@ -437,7 +440,10 @@ func serve(home, host, port string) int {
 	if host == "0.0.0.0" || host == "::" {
 		exposure = "exposed to LAN"
 	}
-	log.Printf("dongminal starting on http://%s:%s (%s)", host, port, exposure)
+	// 플랫폼을 남긴다. 크로스플랫폼 문제 보고에서 가장 먼저 필요한 값이고,
+	// WSL 은 리눅스와 빌드가 같아 로그 없이는 구별되지 않는다 (FR-XWS-1).
+	log.Printf("dongminal starting on http://%s:%s (%s, platform=%s)",
+		host, port, exposure, platform.Current().OS)
 
 	runErr := srv.Run(ctx, host+":"+port)
 
@@ -447,6 +453,8 @@ func serve(home, host, port string) int {
 		panedClient.Close()
 	}
 	if bd.pm != nil {
+		// 문을 닫고 인플라이트 저장을 거둔 뒤에 마지막 상태를 쓴다 (boot.go 와 같다).
+		bd.pm.StopSaving()
 		bd.pm.SaveAll()
 	}
 	_ = bd.wsMgr.Close()

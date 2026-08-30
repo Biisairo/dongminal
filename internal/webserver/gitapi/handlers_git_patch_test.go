@@ -13,6 +13,9 @@ import (
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
+	"net/url"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 G 서버측 — /api/git/{hunks,patch} (GIT_ACTIONS_SRS §3.7, 검증 V204·V205·V206).
@@ -89,7 +92,7 @@ func gitPatchServer(t *testing.T, f *gitPatchFake) *GitServer {
 func gitPatchDiffID(t *testing.T, s *GitServer) string {
 	t.Helper()
 	code, out := gitReq(t, s, http.MethodGet,
-		"/api/git/hunks?repo=/work/repo&axis=worktree-index&path=f.txt", "")
+		"/api/git/hunks?repo="+url.QueryEscape(absWorkRepo)+"&axis=worktree-index&path=f.txt", "")
 	if code != http.StatusOK {
 		t.Fatalf("GET /api/git/hunks = %d: %v", code, out)
 	}
@@ -128,8 +131,8 @@ func TestGitPatch_IgnoresClientSuppliedPatch(t *testing.T) {
 	id := gitPatchDiffID(t, s)
 
 	hostile := "--- a/../../etc/passwd\n+++ b/../../etc/passwd\n@@ -1 +1 @@\n-x\n+pwned\n"
-	body := `{"repo":"/work/repo","axis":"worktree-index","path":"f.txt","op":"stage",` +
-		`"hunk":0,"diffId":"` + id + `","patch":` + quoteJSON(hostile) +
+	body := `{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"f.txt","op":"stage",` +
+		`"hunk":0,"diffId":` + testpath.JSONQuote(id) + `,"patch":` + quoteJSON(hostile) +
 		`,"body":` + quoteJSON(hostile) + `,"content":` + quoteJSON(hostile) + `}`
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/patch", body)
 	if code != http.StatusOK {
@@ -157,7 +160,7 @@ func TestGitPatch_IgnoresClientSuppliedPatch(t *testing.T) {
 func TestGitPatch_RejectsStaleObservation(t *testing.T) {
 	f := newGitPatchFake(t)
 	s := gitPatchServer(t, f)
-	body := `{"repo":"/work/repo","axis":"worktree-index","path":"f.txt","op":"stage",` +
+	body := `{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"f.txt","op":"stage",` +
 		`"hunk":0,"diffId":"낡은값"}`
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/patch", body)
 	if code != http.StatusConflict {
@@ -177,8 +180,8 @@ func TestGitPatch_RevertRequiresConfirm(t *testing.T) {
 	f := newGitPatchFake(t)
 	s := gitPatchServer(t, f)
 	id := gitPatchDiffID(t, s)
-	body := `{"repo":"/work/repo","axis":"worktree-index","path":"f.txt","op":"revert",` +
-		`"hunk":0,"diffId":"` + id + `"}`
+	body := `{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"f.txt","op":"revert",` +
+		`"hunk":0,"diffId":` + testpath.JSONQuote(id) + `}`
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/patch", body)
 	if code != http.StatusBadRequest {
 		t.Fatalf("confirm 없는 revert = %d, 기대 400: %v", code, out)
@@ -208,7 +211,7 @@ func TestGitHunks_ReturnsBoundariesAndID(t *testing.T) {
 	f := newGitPatchFake(t)
 	s := gitPatchServer(t, f)
 	code, out := gitReq(t, s, http.MethodGet,
-		"/api/git/hunks?repo=/work/repo&axis=worktree-index&path=f.txt", "")
+		"/api/git/hunks?repo="+url.QueryEscape(absWorkRepo)+"&axis=worktree-index&path=f.txt", "")
 	if code != http.StatusOK {
 		t.Fatalf("GET /api/git/hunks = %d: %v", code, out)
 	}
@@ -237,9 +240,9 @@ func TestGitPatch_RejectsBadAxisAndOp(t *testing.T) {
 	s := gitPatchServer(t, f)
 	id := gitPatchDiffID(t, s)
 	bodies := []string{
-		`{"repo":"/work/repo","axis":"index-head","path":"f.txt","op":"stage","hunk":0,"diffId":"` + id + `"}`,
-		`{"repo":"/work/repo","axis":"worktree-index","path":"f.txt","op":"nuke","hunk":0,"diffId":"` + id + `"}`,
-		`{"repo":"/work/repo","axis":"worktree-index","path":"../x","op":"stage","hunk":0,"diffId":"` + id + `"}`,
+		`{"repo":` + qWorkRepo + `,"axis":"index-head","path":"f.txt","op":"stage","hunk":0,"diffId":` + testpath.JSONQuote(id) + `}`,
+		`{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"f.txt","op":"nuke","hunk":0,"diffId":` + testpath.JSONQuote(id) + `}`,
+		`{"repo":` + qWorkRepo + `,"axis":"worktree-index","path":"../x","op":"stage","hunk":0,"diffId":` + testpath.JSONQuote(id) + `}`,
 	}
 	for _, b := range bodies {
 		code, out := gitReq(t, s, http.MethodPost, "/api/git/patch", b)

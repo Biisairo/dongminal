@@ -69,8 +69,8 @@ func WithWriteRunner(r WriteRunner) Option { return func(s *Service) { s.writeRu
 // ExecWrite 는 저장소를 변경하는 유일한 경로다 (FR-GIT-95). 거부된 호출도 기록에
 // 남는다 (FR-GIT-5) — 조용한 거부는 디버깅할 수 없다.
 //
-// **이 단계에는 호출자가 없다.** 실제 stage/unstage/discard/commit 은 10·11단계가
-// 이 골격 위에 얹는다.
+// stage/unstage/discard/commit 부터 branch/tag/remote·fetch/pull/push 까지, 쓰기
+// 표면 전부가 이 함수를 지난다.
 func (s *Service) ExecWrite(ctx context.Context, dir string, spec WriteSpec) (Output, error) {
 	if strings.TrimSpace(dir) == "" || !filepath.IsAbs(dir) {
 		return s.denyWrite(dir, spec, fmt.Errorf("%w: cwd 는 절대 경로여야 한다: %q", ErrUnsafeArgument, dir))

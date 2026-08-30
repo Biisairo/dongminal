@@ -2374,6 +2374,10 @@ body.mobile .ed-explorer{max-width:40%}
 /* FR-EDT-85: 놓을 수 있는 폴더. 테두리로 알린다 — 배경만 바꾸면 hover 와 구분되지
    않는다. */
 .ed-row.ed-drop{background:var(--accent-hover);box-shadow:inset 0 0 0 1px var(--accent)}
+/* FR-FTR-20: 루트 드롭 존 — 헤더와 트리의 빈 여백이다. 둘을 한 번에 칠해야
+   "여기 놓으면 루트로 간다" 가 한 덩어리로 보인다. */
+.ed-head.ed-drop-root{background:var(--accent-hover);box-shadow:inset 0 0 0 1px var(--accent)}
+.ed-tree.ed-drop-root{box-shadow:inset 0 0 0 1px var(--accent)}
 /* FR-EDT-92: 조작 실패의 사유. 조회 실패(`.ed-tree-err`)와 색을 달리한다 — 하나는
    보여 주지 못한 것이고 하나는 하지 못한 것이다. */
 .ed-op-err{

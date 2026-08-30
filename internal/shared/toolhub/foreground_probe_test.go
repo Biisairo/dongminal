@@ -1,4 +1,14 @@
-//go:build darwin || linux
+//go:build !windows
+
+// 전경 프로세스 그룹은 **POSIX 에만 있는 개념**이다 (CROSS_PLATFORM_SRS
+// FR-XPT-5 — Windows 의 ForegroundPGID 는 (0,false)로 고정이다). 이 파일은
+// 그 개념 자체를 검증하므로 Windows 에서 돌 자리가 없다
+// (WINDOWS_TEST_PARITY_SRS FR-WTP-30).
+//
+// TestProcNamesBatch 도 여기 있다 — pid 1 이 존재한다는 전제를 쓴다.
+//
+// FR-WTP-32 — Windows 가 이 조건에서 잃는 보증: 전경 이름 산출 전량. 대응물은
+// 없다. 그 플랫폼에서 "붙일 이름" 이라는 개념이 없기 때문이다.
 
 package toolhub
 
@@ -6,6 +16,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/platform"
 )
 
 // startProbeShell은 실제 PTY 위에 셸을 띄운다. 전경 조회는 커널의 PTY 상태를
@@ -21,6 +33,10 @@ func startProbeShell(t *testing.T) *Tool {
 	return p
 }
 
+// fgProbeID 는 조회 결과를 꺼낼 때 쓰는 도구 ID 다. foregroundNames 는 ID 로
+// 결과를 돌려주므로 요청과 같은 값을 쓴다.
+const fgProbeID = "fg-probe"
+
 // waitForName은 전경 이름이 want 가 될 때까지 기다린다. 셸이 명령을 fork 하고
 // 전경 그룹을 넘기기까지는 시간이 걸리므로 폴링한다.
 func waitForName(t *testing.T, p *Tool, want string) {
@@ -28,7 +44,7 @@ func waitForName(t *testing.T, p *Tool, want string) {
 	deadline := time.Now().Add(5 * time.Second)
 	var last string
 	for time.Now().Before(deadline) {
-		last = foregroundName(p.ptmx, p.CmdProcessPID())
+		last = foregroundNames([]fgRequest{{ID: fgProbeID, Term: p.term, ShellPID: p.CmdProcessPID()}})[fgProbeID]
 		if last == want {
 			return
 		}
@@ -71,35 +87,33 @@ func TestForegroundNamePipeline(t *testing.T) {
 
 // TestForegroundNameUnavailable은 조회 실패가 조용히 이름 없음이 되는 것을
 // 고정한다 (FR-TAN-5, V-TAN-17). PTY 가 아닌 fd·닫힌 fd·없는 pid 어느 쪽도
-// 오류가 되지 않는다.
+// 오류가 되지 않는다 — 결과 맵에 그 도구가 담기지 않는 것이 "이름 없음"이다.
 func TestForegroundNameUnavailable(t *testing.T) {
-	if got := foregroundName(nil, 1); got != "" {
-		t.Errorf("ptmx=nil → %q", got)
+	name := func(term platform.Terminal, shellPID int) string {
+		return foregroundNames([]fgRequest{{ID: fgProbeID, Term: term, ShellPID: shellPID}})[fgProbeID]
 	}
-	f, err := os.CreateTemp(t.TempDir(), "notatty")
-	if err != nil {
-		t.Fatalf("temp: %v", err)
-	}
-	defer f.Close()
-	if got := foregroundName(f, os.Getpid()); got != "" {
-		t.Errorf("tty 가 아닌 fd → %q", got)
+
+	if got := name(nil, 1); got != "" {
+		t.Errorf("터미널 없음 → %q", got)
 	}
 
 	p := startProbeShell(t)
-	if got := foregroundName(p.ptmx, 0); got != "" {
+	if got := name(p.term, 0); got != "" {
 		t.Errorf("shellPid=0 → %q", got)
 	}
-	p.ptmx.Close()
-	if got := foregroundName(p.ptmx, p.CmdProcessPID()); got != "" {
-		t.Errorf("닫힌 ptmx → %q", got)
+	p.term.Close()
+	if got := name(p.term, p.CmdProcessPID()); got != "" {
+		t.Errorf("닫힌 터미널 → %q", got)
 	}
 }
 
 // TestProcNamesBatch는 이름 읽기가 여러 pid 를 한 번에 다루는 것을 고정한다
-// (NFR-CNV-1). macOS 폴백이 도구마다 ps 를 띄우면 안 된다 (R4).
+// (NFR-CNV-1, NFR-XP-4). 구현은 platform.ProcInfo 로 옮겼지만, 이 도구가
+// 기대하는 계약은 그대로여야 하므로 검사는 여기 남는다.
 func TestProcNamesBatch(t *testing.T) {
 	self := os.Getpid()
-	got := procNames([]int{self, 1, self, -1, 0})
+	names := platform.Current().Info.Names
+	got := names([]int{self, 1, self, -1, 0})
 	if got[self] == "" {
 		t.Fatalf("자기 pid 의 이름을 못 읽었다: %v", got)
 	}
@@ -109,7 +123,7 @@ func TestProcNamesBatch(t *testing.T) {
 	if _, ok := got[-1]; ok {
 		t.Fatalf("잘못된 pid 가 결과에 들어갔다: %v", got)
 	}
-	if n := len(procNames([]int{999999999})); n != 0 {
+	if n := len(names([]int{999999999})); n != 0 {
 		t.Fatalf("없는 pid 에 %d건 — 추측하면 안 된다", n)
 	}
 }

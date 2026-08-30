@@ -157,7 +157,7 @@ func TestBlame_Argv(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			f := &blameFake{}
 			q := tc.q
-			q.Repo = "/repo"
+			q.Repo = absRepo
 			if _, err := Blame(core.New(core.WithRunner(f.run)), context.Background(), q); err != nil {
 				t.Fatalf("Blame: %v", err)
 			}
@@ -172,7 +172,7 @@ func TestBlame_Argv(t *testing.T) {
 func TestBlame_RejectsOptionLikeRev(t *testing.T) {
 	f := &blameFake{}
 	_, err := Blame(core.New(core.WithRunner(f.run)), context.Background(),
-		BlameQuery{Repo: "/repo", Rev: "--all", Path: "f.txt"})
+		BlameQuery{Repo: absRepo, Rev: "--all", Path: "f.txt"})
 	if !errors.Is(err, ErrUnsafeRev) {
 		t.Fatalf("err = %v, want ErrUnsafeRev", err)
 	}
@@ -185,7 +185,7 @@ func TestBlame_RejectsOptionLikeRev(t *testing.T) {
 func TestBlame_RejectsUnsafePath(t *testing.T) {
 	f := &blameFake{}
 	_, err := Blame(core.New(core.WithRunner(f.run)), context.Background(),
-		BlameQuery{Repo: "/repo", Path: "../etc/passwd"})
+		BlameQuery{Repo: absRepo, Path: "../etc/passwd"})
 	if err == nil {
 		t.Fatal("오류가 아니다")
 	}
@@ -199,7 +199,7 @@ func TestBlame_RejectsUnsafePath(t *testing.T) {
 func TestBlame_TruncatedOutputIsError(t *testing.T) {
 	f := &blameFake{stdout: blamePorcelain, truncated: true}
 	_, err := Blame(core.New(core.WithRunner(f.run)), context.Background(),
-		BlameQuery{Repo: "/repo", Path: "f.txt"})
+		BlameQuery{Repo: absRepo, Path: "f.txt"})
 	if !errors.Is(err, ErrBlameTruncated) {
 		t.Fatalf("err = %v, want ErrBlameTruncated", err)
 	}

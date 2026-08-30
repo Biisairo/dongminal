@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 )
 
@@ -18,7 +19,7 @@ func TestExec_RejectsWriteCommands(t *testing.T) {
 			t.Fatalf("%s 가 실행됐다 — Runner 에 도달하면 안 된다", cmd)
 			return Output{}, nil
 		}))
-		_, err := s.Exec(context.Background(), "/tmp/repo", cmd, "-m", "x")
+		_, err := s.Exec(context.Background(), absTmpRepo, cmd, "-m", "x")
 		if !errors.Is(err, ErrWriteCommand) {
 			t.Fatalf("%s: err = %v, want ErrWriteCommand", cmd, err)
 		}
@@ -128,5 +129,40 @@ func TestReadCommands_Blame(t *testing.T) {
 	}
 	if writeCommands["blame"] {
 		t.Fatal("blame 이 쓰기 목록에도 있다 — 교집합이 생겼다 (FR-GIT-95)")
+	}
+}
+
+// FR-WTP-8: 경로 가드는 **이 OS 의 구분자**로 조각을 나눠 본다.
+//
+// 슬래시만 보면 Windows 에서 `src\..\x` 가 한 조각으로 읽혀 부모 참조 검사를
+// 지나간다. path.Clean 도 슬래시만 알므로 정규형 검사에도 걸리지 않는다.
+// 이 값은 git 에 경로로 넘어가는 자리다.
+//
+// NFR-WTP-5 — 이 검사는 Windows 에서만 변별한다. POSIX 에서 `\` 는 파일
+// 이름에 쓸 수 있는 평범한 글자이고, 그쪽 조각은 종전에도 슬래시로 갈렸다.
+func TestRelPath_RejectsParentRefWithOSSeparator(t *testing.T) {
+	sep := string(filepath.Separator)
+	for _, p := range []string{
+		"src" + sep + ".." + sep + "x",
+		".." + sep + "x",
+		"a" + sep + "b" + sep + "..",
+	} {
+		if got, err := RelPath(p, ErrUnsafeArgument); err == nil {
+			t.Errorf("RelPath(%q) = %q, nil — 부모 참조를 통과시켰다", p, got)
+		}
+	}
+}
+
+// 정상 경로는 그대로 통과해야 한다 — 가드를 조인 것이지 좁힌 것이 아니다.
+func TestRelPath_KeepsOrdinaryRelativePaths(t *testing.T) {
+	for _, p := range []string{"a.txt", "src/a.txt", "디렉터리/파일.txt", "a..b", "..."} {
+		got, err := RelPath(p, ErrUnsafeArgument)
+		if err != nil {
+			t.Errorf("RelPath(%q): %v — 정상 경로를 막았다", p, err)
+			continue
+		}
+		if got != p {
+			t.Errorf("RelPath(%q) = %q — 값을 바꿔 돌려줬다", p, got)
+		}
 	}
 }

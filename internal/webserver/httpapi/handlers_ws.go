@@ -15,6 +15,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// termReset 은 이전 연결이 켜 둔 터미널 모드를 끈다 — 마우스 보고(?9·?1000~?1006·?1015),
+// 괄호 붙여넣기(?2004), 대체 화면(?1049·?47·?1047), 커서 감춤·깜빡임(?25h·?12l),
+// 자동 개행(?20l). direct 모드와 daemon 모드가 **같은 값을 보내야** 하므로 한 곳에 둔다.
+var termReset = []byte("\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l")
+
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	if s.Tools == nil {
 		http.Error(w, "tools unavailable", http.StatusInternalServerError)
@@ -53,7 +58,10 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	} else {
 		tool, err = s.Tools.Create("", cols, rows)
 		if err != nil {
-			_ = conn.Send(toolhub.OpError, []byte("create failed"))
+			// 실제 오류를 화면까지 보낸다. 고정 문구만 보내면 사용자에게는
+			// 빈 터미널과 구별되지 않고, 원인은 서버 로그에만 남는다 —
+			// 크로스플랫폼 도입 때 Windows 에서 정확히 그랬다.
+			_ = conn.Send(toolhub.OpError, []byte("도구를 만들지 못했습니다: "+err.Error()))
 			log.Printf("ws addr=%s: tool create error: %v", r.RemoteAddr, err)
 			return
 		}
@@ -62,14 +70,14 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 
 	// Branch: daemon mode vs direct mode
 	if s.Tools.IsDaemon() {
-		s.handleWSDaemon(conn, toolID, tool, cols, rows)
+		s.handleWSDaemon(conn, toolID, tool)
 	} else {
-		s.handleWSDirect(conn, tool, cols, rows, r.RemoteAddr)
+		s.handleWSDirect(conn, tool, r.RemoteAddr)
 	}
 }
 
 // handleWSDirect is the original (non-daemon) WebSocket handler.
-func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, cols, rows uint16, remoteAddr string) {
+func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remoteAddr string) {
 	if !tool.AddClient(conn) {
 		log.Printf("ws addr=%s: tool %s already exited; sent toolhub.OpExit", remoteAddr, tool.ID)
 		return
@@ -93,21 +101,18 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, cols
 	}
 	if tool.Restored {
 		tool.Restored = false
-		reset := []byte("\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l")
-		msg := make([]byte, 1+len(reset))
+		msg := make([]byte, 1+len(termReset))
 		msg[0] = toolhub.OpOutput
-		copy(msg[1:], reset)
+		copy(msg[1:], termReset)
 		if err := conn.WriteMsg(websocket.BinaryMessage, msg); err != nil {
 			log.Printf("[tool %s] reset send error addr=%s: %v", tool.ID, remoteAddr, err)
 			return
 		}
 	}
 
-	done := make(chan struct{})
 	go pingLoop(conn, tool.Wait())
 	readWSDirect(conn, tool)
 	log.Printf("ws disconnected addr=%s tool=%s", remoteAddr, tool.ID)
-	_ = done
 }
 
 // handleWSDaemon is the daemon-mode WebSocket handler.
@@ -118,13 +123,12 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, cols
 // default cols/rows (120x40), which would incorrectly resize tools owned by
 // other windows. The frontend sends the correct toolhub.OpResize via the WS binary
 // protocol after terminal open+fit, guarded by _resizeCheck (session ownership).
-func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhub.Tool, cols, rows uint16) {
+func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhub.Tool) {
 	_ = conn.Send(toolhub.OpToolID, []byte(toolID))
 
 	// Send terminal reset to clear any stale modes (mouse tracking, etc.)
 	// from a previous connection.
-	reset := []byte("\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l")
-	if err := conn.WriteMsg(websocket.BinaryMessage, append([]byte{toolhub.OpOutput}, reset...)); err != nil {
+	if err := conn.WriteMsg(websocket.BinaryMessage, append([]byte{toolhub.OpOutput}, termReset...)); err != nil {
 		return
 	}
 
@@ -227,8 +231,8 @@ func readWS(conn *toolhub.SafeConn, tool *toolhub.Tool) {
 		}
 		switch msg[0] {
 		case toolhub.OpInput:
-			if _, err := tool.PTMX().Write(msg[1:]); err != nil {
-				log.Printf("[tool %s] ptmx write error: %v", tool.ID, err)
+			if err := tool.Write(msg[1:]); err != nil {
+				log.Printf("[tool %s] 터미널 쓰기 오류: %v", tool.ID, err)
 				return
 			}
 		case toolhub.OpResize:

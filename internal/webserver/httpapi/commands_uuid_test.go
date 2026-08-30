@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"dongminal/internal/shared/workspace"
+
+	"dongminal/internal/shared/testpath"
 )
 
 type liveSet map[string]struct{}
@@ -47,7 +49,7 @@ func TestHandleCommandPost_TranslatesUUIDLocation(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	body := `{"action":"focus","args":{"location":"` + uuid + `"}}`
+	body := `{"action":"focus","args":{"location":` + testpath.JSONQuote(uuid) + `}}`
 	resp, err := http.Post(ts.URL+"/api/commands", "application/json", strings.NewReader(body))
 	if err != nil {
 		t.Fatalf("POST: %v", err)
@@ -113,8 +115,8 @@ func TestHandleCommandPost_FullStackUUID_ReflowSafety(t *testing.T) {
 	tabA := "550e8400-e29b-41d4-a716-446655440aaa"
 	tabB := "550e8400-e29b-41d4-a716-446655440bbb"
 	blob1 := `{"activeWindow":"sa","schemaVersion": 2, "windows":[
-		{"id":"sa","name":"A","focusedPane":"ra","layout":{"type":"pane","id":"ra","activeTab":"` + tabA + `","tabs":[{"id":"` + tabA + `","name":"a","toolId":"10"}]}},
-		{"id":"sb","name":"B","focusedPane":"rb","layout":{"type":"pane","id":"rb","activeTab":"` + tabB + `","tabs":[{"id":"` + tabB + `","name":"b","toolId":"20"}]}}
+		{"id":"sa","name":"A","focusedPane":"ra","layout":{"type":"pane","id":"ra","activeTab":` + testpath.JSONQuote(tabA) + `,"tabs":[{"id":` + testpath.JSONQuote(tabA) + `,"name":"a","toolId":"10"}]}},
+		{"id":"sb","name":"B","focusedPane":"rb","layout":{"type":"pane","id":"rb","activeTab":` + testpath.JSONQuote(tabB) + `,"tabs":[{"id":` + testpath.JSONQuote(tabB) + `,"name":"b","toolId":"20"}]}}
 	]}`
 	ws, err := workspace.New(liveSet{"10": {}, "20": {}}, &memPersister{})
 	if err != nil {
@@ -154,21 +156,21 @@ func TestHandleCommandPost_FullStackUUID_ReflowSafety(t *testing.T) {
 			return nil
 		}
 	}
-	payload := post(`{"action":"focus","args":{"location":"` + tabB + `"}}`)
+	payload := post(`{"action":"focus","args":{"location":` + testpath.JSONQuote(tabB) + `}}`)
 	if !strings.Contains(string(payload), `"location":"W2.P1.T1"`) {
 		t.Errorf("uuid B should resolve to W2.P1.T1, got: %s", payload)
 	}
 
 	// 2단계: 세션 A 종료. B 의 라벨이 S2 → S1 로 reflow.
 	blob2 := `{"activeWindow":"sb","schemaVersion": 2, "windows":[
-		{"id":"sb","name":"B","focusedPane":"rb","layout":{"type":"pane","id":"rb","activeTab":"` + tabB + `","tabs":[{"id":"` + tabB + `","name":"b","toolId":"20"}]}}
+		{"id":"sb","name":"B","focusedPane":"rb","layout":{"type":"pane","id":"rb","activeTab":` + testpath.JSONQuote(tabB) + `,"tabs":[{"id":` + testpath.JSONQuote(tabB) + `,"name":"b","toolId":"20"}]}}
 	]}`
 	if _, err := ws.Save([]byte(blob2), "1"); err != nil {
 		t.Fatalf("Save reflow: %v", err)
 	}
 
 	// 3단계: 같은 uuid 로 focus → 이제 W1.P1.T1 (라벨 reflow 후) 가리킴.
-	payload = post(`{"action":"focus","args":{"location":"` + tabB + `"}}`)
+	payload = post(`{"action":"focus","args":{"location":` + testpath.JSONQuote(tabB) + `}}`)
 	if !strings.Contains(string(payload), `"location":"W1.P1.T1"`) {
 		t.Errorf("after reflow, uuid B should now resolve to W1.P1.T1, got: %s", payload)
 	}
@@ -199,7 +201,7 @@ func TestHandleCommandPost_ResponseExposesTranslation(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	body := `{"action":"focus","args":{"location":"` + uuid + `"}}`
+	body := `{"action":"focus","args":{"location":` + testpath.JSONQuote(uuid) + `}}`
 	resp, err := http.Post(ts.URL+"/api/commands", "application/json", strings.NewReader(body))
 	if err != nil {
 		t.Fatalf("POST: %v", err)
@@ -238,7 +240,7 @@ func TestHandleCommandPost_ResponseCoordinateRejected(t *testing.T) {
 	defer ts.Close()
 
 	for _, badLoc := range []string{"W4.P1.T1", "4.1.1", "303"} {
-		body := `{"action":"focus","args":{"location":"` + badLoc + `"}}`
+		body := `{"action":"focus","args":{"location":` + testpath.JSONQuote(badLoc) + `}}`
 		resp, err := http.Post(ts.URL+"/api/commands", "application/json", strings.NewReader(body))
 		if err != nil {
 			t.Fatalf("POST(%s): %v", badLoc, err)
@@ -298,7 +300,7 @@ func TestHandleCommandPost_UnknownUUIDReturns400(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	body := `{"action":"focus","args":{"location":"` + uuid + `"}}`
+	body := `{"action":"focus","args":{"location":` + testpath.JSONQuote(uuid) + `}}`
 	resp, err := http.Post(ts.URL+"/api/commands", "application/json", strings.NewReader(body))
 	if err != nil {
 		t.Fatalf("POST: %v", err)

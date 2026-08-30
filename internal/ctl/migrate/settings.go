@@ -24,7 +24,10 @@ var shortcutRenames = map[string]string{
 // 무시되어 바인딩이 조용히 기본값으로 돌아간다. layoutPresets 는 레이아웃
 // 트리를 담으므로 region -> pane 도 함께 변환한다.
 //
-// 멱등하다: 구 키가 없으면 아무것도 바꾸지 않고 빈 목록을 반환한다.
+// **바꾼 것이 있을 때만 산출물을 낸다.** 바꿀 것이 없으면 (nil, nil, nil) 이다 —
+// 호출자(Apply)가 그것을 보고 파일을 건드리지 않는다. 무조건 재직렬화하면
+// "마이그레이션 대상 없음" 을 보고하면서도 사용자의 들여쓰기·키 순서를 파괴하고
+// 불필요한 백업을 남기게 된다.
 func Settings(blob []byte) ([]byte, []string, error) {
 	if len(strings.TrimSpace(string(blob))) == 0 {
 		return nil, nil, nil
@@ -34,6 +37,7 @@ func Settings(blob []byte) ([]byte, []string, error) {
 		return nil, nil, fmt.Errorf("settings 파싱: %w", err)
 	}
 
+	changed := false
 	var renamed []string
 	if sc, ok := m["shortcuts"].(map[string]interface{}); ok {
 		for old, neu := range shortcutRenames {
@@ -49,6 +53,7 @@ func Settings(blob []byte) ([]byte, []string, error) {
 			renamed = append(renamed, old+" -> "+neu)
 		}
 		sort.Strings(renamed)
+		changed = changed || len(renamed) > 0
 	}
 
 	if presets, ok := m["layoutPresets"].([]interface{}); ok {
@@ -58,9 +63,13 @@ func Settings(blob []byte) ([]byte, []string, error) {
 				continue
 			}
 			if layout, ok := p["layout"].(map[string]interface{}); ok {
-				convertLayout(layout, false)
+				changed = convertLayout(layout, false) || changed
 			}
 		}
+	}
+
+	if !changed {
+		return nil, nil, nil
 	}
 
 	out, err := json.Marshal(m)

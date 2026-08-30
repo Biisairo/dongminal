@@ -1,8 +1,7 @@
-//go:build !darwin
+//go:build !darwin && !linux && !windows
 
-// darwin 이 아닌 플랫폼용 대체다. dongminal 은 darwin 전용이며 이 파일이 그 사실을
-// 바꾸지 않는다 (SYSTEM_STATS_SRS §5) — 빌드가 깨지지 않게만 한다. 모든 지표가
-// ErrUnsupported 이므로 FR-STAT-7 경로로 응답에서 생략된다.
+// darwin·linux·windows 가 아닌 플랫폼용 대체다. 빌드가 깨지지 않게만 한다.
+// 모든 지표가 ErrUnsupported 이므로 FR-STAT-7 경로로 응답에서 생략된다.
 package sysstat
 
 import "time"

@@ -21,7 +21,7 @@ func TestDiffCommit_Argv(t *testing.T) {
 		}
 		return core.Output{Stdout: "x\n"}, nil
 	}))
-	dc, err := DiffCommit(svc, context.Background(), "/r", "aaa", "bbb", "new.txt", "old.txt")
+	dc, err := DiffCommit(svc, context.Background(), absR, "aaa", "bbb", "new.txt", "old.txt")
 	if err != nil {
 		t.Fatalf("DiffCommit: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestDiffCommit_RootCommitOriginalAbsent(t *testing.T) {
 		}
 		return core.Output{Stdout: "a\n"}, nil
 	}))
-	dc, err := DiffCommit(svc, context.Background(), "/r", "aaa", "", "f.txt", "")
+	dc, err := DiffCommit(svc, context.Background(), absR, "aaa", "", "f.txt", "")
 	if err != nil {
 		t.Fatalf("DiffCommit: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestDiffCommit_RejectsOptionLikeRev(t *testing.T) {
 		return core.Output{}, nil
 	}))
 	for _, c := range []struct{ oid, parent string }{{"-x", "bbb"}, {"aaa", "-x"}} {
-		if _, err := DiffCommit(svc, context.Background(), "/r", c.oid, c.parent, "f.txt", ""); !errors.Is(err, ErrUnsafeRev) {
+		if _, err := DiffCommit(svc, context.Background(), absR, c.oid, c.parent, "f.txt", ""); !errors.Is(err, ErrUnsafeRev) {
 			t.Fatalf("oid=%q parent=%q err = %v, want ErrUnsafeRev", c.oid, c.parent, err)
 		}
 	}
@@ -82,7 +82,7 @@ func TestDiffCommit_RejectsPathEscape(t *testing.T) {
 		t.Fatal("거부돼야 하는데 실행됐다")
 		return core.Output{}, nil
 	}))
-	if _, err := DiffCommit(svc, context.Background(), "/r", "aaa", "bbb", "../etc/passwd", ""); !errors.Is(err, ErrDiffPath) {
+	if _, err := DiffCommit(svc, context.Background(), absR, "aaa", "bbb", "../etc/passwd", ""); !errors.Is(err, ErrDiffPath) {
 		t.Fatalf("err = %v, want ErrDiffPath", err)
 	}
 }

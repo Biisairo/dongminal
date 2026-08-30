@@ -7,7 +7,7 @@ import (
 	"testing/fstest"
 )
 
-// go:embed 로 담긴 파일은 ModTime 이 zero 여서 http.FileServer 가 Last-Modified 를
+// `go:embed` 로 담긴 파일은 ModTime 이 zero 여서 http.FileServer 가 Last-Modified 를
 // 붙이지 못하고, ETag 도 없다. 검증자가 없으면 브라우저는 heuristic 으로 캐시하고
 // **새 빌드를 띄워도 옛 JS 가 돈다** — 실제로 그 혼란이 있었다.
 func staticTestServer(t *testing.T, files fstest.MapFS) http.Handler {

@@ -12,6 +12,8 @@ import (
 	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/hub"
 	"dongminal/internal/webserver/seam/toolaccess"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 H — 헤드리스 멤버 (ORCHESTRATION_V2_SRS §3.2, V-HLM-1~8).
@@ -297,7 +299,7 @@ func (f *headlessFixture) startRun(t *testing.T) string {
 func (f *headlessFixture) addHeadless(t *testing.T, runID, role string) map[string]any {
 	t.Helper()
 	code, out := postRun(t, f.s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"`+role+`","agent":"claude","headless":true,"cwd":"/repo"}`)
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":`+testpath.JSONQuote(role)+`,"agent":"claude","headless":true,"cwd":`+qRepo+`}`)
 	if code != http.StatusOK {
 		t.Fatalf("헤드리스 멤버 등록 want 200, got %d (%+v)", code, out)
 	}
@@ -312,7 +314,7 @@ func TestHeadlessMember_AtAndHeadlessAreExclusive(t *testing.T) {
 
 	// 둘 다 지정.
 	code, out := postRun(t, f.s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"w","agent":"claude","id":"tab-a","headless":true}`)
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"w","agent":"claude","id":"tab-a","headless":true}`)
 	if code != http.StatusBadRequest || out["error"] != "invalid_argument" {
 		t.Fatalf("--at + --headless want 400/invalid_argument, got %d (%+v)", code, out)
 	}
@@ -324,7 +326,7 @@ func TestHeadlessMember_AtAndHeadlessAreExclusive(t *testing.T) {
 
 	// 둘 다 없음.
 	code, out = postRun(t, f.s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"w","agent":"claude"}`)
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"w","agent":"claude"}`)
 	if code != http.StatusBadRequest || out["error"] != "invalid_argument" {
 		t.Fatalf("--at·--headless 둘 다 없음 want 400/invalid_argument, got %d (%+v)", code, out)
 	}
@@ -359,7 +361,7 @@ func TestHeadlessMember_CreatesBackgroundToolWithoutTab(t *testing.T) {
 		t.Fatalf("크기 = %dx%d, want %dx%d", cols, rows, headlessCols, headlessRows)
 	}
 	// cwd 는 서버가 확정한다 — 조정자의 cwd 다 (비격리 Run).
-	if cwd != "/repo" {
+	if cwd != absRepo {
 		t.Fatalf("cwd = %q, want /repo", cwd)
 	}
 	// V-HLM-1: 워크스페이스 탭 수가 변하지 않는다.
@@ -380,7 +382,7 @@ func TestHeadlessMember_RollsBackToolWhenRegistrationFails(t *testing.T) {
 	// 알 수 없는 에이전트 id 는 AddMember 가 거부한다 (FR-ADP-3) — 도구를 만든
 	// **뒤에** 실패하는 경로다.
 	code, out := postRun(t, f.s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"w","agent":"no-such-agent","headless":true,"cwd":"/repo"}`)
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"w","agent":"no-such-agent","headless":true,"cwd":`+qRepo+`}`)
 	if code != http.StatusBadRequest {
 		t.Fatalf("알 수 없는 에이전트 want 400, got %d (%+v)", code, out)
 	}
@@ -409,7 +411,7 @@ func TestHeadlessMember_ToolCreateFailureLeavesNothing(t *testing.T) {
 	f.hub.mu.Unlock()
 
 	code, _ := postRun(t, f.s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"w","agent":"claude","headless":true,"cwd":"/repo"}`)
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"w","agent":"claude","headless":true,"cwd":`+qRepo+`}`)
 	if code != http.StatusInternalServerError {
 		t.Fatalf("도구 생성 실패 want 500, got %d", code)
 	}
@@ -439,7 +441,7 @@ func TestRunAttachDetach_DoesNotChangeMemberState(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 		f.wi.bind(toolID, "tab-new")
 	}()
-	code, out := postRun(t, f.s, "/api/runs/attach", `{"memberId":"`+memberID+`"}`)
+	code, out := postRun(t, f.s, "/api/runs/attach", `{"memberId":`+testpath.JSONQuote(memberID)+`}`)
 	if code != http.StatusOK {
 		t.Fatalf("attach want 200, got %d (%+v)", code, out)
 	}
@@ -462,7 +464,7 @@ func TestRunAttachDetach_DoesNotChangeMemberState(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 		f.wi.unbind(toolID)
 	}()
-	code, out = postRun(t, f.s, "/api/runs/detach", `{"memberId":"`+memberID+`"}`)
+	code, out = postRun(t, f.s, "/api/runs/detach", `{"memberId":`+testpath.JSONQuote(memberID)+`}`)
 	if code != http.StatusOK {
 		t.Fatalf("detach want 200, got %d (%+v)", code, out)
 	}
@@ -549,9 +551,9 @@ func TestRunAttach_RefusalsAreEnumerated(t *testing.T) {
 
 	// 탭에 붙어 태어난 멤버는 부착 대상이 아니다.
 	_, tabbed := postRun(t, f.s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"r","agent":"claude","id":"tab-a"}`)
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"r","agent":"claude","id":"tab-a"}`)
 	tabbedID, _ := tabbed["id"].(string)
-	if code, out := postRun(t, f.s, "/api/runs/attach", `{"memberId":"`+tabbedID+`"}`); code != http.StatusConflict ||
+	if code, out := postRun(t, f.s, "/api/runs/attach", `{"memberId":`+testpath.JSONQuote(tabbedID)+`}`); code != http.StatusConflict ||
 		out["error"] != "member_attached" {
 		t.Fatalf("이미 부착된 멤버 want 409/member_attached, got %d (%+v)", code, out)
 	}
@@ -559,7 +561,7 @@ func TestRunAttach_RefusalsAreEnumerated(t *testing.T) {
 	// 헤드리스 멤버는 분리 대상이 아니다 — 이미 화면에 없다.
 	m := f.addHeadless(t, runID, "writer")
 	memberID, _ := m["id"].(string)
-	if code, out := postRun(t, f.s, "/api/runs/detach", `{"memberId":"`+memberID+`"}`); code != http.StatusConflict ||
+	if code, out := postRun(t, f.s, "/api/runs/detach", `{"memberId":`+testpath.JSONQuote(memberID)+`}`); code != http.StatusConflict ||
 		out["error"] != "member_not_attached" {
 		t.Fatalf("헤드리스 분리 want 409/member_not_attached, got %d (%+v)", code, out)
 	}
@@ -567,7 +569,7 @@ func TestRunAttach_RefusalsAreEnumerated(t *testing.T) {
 	// 도구가 죽었으면 붙일 것이 없다.
 	toolID, _ := m["toolId"].(string)
 	f.io.setHas(toolID, false)
-	if code, _ := postRun(t, f.s, "/api/runs/attach", `{"memberId":"`+memberID+`"}`); code != http.StatusNotFound {
+	if code, _ := postRun(t, f.s, "/api/runs/attach", `{"memberId":`+testpath.JSONQuote(memberID)+`}`); code != http.StatusNotFound {
 		t.Fatalf("죽은 도구 부착 want 404, got %d", code)
 	}
 }
@@ -581,7 +583,7 @@ func TestRunAttach_UnconfirmedTabLeavesRecordUntouched(t *testing.T) {
 	toolID, _ := m["toolId"].(string)
 
 	// 브라우저가 탭을 만들지 않는다. attachSettleTimeout 만큼 기다린 뒤 504.
-	code, _ := postRun(t, f.s, "/api/runs/attach", `{"memberId":"`+memberID+`"}`)
+	code, _ := postRun(t, f.s, "/api/runs/attach", `{"memberId":`+testpath.JSONQuote(memberID)+`}`)
 	if code != http.StatusGatewayTimeout {
 		t.Fatalf("미반영 부착 want 504, got %d", code)
 	}
@@ -592,7 +594,7 @@ func TestRunAttach_UnconfirmedTabLeavesRecordUntouched(t *testing.T) {
 
 	// 뒤늦게 탭이 생기면 재시도가 성공한다.
 	f.wi.bind(toolID, "tab-late")
-	if code, out := postRun(t, f.s, "/api/runs/attach", `{"memberId":"`+memberID+`"}`); code != http.StatusOK ||
+	if code, out := postRun(t, f.s, "/api/runs/attach", `{"memberId":`+testpath.JSONQuote(memberID)+`}`); code != http.StatusOK ||
 		out["tabId"] != "tab-late" {
 		t.Fatalf("재시도가 실패했다: %d (%+v)", code, out)
 	}
@@ -606,7 +608,7 @@ func TestRunAttach_NoBrowserIsRefused(t *testing.T) {
 	memberID, _ := m["id"].(string)
 	f.cmds.Remove(f.sub)
 
-	if code, _ := postRun(t, f.s, "/api/runs/attach", `{"memberId":"`+memberID+`"}`); code != http.StatusServiceUnavailable {
+	if code, _ := postRun(t, f.s, "/api/runs/attach", `{"memberId":`+testpath.JSONQuote(memberID)+`}`); code != http.StatusServiceUnavailable {
 		t.Fatalf("브라우저 없음 want 503, got %d", code)
 	}
 	_, after, _ := f.store.FindMember(memberID)
@@ -625,10 +627,10 @@ func TestRunClose_TerminatesHeadlessToolsOnly(t *testing.T) {
 
 	// 탭에 붙은 멤버도 하나 둔다 — 이쪽 도구는 닫히지 않아야 한다.
 	_, tabbed := postRun(t, f.s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"reader","agent":"claude","id":"tab-a"}`)
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"reader","agent":"claude","id":"tab-a"}`)
 	tabbedTool, _ := tabbed["toolId"].(string)
 
-	code, out := postRun(t, f.s, "/api/runs/close", `{"runId":"`+runID+`","force":true}`)
+	code, out := postRun(t, f.s, "/api/runs/close", `{"runId":`+testpath.JSONQuote(runID)+`,"force":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("close want 200, got %d (%+v)", code, out)
 	}
@@ -656,7 +658,7 @@ func TestRunClose_KeepToolsLeavesOrphansInStatus(t *testing.T) {
 	memberID, _ := m["id"].(string)
 
 	code, out := postRun(t, f.s, "/api/runs/close",
-		`{"runId":"`+runID+`","force":true,"keepTools":true}`)
+		`{"runId":`+testpath.JSONQuote(runID)+`,"force":true,"keepTools":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("close want 200, got %d (%+v)", code, out)
 	}
@@ -833,7 +835,7 @@ func TestHeadlessTool_MessageAndStatusWork(t *testing.T) {
 
 	// msg — 탭이 없어도 엔벨로프가 그 PTY 로 간다.
 	code, out := postRun(t, f.s, "/api/tools/message",
-		`{"to":"`+toolID+`","message":"시작해라"}`)
+		`{"to":`+testpath.JSONQuote(toolID)+`,"message":"시작해라"}`)
 	if code != http.StatusOK {
 		t.Fatalf("헤드리스 멤버에 msg want 200, got %d (%+v)", code, out)
 	}
@@ -846,7 +848,7 @@ func TestHeadlessTool_MessageAndStatusWork(t *testing.T) {
 
 	// 에이전트 훅이 working 을 알린다 (dmctl activity 가 하는 일).
 	if code, _ := postRun(t, f.s, "/api/tools/activity/set",
-		`{"toolId":"`+toolID+`","state":"working","tool":"Edit"}`); code != http.StatusOK {
+		`{"toolId":`+testpath.JSONQuote(toolID)+`,"state":"working","tool":"Edit"}`); code != http.StatusOK {
 		t.Fatalf("activity/set want 200, got %d", code)
 	}
 
@@ -888,7 +890,7 @@ func TestBackgroundSet_RestoreRecordsMemberTab(t *testing.T) {
 	}()
 
 	code, _ := postRun(t, f.s, "/api/tools/background/set",
-		`{"toolId":"`+toolID+`","background":false}`)
+		`{"toolId":`+testpath.JSONQuote(toolID)+`,"background":false}`)
 	if code != http.StatusOK {
 		t.Fatalf("background/set want 200, got %d", code)
 	}
@@ -935,7 +937,7 @@ func TestRunAttach_ToleratesConcurrentReconcile(t *testing.T) {
 	}
 
 	// 같은 탭이면 attach 는 성공으로 답한다.
-	code, out := postRun(t, f.s, "/api/runs/attach", `{"memberId":"`+memberID+`"}`)
+	code, out := postRun(t, f.s, "/api/runs/attach", `{"memberId":`+testpath.JSONQuote(memberID)+`}`)
 	if code != http.StatusConflict {
 		t.Fatalf("이미 부착된 멤버의 attach want 409, got %d (%+v)", code, out)
 	}

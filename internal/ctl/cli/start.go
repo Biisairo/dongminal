@@ -5,10 +5,14 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
-	"syscall"
 	"time"
+
+	"dongminal/internal/shared/platform"
+
+	"dongminal/internal/shared/dmenv"
 )
 
 // Serve는 서버를 이 프로세스로 실행하는 콜백이다. cmd/dongminal 이
@@ -75,7 +79,7 @@ func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 // 격리 값으로 채운다 (FR-ISO-1/3) — 사용자가 준 값을 조용히 무시하지 않는다.
 func resolveStartTarget(o StartOpts) (home, port string, err error) {
 	if o.Isolated && o.Home == "" {
-		home, err = os.MkdirTemp("", "dongminal-iso-")
+		home, err = os.MkdirTemp("", isolatedHomePrefix)
 		if err != nil {
 			return "", "", fmt.Errorf("격리 홈 생성 실패: %w", err)
 		}
@@ -99,36 +103,12 @@ func resolveStartTarget(o StartOpts) (home, port string, err error) {
 // startDetached는 자기 자신을 `start --foreground` 로 재실행해 detach 하고,
 // 준비를 확인한 뒤 결과를 알린다 (FR-FG-2/3/4).
 func startDetached(o StartOpts, home, host, port string, stdout, stderr io.Writer) int {
-	exe, err := os.Executable()
+	cmd, logFile, logPath, err := prepareServerCmd(home, host, port, "")
 	if err != nil {
-		fmt.Fprintf(stderr, "실행 파일 경로 확인 실패: %v\n", err)
-		return 1
-	}
-	logPath := os.Getenv(EnvLog)
-	if logPath == "" {
-		logPath = DefaultLog
-	}
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if err != nil {
-		fmt.Fprintf(stderr, "로그 파일 열기 실패: %v\n", err)
+		fmt.Fprintln(stderr, err)
 		return 1
 	}
 	defer logFile.Close()
-
-	cmd := exec.Command(exe, "start", "--foreground")
-	cmd.Env = withEnv(os.Environ(), map[string]string{
-		EnvPort: port,
-		EnvHome: home,
-		EnvHost: host,
-	},
-		// 서버는 dongminald 를, dongminald 는 도구 셸을 자식으로 낳는다. 이 두
-		// 값이 그 사슬을 타고 도구 셸까지 흘러가면 다음 재시작이 자신을 대리로
-		// 오인해 위임을 건너뛰고, 그 자리에서 데몬을 내리다 자기 PTY 와 함께
-		// 죽는다 — 서버도 데몬도 돌아오지 않는다 (FR-ACT-3a/3b).
-		EnvRestartRunner, EnvToolID)
-	cmd.Stdout = logFile
-	cmd.Stderr = logFile
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
 	fmt.Fprintf(stdout, "dongminal 기동 중 %s:%s...\n", host, port)
 	if err := cmd.Start(); err != nil {
@@ -137,15 +117,8 @@ func startDetached(o StartOpts, home, host, port string, stdout, stderr io.Write
 	}
 	fmt.Fprintf(stdout, "dongminal PID: %d\n", cmd.Process.Pid)
 
-	url := fmt.Sprintf("http://%s:%s", pingHost(host), port)
-	ready := false
-	for i := 0; i < readyTries; i++ {
-		if ping(url+"/api/ping", time.Second) {
-			ready = true
-			break
-		}
-		time.Sleep(readyInterval)
-	}
+	url := ServerURL(host, port)
+	ready := waitReady(url, readyTries, readyInterval)
 	if !ready {
 		fmt.Fprintf(stderr, "❌ 기동 실패. 로그: %s\n", logPath)
 		if t := tail(logPath, 20); t != "" {
@@ -174,10 +147,78 @@ func startDetached(o StartOpts, home, host, port string, stdout, stderr io.Write
 	return 0
 }
 
+// isolatedHomePrefix 는 격리 홈의 표지다. resolveStartTarget 이 이 접두사로 임시
+// 디렉터리를 만들고, verify 의 가드가 같은 접두사로 대상이 격리된 것인지 확인한다
+// (E2E_UNIFICATION_SRS FR-E2G-1). 한 상수인 것이 안전의 일부다 — 두 벌로 두면
+// 만드는 쪽만 바뀌었을 때 가드가 조용히 무력해진다.
+const isolatedHomePrefix = "dongminal-iso-"
+
+// prepareServerCmd 는 자기 자신을 `start --foreground` 로 끊어 띄울 cmd 를 만든다.
+// **Start 는 부르는 쪽이 한다** — 기동 직전·직후의 안내 문구가 호출자마다 다르다.
+//
+// start 와 verify 가 이 한 벌을 함께 딛는다. verify 가 겨누는 결함이 "끊어 띄운
+// 프로세스에서만" 났으므로(CROSS_PLATFORM_SRS §11.6), 기동 경로를 두 벌로 두면
+// verify 는 실제 기동 경로를 검사하지 못한다 (E2E_UNIFICATION_SRS FR-E2C-7).
+//
+// logPath 가 비면 $DONGMINAL_LOG, 그것도 비면 기본 로그 자리다.
+// 돌려주는 logFile 은 호출자가 닫는다.
+func prepareServerCmd(home, host, port, logPath string) (*exec.Cmd, *os.File, string, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("실행 파일 경로 확인 실패: %w", err)
+	}
+	if logPath == "" {
+		if logPath = os.Getenv(EnvLog); logPath == "" {
+			logPath = defaultLogFile()
+		}
+	}
+	// 로그의 상위 디렉터리는 없을 수 있다 — POSIX 의 /tmp 와 달리
+	// %LOCALAPPDATA%\dongminal 은 첫 기동 때 존재하지 않는다 (FR-XPA-2).
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		return nil, nil, logPath, fmt.Errorf("로그 디렉터리 생성 실패: %w", err)
+	}
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return nil, nil, logPath, fmt.Errorf("로그 파일 열기 실패: %w", err)
+	}
+
+	cmd := exec.Command(exe, "start", "--foreground")
+	cmd.Env = withEnv(os.Environ(), map[string]string{
+		EnvPort: port,
+		EnvHome: home,
+		EnvHost: host,
+	},
+		// 서버는 dongminald 를, dongminald 는 도구 셸을 자식으로 낳는다. 이 두
+		// 값이 그 사슬을 타고 도구 셸까지 흘러가면 다음 재시작이 자신을 대리로
+		// 오인해 위임을 건너뛰고, 그 자리에서 데몬을 내리다 자기 PTY 와 함께
+		// 죽는다 — 서버도 데몬도 돌아오지 않는다 (FR-ACT-3a/3b).
+		EnvRestartRunner, EnvToolID)
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+	platform.Current().Process.Detach(cmd)
+	return cmd, logFile, logPath, nil
+}
+
+// ServerURL 은 host·port 로 띄운 서버를 실제로 두드릴 주소다.
+func ServerURL(host, port string) string {
+	return fmt.Sprintf("http://%s:%s", pingHost(host), port)
+}
+
+// waitReady 는 /api/ping 이 응답할 때까지 기다린다.
+func waitReady(url string, tries int, interval time.Duration) bool {
+	for i := 0; i < tries; i++ {
+		if ping(url+"/api/ping", time.Second) {
+			return true
+		}
+		time.Sleep(interval)
+	}
+	return false
+}
+
 // pingHost는 0.0.0.0/:: 로 바인드했을 때 실제로 두드릴 주소다.
 func pingHost(host string) string {
 	if host == ExposeHost || host == "::" {
-		return "127.0.0.1"
+		return dmenv.DefaultHost
 	}
 	return host
 }

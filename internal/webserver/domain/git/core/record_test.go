@@ -18,13 +18,13 @@ func TestRecords_AllPaths(t *testing.T) {
 		return Output{Stderr: "fatal: bad object\n", ExitCode: 128, DurationMs: 3}, nil
 	}))
 	ctx := context.Background()
-	if _, err := s.Exec(ctx, "/tmp/repo", "status", "--porcelain"); err != nil {
+	if _, err := s.Exec(ctx, absTmpRepo, "status", "--porcelain"); err != nil {
 		t.Fatalf("성공 경로: %v", err)
 	}
-	if _, err := s.Exec(ctx, "/tmp/repo", "show", "deadbeef"); err == nil {
+	if _, err := s.Exec(ctx, absTmpRepo, "show", "deadbeef"); err == nil {
 		t.Fatal("실패 경로에서 오류가 없다")
 	}
-	if _, err := s.Exec(ctx, "/tmp/repo", "commit", "-m", "x"); !errors.Is(err, ErrWriteCommand) {
+	if _, err := s.Exec(ctx, absTmpRepo, "commit", "-m", "x"); !errors.Is(err, ErrWriteCommand) {
 		t.Fatalf("거부 경로: %v", err)
 	}
 
@@ -33,7 +33,7 @@ func TestRecords_AllPaths(t *testing.T) {
 		t.Fatalf("기록 %d 건, want 3", len(recs))
 	}
 	for i, r := range recs {
-		if len(r.Argv) == 0 || r.Cwd != "/tmp/repo" {
+		if len(r.Argv) == 0 || r.Cwd != absTmpRepo {
 			t.Fatalf("recs[%d] argv/cwd 누락: %+v", i, r)
 		}
 		if r.AtUnixMs <= 0 || r.Seq != uint64(i+1) {
@@ -106,7 +106,7 @@ func TestRecorder_Concurrent(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < 50; j++ {
-				_, _ = s.Exec(context.Background(), "/tmp/repo", "status")
+				_, _ = s.Exec(context.Background(), absTmpRepo, "status")
 			}
 		}()
 		go func() {
@@ -134,7 +134,7 @@ func TestService_DefaultRecorder(t *testing.T) {
 	s := New(WithRunner(func(_ context.Context, _ string, _ []string) (Output, error) {
 		return Output{}, nil
 	}))
-	if _, err := s.Exec(context.Background(), "/tmp/repo", "status"); err != nil {
+	if _, err := s.Exec(context.Background(), absTmpRepo, "status"); err != nil {
 		t.Fatal(err)
 	}
 	if len(s.Records(0)) != 1 {

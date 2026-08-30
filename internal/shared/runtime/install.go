@@ -11,18 +11,21 @@ package runtime
 import (
 	"embed"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 
 	"dongminal/internal/helper/runtimebin"
+	"dongminal/internal/shared/platform"
 )
 
 //go:embed all:shellhooks
 var shellhookFS embed.FS
+
+// shellHookRoot 는 임베드 트리에서 훅이 사는 곳이다. 그 아래가 OS 별로 갈린다.
+const shellHookRoot = "shellhooks"
 
 // agentplugin 은 Claude Code 플러그인 루트다. `all:` 접두사가 없으면 점으로 시작하는
 // .claude-plugin/ 이 임베드에서 빠진다 (SKILL_INJECTION_SRS FR-INJ-2).
@@ -49,9 +52,12 @@ func Install(binDir string) error {
 	if resolved, err := filepath.EvalSymlinks(self); err == nil {
 		self = resolved
 	}
+	paths := platform.Current().Paths
 	for _, name := range helperNames() {
-		dst := filepath.Join(binDir, name)
-		if err := installHelper(self, dst); err != nil {
+		// 확장자는 설치 시점에만 붙인다. helperNames() 는 multi-call 디스패치가
+		// 보는 이름이며 그쪽에는 확장자가 없다 (FR-XPA-3).
+		dst := filepath.Join(binDir, name+paths.ExeSuffix())
+		if err := paths.LinkOrCopy(self, dst); err != nil {
 			return fmt.Errorf("install helper %s: %w", name, err)
 		}
 	}
@@ -99,7 +105,13 @@ var generatedPluginPaths = []string{"hooks", "hooks/hooks.json"}
 func pruneToEmbedded(src embed.FS, root, dst string, keep []string) error {
 	want := map[string]bool{}
 	for _, k := range keep {
-		want[k] = true
+		// keep 은 fs 형태(언제나 슬래시)로 적혀 있고, 아래에서 채우는 키는
+		// filepath.Rel 이 만드는 OS 형태다. 두 형태를 섞으면 Windows 에서
+		// "hooks/hooks.json" 이 "hooks\hooks.json" 과 달라 keep 에 걸리지
+		// 않고, **설치할 때마다 방금 만든 hooks.json 을 지운다** (FR-WTP-2).
+		// 한 조각짜리("hooks")는 두 형태가 같아 살아남으므로, 디렉터리만 남고
+		// 안이 비는 모양으로 나타났다.
+		want[filepath.FromSlash(k)] = true
 	}
 	if err := fs.WalkDir(src, root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -141,6 +153,18 @@ func pruneToEmbedded(src embed.FS, root, dst string, keep []string) error {
 	return nil
 }
 
+// dmctlPath 는 훅이 부를 헬퍼의 **실제 파일 경로**다
+// (WINDOWS_TEST_PARITY_SRS D6, FR-WTP-6).
+//
+// 설치는 헬퍼를 `name+ExeSuffix()` 로 깐다(위 installHelpers). 훅에 적는 경로가
+// 확장자를 빼먹으면 Windows 에서 `...\bin\dmctl` 을 가리키는데 실재하는 것은
+// `dmctl.exe` 다. cmd 의 PATHEXT 해석이 이것을 가려 줄 수는 있으나, 그것은
+// 훅을 무엇이 실행하느냐에 달린 우연이다 — 같은 이름을 두 곳에서 다르게
+// 만들지 않는다.
+func dmctlPath(binDir string) string {
+	return filepath.Join(binDir, "dmctl"+platform.Current().Paths.ExeSuffix())
+}
+
 // installAgentPluginHooks writes the plugin's SessionStart hook. dmctl is
 // referenced by absolute path for the same reason installAgentHooks does it —
 // a stale dmctl earlier in PATH would not understand `agent-context`.
@@ -155,7 +179,7 @@ func installAgentPluginHooks(binDir, pluginDir string) error {
 				"matcher": "",
 				"hooks": []any{map[string]any{
 					"type":    "command",
-					"command": filepath.Join(binDir, "dmctl") + " agent-context",
+					"command": dmctlPath(binDir) + " agent-context",
 				}},
 			}},
 		},
@@ -177,7 +201,7 @@ func installAgentHooks(binDir string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	dmctl := filepath.Join(binDir, "dmctl")
+	dmctl := dmctlPath(binDir)
 	notifyHook := func(label string) map[string]any {
 		return map[string]any{"type": "command", "command": dmctl + " notify " + label}
 	}
@@ -205,38 +229,15 @@ func installAgentHooks(binDir string) error {
 	return os.WriteFile(filepath.Join(dir, "claude.json"), blob, 0o644)
 }
 
-func installHelper(self, dst string) error {
-	if existing, err := os.Readlink(dst); err == nil && existing == self {
-		return nil
-	}
-	if err := os.Remove(dst); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	if err := os.Symlink(self, dst); err == nil {
-		return nil
-	}
-	return copyFile(self, dst, 0o755)
-}
-
-func copyFile(src, dst string, mode os.FileMode) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(out, in); err != nil {
-		out.Close()
-		return err
-	}
-	return out.Close()
-}
-
+// installShellHooks 는 **이 OS 의** 훅만 푼다. 모든 OS 의 훅을 다 풀면 쓰이지도
+// 않는 파일이 binDir 에 쌓이고, 어느 것이 살아 있는지 알 수 없게 된다
+// (CROSS_PLATFORM_SRS FR-XSH-4).
+//
+// 푸는 위치는 종전과 같다 — <binDir>/bash-hook.sh 는 그대로다. 바뀐 것은
+// 임베드 트리의 소스 자리뿐이라, 살아 있는 도구의 BASH_ENV 가 깨지지 않는다.
 func installShellHooks(binDir string) error {
-	return unpackEmbedded(shellhookFS, "shellhooks", binDir)
+	root := path.Join(shellHookRoot, platform.Current().Shell.HookRoot())
+	return unpackEmbedded(shellhookFS, root, binDir)
 }
 
 // unpackEmbedded는 embedded FS 의 root 서브트리를 dst 아래로 전개한다. 매 호출마다

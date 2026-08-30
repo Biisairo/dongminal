@@ -236,43 +236,6 @@ func TestFreePort(t *testing.T) {
 	}
 }
 
-// FR-OPN-2: 브라우저 명령 조립.
-
-func TestBrowserCommand_Darwin(t *testing.T) {
-	name, args, err := BrowserCommand("darwin", "http://x", func(string) (string, error) { return "", os.ErrNotExist })
-	if err != nil {
-		t.Fatal(err)
-	}
-	if name != "open" || strings.Join(args, " ") != "-na Google Chrome --args --app=http://x" {
-		t.Errorf("%s %v", name, args)
-	}
-}
-
-func TestBrowserCommand_LinuxPicksFirstFound(t *testing.T) {
-	name, args, err := BrowserCommand("linux", "http://x", func(b string) (string, error) {
-		if b == "chromium" {
-			return "/usr/bin/chromium", nil
-		}
-		return "", os.ErrNotExist
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if name != "/usr/bin/chromium" || args[0] != "--app=http://x" {
-		t.Errorf("%s %v", name, args)
-	}
-}
-
-func TestBrowserCommand_Errors(t *testing.T) {
-	miss := func(string) (string, error) { return "", os.ErrNotExist }
-	if _, _, err := BrowserCommand("linux", "http://x", miss); err == nil {
-		t.Error("브라우저가 없는데 성공했다")
-	}
-	if _, _, err := BrowserCommand("plan9", "http://x", miss); err == nil {
-		t.Error("미지원 OS 인데 성공했다")
-	}
-}
-
 // FR-FG-4: 자식 환경변수에 중복 키를 남기지 않는다.
 
 func TestWithEnv_Overrides(t *testing.T) {

@@ -14,7 +14,7 @@ import (
 // 13단계 — Fetch / Pull / Push 의 argv (GIT_SRS §3B.1 FR-GIT-98~106,
 // 검증 V41·V43·V44).
 
-const remoteRepo = "/work/repo"
+var remoteRepo = absWorkRepo
 
 // remoteFake 는 status 와 config 만 답한다. 원격 작업의 argv 는 이 둘로 결정된다.
 type remoteFake struct {

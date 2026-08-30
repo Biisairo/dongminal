@@ -13,13 +13,13 @@ import (
 
 func TestLinkPinAdd_CreatesEditorRow(t *testing.T) {
 	// V-EDT-17 (FR-EDT-31)
-	got := LinkPinAdd(Lists{}, "/work/repo", "/home/u")
-	want := Lists{Pinned: []string{"/work/repo"}, Editors: []string{"/work/repo"}}
+	got := LinkPinAdd(Lists{}, absWorkRepo, absHomeU)
+	want := Lists{Pinned: []string{absWorkRepo}, Editors: []string{absWorkRepo}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got=%v want=%v", got, want)
 	}
 	// 이미 있으면 아무 일도 하지 않는다.
-	again := LinkPinAdd(got, "/work/repo", "/home/u")
+	again := LinkPinAdd(got, absWorkRepo, absHomeU)
 	if !reflect.DeepEqual(again, want) {
 		t.Fatalf("멱등이 아니다: %v", again)
 	}
@@ -27,25 +27,25 @@ func TestLinkPinAdd_CreatesEditorRow(t *testing.T) {
 
 func TestLinkPinAdd_HomeMakesNoEditorRow(t *testing.T) {
 	// V-EDT-25 (FR-EDT-37)
-	got := LinkPinAdd(Lists{}, "/home/u", "/home/u")
+	got := LinkPinAdd(Lists{}, absHomeU, absHomeU)
 	if len(got.Editors) != 0 {
 		t.Fatalf("홈 핀이 editor 행을 만들었다: %v", got.Editors)
 	}
-	if len(got.Pinned) != 1 || got.Pinned[0] != "/home/u" {
+	if len(got.Pinned) != 1 || got.Pinned[0] != absHomeU {
 		t.Fatalf("pinned=%v", got.Pinned)
 	}
 }
 
 func TestLinkPinRemove_RemovesEditorRow(t *testing.T) {
 	// V-EDT-18 (FR-EDT-32)
-	cur := Lists{Pinned: []string{"/a", "/b"}, Editors: []string{"/a", "/b"}}
-	got := LinkPinRemove(cur, "/a", "/home/u")
-	want := Lists{Pinned: []string{"/b"}, Editors: []string{"/b"}}
+	cur := Lists{Pinned: []string{absA, absB}, Editors: []string{absA, absB}}
+	got := LinkPinRemove(cur, absA, absHomeU)
+	want := Lists{Pinned: []string{absB}, Editors: []string{absB}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got=%v want=%v", got, want)
 	}
 	// 없는 것을 지워도 아무 일도 없다.
-	if again := LinkPinRemove(got, "/zzz", "/home/u"); !reflect.DeepEqual(again, want) {
+	if again := LinkPinRemove(got, "/zzz", absHomeU); !reflect.DeepEqual(again, want) {
 		t.Fatalf("없는 핀 제거가 목록을 바꿨다: %v", again)
 	}
 }
@@ -53,8 +53,8 @@ func TestLinkPinRemove_RemovesEditorRow(t *testing.T) {
 func TestLinkPinRemove_HomeKeepsNothingToRemove(t *testing.T) {
 	// V-EDT-25 (FR-EDT-38): 홈은 애초에 editors.list 에 없다. 손상된 문서로
 	// 들어 있더라도 root 행의 근거를 지우지 않는다.
-	cur := Lists{Pinned: []string{"/home/u"}, Editors: []string{"/home/u"}}
-	got := LinkPinRemove(cur, "/home/u", "/home/u")
+	cur := Lists{Pinned: []string{absHomeU}, Editors: []string{absHomeU}}
+	got := LinkPinRemove(cur, absHomeU, absHomeU)
 	if len(got.Pinned) != 0 {
 		t.Fatalf("pinned=%v", got.Pinned)
 	}
@@ -65,11 +65,11 @@ func TestLinkPinRemove_HomeKeepsNothingToRemove(t *testing.T) {
 
 func TestLinkEditorAdd_PinsRepoRootOnly(t *testing.T) {
 	// V-EDT-19·20 (FR-EDT-33)
-	root := LinkEditorAdd(Lists{}, "/work/repo", "/home/u", true)
-	if len(root.Pinned) != 1 || root.Pinned[0] != "/work/repo" {
+	root := LinkEditorAdd(Lists{}, absWorkRepo, absHomeU, true)
+	if len(root.Pinned) != 1 || root.Pinned[0] != absWorkRepo {
 		t.Fatalf("저장소 루트인데 핀이 없다: %v", root.Pinned)
 	}
-	inside := LinkEditorAdd(Lists{}, "/work/repo/sub", "/home/u", false)
+	inside := LinkEditorAdd(Lists{}, absWorkRepoSub, absHomeU, false)
 	if len(inside.Pinned) != 0 {
 		t.Fatalf("루트가 아닌데 핀이 생겼다: %v", inside.Pinned)
 	}
@@ -80,7 +80,7 @@ func TestLinkEditorAdd_PinsRepoRootOnly(t *testing.T) {
 
 func TestLinkEditorAdd_HomeIsNoop(t *testing.T) {
 	// V-EDT-8 (FR-EDT-16): root 행이 그 경로를 대표하므로 목록이 변하지 않는다.
-	got := LinkEditorAdd(Lists{}, "/home/u", "/home/u", true)
+	got := LinkEditorAdd(Lists{}, absHomeU, absHomeU, true)
 	if len(got.Editors) != 0 || len(got.Pinned) != 0 {
 		t.Fatalf("홈 추가가 목록을 바꿨다: %v", got)
 	}
@@ -88,8 +88,8 @@ func TestLinkEditorAdd_HomeIsNoop(t *testing.T) {
 
 func TestLinkEditorRemove_RemovesPin(t *testing.T) {
 	// V-EDT-21 (FR-EDT-34)
-	cur := Lists{Pinned: []string{"/a"}, Editors: []string{"/a"}}
-	got := LinkEditorRemove(cur, "/a", "/home/u")
+	cur := Lists{Pinned: []string{absA}, Editors: []string{absA}}
+	got := LinkEditorRemove(cur, absA, absHomeU)
 	if len(got.Pinned) != 0 || len(got.Editors) != 0 {
 		t.Fatalf("got=%v", got)
 	}
@@ -99,7 +99,7 @@ func TestLinkEditorRemove_RemovesPin(t *testing.T) {
 // 빠져 있으면 `editors/remove ~` 가 홈의 git 핀만 지운다 — 사용자가 지운 적
 // 없는 핀이 사라진다.
 func TestLinkEditorRemove_HomeIsNoop(t *testing.T) {
-	home := "/home/u"
+	home := absHomeU
 	cur := Lists{Pinned: []string{home, "/other"}, Editors: []string{"/other"}}
 	got := LinkEditorRemove(cur, home, home)
 	if len(got.Pinned) != 2 || got.Pinned[0] != home {

@@ -13,7 +13,7 @@ import (
 
 // staticHandler 는 정적 자산에 **내용 기반 ETag** 를 붙인다.
 //
-// go:embed 로 담긴 파일은 ModTime 이 zero 여서 http.FileServer 가 Last-Modified 를
+// `go:embed` 로 담긴 파일은 ModTime 이 zero 여서 http.FileServer 가 Last-Modified 를
 // 붙이지 못한다. 검증자가 하나도 없으면 브라우저는 heuristic 으로 캐시하고, 새
 // 빌드를 띄워도 옛 JS 가 계속 돈다 — 실제로 그 혼란이 있었다 (Add 다이얼로그가
 // 바뀌었는데 브라우저 프롬프트가 떴다).

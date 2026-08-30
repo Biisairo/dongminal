@@ -10,11 +10,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/platform"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // ── ToolClient tests ────────────────────────────────────────────────────
@@ -177,6 +180,7 @@ func TestToolClientReconnect(t *testing.T) {
 	os.MkdirAll(dataDir, 0o755)
 
 	pm1 := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm1.StopSaving)
 	ps1 := ipc.NewPanedServer(pm1, sockPath, "")
 	ps1.Listen()
 	go func() { ps1.Accept() }()
@@ -189,6 +193,7 @@ func TestToolClientReconnect(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	pm2 := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm2.StopSaving)
 	pm2.LoadAll(map[string]struct{}{toolID: {}})
 	if !pm2.IsLive(toolID) {
 		t.Fatalf("tool %s should be live after LoadAll", toolID)
@@ -200,7 +205,7 @@ func TestToolClientReconnect(t *testing.T) {
 func startFakePaned(t *testing.T, handler func(toolipc.PanedRequest) interface{}) string {
 	t.Helper()
 	sockPath := t.TempDir() + "/s"
-	ln, _ := net.Listen("unix", sockPath)
+	ln, _ := platform.Current().IPC.Listen(sockPath)
 
 	go func() {
 		conn, _ := ln.Accept()
@@ -236,6 +241,7 @@ func TestToolClientAutoReconnect(t *testing.T) {
 	}
 
 	pm1 := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm1.StopSaving)
 	ps1 := ipc.NewPanedServer(pm1, sockPath, "")
 	if err := ps1.Listen(); err != nil {
 		t.Fatalf("Listen1: %v", err)
@@ -257,6 +263,7 @@ func TestToolClientAutoReconnect(t *testing.T) {
 
 	// Bring up a replacement daemon on the same socket.
 	pm2 := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm2.StopSaving)
 	pm2.LoadAll(allToolIDs(dataDir))
 	ps2 := ipc.NewPanedServer(pm2, sockPath, "")
 	if err := ps2.Listen(); err != nil {
@@ -284,7 +291,7 @@ func TestToolClientCallTimeout(t *testing.T) {
 	}
 	d := t.TempDir()
 	sockPath := d + "/s"
-	ln, err := net.Listen("unix", sockPath)
+	ln, err := platform.Current().IPC.Listen(sockPath)
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
@@ -318,6 +325,7 @@ func TestToolClientConnected(t *testing.T) {
 	sockPath := d + "/s"
 	os.MkdirAll(d+"/d", 0o755)
 	pm := toolhub.NewToolManager(d+"/d", nil)
+	t.Cleanup(pm.StopSaving)
 	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -380,6 +388,13 @@ func allToolIDs(dataDir string) map[string]struct{} {
 // 직접 비교한다: pm.List()가 direct 모드가 보는 것이고, pc.List()가 데몬 모드가
 // 소켓 너머로 받는 것이다.
 func TestToolClientForegroundNameOverIPC(t *testing.T) {
+	// 전경 프로세스 그룹은 POSIX 에만 있다 (FR-XPT-5 — Windows 의
+	// ForegroundPGID 는 (0,false) 고정). 건너뛴 사실이 출력에 남도록
+	// 빌드 태그가 아니라 Skip 으로 적는다 (FR-WTP-32).
+	if !testpath.ForegroundGroups() {
+		t.Skip("전경 프로세스 그룹이 없는 OS 다 — 붙일 이름이라는 개념이 없다")
+	}
+
 	t.Setenv("SHELL", "/bin/sh")
 	d := t.TempDir()
 	sockPath := d + "/s"
@@ -387,6 +402,7 @@ func TestToolClientForegroundNameOverIPC(t *testing.T) {
 	os.MkdirAll(dataDir, 0o755)
 
 	pm := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm.StopSaving)
 	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -461,7 +477,7 @@ func TestToolClientForegroundNameOverIPC(t *testing.T) {
 // 실리므로 잃는 것이 없다.
 func TestToolClientForegroundPushDispatch(t *testing.T) {
 	sockPath := t.TempDir() + "/s"
-	ln, err := net.Listen("unix", sockPath)
+	ln, err := platform.Current().IPC.Listen(sockPath)
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}

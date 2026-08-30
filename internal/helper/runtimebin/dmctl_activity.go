@@ -53,7 +53,7 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	if !ok {
 		return 0
 	}
-	toolID := os.Getenv("DONGMINAL_TOOL_ID")
+	toolID := selfToolID()
 	if toolID == "" {
 		return 0
 	}

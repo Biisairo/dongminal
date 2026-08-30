@@ -23,7 +23,7 @@ func TestStore_AcceptsPreassignedIdentifiers(t *testing.T) {
 	rec, err := s.Start(StartOptions{
 		ID: runID, Objective: "격리 팬아웃", Projection: DedicatedWindow,
 		Isolation: IsolationPerRun, CoordinatorToolID: "t1",
-		Repo: "/repo", Base: "main", Worktree: wt,
+		Repo: absRepo, Base: "main", Worktree: wt,
 	})
 	if err != nil {
 		t.Fatalf("Start: %v", err)
@@ -31,7 +31,7 @@ func TestStore_AcceptsPreassignedIdentifiers(t *testing.T) {
 	if rec.ID != runID || rec.Short != runID[:8] {
 		t.Fatalf("미리 정한 id 가 반영되지 않았다: %+v", rec)
 	}
-	if rec.Repo != "/repo" || rec.Base != "main" || rec.Worktree == nil || rec.Worktree.Branch != wt.Branch {
+	if rec.Repo != absRepo || rec.Base != "main" || rec.Worktree == nil || rec.Worktree.Branch != wt.Branch {
 		t.Fatalf("격리 정보가 기록되지 않았다: %+v", rec)
 	}
 
@@ -71,7 +71,7 @@ func TestStore_MarksWorktreeResidue(t *testing.T) {
 	wtB := &Worktree{Path: "/home/worktrees/r/b", Branch: "dmn/r/b", Base: "main"}
 	rec, err := s.Start(StartOptions{
 		Objective: "격리", Projection: DedicatedWindow, Isolation: IsolationPerMember,
-		CoordinatorToolID: "t1", Repo: "/repo", Base: "main",
+		CoordinatorToolID: "t1", Repo: absRepo, Base: "main",
 	})
 	if err != nil {
 		t.Fatalf("Start: %v", err)

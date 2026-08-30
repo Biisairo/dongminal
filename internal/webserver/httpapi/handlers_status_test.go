@@ -21,6 +21,7 @@ import (
 func statusServer(t *testing.T) (*Server, *toolhub.ToolManager, *toolhub.Tool) {
 	t.Helper()
 	m := toolhub.NewToolManager("", nil)
+	t.Cleanup(m.StopSaving)
 	p := &toolhub.Tool{ID: "p1"}
 	m.Adopt(p)
 
@@ -267,6 +268,7 @@ func TestToolStatus_DirectDaemonParity(t *testing.T) {
 
 	// direct: 상태는 toolhub.ToolManager 의 toolhub.Tool 에 있다.
 	m := toolhub.NewToolManager("", nil)
+	t.Cleanup(m.StopSaving)
 	dp := &toolhub.Tool{ID: "p1"}
 	m.Adopt(dp)
 	dp.SetActivity("working", "Edit", "a.go")

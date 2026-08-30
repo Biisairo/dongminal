@@ -80,7 +80,7 @@ func TestOperation_DestructiveInRecord(t *testing.T) {
 	} {
 		f := &writeFake{}
 		s := core.New(core.WithWriteRunner(f.runner))
-		if _, err := Operation(s, ctx, "/tmp/repo", query.OpRebase, tc.action); err != nil {
+		if _, err := Operation(s, ctx, absTmpRepo, query.OpRebase, tc.action); err != nil {
 			t.Fatalf("%s: %v", tc.action, err)
 		}
 		recs := s.Records(0)

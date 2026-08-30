@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 E — 창 포커스 소유권 (SRS §3.5 FR-XDF-*, §4.5 TC-XDF-*)
@@ -58,7 +60,7 @@ func waitOwner(t *testing.T, srv *Server, windowID, want string) {
 
 func claimHTTP(t *testing.T, ts *httptest.Server, clientID, windowID string) {
 	t.Helper()
-	body := `{"clientId":"` + clientID + `","windowId":"` + windowID + `"}`
+	body := `{"clientId":` + testpath.JSONQuote(clientID) + `,"windowId":` + testpath.JSONQuote(windowID) + `}`
 	resp, err := http.Post(ts.URL+"/api/focus/claim", "application/json", strings.NewReader(body))
 	if err != nil {
 		t.Fatalf("POST claim: %v", err)

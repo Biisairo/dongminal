@@ -10,6 +10,7 @@ import (
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
+	"net/url"
 )
 
 // 묶음 F 서버측 — /api/git/diff-content (GIT_SRS §3.6 FR-GIT-44~48·54·62, 검증 V10).
@@ -177,7 +178,7 @@ func TestAPIGitDiffContent_Rejects(t *testing.T) {
 // git 표면이 구성되지 않으면 503 이고 다른 동작에는 영향이 없다.
 func TestAPIGitDiffContent_Unavailable(t *testing.T) {
 	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}}
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/diff-content?repo=/r&axis=index-head&path=a.txt", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/diff-content?repo="+url.QueryEscape(absR)+"&axis=index-head&path=a.txt", "")
 	if code != http.StatusServiceUnavailable || out["error"] != "git_unavailable" {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}

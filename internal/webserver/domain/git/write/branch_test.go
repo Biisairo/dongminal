@@ -79,7 +79,7 @@ func TestCheckout_ForceDeclaredDestructive(t *testing.T) {
 	for _, force := range []bool{false, true} {
 		f := &writeFake{}
 		s := core.New(core.WithRunner(headRunner), core.WithWriteRunner(f.runner))
-		if _, err := Checkout(s, ctx, "/tmp/repo", CheckoutOpts{Ref: "main", Force: force}); err != nil {
+		if _, err := Checkout(s, ctx, absTmpRepo, CheckoutOpts{Ref: "main", Force: force}); err != nil {
 			t.Fatalf("Checkout(force=%v): %v", force, err)
 		}
 		recs := s.Records(0)
@@ -447,7 +447,7 @@ func TestUpstreamArgs(t *testing.T) {
 	}
 	f := &writeFake{}
 	s := core.New(core.WithWriteRunner(f.runner))
-	if _, err := SetUpstream(s, context.Background(), "/tmp/repo",
+	if _, err := SetUpstream(s, context.Background(), absTmpRepo,
 		UpstreamOpts{Branch: "feat", Unset: true}); err != nil {
 		t.Fatalf("SetUpstream: %v", err)
 	}

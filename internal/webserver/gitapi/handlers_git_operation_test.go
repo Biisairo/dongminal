@@ -29,7 +29,7 @@ func TestAPIGitOperation_AbortRequiresConfirm(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/operation",
-		`{"repo":"/work/repo","kind":"rebase","action":"abort"}`)
+		`{"repo":`+qWorkRepo+`,"kind":"rebase","action":"abort"}`)
 	if code != http.StatusBadRequest || out["error"] != gitErrConfirmRequired {
 		t.Fatalf("→ %d %v, want 400 %s", code, out["error"], gitErrConfirmRequired)
 	}
@@ -42,9 +42,9 @@ func TestAPIGitOperation_AbortRequiresConfirm(t *testing.T) {
 // gitApply 를 지나면 500 이 되어 클라이언트가 자기 요청이 틀렸음을 알 수 없다.
 func TestAPIGitOperation_RejectsUnknownCombo(t *testing.T) {
 	for _, body := range []string{
-		`{"repo":"/work/repo","kind":"merge","action":"skip"}`,
-		`{"repo":"/work/repo","kind":"bisect","action":"abort","confirm":true}`,
-		`{"repo":"/work/repo","kind":"rebase","action":"start"}`,
+		`{"repo":` + qWorkRepo + `,"kind":"merge","action":"skip"}`,
+		`{"repo":` + qWorkRepo + `,"kind":"bisect","action":"abort","confirm":true}`,
+		`{"repo":` + qWorkRepo + `,"kind":"rebase","action":"start"}`,
 	} {
 		f := newGitM5Fake(t)
 		opInProgress(t, f, "rebase-merge")
@@ -66,7 +66,7 @@ func TestAPIGitOperation_MismatchIsRefused(t *testing.T) {
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/operation",
-		`{"repo":"/work/repo","kind":"rebase","action":"abort","confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"kind":"rebase","action":"abort","confirm":true}`)
 	if code != http.StatusConflict || out["error"] != gitErrNoOperation {
 		t.Fatalf("→ %d %v, want 409 %s", code, out["error"], gitErrNoOperation)
 	}
@@ -81,7 +81,7 @@ func TestAPIGitOperation_MismatchIsRefused(t *testing.T) {
 	}
 	s2 := gitM5Server(t, f2)
 	code, out = gitReq(t, s2, http.MethodPost, "/api/git/operation",
-		`{"repo":"/work/repo","kind":"rebase","action":"abort","confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"kind":"rebase","action":"abort","confirm":true}`)
 	if code != http.StatusConflict || out["error"] != gitErrOperationMismatch {
 		t.Fatalf("→ %d %v, want 409 %s", code, out["error"], gitErrOperationMismatch)
 	}
@@ -96,9 +96,9 @@ func TestAPIGitOperation_RunsMatchingAction(t *testing.T) {
 		marker, body string
 		want         string
 	}{
-		{"rebase-merge", `{"repo":"/work/repo","kind":"rebase","action":"continue"}`, "rebase --continue"},
-		{"rebase-merge", `{"repo":"/work/repo","kind":"rebase","action":"skip"}`, "rebase --skip"},
-		{"rebase-merge", `{"repo":"/work/repo","kind":"rebase","action":"abort","confirm":true}`, "rebase --abort"},
+		{"rebase-merge", `{"repo":` + qWorkRepo + `,"kind":"rebase","action":"continue"}`, "rebase --continue"},
+		{"rebase-merge", `{"repo":` + qWorkRepo + `,"kind":"rebase","action":"skip"}`, "rebase --skip"},
+		{"rebase-merge", `{"repo":` + qWorkRepo + `,"kind":"rebase","action":"abort","confirm":true}`, "rebase --abort"},
 	} {
 		f := newGitM5Fake(t)
 		opInProgress(t, f, tc.marker)
@@ -131,7 +131,7 @@ func TestAPIGitOperation_RouteRegisteredAndUnavailable(t *testing.T) {
 	}
 	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/operation",
-		`{"repo":"/work/repo","kind":"rebase","action":"continue"}`)
+		`{"repo":`+qWorkRepo+`,"kind":"rebase","action":"continue"}`)
 	if code != http.StatusServiceUnavailable || out["error"] != gitErrUnavailable {
 		t.Fatalf("→ %d %v, want 503 %s", code, out["error"], gitErrUnavailable)
 	}

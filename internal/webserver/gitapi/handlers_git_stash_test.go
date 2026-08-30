@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"dongminal/internal/webserver/domain/git/core"
+	"net/url"
 )
 
 // 묶음 O 서버측 — /api/git/stash{,/push,/apply,/pop,/drop,/show}
@@ -36,7 +37,7 @@ func TestAPIGitStashList(t *testing.T) {
 	f.stashes = gitStashTwo
 	s := gitM5Server(t, f)
 
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash?repo=/work/repo", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash?repo="+url.QueryEscape(absWorkRepo), "")
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -68,7 +69,7 @@ func TestAPIGitStashPush(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/push",
-		`{"repo":"/work/repo","message":"작업 중","includeUntracked":true,"keepIndex":true}`)
+		`{"repo":`+qWorkRepo+`,"message":"작업 중","includeUntracked":true,"keepIndex":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -94,8 +95,8 @@ func TestAPIGitStashPush_NothingToStash(t *testing.T) {
 		status string
 		body   string
 	}{
-		{"변경 없음", gitCleanStatus(), `{"repo":"/work/repo"}`},
-		{"untracked 만 + -u 없음", gitUntrackedStatus(), `{"repo":"/work/repo"}`},
+		{"변경 없음", gitCleanStatus(), `{"repo":` + qWorkRepo + `}`},
+		{"untracked 만 + -u 없음", gitUntrackedStatus(), `{"repo":` + qWorkRepo + `}`},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -121,7 +122,7 @@ func TestAPIGitStashPush_NothingToStash(t *testing.T) {
 	f.status = gitUntrackedStatus()
 	s := gitM5Server(t, f)
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/push",
-		`{"repo":"/work/repo","includeUntracked":true}`)
+		`{"repo":`+qWorkRepo+`,"includeUntracked":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -134,9 +135,9 @@ func TestAPIGitStashApplyPop_Args(t *testing.T) {
 		body string
 		want []string
 	}{
-		{"/api/git/stash/apply", `{"repo":"/work/repo","index":1}`, []string{"stash", "apply", "stash@{1}"}},
-		{"/api/git/stash/apply", `{"repo":"/work/repo","index":0,"withIndex":true}`, []string{"stash", "apply", "--index", "stash@{0}"}},
-		{"/api/git/stash/pop", `{"repo":"/work/repo","index":1}`, []string{"stash", "pop", "stash@{1}"}},
+		{"/api/git/stash/apply", `{"repo":` + qWorkRepo + `,"index":1}`, []string{"stash", "apply", "stash@{1}"}},
+		{"/api/git/stash/apply", `{"repo":` + qWorkRepo + `,"index":0,"withIndex":true}`, []string{"stash", "apply", "--index", "stash@{0}"}},
+		{"/api/git/stash/pop", `{"repo":` + qWorkRepo + `,"index":1}`, []string{"stash", "pop", "stash@{1}"}},
 	}
 	for _, c := range cases {
 		t.Run(fmt.Sprint(c.want), func(t *testing.T) {
@@ -178,7 +179,7 @@ func TestAPIGitStashPop_ConflictKeepsStash(t *testing.T) {
 	}
 	s := gitM5Server(t, f)
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/pop", `{"repo":"/work/repo","index":1}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/pop", `{"repo":`+qWorkRepo+`,"index":1}`)
 	if code != http.StatusConflict || out["error"] != gitErrStashKept {
 		t.Fatalf("code = %d, error = %v, want 409 stash_kept", code, out["error"])
 	}
@@ -205,7 +206,7 @@ func TestAPIGitStashDrop_RequiresConfirm(t *testing.T) {
 	f.stashes = gitStashTwo
 	s := gitM5Server(t, f)
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/drop", `{"repo":"/work/repo","index":0}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/drop", `{"repo":`+qWorkRepo+`,"index":0}`)
 	if code != http.StatusBadRequest || out["error"] != gitErrConfirmRequired {
 		t.Fatalf("code = %d, error = %v, want 400 confirmation_required", code, out["error"])
 	}
@@ -222,7 +223,7 @@ func TestAPIGitStashDrop_RecordsHint(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/drop",
-		`{"repo":"/work/repo","index":1,"confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"index":1,"confirm":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -257,7 +258,7 @@ func TestAPIGitStashShow(t *testing.T) {
 	f.show = "R094\x00old.txt\x00new.txt\x00"
 	s := gitM5Server(t, f)
 
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash/show?repo=/work/repo&index=2", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash/show?repo="+url.QueryEscape(absWorkRepo)+"&index=2", "")
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -284,7 +285,7 @@ func TestAPIGitStash_NegativeIndex(t *testing.T) {
 		f := newGitM5Fake(t)
 		f.stashes = gitStashTwo
 		s := gitM5Server(t, f)
-		code, out := gitReq(t, s, http.MethodPost, path, `{"repo":"/work/repo","index":-1}`)
+		code, out := gitReq(t, s, http.MethodPost, path, `{"repo":`+qWorkRepo+`,"index":-1}`)
 		if code != http.StatusBadRequest || out["error"] != gitErrBadRequest {
 			t.Fatalf("%s → %d %v, want 400 bad_request", path, code, out["error"])
 		}
@@ -294,7 +295,7 @@ func TestAPIGitStash_NegativeIndex(t *testing.T) {
 	}
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash/show?repo=/work/repo&index=-1", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash/show?repo="+url.QueryEscape(absWorkRepo)+"&index=-1", "")
 	if code != http.StatusBadRequest {
 		t.Fatalf("show → %d %v, want 400", code, out["error"])
 	}
@@ -308,7 +309,7 @@ func TestAPIGitStashDrop_MissingIndex(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/drop",
-		`{"repo":"/work/repo","index":9,"confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"index":9,"confirm":true}`)
 	if code != http.StatusNotFound || out["error"] != gitErrNotFound {
 		t.Fatalf("code = %d, error = %v, want 404 not_found", code, out["error"])
 	}

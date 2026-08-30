@@ -18,14 +18,14 @@ func TestGitReplayReq_HasNoCommandField(t *testing.T) {
 	s := gitM5Server(t, f)
 	// 기록을 하나 남긴다 — 준비 과정의 읽기가 그대로 기록이 된다 (FR-GIT-5).
 	if code, _ := gitReq(t, s, http.MethodPost, "/api/git/checkout",
-		`{"repo":"/work/repo","ref":"main"}`); code != http.StatusOK {
+		`{"repo":`+qWorkRepo+`,"ref":"main"}`); code != http.StatusOK {
 		t.Fatalf("준비 실패")
 	}
 	seq := lastReadSeq(t, s)
 
 	// 요청에 명령을 함께 실어 보낸다. 모르는 키는 조용히 버려지고, 실행되는 것은
 	// **기록의 argv** 뿐이어야 한다 — 필드가 생기는 순간 임의 실행 표면이 된다.
-	body := `{"repo":"/work/repo","seq":` + itoa(seq) +
+	body := `{"repo":` + qWorkRepo + `,"seq":` + itoa(seq) +
 		`,"confirm":true,"argv":["push","--force"],"command":"rm -rf /"}`
 	if code, _ := gitReq(t, s, http.MethodPost, "/api/git/records/replay", body); code != http.StatusOK {
 		t.Fatalf("읽기 기록의 replay 가 %d 다", code)
@@ -45,7 +45,7 @@ func TestAPIGitReplay_MissingRecord(t *testing.T) {
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/records/replay",
-		`{"repo":"/work/repo","seq":9999,"confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"seq":9999,"confirm":true}`)
 	if code != http.StatusNotFound || out["error"] != gitErrRecordMissing {
 		t.Fatalf("→ %d %v, want 404 %s", code, out["error"], gitErrRecordMissing)
 	}
@@ -57,14 +57,14 @@ func TestAPIGitReplay_WriteRequiresConfirm(t *testing.T) {
 	s := gitM5Server(t, f)
 	// 먼저 쓰기를 하나 만들어 기록을 남긴다 — 기록의 출처는 실행 경로다.
 	if code, _ := gitReq(t, s, http.MethodPost, "/api/git/checkout",
-		`{"repo":"/work/repo","ref":"main"}`); code != http.StatusOK {
+		`{"repo":`+qWorkRepo+`,"ref":"main"}`); code != http.StatusOK {
 		t.Fatalf("준비 실패: checkout → %d", code)
 	}
 	seq := lastWriteSeq(t, s)
 
 	before := len(f.wrote())
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/records/replay",
-		`{"repo":"/work/repo","seq":`+itoa(seq)+`}`)
+		`{"repo":`+qWorkRepo+`,"seq":`+itoa(seq)+`}`)
 	if code != http.StatusBadRequest || out["error"] != gitErrConfirmRequired {
 		t.Fatalf("→ %d %v, want 400 %s", code, out["error"], gitErrConfirmRequired)
 	}
@@ -78,14 +78,14 @@ func TestAPIGitReplay_RunsRecordedArgv(t *testing.T) {
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
 	if code, _ := gitReq(t, s, http.MethodPost, "/api/git/checkout",
-		`{"repo":"/work/repo","ref":"main"}`); code != http.StatusOK {
+		`{"repo":`+qWorkRepo+`,"ref":"main"}`); code != http.StatusOK {
 		t.Fatalf("준비 실패")
 	}
 	seq := lastWriteSeq(t, s)
 	before := f.wrote()
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/records/replay",
-		`{"repo":"/work/repo","seq":`+itoa(seq)+`,"confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"seq":`+itoa(seq)+`,"confirm":true}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("→ %d %v", code, out)
 	}
@@ -114,7 +114,7 @@ func TestAPIGitReplay_RouteRegisteredAndUnavailable(t *testing.T) {
 	}
 	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/records/replay",
-		`{"repo":"/work/repo","seq":1,"confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"seq":1,"confirm":true}`)
 	if code != http.StatusServiceUnavailable || out["error"] != gitErrUnavailable {
 		t.Fatalf("→ %d %v, want 503", code, out["error"])
 	}

@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 V — Run 시각화 종단의 검증 (ORCHESTRATION_V2_SRS §3.5, V-RVZ-4~11).
@@ -179,7 +181,7 @@ func TestApiRunGraph_CapsMessagesAndFoldsEdges(t *testing.T) {
 	s.Commands = fb
 	runID := startRun(t, s) // 조정자 = tool-a
 	if code, out := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"작가","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"작가","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
 		t.Fatalf("멤버 등록 실패 %d (%+v)", code, out)
 	}
 	member, ok := store.MemberByTool("tool-b")
@@ -240,7 +242,7 @@ func TestApiToolMessage_BroadcastsRunChanged(t *testing.T) {
 	s.Commands = fb
 	runID := startRun(t, s)
 	if code, out := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"작가","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"작가","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
 		t.Fatalf("멤버 등록 실패 %d (%+v)", code, out)
 	}
 	before := len(publishedActions(fb, "run_changed"))

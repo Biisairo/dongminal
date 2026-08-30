@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"strings"
+
+	"dongminal/internal/shared/dmenv"
 )
 
 const detachHelp = `detach — 현재 도구를 백그라운드로 보내고 탭을 닫는다
@@ -89,9 +90,9 @@ func runDetach(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	toolID := os.Getenv("DONGMINAL_TOOL_ID")
+	toolID := selfToolID()
 	if toolID == "" {
-		fmt.Fprintln(stderr, "detach: DONGMINAL_TOOL_ID 미설정 (dongminal 터미널 안에서 실행해야 합니다)")
+		fmt.Fprintln(stderr, "detach: "+dmenv.EnvToolID+" 미설정 (dongminal 터미널 안에서 실행해야 합니다)")
 		return 1
 	}
 	return detachPost("detachTab", map[string]any{"toolId": toolID}, stdout, stderr)

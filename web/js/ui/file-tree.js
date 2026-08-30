@@ -37,9 +37,15 @@ class FileTree {
     this._drag='';     // 끌고 있는 경로. dataTransfer 는 dragover 에서 읽을 수 없다.
     this._focusEdit=false;
 
+    // FR-FTR-20: 헤더는 루트 드롭 존이다 — 표시를 위해 들고 있는다.
+    this._dropDir='';
+    this._springTimer=null;
+    this._springPath='';
+
     this.el=document.createElement('div');
     this.el.className='ed-explorer';
-    this.el.appendChild(this._head());
+    this.head=this._head();
+    this.el.appendChild(this.head);
     this.list=document.createElement('div');
     this.list.className='ed-tree';
     this.el.appendChild(this.list);
@@ -118,7 +124,10 @@ class FileTree {
     });
   }
 
-  destroy(){ if(this.el.parentNode) this.el.parentNode.removeChild(this.el) }
+  destroy(){
+    this._springCancel();
+    if(this.el.parentNode) this.el.parentNode.removeChild(this.el);
+  }
 
   // ── 조회 (FR-EDT-59·63·65) ──
 
@@ -626,6 +635,9 @@ class FileTree {
     // 성공시키고 트리를 통째로 잃어버리므로 클라이언트가 막는 유일한 자리다.
     if(to===from||to.startsWith(from+'/')){this._fail(from,EDITOR_MOVE_INTO_SELF);return}
     const sd=this._parent(from),dd=this._parent(to);
+    // FR-FTR-20b: 도착 폴더를 펼친다. 접힌 폴더로 옮기면 옮긴 것이 화면에서
+    // 사라지고, 사용자는 잃은 것으로 읽는다 (업로드가 같은 이유로 펼친다).
+    if(dd!==this.root&&!this._open.has(dd)) this._open.add(dd);
     const snap=this._snap(sd===dd?[sd]:[sd,dd]);
     this._optimMove(from,to);
     this._sel=to;
@@ -668,6 +680,72 @@ class FileTree {
     await this._after([d]);
   }
 
+  // ── 전송 둘 (FILE_TRANSFER_SRS FR-FTR-13·14·19) ──
+
+  /**
+   * FR-FTR-14: 앵커로 일으킨다. `fetch` 로 blob 을 받으면 파일 전체가 메모리에
+   * 올라가고 스트리밍을 잃는다 (D-1).
+   */
+  download(p){
+    if(!p||this._kindOf(p)!=='file') return;
+    const a=document.createElement('a');
+    a.href=FS_DOWNLOAD_API+'?root='+encodeURIComponent(this.root)+
+      '&path='+encodeURIComponent(p);
+    a.download=this._base(p);
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  /**
+   * FR-FTR-19: 여러 파일을 **순차**로 올린다. 하나가 실패하면 거기서 멈추고
+   * 사유를 그 자리에 보인다 (FR-EDT-92) — 이미 올라간 것은 되돌리지 않는다.
+   *
+   * 낙관적 반영을 하지 않는 이유는 전송이 끝나야 이름이 확정되기 때문이다
+   * (서버가 충돌을 거부한다 — FR-FTR-16). 그래서 조작 넷과 달리 `_optimAdd` 가
+   * 없고, 끝난 뒤 그 폴더만 다시 읽는다 (FR-EDT-88).
+   */
+  async doUpload(dir,files){
+    if(!dir||!files||!files.length) return;
+    this._clearErr();
+    // 올린 것이 보이지 않으면 사용자는 실패로 읽는다.
+    if(dir!==this.root&&!this._open.has(dir)) this._open.add(dir);
+    this._busy.add(dir); this.paint();
+    let err='';
+    for(const f of files){
+      const fd=new FormData(); fd.append('file',f);
+      const u=FS_UPLOAD_API+'?root='+encodeURIComponent(this.root)+
+        '&dir='+encodeURIComponent(dir);
+      let r=null,d=null;
+      try{r=await fetch(u,{method:'POST',body:fd})}catch{r=null}
+      if(r){try{d=await r.json()}catch{d=null}}
+      if(!r||!r.ok||!d||!d.ok){
+        // 어느 파일에서 멈췄는지가 사유만큼 중요하다 — 여럿을 한 번에 올린다.
+        const why=EDITOR_FS_ERR_MSG[(d&&d.code)||'']||(d&&d.message)||'';
+        err=why?f.name+' — '+why:EDITOR_UPLOAD_FAIL.replace('%s',f.name);
+        break;
+      }
+    }
+    this._busy.delete(dir);
+    await this._after([dir]);
+    if(err) this._fail(dir===this.root?'':dir,err);
+  }
+
+  // FR-FTR-18: 파일 선택 창. input 은 한 번 쓰고 버린다 — 남겨 두면 같은 파일을
+  // 다시 고를 때 change 가 오지 않는다.
+  pickUpload(dir){
+    const inp=document.createElement('input');
+    inp.type='file'; inp.multiple=true;
+    inp.style.cssText='position:fixed;left:-9999px';
+    inp.addEventListener('change',()=>{
+      const files=[...(inp.files||[])];
+      inp.remove();
+      if(files.length) this.doUpload(dir,files);
+    });
+    // 취소하면 change 가 오지 않는다 — 거두지 않으면 부를 때마다 하나씩 쌓인다.
+    inp.addEventListener('cancel',()=>inp.remove());
+    document.body.appendChild(inp);
+    inp.click();
+  }
+
   // FR-EDT-88·89: 영향받은 폴더**만** 다시 읽고 git 색을 다시 받는다. 트리 전체를
   // 새로 만들지 않는다.
   async _after(dirs){
@@ -691,6 +769,12 @@ class FileTree {
     GitMenu.openList([
       {id:'newFile',label:EDITOR_MENU_NEW_FILE,run:()=>this.startCreate(false,dir)},
       {id:'newDir',label:EDITOR_MENU_NEW_DIR,run:()=>this.startCreate(true,dir)},
+      // FR-FTR-18: 업로드가 가는 자리도 같은 규칙이다 — 폴더면 그 안, 아니면 형제.
+      {id:'upload',label:EDITOR_MENU_UPLOAD,run:()=>this.pickUpload(dir)},
+      // FR-FTR-13: 파일에서만 활성이다. 폴더·링크는 사유를 보인다 (§6 비목표).
+      {id:'download',label:EDITOR_MENU_DOWNLOAD,
+        disabled:()=>kind==='file'?'':EDITOR_DOWNLOAD_FILE_ONLY,
+        run:()=>this.download(p)},
       {sep:true},
       {id:'rename',label:EDITOR_MENU_RENAME,run:()=>this.startRename(p)},
       // 확인은 `doDelete` 가 한다 — 재귀 여부·항목 수·dirty 탭을 밝혀야 하므로
@@ -700,16 +784,18 @@ class FileTree {
   }
 
   /**
-   * FR-EDT-85: 드래그 이동. 상태는 **이 인스턴스**가 쥔다 — `app._drag` 는 탭
-   * 이동의 것이고(renderer.js) 거기 끼어들면 pane 이 이 드래그를 받는다.
+   * FR-EDT-85 · FR-FTR-17·20·23: 드래그. 상태는 **이 인스턴스**가 쥔다 —
+   * `app._drag` 는 탭 이동의 것이고(renderer.js) 거기 끼어들면 pane 이 이 드래그를
+   * 받는다.
    *
-   * 폴더 위에서만 놓을 수 있다. 자기 자신·자기 하위 위에서도 놓기는 받되 사유를
-   * 그 자리에 보인다 — 받지 않으면 왜 안 되는지 화면이 말하지 못한다.
+   * 받는 것이 둘이다. **트리 내부의 이동**(`this._drag` 가 서 있다)과 **바깥에서
+   * 온 파일**(`dataTransfer.types` 에 `Files`)이다. 둘을 가르는 근거가 이것뿐이라
+   * 판정을 한 자리에 모은다.
+   *
+   * 리스너는 `this.list` 가 아니라 `this.el` 에 건다 — 헤더도 드롭 존이기
+   * 때문이다 (FR-FTR-20). 행은 reconcile 로 다시 만들어지므로 컨테이너에만 건다.
    */
   _initDnd(){
-    const clear=()=>{
-      for(const el of this.list.querySelectorAll('.ed-drop')) el.classList.remove('ed-drop');
-    };
     this.list.addEventListener('dragstart',e=>{
       const row=e.target.closest('.ed-row[data-path]');
       if(!row||row.classList.contains('ed-edit')){e.preventDefault();return}
@@ -718,30 +804,105 @@ class FileTree {
       // 데이터가 없으면 일부 브라우저가 드래그를 시작조차 하지 않는다.
       e.dataTransfer.setData('text/plain',this._drag);
     });
-    this.list.addEventListener('dragover',e=>{
-      if(!this._drag) return;
-      const row=e.target.closest('.ed-row[data-kind="dir"]');
-      if(!row||!this.list.contains(row)) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect='move';
-      if(!row.classList.contains('ed-drop')){clear();row.classList.add('ed-drop')}
+    this.el.addEventListener('dragover',e=>{
+      const ext=FileTree._isFileDrag(e);
+      if(!this._drag&&!ext) return;
+      e.preventDefault(); e.stopPropagation();
+      e.dataTransfer.dropEffect=ext?'copy':'move';
+      this._markDrop(this._dropDirAt(e.target));
+      this._springSchedule(e.target);
     });
-    this.list.addEventListener('dragleave',e=>{
-      const row=e.target.closest('.ed-row');
-      if(row) row.classList.remove('ed-drop');
+    // 탐색기 **바깥**으로 나갈 때만 지운다. 행에서 행으로 옮길 때마다 지우면
+    // 표시가 깜빡이고, 그 사이의 drop 이 대상을 잃는다.
+    this.el.addEventListener('dragleave',e=>{
+      if(e.relatedTarget&&this.el.contains(e.relatedTarget)) return;
+      this._dropClear();
     });
-    this.list.addEventListener('drop',e=>{
-      const row=e.target.closest('.ed-row[data-kind="dir"]');
+    this.el.addEventListener('drop',e=>{
       const from=this._drag;
-      this._drag=''; clear();
-      if(!row||!from) return;
-      e.preventDefault();
-      const to=row.dataset.path;
-      // 이미 그 폴더에 있으면 아무 일도 아니다 — 서버에 묻지 않는다.
-      if(this._parent(from)===to&&to!==from) return;
-      this.doRename(from,this._join(to,this._base(from)));
+      const files=(e.dataTransfer&&e.dataTransfer.files)||null;
+      const ext=FileTree._isFileDrag(e);
+      if(!from&&!ext) return;
+      e.preventDefault(); e.stopPropagation();
+      const dir=this._dropDirAt(e.target);
+      this._drag=''; this._dropClear();
+      // 바깥에서 온 파일이 먼저다 — 내부 이동과 겹치는 자리가 없다.
+      if(ext){
+        if(files&&files.length) this.doUpload(dir,[...files]);
+        return;
+      }
+      // 이미 그 폴더에 있으면 아무 일도 아니다 — 서버에 묻지 않는다 (FR-FTR-21).
+      if(this._parent(from)===dir) return;
+      this.doRename(from,this._join(dir,this._base(from)));
     });
-    this.list.addEventListener('dragend',()=>{this._drag='';clear()});
+    this.el.addEventListener('dragend',()=>{this._drag='';this._dropClear()});
+  }
+
+  // 바깥에서 온 파일인가. 내부 이동은 `text/plain` 만 싣는다.
+  static _isFileDrag(e){
+    const t=e.dataTransfer&&e.dataTransfer.types;
+    return !!t&&[...t].includes('Files');
+  }
+
+  /**
+   * 드롭이 향하는 **폴더**. 폴더 행이면 그 폴더, 파일·링크 행이면 그 부모,
+   * 헤더와 빈 여백이면 루트다 (FR-FTR-20).
+   *
+   * 파일 행을 그 부모로 읽는 것은 일반 탐색기의 동작이다 — 받지 않으면 사용자는
+   * 목록 한가운데 놓을 자리가 없는 것으로 읽는다.
+   */
+  _dropDirAt(target){
+    const row=target&&target.closest?target.closest('.ed-row[data-path]'):null;
+    if(row&&this.list.contains(row)){
+      const p=row.dataset.path;
+      return row.dataset.kind==='dir'?p:this._parent(p);
+    }
+    return this.root;
+  }
+
+  // 표시는 바뀔 때만 손댄다 — dragover 는 초당 수십 번 온다.
+  _markDrop(dir){
+    if(this._dropDir===dir) return;
+    this._dropDir=dir;
+    for(const el of this.list.querySelectorAll('.ed-drop')) el.classList.remove('ed-drop');
+    this.head.classList.toggle('ed-drop-root',dir===this.root);
+    this.list.classList.toggle('ed-drop-root',dir===this.root);
+    if(dir===this.root) return;
+    for(const el of this.list.querySelectorAll('.ed-row[data-path]')){
+      if(el.dataset.path===dir){el.classList.add('ed-drop');break}
+    }
+  }
+
+  _dropClear(){
+    this._dropDir='';
+    this._springCancel();
+    for(const el of this.list.querySelectorAll('.ed-drop')) el.classList.remove('ed-drop');
+    this.head.classList.remove('ed-drop-root');
+    this.list.classList.remove('ed-drop-root');
+  }
+
+  /**
+   * FR-FTR-23: 접힌 폴더 위에 머무르면 펼친다. 그러지 않으면 깊은 곳으로 옮기려면
+   * 드래그를 놓고 폴더를 펼친 뒤 다시 잡아야 한다.
+   *
+   * 펼친 것은 드래그가 끝나도 접지 않는다 — 사용자가 방금 본 것을 되감지 않는다.
+   */
+  _springSchedule(target){
+    const row=target&&target.closest?target.closest('.ed-row[data-kind="dir"]'):null;
+    const p=row&&this.list.contains(row)?row.dataset.path:'';
+    if(this._springPath===p) return;
+    this._springCancel();
+    if(!p||this._open.has(p)) return;
+    this._springPath=p;
+    this._springTimer=setTimeout(()=>{
+      this._springTimer=null; this._springPath='';
+      if(!this._open.has(p)) this.toggle(p);
+    },EDITOR_SPRING_MS);
+  }
+
+  _springCancel(){
+    if(this._springTimer){clearTimeout(this._springTimer);this._springTimer=null}
+    this._springPath='';
   }
 }
 

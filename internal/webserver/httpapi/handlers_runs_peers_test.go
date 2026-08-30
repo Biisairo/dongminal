@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"dongminal/internal/webserver/domain/run"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 P — 동료 명부 (ORCHESTRATION_V2_SRS FR-PAT-5, V-PAT-6~8).
@@ -27,8 +29,8 @@ func TestApiRunPeers_ExcludesTheCallerAndKeepsTheRest(t *testing.T) {
 	s, _, _, _ := runsServer(t, "tool-a")
 	runID := startRun(t, s)
 	for _, spec := range []string{
-		`{"runId":"` + runID + `","role":"작가","agent":"claude","id":"tool-a"}`,
-		`{"runId":"` + runID + `","role":"비평가","agent":"claude","id":"tool-b"}`,
+		`{"runId":` + testpath.JSONQuote(runID) + `,"role":"작가","agent":"claude","id":"tool-a"}`,
+		`{"runId":` + testpath.JSONQuote(runID) + `,"role":"비평가","agent":"claude","id":"tool-b"}`,
 	} {
 		if code, out := postRun(t, s, "/api/runs/members", spec); code != http.StatusOK {
 			t.Fatalf("멤버 등록 실패 %d (%+v)", code, out)
@@ -61,7 +63,7 @@ func TestApiRunPeers_RejectsNonMembers(t *testing.T) {
 	s, _, _, who := runsServer(t, "tool-a")
 	runID := startRun(t, s)
 	if code, out := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"작가","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"작가","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
 		t.Fatalf("멤버 등록 실패 %d (%+v)", code, out)
 	}
 

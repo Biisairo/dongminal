@@ -1,96 +1,83 @@
 <!-- 이 파일은 전체가 새 세션의 첫 메시지다. 열어서 전체 선택 → 붙여넣기. -->
 
-dongminal 저장소에서 이어서 작업한다. **푸시는 지시 없이 하지 마라** — 내가 직접 한다.
-**커밋도 아직 하지 마라** — 아래 §5 를 보고 나에게 먼저 물어라.
+dongminal 저장소에서 크로스플랫폼 작업을 이어서 한다. 브랜치는 `crossplatform` 이다.
 
 ## 0. 가장 먼저
 
-**`docs/internal/WAVE1_HANDOFF.md` 를 전부 읽어라.** 이 프롬프트는 그 문서의
-요약이자 착수 순서일 뿐이고, 상세는 거기 있다.
-
-그리고 트리 상태를 확인해라 — **아무것도 커밋되지 않았고 92 파일이 워킹트리에 있다.**
+**`docs/internal/CROSS_PLATFORM_HANDOFF.md` 를 전부 읽어라.** 이 프롬프트는 그
+문서의 착수 순서일 뿐이다.
 
 ```bash
-git status --short | wc -l
+git branch --show-current      # crossplatform 이어야 한다
+git status --short             # 비어 있어야 한다
 go build ./... && go vet ./...
 ```
 
-## 1. 지난 세션이 한 일
+## 1. 한 줄 상태
 
-세 축(오케스트레이션 · Git 사이드바 · 편의 기능)의 SRS 를 쓰고, 파일 단위 충돌
-지도를 그린 뒤 **Step 0(골격 선행 커밋)** 을 넣고 **워크스트림 8개 중 7개를
-서브에이전트 병렬로 완료**했다. **남은 것은 WS-5(Run 시각화) 하나다.**
+**네 트랙이 끝났다** — ConPTY, Windows 단위테스트(제품 결함 11건), 코드 감사,
+e2e 통일. **남은 일은 `main` 병합이다.**
 
-종료 직전 상태: `go build`·`go vet` OK, `go test -count=1 ./...` **실패 0**,
-`-race` **DATA RACE 0**.
+근거 문서 넷:
+- `CROSS_PLATFORM_HANDOFF.md` — 전체 상태. §7 이 감사 결과, §7.3 이 "손대지 않은 것"
+- `CROSS_PLATFORM_SRS.md` §11 — ConPTY 트랙 (§11.8 이 원인 확정)
+- `WINDOWS_TEST_PARITY_SRS.md` — Windows 단위테스트 트랙 (§10 이 결과)
+- `E2E_UNIFICATION_SRS.md` — e2e 통일 트랙 (§9 가 결과)
 
-| WS | 이름 | 상태 |
-|---|---|---|
-| WS-1 식별자 uuid 전용화 | `FR-IDU` | ✅ |
-| WS-3 컨텍스트 예산·승계 | `FR-CBG` | ✅ |
-| WS-4 패턴 카탈로그 + P2P | `FR-PAT` | ✅ (개명 1건만 남음) |
-| WS-6 사이드바 탭 | `FR-SBT` | ✅ |
-| WS-7 전경 프로세스 이름 (Go) | `FR-TAN` | ✅ (프론트 미착수) |
-| WS-8 백그라운드 즉시 종료 | `FR-BGK` | ✅ |
-| WS-2 헤드리스 멤버 | `FR-HLM` | ✅ |
-| **WS-5 Run 시각화** | `FR-RVZ` | ⏸ **미착수** |
+## 2. 이번 세션의 일 — `main` 병합
 
-## 2. 착수 순서
+병합 전에 세 대상을 한 번 훑는다. 이제 그것이 **한 명령**이다.
 
-1. **`docs/internal/HANDOFF_WS2.md`·`HANDOFF_WS4.md` 를 읽어라** (있으면). 지난
-   세션이 닫히기 전에 두 담당자가 남긴 완료·미완 보고다
-2. **WS-2·WS-4 완료 확인** — 검사법은 WAVE1_HANDOFF §2.2. 인계받은 뒤 한 번 재확인만
-3. **WS-5 착수** — 남은 유일한 워크스트림. 브리핑 요지는 WAVE1_HANDOFF §4
-4. **통합 게이트** — WAVE1_HANDOFF §2.5. **모든 워크스트림이 손을 뗀 뒤에** 돌린다
-5. 수동 실사 10항목 → 문서 갱신 → 후속 트랙 A·B 열기
+```bash
+gofmt -l internal cmd
+go build ./... && go vet ./...
+GOOS=windows go vet ./...          # 테스트 파일까지 타입검사 — Windows 유일의 로컬 수단
+go test ./internal/... ./cmd/... -count=1
+scripts/check-cross.sh             # 5개 대상 build + vet
+scripts/check-seams.sh             # OS 이음매
+scripts/verify-isolated.sh         # darwin 실동작 — dongminal verify 22항목
+```
 
-## 3. 반복하면 안 되는 것 — 지난 세션이 실제로 겪었다
+**Windows·Linux 는 CI 로만 검증된다.** 푸시하면 `verify` 워크플로우가 돈다 (5~8분).
 
-상세는 WAVE1_HANDOFF §5. 요지만:
+```bash
+gh run list --repo Biisairo/dongminal --branch crossplatform --limit 1
+JOB=$(gh run view <runId> --repo Biisairo/dongminal --json jobs \
+      --jq '.jobs[]|select(.name=="windows-runtime")|.databaseId')
+gh api "repos/Biisairo/dongminal/actions/jobs/$JOB/logs" | sed 's/^[0-9T:.Z-]* //'
+```
 
-- **브리핑은 기억이 아니라 디스크에서 인용한다.** SRS 를 다시 읽지 않고 초안 기억으로
-  FR 번호·동작 방향을 지시해 **세 워크스트림이 연달아 막혔다.** 가장 위험했던 것은
-  번호가 아니라 **방향이 반대인 지시**였다 (`lost` 여야 한다고 썼는데 검증표 기대값은
-  "`lost` 가 아님" 이었다). 절차는 `PARALLEL_DELIVERY_PLAN` §4.2.2
-- **대칭적 추종은 수렴하지 않는다.** 담당자는 문서를 보고 코드를 고치고 조정자는
-  코드를 보고 문서를 고쳐서 같은 항목이 **열 번** 뒤집혔다. 끝낸 것은 담당자가 만든
-  프로토콜 하나였다 — **읽는 즉시 맞추지 말고 mtime 이 3분 이상 안 변한 뒤에
-  읽어라** (§4.2.3). **문서만 단독으로 바꾸지 마라**
-- **"어느 쪽이 옳은가" 보다 "이 차이가 언제 드러나는가" 를 먼저 물어라.** 열 번
-  뒤집은 그 항목은 실무에서 갈리는 경우가 거의 없었다
-- **게이트는 모두가 손을 뗀 뒤에.** 작업 중이면 `go test ./...` 가 누구의 상태도
-  대표하지 않는다
-- **플레이크는 원인을 특정하기 전에 넘어가지 마라.** 두 건 다 겪었고 둘 다 원인이
-  달랐다 (테스트의 비동기 미대기 / 실제 데이터 레이스)
-- **서버 완성 ≠ 기능 완성.** `--keep-tools`·고아 렌더가 **서버 테스트 전부 통과 +
-  사용자는 못 씀** 상태였다. CLI 표면을 따로 검사해라
+`gh` 계정은 READ 권한뿐이라 **run 취소·재실행은 안 된다.** 로그 조회는 되고,
+푸시는 SSH 로 나가므로 문제없다.
 
-## 4. 서브에이전트 병렬을 다시 쓸 때
+## 3. 다시 파지 마라 — 이미 끝난 것
 
-지난 세션은 `Agent` 툴로 워크스트림당 하나씩 띄웠고, **파일 단위 배타 소유권**으로
-충돌을 막았다. 그대로 하면 된다. 다만:
+- **ConPTY**: 원인은 `STARTF_USESTDHANDLES` 하나였다. 라이브러리 교체는 하지
+  않았고 새 의존도 없다 (SRS §11.8)
+- **경로 계열 결함 D1~D11**: 전수 감사까지 끝났다 (`WINDOWS_TEST_PARITY_SRS`
+  §2.3~2.8). 슬래시를 박은 13곳 중 대부분은 정당했다(URL·git ref·map 키)
+- **코드 감사**: HANDOFF §7. **§7.3 이 "손대지 않은 것" 목록**이다
+- **e2e 하네스**: 검사 정의는 `internal/ctl/cli/verify.go` **한 곳**이다. CI 나
+  `verify-isolated.sh` 에 검사를 다시 적지 마라 — 그것이 이 트랙이 접은 문제다
 
-- **e2e 실행을 금지해라** — `playwright.config.ts` 가 포트 58147 고정이라 동시
-  실행하면 서로를 깨뜨린다. 스펙 수정은 시키되 실행은 통합에서 한 번에
-- **`go build -o dongminal` 금지** — 바이너리를 공유한다
-- **"소유 파일 밖을 건드려야 하면 멈추고 보고" 규칙이 조정자의 실수까지 걸러냈다.**
-  세 번의 브리핑 사고가 전부 담당자의 대조로 잡혔다
-- 담당자끼리 직접 `SendMessage` 하게 해라. 다만 **조정자의 판정은 그 경로로 흐르지
-  않으니** 판정을 내리면 관련자 전원에게 알려야 한다 (한 번 놓쳐서 WS-4 가 불필요하게
-  대기했다)
+## 4. e2e 를 건드릴 일이 생기면
 
-## 5. 나에게 물을 것 — 커밋
+- 검사를 더할 자리는 `verifyChecks()` 의 표다. 항목 수·이름을 붙드는 골든
+  테스트(`TestVerifyChecks_Golden`)를 함께 고쳐야 한다 — 그것이 자물쇠다
+- **대상별 갈래를 만들지 마라.** OS 차이는 `platform` 인터페이스 아래로 밀어
+  넣는다 (FR-E2S-0). 검사에 갈래가 필요해 보이면 인터페이스가 덜 흡수한 것이다
+- 건너뜀의 근거는 **호스트 환경**이지 OS 가 아니다. `TestVerifyChecks_NoOSDrivenSkips`
+  가 그것을 붙든다
+- `verify` 는 `--port`·`--home` 을 **거부한다.** 격리 가드를 무르게 하지 마라 —
+  그 가드가 없어서 운영 인스턴스를 죽인 사고가 있었다
 
-92 파일이 커밋되지 않았다. 어떻게 나눌지 제안하고 **내 확인을 받아라.** 권하는 분할은
-WAVE1_HANDOFF §7 에 있다. 커밋 메시지는 기존 관례(`feat(git): … (FR-GIT-19·227)`)를
-따르고 **SRS 번호**를 쓴다. **AI 서명(`Co-Authored-By` 등)은 넣지 마라.**
+## 5. 작업 규약
 
-## 6. 참조
-
-| 문서 | 용도 |
-|---|---|
-| `docs/internal/WAVE1_HANDOFF.md` | **이 세션의 출발점.** 상태·미완 상세·함정 |
-| `docs/internal/PARALLEL_DELIVERY_PLAN.md` | 충돌 지도 · Step 0 · 워크스트림 · 게이트 규칙 |
-| `docs/internal/ORCHESTRATION_V2_SRS.md` | 묶음 I·H·C·P·V (FR-IDU/HLM/CBG/PAT/RVZ) |
-| `docs/internal/GIT_SIDEBAR_TABS_SRS.md` | FR-SBT-1~36 |
-| `docs/internal/CONVENIENCE_SRS.md` | 묶음 N·X (FR-TAN/BGK) |
+- 커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 마라
+- 커밋은 사용자 확인 후에. **푸시는 CI 검증에 필요하므로 해도 된다**
+- 심볼 탐색은 LSP → Serena 순. grep 은 텍스트·파일명 검색에만
+- **서브에이전트에 프로세스·파일시스템을 만지는 일을 시킬 때는 격리 수단을 먼저
+  지시하라.** 지난 세션에 수정 에이전트가 개발 호스트의 실제 pid 에
+  SIGTERM/SIGKILL 을 보낸 사고가 있었다 (HANDOFF §7.4)
+- **다른 에이전트의 보고를 그대로 믿지 마라.** 파일에서 직접 확인한 것만 사실로
+  다뤄라

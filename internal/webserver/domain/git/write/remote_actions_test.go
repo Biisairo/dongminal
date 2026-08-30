@@ -107,7 +107,7 @@ func remoteHintSvc(config string, seen *[][]string) *core.Service {
 func TestRemoteRemove_LeavesRecoveryHint(t *testing.T) {
 	var seen [][]string
 	svc := remoteHintSvc("remote.origin.url=/tmp/remote.git\n", &seen)
-	if _, err := RemoteRemove(svc, context.Background(), "/work/repo", "origin"); err != nil {
+	if _, err := RemoteRemove(svc, context.Background(), absWorkRepo, "origin"); err != nil {
 		t.Fatalf("RemoteRemove: %v", err)
 	}
 	if len(seen) != 1 || fmt.Sprint(seen[0]) != fmt.Sprint([]string{"remote", "remove", "origin"}) {
@@ -136,7 +136,7 @@ func TestRemoteRemove_LeavesRecoveryHint(t *testing.T) {
 func TestRemoteRemove_HintRedactsURL(t *testing.T) {
 	var seen [][]string
 	svc := remoteHintSvc("remote.origin.url=https://user:abc123@example.test/a.git\n", &seen)
-	if _, err := RemoteRemove(svc, context.Background(), "/work/repo", "origin"); err != nil {
+	if _, err := RemoteRemove(svc, context.Background(), absWorkRepo, "origin"); err != nil {
 		t.Fatalf("RemoteRemove: %v", err)
 	}
 	h := svc.Hints(0)
@@ -152,7 +152,7 @@ func TestRemoteRemove_HintRedactsURL(t *testing.T) {
 func TestRemoteRemove_MissingIsRejected(t *testing.T) {
 	var seen [][]string
 	svc := remoteHintSvc("remote.origin.url=/tmp/a.git\n", &seen)
-	_, err := RemoteRemove(svc, context.Background(), "/work/repo", "nope")
+	_, err := RemoteRemove(svc, context.Background(), absWorkRepo, "nope")
 	if !errors.Is(err, ErrRemoteMissing) {
 		t.Fatalf("err = %v, want ErrRemoteMissing", err)
 	}
@@ -169,7 +169,7 @@ func TestRemoteRemove_MissingIsRejected(t *testing.T) {
 func TestRemoteAdd_ExistingIsRejected(t *testing.T) {
 	var seen [][]string
 	svc := remoteHintSvc("remote.origin.url=/tmp/a.git\n", &seen)
-	_, err := RemoteAdd(svc, context.Background(), "/work/repo", "origin", "/tmp/b.git")
+	_, err := RemoteAdd(svc, context.Background(), absWorkRepo, "origin", "/tmp/b.git")
 	if !errors.Is(err, ErrRemoteExists) {
 		t.Fatalf("err = %v, want ErrRemoteExists", err)
 	}
@@ -291,5 +291,40 @@ func TestPushRange(t *testing.T) {
 	// 원격에 그 브랜치가 없으면 범위가 없다 — 브랜치 전부가 올라간다.
 	if got := PushRange("", "main"); got != "main" {
 		t.Fatalf("PushRange = %q", got)
+	}
+}
+
+// 원격 이름 규칙은 **한 벌**이다 (FR-GIT-250.3). git 이 `refs/remotes/<name>/…` 를
+// 만드는 것은 push 든 fetch 든 tag 든 같으므로, 슬래시가 든 이름은 어느 경로로
+// 들어와도 실행 전에 막혀야 한다. 한 경로만 느슨하면 그곳이 우회로가 된다.
+func TestRemoteNameCheckedOnEveryPath(t *testing.T) {
+	const bad = "a/b"
+	cases := []struct {
+		name string
+		call func() error
+	}{
+		{"remote add", func() error { _, err := RemoteAddArgs(bad, "/tmp/a.git"); return err }},
+		{"remote remove", func() error { _, err := RemoteRemoveArgs(bad); return err }},
+		{"fetch", func() error {
+			_, err := RemoteFetchSpec(RemoteBranchOpts{Remote: bad, Branch: "feat"})
+			return err
+		}},
+		{"tag push", func() error { _, err := TagPushArgs(TagRemoteOpts{Remote: bad, Name: "v1"}); return err }},
+		{"tag delete remote", func() error {
+			_, err := TagDeleteRemoteArgs(TagRemoteOpts{Remote: bad, Name: "v1"})
+			return err
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := c.call()
+			if !errors.Is(err, ErrRemoteName) {
+				t.Fatalf("err = %v, want ErrRemoteName", err)
+			}
+			// 표면이 400 으로 옮기는 근거를 잃지 않는다 (handlers_git_branch·tag).
+			if !errors.Is(err, core.ErrRefName) {
+				t.Fatalf("err = %v, want core.ErrRefName 도 함께", err)
+			}
+		})
 	}
 }

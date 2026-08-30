@@ -11,6 +11,8 @@ import (
 
 	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/seam/toolaccess"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 R — Run 레코드의 서버 계층 (RUN_ORCHESTRATION_SRS §3.1, TC-RUN-5~11).
@@ -35,6 +37,7 @@ func (*callerErr) Error() string { return "no caller" }
 func runsServer(t *testing.T, caller string) (*Server, *toolhub.ToolManager, *run.Store, *fakeWhoAmI) {
 	t.Helper()
 	m := toolhub.NewToolManager("", nil)
+	t.Cleanup(m.StopSaving)
 	io := newFakeToolIO()
 	wi := &fakeWorkIndex{resolve: map[string]string{}, labels: map[string]string{}, coords: map[string]string{}}
 	for _, id := range []string{"tool-a", "tool-b"} {
@@ -115,7 +118,7 @@ func TestApiRunMember(t *testing.T) {
 	runID := startRun(t, s)
 
 	code, out := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"writer","agent":"claude","id":"tab-b"}`)
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"writer","agent":"claude","id":"tab-b"}`)
 	if code != http.StatusOK {
 		t.Fatalf("want 200, got %d (%+v)", code, out)
 	}
@@ -128,12 +131,12 @@ func TestApiRunMember(t *testing.T) {
 
 	// 같은 도구 재등록은 1:1 위반이다.
 	if code, _ := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"other","agent":"claude","id":"tool-b"}`); code != http.StatusConflict {
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"other","agent":"claude","id":"tool-b"}`); code != http.StatusConflict {
 		t.Fatalf("도구 중복 등록 want 409, got %d", code)
 	}
 	// 없는 도구.
 	if code, _ := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"x","agent":"claude","id":"no-such"}`); code != http.StatusNotFound {
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"x","agent":"claude","id":"no-such"}`); code != http.StatusNotFound {
 		t.Fatalf("없는 도구 want 404, got %d", code)
 	}
 	// 없는 Run.
@@ -148,7 +151,7 @@ func TestApiRunReport_AuthorityAndReasons(t *testing.T) {
 	s, _, _, who := runsServer(t, "tool-a")
 	runID := startRun(t, s)
 	_, member := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"writer","agent":"claude","id":"tool-a"}`)
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"writer","agent":"claude","id":"tool-a"}`)
 	memberID, _ := member["id"].(string)
 
 	// 멤버가 아닌 도구의 보고.
@@ -160,7 +163,7 @@ func TestApiRunReport_AuthorityAndReasons(t *testing.T) {
 
 	// 남의 memberId 를 알고 있어도 자기 정체로만 보고된다.
 	code, out = postRun(t, s, "/api/runs/report",
-		`{"memberId":"`+memberID+`","outcome":"succeeded","summary":"했다"}`)
+		`{"memberId":`+testpath.JSONQuote(memberID)+`,"outcome":"succeeded","summary":"했다"}`)
 	if code != http.StatusForbidden {
 		t.Fatalf("남의 memberId 로 보고 want 403, got %d (%+v)", code, out)
 	}
@@ -168,7 +171,7 @@ func TestApiRunReport_AuthorityAndReasons(t *testing.T) {
 	// 정당한 보고.
 	who.toolID = "tool-a"
 	code, out = postRun(t, s, "/api/runs/report",
-		`{"runId":"`+runID+`","memberId":"`+memberID+`","outcome":"succeeded","summary":"했다. 봤다. 남았다.","files":["a.go","b.go"]}`)
+		`{"runId":`+testpath.JSONQuote(runID)+`,"memberId":`+testpath.JSONQuote(memberID)+`,"outcome":"succeeded","summary":"했다. 봤다. 남았다.","files":["a.go","b.go"]}`)
 	if code != http.StatusOK || out["state"] != "done" {
 		t.Fatalf("정당한 보고가 거부됐다: %d (%+v)", code, out)
 	}
@@ -179,7 +182,7 @@ func TestApiRunReport_AuthorityAndReasons(t *testing.T) {
 	}
 	// outcome 누락.
 	who.toolID = "tool-b"
-	_, _ = postRun(t, s, "/api/runs/members", `{"runId":"`+runID+`","role":"r2","agent":"claude","id":"tool-b"}`)
+	_, _ = postRun(t, s, "/api/runs/members", `{"runId":`+testpath.JSONQuote(runID)+`,"role":"r2","agent":"claude","id":"tool-b"}`)
 	if code, out := postRun(t, s, "/api/runs/report", `{"summary":"결과만"}`); code != http.StatusBadRequest {
 		t.Fatalf("outcome 누락 want 400, got %d (%+v)", code, out)
 	}
@@ -191,7 +194,7 @@ func TestApiRunReport_FallsBackToClaimedToolID(t *testing.T) {
 	s, _, _, who := runsServer(t, "")
 	who.toolID = "" // resolver 가 실패한다
 	runID := startRun(t, s)
-	_, _ = postRun(t, s, "/api/runs/members", `{"runId":"`+runID+`","role":"w","agent":"claude","id":"tool-a"}`)
+	_, _ = postRun(t, s, "/api/runs/members", `{"runId":`+testpath.JSONQuote(runID)+`,"role":"w","agent":"claude","id":"tool-a"}`)
 
 	code, out := postRun(t, s, "/api/runs/report", `{"toolId":"tool-a","outcome":"succeeded","summary":"ok"}`)
 	if code != http.StatusOK {
@@ -203,8 +206,8 @@ func TestApiRunReport_FallsBackToClaimedToolID(t *testing.T) {
 func TestApiRunStatus_DerivesMemberState(t *testing.T) {
 	s, m, _, _ := runsServer(t, "tool-a")
 	runID := startRun(t, s)
-	_, _ = postRun(t, s, "/api/runs/members", `{"runId":"`+runID+`","role":"a","agent":"claude","id":"tool-a"}`)
-	_, _ = postRun(t, s, "/api/runs/members", `{"runId":"`+runID+`","role":"b","agent":"claude","id":"tool-b"}`)
+	_, _ = postRun(t, s, "/api/runs/members", `{"runId":`+testpath.JSONQuote(runID)+`,"role":"a","agent":"claude","id":"tool-a"}`)
+	_, _ = postRun(t, s, "/api/runs/members", `{"runId":`+testpath.JSONQuote(runID)+`,"role":"b","agent":"claude","id":"tool-b"}`)
 
 	// 훅 상태를 넣으면 그대로 파생된다.
 	m.Get("tool-a").SetActivity("working", "Bash", "go test")
@@ -255,11 +258,11 @@ func memberMap(t *testing.T, out map[string]any) map[string]map[string]any {
 func TestApiRunClose_GuardAndCleanupList(t *testing.T) {
 	s, _, _, who := runsServer(t, "tool-a")
 	runID := startRun(t, s)
-	_, _ = postRun(t, s, "/api/runs/members", `{"runId":"`+runID+`","role":"a","agent":"claude","id":"tool-a"}`)
-	_, _ = postRun(t, s, "/api/runs/members", `{"runId":"`+runID+`","role":"b","agent":"claude","id":"tool-b"}`)
+	_, _ = postRun(t, s, "/api/runs/members", `{"runId":`+testpath.JSONQuote(runID)+`,"role":"a","agent":"claude","id":"tool-a"}`)
+	_, _ = postRun(t, s, "/api/runs/members", `{"runId":`+testpath.JSONQuote(runID)+`,"role":"b","agent":"claude","id":"tool-b"}`)
 	_, _ = postRun(t, s, "/api/runs/report", `{"outcome":"succeeded","summary":"ok"}`)
 
-	code, out := postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`"}`)
+	code, out := postRun(t, s, "/api/runs/close", `{"runId":`+testpath.JSONQuote(runID)+`}`)
 	if code != http.StatusConflict || out["error"] != "unreported_members" {
 		t.Fatalf("미보고 멤버 close want 409/unreported_members, got %d (%+v)", code, out)
 	}
@@ -271,7 +274,7 @@ func TestApiRunClose_GuardAndCleanupList(t *testing.T) {
 	// force 는 통과하고, 정리 대상을 돌려준다 — 실제 탭 닫기는 조정자의 몫이다
 	// (실행 중 도구를 서버가 닫으면 브라우저가 확인창을 띄운다, FR-BG-3).
 	who.toolID = "tool-a"
-	code, out = postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`","force":true}`)
+	code, out = postRun(t, s, "/api/runs/close", `{"runId":`+testpath.JSONQuote(runID)+`,"force":true}`)
 	if code != http.StatusOK || out["state"] != "closed" {
 		t.Fatalf("force close 실패: %d (%+v)", code, out)
 	}
@@ -332,7 +335,7 @@ func TestApiRunMember_MarksWorkspaceBestEffort(t *testing.T) {
 	}
 	runID, _ := out["id"].(string)
 	if code, out := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"a","agent":"claude","id":"tab-a"}`); code != http.StatusOK {
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"a","agent":"claude","id":"tab-a"}`); code != http.StatusOK {
 		t.Fatalf("member: %d (%+v)", code, out)
 	}
 
@@ -358,7 +361,7 @@ func TestApiRunMember_MarksWorkspaceBestEffort(t *testing.T) {
 
 	// close 는 표식을 되돌린다.
 	_, _ = postRun(t, s, "/api/runs/report", `{"outcome":"succeeded","summary":"ok"}`)
-	if code, out := postRun(t, s, "/api/runs/close", `{"runId":"`+runID+`"}`); code != http.StatusOK {
+	if code, out := postRun(t, s, "/api/runs/close", `{"runId":`+testpath.JSONQuote(runID)+`}`); code != http.StatusOK {
 		t.Fatalf("close: %d (%+v)", code, out)
 	}
 	_ = json.Unmarshal(ws.raw, &got)
@@ -381,7 +384,7 @@ func TestApiRunMember_WorksWithoutWorkspaceStore(t *testing.T) {
 	s.Work = nil
 	runID := startRun(t, s)
 	if code, out := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"a","agent":"claude","id":"tool-a"}`); code != http.StatusOK {
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"a","agent":"claude","id":"tool-a"}`); code != http.StatusOK {
 		t.Fatalf("workspace 없이 멤버 등록 실패: %d (%+v)", code, out)
 	}
 }

@@ -100,7 +100,7 @@ func TestPick_NotDestructive(t *testing.T) {
 	for _, verb := range []string{PickCherry, PickRevert} {
 		f := &writeFake{}
 		s := core.New(core.WithRunner(fakeParentsRead("")), core.WithWriteRunner(f.runner))
-		if _, err := Pick(s, ctx, "/tmp/repo", verb, PickOpts{Oid: "abc123"}); err != nil {
+		if _, err := Pick(s, ctx, absTmpRepo, verb, PickOpts{Oid: "abc123"}); err != nil {
 			t.Fatalf("%s: %v", verb, err)
 		}
 		recs := s.Records(0)
@@ -118,7 +118,7 @@ func TestPick_MergeIsAskedOfTheRepo(t *testing.T) {
 	f := &writeFake{}
 	// 부모가 둘이다. 요청은 Merge 를 말하지 않았다.
 	s := core.New(core.WithRunner(fakeParentsRead("p1 p2")), core.WithWriteRunner(f.runner))
-	if _, err := Pick(s, ctx, "/tmp/repo", PickCherry, PickOpts{Oid: "abc123"}); err == nil {
+	if _, err := Pick(s, ctx, absTmpRepo, PickCherry, PickOpts{Oid: "abc123"}); err == nil {
 		t.Fatal("머지 커밋인데 부모 없이 실행됐다")
 	} else if !errors.Is(err, ErrMergeParent) {
 		t.Fatalf("오류가 ErrMergeParent 가 아니다: %v", err)
@@ -177,7 +177,7 @@ func TestReset_DestructiveOnlyHard(t *testing.T) {
 	} {
 		f := &writeFake{}
 		s := core.New(core.WithWriteRunner(f.runner))
-		if _, err := Reset(s, ctx, "/tmp/repo", ResetOpts{Oid: "abc123", Mode: tc.mode}, "head0"); err != nil {
+		if _, err := Reset(s, ctx, absTmpRepo, ResetOpts{Oid: "abc123", Mode: tc.mode}, "head0"); err != nil {
 			t.Fatalf("%s: %v", tc.mode, err)
 		}
 		recs := s.Records(0)
@@ -194,7 +194,7 @@ func TestReset_HintCarriesOriginalHead(t *testing.T) {
 
 	f := &writeFake{}
 	s := core.New(core.WithWriteRunner(f.runner))
-	if _, err := Reset(s, ctx, "/tmp/repo", ResetOpts{Oid: "abc123", Mode: ResetHard}, "deadbeef"); err != nil {
+	if _, err := Reset(s, ctx, absTmpRepo, ResetOpts{Oid: "abc123", Mode: ResetHard}, "deadbeef"); err != nil {
 		t.Fatal(err)
 	}
 	hints := s.Hints(0)
@@ -211,7 +211,7 @@ func TestReset_HintCarriesOriginalHead(t *testing.T) {
 
 	f2 := &writeFake{}
 	s2 := core.New(core.WithWriteRunner(f2.runner))
-	if _, err := Reset(s2, ctx, "/tmp/repo", ResetOpts{Oid: "abc123", Mode: ResetMixed}, "deadbeef"); err != nil {
+	if _, err := Reset(s2, ctx, absTmpRepo, ResetOpts{Oid: "abc123", Mode: ResetMixed}, "deadbeef"); err != nil {
 		t.Fatal(err)
 	}
 	if n := len(s2.Hints(0)); n != 0 {
@@ -242,7 +242,7 @@ func TestDrop_DestructiveWithHint(t *testing.T) {
 	ctx := context.Background()
 	f := &writeFake{}
 	s := core.New(core.WithWriteRunner(f.runner))
-	if _, err := Drop(s, ctx, "/tmp/repo", "abc123", "deadbeef"); err != nil {
+	if _, err := Drop(s, ctx, absTmpRepo, "abc123", "deadbeef"); err != nil {
 		t.Fatal(err)
 	}
 	recs := s.Records(0)

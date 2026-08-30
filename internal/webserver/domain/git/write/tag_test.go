@@ -155,6 +155,9 @@ func TestTagRemoteArgs_Rejects(t *testing.T) {
 		{"원격 삭제에 전부", TagDeleteRemoteArgs, TagRemoteOpts{Remote: "origin", All: true}, ErrTagPushTarget},
 		{"원격 없음", TagPushArgs, TagRemoteOpts{Name: "v1"}, core.ErrRefName},
 		{"- 로 시작하는 원격", TagPushArgs, TagRemoteOpts{Remote: "-x", Name: "v1"}, core.ErrRefName},
+		// 슬래시가 든 이름은 원격 이름이 아니다 — git 이 refs/remotes/<name>/… 를
+		// 만들기 때문이다. push 경로와 같은 규칙이 태그 경로에도 걸린다.
+		{"슬래시가 든 원격", TagPushArgs, TagRemoteOpts{Remote: "a/b", Name: "v1"}, ErrRemoteName},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

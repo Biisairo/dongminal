@@ -52,7 +52,10 @@ func worktreeLines(t *testing.T, dir, name string) []string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+	// 줄 끝은 OS·git 설정에 따라 CRLF 일 수 있다. 이 도우미가 재는 것은
+	// **내용**이지 종결자가 아니므로 CR 을 떨군다 — 남겨 두면 "line10" 이
+	// "line10\r" 이 되어 모든 대조가 어긋난다.
+	return splitContentLines(string(b))
 }
 
 func indexLines(t *testing.T, dir, name string) []string {
@@ -62,7 +65,7 @@ func indexLines(t *testing.T, dir, name string) []string {
 	if err != nil {
 		t.Fatalf("show :%s: %v", name, err)
 	}
-	return strings.Split(strings.TrimRight(out.Stdout, "\n"), "\n")
+	return splitContentLines(out.Stdout)
 }
 
 func hasLine(lines []string, want string) bool {
@@ -154,7 +157,7 @@ func TestPatch_RejectsWrongAxisBeforeExec(t *testing.T) {
 		{Op: PatchStage, Axis: query.AxisWorktreeHead, Path: "f.txt", DiffID: "x"},
 	}
 	for _, o := range bad {
-		if _, err := Patch(s, context.Background(), "/repo", o); !errors.Is(err, ErrPatchAxis) {
+		if _, err := Patch(s, context.Background(), absRepo, o); !errors.Is(err, ErrPatchAxis) {
 			t.Fatalf("%+v = %v, 기대 ErrPatchAxis", o, err)
 		}
 	}
@@ -169,7 +172,7 @@ func TestPatch_RequiresDiffID(t *testing.T) {
 	f := &writeFake{}
 	s := core.New(core.WithWriteRunner(f.runner))
 	o := PatchOpts{Op: PatchStage, Axis: query.AxisWorktreeIndex, Path: "f.txt"}
-	if _, err := Patch(s, context.Background(), "/repo", o); !errors.Is(err, ErrPatchStale) {
+	if _, err := Patch(s, context.Background(), absRepo, o); !errors.Is(err, ErrPatchStale) {
 		t.Fatalf("빈 diffId = %v, 기대 ErrPatchStale", err)
 	}
 	if len(f.argvs) != 0 {
@@ -466,4 +469,13 @@ func TestPatch_HandlesNoNewlineAtEOF(t *testing.T) {
 	if idx := indexLines(t, dir, "n.txt"); !hasLine(idx, "C") {
 		t.Fatalf("index = %v", idx)
 	}
+}
+
+// splitContentLines 는 줄 끝 종결자를 지우고 줄로 가른다 (LF·CRLF 모두).
+func splitContentLines(s string) []string {
+	out := strings.Split(strings.TrimRight(s, "\r\n"), "\n")
+	for i := range out {
+		out[i] = strings.TrimSuffix(out[i], "\r")
+	}
+	return out
 }

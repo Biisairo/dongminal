@@ -7,11 +7,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 X 검증 (CONVENIENCE_SRS §3.2). 서버측은 V-BGK-8/9/10 이 닿는다 —
@@ -75,6 +77,7 @@ func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
 	shortGrace(t, 200*time.Millisecond)
 	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.StopSaving)
 	tl, err := m.Create(dir, 80, 24)
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
@@ -82,7 +85,7 @@ func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
 	m.SetBackground(tl.ID, true)
 	s := &Server{Tools: m}
 
-	rec := postKill(s, `{"toolId":"`+tl.ID+`"}`)
+	rec := postKill(s, `{"toolId":`+testpath.JSONQuote(tl.ID)+`}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s, want 200", rec.Code, rec.Body.String())
 	}
@@ -100,7 +103,7 @@ func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
 	}
 
 	// 같은 도구를 다시 종료하면 404 — 행은 이미 사라졌다.
-	if again := postKill(s, `{"toolId":"`+tl.ID+`"}`).Code; again != http.StatusNotFound {
+	if again := postKill(s, `{"toolId":`+testpath.JSONQuote(tl.ID)+`}`).Code; again != http.StatusNotFound {
 		t.Errorf("두 번째 종료 status=%d, want 404", again)
 	}
 }
@@ -108,11 +111,16 @@ func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
 // V-BGK-9: SIGTERM 을 무시하는 프로세스는 유예가 지난 뒤 SIGKILL 로 죽는다
 // (FR-BGK-7). 가짜 셸을 $SHELL 로 세워 TERM 을 받고도 살아 있게 한다.
 //
-// 무시는 **핸들러가 아니라 `trap '' TERM`(SIG_IGN)** 이어야 한다. 이 PTY 배치에서
+// 무시는 **핸들러가 아니라 `trap ” TERM`(SIG_IGN)** 이어야 한다. 이 PTY 배치에서
 // 핸들러 트랩은 실측상 셸을 살려 두지 못했다 (SIGTERM 이 그대로 죽인다). 그래서
 // SIGTERM 전달 자체는 파일 표식이 아니라 **유예를 다 쓴다는 사실**로 관측한다 —
 // 무시하지 못했다면 셸은 즉시 죽고 대기는 조기 종료됐을 것이다.
 func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
+	// 가짜 셸이 `#!/bin/sh` 스크립트이고, 검사 대상이 SIGTERM trap 이다.
+	// Windows 에는 둘 다 없다 (FR-XPR-3 — 그쪽의 정중한 종료는 Ctrl+Break 다).
+	if !testpath.POSIXShell() {
+		t.Skip("POSIX 셸 스크립트와 SIGTERM 이 없는 OS 다")
+	}
 	const grace = 400 * time.Millisecond
 	shortGrace(t, grace)
 	dir := toolTempDir(t)
@@ -127,6 +135,7 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 	t.Setenv("SHELL", shell)
 
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.StopSaving)
 	tl, err := m.Create(dir, 80, 24)
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
@@ -140,7 +149,7 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 
 	start := time.Now()
 	done := make(chan int, 1)
-	go func() { done <- postKill(&Server{Tools: m}, `{"toolId":"`+tl.ID+`"}`).Code }()
+	go func() { done <- postKill(&Server{Tools: m}, `{"toolId":`+testpath.JSONQuote(tl.ID)+`}`).Code }()
 
 	// 유예 도중: 아직 죽이지 않았다. 이 확인이 없으면 "그냥 유예만큼 잤다" 와
 	// 구별되지 않는다.
@@ -157,8 +166,8 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 	if elapsed < grace {
 		t.Errorf("소요=%v, want >= %v — 유예 없이 죽였다", elapsed, grace)
 	}
-	if err := syscall.Kill(pid, 0); err == nil {
-		t.Errorf("pid=%d 가 아직 살아 있음 — SIGKILL 로 넘어가지 않았다", pid)
+	if platform.Current().Process.Alive(pid) {
+		t.Errorf("pid=%d 가 아직 살아 있음 — 강제 종료로 넘어가지 않았다", pid)
 	}
 	if list := m.BackgroundList(); len(list) != 0 {
 		t.Errorf("종료 후 백그라운드 목록 = %+v, want 없음", list)
@@ -170,6 +179,7 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 func TestTerminateWithGrace_ReturnsEarlyOnExit(t *testing.T) {
 	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(m.StopSaving)
 	tl, err := m.Create(dir, 80, 24)
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)

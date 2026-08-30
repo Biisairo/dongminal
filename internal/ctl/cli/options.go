@@ -13,6 +13,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/platform"
 )
 
 // ErrHelp는 -h/--help 가 주어졌을 때 파서가 돌려주는 센티널이다. 액션의
@@ -21,8 +24,8 @@ var ErrHelp = errors.New("help requested")
 
 const (
 	EnvPort = "PORT"
-	EnvHome = "DONGMINAL_HOME"
-	EnvHost = "DONGMINAL_HOST"
+	EnvHome = dmenv.EnvHome
+	EnvHost = dmenv.EnvHost
 	EnvLog  = "DONGMINAL_LOG"
 
 	// EnvRestartRunner는 이 실행이 위임된 재시작 대리임을 알린다 — 대리가
@@ -30,18 +33,25 @@ const (
 	EnvRestartRunner = "DONGMINAL_RESTART_RUNNER"
 	// EnvToolID는 도구의 셸에 심기는 도구 식별자다(toolhub.StartTool). 이
 	// 값이 있으면 지금 dongminal 도구 안에서 돌고 있다는 뜻이다 (FR-ACT-3a).
-	EnvToolID = "DONGMINAL_TOOL_ID"
+	//
+	// 이름과 기본 엔드포인트는 dmenv 가 갖는다 — 심는 쪽(toolhub)과 읽는
+	// 쪽(runtimebin)이 이 패키지를 import 할 수 없기 때문이다.
+	EnvToolID = dmenv.EnvToolID
 
-	DefaultPort = "58146"
-	DefaultHost = "127.0.0.1"
-	DefaultLog  = "/tmp/dongminal.log"
+	DefaultPort = dmenv.DefaultPort
+	DefaultHost = dmenv.DefaultHost
 
 	ExposeHost = "0.0.0.0"
 )
 
+// defaultLogFile 은 배경 모드 기동이 출력을 남길 자리다. 상수가 아니라 함수인
+// 것은 이 값이 OS 마다 다르기 때문이다 — POSIX 는 /tmp/dongminal.log 로 종전과
+// 같고, Windows 는 %LOCALAPPDATA% 아래다 (CROSS_PLATFORM_SRS FR-XPA-2).
+func defaultLogFile() string { return platform.Current().Paths.DefaultLogFile() }
+
 // Actions는 help 에 나열되는 액션 이름이다. 내부 진입점 `d`(데몬)는 여기
 // 없다 — 사용자가 직접 부를 것이 아니다 (FR-CLI-8).
-var Actions = []string{"start", "stop", "migrate", "health"}
+var Actions = []string{"start", "stop", "migrate", "health", "doctor", "verify"}
 
 // Common은 모든 액션이 공유하는 옵션이다 (FR-CLI-9).
 type Common struct {
@@ -108,7 +118,7 @@ func (c Common) ResolveHome() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("홈 디렉터리 확인 실패: %w", err)
 	}
-	return filepath.Join(userHome, ".dongminal"), nil
+	return filepath.Join(userHome, dmenv.DefaultHomeDir), nil
 }
 
 // expandTilde는 선행 `~/` 만 $HOME 으로 편다. 기존 스크립트의 _load_env 와
@@ -138,9 +148,28 @@ type StopOpts struct {
 	All bool
 }
 
+// DoctorOpts는 `dongminal doctor` 의 옵션이다.
+type DoctorOpts struct {
+	Common
+	// ProbePTY 는 내부용이다. 값이 있으면 의사 터미널 검사만 수행하고 결과를
+	// 그 파일에 적은 뒤 끝낸다 — doctor 가 자기 자신을 **콘솔 없는 자식**으로
+	// 띄워 서버와 같은 조건을 재현할 때 쓴다 (FR-XDG-2).
+	ProbePTY string
+}
+
 // HealthOpts는 `dongminal health` 의 옵션이다.
 type HealthOpts struct {
 	Common
+}
+
+// VerifyOpts는 `dongminal verify` 의 옵션이다.
+//
+// Common 을 품지 않는 것이 요구사항이다 (E2E_UNIFICATION_SRS FR-E2C-2/3). verify 는
+// 격리 전용이고, 홈·포트를 겨눌 수단이 있으면 운영 인스턴스를 죽이는 갈래가
+// 생긴다 — 실제로 그 사고가 났다 (scripts/verify-isolated.sh 머리말).
+type VerifyOpts struct {
+	// Repo 는 git 표면 검사의 대상이다. 비면 현재 작업 디렉터리다.
+	Repo string
 }
 
 // MigrateOpts는 `dongminal migrate` 의 옵션이다.
@@ -198,6 +227,60 @@ func ParseStop(args []string) (StopOpts, error) {
 			if !ok {
 				return StopOpts{}, unknownFlag("stop", args[i])
 			}
+		}
+	}
+	return o, nil
+}
+
+func ParseDoctor(args []string) (DoctorOpts, error) {
+	var o DoctorOpts
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--probe-pty":
+			if i+1 >= len(args) {
+				return DoctorOpts{}, fmt.Errorf("--probe-pty 에 값이 없습니다")
+			}
+			i++
+			o.ProbePTY = args[i]
+		case "-h", "--help":
+			return DoctorOpts{}, ErrHelp
+		default:
+			ok, err := o.Common.take(args, &i)
+			if err != nil {
+				return DoctorOpts{}, err
+			}
+			if !ok {
+				return DoctorOpts{}, unknownFlag("doctor", args[i])
+			}
+		}
+	}
+	return o, nil
+}
+
+func ParseVerify(args []string) (VerifyOpts, error) {
+	var o VerifyOpts
+	for i := 0; i < len(args); i++ {
+		name, inline, hasInline := strings.Cut(args[i], "=")
+		switch name {
+		case "--repo":
+			if hasInline {
+				o.Repo = inline
+				continue
+			}
+			if i+1 >= len(args) {
+				return VerifyOpts{}, fmt.Errorf("--repo 에 값이 없습니다")
+			}
+			i++
+			o.Repo = args[i]
+		case "-h", "--help":
+			return VerifyOpts{}, ErrHelp
+		case "--port", "--home":
+			// 받아서 무시하지 않고 거부한다. 겨눌 방법 자체를 두지 않는 것이
+			// 사고를 막는 가장 단순한 형태다 (FR-E2C-3).
+			return VerifyOpts{}, fmt.Errorf(
+				"verify 는 %s 를 받지 않습니다 — 언제나 격리 인스턴스에서만 돕니다", name)
+		default:
+			return VerifyOpts{}, unknownFlag("verify", args[i])
 		}
 	}
 	return o, nil

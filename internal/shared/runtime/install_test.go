@@ -9,44 +9,8 @@ import (
 	"testing"
 
 	"dongminal/internal/helper/runtimebin"
+	"dongminal/internal/shared/testpath"
 )
-
-func TestInstallShellHooks(t *testing.T) {
-	dir := t.TempDir()
-	if err := Install(dir); err != nil {
-		t.Fatalf("Install: %v", err)
-	}
-	want := map[string]os.FileMode{
-		"bash-hook.sh":            0o755,
-		"zdotdir/.zshrc":          0o644,
-		"agent-hooks/claude.json": 0o644,
-	}
-	for rel, wantMode := range want {
-		info, err := os.Stat(filepath.Join(dir, rel))
-		if err != nil {
-			t.Errorf("missing %s: %v", rel, err)
-			continue
-		}
-		if got := info.Mode().Perm(); got != wantMode {
-			t.Errorf("%s: mode=%o want=%o", rel, got, wantMode)
-		}
-	}
-	// The installed claude hooks file must be valid JSON (claude --settings
-	// rejects malformed input, which would break the wrapper).
-	blob, err := os.ReadFile(filepath.Join(dir, "agent-hooks/claude.json"))
-	if err != nil {
-		t.Fatalf("read claude.json: %v", err)
-	}
-	var parsed any
-	if err := json.Unmarshal(blob, &parsed); err != nil {
-		t.Fatalf("claude.json is not valid JSON: %v", err)
-	}
-	// Hook commands must reference dmctl by absolute path (PATH-independent).
-	wantCmd := filepath.Join(dir, "dmctl") + " notify"
-	if !strings.Contains(string(blob), wantCmd) {
-		t.Fatalf("claude.json should invoke %q, got:\n%s", wantCmd, blob)
-	}
-}
 
 // FR-AAP-8: claude.json must also wire the activity hook (PreToolUse → working)
 // while preserving the existing attention notify hooks.
@@ -60,10 +24,10 @@ func TestInstallAgentHooks_Activity(t *testing.T) {
 		t.Fatalf("read claude.json: %v", err)
 	}
 	s := string(blob)
-	if want := filepath.Join(dir, "dmctl") + " activity claude"; !strings.Contains(s, want) {
+	if want := testpath.JSONInner(dmctlPath(dir) + " activity claude"); !strings.Contains(s, want) {
 		t.Fatalf("claude.json should invoke %q, got:\n%s", want, s)
 	}
-	if want := filepath.Join(dir, "dmctl") + " notify done"; !strings.Contains(s, want) {
+	if want := testpath.JSONInner(dmctlPath(dir) + " notify done"); !strings.Contains(s, want) {
 		t.Fatalf("attention notify hook must be preserved %q, got:\n%s", want, s)
 	}
 	var parsed struct {
@@ -94,7 +58,7 @@ func TestInstallHelperSymlinks(t *testing.T) {
 	helpers := append([]string{}, runtimebin.HelperNames()...)
 	sort.Strings(helpers)
 	for _, name := range helpers {
-		dst := filepath.Join(dir, name)
+		dst := filepath.Join(dir, helperFile(name))
 		info, err := os.Lstat(dst)
 		if err != nil {
 			t.Errorf("missing helper %s: %v", name, err)
@@ -112,6 +76,11 @@ func TestInstallHelperSymlinks(t *testing.T) {
 			continue
 		}
 		// fallback: regular file copy. Just ensure it's executable.
+		// 실행 권한 비트는 NTFS 에 없다 — Windows 에서 실행 가능 여부를 정하는
+		// 것은 확장자(.exe)이고, 그것은 위 helperFile 이 이미 본다 (FR-WTP-31).
+		if !testpath.PermChecked() {
+			continue
+		}
 		if info.Mode().Perm()&0o111 == 0 {
 			t.Errorf("%s copy not executable: mode=%o", name, info.Mode().Perm())
 		}

@@ -14,6 +14,10 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/platform"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // toolTempDir 는 ToolManager 의 데이터 디렉터리를 내주되, **비동기 기록이 멎은
@@ -141,6 +145,7 @@ func TestPanedUnknownMethod(t *testing.T) {
 
 func TestPanedHelloReturnsToolIDs(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	t.Cleanup(pm.StopSaving)
 	pm.Create("/tmp", 80, 24)
 	pm.Create("/tmp", 80, 24)
 
@@ -159,6 +164,7 @@ func TestPanedHelloReturnsToolIDs(t *testing.T) {
 
 func TestPanedKillRemovesTool(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	t.Cleanup(pm.StopSaving)
 	// toolId 는 uuid 이므로 생성 결과에서 받아야 한다 (FR-UNI-7). 이전에는 첫 도구가
 	// 항상 "1" 이라는 카운터 전제에 의존했다.
 	tl, err := pm.Create("/tmp", 80, 24)
@@ -233,6 +239,7 @@ func shortPath(t *testing.T, name string) string { return t.TempDir() + "/" + na
 
 func TestPanedServerListenAccept(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	t.Cleanup(pm.StopSaving)
 	pm.Create("/tmp", 80, 24)
 
 	sockPath := shortPath(t, "t.sock")
@@ -256,25 +263,32 @@ func TestPanedServerListenAccept(t *testing.T) {
 		}
 	}()
 
-	conn, err := net.Dial("unix", sockPath)
+	conn, err := platform.Current().IPC.Dial(sockPath, time.Second)
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
 	}
 	enc := json.NewEncoder(conn)
 	dec := json.NewDecoder(conn)
 	enc.Encode(toolipc.PanedRequest{ID: 1, Method: "hello", Params: json.RawMessage(`{"server_pid":1}`)})
+	// **푸시가 응답보다 먼저 올 수 있다.** 위에서 만든 도구의 셸이 배너를
+	// 내면 그것이 출력 푸시로 나간다 — 푸시에는 ID 가 없다(0). pwsh 는 배너를
+	// 즉시 내므로 Windows 에서 이 경합이 늘 진다. 실제 클라이언트도 ID 로
+	// 골라 받는다.
 	var resp toolipc.PanedResponse
-	if err := dec.Decode(&resp); err != nil {
-		t.Fatalf("hello response: %v", err)
-	}
-	if resp.ID != 1 {
-		t.Fatalf("id=%d want 1", resp.ID)
+	for {
+		if err := dec.Decode(&resp); err != nil {
+			t.Fatalf("hello response: %v", err)
+		}
+		if resp.ID == 1 {
+			break
+		}
 	}
 	conn.Close()
 }
 
 func TestPanedServerCloseCleanup(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	t.Cleanup(pm.StopSaving)
 	sockPath := shortPath(t, "c.sock")
 	pidPath := shortPath(t, "c.pid")
 
@@ -292,6 +306,7 @@ func TestPanedServerCloseCleanup(t *testing.T) {
 
 func TestPanedCreateWriteSnapshotFlow(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	t.Cleanup(pm.StopSaving)
 	var buf bytes.Buffer
 	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&buf)}
 
@@ -313,6 +328,7 @@ func TestPanedCreateWriteSnapshotFlow(t *testing.T) {
 
 func TestPanedRestore(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	t.Cleanup(pm.StopSaving)
 	var buf bytes.Buffer
 	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&buf)}
 
@@ -363,8 +379,16 @@ func TestPanedListenRemovesStaleSocket(t *testing.T) {
 // 고정한다 (FR-TAN-7). 이름만을 위한 새 method 를 만들지 않는다 — 기존 도구
 // 목록에 편승한다 (FR-TAN-8, NFR-CNV-2).
 func TestPanedListCarriesForegroundName(t *testing.T) {
+	// 전경 프로세스 그룹은 POSIX 에만 있다 (FR-XPT-5 — Windows 의
+	// ForegroundPGID 는 (0,false) 고정). 건너뛴 사실이 출력에 남도록
+	// 빌드 태그가 아니라 Skip 으로 적는다 (FR-WTP-32).
+	if !testpath.ForegroundGroups() {
+		t.Skip("전경 프로세스 그룹이 없는 OS 다 — 붙일 이름이라는 개념이 없다")
+	}
+
 	t.Setenv("SHELL", "/bin/sh")
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	t.Cleanup(pm.StopSaving)
 	tl, err := pm.Create(t.TempDir(), 80, 24)
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)

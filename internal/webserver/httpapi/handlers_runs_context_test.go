@@ -244,7 +244,7 @@ func TestApiRunSucceed_InheritsWorktreeAndKeepsOldTool(t *testing.T) {
 	}
 	who.toolID = "tool-a"
 
-	code, out := postRun(t, s, fmt.Sprintf(`/api/runs/succeed`),
+	code, out := postRun(t, s, "/api/runs/succeed",
 		fmt.Sprintf(`{"memberId":%q,"at":"tab-c","timeoutMs":1}`, m.ID))
 	if code != 200 {
 		t.Fatalf("succeed 가 %d 로 실패했다: %v", code, out)

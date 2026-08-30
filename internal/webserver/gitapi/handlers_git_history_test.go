@@ -10,6 +10,7 @@ import (
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/store"
+	"net/url"
 )
 
 // 묶음 L·M 서버측 — /api/git/log·/commit·/refs (GIT_SRS §3C FR-GIT-113~114·122~123·
@@ -88,9 +89,9 @@ var gitHistoryEndpoints = []struct {
 	method string
 	path   string
 }{
-	{http.MethodGet, "/api/git/log?repo=/r"},
-	{http.MethodGet, "/api/git/commit?repo=/r&oid=" + histOid},
-	{http.MethodGet, "/api/git/refs?repo=/r"},
+	{http.MethodGet, "/api/git/log?repo=" + url.QueryEscape(absR)},
+	{http.MethodGet, "/api/git/commit?repo=" + url.QueryEscape(absR) + "&oid=" + histOid},
+	{http.MethodGet, "/api/git/refs?repo=" + url.QueryEscape(absR)},
 }
 
 func TestGitHistoryRoutesRegistered(t *testing.T) {

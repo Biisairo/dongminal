@@ -72,6 +72,7 @@ func TestToolManager_ActivitySnapshot(t *testing.T) {
 	defer func(o func(*Tool) bool) { attnBusyProbe = o }(attnBusyProbe)
 	attnBusyProbe = func(*Tool) bool { return true } // agents alive
 	m := NewToolManager("", nil)
+	t.Cleanup(m.StopSaving)
 	p1 := &Tool{ID: "1"}
 	p1.SetActivity("working", "Edit", "app.js")
 	p5 := &Tool{ID: "5"}
@@ -102,6 +103,7 @@ func TestToolManager_ActivitySnapshot_PrunesDeadWorking(t *testing.T) {
 	defer func(o func(*Tool) bool) { attnBusyProbe = o }(attnBusyProbe)
 	attnBusyProbe = func(*Tool) bool { return false } // agent dead
 	m := NewToolManager("", nil)
+	t.Cleanup(m.StopSaving)
 	pw := &Tool{ID: "1"}
 	pw.SetActivity("working", "Bash", "x")
 	pd := &Tool{ID: "2"}

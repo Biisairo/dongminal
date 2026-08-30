@@ -14,6 +14,7 @@ import (
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/store"
+	"net/url"
 )
 
 // 묶음 C 서버측 — /api/git/tag{,/validate,/delete,/push,/delete-remote}
@@ -23,7 +24,7 @@ import (
 // 클라이언트만 막으면 API 직접 호출이 그대로 우회한다. 이 파일이 보는 것은 그
 // 우회가 막히는지, 그리고 **막힌 요청이 실행되지 않았는지** 다.
 
-const gitTagRepo = "/work/repo"
+var gitTagRepo = absWorkRepo
 
 // gitTagFake 는 태그 표면이 딛는 읽기·쓰기를 함께 격리한다. WithRunner 만 주면
 // 실제 git 이 돌아 테스트가 저장소를 바꾼다.
@@ -125,11 +126,11 @@ var gitTagEndpoints = []struct {
 	path   string
 	body   string
 }{
-	{http.MethodPost, "/api/git/tag", `{"repo":"/work/repo","name":"v9.0"}`},
-	{http.MethodGet, "/api/git/tag/validate?repo=/work/repo&name=v9.0", ""},
-	{http.MethodPost, "/api/git/tag/delete", `{"repo":"/work/repo","name":"v1.0","confirm":true}`},
-	{http.MethodPost, "/api/git/tag/push", `{"repo":"/work/repo","name":"v1.0"}`},
-	{http.MethodPost, "/api/git/tag/delete-remote", `{"repo":"/work/repo","name":"v1.0","confirm":true}`},
+	{http.MethodPost, "/api/git/tag", `{"repo":` + qWorkRepo + `,"name":"v9.0"}`},
+	{http.MethodGet, "/api/git/tag/validate?repo=" + url.QueryEscape(absWorkRepo) + "&name=v9.0", ""},
+	{http.MethodPost, "/api/git/tag/delete", `{"repo":` + qWorkRepo + `,"name":"v1.0","confirm":true}`},
+	{http.MethodPost, "/api/git/tag/push", `{"repo":` + qWorkRepo + `,"name":"v1.0"}`},
+	{http.MethodPost, "/api/git/tag/delete-remote", `{"repo":` + qWorkRepo + `,"name":"v1.0","confirm":true}`},
 }
 
 // C1 (FR-GIT-250): 5개 라우트가 gitapi.routes 에 등록돼 있고, Git 이 없으면 전부
@@ -165,8 +166,8 @@ func TestAPIGitTagDelete_RequiresConfirm(t *testing.T) {
 	var mu sync.Mutex
 	jobArgvs := [][]string{}
 	cases := []struct{ name, path, body string }{
-		{"로컬 삭제", "/api/git/tag/delete", `{"repo":"/work/repo","name":"v1.0"}`},
-		{"원격 삭제", "/api/git/tag/delete-remote", `{"repo":"/work/repo","name":"v1.0"}`},
+		{"로컬 삭제", "/api/git/tag/delete", `{"repo":` + qWorkRepo + `,"name":"v1.0"}`},
+		{"원격 삭제", "/api/git/tag/delete-remote", `{"repo":` + qWorkRepo + `,"name":"v1.0"}`},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -203,7 +204,7 @@ func TestAPIGitTagDelete_LocalOnly(t *testing.T) {
 	s := gitTagServer(t, f, gitTagJobs(&jobArgvs, &mu))
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/tag/delete",
-		`{"repo":"/work/repo","name":"v1.0","confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"name":"v1.0","confirm":true}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -236,7 +237,7 @@ func TestAPIGitTagDeleteRemote_JobPathOnly(t *testing.T) {
 	s := gitTagServer(t, f, gitTagJobs(&jobArgvs, &mu))
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/tag/delete-remote",
-		`{"repo":"/work/repo","name":"v1.0","confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"name":"v1.0","confirm":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -266,9 +267,9 @@ func TestAPIGitTagPush_JobPath(t *testing.T) {
 		body string
 		want []string
 	}{
-		{"태그 하나", `{"repo":"/work/repo","name":"v1.0"}`,
+		{"태그 하나", `{"repo":` + qWorkRepo + `,"name":"v1.0"}`,
 			[]string{"push", "--progress", "origin", "refs/tags/v1.0"}},
-		{"전부", `{"repo":"/work/repo","all":true}`,
+		{"전부", `{"repo":` + qWorkRepo + `,"all":true}`,
 			[]string{"push", "--progress", "origin", "--tags"}},
 	}
 	for _, c := range cases {
@@ -304,15 +305,15 @@ func TestAPIGitTagCreate_RejectsBeforeExecuting(t *testing.T) {
 		code int
 		err  string
 	}{
-		{"이름 규칙 위반", `{"repo":"/work/repo","name":"bad name"}`,
+		{"이름 규칙 위반", `{"repo":` + qWorkRepo + `,"name":"bad name"}`,
 			http.StatusBadRequest, gitErrRefName},
-		{"- 로 시작하는 이름", `{"repo":"/work/repo","name":"-x"}`,
+		{"- 로 시작하는 이름", `{"repo":` + qWorkRepo + `,"name":"-x"}`,
 			http.StatusBadRequest, gitErrRefName},
-		{"이미 있는 이름", `{"repo":"/work/repo","name":"v1.0"}`,
+		{"이미 있는 이름", `{"repo":` + qWorkRepo + `,"name":"v1.0"}`,
 			http.StatusConflict, gitErrTagExists},
-		{"모르는 종류", `{"repo":"/work/repo","name":"v9.0","kind":"gpg"}`,
+		{"모르는 종류", `{"repo":` + qWorkRepo + `,"name":"v9.0","kind":"gpg"}`,
 			http.StatusBadRequest, gitErrBadRequest},
-		{"annotated 인데 메시지 없음", `{"repo":"/work/repo","name":"v9.0","kind":"annotated"}`,
+		{"annotated 인데 메시지 없음", `{"repo":` + qWorkRepo + `,"name":"v9.0","kind":"annotated"}`,
 			http.StatusBadRequest, gitErrBadRequest},
 	}
 	for _, c := range cases {
@@ -338,11 +339,11 @@ func TestAPIGitTagCreate_KindArgv(t *testing.T) {
 		body string
 		want []string
 	}{
-		{"lightweight", `{"repo":"/work/repo","name":"v9.0","message":"뜻이 없다"}`,
+		{"lightweight", `{"repo":` + qWorkRepo + `,"name":"v9.0","message":"뜻이 없다"}`,
 			[]string{"tag", "v9.0"}},
-		{"annotated", `{"repo":"/work/repo","name":"v9.0","kind":"annotated","message":"릴리스"}`,
+		{"annotated", `{"repo":` + qWorkRepo + `,"name":"v9.0","kind":"annotated","message":"릴리스"}`,
 			[]string{"tag", "-a", "-m", "릴리스", "v9.0"}},
-		{"signed + 대상", `{"repo":"/work/repo","name":"v9.0","kind":"signed","message":"서명","ref":"abc123"}`,
+		{"signed + 대상", `{"repo":` + qWorkRepo + `,"name":"v9.0","kind":"signed","message":"서명","ref":"abc123"}`,
 			[]string{"tag", "-s", "-m", "서명", "v9.0", "abc123"}},
 	}
 	for _, c := range cases {
@@ -379,7 +380,7 @@ func TestAPIGitTagValidate_JudgesInBody(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			code, out := gitReq(t, s, http.MethodGet,
-				"/api/git/tag/validate?repo=/work/repo&name="+strings.ReplaceAll(c.q, " ", "%20"), "")
+				"/api/git/tag/validate?repo="+url.QueryEscape(absWorkRepo)+"&name="+strings.ReplaceAll(c.q, " ", "%20"), "")
 			if code != http.StatusOK {
 				t.Fatalf("code = %d, body = %v", code, out)
 			}

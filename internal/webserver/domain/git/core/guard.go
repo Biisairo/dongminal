@@ -158,13 +158,28 @@ func RelPath(p string, kind error) (string, error) {
 	if strings.TrimSpace(p) == "" {
 		return "", fmt.Errorf("%w: 경로가 비었다", kind)
 	}
-	if filepath.IsAbs(p) || strings.HasPrefix(p, "/") {
+	// **구분자를 슬래시로 못박지 않는다** (WINDOWS_TEST_PARITY_SRS FR-WTP-8).
+	//
+	// Windows 에서는 `\` 도 구분자다. 슬래시만 보면 `src\..\x` 가 한 조각으로
+	// 읽혀 부모 참조 검사를 그냥 지나간다 — `path.Clean` 도 슬래시만 알므로
+	// 정규형 검사에도 걸리지 않는다. 이 값은 git 에 경로로 넘어간다.
+	//
+	// filepath.ToSlash 는 POSIX 에서 항등이므로 그쪽 동작은 그대로다. POSIX 의
+	// `\` 는 파일 이름에 쓸 수 있는 평범한 글자이고, 여기서 바꾸는 것은
+	// **검사용 사본**일 뿐 돌려주는 값이 아니다.
+	slashed := filepath.ToSlash(p)
+
+	// 볼륨이 붙은 경로는 절대경로가 아니어도 위험하다 — Windows 의 `C:foo` 는
+	// 그 드라이브의 현재 디렉터리 기준이라 이 저장소 밖을 가리킬 수 있고,
+	// filepath.IsAbs 는 그것을 절대경로로 보지 않는다. `\foo` 도 같다
+	// (볼륨 없는 루트 상대). POSIX 에서 VolumeName 은 언제나 빈 문자열이다.
+	if filepath.IsAbs(p) || strings.HasPrefix(slashed, "/") || filepath.VolumeName(p) != "" {
 		return "", fmt.Errorf("%w: 절대경로는 받지 않는다: %q", kind, p)
 	}
 	if strings.ContainsRune(p, 0) {
 		return "", fmt.Errorf("%w: NUL 을 포함한 경로", kind)
 	}
-	for _, seg := range strings.Split(p, "/") {
+	for _, seg := range strings.Split(slashed, "/") {
 		if seg == ".." {
 			return "", fmt.Errorf("%w: 부모 참조가 있다: %q", kind, p)
 		}

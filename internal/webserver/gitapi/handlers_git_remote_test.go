@@ -16,6 +16,9 @@ import (
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
+	"net/url"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 K 서버측 — /api/git/{fetch,pull,push} + /api/git/job* (GIT_SRS §3B.1,
@@ -24,7 +27,7 @@ import (
 // **서버가 마지막 방어선이다.** force 의 2단계 확인·동시 실행 차단을 클라이언트만
 // 막으면 API 직접 호출이 그대로 우회한다.
 
-const gitRemoteRepo = "/work/repo"
+var gitRemoteRepo = absWorkRepo
 
 // gitRemoteFake 는 읽기를 격리한다. 원격 작업의 argv 는 status 와 config 로
 // 결정되므로 그 둘만 답한다.
@@ -146,9 +149,9 @@ var gitRemoteEndpoints = []struct {
 	path   string
 	body   string
 }{
-	{http.MethodPost, "/api/git/fetch", `{"repo":"/work/repo"}`},
-	{http.MethodPost, "/api/git/pull", `{"repo":"/work/repo"}`},
-	{http.MethodPost, "/api/git/push", `{"repo":"/work/repo"}`},
+	{http.MethodPost, "/api/git/fetch", `{"repo":` + qWorkRepo + `}`},
+	{http.MethodPost, "/api/git/pull", `{"repo":` + qWorkRepo + `}`},
+	{http.MethodPost, "/api/git/push", `{"repo":` + qWorkRepo + `}`},
 	{http.MethodPost, "/api/git/job/cancel", `{"id":"x"}`},
 	{http.MethodGet, "/api/git/job/events?id=x", ""},
 	{http.MethodGet, "/api/git/jobs", ""},
@@ -197,13 +200,13 @@ func TestGitRemote_StartReturnsJobImmediately(t *testing.T) {
 		kind string
 		want []string
 	}{
-		{"/api/git/fetch", `{"repo":"/work/repo"}`, "fetch", []string{"fetch", "--progress"}},
-		{"/api/git/fetch", `{"repo":"/work/repo","prune":true,"tags":false}`, "fetch",
+		{"/api/git/fetch", `{"repo":` + qWorkRepo + `}`, "fetch", []string{"fetch", "--progress"}},
+		{"/api/git/fetch", `{"repo":` + qWorkRepo + `,"prune":true,"tags":false}`, "fetch",
 			[]string{"fetch", "--progress", "--prune", "--no-tags"}},
-		{"/api/git/pull", `{"repo":"/work/repo"}`, "pull", []string{"pull", "--progress"}},
-		{"/api/git/pull", `{"repo":"/work/repo","mode":"rebase"}`, "pull",
+		{"/api/git/pull", `{"repo":` + qWorkRepo + `}`, "pull", []string{"pull", "--progress"}},
+		{"/api/git/pull", `{"repo":` + qWorkRepo + `,"mode":"rebase"}`, "pull",
 			[]string{"pull", "--progress", "--rebase"}},
-		{"/api/git/push", `{"repo":"/work/repo"}`, "push", []string{"push", "--progress"}},
+		{"/api/git/push", `{"repo":` + qWorkRepo + `}`, "push", []string{"push", "--progress"}},
 	}
 	for _, c := range cases {
 		t.Run(c.path+" "+c.body, func(t *testing.T) {
@@ -238,11 +241,11 @@ func TestGitRemote_SecondJobIsBusy(t *testing.T) {
 	defer close(release)
 	s := gitRemoteServer(t, newGitRemoteFake(t), gitRemoteHold(release))
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/fetch", `{"repo":"/work/repo"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/fetch", `{"repo":`+qWorkRepo+`}`)
 	if code != http.StatusOK {
 		t.Fatalf("첫 요청 code = %d, body = %v", code, out)
 	}
-	code, out = gitReq(t, s, http.MethodPost, "/api/git/push", `{"repo":"/work/repo"}`)
+	code, out = gitReq(t, s, http.MethodPost, "/api/git/push", `{"repo":`+qWorkRepo+`}`)
 	if code != http.StatusConflict {
 		t.Fatalf("두 번째 code = %d, body = %v", code, out)
 	}
@@ -261,12 +264,12 @@ func TestGitPush_ForceNeedsConfirm(t *testing.T) {
 		err  string
 		want []string
 	}{
-		{"확인 없는 force", `{"repo":"/work/repo","force":"force"}`, http.StatusBadRequest, gitErrConfirmRequired, nil},
-		{"확인 있는 force", `{"repo":"/work/repo","force":"force","confirm":true}`, http.StatusOK, "",
+		{"확인 없는 force", `{"repo":` + qWorkRepo + `,"force":"force"}`, http.StatusBadRequest, gitErrConfirmRequired, nil},
+		{"확인 있는 force", `{"repo":` + qWorkRepo + `,"force":"force","confirm":true}`, http.StatusOK, "",
 			[]string{"push", "--progress", "--force"}},
-		{"lease 는 확인 없이", `{"repo":"/work/repo","force":"lease"}`, http.StatusOK, "",
+		{"lease 는 확인 없이", `{"repo":` + qWorkRepo + `,"force":"lease"}`, http.StatusOK, "",
 			[]string{"push", "--progress", "--force-with-lease"}},
-		{"모르는 force", `{"repo":"/work/repo","force":"hard"}`, http.StatusBadRequest, gitErrBadRequest, nil},
+		{"모르는 force", `{"repo":` + qWorkRepo + `,"force":"hard"}`, http.StatusBadRequest, gitErrBadRequest, nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -304,7 +307,7 @@ func TestGitPush_PublishAnnouncedBeforeRun(t *testing.T) {
 		return 0, nil
 	})
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/push", `{"repo":"/work/repo"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/push", `{"repo":`+qWorkRepo+`}`)
 	if code != http.StatusConflict {
 		t.Fatalf("code = %d, want 409 (body=%v)", code, out)
 	}
@@ -319,7 +322,7 @@ func TestGitPush_PublishAnnouncedBeforeRun(t *testing.T) {
 		t.Fatalf("확인 전에 실행됐다: %v", got)
 	}
 
-	code, out = gitReq(t, s, http.MethodPost, "/api/git/push", `{"repo":"/work/repo","publish":true}`)
+	code, out = gitReq(t, s, http.MethodPost, "/api/git/push", `{"repo":`+qWorkRepo+`,"publish":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -335,7 +338,7 @@ func TestGitPush_NoRemote(t *testing.T) {
 	f := newGitRemoteFake(t)
 	f.branch, f.upstream, f.config = "no-upstream", "", "core.bare=false\n"
 	s := gitRemoteServer(t, f, gitRemoteEmit())
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/push", `{"repo":"/work/repo","publish":true}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/push", `{"repo":`+qWorkRepo+`,"publish":true}`)
 	if code != http.StatusConflict || out["error"] != gitErrNoRemote {
 		t.Fatalf("code = %d, error = %v", code, out["error"])
 	}
@@ -345,7 +348,7 @@ func TestGitPush_NoRemote(t *testing.T) {
 // 재연결 지점이며 이미 본 줄을 다시 보내지 않는다.
 func TestGitJobEvents_ReplayAfterSeq(t *testing.T) {
 	s := gitRemoteServer(t, newGitRemoteFake(t), gitRemoteEmit("한 줄", "두 줄", "세 줄"))
-	_, out := gitReq(t, s, http.MethodPost, "/api/git/fetch", `{"repo":"/work/repo"}`)
+	_, out := gitReq(t, s, http.MethodPost, "/api/git/fetch", `{"repo":`+qWorkRepo+`}`)
 	id := gitRemoteJobID(t, out)
 	gitRemoteWaitDone(t, s, id)
 
@@ -365,7 +368,7 @@ func TestGitJobEvents_ReplayAfterSeq(t *testing.T) {
 // 처음 연결은 보존된 줄 전부를 받는다.
 func TestGitJobEvents_FromStart(t *testing.T) {
 	s := gitRemoteServer(t, newGitRemoteFake(t), gitRemoteEmit("가", "나"))
-	_, out := gitReq(t, s, http.MethodPost, "/api/git/pull", `{"repo":"/work/repo"}`)
+	_, out := gitReq(t, s, http.MethodPost, "/api/git/pull", `{"repo":`+qWorkRepo+`}`)
 	id := gitRemoteJobID(t, out)
 	gitRemoteWaitDone(t, s, id)
 
@@ -396,10 +399,10 @@ func TestGitJobCancel(t *testing.T) {
 	release := make(chan struct{})
 	defer close(release)
 	s := gitRemoteServer(t, newGitRemoteFake(t), gitRemoteHold(release))
-	_, out := gitReq(t, s, http.MethodPost, "/api/git/fetch", `{"repo":"/work/repo"}`)
+	_, out := gitReq(t, s, http.MethodPost, "/api/git/fetch", `{"repo":`+qWorkRepo+`}`)
 	id := gitRemoteJobID(t, out)
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/job/cancel", `{"id":"`+id+`"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/job/cancel", `{"id":`+testpath.JSONQuote(id)+`}`)
 	if code != http.StatusOK || out["ok"] != true || out["canceled"] != true {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -418,7 +421,7 @@ func TestGitJobCancel(t *testing.T) {
 func TestGitJobs_ActiveList(t *testing.T) {
 	release := make(chan struct{})
 	s := gitRemoteServer(t, newGitRemoteFake(t), gitRemoteHold(release))
-	_, out := gitReq(t, s, http.MethodPost, "/api/git/push", `{"repo":"/work/repo"}`)
+	_, out := gitReq(t, s, http.MethodPost, "/api/git/push", `{"repo":`+qWorkRepo+`}`)
 	id := gitRemoteJobID(t, out)
 
 	code, out := gitReq(t, s, http.MethodGet, "/api/git/jobs", "")
@@ -449,13 +452,13 @@ func TestGitRemote_InvalidatesStatusCacheOnDone(t *testing.T) {
 	s := gitRemoteServer(t, f, gitRemoteEmit("끝"))
 
 	// 캐시를 채운다.
-	if code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo=/work/repo", ""); code != http.StatusOK {
+	if code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo="+url.QueryEscape(absWorkRepo), ""); code != http.StatusOK {
 		t.Fatalf("status code = %d, body = %v", code, out)
 	}
-	_, out := gitReq(t, s, http.MethodPost, "/api/git/fetch", `{"repo":"/work/repo"}`)
+	_, out := gitReq(t, s, http.MethodPost, "/api/git/fetch", `{"repo":`+qWorkRepo+`}`)
 	gitRemoteWaitDone(t, s, gitRemoteJobID(t, out))
 
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo=/work/repo", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo="+url.QueryEscape(absWorkRepo), "")
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}

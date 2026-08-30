@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"dongminal/internal/webserver/domain/wsentry"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // /api/fs/* · /api/editors/* 서버측 (EDITOR_TAB_SRS §3.11, V-EDT-8·10·45·65~67·82~84).
@@ -24,7 +26,7 @@ import (
 func fsTestServer(t *testing.T) (*Server, *fakeWorkspaceStore, string) {
 	t.Helper()
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	t.Setenv(testpath.HomeEnv(), home)
 	ws := newFakeWorkspaceStore()
 	srv, err := New(Config{Port: "0", DataDir: t.TempDir()}, Deps{Work: ws, Commands: &fakeCommandBroker{}})
 	if err != nil {
@@ -216,7 +218,7 @@ func TestFSDeleteRejectsOtherEditorRoot(t *testing.T) {
 // 기준 삼는 조작이 파일시스템 전체를 대상으로 삼는다.
 func TestEditorAddRejectsFilesystemRoot(t *testing.T) {
 	srv, _, _ := fsTestServer(t)
-	code, out := fsReq(t, srv, "POST", "/api/editors/add", `{"path":"/"}`)
+	code, out := fsReq(t, srv, "POST", "/api/editors/add", `{"path":`+testpath.JSONQuote(testpath.Root())+`}`)
 	if code == 200 {
 		t.Fatalf("파일시스템 루트가 행으로 들어갔다: %v", out)
 	}
@@ -354,7 +356,7 @@ func TestFS_RejectsUnknownRoot(t *testing.T) {
 	other := wsentry.NormalizePath(t.TempDir())
 	seedRoot(t, ws, other)
 
-	code, out := fsReq(t, s, http.MethodGet, "/api/fs/list?root=/etc&path=/etc", "")
+	code, out := fsReq(t, s, http.MethodGet, "/api/fs/list?root="+url.QueryEscape(testpath.Abs("etc"))+"&path="+url.QueryEscape(testpath.Abs("etc")), "")
 	if code != http.StatusForbidden || out["code"] != fsErrOutsideRoot {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
@@ -373,13 +375,13 @@ func TestFS_RejectsRelativePaths(t *testing.T) {
 	cases := []struct{ method, path, body string }{
 		{http.MethodGet, "/api/fs/list?root=rel&path=" + root, ""},
 		{http.MethodGet, "/api/fs/list?root=" + root + "&path=rel", ""},
-		{http.MethodPost, "/api/fs/create", `{"root":"` + root + `","path":"rel"}`},
-		{http.MethodPost, "/api/fs/rename", `{"root":"` + root + `","from":"rel","to":"` + root + `/x"}`},
-		{http.MethodPost, "/api/fs/rename", `{"root":"` + root + `","from":"` + root + `/x","to":"rel"}`},
-		{http.MethodPost, "/api/fs/delete", `{"root":"` + root + `","path":"rel"}`},
+		{http.MethodPost, "/api/fs/create", `{"root":` + testpath.JSONQuote(root) + `,"path":"rel"}`},
+		{http.MethodPost, "/api/fs/rename", `{"root":` + testpath.JSONQuote(root) + `,"from":"rel","to":` + testpath.JSONQuote(root+"/x") + `}`},
+		{http.MethodPost, "/api/fs/rename", `{"root":` + testpath.JSONQuote(root) + `,"from":` + testpath.JSONQuote(root+"/x") + `,"to":"rel"}`},
+		{http.MethodPost, "/api/fs/delete", `{"root":` + testpath.JSONQuote(root) + `,"path":"rel"}`},
 		{http.MethodPost, "/api/editors/add", `{"path":"rel"}`},
 		{http.MethodPost, "/api/editors/remove", `{"path":"rel"}`},
-		{http.MethodPost, "/api/editors/reorder", `{"src":"rel","target":"` + root + `"}`},
+		{http.MethodPost, "/api/editors/reorder", `{"src":"rel","target":` + testpath.JSONQuote(root) + `}`},
 	}
 	for _, c := range cases {
 		code, out := fsReq(t, s, c.method, c.path, c.body)
@@ -417,13 +419,13 @@ func TestFSCreate_RejectsExisting(t *testing.T) {
 	seedRoot(t, ws, root)
 
 	file := filepath.Join(root, "a.txt")
-	if code, out := fsReq(t, s, http.MethodPost, "/api/fs/create", `{"root":"`+root+`","path":"`+file+`"}`); code != 200 {
+	if code, out := fsReq(t, s, http.MethodPost, "/api/fs/create", `{"root":`+testpath.JSONQuote(root)+`,"path":`+testpath.JSONQuote(file)+`}`); code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
 	if err := os.WriteFile(file, []byte("keep"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	code, out := fsReq(t, s, http.MethodPost, "/api/fs/create", `{"root":"`+root+`","path":"`+file+`"}`)
+	code, out := fsReq(t, s, http.MethodPost, "/api/fs/create", `{"root":`+testpath.JSONQuote(root)+`,"path":`+testpath.JSONQuote(file)+`}`)
 	if code != http.StatusConflict || out["code"] != fsErrExists {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
@@ -432,13 +434,13 @@ func TestFSCreate_RejectsExisting(t *testing.T) {
 	}
 
 	dir := filepath.Join(root, "d")
-	if code, out := fsReq(t, s, http.MethodPost, "/api/fs/create", `{"root":"`+root+`","path":"`+dir+`","dir":true}`); code != 200 {
+	if code, out := fsReq(t, s, http.MethodPost, "/api/fs/create", `{"root":`+testpath.JSONQuote(root)+`,"path":`+testpath.JSONQuote(dir)+`,"dir":true}`); code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
 	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
 		t.Fatalf("폴더가 안 생겼다: %v", err)
 	}
-	if code, _ := fsReq(t, s, http.MethodPost, "/api/fs/create", `{"root":"`+root+`","path":"`+dir+`","dir":true}`); code != http.StatusConflict {
+	if code, _ := fsReq(t, s, http.MethodPost, "/api/fs/create", `{"root":`+testpath.JSONQuote(root)+`,"path":`+testpath.JSONQuote(dir)+`,"dir":true}`); code != http.StatusConflict {
 		t.Fatalf("code=%d", code)
 	}
 }
@@ -455,7 +457,7 @@ func TestFSRename_RejectsExistingTarget(t *testing.T) {
 	if err := os.WriteFile(to, []byte("B"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	code, out := fsReq(t, s, http.MethodPost, "/api/fs/rename", `{"root":"`+root+`","from":"`+from+`","to":"`+to+`"}`)
+	code, out := fsReq(t, s, http.MethodPost, "/api/fs/rename", `{"root":`+testpath.JSONQuote(root)+`,"from":`+testpath.JSONQuote(from)+`,"to":`+testpath.JSONQuote(to)+`}`)
 	if code != http.StatusConflict || out["code"] != fsErrExists {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
@@ -463,12 +465,12 @@ func TestFSRename_RejectsExistingTarget(t *testing.T) {
 		t.Fatalf("덮어썼다: %q", b)
 	}
 	// 없는 from 은 not_found 다.
-	code, out = fsReq(t, s, http.MethodPost, "/api/fs/rename", `{"root":"`+root+`","from":"`+root+`/zz","to":"`+root+`/yy"}`)
+	code, out = fsReq(t, s, http.MethodPost, "/api/fs/rename", `{"root":`+testpath.JSONQuote(root)+`,"from":`+testpath.JSONQuote(root+"/zz")+`,"to":`+testpath.JSONQuote(root+"/yy")+`}`)
 	if code != http.StatusNotFound || out["code"] != fsErrNotFound {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
 	// 정상 경로.
-	if code, out := fsReq(t, s, http.MethodPost, "/api/fs/rename", `{"root":"`+root+`","from":"`+from+`","to":"`+root+`/c"}`); code != 200 {
+	if code, out := fsReq(t, s, http.MethodPost, "/api/fs/rename", `{"root":`+testpath.JSONQuote(root)+`,"from":`+testpath.JSONQuote(from)+`,"to":`+testpath.JSONQuote(root+"/c")+`}`); code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
 	if b, _ := os.ReadFile(filepath.Join(root, "c")); string(b) != "A" {
@@ -487,9 +489,9 @@ func TestFS_RejectsOutsideRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := []struct{ path, body string }{
-		{"/api/fs/create", `{"root":"` + root + `","path":"` + outside + `/new.txt"}`},
-		{"/api/fs/delete", `{"root":"` + root + `","path":"` + victim + `"}`},
-		{"/api/fs/rename", `{"root":"` + root + `","from":"` + victim + `","to":"` + root + `/x"}`},
+		{"/api/fs/create", `{"root":` + testpath.JSONQuote(root) + `,"path":` + testpath.JSONQuote(outside+"/new.txt") + `}`},
+		{"/api/fs/delete", `{"root":` + testpath.JSONQuote(root) + `,"path":` + testpath.JSONQuote(victim) + `}`},
+		{"/api/fs/rename", `{"root":` + testpath.JSONQuote(root) + `,"from":` + testpath.JSONQuote(victim) + `,"to":` + testpath.JSONQuote(root+"/x") + `}`},
 	}
 	for _, c := range cases {
 		code, out := fsReq(t, s, http.MethodPost, c.path, c.body)
@@ -516,7 +518,7 @@ func TestFS_RejectsSymlinkEscape(t *testing.T) {
 		t.Fatal(err)
 	}
 	via := filepath.Join(root, "esc", "victim.txt")
-	code, out := fsReq(t, s, http.MethodPost, "/api/fs/delete", `{"root":"`+root+`","path":"`+via+`"}`)
+	code, out := fsReq(t, s, http.MethodPost, "/api/fs/delete", `{"root":`+testpath.JSONQuote(root)+`,"path":`+testpath.JSONQuote(via)+`}`)
 	if code != http.StatusForbidden || out["code"] != fsErrOutsideRoot {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
@@ -541,9 +543,9 @@ func TestFSDelete_RejectsRootHomeAndFsRoot(t *testing.T) {
 		{home, home, fsErrBadRequest},
 		// `/` 는 어느 Editor 루트보다도 위이므로 루트 가드가 먼저 잡는다 — 거부의
 		// 사유가 더 강할 뿐 결과는 같다.
-		{home, "/", fsErrOutsideRoot},
+		{home, testpath.Root(), fsErrOutsideRoot},
 	} {
-		code, out := fsReq(t, s, http.MethodPost, "/api/fs/delete", `{"root":"`+c.root+`","path":"`+c.path+`"}`)
+		code, out := fsReq(t, s, http.MethodPost, "/api/fs/delete", `{"root":`+testpath.JSONQuote(c.root)+`,"path":`+testpath.JSONQuote(c.path)+`}`)
 		if code < 400 || out["code"] != c.want {
 			t.Errorf("delete %s (root=%s) → code=%d body=%v", c.path, c.root, code, out)
 		}
@@ -553,7 +555,7 @@ func TestFSDelete_RejectsRootHomeAndFsRoot(t *testing.T) {
 	}
 	// 루트가 `/` 인 극단(사용자가 `/` 를 Editor 행으로 넣은 경우)에서도 파일시스템
 	// 루트는 지워지지 않는다.
-	if err := s.fsDeletable("/", "/"); err == nil {
+	if err := s.fsDeletable(testpath.Root(), testpath.Root()); err == nil {
 		t.Fatal("파일시스템 루트의 삭제가 통과했다")
 	}
 }
@@ -577,7 +579,7 @@ func TestFSDelete_OverMaxDeletesNothing(t *testing.T) {
 	fsDeleteMax = 3
 	defer func() { fsDeleteMax = restore }()
 
-	code, out := fsReq(t, s, http.MethodPost, "/api/fs/delete", `{"root":"`+root+`","path":"`+target+`"}`)
+	code, out := fsReq(t, s, http.MethodPost, "/api/fs/delete", `{"root":`+testpath.JSONQuote(root)+`,"path":`+testpath.JSONQuote(target)+`}`)
 	if code != http.StatusBadRequest || out["code"] != fsErrBadRequest {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
@@ -587,7 +589,7 @@ func TestFSDelete_OverMaxDeletesNothing(t *testing.T) {
 	}
 
 	fsDeleteMax = restore
-	if code, out := fsReq(t, s, http.MethodPost, "/api/fs/delete", `{"root":"`+root+`","path":"`+target+`"}`); code != 200 {
+	if code, out := fsReq(t, s, http.MethodPost, "/api/fs/delete", `{"root":`+testpath.JSONQuote(root)+`,"path":`+testpath.JSONQuote(target)+`}`); code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
 	if _, err := os.Stat(target); !os.IsNotExist(err) {
@@ -610,7 +612,7 @@ func TestEditors_Endpoints(t *testing.T) {
 	}
 
 	for i := 0; i < 2; i++ { // 멱등 (FR-EDT-25)
-		code, out = fsReq(t, s, http.MethodPost, "/api/editors/add", `{"path":"`+a+`"}`)
+		code, out = fsReq(t, s, http.MethodPost, "/api/editors/add", `{"path":`+testpath.JSONQuote(a)+`}`)
 		if code != 200 {
 			t.Fatalf("add code=%d body=%v", code, out)
 		}
@@ -624,7 +626,7 @@ func TestEditors_Endpoints(t *testing.T) {
 
 	// V-EDT-8 (FR-EDT-16): 홈 추가는 성공이되 목록을 바꾸지 않는다.
 	saves := ws.saves
-	code, out = fsReq(t, s, http.MethodPost, "/api/editors/add", `{"path":"`+home+`"}`)
+	code, out = fsReq(t, s, http.MethodPost, "/api/editors/add", `{"path":`+testpath.JSONQuote(home)+`}`)
 	if code != 200 {
 		t.Fatalf("홈 추가 code=%d body=%v", code, out)
 	}
@@ -635,11 +637,11 @@ func TestEditors_Endpoints(t *testing.T) {
 		t.Fatalf("목록이 안 변하는데 저장했다")
 	}
 
-	if code, out = fsReq(t, s, http.MethodPost, "/api/editors/add", `{"path":"`+b+`"}`); code != 200 {
+	if code, out = fsReq(t, s, http.MethodPost, "/api/editors/add", `{"path":`+testpath.JSONQuote(b)+`}`); code != 200 {
 		t.Fatalf("add code=%d body=%v", code, out)
 	}
 	// FR-EDT-27: (src, target, before) 델타.
-	code, out = fsReq(t, s, http.MethodPost, "/api/editors/reorder", `{"src":"`+b+`","target":"`+a+`","before":true}`)
+	code, out = fsReq(t, s, http.MethodPost, "/api/editors/reorder", `{"src":`+testpath.JSONQuote(b)+`,"target":`+testpath.JSONQuote(a)+`,"before":true}`)
 	if code != 200 {
 		t.Fatalf("reorder code=%d body=%v", code, out)
 	}
@@ -647,7 +649,7 @@ func TestEditors_Endpoints(t *testing.T) {
 		t.Fatalf("list=%v", out["list"])
 	}
 
-	code, out = fsReq(t, s, http.MethodPost, "/api/editors/remove", `{"path":"`+b+`"}`)
+	code, out = fsReq(t, s, http.MethodPost, "/api/editors/remove", `{"path":`+testpath.JSONQuote(b)+`}`)
 	if code != 200 {
 		t.Fatalf("remove code=%d body=%v", code, out)
 	}
@@ -656,14 +658,14 @@ func TestEditors_Endpoints(t *testing.T) {
 	}
 
 	// FR-EDT-23: 존재하지 않으면 404, 파일이면 400.
-	if code, out := fsReq(t, s, http.MethodPost, "/api/editors/add", `{"path":"`+a+`/nope"}`); code != http.StatusNotFound || out["code"] != fsErrNotFound {
+	if code, out := fsReq(t, s, http.MethodPost, "/api/editors/add", `{"path":`+testpath.JSONQuote(a+"/nope")+`}`); code != http.StatusNotFound || out["code"] != fsErrNotFound {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
 	f := filepath.Join(a, "f.txt")
 	if err := os.WriteFile(f, nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if code, out := fsReq(t, s, http.MethodPost, "/api/editors/add", `{"path":"`+f+`"}`); code != http.StatusBadRequest || out["code"] != fsErrBadRequest {
+	if code, out := fsReq(t, s, http.MethodPost, "/api/editors/add", `{"path":`+testpath.JSONQuote(f)+`}`); code != http.StatusBadRequest || out["code"] != fsErrBadRequest {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
 }
@@ -703,7 +705,7 @@ func TestFSRoutesRegistered(t *testing.T) {
 
 // workspace 가 없으면 이 종단만 실패한다 — 패닉하지 않고 {code,message} 를 낸다.
 func TestFS_WithoutWorkspaceFailsCleanly(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	t.Setenv(testpath.HomeEnv(), t.TempDir())
 	s, err := New(Config{Port: "0", DataDir: t.TempDir()}, Deps{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -731,6 +733,11 @@ func TestFS_WithoutWorkspaceFailsCleanly(t *testing.T) {
 func TestFSListPermissionDeniedNot404(t *testing.T) {
 	// root 는 권한 검사를 그냥 통과한다 — 그대로 두면 이 테스트는 언제나 통과하는
 	// 가짜가 된다.
+	// 권한 비트로 거부를 만드는 검사다. NTFS 에는 그 개념이 없어
+	// chmod(0o000) 이 아무 효과도 내지 않는다 (FR-WTP-31).
+	if !testpath.PermChecked() {
+		t.Skip("유닉스 권한 비트가 없는 OS 다 — 거부 상황을 만들 수 없다")
+	}
 	if os.Geteuid() == 0 {
 		t.Skip("root 로는 권한 거부를 만들 수 없다")
 	}

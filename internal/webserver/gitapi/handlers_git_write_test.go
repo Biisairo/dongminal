@@ -14,6 +14,8 @@ import (
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/git/write"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 H·I 서버측 — /api/git/{stage,unstage,discard,commit,undo-last}
@@ -135,7 +137,7 @@ func gitWriteServer(t *testing.T, f *gitWriteFake) (*GitServer, *time.Time) {
 
 // gitWriteRepo 는 요청에 실을 리포 경로다. fake 의 rev-parse 가 요청 dir 을 그대로
 // 루트로 답하므로 존재하지 않아도 된다.
-const gitWriteRepo = "/work/repo"
+var gitWriteRepo = absWorkRepo
 
 // S15 (V30, FR-GIT-71): 쓰기 5개 라우트가 등록돼 있고, 응답에 **실행 후** status 가
 // 함께 온다. 폴링 주기를 기다리면 화면이 방금 만든 변경을 보지 못한다.
@@ -145,15 +147,15 @@ func TestAPIGitWriteRoutes_ReturnFreshStatus(t *testing.T) {
 		body string
 		want []string
 	}{
-		{"/api/git/stage", `{"repo":"/work/repo","paths":["a.txt"]}`, []string{"add", "--", "a.txt"}},
-		{"/api/git/unstage", `{"repo":"/work/repo","paths":["a.txt"]}`, []string{"reset", "-q", "HEAD", "--", "a.txt"}},
+		{"/api/git/stage", `{"repo":` + qWorkRepo + `,"paths":["a.txt"]}`, []string{"add", "--", "a.txt"}},
+		{"/api/git/unstage", `{"repo":` + qWorkRepo + `,"paths":["a.txt"]}`, []string{"reset", "-q", "HEAD", "--", "a.txt"}},
 		{
 			"/api/git/discard",
-			`{"repo":"/work/repo","tracked":["a.txt"],"untracked":["n.txt"],"confirm":true}`,
+			`{"repo":` + qWorkRepo + `,"tracked":["a.txt"],"untracked":["n.txt"],"confirm":true}`,
 			[]string{"checkout", "-q", "--", "a.txt"},
 		},
-		{"/api/git/commit", `{"repo":"/work/repo","message":"m"}`, []string{"commit", "--file=-", "--cleanup=strip"}},
-		{"/api/git/undo-last", `{"repo":"/work/repo","undoToken":""}`, nil},
+		{"/api/git/commit", `{"repo":` + qWorkRepo + `,"message":"m"}`, []string{"commit", "--file=-", "--cleanup=strip"}},
+		{"/api/git/undo-last", `{"repo":` + qWorkRepo + `,"undoToken":""}`, nil},
 	}
 	for _, c := range cases {
 		t.Run(c.path, func(t *testing.T) {
@@ -163,7 +165,7 @@ func TestAPIGitWriteRoutes_ReturnFreshStatus(t *testing.T) {
 			f.onWrite = func(f *gitWriteFake, _ []string) { f.status = gitWriteStatus("b.txt", ".M") }
 			s, _ := gitWriteServer(t, f)
 			if c.path == "/api/git/undo-last" {
-				c.body = `{"repo":"/work/repo","undoToken":"` + gitIssueUndo(t, s, f) + `"}`
+				c.body = `{"repo":` + qWorkRepo + `,"undoToken":"` + gitIssueUndo(t, s, f) + `"}`
 			}
 
 			code, out := gitReq(t, s, http.MethodPost, c.path, c.body)
@@ -196,7 +198,7 @@ func TestAPIGitWriteRoutes_ReturnFreshStatus(t *testing.T) {
 // gitIssueUndo 는 커밋 하나를 만들어 undo 토큰을 발급받는다.
 func gitIssueUndo(t *testing.T, s *GitServer, f *gitWriteFake) string {
 	t.Helper()
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":"/work/repo","message":"m"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":`+qWorkRepo+`,"message":"m"}`)
 	if code != http.StatusOK {
 		t.Fatalf("commit = %d, body = %v", code, out)
 	}
@@ -218,7 +220,7 @@ func TestAPIGitUndoLast_Expires(t *testing.T) {
 	tok := gitIssueUndo(t, s, f)
 
 	*now = now.Add(write.UndoTTL + time.Millisecond)
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", `{"repo":"/work/repo","undoToken":"`+tok+`"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", `{"repo":`+qWorkRepo+`,"undoToken":`+testpath.JSONQuote(tok)+`}`)
 	if code != http.StatusConflict || out["error"] != "undo_expired" {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -237,12 +239,12 @@ func TestAPIGitUndoLast_NewCommitInvalidates(t *testing.T) {
 		t.Fatal("두 커밋이 같은 토큰을 받았다")
 	}
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", `{"repo":"/work/repo","undoToken":"`+first+`"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", `{"repo":`+qWorkRepo+`,"undoToken":`+testpath.JSONQuote(first)+`}`)
 	if code != http.StatusConflict || out["error"] != "undo_expired" {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
 	// 새 토큰은 살아 있다.
-	code, out = gitReq(t, s, http.MethodPost, "/api/git/undo-last", `{"repo":"/work/repo","undoToken":"`+second+`"}`)
+	code, out = gitReq(t, s, http.MethodPost, "/api/git/undo-last", `{"repo":`+qWorkRepo+`,"undoToken":`+testpath.JSONQuote(second)+`}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -253,7 +255,7 @@ func TestAPIGitUndoLast_ConsumedOnce(t *testing.T) {
 	f := newGitWriteFake(t)
 	s, _ := gitWriteServer(t, f)
 	tok := gitIssueUndo(t, s, f)
-	body := `{"repo":"/work/repo","undoToken":"` + tok + `"}`
+	body := `{"repo":` + qWorkRepo + `,"undoToken":` + testpath.JSONQuote(tok) + `}`
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/undo-last", body)
 	if code != http.StatusOK {
@@ -284,7 +286,7 @@ func TestAPIGitCommit_PreflightBlocked(t *testing.T) {
 	f.identity = false
 	s, _ := gitWriteServer(t, f)
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":"/work/repo","message":"m"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":`+qWorkRepo+`,"message":"m"}`)
 	if code != http.StatusConflict || out["error"] != "preflight_blocked" {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -312,7 +314,7 @@ func TestAPIGitDiscard_RequiresConfirm(t *testing.T) {
 	f := newGitWriteFake(t)
 	s, _ := gitWriteServer(t, f)
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/discard", `{"repo":"/work/repo","tracked":["a.txt"]}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/discard", `{"repo":`+qWorkRepo+`,"tracked":["a.txt"]}`)
 	if code != http.StatusBadRequest || out["error"] != "confirmation_required" {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -330,7 +332,7 @@ func TestAPIGitDiscard_LeavesHint(t *testing.T) {
 	s, _ := gitWriteServer(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/discard",
-		`{"repo":"/work/repo","tracked":["a.txt"],"untracked":["n.txt"],"confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"tracked":["a.txt"],"untracked":["n.txt"],"confirm":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -352,9 +354,9 @@ func TestAPIGitCommit_RejectsEmptyMessageAndNothingStaged(t *testing.T) {
 		staged  bool
 		wantErr string
 	}{
-		{"빈 메시지", `{"repo":"/work/repo","message":""}`, true, "empty_message"},
-		{"공백뿐인 메시지", `{"repo":"/work/repo","message":"  \n "}`, true, "empty_message"},
-		{"staged 없음", `{"repo":"/work/repo","message":"m"}`, false, "nothing_staged"},
+		{"빈 메시지", `{"repo":` + qWorkRepo + `,"message":""}`, true, "empty_message"},
+		{"공백뿐인 메시지", `{"repo":` + qWorkRepo + `,"message":"  \n "}`, true, "empty_message"},
+		{"staged 없음", `{"repo":` + qWorkRepo + `,"message":"m"}`, false, "nothing_staged"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -382,7 +384,7 @@ func TestAPIGitCommit_AllWithoutStaged(t *testing.T) {
 	f.status = gitWriteStatus("a.txt", ".M")
 	s, _ := gitWriteServer(t, f)
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":"/work/repo","message":"m","all":true}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":`+qWorkRepo+`,"message":"m","all":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -400,7 +402,7 @@ func TestAPIGitCommit_MessageStaysInStdin(t *testing.T) {
 	const msg = "제목\n\n본문 줄"
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit",
-		`{"repo":"/work/repo","message":"제목\n\n본문 줄","signoff":true,"noVerify":true}`)
+		`{"repo":`+qWorkRepo+`,"message":"제목\n\n본문 줄","signoff":true,"noVerify":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -432,7 +434,7 @@ func TestAPIGitStage_ReportsPartial(t *testing.T) {
 	f.status = gitWriteStatus("a.txt", ".M")
 	s, _ := gitWriteServer(t, f)
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/stage", `{"repo":"/work/repo","paths":["a.txt","b.txt"]}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/stage", `{"repo":`+qWorkRepo+`,"paths":["a.txt","b.txt"]}`)
 	if code != http.StatusInternalServerError || out["error"] != "git_failed" {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -448,9 +450,9 @@ func TestAPIGitStage_ReportsPartial(t *testing.T) {
 // FR-GIT-62: 경로 규약을 서버가 지킨다. 절대경로·부모 참조는 400 이며 실행되지 않는다.
 func TestAPIGitStage_RejectsUnsafePaths(t *testing.T) {
 	for _, body := range []string{
-		`{"repo":"/work/repo","paths":[]}`,
-		`{"repo":"/work/repo","paths":["/etc/passwd"]}`,
-		`{"repo":"/work/repo","paths":["../outside"]}`,
+		`{"repo":` + qWorkRepo + `,"paths":[]}`,
+		`{"repo":` + qWorkRepo + `,"paths":["/etc/passwd"]}`,
+		`{"repo":` + qWorkRepo + `,"paths":["../outside"]}`,
 		`{"repo":"relative","paths":["a.txt"]}`,
 		`{"paths":["a.txt"]}`,
 	} {
@@ -473,7 +475,7 @@ func TestAPIGitWrite_Unavailable(t *testing.T) {
 		"/api/git/stage", "/api/git/unstage", "/api/git/discard",
 		"/api/git/commit", "/api/git/undo-last",
 	} {
-		code, out := gitReq(t, s, http.MethodPost, path, `{"repo":"/work/repo"}`)
+		code, out := gitReq(t, s, http.MethodPost, path, `{"repo":`+qWorkRepo+`}`)
 		if code != http.StatusServiceUnavailable || out["error"] != "git_unavailable" {
 			t.Fatalf("%s → %d, body = %v", path, code, out)
 		}

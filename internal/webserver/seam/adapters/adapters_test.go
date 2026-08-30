@@ -14,6 +14,7 @@ import (
 
 func TestToolAdapter_EmptyManager(t *testing.T) {
 	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	a := Tool{PM: pm}
 	if got := a.List(); len(got) != 0 {
 		t.Errorf("List=%v want []", got)
@@ -34,6 +35,7 @@ func TestToolAdapter_EmptyManager(t *testing.T) {
 
 func TestWorkspaceAdapter_ResolveAndLabels(t *testing.T) {
 	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	dir := t.TempDir()
 	wsMgr, err := workspace.New(pm, workspace.FilePersister{Path: filepath.Join(dir, "ws.json")})
 	if err != nil {
@@ -56,6 +58,7 @@ func TestWorkspaceAdapter_ResolveAndLabels(t *testing.T) {
 
 func TestWorkspaceAdapter_EntriesShape(t *testing.T) {
 	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	dir := t.TempDir()
 	wsPath := filepath.Join(dir, "ws.json")
 	blob := []byte(`{"schemaVersion": 2, "windows":[{"id":"s1","name":"S","layout":{"type":"pane","id":"r1","activeTab":"t1","tabs":[{"id":"t1","name":"T","toolId":"42"}]}}],"activeWindow":"s1"}`)
@@ -160,6 +163,7 @@ func TestClientResolver_DaemonMatchesAncestor(t *testing.T) {
 // 경로는 없다 — 데몬 모드에는 PTMX 가 없기 때문이다 (R1).
 func TestToolAdapter_ForegroundNameBothModes(t *testing.T) {
 	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	pm.Adopt(toolhub.NewDetachedTool("1", nil))
 
 	// 데몬이 보낸 목록의 모양 그대로(JSON 디코드 결과) 흉내낸다.

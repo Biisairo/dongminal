@@ -32,10 +32,10 @@ func TestStageUnstage_PathsAfterSeparator(t *testing.T) {
 
 	f := &writeFake{}
 	s := core.New(core.WithRunner(headRunner), core.WithWriteRunner(f.runner))
-	if _, err := Stage(s, ctx, "/tmp/repo", paths); err != nil {
+	if _, err := Stage(s, ctx, absTmpRepo, paths); err != nil {
 		t.Fatalf("Stage: %v", err)
 	}
-	if _, err := Unstage(s, ctx, "/tmp/repo", paths); err != nil {
+	if _, err := Unstage(s, ctx, absTmpRepo, paths); err != nil {
 		t.Fatalf("Unstage: %v", err)
 	}
 	want := [][]string{
@@ -111,16 +111,16 @@ func TestStagePaths_Rejected(t *testing.T) {
 				return core.Output{}, nil
 			}
 			s := core.New(core.WithRunner(headRunner), core.WithWriteRunner(deny))
-			if _, err := Stage(s, ctx, "/tmp/repo", c.paths); !errors.Is(err, core.ErrUnsafeArgument) {
+			if _, err := Stage(s, ctx, absTmpRepo, c.paths); !errors.Is(err, core.ErrUnsafeArgument) {
 				t.Fatalf("Stage = %v, want ErrUnsafeArgument", err)
 			}
-			if _, err := Unstage(s, ctx, "/tmp/repo", c.paths); !errors.Is(err, core.ErrUnsafeArgument) {
+			if _, err := Unstage(s, ctx, absTmpRepo, c.paths); !errors.Is(err, core.ErrUnsafeArgument) {
 				t.Fatalf("Unstage = %v, want ErrUnsafeArgument", err)
 			}
-			if _, err := Discard(s, ctx, "/tmp/repo", c.paths, nil); !errors.Is(err, core.ErrUnsafeArgument) {
+			if _, err := Discard(s, ctx, absTmpRepo, c.paths, nil); !errors.Is(err, core.ErrUnsafeArgument) {
 				t.Fatalf("Discard(tracked) = %v, want ErrUnsafeArgument", err)
 			}
-			if _, err := Discard(s, ctx, "/tmp/repo", nil, c.paths); !errors.Is(err, core.ErrUnsafeArgument) {
+			if _, err := Discard(s, ctx, absTmpRepo, nil, c.paths); !errors.Is(err, core.ErrUnsafeArgument) {
 				t.Fatalf("Discard(untracked) = %v, want ErrUnsafeArgument", err)
 			}
 		})
@@ -138,7 +138,7 @@ func TestStage_SplitsAndReportsPartial(t *testing.T) {
 	// 전부 성공하면 3번 나눠 실행되고 마지막 묶음만 짧다.
 	f := &writeFake{}
 	s := core.New(core.WithRunner(headRunner), core.WithWriteRunner(f.runner))
-	if _, err := Stage(s, context.Background(), "/tmp/repo", paths); err != nil {
+	if _, err := Stage(s, context.Background(), absTmpRepo, paths); err != nil {
 		t.Fatalf("Stage: %v", err)
 	}
 	if len(f.argvs) != 3 {
@@ -165,7 +165,7 @@ func TestStage_SplitsAndReportsPartial(t *testing.T) {
 		return core.Output{}, nil
 	}
 	s2 := core.New(core.WithRunner(headRunner), core.WithWriteRunner(fail))
-	_, err := Stage(s2, context.Background(), "/tmp/repo", paths)
+	_, err := Stage(s2, context.Background(), absTmpRepo, paths)
 	var be *BatchError
 	if !errors.As(err, &be) {
 		t.Fatalf("err = %v, want *BatchError", err)
@@ -196,7 +196,7 @@ func TestDiscard_DestructiveAndHintBeforeExec(t *testing.T) {
 		return core.Output{}, nil
 	}))
 
-	if _, err := Discard(s, context.Background(), "/tmp/repo", Paths{"a.txt"}, Paths{"n ew.txt"}); err != nil {
+	if _, err := Discard(s, context.Background(), absTmpRepo, Paths{"a.txt"}, Paths{"n ew.txt"}); err != nil {
 		t.Fatalf("Discard: %v", err)
 	}
 	want := [][]string{
@@ -217,7 +217,7 @@ func TestDiscard_DestructiveAndHintBeforeExec(t *testing.T) {
 		t.Fatalf("hint %d 개, want 1: %+v", len(hints), hints)
 	}
 	h := hints[0]
-	if h.Action != core.ActionDiscard || h.Repo != "/tmp/repo" || h.Note == "" {
+	if h.Action != core.ActionDiscard || h.Repo != absTmpRepo || h.Note == "" {
 		t.Fatalf("hint = %+v", h)
 	}
 	if fmt.Sprint(h.Targets) != fmt.Sprint([]string{"a.txt", "n ew.txt"}) {
@@ -248,7 +248,7 @@ func tempRepoNoCommit(t *testing.T) string {
 		t.Helper()
 		cmd := exec.Command(bin, args...)
 		cmd.Dir = dir
-		cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null")
+		cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_SYSTEM="+os.DevNull)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
 		}
@@ -277,7 +277,7 @@ func TestDiscard_PartialAcrossBothCommands(t *testing.T) {
 	}
 	s := core.New(core.WithRunner(headRunner), core.WithWriteRunner(fail))
 
-	_, err := Discard(s, context.Background(), "/tmp/repo", Paths{"a.txt", "b.txt"}, Paths{"n.txt"})
+	_, err := Discard(s, context.Background(), absTmpRepo, Paths{"a.txt", "b.txt"}, Paths{"n.txt"})
 	var be *BatchError
 	if !errors.As(err, &be) {
 		t.Fatalf("err = %v, want *BatchError", err)

@@ -16,12 +16,12 @@ import (
 // T1 (V200): 경로 이탈은 **거부한다.** 클라이언트만 막으면 API 직접 호출이
 // 우회하고, 저장소 밖의 파일이 대상이 된다.
 func TestIgnorePattern_RejectsEscape(t *testing.T) {
-	root := "/repo"
+	root := absRepo
 	cases := []struct{ name, path string }{
 		{"부모 참조", "../outside.txt"},
 		{"중간의 부모 참조", "src/../../outside.txt"},
-		{"루트 밖 절대경로", "/etc/passwd"},
-		{"루트의 형제", "/repo-other/f.txt"},
+		{"루트 밖 절대경로", absEtcPasswd},
+		{"루트의 형제", filepath.Join(absRepoOther, "f.txt")},
 		{"빈 경로", ""},
 		{"공백뿐", "   "},
 		{"NUL", "a\x00b"},
@@ -41,13 +41,13 @@ func TestIgnorePattern_RejectsEscape(t *testing.T) {
 // T2 (FR-GIT-273): 루트 안의 경로는 **루트에 고정된 한 줄**이 된다. 절대경로로
 // 와도 루트 안이면 상대경로로 옮긴다 — 클라이언트가 `repo + '/' + path` 를 보낸다.
 func TestIgnorePattern_Accepts(t *testing.T) {
-	root := "/repo"
+	root := absRepo
 	cases := []struct{ in, want string }{
 		{"a.txt", "/a.txt"},
 		{"src/a.txt", "/src/a.txt"},
 		{"디렉터리 한글/파일 이름.txt", "/디렉터리 한글/파일 이름.txt"},
-		{"/repo/a.txt", "/a.txt"},
-		{"/repo/src/deep/a.txt", "/src/deep/a.txt"},
+		{filepath.Join(absRepo, "a.txt"), "/a.txt"},
+		{filepath.Join(absRepo, "src", "deep", "a.txt"), "/src/deep/a.txt"},
 	}
 	for _, c := range cases {
 		got, err := IgnorePattern(root, c.in)

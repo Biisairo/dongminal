@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // SKILL_INJECTION_SRS 묶음 C·D 검증 (V-C1, V-C2, V-D1).
@@ -30,6 +32,11 @@ func TestInstallAgentPlugin_Layout(t *testing.T) {
 		info, err := os.Stat(filepath.Join(plugin, rel))
 		if err != nil {
 			t.Errorf("missing %s: %v", rel, err)
+			continue
+		}
+		// 존재는 어느 OS 에서나 본다. 권한 비트는 NTFS 에 없으므로 그때만
+		// 건너뛴다 (FR-WTP-31).
+		if !testpath.PermChecked() {
 			continue
 		}
 		if got := info.Mode().Perm(); got != wantMode {
@@ -100,8 +107,8 @@ func TestInstallAgentPlugin_Hooks(t *testing.T) {
 	if _, ok := parsed.Hooks["SessionStart"]; !ok {
 		t.Fatalf("hooks.json must wire SessionStart, got: %v", parsed.Hooks)
 	}
-	want := filepath.Join(dir, "dmctl") + " agent-context"
-	if !strings.Contains(string(blob), want) {
+	want := dmctlPath(dir) + " agent-context"
+	if !strings.Contains(string(blob), testpath.JSONInner(want)) {
 		t.Fatalf("hooks.json should invoke %q, got:\n%s", want, blob)
 	}
 }
@@ -130,30 +137,6 @@ func TestInstallAgentPlugin_HooksCoexistWithSettings(t *testing.T) {
 }
 
 // FR-INJ-4/5: 셸 래퍼가 두 주입을 독립적으로 판단해야 한다. 한쪽 산출물이 없어도
-// 다른 쪽은 붙고, 둘 다 없으면 투명하게 위임한다.
-func TestInstallShellHooks_InjectBothIndependently(t *testing.T) {
-	dir := t.TempDir()
-	if err := Install(dir); err != nil {
-		t.Fatalf("Install: %v", err)
-	}
-	for _, rel := range []string{"bash-hook.sh", "zdotdir/.zshrc"} {
-		blob, err := os.ReadFile(filepath.Join(dir, rel))
-		if err != nil {
-			t.Fatalf("read %s: %v", rel, err)
-		}
-		s := string(blob)
-		for _, want := range []string{"--settings", "--plugin-dir", "agent-plugin", "command claude"} {
-			if !strings.Contains(s, want) {
-				t.Errorf("%s 에 %q 없음", rel, want)
-			}
-		}
-		// 조건부 부착이어야 한다 — 무조건 붙이면 파일이 없을 때 claude 가 죽는다.
-		if !strings.Contains(s, `-f "$s"`) || !strings.Contains(s, `-d "$p"`) {
-			t.Errorf("%s: --settings/--plugin-dir 부착이 조건부가 아니다:\n%s", rel, s)
-		}
-	}
-}
-
 // FR-INJ-3: 재설치가 전개물을 갱신해야 한다 (바이너리 갱신 시 스킬도 따라간다).
 func TestInstallAgentPlugin_Overwrites(t *testing.T) {
 	dir := t.TempDir()
@@ -241,7 +224,7 @@ func TestInstall_DoesNotPruneBinDir(t *testing.T) {
 	if err := Install(dir); err != nil {
 		t.Fatalf("재설치: %v", err)
 	}
-	for _, rel := range []string{"user-file.txt", "agent-hooks/claude.json", "dmctl"} {
+	for _, rel := range []string{"user-file.txt", "agent-hooks/claude.json", helperFile("dmctl")} {
 		if _, err := os.Lstat(filepath.Join(dir, rel)); err != nil {
 			t.Errorf("bin/ 의 %s 가 사라졌다: %v", rel, err)
 		}

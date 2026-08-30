@@ -10,6 +10,7 @@ import (
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
+	"net/url"
 )
 
 // FR-GIT-218 (V95) — Console 탭이 읽는 실행 기록. 기록은 이미 Recorder 에 있고,
@@ -57,7 +58,7 @@ func TestGitRecordsRoute_Registered(t *testing.T) {
 
 func TestGitRecords_Unavailable(t *testing.T) {
 	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore()}
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/records?repo=/r", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/records?repo="+url.QueryEscape(absR), "")
 	if code != http.StatusServiceUnavailable {
 		t.Fatalf("code = %d, want 503", code)
 	}
@@ -233,20 +234,20 @@ func pinsOf(t *testing.T, out map[string]any) []string {
 
 func TestGitReorder_MovesBeforeAndAfter(t *testing.T) {
 	s := gitPinServer(t)
-	seedPins(t, s, "/a", "/b", "/c")
+	seedPins(t, s, absA, absB, absC)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/reorder",
-		`{"src":"/c","target":"/a","before":true}`)
+		`{"src":`+qC+`,"target":`+qA+`,"before":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
-	if got := strings.Join(pinsOf(t, out), ","); got != "/c,/a,/b" {
+	if got := strings.Join(pinsOf(t, out), ","); got != strings.Join([]string{absC, absA, absB}, ",") {
 		t.Fatalf("pinned = %q", got)
 	}
 
 	_, out = gitReq(t, s, http.MethodPost, "/api/git/repos/reorder",
-		`{"src":"/c","target":"/b","before":false}`)
-	if got := strings.Join(pinsOf(t, out), ","); got != "/a,/b,/c" {
+		`{"src":`+qC+`,"target":`+qB+`,"before":false}`)
+	if got := strings.Join(pinsOf(t, out), ","); got != strings.Join([]string{absA, absB, absC}, ",") {
 		t.Fatalf("pinned = %q", got)
 	}
 }
@@ -254,23 +255,23 @@ func TestGitReorder_MovesBeforeAndAfter(t *testing.T) {
 // 끌어다 놓은 곳이 사라졌다고 조작을 통째로 잃지 않는다.
 func TestGitReorder_MissingTargetGoesLast(t *testing.T) {
 	s := gitPinServer(t)
-	seedPins(t, s, "/a", "/b", "/c")
+	seedPins(t, s, absA, absB, absC)
 	_, out := gitReq(t, s, http.MethodPost, "/api/git/repos/reorder",
-		`{"src":"/a","target":"/gone","before":true}`)
-	if got := strings.Join(pinsOf(t, out), ","); got != "/b,/c,/a" {
+		`{"src":`+qA+`,"target":`+qGone+`,"before":true}`)
+	if got := strings.Join(pinsOf(t, out), ","); got != strings.Join([]string{absB, absC, absA}, ",") {
 		t.Fatalf("pinned = %q", got)
 	}
 }
 
 func TestGitReorder_UnknownSrcIsNoop(t *testing.T) {
 	s := gitPinServer(t)
-	seedPins(t, s, "/a", "/b")
+	seedPins(t, s, absA, absB)
 	_, out := gitReq(t, s, http.MethodPost, "/api/git/repos/reorder",
-		`{"src":"/nope","target":"/a","before":true}`)
-	if got := strings.Join(pinsOf(t, out), ","); got != "/a,/b" {
+		`{"src":"/nope","target":`+qA+`,"before":true}`)
+	if got := strings.Join(pinsOf(t, out), ","); got != strings.Join([]string{absA, absB}, ",") {
 		t.Fatalf("pinned = %q", got)
 	}
-	code, _ := gitReq(t, s, http.MethodPost, "/api/git/repos/reorder", `{"src":"","target":"/a"}`)
+	code, _ := gitReq(t, s, http.MethodPost, "/api/git/repos/reorder", `{"src":"","target":`+qA+`}`)
 	if code != http.StatusBadRequest {
 		t.Fatalf("빈 src → %d, want 400", code)
 	}
@@ -279,10 +280,10 @@ func TestGitReorder_UnknownSrcIsNoop(t *testing.T) {
 // git 하위의 다른 키를 건드리지 않는다 — 순서 하나 바꾸다 draft 를 잃으면 안 된다.
 func TestGitReorder_PreservesOtherGitKeys(t *testing.T) {
 	s := gitPinServer(t)
-	if _, err := s.Work.Save([]byte(`{"git":{"pinned":["/a","/b"],"drafts":{"/a":"keep"}}}`), ""); err != nil {
+	if _, err := s.Work.Save([]byte(`{"git":{"pinned":[`+qA+`,`+qB+`],"drafts":{`+qA+`:"keep"}}}`), ""); err != nil {
 		t.Fatal(err)
 	}
-	gitReq(t, s, http.MethodPost, "/api/git/repos/reorder", `{"src":"/b","target":"/a","before":true}`)
+	gitReq(t, s, http.MethodPost, "/api/git/repos/reorder", `{"src":`+qB+`,"target":`+qA+`,"before":true}`)
 	raw, _ := s.Work.Snapshot()
 	if !strings.Contains(string(raw), `"keep"`) {
 		t.Fatalf("drafts 가 사라졌다: %s", raw)

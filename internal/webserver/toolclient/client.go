@@ -1,6 +1,7 @@
 package toolclient
 
 import (
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
 
 	"dongminal/internal/shared/toolipc"
@@ -22,6 +23,10 @@ const (
 	// panedCallTimeout bounds a single RPC. On expiry the connection is
 	// dropped and the supervisor reconnects (DAEMON_SPLIT_SRS FR-14).
 	panedCallTimeout = 5 * time.Second
+
+	// panedDialTimeout 은 데몬 종단에 붙는 시도의 상한이다. 로컬 종단이므로
+	// 응답은 즉시 오거나 오지 않는다.
+	panedDialTimeout = 2 * time.Second
 	// panedMaxBackoff caps the reconnect backoff (FR-13).
 	panedMaxBackoff = 30 * time.Second
 	// panedRespawnEvery: respawn dongminald after this many consecutive
@@ -116,7 +121,7 @@ func DialPaneClientWithReconnect(sockPath string, spawnDaemon func() error) (*To
 // connect establishes one connection, starts its readLoop, and completes the
 // hello handshake. Safe to call repeatedly (initial dial + each reconnect).
 func (pc *ToolClient) connect() error {
-	conn, err := net.Dial("unix", pc.sockPath)
+	conn, err := platform.Current().IPC.Dial(pc.sockPath, panedDialTimeout)
 	if err != nil {
 		return err
 	}

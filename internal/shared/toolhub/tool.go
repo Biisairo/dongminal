@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/user"
 	"path/filepath"
 	"runtime/debug"
@@ -18,13 +17,13 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/outbuf"
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/uuid"
 
-	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
 )
 
@@ -122,11 +121,16 @@ type toolRelay struct {
 }
 
 type Tool struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	PID      int    `json:"pid"`
-	ptmx     *os.File
-	cmd      *exec.Cmd
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	PID  int    `json:"pid"`
+	// term 은 의사 터미널과 거기 붙은 셸 프로세스를 함께 소유한다. 종전의
+	// ptmx(*os.File) + cmd(*exec.Cmd) 두 필드를 대신한다 — Windows ConPTY 는
+	// 그 둘이 분리되지 않기 때문이다 (CROSS_PLATFORM_SRS FR-XPT-3).
+	//
+	// NewDetachedTool 이 만드는 합성 Tool 은 term 이 nil 이다. 모든 접근이
+	// nil 을 견뎌야 한다.
+	term     platform.Terminal
 	stream   *outbuf.Stream
 	cmu      sync.Mutex
 	cls      []*SafeConn
@@ -161,39 +165,30 @@ type Tool struct {
 
 // toolBusyProbe is the busy-detection function used by Tool.IsBusy. It is a
 // package variable so tests can substitute a deterministic probe instead of
-// relying on the host's pgrep behavior. The default implementation matches the
+// relying on the host's behavior. The default implementation matches the
 // historical behavior: a tool is "busy" when it has any direct child process.
+//
+// 조회 방법은 platform.ProcInfo 가 안다 — 리눅스는 /proc, darwin 은 pgrep,
+// Windows 는 toolhelp 스냅샷이다 (CROSS_PLATFORM_SRS FR-XPI-5).
 var toolBusyProbe = func(pid int) bool {
-	out, err := exec.Command("pgrep", "-P", strconv.Itoa(pid)).Output()
-	if err != nil {
-		return false
-	}
-	return len(strings.TrimSpace(string(out))) > 0
+	return platform.Current().Info.HasChildren(pid)
 }
 
 func (p *Tool) IsBusy() bool {
-	if p.cmd == nil || p.cmd.Process == nil {
+	pid := p.CmdProcessPID()
+	if pid <= 0 {
 		return false
 	}
-	return toolBusyProbe(p.cmd.Process.Pid)
+	return toolBusyProbe(pid)
 }
 
+// Cwd 는 도구 셸의 작업 디렉터리다. 조회할 수 없는 처지(Windows, 또는 PTY 없는
+// 합성 Tool)에서는 서버의 cwd 로 답한다 — 종전과 같은 폴백이다. 도구의 실제
+// cwd 는 셸 훅의 OSC 777 로도 들어오므로 이 경로는 보조다 (FR-XPI-6).
 func (p *Tool) Cwd() string {
-	if p.cmd != nil && p.cmd.Process != nil {
-		// Linux: /proc/PID/cwd is a symlink — instant read.
-		cwd, _ := os.Readlink(fmt.Sprintf("/proc/%d/cwd", p.cmd.Process.Pid))
-		if cwd != "" {
+	if pid := p.CmdProcessPID(); pid > 0 {
+		if cwd, ok := platform.Current().Info.CWD(pid); ok {
 			return cwd
-		}
-		// macOS fallback: lsof restricted to (a)nd of (p)id and (d)escriptor=cwd.
-		// Without -a + -d cwd this would dump the entire fd table for the
-		// process AND every other process whose cwd matches a path filter,
-		// which is dramatically slower on busy machines (10× or more).
-		out, _ := exec.Command("lsof", "-a", "-p", fmt.Sprintf("%d", p.cmd.Process.Pid), "-d", "cwd", "-Fn").Output()
-		for _, l := range strings.Split(string(out), "\n") {
-			if strings.HasPrefix(l, "n") {
-				return strings.TrimPrefix(l, "n")
-			}
 		}
 	}
 	cwd, _ := os.Getwd()
@@ -237,43 +232,30 @@ func NewAttendingTool(id string, hooks *ToolHooks, armed bool) *Tool {
 
 // StartTool spawns a shell under a new PTY. Exported for tool manager + tests.
 func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *ToolHooks) (*Tool, error) {
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		shell = "/bin/bash"
-	}
-	if _, err := os.Stat(shell); os.IsNotExist(err) {
-		shell = "/bin/sh"
-	}
 	home, _ := os.UserHomeDir()
-	cmd := exec.Command(shell, "-l")
-	binDir := filepath.Join(os.Getenv("DONGMINAL_HOME"), "bin")
+	binDir := filepath.Join(os.Getenv(dmenv.EnvHome), "bin")
+
+	// 셸 선택과 훅 주입 방식은 OS 마다 다르다. 그 차이는 platform.ShellProvider
+	// 뒤에 있고, 여기서는 어느 셸인지 묻지 않는다 (CROSS_PLATFORM_SRS FR-XSH-6).
+	sh := platform.Current().Shell.Shell(binDir)
+	shell, shellArgs := sh.Path, sh.Args
+
 	// Ensure critical env vars are always present (os.Environ() may lack
 	// these when the server runs as a daemon / LaunchAgent).
 	env := []string{
 		"TERM=xterm-256color", "COLORTERM=truecolor",
-		"LANG=en_US.UTF-8", "LC_ALL=en_US.UTF-8", "LC_CTYPE=en_US.UTF-8",
-		"PATH=" + os.Getenv("PATH") + ":" + binDir,
+		// PATH 구분자는 OS 마다 다르다 — 문자를 박지 않는다.
+		"PATH=" + os.Getenv("PATH") + string(os.PathListSeparator) + binDir,
 		"HOME=" + home,
 		// PANE_ATTENTION_NOTIFY_SRS: lets `dmctl notify` (incl. detached agent
 		// hooks that have no controlling tty) identify this tool to the server.
-		"DONGMINAL_TOOL_ID=" + id,
-		// macOS /etc/zshrc_Apple_Terminal 은 상속된 TERM_SESSION_ID 로 세션
-		// 저장/복원을 켠다. 모든 도구가 같은 ID 를 물려받아 같은 .session 파일을
-		// 지우려 들면서 rm 오류가 뜬다. 이 변수는 /etc/zshrc 보다 먼저 보여야
-		// 하므로 ZDOTDIR/.zshrc 가 아니라 프로세스 환경에서 준다.
-		"SHELL_SESSIONS_DISABLE=1",
+		dmenv.EnvToolID + "=" + id,
 	}
 	if u, err := user.Current(); err == nil {
 		env = append(env, "USER="+u.Username, "LOGNAME="+u.Username)
 	}
-	env = append(env, "SHELL="+shell)
-	if strings.Contains(shell, "zsh") {
-		zdotdir := filepath.Join(binDir, "zdotdir")
-		env = append(env, "ZDOTDIR="+zdotdir)
-	} else if strings.Contains(shell, "bash") {
-		env = append(env, "BASH_ENV="+filepath.Join(binDir, "bash-hook.sh"))
-	}
-	cmd.Env = append(os.Environ(), env...)
+	env = append(env, sh.Env...)
+	env = append(os.Environ(), env...)
 	startDir := home
 	if cwd != "" {
 		if info, err := os.Stat(cwd); err == nil && info.IsDir() {
@@ -283,14 +265,18 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 	if startDir == "" {
 		startDir = "."
 	}
-	cmd.Dir = startDir
-	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: cols, Rows: rows})
+	term, err := platform.Current().PTY.Start(platform.ProcSpec{
+		Path: shell,
+		Args: append([]string{shell}, shellArgs...),
+		Env:  env,
+		Dir:  startDir,
+	}, cols, rows)
 	if err != nil {
-		return nil, fmt.Errorf("pty start shell=%s cwd=%s: %w", shell, startDir, err)
+		return nil, err
 	}
 	p := &Tool{
 		ID: id, Name: name,
-		ptmx: ptmx, cmd: cmd,
+		term:   term,
 		stream: outbuf.NewStream(context.Background(), bufMax),
 		done:   make(chan struct{}),
 	}
@@ -304,7 +290,7 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 	}
 	go p.readPTY()
 	log.Printf("[tool %s] started shell=%s pid=%d cwd=%s cols=%d rows=%d",
-		id, shell, cmd.Process.Pid, startDir, cols, rows)
+		id, shell, term.PID(), startDir, cols, rows)
 	return p, nil
 }
 
@@ -320,7 +306,7 @@ func (p *Tool) readPTY() {
 	}()
 	raw := make([]byte, 8192)
 	for {
-		n, err := p.ptmx.Read(raw)
+		n, err := p.term.Read(raw)
 		if err != nil {
 			if err == io.EOF || strings.Contains(err.Error(), "input/output error") {
 				log.Printf("[tool %s] readPTY: shell exited normally", p.ID)
@@ -544,7 +530,10 @@ func (p *Tool) RemoveClient(c *SafeConn) {
 }
 
 func (p *Tool) resize(c, r uint16) error {
-	err := pty.Setsize(p.ptmx, &pty.Winsize{Cols: c, Rows: r})
+	if p.term == nil {
+		return fmt.Errorf("tool %s: 터미널이 없다", p.ID)
+	}
+	err := p.term.Resize(c, r)
 	if err != nil {
 		log.Printf("[tool %s] resize error cols=%d rows=%d: %v", p.ID, c, r, err)
 	}
@@ -575,26 +564,32 @@ func (p *Tool) WireRelayOnce(build func(prevExit func(string)) (onOutput func(st
 	return true
 }
 
-// PTMX exposes the underlying PTY master for tests.
-func (p *Tool) PTMX() *os.File { return p.ptmx }
+// Size 는 터미널의 현재 크기다. 터미널이 없거나 읽지 못하면 ok=false 다.
+func (p *Tool) Size() (cols, rows uint16, ok bool) {
+	if p.term == nil {
+		return 0, 0, false
+	}
+	c, r, err := p.term.Size()
+	return c, r, err == nil
+}
 
 // Stream exposes the output stream for tools.
 func (p *Tool) Stream() *outbuf.Stream { return p.stream }
 
 // CmdProcessPID returns the PID (0 if unavailable).
 func (p *Tool) CmdProcessPID() int {
-	if p.cmd == nil || p.cmd.Process == nil {
+	if p.term == nil {
 		return 0
 	}
-	return p.cmd.Process.Pid
+	return p.term.PID()
 }
 
 // Write sends data to the PTY master. Safe to call from any goroutine.
 func (p *Tool) Write(data []byte) error {
-	if p.ptmx == nil {
-		return fmt.Errorf("tool %s: ptmx is nil", p.ID)
+	if p.term == nil {
+		return fmt.Errorf("tool %s: 터미널이 없다", p.ID)
 	}
-	_, err := p.ptmx.Write(data)
+	_, err := p.term.Write(data)
 	return err
 }
 
@@ -631,10 +626,7 @@ func (p *Tool) kill() {
 		}
 
 		// Phase 3: tear down PTY/process/stream.
-		pid := 0
-		if p.cmd != nil && p.cmd.Process != nil {
-			pid = p.cmd.Process.Pid
-		}
+		pid := p.CmdProcessPID()
 		log.Printf("[tool %s] killing pid=%d", p.ID, pid)
 		// NewDetachedTool 로 만든 Tool 은 done 이 nil 이다 (PTY 도 프로세스도 없는
 		// 합성 Tool — 데몬 모드의 원격 도구 대리와 테스트가 쓴다). 무조건 닫으면
@@ -643,14 +635,13 @@ func (p *Tool) kill() {
 		if p.done != nil {
 			close(p.done)
 		}
-		if p.ptmx != nil {
-			p.ptmx.Close()
-		}
-		if p.cmd != nil && p.cmd.Process != nil {
-			p.cmd.Process.Signal(syscall.SIGTERM)
+		if p.term != nil {
+			p.term.Close()
+			// 순서와 유예는 종전과 같다 — 정중히 요청, 50ms, 강제 종료, 수확.
+			p.term.Terminate()
 			time.Sleep(50 * time.Millisecond)
-			p.cmd.Process.Kill()
-			if err := p.cmd.Wait(); err != nil {
+			p.term.Kill()
+			if err := p.term.Wait(); err != nil {
 				log.Printf("[tool %s] wait: %v", p.ID, err)
 			}
 		}
@@ -691,6 +682,19 @@ type ToolManager struct {
 	// 그때 동작은 이 필드가 없던 때와 **완전히 같다**.
 	ownedProvider func() map[string]struct{}
 	dirty         atomic.Bool
+
+	// saves 는 진행 중인 SaveAll 을 센다. 저장은 요청 경로를 막지 않도록
+	// 고루틴으로 떨어뜨리는데(아래 `go m.SaveAll()`), 그러면 **아무도 그것이
+	// 끝났는지 알 수 없다.** 종료 경로와 테스트가 기다릴 수 있어야 한다 —
+	// 기다리지 못해서 실제로 겪은 것이 t.TempDir 정리와의 경합이다
+	// (WINDOWS_TEST_PARITY_SRS §5 의 간헐 실패).
+	saves sync.WaitGroup
+
+	// saveMu 는 noSave 와 saves.Add 를 **한 덩어리로** 지킨다. 둘이 갈리면
+	// `Wait` 가 진행 중일 때 뒤늦은 `Add` 가 들어와 WaitGroup 이 패닉한다
+	// (sync: WaitGroup is reused before previous Wait has returned).
+	saveMu sync.Mutex
+	noSave bool
 
 	// Attention (PANE_ATTENTION_NOTIFY_SRS): idleThreshold/allowBell configure
 	// detection; attnNotify/attnClear bridge transitions to SSE (set via
@@ -931,7 +935,7 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16) (*Tool, error) {
 	m.tools[id] = p
 	log.Printf("[tool %s] registered total=%d", id, len(m.tools))
 	m.dirty.Store(true)
-	go m.SaveAll()
+	m.saveAsync()
 	return p, nil
 }
 
@@ -979,15 +983,10 @@ func (m *ToolManager) List() []map[string]interface{} {
 	defer m.mu.RUnlock()
 	var out []map[string]interface{}
 	for _, p := range m.tools {
-		pid := 0
-		if p.cmd != nil && p.cmd.Process != nil {
-			pid = p.cmd.Process.Pid
-		}
+		pid := p.CmdProcessPID()
 		cols, rows := 0, 0
-		if p.ptmx != nil {
-			if r, c, err := pty.Getsize(p.ptmx); err == nil {
-				cols, rows = c, r
-			}
+		if c, r, ok := p.Size(); ok {
+			cols, rows = int(c), int(r)
 		}
 		out = append(out, map[string]interface{}{
 			"id": p.ID, "name": p.Name, "pid": pid,
@@ -1011,7 +1010,45 @@ func (m *ToolManager) Delete(id string) {
 		log.Printf("[tool %s] deleted remaining=%d", id, remaining)
 	}
 	m.dirty.Store(true)
-	go m.SaveAll()
+	m.saveAsync()
+}
+
+// saveAsync 는 저장을 요청 경로 밖으로 떨어뜨리되 **셀 수 있게** 한다.
+//
+// 문 여부 확인과 Add 를 한 락 안에서 한다. 갈라 두면 StopSaving 이 Wait 에
+// 들어간 뒤에 Add 가 도착해 WaitGroup 이 패닉할 수 있다.
+func (m *ToolManager) saveAsync() {
+	m.saveMu.Lock()
+	if m.noSave {
+		m.saveMu.Unlock()
+		return
+	}
+	m.saves.Add(1)
+	m.saveMu.Unlock()
+
+	go func() {
+		defer m.saves.Done()
+		m.SaveAll()
+	}()
+}
+
+// StopSaving 은 **더 이상 저장을 시작하지 않게 하고**, 진행 중인 것을 기다린다.
+//
+// 종료 경로가 이것을 부른다. 부르지 않으면 프로세스가 인플라이트 저장 도중에
+// 끝나 `tools.json` 이 잘린 채 남을 수 있다 — 마지막 `SaveAll()` 한 번으로는
+// 이미 떠 있는 고루틴을 막지도 기다리지도 못한다.
+//
+// 기다리기만 해서는 안 되는 이유가 이름에 있다. 도구가 죽으면 readPTY 가
+// onExit → Delete 를 부르고 그것이 다시 저장을 떨어뜨린다. 기다림이 끝난 뒤에
+// 그 일이 일어나면 이미 치운 자리로 쓰기가 간다.
+//
+// SaveAll 자신은 막지 않는다 — 문을 닫은 뒤 마지막 상태를 한 번 쓰는 것이
+// 종료 절차이기 때문이다.
+func (m *ToolManager) StopSaving() {
+	m.saveMu.Lock()
+	m.noSave = true
+	m.saveMu.Unlock()
+	m.saves.Wait()
 }
 
 // IsLive implements the liveness interface consumed by workspace.Manager.

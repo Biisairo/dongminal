@@ -394,7 +394,7 @@ func TestOperations_AreSerialized(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			_ = m.Create(Spec{Repo: "/repo", Path: m.Path("run1234", "mem"+string(rune('a'+i))), Branch: "dmn/run1234/r", Base: "main"})
+			_ = m.Create(Spec{Repo: absRepo, Path: m.Path("run1234", "mem"+string(rune('a'+i))), Branch: "dmn/run1234/r", Base: "main"})
 		}(i)
 	}
 	wg.Wait()
@@ -414,7 +414,7 @@ func TestOperations_AreSerialized(t *testing.T) {
 // 그 사이에 들어온다. 직렬화가 이미 있다면(미래) 두 번째는 짧은 상한 안에 들어오지
 // 않고, 첫 번째를 풀어준 뒤에야 뒤이어 들어온다 — 그때도 데드락 없이 끝난다.
 func TestOperations_SerializeAcrossManagersForSameRepo(t *testing.T) {
-	const repo = "/repo"
+	var repo = absRepo
 	var cur, max int32
 	release := make(chan struct{})
 	entered := make(chan struct{}, 2)
@@ -503,12 +503,12 @@ func TestOperations_SerializeSameRepoDifferentSpelling(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_ = m.Create(Spec{Repo: "/repo", Path: m.Path("run1234", "a"), Branch: "dmn/run1234/a", Base: "main"})
+		_ = m.Create(Spec{Repo: absRepo, Path: m.Path("run1234", "a"), Branch: "dmn/run1234/a", Base: "main"})
 	}()
 	go func() {
 		defer wg.Done()
 		// 같은 저장소, 트레일링 슬래시만 다른 표기.
-		_ = m.Create(Spec{Repo: "/repo/", Path: m.Path("run1234", "b"), Branch: "dmn/run1234/b", Base: "main"})
+		_ = m.Create(Spec{Repo: absRepo + string(filepath.Separator), Path: m.Path("run1234", "b"), Branch: "dmn/run1234/b", Base: "main"})
 	}()
 
 	<-entered
@@ -656,5 +656,43 @@ func TestCreate_ChecksOutExistingRefWithoutNewBranch(t *testing.T) {
 	// 새 브랜치를 만들지 않았다 — dmn/ 접두 브랜치가 하나도 없어야 한다.
 	if out := git(t, repo, "branch", "--list", "dmn/*"); out != "" {
 		t.Fatalf("새 브랜치가 생겼다: %q", out)
+	}
+}
+
+// FR-WTP-3 — 파서를 빠져나온 경로는 언제나 OS 형태다.
+//
+// Windows 의 git 은 `C:/Users/x` 처럼 낸다. 그 형태가 그대로 나가면 `gone` 의
+// 완전 일치 비교와 `gitWorktreeOwner` 의 접두사 판정이 어긋난다 — 오류가 아니라
+// **조용한 오판**이라 실기에서 늦게 드러난다. 불변식을 파서에 못박는다.
+func TestParseWorktreeList_NormalizesPaths(t *testing.T) {
+	raw := strings.Join([]string{
+		"worktree C:/Users/x/repo",
+		"HEAD 1111111111111111111111111111111111111111",
+		"branch refs/heads/main",
+		"",
+		"worktree /srv/repo/../repo/wt",
+		"HEAD 2222222222222222222222222222222222222222",
+		"detached",
+		"",
+	}, "\n")
+
+	entries := parseWorktreeList(raw)
+	if len(entries) != 2 {
+		t.Fatalf("레코드 수 = %d, want 2: %+v", len(entries), entries)
+	}
+	for _, e := range entries {
+		if e.Path == "" {
+			t.Fatal("빈 경로")
+		}
+		if got := filepath.Clean(e.Path); got != e.Path {
+			t.Errorf("정규화되지 않은 경로가 파서를 빠져나왔다: %q (Clean=%q)", e.Path, got)
+		}
+	}
+	// 첫 레코드가 main 이라는 기존 불변식은 그대로다 (V162).
+	if !entries[0].Main || entries[1].Main {
+		t.Errorf("main 판정이 어긋났다: %+v", entries)
+	}
+	if entries[0].Branch != "main" || !entries[1].Detached {
+		t.Errorf("레코드 해석이 어긋났다: %+v", entries)
 	}
 }

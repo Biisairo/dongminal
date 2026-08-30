@@ -91,7 +91,7 @@ func TestStashPush_Args(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			f := &writeFake{}
 			s := core.New(core.WithRunner(stashDirtyReader), core.WithWriteRunner(f.runner))
-			if _, err := StashPush(s, ctx, "/tmp/repo", c.o); err != nil {
+			if _, err := StashPush(s, ctx, absTmpRepo, c.o); err != nil {
 				t.Fatalf("StashPush: %v", err)
 			}
 			if len(f.argvs) != 1 || fmt.Sprint(f.argvs[0]) != fmt.Sprint(c.want) {
@@ -124,7 +124,7 @@ func TestStashPush_RefusesWhenNothingToSave(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			f := &writeFake{}
 			s := core.New(core.WithRunner(c.read), core.WithWriteRunner(f.runner))
-			_, err := StashPush(s, ctx, "/tmp/repo", c.opts)
+			_, err := StashPush(s, ctx, absTmpRepo, c.opts)
 			if c.refuse {
 				if !errors.Is(err, ErrStashEmpty) {
 					t.Fatalf("err = %v, want ErrStashEmpty", err)
@@ -147,7 +147,7 @@ func TestStashPush_RefusesWhenNothingToSave(t *testing.T) {
 // T6 (V56, FR-GIT-163·164): apply/pop 의 argv. `--index` 는 호출자가 고를 때만
 // 붙는다 (FR-GIT-163).
 func TestStashApplyPop_Args(t *testing.T) {
-	const repo = "/tmp/repo"
+	var repo = absTmpRepo
 	ctx := context.Background()
 	cases := []struct {
 		name string

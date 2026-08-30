@@ -236,36 +236,24 @@ func (m *Manager) Save(blob []byte, ifMatch string) (uint64, error) {
 func (m *Manager) Resolve(id string) (string, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return "", fmt.Errorf("빈 id")
-	}
-	// 1) 살아있는 toolId 인가. uuid 든 구 정수든 형태를 보지 않는다.
-	if m.live.IsLive(id) {
-		return id, nil
+		return "", errors.New(errEmptyID)
 	}
 	ix := m.idx.Load()
-	// 2) 엔터티(창·분할 칸·탭) uuid 인가.
-	if ix != nil {
-		if pid, ok := ix.uuidToID[strings.ToLower(id)]; ok {
-			if !m.live.IsLive(pid) {
-				return "", fmt.Errorf("tab id %s 은 toolId=%s 가리키지만 도구가 존재하지 않음", id, pid)
-			}
-			return pid, nil
-		}
+	// 1·2) 살아있는 toolId → 엔터티 uuid. 두 해석기가 공유한다.
+	if pid, done, err := m.resolveEntity(ix, id); done {
+		return pid, err
 	}
 	// 3) 좌표 라벨인가.
 	if ix != nil {
 		norm := strings.ToUpper(id)
 		if pid, ok := ix.labelToID[norm]; ok {
 			if !m.live.IsLive(pid) {
-				return "", fmt.Errorf("라벨 %s 은 toolId=%s 가리키지만 도구가 존재하지 않음", norm, pid)
+				return "", fmt.Errorf(errDanglingLabel, norm, pid)
 			}
 			return pid, nil
 		}
 	}
-	if isKnownToolID(ix, id) {
-		return "", fmt.Errorf("toolId=%s 존재하지 않음", id)
-	}
-	return "", fmt.Errorf("id 해석 실패: %s (list_workspace 로 확인)", id)
+	return "", unresolvedError(ix, id)
 }
 
 // ResolveStrict translates an identifier into a live toolId **without accepting
@@ -282,34 +270,62 @@ func (m *Manager) Resolve(id string) (string, error) {
 func (m *Manager) ResolveStrict(id string) (string, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return "", fmt.Errorf("빈 id")
-	}
-	// 1) 살아있는 toolId 인가. Resolve 와 같은 이유로 형태를 보지 않는다.
-	if m.live.IsLive(id) {
-		return id, nil
+		return "", errors.New(errEmptyID)
 	}
 	ix := m.idx.Load()
-	// 2) 엔터티(창·분할 칸·탭) uuid 인가.
-	if ix != nil {
-		if pid, ok := ix.uuidToID[strings.ToLower(id)]; ok {
-			if !m.live.IsLive(pid) {
-				return "", fmt.Errorf("tab id %s 은 toolId=%s 가리키지만 도구가 존재하지 않음", id, pid)
-			}
-			return pid, nil
-		}
+	// 1·2) 살아있는 toolId → 엔터티 uuid. Resolve 와 같은 사다리다.
+	if pid, done, err := m.resolveEntity(ix, id); done {
+		return pid, err
 	}
 	// 라벨 인덱스는 조회하지 않는다. 형태 판정이 조회 뒤에 오므로 라벨과 같은
 	// 문자열의 uuid·toolId 가 있으면 그쪽이 이긴다 (FR-UNI-10 보존).
 	if isLabelForm(id) {
-		return "", fmt.Errorf(
-			"좌표 라벨(%s)은 이 명령에서 쓸 수 없다 — uuid 를 쓴다.\n"+
-				"라벨은 창·분할 칸이 닫히면 다시 계산돼 다른 탭을 가리킨다.\n%w",
-			id, ErrLabelIdentifier)
+		return "", fmt.Errorf(errLabelRejected, id, ErrLabelIdentifier)
 	}
+	return "", unresolvedError(ix, id)
+}
+
+// 해석 실패 문안이다. Resolve 와 ResolveStrict 가 같은 문안을 내야 하는데
+// (FR-IDU-3 행위 보존), 복제로 지키면 한쪽만 고쳐도 컴파일이 통과하고 그때
+// 조용히 갈라진다. 한 자리에 모아 그 가능성을 없앤다.
+const (
+	errEmptyID       = "빈 id"
+	errDanglingTabID = "tab id %s 은 toolId=%s 가리키지만 도구가 존재하지 않음"
+	errDanglingLabel = "라벨 %s 은 toolId=%s 가리키지만 도구가 존재하지 않음"
+	errUnknownToolID = "toolId=%s 존재하지 않음"
+	errUnresolvedID  = "id 해석 실패: %s (list_workspace 로 확인)"
+	errLabelRejected = "좌표 라벨(%s)은 이 명령에서 쓸 수 없다 — uuid 를 쓴다.\n" +
+		"라벨은 창·분할 칸이 닫히면 다시 계산돼 다른 탭을 가리킨다.\n%w"
+)
+
+// resolveEntity 는 두 해석기가 공유하는 사다리 1·2단계다 — 살아있는 toolId 인가,
+// 아니면 엔터티(창·분할 칸·탭) uuid 인가. 형태는 보지 않고 조회 결과가 정한다
+// (FR-UNI-10).
+//
+// done=true 면 (toolID, err) 가 최종 결과다. false 면 이 단계에서 답이 나오지
+// 않았다는 뜻이며, 그 뒤는 해석기마다 갈린다.
+func (m *Manager) resolveEntity(ix *index, id string) (string, bool, error) {
+	if m.live.IsLive(id) {
+		return id, true, nil
+	}
+	if ix != nil {
+		if pid, ok := ix.uuidToID[strings.ToLower(id)]; ok {
+			if !m.live.IsLive(pid) {
+				return "", true, fmt.Errorf(errDanglingTabID, id, pid)
+			}
+			return pid, true, nil
+		}
+	}
+	return "", false, nil
+}
+
+// unresolvedError 는 사다리를 다 내려온 뒤의 진단이다. 인덱스에 toolId 로 보이면
+// "없어진 도구"이고, 그렇지 않으면 아예 알 수 없는 id 다 (FR-UNI-12).
+func unresolvedError(ix *index, id string) error {
 	if isKnownToolID(ix, id) {
-		return "", fmt.Errorf("toolId=%s 존재하지 않음", id)
+		return fmt.Errorf(errUnknownToolID, id)
 	}
-	return "", fmt.Errorf("id 해석 실패: %s (list_workspace 로 확인)", id)
+	return fmt.Errorf(errUnresolvedID, id)
 }
 
 // labelForm 은 좌표 라벨의 형태다 (FR-IDU-2). 대소문자를 가리지 않는다.
@@ -489,10 +505,18 @@ func emptyIndex() *index {
 	}
 }
 
-func buildIndex(blob []byte) (*index, error) {
-	ix := emptyIndex()
+// decodeState 는 저장된 blob 을 상태로 되돌린다. 파싱과 **스키마 버전 판정**의
+// 유일한 자리다 (FR-EM-2a).
+//
+// 한 자리인 것이 요점이다. 판정이 두 곳에 흩어져 있으면 한쪽만 갱신해도 컴파일이
+// 통과하고, 그때 구 blob 이 갱신되지 않은 쪽에서 "아무것도 참조하지 않음" 으로
+// 읽혀 세션 전체가 폐기된다.
+//
+// 빈 blob 은 (nil, nil) 이다 — 오류가 아니라 "상태가 아직 없다" 이며, 호출자의
+// 빈 결과 경로로 간다.
+func decodeState(blob []byte) (*wsState, error) {
 	if len(blob) == 0 {
-		return ix, nil
+		return nil, nil
 	}
 	var s wsState
 	if err := json.Unmarshal(blob, &s); err != nil {
@@ -500,6 +524,18 @@ func buildIndex(blob []byte) (*index, error) {
 	}
 	if s.SchemaVersion < SchemaVersion {
 		return nil, ErrSchemaTooOld
+	}
+	return &s, nil
+}
+
+func buildIndex(blob []byte) (*index, error) {
+	ix := emptyIndex()
+	s, err := decodeState(blob)
+	if err != nil {
+		return nil, err
+	}
+	if s == nil {
+		return ix, nil
 	}
 	for si, sess := range s.Windows {
 		var regions []*WsLayout
@@ -568,15 +604,12 @@ func CollectPanes(n *WsLayout, out *[]*WsLayout) {
 // and discard the user's whole session.
 func ReferencedToolIDs(blob []byte) (map[string]struct{}, error) {
 	out := map[string]struct{}{}
-	if len(blob) == 0 {
-		return out, nil
-	}
-	var s wsState
-	if err := json.Unmarshal(blob, &s); err != nil {
+	s, err := decodeState(blob)
+	if err != nil {
 		return nil, err
 	}
-	if s.SchemaVersion < SchemaVersion {
-		return nil, ErrSchemaTooOld
+	if s == nil {
+		return out, nil
 	}
 	for _, win := range s.Windows {
 		var tools []*WsLayout

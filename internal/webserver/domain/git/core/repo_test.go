@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 )
 
@@ -14,10 +15,14 @@ func TestRepoRoot(t *testing.T) {
 		want    string
 		wantErr error
 	}{
-		{"정상", Output{Stdout: "/Users/x/repo\n"}, "/Users/x/repo", nil},
+		{"정상", Output{Stdout: absUserRepo + "\n"}, absUserRepo, nil},
 		{"저장소 아님", Output{Stderr: "fatal: not a git repository (or any of the parent directories): .git\n", ExitCode: 128}, "", ErrNotRepo},
 		{"빈 출력", Output{Stdout: "\n  \n"}, "", ErrNotRepo},
 		{"상대경로 출력", Output{Stdout: "repo\n"}, "", ErrNotRepo},
+		// FR-WTP-3: git 출력은 정규형이 아닐 수 있고, Windows 에서는 슬래시
+		// 형태(C:/Users/x)로 온다. 정규화하지 않으면 이 값이 캐시 키·핀 비교·
+		// API 응답에 그대로 실려 다른 형태와 어긋난다.
+		{"정규형이 아닌 출력", Output{Stdout: absUserRepo + "/sub/..\n"}, absUserRepo, nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -26,7 +31,7 @@ func TestRepoRoot(t *testing.T) {
 				gotArgs = args
 				return tc.out, nil
 			}))
-			got, err := s.RepoRoot(context.Background(), "/Users/x/repo/sub")
+			got, err := s.RepoRoot(context.Background(), filepath.Join(absUserRepo, "sub"))
 			if tc.wantErr != nil {
 				if !errors.Is(err, tc.wantErr) {
 					t.Fatalf("err = %v, want %v", err, tc.wantErr)

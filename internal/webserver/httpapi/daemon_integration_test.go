@@ -15,6 +15,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // TestDaemonFullFlow verifies the complete daemon lifecycle:
@@ -27,6 +29,7 @@ func TestDaemonFullFlow(t *testing.T) {
 
 	// Start dongminald
 	pm := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm.StopSaving)
 	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -82,8 +85,16 @@ func TestDaemonFullFlow(t *testing.T) {
 	}
 	toolID := tool.ID
 
-	// Give the shell time to start and produce output (prompt)
-	time.Sleep(200 * time.Millisecond)
+	// **셸이 입을 열 때까지 기다린다.** 고정 대기(200ms)로는 부하 걸린 러너에서
+	// 못 맞춘다 — 준비되기 전에 넣은 입력은 프롬프트가 먹지 못하고, 그러면
+	// 아래 "출력 없음" 으로 떨어진다. 실제로 ubuntu 를 두 번 떨어뜨렸다.
+	waitForShellReady(t, func() int {
+		snap, err := pc.SnapshotTool(toolID)
+		if err != nil {
+			return 0
+		}
+		return len(snap.Data)
+	})
 
 	// Subscribe to output
 	outputCh := make(chan []byte, 32)
@@ -106,7 +117,7 @@ func TestDaemonFullFlow(t *testing.T) {
 	select {
 	case <-outputCh:
 		// got some output
-	case <-time.After(2 * time.Second):
+	case <-time.After(shellReadyLimit):
 		t.Fatal("no output received from tool")
 	}
 
@@ -214,6 +225,7 @@ func TestDaemonReconnectPreservesTools(t *testing.T) {
 
 	// Start dongminald with a tool created directly in toolhub.ToolManager
 	pm := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm.StopSaving)
 	p, err := pm.Create("/tmp", 80, 24)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -376,6 +388,7 @@ func TestDaemonToolCreateDeleteLifecycle(t *testing.T) {
 	sockPath := t.TempDir() + "/s"
 
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	t.Cleanup(pm.StopSaving)
 	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -430,6 +443,7 @@ func TestDaemonPanedServerSocketCleanup(t *testing.T) {
 	}
 
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	t.Cleanup(pm.StopSaving)
 	ps := ipc.NewPanedServer(pm, sockPath, pidPath)
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -502,6 +516,7 @@ func TestDaemonConcurrentPushAndRequest(t *testing.T) {
 	os.MkdirAll(dataDir, 0o755)
 
 	pm := toolhub.NewToolManager(dataDir, nil)
+	t.Cleanup(pm.StopSaving)
 	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -659,6 +674,7 @@ func TestDaemonExitClosesSubscriber(t *testing.T) {
 	sockPath := dir + "/s"
 	os.MkdirAll(dir+"/d", 0o755)
 	pm := toolhub.NewToolManager(dir+"/d", nil)
+	t.Cleanup(pm.StopSaving)
 	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)
@@ -693,10 +709,18 @@ func TestDaemonExitClosesSubscriber(t *testing.T) {
 // TestDaemonAttentionWithoutSubscriber verifies OnOutput-driven attention
 // detection fires even when no WS client is subscribed to the tool (FR-15).
 func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
+	// 이 검사는 셸에게 `printf '\033]9;done\007'` 를 시켜 OSC 알림을 만든다 —
+	// POSIX 셸 문법이다. pwsh 에는 그 printf 도 그 이스케이프도 없다.
+	// Windows 의 같은 계층은 windows-runtime 잡의 종단간(서버→데몬→PTY)이
+	// 실제로 왕복시켜 덮는다 (FR-WTP-32).
+	if !testpath.POSIXShell() {
+		t.Skip("POSIX 셸 문법으로 OSC 를 만드는 검사다")
+	}
 	dir := toolTempDir(t)
 	sockPath := dir + "/s"
 	os.MkdirAll(dir+"/d", 0o755)
 	pm := toolhub.NewToolManager(dir+"/d", nil)
+	t.Cleanup(pm.StopSaving)
 	ps := ipc.NewPanedServer(pm, sockPath, "")
 	if err := ps.Listen(); err != nil {
 		t.Fatalf("Listen: %v", err)

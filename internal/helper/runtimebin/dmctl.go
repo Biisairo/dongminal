@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"strconv"
+
+	"dongminal/internal/shared/dmenv"
 )
 
 const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
@@ -74,8 +76,8 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   --name <이름>           new-window/new-tab 전용. 새 창/탭 이름 (최대 64자).
 
 환경변수:
-  DONGMINAL_PORT — 기본 58146
-  DONGMINAL_HOST — 기본 127.0.0.1
+  ` + dmenv.EnvPort + ` — 기본 ` + dmenv.DefaultPort + `
+  ` + dmenv.EnvHost + ` — 기본 ` + dmenv.DefaultHost + `
 `
 
 func runDmctl(args []string, stdout, stderr io.Writer) int {
@@ -161,7 +163,7 @@ func runDmctlWithFlags(cmd string, parsed dmctlParsed, stdout, stderr io.Writer)
 	// 경로를 물려받고, 팀 창 전원이 거기서 시작한다 (분할이 그것을 승계하므로).
 	// `focus` 의 sourcePane 과 같은 선례다 — 호출자 신원은 환경변수에 있다.
 	if action == "newWindow" {
-		if id := os.Getenv("DONGMINAL_TOOL_ID"); id != "" {
+		if id := selfToolID(); id != "" {
 			args["cwdTool"] = id
 		}
 	}
@@ -199,7 +201,7 @@ func runDmctlFocus(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) in
 	args := parsed.buildArgs()
 	// Include source tool so the browser can route the focus only to
 	// windows that actually show this tool (multi-window).
-	if pid := os.Getenv("DONGMINAL_TOOL_ID"); pid != "" {
+	if pid := selfToolID(); pid != "" {
 		args["sourcePane"] = pid
 	}
 	return dmctlPost("focus", args, stdout, stderr)

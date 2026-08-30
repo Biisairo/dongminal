@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // FR-STA-4a 개정 — 정적 폴백은 어댑터가 훅으로 준비완료를 말하지 **않을 때만**
@@ -80,7 +82,7 @@ func TestQuiescenceAllowed_FollowsTheMembersAdapter(t *testing.T) {
 
 	runID := startRun(t, s)
 	if code, out := postRun(t, s, "/api/runs/members",
-		`{"runId":"`+runID+`","role":"w","agent":"claude","id":"tool-a"}`); code != 200 {
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"w","agent":"claude","id":"tool-a"}`); code != 200 {
 		t.Fatalf("멤버 등록 실패: %d %+v", code, out)
 	}
 	// claude 는 훅으로 준비완료를 말한다 → 폴백을 쓰지 않는다.

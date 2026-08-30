@@ -39,3 +39,6 @@ test-results/
 
 # Playwright MCP 가 스크린샷·스냅샷을 남기는 자리 (검증용 산출물)
 .playwright-mcp/
+
+# 배포 빌드 산출물 (scripts/build.sh --all)
+/dist/

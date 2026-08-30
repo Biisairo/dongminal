@@ -2,19 +2,92 @@
 
 ## 요구사항
 
-- Go 1.21+
-- macOS 또는 Linux (PTY, `ps`, `lsof` 의존)
-- zsh 또는 bash (현재 디렉터리 상태 바 표시용 — 선택)
-- `claude` CLI (에이전트 오케스트레이션 — 선택)
+**받아서 쓰는 데 필요한 것은 없습니다.** 의존이 없는 단일 바이너리이고, 프론트엔드와
+런타임 헬퍼까지 안에 들어 있습니다. Go 도 필요 없습니다.
 
-## 설치 & 실행
+| 항목 | 필요 여부 |
+|---|---|
+| macOS · Linux · WSL · **Windows 10 1809+** | 넷 다 지원 |
+| Go 툴체인 | **불필요** (소스에서 빌드할 때만 — Go 1.24+) |
+| zsh · bash · PowerShell | 셸은 자동으로 고릅니다 |
+| `claude` CLI | 선택 — 에이전트 오케스트레이션용 |
+
+Windows 최소 버전이 1809 인 이유는 ConPTY(`CreatePseudoConsole`)입니다. Windows 에서
+PTY 의미론을 얻는 유일한 공식 경로이며 그 버전에서 도입됐습니다.
+
+## 설치
+
+[Releases](https://github.com/Biisairo/dongminal/releases/latest) 에서 자기 OS 것
+**하나만** 받으면 됩니다.
+
+### macOS
 
 ```bash
-git clone <repo>
-cd dongminal
-./scripts/build.sh             # 빌드 — 저장소의 유일한 스크립트
-./dongminal start              # 실행 (기본: localhost only, 포트 58146)
+# Apple Silicon
+curl -fL -o dongminal https://github.com/Biisairo/dongminal/releases/latest/download/dongminal-darwin-arm64
+# Intel 이면 위 줄의 darwin-arm64 를 darwin-amd64 로
+
+chmod +x dongminal
+xattr -d com.apple.quarantine dongminal   # 서명·공증을 하지 않았으므로 필요합니다
+./dongminal start --open
 ```
+
+`xattr` 를 건너뛰면 macOS 가 **"개발자를 확인할 수 없어 열 수 없습니다"** 로 막습니다.
+프로그램이 깨진 것이 아닙니다.
+
+### Linux · WSL
+
+```bash
+curl -fL -o dongminal https://github.com/Biisairo/dongminal/releases/latest/download/dongminal-linux-amd64
+# ARM64 면 linux-arm64
+
+chmod +x dongminal
+./dongminal start
+```
+
+WSL 은 별도 대상이 아닙니다 — `linux-amd64` 를 그대로 씁니다.
+
+### Windows 10 1809+
+
+PowerShell 에서:
+
+```powershell
+curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/latest/download/dongminal-windows-amd64.exe
+.\dongminal.exe start --open
+```
+
+### 받은 파일 확인
+
+```bash
+curl -fLO https://github.com/Biisairo/dongminal/releases/latest/download/SHA256SUMS
+sha256sum -c SHA256SUMS --ignore-missing
+```
+
+### 판 확인
+
+```bash
+./dongminal version
+# dongminal v1.0.0 darwin/arm64 go1.25.4
+```
+
+`dev` 가 나오면 릴리스가 아니라 소스에서 빌드한 것입니다.
+
+## 소스에서 빌드 (선택)
+
+고치려는 사람만 필요합니다. Go 1.24+ 가 있으면 됩니다.
+
+```bash
+git clone https://github.com/Biisairo/dongminal
+cd dongminal
+./scripts/build.sh             # 호스트용 → ./dongminal
+./dongminal start
+```
+
+교차 컴파일은 `./scripts/build.sh --help` 를 보세요. **`go build` 를 손으로 부르지
+마세요** — macOS 대상은 cgo 가 필요한데 go 가 교차 빌드에서 그것을 자동으로 끄고,
+그러면 CPU·메모리 지표가 빠진 바이너리가 조용히 나옵니다.
+
+## 실행
 
 운영 동작은 모두 바이너리의 **액션**입니다. 액션 없이 실행하면 도움말이 나옵니다.
 
@@ -29,6 +102,9 @@ cd dongminal
 | `stop` | 서버를 정지한다 |
 | `migrate` | 워크스페이스 데이터를 최신 스키마로 변환한다 (1회성) |
 | `health` | 서버와 dongminald 의 상태를 확인한다 |
+| `doctor` | 이 호스트에서 플랫폼 계층이 실제로 도는지 계층별로 진단한다 |
+| `verify` | 격리 인스턴스를 띄워 종단간 표면을 훑는다 (개발·CI) |
+| `version` | 판·대상·go 런타임을 찍는다 (`--version` 도 동일) |
 
 `start` 는 다음을 수행합니다.
 
@@ -40,6 +116,21 @@ cd dongminal
 6. 결과 안내 출력 (`local-only` / `LAN 노출` 표기). `--open` 이면 frameless window 를 엽니다.
 
 빌드는 하지 않습니다 — `./scripts/build.sh` 의 책임입니다.
+
+### 안 될 때 — `doctor`
+
+터미널이 뜨지 않거나 비어 보이면 먼저 이것을 돌립니다.
+
+```bash
+./dongminal doctor
+```
+
+서버가 쓰는 **바로 그 코드**를 계층별로 실제 실행합니다 — 헬퍼·셸 훅 설치, 셸 선택,
+의사 터미널 기동과 명령 왕복, 도구 계층, 콘솔 없는 프로세스, 로컬 IPC, 프로세스 제어.
+어느 계층에서 무슨 오류로 막혔는지 그대로 나오므로, 증상만으로 추측하지 않아도 됩니다.
+
+「의사 터미널」이 세 단계인 것이 요점입니다 — **[단순 명령]** 이 실패하면 셸과 무관한
+배관 문제이고, [맨 셸] 은 되는데 [훅 얹은 셸] 이 안 되면 범인은 훅입니다.
 
 ### `start` 옵션
 

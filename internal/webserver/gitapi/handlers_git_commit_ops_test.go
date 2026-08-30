@@ -11,6 +11,9 @@ import (
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
+	"net/url"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // 묶음 D 서버측 — /api/git/{cherry-pick,revert,reset,drop} + /api/git/commit-range
@@ -88,11 +91,11 @@ var gitCoEndpoints = []struct {
 	path   string
 	body   string
 }{
-	{http.MethodPost, "/api/git/cherry-pick", `{"repo":"/work/repo","oid":"abc123"}`},
-	{http.MethodPost, "/api/git/revert", `{"repo":"/work/repo","oid":"abc123"}`},
-	{http.MethodPost, "/api/git/reset", `{"repo":"/work/repo","oid":"abc123"}`},
-	{http.MethodPost, "/api/git/drop", `{"repo":"/work/repo","oid":"abc123","confirm":true}`},
-	{http.MethodGet, "/api/git/commit-range?repo=/work/repo&from=abc123&to=HEAD", ""},
+	{http.MethodPost, "/api/git/cherry-pick", `{"repo":` + qWorkRepo + `,"oid":"abc123"}`},
+	{http.MethodPost, "/api/git/revert", `{"repo":` + qWorkRepo + `,"oid":"abc123"}`},
+	{http.MethodPost, "/api/git/reset", `{"repo":` + qWorkRepo + `,"oid":"abc123"}`},
+	{http.MethodPost, "/api/git/drop", `{"repo":` + qWorkRepo + `,"oid":"abc123","confirm":true}`},
+	{http.MethodGet, "/api/git/commit-range?repo=" + url.QueryEscape(absWorkRepo) + "&from=abc123&to=HEAD", ""},
 }
 
 // D-API1: 5개 라우트가 gitapi.routes 에 등록돼 있고, Git 이 없으면 전부 503 이다.
@@ -129,7 +132,7 @@ func TestAPIGitPick_MergeRequiresMainline(t *testing.T) {
 		f.parents = "p1 p2" // 머지 커밋이다
 		s := gitCoServer(t, f)
 
-		code, out := gitReq(t, s, http.MethodPost, path, `{"repo":"/work/repo","oid":"abc123"}`)
+		code, out := gitReq(t, s, http.MethodPost, path, `{"repo":`+qWorkRepo+`,"oid":"abc123"}`)
 		if code != http.StatusBadRequest || out["error"] != gitErrMergeParent {
 			t.Fatalf("%s → %d %v, want 400 %s", path, code, out["error"], gitErrMergeParent)
 		}
@@ -152,7 +155,7 @@ func TestAPIGitPick_MainlineReachesArgv(t *testing.T) {
 	s := gitCoServer(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/cherry-pick",
-		`{"repo":"/work/repo","oid":"abc123","mainline":2}`)
+		`{"repo":`+qWorkRepo+`,"oid":"abc123","mainline":2}`)
 	if code != http.StatusOK {
 		t.Fatalf("→ %d %v", code, out["error"])
 	}
@@ -167,7 +170,7 @@ func TestAPIGitRevert_NoCommitOption(t *testing.T) {
 	f := newGitCoFake(t)
 	s := gitCoServer(t, f)
 	code, _ := gitReq(t, s, http.MethodPost, "/api/git/revert",
-		`{"repo":"/work/repo","oid":"abc123","noCommit":true}`)
+		`{"repo":`+qWorkRepo+`,"oid":"abc123","noCommit":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("→ %d", code)
 	}
@@ -179,7 +182,7 @@ func TestAPIGitRevert_NoCommitOption(t *testing.T) {
 	f2 := newGitCoFake(t)
 	s2 := gitCoServer(t, f2)
 	code, _ = gitReq(t, s2, http.MethodPost, "/api/git/cherry-pick",
-		`{"repo":"/work/repo","oid":"abc123","noCommit":true}`)
+		`{"repo":`+qWorkRepo+`,"oid":"abc123","noCommit":true}`)
 	if code != http.StatusBadRequest {
 		t.Fatalf("cherry-pick 의 --no-commit → %d, want 400", code)
 	}
@@ -194,7 +197,7 @@ func TestAPIGitReset_HardRequiresConfirm(t *testing.T) {
 	f := newGitCoFake(t)
 	s := gitCoServer(t, f)
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/reset",
-		`{"repo":"/work/repo","oid":"abc123","mode":"hard"}`)
+		`{"repo":`+qWorkRepo+`,"oid":"abc123","mode":"hard"}`)
 	if code != http.StatusBadRequest || out["error"] != gitErrConfirmRequired {
 		t.Fatalf("→ %d %v, want 400 %s", code, out["error"], gitErrConfirmRequired)
 	}
@@ -206,7 +209,7 @@ func TestAPIGitReset_HardRequiresConfirm(t *testing.T) {
 		f2 := newGitCoFake(t)
 		s2 := gitCoServer(t, f2)
 		code, out := gitReq(t, s2, http.MethodPost, "/api/git/reset",
-			`{"repo":"/work/repo","oid":"abc123","mode":"`+mode+`"}`)
+			`{"repo":`+qWorkRepo+`,"oid":"abc123","mode":`+testpath.JSONQuote(mode)+`}`)
 		if code != http.StatusOK {
 			t.Fatalf("mode=%q → %d %v, want 200", mode, code, out["error"])
 		}
@@ -221,7 +224,7 @@ func TestAPIGitReset_HardArgv(t *testing.T) {
 	f := newGitCoFake(t)
 	s := gitCoServer(t, f)
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/reset",
-		`{"repo":"/work/repo","oid":"abc123","mode":"hard","confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"oid":"abc123","mode":"hard","confirm":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("→ %d %v", code, out["error"])
 	}
@@ -237,7 +240,7 @@ func TestAPIGitReset_UnknownModeRejected(t *testing.T) {
 	f := newGitCoFake(t)
 	s := gitCoServer(t, f)
 	code, _ := gitReq(t, s, http.MethodPost, "/api/git/reset",
-		`{"repo":"/work/repo","oid":"abc123","mode":"keep","confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"oid":"abc123","mode":"keep","confirm":true}`)
 	if code != http.StatusBadRequest {
 		t.Fatalf("→ %d, want 400", code)
 	}
@@ -252,7 +255,7 @@ func TestAPIGitDrop_ConfirmAndArgv(t *testing.T) {
 	f := newGitCoFake(t)
 	s := gitCoServer(t, f)
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/drop",
-		`{"repo":"/work/repo","oid":"abc123"}`)
+		`{"repo":`+qWorkRepo+`,"oid":"abc123"}`)
 	if code != http.StatusBadRequest || out["error"] != gitErrConfirmRequired {
 		t.Fatalf("→ %d %v, want 400 %s", code, out["error"], gitErrConfirmRequired)
 	}
@@ -263,7 +266,7 @@ func TestAPIGitDrop_ConfirmAndArgv(t *testing.T) {
 	f2 := newGitCoFake(t)
 	s2 := gitCoServer(t, f2)
 	code, out = gitReq(t, s2, http.MethodPost, "/api/git/drop",
-		`{"repo":"/work/repo","oid":"abc123","confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"oid":"abc123","confirm":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("→ %d %v", code, out["error"])
 	}
@@ -280,7 +283,7 @@ func TestAPIGitDrop_MergeRefused(t *testing.T) {
 	f.parents = "p1 p2"
 	s := gitCoServer(t, f)
 	code, _ := gitReq(t, s, http.MethodPost, "/api/git/drop",
-		`{"repo":"/work/repo","oid":"abc123","confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"oid":"abc123","confirm":true}`)
 	if code != http.StatusBadRequest {
 		t.Fatalf("→ %d, want 400", code)
 	}
@@ -295,7 +298,7 @@ func TestAPIGitCommitRange_Count(t *testing.T) {
 	f.count = "7\n"
 	s := gitCoServer(t, f)
 	code, out := gitReq(t, s, http.MethodGet,
-		"/api/git/commit-range?repo=/work/repo&from=abc123&to=HEAD", "")
+		"/api/git/commit-range?repo="+url.QueryEscape(absWorkRepo)+"&from=abc123&to=HEAD", "")
 	if code != http.StatusOK {
 		t.Fatalf("→ %d %v", code, out["error"])
 	}
@@ -310,7 +313,7 @@ func TestAPIGitCommitRange_SymmetricUsesMergeBase(t *testing.T) {
 	f := newGitCoFake(t)
 	s := gitCoServer(t, f)
 	code, out := gitReq(t, s, http.MethodGet,
-		"/api/git/commit-range?repo=/work/repo&from=aaa&to=bbb&symmetric=1", "")
+		"/api/git/commit-range?repo="+url.QueryEscape(absWorkRepo)+"&from=aaa&to=bbb&symmetric=1", "")
 	if code != http.StatusOK {
 		t.Fatalf("→ %d %v", code, out["error"])
 	}
@@ -324,7 +327,7 @@ func TestAPIGitCommitRange_RejectsUnsafeRev(t *testing.T) {
 	f := newGitCoFake(t)
 	s := gitCoServer(t, f)
 	code, _ := gitReq(t, s, http.MethodGet,
-		"/api/git/commit-range?repo=/work/repo&from=--all&to=HEAD", "")
+		"/api/git/commit-range?repo="+url.QueryEscape(absWorkRepo)+"&from=--all&to=HEAD", "")
 	if code != http.StatusBadRequest {
 		t.Fatalf("→ %d, want 400", code)
 	}

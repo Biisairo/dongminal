@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/webserver/domain/git/core"
 )
 
@@ -21,7 +21,7 @@ import (
 // 원격 작업은 다른 git 실행과 성질이 다르다: 분 단위이고, 출력이 진행 상황이며,
 // 취소할 수 있어야 한다. 그 셋을 여기서 못박는다.
 
-const jobRepo = "/work/repo"
+var jobRepo = absWorkRepo
 
 // jobSvc 는 읽기·쓰기 실행기를 함께 막은 Service 다. 작업 경로는 svc 의 기록만
 // 쓰지만, 막지 않으면 실제 git 이 돌 수 있는 자리를 남긴다.
@@ -215,10 +215,10 @@ func TestJobStart_SameRepoIsBusy(t *testing.T) {
 // R4: 다른 리포의 작업은 서로를 막지 않는다.
 func TestJobStart_OtherRepoNotBlocked(t *testing.T) {
 	j := NewJobs(jobSvc(), WithJobRunner(jobBlockRunner(nil)))
-	if _, err := j.Start("/work/a", "fetch", jobFetchSpec()); err != nil {
+	if _, err := j.Start(absWorkA, "fetch", jobFetchSpec()); err != nil {
 		t.Fatalf("/work/a: %v", err)
 	}
-	if _, err := j.Start("/work/b", "fetch", jobFetchSpec()); err != nil {
+	if _, err := j.Start(absWorkB, "fetch", jobFetchSpec()); err != nil {
 		t.Fatalf("/work/b: %v", err)
 	}
 	if n := len(j.Active()); n != 2 {
@@ -486,12 +486,12 @@ func jobAwaitGone(t *testing.T, pid int, d time.Duration) {
 	t.Helper()
 	deadline := time.Now().Add(d)
 	for time.Now().Before(deadline) {
-		if err := syscall.Kill(pid, 0); err != nil {
+		if !platform.Current().Process.Alive(pid) {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	syscall.Kill(pid, syscall.SIGKILL)
+	_ = platform.Current().Process.Kill(pid)
 	t.Fatalf("pid %d 가 살아 있다 — 프로세스 그룹이 끝나지 않았다", pid)
 }
 

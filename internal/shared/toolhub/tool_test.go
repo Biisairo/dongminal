@@ -43,6 +43,7 @@ func TestParseSize(t *testing.T) {
 
 func TestToolManager_SetInvalidator(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	pm.SetInvalidator(func(string) {})
 	// invalidator is stored; full invocation is covered via Create+Delete integration.
 	if pm.invalidator == nil {
@@ -52,6 +53,7 @@ func TestToolManager_SetInvalidator(t *testing.T) {
 
 func TestToolManager_Get(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	if pm.Get("1") != nil {
 		t.Fatal("expected nil for missing tool")
 	}
@@ -59,6 +61,7 @@ func TestToolManager_Get(t *testing.T) {
 
 func TestToolManager_IsLive(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	if pm.IsLive("1") {
 		t.Fatal("expected false for missing tool")
 	}
@@ -66,6 +69,7 @@ func TestToolManager_IsLive(t *testing.T) {
 
 func TestToolManager_List_Empty(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	out := pm.List()
 	if len(out) != 0 {
 		t.Fatalf("expected empty list, got %d", len(out))
@@ -74,6 +78,7 @@ func TestToolManager_List_Empty(t *testing.T) {
 
 func TestToolManager_Snapshot_Empty(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	out := pm.Snapshot()
 	if len(out) != 0 {
 		t.Fatalf("expected empty snapshot, got %d", len(out))
@@ -82,6 +87,7 @@ func TestToolManager_Snapshot_Empty(t *testing.T) {
 
 func TestToolManager_DirtyAndSaveAll(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	if pm.dirty.Load() {
 		t.Fatal("expected dirty=false after init")
 	}
@@ -97,6 +103,7 @@ func TestToolManager_DirtyAndSaveAll(t *testing.T) {
 
 func TestToolManager_DataPath(t *testing.T) {
 	pm := NewToolManager("", nil)
+	t.Cleanup(pm.StopSaving)
 	p := pm.dataPath("test.json")
 	if p != "test.json" {
 		t.Fatalf("dataPath with empty dir=%q want test.json", p)
@@ -124,6 +131,7 @@ func TestTool_IsBusy_UsesProbe(t *testing.T) {
 
 func TestToolManager_RLockReadPaths(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
 	for i := 0; i < 16; i++ {

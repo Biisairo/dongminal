@@ -15,6 +15,7 @@ import (
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/git/write"
+	"net/url"
 )
 
 // 묶음 E 서버측 — /api/git/{remotes,remote/add,remote/remove,sync,push/preview}
@@ -122,12 +123,12 @@ var gitActEndpoints = []struct {
 	path   string
 	body   string
 }{
-	{http.MethodGet, "/api/git/remotes?repo=/work/repo", ""},
-	{http.MethodPost, "/api/git/remote/add", `{"repo":"/work/repo","name":"up","url":"/tmp/u.git"}`},
-	{http.MethodPost, "/api/git/remote/remove", `{"repo":"/work/repo","name":"origin"}`},
-	{http.MethodPost, "/api/git/sync", `{"repo":"/work/repo"}`},
+	{http.MethodGet, "/api/git/remotes?repo=" + url.QueryEscape(absWorkRepo), ""},
+	{http.MethodPost, "/api/git/remote/add", `{"repo":` + qWorkRepo + `,"name":"up","url":"/tmp/u.git"}`},
+	{http.MethodPost, "/api/git/remote/remove", `{"repo":` + qWorkRepo + `,"name":"origin"}`},
+	{http.MethodPost, "/api/git/sync", `{"repo":` + qWorkRepo + `}`},
 	{http.MethodGet, "/api/git/sync?id=x", ""},
-	{http.MethodGet, "/api/git/push/preview?repo=/work/repo", ""},
+	{http.MethodGet, "/api/git/push/preview?repo=" + url.QueryEscape(absWorkRepo), ""},
 }
 
 // E1: 새 표면이 전부 gitapi.routes 에 있다. UI 는 이 위에만 선다.
@@ -167,7 +168,7 @@ func TestGitRemotes_List(t *testing.T) {
 	f := newGitActFake(t)
 	f.config = "remote.origin.url=/tmp/a.git\nremote.up.url=https://u:pw@example.test/b.git\n"
 	s := gitActServer(t, f, nil)
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/remotes?repo=/work/repo", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/remotes?repo="+url.QueryEscape(absWorkRepo), "")
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -185,7 +186,7 @@ func TestGitRemoteAdd_RunsAndReturnsList(t *testing.T) {
 	f := newGitActFake(t)
 	s := gitActServer(t, f, nil)
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/remote/add",
-		`{"repo":"/work/repo","name":"up","url":"/tmp/u.git"}`)
+		`{"repo":`+qWorkRepo+`,"name":"up","url":"/tmp/u.git"}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -203,7 +204,7 @@ func TestGitRemoteRemove_LeavesRecoveryHint(t *testing.T) {
 	f := newGitActFake(t)
 	s := gitActServer(t, f, nil)
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/remote/remove",
-		`{"repo":"/work/repo","name":"origin"}`)
+		`{"repo":`+qWorkRepo+`,"name":"origin"}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -231,10 +232,10 @@ func TestGitRemoteAdd_Rejects(t *testing.T) {
 	cases := []struct {
 		name, body, want string
 	}{
-		{"빈 이름", `{"repo":"/work/repo","name":"","url":"/tmp/a.git"}`, gitErrBadRequest},
-		{"슬래시 이름", `{"repo":"/work/repo","name":"a/b","url":"/tmp/a.git"}`, gitErrBadRequest},
-		{"옵션 URL", `{"repo":"/work/repo","name":"up","url":"--upload-pack=x"}`, gitErrBadRequest},
-		{"이미 있음", `{"repo":"/work/repo","name":"origin","url":"/tmp/a.git"}`, gitErrRemoteExists},
+		{"빈 이름", `{"repo":` + qWorkRepo + `,"name":"","url":"/tmp/a.git"}`, gitErrBadRequest},
+		{"슬래시 이름", `{"repo":` + qWorkRepo + `,"name":"a/b","url":"/tmp/a.git"}`, gitErrBadRequest},
+		{"옵션 URL", `{"repo":` + qWorkRepo + `,"name":"up","url":"--upload-pack=x"}`, gitErrBadRequest},
+		{"이미 있음", `{"repo":` + qWorkRepo + `,"name":"origin","url":"/tmp/a.git"}`, gitErrRemoteExists},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -255,7 +256,7 @@ func TestGitRemoteRemove_MissingIsRejected(t *testing.T) {
 	f := newGitActFake(t)
 	s := gitActServer(t, f, nil)
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/remote/remove",
-		`{"repo":"/work/repo","name":"nope"}`)
+		`{"repo":`+qWorkRepo+`,"name":"nope"}`)
 	if code != http.StatusNotFound || out["error"] != gitErrRemoteMissing {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -298,7 +299,7 @@ func TestGitSync_StopsWhenPullFails(t *testing.T) {
 	f := newGitActFake(t)
 	s := gitActServer(t, f, gitActSteps(&seen, &mu, map[string]int{"pull": 1}))
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/sync", `{"repo":"/work/repo"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/sync", `{"repo":`+qWorkRepo+`}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -329,7 +330,7 @@ func TestGitSync_RunsPullThenPush(t *testing.T) {
 	f := newGitActFake(t)
 	s := gitActServer(t, f, gitActSteps(&seen, &mu, map[string]int{}))
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/sync", `{"repo":"/work/repo"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/sync", `{"repo":`+qWorkRepo+`}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -354,8 +355,8 @@ func TestGitSync_RunsPullThenPush(t *testing.T) {
 // 저장소가 사용자가 요청하지 않은 중간 상태로 남는다.
 func TestGitSync_RejectsBeforeRunning(t *testing.T) {
 	cases := []struct{ name, body, want string }{
-		{"모르는 pull 모드", `{"repo":"/work/repo","mode":"squash"}`, gitErrBadRequest},
-		{"확인 없는 force", `{"repo":"/work/repo","force":"force"}`, gitErrConfirmRequired},
+		{"모르는 pull 모드", `{"repo":` + qWorkRepo + `,"mode":"squash"}`, gitErrBadRequest},
+		{"확인 없는 force", `{"repo":` + qWorkRepo + `,"force":"force"}`, gitErrConfirmRequired},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -385,7 +386,7 @@ func TestGitSync_PublishAskedBeforePull(t *testing.T) {
 	f.upstream = ""
 	f.branch = "feat"
 	s := gitActServer(t, f, gitActSteps(&seen, &mu, map[string]int{}))
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/sync", `{"repo":"/work/repo"}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/sync", `{"repo":`+qWorkRepo+`}`)
 	if code != http.StatusConflict || out["error"] != gitErrPublishRequired {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -403,7 +404,7 @@ func TestGitSync_PublishAskedBeforePull(t *testing.T) {
 func TestGitPushPreview_OutgoingRange(t *testing.T) {
 	f := newGitActFake(t)
 	s := gitActServer(t, f, nil)
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/push/preview?repo=/work/repo", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/push/preview?repo="+url.QueryEscape(absWorkRepo), "")
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -431,7 +432,7 @@ func TestGitPushPreview_PublishHasNoRange(t *testing.T) {
 	f := newGitActFake(t)
 	s := gitActServer(t, f, nil)
 	code, out := gitReq(t, s, http.MethodGet,
-		"/api/git/push/preview?repo=/work/repo&remote=origin&branch=feat", "")
+		"/api/git/push/preview?repo="+url.QueryEscape(absWorkRepo)+"&remote=origin&branch=feat", "")
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -448,7 +449,7 @@ func TestGitPushPreview_RejectsUnsafeTarget(t *testing.T) {
 	f := newGitActFake(t)
 	s := gitActServer(t, f, nil)
 	for _, q := range []string{"&remote=-x&branch=main", "&remote=origin&branch=a..b"} {
-		code, out := gitReq(t, s, http.MethodGet, "/api/git/push/preview?repo=/work/repo"+q, "")
+		code, out := gitReq(t, s, http.MethodGet, "/api/git/push/preview?repo="+url.QueryEscape(absWorkRepo)+q, "")
 		if code != http.StatusBadRequest || out["error"] != gitErrBadRequest {
 			t.Errorf("%s → %d %v", q, code, out["error"])
 		}

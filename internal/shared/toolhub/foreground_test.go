@@ -73,6 +73,7 @@ func adoptDetached(m *ToolManager, ids ...string) {
 // 주기 안에 몇 번을 물어도 조회는 한 번이다.
 func TestForegroundCacheHonorsInterval(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	adoptDetached(pm, "a", "b")
 	calls := fakeFGProbe(t, func([]fgRequest) map[string]string {
 		return map[string]string{"a": "vim"}
@@ -101,6 +102,7 @@ func TestForegroundCacheHonorsInterval(t *testing.T) {
 // (FR-TAN-9). 같은 값을 반복 전송하지 않는다.
 func TestForegroundNotifyOnlyOnChange(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	adoptDetached(pm, "a")
 
 	name := "vim"
@@ -142,6 +144,7 @@ func TestForegroundNotifyOnlyOnChange(t *testing.T) {
 // (NFR-CNV-1, R4, V-TAN-18). macOS 폴백이 도구마다 ps 를 띄우면 여기서 깨진다.
 func TestForegroundBatchesEveryTool(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	const n = 100
 	for i := 0; i < n; i++ {
 		adoptDetached(pm, "t"+strconv.Itoa(i))
@@ -176,6 +179,7 @@ func TestForegroundBatchesEveryTool(t *testing.T) {
 // 고정한다 (FR-TAN-5, V-TAN-17). 예외도, 추측된 이름도 나오지 않는다.
 func TestForegroundProbeFailureIsSilent(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	adoptDetached(pm, "a")
 	fakeFGProbe(t, func([]fgRequest) map[string]string { return nil })
 
@@ -194,6 +198,7 @@ func TestForegroundProbeFailureIsSilent(t *testing.T) {
 // (FR-TAN-7, SRS §4.2). 데몬은 이 목록을 그대로 IPC 로 보낸다.
 func TestForegroundListCarriesName(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	adoptDetached(pm, "a", "b")
 	fakeFGProbe(t, func([]fgRequest) map[string]string {
 		return map[string]string{"a": "vim"}
@@ -215,6 +220,7 @@ func TestForegroundListCarriesName(t *testing.T) {
 // 고정한다. 도구 id 는 재사용되지 않지만, 캐시가 무한히 자라면 안 된다.
 func TestForegroundCachePrunesDeadTools(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	tool, err := pm.Create(t.TempDir(), 80, 24)
 	if err != nil {
 		t.Skipf("PTY 를 띄울 수 없는 환경: %v", err)
@@ -247,6 +253,7 @@ func TestForegroundCachePrunesDeadTools(t *testing.T) {
 // 이름을 방송하면 같은 값을 반복 전송하는 것과 같다.
 func TestForegroundNoNotifyOnInitialEmpty(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(pm.StopSaving)
 	adoptDetached(pm, "a")
 	fakeFGProbe(t, func([]fgRequest) map[string]string { return nil })
 

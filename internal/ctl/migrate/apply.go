@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
+
+	"dongminal/internal/shared/platform"
 )
 
 // ErrDaemonRunning은 dongminald 가 살아있을 때 반환된다. 데몬은 pane 생성·
@@ -179,6 +180,12 @@ func backupOnce(path, suffix string) error {
 
 // daemonAlive는 paned.pid 가 가리키는 프로세스가 살아있는지 본다. 파일이
 // 없거나 stale pid 면 (0, false).
+//
+// 생존 판정은 **platform 에 맡긴다** (FR-WTP-1). 종전에는 여기서
+// `os.FindProcess` + `Signal(0)` 을 직접 불렀는데, 그것은 POSIX 관용구다 —
+// `os.Process.Signal` 은 Windows 에서 Kill 외에 구현돼 있지 않아 언제나 오류를
+// 낸다. 그래서 Windows 에서는 이 함수가 **항상 (0,false)** 였고, 데몬이 도는
+// 중에도 마이그레이션이 진행돼 살아 있는 데몬이 쥔 상태를 덮어썼다.
 func daemonAlive(home string) (int, bool) {
 	b, err := os.ReadFile(filepath.Join(home, daemonPIDFile))
 	if err != nil {
@@ -188,11 +195,7 @@ func daemonAlive(home string) (int, bool) {
 	if err != nil || pid <= 0 {
 		return 0, false
 	}
-	p, err := os.FindProcess(pid)
-	if err != nil {
-		return 0, false
-	}
-	if err := p.Signal(syscall.Signal(0)); err != nil {
+	if !platform.Current().Process.Alive(pid) {
 		return 0, false
 	}
 	return pid, true
