@@ -67,7 +67,7 @@ sha256sum -c SHA256SUMS --ignore-missing
 
 ```bash
 ./dongminal version
-# dongminal v1.0.0 darwin/arm64 go1.25.4
+# dongminal v1.0.1 darwin/arm64 go1.25.4
 ```
 
 `dev` 가 나오면 릴리스가 아니라 소스에서 빌드한 것입니다.

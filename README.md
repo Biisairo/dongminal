@@ -102,7 +102,7 @@ scripts/build.sh                        # 호스트용 하나 → ./dongminal
 scripts/build.sh --os windows           # 윈도우용 → dist/dongminal-windows-amd64.exe
 scripts/build.sh --os linux --arch arm64
 scripts/build.sh --all                  # 배포 대상 5종 → dist/
-VERSION=v1.0.0 scripts/build.sh --all   # 판을 새겨서 (릴리스가 쓰는 형태)
+VERSION=v1.0.1 scripts/build.sh --all   # 판을 새겨서 (릴리스가 쓰는 형태)
 ```
 
 `VERSION` 을 주지 않으면 `dongminal version` 이 `dev` 를 낸다. 소스 빌드와 릴리스
@@ -206,7 +206,7 @@ git 검사 대상은 **실제 리포**여야 한다 — 비-git 디렉터리는 
 ## 문서
 
 - **변경 이력**: [CHANGELOG.md](CHANGELOG.md)
-- **사용자**: [docs/external/](docs/external/) — 설치, 기능, 단축키, dmctl/edit/detach CLI, 에이전트 오케스트레이션, API.
+- **사용자**: [docs/external/](docs/external/) — 설치, 기능(터미널·Git·편집기), 단축키, dmctl/edit/detach CLI, 에이전트 오케스트레이션, API.
 - **개발자**: [docs/internal/](docs/internal/) — 아키텍처, 테스트 체크리스트, 인계 문서. 완료된 SRS·RFC 기록은 [docs/internal/archive/](docs/internal/archive/).
 
 ## 주요 기능
@@ -214,10 +214,13 @@ git 검사 대상은 **실제 리포**여야 한다 — 비-git 디렉터리는 
 - **창/분할 칸/탭/도구** — 가로/세로 분할, 드래그 재배치, 레이아웃 프리셋, 워크스페이스 영속화.
 - **주의 알림 (Tool Attention)** — 터미널 안 에이전트(Claude Code·Codex 등)·CLI가 작업을 끝내거나 입력을 기다리면, 보고 있지 않은 탭/창을 강조 + 🔔 모아보기(클릭 점프) + 브라우저 탭 제목 배지 + (권한 허용 시) OS 데스크톱 알림으로 알림. **에이전트 무관**한 터미널 출력 감시(OSC/idle) + `dmctl notify`(claude/codex 투명 래퍼가 hook 자동 주입) 기반.
 - **에이전트 활동 모아보기 (Agent Activity Panel)** — 동시에 도는 여러 에이전트가 *지금 무엇을 하는지*(작업 중/완료/대기 상태 + 실행 툴·명령·파일)를 우측 접이식 패널에 카드로 모아 표시. 카드 클릭 시 해당 도구로 포커스 점프, attention 알람도 카드에 합성 표시. claude(PreToolUse/Stop/Notification hook)는 풍부하게, codex(turn-complete)는 보통, 그 외는 출력 기반 추정. 토글 단축키·새로고침 주기 설정 지원.
-- **내장 편집기** — 터미널 안에서 `edit <path>` 실행 → 현재 분할 칸에 Monaco 편집기 탭.
+- **Git** — 좌측 Git 탭에 리포를 핀하면 전용 창이 선다. Changes(hunk 단위 스테이징·커밋) · Diff(개요 눈금) · History(그래프·blame) · Branches · Stash · Console · Worktrees 일곱 고정 탭. 파괴적 동작은 무엇이 사라지는지 세어 보인 뒤 묻고, 되돌릴 수 있는 것은 `Undo` 를 준다.
+- **내장 편집기** — 좌측 Editor 탭에 경로를 추가하면 그 경로의 전용 창(좌: 탐색기 / 우: Monaco)이 선다. 터미널의 `edit <path>` 도 그리로 간다. 탐색기는 git 상태 색과 `.gitignore` 흐림을 함께 보이고, 파일 찾기(`cmd+p`)·전체 검색(`cmd+shift+f`)·이미지 보기를 지원한다.
 - **백그라운드 도구** — `detach` 로 탭을 닫아도 도구가 계속 돈다. 상태 바 `⏻` 배지에서 목록 조회·복귀. tmux 의 detach 에 대응.
 - **dmctl CLI** — 터미널 안에서 `dmctl split-h`, `dmctl new-tab`, `dmctl new-window`, `dmctl focus <uuid>`, `dmctl list-workspace`, `dmctl notify`, `dmctl activity` 등으로 워크스페이스 원격 제어·조회·알림·활동 보고.
-- **파일 업/다운로드** — 드래그앤드롭 업로드 + `download <path>` 명령.
+- **파일·폴더 업/다운로드** — 터미널에 드래그앤드롭 업로드 + `download <path>` 명령. 탐색기에서는 **폴더 단위**로도 주고받는다 — 폴더를 놓으면 하위 구조 그대로 올라가고, 폴더 다운로드는 zip 으로 온다.
+- **터미널 클립보드** — 터미널 안 프로그램의 OSC 52 복사를 받는다. 브라우저가 자동 복사를 막는 환경(원격 HTTP)에서는 복사창으로 갈음한다.
+- **내부 새로고침** — `⟳` 또는 `Ctrl+Shift+K`. 페이지를 다시 열지 않고 서버 상태만 다시 받는다 — 편집기의 미저장 내용, 탐색기의 펼침, Git 패널의 열린 탭이 남는다.
 - **에이전트 오케스트레이션** — `dmctl read-screen`/`send-input`/`msg` 로 에이전트가 워크스페이스를 조회·조작하고 서로 통신. `/dongminal:team`·`/dongminal:workflow` 스킬이 dongminal 세션에만 주입된다 (사용자 설정 무오염, 설정 불필요).
 - **테마 44종 + 커스텀** — 다크 33 · 라이트 11. xterm.js 터미널과 UI 양쪽 일괄 테마.
 
@@ -331,3 +334,12 @@ dongminal/
 - 주의 알림: 서버 호스트(브라우저 없는 원격 머신)용 OS 알림/웹훅·모바일 푸시 — 현재는 접속한 브라우저에만 표시됨
 - 데스크톱 래핑 (tauri, electron 등)
 - mobile mode: Ctrl+C/D/Z 단발 버튼, 키 커스터마이즈, modifier sticky/lock 시각 강화 (RFC §8)
+
+### 알려진 문제
+
+- **원격 접속이 한 번씩 끊긴다 — 원인 미확정.** 가설 넷(임시 포트 고갈·절전·IP
+  변동·고아 데몬)을 실측으로 기각했다. 밝혀진 실제 결함이던 재연결 폭주는
+  1.0.1 에서 멎혔고, 서버가 1분마다 남기는 `diag` 줄이 다음 발생 때 "경로가
+  없었는가" 와 "서버가 느렸는가" 를 가른다. 조사 기록과 그 순간에 찍을 명령은
+  [docs/internal/CONNECTIVITY_INVESTIGATION.md](docs/internal/CONNECTIVITY_INVESTIGATION.md)
+  에 있다

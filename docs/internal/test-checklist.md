@@ -10,7 +10,7 @@
 
 ---
 
-## A. 서버 핵심 (internal/server)
+## A. 서버 핵심 (`webserver/httpapi` · `shared/toolhub`)
 
 ### A1. Server 생명주기
 | # | 동작 | 엣지/실패 케이스 |
@@ -58,7 +58,7 @@
 | A3.16 | `GET /api/ping` — 헬스체크 | `ok` 반환 |
 | A3.17 | `GET /api/stats` — 시스템 통계 | top/sysctl/vm_stat/syscall.Statfs 명령 실패 시 graceful degradation |
 
-### A4. Tool 생명주기 (internal/server/tool.go)
+### A4. Tool 생명주기 (`shared/toolhub/tool.go`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | A4.1 | `StartTool` — 셸 결정 순서: `$SHELL` → `/bin/bash` → `/bin/sh` | 존재하지 않는 셸 경로 다음으로 폴백 |
@@ -79,7 +79,7 @@
 | A4.16 | `safeConn` — 동시 write 보호 | writeMsg, writePing, send 모두 mu.Lock |
 | A4.17 | `safeConn.close` — underlying conn 닫기 | |
 
-### A5. ToolManager (internal/server/tool.go)
+### A5. ToolManager (`shared/toolhub/tool.go`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | A5.1 | `NewToolManager` — 초기화 | invalidator nil 허용 |
@@ -95,7 +95,7 @@
 | A5.11 | `Snapshot` — 도구 포인터 복사본 반환 | |
 | A5.12 | `ParseSize` — cols/rows 파싱 | 기본값 120x40; 0 또는 파싱 실패 시 기본값; 16비트 범위 |
 
-### A7. CommandHub (internal/server/commands.go)
+### A7. CommandHub (`webserver/hub/commands.go`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | A7.1 | `NewCommandHub` — 초기화 | |
@@ -106,7 +106,12 @@
 | A7.6 | `handleCommandSSE` — SSE 스트림 | flusher 미지원 → 500; keepalive 15초; context done 시 종료 |
 | A7.7 | `handleCommandPost` — 명령 브로드캐스트 | Method not allowed; JSON 파싱 실패; unknown action; 성공 시 delivered 반환 |
 
-### A8. MCP (internal/server/mcp.go)
+### A8. MCP — **폐지됨** (SKILL_INJECTION_SRS 묶음 F)
+
+> 아래 항목은 기록으로 남긴다. MCP 표면은 세션 스코프 스킬 주입으로 대체됐고
+> `internal/mcptool` 은 사라졌다. 그 행위 계약 일부는
+> `webserver/httpapi/handlers_toolio_test.go` 로 이관됐다.
+
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | A8.1 | `handleMCPSSE` — SSE 연결 | flusher 미지원 → 500; CORS 헤더; endpoint 이벤트 전송 |
@@ -124,7 +129,7 @@
 | A8.13 | `handleMCPRequest` — unknown method | -32601 |
 | A8.14 | `handleMCPRequest` — 응답 전송 타임아웃 | 5초; Done 체크 |
 
-### A9. MCPSessionRegistry (internal/server/server.go)
+### A9. MCPSessionRegistry — **폐지됨** (위와 같다)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | A9.1 | `NewMCPSessionRegistry` — 초기화 | |
@@ -136,7 +141,7 @@
 
 ## B. 도메인/유틸리티 (internal/)
 
-### B1. Outbuf Stream (internal/outbuf/stream.go)
+### B1. Outbuf Stream (`shared/outbuf/stream.go`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | B1.1 | `NewStream` — context 기반 취소 | parent Done 시 내부 cancel |
@@ -148,7 +153,7 @@
 | B1.7 | `Len` — 현재 유지 바이트 수 | mu.Lock |
 | B1.8 | `Close` — cancel 및 buf nil | 이후 호출 no-op |
 
-### B2. Workspace Manager (internal/workspace/manager.go)
+### B2. Workspace Manager (`shared/workspace/manager.go`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | B2.1 | `New` — store.Read | 파일 없음 → data=nil; 기타 에러 → 반환; buildIndex 실패 → emptyIndex |
@@ -170,7 +175,7 @@
 | B2.17 | `buildIndex` — IsActive 판정 | activeWindow + focusedPane + activeTab |
 | B2.18 | `collectPanes` — pane 타입 수집 | split 타입은 재귀 |
 
-### B3. MCP Tool Registry (internal/mcptool/registry.go)
+### B3. MCP Tool Registry — **폐지됨** (위와 같다)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | B3.1 | `NewRegistry` — 초기화 | |
@@ -185,7 +190,7 @@
 | B3.10 | `Register[A any]` — 제네릭 등록 | |
 | B3.11 | `WithRemoteAddr/RemoteAddrFromContext` — context 값 전달 | 없으면 빈 문자열 |
 
-### B4. MCP Tools (internal/mcptool/tools/)
+### B4. MCP Tools — **폐지됨** (위와 같다)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | B4.1 | `list_workspace` — 도구 목록 + 라벨 | |
@@ -225,7 +230,7 @@
 
 ---
 
-## C. 프론트엔드 (web/js/app.js)
+## C. 프론트엔드 (`web/js/core/`)
 
 ### C1. TerminalTool — WebSocket 생명주기
 | # | 동작 | 엣지/실패 케이스 |
@@ -263,7 +268,7 @@
 | C2.10 | `_uploadFiles` — FormData POST /api/upload | cwd 기반 dir; 성공/실패 터미널 출력; **`source!=='tool'` 이면 올리지 않는다**; **끝나도 엔터를 보내지 않는다** (FR-FTR-10·11) |
 | C2.11 | `_oscCarryAt` — 청크 경계의 OSC | 미완성 시퀀스를 보류하고 다음 청크에 이어 붙인다; 4096 초과면 흘려보낸다 (FR-FTR-8) |
 
-### C4. 테마 시스템 (web/js/app.js)
+### C4. 테마 시스템 (`web/js/core/`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | C4.1 | `applyThemeObj` — CSS 변수 적용 | --bg, --sidebar-bg, --border, --accent, --text, --text-muted, --text-bright, --text-dim, --danger, --accent-border, --accent-hover, --accent-active, --accent-subtle |
@@ -272,7 +277,7 @@
 | C4.4 | THEMES 객체 — 21개 기본 테마 | 각 테마는 ui + terminal 속성 |
 | C4.5 | 커스텀 테마 편집 — UI/Terminal 색상 | 동적 DOM 생성; localStorage 저장 |
 
-### C5. 단축키 (web/js/app.js)
+### C5. 단축키 (`web/js/core/`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | C5.1 | `parseShortcut` — 문자열 파싱 | Ctrl/Alt/Meta/Shift + Key |
@@ -282,7 +287,7 @@
 | C5.5 | 기본 단축키 15개 | windowNext/Prev, tabNext/Prev, paneUp/Down/Left/Right, splitH/V, newWindow/Tab, closeWindow/Tab, agentsToggle |
 | C5.6 | 단축키 설정 저장/로드 | localStorage |
 
-### C6. 설정 모달 (web/js/app.js)
+### C6. 설정 모달 (`web/js/core/`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | C6.1 | 모달 열기/닫기 | overlay 클릭, close 버튼 |
@@ -294,7 +299,7 @@
 | C6.7 | Presets 탭 — 프리셋 목록 + 저장 | 현재 레이아웃 저장 |
 | C6.8 | Display 탭 — 모드(Auto/Desktop/Mobile), breakpoint | localStorage 저장 |
 
-### C7. 레이아웃/창 (web/js/app.js)
+### C7. 레이아웃/창 (`web/js/core/`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | C7.1 | 창 생성 — `newWindow` | 기본 레이아웃(단일 분할 칸) |
@@ -312,7 +317,7 @@
 | C7.13 | focusedPane 추적 | 현재 포커스된 분할 칸 id |
 | C7.14 | activeWindow 추적 | 현재 활성 창 id |
 
-### C8. 상태바 (web/js/app.js)
+### C8. 상태바 (`web/js/core/`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | C8.1 | 연결 상태 표시 | WS onopen/onclose 기반 |
@@ -328,7 +333,7 @@
 | C8.11 | 주기적 갱신 | statsInterval(기본 3000ms) |
 | C8.12 | 항목별 on/off | 설정에 따른 표시/숨김 |
 
-### C9. 검색 (web/js/app.js)
+### C9. 검색 (`web/js/core/`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | C9.1 | 검색창 토글 | hidden 클래스 |
@@ -338,7 +343,7 @@
 | C9.5 | 결과 개수 표시 | |
 | C9.6 | 닫기 | Esc |
 
-### C10. 사이드바 (web/js/app.js)
+### C10. 사이드바 (`web/js/core/`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | C10.1 | 창 목록 표시 | 이름 + 활성 표시 |
@@ -348,7 +353,7 @@
 | C10.5 | 리사이징 핸들 — 드래그 | localStorage에 sidebarWidth 저장 |
 | C10.6 | 모바일 — drawer 토글 | backdrop, swipe |
 
-### C11. 모바일 UI (web/js/app.js)
+### C11. 모바일 UI (`web/js/core/`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | C11.1 | 반응형 레이아웃 — breakpoint 기반 | Auto 모드: viewport width < breakpoint |
@@ -382,7 +387,7 @@ Safari 의 스크롤 휴리스틱은 실기기로만 확인된다. 화면이 미
 들락날락하면 진동이며, 그때의 폴백은 `scroll` 리스너에서의 보정을 감쇠하는 것이다
 (`resize` 에서만 보정). 자동 테스트로는 이 현상을 볼 수 없다.
 
-### C12. 파일 업로드/다운로드 (web/js/app.js)
+### C12. 파일 업로드/다운로드 (`web/js/core/`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | C12.1 | Drag & Drop — 파일 업로드 | dragover 시 dragover 클래스; drop 시 FormData POST; 성공/실패 메시지 |
@@ -442,8 +447,10 @@ Safari 의 스크롤 휴리스틱은 실기기로만 확인된다. 화면이 미
 ## E. 프론트엔드 E2E 테스트 계획 (Playwright)
 
 > **方針**: Go 서버를 `testserver` 패키지로 프로그래밍 방식 기동 → Playwright로 브라우저 제어 → 실제 DOM/Network/WebSocket 검증.  
-> **위치**: `web/e2e/`  
-> **도구**: `@playwright/test`, Go `testserver` 헬퍼 (`internal/server` 직접 인스턴스화)
+> **위치**: `e2e/`  
+> **도구**: `@playwright/test`. 서버는 `playwright.config.ts` 의 `webServer` 가
+> `go run ./cmd/dongminal start --foreground` 로 띄우며, 격리된 `DONGMINAL_HOME`
+> 을 쓴다 (`E2E_HOME`).
 
 ### E1. 기본 연결 및 생명주기
 | # | 테스트 | 검증 방법 |
@@ -505,27 +512,37 @@ Safari 의 스크롤 휴리스틱은 실기기로만 확인된다. 화면이 미
 ## F. 기존 테스트 현황 (커버리지 기준)
 
 Go 테스트는 전 패키지 통과, `go vet` 무경고, `gofmt` 청결. Playwright e2e 는
-17개 스펙 115개 전원 통과 (2026-08-20 기준).
+**76개 스펙 763개** 통과 (2026-08-30, v1.0.1 기준).
+
+> **패키지 경로는 `PACKAGE_RESTRUCTURE_SRS` 로 한 번 바뀌었다.** `internal/` 은
+> 이제 **프로세스 축**으로 묶인다 — `shared/`(둘 이상이 실행) · `webserver/` ·
+> `daemon/` · `ctl/` · `helper/`. 아래 표는 개편 뒤 경로다.
 
 | 영역 | 대표 테스트 파일 | 비고 |
 |------|-----------------|------|
-| `internal/outbuf` | `stream_test.go` | Feed/Snapshot/compaction/통계 |
-| `internal/workspace` | `manager_test.go`, `schema_v2_test.go`, `refs_test.go`, `run_seam_test.go` | v2 스키마 값 고정(`TestLayoutTypeConstant_MatchesBrowser`) 포함 |
-| `internal/server` — 도구 | `tool_test.go`, `tool_exit_test.go`, `background_test.go` | 백그라운드 전환·목록 |
-| `internal/server` — HTTP | `handlers_api_test.go`, `handlers_ws_test.go`, `handlers_whoami_test.go` | `httptest_helpers_test.go` 의 `mustGet`/`mustPost`/`mustDo` 사용 (요청 실패를 nil 패닉이 아니라 명확한 실패로) |
-| `internal/server` — 커맨드 | `commands_test.go`, `commands_result_test.go`, `commands_uuid_test.go`, `commands_browser_test.go` | 마지막 것은 브라우저 `_execRemote` 와 화이트리스트를 대조한다 |
-| `internal/server` — 데몬 | `paned_test.go`, `tool_client_test.go`, `daemon_integration_test.go` | |
-| `internal/server` — 알림 | `attention_test.go`, `attention_tool_test.go`, `activity_api_test.go`, `activity_tool_test.go` | |
-| `internal/mcptool` | `registry_test.go`, `tools/tools_test.go`, `tools/tools_uuid_test.go`, `tools/workspacecmd_gate_test.go` | 마지막 것은 MCP 노출 action 집합과 스펙 enum 을 대조한다 |
-| `internal/migrate` | `migrate_test.go`, `apply_test.go`, `settings_test.go` | **구 어휘가 입력이다** — 여기의 `panes.json`·`region`·`paneId` 는 개명 대상이 아니다 |
-| `internal/runtimebin` | `dmctl_test.go`, `detach_test.go`, `dmctl_whoami_test.go` | `detach_test.go` 는 스텁 서버를 쓰므로 실제 화이트리스트는 e2e 가 검증한다 |
-| `internal/toolline` | `toolline_test.go` | dmctl·MCP 출력의 byte-level 동일성 |
-| 프론트엔드 | `e2e/*.spec.ts` 17개 | 아래 참조 |
+| `shared/outbuf` | `stream_test.go` | Feed/Snapshot/compaction/통계 |
+| `shared/workspace` | `manager_test.go`, `schema_v2_test.go`, `refs_test.go`, `run_seam_test.go` | v2 스키마 값 고정(`TestLayoutTypeConstant_MatchesBrowser`) 포함 |
+| `shared/toolhub` | `tool_test.go`, `tool_exit_test.go`, `attention_*_test.go`, `bracketpaste_test.go` | PTY·클라이언트·주의 탐지·붙여넣기 감싸기 |
+| `shared/platform` | `pty_test.go`, `process_*_test.go`, `paths_test.go`, `ipc_test.go` | OS 이음매. Windows 전용 파일은 `_windows_test.go` |
+| `shared/runtime` | `install_test.go`, `install_shellhooks_test.go`, `skills_contract_test.go` | 헬퍼 설치의 **원자성**(임시 이름 → rename)이 여기 걸려 있다 |
+| `webserver/httpapi` — 도구·HTTP | `tool_test.go`, `handlers_api_test.go`, `handlers_ws_test.go`, `background_test.go` | `httptest_helpers_test.go` 의 `mustGet`/`mustPost`/`mustDo` 사용 (요청 실패를 nil 패닉이 아니라 명확한 실패로) |
+| `webserver/httpapi` — 탐색기·전송 | `handlers_fs_test.go`, `handlers_fs_ignored_test.go`, `handlers_fs_zip_test.go`, `handlers_fs_relpath_test.go`, `handlers_transfer_test.go` | 루트 가드·무시 판정·zip 상한·`relPath` 탈출 |
+| `webserver/httpapi` — 연결 복원력 | `ws_miss_test.go`, `ws_hold_test.go`, `diag_snapshot_test.go` | 되풀이 미스의 지연·붙잡기·진단 한 줄 |
+| `webserver/httpapi` — 커맨드 | `commands_test.go`, `commands_result_test.go`, `commands_uuid_test.go`, `commands_browser_test.go` | 마지막 것은 브라우저 `_execRemote` 와 화이트리스트를 대조한다 |
+| `webserver/gitapi` | `handlers_git_*_test.go` (20+) | 라우트·정책·기록·`repo-at` 의 `source` |
+| `webserver/domain/git` | `query/status_test.go`, `query/status_real_test.go`, `write/*_test.go` | `_real_test.go` 는 **실제 git** 으로 porcelain 형식을 고정한다 |
+| `webserver/domain/run`·`worktree`·`wsentry` | 각 패키지 `*_test.go` | Run 오케스트레이션·격리·Editor/Git 목록 |
+| `webserver/toolclient` | `toolclient_test.go` 등 | 데몬 RPC |
+| `ctl/migrate` | `migrate_test.go`, `apply_test.go`, `settings_test.go` | **구 어휘가 입력이다** — 여기의 `panes.json`·`region`·`paneId` 는 개명 대상이 아니다 |
+| `helper/runtimebin` | `dmctl_test.go`, `detach_test.go`, `dmctl_whoami_test.go` | `detach_test.go` 는 스텁 서버를 쓰므로 실제 화이트리스트는 e2e 가 검증한다 |
+| `helper/toolline` | `toolline_test.go` | dmctl 출력의 byte-level 동일성 |
+| `web` | `version_test.go`, `embed_test.go` | **자산이 바뀌면 `?v=` 와 `assets.lock` 도 바뀌어야 한다** — 안 바꾸면 여기서 깨진다 |
+| 프론트엔드 | `e2e/*.spec.ts` 76개 | 아래 참조 |
 
-**e2e 스펙**: `basic`, `terminal`, `tab`, `focus`, `focus-invariant`, `layout`,
-`session`, `sync`, `settings`, `theme`, `attention`, `activity`, `mobile-keybar`,
-`background-ui`, `regression-focus`, `regression-pane-scroll`, `editor-cwd-inherit`,
-`skill-contract`, `mobile-keybar-touch`.
+**e2e 스펙**은 범주로 묶인다 — 창·탭·포커스·레이아웃 / 터미널·모바일 입력 /
+Editor(탐색기·조작·전송·검색) / Git(14개: changes·diff·history·branches·stash·
+worktrees·정책·복구 등) / 에이전트(attention·activity·orchestration) / 설정·테마 /
+연결(session·sync·reconnect) / 내부 새로고침.
 
 **Playwright 프로젝트 2개**: `chromium`(Desktop Chrome, `hasTouch:false`) 이
 `-touch.spec.ts` 를 제외한 전부를, `mobile-touch`(Pixel 7, `hasTouch:true`) 가

@@ -49,9 +49,9 @@ internal/
       agentplugin/       #     세션 스코프 주입 플러그인 (skills/team, skills/workflow)
     agentadapter/        #   ①③  — 에이전트별 선언 테이블 (기동·탐지·주입·훅 파서·종료)
 web/                     # 프론트엔드 자산 + embed.FS()
-  js/core/               #   App 클래스 (app.js + 주제별 app-*.js 13) + constants·helpers·main
-  js/ui/                 #   themes·renderer·term-pane·input-binding·file-editor
-  js/git/                #   git 패널 11파일
+  js/core/               #   App 클래스 (app.js + 주제별 app-*.js 17) + constants·helpers·main
+  js/ui/                 #   themes·renderer·term-pane·term-clipboard·file-tree·file-editor 등 12
+  js/git/                #   git 패널 14파일
 e2e/                     # Playwright 스펙 + git 픽스처(git_fixture.sh)
 scripts/                 # build.sh — 빌드 · verify-isolated.sh — `dongminal verify` 껍데기
 .github/workflows/       # verify.yml — 매 푸시 검사 (Linux·Windows)
@@ -647,6 +647,38 @@ HTTP 표면은 `webserver/gitapi` 다. 그쪽도 같은 이유로 `*Server` 가 
 import 방향은 단방향 (`adapters → {toolaccess, server, workspace, clientpid}`). server/workspace 는 toolaccess 를 몰라도 되며, toolaccess 는 server/workspace 의 구체 타입을 몰라도 된다. 테스트에서 인터페이스를 mock 하기 쉽다.
 
 `adapters.Tool` 은 direct 모드(`*toolhub.ToolManager`)와 daemon 모드(`server.ToolHub`) 의 이중 경로, bracketed paste, submit 지연을 한곳에 캡슐화한다. `/api/tools/{output,input,message}` 가 두 모드에서 동일하게 동작하는 근거다 — 이 어댑터를 우회해 핸들러에서 PTY 를 직접 만지면 daemon 모드가 깨진다.
+
+## 재연결의 고리와 그것을 끊는 자리 (`httpapi/ws_miss.go`)
+
+브라우저에서 **재연결의 유일한 계기는 `onclose`** 다 (`term-pane.js`). 그래서
+없는 도구를 부르는 연결에 대해:
+
+| 수단 | 결과 |
+|---|---|
+| 지연 (`throttleMiss`) | 주기가 늘 뿐 고리는 남는다 — 닫는 순간 다시 온다 |
+| upgrade 거절 | 주기가 **줄어든다** — 옛 탭의 백오프는 자라지 못한다 |
+| **닫지 않기** (`holdMiss`) | 계기가 서지 않아 고리가 끊긴다 |
+
+그래서 임계(창 안 5회)를 넘으면 `OpExit` 을 보낸 **뒤 소켓을 붙잡는다.** 통보는
+여전히 보내므로 규약을 지키는 클라이언트는 영향이 없다.
+
+붙잡는 동안 **읽는다.** upgrade 로 hijack 된 뒤에는 `r.Context()` 가 클라이언트
+절단으로 취소되지 않아, 읽지 않으면 닫힌 탭이 상한(동시 64·10분)을 채워 방어가
+무력해진다. 자세히는 `CONNECTIVITY_RESILIENCE_SRS.md`.
+
+## 진단 스냅샷 (`httpapi/diag_snapshot.go`)
+
+60초마다 한 줄. **값이 변하지 않아도 남긴다** — 조용한 구간이 로그에서 사라지면
+그 조용함 자체가 증거이기 때문이다.
+
+```
+diag reqAge=37s wsAge=37s ws=4 tools=0 miss=1 hold=4 goroutines=18 allocMB=1
+```
+
+`reqAge` 는 **모든** HTTP 요청이 갱신한다 — 핫패스 필터로 접근 로그에서 빠지는
+`/api/ping` 도 포함이다. 로그에 안 남는 것과 오지 않은 것은 다르며, 그 차이가 이
+기능의 전부다. 스냅샷은 이어지는데 `reqAge` 만 벌어진 구간이면 요청이 오지 않은
+것(경로 없음)이고, 스냅샷 자체가 끊겼으면 서버나 호스트가 멈춘 것이다.
 
 ## 성능: 핫패스 비차단
 
