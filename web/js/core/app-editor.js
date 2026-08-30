@@ -355,6 +355,14 @@ Object.assign(App.prototype, {
     // FR-EDT-102: 열면 그 창으로 전환된다. 열었는데 보이지 않으면 사용자는
     // 실패로 읽는다. 사이드바 탭은 FR-EDT-8 로 따라온다.
     this.switchWindow(w.id);
+    // FR-EGS-10: 검색 결과로 열렸으면 그 줄로 간다. 이미 열려 있던 탭이어도
+    // 옮긴다 — 사용자가 고른 것은 파일이 아니라 그 줄이다.
+    const ln=(opts||{}).line;
+    if(ln){
+      const t=this._findEditorTab(filePath);
+      const v=t&&this.fileEditors.get(t.tab.id);
+      if(v&&v.revealLine) v.revealLine(ln,(opts||{}).col);
+    }
     return w.id;
   },
 

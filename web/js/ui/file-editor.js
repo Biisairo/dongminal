@@ -189,6 +189,9 @@ class FileEditor {
     this._editor = null;
     this._loading = true;
     this._dirty = false;
+    // EDITOR_GIT_UX_SRS FR-EGS-10: 검색 결과로 열린 경우 갈 자리. Monaco 가
+    // 뜨기 전에 요청이 올 수 있으므로 여기 담아 두었다 생성 직후에 쓴다.
+    this._pendingReveal = null;
 
     // Show loading indicator
     this.el.innerHTML = '<div class="fe-loading">Loading editor…</div>';
@@ -198,6 +201,13 @@ class FileEditor {
 
   async _init() {
     try {
+      // EDITOR_GIT_UX_SRS FR-EVW-3: **열기 전에 종류를 묻는다.** 이 물음이
+      // 없던 동안 이진 파일은 대체 문자로 뒤덮인 채 Monaco 에 올라갔고, 그것을
+      // 저장하면 원본이 파괴됐다 — 알림이 없는 것보다 나쁘다.
+      const probe = await this._probeFile();
+      this.kind = probe.kind;
+      if (probe.kind === FILE_KIND_BINARY) { this._showUnsupported(probe); this._loading = false; return }
+      if (probe.kind === FILE_KIND_IMAGE) { this._showImage(probe); this._loading = false; return }
       await this._loadMonaco();
       const content = await this._fetchFile();
       this._createEditor(content);
@@ -209,6 +219,67 @@ class FileEditor {
         '<div class="fe-error-path">' + this._esc(this.filePath) + '</div></div>';
       this._loading = false;
     }
+  }
+
+  /**
+   * FR-EVW-1: 서버가 내용을 보고 판정한다 (FR-EVW-2) — 확장자는 근거가 아니다.
+   *
+   * FR-EVW-8: 종단이 없거나 실패하면 **텍스트로 가정한다.** 옛 서버에 붙은 새
+   * 브라우저에서 편집기가 통째로 서지 않는 것보다, 지금까지의 동작을 유지하는
+   * 편이 낫다.
+   */
+  async _probeFile() {
+    try {
+      const r = await fetch(FILE_PROBE_API + '?path=' + encodeURIComponent(this.filePath));
+      if (!r.ok) return { kind: FILE_KIND_TEXT };
+      const j = await r.json();
+      return j && j.kind ? j : { kind: FILE_KIND_TEXT };
+    } catch {
+      return { kind: FILE_KIND_TEXT };
+    }
+  }
+
+  // FR-EVW-3: 열지 않고 사유를 보인다. Monaco 를 세우지 않으므로 저장 경로
+  // 자체가 생기지 않는다 (FR-EVW-7).
+  _showUnsupported(probe) {
+    this.el.innerHTML =
+      '<div class="fe-unsupported">' +
+        '<div class="fe-unsup-title">' + FILE_UNSUPPORTED_TITLE + '</div>' +
+        '<div class="fe-unsup-path">' + this._esc(this.filePath) + '</div>' +
+        '<div class="fe-unsup-meta">' +
+          this._esc(probe.mime || '') + ' · ' + this._fmtBytes(probe.size) +
+        '</div>' +
+        '<div class="fe-unsup-hint">' + FILE_UNSUPPORTED_HINT + '</div>' +
+      '</div>';
+  }
+
+  // FR-EVW-4: 원본 비율을 지키고 칸보다 크면 줄여 맞춘다. 바이트는
+  // /api/file/raw 가 준다 — 이미지 MIME 만 인라인으로 나온다 (FR-EVW-5).
+  _showImage(probe) {
+    const src = FILE_RAW_API + '?path=' + encodeURIComponent(this.filePath);
+    this.el.innerHTML =
+      '<div class="fe-image">' +
+        '<img class="fe-img" alt="' + this._esc(this.filePath) + '">' +
+        '<div class="fe-img-meta"></div>' +
+      '</div>';
+    const img = this.el.querySelector('.fe-img');
+    const meta = this.el.querySelector('.fe-img-meta');
+    img.addEventListener('load', () => {
+      meta.textContent = img.naturalWidth + '×' + img.naturalHeight +
+        ' · ' + (probe.mime || '') + ' · ' + this._fmtBytes(probe.size);
+    });
+    img.addEventListener('error', () => {
+      meta.textContent = FILE_IMAGE_FAIL;
+    });
+    img.src = src;
+  }
+
+  _fmtBytes(n) {
+    const b = Number(n);
+    if (!isFinite(b)) return '';
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(1) + ' MB';
   }
 
   _loadMonaco() {
@@ -275,6 +346,38 @@ class FileEditor {
     this.el.addEventListener('focusin', () => {
       if (this._editor) this._editor.focus();
     });
+
+    // FR-EKB-1: 두 조합은 Monaco **안에도** 걸어야 한다. 전역 keydown 은
+    // 편집기에 포커스가 있는 동안 한 줄도 돌지 않는다 (input-binding.js 의
+    // activeElement 게이트) — 그것은 의도지만, 파일 찾기는 편집 중에도 떠야 한다.
+    // cmd+f 는 걸지 않는다 (FR-EKB-3) — Monaco 의 find 위젯이 이미 그 자리다.
+    this._editor.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP,
+      () => { if (window.app) window.app._edQuickOpen(); }
+    );
+    this._editor.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
+      () => { if (window.app) window.app._edSearchOpen(); }
+    );
+
+    if (this._pendingReveal) {
+      const r = this._pendingReveal; this._pendingReveal = null;
+      this.revealLine(r.line, r.col);
+    }
+  }
+
+  /**
+   * FR-EGS-10: 검색 결과가 가리키는 줄로 옮긴다. Monaco 가 아직 뜨지 않았으면
+   * 담아 두었다 생성 직후에 쓴다 — 탭 생성과 Monaco 로드는 비동기이고, 부르는
+   * 쪽이 그 순서를 알 이유가 없다.
+   */
+  revealLine(line, col) {
+    const ln = Math.max(1, parseInt(line, 10) || 1);
+    const cl = Math.max(1, parseInt(col, 10) || 1);
+    if (!this._editor) { this._pendingReveal = { line: ln, col: cl }; return }
+    this._editor.revealLineInCenter(ln);
+    this._editor.setPosition({ lineNumber: ln, column: cl });
+    this._editor.focus();
   }
 
   async save() {
@@ -332,8 +435,12 @@ class FileEditor {
       tabEl.textContent = (this._dirty ? '● ' : '') + this.name;
     }
   }
+  // 따옴표까지 막는다 — 이미지 뷰어가 이 값을 `alt="..."` 속성에 넣으므로,
+  // 따옴표가 든 경로 하나면 속성 밖으로 빠져나간다.
   _esc(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   focus() {

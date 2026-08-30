@@ -65,6 +65,16 @@ class InputBinding {
       }
       const ae=document.activeElement;
       if(ae.tagName==='INPUT'||(ae.tagName==='TEXTAREA'&&!ae.classList.contains('xterm-helper-textarea')))return;
+      // EDITOR_GIT_UX_SRS FR-EKB-1: Monaco **밖**(탐색기·탭바)에서 누른 경우다.
+      // 안쪽은 위의 activeElement 게이트에 걸려 여기 오지 않으므로 file-editor.js
+      // 가 따로 건다. FR-EKB-2: cmd+p 는 브라우저의 인쇄라 반드시 막는다.
+      // FR-EKB-4: Editor 창이 아니면 `_edSearchRoot()` 가 비어 아무 일도 없다.
+      if((e.metaKey||e.ctrlKey)&&!e.altKey&&e.code==='KeyP'&&!e.shiftKey){
+        e.preventDefault();e.stopImmediatePropagation();this.app._edQuickOpen();return;
+      }
+      if((e.metaKey||e.ctrlKey)&&!e.altKey&&e.code==='KeyF'&&e.shiftKey){
+        e.preventDefault();e.stopImmediatePropagation();this.app._edSearchOpen();return;
+      }
       for(const h of BUILTIN_HOTKEYS){
         if(h.match(e)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(h.action);return}
       }
