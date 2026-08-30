@@ -20,6 +20,9 @@ window.__dongminalDebug={
   if(saved.defaultPreset!==undefined) defaultPreset=saved.defaultPreset;
   if(saved.customTheme){customTheme=saved.customTheme;applyThemeObj(customTheme)}
   else if(saved.themeName&&THEMES[saved.themeName]){currentThemeName=saved.themeName;applyThemeObj(THEMES[currentThemeName])}
+  // PAGE_TITLE_SRS FR-PGT-10: 저장된 제목을 브라우저 탭에 올린다. 없으면
+  // `<title>` 이 가진 기본 이름 그대로다.
+  if(saved.pageTitle!==undefined){pageTitle=saved.pageTitle;app._applyPageTitle()}
   // 설정 변경은 감지 계층의 재평가 시점이다 (FR-GIT-23).
   app.gitPanel._reschedule();
 }}catch{}})();

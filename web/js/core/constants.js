@@ -9,6 +9,8 @@
 const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,TOOLID:3};
 const enc=new TextEncoder(), dec=new TextDecoder();
 const SEARCH_RESEARCH_DELAY=50;
+// PAGE_TITLE_SRS FR-PGT-7: 설정이 비었을 때 쓰는 페이지 제목.
+const DEFAULT_PAGE_TITLE='Dongminal';
 
 // 활동 패널 자동 새로고침 주기 기본값(ms). 설정에서 변경(per-device localStorage).
 // 비정상 종료·hook 누락으로 SSE 가 안 와도 주기적으로 서버와 동기화 (FR-AAP-19).

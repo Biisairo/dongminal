@@ -13,7 +13,7 @@
   <link rel="icon" href="assets/favicon-16.png" sizes="16x16" type="image/png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="vendor/xterm.css">
-  <link rel="stylesheet" href="style.css?v=185">
+  <link rel="stylesheet" href="style.css?v=186">
   <script>try{var w=parseInt(localStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px')}catch(e){}</script>
 </head>
 <body>
@@ -154,6 +154,11 @@
       <div class="mpanel" id="panel-display" style="display:none">
         <div class="display-settings">
           <div class="ds-row">
+            <span>페이지 제목</span>
+            <input type="text" class="ds-text" id="ds-title" maxlength="60" placeholder="Dongminal">
+          </div>
+          <div class="ds-hint">브라우저 탭에 뜨는 이름입니다. 여러 대에 띄웠을 때 탭 줄에서 구분됩니다. 비우면 'Dongminal' 로 돌아갑니다.</div>
+          <div class="ds-row">
             <span>Display Mode</span>
             <select class="sbs-select" id="ds-mode">
               <option value="auto">Auto (뷰포트 기준)</option>
@@ -204,61 +209,61 @@
 <script src="vendor/addon-web-links.js"></script>
 <script src="vendor/addon-unicode11.js"></script>
 <script src="vendor/addon-search.js"></script>
-<script src="js/core/constants.js?v=185"></script>
-<script src="js/core/helpers.js?v=185"></script>
-<script src="js/ui/repaint.js?v=185"></script>
+<script src="js/core/constants.js?v=186"></script>
+<script src="js/core/helpers.js?v=186"></script>
+<script src="js/ui/repaint.js?v=186"></script>
 <!-- 사이드바 탭 (GIT_SIDEBAR_TABS_SRS). renderer.js 앞이어야 한다 — 렌더러가
      활성 탭 상태를 읽는다. -->
-<script src="js/ui/sidebar-tabs.js?v=185"></script>
+<script src="js/ui/sidebar-tabs.js?v=186"></script>
 <!-- 사이드바 리스트 블루프린트 (UX_REVISION_SRS 묶음 B). 서술자(sidebar-tabs.js)
      뒤, 렌더러 앞이어야 한다 — 렌더러가 이것으로 두 목록을 그린다. -->
-<script src="js/ui/sidebar-list.js?v=185"></script>
-<script src="js/ui/themes.js?v=185"></script>
-<script src="js/ui/term-clipboard.js?v=185"></script>
-<script src="js/ui/term-pane.js?v=185"></script>
-<script src="js/ui/file-editor.js?v=185"></script>
-<script src="js/ui/input-binding.js?v=185"></script>
-<script src="js/git/panel.js?v=185"></script>
-<script src="js/git/confirm.js?v=185"></script>
-<script src="js/git/dialog.js?v=185"></script>
-<script src="js/git/commit.js?v=185"></script>
-<script src="js/git/lanes.js?v=185"></script>
-<script src="js/git/menu.js?v=185"></script>
-<script src="js/git/history.js?v=185"></script>
-<script src="js/git/branches.js?v=185"></script>
-<script src="js/git/stash.js?v=185"></script>
-<script src="js/git/tag.js?v=185"></script>
-<script src="js/git/console.js?v=185"></script>
-<script src="js/git/worktrees.js?v=185"></script>
-<script src="js/git/remote.js?v=185"></script>
-<script src="js/git/commit-ops.js?v=185"></script>
+<script src="js/ui/sidebar-list.js?v=186"></script>
+<script src="js/ui/themes.js?v=186"></script>
+<script src="js/ui/term-clipboard.js?v=186"></script>
+<script src="js/ui/term-pane.js?v=186"></script>
+<script src="js/ui/file-editor.js?v=186"></script>
+<script src="js/ui/input-binding.js?v=186"></script>
+<script src="js/git/panel.js?v=186"></script>
+<script src="js/git/confirm.js?v=186"></script>
+<script src="js/git/dialog.js?v=186"></script>
+<script src="js/git/commit.js?v=186"></script>
+<script src="js/git/lanes.js?v=186"></script>
+<script src="js/git/menu.js?v=186"></script>
+<script src="js/git/history.js?v=186"></script>
+<script src="js/git/branches.js?v=186"></script>
+<script src="js/git/stash.js?v=186"></script>
+<script src="js/git/tag.js?v=186"></script>
+<script src="js/git/console.js?v=186"></script>
+<script src="js/git/worktrees.js?v=186"></script>
+<script src="js/git/remote.js?v=186"></script>
+<script src="js/git/commit-ops.js?v=186"></script>
 <!-- Editor 창의 파일 탐색기 (EDITOR_TAB_SRS 묶음 X). renderer.js 앞이어야 한다 —
      렌더러의 마운트 자리가 이 클래스를 부른다. -->
-<script src="js/ui/file-tree.js?v=185"></script>
-<script src="js/ui/renderer.js?v=185"></script>
-<script src="js/core/app.js?v=185"></script>
-<script src="js/core/app-cmd.js?v=185"></script>
-<script src="js/core/app-reload.js?v=185"></script>
-<script src="js/core/app-tool.js?v=185"></script>
-<script src="js/core/app-layout.js?v=185"></script>
-<script src="js/core/app-focus.js?v=185"></script>
-<script src="js/core/app-attn.js?v=185"></script>
-<script src="js/core/app-agents.js?v=185"></script>
-<script src="js/core/app-git.js?v=185"></script>
+<script src="js/ui/file-tree.js?v=186"></script>
+<script src="js/ui/renderer.js?v=186"></script>
+<script src="js/core/app.js?v=186"></script>
+<script src="js/core/app-cmd.js?v=186"></script>
+<script src="js/core/app-reload.js?v=186"></script>
+<script src="js/core/app-tool.js?v=186"></script>
+<script src="js/core/app-layout.js?v=186"></script>
+<script src="js/core/app-focus.js?v=186"></script>
+<script src="js/core/app-attn.js?v=186"></script>
+<script src="js/core/app-agents.js?v=186"></script>
+<script src="js/core/app-git.js?v=186"></script>
 <!-- Editor 탭·창 (EDITOR_TAB_SRS). app.js 뒤 main.js 앞 — prototype 확장이다. -->
-<script src="js/core/app-editor.js?v=185"></script>
-<script src="js/core/app-edsearch.js?v=185"></script>
+<script src="js/core/app-editor.js?v=186"></script>
+<script src="js/core/app-edsearch.js?v=186"></script>
 <!-- Run 시각화 (ORCHESTRATION_V2_SRS 묶음 V). app.js 뒤 — prototype 확장. -->
-<script src="js/core/app-runs.js?v=185"></script>
-<script src="js/core/app-search.js?v=185"></script>
-<script src="js/core/app-mobile.js?v=185"></script>
-<script src="js/core/app-settings.js?v=185"></script>
-<script src="js/core/app-statusbar.js?v=185"></script>
-<script src="js/core/app-presets.js?v=185"></script>
-<script src="js/core/app-dnd.js?v=185"></script>
-<script src="js/core/main.js?v=185"></script>
-<script src="js/ui/version-watch.js?v=185"></script>
+<script src="js/core/app-runs.js?v=186"></script>
+<script src="js/core/app-search.js?v=186"></script>
+<script src="js/core/app-mobile.js?v=186"></script>
+<script src="js/core/app-settings.js?v=186"></script>
+<script src="js/core/app-statusbar.js?v=186"></script>
+<script src="js/core/app-presets.js?v=186"></script>
+<script src="js/core/app-dnd.js?v=186"></script>
+<script src="js/core/main.js?v=186"></script>
+<script src="js/ui/version-watch.js?v=186"></script>
 <!-- 실기기 진단. ?diag=1 로 접속할 때만 동작한다 -->
-<script src="js/ui/diag.js?v=185"></script>
+<script src="js/ui/diag.js?v=186"></script>
 </body>
 </html>

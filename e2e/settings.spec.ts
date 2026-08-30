@@ -154,3 +154,78 @@ test.describe('레이아웃 프리셋과 Editor 창', () => {
     expect(got.survives).toBe(true);
   });
 });
+
+// PAGE_TITLE_SRS — Settings ▸ Display 의 `페이지 제목`.
+//
+// 값이 서버 설정 blob 에 살므로(D-1) 스펙 사이에 남는다 — 매번 되돌린다.
+test.describe('페이지 제목', () => {
+  const TITLE = '작업 서버';
+
+  async function openDisplayPanel(page) {
+    await waitForInit(page);
+    await page.click('#settings-btn');
+    await page.click('button.mtab[data-tab="display"]');
+    await expect(page.locator('#panel-display')).toBeVisible();
+  }
+
+  // 저장은 입력이 멎은 뒤에 나간다 (FR-PGT-5) — 그 PUT 을 기다린다.
+  async function setTitle(page, value: string) {
+    const saved = page.waitForResponse(
+      r => r.url().includes('/api/settings') && r.request().method() === 'PUT'
+    );
+    await page.fill('#ds-title', value);
+    await saved;
+  }
+
+  test.afterEach(async ({ request }) => {
+    const r = await request.get('/api/settings');
+    const saved = r.ok() ? await r.json() : {};
+    delete saved.pageTitle;
+    await request.put('/api/settings', { data: saved });
+  });
+
+  // V-PGT-1 · V-PGT-2
+  test('바꾼 제목이 즉시 반영되고 새로고침 뒤에도 남는다', async ({ page }) => {
+    await openDisplayPanel(page);
+    await setTitle(page, TITLE);
+    await expect(page).toHaveTitle(new RegExp(TITLE + '$'));
+
+    await page.click('#modal-close');
+    await page.reload();
+    await waitForInit(page);
+    await expect(page).toHaveTitle(new RegExp(TITLE + '$'));
+    // 모달을 다시 열면 그 값이 입력에 서 있다 (FR-PGT-3).
+    await page.click('#settings-btn');
+    await page.click('button.mtab[data-tab="display"]');
+    await expect(page.locator('#ds-title')).toHaveValue(TITLE);
+  });
+
+  // V-PGT-3: 비어 있음이 곧 기본 이름이다 (D-2).
+  test('비우면 기본 이름으로 돌아간다', async ({ page }) => {
+    await openDisplayPanel(page);
+    await setTitle(page, TITLE);
+    await setTitle(page, '');
+    await expect(page).toHaveTitle(/Dongminal$/);
+
+    await page.reload();
+    await waitForInit(page);
+    await expect(page).toHaveTitle(/Dongminal$/);
+  });
+
+  // V-PGT-4: PUT 이 blob 전체를 갈아치우므로, 다른 설정을 건드리면 조용히
+  // 사라질 수 있는 자리다 (SRS §2.3).
+  test('다른 설정을 바꿔도 제목이 살아남는다', async ({ page, request }) => {
+    await openDisplayPanel(page);
+    await setTitle(page, TITLE);
+
+    await page.click('button.mtab[data-tab="theme"]');
+    const themeSaved = page.waitForResponse(
+      r => r.url().includes('/api/settings') && r.request().method() === 'PUT'
+    );
+    await page.locator('#theme-list .tl-item').nth(1).click();
+    await themeSaved;
+
+    const saved = await (await request.get('/api/settings')).json();
+    expect(saved.pageTitle).toBe(TITLE);
+  });
+});

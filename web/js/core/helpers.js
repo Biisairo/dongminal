@@ -130,6 +130,11 @@ var fgTabNames=true;
 // UX_REVISION_SRS FR-KEY-6: 브라우저 기본 단축키 차단. 기본은 켬 — 이 앱은
 // 터미널이고, Ctrl 조합은 브라우저보다 터미널의 것이다.
 var blockBrowserKeys=true;
+// PAGE_TITLE_SRS FR-PGT-4: 브라우저 탭에 뜨는 이름. /api/settings blob 에 실린다 —
+// "이 서버가 무엇인가" 를 말하는 값이라 기기를 옮겨도 같아야 한다 (D-1).
+// 기본값이 빈 문자열인 이유는 D-2 다: 비어 있음이 곧 기본 이름을 쓴다는 뜻이다.
+var pageTitle='';
+function effectiveTitle(){return (pageTitle||'').trim()||DEFAULT_PAGE_TITLE}
 
 // ── Layout helpers ──
 

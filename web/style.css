@@ -510,11 +510,12 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .display-settings{display:flex;flex-direction:column;gap:10px}
 .ds-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03)}
 .ds-row span{color:var(--text);font-size:12px}
-.ds-num{
+.ds-num,.ds-text{
   width:90px;background:var(--bg);border:1px solid var(--border);border-radius:4px;
   color:var(--text);font-size:12px;padding:3px 8px;font-family:inherit;outline:none;
 }
-.ds-num:focus{border-color:var(--accent)}
+.ds-text{width:200px}
+.ds-num:focus,.ds-text:focus{border-color:var(--accent)}
 .ds-hint{color:var(--text-dim);font-size:11px;line-height:1.5;margin-top:6px}
 
 /* ── Mobile/Desktop visibility toggles ── */

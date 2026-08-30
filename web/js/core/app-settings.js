@@ -8,7 +8,33 @@ Object.assign(App.prototype, {
   async _saveSettings(){
     // 블롭 전체를 갈아치우므로 읽어 쓰는 값은 전부 실어야 한다 — git 주기(FR-GIT-23)는
     // UI 가 없지만 여기서 빠지면 다른 설정을 건드릴 때 조용히 사라진다.
-    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys})})}catch{}
+    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle})})}catch{}
+  },
+
+  /**
+   * PAGE_TITLE_SRS FR-PGT-8: `document.title` 을 쓰는 유일한 자리.
+   *
+   * 주의 배지(FR-PAN-13b)가 제목 전체를 다시 쓰므로, 설정값을 다른 곳에서
+   * 넣으면 다음 `_attnRefresh` 에 지워진다. 합성은 여기 하나뿐이어야 한다.
+   */
+  _applyPageTitle(){
+    const n=this._attn?this._attn.size:0;
+    document.title=(n?'('+n+') ':'')+effectiveTitle();
+  },
+
+  // FR-PGT-1: Settings ▸ Display 의 `페이지 제목`.
+  _initPageTitle(){
+    const el=document.getElementById('ds-title');
+    if(!el) return;
+    el.value=pageTitle;
+    el.addEventListener('input',()=>{
+      pageTitle=el.value;
+      // FR-PGT-9: 저장을 기다리지 않고 지금 값이 탭에서 어떻게 보이는지 보인다.
+      this._applyPageTitle();
+      // FR-PGT-5: 글자마다 PUT 을 보내지 않는다.
+      clearTimeout(this._titleSaveTimer);
+      this._titleSaveTimer=setTimeout(()=>this._saveSettings(),500);
+    });
   },
 
   // FR-TAN-19: Settings ▸ Display 의 `프로세스 이름을 탭 이름으로`. 기본은 켬.
@@ -59,6 +85,8 @@ Object.assign(App.prototype, {
       const dsBp=document.getElementById('ds-bp');
       if(dsMode) dsMode.value=this.displayMode;
       if(dsBp) dsBp.value=this.mobileBreakpoint;
+      const dsTitle=document.getElementById('ds-title');
+      if(dsTitle) dsTitle.value=pageTitle;
       const dsFg=document.getElementById('ds-fgnames');
       if(dsFg) dsFg.checked=fgTabNames;
       const scBlock=document.getElementById('sc-blockbrowser');
@@ -78,6 +106,7 @@ Object.assign(App.prototype, {
         if(tab.dataset.tab==='presets')this._renderPresets();
       });
     });
+    this._initPageTitle();
     this._initFgNames();
     this._initBlockKeys();
   },
