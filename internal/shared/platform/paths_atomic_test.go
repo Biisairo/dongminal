@@ -14,6 +14,33 @@ import (
 // 관찰자가 무엇을 보았는가"로 판정한다 — 구현이 remove→create 로 되어 있으면
 // 관찰자가 소실을 본다.
 
+// canReplaceOpenFile 은 이 호스트가 **열려 있는 파일을 대체할 수 있는가**를
+// 실제로 해 보고 답한다. POSIX 는 할 수 있다. Windows 는 읽기 핸들이
+// FILE_SHARE_DELETE 없이 열려 있으면 할 수 없고(Go 의 os.Open 이 그렇다),
+// 그러면 **관찰자가 복사 자체를 실패시킨다** — 관찰 대상을 관찰이 망가뜨린다.
+//
+// runtime.GOOS 로 가르지 않는 이유는 저장소의 규약이다 (testpath 패키지 머리말)
+// — OS 이름으로 가르면 대상이 늘 때마다 갈래가 는다. 능력을 직접 물으면 갈래는
+// 언제나 하나다.
+func canReplaceOpenFile(t *testing.T) bool {
+	t.Helper()
+	dir := t.TempDir()
+	a := filepath.Join(dir, "a")
+	b := filepath.Join(dir, "b")
+	if err := os.WriteFile(a, []byte("a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(b, []byte("b"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open(a)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	return os.Rename(b, a) == nil
+}
+
 // watchDst 는 stop 이 닫힐 때까지 path 를 Lstat 하며 소실 횟수를 센다.
 // 반환된 함수를 부르면 감시를 멈추고 소실 횟수를 돌려준다.
 func watchDst(path string) (stop func() int) {
@@ -79,6 +106,10 @@ func TestLinkOrCopyNeverLeavesDestinationMissing(t *testing.T) {
 // O_TRUNC 로 제자리를 비우고 쓰는 구현이라는 뜻이다 (FR-ATI-2).
 func TestLinkOrCopyNeverExposesPartialContent(t *testing.T) {
 	dir := t.TempDir()
+	// 먼저 순차로 확인한다 — 이 절반은 어느 호스트에서나 성립해야 한다.
+	// 동시 관찰은 그 위의 강한 검사이고, 열린 파일을 대체할 수 없는 호스트에서는
+	// 관찰이 대상을 망가뜨리므로 성립하지 않는다 (FR-WTP-31: 이식 가능한 절반을
+	// 함께 빼지 않는다).
 	// 부분 쓰기가 관측될 만큼 크게 잡는다. 작으면 한 번의 write 로 끝나 창이
 	// 열리지 않고, 검사가 통과해도 아무 것도 증명하지 못한다.
 	blobA := bytes.Repeat([]byte("A"), 1<<20)
@@ -92,8 +123,24 @@ func TestLinkOrCopyNeverExposesPartialContent(t *testing.T) {
 	if err := os.WriteFile(srcB, blobB, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := copyExecutable(srcA, dst); err != nil {
-		t.Fatalf("최초 복사: %v", err)
+	for _, tc := range []struct {
+		src  string
+		want []byte
+	}{{srcA, blobA}, {srcB, blobB}, {srcA, blobA}} {
+		if err := copyExecutable(tc.src, dst); err != nil {
+			t.Fatalf("순차 복사: %v", err)
+		}
+		got, err := os.ReadFile(dst)
+		if err != nil {
+			t.Fatalf("순차 읽기: %v", err)
+		}
+		if !bytes.Equal(got, tc.want) {
+			t.Fatalf("순차 내용이 온전하지 않다: len=%d", len(got))
+		}
+	}
+
+	if !canReplaceOpenFile(t) {
+		t.Skip("이 호스트는 열려 있는 파일을 대체할 수 없다 — 관찰자가 복사를 막는다")
 	}
 
 	done := make(chan struct{})
