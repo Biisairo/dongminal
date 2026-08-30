@@ -18,6 +18,7 @@ func Help() string {
   migrate    워크스페이스 데이터를 최신 스키마로 변환한다 (1회성)
   health     서버와 dongminald 의 상태를 확인한다
   doctor     이 호스트에서 플랫폼 계층이 동작하는지 확인한다
+  verify     격리 인스턴스를 띄워 종단간 표면을 훑는다 (개발·CI)
 
 액션별 옵션은 다음으로 본다:
   dongminal <action> --help
@@ -67,6 +68,23 @@ func Usage(action string) string {
 
 옵션:
 ` + commonFlags + `
+`
+	case "verify":
+		return `사용법: dongminal verify [옵션]
+
+격리 인스턴스를 **스스로 띄워** 종단간 표면을 훑고 치운다. 세 OS 가 같은 목록을
+돈다 — 기동 표면, 도구(PTY+IPC 왕복), 워크스페이스·설정, git 읽기 표면, 정적 자산.
+
+doctor 와 겹치지 않는다. doctor 는 서버 **없이** 플랫폼 계층을 보고, verify 는
+서버를 **데몬 모드로** 띄워 그 위의 표면을 본다.
+
+--port·--home 을 받지 않는다. 언제나 임시 홈과 빈 포트에서 돌며, 운영 인스턴스를
+건드릴 방법이 없다.
+
+종료 코드: 0 실패 없음 / 1 실패 있음 (건너뜀은 실패가 아니다)
+
+옵션:
+  --repo <path>     git 표면 검사의 대상 저장소 (기본: 현재 디렉터리)
 `
 	case "health":
 		return `사용법: dongminal health [옵션]

@@ -683,7 +683,7 @@ go test ./...                 # darwin
 GOOS=linux go build ./... && GOOS=linux go vet ./...
 GOOS=windows go build ./... && GOOS=windows go vet ./...
 scripts/check-seams.sh
-scripts/verify-isolated.sh    # 격리 인스턴스 21항목
+scripts/verify-isolated.sh    # 격리 인스턴스 종단간 (dongminal verify)
 ```
 
 ---

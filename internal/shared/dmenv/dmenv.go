@@ -24,6 +24,11 @@ const (
 	EnvHost = "DONGMINAL_HOST"
 	EnvPort = "DONGMINAL_PORT"
 
+	// DefaultHomeDir 은 EnvHome 이 비었을 때 사용자 홈 아래에 잡는 이름이다.
+	// cli 의 기본값 계산과 데몬 진입점이 같은 값을 딛어야 한다 — 갈라지면 한쪽이
+	// 다른 인스턴스를 본다.
+	DefaultHomeDir = ".dongminal"
+
 	// DefaultHost·DefaultPort 는 위 변수가 비었을 때만 쓰이는 안전망이다.
 	// 정상 경로에서는 서버가 항상 주입한다.
 	DefaultHost = "127.0.0.1"

@@ -42,33 +42,6 @@ const (
 	doctorQuietFor  = 700 * time.Millisecond
 )
 
-type doctorReport struct {
-	out  io.Writer
-	fail int
-	// bads 는 실패 줄을 모은다. 보고서가 길어 사용자가 앞부분을 잘라 붙이는
-	// 일이 실제로 있었다 — 마지막에 다시 모아 찍으면 꼬리만 붙여도 답이 실린다.
-	bads []string
-}
-
-func (r *doctorReport) ok(format string, a ...any) {
-	fmt.Fprintf(r.out, "  ✅ "+format+"\n", a...)
-}
-
-func (r *doctorReport) info(format string, a ...any) {
-	fmt.Fprintf(r.out, "  ·  "+format+"\n", a...)
-}
-
-func (r *doctorReport) bad(format string, a ...any) {
-	line := fmt.Sprintf(format, a...)
-	fmt.Fprintf(r.out, "  ❌ %s\n", line)
-	r.bads = append(r.bads, line)
-	r.fail++
-}
-
-func (r *doctorReport) section(title string) {
-	fmt.Fprintf(r.out, "\n▶ %s\n", title)
-}
-
 // RunDoctor 는 `dongminal doctor` 다.
 func RunDoctor(o DoctorOpts, stdout, stderr io.Writer) int {
 	home, err := o.ResolveHome()
@@ -92,7 +65,7 @@ func RunDoctor(o DoctorOpts, stdout, stderr io.Writer) int {
 	log.SetOutput(&captured)
 	defer func() { log.SetOutput(prevOut); log.SetFlags(prevFlags) }()
 
-	r := &doctorReport{out: stdout}
+	r := &checkReport{out: stdout}
 	fmt.Fprintf(stdout, "dongminal doctor — platform=%s\n", p.OS)
 
 	doctorEnvironment(r, p, home)
@@ -121,7 +94,7 @@ func RunDoctor(o DoctorOpts, stdout, stderr io.Writer) int {
 	return 1
 }
 
-func doctorEnvironment(r *doctorReport, p platform.Platform, home string) {
+func doctorEnvironment(r *checkReport, p platform.Platform, home string) {
 	r.section("환경")
 	r.info("DONGMINAL_HOME = %s", home)
 	r.info("로그 기본 경로  = %s", p.Paths.DefaultLogFile())
@@ -143,7 +116,7 @@ func doctorEnvironment(r *doctorReport, p platform.Platform, home string) {
 
 // doctorInstall 은 헬퍼와 셸 훅을 실제로 설치해 본다. 훅이 없으면 셸이 없는
 // 스크립트를 받아 즉시 죽고, 그것이 "터미널이 비어 보이는" 증상이 된다.
-func doctorInstall(r *doctorReport, p platform.Platform, home, binDir string) {
+func doctorInstall(r *checkReport, p platform.Platform, home, binDir string) {
 	r.section("헬퍼·셸 훅 설치")
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		r.bad("bin 디렉터리를 만들지 못했습니다: %v", err)
@@ -196,7 +169,7 @@ func doctorHookPath(arg string) (string, bool) {
 	return s, true
 }
 
-func doctorShell(r *doctorReport, p platform.Platform, binDir string) {
+func doctorShell(r *checkReport, p platform.Platform, binDir string) {
 	r.section("셸 선택")
 	spec := p.Shell.Shell(binDir)
 	if spec.Path == "" {
@@ -219,7 +192,7 @@ func doctorShell(r *doctorReport, p platform.Platform, binDir string) {
 // 두 번 한다: 훅 없는 **맨 셸**과 훅을 얹은 셸. 맨 셸이 되고 훅 셸이 안 되면
 // 범인은 훅이고, 둘 다 안 되면 의사 터미널이다. 이 둘을 가르지 못하면 원인을
 // 한 단계도 좁힐 수 없다.
-func doctorTerminal(r *doctorReport, p platform.Platform, binDir, home string) {
+func doctorTerminal(r *checkReport, p platform.Platform, binDir, home string) {
 	r.section("의사 터미널 (PTY/ConPTY)")
 
 	// 셸을 빼고 배관부터 본다. 입력도 프롬프트도 필요 없는 단순 명령이
@@ -246,7 +219,7 @@ func doctorTerminal(r *doctorReport, p platform.Platform, binDir, home string) {
 // doctorProbePlainCommand 는 **입력 없이** 한 줄을 출력하고 끝나는 명령을
 // 의사 터미널에 띄운다. 셸·프롬프트·입력 타이밍이 모두 빠지므로, 실패하면
 // 원인은 의사 터미널의 배관 그 자체다.
-func doctorProbePlainCommand(r *doctorReport, p platform.Platform, home string) {
+func doctorProbePlainCommand(r *checkReport, p platform.Platform, home string) {
 	const marker = "dongminal-plain-ok"
 	spec := p.Shell.EchoCommand(marker)
 	if len(spec) == 0 {
@@ -280,7 +253,7 @@ func doctorProbePlainCommand(r *doctorReport, p platform.Platform, home string) 
 }
 
 // doctorProbeTerminal 은 명세 하나로 터미널을 띄워 왕복시킨다.
-func doctorProbeTerminal(r *doctorReport, p platform.Platform, label string, spec platform.ShellSpec, home string) bool {
+func doctorProbeTerminal(r *checkReport, p platform.Platform, label string, spec platform.ShellSpec, home string) bool {
 	env := append(os.Environ(), "TERM=xterm-256color", "DONGMINAL_HOME="+home)
 	env = append(env, spec.Env...)
 
@@ -415,7 +388,7 @@ func doctorTrim(s string) string {
 	return s
 }
 
-func doctorIPC(r *doctorReport, p platform.Platform, home string) {
+func doctorIPC(r *checkReport, p platform.Platform, home string) {
 	r.section("로컬 IPC 종단")
 	ep := p.IPC.Endpoint(filepath.Join(home, "doctor"))
 	if err := os.MkdirAll(filepath.Dir(ep), 0o755); err != nil {
@@ -487,7 +460,7 @@ func doctorIPC(r *doctorReport, p platform.Platform, home string) {
 
 // doctorProcess 는 자식을 하나 띄워 그룹 제어와 생존 판정을 확인한다.
 // git 원격 작업의 취소가 이 경로를 딛는다.
-func doctorProcess(r *doctorReport, p platform.Platform) {
+func doctorProcess(r *checkReport, p platform.Platform) {
 	r.section("프로세스 제어")
 	if !p.Process.Alive(os.Getpid()) {
 		r.bad("자기 자신이 살아 있지 않다고 합니다 — 생존 판정이 깨졌습니다")
@@ -513,7 +486,7 @@ func doctorProcess(r *doctorReport, p platform.Platform) {
 // doctorTool 은 **서버가 도구를 만들 때와 같은 경로**를 밟는다. doctorTerminal
 // 은 생 PTY 만 보므로, 그 위의 환경 조립·훅 주입·출력 스트림에서 깨지면 잡지
 // 못한다. 실제 터미널은 이 경로를 지난다.
-func doctorTool(r *doctorReport, home string) {
+func doctorTool(r *checkReport, home string) {
 	r.section("도구 (toolhub)")
 
 	// StartTool 은 DONGMINAL_HOME 아래 bin 을 셸 환경에 심는다.
@@ -576,7 +549,7 @@ func doctorTool(r *doctorReport, home string) {
 // doctor 는 콘솔이 있는 상태로 돌지만 서버는 Process.Detach 로 떠서 콘솔이
 // 없다. Windows 의 의사 터미널이 그 차이에 영향을 받는지는 여기서만 드러난다 —
 // doctor 가 통과하는데 실제 터미널이 비는 상황의 유일하게 남는 변수다.
-func doctorDetached(r *doctorReport, p platform.Platform, home string) {
+func doctorDetached(r *checkReport, p platform.Platform, home string) {
 	r.section("콘솔 없는 프로세스에서의 의사 터미널")
 
 	exe, err := os.Executable()

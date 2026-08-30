@@ -8,11 +8,18 @@ name: verify
 # 결함이 나왔다 (§11).
 #
 # 그래서 두 층을 돌린다.
-#   1. dongminal doctor — 플랫폼 계층을 계층별로 실제 실행
-#   2. 종단간         — 서버를 띄우고 도구를 만들어 입출력을 왕복
+#   1. dongminal doctor — 플랫폼 계층을 계층별로 실제 실행 (서버 없이)
+#   2. dongminal verify — 격리 인스턴스를 띄워 종단간 표면을 훑는다
 # 2번이 중요한 이유는 doctor 가 direct mode 로만 도는 데 반해 실제 서버는
 # **데몬 모드**로 돌기 때문이다. 데몬은 끊어 띄운 프로세스이고, §11.6 의 결함이
 # 정확히 그 조건에서만 났다.
+#
+# 두 층 모두 **Go 한 벌**이고 세 대상이 같은 목록을 돈다. 종단간을 bash 와
+# PowerShell 로 두 벌 적던 것을 접은 것이다 — 두 벌이면 한쪽만 고쳐지고, 실제로
+# 그런 적이 있다 (E2E_UNIFICATION_SRS §2.2 D-3, FR-E2I-1).
+#
+# verify 는 홈·포트를 받지 않는다. 언제나 임시 홈과 빈 포트에서 돌고 스스로
+# 치우므로 별도의 정리 단계가 없다 (FR-E2C-3·FR-E2G-3).
 
 on:
   push:
@@ -67,66 +74,8 @@ jobs:
       # 서버가 데몬을 끊어 띄우고, 그 데몬 안의 ConPTY 에 붙은 셸이 실제로
       # 입출력을 왕복해야 한다.
       - name: 종단간 (서버 → 데몬 → ConPTY)
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $env:DONGMINAL_HOME = "$env:RUNNER_TEMP\dm-e2e"
-          $port = 58147
-          $base = "http://127.0.0.1:$port"
-
-          Write-Host '── 서버 기동 (데몬 모드)'
-          .\dongminal.exe start --port $port
-
-          Write-Host '── /api/ping 대기'
-          $up = $false
-          foreach ($i in 1..40) {
-            try { Invoke-RestMethod "$base/api/ping" -TimeoutSec 2 | Out-Null; $up = $true; break }
-            catch { Start-Sleep -Milliseconds 500 }
-          }
-          if (-not $up) { throw '서버가 뜨지 않았습니다' }
-
-          Write-Host '── 도구 생성'
-          $tool = Invoke-RestMethod -Method POST "$base/api/tools?cols=120&rows=40"
-          $id = $tool.id
-          if (-not $id) { throw '도구 id 를 받지 못했습니다' }
-          Write-Host "   toolId=$id"
-
-          # 셸이 프롬프트를 그릴 틈을 준다.
-          Start-Sleep -Seconds 3
-
-          $marker = 'dongminal-e2e-ok'
-          Write-Host '── 입력 전송'
-          $body = @{ id = $id; text = "echo $marker"; execute = $true } | ConvertTo-Json
-          Invoke-RestMethod -Method POST "$base/api/tools/input" -Body $body -ContentType 'application/json' | Out-Null
-
-          Write-Host '── 출력 대기'
-          $seen = ''
-          $ok = $false
-          foreach ($i in 1..40) {
-            Start-Sleep -Milliseconds 500
-            $out = Invoke-RestMethod "$base/api/tools/output?id=$id&strip=1"
-            $seen = $out.text
-            if ($seen -match $marker) { $ok = $true; break }
-          }
-
-          Write-Host "── 받은 출력 ($($seen.Length) 바이트)"
-          Write-Host $seen
-
-          if (-not $ok) {
-            Write-Host '── 데몬 로그'
-            Get-Content "$env:DONGMINAL_HOME\daemon.log" -ErrorAction SilentlyContinue | Select-Object -Last 40
-            # 출력이 ConPTY 초기 시퀀스 크기(수십 바이트)에 머물면 §11.6 의 모양이다.
-            throw "종단간 실패: 셸 출력에 $marker 가 없습니다 (받은 바이트 $($seen.Length))"
-          }
-          Write-Host '── 통과'
+        run: .\dongminal.exe verify
         shell: pwsh
-
-      - name: 정리
-        if: always()
-        run: |
-          $env:DONGMINAL_HOME = "$env:RUNNER_TEMP\dm-e2e"
-          .\dongminal.exe stop --all --port 58147 2>&1 | Out-Null
-        shell: pwsh
-        continue-on-error: true
 
   linux-runtime:
     runs-on: ubuntu-latest
@@ -144,47 +93,4 @@ jobs:
         run: DONGMINAL_HOME="$RUNNER_TEMP/dm-doctor" ./dongminal doctor
 
       - name: 종단간 (서버 → 데몬 → PTY)
-        run: |
-          set -euo pipefail
-          export DONGMINAL_HOME="$RUNNER_TEMP/dm-e2e"
-          port=58147
-          base="http://127.0.0.1:$port"
-
-          ./dongminal start --port "$port"
-
-          for _ in $(seq 40); do
-            curl -fsS "$base/api/ping" >/dev/null 2>&1 && break
-            sleep 0.5
-          done
-          curl -fsS "$base/api/ping" >/dev/null
-
-          id=$(curl -fsS -X POST "$base/api/tools?cols=120&rows=40" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
-          test -n "$id" || { echo "도구 id 를 받지 못했습니다"; exit 1; }
-          echo "toolId=$id"
-          sleep 3
-
-          marker=dongminal-e2e-ok
-          curl -fsS -X POST "$base/api/tools/input" \
-            -H 'Content-Type: application/json' \
-            -d "{\"id\":\"$id\",\"text\":\"echo $marker\",\"execute\":true}" >/dev/null
-
-          for _ in $(seq 40); do
-            sleep 0.5
-            out=$(curl -fsS "$base/api/tools/output?id=$id&strip=1")
-            if printf '%s' "$out" | grep -q "$marker"; then
-              echo "── 통과"
-              exit 0
-            fi
-          done
-          echo "── 받은 출력"
-          printf '%s\n' "${out:-}"
-          echo "── 데몬 로그"
-          tail -40 "$DONGMINAL_HOME/daemon.log" || true
-          echo "종단간 실패: 셸 출력에 $marker 가 없습니다"
-          exit 1
-
-      - name: 정리
-        if: always()
-        run: |
-          export DONGMINAL_HOME="$RUNNER_TEMP/dm-e2e"
-          ./dongminal stop --all --port 58147 || true
+        run: ./dongminal verify

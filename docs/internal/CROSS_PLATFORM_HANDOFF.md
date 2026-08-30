@@ -1,11 +1,11 @@
-# 인수인계 — 크로스플랫폼 (CI 전량 초록 · 남은 일은 e2e 통일 하나)
+# 인수인계 — 크로스플랫폼 (네 트랙 종료 · 남은 일은 main 병합)
 
 > 근거 SRS 는 `CROSS_PLATFORM_SRS.md`. 실기 기록은 그 문서 §11 이다.
 > 브랜치 `crossplatform`. 워킹 트리는 깨끗하고 모두 푸시돼 있다.
 
 ## 0. 한 줄 상태
 
-**CI 잡 넷이 전부 초록이다** (run 33280678938, `8f4e706`). 세 트랙이 끝났다.
+**CI 잡 넷이 전부 초록이다** (run 33280678938 시점). 네 트랙이 끝났다.
 
 1. **ConPTY** — 원인은 `STARTF_USESTDHANDLES` 하나(SRS §11.8). 라이브러리 교체는
    하지 않았다; §11.7 의 그 결정은 실행 전에 뒤집혔다. 새 의존도 `go` 지시자
@@ -16,7 +16,11 @@
 3. **코드 감사** — 하드코딩·테스트 전용 프로덕션 코드·거짓 주석을 걷었다.
    서브에이전트 감사 5 + 수정 5. 아래 §7
 
-**남은 일은 하나다 — e2e 통일(§3).** `main` 병합은 그 뒤가 낫다.
+4. **e2e 통일** — 종단간 검사가 bash·PowerShell·bash 세 벌로 흩어져 있던 것을
+   `dongminal verify` **Go 한 벌**로 접었다. 세 대상이 같은 22항목을 돈다.
+   근거: `E2E_UNIFICATION_SRS.md`, 결과는 그 §9
+
+**남은 일은 `main` 병합이다.**
 
 ## 1. 지금 어디까지 왔나
 
@@ -25,9 +29,9 @@
 
 | 대상 | build·vet | 단위 테스트 | doctor | 종단간(서버→데몬→PTY) |
 |---|---|---|---|---|
-| darwin | ✅ | ✅ | ✅ | ✅ (`verify-isolated.sh` 21/21) |
-| linux | ✅ | ✅ | ✅ | ✅ (CI) |
-| windows | ✅ | ✅ (CI) | ✅ (CI) | ✅ (CI) |
+| darwin | ✅ | ✅ | ✅ | ✅ (`dongminal verify` 22/22, 로컬) |
+| linux | ✅ | ✅ | ✅ | ✅ (CI, `dongminal verify`) |
+| windows | ✅ | ✅ (CI) | ✅ (CI) | ✅ (CI, `dongminal verify`) |
 
 CI 는 `.github/workflows/verify.yml` 이다. **잡 넷이 전부 통과한다.**
 
@@ -97,58 +101,55 @@ pwsh 로는 제목 OSC(`\x1b]0;…pwsh.exe\a`)만 의사 콘솔로 오고, **셸
 
 ---
 
-## 3. 남은 일 — e2e 를 한 벌로 통일한다 (사용자 지시, 미착수)
+## 3. e2e 통일 (완료)
 
-### 3.1 왜
+### 3.1 무엇이 문제였나
 
-**세 OS 가 서로 다른 것을 검사한다.** 사용자가 물어서 확인한 결과다.
+**세 OS 가 서로 다른 것을 검사했다.** macOS 는 `verify-isolated.sh` 21항목을 로컬에서
+사람이 기억할 때만, Linux 는 CI 인라인 bash 5단계를, Windows 는 같은 5단계를 인라인
+PowerShell 로 돌았다.
 
-| 대상 | 수단 | 어디서 | 무엇을 |
-|---|---|---|---|
-| macOS | `scripts/verify-isolated.sh` | **로컬에서 사람이 직접만** | 21항목 — ping·도구·**git 8종**·stats·settings·정적 자산 |
-| Linux | `verify.yml` 인라인 bash | CI | doctor + 종단간 5단계 |
-| Windows | `verify.yml` 인라인 PowerShell | CI | doctor + 종단간 5단계 |
+그래서 darwin 의 git 읽기 8종·`/api/stats`·`/api/settings`·정적 자산이 다른 두
+대상에서 **한 번도 검사되지 않았고**, 반대로 CI 의 입력→출력 왕복이 darwin 에서 돌지
+않았다. 그리고 종단간이 bash·PowerShell 두 벌이라 한쪽만 고쳐진 적이 실제로 있었다.
 
-문제가 넷이다.
+### 3.2 무엇을 했나
 
-1. **macOS 는 CI 에 없다.** darwin 검증은 사람이 기억해야만 일어난다
-2. **darwin 의 21항목이 다른 두 OS 에서 한 번도 검사되지 않는다.** `git status`·
-   `log`·`refs`·`signature`·`policy`·`stash`·`records`·`jobs`, `/api/stats`,
-   `/api/settings`, 정적 자산 — Linux·Windows 에서 전무하다. 이번 감사에서 나온
-   **원격 이름 검사·자격증명 마스킹** 같은 git 계열 변경이 Windows 에서 어떻게
-   도는지 확인할 수단이 없다는 뜻이다
-3. **CI 의 doctor 계층 검사는 darwin 에서 돌지 않는다** (`verify-isolated.sh` 는
-   doctor 를 부르지 않는다)
-4. **Linux 와 Windows 종단간이 스크립트 두 벌**(bash/PowerShell)이다. 이 저장소가
-   반복해서 경계하는 "규칙을 두 벌로 두면 한쪽만 고쳐진다" 가 **검증 하네스
-   자체**에 적용된 자리다. 실제로 Windows 쪽만 고친 적이 있다
+`dongminal verify` 를 신설했다. 격리 인스턴스를 **스스로** 띄우고 22항목을 훑은 뒤
+치운다. 세 대상이 이 한 목록을 돈다.
 
-### 3.2 정해진 설계 (사용자 확인 완료)
+- **검사 정의가 Go 한 벌**이다 (`internal/ctl/cli/verify.go`). 표로 적혀 있고
+  골든 테스트가 항목 수와 이름을 붙든다
+- **격리 가드가 Go 안으로 들어왔다.** 종전에는 `verify-isolated.sh` 에만 있었다.
+  `verify` 는 `--port`·`--home` 을 **거부하고** 환경변수를 무시한다 — 운영
+  인스턴스를 겨눌 방법 자체가 없다
+- **정리도 스스로 한다.** `stop`·`killPort` 를 쓰지 않고 자기가 띄운 pid 와 격리
+  홈의 `paned.pid` 만 끝낸다. CI 의 「정리」 단계가 사라졌다
+- `verify.yml` 190줄 → 96줄, `verify-isolated.sh` 196줄 → 23줄
 
-- **검사 정의를 Go 한 벌로 옮긴다.** bash/PowerShell 두 벌이 사라진다.
-  `dongminal doctor` 가 이미 "서버가 쓰는 바로 그 platform 코드를 계층별로 실행"
-  하는 형태로 세 OS 에서 도니 같은 방식을 따른다
-- **CI 는 linux + windows 에서 그것을 돌린다.** 지금과 같은 비용
-- **macOS 는 CI 에 넣지 않는다** — 사용자 결정. 개발자가 로컬에서 같은 것을 돈다.
-  `verify-isolated.sh` 는 그 Go e2e 를 부르는 얇은 껍데기로 바꾸거나 대체
-- **세 OS 가 같은 목록을 돈다.** 대상별로 빠지는 항목은 **능력 질의로 명시적으로
-  건너뛰고 그 사실이 출력에 남게** 한다 — `testpath.PermChecked()`·
-  `ForegroundGroups()`·`POSIXShell()` 과 같은 규칙 (FR-WTP-30~32)
+**대상별 갈래가 하나도 없다.** OS 차이는 `platform` 인터페이스 아래에서 이미
+흡수된다 — 본보기가 `paned.sock` 판정이다. Windows 의 AF_UNIX 종단은 소켓 비트가
+서지 않지만 호출부는 그 사실을 모른 채 `IPC.Exists` 하나를 부른다. 건너뜀의 근거는
+언제나 **호스트 환경**(git 저장소 유무)이지 OS 가 아니다.
 
-### 3.3 착수 전에 읽을 것
+### 3.3 그 과정에서 드러난 것
 
-- `scripts/verify-isolated.sh` — 21항목의 실체. **격리 가드**(포트 58146 이면 중단,
-  홈이 격리 홈이 아니면 중단)를 반드시 옮겨라. 그 가드가 없어서 운영 인스턴스를
-  죽인 사고가 실제로 있었다 (스크립트 머리말)
-- `.github/workflows/verify.yml` 의 `windows-runtime`(69~127행)·`linux-runtime`
-  두 인라인 블록 — 종단간 5단계의 실체
-- `internal/ctl/cli/doctor.go` — 계층별 진단의 선례. 새 e2e 가 이것과 겹치는지
-  갈라지는지 먼저 정하라
-- **규모가 중·대다.** CLAUDE.md 규약대로 **스펙(IEEE 29148)을 먼저** 쓴다
+**종전 CI 의 왕복 검사는 에코만으로 통과할 수 있었다.** `echo <표시>` 는 셸에
+에코되어 화면에 한 번 그려지는데, PowerShell·bash 블록 모두 표시를 **한 번만**
+찾았다. 셸이 명령을 실행하지 않아도 통과한다는 뜻이다. 새 검사는 **두 번**을
+요구한다 — 에코 + 실행 결과.
 
-### 3.4 그 다음
+**가드가 흩어진 리터럴에 의존하고 있었다.** `dongminal-iso-` 와 `.dongminal` 이
+세 곳에 리터럴로 있었고, 가드는 그 값과의 일치로 판정한다. 만드는 쪽만 바뀌면
+가드가 조용히 무력해진다. `isolatedHomePrefix` 와 `dmenv.DefaultHomeDir` 로 묶고
+테스트가 그 일치를 붙든다.
 
-`main` 병합. e2e 통일 뒤가 낫다 — 통일된 검사가 병합 전에 세 OS 를 한 번 훑는다.
+자세한 것은 `E2E_UNIFICATION_SRS.md` §9 다.
+
+### 3.4 아직 CI 가 답해야 할 것
+
+git 읽기 표면 8종이 Linux·Windows 에서 **처음** 돈다 (그 SRS §7 R-6). darwin 은
+22/22 통과했다.
 
 ## 4. 검증
 
@@ -156,7 +157,7 @@ pwsh 로는 제목 OSC(`\x1b]0;…pwsh.exe\a`)만 의사 콘솔로 오고, **셸
 scripts/check-cross.sh     # 5개 대상 build + vet
 scripts/check-seams.sh     # OS 의존 호출이 platform 밖에 없는지
 go test ./internal/... ./cmd/...
-scripts/verify-isolated.sh # darwin 실동작 21항목
+scripts/verify-isolated.sh # darwin 실동작 — dongminal verify 22항목
 ```
 
 **Windows 는 CI 로만 검증된다.** 푸시하면 `verify` 워크플로우가 돈다.
@@ -175,8 +176,8 @@ gh api "repos/Biisairo/dongminal/actions/jobs/$JOB/logs"
 
 1. `doctor` — 「의사 터미널」의 **[단순 명령]** 이 먼저 통과해야 한다. 그것이
    배관의 최소 증명이다. 그 다음 [맨 셸]·[훅 얹은 셸]·[도구]·[콘솔 없는 프로세스]
-2. `종단간` — 서버를 띄우고 `/api/tools` 로 도구를 만들어 `/api/tools/input` →
-   `/api/tools/output` 왕복
+2. `종단간` — `dongminal verify` 가 22항목을 통과 (실패 0건). 건너뜀은 실패가
+   아니지만, **OS 를 근거로 한 건너뜀이 있으면 그것은 결함이다** (E2E SRS FR-E2S-2)
 
 ---
 

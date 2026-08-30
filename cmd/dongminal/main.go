@@ -334,7 +334,7 @@ func resolveHome() (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("홈 디렉터리 확인 실패: %w", err)
 		}
-		home = filepath.Join(userHome, ".dongminal")
+		home = filepath.Join(userHome, dmenv.DefaultHomeDir)
 	}
 	if err := os.MkdirAll(home, 0o755); err != nil {
 		return "", fmt.Errorf("DONGMINAL_HOME 생성 실패: %w", err)
