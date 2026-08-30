@@ -86,6 +86,8 @@ const SHORTCUT_DEFAULTS={
   newWindow:'Ctrl+Shift+KeyN',newTab:'Ctrl+Shift+KeyT',
   closeWindow:'Ctrl+Shift+KeyW',closeTab:'Ctrl+Shift+KeyD',
   agentsToggle:'Ctrl+Shift+KeyA',
+  // SOFT_RELOAD_SRS FR-SRL-9: `R` 계열은 브라우저가 가져가므로 쓸 수 없다 (D-6).
+  softReload:'Ctrl+Shift+KeyK',
 };
 const SHORTCUT_LABELS={
   // GIT_SIDEBAR_TABS_SRS FR-SBT-31·33: 이 키는 **활성 사이드바 탭의 목록**을 순회한다
@@ -97,6 +99,7 @@ const SHORTCUT_LABELS={
   newWindow:'새 창',newTab:'새 탭',
   closeWindow:'창 닫기',closeTab:'탭 닫기',
   agentsToggle:'에이전트 패널',
+  softReload:'내부 새로고침',
 };
 var shortcuts={...SHORTCUT_DEFAULTS};
 

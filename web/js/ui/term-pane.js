@@ -31,6 +31,10 @@ class TerminalTool {
     }))}catch(e){}
     try{this.term.loadAddon(new Unicode11Addon.Unicode11Addon());this.term.unicode.activeVersion='11'}catch(e){}
     try{this.search=new SearchAddon.SearchAddon();this.term.loadAddon(this.search)}catch(e){}
+    // FR-ETR-37: OSC 52(클립보드 쓰기). xterm 은 이것을 스스로 처리하지 않으므로
+    // 붙이지 않으면 셸이 보낸 복사가 **받는 사람 없이 버려진다** — 그것이
+    // "복사가 원격에서만 안 된다" 의 정체였다 (§2.5).
+    try{TermClipboard.attach(this.term)}catch(e){}
     this.term.open(this.box);
     this.term.attachCustomKeyEventHandler(e=>{
       if(e.key==='Enter'&&e.shiftKey&&!e.ctrlKey&&!e.altKey&&!e.metaKey){
@@ -341,7 +345,11 @@ class TerminalTool {
     this.ws.onopen=()=>{
       this._onWsOpen();
       if(this._reconnecting){
-        setTimeout(()=>{this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},300);
+        // `_hideOverlay()` 가 여기 **있어야 한다.** 이 경로는 최초 연결 전용이라
+        // 지울 오버레이가 없었고, 그래서 빠져 있었다. `reconnectNow()` 가
+        // 오버레이를 띄운 채 이 함수를 부르게 되면서 그것이 결함이 됐다 —
+        // 연결은 붙는데 "다시 연결" 화면이 영영 남는다 (실측).
+        setTimeout(()=>{this._hideOverlay();this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},300);
       }
     };
     this.ws.onmessage=e=>{
@@ -358,6 +366,38 @@ class TerminalTool {
       this._scheduleReconnect();
     };
   }
+  /**
+   * SOFT_RELOAD_SRS FR-SRL-5·6·7: 내부 새로고침이 부르는 재연결.
+   *
+   * **pane 을 다시 만들지 않는다** — 소켓만 다시 연다. xterm 인스턴스가 새로
+   * 서면 페이지 새로고침과 다를 것이 없어진다 (D-3).
+   *
+   * `_exited` 는 되살리지 않는다 (FR-SRL-7). 그 판정은 서버의 통보로 선 것이며
+   * (FR-RCS-1), 뒤집으면 RECONNECT_STORM 이 고친 폭주가 되살아난다.
+   *
+   * 붙었는지가 아니라 **시도했는지**를 답한다 — 부르는 쪽은 센 수를 보일 뿐이다.
+   */
+  reconnectNow(){
+    if(this._destroyed||this._exited) return false;
+    this._clearHealthy();
+    this._reconnectPending=false;
+    // 옛 소켓의 콜백을 먼저 끊는다 — 살려 두면 close 가 `_scheduleReconnect` 를
+    // 불러 재연결이 두 벌로 돈다.
+    for(const k of ['ws','_pendingWs']){
+      const s=this[k];
+      if(!s) continue;
+      try{s.onclose=null;s.onerror=null;s.onmessage=null;s.onopen=null;s.close()}catch{}
+      this[k]=null;
+    }
+    // 사용자가 부른 재연결이므로 즉시 시도한다 — 백오프는 실패가 이어질 때의 것이다.
+    this._retryDelay=0;
+    try{this._decoder=new TextDecoder('utf-8',{fatal:false});this._outputBuf=''}catch{}
+    this._reconnecting=true;
+    this._showOverlay('다시 연결', '내부 새로고침...');
+    this.connect();
+    return true;
+  }
+
   _scheduleReconnect(){
     // FR-RCS-1: 도구가 사라졌다는 통보를 받았으면 다시 붙지 않는다. 이 한 줄이
     // 없으면 없는 도구를 향해 지연 0 으로 무한히 재접속한다 (§2.1).

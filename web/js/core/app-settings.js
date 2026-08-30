@@ -234,6 +234,7 @@ Object.assign(App.prototype, {
       {label:'Pane',keys:['paneUp','paneDown','paneLeft','paneRight']},
       {label:'분할',keys:['splitH','splitV']},
       {label:'에이전트',keys:['agentsToggle']},
+      {label:'새로고침',keys:['softReload']},
       // FR-SBT-21·30: 직행 키는 서술자 배열에서 파생한다 — 탭이 늘어도 이 목록을
       // 손으로 늘리지 않는다.
       {label:'사이드바 탭',keys:SB_TAB_DEFS.slice(0,9).map((d,i)=>sbTabAction(i))},

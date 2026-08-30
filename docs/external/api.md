@@ -88,8 +88,10 @@
 | POST | `/api/fs/create` | 바디 `{root, path, dir}` |
 | POST | `/api/fs/rename` | 바디 `{root, from, to}`. 이동도 이 종단 |
 | POST | `/api/fs/delete` | 바디 `{root, path}`. **영구 삭제** |
-| GET | `/api/fs/download?root=<abs>&path=<abs>` | 탐색기 다운로드. `/api/download` 와 같은 헤더를 쓰되 루트 아래로 제한 |
-| POST | `/api/fs/upload?root=<abs>&dir=<abs>` | 탐색기 업로드 (`file` 필드). **같은 이름이 있으면 409** — 덮어쓰지도 개명하지도 않는다 |
+| GET | `/api/fs/download?root=<abs>&path=<abs>` | 탐색기 다운로드. `/api/download` 와 같은 헤더를 쓰되 루트 아래로 제한. **파일만** — 디렉터리는 400 |
+| GET | `/api/fs/download-dir?root=<abs>&path=<abs>` | 폴더를 zip 으로 스트리밍. 이름은 `<폴더>.zip`. 항목 5만·2GiB 를 넘으면 **본문을 하나도 쓰기 전에** 400. 심볼릭 링크는 담기지 않는다 |
+| POST | `/api/fs/upload?root=<abs>&dir=<abs>` | 탐색기 업로드 (`file` 필드, 선택 `relPath`). `relPath` 가 있으면 `dir` **아래로** 구조를 세운다(중간 디렉터리는 만들되 `dir` 자신은 만들지 않는다). **같은 이름이 있으면 409** — 덮어쓰지도 개명하지도 않는다 |
+| POST | `/api/fs/ignored` | 한 겹에서 무시된 이름. 본문 `{root, dir, names:[…]}` → `{ignored:[…]}`. 저장소가 아니면 404 `not_repo`. 추적 중인 파일은 패턴에 맞아도 무시로 보고하지 않는다 |
 | GET | `/api/editors` | `{home, list}` — root 행의 경로와 일반 행 목록 |
 | POST | `/api/editors/add` | 바디 `{path}`. 응답 `{list, pinned}` — git 핀이 함께 바뀔 수 있다 |
 | POST | `/api/editors/remove` | 바디 `{path}`. 응답 `{list, pinned}` |

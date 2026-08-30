@@ -144,6 +144,12 @@ const GIT_ADD_REPO_RUN='추가';
 const GIT_ADD_REPO_PROMPT='리포 경로 (절대경로)';
 const GIT_ADD_REPO_HERE='지금 터미널: %s';
 const GIT_ADD_REPO_NO_TERM='지금 터미널은 저장소가 아닙니다 (%s) — 경로를 직접 넣으세요';
+// FR-ETR-34: 위와 다른 경우다. 저쪽은 "터미널은 있는데 저장소가 아니다" 이고
+// 이쪽은 "딛을 터미널이 없다" 이므로 사용자가 할 일이 다르다.
+const GIT_ADD_REPO_NO_TOOL='지금 터미널의 경로를 얻지 못했습니다 — 경로를 직접 넣으세요';
+// FR-ETR-31~33: `/api/cwd` 와 `/api/git/repo-at` 이 함께 쓰는 어휘. 서버의 상수와
+// 짝이며(gitCwdSourceTool), 문자열을 여러 곳에 흩뿌리면 한쪽만 바뀐다.
+const GIT_CWD_SOURCE_TOOL='tool';
 const GIT_ADD_REPO_NEED_PATH='경로가 필요합니다';
 const GIT_ADD_REPO_DUP='이미 목록에 있습니다';
 const GIT_ADD_REPO_FAIL='리포를 추가하지 못했습니다';
@@ -1416,7 +1422,14 @@ const EDITOR_TREE_TW_BUSY='·';
 const EDITOR_TREE_LINK='↗';
 const EDITOR_TREE_LINK_DIR='↗/';
 // FR-EDT-64: 펼쳐져 있는 폴더만 다시 읽는다.
-const EDITOR_TREE_REFRESH='↻';
+// 새 파일·새 폴더와 **같은 줄에 서므로** 같은 형식이어야 한다 (아래
+// EDITOR_TREE_NEW_FILE 의 근거 참조). 하나만 글자로 두면 선 굵기와 크기가 달라
+// 그 하나가 도리어 눈에 띈다.
+const EDITOR_TREE_REFRESH=
+  '<svg viewBox="0 0 16 16" aria-hidden="true">'+
+  '<path d="M13.6 8A5.6 5.6 0 1 1 11.9 4"/>'+
+  '<path d="M13.8 1.9v3.3h-3.3"/>'+
+  '</svg>';
 const EDITOR_TREE_REFRESH_TITLE='새로고침 (펼친 폴더만 다시 읽습니다)';
 // FR-EDT-65: 상한을 넘긴 폴더. **조회는 실패하지 않는다** — 잘렸다는 사실만 알린다.
 const EDITOR_TREE_TRUNCATED='%s개 이상 — 잘림';
@@ -1437,23 +1450,95 @@ const FS_DELETE_API='/api/fs/delete';
 // FILE_TRANSFER_SRS FR-FTR-12·15 — 조회·조작과 같은 root 가드를 받는 전송 둘.
 const FS_DOWNLOAD_API='/api/fs/download';
 const FS_UPLOAD_API='/api/fs/upload';
+// EXPLORER_TRANSFER_IGNORE_SRS FR-ETR-9 — 폴더는 zip 으로 온다 (D-4).
+const FS_DOWNLOAD_DIR_API='/api/fs/download-dir';
+// FR-ETR-1 — 한 겹에서 무시된 이름을 가른다. status 폴링과 별개다 (D-1).
+const FS_IGNORED_API='/api/fs/ignored';
+
+// ── 터미널의 복사 (EXPLORER_TRANSFER_IGNORE_SRS 묶음 F · FR-ETR-40·41) ──
+//
+// 마지막 수단의 창이다. 앞의 두 단(clipboard API · execCommand)이 실패하는 것은
+// 코드가 아니라 **환경이 정하는 것**이라, 이 창이 없으면 복사는 "될 때도 있고
+// 안 될 때도 있는 것" 이 된다 (D-12).
+const TERM_COPY_ID='term-copy';
+const TERM_COPY_TITLE='복사';
+const TERM_COPY_WHY='브라우저가 자동 복사를 막았습니다 — 아래에서 복사하세요';
+const TERM_COPY_DO='복사';
+const TERM_COPY_MANUAL='직접 선택해 복사하세요';
+const TERM_COPY_CLOSE='닫기';
+
+// ── 내부 새로고침 (SOFT_RELOAD_SRS 묶음 C · FR-SRL-8~11) ──
+//
+// 페이지를 다시 여는 것은 가진 것을 전부 버리는 일이다 — 편집기의 미저장 내용,
+// 탐색기의 펼침·스크롤, Git 패널의 열린 탭이 함께 사라진다. 이쪽은 **서버의
+// 사실만 다시 받는다.**
+const RELOAD_BTN_ID='soft-reload-btn';
+const RELOAD_TITLE='내부 새로고침 — 서버 상태를 다시 가져옵니다';
+const RELOAD_BUSY_TITLE='다시 가져오는 중…';
+// 기본 단축키는 `SHORTCUT_DEFAULTS.softReload` 에 있다 — 설정에서 바꿀 수 있는
+// 다른 동작들과 같은 자리다 (FR-SRL-9).
 
 // FR-EDT-80: 진입점은 둘이다 — 상단 버튼과 행 우클릭. 라벨은 한 자리에 둔다.
-// 파일은 원, 폴더는 사각이다 — 둘 다 플러스를 품어 "새로 만든다" 를 말하되
-// 모양으로 갈린다. `＋` 와 `＋/` 는 같은 글자가 앞에 서서 곁눈으로 구분되지
-// 않았다. 이모지를 쓰지 않는 것은 상태 기호의 기존 규약과 같다.
-const EDITOR_TREE_NEW_FILE='⊕';
+//
+// **아이콘이 문자에서 그림으로 바뀌었다.** 종전에는 `⊕`(원)과 `⊞`(사각)이었고
+// 그 근거는 "둘 다 플러스를 품되 모양으로 갈린다" 였다 — 그러나 실제로는 어느
+// 쪽이 파일이고 어느 쪽이 폴더인지 알 수 없었다. 원과 사각은 **파일·폴더를
+// 뜻하지 않는다.** 이제 문서와 폴더를 그대로 그린다.
+//
+// 이모지가 아니라 인라인 SVG 인 이유는 둘이다 — 이모지는 상태 기호의 기존
+// 규약이 배제하고(플랫폼마다 다른 그림이 온다), SVG 는 `currentColor` 로
+// 테마색을 그대로 따른다.
+//
+// 플러스는 둘 다 **오른쪽 아래 같은 자리**다. 다른 것은 왼쪽 위의 모양뿐이며,
+// 그것이 곧 "무엇을 새로 만드는가" 다.
+const EDITOR_TREE_NEW_FILE=
+  '<svg viewBox="0 0 16 16" aria-hidden="true">'+
+  '<path d="M9 1.6H4.3A1.3 1.3 0 0 0 3 2.9v10.2a1.3 1.3 0 0 0 1.3 1.3H8"/>'+
+  '<path d="M9 1.6 12.6 5.2V8"/>'+
+  '<path d="M9 1.6V5.2h3.6"/>'+
+  '<path d="M11.6 10.2v4.4M9.4 12.4h4.4"/>'+
+  '</svg>';
 const EDITOR_TREE_NEW_FILE_TITLE='새 파일 (선택한 폴더 아래)';
-const EDITOR_TREE_NEW_DIR='⊞';
+const EDITOR_TREE_NEW_DIR=
+  '<svg viewBox="0 0 16 16" aria-hidden="true">'+
+  '<path d="M1.8 12.6V3.6a1.1 1.1 0 0 1 1.1-1.1h2.7l1.4 1.8h6.2a1.1 1.1 0 0 1 1.1 1.1V8"/>'+
+  '<path d="M1.8 12.6a1.1 1.1 0 0 0 1.1 1.1H8"/>'+
+  '<path d="M11.6 10.2v4.4M9.4 12.4h4.4"/>'+
+  '</svg>';
 const EDITOR_TREE_NEW_DIR_TITLE='새 폴더 (선택한 폴더 아래)';
+// 머리 버튼이 그림으로 넣어도 되는 값의 **전부**다. 화이트리스트로 두는 이유는
+// "우리가 쓴 상수뿐" 이라는 사실을 주석이 아니라 코드가 보장하게 하기 위해서다 —
+// 나중에 사용자 입력이 그 자리에 닿아도 그림이 되지 않는다.
+const EDITOR_HEAD_ICONS=new Set([EDITOR_TREE_NEW_FILE,EDITOR_TREE_NEW_DIR,EDITOR_TREE_REFRESH]);
 const EDITOR_MENU_NEW_FILE='새 파일';
 const EDITOR_MENU_NEW_DIR='새 폴더';
 const EDITOR_MENU_RENAME='이름 변경';
-// FR-FTR-13·18: 탐색기의 전송 둘. 다운로드는 파일에서만 활성이다 (§6 비목표).
+// FR-FTR-13·18 / FR-ETR-16·23: 탐색기의 전송. 다운로드는 폴더에서도 활성이며
+// 그때는 zip 으로 온다 (D-4). 링크는 여전히 비활성이다 — 링크 자신을 내려받는다는
+// 뜻이 정해져 있지 않다.
 const EDITOR_MENU_UPLOAD='업로드';
+const EDITOR_MENU_UPLOAD_DIR='폴더 업로드';
 const EDITOR_MENU_DOWNLOAD='다운로드';
-const EDITOR_DOWNLOAD_FILE_ONLY='파일만 내려받을 수 있습니다';
+const EDITOR_DOWNLOAD_LINK_NO='링크는 내려받을 수 없습니다';
 const EDITOR_UPLOAD_FAIL='%s 을(를) 올리지 못했습니다';
+
+// FR-ETR-22: 폴더 드롭의 재귀 수집 상한. 홈 폴더를 잘못 놓았을 때 브라우저가
+// 멎지 않게 하는 값이다.
+const EDITOR_UPLOAD_MAX_ENTRIES=10000;
+const EDITOR_UPLOAD_TOO_MANY='항목이 %n개를 넘어 올리지 않았습니다 — 더 작은 폴더를 고르세요';
+
+// FR-ETR-26~30: 전송이 한 항목에서 실패했을 때의 선택. 폴더 하나가 수백 개일 수
+// 있으므로 "이후 모두 건너뛰기" 가 함께 있어야 한다 — 같은 사유로 이어 실패할 때
+// 묻기를 되풀이하면 그 자체가 고장이다 (D-9).
+const EDITOR_UPLOAD_FAIL_TITLE='업로드 실패';
+const EDITOR_UPLOAD_FAIL_BODY='%s 을(를) 올리지 못했습니다 — %r';
+const EDITOR_UPLOAD_RETRY='재시도';
+const EDITOR_UPLOAD_SKIP='건너뛰기';
+const EDITOR_UPLOAD_SKIP_ALL='이후 모두 건너뛰기';
+const EDITOR_UPLOAD_ABORT='중단';
+// FR-ETR-30: 조용히 끝나면 사용자는 전부 올라간 줄 안다.
+const EDITOR_UPLOAD_SKIPPED='%n개를 건너뛰었습니다';
+const EDITOR_UPLOAD_ABORTED='%n개를 남기고 중단했습니다';
 // FR-FTR-23: 드래그 중 접힌 폴더가 펼쳐지기까지의 체류 시간 (D-5).
 const EDITOR_SPRING_MS=600;
 const EDITOR_MENU_DELETE='삭제';

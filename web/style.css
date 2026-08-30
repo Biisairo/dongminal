@@ -220,8 +220,26 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .xterm-viewport::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}
 
 /* ── Settings button ── */
+/* FR-SRL-8: 내부 새로고침과 설정은 사이드바 최하단에 나란히 선다. 새로고침이
+   왼쪽인 것은 그쪽이 자주 쓰이기 때문이고, 폭을 나눠 가져 둘 다 손가락에
+   닿는다. */
+#sb-bottom{display:flex;gap:6px;margin:0 8px 8px}
+#sb-bottom>button{flex:1 1 0;margin:0}
+#soft-reload-btn{
+  padding:6px;min-height:30px;
+  background:transparent;border:1px solid var(--border);border-radius:4px;
+  color:var(--text-muted);font-size:13px;cursor:pointer;text-align:center;
+  transition:background .15s,color .15s;
+}
+#soft-reload-btn:hover:not(:disabled){background:var(--accent-hover);color:var(--accent)}
+/* FR-SRL-11: 도는 동안 그 사실을 보인다. 표시가 없으면 사용자는 눌린 줄 모르고
+   다시 누른다. */
+#soft-reload-btn.busy{color:var(--accent);border-color:var(--accent);cursor:default}
+#soft-reload-btn.busy{animation:sr-spin 1s linear infinite}
+@keyframes sr-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+
 #settings-btn{
-  margin:0 8px 8px;padding:6px;min-height:30px;
+  margin:0;padding:6px;min-height:30px;
   background:transparent;border:1px solid var(--border);border-radius:4px;
   color:var(--text-muted);font-size:13px;cursor:pointer;text-align:center;
   transition:background .15s,color .15s;
@@ -611,7 +629,8 @@ body.mobile .pn-tab{padding:0 14px;font-size:13px}
 body.mobile .pn-tab[data-git-view]{padding:0 6px;font-size:12px}
 body.mobile .pn-tab-x{opacity:1;width:18px;height:18px}
 body.mobile .pn-tab-add{width:32px;font-size:18px}
-body.mobile #add-window,body.mobile #add-preset,body.mobile #settings-btn{padding:8px;font-size:12px}
+body.mobile #add-window,body.mobile #add-preset,body.mobile #settings-btn,
+body.mobile #soft-reload-btn{padding:8px;font-size:12px}
 
 /* ── Tab bar drag target ── */
 .pn-tabs.drag-target{background:var(--accent-hover);box-shadow:inset 0 -2px 0 var(--accent)}
@@ -2332,8 +2351,18 @@ body.mobile .ed-explorer{max-width:40%}
 .ed-head-btn{
   flex:0 0 auto;width:22px;height:22px;line-height:1;
   background:none;border:0;color:var(--text-muted);cursor:pointer;border-radius:3px;
+  /* 글자 버튼과 그림 버튼이 섞여 있다 — 가운데 정렬을 둘 다에 건다. */
+  display:inline-flex;align-items:center;justify-content:center;padding:0;
 }
 .ed-head-btn:hover{background:var(--accent-hover);color:var(--text-bright)}
+/* FR-EDT-80: 새 파일·새 폴더는 문서와 폴더를 그대로 그린다 (종전 `⊕`·`⊞` 는
+   어느 쪽이 무엇인지 말하지 않았다). `currentColor` 라 hover 의 색 변화를
+   글자 버튼과 똑같이 따라간다. */
+.ed-head-btn svg{
+  width:14px;height:14px;display:block;
+  fill:none;stroke:currentColor;stroke-width:1.3;
+  stroke-linecap:round;stroke-linejoin:round;
+}
 /* FR-EDT-68: 스크롤 주체는 트리 하나다. 행은 중첩 DOM 이 아니라 패딩으로 들여쓴
    평평한 목록이므로(FR-GIT-211 과 같은 규약) 재사용이 성립한다. */
 .ed-tree{flex:1 1 auto;min-height:0;overflow:auto;padding-bottom:6px}
@@ -2355,6 +2384,29 @@ body.mobile .ed-explorer{max-width:40%}
 /* FR-EDT-63: 조회 실패는 그 폴더 행에만 남는다 — 트리는 그대로 산다. */
 .ed-row.ed-err .ed-name{color:var(--danger);text-decoration:line-through}
 .ed-tree-err,.ed-more{font-size:11px;color:var(--text-dim);padding-top:2px;padding-bottom:2px}
+
+/* FR-ETR-7: 무시된 항목은 흐려진다 (VS Code 의 표시와 같다). 폴더도 함께 —
+   `node_modules` 가 그 예다.
+
+   **색을 바꾸지 않고 투명도만 낮춘다.** 두 번의 실패가 이 결론을 만들었다:
+
+   · `--text-dim` — 거의 모든 테마에서 `border` 와 **같은 값**이라(dracula
+     `#44475a`, nord `#3b4252`, solarized `#073642`) 배경에 묻혀 읽히지 않았다.
+     그것은 구분선의 색이지 글자의 색이 아니다.
+   · `--text-muted` — 읽히기는 하나 푸른 기가 돌아 **상태색처럼** 보였다. 무시는
+     "의미 없음" 인데 색이 의미를 말해 버린다.
+
+   투명도는 hue 를 건드리지 않으므로 본문과 **같은 색의 옅은 판**이 된다 — 흐림의
+   정도만 조절되고 뜻은 더해지지 않는다.
+
+   그 덕에 **상태색과 다투지 않는다.** `color` 로 흐리게 하던 때는 명시도가
+   `.ed-row.st-*` 와 동률이라 선언 순서가 승부를 갈랐고(뒤에 두면 상태를 가진 행이
+   흐려졌다), 그래서 이 블록이 상태색보다 앞에 서야 했다. 투명도는 색을 덮지 않고
+   곱해질 뿐이라 상태를 가진 행은 그 색을 유지한 채 함께 옅어진다 — 순서에 기대지
+   않는다. */
+.ed-row.ed-ignored .ed-name,
+.ed-row.ed-ignored .ed-tw,
+.ed-row.ed-ignored .ed-mark{opacity:.6}
 
 /* FR-EDT-70 / D-4: 색은 **같은 변수와 같은 상태 클래스**를 참조한다 (GIT_ST_CLASS).
    새 색값을 만들지 않는다 — 같은 뜻을 두 화면에서 다른 색으로 말하지 않기 위해서다.
@@ -2452,3 +2504,36 @@ body.mobile .ed-explorer{max-width:40%}
 /* FR-EVW-4: 원본 비율을 지키고 칸보다 크면 줄여 맞춘다. */
 .fe-img{max-width:100%;max-height:calc(100% - 28px);object-fit:contain}
 .fe-img-meta{flex:0 0 auto;color:var(--text-dim);font-size:11px;font-family:monospace}
+
+/* ── 터미널의 복사창 (EXPLORER_TRANSFER_IGNORE_SRS 묶음 F · FR-ETR-40·41) ──
+
+   마지막 수단이다. 앞의 두 단(clipboard API · execCommand)이 실패하는 것은 코드가
+   아니라 환경이 정하는 것이라, 이 창이 없으면 복사는 "될 때도 있고 안 될 때도
+   있는 것" 이 된다 (D-12).
+
+   모달 배경을 깔지 않는다 — 복사는 터미널을 멈추고 하는 일이 아니고, 사용자가
+   창을 둔 채 터미널을 계속 볼 수 있어야 한다. */
+.tc-copy{
+  position:fixed;z-index:9999;left:50%;top:50%;transform:translate(-50%,-50%);
+  display:flex;flex-direction:column;gap:6px;
+  width:min(560px,calc(100vw - 32px));padding:12px;
+  background:var(--sidebar-bg,#16161e);border:1px solid var(--accent,#7aa2f7);
+  border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.6);
+  color:var(--text-bright,#c0caf5);font-size:12px;
+}
+.tc-copy-head{font-weight:600}
+.tc-copy-why{color:var(--text-dim);font-size:11px}
+/* 내용은 읽고 고르는 것이지 고치는 것이 아니지만 readOnly 를 쓰지 않는다 —
+   iOS 는 readOnly 인 요소의 선택을 무시해 복사가 되지 않는다. */
+.tc-copy-text{
+  width:100%;min-height:120px;max-height:40vh;resize:vertical;
+  padding:8px;border:1px solid var(--border);border-radius:5px;
+  background:var(--bg);color:var(--text);
+  font-family:monospace;font-size:12px;line-height:1.4;
+}
+.tc-copy-row{display:flex;justify-content:flex-end;gap:6px}
+.tc-copy-row button{
+  border:none;border-radius:5px;padding:6px 12px;font:inherit;font-weight:600;
+}
+.tc-copy-do{background:var(--accent,#7aa2f7);color:#16161e}
+.tc-copy-close{background:var(--border);color:var(--text-bright)}

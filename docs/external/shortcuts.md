@@ -23,6 +23,7 @@
 | 창 닫기 | `Ctrl+Shift+W` |
 | 탭 닫기 | `Ctrl+Shift+D` |
 | 에이전트 패널 | `Ctrl+Shift+A` |
+| 내부 새로고침 | `Ctrl+Shift+K` |
 | 사이드바 탭: Windows | `Ctrl+Shift+1` |
 | 사이드바 탭: Git | `Ctrl+Shift+2` |
 | 터미널 검색 | `Ctrl+F` / `Cmd+F` (고정) |

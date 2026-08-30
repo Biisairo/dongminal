@@ -190,6 +190,9 @@ class App {
     this._applyFocusOverlay();
     this._initGitSection();
     this._initEditorSection();
+    // FR-SRL-8·9: 내부 새로고침의 진입점 둘. 배선은 `_subscribeCommands` **뒤**
+    // 여야 한다 — 그것이 `_sseKick` 을 세운다.
+    this._initSoftReload();
   }
 
   _collectPanes(n, out){
@@ -229,6 +232,9 @@ class App {
       newWindow:()=>this.addWindow(),newTab:()=>this.addTabFocused(),
       closeWindow:()=>this.closeWindowActive(),closeTab:()=>this.closeTabFocused(),
       agentsToggle:()=>this._agentsToggle(),
+      // FR-SRL-9: 다른 앱 단축키와 **같은 길**을 탄다 — 설정에서 바꿀 수 있고,
+      // 터미널보다 앞서는 우선순위도 그 체계가 준다 (shortcuts.md).
+      softReload:()=>this.softReload(),
       toggleSearch:()=>this.toggleSearch(),
     };
     // FR-SBT-21·26: 직행 키는 서술자 배열에서 파생한다 — 탭이 늘어도 이 맵을

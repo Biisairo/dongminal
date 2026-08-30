@@ -16,11 +16,22 @@ Object.assign(App.prototype, {
       pending=setTimeout(()=>{pending=null;connect()},retry);
       retry=Math.min(retry*2, SSE_RETRY_MAX_MS);
     };
+    // FR-SRL-3: 강제 재연결의 손잡이. 백오프 대기 중이면 그것을 취소하고 지금
+    // 붙는다 — 사용자가 부른 것이므로 기다릴 이유가 없다.
+    this._sseKick=()=>{
+      if(pending){clearTimeout(pending);pending=null}
+      retry=SSE_RETRY_MIN_MS;
+      try{if(this._sse)this._sse.close()}catch{}
+      connect();
+    };
     const connect=()=>{
       try{
         // FR-XDF-8: clientId 를 실어 서버가 구독↔Client 를 결선한다. 이 결선이
         // 구독 해제 시 소유권 해제(FR-XDF-9)의 선행 조건이다.
         const es=new EventSource('/api/commands/sse?clientId='+encodeURIComponent(this.clientId));
+        // FR-SRL-3: 내부 새로고침이 구독의 **상태를 보고** 죽었으면 다시 연다.
+        // 클로저 안에 갇혀 있으면 밖에서 볼 수도 되살릴 수도 없다 (§2.2).
+        this._sse=es;
         es.onopen=()=>{retry=SSE_RETRY_MIN_MS;this._attnRestore();this._activityRestore();this._bgRefresh();this._focusRestore();this._fgRestore()};
         es.onmessage=(e)=>{
           try{

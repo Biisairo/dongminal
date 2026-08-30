@@ -553,7 +553,11 @@ Object.assign(App.prototype, {
     try{r=await fetch('/api/cwd?tool='+encodeURIComponent(tool))}catch{return ''}
     if(!r||!r.ok) return '';
     try{d=await r.json()}catch{return ''}
-    return (d&&d.cwd)||'';
+    // FR-ETR-33: `source` 를 읽는다. 이 필드는 FR-FTR-7 이 **정확히 이 문제
+    // 때문에** 넣은 것인데, 여기가 그것을 읽지 않아 서버 프로세스의 cwd 가
+    // 사용자의 경로로 채워지고 있었다 (§2.4).
+    if(!d||d.source!==GIT_CWD_SOURCE_TOOL) return '';
+    return d.cwd||'';
   },
 
   async _edAdd(){

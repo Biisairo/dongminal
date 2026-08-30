@@ -316,9 +316,17 @@ Object.assign(App.prototype, {
    */
   async _gitAddRepo(){
     const at=await this._gitRepoAt();
-    const here=(at&&at.isRepo&&at.path)?at.path:'';
-    // 저장소가 아니면 사유를 본문에 보인다 — 빈 칸만 두면 사용자는 고장으로 읽는다.
-    const why=here?'':GIT_ADD_REPO_NO_TERM.replace('%s',(at&&(at.reason||at.cwd))||'');
+    // FR-ETR-32: **`source` 가 `tool` 일 때만** 채운다. 서버는 도구를 못 찾으면
+    // 자기 cwd 로 답하고, 그것이 마침 저장소면 `isRepo:true` 로 나간다 — 사용자가
+    // 보는 것은 빈 칸이 아니라 **그럴듯한 남의 경로**이고, 그래서 "잘 안 된다"로
+    // 읽힌다 (§2.4). 비어 있으면 사용자가 직접 넣지만, 채워져 있으면 맞는 줄 안다.
+    const mine=!!(at&&at.source===GIT_CWD_SOURCE_TOOL);
+    const here=(mine&&at.isRepo&&at.path)?at.path:'';
+    // FR-ETR-34: 채우지 못한 두 경우는 사용자가 할 일이 다르다 — 터미널이 없는
+    // 것과, 터미널은 있으나 그 자리가 저장소가 아닌 것.
+    const why=here?''
+      :(mine?GIT_ADD_REPO_NO_TERM.replace('%s',(at&&(at.reason||at.cwd))||'')
+            :GIT_ADD_REPO_NO_TOOL);
     return GitDialog.open({
       id:'git-add-repo-dlg',ns:'gar',action:'repo_pin',
       title:GIT_ADD_REPO_TITLE,runLabel:GIT_ADD_REPO_RUN,focus:'path',
@@ -333,9 +341,14 @@ Object.assign(App.prototype, {
   },
 
   // FR-FLW-6: 화면에 상주시키지 않는다 — 여는 순간 한 번 묻는 것이 전부다.
+  //
+  // FR-ETR-36: 도구 id 가 비면 **묻지 않는다.** 보내도 서버의 cwd 가 돌아올
+  // 뿐이고, 그 왕복은 값을 만들지 않는다.
   async _gitRepoAt(){
+    const tool=this._gitTermToolId();
+    if(!tool) return null;
     try{
-      const r=await fetch('/api/git/repo-at?tool='+encodeURIComponent(this._gitTermToolId()));
+      const r=await fetch('/api/git/repo-at?tool='+encodeURIComponent(tool));
       if(!r.ok) return null;
       return await r.json();
     }catch{return null}
