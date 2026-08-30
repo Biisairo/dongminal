@@ -45,13 +45,17 @@ func RunHealth(o HealthOpts, stdout, stderr io.Writer) int {
 	// 때에야 드러났다. 기동은 이것을 스스로 고치지만(§2.4), **다시 띄우기 전에**
 	// 아는 수단이 필요하다.
 	binDir := filepath.Join(home, "bin")
-	if bad := runtime.CheckHelpers(binDir); len(bad) > 0 {
-		for _, b := range bad {
+	switch st := runtime.InspectHelpers(binDir); {
+	case !st.Installed:
+		// 아직 기동 전인 홈이다. 소켓 부재를 실패로 세지 않는 것과 같은 이유다.
+		fmt.Fprintf(stdout, "ℹ️  헬퍼 %s (%s)\n", runtime.HelperNotInstalled, binDir)
+	case len(st.Problems) > 0:
+		for _, b := range st.Problems {
 			fmt.Fprintf(stdout, "❌ 헬퍼 %s — %s\n", b.Path, b.Reason)
 		}
 		fmt.Fprintf(stdout, "   %s\n", runtime.HelperFixHint)
-		fail += len(bad)
-	} else {
+		fail += len(st.Problems)
+	default:
 		fmt.Fprintf(stdout, "✅ 헬퍼 %d개 실행 가능 (%s)\n", len(runtimebin.HelperNames()), binDir)
 	}
 

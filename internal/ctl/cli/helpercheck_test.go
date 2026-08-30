@@ -141,3 +141,30 @@ func TestDoctorProbeBin_IsTemporary(t *testing.T) {
 		t.Fatalf("검사용 자리가 남았다: %s (%v)", dir, err)
 	}
 }
+
+// V-HLI-8: 새 홈에서 health 가 이것을 실패로 세지 않는다.
+//
+// CI 가 잡은 갈래다 — 개발 기계의 홈에는 늘 헬퍼가 있어 한 번도 돌지 않았다.
+func TestHealth_FreshHomeIsNotFailure(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+	_, port, _ := strings.Cut(strings.TrimPrefix(srv.URL, "http://"), ":")
+
+	var out, errb bytes.Buffer
+	code := RunHealth(HealthOpts{Common: Common{Home: t.TempDir(), Port: port}}, &out, &errb)
+	if code != 0 {
+		t.Fatalf("설치 전 홈을 실패로 셌다: rc=%d\n%s", code, out.String())
+	}
+}
+
+// 같은 갈래를 doctor 도 실패로 세지 않는다 (FR-HLI-11).
+func TestDoctorHelpers_FreshHomeIsNotFailure(t *testing.T) {
+	var out bytes.Buffer
+	r := &checkReport{out: &out}
+	doctorHelpers(r, filepath.Join(t.TempDir(), "bin"))
+	if r.fail != 0 {
+		t.Fatalf("설치 전 홈을 실패로 셌다:\n%s", out.String())
+	}
+}

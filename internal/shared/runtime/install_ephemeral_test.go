@@ -50,8 +50,8 @@ func TestInstall_EphemeralSelfSurvivesSourceRemoval(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bad := CheckHelpers(binDir); len(bad) > 0 {
-		t.Fatalf("원본이 사라지자 헬퍼가 죽었다: %+v", bad)
+	if st := InspectHelpers(binDir); len(st.Problems) > 0 {
+		t.Fatalf("원본이 사라지자 헬퍼가 죽었다: %+v", st.Problems)
 	}
 	for _, name := range runtimebin.HelperNames() {
 		if _, err := os.Stat(helperPath(binDir, name)); err != nil {
@@ -75,8 +75,8 @@ func TestInstall_StableSelfIsNotCopied(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(binDir, selfCopyName+platform.Current().Paths.ExeSuffix())); err == nil {
 		t.Fatal("덧없지 않은데 복사본을 만들었다")
 	}
-	if bad := CheckHelpers(binDir); len(bad) > 0 {
-		t.Fatalf("정상 설치인데 문제로 보고했다: %+v", bad)
+	if st := InspectHelpers(binDir); len(st.Problems) > 0 {
+		t.Fatalf("정상 설치인데 문제로 보고했다: %+v", st.Problems)
 	}
 }
 
@@ -124,7 +124,11 @@ func TestCheckHelpers_FindsDangling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	bad := CheckHelpers(binDir)
+	st := InspectHelpers(binDir)
+	if !st.Installed {
+		t.Fatal("설치 흔적이 있는데 없다고 본다")
+	}
+	bad := st.Problems
 	if len(bad) != 2 {
 		t.Fatalf("문제 2건이어야 한다: %+v", bad)
 	}
@@ -147,7 +151,52 @@ func TestCheckHelpers_SilentWhenHealthy(t *testing.T) {
 	if err := installWith(binDir, self); err != nil {
 		t.Fatal(err)
 	}
-	if bad := CheckHelpers(binDir); len(bad) != 0 {
-		t.Fatalf("문제가 없어야 한다: %+v", bad)
+	if st := InspectHelpers(binDir); len(st.Problems) != 0 {
+		t.Fatalf("문제가 없어야 한다: %+v", st.Problems)
+	}
+}
+
+// V-HLI-8: **설치된 적 없는 홈은 고장이 아니다** (FR-HLI-11).
+//
+// 이 경우를 빠뜨려 CI 가 잡았다 — 개발 기계의 홈에는 늘 헬퍼가 있어서 이 갈래가
+// 한 번도 돌지 않았다. `doctor` 는 더 이상 운영 홈에 설치하지 않으므로(FR-HLI-5)
+// 새 기계의 bin 은 비어 있는 것이 정상이다.
+func TestInspectHelpers_FreshHomeIsNotBroken(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		binDir func() string
+	}{
+		{"bin 이 아예 없다", func() string { return filepath.Join(t.TempDir(), "bin") }},
+		{"bin 은 있고 비어 있다", func() string { return t.TempDir() }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			st := InspectHelpers(tc.binDir())
+			if st.Installed {
+				t.Error("설치되지 않았는데 설치됐다고 본다")
+			}
+			if len(st.Problems) != 0 {
+				t.Errorf("고장으로 보고했다: %+v", st.Problems)
+			}
+		})
+	}
+}
+
+// D-6: 일부만 있으면 그것은 고장이다 — 온전한 설치는 전부를 놓는다.
+func TestInspectHelpers_PartialInstallIsBroken(t *testing.T) {
+	names := runtimebin.HelperNames()
+	if len(names) < 2 {
+		t.Skip("헬퍼가 둘 미만")
+	}
+	binDir := t.TempDir()
+	if err := os.WriteFile(helperPath(binDir, names[0]), []byte("x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	st := InspectHelpers(binDir)
+	if !st.Installed {
+		t.Fatal("하나라도 있으면 설치된 것으로 본다")
+	}
+	if len(st.Problems) != len(names)-1 {
+		t.Fatalf("없는 %d개를 문제로 세야 한다: %+v", len(names)-1, st.Problems)
 	}
 }

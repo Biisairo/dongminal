@@ -141,17 +141,39 @@ type HelperProblem struct {
 	Reason string
 }
 
-// CheckHelpers 는 설치된 헬퍼가 **실제로 실행 가능한지** 본다.
+// HelperStatus 는 bin 하나의 상태다.
+//
+// **설치된 적 없음과 설치됐는데 깨짐은 다른 사건이다** (FR-HLI-11). 서버를 한 번도
+// 띄우지 않은 홈에는 헬퍼가 없는 것이 정상이고 — `doctor` 는 더 이상 그 자리에
+// 설치하지 않는다(FR-HLI-5) — 그것을 고장이라 부르면 새 기계의 진단이 언제나
+// 실패한다.
+type HelperStatus struct {
+	// Installed 는 헬퍼가 하나라도 그 자리에 있는지다.
+	Installed bool
+	// Problems 는 있는 것 중 쓸 수 없는 것이다. Installed 가 거짓이면 비어 있다.
+	Problems []HelperProblem
+}
+
+// InspectHelpers 는 설치된 헬퍼가 **실제로 실행 가능한지** 본다.
 //
 // 이 검사가 필요한 이유는 설치와 고장의 시점이 다르기 때문이다 — 링크는 설치
 // 시점에 유효했다가 대상이 사라지면서 죽는다(§2.3). 고치지는 않는다 (D-4):
 // 고치는 것은 기동의 몫이고, 진단이 대상을 바꾸면 원래 상태를 알 수 없게 된다.
-func CheckHelpers(binDir string) []HelperProblem {
+//
+// 하나도 없으면 아무 문제도 보고하지 않는다. **일부만 있으면 그것은 고장이다** —
+// 온전한 설치는 전부를 놓는다 (D-6).
+func InspectHelpers(binDir string) HelperStatus {
 	paths := platform.Current().Paths
+	var st HelperStatus
 	var bad []HelperProblem
 	for _, name := range helperNames() {
 		p := filepath.Join(binDir, name+paths.ExeSuffix())
-		// Stat 은 심볼릭 링크를 따라간다 — 죽은 링크는 여기서 걸린다.
+		// Lstat 은 링크를 따라가지 않는다 — 죽은 링크도 "자리에 있다" 로 센다.
+		// 그것이 설치의 흔적이기 때문이다.
+		if _, err := os.Lstat(p); err == nil {
+			st.Installed = true
+		}
+		// Stat 은 링크를 따라간다 — 죽은 링크는 여기서 걸린다.
 		fi, err := os.Stat(p)
 		switch {
 		case os.IsNotExist(err):
@@ -168,8 +190,14 @@ func CheckHelpers(binDir string) []HelperProblem {
 			bad = append(bad, HelperProblem{name, p, "파일이 아니라 디렉터리입니다"})
 		}
 	}
-	return bad
+	if st.Installed {
+		st.Problems = bad
+	}
+	return st
 }
+
+// HelperNotInstalled 는 아직 설치 전이라는 안내다. 고장이 아니다 (FR-HLI-11).
+const HelperNotInstalled = "아직 설치되지 않았습니다 — 서버를 한 번도 띄우지 않은 홈입니다"
 
 // HelperFixHint 는 깨진 헬퍼를 되돌리는 방법이다. `health` 와 `doctor` 가 같은
 // 문장을 써야 한다 (FR-HLI-10) — 두 벌로 두면 한쪽만 고쳐진다.

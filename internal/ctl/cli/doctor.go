@@ -141,12 +141,19 @@ func doctorProbeBin() (string, func(), error) {
 // 무엇이 원래 상태였는지 알 수 없게 된다 (D-4).
 func doctorHelpers(r *checkReport, binDir string) {
 	r.section("설치된 헬퍼 (" + binDir + ")")
-	bad := runtime.CheckHelpers(binDir)
-	if len(bad) == 0 {
+	st := runtime.InspectHelpers(binDir)
+	// FR-HLI-11: 설치된 적 없는 홈은 고장이 아니다. doctor 는 더 이상 이 자리에
+	// 설치하지 않으므로(FR-HLI-5), 없는 것을 실패로 세면 새 기계의 진단이 언제나
+	// 실패한다.
+	if !st.Installed {
+		r.info("%s", runtime.HelperNotInstalled)
+		return
+	}
+	if len(st.Problems) == 0 {
 		r.ok("헬퍼 전부 실행 가능")
 		return
 	}
-	for _, b := range bad {
+	for _, b := range st.Problems {
 		r.bad("%s — %s", b.Path, b.Reason)
 	}
 	r.info("%s", runtime.HelperFixHint)
