@@ -262,7 +262,9 @@ Object.assign(App.prototype, {
       {label:'탭',keys:['tabNext','tabPrev','newTab','closeTab']},
       {label:'Pane',keys:['paneUp','paneDown','paneLeft','paneRight']},
       {label:'분할',keys:['splitH','splitV']},
-      {label:'에이전트',keys:['agentsToggle']},
+      // PANEL_SHORTCUTS_SRS FR-PSC-5: 상단 툴바의 진입점 셋. 목록의 차례를
+      // 툴바의 차례(Runs · Background · Agents)와 맞춘다.
+      {label:'패널',keys:['runsToggle','bgToggle','agentsToggle']},
       {label:'새로고침',keys:['softReload']},
       // FR-SBT-21·30: 직행 키는 서술자 배열에서 파생한다 — 탭이 늘어도 이 목록을
       // 손으로 늘리지 않는다.

@@ -157,12 +157,14 @@ Object.assign(App.prototype, {
   },
 
   // FR-SBR-8..11: 진입점은 상단바 `Runs` 와 `Agents` 사이의 정적 버튼이다.
+  // 이름은 줄이지 않는다 — `BG` 는 처음 보는 사람에게 아무것도 말하지 않는다
+  // (FR-SBR-11, 1.0.3 개정).
   // 지표 재생성과 수명을 공유하지 않으므로(FR-RPT-3) 여기서는 개수와 하이라이트만
   // 갱신한다. **숨기지 않는다** — 나타났다 사라지는 버튼이 이웃의 자리를 흔든다 (D-3).
   _updateBgBtn(){
     const btn=document.getElementById('bg-btn');if(!btn)return;
     const n=(this._bg&&this._bg.length)||0;
-    btn.textContent=n?`BG ${n}`:'BG';
+    btn.textContent=n?`Background ${n}`:'Background';
     btn.title=n?`백그라운드 도구 ${n}개`:'백그라운드 도구 없음';
     btn.classList.toggle('on',!!n);
   },

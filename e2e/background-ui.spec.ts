@@ -160,7 +160,7 @@ test.describe('FR-SBR-8..13: 백그라운드 진입점', () => {
       { timeout: 10000 }).toBe(0);
     const btn = page.locator('#bg-btn');
     await expect(btn).toBeVisible();
-    await expect(btn).toHaveText('BG');
+    await expect(btn).toHaveText('Background');
     await expect(btn).not.toHaveClass(/\bon\b/);
   });
 
@@ -187,7 +187,7 @@ test.describe('FR-SBR-8..13: 백그라운드 진입점', () => {
     await makeBackgroundTool(page, request);
     const btn = page.locator('#bg-btn');
     await expect(btn).toHaveClass(/\bon\b/, { timeout: 10000 });
-    await expect(btn).toHaveText('BG 1');
+    await expect(btn).toHaveText('Background 1');
     const lit = await page.evaluate(() => getComputedStyle(document.getElementById('bg-btn')!).borderColor);
     expect(lit, '하이라이트가 평소와 같은 테두리색이다').not.toBe(plain);
   });

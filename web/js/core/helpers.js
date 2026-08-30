@@ -86,6 +86,10 @@ const SHORTCUT_DEFAULTS={
   newWindow:'Ctrl+Shift+KeyN',newTab:'Ctrl+Shift+KeyT',
   closeWindow:'Ctrl+Shift+KeyW',closeTab:'Ctrl+Shift+KeyD',
   agentsToggle:'Ctrl+Shift+KeyA',
+  // PANEL_SHORTCUTS_SRS FR-PSC-1/2: 상단 툴바의 나머지 두 진입점. `Runs` 가 `O`
+  // 인 이유는 `R` 을 쓸 수 없기 때문이다 — 아래 D-6 과 같은 근거다.
+  bgToggle:'Ctrl+Shift+KeyB',
+  runsToggle:'Ctrl+Shift+KeyO',
   // SOFT_RELOAD_SRS FR-SRL-9: `R` 계열은 브라우저가 가져가므로 쓸 수 없다 (D-6).
   softReload:'Ctrl+Shift+KeyK',
 };
@@ -99,6 +103,8 @@ const SHORTCUT_LABELS={
   newWindow:'새 창',newTab:'새 탭',
   closeWindow:'창 닫기',closeTab:'탭 닫기',
   agentsToggle:'에이전트 패널',
+  bgToggle:'백그라운드 도구',
+  runsToggle:'Run 오케스트레이션',
   softReload:'내부 새로고침',
 };
 var shortcuts={...SHORTCUT_DEFAULTS};

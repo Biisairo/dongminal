@@ -22,6 +22,8 @@
 | 새 탭 | `Ctrl+Shift+T` |
 | 창 닫기 | `Ctrl+Shift+W` |
 | 탭 닫기 | `Ctrl+Shift+D` |
+| Run 오케스트레이션 | `Ctrl+Shift+O` |
+| 백그라운드 도구 | `Ctrl+Shift+B` |
 | 에이전트 패널 | `Ctrl+Shift+A` |
 | 내부 새로고침 | `Ctrl+Shift+K` |
 | 사이드바 탭: Windows | `Ctrl+Shift+1` |
