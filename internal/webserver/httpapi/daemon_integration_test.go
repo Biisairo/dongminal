@@ -101,12 +101,18 @@ func TestDaemonFullFlow(t *testing.T) {
 	_, unsub := pc.Subscribe(toolID, outputCh)
 	defer unsub()
 
-	// Feed output to attention tracker
-	go func() {
-		for data := range outputCh {
-			tracker.FeedOutput(toolID, data)
-		}
-	}()
+	// 출력을 주의 추적기에 먹인다.
+	//
+	// **소비자를 둘 두지 않는다.** 종전에는 여기서 `range outputCh` 를 도는
+	// goroutine 을 먼저 띄우고, 아래 select 도 같은 채널에서 받았다. 채널의 수신
+	// 대기열은 FIFO 라 **먼저 파킹한 goroutine 이 첫 조각을 가져가고**, select 는
+	// 두 번째 조각이 와야만 깬다. 셸 출력이 여러 조각으로 나뉘는 기계에서는
+	// 우연히 통과하고, 한 조각으로 합쳐지는 기계에서는 20초를 기다리다 죽는다 —
+	// 릴리스 게이트의 ubuntu 러너에서 두 번 다 그 상한(20.87s)에 걸렸다.
+	//
+	// 그래서 **받는 자리를 하나로 모은다**: 첫 조각은 select 가 받아 직접 먹이고,
+	// 그 뒤부터 goroutine 이 잇는다.
+	feed := func(data []byte) { tracker.FeedOutput(toolID, data) }
 
 	// Write input to trigger output
 	if err := pc.Write(toolID, []byte("echo hello\n")); err != nil {
@@ -115,11 +121,16 @@ func TestDaemonFullFlow(t *testing.T) {
 
 	// Wait for output
 	select {
-	case <-outputCh:
-		// got some output
+	case data := <-outputCh:
+		feed(data)
 	case <-time.After(shellReadyLimit):
 		t.Fatal("no output received from tool")
 	}
+	go func() {
+		for data := range outputCh {
+			feed(data)
+		}
+	}()
 
 	// Set activity
 	tracker.SetActivity(toolID, "working", "claude", "testing")
