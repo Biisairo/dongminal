@@ -4,12 +4,54 @@
 
 단일 Go 바이너리에 프론트엔드(xterm.js)와 런타임 헬퍼 스크립트가 모두 포함되어 있어 실행 파일 하나로 서비스가 가능합니다.
 
+## 설치
+
+**의존이 없는 단일 바이너리입니다.** 받아서 실행하면 끝이고 Go 도 필요 없습니다 —
+프론트엔드(xterm.js)와 런타임 헬퍼까지 안에 들어 있습니다.
+
+[Releases](https://github.com/Biisairo/dongminal/releases/latest) 에서 자기 OS 것
+하나만 받으면 됩니다.
+
+**macOS (Apple Silicon)**
+
+```bash
+curl -fL -o dongminal https://github.com/Biisairo/dongminal/releases/latest/download/dongminal-darwin-arm64
+chmod +x dongminal && xattr -d com.apple.quarantine dongminal
+./dongminal start --open
+```
+
+Intel 맥은 `darwin-arm64` 를 `darwin-amd64` 로 바꿉니다. `xattr` 한 줄이 필요한
+이유는 코드 서명·공증을 하지 않았기 때문입니다 — 없으면 "열 수 없음" 에서 막힙니다.
+
+**Linux · WSL**
+
+```bash
+curl -fL -o dongminal https://github.com/Biisairo/dongminal/releases/latest/download/dongminal-linux-amd64
+chmod +x dongminal
+./dongminal start
+```
+
+ARM64 는 `linux-amd64` 를 `linux-arm64` 로 바꿉니다.
+
+**Windows 10 1809+** (PowerShell)
+
+```powershell
+curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/latest/download/dongminal-windows-amd64.exe
+.\dongminal.exe start --open
+```
+
+받은 파일이 맞는지 확인하려면 같은 릴리스의 `SHA256SUMS` 를 씁니다.
+
+```bash
+curl -fLO https://github.com/Biisairo/dongminal/releases/latest/download/SHA256SUMS
+sha256sum -c SHA256SUMS --ignore-missing
+```
+
 ## 빠른 시작
 
 ```bash
-./scripts/build.sh                    # 빌드
-
 ./dongminal                           # 도움말 (-h, --help 도 동일)
+./dongminal version                   # 판·대상·go 런타임 (--version 도 동일)
 ./dongminal start                     # 실행 (localhost only, 포트 58146, 창 유지)
 PORT=8080 ./dongminal start           # 포트 지정 (--port 8080 도 동일)
 ./dongminal start --expose            # LAN 노출 실행 (사내망 다른 기기 접근 허용)
@@ -20,6 +62,7 @@ PORT=8080 ./dongminal start           # 포트 지정 (--port 8080 도 동일)
 ./dongminal stop                      # 중지 (창 유지)
 ./dongminal stop --all                # 전체 중지 (dongminald 포함)
 ./dongminal health                    # 헬스 체크
+./dongminal doctor                    # 이 호스트에서 플랫폼 계층이 도는지 진단
 ./dongminal migrate --dry-run         # 스키마 변환 계획 확인
 ./dongminal migrate                   # 스키마 변환 (서버 정지 후)
 ```
@@ -27,6 +70,10 @@ PORT=8080 ./dongminal start           # 포트 지정 (--port 8080 도 동일)
 액션 없이 실행하면 도움말이 나옵니다. 액션별 옵션은 `./dongminal <action> --help`.
 
 브라우저에서 `http://localhost:<PORT>/` 접속. `--expose` 로 띄운 경우 같은 네트워크의 다른 기기에서 `http://<host-ip>:<PORT>/` 로도 접근됩니다.
+
+터미널이 뜨지 않거나 비어 보이면 **`./dongminal doctor`** 를 먼저 돌립니다 — 셸 선택,
+의사 터미널 기동, 로컬 IPC, 프로세스 제어를 계층별로 실제 실행해 어디서 막혔는지
+그대로 보여 줍니다.
 
 상세한 설치·실행·환경변수는 [docs/external/getting-started.md](docs/external/getting-started.md).
 
@@ -42,7 +89,10 @@ OS 마다 달라지는 것은 전부 `internal/shared/platform` 뒤에 있다 �
 Windows 최소 버전이 1809 인 이유는 ConPTY(`CreatePseudoConsole`)다 — Windows 에서
 PTY 의미론을 얻는 유일한 공식 경로이며 그 버전에서 도입됐다.
 
-### 빌드
+### 소스에서 빌드
+
+받아서 쓰는 사람에게는 필요 없다 — 위 [설치](#설치)면 끝이다. 이 절은 고치는
+사람을 위한 것이다. Go 1.24+ 가 필요하다.
 
 Go 는 교차 컴파일이 기본이라 별도 툴체인이 필요 없다. 맥에서 윈도우·리눅스
 바이너리가 그대로 나온다.
@@ -52,7 +102,11 @@ scripts/build.sh                        # 호스트용 하나 → ./dongminal
 scripts/build.sh --os windows           # 윈도우용 → dist/dongminal-windows-amd64.exe
 scripts/build.sh --os linux --arch arm64
 scripts/build.sh --all                  # 배포 대상 5종 → dist/
+VERSION=v1.0.0 scripts/build.sh --all   # 판을 새겨서 (릴리스가 쓰는 형태)
 ```
+
+`VERSION` 을 주지 않으면 `dongminal version` 이 `dev` 를 낸다. 소스 빌드와 릴리스
+산출물을 구별하기 위해서다.
 
 대상은 darwin/arm64 · darwin/amd64 · linux/amd64 · linux/arm64 · windows/amd64 다.
 WSL 은 별도 대상이 아니다 — `linux/amd64` 를 그대로 쓴다.
@@ -72,22 +126,29 @@ darwin 이 아닌 호스트에서 darwin 대상을 빌드하면 cgo 를 켤 수 
 ### 검사
 
 ```bash
-scripts/check-cross.sh    # 5개 대상 build + vet (테스트 파일까지 타입 검사)
-scripts/check-seams.sh    # OS 의존 호출이 platform 밖에 없는지
+scripts/check-cross.sh     # 5개 대상 build + vet (테스트 파일까지 타입 검사)
+scripts/check-seams.sh     # OS 의존 호출이 platform 밖에 없는지
+scripts/verify-isolated.sh # 격리 인스턴스를 띄워 종단간 22항목 (dongminal verify)
 ```
+
+종단간 검사의 정의는 **Go 한 벌**이다 (`internal/ctl/cli/verify.go`). 세 OS 가 같은
+목록을 돌고, CI 의 Linux·Windows 도 같은 것을 부른다 — 검사를 셸 스크립트로 두 벌
+적던 것을 접었다. 설계는
+[docs/internal/E2E_UNIFICATION_SRS.md](docs/internal/E2E_UNIFICATION_SRS.md).
+
+### 배포
+
+태그 `v*` 를 밀면 `.github/workflows/release.yml` 이 세 OS 에서 게이트(단위 테스트 ·
+`doctor` · `verify`)를 돌리고, 다섯 대상을 빌드해 GitHub Releases 에 첨부한다.
+바이너리는 저장소에 커밋하지 않는다 — 이유와 설계는
+[docs/internal/RELEASE_SRS.md](docs/internal/RELEASE_SRS.md).
 
 설계와 이음매 목록은 [docs/internal/CROSS_PLATFORM_SRS.md](docs/internal/CROSS_PLATFORM_SRS.md).
 
-터미널이 뜨지 않거나 비어 보이면 먼저 진단을 돌린다. 서버가 쓰는 것과 같은
-플랫폼 코드를 계층별로 실제 실행해 어디서 무슨 오류로 막혔는지 알려 준다.
-
-```bash
-dongminal doctor
-```
-
-> Windows native 는 **실기 검증 중**이다. 5개 대상의 build·vet 과 판단 로직의
-> 단위 테스트까지는 통과하지만, WinAPI 호출 자체(ConPTY·Job Object·toolhelp 등)는
-> 아직 실제 Windows 에서 돌려보지 않았다. SRS §10.4 참조.
+세 OS 모두 **실기에서 검증된다.** CI(`.github/workflows/verify.yml`)가 매 푸시마다
+Linux·Windows 에서 단위 테스트 · `doctor` · `verify` 를 돌리고, macOS 는 개발자가
+로컬에서 같은 것을 돈다. WinAPI 호출(ConPTY·Job Object·toolhelp)도 실제 Windows
+러너에서 실행된다.
 
 ## 테스트
 
@@ -121,23 +182,30 @@ e2e 는 `go run ./cmd/dongminal start --foreground` 로 포트 58147 에 서버�
 기본 포트(58146)의 인스턴스를 정지시키므로, 격리 인스턴스를 접을 때는 `start` 가
 출력한 정지 명령(`--port`·`--home` 이 채워진 형태)을 그대로 쓴다.
 
-그 절차를 스크립트로 굳혀 둔 것이 아래다. 격리 인스턴스를 띄워 21항목을 훑고
-스스로 정리한다 — `stop` 을 쓰지 않고 `start` 가 출력한 PID 와 격리 홈의
-`paned.pid` 만 직접 kill 하며, URL 이 58146 이거나 홈이 격리 홈이 아니면 아무것도
-건드리지 않고 중단한다:
+종단간은 `dongminal verify` 다. 격리 인스턴스를 **스스로** 띄워 22항목을 훑고
+치운다:
 
 ```bash
-scripts/verify-isolated.sh
+./dongminal verify           # 또는 scripts/verify-isolated.sh (빌드까지 함께)
 ```
 
 검사 범위는 데몬 기동·`paned.sock`·`/api/ping`, 도구 생성(PTY+IPC 왕복)·조회·busy
-RPC·출력 조회, 워크스페이스·설정·상태 조회, git 읽기 표면 8종과 없는 git 경로의
-404, `index.html` 이 실제로 로드하는 `<script>` 전량 200, 구 평면 경로(`/js/app.js`)
-404 다. git 검사 대상은 **실제 리포**여야 한다 — 비-git 디렉터리는 `ErrNotRepo` 로
-정당하게 404 라서 라우팅 누락과 구별되지 않는다.
+RPC·출력 조회·**입력→출력 왕복**, 워크스페이스·설정·상태 조회, git 읽기 표면 8종과
+없는 git 경로의 404, `index.html` 이 실제로 로드하는 `<script>` 전량 200, 구 평면
+경로(`/js/app.js`) 404 다.
+
+`verify` 는 `--port`·`--home` 을 **받지 않는다.** 언제나 임시 홈과 빈 포트에서 돌고,
+`stop` 대신 자기가 띄운 PID 와 격리 홈의 `paned.pid` 만 직접 끝낸다 — 운영
+인스턴스를 건드릴 방법이 없다. 홈이 격리 홈이 아니거나 포트가 58146 이면 아무것도
+띄우지 않고 중단한다.
+
+git 검사 대상은 **실제 리포**여야 한다 — 비-git 디렉터리는 `ErrNotRepo` 로 정당하게
+404 라서 라우팅 누락과 구별되지 않는다. 저장소가 아니면 그 항목들은 이유와 함께
+건너뛴다.
 
 ## 문서
 
+- **변경 이력**: [CHANGELOG.md](CHANGELOG.md)
 - **사용자**: [docs/external/](docs/external/) — 설치, 기능, 단축키, dmctl/edit/detach CLI, 에이전트 오케스트레이션, API.
 - **개발자**: [docs/internal/](docs/internal/) — 아키텍처, 테스트 체크리스트, 인계 문서. 완료된 SRS·RFC 기록은 [docs/internal/archive/](docs/internal/archive/).
 
@@ -253,7 +321,7 @@ dongminal/
 
 ## 기술 스택
 
-- **백엔드**: Go 1.21+, `creack/pty`, `gorilla/websocket`, `go:embed`
+- **백엔드**: Go 1.24+, `creack/pty`, `gorilla/websocket`, `go:embed`
 - **프론트엔드**: xterm.js v5 (fit, search, web-links, unicode11 addons)
 - **선택 의존성**: `claude` CLI (에이전트 오케스트레이션 시)
 

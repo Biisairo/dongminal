@@ -8,6 +8,13 @@ cd "$(dirname "$0")/.."
 BINARY="${BINARY:-dongminal}"
 DIST="${DIST:-dist}"
 
+# VERSION 은 바이너리에 새길 판이다. 비면 새기지 않고, 그때 값은 cli.Version 의
+# 기본값 `dev` 다 — 소스 빌드와 릴리스 산출물을 구별하기 위해서다
+# (RELEASE_SRS FR-RVN-2/4). 릴리스 워크플로우가 태그 문자열을 그대로 넣는다.
+VERSION="${VERSION:-}"
+LDFLAGS=""
+[[ -n "$VERSION" ]] && LDFLAGS="-X dongminal/internal/ctl/cli.Version=$VERSION"
+
 # TARGETS 는 --all 이 만드는 대상이자 -h 가 보여 주는 목록이다. 한 곳에만
 # 적어 도움말이 실제 동작과 어긋나지 않게 한다.
 TARGETS=(darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64)
@@ -38,6 +45,7 @@ $(printf '  %s\n' "${TARGETS[@]}")
   scripts/build.sh --os linux --arch arm64
   BINARY=dm scripts/build.sh                 # 출력 이름 바꾸기
   DIST=out scripts/build.sh --all            # 출력 위치 바꾸기
+  VERSION=v1.0.0 scripts/build.sh --all      # 판을 새겨서 빌드 (릴리스가 쓰는 형태)
 
 참고:
   · Go 는 교차 컴파일이 기본이라 별도 툴체인이 필요 없다.
@@ -77,7 +85,8 @@ cgo_for() {
 build_one() {
   local os="$1" arch="$2" out="$3"
   local cgo; cgo="$(cgo_for "$os")"
-  CGO_ENABLED="$cgo" GOOS="$os" GOARCH="$arch" go build -o "$out" ./cmd/dongminal
+  CGO_ENABLED="$cgo" GOOS="$os" GOARCH="$arch" \
+    go build ${LDFLAGS:+-ldflags "$LDFLAGS"} -o "$out" ./cmd/dongminal
   if [[ "$os" == "darwin" && "$cgo" == "0" ]]; then
     # 건너뛰지 않고 빌드하되 사실을 남긴다. 경고가 없으면 지표가 빠진 배포본이
     # 조용히 나간다.

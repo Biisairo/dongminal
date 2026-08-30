@@ -20,6 +20,8 @@ func Dispatch(args []string, serve Serve, stdout, stderr io.Writer) int {
 	case "-h", "--help", "help":
 		fmt.Fprint(stdout, Help())
 		return 0
+	case "version", "--version":
+		return RunVersion(stdout)
 	case "start":
 		o, err := ParseStart(rest)
 		if code, done := settle(action, err, stdout, stderr); done {

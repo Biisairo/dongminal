@@ -54,6 +54,8 @@ web/                     # 프론트엔드 자산 + embed.FS()
   js/git/                #   git 패널 11파일
 e2e/                     # Playwright 스펙 + git 픽스처(git_fixture.sh)
 scripts/                 # build.sh — 빌드 · verify-isolated.sh — `dongminal verify` 껍데기
+.github/workflows/       # verify.yml — 매 푸시 검사 (Linux·Windows)
+                         # release.yml — 태그 v* → 5개 대상 빌드 → GitHub Releases
                          #   운영 동작은 바이너리의 액션 (internal/ctl/cli)
 docs/
   internal/              # 개발자 문서 (이 파일)

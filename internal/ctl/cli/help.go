@@ -7,7 +7,7 @@ const commonFlags = `  --port <n>        포트 (기본: $PORT, 없으면 ` + De
 
 // Help는 무인자·-h·--help 실행 시의 출력이다 (FR-CLI-1..3).
 func Help() string {
-	return `dongminal — 브라우저에서 쓰는 터미널 워크스페이스
+	return `dongminal ` + Version + ` — 브라우저에서 쓰는 터미널 워크스페이스
 
 사용법:
   dongminal <action> [옵션]
@@ -19,6 +19,7 @@ func Help() string {
   health     서버와 dongminald 의 상태를 확인한다
   doctor     이 호스트에서 플랫폼 계층이 동작하는지 확인한다
   verify     격리 인스턴스를 띄워 종단간 표면을 훑는다 (개발·CI)
+  version    판·대상·go 런타임을 찍는다 (--version 도 동일)
 
 액션별 옵션은 다음으로 본다:
   dongminal <action> --help

@@ -1,6 +1,9 @@
 package platform
 
-import "strings"
+import (
+	"runtime"
+	"strings"
+)
 
 // OSKind 는 이 빌드가 도는 운영체제의 종류다 (FR-XPL-4).
 //
@@ -47,3 +50,14 @@ func linuxKind(read func(string) ([]byte, error)) OSKind {
 	}
 	return Linux
 }
+
+// BuildTarget 은 이 바이너리가 **빌드된 대상**이다 — `GOOS/GOARCH`.
+//
+// OSKind 와 뜻이 다르다. OSKind 는 **지금 도는 환경**이고 WSL 을 linux 와 구분한다.
+// BuildTarget 은 **받은 파일이 무엇인가**다 — 배포 애셋 이름이 이 값으로 정해지므로
+// (dongminal-darwin-arm64 …), "무엇을 받았느냐" 는 물음에 답해야 하는 것은 이쪽이다.
+// darwin 은 amd64 를 받아도 Rosetta 로 돌아 증상만으로 구별되지 않는다.
+//
+// runtime.GOOS 를 이 패키지 안에서만 만지는 규칙(FR-XPL-5)을 지키려고 여기 둔다.
+// 표시·기록용 값이며 분기의 근거가 아니다.
+func BuildTarget() string { return runtime.GOOS + "/" + runtime.GOARCH }

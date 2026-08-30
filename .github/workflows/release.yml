@@ -1,0 +1,216 @@
+name: release
+
+# 태그를 밀면 다섯 대상의 바이너리를 만들어 GitHub Releases 에 첨부한다.
+# 받는 사람은 자기 OS 것 **하나만** 내려받아 바로 실행한다 — 이 프로그램은
+# 의존이 없는 단일 정적 바이너리이고 프론트엔드까지 go:embed 로 들어 있다.
+#
+# 바이너리를 저장소에 커밋하지 않는 이유는 실측이다: 5종 합계 69MB 이고 git 은
+# 모든 판을 영구히 보관하며 바이너리는 델타 압축이 먹지 않는다 (RELEASE_SRS §2.1).
+# 릴리스 애셋은 git object 가 아니라 저장소 밖에 놓인다.
+#
+# **darwin 대상은 macOS 러너에서 빌드해야 한다.** go 는 GOOS/GOARCH 가 호스트와
+# 다르면 CGO_ENABLED 를 자동으로 0 으로 내리고, 그러면 sysstat 의 mach 호출이
+# 빠져 CPU·메모리 지표 없는 바이너리가 조용히 나간다 (§2.2). 이것이 러너를
+# 가르는 유일한 이유다.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '새길 판 (예: v1.0.0). 태그 없이 시험할 때만 쓴다'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  # ── 게이트 ────────────────────────────────────────────────────────
+  #
+  # 애셋을 올리기 전에 **세 OS 에서** 통과해야 한다. 상시 CI 에 macOS 를 넣지
+  # 않는다는 결정은 매 푸시에 대한 것이고, 릴리스는 드물면서 darwin 바이너리를
+  # 실제로 배포하는 순간이다 (FR-RGT-2).
+  gate:
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: build · vet · 단위 테스트
+        run: |
+          go build ./...
+          go vet ./...
+          go test ./internal/... ./cmd/...
+
+      - name: doctor (플랫폼 계층)
+        run: go run ./cmd/dongminal doctor
+
+      - name: verify (종단간 22항목)
+        run: go run ./cmd/dongminal verify
+
+  # ── 빌드 ──────────────────────────────────────────────────────────
+  #
+  # 반드시 scripts/build.sh 를 거친다. 워크플로우가 go build 를 직접 부르면
+  # cgo 정책과 이름 규칙이 두 벌이 되고, 두 벌이면 한쪽만 고쳐진다 (FR-RWF-4).
+  build-darwin:
+    needs: gate
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: darwin arm64 · amd64
+        env:
+          VERSION: ${{ github.event.inputs.version || github.ref_name }}
+        run: |
+          set -euo pipefail
+          scripts/build.sh --os darwin --arch arm64 | tee build.log
+          scripts/build.sh --os darwin --arch amd64 | tee -a build.log
+          # build.sh 는 cgo 없이 빌드하면 경고만 남긴다. 경고는 릴리스를 막지
+          # 못하므로 여기서 실패로 승격시킨다 — 지표가 빠진 배포본이 조용히
+          # 나가는 것을 막는다 (FR-RWF-5).
+          if grep -q '⚠' build.log; then
+            echo "::error::darwin 을 cgo 없이 빌드했습니다. CPU·메모리 지표가 빠집니다."
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-darwin
+          path: dist/
+          if-no-files-found: error
+
+  build-others:
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: linux amd64 · arm64 · windows amd64
+        env:
+          VERSION: ${{ github.event.inputs.version || github.ref_name }}
+        run: |
+          set -euo pipefail
+          scripts/build.sh --os linux   --arch amd64
+          scripts/build.sh --os linux   --arch arm64
+          scripts/build.sh --os windows --arch amd64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-others
+          path: dist/
+          if-no-files-found: error
+
+  # ── 발행 ──────────────────────────────────────────────────────────
+  #
+  # 두 빌드 잡 **모두** 를 기다린다. 절반만 올라간 릴리스가 가장 나쁘다
+  # (FR-RGT-3).
+  publish:
+    needs: [build-darwin, build-others]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: staging
+
+      - name: 애셋 모으기 · 체크섬
+        id: collect
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          find staging -type f -exec mv {} dist/ \;
+          cd dist
+          # 다섯 대상이 모두 있어야 한다. 하나라도 빠지면 멈춘다.
+          expected=(dongminal-darwin-arm64 dongminal-darwin-amd64 \
+                    dongminal-linux-amd64 dongminal-linux-arm64 \
+                    dongminal-windows-amd64.exe)
+          for f in "${expected[@]}"; do
+            [[ -f "$f" ]] || { echo "::error::애셋 누락: $f"; exit 1; }
+          done
+          chmod +x dongminal-darwin-* dongminal-linux-*
+          sha256sum "${expected[@]}" > SHA256SUMS
+          echo "── 애셋"
+          ls -lh
+          cat SHA256SUMS
+
+      - name: 릴리스 생성
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.event.inputs.version || github.ref_name }}
+        run: |
+          set -euo pipefail
+          # 받는 사람이 페이지를 벗어나지 않고 명령을 복사할 수 있어야 한다
+          # (FR-RWF-7).
+          cat > notes.md <<EOF
+          단일 바이너리입니다. 받아서 실행하면 끝이고, Go 도 다른 의존도 필요 없습니다 —
+          프론트엔드와 런타임 헬퍼까지 안에 들어 있습니다.
+
+          ## 설치
+
+          **macOS (Apple Silicon)**
+          \`\`\`bash
+          curl -fL -o dongminal https://github.com/${{ github.repository }}/releases/download/$VERSION/dongminal-darwin-arm64
+          chmod +x dongminal && xattr -d com.apple.quarantine dongminal
+          ./dongminal start --open
+          \`\`\`
+
+          **macOS (Intel)** — 위에서 \`darwin-arm64\` 를 \`darwin-amd64\` 로.
+
+          **Linux / WSL**
+          \`\`\`bash
+          curl -fL -o dongminal https://github.com/${{ github.repository }}/releases/download/$VERSION/dongminal-linux-amd64
+          chmod +x dongminal
+          ./dongminal start
+          \`\`\`
+
+          **Windows 10 1809+** (PowerShell)
+          \`\`\`powershell
+          curl.exe -fL -o dongminal.exe https://github.com/${{ github.repository }}/releases/download/$VERSION/dongminal-windows-amd64.exe
+          .\\dongminal.exe start --open
+          \`\`\`
+
+          브라우저에서 \`http://localhost:58146/\` 로 접속합니다.
+          \`./dongminal\` 을 인자 없이 실행하면 도움말이, \`./dongminal version\` 이 판을 냅니다.
+
+          ## 확인
+
+          \`\`\`bash
+          curl -fLO https://github.com/${{ github.repository }}/releases/download/$VERSION/SHA256SUMS
+          sha256sum -c SHA256SUMS --ignore-missing
+          \`\`\`
+
+          ## 대상
+
+          | 파일 | 대상 |
+          |---|---|
+          | \`dongminal-darwin-arm64\` | macOS Apple Silicon |
+          | \`dongminal-darwin-amd64\` | macOS Intel |
+          | \`dongminal-linux-amd64\` | Linux x86_64 · WSL |
+          | \`dongminal-linux-arm64\` | Linux ARM64 |
+          | \`dongminal-windows-amd64.exe\` | Windows 10 1809+ |
+
+          macOS 산출물은 코드 서명·공증을 하지 않았습니다. 위 \`xattr\` 한 줄이 그래서 필요합니다.
+          EOF
+
+          gh release create "$VERSION" dist/* \
+            --repo "${{ github.repository }}" \
+            --title "$VERSION" \
+            --notes-file notes.md
