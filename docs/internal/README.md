@@ -11,6 +11,8 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | 문서 | 내용 |
 |------|------|
 | [EDITOR_TAB_SRS.md](./EDITOR_TAB_SRS.md) | **Editor 탭 — 파일 탐색기와 편집기 창** (IEEE 29148). 편집기를 일반 창의 탭에서 걷어내고 경로마다 하나씩 서는 제3의 사이드바 탭으로 옮긴다. FR-EDT-1~120, V-EDT-1~96, 확정 결정 D-1~D-29. §2 는 착수 전 조사와 1차 검증으로 굳힌 사실이며 **§2.4(`layout` 없는 창이 지워진다)가 이번 작업 최대의 제약**이다. §3.7 은 VSCode 의 폴더 색이 우선순위가 아니라 **경로 사전순 우연**임을 소스로 확인하고 모사하지 않기로 한 근거를 담는다. **구현 완료** |
+| [RECONNECT_STORM_SRS.md](./RECONNECT_STORM_SRS.md) | **재연결 폭주와 헬퍼 설치의 비원자성** (IEEE 29148). 원격 접속이 한 번씩 끊기던 원인 — 사라진 도구를 향한 지연 0 의 무한 재접속이 임시 포트를 말렸다. §2 는 전부 실측(초당 95연결·TIME_WAIT 2,881·포트 16,384)이고, §2.5 는 **배포된 클라이언트 수정이 이미 열려 있는 탭에 닿지 않는다**는 사실을 재측정으로 확인한 기록이다. §6.1 에 판단 오류 둘(비목표 #4 철회·D-5 철회)을 근거와 함께 남긴다. **구현 완료** |
+| [EDITOR_GIT_UX_SRS.md](./EDITOR_GIT_UX_SRS.md) | **Changes 크기조정 · Diff 개요 눈금 · Editor 검색 · 열 수 있는 형식** (IEEE 29148). 묶음 **D**(FR-CSZ) · **O**(FR-DOR) · **F·G**(FR-EQO·FR-EGS) · **V**(FR-EVW) · **K**(FR-EKB). §1.3 의 인터뷰 결정 셋이 스펙보다 앞선다. §2.4 가 착수 전 제약 — 전역 keydown 은 Monaco 안에서 돌지 않으므로 키를 두 자리에 배선해야 한다. **구현 완료** |
 | [architecture.md](./architecture.md) | 패키지 레이아웃, **에이전트 접합면과 Run**, **에이전트 어댑터 레지스트리**, **멤버 프리앰블**, 어댑터 패턴, 커맨드 브로드캐스트, 핫패스 성능, 종료 경로 |
 | [test-checklist.md](./test-checklist.md) | 백엔드·프론트엔드 동작 체크리스트 + 테스트 커버리지 현황 |
 | [ENTITY_MODEL_RESTRUCTURE_SRS.md](./ENTITY_MODEL_RESTRUCTURE_SRS.md) | 엔티티 모델(Window ─ Pane ─ Tab ─ Tool)과 백그라운드 도구의 단일 진실 공급원. 요구 1·2 완료. §7 의 Run 접합면(FR-EM-17/18)은 후속 작업의 근거다 |
