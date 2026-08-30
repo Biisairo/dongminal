@@ -121,6 +121,17 @@ cd dongminal
 
 빌드는 하지 않습니다 — `./scripts/build.sh` 의 책임입니다.
 
+### 훅이 죽을 때 — `health`
+
+에이전트 훅이 `bin/dmctl: No such file or directory` 로 실패하면 설치된 헬퍼가
+깨진 것입니다. `dongminal health` 가 그 사실을 알려 줍니다.
+
+```bash
+./dongminal health
+```
+
+고치는 방법은 서버를 다시 띄우는 것입니다 — 기동이 헬퍼를 다시 설치합니다.
+
 ### 안 될 때 — `doctor`
 
 터미널이 뜨지 않거나 비어 보이면 먼저 이것을 돌립니다.

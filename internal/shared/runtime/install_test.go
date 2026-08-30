@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"dongminal/internal/helper/runtimebin"
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/testpath"
 )
 
@@ -45,15 +46,16 @@ func TestInstallAgentHooks_Activity(t *testing.T) {
 
 func TestInstallHelperSymlinks(t *testing.T) {
 	dir := t.TempDir()
-	if err := Install(dir); err != nil {
+	// **덧없지 않은** 자기 경로로 잰다. `go test` 의 테스트 바이너리 자신이 임시
+	// go-build 산출물이라 os.Executable() 을 쓰면 새 규칙(복사)에 걸린다
+	// (HELPER_INSTALL_SRS FR-HLI-1). 여기서 재려는 것은 그 규칙이 아니라
+	// **평범한 설치의 심링크 계약**이므로 조건을 고정한다.
+	self := filepath.Join(t.TempDir(), "dongminal"+platform.Current().Paths.ExeSuffix())
+	if err := os.WriteFile(self, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := installWith(dir, self); err != nil {
 		t.Fatalf("Install: %v", err)
-	}
-	self, err := os.Executable()
-	if err != nil {
-		t.Fatalf("os.Executable: %v", err)
-	}
-	if resolved, err := filepath.EvalSymlinks(self); err == nil {
-		self = resolved
 	}
 	helpers := append([]string{}, runtimebin.HelperNames()...)
 	sort.Strings(helpers)

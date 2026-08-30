@@ -69,8 +69,20 @@ func RunDoctor(o DoctorOpts, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "dongminal doctor — platform=%s\n", p.OS)
 
 	doctorEnvironment(r, p, home)
-	binDir := filepath.Join(home, "bin")
-	doctorInstall(r, p, home, binDir)
+	// HELPER_INSTALL_SRS FR-HLI-5: **운영 홈의 bin 에 설치하지 않는다.**
+	// 종전에는 검사를 위해 거기에 실제로 설치했고, 그 경로로 사고가 났다
+	// (§2.5) — `go run` 으로 부르면 사라질 경로를 가리키는 링크가 운영 홈에
+	// 남는다. 계층이 도는지는 임시 자리에서 물어도 답이 같다.
+	probeBin, cleanup, err := doctorProbeBin()
+	if err != nil {
+		r.bad("검사용 임시 bin 을 만들지 못했습니다: %v", err)
+		probeBin = filepath.Join(home, "bin")
+	}
+	defer cleanup()
+	doctorInstall(r, p, home, probeBin)
+	// FR-HLI-8: 설치를 대신해, 운영 홈에 이미 있는 것이 쓸 수 있는 상태인지 본다.
+	doctorHelpers(r, filepath.Join(home, "bin"))
+	binDir := probeBin
 	doctorShell(r, p, binDir)
 	doctorTerminal(r, p, binDir, home)
 	doctorTool(r, home)
@@ -112,6 +124,32 @@ func doctorEnvironment(r *checkReport, p platform.Platform, home string) {
 	} else {
 		r.ok("홈 존재")
 	}
+}
+
+// doctorProbeBin 은 설치 계층을 시험할 임시 자리다. 끝나면 지운다 —
+// 진단은 자국을 남기지 않는다 (FR-HLI-5).
+func doctorProbeBin() (string, func(), error) {
+	dir, err := os.MkdirTemp("", "dongminal-doctor-")
+	if err != nil {
+		return "", func() {}, err
+	}
+	return filepath.Join(dir, "bin"), func() { _ = os.RemoveAll(dir) }, nil
+}
+
+// doctorHelpers 는 **운영 홈**에 설치된 헬퍼가 실제로 실행 가능한지 본다
+// (FR-HLI-8). 고치지 않는다 — 고치는 것은 기동의 몫이고, 진단이 대상을 바꾸면
+// 무엇이 원래 상태였는지 알 수 없게 된다 (D-4).
+func doctorHelpers(r *checkReport, binDir string) {
+	r.section("설치된 헬퍼 (" + binDir + ")")
+	bad := runtime.CheckHelpers(binDir)
+	if len(bad) == 0 {
+		r.ok("헬퍼 전부 실행 가능")
+		return
+	}
+	for _, b := range bad {
+		r.bad("%s — %s", b.Path, b.Reason)
+	}
+	r.info("%s", runtime.HelperFixHint)
 }
 
 // doctorInstall 은 헬퍼와 셸 훅을 실제로 설치해 본다. 훅이 없으면 셸이 없는

@@ -16,6 +16,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"dongminal/internal/helper/runtimebin"
 	"dongminal/internal/shared/platform"
@@ -37,14 +38,7 @@ var agentPluginFS embed.FS
 func helperNames() []string { return runtimebin.HelperNames() }
 
 // Install은 helper symlink + shell hook 파일을 binDir 에 설치한다.
-// selfExe 가 비어있으면 os.Executable() 결과를 사용한다.
 func Install(binDir string) error {
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", binDir, err)
-	}
-	if err := installShellHooks(binDir); err != nil {
-		return err
-	}
 	self, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("os.Executable: %w", err)
@@ -52,7 +46,29 @@ func Install(binDir string) error {
 	if resolved, err := filepath.EvalSymlinks(self); err == nil {
 		self = resolved
 	}
+	return installWith(binDir, self)
+}
+
+// installWith 는 Install 의 몸통이다. 자기 경로를 인자로 받는 이유는 검증이다 —
+// `go run` 아래의 덧없는 경로를 테스트가 재현할 수 있어야 한다 (V-HLI-1).
+func installWith(binDir, self string) error {
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", binDir, err)
+	}
+	if err := installShellHooks(binDir); err != nil {
+		return err
+	}
 	paths := platform.Current().Paths
+	// HELPER_INSTALL_SRS FR-HLI-1: 사라질 것을 가리키지 않는다. `go run` 아래에서
+	// 자기 자신은 임시 빌드 산출물이고, 그 프로세스가 끝나면 지워진다 — 설치는
+	// 성공한 채로 다섯 링크가 한꺼번에 죽는다 (§2.1·§2.3).
+	if isEphemeralExe(self) {
+		stable, err := stableSelfCopy(paths, binDir, self)
+		if err != nil {
+			return err
+		}
+		self = stable
+	}
 	for _, name := range helperNames() {
 		// 확장자는 설치 시점에만 붙인다. helperNames() 는 multi-call 디스패치가
 		// 보는 이름이며 그쪽에는 확장자가 없다 (FR-XPA-3).
@@ -69,6 +85,95 @@ func Install(binDir string) error {
 	}
 	return nil
 }
+
+// selfCopyName 은 덧없는 자기 자신을 붙들어 두는 자리다. **헬퍼 이름이 아니어야
+// 한다** (FR-HLI-4) — multi-call 디스패치는 argv[0] 로 무엇을 할지 정하므로,
+// 헬퍼 이름과 겹치면 이 파일을 직접 부른 사람이 다른 동작을 얻는다.
+const selfCopyName = "dongminal-self"
+
+// isEphemeralExe 는 이 경로가 `go run` 의 임시 산출물인지 본다.
+//
+// **두 조건을 모두** 만족할 때만 그렇다고 한다 (FR-HLI-2, D-2). 임시 디렉터리
+// 아래라는 것만으로 판정하면 임시 홈에 정식 설치한 경우(`--isolated`·`verify`)가
+// 걸리고, `go-build` 라는 이름만으로 판정하면 그 이름의 실제 설치 자리를 오인한다.
+func isEphemeralExe(exe string) bool {
+	// 양쪽을 같은 방식으로 편다. macOS 의 os.TempDir() 은 `/var/folders/...` 를
+	// 주고 그 `/var` 는 `/private/var` 로 가는 심볼릭 링크다 — 한쪽만 펴면 같은
+	// 자리를 다른 곳으로 본다.
+	tmp := resolvePath(os.TempDir())
+	rel, err := filepath.Rel(tmp, resolvePath(exe))
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return false
+	}
+	for _, seg := range strings.Split(rel, string(filepath.Separator)) {
+		if strings.HasPrefix(seg, "go-build") {
+			return true
+		}
+	}
+	return false
+}
+
+// resolvePath 는 심볼릭 링크를 편다. 펼 수 없으면(없는 경로 등) 원래 값이다.
+func resolvePath(p string) string {
+	if r, err := filepath.EvalSymlinks(p); err == nil {
+		return r
+	}
+	return p
+}
+
+// stableSelfCopy 는 덧없는 자기 자신을 binDir 안에 복사하고 그 경로를 돌려준다.
+// 헬퍼들은 이 복사본을 가리킨다 — bin 은 이미 이 프로그램이 소유하는 자리이므로
+// 복사본이 남을 곳으로 그만한 데가 없다 (D-3).
+func stableSelfCopy(paths platform.Paths, binDir, self string) (string, error) {
+	dst := filepath.Join(binDir, selfCopyName+paths.ExeSuffix())
+	// LinkOrCopy 가 아니다 — 그것은 심볼릭 링크를 먼저 시도하고, 링크로 만들면
+	// 덧없는 곳을 가리켜 이 작업이 헛돈다. 여기서는 실체가 필요하다.
+	if err := platform.CopyExecutable(self, dst); err != nil {
+		return "", fmt.Errorf("install self copy: %w", err)
+	}
+	return dst, nil
+}
+
+// HelperProblem 은 설치된 헬퍼 하나가 쓸 수 없는 상태라는 보고다 (FR-HLI-7).
+type HelperProblem struct {
+	Name   string
+	Path   string
+	Reason string
+}
+
+// CheckHelpers 는 설치된 헬퍼가 **실제로 실행 가능한지** 본다.
+//
+// 이 검사가 필요한 이유는 설치와 고장의 시점이 다르기 때문이다 — 링크는 설치
+// 시점에 유효했다가 대상이 사라지면서 죽는다(§2.3). 고치지는 않는다 (D-4):
+// 고치는 것은 기동의 몫이고, 진단이 대상을 바꾸면 원래 상태를 알 수 없게 된다.
+func CheckHelpers(binDir string) []HelperProblem {
+	paths := platform.Current().Paths
+	var bad []HelperProblem
+	for _, name := range helperNames() {
+		p := filepath.Join(binDir, name+paths.ExeSuffix())
+		// Stat 은 심볼릭 링크를 따라간다 — 죽은 링크는 여기서 걸린다.
+		fi, err := os.Stat(p)
+		switch {
+		case os.IsNotExist(err):
+			// 링크 자신은 있는데 대상이 없는 경우를 갈라 말한다. 사용자가 보는
+			// 오류(No such file or directory)와 같은 사건이지만 원인이 다르다.
+			if target, lerr := os.Readlink(p); lerr == nil {
+				bad = append(bad, HelperProblem{name, p, "가리키는 곳이 없습니다: " + target})
+			} else {
+				bad = append(bad, HelperProblem{name, p, "설치되지 않았습니다"})
+			}
+		case err != nil:
+			bad = append(bad, HelperProblem{name, p, err.Error()})
+		case fi.IsDir():
+			bad = append(bad, HelperProblem{name, p, "파일이 아니라 디렉터리입니다"})
+		}
+	}
+	return bad
+}
+
+// HelperFixHint 는 깨진 헬퍼를 되돌리는 방법이다. `health` 와 `doctor` 가 같은
+// 문장을 써야 한다 (FR-HLI-10) — 두 벌로 두면 한쪽만 고쳐진다.
+const HelperFixHint = "서버를 다시 띄우면 다시 설치됩니다: dongminal start"
 
 // AgentPluginDir는 세션 스코프로 주입되는 Claude Code 플러그인의 경로다. 셸 래퍼가
 // `claude --plugin-dir <이 경로>` 로 붙인다 (SKILL_INJECTION_SRS FR-INJ-4).

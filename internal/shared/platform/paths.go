@@ -142,6 +142,13 @@ const (
 // 부르는 것이라 갱신 시점에 돌고 있을 가능성이 높다. POSIX 에서는 rename 이
 // 실행 중인 파일도 덮으므로 이 갈래로 오지 않는다. 밀어낸 파일은 지워지면
 // 좋고 안 지워져도 무방하다(다음 기동이 치운다).
+// CopyExecutable 은 심볼릭 링크를 쓰지 않고 **실체를 복사**한다.
+//
+// LinkOrCopy 와 갈라 두는 이유는 대상이 사라질 수 있는 경우다 — `go run` 의
+// 임시 산출물을 가리키는 링크는 그 프로세스가 끝나면 죽는다
+// (HELPER_INSTALL_SRS FR-HLI-1). 그때는 링크가 아니라 복사여야 한다.
+func CopyExecutable(src, dst string) error { return copyExecutable(src, dst) }
+
 func copyExecutable(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {

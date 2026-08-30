@@ -3,6 +3,27 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/) 를 따르고,
 판 번호는 [유의적 버전](https://semver.org/lang/ko/) 을 따릅니다.
 
+## [1.0.3] — 2026-08-31
+
+### 고침
+
+- **설치된 헬퍼가 죽어 에이전트 훅이 실패하던 것.** `bin/dmctl` 이 **사라진 파일을
+  가리키는 심볼릭 링크**가 되는 경우가 있었습니다 — `go run ./cmd/dongminal doctor`
+  처럼 **`go run` 으로 실행하면** 설치가 그 임시 빌드 산출물을 가리키고, 프로세스가
+  끝나면서 지워집니다. 설치는 성공한 채로 헬퍼 전부가 한꺼번에 죽고, 한참 뒤 훅이
+  `No such file or directory` 로 실패할 때에야 드러났습니다. 이제 사라질 경로는
+  가리키지 않고 `bin` 안에 실체를 붙들어 둡니다
+
+### 변경
+
+- **`doctor` 가 진단 대상을 바꾸지 않습니다.** 종전에는 검사를 위해 **운영 홈의
+  `bin` 에 실제로 설치**했고, 위 사고가 퍼진 경로가 바로 그것이었습니다. 이제
+  설치 계층은 임시 자리에서 시험하고 끝나면 지웁니다. 대신 운영 홈에 이미 설치된
+  헬퍼가 **쓸 수 있는 상태인지 검사해서 보고**합니다 — 고치지는 않습니다
+- **`health` 가 헬퍼 상태를 함께 봅니다.** 헬퍼가 죽어도 서버와 데몬은 멀쩡해서
+  아무도 알려 주지 않았습니다. 기동이 이것을 스스로 고치지만, **다시 띄우기 전에**
+  아는 수단이 없었습니다
+
 ## [1.0.2] — 2026-08-30
 
 ### 추가
@@ -174,6 +195,7 @@
   에이전트 간 메시지와 API 입력 주입이 그 셸에서 통째로 깨져 있었다. 이제 셸이
   그 모드를 켰을 때만 감싼다
 
+[1.0.3]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.3
 [1.0.2]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.0

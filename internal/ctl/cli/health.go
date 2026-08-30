@@ -3,7 +3,11 @@ package cli
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"time"
+
+	"dongminal/internal/helper/runtimebin"
+	"dongminal/internal/shared/runtime"
 )
 
 // RunHealth는 `dongminal health` 다 (FR-ACT-9/10).
@@ -34,6 +38,21 @@ func RunHealth(o HealthOpts, stdout, stderr io.Writer) int {
 		fail++
 	default:
 		fmt.Fprintln(stdout, "ℹ️  dongminald 소켓은 있으나 pidfile 이 없습니다")
+	}
+
+	// HELPER_INSTALL_SRS FR-HLI-9: 설치된 헬퍼가 죽어 있어도 서버와 데몬은
+	// 멀쩡하다 — 그래서 지금까지 아무도 알려 주지 않았고, 에이전트 훅이 실패할
+	// 때에야 드러났다. 기동은 이것을 스스로 고치지만(§2.4), **다시 띄우기 전에**
+	// 아는 수단이 필요하다.
+	binDir := filepath.Join(home, "bin")
+	if bad := runtime.CheckHelpers(binDir); len(bad) > 0 {
+		for _, b := range bad {
+			fmt.Fprintf(stdout, "❌ 헬퍼 %s — %s\n", b.Path, b.Reason)
+		}
+		fmt.Fprintf(stdout, "   %s\n", runtime.HelperFixHint)
+		fail += len(bad)
+	} else {
+		fmt.Fprintf(stdout, "✅ 헬퍼 %d개 실행 가능 (%s)\n", len(runtimebin.HelperNames()), binDir)
 	}
 
 	if fail > 0 {
