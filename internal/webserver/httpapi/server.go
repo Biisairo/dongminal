@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"dongminal/internal/webserver/seam/toolaccess"
@@ -73,6 +74,22 @@ type Server struct {
 	// misses 는 "없는 도구를 향한 WebSocket 요청"의 되풀이를 센다
 	// (RECONNECT_STORM_SRS FR-RCS-9). 제로값이 곧 빈 추적기라 New 가 세우지 않는다.
 	misses missTracker
+
+	// holds 는 지금 **붙잡고 있는** 미스 연결의 수다
+	// (CONNECTIVITY_RESILIENCE_SRS FR-CNR-2·4). 소켓을 닫지 않는 것이 재연결의
+	// 고리를 끊는 유일한 수단이므로(D-2), 그 대가인 열린 연결 수에 상한이 있어야
+	// 한다.
+	holds atomic.Int64
+
+	// lastReq·lastWS 는 마지막 요청·WS 연결의 단조 시각(나노초)이다
+	// (FR-CNR-8·11). **핫패스 필터로 로그에서 빠지는 요청도 여기는 갱신한다** —
+	// 로그에 안 남는 것과 오지 않은 것은 다르며, 그 차이가 진단의 전부다.
+	lastReq atomic.Int64
+	lastWS  atomic.Int64
+
+	// wsOpen 은 지금 붙어 있는 WebSocket 수다 (FR-CNR-8). 붙잡힌 연결도 여기
+	// 포함된다 — 그것이 자원을 쓰고 있다는 사실이 진단에 실려야 한다.
+	wsOpen atomic.Int64
 
 	mu sync.Mutex
 }
@@ -147,12 +164,18 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/commands", s.handleCommandPost)
 	mux.HandleFunc("/api/commands/sse", s.handleCommandSSE)
 	mux.HandleFunc("/api/command-result", s.handleCommandResult)
-	return loggingMiddleware(mux)
+	return loggingMiddlewareFor(s, mux)
 }
 
 // Run starts the HTTP server on addr and blocks until ctx is cancelled.
 func (s *Server) Run(ctx context.Context, addr string) error {
 	srv := &http.Server{Addr: addr, Handler: s.Handler()}
+
+	// FR-CNR-8·12: 끊긴 순간이 기록에 남게 한다. 서버 수명과 함께 시작하고
+	// 끝난다 — 지금은 "끊겼다" 는 사실 자체가 아무 데도 남지 않는다 (§2.3).
+	diagCtx, stopDiag := context.WithCancel(ctx)
+	defer stopDiag()
+	go s.runDiagSnapshots(diagCtx, DiagSnapshotEvery)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -176,8 +199,21 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 // --- HTTP logging middleware ------------------------------------------------
 
 func loggingMiddleware(next http.Handler) http.Handler {
+	return loggingMiddlewareFor(nil, next)
+}
+
+// loggingMiddlewareFor 는 로그와 함께 **마지막 요청 시각**을 새긴다
+// (FR-CNR-11). srv 가 nil 이면 새기지 않는다 — 서버 없이 쓰는 테스트가 있다.
+//
+// 새기는 자리가 `shouldLogRequest` **바깥**인 것이 요점이다. 핫패스 필터로
+// 로그에서 빠지는 `/api/ping` 도 "요청이 왔다" 는 사실은 같으며, 진단이 가르려는
+// 것이 정확히 그 사실이다 (§2.3).
+func loggingMiddlewareFor(srv *Server, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
+		if srv != nil {
+			srv.lastReq.Store(start.UnixNano())
+		}
 		rw := &responseWriter{ResponseWriter: w, status: 200}
 		next.ServeHTTP(rw, r)
 		if shouldLogRequest(r.URL.Path, rw.status) {

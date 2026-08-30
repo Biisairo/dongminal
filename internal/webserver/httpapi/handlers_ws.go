@@ -33,7 +33,15 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	conn := toolhub.NewSafeConn(raw)
 	defer conn.Close()
 
+	// FR-CNR-8: 붙어 있는 WS 수. upgrade 가 성공한 뒤부터 세고, 이 핸들러가
+	// 끝날 때 던다 — 붙잡힌 연결(FR-CNR-2)도 그동안 여기 잡혀 있어야 한다.
+	s.wsOpen.Add(1)
+	defer s.wsOpen.Add(-1)
+
 	toolID := r.URL.Query().Get("tool")
+	// FR-CNR-8: WS 는 요청 로그와 다른 축이다 — HTTP 는 조용한데 WS 만 오는
+	// 구간(폭주)과 그 반대가 모두 있으므로 따로 새긴다.
+	s.lastWS.Store(time.Now().UnixNano())
 	log.Printf("ws connected addr=%s tool=%s", r.RemoteAddr, toolID)
 
 	cols, rows := toolhub.ParseSize(r)
@@ -55,8 +63,15 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			s.throttleMiss(r.Context(), toolID)
 			// Send toolhub.OpExit so the frontend knows this tool is permanently gone.
 			_ = conn.Send(toolhub.OpExit, nil)
-			conn.Close()
 			log.Printf("ws addr=%s: tool %s not found (sent toolhub.OpExit)", r.RemoteAddr, toolID)
+			// FR-CNR-2: 통보를 보낸 **뒤에** 붙잡는다. 임계를 넘도록 되풀이해 온
+			// 연결은 여기서 돌아오지 않으며, 그동안 소켓이 닫히지 않으므로
+			// 클라이언트에 `onclose` — 재연결의 유일한 계기 — 가 서지 않는다.
+			// 지연은 주기를 늘릴 뿐 고리를 끊지 못한다 (D-2).
+			//
+			// `conn.Close()` 는 defer 가 부른다. 여기서 따로 닫지 않는 것이
+			// 붙잡기의 전부다.
+			s.holdMiss(r.Context(), toolID, conn)
 			return
 		}
 	} else {
