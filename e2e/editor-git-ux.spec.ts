@@ -377,3 +377,140 @@ test.describe('묶음 V — 열 수 있는 것과 없는 것', () => {
     await expect(page.locator('.fe-unsupported .fe-unsup-title')).toHaveText(/열 수 없는/);
   });
 });
+
+// 회귀 방어: `_edSearchRoot()` 가 활성 창을 **실제로** 읽는가.
+//
+// 앞의 V-EKB-2 는 "터미널 창에서 빈 문자열"만 봤다. 그 단언은 속성 이름이
+// 틀려 언제나 빈 문자열이어도 통과한다 — 실제로 처음 구현은 `this.activeWindow`
+// (실재하지 않음, 올바른 것은 `this.ws.activeWindow`)를 읽었고 이 검사가
+// 없었다면 cmd+p·cmd+shift+f 가 통째로 죽은 채 통과했을 것이다.
+// **음성 단언만으로 배선을 검증하지 않는다.**
+test.describe('묶음 K — 검색 루트의 배선', () => {
+  // Editor 를 등록하고 그 창을 활성으로 만든다. 워크스페이스 쓰기가 픽스처의
+  // 초기화와 겹쳐 409 가 날 수 있으므로 **결과를 폴링으로 기다린다** — 경합을
+  // 검사하는 것이 아니라 배선을 검사하는 것이다.
+  async function activateEditorWindow(page: Page) {
+    await page.evaluate(async (p) => {
+      await fetch('/api/editors/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: p }),
+      });
+    }, fx('basic'));
+    await expect
+      .poll(async () => page.evaluate(async (p) => {
+        const app = (window as any).app;
+        await app._edReconcile?.();
+        await app._edOpenWindow(p);
+        return app._edSearchRoot();
+      }, fx('basic')), { timeout: 15000 })
+      .not.toBe('');
+  }
+
+  // V-EKB-3: 활성 창을 **실제로** 읽는가.
+  //
+  // 앞의 V-EKB-2 는 "터미널 창에서 빈 문자열"만 봤다. 그 단언은 속성 이름이
+  // 틀려 언제나 빈 문자열이어도 통과한다 — 실제로 처음 구현은
+  // `this.activeWindow`(실재하지 않음, 올바른 것은 `this.ws.activeWindow`)를
+  // 읽었고, 이 검사가 없었다면 cmd+p·cmd+shift+f 가 통째로 죽은 채 통과했다.
+  // **음성 단언만으로 배선을 검증하지 않는다.**
+  test('V-EKB-3: Editor 창이 활성이면 루트가 실제로 잡힌다', async ({ page }) => {
+    await waitForInit(page);
+    await activateEditorWindow(page);
+    const root = await page.evaluate(() => (window as any).app._edSearchRoot());
+    expect(root.endsWith('/basic')).toBe(true);
+  });
+
+  // V-EKB-4: 루트가 잡히면 패널이 실제로 뜨고 질의 칸에 포커스가 간다.
+  test('V-EKB-4: Editor 창이 활성이면 cmd+p 패널이 실제로 뜬다', async ({ page }) => {
+    await waitForInit(page);
+    await activateEditorWindow(page);
+    await page.evaluate(() => (window as any).app._edQuickOpen());
+
+    await expect(page.locator('.ed-find.vis')).toHaveCount(1);
+    await expect(page.locator('.ed-find.vis .ed-find-q')).toBeFocused();
+  });
+
+  // 전체 검색 패널도 같은 배선을 쓴다.
+  test('V-EKB-5: cmd+shift+f 패널이 뜨고 Escape 로 닫힌다', async ({ page }) => {
+    await waitForInit(page);
+    await activateEditorWindow(page);
+    await page.evaluate(() => (window as any).app._edSearchOpen());
+    await expect(page.locator('.ed-find.vis')).toHaveCount(1);
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.ed-find.vis')).toHaveCount(0);
+  });
+});
+
+// 묶음 F·G 의 마지막 한 걸음 — 서버가 답하는 것과 **탭이 열리는 것**은 다르다.
+// 앞의 검사들은 종단만 봤다 (V-EQO-7·V-EGS-10 미검증).
+test.describe('묶음 F·G — 고른 결과가 실제로 열린다', () => {
+  async function activate(page: Page) {
+    await page.evaluate(async (p) => {
+      await fetch('/api/editors/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: p }),
+      });
+    }, fx('basic'));
+    await expect
+      .poll(async () => page.evaluate(async (p) => {
+        const app = (window as any).app;
+        await app._edReconcile?.();
+        await app._edOpenWindow(p);
+        return app._edSearchRoot();
+      }, fx('basic')), { timeout: 15000 })
+      .not.toBe('');
+  }
+
+  // V-EQO-7: 빠른 열기에서 고르면 그 파일이 탭으로 열린다.
+  test('V-EQO-7: 빠른 열기로 고른 파일이 탭으로 열린다', async ({ page }) => {
+    await waitForInit(page);
+    await activate(page);
+
+    writeFileSync(join(fx('basic'), 'quickpick.txt'), 'hello from quickpick\n');
+    await page.evaluate(() => (window as any).app._edQuickOpen());
+    await page.locator('.ed-find.vis .ed-find-q').fill('quickpick');
+
+    const row = page.locator('.ed-find.vis .ed-find-row').first();
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    await expect(page.locator('.ed-find.vis')).toHaveCount(0);
+    await expect
+      .poll(() => page.evaluate(() =>
+        [...(window as any).app.fileEditors.values()].some((v: any) =>
+          String(v.filePath).endsWith('quickpick.txt'))), { timeout: 15000 })
+      .toBe(true);
+  });
+
+  // V-EGS-10: 전체 검색에서 고르면 **그 줄로** 연다. 사용자가 고른 것은
+  // 파일이 아니라 그 줄이다.
+  test('V-EGS-10: 검색 결과를 고르면 그 줄로 열린다', async ({ page }) => {
+    await waitForInit(page);
+    await activate(page);
+
+    // 다섯째 줄에만 표식을 둔다.
+    writeFileSync(join(fx('basic'), 'grephit.txt'),
+      'a\nb\nc\nd\nNEEDLE_XYZ here\nf\n');
+    await page.evaluate(() => (window as any).app._edSearchOpen());
+    await page.locator('.ed-find.vis .ed-find-q').fill('NEEDLE_XYZ');
+
+    const row = page.locator('.ed-find.vis .ed-find-row').first();
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await expect(row.locator('.ed-find-path')).toContainText(':5');
+    await row.click();
+
+    await expect
+      .poll(() => page.evaluate(() => {
+        const v = [...(window as any).app.fileEditors.values()]
+          .find((x: any) => String(x.filePath).endsWith('grephit.txt')) as any;
+        if (!v) return null;
+        // Monaco 가 아직 안 떴으면 예약된 자리를, 떴으면 커서 위치를 본다.
+        if (v._pendingReveal) return v._pendingReveal.line;
+        return v._editor ? v._editor.getPosition().lineNumber : null;
+      }), { timeout: 20000 })
+      .toBe(5);
+  });
+});

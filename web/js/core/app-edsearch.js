@@ -13,8 +13,12 @@ Object.assign(App.prototype, {
 
   // 검색이 걸릴 루트. I-3 대로 **현재 Editor 창의 루트**다 (FR-EKB-4) —
   // 터미널 창에는 검색할 루트가 없으므로 아무 일도 일어나지 않는다.
+  //
+  // 활성 창은 `ws.activeWindow` 에 산다 — `app.activeWindow` 는 존재하지 않는다.
+  // 처음에 그것을 읽어 이 함수가 언제나 빈 문자열을 냈고, 두 단축키가 통째로
+  // 죽어 있었다. "터미널 창에서는 빈 문자열"만 보던 검사는 그것을 통과시킨다.
   _edSearchRoot(){
-    const s=this.ws.windows.find(w=>w.id===this.activeWindow);
+    const s=this.ws.windows.find(w=>w.id===this.ws.activeWindow);
     if(!this._isEditorWin(s)) return '';
     return this._edRootOf(s)||'';
   },
