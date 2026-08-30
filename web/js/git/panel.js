@@ -461,6 +461,9 @@ class GitPanel {
             '<span class="git-files-spacer"></span>'+
           '</div>'+
         '</div>'+
+        // FR-CSZ-1: 두 칸 사이의 손잡이. 목록과 미리보기의 형제여야 flex 축을
+        // 그대로 나눠 쓴다 — 어느 한쪽 안에 두면 그 칸이 자기 자신을 줄인다.
+        '<div class="git-files-handle"></div>'+
         '<div class="git-preview"></div>'+
       '</div>';
     this._wireHead(el);
@@ -477,6 +480,7 @@ class GitPanel {
       b.addEventListener('click',()=>this.runOperation(b.dataset.act));
     }
     const files=el.querySelector('.git-files');
+    this._wireFilesHandle(el,files);
     for(const g of GIT_GROUPS){
       const d=document.createElement('div'); d.className='git-group'; d.dataset.group=g.key;
       d.innerHTML='<div class="git-group-head"><span class="git-group-caret"></span>'+
@@ -1694,6 +1698,9 @@ class GitPanel {
         '<button class="git-diff-blame"></button>'+
         '<button class="git-diff-mode"></button>'+
         '<label class="git-diff-ws"><input type="checkbox"></label>'+
+        // FR-DOR-3: 접기 토글. 공백무시와 같은 규약·같은 자리다 — 둘 다
+        // "무엇을 보여 줄 것인가"를 정하는 기기별 취향이다.
+        '<label class="git-diff-fold"><input type="checkbox"></label>'+
       '</div>'+
       // FR-GIT-276: blame 은 Diff 탭의 **모드**다 (D8). 두 본문이 함께 보이면
       // 사용자는 무엇을 보고 있는지 모른다 — 켜진 쪽만 보인다.
@@ -1706,6 +1713,7 @@ class GitPanel {
       // hunk 의 경계를 모른다 — 조각과 그 동작은 서버가 준 경계 위에 선다.
       '<div class="git-hunks"></div>';
     el.querySelector('.git-diff-ws').appendChild(document.createTextNode(GIT_DIFF_WS_LABEL));
+    el.querySelector('.git-diff-fold').appendChild(document.createTextNode(GIT_DIFF_FOLD_LABEL));
     el.querySelector('.git-diff-body').appendChild(this._diff().el);
     el.querySelector('.git-hunks').addEventListener('click',ev=>this._hunkClick(ev));
     for(const b of el.querySelectorAll('.git-diff-nav'))
@@ -1716,6 +1724,8 @@ class GitPanel {
     el.querySelector('.git-diff-mode').addEventListener('click',()=>this._toggleSideBySide());
     el.querySelector('.git-diff-ws input')
       .addEventListener('change',ev=>this._setIgnoreWs(ev.target.checked));
+    el.querySelector('.git-diff-fold input')
+      .addEventListener('change',ev=>this._setFold(ev.target.checked));
     el.dataset.built='1';
   }
 
@@ -1746,6 +1756,7 @@ class GitPanel {
     el.querySelector('.git-diff-mode').textContent=
       this._sideBySidePref()?GIT_DIFF_MODE_LABEL.side:GIT_DIFF_MODE_LABEL.inline;
     el.querySelector('.git-diff-ws input').checked=this._ignoreWsPref();
+    el.querySelector('.git-diff-fold input').checked=this._foldPref();
     el.querySelector('.git-diff-blame').classList.toggle('on',!!this._blameOn);
     this._showTarget(this._diff(),f,'_diffKey');
     // blame 모드에서는 hunk 조각이 뜻을 잃는다 — 부분 스테이징의 대상은 diff 다.
@@ -2118,6 +2129,7 @@ class GitPanel {
       inlineBreakpoint:GIT_DIFF_OPTIONS.renderSideBySideInlineBreakpoint,
       sideBySide:this._sideBySidePref(),
       ignoreWhitespace:this._ignoreWsPref(),
+      hideUnchanged:this._foldPref(),
       isStale:tok=>this.isStale(tok),
     });
     return this._diffView;
@@ -2128,6 +2140,9 @@ class GitPanel {
       inlineBreakpoint:GIT_PREVIEW_INLINE_BREAKPOINT,
       sideBySide:false,
       ignoreWhitespace:this._ignoreWsPref(),
+      // FR-DOR-5: 미리보기와 Diff 탭은 같은 상태다. 갈리면 사용자가 어느 쪽을
+      // 보는지 모른다 (`_setIgnoreWs` 가 이미 그렇게 한다).
+      hideUnchanged:this._foldPref(),
       isStale:tok=>this.isStale(tok),
     });
     return this._previewView;
@@ -2141,6 +2156,85 @@ class GitPanel {
     this._hunkKey=null; this._hunks=null; this._hunkSel=null;
     // 골격이 버린 뷰의 DOM 을 들고 있다 — 다시 열릴 때 새 뷰로 세운다.
     for(const [k,el] of this._els) if(k==='changes'||k==='diff') el.dataset.built='';
+  }
+
+  // ── Changes 두 칸의 경계 (EDITOR_GIT_UX_SRS 묶음 D) ──
+
+  // FR-CSZ-5: 가로와 세로를 따로 담는다. 한 값을 공유하면 데스크톱에서 정한
+  // 폭이 모바일에서 높이가 된다.
+  _filesSizeKey(){
+    return this._filesVertical()?GIT_FILES_H_KEY:GIT_FILES_W_KEY;
+  }
+
+  // 배치 방향은 CSS(`body.mobile`)가 정하므로 그것을 그대로 읽는다 — 여기서
+  // 폭으로 다시 판정하면 두 곳이 어긋난다.
+  _filesVertical(){
+    return document.body.classList.contains('mobile');
+  }
+
+  // FR-CSZ-6: 저장값이 없거나 망가졌으면 기본값이다. 범위 밖의 값도 기본으로
+  // 되돌린다 — 옛 판이 남긴 값이 화면을 접힌 채로 띄우지 않게.
+  _filesSizePref(){
+    let v=null; try{v=localStorage.getItem(this._filesSizeKey())}catch{}
+    const n=parseFloat(v);
+    if(!isFinite(n)||n<GIT_FILES_SIZE_MIN||n>GIT_FILES_SIZE_MAX) return GIT_FILES_SIZE_DEFAULT;
+    return n;
+  }
+
+  _setFilesSizePref(pct){
+    try{localStorage.setItem(this._filesSizeKey(),String(pct))}catch{}
+  }
+
+  _clampFilesSize(pct){
+    return Math.max(GIT_FILES_SIZE_MIN,Math.min(GIT_FILES_SIZE_MAX,pct));
+  }
+
+  // 크기는 flex-basis 하나로 준다. width/height 로 주면 방향이 바뀔 때 옛 축의
+  // 값이 남아 두 축이 동시에 걸린다.
+  _applyFilesSize(files,pct){
+    files.style.flex='0 0 '+pct+'%';
+  }
+
+  /**
+   * FR-CSZ-1·2: 드래그 중에는 **화면만** 바꾸고 확정은 놓는 순간 한 번이다.
+   * `.ed-ex-handle` 의 `_rEdHandle` 과 같은 규약이다 — 드래그마다 저장하면
+   * localStorage 쓰기가 초당 수십 번 난다.
+   *
+   * 포인터 이벤트를 쓰는 이유는 FR-CSZ-7 이다. mouse 로만 달면 터치에서 잡히지
+   * 않고, 둘을 따로 달면 같은 계산이 두 벌이 된다.
+   */
+  _wireFilesHandle(el,files){
+    const h=el.querySelector('.git-files-handle');
+    if(!h) return;
+    this._applyFilesSize(files,this._filesSizePref());
+    h.addEventListener('pointerdown',e=>{
+      const body=el.querySelector('.git-changes-body');
+      if(!body) return;
+      e.preventDefault();
+      const vert=this._filesVertical();
+      const total=vert?body.clientHeight:body.clientWidth;
+      if(total<=0) return;
+      const start=vert?e.clientY:e.clientX;
+      const startPct=(vert?files.offsetHeight:files.offsetWidth)/total*100;
+      // 포인터를 잡아 둔다 — 커서가 미리보기의 Monaco 위로 가면 그쪽이 이벤트를
+      // 먹어 드래그가 중간에 끊긴다.
+      try{h.setPointerCapture(e.pointerId)}catch{}
+      const pctAt=ev=>this._clampFilesSize(
+        startPct+((vert?ev.clientY:ev.clientX)-start)/total*100);
+      const mv=ev=>this._applyFilesSize(files,pctAt(ev));
+      const up=ev=>{
+        h.removeEventListener('pointermove',mv);
+        h.removeEventListener('pointerup',up);
+        h.removeEventListener('pointercancel',up);
+        try{h.releasePointerCapture(e.pointerId)}catch{}
+        const pct=pctAt(ev);
+        this._applyFilesSize(files,pct);
+        this._setFilesSizePref(pct);
+      };
+      h.addEventListener('pointermove',mv);
+      h.addEventListener('pointerup',up);
+      h.addEventListener('pointercancel',up);
+    });
   }
 
   // 보기 모드와 공백무시는 기기별 취향이라 localStorage 에 남는다 (§3.3).
@@ -2173,6 +2267,24 @@ class GitPanel {
     try{localStorage.setItem(GIT_DIFF_WS_KEY,this._ignWs?'1':'0')}catch{}
     // 미리보기와 Diff 탭은 같은 상태다.
     for(const v of [this._diffView,this._previewView]) if(v) v.setIgnoreWhitespace(this._ignWs);
+    this._paint();
+  }
+
+  // FR-DOR-2·4: 변경 없는 구간의 접기. **기본은 꺼짐**이다 — 접으면 개요 눈금이
+  // 접힌 좌표계 위에 서서 실제 파일의 줄 위치와 어긋난다.
+  _foldPref(){
+    if(this._fold==null){
+      let v=null; try{v=localStorage.getItem(GIT_DIFF_FOLD_KEY)}catch{}
+      this._fold=v==='1';
+    }
+    return this._fold;
+  }
+
+  _setFold(on){
+    this._fold=!!on;
+    try{localStorage.setItem(GIT_DIFF_FOLD_KEY,this._fold?'1':'0')}catch{}
+    // FR-DOR-5: 두 뷰가 함께 움직인다.
+    for(const v of [this._diffView,this._previewView]) if(v) v.setHideUnchanged(this._fold);
     this._paint();
   }
 
@@ -2587,6 +2699,9 @@ class GitDiffView {
     this._breakpoint=o.inlineBreakpoint||GIT_DIFF_OPTIONS.renderSideBySideInlineBreakpoint;
     this._sideBySide=o.sideBySide!==false;
     this._ignoreWs=!!o.ignoreWhitespace;
+    // FR-DOR-2: 기본은 접지 않는다. 접힌 문서의 개요 눈금은 실제 파일의 줄
+    // 위치와 어긋난다.
+    this._fold=!!o.hideUnchanged;
     // stale 판정의 절반은 바깥(세대·리포)이 안다. 나머지 절반은 자기 일련번호다
     // (FR-GIT-54).
     this._isStale=o.isStale||(()=>false);
@@ -2653,6 +2768,11 @@ class GitDiffView {
     if(this._editor) this._editor.updateOptions({ignoreTrimWhitespace:this._ignoreWs});
   }
 
+  setHideUnchanged(on){ // FR-DOR-3
+    this._fold=!!on;
+    if(this._editor) this._editor.updateOptions({hideUnchangedRegions:{enabled:this._fold}});
+  }
+
   layout(){ if(this._editor) this._editor.layout() }
 
   destroy(){ this._dead=true; this.clear('') }
@@ -2683,6 +2803,7 @@ class GitDiffView {
         renderSideBySide:this._sideBySide,
         renderSideBySideInlineBreakpoint:this._breakpoint,
         ignoreTrimWhitespace:this._ignoreWs,
+        hideUnchangedRegions:{enabled:this._fold},
         theme:monacoTheme(),
       }));
     }

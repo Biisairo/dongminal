@@ -1062,10 +1062,23 @@ body.mobile .git-head-refresh{margin-right:2px;min-width:30px}
 .git-stale-note.vis{display:block}
 .git-stale-note.loading{color:var(--text-muted);background:transparent}
 
+/* EDITOR_GIT_UX_SRS FR-CSZ-1: 크기는 인라인 스타일(flex-basis)이 정한다 —
+   드래그가 그것만 고쳐 쓴다. 여기 값은 저장된 것이 없을 때의 기본이다
+   (FR-CSZ-6). 경계선은 손잡이가 그리므로 border-right 를 걷었다. */
 .git-files{
-  flex:0 0 42%;min-width:180px;overflow-y:auto;
-  border-right:1px solid var(--border);
+  flex:0 0 42%;min-width:0;overflow-y:auto;
 }
+
+/* FR-CSZ-1·7: `.ed-ex-handle` 과 같은 규약이다. ::before 로 히트 영역을 넓혀
+   3px 짜리 선에 손가락이 닿게 한다 — 그것이 없으면 터치에서 잡히지 않는다. */
+.git-files-handle{
+  flex:0 0 auto;width:3px;cursor:col-resize;background:var(--border);position:relative;
+}
+.git-files-handle:hover{background:var(--accent)}
+.git-files-handle::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
+/* 세로 배치(모바일)에서는 방향이 바뀐다 — 같은 요소가 가로줄이 된다. */
+body.mobile .git-files-handle{width:auto;height:3px;cursor:row-resize}
+body.mobile .git-files-handle::before{left:0;right:0;top:-8px;bottom:-8px}
 .git-files::-webkit-scrollbar{width:6px}
 .git-files::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 .git-files-bar{
@@ -1216,9 +1229,10 @@ body.mobile .git-head-refresh{margin-right:2px;min-width:30px}
 .git-menu-item.disabled:hover{background:transparent;color:var(--text-dim)}
 .git-menu-sep{height:1px;margin:3px 6px;background:var(--border)}
 
-/* 모바일은 상하로 쌓는다 — 좁은 폭에서 목록과 미리보기를 나란히 둘 수 없다 */
+/* 모바일은 상하로 쌓는다 — 좁은 폭에서 목록과 미리보기를 나란히 둘 수 없다.
+   크기는 가로와 마찬가지로 인라인 flex-basis 가 정한다 (FR-CSZ-5). */
 body.mobile .git-changes-body{flex-direction:column}
-body.mobile .git-files{flex:1 1 50%;border-right:none;border-bottom:1px solid var(--border)}
+body.mobile .git-files{flex:0 0 42%;border-right:none}
 body.mobile .git-file,body.mobile .git-dir{padding-top:5px;padding-bottom:5px}
 /* 모바일에는 hover 가 없다 — 인라인 동작을 늘 보인다 */
 body.mobile .git-file-check{width:14px;height:14px}
@@ -1248,7 +1262,7 @@ body.mobile .git-file-check{width:14px;height:14px}
   background:var(--bg);color:var(--text);
   border:1px solid var(--border);border-radius:3px;
 }
-.git-diff-ws{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);flex-shrink:0;cursor:pointer}
+.git-diff-ws,.git-diff-fold{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);flex-shrink:0;cursor:pointer}
 .git-diff-body{flex:1 1 auto;min-height:0;position:relative}
 .git-diff-body.off{display:none}
 
@@ -1861,7 +1875,7 @@ body.mobile .git-repo-xslot{width:24px;height:24px}
   min-height:var(--git-btn-h);
 }
 
-.git-diff-ws{min-height:var(--git-hit)}
+.git-diff-ws,.git-diff-fold{min-height:var(--git-hit)}
 /* FR-GIT-198: 컨트롤 라벨은 11px 미만이 되지 않는다 */
 .git-remote-more,.git-hist-smode{font-size:11px}
 /* FR-GIT-197·226: 목록 행 (파일 행은 .git-file 규칙이 이미 잡는다) */
@@ -1934,7 +1948,7 @@ select{
 select:hover{border-color:var(--accent)}
 select:focus{border-color:var(--accent);outline:none}
 /* FR-GIT-206·226: 컨트롤을 담은 행은 손이 닿는 높이여야 한다 */
-.git-dialog-row,.git-commit-amend,.git-commit-opt,.git-diff-ws{
+.git-dialog-row,.git-commit-amend,.git-commit-opt,.git-diff-ws,.git-diff-fold{
   min-height:var(--git-row-min);display:flex;align-items:center;gap:6px;cursor:pointer;
 }
 
@@ -2386,3 +2400,55 @@ body.mobile .ed-explorer{max-width:40%}
 }
 /* FR-EDT-83: 삭제 확인창은 `_confirmClose` 의 껍데기를 그대로 쓴다 — 줄만 여럿이다. */
 .ed-confirm-line+.ed-confirm-line{margin-top:6px}
+
+/* ── Editor 찾기 패널 (EDITOR_GIT_UX_SRS 묶음 F·G) ──
+   빠른 열기와 전체 검색이 같은 껍데기를 쓴다 — 키 조작이 완전히 같기 때문이다. */
+.ed-find{
+  position:fixed;inset:0;z-index:9997;display:none;
+  justify-content:center;align-items:flex-start;padding-top:12vh;
+  background:rgba(0,0,0,.35);
+}
+.ed-find.vis{display:flex}
+.ed-find-box{
+  width:min(720px,92vw);max-height:70vh;display:flex;flex-direction:column;
+  background:var(--sidebar-bg,#16161e);border:1px solid var(--border);
+  border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.5);overflow:hidden;
+}
+.ed-find-q{
+  flex:0 0 auto;padding:10px 12px;border:none;outline:none;font-size:14px;
+  background:transparent;color:var(--text-bright);border-bottom:1px solid var(--border);
+}
+.ed-find-note{
+  flex:0 0 auto;padding:4px 12px;font-size:11px;color:var(--text-dim);
+  border-bottom:1px solid var(--border);
+}
+.ed-find-list{flex:1 1 auto;min-height:0;overflow-y:auto}
+.ed-find-row{
+  display:flex;align-items:baseline;gap:8px;padding:5px 12px;font-size:12px;cursor:pointer;
+}
+.ed-find-row:hover{background:var(--hover-bg,var(--border))}
+.ed-find-row.sel{background:var(--accent-active);color:var(--text-bright)}
+.ed-find-name{color:var(--text-bright);flex:0 0 auto}
+.ed-find-path{color:var(--text-muted);flex:0 0 auto;white-space:nowrap}
+.ed-find-text{
+  color:var(--text-dim);flex:1 1 auto;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:pre;font-family:monospace;
+}
+
+/* ── 열 수 없는 형식 · 이미지 보기 (EDITOR_GIT_UX_SRS 묶음 V) ── */
+.fe-unsupported{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  height:100%;padding:24px;text-align:center;color:var(--text-muted);font-size:12px;
+}
+.fe-unsup-title{color:var(--attn);font-size:14px;font-weight:600}
+.fe-unsup-path{color:var(--text-bright);word-break:break-all;font-family:monospace;font-size:11px}
+.fe-unsup-meta{color:var(--text-dim);font-size:11px}
+.fe-unsup-hint{color:var(--text-dim);font-size:11px;margin-top:4px}
+
+.fe-image{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  height:100%;padding:12px;overflow:auto;background:var(--bg);
+}
+/* FR-EVW-4: 원본 비율을 지키고 칸보다 크면 줄여 맞춘다. */
+.fe-img{max-width:100%;max-height:calc(100% - 28px);object-fit:contain}
+.fe-img-meta{flex:0 0 auto;color:var(--text-dim);font-size:11px;font-family:monospace}

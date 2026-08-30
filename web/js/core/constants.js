@@ -395,22 +395,46 @@ const GIT_DIFF_OPTIONS={
   renderSideBySide:true,
   useInlineViewWhenSpaceIsLimited:true,
   renderSideBySideInlineBreakpoint:900,
-  hideUnchangedRegions:{enabled:true},
+  // FR-DOR-2: 기본은 접지 않는다. 접힌 문서의 눈금은 접힌 좌표계 위에 서므로
+  // 실제 파일의 줄 위치와 어긋난다 — 사용자가 요구한 "실제 파일에 동기화"가
+  // 그것이다. 필요하면 머리의 토글로 켠다 (FR-DOR-3).
+  hideUnchangedRegions:{enabled:false},
   ignoreTrimWhitespace:false,
   readOnly:true,
   originalEditable:false,
   automaticLayout:true,
   scrollBeyondLastLine:false,
-  renderOverviewRuler:false,
+  // FR-DOR-1: 문서 전체를 스크롤바 높이에 사상해 변경 위치를 색으로 찍는다.
+  // 직접 그리지 않는 이유는 D-1 이다 — 접기·줄바꿈·side-by-side 의 좌표계를
+  // 다시 계산하는 일을 Monaco 가 이미 한다.
+  renderOverviewRuler:true,
 };
+// FR-DOR-6: 눈금의 색은 `monacoTheme()` 의 diffEditorOverview.* 매핑에서 온다.
+// 그 매핑은 이미 있다 — 여기서 색을 다시 정하면 두 자리가 갈린다.
 // Changes 탭의 미리보기는 좁다. 접기와 inline 전환을 더 이르게 건다.
 const GIT_PREVIEW_INLINE_BREAKPOINT=560;
+
+// EDITOR_GIT_UX_SRS 묶음 D — Changes 탭 두 칸의 경계.
+//
+// 가로(폭)와 세로(높이)를 따로 담는 이유는 FR-CSZ-5 다. 한 값을 공유하면
+// 데스크톱에서 정한 폭이 모바일에서 높이가 되어 화면이 반쯤 접힌 채로 뜬다.
+const GIT_FILES_W_KEY='gitFilesWidthPct';
+const GIT_FILES_H_KEY='gitFilesHeightPct';
+// 기본은 현행 CSS 값(42%)을 그대로 잇는다 (FR-CSZ-6).
+const GIT_FILES_SIZE_DEFAULT=42;
+// FR-CSZ-3: 어느 칸도 사라지지 않는다 — 사라진 칸은 되돌릴 손잡이도 함께 잃는다.
+const GIT_FILES_SIZE_MIN=15;
+const GIT_FILES_SIZE_MAX=80;
 // 서버의 DiffSide.kind (FR-GIT-45~48). text 와 absent 만 본문을 그린다 —
 // absent 는 빈 내용으로 다뤄야 추가·삭제 파일의 diff 가 성립한다.
 const GIT_DIFF_DRAWABLE=new Set(['text','absent']);
 // 보기 모드와 공백무시는 기기별 취향이다 (§3.3).
 const GIT_DIFF_SIDE_KEY='gitDiffSideBySide';
 const GIT_DIFF_WS_KEY='gitDiffIgnoreWs';
+// EDITOR_GIT_UX_SRS FR-DOR-3·4: 변경 없는 구간의 접기. 기본은 **꺼짐**이다
+// (FR-DOR-2) — 접으면 개요 눈금의 위치가 실제 파일의 줄 위치와 어긋난다.
+const GIT_DIFF_FOLD_KEY='gitDiffHideUnchanged';
+const GIT_DIFF_FOLD_LABEL='Fold Unchanged';
 const GIT_DIFF_MODE_LABEL={side:'side-by-side',inline:'unified'};
 const GIT_DIFF_WS_LABEL='Ignore Whitespace';
 // FR-GIT-55: Monaco 로드 실패는 Git 창의 나머지를 멈추지 않는다 — diff 자리에만
@@ -1333,6 +1357,29 @@ const EDITOR_ADD_FAIL='Editor 를 추가하지 못했습니다';
 
 // FR-EDT-55: pane 이 하나도 없는 창의 우측. 빈 pane 이 아니라 pane 이 **없는** 것이다.
 const EDITOR_EMPTY_HINT='탐색기에서 파일을 열면 여기에 나타납니다';
+
+// EDITOR_GIT_UX_SRS 묶음 V — 열 수 있는 형식인가.
+const FILE_PROBE_API='/api/file/probe';
+const FILE_RAW_API='/api/file/raw';
+const FILE_KIND_TEXT='text';
+const FILE_KIND_IMAGE='image';
+const FILE_KIND_BINARY='binary';
+const FILE_UNSUPPORTED_TITLE='열 수 없는 형식입니다';
+const FILE_UNSUPPORTED_HINT='이진 파일은 편집기로 열지 않습니다 — 열어서 저장하면 원본이 깨집니다.';
+const FILE_IMAGE_FAIL='이미지를 불러오지 못했습니다';
+
+// EDITOR_GIT_UX_SRS 묶음 F·G — Editor 창의 찾기.
+const ED_FIND_API='/api/fs/find';
+const ED_GREP_API='/api/fs/grep';
+// 입력마다 부르면 한 글자에 저장소 전체를 훑는 요청이 나간다.
+const ED_SEARCH_DEBOUNCE_MS=150;
+const ED_FIND_PLACEHOLDER='파일 이름으로 찾기';
+const ED_GREP_PLACEHOLDER='모든 파일에서 내용 찾기';
+const ED_FIND_HINT='이름의 일부를 입력하세요 (경로도 됩니다)';
+const ED_GREP_HINT='찾을 내용을 입력하세요';
+const ED_SEARCH_EMPTY='결과 없음';
+const ED_SEARCH_FAIL='찾지 못했습니다';
+const ED_SEARCH_COUNT_SUFFIX='건';
 
 // FR-EDT-47 / D-18: 탐색기 폭은 워크스페이스에 산다 (`window.editor.explorerWidth`).
 // 상·하한은 사이드바(`--sb-w`)의 규약을 그대로 따른다 — 같은 종류의 값이 서로 다른
