@@ -17,7 +17,8 @@
 ```bash
 curl -fL -o dongminal https://github.com/Biisairo/dongminal/releases/latest/download/dongminal-darwin-arm64
 chmod +x dongminal && xattr -d com.apple.quarantine dongminal
-./dongminal start --open
+./dongminal start
+./dongminal window
 ```
 
 Intel 맥은 `darwin-arm64` 를 `darwin-amd64` 로 바꿉니다. `xattr` 한 줄이 필요한
@@ -37,7 +38,8 @@ ARM64 는 `linux-amd64` 를 `linux-arm64` 로 바꿉니다.
 
 ```powershell
 curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/latest/download/dongminal-windows-amd64.exe
-.\dongminal.exe start --open
+.\dongminal.exe start
+.\dongminal.exe window
 ```
 
 받은 파일이 맞는지 확인하려면 같은 릴리스의 `SHA256SUMS` 를 씁니다.
@@ -56,9 +58,9 @@ sha256sum -c SHA256SUMS --ignore-missing
 PORT=8080 ./dongminal start           # 포트 지정 (--port 8080 도 동일)
 ./dongminal start --expose            # LAN 노출 실행 (사내망 다른 기기 접근 허용)
 ./dongminal start --restart-daemon    # dongminald까지 재시작 (창 초기화)
-./dongminal start --open              # 실행 후 frameless window 열기
 ./dongminal start --isolated          # 임시 홈 + 빈 포트로 격리 실행 (운영 인스턴스 무관)
 ./dongminal start --foreground        # 터미널을 점유하며 실행 (^C 로 정지)
+./dongminal window                    # 돌고 있는 서버에 창만 연다 (서버를 띄우지 않음)
 ./dongminal stop                      # 중지 (창 유지)
 ./dongminal stop --all                # 전체 중지 (dongminald 포함)
 ./dongminal health                    # 헬스 체크

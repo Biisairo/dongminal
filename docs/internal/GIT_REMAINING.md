@@ -208,7 +208,8 @@ E1·E3 의 원인은 하나였다 — **바깥 계기(폴링·서버 푸시)의 
 ```bash
 e2e/git_fixture.sh /tmp/dm-git-fixtures
 ./scripts/build.sh
-./dongminal start --isolated --open
+./dongminal start --isolated
+./dongminal window --port <격리 포트>
 # → 임시 홈과 빈 포트를 골라 띄우고, 정지 명령을 함께 출력한다.
 ```
 

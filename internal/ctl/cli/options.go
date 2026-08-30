@@ -138,7 +138,6 @@ type StartOpts struct {
 	Expose        bool
 	RestartDaemon bool
 	Isolated      bool
-	Open          bool
 	Foreground    bool
 }
 
@@ -159,6 +158,12 @@ type DoctorOpts struct {
 
 // HealthOpts는 `dongminal health` 의 옵션이다.
 type HealthOpts struct {
+	Common
+}
+
+// WindowOpts는 `dongminal window` 의 옵션이다. 겨눌 서버를 정하는 것이 전부이고,
+// 그 규칙은 `start` 와 같다 (WINDOW_COMMAND_SRS FR-WIN-2).
+type WindowOpts struct {
 	Common
 }
 
@@ -192,8 +197,6 @@ func ParseStart(args []string) (StartOpts, error) {
 			o.RestartDaemon = true
 		case "--isolated":
 			o.Isolated = true
-		case "--open":
-			o.Open = true
 		case "--foreground":
 			o.Foreground = true
 		case "-h", "--help":
@@ -299,6 +302,25 @@ func ParseHealth(args []string) (HealthOpts, error) {
 			}
 			if !ok {
 				return HealthOpts{}, unknownFlag("health", args[i])
+			}
+		}
+	}
+	return o, nil
+}
+
+func ParseWindow(args []string) (WindowOpts, error) {
+	var o WindowOpts
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "-h", "--help":
+			return WindowOpts{}, ErrHelp
+		default:
+			ok, err := o.Common.take(args, &i)
+			if err != nil {
+				return WindowOpts{}, err
+			}
+			if !ok {
+				return WindowOpts{}, unknownFlag("window", args[i])
 			}
 		}
 	}

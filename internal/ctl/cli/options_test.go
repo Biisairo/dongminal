@@ -13,12 +13,25 @@ import (
 // FR-CLI-4/6/7: 액션 옵션 파싱.
 
 func TestParseStart_Flags(t *testing.T) {
-	o, err := ParseStart([]string{"--expose", "--restart-daemon", "--isolated", "--open", "--foreground"})
+	o, err := ParseStart([]string{"--expose", "--restart-daemon", "--isolated", "--foreground"})
 	if err != nil {
 		t.Fatalf("err=%v", err)
 	}
-	if !o.Expose || !o.RestartDaemon || !o.Isolated || !o.Open || !o.Foreground {
+	if !o.Expose || !o.RestartDaemon || !o.Isolated || !o.Foreground {
 		t.Fatalf("플래그 누락: %+v", o)
+	}
+}
+
+// V-WIN-5: `--open` 은 `dongminal window` 로 갈라져 나갔다 (FR-WIN-8/9). 별칭으로
+// 남기지 않았으므로 모르는 옵션이어야 한다 — 조용히 무시되면 사용자는 창이 열리지
+// 않는 이유를 모른다.
+func TestParseStart_OpenIsGone(t *testing.T) {
+	_, err := ParseStart([]string{"--open"})
+	if err == nil {
+		t.Fatal("--open 이 아직 받아들여진다")
+	}
+	if !strings.Contains(err.Error(), "--open") {
+		t.Fatalf("무엇이 잘못됐는지 알리지 않는다: %v", err)
 	}
 }
 
@@ -27,7 +40,7 @@ func TestParseStart_Defaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err=%v", err)
 	}
-	if o.Expose || o.RestartDaemon || o.Isolated || o.Open || o.Foreground {
+	if o.Expose || o.RestartDaemon || o.Isolated || o.Foreground {
 		t.Fatalf("기본값이 켜져 있음: %+v", o)
 	}
 	if o.Port != "" || o.Home != "" {
@@ -43,6 +56,7 @@ func TestParseHelp_AllActions(t *testing.T) {
 		{"start", func(a []string) error { _, e := ParseStart(a); return e }},
 		{"stop", func(a []string) error { _, e := ParseStop(a); return e }},
 		{"health", func(a []string) error { _, e := ParseHealth(a); return e }},
+		{"window", func(a []string) error { _, e := ParseWindow(a); return e }},
 		{"migrate", func(a []string) error { _, e := ParseMigrate(a); return e }},
 	}
 	for _, c := range cases {

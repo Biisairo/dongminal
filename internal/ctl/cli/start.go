@@ -24,7 +24,9 @@ const (
 	readyInterval = 500 * time.Millisecond
 )
 
-// RunStart는 `dongminal start` 다 (FR-ACT-1..4, FR-ISO-*, FR-OPN-*, FR-FG-*).
+// RunStart는 `dongminal start` 다 (FR-ACT-1..4, FR-ISO-*, FR-FG-*).
+//
+// 창을 여는 일은 여기 없다 — `dongminal window` 가 한다 (WINDOW_COMMAND_SRS FR-WIN-8).
 func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 	home, port, err := resolveStartTarget(o)
 	if err != nil {
@@ -138,11 +140,6 @@ func startDetached(o StartOpts, home, host, port string, stdout, stderr io.Write
 	if o.Isolated {
 		fmt.Fprintf(stdout, "격리 홈: %s (자동으로 지우지 않습니다)\n", home)
 		fmt.Fprintf(stdout, "정지: dongminal stop --all --port %s --home %s\n", port, home)
-	}
-	if o.Open {
-		if err := openFrameless(url); err != nil {
-			fmt.Fprintf(stderr, "⚠️  창을 열지 못했습니다: %v\n", err)
-		}
 	}
 	return 0
 }

@@ -40,6 +40,12 @@ func Dispatch(args []string, serve Serve, stdout, stderr io.Writer) int {
 			return code
 		}
 		return RunHealth(o, stdout, stderr)
+	case "window":
+		o, err := ParseWindow(rest)
+		if code, done := settle(action, err, stdout, stderr); done {
+			return code
+		}
+		return RunWindow(o, openFrameless, stdout, stderr)
 	case "doctor":
 		o, err := ParseDoctor(rest)
 		if code, done := settle(action, err, stdout, stderr); done {

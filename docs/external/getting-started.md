@@ -29,7 +29,8 @@ curl -fL -o dongminal https://github.com/Biisairo/dongminal/releases/latest/down
 
 chmod +x dongminal
 xattr -d com.apple.quarantine dongminal   # 서명·공증을 하지 않았으므로 필요합니다
-./dongminal start --open
+./dongminal start
+./dongminal window                        # 창을 띄웁니다 (선택)
 ```
 
 `xattr` 를 건너뛰면 macOS 가 **"개발자를 확인할 수 없어 열 수 없습니다"** 로 막습니다.
@@ -53,7 +54,8 @@ PowerShell 에서:
 
 ```powershell
 curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/latest/download/dongminal-windows-amd64.exe
-.\dongminal.exe start --open
+.\dongminal.exe start
+.\dongminal.exe window                    # 창을 띄웁니다 (선택)
 ```
 
 ### 받은 파일 확인
@@ -113,7 +115,9 @@ cd dongminal
 3. `--restart-daemon` 이면 dongminald 를 정지하고 `paned.pid`·`paned.sock` 을 제거.
 4. 자기 자신을 `start --foreground` 로 재실행해 백그라운드로 띄우고, 로그를 `$DONGMINAL_LOG` 로 리다이렉트.
 5. `/api/ping` 이 응답할 때까지 최대 5초 대기.
-6. 결과 안내 출력 (`local-only` / `LAN 노출` 표기). `--open` 이면 frameless window 를 엽니다.
+6. 결과 안내 출력 (`local-only` / `LAN 노출` 표기).
+
+창은 `start` 가 열지 않습니다 — `dongminal window` 가 따로 엽니다.
 
 빌드는 하지 않습니다 — `./scripts/build.sh` 의 책임입니다.
 
@@ -139,9 +143,21 @@ cd dongminal
 | `--expose` | `0.0.0.0` 에 바인드 (사내망 다른 기기에서 접근 가능) |
 | `--restart-daemon` | dongminald 도 재시작 (터미널 세션을 잃습니다). dongminal 도구 안에서 실행하면 재시작을 대리 프로세스가 이어서 수행하고 출력은 `$DONGMINAL_HOME/restart.log` 에 남습니다 — 데몬을 내리는 순간 명령 자신도 함께 끊기기 때문입니다 |
 | `--isolated` | 임시 홈 + 비어 있는 포트로 띄웁니다. 운영 인스턴스를 건드리지 않습니다 |
-| `--open` | 준비되면 frameless window(Chrome `--app`)를 엽니다 |
 | `--foreground` | 터미널을 점유하며 실행 (`^C` 로 정지) |
 | `--port <n>` / `--home <path>` | 모든 액션 공통. 환경변수보다 우선합니다 |
+
+### 창 열기 — `window`
+
+```bash
+./dongminal window
+```
+
+**돌고 있는 서버에 주소창 없는 창을 하나 엽니다. 서버를 띄우지도, 죽이지도
+않습니다.** 서버가 떠 있지 않으면 창을 열지 않고 그 사실을 알립니다 — 빈 화면을
+띄우고 원인을 찾게 하지 않기 위해서입니다.
+
+`--port` 로 겨눌 서버를 고릅니다(기본은 `start` 와 같은 규칙). 창을 여는 수단은
+Chrome/Chromium 계열의 `--app` 이고, 없으면 기본 브라우저로 내려갑니다.
 
 ### 외부 노출/비노출 선택
 

@@ -16,6 +16,7 @@ func Help() string {
   start      서버를 띄운다 (필요하면 dongminald 도 함께)
   stop       서버를 정지한다
   migrate    워크스페이스 데이터를 최신 스키마로 변환한다 (1회성)
+  window     돌고 있는 서버에 frameless window 를 연다 (서버를 띄우지 않는다)
   health     서버와 dongminald 의 상태를 확인한다
   doctor     이 호스트에서 플랫폼 계층이 동작하는지 확인한다
   verify     격리 인스턴스를 띄워 종단간 표면을 훑는다 (개발·CI)
@@ -42,11 +43,21 @@ func Usage(action string) string {
                     도구 안에서 쓰면 대리 프로세스가 이어서 수행하고
                     출력은 $DONGMINAL_HOME/restart.log 에 남는다
   --isolated        임시 홈 + 비어 있는 포트로 띄운다. 운영 인스턴스를 건드리지 않는다
-  --open            준비되면 frameless window(Chrome --app)를 연다
   --foreground      터미널을 점유하며 실행한다 (^C 로 정지)
 ` + commonFlags + `
 
 로그: $DONGMINAL_LOG (기본: ` + defaultLogFile() + `) — 배경 모드에서만
+`
+	case "window":
+		return `사용법: dongminal window [옵션]
+
+돌고 있는 서버에 frameless window(Chrome --app)를 연다.
+
+서버를 띄우지 않는다 — 창만 연다. 서버가 떠 있지 않으면 열지 않고 알린다.
+띄우는 것은 dongminal start 다.
+
+옵션:
+` + commonFlags + `
 `
 	case "stop":
 		return `사용법: dongminal stop [옵션]

@@ -183,7 +183,8 @@ jobs:
           \`\`\`bash
           curl -fL -o dongminal https://github.com/${{ github.repository }}/releases/download/$VERSION/dongminal-darwin-arm64
           chmod +x dongminal && xattr -d com.apple.quarantine dongminal
-          ./dongminal start --open
+          ./dongminal start
+          ./dongminal window
           \`\`\`
 
           **macOS (Intel)** — 위에서 \`darwin-arm64\` 를 \`darwin-amd64\` 로.
@@ -198,7 +199,8 @@ jobs:
           **Windows 10 1809+** (PowerShell)
           \`\`\`powershell
           curl.exe -fL -o dongminal.exe https://github.com/${{ github.repository }}/releases/download/$VERSION/dongminal-windows-amd64.exe
-          .\\dongminal.exe start --open
+          .\\dongminal.exe start
+          .\\dongminal.exe window
           \`\`\`
 
           브라우저에서 \`http://localhost:58146/\` 로 접속합니다.

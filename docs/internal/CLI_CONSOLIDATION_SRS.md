@@ -262,6 +262,10 @@ stdout/stderr 은 `<home>/restart.log` 다. 위임 사실과 로그 경로를 �
 **FR-ISO-5** 격리 홈은 자동으로 지우지 않는다. `start` 는 서버를 띄우고 끝나는
 명령이므로 정리 시점을 알 수 없다. 경로를 출력하는 것으로 갈음한다.
 
+> **폐기됨 (1.0.2).** `--open` 은 제거되고 같은 일이 독립 명령
+> `dongminal window` 로 옮겨졌다 — [`./WINDOW_COMMAND_SRS.md`](./WINDOW_COMMAND_SRS.md).
+> 아래 FR-OPN-1~3 은 그 판 이전의 기록이다.
+
 **FR-OPN-1** `start --open` 은 준비 확인(FR-ACT-1 ④)이 성공한 뒤 frameless
 window 를 연다. 준비 확인이 실패하면 열지 않는다.
 

@@ -31,6 +31,20 @@ func TestDispatch_Help(t *testing.T) {
 	}
 }
 
+// V-WIN-6: `window` 가 액션으로 선다.
+//
+// RunWindow 까지 태우지 않는다 — 개발 기계에 서버가 떠 있으면 **진짜 창이 열린다.**
+// `--help` 로 태우면 ParseWindow 와 Usage 까지 지나므로 배선은 그대로 증명된다.
+func TestDispatch_Window(t *testing.T) {
+	code, out, errOut := dispatch(t, "window", "--help")
+	if code != 0 {
+		t.Errorf("rc=%d stderr=%q", code, errOut)
+	}
+	if !strings.Contains(out, "dongminal window") {
+		t.Errorf("window 사용법이 아니다: %q", out)
+	}
+}
+
 // FR-CLI-5: 알 수 없는 액션은 rc=2.
 func TestDispatch_UnknownAction(t *testing.T) {
 	code, out, errOut := dispatch(t, "bogus")
