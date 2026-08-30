@@ -55,14 +55,25 @@ declare const GIT_DIFF_OPTIONS: any;
 declare const GIT_DIFF_FOLD_KEY: string;
 
 // 손잡이를 dx 만큼 끈다. 반환은 끈 뒤의 파일 목록 폭이다.
+//
+// `hover()` 로 시작하는 이유: Git 패널은 상태·안내 줄이 뒤늦게 들어오며 앉는다.
+// 그 사이에 잡은 좌표로 누르면 손잡이가 이미 움직여 **빗나간다.** hover 는
+// 요소가 안정될 때까지 기다린 뒤 그 위로 포인터를 옮긴다.
 async function dragHandle(page: Page, dx: number) {
+  const files = changes(page).locator('.git-files');
   const h = changes(page).locator('.git-files-handle');
+  await h.hover();
+  // before 는 **안정된 뒤에** 잰다. hover 앞에서 재면 패널이 앉는 동안의 값이
+  // 섞여 "드래그가 바꿨다"와 "패널이 앉았다"를 가를 수 없다.
+  const before = (await files.boundingBox())!.width;
   const hb = (await h.boundingBox())!;
-  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
   await page.mouse.down();
   await page.mouse.move(hb.x + hb.width / 2 + dx, hb.y + hb.height / 2, { steps: 8 });
   await page.mouse.up();
-  return (await changes(page).locator('.git-files').boundingBox())!.width;
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem(GIT_FILES_W_KEY)), { timeout: 5000 })
+    .not.toBeNull();
+  return { before, after: (await files.boundingBox())!.width };
 }
 
 test.describe('묶음 D — Changes 두 칸의 크기조정', () => {
@@ -74,8 +85,7 @@ test.describe('묶음 D — Changes 두 칸의 크기조정', () => {
     const handle = changes(page).locator('.git-files-handle');
     await expect(handle).toHaveCount(1);
 
-    const before = (await changes(page).locator('.git-files').boundingBox())!.width;
-    const after = await dragHandle(page, 150);
+    const { before, after } = await dragHandle(page, 150);
     expect(after).toBeGreaterThan(before + 40);
   });
 
@@ -579,5 +589,97 @@ test.describe('묶음 K — Monaco 안에서의 키', () => {
 
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+F' : 'Control+Shift+F');
     await expect(page.locator('.ed-find.vis')).toHaveCount(1);
+  });
+});
+
+// FR-CSZ-1·5 의 세로 절반 — 모바일은 두 칸을 상하로 쌓고 손잡이가 **높이**를
+// 조정한다. 여기까지 검사하지 않으면 "코드는 있고 테스트는 없다"가 되고, 이번
+// 작업에서 그 모양의 자리가 실제로 죽어 있었다(`this.activeWindow`).
+test.describe('묶음 D — 모바일 세로 크기조정', () => {
+  const MOBILE_VIEWPORT = { width: 375, height: 667 };
+
+  // 세로 손잡이를 dy 만큼 끈다.
+  //
+  // **드래그가 실제로 먹었는지 먼저 확인한다.** 크기 변화를 보지 않고 저장값만
+  // 검사하면, 레이아웃이 덜 앉아 포인터가 손잡이를 빗나간 실행에서 조용히
+  // 실패한다 — 처음에 그렇게 써서 그룹 실행에서 간헐적으로 깨졌다.
+  async function dragHandleV(page: Page, dy: number) {
+    const files = changes(page).locator('.git-files');
+    const h = changes(page).locator('.git-files-handle');
+    await h.hover();
+    const before = (await files.boundingBox())!.height;
+    const hb = (await h.boundingBox())!;
+    await page.mouse.down();
+    await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2 + dy, { steps: 8 });
+    await page.mouse.up();
+    // 성립 판정은 **저장값**으로 한다. 화면 높이는 패널이 앉는 것만으로도
+    // 변하므로 근거가 되지 못한다 — 처음에 높이로 판정해서 빗나간 드래그가
+    // 통과했고, 그 뒤의 단정에서야 터졌다.
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem(GIT_FILES_H_KEY)), { timeout: 5000 })
+      .not.toBeNull();
+    return { before, after: (await files.boundingBox())!.height };
+  }
+
+  async function gotoMobileGit(page: Page, repo: string) {
+    await page.context().addInitScript(() => {
+      sessionStorage.setItem('displayMode', 'mobile');
+    });
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/');
+    await page.waitForSelector('body.mobile', { timeout: 15000 });
+    await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
+    await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
+  }
+
+  // V-CSZ-6: 세로 배치에서 손잡이가 높이를 바꾼다.
+  test('V-CSZ-6: 모바일에서 손잡이가 높이를 바꾼다', async ({ page }) => {
+    await gotoMobileGit(page, fx('basic'));
+
+    // 배치가 실제로 세로인지 먼저 확인한다 — 가로인데 통과하면 뜻이 없다.
+    const dir = await changes(page).locator('.git-changes-body')
+      .evaluate((el) => getComputedStyle(el).flexDirection);
+    expect(dir).toBe('column');
+    expect(await page.evaluate(() =>
+      (window as any).app.gitPanel._filesVertical())).toBe(true);
+
+    const { before, after } = await dragHandleV(page, 120);
+    expect(after).toBeGreaterThan(before + 40);
+  });
+
+  // V-CSZ-7: 세로 값은 **세로 키**에 저장된다 (FR-CSZ-5). 한 값을 공유하면
+  // 데스크톱에서 정한 폭이 모바일의 높이가 된다.
+  test('V-CSZ-7: 세로 값은 가로 키를 건드리지 않는다', async ({ page }) => {
+    await gotoMobileGit(page, fx('basic'));
+
+    // 가로 키에 표식을 심어 두고, 세로 드래그가 그것을 덮지 않는지 본다.
+    await page.evaluate(() => localStorage.setItem(GIT_FILES_W_KEY, '33'));
+    await dragHandleV(page, 100);
+
+    // 어느 키가 쓰였는지 먼저 못박는다. 이것이 어긋나면 원인이 "저장이 안 됐다"가
+    // 아니라 "세로 판정이 풀렸다"이고, 두 실패는 고치는 자리가 다르다.
+    const at = await page.evaluate(() => ({
+      mobile: document.body.classList.contains('mobile'),
+      vertical: (window as any).app.gitPanel._filesVertical(),
+      key: (window as any).app.gitPanel._filesSizeKey(),
+    }));
+    expect(at, '드래그 뒤 세로 판정이 풀렸다').toEqual(
+      expect.objectContaining({ mobile: true, vertical: true }));
+
+    expect(await page.evaluate(() => localStorage.getItem(GIT_FILES_W_KEY))).toBe('33');
+    const hv = await page.evaluate(() => localStorage.getItem(GIT_FILES_H_KEY));
+    expect(hv).not.toBeNull();
+    expect(parseFloat(hv!)).toBeGreaterThan(0);
+  });
+
+  // V-CSZ-8: 세로에서도 하한을 지킨다 (FR-CSZ-3).
+  test('V-CSZ-8: 세로에서도 칸이 사라지지 않는다', async ({ page }) => {
+    await gotoMobileGit(page, fx('basic'));
+    await dragHandleV(page, -2000);
+
+    const total = (await changes(page).locator('.git-changes-body').boundingBox())!.height;
+    const hgt = (await changes(page).locator('.git-files').boundingBox())!.height;
+    const min = await page.evaluate(() => GIT_FILES_SIZE_MIN);
+    expect((hgt / total) * 100).toBeGreaterThan(min - 1);
   });
 });
