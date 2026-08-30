@@ -436,6 +436,9 @@ func serve(home, host, port string) int {
 	// UX_REVISION_SRS FR-DEL-14/18: 끝난 Run 과 조정자를 잃은 Run 을 거둔다.
 	// 부팅 직후 한 번 돌므로 epoch 펜싱이 aborted 로 표시한 Run 도 여기서 사라진다.
 	srv.StartRunReaper(ctx.Done())
+	// RECONNECT_STORM_SRS FR-LOG-1: 서버가 자기 로그의 크기를 스스로 지킨다.
+	// 폭주가 4.17 GB 를 만든 뒤에도 상한이 없다는 사실은 그대로였다.
+	go cli.WatchLogSize(ctx.Done())
 	exposure := "local-only"
 	if host == "0.0.0.0" || host == "::" {
 		exposure = "exposed to LAN"
