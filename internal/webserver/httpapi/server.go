@@ -70,6 +70,10 @@ type Server struct {
 
 	started time.Time
 
+	// misses 는 "없는 도구를 향한 WebSocket 요청"의 되풀이를 센다
+	// (RECONNECT_STORM_SRS FR-RCS-9). 제로값이 곧 빈 추적기라 New 가 세우지 않는다.
+	misses missTracker
+
 	mu sync.Mutex
 }
 

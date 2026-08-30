@@ -49,6 +49,10 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 				log.Printf("ws addr=%s: tool %s lookup during daemon reconnect; closing for retry", r.RemoteAddr, toolID)
 				return
 			}
+			// FR-RCS-9: 규약을 지키는 클라이언트는 이 통보 한 번으로 판정을
+			// 끝낸다. 그래도 다시 오는 쪽 — 옛 JS 를 물고 있어 배포가 닿지 않는
+			// 탭 — 만 늦춘다. 첫 미스는 늦추지 않으므로 정상 경로는 그대로다.
+			s.throttleMiss(r.Context(), toolID)
 			// Send toolhub.OpExit so the frontend knows this tool is permanently gone.
 			_ = conn.Send(toolhub.OpExit, nil)
 			conn.Close()
