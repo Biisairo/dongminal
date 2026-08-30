@@ -132,10 +132,16 @@ var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/cwd"), (*Server).apiCwd},
 	{http.MethodGet, exactPath("/api/file/read"), (*Server).apiFileRead},
 	{http.MethodPost, exactPath("/api/file/write"), (*Server).apiFileWrite},
+	// EDITOR_GIT_UX_SRS 묶음 V — 열 수 있는 형식인가, 그리고 이미지 바이트.
+	{http.MethodGet, exactPath("/api/file/probe"), (*Server).apiFileProbe},
+	{http.MethodGet, exactPath("/api/file/raw"), (*Server).apiFileRaw},
 	// 묶음 S — 탐색기의 디렉터리 조회·파일 조작과 Editor 목록
 	// (EDITOR_TAB_SRS FR-EDT-108~110). /api/file/* 과 달리 전부 root 를 함께 받아
 	// 그 아래로 제한한다 (D-16) — 조작은 트리에서 파생된 경로를 지운다.
 	{http.MethodGet, exactPath("/api/fs/list"), (*Server).apiFSList},
+	// EDITOR_GIT_UX_SRS 묶음 F·G — Editor 창의 파일 이름 찾기·전체 내용 찾기.
+	{http.MethodGet, exactPath("/api/fs/find"), (*Server).apiFSFind},
+	{http.MethodGet, exactPath("/api/fs/grep"), (*Server).apiFSGrep},
 	{http.MethodPost, exactPath("/api/fs/create"), (*Server).apiFSCreate},
 	{http.MethodPost, exactPath("/api/fs/rename"), (*Server).apiFSRename},
 	{http.MethodPost, exactPath("/api/fs/delete"), (*Server).apiFSDelete},
