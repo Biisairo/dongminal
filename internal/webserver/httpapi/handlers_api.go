@@ -142,12 +142,18 @@ var apiRoutes = []apiRoute{
 	// EDITOR_GIT_UX_SRS 묶음 F·G — Editor 창의 파일 이름 찾기·전체 내용 찾기.
 	{http.MethodGet, exactPath("/api/fs/find"), (*Server).apiFSFind},
 	{http.MethodGet, exactPath("/api/fs/grep"), (*Server).apiFSGrep},
+	// EXPLORER_TRANSFER_IGNORE_SRS 묶음 A — 한 겹에서 무시된 이름을 가른다.
+	// status 폴링에 얹지 않는 이유는 D-1 이다.
+	{http.MethodPost, exactPath("/api/fs/ignored"), (*Server).apiFSIgnored},
 	{http.MethodPost, exactPath("/api/fs/create"), (*Server).apiFSCreate},
 	{http.MethodPost, exactPath("/api/fs/rename"), (*Server).apiFSRename},
 	{http.MethodPost, exactPath("/api/fs/delete"), (*Server).apiFSDelete},
 	// 묶음 D·E — 탐색기의 전송 (FILE_TRANSFER_SRS FR-FTR-12·15). 터미널의
 	// /api/{upload,download} 와 같은 일을 하되 root 가드를 받는다.
 	{http.MethodGet, exactPath("/api/fs/download"), (*Server).apiFSDownload},
+	// EXPLORER_TRANSFER_IGNORE_SRS 묶음 B — 폴더를 zip 으로. 파일 종단과 나눈
+	// 이유는 FR-ETR-11 이다 — 두 종단이 서로의 일을 대신하지 않는다.
+	{http.MethodGet, exactPath("/api/fs/download-dir"), (*Server).apiFSDownloadDir},
 	{http.MethodPost, exactPath("/api/fs/upload"), (*Server).apiFSUpload},
 	{http.MethodGet, exactPath("/api/editors"), (*Server).apiEditorsGet},
 	{http.MethodPost, exactPath("/api/editors/add"), (*Server).apiEditorsAdd},

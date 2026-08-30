@@ -220,7 +220,19 @@ test.describe('묶음 D·E — 탐색기의 전송 (FR-FTR-13~19)', () => {
     expect(fs.readFileSync(j(R, 'docs', 'picked.txt'), 'utf8')).toBe('PICKED');
   });
 
-  test('FT8 (V-FTR-16): 둘 중 둘째가 충돌하면 첫째는 남고 사유가 그 자리에 붙는다', async ({ page, request }) => {
+  /**
+   * FT8 — **동작이 바뀌었다** (EXPLORER_TRANSFER_IGNORE_SRS FR-ETR-26, D-9).
+   *
+   *   이전: 첫 실패에서 통째로 멈추고 사유가 그 자리에 붙는다.
+   *   이후: 첫 실패에서 멈추고 **사용자에게 묻는다** — 재시도·건너뛰기·이후 모두
+   *         건너뛰기·중단.
+   *   이유: 폴더 업로드가 생겼다. "첫 실패에 멈춤" 은 파일 몇 개일 때의 규약이며,
+   *         수백 개를 올리는 자리에서는 "처음부터 다시 하라" 는 말이 된다.
+   *
+   * 변하지 않은 것은 **덮어쓰지 않는다**는 사실이다 (FR-FTR-16) — 여기서 그것을
+   * 계속 잰다.
+   */
+  test('FT8 (V-FTR-16): 둘 중 둘째가 충돌하면 묻고, 첫째는 남으며 원본은 그대로다', async ({ page, request }) => {
     const R = mkRoot('ft8');
     w(j(R, 'docs', 'dup.txt'), 'ORIGINAL\n');
     await enter(page, request, R);
@@ -231,21 +243,34 @@ test.describe('묶음 D·E — 탐색기의 전송 (FR-FTR-13~19)', () => {
       { name: 'dup.txt', body: 'SECOND' },
     ]);
 
-    await expect(opErr(page)).toContainText('이미 있습니다', { timeout: 10000 });
-    await expect(opErr(page)).toContainText('dup.txt');
+    const dlg = page.locator('#ed-upload-fail-dlg');
+    await expect(dlg).toBeVisible({ timeout: 10000 });
+    await expect(dlg).toContainText('dup.txt');
+    await expect(dlg).toContainText('이미 있습니다');
+    await dlg.locator('[data-opt="skip"]').click();
+
+    await expect(opErr(page)).toContainText('건너뛰었습니다', { timeout: 10000 });
     expect(fs.readFileSync(j(R, 'docs', 'first.txt'), 'utf8')).toBe('FIRST');
     expect(fs.readFileSync(j(R, 'docs', 'dup.txt'), 'utf8')).toBe('ORIGINAL\n');
   });
 
-  test('FT9 (V-FTR-12): 다운로드는 파일에서만 활성이고 실제로 내려받는다', async ({ page, request }) => {
+  /**
+   * FT9 — **동작이 바뀌었다** (EXPLORER_TRANSFER_IGNORE_SRS FR-ETR-16, D-4).
+   *
+   *   이전: 다운로드는 파일에서만 활성. 폴더는 "파일만 내려받을 수 있습니다".
+   *   이후: 폴더에서도 활성이며 zip 으로 온다. **링크만** 비활성이다.
+   *   이유: 폴더 다운로드가 FILE_TRANSFER_SRS §6 의 비목표에서 풀렸다.
+   */
+  test('FT9 (V-FTR-12): 다운로드는 링크에서만 비활성이고 실제로 내려받는다', async ({ page, request }) => {
     const R = mkRoot('ft9');
+    fs.symlinkSync(j(R, 'top.txt'), j(R, 'link.txt'));
     await enter(page, request, R);
 
-    // ① 폴더에서는 비활성이고 사유가 보인다.
-    await ctxMenu(page, j(R, 'docs'));
+    // ① 링크에서는 비활성이고 사유가 보인다.
+    await ctxMenu(page, j(R, 'link.txt'));
     const item = page.locator('.git-menu .git-menu-item[data-id="download"]');
     await expect(item).toHaveClass(/disabled/);
-    await expect(item).toHaveAttribute('title', /파일만/);
+    await expect(item).toHaveAttribute('title', /링크/);
     await page.keyboard.press('Escape');
 
     // ② 파일에서는 내려받는다.
