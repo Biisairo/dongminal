@@ -163,19 +163,34 @@ func (s *GitServer) apiGitRepoAt(w http.ResponseWriter, r *http.Request) {
 		gitUnavailable(w)
 		return
 	}
-	gitJSON(w, http.StatusOK, s.gitRepoAtEntry(r.Context(), s.gitToolCwd(r)))
+	cwd, source := s.gitToolCwd(r)
+	e := s.gitRepoAtEntry(r.Context(), cwd)
+	// FR-ETR-31: 이 값이 **누구의 것인지** 함께 싣는다. 폴백은 유지하되(D-10),
+	// 그것이 서버 자신의 cwd 라는 사실이 응답에서 보여야 한다 — 보이지 않으면
+	// 호출자는 남의 경로를 사용자의 것으로 채운다 (§2.4).
+	e["source"] = source
+	gitJSON(w, http.StatusOK, e)
 }
 
 // gitToolCwd 는 /api/cwd 와 같은 규약이다 — tool 이 비면 서버의 cwd 다.
-func (s *GitServer) gitToolCwd(r *http.Request) string {
+// 두 번째 값은 그 근거이며, `/api/cwd` 의 source 와 같은 어휘를 쓴다
+// (FR-FTR-7 · FR-ETR-31).
+func (s *GitServer) gitToolCwd(r *http.Request) (string, string) {
 	if id := r.URL.Query().Get("tool"); id != "" && s.Tools != nil {
 		if cwd := s.Tools.Cwd(id); cwd != "" {
-			return cwd
+			return cwd, gitCwdSourceTool
 		}
 	}
 	cwd, _ := os.Getwd()
-	return cwd
+	return cwd, gitCwdSourceServer
 }
+
+// /api/cwd 가 쓰는 것과 같은 두 값이다. 문자열을 두 곳에 흩뿌리면 한쪽만
+// 바뀐다 (FR-FTR-4 와 같은 근거).
+const (
+	gitCwdSourceTool   = "tool"
+	gitCwdSourceServer = "server"
+)
 
 // gitRepoAtEntry 는 cwd 가 속한 리포를 확정한다. 저장소가 아니면 path 는 비고
 // 사유만 실린다 — **마지막 유효 리포를 유지하지 않는다.**
