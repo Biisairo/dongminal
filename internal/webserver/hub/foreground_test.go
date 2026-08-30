@@ -89,6 +89,7 @@ func (f *fakeHub) Cwd(string) string                                    { return
 func (f *fakeHub) Busy(string) bool                                     { return false }
 func (f *fakeHub) Delete(string)                                        {}
 func (f *fakeHub) Write(string, []byte) error                           { return nil }
+func (f *fakeHub) SendPaste(string, []byte, bool) error                 { return nil }
 func (f *fakeHub) Resize(string, uint16, uint16) error                  { return nil }
 func (f *fakeHub) SnapshotTool(string) (toolhub.ToolSnapshot, error) {
 	return toolhub.ToolSnapshot{}, nil

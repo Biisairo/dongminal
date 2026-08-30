@@ -7,7 +7,6 @@ import (
 	"dongminal/internal/shared/toolhub"
 
 	"fmt"
-	"time"
 
 	"dongminal/internal/webserver/seam/toolaccess"
 )
@@ -139,43 +138,20 @@ func (a Tool) Size(id string) string {
 	return "?"
 }
 
+// SendPaste 는 감싸기·제출 판단을 **도구가 사는 곳**에 맡긴다.
+//
+// 종전에는 이 함수 안에 감싸기가 두 벌 적혀 있었다 — direct 갈래와 daemon 갈래.
+// 게다가 셸이 bracketed paste 모드를 켰는지 보지 않고 **언제나** 감쌌으므로,
+// 그 모드를 모르는 셸(macOS 가 싣는 bash 3.2)에서는 마커가 글자 그대로 명령줄에
+// 들어가 명령이 깨졌다 (BRACKETED_PASTE_SRS §1.1).
+//
+// 판단은 PTY 출력을 읽는 쪽만 할 수 있다. 그래서 여기서는 위임만 한다 (FR-BPW-1).
 func (a Tool) SendPaste(id string, text []byte, submit bool) error {
 	if a.PM != nil {
-		p := a.PM.Get(id)
-		if p == nil {
-			return fmt.Errorf("tool 없음: %s", id)
-		}
-		var paste []byte
-		paste = append(paste, 0x1b, '[', '2', '0', '0', '~')
-		paste = append(paste, text...)
-		paste = append(paste, 0x1b, '[', '2', '0', '1', '~')
-		if err := p.Write(paste); err != nil {
-			return fmt.Errorf("터미널 쓰기 (paste): %w", err)
-		}
-		if submit {
-			time.Sleep(120 * time.Millisecond)
-			if err := p.Write([]byte{'\r'}); err != nil {
-				return fmt.Errorf("터미널 쓰기 (submit): %w", err)
-			}
-		}
-		return nil
+		return a.PM.SendPaste(id, text, submit)
 	}
-	// Daemon mode: use ToolHub.Write
 	if a.Hub != nil {
-		var paste []byte
-		paste = append(paste, 0x1b, '[', '2', '0', '0', '~')
-		paste = append(paste, text...)
-		paste = append(paste, 0x1b, '[', '2', '0', '1', '~')
-		if err := a.Hub.Write(id, paste); err != nil {
-			return fmt.Errorf("write (paste): %w", err)
-		}
-		if submit {
-			time.Sleep(120 * time.Millisecond)
-			if err := a.Hub.Write(id, []byte{'\r'}); err != nil {
-				return fmt.Errorf("write (submit): %w", err)
-			}
-		}
-		return nil
+		return a.Hub.SendPaste(id, text, submit)
 	}
 	return fmt.Errorf("tool 없음: %s", id)
 }

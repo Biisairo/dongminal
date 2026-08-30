@@ -119,12 +119,13 @@ func (h *headlessHub) Get(id string) *toolhub.Tool {
 	return h.tools[id]
 }
 
-func (h *headlessHub) Cwd(string) string                   { return "" }
-func (h *headlessHub) Busy(string) bool                    { return false }
-func (h *headlessHub) Write(string, []byte) error          { return nil }
-func (h *headlessHub) Resize(string, uint16, uint16) error { return nil }
-func (h *headlessHub) IsDaemon() bool                      { return false }
-func (h *headlessHub) IsLive(id string) bool               { return h.io.Has(id) }
+func (h *headlessHub) Cwd(string) string                    { return "" }
+func (h *headlessHub) Busy(string) bool                     { return false }
+func (h *headlessHub) Write(string, []byte) error           { return nil }
+func (h *headlessHub) SendPaste(string, []byte, bool) error { return nil }
+func (h *headlessHub) Resize(string, uint16, uint16) error  { return nil }
+func (h *headlessHub) IsDaemon() bool                       { return false }
+func (h *headlessHub) IsLive(id string) bool                { return h.io.Has(id) }
 func (h *headlessHub) SnapshotTool(string) (toolhub.ToolSnapshot, error) {
 	return toolhub.ToolSnapshot{}, nil
 }

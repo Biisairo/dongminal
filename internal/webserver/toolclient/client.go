@@ -544,6 +544,17 @@ func (pc *ToolClient) Write(id string, data []byte) error {
 	return err
 }
 
+// SendPaste 는 감싸기와 제출을 데몬에 맡긴다 — 판단이 클라이언트로 새면 안 된다
+// (BRACKETED_PASTE_SRS FR-BPW-4).
+func (pc *ToolClient) SendPaste(id string, text []byte, submit bool) error {
+	_, err := pc.call("paste", map[string]interface{}{
+		"id":     id,
+		"data":   base64.StdEncoding.EncodeToString(text),
+		"submit": submit,
+	})
+	return err
+}
+
 func (pc *ToolClient) Resize(id string, cols, rows uint16) error {
 	_, err := pc.call("resize", map[string]interface{}{
 		"id": id, "cols": cols, "rows": rows,

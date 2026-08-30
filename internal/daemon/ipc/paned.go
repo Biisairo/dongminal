@@ -143,6 +143,8 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 		resp = pc.kill(req)
 	case "write":
 		resp = pc.write(req)
+	case "paste":
+		resp = pc.paste(req)
 	case "resize":
 		resp = pc.resize(req)
 	case "list":
@@ -249,6 +251,29 @@ func (pc *panedConn) write(req *toolipc.PanedRequest) interface{} {
 		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: "invalid base64"}}
 	}
 	pc.pm.Write(p.ID, raw)
+	return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
+}
+
+// paste 는 감싸기 판단까지 **데몬에서** 한다. 셸이 bracketed paste 모드를 켰는지는
+// PTY 출력을 읽는 이쪽만 알고, 클라이언트의 Get(id) 은 cmd 없는 합성 Tool 을 주기
+// 때문이다 (BRACKETED_PASTE_SRS FR-BPW-4). cwd·busy 가 데몬 RPC 를 경유하는 것과
+// 같은 이유다.
+func (pc *panedConn) paste(req *toolipc.PanedRequest) interface{} {
+	var p struct {
+		ID     string `json:"id"`
+		Data   string `json:"data"`
+		Submit bool   `json:"submit"`
+	}
+	if err := json.Unmarshal(req.Params, &p); err != nil {
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
+	}
+	raw, err := base64.StdEncoding.DecodeString(p.Data)
+	if err != nil {
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: "invalid base64"}}
+	}
+	if err := pc.pm.SendPaste(p.ID, raw, p.Submit); err != nil {
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32000, Message: err.Error()}}
+	}
 	return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
 }
 

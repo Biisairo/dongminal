@@ -44,5 +44,10 @@
 - 경로 구분자·줄 끝 전제에서 비롯된 결함 다수
 - 셸이 스스로 끝나도 탭이 닫히지 않던 결함
 - `migrate` 가 대상이 없는데도 `settings.json` 을 재작성하던 결함
+- **붙여넣기 감싸기를 셸에게 물어보지 않던 결함.** API·에이전트 입력이 언제나
+  bracketed paste 로 감싸여 나가, 그 모드를 모르는 셸(macOS 가 싣는 bash 3.2)에서는
+  마커가 명령줄에 글자로 들어가 `bash: 200~echo: command not found` 가 됐다.
+  에이전트 간 메시지와 API 입력 주입이 그 셸에서 통째로 깨져 있었다. 이제 셸이
+  그 모드를 켰을 때만 감싼다
 
 [1.0.0]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.0

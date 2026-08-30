@@ -161,6 +161,12 @@ type Tool struct {
 
 	activity   atomic.Pointer[ActivityState]
 	onActivity func(id, state, tool, detail string)
+
+	// bracketed paste 모드 (BRACKETED_PASTE_SRS FR-BPT-1/4). bpCarryBuf 는
+	// attnCarry 와 같이 readPTY 고루틴만 만지므로 잠금이 없다. 원자값 쪽은
+	// 입력 경로가 읽는다.
+	bracketedPaste atomic.Bool
+	bpCarryBuf     []byte
 }
 
 // toolBusyProbe is the busy-detection function used by Tool.IsBusy. It is a
@@ -326,6 +332,7 @@ func (p *Tool) readPTY() {
 			r.onOutput(p.ID, append([]byte(nil), raw[:n]...))
 		}
 		p.observeOutput(raw[:n])
+		p.observeBracketedPaste(raw[:n])
 		msg := make([]byte, 1+n)
 		msg[0] = OpOutput
 		copy(msg[1:], raw[:n])

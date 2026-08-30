@@ -102,9 +102,10 @@ func (f *fakePaneHub) Delete(id string) {
 	delete(f.tools, id)
 }
 
-func (f *fakePaneHub) IsLive(id string) bool                     { return f.Get(id) != nil }
-func (f *fakePaneHub) Write(id string, data []byte) error        { return nil }
-func (f *fakePaneHub) Resize(id string, cols, rows uint16) error { return nil }
+func (f *fakePaneHub) IsLive(id string) bool                               { return f.Get(id) != nil }
+func (f *fakePaneHub) Write(id string, data []byte) error                  { return nil }
+func (f *fakePaneHub) SendPaste(id string, text []byte, submit bool) error { return nil }
+func (f *fakePaneHub) Resize(id string, cols, rows uint16) error           { return nil }
 func (f *fakePaneHub) SnapshotTool(id string) (toolhub.ToolSnapshot, error) {
 	return toolhub.ToolSnapshot{}, nil
 }

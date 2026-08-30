@@ -17,6 +17,11 @@ type ToolHub interface {
 	Busy(id string) bool
 	Delete(id string)
 	Write(id string, data []byte) error
+	// SendPaste 는 텍스트를 넣고 submit 이면 제출까지 한다. **감싸기 판단이
+	// 구현 쪽에 있다** — 셸이 bracketed paste 모드를 켰는지는 PTY 출력을 읽는
+	// 쪽만 알고, daemon 모드의 Get(id) 은 cmd 없는 Tool 을 주기 때문이다
+	// (BRACKETED_PASTE_SRS FR-BPW-4/5). Cwd·Busy 와 같은 이유의 우회다.
+	SendPaste(id string, text []byte, submit bool) error
 	Resize(id string, cols, rows uint16) error
 	SnapshotTool(id string) (ToolSnapshot, error)
 	IsLive(id string) bool
