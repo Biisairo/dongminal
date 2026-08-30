@@ -6,6 +6,9 @@ class TerminalTool {
   constructor(id, name) {
     this.id=id; this.name=name;
     this.ws=null; this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false; this._destroyed=false; this._retryDelay=0;
+    // FR-RCS-1: 도구가 사라졌다는 서버의 통보(OP.EXIT)를 받았는가. 서면 재연결을
+    // 영구히 멈춘다. FR-RCS-3 의 healthy 타이머는 "이 연결이 유효했는가"의 근거다.
+    this._exited=false; this._healthyTimer=null;
     this._sendQueue=[]; this._sendQueueMax=64; this._sendDropCount=0;
     this._decoder=new TextDecoder('utf-8',{fatal:false}); this._outputBuf=''; this._flushScheduled=false; this._carryTimer=null;
     this.el=document.createElement('div');
@@ -289,50 +292,78 @@ class TerminalTool {
       }));
     }catch{}
   }
-  connect() {
+  _wsURL(){
     const p=location.protocol==='https:'?'wss:':'ws:';
     const cols=(this.term&&this.term.cols)||120;
     const rows=(this.term&&this.term.rows)||40;
-    const url=`${p}//${location.host}/ws?cols=${cols}&rows=${rows}&tool=${encodeURIComponent(this.id)}`;
-    this.ws=new WebSocket(url); this.ws.binaryType='arraybuffer';
+    return `${p}//${location.host}/ws?cols=${cols}&rows=${rows}&tool=${encodeURIComponent(this.id)}`;
+  }
+  // FR-RCS-1: 최초 연결과 재연결이 **같은 판정**을 하도록 수신 처리를 한 곳에
+  // 둔다. 두 벌로 두었던 것이 OP.EXIT 처리가 한쪽에만 들어가는 사고의 자리였다.
+  _onOp(d){
+    if(d[0]===OP.OUTPUT){ this._handleOutput(d.subarray(1)); }
+    else if(d[0]===OP.TOOLID){ this.id=dec.decode(d.subarray(1)); this.el.dataset.toolid=this.id; }
+    else if(d[0]===OP.EXIT){ this._markExited(); }
+    else if(d[0]===OP.ERROR){ this.write('\r\n\x1b[31m'+dec.decode(d.subarray(1))+'\x1b[0m\r\n'); }
+  }
+  // FR-RCS-1·2: 서버가 도구의 부재를 알렸다. 이 패널은 다시 연결하지 않으며,
+  // 사실을 오버레이로 남긴다 — 본문 한 줄은 스크롤 밖으로 밀려 사라진다.
+  _markExited(){
+    if(this._exited) return;
+    this._exited=true;
+    this._clearHealthy();
+    this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n');
+    this.el.style.opacity='1'; this._reconnecting=false;
+    this._showOverlay('도구 종료됨','이 탭을 닫아 주세요');
+  }
+  // FR-RCS-3: 연결이 WS_HEALTHY_MS 이상 유지되어야 백오프를 되돌린다.
+  _markHealthy(){
+    this._clearHealthy();
+    this._healthyTimer=setTimeout(()=>{this._healthyTimer=null;this._retryDelay=0},WS_HEALTHY_MS);
+  }
+  _clearHealthy(){
+    if(this._healthyTimer){clearTimeout(this._healthyTimer);this._healthyTimer=null}
+  }
+  _onWsOpen(){
+    this._markHealthy();
+    if(this.term && window.app && window.app._resizeCheck(this.id)){
+      const m=new Uint8Array(5);m[0]=OP.RESIZE;
+      new DataView(m.buffer).setUint16(1,this.term.cols,false);
+      new DataView(m.buffer).setUint16(3,this.term.rows,false);
+      this._send(m);
+    }
+    this._flushSendQueue();
+  }
+  connect() {
+    // 명시적인 connect 는 새 시도다 — 이전의 종료 판정을 지운다.
+    this._exited=false;
+    this.ws=new WebSocket(this._wsURL()); this.ws.binaryType='arraybuffer';
     this.ws.onopen=()=>{
-      if(this.term && window.app && window.app._resizeCheck(this.id)){
-        const m=new Uint8Array(5);m[0]=OP.RESIZE;
-        new DataView(m.buffer).setUint16(1,this.term.cols,false);
-        new DataView(m.buffer).setUint16(3,this.term.rows,false);
-        this._send(m);
-      }
-      this._flushSendQueue();
+      this._onWsOpen();
       if(this._reconnecting){
         setTimeout(()=>{this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},300);
       }
     };
     this.ws.onmessage=e=>{
-      const d=new Uint8Array(e.data); if(!d.length) return;
-      if(d[0]===OP.OUTPUT){
-        this._handleOutput(d.subarray(1));
-      } else if(d[0]===OP.TOOLID){
-        this.id=dec.decode(d.subarray(1)); this.el.dataset.toolid=this.id;
-      } else if(d[0]===OP.EXIT){
-        this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n');
-      } else if(d[0]===OP.ERROR){
-        this.write('\r\n\x1b[31m'+dec.decode(d.subarray(1))+'\x1b[0m\r\n');
-      }
+      const d=new Uint8Array(e.data); if(d.length) this._onOp(d);
     };
     this.ws.onclose=()=>{
-      if(this._destroyed) return;
+      if(this._destroyed||this._exited) return;
       this._showOverlay('연결 끊김', '재연결 중...');
       this._scheduleReconnect();
     };
     this.ws.onerror=()=>{
-      if(this._destroyed) return;
+      if(this._destroyed||this._exited) return;
       this._showOverlay('연결 오류', '재연결 중...');
       this._scheduleReconnect();
     };
   }
   _scheduleReconnect(){
-    if(this._destroyed||this._reconnectPending) return;
+    // FR-RCS-1: 도구가 사라졌다는 통보를 받았으면 다시 붙지 않는다. 이 한 줄이
+    // 없으면 없는 도구를 향해 지연 0 으로 무한히 재접속한다 (§2.1).
+    if(this._destroyed||this._exited||this._reconnectPending) return;
     this._reconnectPending=true;
+    this._clearHealthy();
     if(this.ws){try{this.ws.onclose=null;this.ws.onerror=null;this.ws.onmessage=null;this.ws.close()}catch{}this.ws=null}
     // Reset decoder state so any half-received multibyte sequence from the
     // dead connection doesn't get spliced with bytes from the new one.
@@ -343,49 +374,37 @@ class TerminalTool {
   doFit(){if(this.fit)try{this.fit.fit()}catch{}}
   focus(){if(this.term)try{this.term.focus()}catch{}}
   _reconnect(){
-    if(this._destroyed) return;
+    if(this._destroyed||this._exited) return;
     // Instant first attempt, then fast backoff: 200, 500, 1s, 1.2x up to 10s.
+    // FR-RCS-4: 이 값은 _markHealthy 의 타이머가 깨어날 때만 0 으로 돌아간다.
     let delay=this._retryDelay;
     if(this._retryDelay===0){ delay=0; this._retryDelay=200 }
     else if(this._retryDelay<=500){ this._retryDelay=Math.min(this._retryDelay*2.5,1000) }
     else{ this._retryDelay=Math.min(this._retryDelay*1.2,10000) }
     setTimeout(()=>{
-      if(this._destroyed) return;
-      const p=location.protocol==='https:'?'wss:':'ws:';
-      const cols=(this.term&&this.term.cols)||120;
-      const rows=(this.term&&this.term.rows)||40;
-      const url=`${p}//${location.host}/ws?cols=${cols}&rows=${rows}&tool=${encodeURIComponent(this.id)}`;
-      const ws=new WebSocket(url); ws.binaryType='arraybuffer';
+      // FR-RCS-5: 대기 중에 판정이 섰을 수 있다. 깨어난 뒤에 다시 본다.
+      if(this._destroyed||this._exited) return;
+      const ws=new WebSocket(this._wsURL()); ws.binaryType='arraybuffer';
       this._pendingWs=ws;
       this._reconnectPending=false;
       ws.onopen=()=>{
-        this.ws=ws; this._retryDelay=0;
+        this.ws=ws;
         this._pendingWs=null;
-        if(this.term && window.app && window.app._resizeCheck(this.id)){
-          const m=new Uint8Array(5);m[0]=OP.RESIZE;
-          new DataView(m.buffer).setUint16(1,this.term.cols,false);
-          new DataView(m.buffer).setUint16(3,this.term.rows,false);
-          this._send(m);
-        }
-        this._flushSendQueue();
+        this._onWsOpen();
         setTimeout(()=>{this._hideOverlay();this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},300);
       };
       ws.onmessage=e=>{
-        const d=new Uint8Array(e.data); if(!d.length) return;
-        if(d[0]===OP.OUTPUT){ this._handleOutput(d.subarray(1)); }
-        else if(d[0]===OP.TOOLID){ this.id=dec.decode(d.subarray(1));this.el.dataset.toolid=this.id; }
-        else if(d[0]===OP.EXIT){ this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n'); }
-        else if(d[0]===OP.ERROR){ this.write('\r\n\x1b[31m'+dec.decode(d.subarray(1))+'\x1b[0m\r\n'); }
+        const d=new Uint8Array(e.data); if(d.length) this._onOp(d);
       };
       ws.onclose=()=>{
-        if(this._destroyed)return;
+        if(this._destroyed||this._exited)return;
         if(this.ws&&this.ws!==ws) return;
         if(this.ws===ws) this.ws=null;
         this._showOverlay('연결 끊김','재연결 중...');
         this._scheduleReconnect();
       };
       ws.onerror=()=>{
-        if(this._destroyed)return;
+        if(this._destroyed||this._exited)return;
         if(this.ws&&this.ws!==ws) return;
         this._showOverlay('연결 오류','재연결 중...');
         this._scheduleReconnect();
@@ -510,6 +529,7 @@ class TerminalTool {
   destroy(){
     this._destroyed=true;
     this._flingStop();
+    this._clearHealthy();
     if(this._carryTimer){clearTimeout(this._carryTimer);this._carryTimer=null}
     if(this._pendingWs&&this._pendingWs!==this.ws){
       try{this._pendingWs.onopen=null;this._pendingWs.onclose=null;this._pendingWs.onerror=null;this._pendingWs.onmessage=null;this._pendingWs.close()}catch{}

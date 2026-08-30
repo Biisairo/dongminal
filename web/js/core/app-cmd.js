@@ -7,13 +7,21 @@
 Object.assign(App.prototype, {
   // 외부 CLI(dmctl) → 서버 → SSE 브로드캐스트 수신 → executeAction 재사용
   _subscribeCommands(){
-    let retry=1000, retryCount=0, maxRetries=20;
+    // FR-RCS-6: 백오프에 상한은 두되 **포기하지 않는다.** 이 구독이 끊긴 채로
+    // 남으면 워크스페이스 변경이 도달하지 않고, 그러면 `_applyRemoteWorkspace`
+    // 의 죽은 도구 정리가 돌지 않아 없어진 도구를 향한 재접속이 영원히 계속된다.
+    let retry=SSE_RETRY_MIN_MS, pending=null;
+    const schedule=()=>{
+      if(pending) return;
+      pending=setTimeout(()=>{pending=null;connect()},retry);
+      retry=Math.min(retry*2, SSE_RETRY_MAX_MS);
+    };
     const connect=()=>{
       try{
         // FR-XDF-8: clientId 를 실어 서버가 구독↔Client 를 결선한다. 이 결선이
         // 구독 해제 시 소유권 해제(FR-XDF-9)의 선행 조건이다.
         const es=new EventSource('/api/commands/sse?clientId='+encodeURIComponent(this.clientId));
-        es.onopen=()=>{retry=1000;retryCount=0;this._attnRestore();this._activityRestore();this._bgRefresh();this._focusRestore();this._fgRestore()};
+        es.onopen=()=>{retry=SSE_RETRY_MIN_MS;this._attnRestore();this._activityRestore();this._bgRefresh();this._focusRestore();this._fgRestore()};
         es.onmessage=(e)=>{
           try{
             const m=JSON.parse(e.data);
@@ -74,13 +82,24 @@ Object.assign(App.prototype, {
         };
         es.onerror=()=>{
           try{es.close()}catch{}
-          if(++retryCount>maxRetries){console.error("[cmd] SSE max retries, giving up");return}
-          setTimeout(connect, retry);
-          retry=Math.min(retry*2, 30000);
+          schedule();
         };
         this._cmdES=es;
-      }catch(e){console.error('[cmd] connect',e); setTimeout(connect, retry)}
+      }catch(e){console.error('[cmd] connect',e); schedule()}
     };
+    // FR-RCS-6: 잠에서 깬 기기와 되돌아온 네트워크는 백오프를 기다릴 이유가 없다.
+    // 원격(Tailscale) 사용에서 끊김의 대부분이 이 둘이므로, 여기서 즉시 되붙는
+    // 것이 체감 복구 시간을 30초에서 0으로 줄인다.
+    const wake=()=>{
+      // 2 = EventSource.CLOSED. 살아 있거나 연결 중이면 건드리지 않는다 —
+      // 중복 구독은 명령을 두 번 실행시킨다.
+      if(this._cmdES && this._cmdES.readyState!==2) return;
+      if(pending){clearTimeout(pending);pending=null}
+      retry=SSE_RETRY_MIN_MS;
+      connect();
+    };
+    window.addEventListener('online',wake);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)wake()});
     connect();
   },
 

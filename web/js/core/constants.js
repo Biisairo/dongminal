@@ -50,6 +50,22 @@ const VERSION_CHECK_MS=60000;
 const RESTORE_PANE_WAIT_MS=25;
 const RESTORE_PANE_WAIT_TRIES=20;
 
+// RECONNECT_STORM_SRS FR-RCS-3 · D-2: 열린 WebSocket 이 **이만큼 유지되어야**
+// 유효한 연결로 인정하고 재연결 백오프를 0 으로 되돌린다. onopen 만으로 되돌리면
+// 서버가 소켓을 즉시 닫는 모든 경우에 백오프가 매 사이클 리셋되어 지연 0 의
+// 무한 루프가 된다 — 실측 95 연결/초, TIME_WAIT 2,881 (§2.2).
+// 서버가 즉시 닫는 실패는 모두 1초 안에 끝나므로(실측 0.6ms) 3초는 그 전부를
+// 무효로 가르면서 정상 사용 중의 짧은 끊김은 유효로 인정하는 자리다.
+const WS_HEALTHY_MS=3000;
+
+// RECONNECT_STORM_SRS FR-RCS-6: 커맨드 SSE 의 재접속 백오프. **상한만 있고
+// 포기는 없다.** 종전에는 20회 실패 후 영구히 포기했는데, SSE 가 죽으면
+// `_applyRemoteWorkspace` 의 자가 치유(서버가 모르는 도구를 destroy)가 영영
+// 돌지 않아 죽은 패널이 무한히 재접속한다 (§2.5). 실측으로 그 상태의 브라우저
+// 둘이 초당 91연결을 냈다.
+const SSE_RETRY_MIN_MS=1000;
+const SSE_RETRY_MAX_MS=30000;
+
 const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight','ShiftLeft','ShiftRight']);
 /**
  * UX_REVISION_SRS FR-KEY-4: 브라우저 기본 동작을 **막지 않는** 키.
