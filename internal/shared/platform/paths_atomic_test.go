@@ -7,7 +7,17 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
+
+// observeGap 은 관찰자가 한 바퀴 뒤 쉬는 시간이다.
+//
+// 0(스핀)이면 안 된다. `go test ./internal/... ./cmd/...` 는 패키지를 **병렬로**
+// 돌리고, 쉬지 않는 관찰자는 CPU·디스크를 통째로 잡아 다른 패키지의 테스트를
+// 굶긴다 — 실제로 그 때문에 각 패키지는 개별로 통과하는데 합쳐 돌리면 Windows
+// CI 가 무너졌다. 관찰 횟수는 이 간격으로도 충분하다: 원자화 전 구현에서
+// 소실이 수천 회 관측된다.
+const observeGap = 200 * time.Microsecond
 
 // RECONNECT_STORM_SRS 묶음 A. 헬퍼 설치는 목적 경로를 한 순간도 비우지 않는다
 // (FR-ATI-1). 이 파일의 검사는 전부 "설치가 도는 동안 dst 를 고빈도로 들여다본
@@ -59,6 +69,7 @@ func watchDst(path string) (stop func() int) {
 			if _, err := os.Lstat(path); err != nil && os.IsNotExist(err) {
 				misses++
 			}
+			time.Sleep(observeGap)
 		}
 	}()
 	return func() int {
@@ -87,7 +98,7 @@ func TestLinkOrCopyNeverLeavesDestinationMissing(t *testing.T) {
 	}
 
 	stop := watchDst(dst)
-	for i := 0; i < 300; i++ {
+	for i := 0; i < 120; i++ {
 		src := srcA
 		if i%2 == 1 {
 			src = srcB
@@ -110,10 +121,11 @@ func TestLinkOrCopyNeverExposesPartialContent(t *testing.T) {
 	// 동시 관찰은 그 위의 강한 검사이고, 열린 파일을 대체할 수 없는 호스트에서는
 	// 관찰이 대상을 망가뜨리므로 성립하지 않는다 (FR-WTP-31: 이식 가능한 절반을
 	// 함께 빼지 않는다).
-	// 부분 쓰기가 관측될 만큼 크게 잡는다. 작으면 한 번의 write 로 끝나 창이
-	// 열리지 않고, 검사가 통과해도 아무 것도 증명하지 못한다.
-	blobA := bytes.Repeat([]byte("A"), 1<<20)
-	blobB := bytes.Repeat([]byte("B"), 1<<20)
+	// 부분 쓰기가 관측될 만큼은 크게 잡는다. io.Copy 는 32KB 씩 옮기므로 256KB 면
+	// 여덟 조각이고 창은 그대로 열린다. 1MB 로 잡았다가 Windows CI 의 디스크를
+	// 잡아먹었다 — 검사에 필요한 최소가 아니라 여유를 잡은 것이 잘못이었다.
+	blobA := bytes.Repeat([]byte("A"), 256<<10)
+	blobB := bytes.Repeat([]byte("B"), 256<<10)
 	srcA := filepath.Join(dir, "srcA")
 	srcB := filepath.Join(dir, "srcB")
 	dst := filepath.Join(dir, "dmctl")
@@ -171,7 +183,7 @@ func TestLinkOrCopyNeverExposesPartialContent(t *testing.T) {
 			}
 		}
 	}()
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 12; i++ {
 		src := srcA
 		if i%2 == 1 {
 			src = srcB
