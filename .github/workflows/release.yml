@@ -157,6 +157,20 @@ jobs:
           VERSION: ${{ github.event.inputs.version || github.ref_name }}
         run: |
           set -euo pipefail
+          # 이 판에서 무엇이 바뀌었는지를 **CHANGELOG 에서 그대로 가져온다.**
+          # 손으로 옮겨 적으면 두 벌이 되고, 두 벌이면 한쪽만 고쳐진다.
+          # 해당 절이 없으면(태그만 밀고 CHANGELOG 를 잊은 경우) 비운 채 넘어간다 —
+          # 릴리스를 막을 일은 아니지만, 빈 것이 보이면 다음에 챙기게 된다.
+          ver="${VERSION#v}"
+          awk -v v="$ver" '
+            $0 ~ "^## \\[" v "\\]" {on=1; next}
+            on && /^## \[/ {exit}
+            on {print}
+          ' CHANGELOG.md > changes.md || true
+          if [[ ! -s changes.md ]]; then
+            echo "::warning::CHANGELOG.md 에 [$ver] 절이 없습니다 — 변경 내용 없이 발행합니다."
+          fi
+
           # 받는 사람이 페이지를 벗어나지 않고 명령을 복사할 수 있어야 한다
           # (FR-RWF-7).
           cat > notes.md <<EOF
@@ -209,6 +223,13 @@ jobs:
 
           macOS 산출물은 코드 서명·공증을 하지 않았습니다. 위 \`xattr\` 한 줄이 그래서 필요합니다.
           EOF
+
+          # 변경 내용은 설치 안내 **앞**에 온다 — 이미 쓰고 있는 사람에게는 그것이
+          # 이 페이지를 여는 이유이고, 처음 받는 사람은 그 아래를 그대로 따라가면 된다.
+          if [[ -s changes.md ]]; then
+            { echo "## 이 판에서 바뀐 것"; echo; cat changes.md; echo; echo "---"; echo; cat notes.md; } > full.md
+            mv full.md notes.md
+          fi
 
           gh release create "$VERSION" dist/* \
             --repo "${{ github.repository }}" \
