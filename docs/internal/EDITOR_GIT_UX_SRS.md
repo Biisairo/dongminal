@@ -119,14 +119,34 @@ const ae=document.activeElement;
 if(ae.tagName==='INPUT'||(ae.tagName==='TEXTAREA'&&!ae.classList.contains('xterm-helper-textarea')))return;
 ```
 
-Monaco 의 입력 대상은 `textarea.inputarea` 이고 xterm 의 표식이 없다. 따라서
-**편집기에 포커스가 있는 동안 전역 단축키는 한 줄도 돌지 않는다.** 이것은 결함이
-아니라 의도다(편집 중에 앱 단축키가 끼어들면 안 된다) — 그러나 `cmd+p`·
-`cmd+shift+f` 는 **편집 중에도 떠야 한다.**
+**정정 (2026-08-30, 실측).** 착수 시점의 판단은 "Monaco 의 입력 대상은
+`textarea.inputarea` 이므로 위 게이트에 걸려 **편집 중에는 전역 단축키가 한 줄도
+돌지 않는다**"였다. **틀렸다.**
 
-그러므로 두 조합은 **두 자리에 배선해야 한다**:
+Monaco 0.56 은 EditContext API 를 쓴다. 포커스를 받는 요소는 textarea 가 아니라
+`div.native-edit-context` 다 (실측: `document.activeElement` → `DIV.native-edit-context`).
+`tagName` 이 `DIV` 이므로 위 게이트는 **빠져나가지 않고**, 전역 단축키는
+편집 중에도 그대로 돈다.
+
+이것이 뜻하는 바는 둘이다:
+
+- `cmd+p`·`cmd+shift+f` 는 전역 경로만으로도 편집 중에 뜬다.
+- 그러나 그것은 **Monaco 판에 딸린 우연**이다. 판이 오르거나 EditContext 를
+  지원하지 않는 브라우저로 물러서면 다시 textarea 가 되고, 그러면 전역 경로가
+  죽는다.
+
+그러므로 두 조합은 **두 자리에 배선한다** — 우연에 기대지 않기 위해서다:
 1. Monaco 안 — `editor.addCommand` (기존 `cmd+s` 저장과 같은 방식)
 2. Monaco 밖 — 전역 keydown (탐색기·탭바에 포커스가 있을 때)
+
+전역 경로가 먼저 돌고 `stopImmediatePropagation` 하므로 두 경로가 겹쳐 패널이
+두 번 열리지 않는다. 검증(V-EKB-1)은 **선택자를 박지 않는다** — 어느 요소가
+입력을 받는지는 판마다 다르므로 `editor.focus()` 로 포커스를 주고 그것이
+`.file-editor` 안에 있는지로 확인한다.
+
+> **교훈**: 이 절의 최초 서술은 코드를 읽고 세운 추론이었고 실측이 아니었다.
+> 그 추론 위에 "두 자리 배선"이라는 옳은 결론이 섰기 때문에 결과는 무사했지만,
+> 근거는 틀려 있었다.
 
 `cmd+p` 는 브라우저의 인쇄다. `_blockBrowserDefault` 가 이미 수식키 조합의 기본
 동작을 막지만, 그것은 **어느 단축키에도 매칭되지 않은** 키에만 적용된다. 우리가

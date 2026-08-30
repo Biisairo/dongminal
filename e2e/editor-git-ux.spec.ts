@@ -514,3 +514,70 @@ test.describe('묶음 F·G — 고른 결과가 실제로 열린다', () => {
       .toBe(5);
   });
 });
+
+// FR-EKB-1 — 두 조합은 **Monaco 안에서도** 떠야 한다.
+//
+// 전역 keydown 은 편집기에 포커스가 있는 동안 한 줄도 돌지 않는다
+// (input-binding.js 의 activeElement 게이트). 그래서 file-editor.js 가
+// `editor.addCommand` 로 따로 건다. 그 배선이 실제로 도는지는 **편집기에
+// 포커스를 준 채 눌러 봐야** 알 수 있다.
+test.describe('묶음 K — Monaco 안에서의 키', () => {
+  async function openTextFileInEditor(page: Page) {
+    await page.evaluate(async (p) => {
+      await fetch('/api/editors/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: p }),
+      });
+    }, fx('basic'));
+    await expect
+      .poll(async () => page.evaluate(async (p) => {
+        const app = (window as any).app;
+        await app._edReconcile?.();
+        await app._edOpenWindow(p);
+        return app._edSearchRoot();
+      }, fx('basic')), { timeout: 15000 })
+      .not.toBe('');
+
+    writeFileSync(join(fx('basic'), 'inmonaco.txt'), 'line one\nline two\n');
+    await page.evaluate((f) => (window as any).app._edOpenFile(f),
+      join(fx('basic'), 'inmonaco.txt'));
+
+    // Monaco 가 실제로 설 때까지 기다린다 — addCommand 는 그 뒤에 걸린다.
+    await expect(page.locator('.file-editor .monaco-editor')).toHaveCount(1, { timeout: 30000 });
+
+    // 포커스는 Monaco 의 API 로 준다. 어느 요소가 입력을 받는지는 판마다 다르다 —
+    // 0.56 은 textarea 가 아니라 EditContext(`div.native-edit-context`)를 쓴다.
+    // 선택자를 박아 두면 판이 오를 때 조용히 깨진다.
+    const focused = await page.evaluate((f) => {
+      const app = (window as any).app;
+      const v = [...app.fileEditors.values()]
+        .find((x: any) => String(x.filePath).endsWith(f)) as any;
+      if (!v || !v._editor) return '';
+      v._editor.focus();
+      const ae = document.activeElement as HTMLElement | null;
+      return ae ? ae.tagName + '.' + (ae.className || '') : '';
+    }, 'inmonaco.txt');
+    // 편집기 안에 포커스가 들어간 것을 확인하고 나서 키를 누른다 — 밖에서
+    // 누르면 이 검사는 전역 경로만 시험하게 되어 뜻을 잃는다.
+    expect(focused).not.toBe('');
+    expect(await page.evaluate(() =>
+      !!document.activeElement?.closest('.file-editor'))).toBe(true);
+  }
+
+  test('V-EKB-1: Monaco 에 포커스가 있어도 cmd+p 가 뜬다', async ({ page }) => {
+    await waitForInit(page);
+    await openTextFileInEditor(page);
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+p' : 'Control+p');
+    await expect(page.locator('.ed-find.vis')).toHaveCount(1);
+  });
+
+  test('V-EKB-1b: Monaco 에 포커스가 있어도 cmd+shift+f 가 뜬다', async ({ page }) => {
+    await waitForInit(page);
+    await openTextFileInEditor(page);
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+F' : 'Control+Shift+F');
+    await expect(page.locator('.ed-find.vis')).toHaveCount(1);
+  });
+});
