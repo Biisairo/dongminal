@@ -150,6 +150,28 @@ func startDetached(o StartOpts, home, host, port string, stdout, stderr io.Write
 // 만드는 쪽만 바뀌었을 때 가드가 조용히 무력해진다.
 const isolatedHomePrefix = "dongminal-iso-"
 
+// isolatedToolHome 은 이 기동에서 도구 셸에 심을 홈이다. 격리 홈으로 뜨는
+// 인스턴스면 그 홈 **아래의 별도 칸**이고, 사용자 인스턴스면 빈 문자열이다 —
+// 빈 값은 toolhub 가 종전대로 사용자 홈을 쓴다는 뜻이며, 사용자의 탭은 그것이
+// 맞다.
+//
+// 격리 기동은 검사가 쓰는 경로다(verify 가 도구 셸에 명령을 주입한다). 도구
+// 셸은 로그인 셸이라 rc 를 읽고 히스토리를 쓰므로, 그 홈이 사용자 홈이면
+// 검사가 주입한 명령이 사용자의 히스토리에 남는다.
+//
+// **인스턴스 홈을 그대로 주지 않는다.** 그러면 셸이 `.zsh_history`·`.zcompdump`
+// 를 workspace·tools 와 같은 디렉터리에 쓰고, 그 쓰기가 인스턴스 자신의 저장과
+// 같은 자리에서 겹친다 — e2e 에서 그 경합이 실제로 검사를 흔들었다.
+func isolatedToolHome(home string) string {
+	if strings.HasPrefix(filepath.Base(home), isolatedHomePrefix) {
+		return filepath.Join(home, toolHomeDir)
+	}
+	return ""
+}
+
+// toolHomeDir 은 인스턴스 홈 아래에서 도구 셸이 자기 홈으로 쓸 칸의 이름이다.
+const toolHomeDir = "tool-home"
+
 // prepareServerCmd 는 자기 자신을 `start --foreground` 로 끊어 띄울 cmd 를 만든다.
 // **Start 는 부르는 쪽이 한다** — 기동 직전·직후의 안내 문구가 호출자마다 다르다.
 //
@@ -180,11 +202,20 @@ func prepareServerCmd(home, host, port, logPath string) (*exec.Cmd, *os.File, st
 	}
 
 	cmd := exec.Command(exe, "start", "--foreground")
-	cmd.Env = withEnv(os.Environ(), map[string]string{
+	env := map[string]string{
 		EnvPort: port,
 		EnvHome: home,
 		EnvHost: host,
-	},
+	}
+	// 격리 인스턴스면 도구 셸의 홈도 함께 격리한다 (FR-E2G-1 의 연장). 셸이
+	// 없는 홈을 받지 않도록 여기서 만든다 — 만들지 못하면 격리를 포기하는 대신
+	// 그냥 심지 않는다. 격리는 검사의 편의이지 기동의 조건이 아니다.
+	if th := isolatedToolHome(home); th != "" {
+		if err := os.MkdirAll(th, 0o755); err == nil {
+			env[dmenv.EnvToolHome] = th
+		}
+	}
+	cmd.Env = withEnv(os.Environ(), env,
 		// 서버는 dongminald 를, dongminald 는 도구 셸을 자식으로 낳는다. 이 두
 		// 값이 그 사슬을 타고 도구 셸까지 흘러가면 다음 재시작이 자신을 대리로
 		// 오인해 위임을 건너뛰고, 그 자리에서 데몬을 내리다 자기 PTY 와 함께
