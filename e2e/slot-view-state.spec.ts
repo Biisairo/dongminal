@@ -246,6 +246,186 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
     expect(await seen(tabs[1].toolId)).toBe(true);   // 다른 칸이 본다 — FR-SVS-13
     expect(await seen(tabs[2].toolId)).toBe(false);  // 아무 칸도 보지 않는다
   });
+
+  test('TC-SVS-50: 원격 워크스페이스 변경이 와도 칸별 탭이 살아남는다 (FR-SVS-7)', async ({ browser }) => {
+    // 구조 변경은 받아들이면서 **보는 자리는 로컬이 이긴다** — `activeWindow`·
+    // `focusedPane` 과 같은 범주다 (app-cmd.js 의 보존 블록). SSE 는 실제로 다른
+    // 클라이언트에서 와야 하므로 컨텍스트를 둘 띄운다 (sync.spec.ts 의 선례).
+    const ctxA = await browser.newContext();
+    const ctxB = await browser.newContext();
+    try {
+      for (const c of [ctxA, ctxB]) {
+        await c.addInitScript(() => sessionStorage.setItem('displayMode', 'desktop'));
+      }
+      const pageA = await ctxA.newPage();
+      const pageB = await ctxB.newPage();
+      for (const pg of [pageA, pageB]) {
+        await pg.goto('/');
+        await pg.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+      }
+
+      // B 가 칸 둘에 같은 창을 두고 각자 다른 탭을 본다.
+      const win = await activeWindowOf(pageB);
+      const rid = await firstPaneId(pageB, win);
+      await addTabTo(pageB, rid);
+      const tabs = await tabIdsOf(pageB, win);
+      await slotAdd(pageB);
+      await openInSlot(pageB, 0, win);
+      await openInSlot(pageB, 1, win);
+      await focusSlot(pageB, 0);
+      await clickTabId(pageB, 0, tabs[0].id);
+      await focusSlot(pageB, 1);
+      await clickTabId(pageB, 1, tabs[1].id);
+      expect(await activeTabId(pageB, 0)).toBe(tabs[0].id);
+      expect(await activeTabId(pageB, 1)).toBe(tabs[1].id);
+
+      // A 가 창을 하나 더 만든다 → B 에 workspace_changed 가 온다.
+      const beforeB = await pageB.locator('#windows .si').count();
+      await pageA.click('#add-window');
+      await expect(pageB.locator('#windows .si')).toHaveCount(beforeB + 1, { timeout: 15000 });
+
+      // 구조는 따라왔지만 각 칸이 보던 탭은 그대로다.
+      expect(await activeTabId(pageB, 0)).toBe(tabs[0].id);
+      expect(await activeTabId(pageB, 1)).toBe(tabs[1].id);
+    } finally {
+      await ctxA.close();
+      await ctxB.close();
+    }
+  });
+
+  test('TC-SVS-54: 탭을 다른 분할 칸으로 옮기면 그 시선이 따라간다 (FR-SVS-11)', async ({ page }) => {
+    await waitForInit(page);
+    const win = await activeWindowOf(page);
+    const rid0 = await firstPaneId(page, win);
+    await addTabTo(page, rid0);
+    const tabs = await tabIdsOf(page, win);
+
+    // 분할로 pane 을 둘 만든다 — 탭 이동은 pane 사이의 일이다.
+    await page.evaluate(() => (window as any).app.split('horizontal'));
+    await page.waitForFunction(
+      () => document.querySelectorAll('#area .pn').length >= 2, undefined, { timeout: 10000 });
+    const panes = await page.evaluate((id) => {
+      const w = (window as any).app.ws.windows.find((s: any) => s.id === id);
+      const out: string[] = [];
+      const walk = (n: any) => {
+        if (!n) return;
+        if (n.type === 'pane') { out.push(n.id); return }
+        (n.children || []).forEach(walk);
+      };
+      walk(w.layout);
+      return out;
+    }, win);
+    expect(panes.length).toBeGreaterThanOrEqual(2);
+    const dst = panes.find((x: string) => x !== rid0);
+
+    await slotAdd(page);
+    await openInSlot(page, 0, win);
+    await openInSlot(page, 1, win);
+
+    // 도착 pane 에는 분할이 만든 탭이 이미 있다. **칸 1 이 그것을 보게** 두어야
+    // 이 검사가 오버라이드를 실제로 잰다 — 그러지 않으면 폴백(`pn.activeTab`)만으로
+    // 통과해 버린다.
+    const dstTabs = await page.evaluate(([id, d]) => {
+      const w = (window as any).app.ws.windows.find((s: any) => s.id === id);
+      const find = (n: any): any => {
+        if (!n) return null;
+        if (n.type === 'pane') return n.id === d ? n : null;
+        for (const c of (n.children || [])) { const r = find(c); if (r) return r }
+        return null;
+      };
+      return find(w.layout).tabs.map((t: any) => t.id);
+    }, [win, dst] as const);
+    expect(dstTabs.length).toBe(1);
+    await focusSlot(page, 1);
+    await clickTabId(page, 1, dstTabs[0]);
+    await focusSlot(page, 0);
+
+    // 탭을 다른 pane 으로 옮긴다 (드롭 핸들러가 지나는 단일 통로).
+    await page.evaluate(([src, tid, d]) =>
+      (window as any).app._moveTabToPane(src, tid, d, null, false),
+      [rid0, tabs[1].id, dst] as const);
+    await renderNow(page);
+
+    // 옮긴 칸의 시선이 그 탭을 **도착한 pane 에서** 가리킨다.
+    const shown = await page.evaluate(([id, d]) => {
+      const a = (window as any).app;
+      const w = a.ws.windows.find((s: any) => s.id === id);
+      const find = (n: any): any => {
+        if (!n) return null;
+        if (n.type === 'pane') return n.id === d ? n : null;
+        for (const c of (n.children || [])) { const r = find(c); if (r) return r }
+        return null;
+      };
+      const pn = find(w.layout);
+      return pn ? [a.paneTab(pn, 0), a.paneTab(pn, 1)] : null;
+    }, [win, dst] as const);
+    // 옮긴 칸은 그 탭을, 다른 칸은 자기가 보던 탭을 그대로 본다.
+    expect(shown[0]).toBe(tabs[1].id);
+    expect(shown[1]).toBe(dstTabs[0]);
+  });
+
+  test('TC-SVS-55: pane·칸 이동은 시선을 건드리지 않는다 (FR-SVS-8)', async ({ page }) => {
+    await waitForInit(page);
+    const win = await activeWindowOf(page);
+    const rid = await firstPaneId(page, win);
+    await addTabTo(page, rid);
+    const tabs = await tabIdsOf(page, win);
+
+    await slotAdd(page);
+    await openInSlot(page, 0, win);
+    await openInSlot(page, 1, win);
+    await focusSlot(page, 0);
+    await clickTabId(page, 0, tabs[0].id);
+    await focusSlot(page, 1);
+    await clickTabId(page, 1, tabs[1].id);
+
+    // 칸 사이를 오간다 — 포커스가 움직이는 것과 보는 탭이 바뀌는 것은 다른 사건이다.
+    await page.evaluate(() => (window as any).app.paneNavigate('left'));
+    await page.evaluate(() => (window as any).app.paneNavigate('right'));
+    await renderNow(page);
+
+    expect(await activeTabId(page, 0)).toBe(tabs[0].id);
+    expect(await activeTabId(page, 1)).toBe(tabs[1].id);
+  });
+
+  test('TC-SVS-56: 알람이 부른 탭은 포커스 칸에 뜬다 (FR-SVS-12)', async ({ page }) => {
+    await waitForInit(page);
+    const win = await activeWindowOf(page);
+    const rid = await firstPaneId(page, win);
+    await addTabTo(page, rid);
+    const tabs = await tabIdsOf(page, win);
+
+    await slotAdd(page);
+    await openInSlot(page, 0, win);
+    await openInSlot(page, 1, win);
+    // 두 칸 모두 첫 탭을 보게 두고 포커스는 칸 1 에 둔다.
+    await focusSlot(page, 0);
+    await clickTabId(page, 0, tabs[0].id);
+    await focusSlot(page, 1);
+    await clickTabId(page, 1, tabs[0].id);
+
+    // 알람이 둘째 탭의 도구를 부른다 — 사용자는 포커스 칸에 있다.
+    await page.evaluate((t) => (window as any).app._jumpToTool(t), tabs[1].toolId);
+    await renderNow(page);
+
+    expect(await activeTabId(page, 1)).toBe(tabs[1].id);
+    // 다른 칸은 끌려가지 않는다.
+    expect(await activeTabId(page, 0)).toBe(tabs[0].id);
+  });
+
+  test('TC-SVS-58: 형식이 어긋난 슬롯 키는 버려지고 단일 슬롯으로 떨어진다 (FR-SVS-71)', async ({ page }) => {
+    // `tabs` 만 망가진 것이 아니라 배치 자체가 어긋난 값이다 — 그때는 키를 지우고
+    // 단일 슬롯 모드로 간다 (FR-WSL-72 의 규약 그대로).
+    await page.context().addInitScript(() => {
+      sessionStorage.setItem('displayMode', 'desktop');
+      sessionStorage.setItem('slots', JSON.stringify({ windows: ['x'], sizes: [1, 2], focused: 9 }));
+    });
+    await page.goto('/');
+    await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+
+    expect(await slotsState(page)).toBeNull();
+    expect(await page.evaluate(() => sessionStorage.getItem('slots'))).toBeNull();
+  });
 });
 
 test.describe('묶음 F — 함께 고치는 결함 (FR-SVS-60)', () => {
@@ -607,6 +787,62 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     // 남은 패널은 관측을 계속 본다.
     expect(await page.evaluate(() => !!(window as any).app._gitPanel(0).obs)).toBe(true);
   });
+
+  test('TC-SVS-51: 리포를 바꾸면 모든 칸의 시선이 되돌아간다 (FR-SVS-34)', async ({ page }) => {
+    await twoSlotsOnGit(page, fx('basic'));
+
+    // 두 칸이 각자 파일을 고른다.
+    await focusSlot(page, 0);
+    await fileIn(page, 0, 'changes', 'tracked.txt').click();
+    await focusSlot(page, 1);
+    await fileIn(page, 1, 'untracked', 'untracked.txt').click();
+    expect(await previewOf(page, 0)).toBe('tracked.txt');
+    expect(await previewOf(page, 1)).toBe('untracked.txt');
+
+    // 활성 리포는 창의 것이므로 모든 칸이 같은 리포를 본다 — 바뀌면 이전 리포의
+    // 선택이 새 리포의 헤더와 함께 보이는 순간이 **어느 칸에도** 있어서는 안 된다.
+    const other = fx('detached');
+    await page.evaluate((r) => (window as any).app.gitPanel.setRepo(r), other);
+    await page.waitForFunction((r) =>
+      (window as any).app._gitPanel(0).repo === r
+      && (window as any).app._gitPanel(1).repo === r, other, { timeout: 15000 });
+
+    expect(await previewOf(page, 0)).toBeNull();
+    expect(await previewOf(page, 1)).toBeNull();
+  });
+
+  test('TC-SVS-53: 두 칸에서 겹친 쓰기가 한 번만 나간다 (FR-SVS-45)', async ({ page }) => {
+    const repo = copyFx('basic', 'write');
+    await twoSlotsOnGit(page, repo);
+
+    let writes = 0;
+    page.on('request', (r) => {
+      if (r.url().includes('/api/git/uncommitted/reset')) writes++;
+    });
+
+    // 두 패널이 같은 쓰기를 동시에 부른다. `_writing` 이 관측이므로 뒤에 온 쪽은
+    // 가드에 걸린다 — 칸마다 두면 같은 쓰기가 두 번 나간다.
+    await page.evaluate(async () => {
+      const p0 = (window as any).app._gitPanel(0);
+      const p1 = (window as any).app._gitPanel(1);
+      await Promise.all([p0.uncommittedReset(), p1.uncommittedReset()]);
+    });
+    expect(writes).toBe(1);
+  });
+
+  test('TC-SVS-57: 전역 진입점은 포커스 칸의 패널이다 (FR-SVS-47)', async ({ page }) => {
+    await twoSlotsOnGit(page, fx('basic'));
+
+    // 메뉴·확인창·다이얼로그는 화면에 하나만 서고 사용자가 방금 조작한 자리에
+    // 속한다 — 그 자리가 포커스 칸이다 (D-8).
+    for (const i of [0, 1, 0]) {
+      await focusSlot(page, i);
+      expect(await page.evaluate((n) => {
+        const a = (window as any).app;
+        return a.gitPanel === a._gitPanel(n);
+      }, i)).toBe(true);
+    }
+  });
 });
 
 test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
@@ -731,5 +967,43 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
     expect(fs.readFileSync(FILE, 'utf8')).toBe('saved by slot 0\n');
     await page.evaluate((k) => (window as any).app.fileEditors.get(k).save(), keys[1]);
     expect(fs.readFileSync(FILE, 'utf8')).toBe('saved by slot 0\n');
+  });
+
+  test('TC-SVS-52: 문서는 마지막 칸이 떠날 때 거둬진다 (FR-SVS-55)', async ({ page, request }) => {
+    const keys = await sameFileInTwoSlots(page, request);
+    expect(await page.evaluate(() => (window as any).app._edDocs.size)).toBe(1);
+    expect(await page.evaluate(() => {
+      const d = [...(window as any).app._edDocs.values()][0];
+      return d.views.size;
+    })).toBe(2);
+
+    // 칸 하나를 없앤다 → 다른 칸이 보고 있으므로 문서는 남는다. 편집 중이던 것이
+    // 칸 정리로 사라지면 그것이 결함이다.
+    await page.evaluate(() => {
+      (window as any).app.slotFocusTo(1);
+      (window as any).app.slotRemove();
+    });
+    await renderNow(page);
+    await page.waitForFunction(() => {
+      const d = [...(window as any).app._edDocs.values()][0];
+      return d && d.views.size === 1;
+    }, undefined, { timeout: 15000 });
+    expect(await page.evaluate(() => (window as any).app._edDocs.size)).toBe(1);
+    expect(await page.evaluate(() => {
+      const d = [...(window as any).app._edDocs.values()][0];
+      return !!d.model && !d.model.isDisposed();
+    })).toBe(true);
+
+    // 탭까지 닫으면 보는 칸이 하나도 없다 → 문서와 모델이 거둬진다.
+    await page.evaluate(() => {
+      const a = (window as any).app;
+      const w = a.ws.windows.find((x: any) => x.type === 'editor' && x.layout);
+      const walk = (n: any): any => (n.type === 'pane' ? n : walk(n.children[0]));
+      const pn = walk(w.layout);
+      return a.closeTab(pn.id, pn.tabs[0].id, w.id);
+    });
+    await renderNow(page);
+    await page.waitForFunction(
+      () => (window as any).app._edDocs.size === 0, undefined, { timeout: 15000 });
   });
 });
