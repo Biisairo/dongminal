@@ -29,7 +29,7 @@ Object.assign(App.prototype, {
     const dst=findPane(s.layout,dstRid);if(!dst)return;
     if(beforeTabId){let ins=dst.tabs.findIndex(t=>t.id===beforeTabId);if(ins<0)ins=dst.tabs.length;else if(!insertBefore)ins++;dst.tabs.splice(ins,0,tab)}
     else dst.tabs.push(tab);
-    dst.activeTab=tab.id;this._setFocus(dstRid, s);
+    this.paneTabSet(dst,tab.id);this._setFocus(dstRid, s);
     // FR-EDT-55: pane 이 없는 Editor 창은 정상 상태다 — 여기서 터미널 창을
     // 만들면 안 된다.
     if(!s.layout&&!this._isEditorWin(s)){this._mkWindow();return}
@@ -74,7 +74,7 @@ Object.assign(App.prototype, {
       srcPane.activeTab=srcPane.tabs[0].id;
     }
     dstPane.tabs.push(tab);
-    dstPane.activeTab=tab.id;
+    this.paneTabSet(dstPane,tab.id);
     dst.focusedPane=dstRid;
     // FR-MOV-8: 옮긴 창으로 따라간다. 옮겼는데 보이지 않으면 사용자는 탭이
     // 사라진 것으로 읽는다. switchWindow 가 저장·그리기까지 한다.

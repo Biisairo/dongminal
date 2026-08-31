@@ -7,13 +7,24 @@
 Object.assign(App.prototype, {
   _attnHas(toolId){return this._attn.has(toolId)},
 
-  // 활성 창의 포커스 pane 의 activeTab toolId === toolId 인지 (FR-PAN-9)
+  // 활성 창의 포커스 pane 에서 그 도구의 탭이 보이는지 (FR-PAN-9).
+  //
+  // FR-SVS-13: 칸이 여럿이면 **어느 칸에서든 보이면 보이는 것**이다. 두 칸 중
+  // 하나에 떠 있는데 알람이 울리면 그것이 결함이다. 판정하는 pane 은 포커스
+  // pane 이지만, 그 pane 을 그리는 칸은 여럿일 수 있다.
   _isToolFocusedActive(toolId){
     if(!toolId) return false;
     const s=this._aw(); if(!s||!s.layout) return false;
     const pn=findPane(s.layout,this.focused); if(!pn) return false;
-    const at=(pn.tabs||[]).find(t=>t.id===pn.activeTab);
-    return !!at&&at.toolId===toolId;
+    const tabs=pn.tabs||[];
+    const n=this.slotCount();
+    for(let i=0;i<n;i++){
+      // 그 칸이 이 창을 보고 있지 않으면 그 칸의 시선은 이 판정과 무관하다.
+      if(this._slots&&this._slotWindow(i)!==s) continue;
+      const at=tabs.find(t=>t.id===this.paneTab(pn,i));
+      if(at&&at.toolId===toolId) return true;
+    }
+    return false;
   },
 
   /**
@@ -219,7 +230,8 @@ Object.assign(App.prototype, {
     this._attnClear(toolId);
     this.ws.activeWindow=loc.win.id;
     try{sessionStorage.setItem('activeWindow', loc.win.id)}catch{}
-    loc.pane.activeTab=loc.tab.id;
+    // FR-SVS-12: 알람은 사용자를 부르는 것이고 사용자는 포커스 칸에 있다.
+    this.paneTabSet(loc.pane,loc.tab.id);
     this._setFocus(loc.pane.id, loc.win);
     this._focusWindow(loc.win.id);
     this.render();

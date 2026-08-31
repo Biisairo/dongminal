@@ -9,32 +9,71 @@
  * 갱신 계기는 셋뿐이다 (FR-EDT-67) — 새로고침 · 조작 후 재조회(M5) · git 색 폴링.
  * 파일 감시는 하지 않는다.
  */
+/**
+ * 탐색기의 **관측** — SLOT_VIEW_STATE_SRS 묶음 X (FR-SVS-20~24).
+ *
+ * 디렉터리 목록 캐시·git 색·무시된 이름은 **누가 보든 같은 사실**이므로 루트마다
+ * 하나다. 칸이 넷이어도 `/api/fs/list`·`/api/git/status` 는 한 벌만 나간다
+ * (FR-SVS-20). 펼침·선택·스크롤은 이것에 들어오지 않는다 — 그것은 보는 자리의
+ * 것이고 칸마다 다르다 (FR-SVS-21).
+ *
+ * 규약의 원본은 터미널이다: PTY 는 서버에 하나이고 xterm 은 칸마다 하나다. 여기서
+ * store 가 PTY 의 자리, `FileTree` 가 xterm 의 자리다.
+ *
+ * 뷰를 **모른 채** 갱신을 알린다 (D-4) — `paintAll` 은 등록된 뷰에게 "다시 칠하라"
+ * 만 말하고, 무엇을 그릴지는 각 뷰가 자기 시선으로 정한다.
+ */
+class FileTreeStore {
+  constructor(app,root){
+    this.app=app;
+    this.root=root;
+    this.views=new Set();
+
+    // path → {entries,truncated,err}. 지연 로드의 캐시이자 그리기의 근거다 (FR-EDT-59).
+    this.kids=new Map();
+    this.busy=new Set();
+    // M4 의 색. rel path → 상태문자. 폴더는 접어 올린 값이 따로 산다 (FR-EDT-73).
+    this.st=new Map();
+    this.partial=new Set();
+    this.dirSt=new Map();
+    // FR-EDT-69: 루트가 저장소 **루트**가 아니면 색이 없다.
+    this.gitOff=false;
+    this.gitBusy=false;
+    // FR-ETR-5·6: 무시된 이름. 겹별 Set.
+    this.ign=new Map();
+    this.ignOff=false;
+  }
+
+  attach(v){ this.views.add(v) }
+
+  // FR-SVS-23: 마지막 뷰가 떠나면 관측도 거둔다 — 남겨 두면 아무도 보지 않는
+  // 루트의 폴링이 계속된다. 레지스트리에서 지우는 것이 그 정지다 (폴링의 대상은
+  // `_edActiveStore` 가 고른다).
+  detach(v){
+    this.views.delete(v);
+    if(!this.views.size&&this.app._edStores) this.app._edStores.delete(this.root);
+  }
+
+  // FR-SVS-22: 관측이 갱신되면 그 루트를 보는 **모든** 칸이 다시 칠해진다.
+  paintAll(){ for(const v of this.views) v.paint() }
+}
+
 class FileTree {
   constructor(app,win){
     this.app=app;
     this.winId=win.id;
     this.root=app._edRootOf(win);
 
-    // 펼침·선택은 **창별 런타임 상태**다 — 워크스페이스에 저장하지 않는다 (FR-EDT-62).
+    // FR-SVS-20·21: 관측은 루트마다 하나이고 이 뷰는 그것을 **빌려 본다**.
+    // 아래 접근자들이 `this._kids` 같은 이름을 그대로 store 로 잇는다 — 뷰의
+    // 본문이 관측의 자리를 알 필요가 없다.
+    this.store=app._edStore(this.root);
+    this.store.attach(this);
+
+    // 펼침·선택은 **보는 자리의 것**이다 — 워크스페이스에 저장하지 않고
+    // (FR-EDT-62) 칸마다 따로 산다 (FR-SVS-21).
     this._open=new Set();
     this._sel='';
-    // path → {entries,truncated,err}. 지연 로드의 캐시이자 그리기의 근거다 (FR-EDT-59).
-    this._kids=new Map();
-    this._busy=new Set();
-    // M4 의 색. rel path → 상태문자. 폴더는 접어 올린 값이 따로 산다 (FR-EDT-73).
-    this._st=new Map();
-    this._partial=new Set();
-    this._dirSt=new Map();
-    // FR-EDT-69: 루트가 저장소 **루트**가 아니면 색이 없다. 판정은 한 번이고
-    // 그 뒤로는 묻지 않는다.
-    this._gitOff=false;
-    this._gitBusy=false;
-    // FR-ETR-5·6: 무시된 이름. 겹(디렉터리 경로)별로 Set 을 들고, 그 겹을 다시
-    // 읽을 때 갱신한다. `_gitOff` 와 나누는 이유는 근거가 다르기 때문이다 —
-    // 저쪽은 status, 이쪽은 check-ignore 이고 저장소가 아니어도 서로 다른 답을
-    // 낼 수 있다.
-    this._ign=new Map();
-    this._ignOff=false;
     this._scrollY=0;
     // M5 의 조작 상태 (FR-EDT-79~92). 셋 다 **런타임 상태**이고 워크스페이스에
     // 저장하지 않는다 — 새로고침 뒤에 반쯤 쓰다 만 이름이 살아날 이유가 없다.
@@ -67,6 +106,30 @@ class FileTree {
 
     this.load(this.root);
   }
+
+  // 관측으로 가는 통로. 이름은 예전과 같으므로 뷰의 본문은 한 줄도 바뀌지 않는다
+  // — 바뀐 것은 **그 값이 어디 사는지**뿐이다 (FR-SVS-20).
+  get _kids(){ return this.store.kids }
+  set _kids(v){ this.store.kids=v }
+  get _busy(){ return this.store.busy }
+  get _st(){ return this.store.st }
+  set _st(v){ this.store.st=v }
+  get _partial(){ return this.store.partial }
+  set _partial(v){ this.store.partial=v }
+  get _dirSt(){ return this.store.dirSt }
+  set _dirSt(v){ this.store.dirSt=v }
+  get _gitOff(){ return this.store.gitOff }
+  set _gitOff(v){ this.store.gitOff=v }
+  get _gitBusy(){ return this.store.gitBusy }
+  set _gitBusy(v){ this.store.gitBusy=v }
+  get _ign(){ return this.store.ign }
+  get _ignOff(){ return this.store.ignOff }
+  set _ignOff(v){ this.store.ignOff=v }
+
+  // FR-SVS-22: 관측을 바꾼 뒤에는 그 루트를 보는 칸 전부를 칠한다. 시선만 바뀐
+  // 경우에도 이것을 부른다 — 다른 칸은 자기 시선으로 그리므로 결과가 같고,
+  // reconcile 이 서명으로 걸러 실제 DOM 변경은 일어나지 않는다.
+  _paintAll(){ this.store.paintAll() }
 
   _head(){
     const h=document.createElement('div'); h.className='ed-head';
@@ -142,6 +205,9 @@ class FileTree {
 
   destroy(){
     this._springCancel();
+    // FR-SVS-23: 이 칸의 시선은 사라진다. 관측은 다른 칸이 보고 있으면 남고,
+    // 마지막 칸이었으면 store 가 스스로 거둬진다.
+    if(this.store) this.store.detach(this);
     if(this.el.parentNode) this.el.parentNode.removeChild(this.el);
   }
 
@@ -161,7 +227,7 @@ class FileTree {
    */
   async load(dir){
     if(this._busy.has(dir)) return;
-    this._busy.add(dir); this.paint();
+    this._busy.add(dir); this._paintAll();
     const u=FS_LIST_API+'?root='+encodeURIComponent(this.root)+'&path='+encodeURIComponent(dir);
     let r=null,d=null;
     try{r=await fetch(u)}catch{r=null}
@@ -177,7 +243,7 @@ class FileTree {
         truncated:!!d.truncated, err:'',
       });
     }
-    this.paint();
+    this._paintAll();
     // FR-ETR-5: 겹을 읽은 **뒤에** 그 겹의 이름들로 한 번 묻는다. 목록보다 먼저
     // 물으면 무엇을 물어야 할지 모른다.
     this.loadIgnored(dir);
@@ -197,7 +263,7 @@ class FileTree {
     // 부모가 무시면 이 겹 전부가 무시다 — 서버에 묻지 않는다.
     if(this._isIgnored(dir)){
       this._ign.set(dir,new Set(st.entries.map(e=>e&&e.name).filter(Boolean)));
-      this.paint();
+      this._paintAll();
       return;
     }
     const names=st.entries.map(e=>e&&e.name).filter(Boolean);
@@ -212,12 +278,12 @@ class FileTree {
     // FR-ETR-4: 4xx 는 "이 경로로는 물을 수 없다" 는 서버의 답이다. 굳히지
     // 않으면 겹을 펼칠 때마다 영영 묻는다 (`pollGit` 의 `_gitOff` 와 같은 관례).
     if(!r.ok){
-      if(r.status>=400&&r.status<500){this._ignOff=true;this._ign.clear();this.paint()}
+      if(r.status>=400&&r.status<500){this._ignOff=true;this._ign.clear();this._paintAll()}
       return;
     }
     if(!d||!Array.isArray(d.ignored)) return;
     this._ign.set(dir,new Set(d.ignored));
-    this.paint();
+    this._paintAll();
   }
 
   // FR-ETR-7: 이 경로가 무시되었는가. 판정은 **그 겹의 답**에 있다 — 부모가
@@ -262,15 +328,15 @@ class FileTree {
       if(!this._kids.has(dir)) await this.load(dir);
     }
     this._sel=p;
-    this.paint();
+    this._paintAll();
     const row=this.list.querySelector('.ed-row.sel');
     if(row&&row.scrollIntoView) row.scrollIntoView({block:'nearest'});
   }
 
   toggle(p){
-    if(this._open.has(p)){this._open.delete(p);this.paint();return}
+    if(this._open.has(p)){this._open.delete(p);this._paintAll();return}
     this._open.add(p);
-    this.paint();
+    this._paintAll();
     // 이미 읽어 둔 폴더는 다시 묻지 않는다 — 갱신의 계기는 FR-EDT-67 의 셋뿐이다.
     if(!this._kids.has(p)) this.load(p);
   }
@@ -289,7 +355,7 @@ class FileTree {
     // 파일로 취급하면 `apiFileRead` 가 not a file 400 을 낸다 (§2.6).
     if(kind==='dir') this.toggle(p);
     else if(kind==='file') this.app._edOpenFile(p);
-    else this.paint();
+    else this._paintAll();
   }
 
   // ── git 색 (FR-EDT-69~78) ──
@@ -355,7 +421,7 @@ class FileTree {
       if(e&&e.path&&e.staged&&e.unstaged) this._partial.add(e.path);
     }
     this._dirSt=this._rollup(m);
-    this.paint();
+    this._paintAll();
   }
 
   /**
@@ -596,7 +662,7 @@ class FileTree {
     return this.root;
   }
 
-  _fail(anchor,msg){ this._err={anchor,msg}; this.paint() }
+  _fail(anchor,msg){ this._err={anchor,msg}; this._paintAll() }
   _clearErr(){ if(this._err){this._err=null} }
 
   startCreate(isDir,at){
@@ -609,7 +675,7 @@ class FileTree {
     }
     this._edit={mode:'create',dir:d,path:'',isDir:!!isDir,init:''};
     this._focusEdit=true;
-    this.paint();
+    this._paintAll();
   }
 
   startRename(p){
@@ -618,12 +684,12 @@ class FileTree {
     this._edit={mode:'rename',dir:this._parent(p),path:p,
       isDir:this._kindOf(p)==='dir',init:this._base(p)};
     this._focusEdit=true;
-    this.paint();
+    this._paintAll();
   }
 
   cancelEdit(){
     if(!this._edit) return;
-    this._edit=null; this._clearErr(); this.paint();
+    this._edit=null; this._clearErr(); this._paintAll();
   }
 
   // 이름을 받아 조작으로 넘긴다. 빈 이름은 취소이고, `/` 는 서버에 묻지 않고
@@ -660,7 +726,7 @@ class FileTree {
     for(const [d,st] of snap){
       if(st) this._kids.set(d,st); else this._kids.delete(d);
     }
-    this.paint();
+    this._paintAll();
   }
 
   // 아직 서버가 모르는 항목을 **끝에** 붙인다. 순서는 서버가 정하므로(D-20)
@@ -695,9 +761,16 @@ class FileTree {
   _rekey(from,to){
     const pre=from+'/';
     const map=p=>p===from?to:(p.startsWith(pre)?to+p.slice(from.length):p);
+    // 캐시는 공유다 — 한 번만 갈아탄다.
     const kids=new Map();
     for(const [k,v] of this._kids) kids.set(map(k),v);
     this._kids=kids;
+    // 펼침·선택은 칸마다 있다. **보는 칸 전부**가 갈아타야 한다 (FR-SVS-21) —
+    // 조작한 칸만 갈아타면 다른 칸의 펼침이 옛 경로를 가리켜 그 가지가 접힌다.
+    for(const v of this.store.views) v._rekeyView(map);
+  }
+
+  _rekeyView(map){
     const open=new Set();
     for(const p of this._open) open.add(map(p));
     this._open=open;
@@ -709,6 +782,10 @@ class FileTree {
   _forget(p){
     const pre=p+'/';
     for(const k of [...this._kids.keys()]) if(k===p||k.startsWith(pre)) this._kids.delete(k);
+    for(const v of this.store.views) v._forgetView(p,pre);
+  }
+
+  _forgetView(p,pre){
     for(const k of [...this._open]) if(k===p||k.startsWith(pre)) this._open.delete(k);
     if(this._sel===p||this._sel.startsWith(pre)) this._sel='';
   }
@@ -720,7 +797,7 @@ class FileTree {
     const snap=this._snap([dir]);
     this._optimAdd(dir,name,isDir);
     this._sel=path;
-    this.paint();
+    this._paintAll();
     const r=await this.app._edFs(FS_CREATE_API,{root:this.root,path,dir:!!isDir});
     if(!r.ok){this._restore(snap);this._fail(dir===this.root?'':dir,r.msg);return}
     await this._after([dir]);
@@ -744,7 +821,7 @@ class FileTree {
     const snap=this._snap(sd===dd?[sd]:[sd,dd]);
     this._optimMove(from,to);
     this._sel=to;
-    this.paint();
+    this._paintAll();
     const r=await this.app._edFs(FS_RENAME_API,{root:this.root,from,to});
     if(!r.ok){
       this._rekey(to,from);
@@ -773,7 +850,7 @@ class FileTree {
     const d=this._parent(p);
     const snap=this._snap([d]);
     this._optimDel(p);
-    this.paint();
+    this._paintAll();
     const r=await this.app._edFs(FS_DELETE_API,{root:this.root,path:p});
     if(!r.ok){this._restore(snap);this._fail(p,r.msg);return}
     // FR-EDT-91: 그 파일의 탭을 닫는다. 폴더면 하위 전부. 확인창은 다시 띄우지
@@ -828,7 +905,7 @@ class FileTree {
     this._clearErr();
     // 올린 것이 보이지 않으면 사용자는 실패로 읽는다.
     if(dir!==this.root&&!this._open.has(dir)) this._open.add(dir);
-    this._busy.add(dir); this.paint();
+    this._busy.add(dir); this._paintAll();
 
     let skipped=0, aborted=0, err='';
     let skipAll=false;
@@ -941,7 +1018,7 @@ class FileTree {
       if(files.length>EDITOR_UPLOAD_MAX_ENTRIES){
         this._fail(dir===this.root?'':dir,
           EDITOR_UPLOAD_TOO_MANY.replace('%n',EDITOR_UPLOAD_MAX_ENTRIES));
-        this.paint();
+        this._paintAll();
         return;
       }
       if(files.length) this.doUpload(dir,files);
@@ -968,7 +1045,7 @@ class FileTree {
     e.preventDefault();
     const p=row.dataset.path,kind=row.dataset.kind;
     if(this._edit) this.cancelEdit();
-    this._sel=p; this.paint();
+    this._sel=p; this._paintAll();
     // 만드는 자리는 우클릭한 행이 정한다 — 폴더면 그 안, 아니면 그 형제다
     // (FR-EDT-81 과 같은 규칙).
     const dir=kind==='dir'?p:this._parent(p);
@@ -1099,7 +1176,7 @@ class FileTree {
     if(over){
       this._fail(dir===this.root?'':dir,
         EDITOR_UPLOAD_TOO_MANY.replace('%n',EDITOR_UPLOAD_MAX_ENTRIES));
-      this.paint();
+      this._paintAll();
       return;
     }
     if(items.length) this.doUpload(dir,items);

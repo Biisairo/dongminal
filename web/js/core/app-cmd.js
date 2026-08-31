@@ -304,6 +304,10 @@ Object.assign(App.prototype, {
       const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);
       if(f) this._setFocus(f.id, a);
     }
+    // FR-SVS-7·14: 칸별 시선은 `activeWindow`·`focusedPane` 과 같은 범주다 —
+    // 구조 변경은 받아들이면서 보는 자리는 로컬이 이긴다. 맵은 `_slots` 에
+    // 있으므로 살아남고, 포커스 칸의 시선을 새 워크스페이스에 다시 얹는다.
+    this._slotTabsToWs();
     if(edChanged) this._save();
     this.render();
   },
@@ -502,7 +506,7 @@ Object.assign(App.prototype, {
       this.ws.activeWindow=sess.id;
       try{sessionStorage.setItem('activeWindow', sess.id)}catch{}
     }
-    pn.activeTab=tab.id;
+    this.paneTabSet(pn,tab.id);
     this._setFocus(pn.id, sess);
     this._focusWindow(sess.id);
     this._save(); this.render();

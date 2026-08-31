@@ -338,7 +338,7 @@ Object.assign(App.prototype, {
     const pidx=panes.findIndex(r=>r.id===this.focused);
     if(pidx<0)return null;
     const pn=panes[pidx];
-    const tidx=pn.tabs.findIndex(t=>t.id===pn.activeTab);
+    const tidx=pn.tabs.findIndex(t=>t.id===this.paneTab(pn));
     if(tidx<0)return null;
     return `W${sidx+1}.P${pidx+1}.T${tidx+1}`;
   },

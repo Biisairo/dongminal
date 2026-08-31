@@ -257,7 +257,7 @@ Object.assign(App.prototype, {
         const cur = this._aw(); if (cur) cur.focusedPane = this.focused;
         this.ws.activeWindow = existing.win.id;
         try{sessionStorage.setItem('activeWindow', existing.win.id)}catch{}
-        existing.pane.activeTab = existing.tab.id;
+        this.paneTabSet(existing.pane, existing.tab.id);
         this._setFocus(existing.pane.id, existing.win);
         this._focusWindow(existing.win.id);
         this.render();
@@ -269,7 +269,7 @@ Object.assign(App.prototype, {
       const short = opts.short || String(opts.runId).slice(0, 8);
       const t = newEntityId();
       pn.tabs.push({ id: t, name: (opts.name || 'Run ' + short).slice(0, 64), type: 'run', runId: opts.runId });
-      pn.activeTab = t;
+      this.paneTabSet(pn, t);
       this.render();
       this._save();
       return { uuid: t };
@@ -281,7 +281,7 @@ Object.assign(App.prototype, {
         const cur = this._aw(); if (cur) cur.focusedPane = this.focused;
         this.ws.activeWindow = existing.win.id;
         try{sessionStorage.setItem('activeWindow', existing.win.id)}catch{}
-        existing.pane.activeTab = existing.tab.id;
+        this.paneTabSet(existing.pane, existing.tab.id);
         this._setFocus(existing.pane.id, existing.win);
         this._focusWindow(existing.win.id);
         const editor = this.fileEditors.get(existing.tab.id);
@@ -293,7 +293,7 @@ Object.assign(App.prototype, {
       const name = opts.name || opts.filePath.split('/').pop();
       const t = newEntityId();
       pn.tabs.push({ id: t, name, type: 'editor', filePath: opts.filePath });
-      pn.activeTab = t;
+      this.paneTabSet(pn, t);
       this.render();
       this._save();
       return;
@@ -312,7 +312,7 @@ Object.assign(App.prototype, {
     if (given) tab.nameSource = NAME_SOURCE_MANUAL;
     pn.tabs.push(tab);
     // FR-RST-4: keepFocus 면 대상 pane 의 활성 탭도 바꾸지 않는다 (백그라운드 추가).
-    if (!opts.keepFocus) pn.activeTab = t;
+    if (!opts.keepFocus) this.paneTabSet(pn, t);
     this.render();
     this._save();
     // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 tab id+toolId 반환 (echo 용).
@@ -394,7 +394,13 @@ Object.assign(App.prototype, {
         this._focusWindow(s.id);
       }
     }else{
-      pn.activeTab=pn.tabs[Math.min(closingIdx,pn.tabs.length-1)].id;
+      const nextId=pn.tabs[Math.min(closingIdx,pn.tabs.length-1)].id;
+      // FR-SVS-10: 닫은 칸의 시선이 이웃 탭으로 간다. 다른 칸은 자기 오버라이드가
+      // 살아 있으면 움직이지 않고, 같은 탭을 보고 있었다면 FR-SVS-5 로 폴백한다.
+      this.paneTabSet(pn,nextId,opts.slot);
+      // 워크스페이스가 죽은 탭을 가리키지 않게 한다 — 비포커스 칸이 닫은
+      // 경우에는 `paneTabSet` 이 `activeTab` 을 쓰지 않는다 (FR-SVS-14).
+      if(pn.activeTab===tid) pn.activeTab=nextId;
       if(isActive){
         this._setFocus(rid,s);
         this._focusWindow(s.id);
@@ -412,11 +418,16 @@ Object.assign(App.prototype, {
     this._save();
   },
 
-  switchTab(rid,tid){
-    const s=this._aw(); if(!s) return;
+  // FR-SVS-4: 탭을 고르는 **단일 통로**다. `slot` 을 주면 그 칸의 시선만 바뀌고,
+  // 생략하면 포커스 칸이다. 사이드바·순회 키·클릭이 모두 여기를 지난다.
+  switchTab(rid,tid,slot){
+    const i=(slot==null)?this._slotFocused():slot;
+    // 비포커스 칸의 창은 활성 창이 아닐 수 있다 — 그 칸의 창에서 pane 을 찾는다.
+    const s=(slot==null)?this._aw():(this._slotWindow(i)||this._aw());
+    if(!s) return;
     const pn=findPane(s.layout,rid); if(!pn) return;
-    if(pn.activeTab===tid && this.focused===rid){this._setFocus(rid, s); return}
-    pn.activeTab=tid; this._setFocus(rid, s);
+    if(this.paneTab(pn,i)===tid && this.focused===rid){this._setFocus(rid, s); return}
+    this.paneTabSet(pn,tid,i); this._setFocus(rid, s);
     this._save(); this.render();
   },
 
@@ -498,7 +509,7 @@ Object.assign(App.prototype, {
 
   _paneNewToolRef(sess,rid){
     const pn=findPane(sess.layout,rid);if(!pn)return {};
-    const tab=pn.tabs.find(t=>t.id===pn.activeTab);
+    const tab=pn.tabs.find(t=>t.id===this.paneTab(pn));
     if(!tab) return {};
     if(tab.type==='editor' && typeof tab.filePath==='string' && tab.filePath.startsWith('/')){
       const i=tab.filePath.lastIndexOf('/');
@@ -515,13 +526,13 @@ Object.assign(App.prototype, {
   switchTabPrev(){
     const s=this._aw();if(!s||!this.focused)return;
     const pn=findPane(s.layout,this.focused);if(!pn)return;
-    const i=pn.tabs.findIndex(t=>t.id===pn.activeTab);if(i<0)return;
+    const i=pn.tabs.findIndex(t=>t.id===this.paneTab(pn));if(i<0)return;
     this.switchTab(pn.id,pn.tabs[(i-1+pn.tabs.length)%pn.tabs.length].id);
   },
   switchTabNext(){
     const s=this._aw();if(!s||!this.focused)return;
     const pn=findPane(s.layout,this.focused);if(!pn)return;
-    const i=pn.tabs.findIndex(t=>t.id===pn.activeTab);if(i<0)return;
+    const i=pn.tabs.findIndex(t=>t.id===this.paneTab(pn));if(i<0)return;
     this.switchTab(pn.id,pn.tabs[(i+1)%pn.tabs.length].id);
   },
   // 순회 키(Ctrl+Shift+[ ])의 **단일 디스패치 지점**이다.
@@ -567,7 +578,7 @@ Object.assign(App.prototype, {
   closeTabFocused(){
     const s=this._aw();if(!s||!this.focused)return;
     const pn=findPane(s.layout,this.focused);if(!pn)return;
-    this.closeTab(pn.id,pn.activeTab);
+    this.closeTab(pn.id,this.paneTab(pn));
   },
   closeWindowActive(){this.delWindow(this.ws.activeWindow)},
 });

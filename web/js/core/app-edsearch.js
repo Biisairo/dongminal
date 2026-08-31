@@ -48,8 +48,11 @@ Object.assign(App.prototype, {
     if(!this._isEditorWin(s)) return null;
     const p=findPane(s.layout,s.focusedPane||this.focused)
       ||((s.layout&&s.layout.type==='pane')?s.layout:null);
-    const tid=p&&p.activeTab;
-    return (tid&&this.fileEditors.get(tid))||null;
+    // 편집기 인스턴스는 칸마다 선다 (FR-WSL-20) — 포커스 칸의 것을 찾는다.
+    const tid=p&&this.paneTab(p);
+    if(!tid) return null;
+    return this.fileEditors.get(this._slotKey(tid,this._slotFocused()))
+      ||this.fileEditors.get(tid)||null;
   },
 
   /**

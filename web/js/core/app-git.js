@@ -5,6 +5,41 @@
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
 Object.assign(App.prototype, {
+  // ── 관측과 시선의 레지스트리 (SLOT_VIEW_STATE_SRS 묶음 O·V) ──
+
+  // FR-SVS-30: 관측은 앱에 하나다. 폴링·status·소실이 여기 산다.
+  _gitObs(){
+    if(!this._gitObserver) this._gitObserver=new GitObserver(this);
+    return this._gitObserver;
+  },
+
+  /**
+   * FR-SVS-40·42: Git 의 **시선**은 칸마다 하나다. 키가 `_slotKey` 를 지나므로
+   * 칸 0 의 키는 접미사가 없다 (FR-WSL-75 와 같은 이유).
+   *
+   * Git 창은 워크스페이스에 하나뿐이므로(FR-GIT-26) 키에 창 id 를 넣을 이유가
+   * 없다 — 칸 번호가 곧 신원이다.
+   */
+  _gitPanel(slot){
+    if(!this._gitPanels) this._gitPanels=new Map();
+    const key=this._slotKey('git',slot||0);
+    let p=this._gitPanels.get(key);
+    if(!p){p=new GitPanel(this);this._gitPanels.set(key,p)}
+    return p;
+  },
+
+  // FR-SVS-46: 사라진 칸의 패널을 거둔다. Monaco 가 칸 수만큼 서므로 이 회수가
+  // 새면 인스턴스가 누적된다 (§7 R-1).
+  _gitPanelReap(){
+    if(!this._gitPanels||!this._gitPanels.size) return;
+    const n=this.slotCount();
+    for(const [key,p] of this._gitPanels){
+      if(this._slotOf(key)<n) continue;
+      p.destroy();
+      this._gitPanels.delete(key);
+    }
+  },
+
   // _gitWindow 는 워크스페이스의 Git 창이다. 없으면 null (FR-GIT-26).
   _gitWindow(){return this.ws.windows.find(s=>s&&s.type===WINDOW_TYPE_GIT)||null},
 
@@ -246,7 +281,7 @@ Object.assign(App.prototype, {
       const pn=w.focusedPane?findPane(w.layout,w.focusedPane):firstPane(w.layout);
       for(const p of [pn,firstPane(w.layout)]){
         if(!p) continue;
-        const tab=p.tabs.find(t=>t.id===p.activeTab);
+        const tab=p.tabs.find(t=>t.id===this.paneTab(p));
         if(tab&&tab.type==='terminal'&&this.tools.has(tab.toolId)) return tab.toolId;
       }
     }
@@ -497,4 +532,12 @@ Object.assign(App.prototype, {
     el.title=GIT_SB_JOB_TITLE+' — '+jobs.map(j=>(j.kind||'')+' @ '+(j.repo||'')).join('\n');
     return el;
   },
+});
+
+// FR-SVS-47: 전역 진입점은 **포커스 칸의 패널**을 가리킨다. 메뉴·확인창·다이얼로그는
+// 화면에 하나만 서고 사용자가 방금 조작한 자리에 속한다 (D-8). 접근자로 두는 덕에
+// `app.gitPanel` 을 딛던 자리들이 한 줄도 바뀌지 않는다.
+Object.defineProperty(App.prototype,'gitPanel',{
+  get(){ return this._gitPanel(this._slotFocused()) },
+  configurable:true,
 });

@@ -9,27 +9,86 @@
  * 하나로 판정한다 — 나중에 비동기 경로를 하나씩 훑어 가드를 덧붙이는 상황을
  * 만들지 않으려고 처음부터 둔다.
  */
-class GitPanel {
+/**
+ * Git 의 **관측** — SLOT_VIEW_STATE_SRS 묶음 O (FR-SVS-30~35).
+ *
+ * `git status` 와 그 파생(소실·실패 누적·signature)은 **누가 보든 같은 사실**이므로
+ * 앱에 하나다. 칸이 넷이어도 요청은 한 벌만 나간다 (FR-SVS-31) — single-flight
+ * (`_busy`)와 주기 타이머가 여기 살기 때문이다.
+ *
+ * 선택·접힘·미리보기 같은 **조작 상태는 들어오지 않는다.** 그것은 보는 자리의
+ * 것이고 칸마다 다르다 (FR-SVS-43). 그래서 `GitPanel` 이 칸마다 서고, 그 안의
+ * 하위 뷰 모듈 일곱은 한 줄도 바뀌지 않는다 (D-3).
+ *
+ * 뷰를 **모른 채** 갱신을 알린다 (D-4) — `paintAll` 은 "다시 칠하라" 만 말하고,
+ * 무엇을 그릴지는 각 패널이 자기 시선으로 정한다.
+ */
+class GitObserver {
   constructor(app){
     this.app=app;
-    this._els=new Map(); // view key → 루트 DOM
+    this.panels=new Set();
+
     this._gen=0;
     this._status=null;   // /api/git/status 의 마지막 유효 응답
     this._lastSig=null;  // FR-GIT-19 의 비교 대상
     this._lastViewFp=null; // FR-GVR-8 의 비교 대상 (Changes 밖의 뷰)
     this._errMsg=null;
     this._staleNote=false;
-    this._refreshing=false;       // FR-GIT-238 의 새로고침이 도는 중 (겹쳐 부르지 않는다)
+    this._refreshing=false;       // FR-GIT-238 의 새로고침이 도는 중
     this._gitMissing=false;
+    this._seq=0;                  // status 요청 일련번호 (single-flight 소유권)
+    this._missing=null;           // 소실 상태의 저장소 경로 (FR-RMS-6)
+    this._failStreak=0;           // 연속 실패 수. 주기 백오프의 근거 (FR-RMS-22)
+    this._obsSig=null;            // FR-GIT-227: 마지막으로 그린 관측
+    // FR-SVS-45: 쓰기 한 번은 한 번이다. 칸마다 두면 두 칸이 같은 쓰기를 함께 보낸다.
+    this._writing=false;
+    // single-flight 와 주기. 칸이 늘어도 이것들이 하나이므로 요청이 늘지 않는다.
+    this._busy=false; this._again=false; this._sigBusy=false; this._sigT=null;
+    this._pollOn=false; this._pollSig=null; this._pollSt=null;
+    this._sigPoll=null; this._stPoll=null;
+    this._inited=false;           // 문서 이벤트 등록은 앱당 한 번이다
+  }
+
+  attach(p){ this.panels.add(p) }
+  detach(p){ this.panels.delete(p) }
+
+  // 살아 있는 패널 하나. 주기 타이머가 딛는 자리다 — 콜백이 특정 패널을 캡처하면
+  // 그 칸이 사라진 뒤에도 죽은 패널을 붙들고 부른다.
+  any(){ for(const p of this.panels) return p; return null }
+
+  // FR-SVS-32: 관측이 갱신되면 살아 있는 **모든** 패널이 칠한다.
+  paintAll(){ for(const p of this.panels) p._paint() }
+  paintAllViews(){ for(const p of this.panels) p._paintAllViews() }
+  reloadViewsAll(){ for(const p of this.panels) p._reloadViews() }
+  notifyStatusAll(){ for(const p of this.panels) if(p._remoteView) p._remoteView.notifyStatus() }
+
+  // 주기 타이머의 종단. 패널이 하나도 없으면 폴 이유가 없다.
+  tick(kind){
+    const p=this.any();
+    if(!p){ this.stopPolling(); return }
+    if(kind==='sig') p._pollSignature(); else p.collect();
+  }
+  stopPolling(){
+    if(this._sigPoll){clearInterval(this._sigPoll);this._sigPoll=null}
+    if(this._stPoll){clearInterval(this._stPoll);this._stPoll=null}
+    this._pollOn=false;
+  }
+}
+
+class GitPanel {
+  constructor(app){
+    this.app=app;
+    // FR-SVS-30·40: 관측은 앱에 하나이고 이 패널은 그것을 **빌려 본다**. 아래
+    // 접근자들이 `this._status` 같은 이름을 그대로 observer 로 잇는다 — 패널의
+    // 본문이 관측의 자리를 알 필요가 없다.
+    this.obs=app._gitObs();
+    this.obs.attach(this);
+
+    this._els=new Map(); // view key → 루트 DOM. **칸마다 따로다** (FR-SVS-42)
     this._collapsed=new Set();    // 접힌 그룹. 뷰의 성질이라 리포 전환에도 남는다
     this._dirCollapsed=new Set(); // 접힌 트리 디렉터리 (group:path)
     this._shown=new Map();        // 그룹별로 그린 행 수 (FR-GIT-42)
     this._fileView=null;          // 'flat' | 'tree'
-    this._seq=0;                  // status 요청 일련번호 (single-flight 소유권)
-    // 소실 상태의 저장소 경로. null 이면 소실이 아니다 (FR-RMS-6).
-    this._missing=null;
-    // 연속으로 성공하지 못한 관측의 수. 주기 백오프의 근거다 (FR-RMS-22).
-    this._failStreak=0;
     this.previewFile=null;        // {repo,group,axis,path,origPath}. 미리보기와 Diff 탭이 같이 쓴다
     this._diffView=null;          // Diff 탭의 GitDiffView
     this._previewView=null;       // Changes 탭 미리보기의 GitDiffView
@@ -57,10 +116,35 @@ class GitPanel {
     // 두면 Changes 탭의 미리보기가 커밋의 diff 를 보이면서 목록에는 아무 행도
     // 선택되지 않는다.
     this.commitFile=null;
-    this._writing=false;          // 쓰기 한 번은 한 번이다 — 겹쳐 보내지 않는다
-    // FR-GIT-227: 마지막으로 그린 관측. null 이면 다음 관측은 무조건 그린다.
-    this._obsSig=null;
   }
+
+  // ── 관측으로 가는 통로 (FR-SVS-30) ──
+  //
+  // 이름은 예전과 같으므로 패널의 본문은 한 줄도 바뀌지 않는다 — 바뀐 것은 **그
+  // 값이 어디 사는지**뿐이다. `_writing` 과 폴링 타이머가 여기 있는 덕에 칸이
+  // 넷이어도 요청과 쓰기는 한 벌이다 (FR-SVS-31·45).
+  get _gen(){ return this.obs._gen } set _gen(v){ this.obs._gen=v }
+  get _status(){ return this.obs._status } set _status(v){ this.obs._status=v }
+  get _lastSig(){ return this.obs._lastSig } set _lastSig(v){ this.obs._lastSig=v }
+  get _lastViewFp(){ return this.obs._lastViewFp } set _lastViewFp(v){ this.obs._lastViewFp=v }
+  get _errMsg(){ return this.obs._errMsg } set _errMsg(v){ this.obs._errMsg=v }
+  get _staleNote(){ return this.obs._staleNote } set _staleNote(v){ this.obs._staleNote=v }
+  get _refreshing(){ return this.obs._refreshing } set _refreshing(v){ this.obs._refreshing=v }
+  get _gitMissing(){ return this.obs._gitMissing } set _gitMissing(v){ this.obs._gitMissing=v }
+  get _seq(){ return this.obs._seq } set _seq(v){ this.obs._seq=v }
+  get _missing(){ return this.obs._missing } set _missing(v){ this.obs._missing=v }
+  get _failStreak(){ return this.obs._failStreak } set _failStreak(v){ this.obs._failStreak=v }
+  get _obsSig(){ return this.obs._obsSig } set _obsSig(v){ this.obs._obsSig=v }
+  get _writing(){ return this.obs._writing } set _writing(v){ this.obs._writing=v }
+  get _busy(){ return this.obs._busy } set _busy(v){ this.obs._busy=v }
+  get _again(){ return this.obs._again } set _again(v){ this.obs._again=v }
+  get _sigBusy(){ return this.obs._sigBusy } set _sigBusy(v){ this.obs._sigBusy=v }
+  get _sigT(){ return this.obs._sigT } set _sigT(v){ this.obs._sigT=v }
+  get _pollOn(){ return this.obs._pollOn } set _pollOn(v){ this.obs._pollOn=v }
+  get _pollSig(){ return this.obs._pollSig } set _pollSig(v){ this.obs._pollSig=v }
+  get _pollSt(){ return this.obs._pollSt } set _pollSt(v){ this.obs._pollSt=v }
+  get _sigPoll(){ return this.obs._sigPoll } set _sigPoll(v){ this.obs._sigPoll=v }
+  get _stPoll(){ return this.obs._stPoll } set _stPoll(v){ this.obs._stPoll=v }
 
   // 활성 리포. Git 창의 win.git.repo 가 진실이고 이것은 그 읽기다 (FR-GIT-29).
   get repo(){
@@ -82,7 +166,37 @@ class GitPanel {
     this._missing=null; this._failStreak=0;
     // 관측을 버렸으므로 근거도 버린다 — 새 리포의 첫 관측은 무조건 그린다.
     this._obsSig=null;
-    this._shown.clear(); this.previewFile=null; GitMenu.close();
+    GitMenu.close();
+    if(path) this._errMsg=null;
+    // 진행 중인 요청의 소유권을 끊는다 — 그 응답은 가드에 걸려 버려지고, 새 리포는
+    // 앞선 요청이 끝나기를 기다리지 않는다.
+    this._seq++; this._busy=false; this._again=false; this._sigBusy=false;
+    if(this._sigT){clearTimeout(this._sigT);this._sigT=null}
+    // FR-SVS-34: 활성 리포는 창의 것이므로 **모든 칸이 같은 리포를 본다.** 그래서
+    // 리포에 붙은 시선은 칸마다 되돌아간다 — 한 칸만 되돌리면 다른 칸이 이전
+    // 리포의 선택·diff 를 새 리포의 헤더와 함께 보인다.
+    for(const p of this.obs.panels) p._repoSwitchView(path);
+    // 마지막 관측을 버렸으므로 chip 도 사라져야 한다 (FR-GIT-59).
+    this.app._updateStatusBar();
+    // 상단의 창 이름은 활성 리포에서 온다 — 같은 창에서 리포만 바뀌면 render 가
+    // 돌지 않으므로(아래 주석의 조기 반환) 여기서 직접 고쳐 그린다.
+    this.app.renderer._rTopbar();
+    this._stop(); this._reschedule();
+    // 활성 리포는 창에 붙어 영속한다 (FR-GIT-29). switchWindow 가 이미 활성인
+    // 창에서는 조기 반환하므로 여기서 직접 저장한다 — 저장을 그쪽에 맡기면
+    // "같은 창에서 리포만 바꾼" 경우가 새로고침에서 사라진다.
+    this.app._save();
+  }
+
+  /**
+   * 리포가 바뀔 때 **이 칸의** 시선을 되돌린다 (FR-SVS-34).
+   *
+   * `setRepo` 에서 뽑아낸 것이며 동작은 그대로다 — 달라진 것은 칸마다 한 번씩
+   * 돈다는 것뿐이다. 이전 리포의 목록이 새 리포의 헤더와 함께 보이는 순간이
+   * 어느 칸에도 있어서는 안 된다 (FR-GIT-16).
+   */
+  _repoSwitchView(path){
+    this._shown.clear(); this.previewFile=null;
     // 선택과 쓰기 안내는 리포에 붙은 것이다 — 새 리포로 넘겨 오면 다른 파일을
     // 가리킨다.
     this._sel.clear(); this._anchor=null; this._note=null;
@@ -99,22 +213,7 @@ class GitPanel {
     this._blameOn=false; this._blameKey=null; this._blameData=null; this._blameErr=null;
     for(const v of [this._diffView,this._previewView])
       if(v) v.clear(path?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);
-    if(path) this._errMsg=null;
-    // 진행 중인 요청의 소유권을 끊는다 — 그 응답은 가드에 걸려 버려지고, 새 리포는
-    // 앞선 요청이 끝나기를 기다리지 않는다.
-    this._seq++; this._busy=false; this._again=false; this._sigBusy=false;
-    if(this._sigT){clearTimeout(this._sigT);this._sigT=null}
     for(const v of GIT_VIEWS) if(this._els.has(v.key)) this._render(v.key);
-    // 마지막 관측을 버렸으므로 chip 도 사라져야 한다 (FR-GIT-59).
-    this.app._updateStatusBar();
-    // 상단의 창 이름은 활성 리포에서 온다 — 같은 창에서 리포만 바뀌면 render 가
-    // 돌지 않으므로(아래 주석의 조기 반환) 여기서 직접 고쳐 그린다.
-    this.app.renderer._rTopbar();
-    this._stop(); this._reschedule();
-    // 활성 리포는 창에 붙어 영속한다 (FR-GIT-29). switchWindow 가 이미 활성인
-    // 창에서는 조기 반환하므로 여기서 직접 저장한다 — 저장을 그쪽에 맡기면
-    // "같은 창에서 리포만 바꾼" 경우가 새로고침에서 사라진다.
-    this.app._save();
   }
 
   elFor(view){
@@ -150,6 +249,19 @@ class GitPanel {
 
   // Git 창이 사라졌을 때 루트를 area 로 되돌린다. 인스턴스는 살아 있다 —
   // 창은 다시 열릴 수 있다.
+  /**
+   * FR-SVS-46: 이 칸이 사라진다. `detach` 는 루트를 `#area` 로 되돌려 **다시
+   * 열릴 수 있게** 두지만, 이쪽은 되돌아올 자리가 없으므로 DOM 까지 버린다.
+   * Monaco 는 DOM 을 떼는 것으로 풀리지 않으므로 `_destroyViews` 를 지나야 한다
+   * (FR-GIT-56).
+   */
+  destroy(){
+    this.detach();
+    for(const el of this._els.values()) if(el.parentNode) el.parentNode.removeChild(el);
+    this._els.clear();
+    this.obs.detach(this);
+  }
+
   detach(){
     this._stop(); GitMenu.close(); this._destroyViews();
     // 창이 사라지면 커밋 영역의 토스트도 함께 사라진다 — 진입점이 화면 없이
@@ -217,7 +329,15 @@ class GitPanel {
     this._missing=this.repo;
     // 사라진 폴더의 파일 목록을 남기지 않는다 (FR-RMS-6) — 남으면 정상으로 읽힌다.
     this._status=null; this._errMsg=null; this._staleNote=false; this._obsSig=null;
-    this._sel.clear(); this._anchor=null; this.previewFile=null; GitMenu.close();
+    GitMenu.close();
+    // FR-SVS-33: 소실은 관측의 성질이다 — **모든 칸**이 동시에 소실로 간다.
+    // 판정은 여기 한 번, 뷰 해제는 칸마다다.
+    for(const p of this.obs.panels) p._enterMissingView();
+  }
+
+  // 소실이 부르는 뷰 해제. 칸마다 자기 뷰를 놓는다.
+  _enterMissingView(){
+    this._sel.clear(); this._anchor=null; this.previewFile=null;
     this._destroyViews();
     this._commit().unmount();
     this._history().unmount();
@@ -233,7 +353,7 @@ class GitPanel {
   _leaveMissing(){
     if(!this._missing) return;
     this._missing=null; this._obsSig=null;
-    this._paintAllViews();
+    this.obs.paintAllViews();   // FR-SVS-33: 복구도 모든 칸에 온다
   }
 
   // FR-RMS-21: 대상은 **이미 만들어진 뷰 전부**다. 한 번도 열지 않은 탭은 보인 적이
@@ -883,8 +1003,11 @@ class GitPanel {
   // 상태바 폴링이 받은 진행 중 작업 목록 (FR-GIT-101·112). 같은 리포의 작업이면
   // 원격 버튼이 막히고 출력이 이어진다.
   adoptJobs(jobs){
-    if(!this._remoteView&&!(jobs||[]).length) return;
-    this._remote().adoptJobs(jobs);
+    // FR-SVS-44: 원격 작업은 리포의 사실이므로 **모든 칸**이 같은 진행을 본다.
+    for(const p of this.obs.panels){
+      if(!p._remoteView&&!(jobs||[]).length) continue;
+      p._remote().adoptJobs(jobs);
+    }
   }
 
   // 그룹 하나를 펼친다. pull 이 충돌로 끝나면 충돌 그룹이 접혀 있어서는 안 된다
@@ -1055,8 +1178,8 @@ class GitPanel {
   notifyPins(){
     // FR-RMS-10: 소실 안내의 `핀 제거` 는 핀 여부를 딛는다. 핀이 바깥에서 바뀌면
     // 버튼이 따라와야 한다 — 안 그러면 방금 핀한 리포에 진입점이 없다 (FR-RPT-8).
-    if(this._missing) this._paintAllViews();
-    if(this._worktreesView) this._worktreesView.notifyPins();
+    if(this._missing) this.obs.paintAllViews();
+    for(const p of this.obs.panels) if(p._worktreesView) p._worktreesView.notifyPins();
   }
 
   // FR-GIT-141: 커밋 우클릭의 "여기서 브랜치 생성". 18단계의 생성 다이얼로그에
@@ -1518,7 +1641,9 @@ class GitPanel {
     // 사용자가 부른 쓰기의 응답이다 — 화면은 반드시 바뀐다 (FR-RPT-5). 다만 근거는
     // 갱신해 둔다: 곧 오는 폴링이 같은 관측으로 한 번 더 그리지 않게 한다.
     this._obsSig=JSON.stringify(d.status||null);
-    this._paint();
+    // FR-SVS-44: 쓰기의 **결과는 관측**이다 — 조작이 어느 칸에서 시작됐는지는
+    // 결과에 영향을 주지 않으므로 모든 칸이 함께 바뀐다.
+    this.obs.paintAll();
     this.app._gitReposRefresh();
     this.app._updateStatusBar();
   }
@@ -2334,7 +2459,8 @@ class GitPanel {
    */
   async refresh(){
     if(this._refreshing||!this.repo) return;
-    this._refreshing=true; this._paintRefresh();
+    this._refreshing=true;
+    for(const p of this.obs.panels) p._paintRefresh();
     /**
      * 플래그 해제는 `finally` 가 한다 (선례: `_wsApply` 의 `_wsApplyInflight`).
      *
@@ -2346,9 +2472,14 @@ class GitPanel {
      */
     try{
       // 새로고침은 **전부** 다시 받는다 — 사용자가 그것을 뜻하고 눌렀다.
-      await Promise.allSettled([this.collect(),...this._reloadViews(true)]);
+      // FR-SVS-42: 뷰는 칸마다 있으므로 칸마다 받는다. 두 칸이 같은 뷰를 보면
+      // 같은 요청이 두 번 나가지만, 그 목록은 각 칸의 것이다 (§7 R-1).
+      const jobs=[];
+      for(const p of this.obs.panels) jobs.push(...p._reloadViews(true));
+      await Promise.allSettled([this.collect(),...jobs]);
     }finally{
-      this._refreshing=false; this._paintRefresh();
+      this._refreshing=false;
+      for(const p of this.obs.panels) p._paintRefresh();
     }
   }
 
@@ -2390,12 +2521,24 @@ class GitPanel {
 
   // init 은 재평가 계기를 붙인다. 폴링과 즉시 신호는 게이팅이 다르므로 같은
   // 리스너에서 둘을 각각 부른다.
+  /**
+   * 문서 이벤트는 **앱당 한 벌**이다 (FR-SVS-30) — 칸마다 등록하면 같은 신호가
+   * 칸 수만큼 온다. 리스너가 붙잡는 것도 특정 패널이 아니라 observer 다: 등록한
+   * 칸이 먼저 사라져도 신호는 계속 들어야 한다.
+   */
   init(){
+    if(this.obs._inited){ this._reschedule(); return }
+    this.obs._inited=true;
+    const live=()=>this.obs.any();
     document.addEventListener('visibilitychange',()=>{
-      this._reschedule();
-      if(!document.hidden) this.signal('visible');
+      const p=live(); if(!p) return;
+      p._reschedule();
+      if(!document.hidden) p.signal('visible');
     });
-    window.addEventListener('focus',()=>{this._reschedule();this.signal('focus')});
+    window.addEventListener('focus',()=>{
+      const p=live(); if(!p) return;
+      p._reschedule(); p.signal('focus');
+    });
     this._reschedule();
   }
 
@@ -2454,8 +2597,10 @@ class GitPanel {
     this._stop();
     this._pollOn=true; this._pollSig=sig; this._pollSt=st;
     // 주기 0 은 그 계층을 걸지 않는다 (FR-GIT-23).
-    if(sig>0) this._sigPoll=setInterval(()=>this._pollSignature(),sig);
-    if(st>0) this._stPoll=setInterval(()=>this.collect(),st);
+    // FR-SVS-30: 콜백은 **observer** 를 지난다. 특정 패널을 캡처하면 그 칸이
+    // 사라진 뒤에도 죽은 패널을 붙들고 부른다.
+    if(sig>0) this._sigPoll=setInterval(()=>this.obs.tick('sig'),sig);
+    if(st>0) this._stPoll=setInterval(()=>this.obs.tick('status'),st);
     return true;
   }
 
@@ -2499,7 +2644,7 @@ class GitPanel {
       // 관측이 값이 같아도 다시 그리게 한다 (FR-GIT-227).
       this._obsSig=null;
       this._fail();
-      this._staleNote=true; this._paint(); return;
+      this._staleNote=true; this.obs.paintAll(); return;
     }
     if(!r.ok){this._applyError(d&&d.error);return}
     // ② 서버가 되돌려준 요청값 확인. 같은 세대 안에서도 응답 순서가 뒤바뀔 수 있다.
@@ -2528,7 +2673,7 @@ class GitPanel {
     const prevFp=this._lastViewFp;
     this._lastViewFp=fp;
     // 첫 관측(`setRepo` 직후의 null)은 변화가 아니다 — 뷰는 열릴 때 스스로 받는다.
-    if(prevFp!==null&&prevFp!==fp) this._reloadViews();
+    if(prevFp!==null&&prevFp!==fp) this.obs.reloadViewsAll();
     this._errMsg=null; this._staleNote=false;
     /**
      * FR-GIT-227 (FR-RPT-1·2): 관측이 지난 회차와 같으면 다시 그리지 않는다.
@@ -2547,14 +2692,14 @@ class GitPanel {
      * 실패한 회차는 근거를 남기지 않으므로 다음 관측이 다시 시도한다.
      */
     const obs=JSON.stringify(d.status||null);
-    if(obs!==this._obsSig){this._paint(); this._obsSig=obs}
+    if(obs!==this._obsSig){this.obs.paintAll(); this._obsSig=obs}
     // 활성 리포의 배지가 따라 갱신된다. 다른 리포는 서버의 마지막 관측값이다.
     this.app._gitReposRefresh();
     // 상태바 chip 은 Git 창 밖에서도 보이므로 관측마다 갱신한다 (FR-GIT-57).
     this.app._updateStatusBar();
     // FR-GIT-111 (FR-RPT-8): 충돌 판정은 관측마다 돈다 — 다시 그리기에 업히면
     // 관측이 같은 회차에 판정이 멈춘다.
-    if(this._remoteView) this._remoteView.notifyStatus();
+    this.obs.notifyStatusAll();
     // FR-GIT-178: 다이얼로그가 열려 있으면 대상 변경을 알린다. 실행은 막지 않는다.
     if(typeof GitConfirm!=='undefined') GitConfirm.notify(this._lastSig);
     if(typeof GitDialog!=='undefined') GitDialog.notify();
@@ -2587,10 +2732,10 @@ class GitPanel {
     }
     if(code==='git_missing'){
       this._errMsg=GIT_ERR_GIT_MISSING; this._gitMissing=true;
-      this._stop(); this._paint();
+      this._stop(); this.obs.paintAll();
       return;
     }
-    this._staleNote=true; this._paint();
+    this._staleNote=true; this.obs.paintAll();
   }
 
   // signature 는 git 을 실행하지 않는 감지 경로다. 값이 그대로면 아무것도 하지

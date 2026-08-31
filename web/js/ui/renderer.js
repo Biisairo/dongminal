@@ -167,7 +167,14 @@ class Renderer {
         el.dataset.slot=String(i);
         const win=app._slotWindow(i);
         if(!win) el.classList.add('slot-empty');   // FR-WSL-6
-        el.addEventListener('mousedown',()=>{if(app._slotFocused()!==i)app.slotFocusTo(i)}); // FR-WSL-55
+        // FR-WSL-55 / FR-SVS-61: 포커스는 mousedown 에 옮기고 **그리기는 클릭이
+        // 끝난 뒤**로 미룬다. 여기서 곧바로 그리면 이 클릭이 어떤 핸들러에도
+        // 닿지 못한다 (§2.11).
+        el.addEventListener('mousedown',()=>{if(app._slotFocused()!==i)app.slotFocusTo(i,{deferRender:true})});
+        // 클릭이 자기 일로 render 를 돌면 `App.render` 가 플래그를 지우므로 이
+        // 자리는 아무 일도 하지 않는다. 빈 자리를 눌러 아무 핸들러도 걸리지
+        // 않았을 때를 위한 자리다 — 그때도 사이드바의 활성 표시는 따라와야 한다.
+        el.addEventListener('click',()=>app._slotRenderFlush());
         // FR-WSL-35: 칸이 둘을 넘으면 위치만으로는 어느 칸이 무슨 창인지 읽히지
         // 않는다. 이름을 적는다 (D-10). 흐리게 하는 방식은 쓸 수 없다 — 그것은
         // 이미 소유권 없음(`.pn-dimmed`)의 뜻이다.
@@ -198,12 +205,15 @@ class Renderer {
     const walk=n=>{if(!n)return;if(n.type==='pane'&&n.tabs)n.tabs.forEach(t=>allTabIds.add(t.id));if(n.type==='split'&&n.children)n.children.forEach(walk)};
     for(const sess of app.ws.windows){if(sess&&sess.layout)walk(sess.layout)}
     // 편집기 Map 의 키는 복합키다 (FR-WSL-75) — 회수는 탭 id 로 판정한다.
+    // FR-SVS-60: 파싱은 `_slotBase` 한 자리다. 여기서 `@1` 만 잘라 내던 동안
+    // 칸 2·3 의 편집기는 살아 있는 탭인데도 매 render 마다 파괴됐다.
     for(const[k,v] of app.fileEditors){
-      const tid=k.endsWith('@1')?k.slice(0,-2):k;
+      const tid=app._slotBase(k);
       if(!allTabIds.has(tid)){v.destroy();app.fileEditors.delete(k)}
     }
-    // Git 창이 사라졌으면 루트를 area 로 되돌린다. 인스턴스는 유지 — 다시 열릴 수 있다.
-    if(!app._gitWindow()) app.gitPanel.detach();
+    // Git 창이 사라졌으면 루트를 area 로 되돌린다. 인스턴스는 유지 — 다시 열릴 수
+    // 있다. FR-SVS-42: 패널은 칸마다 있으므로 **전부** 되돌린다.
+    if(!app._gitWindow()&&app._gitPanels) for(const p of app._gitPanels.values()) p.detach();
     requestAnimationFrame(()=>{
       for(const p of app.tools.values()){
         if(p.el.classList.contains('vis')){
@@ -261,7 +271,7 @@ class Renderer {
       const s=app._aw();
       if(app.focused && !app.isMobile && s?.layout){
         const pn=findPane(s.layout,app.focused);
-        if(pn){const tab=pn.tabs.find(t=>t.id===pn.activeTab);if(tab){
+        if(pn){const tab=pn.tabs.find(t=>t.id===app.paneTab(pn));if(tab){
           // 포커스 슬롯의 인스턴스를 focus 한다 (FR-WSL-20).
           const key=app._slotKey(tab.id,app._slotFocused());
           if(tab.type==='editor'){const v=app.fileEditors.get(key)||app.fileEditors.get(tab.id);if(v)v.el.focus()}
@@ -327,7 +337,7 @@ class Renderer {
     // FR-EDT-57: 탐색기는 창별 인스턴스(FileTree)가 소유한다 — 여기서는 그 요소를
     // 붙이기만 한다. `_rLayout` 이 `.ed-win` 을 매번 새로 만들므로 트리를 여기서
     // 만들면 펼침·선택·스크롤이 매 render 마다 사라진다 (FR-EDT-66·68).
-    const ex=this.app._edTree(s).mount();
+    const ex=this.app._edTree(s,this._rSlot||0).mount();
     ex.style.width=this.app._edExplorerWidth(s)+'px';
     el.appendChild(ex);
     const h=document.createElement('div'); h.className='ed-ex-handle';
@@ -391,9 +401,10 @@ class Renderer {
   _mountTabBody(body,at){
     const slot=this._rSlot||0;
     if(at.type===TAB_TYPE_GIT){
-      // GitPanel 은 Git 창이 싱글턴이므로 앱에 하나다 — 탭마다 인스턴스를
-      // 만들지 않고 view 별 루트 DOM 만 캐시한다 (FR-GIT-26).
-      const el=this.app.gitPanel.elFor(at.gitView);
+      // Git 창은 싱글턴이지만 **패널은 칸마다** 있다 (FR-SVS-40·42) — 그래야 두
+      // 칸이 같은 뷰를 볼 때 뒤 칸이 앞 칸에서 DOM 을 떼어 가지 않는다. 관측은
+      // 그 패널들이 함께 쓰는 `GitObserver` 에 하나로 있다 (FR-SVS-30).
+      const el=this.app._gitPanel(slot).elFor(at.gitView);
       body.appendChild(el); el.classList.add('vis');
       return;
     }
@@ -420,11 +431,16 @@ class Renderer {
 
   _buildPane(n){
     const el=document.createElement('div');
+    // FR-SVS-1: 이 pane 이 **이 칸에서** 보이는 탭. 렌더 시점의 슬롯을 클로저에
+    // 붙잡아 둔다 — 이벤트 핸들러가 나중에 `_rSlot` 을 읽으면 그때의 렌더 대상을
+    // 보게 된다.
+    const slot=this._rSlot||0;
+    const shown=this.app.paneTab(n,slot);
     // FR-PAN-9: 활성탭 pane 이 주의 상태이고 pane 이 포커스 안 됐을 때만 pane 강조
     // FR-WSL-35: 같은 창이 두 슬롯에 있으면 pane id 가 같다 — 포커스 슬롯에서만
     // 포커스로 그린다. 그러지 않으면 양쪽이 다 포커스로 보인다.
     const focused=n.id===this.app.focused&&(this._rSlot||0)===this.app._slotFocused();
-    const at0=(n.tabs||[]).find(t=>t.id===n.activeTab);
+    const at0=(n.tabs||[]).find(t=>t.id===shown);
     const paneAttn=!focused&&at0&&this.app._attnHas(at0.toolId);
     el.className='pn'+(focused?' focused':'')+(paneAttn?' attn':'');
     el.dataset.paneid=n.id;
@@ -432,7 +448,7 @@ class Renderer {
     for(const tab of(n.tabs||[])){
       const t=document.createElement('div');
       // FR-PAN-9/TC-PAN-17: 사용자가 지금 보고 있는 탭(포커스+활성)은 강조하지 않음
-      const tabActive=tab.id===n.activeTab;
+      const tabActive=tab.id===shown;
       const tabAttn=this.app._attnHas(tab.toolId)&&!(focused&&tabActive);
       // FR-GIT-28: git 탭은 고정이다 — 닫기·이름변경·드래그를 달지 않는다.
       // 자리가 항상 같아야 근육 기억이 선다.
@@ -445,8 +461,8 @@ class Renderer {
       t.querySelector('.pn-tab-label').textContent=this._tabDisplayName(tab);
       t.addEventListener('click',e=>{
         e.stopPropagation();
-        if(e.target.classList.contains('pn-tab-x')) this.app.closeTab(n.id,tab.id);
-        else this.app.switchTab(n.id,tab.id);
+        if(e.target.classList.contains('pn-tab-x')) this.app.closeTab(n.id,tab.id,null,{slot});
+        else this.app.switchTab(n.id,tab.id,slot);
       });
       // 탭은 `_renameTab` 이다 — 창의 `_rename` 과 달리 빈 문자열에 뜻이 있다
       // (FR-TAN-21).
@@ -455,7 +471,7 @@ class Renderer {
       t.addEventListener('dragstart',e=>{this.app._drag={type:'tab',srcPaneId:n.id,tabId:tab.id};e.dataTransfer.effectAllowed='move';e.stopPropagation();setTimeout(()=>t.classList.add('dragging'),0)});
       t.addEventListener('dragend',()=>{this.app._drag=null;t.classList.remove('dragging');tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none')});
       t.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));const rect=t.getBoundingClientRect();t.classList.add(e.clientX<rect.left+rect.width/2?'drag-left':'drag-right');document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none')});
-      t.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));const s=this.app._aw();if(!s)return;if(srcPaneId===n.id){const pn=findPane(s.layout,n.id);if(!pn)return;const si=pn.tabs.findIndex(tt=>tt.id===tabId);const di=pn.tabs.findIndex(tt=>tt.id===tab.id);if(si<0||di<0||si===di)return;const rect=t.getBoundingClientRect();const insBefore=e.clientX<rect.left+rect.width/2;const[moved]=pn.tabs.splice(si,1);let ins=pn.tabs.findIndex(tt=>tt.id===tab.id);if(!insBefore)ins++;pn.tabs.splice(ins,0,moved);pn.activeTab=tabId;this.app._save();this.app.render()}else{const rect=t.getBoundingClientRect();this.app._moveTabToPane(srcPaneId,tabId,n.id,tab.id,e.clientX<rect.left+rect.width/2)}});
+      t.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));const s=this.app._aw();if(!s)return;if(srcPaneId===n.id){const pn=findPane(s.layout,n.id);if(!pn)return;const si=pn.tabs.findIndex(tt=>tt.id===tabId);const di=pn.tabs.findIndex(tt=>tt.id===tab.id);if(si<0||di<0||si===di)return;const rect=t.getBoundingClientRect();const insBefore=e.clientX<rect.left+rect.width/2;const[moved]=pn.tabs.splice(si,1);let ins=pn.tabs.findIndex(tt=>tt.id===tab.id);if(!insBefore)ins++;pn.tabs.splice(ins,0,moved);this.app.paneTabSet(pn,tabId,slot);this.app._save();this.app.render()}else{const rect=t.getBoundingClientRect();this.app._moveTabToPane(srcPaneId,tabId,n.id,tab.id,e.clientX<rect.left+rect.width/2)}});
       tabs.appendChild(t);
     }
     // FR-GIT-180: Git 창에는 `+` 자리를 만들지 않는다 — 눌리지만 아무 일도 하지
@@ -471,10 +487,10 @@ class Renderer {
     }
     tabs.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();if(this.app._drag.srcPaneId!==n.id)tabs.classList.add('drag-target')});
     tabs.addEventListener('dragleave',e=>{if(!tabs.contains(e.relatedTarget))tabs.classList.remove('drag-target')});
-    tabs.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();tabs.classList.remove('drag-target');tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;const s=this.app._aw();if(!s)return;if(srcPaneId===n.id){const pn=findPane(s.layout,n.id);if(!pn)return;const si=pn.tabs.findIndex(t=>t.id===tabId);if(si<0)return;const[moved]=pn.tabs.splice(si,1);pn.tabs.push(moved);pn.activeTab=tabId;this.app._save();this.app.render()}else{this.app._moveTabToPane(srcPaneId,tabId,n.id,null,false)}});
+    tabs.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();tabs.classList.remove('drag-target');tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;const s=this.app._aw();if(!s)return;if(srcPaneId===n.id){const pn=findPane(s.layout,n.id);if(!pn)return;const si=pn.tabs.findIndex(t=>t.id===tabId);if(si<0)return;const[moved]=pn.tabs.splice(si,1);pn.tabs.push(moved);this.app.paneTabSet(pn,tabId,slot);this.app._save();this.app.render()}else{this.app._moveTabToPane(srcPaneId,tabId,n.id,null,false)}});
     el.appendChild(tabs);
     const body=document.createElement('div'); body.className='pn-body';
-    const at=(n.tabs||[]).find(t=>t.id===n.activeTab);
+    const at=(n.tabs||[]).find(t=>t.id===shown);
     if(at) this._mountTabBody(body,at);
     body.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));this.app._showBodyDropIndicator(body,this.app._getDragZone(body,e))});
     body.addEventListener('dragleave',e=>{if(!body.contains(e.relatedTarget))this.app._clearBodyDropIndicator(body)});
@@ -487,7 +503,7 @@ class Renderer {
       // 스크롤 제스처는 touchmove 가 blur 하고 합성 mousedown 도 만들지 않는다.
       if(this.app.isMobile){
         const pn=findPane(this.app._aw()?.layout,n.id);
-        const tab=pn&&(pn.tabs||[]).find(t=>t.id===pn.activeTab);
+        const tab=pn&&(pn.tabs||[]).find(t=>t.id===this.app.paneTab(pn,slot));
         if(tab&&tab.type!=='editor'){
           const p=this.app._toolAny(tab.toolId);
           if(p) p.focus();

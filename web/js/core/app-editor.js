@@ -171,11 +171,15 @@ Object.assign(App.prototype, {
   _edReapTrees(ws){
     if(!this._edTrees||!this._edTrees.size) return;
     const alive=new Set((ws||this.ws.windows||[]).map(s=>s&&s.id).filter(Boolean));
-    for(const[id,t] of this._edTrees){
-      if(alive.has(id)) continue;
+    const n=this.slotCount();
+    for(const[key,t] of this._edTrees){
+      // FR-SVS-24: 키는 복합키다 — 창 id 와 칸을 갈라 본다.
+      const id=this._slotBase(key);
+      // FR-SVS-23: 창이 사라졌거나 그 칸 자체가 사라졌으면 시선을 거둔다.
+      if(alive.has(id)&&this._slotOf(key)<n) continue;
       t.destroy();
-      this._edTrees.delete(id);
-      if(this._edLastActive===id) this._edLastActive=null;
+      this._edTrees.delete(key);
+      if(this._edLastActive===id&&!this._edTrees.has(id)) this._edLastActive=null;
     }
   },
 
@@ -237,26 +241,101 @@ Object.assign(App.prototype, {
    * (FR-EDT-66). `fileEditors` 와 같은 규약이다 — 인스턴스는 app 이 쥐고 요소만
    * 옮겨 붙는다.
    */
-  _edTree(s){
+  // ── 문서 (SLOT_VIEW_STATE_SRS 묶음 E / FR-SVS-50~55) ──
+
+  /**
+   * FR-SVS-50: 편집 중인 파일의 **문서는 하나**다. 내용(Monaco 모델)과 dirty 는
+   * 문서의 것이며 칸의 것이 아니다.
+   *
+   * 단위는 **파일 경로**다 (D-7) — 탭이 아니다. 같은 파일이 두 탭에 열릴 수 있는
+   * 한, 탭 단위 문서는 한쪽 저장이 다른 쪽을 덮는 같은 손실을 다시 만든다.
+   *
+   * 슬롯이 생긴 뒤로 `FileEditor` 는 이미 칸마다 섰다 (`_slotKey`). 그런데 내용과
+   * dirty 를 그 뷰가 소유했으므로, 같은 파일을 두 칸에 열면 독립 편집기 둘이 같은
+   * 파일을 각자 편집하고 한쪽 저장이 다른 쪽 저장에 덮였다.
+   */
+  _edDoc(filePath){
+    if(!this._edDocs) this._edDocs=new Map();
+    let d=this._edDocs.get(filePath);
+    if(!d){
+      // `model` 은 첫 뷰가 내용을 받아 온 뒤에 채운다 — 문서의 자리를 먼저 잡아야
+      // 두 번째 뷰가 "이미 누가 열어 두었다" 를 알 수 있다.
+      d={model:null,dirty:false,saving:false,views:new Set()};
+      this._edDocs.set(filePath,d);
+    }
+    return d;
+  },
+
+  // FR-SVS-55: 그 파일을 보는 칸이 하나도 남지 않으면 문서를 거둔다. 칸이 줄어도
+  // 다른 칸이 보고 있으면 내용은 남는다 — 편집 중이던 것이 칸 정리로 사라지면
+  // 그것이 결함이다.
+  _edDocDrop(filePath,view){
+    const d=this._edDocs&&this._edDocs.get(filePath);
+    if(!d) return;
+    d.views.delete(view);
+    if(d.views.size) return;
+    if(d.model){try{d.model.dispose()}catch{}}
+    this._edDocs.delete(filePath);
+  },
+
+  /**
+   * FR-SVS-20: 탐색기의 **관측**은 루트마다 하나다. 창이 아니라 루트가 단위인
+   * 이유는 두 Editor 창이 같은 루트를 볼 때 요청이 두 벌이 될 이유가 없기
+   * 때문이다 (D-5). 마지막 뷰가 떠날 때 store 가 스스로 이 맵에서 빠진다.
+   */
+  _edStore(root){
+    if(!this._edStores) this._edStores=new Map();
+    let st=this._edStores.get(root);
+    if(!st){st=new FileTreeStore(this,root);this._edStores.set(root,st)}
+    return st;
+  },
+
+  /**
+   * FR-SVS-21·24: 탐색기의 **시선**은 칸마다 하나다. 키가 `_slotKey` 를 지나므로
+   * 칸 0 의 키는 창 id **그대로**다 (FR-WSL-75 와 같은 이유).
+   *
+   * 두 칸이 같은 Editor 창을 볼 때 예전에는 `mount()` 가 같은 요소를 돌려주어
+   * 뒤에 그린 칸이 앞 칸에서 탐색기를 **떼어 갔다** — 앞 칸의 탐색기 자리가 비는
+   * 것이 접수된 결함의 절반이었다.
+   */
+  _edTree(s,slot){
     if(!this._edTrees) this._edTrees=new Map();
     // 회수의 주 자리는 `_edReapTrees`(재조정)다. 여기서 한 번 더 부르는 것은
     // 재조정을 지나지 않는 경로로 창이 사라졌을 때의 그물이다.
     this._edReapTrees();
-    let t=this._edTrees.get(s.id);
+    const key=this._slotKey(s.id,slot||0);
+    let t=this._edTrees.get(key);
     if(t&&t.root!==this._edRootOf(s)){t.destroy();t=null}
-    if(!t){t=new FileTree(this,s);this._edTrees.set(s.id,t)}
+    if(!t){t=new FileTree(this,s);this._edTrees.set(key,t)}
     // FR-EDT-78: 창 활성화가 즉시 갱신의 계기 하나다. 여기가 그 사실을 아는
-    // 유일한 자리다 — 마운트는 활성 창에만 일어난다.
+    // 유일한 자리다 — 마운트는 활성 창에만 일어난다. 관측이 공유되므로 어느
+    // 칸에서 부르든 요청은 한 벌이고, 결과는 모든 칸에 칠해진다 (FR-SVS-22).
     if(this._edLastActive!==s.id){this._edLastActive=s.id;t.pollGit()}
     return t;
   },
 
   // FR-EDT-76: 폴링의 대상은 **활성 Editor 창 하나**다. 비활성 창의 트리는 살아
   // 있어도 git 을 부르지 않는다 (FR-GIT-24 와 같은 근거).
+  /**
+   * FR-SVS-21: 그 창의 탐색기 중 **포커스 칸의 것**. 펼침·드러내기는 시선이므로
+   * 사용자가 있는 칸에만 일어난다 — 다른 칸의 펼침을 앱이 임의로 바꾸지 않는다.
+   */
+  _edTreeFor(w){
+    if(!w||!this._edTrees) return null;
+    return this._edTrees.get(this._slotKey(w.id,this._slotFocused()))
+      ||this._edTrees.get(w.id)||null;
+  },
+
+  // 관측이 루트마다 하나이므로 **어느 칸의 뷰를 통해 불러도** 요청은 한 벌이고
+  // 결과는 모든 칸에 칠해진다 (FR-SVS-20·22). 포커스 칸의 것을 고르고, 없으면
+  // 그 창을 보는 아무 칸의 것을 쓴다.
   _edActiveTree(){
     const s=this._aw();
-    if(!this._isEditorWin(s)) return null;
-    return (this._edTrees&&this._edTrees.get(s.id))||null;
+    if(!this._isEditorWin(s)||!this._edTrees) return null;
+    const mine=this._edTrees.get(this._slotKey(s.id,this._slotFocused()));
+    if(mine) return mine;
+    for(const[key,t] of this._edTrees) if(this._slotBase(key)===s.id) return t;
+    return null;
   },
 
   // FR-EDT-77: 주기는 `GIT_REPOS_POLL_MS` 와 같다. 캐시 TTL 200ms + single-flight
@@ -367,7 +446,7 @@ Object.assign(App.prototype, {
     // 파일이 트리 어디에 있는지가 답의 일부인데, 탐색기를 그대로 두면 사용자가
     // 경로를 눈으로 따라가며 폴더를 하나씩 펼쳐야 한다. 여는 경로가 여럿이므로
     // (검색 둘·git 변경파일·dmctl open) 각 부름터가 아니라 이 자리에 둔다.
-    const tree=this._edTrees&&this._edTrees.get(w.id);
+    const tree=this._edTreeFor(w);
     if(tree&&tree.revealPath) tree.revealPath(filePath);
     return w.id;
   },

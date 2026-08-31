@@ -42,7 +42,6 @@ class App {
     this._sbBusy=false; // FR-SBT-14 ↔ 22 의 재진입 가드
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
-    this.gitPanel=new GitPanel(this);
   }
 
   // ── Mobile mode ──
@@ -382,7 +381,9 @@ class App {
 
   // ── Render (위임) ──
 
-  render(){ this.renderer.render(); this._agentsRender() }
+  // FR-SVS-61: 미뤄 둔 그리기가 있으면 이 그리기가 그것을 대신한다 — 지연은
+  // "클릭을 삼키지 않기" 위한 것이지 그리기를 빼먹기 위한 것이 아니다.
+  render(){ this._slotRenderPending=false; this.renderer.render(); this._agentsRender() }
 
 
   _bind(){ this.inputBinding.bind() }

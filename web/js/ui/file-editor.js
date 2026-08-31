@@ -188,7 +188,12 @@ class FileEditor {
     this.el.tabIndex = 0;
     this._editor = null;
     this._loading = true;
-    this._dirty = false;
+    // FR-SVS-50: 내용과 dirty 는 **문서**의 것이다. 아래 접근자가 `this._dirty` 를
+    // 그대로 문서로 잇는다 — 이 뷰의 본문은 그 자리가 어디인지 알 필요가 없다.
+    // 문서를 아직 못 얻었을 때(이진·이미지·로딩 실패)를 위한 폴백이 `__dirty` 다.
+    this.__dirty = false;
+    this._doc = (typeof app !== 'undefined' && app && app._edDoc) ? app._edDoc(filePath) : null;
+    if (this._doc) this._doc.views.add(this);
     // EDITOR_GIT_UX_SRS FR-EGS-10: 검색 결과로 열린 경우 갈 자리. Monaco 가
     // 뜨기 전에 요청이 올 수 있으므로 여기 담아 두었다 생성 직후에 쓴다.
     this._pendingReveal = null;
@@ -197,6 +202,16 @@ class FileEditor {
     this.el.innerHTML = '<div class="fe-loading">Loading editor…</div>';
 
     this._init();
+  }
+
+  get _dirty() { return this._doc ? this._doc.dirty : this.__dirty }
+  set _dirty(v) { if (this._doc) this._doc.dirty = v; else this.__dirty = v }
+
+  // FR-SVS-54: dirty 는 문서의 것이므로 같은 파일을 보는 **모든 칸**의 탭이
+  // 동시에, 같게 표시된다.
+  _tabLabelAll() {
+    if (!this._doc) { this._updateTabLabel(); return }
+    for (const v of this._doc.views) v._updateTabLabel();
   }
 
   async _init() {
@@ -209,7 +224,9 @@ class FileEditor {
       if (probe.kind === FILE_KIND_BINARY) { this._showUnsupported(probe); this._loading = false; return }
       if (probe.kind === FILE_KIND_IMAGE) { this._showImage(probe); this._loading = false; return }
       await this._loadMonaco();
-      const content = await this._fetchFile();
+      // FR-SVS-50: 다른 칸이 이미 이 파일을 열어 두었으면 그 문서를 그대로 쓴다 —
+      // 내용을 다시 받지 않는다. 받아 오면 그 사이의 편집이 덮인다.
+      const content = (this._doc && this._doc.model) ? null : await this._fetchFile();
       this._createEditor(content);
       this._loading = false;
     } catch (e) {
@@ -292,12 +309,29 @@ class FileEditor {
     return await r.text();
   }
 
+  /**
+   * 이 파일의 Monaco 모델. 문서가 이미 들고 있으면 그것이고, 없으면 지금 만든다.
+   *
+   * URI 는 파일 경로에서 나온다 — Monaco 는 같은 URI 의 모델을 둘 만들지 않으므로
+   * 그것이 "파일 하나에 문서 하나" (D-7) 를 한 겹 더 보장한다.
+   */
+  _model(content) {
+    if (this._doc && this._doc.model) return this._doc.model;
+    const uri = monaco.Uri.file(this.filePath);
+    const model = monaco.editor.getModel(uri)
+      || monaco.editor.createModel(content || '', monacoLang(this.filePath), uri);
+    if (this._doc) this._doc.model = model;
+    return model;
+  }
+
   _createEditor(content) {
     this.el.innerHTML = '';
 
+    // FR-SVS-51·52: 모델 하나를 여러 에디터에 붙인다 (D-6). Monaco 가 공식으로
+    // 지원하는 형태이며, 그때 **커서·선택·스크롤·접힘은 에디터별로 남는다** —
+    // 그것이 시선이고 칸마다 달라야 하는 것이다. 내용만 공유된다.
     this._editor = monaco.editor.create(this.el, {
-      value: content,
-      language: monacoLang(this.filePath),
+      model: this._model(content),
       theme: monacoTheme(),
       automaticLayout: true,
       minimap: { enabled: true, scale: 1, showSlider: 'mouseover' },
@@ -329,10 +363,12 @@ class FileEditor {
     );
 
     // Track dirty state
+    // 모델이 공유되므로 이 이벤트는 같은 파일을 보는 에디터 **모두**에 온다.
+    // dirty 설정은 멱등이고, 라벨은 칸마다 있으므로 전부 갱신한다 (FR-SVS-54).
     this._editor.onDidChangeModelContent(() => {
       if (!this._dirty) {
         this._dirty = true;
-        this._updateTabLabel();
+        this._tabLabelAll();
       }
     });
 
@@ -378,6 +414,11 @@ class FileEditor {
 
   async save() {
     if (!this._editor || !this._dirty) return;
+    // FR-SVS-53: 저장은 **문서 하나에 대한 한 번**이다. 두 칸이 같은 파일을 볼 때
+    // 양쪽에서 Ctrl+S 가 겹치면 같은 내용을 두 번 쓰게 되고, 그 사이의 편집이
+    // 어느 쪽 버퍼에 담겼는지에 따라 결과가 갈린다.
+    if (this._doc && this._doc.saving) return;
+    if (this._doc) this._doc.saving = true;
     const content = this._editor.getValue();
     try {
       const r = await fetch('/api/file/write', {
@@ -387,7 +428,7 @@ class FileEditor {
       });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       this._dirty = false;
-      this._updateTabLabel();
+      this._tabLabelAll();
       // 파일 저장은 즉시 신호다 (FR-GIT-18) — 작업 트리가 방금 바뀌었다.
       if (typeof app !== 'undefined' && app) app._gitSignal('write');
     } catch (e) {
@@ -395,6 +436,8 @@ class FileEditor {
       // Visual feedback — flash the editor border red briefly
       this.el.style.boxShadow = 'inset 0 0 0 2px #f44';
       setTimeout(() => { this.el.style.boxShadow = ''; }, 500);
+    } finally {
+      if (this._doc) this._doc.saving = false;
     }
   }
 
@@ -402,9 +445,10 @@ class FileEditor {
     if (this._loading) return;
     this._fetchFile().then(content => {
       if (this._editor) {
+        // 모델이 공유되므로 이 한 번이 모든 칸의 내용을 되돌린다.
         this._editor.setValue(content);
         this._dirty = false;
-        this._updateTabLabel();
+        this._tabLabelAll();
       }
     }).catch(e => console.error('[FileEditor] refresh error:', e));
   }
@@ -425,9 +469,10 @@ class FileEditor {
         walk(n);
       }
     }
-    // Also update DOM immediately for instant feedback
-    const tabEl = document.querySelector('.pn-tab[data-tab-id="' + this.id + '"] .pn-tab-label');
-    if (tabEl) {
+    // Also update DOM immediately for instant feedback.
+    // 같은 탭의 DOM 이 칸마다 있다 — 하나만 고치면 나머지 칸의 `● ` 가 낡는다.
+    for (const tabEl of document.querySelectorAll(
+      '.pn-tab[data-tab-id="' + this.id + '"] .pn-tab-label')) {
       tabEl.textContent = (this._dirty ? '● ' : '') + this.name;
     }
   }
@@ -449,9 +494,15 @@ class FileEditor {
 
   destroy() {
     if (this._editor) {
+      // 모델은 **에디터의 것이 아니다** — `{model}` 로 준 것은 dispose 되지 않는다.
+      // 문서의 수명은 `_edDocDrop` 이 정한다 (FR-SVS-55).
       this._editor.dispose();
       this._editor = null;
     }
+    if (typeof app !== 'undefined' && app && app._edDocDrop) {
+      app._edDocDrop(this.filePath, this);
+    }
+    this._doc = null;
   }
 }
 
