@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [1.0.4] — 2026-08-31
+
 ### 추가
 
 - **Editor 의 검색 셋에 단축키가 생겼습니다.** `파일 내에서 검색`(`Cmd/Ctrl+F`) ·
@@ -259,6 +261,7 @@
   에이전트 간 메시지와 API 입력 주입이 그 셸에서 통째로 깨져 있었다. 이제 셸이
   그 모드를 켰을 때만 감싼다
 
+[1.0.4]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.4
 [1.0.3]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.3
 [1.0.2]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.1
