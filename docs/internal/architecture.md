@@ -57,7 +57,9 @@ internal/
     ipc/                 #   PanedServer — Unix socket accept 루프 (연결 하나를 직렬 처리)
   webserver/             # ③ 웹 서버 프로세스
     httpapi/             #   HTTP/WS/SSE 라우팅 + settingsStore + 잔여 핸들러 (Server)
-    gitapi/              #   /api/git/* 핸들러 48개 (GitServer). 라우트 테이블을 스스로 소유
+    gitapi/              #   /api/git/* 핸들러 74개 (GitServer). 라우트 테이블을 스스로 소유
+                         #     gitwrite.go — 쓰기 한 번의 순서를 타입이 강제한다
+    apierr/              #   sentinel → (status, code) 등록부 + 와이어 코드 단일 소유
     hub/                 #   CommandHub·SSE 브로커 · FocusRegistry · AttnTracker
     toolclient/          #   ToolClient — 데몬에 붙는 IPC 클라 (재접속 supervisor 포함)
     seam/
@@ -88,9 +90,10 @@ internal/
       agentplugin/       #     세션 스코프 주입 플러그인 (skills/team, skills/workflow)
     agentadapter/        #   ①③  — 에이전트별 선언 테이블 (기동·탐지·주입·훅 파서·종료)
 web/                     # 프론트엔드 자산 + embed.FS()
-  js/core/               #   App 클래스 (app.js + 주제별 app-*.js 17) + constants·helpers·main
+  js/core/               #   App 클래스 (app.js + 주제별 app-*.js 17) + helpers·main
+                         #     constants{,-git,-editor}.js — 주제별 상수 (로드 순서가 그 순서)
   js/ui/                 #   themes·renderer·term-pane·term-clipboard·file-tree·file-editor 등 12
-  js/git/                #   git 패널 14파일
+  js/git/                #   git 패널 15파일. api.js — gitFetch/gitPost (stale·echo 가드 소유)
 e2e/                     # Playwright 스펙 + git 픽스처(git_fixture.sh)
 scripts/                 # build.sh — 빌드 · verify-isolated.sh — `dongminal verify` 껍데기
 .github/workflows/       # verify.yml — 매 푸시 검사 (Linux·Windows)
@@ -116,6 +119,83 @@ docs/
 **로드 순서가 곧 의존성**이다. `app-*.js` 는 `Object.assign(App.prototype, …)` 로 클래스를
 확장하므로 `app.js` 뒤, `main.js` 앞이어야 한다. `app.js` 본체에 남은 접근자 11개는
 `Object.assign` 이 getter 를 값으로 복사하기 때문에 옮길 수 없다.
+
+## 오류 응답 — 판정은 한 곳, 렌더링은 표면마다
+
+이 서버에는 오류 본문 **방언이 넷** 있고 각각이 브라우저가 소비하는 공개 계약이다:
+
+| 방언 | 본문 | 쓰는 곳 |
+|---|---|---|
+| git | `{"error": <코드>, "message": <tail>}` | `/api/git/*` |
+| fs | `{"code": <코드>, "message": <msg>}` | `/api/fs/*` · `/api/editors/*` |
+| runs | `{"error": <sentinel 문자열>, "detail": <err>}` | `/api/runs/*` |
+| 단문 | `{"error": <msg>}` | `/api/tools/{output,input,message}` · `/api/whoami` |
+
+**통일하지 않는다** — 그것은 리팩터가 아니라 파괴적 변경이다. 대신
+`internal/webserver/apierr` 가 **매핑과 어휘**를 소유하고 렌더링은 각 표면에 남는다
+(DEEPENING_REFACTOR_SRS 묶음 A).
+
+```
+domain sentinel 78개 ──▶ apierr.{Git,Runs,FS}.Lookup ──▶ (status, code)
+                                                            │
+                     각 표면의 렌더러가 자기 본문 모양으로 싣는다
+```
+
+**테이블이 표면마다 하나인 이유** 는 같은 sentinel 의 옳은 상태 코드가 표면마다
+다르기 때문이다:
+
+```
+worktree.ErrNotRepo → /api/git/worktrees  404  (지목한 것이 거기 없다)
+                    → /api/runs           400  (호출자가 인자로 준 것이 틀렸다)
+```
+
+기계(`Table.Lookup`)는 공유하고 정책(테이블)은 표면이 갖는다.
+
+**전수성이 강제된다.** `apierr/inventory.go` 가 HTTP 에 도달할 수 있는 sentinel
+전부를 열거하고, 테스트가 "규칙이 있거나 사유와 함께 면제됐다"를 검사한다. 새
+sentinel 을 더하고 둘 중 아무것도 하지 않으면 실패한다 — **조용히 500 이 되는
+경로가 구조적으로 없다.**
+
+## git 쓰기의 순서는 타입이 쥔다 (`gitapi/gitwrite.go`)
+
+쓰기 핸들러는 `gitWrite` 를 지난다. 실패가 **끈적해서**(sticky) 한 번 응답한 뒤의
+모든 단계가 무동작이므로, 핸들러에 `if !ok { return }` 이 없다:
+
+```go
+var req gitDiscardReq
+t := s.beginWrite(w, r, &req)          // Git nil 검사 + 본문 디코드
+t.requireConfirm(true, req.Confirm, …) // FR-GIT-89
+t.resolve(req.Repo)                    // FR-GIT-62
+t.apply(func(ctx context.Context) error { … })  // 실행 전 status 를 스스로 찍는다
+t.ok(nil)                              // 실행 후 status 를 함께 싣는다 (FR-GIT-71)
+```
+
+`snapshot()` 은 멱등이고 `apply` 가 부르지 않았으면 스스로 부른다 — **"실행 전
+status 를 빼먹는" 경로가 없어야** 부분 적용 판정(FR-GIT-73)이 성립한다.
+
+표준형에 맞지 않는 것은 **억지로 넣지 않는다.** 응답에 오류값 밖의 데이터를
+실어야 하는 자리(부모 목록·stash 잔존·Publish 계획·preflight 전문)는 제자리에
+남았고, 그 목록과 사유는 SRS §7.2 에 있다.
+
+## 프론트엔드 git 조회 (`web/js/git/api.js`)
+
+서버가 응답마다 `requested` 를 되싣는 이유는 하나다 — 늦게 온 남의 응답을 자기
+것으로 읽지 않는 것(FR-GIT-16). 그 **echo 검증**을 `gitFetch` 가 소유한다:
+
+```js
+const res = await gitFetch('/api/git/stash', {repo},
+  {stale: () => this.panel.isStale(tok), echo: {repo}});
+if (res.stale) return;          // 조용히 나간다 — 남의 응답이다
+if (!res.ok)   { …사유를 보이고 이미 받은 목록은 지우지 않는다… }
+```
+
+반환값이 셋(성공·stale·실패)인 이유는 호출자가 셋에 **다르게** 반응하기
+때문이다. null 하나로 접으면 stale 이 실패로 보이고, 리포를 빨리 바꿀 때마다
+오류가 번쩍인다.
+
+`requested` 의 모양이 종단마다 문자열/객체 둘이라 `gitEchoOk` 가 둘 다 받는다.
+**`d.repo` 로 비교하지 않는다** — 그것은 서버가 정규화한 루트라 보낸 값과 다를 수
+있고, 그것으로 짝을 맞추면 목록이 영원히 실패로 남는다.
 
 `internal/` 는 Go 언어 레벨에서 외부 import 를 막아 캡슐화를 강제한다. 외부 의존성이 필요한 모듈은 의도적으로 `internal/` 밖(현재는 `web/` 만 해당)으로 뺀다.
 
