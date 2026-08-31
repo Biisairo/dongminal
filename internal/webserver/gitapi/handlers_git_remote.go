@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/query"
@@ -31,15 +32,15 @@ import (
 
 // 원격 작업 고유의 거부 코드. 상태 코드만으로는 무엇이 왜 막혔는지 구분할 수 없다.
 const (
-	gitErrJobBusy         = "job_busy"
-	gitErrJobNotFound     = "job_not_found"
-	gitErrPublishRequired = "publish_required"
-	gitErrNoRemote        = "no_remote"
+	gitErrJobBusy         = apierr.CodeJobBusy
+	gitErrJobNotFound     = apierr.CodeJobNotFound
+	gitErrPublishRequired = apierr.CodePublishRequired
+	gitErrNoRemote        = apierr.CodeNoRemote
 	// 묶음 E (FR-GIT-269·270). 상태 코드만으로는 "이미 있다"와 "없다"를 가를 수
 	// 없고, 가르지 못하면 클라이언트가 무엇을 할지 정할 수 없다.
-	gitErrRemoteExists  = "remote_exists"
-	gitErrRemoteMissing = "remote_missing"
-	gitErrSyncNotFound  = "sync_not_found"
+	gitErrRemoteExists  = apierr.CodeRemoteExists
+	gitErrRemoteMissing = apierr.CodeRemoteMissing
+	gitErrSyncNotFound  = apierr.CodeSyncNotFound
 )
 
 // gitJobKeepAlive 는 SSE 주석 하트비트 간격이다. /api/commands/sse 와 같은 값을
@@ -107,38 +108,28 @@ type gitJobIDReq struct {
 
 // POST /api/git/fetch — 기본은 `fetch --progress` 다 (FR-GIT-99).
 func (s *GitServer) apiGitFetch(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitFetchReq
-	if !gitDecodeBody(w, r, &req) {
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	root := t.root
 	s.gitStartJob(w, req.Repo, root, "fetch", write.FetchSpec(write.FetchOpts{Prune: req.Prune, Tags: req.Tags}), nil)
 }
 
 // POST /api/git/pull — 기본은 `pull --progress` 다 (FR-GIT-99).
 func (s *GitServer) apiGitPull(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitPullReq
-	if !gitDecodeBody(w, r, &req) {
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	root := t.root
 	spec, err := write.PullSpec(write.PullOpts{Mode: req.Mode})
 	if err != nil {
-		gitRemoteError(w, err)
+		gitError(w, err)
 		return
 	}
 	s.gitStartJob(w, req.Repo, root, "pull", spec, nil)
@@ -147,18 +138,13 @@ func (s *GitServer) apiGitPull(w http.ResponseWriter, r *http.Request) {
 // POST /api/git/push — upstream 이 없으면 Publish 이고, 그 사실을 **실행 전에**
 // 알린다 (FR-GIT-100). force 는 lease 가 기본이다 (FR-GIT-106).
 func (s *GitServer) apiGitPush(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitPushReq
-	if !gitDecodeBody(w, r, &req) {
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	root := t.root
 	spec, plan, err := write.PushSpec(s.Git.Service(), r.Context(), root, write.PushOpts{
 		Force: req.Force, Confirm: req.Confirm, Publish: req.Publish,
 		Remote: req.Remote, Branch: req.Branch,
@@ -179,7 +165,7 @@ func (s *GitServer) gitStartJob(w http.ResponseWriter, requested, root, kind str
 			gitFail(w, http.StatusConflict, gitErrJobBusy, gitTail(err.Error()))
 			return
 		}
-		code, name := gitWriteErrorCode(err)
+		code, name := gitErrorCode(err)
 		gitFail(w, code, name, gitTail(err.Error()))
 		return
 	}
@@ -188,27 +174,6 @@ func (s *GitServer) gitStartJob(w http.ResponseWriter, requested, root, kind str
 		body[k] = v
 	}
 	gitJSON(w, http.StatusOK, body)
-}
-
-// gitRemoteError 는 원격 고유의 거부를 코드로 옮긴 뒤 나머지를 공용 규약에
-// 넘긴다. 잘못된 요청을 500 으로 뭉개면 클라이언트는 자기 요청이 틀렸다는 것을
-// 알 수 없다.
-func gitRemoteError(w http.ResponseWriter, err error) {
-	// 묶음 E 의 거부는 한 자리에서 판정한다 — 두 벌이면 한쪽만 고쳐진다.
-	if code, name, ok := gitRemoteListError(err); ok {
-		gitFail(w, code, name, gitTail(err.Error()))
-		return
-	}
-	switch {
-	case errors.Is(err, write.ErrForceConfirm):
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired, gitTail(err.Error()))
-	case errors.Is(err, write.ErrPullMode), errors.Is(err, write.ErrPushForce), errors.Is(err, write.ErrDetachedPush):
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	case errors.Is(err, query.ErrNoRemote):
-		gitFail(w, http.StatusConflict, gitErrNoRemote, gitTail(err.Error()))
-	default:
-		gitError(w, err)
-	}
 }
 
 // gitPushError 는 Publish 확인 요구만 따로 다룬다. **계획을 함께 보낸다** —
@@ -224,7 +189,7 @@ func gitPushError(w http.ResponseWriter, requested, root string, plan write.Push
 		})
 		return
 	}
-	gitRemoteError(w, err)
+	gitError(w, err)
 }
 
 // POST /api/git/job/cancel — 프로세스 그룹을 끝낸다 (FR-GIT-102).
@@ -232,12 +197,9 @@ func gitPushError(w http.ResponseWriter, requested, root string, plan write.Push
 // **부분 적용 가능성은 사라지지 않는다** — 원격에 절반이 올라간 뒤 끊길 수 있고,
 // 클라이언트의 확인 문구가 그것을 미리 알린다.
 func (s *GitServer) apiGitJobCancel(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitJobIDReq
-	if !gitDecodeBody(w, r, &req) {
+	t := s.beginWrite(w, r, &req)
+	if t.stop() {
 		return
 	}
 	if req.ID == "" {
@@ -365,10 +327,6 @@ type gitSyncReq struct {
 // **조회를 새로 만들지 않았다** — query.Remotes 가 DefaultRemote 와 같은
 // `config --list` 를 읽는다. URL 은 자격증명이 지워진 값이다 (FR-GIT-104).
 func (s *GitServer) apiGitRemotes(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
@@ -410,18 +368,13 @@ func (s *GitServer) apiGitRemoteRemove(w http.ResponseWriter, r *http.Request) {
 // 돌려준다** — 폴링 주기를 기다리면 화면이 그만큼 거짓말을 한다 (FR-GIT-71).
 func (s *GitServer) gitRemoteWrite(w http.ResponseWriter, r *http.Request,
 	run func(context.Context, string, gitRemoteNameReq) error) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitRemoteNameReq
-	if !gitDecodeBody(w, r, &req) {
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	root := t.root
 	before, ok := s.gitStatusBefore(w, r, root)
 	if !ok {
 		return
@@ -440,21 +393,6 @@ func (s *GitServer) gitRemoteWrite(w http.ResponseWriter, r *http.Request,
 	gitWriteOK(w, req.Repo, root, after, map[string]any{"remotes": list})
 }
 
-// gitRemoteListError 는 목록 고유의 거부를 코드로 옮긴다. gitApply 가 쓰는
-// gitWriteErrorCode 는 이것을 모르므로 여기서 먼저 갈라 준다.
-func gitRemoteListError(err error) (int, string, bool) {
-	switch {
-	case errors.Is(err, write.ErrRemoteExists):
-		return http.StatusConflict, gitErrRemoteExists, true
-	case errors.Is(err, write.ErrRemoteMissing):
-		return http.StatusNotFound, gitErrRemoteMissing, true
-	case errors.Is(err, write.ErrRemoteName), errors.Is(err, write.ErrRemoteURL),
-		errors.Is(err, write.ErrPushTarget):
-		return http.StatusBadRequest, gitErrBadRequest, true
-	}
-	return 0, "", false
-}
-
 // POST /api/git/sync — pull 후 push 를 한 진입점으로 묶는다 (FR-GIT-270).
 //
 // **두 argv 를 전부 실행 전에 만든다.** push 가 Publish 확인이나 force 확인을
@@ -464,21 +402,16 @@ func gitRemoteListError(err error) (int, string, bool) {
 // 응답은 첫 단계의 작업 식별자다 (FR-GIT-102). 두 번째 단계는 첫 단계가 **성공으로
 // 끝난 뒤에만** 시작하며, 그 판정은 서버가 한다 (V197).
 func (s *GitServer) apiGitSync(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitSyncReq
-	if !gitDecodeBody(w, r, &req) {
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	root := t.root
 	pull, err := write.PullSpec(write.PullOpts{Mode: req.Mode})
 	if err != nil {
-		gitRemoteError(w, err)
+		gitError(w, err)
 		return
 	}
 	push, plan, err := write.PushSpec(s.Git.Service(), r.Context(), root, write.PushOpts{
@@ -492,7 +425,7 @@ func (s *GitServer) apiGitSync(w http.ResponseWriter, r *http.Request) {
 	hub := s.gitJobs.get(s.Git)
 	jb, err := hub.Start(root, write.SyncStepPull, pull)
 	if err != nil {
-		gitStartFail(w, err)
+		gitError(w, err)
 		return
 	}
 	run := s.gitSyncs.begin(root, req.Repo, jb.ID, push)
@@ -577,10 +510,6 @@ func gitStepOutcome(hub *jobs.Jobs, id string) write.StepOutcome {
 // Ref 에 그 범위를 넣는 것이 전부다. 원격에 그 브랜치가 아직 없으면 범위가 없고,
 // 그 사실(`publish`)을 함께 준다: 브랜치의 커밋 전부가 올라간다.
 func (s *GitServer) apiGitPushPreview(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
@@ -597,7 +526,7 @@ func (s *GitServer) apiGitPushPreview(w http.ResponseWriter, r *http.Request) {
 	}
 	remote, branch, err := s.gitPushTarget(r, root, st)
 	if err != nil {
-		gitRemoteError(w, err)
+		gitError(w, err)
 		return
 	}
 	remotes, err := query.Remotes(svc, r.Context(), root)
@@ -677,17 +606,6 @@ func gitTrackingRef(svc *core.Service, ctx context.Context, root, remote, branch
 		}
 	}
 	return "", nil
-}
-
-// gitStartFail 은 작업 시작 실패를 코드로 옮긴다. gitStartJob 과 같은 판정이며
-// 응답 본문만 다르다 — sync 는 자기 상태를 함께 실어야 한다.
-func gitStartFail(w http.ResponseWriter, err error) {
-	if errors.Is(err, jobs.ErrJobBusy) {
-		gitFail(w, http.StatusConflict, gitErrJobBusy, gitTail(err.Error()))
-		return
-	}
-	code, name := gitWriteErrorCode(err)
-	gitFail(w, code, name, gitTail(err.Error()))
 }
 
 // gitSyncRun 은 sync 한 번의 전부다. push 의 argv 는 시작할 때 이미 만들어져 있다 —

@@ -27,7 +27,7 @@ func TestToolManager_AttentionIDs_AndEndpoint(t *testing.T) {
 		t.Fatalf("AttentionIDs want [2 5], got %v", ids)
 	}
 
-	s := &Server{Tools: m}
+	s := &Server{Deps: Deps{Tools: m}}
 	rec := httptest.NewRecorder()
 	s.apiToolsAttention(rec, httptest.NewRequest(http.MethodGet, "/api/tools/attention", nil))
 	var got struct {
@@ -51,7 +51,7 @@ func TestApiToolAttentionClear(t *testing.T) {
 	p := newAttendingPane("4", &mu, &attn, &clear, false)
 	m.Adopt(p)
 
-	s := &Server{Tools: m}
+	s := &Server{Deps: Deps{Tools: m}}
 
 	// unknown tool → 200 no-op.
 	rec := httptest.NewRecorder()
@@ -93,7 +93,7 @@ func TestApiToolAttentionSet(t *testing.T) {
 	var attn, clear []string
 	p := newAttnPane("9", &mu, &attn, &clear)
 	m.Adopt(p)
-	s := &Server{Tools: m}
+	s := &Server{Deps: Deps{Tools: m}}
 
 	rec := httptest.NewRecorder()
 	s.apiToolAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/set",
@@ -143,7 +143,7 @@ func TestClearAllAttention_AndEndpoint(t *testing.T) {
 		m.Adopt(p)
 	}
 
-	s := &Server{Tools: m}
+	s := &Server{Deps: Deps{Tools: m}}
 	rec := httptest.NewRecorder()
 	s.apiToolAttentionClearAll(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear-all", nil))
 	var got struct {
@@ -174,7 +174,7 @@ func TestApiToolDelete_ClearsAttention(t *testing.T) {
 	m.Adopt(toolhub.NewAttendingTool("del", nil, false))
 	m.Adopt(toolhub.NewAttendingTool("keep", nil, false))
 
-	s := &Server{Tools: m}
+	s := &Server{Deps: Deps{Tools: m}}
 	rec := httptest.NewRecorder()
 	s.apiToolDelete(rec, httptest.NewRequest(http.MethodDelete, "/api/tools/del", nil))
 	if rec.Code != http.StatusOK {

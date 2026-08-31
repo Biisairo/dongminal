@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/write"
@@ -24,7 +25,7 @@ import (
 // 기존 job 경로를 그대로 탄다 (FR-GIT-101~104) — 새 실행 경로를 만들지 않는다.
 
 // 태그 고유의 거부 코드. 상태 코드만으로는 무엇이 왜 막혔는지 구분할 수 없다.
-const gitErrTagExists = "tag_exists"
+const gitErrTagExists = apierr.CodeTagExists
 
 // gitTagCreateReq 는 생성 다이얼로그의 본문이다 (FR-GIT-260).
 type gitTagCreateReq struct {
@@ -61,40 +62,24 @@ type gitTagRemoteReq struct {
 
 // POST /api/git/tag — 태그를 만든다 (FR-GIT-260).
 func (s *GitServer) apiGitTagCreate(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitTagCreateReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
 	opts := write.TagCreateOpts{Name: req.Name, Ref: req.Ref, Kind: req.Kind, Message: req.Message}
-	// 잘못된 요청은 실행 **전에** 답한다. gitApply 를 지나면 코드가 500 이 되고,
+	// 잘못된 요청은 실행 **전에** 답한다. apply 를 지나면 코드가 500 이 되고,
 	// 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다.
 	if _, err := write.TagCreateArgs(opts); err != nil {
-		gitTagError(w, err)
+		t.reject(err)
+	}
+	// 이름 충돌은 저장소를 조회해야 안다 — 파이프라인이 대신할 수 없는 검사다.
+	if t.stop() || s.gitTagNameTaken(w, r, req.Repo, t.root, req.Name) {
 		return
 	}
-	if s.gitTagNameTaken(w, r, req.Repo, root, req.Name) {
-		return
-	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.TagCreate(s.Git.Service(), ctx, root, opts)
+	t.apply(func(ctx context.Context) error {
+		_, err := write.TagCreate(s.Git.Service(), ctx, t.root, opts)
 		return err
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, map[string]any{"tag": req.Name})
+	t.ok(map[string]any{"tag": req.Name})
 }
 
 // POST /api/git/tag/delete — 로컬 태그를 지운다. **파괴적이다** (FR-GIT-89·261).
@@ -104,50 +89,33 @@ func (s *GitServer) apiGitTagCreate(w http.ResponseWriter, r *http.Request) {
 //
 // **원격은 건드리지 않는다** — 그것은 다른 항목이다 (FR-GIT-261).
 func (s *GitServer) apiGitTagDelete(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitTagDeleteReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	if !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
-			"태그 삭제는 파괴적이다: confirm:true 를 요구한다 (FR-GIT-89·261)")
-		return
-	}
+	t := s.beginWrite(w, r, &req)
+	t.requireConfirm(true, req.Confirm,
+		"태그 삭제는 파괴적이다: confirm:true 를 요구한다 (FR-GIT-89·261)")
 	if _, err := write.TagDeleteArgs(req.Name); err != nil {
-		gitTagError(w, err)
+		t.reject(err)
+	}
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
-	// 없는 태그는 실행 **전에** 404 로 답한다. gitApply 를 지나면 코드가 500 이 되고,
+	// 없는 태그는 실행 **전에** 404 로 답한다. apply 를 지나면 코드가 500 이 되고,
 	// 클라이언트는 "저장소가 고장났다" 와 "그런 태그가 없다" 를 구분할 수 없다.
-	exists, err := query.TagExists(s.Git.Service(), r.Context(), root, req.Name)
+	exists, err := query.TagExists(s.Git.Service(), r.Context(), t.root, req.Name)
 	if err != nil {
-		gitTagError(w, err)
+		gitError(w, err)
 		return
 	}
 	if !exists {
-		gitFail(w, http.StatusNotFound, gitErrNotFound, "태그 "+req.Name+" 가 없다")
+		t.rejectWith(http.StatusNotFound, gitErrNotFound, "태그 "+req.Name+" 가 없다")
 		return
 	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.TagDelete(s.Git.Service(), ctx, root, req.Name)
+	t.apply(func(ctx context.Context) error {
+		_, err := write.TagDelete(s.Git.Service(), ctx, t.root, req.Name)
 		return err
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, map[string]any{"tag": req.Name})
+	t.ok(map[string]any{"tag": req.Name})
 }
 
 // POST /api/git/tag/push — 태그 하나 또는 전부를 민다 (FR-GIT-262).
@@ -178,10 +146,6 @@ func (s *GitServer) apiGitTagDeleteRemote(w http.ResponseWriter, r *http.Request
 // exists 는 규칙 위반이 아니다 — 같은 이름이 이미 있다는 사실은 따로 알려야
 // 클라이언트가 다른 이름을 권할 수 있다.
 func (s *GitServer) apiGitTagValidate(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
@@ -221,12 +185,9 @@ func (s *GitServer) apiGitTagValidate(w http.ResponseWriter, r *http.Request) {
 // **spec 을 실행 전에 만든다** — 잘못된 요청과 없는 원격을 job 으로 넘기면 사유가
 // 스트림 끝에서야 오고, 그때는 이미 확인을 지난 뒤다.
 func (s *GitServer) gitTagRemoteRoute(w http.ResponseWriter, r *http.Request, confirm bool, spec func(root string, o write.TagRemoteOpts) (core.WriteSpec, error)) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitTagRemoteReq
-	if !gitDecodeBody(w, r, &req) {
+	t := s.beginWrite(w, r, &req)
+	if t.stop() {
 		return
 	}
 	if confirm && !req.Confirm {
@@ -242,14 +203,14 @@ func (s *GitServer) gitTagRemoteRoute(w http.ResponseWriter, r *http.Request, co
 	if remote == "" {
 		got, err := query.DefaultRemote(s.Git.Service(), r.Context(), root)
 		if err != nil {
-			gitTagError(w, err)
+			gitError(w, err)
 			return
 		}
 		remote = got
 	}
 	sp, err := spec(root, write.TagRemoteOpts{Remote: remote, Name: req.Name, All: req.All})
 	if err != nil {
-		gitTagError(w, err)
+		gitError(w, err)
 		return
 	}
 	s.gitStartJob(w, req.Repo, root, "push", sp, map[string]any{"remote": remote, "tag": req.Name, "all": req.All})
@@ -270,28 +231,8 @@ func (s *GitServer) gitTagNameTaken(w http.ResponseWriter, r *http.Request, requ
 			})
 			return true
 		}
-		gitTagError(w, err)
+		gitError(w, err)
 		return true
 	}
 	return false
-}
-
-// gitTagError 는 태그 고유의 거부를 코드로 옮긴 뒤 나머지를 공용 규약에 넘긴다.
-// 잘못된 요청을 500 으로 뭉개면 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다.
-func gitTagError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, core.ErrRefName):
-		gitFail(w, http.StatusBadRequest, gitErrRefName, gitTail(err.Error()))
-	case errors.Is(err, write.ErrTagKind), errors.Is(err, write.ErrTagMessage),
-		errors.Is(err, write.ErrTagPushTarget):
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	case errors.Is(err, write.ErrTagExists):
-		gitFail(w, http.StatusConflict, gitErrTagExists, gitTail(err.Error()))
-	case errors.Is(err, write.ErrTagNotFound):
-		gitFail(w, http.StatusNotFound, gitErrNotFound, gitTail(err.Error()))
-	case errors.Is(err, query.ErrNoRemote):
-		gitFail(w, http.StatusConflict, gitErrNoRemote, gitTail(err.Error()))
-	default:
-		gitError(w, err)
-	}
 }

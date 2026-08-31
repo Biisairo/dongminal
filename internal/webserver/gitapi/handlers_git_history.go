@@ -1,7 +1,6 @@
 package gitapi
 
 import (
-	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -42,10 +41,6 @@ type gitLogResponse struct {
 // GET /api/git/log?repo=&ref=&skip=&limit=&order=&author=&since=&until=&path=&grep=&reflog=
 // — 커밋 목록 한 페이지 (FR-GIT-113·114·123·128·130·280).
 func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
@@ -74,7 +69,7 @@ func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 		Reflog: req.Reflog,
 	})
 	if err != nil {
-		gitHistoryError(w, err)
+		gitError(w, err)
 		return
 	}
 	gitJSON(w, http.StatusOK, gitLogResponse{
@@ -98,10 +93,6 @@ type gitCommitResponse struct {
 
 // GET /api/git/commit?repo=&oid=&parent=<n> — 커밋 하나의 상세 (FR-GIT-136·137·139).
 func (s *GitServer) apiGitCommit(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
@@ -119,7 +110,7 @@ func (s *GitServer) apiGitCommit(w http.ResponseWriter, r *http.Request) {
 	req := gitCommitRequested{Repo: requested, Oid: oid, Parent: parent}
 	d, err := query.CommitDetailOf(s.Git.Service(), r.Context(), root, oid, parent)
 	if err != nil {
-		gitHistoryError(w, err)
+		gitError(w, err)
 		return
 	}
 	gitJSON(w, http.StatusOK, gitCommitResponse{Requested: req, Repo: root, CommitDetail: d})
@@ -137,17 +128,13 @@ type gitRefsResponse struct {
 
 // GET /api/git/refs?repo= — 로컬·원격·태그 (FR-GIT-122).
 func (s *GitServer) apiGitRefs(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
 	}
 	refs, err := query.Refs(s.Git.Service(), r.Context(), root)
 	if err != nil {
-		gitHistoryError(w, err)
+		gitError(w, err)
 		return
 	}
 	gitJSON(w, http.StatusOK, gitRefsResponse{Requested: gitRefsRequested{Repo: requested}, Repo: root, Refs: refs})
@@ -183,18 +170,4 @@ func gitCountParam(w http.ResponseWriter, q url.Values, name string) (int, bool)
 		return 0, false
 	}
 	return n, true
-}
-
-// gitHistoryError 는 히스토리 고유의 거부를 코드로 옮긴 뒤 나머지를 공용 규약에
-// 넘긴다. 잘못된 요청을 500 으로 뭉개면 클라이언트는 자기 요청이 틀렸다는 것을
-// 알 수 없다.
-func gitHistoryError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, query.ErrLogOrder), errors.Is(err, query.ErrUnsafeRev), errors.Is(err, query.ErrCommitParent):
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	case errors.Is(err, query.ErrRevNotFound):
-		gitFail(w, http.StatusNotFound, gitErrNotFound, gitTail(err.Error()))
-	default:
-		gitError(w, err)
-	}
 }

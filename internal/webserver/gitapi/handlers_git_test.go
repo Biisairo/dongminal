@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
 	"net/url"
@@ -614,8 +615,8 @@ func TestGitStatus_ConcurrentSingleFlight(t *testing.T) {
 // 500 으로 적으면 진짜 장애와 로그에서 구분되지 않는다.
 func TestGitErrorCode_CanceledIsClientClosed(t *testing.T) {
 	code, name := gitErrorCode(fmt.Errorf("wrapped: %w", core.ErrCanceled))
-	if code != statusClientClosed {
-		t.Fatalf("code = %d, want %d", code, statusClientClosed)
+	if code != apierr.StatusClientClosed {
+		t.Fatalf("code = %d, want %d", code, apierr.StatusClientClosed)
 	}
 	if name != gitErrCanceled {
 		t.Fatalf("name = %q, want %q", name, gitErrCanceled)

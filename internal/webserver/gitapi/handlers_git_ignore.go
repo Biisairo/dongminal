@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/write"
 )
@@ -25,11 +26,11 @@ import (
 
 // 이 표면 고유의 거부 코드. 상태 코드만으로는 무엇이 왜 막혔는지 구분할 수 없다.
 const (
-	gitErrIgnorePath = "unsafe_ignore_path"
+	gitErrIgnorePath = apierr.CodeIgnorePath
 	// gitErrNotText 는 HEAD 의 내용이 편집기로 열 수 있는 텍스트가 아니라는 것이다
 	// (바이너리·LFS 포인터·상한 초과). 500 으로 뭉개면 클라이언트가 사유를 보일 수
 	// 없다.
-	gitErrNotText = "not_text"
+	gitErrNotText = apierr.CodeNotText
 )
 
 // gitHeadTempDir 는 HEAD 의 내용을 편집기 탭이 열 수 있는 파일로 놓는 자리다.
@@ -76,42 +77,30 @@ type gitHeadFileResponse struct {
 // **status 는 바뀐다** — 무시된 파일이 untracked 목록에서 사라지므로, 실행 후
 // status 를 함께 주지 않으면 화면이 폴링 주기만큼 거짓말을 한다 (FR-GIT-71).
 func (s *GitServer) apiGitIgnoreAdd(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitIgnoreReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
 	// 경로 판정은 쓰기 **전에** 끝낸다 — 순수 함수가 이미 답한다 (FR-GIT-250 ①).
-	// 하나라도 이탈이면 아무것도 쓰지 않는다.
+	// 하나라도 이탈이면 아무것도 쓰지 않는다. 코드는 호출 문맥이 정하므로
+	// (오류값이 아니라) 등록부를 지나지 않는다.
 	for _, p := range req.Paths {
-		if _, err := write.IgnorePattern(root, p); err != nil {
-			gitFail(w, http.StatusBadRequest, gitErrIgnorePath, gitTail(err.Error()))
+		if _, err := write.IgnorePattern(t.root, p); err != nil {
+			t.rejectWith(http.StatusBadRequest, gitErrIgnorePath, gitTail(err.Error()))
 			return
 		}
 	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
 	var res write.IgnoreResult
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(context.Context) error {
+	t.apply(func(context.Context) error {
 		var err error
-		res, err = write.IgnoreAdd(root, req.Paths)
+		res, err = write.IgnoreAdd(t.root, req.Paths)
 		return err
 	})
-	if !ok {
-		return
-	}
 	// added 와 skipped 를 나눠 싣는다 — 뭉개면 화면이 "추가했습니다" 라고 말한 것이
 	// 실제로는 아무 일도 아니었을 수 있다.
-	gitWriteOK(w, req.Repo, root, after, map[string]any{
+	t.ok(map[string]any{
 		"file": res.File, "added": res.Added, "skipped": res.Skipped,
 	})
 }
@@ -127,10 +116,6 @@ func (s *GitServer) apiGitIgnoreAdd(w http.ResponseWriter, r *http.Request) {
 // **저장소 밖**에 놓고 그것을 연다. 저장소 안에 쓰면 그 순간 사용자의 파일을
 // 덮는 것이 된다.
 func (s *GitServer) apiGitFileHead(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
@@ -140,7 +125,7 @@ func (s *GitServer) apiGitFileHead(w http.ResponseWriter, r *http.Request) {
 
 	dc, err := query.DiffContentOf(s.Git.Service(), r.Context(), root, query.AxisWorktreeHead, p, "")
 	if err != nil {
-		gitDiffError(w, err)
+		gitError(w, err)
 		return
 	}
 	side := dc.Original

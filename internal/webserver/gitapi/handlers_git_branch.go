@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/write"
@@ -21,8 +22,8 @@ import (
 
 // 브랜치 고유의 거부 코드. 상태 코드만으로는 무엇이 왜 막혔는지 구분할 수 없다.
 const (
-	gitErrRefName      = "ref_name_invalid"
-	gitErrBranchExists = "branch_exists"
+	gitErrRefName      = apierr.CodeRefName
+	gitErrBranchExists = apierr.CodeBranchExists
 )
 
 // gitCheckoutReq 는 checkout 의 본문이다.
@@ -49,82 +50,46 @@ type gitBranchReq struct {
 
 // POST /api/git/checkout — 워킹 트리를 다른 ref 로 옮긴다 (FR-GIT-155·156·157).
 func (s *GitServer) apiGitCheckout(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitCheckoutReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
+	t := s.beginWrite(w, r, &req)
 	// force 는 워킹 트리의 변경을 버린다 — 파괴적이며 기본이 아니다 (FR-GIT-97·157).
-	if req.Force && !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
-			"force checkout 은 워킹 트리의 변경을 버린다: confirm:true 를 요구한다 (FR-GIT-89·157)")
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	t.requireConfirm(req.Force, req.Confirm,
+		"force checkout 은 워킹 트리의 변경을 버린다: confirm:true 를 요구한다 (FR-GIT-89·157)")
+	t.resolve(req.Repo)
 	opts := write.CheckoutOpts{Ref: req.Ref, Create: req.Create, Track: req.Track, Detach: req.Detach, Force: req.Force}
-	// 잘못된 요청은 실행 **전에** 답한다. gitApply 를 지나면 코드가 500 이 되고,
+	// 잘못된 요청은 실행 **전에** 답한다. apply 를 지나면 코드가 500 이 되고,
 	// 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다.
 	if _, err := write.CheckoutArgs(opts); err != nil {
-		gitBranchError(w, err)
+		t.reject(err)
+	}
+	// 이름 충돌은 저장소를 조회해야 안다 — 파이프라인이 대신할 수 없는 검사다.
+	if t.stop() || s.gitBranchNameTaken(w, r, req.Repo, t.root, req.Create, req.Track) {
 		return
 	}
-	if s.gitBranchNameTaken(w, r, req.Repo, root, req.Create, req.Track) {
-		return
-	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.Checkout(s.Git.Service(), ctx, root, opts)
+	t.apply(func(ctx context.Context) error {
+		_, err := write.Checkout(s.Git.Service(), ctx, t.root, opts)
 		return err
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, nil)
+	t.ok(nil)
 }
 
 // POST /api/git/branch — 브랜치를 만든다 (FR-GIT-158·159·160).
 func (s *GitServer) apiGitBranchCreate(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitBranchReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
 	opts := write.BranchCreateOpts{Name: req.Name, StartRef: req.StartRef, Checkout: req.Checkout}
 	if _, err := write.BranchCreateArgs(opts); err != nil {
-		gitBranchError(w, err)
+		t.reject(err)
+	}
+	if t.stop() || s.gitBranchNameTaken(w, r, req.Repo, t.root, req.Name, "") {
 		return
 	}
-	if s.gitBranchNameTaken(w, r, req.Repo, root, req.Name, "") {
-		return
-	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.BranchCreate(s.Git.Service(), ctx, root, opts)
+	t.apply(func(ctx context.Context) error {
+		_, err := write.BranchCreate(s.Git.Service(), ctx, t.root, opts)
 		return err
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, nil)
+	t.ok(nil)
 }
 
 // GET /api/git/branch/validate?repo=&name= — 이름 규칙 검사 (FR-GIT-159).
@@ -136,10 +101,6 @@ func (s *GitServer) apiGitBranchCreate(w http.ResponseWriter, r *http.Request) {
 // exists 는 규칙 위반이 아니다 (FR-GIT-156) — 같은 이름이 이미 있다는 사실은 따로
 // 알려야 클라이언트가 다른 이름을 권할 수 있다.
 func (s *GitServer) apiGitBranchValidate(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
@@ -183,7 +144,7 @@ func (s *GitServer) gitBranchNameTaken(w http.ResponseWriter, r *http.Request, r
 		return false
 	}
 	if err := query.ValidBranchName(s.Git.Service(), r.Context(), root, name); err != nil {
-		gitBranchError(w, err)
+		gitError(w, err)
 		return true
 	}
 	exists, err := query.LocalBranchExists(s.Git.Service(), r.Context(), root, name)
@@ -206,30 +167,11 @@ func (s *GitServer) gitBranchNameTaken(w http.ResponseWriter, r *http.Request, r
 	return true
 }
 
-// gitBranchError 는 브랜치 고유의 거부를 코드로 옮긴 뒤 나머지를 공용 규약에
-// 넘긴다. 잘못된 요청을 500 으로 뭉개면 클라이언트는 자기 요청이 틀렸다는 것을
-// 알 수 없다.
-func gitBranchError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, core.ErrRefName):
-		gitFail(w, http.StatusBadRequest, gitErrRefName, gitTail(err.Error()))
-	case errors.Is(err, write.ErrCheckoutTarget),
-		errors.Is(err, write.ErrBranchRename),
-		errors.Is(err, write.ErrBranchDelete),
-		errors.Is(err, write.ErrMergeMode),
-		errors.Is(err, write.ErrBranchUpstream):
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	case errors.Is(err, write.ErrBranchExists):
-		gitFail(w, http.StatusConflict, gitErrBranchExists, gitTail(err.Error()))
-	default:
-		gitError(w, err)
-	}
-}
-
 // ── 묶음 B — 브랜치 동작의 서버 표면 (GIT_ACTIONS_SRS §3.2 · §3.5) ──
 //
-// 규약은 위와 같다: `gitResolveRepo` → `gitStatusBefore` → `gitApply` →
-// `gitWriteOK`. 원격으로 나가는 셋(push · fetch into local · 원격 ref 삭제)만
+// 규약은 위와 같다 — 그리고 그 규약은 이제 **주석이 아니라 타입**에 있다:
+// `beginWrite` → `resolve` → `apply` → `ok` 의 순서를 `gitWrite` 가 소유한다
+// (gitwrite.go). 원격으로 나가는 셋(push · fetch into local · 원격 ref 삭제)만
 // 기존 job 경로를 탄다 (FR-GIT-101~104) — 분 단위이고 취소할 수 있어야 한다.
 //
 // **서버가 마지막 방어선이다.** 파괴적 동작의 confirm, 현재 브랜치 삭제 금지,
@@ -238,9 +180,9 @@ func gitBranchError(w http.ResponseWriter, err error) {
 const (
 	// gitErrBranchNotMerged 는 `-d` 가 거부할 상태라는 것이다. **실패가 아니라
 	// 선택지다** (FR-GIT-254) — 그래서 코드도 사유도 따로 있다.
-	gitErrBranchNotMerged = "branch_not_merged"
+	gitErrBranchNotMerged = apierr.CodeBranchNotMerged
 	// gitErrBranchCurrent 는 현재 브랜치를 지우려 했다는 것이다.
-	gitErrBranchCurrent = "branch_is_current"
+	gitErrBranchCurrent = apierr.CodeBranchCurrent
 )
 
 type gitBranchRenameReq struct {
@@ -296,38 +238,21 @@ type gitRemoteBranchReq struct {
 // 새 이름의 검사는 생성과 **같은 자리**다 (`gitBranchNameTaken`) — 중복은 409 이며
 // 실행되지 않는다.
 func (s *GitServer) apiGitBranchRename(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitBranchRenameReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
 	opts := write.BranchRenameOpts{From: req.From, To: req.To}
 	if _, err := write.BranchRenameArgs(opts); err != nil {
-		gitBranchError(w, err)
+		t.reject(err)
+	}
+	if t.stop() || s.gitBranchNameTaken(w, r, req.Repo, t.root, req.To, "") {
 		return
 	}
-	if s.gitBranchNameTaken(w, r, req.Repo, root, req.To, "") {
-		return
-	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.BranchRename(s.Git.Service(), ctx, root, opts)
+	t.apply(func(ctx context.Context) error {
+		_, err := write.BranchRename(s.Git.Service(), ctx, t.root, opts)
 		return err
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, nil)
+	t.ok(nil)
 }
 
 // POST /api/git/branch/delete — `git branch -d|-D` (FR-GIT-254).
@@ -338,45 +263,27 @@ func (s *GitServer) apiGitBranchRename(w http.ResponseWriter, r *http.Request) {
 // 현재 브랜치와 미머지 브랜치는 **실행 전에** 답한다 — 미머지는 실패가 아니라
 // `-D` 로 올릴 선택지이며, 그 선택지 목록도 서버가 준다 (FR-GIT-254).
 func (s *GitServer) apiGitBranchDelete(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitBranchDeleteReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	if !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
-			"브랜치 삭제는 파괴적이다: confirm:true 를 요구한다 (FR-GIT-89·254)")
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	t := s.beginWrite(w, r, &req)
+	t.requireConfirm(true, req.Confirm,
+		"브랜치 삭제는 파괴적이다: confirm:true 를 요구한다 (FR-GIT-89·254)")
+	t.resolve(req.Repo)
 	opts := write.BranchDeleteOpts{Names: req.Names, Force: req.Force}
 	if _, err := write.BranchDeleteArgs(opts); err != nil {
-		gitBranchError(w, err)
-		return
+		t.reject(err)
 	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	if s.gitBranchDeleteBlocked(w, r, req.Repo, root, before, opts) {
+	// 삭제 차단 판정에 실행 전 status 가 필요하다 — 그래서 여기서 먼저 찍는다.
+	before := t.snapshot()
+	if t.stop() || s.gitBranchDeleteBlocked(w, r, req.Repo, t.root, before, opts) {
 		return
 	}
 	plan := write.BranchDeletePlan{}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
+	t.apply(func(ctx context.Context) error {
 		var err error
-		_, plan, err = write.BranchDelete(s.Git.Service(), ctx, root, opts)
+		_, plan, err = write.BranchDelete(s.Git.Service(), ctx, t.root, opts)
 		return err
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, map[string]any{"deleted": plan})
+	t.ok(map[string]any{"deleted": plan})
 }
 
 // gitBranchDeleteBlocked 는 실행 **전에** 막아야 하는 둘을 본다. 참이면 응답이
@@ -441,108 +348,54 @@ func gitBranchDeleteOptions(n int) []string {
 // 그대로 올리고, 응답에 실린 실행 후 status 의 `operation` 이 그 사실을 말한다 —
 // 우리가 충돌을 미리 판정하지 않는다.
 func (s *GitServer) apiGitBranchMerge(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitBranchMergeReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
 	opts := write.MergeOpts{Ref: req.Ref, Mode: req.Mode}
 	if _, err := write.MergeArgs(opts); err != nil {
-		gitBranchError(w, err)
-		return
+		t.reject(err)
 	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.Merge(s.Git.Service(), ctx, root, opts)
+	t.apply(func(ctx context.Context) error {
+		_, err := write.Merge(s.Git.Service(), ctx, t.root, opts)
 		return err
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, nil)
+	t.ok(nil)
 }
 
 // POST /api/git/branch/rebase — 대상 ref 위로 현재 브랜치를 다시 얹는다
 // (FR-GIT-256). **파괴적이다** — 커밋 해시가 바뀐다.
 func (s *GitServer) apiGitBranchRebase(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitBranchRebaseReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	if !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
-			"rebase 는 커밋 해시를 바꾼다: confirm:true 를 요구한다 (FR-GIT-89·256)")
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	t := s.beginWrite(w, r, &req)
+	t.requireConfirm(true, req.Confirm,
+		"rebase 는 커밋 해시를 바꾼다: confirm:true 를 요구한다 (FR-GIT-89·256)")
+	t.resolve(req.Repo)
 	opts := write.RebaseOpts{Ref: req.Ref, Onto: req.Onto}
 	if _, err := write.RebaseArgs(opts); err != nil {
-		gitBranchError(w, err)
-		return
+		t.reject(err)
 	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.Rebase(s.Git.Service(), ctx, root, opts)
+	t.apply(func(ctx context.Context) error {
+		_, err := write.Rebase(s.Git.Service(), ctx, t.root, opts)
 		return err
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, nil)
+	t.ok(nil)
 }
 
 // POST /api/git/branch/upstream — set / unset (FR-GIT-257). 파괴적이 아니다 —
 // 되돌리는 것이 set 하나다.
 func (s *GitServer) apiGitBranchUpstream(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitBranchUpstreamReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
 	opts := write.UpstreamOpts{Branch: req.Branch, Upstream: req.Upstream, Unset: req.Unset}
 	if _, err := write.UpstreamArgs(opts); err != nil {
-		gitBranchError(w, err)
-		return
+		t.reject(err)
 	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.SetUpstream(s.Git.Service(), ctx, root, opts)
+	t.apply(func(ctx context.Context) error {
+		_, err := write.SetUpstream(s.Git.Service(), ctx, t.root, opts)
 		return err
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, nil)
+	t.ok(nil)
 }
 
 // GET /api/git/branch/merge-preview?repo=&ref= — 머지 한 번의 영향 범위
@@ -551,17 +404,13 @@ func (s *GitServer) apiGitBranchUpstream(w http.ResponseWriter, r *http.Request)
 // **판정을 200 의 본문에 담는다** — 다이얼로그를 열기 전에 부르는 조회이고,
 // "합칠 것이 없다"는 요청 실패가 아니다.
 func (s *GitServer) apiGitBranchMergePreview(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
 	}
 	ref := r.URL.Query().Get("ref")
 	if err := core.CheckRefArg("ref", ref); err != nil {
-		gitBranchError(w, err)
+		gitError(w, err)
 		return
 	}
 	im, err := query.MergePreview(s.Git.Service(), r.Context(), root, ref)
@@ -582,18 +431,13 @@ func (s *GitServer) apiGitBranchMergePreview(w http.ResponseWriter, r *http.Requ
 // 없으면 publish 이며 그 사실을 **실행 전에** 되묻는다 — 대상이 현재 브랜치가
 // 아니어도 같다.
 func (s *GitServer) apiGitBranchPush(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitBranchPushReq
-	if !gitDecodeBody(w, r, &req) {
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	root := t.root
 	spec, plan, err := write.BranchPushSpec(s.Git.Service(), r.Context(), root, write.BranchPushOpts{
 		Branch: req.Branch, Force: req.Force, Confirm: req.Confirm, Publish: req.Publish,
 	})
@@ -607,21 +451,16 @@ func (s *GitServer) apiGitBranchPush(w http.ResponseWriter, r *http.Request) {
 // POST /api/git/branch/fetch — 원격 ref 를 같은 이름의 로컬 ref 로 가져온다
 // (FR-GIT-268). 원격으로 나가므로 job 경로다.
 func (s *GitServer) apiGitBranchFetchInto(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitRemoteBranchReq
-	if !gitDecodeBody(w, r, &req) {
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	root := t.root
 	spec, err := write.RemoteFetchSpec(write.RemoteBranchOpts{Remote: req.Remote, Branch: req.Branch})
 	if err != nil {
-		gitBranchError(w, err)
+		gitError(w, err)
 		return
 	}
 	s.gitStartJob(w, req.Repo, root, "fetch", spec, nil)
@@ -632,27 +471,19 @@ func (s *GitServer) apiGitBranchFetchInto(w http.ResponseWriter, r *http.Request
 // **파괴적이다** (`remote_ref_delete`). `confirm:true` 없이는 실행하지 않으며,
 // 되살리는 push 는 spec 을 만들 때 hint 로 남는다.
 func (s *GitServer) apiGitBranchDeleteRemote(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitRemoteBranchReq
-	if !gitDecodeBody(w, r, &req) {
+	t := s.beginWrite(w, r, &req)
+	t.requireConfirm(true, req.Confirm,
+		"원격 ref 삭제는 파괴적이다: confirm:true 를 요구한다 (FR-GIT-89·268)")
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
-	if !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
-			"원격 ref 삭제는 파괴적이다: confirm:true 를 요구한다 (FR-GIT-89·268)")
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	root := t.root
 	spec, err := write.RemoteBranchDeleteSpec(s.Git.Service(), r.Context(), root,
 		write.RemoteBranchOpts{Remote: req.Remote, Branch: req.Branch})
 	if err != nil {
-		gitBranchError(w, err)
+		gitError(w, err)
 		return
 	}
 	s.gitStartJob(w, req.Repo, root, "push", spec, nil)

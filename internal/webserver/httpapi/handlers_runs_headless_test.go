@@ -243,10 +243,10 @@ func newHeadlessFixture(t *testing.T) *headlessFixture {
 	}
 	cmds := hub.NewCommandHub()
 	f := &headlessFixture{
-		s: &Server{
+		s: &Server{Deps: Deps{
 			Tools: h, ToolIO: io, WorkIndex: wi, Runs: store,
 			Commands: cmds, WhoAmI: &fakeWhoAmI{toolID: "tool-a"},
-		},
+		}},
 		hub: h, io: io, wi: wi, store: store, cmds: cmds,
 	}
 	// 구독자가 없으면 Broadcast 가 0 을 돌려주고 부착·분리는 503 이다. 실제

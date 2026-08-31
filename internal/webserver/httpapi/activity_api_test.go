@@ -19,7 +19,7 @@ func TestApiToolActivitySet(t *testing.T) {
 	var events []string
 	p := newActivityPane("9", &mu, &events)
 	m.Adopt(p)
-	s := &Server{Tools: m}
+	s := &Server{Deps: Deps{Tools: m}}
 
 	// known tool → updates + notifier fires.
 	rec := httptest.NewRecorder()
@@ -70,7 +70,7 @@ func TestApiToolsActivity_Endpoint(t *testing.T) {
 	p1 := &toolhub.Tool{ID: "1"}
 	p1.SetActivity("working", "Edit", "app.js")
 	m.Adopt(p1)
-	s := &Server{Tools: m}
+	s := &Server{Deps: Deps{Tools: m}}
 
 	rec := httptest.NewRecorder()
 	s.apiToolsActivity(rec, httptest.NewRequest(http.MethodGet, "/api/tools/activity", nil))

@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/uuid"
-	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/write"
 )
@@ -26,11 +26,11 @@ import (
 
 // 쓰기 고유의 거부 코드. 상태 코드만으로는 무엇이 왜 막혔는지 구분할 수 없다.
 const (
-	gitErrConfirmRequired  = "confirmation_required"
-	gitErrPreflightBlocked = "preflight_blocked"
-	gitErrUndoExpired      = "undo_expired"
-	gitErrEmptyMessage     = "empty_message"
-	gitErrNothingStaged    = "nothing_staged"
+	gitErrConfirmRequired  = apierr.CodeConfirmRequired
+	gitErrPreflightBlocked = apierr.CodePreflightBlocked
+	gitErrUndoExpired      = apierr.CodeUndoExpired
+	gitErrEmptyMessage     = apierr.CodeEmptyMessage
+	gitErrNothingStaged    = apierr.CodeNothingStaged
 )
 
 // gitPathsReq 는 stage/unstage 의 본문이다.
@@ -91,29 +91,13 @@ func (s *GitServer) apiGitUnstage(w http.ResponseWriter, r *http.Request) {
 // gitStageRoute 는 stage/unstage 의 공통 절차다. 둘은 본문과 응답이 같고 실행하는
 // 명령만 다르다.
 func (s *GitServer) gitStageRoute(w http.ResponseWriter, r *http.Request, run func(context.Context, string, write.Paths) error) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitPathsReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		return run(ctx, root, write.Paths(req.Paths))
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
+	t.apply(func(ctx context.Context) error {
+		return run(ctx, t.root, write.Paths(req.Paths))
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, nil)
+	t.ok(nil)
 }
 
 // POST /api/git/discard — 워킹 트리의 변경을 버린다. **파괴적이다** (FR-GIT-89).
@@ -121,69 +105,29 @@ func (s *GitServer) gitStageRoute(w http.ResponseWriter, r *http.Request, run fu
 // `confirm:true` 가 없으면 실행하지 않는다. 클라이언트만 막으면
 // `dmctl git discard` 가 우회한다.
 func (s *GitServer) apiGitDiscard(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitDiscardReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	if !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
-			"파괴적 동작은 confirm:true 를 요구한다 (FR-GIT-89)")
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.Discard(s.Git.Service(), ctx, root, write.Paths(req.Tracked), write.Paths(req.Untracked))
+	t := s.beginWrite(w, r, &req)
+	t.requireConfirm(true, req.Confirm, "파괴적 동작은 confirm:true 를 요구한다 (FR-GIT-89)")
+	t.resolve(req.Repo)
+	t.apply(func(ctx context.Context) error {
+		_, err := write.Discard(s.Git.Service(), ctx, t.root, write.Paths(req.Tracked), write.Paths(req.Untracked))
 		return err
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, nil)
+	t.ok(nil)
 }
 
 // POST /api/git/resolve — 충돌 파일을 한쪽으로 받고 해결됨으로 표시한다
 // (FR-GIT-224). **파괴적이다** — discard 와 같은 경로를 지난다.
 func (s *GitServer) apiGitResolve(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitResolveReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	if !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
-			"파괴적 동작은 confirm:true 를 요구한다 (FR-GIT-89)")
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.Resolve(s.Git.Service(), ctx, root, req.Side, write.Paths(req.Paths))
+	t := s.beginWrite(w, r, &req)
+	t.requireConfirm(true, req.Confirm, "파괴적 동작은 confirm:true 를 요구한다 (FR-GIT-89)")
+	t.resolve(req.Repo)
+	t.apply(func(ctx context.Context) error {
+		_, err := write.Resolve(s.Git.Service(), ctx, t.root, req.Side, write.Paths(req.Paths))
 		return err
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, nil)
+	t.ok(nil)
 }
 
 // POST /api/git/commit — staged 내용을 커밋한다 (FR-GIT-77·79·84).
@@ -191,25 +135,20 @@ func (s *GitServer) apiGitResolve(w http.ResponseWriter, r *http.Request) {
 // **preflight 를 서버가 다시 돌린다** (FR-GIT-86). 클라이언트만 막으면
 // `dmctl git commit` 이 우회한다.
 func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitCommitReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
+	t := s.beginWrite(w, r, &req)
 	// 메시지 검사가 가장 앞이다 — 비어 있으면 git 은 커밋을 만들지 않고, 사용자는
 	// 왜 안 됐는지를 코드로 알아야 한다 (FR-GIT-84).
-	if strings.TrimSpace(req.Message) == "" {
-		gitFail(w, http.StatusBadRequest, gitErrEmptyMessage, "커밋 메시지가 비었다")
+	if !t.stop() && strings.TrimSpace(req.Message) == "" {
+		t.rejectWith(http.StatusBadRequest, gitErrEmptyMessage, "커밋 메시지가 비었다")
+	}
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
-	pf, err := query.PreflightOf(s.Git.Service(), r.Context(), root)
+	// preflight 를 서버가 다시 돌린다 (FR-GIT-86). 응답에 검사 결과를 함께 실어야
+	// 하므로 파이프라인의 공용 거부로 답할 수 없다.
+	pf, err := query.PreflightOf(s.Git.Service(), r.Context(), t.root)
 	if err != nil {
 		gitError(w, err)
 		return
@@ -219,23 +158,23 @@ func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 			"error":     gitErrPreflightBlocked,
 			"message":   "커밋 전 검사가 막았다",
 			"requested": req.Repo,
-			"repo":      root,
+			"repo":      t.root,
 			"preflight": pf,
 		})
 		return
 	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
+	before := t.snapshot()
+	if t.stop() {
 		return
 	}
 	// `-a` 는 tracked 변경을 스스로 담으므로 staged 가 없어도 커밋할 것이 있다.
 	// `--allow-empty` 는 M2 범위 밖이다 (FR-GIT-84).
 	if len(before.Staged) == 0 && !req.All {
-		gitFail(w, http.StatusBadRequest, gitErrNothingStaged, "staged 변경이 없다")
+		t.rejectWith(http.StatusBadRequest, gitErrNothingStaged, "staged 변경이 없다")
 		return
 	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.Commit(s.Git.Service(), ctx, root, write.CommitOpts{
+	t.apply(func(ctx context.Context) error {
+		_, err := write.Commit(s.Git.Service(), ctx, t.root, write.CommitOpts{
 			Message:  req.Message,
 			Amend:    req.Amend,
 			SignOff:  req.SignOff,
@@ -244,13 +183,13 @@ func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 		})
 		return err
 	})
-	if !ok {
+	if t.stop() {
 		return
 	}
 	// 토큰은 커밋이 성공한 뒤에만 발급한다 — 실패한 커밋에 되돌릴 것은 없다.
-	gitWriteOK(w, req.Repo, root, after, map[string]any{
-		"oid":       after.Oid,
-		"undoToken": s.gitUndo.issue(root),
+	t.ok(map[string]any{
+		"oid":       t.after.Oid,
+		"undoToken": s.gitUndo.issue(t.root),
 	})
 }
 
@@ -260,44 +199,31 @@ func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 // 있어서는 안 된다** — 탭을 멈춰 두거나 요청을 직접 보내면 클라이언트 타이머는
 // 우회된다.
 func (s *GitServer) apiGitUndoLast(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitUndoReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
 	// 실행 **전에** 소비한다. 성공 후에 소비하면 동시에 온 두 요청이 커밋 두 개를
 	// 되돌린다 — 한 번의 커밋에 한 번의 undo 다.
-	if !s.gitUndo.consume(root, req.UndoToken) {
-		gitFail(w, http.StatusConflict, gitErrUndoExpired,
+	if !s.gitUndo.consume(t.root, req.UndoToken) {
+		t.rejectWith(http.StatusConflict, gitErrUndoExpired,
 			"undo 창이 지났거나 이미 사용된 토큰이다 (5초)")
 		return
 	}
 	// 메시지는 되돌리기 **전에** 읽는다 — 되돌린 뒤에는 그 커밋이 HEAD 가 아니다.
-	msg, err := query.LastCommitMessage(s.Git.Service(), r.Context(), root)
+	msg, err := query.LastCommitMessage(s.Git.Service(), r.Context(), t.root)
 	if err != nil {
 		gitError(w, err)
 		return
 	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.UndoLast(s.Git.Service(), ctx, root)
+	t.apply(func(ctx context.Context) error {
+		_, err := write.UndoLast(s.Git.Service(), ctx, t.root)
 		return err
 	})
-	if !ok {
-		return
-	}
 	// message 로 클라이언트가 입력을 커밋 직전으로 되돌린다 (FR-GIT-82).
-	gitWriteOK(w, req.Repo, root, after, map[string]any{"message": msg})
+	t.ok(map[string]any{"message": msg})
 }
 
 // gitStatusBefore 는 실행 전 상태다. 캐시된 값을 써도 된다 — 실패했을 때 무엇이
@@ -334,7 +260,7 @@ func (s *GitServer) gitApply(w http.ResponseWriter, r *http.Request, requested, 
 		return query.Status{}, false
 	}
 
-	code, name := gitWriteErrorCode(runErr)
+	code, name := gitErrorCode(runErr)
 	body := map[string]any{
 		"error":     name,
 		"message":   gitTail(runErr.Error()),
@@ -355,26 +281,6 @@ func (s *GitServer) gitApply(w http.ResponseWriter, r *http.Request, requested, 
 	}
 	gitJSON(w, code, body)
 	return query.Status{}, false
-}
-
-// gitWriteErrorCode 는 쓰기 고유의 거부를 코드로 옮긴 뒤 나머지를 공용 규약에
-// 넘긴다. 잘못된 요청을 500 으로 뭉개면 클라이언트는 자기 요청이 틀렸다는 것을
-// 알 수 없다.
-func gitWriteErrorCode(err error) (int, string) {
-	// 부분 스테이징의 거부는 그 자리(handlers_git_patch.go)가 안다 — stale 을 400 으로
-	// 뭉개면 "다시 받아서 다시 고르라"는 뜻이 사라진다 (FR-GIT-278).
-	if code, name, ok := gitPatchErrorCode(err); ok {
-		return code, name
-	}
-	// 원격 목록의 거부는 handlers_git_remote.go 가 판정한다 (FR-GIT-269) —
-	// 판정을 여기 복제하면 두 벌이 되고, 두 벌은 반드시 갈라진다.
-	if code, name, ok := gitRemoteListError(err); ok {
-		return code, name
-	}
-	if errors.Is(err, core.ErrUnsafeArgument) || errors.Is(err, core.ErrWriteCommand) {
-		return http.StatusBadRequest, gitErrBadRequest
-	}
-	return gitErrorCode(err)
 }
 
 // gitWriteOK 는 쓰기 성공 응답이다. **실행 후 status 를 함께 담는다** (FR-GIT-71)
@@ -446,6 +352,23 @@ func gitDecodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
 // 본문으로 오든 규약은 같다 — 클라이언트가 보낸 경로를 그대로 신뢰해 저장소를
 // 바꾸지 않는다.
 func (s *GitServer) gitResolveRepo(w http.ResponseWriter, r *http.Request, requested string) (string, bool) {
+	// **git 가용성 검사가 여기 있다** — `s.Git` 을 역참조하는 자리이기 때문이다
+	// (DEEPENING_REFACTOR_SRS FR-DPN-24).
+	//
+	// 이전에는 호출자 22곳이 각자 앞에 `if s.Git == nil { … }` 를 두었고 **세 곳이
+	// 빠져 있었다**: `apiGitWorktrees` · `apiGitWorktreeCreate` ·
+	// `apiGitWorktreeRemove` 는 `UserWorktrees` 만 보고 `s.Git` 은 보지 않았다.
+	// `httpapi.New` 가 GitServer 를 무조건 만들므로(server.go:143) Git 없이
+	// worktree 관리자만 있는 배선이 실재하고, 그때 이 세 종단이 죽었다.
+	//
+	//	이전 동작 — panic: invalid memory address or nil pointer dereference
+	//	새 동작   — 503 git_unavailable
+	//	이유     — 검사를 호출자에 복제하면 하나는 빠지고, 빠진 것을 아무것도
+	//	           알려주지 않는다. 역참조하는 자리에 두면 빠질 자리가 없다
+	if s.Git == nil {
+		gitUnavailable(w)
+		return "", false
+	}
 	if requested == "" {
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "repo 인자가 없다")
 		return "", false

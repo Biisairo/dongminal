@@ -36,7 +36,7 @@ func statusServer(t *testing.T) (*Server, *toolhub.ToolManager, *toolhub.Tool) {
 		labels: map[string]string{"p1": "W1.P1.T1"},
 		coords: map[string]string{},
 	}
-	return &Server{Tools: m, ToolIO: io, WorkIndex: wi}, m, p
+	return &Server{Deps: Deps{Tools: m, ToolIO: io, WorkIndex: wi}}, m, p
 }
 
 func getStatus(t *testing.T, s *Server, query string) (int, map[string]any) {
@@ -272,12 +272,12 @@ func TestToolStatus_DirectDaemonParity(t *testing.T) {
 	dp := &toolhub.Tool{ID: "p1"}
 	m.Adopt(dp)
 	dp.SetActivity("working", "Edit", "a.go")
-	direct := &Server{Tools: m, ToolIO: io, WorkIndex: wi}
+	direct := &Server{Deps: Deps{Tools: m, ToolIO: io, WorkIndex: wi}}
 
 	// daemon: 상태는 hub.AttnTracker 에 있고 Tools.Get 은 합성 toolhub.Tool 을 준다.
 	tracker := hub.NewAttnTracker(hub.NewCommandHub(), 0)
 	tracker.SetActivity("p1", "working", "Edit", "a.go")
-	daemon := &Server{Tools: m, ToolIO: io, WorkIndex: wi, AttnTracker: tracker}
+	daemon := &Server{Deps: Deps{Tools: m, ToolIO: io, WorkIndex: wi, AttnTracker: tracker}}
 
 	_, a := getStatus(t, direct, "id=p1")
 	_, b := getStatus(t, daemon, "id=p1")

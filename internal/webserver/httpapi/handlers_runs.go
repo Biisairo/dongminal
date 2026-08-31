@@ -14,8 +14,8 @@ import (
 	"strconv"
 
 	"dongminal/internal/shared/workspace"
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/run"
-	"dongminal/internal/webserver/domain/worktree"
 )
 
 // runsReady guards every handler: a wiring without the store answers 503
@@ -93,48 +93,23 @@ func (s *Server) callerToolID(r *http.Request, claimed string) string {
 
 // writeRunError maps a store error to its HTTP status. Refusal reasons are
 // enumerated, never lumped together (FR-PRE-6).
+//
+// **판정은 여기 없다.** sentinel → (status, code) 는 `apierr.Runs` 테이블이
+// 소유한다 (DEEPENING_REFACTOR_SRS FR-DPN-6). 이 표면의 코드가 sentinel 의
+// 메시지 그 자체라는 계약은 그대로다 — 테이블이 `.Error()` 를 참조한다.
+//
+// 남는 것 둘: 이 패키지 자신의 sentinel 하나(`errIsolationUnavailable` — domain
+// 이 아니라 여기가 만든다)와, 미분류 실패의 기본값(코드 = 오류 문자열)이다.
 func writeRunError(w http.ResponseWriter, err error, extra map[string]any) {
 	status := http.StatusInternalServerError
 	name := err.Error()
 	switch {
-	case errors.Is(err, run.ErrUnknownRun):
-		status, name = http.StatusNotFound, run.ErrUnknownRun.Error()
-	case errors.Is(err, run.ErrSenderNotMember):
-		status, name = http.StatusForbidden, run.ErrSenderNotMember.Error()
-	case errors.Is(err, run.ErrUnknownMember):
-		status, name = http.StatusNotFound, run.ErrUnknownMember.Error()
-	case errors.Is(err, run.ErrRunMemberMismatch):
-		status, name = http.StatusForbidden, run.ErrRunMemberMismatch.Error()
-	case errors.Is(err, run.ErrRunClosed):
-		status, name = http.StatusConflict, run.ErrRunClosed.Error()
-	case errors.Is(err, run.ErrRunOpen):
-		status, name = http.StatusConflict, run.ErrRunOpen.Error()
-	case errors.Is(err, run.ErrAlreadyReported):
-		status, name = http.StatusConflict, run.ErrAlreadyReported.Error()
-	case errors.Is(err, run.ErrToolAlreadyMember):
-		status, name = http.StatusConflict, run.ErrToolAlreadyMember.Error()
-	// 묶음 H — 부착·분리의 거부 (FR-HLM-6/7). 409 인 이유는 요청이 잘못된 것이
-	// 아니라 멤버가 이미 그 상태이기 때문이다.
-	case errors.Is(err, run.ErrMemberAttached):
-		status, name = http.StatusConflict, run.ErrMemberAttached.Error()
-	case errors.Is(err, run.ErrMemberNotAttached):
-		status, name = http.StatusConflict, run.ErrMemberNotAttached.Error()
-	case errors.Is(err, run.ErrUnreportedMembers):
-		status, name = http.StatusConflict, run.ErrUnreportedMembers.Error()
-	case errors.Is(err, run.ErrInvalidArgument):
-		status, name = http.StatusBadRequest, run.ErrInvalidArgument.Error()
-	// 격리 실패는 사유를 뭉뚱그리지 않는다 (FR-WKT-11) — 조정자가 "저장소가
-	// 아니다"와 "인자가 위험하다"에 다르게 대응해야 한다.
-	case errors.Is(err, worktree.ErrNotRepo):
-		status, name = http.StatusBadRequest, worktree.ErrNotRepo.Error()
-	case errors.Is(err, worktree.ErrGitMissing):
-		status, name = http.StatusBadRequest, worktree.ErrGitMissing.Error()
-	case errors.Is(err, worktree.ErrUnsafeArgument):
-		status, name = http.StatusBadRequest, worktree.ErrUnsafeArgument.Error()
-	case errors.Is(err, worktree.ErrUnsafePath):
-		status, name = http.StatusBadRequest, worktree.ErrUnsafePath.Error()
 	case errors.Is(err, errIsolationUnavailable):
 		status, name = http.StatusServiceUnavailable, errIsolationUnavailable.Error()
+	default:
+		if s, c, ok := apierr.Runs.Lookup(err); ok {
+			status, name = s, c
+		}
 	}
 	body := map[string]any{"error": name, "detail": err.Error()}
 	for k, v := range extra {

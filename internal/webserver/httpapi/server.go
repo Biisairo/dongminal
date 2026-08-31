@@ -9,13 +9,8 @@ import (
 
 	"dongminal/internal/webserver/hub"
 
-	"dongminal/internal/shared/toolhub"
-
 	"bufio"
 	"context"
-	"dongminal/internal/webserver/domain/git/store"
-	"dongminal/internal/webserver/domain/run"
-	"dongminal/internal/webserver/domain/worktree"
 	"dongminal/internal/webserver/domain/wsentry"
 	"fmt"
 	"io/fs"
@@ -27,8 +22,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"dongminal/internal/webserver/seam/toolaccess"
 )
 
 // Config carries process-level knobs.
@@ -39,25 +32,18 @@ type Config struct {
 }
 
 // Server owns the HTTP server lifecycle.
+//
+// **주입 표면은 Deps 하나다** (DEEPENING_REFACTOR_SRS 묶음 E). 이전에는 같은
+// 필드 14개가 `Deps` 와 `Server` 에 각각 선언되고 `New` 가 한 줄씩 옮겼다 —
+// 필드를 하나 더할 때 **세 자리**를 고쳐야 했고, `New` 에서 빠뜨리면 컴파일이
+// 통과하면서 조용히 nil 이 됐다. 임베딩이 그 세 자리를 하나로 만든다.
+//
+// 대가는 테스트 리터럴이 한 겹 길어지는 것이다 (`&Server{Deps: Deps{Tools: m}}`).
+// 필드 추가 지점이 셋에서 하나로 줄는 것과 교환한다 (FR-DPN-52).
 type Server struct {
-	cfg         Config
-	Tools       toolhub.ToolHub
-	Work        WorkspaceStore
-	Commands    hub.CommandBroker
-	Settings    SettingsStore
-	WhoAmI      toolaccess.ClientToolResolver
-	ToolIO      toolaccess.ToolReader
-	WorkIndex   toolaccess.WorkspaceReader
-	Stats       StatsSnapshotter
-	AttnTracker *hub.AttnTracker
-	Runs        *run.Store
-	// Worktrees owns $DONGMINAL_HOME/worktrees (RUN_ORCHESTRATION_SRS 묶음 W).
-	// nil 이면 격리를 요청한 Run 만 거부되고(FR-WKT-11), isolation=none 경로는
-	// 영향이 없다 (NFR-RUN-1).
-	Worktrees *worktree.Manager
-	// Git 은 git 조회 앞의 single-flight·TTL 캐시다 (GIT_SRS 묶음 A~C). nil 이면
-	// /api/git/* 만 503 이고 그 밖의 동작에는 영향이 없다 (FR-GIT-60).
-	Git *store.Store
+	Deps
+
+	cfg Config
 	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
 	Focus *hub.FocusRegistry
 	// Entries 는 workspace.json 최상위의 두 목록 — git.pinned[] 와 editors.list[] —
@@ -65,8 +51,10 @@ type Server struct {
 	// 루트 가드가 이것을 읽는다 (FR-EDT-113). Work 가 nil 이면 그 종단만 실패한다.
 	Entries *wsentry.Store
 
-	// git 은 /api/git/* 을 소유한다. Git 이 nil 이면 이 자리도 nil 이고,
-	// handleAPI 가 라우팅 miss 로 404 를 낸다 (FR-GIT-60 의 503 은 핸들러 안에서).
+	// git 은 /api/git/* 을 소유한다. **Git 이 nil 이어도 이 자리는 만들어진다** —
+	// `UserWorktrees` 만 있는 배선에서도 Worktrees 탭이 답해야 하기 때문이다.
+	// 그래서 `Git == nil` 은 라우팅 miss 가 아니라 핸들러 안의 503 으로 걸린다
+	// (gitapi.gitResolveRepo, FR-GIT-60 · FR-DPN-24).
 	git *gitapi.GitServer
 
 	started time.Time
@@ -111,22 +99,16 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	if settings == nil {
 		settings = newSettingsStore(settingsPath)
 	}
+	// 기본값 주입은 여기 남는다 — 그것이 `Deps` 가 통과 모듈이 아닌 이유다
+	// (FR-DPN-51). 나머지 필드는 임베딩이 그대로 옮긴다: 여기에 한 줄씩 적지
+	// 않으므로 새 필드를 빠뜨릴 자리가 없다.
+	deps.Commands = cmds
+	deps.Settings = settings
 	srv := &Server{
-		cfg:         cfg,
-		Tools:       deps.Tools,
-		Work:        deps.Work,
-		Commands:    cmds,
-		Focus:       hub.NewFocusRegistry(),
-		Settings:    settings,
-		WhoAmI:      deps.WhoAmI,
-		ToolIO:      deps.ToolIO,
-		WorkIndex:   deps.WorkIndex,
-		Stats:       deps.Stats,
-		AttnTracker: deps.AttnTracker,
-		Runs:        deps.Runs,
-		Worktrees:   deps.Worktrees,
-		Git:         deps.Git,
-		started:     time.Now(),
+		Deps:    deps,
+		cfg:     cfg,
+		Focus:   hub.NewFocusRegistry(),
+		started: time.Now(),
 	}
 	runWorktreeRoot := ""
 	if deps.Worktrees != nil {

@@ -58,7 +58,7 @@ func runsServer(t *testing.T, caller string) (*Server, *toolhub.ToolManager, *ru
 		t.Fatalf("store load: %v", err)
 	}
 	who := &fakeWhoAmI{toolID: caller}
-	return &Server{Tools: m, ToolIO: io, WorkIndex: wi, Runs: store, WhoAmI: who}, m, store, who
+	return &Server{Deps: Deps{Tools: m, ToolIO: io, WorkIndex: wi, Runs: store, WhoAmI: who}}, m, store, who
 }
 
 func postRun(t *testing.T, s *Server, path, body string) (int, map[string]any) {

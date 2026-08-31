@@ -3,7 +3,6 @@ package gitapi
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -11,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/query"
 )
 
@@ -20,16 +19,16 @@ import (
 // 모든 실패는 JSON 본문이며 **클라이언트가 종류를 구분할 수 있어야 한다.** 상태
 // 코드만으로는 프록시가 만든 500 과 git 실패를 가릴 수 없다.
 const (
-	gitErrBadRequest = "bad_request"
-	gitErrNotRepo    = "not_a_git_repo"
+	gitErrBadRequest = apierr.CodeBadRequest
+	gitErrNotRepo    = apierr.CodeNotRepo
 	// GIT_REPO_MISSING_SRS FR-RMS-4: 폴더 자체가 사라졌다. 저장소가 아닌 것과
 	// 갈라 두어야 클라이언트가 "사라졌습니다" 를 확정으로 말할 수 있다.
-	gitErrRepoMissing = "repo_missing"
-	gitErrMissing     = "git_missing"
-	gitErrTimeout     = "git_timeout"
-	gitErrCanceled    = "git_canceled"
-	gitErrUnavailable = "git_unavailable"
-	gitErrFailed      = "git_failed"
+	gitErrRepoMissing = apierr.CodeRepoMissing
+	gitErrMissing     = apierr.CodeGitMissing
+	gitErrTimeout     = apierr.CodeTimeout
+	gitErrCanceled    = apierr.CodeCanceled
+	gitErrUnavailable = apierr.CodeUnavailable
+	gitErrFailed      = apierr.CodeFailed
 )
 
 // gitMessageMax 는 오류 본문에 실을 메시지 길이 상한이다. git 의 stderr 는 1MiB
@@ -51,28 +50,19 @@ func gitUnavailable(w http.ResponseWriter) {
 	gitFail(w, http.StatusServiceUnavailable, gitErrUnavailable, "git 서비스가 구성되지 않았다")
 }
 
-// gitErrorCode 는 실패를 클라이언트가 분기할 수 있는 코드로 옮긴다. 분류되지 않은
-// 실패는 500 이며, 사유는 stderr tail 로 남는다 (FR-GIT-96 의 정신).
-// 499 는 표준 코드가 아니라 nginx 관례라 Go 에 상수가 없다. 이름을 여기 한 번만
-// 두고 그것만 쓴다 (FR-GIT-217).
-const statusClientClosed = 499
-
+// gitErrorCode 는 실패를 클라이언트가 분기할 수 있는 코드로 옮긴다.
+//
+// **판정은 여기 없다.** sentinel → (status, code) 는 `apierr.Git` 테이블이
+// 소유한다 (DEEPENING_REFACTOR_SRS FR-DPN-2). 이전에는 그 판정이 번역기 13개에
+// 복제돼 있었고 복제본은 이미 갈라져 있었다 — `core.ErrRefName` 하나가
+// `ref_name_invalid` 와 `bad_request` 두 코드로 나갔다 (FR-DPN-10).
+//
+// 남는 것은 **미분류 실패의 기본값** 하나다. 등록부가 그것을 대신 정하지 않는
+// 이유는 표면마다 다르기 때문이다 (`git_failed` · `io_failed` · sentinel 문자열).
+// 사유는 stderr tail 로 남는다 (FR-GIT-96 의 정신).
 func gitErrorCode(err error) (int, string) {
-	switch {
-	case errors.Is(err, core.ErrNotRepo):
-		return http.StatusNotFound, gitErrNotRepo
-	// 저장소 아님과 같은 404 다 — 둘 다 "네가 지목한 것이 거기 없다" 이고, 갈리는
-	// 것은 상태 코드가 아니라 `error` 필드다 (FR-RMS-4).
-	case errors.Is(err, core.ErrRepoMissing):
-		return http.StatusNotFound, gitErrRepoMissing
-	case errors.Is(err, core.ErrGitMissing):
-		return http.StatusServiceUnavailable, gitErrMissing
-	case errors.Is(err, core.ErrTimeout):
-		return http.StatusGatewayTimeout, gitErrTimeout
-	case errors.Is(err, core.ErrCanceled):
-		// 서버가 실패한 것이 아니라 요청이 사라진 것이다 (FR-GIT-217). 500 으로
-		// 적으면 진짜 장애와 로그에서 구분되지 않는다.
-		return statusClientClosed, gitErrCanceled
+	if status, code, ok := apierr.Git.Lookup(err); ok {
+		return status, code
 	}
 	return http.StatusInternalServerError, gitErrFailed
 }
@@ -419,10 +409,6 @@ func (s *GitServer) gitRepoParam(w http.ResponseWriter, r *http.Request) (root, 
 
 // GET /api/git/status?repo=<abs> — single-flight + TTL 캐시를 거친 관측 (FR-GIT-63).
 func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
@@ -444,10 +430,6 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/git/signature?repo=<abs> — 감지용 경량 시그니처 (FR-GIT-19).
 func (s *GitServer) apiGitSignature(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
@@ -466,7 +448,7 @@ func (s *GitServer) apiGitSignature(w http.ResponseWriter, r *http.Request) {
 
 // gitErrNotFound 는 "요청한 것이 없다"다. 리포는 있으나 그 축의 양쪽에 파일이 없는
 // 경우이며, 저장소가 아닌 것(not_a_git_repo)과 구분되어야 한다.
-const gitErrNotFound = "not_found"
+const gitErrNotFound = apierr.CodeNotFound
 
 // gitDiffRequested 는 클라이언트가 보낸 값 그대로다 — stale 가드(FR-GIT-54)의
 // 서버측 절반이며, 식별자는 (리포, 축, 경로) 다. 해석된 루트가 이 자리를 대신하면
@@ -491,10 +473,6 @@ type gitDiffResponse struct {
 // (FR-GIT-44~48). **unified diff 텍스트를 주지 않는다** — Monaco DiffEditor 가 두
 // 모델을 요구하고, diff 계산은 그쪽의 일이다 (FR-GIT-43).
 func (s *GitServer) apiGitDiffContent(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
@@ -513,21 +491,8 @@ func (s *GitServer) apiGitDiffContent(w http.ResponseWriter, r *http.Request) {
 		dc, err = query.DiffContentOf(s.Git.Service(), r.Context(), root, req.Axis, req.Path, req.OrigPath)
 	}
 	if err != nil {
-		gitDiffError(w, err)
+		gitError(w, err)
 		return
 	}
 	gitJSON(w, http.StatusOK, gitDiffResponse{Requested: req, DiffContent: dc})
-}
-
-// gitDiffError 는 diff 고유의 거부를 코드로 옮긴 뒤 나머지를 공용 규약에 넘긴다.
-// 잘못된 요청을 500 으로 뭉개면 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다.
-func gitDiffError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, query.ErrDiffAxis), errors.Is(err, query.ErrDiffPath), errors.Is(err, query.ErrUnsafeRev):
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	case errors.Is(err, query.ErrDiffBothAbsent), errors.Is(err, query.ErrRevNotFound):
-		gitFail(w, http.StatusNotFound, gitErrNotFound, gitTail(err.Error()))
-	default:
-		gitError(w, err)
-	}
 }

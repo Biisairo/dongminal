@@ -16,10 +16,6 @@ import (
 // 차단 사유는 **막힌 이유와 해소법을 함께** 실어 보낸다. 클라이언트가 그것을
 // 그대로 보이며, 여기서 이유를 잃으면 사용자는 갈 곳이 없다.
 func (s *GitServer) apiGitPreflight(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return

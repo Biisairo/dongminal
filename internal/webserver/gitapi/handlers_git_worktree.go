@@ -1,12 +1,12 @@
 package gitapi
 
 import (
-	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/worktree"
 )
 
@@ -22,7 +22,7 @@ import (
 // 실제 저장소 루트로 재확인하는 `gitResolveRepo` 만 예외인데, 그건 `rev-parse` 라
 // 이미 domain/git 의 읽기 목록에 있는 일반 조회이지 worktree 실행이 아니다.
 
-const gitErrWorktreeExists = "worktree_exists"
+const gitErrWorktreeExists = apierr.CodeWorktreeExists
 
 func gitWorktreesUnavailable(w http.ResponseWriter) {
 	gitFail(w, http.StatusServiceUnavailable, gitErrUnavailable, "사용자 worktree 관리자가 구성되지 않았다")
@@ -86,7 +86,7 @@ func (s *GitServer) apiGitWorktrees(w http.ResponseWriter, r *http.Request) {
 	}
 	entries, err := s.UserWorktrees.List(root)
 	if err != nil {
-		gitWorktreeError(w, err)
+		gitError(w, err)
 		return
 	}
 	userRoot := s.UserWorktrees.Root()
@@ -174,7 +174,7 @@ func (s *GitServer) apiGitWorktreeCreate(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := s.UserWorktrees.Create(spec); err != nil {
-		gitWorktreeError(w, err)
+		gitError(w, err)
 		return
 	}
 	// `ok` 는 **클라이언트의 성공 판정**이다 — `panel.post` 가
@@ -224,7 +224,7 @@ func (s *GitServer) apiGitWorktreeRemove(w http.ResponseWriter, r *http.Request)
 	// 지울 브랜치 이름은 클라이언트를 믿지 않는다 — 실제 목록에서 다시 찾는다.
 	entries, err := s.UserWorktrees.List(root)
 	if err != nil {
-		gitWorktreeError(w, err)
+		gitError(w, err)
 		return
 	}
 	target := filepath.Clean(req.Path)
@@ -254,20 +254,4 @@ func (s *GitServer) apiGitWorktreeRemove(w http.ResponseWriter, r *http.Request)
 		"path": res.Path, "branch": res.Branch,
 		"removed": res.Removed, "residue": res.Residue, "detail": res.Detail,
 	})
-}
-
-// gitWorktreeError 는 domain/worktree 의 거부를 공용 규약의 코드로 옮긴다.
-func gitWorktreeError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, worktree.ErrUnsafeArgument):
-		gitFail(w, http.StatusBadRequest, gitErrRefName, gitTail(err.Error()))
-	case errors.Is(err, worktree.ErrUnsafePath):
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	case errors.Is(err, worktree.ErrNotRepo):
-		gitFail(w, http.StatusNotFound, gitErrNotRepo, gitTail(err.Error()))
-	case errors.Is(err, worktree.ErrGitMissing):
-		gitFail(w, http.StatusServiceUnavailable, gitErrMissing, gitTail(err.Error()))
-	default:
-		gitFail(w, http.StatusInternalServerError, gitErrFailed, gitTail(err.Error()))
-	}
 }

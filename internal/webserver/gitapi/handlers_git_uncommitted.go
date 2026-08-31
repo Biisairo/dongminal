@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/write"
 )
@@ -19,8 +20,8 @@ import (
 
 // 이 표면 고유의 거부 코드. 상태 코드만으로는 무엇이 왜 막혔는지 구분할 수 없다.
 const (
-	gitErrNoHead         = "no_head"
-	gitErrNothingToClean = "nothing_to_clean"
+	gitErrNoHead         = apierr.CodeNoHead
+	gitErrNothingToClean = apierr.CodeNothingToClean
 )
 
 // gitUncommittedReq 는 두 동작의 공통 본문이다. Confirm 은 clean 의 2단계 확인이다
@@ -77,12 +78,9 @@ func gitCleanBlocked(st query.Status) (string, string) {
 // 것·확인을 요구하는지·실행 전 거부 사유만 다르다 — 나머지는 기존 쓰기 규약
 // 그대로다 (FR-GIT-250 ③).
 func (s *GitServer) gitUncommittedRoute(w http.ResponseWriter, r *http.Request, confirm bool, blocked func(query.Status) (string, string), run func(context.Context, string) error) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitUncommittedReq
-	if !gitDecodeBody(w, r, &req) {
+	t := s.beginWrite(w, r, &req)
+	if t.stop() {
 		return
 	}
 	if confirm && !req.Confirm {

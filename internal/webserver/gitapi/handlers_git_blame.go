@@ -1,7 +1,6 @@
 package gitapi
 
 import (
-	"errors"
 	"net/http"
 
 	"dongminal/internal/webserver/domain/git/query"
@@ -25,10 +24,6 @@ type gitBlameResponse struct {
 
 // GET /api/git/blame?repo=&rev=&path= — 파일 하나의 줄별 출처 (FR-GIT-276).
 func (s *GitServer) apiGitBlame(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
@@ -43,28 +38,11 @@ func (s *GitServer) apiGitBlame(w http.ResponseWriter, r *http.Request) {
 		Repo: root, Rev: req.Rev, Path: req.Path,
 	})
 	if err != nil {
-		gitBlameError(w, err)
+		gitError(w, err)
 		return
 	}
 	// 해석된 루트가 요청의 자리를 대신하면 클라이언트는 응답과 자기 요청의 짝을
 	// 맞출 수 없다.
 	b.Repo = root
 	gitJSON(w, http.StatusOK, gitBlameResponse{Requested: req, FileBlame: b})
-}
-
-// gitBlameError 는 blame 고유의 거부를 코드로 옮긴 뒤 나머지를 공용 규약에 넘긴다.
-//
-// 잘림은 **413** 이다 — 400 으로 답하면 요청이 틀렸다는 뜻이 되고, 500 으로 답하면
-// 사용자는 고장으로 읽는다. 실제로는 "이 파일은 이 화면이 감당할 크기가 아니다" 다.
-func gitBlameError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, query.ErrDiffPath), errors.Is(err, query.ErrUnsafeRev):
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	case errors.Is(err, query.ErrBlameTruncated):
-		gitFail(w, http.StatusRequestEntityTooLarge, gitErrFailed, gitTail(err.Error()))
-	case errors.Is(err, query.ErrRevNotFound), errors.Is(err, query.ErrBlamePathNotFound):
-		gitFail(w, http.StatusNotFound, gitErrNotFound, gitTail(err.Error()))
-	default:
-		gitError(w, err)
-	}
 }

@@ -2,10 +2,9 @@ package gitapi
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
-	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/write"
 )
@@ -18,11 +17,11 @@ import (
 
 // stash 고유의 거부 코드. 상태 코드만으로는 무엇이 왜 막혔는지 구분할 수 없다.
 const (
-	gitErrNothingToStash = "nothing_to_stash"
+	gitErrNothingToStash = apierr.CodeNothingToStash
 	// gitErrStashKept 는 **pop 이 끝나지 않아 stash 가 남았다**는 것이다
 	// (FR-GIT-165). 500 으로 뭉개면 클라이언트가 "작업은 남아 있다"를 말할 근거를
 	// 잃고, 사용자는 작업을 잃었다고 오해한다.
-	gitErrStashKept = "stash_kept"
+	gitErrStashKept = apierr.CodeStashKept
 )
 
 // gitStashPushReq 는 생성 다이얼로그의 본문이다 (FR-GIT-166).
@@ -69,17 +68,13 @@ type gitStashShowResponse struct {
 
 // GET /api/git/stash?repo= — stash 목록 (FR-GIT-161).
 func (s *GitServer) apiGitStashList(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
 	}
 	list, err := write.StashList(s.Git.Service(), r.Context(), root)
 	if err != nil {
-		gitStashError(w, err)
+		gitError(w, err)
 		return
 	}
 	gitJSON(w, http.StatusOK, gitStashListResponse{
@@ -89,10 +84,6 @@ func (s *GitServer) apiGitStashList(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/git/stash/show?repo=&index= — 선택한 stash 의 변경 파일 (FR-GIT-169).
 func (s *GitServer) apiGitStashShow(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
@@ -103,7 +94,7 @@ func (s *GitServer) apiGitStashShow(w http.ResponseWriter, r *http.Request) {
 	}
 	files, err := write.StashPreview(s.Git.Service(), r.Context(), root, index)
 	if err != nil {
-		gitStashError(w, err)
+		gitError(w, err)
 		return
 	}
 	gitJSON(w, http.StatusOK, gitStashShowResponse{
@@ -113,18 +104,13 @@ func (s *GitServer) apiGitStashShow(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/git/stash/push — 워킹 트리의 변경을 stash 로 옮긴다 (FR-GIT-166·167).
 func (s *GitServer) apiGitStashPush(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitStashPushReq
-	if !gitDecodeBody(w, r, &req) {
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	root := t.root
 	before, ok := s.gitStatusBefore(w, r, root)
 	if !ok {
 		return
@@ -199,12 +185,9 @@ type gitStashBranchReq struct {
 // **파괴적이 아니다** — git 은 적용이 끝난 뒤에만 그 stash 를 지운다. 이름은 실행
 // **전에** 검증한다 (FR-GIT-250.3): 클라이언트만 막으면 API 직접 호출이 우회한다.
 func (s *GitServer) apiGitStashBranch(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitStashBranchReq
-	if !gitDecodeBody(w, r, &req) {
+	t := s.beginWrite(w, r, &req)
+	if t.stop() {
 		return
 	}
 	// 순수 함수가 argv 를 만들 수 있는지로 판정한다 — 판정이 두 벌이면 한쪽만
@@ -235,12 +218,9 @@ func (s *GitServer) apiGitStashBranch(w http.ResponseWriter, r *http.Request) {
 // gitStashIndexRoute 는 apply/pop/drop 의 공통 절차다. 셋은 본문과 응답이 같고
 // 실행하는 것과 확인을 요구하는지만 다르다.
 func (s *GitServer) gitStashIndexRoute(w http.ResponseWriter, r *http.Request, confirm bool, run func(context.Context, string, gitStashIndexReq) (map[string]any, error)) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitStashIndexReq
-	if !gitDecodeBody(w, r, &req) {
+	t := s.beginWrite(w, r, &req)
+	if t.stop() {
 		return
 	}
 	if confirm && !req.Confirm {
@@ -309,32 +289,16 @@ func (s *GitServer) gitStashApply(w http.ResponseWriter, r *http.Request, reques
 	gitJSON(w, code, body)
 }
 
-// gitStashErrorCode 는 stash 고유의 거부를 코드로 옮긴 뒤 나머지를 공용 규약에
-// 넘긴다.
+// gitStashErrorCode 는 stash 실패를 코드로 옮긴다.
 //
-// **stash 가 남은 실패가 가장 앞이다** (FR-GIT-165) — 그것이 사용자가 알아야 할
-// 사실이고, 종료 코드로 갈리는 다른 사유보다 앞선다.
+// **여기 남은 것은 오류값이 모르는 사실 하나뿐이다** — stash 가 남았는지는
+// `extra` 가 알고 오류는 모른다. 그리고 그 사실이 가장 앞이다 (FR-GIT-165):
+// 사용자가 알아야 할 것은 "무엇이 실패했는가" 보다 "내 변경이 어디 있는가" 다.
+//
+// 나머지 판정(빈 stash·없는 stash)은 `apierr.Git` 이 소유한다 (FR-DPN-5).
 func gitStashErrorCode(err error, extra map[string]any) (int, string) {
 	if kept, _ := extra["stashKept"].(bool); kept {
 		return http.StatusConflict, gitErrStashKept
 	}
-	switch {
-	case errors.Is(err, write.ErrStashEmpty):
-		return http.StatusConflict, gitErrNothingToStash
-	case errors.Is(err, write.ErrStashNotFound):
-		return http.StatusNotFound, gitErrNotFound
-	}
-	return gitWriteErrorCode(err)
-}
-
-// gitStashError 는 읽기 경로(목록·미리보기)의 거부를 코드로 옮긴다.
-func gitStashError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, write.ErrStashNotFound):
-		gitFail(w, http.StatusNotFound, gitErrNotFound, gitTail(err.Error()))
-	case errors.Is(err, core.ErrUnsafeArgument):
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	default:
-		gitError(w, err)
-	}
+	return gitErrorCode(err)
 }

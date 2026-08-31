@@ -30,10 +30,6 @@ type gitRecordsResponse struct {
 // 이력이 아니라 잡음이다. 거르는 기준은 요청값이 아니라 rev-parse 로 확정한
 // 루트다 (FR-GIT-62).
 func (s *GitServer) apiGitRecords(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return

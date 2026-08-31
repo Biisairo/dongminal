@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"dongminal/internal/webserver/apierr"
+
 	"bytes"
 	"context"
 	"net/http"
@@ -22,7 +24,7 @@ import (
 // fsErrNotRepo 는 "이 경로로는 무시 여부를 물을 수 없다" 는 답이다. 404 로
 // 나가야 하며(fsStatus 의 표), 그것은 클라이언트가 **4xx 를 판정으로 굳히기**
 // 때문이다 — 5xx 로 새면 3초마다 영영 다시 묻는다 (FR-ETR-4).
-const fsErrNotRepo = "not_repo"
+const fsErrNotRepo = apierr.CodeFSNotRepo
 
 // checkIgnoreTimeout 은 판정 하나에 허용하는 시간이다. 탐색기가 겹을 펼칠 때마다
 // 도는 경로이므로 멈춘 git 하나가 화면을 붙잡지 않아야 한다.

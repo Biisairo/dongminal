@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/write"
 )
 
@@ -15,9 +16,9 @@ import (
 const (
 	// gitErrOperationMismatch 는 화면이 아는 작업과 저장소의 실제 작업이 다르다는
 	// 것이다. 낡은 화면의 `rebase --abort` 가 남의 머지를 깨지 않게 한다.
-	gitErrOperationMismatch = "operation_mismatch"
+	gitErrOperationMismatch = apierr.CodeOperationMismatch
 	// gitErrNoOperation 은 진행 중인 것이 없다는 것이다.
-	gitErrNoOperation = "no_operation"
+	gitErrNoOperation = apierr.CodeNoOperation
 )
 
 type gitOperationReq struct {
@@ -33,31 +34,19 @@ type gitOperationReq struct {
 // 되살릴 값이 없다. 그래서 `confirm:true` 없이는 실행하지 않는다 (FR-GIT-89).
 // 계속·건너뛰기는 되돌릴 것이 없으므로 확인을 요구하지 않는다.
 func (s *GitServer) apiGitOperation(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitOperationReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	if req.Action == write.OpAbort && !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
-			"중단은 그 작업 중 해결한 내용을 버린다: confirm:true 를 요구한다 (FR-GIT-89)")
-		return
-	}
-	// 잘못된 조합은 실행 **전에** 답한다. gitApply 를 지나면 코드가 500 이 되고,
-	// 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다.
+	t := s.beginWrite(w, r, &req)
+	t.requireConfirm(req.Action == write.OpAbort, req.Confirm,
+		"중단은 그 작업 중 해결한 내용을 버린다: confirm:true 를 요구한다 (FR-GIT-89)")
+	// 잘못된 조합은 실행 **전에** 답한다. apply 를 지나면 코드가 500 이 되고,
+	// 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다. 코드는 호출 문맥이
+	// 정하므로 (오류값이 아니라) 등록부를 지나지 않는다.
 	if _, err := write.OperationArgs(req.Kind, req.Action); err != nil {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-		return
+		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
+	t.resolve(req.Repo)
+	before := t.snapshot()
+	if t.stop() {
 		return
 	}
 	// **화면이 아는 작업과 저장소의 작업이 같은지 본다.** 다르면 실행하지 않는다 —
@@ -69,20 +58,17 @@ func (s *GitServer) apiGitOperation(w http.ResponseWriter, r *http.Request) {
 			name = gitErrNoOperation
 		}
 		gitJSON(w, code, map[string]any{
-			"error": name, "requested": req.Repo, "repo": root,
+			"error": name, "requested": req.Repo, "repo": t.root,
 			"message": "진행 중인 작업이 " + operationLabel(cur) + " 입니다",
 			"status":  before,
 		})
 		return
 	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.Operation(s.Git.Service(), ctx, root, req.Kind, req.Action)
+	t.apply(func(ctx context.Context) error {
+		_, err := write.Operation(s.Git.Service(), ctx, t.root, req.Kind, req.Action)
 		return err
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, nil)
+	t.ok(nil)
 }
 
 // operationLabel 은 사유 문구에 쓸 이름이다. 빈 값은 "없음"이며, 그것이 사용자가

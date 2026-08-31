@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/write"
 )
@@ -24,9 +25,9 @@ import (
 // 커밋 동작 고유의 거부 코드. 상태 코드만으로는 무엇이 왜 막혔는지 구분할 수 없다.
 const (
 	// gitErrMergeParent 는 머지 커밋인데 부모 번호가 없다는 것이다 (FR-GIT-263).
-	gitErrMergeParent = "merge_parent_required"
+	gitErrMergeParent = apierr.CodeMergeParent
 	// gitErrResetMode 는 모르는 reset 모드다 (FR-GIT-265).
-	gitErrResetMode = "reset_mode_invalid"
+	gitErrResetMode = apierr.CodeResetMode
 )
 
 // gitPickReq 는 cherry-pick·revert 의 본문이다.
@@ -69,45 +70,33 @@ func (s *GitServer) apiGitRevert(w http.ResponseWriter, r *http.Request) {
 // gitPick 은 cherry-pick·revert 의 공통 경로다. 둘은 부모 선택 규약이 같으므로
 // 방어를 두 벌로 두지 않는다 — 한쪽만 고쳐지면 다른 쪽이 틀린 부모를 집는다.
 func (s *GitServer) gitPick(w http.ResponseWriter, r *http.Request, verb string) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitPickReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
+	t := s.beginWrite(w, r, &req)
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
 	// 머지 여부는 **저장소에** 묻는다 (FR-GIT-263). 요청이 정하게 두면 화면이 낡은
 	// 순간에 부모 없는 머지가 그대로 지나간다.
-	parents, ok := s.gitCommitParents(w, r, root, req.Oid)
+	parents, ok := s.gitCommitParents(w, r, t.root, req.Oid)
 	if !ok {
 		return
 	}
 	opts := write.PickOpts{
 		Oid: req.Oid, Merge: len(parents) > 1, Mainline: req.Mainline, NoCommit: req.NoCommit,
 	}
-	// 잘못된 요청은 실행 **전에** 답한다. gitApply 를 지나면 코드가 500 이 되고,
-	// 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다.
+	// 잘못된 요청은 실행 **전에** 답한다. apply 를 지나면 코드가 500 이 되고,
+	// 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다. 부모 목록을 함께
+	// 실어야 하므로 파이프라인의 공용 거부가 아니라 전용 렌더러다.
 	if _, err := write.PickArgs(verb, opts); err != nil {
 		gitCommitOpError(w, err, parents)
 		return
 	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.Pick(s.Git.Service(), ctx, root, verb, opts)
+	t.apply(func(ctx context.Context) error {
+		_, err := write.Pick(s.Git.Service(), ctx, t.root, verb, opts)
 		return err
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, nil)
+	t.ok(nil)
 }
 
 // POST /api/git/reset — 현재 브랜치를 그 커밋으로 옮긴다 (FR-GIT-265).
@@ -115,94 +104,59 @@ func (s *GitServer) gitPick(w http.ResponseWriter, r *http.Request, verb string)
 // **`--hard` 만 확인을 요구한다.** 파괴 여부가 옵션에서 파생하므로(FR-GIT-250.1)
 // 확인의 조건도 하위 명령이 아니라 옵션에서 나온다.
 func (s *GitServer) apiGitReset(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitResetReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	if req.Mode == write.ResetHard && !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
-			"reset --hard 는 워킹 트리와 index 의 변경을 버린다: confirm:true 를 요구한다 (FR-GIT-89·265)")
-		return
-	}
+	t := s.beginWrite(w, r, &req)
+	t.requireConfirm(req.Mode == write.ResetHard, req.Confirm,
+		"reset --hard 는 워킹 트리와 index 의 변경을 버린다: confirm:true 를 요구한다 (FR-GIT-89·265)")
 	opts := write.ResetOpts{Oid: req.Oid, Mode: req.Mode}
+	// 인자 검증이 repo 해석보다 **앞이다** — 순서를 바꾸면 잘못된 mode 와 잘못된
+	// repo 가 함께 온 요청에서 답이 달라진다.
 	if _, err := write.ResetArgs(opts); err != nil {
-		gitCommitOpError(w, err, nil)
-		return
+		t.reject(err)
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
+	t.resolve(req.Repo)
 	// hint 는 **옮기기 전** HEAD 를 실어야 되살릴 수 있다 (FR-GIT-250.2). 실행 후에
 	// 읽으면 이미 옮겨간 자리를 가리킨다.
-	headOid := before.Oid
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.Reset(s.Git.Service(), ctx, root, opts, headOid)
+	headOid := t.snapshot().Oid
+	t.apply(func(ctx context.Context) error {
+		_, err := write.Reset(s.Git.Service(), ctx, t.root, opts, headOid)
 		return err
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, nil)
+	t.ok(nil)
 }
 
 // POST /api/git/drop — 커밋 하나를 히스토리에서 뺀다 (FR-GIT-266).
 //
 // **파괴적이다** (`commit_drop`) — 뒤따르는 커밋의 해시가 전부 바뀐다.
 func (s *GitServer) apiGitDrop(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitDropReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	if !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
-			"커밋을 빼면 뒤따르는 커밋의 해시가 전부 바뀐다: confirm:true 를 요구한다 (FR-GIT-89·266)")
-		return
-	}
+	t := s.beginWrite(w, r, &req)
+	t.requireConfirm(true, req.Confirm,
+		"커밋을 빼면 뒤따르는 커밋의 해시가 전부 바뀐다: confirm:true 를 요구한다 (FR-GIT-89·266)")
 	if _, err := write.DropArgs(req.Oid); err != nil {
-		gitCommitOpError(w, err, nil)
-		return
+		t.reject(err)
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
 	// 머지 커밋은 `<oid>^` 로 뺄 수 없다 — 첫 부모만 남고 나머지 갈래가 조용히
 	// 사라진다. 루트 커밋은 `^` 가 가리킬 것이 없다.
-	parents, ok := s.gitCommitParents(w, r, root, req.Oid)
+	parents, ok := s.gitCommitParents(w, r, t.root, req.Oid)
 	if !ok {
 		return
 	}
 	if len(parents) != 1 {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest,
+		t.rejectWith(http.StatusBadRequest, gitErrBadRequest,
 			"부모가 하나인 커밋만 뺄 수 있다 (부모 "+strconv.Itoa(len(parents))+"개)")
 		return
 	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	headOid := before.Oid
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.Drop(s.Git.Service(), ctx, root, req.Oid, headOid)
+	headOid := t.snapshot().Oid
+	t.apply(func(ctx context.Context) error {
+		_, err := write.Drop(s.Git.Service(), ctx, t.root, req.Oid, headOid)
 		return err
 	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, nil)
+	t.ok(nil)
 }
 
 // GET /api/git/commit-range?repo=&from=&to=&symmetric= — 두 리비전 사이의 범위.
@@ -216,10 +170,6 @@ func (s *GitServer) apiGitDrop(w http.ResponseWriter, r *http.Request) {
 // **새 diff 축을 만들지 않는다.** 여기서 정한 두 oid 는 이미 있는 `commit-parent`
 // 축(FR-GIT-138)의 두 끝으로 그대로 들어간다.
 func (s *GitServer) apiGitCommitRange(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
@@ -298,27 +248,25 @@ func (s *GitServer) gitRangeCount(ctx context.Context, root, from, to string) (i
 	return n, nil
 }
 
-// gitCommitOpError 는 커밋 동작 고유의 거부를 코드로 옮긴 뒤 나머지를 공용 규약에
-// 넘긴다. 잘못된 요청을 500 으로 뭉개면 클라이언트는 자기 요청이 틀렸다는 것을
-// 알 수 없다.
+// gitCommitOpError 는 커밋 동작의 거부를 응답으로 옮긴다.
 //
-// 부모 번호가 빠졌을 때는 **부모 목록을 함께 준다** — 무엇을 고를 수 있는지 모르면
-// 화면은 물을 수도 없다 (FR-GIT-263).
+// **여기 남은 것은 오류값만으로 응답이 결정되지 않는 하나뿐이다** — 부모 번호가
+// 빠졌을 때는 부모 목록을 함께 줘야 하고(FR-GIT-263), 그 목록은 오류가 들고 있지
+// 않다. 무엇을 고를 수 있는지 모르면 화면은 물을 수도 없다.
+//
+// 나머지 판정(reset 모드·pick 동사·ref 이름)은 `apierr.Git` 이 소유한다
+// (FR-DPN-5). ref 이름이 여기서 `bad_request` 였던 것은 branch·tag 와 갈린
+// 드리프트였고, 지금은 표면 전체가 `ref_name_invalid` 다 (FR-DPN-10).
 func gitCommitOpError(w http.ResponseWriter, err error, parents []string) {
-	switch {
-	case errors.Is(err, write.ErrMergeParent):
+	if errors.Is(err, write.ErrMergeParent) {
 		gitJSON(w, http.StatusBadRequest, map[string]any{
 			"error":   gitErrMergeParent,
 			"message": gitTail(err.Error()),
 			"parents": gitParentList(parents),
 		})
-	case errors.Is(err, write.ErrResetMode):
-		gitFail(w, http.StatusBadRequest, gitErrResetMode, gitTail(err.Error()))
-	case errors.Is(err, core.ErrRefName), errors.Is(err, write.ErrPickVerb):
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-	default:
-		gitError(w, err)
+		return
 	}
+	gitError(w, err)
 }
 
 // gitParentList 는 JSON 에서 null 이 되지 않는 목록이다 — null 이면 클라이언트가

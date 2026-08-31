@@ -2,9 +2,9 @@ package gitapi
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/write"
 )
@@ -20,10 +20,11 @@ import (
 
 // 부분 스테이징 고유의 거부 코드. 상태 코드만으로는 무엇이 왜 막혔는지 구분할 수
 // 없다 — 특히 stale 은 "다시 받아서 다시 고르라"는 뜻이라 사용자가 알아야 한다.
-const (
-	gitErrStaleObservation = "stale_observation"
-	gitErrPatchEmpty       = "patch_empty"
-)
+//
+// `patch_empty` 는 여기 없다. 그 판정이 `apierr.Git` 테이블로 옮겨 가면서
+// (FR-DPN-4) 이 패키지에서 그 이름을 쓰는 자리가 없어졌다 — 값은
+// `apierr.CodePatchEmpty` 하나로 남는다.
+const gitErrStaleObservation = apierr.CodeStaleObservation
 
 // gitHunksRequested 는 hunks 응답이 되돌려주는 요청값이다 (FR-GIT-16·54) — 같은
 // 세대 안에서도 응답 순서가 뒤바뀔 수 있으므로 클라이언트가 짝을 확인한다.
@@ -60,10 +61,6 @@ type gitPatchReq struct {
 // GET /api/git/hunks?repo=<abs>&axis=<axis>&path=<rel> — 서버가 만든 diff 의 경계
 // (FR-GIT-278). 읽기이며 저장소를 바꾸지 않는다.
 func (s *GitServer) apiGitHunks(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
@@ -72,7 +69,7 @@ func (s *GitServer) apiGitHunks(w http.ResponseWriter, r *http.Request) {
 	req := gitHunksRequested{Repo: requested, Axis: q.Get("axis"), Path: q.Get("path")}
 	fd, err := query.HunksOf(s.Git.Service(), r.Context(), root, req.Axis, req.Path)
 	if err != nil {
-		gitPatchError(w, err)
+		gitError(w, err)
 		return
 	}
 	gitJSON(w, http.StatusOK, gitHunksResponse{Requested: req, FileDiff: fd})
@@ -83,75 +80,26 @@ func (s *GitServer) apiGitHunks(w http.ResponseWriter, r *http.Request) {
 // revert 는 **파괴적이다** — 워킹 트리의 그 줄을 버린다. `confirm:true` 가 없으면
 // 실행하지 않는다: 클라이언트만 막으면 API 직접 호출이 그대로 우회한다.
 func (s *GitServer) apiGitPatch(w http.ResponseWriter, r *http.Request) {
-	if s.Git == nil {
-		gitUnavailable(w)
-		return
-	}
 	var req gitPatchReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
+	t := s.beginWrite(w, r, &req)
 	// 파괴적 여부는 **동작에서 파생한다** — 목록을 여기에 복제하지 않는다.
 	_, destructive, err := write.PatchArgs(req.Op)
 	if err != nil {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-		return
+		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
 	}
-	if destructive && !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
-			"파괴적 동작은 confirm:true 를 요구한다 (FR-GIT-89)")
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		_, err := write.Patch(s.Git.Service(), ctx, root, write.PatchOpts{
+	t.requireConfirm(destructive, req.Confirm,
+		"파괴적 동작은 confirm:true 를 요구한다 (FR-GIT-89)")
+	t.resolve(req.Repo)
+	t.apply(func(ctx context.Context) error {
+		_, err := write.Patch(s.Git.Service(), ctx, t.root, write.PatchOpts{
 			Op: req.Op, Axis: req.Axis, Path: req.Path,
 			Hunk: req.Hunk, From: req.From, To: req.To, DiffID: req.DiffID,
 		})
 		return err
 	})
-	if !ok {
-		return
-	}
 	// 요청값을 되돌려준다 — 어느 조각이 적용됐는지 클라이언트가 짝을 확인한다.
-	gitWriteOK(w, req.Repo, root, after, map[string]any{
+	t.ok(map[string]any{
 		"op": req.Op, "axis": req.Axis, "path": req.Path,
 		"hunk": req.Hunk, "from": req.From, "to": req.To,
 	})
-}
-
-// gitPatchErrorCode 는 부분 스테이징 고유의 거부를 코드로 옮긴다. 세 번째 값이
-// 거짓이면 이 묶음의 거부가 아니며 호출자가 공용 규약에 넘긴다.
-//
-// 잘못된 요청을 500 으로 뭉개면 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없고,
-// stale 을 400 으로 뭉개면 "다시 받아서 다시 고르라"는 뜻이 사라진다. 쓰기 경로
-// (gitWriteErrorCode)와 읽기 경로(gitPatchError)가 이 한 함수를 나눠 쓴다 — 두
-// 벌이면 한쪽만 고쳐져 같은 오류가 두 코드로 나간다.
-func gitPatchErrorCode(err error) (int, string, bool) {
-	switch {
-	case errors.Is(err, write.ErrPatchStale):
-		return http.StatusConflict, gitErrStaleObservation, true
-	case errors.Is(err, write.ErrPatchEmpty):
-		return http.StatusBadRequest, gitErrPatchEmpty, true
-	case errors.Is(err, write.ErrPatchOp), errors.Is(err, write.ErrPatchAxis),
-		errors.Is(err, write.ErrPatchRange), errors.Is(err, query.ErrDiffAxis),
-		errors.Is(err, query.ErrDiffPath), errors.Is(err, query.ErrDiffTruncated):
-		return http.StatusBadRequest, gitErrBadRequest, true
-	}
-	return 0, "", false
-}
-
-func gitPatchError(w http.ResponseWriter, err error) {
-	if code, name, ok := gitPatchErrorCode(err); ok {
-		gitFail(w, code, name, gitTail(err.Error()))
-		return
-	}
-	gitError(w, err)
 }

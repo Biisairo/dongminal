@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/wsentry"
 )
 
@@ -26,15 +27,15 @@ import (
 // 오류 코드는 Git API 와 같은 규약이다 — 상태 코드만으로는 프록시가 만든 500 과
 // 조작 실패를 가릴 수 없다 (FR-EDT-117).
 const (
-	fsErrBadRequest  = "bad_request"
-	fsErrNotFound    = "not_found"
-	fsErrExists      = "exists"
-	fsErrOutsideRoot = "outside_root"
-	fsErrPermission  = "permission_denied"
-	fsErrIO          = "io_failed"
+	fsErrBadRequest  = apierr.CodeBadRequest
+	fsErrNotFound    = apierr.CodeNotFound
+	fsErrExists      = apierr.CodeExists
+	fsErrOutsideRoot = apierr.CodeOutsideRoot
+	fsErrPermission  = apierr.CodePermission
+	fsErrIO          = apierr.CodeIO
 	// 전송에만 있는 코드다 (FR-FTR-5). fsStatus 의 표에 넣지 않는 것은 조작이
 	// 이것을 낼 자리가 없기 때문이다 — 413 은 부르는 쪽이 직접 준다.
-	fsErrTooLarge = "too_large"
+	fsErrTooLarge = apierr.CodeTooLarge
 )
 
 // FS_LIST_MAX·FS_DELETE_MAX (FR-EDT-65·118). const 가 아닌 이유는 테스트가 상한을
@@ -53,24 +54,9 @@ type fsError struct {
 
 func (e fsError) Error() string { return e.msg }
 
-func fsStatus(code string) int {
-	switch code {
-	case fsErrBadRequest:
-		return http.StatusBadRequest
-	case fsErrNotFound:
-		return http.StatusNotFound
-	case fsErrExists:
-		return http.StatusConflict
-	case fsErrOutsideRoot, fsErrPermission:
-		return http.StatusForbidden
-	case fsErrNotRepo:
-		// "이 경로로는 무시 여부를 물을 수 없다" 는 답이다 (FR-ETR-4).
-		// 클라이언트는 4xx 를 판정으로 굳히므로(`_gitOff` 와 같은 관례) 5xx 로
-		// 새어 나가면 3초마다 영영 다시 묻는다.
-		return http.StatusNotFound
-	}
-	return http.StatusInternalServerError
-}
+// fsStatus 는 코드를 상태로 옮긴다. 표는 `apierr.FSStatus` 가 소유한다
+// (FR-DPN-6) — 코드 문자열과 그 상태가 서로 다른 파일에 있으면 한쪽만 바뀐다.
+func fsStatus(code string) int { return apierr.FSStatus(code) }
 
 func fsJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -91,15 +77,12 @@ func fsFailErr(w http.ResponseWriter, err error) {
 	fsFail(w, fsErrIO, err.Error())
 }
 
-// fsFromOS 는 시스템 콜의 실패를 코드로 옮긴다. 분류되지 않은 실패는 io_failed 다.
+// fsFromOS 는 시스템 콜의 실패를 코드로 옮긴다. 판정은 `apierr.FS` 가 소유한다
+// (FR-DPN-6). 분류되지 않은 실패는 io_failed 다 — 그 기본값은 이 표면의 것이므로
+// 등록부가 대신 정하지 않는다.
 func fsFromOS(err error) error {
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-		return fsError{fsErrNotFound, err.Error()}
-	case errors.Is(err, fs.ErrExist):
-		return fsError{fsErrExists, err.Error()}
-	case errors.Is(err, fs.ErrPermission):
-		return fsError{fsErrPermission, err.Error()}
+	if _, code, ok := apierr.FS.Lookup(err); ok {
+		return fsError{code, err.Error()}
 	}
 	return fsError{fsErrIO, err.Error()}
 }
@@ -662,19 +645,6 @@ func fsOK(w http.ResponseWriter) {
 
 // ── /api/editors/* ──────────────────────────────────
 
-// fsEntriesErr 는 wsentry 의 거부를 코드로 옮긴다.
-func fsEntriesErr(err error) error {
-	switch {
-	case errors.Is(err, wsentry.ErrNotAbsolute):
-		return fsError{fsErrBadRequest, err.Error()}
-	case errors.Is(err, wsentry.ErrNotDir):
-		return fsError{fsErrBadRequest, err.Error()}
-	case errors.Is(err, wsentry.ErrNotFound):
-		return fsError{fsErrNotFound, err.Error()}
-	}
-	return fsError{fsErrIO, err.Error()}
-}
-
 func (s *Server) fsEntries(w http.ResponseWriter) bool {
 	if s.Entries == nil {
 		fsFail(w, fsErrIO, "workspace 를 쓸 수 없다")
@@ -690,7 +660,7 @@ func (s *Server) apiEditorsGet(w http.ResponseWriter, r *http.Request) {
 	}
 	home, list, err := s.Entries.List()
 	if err != nil {
-		fsFailErr(w, fsEntriesErr(err))
+		fsFailErr(w, fsFromOS(err))
 		return
 	}
 	fsJSON(w, http.StatusOK, map[string]any{"home": home, "list": list})
@@ -712,7 +682,7 @@ func (s *Server) apiEditorsAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	l, err := s.Entries.EditorAdd(r.Context(), req.Path)
 	if err != nil {
-		fsFailErr(w, fsEntriesErr(err))
+		fsFailErr(w, fsFromOS(err))
 		return
 	}
 	fsJSON(w, http.StatusOK, map[string]any{"list": l.Editors, "pinned": l.Pinned})
@@ -734,7 +704,7 @@ func (s *Server) apiEditorsRemove(w http.ResponseWriter, r *http.Request) {
 	}
 	l, err := s.Entries.EditorRemove(req.Path)
 	if err != nil {
-		fsFailErr(w, fsEntriesErr(err))
+		fsFailErr(w, fsFromOS(err))
 		return
 	}
 	fsJSON(w, http.StatusOK, map[string]any{"list": l.Editors, "pinned": l.Pinned})
@@ -767,7 +737,7 @@ func (s *Server) apiEditorsReorder(w http.ResponseWriter, r *http.Request) {
 	}
 	list, err := s.Entries.EditorReorder(req.Src, req.Target, req.Before)
 	if err != nil {
-		fsFailErr(w, fsEntriesErr(err))
+		fsFailErr(w, fsFromOS(err))
 		return
 	}
 	fsJSON(w, http.StatusOK, map[string]any{"list": list})

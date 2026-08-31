@@ -47,7 +47,7 @@ func postKill(s *Server, body string) *httptest.ResponseRecorder {
 }
 
 func TestApiToolKill_RejectsMissingToolID(t *testing.T) {
-	s := &Server{Tools: toolhub.NewToolManager(toolTempDir(t), nil)}
+	s := &Server{Deps: Deps{Tools: toolhub.NewToolManager(toolTempDir(t), nil)}}
 	for _, body := range []string{``, `{}`, `{"toolId":""}`} {
 		if got := postKill(s, body).Code; got != http.StatusBadRequest {
 			t.Errorf("body=%q status=%d, want 400", body, got)
@@ -58,7 +58,7 @@ func TestApiToolKill_RejectsMissingToolID(t *testing.T) {
 // V-BGK-10 의 서버측 근거: 알 수 없는 도구는 404 다. 조용히 성공하면 모달이
 // 낡은 행을 지우고 사용자는 무엇이 잘못됐는지 알 수 없다.
 func TestApiToolKill_UnknownToolIs404(t *testing.T) {
-	s := &Server{Tools: toolhub.NewToolManager(toolTempDir(t), nil)}
+	s := &Server{Deps: Deps{Tools: toolhub.NewToolManager(toolTempDir(t), nil)}}
 	if got := postKill(s, `{"toolId":"nope"}`).Code; got != http.StatusNotFound {
 		t.Fatalf("status=%d, want 404", got)
 	}
@@ -83,7 +83,7 @@ func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
 	m.SetBackground(tl.ID, true)
-	s := &Server{Tools: m}
+	s := &Server{Deps: Deps{Tools: m}}
 
 	rec := postKill(s, `{"toolId":`+testpath.JSONQuote(tl.ID)+`}`)
 	if rec.Code != http.StatusOK {
@@ -149,7 +149,9 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 
 	start := time.Now()
 	done := make(chan int, 1)
-	go func() { done <- postKill(&Server{Tools: m}, `{"toolId":`+testpath.JSONQuote(tl.ID)+`}`).Code }()
+	go func() {
+		done <- postKill(&Server{Deps: Deps{Tools: m}}, `{"toolId":`+testpath.JSONQuote(tl.ID)+`}`).Code
+	}()
 
 	// 유예 도중: 아직 죽이지 않았다. 이 확인이 없으면 "그냥 유예만큼 잤다" 와
 	// 구별되지 않는다.
