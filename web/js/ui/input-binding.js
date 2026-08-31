@@ -67,18 +67,20 @@ class InputBinding {
       if(ae.tagName==='INPUT'||(ae.tagName==='TEXTAREA'&&!ae.classList.contains('xterm-helper-textarea')))return;
       // EDITOR_GIT_UX_SRS FR-EKB-1: Monaco **밖**(탐색기·탭바)에서 누른 경우다.
       // 안쪽은 위의 activeElement 게이트에 걸려 여기 오지 않으므로 file-editor.js
-      // 가 따로 건다. FR-EKB-2: cmd+p 는 브라우저의 인쇄라 반드시 막는다.
-      // FR-EKB-4: Editor 창이 아니면 `_edSearchRoot()` 가 비어 아무 일도 없다.
-      if((e.metaKey||e.ctrlKey)&&!e.altKey&&e.code==='KeyP'&&!e.shiftKey){
-        e.preventDefault();e.stopImmediatePropagation();this.app._edQuickOpen();return;
-      }
-      if((e.metaKey||e.ctrlKey)&&!e.altKey&&e.code==='KeyF'&&e.shiftKey){
-        e.preventDefault();e.stopImmediatePropagation();this.app._edSearchOpen();return;
-      }
+      // 가 같은 함수를 따로 건다. FR-EKB-2: cmd+p 는 브라우저의 인쇄라 반드시 막는다.
+      //
+      // BUILTIN_HOTKEYS 보다 **먼저** 묻는다. 파일 내 검색의 기본값 `Mod+F` 가
+      // 터미널 검색의 관용 배선과 같은 조합이기 때문이다 — Editor 창이면 편집기
+      // 검색이, 아니면 터미널 검색이 뜬다. Editor 창이 아닐 때 이 함수는 키를
+      // 삼키지 않고 false 를 돌려준다 (FR-EKB-4).
+      if(this.app._edTrySearchKey(e)) return;
       for(const h of BUILTIN_HOTKEYS){
         if(h.match(e)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(h.action);return}
       }
       for(const[action,key]of Object.entries(shortcuts)){
+        // 편집기 검색 셋은 위에서 이미 판정했다. 여기서 다시 잡으면 Editor 창이
+        // 아닐 때 그 키를 삼켜 터미널 검색이 죽는다 (FR-EKB-4).
+        if(ED_SEARCH_ACTIONS[action]) continue;
         if(matchShortcut(e,key)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(action);return}
       }
       this._blockBrowserDefault(e);

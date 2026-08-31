@@ -272,6 +272,11 @@ class App {
       // 터미널보다 앞서는 우선순위도 그 체계가 준다 (shortcuts.md).
       softReload:()=>this.softReload(),
       toggleSearch:()=>this.toggleSearch(),
+      // FR-EKB-5: 키 배선과 **같은 함수**를 부른다. 셋 다 Editor 창이 아니면
+      // 스스로 아무 일도 하지 않으므로 여기에 가드를 겹치지 않는다.
+      edFindInFile:()=>this._edFindInFile(),
+      edQuickOpen:()=>this._edQuickOpen(),
+      edGrep:()=>this._edSearchOpen(),
     };
     // FR-SBT-21·26: 직행 키는 서술자 배열에서 파생한다 — 탭이 늘어도 이 맵을
     // 손으로 늘리지 않는다.

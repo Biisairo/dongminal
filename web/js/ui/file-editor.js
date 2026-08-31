@@ -338,6 +338,10 @@ class FileEditor {
 
     // Keyboard interop: prevent terminal shortcuts from firing in editor
     this.el.addEventListener('keydown', (e) => {
+      // FR-EKB-1·5: 편집기 검색 셋은 Monaco **안에서도** 떠야 한다. 판정은
+      // app 이 한 벌로 갖는다 — 여기서 조합을 다시 적으면 설정에서 바꾼 키가
+      // 안쪽에만 반영되지 않는다.
+      if (window.app && window.app._edTrySearchKey(e)) return;
       // Let Monaco handle everything inside the editor
       e.stopPropagation();
     });
@@ -347,18 +351,10 @@ class FileEditor {
       if (this._editor) this._editor.focus();
     });
 
-    // FR-EKB-1: 두 조합은 Monaco **안에도** 걸어야 한다. 전역 keydown 은
-    // 편집기에 포커스가 있는 동안 한 줄도 돌지 않는다 (input-binding.js 의
-    // activeElement 게이트) — 그것은 의도지만, 파일 찾기는 편집 중에도 떠야 한다.
-    // cmd+f 는 걸지 않는다 (FR-EKB-3) — Monaco 의 find 위젯이 이미 그 자리다.
-    this._editor.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP,
-      () => { if (window.app) window.app._edQuickOpen(); }
-    );
-    this._editor.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
-      () => { if (window.app) window.app._edSearchOpen(); }
-    );
+    // FR-EKB-5: `addCommand` 로 굳히지 않는다. 그것은 조합을 코드에 박는 일이고,
+    // 박으면 설정에서 바꾼 키가 Monaco 안에서만 듣지 않는다 — 위의 keydown 이
+    // 그 자리를 대신한다. 전역 keydown 은 편집기에 포커스가 있는 동안 한 줄도
+    // 돌지 않으므로(input-binding.js 의 activeElement 게이트) 이 배선이 필요하다.
 
     if (this._pendingReveal) {
       const r = this._pendingReveal; this._pendingReveal = null;

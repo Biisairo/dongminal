@@ -234,6 +234,39 @@ class FileTree {
     for(const p of this._open) this.load(p);
   }
 
+  /**
+   * 이 경로가 트리에 **보이게** 한다 — 조상 폴더를 루트까지 펼치고, 아직 읽지
+   * 않은 겹은 읽고, 그 행으로 스크롤한다.
+   *
+   * 검색으로 연 파일이 트리 어디에 있는지는 그 자체가 답의 일부다. 파일만 열고
+   * 탐색기를 그대로 두면 사용자가 경로를 눈으로 따라가며 폴더를 하나씩 펼쳐야
+   * 한다 — 검색이 방금 알려 준 것을 손으로 다시 찾는 셈이다.
+   *
+   * 겹은 **순차로** 읽는다. 병렬로 던지면 각 응답의 paint 가 서로를 덮어 중간
+   * 상태가 깜빡인다. 펼친 것은 되접지 않는다 (`_springSchedule` 과 같은 근거).
+   */
+  async revealPath(p){
+    if(!p||!this.root) return;
+    const root=String(this.root).replace(/\/+$/,'');
+    if(p!==root&&!String(p).startsWith(root+'/')) return;   // 이 트리의 것이 아니다
+    // 부모부터 위로 훑어 루트 바로 아래까지 모은다. 상한을 두는 이유는 `_parent`
+    // 가 최상위에서 `'/'` 를 내기 때문이다 — 루트가 `'/'` 면 멈추지 않는다.
+    const chain=[];
+    let d=this._parent(p);
+    for(let i=0;i<EDITOR_TREE_REVEAL_MAX&&d&&d!==root&&d.startsWith(root+'/');i++){
+      chain.unshift(d);
+      d=this._parent(d);
+    }
+    for(const dir of chain){
+      this._open.add(dir);
+      if(!this._kids.has(dir)) await this.load(dir);
+    }
+    this._sel=p;
+    this.paint();
+    const row=this.list.querySelector('.ed-row.sel');
+    if(row&&row.scrollIntoView) row.scrollIntoView({block:'nearest'});
+  }
+
   toggle(p){
     if(this._open.has(p)){this._open.delete(p);this.paint();return}
     this._open.add(p);

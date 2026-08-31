@@ -6,8 +6,9 @@
  * 무엇을 그리는지만 다르다. 한 벌로 두는 이유는 키 조작(↑↓·Enter·Escape)이
  * 완전히 같기 때문이다 — 두 벌로 두면 한쪽만 고쳐진다.
  *
- * `cmd+f` 는 여기 없다 (FR-EKB-3). Monaco 의 find 위젯이 이미 그 자리이고,
- * 우리가 만들 어떤 것도 그보다 낫지 않다.
+ * 파일 내 검색은 여기서 패널을 만들지 않는다 (FR-EKB-3) — Monaco 의 find 위젯이
+ * 이미 그 자리이고 우리가 만들 어떤 것도 그보다 낫지 않다. 다만 **여는 키는**
+ * 다른 둘과 같은 체계로 온다 (FR-EKB-5): 셋이 나란히 설정에 보여야 한다.
  */
 Object.assign(App.prototype, {
 
@@ -25,6 +26,51 @@ Object.assign(App.prototype, {
 
   _edQuickOpen(){ this._edPanelOpen('find') },
   _edSearchOpen(){ this._edPanelOpen('grep') },
+
+  /**
+   * FR-EKB-3·5: 파일 내 검색은 Monaco 에게 시킨다. 우리 패널을 하나 더 만들면
+   * 정규식·대소문자·선택영역 한정이 전부 두 벌이 된다.
+   *
+   * 편집기가 없으면 아무 일도 하지 않는다 — 이진 파일 탭이나 빈 pane 이 그렇다.
+   */
+  _edFindInFile(){
+    const v=this._edActiveEditor();
+    const ed=v&&v._editor;
+    if(!ed) return;
+    ed.focus();
+    ed.trigger('dongminal','actions.find',null);
+  },
+
+  // 활성 Editor 창에서 지금 보이는 편집기. `fileEditors` 는 탭 id 로 열려 있고
+  // 활성 탭은 pane 이 안다.
+  _edActiveEditor(){
+    const s=this.ws.windows.find(w=>w.id===this.ws.activeWindow);
+    if(!this._isEditorWin(s)) return null;
+    const p=findPane(s.layout,s.focusedPane||this.focused)
+      ||((s.layout&&s.layout.type==='pane')?s.layout:null);
+    const tid=p&&p.activeTab;
+    return (tid&&this.fileEditors.get(tid))||null;
+  },
+
+  /**
+   * FR-EKB-1·5: 편집기 검색 세 키의 **단일 판정 자리**. Monaco 안(file-editor.js)
+   * 과 밖(input-binding.js) 두 곳에서 부른다 — 두 벌로 두면 한쪽만 고쳐진다.
+   *
+   * Editor 창이 아니면 **삼키지 않고 false 를 돌려준다** (FR-EKB-4). 터미널
+   * 창에서 `Mod+F` 를 눌렀을 때 터미널 검색이 떠야 하기 때문이다. 여기서
+   * preventDefault 까지 하고 아무 일도 안 하면 그 키는 죽은 키가 된다.
+   */
+  _edTrySearchKey(e){
+    for(const[action,fn] of Object.entries(ED_SEARCH_ACTIONS)){
+      if(!matchShortcut(e,shortcuts[action])) continue;
+      if(action!=='edFindInFile'&&!this._edSearchRoot()) return false;
+      if(action==='edFindInFile'&&!this._edActiveEditor()) return false;
+      e.preventDefault(); e.stopImmediatePropagation();
+      this[fn]();
+      return true;
+    }
+    return false;
+  },
 
   _edPanelOpen(mode){
     const root=this._edSearchRoot();
@@ -62,7 +108,13 @@ Object.assign(App.prototype, {
 
   _edPanelClose(){
     const p=this._edPanelEl;
-    if(p) p.classList.remove('vis');
+    if(!p) return;
+    p.classList.remove('vis');
+    // 닫으면서 포커스도 놓는다. 질의 칸에 포커스가 남으면 전역 keydown 의
+    // activeElement 게이트(INPUT 이면 곧바로 return)가 다음 단축키를 통째로
+    // 막는다 — 닫은 패널을 **같은 키로 다시 열 수 없게 된다.**
+    const q=p.querySelector('.ed-find-q');
+    if(q&&q.blur) q.blur();
   },
 
   _edPanelWire(p){

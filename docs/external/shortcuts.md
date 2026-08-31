@@ -32,7 +32,17 @@
 | 내부 새로고침 | `Ctrl+Shift+K` |
 | 사이드바 탭: Windows | `Ctrl+Shift+1` |
 | 사이드바 탭: Git | `Ctrl+Shift+2` |
+| 파일 내에서 검색 (Editor) | `Ctrl+F` / `Cmd+F` |
+| 파일 검색 (Editor) | `Ctrl+P` / `Cmd+P` |
+| 파일 전체에서 검색 (Editor) | `Ctrl+Shift+F` / `Cmd+Shift+F` |
 | 터미널 검색 | `Ctrl+F` / `Cmd+F` (고정) |
+
+Editor 검색 셋은 **Editor 창이 활성일 때만** 동작합니다. 기본값이 `Ctrl`·`Cmd` 를
+모두 받는 이유는 두 OS 의 관용이 다르기 때문입니다 — 설정에서 직접 녹음하면 실제로
+누른 조합 하나로 굳습니다.
+
+`파일 내에서 검색` 의 기본값은 `터미널 검색` 과 같은 조합입니다. 겹치지 않습니다 —
+Editor 창에서는 편집기 검색이, 터미널 창에서는 터미널 검색이 뜹니다.
 
 ## 브라우저 기본 단축키 차단
 

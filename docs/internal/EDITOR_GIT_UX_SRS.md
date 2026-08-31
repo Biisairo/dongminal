@@ -305,16 +305,39 @@ Monaco 0.56 은 EditContext API 를 쓴다. 포커스를 받는 요소는 textar
 
 ### 3.6 묶음 K — 키 배분 (FR-EKB)
 
-**FR-EKB-1** `cmd+p`·`cmd+shift+f` 는 **Monaco 안팎 두 자리에** 배선한다
-(§2.4). 편집 중에도 떠야 한다.
+**FR-EKB-1** 편집기 검색의 키는 **Monaco 안팎 두 자리에** 배선한다 (§2.4).
+편집 중에도 떠야 한다. 판정은 한 벌이다(`_edTrySearchKey`) — 두 벌로 두면
+설정에서 바꾼 키가 한쪽에만 반영된다.
 
-**FR-EKB-2** 두 조합은 브라우저 기본 동작을 막는다 (`cmd+p` = 인쇄).
+**FR-EKB-2** 이 조합들은 브라우저 기본 동작을 막는다 (`cmd+p` = 인쇄).
 
-**FR-EKB-3** `cmd+f` 는 **손대지 않는다.** Monaco 의 find 위젯이 이미 그
-자리에 있고, 우리가 가로채면 더 나쁜 것으로 바꾸는 셈이다.
+**FR-EKB-3** 파일 내 검색은 **패널을 만들지 않는다.** Monaco 의 find 위젯이
+이미 그 자리에 있고, 우리가 만들 어떤 것도 그보다 낫지 않다 — 여는 키만 우리가
+갖고(FR-EKB-5), 여는 일은 `actions.find` 에게 시킨다.
 
-**FR-EKB-4** 두 조합은 **Editor 창이 활성일 때만** 동작한다. 터미널 창에서
+**FR-EKB-4** 이 키들은 **Editor 창이 활성일 때만** 동작한다. 터미널 창에서
 `cmd+p` 를 눌러도 아무 일이 없다 — 그 자리에는 검색할 루트가 없다.
+
+그리고 그때 키를 **삼키지 않는다.** 파일 내 검색의 기본값은 터미널 검색과 같은
+조합이므로(둘 다 `Mod+F`), 삼키면 터미널 창에서 터미널 검색이 죽는다.
+
+**FR-EKB-5** 세 검색은 **설정에서 바꿀 수 있는 단축키**다 — 파일 내에서 검색
+(`edFindInFile`) · 파일 검색(`edQuickOpen`) · 파일 전체에서 검색(`edGrep`).
+다른 앱 단축키와 같은 체계(`SHORTCUT_DEFAULTS` · `executeAction` · Settings ▸
+Shortcuts)를 딛는다. 종전에는 조합이 코드에 박혀 있어 바꿀 수 없었다.
+
+기본값은 `Mod+F` · `Mod+P` · `Mod+Shift+F` 다. `Mod` 는 Ctrl 과 Cmd 중 **그
+호스트가 쓰는 쪽**을 뜻하는 수식자다 — 설정은 서버에 한 벌로 사는데 두 OS 의
+관용이 다르므로, 기본값을 한쪽으로 적으면 다른 쪽의 관용을 버려야 한다. 사용자가
+직접 녹음한 키에는 이 수식자가 없다 (`fmtShortcut` 은 실제 조합을 굳힌다).
+
+**FR-EKB-6** 파일을 여는 모든 경로는 그 파일이 **탐색기에서 보이게** 한다 —
+조상 폴더를 루트까지 펼치고, 아직 읽지 않은 겹은 읽고, 그 행을 선택으로 표시한다
+(`FileTree.revealPath`).
+
+검색이 방금 알려 준 경로를 사용자가 손으로 다시 펼치게 두지 않기 위해서다. 두
+검색(파일·전체)이 그 요구의 출처이지만 배선은 `_edOpenFile` 한 자리에 둔다 —
+부름터마다 걸면 git 변경파일·`dmctl open` 이 갈라진다.
 
 ---
 
@@ -348,6 +371,10 @@ Monaco 0.56 은 EditContext API 를 쓴다. 포커스를 받는 요소는 textar
 | **V-EGS-6** | FR-EGS-10 | 결과를 고르면 그 줄로 열린다 |
 | **V-EKB-1** | FR-EKB-1 | Monaco 에 포커스가 있어도 두 조합이 뜬다 |
 | **V-EKB-2** | FR-EKB-4 | 터미널 창에서는 뜨지 않는다 |
+| **V-EKB-3** | FR-EKB-5 | `Mod` 기본값이 Ctrl 과 Meta 를 모두 받는다 |
+| **V-EKB-4** | FR-EKB-5 | 설정에서 바꾼 키로 열리고, 옛 기본값은 듣지 않는다 |
+| **V-EKB-5** | FR-EKB-4 | 터미널 창의 `Mod+F` 는 종전대로 터미널 검색이다 |
+| **V-EKB-6** | FR-EKB-6 | 전체 검색·파일 검색으로 연 파일의 조상이 모두 펼쳐진다 |
 | **V-EVW-1** | FR-EVW-1·2 | 확장자가 거짓인 파일도 내용으로 판정된다 |
 | **V-EVW-2** | FR-EVW-3 | 이진 파일은 Monaco 가 서지 않고 사유가 보인다 |
 | **V-EVW-3** | FR-EVW-4 | 이미지는 `<img>` 로 그려진다 |
@@ -407,3 +434,5 @@ Monaco 0.56 은 EditContext API 를 쓴다. 포커스를 받는 요소는 textar
 | FR-DOR-1~6 | `web/js/core/constants.js`, `web/js/git/panel.js` |
 | FR-EQO-1~6 · FR-EGS-1~9 | `internal/webserver/httpapi/handlers_fs_search.go`, `handlers_api.go` |
 | FR-EQO-7·8 · FR-EGS-10 · FR-EKB-1~4 | `web/js/ui/file-editor.js`, `web/js/core/app-editor.js` |
+| FR-EKB-5 | `web/js/core/helpers.js`(`Mod`·기본값), `web/js/core/app-edsearch.js`(`_edTrySearchKey`), `web/js/core/app-settings.js`(목록) |
+| FR-EKB-6 | `web/js/ui/file-tree.js`(`revealPath`), `web/js/core/app-editor.js`(`_edOpenFile`) |

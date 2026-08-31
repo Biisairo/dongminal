@@ -4,10 +4,28 @@
 
 // ── Shortcut parsing ──
 
-function parseShortcut(s){const p=s.split('+');const k=p.pop();return{ctrl:p.includes('Ctrl'),alt:p.includes('Alt'),meta:p.includes('Meta'),shift:p.includes('Shift'),code:k}}
-function matchShortcut(e,s){if(!s)return false;const p=parseShortcut(s);return e.ctrlKey===p.ctrl&&e.altKey===p.alt&&e.metaKey===p.meta&&e.shiftKey===p.shift&&e.code===p.code}
+// `Mod` 는 Ctrl 과 Cmd 중 **그 호스트가 쓰는 쪽**을 뜻한다.
+//
+// 왜 필요한가: 단축키 설정은 서버에 한 벌로 산다(app-settings). 기본값을 `Ctrl`
+// 이나 `Meta` 중 하나로 적으면 다른 OS 의 관용을 버려야 한다 — macOS 에서
+// `cmd+p`, Windows 에서 `ctrl+p` 가 둘 다 파일 검색이어야 하는데 그 둘은 다른
+// 조합이다. 종전에는 그래서 이 키들이 코드에 박혀 있었고(`e.metaKey||e.ctrlKey`),
+// 박혀 있었기 때문에 바꿀 수 없었다.
+//
+// 사용자가 직접 녹음한 키에는 이 수식자가 없다 — `fmtShortcut` 은 실제로 누른
+// 조합을 그대로 굳힌다. 관용은 기본값의 성질이지 기록의 성질이 아니다.
+function parseShortcut(s){const p=s.split('+');const k=p.pop();return{mod:p.includes('Mod'),ctrl:p.includes('Ctrl'),alt:p.includes('Alt'),meta:p.includes('Meta'),shift:p.includes('Shift'),code:k}}
+function matchShortcut(e,s){
+  if(!s)return false;
+  const p=parseShortcut(s);
+  if(e.altKey!==p.alt||e.shiftKey!==p.shift||e.code!==p.code)return false;
+  // Mod 는 Ctrl 또는 Meta 중 **정확히 하나**다. 둘 다 누른 조합까지 받으면
+  // `Ctrl+Cmd+F` 를 따로 배정한 사용자의 키를 가로챈다.
+  if(p.mod)return e.ctrlKey!==e.metaKey;
+  return e.ctrlKey===p.ctrl&&e.metaKey===p.meta;
+}
 function fmtShortcut(e){const p=[];if(e.ctrlKey)p.push('Ctrl');if(e.altKey)p.push('Alt');if(e.metaKey)p.push('Meta');if(e.shiftKey)p.push('Shift');p.push(e.code);return p.join('+')}
-function displayKey(s){return s.replace(/Key/g,'').replace(/BracketLeft/g,'[').replace(/BracketRight/g,']').replace(/Meta/g,'⌘').replace(/Ctrl/g,'⌃').replace(/Alt/g,'⌥').replace(/Shift/g,'⇧').replace(/Arrow/g,'')}
+function displayKey(s){return s.replace(/Key/g,'').replace(/BracketLeft/g,'[').replace(/BracketRight/g,']').replace(/Mod/g,'⌘/⌃').replace(/Meta/g,'⌘').replace(/Ctrl/g,'⌃').replace(/Alt/g,'⌥').replace(/Shift/g,'⇧').replace(/Arrow/g,'')}
 
 // ── Theme helpers ──
 
@@ -97,6 +115,11 @@ const SHORTCUT_DEFAULTS={
   runsToggle:'Ctrl+Shift+KeyO',
   // SOFT_RELOAD_SRS FR-SRL-9: `R` 계열은 브라우저가 가져가므로 쓸 수 없다 (D-6).
   softReload:'Ctrl+Shift+KeyK',
+  // EDITOR_GIT_UX_SRS FR-EKB-5: Editor 창의 검색 셋. 종전에는 키가 코드에 박혀
+  // 있어 바꿀 수 없었다. `Mod` 인 이유는 두 OS 의 관용이 다르기 때문이다.
+  edFindInFile:'Mod+KeyF',
+  edQuickOpen:'Mod+KeyP',
+  edGrep:'Mod+Shift+KeyF',
 };
 const SHORTCUT_LABELS={
   // GIT_SIDEBAR_TABS_SRS FR-SBT-31·33: 이 키는 **활성 사이드바 탭의 목록**을 순회한다
@@ -113,6 +136,18 @@ const SHORTCUT_LABELS={
   bgToggle:'백그라운드 도구',
   runsToggle:'Run 오케스트레이션',
   softReload:'내부 새로고침',
+  edFindInFile:'파일 내에서 검색 (Editor)',
+  edQuickOpen:'파일 검색 (Editor)',
+  edGrep:'파일 전체에서 검색 (Editor)',
+};
+
+// 이 셋은 **Editor 창에서만** 뜻이 있다 (FR-EKB-4). 다른 창에서 같은 키를 눌렀을
+// 때 삼키지 않고 다음 배선으로 넘기려면, 그 사실을 아는 자리가 이름 하나로
+// 있어야 한다 — 터미널 창의 `Mod+F` 는 종전대로 터미널 검색이다.
+const ED_SEARCH_ACTIONS={
+  edFindInFile:'_edFindInFile',
+  edQuickOpen:'_edQuickOpen',
+  edGrep:'_edSearchOpen',
 };
 var shortcuts={...SHORTCUT_DEFAULTS};
 

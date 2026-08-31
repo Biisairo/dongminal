@@ -168,6 +168,10 @@ const EDITOR_UPLOAD_SKIPPED='%n개를 건너뛰었습니다';
 const EDITOR_UPLOAD_ABORTED='%n개를 남기고 중단했습니다';
 // FR-FTR-23: 드래그 중 접힌 폴더가 펼쳐지기까지의 체류 시간 (D-5).
 const EDITOR_SPRING_MS=600;
+// `revealPath` 가 거슬러 올라갈 겹의 상한. `_parent` 는 최상위에서 `'/'` 를
+// 내므로 루트가 `'/'` 인 트리에서는 스스로 멈추지 않는다 — 경로 깊이에 상한을
+// 두는 편이 종료 조건을 경로 모양에 맡기는 것보다 확실하다.
+const EDITOR_TREE_REVEAL_MAX=64;
 const EDITOR_MENU_DELETE='삭제';
 
 // FR-EDT-83·84: 삭제 확인창. **영구 삭제**라는 사실, 폴더면 재귀와 항목 수,

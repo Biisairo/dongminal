@@ -363,6 +363,12 @@ Object.assign(App.prototype, {
       const v=t&&this.fileEditors.get(t.tab.id);
       if(v&&v.revealLine) v.revealLine(ln,(opts||{}).col);
     }
+    // 연 파일이 **탐색기에서도** 보이게 한다. 파일 검색·전체 검색으로 열면 그
+    // 파일이 트리 어디에 있는지가 답의 일부인데, 탐색기를 그대로 두면 사용자가
+    // 경로를 눈으로 따라가며 폴더를 하나씩 펼쳐야 한다. 여는 경로가 여럿이므로
+    // (검색 둘·git 변경파일·dmctl open) 각 부름터가 아니라 이 자리에 둔다.
+    const tree=this._edTrees&&this._edTrees.get(w.id);
+    if(tree&&tree.revealPath) tree.revealPath(filePath);
     return w.id;
   },
 
