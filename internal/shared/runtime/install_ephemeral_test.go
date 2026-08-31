@@ -200,3 +200,95 @@ func TestInspectHelpers_PartialInstallIsBroken(t *testing.T) {
 		t.Fatalf("없는 %d개를 문제로 세야 한다: %+v", len(names)-1, st.Problems)
 	}
 }
+
+// LEFTOVERS_SRS 묶음 R — 놓은 것은 거둔다.
+
+// V-LFT-4: 기록이 생기기 전에 놓인 이름(`mdview`)이 사라진다.
+//
+// 실제로 사용자 bin 에 남아 있던 것이다 — 코드 어디에도 없는 이름인데 설치가
+// 거두지 않아 계속 있었다.
+func TestInstall_ReapsRetiredHelper(t *testing.T) {
+	self := fakeExe(t, filepath.Join(t.TempDir(), "opt"))
+	binDir := filepath.Join(t.TempDir(), "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	retired := helperPath(binDir, retiredHelperNames[0])
+	if err := os.WriteFile(retired, []byte("x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := installWith(binDir, self); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	if _, err := os.Stat(retired); !os.IsNotExist(err) {
+		t.Fatalf("폐지된 헬퍼가 남았다: %v", err)
+	}
+}
+
+// V-LFT-3: 기록에 있던 이름이 목록에서 빠지면 다음 설치가 거둔다.
+func TestInstall_ReapsNameDroppedFromManifest(t *testing.T) {
+	self := fakeExe(t, filepath.Join(t.TempDir(), "opt"))
+	binDir := filepath.Join(t.TempDir(), "bin")
+	if err := installWith(binDir, self); err != nil {
+		t.Fatal(err)
+	}
+	// 지난 판이 놓았던 이름을 손으로 만든다 — 기록에 넣고 파일도 둔다.
+	gone := "옛헬퍼"
+	if err := os.WriteFile(helperPath(binDir, gone), []byte("x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	man := filepath.Join(binDir, helperManifest)
+	blob, err := os.ReadFile(man)
+	if err != nil {
+		t.Fatalf("기록이 없다: %v", err)
+	}
+	if err := os.WriteFile(man, append(blob, []byte(gone+"\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := installWith(binDir, self); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(helperPath(binDir, gone)); !os.IsNotExist(err) {
+		t.Fatalf("기록에서 빠진 헬퍼가 남았다: %v", err)
+	}
+	// 지금 이름들은 그대로다.
+	if st := InspectHelpers(binDir); !st.Installed || len(st.Problems) != 0 {
+		t.Fatalf("현재 헬퍼가 상했다: %+v", st)
+	}
+}
+
+// V-LFT-5: 기록에 없는 것은 건드리지 않는다 — bin 에는 헬퍼만 살지 않는다.
+func TestInstall_LeavesUnknownFilesAlone(t *testing.T) {
+	self := fakeExe(t, filepath.Join(t.TempDir(), "opt"))
+	binDir := filepath.Join(t.TempDir(), "bin")
+	if err := installWith(binDir, self); err != nil {
+		t.Fatal(err)
+	}
+	mine := filepath.Join(binDir, "사용자가-둔-것")
+	if err := os.WriteFile(mine, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := installWith(binDir, self); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{mine, filepath.Join(binDir, "bash-hook.sh")} {
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("우리 것이 아닌 파일을 지웠다: %s (%v)", p, err)
+		}
+	}
+}
+
+// V-LFT-6: 기록이 없는 홈에서도 설치가 성공한다.
+func TestInstall_WorksWithoutManifest(t *testing.T) {
+	self := fakeExe(t, filepath.Join(t.TempDir(), "opt"))
+	binDir := filepath.Join(t.TempDir(), "bin")
+	if err := installWith(binDir, self); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(binDir, helperManifest)); err != nil {
+		t.Fatalf("기록이 남지 않았다: %v", err)
+	}
+}

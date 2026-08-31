@@ -16,6 +16,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"dongminal/internal/helper/runtimebin"
@@ -69,7 +70,8 @@ func installWith(binDir, self string) error {
 		}
 		self = stable
 	}
-	for _, name := range helperNames() {
+	names := helperNames()
+	for _, name := range names {
 		// 확장자는 설치 시점에만 붙인다. helperNames() 는 multi-call 디스패치가
 		// 보는 이름이며 그쪽에는 확장자가 없다 (FR-XPA-3).
 		dst := filepath.Join(binDir, name+paths.ExeSuffix())
@@ -77,6 +79,8 @@ func installWith(binDir, self string) error {
 			return fmt.Errorf("install helper %s: %w", name, err)
 		}
 	}
+	// LEFTOVERS_SRS FR-LFT-5: 놓기만 하고 거두지 않으면 폐지된 이름이 영원히 남는다.
+	reapRetiredHelpers(binDir, names)
 	if err := installAgentHooks(binDir); err != nil {
 		return fmt.Errorf("install agent hooks: %w", err)
 	}
@@ -132,6 +136,58 @@ func stableSelfCopy(paths platform.Paths, binDir, self string) (string, error) {
 		return "", fmt.Errorf("install self copy: %w", err)
 	}
 	return dst, nil
+}
+
+// helperManifest 는 **우리가 놓은 헬퍼 이름의 기록**이다.
+//
+// 기록이 필요한 이유는 `bin/` 에 헬퍼만 살지 않기 때문이다 — 셸 훅·에이전트
+// 훅·플러그인·덧없는 자기 복사본이 함께 산다. 모르는 파일을 지우는 규칙은 둘 수
+// 없으므로(LEFTOVERS_SRS §2.3), 우리가 놓았다고 적어 둔 것만 거둔다 (FR-LFT-6).
+const helperManifest = ".helpers"
+
+// retiredHelperNames 는 **기록이 생기기 전에** 놓았던 이름들이다.
+//
+// 기록 이후에 목록에서 빠지는 이름은 기록이 알아서 거두므로, 여기는 늘어날 자리가
+// 아니다 (D-3). `mdview` 는 실제로 사용자 `bin/` 에 남아 있던 것이다.
+var retiredHelperNames = []string{"mdview"}
+
+// reapRetiredHelpers 는 우리가 놓았던 것 중 지금 목록에 없는 것을 거두고, 이번에
+// 놓은 이름을 기록으로 남긴다.
+//
+// 실패는 삼킨다 (FR-LFT-8). 남은 헬퍼는 해가 없고 — 잘못된 것을 가리키면
+// InspectHelpers 가 알린다 — 거두지 못했다고 설치를 접는 것이 더 해롭다.
+func reapRetiredHelpers(binDir string, current []string) {
+	live := make(map[string]bool, len(current))
+	for _, n := range current {
+		live[n] = true
+	}
+	suffix := platform.Current().Paths.ExeSuffix()
+	for _, n := range append(readHelperManifest(binDir), retiredHelperNames...) {
+		if live[n] {
+			continue
+		}
+		_ = os.Remove(filepath.Join(binDir, n+suffix))
+	}
+	sorted := append([]string(nil), current...)
+	sort.Strings(sorted)
+	_ = os.WriteFile(filepath.Join(binDir, helperManifest),
+		[]byte(strings.Join(sorted, "\n")+"\n"), 0o644)
+}
+
+// readHelperManifest 는 지난번에 놓은 이름들이다. 없으면 빈 목록이다 — 기록이
+// 생기기 전의 홈이 그렇고, 그 시절의 이름은 retiredHelperNames 가 맡는다.
+func readHelperManifest(binDir string) []string {
+	blob, err := os.ReadFile(filepath.Join(binDir, helperManifest))
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, line := range strings.Split(string(blob), "\n") {
+		if n := strings.TrimSpace(line); n != "" {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // HelperProblem 은 설치된 헬퍼 하나가 쓸 수 없는 상태라는 보고다 (FR-HLI-7).

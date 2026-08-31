@@ -19,3 +19,8 @@ func ForegroundGroups() bool { return false }
 // Windows 에는 그 셰뱅도, 그 신호(SIGTERM trap)도 없다 — 정중한 종료의 의미가
 // 다르다 (CROSS_PLATFORM_SRS FR-XPR-3: Ctrl+Break 뒤 강제 종료).
 func POSIXShell() bool { return false }
+
+// Symlinks 는 Windows 에서 거짓이다. `CreateSymbolicLink` 는 관리자 권한이나
+// 개발자 모드를 요구하므로 평범한 CI 계정에서는 실패한다 — 그 실패는 검사 대상이
+// 아니라 환경이다 (LEFTOVERS_SRS FR-LFT-2).
+func Symlinks() bool { return false }

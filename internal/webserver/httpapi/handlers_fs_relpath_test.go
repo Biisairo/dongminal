@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/testpath"
+
 	"bytes"
 	"encoding/json"
 	"mime/multipart"
@@ -9,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 )
 
@@ -202,8 +203,8 @@ func TestFSUpload_RelPathDoesNotCreateTargetDir(t *testing.T) {
 // 보아도 정상이고, `a` 가 링크라는 사실은 파일시스템만 안다. 막지 않으면
 // `MkdirAll` 과 `os.OpenFile` 이 링크를 따라가 루트 밖에 쓴다.
 func TestFSUpload_RelPathRejectsSymlinkedAncestor(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows 는 심링크에 권한이 필요하다")
+	if !testpath.Symlinks() {
+		t.Skip("이 호스트는 권한 없이 심링크를 만들지 못한다")
 	}
 	root := uploadRoot(t)
 	srv := transferSrv(t, root)

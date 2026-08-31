@@ -20,3 +20,9 @@ func ForegroundGroups() bool { return true }
 // Windows 에는 그 셰뱅도, 그 신호(SIGTERM trap)도 없다 — 정중한 종료의 의미가
 // 다르다 (CROSS_PLATFORM_SRS FR-XPR-3: Ctrl+Break 뒤 강제 종료).
 func POSIXShell() bool { return true }
+
+// Symlinks 는 이 호스트가 **권한 없이** 심링크를 만들 수 있는지 알린다.
+//
+// 링크를 따라가지 않는 것을 검증하는 검사들이 이것을 딛는다 — 링크를 만들지
+// 못하면 그 검사는 아무것도 재지 못한다 (LEFTOVERS_SRS FR-LFT-2).
+func Symlinks() bool { return true }

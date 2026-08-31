@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/testpath"
+
 	"archive/zip"
 	"bytes"
 	"net/http"
@@ -8,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -209,8 +210,8 @@ func TestFSDownloadDir_OverByteLimit(t *testing.T) {
 // V-ETR-13 (FR-ETR-14, D-7): 링크는 담기지 않고 나머지는 담긴다. 따라가면
 // 순환과 루트 밖 유출이 함께 열린다.
 func TestFSDownloadDir_SkipsSymlinks(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows 는 심링크에 권한이 필요하다")
+	if !testpath.Symlinks() {
+		t.Skip("이 호스트는 권한 없이 심링크를 만들지 못한다")
 	}
 	root := zipTree(t)
 	srv := transferSrv(t, root)
@@ -237,8 +238,8 @@ func TestFSDownloadDir_SkipsSymlinks(t *testing.T) {
 // 스트리밍이 시작된 뒤에는 오류를 보낼 자리가 없고, 절반짜리 zip 보다 하나
 // 빠진 zip 이 낫다.
 func TestFSDownloadDir_UnreadableFileSkipped(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows 는 퍼미션 모델이 다르다")
+	if !testpath.PermChecked() {
+		t.Skip("이 호스트는 유닉스 권한 비트를 보존하지 않는다")
 	}
 	if os.Geteuid() == 0 {
 		t.Skip("root 는 퍼미션을 무시한다")
