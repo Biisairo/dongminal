@@ -1,5 +1,44 @@
 # 아키텍처
 
+## 프로세스 역할 넷
+
+바이너리는 하나인데 **프로세스 역할은 넷**이다. `main()` 이 argv 로 갈라진다.
+
+```
+Browser (xterm.js)                    ┌─ ② dongminald ─────────────┐
+   │  Binary WebSocket                │   PTY 소유 · ToolManager    │
+   ├────────────────────▶ ③ dongminal │   브라우저 새로고침에도 유지 │──▶ Shell
+   │                       (웹 서버)  └────────────┬───────────────┘
+   └─ SSE /api/commands/sse ◀── HTTP/WS/SSE        │ Unix socket
+                                  │               │ (paned.sock)
+                                  ↕               ↕
+                          DONGMINAL_HOME/
+                            ├ settings.json
+                            ├ workspace.json   (schemaVersion 2)
+                            ├ tools.json
+                            └ bin/ ──▶ ① dmctl / edit / download / detach
+                                       (같은 바이너리의 multi-call symlink)
+
+④ dongminal start|stop|health|migrate   — 제어 CLI. ③ 을 띄우고 접는다
+```
+
+데몬이 PTY 를 들고 있어서 웹 서버를 재시작해도 터미널 세션이 살아남는다. 데몬이
+없으면 ③ 이 자기 프로세스에 ToolManager 를 만든다(direct mode) — 그래서
+`shared/toolhub` 를 ②③ 이 함께 실행한다.
+
+- 프론트엔드는 `go:embed` 로 바이너리에 포함.
+- 런타임 헬퍼(`dmctl`, `edit`, `download`, `detach`)는 multi-call CLI — `$DONGMINAL_HOME/bin/` 에 바이너리를 가리키는 symlink 로 설치된다. zsh/bash cwd 훅은 `go:embed` 로 풀린다. 각 터미널의 shell 은 자동으로 이 경로를 `PATH` 에 얹고 `ZDOTDIR`/`BASH_ENV` 로 훅 연결.
+- PTY 프로세스는 브라우저 새로고침해도 유지 (서버 메모리 버퍼).
+- 워크스페이스(창/분할 칸/탭) 는 `workspace.json` 에 비동기 영속화 (H5 latest-wins coalescing). 탭이 참조하는 도구는 `tools.json` 에 기록되고, 백그라운드 도구는 기록되지 않아 데몬 재시작을 넘기지 않는다.
+- 에이전트 접합면: 액션은 `dmctl` 서브커맨드, 정책은 `--plugin-dir`/`--settings` 로 세션 스코프 주입되는 스킬·훅. 등록 절차 없음. 자세히는 [docs/external/agent-orchestration.md](docs/external/agent-orchestration.md).
+- 주의 알림: 서버가 도구 출력을 관찰(OSC 9/99/777·idle)하거나 `dmctl notify`(claude/codex 투명 래퍼가 자동 주입한 hook 이 호출)로 주의 상태를 잡아 SSE(`tool_attention`) 로 브라우저에 전달. 자세히는 [docs/internal/archive/PANE_ATTENTION_NOTIFY_SRS.md](docs/internal/archive/PANE_ATTENTION_NOTIFY_SRS.md).
+- 에이전트 활동: attention 과 직교하는 "현재 작업 상태(activity)" 레이어. 에이전트 hook 이 `dmctl activity` 로 보고(stdin hook JSON 파싱) → `POST /api/tools/activity/set` → SSE(`tool_activity`) 발행. 도구당 최신 1개 상태만 보관(히스토리 없음). 자세히는 [docs/internal/archive/AGENT_ACTIVITY_PANEL_SRS.md](docs/internal/archive/AGENT_ACTIVITY_PANEL_SRS.md).
+
+자세한 패키지 구조와 핫패스 성능 설계는 [docs/internal/architecture.md](docs/internal/architecture.md).
+
+*(위 그림은 README 가 사용자 문서가 되면서 옮겨 온 것이다 — README_REWRITE_SRS
+FR-RDM-10.)*
+
 ## 패키지 레이아웃
 
 `internal/` 은 **프로세스 축**으로 묶여 있다. 판정 기준은 "링크되냐"가 아니라

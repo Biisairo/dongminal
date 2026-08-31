@@ -260,6 +260,10 @@ func TestInstall_ReapsNameDroppedFromManifest(t *testing.T) {
 }
 
 // V-LFT-5: 기록에 없는 것은 건드리지 않는다 — bin 에는 헬퍼만 살지 않는다.
+//
+// 셸 훅으로 재지 않는다: 그 파일 이름은 OS 마다 다르므로(POSIX 는 bash-hook.sh,
+// Windows 는 PowerShell 훅) 이름을 못박는 순간 검사 자신이 OS 가정을 갖는다.
+// 에이전트 플러그인 자리는 어느 OS 에나 같은 이름으로 선다.
 func TestInstall_LeavesUnknownFilesAlone(t *testing.T) {
 	self := fakeExe(t, filepath.Join(t.TempDir(), "opt"))
 	binDir := filepath.Join(t.TempDir(), "bin")
@@ -274,9 +278,9 @@ func TestInstall_LeavesUnknownFilesAlone(t *testing.T) {
 	if err := installWith(binDir, self); err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range []string{mine, filepath.Join(binDir, "bash-hook.sh")} {
+	for _, p := range []string{mine, AgentPluginDir(binDir)} {
 		if _, err := os.Stat(p); err != nil {
-			t.Errorf("우리 것이 아닌 파일을 지웠다: %s (%v)", p, err)
+			t.Errorf("우리 것이 아닌 자리를 지웠다: %s (%v)", p, err)
 		}
 	}
 }
