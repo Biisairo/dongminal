@@ -282,17 +282,27 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 		// Dispatch to per-tool output channels. Non-blocking: a single slow
 		// WS subscriber must never stall readLoop (which serves every tool).
 		// Drops are counted/logged rather than silently lost (FR-18).
+		//
+		// 순회는 **락 안에서** 한다. 종전에는 락 안에서 map 을 꺼내고 밖에서
+		// 돌았는데, 꺼낸 것은 사본이 아니라 map 그 자체다 — 그 사이 브라우저
+		// 하나가 붙거나 떨어지면(Subscribe·unsubscribe) Go 런타임이 프로세스를
+		// 죽인다: `concurrent map iteration and map write`. recover 로 잡히는
+		// 종류가 아니고, 서버가 통째로 사라진다.
+		//
+		// 락을 잡은 채 보내도 막히지 않는다 — 아래 send 는 default 가 있어
+		// 언제나 즉시 떨어진다. 로그만 락 밖으로 미룬다(I/O 라 길다).
+		var dropped int64
 		pc.subMu.RLock()
-		chans := pc.subbers[ev.Tool]
-		pc.subMu.RUnlock()
-		for ch := range chans {
+		for ch := range pc.subbers[ev.Tool] {
 			select {
 			case ch <- data:
 			default:
-				if n := pc.dropped.Add(1); n == 1 || n%256 == 0 {
-					log.Printf("toolclient: WS output backpressure tool=%s dropped=%d (slow browser?)", ev.Tool, n)
-				}
+				dropped = pc.dropped.Add(1)
 			}
+		}
+		pc.subMu.RUnlock()
+		if dropped == 1 || (dropped > 0 && dropped%256 == 0) {
+			log.Printf("toolclient: WS output backpressure tool=%s dropped=%d (slow browser?)", ev.Tool, dropped)
 		}
 	case "fg":
 		var ev struct {
