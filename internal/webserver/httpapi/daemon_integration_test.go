@@ -146,27 +146,20 @@ func TestDaemonFullFlow(t *testing.T) {
 
 	// Kill tool → should trigger exit → activity cleanup
 	pc.Delete(toolID)
-	time.Sleep(300 * time.Millisecond)
 
-	// Verify activity was cleared
-	if a := tracker.Activity(toolID); a != nil {
-		t.Fatal("activity should be nil after exit")
-	}
-
-	// Verify SSE events include activity "ended" or similar
-	sseMu.Lock()
-	found := false
-	for _, ev := range sseEvents {
-		if ev == "tool_activity" {
-			found = true
-			break
+	// 고정 대기로 재지 않는다 — 정리와 방송은 비동기이고, 얼마나 걸릴지는 기계가
+	// 정한다. 조건이 **설 때까지** 기다리고, 서지 않으면 그때 실패한다.
+	waitUntil(t, "종료 뒤 활동이 비워진다", func() bool { return tracker.Activity(toolID) == nil })
+	waitUntil(t, "tool_activity SSE 가 온다", func() bool {
+		sseMu.Lock()
+		defer sseMu.Unlock()
+		for _, ev := range sseEvents {
+			if ev == "tool_activity" {
+				return true
+			}
 		}
-	}
-	sseMu.Unlock()
-	if !found {
-		t.Log("SSE events:", sseEvents)
-		t.Fatal("expected tool_activity SSE event")
-	}
+		return false
+	})
 }
 
 // TestDaemonAttentionDetection verifies L1 OSC attention detection

@@ -265,6 +265,26 @@ func newHeadlessFixture(t *testing.T) *headlessFixture {
 	return f
 }
 
+// waitAction 은 그 이름의 명령이 **배달될 때까지** 기다린다.
+//
+// 방송은 goroutine 이 받아 적는다(newHeadlessFixture). 그래서 "앞 단계가 방송했다"
+// 와 "그것이 기록에 들어왔다" 사이에 틈이 있고, 기준점(resetActions)을 그 틈에서
+// 잡으면 늦게 온 방송이 다음 단계의 계수에 섞인다 — 윈도우 러너에서 실제로 그랬다
+// (`부착이 쓴 명령 = [tools_background_changed restoreTool]`).
+func (f *headlessFixture) waitAction(t *testing.T, name string) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		for _, a := range f.actions() {
+			if a == name {
+				return
+			}
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("%q 방송이 배달되지 않았다: %v", name, f.actions())
+}
+
 // actions 는 지금까지 배달된 명령 이름들이다.
 // resetActions 는 방송 기록을 비운다. "이 단계가 쓴 명령" 을 재는 검사는 그
 // 단계 **직전에** 기준점을 잡아야 한다 — 앞 단계(헤드리스 생성)가 남긴 것까지
@@ -435,6 +455,11 @@ func TestRunAttachDetach_DoesNotChangeMemberState(t *testing.T) {
 
 	// 생성 단계가 남긴 방송(FR-BGV-1 의 `tools_background_changed`)은 여기서
 	// 재려는 것이 아니다 — 아래 검사는 **부착이** 쓴 명령을 센다.
+	//
+	// 비우기 전에 그 방송이 배달되기를 기다린다. `createHeadlessTool` 은 그것을
+	// 조건 없이 내보내므로 기다림은 결정적이고, 기다리지 않으면 비운 뒤에 도착해
+	// 다음 계수에 섞인다.
+	f.waitAction(t, "tools_background_changed")
 	f.resetActions()
 
 	// 부착 — 브라우저가 탭을 만드는 것을 흉내 낸다.
@@ -453,6 +478,10 @@ func TestRunAttachDetach_DoesNotChangeMemberState(t *testing.T) {
 		t.Fatalf("부착 후에도 headless 가 참이다: %+v", out)
 	}
 	// 기존 백그라운드 복귀와 **같은 경로**여야 한다 (FR-HLM-9).
+	//
+	// 기다린 뒤에 센다 — 방송은 배달이 비동기다(waitAction 주석). 기다리지 않으면
+	// "아직 안 왔다" 와 "쓰지 않았다" 가 구별되지 않는다.
+	f.waitAction(t, "restoreTool")
 	if acts := f.actions(); len(acts) != 1 || acts[0] != "restoreTool" {
 		t.Fatalf("부착이 쓴 명령 = %v, want [restoreTool]", acts)
 	}
@@ -475,6 +504,7 @@ func TestRunAttachDetach_DoesNotChangeMemberState(t *testing.T) {
 	if out["headless"] != true {
 		t.Fatalf("분리 후 headless 가 서지 않았다: %+v", out)
 	}
+	f.waitAction(t, "detachTab")
 	if acts := f.actions(); len(acts) != 2 || acts[1] != "detachTab" {
 		t.Fatalf("분리가 쓴 명령 = %v, want [.. detachTab]", acts)
 	}

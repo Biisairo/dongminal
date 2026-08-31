@@ -19,6 +19,21 @@ const (
 	shellReadyLimit = 20 * time.Second
 )
 
+// waitUntil 은 조건이 설 때까지 기다린다. 고정 대기(`time.Sleep`)를 대신하는
+// 자리다 — 비동기 정리·방송이 얼마나 걸릴지는 기계가 정하고, 고정 값은 빠른
+// 기계에서 낭비이고 느린 기계에서 거짓 실패다.
+func waitUntil(t *testing.T, what string, ok func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(shellReadyLimit)
+	for time.Now().Before(deadline) {
+		if ok() {
+			return
+		}
+		time.Sleep(shellPoll)
+	}
+	t.Fatalf("%s — %v 안에 서지 않았다", what, shellReadyLimit)
+}
+
 // waitForShellReady 는 셸이 **준비될 때까지** 기다린다.
 //
 // 바이트가 생겼는지만 보면 안 된다 — ConPTY 는 세션을 열며 인사말 16바이트
