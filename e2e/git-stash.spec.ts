@@ -106,12 +106,18 @@ test.describe('19단계 — Stash 탭', () => {
     await openStash(page, repo);
     await waitStashes(page, 3);
 
-    await row(page, 0).click({ button: 'right' });
-    await items(page).filter({ hasText: 'Apply (--index)' }).click();
-
-    // index 가 복원됐으므로 staged 로 돌아온다 (porcelain 의 첫 칸이 M).
-    await expect.poll(() => git(repo, 'status', '--porcelain'), { timeout: 20000 })
-      .toMatch(/^M /m);
+    // 열어 둔 메뉴는 목록 폴링이 닫는다 (GitMenu 는 scroll 을 capture 로 듣고,
+    // 재렌더가 스크롤을 복원한다). 사람은 닫히면 다시 우클릭하므로, 검사도
+    // **요청이 실제로 나갈 때까지** 다시 연다 — 한 번의 클릭에 기대면 폴링과
+    // 겹치는 회차에서만 무너진다.
+    await expect(async () => {
+      await row(page, 0).click({ button: 'right' });
+      await expect(menu(page)).toHaveAttribute('data-kind', 'stash');
+      await items(page).filter({ hasText: 'Apply (--index)' }).click();
+      // index 가 복원됐으므로 staged 로 돌아온다 (porcelain 의 첫 칸이 M).
+      await expect.poll(() => git(repo, 'status', '--porcelain'), { timeout: 3000 })
+        .toMatch(/^M /m);
+    }).toPass({ timeout: 30000 });
     expect(stashCount(repo)).toBe(3);
   });
 
@@ -123,6 +129,9 @@ test.describe('19단계 — Stash 탭', () => {
     await waitStashes(page, 2);
 
     await row(page, 0).click({ button: 'right' });
+    // 메뉴가 선 것을 보고 나서 고른다 — 아직 그려지는 중인 항목을 누르면
+    // 클릭이 유실되고, 그 뒤의 기다림은 일어나지 않은 일을 기다린다.
+    await expect(menu(page)).toHaveAttribute('data-kind', 'stash');
     await items(page).filter({ hasText: /^Pop$/ }).click();
 
     // 조작 후 목록이 갱신된다 — 폴링 주기를 기다리지 않는다 (FR-GIT-170).
@@ -140,6 +149,9 @@ test.describe('19단계 — Stash 탭', () => {
     await waitStashes(page, 2);
 
     await row(page, 1).click({ button: 'right' });
+    // 메뉴가 선 것을 보고 나서 고른다 — 아직 그려지는 중인 항목을 누르면
+    // 클릭이 유실되고, 그 뒤의 기다림은 일어나지 않은 일을 기다린다.
+    await expect(menu(page)).toHaveAttribute('data-kind', 'stash');
     await items(page).filter({ hasText: /^Pop$/ }).click();
 
     // 실패인데도 "작업은 남아 있다" 를 그 자리에서 알린다 — 조용히 넘기면
@@ -202,6 +214,9 @@ test.describe('19단계 — Stash 탭', () => {
     await waitStashes(page, 2);
 
     await row(page, 0).click({ button: 'right' });
+    // 메뉴가 선 것을 보고 나서 고른다 — 아직 그려지는 중인 항목을 누르면
+    // 클릭이 유실되고, 그 뒤의 기다림은 일어나지 않은 일을 기다린다.
+    await expect(menu(page)).toHaveAttribute('data-kind', 'stash');
     await items(page).filter({ hasText: /^Drop$/ }).click();
 
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
@@ -249,6 +264,9 @@ test.describe('19단계 — Stash 탭', () => {
     await waitStashes(page, 2);
 
     await row(page, 0).click({ button: 'right' });
+    // 메뉴가 선 것을 보고 나서 고른다 — 아직 그려지는 중인 항목을 누르면
+    // 클릭이 유실되고, 그 뒤의 기다림은 일어나지 않은 일을 기다린다.
+    await expect(menu(page)).toHaveAttribute('data-kind', 'stash');
     await items(page).filter({ hasText: /^Drop$/ }).click();
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
     // Enter 의 기본 동작은 취소다 (FR-GIT-176) — 파괴적 확인에서 실행이 아니다.

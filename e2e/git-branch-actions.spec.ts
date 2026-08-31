@@ -464,12 +464,17 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
 
     // 처음에는 upstream 이 없다 — 그 자리가 비어 있다 (FR-GIT-153).
     await expect(row(page, 'no-upstream').locator('.git-br-up')).toHaveText('');
-    await row(page, 'no-upstream').click({ button: 'right' });
-    await expect(item(page, 'upstream-unset')).toHaveClass(/disabled/);
-    await expect(item(page, 'upstream-unset')).toHaveAttribute('title', /upstream/);
-    await item(page, 'upstream-set').click();
-
-    await expect(upstreamBox(page)).toBeVisible({ timeout: 15000 });
+    // 열어 둔 메뉴는 목록 폴링이 닫는다 (GitMenu 는 scroll 을 capture 로 듣고,
+    // 재렌더가 스크롤을 복원한다). 사람은 닫히면 다시 우클릭하므로, 검사도
+    // 상자가 뜰 때까지 다시 연다 — 한 번의 클릭에 기대면 폴링과 겹치는
+    // 회차에서만 무너진다.
+    await expect(async () => {
+      await row(page, 'no-upstream').click({ button: 'right' });
+      await expect(item(page, 'upstream-unset')).toHaveClass(/disabled/);
+      await expect(item(page, 'upstream-unset')).toHaveAttribute('title', /upstream/);
+      await item(page, 'upstream-set').click();
+      await expect(upstreamBox(page)).toBeVisible({ timeout: 3000 });
+    }).toPass({ timeout: 30000 });
     // 목록에 없는 이름은 실행 전에 막힌다 — 후보는 이미 받아 둔 원격 ref 다.
     await upstreamBox(page).locator('.gbu-up').fill('origin/nope');
     await expect(upstreamBox(page).locator('.gbu-go')).toBeDisabled();
@@ -477,8 +482,12 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await expect(upstreamBox(page).locator('.gbu-go')).toBeEnabled();
     await upstreamBox(page).locator('.gbu-go').click();
 
+    // `rev-parse ...@{upstream}` 은 upstream 이 **없으면 0 이 아닌 코드로 끝난다.**
+    // 아직 붙기 전에는 그것이 정상인데, `expect.poll` 은 콜백이 던지면 재시도하지
+    // 않고 그 자리에서 실패한다 — 폴링이 첫 회차에 무너졌다. for-each-ref 는 같은
+    // 값을 내면서 없을 때 빈 문자열과 exit 0 을 준다.
     await expect.poll(
-      () => git(repo, 'rev-parse', '--abbrev-ref', 'no-upstream@{upstream}'),
+      () => git(repo, 'for-each-ref', '--format=%(upstream:short)', 'refs/heads/no-upstream'),
       { timeout: 20000 }).toBe('origin/main');
     await expect(row(page, 'no-upstream').locator('.git-br-up')).toHaveText('(origin/main)',
       { timeout: 15000 });
@@ -486,10 +495,12 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await expect(row(page, 'no-upstream').locator('.git-br-ab')).not.toHaveText('');
 
     // unset 은 파괴적이 아니다 — 확인 없이 바로 지나가고 표시가 사라진다.
-    await row(page, 'no-upstream').click({ button: 'right' });
-    await expect(item(page, 'upstream-unset')).not.toHaveClass(/disabled/);
-    await item(page, 'upstream-unset').click();
-    await expect(row(page, 'no-upstream').locator('.git-br-up')).toHaveText('', { timeout: 20000 });
+    await expect(async () => {
+      await row(page, 'no-upstream').click({ button: 'right' });
+      await expect(item(page, 'upstream-unset')).not.toHaveClass(/disabled/);
+      await item(page, 'upstream-unset').click();
+      await expect(row(page, 'no-upstream').locator('.git-br-up')).toHaveText('', { timeout: 5000 });
+    }).toPass({ timeout: 30000 });
     await expect(row(page, 'no-upstream').locator('.git-br-ab')).toHaveText('');
   });
 
