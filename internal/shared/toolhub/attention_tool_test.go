@@ -30,6 +30,9 @@ func TestTool_MaybeIdle_FiresOncePerQuietEdge(t *testing.T) {
 	var mu sync.Mutex
 	var attn, clear []string
 	p := newAttnPane("1", &mu, &attn, &clear)
+	// ATTENTION_FIRING_SRS FR-ATF-1: L2 는 에이전트 도구에만 운다. 이 테스트가
+	// 재는 것은 **에지 의미론**이므로, 전제인 에이전트 표시를 세워 둔다.
+	p.SetActivity("done", "", "")
 	const threshold = int64(1000)
 
 	// armed tool, still within threshold → no fire.
@@ -80,6 +83,7 @@ func TestTool_MaybeIdle_GatedByBusy(t *testing.T) {
 	// Not busy → armed+quiet but no fire.
 	attnBusyProbe = func(*Tool) bool { return false }
 	pIdle := newAttnPane("1", &mu, &attn, &clear)
+	pIdle.SetActivity("done", "", "") // FR-ATF-1 의 전제 (아래 pBusy 도 같다)
 	pIdle.LastOutputAt.Store(0)
 	pIdle.attnArmed.Store(true)
 	pIdle.maybeIdle(threshold+1, threshold)
@@ -90,6 +94,7 @@ func TestTool_MaybeIdle_GatedByBusy(t *testing.T) {
 	// Busy → fires.
 	attnBusyProbe = func(*Tool) bool { return true }
 	pBusy := newAttnPane("2", &mu, &attn, &clear)
+	pBusy.SetActivity("done", "", "")
 	pBusy.LastOutputAt.Store(0)
 	pBusy.attnArmed.Store(true)
 	pBusy.maybeIdle(threshold+1, threshold)
@@ -140,8 +145,10 @@ func TestTool_MaybeIdle_SuppressedWhileWorking(t *testing.T) {
 	}
 
 	// Agent stops working → idle fires (after clearing prior attention).
+	// `ended` 로 말하지 않는다 — 그것은 세션 종료이고 에이전트 표시를 내려
+	// L2 자체를 끈다 (FR-ATF-2). 여기서 재는 것은 "working 이 아니면 운다" 다.
 	p.clearAttention()
-	p.SetActivity("ended", "", "")
+	p.SetActivity("done", "", "")
 	p.attnArmed.Store(true)
 	p.LastOutputAt.Store(0)
 	p.maybeIdle(threshold+1, threshold)

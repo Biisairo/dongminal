@@ -15,8 +15,9 @@ Object.assign(App.prototype, {
     if(target) target.focusedPane = rid;
     if(!sess || (target && target.id === this.ws.activeWindow)){
       this.focused = rid;
-      // FR-PAN-11: 포커스된 활성 탭 pane 의 주의 상태 해제(로컬+엔드포인트)
-      if(this.focused===rid) this._attnClearFocused();
+      // ATTENTION_FIRING_SRS FR-ATA-1: 포커스는 더 이상 해제가 아니다. 여기
+      // 있던 `_attnClearFocused()` 가 "사용자가 보기 전에 알람이 사라진다" 의
+      // 마지막 고리였다 — 해제는 `_attnNoteInteraction` 한 자리에서만 온다.
     }
     this._agentsRender(); // 외부 포커스 변경도 카드 .focused 에 즉시 반영(render 미경유 경로 포함)
     this._persistFocusedPanes();

@@ -125,6 +125,25 @@ test.describe('주의 표식의 맥박', () => {
     }
   });
 
+  // ATTENTION_FIRING_SRS V-ATV-3: 활성이면서 알람인 탭. 알람이 활성 표시를
+  // 빼앗으면 맥박의 반주기 동안 어느 탭이 열려 있는지 알 수 없게 된다.
+  test('활성 탭의 알람은 활성 배경을 지우지 않는다 (V-ATV-3)', async ({ page }) => {
+    await waitForInit(page);
+    await markAll(page);
+    await page.evaluate(() => document.querySelector('#area .pn .pn-tab')!.classList.add('active'));
+
+    const sel = '#area .pn .pn-tab';
+    // 밑줄은 숨쉰다.
+    const peak = await sampleAt(page, sel, 'boxShadow', 0);
+    const trough = await sampleAt(page, sel, 'boxShadow', 1000);
+    expect(trough, '밑줄이 맥박하지 않는다').not.toBe(peak);
+    // 배경은 어느 위상에서도 활성 색 그대로다.
+    const bg0 = await sampleAt(page, sel, 'backgroundColor', 0);
+    const bg1 = await sampleAt(page, sel, 'backgroundColor', 1000);
+    expect(bg1, '활성 배경이 맥박에 실려 사라진다').toBe(bg0);
+    expect(bg1).not.toMatch(/rgba\(0, 0, 0, 0\)/);
+  });
+
   // V-ATP-6: 링이 면마다 다른 두께로 보이던 결함의 재발 방지 (FR-ATP-8).
   //
   // 원인은 링이 **두 곳**에서 나온 것이었다 — 2px 테두리와 안쪽 2px 그림자.

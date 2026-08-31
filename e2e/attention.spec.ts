@@ -67,6 +67,77 @@ test.describe('Pane attention', () => {
     await expect(badge).toBeHidden();
     await expect.poll(() => page.title()).not.toContain('(1)');
   });
+  // ATTENTION_FIRING_SRS V-ATV-1·2 / V-ATA-1·2: 포커스된 칸에서 뜬 알람은
+  // **화면에 남는다**. 개정 전에는 이 자리에서 알람이 즉시 해제되어 소리와
+  // 데스크톱 알림만 지나갔고, 사용자가 다른 앱에서 돌아왔을 때 남는 것이
+  // 아무것도 없었다 (B4·B6). 해제는 이제 실제 상호작용에서만 온다 (D-1).
+  test('포커스된 칸의 알람이 남고, 포커스 표식과 함께 보인다 (V-ATV-1·2, V-ATA-1)', async ({ page }) => {
+    await waitForInit(page);
+    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
+
+    // 포커스된 활성 탭에서 알람을 낸다. 탭을 옮기지 않는다 — 개정 전이라면
+    // 이것만으로 알람이 즉시 사라졌다.
+    await page.keyboard.type('sleep 2 && "$DONGMINAL_HOME/bin/dmctl" notify done');
+    await page.keyboard.press('Enter');
+
+    const pane = page.locator('#area .pn.focused');
+    const tab = pane.locator('.pn-tab.active').first();
+    await expect(pane).toHaveClass(/attn/, { timeout: 15000 });
+    await expect(tab).toHaveClass(/attn/);
+    await expect(page.locator('#attn-badge')).toBeVisible();
+
+    // V-ATV-2: 포커스 테두리와 알람 링이 **둘 다** 그려진다. 링이 테두리 자리를
+    // 덮던 것이 "알림이 포커스에 가려 보이지 않는다" 의 원인이었다 (B5).
+    const paint = await page.evaluate(() => {
+      const pn = document.querySelector('#area .pn.focused')!;
+      return {
+        border: getComputedStyle(pn).borderTopColor,
+        ring: getComputedStyle(pn, '::after').boxShadow,
+        accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
+      };
+    });
+    expect(paint.ring, '알람 링이 없다').toContain('inset');
+    expect(paint.border, '포커스 테두리가 투명하다').not.toContain('rgba(0, 0, 0, 0)');
+
+    // V-ATA-1: 포커스를 다시 주장해도(창 focus 이벤트) 알람은 남는다.
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.waitForTimeout(300);
+    await expect(pane).toHaveClass(/attn/);
+
+    // V-ATA-2: 그 칸을 클릭하면 — 실제 상호작용 — 사라진다.
+    await pane.locator('.xterm-screen').click();
+    await expect(pane).not.toHaveClass(/attn/, { timeout: 10000 });
+    await expect(page.locator('#attn-badge')).toBeHidden();
+  });
+
+  // V-ATA-3·4: 키 입력도 해제다. 그리고 사용자가 **보고 있는** 도구의 알람은
+  // 표식만 남기고 소리·데스크톱 알림을 내지 않는다 (AS-2) — 눈앞에 있는 것을
+  // 소리로 다시 부르는 것은 접수가 요구한 "동시에 본다" 와 무관한 방해다.
+  test('키 입력이 알람을 해제하고, 보고 있는 알람은 소리를 내지 않는다 (V-ATA-3·4)', async ({ page }) => {
+    await waitForInit(page);
+    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
+
+    // 비프를 가로챈다. 실제 소리 대신 호출 횟수만 센다.
+    await page.evaluate(() => {
+      const app = (window as any).app;
+      (window as any).__beeps = 0;
+      app._attnBeep = () => { (window as any).__beeps++; };
+    });
+
+    await page.keyboard.type('sleep 2 && "$DONGMINAL_HOME/bin/dmctl" notify done');
+    await page.keyboard.press('Enter');
+
+    const pane = page.locator('#area .pn.focused');
+    await expect(pane).toHaveClass(/attn/, { timeout: 15000 });
+    // 표식은 섰는데 소리는 나지 않았다.
+    expect(await page.evaluate(() => (window as any).__beeps)).toBe(0);
+
+    // V-ATA-3: 키를 누르면 사라진다.
+    await page.keyboard.press('a');
+    await expect(pane).not.toHaveClass(/attn/, { timeout: 10000 });
+    await expect(page.locator('#attn-badge')).toBeHidden();
+  });
+
   // ATTENTION_LIFECYCLE_GIT_OBSERVE_SRS V-ATL-1·6·7·8: 도구가 사라지면 알람도
   // 사라진다. 지금까지 이 자리에서 배지가 남았고, 그 항목은 이름이 UUID 였으며
   // 클릭해도 아무 데도 가지 않았다 — `모두 제거` 말고는 없앨 방법이 없었다.

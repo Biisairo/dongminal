@@ -7,8 +7,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/webserver/hub"
 )
 
 // TC-PAN-13: AttentionIDs + endpoint return current attention set.
@@ -191,5 +193,43 @@ func TestApiToolDelete_ClearsAttention(t *testing.T) {
 	}
 	if len(got.ToolIds) != 1 || got.ToolIds[0] != "keep" {
 		t.Fatalf("삭제한 도구의 알람이 남았다: %v", got.ToolIds)
+	}
+}
+
+// V-ATF-8 (ATTENTION_FIRING_SRS): 해제 종단의 `typed` 가 서버 상태에 도달한다.
+// 보기만 한 해제는 재무장을 잠그고, 키를 누른 해제는 잠금을 푼다 — 그 차이는
+// 본문의 한 필드로만 전해지므로 종단에서 재는 것이 맞다. 재는 방법은 **동작**
+// 이다: 잠금이 풀린 도구만 다음 정적에서 다시 운다.
+func TestApiToolAttentionClear_TypedUnlocksRearm(t *testing.T) {
+	const idleMS = 1000
+	for _, tc := range []struct {
+		name   string
+		body   string
+		refire bool
+	}{
+		{"보기만 함", `{"toolId":"a"}`, false},
+		{"키를 누름", `{"toolId":"a","typed":true}`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tr := hub.NewAttnTracker(hub.NewCommandHub(), idleMS)
+			tr.SetBusyProbe(func(string) bool { return true })
+			tr.SetActivity("a", "done", "", "")
+			s := &Server{Deps: Deps{Tools: toolhub.NewToolManager("", nil), AttnTracker: tr}}
+			t.Cleanup(s.Tools.(*toolhub.ToolManager).StopSaving)
+
+			rec := httptest.NewRecorder()
+			s.apiToolAttentionClear(rec, httptest.NewRequest(http.MethodPost,
+				"/api/tools/attention/clear", strings.NewReader(tc.body)))
+			if rec.Code != http.StatusOK {
+				t.Fatalf("clear → %d", rec.Code)
+			}
+
+			tr.FeedOutput("a", []byte("output"))
+			tr.SweepIdleAt(time.Now().Add(time.Hour).UnixNano())
+
+			if got := tr.Attention("a"); got != tc.refire {
+				t.Fatalf("재발화 = %v, want %v", got, tc.refire)
+			}
+		})
 	}
 }

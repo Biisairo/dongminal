@@ -167,7 +167,7 @@ Object.assign(App.prototype, {
     if(info.detail){dt.textContent=info.detail;card.appendChild(dt);}
     card.appendChild(locDiv);
     card.appendChild(st);
-    card.addEventListener('click',()=>{this._jumpToTool(toolId);if(this._attnHas(toolId))this._attnClear(toolId)});
+    card.addEventListener('click',()=>this._jumpToTool(toolId)); // FR-ATA-6: 해제는 _jumpToTool 이 한다
     // FR-AAP-21: 창 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
     card.draggable=true;
     card.addEventListener('dragstart',e=>{this._drag={type:'agent',pid:toolId,targetPid:null,before:false,done:false};e.dataTransfer.effectAllowed='move';setTimeout(()=>card.classList.add('dragging'),0)});

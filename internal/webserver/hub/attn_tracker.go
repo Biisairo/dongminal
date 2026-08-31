@@ -23,6 +23,11 @@ type AttnTracker struct {
 	ticker        *time.Ticker
 	stop          chan struct{}
 
+	// nowFn 은 이 추적기의 시계다 (ATTENTION_FIRING_SRS NFR-5). 굳은 `working`
+	// 의 판정이 시각을 보므로, 테스트가 잠들지 않고 그 자리를 재려면 시계가
+	// 주입 가능해야 한다.
+	nowFn func() int64
+
 	// liveProbe 는 "그 도구가 아직 있는가" 다 (FR-ATL-6). busyProbe 와 묻는 것이
 	// 다르다 — 저쪽은 전경 프로세스, 이쪽은 도구 자체의 존재다. nil 이면 이
 	// 필드가 없던 때와 완전히 같다.
@@ -34,14 +39,19 @@ type AttnTracker struct {
 	onActivity       func(id, state, tool, detail string)
 }
 
+// attnPaneState 는 직접 모드 `toolhub.Tool` 의 주의 관련 필드와 **같은 모양**을
+// 갖는다 (FR-ATF-12·NFR-4). 두 모드의 판정이 갈라지지 않게 하려면 상태부터
+// 갈라지지 않아야 한다.
 type attnPaneState struct {
-	id           string
-	lastOutputAt atomic.Int64
-	attnArmed    atomic.Bool
-	attention    atomic.Bool
-	attnCarry    []byte
-	allowBell    bool
-	activity     atomic.Pointer[toolhub.ActivityState]
+	id              string
+	lastOutputAt    atomic.Int64
+	attnArmed       atomic.Bool
+	attention       atomic.Bool
+	attnRearmLocked atomic.Bool // FR-ATF-5
+	agentSeen       atomic.Bool // FR-ATF-1
+	attnCarry       []byte
+	allowBell       bool
+	activity        atomic.Pointer[toolhub.ActivityState]
 }
 
 // DefaultIdleMS returns the L2 idle threshold in milliseconds, honoring the
@@ -56,6 +66,7 @@ func NewAttnTracker(hub CommandBroker, idleMS int) *AttnTracker {
 		hub:           hub,
 		idleThreshold: int64(idleMS) * int64(time.Millisecond),
 		stop:          make(chan struct{}),
+		nowFn:         func() int64 { return time.Now().UnixNano() },
 	}
 	t.onAttention = func(id, reason string) {
 		hub.Broadcast(toolAttentionPayload(id, reason))
@@ -137,17 +148,14 @@ func (t *AttnTracker) Stop() {
 // FeedOutput processes raw PTY output for attention detection (L1 OSC).
 // Called from handleWSDaemon when output arrives from dongminald.
 func (t *AttnTracker) FeedOutput(toolID string, data []byte) {
-	t.mu.Lock()
-	ps := t.tools[toolID]
-	if ps == nil {
-		ps = &attnPaneState{id: toolID}
-		t.tools[toolID] = ps
-	}
-	t.mu.Unlock()
+	ps := t.state(toolID)
 
-	now := time.Now().UnixNano()
-	ps.lastOutputAt.Store(now)
-	ps.attnArmed.Store(true)
+	ps.lastOutputAt.Store(t.now())
+	// FR-ATF-5: 잠긴 동안 출력은 무장을 세우지 못한다. 시각은 그래도 적는다 —
+	// 준비완료 사다리(FR-STA-4)가 그 값을 읽는다.
+	if !ps.attnRearmLocked.Load() {
+		ps.attnArmed.Store(true)
+	}
 
 	// L1 OSC detection
 	scan := data
@@ -169,13 +177,7 @@ func (t *AttnTracker) FeedOutput(toolID string, data []byte) {
 
 // SignalAttention sets attention explicitly (dmctl notify).
 func (t *AttnTracker) SignalAttention(toolID, reason string) {
-	t.mu.Lock()
-	ps := t.tools[toolID]
-	if ps == nil {
-		ps = &attnPaneState{id: toolID}
-		t.tools[toolID] = ps
-	}
-	t.mu.Unlock()
+	ps := t.state(toolID)
 
 	ps.attention.Store(true)
 	if reason == "" {
@@ -184,18 +186,47 @@ func (t *AttnTracker) SignalAttention(toolID, reason string) {
 	t.onAttention(toolID, reason)
 }
 
-// Attend clears attention (user focus).
-func (t *AttnTracker) Attend(toolID string) {
-	t.mu.Lock()
-	ps := t.tools[toolID]
-	t.mu.Unlock()
-	if ps == nil {
-		return
-	}
+// Attend clears attention (user looked at the tool) and locks re-arming
+// (FR-ATF-5) — mirrors toolhub.Tool.Attend.
+func (t *AttnTracker) Attend(toolID string) { t.attend(toolID, false) }
+
+// AttendTyped 는 사용자가 키를 누른 주목이다 (FR-ATF-6). 일을 시켰으므로 그
+// 결과를 다시 기다리게 되고, 따라서 재무장을 열어 둔다.
+func (t *AttnTracker) AttendTyped(toolID string) { t.attend(toolID, true) }
+
+// attend 는 두 주목의 공통 자리다. 도구를 모르는 상태에서도 잠금 상태를 남겨야
+// 하므로(해제가 SSE 보다 먼저 닿을 수 있다) 상태를 만들어 둔다.
+func (t *AttnTracker) attend(toolID string, typed bool) {
+	ps := t.state(toolID)
 	ps.attnArmed.Store(false)
+	ps.attnRearmLocked.Store(!typed)
 	if ps.attention.CompareAndSwap(true, false) {
 		t.onAttentionClear(toolID)
 	}
+}
+
+// state 는 도구의 추적 상태를 얻는다(없으면 만든다). FeedOutput·SignalAttention·
+// SetActivity·attend 가 모두 같은 규약을 쓰므로 한 자리에 둔다.
+func (t *AttnTracker) state(toolID string) *attnPaneState {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	ps := t.tools[toolID]
+	if ps == nil {
+		ps = &attnPaneState{id: toolID}
+		t.tools[toolID] = ps
+	}
+	return ps
+}
+
+// now 는 주입된 시계를 읽는다 (NFR-5).
+func (t *AttnTracker) now() int64 {
+	t.mu.Lock()
+	f := t.nowFn
+	t.mu.Unlock()
+	if f == nil {
+		return time.Now().UnixNano()
+	}
+	return f()
 }
 
 // Attention returns whether the tool currently needs attention.
@@ -234,12 +265,19 @@ func (t *AttnTracker) AttentionIDs() []string {
 	return out
 }
 
-// ClearAllAttention clears attention for all tools.
+// ClearAllAttention clears attention for all tools (FR-PAN-17).
+//
+// FR-ATF-13: 정리는 도구 하나를 주목한 것과 **같다** — 무장을 내리고 재무장을
+// 잠근다. 개정 전에는 주의 비트만 내려, 이미 임계 시간을 넘긴 도구들이 다음 1초
+// tick 에서 통째로 되살아났다. 직접 모드는 처음부터 `Attend()` 를 지났으므로
+// 이 결함이 없었다 (§2.4) — 두 모드가 갈라져 있던 자리다.
 func (t *AttnTracker) ClearAllAttention() int {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	n := 0
 	for _, ps := range t.tools {
+		ps.attnArmed.Store(false)
+		ps.attnRearmLocked.Store(true)
 		if ps.attention.CompareAndSwap(true, false) {
 			t.onAttentionClear(ps.id)
 			n++
@@ -250,14 +288,10 @@ func (t *AttnTracker) ClearAllAttention() int {
 
 // SetActivity sets the activity state for a tool.
 func (t *AttnTracker) SetActivity(toolID, state, tool, detail string) {
-	t.mu.Lock()
-	ps := t.tools[toolID]
-	if ps == nil {
-		ps = &attnPaneState{id: toolID}
-		t.tools[toolID] = ps
-	}
-	t.mu.Unlock()
+	ps := t.state(toolID)
 
+	// FR-ATF-2: 보고했다는 사실이 에이전트 표시를 세우고, `ended` 가 내린다.
+	ps.agentSeen.Store(state != "ended")
 	if state == "ended" {
 		ps.activity.Store(nil)
 	} else {
@@ -265,7 +299,7 @@ func (t *AttnTracker) SetActivity(toolID, state, tool, detail string) {
 			State:     state,
 			Tool:      tool,
 			Detail:    detail,
-			UpdatedAt: time.Now().UnixNano(),
+			UpdatedAt: t.now(),
 		})
 	}
 	t.onActivity(toolID, state, tool, detail)
@@ -329,20 +363,30 @@ func (t *AttnTracker) ActivitySnapshot() []toolhub.ActivitySnap {
 	return out
 }
 
-// sweepIdle runs one L2 idle pass.
-func (t *AttnTracker) sweepIdle() {
-	now := time.Now().UnixNano()
+// sweepIdle runs one L2 idle pass at the tracker's clock.
+func (t *AttnTracker) sweepIdle() { t.SweepIdleAt(t.now()) }
+
+// SweepIdleAt runs one L2 idle pass at the given time. 공개인 이유는 직접 모드의
+// 대응물(`ToolManager.sweepIdle`)과 같다 — 결정적 테스트가 이 자리를 시계 없이
+// 재야 하고, 데몬 모드에서는 그 테스트가 다른 패키지에 산다 (NFR-5).
+//
+// 판정의 순서와 뜻은 직접 모드 `Tool.maybeIdle` 과 **글자 그대로 같다**
+// (FR-ATF-12): ① 에이전트가 도는 도구인가 ② 전경 프로세스가 있는가 ③ 지금
+// 일하는 중은 아닌가(굳은 `working` 은 억제하지 못한다).
+func (t *AttnTracker) SweepIdleAt(now int64) {
 	t.mu.Lock()
 	snap := make([]*attnPaneState, 0, len(t.tools))
 	for _, ps := range t.tools {
 		snap = append(snap, ps)
 	}
-	t.mu.Unlock()
-
-	t.mu.Lock()
 	threshold := t.idleThreshold
 	probe := t.busyProbe
+	onAttn := t.onAttention
 	t.mu.Unlock()
+
+	if threshold <= 0 {
+		return
+	}
 	for _, ps := range snap {
 		if !ps.attnArmed.Load() {
 			continue
@@ -351,21 +395,14 @@ func (t *AttnTracker) sweepIdle() {
 			continue
 		}
 		ps.attnArmed.Store(false)
-		// Idle only fires when a foreground process is actually running (an
-		// agent waiting on the user); a bare shell at its prompt must not raise
-		// an alarm. Mirrors direct-mode toolhub.Tool.maybeIdle (FR-15).
-		if probe == nil || !probe(ps.id) {
+		if !ps.agentSeen.Load() || probe == nil || !probe(ps.id) {
 			continue
 		}
-		// Suppress idle alarm while agent is actively working (thinking).
-		if a := ps.activity.Load(); a != nil && a.State == "working" {
+		if toolhub.ActivityStillWorking(ps.activity.Load(), now) {
 			continue
 		}
-		if ps.attention.CompareAndSwap(false, true) {
-			onAttn := t.onAttention
-			if onAttn != nil {
-				onAttn(ps.id, "idle")
-			}
+		if ps.attention.CompareAndSwap(false, true) && onAttn != nil {
+			onAttn(ps.id, "idle")
 		}
 	}
 }

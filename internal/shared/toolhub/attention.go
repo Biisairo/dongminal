@@ -24,6 +24,15 @@ const (
 	attnTickMS = 1000
 )
 
+// AttnWorkingStale 는 활동 보고 `working` 을 믿어 주는 기한이다
+// (ATTENTION_FIRING_SRS FR-ATF-10·AS-1). 이보다 오래 갱신되지 않은 `working`
+// 은 훅이 끊긴 것으로 보고 idle 억제에 쓰지 않는다.
+//
+// 5분인 이유: 에이전트의 한 도구 호출이 그보다 오래 걸리는 일은 드물고(빌드·
+// 테스트 포함), 그보다 짧게 잡으면 긴 명령 하나가 곧바로 헛울림이 된다. L2
+// 임계값(10초)과 두 자릿수 차이를 둔다.
+const AttnWorkingStale = int64(5 * time.Minute)
+
 // attnNow returns the current time in unix-nanos. It is a package variable so
 // tests can substitute a deterministic clock (mirrors toolBusyProbe).
 var attnNow = func() int64 { return time.Now().UnixNano() }

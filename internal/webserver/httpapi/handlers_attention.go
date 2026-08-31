@@ -60,11 +60,17 @@ func (s *Server) apiToolAttentionSet(w http.ResponseWriter, r *http.Request) {
 }
 
 // apiToolAttentionClear clears a tool's attention (and broadcasts the clear)
-// when the user focuses/opens it. Body: {"toolId":"..."}. Unknown/idle tool is
-// a no-op (200) so a stale focus event never errors.
+// when the user actually touches it. Body: {"toolId":"...","typed":bool}.
+// Unknown/idle tool is a no-op (200) so a stale event never errors.
+//
+// `typed` 는 사용자가 그 도구에 **키를 눌렀는가** 다 (ATTENTION_FIRING_SRS
+// FR-ATA-9). 보기만 한 해제는 재무장을 잠그고, 키를 누른 해제는 잠금을 푼다 —
+// 일을 시켰으면 그 결과를 다시 기다리게 되기 때문이다. 없으면 거짓, 즉 "보기만
+// 했다" 로 읽는다.
 func (s *Server) apiToolAttentionClear(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ToolID string `json:"toolId"`
+		Typed  bool   `json:"typed"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -72,9 +78,17 @@ func (s *Server) apiToolAttentionClear(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.Tools != nil {
 		if s.AttnTracker != nil {
-			s.AttnTracker.Attend(req.ToolID)
+			if req.Typed {
+				s.AttnTracker.AttendTyped(req.ToolID)
+			} else {
+				s.AttnTracker.Attend(req.ToolID)
+			}
 		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
-			tool.Attend()
+			if req.Typed {
+				tool.AttendTyped()
+			} else {
+				tool.Attend()
+			}
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")

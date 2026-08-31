@@ -189,6 +189,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   0%,100%{background:var(--attn-subtle);box-shadow:inset 0 -3px 0 var(--attn)}
   50%{background:transparent;box-shadow:inset 0 -3px 0 transparent}
 }
+/* 활성 탭의 알람은 밑줄만 숨쉰다 (FR-ATV-3) — 배경은 활성 색에 머문다. */
+@keyframes attn-pulse-tab-active{
+  0%,100%{box-shadow:inset 0 -3px 0 var(--attn)}
+  50%{box-shadow:inset 0 -3px 0 transparent}
+}
 /* 왼쪽 3px 바 하나로 알리는 자리들 — 사이드바 항목과 에이전트 카드가 같은 표식이다. */
 @keyframes attn-pulse-bar{
   0%,100%{box-shadow:inset 3px 0 0 var(--attn)}
@@ -211,14 +216,23 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 
 .pn-tab.attn{color:var(--attn);background:var(--attn-subtle);font-weight:600;box-shadow:inset 0 -3px 0 var(--attn);
   animation:attn-pulse-tab 2s ease-in-out infinite}
+/* ATTENTION_FIRING_SRS FR-ATV-3: 활성이면서 알람인 탭. 배경은 활성 색으로 두고
+   밑줄만 숨쉰다 — 배경까지 맥박에 실으면 반주기 동안 어느 탭이 열려 있는지
+   알 수 없게 된다. 알람이 활성 표시를 빼앗지 않는다. */
+.pn-tab.active.attn{color:var(--attn);background:var(--accent-subtle);
+  animation:attn-pulse-tab-active 2s ease-in-out infinite}
 /* FR-ATP-8: 분할 칸의 링은 **자식 위에 뜬 겹**이다.
    개정 전에는 2px 테두리 + 안쪽 2px 그림자였는데, 안쪽 그림자는 요소의 배경 층에
    그려지고 자식(탭 줄·터미널)이 그 위를 덮는다. 덮이는 정도가 면마다 달라 실측
    두께가 **위 2px · 왼쪽 3px · 아래 4px** 로 어긋나 모서리가 우그러져 보였다 (§2.4).
    겹 하나로 그리면 어느 면에서나 같은 두께이고, 겹에는 내용이 없으므로 맥박을
    opacity 로 줄 수 있다 (D-5). */
+/* FR-ATV-2: 링은 요소의 `border` **안쪽**에 앉는다. 개정 전에는 `inset:-2px` 로
+   테두리 자리를 통째로 덮어, 포커스(2px `border`)와 알람이 같은 픽셀을 다퉜다 —
+   알람이 있는 칸에서 포커스가 보이지 않던 자리다 (B5). 안쪽으로 한 겹 물리면
+   포커스가 바깥에, 알람이 그 안에 나란히 선다. */
 .pn.attn::after{
-  content:'';position:absolute;inset:-2px;z-index:35;pointer-events:none;
+  content:'';position:absolute;inset:0;z-index:35;pointer-events:none;
   box-shadow:inset 0 0 0 3px var(--attn),0 0 12px -1px var(--attn-glow);
   animation:attn-pulse-ring 2s ease-in-out infinite;
 }

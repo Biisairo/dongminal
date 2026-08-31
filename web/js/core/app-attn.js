@@ -16,22 +16,37 @@ Object.assign(App.prototype, {
     return !!at&&at.toolId===toolId;
   },
 
+  /**
+   * ATTENTION_FIRING_SRS FR-ATA-2·7·8: 알람은 **언제나** 선다. 포커스가 있다는
+   * 사실이 알람을 지우던 것이 "울려야 할 때 울리지 않는다" 의 절반이었다 —
+   * 브라우저가 뒤에 있는 동안 뜬 알람은 화면에 흔적을 남기지 않았고, 사용자가
+   * 돌아오는 순간 지워졌다 (B4·B6).
+   *
+   * 억제되는 것은 **소리와 데스크톱 알림뿐**이다. 조건은 개정 전 억제 조건과
+   * 글자 그대로 같다 — 눈앞에 있는 것을 소리로 다시 부르는 것은 방해다 (AS-2).
+   */
   _onToolAttention({toolId,reason}={}){
     if(!toolId) return;
-    // 억제(즉시 해제)는 "정말로 보고 있을 때"만 — 브라우저 창이 OS 포커스를 가졌고(다른 앱이
-    // 위에 있지 않음) 그 pane 에 포커스가 있을 때. 다른 프로그램을 보고 있으면(document.hasFocus()
-    // false) 포커스여도 알람을 살린다 (FR-PAN-9/13/요구2).
-    const browserFocused=(typeof document!=='undefined'&&typeof document.hasFocus==='function')?document.hasFocus():true;
-    if(browserFocused&&this._isToolFocusedActive(toolId)){this._attnClear(toolId);return}
     this._attn.set(toolId,{reason});
     this._attnRefresh();
+    if(this._attnUserIsWatching(toolId)) return;
     this._attnDesktopNotify(reason,toolId); // FR-PAN-13a
     this._attnBeep(); // FR-PAN-13c
+  },
+
+  // 브라우저 창이 OS 포커스를 가졌고(다른 앱이 위에 있지 않음) 그 도구가 포커스
+  // 된 칸의 활성 탭인가 — 즉 사용자가 지금 그것을 보고 있는가 (FR-ATA-7).
+  _attnUserIsWatching(toolId){
+    const browserFocused=(typeof document!=='undefined'&&typeof document.hasFocus==='function')?document.hasFocus():true;
+    return browserFocused&&this._isToolFocusedActive(toolId);
   },
 
   _onToolAttentionClear({toolId}={}){
     if(!toolId) return;
     this._attnCloseNotif(toolId);
+    // 서버발 해제도 서버에서는 주목이다 — 잠금이 섰다고 기록해 둔다. 그러지
+    // 않으면 다른 브라우저가 해제한 도구를 여기서 만져도 잠금이 풀리지 않는다.
+    this._attnNoteLock(toolId,false);
     if(!this._attn.delete(toolId)) return;
     this._attnRefresh();
   },
@@ -59,10 +74,9 @@ Object.assign(App.prototype, {
       for(const pid of live){if(!this._attn.has(pid))this._attn.set(pid,{reason:'signaled'})}
       for(const pid of before){if(!live.has(pid))this._attnDrop(pid)}
       this._attnRefresh();
-      // FR-ATL-10: 복원 경로만 "보고 있으면 해제" 밖에 있었다 — 새로고침 직후
-      // 지금 보고 있는 도구의 알람이 배지에만 남았다. 조건은 NFR-PAN-10 과 같다.
-      const browserFocused=(typeof document!=='undefined'&&typeof document.hasFocus==='function')?document.hasFocus():true;
-      if(browserFocused) this._attnClearFocused();
+      // FR-ATA-1: 복원도 포커스를 이유로 지우지 않는다. 개정 전에는 FR-ATL-10
+      // 이 여기서 "보고 있으면 해제" 를 했으나, 그 규약 자체가 사라졌다 —
+      // 해제는 실제 상호작용에서만 온다 (D-1).
     }).catch(()=>{});
   },
 
@@ -77,19 +91,53 @@ Object.assign(App.prototype, {
     return this._attn.delete(toolId);
   },
 
-  // FR-PAN-11: 로컬 즉시 제거 + 백엔드 해제(다른 브라우저로 전파)
-  _attnClear(toolId){
+  /**
+   * FR-PAN-11: 로컬 즉시 제거 + 백엔드 해제(다른 브라우저로 전파).
+   *
+   * FR-ATA-9: `typed` 는 사용자가 그 도구에 **키를 눌렀는가** 다. 보기만 한
+   * 해제는 서버의 재무장을 잠그고, 키를 누른 해제는 잠금을 푼다 — 일을
+   * 시켰으면 그 결과를 다시 기다리게 되기 때문이다 (FR-ATF-5·6).
+   */
+  _attnClear(toolId,typed){
     if(!toolId) return;
     this._attnCloseNotif(toolId);
     this._attn.delete(toolId);
-    fetch('/api/tools/attention/clear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({toolId})}).catch(()=>{});
+    this._attnNoteLock(toolId,!!typed);
+    fetch('/api/tools/attention/clear',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({toolId,typed:!!typed})}).catch(()=>{});
     this._attnRefresh();
+  },
+
+  /**
+   * FR-ATF-8: 서버의 재무장 잠금이 **지금 서 있는지**를 기억한다. 이 한 칸이
+   * `_attnRearm` 의 왕복을 눌러 준다 (NFR-2).
+   *
+   * `false` 는 "잠겼다"(보기만 한 해제), `true` 는 "풀었다"(키를 누른 해제),
+   * 없음은 "잠근 적이 없다" 다. 셋을 구분해야 잠근 적 없는 도구에 신호를
+   * 보내지 않는다.
+   */
+  _attnNoteLock(toolId,unlocked){
+    this._attnTyped=this._attnTyped||{};
+    this._attnTyped[toolId]=!!unlocked;
+  },
+
+  /**
+   * FR-ATF-6: 알람이 없는 칸에서 키를 눌렀을 때 잠금만 푼다. 잠긴 적이 없거나
+   * 이미 푼 도구에는 아무것도 보내지 않는다 — 그러면 매 키 입력이 서버를 친다.
+   */
+  _attnRearm(toolId){
+    if(!toolId||!this._attnTyped||this._attnTyped[toolId]!==false) return;
+    this._attnTyped[toolId]=true;
+    fetch('/api/tools/attention/clear',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({toolId,typed:true})}).catch(()=>{});
   },
 
   // FR-PAN-17: 모든 알람 일괄 해제
   _attnClearAll(){
     fetch('/api/tools/attention/clear-all',{method:'POST'}).catch(()=>{});
     Object.keys(this._attnNotifs||{}).forEach(k=>this._attnCloseNotif(k));
+    // FR-ATF-13: 서버는 이 한 번으로 전부를 잠근다 — 로컬 기록도 함께 세운다.
+    for(const id of this._attn.keys()) this._attnNoteLock(id,false);
     this._attn.clear();
     this._attnCenterClose();
     this._attnRefresh();
@@ -107,13 +155,25 @@ Object.assign(App.prototype, {
     return walk(s.layout);
   },
 
-  // 포커스된 활성 탭이 주의 상태면 해제. 그 탭은 어차피 강조 안 되므로 full render 불필요
-  _attnClearFocused(){
-    if(!this._attn.size) return;
-    const s=this._aw(); if(!s||!s.layout) return;
-    const pn=findPane(s.layout,this.focused); if(!pn) return;
-    const at=(pn.tabs||[]).find(t=>t.id===pn.activeTab);
-    if(at&&at.toolId&&this._attn.has(at.toolId)) this._attnClear(at.toolId);
+  /**
+   * FR-ATA-3·4·5: **해제의 유일한 판정**이다. 분할 칸 안에서 일어난 사용자
+   * 제스처가 그 칸의 활성 탭 도구를 주목한 것으로 읽는다.
+   *
+   * 포커스는 더 이상 해제가 아니다 (FR-ATA-1) — 포커스를 얻는 경로가 넷이나
+   * 되는데 그중 어느 것도 "사용자가 그것을 보았다" 를 증명하지 못했다.
+   *
+   * `keydown` 은 일을 시킨 것이고 `pointerdown` 은 본 것이다. 그 차이가 서버의
+   * 재무장 잠금을 가른다 (FR-ATF-5·6).
+   */
+  _attnNoteInteraction(e){
+    const el=e&&e.target&&e.target.closest?e.target.closest('#area .pn[data-paneid]'):null;
+    if(!el) return;
+    const at=el.querySelector('.pn-tab.active[data-toolid]');
+    const toolId=at?at.dataset.toolid:null;
+    if(!toolId) return;
+    const typed=e.type==='keydown';
+    if(this._attn.has(toolId)) this._attnClear(toolId,typed);
+    else if(typed) this._attnRearm(toolId);
   },
 
   // 모든 창 layout 트리를 walk 해 toolId 를 가진 tab 위치 반환 (FR-PAN-16)
@@ -142,7 +202,11 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * FR-PAN-16: 해당 pane 으로 포커스 이동(_setFocus 가 _attnClearFocused 로 해제).
+   * FR-PAN-16: 해당 pane 으로 포커스 이동.
+   *
+   * FR-ATA-6: 해제는 **여기서** 한다. 포커스가 더 이상 해제가 아니므로
+   * (FR-ATA-1), 알림 센터·활동 카드의 클릭 — 사용자가 "이것을 보겠다" 고 말한
+   * 명시적 제스처 — 만은 이 자리가 직접 거둔다.
    *
    * 탭이 없는 도구도 온다 — 백그라운드로 보냈거나 Run 이 만든 헤드리스 멤버다.
    * 그때 조용히 return 하면 클릭이 아무 일도 하지 않고, 그 알람은 `모두 제거`
@@ -152,6 +216,7 @@ Object.assign(App.prototype, {
   _jumpToTool(toolId){
     const loc=this._findToolLocation(toolId);
     if(!loc){this._attnLand(toolId);return}
+    this._attnClear(toolId);
     this.ws.activeWindow=loc.win.id;
     try{sessionStorage.setItem('activeWindow', loc.win.id)}catch{}
     loc.pane.activeTab=loc.tab.id;
@@ -186,16 +251,15 @@ Object.assign(App.prototype, {
     // Windows 탭이 비활성이면 목록의 `.si.attn` 이 보이지 않기 때문이다.
     this._sbUpdateBadges();
     // 탭/리전 강조도 타깃 토글 — 전체 render() 를 피해 포커스 플리커(xterm blur/refocus)를 막는다.
+    // FR-ATV-1: 포커스 예외가 없다. 표식이 맥박을 얻은 뒤로 둘은 시간축에서
+    // 갈라지므로, 같은 자리에 겹쳐도 서로를 가리지 않는다 (§2.4).
     document.querySelectorAll('#area .pn-tab[data-toolid]').forEach(t=>{
-      const pn=t.closest('.pn');
-      const focusedPane=!!(pn&&pn.classList.contains('focused'));
-      const active=t.classList.contains('active');
-      t.classList.toggle('attn', this._attnHas(t.dataset.toolid)&&!(focusedPane&&active));
+      t.classList.toggle('attn', this._attnHas(t.dataset.toolid));
     });
     document.querySelectorAll('#area .pn[data-paneid]').forEach(pn=>{
       const at=pn.querySelector('.pn-tab.active[data-toolid]');
       const pid=at?at.dataset.toolid:null;
-      pn.classList.toggle('attn', !!(pid&&this._attnHas(pid)&&!pn.classList.contains('focused')));
+      pn.classList.toggle('attn', !!(pid&&this._attnHas(pid)));
     });
     const badge=document.getElementById('attn-badge');
     if(badge){
@@ -345,10 +409,15 @@ Object.assign(App.prototype, {
       document.addEventListener('pointerdown',ask,{once:true,capture:true});
       document.addEventListener('keydown',ask,{once:true,capture:true});
     }
-    // 브라우저로 돌아오면(다른 앱→복귀) 지금 보고 있는 pane 의 알람은 해제 (요구2 보완).
-    if(!this._attnFocusBound){
-      this._attnFocusBound=true;
-      window.addEventListener('focus',()=>this._attnClearFocused());
+    // FR-ATA-3·4: 해제의 유일한 입구. capture 로 들어야 xterm 이 pointer/key
+    // 이벤트를 먼저 소비해도 누락되지 않는다.
+    //
+    // 개정 전 여기 있던 `window.focus → 해제` 는 사라졌다 — 다른 앱에서 돌아온
+    // 사용자가 알람을 보기도 전에 지우던 자리다 (B6).
+    if(!this._attnInteractBound){
+      this._attnInteractBound=true;
+      document.addEventListener('pointerdown',e=>this._attnNoteInteraction(e),{capture:true});
+      document.addEventListener('keydown',e=>this._attnNoteInteraction(e),{capture:true});
     }
     this._attnRefresh();
   },

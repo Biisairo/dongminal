@@ -353,6 +353,9 @@ func TestDaemonAttnTrackerL2Idle(t *testing.T) {
 	}()
 	defer cmdHub.Remove(sub)
 
+	// ATTENTION_FIRING_SRS FR-ATF-1: L2 는 에이전트 도구에만 운다. 이 테스트가
+	// 재는 것은 데몬 모드의 sweeper 배선이므로, 전제인 활동 보고를 세워 둔다.
+	tracker.SetActivity("p1", "done", "", "")
 	// Feed initial output to arm the idle detector
 	tracker.FeedOutput("p1", []byte("prompt"))
 
@@ -653,8 +656,10 @@ func TestDaemonAttnTrackerL2IdleSuppressedWhileWorking(t *testing.T) {
 	}
 	mu.Unlock()
 
-	// Agent stops working → idle should fire.
-	tracker.SetActivity("p1", "ended", "", "")
+	// Agent stops working → idle should fire. `ended` 로 말하지 않는다 — 그것은
+	// 세션 종료이고 에이전트 표시를 내려 L2 자체를 끈다 (FR-ATF-2). 여기서 재는
+	// 것은 "working 이 아니면 운다" 다.
+	tracker.SetActivity("p1", "done", "", "")
 	tracker.FeedOutput("p1", []byte("more output"))
 	time.Sleep(1300 * time.Millisecond)
 	mu.Lock()

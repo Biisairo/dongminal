@@ -143,9 +143,19 @@ type Tool struct {
 	// by the readPTY goroutine (no lock). The atomics are shared with the
 	// idle sweeper / input / query goroutines. onAttention/onAttentionClear/
 	// allowBell are set once in StartTool before readPTY starts (race-free).
-	LastOutputAt     atomic.Int64
-	attnArmed        atomic.Bool
-	attention        atomic.Bool
+	LastOutputAt atomic.Int64
+	attnArmed    atomic.Bool
+	attention    atomic.Bool
+	// attnRearmLocked 은 "주목한 뒤로 사용자가 아직 아무것도 입력하지 않았다"
+	// 는 사실이다 (ATTENTION_FIRING_SRS FR-ATF-5). 잠긴 동안 출력은 무장을
+	// 세우지 못한다 — TUI 는 유휴 상태에서도 화면을 갱신하므로, 이것이 없으면
+	// 한 번 해제한 알람이 화면 갱신만으로 되살아나 되풀이해 운다 (B2).
+	attnRearmLocked atomic.Bool
+	// agentSeen 은 "이 도구에서 에이전트가 돌고 있다" 는 사실이다 (FR-ATF-1).
+	// 활동 보고가 세우고 `ended` 가 내린다. L2 idle 은 이것 없이는 울지 않는다 —
+	// 전경 프로세스가 있다는 것은 "무언가 돌고 있다" 는 뜻이지 "나를 기다린다"
+	// 는 뜻이 아니다 (B1).
+	agentSeen        atomic.Bool
 	attnCarry        []byte
 	allowBell        bool
 	onAttention      func(id, reason string)
@@ -368,7 +378,11 @@ func (p *Tool) observeOutput(chunk []byte) { p.observeOutputAt(chunk, attnNow())
 // observeOutputAt is observeOutput with an injectable timestamp (tests).
 func (p *Tool) observeOutputAt(chunk []byte, now int64) {
 	p.LastOutputAt.Store(now)
-	p.attnArmed.Store(true)
+	// FR-ATF-5: 재무장이 잠긴 동안에는 출력이 무장을 세우지 못한다. 시각은
+	// 그래도 적는다 — 준비완료 사다리(FR-STA-4)가 그 값을 읽는다.
+	if !p.attnRearmLocked.Load() {
+		p.attnArmed.Store(true)
+	}
 	if p.onAttention == nil {
 		return
 	}
@@ -424,13 +438,27 @@ func (p *Tool) clearAttention() bool {
 	return false
 }
 
-// Attend marks the tool as attended-to: disarms idle and clears attention.
+// Attend marks the tool as attended-to: disarms idle, locks re-arming, and
+// clears attention.
 // Invoked only via the explicit focus/clear endpoints — NOT on raw WS input,
 // because xterm replies to terminal queries (cursor-position/device-attribute
 // reports an agent's TUI emits) arrive as OpInput too and would spuriously
 // clear a just-raised alarm. Real "user attended" is signalled by focus.
+//
+// FR-ATF-5: 잠금은 무장을 내리는 바로 이 자리에서 선다. 사용자가 **보기만
+// 했다**는 뜻이므로, 다음 화면 갱신이 곧바로 같은 알람을 되살리면 안 된다.
 func (p *Tool) Attend() {
 	p.attnArmed.Store(false)
+	p.attnRearmLocked.Store(true)
+	p.clearAttention()
+}
+
+// AttendTyped 는 사용자가 그 도구에 **키를 눌렀을** 때의 주목이다 (FR-ATF-6).
+// 보기만 한 것과 다른 점은 하나다 — 일을 시켰으므로 그 결과를 다시 기다리게
+// 되고, 따라서 재무장을 열어 둔다.
+func (p *Tool) AttendTyped() {
+	p.attnArmed.Store(false)
+	p.attnRearmLocked.Store(false)
 	p.clearAttention()
 }
 
@@ -450,12 +478,17 @@ func SetAttnBusyProbe(f func(*Tool) bool) (restore func()) {
 
 // maybeIdle fires L2 (idle) attention when an armed tool has been quiet for at
 // least threshold. It disarms after firing so it fires once per quiet edge;
-// new output re-arms it. threshold<=0 disables L2. Idle only fires when a
-// foreground process (e.g. an agent) is actually running — a bare shell sitting
-// at its prompt is not "waiting on the user" and must not raise an alarm (this
-// is what otherwise floods the UI with bogus alarms after a daemon restart).
-// Additionally, idle is suppressed while the agent is actively working (activity
-// state "working") — a thinking agent that pauses output is not waiting for input.
+// new output re-arms it. threshold<=0 disables L2.
+//
+// 발화까지 세 관문이 있고, 셋은 서로 다른 것을 묻는다 (ATTENTION_FIRING_SRS
+// FR-ATF-1·3·10):
+//
+//	① 에이전트가 도는 도구인가   — 활동을 보고한 적이 있는가 (agentSeen)
+//	② 전경 프로세스가 있는가     — 셸 프롬프트로 돌아간 도구는 울지 않는다
+//	③ 지금 일하는 중은 아닌가    — 단, 굳은 `working` 은 억제하지 못한다
+//
+// ① 이 없던 동안 `vim`·`less`·`top`·`ssh`·빌드 대기가 전부 울었다. ② 만으로는
+// "무언가 돌고 있다"까지밖에 말하지 못한다.
 func (p *Tool) maybeIdle(now, threshold int64) {
 	if threshold <= 0 || !p.attnArmed.Load() {
 		return
@@ -464,14 +497,24 @@ func (p *Tool) maybeIdle(now, threshold int64) {
 		return
 	}
 	p.attnArmed.Store(false)
-	if !attnBusyProbe(p) {
+	if !p.agentSeen.Load() || !attnBusyProbe(p) {
 		return
 	}
-	// Suppress idle alarm while agent is actively working (thinking).
-	if a := p.activity.Load(); a != nil && a.State == "working" {
+	if ActivityStillWorking(p.activity.Load(), now) {
 		return
 	}
 	p.setAttention("idle")
+}
+
+// ActivityStillWorking reports whether an activity snapshot suppresses idle:
+// the agent says it is working AND that word is recent enough to believe
+// (FR-ATF-10). 훅이 끊긴 채 `working` 으로 굳은 활동은 억제하지 못한다 — 그것이
+// 알람을 영구히 막던 자리다 (B3).
+//
+// 공개인 이유는 데몬 모드가 **같은 판정**을 써야 하기 때문이다 (FR-ATF-12).
+// 두 벌로 적으면 한쪽만 고쳐지는 날이 온다.
+func ActivityStillWorking(a *ActivityState, now int64) bool {
+	return a != nil && a.State == "working" && now-a.UpdatedAt < AttnWorkingStale
 }
 
 // Attention reports whether the tool currently needs attention.
@@ -493,6 +536,9 @@ type ActivitySnap struct {
 }
 
 func (p *Tool) SetActivity(state, tool, detail string) {
+	// FR-ATF-2: 보고했다는 사실이 에이전트 표시를 세우고, `ended` 가 내린다.
+	// 상태의 종류는 묻지 않는다 — 에이전트만이 활동을 보고하기 때문이다.
+	p.agentSeen.Store(state != "ended")
 	if state == "ended" {
 		p.activity.Store(nil) // 종료 → 카드 제거(스냅샷에서 빠짐)
 	} else {
@@ -662,8 +708,10 @@ func (p *Tool) kill() {
 		// FR-ATL-1·2 (NFR-PAN-8): 주의도 같은 자리에서 내린다. 활동만 정리하고
 		// 주의를 남겨 두었던 것이, 닫은 탭의 알람이 배지에 남던 원인이다.
 		// disarm 까지 하는 이유는 Attend 와 같다 — 죽은 도구가 idle 로 다시
-		// 깨어나면 안 된다.
+		// 깨어나면 안 된다. FR-ATF-7: 상태를 버리는 자리가 재무장 잠금도 함께
+		// 버린다.
 		p.attnArmed.Store(false)
+		p.attnRearmLocked.Store(false)
 		p.clearAttention()
 	})
 }
