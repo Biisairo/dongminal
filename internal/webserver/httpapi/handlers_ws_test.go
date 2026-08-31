@@ -5,6 +5,8 @@ import (
 
 	"bytes"
 	"encoding/binary"
+	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -136,14 +138,26 @@ func TestHandleWS_OpInput(t *testing.T) {
 		t.Fatalf("write input: %v", err)
 	}
 
-	// Wait for toolhub.OpOutput containing our input or shell prompt.
+	// 에코를 기다린다. **읽기 시한 초과는 "아직 안 왔다" 이고, 연결이 끊긴 것과
+	// 다르다** — 그 둘을 갈라야 예산이 예산으로 쓰인다.
+	//
+	// 이전에는 `err != nil` 이면 곧바로 `break` 했다. 시한 초과도 error 이므로
+	// 예산이 3초여도 실제로 재던 것은 **첫 500ms 안에 에코가 오는가** 였고,
+	// ConPTY 가 셸을 띄우는 데 그보다 오래 걸리는 Windows 러너에서 죽었다
+	// (verify 33353308649). 러너의 부하에 따라 통과하던 검사다 — 재는 것이
+	// 에코의 도착이지 러너의 속도가 아니므로, 시한 초과에는 계속 기다린다.
 	found := false
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		ws.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 		mt, msg, err := ws.ReadMessage()
 		if err != nil {
-			break
+			var ne net.Error
+			if errors.As(err, &ne) && ne.Timeout() {
+				continue
+			}
+			// 연결이 끊겼다 — 더 기다려도 오지 않는다.
+			t.Fatalf("read: %v", err)
 		}
 		if mt == websocket.BinaryMessage && len(msg) > 0 && msg[0] == toolhub.OpOutput {
 			if bytes.Contains(msg[1:], []byte("ws_test")) {
