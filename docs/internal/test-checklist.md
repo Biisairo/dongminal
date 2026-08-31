@@ -213,14 +213,20 @@
 | B5.7 | `Command.AllowedAction/Broadcast` — 위임 | |
 | B5.8 | `Client.ResolveClientPane` — PID 매칭 | clientPID 조회 실패; 조상 체크 32회; 매칭 실패 |
 
-### B6. Runtime Install (internal/runtime/install.go)
+### B6. Runtime Install (`internal/shared/runtime/install.go`)
+
+경로와 내용이 낡아 있었다 — 헬퍼는 더 이상 `scripts/` 를 훑어 복사하지 않고,
+임베드된 훅을 풀고 자기 자신을 가리키는 링크를 건다. HELPER_INSTALL_SRS 로 갱신.
+
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | B6.1 | `Install` — binDir 생성 | MkdirAll 실패 |
-| B6.2 | `Install` — scripts/ WalkDir | |
-| B6.3 | `Install` — 디렉터리 복제 | MkdirAll |
-| B6.4 | `Install` — 파일 복사 + 권한 | 확장자 없거나 .sh → 0755; 그 외 → 0644 |
-| B6.5 | `Install` — 하위 디렉터리 파일 | dst 상위 디렉터리 생성 |
+| B6.2 | `Install` — 임베드된 셸 훅 전개 | OS 별 트리 선택 |
+| B6.3 | `Install` — 헬퍼를 자기 자신으로 링크 | 심링크 불가 파일시스템 → 복사 (FR-XPA-3) |
+| B6.4 | `Install` — **덧없는 자기 자신**(`go run` 임시 산출물)이면 bin 안에 실체를 복사하고 그것을 가리킨다 | 판정은 임시 디렉터리 **또한** `go-build` 경로일 때만 (FR-HLI-1/2) |
+| B6.5 | `Install` — 에이전트 훅·플러그인 전개 | 설치 트리는 임베드 트리의 거울 (사라진 자산 제거) |
+| B6.6 | `InspectHelpers` — 설치된 헬퍼가 실행 가능한지 | 죽은 링크 · 없는 파일 · 디렉터리 (FR-HLI-7) |
+| B6.7 | `InspectHelpers` — 하나도 없으면 **고장이 아니다**(아직 설치 전), 일부만 있으면 고장 | FR-HLI-11 · D-6 |
 
 ### B7. ClientPID (internal/clientpid/)
 | # | 동작 | 엣지/실패 케이스 |
