@@ -135,6 +135,48 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 
 /* ── Split layout ── */
 .sp{display:flex;position:absolute;inset:0;overflow:hidden}
+
+/* WINDOW_SLOTS_SRS FR-WSL-30·D-8: 칸은 flex 아이템이다. 개수가 늘어도 누적
+   좌표를 계산할 일이 없고, 방향은 `flex-direction` 한 줄이 정한다.
+   **단일 슬롯 모드에서는 이 규칙들이 붙을 요소 자체가 없다** — `#area` 는 지금처럼
+   분할 트리를 직접 갖고, `.sp`·`.pn` 의 `inset:0` 가 `#area` 를 채운다 (D-4). */
+#area[data-slotdir]{display:flex}
+#area[data-slotdir="horizontal"]{flex-direction:row}
+#area[data-slotdir="vertical"]{flex-direction:column}
+.slot{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
+/* 분할 트리가 붙는 자리. `inset:0` 의 기준이 되도록 relative 다. */
+.slot-body{position:relative;flex:1;min-width:0;min-height:0;overflow:hidden}
+/* FR-WSL-35 / D-10: 칸의 이름표. 흐리게 하는 방식은 쓸 수 없다 — 그것은 이미
+   소유권 없음(`.pn-dimmed`)의 뜻이다. 그래서 이름을 적는다. */
+.slot-head{flex:0 0 auto;padding:2px 8px;font-size:11px;line-height:1.6;
+  color:var(--fg);opacity:.6;background:var(--sidebar-bg);
+  border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;user-select:none}
+.slot-focused>.slot-head{opacity:1;color:var(--accent);
+  border-bottom-color:var(--accent);font-weight:600}
+.slot-empty>.slot-body{display:flex;align-items:center;justify-content:center}
+.slot-empty>.slot-body::after{content:'사이드바에서 창을 고르세요';opacity:.45;font-size:12px}
+/* FR-WSL-32: 칸 사이마다 하나씩. 생김새와 히트 확장은 `#sb-handle` 과 같고,
+   끄는 축만 방향을 따른다 — 창 안 분할의 `.sh` 가 이미 그렇게 갈라져 있다. */
+.slot-handle{position:relative;flex:0 0 4px;background:var(--border);z-index:5}
+.slot-handle:hover{background:var(--accent)}
+#area[data-slotdir="horizontal"] .slot-handle{cursor:col-resize}
+#area[data-slotdir="vertical"] .slot-handle{cursor:row-resize}
+#area[data-slotdir="horizontal"] .slot-handle::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
+#area[data-slotdir="vertical"] .slot-handle::before{content:'';position:absolute;left:0;right:0;top:-6px;bottom:-6px}
+/* FR-WSL-50: 토프바의 `− Slot +`. 두 버튼이 한 덩어리로 읽혀야 창 안 분할과
+   섞이지 않는다 (§7 R-3). */
+.slot-ctl{display:inline-flex;align-items:center;gap:2px;margin:0 2px}
+.slot-ctl .tbtn{min-width:22px;padding:2px 6px}
+.slot-ctl .tbtn:disabled{opacity:.35;cursor:default}
+.slot-ctl-label{font-size:11px;opacity:.6;user-select:none}
+/* FR-WSL-81: 설정의 두 칸짜리 세그먼트 토글. */
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.seg button{background:transparent;color:var(--fg);border:0;padding:3px 10px;
+  font-size:12px;cursor:pointer;opacity:.6}
+.seg button+button{border-left:1px solid var(--border)}
+.seg button:hover{opacity:.85}
+.seg button.active{background:var(--accent);color:var(--bg);opacity:1}
 .sp[data-d="horizontal"]{flex-direction:row}
 .sp[data-d="vertical"]{flex-direction:column}
 .sc{flex:1;position:relative;overflow:hidden;min-width:0;min-height:0}

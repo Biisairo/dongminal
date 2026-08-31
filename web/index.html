@@ -13,7 +13,7 @@
   <link rel="icon" href="assets/favicon-16.png" sizes="16x16" type="image/png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="vendor/xterm.css">
-  <link rel="stylesheet" href="style.css?v=197">
+  <link rel="stylesheet" href="style.css?v=200">
   <script>try{var w=parseInt(localStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px')}catch(e){}</script>
 </head>
 <body>
@@ -83,6 +83,15 @@
            desktop-only 가 아니다 — 모바일에서 백그라운드 도구에 닿는 유일한
            통로다 (§2.5). 리스너는 app-statusbar.js 가 붙인다. -->
       <button class="tbtn" id="bg-btn" title="백그라운드 도구">Background</button>
+      <!-- WINDOW_SLOTS_SRS FR-WSL-50: 창 **밖**을 쪼갠다 — 창 **안**을 쪼개는
+           Split H·V 와 떨어진 자리다 (§7 R-3). 한계에 닿으면 비활성이 된다.
+           리스너는 app-slots.js 가 붙인다. -->
+      <span class="slot-ctl desktop-only">
+        <button class="tbtn" id="slot-remove" title="창 슬롯 빼기 (Ctrl+Shift+X)">−</button>
+        <span class="slot-ctl-label">Slot</span>
+        <button class="tbtn" id="slot-add" title="창 슬롯 더하기 (Ctrl+Shift+S)">+</button>
+      </span>
+      <!-- FR-WSL-50: Agents 가 데스크톱 버튼 중 가장 오른쪽이다. -->
       <button class="tbtn desktop-only" id="agents-toggle" title="에이전트 모아보기">Agents</button>
       <button class="mtbtn mobile-only" id="m-search-btn" title="검색">🔍</button>
       <button class="mtbtn mobile-only" id="m-add-tab" title="새 탭">+</button>
@@ -161,6 +170,17 @@
             <input type="text" class="ds-text" id="ds-title" maxlength="60" placeholder="Dongminal">
           </div>
           <div class="ds-hint">브라우저 탭에 뜨는 이름입니다. 여러 대에 띄웠을 때 탭 줄에서 구분됩니다. 비우면 'Dongminal' 로 돌아갑니다.</div>
+          <!-- FR-WSL-81: 슬롯 방향. 값은 창 안 분할과 같은 용어다. -->
+          <div class="ds-row">
+            <span>슬롯 방향</span>
+            <!-- FR-WSL-81: 왼쪽이 가로, 오른쪽이 세로다. 선택지가 둘뿐이고
+                 그림으로 구별되므로 펼쳐서 읽을 것이 없다. -->
+            <span class="seg" id="ds-slotdir">
+              <button type="button" data-v="horizontal" title="좌우로 나눔">▐▌ 가로</button>
+              <button type="button" data-v="vertical" title="위아래로 나눔">▀▄ 세로</button>
+            </span>
+          </div>
+          <div class="ds-hint">두 창을 나란히 볼 때(⧉ Slot · Ctrl+Shift+S) 칸을 어느 축으로 나눌지 정합니다.</div>
           <div class="ds-row">
             <span>Display Mode</span>
             <select class="sbs-select" id="ds-mode">
@@ -212,64 +232,65 @@
 <script src="vendor/addon-web-links.js"></script>
 <script src="vendor/addon-unicode11.js"></script>
 <script src="vendor/addon-search.js"></script>
-<script src="js/core/constants.js?v=197"></script>
-<script src="js/core/constants-git.js?v=197"></script>
-<script src="js/core/constants-editor.js?v=197"></script>
-<script src="js/core/helpers.js?v=197"></script>
-<script src="js/ui/repaint.js?v=197"></script>
+<script src="js/core/constants.js?v=200"></script>
+<script src="js/core/constants-git.js?v=200"></script>
+<script src="js/core/constants-editor.js?v=200"></script>
+<script src="js/core/helpers.js?v=200"></script>
+<script src="js/ui/repaint.js?v=200"></script>
 <!-- 사이드바 탭 (GIT_SIDEBAR_TABS_SRS). renderer.js 앞이어야 한다 — 렌더러가
      활성 탭 상태를 읽는다. -->
-<script src="js/ui/sidebar-tabs.js?v=197"></script>
+<script src="js/ui/sidebar-tabs.js?v=200"></script>
 <!-- 사이드바 리스트 블루프린트 (UX_REVISION_SRS 묶음 B). 서술자(sidebar-tabs.js)
      뒤, 렌더러 앞이어야 한다 — 렌더러가 이것으로 두 목록을 그린다. -->
-<script src="js/ui/sidebar-list.js?v=197"></script>
-<script src="js/ui/themes.js?v=197"></script>
-<script src="js/ui/term-clipboard.js?v=197"></script>
-<script src="js/ui/term-pane.js?v=197"></script>
-<script src="js/ui/file-editor.js?v=197"></script>
-<script src="js/ui/input-binding.js?v=197"></script>
-<script src="js/git/api.js?v=197"></script>
-<script src="js/git/panel.js?v=197"></script>
-<script src="js/git/confirm.js?v=197"></script>
-<script src="js/git/dialog.js?v=197"></script>
-<script src="js/git/commit.js?v=197"></script>
-<script src="js/git/lanes.js?v=197"></script>
-<script src="js/git/menu.js?v=197"></script>
-<script src="js/git/history.js?v=197"></script>
-<script src="js/git/branches.js?v=197"></script>
-<script src="js/git/stash.js?v=197"></script>
-<script src="js/git/tag.js?v=197"></script>
-<script src="js/git/console.js?v=197"></script>
-<script src="js/git/worktrees.js?v=197"></script>
-<script src="js/git/remote.js?v=197"></script>
-<script src="js/git/commit-ops.js?v=197"></script>
+<script src="js/ui/sidebar-list.js?v=200"></script>
+<script src="js/ui/themes.js?v=200"></script>
+<script src="js/ui/term-clipboard.js?v=200"></script>
+<script src="js/ui/term-pane.js?v=200"></script>
+<script src="js/ui/file-editor.js?v=200"></script>
+<script src="js/ui/input-binding.js?v=200"></script>
+<script src="js/git/api.js?v=200"></script>
+<script src="js/git/panel.js?v=200"></script>
+<script src="js/git/confirm.js?v=200"></script>
+<script src="js/git/dialog.js?v=200"></script>
+<script src="js/git/commit.js?v=200"></script>
+<script src="js/git/lanes.js?v=200"></script>
+<script src="js/git/menu.js?v=200"></script>
+<script src="js/git/history.js?v=200"></script>
+<script src="js/git/branches.js?v=200"></script>
+<script src="js/git/stash.js?v=200"></script>
+<script src="js/git/tag.js?v=200"></script>
+<script src="js/git/console.js?v=200"></script>
+<script src="js/git/worktrees.js?v=200"></script>
+<script src="js/git/remote.js?v=200"></script>
+<script src="js/git/commit-ops.js?v=200"></script>
 <!-- Editor 창의 파일 탐색기 (EDITOR_TAB_SRS 묶음 X). renderer.js 앞이어야 한다 —
      렌더러의 마운트 자리가 이 클래스를 부른다. -->
-<script src="js/ui/file-tree.js?v=197"></script>
-<script src="js/ui/renderer.js?v=197"></script>
-<script src="js/core/app.js?v=197"></script>
-<script src="js/core/app-cmd.js?v=197"></script>
-<script src="js/core/app-reload.js?v=197"></script>
-<script src="js/core/app-tool.js?v=197"></script>
-<script src="js/core/app-layout.js?v=197"></script>
-<script src="js/core/app-focus.js?v=197"></script>
-<script src="js/core/app-attn.js?v=197"></script>
-<script src="js/core/app-agents.js?v=197"></script>
-<script src="js/core/app-git.js?v=197"></script>
+<script src="js/ui/file-tree.js?v=200"></script>
+<script src="js/ui/renderer.js?v=200"></script>
+<script src="js/core/app.js?v=200"></script>
+<script src="js/core/app-cmd.js?v=200"></script>
+<script src="js/core/app-reload.js?v=200"></script>
+<script src="js/core/app-tool.js?v=200"></script>
+<script src="js/core/app-layout.js?v=200"></script>
+<script src="js/core/app-slots.js?v=200"></script>
+<script src="js/core/app-focus.js?v=200"></script>
+<script src="js/core/app-attn.js?v=200"></script>
+<script src="js/core/app-agents.js?v=200"></script>
+<script src="js/core/app-git.js?v=200"></script>
 <!-- Editor 탭·창 (EDITOR_TAB_SRS). app.js 뒤 main.js 앞 — prototype 확장이다. -->
-<script src="js/core/app-editor.js?v=197"></script>
-<script src="js/core/app-edsearch.js?v=197"></script>
+<script src="js/core/app-editor.js?v=200"></script>
+<script src="js/core/app-edsearch.js?v=200"></script>
 <!-- Run 시각화 (ORCHESTRATION_V2_SRS 묶음 V). app.js 뒤 — prototype 확장. -->
-<script src="js/core/app-runs.js?v=197"></script>
-<script src="js/core/app-search.js?v=197"></script>
-<script src="js/core/app-mobile.js?v=197"></script>
-<script src="js/core/app-settings.js?v=197"></script>
-<script src="js/core/app-statusbar.js?v=197"></script>
-<script src="js/core/app-presets.js?v=197"></script>
-<script src="js/core/app-dnd.js?v=197"></script>
-<script src="js/core/main.js?v=197"></script>
-<script src="js/ui/version-watch.js?v=197"></script>
+<script src="js/core/app-runs.js?v=200"></script>
+<script src="js/core/app-search.js?v=200"></script>
+<script src="js/core/app-mobile.js?v=200"></script>
+<script src="js/core/app-settings.js?v=200"></script>
+<script src="js/core/app-statusbar.js?v=200"></script>
+<script src="js/core/app-presets.js?v=200"></script>
+<script src="js/core/app-dnd.js?v=200"></script>
+<script src="js/core/main.js?v=200"></script>
+<script src="js/ui/version-watch.js?v=200"></script>
 <!-- 실기기 진단. ?diag=1 로 접속할 때만 동작한다 -->
-<script src="js/ui/diag.js?v=197"></script>
+<script src="js/ui/diag.js?v=200"></script>
 </body>
 </html>

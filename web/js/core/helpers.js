@@ -86,6 +86,11 @@ const SHORTCUT_DEFAULTS={
   newWindow:'Ctrl+Shift+KeyN',newTab:'Ctrl+Shift+KeyT',
   closeWindow:'Ctrl+Shift+KeyW',closeTab:'Ctrl+Shift+KeyD',
   agentsToggle:'Ctrl+Shift+KeyA',
+  // WINDOW_SLOTS_SRS FR-WSL-51: 칸 더하기·빼기. `S`(Slot)·`X`(빼기) 둘 다 비어
+  // 있던 자리다. 칸 **사이의 이동**에는 키를 만들지 않는다 — pane 이동이 창의
+  // 끝에서 넘어간다 (FR-WSL-40, D-5).
+  slotAdd:'Ctrl+Shift+KeyS',
+  slotRemove:'Ctrl+Shift+KeyX',
   // PANEL_SHORTCUTS_SRS FR-PSC-1/2: 상단 툴바의 나머지 두 진입점. `Runs` 가 `O`
   // 인 이유는 `R` 을 쓸 수 없기 때문이다 — 아래 D-6 과 같은 근거다.
   bgToggle:'Ctrl+Shift+KeyB',
@@ -103,6 +108,8 @@ const SHORTCUT_LABELS={
   newWindow:'새 창',newTab:'새 탭',
   closeWindow:'창 닫기',closeTab:'탭 닫기',
   agentsToggle:'에이전트 패널',
+  slotAdd:'창 슬롯 더하기',
+  slotRemove:'창 슬롯 빼기',
   bgToggle:'백그라운드 도구',
   runsToggle:'Run 오케스트레이션',
   softReload:'내부 새로고침',

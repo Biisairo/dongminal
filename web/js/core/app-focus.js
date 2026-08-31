@@ -99,35 +99,40 @@ Object.assign(App.prototype, {
   // _focusWindow is the SINGLE entry point for claiming window ownership.
   // Applies the claim locally, posts it to the server (which broadcasts the
   // full map to every client), sends resize, and updates the overlay.
-  _focusWindow(windowId){
+  //
+  // FR-WSL-12: `slot` 을 생략하면 포커스 슬롯이다 — 단일 슬롯 모드의 호출부 여덟
+  // 자리가 한 글자도 바뀌지 않아야 한다.
+  _focusWindow(windowId,slot){
     if(!windowId) return;
+    const si=(slot==null)?this._slotFocused():slot;
+    const cid=this._slotIdentity(si);
     let changed=false;
-    // Release other windows this client owns (one client → one window).
+    // Release other windows this SLOT owns (one slot → one window).
     for(const sid of Object.keys(this._windowFocusOwner)){
-      if(sid!==windowId&&this._windowFocusOwner[sid]===this.clientId){
+      if(sid!==windowId&&this._windowFocusOwner[sid]===cid){
         delete this._windowFocusOwner[sid];
         changed=true;
       }
     }
-    if(this._windowFocusOwner[windowId]!==this.clientId){
-      this._windowFocusOwner[windowId]=this.clientId;
+    if(this._windowFocusOwner[windowId]!==cid){
+      this._windowFocusOwner[windowId]=cid;
       changed=true;
     }
     // Only post if ownership actually changes — otherwise every click on an
     // already-owned window would hit the server.
-    if(changed) this._focusClaim(windowId);
+    if(changed) this._focusClaim(windowId,cid);
     // Send resize immediately (before render) so PTY matches this window's
     // size by the time the user sees the panes. Only if OS-focused.
-    if(this._windowFocused) this._resendWindowSizes(windowId);
+    if(this._windowFocused) this._resendWindowSizes(windowId,si);
     this._applyFocusOverlay();
   },
 
   // _focusClaim posts ownership to the server (FR-XDF-7). The server answers by
   // broadcasting the full owner map, which is what actually converges every
   // client — this POST is fire-and-forget.
-  _focusClaim(windowId){
+  _focusClaim(windowId,clientId){
     fetch('/api/focus/claim',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({clientId:this.clientId,windowId})}).catch(()=>{});
+      body:JSON.stringify({clientId:clientId||this.clientId,windowId})}).catch(()=>{});
   },
 
   // _focusRestore aligns local state with the server on SSE connect
@@ -144,32 +149,47 @@ Object.assign(App.prototype, {
       if(!j) return;
       this._windowFocusOwner=j.owners||{};
       this._applyFocusOverlay();
-      if(this._windowFocused&&this.ws.activeWindow) this._focusWindow(this.ws.activeWindow);
+      // FR-WSL-12: 슬롯이 둘이면 둘 다 재주장한다 — 각 슬롯의 구독이 따로 끊기고
+      // 따로 해제되므로, 하나만 되찾으면 다른 칸이 영영 dim 된 채로 남는다.
+      if(this._windowFocused){
+        if(this._slots) this._slotClaimAll();
+        else if(this.ws.activeWindow) this._focusWindow(this.ws.activeWindow,0);
+      }
     }).catch(()=>{});
   },
 
   // _resizeCheck returns true if this window is allowed to send resize for
   // a given pane (has OS focus + owns the pane's window or it's unowned).
-  _resizeCheck(toolId){
+  //
+  // FR-WSL-14: `slot` 은 **묻는 인스턴스가 선 슬롯**이다. 같은 창이 두 슬롯에 있으면
+  // toolId 가 같으므로, 슬롯을 묻지 않으면 두 인스턴스가 모두 허가를 받아 서로
+  // 다른 크기를 PTY 에 보낸다 — 크기는 하나뿐이다.
+  _resizeCheck(toolId,slot){
     if(!this._windowFocused) return false;
     const sid=this._toolWindowId(toolId);
     if(!sid) return true; // pane not in any window yet → allow
     const owner=this._windowFocusOwner[sid];
-    return !owner||owner===this.clientId;
+    if(!owner) return true;
+    return owner===this._slotIdentity(slot||0);
   },
 
   // _applyFocusOverlay syncs the DOM: panes whose window is owned by
   // another window get the dimmed overlay (pn-dimmed class).
+  //
+  // FR-WSL-14: 판정이 pane 마다 갈린다 — 같은 창이 두 슬롯에 있으면 한쪽만 소유하고
+  // 다른 쪽은 흐려져야 한다. 그래서 "내 것인가" 를 앱 전체가 아니라 **그 pane 이
+  // 선 슬롯의 신원**으로 묻는다.
   _applyFocusOverlay(){
-    const otherOwned=new Set();
-    for(const[sid,owner] of Object.entries(this._windowFocusOwner)){
-      if(owner&&owner!==this.clientId) otherOwned.add(sid);
-    }
     for(const pn of document.querySelectorAll('.pn')){
+      const slotEl=pn.closest?pn.closest('.slot'):null;
+      const slot=slotEl?(parseInt(slotEl.dataset.slot,10)||0):0;
+      const mine=this._slotIdentity(slot);
       let dim=false;
       for(const t of pn.querySelectorAll('.pn-tab[data-toolid]')){
         const sid=this._toolWindowId(t.dataset.toolid);
-        if(sid&&otherOwned.has(sid)){dim=true;break}
+        if(!sid) continue;
+        const owner=this._windowFocusOwner[sid];
+        if(owner&&owner!==mine){dim=true;break}
       }
       pn.classList.toggle('pn-dimmed',dim);
     }
@@ -198,11 +218,12 @@ Object.assign(App.prototype, {
   // _resendWindowSizes sends resize for every pane in a window.
   // Sends even for hidden panes (they retain last-visible dimensions) so the
   // PTY is sized correctly BEFORE render, avoiding a one-frame glitch.
-  _resendWindowSizes(windowId){
+  _resendWindowSizes(windowId,slot){
     if(!windowId) return;
-    // Don't send resize if another window owns this window.
+    const si=(slot==null)?this._slotFocused():slot;
+    // Don't send resize if another slot/client owns this window.
     const owner=this._windowFocusOwner[windowId];
-    if(owner&&owner!==this.clientId) return;
+    if(owner&&owner!==this._slotIdentity(si)) return;
     const s=this.ws.windows.find(x=>x.id===windowId);
     if(!s||!s.layout) return;
     const toolIds=new Set();
@@ -215,7 +236,7 @@ Object.assign(App.prototype, {
     };
     walk(s.layout);
     for(const pid of toolIds){
-      const p=this.tools.get(pid);
+      const p=this.tools.get(this._slotKey(pid,si));
       // Send resize even if pane is hidden — the dimensions were set when
       // it was last visible and are still valid. This avoids a visible
       // glitch where the PTY renders at the wrong size for one frame.

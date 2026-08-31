@@ -5,6 +5,9 @@
 class TerminalTool {
   constructor(id, name) {
     this.id=id; this.name=name;
+    // WINDOW_SLOTS_SRS FR-WSL-14: 같은 도구가 두 슬롯에 서면 toolId 가 같다.
+    // 크기 권한을 물을 때 **어느 칸의 인스턴스인지**를 함께 밝혀야 한다.
+    this._slot=0;
     this.ws=null; this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false; this._destroyed=false; this._retryDelay=0;
     // FR-RCS-1: 도구가 사라졌다는 서버의 통보(OP.EXIT)를 받았는가. 서면 재연결을
     // 영구히 멈춘다. FR-RCS-3 의 healthy 타이머는 "이 연결이 유효했는가"의 근거다.
@@ -66,7 +69,7 @@ class TerminalTool {
     });
     this.term.onResize(({cols,rows})=>{
       // Only the OS-focused window that owns the pane's window may send resize.
-      if(!window.app||!window.app._resizeCheck(this.id)) return;
+      if(!window.app||!window.app._resizeCheck(this.id,this._slot)) return;
       const m=new Uint8Array(5);m[0]=OP.RESIZE;
       new DataView(m.buffer).setUint16(1,cols,false);
       new DataView(m.buffer).setUint16(3,rows,false);

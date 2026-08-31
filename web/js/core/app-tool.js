@@ -126,15 +126,22 @@ Object.assign(App.prototype, {
 
   // FR-ATL-7: 지우는 도구의 알람은 로컬에서 먼저 뗀다. 서버 브로드캐스트를
   // 기다리면 그 사이 배지가 없는 도구를 가리키고, 통지가 유실되면 영영 남는다.
+  // FR-WSL-22: 도구를 지우는 경로는 **모든 슬롯의 인스턴스**를 파괴한다. 슬롯 1 의
+  // 인스턴스가 남으면 이미 죽은 PTY 로 재연결을 시도한다.
+  _killToolInstances(pid){
+    for(const k of [pid,this._slotKey(pid,1)]){
+      const p=this.tools.get(k);
+      if(p){try{p.destroy()}catch{}; this.tools.delete(k)}
+    }
+  },
+
   async _kill(pid){
-    const p=this.tools.get(pid);
-    if(p){p.destroy();this.tools.delete(pid)}
+    this._killToolInstances(pid);
     if(this._attnDrop(pid)) this._attnRefresh();
     try{await fetch(`/api/tools/${pid}`,{method:'DELETE'})}catch{}
   },
   _killTool(pid){
-    const p=this.tools.get(pid);
-    if(p){p.destroy();this.tools.delete(pid)}
+    this._killToolInstances(pid);
     if(this._attnDrop(pid)) this._attnRefresh();
     fetch(`/api/tools/${pid}`,{method:'DELETE'}).catch(()=>{});
   },

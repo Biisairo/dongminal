@@ -113,6 +113,9 @@ Object.assign(App.prototype, {
   async delWindow(sid){
     const i=this.ws.windows.findIndex(s=>s.id===sid);
     if(i<0) return;
+    // FR-WSL-6: 슬롯 정리는 창을 실제로 지우기 **전에** 예약해 두지 않는다 —
+    // 아래 확인 대화에서 취소될 수 있기 때문이다. 지운 뒤에 부른다 (아래).
+
     const s=this.ws.windows[i];
     const pids=allPids(s.layout);
     const busyChecks=await Promise.all(pids.map(pid=>this._isToolBusy(pid)));
@@ -133,6 +136,9 @@ Object.assign(App.prototype, {
     // FR-BG-4b: backgroundCapable 이 아닌 도구는 전환 대상이 아니라 종료된다.
     for(const pid of pids) if(!keep.has(pid)) this._kill(pid);
     this.ws.windows.splice(i,1);
+    // FR-WSL-6: 실제로 지워진 뒤에 슬롯을 정리한다 — 위의 확인 대화에서
+    // 취소되면 여기 도달하지 않는다.
+    this._slotOnWindowGone(sid);
     if(!this.ws.windows.length){await this._mkWindow();this.render();return}
     if(this.ws.activeWindow===sid){
       // UX_REVISION_SRS FR-CLS-1: 다음 활성 창은 **일반 창**이다. 인덱스로만
@@ -174,6 +180,9 @@ Object.assign(App.prototype, {
     // 열렸는지 모르겠다"가 없다 (O15).
     if(cur&&!this._isGitWin(cur)&&!this._isEditorWin(cur)) this._lastPlainWindow=cur.id;
     this.ws.activeWindow=sid;
+    // WINDOW_SLOTS_SRS FR-WSL-54: 포커스 슬롯이 이 창을 받는다. 다른 슬롯은
+    // 건드리지 않는다 — 그것이 두 칸을 나란히 두는 이유다.
+    this._slotOnSwitch(sid);
     // FR-EDT-7: Editor 탭이 돌아갈 창을 같은 규약으로 기억한다 — 들어가는
     // 순간에 적는다. 나갈 때 적으면 한 번도 떠난 적 없는 창을 기억하지 못한다.
     if(this._isEditorWin(this._aw())) this._lastEditorWindow=sid;
@@ -530,9 +539,15 @@ Object.assign(App.prototype, {
   },
   switchWindowPrev(){this._cycleActive(-1)},
   switchWindowNext(){this._cycleActive(1)},
+  //
+  // WINDOW_SLOTS_SRS FR-WSL-40·41: 창 안에서 갈 pane 이 없으면 슬롯 경계를 넘는다.
+  // **빠져나오는 자리가 셋이고 셋 모두**가 넘침으로 흘러야 한다 (§2.6) — 특히
+  // `path.length<2` 는 분할이 없는 창(Git 창 포함)이 타는 자리다. 여기를 빠뜨리면
+  // 터미널 창에서는 넘어가는데 Git 창에서는 안 넘어가는 비대칭이 생긴다.
   paneNavigate(dir){
-    const s=this._aw();if(!s||!this.focused)return;
-    const path=findPath(s.layout,this.focused);if(!path||path.length<2)return;
+    const s=this._aw();if(!s||!this.focused)return this.slotNavigate(dir);
+    const path=s.layout?findPath(s.layout,this.focused):null;
+    if(!path||path.length<2)return this.slotNavigate(dir);
     for(let i=path.length-2;i>=0;i--){
       const parent=path[i],child=path[i+1];
       if(parent.type!=='split')continue;
@@ -546,6 +561,7 @@ Object.assign(App.prototype, {
         if(target){this._setFocus(target.id, s);this._save();this.render();return}
       }
     }
+    return this.slotNavigate(dir);
   },
   addTabFocused(){if(this.focused)this.addTab(this.focused,'terminal')},
   closeTabFocused(){

@@ -89,6 +89,8 @@ Object.assign(App.prototype, {
       if(dsTitle) dsTitle.value=pageTitle;
       const dsFg=document.getElementById('ds-fgnames');
       if(dsFg) dsFg.checked=fgTabNames;
+      // FR-WSL-81: 슬롯 방향 세그먼트. 열 때마다 현재 값을 다시 칠한다.
+      this._slotDirPaint();
       const scBlock=document.getElementById('sc-blockbrowser');
       if(scBlock) scBlock.checked=blockBrowserKeys;
       // Auto-close drawer when opening settings on mobile
@@ -261,7 +263,9 @@ Object.assign(App.prototype, {
       {label:'창',keys:['windowNext','windowPrev','newWindow','closeWindow']},
       {label:'탭',keys:['tabNext','tabPrev','newTab','closeTab']},
       {label:'Pane',keys:['paneUp','paneDown','paneLeft','paneRight']},
-      {label:'분할',keys:['splitH','splitV']},
+      // FR-WSL-51: 창 **안**의 분할과 창 **밖**의 슬롯은 다른 것이다 (§7 R-3).
+      // 같은 그룹에 두되 라벨이 그 차이를 말한다.
+      {label:'분할',keys:['splitH','splitV','slotAdd','slotRemove']},
       // PANEL_SHORTCUTS_SRS FR-PSC-5: 상단 툴바의 진입점 셋. 목록의 차례를
       // 툴바의 차례(Runs · Background · Agents)와 맞춘다.
       {label:'패널',keys:['runsToggle','bgToggle','agentsToggle']},

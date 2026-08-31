@@ -15,6 +15,12 @@ class App {
     this._kb=false;
     this._windowFocused=typeof document!=='undefined'&&document.hasFocus?document.hasFocus():true;
     this._windowFocusOwner={}; // { windowId: clientId } — per-window focus ownership
+    // WINDOW_SLOTS_SRS FR-WSL-2: 슬롯은 클라이언트의 것이다 — workspace 에
+    // 새지 않는다. null 이면 단일 슬롯 모드이고 그때의 DOM 은 슬롯 도입 전과
+    // 같다 (FR-WSL-4, D-4).
+    this._slots=null;
+    this._slotIds=[];          // 칸별 clientId. [0] 은 this.clientId 를 쓴다 (FR-WSL-10)
+    this._slotSse=[];          // 칸 1.. 의 소유권을 살려 두는 구독들 (FR-WSL-11)
     this._drag=null;
     this._stats={};this._latency=null;
     this._mPaneIdx=0; // mobile current pane index (volatile)
@@ -173,6 +179,10 @@ class App {
         }
       }
     }catch{}
+    // FR-WSL-2·7: 슬롯 복원은 activeWindow 복원 **뒤**다 — 포커스 슬롯의 창이
+    // activeWindow 를 덮는다 (FR-WSL-3). 워크스페이스에 없는 창 id 는 그 슬롯만
+    // 비운다.
+    this._slotsRestore();
     this._pruneAgentOrder();
     const a=this._aw();
     if(a&&a.layout){const saved=a.focusedPane;const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);if(f)this._setFocus(f.id, a)}
@@ -193,6 +203,8 @@ class App {
     // FR-SRL-8·9: 내부 새로고침의 진입점 둘. 배선은 `_subscribeCommands` **뒤**
     // 여야 한다 — 그것이 `_sseKick` 을 세운다.
     this._initSoftReload();
+    // FR-WSL-50·81: 슬롯 토글 버튼과 방향 설정. 다른 `_init*` 과 같은 자리다.
+    this._initSlots();
   }
 
   _collectPanes(n, out){
@@ -201,14 +213,30 @@ class App {
     if(n.children) for(const c of n.children) this._collectPanes(c,out);
   }
 
-  _mkTool(id,name){
-    if(this.tools.has(id)) return this.tools.get(id);
+  // FR-WSL-20: 슬롯을 명시하지 않으면 슬롯 0 이다 — 단일 슬롯 모드의 호출부가
+  // 한 글자도 바뀌지 않아야 한다. 같은 도구를 두 슬롯에 그리면 인스턴스가 둘이고
+  // WebSocket 도 둘이다 (§7 R-1, 회수는 _slotReap).
+  _mkTool(id,name,slot){
+    const key=this._slotKey(id,slot||0);
+    if(this.tools.has(key)) return this.tools.get(key);
     const p=new TerminalTool(id,name);
+    p._slot=slot||0;
     document.getElementById('area').appendChild(p.el);
     p.connect();
-    this.tools.set(id,p);
+    this.tools.set(key,p);
     this._applyFocusOverlay();
     return p;
+  }
+
+  // 슬롯을 모르는 호출부의 조회. 포커스 슬롯을 먼저 보고, 없으면 다른 슬롯의
+  // 인스턴스를 준다 — 슬롯 1 에만 있는 창의 도구도 검색·상태바에서 닿아야 한다.
+  _toolAny(id){
+    if(!id) return null;
+    const f=this._slotFocused();
+    return this.tools.get(this._slotKey(id,f))
+      || this.tools.get(id)
+      || this.tools.get(this._slotKey(id,1))
+      || null;
   }
 
   // ── Tool Attention Notify (PANE_ATTENTION_NOTIFY_SRS) ──
@@ -232,6 +260,10 @@ class App {
       newWindow:()=>this.addWindow(),newTab:()=>this.addTabFocused(),
       closeWindow:()=>this.closeWindowActive(),closeTab:()=>this.closeTabFocused(),
       agentsToggle:()=>this._agentsToggle(),
+      // FR-WSL-51·74: 버튼과 **같은 함수**를 부른다. 여는 길이 둘로 갈리면
+      // 한쪽만 고쳐진다.
+      slotAdd:()=>this.slotAdd(),
+      slotRemove:()=>this.slotRemove(),
       // FR-PSC-3: 버튼 클릭과 **같은 함수**를 부른다. 여는 길이 둘로 갈리면
       // 한쪽만 고쳐진다.
       bgToggle:()=>this._bgModalToggle(),

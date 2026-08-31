@@ -91,12 +91,26 @@ class Renderer {
     }
     const dt=document.getElementById('m-drawer-toggle');
     if(dt) dt.textContent = this.app._drawerOpen ? '✕' : '☰';
+    // FR-WSL-50·62: 칸 더하기·빼기. 모바일에는 칸을 만드는 길이 없다.
+    // 한계에 닿은 버튼은 비활성이다 — 눌리지만 아무 일도 하지 않는 버튼은
+    // 고장으로 읽힌다 (FR-GIT-180 이 세운 규약).
+    const n=this.app.slotCount();
+    const sa=document.getElementById('slot-add');
+    if(sa){
+      sa.classList.toggle('git-hidden',this.app.isMobile);
+      sa.disabled=n>=SLOT_MAX;
+    }
+    const sr=document.getElementById('slot-remove');
+    if(sr){
+      sr.classList.toggle('git-hidden',this.app.isMobile);
+      sr.disabled=n<=1;
+    }
   }
 
   _rLayout(){
     const area=document.getElementById('area');
-    const s=this.app._aw();
-    for(const p of this.app.tools.values()){
+    const app=this.app;
+    for(const p of app.tools.values()){
       if(p.el.classList.contains('vis')){
         const vp=p.el.querySelector('.xterm-viewport');
         if(vp) p._scrollTop=vp.scrollTop;
@@ -104,43 +118,69 @@ class Renderer {
       }
       p.el.classList.remove('vis');area.appendChild(p.el);
     }
-    for(const v of this.app.fileEditors.values()){
+    for(const v of app.fileEditors.values()){
       v.el.classList.remove('vis');area.appendChild(v.el);
     }
     for(const c of [...area.children]){
-      if(c.classList.contains('sp')||c.classList.contains('pn')||c.classList.contains('ed-win'))c.remove();
+      if(c.classList.contains('sp')||c.classList.contains('pn')||c.classList.contains('ed-win')
+        ||c.classList.contains('slot')||c.classList.contains('slot-handle'))c.remove();
     }
-    // FR-EDT-46: Editor 창은 좌우 둘로 나뉜다 — 좌측 탐색기는 분할 트리 **밖**의
-    // 고정 영역이므로 트리가 붙을 자리를 우측으로 바꾼다.
-    const edWin=this.app._isEditorWin(s);
-    const host=edWin?this._rEditorWin(s,area):area;
-    // FR-EDT-55: pane 이 하나도 없는 창이 있다. 그리기를 건너뛰되 **되돌아 나가지
-    // 않는다** — 아래의 죽은 편집기 회수는 그런 창이 활성일 때도 돌아야 한다.
-    if(s?.layout){
-      if(!findPane(s.layout,this.app.focused)){this.app._setFocus(firstPane(s.layout)?.id||null, s)}
-      let dom;
-      if(this.app.isMobile){
-        const regs=this.app._flattenPanes(s.layout);
-        if(regs.length){
-          const fIdx=regs.findIndex(r=>r.id===this.app.focused);
-          if(fIdx>=0) this.app._mPaneIdx=fIdx;
-          else if(this.app._mPaneIdx>=regs.length) this.app._mPaneIdx=regs.length-1;
-          const target=regs[this.app._mPaneIdx];
-          if(target){this.app._setFocus(target.id, s);dom=this._buildPane(target)}
+    // WINDOW_SLOTS_SRS FR-WSL-4·60: 단일 슬롯 모드와 모바일에서는 슬롯 컨테이너를
+    // 만들지 않는다. `.sp`·`.pn` 의 `inset:0` 이 딛는 조상이 바뀌면 기존 e2e 가
+    // 전부 그 위에 서 있으므로(D-4), 슬롯이 1개일 때의 DOM 은 지금과 같아야 한다.
+    const slots=(!app.isMobile&&app.slots)?app.slots:null;
+    if(!slots){
+      area.removeAttribute('data-slotdir');
+      this._rSlot=0;
+      this._rWindowInto(app._aw(),area);
+    }else{
+      area.dataset.slotdir=app.slotDir;
+      const n=app.slotCount();
+      for(let i=0;i<n;i++){
+        const el=document.createElement('div');
+        el.className='slot'+(i===slots.focused?' slot-focused':'');
+        el.dataset.slot=String(i);
+        const win=app._slotWindow(i);
+        if(!win) el.classList.add('slot-empty');   // FR-WSL-6
+        el.addEventListener('mousedown',()=>{if(app._slotFocused()!==i)app.slotFocusTo(i)}); // FR-WSL-55
+        // FR-WSL-35: 칸이 둘을 넘으면 위치만으로는 어느 칸이 무슨 창인지 읽히지
+        // 않는다. 이름을 적는다 (D-10). 흐리게 하는 방식은 쓸 수 없다 — 그것은
+        // 이미 소유권 없음(`.pn-dimmed`)의 뜻이다.
+        const head=document.createElement('div');
+        head.className='slot-head';
+        head.textContent=win?win.name:'창 없음';
+        el.appendChild(head);
+        // 분할 트리는 `inset:0` 으로 조상을 채우므로(§2.2) 머리글과 겹치지 않게
+        // 자기 몫의 상자를 준다.
+        const body=document.createElement('div');
+        body.className='slot-body';
+        el.appendChild(body);
+        area.appendChild(el);
+        if(i<n-1){
+          const h=document.createElement('div');
+          h.className='slot-handle';
+          h.dataset.slotHandle=String(i);
+          area.appendChild(h);
+          app._slotHandleBind(h,i);               // FR-WSL-32
         }
-      }else{
-        dom=this._buildNode(s.layout);
+        this._rSlot=i;
+        this._rWindowInto(win,body);
       }
-      if(dom) host.appendChild(dom);
+      app._slotApplySizes();
+      this._rSlot=0;
     }
     const allTabIds=new Set();
     const walk=n=>{if(!n)return;if(n.type==='pane'&&n.tabs)n.tabs.forEach(t=>allTabIds.add(t.id));if(n.type==='split'&&n.children)n.children.forEach(walk)};
-    for(const sess of this.app.ws.windows){if(sess&&sess.layout)walk(sess.layout)}
-    for(const[tid,v] of this.app.fileEditors){if(!allTabIds.has(tid)){v.destroy();this.app.fileEditors.delete(tid)}}
+    for(const sess of app.ws.windows){if(sess&&sess.layout)walk(sess.layout)}
+    // 편집기 Map 의 키는 복합키다 (FR-WSL-75) — 회수는 탭 id 로 판정한다.
+    for(const[k,v] of app.fileEditors){
+      const tid=k.endsWith('@1')?k.slice(0,-2):k;
+      if(!allTabIds.has(tid)){v.destroy();app.fileEditors.delete(k)}
+    }
     // Git 창이 사라졌으면 루트를 area 로 되돌린다. 인스턴스는 유지 — 다시 열릴 수 있다.
-    if(!this.app._gitWindow()) this.app.gitPanel.detach();
+    if(!app._gitWindow()) app.gitPanel.detach();
     requestAnimationFrame(()=>{
-      for(const p of this.app.tools.values()){
+      for(const p of app.tools.values()){
         if(p.el.classList.contains('vis')){
           if(!p._opened)p.open();
           p.doFit();
@@ -193,19 +233,59 @@ class Renderer {
       // mousedown). 편집기는 그 대상이 아니다 — 자기 UI 를 가진다.
       // `s?.layout` 을 여기서도 본다 — pane 이 없는 Editor 창(FR-EDT-55)이
       // 활성일 때 이 블록에 도달하기 때문이다.
-      if(this.app.focused && !this.app.isMobile && s?.layout){
-        const pn=findPane(s.layout,this.app.focused);
+      const s=app._aw();
+      if(app.focused && !app.isMobile && s?.layout){
+        const pn=findPane(s.layout,app.focused);
         if(pn){const tab=pn.tabs.find(t=>t.id===pn.activeTab);if(tab){
-          if(tab.type==='editor'){const v=this.app.fileEditors.get(tab.id);if(v)v.el.focus()}
-          else{const p=this.app.tools.get(tab.toolId);if(p)p.focus()}
+          // 포커스 슬롯의 인스턴스를 focus 한다 (FR-WSL-20).
+          const key=app._slotKey(tab.id,app._slotFocused());
+          if(tab.type==='editor'){const v=app.fileEditors.get(key)||app.fileEditors.get(tab.id);if(v)v.el.focus()}
+          else{const p=app._toolAny(tab.toolId);if(p)p.focus()}
         }}
       }
       // After fit, panes have correct dimensions. Re-send sizes for the
       // active window if this window owns it and has OS focus.
-      if(this.app._windowFocused){
-        this.app._resendWindowSizes(this.app.ws.activeWindow);
+      if(app._windowFocused){
+        app._resendWindowSizes(app.ws.activeWindow);
       }
     });
+  }
+
+  /**
+   * 슬롯 하나(또는 단일 슬롯 모드의 `#area`)에 창 하나를 그린다.
+   *
+   * `_rLayout` 에서 뽑아낸 것이며 동작은 그대로다 — 달라진 것은 **붙일 자리를
+   * 인자로 받는다**는 것뿐이다 (FR-WSL-31). 그리는 동안 `this._rSlot` 이 지금
+   * 어느 슬롯인지 말해 준다; 도구·편집기 인스턴스 조회가 그것을 딛는다.
+   */
+  _rWindowInto(s,host){
+    const app=this.app;
+    // FR-EDT-46: Editor 창은 좌우 둘로 나뉜다 — 좌측 탐색기는 분할 트리 **밖**의
+    // 고정 영역이므로 트리가 붙을 자리를 우측으로 바꾼다.
+    const h=app._isEditorWin(s)?this._rEditorWin(s,host):host;
+    // FR-EDT-55: pane 이 하나도 없는 창이 있다. 그리기를 건너뛴다 — 죽은 편집기
+    // 회수는 호출자(_rLayout)가 슬롯 바깥에서 한다.
+    if(!s||!s.layout) return;
+    // 포커스 보정은 **포커스 슬롯에서만** 한다. 비포커스 슬롯의 창을 그린다고
+    // 해서 `app.focused`(포커스 슬롯의 pane)를 옮기면 안 된다.
+    const isFocusedSlot=this._rSlot===app._slotFocused();
+    if(isFocusedSlot&&!findPane(s.layout,app.focused)){
+      app._setFocus(firstPane(s.layout)?.id||null,s);
+    }
+    let dom;
+    if(app.isMobile){
+      const regs=app._flattenPanes(s.layout);
+      if(regs.length){
+        const fIdx=regs.findIndex(r=>r.id===app.focused);
+        if(fIdx>=0) app._mPaneIdx=fIdx;
+        else if(app._mPaneIdx>=regs.length) app._mPaneIdx=regs.length-1;
+        const target=regs[app._mPaneIdx];
+        if(target){app._setFocus(target.id,s);dom=this._buildPane(target)}
+      }
+    }else{
+      dom=this._buildNode(s.layout);
+    }
+    if(dom) h.appendChild(dom);
   }
 
   /**
@@ -281,7 +361,10 @@ class Renderer {
   // 분기를 함수로 뽑아 둔 이유는 ORCHESTRATION_V2_SRS FR-RVZ-6 의 네 번째 타입
   // ('run' — Run 대시보드)이 여기 들어오기 때문이다. 병렬 중 이 파일을 여럿이
   // 만지지 않도록 자리를 미리 갈라 둔다 (PARALLEL_DELIVERY_PLAN Step 0-4).
+  // `slot` 은 지금 그리는 슬롯이다 (`_rSlot`). 도구·편집기 인스턴스는 슬롯마다
+  // 서므로 (FR-WSL-20·23), 붙일 실체를 고를 때 그것을 딛는다.
   _mountTabBody(body,at){
+    const slot=this._rSlot||0;
     if(at.type===TAB_TYPE_GIT){
       // GitPanel 은 Git 창이 싱글턴이므로 앱에 하나다 — 탭마다 인스턴스를
       // 만들지 않고 view 별 루트 DOM 만 캐시한다 (FR-GIT-26).
@@ -290,8 +373,9 @@ class Renderer {
       return;
     }
     if(at.type==='editor'){
-      let editor=this.app.fileEditors.get(at.id);
-      if(!editor){editor=new FileEditor(at.id,at.name,at.filePath);this.app.fileEditors.set(at.id,editor)}
+      const key=this.app._slotKey(at.id,slot);
+      let editor=this.app.fileEditors.get(key);
+      if(!editor){editor=new FileEditor(at.id,at.name,at.filePath);this.app.fileEditors.set(key,editor)}
       body.appendChild(editor.el);editor.el.classList.add('vis');
       return;
     }
@@ -303,14 +387,18 @@ class Renderer {
       body.appendChild(el); el.classList.add('vis');
       return;
     }
-    const p=this.app.tools.get(at.toolId);
+    // 슬롯 1 의 인스턴스는 그 슬롯이 처음 이 도구를 그릴 때 선다 — 서버 도구
+    // 목록으로 미리 만들어 두는 것은 슬롯 0 뿐이다 (app.js init).
+    const p=at.toolId?this.app._mkTool(at.toolId,at.name||'',slot):null;
     if(p){body.appendChild(p.el);p.el.classList.add('vis')}
   }
 
   _buildPane(n){
     const el=document.createElement('div');
     // FR-PAN-9: 활성탭 pane 이 주의 상태이고 pane 이 포커스 안 됐을 때만 pane 강조
-    const focused=n.id===this.app.focused;
+    // FR-WSL-35: 같은 창이 두 슬롯에 있으면 pane id 가 같다 — 포커스 슬롯에서만
+    // 포커스로 그린다. 그러지 않으면 양쪽이 다 포커스로 보인다.
+    const focused=n.id===this.app.focused&&(this._rSlot||0)===this.app._slotFocused();
     const at0=(n.tabs||[]).find(t=>t.id===n.activeTab);
     const paneAttn=!focused&&at0&&this.app._attnHas(at0.toolId);
     el.className='pn'+(focused?' focused':'')+(paneAttn?' attn':'');
@@ -376,7 +464,7 @@ class Renderer {
         const pn=findPane(this.app._aw()?.layout,n.id);
         const tab=pn&&(pn.tabs||[]).find(t=>t.id===pn.activeTab);
         if(tab&&tab.type!=='editor'){
-          const p=this.app.tools.get(tab.toolId);
+          const p=this.app._toolAny(tab.toolId);
           if(p) p.focus();
         }
       }
