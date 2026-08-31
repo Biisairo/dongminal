@@ -1255,10 +1255,9 @@ class GitPanel {
   async openFileAtHead(t){
     if(!t||!t.path||!this.repo) return;
     const q=new URLSearchParams({repo:this.repo,path:t.path});
-    let r=null,d=null;
-    try{r=await fetch('/api/git/file-head?'+q.toString())}catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
-    if(!r||!r.ok||!d||!d.openPath){
+    const res=await gitFetch('/api/git/file-head',Object.fromEntries(q));
+    const d=res.data;
+    if(!res.ok||!d||!d.openPath){
       // 사유를 그 자리에 보인다 — 빈 편집기를 열면 사용자는 파일이 비었다고 읽는다.
       this._note={msg:GIT_HEAD_OPEN_FAIL+((d&&d.message)?': '+d.message:'')};
       this._paint();
@@ -1481,17 +1480,16 @@ class GitPanel {
   // 응답을 성공으로 읽지 않는다.
   async post(url,body){
     this._writing=true;
-    let r=null,d=null;
-    try{
-      r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(body)});
-    }catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
+    // 망 실패·파싱 실패를 접는 일은 `gitPost` 가 한다 (api.js) — 두 벌로 두면
+    // 한쪽만 고쳐진다. 여기 남는 것은 **패널 고유의 관심사** 둘이다.
+    const res=await gitPost(url,body);
     this._writing=false;
     // 모든 쓰기가 이 한 곳을 지난다 — 방금 실행한 명령이 Console 의 맨 위에
     // 있어야 한다 (FR-GIT-218).
     if(this._consoleView) this._consoleView.reload();
-    return {ok:!!(r&&r.ok&&d&&d.ok),code:r?r.status:0,data:d};
+    // **이 표면의 성공 판정은 `d.ok` 다** — HTTP 200 만으로는 성공이 아니다.
+    // 부분 적용도 200 으로 오기 때문이다 (FR-GIT-73).
+    return {ok:!!(res.ok&&res.data&&res.data.ok),code:res.status,data:res.data};
   }
 
   writeReason(res){
@@ -2599,9 +2597,8 @@ class GitPanel {
     if(this._sigBusy) return;
     this._sigBusy=true;
     const tok=this.token();
-    let r=null,d=null;
-    try{r=await fetch('/api/git/signature?repo='+encodeURIComponent(repo))}catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
+    const res=await gitFetch('/api/git/signature',{repo});
+    const d=res.ok?res.data:null;
     // 단일 비행 플래그는 **무조건** 되돌린다. 여기서 `_seq` 로 소유권을 따지면
     // 안 된다 — 그것은 status 의 일련번호이고 `collect()` 가 관측마다 올린다.
     // 상태 폴링이 도는 동안 signature 응답은 늘 "내 것이 아니다" 로 판정되어

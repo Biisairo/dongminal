@@ -158,10 +158,10 @@ class GitCommitOps {
     const r=GitCommitOps.parseRange(rev,c.oid);
     const q=new URLSearchParams({repo:panel.repo,from:r.from,to:r.to});
     if(r.symmetric) q.set('symmetric','1');
-    let res=null,d=null;
-    try{res=await fetch('/api/git/commit-range?'+q.toString())}catch{res=null}
-    if(res&&res.ok){try{d=await res.json()}catch{d=null}}
-    if(!d||!d.from||!d.to) return {ok:false,reason:GIT_CO_COMPARE_FAIL};
+    const rr=await gitFetch('/api/git/commit-range',Object.fromEntries(q),
+      {echo:{repo:panel.repo}});
+    const d=rr.data;
+    if(!rr.ok||!d||!d.from||!d.to) return {ok:false,reason:GIT_CO_COMPARE_FAIL};
     // 이미 있는 축이다 (FR-GIT-138) — 새 조회도 새 축도 만들지 않는다.
     panel.showCommitDiff({repo:panel.repo,axis:GIT_AXIS.COMMIT,
       path,origPath:'',oid:d.to,parentOid:d.from});
@@ -240,10 +240,10 @@ class GitCommitOps {
    */
   static async _count(panel,oid){
     const q=new URLSearchParams({repo:panel.repo,from:oid,to:'HEAD'});
-    let r=null,d=null;
-    try{r=await fetch('/api/git/commit-range?'+q.toString())}catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
-    return d&&typeof d.count==='number'?d.count:null;
+    const rr=await gitFetch('/api/git/commit-range',Object.fromEntries(q),
+      {echo:{repo:panel.repo}});
+    const d=rr.data;
+    return rr.ok&&d&&typeof d.count==='number'?d.count:null;
   }
 
   // 되돌아갈 자리는 **옮기기 전** HEAD 다 (FR-GIT-250.2). 모르면 명령을 지어내지

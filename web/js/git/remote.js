@@ -1006,17 +1006,17 @@ class GitRemoteList {
     const tok=this.panel.token();
     this._loading=true;
     let r=null,d=null;
-    try{r=await fetch('/api/git/remotes?repo='+encodeURIComponent(repo))}catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
-    if(this.panel.isStale(tok)) return;
+    const res=await gitFetch('/api/git/remotes',{repo},
+      {stale:()=>this.panel.isStale(tok),echo:{repo}});
+    if(res.stale) return;
     this._loading=false;
-    if(!d||!d.requested||d.requested.repo!==repo){
+    if(!res.ok){
       this._err=GIT_RM_LOAD_FAIL;
       this.paint();
       return;
     }
     this._err=null;
-    this._items=Array.isArray(d.remotes)?d.remotes:[];
+    this._items=Array.isArray(res.data.remotes)?res.data.remotes:[];
     this.paint();
   }
 }

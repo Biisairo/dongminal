@@ -223,19 +223,19 @@ class GitWorktrees {
     const repo=this._repo; if(!repo) return;
     const tok=this.panel.token();
     this._loading=true;
-    let r=null,d=null;
-    try{r=await fetch('/api/git/worktrees?repo='+encodeURIComponent(repo))}catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
-    if(this.panel.isStale(tok)) return;
+    // stale 가드는 **보낸 값의 echo** 로 짝을 맞춘다 (FR-GIT-16). `d.repo` 는
+    // 서버가 정규화한 루트라 보낸 값과 다를 수 있고, 그것으로 비교하면 목록이
+    // 영원히 실패로 남는다 — gitEchoOk 가 그 함정을 안다.
+    const res=await gitFetch('/api/git/worktrees',{repo},
+      {stale:()=>this.panel.isStale(tok),echo:{repo}});
+    if(res.stale) return;
     this._loading=false;
-    // stale 가드는 **보낸 값의 echo** 로 짝을 맞춘다 (FR-GIT-16, panel.js:1495 와
-    // 같은 규약). `d.repo` 는 서버가 정규화한 루트라 보낸 값과 다를 수 있고, 그것으로
-    // 비교하면 목록이 영원히 실패로 남는다.
-    if(!d||d.requested!==repo){
+    if(!res.ok){
       this._err=GIT_WT_LOAD_FAIL;
       if(this._el) this.paint();
       return;
     }
+    const d=res.data;
     this._err=null;
     this._list=Array.isArray(d.worktrees)?d.worktrees:[];
     if(this._el) this.paint();

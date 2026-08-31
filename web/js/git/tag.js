@@ -190,15 +190,13 @@ class GitTagCreate {
     if(!d.alive()) return;
     const seq=++this._seq;
     const q=new URLSearchParams({repo:this.repo,name});
-    let r=null,dt=null;
-    try{r=await fetch('/api/git/tag/validate?'+q.toString())}catch{r=null}
-    if(r&&r.ok){try{dt=await r.json()}catch{dt=null}}
-    // 뒤늦게 온 이전 이름의 판정을 지금 이름의 것으로 읽지 않는다.
-    if(seq!==this._seq||!d.alive()) return;
-    const req=dt&&dt.requested;
-    if(!dt||!req||req.name!==name||req.repo!==this.repo){
-      this._tell(d,'fail',GIT_TAG_VALIDATE_FAIL); return;
-    }
+    // 뒤늦게 온 이전 이름의 판정을 지금 이름의 것으로 읽지 않는다 — 그 가드가
+    // 이제 echo 로 선다.
+    const res=await gitFetch('/api/git/tag/validate',{repo:this.repo,name},
+      {stale:()=>seq!==this._seq||!d.alive(),echo:{repo:this.repo,name}});
+    if(res.stale) return;
+    if(!res.ok){this._tell(d,'fail',GIT_TAG_VALIDATE_FAIL); return}
+    const dt=res.data;
     if(!dt.ok){this._tell(d,'invalid',dt.reason||GIT_TAG_VALIDATE_FAIL);return}
     // 이미 있는 이름은 규칙 위반이 아니다 — 사유가 달라야 사용자가 무엇을 할지 안다.
     if(dt.exists){this._tell(d,'exists',GIT_TAG_WHY_EXISTS);return}

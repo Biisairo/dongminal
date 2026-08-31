@@ -217,11 +217,10 @@ class GitCommit {
   // 커밋 차단은 서버가 커밋 시점에 다시 판정한다 (FR-GIT-86). 이 조회는 화면에
   // 필요한 것 — template·서명 표시·detached 경고 — 을 얻기 위한 것이다.
   async _loadPreflight(repo){
-    let r=null,d=null;
-    try{r=await fetch('/api/git/preflight?repo='+encodeURIComponent(repo))}catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
-    if(!d||!d.preflight||d.requested!==repo||this.panel.repo!==repo) return;
-    this._pf=d.preflight; this._pfRepo=repo;
+    const res=await gitFetch('/api/git/preflight',{repo},
+      {stale:()=>this.panel.repo!==repo,echo:{repo}});
+    if(res.stale||!res.ok||!res.data.preflight) return;
+    this._pf=res.data.preflight; this._pfRepo=repo;
     this._applyTemplate(repo);
     this._paint();
   }
@@ -337,12 +336,9 @@ class GitCommit {
   // 직전 커밋 메시지. 전용 진입점이 없으므로 커밋 상세의 body 를 쓴다
   // (FR-GIT-136). 커밋이 없는 저장소에서는 null 이다 — amend 할 것이 없다.
   async _lastMessage(repo){
-    let r=null,d=null;
-    try{r=await fetch('/api/git/commit?repo='+encodeURIComponent(repo)+'&oid=HEAD')}catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
-    if(!d||typeof d.body!=='string') return null;
-    if(d.requested&&d.requested.repo!==repo) return null;
-    return d.body.replace(/\n+$/,'');
+    const res=await gitFetch('/api/git/commit',{repo,oid:'HEAD'},{echo:{repo}});
+    if(!res.ok||typeof res.data.body!=='string') return null;
+    return res.data.body.replace(/\n+$/,'');
   }
 
   // ── 커밋 (FR-GIT-77·79·80·87·88) ──

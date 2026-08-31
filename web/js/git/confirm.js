@@ -93,10 +93,10 @@ class GitConfirm {
   }
 
   static async _fetchPolicy(){
-    let r,d;
-    try{r=await fetch('/api/git/policy')}catch{return null}
-    if(!r.ok) return null;
-    try{d=await r.json()}catch{return null}
+    // 전역 조회이므로 echo·stale 이 없다 (FR-DPN-33) — 리포에 매이지 않는다.
+    const res=await gitFetch('/api/git/policy',null);
+    if(!res.ok) return null;
+    const d=res.data;
     if(!d||!Array.isArray(d.destructive)) return null;
     return {
       destructive:new Set(d.destructive),

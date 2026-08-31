@@ -259,18 +259,17 @@ class GitStash {
     const repo=this._repo; if(!repo) return;
     const tok=this.panel.token();
     this._loading=true;
-    let r=null,d=null;
-    try{r=await fetch('/api/git/stash?repo='+encodeURIComponent(repo))}catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
-    if(this.panel.isStale(tok)) return;
+    const res=await gitFetch('/api/git/stash',{repo},
+      {stale:()=>this.panel.isStale(tok),echo:{repo}});
+    if(res.stale) return;
     this._loading=false;
-    if(!d||!d.requested||d.requested.repo!==repo){
+    if(!res.ok){
       this._err=GIT_STASH_LOAD_FAIL;
       if(this._el) this.paint();
       return;
     }
     this._err=null;
-    this._list=Array.isArray(d.stashes)?d.stashes:[];
+    this._list=Array.isArray(res.data.stashes)?res.data.stashes:[];
     if(this._el) this.paint();
   }
 
@@ -278,18 +277,17 @@ class GitStash {
     const repo=this._repo; if(!repo) return;
     const tok=this.panel.token();
     const q=new URLSearchParams({repo,index:String(index)});
-    let r=null,d=null;
-    try{r=await fetch('/api/git/stash/show?'+q.toString())}catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
-    if(this.panel.isStale(tok)) return;
-    // 뒤늦게 온 다른 stash 의 응답을 자기 것으로 읽지 않는다.
-    if(this._sel!==index) return;
-    const req=d&&d.requested;
-    if(!d||!req||req.repo!==repo||req.index!==index){
+    // 뒤늦게 온 다른 stash 의 응답을 자기 것으로 읽지 않는다 — 선택이 바뀐 것은
+    // stale 이고, index 가 어긋난 것은 echo 가 잡는다.
+    const res=await gitFetch('/api/git/stash/show',Object.fromEntries(q),
+      {stale:()=>this.panel.isStale(tok)||this._sel!==index,echo:{repo,index}});
+    if(res.stale) return;
+    if(!res.ok){
       this._filesErr=GIT_STASH_PREVIEW_FAIL;
       this._paintPreview();
       return;
     }
+    const d=res.data;
     this._filesErr=null;
     this._files=Array.isArray(d.files)?d.files:[];
     this._filesFor=index;

@@ -278,21 +278,18 @@ Object.assign(App.prototype, {
     // `gitPanel.collect` 의 `_seq` 와 같은 규약이다.
     const seq=(this._gitReposSeq=(this._gitReposSeq||0)+1);
     const stale=()=>seq!==this._gitReposSeq;
-    let r;
     // FR-FLW-2: 목록은 핀만 답한다 — 도구 인자를 싣지 않는다.
     // FR-GOB-7·8: 관측 여부는 인자로 받지 않는다. 조건이 두 자리에 흩어지면
     // 한쪽이 낡는다.
-    try{r=await fetch('/api/git/repos'+(this._gitObserveOk()?'?observe=1':''))}catch{return}
-    if(stale()) return;
-    if(r.status===503){
+    const res=await gitFetch('/api/git/repos',
+      this._gitObserveOk()?{observe:'1'}:null,{stale});
+    if(res.stale) return;
+    if(res.status===503){
       // git 이 없거나 서비스가 구성되지 않은 환경이다. 섹션 전체를 숨긴다.
       this._gitOff=true;this.renderer._rGitSection();this.renderer._rSbTabs();return;
     }
-    if(!r.ok) return;
-    let d;
-    try{d=await r.json()}catch{return}
-    if(stale()) return;
-    this._gitOff=false;this._gitRepos=d;
+    if(!res.ok) return;
+    this._gitOff=false;this._gitRepos=res.data;
     // 전체 render() 를 부르지 않는다 — 터미널 재부착 비용이 크다.
     this.renderer._rGitSection();
     // FR-SBT-8·12: 탭의 표시 여부(`_gitOff`)와 배지(변경 있는 핀 수)가 이 값에서
@@ -347,11 +344,9 @@ Object.assign(App.prototype, {
   async _gitRepoAt(){
     const tool=this._gitTermToolId();
     if(!tool) return null;
-    try{
-      const r=await fetch('/api/git/repo-at?tool='+encodeURIComponent(tool));
-      if(!r.ok) return null;
-      return await r.json();
-    }catch{return null}
+    // gitFetch 는 던지지 않는다 — 망 실패도 {ok:false} 로 돌아온다.
+    const res=await gitFetch('/api/git/repo-at',{tool});
+    return res.ok?res.data:null;
   },
 
   /**
@@ -386,14 +381,10 @@ Object.assign(App.prototype, {
   async _gitReorder(dr){
     if(!dr||!dr.src||!dr.target||dr.src===dr.target) return;
     const path=k=>String(k||'').replace(/^pin:/,'');
-    let r=null,d=null;
-    try{
-      r=await fetch('/api/git/repos/reorder',{method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({src:path(dr.src),target:path(dr.target),before:!!dr.before})});
-    }catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
-    if(!r||!r.ok||!d){
+    const res=await gitPost('/api/git/repos/reorder',
+      {src:path(dr.src),target:path(dr.target),before:!!dr.before});
+    const d=res.data;
+    if(!res.ok){
       // FR-BLP-12: 서버가 아는 순서를 다시 받아 화면을 맞춘다.
       await this._gitReposRefresh();
       return;
@@ -431,12 +422,9 @@ Object.assign(App.prototype, {
    */
   async _gitPin(path){
     if(!path) return {ok:false,reason:GIT_PIN_FAIL_LABEL};
-    let r,d;
-    try{
-      r=await fetch('/api/git/repos/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});
-      d=await r.json();
-    }catch(err){return {ok:false,reason:GIT_PIN_FAIL_LABEL+': '+err}}
-    if(!r.ok) return {ok:false,reason:(d&&d.message)||GIT_PIN_FAIL_LABEL};
+    const res=await gitPost('/api/git/repos/pin',{path});
+    const d=res.data;
+    if(!res.ok) return {ok:false,reason:(d&&d.message)||GIT_PIN_FAIL_LABEL};
     this._gitPinsApply(d.pinned);
     this._edApplyLinked(d);
     await this._gitReposRefresh();
@@ -445,12 +433,9 @@ Object.assign(App.prototype, {
 
   async _gitUnpin(path){
     if(!path) return false;
-    let r,d;
-    try{
-      r=await fetch('/api/git/repos/unpin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});
-      d=await r.json();
-    }catch{return false}
-    if(!r.ok) return false;
+    const res=await gitPost('/api/git/repos/unpin',{path});
+    const d=res.data;
+    if(!res.ok) return false;
     this._gitPinsApply(d.pinned);
     this._edApplyLinked(d);
     this._gitLeaveIfRemoved(path);
@@ -477,12 +462,12 @@ Object.assign(App.prototype, {
    */
   async _pollGitJobs(){
     if(!statusBar.git){this._gitJobs=[];return}
-    let r=null,d=null;
-    try{r=await fetch('/api/git/jobs')}catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
+    // 전역 조회다 — 리포에 매이지 않으므로 echo 가 없다 (FR-DPN-33).
+    const res=await gitFetch('/api/git/jobs',null);
+    const d=res.data;
     // 받지 못했으면 이전 목록을 유지한다 — 한 번의 실패로 chip 이 사라지면
     // "작업이 끝났다" 와 "모른다" 가 같아진다.
-    if(!d||!Array.isArray(d.jobs)) return;
+    if(!res.ok||!Array.isArray(d.jobs)) return;
     this._gitJobs=d.jobs;
     if(this.gitPanel) this.gitPanel.adoptJobs(d.jobs);
   },

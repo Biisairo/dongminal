@@ -394,17 +394,17 @@ class GitBranches {
     const repo=this._repo; if(!repo) return;
     const tok=this.panel.token();
     this._loading=true;
-    let r=null,d=null;
-    try{r=await fetch('/api/git/refs?repo='+encodeURIComponent(repo))}catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
-    if(this.panel.isStale(tok)) return;
+    const res=await gitFetch('/api/git/refs',{repo},
+      {stale:()=>this.panel.isStale(tok),echo:{repo}});
+    if(res.stale) return;
     this._loading=false;
-    if(!d||!d.requested||d.requested.repo!==repo){
+    if(!res.ok){
       // 사유를 보이고 **이미 받은 목록을 지우지 않는다.**
       this._err=GIT_BR_LOAD_FAIL;
       if(this._el) this.paint();
       return;
     }
+    const d=res.data;
     this._err=null;
     this._refs=Array.isArray(d.refs)?d.refs:[];
     if(this._el) this.paint();
@@ -656,12 +656,9 @@ class GitBranches {
   // 영향 범위 조회. 실패해도 머지를 막지 않는다 — 그 사실을 문구로 알린다.
   static async _preview(panel,ref){
     const q=new URLSearchParams({repo:panel.repo,ref});
-    let r=null,d=null;
-    try{r=await fetch('/api/git/branch/merge-preview?'+q.toString())}catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
-    const req=d&&d.requested;
-    if(!d||!req||req.ref!==ref||req.repo!==panel.repo) return null;
-    return d.preview||null;
+    const res=await gitFetch('/api/git/branch/merge-preview',Object.fromEntries(q),
+      {echo:{repo:panel.repo,ref}});
+    return res.ok?(res.data.preview||null):null;
   }
 
   // 사람이 읽는 영향 범위. 개수만 보이면 머지 커밋이 생기는지 알 수 없고, ff 여부만
@@ -818,15 +815,13 @@ class GitBranchCreate {
     if(!d.alive()) return;
     const seq=++this._seq;
     const q=new URLSearchParams({repo:this.repo,name});
-    let r=null,dt=null;
-    try{r=await fetch('/api/git/branch/validate?'+q.toString())}catch{r=null}
-    if(r&&r.ok){try{dt=await r.json()}catch{dt=null}}
-    // 뒤늦게 온 이전 이름의 판정을 지금 이름의 것으로 읽지 않는다.
-    if(seq!==this._seq||!d.alive()) return;
-    const req=dt&&dt.requested;
-    if(!dt||!req||req.name!==name||req.repo!==this.repo){
-      this._tell(d,'fail',GIT_BR_VALIDATE_FAIL); return;
-    }
+    // 뒤늦게 온 이전 이름의 판정을 지금 이름의 것으로 읽지 않는다 — 그 가드가
+    // 이제 echo 로 선다.
+    const res=await gitFetch('/api/git/branch/validate',{repo:this.repo,name},
+      {stale:()=>seq!==this._seq||!d.alive(),echo:{repo:this.repo,name}});
+    if(res.stale) return;
+    if(!res.ok){this._tell(d,'fail',GIT_BR_VALIDATE_FAIL); return}
+    const dt=res.data;
     if(!dt.ok){this._tell(d,'invalid',dt.reason||GIT_BR_VALIDATE_FAIL);return}
     // 이미 있는 이름은 규칙 위반이 아니다 — 사유가 달라야 사용자가 무엇을 할지 안다.
     if(dt.exists){this._tell(d,'exists',GIT_BR_WHY_EXISTS);return}
