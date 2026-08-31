@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [1.0.5] — 2026-09-01
+
 ### 추가
 
 - **칸마다 다른 탭을 봅니다.** 같은 창을 두 칸에 놓으면 지금까지는 양쪽이 늘 같은
@@ -290,6 +292,7 @@
   에이전트 간 메시지와 API 입력 주입이 그 셸에서 통째로 깨져 있었다. 이제 셸이
   그 모드를 켰을 때만 감싼다
 
+[1.0.5]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.5
 [1.0.4]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.4
 [1.0.3]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.3
 [1.0.2]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.2
