@@ -37,7 +37,7 @@ class TerminalTool {
     // FR-ETR-37: OSC 52(클립보드 쓰기). xterm 은 이것을 스스로 처리하지 않으므로
     // 붙이지 않으면 셸이 보낸 복사가 **받는 사람 없이 버려진다** — 그것이
     // "복사가 원격에서만 안 된다" 의 정체였다 (§2.5).
-    try{TermClipboard.attach(this.term)}catch(e){}
+    try{TermClipboard.attach(this.term,this.id)}catch(e){}
     this.term.open(this.box);
     this.term.attachCustomKeyEventHandler(e=>{
       if(e.key==='Enter'&&e.shiftKey&&!e.ctrlKey&&!e.altKey&&!e.metaKey){

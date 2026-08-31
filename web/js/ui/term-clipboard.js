@@ -32,14 +32,14 @@ const TermClipboard={
    * 보고 잔재를 화면에 찍는다 (FR-ETR-42). 내용을 버리는 경우(읽기 요청·상한
    * 초과)에도 "우리가 처리했다" 는 사실은 같다.
    */
-  attach(term){
+  attach(term,toolId){
     if(!term||!term.parser||typeof term.parser.registerOscHandler!=='function') return;
     try{
-      term.parser.registerOscHandler(52,data=>{TermClipboard._onOsc(String(data||''));return true});
+      term.parser.registerOscHandler(52,data=>{TermClipboard._onOsc(String(data||''),toolId);return true});
     }catch{}
   },
 
-  _onOsc(data){
+  _onOsc(data,toolId){
     // 형식은 `<targets>;<base64>` 다. targets 는 가르지 않는다 — 브라우저에는
     // 클립보드가 하나뿐이라 c·p·s 를 나눌 자리가 없다.
     const i=data.indexOf(';');
@@ -51,7 +51,7 @@ const TermClipboard={
     if(payload.length>OSC52_MAX_BYTES) return;
     const text=TermClipboard._decode(payload);
     if(!text) return;
-    TermClipboard.write(text);
+    TermClipboard.write(text,toolId);
   },
 
   /**
@@ -72,13 +72,36 @@ const TermClipboard={
   /**
    * FR-ETR-40: 세 단으로 내려간다. 앞 단이 **없거나** 실패하면 다음 단이다.
    */
-  async write(text){
+  async write(text,toolId){
     if(navigator.clipboard&&navigator.clipboard.writeText){
       try{ await navigator.clipboard.writeText(text); return true }catch{}
     }
     if(TermClipboard._execCopy(text)) return true;
+    // FR-ETR-44: 3단은 **사용자가 지금 그 터미널을 보고 있는 브라우저에서만** 선다.
+    if(!TermClipboard._watchedHere(toolId)) return false;
     TermClipboard.prompt(text);
     return false;
+  },
+
+  /**
+   * FR-ETR-44: 이 브라우저가 지금 그 도구를 보고 있는가.
+   *
+   * 한 도구의 출력은 **붙어 있는 모든 브라우저로** 간다. 게이트가 없으면 OSC 52
+   * 하나에 창마다 복사창이 서고, 사용자는 자기가 보던 창이 아닌 곳에서 그것을
+   * 만난다 — 어느 복사의 창인지도 알 수 없고, 닫아도 다른 창에 그대로 남는다.
+   *
+   * 판정은 `_attnUserIsWatching` 을 **그대로 빌린다** (FR-ATA-7). 알림은 보고
+   * 있으면 억제하고 복사창은 보고 있을 때만 서지만, "사용자가 지금 이것을 보고
+   * 있는가" 라는 물음 자체는 하나다 — 두 벌로 두면 한쪽만 고쳐진다.
+   *
+   * 판정할 수 없으면(app 이 아직 없거나 toolId 를 모르는 부름) 종전대로 띄운다.
+   * 이 게이트가 막으려는 것은 **엉뚱한 창**이지 복사 자체가 아니다.
+   */
+  _watchedHere(toolId){
+    if(!toolId) return true;
+    const app=(typeof window!=='undefined')?window.app:null;
+    if(!app||typeof app._attnUserIsWatching!=='function') return true;
+    return !!app._attnUserIsWatching(toolId);
   },
 
   /**

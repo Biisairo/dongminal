@@ -467,6 +467,37 @@ test.describe('묶음 F — OSC 52 (FR-ETR-37~43)', () => {
     await expect(box).toBeHidden();
   });
 
+  // FR-ETR-44: 한 도구의 출력은 붙어 있는 모든 브라우저로 간다. 게이트가 없으면
+  // OSC 52 하나에 창마다 복사창이 서고, 사용자는 자기가 보던 창이 아닌 곳에서
+  // 그것을 만난다.
+  test('ET14b (V-ETR-39): 보고 있지 않은 브라우저에는 복사창이 서지 않는다', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+    await page.evaluate(() => {
+      try { Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true }) } catch {}
+      (document as any).execCommand = () => false;
+    });
+
+    // 이 브라우저가 OS 포커스를 잃은 상태 — 사용자는 지금 다른 창을 보고 있다.
+    await page.evaluate(() => { (document as any).hasFocus = () => false });
+    await feedOsc52(page, b64('other-window-text'));
+    await page.waitForTimeout(500);
+    await expect(page.locator('#term-copy')).toHaveCount(0);
+
+    // 포커스가 이 창에 있는 도구여도, **다른 도구**의 복사는 여기서 서지 않는다.
+    await page.evaluate(() => { (document as any).hasFocus = () => true });
+    await page.evaluate(() =>
+      (window as any).TermClipboard.write('not-mine', 'tool-that-is-not-active'));
+    await page.waitForTimeout(500);
+    await expect(page.locator('#term-copy')).toHaveCount(0);
+
+    // 보고 있는 도구의 복사는 종전대로 선다 — 게이트가 막는 것은 엉뚱한 창뿐이다.
+    await feedOsc52(page, b64('mine-text'));
+    await expect(page.locator('#term-copy')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#term-copy .tc-copy-text')).toHaveValue('mine-text');
+    await page.locator('#term-copy .tc-copy-text').press('Escape');
+  });
+
   test('ET15 (V-ETR-36): 읽기 요청(`?`)에는 아무것도 보내지 않는다', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
