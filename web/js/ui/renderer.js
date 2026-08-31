@@ -60,11 +60,36 @@ class Renderer {
   // 이름으로 부르기 때문이다 — 그 배선을 바꾸는 것은 이 SRS 의 일이 아니다.
   // reconcile 이므로 값이 그대로면 DOM 은 손대지 않는다 (FR-RPT-3).
   _rSidebar(){ this._rLists() }
-  _rGitSection(){ this._rLists() }
+  // 리포 목록이 바뀌면 상단 이름의 근거도 바뀐다 — Git 창의 이름은 그 목록에서
+  // 온다(`_rWinName`). 창이 먼저 뜨고 목록이 나중에 오는 순서가 흔하다.
+  _rGitSection(){ this._rLists(); this._rTopbar() }
+
+  /**
+   * 상단에 적히는 창 이름.
+   *
+   * Window·Editor 는 창 자체가 대상이라 저장된 이름이 곧 목록의 이름이다. Git 만
+   * 파생이다 — 창은 하나인데 리포를 갈아타므로, 저장된 이름(`Git`)은 지금 무엇을
+   * 보고 있는지 말해 주지 않는다. 나머지 둘은 상단만 봐도 어느 것인지 아는데 Git
+   * 만 그러지 못했다.
+   *
+   * 이름의 출처는 **사이드바 목록과 같은 자리**다 (`_gitRepos.pinned` 의 `name`).
+   * 여기서 경로를 따로 잘라 쓰면 목록과 상단이 같은 리포를 다른 이름으로 부를 수
+   * 있다. 목록이 아직 오지 않았을 때만 경로의 마지막 조각으로 대신한다.
+   */
+  _rWinName(w){
+    const app=this.app;
+    if(!w) return '';
+    if(!app._isGitWin(w)) return w.name||'';
+    const repo=(w.git&&w.git.repo)||'';
+    if(!repo) return w.name||'';
+    const pinned=((app._gitRepos||{}).pinned)||[];
+    const hit=pinned.find(e=>e&&e.path===repo);
+    return (hit&&hit.name)||app._edBase(repo)||w.name||'';
+  }
 
   _rTopbar(){
     const a=this.app._aw();
-    document.getElementById('window-name').textContent=a?a.name:'';
+    document.getElementById('window-name').textContent=this._rWinName(a);
     // FR-GIT-180: Git 창에서는 분할 진입점을 감춘다. (FR-GIT-183 의 `Close Git`
     // 은 폐기됐다 — 떠나는 길이 사이드바 탭으로 상시 존재한다, FR-SBT-34.)
     const isGit=this.app._isGitWin(a);

@@ -107,6 +107,9 @@ class GitPanel {
     for(const v of GIT_VIEWS) if(this._els.has(v.key)) this._render(v.key);
     // 마지막 관측을 버렸으므로 chip 도 사라져야 한다 (FR-GIT-59).
     this.app._updateStatusBar();
+    // 상단의 창 이름은 활성 리포에서 온다 — 같은 창에서 리포만 바뀌면 render 가
+    // 돌지 않으므로(아래 주석의 조기 반환) 여기서 직접 고쳐 그린다.
+    this.app.renderer._rTopbar();
     this._stop(); this._reschedule();
     // 활성 리포는 창에 붙어 영속한다 (FR-GIT-29). switchWindow 가 이미 활성인
     // 창에서는 조기 반환하므로 여기서 직접 저장한다 — 저장을 그쪽에 맡기면
