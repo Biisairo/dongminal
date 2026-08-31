@@ -1,39 +1,49 @@
 package cli
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 const commonFlags = `  --port <n>        포트 (기본: $PORT, 없으면 ` + DefaultPort + `)
   --home <path>     DONGMINAL_HOME (기본: $DONGMINAL_HOME, 없으면 ~/.dongminal)`
 
 // Help는 무인자·-h·--help 실행 시의 출력이다 (FR-CLI-1..3).
+//
+// **액션 목록을 손으로 적지 않는다** — 표에서 나온다. 손으로 적으면 액션을
+// 더하고 목록을 빼먹었을 때 그 액션은 존재를 알릴 방법이 없어진다.
 func Help() string {
-	return `dongminal ` + Version + ` — 브라우저에서 쓰는 터미널 워크스페이스
+	var b strings.Builder
+	b.WriteString(`dongminal ` + Version + ` — 브라우저에서 쓰는 터미널 워크스페이스
 
 사용법:
   dongminal <action> [옵션]
 
 액션:
-  start      서버를 띄운다 (필요하면 dongminald 도 함께)
-  stop       서버를 정지한다
-  migrate    워크스페이스 데이터를 최신 스키마로 변환한다 (1회성)
-  window     돌고 있는 서버에 frameless window 를 연다 (서버를 띄우지 않는다)
-  health     서버와 dongminald 의 상태를 확인한다
-  doctor     이 호스트에서 플랫폼 계층이 동작하는지 확인한다
-  verify     격리 인스턴스를 띄워 종단간 표면을 훑는다 (개발·CI)
-  version    판·대상·go 런타임을 찍는다 (--version 도 동일)
-
+`)
+	for _, a := range actionsOf() {
+		fmt.Fprintf(&b, "  %-10s %s\n", a.name, a.brief)
+	}
+	b.WriteString(`
 액션별 옵션은 다음으로 본다:
   dongminal <action> --help
 
 빌드는 ./scripts/build.sh 가 한다.
-`
+`)
+	return b.String()
 }
 
-// Usage는 액션별 사용법이다 (FR-CLI-6/7).
+// Usage는 액션별 사용법이다 (FR-CLI-6/7). 액션 표에서 나온다 — 표에 없는 이름은
+// 전체 도움말로 떨어진다.
 func Usage(action string) string {
-	switch action {
-	case "start":
-		return `사용법: dongminal start [옵션]
+	if a, ok := lookupAction(action); ok && a.usage != nil {
+		return a.usage()
+	}
+	return Help()
+}
+
+func usageStart() string {
+	return `사용법: dongminal start [옵션]
 
 서버를 띄운다. 기본은 배경 모드 — 준비를 확인한 뒤 프롬프트를 돌려준다.
 
@@ -48,8 +58,10 @@ func Usage(action string) string {
 
 로그: $DONGMINAL_LOG (기본: ` + defaultLogFile() + `) — 배경 모드에서만
 `
-	case "window":
-		return `사용법: dongminal window [옵션]
+}
+
+func usageWindow() string {
+	return `사용법: dongminal window [옵션]
 
 돌고 있는 서버에 frameless window(Chrome --app)를 연다.
 
@@ -59,15 +71,19 @@ func Usage(action string) string {
 옵션:
 ` + commonFlags + `
 `
-	case "stop":
-		return `사용법: dongminal stop [옵션]
+}
+
+func usageStop() string {
+	return `사용법: dongminal stop [옵션]
 
 옵션:
   --all             dongminald 까지 정지한다 (기본은 서버만 — 세션 유지)
 ` + commonFlags + `
 `
-	case "doctor":
-		return `사용법: dongminal doctor [옵션]
+}
+
+func usageDoctor() string {
+	return `사용법: dongminal doctor [옵션]
 
 이 호스트에서 플랫폼 계층이 실제로 동작하는지 확인한다. 서버가 쓰는 것과 같은
 경로를 같은 순서로 밟는다 — 헬퍼·셸 훅 설치, 셸 선택, 의사 터미널 기동과 명령
@@ -81,8 +97,10 @@ func Usage(action string) string {
 옵션:
 ` + commonFlags + `
 `
-	case "verify":
-		return `사용법: dongminal verify [옵션]
+}
+
+func usageVerify() string {
+	return `사용법: dongminal verify [옵션]
 
 격리 인스턴스를 **스스로 띄워** 종단간 표면을 훑고 치운다. 세 OS 가 같은 목록을
 돈다 — 기동 표면, 도구(PTY+IPC 왕복), 워크스페이스·설정, git 읽기 표면, 정적 자산.
@@ -98,8 +116,10 @@ doctor 와 겹치지 않는다. doctor 는 서버 **없이** 플랫폼 계층을
 옵션:
   --repo <path>     git 표면 검사의 대상 저장소 (기본: 현재 디렉터리)
 `
-	case "health":
-		return `사용법: dongminal health [옵션]
+}
+
+func usageHealth() string {
+	return `사용법: dongminal health [옵션]
 
 서버 HTTP 응답과 dongminald 소켓·pid 를 확인한다.
 종료 코드: 0 정상 / 1 이상 있음
@@ -107,8 +127,10 @@ doctor 와 겹치지 않는다. doctor 는 서버 **없이** 플랫폼 계층을
 옵션:
 ` + commonFlags + `
 `
-	case "migrate":
-		return `사용법: dongminal migrate [옵션]
+}
+
+func usageMigrate() string {
+	return `사용법: dongminal migrate [옵션]
 
 워크스페이스 데이터를 최신 스키마로 변환한다. 멱등이다.
 서버가 포트에서 응답하면 변환을 거부한다 — 먼저 dongminal stop --all.
@@ -120,8 +142,6 @@ doctor 와 겹치지 않는다. doctor 는 서버 **없이** 플랫폼 계층을
 백업: *.v1.bak       스키마 변환 직전 (v1 원본)
       *.preuuid.bak  식별자 재작성 직전
 `
-	}
-	return Help()
 }
 
 // UnknownAction은 알 수 없는 첫 인자에 대한 안내다 (FR-CLI-5).
