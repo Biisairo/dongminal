@@ -13,7 +13,7 @@
   <link rel="icon" href="assets/favicon-16.png" sizes="16x16" type="image/png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="vendor/xterm.css">
-  <link rel="stylesheet" href="style.css?v=200">
+  <link rel="stylesheet" href="style.css?v=202">
   <script>try{var w=parseInt(localStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px')}catch(e){}</script>
 </head>
 <body>
@@ -173,12 +173,9 @@
           <!-- FR-WSL-81: 슬롯 방향. 값은 창 안 분할과 같은 용어다. -->
           <div class="ds-row">
             <span>슬롯 방향</span>
-            <!-- FR-WSL-81: 왼쪽이 가로, 오른쪽이 세로다. 선택지가 둘뿐이고
-                 그림으로 구별되므로 펼쳐서 읽을 것이 없다. -->
-            <span class="seg" id="ds-slotdir">
-              <button type="button" data-v="horizontal" title="좌우로 나눔">▐▌ 가로</button>
-              <button type="button" data-v="vertical" title="위아래로 나눔">▀▄ 세로</button>
-            </span>
+            <!-- FR-WSL-81: 값이 둘뿐이라 **누를 때마다 뒤집는 토글**이다. 지금
+                 값이 버튼에 그대로 적혀 있으므로 고를 목록이 따로 없다. -->
+            <button type="button" class="ds-toggle" id="ds-slotdir"></button>
           </div>
           <div class="ds-hint">두 창을 나란히 볼 때(⧉ Slot · Ctrl+Shift+S) 칸을 어느 축으로 나눌지 정합니다.</div>
           <div class="ds-row">
@@ -232,65 +229,65 @@
 <script src="vendor/addon-web-links.js"></script>
 <script src="vendor/addon-unicode11.js"></script>
 <script src="vendor/addon-search.js"></script>
-<script src="js/core/constants.js?v=200"></script>
-<script src="js/core/constants-git.js?v=200"></script>
-<script src="js/core/constants-editor.js?v=200"></script>
-<script src="js/core/helpers.js?v=200"></script>
-<script src="js/ui/repaint.js?v=200"></script>
+<script src="js/core/constants.js?v=202"></script>
+<script src="js/core/constants-git.js?v=202"></script>
+<script src="js/core/constants-editor.js?v=202"></script>
+<script src="js/core/helpers.js?v=202"></script>
+<script src="js/ui/repaint.js?v=202"></script>
 <!-- 사이드바 탭 (GIT_SIDEBAR_TABS_SRS). renderer.js 앞이어야 한다 — 렌더러가
      활성 탭 상태를 읽는다. -->
-<script src="js/ui/sidebar-tabs.js?v=200"></script>
+<script src="js/ui/sidebar-tabs.js?v=202"></script>
 <!-- 사이드바 리스트 블루프린트 (UX_REVISION_SRS 묶음 B). 서술자(sidebar-tabs.js)
      뒤, 렌더러 앞이어야 한다 — 렌더러가 이것으로 두 목록을 그린다. -->
-<script src="js/ui/sidebar-list.js?v=200"></script>
-<script src="js/ui/themes.js?v=200"></script>
-<script src="js/ui/term-clipboard.js?v=200"></script>
-<script src="js/ui/term-pane.js?v=200"></script>
-<script src="js/ui/file-editor.js?v=200"></script>
-<script src="js/ui/input-binding.js?v=200"></script>
-<script src="js/git/api.js?v=200"></script>
-<script src="js/git/panel.js?v=200"></script>
-<script src="js/git/confirm.js?v=200"></script>
-<script src="js/git/dialog.js?v=200"></script>
-<script src="js/git/commit.js?v=200"></script>
-<script src="js/git/lanes.js?v=200"></script>
-<script src="js/git/menu.js?v=200"></script>
-<script src="js/git/history.js?v=200"></script>
-<script src="js/git/branches.js?v=200"></script>
-<script src="js/git/stash.js?v=200"></script>
-<script src="js/git/tag.js?v=200"></script>
-<script src="js/git/console.js?v=200"></script>
-<script src="js/git/worktrees.js?v=200"></script>
-<script src="js/git/remote.js?v=200"></script>
-<script src="js/git/commit-ops.js?v=200"></script>
+<script src="js/ui/sidebar-list.js?v=202"></script>
+<script src="js/ui/themes.js?v=202"></script>
+<script src="js/ui/term-clipboard.js?v=202"></script>
+<script src="js/ui/term-pane.js?v=202"></script>
+<script src="js/ui/file-editor.js?v=202"></script>
+<script src="js/ui/input-binding.js?v=202"></script>
+<script src="js/git/api.js?v=202"></script>
+<script src="js/git/panel.js?v=202"></script>
+<script src="js/git/confirm.js?v=202"></script>
+<script src="js/git/dialog.js?v=202"></script>
+<script src="js/git/commit.js?v=202"></script>
+<script src="js/git/lanes.js?v=202"></script>
+<script src="js/git/menu.js?v=202"></script>
+<script src="js/git/history.js?v=202"></script>
+<script src="js/git/branches.js?v=202"></script>
+<script src="js/git/stash.js?v=202"></script>
+<script src="js/git/tag.js?v=202"></script>
+<script src="js/git/console.js?v=202"></script>
+<script src="js/git/worktrees.js?v=202"></script>
+<script src="js/git/remote.js?v=202"></script>
+<script src="js/git/commit-ops.js?v=202"></script>
 <!-- Editor 창의 파일 탐색기 (EDITOR_TAB_SRS 묶음 X). renderer.js 앞이어야 한다 —
      렌더러의 마운트 자리가 이 클래스를 부른다. -->
-<script src="js/ui/file-tree.js?v=200"></script>
-<script src="js/ui/renderer.js?v=200"></script>
-<script src="js/core/app.js?v=200"></script>
-<script src="js/core/app-cmd.js?v=200"></script>
-<script src="js/core/app-reload.js?v=200"></script>
-<script src="js/core/app-tool.js?v=200"></script>
-<script src="js/core/app-layout.js?v=200"></script>
-<script src="js/core/app-slots.js?v=200"></script>
-<script src="js/core/app-focus.js?v=200"></script>
-<script src="js/core/app-attn.js?v=200"></script>
-<script src="js/core/app-agents.js?v=200"></script>
-<script src="js/core/app-git.js?v=200"></script>
+<script src="js/ui/file-tree.js?v=202"></script>
+<script src="js/ui/renderer.js?v=202"></script>
+<script src="js/core/app.js?v=202"></script>
+<script src="js/core/app-cmd.js?v=202"></script>
+<script src="js/core/app-reload.js?v=202"></script>
+<script src="js/core/app-tool.js?v=202"></script>
+<script src="js/core/app-layout.js?v=202"></script>
+<script src="js/core/app-slots.js?v=202"></script>
+<script src="js/core/app-focus.js?v=202"></script>
+<script src="js/core/app-attn.js?v=202"></script>
+<script src="js/core/app-agents.js?v=202"></script>
+<script src="js/core/app-git.js?v=202"></script>
 <!-- Editor 탭·창 (EDITOR_TAB_SRS). app.js 뒤 main.js 앞 — prototype 확장이다. -->
-<script src="js/core/app-editor.js?v=200"></script>
-<script src="js/core/app-edsearch.js?v=200"></script>
+<script src="js/core/app-editor.js?v=202"></script>
+<script src="js/core/app-edsearch.js?v=202"></script>
 <!-- Run 시각화 (ORCHESTRATION_V2_SRS 묶음 V). app.js 뒤 — prototype 확장. -->
-<script src="js/core/app-runs.js?v=200"></script>
-<script src="js/core/app-search.js?v=200"></script>
-<script src="js/core/app-mobile.js?v=200"></script>
-<script src="js/core/app-settings.js?v=200"></script>
-<script src="js/core/app-statusbar.js?v=200"></script>
-<script src="js/core/app-presets.js?v=200"></script>
-<script src="js/core/app-dnd.js?v=200"></script>
-<script src="js/core/main.js?v=200"></script>
-<script src="js/ui/version-watch.js?v=200"></script>
+<script src="js/core/app-runs.js?v=202"></script>
+<script src="js/core/app-search.js?v=202"></script>
+<script src="js/core/app-mobile.js?v=202"></script>
+<script src="js/core/app-settings.js?v=202"></script>
+<script src="js/core/app-statusbar.js?v=202"></script>
+<script src="js/core/app-presets.js?v=202"></script>
+<script src="js/core/app-dnd.js?v=202"></script>
+<script src="js/core/main.js?v=202"></script>
+<script src="js/ui/version-watch.js?v=202"></script>
 <!-- 실기기 진단. ?diag=1 로 접속할 때만 동작한다 -->
-<script src="js/ui/diag.js?v=200"></script>
+<script src="js/ui/diag.js?v=202"></script>
 </body>
 </html>

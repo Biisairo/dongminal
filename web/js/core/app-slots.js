@@ -23,6 +23,10 @@ const SLOT_SIZE_DEFAULT=1;
 const SLOT_MIN_PX=80;                    // 손잡이가 칸을 이보다 좁히지 않는다
 const SLOT_DIR_KEY='slotDir';            // FR-WSL-82
 const SLOT_DIR_DEFAULT='horizontal';     // FR-WSL-80
+// FR-WSL-81: 토글에 적히는 **지금 값**이다. 고를 목록이 아니라 현재 상태이므로
+// 그림과 말이 함께 있어야 한다 — 그림만으로는 어느 쪽이 켜진 것인지 모른다.
+const SLOT_DIR_LABEL={horizontal:'▐▌ 가로',vertical:'▀▄ 세로'};
+const SLOT_DIR_TITLE={horizontal:'좌우로 나눔 — 누르면 위아래로',vertical:'위아래로 나눔 — 누르면 좌우로'};
 
 Object.assign(App.prototype, {
   // ── 상태 (FR-WSL-73) ──
@@ -346,26 +350,27 @@ Object.assign(App.prototype, {
     if(add) add.addEventListener('click',()=>this.slotAdd());
     const rm=document.getElementById('slot-remove');
     if(rm) rm.addEventListener('click',()=>this.slotRemove());
-    // FR-WSL-81: 두 칸짜리 세그먼트 토글. 왼쪽이 가로, 오른쪽이 세로다.
-    const seg=document.getElementById('ds-slotdir');
-    if(seg){
-      seg.addEventListener('click',e=>{
-        const b=e.target.closest('button[data-v]');
-        if(!b) return;
-        this.slotDir=b.dataset.v;
+    // FR-WSL-81: 값이 둘뿐이라 누를 때마다 뒤집는다. 고를 목록을 펼치는 것보다
+    // 한 번 누르는 편이 짧다.
+    const t=document.getElementById('ds-slotdir');
+    if(t){
+      t.addEventListener('click',()=>{
+        this.slotDir=this.slotDir==='vertical'?'horizontal':'vertical';
         this._slotDirPaint();
       });
       this._slotDirPaint();
     }
   },
 
+  // 버튼에 적힌 것은 **지금 값**이지 다음 값이 아니다. 눌러서 바뀌는 방향은
+  // title 이 말한다 — 둘을 뒤집어 적으면 켜진 것이 무엇인지 읽을 수 없다.
   _slotDirPaint(){
-    const seg=document.getElementById('ds-slotdir');
-    if(!seg) return;
-    const cur=this.slotDir;
-    for(const b of seg.querySelectorAll('button[data-v]')){
-      b.classList.toggle('active',b.dataset.v===cur);
-    }
+    const t=document.getElementById('ds-slotdir');
+    if(!t) return;
+    const cur=this.slotDir==='vertical'?'vertical':'horizontal';
+    t.textContent=SLOT_DIR_LABEL[cur];
+    t.title=SLOT_DIR_TITLE[cur];
+    t.dataset.v=cur;
   },
 
   // ── 손잡이 (FR-WSL-32) ──

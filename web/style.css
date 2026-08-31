@@ -171,12 +171,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .slot-ctl .tbtn:disabled{opacity:.35;cursor:default}
 .slot-ctl-label{font-size:11px;opacity:.6;user-select:none}
 /* FR-WSL-81: 설정의 두 칸짜리 세그먼트 토글. */
-.seg{display:inline-flex;border:1px solid var(--border);border-radius:4px;overflow:hidden}
-.seg button{background:transparent;color:var(--fg);border:0;padding:3px 10px;
-  font-size:12px;cursor:pointer;opacity:.6}
-.seg button+button{border-left:1px solid var(--border)}
-.seg button:hover{opacity:.85}
-.seg button.active{background:var(--accent);color:var(--bg);opacity:1}
 .sp[data-d="horizontal"]{flex-direction:row}
 .sp[data-d="vertical"]{flex-direction:column}
 .sc{flex:1;position:relative;overflow:hidden;min-width:0;min-height:0}
@@ -627,6 +621,16 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .ds-text{width:200px}
 .ds-num:focus,.ds-text:focus{border-color:var(--accent)}
 .ds-hint{color:var(--text-dim);font-size:11px;line-height:1.5;margin-top:6px}
+/* FR-WSL-81: 값이 둘뿐인 설정의 토글. 지금 값을 적어 두고 누르면 뒤집힌다 —
+   고를 목록이 없으므로 펼침도 없다. 폭을 고정하는 이유는 두 값의 글자 수가
+   달라 누를 때마다 행이 흔들리기 때문이다. */
+.ds-toggle{
+  min-width:78px;background:var(--bg);border:1px solid var(--border);border-radius:4px;
+  color:var(--text);font-size:12px;padding:3px 8px;font-family:inherit;cursor:pointer;
+  text-align:center;
+}
+.ds-toggle:hover{border-color:var(--accent)}
+.ds-toggle:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
 
 /* ── Mobile/Desktop visibility toggles ── */
 .mobile-only{display:none !important}

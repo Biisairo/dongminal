@@ -535,21 +535,26 @@ test.describe('묶음 D — 슬롯 방향', () => {
     expect((await slotsState(page)).focused).toBe(0);
   });
 
-  test('TC-WSL-27: 설정의 세그먼트 토글로 방향을 바꾼다 (FR-WSL-81)', async ({ page }) => {
+  test('TC-WSL-27: 설정의 토글로 방향을 바꾼다 (FR-WSL-81)', async ({ page }) => {
     await waitForInit(page);
     await slotAdd(page);
     await page.click('#settings-btn');
     await page.click('.mtab[data-tab="display"]');
 
-    const seg = page.locator('#ds-slotdir');
-    await expect(seg).toBeVisible();
-    // 왼쪽이 가로, 오른쪽이 세로다.
-    const vals = await seg.locator('button').evaluateAll((els: any[]) => els.map((e) => e.dataset.v));
-    expect(vals).toEqual(['horizontal', 'vertical']);
-    await expect(seg.locator('button.active')).toHaveAttribute('data-v', 'horizontal');
+    const t = page.locator('#ds-slotdir');
+    await expect(t).toBeVisible();
+    // 버튼에 적힌 것은 **지금 값**이다 — 다음 값이 아니다.
+    await expect(t).toHaveAttribute('data-v', 'horizontal');
+    await expect(t).toHaveText(/가로/);
 
-    await seg.locator('button[data-v="vertical"]').click();
-    await expect(seg.locator('button.active')).toHaveAttribute('data-v', 'vertical');
+    await t.click();
+    await expect(t).toHaveAttribute('data-v', 'vertical');
+    await expect(t).toHaveText(/세로/);
+
+    // 누를 때마다 뒤집힌다 — 되돌아오는 길도 같은 버튼이다.
+    await t.click();
+    await expect(t).toHaveAttribute('data-v', 'horizontal');
+    await t.click();
 
     await page.click('#modal-close');
     expect(await slotDirOf(page)).toBe('vertical');
