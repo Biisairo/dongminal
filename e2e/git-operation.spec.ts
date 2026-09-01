@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // GIT_ACTIONS_SRS §3.1 — 묶음 A 진행 중 작업 (FR-GIT-251·252, 검증 V176).
 //
@@ -45,14 +45,6 @@ function repoWithConflictedMerge(tag: string) {
     /* 의도한 충돌 */
   }
   return dir;
-}
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 async function openChanges(page: Page, repo: string) {

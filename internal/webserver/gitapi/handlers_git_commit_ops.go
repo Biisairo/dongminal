@@ -26,8 +26,6 @@ import (
 const (
 	// gitErrMergeParent 는 머지 커밋인데 부모 번호가 없다는 것이다 (FR-GIT-263).
 	gitErrMergeParent = apierr.CodeMergeParent
-	// gitErrResetMode 는 모르는 reset 모드다 (FR-GIT-265).
-	gitErrResetMode = apierr.CodeResetMode
 )
 
 // gitPickReq 는 cherry-pick·revert 의 본문이다.

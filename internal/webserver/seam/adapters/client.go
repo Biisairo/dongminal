@@ -26,7 +26,7 @@ func (r Client) ResolveClientPane(remoteAddr string) (string, int, error) {
 		return "", 0, fmt.Errorf("클라이언트 PID를 찾을 수 없음 (remoteAddr=%s)", remoteAddr)
 	}
 	toolShellPids := map[int]string{}
-	for _, p := range (Tool{PM: r.PM, Hub: r.Hub}).List() {
+	for _, p := range Tool(r).List() {
 		if p.ShellPID > 0 {
 			toolShellPids[p.ShellPID] = p.ID
 		}

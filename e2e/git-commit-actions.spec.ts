@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // GIT_ACTIONS_SRS §3.4 — 묶음 D 커밋 동작 (FR-GIT-263~267, 검증 V191~V194).
 //
@@ -83,14 +83,6 @@ function stuckRepo(tag: string) {
     /* 충돌이 이 픽스처의 목적이다 */
   }
   return dir;
-}
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 async function openHistory(page: Page, repo: string) {

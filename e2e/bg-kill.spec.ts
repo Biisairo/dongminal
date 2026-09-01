@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // 묶음 X (CONVENIENCE_SRS §3.2) — 백그라운드 도구 즉시 종료.
 //
@@ -12,14 +12,6 @@ import { test, expect } from './fixtures';
 // internal/webserver/httpapi/handlers_tools_kill_test.go 가 맡는다.
 
 const MOBILE_VIEWPORT = { width: 375, height: 667 };
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 // 백그라운드 도구를 실제 경로(detachTab)로 만든다. background-ui.spec.ts 와 같은
 // 수단이되 개수를 받는다 — 이 묶음은 "여럿을 정리하는 화면" 이 대상이므로

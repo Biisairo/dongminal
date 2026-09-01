@@ -24,8 +24,6 @@ import (
 // 클라이언트만 막으면 API 직접 호출이 그대로 우회한다. 이 파일이 보는 것은 그
 // 우회가 막히는지, 그리고 **막힌 요청이 실행되지 않았는지** 다.
 
-var gitTagRepo = absWorkRepo
-
 // gitTagFake 는 태그 표면이 딛는 읽기·쓰기를 함께 격리한다. WithRunner 만 주면
 // 실제 git 이 돌아 테스트가 저장소를 바꾼다.
 type gitTagFake struct {

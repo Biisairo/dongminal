@@ -1,10 +1,8 @@
 import { execFileSync } from 'child_process';
-import { realpathSync, rmSync } from 'fs';
-import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, makeCopyFx, GIT_VIEW_TABS } from './fixtures';
 
 // BRANCH_MENU_UNIFY_SRS §5 TC-BMU-*
 //
@@ -21,13 +19,7 @@ test.afterAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
 });
 
-function copyFx(name: string, tag: string) {
-  const dst = join(FIXTURES, 'copy-' + tag);
-  rmSync(dst, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, name), dst]);
-  return realpathSync(dst);
-}
-
+const copyFx = makeCopyFx(FIXTURES);
 const git = (repo: string, ...args: string[]) =>
   execFileSync('git', ['-C', repo, ...args]).toString().trim();
 
@@ -39,7 +31,7 @@ async function waitForInit(page: Page) {
 
 async function openBranches(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   await page.click('#area .pn-tab[data-git-view="branches"]');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-branches/);
 }

@@ -1,10 +1,10 @@
 import { execFileSync } from 'child_process';
-import { realpathSync, rmSync, writeFileSync } from 'fs';
+import { realpathSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, makeCopyFx, openGit, waitForInit } from './fixtures';
 
 // GIT_M1_STEP56_CONTRACT §4 — 변경 감지 3계층. 검증 V6·V18·V5·V4.
 
@@ -19,13 +19,7 @@ test.afterAll(() => {
 
 const fx = (name: string) => realpathSync(join(FIXTURES, name));
 
-function copyFx(name: string, tag: string) {
-  const dst = join(FIXTURES, 'copy-' + tag);
-  rmSync(dst, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, name), dst]);
-  return realpathSync(dst);
-}
-
+const copyFx = makeCopyFx(FIXTURES);
 // 설정은 서버의 단일 블롭이다 — 읽어 합친 뒤 되돌려 준다. 다른 스펙의 테마·단축키를
 // 지우지 않는다.
 async function patchSettings(request: APIRequestContext, patch: Record<string, unknown>) {
@@ -40,19 +34,6 @@ async function patchSettings(request: APIRequestContext, patch: Record<string, u
 
 const defaultIntervals = (request: APIRequestContext) =>
   patchSettings(request, { gitStatusInterval: undefined, gitSignatureInterval: undefined });
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
-
-async function openGit(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
-}
 
 // 요청 수는 가로채기로 센다 — 클라이언트 내부 카운터를 믿으면 "요청을 실제로
 // 보내지 않았다"를 증명할 수 없다.

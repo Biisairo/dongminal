@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, openGit, waitForInit } from './fixtures';
 
 // GIT_REPO_MISSING_SRS — 소실의 확정과 알림, 그리고 실패 백오프.
 // 검증 V-RMS-4~20.
@@ -43,19 +43,6 @@ async function patchSettings(request: APIRequestContext, patch: Record<string, u
 
 const defaultIntervals = (request: APIRequestContext) =>
   patchSettings(request, { gitStatusInterval: undefined, gitSignatureInterval: undefined });
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
-
-async function openGit(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
-}
 
 function counter(page: Page, needle: string) {
   const state = { n: 0 };

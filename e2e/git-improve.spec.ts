@@ -1,11 +1,11 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, realpathSync, rmSync } from 'fs';
+import { mkdtempSync, realpathSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGitTab } from './fixtures';
+import { test, expect, openGitTab, makeCopyFx, GIT_VIEW_TABS } from './fixtures';
 
 // GIT_REVIEW4_SRS §3.6.1~§3.6.4 — 개선 I1~I4. 검증 V132~V142
 // (FR-GIT-236~239).
@@ -32,13 +32,7 @@ test.afterAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
 });
 
-function copyFx(name: string, tag: string) {
-  const dst = join(FIXTURES, 'copy-' + tag);
-  rmSync(dst, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, name), dst]);
-  return realpathSync(dst);
-}
-
+const copyFx = makeCopyFx(FIXTURES);
 const DESKTOP = { width: 1280, height: 720 };
 const MOBILE = { width: 390, height: 640 };
 
@@ -54,7 +48,7 @@ async function waitForInit(page: Page, mode: 'desktop' | 'mobile' = 'desktop') {
 async function openGit(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
   // GIT_REVIEW4_SRS §3.6.5 FR-GIT-28(개정): 고정 탭이 Worktrees 를 더해 7개다.
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
 }
 

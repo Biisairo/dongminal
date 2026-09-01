@@ -1,10 +1,10 @@
 import { execFileSync } from 'child_process';
-import { existsSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, makeCopyFx, openGit, waitForInit } from './fixtures';
 
 // GIT_ACTIONS_SRS §3.6 묶음 F — stash · 파일 · 미커밋 행.
 // 검증 V199(FR-GIT-272) · V200(273) · V201(274·275) · V203(277).
@@ -23,28 +23,9 @@ test.afterAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
 });
 
-function copyFx(name: string, tag: string) {
-  const dst = join(FIXTURES, 'copy-' + tag);
-  rmSync(dst, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, name), dst]);
-  return realpathSync(dst);
-}
-
+const copyFx = makeCopyFx(FIXTURES);
 const git = (repo: string, ...args: string[]) =>
   execFileSync('git', ['-C', repo, ...args]).toString().trim();
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
-
-async function openGit(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
-}
 
 async function openView(page: Page, view: string, cls: RegExp) {
   await page.click(`#area .pn-tab[data-git-view="${view}"]`);

@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS } from './fixtures';
 
 // GIT_ACTIONS_SRS §3.3 — 묶음 C 태그 동작. 검증 V187~V190 (FR-GIT-260~262).
 //
@@ -40,13 +40,7 @@ test.afterAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
 });
 
-function copyFx(name: string, tag: string) {
-  const dst = join(FIXTURES, 'copy-' + tag);
-  rmSync(dst, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, name), dst]);
-  return realpathSync(dst);
-}
-
+const copyFx = makeCopyFx(FIXTURES);
 // with-remote 픽스처는 bare origin 을 가진다 — 그 원격은 로컬 경로이므로 push 가
 // 네트워크 없이 실제로 끝난다(FR-GIT-104 의 인증 안내 경로를 건드리지 않는다).
 // 원격 경로가 복사본 밖(FIXTURES/remote.git)을 가리키므로 원격도 함께 복사해
@@ -66,18 +60,10 @@ const git = (repo: string, ...args: string[]) =>
 const tagList = (repo: string) =>
   git(repo, 'tag', '-l').split('\n').map((s) => s.trim()).filter(Boolean);
 
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
-
 async function openBranches(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
   // FR-GIT-28(개정): 고정 탭은 7개다.
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   await page.click('#area .pn-tab[data-git-view="branches"]');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-branches/);
 }
@@ -198,7 +184,7 @@ test.describe('묶음 C — 태그 생성 (FR-GIT-260)', () => {
 
     await waitForInit(page);
     await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
 
     // 커밋 메뉴는 History 의 행에서 열린다. 메뉴 프레임워크의 항목만 보면 되므로
     // 합성 대상으로 연다 — 메뉴는 좌표만 쓴다(menu.js: "합성 객체로도 열 수 있어야

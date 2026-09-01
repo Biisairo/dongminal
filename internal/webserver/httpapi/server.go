@@ -19,7 +19,6 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -78,8 +77,6 @@ type Server struct {
 	// wsOpen 은 지금 붙어 있는 WebSocket 수다 (FR-CNR-8). 붙잡힌 연결도 여기
 	// 포함된다 — 그것이 자원을 쓰고 있다는 사실이 진단에 실려야 한다.
 	wsOpen atomic.Int64
-
-	mu sync.Mutex
 }
 
 // New constructs a Server from cfg + deps. If deps.Commands is nil, a fresh

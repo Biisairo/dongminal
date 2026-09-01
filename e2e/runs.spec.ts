@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // 묶음 V (ORCHESTRATION_V2_SRS §3.5) — Run 시각화의 **브라우저 쪽**.
 //
@@ -106,14 +106,6 @@ async function mockRuns(page: Page, list: Json[], graphs: Record<string, Json>) 
     if (!g) return route.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"unknown_run"}' });
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(g) });
   });
-}
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 async function openModal(page: Page) {

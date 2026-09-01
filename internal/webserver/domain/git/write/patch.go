@@ -186,9 +186,11 @@ func patchSelect(h query.Hunk, from, to int) (func(int) bool, error) {
 //   - 되돌려 넣을 때(unstage·revert)는 새 쪽이 현재 내용이다. 규칙이 뒤집힌다 —
 //     고르지 않은 `-` 를 빼고, 고르지 않은 `+` 를 문맥으로 바꾼다.
 func patchBody(h query.Hunk, sel func(int) bool, reverse bool) (body []string, oldN, newN, changed int) {
-	drop, keep := byte(query.HunkAddMark), byte(query.HunkDelMark)
+	// 뺄 쪽만 이름을 갖는다. 남길 쪽은 그것의 반대이고, 짝으로 두면 한쪽이
+	// 읽히지 않는 변수로 남는다.
+	drop := byte(query.HunkAddMark)
 	if reverse {
-		drop, keep = keep, drop
+		drop = byte(query.HunkDelMark)
 	}
 	kept := false
 	for i, l := range h.Lines {
@@ -216,7 +218,7 @@ func patchBody(h query.Hunk, sel func(int) bool, reverse bool) (body []string, o
 			}
 		case mark == drop:
 			kept = false
-		default: // mark == keep
+		default: // drop 의 반대 — 고르지 않았지만 남겨서 문맥으로 바꿀 쪽이다
 			body, oldN, newN, kept = append(body, string(query.HunkContextMark)+l[1:]), oldN+1, newN+1, true
 		}
 	}

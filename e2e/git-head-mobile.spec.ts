@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, openGit } from './fixtures';
 
 // GIT_HEAD_MOBILE_SRS 검증 V1~V13 — 머리의 왼쪽 정렬 · History 이식 · 모바일 폭.
 //
@@ -29,11 +29,6 @@ async function init(page: Page, mode: 'mobile' | 'desktop') {
   }, mode);
   await page.goto('/');
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
-
-async function openGit(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
 }
 
 // 뷰 경계를 넘는 요소를 모은다.

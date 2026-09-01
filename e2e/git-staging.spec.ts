@@ -1,10 +1,10 @@
 import { execFileSync } from 'child_process';
-import { readFileSync, realpathSync, rmSync } from 'fs';
+import { readFileSync, realpathSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit } from './fixtures';
 
 // GIT_M2_STEP1011_CONTRACT §3 — 스테이징 클라이언트. 검증 V30·V32·V37
 // (E1·E2·E8 + FR-GIT-72).
@@ -24,21 +24,7 @@ test.afterAll(() => {
 
 const fx = (name: string) => realpathSync(join(FIXTURES, name));
 
-function copyFx(name: string, tag: string) {
-  const dst = join(FIXTURES, 'copy-' + tag);
-  rmSync(dst, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, name), dst]);
-  return realpathSync(dst);
-}
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
-
+const copyFx = makeCopyFx(FIXTURES);
 async function openGit(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);

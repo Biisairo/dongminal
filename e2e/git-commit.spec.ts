@@ -1,10 +1,10 @@
 import { execFileSync } from 'child_process';
-import { realpathSync, rmSync } from 'fs';
+import { realpathSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit } from './fixtures';
 
 // GIT_M2_STEP1011_CONTRACT §3 — 커밋 클라이언트. 검증 V33·V35·V36
 // (E3·E4·E5·E6·E7·E9 + FR-GIT-74).
@@ -20,25 +20,11 @@ test.afterAll(() => {
 
 const fx = (name: string) => realpathSync(join(FIXTURES, name));
 
-function copyFx(name: string, tag: string) {
-  const dst = join(FIXTURES, 'copy-' + tag);
-  rmSync(dst, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, name), dst]);
-  return realpathSync(dst);
-}
-
+const copyFx = makeCopyFx(FIXTURES);
 const commits = (repo: string) =>
   Number(execFileSync('git', ['-C', repo, 'rev-list', '--count', 'HEAD'], { encoding: 'utf8' }).trim());
 const head = (repo: string) =>
   execFileSync('git', ['-C', repo, 'log', '-1', '--pretty=%B'], { encoding: 'utf8' }).trim();
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 async function openGit(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);

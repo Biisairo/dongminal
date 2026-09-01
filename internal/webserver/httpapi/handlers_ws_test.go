@@ -87,7 +87,7 @@ func TestHandleWS_ExistingTool(t *testing.T) {
 
 	// First message: toolhub.OpToolID.
 	ws.SetReadDeadline(time.Now().Add(5 * time.Second))
-	mt, msg, err := ws.ReadMessage()
+	_, msg, err := ws.ReadMessage()
 	if err != nil {
 		t.Fatalf("read sid: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestHandleWS_ExistingTool(t *testing.T) {
 
 	// Next message should be toolhub.OpOutput (snapshot).
 	ws.SetReadDeadline(time.Now().Add(5 * time.Second))
-	mt, msg, err = ws.ReadMessage()
+	mt, msg, err := ws.ReadMessage()
 	if err != nil {
 		t.Fatalf("read snapshot: %v", err)
 	}

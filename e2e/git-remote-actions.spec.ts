@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit, GIT_VIEW_TABS } from './fixtures';
 
 // GIT_ACTIONS_SRS §3.5 묶음 E — 원격 동작. 검증 V196·V197·V198.
 //
@@ -71,17 +71,9 @@ function conflictRemote(remote: string) {
   rmSync(work, { recursive: true, force: true });
 }
 
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
-
 async function openGit(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
 }
 

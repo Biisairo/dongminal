@@ -228,16 +228,11 @@ const GIT_PREFLIGHT_COPY='Copy';
 // FR-GIT-87: 막지 않고 알린다. 파괴적이 아니므로 1단계 확인이다.
 const GIT_ACT_DETACHED='commit_detached';
 const GIT_DETACHED_TITLE='이 커밋은 어느 브랜치에도 속하지 않습니다';
-// preflight 가 아직 오지 않았어도 status 가 detached 를 안다 — 경고가 응답 왕복에
-// 걸려 조용히 넘어가지 않게 그때의 사유를 여기 둔다.
-const GIT_DETACHED_REASON='HEAD 가 브랜치를 가리키지 않습니다 (detached)';
 const GIT_DETACHED_NOTE='브랜치를 만들어 이 커밋을 가리키게 하면 남습니다';
 // preflight 의 코드값. 서버(internal/git/preflight.go)와 같은 문자열이다.
 const GIT_WARN_DETACHED='detached_head';
 const GIT_ERR_PREFLIGHT='preflight_blocked';
 const GIT_ERR_UNDO_EXPIRED='undo_expired';
-const GIT_ERR_EMPTY_MESSAGE='empty_message';
-const GIT_ERR_NOTHING_STAGED='nothing_staged';
 
 // ── 파괴적 동작 확인 (GIT_SRS §3A.3 / FR-GIT-90~97·174~178) ──
 
@@ -851,7 +846,6 @@ const GIT_CON_REPLAY_TITLE='이 명령을 다시 실행합니다';
 // 파괴적이었으면 확인도 2단계다.
 const GIT_CON_REPLAY_NOTE='서버가 자기 기록에서 꺼낸 명령을 그대로 다시 실행합니다. 저장소 상태가 그때와 다르면 결과도 다릅니다.';
 const GIT_ACT_REPLAY='replay';
-const GIT_CON_REPLAY_FAIL='다시 실행하지 못했습니다';
 const GIT_CON_SEARCH_NONE='검색과 일치하는 기록이 없습니다';
 // ── 태그 동작 (GIT_ACTIONS_SRS §3.3 / FR-GIT-260~262) ──
 
@@ -1156,7 +1150,6 @@ const GIT_BR_SET_UPSTREAM='Set upstream…';
 const GIT_BR_UNSET_UPSTREAM='Unset upstream';
 const GIT_BR_PUSH='Push';
 const GIT_BR_CREATE_FROM='Create Branch from…';
-const GIT_BR_REMOTE_PULL='Pull/Merge';
 const GIT_BR_REMOTE_FETCH='Fetch into local';
 const GIT_BR_REMOTE_DELETE='Delete remote branch';
 
@@ -1164,7 +1157,6 @@ const GIT_BR_REMOTE_DELETE='Delete remote branch';
 const GIT_BR_LOCAL_ONLY='로컬 브랜치에서만 쓸 수 있습니다';
 const GIT_BR_WHY_SELF='현재 브랜치입니다 — 자기 자신에는 합칠 수 없습니다';
 const GIT_BR_WHY_NO_UPSTREAM='upstream 이 설정돼 있지 않습니다';
-const GIT_BR_WHY_NO_HEAD='현재 브랜치를 알 수 없습니다 (detached)';
 
 // Rename (FR-GIT-253). 이름 검사는 생성 다이얼로그와 **같은 자리**를 쓴다.
 const GIT_BR_RENAME_TITLE='브랜치 이름 변경';

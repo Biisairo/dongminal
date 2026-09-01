@@ -1,3 +1,7 @@
+import { execFileSync } from 'child_process';
+import { realpathSync, rmSync } from 'fs';
+import { join } from 'path';
+
 import { test as base, expect } from '@playwright/test';
 
 // e2e 는 만든 도구를 정리하지 않는다. 스펙이 workspace 를 비우거나 탭을
@@ -114,6 +118,59 @@ export async function openGitTab(page: any) {
 export async function plainWindows(page: any): Promise<any[]> {
   return page.evaluate(() =>
     ((window as any).app.ws.windows || []).filter((w: any) => w && w.type !== 'git' && w.type !== 'editor'));
+}
+
+/**
+ * Git 창의 고정 탭 수 (GIT_VIEWS 의 길이).
+ *
+ * **구현의 `GIT_VIEWS` 를 읽지 않는다.** 읽으면 그 배열에서 탭이 실수로 빠져도
+ * e2e 가 통과한다 — 검사가 검사를 멈춘다. `plainWindows` 가 앱의 `_plainWindows()`
+ * 를 재사용하지 않는 것과 같은 이유다.
+ *
+ * 고치는 것은 이 숫자가 28개 스펙에 흩어져 있던 사실뿐이다. 숫자는 여전히 e2e 가
+ * 독립적으로 적고, 다만 한 자리에 적는다 (E2E_HELPER_RECLAIM_SRS FR-EHR-5).
+ */
+export const GIT_VIEW_TABS = 7;
+
+/**
+ * 앱이 뜨고 포커스된 칸의 터미널이 입력을 받을 준비가 될 때까지 기다린다.
+ *
+ * 37개 스펙이 바이트 동일한 본문을 각자 갖고 있던 것을 여기로 거뒀다
+ * (FR-EHR-1·2). **변종 26개는 옮기지 않았다** — 모바일 진입이나 다른 초기
+ * 스크립트를 쓰는 것들이고, 겉이 같아 보인다고 합치면 그 스펙이 재려던 것과
+ * 다른 것을 재게 된다.
+ */
+export async function waitForInit(page: any) {
+  await page.context().addInitScript(() => {
+    sessionStorage.setItem('displayMode', 'desktop');
+  });
+  await page.goto('/');
+  // Wait for init() → render() → xterm readiness inside the focused pane.
+  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+}
+
+/**
+ * Git 창을 열고 고정 탭이 다 설 때까지 기다린다 (FR-EHR-4).
+ */
+export async function openGit(page: any, repo: string) {
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
+}
+
+/**
+ * 픽스처 저장소를 복사해 그 실제 경로를 준다.
+ *
+ * **팩토리인 이유는 `FIXTURES` 가 스펙마다 다르기 때문이다** (`dm-git-fx-<태그>-<pid>`,
+ * 격리를 위해서다). 각 스펙이 `const copyFx = makeCopyFx(FIXTURES)` 한 줄로 받으면
+ * 호출부는 한 글자도 바뀌지 않는다 (FR-EHR-3).
+ */
+export function makeCopyFx(root: string) {
+  return (name: string, tag: string): string => {
+    const dst = join(root, 'copy-' + tag);
+    rmSync(dst, { recursive: true, force: true });
+    execFileSync('cp', ['-R', join(root, name), dst]);
+    return realpathSync(dst);
+  };
 }
 
 export { expect };

@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, GIT_VIEW_TABS } from './fixtures';
 
 // GIT_SIDEBAR_TABS_SRS §4.2 — 검증 V-SBT-*.
 //
@@ -123,7 +123,7 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
 
     // V-SBT-8 (FR-SBT-14): Git 창으로 들어가면 사이드바가 따라간다.
     await page.evaluate((r) => (window as any).app.openGitWindow(r), fx('basic'));
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
     await expect(tab(page, 'git')).toHaveClass(/active/);
     expect(await activeTab(page)).toBe('git');
 
@@ -148,7 +148,7 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
       return a.ws.activeWindow;
     });
     await page.evaluate((r) => (window as any).app.openGitWindow(r), fx('basic'));
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
     expect(await page.evaluate(() => (window as any).app._lastPlainWindow)).toBe(from);
 
     // 직전 창을 워크스페이스에서 들어낸다 — 복귀 대상이 사라진 상태다.
@@ -177,7 +177,7 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
   test('T8 (V-SBT-10): 탭 ↔ 창 동기화가 한 번에 멈춘다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate((r) => (window as any).app.openGitWindow(r), fx('basic'));
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
 
     // 왕복을 여러 번 돌려도 상태가 어긋나거나 멈추지 않는다.
     for (let i = 0; i < 3; i++) {
@@ -260,7 +260,7 @@ test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
   test('T11 (V-SBT-26·27·28): 직행 키는 탭으로 가고 토글하지 않는다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate((r) => (window as any).app.openGitWindow(r), fx('basic'));
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
     // 단축키 핸들러는 INPUT/TEXTAREA 에 포커스가 있으면 먼저 빠진다.
     await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
 
@@ -314,7 +314,7 @@ test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
     // V-SBT-33: 리포가 1개면 아무 일도 하지 않는다.
     await pin(page, a);
     await page.evaluate((r) => (window as any).app.openGitWindow(r), a);
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
     expect(await activeTab(page)).toBe('git');
     await page.evaluate(() => (window as any).app.executeAction('windowNext'));
     await page.waitForTimeout(300);

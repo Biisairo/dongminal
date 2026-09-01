@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // EDITOR_GIT_UX_SRS — Changes 크기조정(묶음 D) · Diff 개요 눈금(묶음 O) ·
 // Editor 검색(묶음 F·G·K). 검증 V-CSZ-1~5, V-DOR-1~3, V-EQO-2~3, V-EKB-2.
@@ -21,14 +21,6 @@ test.afterAll(() => {
 });
 
 const fx = (name: string) => realpathSync(join(FIXTURES, name));
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 // 다시 불러온다. `waitForInit` 을 쓸 수 없다 — Git 창이 활성인 상태로
 // 복원되면 포커스된 pane 에 터미널이 없어 그 대기가 영영 끝나지 않는다.

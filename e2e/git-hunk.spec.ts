@@ -1,10 +1,10 @@
 import { execFileSync } from 'child_process';
-import { readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit } from './fixtures';
 
 // GIT_ACTIONS_SRS §3.7 묶음 G — 부분 스테이징 (FR-GIT-278·279).
 // 검증 V205(hunk 하나만 · 관측이 바뀌면 거부) · V206(줄 범위 · revert 2단계 확인).
@@ -24,13 +24,7 @@ test.afterAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
 });
 
-function copyFx(name: string, tag: string) {
-  const dst = join(FIXTURES, 'copy-' + tag);
-  rmSync(dst, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, name), dst]);
-  return realpathSync(dst);
-}
-
+const copyFx = makeCopyFx(FIXTURES);
 const git = (repo: string, ...args: string[]) =>
   execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' });
 
@@ -57,14 +51,6 @@ function hunkRepo(tag: string) {
 
 const indexOf = (repo: string) => git(repo, 'show', ':f.txt');
 const worktreeOf = (repo: string) => readFileSync(join(repo, 'f.txt'), 'utf8');
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 async function openGit(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);

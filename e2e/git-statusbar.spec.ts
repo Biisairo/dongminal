@@ -2,9 +2,7 @@ import { execFileSync } from 'child_process';
 import { realpathSync } from 'fs';
 import { join } from 'path';
 
-import { Page } from '@playwright/test';
-
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit, GIT_VIEW_TABS } from './fixtures';
 
 // V-FLW-9 (FR-FLW-12) — 상태바의 **브랜치 chip 은 없다.**
 //
@@ -27,19 +25,11 @@ test.afterAll(() => {
 
 const fx = (name: string) => realpathSync(join(FIXTURES, name));
 
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
-
 test.describe('묶음 G — 상태바 (브랜치 chip 철회)', () => {
   test('B1 (V-FLW-9): 리포를 열어도 상태바에 브랜치 chip 이 없다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate((r) => (window as any).app.openGitWindow(r), fx('basic'));
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
     // 관측이 도착할 시간을 준 뒤에 본다 — 도착 전에 세면 아무것도 없는 것이 당연하다.
     await expect
       .poll(() => page.evaluate(() => !!(window as any).app.gitPanel.statusOf()), { timeout: 20000 })

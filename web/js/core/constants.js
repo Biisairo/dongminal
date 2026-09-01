@@ -18,7 +18,6 @@
  */
 const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,TOOLID:3};
 const enc=new TextEncoder(), dec=new TextDecoder();
-const SEARCH_RESEARCH_DELAY=50;
 // PAGE_TITLE_SRS FR-PGT-7: 설정이 비었을 때 쓰는 페이지 제목.
 const DEFAULT_PAGE_TITLE='Dongminal';
 

@@ -1,20 +1,12 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // 묶음 A (USER_CHECKLIST_FIXES_SRS §3.1 / §4.1) — 백그라운드 UI 일관화.
 //
 // 확인창의 "백그라운드로" 버튼만 형태 규약 밖에 있었고(§2.1), 백그라운드
 // 진입점이 상태바 지표에 묻힌 채 폴링마다 재생성됐고(§2.2), 목록이 사라질
 // 앵커에 매여 있었다(§2.3).
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 // 확인창을 직접 띄운다. busy 프로세스를 만들어 실제 경로를 타는 것보다
 // 결정론적이고, 검증 대상이 버튼의 형태·색 규약이므로 충분하다.

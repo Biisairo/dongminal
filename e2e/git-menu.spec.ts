@@ -1,10 +1,10 @@
 import { execFileSync } from 'child_process';
-import { realpathSync, writeFileSync, rmSync } from 'fs';
+import { realpathSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, makeCopyFx, openGit, waitForInit } from './fixtures';
 
 // GIT_M4_STEP1417_CONTRACT §4.2 — 컨텍스트 메뉴 프레임워크. 검증 V52 + FR-GIT-140~146.
 //
@@ -23,26 +23,7 @@ test.afterAll(() => {
 
 const fx = (name: string) => realpathSync(join(FIXTURES, name));
 
-function copyFx(name: string, tag: string) {
-  const dst = join(FIXTURES, 'copy-' + tag);
-  rmSync(dst, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, name), dst]);
-  return realpathSync(dst);
-}
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
-
-async function openGit(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
-}
-
+const copyFx = makeCopyFx(FIXTURES);
 async function openHistory(page: Page, repo: string) {
   await openGit(page, repo);
   await page.click('#area .pn-tab[data-git-view="history"]');

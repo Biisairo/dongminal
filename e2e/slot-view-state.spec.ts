@@ -5,7 +5,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit, GIT_VIEW_TABS } from './fixtures';
 
 // 칸별 시선 — SLOT_VIEW_STATE_SRS §8
 //
@@ -13,14 +13,6 @@ import { test, expect } from './fixtures';
 // (FR-WSL-2) 검증은 DOM 과 sessionStorage 로 하고, 서버를 보는 것은 FR-SVS-14
 // 하나뿐이다 — 포커스 칸의 탭이 워크스페이스에 반영되는지가 `dmctl` 의 활성
 // 판정(SRS §2.4)을 지탱하기 때문이다.
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 const slotAdd = (page: Page) => page.evaluate(() => (window as any).app.slotAdd());
 const renderNow = (page: Page) => page.evaluate(() => (window as any).app.render());
@@ -667,7 +659,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
   async function twoSlotsOnGit(page: Page, repo: string) {
     await waitForInit(page);
     await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
     const git = await page.evaluate(() => (window as any).app._gitWindow().id);
     await slotAdd(page);
     await openInSlot(page, 0, git);

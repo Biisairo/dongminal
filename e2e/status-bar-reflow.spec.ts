@@ -1,19 +1,11 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // STATUS_BAR_REFLOW_SRS 묶음 W — 상태바는 좁아지면 줄을 늘린다. 잘라내지 않는다.
 //
 // 개정 전의 실측이 스펙 §2.1 에 있다: 560px 에서 지표 3개, 420px 에서 5개가
 // **아무 표시 없이 사라졌다.** 여기서 재는 것은 그 수가 0 이 되었다는 사실이다.
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 // 사용자가 켤 수 있는 최대 상태 — 지표 전부.
 async function enableAllItems(page: Page) {

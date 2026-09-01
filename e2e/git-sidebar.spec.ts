@@ -1,11 +1,11 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, realpathSync, writeFileSync } from 'fs';
+import { mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { basename, join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGitTab } from './fixtures';
+import { test, expect, openGitTab, waitForInit, GIT_VIEW_TABS } from './fixtures';
 
 // GIT_M1_STEP4_CONTRACT §4 — 좌측 GIT 섹션. 검증 V17·V16·V3·V7.
 //
@@ -18,14 +18,6 @@ async function projectRepo(request: APIRequestContext) {
   const d = await (await request.get('/api/git/repo-at')).json();
   expect(d.isRepo, `서버 cwd 가 저장소가 아니다: ${JSON.stringify(d)}`).toBeTruthy();
   return d.path as string;
-}
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 // follow 대상은 포커스된 칸의 셸 cwd 다 — 셸을 실제로 이동시킨다.
@@ -120,7 +112,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     const root = await pin(request, makeRepo('dm-repo-flw4-'));
     await openGitTab(page);
     await pinned(page, root).click();
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
     expect(await page.evaluate(() => (window as any).app.gitPanel.repo)).toBe(root);
 
     // 핀을 눌러 Git 창이 활성이 됐다 — 터미널로 돌아가야 cd 를 칠 수 있다.
@@ -198,7 +190,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     await expect(item).toHaveCount(1, { timeout: 10000 });
 
     await item.click();
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
     expect(await page.evaluate(() => (window as any).app.gitPanel.repo)).toBe(root);
     const gid = await page.evaluate(() => (window as any).app._gitWindow().id);
     expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(gid);

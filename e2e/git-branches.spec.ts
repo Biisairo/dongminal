@@ -1,10 +1,10 @@
 import { execFileSync } from 'child_process';
-import { realpathSync, rmSync, writeFileSync } from 'fs';
+import { realpathSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS } from './fixtures';
 
 // GIT_M5_STEP1821_CONTRACT §1.3 — Branches 탭. 검증 V53~V55 · V67 · V68.
 //
@@ -23,27 +23,13 @@ test.afterAll(() => {
 
 const fx = (name: string) => realpathSync(join(FIXTURES, name));
 
-function copyFx(name: string, tag: string) {
-  const dst = join(FIXTURES, 'copy-' + tag);
-  rmSync(dst, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, name), dst]);
-  return realpathSync(dst);
-}
-
+const copyFx = makeCopyFx(FIXTURES);
 const git = (repo: string, ...args: string[]) =>
   execFileSync('git', ['-C', repo, ...args]).toString().trim();
 
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
-
 async function openBranches(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   await page.click('#area .pn-tab[data-git-view="branches"]');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-branches/);
 }

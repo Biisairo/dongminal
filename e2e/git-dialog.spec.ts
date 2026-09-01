@@ -1,10 +1,10 @@
 import { execFileSync } from 'child_process';
-import { realpathSync, rmSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, makeCopyFx, GIT_VIEW_TABS } from './fixtures';
 
 // GIT_M5_STEP1821_CONTRACT §3 — 다이얼로그 공통 규약. 검증 V59
 // (FR-GIT-171~178).
@@ -25,13 +25,7 @@ test.afterAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
 });
 
-function copyFx(name: string, tag: string) {
-  const dst = join(FIXTURES, 'copy-' + tag);
-  rmSync(dst, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, name), dst]);
-  return realpathSync(dst);
-}
-
+const copyFx = makeCopyFx(FIXTURES);
 // 골격만 재는 스펙은 저장소가 필요 없다 — window.GitDialog 를 직접 부른다.
 async function waitForInit(page: Page, mode: 'desktop' | 'mobile' = 'desktop') {
   await page.context().addInitScript((m) => {
@@ -46,7 +40,7 @@ async function waitForInit(page: Page, mode: 'desktop' | 'mobile' = 'desktop') {
 async function openGit(page: Page, repo: string) {
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
 }
 
 type OpenArgs = {

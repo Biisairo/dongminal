@@ -1,20 +1,12 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // 묶음 D (USER_CHECKLIST_FIXES_SRS §3.4 / §4.4) — restoreTool 의 대상 Pane 지정.
 //
 // 서버는 이미 준비되어 있다. translateLocationUUID 는 action 종류를 보지 않고
 // args.location 을 uuid→좌표로 변환하며 restoreTool 은 화이트리스트에 있다.
 // 클라이언트와 CLI 만 이를 쓰지 않았다 (§2.6).
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 // Pane 2개를 만들고, 포커스된 Pane 에 탭을 하나 더 붙인다.
 //

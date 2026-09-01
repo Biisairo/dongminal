@@ -1,11 +1,11 @@
 import { execFileSync } from 'child_process';
-import { rmSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { realpathSync } from 'fs';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab } from './fixtures';
+import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS } from './fixtures';
 
 // GIT_REVIEW4_SRS §3.2·§3.5 — 바깥 계기의 다시 그리기.
 // 검증 V104~V113 (FR-RPT-1~7, FR-GIT-227).
@@ -26,24 +26,10 @@ test.afterAll(() => {
 
 const fx = (name: string) => realpathSync(join(FIXTURES, name));
 
-function copyFx(name: string, tag: string) {
-  const dst = join(FIXTURES, 'copy-' + tag);
-  rmSync(dst, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, name), dst]);
-  return realpathSync(dst);
-}
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
-
+const copyFx = makeCopyFx(FIXTURES);
 async function openGit(page: Page, repo: string) {
   await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
 }
 

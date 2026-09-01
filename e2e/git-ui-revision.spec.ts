@@ -1,10 +1,10 @@
 import { execFileSync } from 'child_process';
-import { realpathSync, rmSync } from 'fs';
+import { realpathSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab, plainWindows } from './fixtures';
+import { test, expect, openGitTab, plainWindows, makeCopyFx, openGit, waitForInit } from './fixtures';
 
 // GIT_UI_REVISION_SRS §4 — 검증 V70~V79.
 //
@@ -23,26 +23,7 @@ test.afterAll(() => {
 
 const fx = (name: string) => realpathSync(join(FIXTURES, name));
 
-function copyFx(name: string, tag: string) {
-  const dst = join(FIXTURES, 'copy-' + tag);
-  rmSync(dst, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, name), dst]);
-  return realpathSync(dst);
-}
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
-
-async function openGit(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7);
-}
-
+const copyFx = makeCopyFx(FIXTURES);
 async function openChanges(page: Page, repo: string) {
   await openGit(page, repo);
   await page.evaluate(() => (window as any).app.gitPanel.openView('changes'));

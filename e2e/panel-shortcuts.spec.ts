@@ -1,6 +1,5 @@
-import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // 페이지 전역 (web/js/core/helpers.js).
 declare const SHORTCUT_DEFAULTS: Record<string, string>;
@@ -9,14 +8,6 @@ declare const SHORTCUT_DEFAULTS: Record<string, string>;
 //
 // 재는 것은 "버튼과 같은 자리로 가는가" 다. 여는 함수는 이미 있었고, 버튼만이
 // 그것을 부르는 유일한 자리였다 (§2.1).
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 test.describe('진입점 단축키', () => {
   // V-PSC-1: 기본값이 이미 쓰는 키와 겹치면 둘 중 하나가 조용히 죽는다.

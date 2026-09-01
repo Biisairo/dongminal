@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // EDITOR_TAB_SRS §3.4 — git 핀 ↔ Editor 행 연동 (FR-EDT-31~39, V-EDT-17·18·21·26).
 //
@@ -22,14 +22,6 @@ function makeRepo(prefix: string) {
   execFileSync('git', ['init', '-q', dir]);
   writeFileSync(join(dir, 'a.txt'), 'x');
   return dir;
-}
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 // Editor 창의 루트 목록. 재조정의 결과이므로 화면의 진실이다 (FR-EDT-42).

@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // ATTENTION_PULSE_SRS — 주의 표식은 2초 주기로 숨쉰다.
 //
@@ -10,14 +10,6 @@ import { test, expect } from './fixtures';
 //
 // 시각은 Web Animations 로 고정한다 — 2초 주기의 ease-in-out 을 벽시계로 재면
 // 1초 간격의 두 표본이 같은 위상에 떨어질 수 있다(0.25 와 0.75 는 같은 값이다).
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 // §2.1 의 일곱 자리. 각 항목은 [이름, 표식을 붙일 selector, 읽을 속성, 겹(pseudo)].
 //
