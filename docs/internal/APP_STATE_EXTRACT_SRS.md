@@ -92,7 +92,24 @@ app._onRunChanged({ runId: rid });                                      // 내�
 그래서 이 검사 하나는 **함께 고친다** — `app.runs.paint` 를 갈아 끼우도록. **재는
 것은 바뀌지 않는다**: "Run 이 바뀌면 그것을 보는 뷰 전부가 다시 그려지는가".
 
-### 2.3 제약 (Constraints)
+### 2.3 바깥이 붙잡는 것은 메서드만이 아니다
+
+**조사가 두 번 모자랐다.** 처음에는 "바깥이 부르는 메서드" 만 셌는데, 실제로 바깥은
+**상태 필드에도 직접 손을 뻗고 있었다.**
+
+| 놓친 자리 | 형태 | 어떻게 드러났나 |
+|---|---|---|
+| `slot-run-view.spec.ts:81` | `app._runViews` 를 읽어 키를 센다 | Run e2e 2건 실패 |
+| `app-slots.js:503` | `this._runViews` 를 **순회하며 지운다** | 칸 회수 e2e 1건 실패 |
+
+두 번째가 특히 중요하다. `app-slots.js` 는 `App` 의 메서드 안에 있으므로 `app.` 이
+아니라 `this._runViews` 로 접근한다 — `app\._run` 으로 찾으면 걸리지 않는다.
+
+**그래서 추출 대상을 정할 때 세 가지를 모두 세어야 한다**: 바깥이 부르는 메서드,
+바깥이 읽는 필드, 그리고 **같은 `this` 를 공유하는 형제 파일이 만지는 필드**.
+마지막 것이 프로토타입 증강 분할의 함정이다 — 파일은 갈렸어도 `this` 는 하나다.
+
+### 2.4 제약 (Constraints)
 
 | # | 제약 | 출처 |
 |---|---|---|
@@ -133,8 +150,16 @@ this._findToolLocation (1)  this._slotKey (1)  this._slotBase (1)
 
 **FR-ASE-4** `app-runs.js` 에는 **위임 껍데기 여섯**만 남는다 (C-3).
 
-**FR-ASE-5** `slot-run-view.spec.ts` 의 갈아 끼우기 대상을 `app.runs.paint` 로
-바꾼다 (§2.2). 다른 e2e 는 손대지 않는다.
+**FR-ASE-5** 바깥이 `RunsPanel` 의 것을 붙잡는 자리 셋을 함께 고친다 (§2.3):
+
+| 자리 | 전 | 후 |
+|---|---|---|
+| `slot-run-view.spec.ts` 몽키패치 | `app._runPaint` | `app._runsPanel()._runPaint` |
+| `slot-run-view.spec.ts` `viewKeys` | `app._runViews` | `app._runsPanel()._runViews` |
+| `app-slots.js` 칸 회수 | `this._runViews` | `this._runs` (지연 생성하지 않는다) |
+
+**재는 내용은 바뀌지 않는다.** 앞의 둘은 "Run 이 바뀌면 그것을 보는 뷰 전부가 다시
+그려지는가"·"칸마다 뷰가 하나인가", 셋째는 "사라진 칸의 뷰가 거둬지는가" 그대로다.
 
 **FR-ASE-6** `App` 의 인스턴스 필드가 11개 줄어든다. 그것이 이 묶음의 측정 가능한
 결과다.
