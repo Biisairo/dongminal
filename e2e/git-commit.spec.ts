@@ -331,10 +331,16 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
     // 경계 드래그. 결과는 기기별로 localStorage 에 남는다.
     await msg(page).fill('x');
     const small = await h();
-    const bar = (await commit(page).locator('.git-commit-resize').boundingBox())!;
-    await page.mouse.move(bar.x + bar.width / 2, bar.y + bar.height / 2);
+    // hover() 로 누른다 — 그것이 요소의 안정(actionability)을 기다린 뒤 그 위로
+    // 마우스를 옮긴다. 앞의 fill() 이 auto-grow 로 높이를 줄이므로 핸들이 위로
+    // 움직이는데, boundingBox() 를 먼저 읽고 그 좌표로 누르면 부하가 높을 때
+    // 반영이 늦어 빗나간다. 그리고 이동은 여러 걸음으로 나눈다 — 한 번의 순간
+    // 이동은 mousemove 를 한 번만 내고, 사람의 드래그와도 다르다.
+    const handle = commit(page).locator('.git-commit-resize');
+    await handle.hover();
+    const bar = (await handle.boundingBox())!;
     await page.mouse.down();
-    await page.mouse.move(bar.x + bar.width / 2, bar.y + bar.height / 2 + 60);
+    await page.mouse.move(bar.x + bar.width / 2, bar.y + bar.height / 2 + 60, { steps: 6 });
     await page.mouse.up();
     const dragged = await h();
     expect(dragged, '드래그가 높이를 바꾸지 않았다').toBeGreaterThan(small + 30);
