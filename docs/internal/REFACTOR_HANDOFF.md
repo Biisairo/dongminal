@@ -5,12 +5,12 @@
 
 ## 0. 한 줄 상태
 
-**여섯 단계가 끝났다** — 통짜 파일 분할, e2e 헬퍼 회수, flaky 수정, `RunsPanel`
-추출, **남은 추출 후보 넷의 재측정(전부 패스)**, **`app-attn.js` 공용 유틸 회수**.
+**아홉 단계가 끝났고 열린 항목이 없다.** 통짜 파일 분할, e2e 헬퍼 회수, flaky
+수정, `RunsPanel` 추출, 추출 후보 넷 재측정(전부 패스), `app-attn.js` 공용 유틸
+회수, **복원 경쟁 조사**, **복원 비행 결함 수정**, **`agents-poll` 배선 회수**.
 
-**`App` 상태 추출 노선은 종결됐다.** 후보 넷을 독립적으로 다시 재서 하나도 판정
-기준을 통과하지 못함을 확인했고, 사유를 `APP_STATE_EXTRACT_SRS` §8 에 남겼다.
-**다음 세션이 새로 이어받을 리팩터 항목은 없다** — 남은 것은 §3 의 판단 대기뿐이다.
+`App` 상태 추출 노선은 종결됐고(§3.1), `FG_RESTORE_RACE_SRS` §7.4 가 미조사로
+남겼던 복원 경쟁도 조사·수정까지 끝났다. **남은 것은 `main` 병합 판단 하나뿐이다.**
 
 ---
 
@@ -24,6 +24,9 @@
 | `RunsPanel` 추출 | `app-runs.js` 730→38줄 · App 필드 88→77 | `APP_STATE_EXTRACT_SRS.md` |
 | 추출 후보 넷 재측정 | `statusbar`·`editor`·`attn`·`reload` **전부 패스**. 코드 변경 0 | `APP_STATE_EXTRACT_SRS.md` §8 |
 | `app-attn.js` 유틸 회수 | `_findToolLocation`·`_toolName` → `app-tool.js`. 25줄 이동, 본문 무변경 | `ATTN_UTIL_RELOCATE_SRS.md` |
+| 복원 경쟁 조사 | 셋 중 **하나가 결함**. 양방향 확정 재현 + 묶음 A 의 잔여 발견 | `FG_RESTORE_RACE_SRS.md` §8 |
+| 복원 비행 수정 | 규약을 함수로. 세 복원의 **양방향** 결함 제거. e2e 933 | `RESTORE_FLIGHT_SRS.md` |
+| `agents-poll` 배선 회수 | `_initAttn` → `_initAgentsSettings`(`app-agents.js`) | 위 SRS §5 N2 의 유보를 해제 |
 
 저장소 최대 파일: **2,984줄 → 1,245줄**(`constants-git.js`, 의도적 비목표).
 
@@ -43,15 +46,13 @@
 
 ---
 
-## 3. 남은 판단 — 사용자의 것
-
-리팩터 작업 항목은 남지 않았다. 남은 것은 **결정**이다.
+## 3. 남은 판단 — 하나
 
 | # | 판단 | 상태 |
 |---|---|---|
-| 1 | `refactor` 를 `main` 에 병합할 것인가 | **미결.** §7 의 커밋 전부가 `main` 밖에 있다 |
-| 2 | `app-attn.js` 의 `agents-poll` 설정 배선 13줄 | `_initAttn` 안에 있어 메서드 단위로 못 옮긴다 (`ATTN_UTIL_RELOCATE_SRS` §5 N2) |
-| 3 | 복원 경쟁 — **조사 끝. 결함 확정** | `_activityRestore` 에 양방향 재현. `_bgRefresh`·`_focusRestore` 는 결함 없음. 고치려면 별도 SRS (`FG_RESTORE_RACE_SRS` §8) |
+| 1 | **`refactor` 를 `main` 에 병합할 것인가** | **미결.** `git log --oneline origin/main..HEAD` 가 세는 커밋 전부가 `main` 밖에 있다 |
+
+앞선 판단 둘(§3.3)은 처리됐다.
 
 ### 3.1 왜 추출을 더 하지 않는가 — 종결된 근거
 
@@ -82,6 +83,22 @@
 유틸로 지목했으나 재조사하면 아니다. 본문이 `_attnClear`·`_attnLand` 를 직접
 부르고 존재 이유로 FR-ATA-6·FR-ATJ-1·2 를 든다. **알림 전용이 맞다**
 (`ATTN_UTIL_RELOCATE_SRS` §5 N1 에서 정정).
+
+### 3.3 닫힌 판단 둘
+
+**복원 경쟁** — `FG_RESTORE_RACE_SRS` §7.4 가 미조사로 남긴 셋을 조사했다. 결함이
+성립하는 조건은 "SSE 가 그 상태를 **증분으로** 갱신하고 restore 가 스냅숏에 없는
+것을 지운다" 이며, `_bgRefresh`·`_focusRestore` 는 증분 경로가 없어 **결함이 없다.**
+`_activityRestore` 만 결함이고 **두 방향 다** 확정 재현됐다.
+
+조사 중에 **묶음 A 의 수정이 한 방향만 막았다**는 것도 드러났다 — `before` 규약은
+지울 후보만 좁히고 되살리는 쪽은 그대로였다(`_fgRestore`·`_attnRestore` 재현됨).
+`RESTORE_FLIGHT_SRS` 로 규약을 **함수로** 만들어 세 복원의 양방향을 다 막았다.
+`before` 는 전부 걷어냈다 — `touched` 가 그것을 포함한다.
+
+**`agents-poll` 배선** — `ATTN_UTIL_RELOCATE_SRS` §5 N2 가 "메서드 안의 13줄이라
+옮기면 본문 무변경을 증명할 수 없다" 는 이유로 유보했던 것이다. 그 SRS 의 증명
+수단에 매인 제약이었으므로, 별도 작업으로 `_initAgentsSettings` 를 만들어 옮겼다.
 
 ---
 
@@ -139,7 +156,7 @@ npx playwright test --reporter=line          # 13~14분
 | `windowsPaths`·`posixPaths`·`execRun` 등 staticcheck U1000 5건 | **오탐.** GOOS 를 바꾸면 반대쪽이 unused 로 나온다 — 의도된 설계 |
 | SA4000 2건 | `Render() != Render()` 는 결정성 테스트다 |
 | ST1005 1건 | `dmctl` 이 사용자에게 내보내는 안내문. 고치면 CLI 출력이 바뀐다 |
-| `_activityRestore` 의 복원 경쟁 수정 | **조사는 끝났고 결함이 확정됐다**(`FG_RESTORE_RACE_SRS` §8). 고치지 않은 것은 방향 B 를 막을 근거(도착 시각·seq)가 코드에 없어 설계 결정이 필요하기 때문이다 — 별도 SRS |
+| `_bgRefresh`·`_focusRestore` 에 복원 비행 규약 적용 | `FG_RESTORE_RACE_SRS` §8.2 가 결함 없음을 확정했다. 증분 갱신 경로가 없어 규약을 붙이면 **죽은 코드가 된다** (`RESTORE_FLIGHT_SRS` §5 N1) |
 
 ---
 
@@ -150,6 +167,7 @@ npx playwright test --reporter=line          # 13~14분
 - `FG_RESTORE_RACE_SRS.md` — flaky. §7.1 이 기각된 가설 둘의 기록
 - `APP_STATE_EXTRACT_SRS.md` — `RunsPanel`. **§7.3 판정 기준과 §8 종결이 핵심**
 - `ATTN_UTIL_RELOCATE_SRS.md` — 공용 유틸 회수. §2.2 가 도착지 선정 근거
+- `RESTORE_FLIGHT_SRS.md` — 복원 비행. **§1.2 가 규약을 함수로 만든 사유**
 - `architecture.md` — 갈라진 자리와 그 규약
 
 ## 7. 브랜치
