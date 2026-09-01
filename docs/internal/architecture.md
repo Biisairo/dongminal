@@ -83,6 +83,8 @@ internal/
     workspace/           #   ①②③ — workspace.json 인덱싱·resolve·영속화
     uuid/                #   ②③④ — 엔티티 uuid(UUID v7) 생성·파싱
     toolhub/             #   ②③  — ToolManager·PTY·브라우저 WS·주의 알림 탐지(OSC/idle)
+                         #     conn(SafeConn) · tool(PTY 하나의 수명) · manager(레지스트리)
+                         #     persist(tools.json) · manager_hub(ToolHub 구현) — 타입이 곧 파일
     toolipc/             #   ②③  — paned 와이어 포맷만 (25줄)
     outbuf/              #   ②③  — PTY 출력 바운디드 버퍼 (Stream)
     runtime/             #   ②③  — helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
@@ -90,10 +92,14 @@ internal/
       agentplugin/       #     세션 스코프 주입 플러그인 (skills/team, skills/workflow)
     agentadapter/        #   ①③  — 에이전트별 선언 테이블 (기동·탐지·주입·훅 파서·종료)
 web/                     # 프론트엔드 자산 + embed.FS()
+  style{,-git,-git-views,-editor}.css   # 넷의 <link> 순서 = 원본 선언 순서 (캐스케이드)
   js/core/               #   App 클래스 (app.js + 주제별 app-*.js 17) + helpers·main
                          #     constants{,-git,-editor}.js — 주제별 상수 (로드 순서가 그 순서)
-  js/ui/                 #   themes·renderer·term-pane·term-clipboard·file-tree·file-editor 등 12
-  js/git/                #   git 패널 15파일. api.js — gitFetch/gitPost (stale·echo 가드 소유)
+  js/ui/                 #   themes·renderer·term-pane·term-clipboard·file-editor 등
+                         #     file-tree{,-store,-paint,-edit,-xfer}.js — 탐색기 5파일
+  js/git/                #   git 패널. api.js — gitFetch/gitPost (stale·echo 가드 소유)
+                         #     observer(관측 하나) · panel(칸마다 하나) · diff-view(Monaco)
+                         #     panel-{life,changes,views,write,files,diff,poll}.js — 주제별 증강
 e2e/                     # Playwright 스펙 + git 픽스처(git_fixture.sh)
 scripts/                 # build.sh — 빌드 · verify-isolated.sh — `dongminal verify` 껍데기
 .github/workflows/       # verify.yml — 매 푸시 검사 (Linux·Windows)
@@ -119,6 +125,18 @@ docs/
 **로드 순서가 곧 의존성**이다. `app-*.js` 는 `Object.assign(App.prototype, …)` 로 클래스를
 확장하므로 `app.js` 뒤, `main.js` 앞이어야 한다. `app.js` 본체에 남은 접근자 11개는
 `Object.assign` 이 getter 를 값으로 복사하기 때문에 옮길 수 없다.
+
+**같은 규약이 셋에 있다** (`SPLIT_REFACTOR_SRS`). `App`·`GitPanel`·`FileTree` 가
+각각 본체 + 주제별 증강 파일로 갈렸고, 세 클래스 모두 접근자를 본체에 남겼다
+(`GitPanel` 23개는 관측(`GitObserver`)으로 가는 통로이고, `FileTree` 9개는
+`FileTreeStore` 로 가는 통로다 — 그것이 접근자여야 하는 이유는 값이 아니라 **자리**를
+빌려 오기 때문이다). `static` 은 prototype 이 아니라 클래스 자체에 얹는다
+(`GitPanel.headHTML`, `FileTree._asUploadItems` 등 5개).
+
+**CSS 도 같은 문제를 다르게 푼다.** `style.css` 는 넷으로 갈렸고 `<link>` 순서가
+원본의 선언 순서다 — 캐스케이드는 순서가 곧 의미라서, 파일을 옮기는 것과 순서를
+바꾸는 것을 구별해야 한다. 그래서 Monaco 규칙은 `style-editor.css` 가 아니라
+`style.css` 에 남아 있다.
 
 ## 오류 응답 — 판정은 한 곳, 렌더링은 표면마다
 
