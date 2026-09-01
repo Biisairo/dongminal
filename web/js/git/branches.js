@@ -601,9 +601,13 @@ class GitBranches {
     }
     const d=res.data||{};
     // 미머지는 실패가 아니라 **선택**이다 (FR-GIT-254) — 이름 충돌의 3선택과 같은 규약.
+    // FR-BMU-14: 선택지의 **결과**를 돌려준다. 옛 코드는 언제나 원래의 실패 응답을
+    // 돌려주어, 강제 삭제가 실제로 성공했는지 호출자가 알 수 없었다 — `delBoth` 는
+    // 그것을 알아야 원격을 이을지 판단한다. 기존 호출자(`del`)는 반환값을 쓰지
+    // 않으므로 동작은 바뀌지 않는다.
     if(res.code===409&&d.error==='branch_not_merged'){
-      await GitBranches._unmerged(panel,d);
-      return res;
+      const forced=await GitBranches._unmerged(panel,d);
+      return forced||res;
     }
     panel.applyWriteFail(res);
     return res;
@@ -732,6 +736,28 @@ class GitBranches {
 
   // FR-GIT-268: 원격 ref 삭제. 2단계 확인은 메뉴 프레임워크가 거쳤다 (파괴적 목록에
   // `remote_ref_delete` 가 있다) — 여기서는 `confirm` 을 실어 보낸다.
+  /**
+   * FR-BMU-10~15: 로컬과 그 원격을 한 번에 지운다.
+   *
+   * 순서는 **로컬 먼저**다 (D-4). 로컬 삭제는 미머지면 거부되고 그때 사용자에게
+   * 선택지가 뜨는데(FR-GIT-254), 원격을 먼저 지우면 그 거부를 만나기 전에 되돌리기
+   * 어려운 쪽을 이미 잃는다.
+   *
+   * 원격 이름은 **지우기 전에** 확보한다 — 로컬이 사라지면 upstream 을 읽을 수 없다.
+   */
+  static async delBoth(panel,t){
+    if(!panel||!panel.repo||!t) return;
+    const up=((t.upstream||'')+'').trim();
+    if(!up) return;
+    const res=await GitBranches._delete(panel,GitBranches.targetsOf(panel,t),false);
+    // FR-BMU-14: 로컬이 실패하면 원격은 건드리지 않는다.
+    if(!res||!res.ok) return res;
+    const rr=await GitBranches.deleteRemote(panel,up);
+    // FR-BMU-15: 반쪽만 지워진 것을 조용히 성공으로 보이지 않는다.
+    if(rr&&rr.ok===false) panel.branchNote(GIT_BR_DELETE_BOTH_FAIL);
+    return rr;
+  }
+
   static deleteRemote(panel,short){
     if(!panel||!panel.repo) return;
     const p=GitBranches._split(short);

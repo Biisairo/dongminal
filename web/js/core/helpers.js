@@ -58,6 +58,12 @@ function mixHex(a,b,t){
   return '#'+c('r')+c('g')+c('b');
 }
 const BORDER_STRONG_MIX=.35;
+// SLOT_TITLE_BOUNDARY_SRS FR-STB-21·22: 슬롯 경계색. `--border-strong` 과 같은
+// 방식이되 섞는 상대가 accent 다 — border 쪽은 "이것은 경계다", accent 쪽은 "이
+// 경계는 주목을 요구한다" 는 뜻이다. terminal(ANSI) 팔레트에서 뽑지 않는 이유는
+// 그 색들이 터미널 텍스트를 위해 고른 것이지 UI 조화를 위해 고른 것이 아니어서다.
+// 값을 바꿀 때는 border·accent·bg 세 축의 거리를 함께 확인한다 (FR-STB-23).
+const SLOT_EDGE_MIX=.55;
 
 function applyThemeObj(t){
   const s=document.documentElement.style;
@@ -73,6 +79,7 @@ function applyThemeObj(t){
   s.setProperty('--danger',ui.danger);
   s.setProperty('--accent-border',ui.accentBorder);
   s.setProperty('--border-strong',mixHex(ui.border,ui.text,BORDER_STRONG_MIX));
+  s.setProperty('--slot-edge',mixHex(ui.border,ui.accent,SLOT_EDGE_MIX));
   s.setProperty('--accent-hover',hexToRgba(ui.accent,.1));
   s.setProperty('--accent-active',hexToRgba(ui.accent,.12));
   s.setProperty('--accent-subtle',hexToRgba(ui.accent,.08));

@@ -276,6 +276,20 @@ const SidebarTabs={
 
   def(app,id){return this.visible(app).find(d=>d.id===id)||null},
 
+  /**
+   * SLOT_TITLE_BOUNDARY_SRS FR-STB-3: 창 타입의 **보이는 이름**.
+   *
+   * 제목이 부르는 이름과 사이드바 탭이 부르는 이름이 갈라지면 둘을 잇는 일이
+   * 사용자 몫이 된다 (D-5). 그래서 라벨의 출처는 서술자 하나다.
+   *
+   * `visible` 을 거치지 않는다 — 라벨은 그 탭이 지금 보이는지와 무관하다.
+   */
+  labelForWindow(app,w){
+    const id=app._isGitWin(w)?'git':app._isEditorWin(w)?EDITOR_TAB_ID:'windows';
+    const d=SB_TAB_DEFS.find(x=>x.id===id);
+    return d?d.label:'';
+  },
+
   // FR-SBT-7: 보관된 값이 없거나 알 수 없는 값이면 첫 탭이다.
   restore(){
     let v=null;

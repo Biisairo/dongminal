@@ -87,9 +87,32 @@ class Renderer {
     return (hit&&hit.name)||app._edBase(repo)||w.name||'';
   }
 
+  /**
+   * 창의 표시 제목 — `<타입 라벨> · <창 이름>` (FR-STB-1).
+   *
+   * **조립하는 자리는 여기 하나다** (FR-STB-4). 토프바와 슬롯 머리글이 각자
+   * 만들던 동안 Git 창은 두 자리에서 다른 이름으로 불렸다 — 토프바는 리포명,
+   * 머리글은 저장된 `Git`. 형식을 바꾸는 이번에도 자리를 둘로 남기면 같은 결함이
+   * 다시 자란다.
+   *
+   * 이름이 라벨과 같으면 겹쳐 적지 않는다 (`Git · Git` 이 되지 않도록).
+   */
+  _rWinTitle(w){
+    if(!w) return '';
+    const label=SidebarTabs.labelForWindow(this.app,w);
+    const name=this._rWinName(w);
+    if(!label) return name;                 // FR-STB-6: 모르는 타입이면 이름만
+    if(!name||name===label) return label;
+    return label+' · '+name;
+  }
+
   _rTopbar(){
     const a=this.app._aw();
-    document.getElementById('window-name').textContent=this._rWinName(a);
+    // FR-STB-11·12: 칸이 하나면 토프바가 제목을 낸다. 칸이 여럿이면 머리글이 그
+    // 자리를 이어받으므로 토프바는 **비운다** — 되풀이하면 그 값이 어느 칸의
+    // 것인지 사용자가 매번 판정해야 한다 (D-1). 모바일에는 칸이 없다 (FR-STB-14).
+    const multi=!this.app.isMobile&&this.app.slotCount()>1;
+    document.getElementById('window-name').textContent=multi?'':this._rWinTitle(a);
     // FR-GIT-180: Git 창에서는 분할 진입점을 감춘다. (FR-GIT-183 의 `Close Git`
     // 은 폐기됐다 — 떠나는 길이 사이드바 탭으로 상시 존재한다, FR-SBT-34.)
     const isGit=this.app._isGitWin(a);
@@ -180,7 +203,7 @@ class Renderer {
         // 이미 소유권 없음(`.pn-dimmed`)의 뜻이다.
         const head=document.createElement('div');
         head.className='slot-head';
-        head.textContent=win?win.name:'창 없음';
+        head.textContent=win?this._rWinTitle(win):'창 없음';
         el.appendChild(head);
         // 분할 트리는 `inset:0` 으로 조상을 채우므로(§2.2) 머리글과 겹치지 않게
         // 자기 몫의 상자를 준다.
@@ -419,7 +442,7 @@ class Renderer {
       // FR-RVZ-6: 네 번째 타입. editor 와 같은 비-PTY 탭이며 at.runId 를 요구한다.
       // 루트 DOM 은 탭마다 하나로 캐시된다 — pane 을 다시 그려도 SVG 가 새로
       // 만들어지지 않아야 hover 가 살아남는다 (NFR-RVZ-2). 구현은 app-runs.js.
-      const el=this.app._runViewEl(at);
+      const el=this.app._runViewEl(at,slot);
       body.appendChild(el); el.classList.add('vis');
       return;
     }

@@ -153,8 +153,13 @@ const GIT_MENUS={
     {id:'rename',label:GIT_BR_RENAME,
      disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:'',
      run:t=>gitMenuPanel().branchRename(t)},
+    // BRANCH_MENU_UNIFY_SRS FR-BMU-1~3: **로컬·원격 모두 여기다.**
+    // 옛 `remote-pull`(Pull/Merge)은 이것과 **같은 함수**를 부르면서 활성 조건만
+    // 반대였다 — 항목이 둘이라 로컬 브랜치에서 Pull 을 누르려던 사용자가 "원격
+    // 브랜치에서만" 으로 막혔다. 동작이 하나였으므로 항목도 하나다.
+    // ref 종류는 더 이상 비활성 사유가 아니다 (FR-BMU-2).
     {id:'merge',label:GIT_BR_MERGE,
-     disabled:t=>gitOpBusy()||(t.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:(t.isHead?GIT_BR_WHY_SELF:'')),
+     disabled:t=>gitOpBusy()||(t.isHead?GIT_BR_WHY_SELF:''),
      run:t=>gitMenuPanel().branchMerge(t.short)},
     // rebase 는 파괴적이다 (`rebase`) — 커밋 해시가 바뀐다. hint 는 rebase 전 HEAD 다.
     {id:'rebase',label:GIT_BR_REBASE,destructive:true,
@@ -183,11 +188,21 @@ const GIT_MENUS={
      targets:t=>gitMenuPanel().branchDeleteTargets(t),
      hint:t=>({note:GIT_BR_DELETE_NOTE,command:'git branch '+t.short+' '+(t.oid||'')}),
      run:t=>gitMenuPanel().branchDelete(t)},
+    // FR-BMU-10·11: 셋째 길 — 로컬과 원격을 한 번에. upstream 이 있는 로컬
+    // 브랜치에서만 열린다. 영향 범위에 **둘 다** 실어 무엇이 사라지는지 보인다
+    // (FR-BMU-12 / FR-GIT-91).
+    {id:'delete-both',label:GIT_BR_DELETE_BOTH,destructive:true,
+     action:GIT_ACT_BRANCH_DELETE,title:GIT_BR_DELETE_BOTH_TITLE,
+     disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY
+       :(t.isHead?GIT_MENU_CURRENT:(t.upstream?'':GIT_BR_WHY_NO_UPSTREAM)),
+     targets:t=>[t.short,t.upstream||''].filter(Boolean),
+     hint:t=>({note:GIT_BR_DELETE_BOTH_NOTE,
+       command:'git branch '+t.short+' '+(t.oid||'')
+         +'\n'+GitBranches.restoreRemoteCmd({short:t.upstream||'',oid:t.oid})}),
+     run:t=>gitMenuPanel().branchDeleteBoth(t)},
     {sep:true},
     // 원격 브랜치의 세 항목 (FR-GIT-268). 로컬에서는 비활성이고 사유가 보인다.
-    {id:'remote-pull',label:GIT_BR_REMOTE_PULL,
-     disabled:t=>gitOpBusy()||(t.kind===GIT_REF_KIND_REMOTE?'':GIT_MENU_LOCAL_ONLY),
-     run:t=>gitMenuPanel().branchMerge(t.short)},
+    // FR-BMU-1: 옛 `remote-pull` 은 폐기됐다 — 위의 `merge` 가 그 일을 한다.
     {id:'remote-fetch',label:GIT_BR_REMOTE_FETCH,
      disabled:t=>t.kind===GIT_REF_KIND_REMOTE?'':GIT_MENU_LOCAL_ONLY,
      run:t=>gitMenuPanel().branchFetchInto(t.short)},

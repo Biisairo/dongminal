@@ -1168,6 +1168,8 @@ class GitPanel {
   branchPush(t){return GitBranches.push(this,t)}
   branchFetchInto(short){return GitBranches.fetchInto(this,short)}
   branchDeleteRemote(short){return GitBranches.deleteRemote(this,short)}
+  // BRANCH_MENU_UNIFY_SRS FR-BMU-10: 로컬과 원격을 한 번에.
+  branchDeleteBoth(t){return GitBranches.delBoth(this,t)}
 
   // FR-GIT-255: 머지·리베이스의 충돌은 실패가 아니라 진행 중 상태다 — 사유를
   // Changes 탭 머리에 남기고 화면을 그리로 보낸다 (FR-GIT-111 과 같은 경로).

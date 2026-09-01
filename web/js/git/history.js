@@ -110,6 +110,10 @@ class GitHistory {
         '<button class="git-hist-apply"></button>'+
         '<label class="git-hist-reflog"><input type="checkbox"><span></span></label>'+
         '<span class="git-hist-spacer"></span>'+
+        // FR-HBB-1·2: 브랜치 생성 진입점. 여백 **뒤**다 — 왼쪽 무리는 목록을
+        // 거르는 것들이고 이 버튼은 거기 속하지 않는다. 공용 머리(.git-head)에
+        // 두지 않는 이유는 §2.2 다 — 그 자리는 Changes 와 공유한다.
+        '<button class="git-hist-branch"></button>'+
         '<input class="git-hist-jump" type="text">'+
         '<button class="git-hist-jump-go"></button>'+
       '</div>'+
@@ -140,6 +144,8 @@ class GitHistory {
     el.querySelector('.git-hist-jump').placeholder=GIT_JUMP_PLACEHOLDER;
     el.querySelector('.git-hist-jump-go').textContent=GIT_JUMP_GO;
     el.querySelector('.git-hist-apply').textContent=GIT_HIST_APPLY;
+    const brb=el.querySelector('.git-hist-branch');
+    brb.textContent=GIT_HIST_BRANCH; brb.title=GIT_HIST_BRANCH_TITLE;
     el.querySelector('.git-hist-searchrepo').textContent=GIT_SEARCH_TRY_REPO;
     el.querySelector('.git-hist-retry').textContent=GIT_HIST_APPLY;
     const ord=el.querySelector('.git-hist-order');
@@ -160,6 +166,9 @@ class GitHistory {
     rl.querySelector('input').addEventListener('change',ev=>{this._reflog=ev.target.checked;this._reload()});
     ord.addEventListener('change',ev=>{this._order=ev.target.value;this._reload()});
     el.querySelector('.git-hist-apply').addEventListener('click',()=>this._applyFilters());
+    // FR-HBB-4·6: 인자 없이 부르면 startRef 가 빈 값이고 서버가 HEAD 를 쓴다.
+    // 커밋·ref 를 시작점으로 삼는 길은 우클릭 메뉴가 그대로 갖는다 (§2.3).
+    brb.addEventListener('click',()=>this.panel.createBranchFrom());
     el.querySelector('.git-hist-retry').addEventListener('click',()=>{this._err=null;this._reload()});
     el.querySelector('.git-hist-search').addEventListener('input',ev=>this._search(ev.target.value));
     el.querySelector('.git-hist-search').addEventListener('keydown',ev=>{

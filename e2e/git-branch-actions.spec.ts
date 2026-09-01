@@ -411,7 +411,8 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await row(page, 'side').click({ button: 'right' });
 
     // 새 작업을 시작하는 항목만 막힌다 — 사유는 진행 중인 작업의 이름을 담는다.
-    for (const id of ['merge', 'rebase', 'remote-pull']) {
+    // BRANCH_MENU_UNIFY_SRS FR-BMU-1: 옛 `remote-pull` 은 `merge` 에 합쳐졌다.
+    for (const id of ['merge', 'rebase']) {
       await expect(item(page, id), id + ' 가 진행 중인데도 열려 있다').toHaveClass(/disabled/);
       await expect(item(page, id)).toHaveAttribute('title', /머지가 진행 중/);
     }
@@ -557,9 +558,11 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await expect.poll(() => git(repo, 'branch', '--list', 'feat'), { timeout: 30000 }).not.toBe('');
     expect(git(repo, 'rev-parse', 'feat')).toBe(oid);
 
-    // ② Pull/Merge — 그 원격 ref 를 현재 브랜치에 합치는 자리로 간다 (영향 범위 포함).
+    // ② Merge into current — 그 원격 ref 를 현재 브랜치에 합치는 자리로 간다
+    // (영향 범위 포함). BRANCH_MENU_UNIFY_SRS FR-BMU-1 로 옛 `remote-pull` 이
+    // `merge` 에 합쳐졌다 — **검증의 뜻은 그대로다** (§5.1).
     await row(page, 'origin/feat').click({ button: 'right' });
-    await item(page, 'remote-pull').click();
+    await item(page, 'merge').click();
     await expect(mergeBox(page)).toBeVisible({ timeout: 15000 });
     await expect(mergeBox(page).locator('.gbm-note')).toContainText('origin/feat');
     await page.keyboard.press('Escape');

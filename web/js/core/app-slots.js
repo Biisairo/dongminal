@@ -498,6 +498,14 @@ Object.assign(App.prototype, {
       try{v.destroy()}catch{}
       this.fileEditors.delete(k);
     }
+    // SLOT_RUN_VIEW_SRS FR-SRV-4.2: Run 뷰도 칸의 것이다 — 편집기와 같은 판정을
+    // 같은 자리에서 한다. 여기서 빠지면 사라진 칸의 뷰가 관측자를 들고 남는다.
+    if(this._runViews) for(const [k,v] of [...this._runViews]){
+      const i=this._slotOf(k); if(!i) continue;
+      if(keepTabs.get(i)?.has(this._slotBase(k))) continue;
+      this._runDisposeView(v);
+      this._runViews.delete(k);
+    }
   },
 
   // ── 진입점 배선 (FR-WSL-50·51·81) ──

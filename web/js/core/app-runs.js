@@ -258,18 +258,26 @@ Object.assign(App.prototype, {
     return live;
   },
 
-  // 탭 id → 대시보드 뷰. 뷰는 **탭보다 오래 살지 않는다**.
+  // `_slotKey(탭 id, 칸)` → 대시보드 뷰. 뷰는 **탭보다 오래 살지 않는다**.
+  //
+  // SLOT_RUN_VIEW_SRS FR-SRV-1: 키가 탭 id 하나였을 때, 같은 Run 탭을 두 칸에서
+  // 보면 뒤에 그린 칸의 `appendChild` 가 앞 칸에서 노드를 떼어 가 앞 칸이 비었다.
+  // DOM 노드는 한 부모에만 붙는다 — 칸마다 뷰가 있어야 한다 (FR-SVS-40 과 같은 결론).
   _runViewMap() {
     if (!this._runViews) this._runViews = new Map();
     return this._runViews;
   },
 
-  // renderer._mountTabBody 가 부른다. 루트 DOM 은 탭마다 하나이며 재사용된다 —
-  // pane 을 다시 그려도 SVG 가 새로 만들어지지 않는다 (NFR-RVZ-2).
-  _runViewEl(tab) {
+  // renderer._mountTabBody 가 부른다. 루트 DOM 은 **탭과 칸의 쌍마다** 하나이며
+  // 재사용된다 — pane 을 다시 그려도 SVG 가 새로 만들어지지 않는다 (NFR-RVZ-2).
+  //
+  // FR-SRV-3: 칸 0 의 키는 탭 id **그대로**다 (`_slotKey`, FR-WSL-75) — 단일 슬롯
+  // 모드의 동작은 한 글자도 바뀌지 않는다.
+  _runViewEl(tab, slot) {
     const m = this._runViewMap();
-    let v = m.get(tab.id);
-    if (!v) { v = { tabId: tab.id, runId: tab.runId, root: this._runBuildRoot(), data: null, err: null, busy: false, pending: false }; m.set(tab.id, v) }
+    const key = this._slotKey(tab.id, slot || 0);
+    let v = m.get(key);
+    if (!v) { v = { key, tabId: tab.id, slot: slot || 0, runId: tab.runId, root: this._runBuildRoot(), data: null, err: null, busy: false, pending: false }; m.set(key, v) }
     // 워크스페이스 복원이 같은 탭 id 에 다른 runId 를 실어 올 수 있다.
     if (v.runId !== tab.runId) { v.runId = tab.runId; v.data = null; v.err = null }
     // FR-RVZ-16: 첫 마운트에서만 부른다. 다시 그리기는 요청을 만들지 않는다.
@@ -318,7 +326,7 @@ Object.assign(App.prototype, {
     this._runPaint(v);
     // 응답을 기다리는 사이에 도착한 SSE 는 버리지 않는다 — 버리면 화면이
     // 한 세대 뒤에서 멈추고, 폴링이 없으므로 아무도 고치지 않는다.
-    if (v.pending && this._runViewMap().has(v.tabId)) this._runFetch(v);
+    if (v.pending && this._runViewMap().has(v.key)) this._runFetch(v);
   },
 
   // FR-RVZ-16: SSE `run_changed`. 열려 있는 그 Run 의 탭만 /graph 를 다시 부른다.
@@ -329,8 +337,12 @@ Object.assign(App.prototype, {
     const m = this._runViewMap();
     if (!m.size) return;
     const live = this._runLiveTabIds();
-    for (const [tabId, v] of Array.from(m)) {
-      if (!live.has(tabId)) { this._runDisposeView(v); m.delete(tabId); continue }
+    // FR-SRV-4.2: 키는 복합키다 — 살아 있는 탭 판정은 `_slotBase` 로 한다.
+    // 편집기가 이 자리에서 정확히 같은 실수를 냈다 (FR-SVS-60): `@1` 만 잘라
+    // 내던 동안 칸 2·3 의 뷰는 살아 있는 탭인데도 매번 파괴됐다.
+    // FR-SRV-5: 같은 runId 를 보는 **모든 칸**의 뷰를 갱신한다.
+    for (const [key, v] of Array.from(m)) {
+      if (!live.has(this._slotBase(key))) { this._runDisposeView(v); m.delete(key); continue }
       if (v.runId !== runId) continue;
       v.err = null;
       this._runFetch(v);
@@ -387,7 +399,7 @@ Object.assign(App.prototype, {
     if (soonest === Infinity) return;
     v.decay = setTimeout(() => {
       v.decay = null;
-      if (this._runViewMap().get(v.tabId) === v) this._runPaint(v);
+      if (this._runViewMap().get(v.key) === v) this._runPaint(v);
     }, Math.ceil(soonest * 1000) + 50);
   },
 

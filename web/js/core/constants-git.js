@@ -442,6 +442,9 @@ const GIT_HIST_FILTERS=[
   {key:'path',  label:'Path'},
 ];
 const GIT_HIST_APPLY='Apply';
+// HISTORY_BRANCH_BUTTON_SRS FR-HBB-3: 같은 바의 라벨은 같은 자리에 모인다.
+const GIT_HIST_BRANCH='+ Branch';
+const GIT_HIST_BRANCH_TITLE='현재 HEAD 에서 새 브랜치를 만든다 (커밋을 골라 만들려면 그 커밋을 우클릭)';
 
 // reflog 포함 (FR-GIT-280). 어떤 ref 도 가리키지 않게 된 커밋 — reset 으로 되돌린
 // 것, 지운 브랜치의 끝 — 은 이 토글로만 목록에 들어온다.
@@ -1172,6 +1175,12 @@ const GIT_BR_RENAME_PLACEHOLDER='새 브랜치 이름';
 // 목록을 프론트에 복제하지 않는다.
 const GIT_ACT_BRANCH_DELETE='branch_delete';
 const GIT_BR_DELETE_TITLE='브랜치를 지웁니다';
+// BRANCH_MENU_UNIFY_SRS FR-BMU-10: 로컬과 원격을 한 번에. 별도 항목인 것이 요점이다
+// — FR-GIT-261 의 "하나가 다른 하나를 자동으로 하지 않는다" 는 그대로 지켜진다.
+const GIT_BR_DELETE_BOTH='Delete (local + remote)';
+const GIT_BR_DELETE_BOTH_TITLE='로컬 브랜치와 그 원격 브랜치를 함께 지웁니다';
+const GIT_BR_DELETE_BOTH_NOTE='로컬과 원격을 되살리려면 아래를 차례로 실행하세요 (자동 실행하지 않습니다)';
+const GIT_BR_DELETE_BOTH_FAIL='로컬은 지웠지만 원격을 지우지 못했습니다';
 const GIT_BR_DELETE_NOTE='지우기 전 커밋으로 되돌리려면 아래를 실행하세요 (자동 실행하지 않습니다)';
 // 미머지 거부는 **실패가 아니라 선택지다.** 목록과 순서는 서버가 주고 라벨만 여기 있다.
 const GIT_BR_UNMERGED_TITLE='아직 합쳐지지 않은 브랜치입니다';

@@ -7,6 +7,8 @@
   --accent-border:#3d59a1;
   /* FR-GIT-216: JS 가 테마에서 파생해 덮어쓴다. 여기 값은 첫 페인트용이다 */
   --border-strong:#565c76;
+  /* FR-STB-21: 같은 규약. mixHex(border,accent,.55) 의 기본 테마 값이다 */
+  --slot-edge:#566ea6;
   --git-sec-divider:2px solid var(--border-strong);
   --accent-hover:rgba(122,162,247,.1);--accent-active:rgba(122,162,247,.12);
   --accent-subtle:rgba(122,162,247,.08);
@@ -147,18 +149,24 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 /* 분할 트리가 붙는 자리. `inset:0` 의 기준이 되도록 relative 다. */
 .slot-body{position:relative;flex:1;min-width:0;min-height:0;overflow:hidden}
 /* FR-WSL-35 / D-10: 칸의 이름표. 흐리게 하는 방식은 쓸 수 없다 — 그것은 이미
-   소유권 없음(`.pn-dimmed`)의 뜻이다. 그래서 이름을 적는다. */
+   소유권 없음(`.pn-dimmed`)의 뜻이다. 그래서 이름을 적는다.
+   FR-STB-25: 칸이 여럿이면 토프바가 비고(FR-STB-12) 이 자리가 창 이름을
+   이어받는다 — 같은 일을 하므로 `#window-name` 과 같은 토큰을 쓴다. 옛
+   `var(--fg)` 는 어디에도 정의된 적이 없어 상속색으로 떨어지고 있었다. */
 .slot-head{flex:0 0 auto;padding:2px 8px;font-size:11px;line-height:1.6;
-  color:var(--fg);opacity:.6;background:var(--sidebar-bg);
+  color:var(--text-muted);background:var(--sidebar-bg);
   border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;
   text-overflow:ellipsis;user-select:none}
-.slot-focused>.slot-head{opacity:1;color:var(--accent);
+/* FR-STB-26: 포커스의 언어는 종전대로 accent 다. */
+.slot-focused>.slot-head{color:var(--accent);
   border-bottom-color:var(--accent);font-weight:600}
 .slot-empty>.slot-body{display:flex;align-items:center;justify-content:center}
 .slot-empty>.slot-body::after{content:'사이드바에서 창을 고르세요';opacity:.45;font-size:12px}
 /* FR-WSL-32: 칸 사이마다 하나씩. 생김새와 히트 확장은 `#sb-handle` 과 같고,
    끄는 축만 방향을 따른다 — 창 안 분할의 `.sh` 가 이미 그렇게 갈라져 있다. */
-.slot-handle{position:relative;flex:0 0 4px;background:var(--border);z-index:5}
+/* FR-STB-20·24: 슬롯 계층은 분할 손잡이(`.sh`, 3px·`--border`)와 **다른 색과
+   굵기**로 선다. 같은 색에 굵기만 1px 다르던 동안 두 계층은 구분되지 않았다. */
+.slot-handle{position:relative;flex:0 0 8px;background:var(--slot-edge);z-index:5}
 .slot-handle:hover{background:var(--accent)}
 #area[data-slotdir="horizontal"] .slot-handle{cursor:col-resize}
 #area[data-slotdir="vertical"] .slot-handle{cursor:row-resize}
@@ -1477,11 +1485,11 @@ body.mobile .git-file-check{width:14px;height:14px}
 }
 .git-hist-reflog input{margin:0;cursor:pointer}
 .git-hist-reflog:has(input:checked){color:var(--accent)}
-.git-hist-apply,.git-hist-jump-go,.git-hist-retry,.git-hist-searchrepo{
+.git-hist-apply,.git-hist-branch,.git-hist-jump-go,.git-hist-retry,.git-hist-searchrepo{
   font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;
   background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
 }
-.git-hist-apply:hover,.git-hist-jump-go:hover,.git-hist-retry:hover,
+.git-hist-apply:hover,.git-hist-branch:hover,.git-hist-jump-go:hover,.git-hist-retry:hover,
 .git-hist-searchrepo:hover{background:var(--accent-hover);color:var(--accent)}
 
 /* FR-GIT-132: 사유를 보이되 목록은 지우지 않는다 */
