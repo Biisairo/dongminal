@@ -38,6 +38,7 @@ Object.assign(App.prototype, {
    */
   _onToolAttention({toolId,reason}={}){
     if(!toolId) return;
+    this._restoreNote('attn',toolId);   // FR-RSF-4
     this._attn.set(toolId,{reason});
     this._attnRefresh();
     if(this._attnUserIsWatching(toolId)) return;
@@ -58,6 +59,7 @@ Object.assign(App.prototype, {
     // 서버발 해제도 서버에서는 주목이다 — 잠금이 섰다고 기록해 둔다. 그러지
     // 않으면 다른 브라우저가 해제한 도구를 여기서 만져도 잠금이 풀리지 않는다.
     this._attnNoteLock(toolId,false);
+    this._restoreNote('attn',toolId);   // FR-RSF-4
     if(!this._attn.delete(toolId)) return;
     this._attnRefresh();
   },
@@ -72,18 +74,21 @@ Object.assign(App.prototype, {
    * FR-ATL-9: 지운 id 에 clear 를 보내지 않는다. 서버가 이미 모르는 것을 다시
    * 지우라고 말할 이유가 없다.
    *
-   * **지울 후보는 요청을 떠나기 전에 확정한다.** 응답은 요청 시점의 서버 상태이고,
-   * 그 사이 SSE 로 새 알람이 올라올 수 있다 — 이 함수는 SSE 가 열리는 바로 그
-   * 순간에 불린다(`es.onopen`). 응답이 도착한 시점의 집합을 지우면 그 새 알람이
-   * 태어나자마자 사라진다.
+   * FR-RSF-2·3: **비행 중에 만진 id 는 스냅숏이 건드리지 않는다.** 응답은 요청
+   * 시점의 서버 상태이고, 그 사이 SSE 로 새 알람이 올라오거나(`es.onopen` 이
+   * 바로 그 순간이다) 사용자가 알람을 거둘 수 있다 — 둘 다 스냅숏보다 새롭다.
+   * 개정 전의 `before`(요청 전 키 집합)는 새 알람이 지워지는 쪽만 막았고,
+   * 사용자가 거둔 알람이 되살아나는 쪽은 그대로였다 (RESTORE_FLIGHT_SRS §1.1).
    */
   _attnRestore(){
-    const before=new Set(this._attn.keys());
+    const t=this._restoreBegin('attn');
     fetch('/api/tools/attention').then(r=>r.ok?r.json():null).then(j=>{
+      if(!this._restoreLive('attn',t)) return;
       if(!j||!Array.isArray(j.toolIds)) return;
       const live=new Set(j.toolIds);
-      for(const pid of live){if(!this._attn.has(pid))this._attn.set(pid,{reason:'signaled'})}
-      for(const pid of before){if(!live.has(pid))this._attnDrop(pid)}
+      for(const pid of live){if(!t.has(pid)&&!this._attn.has(pid))this._attn.set(pid,{reason:'signaled'})}
+      for(const pid of Array.from(this._attn.keys())){if(!live.has(pid)&&!t.has(pid))this._attnDrop(pid)}
+      this._restoreEnd('attn',t);
       this._attnRefresh();
       // FR-ATA-1: 복원도 포커스를 이유로 지우지 않는다. 개정 전에는 FR-ATL-10
       // 이 여기서 "보고 있으면 해제" 를 했으나, 그 규약 자체가 사라졌다 —
@@ -99,6 +104,7 @@ Object.assign(App.prototype, {
   _attnDrop(toolId){
     if(!toolId) return false;
     this._attnCloseNotif(toolId);
+    this._restoreNote('attn',toolId);   // FR-RSF-4
     return this._attn.delete(toolId);
   },
 
@@ -111,6 +117,7 @@ Object.assign(App.prototype, {
    */
   _attnClear(toolId,typed){
     if(!toolId) return;
+    this._restoreNote('attn',toolId);   // FR-RSF-4 — 사용자 조작도 비행보다 새롭다
     this._attnCloseNotif(toolId);
     this._attn.delete(toolId);
     this._attnNoteLock(toolId,!!typed);
@@ -149,6 +156,7 @@ Object.assign(App.prototype, {
     Object.keys(this._attnNotifs||{}).forEach(k=>this._attnCloseNotif(k));
     // FR-ATF-13: 서버는 이 한 번으로 전부를 잠근다 — 로컬 기록도 함께 세운다.
     for(const id of this._attn.keys()) this._attnNoteLock(id,false);
+    this._restoreVoid('attn');   // FR-RSF-5: 전체 초기화는 id 로 표현되지 않는다
     this._attn.clear();
     this._attnCenterClose();
     this._attnRefresh();

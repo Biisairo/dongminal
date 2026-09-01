@@ -101,6 +101,7 @@
 | `_restoreLive(key,t)` | `t` 가 아직 `key` 의 비행인가. 추월·무효화됐으면 거짓 |
 | `_restoreNote(key,id)` | 비행 중이면 `id` 를 만진 것으로 적는다. 비행이 없으면 아무 일도 하지 않는다 |
 | `_restoreVoid(key)` | 비행을 무효화한다. 이후 그 응답은 버려진다 |
+| `_restoreEnd(key,t)` | 응답을 적용한 뒤 비행을 닫는다 (FR-RSF-6). 살아 있는 비행일 때만 닫는다 |
 
 **FR-RSF-2** 세 복원은 요청 전에 `_restoreBegin` 을 부르고, 응답을 적용하기 전에
 `_restoreLive` 로 자기 비행이 살아 있는지 확인한다. 거짓이면 **아무것도 하지 않고
@@ -154,8 +155,18 @@
 | TC-RSF-7 | 기존 `activity.spec.ts` 의 드래그 순서 검사가 복원 뒤에도 통과 (§3.3) |
 | TC-RSF-8 | Go 전량 통과 · e2e 전량 통과, 개수는 927+6=933 |
 
-**TC-RSF-1~6 은 구현 전에 실패해야 한다.** 방향 A 의 `_fgRestore`(TC-RSF-3)만
-예외로 이미 통과한다 — 묶음 A 가 고쳤기 때문이며, 그것이 회귀 방지선이다.
+**구현 전(RED) 실측: 4 실패 · 2 통과.**
+
+| TC | RED | 사유 |
+|---|---|---|
+| TC-RSF-1·2 (활동 A·B) | **실패** | `clear()` 재구성이 두 방향 다 잃는다 |
+| TC-RSF-3 (전경 A) | 통과 | 묶음 A 가 고친 자리. **회귀 방지선** |
+| TC-RSF-4 (전경 B) | **실패** | `before` 규약이 되살리는 쪽을 막지 않는다 |
+| TC-RSF-5 (알람 A) | 통과 | `_attnRestore` 가 규약을 지킨 자리. **회귀 방지선** |
+| TC-RSF-6 (알람 B) | **실패** | 사용자가 거둔 알람이 되살아난다 |
+
+§4 를 쓸 때 TC-RSF-5 도 실패할 것으로 적었으나 틀렸다 — `_attnRestore` 는 방향 A
+규약의 **원본**이므로 통과하는 것이 옳다.
 
 ---
 
@@ -172,4 +183,38 @@
 
 ## 6. 실행 결과 (Outcome)
 
-<!-- 구현 후 채운다 -->
+### 6.1 무엇이 바뀌었나
+
+| 파일 | 변경 |
+|---|---|
+| `app-cmd.js` | 비행 규약 다섯 함수 신설 · `_onToolForeground` 기록 · `_fgRestore`/`_fgApply` 가 `touched` 를 쓴다 |
+| `app-agents.js` | `_onToolActivity` 기록 · `_activityRestore` 를 `clear()` 재구성에서 **차분**으로 |
+| `app-attn.js` | 변경 지점 **넷**이 기록 · `_attnClearAll` 이 무효화 · `_attnRestore` 가 `before` 대신 `touched` |
+
+`before` 는 전부 걷어냈다. `touched` 가 그것을 포함하기 때문이다 (§2.2).
+
+### 6.2 검증
+
+| # | 결과 |
+|---|---|
+| TC-RSF-1~6 | **6/6 통과** (RED 4실패·2통과 → GREEN 6통과) |
+| TC-RSF-7 | `activity.spec.ts` 의 드래그 순서 검사 통과 — 표시 순서가 바뀌지 않았다 |
+| TC-RSF-8 | Go 전량 통과 · **e2e 933 전량 통과(실패 0)**. 927+6 으로 개수도 예정대로 |
+
+`_activity` 의 Map 순서가 §3.3 대로 바뀌었는데도 화면 순서가 그대로인 것은
+`_agentOrderSync` 가 매 렌더마다 `ws.agentsOrder` 로 순서를 정하기 때문이다.
+TC-RSF-7 이 그것을 지킨다.
+
+### 6.3 규약이 이제 어디에 사는가
+
+`_restoreBegin`·`_restoreLive`·`_restoreNote`·`_restoreVoid`·`_restoreEnd` 를
+세 파일이 부른다. 다음 복원 함수가 생겼을 때 **규약을 손으로 옮겨 적을 자리가
+없다** — §1.2 가 지목한 근본 원인이 사라졌다.
+
+`_fgRestore`·`_attnRestore` 의 주석이 설명하던 `before` 규약도 함께 고쳐 썼다.
+걷어낸 기전을 설명하는 주석이 남으면 그것이 다음 사람의 근거가 된다.
+
+### 6.4 남은 것
+
+없다. `FG_RESTORE_RACE_SRS` §8 이 연 항목이 전부 닫혔다 —
+`_bgRefresh`·`_focusRestore` 는 §5 N1 대로 결함이 없어 손대지 않았다.

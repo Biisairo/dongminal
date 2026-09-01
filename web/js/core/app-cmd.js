@@ -5,6 +5,38 @@
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
 Object.assign(App.prototype, {
+  /**
+   * FR-RSF-1: 복원 비행(飛行) 규약 — 요청이 떠난 시점부터 응답을 적용할 때까지.
+   *
+   * 복원은 서버 스냅숏을 받아 로컬 상태와 정합한다. 그런데 그 상태는 SSE 와
+   * 사용자 조작이 **증분으로** 갱신한다. 요청과 응답 사이에 도착한 갱신은
+   * 스냅숏에 없으므로, 응답을 그대로 적용하면 두 방향으로 잃는다 — 새 항목은
+   * 지워지고(A) 없앤 항목은 되살아난다(B).
+   *
+   * 규칙은 하나다. **비행 중에 만진 id 는 스냅숏보다 새로우므로 추가도 삭제도
+   * 하지 않는다.** 이 한 규칙이 두 방향을 다 막는다.
+   *
+   * 비행을 집합의 **동일성**으로 식별하는 이유는 추월 때문이다. `_activityRestore`
+   * 는 `agentsPollMs`(기본 5초)마다 불리므로 앞 응답이 늦으면 새 비행이 시작되는데,
+   * 그때 앞 응답이 새 비행의 빈 집합을 보고 전부 적용하면 결함이 그대로 돌아온다.
+   *
+   * FG_RESTORE_RACE_SRS 는 이 규약을 주석으로 선언만 하고 손으로 옮겨 적다
+   * 한 방향을 놓쳤다. 그래서 함수로 둔다 — 옮겨 적을 자리가 없다.
+   */
+  _restoreBegin(key){
+    const t=new Set();
+    (this._restoreFlight||(this._restoreFlight={}))[key]=t;
+    return t;
+  },
+  _restoreLive(key,t){ return !!this._restoreFlight && this._restoreFlight[key]===t },
+  _restoreNote(key,id){
+    const t=this._restoreFlight&&this._restoreFlight[key];
+    if(t&&id) t.add(id);
+  },
+  // FR-RSF-5: 전체 초기화는 만진 id 로 표현되지 않는다. 그 비행은 통째로 버린다.
+  _restoreVoid(key){ if(this._restoreFlight) this._restoreFlight[key]=null },
+  _restoreEnd(key,t){ if(this._restoreLive(key,t)) this._restoreFlight[key]=null },
+
   // 외부 CLI(dmctl) → 서버 → SSE 브로드캐스트 수신 → executeAction 재사용
   _subscribeCommands(){
     // FR-RCS-6: 백오프에 상한은 두되 **포기하지 않는다.** 이 구독이 끊긴 채로
@@ -157,6 +189,7 @@ Object.assign(App.prototype, {
   // 프로그램이 끝난 것이며 탭 이름은 기본값으로 돌아간다 (FR-TAN-12).
   _onToolForeground({toolId,name}={}){
     if(!toolId) return;
+    this._restoreNote('fg',toolId);
     const m=this._fgMap();
     if(name) m.set(toolId,name); else m.delete(toolId);
     this._fgRepaint(toolId);
@@ -168,38 +201,46 @@ Object.assign(App.prototype, {
    * 합류/재연결 시의 스냅샷 복원 (`_attnRestore` 와 같은 규약). SSE 는 **변화**
    * 만 나르므로, 합류 시점에 이미 떠 있던 전경 프로그램은 이것으로만 보인다.
    *
-   * **지울 후보는 요청을 떠나기 전에 확정한다** (FR-FGR-1). 응답은 요청 시점의
-   * 서버 상태이고, 그 사이 SSE 로 새 전경 이름이 올 수 있다 — 이 함수는 SSE 가
-   * 열리는 바로 그 순간에 불린다(`es.onopen`). 응답이 도착한 시점의 Map 을 훑어
-   * 지우면 그 이름이 태어나자마자 사라진다. `_attnRestore` 가 같은 이유로 같은
-   * 형태를 하고 있고, 이쪽은 그 규약을 이름으로만 인용한 채 지키지 않았다.
+   * FR-RSF-2·3: **비행 중에 만진 id 는 스냅숏이 건드리지 않는다.** 응답은 요청
+   * 시점의 서버 상태이고, 그 사이 SSE 로 전경 이름이 붙거나 지워질 수 있다 —
+   * 이 함수는 SSE 가 열리는 바로 그 순간에 불린다(`es.onopen`).
+   *
+   * FR-FGR-1 의 `before`(요청 전 키 집합)가 여기 있었다. 그것은 새 이름이
+   * 지워지는 쪽만 막았고, **끝난 프로그램의 이름이 낡은 스냅숏으로 되살아나는
+   * 쪽은 그대로였다** (RESTORE_FLIGHT_SRS §1.1). 규약을 함수로 옮긴 것도 같은
+   * 이유다 — 주석으로 선언하고 손으로 옮겨 적으니 한 방향을 놓쳤다.
    */
   _fgRestore(){
-    const before=new Set(this._fgMap().keys());
+    const t=this._restoreBegin('fg');
     fetch('/api/state').then(r=>r.ok?r.json():null).then(j=>{
-      if(j) this._fgApply(j.tools||[],before);
+      if(!this._restoreLive('fg',t)) return;
+      if(j) this._fgApply(j.tools||[],t);
+      this._restoreEnd('fg',t);
     }).catch(()=>{});
   },
 
   // `/api/state` 의 도구 목록(`fgName` 포함)을 런타임 Map 에 반영한다. 목록에
   // 없는 도구의 이름은 지운다 — 죽은 도구의 이름이 남으면 안 된다.
   //
-  // `before` 는 지워도 되는 id 의 집합이다 (FR-FGR-2). 주지 않으면 Map 전부가
-  // 대상이다 — 새 호출자가 생겼을 때 규약이 조용히 바뀌지 않게 기본을 종전으로 둔다.
-  _fgApply(tools,before){
+  // `touched` 는 비행 중에 갱신된 id 의 집합이다 (FR-RSF-3). 그 id 는 스냅숏보다
+  // 새로우므로 **추가도 삭제도 하지 않는다.** 주지 않으면 스냅숏이 전부를 정한다 —
+  // `_applyRemoteWorkspace` 처럼 비행이 아닌 동기 경로가 그렇게 부른다 (FR-RSF-7).
+  _fgApply(tools,touched){
     const m=this._fgMap();
     const seen=new Set();
     let changed=false;
     for(const p of tools||[]){
       if(!p||!p.id) continue;
       seen.add(p.id);
+      if(touched&&touched.has(p.id)) continue;
       const n=p.fgName||'';
       if((m.get(p.id)||'')===n) continue;
       if(n) m.set(p.id,n); else m.delete(p.id);
       changed=true;
     }
-    for(const id of Array.from(before||m.keys())){
-      if(!seen.has(id)&&m.has(id)){m.delete(id);changed=true}
+    for(const id of Array.from(m.keys())){
+      if(touched&&touched.has(id)) continue;
+      if(!seen.has(id)){m.delete(id);changed=true}
     }
     if(changed) this._fgRepaint();
   },

@@ -8,6 +8,7 @@ Object.assign(App.prototype, {
   // FR-AAP-15: SSE tool_activity 수신 → 최신 상태로 덮어쓰고 카드 타깃 갱신
   _onToolActivity({toolId,state,tool,detail}={}){
     if(!toolId||!state) return;
+    this._restoreNote('activity',toolId);   // FR-RSF-4
     if(state==='ended'){ // 종료 → 카드 제거
       if(this._activity.delete(toolId)) this._agentsRender();
       return;
@@ -18,13 +19,27 @@ Object.assign(App.prototype, {
   },
 
   // FR-AAP-15: 합류/재연결 시 현재 활동 스냅샷 복원
+  //
+  // FR-RSF-8: 응답 도착 시점의 `clear()` 후 재구성이 아니라 차분이다. 이 함수는
+  // `agentsPollMs`(기본 5초)마다 불리므로 비행 창이 상시 열려 있고, 통째로 비우면
+  // 그 사이 도착한 활동이 태어나자마자 사라진다 (RESTORE_FLIGHT_SRS §2.1).
   _activityRestore(){
+    const t=this._restoreBegin('activity');
     fetch('/api/tools/activity').then(r=>r.ok?r.json():null).then(j=>{
-      this._activity.clear();
-      if(j&&Array.isArray(j.activities)){
-        j.activities.sort((a,b)=>(a.updatedAt||0)-(b.updatedAt||0)); // 오래된→최신: 끝이 가장 최근
-        for(const a of j.activities) this._activity.set(a.toolId,{state:a.state,tool:a.tool||'',detail:a.detail||''});
+      if(!this._restoreLive('activity',t)) return;
+      const list=(j&&Array.isArray(j.activities))?j.activities.slice():[];
+      list.sort((a,b)=>(a.updatedAt||0)-(b.updatedAt||0)); // 오래된→최신: 끝이 가장 최근
+      const seen=new Set();
+      for(const a of list){
+        if(!a||!a.toolId) continue;
+        seen.add(a.toolId);
+        if(t.has(a.toolId)) continue;
+        this._activity.set(a.toolId,{state:a.state,tool:a.tool||'',detail:a.detail||''});
       }
+      for(const id of Array.from(this._activity.keys())){
+        if(!seen.has(id)&&!t.has(id)) this._activity.delete(id);
+      }
+      this._restoreEnd('activity',t);
       this._agentsRender();
     }).catch(()=>{});
   },
