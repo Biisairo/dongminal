@@ -1,0 +1,239 @@
+/* Dongminal — Editor 창과 탐색기.
+ *
+ * 여기 사는 것: Editor 탭·Editor 창(EDITOR_TAB_SRS 묶음 T·W) · 탐색기 트리(묶음 X) ·
+ * 파일 조작(FR-EDT-79~92) · 찾기 패널 · 이미지 보기 · 터미널의 복사창(FR-ETR-40·41).
+ *
+ * Monaco 자체의 규칙(원본 787~799)은 style.css 에 남았다 — 구간을 옮기면 캐스케이드
+ * 순서가 바뀌고, 그것은 구간 이동이 아니다.
+ *
+ * 네 파일 중 마지막에 실려야 한다.
+ */
+/* ── Editor 탭 · Editor 창 (EDITOR_TAB_SRS 묶음 T·W) ── */
+
+/* FR-EDT-14: root 행은 목록의 **최하단 고정**이며 일반 목록과 같은 컨테이너에
+   그려진다. 구분은 컨테이너가 아니라 선이 준다. */
+.sbl-item.ed-root .sbl-name{color:var(--text-bright)}
+.ed-entries-none{padding:4px 8px;font-size:11px;color:var(--text-dim)}
+
+/* FR-EDT-46: 창은 좌우 둘로 나뉜다. 탐색기는 분할 트리 **밖**의 고정 영역이며
+   어떤 드롭으로도 쪼개지지 않는다 — 트리는 `.ed-area` 안에만 산다. */
+.ed-win{display:flex;position:absolute;inset:0;overflow:hidden}
+.ed-explorer{
+  flex:0 0 auto;min-width:0;display:flex;flex-direction:column;overflow:hidden;
+  background:var(--sidebar-bg);border-right:1px solid var(--border);
+}
+/* FR-EDT-47: 폭 조절 손잡이. 사이드바(`#sb-handle`)와 같은 생김새·같은 히트 확장. */
+.ed-ex-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border);position:relative}
+.ed-ex-handle:hover{background:var(--accent)}
+.ed-ex-handle::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
+/* `.pn`·`.sp` 가 `position:absolute;inset:0` 이므로 담는 쪽이 위치 기준이어야 한다. */
+.ed-area{flex:1 1 auto;position:relative;min-width:0;overflow:hidden}
+/* FR-EDT-55: pane 이 **없는** 것이지 빈 pane 이 있는 것이 아니다. */
+.ed-empty{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  padding:0 16px;text-align:center;font-size:12px;color:var(--text-dim);
+}
+/* 모바일 배치는 후속이다 (비목표 8) — 탐색기를 접을 규약이 아직 없으므로 최소
+   폭만 양보한다. */
+body.mobile .ed-explorer{max-width:40%}
+
+/* ── 탐색기 트리 (EDITOR_TAB_SRS 묶음 X) ── */
+
+/* FR-EDT-64: 새로고침은 상단에 상주한다. 머리는 스크롤에서 빠지고 트리만 구른다 —
+   수천 행에서 진입점이 화면 밖으로 밀리면 없는 것과 같다. */
+.ed-head{
+  display:flex;align-items:center;gap:6px;flex:0 0 auto;
+  height:26px;padding:0 4px 0 8px;
+  border-bottom:1px solid var(--border);
+}
+.ed-head-name{flex:1 1 auto;min-width:0;font-size:11px;color:var(--text-bright);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ed-head-btn{
+  flex:0 0 auto;width:22px;height:22px;line-height:1;
+  background:none;border:0;color:var(--text-muted);cursor:pointer;border-radius:3px;
+  /* 글자 버튼과 그림 버튼이 섞여 있다 — 가운데 정렬을 둘 다에 건다. */
+  display:inline-flex;align-items:center;justify-content:center;padding:0;
+}
+.ed-head-btn:hover{background:var(--accent-hover);color:var(--text-bright)}
+/* FR-EDT-80: 새 파일·새 폴더는 문서와 폴더를 그대로 그린다 (종전 `⊕`·`⊞` 는
+   어느 쪽이 무엇인지 말하지 않았다). `currentColor` 라 hover 의 색 변화를
+   글자 버튼과 똑같이 따라간다. */
+.ed-head-btn svg{
+  width:14px;height:14px;display:block;
+  fill:none;stroke:currentColor;stroke-width:1.3;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+/* FR-EDT-68: 스크롤 주체는 트리 하나다. 행은 중첩 DOM 이 아니라 패딩으로 들여쓴
+   평평한 목록이므로(FR-GIT-211 과 같은 규약) 재사용이 성립한다. */
+.ed-tree{flex:1 1 auto;min-height:0;overflow:auto;padding-bottom:6px}
+.ed-tree::-webkit-scrollbar{width:4px}
+.ed-tree::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.ed-row{
+  display:flex;align-items:center;gap:4px;
+  height:22px;font-size:12px;cursor:pointer;white-space:nowrap;
+}
+.ed-row:hover{background:var(--accent-hover)}
+.ed-row.sel{background:var(--accent-active)}
+/* 펼침 표시의 칸은 폴더가 아닌 행에서도 자리를 지킨다 — 없으면 이름이 깊이마다
+   어긋나 보인다. */
+.ed-tw{flex:0 0 10px;text-align:center;font-size:9px;color:var(--text-muted)}
+.ed-name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.ed-row.ed-dir .ed-name{color:var(--text-bright)}
+/* FR-EDT-60: 링크는 따라가지 않는다는 사실을 표시가 알린다. */
+.ed-mark{flex:0 0 auto;font-size:10px;color:var(--text-muted)}
+/* FR-EDT-63: 조회 실패는 그 폴더 행에만 남는다 — 트리는 그대로 산다. */
+.ed-row.ed-err .ed-name{color:var(--danger);text-decoration:line-through}
+.ed-tree-err,.ed-more{font-size:11px;color:var(--text-dim);padding-top:2px;padding-bottom:2px}
+
+/* FR-ETR-7: 무시된 항목은 흐려진다 (VS Code 의 표시와 같다). 폴더도 함께 —
+   `node_modules` 가 그 예다.
+
+   **색을 바꾸지 않고 투명도만 낮춘다.** 두 번의 실패가 이 결론을 만들었다:
+
+   · `--text-dim` — 거의 모든 테마에서 `border` 와 **같은 값**이라(dracula
+     `#44475a`, nord `#3b4252`, solarized `#073642`) 배경에 묻혀 읽히지 않았다.
+     그것은 구분선의 색이지 글자의 색이 아니다.
+   · `--text-muted` — 읽히기는 하나 푸른 기가 돌아 **상태색처럼** 보였다. 무시는
+     "의미 없음" 인데 색이 의미를 말해 버린다.
+
+   투명도는 hue 를 건드리지 않으므로 본문과 **같은 색의 옅은 판**이 된다 — 흐림의
+   정도만 조절되고 뜻은 더해지지 않는다.
+
+   그 덕에 **상태색과 다투지 않는다.** `color` 로 흐리게 하던 때는 명시도가
+   `.ed-row.st-*` 와 동률이라 선언 순서가 승부를 갈랐고(뒤에 두면 상태를 가진 행이
+   흐려졌다), 그래서 이 블록이 상태색보다 앞에 서야 했다. 투명도는 색을 덮지 않고
+   곱해질 뿐이라 상태를 가진 행은 그 색을 유지한 채 함께 옅어진다 — 순서에 기대지
+   않는다. */
+.ed-row.ed-ignored .ed-name,
+.ed-row.ed-ignored .ed-tw,
+.ed-row.ed-ignored .ed-mark{opacity:.6}
+
+/* FR-EDT-70 / D-4: 색은 **같은 변수와 같은 상태 클래스**를 참조한다 (GIT_ST_CLASS).
+   새 색값을 만들지 않는다 — 같은 뜻을 두 화면에서 다른 색으로 말하지 않기 위해서다.
+   `--attn` 을 쓰지 않는 이유도 Git 패널과 같다 (style.css 의 st-ren 주석). */
+.ed-row.st-mod .ed-name{color:var(--accent)}
+.ed-row.st-add .ed-name,.ed-row.st-new .ed-name{color:var(--git-st-add)}
+.ed-row.st-del .ed-name{color:var(--danger)}
+.ed-row.st-ren .ed-name,.ed-row.st-cpy .ed-name{color:var(--text-bright)}
+.ed-row.st-conf .ed-name{color:var(--danger)}
+/* FR-GIT-190 / FR-STC-4: 일부만 스테이지된 파일. **상태색보다 뒤에 와서 이긴다** —
+   Git 패널의 `.git-file.partial` 과 같은 규약이고, 같은 사실을 두 화면이 다른
+   색으로 말하지 않기 위해서다. */
+.ed-row.st-partial .ed-name{color:var(--attn)}
+/* FR-EDT-14: 고정 항목은 목록 **아래**, 패널의 맨 밑이다. 목록이 남은 높이를
+   전부 먹으므로(`.sbl-list` 가 `flex:1 1 auto`) 이 블록은 자연히 바닥에 붙는다.
+   구분선이 "목록의 끝" 과 "고정된 것" 을 가른다. */
+.sbl-fixed{flex:0 0 auto;border-top:1px solid var(--border);padding-top:4px}
+.sbl-fixed:empty{display:none}
+
+/* ── 파일 조작 (EDITOR_TAB_SRS 묶음 F · FR-EDT-79~92) ── */
+
+/* FR-EDT-81·82: 인라인 입력은 행 **자리 그대로** 선다 — 다이얼로그로 띄우면
+   어느 폴더 아래에 만드는지가 화면에서 사라진다. */
+.ed-edit{cursor:default}
+.ed-input{
+  flex:1 1 auto;min-width:0;height:18px;padding:0 4px;
+  font:inherit;font-size:12px;
+  background:var(--bg);color:var(--text-bright);
+  border:1px solid var(--accent);border-radius:2px;outline:none;
+}
+/* FR-EDT-85: 놓을 수 있는 폴더. 테두리로 알린다 — 배경만 바꾸면 hover 와 구분되지
+   않는다. */
+.ed-row.ed-drop{background:var(--accent-hover);box-shadow:inset 0 0 0 1px var(--accent)}
+/* FR-FTR-20: 루트 드롭 존 — 헤더와 트리의 빈 여백이다. 둘을 한 번에 칠해야
+   "여기 놓으면 루트로 간다" 가 한 덩어리로 보인다. */
+.ed-head.ed-drop-root{background:var(--accent-hover);box-shadow:inset 0 0 0 1px var(--accent)}
+.ed-tree.ed-drop-root{box-shadow:inset 0 0 0 1px var(--accent)}
+/* FR-EDT-92: 조작 실패의 사유. 조회 실패(`.ed-tree-err`)와 색을 달리한다 — 하나는
+   보여 주지 못한 것이고 하나는 하지 못한 것이다. */
+.ed-op-err{
+  font-size:11px;color:var(--danger);white-space:normal;
+  padding-top:2px;padding-bottom:2px;padding-right:6px;
+}
+/* FR-EDT-83: 삭제 확인창은 `_confirmClose` 의 껍데기를 그대로 쓴다 — 줄만 여럿이다. */
+.ed-confirm-line+.ed-confirm-line{margin-top:6px}
+
+/* ── Editor 찾기 패널 (EDITOR_GIT_UX_SRS 묶음 F·G) ──
+   빠른 열기와 전체 검색이 같은 껍데기를 쓴다 — 키 조작이 완전히 같기 때문이다. */
+.ed-find{
+  position:fixed;inset:0;z-index:9997;display:none;
+  justify-content:center;align-items:flex-start;padding-top:12vh;
+  background:rgba(0,0,0,.35);
+}
+.ed-find.vis{display:flex}
+.ed-find-box{
+  width:min(720px,92vw);max-height:70vh;display:flex;flex-direction:column;
+  background:var(--sidebar-bg,#16161e);border:1px solid var(--border);
+  border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.5);overflow:hidden;
+}
+.ed-find-q{
+  flex:0 0 auto;padding:10px 12px;border:none;outline:none;font-size:14px;
+  background:transparent;color:var(--text-bright);border-bottom:1px solid var(--border);
+}
+.ed-find-note{
+  flex:0 0 auto;padding:4px 12px;font-size:11px;color:var(--text-dim);
+  border-bottom:1px solid var(--border);
+}
+.ed-find-list{flex:1 1 auto;min-height:0;overflow-y:auto}
+.ed-find-row{
+  display:flex;align-items:baseline;gap:8px;padding:5px 12px;font-size:12px;cursor:pointer;
+}
+.ed-find-row:hover{background:var(--hover-bg,var(--border))}
+.ed-find-row.sel{background:var(--accent-active);color:var(--text-bright)}
+.ed-find-name{color:var(--text-bright);flex:0 0 auto}
+.ed-find-path{color:var(--text-muted);flex:0 0 auto;white-space:nowrap}
+.ed-find-text{
+  color:var(--text-dim);flex:1 1 auto;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:pre;font-family:monospace;
+}
+
+/* ── 열 수 없는 형식 · 이미지 보기 (EDITOR_GIT_UX_SRS 묶음 V) ── */
+.fe-unsupported{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  height:100%;padding:24px;text-align:center;color:var(--text-muted);font-size:12px;
+}
+.fe-unsup-title{color:var(--attn);font-size:14px;font-weight:600}
+.fe-unsup-path{color:var(--text-bright);word-break:break-all;font-family:monospace;font-size:11px}
+.fe-unsup-meta{color:var(--text-dim);font-size:11px}
+.fe-unsup-hint{color:var(--text-dim);font-size:11px;margin-top:4px}
+
+.fe-image{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  height:100%;padding:12px;overflow:auto;background:var(--bg);
+}
+/* FR-EVW-4: 원본 비율을 지키고 칸보다 크면 줄여 맞춘다. */
+.fe-img{max-width:100%;max-height:calc(100% - 28px);object-fit:contain}
+.fe-img-meta{flex:0 0 auto;color:var(--text-dim);font-size:11px;font-family:monospace}
+
+/* ── 터미널의 복사창 (EXPLORER_TRANSFER_IGNORE_SRS 묶음 F · FR-ETR-40·41) ──
+
+   마지막 수단이다. 앞의 두 단(clipboard API · execCommand)이 실패하는 것은 코드가
+   아니라 환경이 정하는 것이라, 이 창이 없으면 복사는 "될 때도 있고 안 될 때도
+   있는 것" 이 된다 (D-12).
+
+   모달 배경을 깔지 않는다 — 복사는 터미널을 멈추고 하는 일이 아니고, 사용자가
+   창을 둔 채 터미널을 계속 볼 수 있어야 한다. */
+.tc-copy{
+  position:fixed;z-index:9999;left:50%;top:50%;transform:translate(-50%,-50%);
+  display:flex;flex-direction:column;gap:6px;
+  width:min(560px,calc(100vw - 32px));padding:12px;
+  background:var(--sidebar-bg,#16161e);border:1px solid var(--accent,#7aa2f7);
+  border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.6);
+  color:var(--text-bright,#c0caf5);font-size:12px;
+}
+.tc-copy-head{font-weight:600}
+.tc-copy-why{color:var(--text-dim);font-size:11px}
+/* 내용은 읽고 고르는 것이지 고치는 것이 아니지만 readOnly 를 쓰지 않는다 —
+   iOS 는 readOnly 인 요소의 선택을 무시해 복사가 되지 않는다. */
+.tc-copy-text{
+  width:100%;min-height:120px;max-height:40vh;resize:vertical;
+  padding:8px;border:1px solid var(--border);border-radius:5px;
+  background:var(--bg);color:var(--text);
+  font-family:monospace;font-size:12px;line-height:1.4;
+}
+.tc-copy-row{display:flex;justify-content:flex-end;gap:6px}
+.tc-copy-row button{
+  border:none;border-radius:5px;padding:6px 12px;font:inherit;font-weight:600;
+}
+.tc-copy-do{background:var(--accent,#7aa2f7);color:#16161e}
+.tc-copy-close{background:var(--border);color:var(--text-bright)}

@@ -1,0 +1,49 @@
+/**
+ * 탐색기의 **관측** — SLOT_VIEW_STATE_SRS 묶음 X (FR-SVS-20~24).
+ *
+ * 디렉터리 목록 캐시·git 색·무시된 이름은 **누가 보든 같은 사실**이므로 루트마다
+ * 하나다. 칸이 넷이어도 `/api/fs/list`·`/api/git/status` 는 한 벌만 나간다
+ * (FR-SVS-20). 펼침·선택·스크롤은 이것에 들어오지 않는다 — 그것은 보는 자리의
+ * 것이고 칸마다 다르다 (FR-SVS-21).
+ *
+ * 규약의 원본은 터미널이다: PTY 는 서버에 하나이고 xterm 은 칸마다 하나다. 여기서
+ * store 가 PTY 의 자리, `FileTree` 가 xterm 의 자리다.
+ *
+ * 뷰를 **모른 채** 갱신을 알린다 (D-4) — `paintAll` 은 등록된 뷰에게 "다시 칠하라"
+ * 만 말하고, 무엇을 그릴지는 각 뷰가 자기 시선으로 정한다.
+ */
+class FileTreeStore {
+  constructor(app,root){
+    this.app=app;
+    this.root=root;
+    this.views=new Set();
+
+    // path → {entries,truncated,err}. 지연 로드의 캐시이자 그리기의 근거다 (FR-EDT-59).
+    this.kids=new Map();
+    this.busy=new Set();
+    // M4 의 색. rel path → 상태문자. 폴더는 접어 올린 값이 따로 산다 (FR-EDT-73).
+    this.st=new Map();
+    this.partial=new Set();
+    this.dirSt=new Map();
+    // FR-EDT-69: 루트가 저장소 **루트**가 아니면 색이 없다.
+    this.gitOff=false;
+    this.gitBusy=false;
+    // FR-ETR-5·6: 무시된 이름. 겹별 Set.
+    this.ign=new Map();
+    this.ignOff=false;
+  }
+
+  attach(v){ this.views.add(v) }
+
+  // FR-SVS-23: 마지막 뷰가 떠나면 관측도 거둔다 — 남겨 두면 아무도 보지 않는
+  // 루트의 폴링이 계속된다. 레지스트리에서 지우는 것이 그 정지다 (폴링의 대상은
+  // `_edActiveStore` 가 고른다).
+  detach(v){
+    this.views.delete(v);
+    if(!this.views.size&&this.app._edStores) this.app._edStores.delete(this.root);
+  }
+
+  // FR-SVS-22: 관측이 갱신되면 그 루트를 보는 **모든** 칸이 다시 칠해진다.
+  paintAll(){ for(const v of this.views) v.paint() }
+}
+

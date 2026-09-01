@@ -1,0 +1,1070 @@
+/* Dongminal — Git 창의 탭별 화면과 공유 컨트롤.
+ *
+ * 여기 사는 것: diff(FR-GIT-49~56) · History(FR-GIT-113~139) · Console(FR-GIT-218) ·
+ * Git 사이드바 · 상태바 Git · 파괴적 동작 확인 · Branches(FR-GIT-147~160) ·
+ * Stash(FR-GIT-161~170) · Worktrees(FR-GIT-240~244) · 컨트롤 치수 하한 ·
+ * 폼 컨트롤 테마 · 부분 스테이징(FR-GIT-278·279) · 원격 동작(FR-GIT-269~271).
+ *
+ * style-git.css 바로 뒤에 실려야 한다.
+ */
+/* ── Git diff (FR-GIT-49~56) ── */
+/* Monaco 는 컨테이너 크기를 읽어 배치한다 — 호스트가 높이를 잃으면 diff 가
+   0px 로 접힌다. 바는 고정이고 본문만 늘어난다. */
+.git-view.git-diff{overflow:hidden}
+.git-view.git-diff.vis{display:flex;flex-direction:column}
+.git-diff-bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 8px;
+  border-bottom:1px solid var(--border);font-size:12px;
+}
+.git-diff-nav{
+  font:inherit;font-size:13px;line-height:1;padding:1px 7px;cursor:pointer;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-diff-nav:disabled{color:var(--text-dim);cursor:not-allowed}
+.git-diff-path{color:var(--text-bright);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.git-diff-pos{color:var(--text-muted);font-size:11px;flex-shrink:0}
+.git-diff-gone{display:none;color:var(--attn);font-size:11px;flex-shrink:0}
+.git-diff-gone.vis{display:inline}
+.git-diff-spacer{flex:1 1 auto}
+.git-diff-mode{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-diff-ws,.git-diff-fold{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);flex-shrink:0;cursor:pointer}
+.git-diff-body{flex:1 1 auto;min-height:0;position:relative}
+.git-diff-body.off{display:none}
+
+/* FR-GIT-276: blame 은 Diff 탭의 모드다 (D8). 켜진 쪽만 보인다 */
+.git-blame{display:none;flex:1 1 auto;min-height:0;flex-direction:column;overflow:auto}
+.git-blame.vis{display:flex}
+/* 거부 사유는 누른 자리에 보인다 — Diff 탭에서 낸 실패의 자리가 여기다 */
+.git-blame-note{
+  display:none;flex:0 0 auto;padding:6px 10px;font-size:12px;color:var(--text-muted);
+  border-bottom:1px solid var(--border);
+}
+.git-blame-note.vis{display:block}
+.git-blame-rows{flex:1 1 auto;font-family:ui-monospace,monospace;font-size:12px;line-height:18px}
+.git-blame-row{display:flex;align-items:baseline;gap:8px;padding:0 10px;white-space:pre}
+.git-blame-row:hover{background:var(--accent-subtle)}
+.git-blame-oid{flex:0 0 auto;width:60px;color:var(--accent);cursor:default}
+.git-blame-author{flex:0 0 auto;width:110px;overflow:hidden;text-overflow:ellipsis;color:var(--text-muted)}
+.git-blame-date{flex:0 0 auto;width:80px;color:var(--text-dim)}
+.git-blame-num{flex:0 0 auto;width:46px;text-align:right;color:var(--text-dim)}
+.git-blame-text{flex:1 1 auto;color:var(--text)}
+/* 아직 커밋되지 않은 줄은 커밋된 줄과 구분되어야 한다 */
+.git-blame-row.uncommitted .git-blame-oid,
+.git-blame-row.uncommitted .git-blame-author{color:var(--text-dim);font-style:italic}
+/* 켜져 있음이 보여야 한다 — 사용자가 왜 diff 대신 blame 을 보는지의 근거다 */
+.git-diff-blame{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-diff-blame:hover{background:var(--accent-hover);color:var(--accent)}
+.git-diff-blame.on{background:var(--accent-active);color:var(--accent)}
+
+/* GitDiffView — 미리보기와 Diff 탭이 같은 골격을 쓴다 (§3.2) */
+.git-diff-view{position:absolute;inset:0;display:flex;flex-direction:column}
+/* 안내는 diff 자리에만 남는다 — Monaco 로드 실패도 여기까지다 (FR-GIT-55) */
+.git-diff-note{display:none;flex:0 0 auto;padding:6px 10px;font-size:11px;color:var(--text-muted)}
+.git-diff-note.vis{display:block}
+/* 본문을 못 주는 쪽의 메타(oid·크기) — 사유 아래 줄이다 (FR-GIT-46·47·48). */
+.git-diff-meta{display:block;margin-top:2px;color:var(--text-dim)}
+.git-diff-host{flex:1 1 auto;min-height:0}
+
+/* ── Git History 탭 (FR-GIT-113~139) ── */
+/* 목록만 스크롤한다. 바·refs·푸터는 고정이다 — 바가 목록과 함께 스크롤되면
+   10,000행에서 검색·jump 에 닿을 수 없다. */
+.git-view.git-history{overflow:hidden}
+.git-view.git-history.vis{display:flex;flex-direction:column}
+.git-hist-bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:4px;padding:4px 8px;
+  border-bottom:1px solid var(--border);font-size:12px;flex-wrap:wrap;
+}
+.git-hist-spacer{flex:1 1 auto}
+.git-hist-search-box{display:flex;align-items:center;gap:0;flex-shrink:0}
+.git-hist-search,.git-hist-jump,.git-hist-f{
+  font:inherit;font-size:11px;padding:2px 6px;min-width:0;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-hist-search{width:140px;border-top-right-radius:0;border-bottom-right-radius:0}
+.git-hist-f{width:74px}
+.git-hist-jump{width:150px}
+/* FR-GIT-129: 현재 모드가 라벨로 늘 보인다 — 두 결과가 다를 수 있음이 드러나야 한다 */
+.git-hist-smode{
+  font:inherit;font-size:10px;padding:2px 6px;cursor:pointer;white-space:nowrap;
+  background:var(--bg);color:var(--text-muted);
+  border:1px solid var(--border);border-left:none;border-radius:0 3px 3px 0;
+}
+.git-hist-smode[data-mode="repo"]{background:var(--accent-active);color:var(--accent)}
+.git-hist-order{
+  font:inherit;font-size:11px;padding:1px 4px;flex-shrink:0;
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-hist-filters{display:flex;gap:3px;min-width:0}
+/* FR-GIT-280: 켜져 있음이 라벨로 보인다 — 목록에 없던 커밋이 왜 있는지의 유일한 근거다 */
+.git-hist-reflog{
+  display:flex;align-items:center;gap:3px;flex-shrink:0;cursor:pointer;
+  font-size:11px;color:var(--text-muted);
+}
+.git-hist-reflog input{margin:0;cursor:pointer}
+.git-hist-reflog:has(input:checked){color:var(--accent)}
+.git-hist-apply,.git-hist-branch,.git-hist-jump-go,.git-hist-retry,.git-hist-searchrepo{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-hist-apply:hover,.git-hist-branch:hover,.git-hist-jump-go:hover,.git-hist-retry:hover,
+.git-hist-searchrepo:hover{background:var(--accent-hover);color:var(--accent)}
+
+/* FR-GIT-132: 사유를 보이되 목록은 지우지 않는다 */
+.git-hist-note{
+  display:none;flex:0 0 auto;align-items:center;gap:8px;
+  padding:3px 10px;font-size:11px;color:var(--attn);background:var(--attn-subtle);
+}
+.git-hist-note.vis{display:flex}
+.git-hist-note-msg{flex:1 1 auto;min-width:0}
+.git-hist-retry{display:none}
+.git-hist-retry.vis{display:inline-block}
+/* 로드 범위에서 0건일 때만 저장소 전체를 권한다 (FR-GIT-129) */
+.git-hist-searchnone{
+  display:none;flex:0 0 auto;align-items:center;gap:8px;
+  padding:3px 10px;font-size:11px;color:var(--text-muted);
+  border-bottom:1px solid var(--border);
+}
+.git-hist-searchnone.vis{display:flex}
+
+.git-hist-main{flex:1 1 auto;min-height:0;display:flex}
+/* FR-GIT-122: 로컬 / 원격 / 태그 3그룹 */
+.git-refs{
+  flex:0 0 auto;width:150px;min-width:0;overflow-y:auto;font-size:11px;
+  border-right:1px solid var(--border);
+}
+.git-refs::-webkit-scrollbar{width:6px}
+.git-refs::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.git-refs-all,.git-ref{
+  display:flex;align-items:center;gap:4px;padding:3px 8px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;
+}
+.git-refs-all:hover,.git-ref:hover{background:var(--accent-hover)}
+.git-refs-all.sel,.git-ref.sel{background:var(--accent-active);color:var(--text-bright)}
+/* FR-GIT-216: refs 사이드바의 그룹도 섹션이다 */
+.git-refs-group+.git-refs-group{border-top:var(--git-sec-divider)}
+/* FR-GIT-226: 글자만 든 **단순 컨테이너**라 그룹에 값이 없으면 18px 로 줄어든다.
+   비어 있는 그룹도 자리를 알아볼 수 있어야 한다 — 목록 행과 같은 하한을 준다.
+   (행 안의 인라인 span 은 대상이 아니다. 늘리면 행이 두 배가 된다.) */
+.git-refs-head{
+  display:flex;align-items:center;min-height:var(--git-row-min);
+  padding:4px 8px 2px;color:var(--text-dim);font-size:10px;text-transform:uppercase;
+}
+.git-ref-short{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.git-ref.head .git-ref-short{color:var(--accent)}
+.git-ref-ab{flex-shrink:0;color:var(--text-muted);font-size:10px}
+/* upstream 이 사라진 것은 ahead/behind 0 과 다르다 — 색과 글자로 함께 알린다 */
+.git-ref-gone{flex-shrink:0;color:var(--attn);font-size:10px}
+
+/* FR-GIT-116: 스페이서 두 개 + 보이는 구간만 DOM 에 둔다. 행 높이는 constants.js
+   가 정하고 JS 가 --git-row-h 로 싣는다 — 같은 숫자를 두 곳에 적지 않는다. */
+.git-hist-list{flex:1 1 auto;min-width:0;overflow-y:auto;position:relative}
+.git-hist-list::-webkit-scrollbar{width:8px}
+.git-hist-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.git-hist-sp-top,.git-hist-sp-bot{height:0}
+.git-hist-row{
+  display:flex;align-items:center;gap:8px;height:var(--git-row-h);
+  padding:0 8px;font-size:12px;cursor:pointer;overflow:hidden;
+}
+.git-hist-row:hover{background:var(--accent-hover)}
+.git-hist-row.open{background:var(--accent-active)}
+/* jump 로 찾은 행. 스크롤만 하면 어느 줄로 갔는지 알 수 없다 (FR-GIT-131) */
+.git-hist-row.jumped{background:var(--attn-subtle)}
+/* FR-GIT-127: 미커밋 변경 행은 커밋이 아니다 — 색으로 구분한다 */
+.git-hist-row.uncommitted .git-hist-subject{color:var(--attn)}
+.git-hist-graph{flex:0 0 auto;display:flex;align-items:center;line-height:0}
+/* FR-GIT-119: 선 굵기는 CSS 가, 색은 테마에서 파생한 팔레트가 정한다 */
+.git-lane-line{stroke-width:1.5}
+.git-lane-dot{stroke:var(--bg);stroke-width:1}
+/* FR-GIT-120: 압축 표식 */
+.git-lane-compressed{fill:var(--attn)}
+.git-hist-msg{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:4px;overflow:hidden}
+.git-hist-subject{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.git-hist-row.head .git-hist-subject{color:var(--text-bright)}
+/* FR-GIT-126: 종류를 구분하고 HEAD 표식을 따로 보인다 */
+.git-hist-badge{
+  flex-shrink:0;max-width:140px;padding:0 5px;border-radius:8px;font-size:10px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  background:var(--accent-subtle);color:var(--accent);
+}
+.git-hist-badge.remote{background:transparent;color:var(--text-muted);border:1px solid var(--border)}
+.git-hist-badge.tag{background:var(--attn-subtle);color:var(--attn)}
+.git-hist-badge.head{background:var(--accent);color:var(--bg);font-weight:500}
+.git-hist-author{flex:0 0 auto;width:96px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.git-hist-date{flex:0 0 auto;width:78px;color:var(--text-muted);font-size:11px;text-align:right}
+.git-hist-hash{flex:0 0 auto;width:70px;color:var(--text-dim);font-family:monospace;font-size:11px;text-align:right}
+/* FR-GIT-125: 폭이 줄면 Commit → Date → Author 순으로 숨는다. 그래프와 메시지는
+   항상 남는다. 판정은 ResizeObserver 가 목록 폭으로 한다 — 미디어 쿼리는 창 폭이라
+   분할 안의 Git 창에서 쓸 수 없다. */
+.git-hist-list.hide-hash .git-hist-hash{display:none}
+.git-hist-list.hide-date .git-hist-date{display:none}
+.git-hist-list.hide-author .git-hist-author{display:none}
+.git-hist-empty{padding:10px;color:var(--text-muted);font-size:12px}
+
+/* FR-GIT-135: 그 행 **아래에** 인라인으로 펼친다. 별도 고정 영역을 두지 않는다.
+   높이는 고정이고 넘치는 내용은 안에서 스크롤한다 — 펼침이 하나이므로 오프셋
+   계산은 이 예외 하나만 알면 된다. */
+.git-hist-detail{
+  height:var(--git-detail-h);overflow-y:auto;cursor:default;
+  padding:6px 10px;font-size:11px;
+  background:var(--sidebar-bg);border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+}
+.git-hist-detail::-webkit-scrollbar{width:6px}
+.git-hist-detail::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.git-hist-detail.loading{color:var(--text-muted)}
+.git-hist-d-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.git-hist-d-oid{color:var(--text-bright);font-family:monospace;word-break:break-all}
+.git-hist-d-parents{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.git-hist-d-plabel{color:var(--text-dim)}
+.git-hist-d-parent{font-family:monospace;color:var(--accent);cursor:pointer}
+.git-hist-d-parent:hover{color:var(--text-bright)}
+.git-hist-d-who{margin-top:3px;color:var(--text-muted);word-break:break-all}
+.git-hist-d-body{
+  margin:4px 0;padding:4px 6px;max-height:120px;overflow:auto;
+  font:inherit;font-family:monospace;white-space:pre-wrap;word-break:break-word;
+  background:var(--bg);border:1px solid var(--border);border-radius:3px;
+}
+.git-hist-d-filehead{display:flex;align-items:center;gap:8px}
+.git-hist-d-filelabel{color:var(--text-dim)}
+/* FR-GIT-139: 머지 커밋에서만 보인다 — 부모가 하나면 고를 것이 없다 */
+.git-hist-d-pick{display:none;align-items:center;gap:4px;color:var(--text-dim)}
+.git-hist-d-pick.vis{display:flex}
+.git-hist-d-parentpick{
+  font:inherit;font-size:11px;background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-hist-file{display:flex;align-items:center;gap:6px;padding:2px 0;cursor:pointer}
+.git-hist-file:hover{background:var(--accent-hover)}
+.git-hist-file-st{width:12px;flex-shrink:0;text-align:center;color:var(--text-muted);font-family:monospace}
+.git-hist-file-path{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.git-hist-foot{
+  flex:0 0 auto;display:flex;align-items:center;gap:8px;
+  padding:3px 10px;font-size:10px;color:var(--text-dim);
+  border-top:1px solid var(--border);
+}
+.git-hist-state{color:var(--text-muted)}
+/* FR-GIT-138·139: 커밋 축은 어느 두 리비전을 비교하는지 함께 보인다 */
+.git-diff-rev{display:none;color:var(--text-muted);font-size:11px;flex-shrink:0;font-family:monospace}
+.git-diff-rev.vis{display:inline}
+
+/* 모바일은 refs 를 좁히고 행을 손가락 크기로 키운다 (O11 의 레인 상한과 짝이다) */
+body.mobile .git-refs{width:110px}
+body.mobile .git-hist-f{width:60px}
+
+/* ── Git 창의 글자 선택 (FR-GIT-225) ── */
+/* 더블클릭은 낱말을 선택한다 — 그것이 제스처와 겹친다 (FR-GIT-52·222). 사이드바가
+   이미 쓰는 규칙(`#sidebar`)을 Git 창에도 건다.
+   **본문은 예외다**: 선택해서 복사하는 것이 목적인 자리는 그대로 둔다. 목록의
+   해시·제목·경로·브랜치 이름은 우클릭 메뉴에 복사 항목이 있어 막히지 않는다. */
+.git-view{user-select:none;-webkit-user-select:none}
+.git-view .monaco-editor,
+.git-view .git-diff-host,
+.git-view .git-job-log,
+.git-view .git-job-tail,
+.git-view .git-job-auth-cmd,
+.git-view .git-con-detail,
+.git-view .git-hist-d-body,
+.git-view input,
+.git-view textarea{user-select:text;-webkit-user-select:text}
+
+/* ── Git Console 탭 (FR-GIT-218) ── */
+/* 바는 고정이고 목록만 스크롤한다 — 바가 함께 스크롤되면 500줄에서 토글에 닿을
+   수 없다. */
+.git-view.git-console{overflow:hidden}
+.git-view.git-console.vis{display:flex;flex-direction:column}
+.git-con-bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 8px;
+  border-bottom:1px solid var(--border);font-size:12px;
+}
+.git-con-reads{display:flex;align-items:center;gap:4px;cursor:pointer;min-height:var(--git-row-min)}
+/* 검색은 이미 받은 기록 안에서 거른다 (FR-GIT-281). 폭을 고정하지 않고 남는
+   자리를 나눠 갖는다 — 좁은 분할에서도 바가 넘치지 않게. */
+.git-con-search{
+  flex:1 1 120px;min-width:60px;font:inherit;font-size:11px;
+  padding:0 6px;min-height:var(--git-btn-h);
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-con-search:focus{outline:none;border-color:var(--accent)}
+.git-con-spacer{flex:1 1 auto}
+.git-con-count{color:var(--text-dim);font-size:11px}
+.git-con-list{flex:1 1 auto;min-height:0;overflow-y:auto;font-size:12px}
+.git-con-list::-webkit-scrollbar{width:8px}
+.git-con-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.git-con-note{padding:10px;color:var(--text-muted);font-size:11px}
+.git-con-row{
+  display:flex;align-items:center;gap:8px;padding:0 8px;cursor:pointer;
+  min-height:var(--git-row-min);white-space:nowrap;
+}
+.git-con-row:hover{background:var(--accent-hover)}
+.git-con-time{flex:0 0 auto;color:var(--text-dim);font-size:11px;font-variant-numeric:tabular-nums}
+.git-con-argv{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,monospace}
+.git-con-badges{flex:0 0 auto;display:flex;gap:4px}
+.git-con-badge{padding:0 4px;border-radius:8px;font-size:10px}
+.git-con-badge.destructive{background:var(--attn-subtle);color:var(--attn)}
+.git-con-dur{flex:0 0 auto;color:var(--text-dim);font-size:11px;font-variant-numeric:tabular-nums}
+.git-con-exit{flex:0 0 auto;color:var(--danger);font-size:11px}
+/* replay 는 hover 로만 보인다 — 기록은 읽는 자리이지 누르는 자리가 아니다
+   (.git-wt-act 와 같은 어휘). */
+.git-con-replay{
+  flex:0 0 auto;font:inherit;font-size:11px;line-height:1;cursor:pointer;padding:0 6px;
+  opacity:0;transition:opacity .1s;
+  background:transparent;color:var(--text-muted);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-con-row:hover .git-con-replay,.git-con-row:focus-within .git-con-replay{opacity:1}
+.git-con-replay:hover{color:var(--text-bright);border-color:var(--accent)}
+.git-con-row[data-destructive="1"] .git-con-replay:hover{color:var(--danger);border-color:var(--danger)}
+/* 실패는 argv 자체를 물들인다 — 배지 하나로는 500줄에서 눈에 걸리지 않는다 */
+.git-con-row.fail .git-con-argv{color:var(--danger)}
+.git-con-detail{padding:4px 8px 8px 8px;background:var(--sidebar-bg);font-size:11px}
+.git-con-cwd{color:var(--text-muted);word-break:break-all}
+.git-con-stderr{
+  margin-top:4px;white-space:pre-wrap;word-break:break-all;
+  color:var(--text);font-family:ui-monospace,monospace;max-height:180px;overflow-y:auto;
+}
+
+/* ── Git 사이드바 (FR-GIT-13~17) ── */
+/* FR-SBT-3 (D-5): 두 목록은 더 이상 같은 컬럼에서 높이를 다투지 않는다. 컨테이너
+   규칙은 `.sbl-list` 한 자리에 있다 (FR-BLP-7) — 옛 `max-height:40%` 는 세로
+   공존의 산물이었고, 공존이 사라지면 근거도 사라진다. */
+/* FR-FLW-11: 비었을 때도 자리가 보인다 — 빈 자리는 고장처럼 읽힌다 */
+.git-repos-none{padding:4px 8px;font-size:11px;color:var(--text-dim)}
+/* 옛 FR-GIT-214 의 여백 보정은 사라졌다 — `+ Add` 가 목록 **위**로 올라가면서
+   (UX_REVISION_SRS FR-BLP-8) WINDOWS 와 같은 배치가 되었고, 그 배치에는 애초에
+   이 문제가 없다고 그 조항이 이미 적어 두었다. */
+
+
+/* FR-GIT-219: 행 높이는 WINDOWS 목록의 `.si` 와 같다 (30px). 같은 자리·같은
+   생김새의 두 목록이 다른 높이면 사용자가 GIT 쪽을 좁다고 읽는다. */
+/* 행·이름·×·배지의 생김새는 `.sbl-*` 이 정한다 (FR-BLP-7). 여기 남는 것은
+   **Git 목록에만 있는 것**뿐이다. */
+/* 저장소가 아닌 항목은 흐리게 — 클릭 리스너 자체가 없다 (FR-GIT-10·11) */
+.git-repo.norepo{color:var(--text-dim);cursor:default}
+.git-repo.norepo:hover{background:transparent}
+/* O4: 활성 리포가 아닌 배지는 마지막 관측값일 뿐이다 */
+.git-badge.stale{background:transparent;color:var(--text-dim)}
+/* FR-GIT-239: follow 행의 자리 칸(`.git-repo-xslot`)은 `×` 와 같은 폭을 받는다 —
+   `×` 자신의 폭은 `.sbl-x` 가 준다. 자리만 잡으므로 동작·색은 없다. */
+.git-repo-xslot{width:16px;height:16px;flex-shrink:0}
+
+body.mobile .git-repo-xslot{width:24px;height:24px}
+
+/* ── 상태바 Git (FR-GIT-112) ── */
+/* 진행 중 원격 작업만 남는다 — 브랜치 chip 은 FR-FLW-12 가 걷어냈다 */
+.sb-git-job{color:var(--attn)}
+
+/* ── 파괴적 동작 확인 (FR-GIT-90~97·174~178) ── */
+.gc-modal{
+  position:fixed;inset:0;z-index:300;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;
+}
+/* 테두리 색이 파괴적이라는 사실을 먼저 알린다 */
+.gc-box{
+  display:flex;flex-direction:column;
+  min-width:300px;max-width:min(560px,92vw);max-height:80vh;
+  background:var(--bg);border:1px solid var(--danger);border-radius:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);font-size:12px;color:var(--text);
+}
+.gc-head{flex:0 0 auto;padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text-bright)}
+/* FR-GIT-178: 목록 위에 알리기만 한다 — 실행을 막지 않는다 */
+.gc-changed{flex:0 0 auto;display:none;padding:6px 12px;color:var(--attn);background:var(--attn-subtle)}
+.gc-changed.vis{display:block}
+.gc-count{flex:0 0 auto;padding:8px 12px 4px;color:var(--text-muted)}
+/* FR-GIT-177: 목록이 확인 버튼을 화면 밖으로 밀지 않는다 */
+.gc-targets{flex:1 1 auto;min-height:0;max-height:40vh;overflow-y:auto;margin:0;padding:0 12px 8px;list-style:none}
+.gc-target{padding:2px 0;font-family:monospace;word-break:break-all}
+.gc-hint,.gc-err{flex:0 0 auto;display:none;padding:8px 12px;border-top:1px solid var(--border)}
+.gc-hint.vis,.gc-err.vis{display:block}
+.gc-hint-label{color:var(--text-bright);margin-bottom:4px}
+.gc-hint-note{color:var(--text-muted);margin-bottom:4px}
+.gc-hint-cmd{display:block;padding:6px 8px;background:var(--sidebar-bg);border-radius:4px;
+  font-family:monospace;word-break:break-all;color:var(--text-bright)}
+.gc-err-reason{color:var(--danger);margin-bottom:4px}
+/* stderr tail 은 원문 그대로 보존한다 (FR-GIT-96) */
+.gc-err-tail{max-height:24vh;overflow:auto;margin:0;padding:6px 8px;background:var(--sidebar-bg);
+  border-radius:4px;font-family:monospace;font-size:11px;color:var(--text-muted);white-space:pre}
+.gc-copy{margin-top:6px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);
+  background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer}
+.gc-copy:hover{color:var(--text-bright);border-color:var(--accent)}
+.gc-actions{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:10px 12px;
+  border-top:1px solid var(--border)}
+.gc-progress{flex:1;color:var(--text-muted)}
+.gc-cancel,.gc-go{padding:5px 14px;border-radius:4px;border:1px solid var(--border);
+  background:transparent;font-size:12px;cursor:pointer}
+/* FR-GIT-97: 기본 선택지는 취소다 — 강조도 취소에 준다 */
+.gc-cancel{border-color:var(--accent);color:var(--accent)}
+.gc-go{border-color:var(--danger);color:var(--danger)}
+.gc-cancel:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.gc-cancel:disabled,.gc-go:disabled{opacity:.5;cursor:default}
+/* 1단계 확인(FR-GIT-72·87)은 파괴적이 아니다 — 색으로 그것을 구분한다 */
+.gc-box.soft{border-color:var(--accent-border)}
+.gc-box.soft .gc-go{border-color:var(--accent);color:var(--accent)}
+/* FR-GIT-94·177: 모바일에서는 실행 버튼을 목록과 분리된 별도 행에 두고
+   구분선과 여백으로 목록에서 떼어 놓는다 */
+.gc-box.mobile{width:calc(100vw - 24px);max-width:none;max-height:calc(100vh - 32px)}
+.gc-box.mobile .gc-targets{max-height:35vh}
+.gc-box.mobile .gc-actions{
+  flex-direction:column;align-items:stretch;gap:10px;
+  margin-top:10px;padding:12px;border-top:2px solid var(--border);
+}
+.gc-box.mobile .gc-progress{flex:0 0 auto}
+.gc-box.mobile .gc-cancel,.gc-box.mobile .gc-go{padding:12px;font-size:13px}
+
+/* ── Git Branches 탭 (FR-GIT-147~160) ── */
+/* 트리만 스크롤한다. 바는 고정이다 — 바가 목록과 함께 스크롤되면 많은 브랜치에서
+   검색과 생성에 닿을 수 없다. */
+.git-view.git-branches{overflow:hidden}
+.git-view.git-branches.vis{display:flex;flex-direction:column}
+.git-br-bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 8px;
+  border-bottom:1px solid var(--border);font-size:12px;
+}
+.git-br-spacer{flex:1 1 auto}
+.git-br-search{
+  font:inherit;font-size:11px;padding:2px 6px;width:160px;min-width:0;
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-br-new,.git-br-retry{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-br-new:hover,.git-br-retry:hover{background:var(--accent-hover);color:var(--accent)}
+/* 사유를 보이되 목록은 지우지 않는다 (FR-GIT-132 과 같은 규약) */
+.git-br-note{
+  display:none;flex:0 0 auto;align-items:center;gap:8px;
+  padding:3px 10px;font-size:11px;color:var(--attn);background:var(--attn-subtle);
+}
+.git-br-note.vis{display:flex}
+.git-br-note-msg{flex:1 1 auto;min-width:0}
+.git-br-tree{flex:1 1 auto;min-height:0;overflow-y:auto;font-size:12px;padding:4px 0}
+.git-br-tree::-webkit-scrollbar{width:8px}
+.git-br-tree::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.git-br-empty{padding:10px;color:var(--text-muted);font-size:11px}
+/* FR-GIT-216: 그룹(로컬·원격·태그)은 섹션이다. 접두사 묶음(`.git-br-pfx`)은 그룹
+   **안**의 하위 묶음이므로 대상이 아니다 */
+.git-br-group+.git-br-group{border-top:var(--git-sec-divider)}
+/* FR-GIT-148·149·150: 그룹과 접두사 그룹은 같은 골격이다 — 한쪽만 고쳐지지 않게 */
+.git-br-group-head,.git-br-pfx-head{
+  display:flex;align-items:center;gap:4px;padding:3px 8px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;
+}
+.git-br-group-head:hover,.git-br-pfx-head:hover{background:var(--accent-hover)}
+.git-br-group-name{color:var(--text-bright)}
+.git-br-pfx-name{color:var(--text)}
+.git-br-group-count,.git-br-pfx-count{color:var(--text-dim);font-size:10px}
+.git-br-twist{flex:0 0 auto;width:10px;color:var(--text-dim);font-size:9px}
+.git-br-pfx-head{padding-left:20px}
+.git-br-pfx-body>.git-br-row{padding-left:44px}
+.git-br-group-body>.git-br-row{padding-left:28px}
+.git-br-row{
+  display:flex;align-items:center;gap:6px;padding:2px 8px;
+  white-space:nowrap;overflow:hidden;
+}
+.git-br-row:hover{background:var(--accent-hover)}
+/* FR-GIT-254: 일괄 삭제의 대상은 눈에 보여야 한다 — 무엇이 지워질지 모르는 선택은
+   선택이 아니다. hover 와 구분되도록 왼쪽에 표시를 함께 준다 */
+.git-br-row.sel{background:var(--accent-hover);box-shadow:inset 2px 0 0 var(--accent)}
+/* FR-GIT-152: 현재 브랜치를 구분 표시한다 */
+.git-br-row.current .git-br-name{color:var(--accent)}
+.git-br-cur{flex:0 0 auto;color:var(--accent);font-size:11px}
+/* FR-GIT-149: ★ 는 꺼진 상태에서도 자리를 지킨다 — 자리가 흔들리면 누를 수 없다 */
+.git-br-fav{flex:0 0 auto;width:12px;color:var(--border);cursor:pointer;font-size:11px}
+.git-br-fav:hover{color:var(--text-muted)}
+.git-br-fav.on{color:var(--accent)}
+.git-br-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.git-br-ab{flex:0 0 auto;color:var(--text-muted);font-size:10px}
+.git-br-up{flex:0 0 auto;color:var(--text-dim);font-size:10px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* upstream 이 사라진 것은 ahead/behind 0 과 다르다 — 색과 글자로 함께 알린다 */
+.git-br-gone{flex:0 0 auto;color:var(--attn);font-size:10px}
+
+/* ── 흡수한 다이얼로그의 각자의 것 (FR-GIT-156·157·158·166) ── */
+/* 골격은 `.git-dialog-*` 에 있다 — 여기 남는 것은 성질을 알리는 테두리 색과
+   좁은 폭에서의 줄바꿈처럼 그 다이얼로그만의 것이다 */
+/* 결정을 요구하는 다이얼로그다 — 실행/취소 두 갈래가 아니다 */
+.gch-box{border-color:var(--attn)}
+.gbc-box,.gsc-box,.gwc-box{border-color:var(--accent-border)}
+/* 옵션 문구는 본문보다 약하게 — 값이 아니라 설명이다 */
+.gbc-checkoutrow,.gsc-optrow,.gwc-optrow{color:var(--text-muted)}
+
+/* ── Git Stash 탭 (FR-GIT-161~170) ── */
+.git-view.git-stash{overflow:hidden}
+.git-view.git-stash.vis{display:flex;flex-direction:column}
+.git-stash-bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:4px 8px;
+  border-bottom:1px solid var(--border);font-size:12px;
+}
+.git-stash-new{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-stash-new:hover:not(:disabled){background:var(--accent-hover);color:var(--accent)}
+.git-stash-new:disabled{color:var(--text-dim);cursor:not-allowed}
+/* FR-GIT-272: 메시지·기준 브랜치 필터. 받아 둔 목록에만 건다 */
+.git-stash-filter{
+  font:inherit;font-size:11px;padding:2px 6px;width:150px;min-width:0;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+/* FR-GIT-167: 사유 없이 꺼진 버튼은 사용자가 해소할 수 없다 */
+.git-stash-why{display:none;color:var(--text-muted);font-size:11px;min-width:0;overflow:hidden}
+.git-stash-why.vis{display:block}
+/* FR-GIT-165: pop 이 충돌로 끝나면 stash 가 남는다 — 그 사실을 그 자리에서 알린다 */
+.git-stash-note{
+  display:none;flex:0 0 auto;align-items:center;gap:8px;
+  padding:4px 10px;font-size:11px;color:var(--attn);background:var(--attn-subtle);
+}
+.git-stash-note.vis{display:flex}
+.git-stash-note-msg{flex:1 1 auto;min-width:0}
+.git-stash-note-close{
+  font:inherit;font-size:10px;padding:1px 6px;cursor:pointer;flex-shrink:0;
+  background:transparent;color:var(--attn);border:1px solid var(--attn);border-radius:3px;
+}
+.git-stash-main{flex:1 1 auto;min-height:0;display:flex}
+.git-stash-list{flex:1 1 auto;min-width:0;overflow-y:auto;font-size:12px}
+.git-stash-list::-webkit-scrollbar{width:8px}
+.git-stash-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.git-stash-empty{padding:10px;color:var(--text-muted);font-size:11px}
+.git-stash-row{
+  display:flex;align-items:center;gap:8px;padding:3px 10px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;
+}
+.git-stash-row:hover{background:var(--accent-hover)}
+.git-stash-row.sel{background:var(--accent-active)}
+.git-stash-ref{flex:0 0 auto;color:var(--accent);font-family:monospace;font-size:11px}
+.git-stash-msg{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.git-stash-base{flex:0 0 auto;color:var(--text-muted);font-size:10px}
+.git-stash-date{flex:0 0 auto;color:var(--text-dim);font-size:10px}
+/* FR-GIT-169: 선택한 stash 의 변경 파일. 클릭하면 Diff 탭이 커밋 축으로 연다 */
+.git-stash-preview{
+  flex:0 0 auto;width:260px;min-width:0;overflow-y:auto;
+  border-left:1px solid var(--border);font-size:11px;
+}
+.git-stash-preview::-webkit-scrollbar{width:6px}
+.git-stash-preview::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+/* FR-GIT-226: 같은 이유 — 머리글이 내용 없이 줄어들지 않는다 */
+.git-stash-preview-head{
+  display:flex;align-items:center;min-height:var(--git-row-min);
+  padding:4px 8px;color:var(--text-dim);text-transform:uppercase;font-size:10px;
+}
+.git-stash-file{
+  display:flex;align-items:center;gap:6px;padding:2px 8px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;
+}
+.git-stash-file:hover{background:var(--accent-hover)}
+.git-stash-file-st{flex:0 0 auto;width:12px;color:var(--accent);font-family:monospace}
+.git-stash-file-path{min-width:0;overflow:hidden;text-overflow:ellipsis}
+
+/* ── Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5 / FR-GIT-240~244) ── */
+.git-worktrees{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.git-wt-head{
+  display:flex;align-items:center;gap:8px;flex:0 0 auto;
+  padding:4px 10px;border-bottom:1px solid var(--border);
+}
+.git-wt-spacer{flex:1 1 auto}
+.git-wt-note{display:none;padding:4px 10px;font-size:11px;
+  color:var(--attn);background:var(--attn-subtle)}
+.git-wt-note.vis{display:flex;align-items:center;gap:8px}
+.git-wt-note-msg{flex:1 1 auto;min-width:0;word-break:break-all}
+.git-wt-list{flex:1 1 auto;min-height:0;overflow-y:auto}
+.git-wt-empty{display:none;padding:6px 10px;font-size:11px;color:var(--text-dim)}
+.git-wt-empty.vis{display:block}
+/* FR-GIT-197·226: 목록 행의 높이 하한은 한 곳(--git-row-min)에서 온다 */
+.git-wt-row{
+  display:flex;align-items:center;gap:8px;padding:0 6px 0 10px;
+  min-height:var(--git-row-min);font-size:12px;white-space:nowrap;
+}
+.git-wt-row:hover{background-color:var(--accent-hover)}
+/* 경로가 이 행의 본체다 — 좁아지면 이것만 줄어든다. 만들어진 경로를 보이는 자리이므로
+   (FR-GIT-242) 가장 강조한다 */
+.git-wt-path{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  color:var(--text-bright)}
+.git-wt-branch{flex-shrink:0;color:var(--accent)}
+.git-wt-branch.detached{color:var(--text-muted);font-style:italic}
+/* 사용자 것은 표식이 없다 — 그것이 기본이기 때문이다 (FR-GIT-240). 요소는 늘 있고
+   글자만 비므로 자리를 먹지 않는다 */
+.git-wt-own{flex-shrink:0;font-size:10px;color:var(--text-muted)}
+.git-wt-main{flex-shrink:0;font-size:10px;padding:0 4px;border-radius:8px;
+  background:var(--accent-subtle);color:var(--accent)}
+.git-wt-rowspacer{flex:0 0 4px}
+/* 행 인라인 동작. 항상 보인다 — .git-file-acts 와 같은 규약 */
+.git-wt-acts{display:flex;gap:2px;flex-shrink:0}
+.git-wt-act{
+  font:inherit;font-size:11px;line-height:1;cursor:pointer;padding:0 6px;
+  display:flex;align-items:center;justify-content:center;
+  background:transparent;color:var(--text-muted);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-wt-act:hover{color:var(--text-bright);border-color:var(--accent)}
+.git-wt-act[data-act="remove"]:hover{color:var(--danger);border-color:var(--danger)}
+/* 머리의 생성 진입점과 안내 닫기. 같은 자리를 쓰는 Stash 탭(.git-stash-new ·
+   .git-stash-note-close)과 같은 어휘여야 한다 — 규칙이 없으면 브라우저 기본 베벨로
+   떠서 어두운 테마에서 튄다 */
+.git-wt-add{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-wt-add:hover:not(:disabled){background:var(--accent-hover);color:var(--accent)}
+.git-wt-add:disabled{color:var(--text-dim);cursor:not-allowed}
+.git-wt-note-close{
+  flex-shrink:0;font:inherit;font-size:11px;padding:0 8px;cursor:pointer;
+  background:transparent;color:var(--text-muted);
+  border:1px solid var(--border);border-radius:3px;
+}
+
+/* ── Git 컨트롤 치수 하한 (FR-GIT-195~199, **FR-GIT-226 으로 개정**) ──
+   기준은 VSCode(22/26)가 아니라 **이 앱의 WINDOWS 목록 행(`.si` 30px)** 이다 —
+   같은 앱 안에서 목록마다 다른 높이를 쓸 이유가 없다 (사용자 검토).
+   값은 여기 한 번만 둔다 — 선택자마다 흩어지면 한쪽만 고쳐진다.
+   `min-*` 만 쓰므로 모바일의 더 큰 값은 그대로 남는다 (FR-GIT-199). */
+:root{--git-hit:30px;--git-btn-h:30px;--git-row-min:30px;
+  /* GIT_TREE_INDENT · GIT_TREE_PAD0 (constants.js) 과 같은 값 */
+  --git-indent:12px;--git-tree-pad0:9px}
+
+.git-view button,.git-dialog button,#git-confirm button,.git-menu-item{
+  min-height:var(--git-btn-h);min-width:var(--git-hit);
+}
+/* FR-GIT-226 으로 세 값이 같아졌다 — 행 인라인 동작의 예외가 사라졌다 */
+.git-view .git-file-act{min-height:var(--git-hit);min-width:var(--git-hit)}
+/* 입력도 같은 눈높이여야 옆 버튼과 어긋나 보이지 않는다 */
+/* 체크박스·라디오는 제외한다 — 이 하한을 먹이면 14px 상자가 26px 로 늘어나
+   타원이 된다 (실측). 그 둘의 치수는 FR-GIT-206 이 따로 정한다. */
+.git-view input:not([type="checkbox"]):not([type="radio"]),.git-view select,
+.git-dialog input:not([type="checkbox"]):not([type="radio"]),.git-view textarea{
+  min-height:var(--git-btn-h);
+}
+
+.git-diff-ws,.git-diff-fold{min-height:var(--git-hit)}
+/* FR-GIT-198: 컨트롤 라벨은 11px 미만이 되지 않는다 */
+.git-remote-more,.git-hist-smode{font-size:11px}
+/* FR-GIT-197·226: 목록 행 (파일 행은 .git-file 규칙이 이미 잡는다) */
+.git-br-row,.git-stash-row,.git-br-group-head,.git-br-pfx-head{min-height:var(--git-row-min)}
+/* refs 사이드바의 행도 목록 행이다 — 빠져 있었다 */
+.git-refs-all,.git-ref{min-height:var(--git-row-min)}
+/* 사이드바 목록의 행 높이·히트 영역은 `.sbl-item`·`.sbl-x` 가 정한다 (FR-BLP-7).
+   두 목록이 같아야 하므로 Git 쪽 사본을 두지 않는다 — 값이 같아도 두 벌이면
+   한쪽만 고쳐진다. `--git-row-min` 과 같은 30px 이므로 FR-GIT-197·226 은 그대로
+   지켜진다. */
+/* FR-GIT-239: 자리 칸은 `×` 와 같은 폭을 받는다 — 한쪽만 받으면 두 행의 오른쪽
+   끝이 어긋난다. `×` 자신의 하한은 `.sbl-x` 가 준다. */
+#git-repos .git-repo-xslot{min-width:var(--sbl-hit);min-height:var(--sbl-hit)}
+
+/* ── GIT 섹션 표식 (FR-GIT-192~194) ──
+   WINDOWS 목록의 `.si-dot` 과 같은 어휘다. 활성 리포 여부만 나타내고
+   (O18), follow·핀 구분은 배치가 한다 (FR-GIT-193). */
+/* 점 자체는 `.sbl-dot` 이다 — 여기 남는 것은 Git 에만 있는 상태다. */
+/* 가리키는 리포가 없으면 상태도 없다 (FR-GIT-194) */
+.git-repo-dot.none{background:transparent}
+/* follow 는 늘 최상단 1줄이다 — 그 아래 선이 핀 목록과 나눈다 (FR-GIT-216) */
+
+/* ── Git 창의 감춘 진입점 (FR-GIT-180) ── */
+.git-hidden{display:none !important}
+
+/* ── 폼 컨트롤의 테마 (GIT_UI_REVISION_SRS FR-GIT-203~206) ──
+   브라우저 기본 위젯은 앱 테마(44종)와 무관한 색으로 그려진다 — 어두운 테마에서
+   흰 사각형이 튀고 라이트 테마에서도 accent 와 어긋난다. 전역으로 한 벌만 그린다:
+   컨트롤을 두 벌로 그리면 같은 체크박스가 자리마다 달라 보인다.
+
+   상태는 **형태로** 구분한다 (FR-GIT-204) — 색만으로 나누면 테마에 따라 사라진다. */
+input[type="checkbox"],input[type="radio"]{
+  appearance:none;-webkit-appearance:none;
+  /* 상자는 정사각이어야 한다. flex 부모의 stretch 나 다른 규칙의 min-height 가
+     한 변만 늘리면 타원·직사각이 된다 — 네 값을 함께 못박는다 (실측 결함). */
+  flex-shrink:0;align-self:center;
+  width:14px;height:14px;min-width:14px;min-height:14px;margin:0;
+  background:transparent;border:1px solid var(--text-dim);border-radius:3px;
+  cursor:pointer;transition:background .1s,border-color .1s;
+}
+input[type="radio"]{border-radius:50%}
+input[type="checkbox"]:hover:not(:disabled),
+input[type="radio"]:hover:not(:disabled){border-color:var(--accent)}
+/* FR-GIT-204: 켜짐은 **꽉 찬 상자**다. 체크 표식은 그리지 않는다 — 14px 안의 획은
+   어떻게 그려도 끝이 뭉툭하거나 비율이 어긋난다(4종 실측). 비었나 찼나는 색이
+   아니라 면적의 차이라 흑백으로 떨어뜨려도 남는다. */
+input[type="checkbox"]:checked,input[type="radio"]:checked{
+  background:var(--accent);border-color:var(--accent);
+}
+/* FR-GIT-70 의 indeterminate 는 "켜짐도 꺼짐도 아님" 이다 — 다른 색으로 채운다 */
+input[type="checkbox"]:indeterminate{background:var(--attn);border-color:var(--attn)}
+input[type="checkbox"]:disabled,input[type="radio"]:disabled{
+  opacity:.45;cursor:not-allowed;
+}
+input[type="checkbox"]:focus-visible,input[type="radio"]:focus-visible{
+  outline:2px solid var(--accent);outline-offset:1px;
+}
+/* FR-GIT-205: select 도 같은 토큰으로. 화살표는 기본 위젯을 지우고 직접 그린다 */
+select{
+  appearance:none;-webkit-appearance:none;
+  font:inherit;color:var(--text);background:var(--bg);
+  border:1px solid var(--border);border-radius:3px;
+  padding:0 22px 0 8px;cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),
+                   linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 12px) center,calc(100% - 7px) center;
+  background-size:5px 5px,5px 5px;
+  background-repeat:no-repeat;
+}
+select:hover{border-color:var(--accent)}
+select:focus{border-color:var(--accent);outline:none}
+/* FR-GIT-206·226: 컨트롤을 담은 행은 손이 닿는 높이여야 한다 */
+.git-dialog-row,.git-commit-amend,.git-commit-opt,.git-diff-ws,.git-diff-fold{
+  min-height:var(--git-row-min);display:flex;align-items:center;gap:6px;cursor:pointer;
+}
+
+/* ── 부분 스테이징 (GIT_ACTIONS_SRS §3.7 FR-GIT-278·279) ──
+   조각은 Monaco 아래 자기 자리에 선다. Monaco 는 두 모델을 그릴 뿐 hunk 의 경계를
+   모르므로, 경계 위에 서는 동작은 이 목록이 갖는다.
+   버튼·행의 치수 하한은 위의 `.git-view button` 이 이미 준다 (FR-GIT-226). */
+.git-hunks{
+  display:none;flex:0 0 auto;max-height:42%;overflow:auto;
+  border-top:var(--git-sec-divider);
+  /* 색은 여기 한 번만 둔다 — 전역 테마에 +/- 색이 없다 */
+  --git-hunk-add:#9ece6a;--git-hunk-del:var(--danger);
+}
+.git-hunks.vis{display:block}
+.git-hunk-note{padding:5px 10px;font-size:11px;color:var(--text-muted)}
+.git-hunk{border-bottom:1px solid var(--border)}
+.git-hunk-head{
+  display:flex;align-items:center;gap:6px;padding:2px 8px;font-size:11px;
+  background:var(--sidebar-bg);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:1;
+}
+.git-hunk-header{color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.git-hunk-range{color:var(--accent);flex-shrink:0}
+.git-hunk-spacer{flex:1 1 auto}
+.git-hunk-act,.git-hunk-clear{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-hunk-act:disabled{color:var(--text-dim);cursor:not-allowed}
+/* revert 는 파괴적이다 — 색으로도 그 사실이 보여야 한다 (FR-GIT-89·279) */
+.git-hunk-act[data-act="revert"]{color:var(--attn)}
+.git-hunk-body{font-family:ui-monospace,monospace;font-size:11px;line-height:1.5}
+.git-hunk-line{padding:0 10px;white-space:pre;cursor:pointer}
+.git-hunk-line.add{color:var(--git-hunk-add)}
+.git-hunk-line.del{color:var(--git-hunk-del)}
+.git-hunk-line.meta{color:var(--text-dim)}
+/* 고른 범위는 배경으로 말한다 — 글자색만 바꾸면 +/- 의 뜻과 겹친다 */
+.git-hunk-line.sel{background:var(--accent-active)}
+/* 조각 동작이 거부된 사유. 누른 자리가 Diff 탭이므로 여기 보인다 (FR-GIT-278). */
+.git-hunk-note.fail{color:var(--danger)}
+/* ── 원격 동작 (FR-GIT-269~271) ────────────────────────────────────────────
+   Sync·Preview 는 `.git-head-remote` **밖**이다 — 안에 넣으면 "원격 버튼 한 벌은
+   세 쌍" 이라는 기존 단정이 깨진다 (FR-GIT-238 의 새로고침과 같은 이유). */
+.git-remote-sync,.git-push-preview{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;margin-right:6px;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-remote-sync:hover:not(:disabled),.git-push-preview:hover:not(:disabled){
+  background:var(--accent-hover);color:var(--accent);
+}
+/* 사유 없이 꺼진 버튼은 사용자가 해소할 수 없다 — title 이 그것을 맡는다 */
+.git-remote-sync:disabled,.git-push-preview:disabled{color:var(--text-dim);cursor:not-allowed}
+
+/* Branches 탭의 원격 목록 (FR-GIT-269). 트리가 스크롤을 갖고 이 영역은 고정이다 */
+.git-br-remotes{flex:0 0 auto;border-top:1px solid var(--border);font-size:12px}
+.git-rm-head{display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:11px}
+.git-rm-title{color:var(--accent)}
+.git-rm-count{color:var(--text-muted)}
+.git-rm-spacer{flex:1 1 auto}
+.git-rm-add{
+  font:inherit;font-size:10px;padding:1px 6px;cursor:pointer;
+  background:transparent;color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-rm-add:hover:not(:disabled){background:var(--accent-hover);color:var(--accent)}
+.git-rm-add:disabled{color:var(--text-dim);cursor:not-allowed}
+.git-rm-note{display:none;padding:3px 10px;font-size:11px;color:var(--danger)}
+.git-rm-note.vis{display:block}
+.git-rm-rows{max-height:140px;overflow-y:auto;padding-bottom:4px}
+.git-rm-empty{padding:6px 10px;color:var(--text-muted);font-size:11px}
+.git-rm-row{
+  display:flex;align-items:center;gap:8px;padding:2px 10px;min-width:0;
+  min-height:var(--git-row-min);
+}
+.git-rm-name{flex-shrink:0}
+.git-rm-url{
+  flex:1 1 auto;min-width:0;color:var(--text-muted);font-size:10px;font-family:monospace;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.git-rm-del{
+  font:inherit;font-size:10px;padding:1px 6px;cursor:pointer;flex-shrink:0;
+  background:transparent;color:var(--text);border:1px solid var(--border);border-radius:3px;
+}
+.git-rm-del:hover{background:var(--accent-hover);color:var(--accent)}
+
+/* Push 미리보기 (FR-GIT-271). 본문이 올라갈 커밋 목록이므로 줄바꿈을 보존한다 */
+.gpp-note{
+  white-space:pre-wrap;word-break:break-all;max-height:180px;overflow-y:auto;
+  font-family:monospace;font-size:11px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PARALLEL_DELIVERY_PLAN Step 0-9 — 트랙별 CSS 섹션 경계
+   
+   style.css 는 세 워크스트림(WS-5 Run 시각화 · WS-6 사이드바 탭 · WS-8 백그라운드
+   종료)이 함께 만지는 핫스팟이다. 각자 **자기 섹션 안에만 append** 하고 기존 규칙을
+   수정하지 않으면 병렬 중 충돌이 나지 않는다.
+   
+   기존 규칙을 고쳐야 하는 경우는 하나뿐이다 — WS-6 의 #git-repos max-height 제거
+   (FR-SBT-3). 그 한 줄은 WS-6 소유로 명시한다 (style.css:1492).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* --- track: runs (WS-5 · ORCHESTRATION_V2_SRS 묶음 V) --- */
+
+/* FR-RVZ-2: Run 목록 모달. 백그라운드 도구 모달(.bg-modal)과 같은 상호작용
+   규약을 쓰므로 치수·그림자도 그것을 따른다 — 두 모달이 다르게 생기면 같은
+   규약이라는 사실이 화면에서 사라진다. */
+.runs-modal{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;
+}
+.runs-box{
+  min-width:360px;max-width:min(680px,92vw);max-height:70vh;overflow-y:auto;
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);padding:4px;font-size:12px;
+}
+.runs-box .runs-head{padding:8px 10px;color:var(--text-muted);border-bottom:1px solid var(--border)}
+.runs-box .runs-err{padding:10px;color:var(--danger)}
+/* FR-RVZ-4: 빈 목록은 안내다. 두 줄이며 아래가 다음 행동이다. */
+.runs-box .runs-empty{padding:14px 10px}
+.runs-box .runs-empty-t{color:var(--text-bright)}
+.runs-box .runs-empty-h{margin-top:4px;color:var(--text-muted);font-family:monospace;font-size:11px}
+.runs-box .runs-row{
+  display:flex;gap:8px;align-items:baseline;min-height:30px;
+  padding:8px 10px;border-radius:4px;cursor:pointer;
+}
+.runs-box .runs-row:hover{background:var(--accent-subtle)}
+.runs-box .runs-short{color:var(--text-bright);font-family:monospace;flex-shrink:0}
+/* FR-RVZ-3: 목적은 한 줄로 자른다 — 행 높이가 목적 길이에 흔들리면 목록이 아니다. */
+.runs-box .runs-obj{flex:1 1 auto;min-width:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.runs-box .runs-state{font-size:11px;padding:1px 6px;border-radius:3px;border:1px solid var(--border);color:var(--text-muted);flex-shrink:0}
+.runs-box .runs-state.st-open{color:var(--accent);border-color:var(--accent-border)}
+.runs-box .runs-state.st-aborted{color:var(--danger);border-color:var(--danger)}
+.runs-box .runs-members{color:var(--text-muted);font-size:11px;white-space:nowrap;flex-shrink:0}
+.runs-box .runs-iso{color:var(--text-muted);font-size:11px;white-space:nowrap;flex-shrink:0}
+/* V-RVZ-6: 컨텍스트 경고 배지. 값이 없으면 이 요소 자체가 만들어지지 않는다. */
+.runs-box .runs-ctx{font-size:11px;white-space:nowrap;flex-shrink:0}
+.runs-box .runs-ctx.lv-warn{color:var(--attn)}
+.runs-box .runs-ctx.lv-critical{color:var(--danger)}
+.runs-box .runs-ago{color:var(--text-dim);font-size:11px;white-space:nowrap;flex-shrink:0}
+/* UX_REVISION_SRS FR-DEL-1~6: 삭제 목표. 백그라운드 모달의 종료(FR-BGK-1~10)와
+   **같은 규약이므로 같은 모양**이다 — 두 모달에서 파괴적 동작이 다르게 생기면
+   사용자가 매번 다시 읽는다. */
+.runs-box .runs-del,.runs-box .runs-confirm,.runs-box .runs-deleting{margin-left:auto;flex-shrink:0}
+.runs-box .runs-del{padding:2px 8px;color:var(--text-muted);border-color:var(--border)}
+.runs-box .runs-del:hover{color:var(--danger);border-color:var(--danger);background:rgba(247,118,142,.12)}
+.runs-box .runs-confirm{display:inline-flex;gap:6px;align-items:center}
+.runs-box .runs-q{color:var(--text-bright);font-size:11px;white-space:nowrap}
+.runs-box .runs-yes{padding:2px 8px;color:var(--danger);border-color:var(--danger)}
+.runs-box .runs-yes:hover{background:rgba(247,118,142,.18);color:var(--danger);border-color:var(--danger)}
+.runs-box .runs-no{padding:2px 8px}
+.runs-box .runs-deleting{color:var(--text-muted);font-size:11px;white-space:nowrap}
+.runs-box .runs-err-inline{color:var(--danger);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 터치. hover 없이 닿아야 하므로 히트 영역만 키운다 (.bg-row 와 같은 44px 규약). */
+body.mobile .runs-box .runs-row{min-height:44px}
+body.mobile .runs-box .runs-del{min-height:44px;padding:0 12px}
+
+/* FR-RVZ-6: 네 번째 탭 타입의 본문. .file-editor 와 같은 층위이므로 표시 규약도
+   같다 — pane body 에 붙은 뒤 `.vis` 가 붙는다. */
+.run-view{position:absolute;inset:0;display:none;overflow:auto;background:var(--bg)}
+.run-view.vis{display:block}
+/* FR-RVZ-9: 사라진 Run. 탭은 남으므로 본문만 이 문구로 바뀐다. */
+.run-view .run-miss{display:none;padding:24px;color:var(--text-muted);font-size:13px}
+.run-view .run-miss.vis{display:block}
+.run-view .run-miss.err{color:var(--danger)}
+.run-view .run-body{display:none;flex-direction:column;gap:1px}
+.run-view .run-body.vis{display:flex}
+
+/* FR-RVZ-10: 네 영역. 경계선 하나로 나눈다 — 영역마다 상자를 그리면 대시보드가
+   아니라 카드 더미가 된다. */
+.run-view .run-summary{
+  display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;
+  padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;
+}
+.run-view .run-sum-short{color:var(--text-bright);font-family:monospace}
+/* 목적은 늘어나지 않는다 — 늘리면 넓은 화면에서 나머지 요약 항목이 오른쪽
+   끝으로 밀려나 한 덩어리로 읽히지 않는다. 길면 자른다. */
+.run-view .run-sum-obj{flex:0 1 auto;min-width:0;max-width:44%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.run-view .run-sum-state,.run-view .run-sum-iso,
+.run-view .run-sum-ago,.run-view .run-sum-members{color:var(--text-muted);font-size:11px;white-space:nowrap}
+
+/* FR-RVZ-11 · UX_REVISION_SRS FR-FIT-1~4: SVG 를 직접 그린다. 표시 크기는 칸의
+   폭에 맞춰 축소되고(확대는 하지 않는다), 축소 하한 아래에서만 가로로 스크롤한다.
+   `overflow-x:auto` 를 남겨 두는 이유가 그 하한이다 — 20명짜리 Run 을 읽을 수
+   없을 만큼 줄이는 대신 스크롤로 돌려보낸다. */
+.run-view .run-graph-wrap{overflow-x:auto;overflow-y:hidden;border-bottom:1px solid var(--border);padding:6px 8px}
+.run-view .run-graph{display:block;margin:0 auto}
+
+/* FR-RVZ-12: 노드 시각 규약. 색은 전부 테마 변수다.
+   `--run-ok` 만 여기서 정한다 — 전역 테마에 "성공" 색이 없다 (.git-hunks 가
+   +/- 색에 대해 세운 것과 같은 규약이며, 값을 두는 자리는 이 한 곳이다). */
+.run-view{--run-ok:#9ece6a}
+.run-view .run-node .run-node-box{fill:var(--sidebar-bg);stroke:var(--border);stroke-width:1.5}
+.run-view .run-node .run-node-role{fill:var(--text-bright);font-size:12px;font-family:inherit}
+.run-view .run-node .run-node-sub{fill:var(--text-muted);font-size:10px;font-family:inherit}
+.run-view .run-node.coord .run-node-box{stroke:var(--accent-border)}
+.run-view .run-node.state-working .run-node-box{stroke:var(--accent);stroke-width:2}
+.run-view .run-node.state-waiting .run-node-box{stroke:var(--attn);stroke-width:2}
+.run-view .run-node.state-done .run-node-box{stroke:var(--run-ok)}
+.run-view .run-node.state-failed .run-node-box{stroke:var(--danger);stroke-width:2}
+.run-view .run-node.state-lost .run-node-box{stroke:var(--text-dim)}
+.run-view .run-node.state-lost .run-node-role{fill:var(--text-dim)}
+/* succeeded 는 점선이다. 헤드리스의 점선과 간격이 달라 겹쳐도 구분된다. */
+.run-view .run-node.state-succeeded .run-node-box{stroke:var(--text-muted);stroke-dasharray:2 3}
+/* V-RVZ-5: 헤드리스 = 점선 테두리. 상태색은 그대로 두고 선만 끊는다. */
+.run-view .run-node.headless .run-node-box{stroke-dasharray:5 3}
+/* V-RVZ-6: 컨텍스트 게이지. 노드 하단에 붙는다. */
+.run-view .run-gauge-bg{fill:var(--border)}
+.run-view .run-gauge.lv-ok{fill:var(--text-muted)}
+.run-view .run-gauge.lv-warn{fill:var(--attn)}
+.run-view .run-gauge.lv-critical{fill:var(--danger)}
+
+.run-view .run-edge{fill:none;stroke:var(--border-strong)}
+/* 최근 30초 내 통신. 굵기는 건수가 정하므로 강조는 색으로만 한다. */
+.run-view .run-edge.recent{stroke:var(--accent)}
+/* V-RVZ-7: 승계 화살표는 굵다. 메시지 엣지의 굵기 상한(4)보다 위여야 "굵은
+   화살표" 가 승계만 가리킨다. */
+.run-view .run-edge-succ{stroke:var(--text-bright);stroke-width:5}
+.run-view .run-mk path{fill:var(--border-strong)}
+.run-view .run-mk-recent path{fill:var(--accent)}
+.run-view .run-mk-succ path{fill:var(--text-bright)}
+
+/* FR-RVZ-13: 멤버 카드. 클릭하면 그 멤버의 도구로 간다. */
+.run-view .run-cards{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border)}
+/* 멤버가 없으면 자리도 없다 — 빈 띠는 덜 그려진 화면으로 읽힌다. */
+.run-view .run-cards:empty{display:none}
+.run-view .run-card{
+  display:flex;gap:6px;align-items:baseline;min-height:28px;
+  padding:5px 9px;font-size:11px;cursor:pointer;
+  background:var(--sidebar-bg);border:1px solid var(--border);border-left-width:3px;border-radius:4px;
+}
+.run-view .run-card:hover{background:var(--accent-subtle)}
+.run-view .run-card.state-working{border-left-color:var(--accent)}
+.run-view .run-card.state-waiting{border-left-color:var(--attn)}
+.run-view .run-card.state-done{border-left-color:var(--run-ok)}
+.run-view .run-card.state-failed{border-left-color:var(--danger)}
+.run-view .run-card.state-lost{border-left-color:var(--text-dim)}
+.run-view .run-card.headless{border-style:dashed;border-left-style:solid}
+.run-view .run-card-role{color:var(--text-bright);white-space:nowrap}
+.run-view .run-card-agent,.run-view .run-card-state,
+.run-view .run-card-compact,.run-view .run-card-wt,
+.run-view .run-card-headless{color:var(--text-muted);white-space:nowrap}
+.run-view .run-card-wt{max-width:180px;overflow:hidden;text-overflow:ellipsis}
+.run-view .run-card-ctx{white-space:nowrap;color:var(--text-muted)}
+.run-view .run-card-ctx.lv-warn{color:var(--attn)}
+.run-view .run-card-ctx.lv-critical{color:var(--danger)}
+body.mobile .run-view .run-card{min-height:44px}
+
+/* FR-RVZ-10: 타임라인. */
+.run-view .run-timeline{padding:8px 14px 16px;font-size:11px}
+.run-view .run-tl-row{display:flex;gap:8px;align-items:baseline;padding:2px 0}
+.run-view .run-tl-at{color:var(--text-dim);font-family:monospace;flex-shrink:0}
+.run-view .run-tl-kind{color:var(--text-muted);flex:0 0 84px}
+.run-view .run-tl-kind.k-run_start,.run-view .run-tl-kind.k-close{color:var(--accent)}
+.run-view .run-tl-kind.k-succeed{color:var(--text-bright)}
+.run-view .run-tl-text{flex:1 1 auto;min-width:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* --- track: sidebar-tabs (WS-6 · GIT_SIDEBAR_TABS_SRS) --- */
+
+/* FR-SBT-1·5 / NFR-EDT-3: 탭 바. 균등 분할하고 이름이 넘치면 말줄임한다.
+
+   **균등 분할(`flex:1 1 0`)을 지킨다** (V-SBT-16). 내용 기준(`flex:1 1 auto`)으로
+   바꿔 봤으나 폭 최소값 100px 에서 **셋 다** 잘렸다 — 짧은 이름(`Git`)까지 자기
+   몫을 빼앗긴다. 균등 분할은 짧은 이름을 지켜 준다.
+
+   대신 셋이 되면서 기본 폭의 3등분이 칸당 50px 이 되어 `Windows` 가 좌우 패딩에
+   밀려 `Wind…` 로 잘렸으므로(실측), **글자와 패딩을 그만큼 줄인다.** 값은 실측에서
+   나온 것이다 — 11px·좌우 4px 면 42px 이 남아 48px 짜리 이름이 잘리고,
+   10px·좌우 3px 면 44px 이 남아 44px 짜리 이름이 들어간다. */
+#sb-tabs{
+  display:flex;flex:0 0 auto;
+  border-bottom:1px solid var(--border);
+}
+.sb-tab{
+  flex:1 1 0;min-width:0;height:30px;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  background:transparent;border:none;border-bottom:2px solid transparent;
+  color:var(--text-muted);font-family:inherit;font-size:10px;font-weight:600;
+  cursor:pointer;padding:0 3px;transition:background .1s,color .1s;
+}
+.sb-tab-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb-tab:hover{background:var(--accent-hover);color:var(--accent)}
+.sb-tab.active{color:var(--text-bright);border-bottom-color:var(--accent);background:var(--accent-active)}
+.sb-tab[hidden]{display:none}
+
+/* FR-SBT-12·13: 배지는 **비활성 탭에서만** 보인다 — 활성 탭은 목록에 그 정보가
+   이미 있다. 색은 테마 변수에서 온다 (NFR-SBT-3). */
+.sb-tab-badge{
+  flex-shrink:0;min-width:14px;padding:0 4px;border-radius:7px;
+  font-size:9px;font-weight:700;line-height:14px;text-align:center;
+  background:var(--accent-subtle);color:var(--accent);
+}
+.sb-tab-badge[hidden]{display:none}
+.sb-tab[data-panel="windows"] .sb-tab-badge{background:var(--attn-subtle);color:var(--attn);
+  animation:attn-pulse-chip 2s ease-in-out infinite}
+
+/* FR-ATP-5: 움직임을 원하지 않는 사람에게는 개정 전의 정지 표식이 남는다 —
+   끄는 쪽이 기본 상태보다 어두워서는 안 되므로 정적 선언을 그대로 둔 채 맥박만 멎힌다. */
+@media (prefers-reduced-motion:reduce){
+  .pn.attn::after,.pn-tab.attn,.sbl-item.attn,.sbl-item.attn .sbl-dot,
+  .ag-card.attn,.ag-card.focused.attn,#attn-badge,
+  .sb-tab[data-panel="windows"] .sb-tab-badge{animation:none}
+}
+
+/* FR-SBT-2·3: 숨김은 display:none 이다. visibility/opacity 로 숨기면 숨은 패널이
+   자리를 차지해 "보이는 쪽이 전체 높이를 쓴다" 는 목적 자체가 무너진다. */
+/* 옛 `.sb-title` 이 만들던 탭 바와 본문 사이의 간격을 여기서 준다. */
+/* UX_REVISION_SRS FR-BLP-7: 사이드바 리스트의 공통 클래스. 값은 두지 않는다 —
+   생김새는 목록마다의 고유 클래스(`.si`·`.git-repo`)가 여전히 정하고, 여기는
+   **두 목록이 공유하는 것을 쓸 자리**다. 지금 공유하는 것은 드래그 표식 하나다. */
+.sbl-item.dragging{opacity:.35}
+.sb-panel{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;padding-top:8px}
+.sb-panel[hidden]{display:none}
+
+/* FR-SBT-16·17: 모바일 드로어에서 탭 바는 상단에 고정되고 패널만 스크롤한다.
+   터치 타깃은 최소 44px (데스크톱 30px 은 `.si`·버튼과 맞춘 값이다). */
+/* 드로어 닫기 `✕` 는 사이드바 우상단에 절대 배치된다 (app-mobile.js) — 자리를
+   비워 두지 않으면 마지막 탭 위에 겹친다. */
+body.mobile #sb-tabs{position:sticky;top:0;z-index:1;background:var(--sidebar-bg);padding-right:36px}
+body.mobile .sb-tab{height:44px;font-size:12px}
+body.mobile .sb-tab-badge{min-width:18px;padding:0 6px;font-size:11px;line-height:18px;border-radius:9px}
+
+/* --- track: bg-kill (WS-8 · CONVENIENCE_SRS 묶음 X) --- */
+/* 종료 목표는 행 클릭(복귀)과 겹치지 않도록 오른쪽 끝에 따로 선다 (FR-BGK-1).
+   행이 baseline 정렬이므로 버튼도 그 선을 따른다. */
+.bg-box .bg-row{min-height:30px}
+.bg-box .bg-kill,.bg-box .bg-confirm,.bg-box .bg-killing{margin-left:auto;flex-shrink:0}
+/* FR-BGK-2: 항상 보인다. hover 게이팅하지 않는다 — 터치 기기에 hover 가 없고,
+   `.git-repo-x` 의 opacity:0 규약을 여기서 되풀이하지 않는다. */
+.bg-box .bg-kill{padding:2px 8px;color:var(--text-muted);border-color:var(--border)}
+.bg-box .bg-kill:hover{color:var(--danger);border-color:var(--danger);background:rgba(247,118,142,.12)}
+/* FR-BGK-4: 인라인 확인 — 행 안에서 바뀐다. 모달 위의 모달을 띄우지 않는다. */
+.bg-box .bg-confirm{display:inline-flex;gap:6px;align-items:center}
+.bg-box .bg-q{color:var(--text-bright);font-size:11px;white-space:nowrap}
+.bg-box .bg-yes{padding:2px 8px;color:var(--danger);border-color:var(--danger)}
+.bg-box .bg-yes:hover{background:rgba(247,118,142,.18);color:var(--danger);border-color:var(--danger)}
+.bg-box .bg-no{padding:2px 8px}
+.bg-box .bg-killing{color:var(--text-muted);font-size:11px;white-space:nowrap}
+/* FR-BGK-10: 오류는 행 안에 남는다 — 모달을 닫지 않는다. */
+.bg-box .bg-err{color:var(--danger);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* FR-BGK-12: 소속 Run — 묶음 H 가 오기 전에는 이 요소가 만들어지지 않는다. */
+.bg-box .bg-run{color:var(--accent);font-size:11px;white-space:nowrap;flex-shrink:0}
+/* V-BGK-12: 터치. hover 없이 닿아야 하므로 히트 영역만 키운다 (기존 44px 규약). */
+body.mobile .bg-box .bg-row{min-height:44px}
+body.mobile .bg-box .bg-kill,body.mobile .bg-box .bg-yes,body.mobile .bg-box .bg-no{min-height:32px;padding:4px 12px}
+
+
