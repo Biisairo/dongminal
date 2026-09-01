@@ -102,6 +102,7 @@ class InputBinding {
     this.app._initMobile();
     this.app._initMobileKeybar();
     this.app._initAttn();
+    this.app._initAgentsSettings();
   }
 
   /**

@@ -386,14 +386,6 @@ Object.assign(App.prototype, {
       sd.checked=this.attnSound;
       sd.addEventListener('change',()=>{this.attnSound=sd.checked});
     }
-    const ap=document.getElementById('agents-poll');
-    if(ap){
-      ap.value=String(this.agentsPollMs);
-      ap.addEventListener('change',()=>{
-        this.agentsPollMs=parseInt(ap.value);
-        if(this._agentsTimer) this._agentsStartPoll(); // 폴링 중이면 새 주기로 재시작
-      });
-    }
     // 데스크톱 알림 권한은 사용자 제스처가 필요하므로, 켜져 있고 아직 미결정이면
     // 첫 상호작용에서 한 번 요청한다 (브라우저 정책 충족) — FR-PAN-13a.
     // capture 단계로 들어야 xterm 이 pointer/key 이벤트를 먼저 소비해도 누락되지 않는다.

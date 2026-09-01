@@ -69,6 +69,19 @@ Object.assign(App.prototype, {
     if(this._agentsTimer){clearInterval(this._agentsTimer);this._agentsTimer=null}
   },
 
+  // 활동 패널의 폴링 주기 설정. 알림 설정(`_initAttn`)이 이웃한 DOM 이라는 이유로
+  // 이 배선을 데리고 있었으나, 만지는 것은 `agentsPollMs` 와 `_agentsTimer` —
+  // 둘 다 이 파일의 것이다 (ATTN_UTIL_RELOCATE_SRS §5 N2).
+  _initAgentsSettings(){
+    const ap=document.getElementById('agents-poll');
+    if(!ap) return;
+    ap.value=String(this.agentsPollMs);
+    ap.addEventListener('change',()=>{
+      this.agentsPollMs=parseInt(ap.value);
+      if(this._agentsTimer) this._agentsStartPoll(); // 폴링 중이면 새 주기로 재시작
+    });
+  },
+
   // FR-AAP-21: 활동 카드 드래그 재배치. drop(즉시) 1순위 + dragend 폴백, done 으로 중복 차단.
   _reorderAgents(dr){
     if(!dr||dr.done||!dr.pid||!dr.targetPid||dr.pid===dr.targetPid) return;
