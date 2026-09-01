@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [1.0.7] — 2026-09-01
+
 ### 변경
 
 - **파괴적인 동작을 한 번만 확인합니다.** 지금까지 브랜치 삭제처럼 되돌릴 수 없는
@@ -389,6 +391,7 @@
   에이전트 간 메시지와 API 입력 주입이 그 셸에서 통째로 깨져 있었다. 이제 셸이
   그 모드를 켰을 때만 감싼다
 
+[1.0.7]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.7
 [1.0.6]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.6
 [1.0.5]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.5
 [1.0.4]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.4
