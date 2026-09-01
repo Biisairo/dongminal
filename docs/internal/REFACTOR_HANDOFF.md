@@ -155,7 +155,7 @@ npx playwright test --reporter=line          # 13~14분
 ## 7. 브랜치
 
 ```
-origin/refactor   15 커밋   ← 모든 작업
+origin/refactor   16 커밋   ← 모든 작업
 main              7cbb6d6   ← origin/main 과 동일, 손대지 않음
 ```
 
