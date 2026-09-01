@@ -29,7 +29,7 @@ go build ./... && go vet ./... && go test ./...
 
 | # | 판단 | 왜 사용자의 것인가 |
 |---|---|---|
-| 1 | **`refactor` 를 `main` 에 병합할 것인가** | 16커밋이 `origin/refactor` 에만 있다. `main` 은 손대지 않았다 |
+| 1 | **`refactor` 를 `main` 에 병합할 것인가** | `git log --oneline origin/main..HEAD` 가 세는 커밋 전부가 `origin/refactor` 에만 있다. `main` 은 손대지 않았다 |
 | 2 | `app-attn.js` 의 `agents-poll` 설정 배선 13줄 | `_initAttn` 안이라 메서드 단위로 못 옮긴다. 쪼개면 "옮기기만 했다" 가 diff 로 증명되지 않는다 |
 | 3 | **`_activityRestore` 의 복원 경쟁을 고칠 것인가** | 조사는 끝났고 결함이 양방향으로 확정 재현됐다(`FG_RESTORE_RACE_SRS` §8). 고치려면 설계 결정과 별도 SRS 가 필요하다 |
 

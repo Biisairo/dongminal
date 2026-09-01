@@ -154,9 +154,11 @@ npx playwright test --reporter=line          # 13~14분
 
 ## 7. 브랜치
 
+```bash
+git log --oneline origin/main..HEAD   # 이 브랜치의 모든 작업
 ```
-origin/refactor   16 커밋   ← 모든 작업
-main              7cbb6d6   ← origin/main 과 동일, 손대지 않음
-```
+
+`main` 은 `7cbb6d6` 에서 손대지 않았다. 커밋 수를 여기 적지 않는 것은 그 숫자를
+갱신하는 커밋이 다시 숫자를 틀리게 하기 때문이다 — 세어야 하면 위 명령을 쓴다.
 
 `main` 병합은 하지 않았다. 사용자 판단이 필요하다.
