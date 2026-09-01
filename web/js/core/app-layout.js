@@ -5,6 +5,38 @@
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
 Object.assign(App.prototype, {
+  /**
+   * RELOAD_CONTINUITY_SRS FR-RLC-6·10: 사이드바 탭이 **돌아갈 창**을 적는다.
+   *
+   * 자리가 sessionStorage 인 이유는 이 값이 `activeWindow`·`focusedPanes`·`slots`
+   * 와 같은 범주 — "이 브라우저 탭이 보던 것" — 이기 때문이다 (SRS §2.3).
+   * localStorage 에 두면 두 탭이 같은 키를 번갈아 덮어 서로의 복귀 자리를 흔든다.
+   *
+   * 저장이 막힌 환경(사생활 모드)에서는 메모리에만 남는다 — 사이드바의 편의가
+   * 화면을 세우지 못하게 해서는 안 된다.
+   */
+  _rememberReturn(kind,id){
+    if(kind==='plain') this._lastPlainWindow=id; else this._lastEditorWindow=id;
+    try{sessionStorage.setItem(RETURN_WINDOW_KEY[kind],id)}catch{}
+  },
+
+  /**
+   * FR-RLC-8: 기억을 되살린다. `activeWindow`·`focusedPanes` 와 **같은 블록**에서
+   * 불린다 (app.js) — 셋 다 같은 성질이고, 흩어 두면 하나만 고쳐진다.
+   *
+   * 지금 워크스페이스에 없는 창 id 는 버린다. 없는 창으로 돌아갈 수는 없으며,
+   * 그때의 동작은 종전과 같은 폴백이다 (FR-RLC-9).
+   */
+  _restoreReturn(){
+    const has=id=>!!id&&this.ws.windows.some(s=>s&&s.id===id);
+    for(const kind of Object.keys(RETURN_WINDOW_KEY)){
+      let id=null;
+      try{id=sessionStorage.getItem(RETURN_WINDOW_KEY[kind])}catch{}
+      if(!has(id)) continue;
+      if(kind==='plain') this._lastPlainWindow=id; else this._lastEditorWindow=id;
+    }
+  },
+
   // 창 사이드바 드래그 재배치. drop(즉시) 1순위 + dragend 폴백, done 으로 중복 커밋 차단.
   // 식별자(id)로 원본/대상을 찾아 splice 후 인덱스 이동에 안전. 대상 미존재(끝 너머)면 맨 끝으로.
   // ── 탭 이름의 출처 (CONVENIENCE_SRS 묶음 N) ──
@@ -178,14 +210,18 @@ Object.assign(App.prototype, {
     const cur=this._aw();if(cur)cur.focusedPane=this.focused;
     // FR-GIT-185: Open File 이 돌아갈 창을 기억한다 — 규칙이 하나여야 "어디에
     // 열렸는지 모르겠다"가 없다 (O15).
-    if(cur&&!this._isGitWin(cur)&&!this._isEditorWin(cur)) this._lastPlainWindow=cur.id;
+    // RELOAD_CONTINUITY_SRS FR-RLC-6·7: 그 기억은 새로고침을 건넌다. 사이드바
+    // 탭 자체는 이미 건너는데(localStorage `sidebarTab`) 그 탭이 **돌아갈 자리**는
+    // 건너지 못해, 새로고침 뒤 Windows 탭이 늘 첫 창으로 갔다 (SRS §2.2).
+    // 적는 자리는 여기 하나다 — 두 벌로 만들면 한쪽만 갱신된다.
+    if(cur&&!this._isGitWin(cur)&&!this._isEditorWin(cur)) this._rememberReturn('plain',cur.id);
     this.ws.activeWindow=sid;
     // WINDOW_SLOTS_SRS FR-WSL-54: 포커스 슬롯이 이 창을 받는다. 다른 슬롯은
     // 건드리지 않는다 — 그것이 두 칸을 나란히 두는 이유다.
     this._slotOnSwitch(sid);
     // FR-EDT-7: Editor 탭이 돌아갈 창을 같은 규약으로 기억한다 — 들어가는
     // 순간에 적는다. 나갈 때 적으면 한 번도 떠난 적 없는 창을 기억하지 못한다.
-    if(this._isEditorWin(this._aw())) this._lastEditorWindow=sid;
+    if(this._isEditorWin(this._aw())) this._rememberReturn('editor',sid);
     // Persist per-window activeWindow to sessionStorage (survives refresh,
     // independent across windows).
     try{sessionStorage.setItem('activeWindow', sid)}catch{}

@@ -71,7 +71,7 @@ class GitCommitOps {
    * 0 으로 보이면 "아무 일도 없다" 로 읽힌다.
    *
    * **`--hard` 만 파괴적이다.** 그래서 항목에 `destructive:true` 를 걸 수 없고
-   * (그러면 세 모드 전부가 2단계가 된다), 값을 받은 뒤 파괴 여부를 파생해
+   * (그러면 세 모드 전부가 확인을 요구한다), 값을 받은 뒤 파괴 여부를 파생해
    * `GitDialog.confirm` 으로 넘긴다.
    */
   static async reset(panel,c){
@@ -83,7 +83,7 @@ class GitCommitOps {
       fields:[{key:'mode',type:GIT_DIALOG_RADIO,cls:'gco-mode',
         label:GIT_CO_RESET_MODE_LABEL,
         opts:GIT_CO_RESET_MODES.map(m=>({v:m,label:GIT_CO_RESET_MODE_LABELS[m]||m}))}],
-      // 다이얼로그는 값만 받는다. `--hard` 의 2단계 확인은 그것의 전문가에게
+      // 다이얼로그는 값만 받는다. `--hard` 의 파괴적 확인은 그것의 전문가에게
       // 넘긴다 (FR-GIT-172) — 확인 로직이 두 벌이면 한쪽이 조용히 뒤처진다.
       run:v=>{GitCommitOps._reset(panel,c,v.mode||'');return {ok:true}},
     });
@@ -106,7 +106,7 @@ class GitCommitOps {
 
   // ── Drop (FR-GIT-266) ──
 
-  // 2단계 확인과 recovery hint 는 `GIT_MENUS.commit` 의 `destructive:true` 가 이미
+  // 파괴적 확인과 recovery hint 는 `GIT_MENUS.commit` 의 `destructive:true` 가 이미
   // 거쳤다 — 여기서는 확인을 거쳤음을 함께 보낸다. 서버도 그것을 요구한다.
   static drop(panel,c){
     return GitCommitOps._send(panel,'/api/git/drop',{oid:c.oid,confirm:true});

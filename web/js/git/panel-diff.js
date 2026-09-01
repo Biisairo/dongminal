@@ -425,7 +425,7 @@ Object.assign(GitPanel.prototype, {
 
   /**
    * revert 는 **파괴적이다** (FR-GIT-279) — 워킹 트리의 그 줄을 버린다. discard 와
-   * 같은 규약을 지난다: 판정은 서버의 목록이 하고(GitConfirm), 확인은 2단계이며,
+   * 같은 규약을 지난다: 판정은 서버의 목록이 하고(GitConfirm), 확인을 거치며,
    * 실행 요청에 confirm 을 함께 보낸다 — 서버도 그것을 요구한다.
    */
   async _hunkRevert(body,f,hunk,sel){

@@ -80,7 +80,7 @@ test.describe('묶음 A — 진행 중 작업의 출구 (V176)', () => {
     await expect(act(page, 'skip'), 'merge 에 없는 Skip 이 보인다').toBeHidden();
   });
 
-  test('A11 (V176 / FR-GIT-89·252): 중단은 2단계 확인을 거치고, 저장소가 시작 전으로 돌아간다', async ({ page }) => {
+  test('A11 (V176 / FR-GIT-89·252): 중단은 확인을 거치고, 저장소가 시작 전으로 돌아간다', async ({ page }) => {
     const repo = repoWithConflictedMerge('a11');
     dirs.push(repo);
     await waitForInit(page);
@@ -88,9 +88,8 @@ test.describe('묶음 A — 진행 중 작업의 출구 (V176)', () => {
     await expect.poll(() => opKind(page), { timeout: 20000 }).toBe('merge');
 
     await act(page, 'abort').click();
-    // 파괴적이므로 `.gc-go` 를 두 번 눌러야 실행된다 (git-confirm.spec.ts 의 선례).
+    // 파괴적이지만 확인은 한 걸음이다 (CONFIRM_ONE_STAGE_SRS FR-COS-1).
     await expect(page.locator('#git-confirm .gc-box')).toBeVisible({ timeout: 10000 });
-    await page.locator('#git-confirm .gc-go').click();
     await page.locator('#git-confirm .gc-go').click();
     await expect(page.locator('#git-confirm'), '성공했는데 확인 상자가 안 닫혔다')
       .toHaveCount(0, { timeout: 15000 });

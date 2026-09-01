@@ -373,7 +373,7 @@ class GitRemote {
   /**
    * Push 는 세 갈래다: 기본 / Publish / force.
    *
-   * force 는 `--force-with-lease` 가 기본이고 `--force` 도 같은 2단계 확인을
+   * force 는 `--force-with-lease` 가 기본이고 `--force` 도 같은 파괴적 확인을
    * 거친다 (FR-GIT-106) — 이름이 서버의 파괴적 목록에 있으므로 단계 수를 이쪽에서
    * 정하지 않는다.
    */

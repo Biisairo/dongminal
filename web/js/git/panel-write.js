@@ -41,11 +41,16 @@ Object.assign(GitPanel.prototype, {
    *
    * 응답에 실린 실행 후 status 로 화면을 갱신하고 **refs 를 다시 받는다** — status
    * 만으로는 새 브랜치가 생겼는지, 어느 것이 사라졌는지 알 수 없다.
+   *
+   * GIT_VIEW_REFRESH_SRS FR-GVR-20: History 는 **목록까지** 다시 받는다. 커밋 행에
+   * 붙는 배지도 ref 에서 나오는데 그것은 `git log` 의 decoration 이라 사이드바만
+   * 다시 받아서는 갱신되지 않는다 — 왼쪽은 바뀌는데 그래프는 낡은 채로 남는 것이
+   * 그 자리였다 (접수한 말 그대로다).
    */
   afterRefWrite(d){
     this.adopt(d);
     if(this._branchesView) this._branchesView.reload();
-    if(this._historyView) this._historyView.reloadRefs();
+    if(this._historyView) this._historyView.reload();
   },
 
   /**
@@ -87,7 +92,7 @@ Object.assign(GitPanel.prototype, {
     this.afterStashWrite(res);
   },
 
-  // drop 은 파괴적이다 (FR-GIT-89·168). 2단계 확인과 recovery hint 는 GitMenu 가
+  // drop 은 파괴적이다 (FR-GIT-89·168). 파괴적 확인과 recovery hint 는 GitMenu 가
   // 이미 거쳤으므로 여기서는 `confirm` 을 실어 보낸다 — 서버도 그것을 요구한다.
   async stashDrop(index){
     const res=await this.post('/api/git/stash/drop',
@@ -128,7 +133,9 @@ Object.assign(GitPanel.prototype, {
     this.afterStashWrite(res);
     if(!res||!res.ok) return;
     if(this._branchesView) this._branchesView.reload();
-    if(this._historyView) this._historyView.reloadRefs();
+    // FR-GVR-20: `afterRefWrite` 와 같은 근거 — 새 브랜치는 커밋 행의 배지에도
+    // 나타나야 하고, 그 배지는 목록을 다시 받아야 갱신된다.
+    if(this._historyView) this._historyView.reload();
   },
 
 });
@@ -230,7 +237,7 @@ Object.assign(GitPanel.prototype, {
   /**
    * 출구 하나를 실행한다 (FR-GIT-252).
    *
-   * **중단만 2단계 확인이다** — 그 작업 중 해결한 내용이 사라지고 되살릴 값이 없다.
+   * **중단만 파괴적 확인이다** — 그 작업 중 해결한 내용이 사라지고 되살릴 값이 없다.
    * 계속·건너뛰기는 되돌릴 것이 없다. 서버도 같은 것을 요구한다(confirm) —
    * 클라이언트만 막으면 API 직접 호출이 우회한다.
    */

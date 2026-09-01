@@ -2,8 +2,12 @@ import { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
 
-// GIT_M2_STEP9_CONTRACT §6 — 클라이언트 2단계 확인. 검증 V37·V38
-// (FR-GIT-90·91·94·96·97·175·176·178).
+// GIT_M2_STEP9_CONTRACT §6 — 클라이언트 확인. 검증 V37·V38
+// (FR-GIT-90·91·94·96·97·175·176·178) + CONFIRM_ONE_STAGE_SRS §5 TC-COS-*.
+//
+// 확인은 **한 걸음**이다 (FR-COS-1). 예전에는 영향 범위와 recovery hint 를 두
+// 걸음으로 갈라 물었고 이 파일의 단정도 그 모양이었다 — 지금은 한 화면이 둘을
+// 함께 보이는지를 잰다.
 //
 // 10단계(discard)가 실제 파괴적 동작을 붙이기 전이므로 window.GitConfirm.open 을
 // 직접 부른다.
@@ -57,16 +61,45 @@ const box = (page: Page) => page.locator('#git-confirm .gc-box');
 const cancel = (page: Page) => page.locator('#git-confirm .gc-cancel');
 const go = (page: Page) => page.locator('#git-confirm .gc-go');
 
-test.describe('묶음 J — 파괴적 동작의 2단계 확인', () => {
-  test('J5 (V38): 초기 포커스가 취소 버튼이다', async ({ page }) => {
+test.describe('묶음 J — 파괴적 동작의 확인', () => {
+  test('J5 (V38 / TC-COS-7): 초기 포커스가 취소 버튼이다', async ({ page }) => {
     await waitForInit(page, 'desktop');
     await open(page);
 
     await expect(cancel(page)).toBeFocused();
-    // 2단계로 넘어가도 기본 선택지는 안전한 쪽이다 (FR-GIT-97).
+    await expect(box(page)).toHaveAttribute('data-stage', '1');
+  });
+
+  test('TC-COS-1: 파괴적 동작이 한 번의 실행으로 끝난다', async ({ page }) => {
+    await waitForInit(page, 'desktop');
+    await open(page);
+
+    await expect(box(page)).toHaveAttribute('data-stage', '1');
     await go(page).click();
-    await expect(box(page)).toHaveAttribute('data-stage', '2');
-    await expect(cancel(page)).toBeFocused();
+
+    await expect(page.locator('#git-confirm')).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).__res)).toBe(true);
+    expect(await page.evaluate(() => (window as any).__ran)).toBe(1);
+  });
+
+  test('TC-COS-2: stages:2 를 넘겨도 한 걸음이다', async ({ page }) => {
+    await waitForInit(page, 'desktop');
+    await page.evaluate(() => {
+      const w = window as any;
+      w.__res = undefined; w.__ran = 0;
+      // 파괴적 목록에 없는 action 이다 — 걸음 수를 정하는 것은 호출자가 아니라
+      // GitConfirm 이라는 것이 이 검증의 대상이다 (D-1).
+      w.GitConfirm.open({
+        action: 'checkout-force', title: '강제로 전환합니다', targets: ['main'],
+        hint: { note: '되돌리려면', command: 'git checkout -' }, stages: 2,
+        run: async () => { w.__ran++; return { ok: true } },
+      }).then((v: boolean) => { w.__res = v });
+    });
+    await expect(box(page)).toBeVisible();
+    await expect(box(page)).toHaveAttribute('data-stage', '1');
+    await go(page).click();
+    await expect(page.locator('#git-confirm')).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).__ran)).toBe(1);
   });
 
   test('J6 (V38): 파괴적 다이얼로그에서 Enter 가 실행하지 않는다', async ({ page }) => {
@@ -91,12 +124,9 @@ test.describe('묶음 J — 파괴적 동작의 2단계 확인', () => {
     expect(await page.evaluate(() => (window as any).__res)).toBe(false);
   });
 
-  test('J6c (V38): 실행은 탭 이동 후 Space 로 된다', async ({ page }) => {
+  test('J6c (V38 / TC-COS-8): 실행은 탭 이동 후 Space 로 된다', async ({ page }) => {
     await waitForInit(page, 'desktop');
     await open(page);
-    await go(page).focus();
-    await page.keyboard.press('Space');
-    await expect(box(page)).toHaveAttribute('data-stage', '2');
     await go(page).focus();
     await page.keyboard.press('Space');
     await expect(page.locator('#git-confirm')).toHaveCount(0);
@@ -104,7 +134,7 @@ test.describe('묶음 J — 파괴적 동작의 2단계 확인', () => {
     expect(await page.evaluate(() => (window as any).__ran)).toBe(1);
   });
 
-  test('J7 (V37): 1단계가 대상 목록을 보인다 (개수만이 아니다)', async ({ page }) => {
+  test('J7 (V37): 대상 목록을 보인다 (개수만이 아니다)', async ({ page }) => {
     const targets = ['a.txt', '디렉터리/한글 파일.txt', 'src/deep/nested/thing.bin'];
     await waitForInit(page, 'desktop');
     await open(page, { targets });
@@ -116,36 +146,48 @@ test.describe('묶음 J — 파괴적 동작의 2단계 확인', () => {
     }
     // 개수는 목록과 함께 보인다 (FR-GIT-91).
     await expect(page.locator('#git-confirm .gc-count')).toContainText('3');
-    // 1단계에는 recovery hint 가 없다 — 2단계의 것이다.
-    await expect(page.locator('#git-confirm .gc-hint')).toBeHidden();
   });
 
-  test('J8 (V37): 2단계가 recovery hint 를 보인다', async ({ page }) => {
+  test('J8 (V37 / TC-COS-3·6): 한 화면이 영향 범위와 recovery hint 를 함께 보인다', async ({ page }) => {
     await waitForInit(page, 'desktop');
     await open(page, {
       targets: ['a.txt', 'b.txt'],
       hint: { note: '폐기 전에 아래를 실행하세요', command: 'git stash push -- a.txt b.txt' },
     });
 
-    await go(page).click();
-    await expect(box(page)).toHaveAttribute('data-stage', '2');
     const hint = page.locator('#git-confirm .gc-hint');
     await expect(hint).toBeVisible();
     await expect(hint.locator('.gc-hint-note')).toContainText('폐기 전에 아래를 실행하세요');
     await expect(hint.locator('.gc-hint-cmd')).toHaveText('git stash push -- a.txt b.txt');
-    // 무엇을 잃는지가 실행 직전에도 보인다.
+    // 무엇을 잃는지가 같은 화면에 함께 있다.
     await expect(page.locator('#git-confirm .gc-target')).toHaveCount(2);
     await expect(go(page)).toHaveText('Run');
   });
 
-  test('J8b (V37): hint 가 없으면 되돌릴 수 없다는 사실을 보인다', async ({ page }) => {
+  test('J8b (V37 / TC-COS-4): hint 가 없으면 되돌릴 수 없다는 사실을 보인다', async ({ page }) => {
     await waitForInit(page, 'desktop');
     await open(page, { hint: null });
-    await go(page).click();
     await expect(page.locator('#git-confirm .gc-hint-note')).toContainText('되돌릴 수 없습니다');
   });
 
-  test('J9 (FR-GIT-94): 모바일 폭에서 실행 버튼이 목록과 분리돼 잘리지 않는다', async ({ page }) => {
+  test('TC-COS-5: 파괴적이 아닌 확인은 hint 가 없으면 그 자리를 열지 않는다', async ({ page }) => {
+    await waitForInit(page, 'desktop');
+    await page.evaluate(() => {
+      const w = window as any;
+      w.__res = undefined; w.__ran = 0;
+      w.GitConfirm.open({
+        action: 'stage-conflicted', title: '충돌 파일을 stage 합니다', targets: ['a.txt'],
+        hint: null, stages: 1,
+        run: async () => { w.__ran++; return { ok: true } },
+      }).then((v: boolean) => { w.__res = v });
+    });
+    await expect(box(page)).toBeVisible();
+    // 되돌릴 수 있는 동작에 "되돌릴 수 없다"고 말하지 않는다.
+    await expect(page.locator('#git-confirm .gc-hint')).toBeHidden();
+    await expect(box(page)).toHaveClass(/soft/);
+  });
+
+  test('J9 (FR-GIT-94 / TC-COS-11): 모바일 폭에서 실행 버튼이 목록과 분리돼 잘리지 않는다', async ({ page }) => {
     await waitForInit(page, 'mobile');
     const targets = Array.from({ length: 60 }, (_, i) => `pkg/module-${i}/very-long-file-name-${i}.ts`);
     await open(page, { targets });
@@ -166,23 +208,13 @@ test.describe('묶음 J — 파괴적 동작의 2단계 확인', () => {
       .evaluate((el) => el.scrollHeight > el.clientHeight && getComputedStyle(el).overflowY === 'auto');
     expect(scrollable, '목록이 스크롤되지 않는다').toBe(true);
 
-    for (const stage of ['1', '2']) {
-      if (stage === '2') {
-        await go(page).click();
-        await expect(box(page)).toHaveAttribute('data-stage', '2');
-      }
-      const list = await page.locator('#git-confirm .gc-targets').boundingBox();
-      const btn = await go(page).boundingBox();
-      expect(btn).not.toBeNull();
-      expect(btn!.width).toBeGreaterThan(0);
-      expect(btn!.y, `${stage}단계: 실행 버튼이 목록과 겹친다`).toBeGreaterThanOrEqual(
-        list!.y + list!.height,
-      );
-      expect(btn!.y, `${stage}단계: 실행 버튼이 화면 위로 잘린다`).toBeGreaterThanOrEqual(0);
-      expect(btn!.y + btn!.height, `${stage}단계: 실행 버튼이 화면 밖으로 밀렸다`).toBeLessThanOrEqual(
-        MOBILE.height,
-      );
-    }
+    const list = await page.locator('#git-confirm .gc-targets').boundingBox();
+    const btn = await go(page).boundingBox();
+    expect(btn).not.toBeNull();
+    expect(btn!.width).toBeGreaterThan(0);
+    expect(btn!.y, '실행 버튼이 목록과 겹친다').toBeGreaterThanOrEqual(list!.y + list!.height);
+    expect(btn!.y, '실행 버튼이 화면 위로 잘린다').toBeGreaterThanOrEqual(0);
+    expect(btn!.y + btn!.height, '실행 버튼이 화면 밖으로 밀렸다').toBeLessThanOrEqual(MOBILE.height);
   });
 
   test('J10 (FR-GIT-175): 실패 시 stderr tail 과 복사 버튼이 보인다', async ({ page }) => {
@@ -190,7 +222,6 @@ test.describe('묶음 J — 파괴적 동작의 2단계 확인', () => {
     await waitForInit(page, 'desktop');
     await open(page, { fail: { reason: '폐기에 실패했습니다', stderrTail: tail } });
 
-    await go(page).click();
     await go(page).click();
 
     const err = page.locator('#git-confirm .gc-err');
@@ -226,7 +257,6 @@ test.describe('묶음 J — 파괴적 동작의 2단계 확인', () => {
     // 다시 열게 강제하지 않는다 — 실행 경로는 그대로 열려 있다.
     await expect(go(page)).toBeEnabled();
     await go(page).click();
-    await go(page).click();
     await expect(page.locator('#git-confirm')).toHaveCount(0);
     expect(await page.evaluate(() => (window as any).__res)).toBe(true);
   });
@@ -247,7 +277,6 @@ test.describe('묶음 J — 파괴적 동작의 2단계 확인', () => {
     });
     await expect(box(page)).toBeVisible();
 
-    await go(page).click();
     await go(page).click();
     await expect(go(page)).toBeDisabled();
     await expect(cancel(page)).toBeDisabled();

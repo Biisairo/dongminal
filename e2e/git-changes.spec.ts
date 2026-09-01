@@ -280,11 +280,10 @@ test.describe('묶음 E — Changes 탭', () => {
     await r.hover();
     await r.locator('.git-file-act[data-act="ours"]').click();
 
-    // 파괴적이다 — 2단계 확인을 거친다 (FR-GIT-89·95).
+    // 파괴적이다 — 확인을 거친다 (FR-GIT-89·95). 걸음은 하나다 (FR-COS-1).
     const box = page.locator('#git-confirm .gc-box');
     await expect(box).toBeVisible({ timeout: 10000 });
-    await page.locator('#git-confirm .gc-go').click();
-    await expect(box).toHaveAttribute('data-stage', '2');
+    await expect(box).toHaveAttribute('data-stage', '1');
     await page.locator('#git-confirm .gc-go').click();
 
     // 충돌 그룹에서 빠진다 — `checkout --ours` 만으로는 unmerged 가 남으므로
@@ -314,7 +313,6 @@ test.describe('묶음 E — Changes 탭', () => {
     await r.locator('.git-file-act[data-act="theirs"]').click();
     const box = page.locator('#git-confirm .gc-box');
     await expect(box).toBeVisible({ timeout: 10000 });
-    await page.locator('#git-confirm .gc-go').click();
     await page.locator('#git-confirm .gc-go').click();
     await expect(group(page, 'staged').locator(`.git-file[data-path="${path}"]`))
       .toBeVisible({ timeout: 20000 });

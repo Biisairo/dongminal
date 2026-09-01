@@ -19,15 +19,16 @@ import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS } from './fixtures
 //                 우클릭이 `GitMenu.open('tag', ref, ev)` 를 연다(branches.js:266-269).
 //   메뉴          `.git-menu` / 항목은 `.git-menu-item[data-id]` (menu.js:_pick 경로).
 //                 **확인은 항목이 구현하지 않는다** — `destructive:true` 인 항목은
-//                 GitConfirm 2단계를 프레임워크가 거친다(menu.js:_pick).
+//                 GitConfirm 확인을 프레임워크가 거친다(menu.js:_pick).
 //   생성 다이얼로그 GitDialog.open({id:'git-tag-create',ns:'gtc'}) → 컨테이너는
 //                 `#git-tag-create`, 상자 `.gtc-box`, 필드 `.gtc-name`·`.gtc-ref`·
 //                 `.gtc-kind`(라디오)·`.gtc-msg`, 실행 `.gtc-go`, 사유 `.gtc-why`
 //                 (dialog.js:150-172 의 ns 치환 규약). **일반 GitDialog 라 1클릭이면
-//                 실행된다**(2단계 아님).
+//                 실행된다**(GitConfirm 을 지나지 않는다).
 //   파괴적 확인    `#git-confirm .gc-box`/`.gc-go`/`.gc-cancel` — `tag_delete` 와
 //                 `remote_ref_delete` 는 서버의 파괴적 목록(/api/git/policy)에 있으므로
-//                 **`.gc-go` 를 두 번** 눌러야 실행된다(git-confirm.spec.ts:67 의 선례).
+//                 확인을 거친다. **걸음은 하나이며 `.gc-go` 한 번이 실행이다**
+//                 (CONFIRM_ONE_STAGE_SRS FR-COS-1).
 //   job 표시      Changes 탭의 `.git-job` — 태그 push 는 기존 원격 job 경로를 그대로
 //                 탄다(FR-GIT-262·101~104, remote.js:_attach).
 
@@ -204,9 +205,9 @@ test.describe('묶음 C — 태그 생성 (FR-GIT-260)', () => {
 });
 
 test.describe('묶음 C — 태그 삭제 (FR-GIT-261)', () => {
-  // V189: 로컬 삭제와 원격 삭제가 **다른 항목**이고 각각 2단계 확인을 거친다.
+  // V189: 로컬 삭제와 원격 삭제가 **다른 항목**이고 각각 확인을 거친다.
   // 하나가 다른 하나를 하지 않는다 — 그것이 이 테스트의 본체다.
-  test('V189 (FR-GIT-261): 로컬 삭제와 원격 삭제는 다른 항목이고 2단계 확인을 거친다 · 하나가 다른 하나를 하지 않는다', async ({ page }) => {
+  test('V189 (FR-GIT-261): 로컬 삭제와 원격 삭제는 다른 항목이고 각각 확인을 거친다 · 하나가 다른 하나를 하지 않는다', async ({ page }) => {
     const { repo, bare } = copyRepoWithRemote('v189');
     execFileSync('git', ['-C', repo, 'tag', '-a', '-m', '릴리스', 'v1.0'], { stdio: 'pipe' });
     execFileSync('git', ['-C', repo, 'push', '-q', 'origin', 'v1.0'], { stdio: 'pipe' });
@@ -228,7 +229,7 @@ test.describe('묶음 C — 태그 삭제 (FR-GIT-261)', () => {
     await expect(item(page, 'delete'), '로컬 삭제 항목이 없다').toHaveCount(1);
     await expect(item(page, 'delete-remote'), '원격 삭제 항목이 없다').toHaveCount(1);
 
-    // ② 로컬 삭제 — 파괴적이므로 2단계다. 1단계에서 취소하면 아무 일도 없다.
+    // ② 로컬 삭제 — 파괴적이므로 확인이 뜬다. 취소하면 아무 일도 없다.
     await item(page, 'delete').click();
     await expect(confirmBox(page), '삭제 확인 대화상자가 없다').toBeVisible({ timeout: 5000 });
     await page.locator('#git-confirm .gc-cancel').click();
@@ -236,15 +237,13 @@ test.describe('묶음 C — 태그 삭제 (FR-GIT-261)', () => {
     expect(hit.local, '취소했는데 요청이 나갔다').toBe(0);
     expect(tagList(repo), '취소했는데 지워졌다').toContain('v1.0');
 
-    // 이번엔 끝까지 — `tag_delete` 는 서버의 파괴적 목록에 있으므로 `.gc-go` 를
-    // 두 번 눌러야 실행된다(1회는 1→2단계 이동).
+    // 이번엔 끝까지 — `tag_delete` 는 파괴적이지만 확인은 한 걸음이다.
     await openTagMenu(page, 'v1.0');
     await item(page, 'delete').click();
     await expect(confirmBox(page)).toBeVisible({ timeout: 5000 });
-    // 2단계는 recovery hint 를 보인다 — **되살리는 명령**이고 지우기 전 oid 를 싣는다
-    // (FR-GIT-92·250.2).
+    // 그 한 화면이 recovery hint 를 보인다 — **되살리는 명령**이고 지우기 전 oid 를
+    // 싣는다 (FR-GIT-92·250.2, FR-COS-2).
     const oid = git(repo, 'rev-parse', 'refs/tags/v1.0');
-    await page.locator('#git-confirm .gc-go').click();
     await expect(page.locator('#git-confirm .gc-hint'), 'recovery hint 에 지우기 전 oid 가 없다')
       .toContainText(oid, { timeout: 5000 });
     await page.locator('#git-confirm .gc-go').click();
@@ -273,9 +272,8 @@ test.describe('묶음 C — 태그 삭제 (FR-GIT-261)', () => {
     await openTagMenu(page, 'v1.0');
     await item(page, 'delete-remote').click();
 
-    // `remote_ref_delete` 도 파괴적 목록에 있으므로 2단계다.
+    // `remote_ref_delete` 도 파괴적 목록에 있다 — 확인 한 걸음을 거친다.
     await expect(confirmBox(page), '원격 삭제 확인 대화상자가 없다').toBeVisible({ timeout: 5000 });
-    await page.locator('#git-confirm .gc-go').click();
     await page.locator('#git-confirm .gc-go').click();
 
     // 원격 작업이므로 job 경로다 — 끝나야 원격에서 사라진다.

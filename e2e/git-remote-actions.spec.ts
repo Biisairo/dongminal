@@ -138,8 +138,7 @@ test.describe('묶음 E — 원격 동작 (FR-GIT-269~271)', () => {
     await expect(remoteRows(page)).toHaveCount(2, { timeout: 20000 });
     expect(git(repo, 'config', '--get', 'remote.upstream.url')).toBe('/tmp/dm-upstream.git');
 
-    // remove — 파괴적이 아니므로 1단계이고, **되살릴 명령**을 그 자리에 보인다
-    // (FR-GIT-92·269).
+    // remove — **되살릴 명령**을 그 자리에 보인다 (FR-GIT-92·269).
     await remotes(page).locator('.git-rm-row[data-remote="upstream"] .git-rm-del').click();
     await expect(confirm(page)).toHaveAttribute('data-action', 'remote_remove');
     await expect(confirm(page).locator('.gc-hint-cmd'))
@@ -221,7 +220,7 @@ test.describe('묶음 E — 원격 동작 (FR-GIT-269~271)', () => {
     // **순서는 서버가 정한다** (write.SyncNext) — 그것은 단위로 고정돼 있고, 여기서
     // 1단계를 화면으로 잡으려 하면 pull 이 빨리 끝나는 저장소에서 놓친다(실제로
     // 그렇게 헛짚었다). 화면이 답할 것은 **두 단계가 묶여 돌았다**는 사실이다:
-    // 라벨이 Sync 이고, 끝난 자리에 2단계인 push 가 있다.
+    // 라벨이 Sync 이고, 끝난 자리에 확인을 거치는 push 가 있다.
     await expect(job(page).locator('.git-job-kind')).toContainText('Sync', { timeout: 20000 });
     await jobArgv(page, 'git push --progress');
     await expect(job(page).locator('.git-job-kind')).toContainText('2/2');
@@ -345,10 +344,9 @@ test.describe('묶음 E — 원격 동작 (FR-GIT-269~271)', () => {
     await preview(page).locator('.gpp-field[data-key="lease"] input').check();
     await preview(page).locator('.gpp-go').click();
 
-    // force 는 파괴적이다 — 이름이 서버의 목록에 있으므로 2단계 확인을 거친다
-    // (FR-GIT-106·89). 단계 수를 미리보기가 정하지 않는다.
+    // force 는 파괴적이다 — 이름이 서버의 목록에 있으므로 확인을 거친다
+    // (FR-GIT-106·89). 걸음은 하나이며 미리보기가 그것을 정하지 않는다.
     await expect(confirm(page)).toHaveAttribute('data-action', 'force_push');
-    await confirm(page).locator('.gc-go').click();
     await confirm(page).locator('.gc-go').click();
 
     await jobArgv(page, /git push --progress --force-with-lease origin main/);

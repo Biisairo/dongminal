@@ -338,14 +338,33 @@ Object.assign(App.prototype, {
     return null;
   },
 
+  /**
+   * SLOT_VIEW_STATE_SRS FR-SVS-39b: **화면에 있는 탐색기 전부.**
+   *
+   * `_edActiveTree` 는 활성 창의 것 하나를 준다. 그것으로 폴링하면 칸 둘에 Editor
+   * 창을 놓았을 때 서 있지 않은 쪽이 멎는다 — Git 쪽과 같은 결함이며 같은 근거로
+   * 고친다 (FR-SVS-36).
+   *
+   * 요청이 늘지 않는 이유는 관측이 **루트마다** 하나이고 캐시 TTL·single-flight 가
+   * 그 위에 있기 때문이다 (FR-EDT-77) — 두 칸이 같은 루트를 보아도 git 실행은
+   * 한 번이다.
+   */
+  _edVisibleTrees(){
+    if(!this._edTrees) return [];
+    const out=[];
+    for(const [key,t] of this._edTrees){
+      if(t&&this._windowVisible(this._slotBase(key))) out.push(t);
+    }
+    return out;
+  },
+
   // FR-EDT-77: 주기는 `GIT_REPOS_POLL_MS` 와 같다. 캐시 TTL 200ms + single-flight
   // 위에 얹히므로 Git 패널과 동시에 떠 있어도 git 실행이 겹치지 않는다 (§2.7).
   _edStartGitPoll(){
     if(this._edGitInterval) clearInterval(this._edGitInterval);
     this._edGitInterval=setInterval(()=>{
       if(document.hidden) return;
-      const t=this._edActiveTree();
-      if(t) t.pollGit();
+      for(const t of this._edVisibleTrees()) t.pollGit();
     },EDITOR_GIT_POLL_MS);
   },
 

@@ -135,7 +135,7 @@
 | stdout/stderr 보존 + truncate 표식 | P1 | `CON-FR-003` |
 | level 토글 · 텍스트 검색 필터 | P2 | `CON-FR-011/013` |
 | argv 복사 / stderr tail 복사 | P1 | `CON-FR-020/021` |
-| **replay (동일 argv 재실행)** | P2 | `CON-FR-022/023` — destructive 는 2단계 확인 |
+| **replay (동일 argv 재실행)** | P2 | `CON-FR-022/023` — destructive 는 파괴적 확인 |
 
 > Console 은 §4.2 "git 실행 단일 지점" 이 서면 **거의 공짜로 따라온다.**
 
@@ -190,7 +190,7 @@
 | Checkout | P0 | `branch.checkout` |
 | Create Branch from | P1 | `branchFrom` |
 | Rename | P1 | `branch.rename`, `renameBranch` |
-| Delete (`-d` / `-D`) | P1 | `branch.delete` → `-D` 는 S5 2단계 확인 |
+| Delete (`-d` / `-D`) | P1 | `branch.delete` → `-D` 는 S5 파괴적 확인 |
 | Merge into current | P1 | `branch.merge` |
 | Rebase onto | P2 | `branch.rebase` |
 | Push / Publish | P1 | `branch.push`, `publish` |
@@ -204,7 +204,7 @@
 | Checkout (로컬 생성 + 추적) | P0 | `remoteBranch.checkout` |
 | Fetch into local | P2 | `remoteBranch.fetch` |
 | Pull / Merge | P1 | `remoteBranch.pull`, `merge` |
-| Delete remote branch | P2 | `deleteRemoteBranch` → S5 2단계 확인 |
+| Delete remote branch | P2 | `deleteRemoteBranch` → S5 파괴적 확인 |
 | Copy name | P1 | `remoteBranch.copyName` |
 
 #### 스태시 우클릭
@@ -213,7 +213,7 @@
 |---|:--:|---|
 | Apply (`--index` 옵션) | P0 | `stash.apply`, `ST-FR-020/022` |
 | Pop | P0 | `stash.pop` |
-| Drop | P1 | `stash.drop` → S5 2단계 확인 |
+| Drop | P1 | `stash.drop` → S5 파괴적 확인 |
 | Branch from stash | P2 | `stash.createBranch`, `ST-FR-040` |
 | Copy name / hash | P2 | `stash.copyName/copyHash` |
 
@@ -231,7 +231,7 @@
 | 액션 | 우선 | 근거 |
 |---|:--:|---|
 | Stage / Unstage | P0 | `scm/resourceState/context` |
-| Discard changes | P0 | `clean` → S5 2단계 확인 + recovery hint |
+| Discard changes | P0 | `clean` → S5 파괴적 확인 + recovery hint |
 | Open file / Open file (HEAD) | P1 | `openFile`, `openHEADFile` — dongminal 내장 편집기로 |
 | Open changes | P0 | `openChange` → Diff 탭 |
 | Add to .gitignore | P1 | `ignore` |

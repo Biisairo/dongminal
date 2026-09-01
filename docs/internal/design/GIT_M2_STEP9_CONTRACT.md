@@ -174,7 +174,7 @@ func (l *HintLog) Recent(n int) []Hint
 ```go
 // internal/git/destructive.go
 
-// DestructiveActions 는 2단계 확인과 recovery hint 를 반드시 거치는 동작이다
+// DestructiveActions 는 확인과 recovery hint 를 반드시 거치는 동작이다
 // (FR-GIT-89). 이 목록은 서버·클라이언트가 같은 것을 봐야 하므로 API 로 노출한다.
 var DestructiveActions = []string{
     "discard", "branch_delete", "stash_drop", "tag_delete",
@@ -186,31 +186,37 @@ var DestructiveActions = []string{
 클라이언트는 이 목록으로 확인 절차를 켠다 — 목록을 프론트에 복제하지 않는다.
 새 파괴적 동작이 서버에 생기면 클라이언트가 자동으로 그것을 막는다.
 
-## 5. 클라이언트 — 2단계 확인 (FR-GIT-90·91·94·97, 검증 V37·V38)
+## 5. 클라이언트 — 파괴적 확인 (FR-GIT-90·91·94·97, 검증 V37·V38)
+
+> **개정 (CONFIRM_ONE_STAGE_SRS FR-COS-1·8).** 이 절은 원래 두 걸음을 규정했다.
+> 지금은 **한 걸음**이며, 영향 범위와 recovery hint 를 한 화면에 함께 보인다.
+> 아래 규약 중 걸음 수에 매인 것만 개정되었고 나머지 — 기본 선택지·키 규약·모바일
+> 배치·실패 표시 — 는 그대로 유효하다.
 
 ```js
-// web/js/git-confirm.js
+// web/js/git/confirm.js
 
 /**
- * 파괴적 동작의 2단계 확인 (FR-GIT-90).
+ * 파괴적 동작의 확인 (FR-GIT-90).
  *
- * 1단계는 **영향 범위**다 — 무엇이 몇 개 사라지는지 목록으로 보인다. 개수만
- * 보이면 사용자가 무엇을 잃는지 모른다 (FR-GIT-91).
- * 2단계는 명시적 실행 확인이다.
+ * 한 화면이 **영향 범위**와 **recovery hint** 를 함께 보인다. 영향 범위는 무엇이
+ * 몇 개 사라지는지의 목록이며, 개수만 보이면 사용자가 무엇을 잃는지 모른다
+ * (FR-GIT-91).
  *
  * 기본 선택지는 항상 안전한 쪽이다 (FR-GIT-97) — 기본 포커스는 취소이고,
  * Enter 의 기본 동작도 취소다 (FR-GIT-176).
  */
 class GitConfirm {
   // open 은 확인을 띄우고 사용자가 끝까지 진행했을 때만 true 로 resolve 한다.
-  static async open({action, title, targets, hint, mobile})
+  static async open({action, title, targets, hint, mobile, run, stages})
 }
 ```
 
 규약:
 
-- **1단계**: 제목 + 대상 목록(스크롤 가능) + 개수 + `계속` / `취소`.
-- **2단계**: recovery hint 를 보이고 + `실행` / `취소`.
+- **한 화면**: 제목 + 대상 목록(스크롤 가능) + 개수 + recovery hint + `Run` / `Cancel`.
+- 파괴적이면 hint 자리는 hint 가 없어도 열려 "되돌릴 수 없다"를 말한다. 파괴적이
+  아닌 확인(`stages:1`)은 hint 가 있을 때만 연다 (FR-COS-3).
 - `Esc` → 취소. `Enter` → **취소** (파괴적 다이얼로그에서 Enter 가 실행하지
   않는다, FR-GIT-176). 실행은 마우스·탭 이동 후 Space/클릭으로만.
 - 초기 포커스는 `취소` 버튼이다.
@@ -260,8 +266,8 @@ e2e (`e2e/git-confirm.spec.ts`):
 |---|---|---|
 | J5 | V38 | 초기 포커스가 취소 버튼이다 |
 | J6 | V38 | 파괴적 다이얼로그에서 Enter 가 실행하지 않는다 |
-| J7 | V37 | 1단계가 대상 목록을 보인다 (개수만이 아니다) |
-| J8 | V37 | 2단계가 recovery hint 를 보인다 |
+| J7 | V37 | 대상 목록을 보인다 (개수만이 아니다) |
+| J8 | V37 | 한 화면이 영향 범위와 recovery hint 를 함께 보인다 |
 | J9 | FR-GIT-94 | 모바일 폭에서 실행 버튼이 목록과 분리돼 보이고 잘리지 않는다 |
 | J10 | FR-GIT-175 | 실패 시 stderr tail 과 복사 버튼이 보인다 |
 

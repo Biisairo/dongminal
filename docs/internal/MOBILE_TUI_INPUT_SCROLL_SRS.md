@@ -463,10 +463,14 @@ TUI 프레임 전체를 다시 그려 **화면이 요동친 것**이다.
 `innerH` 가 `387↔759` 로 변한다는 것(= `resizes-content` 동작)과 wheel 리포트가
 0 개라는 것이 그 증거였다. 서버 재시작은 WebSocket 만 끊고 문서는 살려둔다.
 
-- **FR-MTI-33** 열려 있는 페이지가 옛 코드를 돌리고 있으면 사용자에게 알린다.
-  `index.html` 의 `core/main.js?v=` 를 `VERSION_CHECK_MS` 주기와 탭 복귀 시점에
-  비교해, 다르면 배너와 새로고침 버튼을 띄운다. **자동 새로고침은 하지 않는다** —
-  터미널 세션 중에 화면이 갈리면 곤란하다.
+- **FR-MTI-33** 열려 있는 페이지가 옛 코드를 돌리고 있으면 **그것을 바로잡는다.**
+  판정의 근거는 `index.html` 의 `core/main.js?v=` 다.
+  > **개정 (RELOAD_CONTINUITY_SRS 묶음 P·S).** 이 조항은 원래 "배너를 띄우고 자동
+  > 새로고침은 하지 않는다" 였다. 배너는 사용자가 누르지 않으면 이 조항이 막으려던
+  > 상태를 그대로 남겼으므로 지금은 **곧바로 다시 연다** (FR-RLC-1). 계기도 주기가
+  > 아니라 **서버가 SSE 로 건네는 인사**다 (FR-RLC-2) — `VERSION_CHECK_MS` 는 그와
+  > 함께 사라졌다. 터미널 스크롤백은 서버가 들고 있어 "화면이 갈리는" 대가는 실제로
+  > 없다 (RELOAD_CONTINUITY_SRS §2.1).
 - **FR-MTI-34** HTML 응답에 `Cache-Control: no-cache` 를 붙여 항상 재검증하게 한다.
   ETag 만 있고 `Cache-Control` 이 없으면 브라우저가 heuristic freshness 로 재검증을
   건너뛸 수 있고, 그러면 새 빌드를 띄워도 `index.html` 이 옛 `?v=` 를 가리킨다.

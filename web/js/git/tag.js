@@ -13,7 +13,7 @@
  *
  * - **로컬 삭제와 원격 삭제는 다른 항목이다** (FR-GIT-261). 하나가 다른 하나를
  *   자동으로 하지 않는다 — 메뉴 항목도 라우트도 둘이다. 둘 다 파괴적이므로
- *   `GitMenu` 의 2단계 확인을 거치고, 확인 문구의 명령은 **지우기 전 oid** 를
+ *   `GitMenu` 의 파괴적 확인을 거치고, 확인 문구의 명령은 **지우기 전 oid** 를
  *   싣는다 (FR-GIT-92·250.2).
  * - **메시지는 annotated·signed 에서만 뜻이 있다** (FR-GIT-260). lightweight 는
  *   객체를 만들지 않으므로 담을 자리가 없다 — 그 사실을 다이얼로그가 실행 전에
@@ -36,7 +36,7 @@ class GitTag {
   // ── 삭제 (FR-GIT-261) ──
 
   /**
-   * 로컬만 지운다. 2단계 확인과 recovery hint 는 `GitMenu` 가 이미 거쳤으므로
+   * 로컬만 지운다. 파괴적 확인과 recovery hint 는 `GitMenu` 가 이미 거쳤으므로
    * 여기서는 `confirm` 을 실어 보낸다 — 서버도 그것을 요구한다 (FR-GIT-250.1).
    */
   static async deleteLocal(panel,name){

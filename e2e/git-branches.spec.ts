@@ -232,7 +232,7 @@ test.describe('18단계 — Branches 탭', () => {
     expect(git(repo, 'rev-parse', 'feat')).toBe(git(repo, 'rev-parse', 'main'));
   });
 
-  test('B9 (V55 / FR-GIT-157, O14): dirty checkout 의 기본은 취소이고 강제는 2단계다', async ({ page }) => {
+  test('B9 (V55 / FR-GIT-157, O14): dirty checkout 의 기본은 취소이고 강제는 확인을 거친다', async ({ page }) => {
     const repo = copyFx('with-remote', 'b9');
     writeFileSync(join(repo, 'f.txt'), 'dirty\n');
     await waitForInit(page);
@@ -251,14 +251,12 @@ test.describe('18단계 — Branches 탭', () => {
     await expect(opts.nth(2)).toHaveAttribute('data-opt', 'force');
     await expect(choice(page).locator('.gch-opt[data-opt="cancel"]')).toBeFocused();
 
-    // 강제는 파괴적이므로 GitConfirm 2단계를 거친다.
+    // 강제는 파괴적이므로 GitConfirm 을 거친다 — 걸음은 하나다 (FR-COS-1).
     await opts.nth(2).click();
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
     await expect(confirm(page)).toHaveAttribute('data-stage', '1');
     // 기본 포커스는 취소다 — 강제 확인에서도 그대로다 (FR-GIT-97).
     await expect(confirm(page).locator('.gc-cancel')).toBeFocused();
-    await confirm(page).locator('.gc-go').click();
-    await expect(confirm(page)).toHaveAttribute('data-stage', '2');
     await confirm(page).locator('.gc-go').click();
 
     await expect.poll(() => git(repo, 'branch', '--show-current'), { timeout: 20000 })

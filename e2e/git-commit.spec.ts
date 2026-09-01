@@ -285,7 +285,7 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
     await msg(page).fill('e15 detached 커밋');
     await btn(page).click();
 
-    // 막지 않되 결과를 명시적으로 알린다 — 파괴적이 아니므로 1단계다.
+    // 막지 않되 결과를 명시적으로 알린다.
     const box = page.locator('#git-confirm .gc-box');
     await expect(box).toBeVisible({ timeout: 10000 });
     await expect(box.locator('.gc-head')).toHaveText('이 커밋은 어느 브랜치에도 속하지 않습니다');

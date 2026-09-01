@@ -5,10 +5,13 @@ import (
 
 	"bytes"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
+	"time"
 )
 
 func TestHandleCommandPost(t *testing.T) {
@@ -102,5 +105,149 @@ func TestHandleCommandSSE_ConnectAndClose(t *testing.T) {
 	}
 	if !bytes.Contains(buf[:n], []byte(": connected")) {
 		t.Fatalf("expected ': connected', got %q", buf[:n])
+	}
+}
+
+// RELOAD_CONTINUITY_SRS TC-RLC-20 (FR-RLC-20·21): 구독이 열리자마자 서버가 자기
+// 자산 버전을 말한다. 값은 **서빙하는 index.html 에서 파생한다** — 손으로 적은
+// 상수는 `?v=` 와 갈라질 수 있고, 갈라지면 화면이 영원히 새로고침하거나 영원히
+// 하지 않는다.
+func TestHandleCommandSSE_ServerHello(t *testing.T) {
+	srv, err := New(Config{DataDir: t.TempDir(), StaticFS: fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte(
+			`<script src="js/core/main.js?v=4242"></script>`)},
+	}}, Deps{})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/api/commands/sse")
+	if err != nil {
+		t.Fatalf("GET SSE: %v", err)
+	}
+	defer resp.Body.Close()
+
+	buf := make([]byte, 4096)
+	n, _ := resp.Body.Read(buf)
+	got := string(buf[:n])
+	if !strings.Contains(got, `"action":"server_hello"`) {
+		t.Fatalf("첫 이벤트에 server_hello 가 없다: %q", got)
+	}
+	if !strings.Contains(got, `"assetVersion":"4242"`) {
+		t.Fatalf("인사가 서빙되는 ?v= 를 싣지 않았다: %q", got)
+	}
+}
+
+// TC-RLC-21 (FR-RLC-22): 판을 모르면 **판만 빠진다.** 인사를 통째로 거르면
+// 생존 신호(FR-RLC-25)가 함께 사라져, 화면이 멀쩡한 구독을 죽었다고 판정한다.
+func TestHandleCommandSSE_HelloWithoutVersion(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		fs   fs.FS
+	}{
+		{"정적 자산이 없다", nil},
+		{"index.html 에 ?v= 가 없다", fstest.MapFS{
+			"index.html": &fstest.MapFile{Data: []byte(`<script src="js/core/main.js"></script>`)},
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, err := New(Config{DataDir: t.TempDir(), StaticFS: tc.fs}, Deps{})
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			ts := httptest.NewServer(srv.Handler())
+			defer ts.Close()
+
+			resp, err := http.Get(ts.URL + "/api/commands/sse")
+			if err != nil {
+				t.Fatalf("GET SSE: %v", err)
+			}
+			defer resp.Body.Close()
+
+			buf := make([]byte, 4096)
+			n, _ := resp.Body.Read(buf)
+			got := string(buf[:n])
+			if !strings.Contains(got, `"action":"server_hello"`) {
+				t.Fatalf("판을 몰라도 인사는 와야 한다 — 그것이 생존 신호다: %q", got)
+			}
+			if strings.Contains(got, "assetVersion") {
+				t.Fatalf("모르는 판을 실었다: %q", got)
+			}
+		})
+	}
+}
+
+// TC-RLC-24 (FR-RLC-20a): 인사는 **되풀이된다.** keepalive 주석을 대신하므로,
+// 화면은 그 도착으로 구독이 살아 있음을 안다 — 주석은 EventSource 가 이벤트로
+// 발화하지 않아 관측할 수 없다.
+func TestHandleCommandSSE_HelloRepeats(t *testing.T) {
+	srv, err := New(Config{DataDir: t.TempDir(), StaticFS: fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte(`<script src="js/core/main.js?v=7"></script>`)},
+	}}, Deps{})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	// 주기를 시험이 기다릴 수 있는 길이로 줄인다 — 15초를 그대로 기다릴 수는 없다.
+	srv.helloEvery = 50 * time.Millisecond
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/api/commands/sse")
+	if err != nil {
+		t.Fatalf("GET SSE: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// 첫 인사 + 되풀이 하나를 읽는다.
+	seen := 0
+	deadline := time.Now().Add(3 * time.Second)
+	buf := make([]byte, 4096)
+	for seen < 2 && time.Now().Before(deadline) {
+		n, err := resp.Body.Read(buf)
+		if err != nil {
+			break
+		}
+		seen += strings.Count(string(buf[:n]), `"action":"server_hello"`)
+	}
+	if seen < 2 {
+		t.Fatalf("인사가 되풀이되지 않는다: %d회", seen)
+	}
+}
+
+// 주석 keepalive 는 인사가 대신한다 — 둘 다 보내면 오가는 양만 는다.
+func TestHandleCommandSSE_NoKeepComment(t *testing.T) {
+	srv, err := New(Config{DataDir: t.TempDir(), StaticFS: fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte(`<script src="js/core/main.js?v=7"></script>`)},
+	}}, Deps{})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	srv.helloEvery = 50 * time.Millisecond
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/api/commands/sse")
+	if err != nil {
+		t.Fatalf("GET SSE: %v", err)
+	}
+	defer resp.Body.Close()
+
+	buf := make([]byte, 4096)
+	got := ""
+	deadline := time.Now().Add(1 * time.Second)
+	for time.Now().Before(deadline) {
+		n, err := resp.Body.Read(buf)
+		if err != nil {
+			break
+		}
+		got += string(buf[:n])
+		if strings.Count(got, "server_hello") >= 2 {
+			break
+		}
+	}
+	if strings.Contains(got, ": keep") {
+		t.Errorf("주석 keepalive 가 남아 있다: %q", got)
 	}
 }

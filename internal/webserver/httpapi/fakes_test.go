@@ -266,3 +266,16 @@ func (f *fakeSettingsStore) save() {
 	defer f.mu.Unlock()
 	f.saves++
 }
+
+// ── fakeUnknownHub ─────────────────────────────────────
+//
+// TOOL_LIST_UNKNOWN_SRS §2.2: 데몬 RPC 가 실패한 순간의 ToolClient 를 흉내낸다.
+// `List()` 는 nil 을 주고 `ListOK()` 는 "모른다"를 함께 말한다 — 도구가 정말 0개인
+// 경우(`nil, true`)와 갈리는 것이 이 fake 의 전부다 (FR-TLU-2).
+type fakeUnknownHub struct {
+	*fakePaneHub
+}
+
+func (f *fakeUnknownHub) List() []map[string]interface{} { return nil }
+
+func (f *fakeUnknownHub) ListOK() ([]map[string]interface{}, bool) { return nil, false }

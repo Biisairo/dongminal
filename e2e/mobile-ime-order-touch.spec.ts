@@ -103,13 +103,16 @@ test('TC-MTI-31 (FR-MTI-32): wheel 은 프레임당 한 번, 누적 delta 로 �
   expect(n[0]).toBe(-100);
 });
 
-test('TC-MTI-32 (FR-MTI-33): 새 버전이 감지되면 배너가 뜬다', async ({ page }) => {
+// RELOAD_CONTINUITY_SRS FR-RLC-1·4 로 개정: 새 버전은 배너를 띄우지 않고 **곧바로
+// 다시 연다.** 이 스펙이 재는 것은 그 계기(감지)가 모바일에서도 살아 있는가이므로,
+// 재는 대상만 배너에서 새로고침으로 옮긴다.
+test('TC-MTI-32 (FR-RLC-1·4): 새 버전이 감지되면 배너 없이 다시 뜬다', async ({ page }) => {
   await gotoMobile(page);
-  await expect(page.locator('#ver-banner')).toHaveCount(0);
+  await page.evaluate(() => { (window as any).__alive = 1 });
   // index.html 이 다른 버전을 가리키는 상황을 만든다.
   await page.route('**/?_v=*', (route) =>
     route.fulfill({ status: 200, contentType: 'text/html', body: '<script src="js/core/main.js?v=999999"></script>' }));
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-  await expect(page.locator('#ver-banner')).toHaveCount(1, { timeout: 10000 });
-  await expect(page.locator('#ver-banner')).toContainText('새 버전');
+  await page.waitForFunction(() => !(window as any).__alive, undefined, { timeout: 10000 });
+  await expect(page.locator('#ver-banner')).toHaveCount(0);
 });

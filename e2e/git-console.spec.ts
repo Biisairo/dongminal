@@ -79,18 +79,16 @@ test.describe('묶음 Q — Console 탭', () => {
     await waitForInit(page);
     await openGit(page, repo);
 
-    // discard 는 파괴적이다 (FR-GIT-95, 해석 I5) — 2단계 확인을 거친다.
+    // discard 는 파괴적이다 (FR-GIT-95, 해석 I5) — 확인을 거친다.
     writeFileSync(join(repo, 'k4.txt'), 'x\n');
     const row = page.locator('#area .pn-body .git-group[data-group="untracked"] .git-file[data-path="k4.txt"]');
     await expect(row).toBeVisible({ timeout: 10000 });
     await row.hover();
     await row.locator('.git-file-act[data-act="discard"]').click();
-    // 파괴적 동작은 2단계 확인이다 (FR-GIT-95~97) — 1단계에서 2단계로 넘어간 뒤
-    // 실행한다.
+    // 파괴적 동작도 확인은 한 걸음이다 (FR-GIT-95~97, FR-COS-1).
     const box = page.locator('#git-confirm .gc-box');
     await expect(box).toBeVisible({ timeout: 10000 });
-    await page.locator('#git-confirm .gc-go').click();
-    await expect(box).toHaveAttribute('data-stage', '2');
+    await expect(box).toHaveAttribute('data-stage', '1');
     await page.locator('#git-confirm .gc-go').click();
     await expect(row).toHaveCount(0, { timeout: 15000 });
 
@@ -172,7 +170,7 @@ test.describe('묶음 H — Console 의 검색·replay (FR-GIT-281)', () => {
 
     await row.hover();
     await row.locator('.git-con-replay').click();
-    // 쓰기이므로 확인을 거친다 (파괴적이 아니라 1단계).
+    // 쓰기이므로 확인을 거친다 (파괴적은 아니다).
     await expect(page.locator('#git-confirm .gc-box')).toBeVisible({ timeout: 10000 });
     await page.locator('#git-confirm .gc-go').click();
     await expect(page.locator('#git-confirm'), '성공했는데 확인 상자가 안 닫혔다')

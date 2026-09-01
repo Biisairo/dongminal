@@ -180,7 +180,7 @@ test.describe('묶음 D — 커밋 동작 (V191~V194)', () => {
     expect(subjects(repo)[0]).toContain('Revert');
   });
 
-  // ── V192: reset 은 영향 커밋 수를 보이고 --hard 만 2단계다 ──
+  // ── V192: reset 은 영향 커밋 수를 보이고 --hard 만 확인을 거친다 ──
 
   test('D3 (V192 / FR-GIT-265): reset 다이얼로그가 영향 커밋 수를 보이고, mixed 는 확인 없이 실행된다', async ({ page }) => {
     const repo = keep(linearRepo('d3'));
@@ -201,14 +201,14 @@ test.describe('묶음 D — 커밋 동작 (V191~V194)', () => {
     expect(await modes.first().isChecked()).toBe(true);
 
     await dialogGo(page).click();
-    // mixed 는 잃는 것이 없다 — 2단계 확인이 뜨지 않는다.
+    // mixed 는 잃는 것이 없다 — 확인이 뜨지 않는다.
     await expect(confirmBox(page)).toHaveCount(0);
     await expect.poll(() => headOid(repo), { timeout: 20000 }).toBe(target);
     // 워킹 트리는 남는다 (mixed 의 뜻) — 되돌린 내용이 unstaged 로 있다.
     expect(git(repo, 'status', '--porcelain').trim().length).toBeGreaterThan(0);
   });
 
-  test('D4 (V192 / FR-GIT-89·265): `--hard` 만 2단계 확인이고, 확인을 취소하면 HEAD 가 움직이지 않는다', async ({ page }) => {
+  test('D4 (V192 / FR-GIT-89·265): `--hard` 만 확인을 거치고, 확인을 취소하면 HEAD 가 움직이지 않는다', async ({ page }) => {
     const repo = keep(linearRepo('d4'));
     const before = headOid(repo);
     await waitForInit(page);
@@ -223,8 +223,7 @@ test.describe('묶음 D — 커밋 동작 (V191~V194)', () => {
     // 파괴 선언이 **옵션에서 파생한다** — hard 를 고른 순간에만 확인이 뜬다.
     await expect(confirmBox(page)).toBeVisible({ timeout: 10000 });
     expect(await confirmBox(page).getAttribute('data-action')).toBe('reset_hard');
-    // hint 는 되살릴 수 있는 명령이다 (FR-GIT-92·250.2).
-    await confirmBox(page).locator('.gc-go').click();
+    // hint 는 되살릴 수 있는 명령이며 그 한 화면에 함께 있다 (FR-GIT-92·250.2, FR-COS-2).
     await expect(confirmBox(page).locator('.gc-hint-cmd')).toContainText('reset --hard ' + before);
 
     // 취소하면 저장소는 그대로다.
@@ -243,11 +242,10 @@ test.describe('묶음 D — 커밋 동작 (V191~V194)', () => {
     await openHistory(page, repo);
 
     await openMenuOn(page, 'c2');
-    // 파괴적이므로 항목 자체가 2단계 확인을 연다 — 다이얼로그를 따로 세우지 않는다.
+    // 파괴적이므로 항목 자체가 확인을 연다 — 다이얼로그를 따로 세우지 않는다.
     await item(page, 'drop').click();
     await expect(confirmBox(page)).toBeVisible({ timeout: 10000 });
     expect(await confirmBox(page).getAttribute('data-action')).toBe('commit_drop');
-    await confirmBox(page).locator('.gc-go').click();
     await expect(confirmBox(page).locator('.gc-hint-cmd')).toContainText('reset --hard ' + before);
     await confirmBox(page).locator('.gc-go').click();
     await expect(page.locator('#git-confirm')).toHaveCount(0, { timeout: 20000 });

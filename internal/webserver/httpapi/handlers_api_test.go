@@ -625,3 +625,74 @@ func TestHandleAPI_ToolsCreate_UnknownCwdToolFallsBack(t *testing.T) {
 		t.Fatalf("created tool cwd=%q want empty", pm.lastCwd)
 	}
 }
+
+// TOOL_LIST_UNKNOWN_SRS TC-TLU-1 (FR-TLU-1·3): 도구 목록의 출처가 같은 프로세스인
+// 구현은 모를 수 있는 순간이 없다 — `toolsKnown` 은 참이다.
+func TestHandleAPI_State_ToolsKnownByDefault(t *testing.T) {
+	pm := newFakePaneHub()
+	pm.seed("1", "Shell #1")
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp := mustGet(t, ts.URL+"/api/state")
+	defer resp.Body.Close()
+	var got struct {
+		Tools      []map[string]interface{} `json:"tools"`
+		ToolsKnown *bool                    `json:"toolsKnown"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.ToolsKnown == nil {
+		t.Fatalf("응답에 toolsKnown 이 없다 (FR-TLU-1)")
+	}
+	if !*got.ToolsKnown {
+		t.Errorf("toolsKnown=false, 직접 모드는 언제나 알고 있어야 한다 (FR-TLU-3)")
+	}
+	if len(got.Tools) != 1 {
+		t.Errorf("tools=%d want 1", len(got.Tools))
+	}
+}
+
+// TOOL_LIST_UNKNOWN_SRS TC-TLU-3 (FR-TLU-1·4): 도구 목록을 **모르는** 순간에도
+// 워크스페이스는 그대로 나간다. 워크스페이스는 웹서버가 소유하며 데몬의 사정과
+// 무관하기 때문이다.
+func TestHandleAPI_State_ToolsUnknown(t *testing.T) {
+	pm := &fakeUnknownHub{fakePaneHub: newFakePaneHub()}
+	fw := newFakeWorkspaceStore()
+	fw.raw = []byte(`{"schemaVersion": 2, "windows":[{"id":"s1"}]}`)
+	fw.rev = 11
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm, Work: fw})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp := mustGet(t, ts.URL+"/api/state")
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d want 200 — 모른다는 것은 오류가 아니다", resp.StatusCode)
+	}
+	var got struct {
+		Tools      []map[string]interface{} `json:"tools"`
+		ToolsKnown *bool                    `json:"toolsKnown"`
+		Workspace  map[string]interface{}   `json:"workspace"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.ToolsKnown == nil {
+		t.Fatalf("응답에 toolsKnown 이 없다 — 없으면 읽는 쪽이 기본값으로 오해한다 (FR-TLU-1)")
+	}
+	if *got.ToolsKnown {
+		t.Errorf("toolsKnown=true, RPC 가 실패했으므로 거짓이어야 한다 (FR-TLU-2)")
+	}
+	if got.Workspace == nil {
+		t.Errorf("워크스페이스가 비었다 — 도구를 몰라도 실어 보내야 한다 (FR-TLU-4)")
+	}
+	if got.Workspace != nil {
+		wins, _ := got.Workspace["windows"].([]interface{})
+		if len(wins) != 1 {
+			t.Errorf("windows=%d want 1", len(wins))
+		}
+	}
+}

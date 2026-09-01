@@ -145,7 +145,7 @@ test.describe('20단계 — 다이얼로그 공통 규약', () => {
     await expect(page.locator('#git-remote-opts')).toHaveCount(0);
   });
 
-  test('D2 (V59 / FR-GIT-172): 파괴적이면 2단계 확인에 위임한다', async ({ page }) => {
+  test('D2 (V59 / FR-GIT-172): 파괴적이면 확인에 위임한다', async ({ page }) => {
     await waitForInit(page);
     await open(page, { destructive: true });
 
@@ -153,9 +153,7 @@ test.describe('20단계 — 다이얼로그 공통 규약', () => {
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
     await expect(page.locator('.git-dialog-box')).toHaveCount(0);
     await expect(confirm(page)).toHaveAttribute('data-stage', '1');
-    await confirm(page).locator('.gc-go').click();
-    await expect(confirm(page)).toHaveAttribute('data-stage', '2');
-    // 2단계를 지나야 실행된다.
+    // 확인을 지나야 실행된다 — 열려 있는 동안에는 아직 돌지 않았다.
     expect(await ran(page)).toBe(0);
     await confirm(page).locator('.gc-go').click();
     await expect(page.locator('#git-confirm')).toHaveCount(0);

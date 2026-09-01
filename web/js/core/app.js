@@ -82,6 +82,30 @@ class App {
     return out;
   }
 
+  /**
+   * TOOL_LIST_UNKNOWN_SRS FR-TLU-9: 첫 화면은 **도구를 아는 스냅숏**으로 세운다.
+   *
+   * 데몬에 다시 붙는 창에 걸리면 `/api/state` 는 도구를 모른다고 답한다. 뒤이은
+   * 경로는 SSE 가 다음 `workspace_changed` 를 날라 스스로 회복하지만, 첫 화면에는
+   * 그 보증이 없다 — 모른 채로 진행하면 사용자는 탭이 사라진 화면을 먼저 본다.
+   *
+   * 상한을 두는 이유는 데몬이 영영 돌아오지 않는 경우에도 화면은 서야 하기
+   * 때문이다. 그때는 아는 것으로 진행하며, 그 뒤의 회복은 SSE 의 몫이다.
+   */
+  async _fetchStateKnown(){
+    let res=await fetch('/api/state');
+    for(let i=0;i<STATE_UNKNOWN_RETRIES;i++){
+      if(!res.ok) return res;
+      // 본문은 한 번만 읽을 수 있다 — 복제해서 들여다본다.
+      let st=null;
+      try{ st=await res.clone().json() }catch{ return res }
+      if(!st||st.toolsKnown!==false) return res;
+      await new Promise(r=>setTimeout(r,STATE_UNKNOWN_RETRY_MS));
+      res=await fetch('/api/state');
+    }
+    return res;
+  }
+
   async init(){
     // OS focus listeners go up before any async work — a `focus` event during
     // init must still claim the active window.
@@ -92,7 +116,7 @@ class App {
     // 알려준 홈과 어긋난 채로 남는다.
     const edReady=this._edLoad();
     try{
-      const stRes=await fetch('/api/state');
+      const stRes=await this._fetchStateKnown();
       this.wsETag=stRes.headers.get('ETag')||stRes.headers.get('Etag')||null;
       const st=await stRes.json();
       const sp=st.tools||[];
@@ -168,6 +192,9 @@ class App {
       if(saved && this.ws.windows.some(s=>s.id===saved)){
         this.ws.activeWindow=saved;
       }
+      // FR-RLC-8: 사이드바 탭이 돌아갈 창의 기억도 같은 성질이다 — 같은 블록에서
+      // 되살린다.
+      this._restoreReturn();
       // Restore per-window focusedPane for each window from sessionStorage.
       const savedFocus=sessionStorage.getItem('focusedPanes');
       if(savedFocus){

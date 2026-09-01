@@ -324,7 +324,7 @@ test.describe('묶음 F — stash · 파일 · 미커밋 행', () => {
     expect(existsSync(join(repo, 'untracked.txt'))).toBe(true);
   });
 
-  test('F12 (V203 / FR-GIT-277): Clean 은 2단계 확인 + `stash push -u` hint 를 준다', async ({ page }) => {
+  test('F12 (V203 / FR-GIT-277): Clean 은 확인 + `stash push -u` hint 를 준다', async ({ page }) => {
     const repo = copyFx('basic', 'f12');
     await waitForInit(page);
     await openGit(page, repo);
@@ -335,14 +335,12 @@ test.describe('묶음 F — stash · 파일 · 미커밋 행', () => {
     await ctx(page, unc);
     await item(page, 'clean').click();
 
-    // 파괴적이므로 프레임워크가 2단계로 올린다 (FR-GIT-89·92).
+    // 파괴적이므로 프레임워크가 확인을 세운다 (FR-GIT-89·92) — 한 걸음이다.
     await expect(confirmBox(page)).toBeVisible();
     await expect(confirmBox(page)).toHaveAttribute('data-stage', '1');
     await expect(confirmBox(page).locator('.gc-targets')).toContainText('untracked.txt');
 
-    await confirmBox(page).locator('.gc-go').click();
-    await expect(confirmBox(page)).toHaveAttribute('data-stage', '2');
-    // recovery hint 는 2단계의 것이다. 되살릴 수 없으므로 **먼저 담아 두는** 명령이다.
+    // recovery hint 가 같은 화면에 있다. 되살릴 수 없으므로 **먼저 담아 두는** 명령이다.
     await expect(confirmBox(page).locator('.gc-hint')).toBeVisible();
     await expect(confirmBox(page).locator('.gc-hint-cmd')).toContainText('git stash push -u');
 

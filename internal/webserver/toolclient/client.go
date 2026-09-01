@@ -482,17 +482,39 @@ func (pc *ToolClient) Connected() bool {
 // ── toolhub.ToolHub implementation ──────────────────────────────────────────────
 
 func (pc *ToolClient) List() []map[string]interface{} {
+	out, _ := pc.ListOK()
+	return out
+}
+
+// ListOK 는 목록과 함께 **그 목록이 관측된 사실인지**를 답한다
+// (TOOL_LIST_UNKNOWN_SRS FR-TLU-2).
+//
+// `List` 의 nil 로는 "도구가 0개"와 "데몬에게 묻지 못했다"가 갈리지 않는다 —
+// 데몬의 ToolManager 는 도구가 없으면 nil 슬라이스를 주고 그것이 JSON 에서
+// `"tools": null` 로 나오기 때문이다 (SRS §2.3). 그 둘을 같게 다루면 재접속의
+// 짧은 창에 클라이언트가 **살아 있는 도구 전부를 죽은 것으로 판정**한다.
+//
+// 그래서 판정을 RPC 를 실제로 하는 이 자리 하나에 둔다. 응답이 왔으면 목록이
+// 비어 있어도 아는 것이고, 오지 않았으면 모르는 것이다.
+func (pc *ToolClient) ListOK() ([]map[string]interface{}, bool) {
 	resp, err := pc.call("list", struct{}{})
 	if err != nil {
-		return nil
+		return nil, false
 	}
 	raw, ok := resp["tools"]
 	if !ok {
-		return nil
+		// 목록이 있어야 할 자리가 응답에 없다. 데몬의 `list` 는 언제나 그 키를
+		// 넣으므로(`ipc/paned.go`), 없다는 것은 이 응답이 목록이 아니라는 뜻이다 —
+		// `call` 이 오류 응답을 빈 맵으로 돌려주는 경로가 여기로 온다.
+		return nil, false
+	}
+	if raw == nil {
+		// 키는 있고 값이 null 이다 — 도구가 0개인 것이며, 아는 것이다.
+		return nil, true
 	}
 	arr, ok := raw.([]interface{})
 	if !ok {
-		return nil
+		return nil, false
 	}
 	out := make([]map[string]interface{}, 0, len(arr))
 	for _, item := range arr {
@@ -501,7 +523,7 @@ func (pc *ToolClient) List() []map[string]interface{} {
 			out = append(out, m)
 		}
 	}
-	return out
+	return out, true
 }
 
 func (pc *ToolClient) Create(cwd string, cols, rows uint16) (*toolhub.Tool, error) {

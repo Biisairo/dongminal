@@ -18,7 +18,7 @@
 
 **포함:** 브랜치 우클릭 메뉴의 merge 항목 통합과 삭제 항목의 동시 제거 경로.
 
-**미포함:** 서버 API·삭제 정책·2단계 확인 프레임워크. `GitConfirm` 은 한 줄도 바뀌지
+**미포함:** 서버 API·삭제 정책·파괴적 확인 프레임워크. `GitConfirm` 은 한 줄도 바뀌지
 않는다.
 
 ### 1.3 개정하는 기존 요구
@@ -99,7 +99,7 @@
 보인다 — 원격 ref 에서는 "로컬 브랜치에서만", upstream 이 없으면 "upstream 이
 설정돼 있지 않습니다" (기존 `GIT_BR_WHY_NO_UPSTREAM` 과 같은 문구).
 
-**FR-BMU-12** 파괴적이다. 2단계 확인의 **영향 범위에 로컬과 원격이 모두 보인다** —
+**FR-BMU-12** 파괴적이다. 확인 화면의 **영향 범위에 로컬과 원격이 모두 보인다** —
 무엇이 사라지는지 목록으로 보이는 것이 FR-GIT-91 이다.
 
 **FR-BMU-13** 실행 순서는 **로컬 먼저, 성공하면 원격**이다.
@@ -122,6 +122,28 @@
 
 **FR-BMU-16** 기존 두 항목(`delete`·`remote-delete`)은 **그대로 남는다.** 한쪽만
 지우려는 사용자의 길이 사라지면 안 된다.
+
+### 3.4 묶음 T — 세 진입점이 같은 대상을 준다 (사후 추가)
+
+> **접수**: *"local branch 지울 때 remote 도 함께 지우는 것이 구현이 안 되어 있다."*
+> 실측하니 구현은 있었고, **History 커밋 옆 배지에서 연 메뉴에서만** 죽어 있었다.
+
+**FR-BMU-17** 브랜치 메뉴를 여는 **세 진입점**(Branches 탭 행 · refs 사이드바 행 ·
+History 커밋 옆 배지)은 같은 항목에 **같은 판정**을 준다. 진입점이 대상을 어떻게
+만드는지가 항목의 활성 여부를 갈라서는 안 된다.
+
+**FR-BMU-18** History 배지의 대상은 `upstream` 과 `oid` 를 싣는다. `git log` 의
+decoration 은 **이름과 종류뿐**이므로 그 값들은 refs 관측(`/api/git/refs`)에서 온다 —
+같은 이름·종류의 Ref 를 찾아 채우고, 없으면 빈 값이다.
+
+> **왜 이것이 결함인가.** `delete-both` 는 `upstream` 을 보고 활성을 정하므로
+> (FR-BMU-11) 이 경로에서는 **언제나** "upstream 이 설정돼 있지 않습니다"로 죽는다.
+> 같은 이유로 `upstream-unset` 도 죽고, `delete` 의 recovery hint 는 `oid` 가 없어
+> `git branch <이름> ` — **되살릴 수 없는 명령** — 이 된다 (FR-GIT-250.2 위반).
+
+**FR-BMU-19** 배지 대상의 기존 네 필드(`short`·`name`·`kind`·`isHead`)는 **바뀌지
+않는다.** 특히 `isHead` 는 계속 관측에서 파생한다 (FR-GIT-248) — decoration 의 낡은
+값을 실으면 떠나온 브랜치로 돌아간다.
 
 ---
 
@@ -149,9 +171,12 @@
 | TC-BMU-3 | FR-BMU-3 | 원격 ref 의 `merge` 가 종전 `remote-pull` 과 같은 다이얼로그를 연다 (영향 범위에 그 ref 이름) |
 | TC-BMU-4 | FR-BMU-3 | 로컬 ref 의 `merge` 동작이 종전과 같다 |
 | TC-BMU-10 | FR-BMU-10·11 | upstream 이 있는 로컬 브랜치에서 `delete-both` 가 활성, upstream 이 없으면 사유와 함께 비활성, 원격 ref 에서는 비활성 |
-| TC-BMU-11 | FR-BMU-12 | 2단계 확인의 영향 범위에 로컬 이름과 원격 이름이 **둘 다** 보인다 |
+| TC-BMU-11 | FR-BMU-12 | 확인 화면의 영향 범위에 로컬 이름과 원격 이름이 **둘 다** 보인다 |
 | TC-BMU-12 | FR-BMU-13 | 실행하면 로컬과 원격이 **둘 다** 사라진다 |
 | TC-BMU-13 | FR-BMU-16 | `delete`·`remote-delete` 가 그대로 있고 종전대로 동작한다 |
+| TC-BMU-14 | FR-BMU-17·18 | History 배지에서 연 메뉴의 `delete-both` 가 Branches 탭에서와 **같은** 활성 상태다 |
+| TC-BMU-15 | FR-BMU-18 | 같은 메뉴의 `delete` recovery hint 에 **oid 가 들어 있다** |
+| TC-BMU-16 | FR-BMU-19 | 배지 대상의 `isHead` 는 여전히 관측에서 온다 — 체크아웃 뒤 옛 배지의 `checkout` 이 되살아난다 |
 
 ### 5.1 개정이 필요한 기존 테스트
 

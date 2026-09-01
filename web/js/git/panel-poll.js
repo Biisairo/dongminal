@@ -276,11 +276,21 @@ Object.assign(GitPanel.prototype, {
   },
 
   // 폴링 두 계층은 세 조건이 전부 참일 때만 돈다 (FR-GIT-22).
+  /**
+   * FR-SVS-36: 관측이 도는 조건은 **Git 창이 화면에 있는가**이지 *활성 창인가*가
+   * 아니다.
+   *
+   * 슬롯이 생기기 전에는 둘이 같았다. 지금은 칸마다 다른 창이 동시에 보이므로,
+   * 터미널 칸에 서 있는 동안 옆 칸의 Git 창이 눈앞에 있는데도 관측이 멎었다 —
+   * History 도 Changes 도 Branches 도 함께 (FR-SVS-39a).
+   *
+   * 요청 수는 늘지 않는다 (FR-SVS-31·39) — 관측자는 하나이고 주기도 하나다.
+   */
   _pollOk(){
     if(document.hidden) return false;
     if(this._gitMissing) return false;
     const w=this.app._gitWindow();
-    if(!w||this.app.ws.activeWindow!==w.id) return false;
+    if(!w||!this.app._windowVisible(w.id)) return false;
     return !!this.repo;
   },
 

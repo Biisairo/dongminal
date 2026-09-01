@@ -520,3 +520,53 @@ func TestToolClientForegroundPushDispatch(t *testing.T) {
 		t.Fatal("fg push 가 콜백에 닿지 않았다")
 	}
 }
+
+// TOOL_LIST_UNKNOWN_SRS TC-TLU-2 (FR-TLU-2): 도구가 **0개인 것**과 목록을
+// **모르는 것**은 다르다. 데몬의 ToolManager 는 도구가 없으면 nil 슬라이스를
+// 주고 그것이 JSON 에서 `"tools": null` 이 되므로, nil 목록만으로는 둘을 가를 수
+// 없다 (SRS §2.3). 가르는 근거는 RPC 가 성공했는가 하나다.
+//
+// 셋을 서브테스트로 묶지 않는다 — `startFakePaned` 가 `t.TempDir()` 로 소켓을
+// 만드는데, 서브테스트 이름이 경로에 들어가면 unix 소켓의 104바이트 한도를 넘는다.
+func TestToolClientListOKEmpty(t *testing.T) {
+	sockPath := startFakePaned(t, func(req toolipc.PanedRequest) interface{} {
+		return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{"tools": nil}}
+	})
+	pc, _ := DialToolClient(sockPath)
+	defer pc.Close()
+	tools, ok := pc.ListOK()
+	if !ok {
+		t.Errorf("ok=false — 응답이 왔으므로 알고 있는 것이다")
+	}
+	if len(tools) != 0 {
+		t.Errorf("tools=%d want 0", len(tools))
+	}
+}
+
+func TestToolClientListOKUnknown(t *testing.T) {
+	sockPath := startFakePaned(t, func(req toolipc.PanedRequest) interface{} {
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32603, Message: "boom"}}
+	})
+	pc, _ := DialToolClient(sockPath)
+	defer pc.Close()
+	if _, ok := pc.ListOK(); ok {
+		t.Errorf("ok=true — RPC 가 실패했으므로 모르는 것이다")
+	}
+}
+
+func TestToolClientListDelegatesToListOK(t *testing.T) {
+	sockPath := startFakePaned(t, func(req toolipc.PanedRequest) interface{} {
+		return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
+			"tools": []interface{}{map[string]interface{}{"id": "1", "name": "S1"}},
+		}}
+	})
+	pc, _ := DialToolClient(sockPath)
+	defer pc.Close()
+	tools, ok := pc.ListOK()
+	if !ok || len(tools) != 1 {
+		t.Fatalf("ListOK: ok=%v len=%d", ok, len(tools))
+	}
+	if len(pc.List()) != 1 {
+		t.Errorf("List 와 ListOK 가 다른 것을 준다")
+	}
+}

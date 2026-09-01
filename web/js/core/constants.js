@@ -51,9 +51,10 @@ const MTI_KB_EPS_PX=4;
 const MOBILE_KB_UP_PX=80;
 // 스크롤 제스처 뒤에 오는 합성 마우스 이벤트를 무시하는 창 (FR-MTI-29).
 const MTI_SYNTH_MOUSE_MS=700;
-// 새 버전(index.html 의 ?v=) 확인 주기. 열려 있는 페이지가 옛 JS 를 계속
-// 돌리는 것을 사용자가 알 수 있게 한다 (FR-MTI-33).
-const VERSION_CHECK_MS=60000;
+// `VERSION_CHECK_MS`(새 버전 확인 주기)가 여기 있었다. 감지의 계기가 주기에서
+// **서버의 인사**로 바뀌면서 사라졌다 (RELOAD_CONTINUITY_SRS FR-RLC-2·2a) — 자산이
+// 바뀌는 길은 프로세스 교체뿐이고 그때 SSE 가 끊기므로, 구독이 열리는 순간이 곧
+// 물어볼 순간이다. 주기를 함께 두면 같은 일을 두 벌로 하며 요청만 는다.
 
 // 복귀 대상 Pane 을 기다리는 상한 (FR-BGR-7). delWindow 는 마지막 창을 지운 뒤
 // _mkWindow 를 await 하는데, 그 사이 ws.windows 가 비어 대상 Pane 이 없다.
@@ -76,6 +77,34 @@ const WS_HEALTHY_MS=3000;
 // 둘이 초당 91연결을 냈다.
 const SSE_RETRY_MIN_MS=1000;
 const SSE_RETRY_MAX_MS=30000;
+
+// RELOAD_CONTINUITY_SRS FR-RLC-25: 커맨드 SSE 의 **침묵 상한**과 그것을 재는 주기.
+//
+// `readyState` 는 브라우저가 믿는 것이지 사실이 아니다 (D-7). 잠에서 깬 기기의
+// 소켓은 끊긴 줄 모른 채 `OPEN` 으로 남으며(half-open), 그동안 명령도 워크스페이스
+// 갱신도 주의 알림도 오지 않는다. 사실에 가장 가까운 근거는 **최근에 무엇이
+// 왔는가** 하나다.
+//
+// 서버는 인사를 15초마다 보낸다(`sseHelloEvery`). 그 세 배를 상한으로 두어 한두
+// 번 늦는 것(네트워크 지연·탭 스로틀링·GC)을 죽음으로 읽지 않는다.
+const SSE_SILENCE_MS=45000;
+const SSE_SILENCE_CHECK_MS=5000;
+
+// TOOL_LIST_UNKNOWN_SRS FR-TLU-9: 첫 화면이 도구 목록을 **모르는** 스냅숏을
+// 받았을 때 다시 물어보는 횟수와 간격. 데몬 재접속은 실측 0.02초에 끝나므로
+// (SRS §2.1) 2초면 충분히 넉넉하고, 상한이 있어 데몬이 돌아오지 않아도 화면은
+// 선다 — 그 뒤의 회복은 SSE 의 몫이다.
+const STATE_UNKNOWN_RETRIES=10;
+const STATE_UNKNOWN_RETRY_MS=200;
+
+// FR-TLU-5·6: 도구 목록을 모를 때 쓰는 "살아 있음" 판정. `Set` 과 같은 자리에
+// 꽂히며 무엇을 묻든 참이라 답한다 — 모르면 **어떤 도구도 죽었다고 말할 수 없다**.
+// 집합으로 만들지 않는 이유는 그 집합에 무엇을 넣어야 할지가 곧 물음이기 때문이다.
+const TOOLS_ALL_LIVE={has(){return true}};
+
+// RELOAD_CONTINUITY_SRS FR-RLC-6: 사이드바 탭이 돌아갈 창의 기억. `activeWindow`
+// 와 같은 범주이므로 같은 자리(sessionStorage)에 산다 (SRS §2.3).
+const RETURN_WINDOW_KEY={plain:'lastPlainWindow',editor:'lastEditorWindow'};
 
 const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight','ShiftLeft','ShiftRight']);
 /**

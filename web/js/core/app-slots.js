@@ -138,6 +138,24 @@ Object.assign(App.prototype, {
     return id?(this.ws.windows.find(s=>s.id===id)||null):null;
   },
 
+  /**
+   * SLOT_VIEW_STATE_SRS FR-SVS-36·37·38: 이 창이 **지금 화면에 있는가.**
+   *
+   * 활성 창인가와 다르다. 칸이 여럿이면 여러 창이 동시에 보이며(FR-WSL-1), 그중
+   * 포커스는 하나뿐이다. "보인다" 를 "활성이다" 로 물으면 눈앞의 Git·Editor 가
+   * 멎은 채로 남는다 — 접수한 증상이 그것이다.
+   *
+   * 판정이 여기 있는 이유는 슬롯의 안을 아는 것이 App 이기 때문이다 (FR-SVS-37).
+   * 패널이 `_slots` 를 직접 들여다보면 그 표현이 바뀔 때마다 따라 고쳐야 한다.
+   *
+   * 단일 슬롯 모드의 답은 종전과 한 글자도 다르지 않다 (FR-SVS-38).
+   */
+  _windowVisible(id){
+    if(!id) return false;
+    if(!this._slots) return this.ws.activeWindow===id;
+    return this._slots.windows.includes(id);
+  },
+
   // ── 신원 (FR-WSL-10·11) ──
 
   // 칸 0 은 App.clientId 를 그대로 쓴다 — 단일 슬롯 모드에서 서버가 보는 신원이

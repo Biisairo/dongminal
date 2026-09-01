@@ -14,7 +14,7 @@
  *   {sep:true}
  *
  * 확인은 **항목이 따로 쓰지 않는다** — `warn:true` 는 1단계, `destructive:true` 는
- * 9단계 `GitConfirm` 의 2단계 확인을 프레임워크가 자동으로 거친다.
+ * 9단계 `GitConfirm` 의 확인을 프레임워크가 자동으로 거친다.
  */
 
 // 항목의 run·disabled 는 패널을 통해 동작한다 — 메뉴는 대상과 항목만 알고, 무엇을
@@ -90,11 +90,11 @@ const GIT_MENUS={
      disabled:()=>gitOpBusy(),
      run:t=>GitCommitOps.revert(gitMenuPanel(),t)},
     // reset 은 **파괴 여부가 옵션에서 파생하므로**(`--hard` 만) 여기서
-    // destructive 를 선언하지 않는다 — 선언하면 세 모드 전부가 2단계가 된다.
+    // destructive 를 선언하지 않는다 — 선언하면 세 모드 전부가 확인을 요구한다.
     {id:'reset',label:GIT_CO_RESET_LABEL,
      disabled:t=>gitOpBusy()||GitCommitOps.whyHead(t),
      run:t=>GitCommitOps.reset(gitMenuPanel(),t)},
-    // drop 은 언제나 파괴적이다 (`commit_drop`). 2단계 확인과 recovery hint 는
+    // drop 은 언제나 파괴적이다 (`commit_drop`). 파괴적 확인과 recovery hint 는
     // 프레임워크가 거친다 — 항목이 확인 코드를 따로 쓰지 않는다 (FR-GIT-89·92).
     {id:'drop',label:GIT_CO_DROP_LABEL,destructive:true,
      action:GIT_ACT_COMMIT_DROP,title:GIT_CO_DROP_TITLE,
@@ -218,7 +218,7 @@ const GIT_MENUS={
   //
   // **삭제가 둘인 것이 이 메뉴의 요점이다** (FR-GIT-261): 로컬과 원격은 다른
   // 항목이고 하나가 다른 하나를 자동으로 하지 않는다. 둘 다 `destructive:true`
-  // 이므로 2단계 확인은 프레임워크가 거치고, 항목은 **되살리는 명령**만 선언한다
+  // 이므로 파괴적 확인은 프레임워크가 거치고, 항목은 **되살리는 명령**만 선언한다
   // — 그 명령은 지우기 전 oid 를 싣는다 (FR-GIT-92·250.2).
   tag:[
     {id:'create',label:GIT_TAG_NEW,run:()=>gitMenuPanel().createTag('')},
@@ -427,7 +427,7 @@ class GitMenu {
    * 쓰면 새 항목마다 방어를 다시 만들어야 하고, 한 곳이 빠지면 조용히 사라진다.
    *
    * `stages:1` 을 늘 넘긴다. 파괴적 목록(서버 `/api/git/policy`)에 든 action 은
-   * `GitConfirm` 이 요청과 무관하게 2단계로 올린다 — 목록에 없는 action 이
+   * `GitConfirm` 이 요청과 무관하게 확인을 세운다 — 목록에 없는 action 이
    * 확인 없이 지나가는 일이 없게 바닥을 1단계로 둔다.
    */
   static async _pick(it,target){

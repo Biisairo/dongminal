@@ -18,7 +18,9 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -77,6 +79,17 @@ type Server struct {
 	// wsOpen 은 지금 붙어 있는 WebSocket 수다 (FR-CNR-8). 붙잡힌 연결도 여기
 	// 포함된다 — 그것이 자원을 쓰고 있다는 사실이 진단에 실려야 한다.
 	wsOpen atomic.Int64
+
+	// assetVer 는 지금 서빙하는 자산의 판이다 (RELOAD_CONTINUITY_SRS FR-RLC-21).
+	// SSE 를 여는 화면에게 인사로 건네며, 값은 **서빙하는 index.html 에서**
+	// 파생한다. 자산은 바이너리에 박혀 있어 프로세스가 사는 동안 바뀌지 않으므로
+	// 한 번만 읽는다.
+	assetVerOnce sync.Once
+	assetVer     string
+
+	// helloEvery 는 SSE 인사의 주기다 (FR-RLC-20a). 제로값이면 기본값을 쓴다 —
+	// 시험만이 이 값을 줄인다.
+	helloEvery time.Duration
 }
 
 // New constructs a Server from cfg + deps. If deps.Commands is nil, a fresh
@@ -242,4 +255,29 @@ func (rw *responseWriter) Flush() {
 	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
 		f.Flush()
 	}
+}
+
+// assetVersionRe 는 `index.html` 이 자기 판을 적는 자리다. `web/version_test.go` 가
+// 잠그는 것과 **같은 표기**이며, 그 하나가 브라우저 캐시를 무효화한다.
+var assetVersionRe = regexp.MustCompile(`core/main\.js\?v=(\d+)`)
+
+// assetVersion 은 지금 서빙하는 자산의 판을 준다. 모르면 빈 문자열이다.
+//
+// RELOAD_CONTINUITY_SRS FR-RLC-21: 값을 **서빙하는 문서에서** 뽑는다. 빌드 시점에
+// 손으로 적은 상수를 쓰면 `?v=` 와 갈라질 수 있고, 갈라지면 화면이 영원히
+// 새로고침하거나 영원히 하지 않는다 — 어느 쪽이든 조용히 틀린다.
+func (s *Server) assetVersion() string {
+	s.assetVerOnce.Do(func() {
+		if s.cfg.StaticFS == nil {
+			return
+		}
+		b, err := fs.ReadFile(s.cfg.StaticFS, "index.html")
+		if err != nil {
+			return
+		}
+		if m := assetVersionRe.FindSubmatch(b); m != nil {
+			s.assetVer = string(m[1])
+		}
+	})
+	return s.assetVer
 }

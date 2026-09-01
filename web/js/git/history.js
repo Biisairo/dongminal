@@ -495,9 +495,12 @@ class GitHistory {
   /**
    * FR-GIT-233: HEAD 표식은 **살아 있는 관측에서 파생한다.**
    *
-   * `git log` 의 decoration 은 목록을 받은 시점의 사실이다. 체크아웃은 refs 사이드바만
-   * 다시 받으므로(`afterRefWrite` → `reloadRefs`) 커밋 목록의 표식은 그대로 낡는다 —
+   * `git log` 의 decoration 은 목록을 받은 시점의 사실이다. 폴링이 물어 오는 HEAD
+   * 변화(터미널에서 친 체크아웃)는 목록을 다시 받지 않으므로 그 표식이 그대로 낡는다 —
    * 눌러서 체크아웃한 배지의 표식이 움직이지 않는 것이 그것이었다.
+   *
+   * (ref 를 바꾼 **우리 쓰기**는 이제 목록까지 다시 받는다 — FR-GVR-20. 그래도 이
+   * 파생은 남는다: 폴링으로 오는 변화가 그 경로를 지나지 않기 때문이다.)
    *
    * 목록을 다시 받는 대신 파생한다. 요청이 늘지 않고, 스크롤과 펼친 상세가 맨 위로
    * 돌아가지 않는다.
@@ -556,7 +559,16 @@ class GitHistory {
     // FR-GIT-248: 대상은 **누를 때** 만든다. 그릴 때 굳혀 두면 그 뒤 도착한 관측이
     // 반영되지 않는다 — 커밋 목록은 체크아웃 뒤에도 다시 받지 않으므로(FR-GIT-233)
     // decoration 의 `isHead` 는 떠나온 브랜치에 그대로 남는다.
-    const target=()=>({short:r.name,name:r.name,kind:r.kind,isHead:this._refIsHead(r)});
+    //
+    // FR-BMU-18: `upstream` 과 `oid` 는 **decoration 에 없다** — `git log` 는 ref 의
+    // 이름과 종류만 싣는다. 그 둘은 refs 관측에서 가져온다. 없으면 이 진입점에서만
+    // `delete-both` 가 늘 죽고(FR-BMU-11 이 upstream 을 본다) `delete` 의 hint 가
+    // `git branch <이름> ` — 되살릴 수 없는 명령 — 이 된다 (FR-GIT-250.2).
+    const target=()=>{
+      const full=(this._refs||[]).find(x=>x&&x.kind===r.kind&&x.short===r.name)||{};
+      return {short:r.name,name:r.name,kind:r.kind,isHead:this._refIsHead(r),
+        upstream:full.upstream||'',oid:full.oid||''};
+    };
     b.addEventListener('click',ev=>ev.stopPropagation());
     b.addEventListener('dblclick',ev=>{ev.stopPropagation();GitMenu.runPrimary(mkind,target())});
     b.addEventListener('contextmenu',ev=>{
@@ -786,9 +798,18 @@ class GitHistory {
     };
     this._loading=true; this._err=null;
     this._paintBar(); this._paintFoot();
-    const d=await this._get('/api/git/log',sent);
+    /**
+     * FR-SVS-39c: 응답이 어떻게 끝나든 **잠금은 푼다.**
+     *
+     * `_load` 는 `if(this._loading) return this._loadP` 로 시작한다. 낡은 응답을
+     * 버리면서 잠금까지 들고 나가면 그 뒤의 모든 로드가 삼켜져 **커밋 목록이 영영
+     * 멎는다** — 그때도 왼쪽 refs 는 `_loadRefs()` 라는 별도 경로라 계속 갱신되므로,
+     * 화면에는 "한쪽만 살아 있는" 모양으로 나타난다 (접수한 관찰).
+     */
+    let d=null;
+    try{ d=await this._get('/api/git/log',sent) }
+    finally{ this._loading=false }
     if(this.panel.isStale(tok)) return;
-    this._loading=false;
     if(!d||!d.requested||!this._sameReq(d.requested,sent)){
       // FR-GIT-132: 사유를 보이고 **이미 로드된 목록을 지우지 않는다.**
       this._err=GIT_HIST_LOAD_FAIL; this.paint(); return;

@@ -50,12 +50,7 @@ Object.assign(App.prototype, {
     };
     // FR-SRL-3: 강제 재연결의 손잡이. 백오프 대기 중이면 그것을 취소하고 지금
     // 붙는다 — 사용자가 부른 것이므로 기다릴 이유가 없다.
-    this._sseKick=()=>{
-      if(pending){clearTimeout(pending);pending=null}
-      retry=SSE_RETRY_MIN_MS;
-      try{if(this._sse)this._sse.close()}catch{}
-      connect();
-    };
+    this._sseKick=()=>reconnect();
     const connect=()=>{
       try{
         // FR-XDF-8: clientId 를 실어 서버가 구독↔Client 를 결선한다. 이 결선이
@@ -64,10 +59,26 @@ Object.assign(App.prototype, {
         // FR-SRL-3: 내부 새로고침이 구독의 **상태를 보고** 죽었으면 다시 연다.
         // 클로저 안에 갇혀 있으면 밖에서 볼 수도 되살릴 수도 없다 (§2.2).
         this._sse=es;
-        es.onopen=()=>{retry=SSE_RETRY_MIN_MS;this._attnRestore();this._activityRestore();this._bgRefresh();this._focusRestore();this._fgRestore()};
+        // FR-RLC-25: 이 구독이 몇 번째로 열린 것인가, 그리고 마지막으로 무엇이
+        // 온 것이 언제인가. 뒤의 값이 생존 판정의 유일한 근거다 (D-7).
+        this._sseGen=(this._sseGen||0)+1;
+        this._sseSeen=Date.now();
+        es.onopen=()=>{this._sseSeen=Date.now();retry=SSE_RETRY_MIN_MS;this._attnRestore();this._activityRestore();this._bgRefresh();this._focusRestore();this._fgRestore()};
         es.onmessage=(e)=>{
+          // FR-RLC-28: **모든** 수신이 생존의 증거다. 인사만 세면 다른 이벤트가
+          // 활발히 오는 동안에도 인사 하나가 늦으면 끊게 된다.
+          this._sseSeen=Date.now();
           try{
             const m=JSON.parse(e.data);
+            // RELOAD_CONTINUITY_SRS FR-RLC-20·24: 구독이 열릴 때 서버가 건네는
+            // 자기 판. 자산이 바뀌는 길은 프로세스 교체뿐이고 그때 이 구독이
+            // 끊기므로, **이 인사가 곧 "자산이 바뀌었을 수 있다" 의 신호**다.
+            // 판정은 version-watch 의 것이다 — 여기서는 값만 넘긴다.
+            if(m.action==='server_hello'){
+              const v=m.args&&m.args.assetVersion;
+              if(v&&window.__dmAssetVersion) window.__dmAssetVersion(String(v));
+              return;
+            }
             if(m.action==='workspace_changed'){
               this._onWorkspaceChanged(m.args&&m.args.rev);
               return;
@@ -130,18 +141,43 @@ Object.assign(App.prototype, {
         this._cmdES=es;
       }catch(e){console.error('[cmd] connect',e); schedule()}
     };
+    // 지금 붙어 있는 구독을 버리고 새로 연다. 백오프 대기 중이면 그것도 접는다.
+    const reconnect=()=>{
+      if(pending){clearTimeout(pending);pending=null}
+      retry=SSE_RETRY_MIN_MS;
+      try{if(this._sse)this._sse.close()}catch{}
+      connect();
+    };
+
+    /**
+     * FR-RLC-25: **침묵을 잰다.**
+     *
+     * 서버는 인사를 `sseHelloEvery`(15초)마다 보내므로(FR-RLC-20a), 상한을 넘도록
+     * 아무것도 오지 않았다면 이 구독은 죽은 것이다 — `readyState` 가 무어라 하든.
+     * 잠에서 깬 기기의 half-open 소켓이 정확히 그 자리이며, 그 상태에서 멎는 것은
+     * 판 소식만이 아니다 (FR-RLC-20b).
+     */
+    const reviveIfSilent=()=>{
+      if(!this._sse) return false;
+      if(Date.now()-(this._sseSeen||0)<=SSE_SILENCE_MS) return false;
+      reconnect();
+      return true;
+    };
+    setInterval(reviveIfSilent, SSE_SILENCE_CHECK_MS);
+
     // FR-RCS-6: 잠에서 깬 기기와 되돌아온 네트워크는 백오프를 기다릴 이유가 없다.
     // 원격(Tailscale) 사용에서 끊김의 대부분이 이 둘이므로, 여기서 즉시 되붙는
     // 것이 체감 복구 시간을 30초에서 0으로 줄인다.
     const wake=()=>{
-      // 2 = EventSource.CLOSED. 살아 있거나 연결 중이면 건드리지 않는다 —
-      // 중복 구독은 명령을 두 번 실행시킨다.
-      if(this._cmdES && this._cmdES.readyState!==2) return;
-      if(pending){clearTimeout(pending);pending=null}
-      retry=SSE_RETRY_MIN_MS;
-      connect();
+      // 2 = EventSource.CLOSED. 살아 있거나 연결 중이면 **침묵부터 본다** —
+      // FR-RLC-26: 상한을 기다리면 사용자는 화면을 보고 있는데도 그 시간만큼
+      // 옛 화면을 본다. 살아 있고 조용하지도 않으면 건드리지 않는다 (중복 구독은
+      // 명령을 두 번 실행시킨다).
+      if(this._cmdES && this._cmdES.readyState!==2){ reviveIfSilent(); return }
+      reconnect();
     };
     window.addEventListener('online',wake);
+    window.addEventListener('focus',wake);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden)wake()});
     connect();
   },
@@ -165,6 +201,9 @@ Object.assign(App.prototype, {
         const st=await r.json();
         const sv=st&&st.workspace;
         const sp=(st&&st.tools)||[];
+        // FR-TLU-1: 서버가 목록을 **모른다**고 말했는가. 옛 서버는 이 필드를
+        // 보내지 않으므로, 없으면 아는 것으로 본다 (열화 경로).
+        const known=!(st&&st.toolsKnown===false);
         if(!sv||!sv.windows) break;
         // UX_REVISION_SRS FR-GRR-4: **낡은 스냅샷을 적용하지 않는다.**
         //
@@ -176,7 +215,7 @@ Object.assign(App.prototype, {
         const now=this.wsETag?parseInt(this.wsETag,10):-1;
         const got=et?parseInt(et,10):-1;
         if(got>=0&&now>=0&&got<now) continue;
-        this._applyRemoteWorkspace(sv, sp);
+        this._applyRemoteWorkspace(sv, sp, known);
         if(et) this.wsETag=et;
       }while(this._wsApplyPending);
     }catch(err){console.error('[ws] sync',err)}
@@ -214,7 +253,9 @@ Object.assign(App.prototype, {
     const t=this._restoreBegin('fg');
     fetch('/api/state').then(r=>r.ok?r.json():null).then(j=>{
       if(!this._restoreLive('fg',t)) return;
-      if(j) this._fgApply(j.tools||[],t);
+      // FR-TLU-7: 도구 목록을 모르는 스냅숏으로는 이름을 지우지 않는다 — 빈
+      // 목록을 사실로 받으면 붙어 있던 전경 이름이 전부 걷힌다.
+      if(j&&j.toolsKnown!==false) this._fgApply(j.tools||[],t);
       this._restoreEnd('fg',t);
     }).catch(()=>{});
   },
@@ -271,26 +312,52 @@ Object.assign(App.prototype, {
     if(this._bgModalOpen) this._bgModalRender();
   },
 
-  _applyRemoteWorkspace(sv, serverPanes){
-    this._fgApply(serverPanes);
+  /**
+   * TOOL_LIST_UNKNOWN_SRS FR-TLU-5~8: `toolsKnown` 이 거짓이면 **도구 목록을
+   * 모르는 것**이지 도구가 없는 것이 아니다 (SRS §2.2).
+   *
+   * 데몬에 다시 붙는 짧은 창에 `/api/state` 는 빈 목록을 준다. 그것을 사실로
+   * 받으면 아래 세 줄이 차례로 살아 있는 도구 전부, 그것을 담은 pane, pane 이
+   * 없어진 창을 지운다 — 다음 스냅숏이 전부 되살리고, 되살아난 도구가 새 소켓을
+   * 연다. 실측된 "10개 동시 종료 → 10개 순차 재연결"이 그 사이클이다.
+   *
+   * 분기를 조건문으로 흩뿌리는 대신 **살아 있음의 판정 하나**(`live`)로 모은다
+   * (D-4). 모를 때 그 판정은 "어떤 도구도 죽었다고 말할 수 없다"이며, 그것을
+   * 딛는 두 곳 — 죽은 도구 청소와 `clean` — 이 함께 아무 일도 하지 않는다.
+   */
+  _applyRemoteWorkspace(sv, serverPanes, toolsKnown){
+    const known=toolsKnown!==false;
+    // 전경 이름도 도구 목록에서 나온다 — 모르는 목록으로 지우면 탭 라벨이
+    // 되돌아간다 (FR-TLU-7).
+    if(known) this._fgApply(serverPanes);
     // FR-EDT-42·103: 마이그레이션과 재조정이 창을 고쳤으면 그 결과를 서버에
     // 되쓴다 — 되쓰지 않으면 다음 동기화가 같은 일을 되풀이한다.
     let edChanged=false;
-    const ok=new Set((serverPanes||[]).map(p=>p.id));
+    // 서버가 **알려 준** 도구들. 모르면 알려 준 것이 없는 것이며, 만들 것도 없다.
+    const serverIds=known?(serverPanes||[]).map(p=>p.id):[];
+    // FR-TLU-5·6: 살아 있음의 판정. 모를 때 전부 참인 이유는 §2.2 다 — 빈 목록을
+    // 사실로 받으면 도구·pane·창이 차례로 지워진다.
+    const live=known?new Set(serverIds):TOOLS_ALL_LIVE;
     const nameOf=new Map((serverPanes||[]).map(p=>[p.id,p.name]));
-    for(const id of ok){
+    for(const id of serverIds){
       if(!this.tools.has(id)) this._mkTool(id, nameOf.get(id)||id);
     }
     // FR-ATL-7: 서버가 모르는 도구는 죽은 도구다. 이름을 지우는 `_fgApply` 와
     // 같은 규약으로 알람도 함께 거둔다.
+    //
+    // FR-TLU-10: 비교는 **`_slotBase(key)`** 로 한다. 칸 1 이상의 인스턴스는
+    // 키가 `id@1` 이므로 순수 toolId 집합과 직접 대면 언제나 "없는 도구"가 되고,
+    // 살아 있는 칸 도구가 `workspace_changed` 마다 파괴된다. `_slotReap` 이 같은
+    // 판정을 이미 이렇게 한다 (app-slots.js, FR-SVS-60 과 같은 자리).
     let attnDropped=false;
-    for(const [id,p] of Array.from(this.tools.entries())){
-      if(!ok.has(id)){ try{p.destroy()}catch{} this.tools.delete(id); if(this._attnDrop(id)) attnDropped=true }
+    for(const [key,p] of Array.from(this.tools.entries())){
+      const id=this._slotBase(key);
+      if(!live.has(id)){ try{p.destroy()}catch{} this.tools.delete(key); if(this._attnDrop(id)) attnDropped=true }
     }
     if(attnDropped) this._attnRefresh();
     for(const s of sv.windows){
       if(!s||!s.id) continue;
-      s.layout=clean(s.layout, ok);
+      s.layout=clean(s.layout, live);
       if(s.layout) normalizeLayout(s.layout);
     }
     // FR-EDT-49 / D-13: 이 필터가 `workspace_changed` 경로다. `git pin` 하나에도

@@ -192,7 +192,7 @@ test.describe('19단계 — Stash 탭', () => {
     await expect(st(page).locator('.git-stash-why')).not.toHaveClass(/vis/);
   });
 
-  test('S8 (V58 / FR-GIT-168): drop 은 2단계 확인과 recovery hint 를 거친다', async ({ page }) => {
+  test('S8 (V58 / FR-GIT-168): drop 은 확인과 recovery hint 를 거친다', async ({ page }) => {
     const repo = copyFx('stashes', 's8');
     const oid = git(repo, 'rev-parse', 'stash@{0}');
     await waitForInit(page);
@@ -207,12 +207,10 @@ test.describe('19단계 — Stash 탭', () => {
 
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
     await expect(confirm(page)).toHaveAttribute('data-action', 'stash_drop');
-    // 1단계는 영향 범위, 2단계가 recovery hint 다.
+    // 한 화면이 영향 범위와 recovery hint 를 함께 보인다 (FR-COS-2).
     await expect(confirm(page)).toHaveAttribute('data-stage', '1');
     await expect(confirm(page).locator('.gc-target')).toHaveCount(1);
     await expect(confirm(page).locator('.gc-cancel')).toBeFocused();
-    await confirm(page).locator('.gc-go').click();
-    await expect(confirm(page)).toHaveAttribute('data-stage', '2');
     // hint 의 명령에 stash 의 sha 가 들어 있다 — 안내문만으로는 되살릴 수 없다.
     await expect(confirm(page).locator('.gc-hint-cmd')).toContainText(oid);
     await confirm(page).locator('.gc-go').click();

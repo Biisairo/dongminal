@@ -112,11 +112,11 @@ async function waitRefs(page: Page, min = 1) {
   await expect.poll(() => rows(page).count(), { timeout: 20000 }).toBeGreaterThanOrEqual(min);
 }
 
-// 파괴적 확인 2단계를 끝까지 진행한다. 두 번 눌러야 실행되는 것이 요구사항이다
-// (FR-GIT-90) — 그 사실 자체를 보는 테스트는 각자 따로 단언한다.
+// 파괴적 확인을 끝까지 진행한다. **한 번** 눌러야 실행되는 것이 요구사항이다
+// (CONFIRM_ONE_STAGE_SRS FR-COS-1) — 그 사실 자체를 보는 테스트는 각자 따로
+// 단언한다.
 async function passConfirm(page: Page) {
   await expect(confirm(page)).toBeVisible({ timeout: 15000 });
-  await confirm(page).locator('.gc-go').click();
   await confirm(page).locator('.gc-go').click();
   await expect(page.locator('#git-confirm')).toHaveCount(0, { timeout: 20000 });
 }
@@ -177,7 +177,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await expect(row(page, 'trunk')).toHaveClass(/current/, { timeout: 15000 });
   });
 
-  test('BR3 (V179 / FR-GIT-254·250.2): `-d` 는 2단계 확인을 거치고 hint 로 되살아난다', async ({ page }) => {
+  test('BR3 (V179 / FR-GIT-254·250.2): `-d` 는 확인을 거치고 hint 로 되살아난다', async ({ page }) => {
     const repo = copyFx('with-remote', 'br3');
     // main 에 합쳐진 브랜치를 만든다 — `-d` 가 받아들이는 상태다.
     git(repo, 'branch', 'merged-topic', 'main');
@@ -189,14 +189,12 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await row(page, 'merged-topic').click({ button: 'right' });
     await item(page, 'delete').click();
 
-    // 파괴적이므로 2단계다 (FR-GIT-90) — 1단계에서 대상이, 2단계에서 hint 가 보인다.
+    // 한 화면이 대상과 hint 를 함께 보인다 (FR-COS-2).
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
     await expect(confirm(page)).toHaveAttribute('data-stage', '1');
     await expect(confirm(page).locator('.gc-target')).toHaveText('merged-topic');
     // 기본 포커스는 취소다 (FR-GIT-97·176).
     await expect(confirm(page).locator('.gc-cancel')).toBeFocused();
-    await confirm(page).locator('.gc-go').click();
-    await expect(confirm(page)).toHaveAttribute('data-stage', '2');
 
     // hint 는 **지우기 전 oid** 로 만든 되살릴 명령이다 (FR-GIT-250.2).
     const cmd = (await confirm(page).locator('.gc-hint-cmd').textContent())!.trim();
@@ -406,7 +404,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await expect(item(page, 'copy-name')).not.toHaveClass(/disabled/);
   });
 
-  test('BR11 (V184 / FR-GIT-256): rebase 는 2단계 확인을 거치고 hint 로 되돌아간다', async ({ page }) => {
+  test('BR11 (V184 / FR-GIT-256): rebase 는 확인을 거치고 hint 로 되돌아간다', async ({ page }) => {
     const repo = repoWithDivergedSide('br11');
     dirs.push(repo);
     // 충돌 없이 얹히도록 다른 파일만 고친 side 를 다시 만든다.
@@ -430,8 +428,6 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
 
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
     await expect(confirm(page)).toHaveAttribute('data-stage', '1');
-    await confirm(page).locator('.gc-go').click();
-    await expect(confirm(page)).toHaveAttribute('data-stage', '2');
     // hint 는 rebase 전 HEAD 로 되돌리는 명령이다 (FR-GIT-250.2).
     const cmd = (await confirm(page).locator('.gc-hint-cmd').textContent())!.trim();
     expect(cmd).toBe('git reset --hard ' + before);
@@ -502,7 +498,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await row(page, 'no-upstream').click({ button: 'right' });
     await item(page, 'push').click();
 
-    // 파괴적이 아니므로 1단계이고, 무엇이 설정되는지가 대상에 보인다 (FR-GIT-100).
+    // 무엇이 설정되는지가 대상에 보인다 (FR-GIT-100).
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
     await expect(confirm(page)).toHaveAttribute('data-stage', '1');
     await expect(confirm(page).locator('.gc-target')).toContainText('no-upstream');
@@ -558,8 +554,6 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await item(page, 'remote-delete').click();
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
     await expect(confirm(page)).toHaveAttribute('data-stage', '1');
-    await confirm(page).locator('.gc-go').click();
-    await expect(confirm(page)).toHaveAttribute('data-stage', '2');
     const cmd = (await confirm(page).locator('.gc-hint-cmd').textContent())!.trim();
     expect(cmd).toBe('git push origin ' + oid + ':refs/heads/feat');
     await confirm(page).locator('.gc-go').click();

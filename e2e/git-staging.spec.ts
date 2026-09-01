@@ -127,7 +127,7 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     expect(colors.partial).not.toBe(colors.plain);
   });
 
-  test('E8 (V37): discard 가 2단계 확인을 거치고 파일 목록을 보인다', async ({ page }) => {
+  test('E8 (V37): discard 가 확인을 거치고 파일 목록과 hint 를 함께 보인다', async ({ page }) => {
     const repo = copyFx('basic', 'e8');
     await waitForInit(page);
     await openGit(page, repo);
@@ -140,15 +140,11 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     await expect(box).toHaveAttribute('data-action', 'discard');
     await expect(box.locator('.gc-target')).toHaveText(['tracked.txt']);
     await expect(box.locator('.gc-count')).toContainText('1개');
-    // 파괴적이므로 2단계다 — 1단계에서는 아직 실행 버튼이 아니다.
-    await expect(box.locator('.gc-go')).toHaveText('계속');
-    await expect(box.locator('.gc-hint')).toBeHidden();
-
-    await box.locator('.gc-go').click();
-    // 2단계는 recovery hint 를 보인다 (FR-GIT-92). stash 는 안내만이다 (O8).
+    // 걸음은 하나이므로 버튼은 처음부터 실행이다 (FR-COS-4).
+    await expect(box.locator('.gc-go')).toHaveText('Run');
+    // 같은 화면이 recovery hint 를 보인다 (FR-GIT-92, FR-COS-2). stash 는 안내만이다 (O8).
     await expect(box.locator('.gc-hint')).toBeVisible();
     await expect(box.locator('.gc-hint-cmd')).toContainText('git stash push -- tracked.txt');
-    await expect(box.locator('.gc-go')).toHaveText('Run');
 
     await box.locator('.gc-go').click();
     await expect(box).toHaveCount(0, { timeout: 10000 });

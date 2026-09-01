@@ -1,9 +1,15 @@
 /**
- * Dongminal — 파괴적 동작의 2단계 확인 (GIT_SRS §3A.3 / FR-GIT-90~97·174~178)
+ * Dongminal — 파괴적 동작의 확인 (GIT_SRS §3A.3 / FR-GIT-90~97·174~178,
+ * CONFIRM_ONE_STAGE_SRS 묶음 N)
  *
- * 1단계는 **영향 범위**다 — 무엇이 몇 개 사라지는지 목록으로 보인다. 개수만
- * 보이면 사용자가 무엇을 잃는지 모른다 (FR-GIT-91).
- * 2단계는 recovery hint 를 보이고 받는 명시적 실행 확인이다 (FR-GIT-92).
+ * **한 화면이 두 가지를 함께 보인다** (FR-COS-2): 영향 범위 — 무엇이 몇 개
+ * 사라지는지의 목록 (FR-GIT-91, 개수만 보이면 사용자가 무엇을 잃는지 모른다) —
+ * 와 recovery hint — 되돌리는 명령 (FR-GIT-92).
+ *
+ * 예전에는 그 둘을 두 걸음으로 갈라 물었다. 걸음을 하나로 줄인 근거는
+ * CONFIRM_ONE_STAGE_SRS D-4 다 — 오발을 막는 것은 걸음 수가 아니라 기본 선택지가
+ * 취소이고 `Enter` 가 실행이 아닌 것이며, 판단에 필요한 정보는 한자리에 모일수록
+ * 낫다.
  *
  * 20단계의 `GitDialog` 가 **파괴적 확인을 이것에 위임한다** (FR-GIT-172) — 확인
  * 로직이 두 벌이면 한쪽이 조용히 뒤처지므로 이 클래스가 그 전문가로 남는다.
@@ -17,8 +23,8 @@
  *   (FR-GIT-94·177).
  * - 실행 중에는 두 버튼을 disable 하고 진행 표시를 보인다 (FR-GIT-174).
  * - 실패하면 사유와 stderr tail 을 보이고 복사 버튼을 준다 (FR-GIT-96·175).
- * - 다이얼로그가 열린 동안에도 폴링은 계속된다. 대상 상태가 바뀌면 1단계 목록
- *   위에 알리되 **실행을 막지 않고 다시 열게 강제하지도 않는다** (FR-GIT-178).
+ * - 다이얼로그가 열린 동안에도 폴링은 계속된다. 대상 상태가 바뀌면 목록 위에
+ *   알리되 **실행을 막지 않고 다시 열게 강제하지도 않는다** (FR-GIT-178).
  *
  * **파괴적 동작 목록을 프론트에 복제하지 않는다** — `GET /api/git/policy` 를
  * 받아 캐시한다. 서버에 새 파괴적 동작이 생기면 클라이언트가 자동으로 그것을
@@ -28,32 +34,37 @@ class GitConfirm {
   /**
    * open 은 확인을 띄우고 사용자가 끝까지 진행했을 때만 true 로 resolve 한다.
    *
-   * run 을 주면 2단계 확인 뒤 그것을 실행하고 결과를 다이얼로그 안에서 보인다
+   * run 을 주면 확인 뒤 그것을 실행하고 결과를 다이얼로그 안에서 보인다
    * (FR-GIT-174·175) — 실패 사유와 stderr tail 이 다이얼로그 밖으로 새면 복사
    * 버튼을 줄 자리가 없다. run 은 `{ok:true}` 또는
    * `{ok:false,reason,stderrTail}` 를 준다. run 이 없으면 확인만 하고 실행은
    * 호출자가 한다.
    *
-   * `stages:1` 은 파괴적이 **아닌** 동작의 1단계 확인이다 — 충돌 파일의 stage
-   * 처럼 되돌릴 수 있지만 뜻을 먼저 알려야 하는 동작이 있다 (FR-GIT-72·87).
-   * 파괴적 목록에 있는 동작은 요청과 무관하게 2단계다 — 목록에 든 동작이 1단계로
-   * 줄어들 수 있으면 방어가 뜻을 잃는다 (FR-GIT-90).
+   * **확인은 한 걸음이다** (CONFIRM_ONE_STAGE_SRS FR-COS-1). 예전에는 파괴적
+   * 동작을 두 걸음으로 나눠 영향 범위와 recovery hint 를 따로 보였는데, 판단에
+   * 필요한 둘을 갈라 놓았을 뿐 방어를 더하지는 않았다 — 오발을 막는 것은 걸음
+   * 수가 아니라 기본 선택지가 취소이고 `Enter` 가 실행이 아닌 것이다
+   * (FR-GIT-97·176, D-4). 이제 한 화면이 둘을 **함께** 보인다 (FR-COS-2).
    *
-   * `stages:2` 는 **파괴적 목록에 이름이 없지만 파괴적인** 동작을 위한 것이다 —
-   * 강제 checkout 은 `ExecWrite{Destructive:true}` 이지만 `/api/git/policy` 의
-   * 목록에는 없다 (계약 §1.1). 목록을 프론트에 복제하는 대신 호출자가 단계를
-   * 올린다. 목록에 든 동작은 여전히 이 값과 무관하게 2단계다.
+   * `stages` 는 여전히 호출자가 "이것은 확인이 필요하다"를 말하는 방법이다.
+   * `stages:1` 은 파괴적이 **아닌** 동작의 확인 — 충돌 파일의 stage 처럼 되돌릴
+   * 수 있지만 뜻을 먼저 알려야 하는 것들 (FR-GIT-72·87). `stages:2` 는 파괴적
+   * 목록에 이름이 없지만 파괴적인 동작 — 강제 checkout 은
+   * `ExecWrite{Destructive:true}` 이지만 `/api/git/policy` 의 목록에는 없다
+   * (계약 §1.1). **몇 걸음으로 물을지는 이 클래스가 정하므로** 두 값 모두 한
+   * 걸음이 되며, 호출부는 한 줄도 바뀌지 않는다 (D-1).
    */
   static async open({action,title,targets,hint,mobile,run,stages}){
     // 파괴적 확인은 한 번에 하나다 — 겹치면 어느 대상의 확인인지 알 수 없다.
     if(GitConfirm._cur) return false;
-    const n=await GitConfirm.destructive(action)?2:(stages===2?2:(stages===1?1:0));
-    if(!n){
+    const destructive=await GitConfirm.destructive(action);
+    // FR-COS-3: 물어볼 이유가 없으면 묻지 않는다. 있으면 한 번 묻는다.
+    if(!destructive&&stages!==1&&stages!==2){
       if(typeof run!=='function') return true;
       const res=await run();
       return !!(res&&res.ok);
     }
-    const c=new GitConfirm({action,title,targets,hint,mobile,run,stages:n});
+    const c=new GitConfirm({action,title,targets,hint,mobile,run,destructive});
     return c._show();
   }
 
@@ -128,9 +139,10 @@ class GitConfirm {
     this.run=typeof o.run==='function'?o.run:null;
     // 모바일 판정은 호출자가 덮을 수 있다. 기본은 app.isMobile (FR-GIT-94).
     this.mobile=o.mobile===undefined?!!(window.app&&app.isMobile):!!o.mobile;
-    // 단계 수는 open 이 정한다 — 파괴적이면 2, 그 밖에 확인이 필요한 것은 1.
-    this.stages=o.stages===1?1:2;
-    this.stage=1;
+    // FR-COS-3: 파괴적인가. 예전에는 이것을 **단계 수로 에둘러** 물었는데
+    // (`stages>1`), 걸음이 하나가 되면 그 에두름이 거짓이 된다 (D-2). 판정하려던
+    // 것을 그대로 들고 있는다 — recovery hint 를 보일지가 여기에 달렸다.
+    this.destructive=!!o.destructive;
     this.busy=false;
     this.changed=false;
     this.err=null;   // {reason,tail}
@@ -194,10 +206,12 @@ class GitConfirm {
   _paint(){
     const b=this.box; if(!b) return;
     b.classList.toggle('mobile',this.mobile);
-    // 1단계 확인은 파괴적이 아니다 — 테두리 색으로 그것을 구분한다.
-    b.classList.toggle('soft',this.stages===1);
+    // 파괴적이 아닌 확인은 테두리 색으로 구분한다.
+    b.classList.toggle('soft',!this.destructive);
     b.dataset.action=this.action;
-    b.dataset.stage=String(this.stage);
+    // FR-COS-5: 걸음은 언제나 하나다. 속성을 지우지 않는 이유는 그것을 읽던
+    // 검증이 조용히 무의미해지는 것이 사라지는 것보다 나쁘기 때문이다 (D-3).
+    b.dataset.stage='1';
     b.querySelector('.gc-head').textContent=this.title;
     const ch=b.querySelector('.gc-changed');
     ch.textContent=this.changed?GIT_CONFIRM_CHANGED:'';
@@ -210,13 +224,13 @@ class GitConfirm {
       const li=document.createElement('li'); li.className='gc-target'; li.textContent=t;
       ul.appendChild(li);
     }
-    // 마지막 단계에서만 recovery hint 를 보인다. 목록은 모든 단계에 남는다 —
-    // 무엇을 잃는지가 실행 직전에도 보여야 한다.
+    // FR-COS-2·3: 영향 범위와 recovery hint 를 **같은 화면**에 함께 보인다.
     //
-    // 1단계 확인은 파괴적이 아니므로 hint 가 없을 때 "되돌릴 수 없다"고 말하지
-    // 않는다 — 그것은 사실이 아니다.
+    // 파괴적이면 hint 가 없어도 그 자리를 연다 — 되돌릴 길이 없다는 것 역시
+    // 사용자가 알아야 할 사실이다. 파괴적이 아닌 확인은 hint 가 있을 때만 열며,
+    // 없을 때 "되돌릴 수 없다"고 말하지 않는다 — 그것은 사실이 아니다.
     const hint=b.querySelector('.gc-hint');
-    hint.classList.toggle('vis',this.stage===this.stages&&(this.stages>1||!!this.hint));
+    hint.classList.toggle('vis',this.destructive||!!this.hint);
     hint.querySelector('.gc-hint-label').textContent=GIT_CONFIRM_HINT_LABEL;
     hint.querySelector('.gc-hint-note').textContent=
       (this.hint&&this.hint.note)||(this.hint?'':GIT_CONFIRM_NO_HINT);
@@ -230,11 +244,13 @@ class GitConfirm {
     b.querySelector('.gc-progress').textContent=this.busy?GIT_CONFIRM_RUNNING:'';
     const cancel=b.querySelector('.gc-cancel'),go=b.querySelector('.gc-go');
     cancel.textContent=GIT_CONFIRM_CANCEL;
-    go.textContent=this.stage<this.stages?GIT_CONFIRM_CONTINUE:GIT_CONFIRM_RUN;
+    // FR-COS-4: 넘어갈 다음 걸음이 없으므로 버튼은 언제나 실행이다.
+    go.textContent=GIT_CONFIRM_RUN;
     cancel.disabled=this.busy; go.disabled=this.busy;
   }
 
-  // 기본 선택지는 취소다 (FR-GIT-97) — 단계가 넘어가도 포커스는 취소로 돌아온다.
+  // 기본 선택지는 취소다 (FR-GIT-97). 걸음이 하나가 되어 오발의 값이 커진 만큼
+  // 이 규약과 `Enter`=취소(FR-GIT-176)가 방어의 전부다 (FR-COS-6·7, D-4).
   _focus(){
     const c=this.box&&this.box.querySelector('.gc-cancel');
     if(c) c.focus();
@@ -242,10 +258,6 @@ class GitConfirm {
 
   async _advance(){
     if(this.busy) return;
-    if(this.stage<this.stages){
-      this.stage++; this.err=null; this._paint(); this._focus();
-      return;
-    }
     if(!this.run){this._close(true);return}
     this.busy=true; this.err=null; this._paint();
     let res=null;

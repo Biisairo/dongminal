@@ -12,7 +12,7 @@
  * 열리므로 checkout 이 이 탭의 인스턴스에 묶여 있으면 그쪽에서 쓸 수 없다.
  *
  * 기본은 항상 안전한 쪽이다 (FR-GIT-97, O14): dirty checkout 의 기본은 취소이고,
- * 강제는 `GitConfirm` 2단계를 거친다.
+ * 강제는 `GitConfirm` 의 파괴적 확인을 거친다.
  */
 class GitBranches {
   constructor(panel){
@@ -416,7 +416,7 @@ class GitBranches {
    * ref 하나로 옮겨 간다. dirty 면 무엇을 할지 먼저 고르게 한다 (FR-GIT-157).
    *
    * **기본은 취소다** (O14) — stash 도 사용자의 작업 상태를 옮기는 행위이므로
-   * 기본이 아니고, 강제는 파괴적이므로 `GitConfirm` 2단계를 거친다.
+   * 기본이 아니고, 강제는 파괴적이므로 `GitConfirm` 의 확인을 거친다.
    */
   static async checkout(panel,ref,o){
     if(!panel||!panel.repo) return;
@@ -677,7 +677,7 @@ class GitBranches {
     return parts.join(' · ');
   }
 
-  // FR-GIT-256: rebase. 2단계 확인과 hint 는 메뉴 프레임워크가 이미 거쳤으므로
+  // FR-GIT-256: rebase. 파괴적 확인과 hint 는 메뉴 프레임워크가 이미 거쳤으므로
   // 여기서는 `confirm` 을 실어 보낸다 — 서버도 그것을 요구한다.
   static rebase(panel,ref){
     if(!panel||!panel.repo||!ref) return;
@@ -734,7 +734,7 @@ class GitBranches {
     return panel._remote().run('branch/fetch',{remote:p.remote,branch:p.branch});
   }
 
-  // FR-GIT-268: 원격 ref 삭제. 2단계 확인은 메뉴 프레임워크가 거쳤다 (파괴적 목록에
+  // FR-GIT-268: 원격 ref 삭제. 파괴적 확인은 메뉴 프레임워크가 거쳤다 (파괴적 목록에
   // `remote_ref_delete` 가 있다) — 여기서는 `confirm` 을 실어 보낸다.
   /**
    * FR-BMU-10~15: 로컬과 그 원격을 한 번에 지운다.

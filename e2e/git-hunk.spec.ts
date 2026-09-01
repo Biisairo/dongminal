@@ -7,7 +7,7 @@ import { Page } from '@playwright/test';
 import { test, expect, makeCopyFx, waitForInit } from './fixtures';
 
 // GIT_ACTIONS_SRS §3.7 묶음 G — 부분 스테이징 (FR-GIT-278·279).
-// 검증 V205(hunk 하나만 · 관측이 바뀌면 거부) · V206(줄 범위 · revert 2단계 확인).
+// 검증 V205(hunk 하나만 · 관측이 바뀌면 거부) · V206(줄 범위 · revert 확인).
 //
 // **패치는 서버가 만든다** (D6). 그러므로 이 테스트는 화면이 보내는 것이 좌표뿐임을
 // 전제하고, 결과를 **실제 저장소의 index·워킹 트리**에서 확인한다 — 화면의 글자만
@@ -220,9 +220,9 @@ test.describe('묶음 G — 부분 스테이징 (hunk · 줄 범위)', () => {
     expect(indexOf(repo)).toContain('TWELVE');
   });
 
-  // G6 (V206): revert 는 **파괴적이다** — 2단계 확인을 거치고 recovery hint 를
+  // G6 (V206): revert 는 **파괴적이다** — 확인을 거치고 recovery hint 를
   // 보인다. 확인을 끝까지 진행해야 워킹 트리가 바뀐다.
-  test('G6 (V206): 줄 범위 revert 는 2단계 확인을 거친다', async ({ page }) => {
+  test('G6 (V206): 줄 범위 revert 는 확인을 거친다', async ({ page }) => {
     const repo = hunkRepo('g6');
     hunkFile(repo, 'f.txt', { 10: 'TEN', 12: 'TWELVE' });
     await waitForInit(page);
@@ -236,11 +236,10 @@ test.describe('묶음 G — 부분 스테이징 (hunk · 줄 범위)', () => {
     await expect(act(page, 0, 'revert')).toHaveText('Revert lines');
     await act(page, 0, 'revert').click();
 
-    // 1단계는 영향 범위, 2단계는 recovery hint 다 (FR-GIT-91·92).
+    // 한 화면이 영향 범위와 recovery hint 를 함께 보인다 (FR-GIT-91·92, FR-COS-2).
     await expect(confirmBox(page)).toBeVisible({ timeout: 10000 });
+    await expect(confirmBox(page)).toHaveAttribute('data-stage', '1');
     await expect(page.locator('#git-confirm .gc-targets')).toContainText('f.txt');
-    await confirmGo(page).click();
-    await expect(confirmBox(page)).toHaveAttribute('data-stage', '2');
     // hint 는 되살릴 수 있는 명령이다 — 안내문만 남기지 않는다 (FR-GIT-92).
     await expect(page.locator('#git-confirm .gc-hint')).toContainText('git stash push');
     await confirmGo(page).click();

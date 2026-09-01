@@ -27,12 +27,12 @@ import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS } from './fixtures
 //                      `#git-wt-create`, 상자는 `.gwc-box`, 필드는 `.gwc-name`·
 //                      `.gwc-ref`·`.gwc-newbranch`(체크박스), 실행은 `.gwc-go`,
 //                      검증 실패 메시지는 `.gwc-why` (dialog.js:150-172 의 ns 치환 규약).
-//                      **일반 GitDialog 라 1클릭이면 실행된다** (2단계 아님).
+//                      **일반 GitDialog 라 1클릭이면 실행된다** (GitConfirm 을 지나지 않는다).
 //   제거 확인          GitDialog.confirm(...) = GitConfirm.open(...) 이므로 기존
 //                      #git-confirm .gc-box/.gc-go/.gc-err 그대로다(worktrees.js:229-236,
-//                      e2e/git-confirm.spec.ts 의 어휘). **stages:2 라 실행까지는
-//                      `.gc-go` 를 두 번 눌러야 한다**(1회는 1→2단계 이동, git-confirm.
-//                      spec.ts:67·193-194 의 선례).
+//                      e2e/git-confirm.spec.ts 의 어휘). **`stages:2` 를 넘겨도 확인은
+//                      한 걸음이며 `.gc-go` 한 번이 실행이다**(CONFIRM_ONE_STAGE_SRS
+//                      FR-COS-1·2 — 걸음 수는 GitConfirm 이 정한다).
 //   목록 재계기        폴링이 없다(worktrees.js:_load 는 mount 시 1회 + reload() 뿐).
 //                      유일한 재계기는 I3 새로고침이며 panel.js:1396 이 이미 마운트된
 //                      _worktreesView.reload() 를 부른다 — Changes 탭 DOM 안의
@@ -194,7 +194,7 @@ test.describe('묶음 M — I7 Worktrees 목록 (FR-GIT-240)', () => {
     // worktree(repo 자신)가 이미 그 브랜치를 물고 있어 git 이 거부한다(서버가 500
     // + git_failed 로 정직하게 실패한다 — 첫 시도에서 이 자기모순을 직접 겪었다).
     await dlg.locator('.gwc-newbranch').check();
-    // 일반 GitDialog 다(GitConfirm 의 2단계가 아니다) — 한 번으로 실행된다.
+    // 일반 GitDialog 다(GitConfirm 을 지나지 않는다) — 한 번으로 실행된다.
     await dlg.locator('.gwc-go').click();
 
     const row = wtRows(page).filter({ hasText: 'v147-made' });
@@ -238,11 +238,9 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
     await row.locator('.git-wt-act[data-act="remove"]').click();
 
     // 파괴적 동작이므로 기존 GitConfirm 규약을 지난다(e2e/git-confirm.spec.ts 의
-    // #git-confirm .gc-box·.gc-go 어휘). stages:2 라 실행까지 .gc-go 를 두 번
-    // 누른다(1회는 1→2단계 이동, git-confirm.spec.ts:67·193-194 의 선례).
+    // #git-confirm .gc-box·.gc-go 어휘). 확인은 한 걸음이다 (FR-COS-1).
     await expect(page.locator('#git-confirm .gc-box'), '제거 확인 대화상자가 없다')
       .toBeVisible({ timeout: 5000 });
-    await page.locator('#git-confirm .gc-go').click();
     await page.locator('#git-confirm .gc-go').click();
 
     // 제거 실패는 200 으로 온다(removed:false + residue, worktrees.js:244-251) —
@@ -256,12 +254,12 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
   // 스펙 개정(조정자, 구현에서 드러난 사실): GitConfirm 은 옵션 폼을 받지 않는다
   // (dialog.js:45-46 "옵션 폼을 얹은 파괴적 동작은 아직 없다") — 그래서 제거는
   // **트리만** 지우고, 브랜치 삭제는 이 경로에 자리 자체가 없다(worktrees.js:224-243).
-  // 판정은 ①2단계 확인을 거친다 ②취소하면 worktree 가 남는다 ③브랜치 삭제 옵션이
+  // 판정은 ①확인을 거친다 ②취소하면 worktree 가 남는다 ③브랜치 삭제 옵션이
   // 이 경로에 없다(요청 본문의 deleteBranch 가 항상 false, 확인 상자에 체크박스도
   // 없다) 셋이다.
   //
   // 이 테스트가 **V163 의 e2e 절반**이다(조정자 판단, FR-WKT-13 전제) — 특히 더
-  // 무거운 쪽이다: 실제 제거(`.gc-go` 두 번)가 성공해 `existsSync(wtPath)` 가
+  // 무거운 쪽이다: 실제 제거(`.gc-go` 한 번)가 성공해 `existsSync(wtPath)` 가
   // false 로 떨어지는 것 자체가, 심링크를 지나는 데이터 디렉터리 위에서
   // `Manager.checkPath`(worktree.go:501-522)가 정당한 사용자 worktree 를
   // `unsafe_path` 로 잘못 거부하지 않는다는 증거다(V146 발견 당시엔 이 자리가
@@ -301,11 +299,10 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
     await expect(wtRows(page).filter({ hasText: 'v150-remove' }), '취소했는데 목록에서 사라졌다')
       .toHaveCount(1);
 
-    // 이제 실제로 지운다 — stages:2 라 .gc-go 를 두 번 누른다.
+    // 이제 실제로 지운다 — 확인은 한 걸음이다.
     await row.hover();
     await row.locator('.git-wt-act[data-act="remove"]').click();
     await expect(page.locator('#git-confirm .gc-box')).toBeVisible({ timeout: 5000 });
-    await page.locator('#git-confirm .gc-go').click();
     await page.locator('#git-confirm .gc-go').click();
     // 성공은 확인 상자를 닫는다 — 사유를 남기고 열려 있는 것은 실패의 표현이다
     // (dialog.js:348 `if(res&&res.ok){this._close(true);return}`). 열린 채로
@@ -380,8 +377,7 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
     await row3.hover();
     await row3.locator('.git-wt-act[data-act="remove"]').click();
     await expect(page.locator('#git-confirm .gc-box')).toBeVisible({ timeout: 5000 });
-    // stages:2 라 두 번 눌러야 실행된다(V149/V150 과 같은 이유).
-    await page.locator('#git-confirm .gc-go').click();
+    // 확인은 한 걸음이다(V149/V150 과 같은 이유).
     await page.locator('#git-confirm .gc-go').click();
     // 성공은 확인 상자를 닫는다(V150 과 같은 이유) — 열린 채로 남으면 성공을
     // 실패로 오인했다는 뜻이다.

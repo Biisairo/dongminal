@@ -75,9 +75,19 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprint(w, ": connected\n\n")
+	// RELOAD_CONTINUITY_SRS FR-RLC-20: **첫 이벤트로 자기 판을 말한다.** 자산은
+	// 바이너리에 박혀 있어(`web/embed.go`) 그것이 바뀌는 길은 프로세스 교체뿐이고,
+	// 프로세스가 바뀌면 이 구독은 반드시 끊긴다 — 그러므로 **구독이 열리는 순간이
+	// 곧 "자산이 바뀌었을 수 있는 순간"** 이며, 화면은 주기적으로 물어볼 필요가 없다.
+	hello := s.helloEvent()
+	fmt.Fprintf(w, "data: %s\n\n", hello)
 	flusher.Flush()
 
-	keep := time.NewTicker(15 * time.Second)
+	// FR-RLC-20a: 인사가 keepalive 를 **대신한다.** 종전의 `: keep` 주석은 연결을
+	// 살려 두기만 했다 — `EventSource` 는 주석에 이벤트를 발화하지 않으므로 화면은
+	// 그것이 왔는지 알 수 없었고, 따라서 구독이 살아 있는지도 알 수 없었다.
+	// 잠에서 깬 기기의 half-open 소켓이 정확히 그 틈에 산다 (FR-RLC-20b).
+	keep := time.NewTicker(s.helloInterval())
 	defer keep.Stop()
 
 	for {
@@ -90,7 +100,7 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "data: %s\n\n", msg)
 			flusher.Flush()
 		case <-keep.C:
-			fmt.Fprint(w, ": keep\n\n")
+			fmt.Fprintf(w, "data: %s\n\n", hello)
 			flusher.Flush()
 		}
 	}
@@ -200,4 +210,32 @@ func (s *Server) handleCommandResult(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+// sseHelloEvery 는 SSE 인사의 기본 주기다 (RELOAD_CONTINUITY_SRS FR-RLC-20a).
+// 종전 keepalive 주석과 같은 값이라 오가는 양이 늘지 않는다.
+const sseHelloEvery = 15 * time.Second
+
+func (s *Server) helloInterval() time.Duration {
+	if s.helloEvery > 0 {
+		return s.helloEvery
+	}
+	return sseHelloEvery
+}
+
+// helloEvent 는 구독에 보낼 인사 한 줄이다.
+//
+// FR-RLC-22: 판을 모르면 **판만 뺀다.** 빈 값을 실으면 받는 쪽이 "달라졌다" 로 읽고,
+// 인사를 통째로 거르면 생존 신호가 함께 사라져 화면이 멀쩡한 구독을 죽었다고
+// 판정한다 (FR-RLC-25).
+func (s *Server) helloEvent() []byte {
+	m := map[string]any{"action": "server_hello"}
+	if v := s.assetVersion(); v != "" {
+		m["args"] = map[string]any{"assetVersion": v}
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return []byte(`{"action":"server_hello"}`)
+	}
+	return b
 }

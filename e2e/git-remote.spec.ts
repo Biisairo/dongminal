@@ -261,12 +261,10 @@ test.describe('13단계 — 원격 작업', () => {
     // 기본 제안(첫 선택지)은 force 가 아니다.
     await expect(opts(page).first()).toHaveAttribute('data-fix', 'fetch_rebase');
 
-    // force 는 2단계 확인을 거친다 (FR-GIT-106) — 기본은 --force-with-lease 다.
+    // force 는 확인을 거친다 (FR-GIT-106) — 기본은 --force-with-lease 다.
     await opts(page).nth(2).click();
     await expect(confirm(page)).toHaveAttribute('data-action', 'force_push');
     await expect(confirm(page)).toHaveAttribute('data-stage', '1');
-    await confirm(page).locator('.gc-go').click();
-    await expect(confirm(page)).toHaveAttribute('data-stage', '2');
     await expect(confirm(page).locator('.gc-hint-note')).toContainText('reflog');
     await confirm(page).locator('.gc-go').click();
 

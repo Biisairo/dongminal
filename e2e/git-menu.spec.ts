@@ -136,7 +136,7 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
     expect(box.y + box.height).toBeLessThanOrEqual(vp.height);
   });
 
-  test('N5 (V52): warn:true 는 1단계 확인을, destructive:true 는 2단계 확인을 자동으로 거친다', async ({ page }) => {
+  test('N5 (V52): warn:true 와 destructive:true 는 각각 자동으로 확인을 거치고, 파괴 여부가 테두리로 갈린다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate(() => {
       const w = window as any;
@@ -153,7 +153,7 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
     await page.evaluate(() =>
       (window as any).GitMenu.open('__v52warn', { id: 't' }, { clientX: 100, clientY: 100 }));
     await items(page).filter({ hasText: '경고 항목' }).click();
-    // 1단계: soft 테두리이고 실행 버튼이 바로 '실행' 이다.
+    // 파괴적이 아닌 확인: soft 테두리이고 실행 버튼이 바로 '실행' 이다.
     const box = page.locator('#git-confirm .gc-box');
     await expect(box).toBeVisible();
     await expect(box).toHaveClass(/soft/);
@@ -166,10 +166,9 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
       (window as any).GitMenu.open('__v52warn', { id: 't' }, { clientX: 100, clientY: 100 }));
     await items(page).filter({ hasText: '파괴 항목' }).click();
     await expect(box).toBeVisible();
+    // 파괴적이면 soft 가 아니다 — 걸음 수가 아니라 이 클래스가 둘을 가른다 (FR-COS-3).
     await expect(box).not.toHaveClass(/soft/);
     await expect(box).toHaveAttribute('data-stage', '1');
-    await box.locator('.gc-go').click();
-    await expect(box).toHaveAttribute('data-stage', '2');
     await box.locator('.gc-go').click();
     await expect(box).toHaveCount(0);
     expect(await page.evaluate(() => (window as any).__menuRan)).toEqual(['w', 'd']);

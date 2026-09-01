@@ -21,6 +21,11 @@ async function loadAppCmd(page: Page) {
     // 계약은 "포기하지 않는다"이지 특정 지연값이 아니다.
     (window as any).SSE_RETRY_MIN_MS = 5;
     (window as any).SSE_RETRY_MAX_MS = 10;
+    // RELOAD_CONTINUITY_SRS FR-RLC-25: 침묵 감시. 이 스펙이 재는 것은 **재연결의
+    // 끈기**이지 침묵 판정이 아니므로, 상한을 크게 두어 감시가 끼어들지 않게 한다 —
+    // 여기서 끊어 주면 "몇 번째 구독인가" 를 세는 단정이 흔들린다.
+    (window as any).SSE_SILENCE_MS = 3600000;
+    (window as any).SSE_SILENCE_CHECK_MS = 3600000;
 
     const made: any[] = [];
     (window as any).__made = made;

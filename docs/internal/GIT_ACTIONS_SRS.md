@@ -53,7 +53,7 @@ checkout 계열만** 올렸다. 그래서 화면에는 브랜치·태그가 보�
 |---|---|
 | **4겹 계약** | 새 쓰기 동작 하나가 갖춰야 하는 것: ① `write` 의 순수 `…Args` + 실행 함수 ② 엔드포인트 ③ 메뉴/버튼 항목 ④ 확인 규약. 하나라도 빠지면 그 동작은 없는 것과 같거나 안전망 밖이다 |
 | **진행 중 작업** | merge·rebase·cherry-pick·revert 가 충돌로 멈춰 저장소에 중간 상태가 남은 것 (`MERGE_HEAD`·`rebase-merge/`·`CHERRY_PICK_HEAD`·`REVERT_HEAD`) |
-| **파괴적** | `core.DestructiveActions` 에 든 동작. 2단계 확인과 recovery hint 를 **프레임워크가** 강제한다 (FR-GIT-89·92) |
+| **파괴적** | `core.DestructiveActions` 에 든 동작. 확인과 recovery hint 를 **프레임워크가** 강제한다 (FR-GIT-89·92). 이 문서가 여러 곳에서 말하는 "2단계 확인"은 **한 걸음**으로 개정되었다 — 영향 범위와 hint 를 한 화면에 함께 보인다 (CONFIRM_ONE_STAGE_SRS FR-COS-1) |
 
 ### 1.4 참조 (References)
 

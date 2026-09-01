@@ -22,7 +22,7 @@ Object.assign(GitPanel.prototype, {
     this._after(res,[]);
   },
 
-  // **파괴적이다** (FR-GIT-277). 2단계 확인과 recovery hint 는 GitMenu 가 이미
+  // **파괴적이다** (FR-GIT-277). 파괴적 확인과 recovery hint 는 GitMenu 가 이미
   // 거쳤으므로 여기서는 `confirm` 을 실어 보낸다 — 서버도 그것을 요구한다.
   async uncommittedClean(){
     if(this._writing) return;
@@ -183,7 +183,7 @@ Object.assign(GitPanel.prototype, {
     this._run(act,this._group(group).map(e=>({group,path:e.path,origPath:e.origPath||''})));
   },
 
-  // 쓰기 한 번의 단일 경로다. 충돌 stage 의 뜻 알림과 discard 의 2단계 확인이
+  // 쓰기 한 번의 단일 경로다. 충돌 stage 의 뜻 알림과 discard 의 파괴적 확인이
   // 여기서 갈린다.
   async _run(act,items){
     if(!items.length||!this.repo) return;
@@ -230,7 +230,7 @@ Object.assign(GitPanel.prototype, {
    *
    * **파괴적이다** — 워킹 트리의 충돌 표식과 손대던 내용이 사라지고 git 에 저장된
    * 적이 없어 되살릴 값이 없다. discard 와 같은 규약을 지난다: 판정은 서버의
-   * 목록이 하고(GitConfirm), 확인은 2단계이며, 요청에 confirm 을 함께 보낸다.
+   * 목록이 하고(GitConfirm), 확인을 거치며, 요청에 confirm 을 함께 보낸다.
    */
   async _resolveSide(side,items){
     const paths=items.filter(i=>i.group==='conflicts').map(i=>i.path);
@@ -253,7 +253,7 @@ Object.assign(GitPanel.prototype, {
   },
 
   // discard 는 파괴적이다 (FR-GIT-89). 판정은 서버의 목록이 하고(GitConfirm),
-  // 확인은 2단계이며, 실행 요청에는 confirm 을 함께 보낸다 — 서버도 그것을
+  // 확인을 거치며, 실행 요청에는 confirm 을 함께 보낸다 — 서버도 그것을
   // 요구한다.
   async _discard(items){
     const tracked=items.filter(i=>i.group!=='untracked').map(i=>i.path);

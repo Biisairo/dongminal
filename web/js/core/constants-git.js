@@ -234,10 +234,13 @@ const GIT_WARN_DETACHED='detached_head';
 const GIT_ERR_PREFLIGHT='preflight_blocked';
 const GIT_ERR_UNDO_EXPIRED='undo_expired';
 
-// ── 파괴적 동작 확인 (GIT_SRS §3A.3 / FR-GIT-90~97·174~178) ──
+// ── 파괴적 동작 확인 (GIT_SRS §3A.3 / FR-GIT-90~97·174~178,
+//    CONFIRM_ONE_STAGE_SRS 묶음 N) ──
+//
+// `GIT_CONFIRM_CONTINUE`('계속')가 여기 있었다. 확인이 한 걸음이 되면서 넘어갈
+// 다음 걸음이 없어졌다 (FR-COS-4).
 
 const GIT_CONFIRM_TITLE='되돌릴 수 없는 동작입니다';
-const GIT_CONFIRM_CONTINUE='계속';
 const GIT_CONFIRM_RUN='Run';
 const GIT_CONFIRM_CANCEL='Cancel';
 const GIT_CONFIRM_COPY='Copy';
@@ -579,7 +582,7 @@ const GIT_MENU_LOCAL_ONLY='원격 브랜치에서만 쓸 수 있습니다';
 
 // FR-GIT-157 · O14: dirty checkout 의 선택지. **순서가 제시 순서이고 첫 항목이
 // 기본**이다 — 기본은 항상 안전한 쪽이다 (FR-GIT-97). 강제는 파괴적이므로
-// GitConfirm 2단계를 거친다.
+// GitConfirm 의 파괴적 확인을 거친다.
 const GIT_DIRTY_OPT_CANCEL='cancel';
 const GIT_DIRTY_OPT_STASH='stash';
 const GIT_DIRTY_OPT_FORCE='force';
@@ -714,7 +717,7 @@ const GIT_JOB_CONFLICT_NOTE='충돌이 남았습니다 — Changes 탭의 충돌
 // (계약 §2.3.1 ①) — 그 확인을 이 문구가 맡는다. 파괴적이 아니므로 1단계다.
 const GIT_ACT_PUBLISH='publish';
 const GIT_PUBLISH_TITLE='upstream 을 설정하며 밀어 올립니다';
-// FR-GIT-106: force 는 `--force-with-lease` 가 기본이고 `--force` 는 2단계 확인을
+// FR-GIT-106: force 는 `--force-with-lease` 가 기본이고 `--force` 는 파괴적 확인을
 // 거친다. 이름은 서버의 파괴적 목록(/api/git/policy)의 키이며 목록을 복제하지 않는다.
 const GIT_ACT_FORCE_PUSH='force_push';
 const GIT_FORCE_PUSH_TITLE='원격의 커밋을 덮어씁니다';
@@ -843,7 +846,7 @@ const GIT_CON_SEARCH_PH='명령·경로·오류 검색';
 const GIT_CON_REPLAY='Replay';
 const GIT_CON_REPLAY_TITLE='이 명령을 다시 실행합니다';
 // 다시 도는 것도 같은 문을 지난다 — 그래서 이 실행도 기록에 남고, 원래 것이
-// 파괴적이었으면 확인도 2단계다.
+// 파괴적이었으면 확인도 파괴적 확인이다.
 const GIT_CON_REPLAY_NOTE='서버가 자기 기록에서 꺼낸 명령을 그대로 다시 실행합니다. 저장소 상태가 그때와 다르면 결과도 다릅니다.';
 const GIT_ACT_REPLAY='replay';
 const GIT_CON_SEARCH_NONE='검색과 일치하는 기록이 없습니다';

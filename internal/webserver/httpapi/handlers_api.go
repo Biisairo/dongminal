@@ -210,12 +210,32 @@ func (s *Server) apiStateGet(w http.ResponseWriter, r *http.Request) {
 	if len(rawWS) > 0 {
 		json.Unmarshal(rawWS, &ws)
 	}
+	tools, known := listTools(s.Tools)
 	w.Header().Set("ETag", strconv.FormatUint(rev, 10))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"tools":     s.Tools.List(),
-		"workspace": ws,
+		"tools": tools,
+		// TOOL_LIST_UNKNOWN_SRS FR-TLU-1: 목록과 함께 **그것을 믿어도 되는가**를
+		// 보낸다. 이 답이 없으면 받는 쪽은 빈 목록을 "도구가 하나도 없다"로 읽고
+		// 살아 있는 도구를 전부 파괴한다 (SRS §2.2).
+		"toolsKnown": known,
+		"workspace":  ws,
 	})
+}
+
+// listTools 는 도구 목록과 그것이 **관측된 사실인지**를 함께 준다.
+//
+// 데몬 모드의 ToolClient 만 모를 수 있다 — 목록이 다른 프로세스에 있기 때문이다.
+// 그 사정을 아는 것은 ToolClient 자신이므로 판정도 그쪽에 있고(`ListOK`), 여기서는
+// 타입 단언으로 물어본다. `handlers_ws.go` 가 `Connected()` 를 묻는 것과 같은
+// 규약이다. 답할 수 없는 구현은 직접 모드이며 언제나 아는 것이다 (FR-TLU-3).
+func listTools(h toolhub.ToolHub) ([]map[string]interface{}, bool) {
+	if lk, ok := h.(interface {
+		ListOK() ([]map[string]interface{}, bool)
+	}); ok {
+		return lk.ListOK()
+	}
+	return h.List(), true
 }
 
 func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {

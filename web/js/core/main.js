@@ -53,4 +53,13 @@ window.addEventListener('resize',()=>{
   // SIGWINCH 가 그만큼 나가 TUI 가 프레임 전체를 다시 그린다.
   else{app._scheduleFit()}
 });
-window.addEventListener('beforeunload',e=>{if(app.tools.size>0)e.preventDefault()});
+// 떠나면 터미널 세션과의 연결을 잃는다 — 도구가 하나라도 있으면 되묻는다.
+//
+// RELOAD_CONTINUITY_SRS FR-RLC-5a: **앱이 스스로 여는 새로고침은 예외다.** 이 가드는
+// 사용자의 실수를 막는 장치이고, 새 버전을 받으려 다시 여는 것은 실수가 아니다 —
+// 거기서 물으면 자동 갱신이 자동이 아니게 된다 (사용자가 화면을 보고 있지 않으면
+// 대화만 떠 있고 갱신은 영영 오지 않는다). 그 밖의 모든 떠남에는 그대로 걸린다.
+window.addEventListener('beforeunload',e=>{
+  if(window.__dmReloading) return;
+  if(app.tools.size>0) e.preventDefault();
+});

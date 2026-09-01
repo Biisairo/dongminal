@@ -141,3 +141,73 @@ func TestSignature_DetachedHead(t *testing.T) {
 		t.Fatalf("signature = %+v", sig)
 	}
 }
+
+// V-GVR-22~25 (GIT_VIEW_REFRESH_SRS FR-GVR-21·22·23): **ref 의 추가·삭제도 변화다.**
+//
+// 종전 signature 는 HEAD·index·현재 브랜치 ref 만 봤다. 그래서 터미널에서 만든
+// **다른** 브랜치는 한 톨도 값을 움직이지 못했고, History 의 커밋 배지가 낡은 채로
+// 남았다 (SRS §3.2 의 접수). refs 아래 **디렉터리의 mtime** 을 근거에 더해 그것을
+// 잡는다 — 파일이 생기거나 사라지면 부모 디렉터리의 mtime 이 바뀐다.
+func TestSignature_TracksRefAddRemove(t *testing.T) {
+	repo := tempRepo(t)
+	s := core.New()
+	ctx := context.Background()
+
+	first, err := SignatureOf(s, ctx, repo)
+	if err != nil {
+		t.Fatalf("Signature: %v", err)
+	}
+
+	// V-GVR-25: 아무것도 바뀌지 않으면 같다. 근거가 매번 달라지면 폴링이 늘 다시 받는다.
+	same, err := SignatureOf(s, ctx, repo)
+	if err != nil {
+		t.Fatalf("Signature: %v", err)
+	}
+	if same.Value != first.Value {
+		t.Fatalf("건드리지 않았는데 값이 바뀌었다: %q → %q", first.Value, same.Value)
+	}
+
+	// V-GVR-22: 현재 브랜치가 아닌 **다른** 브랜치를 만든다. HEAD 도 index 도
+	// 현재 브랜치 ref 도 움직이지 않는다 — 종전 근거로는 감지할 수 없던 변화다.
+	gitIn(t, repo, "branch", "sig-probe")
+	added, err := SignatureOf(s, ctx, repo)
+	if err != nil {
+		t.Fatalf("Signature: %v", err)
+	}
+	if added.Value == first.Value {
+		t.Fatalf("브랜치를 만들었는데 값이 그대로다: %q", added.Value)
+	}
+
+	// V-GVR-23: 지워도 달라진다.
+	gitIn(t, repo, "branch", "-D", "sig-probe")
+	removed, err := SignatureOf(s, ctx, repo)
+	if err != nil {
+		t.Fatalf("Signature: %v", err)
+	}
+	if removed.Value == added.Value {
+		t.Fatalf("브랜치를 지웠는데 값이 그대로다: %q", removed.Value)
+	}
+}
+
+// V-GVR-24 (FR-GVR-23): ref 가 packed 되면 개별 파일이 사라지고 그 파일 하나가
+// 전부를 담는다 — 그것도 근거에 있어야 한다.
+func TestSignature_TracksPackedRefs(t *testing.T) {
+	repo := tempRepo(t)
+	s := core.New()
+	ctx := context.Background()
+
+	gitIn(t, repo, "branch", "packed-probe")
+	before, err := SignatureOf(s, ctx, repo)
+	if err != nil {
+		t.Fatalf("Signature: %v", err)
+	}
+
+	gitIn(t, repo, "pack-refs", "--all")
+	after, err := SignatureOf(s, ctx, repo)
+	if err != nil {
+		t.Fatalf("Signature: %v", err)
+	}
+	if after.Value == before.Value {
+		t.Fatalf("pack-refs 뒤에도 값이 그대로다: %q", after.Value)
+	}
+}
