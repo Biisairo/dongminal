@@ -166,4 +166,29 @@ Object.assign(App.prototype, {
     walk(s.layout);
     return found;
   },
+
+  /**
+   * FR-NAM-1: 도구 이름을 묻는 자리는 전부 여기를 지난다. 탭이 있으면 그
+   * 탭의 규칙(FR-TAN-15)이 적용되고, 없으면 파생 이름이 답한다.
+   */
+  _toolName(toolId,fallback){
+    const loc=this._findToolLocation(toolId);
+    return toolDisplayName(toolId,this._fgNames,loc&&loc.tab,fallback);
+  },
+
+  // 모든 창 layout 트리를 walk 해 toolId 를 가진 tab 위치 반환 (FR-PAN-16)
+  _findToolLocation(toolId){
+    if(!toolId) return null;
+    const walk=(node,win)=>{
+      if(!node) return null;
+      if(node.type==='pane'){
+        const tab=(node.tabs||[]).find(t=>t.toolId===toolId);
+        return tab?{win,pane:node,tab}:null;
+      }
+      if(node.children) for(const c of node.children){const f=walk(c,win);if(f)return f}
+      return null;
+    };
+    for(const s of this.ws.windows){const f=walk(s.layout,s);if(f)return f}
+    return null;
+  },
 });
