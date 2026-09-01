@@ -168,3 +168,89 @@ map  : []      ← _fgNames 가 비어 있다. 넣은 이름이 사라졌다
 - **비목표 N2** — `_activityRestore`·`_bgRefresh`·`_focusRestore` 도 같은
   `es.onopen` 에서 불린다. 묶음 A 와 같은 경쟁이 있는지 **확인하지 않았다.**
   `_attnRestore` 만 규약을 지키고 있음이 확인됐고, 나머지 셋은 별도 결정이 필요하다.
+
+---
+
+## 8. §7.4 의 미조사 항목을 닫는다 — 조사 결과
+
+§7.4 는 `_activityRestore`·`_bgRefresh`·`_focusRestore` 에 묶음 A 와 **같은 경쟁이
+있는지 확인하지 않았다**고 남겼다. 조사했다. 결론부터: **하나는 있고 둘은 없다.
+그리고 묶음 A 의 수정이 한 방향만 막았다는 것이 함께 드러났다.**
+
+### 8.1 판정 기준 — 이 결함이 성립하는 조건
+
+묶음 A 의 결함은 "fetch 를 쓴다"가 아니라 **둘이 동시에 참일 때** 생긴다:
+
+1. 그 상태를 **SSE 가 증분으로** 갱신한다 (`set`/`delete`)
+2. restore 가 서버 스냅숏과 대조해 **로컬에만 있는 것을 지운다**
+
+`window_focus` 핸들러의 주석이 이 구분을 이미 말하고 있다 —
+"전체 소유권 맵이 온다. **증분이 아니므로** 통째로 갈아치우면 되고".
+
+### 8.2 다섯 자리의 판정
+
+| 함수 | 상태 | SSE 가 증분 갱신? | restore 의 방식 | 판정 |
+|---|---|---|---|---|
+| `_attnRestore` | `_attn` | **예** (`_onToolAttention`) | `before` 확정 후 차분 | 규약 지킴 |
+| `_fgRestore` | `_fgNames` | **예** (`_onToolForeground`) | `before` 확정 후 차분 | 묶음 A 에서 고침 |
+| **`_activityRestore`** | `_activity` | **예** (`_onToolActivity`) | **응답 도착 후 `clear()`** | **결함** |
+| `_bgRefresh` | `_bg` | 아니오 — SSE 가 `_bgRefresh()` 재호출 | 통째 교체 | 없음 |
+| `_focusRestore` | `_windowFocusOwner` | 아니오 — 맵 전체가 온다 | 통째 교체 | 없음 |
+
+`_bg` 와 `_windowFocusOwner` 는 **쓰는 자리가 각각 하나뿐**이다(생성자 초기화 제외).
+증분 갱신 경로가 없으므로 "지울 후보" 라는 개념 자체가 성립하지 않는다.
+
+### 8.3 `_activityRestore` — 확정 재현
+
+```js
+_activityRestore(){
+  fetch('/api/tools/activity').then(...).then(j=>{
+    this._activity.clear();          // ← 응답이 도착한 시점에 전부 비운다
+    for(const a of j.activities) this._activity.set(...);
+  });
+}
+```
+
+묶음 A 보다 **넓다.** `_fgApply` 는 "스냅숏에 없는 것"만 지웠는데, 이쪽은 전부
+지우고 스냅숏으로 다시 채운다.
+
+스냅숏 내용을 위조해 두 방향을 결정적으로 재현했다:
+
+| 방향 | 시나리오 | 결과 |
+|---|---|---|
+| **A** | 요청 중 `tool_activity` 도착 → 스냅숏에 없음 | `넣은직후:true → 응답후:false` **지워진다** |
+| **B** | 요청 중 `ended` 도착 → 낡은 스냅숏에는 살아 있음 | `지운직후:false → 응답후:true` **되살아난다** |
+
+**노출은 재연결 순간에 그치지 않는다.** `_activityRestore` 는 `es.onopen` 말고도
+`_agentsStartPoll` 이 **`agentsPollMs`(기본 5,000ms)마다** 부르고, `.ag-refresh`
+클릭과 `_softReload` 도 부른다. 패널이 열려 있는 동안 창이 5초마다 열린다.
+
+다만 증상은 영구적이지 않다 — 폴링이 돌면 다음 주기에 스스로 낫는다. 묶음 A 의
+탭 이름(다시 부를 것이 없어 영구했다)과 다른 점이다.
+
+### 8.4 함께 드러난 것 — 묶음 A 의 수정은 **한 방향만** 막았다
+
+`before` 규약은 "지울 후보"만 좁힌다. **스냅숏에서 되살리는 쪽은 그대로다.**
+`_fgApply` 는 목록의 `fgName` 을 무조건 `m.set` 하므로, 요청 중에 이름이 지워지면
+낡은 스냅숏이 되살린다. 재현했다:
+
+```
+FG-B {"지운직후":null,"응답후":"vim"}
+```
+
+`_attnRestore` 도 같다 — `for(const pid of live){if(!this._attn.has(pid))this._attn.set(...)}`
+가 요청 중에 해제된 알람을 되살린다.
+
+즉 **방향 B 는 세 함수 모두에 남아 있는 계통적 잔여**이고, 이 SRS 의 §1.2 가 인용한
+규약이 애초에 한 방향만 다뤘다.
+
+### 8.5 남은 결정
+
+고치는 것은 이 SRS 의 범위가 아니다. 방향 B 를 막으려면 "요청 중에 도착한 갱신은
+스냅숏보다 새롭다" 를 판정할 근거가 필요한데, 지금 세 함수 어디에도 그 근거(도착
+시각·seq)가 없다. **설계 결정이 필요하므로 별도 SRS 를 세워야 한다.**
+
+`_activityRestore` 의 방향 A 만 먼저 막는 것은 `before` 규약의 단순 적용이라 값이
+싸다 — 다만 `clear()` 를 차분으로 바꾸면 신규 id 의 삽입 순서가 달라지므로
+(`_agentOrderSync` 가 `ws.agentsOrder` 에 없는 id 를 Map 순서로 덧붙인다) 그
+영향까지 스펙에 적어야 한다. **묶음 A 처럼 규약을 그대로 옮기는 일이 아니다.**
