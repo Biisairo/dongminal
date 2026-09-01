@@ -137,10 +137,25 @@ go build ./... && go vet ./... && go test ./...
 npx playwright test --reporter=line          # 13~14분
 ```
 
-**e2e 실패 1건은 회귀가 아닐 수 있다.** 이 저장소는 전량 실행에서 927개 중 1개
+**e2e 실패 1건은 회귀가 아닐 수 있다.** 이 저장소는 전량 실행에서 933개 중 1개
 정도가 산발로 흔들리며 **실행마다 다른 스펙이 걸린다** (관측된 것: `git-commit` E11,
-`git-repo-missing` M3, `sidebar-tabs` T9). 실패가 나면 **반드시 단독 재실행으로
-가른다** — 단독에서 통과하면 산발 흔들림이고, 재현되면 회귀다.
+`git-repo-missing` M3, `sidebar-tabs` T9, `editor-git-ux` V-CSZ-8). 실패가 나면
+**반드시 단독 재실행으로 가른다.**
+
+**단독 재실행만으로 부족한 경우가 있다.** `editor-git-ux` V-CSZ-8 은 파일 전체로
+돌리면 통과(30/30)하는데 `-g` 로 그것만 집으면 **3회 중 2회 실패한다** — 위 규약의
+"단독에서 통과하면 산발" 을 그대로 적용하면 판정이 뒤집힌다.
+
+그때는 **기준선에서 같은 명령을 돌려 가른다:**
+
+```bash
+git checkout origin/refactor        # 내 변경 이전
+npx playwright test <파일> -g "<이름>" --reporter=line   # 3회
+git checkout refactor
+```
+
+기준선이 같은 비율로 깨지면 기존 flaky 이고, 기준선만 통과하면 회귀다. V-CSZ-8 은
+기준선에서도 실패·통과·실패로 **패턴이 동일해 기존 flaky 로 판정했다.**
 
 자산을 고쳤으면 `index.html` 의 `?v=` 와 `web/assets.lock` 을 함께 올린다
 (`go test ./web/` 가 새 해시를 알려준다).
