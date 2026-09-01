@@ -78,7 +78,8 @@ const runViewsPerSlot = (page: Page) =>
   }));
 
 const viewKeys = (page: Page) =>
-  page.evaluate(() => [...((window as any).app._runViews || new Map()).keys()]);
+  // 뷰 레지스트리는 RunsPanel 이 든다 (APP_STATE_EXTRACT_SRS 묶음 A).
+  page.evaluate(() => [...((window as any).app._runsPanel()._runViews || new Map()).keys()]);
 
 test.describe('Run 뷰의 칸 다중화', () => {
   // TC-SRV-1
@@ -149,11 +150,16 @@ test.describe('Run 뷰의 칸 다중화', () => {
     const painted = await page.evaluate(async (rid) => {
       const app = (window as any).app;
       const seen: string[] = [];
-      const orig = app._runPaint.bind(app);
-      app._runPaint = (v: any) => { seen.push(String(v.tabId)); return orig(v) };
+      // 갈아 끼우는 자리는 RunsPanel 이다 (APP_STATE_EXTRACT_SRS FR-ASE-5).
+      // _onRunChanged 는 그 안에서 자기 _runPaint 를 부르므로, App 의 위임 껍데기를
+      // 갈아 끼우면 이 관찰이 아무것도 잡지 못한다. **재는 것은 그대로다** —
+      // Run 이 바뀌면 그것을 보는 뷰 전부가 다시 그려지는가.
+      const runs = app._runsPanel();
+      const orig = runs._runPaint.bind(runs);
+      runs._runPaint = (v: any) => { seen.push(String(v.tabId)); return orig(v) };
       app._onRunChanged({ runId: rid });
       await new Promise((r) => setTimeout(r, 500));
-      app._runPaint = orig;
+      runs._runPaint = orig;
       return seen;
     }, RUN_A);
     // 두 칸의 뷰가 각각 그려졌다 — 하나만이면 이 SRS 가 고치려는 증상이 남은 것이다.

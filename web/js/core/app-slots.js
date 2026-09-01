@@ -500,11 +500,14 @@ Object.assign(App.prototype, {
     }
     // SLOT_RUN_VIEW_SRS FR-SRV-4.2: Run 뷰도 칸의 것이다 — 편집기와 같은 판정을
     // 같은 자리에서 한다. 여기서 빠지면 사라진 칸의 뷰가 관측자를 들고 남는다.
-    if(this._runViews) for(const [k,v] of [...this._runViews]){
+    // 레지스트리는 RunsPanel 이 든다 (APP_STATE_EXTRACT_SRS 묶음 A). `_runsPanel()`
+    // 로 지연 생성하지 않는다 — Run 을 연 적이 없으면 거둘 것도 없다.
+    const rp=this._runs;
+    if(rp&&rp._runViews) for(const [k,v] of [...rp._runViews]){
       const i=this._slotOf(k); if(!i) continue;
       if(keepTabs.get(i)?.has(this._slotBase(k))) continue;
-      this._runDisposeView(v);
-      this._runViews.delete(k);
+      rp._runDisposeView(v);
+      rp._runViews.delete(k);
     }
   },
 
