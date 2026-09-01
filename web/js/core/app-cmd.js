@@ -164,17 +164,29 @@ Object.assign(App.prototype, {
 
   _fgMap(){ return this._fgNames||(this._fgNames=new Map()) },
 
-  // 합류/재연결 시의 스냅샷 복원 (`_attnRestore` 와 같은 규약). SSE 는 **변화**
-  // 만 나르므로, 합류 시점에 이미 떠 있던 전경 프로그램은 이것으로만 보인다.
+  /**
+   * 합류/재연결 시의 스냅샷 복원 (`_attnRestore` 와 같은 규약). SSE 는 **변화**
+   * 만 나르므로, 합류 시점에 이미 떠 있던 전경 프로그램은 이것으로만 보인다.
+   *
+   * **지울 후보는 요청을 떠나기 전에 확정한다** (FR-FGR-1). 응답은 요청 시점의
+   * 서버 상태이고, 그 사이 SSE 로 새 전경 이름이 올 수 있다 — 이 함수는 SSE 가
+   * 열리는 바로 그 순간에 불린다(`es.onopen`). 응답이 도착한 시점의 Map 을 훑어
+   * 지우면 그 이름이 태어나자마자 사라진다. `_attnRestore` 가 같은 이유로 같은
+   * 형태를 하고 있고, 이쪽은 그 규약을 이름으로만 인용한 채 지키지 않았다.
+   */
   _fgRestore(){
+    const before=new Set(this._fgMap().keys());
     fetch('/api/state').then(r=>r.ok?r.json():null).then(j=>{
-      if(j) this._fgApply(j.tools||[]);
+      if(j) this._fgApply(j.tools||[],before);
     }).catch(()=>{});
   },
 
   // `/api/state` 의 도구 목록(`fgName` 포함)을 런타임 Map 에 반영한다. 목록에
   // 없는 도구의 이름은 지운다 — 죽은 도구의 이름이 남으면 안 된다.
-  _fgApply(tools){
+  //
+  // `before` 는 지워도 되는 id 의 집합이다 (FR-FGR-2). 주지 않으면 Map 전부가
+  // 대상이다 — 새 호출자가 생겼을 때 규약이 조용히 바뀌지 않게 기본을 종전으로 둔다.
+  _fgApply(tools,before){
     const m=this._fgMap();
     const seen=new Set();
     let changed=false;
@@ -186,8 +198,8 @@ Object.assign(App.prototype, {
       if(n) m.set(p.id,n); else m.delete(p.id);
       changed=true;
     }
-    for(const id of Array.from(m.keys())){
-      if(!seen.has(id)){m.delete(id);changed=true}
+    for(const id of Array.from(before||m.keys())){
+      if(!seen.has(id)&&m.has(id)){m.delete(id);changed=true}
     }
     if(changed) this._fgRepaint();
   },

@@ -12,7 +12,42 @@ import { test, expect } from './fixtures';
  * 재려는 것은 조회가 아니라 적용이다. 조회는 toolhub 쪽 테스트가 이미 잡는다.
  */
 
+/**
+ * 이 스펙이 흉내내는 전경 이름의 **스냅숏 쪽**이다.
+ *
+ * 복원(`_fgRestore`)은 `/api/state` 를 진실로 삼아 그 밖의 이름을 지우고, SSE 가
+ * 재연결될 때마다 다시 돈다. 이 스펙은 결정론을 위해 실제 프로세스를 띄우지
+ * 않으므로(파일 머리 주석), SSE 만 흉내내면 두 진실이 어긋난다 — 재연결이 끼는
+ * 순간 방금 넣은 이름이 지워지고, 그것이 이 스펙이 흔들리던 사유였다.
+ *
+ * 그래서 `pushForeground` 가 넣는 값을 스냅숏 응답에도 실어 준다. 서버를 고치는
+ * 것이 아니라 **흉내를 두 경로에 일관되게** 내는 것이다.
+ */
+const fgStub = new Map<string, string>();
+
+async function installStateStub(page) {
+  fgStub.clear();
+  await page.route('**/api/state', async (route) => {
+    // 페이지가 닫히는 중이거나 요청이 취소되면 fetch 도 fulfill 도 던진다. 가로채기가
+    // 검사를 죽이면 안 되므로, 실패하면 손대지 않고 원래 요청으로 흘려보낸다.
+    let res: any, j: any;
+    try {
+      res = await route.fetch();
+      j = await res.json();
+    } catch {
+      try { await route.fallback(); } catch { /* 이미 끝난 요청이다 */ }
+      return;
+    }
+    for (const t of j.tools || []) {
+      const n = fgStub.get(t.id);
+      if (n) t.fgName = n;
+    }
+    try { await route.fulfill({ response: res, json: j }); } catch { /* 위와 같다 */ }
+  });
+}
+
 async function waitForInit(page) {
+  await installStateStub(page);
   await page.context().addInitScript(() => {
     sessionStorage.setItem('displayMode', 'desktop');
   });
@@ -50,6 +85,8 @@ const FIRST_TAB_COORD = 'W1.P1.T1';
 
 // 서버가 보내는 tool_foreground SSE 를 흉내낸다 (FR-TAN-8).
 async function pushForeground(page, toolId: string, name: string) {
+  // 스냅숏과 SSE 를 함께 움직인다 (installStateStub 참조).
+  if (name) fgStub.set(toolId, name); else fgStub.delete(toolId);
   await page.evaluate(([id, n]) => (window as any).app._onToolForeground({ toolId: id, name: n }),
     [toolId, name]);
 }
