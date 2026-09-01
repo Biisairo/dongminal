@@ -51,7 +51,7 @@
 |---|---|---|
 | 1 | `refactor` 를 `main` 에 병합할 것인가 | **미결.** §7 의 커밋 전부가 `main` 밖에 있다 |
 | 2 | `app-attn.js` 의 `agents-poll` 설정 배선 13줄 | `_initAttn` 안에 있어 메서드 단위로 못 옮긴다 (`ATTN_UTIL_RELOCATE_SRS` §5 N2) |
-| 3 | `_activityRestore`·`_bgRefresh`·`_focusRestore` 의 복원 경쟁 | `_fgRestore` 와 같은 결함이 있는지 **확인되지 않았다** (§5) |
+| 3 | 복원 경쟁 — **조사 끝. 결함 확정** | `_activityRestore` 에 양방향 재현. `_bgRefresh`·`_focusRestore` 는 결함 없음. 고치려면 별도 SRS (`FG_RESTORE_RACE_SRS` §8) |
 
 ### 3.1 왜 추출을 더 하지 않는가 — 종결된 근거
 
@@ -139,7 +139,7 @@ npx playwright test --reporter=line          # 13~14분
 | `windowsPaths`·`posixPaths`·`execRun` 등 staticcheck U1000 5건 | **오탐.** GOOS 를 바꾸면 반대쪽이 unused 로 나온다 — 의도된 설계 |
 | SA4000 2건 | `Render() != Render()` 는 결정성 테스트다 |
 | ST1005 1건 | `dmctl` 이 사용자에게 내보내는 안내문. 고치면 CLI 출력이 바뀐다 |
-| `_activityRestore`·`_bgRefresh`·`_focusRestore` 의 복원 경쟁 | `_fgRestore` 와 같은 자리에서 불린다. **같은 결함이 있는지 확인하지 않았다** (`FG_RESTORE_RACE_SRS` §7.4) |
+| `_activityRestore` 의 복원 경쟁 수정 | **조사는 끝났고 결함이 확정됐다**(`FG_RESTORE_RACE_SRS` §8). 고치지 않은 것은 방향 B 를 막을 근거(도착 시각·seq)가 코드에 없어 설계 결정이 필요하기 때문이다 — 별도 SRS |
 
 ---
 
@@ -155,7 +155,7 @@ npx playwright test --reporter=line          # 13~14분
 ## 7. 브랜치
 
 ```
-origin/refactor   14 커밋   ← 모든 작업
+origin/refactor   15 커밋   ← 모든 작업
 main              7cbb6d6   ← origin/main 과 동일, 손대지 않음
 ```
 
