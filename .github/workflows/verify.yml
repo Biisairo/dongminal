@@ -47,8 +47,10 @@ jobs:
       - name: vet
         run: go vet ./...
 
+      # -race 로 돈다 (FR-CAF-3). 이것 없이 돌던 동안 diag 스냅샷 테스트의
+      # 경쟁이 CI 를 통과했다 — 검사기가 보지 않는 결함은 없는 것과 같다.
       - name: unit tests
-        run: go test ./internal/... ./cmd/...
+        run: go test -race ./internal/... ./cmd/...
 
   windows-runtime:
     runs-on: windows-latest

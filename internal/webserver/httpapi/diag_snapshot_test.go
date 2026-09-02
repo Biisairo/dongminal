@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -23,15 +24,38 @@ import (
 
 // captureLog 는 log 출력을 가로챈다. 스냅샷은 로그로만 나가므로(D-4) 그것을
 // 읽는 것이 유일한 검사 수단이다.
-func captureLog(t *testing.T) *bytes.Buffer {
+// logBuf 는 잠금이 있는 로그 수집 버퍼다.
+//
+// 잠금이 필요한 이유는 로그를 쓰는 주체가 테스트 고루틴만이 아니기 때문이다 —
+// 스냅샷 루프는 자기 고루틴에서 `log.Printf` 를 부른다. 잠금 없는 bytes.Buffer
+// 를 쓰면 그것을 읽는 순간이 곧 경쟁이고, 실제로 `-race` 가 그것을 잡았다
+// (V-CAF-1). 검사 수단이 검사 대상을 흔들면 안 된다.
+type logBuf struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *logBuf) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *logBuf) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func captureLog(t *testing.T) *logBuf {
 	t.Helper()
-	var buf bytes.Buffer
+	buf := &logBuf{}
 	old := log.Writer()
 	flags := log.Flags()
-	log.SetOutput(&buf)
+	log.SetOutput(buf)
 	log.SetFlags(0)
 	t.Cleanup(func() { log.SetOutput(old); log.SetFlags(flags) })
-	return &buf
+	return buf
 }
 
 // V-CNR-7 (FR-CNR-8): 한 줄에 §3.2 의 항목이 모두 있다. 하나라도 빠지면 다음에
@@ -136,9 +160,15 @@ func TestDiagSnapshotLoopWritesPeriodically(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go s.runDiagSnapshots(ctx, 10*time.Millisecond)
+	done := make(chan struct{})
+	go func() { s.runDiagSnapshots(ctx, 10*time.Millisecond); close(done) }()
 	time.Sleep(120 * time.Millisecond)
 	cancel()
+	// **끝난 것을 확인한 뒤에 읽는다.** cancel 은 종료를 요청할 뿐 기다리지
+	// 않는다 — 바로 위 …StopsWithContext 가 지키는 규약이 이것이며, 그 규약이
+	// 여기에만 빠져 있었다 (FR-CAF-1). 고루틴이 실제로 끝난다는 사실은 그
+	// 테스트가 이미 보증하므로 여기서는 다시 재지 않는다.
+	<-done
 
 	if n := strings.Count(buf.String(), "diag "); n < 2 {
 		t.Fatalf("스냅샷이 %d줄뿐이다 — 주기적으로 남지 않는다\n%s", n, buf.String())
