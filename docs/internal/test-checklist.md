@@ -542,7 +542,7 @@ Go 테스트는 전 패키지 통과, `go vet` 무경고, `gofmt` 청결. Playwr
 | `ctl/migrate` | `migrate_test.go`, `apply_test.go`, `settings_test.go` | **구 어휘가 입력이다** — 여기의 `panes.json`·`region`·`paneId` 는 개명 대상이 아니다 |
 | `helper/runtimebin` | `dmctl_test.go`, `detach_test.go`, `dmctl_whoami_test.go` | `detach_test.go` 는 스텁 서버를 쓰므로 실제 화이트리스트는 e2e 가 검증한다 |
 | `helper/toolline` | `toolline_test.go` | dmctl 출력의 byte-level 동일성 |
-| `web` | `version_test.go`, `embed_test.go` | **자산이 바뀌면 `?v=` 와 `assets.lock` 도 바뀌어야 한다** — 안 바꾸면 여기서 깨진다 |
+| `web` | `version_test.go`, `embed_test.go` | **`index.html` 은 판을 손으로 적지 않는다** — `?v=__ASSETV__` 여야 하며, 손으로 적은 값이 들어오면 여기서 깨진다. 판은 서버가 자산 내용에서 계산해 넣는다 (ASSET_VERSION_SINGLE_SOURCE_SRS) |
 | 프론트엔드 | `e2e/*.spec.ts` 76개 | 아래 참조 |
 
 **e2e 스펙**은 범주로 묶인다 — 창·탭·포커스·레이아웃 / 터미널·모바일 입력 /

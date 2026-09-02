@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 )
 
 // staticHandler 는 정적 자산에 **내용 기반 ETag** 를 붙인다.
@@ -20,16 +22,31 @@ import (
 //
 // 해시는 파일당 한 번만 계산해 기억한다. 자산은 바이너리에 박혀 있어 프로세스가
 // 사는 동안 바뀌지 않으므로, 무효화 걱정 없이 캐시할 수 있다.
+//
+// 그리고 `index.html` 의 **자리표시자를 판으로 치환해** 내보낸다
+// (ASSET_VERSION_SINGLE_SOURCE_SRS FR-AVS-5). 문서가 판을 손으로 적지 않게 되면서,
+// 그것을 채우는 일이 이 자리로 왔다.
 type staticHandler struct {
 	fsys fs.FS
 	next http.Handler
+
+	// index 는 치환을 마친 `index.html` 이다. 요청마다 만들지 않는다 — 자산도 판도
+	// 프로세스가 사는 동안 그대로다. 문서를 읽지 못했으면 nil 이고, 그때는
+	// FileServer 가 평소대로 답한다 (404).
+	index     []byte
+	indexETag string
 
 	mu    sync.RWMutex
 	etags map[string]string
 }
 
-func newStaticHandler(fsys fs.FS) http.Handler {
-	return &staticHandler{fsys: fsys, next: http.FileServer(http.FS(fsys)), etags: map[string]string{}}
+func newStaticHandler(fsys fs.FS, version string) http.Handler {
+	h := &staticHandler{fsys: fsys, next: http.FileServer(http.FS(fsys)), etags: map[string]string{}}
+	if b, err := fs.ReadFile(fsys, indexPage); err == nil {
+		h.index = []byte(strings.ReplaceAll(string(b), assetVerPlaceholder, version))
+		h.indexETag = hashBytes(h.index)
+	}
+	return h
 }
 
 func (h *staticHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -42,6 +59,12 @@ func (h *staticHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 로 무효화되므로 ETag 만으로 충분하다.
 	if isHTMLPath(r.URL.Path) {
 		w.Header().Set("Cache-Control", "no-cache")
+	}
+	// 치환본을 직접 내는 경로는 루트 하나다. `/index.html` 은 FileServer 가 예전처럼
+	// `./` 로 301 을 주며 (FR-AVS-6), 따라가면 여기에 닿는다.
+	if h.index != nil && r.URL.Path == "/" {
+		http.ServeContent(w, r, indexPage, time.Time{}, bytes.NewReader(h.index))
+		return
 	}
 	h.next.ServeHTTP(w, r)
 }
@@ -56,10 +79,16 @@ func (h *staticHandler) etagFor(urlPath string) string {
 	name := strings.TrimPrefix(path.Clean(urlPath), "/")
 	// FileServer 는 디렉터리에 index.html 을 준다 — 그 내용으로 판정해야 한다.
 	if name == "" || strings.HasSuffix(urlPath, "/") {
-		name = path.Join(name, "index.html")
+		name = path.Join(name, indexPage)
 	}
 	if !fs.ValidPath(name) {
 		return ""
+	}
+	// 문서는 **치환된 것**이 나간다. 원본으로 판정하면 JS 만 고친 빌드에서 검증자가
+	// 그대로여서 브라우저가 304 를 받고, 옛 `?v=` 를 가리키는 옛 HTML 이 남는다 —
+	// `?v=` 를 올리지 않았을 때와 같은 증상이다 (FR-AVS-7).
+	if name == indexPage && h.indexETag != "" {
+		return h.indexETag
 	}
 	h.mu.RLock()
 	tag, ok := h.etags[name]
@@ -87,6 +116,13 @@ func hashFile(fsys fs.FS, name string) string {
 	if _, err := io.Copy(sum, f); err != nil {
 		return ""
 	}
-	// 약한 검증자가 아니다 — 바이트가 같아야 같다.
-	return `"` + hex.EncodeToString(sum.Sum(nil))[:32] + `"`
+	return etagOf(sum.Sum(nil))
 }
+
+func hashBytes(b []byte) string {
+	sum := sha256.Sum256(b)
+	return etagOf(sum[:])
+}
+
+// 약한 검증자가 아니다 — 바이트가 같아야 같다.
+func etagOf(sum []byte) string { return `"` + hex.EncodeToString(sum)[:32] + `"` }

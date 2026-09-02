@@ -22,9 +22,12 @@
  * sessionStorage 로 새로고침을 건넌다 (묶음 Q).
  */
 (function(){
+  // 판은 자산 내용의 해시다 (ASSET_VERSION_SINGLE_SOURCE_SRS FR-AVS-1) — 서버가
+  // 서빙 시점에 문서에 넣는다. 견주는 것은 **같은가 다른가** 뿐이라 형식 자체는
+  // 판정에 쓰이지 않는다.
   const self=(()=>{
     const el=document.querySelector('script[src*="core/main.js"]');
-    const m=el&&(el.getAttribute('src')||'').match(/[?&]v=(\d+)/);
+    const m=el&&(el.getAttribute('src')||'').match(/[?&]v=([0-9a-f]+)/);
     return m?m[1]:null;
   })();
   if(!self) return;
@@ -86,7 +89,7 @@
     try{
       const r=await fetch('/?_v='+Date.now(),{cache:'no-store'});
       if(!r.ok) return;
-      const m=(await r.text()).match(/core\/main\.js\?v=(\d+)/);
+      const m=(await r.text()).match(/core\/main\.js\?v=([0-9a-f]+)/);
       if(m) saw(m[1]);
     }catch{}
   };

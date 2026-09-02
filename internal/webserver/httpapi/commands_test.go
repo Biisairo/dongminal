@@ -5,7 +5,6 @@ import (
 
 	"bytes"
 	"io"
-	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -108,15 +107,19 @@ func TestHandleCommandSSE_ConnectAndClose(t *testing.T) {
 	}
 }
 
-// RELOAD_CONTINUITY_SRS TC-RLC-20 (FR-RLC-20·21): 구독이 열리자마자 서버가 자기
-// 자산 버전을 말한다. 값은 **서빙하는 index.html 에서 파생한다** — 손으로 적은
-// 상수는 `?v=` 와 갈라질 수 있고, 갈라지면 화면이 영원히 새로고침하거나 영원히
-// 하지 않는다.
+// RELOAD_CONTINUITY_SRS TC-RLC-20 (FR-RLC-20): 구독이 열리자마자 서버가 자기 자산
+// 버전을 말한다.
+//
+// 값의 출처는 ASSET_VERSION_SINGLE_SOURCE_SRS FR-AVS-1·3 으로 내려갔다 — 문서에 적힌
+// 표기가 아니라 **자산의 내용**이며, 문서에 넣는 값과 여기 싣는 값이 같은 하나다.
+// 그 둘이 같다는 것은 TC-AVS-4 가 잰다.
 func TestHandleCommandSSE_ServerHello(t *testing.T) {
-	srv, err := New(Config{DataDir: t.TempDir(), StaticFS: fstest.MapFS{
+	files := fstest.MapFS{
 		"index.html": &fstest.MapFile{Data: []byte(
-			`<script src="js/core/main.js?v=4242"></script>`)},
-	}}, Deps{})
+			`<script src="js/core/main.js?v=__ASSETV__"></script>`)},
+		"js/core/main.js": &fstest.MapFile{Data: []byte("console.log(1)\n")},
+	}
+	srv, err := New(Config{DataDir: t.TempDir(), StaticFS: files}, Deps{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -135,47 +138,42 @@ func TestHandleCommandSSE_ServerHello(t *testing.T) {
 	if !strings.Contains(got, `"action":"server_hello"`) {
 		t.Fatalf("첫 이벤트에 server_hello 가 없다: %q", got)
 	}
-	if !strings.Contains(got, `"assetVersion":"4242"`) {
-		t.Fatalf("인사가 서빙되는 ?v= 를 싣지 않았다: %q", got)
+	want := `"assetVersion":"` + computeAssetVersion(files) + `"`
+	if !strings.Contains(got, want) {
+		t.Fatalf("인사가 자산의 판을 싣지 않았다 (%s): %q", want, got)
 	}
 }
 
-// TC-RLC-21 (FR-RLC-22): 판을 모르면 **판만 빠진다.** 인사를 통째로 거르면
-// 생존 신호(FR-RLC-25)가 함께 사라져, 화면이 멀쩡한 구독을 죽었다고 판정한다.
+// TC-RLC-21 (FR-RLC-22) · TC-AVS-7 (FR-AVS-10): 판을 모르면 **판만 빠진다.** 인사를
+// 통째로 거르면 생존 신호(FR-RLC-25)가 함께 사라져, 화면이 멀쩡한 구독을 죽었다고
+// 판정한다.
+//
+// 판을 모르는 경우는 이제 **정적 자산이 아예 없는 구성** 하나뿐이다. 판이 문서의
+// 표기가 아니라 자산의 내용에서 나오므로, 문서가 어떤 모양이든 값은 있다 — 종전의
+// 두 번째 경우("index.html 에 ?v= 가 없다")는 성립하지 않는다 (FR-AVS-10a 는 자산이
+// 하나도 없는 구성에서도 판이 있음을 따로 잰다).
 func TestHandleCommandSSE_HelloWithoutVersion(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		fs   fs.FS
-	}{
-		{"정적 자산이 없다", nil},
-		{"index.html 에 ?v= 가 없다", fstest.MapFS{
-			"index.html": &fstest.MapFile{Data: []byte(`<script src="js/core/main.js"></script>`)},
-		}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			srv, err := New(Config{DataDir: t.TempDir(), StaticFS: tc.fs}, Deps{})
-			if err != nil {
-				t.Fatalf("New: %v", err)
-			}
-			ts := httptest.NewServer(srv.Handler())
-			defer ts.Close()
+	srv, err := New(Config{DataDir: t.TempDir(), StaticFS: nil}, Deps{})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
 
-			resp, err := http.Get(ts.URL + "/api/commands/sse")
-			if err != nil {
-				t.Fatalf("GET SSE: %v", err)
-			}
-			defer resp.Body.Close()
+	resp, err := http.Get(ts.URL + "/api/commands/sse")
+	if err != nil {
+		t.Fatalf("GET SSE: %v", err)
+	}
+	defer resp.Body.Close()
 
-			buf := make([]byte, 4096)
-			n, _ := resp.Body.Read(buf)
-			got := string(buf[:n])
-			if !strings.Contains(got, `"action":"server_hello"`) {
-				t.Fatalf("판을 몰라도 인사는 와야 한다 — 그것이 생존 신호다: %q", got)
-			}
-			if strings.Contains(got, "assetVersion") {
-				t.Fatalf("모르는 판을 실었다: %q", got)
-			}
-		})
+	buf := make([]byte, 4096)
+	n, _ := resp.Body.Read(buf)
+	got := string(buf[:n])
+	if !strings.Contains(got, `"action":"server_hello"`) {
+		t.Fatalf("판을 몰라도 인사는 와야 한다 — 그것이 생존 신호다: %q", got)
+	}
+	if strings.Contains(got, "assetVersion") {
+		t.Fatalf("모르는 판을 실었다: %q", got)
 	}
 }
 
@@ -184,7 +182,7 @@ func TestHandleCommandSSE_HelloWithoutVersion(t *testing.T) {
 // 발화하지 않아 관측할 수 없다.
 func TestHandleCommandSSE_HelloRepeats(t *testing.T) {
 	srv, err := New(Config{DataDir: t.TempDir(), StaticFS: fstest.MapFS{
-		"index.html": &fstest.MapFile{Data: []byte(`<script src="js/core/main.js?v=7"></script>`)},
+		"index.html": &fstest.MapFile{Data: []byte(`<script src="js/core/main.js?v=__ASSETV__"></script>`)},
 	}}, Deps{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -219,7 +217,7 @@ func TestHandleCommandSSE_HelloRepeats(t *testing.T) {
 // 주석 keepalive 는 인사가 대신한다 — 둘 다 보내면 오가는 양만 는다.
 func TestHandleCommandSSE_NoKeepComment(t *testing.T) {
 	srv, err := New(Config{DataDir: t.TempDir(), StaticFS: fstest.MapFS{
-		"index.html": &fstest.MapFile{Data: []byte(`<script src="js/core/main.js?v=7"></script>`)},
+		"index.html": &fstest.MapFile{Data: []byte(`<script src="js/core/main.js?v=__ASSETV__"></script>`)},
 	}}, Deps{})
 	if err != nil {
 		t.Fatalf("New: %v", err)

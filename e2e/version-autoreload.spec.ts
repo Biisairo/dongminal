@@ -21,10 +21,32 @@ async function waitForInit(page: Page) {
 async function stubVersion(page: Page, ver: string) {
   await page.route(/\/\?_v=\d+/, async (route) => {
     const res = await route.fetch();
-    const body = (await res.text()).replace(/core\/main\.js\?v=\d+/, 'core/main.js?v=' + ver);
+    const body = (await res.text()).replace(/core\/main\.js\?v=[0-9a-f]+/, 'core/main.js?v=' + ver);
     await route.fulfill({ response: res, body, headers: { ...res.headers(), 'content-type': 'text/html' } });
   });
 }
+
+// 지금 문서가 쓰는 판. 값은 서버가 자산 내용에서 계산해 넣은 해시다
+// (ASSET_VERSION_SINGLE_SOURCE_SRS FR-AVS-1). 읽는 자리를 하나로 모은다 — 형식이
+// 또 바뀔 때 고칠 곳이 하나여야 한다 (FR-AVS-13).
+const currentVersion = (page: Page) =>
+  page.evaluate(() => {
+    const el = document.querySelector('script[src*="core/main.js"]');
+    return (el?.getAttribute('src') || '').match(/[?&]v=([0-9a-f]+)/)?.[1] || '';
+  });
+
+// TC-AVS-10 (FR-AVS-4·5·11): 실물이 서빙하는 문서에는 자리표시자가 남아 있지 않고,
+// 판은 서버가 자산에서 계산한 해시다. 이것이 서지 않으면 아래 시나리오 전부가 무의미한
+// 값을 견주게 된다.
+test('TC-AVS-10 (FR-AVS-4·5): 서빙된 문서의 판은 치환된 해시다', async ({ page }) => {
+  await waitForInit(page);
+
+  const html = await page.evaluate(() => document.documentElement.outerHTML);
+  expect(html, '자리표시자가 그대로 나갔다').not.toContain('__ASSETV__');
+
+  const self = await currentVersion(page);
+  expect(self, '문서에서 판을 읽지 못했다').toMatch(/^[0-9a-f]{12}$/);
+});
 
 // version-watch 는 IIFE 라 밖에서 부를 손잡이가 없다. 그것이 듣고 있는 계기 —
 // 탭이 다시 보이는 순간 — 를 발생시킨다 (FR-RLC-2).
@@ -59,10 +81,7 @@ test.describe('묶음 P — 새 버전 자동 새로고침', () => {
     await waitForInit(page);
     await mark(page);
     // 스텁을 걸되 실물과 같은 버전으로 — 확인 요청은 오가지만 결론이 다르다.
-    const cur = await page.evaluate(() => {
-      const el = document.querySelector('script[src*="core/main.js"]');
-      return (el?.getAttribute('src') || '').match(/[?&]v=(\d+)/)?.[1] || '';
-    });
+    const cur = await currentVersion(page);
     expect(cur).not.toBe('');
     await stubVersion(page, cur);
     await triggerCheck(page);
@@ -140,10 +159,7 @@ test('TC-RLC-11 (FR-RLC-5a): 사용자가 떠나는 경로에서는 그 확인�
 
 test('TC-RLC-3b (FR-RLC-3a): 헛돈 뒤에도 또 다른 새 버전이 오면 다시 새로고침한다', async ({ page }) => {
   await waitForInit(page);
-  const self = await page.evaluate(() => {
-    const el = document.querySelector('script[src*="core/main.js"]');
-    return (el?.getAttribute('src') || '').match(/[?&]v=(\d+)/)?.[1] || '';
-  });
+  const self = await currentVersion(page);
   // 앞선 시도가 헛돌았다 — `self` 에서 `900001` 로 가려 했으나 여전히 `self` 다.
   await page.evaluate(([from, to]) => {
     sessionStorage.setItem('verReloadTried', JSON.stringify({ from, to }));
@@ -208,10 +224,7 @@ test('TC-RLC-22 (FR-RLC-23): 인사의 판이 다르면 그 자리에서 새로�
 
 test('TC-RLC-23 (FR-RLC-23): 인사의 판이 같으면 아무 일도 하지 않는다', async ({ page }) => {
   await waitForInit(page);
-  const self = await page.evaluate(() => {
-    const el = document.querySelector('script[src*="core/main.js"]');
-    return (el?.getAttribute('src') || '').match(/[?&]v=(\d+)/)?.[1] || '';
-  });
+  const self = await currentVersion(page);
   expect(self).not.toBe('');
   await mark(page);
   await sendHello(page, self);
@@ -221,10 +234,7 @@ test('TC-RLC-23 (FR-RLC-23): 인사의 판이 같으면 아무 일도 하지 않
 
 test('TC-RLC-22b (FR-RLC-23): 인사도 되풀이 방지를 따른다', async ({ page }) => {
   await waitForInit(page);
-  const self = await page.evaluate(() => {
-    const el = document.querySelector('script[src*="core/main.js"]');
-    return (el?.getAttribute('src') || '').match(/[?&]v=(\d+)/)?.[1] || '';
-  });
+  const self = await currentVersion(page);
   // 이 쌍은 이미 헛돌았다 — 판정은 `?v=` 경로와 **같은 것**이어야 한다.
   await page.evaluate(([from, to]) => {
     sessionStorage.setItem('verReloadTried', JSON.stringify({ from, to }));

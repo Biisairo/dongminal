@@ -18,7 +18,6 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -80,10 +79,11 @@ type Server struct {
 	// 포함된다 — 그것이 자원을 쓰고 있다는 사실이 진단에 실려야 한다.
 	wsOpen atomic.Int64
 
-	// assetVer 는 지금 서빙하는 자산의 판이다 (RELOAD_CONTINUITY_SRS FR-RLC-21).
-	// SSE 를 여는 화면에게 인사로 건네며, 값은 **서빙하는 index.html 에서**
-	// 파생한다. 자산은 바이너리에 박혀 있어 프로세스가 사는 동안 바뀌지 않으므로
-	// 한 번만 읽는다.
+	// assetVer 는 지금 서빙하는 자산의 판이다
+	// (ASSET_VERSION_SINGLE_SOURCE_SRS FR-AVS-1·3). 서빙하는 `index.html` 의
+	// 자리표시자를 채우고, SSE 를 여는 화면에게 인사로 건넨다 — 두 곳이 같은 값을
+	// 받는다. 자산은 바이너리에 박혀 있어 프로세스가 사는 동안 바뀌지 않으므로
+	// 한 번만 계산한다 (FR-AVS-2).
 	assetVerOnce sync.Once
 	assetVer     string
 
@@ -149,7 +149,7 @@ func (s *Server) Handler() http.Handler {
 	if s.cfg.StaticFS != nil {
 		// 정적 자산에는 내용 기반 ETag 를 붙인다 — go:embed 파일은 ModTime 이 zero 라
 		// FileServer 만으로는 검증자가 하나도 없다 (static.go).
-		mux.Handle("/", newStaticHandler(s.cfg.StaticFS))
+		mux.Handle("/", newStaticHandler(s.cfg.StaticFS, s.assetVersion()))
 	}
 	mux.HandleFunc("/ws", s.handleWS)
 	mux.HandleFunc("/api/", s.handleAPI)
@@ -257,27 +257,23 @@ func (rw *responseWriter) Flush() {
 	}
 }
 
-// assetVersionRe 는 `index.html` 이 자기 판을 적는 자리다. `web/version_test.go` 가
-// 잠그는 것과 **같은 표기**이며, 그 하나가 브라우저 캐시를 무효화한다.
-var assetVersionRe = regexp.MustCompile(`core/main\.js\?v=(\d+)`)
-
 // assetVersion 은 지금 서빙하는 자산의 판을 준다. 모르면 빈 문자열이다.
 //
-// RELOAD_CONTINUITY_SRS FR-RLC-21: 값을 **서빙하는 문서에서** 뽑는다. 빌드 시점에
-// 손으로 적은 상수를 쓰면 `?v=` 와 갈라질 수 있고, 갈라지면 화면이 영원히
-// 새로고침하거나 영원히 하지 않는다 — 어느 쪽이든 조용히 틀린다.
+// ASSET_VERSION_SINGLE_SOURCE_SRS FR-AVS-3: 판을 아는 자리는 **하나**다. 문서에 넣는
+// 값과 인사에 싣는 값이 여기서 함께 나온다.
+//
+// 종전에는 서빙되는 `index.html` 을 되읽어 `?v=` 를 정규식으로 긁었다. 그때는 문서가
+// 판을 손으로 적었고, 손으로 적은 상수와 갈라지는 것을 막을 길이 그것뿐이었다
+// (RELOAD_CONTINUITY_SRS FR-RLC-21). 이제 문서를 **쓰는 쪽**이 여기이므로 갈릴 수가
+// 없다 — 되읽는 것은 같은 값을 두 번 만드는 일이며, 깨질 정규식을 하나 더 두는 것이다.
+//
+// 판을 모르는 경우는 정적 자산이 아예 없는 구성 하나다 (FR-AVS-10).
 func (s *Server) assetVersion() string {
 	s.assetVerOnce.Do(func() {
 		if s.cfg.StaticFS == nil {
 			return
 		}
-		b, err := fs.ReadFile(s.cfg.StaticFS, "index.html")
-		if err != nil {
-			return
-		}
-		if m := assetVersionRe.FindSubmatch(b); m != nil {
-			s.assetVer = string(m[1])
-		}
+		s.assetVer = computeAssetVersion(s.cfg.StaticFS)
 	})
 	return s.assetVer
 }

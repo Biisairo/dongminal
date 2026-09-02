@@ -157,8 +157,8 @@ git checkout refactor
 기준선이 같은 비율로 깨지면 기존 flaky 이고, 기준선만 통과하면 회귀다. V-CSZ-8 은
 기준선에서도 실패·통과·실패로 **패턴이 동일해 기존 flaky 로 판정했다.**
 
-자산을 고쳤으면 `index.html` 의 `?v=` 와 `web/assets.lock` 을 함께 올린다
-(`go test ./web/` 가 새 해시를 알려준다).
+자산을 고쳐도 손으로 올릴 것은 없다 — 판은 서버가 자산 내용에서 계산해 서빙 시점에
+넣는다 (`ASSET_VERSION_SINGLE_SOURCE_SRS`). `index.html` 은 `?v=__ASSETV__` 만 적는다.
 
 ---
 
