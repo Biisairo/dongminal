@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [1.0.8] — 2026-09-02
+
 ### 변경
 
 - **새 빌드가 확실히 화면에 닿습니다.** 지금까지 브라우저 캐시를 비우는 판 번호를
@@ -412,6 +414,7 @@
   에이전트 간 메시지와 API 입력 주입이 그 셸에서 통째로 깨져 있었다. 이제 셸이
   그 모드를 켰을 때만 감싼다
 
+[1.0.8]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.8
 [1.0.7]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.7
 [1.0.6]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.6
 [1.0.5]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.5
