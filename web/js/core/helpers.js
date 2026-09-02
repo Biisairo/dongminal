@@ -27,6 +27,24 @@ function matchShortcut(e,s){
 function fmtShortcut(e){const p=[];if(e.ctrlKey)p.push('Ctrl');if(e.altKey)p.push('Alt');if(e.metaKey)p.push('Meta');if(e.shiftKey)p.push('Shift');p.push(e.code);return p.join('+')}
 function displayKey(s){return s.replace(/Key/g,'').replace(/BracketLeft/g,'[').replace(/BracketRight/g,']').replace(/Mod/g,'⌘/⌃').replace(/Meta/g,'⌘').replace(/Ctrl/g,'⌃').replace(/Alt/g,'⌥').replace(/Shift/g,'⇧').replace(/Arrow/g,'')}
 
+// ── HTML escaping ──
+
+// escHtml 은 문자열을 HTML 에 넣기 전에 무해하게 만든다 (FR-CAF-17).
+//
+// **한 벌인 것이 요점이다.** 종전에는 두 벌이 따로 있었고(file-editor 의 `_esc`,
+// app-edsearch 의 지역 `esc`), 이미 조용히 갈라져 있었다 — 한쪽은 홑따옴표를
+// 막고 다른 쪽은 막지 않았다. 이스케이프가 갈라지는 것은 그 자체로 결함이다:
+// 어느 자리가 무엇을 막는지 말할 수 없게 된다.
+//
+// 홑따옴표까지 막는 쪽으로 통일한다. 값이 `alt="..."` 같은 속성에 들어가는
+// 자리가 실재하고(file-editor 의 이미지 뷰어), 속성 따옴표는 어느 쪽이든 될 수
+// 있다.
+function escHtml(s){
+  return String(s==null?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 // ── Theme helpers ──
 
 const UI_LABELS={bg:'Background',sidebarBg:'Sidebar',border:'Border',accent:'Accent',text:'Text',textMuted:'Muted',textBright:'Bright',textDim:'Dim',danger:'Danger',accentBorder:'Accent Bd'};

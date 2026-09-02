@@ -173,8 +173,6 @@ Object.assign(App.prototype, {
   _edPanelPaint(p,d){
     const list=p.querySelector('.ed-find-list');
     const note=p.querySelector('.ed-find-note');
-    const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,
-      c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
     if(!p._items.length){note.textContent=ED_SEARCH_EMPTY;list.innerHTML='';return}
     // 어느 구현으로 훑었는지 함께 보인다 (FR-EGS-3) — .gitignore 존중 여부가
     // 달라 결과가 다를 수 있고, 사용자가 그것을 설명할 수 있어야 한다.
@@ -184,10 +182,10 @@ Object.assign(App.prototype, {
     list.innerHTML=p._items.map((it,i)=>
       p._mode==='find'
         ? '<div class="ed-find-row" data-i="'+i+'"><span class="ed-find-name">'+
-          esc(it.name)+'</span><span class="ed-find-path">'+esc(it.path)+'</span></div>'
+          escHtml(it.name)+'</span><span class="ed-find-path">'+escHtml(it.path)+'</span></div>'
         : '<div class="ed-find-row" data-i="'+i+'"><span class="ed-find-path">'+
-          esc(it.path)+':'+esc(it.line)+'</span><span class="ed-find-text">'+
-          esc(it.text)+'</span></div>'
+          escHtml(it.path)+':'+escHtml(it.line)+'</span><span class="ed-find-text">'+
+          escHtml(it.text)+'</span></div>'
     ).join('');
     this._edPanelMark(p);
   },

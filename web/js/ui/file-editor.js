@@ -233,7 +233,7 @@ class FileEditor {
       console.error('[FileEditor] init error:', e);
       this.el.innerHTML =
         '<div class="fe-error">Failed to load editor' +
-        '<div class="fe-error-path">' + this._esc(this.filePath) + '</div></div>';
+        '<div class="fe-error-path">' + escHtml(this.filePath) + '</div></div>';
       this._loading = false;
     }
   }
@@ -262,9 +262,9 @@ class FileEditor {
     this.el.innerHTML =
       '<div class="fe-unsupported">' +
         '<div class="fe-unsup-title">' + FILE_UNSUPPORTED_TITLE + '</div>' +
-        '<div class="fe-unsup-path">' + this._esc(this.filePath) + '</div>' +
+        '<div class="fe-unsup-path">' + escHtml(this.filePath) + '</div>' +
         '<div class="fe-unsup-meta">' +
-          this._esc(probe.mime || '') + ' · ' + this._fmtBytes(probe.size) +
+          escHtml(probe.mime || '') + ' · ' + this._fmtBytes(probe.size) +
         '</div>' +
         '<div class="fe-unsup-hint">' + FILE_UNSUPPORTED_HINT + '</div>' +
       '</div>';
@@ -276,7 +276,7 @@ class FileEditor {
     const src = FILE_RAW_API + '?path=' + encodeURIComponent(this.filePath);
     this.el.innerHTML =
       '<div class="fe-image">' +
-        '<img class="fe-img" alt="' + this._esc(this.filePath) + '">' +
+        '<img class="fe-img" alt="' + escHtml(this.filePath) + '">' +
         '<div class="fe-img-meta"></div>' +
       '</div>';
     const img = this.el.querySelector('.fe-img');
@@ -476,14 +476,6 @@ class FileEditor {
       tabEl.textContent = (this._dirty ? '● ' : '') + this.name;
     }
   }
-  // 따옴표까지 막는다 — 이미지 뷰어가 이 값을 `alt="..."` 속성에 넣으므로,
-  // 따옴표가 든 경로 하나면 속성 밖으로 빠져나간다.
-  _esc(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  }
-
   focus() {
     if (this._editor) {
       this._editor.focus();
