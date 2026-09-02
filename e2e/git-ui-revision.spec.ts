@@ -24,6 +24,16 @@ test.afterAll(() => {
 const fx = (name: string) => realpathSync(join(FIXTURES, name));
 
 const copyFx = makeCopyFx(FIXTURES);
+
+// 포커스된 칸의 셸을 실제로 옮긴다 — `+ Add` 가 채우는 값의 출처가 셸의 cwd 다.
+async function cdFocused(page: Page, dir: string) {
+  const ta = page.locator('#area .pn.focused .xterm-helper-textarea');
+  await ta.fill('cd ' + dir);
+  await ta.press('Enter');
+  await ta.fill('echo moved_ok');
+  await ta.press('Enter');
+  await expect(page.locator('#area .pn.focused .xterm-rows')).toContainText('moved_ok', { timeout: 15000 });
+}
 async function openChanges(page: Page, repo: string) {
   await openGit(page, repo);
   await page.evaluate(() => (window as any).app.gitPanel.openView('changes'));
@@ -744,6 +754,71 @@ test.describe('UI 개정 — 터미널의 리포를 딛는 근거 (D-FLW-6, 옛 
     await expect(dlg).toBeVisible({ timeout: 10000 });
     // dongminal 자신이 아니라 마지막 터미널의 리포다.
     await expect(dlg.locator('.gar-path')).toHaveValue(repo, { timeout: 15000 });
+  });
+
+  // FR-FLW-3 은 추적을 "포커스가 바뀔 때 값만 갱신한다" 로 규정한다. 그런데
+  // 갱신 계기가 칸 포커스(공개 `setFocus`) 하나뿐이어서, 포커스가 실제로 옮겨
+  // 가는 다른 통로 — 창 전환·탭 추가 — 가 기억을 낡은 채로 두었다. 낡은 기억이
+  // 워크스페이스를 다시 읽는 계산보다 **먼저** 쓰였기 때문에, 사용자가 방금
+  // 떠나온 자리가 아니라 마지막으로 **클릭한** 자리가 채워졌다.
+  //
+  // 아래 둘은 칸을 클릭해 기억을 심은 **뒤** 다른 자리로 옮긴다 — 그것이 이
+  // 회귀의 조건이다.
+  test('V87a (FR-FLW-3): 다른 창으로 옮겨간 뒤 연 + Add 가 그 창의 리포를 채운다', async ({ page }) => {
+    const repoA = copyFx('with-remote', 'flw3-a');
+    const repoB = copyFx('with-remote', 'flw3-b');
+    await waitForInit(page);
+
+    // 칸을 나누고 첫 칸을 **클릭한다** — 기억이 여기서 심긴다.
+    await page.click('#split-h');
+    await expect(page.locator('#area .pn')).toHaveCount(2, { timeout: 10000 });
+    await page.locator('#area .pn').first().click();
+    await expect(page.locator('#area .pn.focused')).toHaveCount(1);
+    await cdFocused(page, repoA);
+
+    // 새 창으로 옮겨간다 — 포커스는 새 창의 터미널로 가지만 칸 클릭은 없다.
+    // (`waitForInit` 을 쓰지 않는다 — 그것은 page.goto 라 기억을 날린다.)
+    await Promise.all([
+      page.waitForResponse((r: any) => r.url().includes('/api/tools') && r.request().method() === 'POST'),
+      page.click('#add-window'),
+    ]);
+    await expect(page.locator('#area .pn')).toHaveCount(1, { timeout: 10000 });
+    await expect(page.locator('#area .pn.focused .xterm-helper-textarea')).toBeVisible({ timeout: 15000 });
+    await cdFocused(page, repoB);
+
+    await openGit(page, repoA);
+    await page.click('#git-add-repo');
+    const dlg = page.locator('#git-add-repo-dlg');
+    await expect(dlg).toBeVisible({ timeout: 10000 });
+    // 마지막으로 클릭한 칸(repoA)이 아니라 방금 떠나온 자리다.
+    await expect(dlg.locator('.gar-path')).toHaveValue(repoB, { timeout: 15000 });
+  });
+
+  test('V87b (FR-FLW-3): 탭을 더한 뒤 연 + Add 가 그 탭의 리포를 채운다', async ({ page }) => {
+    const repoA = copyFx('with-remote', 'flw3-c');
+    const repoB = copyFx('with-remote', 'flw3-d');
+    await waitForInit(page);
+
+    await page.click('#split-h');
+    await expect(page.locator('#area .pn')).toHaveCount(2, { timeout: 10000 });
+    await page.locator('#area .pn').first().click();
+    await expect(page.locator('#area .pn.focused')).toHaveCount(1);
+    await cdFocused(page, repoA);
+
+    // 같은 칸에 터미널 탭을 더한다. 칸 id 가 바뀌지 않으므로 칸 포커스 계기가
+    // 돌지 않는다 — `addTab` 은 활성 탭만 옮긴다.
+    await Promise.all([
+      page.waitForResponse((r: any) => r.url().includes('/api/tools') && r.request().method() === 'POST'),
+      page.evaluate(() => (window as any).app.addTab((window as any).app.focused)),
+    ]);
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(2, { timeout: 10000 });
+    await cdFocused(page, repoB);
+
+    await openGit(page, repoA);
+    await page.click('#git-add-repo');
+    const dlg = page.locator('#git-add-repo-dlg');
+    await expect(dlg).toBeVisible({ timeout: 10000 });
+    await expect(dlg.locator('.gar-path')).toHaveValue(repoB, { timeout: 15000 });
   });
 });
 

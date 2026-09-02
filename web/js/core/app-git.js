@@ -261,12 +261,23 @@ Object.assign(App.prototype, {
   _gitTermToolId(){
     const p=this._focusedTerminal();
     if(p){this._lastTermTool=p.id; return p.id}
-    // 사라진 도구를 가리키면 서버가 다시 자기 cwd 로 답한다 — 살아 있는 것만 쓴다.
+    // 포커스가 터미널이 아니면(Git·Editor 창) **워크스페이스를 다시 읽는다.**
+    //
+    // 기억을 먼저 쓰면 그것이 낡는다. 기억의 갱신 계기는 칸 포커스(공개
+    // `setFocus`) 하나뿐인데, 포커스가 실제로 옮겨 가는 통로는 그것 말고도
+    // 창 전환(`switchWindow`)·탭 전환(`switchTab`)·탭 추가(`addTab`)가 있고
+    // 셋 다 그 계기를 지나지 않는다. 그래서 `+ Add` 가 사용자가 방금 떠나온
+    // 자리가 아니라 마지막으로 **클릭한** 자리를 채웠다 (V87a·V87b).
+    //
+    // 계기를 셋 더 다는 대신 계기를 지운다 — 이 계산은 워크스페이스의 지금
+    // 상태를 읽으므로 셋 모두를 저절로 따라간다.
+    const now=this._anyTermToolId();
+    if(now){this._lastTermTool=now; return now}
+    // 일반 창의 활성 탭이 하나도 터미널이 아닐 때만 기억이 마지막 근거다
+    // (D-FLW-6). 사라진 도구를 가리키면 서버가 다시 자기 cwd 로 답하므로
+    // 살아 있는 것만 쓴다.
     if(this._lastTermTool&&this.tools.has(this._lastTermTool)) return this._lastTermTool;
-    // 기억이 없으면 워크스페이스에서 찾는다. 포커스 훅은 **포커스가 바뀔 때만**
-    // 돌아서, 처음부터 터미널에 있다가 Git 창으로 넘어간 경우 기억이 빈다.
-    this._lastTermTool=this._anyTermToolId();
-    return this._lastTermTool||'';
+    return '';
   },
 
   // 일반 창의 활성 탭 중 터미널인 것. 여러 개면 마지막으로 쓴 창을 먼저 본다 —

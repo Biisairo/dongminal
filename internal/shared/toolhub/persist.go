@@ -53,7 +53,7 @@ func (m *ToolManager) SaveAll() {
 				continue
 			}
 		}
-		states = append(states, ToolState{ID: p.ID, Name: p.Name, Cwd: p.Cwd()})
+		states = append(states, ToolState{ID: p.ID, Name: p.Name, Cwd: cwdOrServer(p)})
 	}
 	sort.Slice(states, func(i, j int) bool { return states[i].ID < states[j].ID })
 	data, _ := json.Marshal(states)

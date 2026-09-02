@@ -126,13 +126,27 @@ func (p *Tool) IsBusy() bool {
 }
 
 // Cwd 는 도구 셸의 작업 디렉터리다. 조회할 수 없는 처지(Windows, 또는 PTY 없는
-// 합성 Tool)에서는 서버의 cwd 로 답한다 — 종전과 같은 폴백이다. 도구의 실제
+// 합성 Tool)에서는 **빈 값**이다 — ToolHub.Cwd 의 계약이 "empty if unknown"
+// 이며(hub.go), 여기서 서버의 cwd 로 덮으면 그것이 `source:"tool"` 을 달고 나가
+// `+ Add` 의 자동채움에 남의 경로로 앉는다 (FR-ETR-31, §2.4). 도구의 실제
 // cwd 는 셸 훅의 OSC 777 로도 들어오므로 이 경로는 보조다 (FR-XPI-6).
+//
+// 폴백이 없어진 것은 아니다 — 그것을 딛는 자리가 cwdOrServer 로 직접 부른다.
 func (p *Tool) Cwd() string {
 	if pid := p.CmdProcessPID(); pid > 0 {
 		if cwd, ok := platform.Current().Info.CWD(pid); ok {
 			return cwd
 		}
+	}
+	return ""
+}
+
+// cwdOrServer 는 종전 Cwd 의 동작이다. 도구의 cwd 를 **비워 둘 수 없는** 자리가
+// 쓴다 — 영속이 빈 값을 저장하면 재기동 때 홈으로 되살아나고, CWD 를 제공하지
+// 않는 Windows 에서는 그것이 모든 도구에 걸린다.
+func cwdOrServer(p *Tool) string {
+	if cwd := p.Cwd(); cwd != "" {
+		return cwd
 	}
 	cwd, _ := os.Getwd()
 	return cwd
