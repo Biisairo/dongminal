@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"sync"
+
+	"dongminal/internal/shared/platform"
 )
 
 // settingsStore 와 그 종단. 브라우저 설정은 서버가 해석하지 않는 JSON blob 이라
@@ -49,7 +51,9 @@ func (s *settingsStore) save() {
 	if len(data) == 0 {
 		return
 	}
-	if err := os.WriteFile(s.path, data, 0644); err != nil {
+	// 원자적으로 쓴다 (FR-CAF-11). 설정은 사용자가 손으로 만든 것이고
+	// (테마·단축키·레이아웃 취향), 잘리면 되돌릴 방법이 없다.
+	if err := platform.WriteFileAtomic(s.path, data, 0644); err != nil {
 		log.Printf("saveSettings: %v", err)
 	}
 }

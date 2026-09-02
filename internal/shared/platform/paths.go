@@ -98,6 +98,54 @@ func windowsLogFile(env envFn, tempDir func() string) string {
 // pid 를 넣는 이유는 두 프로세스가 동시에 설치해도 서로의 임시 파일을 건드리지
 // 않게 하려는 것이고, 카운터는 한 프로세스 안의 동시 설치를 가른다. 랜덤이 아닌
 // 이유는 실패로 남은 잔여물을 사람이 추적할 수 있게 하기 위해서다.
+// WriteFileAtomic 은 data 를 path 에 **통째로** 쓴다 (FR-CAF-8).
+//
+// `os.WriteFile` 을 쓰면 안 되는 자리를 위한 것이다. 저쪽은 O_TRUNC 로 연 뒤
+// 쓰므로, 그 사이에 프로세스가 죽거나 디스크가 차면 **잘린 파일이 살아 있는
+// 파일이 된다.** `workspace.json`·`tools.json`·`settings.json` 과 편집기가
+// 저장하는 사용자 파일이 그 처지였다.
+//
+// 계약의 핵심은 실패 쪽에 있다 (FR-CAF-10): **실패해도 목적 파일의 기존 내용은
+// 그대로다.** 새 내용을 못 쓰는 것보다 옛 내용을 잃는 것이 나쁘다.
+//
+// fsync 를 하는 이유는 rename 만으로는 "잘린 파일" 은 막아도 "빈 파일" 은 막지
+// 못하기 때문이다 — 임시 파일의 내용이 디스크에 닿기 전에 rename 만 먼저 반영될
+// 수 있다. 이 파일들은 초당 여러 번 쓰이지 않으므로 비용이 문제되지 않는다.
+//
+// 거는 것은 replaceFile 이다. 그것이 Windows 에서 왜 단순하지 않은지는 그 함수의
+// 머리말에 있다 — 여기서 그 지식을 다시 적지 않는다.
+func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
+	tmp := tempSibling(path)
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	// umask 가 먹은 비트를 되돌린다 — 호출자가 적은 perm 이 결과여야 한다.
+	if err := os.Chmod(tmp, perm); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := replaceFile(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
 func tempSibling(dst string) string {
 	n := tempSeq.Add(1)
 	return dst + ".tmp" + strconv.Itoa(os.Getpid()) + "." + strconv.FormatUint(n, 10)

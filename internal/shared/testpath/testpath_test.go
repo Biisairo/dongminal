@@ -53,7 +53,10 @@ func TestAbsJoinsSegmentsInOrder(t *testing.T) {
 // 두 번 불러도 같은 값이어야 한다 — 볼륨을 매번 새로 물으면 cwd 가 바뀌는
 // 테스트에서 값이 흔들린다.
 func TestAbsIsStable(t *testing.T) {
-	if Abs("x") != Abs("x") {
-		t.Fatal("같은 인자에 다른 값을 냈다")
+	// 두 호출의 결과를 각각 받아 견준다 — 한 식 안에서 견주면 검사기가 "양변이
+	// 같은 식" 으로 읽어 경고한다 (SA4000).
+	first, second := Abs("x"), Abs("x")
+	if first != second {
+		t.Fatalf("같은 인자에 다른 값을 냈다: %q != %q", first, second)
 	}
 }

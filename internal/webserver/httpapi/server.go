@@ -18,6 +18,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -156,7 +157,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/commands", s.handleCommandPost)
 	mux.HandleFunc("/api/commands/sse", s.handleCommandSSE)
 	mux.HandleFunc("/api/command-result", s.handleCommandResult)
-	return loggingMiddlewareFor(s, mux)
+	// 그물이 로깅 **안쪽**에 있어야 한다 (FR-CAF-6). 그래야 패닉으로 끝난
+	// 요청도 로그에 남고, 그물이 `responseWriter` 를 보고 "응답이 이미
+	// 시작됐는가" 를 판정할 수 있다.
+	return loggingMiddlewareFor(s, recoverMiddleware(mux))
 }
 
 // Run starts the HTTP server on addr and blocks until ctx is cancelled.
@@ -186,6 +190,41 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 	case err := <-errCh:
 		return err
 	}
+}
+
+// --- HTTP recover middleware ------------------------------------------------
+
+// recoverMiddleware 는 핸들러의 패닉을 500 으로 바꾸고 스택과 함께 남긴다
+// (FR-CAF-5).
+//
+// **왜 필요한가.** `net/http` 는 패닉을 잡아 그 연결만 끊는다. 서버는 살아남지만
+// 브라우저는 아무 응답도 받지 못하고, 남는 것은 스택뿐이다 — 사용자에게는
+// "한번씩 안 된다" 로 보인다. WS 경로는 이미 recover 를 쓰고 있었고
+// (handlers_ws.go:229·299) HTTP 경로에만 그물이 없었다.
+//
+// 두 가지를 하지 않는다:
+//
+//	① 이미 시작된 응답의 헤더를 건드리지 않는다 (FR-CAF-6). SSE·WS 가 그 처지다.
+//	② `http.ErrAbortHandler` 를 삼키지 않는다 (FR-CAF-7). 그것은 패닉의 모양을
+//	   빌린 약속된 값이며, 뜻은 "조용히 끊어라" 다.
+func recoverMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			v := recover()
+			if v == nil {
+				return
+			}
+			if v == http.ErrAbortHandler {
+				panic(v)
+			}
+			log.Printf("http panic %s %s: %v\n%s", r.Method, r.URL.Path, v, debug.Stack())
+			if rw, ok := w.(*responseWriter); ok && rw.wrote {
+				return
+			}
+			http.Error(w, "internal error", http.StatusInternalServerError)
+		}()
+		next.ServeHTTP(w, r)
+	})
 }
 
 // --- HTTP logging middleware ------------------------------------------------
@@ -237,15 +276,35 @@ func shouldLogRequest(path string, status int) bool {
 type responseWriter struct {
 	http.ResponseWriter
 	status int
+	// wrote 는 **응답이 이미 시작됐는가** 다. 그물(recoverMiddleware)이 이것을
+	// 읽는다 — 헤더가 나간 뒤의 패닉에 500 을 덧쓰면 상태가 뒤집히거나
+	// `superfluous WriteHeader` 만 남는다 (FR-CAF-6). SSE 와 하이재킹된 WS 가
+	// 정확히 그 처지다.
+	wrote bool
 }
 
 func (rw *responseWriter) WriteHeader(status int) {
+	if rw.wrote {
+		return
+	}
+	rw.wrote = true
 	rw.status = status
 	rw.ResponseWriter.WriteHeader(status)
 }
 
+// Write 는 헤더를 명시적으로 쓰지 않고 본문부터 내보내는 핸들러를 위한 것이다 —
+// 그 경우에도 응답은 시작된 것이며(net/http 가 200 을 먼저 보낸다), 그물은 그
+// 사실을 알아야 한다.
+func (rw *responseWriter) Write(b []byte) (int, error) {
+	rw.wrote = true
+	return rw.ResponseWriter.Write(b)
+}
+
 func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if h, ok := rw.ResponseWriter.(http.Hijacker); ok {
+		// 하이재킹된 뒤로 이 ResponseWriter 는 쓸 수 없다. 그물이 여기에
+		// 헤더를 쓰면 패닉이 하나 더 난다.
+		rw.wrote = true
 		return h.Hijack()
 	}
 	return nil, nil, fmt.Errorf("ResponseWriter does not implement http.Hijacker")

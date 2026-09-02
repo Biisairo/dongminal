@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"sort"
+
+	"dongminal/internal/shared/platform"
 )
 
 // ToolManager 의 영속화 — tools.json.
@@ -25,9 +27,21 @@ type ToolState struct {
 // blocking concurrent Create/Delete calls, we snapshot tool pointers under
 // m.mu and then call Cwd() OUTSIDE the lock.
 func (m *ToolManager) SaveAll() {
-	if !m.dirty.Load() {
+	if !m.mutated.Load() {
 		return
 	}
+	// **스냅샷과 쓰기가 한 임계 구역 안에 있어야 한다** (FR-CAF-12).
+	//
+	// saveAsync 는 호출마다 고루틴을 띄운다. 직렬화가 없으면 스냅샷 시각이 A→B 인
+	// 두 저장이 디스크에는 B→A 순으로 도착할 수 있고, 그러면 낡은 tools.json 이
+	// 최종본이 된다. 도구를 빠르게 여닫을 때 실제로 생기는 순서다.
+	//
+	// m.mu 로 대신할 수 없다. 아래가 그것을 일부러 놓기 때문이다 — Cwd() 가
+	// macOS 에서 수백 ms 를 쓰므로 레지스트리를 그동안 잠글 수 없다. 순서를 지키는
+	// 잠금과 레지스트리를 지키는 잠금은 서로 다른 것을 지킨다.
+	m.saveFile.Lock()
+	defer m.saveFile.Unlock()
+
 	m.mu.Lock()
 	snap := make([]*Tool, 0, len(m.tools))
 	for _, p := range m.tools {
@@ -56,8 +70,14 @@ func (m *ToolManager) SaveAll() {
 		states = append(states, ToolState{ID: p.ID, Name: p.Name, Cwd: cwdOrServer(p)})
 	}
 	sort.Slice(states, func(i, j int) bool { return states[i].ID < states[j].ID })
-	data, _ := json.Marshal(states)
-	if err := os.WriteFile(m.dataPath("tools.json"), data, 0644); err != nil {
+	data, err := json.Marshal(states)
+	if err != nil {
+		log.Printf("saveTools marshal: %v", err)
+		return
+	}
+	// 원자적으로 쓴다 (FR-CAF-11) — 잘린 tools.json 은 다음 기동에서 도구를
+	// 통째로 잃게 한다.
+	if err := platform.WriteFileAtomic(m.dataPath("tools.json"), data, 0644); err != nil {
 		log.Printf("saveTools: %v", err)
 	}
 }
@@ -94,9 +114,9 @@ func (m *ToolManager) LoadAll(referenced map[string]struct{}) {
 	if skipped > 0 {
 		log.Printf("tools: 미참조 %d개 폐기", skipped)
 	}
-	// Mark dirty so the next SaveAll (e.g. on shutdown) persists CWD changes
+	// Mark mutated so the next SaveAll (e.g. on shutdown) persists CWD changes
 	// that happen after restore, even if no tools were created/deleted.
-	m.dirty.Store(true)
+	m.mutated.Store(true)
 	log.Printf("tools restored count=%d", restored)
 }
 

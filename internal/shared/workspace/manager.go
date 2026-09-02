@@ -18,6 +18,11 @@ var ErrStale = errors.New("workspace: stale revision")
 // ErrLabelIdentifier 는 ResolveStrict 가 좌표 라벨 형태의 입력을 거부했다는 표시다
 // (FR-IDU-2). 호출자는 errors.Is 로 이것을 갈라 "잘못 불렀다"(400)를 "없다"(404)와
 // 구분한다. 메시지 자체가 진단의 마지막 줄이다.
+//
+// 진단문의 끝 문장이므로 마침표가 있는 것이 옳다 (errLabelRejected 가 %w 로 이것을
+// 문단 끝에 놓는다).
+//
+//lint:ignore ST1005 이것은 감싸일 오류 조각이 아니라 **사람이 읽을 마지막 줄**이다.
 var ErrLabelIdentifier = errors.New(
 	"uuid 는 `dmctl list-workspace` 의 uuid= 컬럼, 또는 생성 명령(new-tab/split-*)의 응답에 있다.")
 

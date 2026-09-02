@@ -31,7 +31,16 @@ type ToolManager struct {
 	// 꽂는다 — invalidator 와 같은 형태다. nil 이면 아무도 소유하지 않는 것이고,
 	// 그때 동작은 이 필드가 없던 때와 **완전히 같다**.
 	ownedProvider func() map[string]struct{}
-	dirty         atomic.Bool
+
+	// mutated 는 **기동 후 한 번이라도 상태가 바뀌었는가** 다. 한 번 서면 내려오지
+	// 않으며, 그것이 이 값의 뜻이다 (FR-CAF-13).
+	//
+	// 종전 이름은 `dirty` 였다. 그 이름은 "미저장 변경이 있다" 로 읽히고, 그렇게
+	// 읽으면 SaveAll 이 이것을 내리지 않는 것이 버그로 보인다 — 실제로 그 오해가
+	// 테스트에 `// BUG:` 주석으로 박혀 있었다. 동작은 처음부터 옳았다: SaveAll 의
+	// 가드가 막으려는 것은 **아무 일도 없던 실행이 기존 사용자 파일을 빈 상태로
+	// 덮는 것**이며(persist.go), 그 판정에 필요한 것이 정확히 "기동 후 변경 여부"다.
+	mutated atomic.Bool
 
 	// saves 는 진행 중인 SaveAll 을 센다. 저장은 요청 경로를 막지 않도록
 	// 고루틴으로 떨어뜨리는데(아래 `go m.SaveAll()`), 그러면 **아무도 그것이
@@ -45,6 +54,12 @@ type ToolManager struct {
 	// (sync: WaitGroup is reused before previous Wait has returned).
 	saveMu sync.Mutex
 	noSave bool
+
+	// saveFile 은 SaveAll 을 한 줄로 세운다 (FR-CAF-12). saveMu 와 지키는 것이
+	// 다르다 — 저쪽은 "저장을 더 시작할 것인가"(noSave·WaitGroup)를, 이쪽은
+	// "디스크에 닿는 순서"를 지킨다. 하나로 합치면 StopSaving 이 진행 중인
+	// 저장을 기다리는 동안 문을 닫지 못한다.
+	saveFile sync.Mutex
 
 	// Attention (PANE_ATTENTION_NOTIFY_SRS): idleThreshold/allowBell configure
 	// detection; attnNotify/attnClear bridge transitions to SSE (set via
@@ -284,7 +299,7 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16) (*Tool, error) {
 	}
 	m.tools[id] = p
 	log.Printf("[tool %s] registered total=%d", id, len(m.tools))
-	m.dirty.Store(true)
+	m.mutated.Store(true)
 	m.saveAsync()
 	return p, nil
 }
@@ -359,7 +374,7 @@ func (m *ToolManager) Delete(id string) {
 		p.kill()
 		log.Printf("[tool %s] deleted remaining=%d", id, remaining)
 	}
-	m.dirty.Store(true)
+	m.mutated.Store(true)
 	m.saveAsync()
 }
 

@@ -126,7 +126,7 @@ func (m *ToolManager) SetBackground(id string, bg bool) bool {
 	} else {
 		delete(m.background, id)
 	}
-	m.dirty.Store(true)
+	m.mutated.Store(true)
 	return true
 }
 

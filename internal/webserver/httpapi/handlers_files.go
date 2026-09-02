@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"dongminal/internal/shared/platform"
 )
 
 // 파일 종단 — 업로드·다운로드·읽기·쓰기와 그 기준 경로(cwd). 경로를 사용자 입력에서
@@ -336,7 +338,14 @@ func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer f.Close()
-	stat, _ := f.Stat()
+	// 열렸다고 잴 수 있는 것은 아니다 — 네트워크 파일시스템·경합으로 지워진
+	// 파일·EIO 에서 Stat 은 실패한다. 종전에는 오류를 버리고 nil 을 역참조해
+	// 패닉했다 (FR-CAF-4).
+	stat, err := f.Stat()
+	if err != nil {
+		http.Error(w, "stat failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 	if stat.IsDir() {
 		http.Error(w, "not a file", http.StatusBadRequest)
 		return
@@ -369,7 +378,9 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "path must be absolute", http.StatusBadRequest)
 		return
 	}
-	if err := os.WriteFile(req.Path, []byte(req.Content), 0o644); err != nil {
+	// 원자적으로 쓴다 (FR-CAF-11). 여기서 잘리는 것은 우리 상태 파일이 아니라
+	// **사용자가 쓰던 원본**이다 — 편집기의 저장이 이 종단이다.
+	if err := platform.WriteFileAtomic(req.Path, []byte(req.Content), 0o644); err != nil {
 		log.Printf("file write error: %v", err)
 		http.Error(w, "write failed: "+err.Error(), http.StatusInternalServerError)
 		return

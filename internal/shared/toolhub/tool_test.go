@@ -85,19 +85,21 @@ func TestToolManager_Snapshot_Empty(t *testing.T) {
 	}
 }
 
-func TestToolManager_DirtyAndSaveAll(t *testing.T) {
+func TestToolManager_MutatedSurvivesSaveAll(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
 	t.Cleanup(pm.StopSaving)
-	if pm.dirty.Load() {
-		t.Fatal("expected dirty=false after init")
+	if pm.mutated.Load() {
+		t.Fatal("갓 만든 매니저가 변경됐다고 답한다 — 그러면 아무 일도 없던 실행이 사용자 파일을 덮는다")
 	}
-	pm.dirty.Store(true)
+
+	pm.mutated.Store(true)
 	pm.SaveAll()
-	// BUG: dirty is never reset to false after SaveAll.
-	if !pm.dirty.Load() {
-		t.Log("dirty was reset — bug fixed")
-	} else {
-		t.Log("BUG: dirty remains true after SaveAll (documented)")
+
+	// **저장해도 내려가지 않는다.** 이 값의 뜻이 "미저장 변경" 이 아니라 "기동 후
+	// 변경 여부" 이기 때문이다 (FR-CAF-13). 종전 이 테스트는 두 갈래를 모두
+	// t.Log 로 흘려 어느 쪽이든 초록이었다 — 아무것도 지키지 않는 검사였다.
+	if !pm.mutated.Load() {
+		t.Fatal("SaveAll 이 mutated 를 내렸다 — 그 뒤의 저장이 건너뛰어져 종료 시 CWD 변경을 잃는다")
 	}
 }
 

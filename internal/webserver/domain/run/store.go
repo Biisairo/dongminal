@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/agentadapter"
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/uuid"
 )
 
@@ -304,6 +305,10 @@ func (s *Store) fenceStale() bool {
 
 // save writes runs.json atomically (FR-RUN-4): a temp file in the same
 // directory, then rename. A partial write must never become the live file.
+//
+// 그 방법은 이제 platform.WriteFileAtomic 하나가 안다 (FR-CAF-11). 여기 있던
+// 구현이 옳았기에 그것을 공용으로 올렸고, 옳게 하던 자리를 그대로 두면 구현이
+// 둘이 되어 한쪽만 고쳐지는 날이 온다.
 func (s *Store) save() error {
 	body := fileBody{SchemaVersion: schemaVersion, Runs: s.runs}
 	if body.Runs == nil {
@@ -313,23 +318,7 @@ func (s *Store) save() error {
 	if err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(s.dir, ".runs-*.json")
-	if err != nil {
-		return err
-	}
-	tmpName := tmp.Name()
-	defer os.Remove(tmpName) // rename 이 성공하면 사라진 이름이라 무해하다
-	if _, err := tmp.Write(blob); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	if err := os.Chmod(tmpName, 0644); err != nil {
-		return err
-	}
-	return os.Rename(tmpName, s.path())
+	return platform.WriteFileAtomic(s.path(), blob, 0644)
 }
 
 // StartOptions is the input of Start.

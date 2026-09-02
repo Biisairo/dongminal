@@ -75,8 +75,11 @@ func TestRender_QuoteEscape(t *testing.T) {
 // 결정성: 같은 입력 두 번 호출 시 동일 (NFR-WAI-4).
 func TestRender_Deterministic(t *testing.T) {
 	l := Line{Label: "L", UUID: "u", Short: "s", ToolID: "1", ShellPID: 2, SizeCols: 80, SizeRows: 24, Window: "x", Tab: "y", WindowUUID: "su", PaneUUID: "ru"}
-	if l.Render() != l.Render() {
-		t.Fatal("non-deterministic")
+	// 두 호출의 결과를 각각 받아 견준다. 한 식 안에서 견주면 검사기가 "양변이
+	// 같은 식" 으로 읽어 경고한다 (SA4000) — 뜻은 그대로이고 읽기도 더 낫다.
+	first, second := l.Render(), l.Render()
+	if first != second {
+		t.Fatalf("non-deterministic:\n%q\n%q", first, second)
 	}
 }
 

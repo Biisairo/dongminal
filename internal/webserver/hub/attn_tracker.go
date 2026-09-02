@@ -20,8 +20,6 @@ type AttnTracker struct {
 	// L2 idle sweeper
 	idleThreshold int64             // nanos, 0 disables
 	busyProbe     func(string) bool // foreground-process check; nil → never idle
-	ticker        *time.Ticker
-	stop          chan struct{}
 
 	// nowFn 은 이 추적기의 시계다 (ATTENTION_FIRING_SRS NFR-5). 굳은 `working`
 	// 의 판정이 시각을 보므로, 테스트가 잠들지 않고 그 자리를 재려면 시계가
@@ -65,7 +63,6 @@ func NewAttnTracker(hub CommandBroker, idleMS int) *AttnTracker {
 		tools:         map[string]*attnPaneState{},
 		hub:           hub,
 		idleThreshold: int64(idleMS) * int64(time.Millisecond),
-		stop:          make(chan struct{}),
 		nowFn:         func() int64 { return time.Now().UnixNano() },
 	}
 	t.onAttention = func(id, reason string) {
@@ -120,29 +117,28 @@ func (t *AttnTracker) Forget(toolID string) {
 
 // StartSweeper launches the L2 idle sweeper goroutine. stopCh closes on
 // server shutdown.
+//
+// 멈추는 길은 stopCh 하나다 (FR-CAF-15). 종전에는 `Stop()` 과 `t.stop` 채널이
+// 두 번째 길로 있었으나 아무도 부르지 않았고(그래서 `t.stop` 은 영영 닫히지
+// 않는 갈래였다), 두 번 부르면 close 가 패닉하는 상태였다. 티커도 이 고루틴
+// 밖에서 쓰이지 않으므로 구조체 필드로 둘 이유가 없다 — 필드로 두면 잠금 없이
+// 공유되는 값이 하나 더 생긴다.
 func (t *AttnTracker) StartSweeper(stopCh <-chan struct{}) {
 	if t.idleThreshold <= 0 {
 		return
 	}
-	t.ticker = time.NewTicker(1 * time.Second)
 	go func() {
-		defer t.ticker.Stop()
+		tk := time.NewTicker(1 * time.Second)
+		defer tk.Stop()
 		for {
 			select {
-			case <-t.ticker.C:
+			case <-tk.C:
 				t.sweepIdle()
 			case <-stopCh:
-				return
-			case <-t.stop:
 				return
 			}
 		}
 	}()
-}
-
-// Stop shuts down the sweeper.
-func (t *AttnTracker) Stop() {
-	close(t.stop)
 }
 
 // FeedOutput processes raw PTY output for attention detection (L1 OSC).
