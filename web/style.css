@@ -385,10 +385,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 }
 .modal-close:hover{background:var(--border);color:var(--danger)}
 
-.modal-tabs{display:flex;border-bottom:1px solid var(--border);padding:0 18px}
+/* 탭이 일곱(Backup 추가, FR-SPT-14)이 되며 580px 에 한 줄로 서지 않는다. 이름을
+   접으면 탭 줄만 두 줄로 깊어지므로, 접지 않고 좁으면 가로로 민다. */
+.modal-tabs{display:flex;border-bottom:1px solid var(--border);padding:0 10px;overflow-x:auto;scrollbar-width:none}
+.modal-tabs::-webkit-scrollbar{display:none}
 .mtab{
-  padding:10px 16px;background:none;border:none;border-bottom:2px solid transparent;
+  padding:10px 11px;background:none;border:none;border-bottom:2px solid transparent;
   color:var(--text-muted);font-size:12px;cursor:pointer;
+  white-space:nowrap;flex:0 0 auto;
 }
 .mtab:hover{color:var(--text)}
 .mtab.active{color:var(--accent);border-bottom-color:var(--accent)}
@@ -647,6 +651,21 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 }
 .ds-toggle:hover{border-color:var(--accent)}
 .ds-toggle:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
+
+/* ── 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS FR-SPT-15·16) ── */
+.bk-confirm{
+  border:1px solid var(--accent-border);border-radius:4px;padding:10px;margin-top:10px;
+  display:flex;flex-direction:column;gap:10px;
+}
+/* `display:flex` 가 `[hidden]` 의 기본 `display:none` 을 이긴다 — 되돌려 놓는다. */
+.bk-confirm[hidden]{display:none}
+.bk-summary{color:var(--text);font-size:11px;line-height:1.6;white-space:pre-line}
+.bk-actions{display:flex;gap:8px;justify-content:flex-end}
+.bk-danger{border-color:var(--danger);color:var(--danger)}
+.bk-danger:hover{border-color:var(--danger)}
+.bk-msg{font-size:11px;line-height:1.5;margin-top:8px}
+.bk-msg.ok{color:var(--text-dim)}
+.bk-msg.err{color:var(--danger)}
 
 /* ── Mobile/Desktop visibility toggles ── */
 .mobile-only{display:none !important}

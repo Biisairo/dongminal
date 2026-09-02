@@ -13,10 +13,10 @@
   <link rel="icon" href="assets/favicon-16.png" sizes="16x16" type="image/png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="vendor/xterm.css">
-  <link rel="stylesheet" href="style.css?v=231">
-  <link rel="stylesheet" href="style-git.css?v=231">
-  <link rel="stylesheet" href="style-git-views.css?v=231">
-  <link rel="stylesheet" href="style-editor.css?v=231">
+  <link rel="stylesheet" href="style.css?v=232">
+  <link rel="stylesheet" href="style-git.css?v=232">
+  <link rel="stylesheet" href="style-git-views.css?v=232">
+  <link rel="stylesheet" href="style-editor.css?v=232">
   <script>try{var w=parseInt(localStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px')}catch(e){}</script>
 </head>
 <body>
@@ -136,6 +136,8 @@
       <button class="mtab" data-tab="presets">Presets</button>
       <button class="mtab" data-tab="display">Display</button>
       <button class="mtab" data-tab="notify">Notifications</button>
+      <!-- SETTINGS_PORTABILITY_SRS FR-SPT-14: 설정을 파일로 옮기는 자리. -->
+      <button class="mtab" data-tab="backup">Backup</button>
     </div>
     <div class="modal-body">
       <div class="mpanel" id="panel-theme">
@@ -224,6 +226,30 @@
           <div class="ds-hint">데스크톱 알림은 브라우저 권한 허용이 필요합니다. 시각 강조와 탭 제목 배지는 항상 동작합니다.</div>
         </div>
       </div>
+      <!-- FR-SPT-14·15: 무엇이 실리고 무엇이 실리지 않는지를 함께 적는다. -->
+      <div class="mpanel" id="panel-backup" style="display:none">
+        <div class="display-settings">
+          <div class="ds-row">
+            <span>설정 내보내기</span>
+            <button type="button" class="ds-toggle" id="bk-export">파일로 저장</button>
+          </div>
+          <div class="ds-hint">이 창의 설정 전부(테마·단축키·상태바·프리셋·표시·알림)를 JSON 파일 하나로 내려받습니다. 창 너비 같은 화면 치수와 리포별 Git 보기 취향은 옮겨도 뜻을 잃으므로 담지 않습니다.</div>
+          <div class="ds-row">
+            <span>설정 가져오기</span>
+            <button type="button" class="ds-toggle" id="bk-import">파일 고르기</button>
+          </div>
+          <div class="ds-hint">고른 파일의 값으로 <b>전체 교체</b>합니다. 파일에 없는 설정은 기본값으로 돌아갑니다. 교체가 끝나면 페이지를 다시 엽니다.</div>
+          <input type="file" id="bk-file" accept="application/json,.json" hidden>
+          <div class="bk-confirm" id="bk-confirm" hidden>
+            <div class="bk-summary" id="bk-summary"></div>
+            <div class="bk-actions">
+              <button type="button" class="ds-toggle bk-danger" id="bk-apply">교체하고 다시 열기</button>
+              <button type="button" class="ds-toggle" id="bk-cancel">취소</button>
+            </div>
+          </div>
+          <div class="bk-msg" id="bk-msg"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -232,79 +258,81 @@
 <script src="vendor/addon-web-links.js"></script>
 <script src="vendor/addon-unicode11.js"></script>
 <script src="vendor/addon-search.js"></script>
-<script src="js/core/constants.js?v=231"></script>
-<script src="js/core/constants-git.js?v=231"></script>
-<script src="js/core/constants-editor.js?v=231"></script>
-<script src="js/core/helpers.js?v=231"></script>
-<script src="js/ui/repaint.js?v=231"></script>
+<script src="js/core/constants.js?v=232"></script>
+<script src="js/core/constants-git.js?v=232"></script>
+<script src="js/core/constants-editor.js?v=232"></script>
+<script src="js/core/helpers.js?v=232"></script>
+<script src="js/ui/repaint.js?v=232"></script>
 <!-- 사이드바 탭 (GIT_SIDEBAR_TABS_SRS). renderer.js 앞이어야 한다 — 렌더러가
      활성 탭 상태를 읽는다. -->
-<script src="js/ui/sidebar-tabs.js?v=231"></script>
+<script src="js/ui/sidebar-tabs.js?v=232"></script>
 <!-- 사이드바 리스트 블루프린트 (UX_REVISION_SRS 묶음 B). 서술자(sidebar-tabs.js)
      뒤, 렌더러 앞이어야 한다 — 렌더러가 이것으로 두 목록을 그린다. -->
-<script src="js/ui/sidebar-list.js?v=231"></script>
-<script src="js/ui/themes.js?v=231"></script>
-<script src="js/ui/term-clipboard.js?v=231"></script>
-<script src="js/ui/term-pane.js?v=231"></script>
-<script src="js/ui/file-editor.js?v=231"></script>
-<script src="js/ui/input-binding.js?v=231"></script>
-<script src="js/git/api.js?v=231"></script>
-<script src="js/git/observer.js?v=231"></script>
-<script src="js/git/panel.js?v=231"></script>
-<script src="js/git/panel-life.js?v=231"></script>
-<script src="js/git/panel-changes.js?v=231"></script>
-<script src="js/git/panel-views.js?v=231"></script>
-<script src="js/git/panel-write.js?v=231"></script>
-<script src="js/git/panel-files.js?v=231"></script>
-<script src="js/git/panel-diff.js?v=231"></script>
-<script src="js/git/panel-poll.js?v=231"></script>
-<script src="js/git/diff-view.js?v=231"></script>
-<script src="js/git/confirm.js?v=231"></script>
-<script src="js/git/dialog.js?v=231"></script>
-<script src="js/git/commit.js?v=231"></script>
-<script src="js/git/lanes.js?v=231"></script>
-<script src="js/git/menu.js?v=231"></script>
-<script src="js/git/history.js?v=231"></script>
-<script src="js/git/branches.js?v=231"></script>
-<script src="js/git/stash.js?v=231"></script>
-<script src="js/git/tag.js?v=231"></script>
-<script src="js/git/console.js?v=231"></script>
-<script src="js/git/worktrees.js?v=231"></script>
-<script src="js/git/remote.js?v=231"></script>
-<script src="js/git/commit-ops.js?v=231"></script>
+<script src="js/ui/sidebar-list.js?v=232"></script>
+<script src="js/ui/themes.js?v=232"></script>
+<script src="js/ui/term-clipboard.js?v=232"></script>
+<script src="js/ui/term-pane.js?v=232"></script>
+<script src="js/ui/file-editor.js?v=232"></script>
+<script src="js/ui/input-binding.js?v=232"></script>
+<script src="js/git/api.js?v=232"></script>
+<script src="js/git/observer.js?v=232"></script>
+<script src="js/git/panel.js?v=232"></script>
+<script src="js/git/panel-life.js?v=232"></script>
+<script src="js/git/panel-changes.js?v=232"></script>
+<script src="js/git/panel-views.js?v=232"></script>
+<script src="js/git/panel-write.js?v=232"></script>
+<script src="js/git/panel-files.js?v=232"></script>
+<script src="js/git/panel-diff.js?v=232"></script>
+<script src="js/git/panel-poll.js?v=232"></script>
+<script src="js/git/diff-view.js?v=232"></script>
+<script src="js/git/confirm.js?v=232"></script>
+<script src="js/git/dialog.js?v=232"></script>
+<script src="js/git/commit.js?v=232"></script>
+<script src="js/git/lanes.js?v=232"></script>
+<script src="js/git/menu.js?v=232"></script>
+<script src="js/git/history.js?v=232"></script>
+<script src="js/git/branches.js?v=232"></script>
+<script src="js/git/stash.js?v=232"></script>
+<script src="js/git/tag.js?v=232"></script>
+<script src="js/git/console.js?v=232"></script>
+<script src="js/git/worktrees.js?v=232"></script>
+<script src="js/git/remote.js?v=232"></script>
+<script src="js/git/commit-ops.js?v=232"></script>
 <!-- Editor 창의 파일 탐색기 (EDITOR_TAB_SRS 묶음 X). renderer.js 앞이어야 한다 —
      렌더러의 마운트 자리가 이 클래스를 부른다. -->
-<script src="js/ui/file-tree-store.js?v=231"></script>
-<script src="js/ui/file-tree.js?v=231"></script>
-<script src="js/ui/file-tree-paint.js?v=231"></script>
-<script src="js/ui/file-tree-edit.js?v=231"></script>
-<script src="js/ui/file-tree-xfer.js?v=231"></script>
-<script src="js/ui/runs-panel.js?v=231"></script>
-<script src="js/ui/renderer.js?v=231"></script>
-<script src="js/core/app.js?v=231"></script>
-<script src="js/core/app-cmd.js?v=231"></script>
-<script src="js/core/app-reload.js?v=231"></script>
-<script src="js/core/app-tool.js?v=231"></script>
-<script src="js/core/app-layout.js?v=231"></script>
-<script src="js/core/app-slots.js?v=231"></script>
-<script src="js/core/app-focus.js?v=231"></script>
-<script src="js/core/app-attn.js?v=231"></script>
-<script src="js/core/app-agents.js?v=231"></script>
-<script src="js/core/app-git.js?v=231"></script>
+<script src="js/ui/file-tree-store.js?v=232"></script>
+<script src="js/ui/file-tree.js?v=232"></script>
+<script src="js/ui/file-tree-paint.js?v=232"></script>
+<script src="js/ui/file-tree-edit.js?v=232"></script>
+<script src="js/ui/file-tree-xfer.js?v=232"></script>
+<script src="js/ui/runs-panel.js?v=232"></script>
+<script src="js/ui/renderer.js?v=232"></script>
+<script src="js/core/app.js?v=232"></script>
+<script src="js/core/app-cmd.js?v=232"></script>
+<script src="js/core/app-reload.js?v=232"></script>
+<script src="js/core/app-tool.js?v=232"></script>
+<script src="js/core/app-layout.js?v=232"></script>
+<script src="js/core/app-slots.js?v=232"></script>
+<script src="js/core/app-focus.js?v=232"></script>
+<script src="js/core/app-attn.js?v=232"></script>
+<script src="js/core/app-agents.js?v=232"></script>
+<script src="js/core/app-git.js?v=232"></script>
 <!-- Editor 탭·창 (EDITOR_TAB_SRS). app.js 뒤 main.js 앞 — prototype 확장이다. -->
-<script src="js/core/app-editor.js?v=231"></script>
-<script src="js/core/app-edsearch.js?v=231"></script>
+<script src="js/core/app-editor.js?v=232"></script>
+<script src="js/core/app-edsearch.js?v=232"></script>
 <!-- Run 시각화 (ORCHESTRATION_V2_SRS 묶음 V). app.js 뒤 — prototype 확장. -->
-<script src="js/core/app-runs.js?v=231"></script>
-<script src="js/core/app-search.js?v=231"></script>
-<script src="js/core/app-mobile.js?v=231"></script>
-<script src="js/core/app-settings.js?v=231"></script>
-<script src="js/core/app-statusbar.js?v=231"></script>
-<script src="js/core/app-presets.js?v=231"></script>
-<script src="js/core/app-dnd.js?v=231"></script>
-<script src="js/core/main.js?v=231"></script>
-<script src="js/ui/version-watch.js?v=231"></script>
+<script src="js/core/app-runs.js?v=232"></script>
+<script src="js/core/app-search.js?v=232"></script>
+<script src="js/core/app-mobile.js?v=232"></script>
+<script src="js/core/app-settings.js?v=232"></script>
+<!-- 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS). app.js 뒤·main.js 앞이면 된다. -->
+<script src="js/core/app-backup.js?v=232"></script>
+<script src="js/core/app-statusbar.js?v=232"></script>
+<script src="js/core/app-presets.js?v=232"></script>
+<script src="js/core/app-dnd.js?v=232"></script>
+<script src="js/core/main.js?v=232"></script>
+<script src="js/ui/version-watch.js?v=232"></script>
 <!-- 실기기 진단. ?diag=1 로 접속할 때만 동작한다 -->
-<script src="js/ui/diag.js?v=231"></script>
+<script src="js/ui/diag.js?v=232"></script>
 </body>
 </html>

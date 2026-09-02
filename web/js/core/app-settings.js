@@ -111,6 +111,7 @@ Object.assign(App.prototype, {
     this._initPageTitle();
     this._initFgNames();
     this._initBlockKeys();
+    this._initBackup();
   },
 
   _renderThemePanel(){
