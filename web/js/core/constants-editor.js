@@ -45,6 +45,44 @@ const ED_SEARCH_EMPTY='결과 없음';
 const ED_SEARCH_FAIL='찾지 못했습니다';
 const ED_SEARCH_COUNT_SUFFIX='건';
 
+// ── 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS 묶음 B·C·D) ──
+//
+// Monaco 의 find 위젯을 **쓰지 않는다** (FR-EFP-25 가 FR-EKB-3 을 개정했다). 위젯은
+// 우리보다 먼저 열리고서 포커스를 우리에게 빼앗겨, 뜬 채로 글자를 못 받고 그 글자가
+// 문서에 삽입됐다 — 검색하려고 누른 키가 파일을 편집했다 (그 SRS §2.4).
+//
+// **검색기는 여전히 Monaco 모델의 것이다** (D-2). 만드는 것은 껍데기뿐이다.
+
+// 토글 셋의 라벨. 글자로 두는 이유는 셋이 나란히 서기 때문이다 — 하나만 그림이면
+// 선 굵기가 달라 그 하나가 도리어 눈에 띈다 (EDITOR_TREE_REFRESH 의 근거와 같다).
+const ED_FIND_OPT_CASE='Aa';
+const ED_FIND_OPT_REGEX='.*';
+const ED_FIND_OPT_WORD='ab';
+const ED_FIND_OPT_CASE_TITLE='대소문자 구분';
+const ED_FIND_OPT_REGEX_TITLE='정규식';
+const ED_FIND_OPT_WORD_TITLE='단어 단위';
+const ED_FIND_PREV_TITLE='이전 일치 (Shift+Enter)';
+const ED_FIND_NEXT_TITLE='다음 일치 (Enter)';
+const ED_FIND_CLOSE_TITLE='닫기 (Escape)';
+const ED_FIND_IN_PLACEHOLDER='찾기';
+// FR-EFP-16: 질의가 비면 수를 말하지 않는다 — 아직 묻지 않은 것이다. 0건과
+// 빈 질의를 같은 화면으로 두면 사용자가 "없다" 로 읽는다.
+const ED_FIND_NONE='결과 없음';
+// FR-EFP-24: 조용히 0건으로 보이면 사용자가 없는 줄로 읽는다.
+const ED_FIND_BAD_RE='잘못된 정규식';
+// FR-EFP-23 / D-4: 옵션은 기기별이다. 설정 블롭의 값들은 "이 서버가 무엇인가" 를
+// 말하는데, 검색 옵션은 그런 값이 아니라 지금 이 손의 버릇이다.
+const ED_FIND_OPTS_KEY='edFindOpts';
+// 하이라이트의 CSS 이름. Monaco decoration 의 className 으로 그대로 간다.
+const ED_FIND_HIT_CLASS='fe-find-hit';
+const ED_FIND_HIT_CUR_CLASS='fe-find-hit-cur';
+// FR-EFP-20: 단어 단위의 경계. Monaco 의 기본 구분자와 같은 값이며, 켜지 않았을
+// 때는 `null` 을 넘겨 경계를 보지 않게 한다.
+const ED_FIND_WORD_SEPARATORS='`~!@#$%^&*()-=+[{]}\\|;:\'",.<>/?';
+// 한 문서에서 셀 일치의 상한. 넘으면 Monaco 가 거기서 끊는다 — 수십만 건을 세는
+// 동안 화면이 멎는 것보다 낫다.
+const ED_FIND_MAX_HITS=20000;
+
 // FR-EDT-47 / D-18: 탐색기 폭은 워크스페이스에 산다 (`window.editor.explorerWidth`).
 // 상·하한은 사이드바(`--sb-w`)의 규약을 그대로 따른다 — 같은 종류의 값이 서로 다른
 // 한계를 가질 이유가 없다.

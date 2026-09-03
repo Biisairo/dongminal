@@ -191,6 +191,54 @@ body.mobile .ed-explorer{max-width:40%}
   overflow:hidden;text-overflow:ellipsis;white-space:pre;font-family:monospace;
 }
 
+/* ── 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS 묶음 B·C) ──
+   위의 `.ed-find` 와 **다른 껍데기다.** 저쪽은 화면 전체 중앙 모달이고, 이쪽은
+   편집기 우상단에 얹히는 오버레이다 — 파일 내 찾기는 "지금 이 줄" 을 보며 다음으로
+   넘겨야 하므로 코드를 가리는 배경막을 쓸 수 없다 (FR-EFP-6 / 그 SRS §2.7).
+
+   `.file-editor` 가 이미 `position:absolute` 이므로 이 오버레이는 그 칸에만 얹힌다. */
+.fe-find{
+  position:absolute;top:6px;right:18px;z-index:12;display:none;
+  align-items:center;gap:4px;padding:4px 6px;
+  background:var(--sidebar-bg,#16161e);border:1px solid var(--border);
+  border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.45);
+}
+.fe-find.vis{display:flex}
+.fe-find-q{
+  width:200px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;
+  outline:none;font-size:12px;background:var(--bg);color:var(--text-bright);
+}
+.fe-find-q:focus{border-color:var(--accent)}
+/* FR-EFP-24: 잘못된 정규식은 **그 사실로** 보인다 — 조용한 0건이 아니다. */
+.fe-find.bad-re .fe-find-q{border-color:var(--danger)}
+.fe-find.bad-re .fe-find-count{color:var(--danger)}
+.fe-find-count{
+  min-width:46px;text-align:center;font-size:11px;color:var(--text-dim);
+  white-space:nowrap;
+}
+.fe-find-opt,.fe-find-prev,.fe-find-next,.fe-find-close{
+  flex:0 0 auto;min-width:22px;height:22px;padding:0 4px;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid transparent;border-radius:4px;cursor:pointer;
+  background:transparent;color:var(--text-muted);font-size:11px;line-height:1;
+}
+.fe-find-opt:hover,.fe-find-prev:hover,.fe-find-next:hover,.fe-find-close:hover{
+  background:var(--hover-bg,var(--border));color:var(--text-bright);
+}
+/* 켜진 토글은 눌린 채로 남아 보인다 — 지금 무엇이 걸려 있는지가 결과를 설명한다. */
+.fe-find-opt.on{
+  background:var(--accent-active);border-color:var(--accent);color:var(--text-bright);
+}
+
+/* FR-EFP-14: 모든 일치와 **현재** 일치는 다른 표시를 받는다. 둘이 같으면
+   이전/다음이 무엇을 옮겼는지 보이지 않는다. 현재 것은 두 클래스를 함께 받으므로
+   아래 규칙이 그 위에 한 겹 더 얹힌다. */
+.fe-find-hit{background:var(--accent-active);border-radius:2px}
+.fe-find-hit-cur{
+  background:var(--accent);
+  box-shadow:0 0 0 1px var(--text-bright) inset;
+}
+
 /* ── 열 수 없는 형식 · 이미지 보기 (EDITOR_GIT_UX_SRS 묶음 V) ── */
 .fe-unsupported{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;

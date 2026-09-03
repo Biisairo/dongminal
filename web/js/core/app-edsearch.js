@@ -24,21 +24,31 @@ Object.assign(App.prototype, {
     return this._edRootOf(s)||'';
   },
 
+  // FR-EFP-13 의 판정. `_edActiveEditor` 와 가르는 이유는 위의 주석이다.
+  _edFindReady(){
+    const v=this._edActiveEditor();
+    return !!(v&&v._editor);
+  },
+
   _edQuickOpen(){ this._edPanelOpen('find') },
   _edSearchOpen(){ this._edPanelOpen('grep') },
 
   /**
-   * FR-EKB-3·5: 파일 내 검색은 Monaco 에게 시킨다. 우리 패널을 하나 더 만들면
-   * 정규식·대소문자·선택영역 한정이 전부 두 벌이 된다.
+   * EDITOR_FIND_PANEL_SRS FR-EFP-25 가 FR-EKB-3 을 개정했다 — 파일 내 검색은
+   * **우리 패널**이며 Monaco 의 find 위젯이 아니다.
    *
-   * 편집기가 없으면 아무 일도 하지 않는다 — 이진 파일 탭이나 빈 pane 이 그렇다.
+   * 종전 본문은 `ed.focus()` 뒤에 `actions.find` 를 트리거했다. 그 두 줄이 결함의
+   * 절반이었다: Monaco 가 이미 위젯을 열어 find 입력칸에 포커스를 준 뒤였으므로,
+   * `ed.focus()` 가 그 포커스를 **본문으로 되돌려** 위젯이 글자를 못 받았고
+   * 타이핑이 문서에 삽입됐다 (그 SRS §2.3·2.4).
+   *
+   * FR-EFP-5: 여기서 포커스를 옮기지 않는다. 패널을 여는 일은 패널에 포커스를
+   * 주는 일이며, 그 판단은 패널을 소유한 편집기가 한다 (`findOpen`).
    */
   _edFindInFile(){
     const v=this._edActiveEditor();
-    const ed=v&&v._editor;
-    if(!ed) return;
-    ed.focus();
-    ed.trigger('dongminal','actions.find',null);
+    if(!v||!v.findOpen) return;
+    v.findOpen();
   },
 
   // 활성 Editor 창에서 지금 보이는 편집기. `fileEditors` 는 탭 id 로 열려 있고
@@ -67,7 +77,10 @@ Object.assign(App.prototype, {
     for(const[action,fn] of Object.entries(ED_SEARCH_ACTIONS)){
       if(!matchShortcut(e,shortcuts[action])) continue;
       if(action!=='edFindInFile'&&!this._edSearchRoot()) return false;
-      if(action==='edFindInFile'&&!this._edActiveEditor()) return false;
+      // FR-EFP-13: 편집기가 **선** 탭이어야 한다. 인스턴스가 있는 것만으로는
+      // 부족하다 — 이미지·이진 파일 탭은 인스턴스는 있고 Monaco 는 없으며, 그때
+      // 키를 삼키면 아무 일도 일어나지 않는 죽은 키가 된다.
+      if(action==='edFindInFile'&&!this._edFindReady()) return false;
       e.preventDefault(); e.stopImmediatePropagation();
       this[fn]();
       return true;
