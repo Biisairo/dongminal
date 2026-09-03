@@ -14,6 +14,12 @@ type Status struct {
 	ID string `json:"id"`
 	// Langs 는 이것이 덮는 Monaco language id 들이다.
 	Langs []string `json:"langs"`
+	// Exts 는 대응 확장자다.
+	//
+	// 상태에 싣는 이유는 FR-LSP-44 다 — 파일을 열 때 "이 파일의 서버가 있는가" 를
+	// 화면이 판정해야 하는데, 확장자 표를 화면이 따로 적으면 서버의 서술자와
+	// 어긋나 그 언어에서 제안이 뜨지 않거나 엉뚱한 것이 뜬다.
+	Exts []string `json:"exts"`
 	// Found 와 Exe·Origin 은 짝이다 — 못 찾았으면 뒤의 둘은 비어 있다.
 	Found  bool   `json:"found"`
 	Exe    string `json:"exe,omitempty"`
@@ -70,7 +76,7 @@ func ManagedExe(managedDir string, d Descriptor) string {
 //
 // 먼저 찾은 것을 쓰고, **어디서 찾았는지를 함께 낸다** (FR-LSP-5).
 func (l *Locator) Locate(d Descriptor) Status {
-	st := Status{ID: d.ID, Langs: d.Langs, Installer: d.Installer.Tool}
+	st := Status{ID: d.ID, Langs: d.Langs, Exts: d.Exts, Installer: d.Installer.Tool}
 
 	// ① 사용자가 적은 절대경로. 적었다는 것 자체가 의사표시이므로 가장 앞이다.
 	if p := l.Overrides[d.ID]; p != "" && l.executable(p) {

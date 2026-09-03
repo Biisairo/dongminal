@@ -159,6 +159,36 @@ const LSP_HOVER_API='/api/lsp/hover';
 // 뜨지 않으므로, 여기 적은 것이 곧 계약이다.
 const LSP_HOVER_LANGS=['go','typescript','javascript','typescriptreact','javascriptreact','python'];
 
+// ── 코드 탐색: 진단 (묶음 E · M4) ──
+//
+// 진단은 **요청 없이** 온다 (FR-LSP-32) — 이미 있는 SSE 길로 밀려 오며 그 action
+// 이름이 이것이다.
+const LSP_DIAG_ACTION='lsp_diagnostics';
+// FR-LSP-34: owner 는 우리 것 **하나**다. 그래야 갱신이 앞선 것을 덮고 밑줄이
+// 겹쳐 남지 않는다.
+const LSP_DIAG_OWNER='dongminal-lsp';
+// LSP 의 severity(1=에러 2=경고 3=정보 4=힌트)를 Monaco 의 MarkerSeverity 로
+// 옮기는 자리는 여기 하나다. Monaco 는 8=Error 4=Warning 2=Info 1=Hint 다 —
+// 숫자가 겹치므로(둘 다 1·4를 쓴다) 표 없이 넘기면 조용히 뒤바뀐다.
+const LSP_DIAG_SEVERITY={1:8,2:4,3:2,4:1};
+// FR-LSP-36: 진단을 켜고 끈다. 큰 저장소에서 저장하지 않은 파일마다 경고가 서는
+// 것을 원하지 않는 사용자가 있다. **기기별**이다 — 화면의 시끄러움에 대한 취향이다.
+const LSP_DIAG_KEY='lspDiagnostics';
+const LSP_DIAG_LABEL='에러·경고 밑줄';
+const LSP_DIAG_HINT='언어 서버가 찾은 문제를 편집기에 밑줄로 표시합니다. 끄면 정의 이동·참조 찾기·호버는 그대로 동작합니다.';
+
+// ── 코드 탐색: 설치 제안 (묶음 G · M5) ──
+//
+// FR-LSP-44·45: 서버가 없는 언어의 파일을 **처음 열 때** 제안한다. 파일마다 뜨면
+// 그것이 곧 고장이므로, 닫으면 그 언어에 다시 뜨지 않는다 — 그 기억은 기기별이다.
+const LSP_OFFER_KEY='lspOfferDismissed';
+const LSP_OFFER_BODY='%s 를 설치하면 이 파일에서 정의 이동·참조 찾기·호버·진단이 동작합니다.';
+// FR-LSP-11: 받을 수 없으면 **무엇이 없어서** 그런지를 이름으로 말한다.
+const LSP_OFFER_NO_TOOL='%t 가 없어 %s 를 받을 수 없습니다 — %t 를 먼저 설치하세요.';
+const LSP_OFFER_INSTALL='받기';
+const LSP_OFFER_DISMISS='다시 보지 않기';
+const LSP_OFFER_SETTINGS='설정에서 보기';
+
 // FR-EDT-47 / D-18: 탐색기 폭은 워크스페이스에 산다 (`window.editor.explorerWidth`).
 // 상·하한은 사이드바(`--sb-w`)의 규약을 그대로 따른다 — 같은 종류의 값이 서로 다른
 // 한계를 가질 이유가 없다.

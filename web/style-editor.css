@@ -336,3 +336,27 @@ body.mobile .ed-explorer{max-width:40%}
 .fe-note.vis{opacity:1}
 /* 찾기 패널이 열려 있으면 그 아래로 내려 앉는다 — 같은 자리를 다투지 않는다. */
 .fe-find.vis ~ .fe-note{top:38px}
+
+/* FR-LSP-44·45: 언어 서버 설치 제안. 알림 줄과 **다른 것이다** — 스스로 사라지지
+   않고 버튼을 갖는다. 사용자가 무언가를 해야 하는 알림과 그냥 알리는 알림은 같은
+   모양일 수 없다. 그래서 자리도 위쪽 가로 띠다. */
+.fe-offer{
+  position:absolute;top:0;left:0;right:0;z-index:11;
+  display:flex;align-items:center;gap:8px;padding:6px 10px;
+  border-bottom:1px solid var(--border);
+  background:var(--sidebar-bg,#16161e);
+  font-size:11px;line-height:1.5;
+}
+.fe-offer-msg{flex:1 1 auto;min-width:0;color:var(--text);overflow-wrap:anywhere}
+.fe-offer button{
+  flex:0 0 auto;padding:3px 8px;border:1px solid var(--border);border-radius:4px;
+  cursor:pointer;background:transparent;color:var(--text);font-size:11px;white-space:nowrap;
+}
+.fe-offer button:hover:not(:disabled){background:var(--hover-bg,var(--border));color:var(--text-bright)}
+.fe-offer button:disabled{opacity:.45;cursor:default}
+.fe-offer-go{border-color:var(--accent);color:var(--text-bright)}
+.fe-offer-x{border-color:transparent;color:var(--text-muted)}
+/* 제안 띠가 있으면 찾기 패널과 알림 줄이 그 아래로 내려 앉는다 — 같은 자리를
+   다투면 둘 중 하나가 가려진다. */
+.fe-offer ~ .fe-find{top:38px}
+.fe-offer ~ .fe-note{top:38px}

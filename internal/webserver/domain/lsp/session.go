@@ -33,6 +33,36 @@ type Location struct {
 	Col  int    `json:"col"`
 }
 
+// Diagnostic 은 에러·경고 하나다 (FR-LSP-33).
+//
+// 좌표는 **1 부터**다 — Location 과 같은 규약이며, 경계는 fromLSPPos 한 곳이다.
+type Diagnostic struct {
+	Line    int `json:"line"`
+	Col     int `json:"col"`
+	EndLine int `json:"endLine"`
+	EndCol  int `json:"endCol"`
+	// Severity 는 LSP 의 것을 그대로 쓴다: 1=에러 2=경고 3=정보 4=힌트.
+	// 우리 말로 바꾸지 않는 이유는 화면이 Monaco 의 MarkerSeverity 로 옮기기
+	// 때문이다 — 중간에 우리 어휘를 하나 더 두면 두 번 옮겨야 한다.
+	Severity int    `json:"severity"`
+	Message  string `json:"message"`
+	Source   string `json:"source,omitempty"`
+}
+
+// Diagnostics 는 한 파일의 진단 묶음이다.
+//
+// **비어서 오는 것도 알림이다** — 그것이 "이 파일은 이제 깨끗하다" 는 뜻이며, 그때
+// 앞선 밑줄을 걷어야 한다. 그래서 Items 는 nil 이 아니라 빈 배열로 낸다.
+type Diagnostics struct {
+	Path  string       `json:"path"`
+	Items []Diagnostic `json:"items"`
+}
+
+// DiagFunc 은 진단이 왔을 때 부를 함수다.
+//
+// 도메인 계층은 이것이 SSE 인지 모른다 — 배선이 그것을 정한다 (D-4).
+type DiagFunc func(Diagnostics)
+
 // Starter 는 언어 서버 프로세스를 세운다.
 //
 // 주입받는 이유는 검사다 — 실제 프로세스에 매이면 gopls 가 없는 기계에서는 세션
@@ -109,7 +139,7 @@ type Session struct {
 // newSession 은 세션을 만든다. 프로세스는 여기서 서고, 핸드셰이크는 **첫 요청이**
 // 기다린다 — 기동만 해 두고 아무도 묻지 않는 경우에 그 비용을 미리 내지 않는다.
 func newSession(root string, d Descriptor, exe string, start Starter,
-	onDiag func(path string, params []byte)) *Session {
+	onDiag DiagFunc) *Session {
 	s := &Session{
 		root:    root,
 		desc:    d,
@@ -126,10 +156,12 @@ func newSession(root string, d Descriptor, exe string, start Starter,
 	}
 	s.stop = stop
 	s.c = newConn(rwc, func(method string, params json.RawMessage) {
-		// 진단은 M4 의 것이다. 지금은 통로만 열어 둔다 — 그 자리가 여기임을
-		// 코드가 말하고 있어야 M4 가 다른 곳에 그것을 또 만들지 않는다.
-		if onDiag != nil && method == "textDocument/publishDiagnostics" {
-			onDiag("", params)
+		// FR-LSP-32: 진단은 **요청 없이** 온다. 이 통로가 그 유일한 입구다.
+		if onDiag == nil || method != "textDocument/publishDiagnostics" {
+			return
+		}
+		if d, ok := parseDiagnostics(params); ok {
+			onDiag(d)
 		}
 	})
 	return s
@@ -396,6 +428,55 @@ func intOf(v any) int {
 		return n
 	}
 	return 0
+}
+
+// parseDiagnostics 는 `publishDiagnostics` 의 params 를 우리 모양으로 옮긴다.
+//
+// uri 가 경로로 풀리지 않으면 **버린다** — 어느 파일의 것인지 모르는 진단은 화면이
+// 얹을 자리가 없다.
+func parseDiagnostics(params json.RawMessage) (Diagnostics, bool) {
+	var raw struct {
+		URI         string `json:"uri"`
+		Diagnostics []struct {
+			Range struct {
+				Start struct {
+					Line      int `json:"line"`
+					Character int `json:"character"`
+				} `json:"start"`
+				End struct {
+					Line      int `json:"line"`
+					Character int `json:"character"`
+				} `json:"end"`
+			} `json:"range"`
+			Severity int    `json:"severity"`
+			Message  string `json:"message"`
+			Source   string `json:"source"`
+		} `json:"diagnostics"`
+	}
+	if err := json.Unmarshal(params, &raw); err != nil {
+		return Diagnostics{}, false
+	}
+	path, err := uriToPath(raw.URI)
+	if err != nil {
+		return Diagnostics{}, false
+	}
+	// nil 이 아니라 빈 배열이다 — 그 차이가 "깨끗해졌다" 와 "모른다" 를 가른다.
+	items := make([]Diagnostic, 0, len(raw.Diagnostics))
+	for _, d := range raw.Diagnostics {
+		l, c := fromLSPPos(d.Range.Start.Line, d.Range.Start.Character)
+		el, ec := fromLSPPos(d.Range.End.Line, d.Range.End.Character)
+		sev := d.Severity
+		if sev == 0 {
+			// LSP 는 severity 를 생략할 수 있다. 그때의 뜻은 "서버가 정하지
+			// 않았다" 이며, 에러로 올리면 없는 오류를 만들어 낸다.
+			sev = 3
+		}
+		items = append(items, Diagnostic{
+			Line: l, Col: c, EndLine: el, EndCol: ec,
+			Severity: sev, Message: d.Message, Source: d.Source,
+		})
+	}
+	return Diagnostics{Path: path, Items: items}, true
 }
 
 // Close 는 세션을 정지시킨다 (FR-LSP-17·18).

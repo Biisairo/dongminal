@@ -11,6 +11,17 @@ Object.assign(App.prototype, {
   _initLSP(){
     const hint=document.getElementById('lsp-hint');
     if(hint) hint.textContent=LSP_PANEL_HINT;
+    // FR-LSP-36: 진단 토글. 라벨과 안내문도 상수에서 온다 — 화면에 문장을
+    // 박아 두면 그 문장이 두 자리에 살게 된다.
+    const lab=document.getElementById('lsp-diag-label');
+    if(lab) lab.textContent=LSP_DIAG_LABEL;
+    const dh=document.getElementById('lsp-diag-hint');
+    if(dh) dh.textContent=LSP_DIAG_HINT;
+    const cb=document.getElementById('lsp-diag');
+    if(cb){
+      cb.checked=lspDiagOn;
+      cb.addEventListener('change',()=>this._lspSetDiag(cb.checked));
+    }
   },
 
   /**
@@ -105,6 +116,7 @@ Object.assign(App.prototype, {
       if(d&&d.detail) msg.title=d.detail;
     }
     // 성공이든 실패든 다시 관측한다 — 화면이 자기 짐작으로 상태를 고치지 않는다.
+    this._lspStatusInvalidate();
     await this._lspRefresh();
   },
 
@@ -301,6 +313,161 @@ Object.assign(App.prototype, {
       if(String(path).startsWith(pre)&&r.length>best.length) best=r;
     }
     return best;
+  },
+
+  // ── 설치 제안 (묶음 G · M5) ──
+
+  /**
+   * FR-LSP-44: 언어 서버가 없는 파일을 **열 때** 제안한다.
+   *
+   * 상태를 파일마다 다시 묻지 않는다 — 한 번 받아 두고 설치가 일어났을 때만
+   * 버린다. 파일을 여는 것은 흔한 일이고, 그때마다 종단을 치면 그 자체가 지연이 된다.
+   */
+  async _lspOfferFor(view){
+    if(!view||!view.filePath||!view._editor) return;
+    const ext=this._lspExtOf(view.filePath);
+    if(!ext) return;
+    const list=await this._lspStatusCached();
+    if(!list) return;
+    // 확장자 → 서술자는 **서버가 준 표**로 찾는다 (FR-LSP-44) — 화면이 그 표를
+    // 따로 적으면 서술자와 어긋나 엉뚱한 제안이 뜬다.
+    const s=list.find(x=>(x.exts||[]).some(e=>e===ext));
+    if(!s||s.found) return;
+    if(this._lspDismissed(s.id)) return;
+    if(view.offer) view.offer(s);
+  },
+
+  _lspExtOf(path){
+    const m=String(path).match(/(\.[^./\\]+)$/);
+    return m?m[1].toLowerCase():'';
+  },
+
+  async _lspStatusCached(){
+    if(this._lspStatus) return this._lspStatus;
+    if(this._lspStatusP) return this._lspStatusP;
+    this._lspStatusP=(async()=>{
+      let r=null,d=null;
+      try{
+        r=await fetch(LSP_STATUS_API,{method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({overrides:this._lspOverrides()})});
+      }catch{r=null}
+      if(r&&r.ok){try{d=await r.json()}catch{d=null}}
+      // 배선이 없는 서버(503)는 제안할 것도 없다 — 빈 목록으로 굳혀 다시 묻지
+      // 않는다.
+      this._lspStatus=(d&&Array.isArray(d.servers))?d.servers:[];
+      this._lspStatusP=null;
+      return this._lspStatus;
+    })();
+    return this._lspStatusP;
+  },
+
+  // 설치가 일어났으면 굳혀 둔 상태를 버린다 — 받아 놓고도 제안이 계속 뜨면
+  // 사용자는 설치가 실패한 줄로 읽는다 (FR-LSP-47 과 같은 근거).
+  _lspStatusInvalidate(){ this._lspStatus=null },
+
+  // FR-LSP-45: 닫으면 그 언어에 다시 뜨지 않는다. 기기별인 이유는 "이 화면에서
+  // 그만 보겠다" 는 뜻이기 때문이다.
+  _lspDismissed(id){
+    try{
+      const raw=localStorage.getItem(LSP_OFFER_KEY);
+      if(!raw) return false;
+      const o=JSON.parse(raw);
+      return !!(o&&o[id]);
+    }catch{return false}
+  },
+
+  _lspDismiss(id){
+    try{
+      let o={};
+      const raw=localStorage.getItem(LSP_OFFER_KEY);
+      if(raw){const p=JSON.parse(raw); if(p&&typeof p==='object') o=p}
+      o[id]=true;
+      localStorage.setItem(LSP_OFFER_KEY,JSON.stringify(o));
+    }catch{}
+  },
+
+  /**
+   * 배너의 `받기`. 설정창의 것과 **같은 종단**을 쓴다 — 두 벌로 두면 한쪽만
+   * 고쳐진다.
+   */
+  async _lspOfferInstall(id,view){
+    const out=await this._lspInstallOnce(id);
+    this._lspStatusInvalidate();
+    if(view&&view.note) view.note(out&&out.ok?LSP_INSTALL_OK:((out&&out.reason)||LSP_STATUS_FAIL),8000);
+    if(out&&out.ok&&view&&view.offerClose) view.offerClose();
+  },
+
+  // 설정창의 `_lspInstall` 은 그 패널을 다시 칠하는 일까지 한다. 배너에는 칠할
+  // 패널이 없으므로 종단만 치는 자리를 따로 둔다 — 둘이 같은 종단을 쓴다.
+  async _lspInstallOnce(id){
+    let r=null,d=null;
+    try{
+      r=await fetch(LSP_INSTALL_API,{method:'POST',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    }catch{r=null}
+    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
+    return d;
+  },
+
+  // ── 진단 (묶음 E · M4) ──
+  //
+  // 밑줄은 Monaco 가 그린다 (D-8) — 같은 파일 안의 일이므로 탭 시스템을 알 필요가
+  // 없다. 우리가 하는 일은 그 파일의 모델을 찾아 marker 를 얹는 것뿐이다.
+
+  /**
+   * FR-LSP-32·33·34: 서버가 밀어 준 진단을 그 파일에 얹는다.
+   *
+   * owner 가 우리 것 **하나**인 것이 규칙이다 (FR-LSP-34) — 그래야 갱신이 앞선
+   * 것을 덮고 밑줄이 겹쳐 남지 않는다. 그리고 **빈 진단도 얹는다**: 그것이 "이
+   * 파일은 이제 깨끗하다" 는 뜻이며, 걷지 않으면 고친 줄에 밑줄이 남는다.
+   */
+  _lspOnDiagnostics(d){
+    if(!d||!d.path) return;
+    // FR-LSP-36: 꺼져 있으면 얹지 않는다. 서버는 계속 밀어 주지만 그것을 막을
+    // 이유는 없다 — 세션은 어차피 정의 이동을 위해 서 있고, 진단 계산은 언어
+    // 서버가 자기 판단으로 한다.
+    if(!lspDiagOn) return;
+    if(typeof monaco==='undefined'||!monaco.editor) return;
+    const items=Array.isArray(d.items)?d.items:[];
+    for(const v of this.fileEditors.values()){
+      if(!v||v.filePath!==d.path||!v._editor) continue;
+      const model=v._editor.getModel();
+      if(!model) continue;
+      monaco.editor.setModelMarkers(model,LSP_DIAG_OWNER,items.map(it=>({
+        // Monaco 도 1 부터 센다 — 서버가 이미 우리 셈법으로 보냈으므로 여기서
+        // 셈법을 바꾸지 않는다.
+        startLineNumber:it.line, startColumn:it.col,
+        endLineNumber:it.endLine||it.line, endColumn:it.endCol||it.col,
+        message:it.message||'',
+        source:it.source||'',
+        severity:LSP_DIAG_SEVERITY[it.severity]||2,
+      })));
+    }
+  },
+
+  /**
+   * FR-LSP-35: 탭을 닫으면 그 파일의 진단을 걷는다.
+   *
+   * 모델이 파일마다 하나이고 탭을 닫아도 남을 수 있으므로(`_edDocDrop` 이 수명을
+   * 정한다), 걷지 않으면 다시 열었을 때 낡은 밑줄이 먼저 보인다.
+   */
+  _lspClearDiagnostics(model){
+    if(!model||typeof monaco==='undefined'||!monaco.editor) return;
+    monaco.editor.setModelMarkers(model,LSP_DIAG_OWNER,[]);
+  },
+
+  /**
+   * FR-LSP-36: 진단 토글. 끄면 지금 서 있는 밑줄을 **즉시 걷는다** — 껐는데 남아
+   * 있으면 설정이 듣지 않는 것으로 보인다.
+   */
+  _lspSetDiag(on){
+    lspDiagOn=!!on;
+    try{localStorage.setItem(LSP_DIAG_KEY,lspDiagOn?'1':'0')}catch{}
+    if(lspDiagOn) return;
+    for(const v of this.fileEditors.values()){
+      if(v&&v._editor) this._lspClearDiagnostics(v._editor.getModel());
+    }
   },
 
   // ── 뒤로 가기 (FR-LSP-27) ──

@@ -279,3 +279,8 @@ func (f *fakeServer) replyErrorRaw(id any, code int, msg string) {
 		"error": map[string]any{"code": code, "message": msg}})
 	_ = writeFrame(f.toClient, b)
 }
+
+func (f *fakeServer) notifyRaw(method string, params any) {
+	b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "method": method, "params": params})
+	_ = writeFrame(f.toClient, b)
+}

@@ -133,7 +133,13 @@ Object.assign(App.prototype, {
         if(tab.dataset.tab==='sandbox')this._loadSandboxPanel();
         // FR-LSP-47: 언어 서버의 상태는 캐시가 아니라 관측이다 — 샌드박스와
         // 같은 근거로 열 때마다 다시 읽는다.
-        if(tab.dataset.tab==='code')this._lspRefresh();
+        if(tab.dataset.tab==='code'){
+          this._lspRefresh();
+          // 토글은 기기별 값이라 다른 탭에서 바뀔 일이 없지만, 열 때마다 다시
+          // 칠하는 것이 이 모달의 규약이다 (FR-LVC-3 와 같은 근거).
+          const dcb=document.getElementById('lsp-diag');
+          if(dcb) dcb.checked=lspDiagOn;
+        }
       });
     });
     this._initPageTitle();

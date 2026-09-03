@@ -368,6 +368,9 @@ class FileEditor {
     // 등록이 늘지 않아야 한다 — 늘면 같은 호버가 여러 번 뜬다. 그 판정은 app 이
     // 갖고 있으므로 여기서는 부르기만 한다.
     if (window.app && window.app._lspHoverRegister) window.app._lspHoverRegister();
+    // FR-LSP-44: 이 파일의 언어 서버가 없으면 제안한다. 판정은 app 이 하며
+    // 상태를 파일마다 다시 묻지 않는다.
+    if (window.app && window.app._lspOfferFor) window.app._lspOfferFor(this);
 
     // Save on Ctrl+S / Cmd+S
     this._editor.addCommand(
@@ -560,6 +563,68 @@ class FileEditor {
     this._noteT = setTimeout(() => {
       if (this._note) this._note.classList.remove('vis');
     }, ms || FE_NOTE_MS);
+  }
+
+  /**
+   * EDITOR_LSP_SRS FR-LSP-44·45: 언어 서버가 없을 때의 제안.
+   *
+   * 알림 줄(`note`)과 **다른 것이다** — 이것은 스스로 사라지지 않고 버튼을 갖는다.
+   * 사용자가 무언가를 해야 하는 알림과 그냥 알리는 알림은 같은 모양일 수 없다.
+   */
+  offer(st) {
+    if (!st || this._offerEl) return;
+    const el = document.createElement('div');
+    el.className = 'fe-offer';
+    el.dataset.id = st.id;
+    const body = st.canInstall
+      ? LSP_OFFER_BODY.replace('%s', st.id)
+      : LSP_OFFER_NO_TOOL.replace(/%t/g, st.installer || '').replace('%s', st.id);
+    el.innerHTML =
+      '<span class="fe-offer-msg"></span>' +
+      (st.canInstall
+        ? '<button type="button" class="fe-offer-go">' + LSP_OFFER_INSTALL + '</button>'
+        : '<button type="button" class="fe-offer-set">' + LSP_OFFER_SETTINGS + '</button>') +
+      '<button type="button" class="fe-offer-no">' + LSP_OFFER_DISMISS + '</button>' +
+      '<button type="button" class="fe-offer-x" title="' + ED_FIND_CLOSE_TITLE + '">✕</button>';
+    // 사유는 텍스트 노드로 넣는다 — 서버가 보낸 이름이 그 자리에 닿는다.
+    el.querySelector('.fe-offer-msg').textContent = body;
+    this.el.appendChild(el);
+    this._offerEl = el;
+
+    const go = el.querySelector('.fe-offer-go');
+    if (go) {
+      go.addEventListener('click', () => {
+        go.disabled = true;
+        go.textContent = LSP_INSTALLING;
+        if (window.app) window.app._lspOfferInstall(st.id, this);
+      });
+    }
+    const set = el.querySelector('.fe-offer-set');
+    if (set) {
+      set.addEventListener('click', () => {
+        // 받을 수 없을 때의 다음 걸음은 설정창이다 — 거기에 무엇이 없는지와
+        // 어디서 찾았는지가 다 있다.
+        const b = document.getElementById('settings-btn');
+        if (b) b.click();
+        const tab = document.querySelector('button.mtab[data-tab="code"]');
+        if (tab) tab.click();
+        this.offerClose();
+      });
+    }
+    // FR-LSP-45: `다시 보지 않기` 는 그 **언어**에 대한 것이다. 파일마다 뜨면
+    // 그것이 곧 고장이므로 이 기억이 필요하다.
+    el.querySelector('.fe-offer-no').addEventListener('click', () => {
+      if (window.app) window.app._lspDismiss(st.id);
+      this.offerClose();
+    });
+    // ✕ 는 이번만 닫는다 — 기억하지 않는다.
+    el.querySelector('.fe-offer-x').addEventListener('click', () => this.offerClose());
+  }
+
+  offerClose() {
+    if (!this._offerEl) return;
+    this._offerEl.remove();
+    this._offerEl = null;
   }
 
   // ── 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS 묶음 B·C·D) ──
@@ -796,6 +861,12 @@ class FileEditor {
     // 하이라이트는 에디터와 함께 사라지지만, 컬렉션을 명시적으로 걷는다 —
     // dispose 순서에 기대지 않는다.
     if (this._findDecos) { this._findDecos.clear(); this._findDecos = null }
+    // EDITOR_LSP_SRS FR-LSP-35: 진단은 **모델의 것**이고 모델은 탭보다 오래 살
+      // 수 있다 (`_edDocDrop` 이 수명을 정한다). 걷지 않으면 다시 열었을 때 낡은
+    // 밑줄이 먼저 보인다.
+    if (this._editor && window.app && window.app._lspClearDiagnostics) {
+      window.app._lspClearDiagnostics(this._editor.getModel());
+    }
     if (this._editor) {
       // 모델은 **에디터의 것이 아니다** — `{model}` 로 준 것은 dispose 되지 않는다.
       // 문서의 수명은 `_edDocDrop` 이 정한다 (FR-SVS-55).

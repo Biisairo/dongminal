@@ -24,6 +24,12 @@ type Service struct {
 	// Overrides 는 설정이 적은 절대경로 표다 (FR-LSP-4b). 세션을 세울 때의
 	// 탐색이 이것을 딛는다 — 상태 조회는 요청이 실은 표를 따로 받는다.
 	Overrides map[string]string
+	// OnDiagnostics 는 진단이 왔을 때 부를 함수다 (FR-LSP-32).
+	//
+	// **도메인 계층은 이것이 SSE 인지 모른다** (D-4) — 배선이 그것을 정한다.
+	// nil 이면 진단은 조용히 버려진다: 그 배선이 없는 서버에서 세션이 진단을 모아
+	// 두면 쓰지 않는 메모리가 된다.
+	OnDiagnostics DiagFunc
 	// IdleAfter·MaxSessions 가 0 이면 이 패키지의 기본값을 쓴다.
 	IdleAfter   time.Duration
 	MaxSessions int

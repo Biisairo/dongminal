@@ -248,6 +248,14 @@ var confirmLeave=false;
 // 탐색의 첫째 순위가 **요청에 실려야** 하기 때문이다 (설정 블롭은 서버가 해석하지
 // 않는다).
 var lspServerPaths={};
+// EDITOR_LSP_SRS FR-LSP-36: 진단(에러·경고 밑줄)을 켤지. 기본은 켬 — 언어 서버를
+// 세웠다면 그것이 찾은 문제를 보는 것이 기본값으로 옳다. **기기별**인 이유는
+// 화면의 시끄러움에 대한 취향이기 때문이다.
+var lspDiagOn=true;
+try{
+  const raw=localStorage.getItem('lspDiagnostics');
+  if(raw!==null) lspDiagOn=raw!=='0';
+}catch{}
 try{
   const raw=localStorage.getItem('lspServerPaths');
   if(raw){const o=JSON.parse(raw); if(o&&typeof o==='object') lspServerPaths=o}

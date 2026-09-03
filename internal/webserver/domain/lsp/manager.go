@@ -125,7 +125,8 @@ func (s *Service) session(root, path string) (*Session, error) {
 	if start == nil {
 		start = StartProcess
 	}
-	sess := newSession(root, d, st.Exe, start, nil)
+	// FR-LSP-32: 진단은 요청 없이 오므로 세션을 세울 때 통로를 잇는다.
+	sess := newSession(root, d, st.Exe, start, s.OnDiagnostics)
 	if sess.initErr != nil {
 		s.remember(d.ID, sess.initErr)
 		sess.Close()

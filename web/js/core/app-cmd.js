@@ -79,6 +79,13 @@ Object.assign(App.prototype, {
               if(v&&window.__dmAssetVersion) window.__dmAssetVersion(String(v));
               return;
             }
+            // EDITOR_LSP_SRS FR-LSP-32: 언어 서버가 밀어 준 진단. 요청 없이
+            // 오므로 이 길이 필요하다 — 폴링으로 바꾸면 타이핑을 멈춘 뒤 밑줄이
+            // 늦게 서거나, 멈추지 않았는데도 계속 묻게 된다.
+            if(m.action===LSP_DIAG_ACTION){
+              this._lspOnDiagnostics(m.args||{});
+              return;
+            }
             if(m.action==='workspace_changed'){
               this._onWorkspaceChanged(m.args&&m.args.rev);
               return;

@@ -346,3 +346,104 @@ func TestSession_HoverContentShapes(t *testing.T) {
 		})
 	}
 }
+
+// TC-LSP-69 (FR-LSP-32·33): 진단은 **요청 없이** 온다. 서버가 밀어 준 알림이
+// 파싱되어 콜백으로 오고, 좌표는 우리 셈법(1 부터)이며 uri 는 경로로 풀린다.
+func TestSession_PublishDiagnostics(t *testing.T) {
+	got := make(chan Diagnostics, 4)
+	start, _ := fakeStarter(t, func(s *fakeServer, m map[string]any) {
+		if m["method"] == "initialize" {
+			s.replyRaw(m["id"], map[string]any{})
+			// 핸드셰이크 뒤에 밀어 준다 — 실제 서버가 그렇게 한다.
+			s.notifyRaw("textDocument/publishDiagnostics", map[string]any{
+				"uri": pathToURI("/root/a.go"),
+				"diagnostics": []map[string]any{
+					{
+						"range": map[string]any{
+							"start": map[string]any{"line": 4, "character": 1},
+							"end":   map[string]any{"line": 4, "character": 9},
+						},
+						"severity": 1,
+						"message":  "undefined: helper",
+						"source":   "compiler",
+					},
+					{
+						"range": map[string]any{
+							"start": map[string]any{"line": 9, "character": 0},
+							"end":   map[string]any{"line": 9, "character": 3},
+						},
+						"severity": 2,
+						"message":  "unused variable",
+					},
+				},
+			})
+		}
+	})
+	sess := newSession("/root", mustDesc(t, ".go"), "/fake/gopls", start,
+		func(d Diagnostics) { got <- d })
+	defer sess.Close()
+
+	// 핸드셰이크를 돌린다 — 그것이 알림의 계기다.
+	if err := sess.waitReady(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case d := <-got:
+		if d.Path != "/root/a.go" {
+			t.Fatalf("경로가 풀리지 않았다: %q", d.Path)
+		}
+		if len(d.Items) != 2 {
+			t.Fatalf("진단이 둘이 아니다: %+v", d.Items)
+		}
+		// LSP 의 4,1 은 우리의 5,2 다.
+		if d.Items[0].Line != 5 || d.Items[0].Col != 2 {
+			t.Fatalf("좌표가 어긋났다: %+v", d.Items[0])
+		}
+		if d.Items[0].EndLine != 5 || d.Items[0].EndCol != 10 {
+			t.Fatalf("끝 좌표가 어긋났다: %+v", d.Items[0])
+		}
+		if d.Items[0].Severity != 1 || d.Items[0].Message != "undefined: helper" {
+			t.Fatalf("내용이 다르다: %+v", d.Items[0])
+		}
+		if d.Items[1].Severity != 2 {
+			t.Fatalf("두 번째의 심각도가 다르다: %+v", d.Items[1])
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("진단이 오지 않았다")
+	}
+}
+
+// TC-LSP-69b (FR-LSP-33): 진단이 **비어서** 오는 것도 알림이다 — 그것이 "이 파일은
+// 이제 깨끗하다" 는 뜻이며, 그때 앞선 밑줄을 걷어야 한다.
+func TestSession_EmptyDiagnosticsStillNotifies(t *testing.T) {
+	got := make(chan Diagnostics, 2)
+	start, _ := fakeStarter(t, func(s *fakeServer, m map[string]any) {
+		if m["method"] == "initialize" {
+			s.replyRaw(m["id"], map[string]any{})
+			s.notifyRaw("textDocument/publishDiagnostics", map[string]any{
+				"uri":         pathToURI("/root/a.go"),
+				"diagnostics": []any{},
+			})
+		}
+	})
+	sess := newSession("/root", mustDesc(t, ".go"), "/fake/gopls", start,
+		func(d Diagnostics) { got <- d })
+	defer sess.Close()
+	sess.waitReady(context.Background())
+
+	select {
+	case d := <-got:
+		if d.Path != "/root/a.go" {
+			t.Fatalf("경로가 다르다: %q", d.Path)
+		}
+		if d.Items == nil {
+			t.Fatal("Items 가 nil 이다 — 빈 배열이어야 화면이 '걷어라' 로 읽는다")
+		}
+		if len(d.Items) != 0 {
+			t.Fatalf("빈 진단이 아니다: %+v", d.Items)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("빈 진단이 오지 않았다 — 그것도 알림이다")
+	}
+}

@@ -153,3 +153,26 @@ func TestService_InstallUnknownID(t *testing.T) {
 		t.Fatal("사유가 없다")
 	}
 }
+
+// TC-LSP-24 (FR-LSP-44): 상태에 확장자가 실린다 — 화면이 "이 파일의 서버가
+// 있는가" 를 판정할 근거다. 화면이 그 표를 따로 적으면 서술자와 어긋난다.
+func TestService_StatusCarriesExts(t *testing.T) {
+	svc, _ := testService(t, nil, nil)
+	for _, st := range svc.Status(nil) {
+		if len(st.Exts) == 0 {
+			t.Fatalf("%s 에 확장자가 없다", st.ID)
+		}
+	}
+	// .go 가 어느 줄에도 없으면 화면은 Go 파일의 제안을 띄울 수 없다.
+	found := false
+	for _, st := range svc.Status(nil) {
+		for _, e := range st.Exts {
+			if e == ".go" {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatal(".go 를 덮는 줄이 없다")
+	}
+}

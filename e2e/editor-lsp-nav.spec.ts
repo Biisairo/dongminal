@@ -326,3 +326,169 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
     expect(calls, `호버 요청이 ${calls} 번 나갔다 — provider 가 여러 번 등록됐다`).toBe(1);
   });
 });
+
+test.describe('코드 탐색 — 진단 (M4)', () => {
+  // 서버가 밀어 준 진단을 흉내낸다. 실제 SSE 를 타지 않는 이유는 이 검사가 재려는
+  // 것이 **밑줄을 얹는 경로**이고, SSE 배선은 Go 쪽이 잰다는 것이다.
+  const push = (page: Page, path: string, items: any[]) => page.evaluate(
+    ([p, its]) => (window as any).app._lspOnDiagnostics({ path: p, items: its }),
+    [path, items] as const);
+
+  const markers = (page: Page) => page.evaluate(() => {
+    const v = (window as any).app._edActiveEditor();
+    const model = v?._editor?.getModel();
+    if (!model) return [];
+    return (window as any).monaco.editor.getModelMarkers({ resource: model.uri })
+      .map((m: any) => ({ line: m.startLineNumber, sev: m.severity, msg: m.message }));
+  });
+
+  // V-LSP-17 · FR-LSP-32·33·34
+  test('진단이 밑줄로 서고 갱신이 앞 밑줄을 덮는다', async ({ page, request }) => {
+    await enter(page, request);
+    await openFile(page, 'main.go');
+
+    await push(page, `${ROOT}/main.go`, [
+      { line: 4, col: 2, endLine: 4, endCol: 8, severity: 1, message: 'undefined: helper' },
+      { line: 3, col: 1, endLine: 3, endCol: 5, severity: 2, message: 'unused' },
+    ]);
+    await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(2);
+    const got = await markers(page);
+    // LSP 의 1=에러는 Monaco 의 8 이고, 2=경고는 4 다 — 숫자가 겹치므로 표 없이
+    // 넘기면 조용히 뒤바뀐다.
+    expect(got.find((m: any) => m.line === 4)?.sev).toBe(8);
+    expect(got.find((m: any) => m.line === 3)?.sev).toBe(4);
+
+    // 갱신이 앞선 것을 **덮는다** — owner 가 하나이므로 겹쳐 남지 않는다.
+    await push(page, `${ROOT}/main.go`, [
+      { line: 5, col: 1, endLine: 5, endCol: 2, severity: 1, message: 'only one now' },
+    ]);
+    await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(1);
+    expect((await markers(page))[0].msg).toBe('only one now');
+  });
+
+  // FR-LSP-33: **빈 진단도 알림이다** — 고친 줄에 밑줄이 남으면 그것이 거짓말이 된다.
+  test('빈 진단이 오면 밑줄이 걷힌다', async ({ page, request }) => {
+    await enter(page, request);
+    await openFile(page, 'main.go');
+    await push(page, `${ROOT}/main.go`, [
+      { line: 4, col: 2, endLine: 4, endCol: 8, severity: 1, message: 'boom' },
+    ]);
+    await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(1);
+
+    await push(page, `${ROOT}/main.go`, []);
+    await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(0);
+  });
+
+  // FR-LSP-33: 다른 파일의 진단은 이 파일에 얹히지 않는다.
+  test('다른 파일의 진단은 이 파일에 얹히지 않는다', async ({ page, request }) => {
+    await enter(page, request);
+    await openFile(page, 'main.go');
+    await push(page, `${ROOT}/pkg/deep/helper.go`, [
+      { line: 1, col: 1, endLine: 1, endCol: 2, severity: 1, message: '남의 것' },
+    ]);
+    await page.waitForTimeout(400);
+    expect(await markers(page)).toHaveLength(0);
+  });
+
+  // FR-LSP-36: 끄면 **지금 서 있는 밑줄까지** 걷힌다. 껐는데 남아 있으면 설정이
+  // 듣지 않는 것으로 보인다.
+  test('설정에서 끄면 밑줄이 걷히고 새 진단도 얹히지 않는다', async ({ page, request }) => {
+    await enter(page, request);
+    await openFile(page, 'main.go');
+    await push(page, `${ROOT}/main.go`, [
+      { line: 4, col: 2, endLine: 4, endCol: 8, severity: 1, message: 'boom' },
+    ]);
+    await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(1);
+
+    await page.click('#settings-btn');
+    await page.click('button.mtab[data-tab="code"]');
+    await expect(page.locator('#panel-code')).toBeVisible();
+    await expect(page.locator('#lsp-diag')).toBeChecked();
+    await page.uncheck('#lsp-diag');
+    await page.click('#modal-close');
+
+    await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(0);
+    // 꺼진 뒤에 온 진단도 얹히지 않는다.
+    await push(page, `${ROOT}/main.go`, [
+      { line: 4, col: 2, endLine: 4, endCol: 8, severity: 1, message: 'again' },
+    ]);
+    await page.waitForTimeout(400);
+    expect(await markers(page)).toHaveLength(0);
+  });
+});
+
+test.describe('코드 탐색 — 설치 제안 (M5)', () => {
+  // 상태를 stub 한다. 이 기계에 gopls 가 있는지는 환경마다 다르므로, 있다고
+  // 단정하거나 없다고 단정하면 어느 한쪽 환경에서 거짓이 된다.
+  const stubStatus = (page: Page, servers: any[]) => page.route('**/api/lsp/status',
+    (r: any) => r.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ servers }),
+    }));
+
+  const GOPLS_MISSING = {
+    id: 'gopls', langs: ['go'], exts: ['.go'],
+    found: false, installer: 'go', canInstall: true,
+  };
+
+  const offer = (page: Page) => page.locator('.file-editor:visible .fe-offer');
+
+  // V-LSP-20 · FR-LSP-44: 서버가 없는 파일을 열면 제안한다 — 무엇을 설치하면
+  // 무엇이 되는지와 함께.
+  test('서버가 없는 파일을 열면 제안이 뜬다', async ({ page, request }) => {
+    await enter(page, request);
+    await stubStatus(page, [GOPLS_MISSING]);
+    await openFile(page, 'main.go');
+
+    await expect(offer(page)).toBeVisible({ timeout: 10000 });
+    await expect(offer(page)).toContainText('gopls');
+    await expect(offer(page).locator('.fe-offer-go')).toBeVisible();
+  });
+
+  // FR-LSP-44: 서버가 **있으면** 제안하지 않는다 — 있는데 뜨면 그것이 곧 방해다.
+  test('서버가 있으면 제안이 뜨지 않는다', async ({ page, request }) => {
+    await enter(page, request);
+    await stubStatus(page, [{ ...GOPLS_MISSING, found: true, exe: '/usr/bin/gopls', origin: 'path' }]);
+    await openFile(page, 'main.go');
+    await page.waitForTimeout(700);
+    await expect(offer(page)).toHaveCount(0);
+  });
+
+  // FR-LSP-44: 그 언어의 파일이 아니면 제안하지 않는다.
+  test('지원 언어가 아닌 파일에는 제안이 뜨지 않는다', async ({ page, request }) => {
+    await enter(page, request);
+    await stubStatus(page, [GOPLS_MISSING]);
+    await openFile(page, 'notes.txt');
+    await page.waitForTimeout(700);
+    await expect(offer(page)).toHaveCount(0);
+  });
+
+  // V-LSP-20 · FR-LSP-45: `다시 보지 않기` 는 **그 언어**에 대한 것이다. 파일마다
+  // 뜨면 그것이 곧 고장이다.
+  test('다시 보지 않기를 누르면 다른 파일에서도 뜨지 않는다', async ({ page, request }) => {
+    await enter(page, request);
+    await stubStatus(page, [GOPLS_MISSING]);
+    await openFile(page, 'main.go');
+    await expect(offer(page)).toBeVisible({ timeout: 10000 });
+    await offer(page).locator('.fe-offer-no').click();
+    await expect(offer(page)).toHaveCount(0);
+
+    // 같은 언어의 다른 파일 — 다시 뜨지 않는다.
+    await openFile(page, 'pkg/deep/helper.go');
+    await page.waitForTimeout(700);
+    await expect(offer(page)).toHaveCount(0);
+  });
+
+  // FR-LSP-11: 받을 수 없으면 **무엇이 없어서** 그런지가 이름으로 보이고, 받기
+  // 대신 설정으로 가는 길이 보인다.
+  test('받을 수 없으면 그 이유가 이름으로 보인다', async ({ page, request }) => {
+    await enter(page, request);
+    await stubStatus(page, [{ ...GOPLS_MISSING, canInstall: false }]);
+    await openFile(page, 'main.go');
+
+    await expect(offer(page)).toBeVisible({ timeout: 10000 });
+    await expect(offer(page)).toContainText('go');
+    await expect(offer(page).locator('.fe-offer-go')).toHaveCount(0);
+    await expect(offer(page).locator('.fe-offer-set')).toBeVisible();
+  });
+});

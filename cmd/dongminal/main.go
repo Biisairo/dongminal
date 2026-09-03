@@ -7,6 +7,7 @@ import (
 	"dongminal/internal/shared/toolhub"
 
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -340,6 +341,24 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 	// 안에 살고, 지우면 원상복구된다 (FR-LSP-7). 시스템·사용자 전역은 건드리지
 	// 않는다.
 	lspSvc := lsp.NewService(dataPath(cfg.DataDir, "lsp"))
+	// FR-LSP-32: 진단은 **요청 없이** 오므로 이미 있는 push 길로 밀어낸다 (D-2).
+	// 도메인 계층은 이것이 SSE 인지 모른다 (D-4) — 그 결정이 여기 있다.
+	//
+	// 새 WebSocket 을 열지 않는 이유는 그 길이 이미 덮고 있기 때문이다: 화면은
+	// 이 구독을 늘 열어 두고, 끊기면 스스로 되살린다 (FR-RLC-25).
+	lspSvc.OnDiagnostics = func(d lsp.Diagnostics) {
+		if cmdHub == nil {
+			return
+		}
+		payload, err := json.Marshal(map[string]any{
+			"action": "lsp_diagnostics",
+			"args":   d,
+		})
+		if err != nil {
+			return
+		}
+		cmdHub.Broadcast(payload)
+	}
 
 	return builtDeps{
 		deps: httpapi.Deps{
