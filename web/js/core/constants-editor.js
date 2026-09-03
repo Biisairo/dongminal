@@ -45,6 +45,22 @@ const ED_SEARCH_EMPTY='결과 없음';
 const ED_SEARCH_FAIL='찾지 못했습니다';
 const ED_SEARCH_COUNT_SUFFIX='건';
 
+// 패널 네 모드의 안내문. 한 표에 두는 이유는 모드를 더할 때 `_edPanel` 의 조건이
+// 늘지 않게 하기 위해서다 — 종전에는 `mode==='find'?A:B` 라 셋째 모드를 넣을
+// 자리가 없었다.
+const ED_PANEL_PLACEHOLDER={
+  find:ED_FIND_PLACEHOLDER,
+  grep:ED_GREP_PLACEHOLDER,
+  refs:'참조 (↑↓ 로 옮기고 Enter 로 엽니다)',
+  defs:'정의가 여럿입니다 (↑↓ · Enter)',
+};
+const ED_PANEL_HINT={
+  find:ED_FIND_HINT,
+  grep:ED_GREP_HINT,
+  refs:'',
+  defs:'',
+};
+
 // ── 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS 묶음 B·C·D) ──
 //
 // Monaco 의 find 위젯을 **쓰지 않는다** (FR-EFP-25 가 FR-EKB-3 을 개정했다). 위젯은
@@ -110,6 +126,28 @@ const LSP_PANEL_HINT=
   '정의로 이동·참조 찾기·호버·진단은 언어 서버가 있어야 동작합니다. '+
   'PATH 에 이미 있으면 그것을 쓰고, 없을 때 `받기` 를 누르면 이 기계의 go·npm 으로 '+
   'dongminal 전용 폴더에만 받습니다 — 시스템은 건드리지 않고, 그 폴더를 지우면 원상복구됩니다.';
+
+// ── 코드 탐색: 정의·참조 이동 (EDITOR_LSP_SRS 묶음 C·F · M2) ──
+const LSP_DEF_API='/api/lsp/definition';
+const LSP_REFS_API='/api/lsp/references';
+// FR-LSP-27: 뒤로 갈 자리를 담는 깊이. 무한히 쌓으면 그 자체가 새는 자리가 된다.
+const LSP_BACK_MAX=64;
+// FR-LSP-28 / D-9: **침묵은 고장과 구별되지 않는다.** 아래 넷이 "아무 일도
+// 일어나지 않음" 을 서로 다른 문장으로 갈라 놓는 자리다.
+const LSP_NO_DEF='정의를 찾지 못했습니다';
+const LSP_NO_REFS='참조를 찾지 못했습니다';
+const LSP_ASK_FAIL='언어 서버에 묻지 못했습니다';
+const LSP_NO_BACK='뒤로 갈 자리가 없습니다';
+// 참조 목록은 전체 검색과 **같은 껍데기**를 쓴다 (§2.11) — 사용자가 이미 아는
+// 조작(↑↓·Enter)이 그대로다.
+const LSP_REFS_PLACEHOLDER='참조 (↑↓ 로 옮기고 Enter 로 엽니다)';
+const LSP_REFS_HINT='%s개의 참조';
+const LSP_DEFS_PLACEHOLDER='정의가 여럿입니다';
+const LSP_DEFS_HINT='%s개의 정의';
+// 요청이 오래 걸리면 진행 중임이 보인다 (FR-LSP-43).
+const LSP_ASKING='언어 서버에 묻는 중…';
+// 알림 줄이 스스로 사라지기까지. 닫는 조작을 배워야 하는 알림은 알림이 아니라 창이다.
+const FE_NOTE_MS=4000;
 
 // FR-EDT-47 / D-18: 탐색기 폭은 워크스페이스에 산다 (`window.editor.explorerWidth`).
 // 상·하한은 사이드바(`--sb-w`)의 규약을 그대로 따른다 — 같은 종류의 값이 서로 다른

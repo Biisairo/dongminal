@@ -78,9 +78,9 @@ class InputBinding {
         if(h.match(e)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(h.action);return}
       }
       for(const[action,key]of Object.entries(shortcuts)){
-        // 편집기 검색 셋은 위에서 이미 판정했다. 여기서 다시 잡으면 Editor 창이
-        // 아닐 때 그 키를 삼켜 터미널 검색이 죽는다 (FR-EKB-4).
-        if(ED_SEARCH_ACTIONS[action]) continue;
+        // 편집기 검색·코드 탐색 셋은 위에서 이미 판정했다. 여기서 다시 잡으면
+        // Editor 창이 아닐 때 그 키를 삼켜 터미널 검색이 죽는다 (FR-EKB-4).
+        if(ED_CAPTURE_ACTIONS[action]) continue;
         if(matchShortcut(e,key)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(action);return}
       }
       this._blockBrowserDefault(e);

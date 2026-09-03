@@ -74,18 +74,35 @@ Object.assign(App.prototype, {
    * preventDefault 까지 하고 아무 일도 안 하면 그 키는 죽은 키가 된다.
    */
   _edTrySearchKey(e){
-    for(const[action,fn] of Object.entries(ED_SEARCH_ACTIONS)){
+    for(const[action,fn] of Object.entries(ED_CAPTURE_ACTIONS)){
       if(!matchShortcut(e,shortcuts[action])) continue;
-      if(action!=='edFindInFile'&&!this._edSearchRoot()) return false;
-      // FR-EFP-13: 편집기가 **선** 탭이어야 한다. 인스턴스가 있는 것만으로는
-      // 부족하다 — 이미지·이진 파일 탭은 인스턴스는 있고 Monaco 는 없으며, 그때
-      // 키를 삼키면 아무 일도 일어나지 않는 죽은 키가 된다.
-      if(action==='edFindInFile'&&!this._edFindReady()) return false;
+      // 게이트는 액션의 성질이 정한다. 통과하지 못하면 **삼키지 않고** false 를
+      // 돌려준다 (FR-EKB-4 · FR-LSP-40b) — 삼키면 그 조합이 죽은 키가 된다.
+      if(!this._edKeyGate(action)) return false;
       e.preventDefault(); e.stopImmediatePropagation();
       this[fn]();
       return true;
     }
     return false;
+  },
+
+  /**
+   * 이 액션이 지금 뜻을 갖는가.
+   *
+   * 셋으로 갈린다:
+   *  - 코드 탐색 — 편집기가 **서 있어야** 하고 루트가 있어야 한다 (서버에 root 를
+   *    함께 보내므로). 뒤로 가기는 갈 자리가 있어야 한다 (FR-LSP-40b).
+   *  - 파일 내 검색 — 편집기가 서 있어야 한다. 인스턴스가 있는 것만으로는 부족하다
+   *    — 이미지·이진 파일 탭은 인스턴스는 있고 Monaco 는 없다 (FR-EFP-13).
+   *  - 나머지 검색 둘 — 루트만 있으면 된다.
+   */
+  _edKeyGate(action){
+    if(ED_LSP_ACTIONS[action]){
+      if(action==='edNavBack') return this._lspCanBack();
+      return this._edFindReady()&&!!this._edSearchRoot();
+    }
+    if(action==='edFindInFile') return this._edFindReady();
+    return !!this._edSearchRoot();
   },
 
   _edPanelOpen(mode){
@@ -113,13 +130,15 @@ Object.assign(App.prototype, {
     }
     p._mode=mode; p._root=root; p._sel=0; p._items=[];
     const q=p.querySelector('.ed-find-q');
-    q.placeholder=mode==='find'?ED_FIND_PLACEHOLDER:ED_GREP_PLACEHOLDER;
+    q.placeholder=ED_PANEL_PLACEHOLDER[mode]||ED_GREP_PLACEHOLDER;
     q.value='';
     p.querySelector('.ed-find-list').innerHTML='';
-    p.querySelector('.ed-find-note').textContent=
-      mode==='find'?ED_FIND_HINT:ED_GREP_HINT;
+    p.querySelector('.ed-find-note').textContent=ED_PANEL_HINT[mode]||ED_GREP_HINT;
     p.classList.add('vis');
     q.focus();
+    // 패널을 **돌려준다.** 부르는 쪽이 항목을 직접 채우는 경우가 있다 —
+    // 참조·정의 목록은 이미 손에 있는 자리들을 그린다 (FR-LSP-25).
+    return p;
   },
 
   _edPanelClose(){
@@ -162,6 +181,9 @@ Object.assign(App.prototype, {
   },
 
   async _edPanelQuery(p){
+    // EDITOR_LSP_SRS FR-LSP-25: 참조·정의 목록은 **이미 받은 항목**을 그린다 —
+    // 질의로 서버를 다시 치지 않는다. 껍데기만 공유한다.
+    if(p._mode==='refs'||p._mode==='defs') return;
     const q=p.querySelector('.ed-find-q').value;
     const note=p.querySelector('.ed-find-note');
     if(!q){
@@ -222,6 +244,7 @@ Object.assign(App.prototype, {
     if(!it) return;
     this._edPanelClose();
     const abs=p._root.replace(/\/+$/,'')+'/'+it.path;
-    this._edOpenFile(abs,p._mode==='grep'?{line:it.line,col:it.col}:undefined);
+    // `find` 만 파일 자체를 열고, 나머지(grep·refs·defs)는 **그 줄로** 연다.
+    this._edOpenFile(abs,p._mode==='find'?undefined:{line:it.line,col:it.col});
   },
 });

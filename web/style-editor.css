@@ -321,3 +321,18 @@ body.mobile .ed-explorer{max-width:40%}
 .lsp-msg{grid-area:msg;font-size:11px;color:var(--text-dim);overflow-wrap:anywhere}
 .lsp-msg:empty{display:none}
 .lsp-empty{padding:10px;font-size:11px;color:var(--text-muted)}
+
+/* FR-LSP-28 / D-9: 침묵을 가르는 알림 줄. 찾기 패널과 같은 자리 규약이며
+   스스로 사라진다 — 닫는 조작을 배워야 하는 알림은 알림이 아니라 창이다. */
+.fe-note{
+  position:absolute;top:6px;right:18px;z-index:13;
+  max-width:min(520px,72%);padding:5px 10px;
+  border:1px solid var(--border);border-radius:6px;
+  background:var(--sidebar-bg,#16161e);color:var(--text-bright);
+  font-size:11px;line-height:1.4;box-shadow:0 4px 16px rgba(0,0,0,.45);
+  opacity:0;pointer-events:none;transition:opacity .12s;
+  overflow-wrap:anywhere;
+}
+.fe-note.vis{opacity:1}
+/* 찾기 패널이 열려 있으면 그 아래로 내려 앉는다 — 같은 자리를 다투지 않는다. */
+.fe-find.vis ~ .fe-note{top:38px}

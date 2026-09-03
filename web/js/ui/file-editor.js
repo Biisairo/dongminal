@@ -476,12 +476,28 @@ class FileEditor {
   refresh() {
     if (this._loading) return;
     this._fetchFile().then(content => {
-      if (this._editor) {
-        // 모델이 공유되므로 이 한 번이 모든 칸의 내용을 되돌린다.
-        this._editor.setValue(content);
-        this._dirty = false;
-        this._tabLabelAll();
+      if (!this._editor) return;
+      // EDITOR_LSP_SRS §2.11b / FR-LSP-26b: **내용이 같으면 넣지 않는다.**
+      //
+      // `setValue` 는 커서를 1,1 로 되돌리고 undo 스택을 버린다. 그런데 이 갱신은
+      // 비동기이고, `_edOpenFile` 은 탭을 활성화한 **직후에** 그 줄로 커서를
+      // 옮긴다 (FR-EGS-10) — 그래서 늦게 도착한 이 `setValue` 가 방금 옮긴 커서를
+      // 앗아갔다. 이미 열어 둔 파일을 검색 결과나 정의 이동으로 고르면 그 줄로
+      // 가지 않는 결함이 그것이었다 (V-EGS-10 이 그것을 잡고 있었다).
+      //
+      // 같은 내용을 다시 넣는 일은 화면에 아무것도 바꾸지 않으면서 커서와 undo
+      // 스택만 버린다. 디스크와 같아졌다는 사실(dirty 해제)만 반영한다.
+      if (this._editor.getValue() === content) {
+        if (this._dirty) {
+          this._dirty = false;
+          this._tabLabelAll();
+        }
+        return;
       }
+      // 모델이 공유되므로 이 한 번이 모든 칸의 내용을 되돌린다.
+      this._editor.setValue(content);
+      this._dirty = false;
+      this._tabLabelAll();
     }).catch(e => console.error('[FileEditor] refresh error:', e));
   }
 
@@ -514,6 +530,32 @@ class FileEditor {
     } else {
       this.el.focus();
     }
+  }
+
+  /**
+   * EDITOR_LSP_SRS FR-LSP-28 / D-9: **침묵은 고장과 구별되지 않는다.**
+   *
+   * 코드 탐색은 안 되는 경우가 많다 — 서버 없음, 툴체인 없음, 기동 실패, 시간
+   * 초과, 결과 없음. 그 다섯이 모두 "아무 일도 일어나지 않음" 으로 보이면 사용자는
+   * 전부 우리 버그로 읽는다. 짧은 알림 줄 하나가 그것을 가른다.
+   *
+   * 자리는 찾기 패널과 같은 규약이다 (편집기 우상단) — 새 개념을 만들지 않는다.
+   */
+  note(text, ms) {
+    if (!text) return;
+    if (!this._note) {
+      const el = document.createElement('div');
+      el.className = 'fe-note';
+      this.el.appendChild(el);
+      this._note = el;
+    }
+    this._note.textContent = text;
+    this._note.classList.add('vis');
+    clearTimeout(this._noteT);
+    // 스스로 사라진다 — 닫는 조작을 배워야 하는 알림은 알림이 아니라 창이다.
+    this._noteT = setTimeout(() => {
+      if (this._note) this._note.classList.remove('vis');
+    }, ms || FE_NOTE_MS);
   }
 
   // ── 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS 묶음 B·C·D) ──

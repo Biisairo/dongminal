@@ -300,6 +300,9 @@ class App {
       toggleSearch:()=>this.toggleSearch(),
       // FR-EKB-5: 키 배선과 **같은 함수**를 부른다. 셋 다 Editor 창이 아니면
       // 스스로 아무 일도 하지 않으므로 여기에 가드를 겹치지 않는다.
+      edGotoDef:()=>this._lspGotoDef(),
+      edFindRefs:()=>this._lspFindRefs(),
+      edNavBack:()=>this._lspNavBack(),
       edFindInFile:()=>this._edFindInFile(),
       edQuickOpen:()=>this._edQuickOpen(),
       edGrep:()=>this._edSearchOpen(),

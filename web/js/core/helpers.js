@@ -145,6 +145,13 @@ const SHORTCUT_DEFAULTS={
   edFindInFile:'Mod+KeyF',
   edQuickOpen:'Mod+KeyP',
   edGrep:'Mod+Shift+KeyF',
+  // EDITOR_LSP_SRS FR-LSP-40 / D-10: 코드 탐색 셋. 기본이 `F12` 인 것은 그것이
+  // 이 동작의 관용이기 때문이며, 대가는 **편집기 안에서 그 키로 개발자 도구가
+  // 열리지 않는 것**이다 (`KEY_BLOCK_EXEMPT_BARE` 에 F12 가 있으나 우리가 먼저
+  // 잡는다). 관용을 버리면 사용자가 그 기능이 있는지 알 방법이 없다.
+  edGotoDef:'F12',
+  edFindRefs:'Shift+F12',
+  edNavBack:'Mod+Alt+Minus',
 };
 const SHORTCUT_LABELS={
   // GIT_SIDEBAR_TABS_SRS FR-SBT-31·33: 이 키는 **활성 사이드바 탭의 목록**을 순회한다
@@ -161,6 +168,9 @@ const SHORTCUT_LABELS={
   bgToggle:'백그라운드 도구',
   runsToggle:'Run 오케스트레이션',
   softReload:'내부 새로고침',
+  edGotoDef:'정의로 이동 (Editor)',
+  edFindRefs:'참조 찾기 (Editor)',
+  edNavBack:'이동 뒤로 (Editor)',
   edFindInFile:'파일 내에서 검색 (Editor)',
   edQuickOpen:'파일 검색 (Editor)',
   edGrep:'파일 전체에서 검색 (Editor)',
@@ -174,6 +184,23 @@ const ED_SEARCH_ACTIONS={
   edQuickOpen:'_edQuickOpen',
   edGrep:'_edSearchOpen',
 };
+
+// EDITOR_LSP_SRS 묶음 F — 코드 탐색 셋. 검색 셋과 나눠 두는 이유는 **게이트가
+// 다르기** 때문이다: 검색은 루트만 있으면 되고, 이쪽은 편집기가 실제로 서 있어야
+// 한다 (FR-LSP-40b).
+const ED_LSP_ACTIONS={
+  edGotoDef:'_lspGotoDef',
+  edFindRefs:'_lspFindRefs',
+  edNavBack:'_lspNavBack',
+};
+
+// 편집기 안에서 **우리가 먼저 잡는** 액션 전부다.
+//
+// 한 이름으로 두는 이유는 이 표를 읽는 자리가 둘이기 때문이다 — 편집기 안팎의
+// 판정(`_edTrySearchKey`)과, 전역 배선이 그 셋을 건너뛰는 자리
+// (`input-binding.js`). 두 벌로 적으면 새 액션을 더할 때 한쪽만 고쳐지고, 그러면
+// 그 키가 Editor 창이 아닐 때 삼켜져 죽은 키가 된다 (FR-EKB-4).
+const ED_CAPTURE_ACTIONS={...ED_SEARCH_ACTIONS,...ED_LSP_ACTIONS};
 var shortcuts={...SHORTCUT_DEFAULTS};
 
 // ── Status bar state ──
