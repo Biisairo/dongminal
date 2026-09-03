@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/toolhub"
 	"encoding/json"
 	"errors"
 	"log"
@@ -72,7 +73,7 @@ func (s *Server) apiToolsHeadless(w http.ResponseWriter, r *http.Request) {
 // 된다. 기존 detach 경로가 대상 확정을 백그라운드 해제보다 앞세우는 것과 같은
 // 이유다 (FR-BGR-5).
 func (s *Server) createHeadlessTool(cwd string) (string, error) {
-	tool, err := s.Tools.Create(cwd, headlessCols, headlessRows)
+	tool, err := s.Tools.Create(cwd, headlessCols, headlessRows, toolhub.Placement{})
 	if err != nil {
 		return "", err
 	}

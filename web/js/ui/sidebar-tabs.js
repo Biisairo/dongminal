@@ -63,6 +63,10 @@ const SB_TAB_DEFS=[
         active:s.id===app.ws.activeWindow,
         // FR-PAN-16: 알람이 있는 창을 사이드바에서 구분 표시.
         attn:app._windowHasAttn(s),
+        // SANDBOX_WINDOW_SRS: 격리된 창임을 목록에서 구분한다. 어느 창이
+        // 샌드박스인지 알 수 없으면 사용자가 격리를 신뢰할 근거가 없다.
+        badge:s.sandbox?{text:'▣ '+s.sandbox,cls:'si-sbx',
+          title:'샌드박스 창 — 이 창의 도구는 컨테이너 안에서 돕니다'}:null,
         removable:true,
         dataset:{sid:s.id,windowType:s.type||WINDOW_TYPE_TERMINAL},
         onOpen:app=>app.switchWindow(s.id),

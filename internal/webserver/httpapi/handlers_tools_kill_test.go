@@ -78,7 +78,7 @@ func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
 	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
 	t.Cleanup(m.StopSaving)
-	tl, err := m.Create(dir, 80, 24)
+	tl, err := m.Create(dir, 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
@@ -136,7 +136,7 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 
 	m := toolhub.NewToolManager(dir, nil)
 	t.Cleanup(m.StopSaving)
-	tl, err := m.Create(dir, 80, 24)
+	tl, err := m.Create(dir, 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
@@ -182,7 +182,7 @@ func TestTerminateWithGrace_ReturnsEarlyOnExit(t *testing.T) {
 	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
 	t.Cleanup(m.StopSaving)
-	tl, err := m.Create(dir, 80, 24)
+	tl, err := m.Create(dir, 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}

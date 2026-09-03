@@ -221,7 +221,7 @@ func TestForegroundListCarriesName(t *testing.T) {
 func TestForegroundCachePrunesDeadTools(t *testing.T) {
 	pm := NewToolManager(t.TempDir(), nil)
 	t.Cleanup(pm.StopSaving)
-	tool, err := pm.Create(t.TempDir(), 80, 24)
+	tool, err := pm.Create(t.TempDir(), 80, 24, Placement{})
 	if err != nil {
 		t.Skipf("PTY 를 띄울 수 없는 환경: %v", err)
 	}

@@ -70,7 +70,7 @@ func TestHandleWS_ExistingTool(t *testing.T) {
 	defer ts.Close()
 
 	// Create a tool first.
-	p, err := pm.Create("", 80, 24)
+	p, err := pm.Create("", 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Fatalf("create tool: %v", err)
 	}

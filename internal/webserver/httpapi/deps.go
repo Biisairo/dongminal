@@ -3,6 +3,7 @@ package httpapi
 import (
 	"dongminal/internal/webserver/hub"
 
+	"dongminal/internal/shared/sandbox"
 	"dongminal/internal/shared/toolhub"
 
 	"dongminal/internal/shared/workspace"
@@ -35,6 +36,18 @@ type WorkspaceStore interface {
 	// toolID to its workspace coordinates and uuids (DMCTL_WHO_AM_I_SRS
 	// FR-API-WAI-1).
 	Entries() []workspace.TabEntry
+	// Windows 는 지금 저장된 Window 들이다. 샌드박스 창의 대응 컨테이너 회수가
+	// 이것을 살아 있는 목록으로 쓴다 (FR-SBX-9).
+	Windows() []workspace.WindowInfo
+}
+
+// SandboxReaper 는 샌드박스 창의 접합면이다. 인터페이스인 것은 방향 때문이다 —
+// httpapi 는 컨테이너 런타임을 알지 않는다.
+type SandboxReaper interface {
+	// Reap 은 살아 있지 않은 Window 의 대응 컨테이너를 치운다.
+	Reap(live []string)
+	// Profiles 는 화면이 고를 수 있는 프로파일들이다 (FR-SBX-25).
+	Profiles() []sandbox.ProfileInfo
 }
 
 // SettingsStore abstracts the in-memory + on-disk settings blob holder.
@@ -46,8 +59,12 @@ type SettingsStore interface {
 
 // Deps is the full injection surface for New.
 type Deps struct {
-	Tools       toolhub.ToolHub
-	Work        WorkspaceStore
+	Tools toolhub.ToolHub
+	Work  WorkspaceStore
+	// Sandbox 는 샌드박스 창의 대응 컨테이너 회수자다. nil 이면 컨테이너
+	// 런타임이 없거나 샌드박스가 구성되지 않은 서버이며, 그때 회수는 일어나지
+	// 않는다 — 만든 적이 없으므로 치울 것도 없다.
+	Sandbox     SandboxReaper
 	Commands    hub.CommandBroker
 	Settings    SettingsStore
 	AttnTracker *hub.AttnTracker // daemon mode: attention/activity tracking in dongminal

@@ -526,9 +526,12 @@ func (pc *ToolClient) ListOK() ([]map[string]interface{}, bool) {
 	return out, true
 }
 
-func (pc *ToolClient) Create(cwd string, cols, rows uint16) (*toolhub.Tool, error) {
+// 데몬 모드에서는 PTY 를 데몬이 소유하므로 샌드박스 배치도 그쪽에서 일어난다.
+// 여기서는 어느 Window 의 도구인지만 실어 보낸다 (FR-SBX-11).
+func (pc *ToolClient) Create(cwd string, cols, rows uint16, place toolhub.Placement) (*toolhub.Tool, error) {
 	resp, err := pc.call("create", map[string]interface{}{
 		"cwd": cwd, "cols": cols, "rows": rows,
+		"window": place.WindowUUID, "profile": place.Profile,
 	})
 	if err != nil {
 		return nil, err

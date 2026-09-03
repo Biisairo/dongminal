@@ -13,6 +13,7 @@ import (
 
 	"dongminal/internal/daemon/ipc"
 	"dongminal/internal/shared/runtime"
+	"dongminal/internal/shared/sandboxplace"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/domain/run"
@@ -43,7 +44,11 @@ func referencedTools(path string) map[string]struct{} {
 
 // Run is the entry point for dongminald (DAEMON_SPLIT_SRS Phase 2).
 // It creates a ToolManager, loads tools.json, and listens on a Unix socket.
-func Run(home string) {
+//
+// version 은 이 바이너리의 판이다(cli.Version). 인자로 받는 것은 데몬이
+// ctl/cli 를 되받아 import 하지 않게 하기 위해서다 — 샌드박스 헬퍼를 서버와
+// 같은 판으로 맞추는 데만 쓰인다 (FR-SBX-14).
+func Run(home, version string) {
 	log.Printf("dongminald starting home=%s", home)
 
 	if err := runtime.Install(filepath.Join(home, "bin")); err != nil {
@@ -51,6 +56,14 @@ func Run(home string) {
 	}
 
 	pm := toolhub.NewToolManager(home, nil)
+	// 데몬 모드에서는 PTY 를 데몬이 소유하므로 샌드박스 배치도 여기서 일어난다
+	// (FR-SBX-10). 웹서버 쪽 짝은 buildDepsWithHub 의 회수 배선이다.
+	//
+	// 포트를 넘기지 않는 것은 데몬이 그것을 환경으로 물려받기 때문이다 — 서버가
+	// 심는 값이 진실이고, 데몬이 따로 기억하면 두 벌이 된다.
+	if pl := sandboxplace.Wire(home, version, ""); pl != nil {
+		pm.SetPlacer(pl.Place)
+	}
 	// FR-HLM-3: 헤드리스 멤버의 도구는 Run 이 소유하므로 재시작을 넘긴다.
 	// 데몬에는 Run 저장소가 없다 — runs.json 의 주인은 웹서버 프로세스다. 그래서
 	// 파일을 직접 읽는 술어를 위에서 꽂는다. toolhub 자신은 Run 을 모른 채로

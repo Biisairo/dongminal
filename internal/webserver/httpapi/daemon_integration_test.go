@@ -79,7 +79,7 @@ func TestDaemonFullFlow(t *testing.T) {
 	defer cmdHub.Remove(sub)
 
 	// Create a tool
-	tool, err := pc.Create("/tmp", 80, 24)
+	tool, err := pc.Create("/tmp", 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestDaemonReconnectPreservesTools(t *testing.T) {
 	// Start dongminald with a tool created directly in toolhub.ToolManager
 	pm := toolhub.NewToolManager(dataDir, nil)
 	t.Cleanup(pm.StopSaving)
-	p, err := pm.Create("/tmp", 80, 24)
+	p, err := pm.Create("/tmp", 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -412,7 +412,7 @@ func TestDaemonToolCreateDeleteLifecycle(t *testing.T) {
 
 	// Create 3 tools
 	for i := 0; i < 3; i++ {
-		_, err := pc.Create("/tmp", 80, 24)
+		_, err := pc.Create("/tmp", 80, 24, toolhub.Placement{})
 		if err != nil {
 			t.Fatalf("Create %d: %v", i, err)
 		}
@@ -538,7 +538,7 @@ func TestDaemonConcurrentPushAndRequest(t *testing.T) {
 	defer pc.Close()
 
 	// Create a tool and subscribe so push events flow.
-	tool, err := pc.Create("/tmp", 80, 24)
+	tool, err := pc.Create("/tmp", 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -697,7 +697,7 @@ func TestDaemonExitClosesSubscriber(t *testing.T) {
 	}
 	defer pc.Close()
 
-	tool, err := pc.Create("/tmp", 80, 24)
+	tool, err := pc.Create("/tmp", 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -765,7 +765,7 @@ func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
 	}()
 	defer cmdHub.Remove(sub)
 
-	tool, err := pc.Create("/tmp", 80, 24)
+	tool, err := pc.Create("/tmp", 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}

@@ -90,7 +90,7 @@ type fakeHub struct {
 }
 
 func (f fakeHub) List() []map[string]interface{} { return f.list }
-func (f fakeHub) Create(string, uint16, uint16) (*toolhub.Tool, error) {
+func (f fakeHub) Create(string, uint16, uint16, toolhub.Placement) (*toolhub.Tool, error) {
 	return nil, nil
 }
 func (f fakeHub) Get(id string) *toolhub.Tool {

@@ -33,7 +33,10 @@
          한 자리에 두기 위해서다). -->
     <div class="sb-panel" id="sb-panel-windows">
       <div class="sb-actions">
-        <button id="add-window">+ New</button>
+        <!-- SANDBOX_WINDOW_SRS: 샌드박스 창은 `+ New` 의 변종이므로 버튼을
+             따로 세우지 않고 그 안에 둔다. span 인 것은 button 안에 button 을
+             넣을 수 없기 때문이며, 분기는 클릭 대상으로 한다. -->
+        <button id="add-window">+ New<span id="add-sandbox-window" title="샌드박스 창 — 이 창의 모든 탭이 하나의 컨테이너 안에서 돕니다 (docker 필요)">▣ Box</span></button>
         <button id="add-preset" title="기본 프리셋으로 새 창">★ Preset</button>
       </div>
       <div id="windows"></div>

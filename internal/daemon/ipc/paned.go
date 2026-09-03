@@ -183,14 +183,16 @@ func (pc *panedConn) hello(req *toolipc.PanedRequest) interface{} {
 
 func (pc *panedConn) create(req *toolipc.PanedRequest) interface{} {
 	var p struct {
-		Cwd  string `json:"cwd"`
-		Cols uint16 `json:"cols"`
-		Rows uint16 `json:"rows"`
+		Cwd     string `json:"cwd"`
+		Cols    uint16 `json:"cols"`
+		Rows    uint16 `json:"rows"`
+		Window  string `json:"window"`
+		Profile string `json:"profile"`
 	}
 	if err := json.Unmarshal(req.Params, &p); err != nil {
 		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
-	tool, err := pc.pm.Create(p.Cwd, p.Cols, p.Rows)
+	tool, err := pc.pm.Create(p.Cwd, p.Cols, p.Rows, toolhub.Placement{WindowUUID: p.Window, Profile: p.Profile})
 	if err != nil {
 		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32603, Message: err.Error()}}
 	}

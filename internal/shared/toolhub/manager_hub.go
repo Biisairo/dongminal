@@ -113,7 +113,18 @@ func ParseSize(r *http.Request) (uint16, uint16) {
 func (m *ToolManager) SetBackground(id string, bg bool) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if _, ok := m.tools[id]; !ok {
+	t, ok := m.tools[id]
+	if !ok {
+		return false
+	}
+	// FR-SBX-27: 샌드박스 도구는 백그라운드로 갈 수 없다. 백그라운드 도구는
+	// 어느 탭에도 매이지 않은 것인데, 이 도구는 컨테이너에 매이고 컨테이너는
+	// Window 에 매인다 — 소유 관계가 둘이 되면 Window 를 닫을 때 돌던 작업을
+	// 죽이거나 주인 없는 컨테이너가 남는다.
+	//
+	// 명령 경로가 아니라 여기서 막는 이유는 경로가 여럿이기 때문이다(dmctl ·
+	// detach · UI). 그것들이 모두 이 자리를 지난다.
+	if bg && t.sandboxed {
 		return false
 	}
 	if m.background == nil {

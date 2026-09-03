@@ -75,7 +75,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		tool, err = s.Tools.Create("", cols, rows)
+		tool, err = s.Tools.Create("", cols, rows, toolhub.Placement{})
 		if err != nil {
 			// 실제 오류를 화면까지 보낸다. 고정 문구만 보내면 사용자에게는
 			// 빈 터미널과 구별되지 않고, 원인은 서버 로그에만 남는다 —

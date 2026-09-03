@@ -547,7 +547,7 @@ func doctorTool(r *checkReport, home string) {
 	defer os.RemoveAll(dataDir)
 
 	m := toolhub.NewToolManager(dataDir, nil)
-	tool, err := m.Create(home, doctorProbeCols, doctorProbeRows)
+	tool, err := m.Create(home, doctorProbeCols, doctorProbeRows, toolhub.Placement{})
 	if err != nil {
 		r.bad("도구 기동 실패: %v", err)
 		return

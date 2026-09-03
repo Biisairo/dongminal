@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"dongminal/internal/shared/sandbox"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/workspace"
 )
@@ -123,6 +124,7 @@ var apiRoutes = []apiRoute{
 	{http.MethodDelete, func(p string) bool { return strings.HasPrefix(p, "/api/tools/") }, (*Server).apiToolDelete},
 	{http.MethodGet, exactPath("/api/focus"), (*Server).apiFocusGet},
 	{http.MethodPost, exactPath("/api/focus/claim"), (*Server).apiFocusClaim},
+	{http.MethodGet, exactPath("/api/sandbox/profiles"), (*Server).apiSandboxProfiles},
 	{http.MethodGet, exactPath("/api/workspace"), (*Server).apiWorkspaceGet},
 	{http.MethodPut, exactPath("/api/workspace"), (*Server).apiWorkspacePut},
 	{http.MethodGet, exactPath("/api/settings"), (*Server).apiSettingsGet},
@@ -254,7 +256,12 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 			cwd = s.Tools.Cwd(refID)
 		}
 	}
-	tool, err := s.Tools.Create(cwd, cols, rows)
+	// FR-SBX-11: 어느 Window 의 어떤 프로파일인지는 호출자가 실어 보낸다.
+	// 프로파일이 비어 있으면 종전대로 호스트에서 뜬다.
+	tool, err := s.Tools.Create(cwd, cols, rows, toolhub.Placement{
+		WindowUUID: r.URL.Query().Get("window"),
+		Profile:    r.URL.Query().Get("sandbox"),
+	})
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -318,6 +325,11 @@ func (s *Server) apiWorkspacePut(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	// FR-SBX-8/9: Window 가 사라지면 그 대응 컨테이너도 사라져야 한다. 저장
+	// 직후가 그것을 알 수 있는 자리다 — 브라우저가 어떤 경로로 창을 닫았든
+	// (크래시 포함) 결국 여기를 지난다.
+	s.reapSandboxes()
+
 	w.Header().Set("ETag", strconv.FormatUint(rev, 10))
 	w.WriteHeader(200)
 	if s.Commands != nil {
@@ -336,4 +348,37 @@ func (s *Server) apiPing(w http.ResponseWriter, r *http.Request) {
 func (s *Server) apiStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(s.getStats())
+}
+
+// reapSandboxes 는 살아 있는 Window 목록으로 대응 컨테이너를 회수한다.
+//
+// workspace 를 읽지 못하면 **아무것도 하지 않는다.** Windows() 의 nil 은 "창이
+// 없다" 가 아니라 "판단 근거가 없다" 이며, 그것을 빈 목록으로 넘기면 파일 하나가
+// 깨졌을 때 사용자의 컨테이너를 전부 지운다 (FR-SBX-9).
+func (s *Server) reapSandboxes() {
+	if s.Sandbox == nil || s.Work == nil {
+		return
+	}
+	ws := s.Work.Windows()
+	if ws == nil {
+		return
+	}
+	live := make([]string, 0, len(ws))
+	for _, w := range ws {
+		live = append(live, w.UUID)
+	}
+	s.Sandbox.Reap(live)
+}
+
+// apiSandboxProfiles 는 쓸 수 있는 샌드박스 프로파일을 낸다 (FR-SBX-25).
+//
+// 컨테이너 런타임이 없으면 **빈 목록**이다 — 오류가 아니다. 화면은 그 경우
+// 고를 것이 없다는 사실만 알면 된다 (NFR-SBX-3).
+func (s *Server) apiSandboxProfiles(w http.ResponseWriter, r *http.Request) {
+	list := []sandbox.ProfileInfo{}
+	if s.Sandbox != nil {
+		list = s.Sandbox.Profiles()
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(list)
 }

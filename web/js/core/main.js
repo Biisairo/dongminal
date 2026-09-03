@@ -29,7 +29,27 @@ window.__dongminalDebug={
 
 app.init();
 if(!(defaultPreset>=0&&layoutPresets[defaultPreset]))document.getElementById('add-preset').style.display='none';
-document.getElementById('add-window').addEventListener('click',()=>app.addWindow());
+document.getElementById('add-window').addEventListener('click',async(e)=>{
+  // 안쪽 박스를 눌렀으면 샌드박스 창이다. 바깥은 종전대로 일반 창.
+  let sandbox='';
+  if(e.target.closest('#add-sandbox-window')){
+    let list=[];
+    try{const r=await fetch('/api/sandbox/profiles');if(r.ok) list=await r.json()}catch{}
+    if(!list.length){
+      // 런타임이 없으면 고를 것이 없다. 그 사실을 말해 주지 않으면 버튼이
+      // 고장난 것으로 보인다 (FR-SBX-20).
+      app._notify('샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)이 설치되어 실행 중인지 확인하세요.');
+      return;
+    }
+    // 하나뿐이면 묻지 않는다. 선택지가 없는 선택은 절차만 늘린다.
+    sandbox=list.length===1?list[0].name:await app._pickSandbox(list);
+    if(!sandbox) return;
+  }
+  // 샌드박스 창은 실패가 흔하다(런타임 미실행·이미지 없음). 사유를 보이지 않으면
+  // "눌러도 아무 일이 없다" 로만 남는다 (FR-SBX-20).
+  app.addWindow(sandbox?{sandbox}:undefined)
+    .catch(err=>app._notify('창을 열지 못했습니다 — '+((err&&err.message)||err)));
+});
 document.getElementById('add-preset').addEventListener('click',()=>{
   if(defaultPreset>=0&&layoutPresets[defaultPreset]) app._loadPreset(defaultPreset);
   else app.addWindow();

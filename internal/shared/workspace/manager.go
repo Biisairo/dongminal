@@ -493,6 +493,17 @@ type wsWindow struct {
 	// OwnerRunID는 이 Window 를 전용으로 만든 Run (Projection
 	// dedicated-window). 비어 있으면 사용자 소유 Window 다 (FR-EM-17).
 	OwnerRunID string `json:"ownerRunId,omitempty"`
+	// Sandbox는 이 Window 의 샌드박스 프로파일 이름이다. 비어 있으면 일반
+	// Window 이며, 그 의미가 이 필드가 없던 파일의 의미와 같다 — 그래서
+	// schemaVersion 을 올리지 않는다 (SANDBOX_WINDOW_SRS FR-SBX-18/19).
+	Sandbox string `json:"sandbox,omitempty"`
+}
+
+// WindowInfo 는 Window 하나의 배치 정보다. 대응 컨테이너를 만들 자리(Sandbox)와
+// 회수 대상 판정의 키(UUID)를 함께 낸다.
+type WindowInfo struct {
+	UUID    string
+	Sandbox string
 }
 
 type wsState struct {
@@ -531,6 +542,32 @@ func decodeState(blob []byte) (*wsState, error) {
 		return nil, ErrSchemaTooOld
 	}
 	return &s, nil
+}
+
+// Windows 는 지금 저장된 Window 들이다 (FR-SBX-9 회수의 "살아 있는 Window").
+func (m *Manager) Windows() []WindowInfo { return windowsOf(m.Raw()) }
+
+// windowsOf 는 blob 에서 Window 목록을 뽑는다.
+//
+// **탭의 유무를 보지 않는다.** 탭을 다 닫아 둔 샌드박스 창도 살아 있는 Window
+// 이며, 여기서 빠지면 그 창의 대응 컨테이너가 고아로 오인되어 회수된다.
+//
+// 해석할 수 없는 blob 은 빈 목록이다. 호출자(회수)는 빈 목록을 "지울 것이
+// 없다" 가 아니라 "판단 근거가 없다" 로 다뤄야 한다 — 그렇지 않으면 파일 하나가
+// 깨졌을 때 모든 컨테이너를 지운다.
+func windowsOf(blob []byte) []WindowInfo {
+	st, err := decodeState(blob)
+	if err != nil || st == nil {
+		return nil
+	}
+	out := make([]WindowInfo, 0, len(st.Windows))
+	for _, w := range st.Windows {
+		if w.ID == "" {
+			continue
+		}
+		out = append(out, WindowInfo{UUID: w.ID, Sandbox: w.Sandbox})
+	}
+	return out
 }
 
 func buildIndex(blob []byte) (*index, error) {

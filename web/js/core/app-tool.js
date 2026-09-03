@@ -9,6 +9,66 @@ Object.assign(App.prototype, {
     try{const r=await fetch(`/api/tools/${toolId}/busy`);const d=await r.json();return d.busy}catch{return false}
   },
 
+  // FR-SBX-20: 도구 기동 실패의 사유를 사용자에게 보인다. 확인창과 같은
+  // 껍데기를 쓰되 선택지가 없다 — 알릴 뿐 되돌릴 것이 없다.
+  //
+  // 본문을 textContent 로 넣는 것이 요점이다. 여기 오는 문자열은 서버가 만든
+  // 오류 메시지이며, `_confirmClose` 처럼 innerHTML 에 끼우면 그 내용이 마크업으로
+  // 해석된다.
+  _notify(msg){
+    const ov=document.createElement('div');ov.className='confirm-overlay';
+    ov.innerHTML='<div class="confirm-box"><div class="confirm-msg"></div>'+
+      '<div class="confirm-btns"><button class="confirm-ok">확인</button></div></div>';
+    ov.querySelector('.confirm-msg').textContent=msg;
+    document.body.appendChild(ov);
+    const btn=ov.querySelector('.confirm-ok');btn.focus();
+    const cleanup=()=>{ov.remove();document.removeEventListener('keydown',onKey)};
+    const onKey=e=>{if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();cleanup()}};
+    document.addEventListener('keydown',onKey);
+    btn.addEventListener('click',cleanup);
+    ov.addEventListener('click',e=>{if(e.target===ov)cleanup()});
+  },
+
+  // 샌드박스 프로파일 선택 (FR-SBX-25). 격리 등급을 함께 보이는 것이 요점이다 —
+  // `dev`·`agent` 는 컨테이너 안에서 dmctl 을 쓸 수 있어 호스트 워크스페이스를
+  // 조작할 수 있고, 그것을 모른 채 "격리됐다" 고 믿으면 그 믿음이 위험이 된다
+  // (FR-SBX-23/24).
+  _pickSandbox(list){
+    return new Promise(resolve=>{
+      const ov=document.createElement('div');ov.className='confirm-overlay';
+      const box=document.createElement('div');box.className='confirm-box';
+      const msg=document.createElement('div');msg.className='confirm-msg';
+      msg.textContent='샌드박스 프로파일';
+      box.appendChild(msg);
+      const btns=document.createElement('div');btns.className='confirm-btns sbx-pick';
+      const cleanup=v=>{ov.remove();document.removeEventListener('keydown',onKey);resolve(v)};
+      const onKey=e=>{if(e.key==='Escape'){e.preventDefault();cleanup(null)}};
+      for(const p of list){
+        const b=document.createElement('button');
+        b.className='confirm-ok sbx-opt';
+        const grade=document.createElement('span');
+        grade.className='sbx-grade'+(p.isolated?' iso':'');
+        grade.textContent=p.isolated?'격리':'비격리';
+        b.textContent=p.name+' ';
+        b.appendChild(grade);
+        b.title=(p.image?p.image+String.fromCharCode(10):'')+
+          (p.isolated
+            ? '컨테이너 안 코드가 호스트를 조작할 수 없습니다.'
+            : 'dmctl 이 들어 있어 컨테이너 안에서 워크스페이스를 조작할 수 있습니다. 실수는 막지만 악의적 코드는 막지 못합니다.');
+        b.addEventListener('click',()=>cleanup(p.name));
+        btns.appendChild(b);
+      }
+      const cancel=document.createElement('button');
+      cancel.className='confirm-cancel';cancel.textContent='취소';
+      cancel.addEventListener('click',()=>cleanup(null));
+      btns.appendChild(cancel);
+      box.appendChild(btns);ov.appendChild(box);document.body.appendChild(ov);
+      document.addEventListener('keydown',onKey);
+      ov.addEventListener('click',e=>{if(e.target===ov)cleanup(null)});
+      const first=btns.querySelector('.sbx-opt'); if(first) first.focus();
+    });
+  },
+
   _confirmClose(msg, opts = {}){
     return new Promise(resolve=>{
       const ov=document.createElement('div');ov.className='confirm-overlay';
@@ -108,12 +168,25 @@ Object.assign(App.prototype, {
     this._bgRefresh();
   },
 
-  async _newTool(cwd,cwdTool){
+  // win 은 이 도구가 들어갈 창이다. 샌드박스 창이면 도구가 그 창의 대응
+  // 컨테이너 안에서 뜬다 (SANDBOX_WINDOW_SRS FR-SBX-11).
+  async _newTool(cwd,cwdTool,win){
     let q='';
     if(cwd) q='&cwd='+encodeURIComponent(cwd);
     else if(cwdTool) q='&cwdTool='+encodeURIComponent(cwdTool);
+    // 프로파일을 창 id 와 **함께** 보낸다. 서버가 workspace 를 조회하게 하면,
+    // 창이 저장되기 전에 탭이 만들어지는 순간 샌드박스 창이 일반 창으로 읽혀
+    // 호스트에서 뜬다 (FR-SBX-10).
+    if(win&&win.sandbox&&win.id)
+      q+='&window='+encodeURIComponent(win.id)+'&sandbox='+encodeURIComponent(win.sandbox);
     const r=await fetch('/api/tools?cols=120&rows=40'+q,{method:'POST'});
-    if(!r.ok) throw new Error('create pane failed');
+    if(!r.ok){
+      // FR-SBX-20: 샌드박스 기동 실패의 사유는 사용자에게 닿아야 한다 — 런타임
+      // 미설치·데몬 미실행·이미지 없음이 모두 여기로 온다. 뭉개면 "창이 안 열린다"
+      // 만 남는다.
+      const detail=await r.text().catch(()=>'');
+      throw new Error(detail.trim()||'create pane failed');
+    }
     const {id,name}=await r.json();
     return this._mkTool(id,name);
   },

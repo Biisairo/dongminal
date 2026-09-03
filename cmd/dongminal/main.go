@@ -3,6 +3,7 @@ package main
 import (
 	"dongminal/internal/webserver/hub"
 
+	"dongminal/internal/shared/sandboxplace"
 	"dongminal/internal/shared/toolhub"
 
 	"context"
@@ -170,8 +171,37 @@ func restoreHeadlessBackground(pm *toolhub.ToolManager, headless map[string]stru
 	}
 }
 
+// wireSandbox 는 샌드박스 배치를 꽂는다 (SANDBOX_WINDOW_SRS FR-SBX-10).
+//
+// 런타임을 찾지 못하면 **꽂지 않고 nil 을 낸다.** 그 상태에서 샌드박스 창의
+// 도구를 만들면 ToolManager 가 명확한 오류로 실패시킨다 — 호스트 셸로 조용히
+// 내려가지 않는 것이 이 기능의 안전 요구다 (FR-SBX-21). 런타임이 없어도 나머지
+// 기능은 영향받지 않는다 (NFR-SBX-3).
+func wireSandbox(pm *toolhub.ToolManager, cfg httpapi.Config) *sandboxplace.Placer {
+	pl := sandboxplace.Wire(cfg.DataDir, cli.Version, cfg.Port)
+	if pl == nil {
+		return nil
+	}
+	pm.SetPlacer(pl.Place)
+	return pl
+}
+
+// liveWindowUUIDs 는 회수에 넘길 살아 있는 Window 목록이다. nil 은 그대로
+// 옮긴다 — "판단 근거 없음" 이 회수 쪽에서 구분되어야 한다 (FR-SBX-9).
+func liveWindowUUIDs(ws []workspace.WindowInfo) []string {
+	if ws == nil {
+		return nil
+	}
+	out := make([]string, 0, len(ws))
+	for _, w := range ws {
+		out = append(out, w.UUID)
+	}
+	return out
+}
+
 func buildDeps(cfg httpapi.Config) (builtDeps, error) {
 	pm := toolhub.NewToolManager(cfg.DataDir, nil)
+	placer := wireSandbox(pm, cfg)
 	cmdHub := hub.NewCommandHub()
 	// Wire attention SSE before LoadAll so restored tools also get detection.
 	hub.WireAttention(pm, cmdHub)
@@ -205,6 +235,13 @@ func buildDeps(cfg httpapi.Config) (builtDeps, error) {
 	restoreHeadlessBackground(pm, headless)
 	bd.pm = pm
 
+	// 부팅 시 고아 회수 (FR-SBX-8). 지난 세대가 남긴 컨테이너 중 이제 없는
+	// Window 의 것을 치운다.
+	if placer != nil {
+		bd.deps.Sandbox = placer
+		placer.Reap(liveWindowUUIDs(bd.wsMgr.Windows()))
+	}
+
 	return bd, nil
 }
 
@@ -213,6 +250,9 @@ func buildDeps(cfg httpapi.Config) (builtDeps, error) {
 // because in daemon mode they are driven by output push events from dongminald.
 func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub) (builtDeps, error) {
 	cmdHub := hub.NewCommandHub()
+	// 배치는 데몬이 한다(boot.Run). 여기서는 회수만 맡는다 — 회수는 workspace 를
+	// 봐야 하고 그 주인은 웹서버 프로세스다 (FR-SBX-9).
+	reaper := sandboxplace.Wire(cfg.DataDir, cli.Version, cfg.Port)
 
 	// Attention/activity tracker for daemon mode (in-memory in dongminal).
 	// L1 OSC detection works from terminal escape sequences. L2 idle detection
@@ -227,7 +267,16 @@ func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub) (builtDeps, e
 		attnTracker.SetLiveProbe(lp.IsLive)
 	}
 
-	return buildCommonDeps(cfg, toolHub, cmdHub, attnTracker)
+	bd, err := buildCommonDeps(cfg, toolHub, cmdHub, attnTracker)
+	if err != nil {
+		return bd, err
+	}
+	if reaper != nil {
+		bd.deps.Sandbox = reaper
+		// 부팅 시 고아 회수 (FR-SBX-8).
+		reaper.Reap(liveWindowUUIDs(bd.wsMgr.Windows()))
+	}
+	return bd, nil
 }
 
 // buildCommonDeps wires up the managers shared by both direct and daemon modes.
@@ -318,7 +367,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		boot.Run(home)
+		boot.Run(home, cli.Version)
 		return
 	}
 

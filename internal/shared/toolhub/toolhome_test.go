@@ -40,7 +40,7 @@ func TestStartTool_ShellSeesIsolatedHome(t *testing.T) {
 	iso := t.TempDir()
 	t.Setenv(dmenv.EnvToolHome, iso)
 
-	p, err := StartTool("t-home", "home", iso, 80, 24, nil, nil)
+	p, err := StartTool("t-home", "home", iso, 80, 24, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("StartTool: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestStartTool_StartDirStaysUserHome(t *testing.T) {
 	t.Setenv(dmenv.EnvToolHome, t.TempDir())
 
 	// cwd 를 주지 않는다 — 그때 어디서 열리는가가 이 검사의 대상이다.
-	p, err := StartTool("t-cwd", "cwd", "", 80, 24, nil, nil)
+	p, err := StartTool("t-cwd", "cwd", "", 80, 24, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("StartTool: %v", err)
 	}

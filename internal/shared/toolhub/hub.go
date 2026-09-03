@@ -4,7 +4,9 @@ package toolhub
 // registry. *ToolManager satisfies it naturally.
 type ToolHub interface {
 	List() []map[string]interface{}
-	Create(cwd string, cols, rows uint16) (*Tool, error)
+	// Create 는 도구를 띄운다. windowUUID 가 비어 있지 않고 그 Window 가
+	// 샌드박스 창이면 도구는 대응 컨테이너 안에서 돈다 (FR-SBX-10).
+	Create(cwd string, cols, rows uint16, place Placement) (*Tool, error)
 	Get(id string) *Tool
 	// Cwd resolves the live working directory of tool id (empty if unknown).
 	// In daemon mode this routes through the daemon cwd RPC; Get(id).Cwd() is

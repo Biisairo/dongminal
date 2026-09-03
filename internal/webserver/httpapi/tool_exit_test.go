@@ -11,7 +11,7 @@ func TestToolOnExitAndWait(t *testing.T) {
 	called := make(chan string, 1)
 	p, err := toolhub.StartTool("t1", "test", "", 80, 24, func(id string) {
 		called <- id
-	}, nil)
+	}, nil, nil)
 	if err != nil {
 		t.Fatalf("toolhub.StartTool: %v", err)
 	}

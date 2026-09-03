@@ -114,15 +114,21 @@ Object.assign(App.prototype, {
     // FR-CWD-3: 호출자가 준 것이 이긴다. `cwdTool` 은 그 도구의 cwd 를 서버가
     // 풀어 준다 (`/api/tools?cwdTool=`) — 브라우저는 경로를 모른 채 넘긴다.
     const refTool=opts.cwdTool||ref.cwdTool||null;
-    const p=await this._newTool(cwd, cwd?null:refTool);
+    // FR-SBX-10: 창 id 를 도구보다 **먼저** 만든다. 순서가 반대면 첫 도구가
+    // 자기 창을 모른 채 떠서, 샌드박스 창인데 첫 탭만 호스트에서 돈다.
+    const wid=newEntityId();
+    const sandbox=(typeof opts.sandbox==='string'&&opts.sandbox)?opts.sandbox:'';
+    const p=await this._newTool(cwd, cwd?null:refTool, {id:wid,sandbox});
     const r=newEntityId(),t=newEntityId();
     const name=(typeof opts.name==='string'&&opts.name?opts.name:'Window').slice(0,64);
     const s={
-      id:newEntityId(),name,
+      id:wid,name,
       // `opts.name` 은 **창** 이름이다 — 안의 탭은 이름을 받은 적이 없으므로
       // auto 로 태어난다 (FR-TAN-1). `nameSource` 를 적지 않는 것이 auto 다.
       layout:{type:'pane',id:r,tabs:[{id:t,name:TAB_NAME_DEFAULT,type:'terminal',toolId:p.id}],activeTab:t}
     };
+    // FR-SBX-18: 선택 필드다. 일반 창에는 키 자체를 두지 않는다.
+    if(sandbox) s.sandbox=sandbox;
     this.ws.windows.push(s);
     // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-2: keepFocus 면 창은 사이드바에만
     // 추가 — activeWindow/focused 무변화 (백그라운드 잡 컨테이너 패턴).
@@ -140,7 +146,7 @@ Object.assign(App.prototype, {
     return {win:s.id, pane:r, tab:{uuid:t, toolId:p.id}};
   },
 
-  async addWindow(){await this._mkWindow();this.render()},
+  async addWindow(opts){await this._mkWindow(opts||{});this.render()},
 
   async delWindow(sid){
     const i=this.ws.windows.findIndex(s=>s.id===sid);
@@ -338,7 +344,7 @@ Object.assign(App.prototype, {
     // FR-GIT-244: 호출자가 cwd 를 주면 그것이 이긴다 — worktree 에서 터미널을 열 때
     // 기준은 pane 의 cwd 가 아니라 그 worktree 다. 주지 않으면 기존 동작 그대로다.
     const cwd = opts.cwd || ref.cwd || null;
-    const p = await this._newTool(cwd, cwd ? null : (ref.cwdTool || null));
+    const p = await this._newTool(cwd, cwd ? null : (ref.cwdTool || null), s);
     const t = newEntityId();
     const given = typeof opts.name === 'string' && opts.name;
     const name = (given ? opts.name : TAB_NAME_DEFAULT).slice(0, 64);
@@ -498,7 +504,7 @@ Object.assign(App.prototype, {
     const refPaneId=ref.cwd ? null : (ref.cwdTool || null);
     const newPanes=[]; let lastR=null;
     for(let i=0;i<count-1;i++){
-      const p=await this._newTool(ref.cwd || null, refPaneId);
+      const p=await this._newTool(ref.cwd || null, refPaneId, s);
       const r=newEntityId(),t=newEntityId();
       newPanes.push({type:'pane',id:r,tabs:[{id:t,name:'Shell',type:'terminal',toolId:p.id}],activeTab:t});
       lastR=r;

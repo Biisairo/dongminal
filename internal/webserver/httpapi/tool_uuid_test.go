@@ -20,11 +20,11 @@ func TestToolCreate_IDIsUUID(t *testing.T) {
 	t.Cleanup(m.StopSaving)
 	defer closeAllTools(m)
 
-	a, err := m.Create(t.TempDir(), 80, 24)
+	a, err := m.Create(t.TempDir(), 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
-	b, err := m.Create(t.TempDir(), 80, 24)
+	b, err := m.Create(t.TempDir(), 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Fatalf("create b: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestToolCreate_NoIDReuseAcrossRestart(t *testing.T) {
 
 	first := toolhub.NewToolManager(dir, nil)
 	t.Cleanup(first.StopSaving)
-	p, err := first.Create(t.TempDir(), 80, 24)
+	p, err := first.Create(t.TempDir(), 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
@@ -57,7 +57,7 @@ func TestToolCreate_NoIDReuseAcrossRestart(t *testing.T) {
 	second := toolhub.NewToolManager(toolTempDir(t), nil)
 	t.Cleanup(second.StopSaving)
 	defer closeAllTools(second)
-	q, err := second.Create(t.TempDir(), 80, 24)
+	q, err := second.Create(t.TempDir(), 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Fatalf("create after restart: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestToolCreate_NameIsIndependentOfID(t *testing.T) {
 	t.Cleanup(m.StopSaving)
 	defer closeAllTools(m)
 
-	p, err := m.Create(t.TempDir(), 80, 24)
+	p, err := m.Create(t.TempDir(), 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
@@ -96,7 +96,7 @@ func TestToolRestore_LegacyIntegerIDCoexists(t *testing.T) {
 		t.Fatal("구 정수 id 로 복원한 도구를 찾을 수 없다")
 	}
 
-	fresh, err := m.Create(t.TempDir(), 80, 24)
+	fresh, err := m.Create(t.TempDir(), 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}

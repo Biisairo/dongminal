@@ -67,6 +67,13 @@ func (m *ToolManager) SaveAll() {
 				continue
 			}
 		}
+		// FR-SBX-33: 샌드박스 도구도 기재하지 않는다. 위와 같은 자리이지만
+		// 이쪽이 더 무겁다 — 기재하면 재시작 시 **호스트 셸로** 되살아나고,
+		// 사용자는 격리된 줄 알고 그 안에서 계속 일한다. 컨테이너는 남아 있으므로
+		// (FR-SBX-26) 그 창에 탭을 다시 열면 하던 자리로 돌아간다.
+		if p.sandboxed {
+			continue
+		}
 		states = append(states, ToolState{ID: p.ID, Name: p.Name, Cwd: cwdOrServer(p)})
 	}
 	sort.Slice(states, func(i, j int) bool { return states[i].ID < states[j].ID })

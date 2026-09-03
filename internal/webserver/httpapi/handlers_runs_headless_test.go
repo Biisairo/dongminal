@@ -55,7 +55,7 @@ func (h *headlessHub) seed(id string) {
 	h.io.setHas(id, true)
 }
 
-func (h *headlessHub) Create(cwd string, cols, rows uint16) (*toolhub.Tool, error) {
+func (h *headlessHub) Create(cwd string, cols, rows uint16, place toolhub.Placement) (*toolhub.Tool, error) {
 	h.mu.Lock()
 	if h.createErr != nil {
 		err := h.createErr

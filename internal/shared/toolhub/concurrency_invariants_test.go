@@ -47,7 +47,7 @@ func dialEcho(t *testing.T, ts *httptest.Server) *websocket.Conn {
 // TC-L3-1: addClient on exited Tool must reject and not register.
 // TC-L3-1: addClient on exited Tool must reject and not register.
 func TestTool_AddClientRejectedAfterExit(t *testing.T) {
-	p, err := StartTool("t-exit", "test", "", 80, 24, nil, nil)
+	p, err := StartTool("t-exit", "test", "", 80, 24, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("StartTool: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestTool_AddClientRejectedAfterExit(t *testing.T) {
 // TC-L3-2: concurrent broadcast/addClient/removeClient must be race-clean.
 // TC-L3-2: concurrent broadcast/addClient/removeClient must be race-clean.
 func TestTool_BroadcastAddRemoveRace(t *testing.T) {
-	p, err := StartTool("t-race", "race", "", 80, 24, nil, nil)
+	p, err := StartTool("t-race", "race", "", 80, 24, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("StartTool: %v", err)
 	}

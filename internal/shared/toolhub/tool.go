@@ -57,14 +57,17 @@ type Tool struct {
 	//
 	// NewDetachedTool 이 만드는 합성 Tool 은 term 이 nil 이다. 모든 접근이
 	// nil 을 견뎌야 한다.
-	term     platform.Terminal
-	stream   *outbuf.Stream
-	cmu      sync.Mutex
-	cls      []*SafeConn
-	exited   bool
-	done     chan struct{}
-	once     sync.Once
-	Restored bool
+	term   platform.Terminal
+	stream *outbuf.Stream
+	// sandboxed 는 이 도구가 대응 컨테이너 안에서 도는가다. 영속 제외의 근거이며
+	// (FR-SBX-33), 그것 말고는 도구의 동작을 바꾸지 않는다.
+	sandboxed bool
+	cmu       sync.Mutex
+	cls       []*SafeConn
+	exited    bool
+	done      chan struct{}
+	once      sync.Once
+	Restored  bool
 
 	// Attention state (PANE_ATTENTION_NOTIFY_SRS). attnCarry is touched only
 	// by the readPTY goroutine (no lock). The atomics are shared with the
@@ -212,7 +215,14 @@ func userHome() string {
 }
 
 // StartTool spawns a shell under a new PTY. Exported for tool manager + tests.
-func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *ToolHooks) (*Tool, error) {
+//
+// place 는 **호스트 셸 대신 띄울 것**이다. 샌드박스 창의 도구가 대응 컨테이너
+// 안에서 도는 것이 이 갈래다 (SANDBOX_WINDOW_SRS FR-SBX-12). nil 이면 종전대로
+// 호스트 셸이며, 그때의 동작은 이 인자가 없던 때와 완전히 같다 (NFR-SBX-2).
+//
+// 완성된 명세를 받는 것이 요점이다. 그래야 toolhub 가 컨테이너도 프로파일도
+// 알지 않는다 — invalidator·ownedProvider 와 같은 방향이다.
+func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *ToolHooks, place *platform.ProcSpec) (*Tool, error) {
 	home := toolHome()
 	binDir := filepath.Join(os.Getenv(dmenv.EnvHome), "bin")
 
@@ -246,20 +256,28 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 	if startDir == "" {
 		startDir = "."
 	}
-	term, err := platform.Current().PTY.Start(platform.ProcSpec{
+	spec := platform.ProcSpec{
 		Path: shell,
 		Args: append([]string{shell}, shellArgs...),
 		Env:  env,
 		Dir:  startDir,
-	}, cols, rows)
+	}
+	// 환경과 시작 위치는 대체하지 않는다. 샌드박스 경로에서 그 둘은 컨테이너
+	// 안이 아니라 **docker 명령 자신이 쓸 값**이며, 호스트 도구와 같은 계산이
+	// 옳다 (FR-SBX-12).
+	if place != nil {
+		spec.Path, spec.Args = place.Path, place.Args
+	}
+	term, err := platform.Current().PTY.Start(spec, cols, rows)
 	if err != nil {
 		return nil, err
 	}
 	p := &Tool{
 		ID: id, Name: name,
-		term:   term,
-		stream: outbuf.NewStream(context.Background(), bufMax),
-		done:   make(chan struct{}),
+		sandboxed: place != nil,
+		term:      term,
+		stream:    outbuf.NewStream(context.Background(), bufMax),
+		done:      make(chan struct{}),
 	}
 	// Set the base exit callback before readPTY starts (race-free).
 	p.relay.Store(&toolRelay{onExit: onExit})
@@ -271,7 +289,7 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 	}
 	go p.readPTY()
 	log.Printf("[tool %s] started shell=%s pid=%d cwd=%s cols=%d rows=%d",
-		id, shell, term.PID(), startDir, cols, rows)
+		id, spec.Path, term.PID(), startDir, cols, rows)
 	return p, nil
 }
 

@@ -50,7 +50,7 @@ func TestToolClientCreate(t *testing.T) {
 	pc, _ := DialToolClient(sockPath)
 	defer pc.Close()
 
-	tool, err := pc.Create("/tmp", 80, 24)
+	tool, err := pc.Create("/tmp", 80, 24, toolhub.Placement{})
 	if err != nil || tool.ID != "99" {
 		t.Fatalf("Create: err=%v id=%q", err, tool.ID)
 	}
@@ -186,7 +186,7 @@ func TestToolClientReconnect(t *testing.T) {
 	go func() { ps1.Accept() }()
 
 	pc1, _ := DialToolClient(sockPath)
-	p, _ := pc1.Create("/tmp", 80, 24)
+	p, _ := pc1.Create("/tmp", 80, 24, toolhub.Placement{})
 	toolID := p.ID
 	pc1.Close()
 	ps1.Close()
@@ -253,7 +253,7 @@ func TestToolClientAutoReconnect(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	defer pc.Close()
-	if _, err := pc.Create("/tmp", 80, 24); err != nil {
+	if _, err := pc.Create("/tmp", 80, 24, toolhub.Placement{}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
@@ -426,7 +426,7 @@ func TestToolClientForegroundNameOverIPC(t *testing.T) {
 	// 맨 대입은 잠금을 지나지 않는다 (client.go 의 setter 주석).
 	pc.SetOnForeground(func(_, name string) { fgCh <- name })
 
-	tool, err := pc.Create(dataDir, 80, 24)
+	tool, err := pc.Create(dataDir, 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}

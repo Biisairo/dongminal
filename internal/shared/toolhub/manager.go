@@ -1,6 +1,7 @@
 package toolhub
 
 import (
+	"fmt"
 	"log"
 	"path/filepath"
 	"sort"
@@ -8,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/uuid"
 )
 
@@ -31,6 +33,13 @@ type ToolManager struct {
 	// 꽂는다 — invalidator 와 같은 형태다. nil 이면 아무도 소유하지 않는 것이고,
 	// 그때 동작은 이 필드가 없던 때와 **완전히 같다**.
 	ownedProvider func() map[string]struct{}
+
+	// placer 는 "이 Window 의 도구를 어디에 띄우는가" 를 답한다
+	// (SANDBOX_WINDOW_SRS FR-SBX-10). nil 이면 모든 도구가 호스트에서 돈다.
+	//
+	// ownedProvider·invalidator 와 같은 방향이다 — toolhub 는 컨테이너도
+	// 프로파일도 알지 않으며, 완성된 명세만 받는다.
+	placer func(Placement) (*platform.ProcSpec, error)
 
 	// mutated 는 **기동 후 한 번이라도 상태가 바뀌었는가** 다. 한 번 서면 내려오지
 	// 않으며, 그것이 이 값의 뜻이다 (FR-CAF-13).
@@ -280,19 +289,49 @@ func (m *ToolManager) dataPath(name string) string {
 }
 
 // Create spawns a new tool.
-func (m *ToolManager) Create(cwd string, cols, rows uint16) (*Tool, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+// Placement 는 도구를 어느 Window 의 어떤 자리에 띄우는가다 (FR-SBX-10/11).
+//
+// 프로파일을 **함께 받는** 것이 요점이다. Window UUID 만 받고 프로파일을
+// workspace 에서 조회하면, 브라우저가 창을 저장하기 전에 탭을 만드는 순간
+// 샌드박스 창이 일반 창으로 읽혀 호스트에서 뜬다 — 조용한 강등이다 (§2.3).
+type Placement struct {
+	// WindowUUID 는 대응 컨테이너의 키다.
+	WindowUUID string
+	// Profile 이 비어 있으면 일반 창이며, 도구는 호스트에서 돈다.
+	Profile string
+
+	// 아래 둘은 **ToolManager 가 채운다.** 호출자는 건드리지 않는다 — 도구
+	// 식별자는 여기서 만들어지고, 작업 디렉터리는 Create 의 인자이므로 바깥에서
+	// 다시 실어 보낼 이유가 없다.
+	HostDir string
+	ToolID  string
+}
+
+func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*Tool, error) {
 	// FR-UNI-7: toolId 는 uuid 다. 카운터는 영속되지 않아 모든 도구가 닫힌 상태로
 	// 재기동하면 "1" 부터 재사용됐다 (SRS §2.7 (3)).
 	// FR-UNI-8: 표시명은 id 와 분리한다 — 구분은 좌표와 cwd 가 담당한다.
+	//
+	// 배치보다 **먼저** 만든다. 컨테이너 안 도구도 자기 식별자를 환경으로 받아야
+	// dmctl 이 자신을 서버에 알릴 수 있다 (FR-SBX-16).
 	id := uuid.NewString()
+	place.HostDir, place.ToolID = cwd, id
+
+	// 배치는 레지스트리 잠금 **밖에서** 정한다. 컨테이너를 만들고 시작하는 데
+	// 수 초가 걸릴 수 있고, 그동안 도구 목록 조회까지 막을 이유가 없다.
+	spec, err := m.placement(place)
+	if err != nil {
+		return nil, err
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	p, err := StartTool(id, defaultToolName, cwd, cols, rows, func(toolID string) {
 		m.Delete(toolID)
 		if m.invalidator != nil {
 			m.invalidator(toolID)
 		}
-	}, m.attnHooks())
+	}, m.attnHooks(), spec)
 	if err != nil {
 		log.Printf("[tool %s] create error: %v", id, err)
 		return nil, err
@@ -304,6 +343,32 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16) (*Tool, error) {
 	return p, nil
 }
 
+// SetPlacer 는 배치 결정자를 꽂는다. 배선에서 한 번 불린다.
+func (m *ToolManager) SetPlacer(f func(Placement) (*platform.ProcSpec, error)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.placer = f
+}
+
+// placement 는 이 Window 의 도구를 띄울 명세다. nil 이면 호스트 셸이다.
+//
+// Window 가 지정되지 않았으면 결정자를 묻지도 않는다 — 샌드박스가 아닌 창의
+// 경로가 이 기능 도입 전과 완전히 같아야 한다 (NFR-SBX-2).
+func (m *ToolManager) placement(place Placement) (*platform.ProcSpec, error) {
+	if place.Profile == "" {
+		return nil, nil
+	}
+	m.mu.RLock()
+	f := m.placer
+	m.mu.RUnlock()
+	// 프로파일이 있는데 배치기가 없으면 **실패한다.** 여기서 호스트 셸로
+	// 내려가면 사용자는 격리된 줄 알고 호스트에서 일하게 된다 (FR-SBX-21).
+	if f == nil {
+		return nil, fmt.Errorf("샌드박스 창(%s)이지만 컨테이너 배치가 구성되지 않았습니다", place.Profile)
+	}
+	return f(place)
+}
+
 func (m *ToolManager) Restore(id, name, cwd string, cols, rows uint16) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -312,7 +377,7 @@ func (m *ToolManager) Restore(id, name, cwd string, cols, rows uint16) error {
 		if m.invalidator != nil {
 			m.invalidator(toolID)
 		}
-	}, m.attnHooks())
+	}, m.attnHooks(), nil)
 	if err != nil {
 		return err
 	}

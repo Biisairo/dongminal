@@ -14,15 +14,16 @@ import (
 // ── fakePaneHub ─────────────────────────────────────
 
 type fakePaneHub struct {
-	mu       sync.Mutex
-	tools    map[string]*toolhub.Tool
-	cwds     map[string]string
-	busies   map[string]bool
-	created  []string
-	nextID   int
-	lastCols uint16
-	lastRows uint16
-	lastCwd  string
+	lastPlace toolhub.Placement
+	mu        sync.Mutex
+	tools     map[string]*toolhub.Tool
+	cwds      map[string]string
+	busies    map[string]bool
+	created   []string
+	nextID    int
+	lastCols  uint16
+	lastRows  uint16
+	lastCwd   string
 }
 
 func newFakePaneHub() *fakePaneHub {
@@ -76,7 +77,7 @@ func (f *fakePaneHub) List() []map[string]interface{} {
 	return out
 }
 
-func (f *fakePaneHub) Create(cwd string, cols, rows uint16) (*toolhub.Tool, error) {
+func (f *fakePaneHub) Create(cwd string, cols, rows uint16, place toolhub.Placement) (*toolhub.Tool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.nextID++
@@ -87,6 +88,7 @@ func (f *fakePaneHub) Create(cwd string, cols, rows uint16) (*toolhub.Tool, erro
 	f.lastCols = cols
 	f.lastRows = rows
 	f.lastCwd = cwd
+	f.lastPlace = place
 	return p, nil
 }
 
@@ -130,6 +132,7 @@ func itoa(n int) string {
 // ── fakeWorkspaceStore ──────────────────────────────
 
 type fakeWorkspaceStore struct {
+	windows  []workspace.WindowInfo
 	mu       sync.Mutex
 	raw      []byte
 	rev      uint64
@@ -279,3 +282,11 @@ type fakeUnknownHub struct {
 func (f *fakeUnknownHub) List() []map[string]interface{} { return nil }
 
 func (f *fakeUnknownHub) ListOK() ([]map[string]interface{}, bool) { return nil, false }
+
+// windows 는 회수 시험이 주입하는 살아 있는 Window 목록이다. 기본값 nil 은
+// "workspace 를 읽지 못했다" 를 뜻하며, 그때 회수는 일어나지 않아야 한다.
+func (f *fakeWorkspaceStore) Windows() []workspace.WindowInfo {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.windows
+}

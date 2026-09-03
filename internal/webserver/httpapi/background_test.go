@@ -81,7 +81,7 @@ func TestSetBackground_MarksAndLists(t *testing.T) {
 		}
 	}()
 
-	tl, err := m.Create(dir, 80, 24)
+	tl, err := m.Create(dir, 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
@@ -113,7 +113,7 @@ func TestSetBackground_RestoreClearsFlag(t *testing.T) {
 		}
 	}()
 
-	tl, err := m.Create(dir, 80, 24)
+	tl, err := m.Create(dir, 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
@@ -144,7 +144,7 @@ func TestSetBackground_DeleteRemovesFromList(t *testing.T) {
 	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
 	t.Cleanup(m.StopSaving)
-	tl, err := m.Create(dir, 80, 24)
+	tl, err := m.Create(dir, 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
@@ -166,11 +166,11 @@ func TestSaveAll_ExcludesBackgroundTools(t *testing.T) {
 		}
 	}()
 
-	keep, err := m.Create(dir, 80, 24)
+	keep, err := m.Create(dir, 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
-	bg, err := m.Create(dir, 80, 24)
+	bg, err := m.Create(dir, 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
@@ -220,11 +220,11 @@ func TestSaveAll_KeepsOwnedBackgroundTools(t *testing.T) {
 		}
 	}()
 
-	plain, err := m.Create(dir, 80, 24)
+	plain, err := m.Create(dir, 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
-	owned, err := m.Create(dir, 80, 24)
+	owned, err := m.Create(dir, 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
@@ -272,7 +272,7 @@ func TestSaveAll_NoOwnerProbeKeepsLegacyBehavior(t *testing.T) {
 		}
 	}()
 
-	bg, err := m.Create(dir, 80, 24)
+	bg, err := m.Create(dir, 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}

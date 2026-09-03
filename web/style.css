@@ -78,6 +78,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   flex-shrink:0;min-width:16px;padding:0 4px;border-radius:8px;text-align:center;
   font-size:10px;background:var(--accent-subtle);color:var(--accent);
 }
+/* 샌드박스 창 표식. accent 는 알람·활성이 쓰는 색이므로 섞지 않는다 — 격리
+   여부는 지나가는 상태가 아니라 그 창의 성질이다. */
+.sbl-badge.si-sbx{background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:3px}
+/* 샌드박스 프로파일 선택. 등급이 이름 옆에 붙어, 무엇을 고르는지가 고르는
+   자리에서 보인다 (FR-SBX-25). */
+.confirm-btns.sbx-pick{flex-wrap:wrap}
+.sbx-grade{margin-left:6px;padding:0 5px;border-radius:8px;font-size:10px;
+  background:var(--accent-subtle);color:var(--text-dim)}
+.sbx-grade.iso{color:var(--accent)}
 
 /* FR-GIT-226: 사이드바 목록 행이 30px 이 되었으므로 그 아래 버튼도 같은 높이를
    갖는다. 같은 패널의 같은 계열인데 한쪽만 낮으면 "너무 낮다" 가 한 줄 아래에서
@@ -88,6 +97,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   color:var(--text-muted);font-size:11px;cursor:pointer;text-align:left;
 }
 #add-window:hover,#add-preset:hover,#git-add-repo:hover,#editor-add:hover{background:var(--accent-hover);color:var(--accent)}
+/* 샌드박스 창 열기. `+ New` 안쪽 오른쪽에 앉는 작은 박스다 — 별개의 동작이
+   아니라 새 창의 변종임을 자리로 말한다. */
+#add-window{position:relative;padding-right:52px}
+#add-sandbox-window{
+  position:absolute;right:5px;top:50%;transform:translateY(-50%);
+  padding:1px 5px;border:1px solid var(--border);border-radius:3px;
+  font-size:10px;line-height:14px;color:var(--text-dim);opacity:.75;
+}
+#add-window:hover #add-sandbox-window{opacity:1}
+#add-sandbox-window:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-hover)}
 /* UX_REVISION_SRS FR-BLP-5·9: 패널의 액션 버튼 행. 두 패널이 같은 골격을 쓰므로
    여백도 한 자리에서 정한다 — 한쪽만 고치면 "구조가 같다" 가 깨진다. */
 .sb-actions{display:flex;flex-direction:column;flex:0 0 auto;margin-bottom:6px}
