@@ -3,6 +3,7 @@ package toolhub
 import (
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -288,7 +289,6 @@ func (m *ToolManager) dataPath(name string) string {
 	return filepath.Join(dir, name)
 }
 
-// Create spawns a new tool.
 // Placement 는 도구를 어느 Window 의 어떤 자리에 띄우는가다 (FR-SBX-10/11).
 //
 // 프로파일을 **함께 받는** 것이 요점이다. Window UUID 만 받고 프로파일을
@@ -307,6 +307,23 @@ type Placement struct {
 	ToolID  string
 }
 
+// mountableDir 은 마운트 원본으로 쓸 수 있는 경로다. 아니면 빈 값이다.
+//
+// 컨테이너 런타임은 없는 경로를 받으면 **호스트에 그 디렉터리를 만든다.** 그러면
+// 오타 하나가 사용자 파일시스템에 빈 디렉터리를 남기고, 도구는 정작 다른 곳에서
+// 뜬다 — StartTool 이 유효하지 않은 cwd 를 홈으로 되돌리기 때문이다. 마운트와
+// 도구의 자리가 어긋나느니 마운트하지 않는 편이 낫다.
+func mountableDir(cwd string) string {
+	if cwd == "" {
+		return ""
+	}
+	if info, err := os.Stat(cwd); err == nil && info.IsDir() {
+		return cwd
+	}
+	return ""
+}
+
+// Create spawns a new tool.
 func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*Tool, error) {
 	// FR-UNI-7: toolId 는 uuid 다. 카운터는 영속되지 않아 모든 도구가 닫힌 상태로
 	// 재기동하면 "1" 부터 재사용됐다 (SRS §2.7 (3)).
@@ -315,7 +332,7 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 	// 배치보다 **먼저** 만든다. 컨테이너 안 도구도 자기 식별자를 환경으로 받아야
 	// dmctl 이 자신을 서버에 알릴 수 있다 (FR-SBX-16).
 	id := uuid.NewString()
-	place.HostDir, place.ToolID = cwd, id
+	place.HostDir, place.ToolID = mountableDir(cwd), id
 
 	// 배치는 레지스트리 잠금 **밖에서** 정한다. 컨테이너를 만들고 시작하는 데
 	// 수 초가 걸릴 수 있고, 그동안 도구 목록 조회까지 막을 이유가 없다.

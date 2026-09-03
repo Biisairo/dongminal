@@ -180,10 +180,23 @@ func (m *Manager) create(name, windowUUID string, p Profile, rs RunSpec) error {
 	args = append(args, keepAlive...)
 
 	if out, err := m.run(args); err != nil {
+		// 같은 창의 두 도구가 동시에 기동하면 둘 다 "컨테이너 없음" 을 보고
+		// 만들려 든다. 뒤늦은 쪽은 이름 충돌로 실패하지만 그 시점에 컨테이너는
+		// 이미 있으므로 목적은 달성됐다 — 여기서 오류를 올리면 탭 하나가 이유
+		// 없이 열리지 않는다.
+		if nameTaken(out) {
+			return nil
+		}
 		return fmt.Errorf("샌드박스 컨테이너를 만들지 못했습니다(이미지 %s): %w: %s",
 			p.Image, err, strings.TrimSpace(out))
 	}
 	return nil
+}
+
+// nameTaken 은 이름이 이미 쓰이고 있다는 응답인지 본다. 다른 실패 — 이미지
+// 부재나 런타임 거부 — 까지 삼키면 도구가 뜨지 않는 이유를 알 수 없게 된다.
+func nameTaken(out string) bool {
+	return strings.Contains(strings.ToLower(out), "is already in use")
 }
 
 // ExecSpec 은 대응 컨테이너 안에 도구를 띄우는 명세다 (FR-SBX-12).

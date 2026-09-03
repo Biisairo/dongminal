@@ -17,7 +17,7 @@ Object.assign(App.prototype, {
   // 해석된다.
   _notify(msg){
     const ov=document.createElement('div');ov.className='confirm-overlay';
-    ov.innerHTML='<div class="confirm-box"><div class="confirm-msg"></div>'+
+    ov.innerHTML='<div class="confirm-box"><div class="confirm-msg notify-msg"></div>'+
       '<div class="confirm-btns"><button class="confirm-ok">확인</button></div></div>';
     ov.querySelector('.confirm-msg').textContent=msg;
     document.body.appendChild(ov);

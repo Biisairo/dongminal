@@ -15,14 +15,29 @@ import (
 
 // 실제 컨테이너 런타임으로 전 경로를 확인한다 (SRS §4.2 V-7·V-9 계열).
 // 런타임이 없으면 건너뛴다 — 이 시험의 부재가 다른 시험을 막아서는 안 된다.
-func TestEndToEnd_ToolRunsInsideContainer(t *testing.T) {
+// runtimeReady 는 **리눅스 컨테이너를 돌릴 수 있는지** 본다.
+//
+// `docker` 명령의 유무만으로는 부족하다. Windows 러너에는 명령이 있어도 리눅스
+// 컨테이너를 돌리지 못하는 구성이 있고, 그때 이 시험은 이미지를 받다 실패한다 —
+// 이 SRS 의 게스트는 언제나 리눅스다 (NFR-SBX-1).
+func runtimeReady(t *testing.T) string {
+	t.Helper()
 	dockerPath, err := sandbox.FindRuntime(sandbox.LookPath)
 	if err != nil {
 		t.Skip("컨테이너 런타임 없음")
 	}
-	if out, err := exec.Command(dockerPath, "info", "--format", "{{.ServerVersion}}").CombinedOutput(); err != nil {
+	out, err := exec.Command(dockerPath, "info", "--format", "{{.OSType}}").CombinedOutput()
+	if err != nil {
 		t.Skipf("런타임 데몬이 응답하지 않음: %s", strings.TrimSpace(string(out)))
 	}
+	if os := strings.TrimSpace(string(out)); os != "linux" {
+		t.Skipf("리눅스 컨테이너를 돌릴 수 없는 런타임입니다(OSType=%s)", os)
+	}
+	return dockerPath
+}
+
+func TestEndToEnd_ToolRunsInsideContainer(t *testing.T) {
+	dockerPath := runtimeReady(t)
 
 	home := t.TempDir()
 	window := "e2e-sbx-window"
@@ -62,13 +77,7 @@ func TestEndToEnd_ToolRunsInsideContainer(t *testing.T) {
 // FR-SBX-7/26: 같은 Window 의 두 도구는 한 컨테이너를 공유한다. 한쪽이 만든
 // 파일이 다른 쪽에 보여야 한다 — 탭마다 컨테이너가 생기면 깨진다.
 func TestEndToEnd_TabsShareOneContainer(t *testing.T) {
-	dockerPath, err := sandbox.FindRuntime(sandbox.LookPath)
-	if err != nil {
-		t.Skip("컨테이너 런타임 없음")
-	}
-	if err := exec.Command(dockerPath, "info").Run(); err != nil {
-		t.Skip("런타임 데몬이 응답하지 않음")
-	}
+	dockerPath := runtimeReady(t)
 
 	home := t.TempDir()
 	window := "e2e-sbx-share"
@@ -115,13 +124,7 @@ func TestEndToEnd_TabsShareOneContainer(t *testing.T) {
 //
 // 개발 빌드에서는 크로스 빌드가 일어나므로 처음 한 번은 느리다.
 func TestEndToEnd_DevProfileCarriesHelper(t *testing.T) {
-	dockerPath, err := sandbox.FindRuntime(sandbox.LookPath)
-	if err != nil {
-		t.Skip("컨테이너 런타임 없음")
-	}
-	if err := exec.Command(dockerPath, "info").Run(); err != nil {
-		t.Skip("런타임 데몬이 응답하지 않음")
-	}
+	dockerPath := runtimeReady(t)
 
 	home := t.TempDir()
 	if err := os.WriteFile(filepath.Join(home, sandbox.ProfilesFileName),

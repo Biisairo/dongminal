@@ -427,3 +427,33 @@ func TestEnsure_AddsHostGatewayForHelperProfiles(t *testing.T) {
 		t.Fatalf("host-gateway 를 세우지 않았다: %s", joined(f.call("run")))
 	}
 }
+
+// 같은 창의 두 도구가 동시에 기동하면 둘 다 "컨테이너 없음" 을 보고 만들려
+// 든다. 뒤늦은 쪽은 이름 충돌로 실패하지만, 그 시점에 컨테이너는 이미 있으므로
+// 목적은 달성됐다 — 여기서 오류를 올리면 탭 하나가 이유 없이 열리지 않는다.
+func TestEnsure_ToleratesConcurrentCreate(t *testing.T) {
+	f := &fakeDocker{reply: func(args []string) (string, error) {
+		if args[0] == "inspect" {
+			return "Error: No such object", errors.New("exit status 1")
+		}
+		return `docker: Error response from daemon: Conflict. The container name ` +
+			`"/dongminal-sbx-w1" is already in use by container "33b22c8d8073".`, errors.New("exit status 125")
+	}}
+	if err := newMgr(f).Ensure("w1", Scratch(), RunSpec{}); err != nil {
+		t.Fatalf("이름 충돌이 오류가 됐다: %v", err)
+	}
+}
+
+// 그 밖의 생성 실패는 그대로 오류다 — 이미지가 없거나 런타임이 거부한 경우까지
+// 삼키면 도구가 뜨지 않는 이유를 알 수 없다.
+func TestEnsure_OtherCreateFailuresStillFail(t *testing.T) {
+	f := &fakeDocker{reply: func(args []string) (string, error) {
+		if args[0] == "inspect" {
+			return "Error: No such object", errors.New("exit status 1")
+		}
+		return "Unable to find image 'nope:latest' locally", errors.New("exit status 125")
+	}}
+	if err := newMgr(f).Ensure("w1", Scratch(), RunSpec{}); err == nil {
+		t.Fatal("이미지 없음이 통과했다")
+	}
+}

@@ -12,6 +12,19 @@ import (
 	"dongminal/internal/shared/testpath"
 )
 
+// newTestManager 는 저장 고루틴을 기다리는 매니저다.
+//
+// SaveAll 은 요청 경로를 막지 않으려고 고루틴으로 떨어지는데, 기다리지 않으면
+// tools.json 쓰기가 t.TempDir 정리와 경쟁해 "directory not empty" 로 간헐
+// 실패한다 (WINDOWS_TEST_PARITY_SRS §5 와 같은 자리). t.Cleanup 은 LIFO 이므로
+// 여기서 등록한 것이 TempDir 정리보다 먼저 돈다.
+func newTestManager(t *testing.T) *ToolManager {
+	t.Helper()
+	m := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(m.StopSaving)
+	return m
+}
+
 func shPlace(marker string) *platform.ProcSpec {
 	return &platform.ProcSpec{
 		Path: "/bin/sh",
@@ -24,7 +37,7 @@ func shPlace(marker string) *platform.ProcSpec {
 // 호스트 셸로 강등되면 사용자는 격리된 줄 알고 신뢰하지 않는 코드를 호스트에서
 // 돌린다 — 이 기능이 막으려던 사고 그 자체다. 조용한 강등은 기능 부재보다 나쁘다.
 func TestCreate_PlacementFailureNeverFallsBackToHost(t *testing.T) {
-	m := NewToolManager(t.TempDir(), nil)
+	m := newTestManager(t)
 	m.SetPlacer(func(Placement) (*platform.ProcSpec, error) {
 		return nil, errors.New("컨테이너 런타임에 연결할 수 없습니다")
 	})
@@ -42,7 +55,7 @@ func TestCreate_UsesPlacementSpec(t *testing.T) {
 	if !testpath.POSIXShell() {
 		t.Skip("place 를 POSIX 셸 문법으로 확인한다")
 	}
-	m := NewToolManager(t.TempDir(), nil)
+	m := newTestManager(t)
 	var askedFor string
 	m.SetPlacer(func(pl Placement) (*platform.ProcSpec, error) {
 		askedFor = pl.WindowUUID
@@ -69,7 +82,7 @@ func TestCreate_UsesPlacementSpec(t *testing.T) {
 // NFR-SBX-2: 프로파일이 없으면 placer 를 묻지도 않는다. 샌드박스가 아닌 창의
 // 경로는 이 변경 전과 완전히 같아야 한다.
 func TestCreate_NoProfileSkipsPlacer(t *testing.T) {
-	m := NewToolManager(t.TempDir(), nil)
+	m := newTestManager(t)
 	called := false
 	m.SetPlacer(func(Placement) (*platform.ProcSpec, error) {
 		called = true
@@ -95,6 +108,7 @@ func TestSaveAll_ExcludesSandboxedTools(t *testing.T) {
 	}
 	dir := t.TempDir()
 	m := NewToolManager(dir, nil)
+	t.Cleanup(m.StopSaving)
 	m.SetPlacer(func(Placement) (*platform.ProcSpec, error) { return shPlace("SBX"), nil })
 
 	sbx, err := m.Create("", 80, 24, Placement{WindowUUID: "w-sbx", Profile: "scratch"})
@@ -125,7 +139,7 @@ func TestSaveAll_ExcludesSandboxedTools(t *testing.T) {
 // 실패해야 한다. 여기서 호스트 셸로 내려가는 것이 가장 위험한 강등이다 —
 // 사용자는 격리를 요청했고, 실패를 보지 못하면 격리된 줄 안다.
 func TestCreate_SandboxWithoutPlacerFails(t *testing.T) {
-	m := NewToolManager(t.TempDir(), nil)
+	m := newTestManager(t)
 	tool, err := m.Create("", 80, 24, Placement{WindowUUID: "w1", Profile: "scratch"})
 	if err == nil {
 		if tool != nil {
@@ -147,7 +161,7 @@ func TestSetBackground_RejectsSandboxedTool(t *testing.T) {
 	if !testpath.POSIXShell() {
 		t.Skip("place 를 POSIX 셸 문법으로 확인한다")
 	}
-	m := NewToolManager(t.TempDir(), nil)
+	m := newTestManager(t)
 	m.SetPlacer(func(Placement) (*platform.ProcSpec, error) { return shPlace("SBX"), nil })
 
 	sbx, err := m.Create("", 80, 24, Placement{WindowUUID: "w1", Profile: "scratch"})
@@ -166,7 +180,7 @@ func TestSetBackground_RejectsSandboxedTool(t *testing.T) {
 
 // 호스트 도구의 백그라운드는 종전대로 동작한다 (NFR-SBX-2).
 func TestSetBackground_HostToolUnaffected(t *testing.T) {
-	m := NewToolManager(t.TempDir(), nil)
+	m := newTestManager(t)
 	host, err := m.Create("", 80, 24, Placement{})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -174,5 +188,71 @@ func TestSetBackground_HostToolUnaffected(t *testing.T) {
 	defer host.kill()
 	if !m.SetBackground(host.ID, true) {
 		t.Fatal("호스트 도구의 백그라운드가 막혔다 — 기존 동작이 깨졌다")
+	}
+}
+
+// 존재하지 않는 작업 디렉터리는 마운트 원본이 될 수 없다.
+//
+// 컨테이너 런타임은 없는 경로를 -v 로 받으면 **호스트에 그 디렉터리를 만든다**
+// (실측). 그러면 오타 하나가 사용자 파일시스템에 빈 디렉터리를 남기고, 도구는
+// 정작 다른 곳(홈)에서 뜬다 — StartTool 이 유효하지 않은 cwd 를 홈으로 되돌리기
+// 때문이다. 마운트와 도구의 자리가 어긋나느니 마운트하지 않는 편이 낫다.
+func TestCreate_InvalidCwdIsNotMounted(t *testing.T) {
+	m := newTestManager(t)
+	var seen Placement
+	m.SetPlacer(func(pl Placement) (*platform.ProcSpec, error) {
+		seen = pl
+		return shPlace("X"), nil
+	})
+	p, err := m.Create(filepath.Join(t.TempDir(), "no-such-dir"), 80, 24,
+		Placement{WindowUUID: "w1", Profile: "scratch"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	defer p.kill()
+	if seen.HostDir != "" {
+		t.Fatalf("없는 경로가 마운트 원본으로 넘어갔다: %q", seen.HostDir)
+	}
+}
+
+// 파일을 가리키는 cwd 도 마찬가지다.
+func TestCreate_FileCwdIsNotMounted(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "f")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m := newTestManager(t)
+	var seen Placement
+	m.SetPlacer(func(pl Placement) (*platform.ProcSpec, error) {
+		seen = pl
+		return shPlace("X"), nil
+	})
+	p, err := m.Create(file, 80, 24, Placement{WindowUUID: "w1", Profile: "scratch"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	defer p.kill()
+	if seen.HostDir != "" {
+		t.Fatalf("파일이 마운트 원본으로 넘어갔다: %q", seen.HostDir)
+	}
+}
+
+// 실재하는 디렉터리는 그대로 넘어간다.
+func TestCreate_ValidCwdIsMounted(t *testing.T) {
+	work := t.TempDir()
+	m := newTestManager(t)
+	var seen Placement
+	m.SetPlacer(func(pl Placement) (*platform.ProcSpec, error) {
+		seen = pl
+		return shPlace("X"), nil
+	})
+	p, err := m.Create(work, 80, 24, Placement{WindowUUID: "w1", Profile: "scratch"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	defer p.kill()
+	if seen.HostDir != work {
+		t.Fatalf("HostDir 이 다르다: %q want %q", seen.HostDir, work)
 	}
 }

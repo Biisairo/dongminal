@@ -622,6 +622,9 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   box-shadow:0 8px 32px rgba(0,0,0,.5);
 }
 .confirm-msg{color:var(--text-bright);font-size:13px;margin-bottom:16px;line-height:1.5}
+/* 알림 본문은 런타임이 낸 오류를 그대로 싣는다 — 길고 개행이 있다. 자르면
+   원인이 잘리므로 스크롤시킨다. */
+.notify-msg{max-height:40vh;overflow:auto;white-space:pre-wrap;text-align:left}
 .confirm-btns{display:flex;gap:8px;justify-content:flex-end}
 /* 형태 규약은 여기서만 선언한다 — 버튼별 규칙은 역할 색만 다룬다 (FR-BGU-1).
    버튼을 추가할 때 형태를 다시 쓰지 않아야 .confirm-bg 같은 누락이 재발하지 않는다. */
