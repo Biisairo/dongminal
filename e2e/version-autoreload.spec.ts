@@ -120,10 +120,21 @@ test('TC-RLC-3c (FR-RLC-2a): 주기 폴링이 돌지 않는다', async ({ page }
   expect(checks, '가만히 두었는데 버전 확인이 나갔다').toBe(0);
 });
 
+// LEAVE_CONFIRM_TOGGLE_SRS FR-LVC-11: 떠남 확인은 이제 **설정이 정하며 기본은 끔**
+// 이다 (FR-LVC-6 / D-1). 아래 셋은 가드가 걸리는지·걸리지 않는지를 재므로 스위치를
+// 켜고 재야 한다 — 끈 채로 재면 "묻지 않았다" 가 가드가 어떻게 망가져도 참이 되어
+// **검사가 검사를 멈춘다** (SRS §2.7).
+//
+// 서버 설정을 건드리지 않고 전역만 세운다. 이 스펙들이 재는 것은 저장 경로가 아니라
+// 가드의 판정이고, 새로고침이 일어나기 전에 발화하므로 전역만으로 충분하다.
+const armLeaveGuard = (page: Page) =>
+  page.evaluate(() => { (0, eval)('confirmLeave = true') });
+
 test('TC-RLC-10 (FR-RLC-5a): 자동 새로고침이 떠남 확인을 걸지 않는다', async ({ page }) => {
   await waitForInit(page);
   // 가드는 도구가 있을 때만 걸린다 (main.js) — 그 전제부터 확인한다.
   expect(await page.evaluate(() => (window as any).app.tools.size)).toBeGreaterThan(0);
+  await armLeaveGuard(page);
 
   // `main.js` 의 리스너 **뒤에** 붙어 그것이 기본 동작을 막았는지 관측한다.
   // 값은 문서와 함께 사라지므로 sessionStorage 에 남긴다.
@@ -146,9 +157,11 @@ test('TC-RLC-10 (FR-RLC-5a): 자동 새로고침이 떠남 확인을 걸지 않�
 test('TC-RLC-11 (FR-RLC-5a): 사용자가 떠나는 경로에서는 그 확인이 그대로 걸린다', async ({ page }) => {
   await waitForInit(page);
   expect(await page.evaluate(() => (window as any).app.tools.size)).toBeGreaterThan(0);
+  await armLeaveGuard(page);
 
-  // 자동 새로고침이 아닌 평범한 떠남. 가드가 사라지면 사용자가 실수로 세션을
-  // 잃는 것을 아무도 막지 않는다.
+  // 자동 새로고침이 아닌 평범한 떠남. 이것이 앞 둘의 **대조군이다** — 자기
+  // 새로고침의 예외가 가드를 통째로 삼키지 않았음을 여기서만 알 수 있다.
+  // 스위치를 켰는데도 걸리지 않으면 예외가 너무 넓다는 뜻이다.
   const blocked = await page.evaluate(() => {
     const e = new Event('beforeunload', { cancelable: true });
     window.dispatchEvent(e);
@@ -185,6 +198,7 @@ test('TC-RLC-3b (FR-RLC-3a): 헛돈 뒤에도 또 다른 새 버전이 오면 �
 test('TC-RLC-10b (FR-RLC-5a): 만진 적 있는 페이지에서도 대화가 뜨지 않는다', async ({ page }) => {
   await waitForInit(page);
   expect(await page.evaluate(() => (window as any).app.tools.size)).toBeGreaterThan(0);
+  await armLeaveGuard(page);
 
   // 사용자가 터미널을 눌러 입력한 것과 같은 상태를 만든다.
   await page.locator('#area .pn.focused').click();

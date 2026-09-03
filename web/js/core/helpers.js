@@ -207,6 +207,12 @@ var blockBrowserKeys=true;
 // "이 서버가 무엇인가" 를 말하는 값이라 기기를 옮겨도 같아야 한다 (D-1).
 // 기본값이 빈 문자열인 이유는 D-2 다: 비어 있음이 곧 기본 이름을 쓴다는 뜻이다.
 var pageTitle='';
+// LEAVE_CONFIRM_TOGGLE_SRS FR-LVC-4·6: 떠날 때 되물을지. /api/settings blob 에
+// 실린다 — 기기를 옮겨도 같은 판단이 서야 한다 (D-2).
+//
+// **기본값이 거짓인 것이 규칙이다** (D-1). 접수한 요구가 "묻지 않기" 이므로,
+// 켬을 기본으로 두면 요구는 이뤄지지 않은 채 설정 항목만 하나 늘어난다.
+var confirmLeave=false;
 function effectiveTitle(){return (pageTitle||'').trim()||DEFAULT_PAGE_TITLE}
 
 // ── Layout helpers ──

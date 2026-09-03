@@ -205,6 +205,12 @@
             <input type="checkbox" id="ds-fgnames">
           </div>
           <div class="ds-hint">터미널에서 실행 중인 프로그램 이름(vim·claude·ssh…)이 탭 이름이 됩니다. 직접 지정한 이름은 덮이지 않습니다.</div>
+          <!-- LEAVE_CONFIRM_TOGGLE_SRS FR-LVC-1·2 -->
+          <div class="ds-row">
+            <span>떠날 때 확인</span>
+            <input type="checkbox" id="ds-confirmleave">
+          </div>
+          <div class="ds-hint">탭을 닫거나 새로고침할 때 되묻습니다. 끄면 실수로 닫아도 묻지 않고 터미널 세션과의 연결을 잃습니다(세션 자체는 서버에 남아 다시 접속하면 이어집니다). 확인 문구는 브라우저가 정하므로 바꿀 수 없습니다. 새 판을 받는 자동 새로고침은 이 설정과 무관하게 묻지 않습니다.</div>
         </div>
       </div>
       <div class="mpanel" id="panel-notify" style="display:none">

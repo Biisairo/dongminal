@@ -83,13 +83,23 @@ window.addEventListener('resize',()=>{
   // SIGWINCH 가 그만큼 나가 TUI 가 프레임 전체를 다시 그린다.
   else{app._scheduleFit()}
 });
-// 떠나면 터미널 세션과의 연결을 잃는다 — 도구가 하나라도 있으면 되묻는다.
+// 떠나면 터미널 세션과의 연결을 잃는다. 되물을지는 **설정이 정하며 기본은 끔**이다
+// (LEAVE_CONFIRM_TOGGLE_SRS FR-LVC-6·7 / D-1) — 되묻는 편이 안전하지만 그 판단은
+// 사용자마다 다르고, 접수한 요구가 "묻지 않기" 였다.
 //
-// RELOAD_CONTINUITY_SRS FR-RLC-5a: **앱이 스스로 여는 새로고침은 예외다.** 이 가드는
-// 사용자의 실수를 막는 장치이고, 새 버전을 받으려 다시 여는 것은 실수가 아니다 —
-// 거기서 물으면 자동 갱신이 자동이 아니게 된다 (사용자가 화면을 보고 있지 않으면
-// 대화만 떠 있고 갱신은 영영 오지 않는다). 그 밖의 모든 떠남에는 그대로 걸린다.
+// 세 조건은 각자 다른 것을 말한다:
+//  - `confirmLeave`  — 사용자가 되묻기를 켰는가 (FR-LVC-7)
+//  - `__dmReloading` — **앱이 스스로 여는 새로고침은 예외다** (RELOAD_CONTINUITY_SRS
+//    FR-RLC-5a). 이 가드는 사용자의 실수를 막는 장치이고, 새 버전을 받으려 다시
+//    여는 것은 실수가 아니다 — 거기서 물으면 자동 갱신이 자동이 아니게 된다
+//    (사용자가 화면을 보고 있지 않으면 대화만 떠 있고 갱신은 영영 오지 않는다).
+//  - `tools.size`    — 잃을 연결이 하나라도 있는가
+//
+// 판정은 이 자리 하나이며 스위치를 읽는 곳을 늘리지 않는다 (FR-LVC-9) — 두 벌로
+// 두면 한쪽만 고쳐진다. 전역을 그때그때 읽으므로 설정을 바꾼 뒤 다시 적재할
+// 필요가 없다 (FR-LVC-10).
 window.addEventListener('beforeunload',e=>{
+  if(!confirmLeave) return;
   if(window.__dmReloading) return;
   if(app.tools.size>0) e.preventDefault();
 });

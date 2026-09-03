@@ -8,7 +8,7 @@ Object.assign(App.prototype, {
   async _saveSettings(){
     // 블롭 전체를 갈아치우므로 읽어 쓰는 값은 전부 실어야 한다 — git 주기(FR-GIT-23)는
     // UI 가 없지만 여기서 빠지면 다른 설정을 건드릴 때 조용히 사라진다.
-    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle})})}catch{}
+    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave})})}catch{}
   },
 
   /**
@@ -73,6 +73,24 @@ Object.assign(App.prototype, {
     });
   },
 
+  /**
+   * FR-LVC-1·10: Settings ▸ Display 의 `떠날 때 확인`.
+   *
+   * 값이 서버에 있는 이유는 `blockBrowserKeys` 와 같다 (D-2). 자리가 Display 인
+   * 이유는 D-3 이다 — 저쪽은 **키**를 다루고 이쪽은 떠남의 동작이다.
+   *
+   * 가드가 이 전역을 그때그때 읽으므로 리스너를 다시 걸 일이 없다 (FR-LVC-10).
+   */
+  _initConfirmLeave(){
+    const cb=document.getElementById('ds-confirmleave');
+    if(!cb) return;
+    cb.checked=confirmLeave;
+    cb.addEventListener('change',()=>{
+      confirmLeave=cb.checked;
+      this._saveSettings();
+    });
+  },
+
   // ── Modal & Theme ──
 
   _initModal(){
@@ -93,6 +111,10 @@ Object.assign(App.prototype, {
       this._slotDirPaint();
       const scBlock=document.getElementById('sc-blockbrowser');
       if(scBlock) scBlock.checked=blockBrowserKeys;
+      // FR-LVC-3: 열 때마다 현재 값을 다시 칠한다 — 다른 화면에서 바뀐 값이
+      // 이 모달에 옛 상태로 남아 있으면 사용자가 그것을 켜진 줄로 읽는다.
+      const dsLeave=document.getElementById('ds-confirmleave');
+      if(dsLeave) dsLeave.checked=confirmLeave;
       // Auto-close drawer when opening settings on mobile
       if(this.isMobile && this._drawerOpen){this._toggleDrawer(false);this._rTopbar()}
     });
@@ -114,6 +136,7 @@ Object.assign(App.prototype, {
     this._initPageTitle();
     this._initFgNames();
     this._initBlockKeys();
+    this._initConfirmLeave();
     this._initBackup();
     this._initSandboxPanel();
   },
@@ -326,6 +349,12 @@ Object.assign(App.prototype, {
       blockBrowserKeys=!!saved.blockBrowserKeys;
       const bk=document.getElementById('sc-blockbrowser');
       if(bk) bk.checked=blockBrowserKeys;
+    }
+    // FR-LVC-6: 저장된 적 없으면 기본값(끔). 다른 값들과 같이 각자 판단한다.
+    if(saved.confirmLeave!==undefined){
+      confirmLeave=!!saved.confirmLeave;
+      const cl=document.getElementById('ds-confirmleave');
+      if(cl) cl.checked=confirmLeave;
     }
     if(saved.fgTabNames===undefined) return;
     fgTabNames=!!saved.fgTabNames;
