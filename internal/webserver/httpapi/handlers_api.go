@@ -125,6 +125,8 @@ var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/focus"), (*Server).apiFocusGet},
 	{http.MethodPost, exactPath("/api/focus/claim"), (*Server).apiFocusClaim},
 	{http.MethodGet, exactPath("/api/sandbox/profiles"), (*Server).apiSandboxProfiles},
+	{http.MethodGet, exactPath("/api/sandbox/config"), (*Server).apiSandboxConfigGet},
+	{http.MethodPut, exactPath("/api/sandbox/config"), (*Server).apiSandboxConfigPut},
 	{http.MethodGet, exactPath("/api/workspace"), (*Server).apiWorkspaceGet},
 	{http.MethodPut, exactPath("/api/workspace"), (*Server).apiWorkspacePut},
 	{http.MethodGet, exactPath("/api/settings"), (*Server).apiSettingsGet},
@@ -381,4 +383,40 @@ func (s *Server) apiSandboxProfiles(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(list)
+}
+
+// apiSandboxConfigGet 은 지금 저장된 샌드박스 정의를 낸다 (FR-SBX-43).
+func (s *Server) apiSandboxConfigGet(w http.ResponseWriter, r *http.Request) {
+	if s.Sandbox == nil {
+		http.Error(w, "샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)을 확인하세요", 503)
+		return
+	}
+	cfg, err := s.Sandbox.Config()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(cfg)
+}
+
+// apiSandboxConfigPut 은 정의를 저장한다.
+//
+// 검증은 저장 쪽이 한다 — 화면이 보낸 것과 파일에서 읽은 것이 같은 문을 지나야
+// 규칙이 갈리지 않는다. 400 으로 돌려주는 사유가 그대로 사용자에게 보인다.
+func (s *Server) apiSandboxConfigPut(w http.ResponseWriter, r *http.Request) {
+	if s.Sandbox == nil {
+		http.Error(w, "샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)을 확인하세요", 503)
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	if err := s.Sandbox.SaveConfig(body); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	w.WriteHeader(204)
 }

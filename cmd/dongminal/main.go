@@ -509,6 +509,12 @@ func serve(home, host, port string) int {
 		bd.pm.StopSaving()
 		bd.pm.SaveAll()
 	}
+	// 샌드박스 컨테이너는 **정지**한다. 지우지 않는 것은 창이 workspace 에 그대로
+	// 남아 있기 때문이다 — 다음 기동에서 그 창을 열면 하던 자리로 돌아간다
+	// (FR-SBX-44).
+	if bd.deps.Sandbox != nil {
+		bd.deps.Sandbox.Shutdown()
+	}
 	_ = bd.wsMgr.Close()
 	if runErr != nil {
 		log.Printf("server fatal: %v", runErr)

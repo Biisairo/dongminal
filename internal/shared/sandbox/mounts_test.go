@@ -2,6 +2,7 @@ package sandbox
 
 import (
 	"io/fs"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -42,7 +43,7 @@ func TestParseMount_ExpandsTilde(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseMount: %v", err)
 	}
-	if got.Host != "/home/u/.ssh" {
+	if got.Host != filepath.Join("/home/u", ".ssh") {
 		t.Errorf("~ 가 펴지지 않았다: %q", got.Host)
 	}
 	if !got.ReadOnly {
@@ -76,7 +77,7 @@ func TestLoadProfiles_ReadsBaseMounts(t *testing.T) {
 	if len(dev.BaseMounts) != 3 {
 		t.Fatalf("dev 의 기본 마운트가 %d 개다: %+v", len(dev.BaseMounts), dev.BaseMounts)
 	}
-	if dev.BaseMounts[0].Host != "/home/u/.claude" {
+	if dev.BaseMounts[0].Host != filepath.Join("/home/u", ".claude") {
 		t.Errorf("~ 가 펴지지 않았다: %+v", dev.BaseMounts[0])
 	}
 	if !dev.BaseMounts[1].ReadOnly {
@@ -174,5 +175,58 @@ func TestVerifyMounts_PresentSourcesPass(t *testing.T) {
 	ms := []Mount{{Host: "/a", Container: "/x"}, {Host: "/b", Container: "/y"}}
 	if err := VerifyMounts(ms, statOf(map[string]bool{"/a": true, "/b": true})); err != nil {
 		t.Fatalf("실재하는 원본이 막혔다: %v", err)
+	}
+}
+
+// ── 설정 편집: 화면이 읽고 쓸 형태 ──
+
+// FR-SBX-43: 화면이 정의 파일을 다루려면 그 내용을 구조로 주고받아야 한다.
+func TestParseConfig_RoundTrip(t *testing.T) {
+	blob := []byte(`{
+	  "mounts":[{"host":"/a","container":"/x","readonly":true,"scratch":true}],
+	  "dev":{"image":"node:22","ports":[3000,"5173-5180"]}
+	}`)
+	cfg, err := ParseConfig(blob, homeOf("/home/u"))
+	if err != nil {
+		t.Fatalf("ParseConfig: %v", err)
+	}
+	if len(cfg.Mounts) != 1 || cfg.Mounts[0].Container != "/x" ||
+		!cfg.Mounts[0].ReadOnly || !cfg.Mounts[0].Scratch {
+		t.Fatalf("마운트가 다르다: %+v", cfg.Mounts)
+	}
+	if cfg.Dev == nil || cfg.Dev.Image != "node:22" || len(cfg.Dev.Ports) != 2 {
+		t.Fatalf("dev 가 다르다: %+v", cfg.Dev)
+	}
+
+	// 다시 쓴 것을 읽으면 같아야 한다 — 화면이 저장한 뒤 그것이 그대로 살아야
+	// 하기 때문이다.
+	out, err := cfg.Encode()
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	again, err := ParseConfig(out, homeOf("/home/u"))
+	if err != nil {
+		t.Fatalf("재해석: %v", err)
+	}
+	if len(again.Mounts) != 1 || again.Mounts[0].Host != cfg.Mounts[0].Host {
+		t.Fatalf("왕복에서 값이 달라졌다: %+v", again.Mounts)
+	}
+}
+
+// 빈 정의도 유효하다 — 마운트를 다 지운 상태가 그것이다.
+func TestParseConfig_EmptyIsValid(t *testing.T) {
+	cfg, err := ParseConfig([]byte(`{}`), homeOf("/home/u"))
+	if err != nil {
+		t.Fatalf("ParseConfig: %v", err)
+	}
+	if len(cfg.Mounts) != 0 || cfg.Dev != nil {
+		t.Fatalf("빈 정의가 비어 있지 않다: %+v", cfg)
+	}
+}
+
+// 화면이 보낸 것이 깨졌으면 저장하기 전에 걸러야 한다.
+func TestParseConfig_RejectsBadMount(t *testing.T) {
+	if _, err := ParseConfig([]byte(`{"mounts":["nonsense"]}`), homeOf("/h")); err == nil {
+		t.Fatal("깨진 마운트가 통과했다")
 	}
 }

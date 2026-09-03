@@ -457,3 +457,56 @@ func TestEnsure_OtherCreateFailuresStillFail(t *testing.T) {
 		t.Fatal("이미지 없음이 통과했다")
 	}
 }
+
+// ── FR-SBX-44: 서버가 내려갈 때 ──
+
+// 서버가 정중히 내려가면 대응 컨테이너를 **정지**한다. 지우지는 않는다 —
+// 파일시스템에 사용자가 설치한 것과 만든 것이 들어 있고, 다음에 그 창을 열면
+// FR-SBX-26 이 다시 시작해 하던 자리로 돌려놓는다.
+func TestStopOwned_StopsButNeverRemoves(t *testing.T) {
+	f := &fakeDocker{reply: func(args []string) (string, error) {
+		if args[0] == "ps" {
+			return "dongminal-sbx-a\ndongminal-sbx-b\n", nil
+		}
+		return "", nil
+	}}
+	if err := newMgr(f).StopOwned(); err != nil {
+		t.Fatalf("StopOwned: %v", err)
+	}
+	var stopped []string
+	for _, c := range f.calls {
+		if c[0] == "rm" {
+			t.Fatalf("정지가 아니라 제거했다: %v", c)
+		}
+		if c[0] == "stop" {
+			stopped = append(stopped, c[len(c)-1])
+		}
+	}
+	if len(stopped) != 2 {
+		t.Fatalf("정지한 컨테이너가 %d 개다: %v", len(stopped), stopped)
+	}
+}
+
+// 조회는 자기 홈으로 좁힌다 — 한 호스트에서 여러 인스턴스가 돈다.
+func TestStopOwned_ScopesToOwnHome(t *testing.T) {
+	f := &fakeDocker{}
+	if err := newMgr(f).StopOwned(); err != nil {
+		t.Fatalf("StopOwned: %v", err)
+	}
+	if !strings.Contains(joined(f.call("ps")), "label=dongminal.home=/home/u/.dongminal") {
+		t.Fatalf("자기 홈으로 좁히지 않았다: %s", joined(f.call("ps")))
+	}
+}
+
+// 컨테이너의 PID 1 은 신호의 기본 동작이 적용되지 않는다. 유지 프로세스를 그냥
+// 두면 SIGTERM 이 먹지 않아 정지에 10초(런타임의 강제 종료 대기)가 걸리고,
+// 사용자가 컨테이너 안에서 띄운 프로세스의 좀비도 수확되지 않는다.
+func TestEnsure_RunsWithInit(t *testing.T) {
+	f := &fakeDocker{reply: stateReply("")}
+	if err := newMgr(f).Ensure("w1", Scratch(), RunSpec{}); err != nil {
+		t.Fatalf("Ensure: %v", err)
+	}
+	if !strings.Contains(joined(f.call("run")), "--init") {
+		t.Fatalf("--init 없이 띄웠다: %s", joined(f.call("run")))
+	}
+}

@@ -33,6 +33,21 @@ Object.assign(App.prototype, {
   // `dev`·`agent` 는 컨테이너 안에서 dmctl 을 쓸 수 있어 호스트 워크스페이스를
   // 조작할 수 있고, 그것을 모른 채 "격리됐다" 고 믿으면 그 믿음이 위험이 된다
   // (FR-SBX-23/24).
+  // 최근에 연 작업 폴더. 이 브라우저에만 남는 편의값이라 서버로 보내지 않는다.
+  _sbxRecent(){
+    try{return JSON.parse(localStorage.getItem('dm.sbx.recent')||'[]').filter(Boolean).slice(0,5)}
+    catch{return []}
+  },
+
+  _sbxRemember(path){
+    if(!path) return;
+    try{
+      const cur=this._sbxRecent().filter(p=>p!==path);
+      cur.unshift(path);
+      localStorage.setItem('dm.sbx.recent',JSON.stringify(cur.slice(0,5)));
+    }catch{}
+  },
+
   _pickSandbox(list){
     return new Promise(resolve=>{
       const ov=document.createElement('div');ov.className='confirm-overlay';
@@ -50,6 +65,20 @@ Object.assign(App.prototype, {
         input.type='text';input.placeholder='비우면 지금 있는 자리를 씁니다';
         wrap.appendChild(label);wrap.appendChild(input);
         box.appendChild(wrap);
+
+        // 최근에 연 자리를 버튼으로 낸다. 경로를 매번 타이핑하게 하면 이 창은
+        // 절차만 늘리는 자리가 된다.
+        const recent=this._sbxRecent();
+        if(recent.length){
+          const bar=document.createElement('div');bar.className='sbx-recent';
+          for(const path of recent){
+            const b=document.createElement('button');
+            b.type='button';b.className='sbx-recent-item';b.textContent=path;b.title=path;
+            b.addEventListener('click',()=>{input.value=path;input.focus()});
+            bar.appendChild(b);
+          }
+          box.appendChild(bar);
+        }
       }
       const btns=document.createElement('div');btns.className='confirm-btns sbx-pick';
       const cleanup=v=>{ov.remove();document.removeEventListener('keydown',onKey);resolve(v)};

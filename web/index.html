@@ -140,6 +140,7 @@
       <button class="mtab" data-tab="display">Display</button>
       <button class="mtab" data-tab="notify">Notifications</button>
       <!-- SETTINGS_PORTABILITY_SRS FR-SPT-14: 설정을 파일로 옮기는 자리. -->
+      <button class="mtab" data-tab="sandbox">Sandbox</button>
       <button class="mtab" data-tab="backup">Backup</button>
     </div>
     <div class="modal-body">
@@ -230,6 +231,31 @@
         </div>
       </div>
       <!-- FR-SPT-14·15: 무엇이 실리고 무엇이 실리지 않는지를 함께 적는다. -->
+      <div class="mpanel" id="panel-sandbox" style="display:none">
+        <div class="display-settings">
+          <div class="ds-row">
+            <span>dev 이미지</span>
+            <input type="text" id="sbx-image" class="sbx-input" placeholder="node:22">
+          </div>
+          <div class="ds-row">
+            <span>포트</span>
+            <input type="text" id="sbx-ports" class="sbx-input" placeholder="3000, 5173-5180">
+          </div>
+          <div class="ds-hint">이미지를 비우면 <code>dev</code> 프로파일을 쓸 수 없고 <code>scratch</code> 만 남습니다. 포트는 쉼표로 구분하며, 컨테이너를 만든 뒤에는 더할 수 없어 미리 넉넉히 적는 편이 낫습니다.</div>
+
+          <div class="ds-row"><span>기본 마운트</span>
+            <button type="button" class="ds-toggle" id="sbx-mount-add">+ 추가</button>
+          </div>
+          <div id="sbx-mounts" class="sbx-mounts"></div>
+          <div class="ds-hint">샌드박스 창이면 언제나 붙는 자리입니다 — 설정과 자격증명을 둡니다(<code>~/.claude</code>, <code>~/.ssh</code>). <code>~</code> 는 홈으로 펴집니다. <b>scratch</b> 를 켜면 그 항목이 격리 창에도 들어가고, 그 순간 그 창은 격리 경계가 아니게 됩니다 — 읽기 전용이어도 내용은 읽힙니다.</div>
+
+          <div class="ds-row">
+            <span id="sbx-status" class="sbx-status"></span>
+            <button type="button" class="ds-toggle" id="sbx-save">저장</button>
+          </div>
+          <div class="ds-hint">저장하면 곧바로 반영되지만, <b>이미 열려 있는 샌드박스 창은 그대로입니다</b>. 새 설정으로 열려면 그 창을 닫았다 다시 여세요 — 그때 컨테이너 안에 설치했던 것은 사라집니다.</div>
+        </div>
+      </div>
       <div class="mpanel" id="panel-backup" style="display:none">
         <div class="display-settings">
           <div class="ds-row">

@@ -1,7 +1,6 @@
 package sandbox
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -35,84 +34,24 @@ func LoadProfiles(path string, read func(string) ([]byte, error)) (map[string]Pr
 
 // loadProfiles 는 사용자 홈 해석까지 주입받는 안쪽이다.
 //
-// scratch 는 언제나 들어 있고 **정의 파일이 그 정책을 덮을 수 없다.** 그것이
-// 유일한 격리 경계이므로(§3.3), 설정 한 줄로 네트워크가 열리거나 헬퍼가 들어오면
-// 경계가 조용히 사라진다. 예외는 마운트 하나뿐이며, 그것도 항목에 표식을 적어야
-// 하고 그 순간 등급 표기가 따라 바뀐다 (FR-SBX-39b).
-//
 // 파일이 없는 것은 오류가 아니다 — 샌드박스를 쓰지 않는 것이 기본이다. 그러나
 // 있는데 깨진 것은 오류다. 그것을 "정의 없음" 으로 넘기면 사용자는 자기 설정이
 // 무시된 줄 모른 채 프로파일이 없다는 말만 듣는다.
 func loadProfiles(path string, read func(string) ([]byte, error),
 	home func() (string, error)) (map[string]Profile, error) {
 
-	scratch, dev := Scratch(), Profile{}
 	blob, err := read(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return map[string]Profile{ProfileScratch: scratch}, nil
+			return map[string]Profile{ProfileScratch: Scratch()}, nil
 		}
 		return nil, fmt.Errorf("샌드박스 프로파일 정의를 읽을 수 없습니다(%s): %w", path, err)
 	}
-
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(blob, &raw); err != nil {
-		return nil, fmt.Errorf("샌드박스 프로파일 정의를 해석할 수 없습니다(%s): %w", path, err)
+	cfg, err := ParseConfig(blob, home)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-
-	// 기본 마운트를 먼저 읽는다 — 프로파일마다 나눠 담아야 하기 때문이다.
-	var base, forScratch []Mount
-	if rawMounts, ok := raw["mounts"]; ok {
-		var items []any
-		if err := json.Unmarshal(rawMounts, &items); err != nil {
-			return nil, fmt.Errorf("mounts 를 해석할 수 없습니다: %w", err)
-		}
-		for _, it := range items {
-			m, err := toMount(it, home)
-			if err != nil {
-				return nil, err
-			}
-			base = append(base, m)
-			if m.Scratch {
-				forScratch = append(forScratch, m)
-			}
-		}
-	}
-	scratch.BaseMounts = forScratch
-
-	for name, body := range raw {
-		if name == "mounts" {
-			continue
-		}
-		switch name {
-		case ProfileScratch:
-			return nil, fmt.Errorf("%q 프로파일은 재정의할 수 없습니다 — 유일한 격리 경계이므로 그 정책이 설정으로 바뀌어서는 안 됩니다(마운트는 항목의 \"scratch\" 표식으로 더합니다)", name)
-		case ProfileDev:
-		default:
-			return nil, fmt.Errorf("알 수 없는 샌드박스 프로파일입니다: %q (%s 만 정의할 수 있습니다)", name, ProfileDev)
-		}
-		var pf profileFile
-		if err := json.Unmarshal(body, &pf); err != nil {
-			return nil, fmt.Errorf("%q 프로파일을 해석할 수 없습니다: %w", name, err)
-		}
-		if pf.Image == "" {
-			return nil, fmt.Errorf("%q 프로파일에 이미지가 없습니다 — 이 프로파일의 쓸모는 전적으로 이미지 내용물에 달려 있어 기본값을 둘 수 없습니다 (FR-SBX-3)", name)
-		}
-		ports, err := normalizePorts(name, pf.Ports)
-		if err != nil {
-			return nil, err
-		}
-		dev = Profile{
-			Name: ProfileDev, Image: pf.Image, Network: "bridge",
-			Ports: ports, Workspace: true, Helper: true, BaseMounts: base,
-		}
-	}
-
-	out := map[string]Profile{ProfileScratch: scratch}
-	if dev.Image != "" {
-		out[ProfileDev] = dev
-	}
-	return out, nil
+	return cfg.Profiles(), nil
 }
 
 // normalizePorts 는 숫자와 문자열이 섞인 목록을 문자열로 고른다.

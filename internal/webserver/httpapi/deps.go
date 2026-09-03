@@ -48,6 +48,11 @@ type SandboxReaper interface {
 	Reap(live []string)
 	// Profiles 는 화면이 고를 수 있는 프로파일들이다 (FR-SBX-25).
 	Profiles() []sandbox.ProfileInfo
+	// Config·SaveConfig 는 설정창이 정의 파일을 다루는 자리다 (FR-SBX-43).
+	Config() (sandbox.Config, error)
+	SaveConfig(blob []byte) error
+	// Shutdown 은 서버가 내려갈 때 컨테이너를 정지한다 (FR-SBX-44).
+	Shutdown()
 }
 
 // SettingsStore abstracts the in-memory + on-disk settings blob holder.

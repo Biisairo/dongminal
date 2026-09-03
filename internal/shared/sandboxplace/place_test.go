@@ -62,7 +62,7 @@ func devProfiles() map[string]sandbox.Profile {
 }
 
 func newPlacer(f *fakeDocker, profiles map[string]sandbox.Profile, h sandbox.HelperDeps) *Placer {
-	p := New(sandbox.New(f.run, "/h"), "/usr/bin/docker", profiles, h, "58146")
+	p := New(sandbox.New(f.run, "/h"), "/usr/bin/docker", profiles, h, "58146", "/h")
 	// 마운트 검증은 별도 시험이 본다. 여기서는 모든 원본이 실재한다고 둔다.
 	p.stat = func(string) error { return nil }
 	return p
@@ -176,5 +176,52 @@ func TestPlace_MissingBaseMountSourceStopsStartup(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "/no/such/dir") {
 		t.Errorf("어느 경로인지 말하지 않는다: %v", err)
+	}
+}
+
+// ── FR-SBX-43: 설정 읽기·쓰기 ──
+
+func TestSaveConfig_ValidatesAndTakesEffect(t *testing.T) {
+	home := t.TempDir()
+	p := New(sandbox.New((&fakeDocker{}).run, home), "/usr/bin/docker",
+		map[string]sandbox.Profile{sandbox.ProfileScratch: sandbox.Scratch()},
+		helperDeps(true, nil), "58146", home)
+	p.stat = func(string) error { return nil }
+
+	// 저장 전에는 dev 가 없다.
+	if _, ok := p.profileByName(sandbox.ProfileDev); ok {
+		t.Fatal("정의하지 않은 dev 가 있다")
+	}
+
+	if err := p.SaveConfig([]byte(`{"dev":{"image":"node:22"}}`)); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+	// 저장은 곧바로 반영된다 — 설정을 고친 뒤 서버를 다시 띄우게 하면 안 된다.
+	if _, ok := p.profileByName(sandbox.ProfileDev); !ok {
+		t.Fatal("저장한 dev 가 반영되지 않았다")
+	}
+
+	// 파일로도 남아야 다음 기동에서 살아난다.
+	cfg, err := p.Config()
+	if err != nil {
+		t.Fatalf("Config: %v", err)
+	}
+	if cfg.Dev == nil || cfg.Dev.Image != "node:22" {
+		t.Fatalf("파일에 남지 않았다: %+v", cfg)
+	}
+}
+
+// 깨진 정의는 파일에 닿기 전에 막는다 — 저장해 두면 다음 기동이 통째로 막힌다.
+func TestSaveConfig_RejectsInvalidBeforeWriting(t *testing.T) {
+	home := t.TempDir()
+	p := New(sandbox.New((&fakeDocker{}).run, home), "/usr/bin/docker",
+		map[string]sandbox.Profile{sandbox.ProfileScratch: sandbox.Scratch()},
+		helperDeps(true, nil), "58146", home)
+
+	if err := p.SaveConfig([]byte(`{"dev":{}}`)); err == nil {
+		t.Fatal("이미지 없는 dev 가 저장됐다")
+	}
+	if cfg, _ := p.Config(); cfg.Dev != nil {
+		t.Fatal("거부했는데 파일이 쓰였다")
 	}
 }

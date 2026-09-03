@@ -41,13 +41,17 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
       app._notify('샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)이 설치되어 실행 중인지 확인하세요.');
       return;
     }
-    // 하나뿐이면 묻지 않는다. 선택지가 없는 선택은 절차만 늘린다.
-    const picked=list.length===1
-      ? {profile:list[0].name,workdir:''}
-      : await app._pickSandbox(list);
+    // 고를 것도 물을 것도 없으면 그대로 연다 — 선택지가 없는 선택은 절차만
+    // 늘린다. 작업 폴더를 받는 프로파일이 하나라도 있으면 매번 묻는다
+    // (FR-SBX-40).
+    const mustAsk=list.length>1||list.some(p=>p.workspace);
+    const picked=mustAsk
+      ? await app._pickSandbox(list)
+      : {profile:list[0].name,workdir:''};
     if(!picked||!picked.profile) return;
     sandbox=picked.profile;
     workdir=picked.workdir||'';
+    app._sbxRemember(workdir);
   }
   // 샌드박스 창은 실패가 흔하다(런타임 미실행·이미지 없음). 사유를 보이지 않으면
   // "눌러도 아무 일이 없다" 로만 남는다 (FR-SBX-20).

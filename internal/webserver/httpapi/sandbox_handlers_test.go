@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,12 +14,26 @@ import (
 )
 
 type fakeReaper struct {
-	calls    [][]string
-	profiles []sandbox.ProfileInfo
+	calls     [][]string
+	profiles  []sandbox.ProfileInfo
+	cfg       sandbox.Config
+	cfgErr    error
+	saved     []string
+	saveErr   error
+	shutdowns int
 }
 
 func (f *fakeReaper) Reap(live []string)              { f.calls = append(f.calls, live) }
 func (f *fakeReaper) Profiles() []sandbox.ProfileInfo { return f.profiles }
+func (f *fakeReaper) Config() (sandbox.Config, error) { return f.cfg, f.cfgErr }
+func (f *fakeReaper) Shutdown()                       { f.shutdowns++ }
+func (f *fakeReaper) SaveConfig(blob []byte) error {
+	if f.saveErr != nil {
+		return f.saveErr
+	}
+	f.saved = append(f.saved, string(blob))
+	return nil
+}
 
 // FR-SBX-11: 어느 Window 의 어떤 프로파일인지가 도구 생성 요청에 실려 온다.
 func TestToolsCreate_CarriesSandboxContext(t *testing.T) {
@@ -146,5 +162,58 @@ func TestSandboxProfiles_EmptyWithoutRuntime(t *testing.T) {
 	json.NewDecoder(resp.Body).Decode(&got)
 	if len(got) != 0 {
 		t.Fatalf("빈 목록이 아니다: %+v", got)
+	}
+}
+
+// FR-SBX-43: 설정창이 정의를 읽고 쓴다.
+func TestSandboxConfig_ReadAndWrite(t *testing.T) {
+	reaper := &fakeReaper{}
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Sandbox: reaper})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/api/sandbox/config")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("읽기 상태가 %d 다", resp.StatusCode)
+	}
+
+	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/sandbox/config",
+		strings.NewReader(`{"dev":{"image":"node:22"}}`))
+	put, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("put: %v", err)
+	}
+	put.Body.Close()
+	if put.StatusCode != 204 {
+		t.Fatalf("쓰기 상태가 %d 다", put.StatusCode)
+	}
+	if len(reaper.saved) != 1 || !strings.Contains(reaper.saved[0], "node:22") {
+		t.Fatalf("저장된 내용이 다르다: %v", reaper.saved)
+	}
+}
+
+// 거부 사유는 그대로 사용자에게 닿아야 한다 — 무엇이 잘못됐는지 모르면 고칠 수 없다.
+func TestSandboxConfig_RejectionCarriesReason(t *testing.T) {
+	reaper := &fakeReaper{saveErr: errors.New("이미지가 없습니다")}
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Sandbox: reaper})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/sandbox/config", strings.NewReader(`{}`))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("put: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 400 {
+		t.Fatalf("상태가 %d 다", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), "이미지가 없습니다") {
+		t.Fatalf("사유가 전달되지 않았다: %s", body)
 	}
 }

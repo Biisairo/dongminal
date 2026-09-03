@@ -146,7 +146,13 @@ func (m *Manager) create(name, windowUUID string, p Profile, rs RunSpec) error {
 		return fmt.Errorf("샌드박스 프로파일 %q 에 이미지가 지정되지 않았습니다", p.Name)
 	}
 	args := []string{
-		"run", "-d", "--name", name,
+		// --init 은 신호를 전달하고 좀비를 수확하는 PID 1 을 넣는다.
+		//
+		// 없으면 유지 프로세스가 PID 1 이 되는데, PID 1 에는 신호의 기본 동작이
+		// 적용되지 않아 SIGTERM 이 무시된다 — 정지 한 번에 런타임의 강제 종료
+		// 대기(기본 10초)를 그대로 치른다(실측). 샌드박스 창은 사용자가 프로세스를
+		// 여럿 띄우는 자리이므로 좀비 수확도 여기서 필요하다.
+		"run", "-d", "--init", "--name", name,
 		"--label", LabelHome + "=" + m.home,
 		"--label", LabelWindow + "=" + windowUUID,
 	}
@@ -306,4 +312,43 @@ func CLIRunner(dockerPath string) func(args []string) (string, error) {
 		out, err := exec.Command(dockerPath, args...).CombinedOutput()
 		return string(out), err
 	}
+}
+
+// StopOwned 는 이 홈의 대응 컨테이너를 모두 정지한다 (FR-SBX-44).
+//
+// **지우지 않는 것이 요점이다.** 서버가 내려가는 것은 Window 가 사라진 것과
+// 다르다 — 창은 workspace 에 그대로 있고, 다음 기동에서 그 창을 열면 하던
+// 자리로 돌아가야 한다. 정지는 자원만 놓고 파일시스템은 남긴다.
+//
+// 강제 종료(SIGKILL·크래시·전원)에는 이 자리가 실행되지 않는다. 그때 컨테이너는
+// 돌던 채로 남지만, 다음 기동은 running 이든 exited 든 재사용하므로(FR-SBX-26)
+// 동작에는 차이가 없다.
+func (m *Manager) StopOwned() error {
+	names, err := m.ownedNames()
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		m.run([]string{"stop", name})
+	}
+	return nil
+}
+
+// ownedNames 는 이 홈 라벨이 붙은 컨테이너 이름들이다.
+func (m *Manager) ownedNames() ([]string, error) {
+	out, err := m.run([]string{
+		"ps", "-a",
+		"--filter", "label=" + LabelHome + "=" + m.home,
+		"--format", "{{.Names}}",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("샌드박스 컨테이너를 조회하지 못했습니다: %w", err)
+	}
+	var names []string
+	for _, line := range strings.Split(out, "\n") {
+		if n := strings.TrimSpace(line); n != "" {
+			names = append(names, n)
+		}
+	}
+	return names, nil
 }

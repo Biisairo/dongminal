@@ -40,7 +40,7 @@ func Wire(home, version, port string) *Placer {
 	if port == "" {
 		port = envOr(dmenv.EnvPort, dmenv.DefaultPort)
 	}
-	return New(sandbox.New(sandbox.CLIRunner(dockerPath), home), dockerPath, profiles, helper, port)
+	return New(sandbox.New(sandbox.CLIRunner(dockerPath), home), dockerPath, profiles, helper, port, home)
 }
 
 func envOr(key, fallback string) string {
