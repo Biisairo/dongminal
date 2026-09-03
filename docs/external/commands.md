@@ -18,7 +18,7 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 
 | 명령 | 설명 |
 |------|------|
-| `dmctl new-window [--name <이름>] [-n] [--sandbox <프로파일>]` | 새 창 생성. `--name` 으로 잡 이름 지정, `-n` 이면 백그라운드 생성 (사용자 포커스·화면 무변화 — 사이드바에만 추가). `--sandbox` 는 그 창의 도구를 컨테이너 안에서 실행 (`scratch` · `dev` · `agent`) |
+| `dmctl new-window [--name <이름>] [-n] [--sandbox <프로파일>] [--workdir <경로>]` | 새 창 생성. `--name` 으로 잡 이름 지정, `-n` 이면 백그라운드 생성 (사용자 포커스·화면 무변화 — 사이드바에만 추가). `--sandbox` 는 그 창의 도구를 컨테이너 안에서 실행 (`scratch` · `dev`), `--workdir` 는 그 창의 작업 폴더 |
 | `dmctl new-tab [--name <이름>] [-n] [--at <uuid>]` | 새 탭. `--at` 으로 다른 분할 칸 대상 지정 가능. `-n` 이면 대상 분할 칸의 활성 탭도 유지한 채 백그라운드 추가 |
 | `dmctl split-h [N]` | 가로 분할. N 지정 시 N 개로 균등 분할 (기본 2) |
 | `dmctl split-v [N]` | 세로 분할. 동일 |
