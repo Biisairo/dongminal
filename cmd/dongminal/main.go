@@ -147,6 +147,10 @@ type builtDeps struct {
 	attnTracker *hub.AttnTracker
 	sampler     *sysstat.Sampler
 	wsMgr       *workspace.Manager
+	// lspSvc 는 언어 서버들의 수명을 소유한다. `deps.LSP` 로는 이것을 얻을 수
+	// 없다 — 그쪽은 인터페이스이고, 거기에 Sweeper·Shutdown 을 넣으면 httpapi 가
+	// 프로세스의 수명을 알게 되어 방향이 어긋난다 (EDITOR_LSP_SRS D-4).
+	lspSvc *lsp.Service
 }
 
 // restoreHeadlessBackground puts the restored headless tools back into the
@@ -357,6 +361,7 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 		attnTracker: attnTracker,
 		wsMgr:       wsMgr,
 		sampler:     sampler,
+		lspSvc:      lspSvc,
 	}, nil
 }
 
@@ -505,6 +510,12 @@ func serve(home, host, port string) int {
 	log.Printf("dongminal starting on http://%s:%s (%s, platform=%s)",
 		host, port, exposure, platform.Current().OS)
 
+	// FR-LSP-17: 쓰이지 않는 언어 서버를 주기적으로 정지시킨다. 서버 수명과 함께
+	// 시작하고 끝난다 — 진단 스냅샷(runDiagSnapshots)과 같은 규약이다.
+	if bd.lspSvc != nil {
+		go bd.lspSvc.RunSweeper(ctx)
+	}
+
 	runErr := srv.Run(ctx, host+":"+port)
 
 	log.Printf("shutting down")
@@ -522,6 +533,12 @@ func serve(home, host, port string) int {
 	// (FR-SBX-44).
 	if bd.deps.Sandbox != nil {
 		bd.deps.Sandbox.Shutdown()
+	}
+	// 언어 서버는 **정지**한다 (FR-LSP-18). 컨테이너와 달리 남겨 둘 상태가 없다 —
+	// 다음 기동의 첫 요청이 다시 세운다. 정지하지 않으면 큰 저장소에서 수백 MB 를
+	// 쓰는 프로세스가 서버보다 오래 산다.
+	if bd.lspSvc != nil {
+		bd.lspSvc.Shutdown()
 	}
 	_ = bd.wsMgr.Close()
 	if runErr != nil {

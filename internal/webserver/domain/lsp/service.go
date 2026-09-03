@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"sync"
+	"time"
 )
 
 // Service 는 HTTP 종단이 딛는 표면이다 (M1 의 묶음 A).
@@ -18,7 +19,21 @@ type Service struct {
 	LookPath func(string) (string, error)
 	Exec     func(ctx context.Context, name string, args, env []string, dir string) ([]byte, error)
 
+	// Start 는 언어 서버 프로세스를 세운다. 비면 실제 프로세스를 쓴다.
+	Start Starter
+	// Overrides 는 설정이 적은 절대경로 표다 (FR-LSP-4b). 세션을 세울 때의
+	// 탐색이 이것을 딛는다 — 상태 조회는 요청이 실은 표를 따로 받는다.
+	Overrides map[string]string
+	// IdleAfter·MaxSessions 가 0 이면 이 패키지의 기본값을 쓴다.
+	IdleAfter   time.Duration
+	MaxSessions int
+
 	mu sync.Mutex
+	// sessions 는 (루트, 서술자) → 세션이다 (FR-LSP-13).
+	sessions map[string]*Session
+	// failed 는 기동 실패의 기억이다 (FR-LSP-16) — 매 요청마다 같은 실패를
+	// 되풀이해 프로세스를 띄우지 않는다.
+	failed map[string]error
 	// installing 은 지금 받고 있는 서술자들이다 (FR-LSP-48).
 	//
 	// 판정이 서버에 있는 근거는 화면의 비활성으로는 **다른 탭·다른 기기**에서
@@ -98,5 +113,10 @@ func (s *Service) Install(ctx context.Context, id string) InstallOutcome {
 	if r.Exec == nil {
 		r.Exec = execCombined
 	}
-	return r.Install(ctx, d)
+	out := r.Install(ctx, d)
+	// FR-LSP-16: 설치를 시도했으면 그 서술자의 실패 기억을 지운다. 성공이든
+	// 실패든 지우는 이유는, 실패한 설치도 상태를 바꿀 수 있고(부분 설치) 무엇보다
+	// **고쳐 놓고도 안 되는 것**이 사용자가 우리를 못 믿게 되는 자리이기 때문이다.
+	s.forget(id)
+	return out
 }

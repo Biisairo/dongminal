@@ -263,3 +263,19 @@ func TestConn_Notify(t *testing.T) {
 		t.Fatalf("알림에 id 가 있다 — 그러면 서버가 응답을 보낸다: %v", m)
 	}
 }
+
+func newBufReader(r io.Reader) *bufio.Reader { return bufio.NewReader(r) }
+
+// replyRaw·replyErrorRaw·notifyRaw 는 goroutine 안에서 쓰는 판이다 — *testing.T
+// 를 받지 않으므로 Fatal 하지 않는다. 검사 goroutine 밖에서 Fatal 을 부르면
+// 테스트가 끝난 뒤에 보고되어 어느 검사가 실패했는지 알 수 없다.
+func (f *fakeServer) replyRaw(id any, result any) {
+	b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": id, "result": result})
+	_ = writeFrame(f.toClient, b)
+}
+
+func (f *fakeServer) replyErrorRaw(id any, code int, msg string) {
+	b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": id,
+		"error": map[string]any{"code": code, "message": msg}})
+	_ = writeFrame(f.toClient, b)
+}

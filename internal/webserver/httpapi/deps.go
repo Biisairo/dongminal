@@ -122,6 +122,12 @@ type LSPService interface {
 	// Install 은 서술자 하나를 받는다. 같은 것의 두 번째 요청은 거절된다
 	// (FR-LSP-48).
 	Install(ctx context.Context, id string) lsp.InstallOutcome
+	// Definition·References 는 그 자리의 정의·참조다 (FR-LSP-21·22).
+	//
+	// `text` 를 받는 것이 이 계약의 핵심이다 (D-3) — 저장 전 편집이 브라우저에만
+	// 있으므로 디스크만 보는 서버는 방금 쓴 함수를 모른다. 줄·열은 1 부터다.
+	Definition(ctx context.Context, root, path, text string, line, col int) ([]lsp.Location, error)
+	References(ctx context.Context, root, path, text string, line, col int, includeDecl bool) ([]lsp.Location, error)
 }
 
 // StatsSnapshotter is satisfied by *sysstat.Sampler. Kept as an interface so the
