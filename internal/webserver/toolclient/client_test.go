@@ -190,7 +190,10 @@ func TestToolClientReconnect(t *testing.T) {
 	toolID := p.ID
 	pc1.Close()
 	ps1.Close()
-	time.Sleep(200 * time.Millisecond)
+	// 저장은 요청 경로를 막지 않으려고 고루틴으로 떨어진다. 기다리지 않으면
+	// tools.json 이 아직 쓰이지 않은 채로 pm2 가 읽어 간헐 실패한다 — 느린
+	// 러너에서 실제로 났다. sleep 으로 눈감으면 그 실패는 되풀이된다.
+	pm1.StopSaving()
 
 	pm2 := toolhub.NewToolManager(dataDir, nil)
 	t.Cleanup(pm2.StopSaving)
