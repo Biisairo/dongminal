@@ -364,6 +364,10 @@ class FileEditor {
       if (this._editor) this._editor.layout();
     });
     this._findKillMonacoKeys();
+    // FR-LSP-39: 호버 provider 는 **언어마다 한 번**이다. 편집기를 여럿 세워도
+    // 등록이 늘지 않아야 한다 — 늘면 같은 호버가 여러 번 뜬다. 그 판정은 app 이
+    // 갖고 있으므로 여기서는 부르기만 한다.
+    if (window.app && window.app._lspHoverRegister) window.app._lspHoverRegister();
 
     // Save on Ctrl+S / Cmd+S
     this._editor.addCommand(

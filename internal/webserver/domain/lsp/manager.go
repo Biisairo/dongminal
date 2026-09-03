@@ -55,6 +55,18 @@ func (s *Service) References(ctx context.Context, root, path, text string, line,
 	return sess.References(ctx, path, text, line, col, includeDecl)
 }
 
+// Hover 는 그 자리 심볼의 타입·문서다 (FR-LSP-29).
+func (s *Service) Hover(ctx context.Context, root, path, text string, line, col int) (string, error) {
+	sess, err := s.session(root, path)
+	if err != nil {
+		return "", err
+	}
+	if err := checkText(text); err != nil {
+		return "", err
+	}
+	return sess.Hover(ctx, path, text, line, col)
+}
+
 func checkText(text string) error {
 	if len(text) > MaxTextBytes {
 		return fmt.Errorf("파일이 너무 큽니다 (%d 바이트, 상한 %d)", len(text), MaxTextBytes)

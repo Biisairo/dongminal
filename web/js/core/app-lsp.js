@@ -211,6 +211,98 @@ Object.assign(App.prototype, {
     return String(abs).startsWith(r)?String(abs).slice(r.length):String(abs);
   },
 
+  // ── 호버 (묶음 D · M3) ──
+  //
+  // **여기서는 Monaco 의 provider 를 쓴다** (D-8). 말풍선은 같은 파일 안의 일이므로
+  // 탭 시스템을 알 필요가 없다 — 정의 이동과 갈리는 자리가 그것이다 (§2.11).
+
+  /**
+   * FR-LSP-39: provider 는 **언어마다 한 번** 등록된다. 편집기를 여럿 세워도 등록이
+   * 늘지 않아야 한다 — 늘면 같은 호버가 여러 번 뜬다.
+   *
+   * Monaco 가 뜬 뒤에 불려야 하므로 `FileEditor` 가 편집기를 세운 직후에 부른다.
+   * 두 번째부터는 아무 일도 하지 않는다.
+   */
+  _lspHoverRegister(){
+    if(this._lspHoverOn) return;
+    if(typeof monaco==='undefined'||!monaco.languages) return;
+    this._lspHoverOn=true;
+    for(const lang of LSP_HOVER_LANGS){
+      monaco.languages.registerHoverProvider(lang,{
+        provideHover:(model,position,token)=>this._lspHover(model,position,token),
+      });
+    }
+  },
+
+  /**
+   * FR-LSP-29·31: 그 자리 심볼의 타입·문서.
+   *
+   * Monaco 가 **언제 물을지를 정한다** — 마우스가 멈춘 뒤에 부르고, 그 사이 다른
+   * 자리로 옮기면 앞선 요청의 토큰을 취소한다. 우리는 그 취소를 `fetch` 에 이어
+   * 붙이기만 한다: 잇지 않으면 취소된 요청이 서버에서 계속 돌아 언어 서버를
+   * 헛되게 바쁘게 한다.
+   */
+  async _lspHover(model,position,token){
+    const at=this._lspHoverWhere(model,position);
+    if(!at) return null;
+    const ctl=new AbortController();
+    if(token&&token.onCancellationRequested) token.onCancellationRequested(()=>ctl.abort());
+    let r=null,d=null;
+    try{
+      r=await fetch(LSP_HOVER_API,{method:'POST',signal:ctl.signal,
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({root:at.root,path:at.path,text:at.text,
+          line:position.lineNumber,col:position.column})});
+    }catch{return null}
+    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
+    // 호버가 비는 것은 **흔한 일이다** — 빈 자리에 마우스를 얹으면 그렇다. 그래서
+    // 여기서는 사유를 알림 줄로 띄우지 않는다: 마우스를 움직일 때마다 "서버가
+    // 없습니다" 가 뜨면 그것이 곧 고장이다. 그 사실은 F12 를 눌렀을 때 말한다.
+    if(!d||!d.markdown) return null;
+    return {contents:[{value:d.markdown}]};
+  },
+
+  /**
+   * 이 모델이 어느 Editor 창의 어느 파일인가.
+   *
+   * `_lspWhere` 를 쓸 수 없는 이유는 호버가 **활성 편집기가 아닐 수도 있는** 모델에
+   * 대해 불리기 때문이다 (분할 칸 둘 중 마우스가 놓인 쪽). 모델의 uri 로 그 파일을
+   * 찾아 그 파일이 속한 루트를 정한다.
+   */
+  _lspHoverWhere(model,position){
+    if(!model||!position) return null;
+    const path=this._lspPathOfModel(model);
+    if(!path) return null;
+    const root=this._lspRootOfPath(path);
+    if(!root) return null;
+    return {root,path,text:model.getValue()};
+  },
+
+  // 모델의 uri 에서 파일 경로를 되돌린다. 모델은 `_edDoc` 이 파일마다 하나로
+  // 만들므로 그 규약을 그대로 딛는다.
+  _lspPathOfModel(model){
+    const v=this._edActiveEditor();
+    if(v&&v._editor&&v._editor.getModel()===model) return v.filePath;
+    // 활성 편집기의 것이 아니면 열려 있는 편집기들에서 찾는다.
+    for(const ed of this.fileEditors.values()){
+      if(ed&&ed._editor&&ed._editor.getModel()===model) return ed.filePath;
+    }
+    return '';
+  },
+
+  // 그 파일을 품은 Editor 루트. 등록된 루트 중 가장 긴 것이 답이다 — 루트가
+  // 겹쳐 있을 때 짧은 쪽을 고르면 언어 서버가 엉뚱한 저장소를 읽는다.
+  _lspRootOfPath(path){
+    let best='';
+    for(const w of this._edWindows()){
+      const r=w.editor&&w.editor.root;
+      if(!r) continue;
+      const pre=String(r).replace(/\/+$/,'')+'/';
+      if(String(path).startsWith(pre)&&r.length>best.length) best=r;
+    }
+    return best;
+  },
+
   // ── 뒤로 가기 (FR-LSP-27) ──
 
   _lspPush(at){

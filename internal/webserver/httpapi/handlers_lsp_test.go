@@ -20,6 +20,7 @@ type fakeLSP struct {
 	outcome    lsp.InstallOutcome
 
 	locs    []lsp.Location
+	hover   string
 	locErr  error
 	askRoot string
 	askPath string
@@ -47,6 +48,11 @@ func (f *fakeLSP) Definition(_ context.Context, root, path, text string, line, c
 func (f *fakeLSP) References(_ context.Context, root, path, text string, line, col int, incl bool) ([]lsp.Location, error) {
 	f.askRoot, f.askPath, f.askText, f.askLine, f.askCol, f.askIncl = root, path, text, line, col, incl
 	return f.locs, f.locErr
+}
+
+func (f *fakeLSP) Hover(_ context.Context, root, path, text string, line, col int) (string, error) {
+	f.askRoot, f.askPath, f.askText, f.askLine, f.askCol = root, path, text, line, col
+	return f.hover, f.locErr
 }
 
 // TC-LSP-30 (FR-LSP-46): 상태 조회가 서술자 목록을 돌려준다.
@@ -285,5 +291,31 @@ func TestLSPDefinition_RootGuard(t *testing.T) {
 	}
 	if f.askPath != "" {
 		t.Fatalf("가드를 지나기 전에 서비스가 불렸다: %q", f.askPath)
+	}
+}
+
+// TC-LSP-39 (FR-LSP-29): 호버는 마크다운을 낸다. 루트 가드와 텍스트 싣기는 정의와
+// 같은 앞부분을 지난다.
+func TestLSPHover(t *testing.T) {
+	f := &fakeLSP{hover: "func helper()"}
+	_, ts := lspServerWithRoot(t, f)
+	defer ts.Close()
+
+	body := `{"root":"` + lspTestRoot + `","path":"` + lspTestRoot + `/a.go","text":"x","line":2,"col":3}`
+	resp, err := http.Post(ts.URL+"/api/lsp/hover", "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var got struct {
+		Markdown string `json:"markdown"`
+		Reason   string `json:"reason"`
+	}
+	json.NewDecoder(resp.Body).Decode(&got)
+	if got.Markdown != "func helper()" {
+		t.Fatalf("호버가 오지 않았다: %+v", got)
+	}
+	if f.askLine != 2 || f.askCol != 3 {
+		t.Fatalf("좌표가 넘어가지 않았다: %d,%d", f.askLine, f.askCol)
 	}
 }

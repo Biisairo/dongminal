@@ -155,6 +155,23 @@ func (s *Server) apiLSPReferences(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, lspLocsResult(locs, err))
 }
 
+// apiLSPHover 는 그 자리 심볼의 타입·문서다 (FR-LSP-29).
+//
+// 빈 결과와 실패를 가른다 (D-9) — 호버가 비는 것은 흔한 일이므로 그 자체가 사유는
+// 아니지만, 서버가 없어서 빈 것은 다르다.
+func (s *Server) apiLSPHover(w http.ResponseWriter, r *http.Request) {
+	req, root, ok := s.lspAsk(w, r)
+	if !ok {
+		return
+	}
+	text, err := s.LSP.Hover(r.Context(), root, req.Path, req.Text, req.Line, req.Col)
+	out := map[string]any{"markdown": text}
+	if err != nil {
+		out["reason"] = err.Error()
+	}
+	writeJSON(w, out)
+}
+
 // lspLocsResult 는 두 종단의 응답 모양이다.
 //
 // 오류를 상태 코드로 알리지 않는 이유는 설치 종단과 같다 — 화면이 사유를 읽어

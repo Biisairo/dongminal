@@ -128,6 +128,9 @@ type LSPService interface {
 	// 있으므로 디스크만 보는 서버는 방금 쓴 함수를 모른다. 줄·열은 1 부터다.
 	Definition(ctx context.Context, root, path, text string, line, col int) ([]lsp.Location, error)
 	References(ctx context.Context, root, path, text string, line, col int, includeDecl bool) ([]lsp.Location, error)
+	// Hover 는 그 자리 심볼의 타입·문서다 (FR-LSP-29). 정의 이동과 같은 세션·같은
+	// 동기화를 쓴다 (FR-LSP-30).
+	Hover(ctx context.Context, root, path, text string, line, col int) (string, error)
 }
 
 // StatsSnapshotter is satisfied by *sysstat.Sampler. Kept as an interface so the

@@ -149,6 +149,16 @@ const LSP_ASKING='언어 서버에 묻는 중…';
 // 알림 줄이 스스로 사라지기까지. 닫는 조작을 배워야 하는 알림은 알림이 아니라 창이다.
 const FE_NOTE_MS=4000;
 
+// ── 코드 탐색: 호버 (묶음 D · M3) ──
+const LSP_HOVER_API='/api/lsp/hover';
+// FR-LSP-39: provider 는 **언어마다 한 번** 등록된다. 편집기를 여럿 세워도
+// 등록이 늘지 않아야 한다 — 늘면 같은 호버가 여러 번 뜬다.
+//
+// 서술자가 덮는 언어는 서버가 알려 주지만, 등록은 Monaco 가 뜬 뒤에 해야 하므로
+// 화면이 그 목록을 갖고 있어야 한다. 서버의 서술자와 어긋나면 그 언어에서 호버가
+// 뜨지 않으므로, 여기 적은 것이 곧 계약이다.
+const LSP_HOVER_LANGS=['go','typescript','javascript','typescriptreact','javascriptreact','python'];
+
 // FR-EDT-47 / D-18: 탐색기 폭은 워크스페이스에 산다 (`window.editor.explorerWidth`).
 // 상·하한은 사이드바(`--sb-w`)의 규약을 그대로 따른다 — 같은 종류의 값이 서로 다른
 // 한계를 가질 이유가 없다.

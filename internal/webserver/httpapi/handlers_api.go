@@ -171,6 +171,7 @@ var apiRoutes = []apiRoute{
 	// 정의·참조는 `fsRoot` 가드를 딛는다 (FR-LSP-24·49) — /api/fs/* 와 같은 가드다.
 	{http.MethodPost, exactPath("/api/lsp/definition"), (*Server).apiLSPDefinition},
 	{http.MethodPost, exactPath("/api/lsp/references"), (*Server).apiLSPReferences},
+	{http.MethodPost, exactPath("/api/lsp/hover"), (*Server).apiLSPHover},
 	{http.MethodGet, exactPath("/api/editors"), (*Server).apiEditorsGet},
 	{http.MethodPost, exactPath("/api/editors/add"), (*Server).apiEditorsAdd},
 	{http.MethodPost, exactPath("/api/editors/remove"), (*Server).apiEditorsRemove},

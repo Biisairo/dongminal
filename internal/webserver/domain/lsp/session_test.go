@@ -264,3 +264,85 @@ func mustDesc(t *testing.T, ext string) Descriptor {
 	}
 	return d
 }
+
+// TC-LSP-67 (FR-LSP-29·30): 호버는 정의 이동과 **같은 세션·같은 동기화**를 쓴다.
+// 두 벌로 두면 한쪽만 낡는다.
+func TestSession_Hover(t *testing.T) {
+	var methods []string
+	start, _ := fakeStarter(t, func(s *fakeServer, m map[string]any) {
+		method, _ := m["method"].(string)
+		methods = append(methods, method)
+		switch method {
+		case "initialize":
+			s.replyRaw(m["id"], map[string]any{})
+		case "textDocument/hover":
+			s.replyRaw(m["id"], map[string]any{
+				"contents": map[string]any{"kind": "markdown", "value": "func helper()"},
+			})
+		}
+	})
+	sess := newSession("/root", mustDesc(t, ".go"), "/fake/gopls", start, nil)
+	defer sess.Close()
+
+	got, err := sess.Hover(context.Background(), "/root/a.go", "package a\n", 1, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "func helper()" {
+		t.Fatalf("호버 내용이 다르다: %q", got)
+	}
+	// didOpen 이 호버 앞에 있어야 한다 — 그것이 D-3 의 동기화다.
+	var openAt, hoverAt = -1, -1
+	for i, m := range methods {
+		if m == "textDocument/didOpen" {
+			openAt = i
+		}
+		if m == "textDocument/hover" {
+			hoverAt = i
+		}
+	}
+	if openAt < 0 || hoverAt < 0 || openAt > hoverAt {
+		t.Fatalf("동기화가 호버 앞에 없다: %v", methods)
+	}
+}
+
+// TC-LSP-68 (FR-LSP-29): LSP 의 세 가지 contents 모양을 모두 받는다. 서버마다
+// 다르므로 하나만 받으면 어떤 서버에서는 호버가 늘 비어 보인다.
+func TestSession_HoverContentShapes(t *testing.T) {
+	cases := []struct {
+		name string
+		res  any
+		want string
+	}{
+		{"MarkupContent", map[string]any{
+			"contents": map[string]any{"kind": "markdown", "value": "A"}}, "A"},
+		{"MarkedString(문자열)", map[string]any{"contents": "B"}, "B"},
+		{"MarkedString(객체)", map[string]any{
+			"contents": map[string]any{"language": "go", "value": "C"}}, "C"},
+		{"배열", map[string]any{
+			"contents": []any{"D", map[string]any{"value": "E"}}}, "D\n\nE"},
+		{"빈 것", map[string]any{}, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			res := c.res
+			start, _ := fakeStarter(t, func(s *fakeServer, m map[string]any) {
+				switch m["method"] {
+				case "initialize":
+					s.replyRaw(m["id"], map[string]any{})
+				case "textDocument/hover":
+					s.replyRaw(m["id"], res)
+				}
+			})
+			sess := newSession("/root", mustDesc(t, ".go"), "/fake/gopls", start, nil)
+			defer sess.Close()
+			got, err := sess.Hover(context.Background(), "/root/a.go", "x\n", 1, 1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != c.want {
+				t.Fatalf("%s: %q (기대 %q)", c.name, got, c.want)
+			}
+		})
+	}
+}

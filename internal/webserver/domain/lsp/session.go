@@ -268,6 +268,57 @@ func (s *Session) References(ctx context.Context, path, text string, line, col i
 		map[string]any{"includeDeclaration": includeDecl})
 }
 
+// Hover 는 그 자리 심볼의 타입·문서다 (FR-LSP-29).
+//
+// **정의 이동과 같은 세션·같은 동기화를 쓴다** (FR-LSP-30) — 두 벌로 두면 한쪽만
+// 낡아, 호버는 옛 내용을 말하고 정의는 새 내용을 가리키게 된다.
+func (s *Session) Hover(ctx context.Context, path, text string, line, col int) (string, error) {
+	if err := s.waitReady(ctx); err != nil {
+		return "", err
+	}
+	if err := s.sync(path, text); err != nil {
+		return "", err
+	}
+	l, ch := toLSPPos(line, col)
+	var raw map[string]any
+	err := s.c.Call(ctx, "textDocument/hover", map[string]any{
+		"textDocument": map[string]any{"uri": pathToURI(path)},
+		"position":     map[string]any{"line": l, "character": ch},
+	}, &raw)
+	if err != nil {
+		return "", err
+	}
+	return hoverText(raw["contents"]), nil
+}
+
+// hoverText 는 LSP 의 세 가지 `contents` 모양을 하나의 문자열로 모은다.
+//
+// 셋을 다 받는 이유는 서버마다 다르기 때문이다 — 하나만 받으면 어떤 서버에서는
+// 호버가 늘 비어 보이고, 그 증상은 "호버가 안 된다" 로 읽힌다.
+//
+//	MarkupContent   {kind, value}
+//	MarkedString    "문자열" 또는 {language, value}
+//	MarkedString[]  위의 것들의 배열
+func hoverText(v any) string {
+	switch c := v.(type) {
+	case string:
+		return strings.TrimSpace(c)
+	case map[string]any:
+		if s, ok := c["value"].(string); ok {
+			return strings.TrimSpace(s)
+		}
+	case []any:
+		var parts []string
+		for _, it := range c {
+			if s := hoverText(it); s != "" {
+				parts = append(parts, s)
+			}
+		}
+		return strings.Join(parts, "\n\n")
+	}
+	return ""
+}
+
 // locate 는 정의·참조가 공유하는 몸통이다 — 둘은 같은 입력과 같은 응답 모양을
 // 가지며 method 와 context 만 다르다. 두 벌로 두면 좌표 변환이 한쪽만 고쳐진다.
 func (s *Session) locate(ctx context.Context, method, path, text string,

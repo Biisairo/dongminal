@@ -245,3 +245,84 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
       .toBe(`${ROOT}/pkg/deep/helper.go`);
   });
 });
+
+test.describe('코드 탐색 — 호버 (M3)', () => {
+  // V-LSP-16 · FR-LSP-29·38: 호버는 **Monaco 의 provider** 로 뜬다 — 말풍선은
+  // 같은 파일 안의 일이므로 탭 시스템을 알 필요가 없다 (D-8).
+  test('심볼에 호버하면 타입이 보인다', async ({ page, request }) => {
+    await enter(page, request);
+    await openFile(page, 'main.go');
+
+    const seen: any[] = [];
+    await page.route('**/api/lsp/hover', async (route: any) => {
+      seen.push(JSON.parse(route.request().postData() || '{}'));
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ markdown: 'func helper()' }),
+      });
+    });
+
+    // 마우스를 흉내내지 않고 Monaco 에게 그 자리의 호버를 띄우라고 시킨다 —
+    // 재려는 것은 provider 의 속이지 마우스 이동이 아니다.
+    await putCursor(page, 4, 3);
+    await page.evaluate(() => {
+      const ed = (window as any).app._edActiveEditor()._editor;
+      ed.trigger('test', 'editor.action.showHover', null);
+    });
+
+    await expect(page.locator('.monaco-editor .monaco-hover').first())
+      .toContainText('func helper()', { timeout: 10000 });
+
+    // FR-LSP-23 / D-3: 호버도 현재 텍스트를 싣는다 — 정의 이동과 같은 동기화다.
+    expect(seen.length, '호버 요청이 가지 않았다').toBeGreaterThan(0);
+    expect(seen[0].text).toContain('func main()');
+    expect(seen[0].root).toBe(ROOT);
+  });
+
+  // FR-LSP-31: 호버가 비면 **말풍선이 뜨지 않는다.** 빈 자리에 마우스를 얹을 때마다
+  // 무언가 뜨면 그것이 곧 방해다.
+  test('호버가 비면 아무것도 뜨지 않는다', async ({ page, request }) => {
+    await enter(page, request);
+    await openFile(page, 'main.go');
+    await page.route('**/api/lsp/hover', (r: any) => r.fulfill({
+      status: 200, contentType: 'application/json', body: '{"markdown":""}',
+    }));
+
+    await putCursor(page, 2, 1);
+    await page.evaluate(() => {
+      const ed = (window as any).app._edActiveEditor()._editor;
+      ed.trigger('test', 'editor.action.showHover', null);
+    });
+    await page.waitForTimeout(800);
+    // 알림 줄도 뜨지 않는다 — 마우스를 움직일 때마다 사유가 뜨면 고장이다.
+    await expect(note(page)).toHaveCount(0);
+  });
+
+  // FR-LSP-39: provider 는 언어마다 한 번이다. 편집기를 둘 세워도 호버 요청이
+  // 두 번 나가지 않는다 — 나가면 같은 말풍선이 여러 번 뜬다.
+  test('편집기를 여럿 세워도 호버가 한 번만 묻는다', async ({ page, request }) => {
+    await enter(page, request);
+    await openFile(page, 'main.go');
+    await openFile(page, 'pkg/deep/helper.go');
+    await openFile(page, 'main.go');
+
+    let calls = 0;
+    await page.route('**/api/lsp/hover', async (route: any) => {
+      calls++;
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ markdown: 'func helper()' }),
+      });
+    });
+
+    await putCursor(page, 4, 3);
+    await page.evaluate(() => {
+      const ed = (window as any).app._edActiveEditor()._editor;
+      ed.trigger('test', 'editor.action.showHover', null);
+    });
+    await expect(page.locator('.monaco-editor .monaco-hover').first())
+      .toContainText('func helper()', { timeout: 10000 });
+    await page.waitForTimeout(500);
+    expect(calls, `호버 요청이 ${calls} 번 나갔다 — provider 가 여러 번 등록됐다`).toBe(1);
+  });
+});
