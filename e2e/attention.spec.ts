@@ -110,18 +110,32 @@ test.describe('Pane attention', () => {
     await expect(page.locator('#attn-badge')).toBeHidden();
   });
 
-  // V-ATA-3·4: 키 입력도 해제다. 그리고 사용자가 **보고 있는** 도구의 알람은
-  // 표식만 남기고 소리·데스크톱 알림을 내지 않는다 (AS-2) — 눈앞에 있는 것을
-  // 소리로 다시 부르는 것은 접수가 요구한 "동시에 본다" 와 무관한 방해다.
-  test('키 입력이 알람을 해제하고, 보고 있는 알람은 소리를 내지 않는다 (V-ATA-3·4)', async ({ page }) => {
+  // V-ATA-3 · V-ATA-4(개정): 키 입력은 알람을 해제한다. 그리고 **보고 있어도**
+  // 소리와 데스크톱 알림이 난다 (FR-ATA-7 개정 / §1.7).
+  //
+  // 종전에는 반대를 쟀다 — 보고 있으면 내지 않는 것이 AS-2 였다. 그 가정이
+  // 반증됐다: 이 앱에서 알람이 서는 가장 흔한 순간이 **에이전트가 도는 것을
+  // 지켜보다 끝나는 순간**이고, 그때 사용자는 그 탭을 보고 있어 배너가 한 번도
+  // 뜨지 않았다. 방해를 막으려던 조건이 기능 자체를 막고 있었다.
+  test('키 입력이 알람을 해제하고, 보고 있어도 알림이 난다 (V-ATA-3·4)', async ({ page }) => {
     await waitForInit(page);
     await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
 
-    // 비프를 가로챈다. 실제 소리 대신 호출 횟수만 센다.
+    // 비프와 데스크톱 알림을 가로챈다. 실제 소리·배너 대신 호출만 센다 —
+    // 실제 배너는 Playwright 가 보지 못하므로 "우리가 띄우려 했는가" 까지가
+    // 우리 몫이고 그 뒤는 브라우저와 OS 의 몫이다.
     await page.evaluate(() => {
       const app = (window as any).app;
       (window as any).__beeps = 0;
       app._attnBeep = () => { (window as any).__beeps++; };
+      (window as any).__notifs = [];
+      const Spy: any = function (this: any, title: string) {
+        (window as any).__notifs.push(title);
+        return { close() {} };
+      };
+      Spy.permission = 'granted';
+      Spy.requestPermission = () => Promise.resolve('granted');
+      (window as any).Notification = Spy;
     });
 
     await page.keyboard.type('sleep 2 && "$DONGMINAL_HOME/bin/dmctl" notify done');
@@ -129,8 +143,11 @@ test.describe('Pane attention', () => {
 
     const pane = page.locator('#area .pn.focused');
     await expect(pane).toHaveClass(/attn/, { timeout: 15000 });
-    // 표식은 섰는데 소리는 나지 않았다.
-    expect(await page.evaluate(() => (window as any).__beeps)).toBe(0);
+    // 표식이 서고, **보고 있는데도** 소리와 데스크톱 알림이 난다.
+    await expect.poll(() => page.evaluate(() => (window as any).__beeps), { timeout: 10000 })
+      .toBeGreaterThan(0);
+    expect(await page.evaluate(() => (window as any).__notifs.length),
+      '보고 있는 탭의 알람에 데스크톱 알림이 나지 않았다').toBeGreaterThan(0);
 
     // V-ATA-3: 키를 누르면 사라진다.
     await page.keyboard.press('a');

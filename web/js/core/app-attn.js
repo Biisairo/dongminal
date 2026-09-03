@@ -28,26 +28,39 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * ATTENTION_FIRING_SRS FR-ATA-2·7·8: 알람은 **언제나** 선다. 포커스가 있다는
+   * ATTENTION_FIRING_SRS FR-ATA-2·7: 알람은 **언제나** 선다. 포커스가 있다는
    * 사실이 알람을 지우던 것이 "울려야 할 때 울리지 않는다" 의 절반이었다 —
    * 브라우저가 뒤에 있는 동안 뜬 알람은 화면에 흔적을 남기지 않았고, 사용자가
    * 돌아오는 순간 지워졌다 (B4·B6).
    *
-   * 억제되는 것은 **소리와 데스크톱 알림뿐**이다. 조건은 개정 전 억제 조건과
-   * 글자 그대로 같다 — 눈앞에 있는 것을 소리로 다시 부르는 것은 방해다 (AS-2).
+   * **소리와 데스크톱 알림도 언제나 난다** (FR-ATA-7 개정 / §1.7). 종전에는 사용자가
+   * 보고 있는 도구의 것을 억제했다 — 그 가정(AS-2)이 나머지 절반이었다.
+   *
+   * 반증된 이유는 이 앱의 쓰임새다: 알람이 서는 가장 흔한 순간이 **에이전트가 도는
+   * 것을 지켜보다 끝나는 순간**이고, 그때 사용자는 그 탭을 보고 있다. 그래서 배너가
+   * 한 번도 뜨지 않았고, 방해를 막으려던 조건이 기능 자체를 막고 있었다.
+   *
+   * 시끄러움에 대한 판단은 설정의 두 스위치가 맡는다 (Settings ▸ Notifications) —
+   * 우리가 사용자를 대신해 짐작하지 않는다.
    */
   _onToolAttention({toolId,reason}={}){
     if(!toolId) return;
     this._restoreNote('attn',toolId);   // FR-RSF-4
     this._attn.set(toolId,{reason});
     this._attnRefresh();
-    if(this._attnUserIsWatching(toolId)) return;
     this._attnDesktopNotify(reason,toolId); // FR-PAN-13a
     this._attnBeep(); // FR-PAN-13c
   },
 
-  // 브라우저 창이 OS 포커스를 가졌고(다른 앱이 위에 있지 않음) 그 도구가 포커스
-  // 된 칸의 활성 탭인가 — 즉 사용자가 지금 그것을 보고 있는가 (FR-ATA-7).
+  /**
+   * 브라우저 창이 OS 포커스를 가졌고(다른 앱이 위에 있지 않음) 그 도구가 포커스된
+   * 칸의 활성 탭인가 — 즉 사용자가 지금 그것을 보고 있는가.
+   *
+   * **알림은 이제 이것을 묻지 않는다** (FR-ATA-7 개정). 남아 있는 이유는 OSC 52
+   * 복사창의 게이트가 이것을 빌려 쓰기 때문이다 (FR-ETR-44 / FR-ATA-7b) — 한 도구의
+   * 출력이 붙어 있는 모든 브라우저로 가므로 복사창은 **보고 있는 창에만** 서야
+   * 한다. 그쪽에서는 이 물음이 여전히 옳다.
+   */
   _attnUserIsWatching(toolId){
     const browserFocused=(typeof document!=='undefined'&&typeof document.hasFocus==='function')?document.hasFocus():true;
     return browserFocused&&this._isToolFocusedActive(toolId);
