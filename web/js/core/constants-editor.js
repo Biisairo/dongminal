@@ -13,6 +13,10 @@ const EDITOR_ROOT_ID='editor-root';
 // FR-EDT-10·44: root 에디터의 표시 이름. 행과 창이 같은 이름을 써야 사용자가
 // 둘을 같은 것으로 읽는다.
 const EDITOR_ROOT_NAME='~';
+// NOTES_LIVE_EXPLORER_SRS FR-NOT-9: 메모장 행·창의 이름. root 행이 `~` 하나로
+// 서듯 이것도 한 자리에서만 정해진다 — 행과 창이 같은 이름을 써야 사용자가 둘을
+// 같은 것으로 읽는다 (FR-EDT-10·44).
+const EDITOR_NOTES_NAME='메모장';
 const EDITOR_ENTRIES_NONE='+ Add 로 경로를 추가하세요';
 
 // FR-EDT-28: `+ Add`. 지금 터미널의 cwd 를 미리 채운다 — 경로를 타이핑하게 하면
@@ -52,6 +56,13 @@ const EDITOR_EXPLORER_W_MAX=520;
 
 // FR-EDT-108 의 조회 종단. 조작(create/rename/delete)은 M5 의 것이므로 여기 없다.
 const FS_LIST_API='/api/fs/list';
+// NOTES_LIVE_EXPLORER_SRS FR-FSL-1 — "이 겹들이 바뀌었나". 조회와 짝이며 같은
+// 루트 가드를 받는다.
+const FS_STAMP_API='/api/fs/stamp';
+// FR-FSL-5 와 같은 값이어야 한다 — 서버가 상한을 넘긴 요청을 거절하므로,
+// 클라이언트가 먼저 잘라 보내지 않으면 겹을 아주 많이 펼친 사용자에게서 관측이
+// 통째로 멎는다.
+const FS_STAMP_MAX=512;
 
 // FR-EDT-77: 활성 Editor 창의 색 갱신 주기. `GIT_REPOS_POLL_MS` 를 **값으로 딛는다**
 // — 같은 사실을 보는 두 화면이 다른 속도로 갱신될 이유가 없고, 두 벌로 적으면

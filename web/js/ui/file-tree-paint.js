@@ -22,6 +22,9 @@ Object.assign(FileTree.prototype, {
     this._busy.delete(dir);
     if(!r||!r.ok){
       this._kids.set(dir,{entries:[],truncated:false,err:(d&&d.code)||EDITOR_TREE_ERR});
+      // 읽지 못한 겹의 스탬프는 근거가 없다. 남겨 두면 다음 폴링이 "안 바뀌었다"
+      // 로 읽어 실패한 겹을 영영 다시 읽지 않는다.
+      this._stamps.delete(dir);
     }else{
       this._kids.set(dir,{
         // 순서는 서버가 정한다 (D-20) — 여기서 다시 정렬하면 잘림의 경계가
@@ -29,6 +32,11 @@ Object.assign(FileTree.prototype, {
         entries:Array.isArray(d.entries)?d.entries:[],
         truncated:!!d.truncated, err:'',
       });
+      // NOTES_LIVE_EXPLORER_SRS FR-FSL-10: 방금 읽은 목록과 **같은 관측**의
+      // 스탬프를 기억한다. 폴링에서만 채우면 그 사이의 변경이 "처음 본 겹" 으로
+      // 삼켜져 영영 재조회되지 않는다.
+      if(typeof d.stamp==='string'&&d.stamp) this._stamps.set(dir,d.stamp);
+      else this._stamps.delete(dir);
     }
     this._paintAll();
     // FR-ETR-5: 겹을 읽은 **뒤에** 그 겹의 이름들로 한 번 묻는다. 목록보다 먼저
@@ -143,6 +151,75 @@ Object.assign(FileTree.prototype, {
     if(kind==='dir') this.toggle(p);
     else if(kind==='file') this.app._edOpenFile(p);
     else this._paintAll();
+  },
+
+  // ── 겹의 변경 감지 (NOTES_LIVE_EXPLORER_SRS 묶음 L / FR-FSL-6~14) ──
+
+  /**
+   * FR-FSL-8: 지금 화면이 딛고 있는 겹들 — 루트와 펼쳐진 폴더들이다.
+   *
+   * `_kids` 를 근거로 삼되 `_open` 으로 거른다. 접힌 폴더는 캐시가 남아 있어도
+   * 화면에 없으므로 물을 이유가 없고, 그것을 묻기 시작하면 사용자가 한 번
+   * 펼쳤다 접은 폴더가 영영 관측 대상으로 남는다.
+   */
+  _stampDirs(){
+    const out=[this.root];
+    for(const p of this._open) if(this._kids.has(p)) out.push(p);
+    // FR-FSL-5: 서버의 상한과 같은 값으로 먼저 자른다. 넘겨 보내면 서버가
+    // 요청 전체를 거절하므로 관측이 통째로 멎는다 — 일부만 보는 편이 낫다.
+    return out.length>FS_STAMP_MAX?out.slice(0,FS_STAMP_MAX):out;
+  },
+
+  /**
+   * FR-FSL-7·9: 겹들이 바뀌었는지 한 번에 묻고, **달라진 겹만** 다시 읽는다.
+   *
+   * 이것이 "펼친 폴더 전부 재조회" 와 갈리는 자리다 — 요청 수가 겹의 수가 아니라
+   * **변경의 수**에 비례한다. 아무것도 바뀌지 않은 주기에는 이 요청 하나가
+   * 전부다.
+   *
+   * git 과 무관하다 (FR-FSL-13). 저장소가 아닌 루트에서도, `_gitOff` 로 색이
+   * 굳은 루트에서도 목록은 따라간다 — 메모 루트가 바로 그런 루트다.
+   */
+  async pollStamp(){
+    if(this._stampOff||this._stampBusy||!this.root) return;
+    const dirs=this._stampDirs();
+    if(!dirs.length) return;
+    this._stampBusy=true;
+    let r=null,d=null;
+    try{
+      r=await fetch(FS_STAMP_API,{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({root:this.root,dirs})});
+    }catch{r=null}
+    if(r){try{d=await r.json()}catch{d=null}}
+    this._stampBusy=false;
+    if(!r) return;   // 전송 실패는 판정이 아니다 — 다음 회차에 다시 묻는다
+    // FR-FSL-12: 4xx 는 "이 루트로는 물을 수 없다" 는 서버의 답이다. 종단이
+    // 아예 없는 옛 서버도 여기로 온다 (404). 5xx 는 서버 쪽 사정이므로 굳히지
+    // 않는다 — `pollGit` 과 같은 관례이되, git 없음을 뜻하는 503 이 여기에는
+    // 없으므로 그 예외도 없다.
+    if(!r.ok){
+      if(r.status>=400&&r.status<500) this._stampOff=true;
+      return;
+    }
+    const st=d&&d.stamps;
+    if(!st||typeof st!=='object') return;
+    const stale=[];
+    for(const dir of dirs){
+      const now=st[dir];
+      // FR-FSL-11: 응답에서 빠진 겹은 기억에서도 지운다. 사라진 폴더가 다시
+      // 생기면 그때는 "처음 본 겹" 이다.
+      if(typeof now!=='string'){this._stamps.delete(dir);continue}
+      const had=this._stamps.has(dir);
+      const was=this._stamps.get(dir);
+      this._stamps.set(dir,now);
+      // FR-FSL-10: 처음 본 겹은 재조회하지 않는다 — 방금 읽어 온 겹을 곧바로
+      // 다시 읽는 것이 되기 때문이다. 값만 기억한다.
+      if(had&&was!==now) stale.push(dir);
+    }
+    // 순차로 읽는다. 병렬로 던지면 각 응답의 paint 가 서로를 덮어 중간 상태가
+    // 깜빡인다 (`revealPath` 와 같은 근거).
+    for(const dir of stale) await this.load(dir);
   },
 
   // ── git 색 (FR-EDT-69~78) ──

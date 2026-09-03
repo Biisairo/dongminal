@@ -24,31 +24,64 @@ Object.assign(App.prototype, {
   _edOn(){return !this._edOff&&!!(this._editors&&this._editors.home)},
   _edHome(){return this._edOn()?this._editors.home:''},
 
+  /**
+   * NOTES_LIVE_EXPLORER_SRS FR-NOT-11: 메모 루트. 서버가 주지 못하면 빈 문자열이며
+   * 그때 없는 것은 **메모장 행 하나뿐**이다 — 홈과 다르다. 홈은 root 창의
+   * 근거라서 모르면 표면 전체가 서지 않지만(FR-EDT-120), 메모 루트는 자기 행
+   * 하나의 근거일 뿐이다.
+   */
+  _edNotes(){return this._edOn()?((this._editors||{}).notes||''):''},
+
   // 경로의 마지막 조각. 행 이름과 창 이름이 같은 규칙을 쓴다 (FR-EDT-10·44).
   _edBase(p){
     const s=String(p||'').replace(/\/+$/,'');
     return s.split('/').pop()||s||p||'';
   },
-  _edName(root){return root===this._edHome()?EDITOR_ROOT_NAME:this._edBase(root)},
+  // FR-NOT-9: 고정 행 둘은 경로에서 이름을 뽑지 않는다 — 파생시키면 `~` 가
+  // 홈 디렉터리 이름이 되고 메모장이 `notes` 가 된다.
+  _edName(root){
+    if(root===this._edHome()) return EDITOR_ROOT_NAME;
+    if(root&&root===this._edNotes()) return EDITOR_NOTES_NAME;
+    return this._edBase(root);
+  },
 
-  // FR-EDT-16·37: 홈은 root 행이 대표한다 — 일반 행 목록에 같은 경로가 있어도
-  // 두 번 그리지 않는다.
+  // FR-EDT-16·37 / FR-NOT-7: 홈과 메모 루트는 고정 행이 대표한다 — 일반 행
+  // 목록에 같은 경로가 있어도 두 번 그리지 않는다.
   _edEntries(){
-    const home=this._edHome();
+    const fixed=new Set(this._edFixed().map(e=>e.path));
     return ((this._editors||{}).list||[])
-      .filter(p=>typeof p==='string'&&p&&p!==home)
+      .filter(p=>typeof p==='string'&&p&&!fixed.has(p))
       .map(p=>({path:p,root:false}));
   },
-  // FR-EDT-13·14: 최하단 고정 행. 서술자의 `fixed(app)` 이 돌려주는 것이 이것이다.
+  /**
+   * FR-EDT-13·14 / FR-NOT-8: 최하단 고정 행들. 서술자의 `fixed(app)` 이
+   * 돌려주는 것이 이것이다.
+   *
+   * **배열의 순서가 화면의 순서이자 순회의 순서다** (`SidebarList.entries`).
+   * 메모장이 앞에 오므로 `~` **위**에 그려진다 — 접수한 말이 요구한 자리다.
+   */
   _edFixed(){
+    const out=[];
+    const notes=this._edNotes();
+    if(notes) out.push({path:notes,notes:true});
     const home=this._edHome();
-    return home?[{path:home,root:true}]:[];
+    if(home) out.push({path:home,root:true});
+    return out;
   },
-  // FR-EDT-42(1): 있어야 할 루트 집합.
+  /**
+   * FR-EDT-42(1) / FR-NOT-6: 있어야 할 루트 집합. 메모 루트가 여기 드는 것이
+   * 곧 메모장 창이 서는 근거다 — 재조정이 이 집합만 보고 창을 세운다.
+   *
+   * 순서는 서버의 `Roots()` 와 같은 `[home, notes, ...list]` 다. 고정 행의
+   * 표시 순서(`_edFixed`)와 **일부러 다르다**: 저쪽은 화면에서 무엇이 위에
+   * 오는가이고, 이쪽은 창이 만들어지는 차례다. root 창이 먼저 서야 새
+   * 워크스페이스의 첫 창이 지금까지와 같다.
+   */
   _edRoots(){
     const home=this._edHome();
     if(!home) return [];
-    return [home,...this._edEntries().map(e=>e.path)];
+    const notes=this._edNotes();
+    return [home,...(notes?[notes]:[]),...this._edEntries().map(e=>e.path)];
   },
 
   /**
@@ -76,9 +109,31 @@ Object.assign(App.prototype, {
     this._edOff=false;
     this._editors={
       home:d.home,
+      // FR-NOT-11: 없으면 빈 문자열이다 — 그때 사라지는 것은 메모장 행 하나이고
+      // 나머지 표면은 그대로 선다.
+      notes:(typeof d.notes==='string'&&d.notes)?d.notes:'',
       list:(Array.isArray(d.list)?d.list:[]).filter(p=>typeof p==='string'&&p),
     };
     this._edMirror();
+  },
+
+  /**
+   * NOTES_LIVE_EXPLORER_SRS FR-NOT-13: **목록만** 갈아끼운다.
+   *
+   * `_edApply` 는 서버가 준 것 전부를 반영하므로 `home`·`notes` 를 함께 받아야
+   * 한다. 그런데 그것을 부르는 자리 셋(`_edApplyLinked`·`_edMutate`·
+   * `_applyRemoteWorkspace`)은 하나같이 **목록만** 새로 알고 나머지는 이미 아는
+   * 값을 도로 실어 보낸다. 그 리터럴이 셋으로 흩어져 있으면 필드가 늘 때마다
+   * 세 자리를 함께 고쳐야 하고, 한 자리를 빠뜨리면 그 필드가 조용히 지워진다 —
+   * 실제로 `notes` 를 더할 때 `app-cmd.js` 의 한 자리가 빠져 메모장 창이
+   * 워크스페이스 동기화 한 번에 사라졌다.
+   *
+   * 그래서 "아는 값은 그대로, 목록만" 을 **함수 하나**로 만든다. 넷째 호출처가
+   * 생겨도 같은 실수를 할 자리가 없다.
+   */
+  _edPatchList(list){
+    if(!this._editors) return;
+    this._edApply({home:this._editors.home,notes:this._editors.notes,list});
   },
 
   // 목록은 workspace.json 최상위 `editors.list` 에 산다 (FR-EDT-19). 서버가
@@ -100,7 +155,7 @@ Object.assign(App.prototype, {
    */
   _edApplyLinked(d){
     if(!this._editors||!d||!Array.isArray(d.editors)) return;
-    this._edApply({home:this._editors.home,list:d.editors});
+    this._edPatchList(d.editors);
     // 목록이 바뀌는 모든 경로는 `_edAfterChange` 하나를 지난다 — 재조정·저장·
     // 사라진 창에서의 이탈이 거기 모여 있다. 여기서 따로 부르면 그 셋 중
     // 하나가 빠진다.
@@ -310,7 +365,9 @@ Object.assign(App.prototype, {
     // FR-EDT-78: 창 활성화가 즉시 갱신의 계기 하나다. 여기가 그 사실을 아는
     // 유일한 자리다 — 마운트는 활성 창에만 일어난다. 관측이 공유되므로 어느
     // 칸에서 부르든 요청은 한 벌이고, 결과는 모든 칸에 칠해진다 (FR-SVS-22).
-    if(this._edLastActive!==s.id){this._edLastActive=s.id;t.pollGit()}
+    // FR-FSL-7 과 같은 짝: 활성화는 색과 목록 **둘 다**의 계기다. 색만 새로
+    // 받으면 사용자는 창을 바꾸자마자 "색은 맞는데 목록은 옛것" 을 본다.
+    if(this._edLastActive!==s.id){this._edLastActive=s.id;t.pollGit();t.pollStamp()}
     return t;
   },
 
@@ -358,13 +415,21 @@ Object.assign(App.prototype, {
     return out;
   },
 
-  // FR-EDT-77: 주기는 `GIT_REPOS_POLL_MS` 와 같다. 캐시 TTL 200ms + single-flight
-  // 위에 얹히므로 Git 패널과 동시에 떠 있어도 git 실행이 겹치지 않는다 (§2.7).
+  /**
+   * FR-EDT-77: 주기는 `GIT_REPOS_POLL_MS` 와 같다. 캐시 TTL 200ms + single-flight
+   * 위에 얹히므로 Git 패널과 동시에 떠 있어도 git 실행이 겹치지 않는다 (§2.7).
+   *
+   * NOTES_LIVE_EXPLORER_SRS FR-FSL-7 / D-7: 겹의 스탬프도 **같은 틱**에 묻는다.
+   * 새 타이머를 만들지 않는 이유는 두 관측이 한 화면의 두 면이기 때문이다 —
+   * 주기가 갈리면 사용자는 "색은 바뀌었는데 목록은 그대로인" 중간 상태를 본다.
+   *
+   * FR-FSL-14: 대상도 같다. 화면에 없는 창의 탐색기는 둘 다 묻지 않는다.
+   */
   _edStartGitPoll(){
     if(this._edGitInterval) clearInterval(this._edGitInterval);
     this._edGitInterval=setInterval(()=>{
       if(document.hidden) return;
-      for(const t of this._edVisibleTrees()) t.pollGit();
+      for(const t of this._edVisibleTrees()){ t.pollGit(); t.pollStamp() }
     },EDITOR_GIT_POLL_MS);
   },
 
@@ -717,7 +782,7 @@ Object.assign(App.prototype, {
     try{d=await r.json()}catch{d=null}
     if(!d) return false;
     // 응답에는 `home` 이 없다 (FR-EDT-110) — 알고 있는 값을 그대로 쓴다.
-    this._edApply({home:this._editors.home,list:d.list});
+    this._edPatchList(d.list);
     // FR-EDT-39: 연동으로 핀이 함께 바뀐다. 응답이 실어 준 값을 로컬 사본에도
     // 반영해 둔다 — 다음 PUT 이 서버가 방금 만든 핀을 지우지 않게.
     if(Array.isArray(d.pinned)) this._gitPinsApply(d.pinned);

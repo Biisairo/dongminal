@@ -376,8 +376,7 @@ Object.assign(App.prototype, {
     // `editors.list` 는 워크스페이스에 살므로 이 스냅샷이 최신값을 싣고 있다.
     // 갱신하지 않으면 재조정이 낡은 `_editors` 를 딛어, 다른 브라우저가(또는
     // git 핀 연동이) 만든 행의 창이 생기지 않고 지워진 행의 창이 남는다.
-    if(this._editors&&sv.editors)
-      this._edApply({home:this._editors.home,list:sv.editors.list});
+    if(this._editors&&sv.editors) this._edPatchList(sv.editors.list);
     if(this._edReconcile(sv.windows)) edChanged=true;
     // FR-EDT-45: 활성 창의 폴백은 Editor 창이 아니다 (app.js 의 같은 자리와 한 쌍).
     if(!sv.windows.find(s=>s.id===sv.activeWindow))

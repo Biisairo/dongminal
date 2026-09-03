@@ -59,6 +59,10 @@ type Store struct {
 	// 그대로 추가된다 — git 이 없는 환경에서 목록이 통째로 막히지 않는다.
 	RepoRoot RepoRootFn
 	HomeFn   HomeFn
+	// NotesDir 은 메모 루트가 놓일 자리다 (NOTES_LIVE_EXPLORER_SRS FR-NOT-1).
+	// 비면 메모장 표면이 없다 (FR-NOT-11) — 홈과 달리 이것 하나가 없다고
+	// Editor 표면 전체가 죽지는 않는다.
+	NotesDir string
 }
 
 // Home 은 정규화된 홈 디렉터리다. 저장하지 않고 매번 파생한다 (FR-EDT-17).
@@ -72,6 +76,20 @@ func (s *Store) Home() (string, error) {
 		return "", err
 	}
 	return NormalizePath(h), nil
+}
+
+// Notes 는 정규화된 메모 루트다 (FR-NOT-1·2). 홈과 같이 저장하지 않고 매번
+// 파생하며, **없으면 만든다** — 메모장 행을 눌렀을 때 비로소 만드는 것이 아니라
+// 경로를 묻는 자리가 곧 보장하는 자리다. 그래야 목록 조회 하나만으로 창·탐색기·
+// 파일 조작이 전부 설 수 있다.
+func (s *Store) Notes() (string, error) {
+	if s.NotesDir == "" {
+		return "", ErrUnavailable
+	}
+	if err := os.MkdirAll(s.NotesDir, 0o755); err != nil {
+		return "", err
+	}
+	return NormalizePath(s.NotesDir), nil
 }
 
 // Read 는 저장된 두 목록을 준다.
@@ -97,15 +115,22 @@ func (s *Store) List() (string, []string, error) {
 	return home, l.Editors, nil
 }
 
-// Roots 는 `[home, ...editors.list]` 다 — 파일 조작이 신뢰할 수 있는 루트의
+// Roots 는 `[home, notes, ...editors.list]` 다 — 파일 조작이 신뢰할 수 있는 루트의
 // 전부이며 (FR-EDT-113), 창 재조정이 딛는 집합과 같다 (FR-EDT-42).
+//
+// FR-NOT-4: 메모 루트가 여기 드는 **한 줄**이 메모장의 전부다. 이 목록이 곧 루트
+// 가드(fsRoot)이므로, 드는 순간 메모 루트 아래의 조회·생성·이름변경·삭제·전송이
+// 함께 열린다. 메모 루트를 쓸 수 없는 환경(FR-NOT-11)에서는 그냥 빠진다.
 func (s *Store) Roots() ([]string, error) {
 	home, list, err := s.List()
 	if err != nil {
 		return nil, err
 	}
-	out := make([]string, 0, len(list)+1)
+	out := make([]string, 0, len(list)+2)
 	out = append(out, home)
+	if notes, err := s.Notes(); err == nil {
+		out = append(out, notes)
+	}
 	return append(out, list...), nil
 }
 
@@ -138,6 +163,12 @@ func (s *Store) EditorAdd(ctx context.Context, path string) (Lists, error) {
 	// 홈은 root 행이 이미 대표한다 — 오류가 아니라 무변경이다 (FR-EDT-16).
 	// 저장을 하지 않으므로 rev 도 오르지 않는다.
 	if norm == home {
+		return s.Read()
+	}
+	// FR-NOT-5: 메모 루트도 고정 행이 대표하므로 같다. 막지 않으면 같은 경로가
+	// 고정 행과 일반 행에 두 번 서고, 창 재조정은 그 둘을 한 창으로 접는다 —
+	// 지울 수 없는 행 하나가 목록에 남는다.
+	if notes, err := s.Notes(); err == nil && norm == notes {
 		return s.Read()
 	}
 	return s.Mutate(func(cur Lists) Lists {

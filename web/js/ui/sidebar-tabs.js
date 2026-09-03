@@ -215,21 +215,27 @@ const SB_TAB_DEFS=[
       },
       row:(app,e)=>{
         const w=app._edWindowFor(e.path);
+        // NOTES_LIVE_EXPLORER_SRS FR-NOT-10: 고정 행은 둘이고 성질이 같다 —
+        // 지울 수 없고 재배치의 출발점도 대상도 아니다. 가르는 것은 클래스뿐이며
+        // 그것이 CSS 가 둘을 다르게 그리는 근거다.
+        const pinned=!!e.root||!!e.notes;
         return {
-          // FR-EDT-10: 표시 이름은 경로의 마지막 조각, 툴팁은 절대경로 전체.
-          // root 행의 이름은 `~` 다.
+          // FR-EDT-10 / FR-NOT-9: 표시 이름은 경로의 마지막 조각, 툴팁은
+          // 절대경로 전체. 고정 행 둘의 이름은 `~`·`메모장` 이다.
           name:app._edName(e.path),
           title:e.path,
           active:!!w&&w.id===app.ws.activeWindow,
           // FR-EDT-14: 구분선은 CSS 가 준다 — 컨테이너를 나누지 않는다.
-          cls:e.root?'ed-root':'',
-          // FR-EDT-15: root 행에는 `×` 가 없고 드래그의 출발점도 대상도 아니다.
-          fixed:!!e.root,
-          removable:!e.root,
+          cls:e.root?'ed-root':(e.notes?'ed-notes':''),
+          // FR-EDT-15 / FR-NOT-10: 고정 행에는 `×` 가 없고 드래그의 출발점도
+          // 대상도 아니다.
+          fixed:pinned,
+          removable:!pinned,
           dataset:{edRoot:e.path},
-          // FR-EDT-9: 행을 클릭하면 그 행의 Editor 창이 활성화된다.
+          // FR-EDT-9: 행을 클릭하면 그 행의 Editor 창이 활성화된다. 메모장 행도
+          // 같다 — 메모장 창은 루트가 메모 루트인 Editor 창이다 (FR-NOT-6).
           onOpen:app=>app._edOpenWindow(e.path),
-          onRemove:e.root?null:(app=>app._edRemove(e.path)),
+          onRemove:pinned?null:(app=>app._edRemove(e.path)),
         };
       },
       // FR-EDT-12·27: 순서는 서버가 권위다 — 핀과 같은 (src,target,before) 델타다.

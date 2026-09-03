@@ -12,7 +12,11 @@
 
 /* FR-EDT-14: root 행은 목록의 **최하단 고정**이며 일반 목록과 같은 컨테이너에
    그려진다. 구분은 컨테이너가 아니라 선이 준다. */
-.sbl-item.ed-root .sbl-name{color:var(--text-bright)}
+/* NOTES_LIVE_EXPLORER_SRS FR-NOT-8·10: 메모장 행은 `~` 와 같은 고정 행이므로
+   같은 강조를 받는다. 둘을 가르는 것은 이름뿐이다 — 색이나 굵기까지 갈라 놓으면
+   한쪽이 다른 종류의 항목으로 읽힌다. */
+.sbl-item.ed-root .sbl-name,
+.sbl-item.ed-notes .sbl-name{color:var(--text-bright)}
 .ed-entries-none{padding:4px 8px;font-size:11px;color:var(--text-dim)}
 
 /* FR-EDT-46: 창은 좌우 둘로 나뉜다. 탐색기는 분할 트리 **밖**의 고정 영역이며

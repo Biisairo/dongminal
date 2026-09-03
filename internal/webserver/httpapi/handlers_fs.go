@@ -264,6 +264,11 @@ func (s *Server) apiFSList(w http.ResponseWriter, r *http.Request) {
 	}
 	fsJSON(w, http.StatusOK, map[string]any{
 		"path": target, "entries": entries, "truncated": truncated,
+		// NOTES_LIVE_EXPLORER_SRS FR-FSL-10: 이 목록과 **같은 관측**의 스탬프.
+		// 폴링에서만 채우면 목록을 읽은 뒤 스탬프를 처음 보기까지의 변경이
+		// "처음 본 겹" 으로 삼켜져 영영 재조회되지 않는다. 위에서 이미 Stat
+		// 했으므로 값을 싣는 비용이 없다.
+		"stamp": fsStampOf(st),
 	})
 }
 
@@ -653,7 +658,8 @@ func (s *Server) fsEntries(w http.ResponseWriter) bool {
 	return true
 }
 
-// GET /api/editors — {home, list}. home 은 list 에 없다 (FR-EDT-29·110).
+// GET /api/editors — {home, notes, list}. home·notes 는 list 에 없다
+// (FR-EDT-29·110, NOTES_LIVE_EXPLORER_SRS FR-NOT-3).
 func (s *Server) apiEditorsGet(w http.ResponseWriter, r *http.Request) {
 	if !s.fsEntries(w) {
 		return
@@ -663,7 +669,13 @@ func (s *Server) apiEditorsGet(w http.ResponseWriter, r *http.Request) {
 		fsFailErr(w, fsFromOS(err))
 		return
 	}
-	fsJSON(w, http.StatusOK, map[string]any{"home": home, "list": list})
+	out := map[string]any{"home": home, "list": list}
+	// FR-NOT-11: 메모 루트를 얻지 못하는 것은 이 응답의 실패가 아니다 — 키가
+	// 빠지고 클라이언트에는 메모장 행 하나가 없을 뿐이다.
+	if notes, err := s.Entries.Notes(); err == nil {
+		out["notes"] = notes
+	}
+	fsJSON(w, http.StatusOK, out)
 }
 
 type fsPathReq struct {

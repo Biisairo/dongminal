@@ -6,8 +6,14 @@
  * 만들면 SSE 한 번에 펼침·선택·스크롤이 전부 사라진다 (FR-EDT-66). 그래서 요소는
  * 여기서 한 번 만들고 렌더러는 `mount()` 가 준 것을 **옮겨 붙이기만** 한다.
  *
- * 갱신 계기는 셋뿐이다 (FR-EDT-67) — 새로고침 · 조작 후 재조회(M5) · git 색 폴링.
- * 파일 감시는 하지 않는다.
+ * 갱신 계기는 넷이다 — 새로고침 · 조작 후 재조회(M5) · git 색 폴링 (FR-EDT-67) ·
+ * **겹의 스탬프 폴링** (NOTES_LIVE_EXPLORER_SRS FR-FSL-7~9).
+ *
+ * 넷째가 나중에 붙었다. 앞의 셋만 있는 동안 디렉터리 목록은 **바깥의 변경을
+ * 영영 따라가지 않았다** — git 색 폴링이 갱신하는 것은 색뿐이라, 터미널이나
+ * `git checkout` 이 파일을 더하고 지워도 사용자가 새로고침을 누르기 전까지
+ * 트리는 옛 목록이었다. 파일 감시(fsnotify)는 여전히 하지 않는다 — 스탬프는
+ * 그 대신 "이 겹이 바뀌었나"를 주기마다 한 번의 요청으로 묻는다 (D-5·D-6).
  *
  * **메서드는 이 파일에 없다.** 클래스 본문에는 `constructor`·접근자·마운트·파괴만
  * 남고, 나머지 55개는 주제별 파일이 `Object.assign(FileTree.prototype, …)` 로 얹는다
@@ -87,6 +93,11 @@ class FileTree {
   get _ign(){ return this.store.ign }
   get _ignOff(){ return this.store.ignOff }
   set _ignOff(v){ this.store.ignOff=v }
+  get _stamps(){ return this.store.stamps }
+  get _stampBusy(){ return this.store.stampBusy }
+  set _stampBusy(v){ this.store.stampBusy=v }
+  get _stampOff(){ return this.store.stampOff }
+  set _stampOff(v){ this.store.stampOff=v }
 
   // FR-SVS-22: 관측을 바꾼 뒤에는 그 루트를 보는 칸 전부를 칠한다. 시선만 바뀐
   // 경우에도 이것을 부른다 — 다른 칸은 자기 시선으로 그리므로 결과가 같고,

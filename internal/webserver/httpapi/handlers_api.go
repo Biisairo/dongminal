@@ -139,6 +139,10 @@ var apiRoutes = []apiRoute{
 	// (EDITOR_TAB_SRS FR-EDT-108~110). /api/file/* 과 달리 전부 root 를 함께 받아
 	// 그 아래로 제한한다 (D-16) — 조작은 트리에서 파생된 경로를 지운다.
 	{http.MethodGet, exactPath("/api/fs/list"), (*Server).apiFSList},
+	// NOTES_LIVE_EXPLORER_SRS 묶음 L — 겹이 바뀌었는지만 묻는다. list 옆에 두는
+	// 이유는 같은 것(겹)을 보는 두 물음이기 때문이다: 이쪽이 "바뀌었나", 저쪽이
+	// "무엇이 있나" 다.
+	{http.MethodPost, exactPath("/api/fs/stamp"), (*Server).apiFSStamp},
 	// EDITOR_GIT_UX_SRS 묶음 F·G — Editor 창의 파일 이름 찾기·전체 내용 찾기.
 	{http.MethodGet, exactPath("/api/fs/find"), (*Server).apiFSFind},
 	{http.MethodGet, exactPath("/api/fs/grep"), (*Server).apiFSGrep},

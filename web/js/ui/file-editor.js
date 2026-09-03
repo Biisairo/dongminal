@@ -348,7 +348,14 @@ class FileEditor {
       guides: { bracketPairs: true, indentation: true },
       smoothScrolling: true,
       cursorBlinking: 'blink',
-      cursorSmoothCaretAnimation: 'on',
+      // NOTES_LIVE_EXPLORER_SRS FR-CUR-1: 캐럿은 **애니메이션 없이** 옮겨간다.
+      // `'on'` 이면 커서가 이전 자리에서 새 자리로 미끄러지는데, 그것이 타이핑과
+      // 이동에 지연으로 느껴진다. `'off'` 가 Monaco 의 기본값이자 VS Code 의
+      // 기본값이다 — 끄는 것이 곧 "vsc 처럼" 이다.
+      //
+      // 깜빡임(cursorBlinking)은 그대로다 (FR-CUR-2). 움직임과 깜빡임은 다른
+      // 것이고 접수한 말의 대상은 앞의 것이다.
+      cursorSmoothCaretAnimation: 'off',
     });
 
 

@@ -31,6 +31,16 @@ class FileTreeStore {
     // FR-ETR-5·6: 무시된 이름. 겹별 Set.
     this.ign=new Map();
     this.ignOff=false;
+
+    // NOTES_LIVE_EXPLORER_SRS FR-FSL-6: 겹별 마지막 스탬프. **관측의 것**이므로
+    // 루트마다 하나이고, 같은 루트를 보는 칸이 넷이어도 요청은 한 벌이다
+    // (FR-SVS-20). 값은 해석하지 않는다 — 같은지 다른지만 본다 (FR-FSL-2).
+    this.stamps=new Map();
+    this.stampBusy=false;
+    // FR-FSL-12: 종단이 없거나 4xx 면 이 루트에서는 다시 묻지 않는다
+    // (`gitOff`·`ignOff` 와 같은 관례). 굳히지 않으면 옛 서버에 붙은 새
+    // 브라우저가 주기마다 영영 404 를 받는다.
+    this.stampOff=false;
   }
 
   attach(v){ this.views.add(v) }

@@ -132,7 +132,16 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	if deps.Git != nil {
 		repoRoot = deps.Git.RepoRoot
 	}
-	srv.Entries = &wsentry.Store{Work: deps.Work, Commands: cmds, RepoRoot: repoRoot}
+	// FR-NOT-1: 메모 루트는 `worktrees`·`git-worktrees` 와 같은 규약으로
+	// $DONGMINAL_HOME 아래에 선다. DataDir 이 비면 자리가 없다는 뜻이므로
+	// NotesDir 도 비고, 그것이 곧 FR-NOT-11 의 "메모장 표면이 없다" 이다.
+	notesDir := ""
+	if cfg.DataDir != "" {
+		notesDir = filepath.Join(cfg.DataDir, "notes")
+	}
+	srv.Entries = &wsentry.Store{
+		Work: deps.Work, Commands: cmds, RepoRoot: repoRoot, NotesDir: notesDir,
+	}
 	srv.git = &gitapi.GitServer{
 		Git:             deps.Git,
 		Work:            deps.Work,
