@@ -113,6 +113,15 @@ func (p *Placer) Place(pl toolhub.Placement) (*platform.ProcSpec, error) {
 		return nil, err
 	}
 
+	// 작업 폴더도 사용자가 고른 값이다. 없으면 여기서 멈춰 오타를 알린다 —
+	// 기본 마운트와 같은 규칙이다 (FR-SBX-41). 비어 있으면 마운트하지 않는
+	// 것이므로 볼 것이 없다 (FR-SBX-40).
+	if prof.Workspace && pl.HostDir != "" {
+		if err := p.stat(pl.HostDir); err != nil {
+			return nil, fmt.Errorf("작업 폴더가 없습니다: %s", pl.HostDir)
+		}
+	}
+
 	rs := sandbox.RunSpec{HostDir: pl.HostDir}
 	if prof.Helper {
 		// 헬퍼는 서버와 **같은 판**이어야 한다. 없으면 그때그때 확보한다

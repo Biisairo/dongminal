@@ -191,39 +191,12 @@ func TestSetBackground_HostToolUnaffected(t *testing.T) {
 	}
 }
 
-// 존재하지 않는 작업 디렉터리는 마운트 원본이 될 수 없다.
+// 작업 디렉터리는 **검증 없이** 배치기로 넘어간다.
 //
-// 컨테이너 런타임은 없는 경로를 -v 로 받으면 **호스트에 그 디렉터리를 만든다**
-// (실측). 그러면 오타 하나가 사용자 파일시스템에 빈 디렉터리를 남기고, 도구는
-// 정작 다른 곳(홈)에서 뜬다 — StartTool 이 유효하지 않은 cwd 를 홈으로 되돌리기
-// 때문이다. 마운트와 도구의 자리가 어긋나느니 마운트하지 않는 편이 낫다.
-func TestCreate_InvalidCwdIsNotMounted(t *testing.T) {
-	seen, err := capturePlacement(t, filepath.Join(t.TempDir(), "no-such-dir"))
-	if err == nil {
-		t.Fatal("배치기가 멈췄는데 도구가 떴다")
-	}
-	if seen.HostDir != "" {
-		t.Fatalf("없는 경로가 마운트 원본으로 넘어갔다: %q", seen.HostDir)
-	}
-}
-
-// 파일을 가리키는 cwd 도 마찬가지다.
-func TestCreate_FileCwdIsNotMounted(t *testing.T) {
-	file := filepath.Join(t.TempDir(), "f")
-	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	seen, err := capturePlacement(t, file)
-	if err == nil {
-		t.Fatal("배치기가 멈췄는데 도구가 떴다")
-	}
-	if seen.HostDir != "" {
-		t.Fatalf("파일이 마운트 원본으로 넘어갔다: %q", seen.HostDir)
-	}
-}
-
-// 실재하는 디렉터리는 그대로 넘어간다.
-func TestCreate_ValidCwdIsMounted(t *testing.T) {
+// 실재 여부를 보는 것은 배치기의 일이다 (FR-SBX-41). toolhub 는 파일시스템을
+// 보지 않으며, 여기서 조용히 걸러 내면 사용자가 고른 폴더가 왜 안 붙었는지
+// 알 수 없게 된다.
+func TestCreate_PassesChosenWorkdirToPlacer(t *testing.T) {
 	work := t.TempDir()
 	seen, err := capturePlacement(t, work)
 	if err == nil {
@@ -231,6 +204,29 @@ func TestCreate_ValidCwdIsMounted(t *testing.T) {
 	}
 	if seen.HostDir != work {
 		t.Fatalf("HostDir 이 다르다: %q want %q", seen.HostDir, work)
+	}
+}
+
+// 없는 경로도 그대로 넘긴다 — 판정과 사유 보고는 배치기가 한다.
+func TestCreate_PassesMissingWorkdirUnchanged(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "no-such-dir")
+	seen, err := capturePlacement(t, missing)
+	if err == nil {
+		t.Fatal("배치기가 멈췄는데 도구가 떴다")
+	}
+	if seen.HostDir != missing {
+		t.Fatalf("경로가 걸러졌다: %q", seen.HostDir)
+	}
+}
+
+// 비워서 열면 마운트 원본이 없다 (FR-SBX-40).
+func TestCreate_EmptyWorkdirMeansNoMount(t *testing.T) {
+	seen, err := capturePlacement(t, "")
+	if err == nil {
+		t.Fatal("배치기가 멈췄는데 도구가 떴다")
+	}
+	if seen.HostDir != "" {
+		t.Fatalf("빈 작업 폴더가 경로로 채워졌다: %q", seen.HostDir)
 	}
 }
 

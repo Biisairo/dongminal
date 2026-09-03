@@ -45,8 +45,10 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
     // 늘린다. 작업 폴더를 받는 프로파일이 하나라도 있으면 매번 묻는다
     // (FR-SBX-40).
     const mustAsk=list.length>1||list.some(p=>p.workspace);
+    // 지금 있는 자리는 **버튼으로만** 낸다 — 자동으로 채우지 않는다.
+    const here=mustAsk?await app._focusedCwd().catch(()=>null):null;
     const picked=mustAsk
-      ? await app._pickSandbox(list)
+      ? await app._pickSandbox(list,here)
       : {profile:list[0].name,workdir:''};
     if(!picked||!picked.profile) return;
     sandbox=picked.profile;

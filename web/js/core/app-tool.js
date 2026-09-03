@@ -48,7 +48,7 @@ Object.assign(App.prototype, {
     }catch{}
   },
 
-  _pickSandbox(list){
+  _pickSandbox(list,here){
     return new Promise(resolve=>{
       const ov=document.createElement('div');ov.className='confirm-overlay';
       const box=document.createElement('div');box.className='confirm-box';
@@ -62,13 +62,24 @@ Object.assign(App.prototype, {
         const wrap=document.createElement('div');wrap.className='sbx-workdir';
         const label=document.createElement('label');label.textContent='작업 폴더';
         input=document.createElement('input');
-        input.type='text';input.placeholder='비우면 지금 있는 자리를 씁니다';
+        input.type='text';input.placeholder='비우면 마운트하지 않습니다';
         wrap.appendChild(label);wrap.appendChild(input);
+        // 지금 있는 자리는 입력란 바로 오른쪽에 둔다 — 가장 자주 고를 값이고,
+        // 입력란과 한 줄에 있어야 "여기에 넣는 것" 임이 보인다.
+        //
+        // **채워 두지는 않는다.** 기본은 마운트하지 않는 것이고, 넣는 것은
+        // 고르는 행위여야 한다 (FR-SBX-40).
+        if(here){
+          const now=document.createElement('button');
+          now.type='button';now.className='sbx-now';now.textContent='지금 위치';now.title=here;
+          now.addEventListener('click',()=>{input.value=here;input.focus()});
+          wrap.appendChild(now);
+        }
         box.appendChild(wrap);
 
-        // 최근에 연 자리를 버튼으로 낸다. 경로를 매번 타이핑하게 하면 이 창은
-        // 절차만 늘리는 자리가 된다.
-        const recent=this._sbxRecent();
+        // 최근에 연 자리는 아랫줄에 모은다. 경로를 매번 타이핑하게 하면 이
+        // 창은 절차만 늘리는 자리가 된다.
+        const recent=this._sbxRecent().filter(p=>p!==here);
         if(recent.length){
           const bar=document.createElement('div');bar.className='sbx-recent';
           for(const path of recent){

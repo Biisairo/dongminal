@@ -110,14 +110,17 @@ Object.assign(App.prototype, {
     const cur=this._aw();
     const ref=(!opts.cwd&&!opts.cwdTool&&cur&&!this._isGitWin(cur)&&this.focused)
       ? this._paneNewToolRef(cur,this.focused) : {};
-    const cwd=opts.cwd||ref.cwd||null;
+    const sandbox=(typeof opts.sandbox==='string'&&opts.sandbox)?opts.sandbox:'';
+    // FR-SBX-40: 샌드박스 창은 **고른 폴더만** 쓴다. 승계하면 사용자가 고르지
+    // 않은 자리가 조용히 컨테이너 안으로 들어가고, 그러면 자기가 무엇을
+    // 노출했는지 모르는 채로 격리된 창을 쓰게 된다.
+    const cwd=sandbox?(opts.cwd||null):(opts.cwd||ref.cwd||null);
     // FR-CWD-3: 호출자가 준 것이 이긴다. `cwdTool` 은 그 도구의 cwd 를 서버가
     // 풀어 준다 (`/api/tools?cwdTool=`) — 브라우저는 경로를 모른 채 넘긴다.
-    const refTool=opts.cwdTool||ref.cwdTool||null;
+    const refTool=sandbox?null:(opts.cwdTool||ref.cwdTool||null);
     // FR-SBX-10: 창 id 를 도구보다 **먼저** 만든다. 순서가 반대면 첫 도구가
     // 자기 창을 모른 채 떠서, 샌드박스 창인데 첫 탭만 호스트에서 돈다.
     const wid=newEntityId();
-    const sandbox=(typeof opts.sandbox==='string'&&opts.sandbox)?opts.sandbox:'';
     const p=await this._newTool(cwd, cwd?null:refTool, {id:wid,sandbox});
     const r=newEntityId(),t=newEntityId();
     const name=(typeof opts.name==='string'&&opts.name?opts.name:'Window').slice(0,64);

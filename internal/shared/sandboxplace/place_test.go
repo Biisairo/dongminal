@@ -225,3 +225,36 @@ func TestSaveConfig_RejectsInvalidBeforeWriting(t *testing.T) {
 		t.Fatal("거부했는데 파일이 쓰였다")
 	}
 }
+
+// FR-SBX-41: 고른 작업 폴더가 없으면 창을 열지 않는다. 기본 마운트와 같은
+// 규칙이다 — 둘 다 사용자가 고른 값이고, 오타를 삼키면 설정한 대로 안 된다.
+func TestPlace_MissingWorkdirStopsStartup(t *testing.T) {
+	p := newPlacer(&fakeDocker{}, devProfiles(), helperDeps(true, nil))
+	p.stat = func(path string) error {
+		if path == "/no/such/work" {
+			return fs.ErrNotExist
+		}
+		return nil
+	}
+	_, err := p.Place(toolhub.Placement{
+		WindowUUID: "w1", Profile: sandbox.ProfileDev, HostDir: "/no/such/work"})
+	if err == nil {
+		t.Fatal("없는 작업 폴더로 창이 열렸다")
+	}
+	if !strings.Contains(err.Error(), "/no/such/work") {
+		t.Errorf("어느 경로인지 말하지 않는다: %v", err)
+	}
+}
+
+// FR-SBX-40: 비워서 열면 마운트 없이 뜬다 — 승계하지 않는다.
+func TestPlace_EmptyWorkdirMountsNothing(t *testing.T) {
+	f := &fakeDocker{}
+	p := newPlacer(f, devProfiles(), helperDeps(true, nil))
+	if _, err := p.Place(toolhub.Placement{
+		WindowUUID: "w1", Profile: sandbox.ProfileDev, HostDir: ""}); err != nil {
+		t.Fatalf("Place: %v", err)
+	}
+	if strings.Contains(f.joined("run"), ":"+sandbox.ContainerWorkdir) {
+		t.Fatalf("비웠는데 작업 폴더가 붙었다: %s", f.joined("run"))
+	}
+}
