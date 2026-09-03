@@ -26,6 +26,7 @@ import (
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
+	"dongminal/internal/webserver/domain/lsp"
 	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/domain/sysstat"
 	"dongminal/internal/webserver/domain/worktree"
@@ -330,6 +331,12 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 	// 여러 개여도 git 실행 횟수가 창 수에 비례하지 않게 한다 (FR-GIT-63).
 	gitStore := store.NewStore(core.New())
 
+	// 편집기 코드 탐색의 언어 서버 (EDITOR_LSP_SRS 묶음 A). 전용 디렉터리는
+	// worktrees 와 같은 규약으로 홈 아래에 잡는다 — **우리가 받은 서버만** 그
+	// 안에 살고, 지우면 원상복구된다 (FR-LSP-7). 시스템·사용자 전역은 건드리지
+	// 않는다.
+	lspSvc := lsp.NewService(dataPath(cfg.DataDir, "lsp"))
+
 	return builtDeps{
 		deps: httpapi.Deps{
 			Tools:         toolHub,
@@ -344,6 +351,7 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 			Worktrees:     worktrees,
 			UserWorktrees: userWorktrees,
 			Git:           gitStore,
+			LSP:           lspSvc,
 		},
 		pm:          nil, // set by caller in direct mode
 		attnTracker: attnTracker,

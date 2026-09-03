@@ -83,6 +83,34 @@ const ED_FIND_WORD_SEPARATORS='`~!@#$%^&*()-=+[{]}\\|;:\'",.<>/?';
 // 동안 화면이 멎는 것보다 낫다.
 const ED_FIND_MAX_HITS=20000;
 
+// ── 코드 탐색: 언어 서버의 관측 (EDITOR_LSP_SRS 묶음 A · M1) ──
+//
+// 조회가 POST 인 것은 본문이 필요하기 때문이다 — 설정에 적은 절대경로 표를
+// 실어 보낸다 (FR-LSP-4b). 설정 블롭은 서버가 해석하지 않으므로 이 길이 유일하다.
+const LSP_STATUS_API='/api/lsp/status';
+const LSP_INSTALL_API='/api/lsp/install';
+// FR-LSP-5: 어디서 찾았는지를 사람의 말로 옮기는 자리는 여기 하나다.
+const LSP_ORIGIN_LABEL={
+  config:'설정에 적은 경로',
+  path:'PATH',
+  managed:'dongminal 이 받은 것',
+};
+const LSP_FOUND='있음';
+const LSP_MISSING='없음';
+// FR-LSP-11: 무엇이 없어서 받을 수 없는지를 **이름으로** 알린다. "설치 실패" 는
+// 사용자가 다음에 할 일을 알려주지 않는다.
+const LSP_NO_TOOL='%s 가 없어 받을 수 없습니다';
+const LSP_INSTALL='받기';
+const LSP_INSTALLING='받는 중…';
+const LSP_STATUS_FAIL='언어 서버 상태를 읽지 못했습니다';
+const LSP_UNAVAILABLE='이 서버는 코드 탐색을 제공하지 않습니다';
+// FR-LSP-10: 결과는 사유와 함께 그 자리에 남는다.
+const LSP_INSTALL_OK='받았습니다';
+const LSP_PANEL_HINT=
+  '정의로 이동·참조 찾기·호버·진단은 언어 서버가 있어야 동작합니다. '+
+  'PATH 에 이미 있으면 그것을 쓰고, 없을 때 `받기` 를 누르면 이 기계의 go·npm 으로 '+
+  'dongminal 전용 폴더에만 받습니다 — 시스템은 건드리지 않고, 그 폴더를 지우면 원상복구됩니다.';
+
 // FR-EDT-47 / D-18: 탐색기 폭은 워크스페이스에 산다 (`window.editor.explorerWidth`).
 // 상·하한은 사이드바(`--sb-w`)의 규약을 그대로 따른다 — 같은 종류의 값이 서로 다른
 // 한계를 가질 이유가 없다.

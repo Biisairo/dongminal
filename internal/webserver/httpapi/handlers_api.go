@@ -163,6 +163,11 @@ var apiRoutes = []apiRoute{
 	// 이유는 FR-ETR-11 이다 — 두 종단이 서로의 일을 대신하지 않는다.
 	{http.MethodGet, exactPath("/api/fs/download-dir"), (*Server).apiFSDownloadDir},
 	{http.MethodPost, exactPath("/api/fs/upload"), (*Server).apiFSUpload},
+	// EDITOR_LSP_SRS 묶음 A — 언어 서버의 관측과 설치. 둘 다 POST 인 것은 본문이
+	// 필요하기 때문이다 (FR-LSP-4b: 절대경로 표가 요청에 실린다) — `/api/fs/stamp`
+	// 와 같은 이유다.
+	{http.MethodPost, exactPath("/api/lsp/status"), (*Server).apiLSPStatus},
+	{http.MethodPost, exactPath("/api/lsp/install"), (*Server).apiLSPInstall},
 	{http.MethodGet, exactPath("/api/editors"), (*Server).apiEditorsGet},
 	{http.MethodPost, exactPath("/api/editors/add"), (*Server).apiEditorsAdd},
 	{http.MethodPost, exactPath("/api/editors/remove"), (*Server).apiEditorsRemove},

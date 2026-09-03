@@ -131,12 +131,16 @@ Object.assign(App.prototype, {
         // 샌드박스 정의는 파일이 진실이다. 열 때마다 다시 읽어야 바깥에서
         // 고친 것과 어긋나지 않는다.
         if(tab.dataset.tab==='sandbox')this._loadSandboxPanel();
+        // FR-LSP-47: 언어 서버의 상태는 캐시가 아니라 관측이다 — 샌드박스와
+        // 같은 근거로 열 때마다 다시 읽는다.
+        if(tab.dataset.tab==='code')this._lspRefresh();
       });
     });
     this._initPageTitle();
     this._initFgNames();
     this._initBlockKeys();
     this._initConfirmLeave();
+    this._initLSP();
     this._initBackup();
     this._initSandboxPanel();
   },

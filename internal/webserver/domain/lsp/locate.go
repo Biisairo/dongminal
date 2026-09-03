@@ -23,6 +23,9 @@ type Status struct {
 	Installer string `json:"installer,omitempty"`
 	// CanInstall 은 그 도구가 이 기계에 있는가다 (FR-LSP-6).
 	CanInstall bool `json:"canInstall"`
+	// Installing 은 지금 받고 있는가다 (FR-LSP-48). 화면의 비활성만으로는 다른
+	// 탭·다른 기기에서 누른 두 번째 설치를 막지 못하므로 서버가 알린다.
+	Installing bool `json:"installing,omitempty"`
 }
 
 // Locator 는 실행 파일을 찾는다.

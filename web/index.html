@@ -138,6 +138,8 @@
       <button class="mtab" data-tab="statusbar">Status Bar</button>
       <button class="mtab" data-tab="presets">Presets</button>
       <button class="mtab" data-tab="display">Display</button>
+      <!-- EDITOR_LSP_SRS FR-LSP-46 -->
+      <button class="mtab" data-tab="code">Code</button>
       <button class="mtab" data-tab="notify">Notifications</button>
       <!-- SETTINGS_PORTABILITY_SRS FR-SPT-14: 설정을 파일로 옮기는 자리. -->
       <button class="mtab" data-tab="sandbox">Sandbox</button>
@@ -211,6 +213,13 @@
             <input type="checkbox" id="ds-confirmleave">
           </div>
           <div class="ds-hint">탭을 닫거나 새로고침할 때 되묻습니다. 끄면 실수로 닫아도 묻지 않고 터미널 세션과의 연결을 잃습니다(세션 자체는 서버에 남아 다시 접속하면 이어집니다). 확인 문구는 브라우저가 정하므로 바꿀 수 없습니다. 새 판을 받는 자동 새로고침은 이 설정과 무관하게 묻지 않습니다.</div>
+        </div>
+      </div>
+      <!-- EDITOR_LSP_SRS 묶음 A — 언어 서버의 관측과 받기 (FR-LSP-46) -->
+      <div class="mpanel" id="panel-code" style="display:none">
+        <div class="display-settings">
+          <div class="ds-hint" id="lsp-hint"></div>
+          <div class="lsp-list" id="lsp-list"></div>
         </div>
       </div>
       <div class="mpanel" id="panel-notify" style="display:none">
@@ -354,6 +363,7 @@
 <script src="js/core/app-git.js?v=__ASSETV__"></script>
 <!-- Editor 탭·창 (EDITOR_TAB_SRS). app.js 뒤 main.js 앞 — prototype 확장이다. -->
 <script src="js/core/app-editor.js?v=__ASSETV__"></script>
+<script src="js/core/app-lsp.js?v=__ASSETV__"></script>
 <script src="js/core/app-edsearch.js?v=__ASSETV__"></script>
 <!-- Run 시각화 (ORCHESTRATION_V2_SRS 묶음 V). app.js 뒤 — prototype 확장. -->
 <script src="js/core/app-runs.js?v=__ASSETV__"></script>

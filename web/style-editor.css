@@ -289,3 +289,35 @@ body.mobile .ed-explorer{max-width:40%}
 }
 .tc-copy-do{background:var(--accent,#7aa2f7);color:#16161e}
 .tc-copy-close{background:var(--border);color:var(--text-bright)}
+
+/* ── 코드 탐색: 언어 서버의 관측 (EDITOR_LSP_SRS 묶음 A · FR-LSP-46) ──
+   설정 ▸ Code 의 언어별 행. 한 줄에 다 담지 않는 이유는 경로가 길기 때문이다 —
+   줄이 잘리면 "왜 저 서버가 쓰이는가" 를 읽을 수 없다 (FR-LSP-5). */
+.lsp-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.lsp-row{
+  display:grid;grid-template-columns:1fr auto;grid-template-areas:
+    "head act" "state act" "path act" "msg msg";
+  gap:2px 10px;padding:8px 10px;
+  border:1px solid var(--border);border-radius:6px;background:var(--bg);
+}
+.lsp-head{grid-area:head;display:flex;align-items:baseline;gap:8px;min-width:0}
+.lsp-name{color:var(--text-bright);font-size:12px;font-weight:600}
+.lsp-id{color:var(--text-muted);font-size:11px;font-family:monospace}
+.lsp-state{grid-area:state;font-size:11px;color:var(--text-dim)}
+/* 없는 서버는 그 사실이 눈에 들어와야 한다 — 그것이 이 패널을 여는 이유다. */
+.lsp-row[data-found="false"] .lsp-state{color:var(--attn)}
+.lsp-path{
+  grid-area:path;font-size:11px;color:var(--text-muted);font-family:monospace;
+  overflow-wrap:anywhere;
+}
+.lsp-act{grid-area:act;display:flex;align-items:center}
+.lsp-install{
+  padding:4px 10px;border:1px solid var(--border);border-radius:4px;cursor:pointer;
+  background:transparent;color:var(--text);font-size:11px;white-space:nowrap;
+}
+.lsp-install:hover:not(:disabled){background:var(--hover-bg,var(--border));color:var(--text-bright)}
+.lsp-install:disabled{opacity:.45;cursor:default}
+/* 결과는 그 자리에 남는다 (FR-LSP-10) — 조용히 사라지면 사용자는 무엇이 됐는지 모른다. */
+.lsp-msg{grid-area:msg;font-size:11px;color:var(--text-dim);overflow-wrap:anywhere}
+.lsp-msg:empty{display:none}
+.lsp-empty{padding:10px;font-size:11px;color:var(--text-muted)}

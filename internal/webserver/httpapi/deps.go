@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"context"
+
 	"dongminal/internal/webserver/hub"
 
 	"dongminal/internal/shared/sandbox"
@@ -8,6 +10,7 @@ import (
 
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/domain/git/store"
+	"dongminal/internal/webserver/domain/lsp"
 	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/domain/sysstat"
 	"dongminal/internal/webserver/domain/worktree"
@@ -102,6 +105,23 @@ type Deps struct {
 	// Git 은 모든 git 조회가 통과하는 지점이다 (GIT_SRS 묶음 A~C). nil 이면
 	// /api/git/* 이 전부 503 이며 그 밖의 동작에는 영향이 없다 (FR-GIT-60).
 	Git *store.Store
+	// LSP 는 편집기의 코드 탐색이 딛는 표면이다 (EDITOR_LSP_SRS 묶음 A).
+	// nil 이면 /api/lsp/* 이 503 이며 그 밖의 동작에는 영향이 없다 — 코드 탐색이
+	// 없는 편집기는 종전의 편집기다.
+	LSP LSPService
+}
+
+// LSPService 는 코드 탐색의 접합면이다. 인터페이스인 것은 방향 때문이다 —
+// **httpapi 는 LSP 프로토콜도 언어 서버 프로세스도 알지 않는다**
+// (EDITOR_LSP_SRS D-4). `SandboxReaper` 와 같은 근거다.
+type LSPService interface {
+	// Status 는 서술자마다 한 줄의 관측이다. `overrides` 는 화면이 실어 보낸
+	// 절대경로 표다 (FR-LSP-4b) — 설정 블롭은 서버가 해석하지 않으므로 서버가
+	// 그것을 읽을 자리가 없다.
+	Status(overrides map[string]string) []lsp.Status
+	// Install 은 서술자 하나를 받는다. 같은 것의 두 번째 요청은 거절된다
+	// (FR-LSP-48).
+	Install(ctx context.Context, id string) lsp.InstallOutcome
 }
 
 // StatsSnapshotter is satisfied by *sysstat.Sampler. Kept as an interface so the

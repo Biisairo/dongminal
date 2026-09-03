@@ -213,6 +213,18 @@ var pageTitle='';
 // **기본값이 거짓인 것이 규칙이다** (D-1). 접수한 요구가 "묻지 않기" 이므로,
 // 켬을 기본으로 두면 요구는 이뤄지지 않은 채 설정 항목만 하나 늘어난다.
 var confirmLeave=false;
+// EDITOR_LSP_SRS FR-LSP-3·4b: 언어 서버의 절대경로를 사용자가 직접 적은 표
+// (서술자 id → 경로). **기기별이다** — 서버 실행 파일의 자리는 그 기계의 사실이고,
+// 서버 설정에 두면 다른 기계의 경로가 따라와 없는 파일을 가리킨다.
+//
+// M1 에서는 비어 있다. 이것을 편집하는 자리는 M5 의 것이며, 지금 있는 이유는
+// 탐색의 첫째 순위가 **요청에 실려야** 하기 때문이다 (설정 블롭은 서버가 해석하지
+// 않는다).
+var lspServerPaths={};
+try{
+  const raw=localStorage.getItem('lspServerPaths');
+  if(raw){const o=JSON.parse(raw); if(o&&typeof o==='object') lspServerPaths=o}
+}catch{}
 function effectiveTitle(){return (pageTitle||'').trim()||DEFAULT_PAGE_TITLE}
 
 // ── Layout helpers ──
