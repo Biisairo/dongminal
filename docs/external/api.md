@@ -84,7 +84,8 @@
 | GET | `/api/download?path=<path>` | 파일 다운로드. 이름은 `filename` + `filename*`(RFC 5987) 두 벌로 나간다. 디렉터리는 400 |
 | GET | `/api/file/read?path=<abs>` | 편집기 탭이 파일을 읽는 경로. 절대경로만 허용 |
 | POST | `/api/file/write` | 바디 `{path, content}`. 편집기 탭의 저장 |
-| GET | `/api/fs/list?root=<abs>&path=<abs>` | 탐색기 한 겹 조회. dot 항목 포함 전량, 정렬은 서버가 한다. 응답 `{path, entries:[{name,dir,link,linkDir}], truncated}` |
+| GET | `/api/fs/list?root=<abs>&path=<abs>` | 탐색기 한 겹 조회. dot 항목 포함 전량, 정렬은 서버가 한다. 응답 `{path, entries:[{name,dir,link,linkDir}], truncated, stamp}`. `stamp` 는 **이 응답과 같은 관측**의 변경 표식이다 (아래 `/api/fs/stamp` 와 같은 값) |
+| POST | `/api/fs/stamp` | 겹이 바뀌었는지만 값싸게 묻는다. 본문 `{root, dirs:[<abs>…]}` → `{stamps:{<abs>: "<문자열>"}}`. 값은 그 디렉터리의 mtime 이며 **해석하지 않고 같은지만 본다.** 읽을 수 없거나 루트 밖이거나 디렉터리가 아닌 겹은 오류가 아니라 응답에서 **빠진다.** `dirs` 는 512개까지 |
 | POST | `/api/fs/create` | 바디 `{root, path, dir}` |
 | POST | `/api/fs/rename` | 바디 `{root, from, to}`. 이동도 이 종단 |
 | POST | `/api/fs/delete` | 바디 `{root, path}`. **영구 삭제** |
@@ -92,12 +93,12 @@
 | GET | `/api/fs/download-dir?root=<abs>&path=<abs>` | 폴더를 zip 으로 스트리밍. 이름은 `<폴더>.zip`. 항목 5만·2GiB 를 넘으면 **본문을 하나도 쓰기 전에** 400. 심볼릭 링크는 담기지 않는다 |
 | POST | `/api/fs/upload?root=<abs>&dir=<abs>` | 탐색기 업로드 (`file` 필드, 선택 `relPath`). `relPath` 가 있으면 `dir` **아래로** 구조를 세운다(중간 디렉터리는 만들되 `dir` 자신은 만들지 않는다). **같은 이름이 있으면 409** — 덮어쓰지도 개명하지도 않는다 |
 | POST | `/api/fs/ignored` | 한 겹에서 무시된 이름. 본문 `{root, dir, names:[…]}` → `{ignored:[…]}`. 저장소가 아니면 404 `not_repo`. 추적 중인 파일은 패턴에 맞아도 무시로 보고하지 않는다 |
-| GET | `/api/editors` | `{home, list}` — root 행의 경로와 일반 행 목록 |
+| GET | `/api/editors` | `{home, notes, list}` — root 행의 경로, 메모 루트, 일반 행 목록. `home`·`notes` 는 `list` 에 들어 있지 않다. 메모 루트를 쓸 수 없으면 `notes` 키가 **빠진다** (그때는 메모장 행만 없고 나머지는 그대로 선다) |
 | POST | `/api/editors/add` | 바디 `{path}`. 응답 `{list, pinned}` — git 핀이 함께 바뀔 수 있다 |
 | POST | `/api/editors/remove` | 바디 `{path}`. 응답 `{list, pinned}` |
 | POST | `/api/editors/reorder` | 바디 `{src, target, before}` |
 
-`/api/fs/*` 는 전부 `root` 를 함께 받아 **그 아래로만** 동작합니다. `root` 는 서버가 신뢰하지 않고 `editors.list` 또는 홈에 실재하는지 대조합니다. 오류는 `{code, message}` 이며 코드는 `bad_request`(400) · `outside_root`·`permission_denied`(403) · `not_found`(404) · `exists`(409) · `too_large`(413) · `io_failed`(500) 입니다.
+`/api/fs/*` 는 전부 `root` 를 함께 받아 **그 아래로만** 동작합니다. `root` 는 서버가 신뢰하지 않고 `editors.list`·홈·메모 루트 중 하나에 실재하는지 대조합니다 — 그 셋이 `Roots()` 의 전부이며, 메모장이 파일 조작을 얻는 것도 메모 루트가 그 목록에 들기 때문입니다. 오류는 `{code, message}` 이며 코드는 `bad_request`(400) · `outside_root`·`permission_denied`(403) · `not_found`(404) · `exists`(409) · `too_large`(413) · `io_failed`(500) 입니다.
 
 ### 원격 제어
 

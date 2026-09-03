@@ -205,7 +205,7 @@ DONGMINAL_HOST=0.0.0.0 ./dongminal start       # 동등한 형태
 | 변수 | 기본 | 설명 |
 |------|------|------|
 | `PORT` | `58146` | HTTP 서버 포트. `--port` 가 우선 |
-| `DONGMINAL_HOME` | `~/.dongminal` | 설치 루트. `bin/`(런타임 헬퍼), `settings.json`, `workspace.json`, `tools.json` 모두 이 아래. 없으면 서버 기동 시 자동 생성 |
+| `DONGMINAL_HOME` | `~/.dongminal` | 설치 루트. `bin/`(런타임 헬퍼), `settings.json`, `workspace.json`, `tools.json`, `notes/`(메모장) 모두 이 아래. 없으면 서버 기동 시 자동 생성 |
 | `DONGMINAL_PORT` | = `PORT` | 서버가 자식 PTY 프로세스에 주입. `dmctl`, `edit` 가 서버로 HTTP 콜 할 때 사용 |
 | `DONGMINAL_HOST` | `127.0.0.1` | HTTP 서버 바인딩 주소. `127.0.0.1` 은 동일 PC 전용, `0.0.0.0` 은 LAN 노출. `--expose` 가 우선. `dmctl` 도 이 값으로 서버에 접속 |
 | `DONGMINAL_LOG` | `/tmp/dongminal.log` | `start` 가 배경 모드에서 서버 로그를 리다이렉트할 파일 |
