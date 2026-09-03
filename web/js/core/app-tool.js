@@ -40,6 +40,17 @@ Object.assign(App.prototype, {
       const msg=document.createElement('div');msg.className='confirm-msg';
       msg.textContent='샌드박스 프로파일';
       box.appendChild(msg);
+      // FR-SBX-40: 동적 마운트를 받는 프로파일이 있을 때만 폴더를 묻는다.
+      const wantsDir=list.some(p=>p.workspace);
+      let input=null;
+      if(wantsDir){
+        const wrap=document.createElement('div');wrap.className='sbx-workdir';
+        const label=document.createElement('label');label.textContent='작업 폴더';
+        input=document.createElement('input');
+        input.type='text';input.placeholder='비우면 지금 있는 자리를 씁니다';
+        wrap.appendChild(label);wrap.appendChild(input);
+        box.appendChild(wrap);
+      }
       const btns=document.createElement('div');btns.className='confirm-btns sbx-pick';
       const cleanup=v=>{ov.remove();document.removeEventListener('keydown',onKey);resolve(v)};
       const onKey=e=>{if(e.key==='Escape'){e.preventDefault();cleanup(null)}};
@@ -55,7 +66,7 @@ Object.assign(App.prototype, {
           (p.isolated
             ? '컨테이너 안 코드가 호스트를 조작할 수 없습니다.'
             : 'dmctl 이 들어 있어 컨테이너 안에서 워크스페이스를 조작할 수 있습니다. 실수는 막지만 악의적 코드는 막지 못합니다.');
-        b.addEventListener('click',()=>cleanup(p.name));
+        b.addEventListener('click',()=>cleanup({profile:p.name,workdir:input?input.value.trim():''}));
         btns.appendChild(b);
       }
       const cancel=document.createElement('button');
@@ -65,7 +76,7 @@ Object.assign(App.prototype, {
       box.appendChild(btns);ov.appendChild(box);document.body.appendChild(ov);
       document.addEventListener('keydown',onKey);
       ov.addEventListener('click',e=>{if(e.target===ov)cleanup(null)});
-      const first=btns.querySelector('.sbx-opt'); if(first) first.focus();
+      if(input) input.focus(); else {const f=btns.querySelector('.sbx-opt'); if(f) f.focus()}
     });
   },
 

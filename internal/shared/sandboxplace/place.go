@@ -9,6 +9,7 @@ package sandboxplace
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/sandbox"
@@ -21,13 +22,17 @@ type Placer struct {
 	profiles map[string]sandbox.Profile
 	helper   sandbox.HelperDeps
 	port     string
+	// stat 은 마운트 원본이 실재하는지 보는 자리다. 주입인 것은 파일시스템 없이
+	// 그 판정을 시험하기 위해서다.
+	stat func(string) error
 }
 
 // New 는 배치기를 만든다. profiles 는 LoadProfiles 의 결과이며, port 는 컨테이너
 // 안 dmctl 이 되붙을 서버 포트다.
 func New(mgr *sandbox.Manager, dockerPath string, profiles map[string]sandbox.Profile,
 	helper sandbox.HelperDeps, port string) *Placer {
-	return &Placer{mgr: mgr, docker: dockerPath, profiles: profiles, helper: helper, port: port}
+	return &Placer{mgr: mgr, docker: dockerPath, profiles: profiles, helper: helper, port: port,
+		stat: func(p string) error { _, err := os.Stat(p); return err }}
 }
 
 // Place 는 샌드박스 창의 도구를 띄울 명세를 낸다 (FR-SBX-10/12).
@@ -40,6 +45,12 @@ func (p *Placer) Place(pl toolhub.Placement) (*platform.ProcSpec, error) {
 	if !ok {
 		return nil, fmt.Errorf("샌드박스 프로파일 %q 가 정의되지 않았습니다 — %s 에 이미지를 적어 주세요",
 			pl.Profile, sandbox.ProfilesFileName)
+	}
+
+	// 기본 마운트의 원본은 사용자가 적은 것이다. 없으면 여기서 멈춰 오타를
+	// 알린다 — 그대로 넘기면 런타임이 호스트에 빈 디렉터리를 만든다 (FR-SBX-39).
+	if err := sandbox.VerifyMounts(prof.BaseMounts, p.stat); err != nil {
+		return nil, err
 	}
 
 	rs := sandbox.RunSpec{HostDir: pl.HostDir}
@@ -88,10 +99,8 @@ func (p *Placer) Profiles() []sandbox.ProfileInfo {
 	if s, ok := p.profiles[sandbox.ProfileScratch]; ok {
 		out = append(out, s.Info())
 	}
-	for _, name := range []string{sandbox.ProfileDev, sandbox.ProfileAgent} {
-		if pr, ok := p.profiles[name]; ok {
-			out = append(out, pr.Info())
-		}
+	if pr, ok := p.profiles[sandbox.ProfileDev]; ok {
+		out = append(out, pr.Info())
 	}
 	return out
 }

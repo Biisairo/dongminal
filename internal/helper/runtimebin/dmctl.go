@@ -13,9 +13,10 @@ import (
 const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
 
 사용법:
-  dmctl new-window [--name <이름>] [-n] [--sandbox <프로파일>]
+  dmctl new-window [--name <이름>] [-n] [--sandbox <프로파일>] [--workdir <경로>]
                                          # -n: 백그라운드 생성 (포커스 유지)
                                          # --sandbox: 그 창의 도구를 컨테이너 안에서 실행
+                                         # --workdir: 샌드박스 창의 작업 폴더
   dmctl new-tab [--name <이름>] [-n] [--at <uuid>]
   dmctl split-h [N]      # 가로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
   dmctl split-v [N]      # 세로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
@@ -76,7 +77,9 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   --no-focus, -n          명령 실행 전후로 사용자 포커스를 이동시키지 않는다.
                           new-window/-tab 에선 백그라운드 생성 (활성 탭도 유지).
   --name <이름>           new-window/new-tab 전용. 새 창/탭 이름 (최대 64자).
-  --sandbox <프로파일>    new-window 전용. 창을 샌드박스로 연다 (현재: scratch).
+  --workdir <경로>        new-window 전용. 샌드박스 창의 작업 폴더. 컨테이너 안
+                          /work 에 붙는다. 생략하면 부르는 자리를 승계한다.
+  --sandbox <프로파일>    new-window 전용. 창을 샌드박스로 연다 (scratch · dev).
                           그 창의 모든 탭이 하나의 컨테이너를 공유하며, 창을
                           닫으면 컨테이너도 사라진다. 컨테이너 런타임(docker)이
                           필요하고, 없으면 도구 생성이 실패한다.
@@ -267,6 +270,7 @@ type dmctlParsed struct {
 	name       string
 	auto       bool
 	sandbox    string
+	workdir    string
 	positional string
 }
 
@@ -291,6 +295,10 @@ func (p dmctlParsed) buildArgs() map[string]any {
 	// 창이며, 그때 키 자체를 싣지 않는다.
 	if p.sandbox != "" {
 		out["sandbox"] = p.sandbox
+	}
+	// FR-SBX-40: 샌드박스 창의 작업 폴더. 컨테이너 안 /work 에 붙는다.
+	if p.workdir != "" {
+		out["workdir"] = p.workdir
 	}
 	return out
 }
@@ -338,6 +346,16 @@ func parseDmctlFlags(args []string) (dmctlParsed, error) {
 			continue
 		case len(a) > 10 && a[:10] == "--sandbox=":
 			p.sandbox = a[10:]
+		// FR-SBX-40: 그 창의 작업 폴더. 생략하면 부르는 자리를 승계한다.
+		case a == "--workdir":
+			if i+1 >= len(args) {
+				return p, fmt.Errorf("flag %s requires value", a)
+			}
+			p.workdir = args[i+1]
+			i += 2
+			continue
+		case len(a) > 10 && a[:10] == "--workdir=":
+			p.workdir = a[10:]
 		case a == "-h" || a == "--help":
 			// caller handles top-level help; ignore here
 		case a == "--":

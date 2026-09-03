@@ -32,8 +32,7 @@ func TestLoadProfiles_MissingFileYieldsScratchOnly(t *testing.T) {
 
 func TestLoadProfiles_ReadsImageAndPorts(t *testing.T) {
 	got, err := LoadProfiles("x.json", readerOf(`{
-	  "dev":   {"image":"node:22","ports":[3000,"5173-5180"]},
-	  "agent": {"image":"my-agent:latest"}
+	  "dev": {"image":"node:22","ports":[3000,"5173-5180"]}
 	}`, nil))
 	if err != nil {
 		t.Fatalf("LoadProfiles: %v", err)
@@ -45,17 +44,14 @@ func TestLoadProfiles_ReadsImageAndPorts(t *testing.T) {
 	if len(dev.Ports) != 2 || dev.Ports[0] != "3000" || dev.Ports[1] != "5173-5180" {
 		t.Errorf("포트가 다르다: %v", dev.Ports)
 	}
-	// FR-SBX-1: dev·agent 는 cwd 를 마운트하고 네트워크를 연다. 그 정책은 파일이
+	// FR-SBX-1: dev 는 작업 폴더를 받고 네트워크를 연다. 그 정책은 파일이
 	// 아니라 프로파일 종류가 정한다 — 사용자가 실수로 끌 수 있으면 안 된다.
-	if !dev.Mount || dev.Network != "bridge" || !dev.Helper {
+	if !dev.Workspace || dev.Network != "bridge" || !dev.Helper {
 		t.Errorf("dev 정책이 다르다: %+v", dev)
-	}
-	if a := got["agent"]; !a.Mount || a.Network != "bridge" || !a.Helper {
-		t.Errorf("agent 정책이 다르다: %+v", a)
 	}
 }
 
-// FR-SBX-3: dev·agent 는 이미지가 없으면 성립하지 않는다.
+// FR-SBX-3: dev 는 이미지가 없으면 성립하지 않는다.
 func TestLoadProfiles_RejectsMissingImage(t *testing.T) {
 	_, err := LoadProfiles("x.json", readerOf(`{"dev":{"ports":[3000]}}`, nil))
 	if err == nil {
@@ -94,7 +90,7 @@ func TestProfileInfo_IsolationGradeFollowsPolicy(t *testing.T) {
 	if got := Scratch().Info(); !got.Isolated {
 		t.Errorf("scratch 가 경계로 보고되지 않았다: %+v", got)
 	}
-	dev := Profile{Name: ProfileDev, Image: "node:22", Network: "bridge", Helper: true, Mount: true}
+	dev := Profile{Name: ProfileDev, Image: "node:22", Network: "bridge", Helper: true, Workspace: true}
 	if got := dev.Info(); got.Isolated {
 		t.Errorf("헬퍼가 있는데 경계로 보고됐다: %+v", got)
 	}

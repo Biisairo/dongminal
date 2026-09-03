@@ -33,7 +33,6 @@ const (
 	// 프로파일 이름. workspace.json 의 `sandbox` 필드에 이 값이 들어간다.
 	ProfileScratch = "scratch"
 	ProfileDev     = "dev"
-	ProfileAgent   = "agent"
 
 	// ScratchImage 는 scratch 프로파일의 기본 이미지다. dev·agent 는 기본값을
 	// 두지 않는다 — 그 둘의 유용성은 전적으로 이미지 내용물에 달려 있어 임의의
@@ -57,8 +56,11 @@ type Profile struct {
 	Network string // "none" | "bridge"
 	// Ports 는 호스트와 같은 번호로 열 포트다. "3000" 또는 "5173-5180".
 	Ports []string
-	// Mount 는 창의 작업 디렉터리를 컨테이너 안 ContainerWorkdir 로 잇는가다.
-	Mount bool
+	// Workspace 는 동적 마운트를 받는가다 — 창을 열 때 정해진 작업 폴더가
+	// 컨테이너 안 ContainerWorkdir 로 붙는다 (FR-SBX-40).
+	Workspace bool
+	// BaseMounts 는 이 프로파일이면 언제나 붙는 마운트다 (FR-SBX-39).
+	BaseMounts []Mount
 	// Helper 는 컨테이너 안에서 dmctl 을 쓸 수 있게 하는가다. 켜면 그 창은
 	// 격리 경계가 아니다 (FR-SBX-23).
 	Helper bool
@@ -153,8 +155,12 @@ func (m *Manager) create(name, windowUUID string, p Profile, rs RunSpec) error {
 	}
 	// 창의 작업 디렉터리를 컨테이너 안 한 자리로 잇는다 (FR-SBX-1). 호스트
 	// 경로가 없으면 붙이지 않는다 — 빈 원본은 런타임이 거부한다.
-	if p.Mount && rs.HostDir != "" {
+	if p.Workspace && rs.HostDir != "" {
 		args = append(args, "-v", rs.HostDir+":"+ContainerWorkdir)
+	}
+	// 기본 마운트는 창이 달라도 같다 — 설정과 자격증명의 자리다 (FR-SBX-39).
+	for _, mt := range p.BaseMounts {
+		args = append(args, "-v", mt.Arg())
 	}
 	// 헬퍼는 **읽기 전용**이다. 컨테이너 안에서 고쳐 쓸 수 있으면 그 자체가
 	// 호스트로 나가는 통로가 된다.
@@ -222,7 +228,7 @@ func (m *Manager) ExecSpec(windowUUID, dockerPath string, p Profile, env ExecEnv
 	// 마운트가 있을 때만 작업 디렉터리를 지정한다. 없으면 이미지의 기본 자리이며,
 	// 호스트 경로를 넘기면 컨테이너 안에 없는 경로라 기동 자체가 실패한다
 	// (FR-SBX-13).
-	if p.Mount {
+	if p.Workspace {
 		args = append(args, "-w", ContainerWorkdir)
 	}
 	args = append(args, name, "bash", "-l")

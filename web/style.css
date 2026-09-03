@@ -84,6 +84,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 /* 샌드박스 프로파일 선택. 등급이 이름 옆에 붙어, 무엇을 고르는지가 고르는
    자리에서 보인다 (FR-SBX-25). */
 .confirm-btns.sbx-pick{flex-wrap:wrap}
+.sbx-workdir{display:flex;align-items:center;gap:8px;margin:0 0 14px}
+.sbx-workdir label{color:var(--text-dim);font-size:11px;flex:0 0 auto}
+.sbx-workdir input{flex:1 1 auto;min-width:0;padding:4px 6px;font-size:12px;
+  background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-bright)}
+.sbx-workdir input:focus{outline:none;border-color:var(--accent)}
 .sbx-grade{margin-left:6px;padding:0 5px;border-radius:8px;font-size:10px;
   background:var(--accent-subtle);color:var(--text-dim)}
 .sbx-grade.iso{color:var(--accent)}

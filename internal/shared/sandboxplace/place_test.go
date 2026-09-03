@@ -57,12 +57,15 @@ func devProfiles() map[string]sandbox.Profile {
 	return map[string]sandbox.Profile{
 		sandbox.ProfileScratch: sandbox.Scratch(),
 		sandbox.ProfileDev: {Name: sandbox.ProfileDev, Image: "node:22", Network: "bridge",
-			Ports: []string{"3000"}, Mount: true, Helper: true},
+			Ports: []string{"3000"}, Workspace: true, Helper: true},
 	}
 }
 
 func newPlacer(f *fakeDocker, profiles map[string]sandbox.Profile, h sandbox.HelperDeps) *Placer {
-	return New(sandbox.New(f.run, "/h"), "/usr/bin/docker", profiles, h, "58146")
+	p := New(sandbox.New(f.run, "/h"), "/usr/bin/docker", profiles, h, "58146")
+	// 마운트 검증은 별도 시험이 본다. 여기서는 모든 원본이 실재한다고 둔다.
+	p.stat = func(string) error { return nil }
+	return p
 }
 
 func TestPlace_ScratchYieldsContainerSpecWithoutHelper(t *testing.T) {
@@ -153,5 +156,25 @@ func TestReap_QueriesWithOwnHome(t *testing.T) {
 	newPlacer(f, devProfiles(), helperDeps(true, nil)).Reap([]string{"w-live"})
 	if !strings.Contains(f.joined("ps"), "label=dongminal.home=/h") {
 		t.Fatalf("자기 홈으로 좁히지 않았다: %s", f.joined("ps"))
+	}
+}
+
+// FR-SBX-39: 기본 마운트의 원본이 없으면 창이 열리지 않는다. 그대로 넘기면
+// 런타임이 호스트에 빈 디렉터리를 만든다.
+func TestPlace_MissingBaseMountSourceStopsStartup(t *testing.T) {
+	profiles := devProfiles()
+	dev := profiles[sandbox.ProfileDev]
+	dev.BaseMounts = []sandbox.Mount{{Host: "/no/such/dir", Container: "/x"}}
+	profiles[sandbox.ProfileDev] = dev
+
+	p := newPlacer(&fakeDocker{}, profiles, helperDeps(true, nil))
+	p.stat = func(string) error { return fs.ErrNotExist }
+
+	_, err := p.Place(toolhub.Placement{WindowUUID: "w1", Profile: sandbox.ProfileDev, HostDir: "/a"})
+	if err == nil {
+		t.Fatal("없는 원본으로 창이 열렸다")
+	}
+	if !strings.Contains(err.Error(), "/no/such/dir") {
+		t.Errorf("어느 경로인지 말하지 않는다: %v", err)
 	}
 }

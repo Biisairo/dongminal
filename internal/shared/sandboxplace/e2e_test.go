@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -168,4 +169,62 @@ func TestEndToEnd_DevProfileCarriesHelper(t *testing.T) {
 	}
 	blob, _ := tool.Stream().Snapshot()
 	t.Fatalf("헬퍼·주소·작업 디렉터리가 갖춰지지 않았습니다:\n%s", blob)
+}
+
+// FR-SBX-39/40: 기본 마운트는 어느 창을 열든 붙고, 동적 마운트는 그 창의 작업
+// 폴더가 된다. 둘이 서로 다른 자리에 들어가는지 실제 컨테이너에서 확인한다.
+func TestEndToEnd_BaseAndDynamicMounts(t *testing.T) {
+	dockerPath := runtimeReady(t)
+
+	home := t.TempDir()
+	// 기본 마운트로 실어 보낼 자리 (설정·자격증명의 대역).
+	shared := t.TempDir()
+	if err := os.WriteFile(filepath.Join(shared, "base.txt"), []byte("from-base"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// 동적 마운트로 실어 보낼 자리 (이번 작업 공간).
+	work := t.TempDir()
+	if err := os.WriteFile(filepath.Join(work, "work.txt"), []byte("from-work"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	conf := `{"mounts":[{"host":` + strconv.Quote(shared) + `,"container":"/shared","readonly":true}],
+	          "dev":{"image":"debian:stable-slim"}}`
+	if err := os.WriteFile(filepath.Join(home, sandbox.ProfilesFileName), []byte(conf), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	window := "e2e-sbx-mounts"
+	mgr := sandbox.New(sandbox.CLIRunner(dockerPath), home)
+	t.Cleanup(func() { mgr.Remove(window) })
+
+	pl := sandboxplace.Wire(home, "dev", "58146")
+	if pl == nil {
+		t.Skip("배치기를 만들지 못했다")
+	}
+	pm := toolhub.NewToolManager(t.TempDir(), nil)
+	pm.SetPlacer(pl.Place)
+
+	tool, err := pm.Create(work, 80, 24,
+		toolhub.Placement{WindowUUID: window, Profile: sandbox.ProfileDev})
+	if err != nil {
+		t.Fatalf("dev 도구 생성 실패: %v", err)
+	}
+	t.Cleanup(func() { pm.Delete(tool.ID) })
+
+	time.Sleep(900 * time.Millisecond)
+	// 작업 폴더는 /work 에, 기본 마운트는 /shared 에 — 서로 다른 자리다.
+	if err := tool.Write([]byte("cat /work/work.txt; cat /shared/base.txt\n")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	for deadline := time.Now().Add(20 * time.Second); time.Now().Before(deadline); {
+		blob, _ := tool.Stream().Snapshot()
+		s := string(blob)
+		if strings.Contains(s, "from-work") && strings.Contains(s, "from-base") {
+			return
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	blob, _ := tool.Stream().Snapshot()
+	t.Fatalf("두 마운트가 모두 보이지 않습니다:\n%s", blob)
 }

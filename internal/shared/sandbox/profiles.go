@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"math"
+	"os"
 	"strconv"
 )
 
@@ -28,37 +29,71 @@ type profileFile struct {
 }
 
 // LoadProfiles 는 사용할 수 있는 프로파일을 낸다 (FR-SBX-4).
+func LoadProfiles(path string, read func(string) ([]byte, error)) (map[string]Profile, error) {
+	return loadProfiles(path, read, os.UserHomeDir)
+}
+
+// loadProfiles 는 사용자 홈 해석까지 주입받는 안쪽이다.
 //
-// scratch 는 언제나 들어 있고 **정의 파일이 덮을 수 없다.** 그것이 유일한 격리
-// 경계이므로(§3.3), 설정 한 줄로 네트워크가 열리거나 헬퍼가 들어오면 경계가
-// 조용히 사라진다.
+// scratch 는 언제나 들어 있고 **정의 파일이 그 정책을 덮을 수 없다.** 그것이
+// 유일한 격리 경계이므로(§3.3), 설정 한 줄로 네트워크가 열리거나 헬퍼가 들어오면
+// 경계가 조용히 사라진다. 예외는 마운트 하나뿐이며, 그것도 항목에 표식을 적어야
+// 하고 그 순간 등급 표기가 따라 바뀐다 (FR-SBX-39b).
 //
 // 파일이 없는 것은 오류가 아니다 — 샌드박스를 쓰지 않는 것이 기본이다. 그러나
 // 있는데 깨진 것은 오류다. 그것을 "정의 없음" 으로 넘기면 사용자는 자기 설정이
 // 무시된 줄 모른 채 프로파일이 없다는 말만 듣는다.
-func LoadProfiles(path string, read func(string) ([]byte, error)) (map[string]Profile, error) {
-	out := map[string]Profile{ProfileScratch: Scratch()}
+func loadProfiles(path string, read func(string) ([]byte, error),
+	home func() (string, error)) (map[string]Profile, error) {
 
+	scratch, dev := Scratch(), Profile{}
 	blob, err := read(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return out, nil
+			return map[string]Profile{ProfileScratch: scratch}, nil
 		}
 		return nil, fmt.Errorf("샌드박스 프로파일 정의를 읽을 수 없습니다(%s): %w", path, err)
 	}
 
-	var raw map[string]profileFile
+	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(blob, &raw); err != nil {
 		return nil, fmt.Errorf("샌드박스 프로파일 정의를 해석할 수 없습니다(%s): %w", path, err)
 	}
 
-	for name, pf := range raw {
+	// 기본 마운트를 먼저 읽는다 — 프로파일마다 나눠 담아야 하기 때문이다.
+	var base, forScratch []Mount
+	if rawMounts, ok := raw["mounts"]; ok {
+		var items []any
+		if err := json.Unmarshal(rawMounts, &items); err != nil {
+			return nil, fmt.Errorf("mounts 를 해석할 수 없습니다: %w", err)
+		}
+		for _, it := range items {
+			m, err := toMount(it, home)
+			if err != nil {
+				return nil, err
+			}
+			base = append(base, m)
+			if m.Scratch {
+				forScratch = append(forScratch, m)
+			}
+		}
+	}
+	scratch.BaseMounts = forScratch
+
+	for name, body := range raw {
+		if name == "mounts" {
+			continue
+		}
 		switch name {
 		case ProfileScratch:
-			return nil, fmt.Errorf("%q 프로파일은 재정의할 수 없습니다 — 유일한 격리 경계이므로 그 정책이 설정으로 바뀌어서는 안 됩니다", name)
-		case ProfileDev, ProfileAgent:
+			return nil, fmt.Errorf("%q 프로파일은 재정의할 수 없습니다 — 유일한 격리 경계이므로 그 정책이 설정으로 바뀌어서는 안 됩니다(마운트는 항목의 \"scratch\" 표식으로 더합니다)", name)
+		case ProfileDev:
 		default:
-			return nil, fmt.Errorf("알 수 없는 샌드박스 프로파일입니다: %q (%s · %s 만 정의할 수 있습니다)", name, ProfileDev, ProfileAgent)
+			return nil, fmt.Errorf("알 수 없는 샌드박스 프로파일입니다: %q (%s 만 정의할 수 있습니다)", name, ProfileDev)
+		}
+		var pf profileFile
+		if err := json.Unmarshal(body, &pf); err != nil {
+			return nil, fmt.Errorf("%q 프로파일을 해석할 수 없습니다: %w", name, err)
 		}
 		if pf.Image == "" {
 			return nil, fmt.Errorf("%q 프로파일에 이미지가 없습니다 — 이 프로파일의 쓸모는 전적으로 이미지 내용물에 달려 있어 기본값을 둘 수 없습니다 (FR-SBX-3)", name)
@@ -67,10 +102,15 @@ func LoadProfiles(path string, read func(string) ([]byte, error)) (map[string]Pr
 		if err != nil {
 			return nil, err
 		}
-		out[name] = Profile{
-			Name: name, Image: pf.Image, Network: "bridge",
-			Ports: ports, Mount: true, Helper: true,
+		dev = Profile{
+			Name: ProfileDev, Image: pf.Image, Network: "bridge",
+			Ports: ports, Workspace: true, Helper: true, BaseMounts: base,
 		}
+	}
+
+	out := map[string]Profile{ProfileScratch: scratch}
+	if dev.Image != "" {
+		out[ProfileDev] = dev
 	}
 	return out, nil
 }
@@ -102,9 +142,12 @@ type ProfileInfo struct {
 	Name  string `json:"name"`
 	Image string `json:"image"`
 	// Isolated 는 이 프로파일이 격리 **경계**인가다 (FR-SBX-23).
-	Isolated bool     `json:"isolated"`
-	Helper   bool     `json:"helper"`
-	Ports    []string `json:"ports,omitempty"`
+	Isolated bool `json:"isolated"`
+	Helper   bool `json:"helper"`
+	// Workspace 는 이 프로파일이 동적 마운트(작업 폴더)를 받는가다 —
+	// 화면이 폴더를 물어야 할지 판단하는 근거다 (FR-SBX-40).
+	Workspace bool     `json:"workspace"`
+	Ports     []string `json:"ports,omitempty"`
 }
 
 // Info 는 표시용 요약을 낸다.
@@ -115,8 +158,12 @@ type ProfileInfo struct {
 func (p Profile) Info() ProfileInfo {
 	return ProfileInfo{
 		Name: p.Name, Image: p.Image,
-		Isolated: !p.Helper && p.Network == "none",
-		Helper:   p.Helper,
-		Ports:    p.Ports,
+		// 마운트가 하나라도 있으면 경계가 아니다. 읽기 전용이어도 그 폴더의
+		// 내용은 유출되며, "여기서 무슨 일이 나도 호스트는 무사하다" 가 경계라는
+		// 말이 사용자에게 뜻하는 바다 (FR-SBX-39b).
+		Isolated:  !p.Helper && p.Network == "none" && !p.Workspace && len(p.BaseMounts) == 0,
+		Helper:    p.Helper,
+		Workspace: p.Workspace,
+		Ports:     p.Ports,
 	}
 }

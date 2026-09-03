@@ -306,7 +306,7 @@ func TestFindRuntime_ReturnsResolvedPath(t *testing.T) {
 
 func devProfile() Profile {
 	return Profile{Name: ProfileDev, Image: "node:22", Network: "bridge",
-		Ports: []string{"3000", "5173-5180"}, Mount: true, Helper: true}
+		Ports: []string{"3000", "5173-5180"}, Workspace: true, Helper: true}
 }
 
 func TestEnsure_MountsWorkdirAndPublishesPorts(t *testing.T) {
