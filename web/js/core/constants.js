@@ -115,6 +115,17 @@ const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','Meta
  * 차단이 아니라 고장이다. 사용자가 이 키들을 단축키로 배정하면 그때는 매칭
  * 경로가 먼저 잡아 preventDefault 하므로 자유도는 그대로다 (FR-KEY-1).
  */
+// ── 워크스페이스 저장 충돌 (WORKSPACE_SAVE_CONFLICT_SRS 묶음 R) ──
+//
+// 연속 충돌이 이만큼 이어지면 그 사실을 기록한다 (FR-WSC-8). 조용히 되풀이하면
+// 아무도 그것이 일어나는지 모른다 — 접수한 409 로그가 그 증거였다.
+const WS_SAVE_CONFLICT_WARN=4;
+// 충돌 뒤 다음 저장을 미루는 시간 (FR-WSC-7). 두 화면이 서로 밀어내는 동안 그
+// 사이를 벌린다. 연속 충돌 수에 비례해 늘리되 상한을 둔다 — 늘지 않으면 벌리는
+// 뜻이 없고, 상한이 없으면 저장이 사실상 멎는다.
+const WS_SAVE_BACKOFF_MS=200;
+const WS_SAVE_BACKOFF_MAX_MS=2000;
+
 const KEY_BLOCK_EXEMPT_BARE=new Set(['F5','F11','F12']);
 const KEY_BLOCK_EXEMPT_MOD=new Set(['KeyC','KeyV','KeyX','KeyA','KeyI','KeyJ','KeyR']);
 

@@ -319,6 +319,9 @@ class App {
     this._saveInflight=true;
     const run=async()=>{
       while(this._savePending){
+        // FR-WSC-7·9: 충돌 뒤에는 잠시 미룬다. 미루는 것이지 버리는 것이 아니다.
+        const hold=(this._saveHoldUntil||0)-Date.now();
+        if(hold>0) await new Promise(r=>setTimeout(r,hold));
         this._savePending=false;
         try{
           const headers={'Content-Type':'application/json'};
@@ -334,6 +337,24 @@ class App {
           wsBody.schemaVersion=2;
           const res=await fetch('/api/workspace',{method:'PUT',headers,body:JSON.stringify(wsBody)});
           if(res.status===409){
+            /**
+             * WORKSPACE_SAVE_CONFLICT_SRS FR-WSC-1: **이 저장을 포기한다.**
+             *
+             * 종전에는 원격의 `git`·`editors` 만 채택하고 `windows` 는 우리 것을
+             * 그대로 다시 밀어붙였다 (`continue`). 그것이 **다른 화면이 만든 창을
+             * 지우는 경로**였다 — 재현으로 확정했다 (그 SRS §2.5):
+             *
+             *   A 가 창 추가 → 서버 2 | B 가 저장 → 서버 1  (A 의 창이 사라진다)
+             *
+             * 우리는 우리가 무엇을 바꾸려 했는지는 알지만 **남이 무엇을 바꿨는지는
+             * 모른다.** 그 상태에서 우리 본문을 밀어붙이는 일은 남의 변경을 지우는
+             * 일이다. 그래서 원격이 이긴다 (I-1 / D-1) — 남의 창이 사라지는 것은
+             * 되돌릴 수 없고, 내 폭 조정이 사라지는 것은 다시 하면 된다.
+             */
+            // FR-WSC-6: **비행을 넘어 이어지는** 수다. 409 는 재시도하지 않으므로
+            // (FR-WSC-1) 한 비행에 한 번뿐이고, 비행 안의 지역 변수로 세면 늘
+            // 1 이 되어 상한에 닿지 않는다 — 잦음을 재려면 연속이어야 한다.
+            const conflicts=(this._saveConflicts=(this._saveConflicts||0)+1);
             try{
               const gr=await fetch('/api/workspace');
               if(gr.ok){
@@ -359,14 +380,43 @@ class App {
                   this._edApply({home:this._editors.home,list:rem.editors.list});
                   this._edReconcile();
                 }
+                /**
+                 * FR-WSC-2: **창까지 채택한다.** 위의 둘(git·editors)만 받고
+                 * `windows` 를 우리 것으로 두었던 것이 §2.5 의 손실이었다.
+                 *
+                 * 적용기는 이미 있는 것을 쓴다 (D-2) — 낡은 모양의 마이그레이션,
+                 * 편집기 탭 정리, Editor 창 재조정이 그 안에 있다. 두 번째
+                 * 적용기를 만들면 그 둘이 갈라진다.
+                 *
+                 * 도구 목록은 **모른다고 말한다** (세 번째 인자 `false`).
+                 * `/api/workspace` 는 도구를 싣지 않으므로 안다고 하면 빈 목록이
+                 * 사실이 되어 살아 있는 도구·pane·창이 차례로 지워진다
+                 * (FR-TLU-5·6 이 그 함정을 적고 있다).
+                 */
+                if(rem&&rem.windows) this._applyRemoteWorkspace(rem,[],false);
               }
             }catch{}
-            this._savePending=true;
-            continue;
+            // FR-WSC-7: 다음 저장을 잠시 미룬다 — 두 화면이 서로 밀어내는 동안
+            // 그 사이를 벌린다. 저장을 잃지는 않는다 (FR-WSC-9): 대기 중인
+            // 것이 있으면 이 지연 뒤에 나간다.
+            this._saveHoldUntil=Date.now()+Math.min(
+              WS_SAVE_BACKOFF_MS*conflicts,WS_SAVE_BACKOFF_MAX_MS);
+            // FR-WSC-8: 잦으면 그 사실을 남긴다.
+            if(conflicts>=WS_SAVE_CONFLICT_WARN){
+              console.warn('[save] workspace 저장 충돌이 '+conflicts+
+                '번 이어졌다 — 다른 화면이 같은 워크스페이스를 함께 고치고 있다');
+            }
+            // **재시도하지 않는다** (FR-WSC-1). 사용자가 그 사이 새로 조작했으면
+            // 그것은 다음 저장으로 나간다 (FR-WSC-5) — 포기하는 것은 이번 본문이며
+            // 사용자의 다음 의도가 아니다.
+            break;
           }
           if(res.ok){
             const et=res.headers.get('ETag')||res.headers.get('Etag');
             if(et) this.wsETag=et;
+            // FR-WSC-6: 성공하면 연속 충돌 수를 되돌린다.
+            this._saveConflicts=0;
+            this._saveHoldUntil=0;
           }
         }catch(err){console.warn('[save] PUT failed',err)}
       }
@@ -377,7 +427,22 @@ class App {
       // wsETag). Drop them — any genuinely newer external change will land
       // as a future SSE event with rev > our new wsETag and be applied
       // through the normal rev check.
+      //
+      // **409 로 포기한 경우는 다르다** (FR-WSC-3). 그때 그 미뤄 둔 알림은 우리
+      // PUT 의 에코가 아니라 **남이 실제로 바꾼 것**이고, 우리는 아무것도 쓰지
+      // 않았으므로 "나중에 또 온다" 는 가정이 성립하지 않는다 — 우리가 버리면
+      // 그 변경은 이 화면에 영영 닿지 않는다.
+      //
+      // 채택은 SSE 경로에게 맡긴다 (D-2) — 낡은 스냅샷 가드(FR-GRR-4)와 도구
+      // 목록 치유를 그것이 이미 갖고 있다. 비행이 끝난 **뒤에** 부른다:
+      // 그 함수는 비행 중이면 스스로 미루기 때문이다 (FR-WSC-4).
+      // **409 로 포기한 경우도 버린다** — 그 원격 상태는 409 처리가 이미
+      // 채택했으므로(FR-WSC-2), 미뤄 둔 알림을 또 적용하면 같은 일을 두 번 하고
+      // `/api/state` 를 한 번 더 읽는다.
       this._wsApplyPending=false;
+      // FR-WSC-9: 채택 중에 새 저장이 예약됐으면(재조정이 창을 고친 경우가 그렇다)
+      // 그것을 잃지 않는다. 백오프는 다음 비행의 앞머리가 지킨다.
+      if(this._savePending) setTimeout(()=>this._save(),0);
     };
     this._saveChain=run();
     return this._saveChain;
