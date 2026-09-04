@@ -173,9 +173,11 @@ test.describe('18단계 — Branches 탭', () => {
     expect(ws?.git?.pinned || []).toContain(repo);
 
     // 새로고침 후에도 남는다 (FR-GIT-149: 고정 목록은 영속한다).
-    // 활성 창이 Git 창이므로 포커스된 분할 칸에 터미널이 없다 — 탭이 서기를 기다린다.
+    // 활성 창이 Repo 창이므로 포커스된 분할 칸에 터미널이 없다 — 탭이 서기를 기다린다.
+    // 뷰 탭은 여섯이다 (REPO_TAB_UNIFY_SRS FR-RTU-32 — Changes 는 사이드로 갔다).
     await page.reload();
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(7, { timeout: 15000 });
+    await expect(page.locator('#area .pn-tab[data-git-view]'))
+      .toHaveCount(GIT_VIEW_TABS, { timeout: 15000 });
     await page.click('#area .pn-tab[data-git-view="branches"]');
     await waitRefs(page, 2);
     await expect(group(page, 'fav').locator('.git-br-row[data-short="no-upstream"]')).toHaveCount(1);

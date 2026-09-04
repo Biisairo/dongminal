@@ -177,13 +177,19 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
   test('N6 (V66 / FR-GIT-142·143): 커밋 우클릭에서 해시·제목을 복사한다', async ({ page }) => {
     const repo = fx('basic');
     await waitForInit(page);
-    // 클립보드가 막힌 환경을 흉내내지 않고, 실제 복사 호출을 가로챈다.
+    /**
+     * 클립보드가 막힌 환경을 흉내내지 않고, 실제 복사 호출을 가로챈다.
+     *
+     * **창을 연 뒤에 가로챈다** (REPO_TAB_UNIFY_SRS FR-RTU-60·65): `app.gitPanel`
+     * 은 **활성 창의** 패널이므로, 열기 전에 심으면 다른 인스턴스에 붙는다 —
+     * 메뉴가 부르는 것은 History 를 든 그 창의 패널이다.
+     */
+    await openHistory(page, repo);
     await page.evaluate(() => {
       const w = window as any;
       w.__copied = [];
       w.app.gitPanel.copyText = (t: string) => w.__copied.push(t);
     });
-    await openHistory(page, repo);
     const row = hist(page).locator('.git-hist-row[data-oid]').first();
     await expect(row).toBeVisible({ timeout: 15000 });
     const oid = await row.getAttribute('data-oid');

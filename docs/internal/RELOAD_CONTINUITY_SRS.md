@@ -1,5 +1,12 @@
 # SRS: 새로고침의 연속성 — 자동 갱신과 잃지 않을 기억 — IEEE 29148
 
+> **후속 문서가 이 SRS 의 일부를 개정했다.** 어긋나면 후속이 이긴다.
+>
+> | 개정된 것 | 어떻게 | 어디서 |
+> |---|---|---|
+> | FR-RLC-6~9 (사이드바 탭이 돌아갈 창의 기억) | 탭 셋이 `Windows`·`Repo` 둘이 됐다 — 기억의 키도 둘이다 (`lastPlainWindow`·`lastEditorWindow`) | REPO_TAB_UNIFY_SRS FR-RTU-1 |
+> | 활성 창의 복원 (`sessionStorage.activeWindow`) | **Repo 창은 id 로 되살릴 수 없다.** 그 창은 `editors.list` 에서 재조정이 만들므로(FR-EDT-42) 저장이 서버에 닿기 전이면 같은 루트의 창이 새 id 로 선다 — 루트를 함께 적고(`activeEditorRoot`) id 가 없으면 루트로 찾는다 | REPO_TAB_UNIFY_SRS D-RTU-32 |
+
 ## 1. 개요
 
 ### 1.1 목적

@@ -99,7 +99,7 @@ export async function openGitTab(page: any) {
   // 모바일 드로어가 닫혀 있으면 사이드바는 화면 밖으로 밀려 있다 — 눌릴 수 없다.
   const clickable = !!box && box.y >= 0 && box.x >= 0 && (!vp || box.y + box.height <= vp.height);
   if (clickable) await tab.click();
-  else await page.evaluate(() => (window as any).app._sbSetTab('git'));
+  else await page.evaluate(() => (window as any).app._sbSetTab('repo'));
   await page.waitForFunction(
     () => !document.getElementById('sb-panel-repo')?.hasAttribute('hidden'),
     undefined, { timeout: 10000 });

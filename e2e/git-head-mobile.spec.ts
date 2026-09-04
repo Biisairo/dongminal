@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGit } from './fixtures';
+import { test, expect, openGit, GIT_VIEW_TABS } from './fixtures';
 
 // GIT_HEAD_MOBILE_SRS 검증 V1~V13 — 머리의 왼쪽 정렬 · History 이식 · 모바일 폭.
 //
@@ -61,9 +61,18 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
     expect(order[order.length - 1]).toBe('git-head-spacer');
     expect(order.indexOf('git-head-remote')).toBeLessThan(order.indexOf('git-head-spacer'));
 
-    // 버튼이 실제로 왼쪽에 모였는지 — 마지막 버튼의 오른쪽 끝이 헤더 폭의 70% 안이다.
-    // 오른쪽으로 밀려 있으면 이 값이 100% 에 붙는다.
-    const geom = await changes(page).locator('.git-head').evaluate((h) => {
+    /**
+     * 버튼이 실제로 왼쪽에 모였는지 — 마지막 버튼의 오른쪽 끝이 헤더 폭의 70%
+     * 안이다. 오른쪽으로 밀려 있으면 이 값이 100% 에 붙는다.
+     *
+     * **재는 자리는 본문의 History 머리다** (REPO_TAB_UNIFY_SRS FR-RTU-11).
+     * Changes 는 260px 사이드에 있어 버튼 줄이 이미 폭을 다 쓴다 — 거기서는
+     * "남는 공간" 자체가 없어 이 비율이 뜻을 잃는다 (실측 245/219). 머리 골격은
+     * 두 뷰가 같은 것을 쓰므로(`headHTML`) 어느 쪽에서 재도 같은 계약이다.
+     */
+    await page.click('#area .pn-tab[data-git-view="history"]');
+    await expect(hist(page).locator('.git-head')).toHaveCount(1);
+    const geom = await hist(page).locator('.git-head').evaluate((h) => {
       const hr = h.getBoundingClientRect();
       const last = h.querySelector('.git-head-remote')!.getBoundingClientRect();
       return { headW: hr.width, lastRight: last.right - hr.left };
@@ -162,26 +171,41 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
     await expect(hist(page).locator('.git-remote-btn[data-remote="push"]')).toBeEnabled();
   });
 
-  test('V9: 리포 없음 상태의 History 에 머리가 없다', async ({ page }) => {
-    await init(page, 'desktop');
-    await openGit(page, fx('with-remote'));
-    await expect(changes(page).locator('.git-head-repo')).toHaveText('with-remote', { timeout: 10000 });
-    await page.click('#area .pn-tab[data-git-view="history"]');
-    await expect(hist(page).locator('.git-head')).toHaveCount(1);
-
-    await page.evaluate(() => (window as any).app.gitPanel.setRepo(null));
-    await expect(hist(page).locator('.git-empty')).toBeVisible({ timeout: 5000 });
-    await expect(hist(page).locator('.git-head')).toHaveCount(0);
-  });
+  /**
+   * **V9 는 폐기됐다** (REPO_TAB_UNIFY_SRS FR-RTU-24 / D-RTU-18).
+   *
+   * "리포 없음" 은 옛 Git 창의 상태였다 — 그 창은 리포를 갈아타므로 아무것도
+   * 고르지 않은 순간이 있었다. Repo 창의 저장소는 **창의 루트**이므로 비어 있을
+   * 수 없고(`repo` getter 가 root 를 준다) `gitPanel.setRepo(null)` 은 조기
+   * 반환한다. 그 자리를 대신하는 화면은 "이 폴더는 저장소가 아니다 + git init"
+   * 이며 `repo-tab.spec.ts` C2 가 검증한다 (V-RTU-24·25).
+   */
 });
 
 test.describe('모바일 390px', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
+  /**
+   * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-80~82 / D-RTU-11).**
+   *
+   * 모바일은 사이드와 본문을 나란히 두지 않는다 — 순회의 **자리 하나**씩이다.
+   * 그래서 Changes 를 재려면 첫 자리(`1/n`)로 가고, History 를 재려면 본문 자리로
+   * 온다. 종전에는 사이드가 `max-width:40%` 로 눌려 있었고, 그 폭에서 커밋 버튼·
+   * 원격 버튼·일괄 버튼이 경계를 넘었다 (실측) — 그 눌림을 없앤 것이 묶음 B 다.
+   *
+   * V13 의 "일곱 탭" 도 여섯이 된다 (FR-RTU-30·32).
+   */
   test('V10·V11·V12·V13: 잘리지 않는다', async ({ page }) => {
     await init(page, 'mobile');
     await openGit(page, fx('with-remote'));
     await expect(page.locator('body')).toHaveClass(/mobile/);
+
+    // ── 사이드 자리 (FR-RTU-80) ─────────────────────────────────────
+    await page.evaluate(() => {
+      const a = (window as any).app;
+      a._mPaneIdx = 0;
+      a.render();
+    });
     await expect(changes(page).locator('.git-head-repo')).toHaveText('with-remote', { timeout: 10000 });
     await page.waitForTimeout(800);
 
@@ -194,7 +218,8 @@ test.describe('모바일 390px', () => {
     const hHead = await changes(page).locator('.git-head').evaluate((e) => e.getBoundingClientRect().height);
     expect(hHead).toBeLessThanOrEqual(78);
 
-    // V11
+    // ── 본문 자리 ───────────────────────────────────────────────────
+    await page.click('#m-pane-next');
     await page.click('#area .pn-tab[data-git-view="history"]');
     await expect(hist(page).locator('.git-head-repo')).toHaveText('with-remote', { timeout: 10000 });
     await page.waitForTimeout(800);
@@ -202,16 +227,30 @@ test.describe('모바일 390px', () => {
     expect(h.items).toEqual([]);
     expect(h.scrollW).toBe(h.clientW);
 
-    // V13: 일곱 탭이 전부 뷰포트 안에 있다.
+    /**
+     * **V13 개정 (FR-RTU-30·33).** 옛 계약은 "일곱 탭이 전부 뷰포트 안에 있다"
+     * 였고, 그 근거는 탭이 **고정**이라 사용자가 줄일 수 없다는 것이었다 —
+     * 들어가지 않으면 닿을 방법이 없었다. 지금 뷰 탭은 필요할 때 열고 닫을 수
+     * 있는 보통 탭이므로(FR-RTU-33) 남는 계약은 **닿을 수 있는가**다: 탭 바가
+     * 가로로 스크롤되고, 그 스크롤 폭 안에 마지막 탭이 들어온다.
+     */
     const tabs = await page.evaluate(() => {
-      const out: { name: string; right: number }[] = [];
-      for (const t of Array.from(document.querySelectorAll('#area .pn-tab[data-git-view]'))) {
-        const r = t.getBoundingClientRect();
-        out.push({ name: (t.textContent || '').trim(), right: Math.round(r.right) });
-      }
-      return { tabs: out, vw: window.innerWidth };
+      const bar = document.querySelector('#area .pn-tabs') as HTMLElement;
+      const list = Array.from(document.querySelectorAll('#area .pn-tab[data-git-view]'));
+      const br = bar.getBoundingClientRect();
+      const last = list[list.length - 1].getBoundingClientRect();
+      return {
+        n: list.length,
+        scrollable: bar.scrollWidth > bar.clientWidth,
+        overflowX: getComputedStyle(bar).overflowX,
+        // 바의 스크롤 좌표계 안에서의 마지막 탭 오른쪽 끝.
+        lastRight: Math.round(last.right - br.left + bar.scrollLeft),
+        scrollW: bar.scrollWidth,
+      };
     });
-    expect(tabs.tabs.length).toBe(7);
-    expect(tabs.tabs[6].right).toBeLessThanOrEqual(tabs.vw);
+    expect(tabs.n).toBe(GIT_VIEW_TABS);
+    expect(tabs.overflowX, '탭 바가 스크롤되지 않으면 닿을 수 없는 탭이 생긴다')
+      .toBe('auto');
+    expect(tabs.lastRight, '마지막 탭이 스크롤 폭 밖이다').toBeLessThanOrEqual(tabs.scrollW);
   });
 });

@@ -37,12 +37,20 @@ Object.assign(App.prototype, {
    * 때문이다. 저장소마다 패널이 서는 지금 그렇게 하면 **떠난 창의 패널이 타이머를
    * 든 채 남는다**: `_pollOk` 는 `_applyCadence` 가 불릴 때만 검사되므로, 아무도
    * 보지 않는 저장소를 계속 폴링한다 (실측).
+   *
+   * **여기서 패널을 만들지 않는다.** 종전에는 `this.gitPanel` getter 를 불러
+   * "활성 창의 패널이 아직 없으면 만들며 첫 관측을 시작" 했는데, 그것이 **git
+   * 저장소가 아닌 루트의 Repo 창에도 패널을 세워** status 를 3초마다 묻게 했다
+   * (실측: V-EDT-47 이 status 1회를 기대하는데 4회). 판정의 근거가 없는 것이
+   * 아니라 **볼 사람이 없는 것**이 문제다 — 사이드가 Explorer 이고 본문에 git
+   * 뷰 탭도 없으면 그 저장소의 관측을 쓰는 화면이 하나도 없다.
+   *
+   * 첫 관측은 **패널을 만드는 자리**(`_gitPanel`)가 맡는다. 그 자리는 사이드가
+   * Changes 로 돌아갔거나 git 뷰 탭이 마운트될 때 렌더가 지나므로, 관측은 그
+   * 표면이 실제로 화면에 설 때 시작된다 (FR-RTU-62).
    */
   _gitRescheduleAll(){
     if(this._gitPanels) for(const p of this._gitPanels.values()) p._reschedule();
-    // 활성 창의 패널은 아직 만들어지지 않았을 수 있다 — getter 가 만들며 그
-    // 자리에서 첫 관측이 시작된다.
-    if(this.gitPanel) this.gitPanel._reschedule();
   },
 
   // 패널이 하나도 남지 않은 관측기는 거둔다 — 타이머를 든 채 남으면 사라진 창의
@@ -77,8 +85,51 @@ Object.assign(App.prototype, {
       // 창(root='')은 사용자가 사이드바에서 고른 리포를 따른다.
       p=new GitPanel(this,root||'');
       this._gitPanels.set(key,p);
+      // FR-GIT-22: 새 패널의 **첫 관측**이다. 맵에 먼저 넣는 이유는 `collect` 가
+      // 다시 이 함수를 지날 수 있기 때문이다.
+      //
+      // **여기서만 부른다.** 매 부름마다 부르면 렌더마다 조건을 다시 보게 되고,
+      // 사이 어딘가에서 `_stop` 이 한 번 걸린 뒤의 첫 렌더가 즉시 수집을 한 번
+      // 더 일으킨다 — 주기 0(폴링 끔)에서 그 한 건이 그대로 드러났다 (V18 실측).
+      // 표면이 바뀌는 계기는 `_gitRescheduleAll` 을 부르는 자리들이 든다.
+      p._reschedule();
     }
     return p;
+  },
+
+  /**
+   * NFR-RTU-3 + FR-RTU-34: 그 루트의 패널들에서 뷰 하나의 DOM 을 놓는다.
+   *
+   * 칸마다 패널이 따로이므로(FR-RTU-60) 루트가 같은 것 **전부**를 돈다 — 탭은
+   * 레이아웃의 것이고 레이아웃은 칸이 공유한다. 상태(스크롤·선택·diff 대상)는
+   * 패널의 필드에 남으므로 다시 열면 그대로다 (FR-RTU-34).
+   */
+  _gitDropView(root,view){
+    if(!view||!this._gitPanels) return;
+    for(const [key,p] of this._gitPanels){
+      if(this._gitPanelRoot(key)!==(root||'')) continue;
+      if(p.dropView) p.dropView(view);
+    }
+  },
+
+  /**
+   * FR-RTU-62: **이 창에 git 표면이 서 있는가.**
+   *
+   * 창이 보이는 것만으로는 부족하다 — Repo 창은 사이드가 `Explorer` 이고 본문에
+   * git 뷰 탭도 없을 수 있고, 그때 그 저장소의 관측을 쓰는 화면은 하나도 없다.
+   * 그것을 세지 않으면 **저장소가 아닌 루트에도** status 가 3초마다 나간다
+   * (실측: V-EDT-47 이 1회를 기대하는데 4회였다).
+   *
+   * 탭은 **있는지**만 본다. 활성인지까지 따지면 사용자가 Diff 와 History 를
+   * 오갈 때마다 관측이 멎었다 살아나고, 돌아온 탭이 낡은 내용을 먼저 보인다.
+   */
+  _gitSurfaceOn(w){
+    if(!w) return false;
+    if(this._edSideOf(w)===REPO_SIDE_CHANGES) return true;
+    if(!w.layout) return false;
+    for(const pn of this._flattenPanes(w.layout))
+      if((pn.tabs||[]).some(t=>t&&t.type===TAB_TYPE_GIT)) return true;
+    return false;
   },
 
   // 키의 조립은 여기 하나다 — 회수(`_gitPanelReap`)가 같은 규칙으로 되풀어야
@@ -290,9 +341,22 @@ Object.assign(App.prototype, {
    */
   _gitBadgeFor(path){
     if(!path) return null;
-    const pinned=((this._gitRepos||{}).pinned)||[];
-    const hit=pinned.find(e=>e&&e.path===path);
+    const hit=this._gitPinEntry(path);
     return (hit&&hit.badge)||null;
+  },
+
+  /**
+   * FR-RMS-11·17: 그 경로의 핀 항목. `isRepo`·`reason` 이 여기 실려 온다.
+   *
+   * `Repo` 탭의 행이 소실 사유를 보이려면 배지만으로는 부족하다 — 사라진 저장소는
+   * 배지가 `null` 이고, 그 상태는 "관측이 아직 없다" 와 구분되지 않는다. 옛 `Git`
+   * 목록의 행이 이 값을 읽고 있었고, 두 탭을 합칠 때 그 절반이 빠졌다 (실측:
+   * V-RMS-11 이 행의 title 에서 사유를 찾지 못했다).
+   */
+  _gitPinEntry(path){
+    if(!path) return null;
+    const pinned=((this._gitRepos||{}).pinned)||[];
+    return pinned.find(e=>e&&e.path===path)||null;
   },
 
   _gitPaneOf(w){
@@ -376,7 +440,10 @@ Object.assign(App.prototype, {
   _gitObserveOk(){
     if(this._gitOff) return false;
     if(typeof document!=='undefined'&&document.hidden) return false;
-    return this._sbTab==='git';
+    // REPO_TAB_UNIFY_SRS FR-RTU-1·6: 탭 id 는 `repo` 다. 옛 `'git'` 문자열이
+    // 그대로 남아 있어 **배지가 영영 서지 않았다** — 관측을 부르는 조건이 늘
+    // 거짓이었다 (실측: V-GOB-1).
+    return this._sbTab===REPO_TAB_ID;
   },
 
   // _gitReposRefresh 는 GIT 섹션의 목록을 갱신한다. 실패하면 이전 목록을 유지한다 —

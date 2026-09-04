@@ -1,5 +1,12 @@
 # SRS: 알람 수명·핀 리포 전체 관측 — IEEE 29148
 
+> **후속 문서가 이 SRS 의 일부를 개정했다.** 어긋나면 후속이 이긴다.
+>
+> | 개정된 것 | 어떻게 | 어디서 |
+> |---|---|---|
+> | FR-GOB-5·9 (관측은 **Git 탭을 보고 있는 동안**) | 그 탭은 `Repo` 다 (id `repo`). 판정이 옛 문자열 `'git'` 을 보고 있어 **배지가 영영 서지 않았다** — 실측한 결함이다 | REPO_TAB_UNIFY_SRS FR-RTU-1·6 / D-RTU-26 |
+> | FR-GOB-13 (탭 헤더 배지는 없다) | 그대로다. 행마다 붙는 배지는 `Repo` 행이 `_gitBadgeFor` 로 읽는다 | REPO_TAB_UNIFY_SRS FR-RTU-6 |
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)

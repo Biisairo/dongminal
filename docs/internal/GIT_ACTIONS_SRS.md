@@ -464,6 +464,7 @@ merge·rebase·cherry-pick·revert 를 열면 **충돌로 멈춘 중간 상태**
 | H 읽기 보강 | **281 Console** | ✅ |
 | H 읽기 보강 | **276 Blame · 280 reflog · 282 리포 드롭다운** | ✅ |
 | I 최상위 난이도 | 283 merge editor · 284 인터랙티브 rebase · 285 clone/init | ⬜ 다음 판 (D9) |
+| — | **285 의 `init` 절반은 섰다** — 저장소가 아닌 Repo 창의 사이드에 `git init` 버튼이 서고 확인·핀·캐시 무효화까지 지난다 (REPO_TAB_UNIFY_SRS FR-RTU-25~29, `POST /api/git/init`). 남은 것은 `clone` 이다 | 🔸 |
 | — | ~~커밋 mute~~ · ~~author override~~ | ⊘ 철회 (D7·D10) |
 
 **남은 것은 5개 요구사항이며 전부 P2 이거나 화면이 큰 것들이다.** 접수한 말의 본체
@@ -474,6 +475,11 @@ merge·rebase·cherry-pick·revert 를 열면 **충돌로 멈춘 중간 상태**
 철회하면서(D10) 이 판에서 `write` 패키지가 늘지 않았다.
 
 남은 것은 283·284·285 셋이고 전부 새 표면을 여는 것이다 (D9).
+
+> **개정 (2026-09-04).** 285 의 절반 — `git init` — 은 Git·Editor 통합이 가져갔다.
+> 저장소가 아닌 폴더의 Repo 창은 사이드에 사유와 `git init` 버튼을 보이고, 그
+> 종단(`POST /api/git/init`)이 핀까지 만들고 루트 해석 캐시를 지운다
+> (REPO_TAB_UNIFY_SRS FR-RTU-25~29 / D-RTU-13·21). **남은 것은 `clone` 이다.**
 
 ## 6.2 남은 5건의 착수점과 먼저 정할 것
 

@@ -7,6 +7,10 @@
 > | 탭 셋 (Windows·Git·Editor) | **둘**이 됐다 — `Windows` · `Repo`. `Git` 과 `Editor` 의 목록이 서버 연동으로 이미 같은 집합이었다 | REPO_TAB_UNIFY_SRS FR-RTU-1 |
 > | FR-SBT-8 (git 이 없으면 Git 탭을 감춘다) | `Repo` 탭은 남는다 — 탐색기와 편집기는 git 없이 성립한다 | REPO_TAB_UNIFY_SRS FR-RTU-9 |
 > | FR-SBT-22·25 (탭 → Git 창 전환) | 가는 곳이 **그 저장소의 Repo 창**이다. Git 창은 사라졌다 | REPO_TAB_UNIFY_SRS FR-RTU-70·72 |
+> | FR-SBT-25 (`Git` 창이 없으면 탭만 전환된다) | **성립하지 않는다** — `Repo` 목록에는 항상 `~`(홈)이 있으므로(FR-EDT-13) 갈 창이 늘 있다. 탭을 고르는 것이 곧 그 창으로 가는 일이다. 남는 계약은 "탭을 눌러 **새 창이 생기지 않는다**" 다 (`sidebar-tabs` T7 개정) | REPO_TAB_UNIFY_SRS FR-RTU-1 / FR-EDT-7 |
+> | FR-SBT-4 (탭이 새로고침을 넘는다) | 탭과 **그 창**이 함께 돌아온다. 그 창의 id 는 재조정이 다시 만들 수 있으므로 신원은 **루트**다 (`activeEditorRoot`) | REPO_TAB_UNIFY_SRS D-RTU-32 |
+> | FR-SBT-32·33 (Git 탭의 순회는 핀 리포를 돈다) | 순회 대상은 `items` + `fixed` 다 — 고정 행(`~`·메모장)이 **포함된다.** 핀이 하나여도 돌 자리가 있다 | REPO_TAB_UNIFY_SRS FR-RTU-8 |
+> | 탭 라벨 `Git` | `Repo` 다 | REPO_TAB_UNIFY_SRS D-RTU-15 |
 
 ## 1. 개요 (Introduction)
 

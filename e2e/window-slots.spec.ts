@@ -273,14 +273,17 @@ test.describe('묶음 N — 슬롯 간 이동', () => {
     }
   });
 
-  test('TC-WSL-12: 분할 없는 창(Git)에서도 경계를 넘는다 (FR-WSL-41)', async ({ page }) => {
+  test('TC-WSL-12: 분할 없는 창(Repo)에서도 경계를 넘는다 (FR-WSL-41)', async ({ page }) => {
     await waitForInit(page);
     await slotAdd(page);
-    // `_mkGitWindow` 는 GIT_VIEWS 고정 탭을 갖춘 pane **하나짜리** 창을 만든다
-    // (app-git.js) — 여기서 필요한 "분할이 없는 창" 을 얻는 데 저장소가 필요없다.
+    /**
+     * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-70).** `_mkGitWindow` 와 옛 Git 창은
+     * 사라졌다. 여기서 필요한 것은 "분할이 없는 창" 이고, `Repo` 창이 바로
+     * 그것이다 — pane 이 아예 없을 수도 있다 (FR-EDT-55).
+     */
     const gitWin = await page.evaluate(() => {
       const app = (window as any).app;
-      const w = app._gitWindow() || app._mkGitWindow(null);
+      const w = app._edWindows()[0];
       app.render();
       return w.id;
     });

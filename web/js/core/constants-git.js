@@ -391,15 +391,10 @@ const GIT_PREVIEW_INLINE_BREAKPOINT=560;
 
 // EDITOR_GIT_UX_SRS 묶음 D — Changes 탭 두 칸의 경계.
 //
-// 가로(폭)와 세로(높이)를 따로 담는 이유는 FR-CSZ-5 다. 한 값을 공유하면
-// 데스크톱에서 정한 폭이 모바일에서 높이가 되어 화면이 반쯤 접힌 채로 뜬다.
-const GIT_FILES_W_KEY='gitFilesWidthPct';
-const GIT_FILES_H_KEY='gitFilesHeightPct';
-// 기본은 현행 CSS 값(42%)을 그대로 잇는다 (FR-CSZ-6).
-const GIT_FILES_SIZE_DEFAULT=42;
-// FR-CSZ-3: 어느 칸도 사라지지 않는다 — 사라진 칸은 되돌릴 손잡이도 함께 잃는다.
-const GIT_FILES_SIZE_MIN=15;
-const GIT_FILES_SIZE_MAX=80;
+// EDITOR_GIT_UX_SRS 묶음 D(FR-CSZ-1~8)의 상수 여섯이 여기 있었다 —
+// `GIT_FILES_W_KEY`·`GIT_FILES_H_KEY`·`GIT_FILES_SIZE_DEFAULT`·`_MIN`·`_MAX`.
+// REPO_TAB_UNIFY_SRS FR-RTU-20 이 Changes 사이드의 두 칸을 하나로 만들면서
+// 폐기됐다 (§7 D-RTU-22).
 // 서버의 DiffSide.kind (FR-GIT-45~48). text 와 absent 만 본문을 그린다 —
 // absent 는 빈 내용으로 다뤄야 추가·삭제 파일의 diff 가 성립한다.
 const GIT_DIFF_DRAWABLE=new Set(['text','absent']);

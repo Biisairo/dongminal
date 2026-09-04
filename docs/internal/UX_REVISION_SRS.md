@@ -1,5 +1,14 @@
 # SRS: Run 수명·사이드바 블루프린트·편의 개정 — IEEE 29148
 
+> **후속 문서가 이 SRS 의 일부를 개정했다.** 어긋나면 후속이 이긴다.
+>
+> | 개정된 것 | 어떻게 | 어디서 |
+> |---|---|---|
+> | FR-BLP-* (사이드바 목록 블루프린트 — 두 패널) | 패널이 `Windows`·`Repo` **둘**이다. `Repo` 의 목록 id 는 `repo-entries`(+ 고정 행은 `repo-root`), 버튼은 `repo-add` 다 | REPO_TAB_UNIFY_SRS FR-RTU-1·5 / D-RTU-2 |
+> | FR-BLP-15~18 (목록 순회) | `Repo` 의 순회 대상은 `items` + `fixed` 다 — 고정 행(`~`·메모장)이 포함되므로 항목이 하나여도 돌 자리가 있다 | REPO_TAB_UNIFY_SRS FR-RTU-8 |
+> | FR-CLS-1·2 (창 닫기의 활성 창) | 그대로다. 다만 "특수 창만 남는" 상황은 저절로 성립한다 — Repo 창(`~`)이 늘 하나 있다 (FR-EDT-13) | REPO_TAB_UNIFY_SRS FR-RTU-70 |
+
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)

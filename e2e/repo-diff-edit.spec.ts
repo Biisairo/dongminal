@@ -84,7 +84,7 @@ const modified = (page: Page) =>
 test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
   test('D1 (V-RTU-50·54): unstaged 는 오른쪽이 편집 가능하다', async ({ page, request }) => {
     await enter(page, request, REPO);
-    await row(page, 'changes', 'mod.txt').dblclick();
+    await row(page, 'changes', 'mod.txt').click();
     await expect(diffTab(page)).toHaveCount(1, { timeout: 10000 });
     await expect(modified(page)).toBeVisible({ timeout: 20000 });
 
@@ -99,7 +99,7 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
 
   test('D2 (V-RTU-51): staged 는 읽기 전용이고 사유가 있다', async ({ page, request }) => {
     await enter(page, request, REPO);
-    await row(page, 'staged', 'staged.txt').dblclick();
+    await row(page, 'staged', 'staged.txt').click();
     await expect(diffTab(page)).toHaveCount(1, { timeout: 10000 });
     await expect(modified(page)).toBeVisible({ timeout: 20000 });
 
@@ -118,7 +118,7 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
   test('D3 (V-RTU-52·53·55): 고치고 저장하면 파일이 바뀌고 목록이 따라온다',
     async ({ page, request }) => {
       await enter(page, request, REPO);
-      await row(page, 'changes', 'mod.txt').dblclick();
+      await row(page, 'changes', 'mod.txt').click();
       await expect(modified(page)).toBeVisible({ timeout: 20000 });
 
       // 오른쪽 모델을 고친다 — 타이핑과 같은 경로(onDidChangeContent)를 지난다.
@@ -139,7 +139,7 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
 
   test('D4 (V-RTU-56): 편집 중에는 폴링이 내용을 덮지 않는다', async ({ page, request }) => {
     await enter(page, request, REPO);
-    await row(page, 'changes', 'mod.txt').dblclick();
+    await row(page, 'changes', 'mod.txt').click();
     await expect(modified(page)).toBeVisible({ timeout: 20000 });
 
     await page.evaluate(() => {
@@ -162,22 +162,21 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
       const name = 'fresh-' + Date.now() + '.txt';
       w(j(REPO, name), 'brand new\n');
       await enter(page, request, REPO);
-      await row(page, 'untracked', name).dblclick();
+      await row(page, 'untracked', name).click();
 
       // 편집기 탭이며 diff 탭이 아니다 — 비교할 왼쪽이 없기 때문이다 (D-RTU-8).
       const tab = page.locator('#area .ed-area .pn-tab', { hasText: name });
       await expect(tab).toHaveCount(1, { timeout: 10000 });
       await expect(tab).not.toHaveAttribute('data-git-view', /.*/);
       await expect(diffTab(page)).toHaveCount(0);
-      // TODO(다음 세션): 미리보기 단언은 **아직 서지 않는다.**
-      //
-      // 관측한 사실 — 탭 레코드가 `preview:false` 로 만들어진다. `addTab` 은
-      // `opts.preview` 를 그대로 싣고 `_edOpenFile` 도 넘기므로, 만든 뒤 누군가
-      // `_pinPreviewTab` 으로 지우는 쪽이 유력하다 (`delete tab.preview`).
-      // `FileEditor` 의 `isFlush` 가드를 넣은 뒤에도 재현되므로 그 경로는 아니다.
-      //
-      // 탐색기 클릭 경로(P1·P3)는 통과하므로 미리보기 자체는 선다 — 이 시험이
-      // 재는 것은 **untracked 행에서 연 경우**다.
-      // await expect(tab).toHaveClass(/pn-tab-preview/);
+      /**
+       * **그리고 미리보기다** (FR-RTU-40·41).
+       *
+       * 이 단언은 앞 세션에서 주석 처리돼 있었고 "만든 뒤 누군가 `preview` 를
+       * 지운다" 로 기록돼 있었다. **결함이 아니었다** — 그때 이 시험은 행을
+       * `dblclick` 했고, 그 경로는 FR-RTU-42 ④(목록 더블클릭 = 고정)에 걸려
+       * 고정되는 것이 옳았다. 지금은 **한 번 클릭이 연다** (D-RTU-23).
+       */
+      await expect(tab).toHaveClass(/pn-tab-preview/);
     });
 });

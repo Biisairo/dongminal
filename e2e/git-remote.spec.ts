@@ -209,7 +209,10 @@ test.describe('13단계 — 원격 작업', () => {
 
     // 끝난 작업의 로그는 접힌다 (FR-GIT-221) — 여기서 보는 것은 "줄 단위로
     // 도착했는가" 이지 "끝난 뒤에도 펼쳐져 있는가" 가 아니다. 펼쳐서 본다.
-    await job(page).locator('.git-job-bar').click();
+    // **바의 글자를 누른다.** 260px 사이드에서는 바의 **가운데가 버튼**(copy·close)
+    // 이라 `.git-job-bar` 의 중앙 클릭이 그 버튼에 떨어진다 — 핸들러가
+    // `closest('button')` 으로 조기 반환하므로 아무 일도 일어나지 않는다 (실측).
+    await job(page).locator('.git-job-argv').click();
     // git 은 진행 표시를 \r 로 덮어쓴다 — 서버가 그것을 개별 줄로 가르므로
     // 화면에도 여러 줄이 온다.
     await expect(lines(page).first()).toBeVisible();
@@ -307,9 +310,10 @@ test.describe('13단계 — 원격 작업', () => {
     await expect(log(page)).toBeHidden();
 
     // 사라지는 것이 아니라 접히는 것이다 — 바를 누르면 다시 펼쳐진다.
-    await job(page).locator('.git-job-bar').click();
+    // 누르는 자리는 바의 **글자**다 (R13 과 같은 근거).
+    await job(page).locator('.git-job-argv').click();
     await expect(log(page)).toBeVisible();
-    await job(page).locator('.git-job-bar').click();
+    await job(page).locator('.git-job-argv').click();
     await expect(log(page)).toBeHidden();
   });
 
@@ -432,8 +436,12 @@ test.describe('13단계 — 원격 작업', () => {
     await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-stash/);
 
     // FR-GIT-111: 충돌이 남았으면 Changes 로 되돌리고 충돌 그룹을 펼친다.
-    await expect(page.locator('#area .pn-body .git-view.vis'))
-      .toHaveClass(/git-changes/, { timeout: 30000 });
+    //
+    // **Changes 는 본문 탭이 아니라 창의 사이드다** (REPO_TAB_UNIFY_SRS FR-RTU-32) —
+    // `openView('changes')` 가 사이드를 그쪽으로 돌리므로(FR-RTU-73) 그 활성 탭을
+    // 잰다.
+    await expect(page.locator('#area .ed-side .ed-side-tab[data-side="changes"]'))
+      .toHaveClass(/active/, { timeout: 30000 });
     await expect(group(page, 'conflicts')).not.toHaveClass(/collapsed/);
     await expect(group(page, 'conflicts').locator('.git-file')).not.toHaveCount(0);
     await expect(job(page).locator('.git-job-note')).toContainText('충돌이 남았습니다');

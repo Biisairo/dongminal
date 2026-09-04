@@ -28,8 +28,16 @@ const fx = (name: string) => realpathSync(join(FIXTURES, name));
 test.describe('묶음 G — 상태바 (브랜치 chip 철회)', () => {
   test('B1 (V-FLW-9): 리포를 열어도 상태바에 브랜치 chip 이 없다', async ({ page }) => {
     await waitForInit(page);
+    // FR-RTU-72: 창을 연다. **뷰 탭은 열지 않는다** — 그것은 Changes 사이드의
+    // 아이콘 줄이 하는 일이고(FR-RTU-21), 이 시험은 상태바만 본다. 관측이 돌게
+    // 하려면 그 표면이 화면에 있어야 하므로(D-RTU-25) 사이드를 Changes 로 돌린다.
     await page.evaluate((r) => (window as any).app.openGitWindow(r), fx('basic'));
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+    await page.evaluate(() => {
+      const a = (window as any).app;
+      a._edSetSide(a._aw(), 'changes');
+    });
+    await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
     // 관측이 도착할 시간을 준 뒤에 본다 — 도착 전에 세면 아무것도 없는 것이 당연하다.
     await expect
       .poll(() => page.evaluate(() => !!(window as any).app.gitPanel.statusOf()), { timeout: 20000 })

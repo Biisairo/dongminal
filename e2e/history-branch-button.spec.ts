@@ -40,6 +40,13 @@ async function openView(page: Page, repo: string, view: string, cls: RegExp) {
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
+  // FR-RTU-32: `Changes` 는 본문 탭이 아니라 창의 **사이드**다 — `openGit` 이 이미
+  // 그리로 돌려 두었으므로 보이는지만 확인한다.
+  if (view === 'changes') {
+    await expect(page.locator('#area .ed-side .git-view.git-changes'))
+      .toBeVisible({ timeout: 10000 });
+    return;
+  }
   await page.click(`#area .pn-tab[data-git-view="${view}"]`);
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(cls);
 }

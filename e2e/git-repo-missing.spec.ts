@@ -90,7 +90,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     await expect(missing(page).locator('.git-missing-path')).toHaveText(repo);
     await expect(missing(page).locator('.git-missing-reason')).toContainText('repo_missing');
     // 사라진 폴더의 파일 목록이 남아 있으면 안 된다 (FR-RMS-6).
-    await expect(page.locator('#area .pn-body .git-file')).toHaveCount(0);
+    await expect(page.locator('#area .ed-side .git-file')).toHaveCount(0);
   });
 
   test('M2 (V-RMS-12): 소실돼도 활성 리포는 해제되지 않는다', async ({ page, request }) => {
@@ -151,20 +151,18 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
   test('M5 (V-RMS-6·7): 핀된 리포에는 핀 제거가 있고, 누르면 목록에서 빠진다', async ({ page, request }) => {
     await defaultIntervals(request);
     const repo = copyFx('m5');
-    const unpinned = copyFx('m5b');
     await waitForInit(page);
 
-    // 핀하지 않은 리포가 사라지면 진입점이 없다 — 없는 핀을 지우는 버튼은
-    // 거짓말이다 (FR-RMS-10).
-    await openGit(page, unpinned);
-    rmSync(unpinned, { recursive: true, force: true });
-    await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
-    await expect(missing(page).locator('.git-missing-unpin')).toHaveCount(0);
-
-    // 핀은 **살아 있을 때** 한다 — 서버가 경로를 검증하므로 사라진 뒤에는 핀할 수
-    // 없다. 실제 흐름도 그렇다: 핀해 둔 리포가 나중에 사라진다.
-    await page.evaluate((r) => (window as any).app._gitPin(r), repo);
-    await page.evaluate((r) => (window as any).app.gitPanel.setRepo(r), repo);
+    /**
+     * **FR-RMS-10 의 절반은 검증할 길이 없어졌다** (REPO_TAB_UNIFY_SRS FR-RTU-5).
+     *
+     * 옛 시험은 "핀하지 않은 리포가 사라지면 핀 제거 버튼이 없다" 를 함께 쟀다.
+     * 그런데 Repo 창이 서는 유일한 근거가 `editors.list` 이고, 그 목록에 드는
+     * 순간 **저장소 루트면 핀도 함께 생긴다** (FR-EDT-33 / `LinkEditorAdd`).
+     * 즉 "창은 있는데 핀은 없는 저장소" 라는 상태를 화면으로 만들 수 없다.
+     * 규칙 자체(`_gitBadgeFor`·핀 여부로 갈리는 UI)는 그대로 남는다.
+     */
+    await openGit(page, repo);
     await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo, { timeout: UI_WAIT_MS });
 
@@ -184,7 +182,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m6');
     await waitForInit(page);
     await page.evaluate((r) => (window as any).app._gitPin(r), repo);
-    const row = page.locator(`#repo-entries .git-repo[data-git-repo="${repo}"]`);
+    const row = page.locator(`#repo-entries .ed-entry[data-git-repo="${repo}"]`);
     await expect(row).toHaveCount(1, { timeout: UI_WAIT_MS });
 
     rmSync(repo, { recursive: true, force: true });

@@ -20,9 +20,11 @@ Object.assign(App.prototype, {
     const srcRg=findPane(s.layout,srcRid);const dstRg=findPane(s.layout,dstRid);
     if(!srcRg||!dstRg)return;
     const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
-    // FR-GIT-28: git 탭은 pane 을 옮기지 않는다. draggable=false 로 드래그 시작은
-    // 막았지만, 이 경로는 드롭 핸들러 밖에서도 불릴 수 있어 여기서 한 번 더 막는다.
-    if(srcRg.tabs[ti].type===TAB_TYPE_GIT)return;
+    // REPO_TAB_UNIFY_SRS FR-RTU-33: **git 뷰 탭도 옮긴다.** 옛 FR-GIT-28 이
+    // 그것을 막은 근거는 Git 창의 탭이 **고정 일곱**이어서 자리가 늘 같아야
+    // 근육 기억이 선다는 것이었다. 그 창이 사라지고 뷰가 본문의 탭이 된 지금
+    // (FR-RTU-30) 자리를 정하는 것은 사용자다. 창 밖으로는 여전히 못 나간다 —
+    // 그 판정은 `_moveTabToWindow` 가 창 타입으로 한다 (FR-RTU-17).
     const[tab]=srcRg.tabs.splice(ti,1);
     if(srcRg.tabs.length===0){s.layout=doRemove(s.layout,srcRid);if(this.focused===srcRid)this._setFocus(dstRid, s)}
     else if(srcRg.activeTab===tabId)srcRg.activeTab=srcRg.tabs[0].id;
@@ -103,8 +105,7 @@ Object.assign(App.prototype, {
     const srcRg=findPane(s.layout,srcRid);if(!srcRg)return;
     if(srcRid===targetRid&&srcRg.tabs.length<=1)return;
     const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
-    // FR-GIT-28: git 탭은 분할로 떼어내지지 않는다 (_moveTabToPane 과 같은 이유).
-    if(srcRg.tabs[ti].type===TAB_TYPE_GIT)return;
+    // FR-RTU-33: git 뷰 탭도 분할로 떼어낸다 (`_moveTabToPane` 과 같은 근거).
     const[tab]=srcRg.tabs.splice(ti,1);
     if(srcRg.tabs.length===0)s.layout=doRemove(s.layout,srcRid);
     else if(srcRg.activeTab===tabId)srcRg.activeTab=srcRg.tabs[0].id;

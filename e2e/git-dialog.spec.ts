@@ -143,7 +143,7 @@ test.describe('20단계 — 다이얼로그 공통 규약', () => {
     await expect(page.locator('#git-stash-create')).toHaveCount(0);
 
     // 원격 `▾` 옵션 (FR-GIT-109·110)
-    await page.click('#area .pn-tab[data-git-view="changes"]');
+    // FR-RTU-32: Changes 는 사이드에 늘 있다 — 돌아갈 탭이 없다.
     const more = page.locator('#area .ed-side .git-view.git-changes .git-head '
       + '.git-remote-more[data-remote="fetch"]');
     await expect(more).toBeEnabled({ timeout: 20000 });

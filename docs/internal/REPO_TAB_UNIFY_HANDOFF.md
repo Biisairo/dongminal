@@ -1,209 +1,136 @@
-# 인계: Git·Editor 통합 (REPO_TAB_UNIFY) — 2026-09-04 세션 종료
+# 인계: Git·Editor 통합 (REPO_TAB_UNIFY) — 2026-09-04 (2차 세션)
 
-이 문서는 **다음 세션이 이어서 하기 위한 것**이다. 스펙은
-[`./REPO_TAB_UNIFY_SRS.md`](./REPO_TAB_UNIFY_SRS.md) 이고, 여기에는 그 스펙이
-말하지 않는 것 — **지금 어디까지 섰고, 무엇이 남았고, 무엇이 왜 그렇게 됐는지** —
-만 적는다.
+스펙은 [`./REPO_TAB_UNIFY_SRS.md`](./REPO_TAB_UNIFY_SRS.md) 이고, 여기에는 그 스펙이
+말하지 않는 것 — **어디까지 섰고, 무엇이 왜 그렇게 됐는지** — 만 적는다.
 
-## 1. 이 세션이 한 일
-
-세 덩어리다. 앞의 둘은 커밋됐고 셋째는 작업 트리에 있다.
-
-| 덩어리 | 문서 | 상태 |
-|---|---|---|
-| 서브모듈·중첩 저장소의 색과 내용 | `GIT_DIR_ENTRY_SRS.md` | **커밋 `e341ecb`** |
-| 샌드박스 선택창과 scratch 복사 | `SANDBOX_PICK_COPY_SRS.md` | **커밋 `e341ecb`** |
-| Git·Editor 통합 | `REPO_TAB_UNIFY_SRS.md` | 이 세션의 커밋 (M1~M6·M7) |
-
-## 2. 통합의 현재 모양
-
-```
-┌──────────────────┬─────────────────────────────────────┐
-│ [Explorer][Changes]  [a.ts][b.ts ⇄][History][×]        │
-├──────────────────┼─────────────────────────────────────┤
-│ ⇄ ⏲ ⎇ ≣ › ⧉      │                                     │
-│ [커밋 메시지…]    │            monaco                   │
-│ [Commit] □ amend │                                     │
-│ main ↑2 ↓0       │                                     │
-│ ▾ Staged (1)     │                                     │
-│    M src/a.ts    │                                     │
-└──────────────────┴─────────────────────────────────────┘
-```
-
-- 사이드바 탭은 **둘** — `Windows`(`Ctrl+Shift+1`) · `Repo`(`Ctrl+Shift+2`)
-- 저장소 하나가 창 하나. 창 타입 문자열은 `editor` 그대로다 (D-RTU-1)
-- 좌측 사이드는 `Explorer` ↔ `Changes` **탭 교체**. 폭·활성 탭은 워크스페이스에
-- `Changes` 머리의 아이콘 여섯이 본문에 그 뷰의 탭을 연다
-- 옛 `WINDOW_TYPE_GIT` 창은 **로드 시 사라진다**
-
-## 3. 남은 일 (다음 세션의 시작점)
-
-### 3.1 미해결 결함 하나 — 미리보기 탭
-
-`e2e/repo-diff-edit.spec.ts` 의 **D5** 에서 마지막 단언이 주석 처리돼 있다.
-
-```ts
-// await expect(tab).toHaveClass(/pn-tab-preview/);
-```
-
-**증상.** untracked 행을 더블클릭해 편집기 탭이 열릴 때 그 탭에 `preview` 가
-붙지 않는다. 탐색기에서 파일을 한 번 클릭하는 경로(P1·P3)는 정상이다.
-
-**확인한 사실.**
-
-- 탭 레코드가 `preview:false` 로 만들어진다 (브라우저에서 직접 읽었다)
-- `_openUntracked`(`panel-diff.js`)는 `{preview:true}` 로 부른다
-- `_edOpenFile`(`app-editor.js`)은 그 값을 `addTab` 에 그대로 넘긴다
-- `addTab`(`app-layout.js`)의 editor 분기는 `if (opts.preview) tab.preview = true`
-
-**가설.** 만든 **뒤** 누군가 `_pinPreviewTab` 으로 지운다 (`delete tab.preview`).
-`FileEditor` 의 `onDidChangeModelContent` 에 `isFlush` 가드를 넣은 뒤에도
-재현된다.
-
-**세션 끝에 유력해진 후보 하나.** 그 뒤 탐색기 행의 더블클릭을 고정 계기로
-더했는데(FR-RTU-42 ④, `file-tree-paint._onDbl`), **변경 목록 행의 더블클릭에도
-같은 일이 일어나고 있을 수 있다** — `_openUntracked` 가 미리보기로 열고, 같은
-더블클릭이 곧바로 고정을 부르는 순서다. 확인은 `panel-changes.js` 의 행
-`dblclick` 핸들러부터.
-
-**재현.**
-
-```
-npx playwright test e2e/repo-diff-edit.spec.ts --project=chromium -g "D5"
-```
-
-### 3.1b e2e 회귀 — 남은 실패 6건
-
-세션 종료 시점에 **아래 여섯이 실패한다.** 통합의 동작 변화가 옛 기대와 어긋난
-것이 대부분이고, 하나는 원인 미확인이다. 신규 spec 41개(`repo-tab` ·
-`repo-diff-edit` · `git-dir-entry` · `sandbox-pick`)와 `editor-ops`(17) ·
-`editor-link`(6) · `editor-tab`(26) · `git-commit`(?) 은 통과한다.
-
-| 시험 | 관찰된 것 | 짐작 |
-|---|---|---|
-| `editor-explorer` X9 (V-EDT-47) | 저장소가 아닌 루트에 status 요청이 1회여야 하는데 4회 | **동작 변화.** Repo 창으로 전환하면 그 루트의 `GitPanel` 이 서고(사이드의 Changes 를 위해) 그것도 status 를 부른다. 탐색기 카운터가 그 요청까지 센다 — 시험이 탐색기 요청만 셀 수 없다 |
-| `editor-explorer` X15 (FR-EDT-69) | 5xx 한 번 뒤 색이 돌아오지 않는다 | 이 세션 마지막에 드러났다. `_gitRescheduleAll` 을 넣은 뒤 나타났으므로 그 주변을 먼저 볼 것 |
-| `git-changes` C4b | 새 디렉터리 안의 파일이 자기 이름으로 뜨고 열린다 | 여는 경로가 미리보기로 바뀐 영향일 수 있다 |
-| `git-changes` C-RD1 (V207) | 리포명을 눌러 고른 리포로 **창이 바뀐다** | 리포 전환이 이제 **창 전환**이다 (`openGitWindow`) — 헤더 드롭다운의 대상도 그것으로 바뀌어야 한다 |
-| `git-branches` 2건 | checkout 확인 · `git.pinned` 보존 | 미확인 |
-| `branch-menu-unify` · `git-branch-actions` 각 1건 | merge · 충돌 merge | 미확인 |
-
-**재현.**
-
-```
-npx playwright test e2e/editor-explorer.spec.ts e2e/git-changes.spec.ts \
-  e2e/git-branches.spec.ts e2e/branch-menu-unify.spec.ts \
-  e2e/git-branch-actions.spec.ts --project=chromium
-```
-
-### 3.2 미착수 — 모바일 (묶음 B, FR-RTU-80~82)
-
-모바일에서 사이드와 pane 들을 한 줄로 순회한다. 기존 pane 순회(`‹ 1/3 ›`)의 첫
-자리에 사이드가 들어가고, 계수도 사이드를 포함한다.
-
-지금은 사이드가 `max-width:40%` 로만 양보돼 있어 좁은 화면에서 본문이 눌린다.
-
-### 3.3 검증하지 않은 요구
-
-| 요구 | 내용 |
-|---|---|
-| FR-RTU-34 | 뷰 탭을 닫았다 다시 열면 스크롤·선택이 남는다 |
-| FR-RTU-45 | 고정 탭이 있는 대상은 미리보기를 만들지 않는다 |
-| NFR-RTU-1 | 창 10개에서도 폴링이 한 벌이다 |
-| NFR-RTU-2 | 창 전환이 250ms 안에 화면에 닿는다 |
-| NFR-RTU-3 | Monaco 인스턴스가 탭 수 + 1 을 넘지 않는다 |
-
-NFR-RTU-3 은 특히 확인할 값이 있다 — **패널을 창마다 유지하기로 했으므로**
-(D-RTU-6) 뷰 DOM 이 탭 없이 만들어지면 인스턴스가 저장소 수만큼 쌓인다.
-`panel-life.js` 의 `elFor` 가 그 자리다.
-
-### 3.4 세션 종료 시점의 검증 상태
+## 1. 지금 상태
 
 | 대상 | 결과 |
 |---|---|
 | `go build ./...` · `go test ./...` | **전부 통과** |
-| 신규 e2e (`repo-tab` 11 · `repo-diff-edit` 5 · `git-dir-entry` 15 · `sandbox-pick` 7) | **41 통과** (`repo-diff-edit` D5 의 단언 하나는 주석 — §3.1) |
-| e2e 전체 | **완주하지 못했다.** 마지막 실행이 중간에 중단됐고, 그때까지 위 여섯이 실패로 기록됐다 |
+| `npx playwright test` (chromium + mobile-touch) | **1079 통과 · 3 skip · 0 실패** (20분) |
+| 마일스톤 | **M1~M7 + 묶음 B 전부 구현** |
+| 미검증으로 남긴 것 | NFR-RTU-2(전환 250ms) · V-RTU-92(사이드 탭 전환이 목록 DOM 을 파괴하지 않는다) |
 
-**다음 세션은 전체 회귀부터 돌릴 것.** 위 목록이 전부라는 보장이 없다.
+앞 세션의 §3.1(미리보기 미해결)·§3.2(모바일 미착수)·§3.3(검증 안 된 요구 다섯)은
+모두 닫혔다. 앞 세션이 "실패 6건" 으로 기록한 것은 실제로 **107건**이었고(전체
+회귀가 615/1032 에서 중단돼 있었다) 그 정리가 이 세션의 대부분이다.
 
-## 4. 구현하며 스펙을 뒤집은 것 (근거와 함께)
+## 2. §3.1 의 미해결은 결함이 아니었다
 
-**이것이 이 문서의 핵심이다.** 스펙 §7 의 D-RTU-16~21 과 같은 내용이며, 여기서는
-어떻게 발견했는지를 적는다.
+앞 세션의 기록은 이랬다 — "untracked 행을 더블클릭해 연 탭에 `preview` 가 붙지
+않는다. 만든 뒤 누군가 `_pinPreviewTab` 으로 지우는 쪽이 유력하다."
 
-### 4.1 관측기가 앱에 하나면 통합이 성립하지 않는다 (D-RTU-16)
+**아니었다.** 그 경로는 `panel-changes.js` 의 **dblclick 핸들러**였고, FR-RTU-42 ④
+가 "변경 목록 행의 더블클릭도 고정 계기" 라고 못박고 있었다 — 즉 그 탭은 고정되는
+것이 **옳았다.** 스펙과 시험이 서로를 반박하고 있었고, 구현은 스펙 쪽이었다.
 
-착수 시점의 스펙은 "관측기는 종전대로 앱에 하나"(FR-SVS-30 계승)라고 적었다.
-**틀렸다.**
+사용자에게 물어 확정한 것이 D-RTU-22·23 이다.
 
-`GitObserver` 는 `_status`·`_lastSig`·`_seq`·`_missing`·`_failStreak` 을 **통째로**
-들고 있고, 주기 타이머의 콜백이 `any()` 로 아무 패널이나 골라 `collect()` 한다.
-저장소마다 창이 서면 그 하나의 관측이 마지막에 수집한 저장소의 것이 되어, 다른
-창은 남의 상태를 본다.
+> "스펙 문구대로 vsc 처럼 탭으로 에디터창에."
+> "한번클릭을 diff, 두번클릭은 제거. 이것도 vsc 와 동치."
 
-**발견 방법.** e2e 가 "파일을 만들면 untracked 개수가 는다" 에서 실패했고,
-브라우저에서 `_pollOk()`(참)·타이머·`_status.total` 을 직접 읽어 확인했다.
+그래서 **한 번 클릭이 본문을 열고**(tracked→Diff 탭, untracked→편집기 미리보기 탭)
+**변경 목록의 더블클릭 계기는 사라졌다.** D5 의 주석 처리된 단언은 그대로 복원됐다.
 
-`_gitObs(root)` 로 갈랐다. 요청 수는 늘지 않는다 — 관측이 도는 조건이 "그 표면이
-화면에 있을 때"(FR-RTU-62)이므로 화면에 있는 저장소만큼만 돈다.
+## 3. 걷어낸 것 — Changes 사이드의 인라인 diff 미리보기
 
-### 4.2 Repo 창의 신원은 id 가 아니라 루트다 (D-RTU-18)
+같은 결정(D-RTU-22)이 그 칸을 걷었다. 근거는 실측이다.
 
-`openGitWindow(repo)` 로 **목록에 없던** 경로를 열면:
+```
+사이드 260px  ─┬─ 목록 ~90px   ← .git-file-path 가 0 으로 눌린다
+               └─ 인라인 diff
+```
 
-1. 로컬이 `/api/editors/add` → 재조정이 창을 만듦 → `switchWindow`
-2. 곧이어 `workspace_changed` 가 도착 → 서버 스냅샷(그 창이 아직 없다)으로 덮음
-3. 재조정이 같은 루트의 창을 **새 id 로** 만듦
-4. `activeWindow` 는 사라진 옛 id → 폴백이 엉뚱한 **일반 창**을 고름
+호버 시 파일 **이름이 사라지고** 동작 버튼이 행 가운데를 덮어, 선택하려는 클릭이
+`stage` 를 실행했다 (C4b 가 그것으로 실패했다). §1.1 의 그림과 FR-RTU-20 의 네 줄에
+애초에 그 칸이 없었다 — **초판 스펙이 옳고 구현이 옛 자리를 들고 있었다.**
 
-`_edKeepActive(sv)`(`app-editor.js`)가 재조정 직후 **루트로** 다시 찾아 잇는다.
-호출은 `app-cmd.js` 의 SSE 경로에 있고, **폴백보다 먼저**여야 한다.
+그 삭제로 **EDITOR_GIT_UX_SRS 묶음 D(FR-CSZ-1~8)가 폐기**됐다 (그 문서 §3.1 에
+기록). 미리보기가 들고 있던 축 라벨(`worktree ↔ index`)은 Diff 탭의 바로 옮겼다 —
+정보를 잃지 않는다.
 
-### 4.3 떠난 창의 패널이 타이머를 든 채 남았다
+## 4. e2e 정리에서 드러난 구현 결함 열하나
 
-`switchWindow` 는 `this.gitPanel._reschedule()` 하나만 불렀다 — 패널이 하나뿐이던
-시절의 코드다. 저장소마다 패널이 서면 **떠난 창의 패널은 조건을 다시 보지 않는다**:
-`_pollOk` 는 `_applyCadence` 가 불릴 때만 검사되므로, 아무도 보지 않는 저장소를
-계속 폴링한다.
+**이것이 이 문서의 핵심이다.** 스펙 §7 의 D-RTU-24~32 와 같은 내용이며, 여기서는
+어떻게 드러났는지를 적는다. 전부 통합이 남긴 것이고, e2e 를 고치다 발견했다.
 
-`_gitRescheduleAll()`(`app-git.js`)이 모든 패널을 다시 보게 한다.
+| 결함 | 증상 | 자리 |
+|---|---|---|
+| `_gitObserveOk` 가 옛 탭 id `'git'` 비교 | **Repo 행의 변경 개수 배지가 영영 서지 않았다** (FR-RTU-6 위반) | `app-git.js` |
+| `Repo` 행이 소실 사유·`norepo` 를 잃음 | 폴더가 사라진 저장소의 행이 아무 말도 하지 않았다 (FR-RMS-11·17) | `sidebar-tabs.js` · `_gitPinEntry` |
+| 헤더 리포 드롭다운이 `setRepo` 호출 | Repo 창 패널은 `this.root` 로 조기 반환 → **아무 일도 하지 않았다** | `panel-changes._openRepoPicker` |
+| Worktrees 행의 `open` 도 같은 결함 | 같은 이유로 no-op | `worktrees.js._act` |
+| 폴링이 "창이 보이는가" 만 봄 | **저장소가 아닌 루트에도** status 가 3초마다 (V-EDT-47: 1회 기대에 4회) | `_pollOk` + `_gitSurfaceOn` |
+| 탐색기 트리도 같은 결함 | 사이드가 Changes 인데도 묻는다 — **폴링을 끈 설정에서도 status 가 왔다** (V18·V5) | `_edVisibleTrees` · `_edActiveTree` |
+| `_gitRescheduleAll` 이 패널을 만든다 | 만드는 것이 곧 폴링이었다 | `app-git.js` |
+| `closeTab` 이 `TAB_TYPE_GIT` 조기 반환 | **FR-RTU-33·34 가 미구현이었다** — M2 는 ✅ 로 적혀 있었다 | `app-layout` · `app-dnd` · `renderer` |
+| `_edKeepActive` 가 sessionStorage 를 안 옮김 | 새로고침 뒤 Changes 사이드가 사라졌다 (V33·FR-GIT-76) | `app-editor.js` |
+| 활성 Repo 창을 **id 로만** 되살림 | 재조정이 새 id 로 만들면 못 찾아 `Windows` 로 떨어졌다 (V-SBT-4) | `app.js` + `ACTIVE_EDITOR_ROOT_KEY` |
+| `.ed-side-tab`·`.ed-side-act` 가 24px·23px | 통합이 넣은 컨트롤이 FR-GIT-195~198(하한 30px)을 지나쳤다 (V80) | `style-editor.css` |
 
-### 4.4 M7 을 M3 직후로 앞당겼다 (D-RTU-17)
+**공통 교훈 하나.** 통합은 "창이 보인다" 와 "그 표면이 보인다" 를 갈랐는데, 구현의
+게이트 넷 중 셋이 그 구분을 놓치고 있었다 (git 패널·탐색기 폴링·탐색기 즉시 신호).
+FR-RTU-62 의 문구는 처음부터 "그 표면" 이었다.
 
-스펙은 M7(Git 창 제거)을 마지막에 두고 "옛 창을 남겨 둔 채 새 자리를 세운다"고
-했다. 그런데 M3 이 사이드바에서 `Git` 탭을 없앤 순간 **옛 Git 창으로 가는
-진입점이 이미 사라졌다.** 남겨 두면 중간 상태의 e2e 를 두 번 고쳐야 했다.
+## 5. 좁은 사이드가 만든 손짓의 문제 — 남은 관찰
 
-## 5. e2e 가 크게 바뀐 자리
+**고치지 않았고, 다음 세션이 판단할 자리다.**
 
-통합은 **창의 모양을 바꾸므로** git 스펙 전반이 영향을 받았다. 다음 세션이
-그 흔적을 알아볼 수 있도록 적는다.
+`.git-job-bar` (원격 작업의 바)는 `kind · argv · state · spacer · cancel · copy ·
+close` 로 되어 있다. 260px 사이드에서 argv 가 눌리면 **바의 가운데가 버튼**이
+되고, 바를 눌러 로그를 펼치려는 클릭이 `copy`·`close` 에 떨어진다 (핸들러가
+`closest('button')` 으로 조기 반환한다). e2e 는 바의 **글자**(`.git-job-argv`)를
+누르는 것으로 바꿨고 그 이유를 주석에 적었다 — 사용자는 보이는 글자를 누르므로
+실제 사용에서는 덜 걸리지만, 손짓의 대상이 폭에 따라 달라지는 것은 그대로다.
 
-| 바뀐 것 | 어떻게 |
+같은 종류의 문제를 C4b 에서 한 번 실측했고(그쪽은 인라인 미리보기를 걷어 해소됐다)
+`.git-file-acts` 도 여전히 `flex-shrink:0` 이다. 접힘 토글을 따로 두거나 좁은 폭에서
+동작 버튼을 감추는 것이 후보다.
+
+## 6. e2e 가 크게 바뀐 자리 (2차)
+
+앞 세션이 `.git-view.git-changes` 만 치환했고 나머지가 남아 있었다.
+
+| 바뀐 것 | 어떻게 | 규모 |
+|---|---|---|
+| `#area .pn-body .git-{file,group,dir,commit,files,preview,op-,job,partial,stale-note}` | → `.ed-side` | 45곳 |
+| 사이드바 행 | `.git-repo`·`.git-repo-{name,x,dot}`·`.git-repos-none` → `.ed-entry`·`.ed-entry-{name,x,dot}`·`.ed-entries-none` | 9개 파일 |
+| 사이드바 id | `#git-repos`·`#git-add-repo` → `#repo-entries`·`#repo-add` | — |
+| Add 다이얼로그 | `#git-add-repo-dlg`·`.gar-path` → `#editor-add-dlg`·`.eda-path` (종단이 하나다) | — |
+| 탭 id·라벨 | `'git'` → `'repo'` · `Git` → `Repo` (창 타입은 `editor`) | — |
+| `gitPanel.setRepo(x)` | → `openGitWindow(x)` (리포 전환은 창 전환이다) | 7곳 |
+| `app._gitWindow()` | → `_edWindowFor(root)` (창의 신원은 루트다) | 6곳 |
+| `_gitPanel(slot)` | → `_gitPanel(root, slot)` | `slot-view-state` |
+| `pn-tab[data-git-view="changes"]` 클릭 | 지웠다 — Changes 는 사이드에 늘 있다 | 8곳 |
+
+**폐기한 시험** — 이유를 각 자리에 주석으로 남겼다.
+
+- `editor-git-ux` 묶음 D (V-CSZ-1~8) — 나눌 두 칸이 사라졌다
+- `git-window` E3·E4·E5·E5b — 고정 탭 일곱과 그 불변성이 사라졌다 (E5·E5b 는 뒤집혔다)
+- `git-sidebar` S2·S3·S3b — `+ Add` 가 하나이고 저장소 아닌 경로도 정당한 행이다
+- `git-head-mobile` V9 · `slot-title-boundary` TC-STB-3 · `git-window-name` 둘 — "리포 없는 Git 창" 이라는 상태가 없다
+- `git-ui-revision` V75 는 **뒤집었다** — 옛 Git 창의 탭은 옮겨지지 않고 **버려진다** (D-RTU-14)
+
+## 7. 신규 검증 여덟 (`repo-tab.spec.ts`)
+
+| 시험 | 덮는 것 |
 |---|---|
-| `GIT_VIEW_TABS` | 7 → **6** (`Changes` 가 사이드로 갔다) |
-| `fixtures.openGit` | Repo 창을 열고 사이드를 `Changes` 로 돌린 뒤 **여섯 뷰 탭을 미리 연다** |
-| 각 스펙의 자체 `openGit` | 같은 절차로 일괄 치환 (25개 파일) |
-| `#area .pn-body .git-view.git-changes` | `#area .ed-side .git-view.git-changes` |
-| `#git-repos`·`#editor-entries`·`#editor-root` | `#repo-entries`·`#repo-root` |
-| `#git-add-repo`·`#editor-add` | `#repo-add` |
-| 탭 id `'git'`·`'editor'` | `'repo'` |
+| X1·X2·X3 | V-RTU-31 — 닫기·드래그·다시 열기·창 경계 (FR-RTU-17·33·34) |
+| X4 | V-RTU-91 / NFR-RTU-3 — Diff 탭을 닫으면 Monaco 인스턴스도 놓는다 |
+| X5 | V-RTU-45 — 고정 탭이 있는 대상은 미리보기를 만들지 않는다 |
+| X6 | V-RTU-90 / NFR-RTU-1 — 보이지 않는 저장소는 폴링되지 않는다 |
+| M1·M2 | V-RTU-80·82 — 모바일 순회의 첫 자리가 사이드이고 계수가 그것을 포함한다 |
 
-**동작이 바뀌어 기대를 고친 시험 셋** — 이유를 주석으로 남겼다.
-
-- `editor-tab.spec.ts` E1·E2·E3 — 탭이 둘, 직행 키가 2번, `sidebarTab3` 이 사라짐
-- `editor-tab.spec.ts` E22 — 폭을 갖는 요소가 `.ed-explorer` → `.ed-side`
-- `notes-live-explorer.spec.ts` V-23 — `_gitOff` 가 굳지 않고 백오프로 바뀜
-
-## 6. 다음 세션이 먼저 볼 파일
+## 8. 다음 세션이 먼저 볼 파일
 
 | 파일 | 왜 |
 |---|---|
-| `web/js/core/app-git.js` | `_gitPanel(root,slot)` · `_gitObs(root)` · `openGitWindow` |
-| `web/js/core/app-editor.js` | `_edSideOf`·`_edSetSide` · `_edKeepActive` · `_edOpenFile` |
-| `web/js/ui/renderer.js` | `_rSide`(사이드 골격) · `_rSideActions` · `_mountTabBody` |
-| `web/js/core/app-layout.js` | `addTab` 의 git·preview 분기 · `_findGitViewTab` · `_pinPreviewTab` |
-| `web/js/git/panel-changes.js` | `_renderInit`(git init) · `_buildChanges`(세로 순서) |
-| `web/js/git/diff-view.js` | `_bindEdit`·`save`(diff 편집) |
-| `internal/webserver/gitapi/handlers_git_init.go` | `POST /api/git/init` |
+| `web/js/core/app-git.js` | `_gitSurfaceOn`(관측 게이트) · `_gitPinEntry` · `_gitDropView` · `openGitWindow` |
+| `web/js/core/app-mobile.js` | `_mobileSideSlots`·`_mobileOnSide` — 순회의 사이드 자리 |
+| `web/js/core/app-focus.js` | `_setFocus` 의 모바일 계기 (사이드를 떠나는 판정) |
+| `web/js/core/app.js` · `app-layout.js` | `ACTIVE_EDITOR_ROOT_KEY` — 활성 Repo 창을 루트로 되살린다 |
+| `web/js/ui/renderer.js` | `_rEditorWin`(모바일 한 자리) · `_rWindowInto`(사이드 오프셋) · 탭의 `×`·draggable |
+| `web/js/git/panel-life.js` | `dropView` — 탭이 닫힐 때 뷰 하나만 놓는다 |
+| `web/js/git/panel-changes.js` | 행의 한 번 클릭이 여는 자리 · `_openRepoPicker` |
+| `web/js/git/panel-poll.js` | `_pollOk` 의 표면 게이트 (FR-CSZ 자리가 비어 있다) |

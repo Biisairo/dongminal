@@ -80,6 +80,13 @@ const tab = (page: Page, v: string) => page.locator(`#area .pn-tab[data-git-view
 // 리포가 바뀔 때만 `_adopt` 한다) — 그래서 원격 작업 뒤에 탭으로 돌아와 읽는 것이
 // 갱신을 정직하게 재는 방법이다.
 async function openTab(page: Page, v: string) {
+  // REPO_TAB_UNIFY_SRS FR-RTU-32: `Changes` 는 본문 탭이 아니라 **창의 사이드**다.
+  // 그 자리로 "돌아가는" 것은 사이드를 그쪽으로 돌리는 일이며, `openGit` 이 이미
+  // 그렇게 두었으므로 여기서는 보이는지만 확인한다.
+  if (v === 'changes') {
+    await expect(changes(page)).toBeVisible({ timeout: 10000 });
+    return;
+  }
   await tab(page, v).click();
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(new RegExp('git-' + v));
 }
@@ -273,8 +280,18 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     const records = counter(page, isRecords);
     const stashList = counter(page, isStashList);
 
-    // Changes 만 연다. 나머지 탭은 한 번도 누르지 않는다.
-    await openGit(page, repo);
+    /**
+     * Changes 만 연다. 나머지 뷰는 **한 번도 만들지 않는다** — 그래서 여섯을
+     * 미리 세우는 `openGit` 을 쓰지 않고 창만 연다 (FR-RTU-72). 그 헬퍼를 쓰면
+     * 이 시험이 재려는 조건("열지 않은 뷰")이 성립하지 않는다.
+     */
+    await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+    await page.evaluate(() => {
+      const a = (window as any).app;
+      a._edSetSide(a._aw(), 'changes');
+    });
+    await expect(changes(page)).toBeVisible({ timeout: 10000 });
     await ready(page);
     await btn(page, 'push').click();
     await jobEnded(page, '완료');
@@ -347,7 +364,11 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
 
     // 다른 탭으로 떠난다. 본문은 버려지지만 요소의 `vis` 클래스는 남는다 —
     // 그것만 보면 폴링이 계속 돈다.
-    await openTab(page, 'changes');
+    //
+    // **떠나는 자리는 본문의 다른 뷰여야 한다** (FR-RTU-32): `Changes` 는 이제
+    // 사이드에 있어 그리로 가는 것이 본문 탭을 바꾸지 않는다 — Console 은 계속
+    // 활성이고, 그때 폴링이 도는 것은 옳다.
+    await openTab(page, 'history');
     await page.waitForTimeout(300);
 
     let n = 0;

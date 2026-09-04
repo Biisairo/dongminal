@@ -53,9 +53,7 @@ class GitPanel {
     this._fileView=null;          // 'flat' | 'tree'
     this.previewFile=null;        // {repo,group,axis,path,origPath}. 미리보기와 Diff 탭이 같이 쓴다
     this._diffView=null;          // Diff 탭의 GitDiffView
-    this._previewView=null;       // Changes 탭 미리보기의 GitDiffView
-    this._diffKey=null;           // 두 뷰에 이미 보인 대상 (재요청 방지)
-    this._prevKey=null;
+    this._diffKey=null;           // 그 뷰에 이미 보인 대상 (재요청 방지)
     // 부분 스테이징 (FR-GIT-278·279). 조각은 서버가 만든 diff 에서 온다 — 여기서
     // 만들지 않는다. _hunkKey 는 이미 받아 둔 대상, _hunks 는 그 관측이다.
     this._hunkKey=null;

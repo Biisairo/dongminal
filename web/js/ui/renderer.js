@@ -343,17 +343,26 @@ class Renderer {
     let dom;
     if(app.isMobile){
       const regs=app._flattenPanes(s.layout);
-      if(regs.length){
+      /**
+       * FR-RTU-80·82: 순회의 첫 자리가 **사이드**다 (Repo 창일 때).
+       *
+       * 포커스 동기화는 그 자리를 건너뛴다 — 사이드는 분할 트리 밖이라 포커스된
+       * pane 이 될 수 없고, 무조건 포커스를 따라가면 사이드에 설 수 없다.
+       */
+      const off=app._mobileSideSlots();
+      const n=regs.length+off;
+      if(app._mPaneIdx>=n) app._mPaneIdx=n-1;
+      if(app._mPaneIdx<0) app._mPaneIdx=0;
+      if(regs.length&&!(off&&app._mPaneIdx===0)){
         const fIdx=regs.findIndex(r=>r.id===app.focused);
-        if(fIdx>=0) app._mPaneIdx=fIdx;
-        else if(app._mPaneIdx>=regs.length) app._mPaneIdx=regs.length-1;
-        const target=regs[app._mPaneIdx];
+        if(fIdx>=0) app._mPaneIdx=fIdx+off;
+        const target=regs[app._mPaneIdx-off];
         if(target){app._setFocus(target.id,s);dom=this._buildPane(target)}
       }
     }else{
       dom=this._buildNode(s.layout);
     }
-    if(dom) h.appendChild(dom);
+    if(dom&&h) h.appendChild(dom);
   }
 
   /**
@@ -367,14 +376,34 @@ class Renderer {
    */
   _rEditorWin(s,area){
     const el=document.createElement('div'); el.className='ed-win';
-    // REPO_TAB_UNIFY_SRS FR-RTU-12: 사이드는 `Explorer` 와 `Changes` 를 **탭으로
-    // 갈아 끼운다** — 한 번에 하나만 보인다 (D-RTU-3).
-    const side=this._rSide(s);
-    side.style.width=this.app._edExplorerWidth(s)+'px';
-    el.appendChild(side);
-    const h=document.createElement('div'); h.className='ed-ex-handle';
-    this._rEdHandle(h,s,side);
-    el.appendChild(h);
+    /**
+     * FR-RTU-80: **모바일은 사이드와 본문을 나란히 두지 않는다.**
+     *
+     * 폭이 없다 — 종전에는 사이드를 `max-width:40%` 로 양보시켰고 그러면 둘 다
+     * 쓸 수 없었다 (390px 에서 Changes 의 커밋 버튼·원격 버튼·일괄 버튼이 경계를
+     * 넘었다, 실측 V10). 대신 순회의 자리 하나로 만들어 **한 번에 하나**를 전체
+     * 폭으로 보인다 (D-RTU-11).
+     */
+    const mob=this.app.isMobile;
+    const onSide=mob&&this.app._mobileOnSide();
+    if(!mob||onSide){
+      // REPO_TAB_UNIFY_SRS FR-RTU-12: 사이드는 `Explorer` 와 `Changes` 를 **탭으로
+      // 갈아 끼운다** — 한 번에 하나만 보인다 (D-RTU-3).
+      const side=this._rSide(s);
+      // 모바일에서는 폭을 지정하지 않는다 — 자리 전체를 쓴다 (CSS 가 `flex:1`).
+      if(!mob) side.style.width=this.app._edExplorerWidth(s)+'px';
+      el.appendChild(side);
+      if(!mob){
+        const h=document.createElement('div'); h.className='ed-ex-handle';
+        this._rEdHandle(h,s,side);
+        el.appendChild(h);
+      }
+    }
+    if(onSide){
+      // 본문은 그리지 않는다. `_rWindowInto` 가 붙일 자리가 없으므로 null 이다.
+      area.appendChild(el);
+      return null;
+    }
     const main=document.createElement('div'); main.className='ed-area';
     // FR-EDT-55: pane 이 없는 것이지 빈 pane 이 있는 것이 아니다 — 안내문을 둔다.
     if(!s.layout){
@@ -540,14 +569,24 @@ class Renderer {
       // FR-PAN-9/TC-PAN-17: 사용자가 지금 보고 있는 탭(포커스+활성)은 강조하지 않음
       const tabActive=tab.id===shown;
       const tabAttn=this.app._attnHas(tab.toolId)&&!(focused&&tabActive);
-      // FR-GIT-28: git 탭은 고정이다 — 닫기·이름변경·드래그를 달지 않는다.
-      // 자리가 항상 같아야 근육 기억이 선다.
+      /**
+       * REPO_TAB_UNIFY_SRS FR-RTU-33: git 뷰 탭은 편집기 탭과 **같은 자격**이다 —
+       * 닫기·드래그·분할이 같다.
+       *
+       *   이전 동작: 닫기 버튼도 드래그도 없었다 (FR-GIT-28)
+       *   새  동작: `×` 가 서고 끌 수 있다. 창 밖으로는 못 나간다 (FR-RTU-17)
+       *   이유:     고정의 근거는 Git 창의 탭이 **고정 일곱**이라는 것이었고,
+       *             그 창이 사라졌다 (FR-RTU-70)
+       *
+       * **이름 변경만 다르다.** 탭 이름은 뷰 이름에서 파생하므로(FR-RTU-33)
+       * 고쳐 봐도 다음 렌더가 되돌린다 — 그래서 그 진입점은 달지 않는다.
+       */
       const isGit=tab.type===TAB_TYPE_GIT;
       t.className='pn-tab'+(tabActive?' active':'')+(tabAttn?' attn':'')+(isGit?' git':'');
       t.dataset.tabId=tab.id;
       if(tab.toolId) t.dataset.toolid=tab.toolId;
       if(isGit) t.dataset.gitView=tab.gitView;
-      t.innerHTML='<span class="pn-tab-label"></span>'+(isGit?'':'<span class="pn-tab-x">×</span>');
+      t.innerHTML='<span class="pn-tab-label"></span><span class="pn-tab-x">×</span>';
       t.querySelector('.pn-tab-label').textContent=this._tabDisplayName(tab);
       // REPO_TAB_UNIFY_SRS FR-RTU-41: 미리보기 탭은 기울임이다 — "이 자리는 곧
       // 대체된다" 를 눈으로 알리는 유일한 표시다.
@@ -574,7 +613,7 @@ class Renderer {
         if(tab.preview){this.app._pinPreviewTab(tab);return}
         this.app._renameTab(tab,e.target);
       });
-      t.draggable=!isGit;
+      t.draggable=true;
       t.addEventListener('dragstart',e=>{this.app._drag={type:'tab',srcPaneId:n.id,tabId:tab.id};e.dataTransfer.effectAllowed='move';e.stopPropagation();setTimeout(()=>t.classList.add('dragging'),0)});
       t.addEventListener('dragend',()=>{this.app._drag=null;t.classList.remove('dragging');tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none')});
       t.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));const rect=t.getBoundingClientRect();t.classList.add(e.clientX<rect.left+rect.width/2?'drag-left':'drag-right');document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none')});

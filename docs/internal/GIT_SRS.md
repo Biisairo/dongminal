@@ -9,6 +9,11 @@
 > | FR-GIT-29 (활성 리포는 창에 붙는다) | Repo 창의 저장소는 **창의 루트**이며 갈아타지 않는다 | REPO_TAB_UNIFY_SRS FR-RTU-60 |
 > | FR-GIT-34 (분류 대상은 변경 **파일**) | 디렉터리도 상태의 단위가 될 수 있다 — 서브모듈·중첩 저장소 | GIT_DIR_ENTRY_SRS FR-DIR-1 |
 > | diff 는 읽기 전용 | 워킹 트리 축의 오른쪽은 **편집·저장된다** | REPO_TAB_UNIFY_SRS FR-RTU-50 |
+> | FR-GIT-28 (git 탭은 닫기·이름변경·드래그가 없다) | **뒤집혔다** — 뷰 탭은 편집기 탭과 같은 자격이다: 닫히고 끌리고 쪼개진다. 창 밖으로만 못 나간다. 이름 변경만 없다(뷰 이름에서 파생하므로) | REPO_TAB_UNIFY_SRS FR-RTU-33 / D-RTU-24 |
+> | FR-GIT-111 (충돌은 **Changes 탭**으로 보낸다) | Changes 는 탭이 아니라 창의 **사이드**다 — 사이드를 그리로 돌린다 | REPO_TAB_UNIFY_SRS FR-RTU-32·73 |
+> | FR-GIT-195~198 (히트 영역 하한 30px) | 그대로다. **통합이 넣은 사이드 컨트롤도 대상이다** — `.ed-side-tab`·`.ed-side-act` 가 24px·23px 로 서 있었다 | REPO_TAB_UNIFY_SRS D-RTU-31 |
+> | FR-GIT-282 (헤더의 리포 전환 드롭다운) | `setRepo` 가 아니라 **창 전환**(`openGitWindow`)이다. 고른 뒤 그 창의 사이드도 `Changes` 로 돌린다 | REPO_TAB_UNIFY_SRS FR-RTU-72 / D-RTU-27 |
+> | FR-GIT-244 (Worktrees 의 `활성 리포로 열기`) | 같은 이유로 **창 전환**이다 | REPO_TAB_UNIFY_SRS D-RTU-27 |
 
 > ⚠️ **이 문서는 단독으로 최신이 아니다.**
 > MVP 구현 후 사용자 검토로 UI 를 개정했다 —

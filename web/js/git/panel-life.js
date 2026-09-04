@@ -67,12 +67,11 @@ Object.assign(GitPanel.prototype, {
     // (FR-GIT-218).
     if(this._consoleView) this._consoleView.reset();
     // 이전 리포의 diff 가 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다.
-    this._diffKey=null; this._prevKey=null; this._diffPos=0; this.commitFile=null;
+    this._diffKey=null; this._diffPos=0; this.commitFile=null;
     this._hunkKey=null; this._hunks=null; this._hunkSel=null;
     // blame 은 파일에 붙은 것이다 — 새 리포로 넘겨 오면 다른 파일을 가리킨다.
     this._blameOn=false; this._blameKey=null; this._blameData=null; this._blameErr=null;
-    for(const v of [this._diffView,this._previewView])
-      if(v) v.clear(path?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);
+    if(this._diffView) this._diffView.clear(path?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);
     for(const v of GIT_VIEWS) if(this._els.has(v.key)) this._render(v.key);
   },
 
@@ -86,8 +85,7 @@ Object.assign(GitPanel.prototype, {
     }
     // 탭 전환마다 루트가 DOM 에서 떼였다 붙는다 — Monaco 는 그 사이 크기를 0 으로
     // 보므로 다시 붙은 뒤 한 번 재배치한다.
-    const v=view==='diff'?this._diffView:(view==='changes'?this._previewView:null);
-    if(v) requestAnimationFrame(()=>v.layout());
+    if(view==='diff'&&this._diffView) requestAnimationFrame(()=>this._diffView.layout());
     // History 는 탭이 활성일 때만 목록을 받는다 — 열지 않은 탭이 10,000 커밋을
     // 미리 받아 둘 이유가 없다.
     // 아래의 탭별 재조회는 **`_render` 를 지난다** — 직접 `_renderHistory` 를 부르면
@@ -105,6 +103,29 @@ Object.assign(GitPanel.prototype, {
     if(view==='branches'||view==='stash'||view==='console'||view==='worktrees')
       this._render(view);
     return el;
+  },
+
+  /**
+   * REPO_TAB_UNIFY_SRS FR-RTU-34 + NFR-RTU-3: 뷰 **하나**의 DOM 을 놓는다.
+   *
+   * 탭이 닫히는 자리가 부른다. `destroy` 와 다른 것은 범위다 — 패널은 살아 있고
+   * 스크롤·선택·diff 대상 같은 **상태는 필드에 남는다.** 다시 열면 `elFor` 가
+   * 골격을 새로 세우고 그 상태로 칠한다.
+   *
+   * Monaco 는 DOM 을 떼는 것으로 풀리지 않으므로 diff 뷰는 명시적으로 버린다
+   * (FR-GIT-56) — 그러지 않으면 탭을 닫아도 인스턴스가 남아 NFR-RTU-3 이 깨진다.
+   */
+  dropView(view){
+    const el=this._els.get(view); if(!el) return;
+    if(view==='diff'&&this._diffView){
+      this._diffView.destroy(); this._diffView=null;
+      this._diffKey=null; this._hunkKey=null; this._hunks=null; this._hunkSel=null;
+    }
+    const v={history:'_historyView',branches:'_branchesView',stash:'_stashView',
+      console:'_consoleView',worktrees:'_worktreesView'}[view];
+    if(v&&this[v]&&this[v].unmount) this[v].unmount();
+    if(el.parentNode) el.parentNode.removeChild(el);
+    this._els.delete(view);
   },
 
   // Git 창이 사라졌을 때 루트를 area 로 되돌린다. 인스턴스는 살아 있다 —

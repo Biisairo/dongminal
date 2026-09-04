@@ -48,11 +48,11 @@ test.describe('묶음 Q — Console 탭', () => {
     await openGit(page, repo);
 
     // Changes 에서 파일 하나를 스테이지한다 — dongminal 이 `git add` 를 실행한다.
-    const row = page.locator('#area .pn-body .git-group[data-group="changes"] .git-file[data-path="tracked.txt"]');
+    const row = page.locator('#area .ed-side .git-group[data-group="changes"] .git-file[data-path="tracked.txt"]');
     await expect(row).toBeVisible({ timeout: 10000 });
     await row.hover();
     await row.locator('.git-file-act[data-act="stage"]').click();
-    await expect(page.locator('#area .pn-body .git-group[data-group="staged"] .git-file[data-path="tracked.txt"]'))
+    await expect(page.locator('#area .ed-side .git-group[data-group="staged"] .git-file[data-path="tracked.txt"]'))
       .toBeVisible({ timeout: 15000 });
 
     await tab(page, 'console').click();
@@ -81,7 +81,7 @@ test.describe('묶음 Q — Console 탭', () => {
 
     // discard 는 파괴적이다 (FR-GIT-95, 해석 I5) — 확인을 거친다.
     writeFileSync(join(repo, 'k4.txt'), 'x\n');
-    const row = page.locator('#area .pn-body .git-group[data-group="untracked"] .git-file[data-path="k4.txt"]');
+    const row = page.locator('#area .ed-side .git-group[data-group="untracked"] .git-file[data-path="k4.txt"]');
     await expect(row).toBeVisible({ timeout: 10000 });
     await row.hover();
     await row.locator('.git-file-act[data-act="discard"]').click();

@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, GIT_VIEW_TABS } from './fixtures';
+import { test, expect } from './fixtures';
 
 // GIT_SIDEBAR_TABS_SRS §4.2 — 검증 V-SBT-*.
 //
@@ -51,8 +51,13 @@ const activeWinType = (page: Page) =>
     const a = (window as any).app;
     return (a.ws.windows.find((w: any) => w.id === a.ws.activeWindow) || {}).type || 'terminal';
   });
-const gitWinCount = (page: Page) =>
-  page.evaluate(() => (window as any).app.ws.windows.filter((w: any) => w.type === 'git').length);
+/**
+ * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-70 / D-RTU-1).** 옛 `WINDOW_TYPE_GIT` 창은
+ * 로드에 사라진다. `Repo` 탭이 여는 창은 타입이 `editor` 이고 **저장소마다 하나**
+ * 이므로, "탭이 창을 만들었는가" 는 그 루트의 창이 있는가로 잰다.
+ */
+const repoWinFor = (page: Page, root: string) =>
+  page.evaluate((r) => !!(window as any).app._edWindowFor(r), root);
 
 async function pin(page: Page, repo: string) {
   await page.evaluate(async (p) => { await (window as any).app._gitPin(p) }, repo);
@@ -62,26 +67,44 @@ test.describe('묶음 T — 탭 바와 영속 (FR-SBT-1~8)', () => {
   test('T1 (V-SBT-1): 최초 접속은 Windows 활성이고 Git 패널은 숨는다', async ({ page }) => {
     await waitForInit(page);
     await expect(tab(page, 'windows')).toHaveClass(/active/);
-    await expect(tab(page, 'git')).not.toHaveClass(/active/);
+    await expect(tab(page, 'repo')).not.toHaveClass(/active/);
     await expect(page.locator('#sb-panel-windows')).toBeVisible();
     await expect(page.locator('#sb-panel-repo')).toBeHidden();
     // FR-SBT-4: ⚙ 은 탭 밖이다 — 어느 탭에서나 보인다.
     await expect(page.locator('#settings-btn')).toBeVisible();
-    await tab(page, 'git').click();
+    await tab(page, 'repo').click();
     await expect(page.locator('#settings-btn')).toBeVisible();
   });
 
-  test('T2 (V-SBT-4): Git 탭 활성 상태로 새로고침하면 그 탭으로 돌아온다', async ({ page }) => {
+  /**
+   * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-1 / FR-EDT-7 / D-RTU-18).**
+   *
+   * 옛 V-SBT-25 는 "Git 창이 없으므로 탭만 복원되고 콘텐츠는 그대로" 였다. `Repo`
+   * 탭의 목록에는 항상 `~`(홈)이 있으므로(FR-EDT-13) 탭을 고르는 것이 곧 그 창으로
+   * 가는 일이고(FR-EDT-7), 새로고침은 **탭과 창 둘 다** 되살려야 한다.
+   *
+   * 그 창의 id 는 재조정이 다시 만들 수 있으므로 신원은 루트다 (D-RTU-18) —
+   * 그것을 적어 두지 않아 새로고침 뒤 `Windows` 로 돌아갔다 (실측).
+   */
+  test('T2 (V-SBT-4): Repo 탭 활성 상태로 새로고침하면 그 탭과 그 창으로 돌아온다', async ({ page }) => {
     await waitForInit(page);
-    await tab(page, 'git').click();
-    expect(await activeTab(page)).toBe('git');
+    await tab(page, 'repo').click();
+    expect(await activeTab(page)).toBe('repo');
+    const root = await page.evaluate(() => {
+      const a = (window as any).app;
+      return a._isEditorWin(a._aw()) ? a._edRootOf(a._aw()) : null;
+    });
+    expect(root, 'Repo 탭이 창으로 데려가지 않았다').toBeTruthy();
 
     await page.reload();
-    await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-    // V-SBT-25: Git 창이 없으므로 탭만 복원되고 콘텐츠는 그대로다 (FR-SBT-25).
-    expect(await activeTab(page)).toBe('git');
-    expect(await gitWinCount(page)).toBe(0);
-    expect(await activeWinType(page)).toBe('terminal');
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+    expect(await activeTab(page)).toBe('repo');
+    expect(await activeWinType(page)).toBe('editor');
+    // **같은 루트의 창이다** — id 가 바뀌어도 사용자에게는 같은 창이다.
+    expect(await page.evaluate(() => {
+      const a = (window as any).app;
+      return a._edRootOf(a._aw());
+    })).toBe(root);
   });
 
   test('T3 (V-SBT-16): 사이드바 100px 에서도 두 탭이 겹치지 않는다', async ({ page }) => {
@@ -89,7 +112,7 @@ test.describe('묶음 T — 탭 바와 영속 (FR-SBT-1~8)', () => {
     await page.evaluate(() =>
       document.documentElement.style.setProperty('--sb-w', '100px'));
     const w = (await tab(page, 'windows').boundingBox())!;
-    const g = (await tab(page, 'git').boundingBox())!;
+    const g = (await tab(page, 'repo').boundingBox())!;
     expect(w.width, '탭이 너비를 나눠 갖지 않는다').toBeGreaterThan(30);
     expect(Math.abs(w.width - g.width), '두 탭이 균등 분할되지 않는다').toBeLessThan(2);
     expect(g.x, '두 탭이 겹친다').toBeGreaterThanOrEqual(w.x + w.width - 1);
@@ -109,7 +132,7 @@ test.describe('묶음 T — 탭 바와 영속 (FR-SBT-1~8)', () => {
     });
     expect(top, '목록이 스크롤되지 않는다 — 전제가 성립하지 않았다').toBeGreaterThan(0);
 
-    await tab(page, 'git').click();
+    await tab(page, 'repo').click();
     await tab(page, 'windows').click();
     expect(await page.evaluate(() => document.getElementById('windows')!.scrollTop)).toBe(top);
   });
@@ -123,21 +146,23 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
 
     // V-SBT-8 (FR-SBT-14): Git 창으로 들어가면 사이드바가 따라간다.
     await page.evaluate((r) => (window as any).app.openGitWindow(r), fx('basic'));
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-    await expect(tab(page, 'git')).toHaveClass(/active/);
-    expect(await activeTab(page)).toBe('git');
+    // FR-RTU-21: 뷰 탭은 Changes 사이드의 아이콘 줄이 연다 — 창을 여는 것만으로는
+    // 서지 않는다. 창이 섰는지는 사이드로 확인한다.
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+    await expect(tab(page, 'repo')).toHaveClass(/active/);
+    expect(await activeTab(page)).toBe('repo');
 
     // V-SBT-9 (I6 해소): Windows 탭이 **직전 일반 창**으로 콘텐츠까지 되돌린다.
     await tab(page, 'windows').click();
     expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(from);
     expect(await activeTab(page)).toBe('windows');
     // FR-SBT-35: 떠난 것이지 닫은 것이 아니다.
-    expect(await gitWinCount(page)).toBe(1);
+    expect(await repoWinFor(page, fx('basic'))).toBe(true);
 
     // V-SBT-21: 다시 Git 탭이면 Git 창으로 돌아간다.
-    await tab(page, 'git').click();
-    expect(await activeWinType(page)).toBe('git');
-    expect(await gitWinCount(page)).toBe(1);
+    await tab(page, 'repo').click();
+    expect(await activeWinType(page)).toBe('editor');
+    expect(await repoWinFor(page, fx('basic'))).toBe(true);
   });
 
   test('T6 (V-SBT-22): 직전 일반 창이 닫혔으면 첫 일반 창으로 간다', async ({ page }) => {
@@ -148,7 +173,9 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
       return a.ws.activeWindow;
     });
     await page.evaluate((r) => (window as any).app.openGitWindow(r), fx('basic'));
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
+    // FR-RTU-21: 뷰 탭은 Changes 사이드의 아이콘 줄이 연다 — 창을 여는 것만으로는
+    // 서지 않는다. 창이 섰는지는 사이드로 확인한다.
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
     expect(await page.evaluate(() => (window as any).app._lastPlainWindow)).toBe(from);
 
     // 직전 창을 워크스페이스에서 들어낸다 — 복귀 대상이 사라진 상태다.
@@ -165,28 +192,38 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
     expect(active, '첫 일반 창으로 가지 않았다').toBe(first);
   });
 
-  test('T7 (V-SBT-24): Git 창이 없으면 Git 탭이 창을 만들지 않는다', async ({ page }) => {
+  /**
+   * **개정 (FR-RTU-70·72).** 옛 규칙은 "Git 창이 없으면 Git 탭이 창을 만들지
+   * 않는다" 였다 — 그 창이 워크스페이스에 하나뿐이고 사용자가 리포를 고르기
+   * 전에는 없었기 때문이다. 지금 `Repo` 탭의 대상은 **목록의 행**이고, 목록에는
+   * 항상 `~`(홈)이 있으므로(FR-EDT-13) 갈 창이 늘 있다.
+   *
+   * 남는 계약은 "탭을 누른 것만으로 **새 창이 생기지 않는다**" 다 — 창 수가 그대로다.
+   */
+  test('T7 (V-SBT-24): Repo 탭을 눌러도 새 창이 생기지 않는다', async ({ page }) => {
     await waitForInit(page);
-    const before = await page.evaluate(() => (window as any).app.ws.activeWindow);
-    await tab(page, 'git').click();
-    expect(await gitWinCount(page), 'Git 탭이 창을 만들었다').toBe(0);
-    expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(before);
-    expect(await activeTab(page)).toBe('git');
+    const before = await page.evaluate(() => (window as any).app.ws.windows.length);
+    await tab(page, 'repo').click();
+    expect(await page.evaluate(() => (window as any).app.ws.windows.length),
+      'Repo 탭이 창을 만들었다').toBe(before);
+    expect(await activeTab(page)).toBe('repo');
   });
 
   test('T8 (V-SBT-10): 탭 ↔ 창 동기화가 한 번에 멈춘다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate((r) => (window as any).app.openGitWindow(r), fx('basic'));
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
+    // FR-RTU-21: 뷰 탭은 Changes 사이드의 아이콘 줄이 연다 — 창을 여는 것만으로는
+    // 서지 않는다. 창이 섰는지는 사이드로 확인한다.
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
 
     // 왕복을 여러 번 돌려도 상태가 어긋나거나 멈추지 않는다.
     for (let i = 0; i < 3; i++) {
       await tab(page, 'windows').click();
       expect(await activeTab(page)).toBe('windows');
       expect(await activeWinType(page)).toBe('terminal');
-      await tab(page, 'git').click();
-      expect(await activeTab(page)).toBe('git');
-      expect(await activeWinType(page)).toBe('git');
+      await tab(page, 'repo').click();
+      expect(await activeTab(page)).toBe('repo');
+      expect(await activeWinType(page)).toBe('editor');
     }
     expect(await page.evaluate(() => (window as any).app._sbBusy)).toBe(false);
   });
@@ -207,12 +244,12 @@ test.describe('묶음 T — 배지 (FR-SBT-13 · FR-GOB-13·14)', () => {
     // 목록의 **행** 배지는 그대로다 (FR-GOB-14). 행 배지는 변경 **파일 수**이므로
     // 픽스처의 값을 못박지 않고 보이는 것만 본다 — 옛 헤더 배지(변경 있는 리포
     // 수)와 세는 것이 다르다.
-    await tab(page, 'git').click();
+    await tab(page, 'repo').click();
     await expect(page.locator('#repo-entries [data-git-repo="' + repo + '"] .git-badge'))
       .toHaveText(/^[1-9][0-9]*$/, { timeout: 15000 });
 
     // 헤더 배지는 활성이든 아니든 뜨지 않는다.
-    const badge = tab(page, 'git').locator('.sb-tab-badge');
+    const badge = tab(page, 'repo').locator('.sb-tab-badge');
     await expect(badge).toBeHidden();
     await tab(page, 'windows').click();
     await expect(badge).toBeHidden();
@@ -234,14 +271,14 @@ test.describe('묶음 T — 배지 (FR-SBT-13 · FR-GOB-13·14)', () => {
 
     // FR-GOB-9: 들어가는 순간 관측이 한 번 돈다 — 다음 폴링을 기다리지 않는다.
     urls.length = 0;
-    await tab(page, 'git').click();
+    await tab(page, 'repo').click();
     await expect.poll(() => urls.filter(u => u.includes('observe=1')).length,
       { timeout: 10000 }).toBeGreaterThan(0);
   });
 
   test('T10 (V-SBT-12): 알람 있는 창 수가 비활성 Windows 탭의 배지가 된다', async ({ page }) => {
     await waitForInit(page);
-    await tab(page, 'git').click();
+    await tab(page, 'repo').click();
     const badge = tab(page, 'windows').locator('.sb-tab-badge');
     await expect(badge).toBeHidden();
 
@@ -260,7 +297,9 @@ test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
   test('T11 (V-SBT-26·27·28): 직행 키는 탭으로 가고 토글하지 않는다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate((r) => (window as any).app.openGitWindow(r), fx('basic'));
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
+    // FR-RTU-21: 뷰 탭은 Changes 사이드의 아이콘 줄이 연다 — 창을 여는 것만으로는
+    // 서지 않는다. 창이 섰는지는 사이드로 확인한다.
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
     // 단축키 핸들러는 INPUT/TEXTAREA 에 포커스가 있으면 먼저 빠진다.
     await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
 
@@ -271,14 +310,14 @@ test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
 
     // V-SBT-26: Ctrl+Shift+2 → Git 탭 + Git 창.
     await page.keyboard.press('Control+Shift+Digit2');
-    await expect.poll(() => activeTab(page)).toBe('git');
-    expect(await activeWinType(page)).toBe('git');
+    await expect.poll(() => activeTab(page)).toBe('repo');
+    expect(await activeWinType(page)).toBe('editor');
 
     // V-SBT-27: 같은 키를 다시 눌러도 **아무 일도 없다** (토글이 아니다).
     await page.keyboard.press('Control+Shift+Digit2');
     await page.waitForTimeout(300);
-    expect(await activeTab(page)).toBe('git');
-    expect(await activeWinType(page)).toBe('git');
+    expect(await activeTab(page)).toBe('repo');
+    expect(await activeWinType(page)).toBe('editor');
   });
 
   test('T12 (V-SBT-29): 등록된 탭 수를 넘는 번호 키는 아무 일도 하지 않는다', async ({ page }) => {
@@ -307,34 +346,47 @@ test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
     await expect.poll(() => page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(ids[0]);
   });
 
-  test('T14 (V-SBT-32·33·34): Git 탭의 순회 키는 리포를 돈다', async ({ page }) => {
+  /**
+   * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-8).** 옛 시험은 "리포가 1개면 아무 일도
+   * 하지 않는다" 를 함께 쟀다. `Repo` 목록은 핀만이 아니라 **고정 행**(`~`·메모장)
+   * 도 포함하고(FR-EDT-13·14) 순회 대상도 그 둘을 이어 붙인 것이므로, 핀이
+   * 하나여도 돌 자리가 있다 — 그 조건 자체가 성립하지 않는다.
+   *
+   * 남는 계약은 그보다 강하다: 순회가 **목록의 순서 그대로** 돌고 끝에서 감싼다.
+   */
+  test('T14 (V-SBT-32·34): Repo 탭의 순회 키는 목록 순서로 돌고 끝에서 감싼다', async ({ page }) => {
     await waitForInit(page);
     const a = fx('basic'), b = fx('with-remote');
-
-    // V-SBT-33: 리포가 1개면 아무 일도 하지 않는다.
     await pin(page, a);
-    await page.evaluate((r) => (window as any).app.openGitWindow(r), a);
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-    expect(await activeTab(page)).toBe('git');
-    await page.evaluate(() => (window as any).app.executeAction('windowNext'));
-    await page.waitForTimeout(300);
-    expect(await page.evaluate(() => (window as any).app.gitPanel.repo)).toBe(a);
-
-    // 둘이 되면 순회한다 — 활성 리포가 바뀌고 Git 창이 그것을 연다.
     await pin(page, b);
-    await expect.poll(() =>
-      page.evaluate(() => document.querySelectorAll('#repo-entries .git-repo').length),
-      { timeout: 20000 }).toBe(2);
+    await page.evaluate((r) => (window as any).app.openGitWindow(r), a);
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+    expect(await activeTab(page)).toBe('repo');
 
-    await page.evaluate(() => (window as any).app.executeAction('windowNext'));
-    await expect.poll(() => page.evaluate(() => (window as any).app.gitPanel.repo),
-      { timeout: 10000 }).toBe(b);
-    expect(await activeWinType(page)).toBe('git');
+    // 순회의 순서는 `items` 뒤에 `fixed` 를 이어 붙인 것이다 (FR-RTU-8) — 화면의
+    // 두 컨테이너가 그 순서를 그대로 그린다.
+    const order = await page.evaluate(() => [
+      ...document.querySelectorAll('#repo-entries .ed-entry'),
+      ...document.querySelectorAll('#repo-root .ed-entry'),
+    ].map((e) => (e as HTMLElement).dataset.edRoot!));
+    expect(order.length, '순회할 행이 둘 이상이어야 한다').toBeGreaterThan(1);
+    expect(order).toContain(a);
 
-    // V-SBT-34: 끝에서 감싼다.
-    await page.evaluate(() => (window as any).app.executeAction('windowNext'));
-    await expect.poll(() => page.evaluate(() => (window as any).app.gitPanel.repo),
-      { timeout: 10000 }).toBe(a);
+    const cur = () => page.evaluate(() => {
+      const app = (window as any).app;
+      const w = app._aw();
+      return app._isEditorWin(w) ? app._edRootOf(w) : null;
+    });
+    await expect.poll(cur, { timeout: 10000 }).toBe(a);
+
+    // 목록을 한 바퀴 돌면 제자리로 온다 — 끝에서 감싼다 (V-SBT-34).
+    let i = order.indexOf(a);
+    for (let n = 0; n < order.length; n++) {
+      await page.evaluate(() => (window as any).app.executeAction('windowNext'));
+      i = (i + 1) % order.length;
+      await expect.poll(cur, { timeout: 10000 }).toBe(order[i]);
+    }
+    await expect.poll(cur, { timeout: 10000 }).toBe(a);
   });
 
   test('T15 (V-SBT-35·36): 설정에 직행 키가 보이고 재바인딩이 영속된다', async ({ page }) => {
@@ -345,7 +397,7 @@ test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
     // 라벨의 탭 이름 부분이 서술자에서 나온다 (FR-SBT-30).
     const rows = page.locator('#sc-list .sc-row');
     await expect(rows.filter({ hasText: '사이드바 탭: Windows' })).toHaveCount(1);
-    await expect(rows.filter({ hasText: '사이드바 탭: Git' })).toHaveCount(1);
+    await expect(rows.filter({ hasText: '사이드바 탭: Repo' })).toHaveCount(1);
     // 순회 키 라벨이 모드 의존을 설명한다 (FR-SBT-33).
     await expect(rows.filter({ hasText: '다음 항목 (활성 탭 기준)' })).toHaveCount(1);
 

@@ -389,23 +389,13 @@ body.mobile .git-head-refresh{margin-right:2px;min-width:30px}
 .git-stale-note.vis{display:block}
 .git-stale-note.loading{color:var(--text-muted);background:transparent}
 
-/* EDITOR_GIT_UX_SRS FR-CSZ-1: 크기는 인라인 스타일(flex-basis)이 정한다 —
-   드래그가 그것만 고쳐 쓴다. 여기 값은 저장된 것이 없을 때의 기본이다
-   (FR-CSZ-6). 경계선은 손잡이가 그리므로 border-right 를 걷었다. */
+/* REPO_TAB_UNIFY_SRS FR-RTU-20: **목록이 Changes 사이드를 전부 쓴다.**
+   나란히 섰던 인라인 diff 미리보기와 그 손잡이(FR-CSZ-1~8)가 사라졌다 — diff 는
+   본문의 탭이다 (FR-RTU-30). 260px 사이드를 둘로 나누면 목록이 ~90px 이 되어
+   행 이름이 눌려 사라졌다 (실측). */
 .git-files{
-  flex:0 0 42%;min-width:0;overflow-y:auto;
+  flex:1 1 auto;min-width:0;min-height:0;overflow-y:auto;
 }
-
-/* FR-CSZ-1·7: `.ed-ex-handle` 과 같은 규약이다. ::before 로 히트 영역을 넓혀
-   3px 짜리 선에 손가락이 닿게 한다 — 그것이 없으면 터치에서 잡히지 않는다. */
-.git-files-handle{
-  flex:0 0 auto;width:3px;cursor:col-resize;background:var(--border);position:relative;
-}
-.git-files-handle:hover{background:var(--accent)}
-.git-files-handle::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
-/* 세로 배치(모바일)에서는 방향이 바뀐다 — 같은 요소가 가로줄이 된다. */
-body.mobile .git-files-handle{width:auto;height:3px;cursor:row-resize}
-body.mobile .git-files-handle::before{left:0;right:0;top:-8px;bottom:-8px}
 .git-files::-webkit-scrollbar{width:6px}
 .git-files::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 .git-files-bar{
@@ -553,13 +543,6 @@ body.mobile .git-files-handle::before{left:0;right:0;top:-8px;bottom:-8px}
 /* FR-GIT-42: 다음 덩어리를 이어 그릴 지점 */
 .git-file-more{padding:3px 8px;font-size:11px;color:var(--text-dim)}
 
-.git-preview{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;overflow:hidden}
-.git-preview-target{display:none;flex:0 0 auto;padding:6px 10px;font-size:12px;border-bottom:1px solid var(--border)}
-.git-preview-target.vis{display:block}
-.git-preview-path{color:var(--text-bright);word-break:break-all}
-.git-preview-axis{color:var(--text-muted);font-size:11px;margin-top:2px}
-.git-preview-body{flex:1 1 auto;min-height:0;position:relative}
-
 /* FR-GIT-146: 컨텍스트 메뉴 프레임워크. 대상 종류별 항목 집합이 이 골격을 공유한다 */
 .git-menu{
   position:fixed;z-index:3000;min-width:160px;padding:3px;
@@ -575,10 +558,6 @@ body.mobile .git-files-handle::before{left:0;right:0;top:-8px;bottom:-8px}
 .git-menu-item.disabled:hover{background:transparent;color:var(--text-dim)}
 .git-menu-sep{height:1px;margin:3px 6px;background:var(--border)}
 
-/* 모바일은 상하로 쌓는다 — 좁은 폭에서 목록과 미리보기를 나란히 둘 수 없다.
-   크기는 가로와 마찬가지로 인라인 flex-basis 가 정한다 (FR-CSZ-5). */
-body.mobile .git-changes-body{flex-direction:column}
-body.mobile .git-files{flex:0 0 42%;border-right:none}
 body.mobile .git-file,body.mobile .git-dir{padding-top:5px;padding-bottom:5px}
 /* 모바일에는 hover 가 없다 — 인라인 동작을 늘 보인다 */
 body.mobile .git-file-check{width:14px;height:14px}

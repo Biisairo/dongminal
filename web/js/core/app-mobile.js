@@ -16,22 +16,53 @@ Object.assign(App.prototype, {
     this._drawerOpen = (open===undefined) ? !this._drawerOpen : !!open;
     document.body.classList.toggle('drawer-open', this._drawerOpen);
   },
+  /**
+   * REPO_TAB_UNIFY_SRS FR-RTU-80: **모바일 순회의 첫 자리는 사이드다.**
+   *
+   * Repo 창은 사이드와 본문으로 나뉘는데(FR-RTU-11) 모바일에는 둘을 나란히 둘
+   * 폭이 없다. 그래서 기존 pane 순회(`‹ 1/3 ›`)에 자리 하나를 더한다 — 사용자가
+   * 새 조작을 배우지 않는다 (D-RTU-11).
+   *
+   * 사이드 자리를 갖는 조건은 **모바일 + Repo 창**이다. 일반 창에는 사이드가
+   * 없으므로 종전과 한 글자도 다르지 않다.
+   */
+  _mobileSideSlots(){
+    return (this.isMobile&&this._isEditorWin(this._aw()))?1:0;
+  },
+
+  // 지금 사이드 자리에 서 있는가. 그 자리에서는 본문의 pane 을 그리지 않는다.
+  _mobileOnSide(){
+    return this._mobileSideSlots()>0&&this._mPaneIdx===0;
+  },
+
   _mobileCurrentPane(){
     const s=this._aw(); if(!s||!s.layout) return null;
     const regs=this._flattenPanes(s.layout);
     if(!regs.length) return null;
-    if(this._mPaneIdx>=regs.length) this._mPaneIdx=regs.length-1;
+    const off=this._mobileSideSlots();
+    const n=regs.length+off;
+    if(this._mPaneIdx>=n) this._mPaneIdx=n-1;
     if(this._mPaneIdx<0) this._mPaneIdx=0;
-    return regs[this._mPaneIdx];
+    // 사이드 자리에는 pane 이 없다 — 부르는 쪽이 그 없음을 견딘다 (`_initMobile`
+    // 의 `+` 버튼이 그렇다).
+    const i=this._mPaneIdx-off;
+    return i>=0?regs[i]:null;
   },
+
+  // FR-RTU-82: 계수는 **사이드를 포함한다** — pane 이 둘이면 `1/3` 이다.
   _mobilePaneCount(){
-    const s=this._aw(); if(!s||!s.layout) return 0;
-    return this._flattenPanes(s.layout).length;
+    const s=this._aw(); if(!s) return 0;
+    const off=this._mobileSideSlots();
+    if(!s.layout) return off;
+    return this._flattenPanes(s.layout).length+off;
   },
   navMobilePane(delta){
     const n=this._mobilePaneCount(); if(n<=1) return;
     this._mPaneIdx = (this._mPaneIdx + delta + n) % n;
     const pn=this._mobileCurrentPane();
+    // 사이드 자리에서는 포커스를 옮기지 않는다 — 사이드는 분할 트리 밖이라
+    // 포커스의 대상이 아니고(FR-RTU-11), 옮기면 렌더의 포커스 동기화가 곧바로
+    // 본문 자리로 되돌린다.
     if(pn){
       this._setFocus(pn.id);
       this._save();

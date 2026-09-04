@@ -23,12 +23,36 @@ const openInSlot = (page: Page, i: number, winId: string) =>
 const activeWindowOf = (page: Page) => page.evaluate(() => (window as any).app.ws.activeWindow);
 const slotsState = (page: Page) => page.evaluate(() => (window as any).app.slots);
 
-const openGitWindow = (page: Page) =>
-  page.evaluate(async () => {
-    const id = await (window as any).app.openGitWindow();
-    (window as any).app.render();
-    return id;
+/**
+ * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-70·72).** `openGitWindow()` 는 경로 없이는
+ * 아무것도 열지 않는다 — 창의 신원이 루트이기 때문이다 (D-RTU-18). 그리고 뷰는
+ * 고정 탭이 아니라 **필요할 때 여는 본문 탭**이므로(FR-RTU-30) 이 묶음이 재는
+ * "칸마다 다른 탭" 을 위해 여섯을 미리 세운다.
+ */
+const TOP_FIXTURES = '/tmp/dm-git-fx-svs-top-' + process.pid;
+test.beforeAll(() => {
+  execFileSync('bash', ['e2e/git_fixture.sh', TOP_FIXTURES], { stdio: 'ignore' });
+});
+test.afterAll(() => {
+  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', TOP_FIXTURES], { stdio: 'ignore' });
+});
+const topFx = (name: string) => fs.realpathSync(path.join(TOP_FIXTURES, name));
+
+const openGitWindow = async (page: Page) => {
+  const repo = topFx('basic');
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a._edSetSide(a._aw(), 'changes');
+    const p = a.gitPanel;
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
   });
+  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
+  const id = await page.evaluate((r: string) => (window as any).app._edWindowFor(r).id, repo);
+  await page.evaluate(() => (window as any).app.render());
+  return id;
+};
 
 // 칸 i 의 탭 바. 단일 슬롯 모드에서는 `.slot` 이 없으므로 `#area` 를 딛는다.
 const paneOf = (page: Page, slot: number | null) =>
@@ -98,15 +122,24 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
     await openInSlot(page, 0, git);
     await openInSlot(page, 1, git);
 
-    // 칸 1 에서 History 를 고른다 — 칸 0 은 Changes 를 그대로 본다.
+    /**
+     * 두 칸이 **각자** 탭을 고른다.
+     *
+     * **개정 (FR-RTU-30·32).** 옛 Git 창은 고정 탭 일곱으로 열리고 첫 탭이
+     * `Changes` 였다. 지금 본문의 뷰 탭은 필요할 때 열리고 `Changes` 는 사이드에
+     * 있으므로(FR-RTU-32) "칸 0 은 Changes 를 그대로 본다" 라는 기준점이 없다 —
+     * 양쪽을 명시적으로 고른다. 재는 것은 그대로다: 칸마다 활성 탭이 다르다.
+     */
+    await focusSlot(page, 0);
+    await clickTab(page, 0, 'Diff');
     await focusSlot(page, 1);
     await clickTab(page, 1, 'History');
 
-    expect(await activeTabLabel(page, 0)).toBe('Changes');
+    expect(await activeTabLabel(page, 0)).toBe('Diff');
     expect(await activeTabLabel(page, 1)).toBe('History');
 
     // 양쪽 모두 자기 뷰를 실제로 그렸다 — 한쪽이 빈 것이 접수된 결함이었다.
-    expect(await gitViewIn(page, 0)).toBe('git-changes');
+    expect(await gitViewIn(page, 0)).toBe('git-diff');
     expect(await gitViewIn(page, 1)).toBe('git-history');
   });
 
@@ -189,8 +222,9 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
     await openInSlot(page, 1, git);
 
     // 비포커스 칸(1)이 Console 로 가도 워크스페이스는 움직이지 않는다.
+    // `Changes` 는 사이드에 있으므로(FR-RTU-32) 본문의 기준 탭은 `Diff` 다.
     await focusSlot(page, 0);
-    await clickTab(page, 0, 'Changes');
+    await clickTab(page, 0, 'Diff');
     await focusSlot(page, 1);
     await clickTab(page, 1, 'Console');
     // 포커스는 칸 1 이므로 이제 워크스페이스가 Console 을 말해야 한다.
@@ -212,7 +246,7 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
       const walk = (n: any): any => (n.type === 'pane' ? n : walk(n.children[0]));
       return walk(w.layout).tabs.find((t: any) => t.id === tid)?.name || null;
     }, [git, at] as const);
-    expect(name).toBe('Changes');
+    expect(name).toBe('Diff');
   });
 
   test('TC-SVS-13: 알람 판정은 어느 칸에서든 보이면 보인다 (FR-SVS-13)', async ({ page }) => {
@@ -624,15 +658,20 @@ test.describe('묶음 F — 누른 한 번이 듣는다 (FR-SVS-61)', () => {
     await openInSlot(page, 1, git);
 
     // 포커스를 칸 0 에 두고 **칸 1** 의 History 를 한 번만 누른다.
+    // 기준 탭은 `Diff` 다 — `Changes` 는 사이드로 갔다 (FR-RTU-32).
     await focusSlot(page, 0);
-    expect(await activeTabLabel(page, 1)).toBe('Changes');
+    await clickTab(page, 0, 'Diff');
+    await focusSlot(page, 1);
+    await clickTab(page, 1, 'Diff');
+    await focusSlot(page, 0);
+    expect(await activeTabLabel(page, 1)).toBe('Diff');
     await clickTab(page, 1, 'History');
 
     // 그 한 번으로 칸 1 이 포커스가 되고 그 탭이 열린다 — 두 번 누를 필요가 없다.
     expect(await page.evaluate(() => (window as any).app.slots.focused)).toBe(1);
     expect(await activeTabLabel(page, 1)).toBe('History');
     // 칸 0 은 자기 탭을 그대로 본다.
-    expect(await activeTabLabel(page, 0)).toBe('Changes');
+    expect(await activeTabLabel(page, 0)).toBe('Diff');
   });
 });
 
@@ -672,7 +711,8 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
   });
     await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-    const git = await page.evaluate(() => (window as any).app._gitWindow().id);
+    // FR-RTU-70: 옛 `_gitWindow()` 는 사라졌다 — 창의 신원은 루트다 (D-RTU-18).
+    const git = await page.evaluate((r: string) => (window as any).app._edWindowFor(r).id, repo);
     await slotAdd(page);
     await openInSlot(page, 0, git);
     await openInSlot(page, 1, git);
@@ -689,9 +729,31 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
   const fileIn = (page: Page, slot: number, group: string, p: string) =>
     page.locator(`#area .slot[data-slot="${slot}"] .git-view.git-changes .git-file[data-group="${group}"][data-path="${p}"]`);
 
+  /**
+   * FR-RTU-60: 패널의 키는 **(루트, 칸)** 이다 — 칸 번호 하나가 아니다.
+   *
+   * 그래서 "칸 수만큼 패널" 도 그 루트로 좁혀 센다: 워크스페이스에는 다른 Repo
+   * 창(`~`·메모장)의 패널도 함께 살 수 있다.
+   */
+  const panelOf = (page: Page, slot: number) =>
+    page.evaluate((n) => {
+      const a = (window as any).app;
+      return a._gitPanel(a._gitRootOfActive(), n);
+    }, slot);
+
+  const panelsForActiveRoot = (page: Page) =>
+    page.evaluate(() => {
+      const a = (window as any).app;
+      const root = a._gitRootOfActive();
+      let n = 0;
+      for (const k of a._gitPanels.keys()) if (a._gitPanelRoot(k) === root) n++;
+      return n;
+    });
+
   const previewOf = (page: Page, slot: number) =>
     page.evaluate((n) => {
-      const p = (window as any).app._gitPanel(n);
+      const a = (window as any).app;
+      const p = a._gitPanel(a._gitRootOfActive(), n);
       return p.previewFile ? p.previewFile.path : null;
     }, slot);
 
@@ -700,10 +762,13 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     // 예전에는 `elFor` 가 view 별 단일 DOM 이라 뒤 칸이 앞 칸에서 떼어 갔다.
     expect(await page.locator('#area .slot[data-slot="0"] .git-view.git-changes').count()).toBe(1);
     expect(await page.locator('#area .slot[data-slot="1"] .git-view.git-changes').count()).toBe(1);
-    // 시선은 둘, 관측은 하나다.
-    expect(await page.evaluate(() => (window as any).app._gitPanels.size)).toBe(2);
-    expect(await page.evaluate(() =>
-      (window as any).app._gitPanel(0).obs === (window as any).app._gitPanel(1).obs)).toBe(true);
+    // 시선은 둘, 관측은 하나다. **그 저장소의 패널만** 센다 (FR-RTU-60).
+    expect(await panelsForActiveRoot(page)).toBe(2);
+    expect(await page.evaluate(() => {
+      const a = (window as any).app;
+      const r = a._gitRootOfActive();
+      return a._gitPanel(r, 0).obs === a._gitPanel(r, 1).obs;
+    })).toBe(true);
   });
 
   test('TC-SVS-21: 칸마다 다른 파일을 고른다 (FR-SVS-43)', async ({ page }) => {
@@ -729,14 +794,14 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     await twoSlotsOnGit(page, fx('basic'));
     await slotAdd(page);
     await slotAdd(page);
-    const git = await page.evaluate(() => (window as any).app._gitWindow().id);
+    const git = await page.evaluate(() => (window as any).app.ws.activeWindow);
     for (let i = 0; i < 4; i++) await openInSlot(page, i, git);
     await renderNow(page);
     await page.waitForFunction(
       () => document.querySelectorAll('#area .slot .git-view.git-changes.vis').length === 4,
       undefined, { timeout: 15000 });
 
-    expect(await page.evaluate(() => (window as any).app._gitPanels.size)).toBe(4);
+    expect(await panelsForActiveRoot(page)).toBe(4);
 
     // 네 패널이 동시에 관측을 물어도 요청 수는 **칸 수에 비례하지 않는다.**
     // single-flight 가 observer 에 있으므로, 겹친 부름은 진행 중인 요청에 합쳐지고
@@ -744,7 +809,9 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     // 넷이 되지 않는 것이 FR-SVS-31 이 요구하는 것이다.
     const before = reqs;
     await page.evaluate(async () => {
-      const ps = [0, 1, 2, 3].map((i) => (window as any).app._gitPanel(i));
+      const a = (window as any).app;
+      const r = a._gitRootOfActive();
+      const ps = [0, 1, 2, 3].map((i) => a._gitPanel(r, i));
       await Promise.all(ps.map((p: any) => p.collect()));
     });
     expect(reqs - before).toBeLessThanOrEqual(2);
@@ -768,15 +835,22 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     await twoSlotsOnGit(page, repo);
 
     fs.rmSync(repo, { recursive: true, force: true });
-    // 폴링이 소실을 관측하면 두 칸 모두 안내로 간다.
+    /**
+     * 폴링이 소실을 관측하면 두 칸 모두 안내로 간다.
+     *
+     * **세는 자리를 좁혔다** (FR-RTU-32). 소실 안내는 **뷰마다** 서므로, 사이드의
+     * `Changes` 와 본문의 활성 뷰가 각각 하나씩 그린다 — 칸당 둘이다. 이 시험이
+     * 재는 것은 "두 칸에 함께 오는가" 이니 칸마다 하나씩 세면 된다.
+     */
     await page.waitForFunction(
-      () => document.querySelectorAll('#area .slot .git-missing').length === 2,
+      () => document.querySelectorAll(
+        '#area .slot .ed-side .git-view.git-changes .git-missing').length === 2,
       undefined, { timeout: 30000 });
   });
 
   test('TC-SVS-25: 칸을 없애면 그 패널이 파괴된다 (FR-SVS-46)', async ({ page }) => {
     await twoSlotsOnGit(page, fx('basic'));
-    expect(await page.evaluate(() => (window as any).app._gitPanels.size)).toBe(2);
+    expect(await panelsForActiveRoot(page)).toBe(2);
 
     await page.evaluate(() => {
       (window as any).app.slotFocusTo(1);
@@ -787,9 +861,12 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
       () => document.querySelectorAll('#area .git-view.git-changes.vis').length === 1,
       undefined, { timeout: 15000 });
 
-    expect(await page.evaluate(() => (window as any).app._gitPanels.size)).toBe(1);
+    expect(await panelsForActiveRoot(page)).toBe(1);
     // 남은 패널은 관측을 계속 본다.
-    expect(await page.evaluate(() => !!(window as any).app._gitPanel(0).obs)).toBe(true);
+    expect(await page.evaluate(() => {
+      const a = (window as any).app;
+      return !!a._gitPanel(a._gitRootOfActive(), 0).obs;
+    })).toBe(true);
   });
 
   test('TC-SVS-51: 리포를 바꾸면 모든 칸의 시선이 되돌아간다 (FR-SVS-34)', async ({ page }) => {
@@ -805,14 +882,25 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
 
     // 활성 리포는 창의 것이므로 모든 칸이 같은 리포를 본다 — 바뀌면 이전 리포의
     // 선택이 새 리포의 헤더와 함께 보이는 순간이 **어느 칸에도** 있어서는 안 된다.
+    /**
+     * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-72 / D-RTU-27).** 리포 전환은 이제 **창
+     * 전환**이다 — `gitPanel.setRepo` 는 Repo 창의 패널에서 조기 반환한다.
+     *
+     * 그래서 재는 것이 바뀐다: 다른 저장소로 옮기면 두 칸 모두 **그 저장소의**
+     * 패널을 보고, 이전 저장소의 선택이 새 저장소의 화면과 함께 보이는 순간이
+     * 어느 칸에도 없다. 이전 저장소의 시선은 그 창에 그대로 남는다 (FR-RTU-61) —
+     * 그것이 D-RTU-6 이 창마다 패널을 유지한 이유다.
+     */
     const other = fx('detached');
-    await page.evaluate((r) => (window as any).app.gitPanel.setRepo(r), other);
-    await page.waitForFunction((r) =>
-      (window as any).app._gitPanel(0).repo === r
-      && (window as any).app._gitPanel(1).repo === r, other, { timeout: 15000 });
+    await page.evaluate((r) => (window as any).app.openGitWindow(r), other);
+    await page.waitForFunction((r) => {
+      const a = (window as any).app;
+      return a._isEditorWin(a._aw()) && a._edRootOf(a._aw()) === r;
+    }, other, { timeout: 15000 });
+    await renderNow(page);
 
+    // 새 저장소의 칸에는 고른 것이 없다.
     expect(await previewOf(page, 0)).toBeNull();
-    expect(await previewOf(page, 1)).toBeNull();
   });
 
   test('TC-SVS-53: 두 칸에서 겹친 쓰기가 한 번만 나간다 (FR-SVS-45)', async ({ page }) => {
@@ -827,8 +915,10 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     // 두 패널이 같은 쓰기를 동시에 부른다. `_writing` 이 관측이므로 뒤에 온 쪽은
     // 가드에 걸린다 — 칸마다 두면 같은 쓰기가 두 번 나간다.
     await page.evaluate(async () => {
-      const p0 = (window as any).app._gitPanel(0);
-      const p1 = (window as any).app._gitPanel(1);
+      const a = (window as any).app;
+      const r = a._gitRootOfActive();
+      const p0 = a._gitPanel(r, 0);
+      const p1 = a._gitPanel(r, 1);
       await Promise.all([p0.uncommittedReset(), p1.uncommittedReset()]);
     });
     expect(writes).toBe(1);
@@ -843,7 +933,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
       await focusSlot(page, i);
       expect(await page.evaluate((n) => {
         const a = (window as any).app;
-        return a.gitPanel === a._gitPanel(n);
+        return a.gitPanel === a._gitPanel(a._gitRootOfActive(), n);
       }, i)).toBe(true);
     }
   });

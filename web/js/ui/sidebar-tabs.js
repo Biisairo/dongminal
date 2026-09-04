@@ -149,12 +149,28 @@ const SB_TAB_DEFS=[
         // 경로로 짝지으면 되고, 저장소가 아닌 행에는 배지가 없다.
         const b=app._gitBadgeFor(e.path);
         const stale=!!b&&gitBadgeStale(b);
+        /**
+         * FR-RMS-11·17: 저장소였던 자리가 **사라졌다면** 행이 그 사실을 말한다.
+         *
+         * 옛 `Git` 목록의 행이 하던 일이며 두 탭을 합칠 때 빠졌다 (실측). 사유는
+         * 코드가 아니라 사람이 읽는 문구로 옮긴다 — `repo_missing` 을 날것으로
+         * 보이면 사용자는 그것이 무엇인지 모른다.
+         *
+         * **저장소가 아닌 것과 사라진 것은 다르다.** 저장소가 아닌 경로는 이제
+         * 정당한 행이므로(FR-RTU-9 / D-RTU-12) 사유를 적지 않는다 — 핀 항목이
+         * 있고 그 항목이 실패를 실어 왔을 때만이다.
+         */
+        const pin=app._gitPinEntry(e.path);
+        const gone=!!pin&&pin.isRepo===false&&!!pin.reason;
+        const why=gone?(GIT_WRITE_ERR[pin.reason]||pin.reason):'';
+        const cls=[e.root?'ed-root':(e.notes?'ed-notes':''),gone?'norepo':'']
+          .filter(Boolean).join(' ');
         return {
           // FR-EDT-10 / FR-NOT-9: 표시 이름은 경로의 마지막 조각, 툴팁은 절대경로.
           name:app._edName(e.path),
-          title:e.path,
+          title:why?e.path+' — '+why:e.path,
           active:!!w&&w.id===app.ws.activeWindow,
-          cls:e.root?'ed-root':(e.notes?'ed-notes':''),
+          cls,
           // 배지는 서버의 마지막 관측값이다. 0 을 보일 이유는 없다 (FR-GIT-14).
           badge:(b&&b.total>0)?{
             text:String(b.total),

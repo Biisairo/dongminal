@@ -194,7 +194,14 @@ class GitWorktrees {
   }
 
   _act(act,e){
-    if(act==='open'){this.panel.setRepo(e.path);return}
+    /**
+     * REPO_TAB_UNIFY_SRS FR-RTU-72: **활성 리포로 열기 = 그 경로의 Repo 창으로.**
+     *
+     * `setRepo` 는 Repo 창의 패널에서 조기 반환한다 (저장소가 창의 루트다) —
+     * 헤더 드롭다운과 같은 결함이었다 (D-RTU-27). worktree 는 목록에 없는 경로일
+     * 수 있고 `openGitWindow` 가 그때 먼저 더한다.
+     */
+    if(act==='open'){this.app.openGitWindow(e.path);return}
     if(act==='pin'||act==='unpin'){this._pin(e,act==='unpin');return}
     // FR-GIT-244: 터미널은 **Git 창이 아닌 창**에 연다 (FR-GIT-41·185 와 같은 경로).
     if(act==='term'){this.app._gitOpenTerminal(e.path);return}

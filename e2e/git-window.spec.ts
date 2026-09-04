@@ -1,39 +1,76 @@
+import { execFileSync } from 'child_process';
+import { realpathSync } from 'fs';
+import { join } from 'path';
+
 import { Page } from '@playwright/test';
 
-import { test, expect, plainWindows, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, plainWindows, waitForInit } from './fixtures';
 
-// GIT_M1_STEP3_CONTRACT §6 — 묶음 D 의 Git 창 골격. 검증 V8·V19·V20·V21.
-//
-// Git 창을 여는 UI 진입점은 4단계에 생긴다. 여기서는 계약 §6 대로 app 메서드를
-// 직접 부른다.
+const FIXTURES = '/tmp/dm-git-fx-gitwin-' + process.pid;
+test.beforeAll(() => {
+  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+});
+test.afterAll(() => {
+  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+});
+const fx = (name: string) => realpathSync(join(FIXTURES, name));
 
-// GIT_REVIEW4_SRS §3.6.5 FR-GIT-28(개정): 고정 탭이 6→7 로 늘었다 — Worktrees.
-const VIEWS = ['changes', 'diff', 'history', 'branches', 'stash', 'console', 'worktrees'];
-const NAMES = ['Changes', 'Diff', 'History', 'Branches', 'Stash', 'Console', 'Worktrees'];
-// 준비 중 탭은 더 이상 없다 — console 도 FR-GIT-218 이 채웠고, worktrees 도 I7 이 채운다.
-const PENDING: string[] = [];
-const READY = ['changes', 'history', 'branches', 'stash', 'console', 'worktrees'];
-const PENDING_HINT = '이후 마일스톤에서 제공됩니다';
+/**
+ * GIT_M1_STEP3_CONTRACT §6 — **Repo 창의 골격.** 검증 V8·V19·V21.
+ *
+ * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-70 / D-RTU-1).** 이 묶음이 재던 것은 옛
+ * `WINDOW_TYPE_GIT` 창의 성질이었다 — 워크스페이스에 하나, 고정 탭 일곱, 닫히지도
+ * 끌리지도 쪼개지지도 않는 창. 그 창은 로드에 사라지고(FR-RTU-70) **저장소 하나가
+ * 창 하나**가 됐다 (D-RTU-1: 타입 문자열은 `editor` 그대로).
+ *
+ * 그래서 각 시험의 운명이 갈린다.
+ *
+ *   E1  살린다 — 같은 경로를 두 번 열어도 창은 하나다 (FR-RTU-72)
+ *   E2  살린다 — type 없는 옛 워크스페이스의 하위호환 (FR-GIT-25)
+ *   E3  폐기 — 고정 탭 일곱이 없다. 여섯이 **필요할 때** 열린다 (FR-RTU-30·32)
+ *   E4  폐기 — 위와 같은 이유. `repo-tab.spec.ts` V1·V2 가 그 자리다
+ *   E5  **뒤집힌다** — 뷰 탭은 닫힌다 (FR-RTU-33). `repo-tab.spec.ts` X1·X2
+ *   E5b **뒤집힌다** — 끌리고 쪼개진다 (FR-RTU-33). `repo-tab.spec.ts` X1·X3
+ *   E6  개정 — 분할 **진입점**은 여전히 없다. 분할 자체는 드래그드롭만이다
+ *   E7  살린다 — 순회와 나가는 길
+ *   E8  개정 — 새로고침이 뷰 탭과 활성 탭을 보존한다
+ */
 
-const openGit = (page: Page) => page.evaluate(() => (window as any).app.openGitWindow());
+// FR-RTU-72: 경로 없이는 열 수 없다 — 창의 신원이 루트다 (D-RTU-18).
+const openRepo = (page: Page, repo: string) =>
+  page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
 
-const gitWindowCount = (page: Page) =>
-  page.evaluate(() => (window as any).app.ws.windows.filter((w: any) => w.type === 'git').length);
+// 그 루트의 Repo 창 수. 재조정이 같은 루트를 둘로 만들지 않는다 (FR-RTU-63).
+const repoWindowCount = (page: Page, repo: string) =>
+  page.evaluate((r: string) => {
+    const a = (window as any).app;
+    return a._edWindows().filter((w: any) => a._edRootOf(w) === r).length;
+  }, repo);
 
 const activeWindow = (page: Page) => page.evaluate(() => (window as any).app.ws.activeWindow);
 
-test.describe('묶음 D — Git 창 골격', () => {
-  test('E1 (V8): openGitWindow 를 두 번 불러도 Git 창은 하나다', async ({ page }) => {
+test.describe('묶음 D — Repo 창 골격', () => {
+  test('E1 (V8 / FR-RTU-72): 같은 경로를 두 번 열어도 그 저장소의 창은 하나다', async ({ page }) => {
     await waitForInit(page);
-    const first = await openGit(page);
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
+    const repo = fx('basic');
+    await openRepo(page, repo);
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+    await openRepo(page, repo);
 
-    const second = await openGit(page);
-    expect(second, '두 번째 호출이 다른 창을 만들었다').toBe(first);
-    expect(await gitWindowCount(page)).toBe(1);
-    // FR-GIT-182 (GIT_UI_REVISION_SRS): Git 창은 WINDOWS 목록에 없다 — 진입점은
-    // GIT 섹션의 리포 항목뿐이다.
-    await expect(page.locator('#windows .si[data-window-type="git"]')).toHaveCount(0);
+    /**
+     * **id 로 비교하지 않는다** (D-RTU-18: Repo 창의 신원은 루트다).
+     *
+     * 목록에 없던 경로를 열면 로컬이 창을 만들고, 곧이어 온 `workspace_changed`
+     * 의 재조정이 같은 루트의 창을 **새 id 로** 다시 세운다. 사용자에게 같은
+     * 저장소의 창은 같은 창이므로, 재는 것은 "그 루트의 창이 하나인가" 다.
+     */
+    await expect.poll(() => repoWindowCount(page, repo), { timeout: 15000 }).toBe(1);
+    await expect.poll(() => page.evaluate(() => {
+      const a = (window as any).app;
+      return a._isEditorWin(a._aw()) ? a._edRootOf(a._aw()) : null;
+    }), { timeout: 15000 }).toBe(repo);
+    // FR-EDT-45: Repo 창은 WINDOWS 목록에 없다 — 진입점은 Repo 탭의 행뿐이다.
+    await expect(page.locator('#windows .si[data-window-type="editor"]')).toHaveCount(0);
   });
 
   test('E2 (V8): type 없는 창을 담은 워크스페이스도 정상 로드된다', async ({ page, request }) => {
@@ -66,150 +103,79 @@ test.describe('묶음 D — Git 창 골격', () => {
     expect(shape!.tabs, '터미널 탭이 정리 과정에서 사라졌다').toBe(1);
     expect(shape!.type, 'type 이 없는 창에 값이 주입됐다').toBeUndefined();
 
-    // 같은 워크스페이스에서 Git 창을 열어도 기존 창은 남는다.
-    // EDITOR_TAB_SRS FR-EDT-13: root 에디터 창이 항상 하나 더 있으므로
-    // `ws.windows.length` 는 이제 legacy+git+editor=3 이다 — 일반 창만 센다.
-    await openGit(page);
+    // 같은 워크스페이스에서 Repo 창을 열어도 기존 창은 남는다.
+    const repo = fx('basic');
+    await openRepo(page, repo);
     expect((await plainWindows(page)).length).toBe(1);
-    expect(await gitWindowCount(page)).toBe(1);
+    expect(await repoWindowCount(page, repo)).toBe(1);
   });
 
-  test('E3 (V20 / V143): 고정 탭 7개가 순서대로 있다', async ({ page }) => {
-    await waitForInit(page);
-    await openGit(page);
-    const tabs = page.locator('#area .pn-tab[data-git-view]');
-    await expect(tabs).toHaveCount(GIT_VIEW_TABS);
-    const order = await tabs.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.gitView));
-    expect(order).toEqual(VIEWS);
-    await expect(tabs.locator('.pn-tab-label')).toHaveText(NAMES);
-  });
+  test('E6 개정 (FR-EDT-50 / FR-RTU-15): 분할 진입점이 없고 단축키도 늘리지 않는다',
+    async ({ page }) => {
+      await waitForInit(page);
+      await openRepo(page, fx('basic'));
+      await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+      const before = await page.locator('#area .pn').count();
 
-  test('E4 (V20): 고정 탭 7개가 모두 채워져 있다', async ({ page }) => {
-    await waitForInit(page);
-    await openGit(page);
-    for (const v of PENDING) {
-      await page.locator(`#area .pn-tab[data-git-view="${v}"]`).click();
-      const pending = page.locator('#area .pn-body .git-view.vis .git-pending');
-      await expect(pending, `${v} 탭에 준비 중 안내가 없다`).toBeVisible();
-      await expect(pending).toContainText(PENDING_HINT);
-    }
-    // 채워진 탭은 준비 중이 아니다. Console 은 FR-GIT-218 이 채웠다.
-    for (const v of READY) {
-      await page.locator(`#area .pn-tab[data-git-view="${v}"]`).click();
-      await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(new RegExp('git-' + v));
-      await expect(page.locator('#area .pn-body .git-view.vis .git-pending')).toHaveCount(0);
-    }
-  });
-
-  test('E5 (V20): git 탭은 닫히지 않는다', async ({ page }) => {
-    await waitForInit(page);
-    await openGit(page);
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-    await expect(page.locator('#area .pn-tab[data-git-view] .pn-tab-x')).toHaveCount(0);
-
-    // closeTab 을 직접 불러도 고정 탭은 남는다 (FR-GIT-28).
-    await page.evaluate(() => {
-      const app = (window as any).app;
-      const w = app._gitWindow();
-      return app.closeTab(w.layout.id, w.layout.tabs[0].id);
+      // 진입점은 감춰진다 — 눌리지만 아무 일도 하지 않는 버튼은 고장으로 읽힌다.
+      await expect(page.locator('#split-h:visible')).toHaveCount(0);
+      await expect(page.locator('#split-v:visible')).toHaveCount(0);
+      await page.evaluate(async () => {
+        const a = (window as any).app;
+        await a.executeAction('splitH');
+        await a.executeAction('splitV');
+      });
+      await page.waitForTimeout(1200);
+      // 분할이 생기는 유일한 길은 드래그드롭이다 (FR-EDT-51) — 단축키는 아니다.
+      await expect(page.locator('#area .pn')).toHaveCount(before);
     });
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-    expect(await gitWindowCount(page)).toBe(1);
-  });
 
-  test('E5b (V20 / FR-GIT-181): git 탭은 드래그로도 떼어내지지 않는다', async ({ page }) => {
-    await waitForInit(page);
-    await openGit(page);
-    const tabs = page.locator('#area .pn-tab[data-git-view]');
-    await expect(tabs).toHaveCount(GIT_VIEW_TABS);
-    // draggable=false 로 드래그 시작 자체를 막는다 (FR-GIT-28).
-    expect(await tabs.evaluateAll((els) => els.every((e) => (e as HTMLElement).draggable))).toBe(false);
+  test('E7 개정 (FR-SBT-31·34): Repo 창에서 순회는 창을 건드리지 않고, 나가는 길은 탭이다',
+    async ({ page }) => {
+      await waitForInit(page);
+      const repo = fx('basic');
+      await openRepo(page, repo);
+      await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+      const other = await page.evaluate(() => {
+        const a = (window as any).app;
+        return (a._plainWindows()[0] || {}).id;
+      });
+      expect(other, '비교할 일반 창이 없다').toBeTruthy();
+      // 활성 창은 **그 루트의** Repo 창이다 (D-RTU-18 — id 로 비교하지 않는다).
+      await expect.poll(() => page.evaluate(() => {
+        const a = (window as any).app;
+        return a._isEditorWin(a._aw()) ? a._edRootOf(a._aw()) : null;
+      }), { timeout: 15000 }).toBe(repo);
+      // Repo 창이 활성이면 사이드바 탭도 Repo 다 (FR-SBT-14).
+      expect(await page.evaluate(() => (window as any).app._sbTab)).toBe('repo');
 
-    // 드롭 경로를 직접 불러도 Git 창은 단일 칸 + 고정 탭 7개 그대로다.
-    // (분할 자체가 막혔으므로 옮겨 갈 다른 칸이 애초에 없다 — FR-GIT-179.)
-    const after = await page.evaluate(() => {
-      const app = (window as any).app;
-      const pane = app._gitWindow().layout;
-      const gid = pane.tabs[0].id;
-      app._moveTabToPane(pane.id, gid, pane.id, null, false);
-      app._splitPaneWithTab(pane.id, gid, pane.id, 'right');
-      return { type: app._gitWindow().layout.type, tabs: (app._gitWindow().layout.tabs || []).length };
+      // FR-SBT-34: 나가는 길은 Windows 탭이다 — 막다른 길이 아니다.
+      await page.evaluate(() => (window as any).app._sbJumpTo(1));
+      expect(await activeWindow(page)).toBe(other);
+      expect(await page.evaluate(() => (window as any).app._sbTab)).toBe('windows');
     });
-    expect(after).toEqual({ type: 'pane', tabs: 7 });
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-    await expect(page.locator('#area .pn')).toHaveCount(1);
-  });
 
-  test('E6 (FR-GIT-179·180): Git 창은 분할되지 않고 분할 진입점도 없다', async ({ page }) => {
-    // GIT_UI_REVISION_SRS 로 FR-GIT-27 이 폐기됐다 — Git 창은 닫힌 창이다.
-    await waitForInit(page);
-    await openGit(page);
-    await expect(page.locator('#area .pn')).toHaveCount(1);
+  test('E8 개정 (V21 / FR-RTU-34): 새로고침 뒤에도 열어 둔 뷰 탭과 활성 탭이 남는다',
+    async ({ page }) => {
+      await waitForInit(page);
+      const repo = fx('basic');
+      await openRepo(page, repo);
+      await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+      // Changes 사이드의 아이콘 줄이 본문 탭을 연다 (FR-RTU-21).
+      await page.locator('.ed-side-tab[data-side="changes"]').click();
+      await page.locator('.ed-side .ed-side-act[data-view="worktrees"]').click();
+      await expect(page.locator('#area .pn-tab[data-git-view="worktrees"]'))
+        .toHaveCount(1, { timeout: 10000 });
+      await page.evaluate(() => (window as any).app._save());
 
-    await expect(page.locator('#split-h:visible')).toHaveCount(0);
-    await page.evaluate(async () => {
-      const a = (window as any).app;
-      await a.executeAction('splitH');
-      await a.executeAction('splitV');
+      await page.reload();
+      await page.waitForSelector('#area .pn-tab[data-git-view]', { timeout: 15000 });
+      // 열어 둔 것만 남는다 — 고정 일곱이 아니다 (FR-RTU-30·32).
+      await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(1);
+      await expect(page.locator('#area .pn-tab.active[data-git-view]'))
+        .toHaveAttribute('data-git-view', 'worktrees');
+      expect(await repoWindowCount(page, repo)).toBe(1);
+      // 활성 탭의 본문이 그 탭의 것이어야 한다 — 이름만 살아남아서는 안 된다.
+      await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-worktrees/);
     });
-    await page.waitForTimeout(1200);
-    await expect(page.locator('#area .pn')).toHaveCount(1);
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-    expect(await gitWindowCount(page)).toBe(1);
-  });
-
-  /**
-   * E7 개정 (FR-SBT-31·34 + UX_REVISION_SRS FR-BLP-15~18).
-   *
-   * 옛 계약은 "Git 창에서 순환을 돌면 일반 창으로 **나간다**"(FR-GIT-184)였다.
-   * `GIT_SIDEBAR_TABS_SRS` 가 순회 키를 **활성 사이드바 탭의 목록 순회**로
-   * 재정의하면서 그것이 성립하지 않게 됐다 — Git 창이 활성이면 탭도 Git 이 되고
-   * (FR-SBT-14), 그때 순회 대상은 창이 아니라 핀 리포다.
-   *
-   * 막다른 길이 되지 않는다는 요구는 살아 있고, 그것을 지키는 것이 **탭**이다
-   * (FR-SBT-34: 떠나는 길이 사이드바 탭으로 상시 존재한다). 여기서는 그 두
-   * 가지를 본다 — 순회가 창을 건드리지 않는다는 것, 그리고 나가는 길이 있다는 것.
-   */
-  test('E7 개정 (FR-SBT-31·34): Git 창에서 순회는 창을 건드리지 않고, 나가는 길은 탭이다', async ({ page }) => {
-    await waitForInit(page);
-    const gid = await openGit(page);
-    const other = await page.evaluate(
-      (g) => (window as any).app.ws.windows.find((w: any) => w.id !== g)?.id, gid);
-    expect(other, '비교할 다른 창이 없다').toBeTruthy();
-    expect(await activeWindow(page)).toBe(gid);
-    // Git 창이 활성이면 사이드바 탭도 Git 이다 (FR-SBT-14).
-    expect(await page.evaluate(() => (window as any).app._sbTab)).toBe('git');
-
-    // 순회 대상은 핀 리포다. 핀이 없으므로 아무 일도 하지 않는다 — 창 목록을
-    // 건드리지 않는 것이 요점이다.
-    for (const act of ['windowNext', 'windowPrev', 'windowNext']) {
-      await page.evaluate((a) => (window as any).app.executeAction(a), act);
-      expect(await activeWindow(page), `${act} 가 창을 바꿨다`).toBe(gid);
-    }
-
-    // FR-SBT-34: 나가는 길은 Windows 탭이다 — 막다른 길이 아니다.
-    await page.evaluate(() => (window as any).app._sbJumpTo(1));
-    expect(await activeWindow(page)).toBe(other);
-    expect(await page.evaluate(() => (window as any).app._sbTab)).toBe('windows');
-  });
-
-  test('E8 (V21 / V143): 새로고침 후 창·탭·활성 탭이 보존된다 — 마지막(7번째) 탭도 예외가 아니다', async ({ page }) => {
-    await waitForInit(page);
-    await openGit(page);
-    // Worktrees 는 새로 늘어난 **마지막(7번째)** 고정 탭이다 — 새로고침 보존이
-    // 6개짜리 옛 목록에만 통하고 새로 늘어난 탭에는 안 통하는 회귀를 잡는다.
-    await page.locator('#area .pn-tab[data-git-view="worktrees"]').click();
-    await page.evaluate(() => (window as any).app._save());
-
-    await page.reload();
-    await page.waitForSelector('#area .pn-tab[data-git-view]', { timeout: 15000 });
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-    await expect(page.locator('#area .pn-tab[data-git-view]').last())
-      .toHaveAttribute('data-git-view', 'worktrees');
-    expect(await gitWindowCount(page)).toBe(1);
-    await expect(page.locator('#area .pn-tab.active[data-git-view]'))
-      .toHaveAttribute('data-git-view', 'worktrees');
-    // 활성 탭의 본문이 그 탭의 것이어야 한다 — 이름만 살아남아서는 안 된다.
-    await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-worktrees/);
-  });
 });

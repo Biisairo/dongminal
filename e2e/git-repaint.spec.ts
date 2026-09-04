@@ -147,7 +147,7 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     }, fx('basic'));
     // 요소 보존을 보려면 요소가 화면에 있어야 한다 — GIT 패널은 탭 뒤다 (FR-SBT-2).
     await openGitTab(page);
-    const sel = '#repo-entries .git-repo';
+    const sel = '#repo-entries .ed-entry';
     await expect(page.locator(sel).first()).toBeVisible();
     const n = await markAll(page, sel);
     expect(n).toBeGreaterThan(0);
@@ -186,6 +186,23 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     await page.locator('#area .pn-tab[data-git-view="console"]').click();
     const sel = '#area .pn-body .git-view.git-console .git-con-row';
     await expect(page.locator(sel).first()).toBeVisible();
+    /**
+     * **기록이 더 늘지 않을 때까지 기다린다.**
+     *
+     * Console 은 새 기록이 오면 목록을 **다시 만드는 것이 맞다** — 근거가 기록
+     * 전체이고 한 기록이 행+상세 두 요소로 펼쳐져 행 동일성을 쓸 수 없기 때문이다
+     * (FR-RPT-1, SRS D5). 이 시험이 재는 것은 "그대로일 때 살아남는가" 다.
+     *
+     * REPO_TAB_UNIFY_SRS 로 `openGit` 이 여섯 뷰를 미리 세우게 되면서 Stash 뷰가
+     * 늘 살아 있고, 위의 `git add` 가 status 를 바꾸면 그 뷰가 다시 받아
+     * `git stash list` 기록이 하나 더 생긴다 (FR-GVR-6) — 표식을 그 전에 찍으면
+     * 이 시험은 "다시 만들어졌다" 를 결함으로 읽는다 (실측).
+     */
+    for (let i = 0; i < 10; i++) {
+      const before = await page.locator(sel).count();
+      await page.waitForTimeout(2400);
+      if (await page.locator(sel).count() === before) break;
+    }
     // 상세를 펼친다 — 그 안의 stderr 는 복사해 쓰는 자리다 (FR-GIT-225).
     await page.locator(sel).first().click();
     await expect(page.locator('#area .pn-body .git-view.git-console .git-con-detail')).toHaveCount(1);

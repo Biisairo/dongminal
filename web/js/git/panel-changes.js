@@ -193,6 +193,20 @@ Object.assign(GitPanel.prototype, {
         '<ul class="git-partial-list"></ul>'+
         '<button class="git-partial-close"></button>'+
       '</div>'+
+      /**
+       * REPO_TAB_UNIFY_SRS FR-RTU-20: **목록 하나다.**
+       *
+       *   이전 동작: `목록 | 손잡이 | 인라인 diff 미리보기` 가로 두 칸
+       *   새  동작: 목록만. diff 는 본문의 탭이다 (FR-RTU-30)
+       *   이유:     사이드는 260px 이고 그 안을 둘로 나누면 목록이 ~90px 이 된다 —
+       *             실측에서 행 이름이 0 으로 눌려 사라지고 호버 동작 버튼이 행
+       *             가운데를 덮어, 선택하려는 클릭이 stage 를 실행했다 (C4b).
+       *             그리고 diff 를 본문 탭으로 옮긴 것이 이번 통합의 요구 ②다 —
+       *             같은 것을 두 자리에 두면 어느 쪽이 진짜인지 말할 수 없다
+       *
+       * 이 삭제로 EDITOR_GIT_UX_SRS 묶음 D(FR-CSZ-1~8, 두 칸 손잡이)는 폐기된다.
+       * 나눌 칸이 없으면 그 사이의 손잡이도 없다 (§7 D-RTU-22).
+       */
       '<div class="git-changes-body">'+
         '<div class="git-files">'+
           '<div class="git-files-bar">'+
@@ -201,10 +215,6 @@ Object.assign(GitPanel.prototype, {
             '<span class="git-files-spacer"></span>'+
           '</div>'+
         '</div>'+
-        // FR-CSZ-1: 두 칸 사이의 손잡이. 목록과 미리보기의 형제여야 flex 축을
-        // 그대로 나눠 쓴다 — 어느 한쪽 안에 두면 그 칸이 자기 자신을 줄인다.
-        '<div class="git-files-handle"></div>'+
-        '<div class="git-preview"></div>'+
       '</div>';
     this._wireHead(el);
     for(const b of el.querySelectorAll('.git-job-cancel')) b.textContent=GIT_JOB_CANCEL;
@@ -220,7 +230,6 @@ Object.assign(GitPanel.prototype, {
       b.addEventListener('click',()=>this.runOperation(b.dataset.act));
     }
     const files=el.querySelector('.git-files');
-    this._wireFilesHandle(el,files);
     for(const g of GIT_GROUPS){
       const d=document.createElement('div'); d.className='git-group'; d.dataset.group=g.key;
       d.innerHTML='<div class="git-group-head"><span class="git-group-caret"></span>'+
@@ -273,7 +282,6 @@ Object.assign(GitPanel.prototype, {
     this._paintNote(el);
     this._commit().paint(s||null);
     this._remote().paint(el);
-    this._paintPreview(el);
   },
 
   // 헤더 (FR-GIT-32·33·40)
@@ -311,11 +319,32 @@ Object.assign(GitPanel.prototype, {
    * 목록은 좌측 GIT 섹션과 **같은 정보원**(`app._gitRepos`)이다 — 두 벌로 두면
    * 사이드바에는 있는 리포가 여기에는 없는 상태가 생긴다.
    */
+  /**
+   * REPO_TAB_UNIFY_SRS FR-RTU-72: **리포 전환은 이제 창 전환이다.**
+   *
+   * 종전에는 `setRepo` 가 그 창의 활성 리포를 갈아 끼웠다 — Git 창이 워크스페이스에
+   * 하나여서 리포가 창의 속성이었기 때문이다. 저장소마다 창이 서는 지금 패널의
+   * 리포는 **창의 루트**이고 갈아 끼울 대상이 없다 (`setRepo` 는 `this.root` 가
+   * 있으면 조기 반환한다). 그래서 드롭다운이 아무 일도 하지 않았다 — 실측한
+   * 결함이다 (V207).
+   *
+   * `openGitWindow` 는 목록에 없는 경로도 먼저 더한 뒤 그 창으로 옮긴다.
+   */
   _openRepoPicker(ev){
     const items=this._repoChoices().map(c=>({
       id:c.path, label:c.name, tip:c.path,
       cur:c.path===this.repo,
-      run:()=>this.setRepo(c.path),
+      // 고른 뒤 그 창의 사이드도 Changes 로 돌린다 — 사용자가 누른 자리가
+      // Changes 이므로 "같은 자리의 다른 저장소" 로 가는 것이 이 손짓의 뜻이다.
+      // 그러지 않으면 새 창의 기본 사이드(Explorer)가 떠서 누른 목록이 사라진다.
+      run:()=>{
+        GitMenu.close();
+        this.app.openGitWindow(c.path).then(id=>{
+          if(!id) return;
+          const w=this.app.ws.windows.find(s=>s&&s.id===id);
+          if(w) this.app._edSetSide(w,REPO_SIDE_CHANGES);
+        });
+      },
     }));
     if(!items.length) return;
     GitMenu.openList(items,'repo',null,ev);
@@ -520,12 +549,26 @@ Object.assign(GitPanel.prototype, {
       acts.appendChild(b);
     }
     d.appendChild(acts);
-    d.addEventListener('click',ev=>this._select(group,e,ev));
-    // FR-RTU-51: 새 파일은 diff 가 아니라 편집기로 연다. 선택(위)은 그대로
-    // 두어 스테이지·discard 의 대상이 바뀌게 하고, 여는 것만 갈린다.
-    d.addEventListener('dblclick',()=>{
+    /**
+     * REPO_TAB_UNIFY_SRS FR-RTU-40 (사용자 지시 2026-09-04): **한 번 클릭이 연다.**
+     *
+     *   이전 동작: 한 번 클릭은 고르기만, 더블클릭이 본문을 열었다
+     *   새  동작: 한 번 클릭이 고르고 **곧바로 본문에 diff 를 연다.**
+     *             더블클릭 계기는 없다
+     *   이유:     VSCode 와 동치다 (사용자 지시). 사이드의 인라인 미리보기를
+     *             걷었으므로(FR-RTU-20) 클릭의 결과를 보일 자리가 본문뿐이고,
+     *             더블클릭을 남기면 "한 번 눌렀는데 아무 일도 없다" 가 된다
+     *
+     * FR-RTU-51: 새 파일은 diff 가 아니라 편집기로 연다 — 비교할 왼쪽이 없다.
+     *
+     * **보조키 클릭은 열지 않는다.** Cmd·Shift 는 여러 개를 고르는 손짓이고
+     * (FR-GIT-69), 고를 때마다 본문이 갈리면 무엇을 고르는 중인지 알 수 없다.
+     */
+    d.addEventListener('click',ev=>{
+      this._select(group,e,ev);
+      if(ev&&(ev.metaKey||ev.ctrlKey||ev.shiftKey)) return;
       if(group==='untracked'&&this._openUntracked(e)) return;
-      this._openDiff(group,e);
+      this.openView('diff');
     });
     d.addEventListener('contextmenu',ev=>{
       ev.preventDefault();

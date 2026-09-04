@@ -239,6 +239,12 @@ Object.assign(App.prototype, {
     // Persist per-window activeWindow to sessionStorage (survives refresh,
     // independent across windows).
     try{sessionStorage.setItem('activeWindow', sid)}catch{}
+    // D-RTU-18: 루트도 함께 적는다 — 새로고침 뒤 id 는 바뀔 수 있고 루트는 아니다.
+    try{
+      const w=this._aw();
+      if(this._isEditorWin(w)) sessionStorage.setItem(ACTIVE_EDITOR_ROOT_KEY,this._edRootOf(w));
+      else sessionStorage.removeItem(ACTIVE_EDITOR_ROOT_KEY);
+    }catch{}
     const a=this._aw();
     if(a&&a.layout){
       const next=(a.focusedPane&&findPane(a.layout,a.focusedPane))?a.focusedPane:firstPane(a.layout)?.id||null;
@@ -395,7 +401,14 @@ Object.assign(App.prototype, {
       const t = newEntityId();
       pn.tabs.push({ id: t, name: def.name, type: TAB_TYPE_GIT, gitView: view });
       this.paneTabSet(pn, t);
+      // 새 탭도 **그 칸을 포커스**한다 — 위의 "이미 있으면" 분기가 이미 그렇게
+      // 한다. 그러지 않으면 모바일에서 사이드 자리에 머물러 방금 연 탭이 보이지
+      // 않는다 (FR-RTU-80).
+      this._setFocus(pn.id, s);
       this.render();
+      // FR-RTU-62: git 뷰 탭이 생기는 것은 **그 창에 git 표면이 서는** 일이다 —
+      // 사이드가 Explorer 여도 이제 관측을 쓰는 화면이 있다.
+      this._gitRescheduleAll();
       this._save();
       return { uuid: t };
     }
@@ -445,6 +458,8 @@ Object.assign(App.prototype, {
       if (opts.preview) tab.preview = true;
       pn.tabs.push(tab);
       this.paneTabSet(pn, t);
+      // git 뷰 탭과 같은 근거 — 새 탭도 그 칸을 포커스한다 (FR-RTU-80).
+      this._setFocus(pn.id, s);
       this.render();
       this._save();
       return { uuid: t };
@@ -477,8 +492,21 @@ Object.assign(App.prototype, {
     if(!s) return;
     const pn=findPane(s.layout,rid); if(!pn) return;
     const tab=pn.tabs.find(t=>t.id===tid); if(!tab) return;
-    // FR-GIT-28: Git 창의 고정 탭은 생성·삭제되지 않는다.
-    if(tab.type===TAB_TYPE_GIT) return;
+    /**
+     * REPO_TAB_UNIFY_SRS FR-RTU-33·34: **git 뷰 탭은 닫을 수 있다.**
+     *
+     *   이전 동작: `TAB_TYPE_GIT` 은 조기 반환 — 닫히지 않았다 (FR-GIT-28)
+     *   새  동작: 편집기 탭과 같이 닫힌다. 확인은 없다 (잃는 편집이 없다)
+     *   이유:     그 금지의 근거는 Git 창의 탭이 **고정 일곱**이라 자리가 늘
+     *             같아야 한다는 것이었다. 뷰가 본문의 탭이 된 지금 자리를
+     *             정하는 것은 사용자다 (FR-RTU-30·33)
+     *
+     * 뷰의 상태(스크롤·선택·diff 대상)는 **패널**이 들고 있으므로 다시 열면
+     * 그대로다 (FR-RTU-34). 놓는 것은 그 뷰의 DOM 과 Monaco 뿐이며, 그것이
+     * NFR-RTU-3 이 요구하는 것이다 — 탭이 없는 뷰는 인스턴스도 없다.
+     */
+    const gitTab=tab.type===TAB_TYPE_GIT;
+    if(gitTab) this._gitDropView(this._edRootOf(s),tab.gitView);
     const isEditor=tab.type==='editor';
     if(isEditor){
       const editor=this.fileEditors.get(tab.id);
@@ -512,6 +540,9 @@ Object.assign(App.prototype, {
     const toolId=tab.toolId;
     const closingIdx=pn.tabs.findIndex(t=>t.id===tid);
     pn.tabs=pn.tabs.filter(t=>t.id!==tid);
+    // FR-RTU-62: 마지막 git 뷰 탭이 닫히면 그 창의 git 표면이 사라진다 —
+    // 사이드가 Explorer 면 관측을 쓰는 화면이 없으므로 폴링도 멎어야 한다.
+    if(gitTab) this._gitRescheduleAll();
     const prevClosestId=pn.tabs.length?pn.tabs[Math.min(closingIdx,pn.tabs.length-1)].id:null;
     const isActive = s.id === this.ws.activeWindow;
     if(pn.tabs.length===0){

@@ -12,9 +12,28 @@ Object.assign(App.prototype, {
   // (this.focused unchanged). REG-2~8 회귀 클래스 차단용 단일 진입점.
   _setFocus(rid, sess){
     const target = sess || this._aw();
+    const moved = !!rid && this.focused !== rid;
     if(target) target.focusedPane = rid;
     if(!sess || (target && target.id === this.ws.activeWindow)){
       this.focused = rid;
+      /**
+       * REPO_TAB_UNIFY_SRS FR-RTU-80: **포커스가 옮겨 갔으면 모바일도 그 자리로.**
+       *
+       * 모바일 순회의 첫 자리는 사이드이고(FR-RTU-80) 사이드는 분할 트리 밖이라
+       * 포커스의 대상이 아니다. 그래서 사이드에 서 있는 동안 렌더는 포커스를
+       * 따라가지 않는다 — 그러지 않으면 사이드에 설 수 없다.
+       *
+       * 그런데 파일을 열거나 뷰 탭을 여는 일은 **포커스를 옮기는 일**이고, 그때는
+       * 그 자리를 보여야 한다: 열었는데 보이지 않으면 사용자는 실패로 읽는다
+       * (FR-EDT-102 와 같은 근거). 그 구분이 여기서 난다 — 포커스가 실제로
+       * 바뀐 부름만 사이드를 떠난다.
+       */
+      if(moved && this.isMobile && this._mobileOnSide&&this._mobileOnSide()){
+        const s=this._aw();
+        const regs=(s&&s.layout)?this._flattenPanes(s.layout):[];
+        const i=regs.findIndex(r=>r&&r.id===rid);
+        if(i>=0) this._mPaneIdx=i+this._mobileSideSlots();
+      }
       // ATTENTION_FIRING_SRS FR-ATA-1: 포커스는 더 이상 해제가 아니다. 여기
       // 있던 `_attnClearFocused()` 가 "사용자가 보기 전에 알람이 사라진다" 의
       // 마지막 고리였다 — 해제는 `_attnNoteInteraction` 한 자리에서만 온다.

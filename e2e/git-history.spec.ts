@@ -325,7 +325,9 @@ test.describe('16단계 — History 탭', () => {
     await hist(page).locator('.git-hist-apply').click();
     await expect.poll(() => loadedCount(page), { timeout: 20000 }).toBeLessThan(300);
 
-    await page.evaluate((r) => (window as any).app.gitPanel.setRepo(r), fx('basic'));
+    // **리포 전환은 창 전환이다** (FR-RTU-72). `gitPanel.setRepo` 는 Repo 창의
+    // 패널에서 조기 반환하므로 그 자리에 두면 아무 일도 하지 않는다.
+    await openHistory(page, fx('basic'));
     // 필터가 남아 새 리포의 목록을 조용히 걸러내면 요구사항 실패다.
     await expect(hist(page).locator('.git-hist-f[data-f="path"]')).toHaveValue('');
     await expect(hist(page).locator('.git-hist-detail')).toHaveCount(0);
@@ -493,7 +495,7 @@ test.describe('17단계 — 커밋 상세', () => {
 
     // 탭이 비활성인 사이 목록에는 높이가 없다 — 그 상태로 행 창을 다시 잡으면
     // 화면 한 줄만 남고 펼친 상세와 스크롤 위치를 잃는다.
-    await page.click('#area .pn-tab[data-git-view="changes"]');
+    // FR-RTU-32: Changes 는 사이드에 늘 있다 — 돌아갈 탭이 없다.
     await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
     await page.click('#area .pn-tab[data-git-view="history"]');
     await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-history/);
@@ -540,7 +542,8 @@ test.describe('17단계 — 커밋 상세', () => {
       await route.continue();
     });
     await commits(page).first().click();
-    await page.evaluate((r) => (window as any).app.gitPanel.setRepo(r), repo);
+    // FR-RTU-72: 리포 전환은 창 전환이다 (H14 와 같은 근거).
+    await openHistory(page, repo);
     release();
 
     // 이전 리포의 상세가 새 리포의 목록과 함께 보이는 순간이 있어서는 안 된다.

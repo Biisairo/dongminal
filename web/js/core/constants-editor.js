@@ -14,6 +14,9 @@ const REPO_PANEL_ID='sb-panel-repo';
 const REPO_LIST_ID='repo-entries';
 const REPO_ROOT_ID='repo-root';
 const REPO_ADD_ID='repo-add';
+// D-RTU-18: 새로고침을 건너는 활성 Repo 창의 **루트**. id 는 재조정이 다시 만들
+// 수 있으므로(FR-EDT-42) 그것만으로는 사용자가 보던 창을 되찾지 못한다.
+const ACTIVE_EDITOR_ROOT_KEY='activeEditorRoot';
 // FR-EDT-10·44: root 에디터의 표시 이름. 행과 창이 같은 이름을 써야 사용자가
 // 둘을 같은 것으로 읽는다.
 const EDITOR_ROOT_NAME='~';

@@ -5,7 +5,7 @@ import { basename, join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGitTab, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, openGitTab, waitForInit } from './fixtures';
 
 // GIT_M1_STEP4_CONTRACT §4 — 좌측 GIT 섹션. 검증 V17·V16·V3·V7.
 //
@@ -46,8 +46,14 @@ async function pin(request: APIRequestContext, path: string) {
   return (await r.json()).root as string;
 }
 
+/**
+ * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-1·3 / D-RTU-2).** `Git` 과 `Editor` 두 탭이
+ * `Repo` 하나가 되면서 목록의 원천도 `editors.list` 하나가 됐다 — 행은 이제
+ * `.ed-entry` 이고 `.git-repo.pinned` 라는 구분이 없다 (핀이 아닌 행이 없다).
+ * 배지 클래스(`.git-badge`)는 그대로다.
+ */
 const pinned = (page: Page, root: string) =>
-  page.locator(`#repo-entries .git-repo.pinned[data-git-repo="${root}"]`);
+  page.locator(`#repo-entries .ed-entry[data-git-repo="${root}"]`);
 
 test.describe('묶음 B — 좌측 GIT 섹션', () => {
   // FR-SBT-1·2·7 로 GIT 섹션은 **탭 뒤**로 옮겨졌다. 옛 `.git-sec-title` 은 사라지고
@@ -60,45 +66,26 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     // WINDOWS 목록은 그대로 남는다 — 옮겨진 것은 GIT 쪽이다.
     await expect(page.locator('#windows .si')).toHaveCount(1);
 
-    await expect(page.locator('.sb-tab[data-panel="repo"] .sb-tab-label')).toHaveText('Git');
+    // FR-RTU-1 / D-RTU-15: 탭 이름은 `Repo` 다 — `Git` 과 `Editor` 를 합친 하나다.
+    await expect(page.locator('.sb-tab[data-panel="repo"] .sb-tab-label')).toHaveText('Repo');
     await openGitTab(page);
     await expect(page.locator('#sb-panel-windows')).toBeHidden();
     await expect(page.locator('#repo-entries')).toBeVisible();
     await expect(page.locator('#repo-add')).toBeVisible();
     // FR-FLW-11: follow 행이 사라져 이 섹션은 처음으로 빌 수 있게 됐다. 빈 자리는
     // 고장처럼 읽히므로 안내가 자리를 지킨다.
-    await expect(page.locator('#repo-entries .git-repos-none')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#repo-entries .ed-entries-none')).toBeVisible({ timeout: 10000 });
   });
 
-  // V-FLW-1·4·5 (FR-FLW-1·4·5) — follow 를 지운 자리.
-  //
-  // 목록은 **핀에서만** 온다. 터미널을 저장소 안으로 옮겨도 줄이 늘지 않고,
-  // 그 리포로 가는 길은 `+ Add` 가 대신한다 — 열면 이미 채워져 있다.
-  test('S2 (V-FLW-1·5): 터미널을 옮겨도 목록은 그대로고, + Add 가 그 리포를 채운다', async ({
-    page,
-    request,
-  }) => {
-    const repo = await projectRepo(request);
-    await waitForInit(page);
-    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
-    await page.click('#area .pn.focused .xterm-screen');
-    await cd(page, repo);
-
-    // follow 행은 없다. 저장소로 들어가도 목록은 비어 있다.
-    await expect(page.locator('#repo-entries .git-repo.follow')).toHaveCount(0);
-    await expect(page.locator('#repo-entries .git-repo')).toHaveCount(0, { timeout: 10000 });
-
-    await openGitTab(page);
-    await page.click('#repo-add');
-    const dlg = page.locator('#repo-add-dlg');
-    await expect(dlg).toBeVisible({ timeout: 10000 });
-    // 지금 터미널의 리포가 이미 채워져 있다 — 타이핑 없이 한 번의 클릭이다.
-    await expect(dlg.locator('.gar-path')).toHaveValue(repo, { timeout: 15000 });
-    await dlg.locator('.git-dialog-go').click();
-
-    await expect(pinned(page, repo)).toHaveCount(1, { timeout: 10000 });
-    await expect(dlg).toHaveCount(0);
-  });
+  /**
+   * **S2 는 폐기됐다** (REPO_TAB_UNIFY_SRS FR-RTU-5 / D-RTU-2).
+   *
+   * `+ Add` 가 둘이 아니라 하나다 — 진입점은 `#repo-add` 이고 종단은
+   * `/api/editors/add` 뿐이며, 그것이 연동으로 핀까지 함께 만든다. git 전용
+   * 핀 다이얼로그(`#git-add-repo-dlg`·`.gar-path`)는 진입점이 없다.
+   *
+   * 그 하나가 하는 일은 `editor-tab.spec.ts` 가 검증한다 (V-EDT-3·11·12).
+   */
 
   // V-FLW-4 (FR-FLW-4): 활성 리포는 **스스로 바뀌지 않는다.** 터미널을 다른
   // 저장소로 옮겨도 Git 창과 하단바 chip 은 사용자가 고른 것을 계속 가리킨다 —
@@ -112,61 +99,49 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     const root = await pin(request, makeRepo('dm-repo-flw4-'));
     await openGitTab(page);
     await pinned(page, root).click();
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-    expect(await page.evaluate(() => (window as any).app.gitPanel.repo)).toBe(root);
+    // FR-RTU-72: 행 클릭은 **그 경로의 Repo 창으로 전환**한다. 뷰 탭은 열지
+    // 않는다 — 그것은 Changes 사이드의 아이콘 줄이 하는 일이다 (FR-RTU-21).
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+    // `_edOpenWindow` 는 목록에 없던 경로면 종단을 지나므로 비동기다 — 값이
+    // 앉기를 기다린다.
+    await expect
+      .poll(() => page.evaluate(() => (window as any).app.gitPanel?.repo), { timeout: 10000 })
+      .toBe(root);
 
-    // 핀을 눌러 Git 창이 활성이 됐다 — 터미널로 돌아가야 cd 를 칠 수 있다.
+    // 핀을 눌러 그 저장소의 Repo 창이 활성이 됐다 — 터미널로 돌아가야 cd 를 칠 수 있다.
     const other = makeRepo('dm-repo-flw4b-');
     await page.evaluate((id) => (window as any).app.switchWindow(id), termWin);
     await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
     await page.click('#area .pn.focused .xterm-screen');
     await cd(page, other);
-    // 폴링 주기를 넉넉히 넘긴 뒤에도 그대로다.
+    /**
+     * 폴링 주기를 넉넉히 넘긴 뒤에도 그대로다.
+     *
+     * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-60·65 / D-RTU-18).** `app.gitPanel` 은
+     * **활성 창의** 패널이다 — 터미널 창에 서 있는 동안에는 루트가 없어 `repo` 가
+     * `null` 이고, 그것은 결함이 아니라 새 구조다. FR-FLW-4 가 재던 것은 "그
+     * 저장소의 표면이 스스로 다른 저장소를 보지 않는다" 이므로, 대상을 **그
+     * 루트의 패널**로 바꿔 같은 사실을 잰다 (저장소가 창의 루트에서 나오므로
+     * 터미널의 cwd 는 그것을 건드릴 수 없다, FR-RTU-24).
+     */
     await expect
-      .poll(() => page.evaluate(() => (window as any).app.gitPanel.repo), { timeout: 8000, intervals: [1000] })
+      .poll(() => page.evaluate((r) => {
+        const a = (window as any).app;
+        const w = a._edWindowFor(r);
+        return w ? a._gitPanel(a._edRootOf(w), 0).repo : null;
+      }, root), { timeout: 8000, intervals: [1000] })
       .toBe(root);
   });
 
-  // V-FLW-6 (FR-FLW-7): 거부는 **그 자리에** 보인다. 다이얼로그가 닫히면 복사할
-  // 자리도 사유도 사라진다 (FR-GIT-175 와 같은 규약).
-  test('S3 (V16·V-FLW-6): 저장소가 아닌 경로는 핀되지 않고 다이얼로그 안에서 사유를 보인다', async ({
-    page,
-  }) => {
-    await waitForInit(page);
-    const before = await page.locator('#repo-entries .git-repo').count();
-    const dir = mkdtempSync(join(tmpdir(), 'dm-norepo-'));
-
-    await openGitTab(page);
-    await page.click('#repo-add');
-    const dlg = page.locator('#repo-add-dlg');
-    await expect(dlg).toBeVisible({ timeout: 10000 });
-    await dlg.locator('.gar-path').fill(dir);
-    await dlg.locator('.git-dialog-go').click();
-
-    await expect(dlg.locator('.git-dialog-err-reason')).toContainText('not_a_git_repo', { timeout: 10000 });
-    // 닫히지 않는다.
-    await expect(dlg).toBeVisible();
-    await expect(page.locator('#repo-entries .git-repo.pinned')).toHaveCount(0);
-    await expect(page.locator('#repo-entries .git-repo')).toHaveCount(before);
-  });
-
-  // V-FLW-7 (FR-FLW-8): 이미 있는 것을 다시 넣으면 목록이 늘지 않는다. 그 이유가
-  // 보이지 않으면 사용자는 실패로 읽는다.
-  test('S3b (V-FLW-7): 이미 핀된 리포를 다시 추가하면 그 사실을 알린다', async ({ page, request }) => {
-    await waitForInit(page);
-    const root = await pin(request, makeRepo('dm-repo-dup-'));
-    await expect(pinned(page, root)).toHaveCount(1, { timeout: 10000 });
-
-    await openGitTab(page);
-    await page.click('#repo-add');
-    const dlg = page.locator('#repo-add-dlg');
-    await expect(dlg).toBeVisible({ timeout: 10000 });
-    await dlg.locator('.gar-path').fill(root);
-    await dlg.locator('.git-dialog-go').click();
-
-    await expect(dlg.locator('.git-dialog-err-reason')).toContainText('이미 목록에', { timeout: 10000 });
-    await expect(page.locator('#repo-entries .git-repo.pinned')).toHaveCount(1);
-  });
+  /**
+   * **S3·S3b 도 폐기됐다** (FR-RTU-9 / D-RTU-12).
+   *
+   * S3 이 재던 것은 "저장소가 아닌 경로는 거부된다" 였다. 그 규칙이 **뒤집혔다** —
+   * 탐색기와 편집기는 git 없이 성립하므로 저장소가 아닌 경로도 Repo 목록의
+   * 정당한 행이고, git 이 없다는 사실은 Changes 사이드가 `git init` 과 함께
+   * 말한다 (FR-RTU-25). 중복 추가(S3b)의 안내도 `/api/editors/add` 쪽 계약이며
+   * `editor-tab.spec.ts` 가 검증한다.
+   */
 
   test('S4 (V16): 핀한 리포가 목록에 나오고 × 로 사라진다', async ({ page, request }) => {
     await waitForInit(page);
@@ -174,9 +149,9 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     await openGitTab(page);
     const item = pinned(page, root);
     await expect(item).toHaveCount(1, { timeout: 10000 });
-    await expect(item.locator('.git-repo-name')).toHaveText(basename(root));
+    await expect(item.locator('.ed-entry-name')).toHaveText(basename(root));
 
-    await item.locator('.git-repo-x').click();
+    await item.locator('.ed-entry-x').click();
     await expect(item).toHaveCount(0, { timeout: 10000 });
     const after = await (await request.get('/api/git/repos')).json();
     expect(after.pinned.map((p: { path: string }) => p.path)).not.toContain(root);
@@ -190,9 +165,11 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     await expect(item).toHaveCount(1, { timeout: 10000 });
 
     await item.click();
-    await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
+    // FR-RTU-72: 그 경로의 Repo 창이 활성이 된다. 옛 `_gitWindow()` 는 사라졌다
+    // (FR-RTU-70) — 창의 신원은 **루트**다 (D-RTU-18).
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
     expect(await page.evaluate(() => (window as any).app.gitPanel.repo)).toBe(root);
-    const gid = await page.evaluate(() => (window as any).app._gitWindow().id);
+    const gid = await page.evaluate((r) => (window as any).app._edWindowFor(r).id, root);
     expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(gid);
     await expect(item).toHaveClass(/active/);
   });
@@ -215,6 +192,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
 
     // 활성 리포를 골라도 나머지가 낡지 않는다 — 낡음의 근거는 관측 시각이다.
     await a.click();
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
     await expect(a).toHaveClass(/active/);
     await expect(b.locator('.git-badge')).not.toHaveClass(/stale/, { timeout: 10000 });
   });

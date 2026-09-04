@@ -124,12 +124,13 @@ test.describe('묶음 E — Changes 탭', () => {
     const names = await rows(page, 'untracked').locator('.git-file-path').allTextContents();
     expect(names.filter((n) => !n.trim()), '이름이 빈 행이 있다').toEqual([]);
 
-    // 클릭하면 미리보기가 그 파일을 연다.
+    // 클릭하면 본문이 그 파일을 연다 (REPO_TAB_UNIFY_SRS FR-RTU-40 — 사이드의
+    // 인라인 미리보기는 폐기됐다, §7 D-RTU-22). untracked 이므로 diff 가 아니라
+    // **편집기 탭**이다 (FR-RTU-51 / D-RTU-8): 비교할 왼쪽이 없다.
     await doc.click();
-    await expect(changes(page).locator('.git-preview .git-preview-path'))
-      .toHaveText('newdir/nested/doc.md', { timeout: 10000 });
-    await expect(changes(page).locator('.git-preview .monaco-diff-editor'))
-      .toContainText('hi', { timeout: 20000 });
+    const tab = page.locator('#area .ed-area .pn-tab', { hasText: 'doc.md' });
+    await expect(tab).toHaveCount(1, { timeout: 10000 });
+    await expect(page.locator('#area .file-editor.vis')).toContainText('hi', { timeout: 20000 });
   });
 
   test('C4 (V23): 파일을 만들면 untracked 그룹 개수가 늘고 행이 보인다', async ({ page }) => {

@@ -9,6 +9,10 @@
 > | FR-EDT-75 (폴더는 자기 상태를 갖지 않는다) | 서브모듈·중첩 저장소는 폴더가 상태의 단위다 | GIT_DIR_ENTRY_SRS FR-DIR-11 |
 > | Editor 창의 좌측 = 탐색기 | 좌측은 **사이드**이고 `Explorer`·`Changes` 두 탭을 갈아 끼운다 | REPO_TAB_UNIFY_SRS FR-RTU-11·12 |
 > | 사이드바 `Editor` 탭 | `Git` 과 합쳐 `Repo` 한 탭이 됐다 (`Ctrl+Shift+2`) | REPO_TAB_UNIFY_SRS FR-RTU-1·7 |
+> | FR-EDT-76·77 (탐색기 폴링의 대상은 **활성 Editor 창**) | 그 창의 **사이드가 `Explorer` 일 때만**이다. 사이드는 탭 교체이므로 `Changes` 쪽에 있으면 트리는 화면에 없다 — 게이트가 없어 폴링을 끈 설정에서도 status 가 왔다 (실측) | REPO_TAB_UNIFY_SRS FR-RTU-12·14 / D-RTU-25 |
+> | FR-EDT-78 (즉시 갱신의 계기) | 같은 게이트를 받는다. 대신 사이드를 `Explorer` 로 돌리는 것이 **새 계기**다 — 그동안 쉰 트리는 낡았다 | REPO_TAB_UNIFY_SRS D-RTU-25 |
+> | Editor 창의 활성 복원 | id 가 아니라 **루트**로 되살린다 (`activeEditorRoot`) — 재조정이 같은 루트의 창을 새 id 로 만들 수 있다 | REPO_TAB_UNIFY_SRS D-RTU-32 |
+> | 모바일의 Editor 창 | 사이드와 본문이 **순회의 자리 하나**씩이다 — 나란히 두지 않는다 | REPO_TAB_UNIFY_SRS FR-RTU-80 / D-RTU-29 |
 
 ## 1. 개요 (Introduction)
 

@@ -51,8 +51,8 @@ test.describe('묶음 Q — 사이드바가 돌아갈 자리의 기억', () => {
     expect(ids[0], '세 번째 창이 첫 번째와 같으면 이 검증은 아무것도 재지 않는다').not.toBe(third);
 
     // 사이드바의 다른 탭으로 간다 — 활성 창이 그 탭의 창으로 바뀐다.
-    await setTab(page, 'editor');
-    expect(await tabOf(page)).toBe('editor');
+    await setTab(page, 'repo');
+    expect(await tabOf(page)).toBe('repo');
     expect(await activeWindowOf(page)).not.toBe(third);
 
     await reload(page);
@@ -61,15 +61,15 @@ test.describe('묶음 Q — 사이드바가 돌아갈 자리의 기억', () => {
     expect(await activeWindowOf(page), '보던 창이 아니라 첫 창으로 갔다').toBe(third);
   });
 
-  test('TC-RLC-7 (FR-RLC-6·8): Editor 탭도 마지막으로 보던 Editor 창으로 돌아간다', async ({ page }) => {
+  test('TC-RLC-7 (FR-RLC-6·8): Repo 탭도 마지막으로 보던 Repo 창으로 돌아간다', async ({ page }) => {
     await waitForInit(page);
-    await setTab(page, 'editor');
+    await setTab(page, 'repo');
     const edWin = await activeWindowOf(page);
     expect(edWin).toBeTruthy();
 
     await setTab(page, 'windows');
     await reload(page);
-    await setTab(page, 'editor');
+    await setTab(page, 'repo');
 
     expect(await activeWindowOf(page)).toBe(edWin);
   });
@@ -80,8 +80,8 @@ test.describe('묶음 Q — 사이드바가 돌아갈 자리의 기억', () => {
     const second = await addWindow(page);
     expect(second).not.toBe(first);
 
-    // 일반 창을 떠나 Editor 탭으로 간다.
-    await setTab(page, 'editor');
+    // 일반 창을 떠나 Repo 탭으로 간다 (FR-RTU-1: `Git`·`Editor` 가 `Repo` 하나다).
+    await setTab(page, 'repo');
     const saved = await page.evaluate(() => {
       try { return sessionStorage.getItem('lastPlainWindow') } catch { return null }
     });
@@ -92,7 +92,7 @@ test.describe('묶음 Q — 사이드바가 돌아갈 자리의 기억', () => {
     await waitForInit(page);
     const first = await activeWindowOf(page);
     const gone = await addWindow(page);
-    await setTab(page, 'editor');
+    await setTab(page, 'repo');
     // 기억은 남기고 그 창만 지운다 — 없는 창으로 돌아갈 수는 없다.
     await page.evaluate((id) => (window as any).app.delWindow(id), gone);
 
@@ -110,7 +110,7 @@ test.describe('묶음 Q — 사이드바가 돌아갈 자리의 기억', () => {
     await page.evaluate(() => {
       try { sessionStorage.removeItem('lastPlainWindow') } catch { /* 사생활 모드 */ }
     });
-    await setTab(page, 'editor');
+    await setTab(page, 'repo');
     await page.evaluate(() => {
       try { sessionStorage.removeItem('lastPlainWindow') } catch { /* 사생활 모드 */ }
     });

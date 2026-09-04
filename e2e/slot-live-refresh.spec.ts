@@ -46,16 +46,27 @@ async function openGitView(page: Page, repo: string, view: string) {
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
+  // FR-RTU-32: `Changes` 는 본문 탭이 아니라 창의 **사이드**다 — `openGit` 이 이미
+  // 그리로 돌려 두었으므로 보이는지만 확인한다.
+  if (view === 'changes') {
+    await expect(page.locator('#area .ed-side .git-view.git-changes'))
+      .toBeVisible({ timeout: 10000 });
+    return;
+  }
   await page.click(`#area .pn-tab[data-git-view="${view}"]`);
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(
     new RegExp('git-' + view));
 }
 
-// Git 창을 칸 1 에 두고 **칸 0(터미널 창)에 선다.** 접수한 배치 그대로다.
+// Repo 창을 칸 1 에 두고 **칸 0(터미널 창)에 선다.** 접수한 배치 그대로다.
+//
+// **개정 (REPO_TAB_UNIFY_SRS FR-RTU-70).** 옛 `_gitWindow()` 는 `null` 이다 —
+// git 표면을 든 창은 **활성 Repo 창**이며 `openGit` 이 그것을 세워 두었다.
 async function splitWithGitAside(page: Page) {
   return page.evaluate(() => {
     const app = (window as any).app;
-    const gitWin = app._gitWindow();
+    const gitWin = app._edWindows().find((w: any) => app._edRootOf(w) === app._gitRootOfActive())
+      || app._aw();
     const plain = app._plainWindows()[0];
     app.slotAdd();
     app.slotOpen(0, plain.id);
@@ -69,8 +80,17 @@ async function splitWithGitAside(page: Page) {
 const histSubjects = (page: Page) =>
   page.locator('.git-view.git-history .git-hist-msg').allTextContents();
 
-const pollOk = (page: Page) =>
-  page.evaluate(() => !!(window as any).app.gitPanel._pollOk());
+/**
+ * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-60·65).** `app.gitPanel` 은 **활성 창의**
+ * 패널이다 — 이 배치에서 활성 창은 터미널 칸이므로 그것을 읽으면 늘 거짓이다.
+ * 재려는 것은 "**눈앞에 있는** Repo 창의 패널이 관측을 계속하는가" 이므로
+ * 그 저장소의 패널을 직접 본다.
+ */
+const pollOk = (page: Page, repo: string, slot = 1) =>
+  page.evaluate(([r, n]) => {
+    const a = (window as any).app;
+    return !!a._gitPanel(r, n)._pollOk();
+  }, [repo, slot] as const);
 
 // 목록에 그 제목이 나타날 때까지 기다린다. 폴링이 멎어 있으면 오지 않는다.
 async function waitSubject(page: Page, text: string, ms = 15000) {
@@ -93,7 +113,7 @@ test.describe('M6 — 보이면 갱신된다', () => {
     expect(info.active, '터미널 칸에 서지 않았다 — 전제가 깨졌다').not.toBe(info.git);
     // Git 뷰는 **눈앞에 있다.** 그런데도 관측이 멎던 것이 이 결함이었다.
     await expect(page.locator('.git-view.git-history')).toHaveCount(1);
-    expect(await pollOk(page), '보이는데도 관측 조건이 거짓이다').toBe(true);
+    expect(await pollOk(page, repo), '보이는데도 관측 조건이 거짓이다').toBe(true);
 
     commit(repo, 'aside60');
     expect(await waitSubject(page, 'aside60'), '옆 칸 History 가 멎어 있다').toBe(true);
@@ -116,15 +136,15 @@ test.describe('M6 — 보이면 갱신된다', () => {
     const repo = copyFx('with-remote', 'slr-62');
     await waitForInit(page);
     await openGitView(page, repo, 'history');
-    // Git 창이 활성이면 돈다.
-    expect(await pollOk(page)).toBe(true);
+    // 그 Repo 창이 활성이면 돈다. 단일 슬롯이므로 칸은 0 이다.
+    expect(await pollOk(page, repo, 0)).toBe(true);
     // 다른 창으로 가면 돌지 않는다 — 단일 슬롯에서는 그 창이 화면에서 사라진다.
     await page.evaluate(() => {
       const app = (window as any).app;
       const w = app._plainWindows()[0];
       if (w) app.switchWindow(w.id);
     });
-    expect(await pollOk(page), '보이지 않는 창을 관측하고 있다').toBe(false);
+    expect(await pollOk(page, repo, 0), '보이지 않는 창을 관측하고 있다').toBe(false);
   });
 
   test('TC-SVS-64 (FR-SVS-39c): 관측이 낡아도 다음 로드가 돈다', async ({ page }) => {

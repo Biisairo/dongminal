@@ -75,6 +75,9 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
   await openRepo(page, root);
 }
 
+// constants.js 의 전역 상수 — `<script>` 로 로드되므로 import 대상이 아니다.
+declare const gitStatusInterval: number;
+
 const side = (page: Page) => page.locator('#area .ed-win .ed-side');
 const sideTab = (page: Page, id: string) => side(page).locator(`.ed-side-tab[data-side="${id}"]`);
 const mainTabs = (page: Page) => page.locator('#area .ed-area .pn-tab');
@@ -294,4 +297,211 @@ test.describe('묶음 P — 미리보기 탭', () => {
     // 저장하지 않으면 모든 탭이 고정으로 되살아나 사용자가 정리해야 한다.
     await expect(page.locator('#area .ed-area .pn-tab.pn-tab-preview')).toHaveCount(1);
   });
+});
+
+test.describe('묶음 V — git 뷰 탭의 자격 (FR-RTU-33·34)', () => {
+  const viewTab = (page: Page, v: string) =>
+    page.locator(`#area .ed-area .pn-tab[data-git-view="${v}"]`);
+
+  // 여섯 진입점 중 둘을 연다 — 하나로는 "닫아도 남는 탭" 을 구별할 수 없다.
+  async function openTwoViews(page: Page) {
+    await sideTab(page, 'changes').click();
+    await side(page).locator('.ed-side-act[data-view="history"]').click();
+    await side(page).locator('.ed-side-act[data-view="branches"]').click();
+    await expect(viewTab(page, 'history')).toHaveCount(1, { timeout: 10000 });
+    await expect(viewTab(page, 'branches')).toHaveCount(1);
+  }
+
+  test('X1 (V-RTU-31 / FR-RTU-33): git 뷰 탭에 닫기가 서고 끌 수 있다',
+    async ({ page, request }) => {
+      await enter(page, request, REPO);
+      await openTwoViews(page);
+      // 편집기 탭과 **같은 자격**이다 — `×` 가 있고 draggable 이다.
+      await expect(viewTab(page, 'history').locator('.pn-tab-x')).toHaveCount(1);
+      expect(await viewTab(page, 'history').evaluate((t) => (t as HTMLElement).draggable))
+        .toBe(true);
+    });
+
+  test('X2 (V-RTU-31·34 / FR-RTU-34): 닫으면 사라지고 다시 열면 새로 선다',
+    async ({ page, request }) => {
+      await enter(page, request, REPO);
+      await openTwoViews(page);
+      await viewTab(page, 'history').locator('.pn-tab-x').click();
+      await expect(viewTab(page, 'history')).toHaveCount(0, { timeout: 10000 });
+      // 다른 뷰 탭은 그대로다 — 닫은 것만 사라진다.
+      await expect(viewTab(page, 'branches')).toHaveCount(1);
+
+      // FR-RTU-34: 다시 열면 새로 만들어진다.
+      await side(page).locator('.ed-side-act[data-view="history"]').click();
+      await expect(viewTab(page, 'history')).toHaveCount(1, { timeout: 10000 });
+    });
+
+  test('X3 (V-RTU-31 / FR-RTU-17): git 뷰 탭은 창 밖으로 나가지 않는다',
+    async ({ page, request }) => {
+      await enter(page, request, REPO);
+      await openTwoViews(page);
+      const moved = await page.evaluate(() => {
+        const a = (window as any).app;
+        const plain = a._plainWindows()[0];
+        const pane = a._flattenPanes(a._aw().layout)[0];
+        const tab = (pane.tabs || []).find((t: any) => t.type === 'git');
+        const before = ((a._flattenPanes(plain.layout)[0] || {}).tabs || []).length;
+        a._moveTabToWindow(pane.id, tab.id, plain.id);
+        return { before, after: ((a._flattenPanes(plain.layout)[0] || {}).tabs || []).length };
+      });
+      expect(moved.after, 'git 뷰 탭이 다른 창으로 나갔다').toBe(moved.before);
+    });
+
+  /**
+   * NFR-RTU-3: Monaco 인스턴스는 **열린 diff/편집기 탭 수 + 창당 미리보기 1** 을
+   * 넘지 않는다. 뷰 DOM 을 탭이 있을 때만 만드는 것이 그 근거이므로, 닫으면
+   * 인스턴스도 함께 놓아야 한다.
+   */
+  test('X4 (V-RTU-91 / NFR-RTU-3): Diff 탭을 닫으면 Monaco 인스턴스도 놓는다',
+    async ({ page, request }) => {
+      await enter(page, request, REPO);
+      const count = () => page.evaluate(() => {
+        const m = (window as any).monaco;
+        return m ? m.editor.getDiffEditors().length : -1;
+      });
+      await sideTab(page, 'changes').click();
+      await side(page).locator(`.git-file[data-path="src/a.ts"]`).click();
+      await expect(viewTab(page, 'diff')).toHaveCount(1, { timeout: 10000 });
+      await expect(page.locator('#area .ed-area .monaco-diff-editor'))
+        .toBeVisible({ timeout: 30000 });
+      expect(await count(), 'diff 인스턴스가 만들어지지 않았다').toBeGreaterThan(0);
+
+      await viewTab(page, 'diff').locator('.pn-tab-x').click();
+      await expect(viewTab(page, 'diff')).toHaveCount(0, { timeout: 10000 });
+      // 탭이 없으면 인스턴스도 없다 — DOM 을 떼는 것으로는 풀리지 않는다.
+      await expect.poll(count, { timeout: 15000 }).toBe(0);
+    });
+});
+
+test.describe('묶음 P — 미리보기의 경계 (FR-RTU-45)', () => {
+  test('X5 (V-RTU-45): 고정 탭이 있는 대상은 미리보기를 만들지 않는다',
+    async ({ page, request }) => {
+      await enter(page, request, REPO);
+      const tree = page.locator('#area .ed-side .ed-tree');
+      const row = (p: string) => tree.locator(`.ed-row[data-path="${p}"]`);
+      await expect(tree.locator('.ed-row').first()).toBeVisible({ timeout: 10000 });
+
+      // README 를 고정한다 (FR-RTU-42 ④ — 탐색기 행의 더블클릭).
+      await row(j(REPO, 'README.md')).dblclick();
+      await expect(mainTabs(page)).toHaveCount(1, { timeout: 10000 });
+      await expect(mainTabs(page).first()).not.toHaveClass(/pn-tab-preview/);
+
+      // 같은 대상을 다시 한 번 클릭한다 — 새 미리보기를 만들지 않고 그 탭으로 간다.
+      await row(j(REPO, 'README.md')).click();
+      await expect(mainTabs(page)).toHaveCount(1);
+      await expect(page.locator('#area .ed-area .pn-tab.pn-tab-preview')).toHaveCount(0);
+    });
+});
+
+test.describe('묶음 S — 관측의 경계 (NFR-RTU-1)', () => {
+  /**
+   * NFR-RTU-1: git 실행 횟수가 저장소 수에 비례해 늘지 않는다.
+   *
+   * 근거는 FR-RTU-62 다 — 관측은 **그 표면이 화면에 있을 때**만 돈다. 창을 여럿
+   * 세우고 그 중 하나에만 서 있으면 status 는 그 하나에만 간다.
+   */
+  test('X6 (V-RTU-90 / NFR-RTU-1): 창이 여럿이어도 폴링은 보이는 표면 것뿐이다',
+    async ({ page, request }) => {
+      const others: string[] = [];
+      for (let i = 0; i < 3; i++) {
+        const d = j(BASE, 'more' + i);
+        fs.mkdirSync(d, { recursive: true });
+        git(d, 'init', '-q', '-b', 'main', '.');
+        w(j(d, 'x.txt'), 'x\n');
+        others.push(fs.realpathSync(d));
+      }
+      for (const p of others) await addEditor(request, p);
+      await enter(page, request, REPO);
+      await sideTab(page, 'changes').click();
+      await expect(side(page).locator('.git-view.git-changes')).toBeVisible({ timeout: 10000 });
+
+      const hits = new Map<string, number>();
+      page.on('request', (r) => {
+        const u = decodeURIComponent(r.url());
+        if (!u.includes('/api/git/status')) return;
+        for (const p of [REPO, ...others]) if (u.includes(p)) hits.set(p, (hits.get(p) || 0) + 1);
+      });
+      const poll = await page.evaluate(() => gitStatusInterval);
+      await page.waitForTimeout(poll * 3 + 500);
+
+      expect(hits.get(REPO) || 0, '보이는 저장소가 폴링되지 않았다').toBeGreaterThan(0);
+      for (const p of others) {
+        expect(hits.get(p) || 0, `보이지 않는 저장소 ${p} 가 폴링됐다`).toBe(0);
+      }
+    });
+});
+
+test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  const indicator = (page: Page) => page.locator('#m-pane-indicator');
+
+  async function enterMobile(page: Page, request: APIRequestContext, root: string) {
+    await addEditor(request, root);
+    await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'mobile') });
+    await page.goto('/');
+    await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+    await page.waitForFunction(
+      () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
+      undefined, { timeout: 15000 });
+    await page.evaluate((r) => {
+      const a = (window as any).app;
+      const win = a._edWindows().find((x: any) => a._edRootOf(x) === r);
+      a.switchWindow(win.id);
+    }, root);
+    await expect(page.locator('body')).toHaveClass(/mobile/);
+  }
+
+  test('M1 (V-RTU-80·82): 순회의 첫 자리가 사이드이고 계수가 그것을 포함한다',
+    async ({ page, request }) => {
+      await enterMobile(page, request, REPO);
+      // 편집기 탭 하나를 만든다 — pane 이 하나 서야 계수가 둘이 된다.
+      await page.evaluate((p) => (window as any).app._edOpenFile(p), j(REPO, 'README.md'));
+      await expect(page.locator('#area .ed-area .pn-tab')).toHaveCount(1, { timeout: 15000 });
+      await expect(indicator(page)).toHaveText('2/2', { timeout: 10000 });
+
+      // 첫 자리로 간다 — 사이드가 화면 전체를 쓰고 본문은 없다.
+      await page.click('#m-pane-prev');
+      await expect(indicator(page)).toHaveText('1/2');
+      await expect(page.locator('#area .ed-win .ed-side')).toBeVisible();
+      await expect(page.locator('#area .ed-win .ed-area')).toHaveCount(0);
+
+      // FR-RTU-81: 그 자리에서 사이드 탭이 그대로 동작한다.
+      await sideTab(page, 'changes').click();
+      await expect(side(page).locator('.git-view.git-changes')).toBeVisible({ timeout: 10000 });
+
+      // 다시 본문으로 — 사이드는 물러난다.
+      await page.click('#m-pane-next');
+      await expect(indicator(page)).toHaveText('2/2');
+      await expect(page.locator('#area .ed-win .ed-area')).toHaveCount(1);
+      await expect(page.locator('#area .ed-win .ed-side')).toHaveCount(0);
+    });
+
+  test('M2 (V-RTU-80): 사이드 자리에서 Changes 가 경계를 넘지 않는다',
+    async ({ page, request }) => {
+      await enterMobile(page, request, REPO);
+      await expect(indicator(page)).toHaveText('1/1', { timeout: 10000 });
+      await sideTab(page, 'changes').click();
+      await expect(side(page).locator('.git-view.git-changes')).toBeVisible({ timeout: 10000 });
+      await page.waitForTimeout(800);
+
+      const over = await page.evaluate(() => {
+        const view = document.querySelector('#area .ed-side .git-view.git-changes') as HTMLElement;
+        const vr = view.getBoundingClientRect();
+        const items: string[] = [];
+        for (const el of Array.from(view.querySelectorAll('*')) as HTMLElement[]) {
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 && r.height === 0) continue;
+          if (r.right > vr.right + 1 || r.left < vr.left - 1) items.push(el.className || el.tagName);
+        }
+        return { items: items.slice(0, 20), clientW: view.clientWidth, scrollW: view.scrollWidth };
+      });
+      expect(over.items, '사이드 안에서 경계를 넘는 요소가 있다').toEqual([]);
+      expect(over.scrollW).toBe(over.clientW);
+    });
 });

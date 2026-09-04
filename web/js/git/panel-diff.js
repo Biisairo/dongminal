@@ -97,25 +97,14 @@ Object.assign(GitPanel.prototype, {
     }
   },
 
-  // 미리보기는 Diff 탭과 같은 뷰를 좁은 자리에 둔 것이다 (§3.2·§3.4). 골격은 한 번만
-  // 세운다 — 폴링마다 다시 만들면 Monaco 인스턴스가 매초 버려진다.
-  _paintPreview(el){
-    const p=el.querySelector('.git-preview'); if(!p) return;
-    if(p.dataset.built!=='1'){
-      p.innerHTML='<div class="git-preview-target">'+
-        '<div class="git-preview-path"></div><div class="git-preview-axis"></div></div>'+
-        '<div class="git-preview-body"></div>';
-      p.querySelector('.git-preview-body').appendChild(this._preview().el);
-      p.dataset.built='1';
-    }
-    const f=this.previewFile;
-    const t=p.querySelector('.git-preview-target');
-    t.classList.toggle('vis',!!f);
-    t.querySelector('.git-preview-path').textContent=
-      f?(f.origPath?f.origPath+' → '+f.path:f.path):'';
-    t.querySelector('.git-preview-axis').textContent=f?(GIT_AXIS_LABEL[f.axis]||f.axis):'';
-    this._showTarget(this._preview(),f,'_prevKey');
-  },
+  /**
+   * **인라인 미리보기는 폐기됐다** (REPO_TAB_UNIFY_SRS FR-RTU-20, 사용자 지시).
+   *
+   * `_paintPreview`·`_preview()`·`_previewView` 가 여기 있었다. Changes 사이드
+   * 안의 좁은 diff 칸이었고, diff 가 본문의 탭이 된 지금(FR-RTU-30) 같은 것을
+   * 두 자리에 두는 일이었다. 그 자리를 지우면서 EDITOR_GIT_UX_SRS 묶음 D
+   * (두 칸 손잡이, FR-CSZ-1~8)도 함께 폐기됐다 — §7 D-RTU-22.
+   */
 
   // ── Diff 탭 (FR-GIT-49~56) ──
 
@@ -130,6 +119,10 @@ Object.assign(GitPanel.prototype, {
         '<button class="git-diff-nav" data-nav="prev">\u2039</button>'+
         '<button class="git-diff-nav" data-nav="next">\u203a</button>'+
         '<span class="git-diff-path"></span>'+
+        // REPO_TAB_UNIFY_SRS FR-RTU-20: 축 라벨은 걷어낸 인라인 미리보기가 들고
+        // 있었다 (`worktree ↔ index`). 어느 두 쪽을 비교하는지는 diff 를 읽는
+        // 근거의 절반이므로 자리를 옮겨 남긴다.
+        '<span class="git-diff-axis"></span>'+
         '<span class="git-diff-pos"></span>'+
         '<span class="git-diff-gone"></span>'+
         '<span class="git-diff-rev"></span>'+
@@ -180,6 +173,8 @@ Object.assign(GitPanel.prototype, {
     for(const b of el.querySelectorAll('.git-diff-nav')) b.disabled=!list.length||!!cf;
     el.querySelector('.git-diff-path').textContent=
       f?(f.origPath&&f.origPath!==f.path?f.origPath+' \u2192 '+f.path:f.path):'';
+    el.querySelector('.git-diff-axis').textContent=
+      f?(GIT_AXIS_LABEL[f.axis]||f.axis||''):'';
     el.querySelector('.git-diff-pos').textContent=
       cf?'':(list.length?(i>=0?(i+1)+'/'+list.length:'\u2013/'+list.length):'0/0');
     // 대상이 목록에서 사라졌으면(커밋·discard) 그 사실만 알린다 — 아무 파일이나
@@ -502,7 +497,7 @@ Object.assign(GitPanel.prototype, {
     this._hunkErrKey=res.ok?null:this._hunkKey;
     this._hunkKey=null; this._hunks=null; this._hunkSel=null;
     // Monaco 의 두 모델도 낡았다 — 같은 대상이라도 내용이 바뀌었다 (FR-GIT-71).
-    this._diffKey=null; this._prevKey=null;
+    this._diffKey=null;
     if(res.ok){this._note=null; this.adopt(res.data); return}
     this.applyWriteFail(res);
   },
@@ -631,29 +626,13 @@ Object.assign(GitPanel.prototype, {
     if(t&&t.pollGit) t.pollGit({now:true});
   },
 
-  _preview(){
-    if(!this._previewView) this._previewView=new GitDiffView({
-      inlineBreakpoint:GIT_PREVIEW_INLINE_BREAKPOINT,
-      sideBySide:false,
-      ignoreWhitespace:this._ignoreWsPref(),
-      // FR-DOR-5: 미리보기와 Diff 탭은 같은 상태다. 갈리면 사용자가 어느 쪽을
-      // 보는지 모른다 (`_setIgnoreWs` 가 이미 그렇게 한다).
-      hideUnchanged:this._foldPref(),
-      isStale:tok=>this.isStale(tok),
-    });
-    return this._previewView;
-  },
-
   _destroyViews(){
-    if(!this._diffView&&!this._previewView) return;
-    if(this._diffView){this._diffView.destroy();this._diffView=null}
-    if(this._previewView){this._previewView.destroy();this._previewView=null}
-    this._diffKey=null; this._prevKey=null;
+    if(!this._diffView) return;
+    this._diffView.destroy(); this._diffView=null;
+    this._diffKey=null;
     this._hunkKey=null; this._hunks=null; this._hunkSel=null;
     // 골격이 버린 뷰의 DOM 을 들고 있다 — 다시 열릴 때 새 뷰로 세운다.
-    for(const [k,el] of this._els) if(k==='changes'||k==='diff') el.dataset.built='';
+    const el=this._els.get('diff'); if(el) el.dataset.built='';
   },
-
-  // ── Changes 두 칸의 경계 (EDITOR_GIT_UX_SRS 묶음 D) ──
 
 });

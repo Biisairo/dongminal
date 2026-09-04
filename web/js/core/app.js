@@ -199,6 +199,22 @@ class App {
       const saved=sessionStorage.getItem('activeWindow');
       if(saved && this.ws.windows.some(s=>s.id===saved)){
         this.ws.activeWindow=saved;
+      }else{
+        /**
+         * REPO_TAB_UNIFY_SRS D-RTU-18: **Repo 창의 신원은 id 가 아니라 루트다.**
+         *
+         * 그 창은 `editors.list` 에서 **재조정이 만든다** (FR-EDT-42) — 저장이
+         * 아직 서버에 닿지 않았거나 다른 브라우저가 쓴 워크스페이스를 처음 읽으면
+         * 같은 루트의 창이 **새 id 로** 선다. 그때 id 만 보면 사용자가 보던 창을
+         * 찾지 못하고 폴백이 엉뚱한 일반 창을 고른다 (실측: 새로고침 뒤 Repo 탭이
+         * `Windows` 로 돌아갔다, V-SBT-4).
+         *
+         * 그래서 루트로 한 번 더 찾는다. 사용자에게 같은 저장소의 창은 같은 창이다.
+         */
+        let root=null;
+        try{root=sessionStorage.getItem(ACTIVE_EDITOR_ROOT_KEY)}catch{}
+        const w=root?this._edWindowFor(root):null;
+        if(w) this.ws.activeWindow=w.id;
       }
       // FR-RLC-8: 사이드바 탭이 돌아갈 창의 기억도 같은 성질이다 — 같은 블록에서
       // 되살린다.

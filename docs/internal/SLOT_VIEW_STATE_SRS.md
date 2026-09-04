@@ -6,6 +6,8 @@
 > |---|---|---|
 > | FR-SVS-30 (관측은 **앱에 하나**) | **저장소마다 하나**다. 그 규칙의 근거는 "Git 창이 하나여서 활성 저장소도 하나" 였고, 저장소마다 창이 서면서 그 전제가 깨졌다 | REPO_TAB_UNIFY_SRS FR-RTU-64 / D-RTU-16 |
 > | FR-SVS-40·42 (패널은 칸마다) | 키가 **(루트, 칸)** 이다 | REPO_TAB_UNIFY_SRS FR-RTU-60 |
+> | FR-SVS-36·38·39a (관측의 조건은 **그 창이 화면에 있는가**) | **그 표면이** 화면에 있는가로 좁혔다. Repo 창은 사이드가 `Explorer` 이고 본문에 git 뷰 탭도 없을 수 있고, 그때 관측을 쓰는 화면이 하나도 없다 — 저장소가 아닌 루트에도 status 가 3초마다 나갔다 (실측) | REPO_TAB_UNIFY_SRS FR-RTU-62 / D-RTU-25 |
+> | FR-SVS-47 (전역 진입점은 포커스 칸의 패널) | 그대로다. 다만 `app.gitPanel` 은 **활성 창의 루트 + 포커스 칸**이고, 활성 창이 Repo 창이 아니면 `null` 이다 | REPO_TAB_UNIFY_SRS FR-RTU-65 |
 
 ## 1. 개요 (Introduction)
 

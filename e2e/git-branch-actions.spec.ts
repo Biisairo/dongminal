@@ -392,10 +392,14 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await expect(mergeBox(page)).toBeVisible({ timeout: 15000 });
     await mergeBox(page).locator('.gbm-go').click();
 
-    // 관측이 진행 중을 싣고(FR-GIT-251) 화면은 Changes 탭으로 옮겨 간다 (FR-GIT-111).
+    // 관측이 진행 중을 싣고(FR-GIT-251) 화면은 Changes 로 옮겨 간다 (FR-GIT-111).
+    //
+    // **Changes 는 이제 본문 탭이 아니라 창의 사이드다** (REPO_TAB_UNIFY_SRS
+    // FR-RTU-32). 그래서 "본문의 보이는 뷰" 가 아니라 **사이드의 활성 탭**이
+    // 그리로 돌아갔는지를 잰다 (FR-RTU-73 의 `openView('changes')` 경로).
     await expect.poll(() => opKind(page), { timeout: 20000 }).toBe('merge');
-    await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/,
-      { timeout: 15000 });
+    await expect(page.locator('#area .ed-side .ed-side-tab[data-side="changes"]'))
+      .toHaveClass(/active/, { timeout: 15000 });
     await expect(page.locator('#area .ed-side .git-changes .git-op-bar')).toBeVisible();
     // 충돌 그룹이 펼쳐져 있다 — 해결 진입점이 접힌 채면 갈 곳이 없다.
     const conflicts = page.locator('#area .ed-side .git-changes .git-group[data-group="conflicts"]');

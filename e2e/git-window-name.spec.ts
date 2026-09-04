@@ -37,7 +37,7 @@ async function waitForInit(page: Page) {
 const topName = (page: Page) => page.locator('#window-name');
 // 사이드바 목록이 그 리포를 부르는 이름 — 상단이 맞춰야 할 값이다.
 const listName = (page: Page, root: string) =>
-  page.locator(`#repo-entries .git-repo.pinned[data-git-repo="${root}"] .git-repo-name`);
+  page.locator(`#repo-entries .ed-entry[data-git-repo="${root}"] .ed-entry-name`);
 
 test.describe('Git 창의 상단 이름', () => {
   test('상단 이름이 지금 보고 있는 리포다 — 목록과 같은 이름으로', async ({ page, request }) => {
@@ -48,7 +48,7 @@ test.describe('Git 창의 상단 이름', () => {
     await page.evaluate((p) => (window as any).app.openGitWindow(p), a);
     const wantA = await listName(page, a).textContent();
     expect(wantA).toBeTruthy();
-    await expect(topName(page)).toHaveText(`Git · ${wantA!.trim()}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(`Repo · ${wantA!.trim()}`, { timeout: 10000 });
     await expect(topName(page)).not.toHaveText('Git');
 
     // 같은 창에서 리포만 바꾼다 — render 가 돌지 않는 경로다.
@@ -56,16 +56,15 @@ test.describe('Git 창의 상단 이름', () => {
     const wantB = await listName(page, b).textContent();
     expect(wantB).toBeTruthy();
     expect(wantB!.trim()).not.toBe(wantA!.trim());
-    await expect(topName(page)).toHaveText(`Git · ${wantB!.trim()}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(`Repo · ${wantB!.trim()}`, { timeout: 10000 });
   });
 
-  // 리포가 없는 Git 창은 저장된 이름으로 남는다 — 부를 다른 이름이 없다.
-  test('리포를 고르지 않은 Git 창은 저장된 이름을 쓴다', async ({ page }) => {
-    await waitForInit(page);
-    await page.evaluate(() => (window as any).app.openGitWindow());
-    // FR-STB-3: 창 이름이 타입 라벨과 같으면 `Git · Git` 으로 겹쳐 적지 않는다.
-    await expect(topName(page)).toHaveText('Git', { timeout: 10000 });
-  });
+  /**
+   * **폐기 (REPO_TAB_UNIFY_SRS FR-RTU-70·72).** "리포를 고르지 않은 Git 창" 은
+   * 옛 Git 창의 상태였다 — 그 창은 워크스페이스에 하나이고 리포를 갈아탔다.
+   * Repo 창은 저장소 하나에 창 하나이므로 리포 없는 창이 없고, `openGitWindow()`
+   * 는 경로 없이 부르면 `null` 을 돌려준다.
+   */
 
   // 터미널 창은 종전대로다 — 이 변경이 Git 밖으로 새지 않아야 한다.
   test('터미널 창의 이름은 종전대로 창 이름이다', async ({ page }) => {

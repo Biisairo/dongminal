@@ -32,8 +32,10 @@
 .ed-side-tabs{display:flex;flex:0 0 auto;border-bottom:1px solid var(--border)}
 /* 균등 분할이다 — 이름이 짧다고 제 몫을 빼앗기면 폭 최소값에서 둘 다 잘린다
    (NFR-EDT-3 과 같은 근거). */
+/* FR-GIT-195~198: Git 표면의 컨트롤은 히트 영역 하한(30px)을 넘는다. 통합이
+   새로 넣은 이 두 컨트롤이 그 요구를 지나쳐 24px·23px 로 서 있었다 (V80 실측). */
 .ed-side-tab{
-  flex:1 1 0;min-width:0;padding:5px 4px;font-size:11px;
+  flex:1 1 0;min-width:0;min-height:30px;padding:5px 4px;font-size:11px;
   background:transparent;border:none;border-bottom:2px solid transparent;
   color:var(--text-muted);cursor:pointer;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -46,7 +48,7 @@
 .ed-side-acts{display:flex;flex:0 0 auto;gap:2px;padding:3px 4px;
   border-bottom:1px solid var(--border)}
 .ed-side-act{
-  flex:1 1 0;min-width:0;padding:2px 0;font-size:12px;line-height:1.4;
+  flex:1 1 0;min-width:0;min-height:30px;padding:2px 0;font-size:12px;line-height:1.4;
   background:transparent;border:1px solid transparent;border-radius:3px;
   color:var(--text-muted);cursor:pointer;
 }
@@ -73,7 +75,10 @@
 /* 모바일 배치는 후속이다 (비목표 8) — 탐색기를 접을 규약이 아직 없으므로 최소
    폭만 양보한다. */
 body.mobile .ed-explorer{max-width:40%}
-body.mobile .ed-side{max-width:40%}
+/* FR-RTU-80: 모바일에서 사이드는 **순회의 한 자리**이며 그 자리를 전부 쓴다.
+   종전 `max-width:40%` 는 사이드와 본문을 나란히 두려던 것이고, 390px 에서는
+   둘 다 쓸 수 없었다 (실측). */
+body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 
 /* ── 탐색기 트리 (EDITOR_TAB_SRS 묶음 X) ── */
 

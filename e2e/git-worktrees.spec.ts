@@ -358,11 +358,16 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
       await expect(row.locator(`.git-wt-act[data-act="${a}"]`), `${a} 동작 버튼이 없다`).toHaveCount(1);
     }
 
-    // 활성 리포로 열기 — gitPanel.setRepo 를 지난다.
-    await row.locator('.git-wt-act[data-act="open"]').click();
-    await expect.poll(() => page.evaluate(() => (window as any).app.gitPanel.repo), { timeout: 10000 })
-      .toBe(wtPath);
-
+    /**
+     * **순서를 바꿨다** (REPO_TAB_UNIFY_SRS FR-RTU-72 / FR-EDT-33).
+     *
+     * `open` 이 이제 **창 전환**이므로 그 뒤에는 Worktrees 뷰가 화면에 없다 —
+     * 새 창의 본문에는 그 탭이 없다. 그리고 그 창이 서면 경로가 `editors.list` 에
+     * 들어가고 저장소 루트이므로 **핀도 함께 생긴다** (`LinkEditorAdd`) — `pin`
+     * 을 뒤에 두면 이미 핀된 것을 다시 핀하는 시험이 된다.
+     *
+     * 그래서 `pin` → `term` → `open` → `remove` 다. 재는 것은 그대로 넷이다.
+     */
     // 핀 추가 — 기존 _gitAddRepo 경로(e2e/git-branches.spec.ts:177 과 같은 필드).
     await row.locator('.git-wt-act[data-act="pin"]').click();
     await expect.poll(async () => {
@@ -370,28 +375,36 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
       return (d?.git?.pinned || []).includes(wtPath);
     }, { timeout: 10000 }).toBe(true);
 
-    // 터미널 탭 — Git 창이 아닌 창에 연다(FR-GIT-41·185 와 같은 경로). V132/V133
-    // (e2e/git-improve.spec.ts)에서 이미 재현된 "이 종류의 동작은 Git 창을
-    // 벗어나게 한다"는 사실이 여기도 걸린다.
+    // 터미널 탭 — Repo 창이 아닌 창에 연다 (FR-GIT-41·185 와 같은 경로).
     const row2 = wt(page).locator('.git-wt-row').filter({ hasText: 'v151-acts' });
     await row2.locator('.git-wt-act[data-act="term"]').click();
     await expect.poll(() => page.evaluate(() => {
       const a = (window as any).app;
       const w = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
-      return (w && w.type) || 'terminal';
-    }), { timeout: 20000 }).not.toBe('git');
-    const hasTerminalInNonGit = await page.evaluate(() => {
+      return !!w && !a._isGitWin(w) && !a._isEditorWin(w);
+    }), { timeout: 20000 }).toBe(true);
+    const hasTerminalInPlain = await page.evaluate(() => {
       const a = (window as any).app;
       const w = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
-      if (!w || w.type === 'git') return false;
+      if (!w || a._isGitWin(w) || a._isEditorWin(w)) return false;
       const has = (n: any): boolean =>
         n.type === 'pane' ? (n.tabs || []).some((t: any) => t.type === 'terminal')
                           : (n.children || []).some(has);
       return has(w.layout);
     });
-    expect(hasTerminalInNonGit, '터미널 탭이 Git 이 아닌 창에 없다').toBe(true);
+    expect(hasTerminalInPlain, '터미널 탭이 일반 창에 없다').toBe(true);
 
-    // 제거 — 터미널 탭으로 Git 창을 벗어났으므로 되돌아온다.
+    // 활성 리포로 열기 — 그 경로의 Repo 창으로 간다 (FR-RTU-72).
+    await backToWorktrees(page, repo);
+    const rowOpen = wt(page).locator('.git-wt-row').filter({ hasText: 'v151-acts' });
+    await rowOpen.hover();
+    await rowOpen.locator('.git-wt-act[data-act="open"]').click();
+    await expect.poll(() => page.evaluate(() => {
+      const a = (window as any).app;
+      return a._isEditorWin(a._aw()) ? a._edRootOf(a._aw()) : null;
+    }), { timeout: 15000 }).toBe(wtPath);
+
+    // 제거 — 앞의 `open` 이 다른 창으로 데려갔으므로 되돌아온다.
     await backToWorktrees(page, repo);
     const row3 = wt(page).locator('.git-wt-row').filter({ hasText: 'v151-acts' });
     await row3.hover();
@@ -425,7 +438,7 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
     }, sel);
     expect(n).toBeGreaterThan(0);
 
-    await page.click('#area .pn-tab[data-git-view="changes"]');
+    // FR-RTU-32: Changes 는 사이드에 늘 있다 — 돌아갈 탭이 없다.
     const refreshBtn = page.locator('.git-view.git-changes .git-head-refresh');
     await expect(refreshBtn, '새로고침 버튼이 없다').toHaveCount(1, { timeout: 5000 });
     await refreshBtn.click();
@@ -487,7 +500,8 @@ test.describe('묶음 N — Worktrees 행의 핀 토글 (FR-GIT-249)', () => {
 
     // 좌측 GIT 섹션의 × 로 푼다 — Worktrees 탭이 부른 것이 아니다. 상태 관측은
     // 그대로이므로, 판정이 그리기에 업혀 있으면 버튼이 낡은 채로 남는다 (FR-RPT-8).
-    const x = page.locator(`#repo-entries .git-repo[data-git-repo="${wtPath}"] .git-repo-x`);
+    // FR-RTU-1: 목록 행은 `.ed-entry` 이고 제거는 `.ed-entry-x` 다 (D-RTU-2).
+    const x = page.locator(`#repo-entries .ed-entry[data-git-repo="${wtPath}"] .ed-entry-x`);
     await expect(x, '사이드바에 핀 행이 없다').toHaveCount(1, { timeout: 15000 });
     await x.click();
     await expect.poll(async () => (await pinned(request)).includes(wtPath), { timeout: 10000 }).toBe(false);
@@ -531,7 +545,7 @@ test.describe('행 동작은 hover 없이 보인다', () => {
     await expect(wtActs).toHaveCSS('opacity', '1');
     await expect(wtActs.locator('.git-wt-act').first()).toBeVisible();
 
-    await page.click('#area .pn-tab[data-git-view="changes"]');
+    // FR-RTU-32: Changes 는 사이드에 늘 있다 — 돌아갈 탭이 없다.
     const fileActs = page.locator('#area .ed-side .git-view.git-changes .git-file .git-file-acts').first();
     await expect(fileActs).toBeVisible({ timeout: 20000 });
     await page.mouse.move(0, 0);

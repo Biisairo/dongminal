@@ -65,7 +65,7 @@ async function openGit(page: Page, repo: string) {
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
 const group = (page: Page, key: string) => changes(page).locator(`.git-group[data-group="${key}"]`);
 const rows = (page: Page, key: string) => group(page, key).locator('.git-file');
-const files = (page: Page) => page.locator('#area .pn-body .git-file');
+const files = (page: Page) => page.locator('#area .ed-side .git-file');
 
 // 파일 목록이 채워질 때까지 기다린다 — status 조회는 비동기다.
 async function waitFiles(page: Page, min = 1) {
@@ -87,7 +87,7 @@ async function pin(request: APIRequestContext, path: string) {
   return (await r.json()).root as string;
 }
 const pinned = (page: Page, root: string) =>
-  page.locator(`#repo-entries .git-repo.pinned[data-git-repo="${root}"]`);
+  page.locator(`#repo-entries .ed-entry[data-git-repo="${root}"]`);
 async function cd(page: Page, dir: string) {
   await page.keyboard.type(`cd ${dir}`);
   await page.keyboard.press('Enter');
@@ -116,11 +116,9 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
       return has(w.layout) ? 'ok' : 'no-editor';
     }), { timeout: 20000 }).toBe('ok');
 
-    // Git 창은 고정 탭 7개 그대로다 (FR-GIT-185 유지, V74 와 같은 방법).
-    expect(await page.evaluate(() => {
-      const g = (window as any).app.ws.windows.find((w: any) => w.type === 'git');
-      return (g.layout.tabs || []).length;
-    })).toBe(7);
+    // **개정 (REPO_TAB_UNIFY_SRS FR-RTU-70).** 옛 Git 창은 사라졌으므로 "그 창의
+    // 고정 탭이 그대로다" 를 잴 대상이 없다. 남는 계약은 FR-EDT-94 다 — 편집기
+    // 탭은 **Repo 창**에 열린다. 위의 poll 이 이미 그것을 못박았다.
   });
 
   test('V133 (FR-GIT-236): 디렉터리 행·그룹 머리에는 Open File 이 없고, 인라인 버튼과 우클릭 메뉴가 같은 함수를 지난다', async ({ page }) => {
@@ -387,7 +385,7 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
       await page.click(`#area .pn-tab[data-git-view="${v}"]`);
       await page.waitForTimeout(300);
     }
-    await page.click('#area .pn-tab[data-git-view="changes"]');
+    // Changes 는 사이드에 늘 있다 (FR-RTU-32) — 돌아갈 탭이 없다.
     await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 
     // 자리는 .git-head-spacer 뒤이며 .git-head-remote 밖이다(git-changes.spec.ts:70
@@ -428,7 +426,7 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
     // History 를 먼저 마운트해야 새로고침이 그것을 대상에 넣는다(V138 과 같은 이유).
     await page.click('#area .pn-tab[data-git-view="history"]');
     await page.waitForTimeout(300);
-    await page.click('#area .pn-tab[data-git-view="changes"]');
+    // Changes 는 사이드에 늘 있다 (FR-RTU-32) — 돌아갈 탭이 없다.
     await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 
     const btn = changes(page).locator('.git-head-refresh');

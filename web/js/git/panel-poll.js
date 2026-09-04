@@ -8,82 +8,14 @@
  * 주기를 늦춘다 (FR-RMS-22).
  */
 Object.assign(GitPanel.prototype, {
-  // FR-CSZ-5: 가로와 세로를 따로 담는다. 한 값을 공유하면 데스크톱에서 정한
-  // 폭이 모바일에서 높이가 된다.
-  _filesSizeKey(){
-    return this._filesVertical()?GIT_FILES_H_KEY:GIT_FILES_W_KEY;
-  },
-
-  // 배치 방향은 CSS(`body.mobile`)가 정하므로 그것을 그대로 읽는다 — 여기서
-  // 폭으로 다시 판정하면 두 곳이 어긋난다.
-  _filesVertical(){
-    return document.body.classList.contains('mobile');
-  },
-
-  // FR-CSZ-6: 저장값이 없거나 망가졌으면 기본값이다. 범위 밖의 값도 기본으로
-  // 되돌린다 — 옛 판이 남긴 값이 화면을 접힌 채로 띄우지 않게.
-  _filesSizePref(){
-    let v=null; try{v=localStorage.getItem(this._filesSizeKey())}catch{}
-    const n=parseFloat(v);
-    if(!isFinite(n)||n<GIT_FILES_SIZE_MIN||n>GIT_FILES_SIZE_MAX) return GIT_FILES_SIZE_DEFAULT;
-    return n;
-  },
-
-  _setFilesSizePref(pct){
-    try{localStorage.setItem(this._filesSizeKey(),String(pct))}catch{}
-  },
-
-  _clampFilesSize(pct){
-    return Math.max(GIT_FILES_SIZE_MIN,Math.min(GIT_FILES_SIZE_MAX,pct));
-  },
-
-  // 크기는 flex-basis 하나로 준다. width/height 로 주면 방향이 바뀔 때 옛 축의
-  // 값이 남아 두 축이 동시에 걸린다.
-  _applyFilesSize(files,pct){
-    files.style.flex='0 0 '+pct+'%';
-  },
-
   /**
-   * FR-CSZ-1·2: 드래그 중에는 **화면만** 바꾸고 확정은 놓는 순간 한 번이다.
-   * `.ed-ex-handle` 의 `_rEdHandle` 과 같은 규약이다 — 드래그마다 저장하면
-   * localStorage 쓰기가 초당 수십 번 난다.
+   * **파일 목록의 크기·방향은 폐기됐다** (REPO_TAB_UNIFY_SRS FR-RTU-20).
    *
-   * 포인터 이벤트를 쓰는 이유는 FR-CSZ-7 이다. mouse 로만 달면 터치에서 잡히지
-   * 않고, 둘을 따로 달면 같은 계산이 두 벌이 된다.
+   * `_filesSizeKey`·`_filesVertical`·`_filesSizePref`·`_setFilesSizePref`·
+   * `_clampFilesSize`·`_applyFilesSize`·`_wireFilesHandle` 이 여기 있었다 —
+   * EDITOR_GIT_UX_SRS 묶음 D(FR-CSZ-1~8). 나눌 두 칸이 사라졌으므로(인라인
+   * diff 미리보기가 본문 탭으로 갔다) 그 사이의 손잡이도 대상이 없다.
    */
-  _wireFilesHandle(el,files){
-    const h=el.querySelector('.git-files-handle');
-    if(!h) return;
-    this._applyFilesSize(files,this._filesSizePref());
-    h.addEventListener('pointerdown',e=>{
-      const body=el.querySelector('.git-changes-body');
-      if(!body) return;
-      e.preventDefault();
-      const vert=this._filesVertical();
-      const total=vert?body.clientHeight:body.clientWidth;
-      if(total<=0) return;
-      const start=vert?e.clientY:e.clientX;
-      const startPct=(vert?files.offsetHeight:files.offsetWidth)/total*100;
-      // 포인터를 잡아 둔다 — 커서가 미리보기의 Monaco 위로 가면 그쪽이 이벤트를
-      // 먹어 드래그가 중간에 끊긴다.
-      try{h.setPointerCapture(e.pointerId)}catch{}
-      const pctAt=ev=>this._clampFilesSize(
-        startPct+((vert?ev.clientY:ev.clientX)-start)/total*100);
-      const mv=ev=>this._applyFilesSize(files,pctAt(ev));
-      const up=ev=>{
-        h.removeEventListener('pointermove',mv);
-        h.removeEventListener('pointerup',up);
-        h.removeEventListener('pointercancel',up);
-        try{h.releasePointerCapture(e.pointerId)}catch{}
-        const pct=pctAt(ev);
-        this._applyFilesSize(files,pct);
-        this._setFilesSizePref(pct);
-      };
-      h.addEventListener('pointermove',mv);
-      h.addEventListener('pointerup',up);
-      h.addEventListener('pointercancel',up);
-    });
-  },
 
   // 보기 모드와 공백무시는 기기별 취향이라 localStorage 에 남는다 (§3.3).
   _sideBySidePref(){
@@ -113,8 +45,7 @@ Object.assign(GitPanel.prototype, {
   _setIgnoreWs(on){
     this._ignWs=!!on;
     try{localStorage.setItem(GIT_DIFF_WS_KEY,this._ignWs?'1':'0')}catch{}
-    // 미리보기와 Diff 탭은 같은 상태다.
-    for(const v of [this._diffView,this._previewView]) if(v) v.setIgnoreWhitespace(this._ignWs);
+    if(this._diffView) this._diffView.setIgnoreWhitespace(this._ignWs);
     this._paint();
   },
 
@@ -131,8 +62,7 @@ Object.assign(GitPanel.prototype, {
   _setFold(on){
     this._fold=!!on;
     try{localStorage.setItem(GIT_DIFF_FOLD_KEY,this._fold?'1':'0')}catch{}
-    // FR-DOR-5: 두 뷰가 함께 움직인다.
-    for(const v of [this._diffView,this._previewView]) if(v) v.setHideUnchanged(this._fold);
+    if(this._diffView) this._diffView.setHideUnchanged(this._fold);
     this._paint();
   },
 
@@ -297,6 +227,9 @@ Object.assign(GitPanel.prototype, {
     // (NFR-RTU-1 이 그것을 금한다).
     const w=this.root?this.app._edWindowFor(this.root):this.app._gitWindow();
     if(!w||!this.app._windowVisible(w.id)) return false;
+    // 창이 보이는 것과 **이 패널의 표면**이 보이는 것은 다르다 — 사이드가
+    // Explorer 이고 본문에 git 뷰 탭도 없으면 이 관측을 쓰는 화면이 없다.
+    if(this.root&&!this.app._gitSurfaceOn(w)) return false;
     return !!this.repo;
   },
 

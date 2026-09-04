@@ -24,6 +24,8 @@
 .git-diff-nav:disabled{color:var(--text-dim);cursor:not-allowed}
 .git-diff-path{color:var(--text-bright);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .git-diff-pos{color:var(--text-muted);font-size:11px;flex-shrink:0}
+/* REPO_TAB_UNIFY_SRS FR-RTU-20: 걷어낸 인라인 미리보기의 축 라벨이 옮겨 왔다. */
+.git-diff-axis{color:var(--text-muted);font-size:11px;flex-shrink:0}
 .git-diff-gone{display:none;color:var(--attn);font-size:11px;flex-shrink:0}
 .git-diff-gone.vis{display:inline}
 .git-diff-spacer{flex:1 1 auto}
@@ -345,7 +347,8 @@ body.mobile .git-hist-f{width:60px}
    규칙은 `.sbl-list` 한 자리에 있다 (FR-BLP-7) — 옛 `max-height:40%` 는 세로
    공존의 산물이었고, 공존이 사라지면 근거도 사라진다. */
 /* FR-FLW-11: 비었을 때도 자리가 보인다 — 빈 자리는 고장처럼 읽힌다 */
-.git-repos-none{padding:4px 8px;font-size:11px;color:var(--text-dim)}
+/* `.git-repos-none` 이 여기 있었다 — 옛 `Git` 목록의 빈 안내다. 목록이 하나가
+   되면서(FR-RTU-1 / D-RTU-2) 그 자리는 `.ed-entries-none` 이 대신한다. */
 /* 옛 FR-GIT-214 의 여백 보정은 사라졌다 — `+ Add` 가 목록 **위**로 올라가면서
    (UX_REVISION_SRS FR-BLP-8) WINDOWS 와 같은 배치가 되었고, 그 배치에는 애초에
    이 문제가 없다고 그 조항이 이미 적어 두었다. */
@@ -356,8 +359,11 @@ body.mobile .git-hist-f{width:60px}
 /* 행·이름·×·배지의 생김새는 `.sbl-*` 이 정한다 (FR-BLP-7). 여기 남는 것은
    **Git 목록에만 있는 것**뿐이다. */
 /* 저장소가 아닌 항목은 흐리게 — 클릭 리스너 자체가 없다 (FR-GIT-10·11) */
-.git-repo.norepo{color:var(--text-dim);cursor:default}
-.git-repo.norepo:hover{background:transparent}
+/* FR-RMS-11: 사라진 저장소의 행. REPO_TAB_UNIFY_SRS FR-RTU-1 로 행의 클래스가
+   `.ed-entry` 가 됐으므로 둘 다 딛는다 — 옛 선택자를 지우면 남아 있는 화면이
+   색을 잃고, 새 것만 두면 그 사실이 보이지 않는다. */
+.git-repo.norepo,.ed-entry.norepo{color:var(--text-dim);cursor:default}
+.git-repo.norepo:hover,.ed-entry.norepo:hover{background:transparent}
 /* O4: 활성 리포가 아닌 배지는 마지막 관측값일 뿐이다 */
 .git-badge.stale{background:transparent;color:var(--text-dim)}
 /* FR-GIT-239: follow 행의 자리 칸(`.git-repo-xslot`)은 `×` 와 같은 폭을 받는다 —

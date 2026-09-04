@@ -130,8 +130,8 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
       const st = (sel: string) =>
         getComputedStyle(document.querySelector(sel + ' .git-file-st') as Element).color;
       return {
-        partial: st('#area .pn-body .git-file.partial'),
-        plain: st('#area .pn-body .git-file:not(.partial)'),
+        partial: st('#area .ed-side .git-file.partial'),
+        plain: st('#area .ed-side .git-file:not(.partial)'),
       };
     });
     expect(colors.partial).not.toBe(colors.plain);

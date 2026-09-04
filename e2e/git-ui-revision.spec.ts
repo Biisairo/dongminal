@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab, plainWindows, makeCopyFx, openGit, waitForInit } from './fixtures';
+import { test, expect, openGitTab, plainWindows, makeCopyFx, openGit, waitForInit, GIT_VIEW_TABS } from './fixtures';
 
 // GIT_UI_REVISION_SRS §4 — 검증 V70~V79.
 //
@@ -40,8 +40,8 @@ async function openChanges(page: Page, repo: string) {
   await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }
 
-const files = (page: Page) => page.locator('#area .pn-body .git-file');
-const gitRepos = (page: Page) => page.locator('#repo-entries .git-repo');
+const files = (page: Page) => page.locator('#area .ed-side .git-file');
+const gitRepos = (page: Page) => page.locator('#repo-entries .ed-entry');
 
 // 파일 목록이 채워질 때까지 기다린다 — status 조회는 비동기다.
 async function waitFiles(page: Page, min = 1) {
@@ -76,37 +76,54 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
       tabs: document.querySelectorAll('#area .pn-tab').length,
     }));
     expect(after).toEqual(before);
-    expect(after.tabs).toBe(7);
+    // 본문의 뷰 탭은 여섯이다 — `Changes` 는 사이드로 갔다 (FR-RTU-32).
+    expect(after.tabs).toBe(GIT_VIEW_TABS);
   });
 
-  test('V71 (FR-GIT-181): Git 창은 드롭 대상이 되지 않는다', async ({ page }) => {
-    await waitForInit(page);
-    await openGit(page, fx('basic'));
+  /**
+   * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-33 / V-RTU-31).**
+   *
+   *   이전 동작: 뷰 탭은 고정이라 끌 수도 닫을 수도 없었다 (FR-GIT-28)
+   *   새  동작: 편집기 탭과 **같은 자격**이다 — 끌리고 닫히고 분할된다.
+   *             창 **밖**으로만 못 나간다 (FR-RTU-17)
+   *   이유:     고정의 근거는 Git 창의 탭이 일곱으로 정해져 있어 자리가 늘 같아야
+   *             한다는 것이었고, 그 창이 사라졌다 (FR-RTU-70)
+   */
+  test('V71 (V-RTU-31 / FR-RTU-17·33): git 뷰 탭은 창 안에서 끌리고 창 밖으로는 못 나간다',
+    async ({ page }) => {
+      await waitForInit(page);
+      await openGit(page, fx('basic'));
 
-    // 고정 탭은 드래그를 시작할 수 없다 (FR-GIT-28).
-    const draggables = await page.evaluate(() =>
-      [...document.querySelectorAll('#area .pn-tab[data-git-view]')].map(t => (t as HTMLElement).draggable));
-    expect(draggables).toEqual([false, false, false, false, false, false, false]);
+      const draggables = await page.evaluate(() =>
+        [...document.querySelectorAll('#area .pn-tab[data-git-view]')].map(t => (t as HTMLElement).draggable));
+      expect(draggables, 'git 뷰 탭이 끌리지 않는다').toEqual(
+        new Array(GIT_VIEW_TABS).fill(true));
 
-    // 드롭 경로를 직접 불러도 Git 창의 구조는 그대로다 — 드래그 시작을 막는 것과
-    // 별개로 경로 자체가 막혀 있어야 한다.
-    const after = await page.evaluate(() => {
-      const a = (window as any).app;
-      const git = a.ws.windows.find((w: any) => w.type === 'git');
-      const pane = git.layout;
-      const tabId = pane.tabs[0].id;
-      a._moveTabToPane(pane.id, tabId, pane.id, null, false);
-      a._splitPaneWithTab(pane.id, tabId, pane.id, 'right');
-      return {
-        layoutType: git.layout.type,
-        tabTypes: (git.layout.tabs || []).map((t: any) => t.type),
-        panes: document.querySelectorAll('#area .pn').length,
-      };
+      // 창 안의 분할은 허용이다 — 드래그드롭이 분할이 생기는 유일한 길이다
+      // (FR-EDT-51).
+      const split = await page.evaluate(() => {
+        const a = (window as any).app;
+        const w = a._aw();
+        const pane = w.layout;
+        const tabId = pane.tabs[1].id;
+        a._splitPaneWithTab(pane.id, tabId, pane.id, 'right');
+        return { layoutType: a._aw().layout.type, panes: document.querySelectorAll('#area .pn').length };
+      });
+      expect(split.layoutType, '분할이 생기지 않았다').toBe('split');
+      expect(split.panes).toBe(2);
+
+      // 창 **밖**으로는 못 나간다 (FR-RTU-17 / FR-EDT-53). 일반 창의 탭 수가
+      // 그대로인 것이 그 증거다.
+      const moved = await page.evaluate(() => {
+        const a = (window as any).app;
+        const plain = a._plainWindows()[0];
+        const before = ((a._flattenPanes(plain.layout)[0] || {}).tabs || []).length;
+        const pane = a._flattenPanes(a._aw().layout)[0];
+        a._moveTabToWindow(pane.id, pane.tabs[0].id, plain.id);
+        return { before, after: ((a._flattenPanes(plain.layout)[0] || {}).tabs || []).length };
+      });
+      expect(moved.after, 'git 뷰 탭이 다른 창으로 나갔다').toBe(moved.before);
     });
-    expect(after.layoutType).toBe('pane');
-    expect(after.tabTypes).toEqual(['git', 'git', 'git', 'git', 'git', 'git', 'git']);
-    expect(after.panes).toBe(1);
-  });
 
   test('V72 (FR-GIT-182): Git 창은 WINDOWS 목록에도 창 전환 순환에도 없다', async ({ page }) => {
     await waitForInit(page);
@@ -146,9 +163,10 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
    * 남는 성질은 FR-GIT-184 하나다 — Git 창이 **열려 있어도** 다른 창으로 나갈 수
    * 있다. 나가는 길이 사이드바 탭이 되었으므로(FR-SBT-22) 트리거만 바뀐다.
    */
-  test('V73 (FR-GIT-184·FR-SBT-22): Git 창이 열려 있어도 다른 창으로 나갈 수 있다', async ({ page }) => {
+  test('V73 (FR-GIT-184·FR-SBT-22): Repo 창이 열려 있어도 다른 창으로 나갈 수 있다', async ({ page }) => {
     await waitForInit(page);
-    await openGit(page, fx('basic'));
+    const repo = fx('basic');
+    await openGit(page, repo);
     // Git 창에 들어가면 사이드바가 따라온다 (FR-SBT-14).
     await expect(page.locator('.sb-tab[data-panel="repo"]')).toHaveClass(/active/);
     // 상단 바에는 더 이상 닫기 버튼이 없다 (FR-SBT-34).
@@ -161,18 +179,20 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
       return (a.ws.windows.find((w: any) => w.id === a.ws.activeWindow) || {}).type || 'terminal';
     })).toBe('terminal');
 
-    // 떠나는 것과 닫는 것은 다르다 (FR-SBT-35) — Git 창은 그대로 남는다.
-    expect(await page.evaluate(() =>
-      (window as any).app.ws.windows.filter((w: any) => w.type === 'git').length)).toBe(1);
+    // 떠나는 것과 닫는 것은 다르다 (FR-SBT-35) — 그 창은 그대로 남는다.
+    // **창 타입은 `editor` 다** (FR-RTU-10 / D-RTU-1): 옛 `git` 창은 사라졌고
+    // (FR-RTU-70) 저장소 하나가 창 하나다.
+    expect(await page.evaluate((r) => !!(window as any).app._edWindowFor(r), repo)).toBe(true);
 
-    // 그리고 언제든 다시 들어간다 — 두 번째 창이 생기지 않는다 (FR-GIT-26 유지).
+    // 그리고 언제든 다시 들어간다 — 같은 루트의 창이 둘로 늘지 않는다 (FR-RTU-63).
     await page.click('.sb-tab[data-panel="repo"]');
     await expect.poll(() => page.evaluate(() => {
       const a = (window as any).app;
       return (a.ws.windows.find((w: any) => w.id === a.ws.activeWindow) || {}).type || 'terminal';
-    })).toBe('git');
-    expect(await page.evaluate(() =>
-      (window as any).app.ws.windows.filter((w: any) => w.type === 'git').length)).toBe(1);
+    })).toBe('editor');
+    expect(await page.evaluate((r) =>
+      (window as any).app._edWindows().filter((w: any) => (window as any).app._edRootOf(w) === r).length,
+    repo)).toBe(1);
   });
 
   /**
@@ -201,15 +221,15 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
     await page.evaluate((id) => (window as any).app.switchWindow(id), from);
     expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(from);
 
-    await openGit(page, fx('basic'));
+    const fxBasic = fx('basic');
+    await openGit(page, fxBasic);
     await page.click('.sb-tab[data-panel="windows"]');
 
     // 이웃(ids[0]·ids[2])이 아니라 떠나온 그 창이다.
     await expect.poll(() => page.evaluate(() =>
       (window as any).app.ws.activeWindow)).toBe(from);
-    // FR-SBT-35: 떠났을 뿐 Git 창은 파괴되지 않는다.
-    expect(await page.evaluate(() =>
-      (window as any).app.ws.windows.filter((w: any) => w.type === 'git').length)).toBe(1);
+    // FR-SBT-35: 떠났을 뿐 그 Repo 창은 파괴되지 않는다 (FR-RTU-10).
+    expect(await page.evaluate((r) => !!(window as any).app._edWindowFor(r), fxBasic)).toBe(true);
   });
 
   test('V74 (FR-GIT-41·185): Open File 은 Git 창이 아닌 창에 열고 그 창을 활성화한다', async ({ page }) => {
@@ -231,14 +251,11 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
       return has(w.layout) ? 'ok' : 'no-editor';
     }), { timeout: 20000 }).toBe('ok');
 
-    // Git 창은 고정 탭 7개 그대로다.
-    expect(await page.evaluate(() => {
-      const g = (window as any).app.ws.windows.find((w: any) => w.type === 'git');
-      return (g.layout.tabs || []).length;
-    })).toBe(7);
+    // **개정 (FR-RTU-70).** 옛 Git 창이 사라졌으므로 "그 창의 고정 탭이 그대로다"
+    // 를 잴 대상이 없다. 남는 계약은 FR-EDT-94 이며 위의 poll 이 그것을 못박았다.
   });
 
-  test('V75 (FR-GIT-186): 개정 이전 워크스페이스의 Git 창 안 탭은 일반 창으로 옮겨진다', async ({ page }) => {
+  test('V75 (FR-RTU-70·75, 옛 FR-GIT-186): 옛 Git 창은 사라지고 남의 탭만 일반 창이 받는다', async ({ page }) => {
     await waitForInit(page);
     const r = await page.evaluate(() => {
       // 개정 이전 모양: Git 창이 분할되어 있고 터미널·편집기 탭이 섞여 있다.
@@ -267,22 +284,26 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
         n.type === 'pane' ? (n.tabs || []) : (n.children || []).flatMap(collect);
       return {
         moved,
-        gitLayoutType: windows[1].layout.type,
-        gitTabTypes: collect(windows[1].layout).map((t: any) => t.type),
-        gitActiveTab: (windows[1].layout as any).activeTab,
+        gitGone: !windows.some((w) => w && w.type === 'git'),
         plainTabIds: collect(windows[0].layout).map((t: any) => t.id),
         windowCount: windows.length,
       };
     });
-    // Git 창은 단일 칸 + 고정 탭만 남는다.
-    expect(r.gitLayoutType).toBe('pane');
-    expect(r.gitTabTypes).toEqual(['git', 'git']);
-    // 활성 탭이 옮겨졌으므로 첫 고정 탭으로 되돌아온다.
-    expect(r.gitActiveTab).toBe('g1');
-    // 옮긴 탭은 사라지지 않는다 — 일반 창이 받는다.
-    expect(r.moved).toBe(2);
+    /**
+     * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-70·75 / D-RTU-14).**
+     *
+     *   이전 동작: Git 창은 남고 단일 칸 + 고정 탭 일곱으로 정리됐다
+     *   새  동작: **창 자체가 사라진다.** 고정 뷰 탭은 버리고(재현 가능하며 옮길
+     *             자리가 없다) 남의 탭(터미널·편집기)만 일반 창이 건져 낸다
+     *   이유:     Git 창이라는 특수 창이 없어졌다 — 저장소 하나가 창 하나다
+     */
+    // 창이 사라졌으므로 목록에는 일반 창 하나만 남는다.
+    expect(r.windowCount).toBe(1);
+    expect(r.gitGone, 'Git 창이 남았다').toBe(true);
+    // 옮긴 탭은 사라지지 않는다 — 일반 창이 받는다. 뷰 탭 둘은 버려진다.
     expect(r.plainTabIds).toEqual(['t1', 'e1', 't2']);
-    expect(r.windowCount).toBe(2);
+    // 반환값은 **바뀐 것의 수**다 — 옮긴 탭 둘 + 지운 창 하나.
+    expect(r.moved).toBe(3);
   });
 });
 
@@ -293,13 +314,13 @@ test.describe('UI 개정 — 파일 선택 (FR-GIT-187~191)', () => {
     await waitFiles(page, 5);
 
     // 체크박스는 사라졌다.
-    await expect(page.locator('#area .pn-body .git-file-check')).toHaveCount(0);
-    await expect(page.locator('#area .pn-body .git-file input[type=checkbox]')).toHaveCount(0);
+    await expect(page.locator('#area .ed-side .git-file-check')).toHaveCount(0);
+    await expect(page.locator('#area .ed-side .git-file input[type=checkbox]')).toHaveCount(0);
 
     const sel = () => page.evaluate(() =>
-      [...document.querySelectorAll('#area .pn-body .git-file.sel')].map(e => (e as HTMLElement).dataset.path));
+      [...document.querySelectorAll('#area .ed-side .git-file.sel')].map(e => (e as HTMLElement).dataset.path));
     const cur = () => page.evaluate(() =>
-      [...document.querySelectorAll('#area .pn-body .git-file.cur')].map(e => (e as HTMLElement).dataset.path));
+      [...document.querySelectorAll('#area .ed-side .git-file.cur')].map(e => (e as HTMLElement).dataset.path));
     const preview = () => page.evaluate(() => ((window as any).app.gitPanel.previewFile || {}).path || null);
 
     // 클릭: 선택을 그 행 하나로 바꾸고 미리보기를 채운다.
@@ -343,7 +364,7 @@ test.describe('UI 개정 — 파일 선택 (FR-GIT-187~191)', () => {
     // 두 행 모두 선택이지만 포커스는 하나다 — 둘을 같게 그리면 미리보기가 어느
     // 행을 보이는지 알 수 없다.
     const marks = await page.evaluate(() => {
-      const rows = [...document.querySelectorAll('#area .pn-body .git-file')] as HTMLElement[];
+      const rows = [...document.querySelectorAll('#area .ed-side .git-file')] as HTMLElement[];
       const selOnly = rows.find(r => r.classList.contains('sel') && !r.classList.contains('cur'))!;
       const focused = rows.find(r => r.classList.contains('cur'))!;
       const cs = (e: HTMLElement) => {
@@ -365,7 +386,7 @@ test.describe('UI 개정 — 파일 선택 (FR-GIT-187~191)', () => {
 
     // basic 픽스처의 `디렉터리 한글/파일 이름.txt` 는 staged + unstaged 다.
     const colors = await page.evaluate(() => {
-      const rows = [...document.querySelectorAll('#area .pn-body .git-file')] as HTMLElement[];
+      const rows = [...document.querySelectorAll('#area .ed-side .git-file')] as HTMLElement[];
       const partial = rows.find(r => r.classList.contains('partial'));
       const plain = rows.find(r => !r.classList.contains('partial'));
       const st = (r?: HTMLElement) => r ? getComputedStyle(r.querySelector('.git-file-st')!).color : null;
@@ -415,7 +436,10 @@ test.describe('UI 개정 — 컨트롤 치수 (FR-GIT-195~199)', () => {
     // 행 인라인 동작은 hover 로만 보인다 — 재려면 하나를 띄운다.
     await files(page).first().hover();
 
-    const m = (await measure(page, '#area .pn-body'))!;
+    // **Git 표면이 둘이 됐다** (REPO_TAB_UNIFY_SRS FR-RTU-11): Changes 는 창의
+    // 사이드, 나머지 뷰는 본문의 탭이다. 치수 하한은 표면의 자리와 무관하므로
+    // 둘 다 잰다 — 사이드만 재면 뷰 탭의 버튼이 검사를 벗어난다.
+    const m = (await measure(page, '#area .ed-win'))!;
     expect(m.buttons.length).toBeGreaterThan(5);
 
     const tooSmall = m.buttons.filter((b) => b.w < MIN_HIT || b.h < MIN_HIT);
@@ -436,7 +460,7 @@ test.describe('UI 개정 — 컨트롤 치수 (FR-GIT-195~199)', () => {
     // GIT 섹션의 리포 행도 목록이다.
     const side = (await measure(page, '#sidebar'))!;
     const repos = await page.evaluate(() =>
-      [...document.querySelectorAll('#repo-entries .git-repo')].map(e => Math.round(e.getBoundingClientRect().height)));
+      [...document.querySelectorAll('#repo-entries .ed-entry')].map(e => Math.round(e.getBoundingClientRect().height)));
     expect(Math.min(...repos)).toBeGreaterThanOrEqual(MIN_ROW);
     expect(side.buttons.filter(b => b.h < MIN_HIT)).toEqual([]);
   });
@@ -517,8 +541,9 @@ test.describe('UI 개정 — 버튼 라벨 (FR-GIT-200~202)', () => {
     await files(page).first().click();     // 선택 동작 줄을 띄운다
 
     const hangul = /[가-힣]/;
+    // Git 표면은 사이드 + 본문 둘이다 (FR-RTU-11) — V80 과 같은 근거.
     const labels = await page.evaluate(() =>
-      [...document.querySelectorAll('#area .pn-body button')]
+      [...document.querySelectorAll('#area .ed-win button')]
         .filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; })
         .map((e) => (e.textContent || '').trim()));
     expect(labels.length).toBeGreaterThan(5);
@@ -608,7 +633,7 @@ test.describe('UI 개정 — 라디오 (FR-GIT-203~206)', () => {
     await waitForInit(page);
     await openChanges(page, fx('with-remote'));
     // Pull 의 `▾` 옵션 다이얼로그가 라디오를 쓴다 (constants.js 의 pull 옵션).
-    await page.locator('#area .pn-body .git-remote-more[data-remote="pull"]').click();
+    await page.locator('#area .ed-side .git-remote-more[data-remote="pull"]').click();
     const radios = page.locator('.git-dialog input[type="radio"]');
     await expect(radios.first()).toBeVisible({ timeout: 15000 });
 
@@ -634,11 +659,11 @@ test.describe('UI 개정 — 커밋 영역의 정렬 (FR-GIT-213)', () => {
   test('V90 (FR-GIT-213): 입력창이 폭을 다 쓰고 amend·Commit 이 그 아래 한 줄에 선다', async ({ page }) => {
     await waitForInit(page);
     await openChanges(page, fx('basic'));
-    const area = page.locator('#area .pn-body .git-commit');
+    const area = page.locator('#area .ed-side .git-commit');
     await expect(area).toBeVisible({ timeout: 15000 });
 
     const read = () => page.evaluate(() => {
-      const q = (s: string) => document.querySelector('#area .pn-body ' + s) as HTMLElement;
+      const q = (s: string) => document.querySelector('#area .ed-side ' + s) as HTMLElement;
       const box = (s: string) => { const e = q(s); const r = e.getBoundingClientRect();
         return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height),
                  cy: Math.round(r.y + r.height / 2), bottom: Math.round(r.bottom) }; };
@@ -665,7 +690,7 @@ test.describe('UI 개정 — 커밋 영역의 정렬 (FR-GIT-213)', () => {
     expect(a.go.x).toBeLessThan(a.main.x + a.main.w / 2);
 
     // 입력창이 자라도 그 줄의 정렬은 그대로다 (FR-GIT-74 로 높이가 변한다).
-    await page.locator('#area .pn-body .git-commit-msg').fill('a\nb\nc\nd\ne\nf');
+    await page.locator('#area .ed-side .git-commit-msg').fill('a\nb\nc\nd\ne\nf');
     await page.waitForTimeout(600);
     const b = await read();
     expect(b.msg.h).toBeGreaterThan(a.msg.h);
@@ -679,11 +704,11 @@ test.describe('UI 개정 — 목록의 구조 (FR-GIT-211~212)', () => {
     await waitForInit(page);
     await openChanges(page, fx('basic'));
     await waitFiles(page, 3);
-    await page.locator('#area .pn-body .git-files-mode[data-mode="tree"]').click();
+    await page.locator('#area .ed-side .git-files-mode[data-mode="tree"]').click();
     await page.waitForTimeout(600);
 
     const rows = () => page.evaluate(() =>
-      [...document.querySelectorAll('#area .pn-body .git-file, #area .pn-body .git-dir')]
+      [...document.querySelectorAll('#area .ed-side .git-file, #area .ed-side .git-dir')]
         .map((e) => {
           const s = getComputedStyle(e);
           return {
@@ -708,7 +733,7 @@ test.describe('UI 개정 — 목록의 구조 (FR-GIT-211~212)', () => {
     for (const r of flatRows) expect(r.width).toBe('0px');
 
     // 플랫 보기에는 들여쓴 행 자체가 없다.
-    await page.locator('#area .pn-body .git-files-mode[data-mode="flat"]').click();
+    await page.locator('#area .ed-side .git-files-mode[data-mode="flat"]').click();
     await page.waitForTimeout(600);
     expect((await rows()).every((r) => r.depth === 0)).toBe(true);
   });
@@ -719,7 +744,7 @@ test.describe('UI 개정 — 목록의 구조 (FR-GIT-211~212)', () => {
     await waitFiles(page, 3);
 
     const borders = await page.evaluate(() =>
-      [...document.querySelectorAll('#area .pn-body .git-group')].map((e) => ({
+      [...document.querySelectorAll('#area .ed-side .git-group')].map((e) => ({
         group: (e as HTMLElement).dataset.group,
         top: getComputedStyle(e).borderTopWidth,
       })));
@@ -750,10 +775,10 @@ test.describe('UI 개정 — 터미널의 리포를 딛는 근거 (D-FLW-6, 옛 
     await openGit(page, repo);
 
     await page.click('#repo-add');
-    const dlg = page.locator('#repo-add-dlg');
+    const dlg = page.locator('#editor-add-dlg');
     await expect(dlg).toBeVisible({ timeout: 10000 });
     // dongminal 자신이 아니라 마지막 터미널의 리포다.
-    await expect(dlg.locator('.gar-path')).toHaveValue(repo, { timeout: 15000 });
+    await expect(dlg.locator('.eda-path')).toHaveValue(repo, { timeout: 15000 });
   });
 
   // FR-FLW-3 은 추적을 "포커스가 바뀔 때 값만 갱신한다" 로 규정한다. 그런데
@@ -788,10 +813,10 @@ test.describe('UI 개정 — 터미널의 리포를 딛는 근거 (D-FLW-6, 옛 
 
     await openGit(page, repoA);
     await page.click('#repo-add');
-    const dlg = page.locator('#repo-add-dlg');
+    const dlg = page.locator('#editor-add-dlg');
     await expect(dlg).toBeVisible({ timeout: 10000 });
     // 마지막으로 클릭한 칸(repoA)이 아니라 방금 떠나온 자리다.
-    await expect(dlg.locator('.gar-path')).toHaveValue(repoB, { timeout: 15000 });
+    await expect(dlg.locator('.eda-path')).toHaveValue(repoB, { timeout: 15000 });
   });
 
   test('V87b (FR-FLW-3): 탭을 더한 뒤 연 + Add 가 그 탭의 리포를 채운다', async ({ page }) => {
@@ -816,9 +841,9 @@ test.describe('UI 개정 — 터미널의 리포를 딛는 근거 (D-FLW-6, 옛 
 
     await openGit(page, repoA);
     await page.click('#repo-add');
-    const dlg = page.locator('#repo-add-dlg');
+    const dlg = page.locator('#editor-add-dlg');
     await expect(dlg).toBeVisible({ timeout: 10000 });
-    await expect(dlg.locator('.gar-path')).toHaveValue(repoB, { timeout: 15000 });
+    await expect(dlg.locator('.eda-path')).toHaveValue(repoB, { timeout: 15000 });
   });
 });
 
@@ -830,11 +855,11 @@ test.describe('UI 개정 — 동작의 진입점 (FR-GIT-207~209)', () => {
     // 여러 개를 골라도 줄이 생기지 않는다 — 진입점은 행 버튼 하나다.
     await files(page).nth(0).click();
     await files(page).nth(1).click({ modifiers: ['ControlOrMeta'] });
-    await expect(page.locator('#area .pn-body .git-sel')).toHaveCount(0);
-    await expect(page.locator('#area .pn-body .git-sel-act')).toHaveCount(0);
-    await expect(page.locator('#area .pn-body .git-sel-clear')).toHaveCount(0);
+    await expect(page.locator('#area .ed-side .git-sel')).toHaveCount(0);
+    await expect(page.locator('#area .ed-side .git-sel-act')).toHaveCount(0);
+    await expect(page.locator('#area .ed-side .git-sel-clear')).toHaveCount(0);
     // 그룹 일괄은 남는다 (FR-GIT-66~68).
-    await expect(page.locator('#area .pn-body .git-group-bulk').first()).toHaveCount(1);
+    await expect(page.locator('#area .ed-side .git-group-bulk').first()).toHaveCount(1);
   });
 
   test('V86 (FR-GIT-208): 선택 안의 행에서 누르면 선택 전체가, 밖이면 그 행만 대상이다', async ({ page }) => {
@@ -843,36 +868,36 @@ test.describe('UI 개정 — 동작의 진입점 (FR-GIT-207~209)', () => {
     await openChanges(page, repo);
     await waitFiles(page, 5);
     // 플랫 보기로 고정한다 — 트리는 행 순서가 디렉터리로 묶여 헷갈린다.
-    await page.locator('#area .pn-body .git-files-mode[data-mode="flat"]').click();
+    await page.locator('#area .ed-side .git-files-mode[data-mode="flat"]').click();
     await page.waitForTimeout(500);
 
-    const untracked = page.locator('#area .pn-body .git-group[data-group="untracked"] .git-file');
+    const untracked = page.locator('#area .ed-side .git-group[data-group="untracked"] .git-file');
     await expect.poll(() => untracked.count(), { timeout: 15000 }).toBeGreaterThanOrEqual(1);
 
     // untracked 를 전부 고른 뒤, 그 중 한 행의 `+` 를 누른다.
     const n = await untracked.count();
     await untracked.nth(0).click();
     for (let i = 1; i < n; i++) await untracked.nth(i).click({ modifiers: ['ControlOrMeta'] });
-    await expect(page.locator('#area .pn-body .git-file.sel')).toHaveCount(n);
+    await expect(page.locator('#area .ed-side .git-file.sel')).toHaveCount(n);
 
     await untracked.nth(0).hover();
     await untracked.nth(0).locator('.git-file-act[data-act="stage"]').click();
 
     // 선택 전체가 스테이지된다 — 누른 행 하나가 아니다.
     await expect.poll(() =>
-      page.locator('#area .pn-body .git-group[data-group="untracked"] .git-file').count(),
+      page.locator('#area .ed-side .git-group[data-group="untracked"] .git-file').count(),
       { timeout: 20000 }).toBe(0);
 
     // 이번엔 선택 밖의 행에서 누른다 — 그 행만 대상이다.
-    const changes = page.locator('#area .pn-body .git-group[data-group="changes"] .git-file');
+    const changes = page.locator('#area .ed-side .git-group[data-group="changes"] .git-file');
     await expect.poll(() => changes.count(), { timeout: 15000 }).toBeGreaterThanOrEqual(2);
     const before = await changes.count();
     // 선택을 staged 쪽 한 행으로 옮겨 changes 행들이 선택 밖이 되게 한다.
-    await page.locator('#area .pn-body .git-group[data-group="staged"] .git-file').first().click();
+    await page.locator('#area .ed-side .git-group[data-group="staged"] .git-file').first().click();
     await changes.nth(0).hover();
     await changes.nth(0).locator('.git-file-act[data-act="stage"]').click();
     await expect.poll(() =>
-      page.locator('#area .pn-body .git-group[data-group="changes"] .git-file').count(),
+      page.locator('#area .ed-side .git-group[data-group="changes"] .git-file').count(),
       { timeout: 20000 }).toBe(before - 1);
   });
 });
@@ -898,8 +923,8 @@ test.describe('UI 개정 — GIT 행 높이 (FR-GIT-219)', () => {
     });
     await openGitTab(page);
     const m = await page.evaluate(() => {
-      const g = document.getElementById('git-repos')!;
-      const row = g.querySelector('.git-repo') as HTMLElement;
+      const g = document.getElementById('repo-entries')!;
+      const row = g.querySelector('.ed-entry') as HTMLElement;
       return { row: Math.round(row.getBoundingClientRect().height) };
     });
     expect(si, 'WINDOWS 행이 없다').toBeGreaterThan(0);
@@ -912,8 +937,8 @@ test.describe('UI 개정 — GIT 행 높이 (FR-GIT-219)', () => {
 async function dragPin(page: Page, src: string, dst: string, before = true) {
   await page.evaluate(({ s, d, b }) => {
     const dt = new DataTransfer();
-    const from = document.querySelector(`#repo-entries .git-repo[data-git-repo="${s}"]`)!;
-    const to = document.querySelector(`#repo-entries .git-repo[data-git-repo="${d}"]`)!;
+    const from = document.querySelector(`#repo-entries .ed-entry[data-git-repo="${s}"]`)!;
+    const to = document.querySelector(`#repo-entries .ed-entry[data-git-repo="${d}"]`)!;
     const r = to.getBoundingClientRect();
     const y = b ? r.top + 2 : r.bottom - 2;
     from.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
@@ -924,7 +949,7 @@ async function dragPin(page: Page, src: string, dst: string, before = true) {
 }
 
 const pinOrder = (page: Page) =>
-  page.evaluate(() => [...document.querySelectorAll('#repo-entries .git-repo')]
+  page.evaluate(() => [...document.querySelectorAll('#repo-entries .ed-entry')]
     .filter((e) => !e.classList.contains('follow'))
     .map((e) => (e as HTMLElement).dataset.gitRepo));
 
@@ -948,8 +973,8 @@ test.describe('UI 개정 — 핀 드래그 정렬 (FR-GIT-223)', () => {
     // 문서 전역이 drop 을 받고 마지막 dragover 가 기록한 대상으로 커밋한다.
     await page.evaluate(({ s, d }) => {
       const dt = new DataTransfer();
-      const from = document.querySelector(`#repo-entries .git-repo[data-git-repo="${s}"]`)!;
-      const to = document.querySelector(`#repo-entries .git-repo[data-git-repo="${d}"]`)!;
+      const from = document.querySelector(`#repo-entries .ed-entry[data-git-repo="${s}"]`)!;
+      const to = document.querySelector(`#repo-entries .ed-entry[data-git-repo="${d}"]`)!;
       const r = to.getBoundingClientRect();
       from.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
       to.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer: dt, clientY: r.bottom - 2 }));
@@ -962,7 +987,10 @@ test.describe('UI 개정 — 핀 드래그 정렬 (FR-GIT-223)', () => {
 
     // 서버가 권위로 쓴다 (O1) — 새로고침해도 남는다.
     await page.reload();
-    await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+    // **터미널을 기다리지 않는다.** 새로고침 뒤 활성 창은 Repo 창일 수 있고
+    // (D-RTU-18: 신원이 루트다) 그 창에는 포커스된 터미널 칸이 없다 (FR-EDT-55).
+    // 이 시험이 기다려야 하는 것은 사이드바 목록이 서는 것뿐이다.
+    await openGitTab(page);
     await expect.poll(() => pinOrder(page), { timeout: 20000 }).toEqual([a, c, b]);
   });
 
@@ -972,13 +1000,13 @@ test.describe('UI 개정 — 핀 드래그 정렬 (FR-GIT-223)', () => {
     await openGitTab(page);
     await expect.poll(() => gitRepos(page).count(), { timeout: 20000 }).toBeGreaterThanOrEqual(1);
 
-    const follow = page.locator('#repo-entries .git-repo.follow');
+    const follow = page.locator('#repo-entries .ed-entry.follow');
     if (await follow.count()) {
       // 핀이 아니고 늘 최상단 1줄이다 (FR-GIT-193).
       await expect(follow).not.toHaveAttribute('draggable', 'true');
     }
     // 핀 항목은 끌 수 있다.
-    await expect(page.locator('#repo-entries .git-repo:not(.follow)').first())
+    await expect(page.locator('#repo-entries .ed-entry:not(.follow)').first())
       .toHaveAttribute('draggable', 'true');
   });
 });
@@ -988,11 +1016,11 @@ test.describe('UI 개정 — 그룹 머리글 높이 (FR-GIT-220)', () => {
     await waitForInit(page);
     await openChanges(page, fx('conflict'));
     await expect.poll(async () =>
-      (await page.locator('#area .pn-body .git-group').count()), { timeout: 20000 })
+      (await page.locator('#area .ed-side .git-group').count()), { timeout: 20000 })
       .toBeGreaterThanOrEqual(2);
 
     const heads = await page.evaluate(() =>
-      [...document.querySelectorAll('#area .pn-body .git-group')].map((g) => ({
+      [...document.querySelectorAll('#area .ed-side .git-group')].map((g) => ({
         group: (g as HTMLElement).dataset.group,
         h: Math.round((g.querySelector('.git-group-head') as HTMLElement).getBoundingClientRect().height),
         bulk: !!g.querySelector('.git-group-bulk'),
@@ -1043,14 +1071,14 @@ test.describe('UI 개정 — 섹션 경계 (FR-GIT-216)', () => {
     expect(strong.toLowerCase(), '섹션 색이 행 구분선과 같다').not.toBe(plain.toLowerCase());
 
     // ① Changes 그룹 — 첫 그룹 위에는 없고, 둘째부터 경계를 갖는다.
-    await expect.poll(async () => (await edges(page, '#area .pn-body .git-group', 'top')).length,
+    await expect.poll(async () => (await edges(page, '#area .ed-side .git-group', 'top')).length,
       { timeout: 15000 }).toBeGreaterThanOrEqual(2);
-    const groups = await edges(page, '#area .pn-body .git-group', 'top');
+    const groups = await edges(page, '#area .ed-side .git-group', 'top');
     expect(groups[0].w, '첫 그룹 위에 선이 있다').toBe(0);
     expect(groups[1].w).toBeGreaterThanOrEqual(SEC_BORDER_W);
 
     // 같은 화면의 행과 달라야 한다 — 굵기든 색이든.
-    const rowLine = (await edges(page, '#area .pn-body .git-file', 'top'))[0];
+    const rowLine = (await edges(page, '#area .ed-side .git-file', 'top'))[0];
     expect(groups[1].w + '/' + groups[1].color, '섹션 경계가 행과 구별되지 않는다')
       .not.toBe(rowLine.w + '/' + rowLine.color);
 
@@ -1068,7 +1096,7 @@ test.describe('UI 개정 — 섹션 경계 (FR-GIT-216)', () => {
       'return THEMES[k].ui.border.toLowerCase()!==cur});' +
       'customTheme=null;currentThemeName=n;applyThemeObj(THEMES[n]);return n})()');
     await expect.poll(async () =>
-      (await edges(page, '#area .pn-body .git-group', 'top'))[1].color,
+      (await edges(page, '#area .ed-side .git-group', 'top'))[1].color,
       { timeout: 10000 }).not.toBe(before);
   });
 
@@ -1113,6 +1141,7 @@ const MIN_GAP_ACTIONS_LIST = 4;
 // 버튼 행 전체를 기준으로 잡는 이유는 WINDOWS 가 버튼이 둘이기 때문이다.
 const panelGap = (page: Page, panelId: string, listId: string) =>
   page.evaluate(([p, l]) => {
+    // FR-RTU-1: 패널 id 는 `sb-panel-repo`, 목록 id 는 `repo-entries` 다.
     const bar = document.querySelector('#' + p + ' .sb-actions')!.getBoundingClientRect();
     const list = document.getElementById(l)!.getBoundingClientRect();
     return list.top - bar.bottom;
@@ -1128,7 +1157,7 @@ test.describe('UI 개정 — GIT 섹션의 간격 (FR-GIT-214 → FR-BLP-5·8)',
     // 간격은 요소 사각형 사이의 빈 거리다 — 숨은 패널에서는 잴 수 없다 (FR-SBT-2).
     await openGitTab(page);
 
-    const gitGap = await panelGap(page, 'sb-panel-repo', 'git-repos');
+    const gitGap = await panelGap(page, 'sb-panel-repo', 'repo-entries');
     expect(gitGap, '+ Add 와 목록이 붙어 있다').toBeGreaterThanOrEqual(MIN_GAP_ACTIONS_LIST);
     // FR-BLP-5: 두 패널의 골격이 같다 — 같은 자리의 같은 간격이어야 "구조가
     // 같다" 가 눈으로도 성립한다. 숨은 패널은 잴 수 없으므로 탭을 옮겨 잰다.
@@ -1146,7 +1175,7 @@ test.describe('UI 개정 — GIT 섹션의 간격 (FR-GIT-214 → FR-BLP-5·8)',
     await page.waitForTimeout(300);
     await openGitTab(page);
 
-    expect(await panelGap(page, 'sb-panel-repo', 'git-repos')).toBeGreaterThanOrEqual(MIN_GAP_ACTIONS_LIST);
+    expect(await panelGap(page, 'sb-panel-repo', 'repo-entries')).toBeGreaterThanOrEqual(MIN_GAP_ACTIONS_LIST);
   });
 });
 
@@ -1160,19 +1189,19 @@ test.describe('UI 개정 — GIT 섹션 표식 (FR-GIT-192~194)', () => {
       await (window as any).app._gitPin(p);
     }, fx('with-remote'));
     await openGit(page, fx('basic'));
-    await expect.poll(() => page.locator('#repo-entries .git-repo').count(),
+    await expect.poll(() => page.locator('#repo-entries .ed-entry').count(),
       { timeout: 20000 }).toBe(2);
 
     // 이모지를 쓰지 않는다.
-    const text = await page.evaluate(() => document.getElementById('git-repos')!.textContent || '');
+    const text = await page.evaluate(() => document.getElementById('repo-entries')!.textContent || '');
     expect(text).not.toContain('📌');
     expect(text).not.toContain('⟳');
 
     // 표식은 WINDOWS 의 점과 같은 어휘다 — 활성 리포만 accent 로 채운다.
     const dots = await page.evaluate(() => {
-      const rows = [...document.querySelectorAll('#repo-entries .git-repo')] as HTMLElement[];
+      const rows = [...document.querySelectorAll('#repo-entries .ed-entry')] as HTMLElement[];
       return rows.map(r => {
-        const d = r.querySelector('.git-repo-dot') as HTMLElement | null;
+        const d = r.querySelector('.ed-entry-dot') as HTMLElement | null;
         return {
           repo: (r.dataset.gitRepo || '').split('/').pop(),
           active: r.classList.contains('active'),

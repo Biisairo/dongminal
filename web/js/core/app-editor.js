@@ -394,6 +394,10 @@ Object.assign(App.prototype, {
   _edActiveTree(){
     const s=this._aw();
     if(!this._isEditorWin(s)||!this._edTrees) return null;
+    // FR-RTU-12·14: 사이드가 `Changes` 면 탐색기는 화면에 없다 — `_edVisibleTrees`
+    // 와 같은 게이트다. 이 자리가 빠지면 즉시 신호(`_gitSignal`)마다 보이지도
+    // 않는 트리의 status 가 한 건 더 나가 디바운스가 무의미해진다 (V5 실측).
+    if(this._edSideOf(s)!==REPO_SIDE_EXPLORER) return null;
     const mine=this._edTrees.get(this._slotKey(s.id,this._slotFocused()));
     if(mine) return mine;
     for(const[key,t] of this._edTrees) if(this._slotBase(key)===s.id) return t;
@@ -415,7 +419,22 @@ Object.assign(App.prototype, {
     if(!this._edTrees) return [];
     const out=[];
     for(const [key,t] of this._edTrees){
-      if(t&&this._windowVisible(this._slotBase(key))) out.push(t);
+      if(!t) continue;
+      const id=this._slotBase(key);
+      if(!this._windowVisible(id)) continue;
+      /**
+       * REPO_TAB_UNIFY_SRS FR-RTU-12·14: **사이드가 Explorer 일 때만** 묻는다.
+       *
+       * 창이 보이는 것과 탐색기가 보이는 것이 이제 다르다 — 사이드는 탭 교체이고
+       * `Changes` 쪽에 있으면 트리는 화면에 없다. 트리 객체는 그때도 살아 있으므로
+       * (돌아왔을 때 펼침·스크롤이 남아야 한다, FR-EDT-66) 목록에서만 뺀다.
+       *
+       * 실측: 이 게이트가 없으면 `Changes` 사이드에서도 3초마다 status·stamp 가
+       * 나가 "폴링을 껐는데 status 가 온다" 가 됐다 (V18).
+       */
+      const w=this.ws.windows.find(x=>x&&x.id===id);
+      if(this._isEditorWin(w)&&this._edSideOf(w)!==REPO_SIDE_EXPLORER) continue;
+      out.push(t);
     }
     return out;
   },
@@ -457,7 +476,16 @@ Object.assign(App.prototype, {
     const root=this._edRootOf(cur);
     if(!root) return;
     const next=sv.windows.find(s=>this._isEditorWin(s)&&this._edRootOf(s)===root);
-    if(next) sv.activeWindow=next.id;
+    if(!next) return;
+    sv.activeWindow=next.id;
+    /**
+     * **sessionStorage 도 함께 옮긴다.** 그 값이 새로고침을 건너는 유일한 근거이고
+     * (`activeWindow` 는 PUT 에서 걸러진다, `_save`), 여기서 갱신하지 않으면 새
+     * 창 id 를 아는 곳이 메모리뿐이다 — 새로고침 뒤 옛 id 를 찾지 못한 폴백이
+     * 엉뚱한 일반 창을 고른다. 실측: 새로고침 뒤 Changes 사이드가 사라졌다
+     * (V33·FR-GIT-76).
+     */
+    try{sessionStorage.setItem('activeWindow',next.id)}catch{}
   },
 
   /**
@@ -487,6 +515,16 @@ Object.assign(App.prototype, {
     if(s.editor.side===id) return;
     s.editor.side=id;
     this.render();
+    // FR-DIR-32 와 같은 근거: 사이드를 Explorer 로 돌린 것은 사용자가 방금 한
+    // 일이다. 그동안 게이트에 막혀 쉰 트리는 낡았으므로 곧바로 묻는다.
+    if(id===REPO_SIDE_EXPLORER){
+      const t=this._edTreeFor(s);
+      if(t){ t.pollGit({now:true}); t.pollStamp() }
+    }
+    // FR-RTU-62: 사이드 탭 전환은 **관측 조건의 계기**다. Changes 를 떠나면 그
+    // 표면이 화면에서 사라지므로(본문에 git 뷰 탭이 없다면) 폴링도 멎어야 한다 —
+    // 조건은 `_applyCadence` 가 불릴 때만 검사되고, 부르는 자리가 여기다.
+    this._gitRescheduleAll();
     this._save();
   },
 

@@ -40,7 +40,7 @@ async function waitForInit(page: Page) {
 const topName = (page: Page) => page.locator('#window-name');
 const head = (page: Page, i: number) => page.locator(`#area .slot[data-slot="${i}"] .slot-head`);
 const listName = (page: Page, root: string) =>
-  page.locator(`#repo-entries .git-repo.pinned[data-git-repo="${root}"] .git-repo-name`);
+  page.locator(`#repo-entries .ed-entry[data-git-repo="${root}"] .ed-entry-name`);
 
 const slotAdd = (page: Page) => page.evaluate(() => (window as any).app.slotAdd());
 const slotRemove = (page: Page) => page.evaluate(() => (window as any).app.slotRemove());
@@ -67,44 +67,46 @@ test.describe('제목 — <타입 라벨> · <창 이름>', () => {
   });
 
   // TC-STB-2
-  test('Git 창은 Git 라벨에 지금 보고 있는 리포를 단다', async ({ page, request }) => {
+  test('Repo 창은 Repo 라벨에 그 저장소의 이름을 단다', async ({ page, request }) => {
     const a = await pin(request, makeRepo('dm-stb-a-'));
     const b = await pin(request, makeRepo('dm-stb-b-'));
     await waitForInit(page);
 
     await page.evaluate((p) => (window as any).app.openGitWindow(p), a);
     const wantA = (await listName(page, a).textContent())!.trim();
-    await expect(topName(page)).toHaveText(`Git · ${wantA}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(`Repo · ${wantA}`, { timeout: 10000 });
 
-    // 같은 창에서 리포만 바꾼다 — render 가 돌지 않는 경로다.
+    // **리포를 바꾸는 것은 창을 바꾸는 것이다** (FR-RTU-72).
     await page.evaluate((p) => (window as any).app.openGitWindow(p), b);
     const wantB = (await listName(page, b).textContent())!.trim();
     expect(wantB).not.toBe(wantA);
-    await expect(topName(page)).toHaveText(`Git · ${wantB}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(`Repo · ${wantB}`, { timeout: 10000 });
   });
 
-  // TC-STB-3 — 창 이름이 타입 라벨과 같으면 겹쳐 적지 않는다.
-  test('리포를 고르지 않은 Git 창은 Git 하나만 적는다', async ({ page }) => {
-    await waitForInit(page);
-    await page.evaluate(() => (window as any).app.openGitWindow());
-    await expect(topName(page)).toHaveText('Git', { timeout: 10000 });
-  });
+  /**
+   * **TC-STB-3 은 폐기됐다** (REPO_TAB_UNIFY_SRS FR-RTU-70·72).
+   *
+   * "리포를 고르지 않은 Git 창" 은 옛 Git 창의 상태였다 — 저장소 하나에 창 하나인
+   * 지금 그런 창이 없고 `openGitWindow()` 는 경로 없이 부르면 `null` 이다.
+   * FR-STB-3(라벨과 이름이 같으면 겹쳐 적지 않는다)의 규칙 자체는 `_rWinTitle`
+   * 안에 남아 있다.
+   */
 
   // TC-STB-5 — 결함 A 회귀. 머리글과 토프바가 같은 이름을 써야 한다.
-  test('Git 창의 머리글은 토프바와 같은 이름을 쓴다', async ({ page, request }) => {
+  test('Repo 창의 머리글은 토프바와 같은 이름을 쓴다', async ({ page, request }) => {
     const a = await pin(request, makeRepo('dm-stb-c-'));
     await waitForInit(page);
     await page.evaluate((p) => (window as any).app.openGitWindow(p), a);
     const want = (await listName(page, a).textContent())!.trim();
-    await expect(topName(page)).toHaveText(`Git · ${want}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(`Repo · ${want}`, { timeout: 10000 });
 
     const gitWin = await activeWindowOf(page);
     await slotAdd(page);
     await openInSlot(page, 0, gitWin);
     await focusSlot(page, 0);
     // 머리글은 저장된 이름(`Git`)이 아니라 파생 이름을 쓴다.
-    await expect(head(page, 0)).toHaveText(`Git · ${want}`, { timeout: 10000 });
-    await expect(head(page, 0)).not.toHaveText('Git');
+    await expect(head(page, 0)).toHaveText(`Repo · ${want}`, { timeout: 10000 });
+    await expect(head(page, 0)).not.toHaveText('Repo');
   });
 });
 

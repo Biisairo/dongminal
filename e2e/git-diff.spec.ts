@@ -29,7 +29,6 @@ const row = (page: Page, group: string, path: string) =>
   changes(page).locator(`.git-group[data-group="${group}"] .git-file[data-path="${path}"]`);
 const tab = (page: Page, view: string) => page.locator(`#area .pn-tab[data-git-view="${view}"]`);
 
-const previewEditor = (page: Page) => changes(page).locator('.git-preview .monaco-diff-editor');
 const diffEditor = (page: Page) => diff(page).locator('.git-diff-body .monaco-diff-editor');
 
 // Monaco 모델 수 — FR-GIT-56 의 누수 판정 지표다 (§3.5).
@@ -50,9 +49,6 @@ const lineChanges = (page: Page) =>
     return ch ? ch.length : -1;
   });
 
-const setRepo = (page: Page, repo: string) =>
-  page.evaluate((r) => (window as any).app.gitPanel.setRepo(r), repo);
-
 const selectFile = (page: Page, group: string, path: string) =>
   page.evaluate(
     ([g, p]) => (window as any).app.gitPanel._select(g, { path: p }),
@@ -70,37 +66,35 @@ const bgOf = (page: Page, cls: string) =>
     .evaluate((el) => getComputedStyle(el).backgroundColor);
 
 test.describe('묶음 F — Diff 뷰', () => {
-  test('D1 (V26): 파일 단일 클릭이 미리보기를 채운다', async ({ page }) => {
+  /**
+   * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-20·40, 사용자 지시 2026-09-04).**
+   *
+   *   이전 동작: 한 번 클릭은 Changes 사이드의 **인라인 미리보기**를 채우고
+   *             더블클릭이 본문 Diff 탭으로 옮겼다 (옛 D1·D2)
+   *   새  동작: 한 번 클릭이 곧바로 **본문 Diff 탭**을 연다. 인라인 미리보기와
+   *             더블클릭 계기는 없다
+   *   이유:     VSCode 와 동치. 260px 사이드를 목록과 미리보기로 나누면 목록이
+   *             ~90px 이 되어 행 이름이 눌려 사라졌다 (실측)
+   */
+  test('D1·D2 (V26): 파일 단일 클릭이 본문 Diff 탭을 열고 그 파일을 보인다', async ({ page }) => {
     const repo = fx('basic');
     await waitForInit(page);
     await openGit(page, repo);
 
-    // 선택 전에는 안내만 있고 에디터가 없다.
-    await expect(changes(page).locator('.git-preview .git-diff-note')).toHaveText(
+    // 고르기 전에는 안내만 있고 에디터가 없다. **탭을 직접 눌러 본다** — 한 번
+    // 클릭이 곧 Diff 를 여는 지금, 고르지 않은 상태의 Diff 는 탭으로만 닿는다.
+    await tab(page, 'diff').click();
+    await expect(diff(page).locator('.git-diff-note')).toHaveText(
       '파일을 선택하세요', { timeout: 10000 });
-    await expect(previewEditor(page)).toHaveCount(0);
+    await expect(diffEditor(page)).toHaveCount(0);
 
     await row(page, 'changes', 'tracked.txt').click();
-    await expect(changes(page).locator('.git-preview .git-preview-path')).toHaveText('tracked.txt');
-    await expect(changes(page).locator('.git-preview .git-preview-axis'))
-      .toHaveText('worktree ↔ index');
-    await expect(previewEditor(page)).toBeVisible({ timeout: 20000 });
-    // 워킹 트리 쪽에만 있는 줄이 보여야 한다 (index: "one", worktree: "one\ntwo").
-    await expect(previewEditor(page)).toContainText('two');
-  });
-
-  test('D2 (V26): 더블클릭이 Diff 탭으로 이동하고 그 파일을 보인다', async ({ page }) => {
-    const repo = fx('basic');
-    await waitForInit(page);
-    await openGit(page, repo);
-
-    const r = row(page, 'changes', 'tracked.txt');
-    await expect(r).toBeVisible({ timeout: 10000 });
-    await r.dblclick();
 
     await expect(tab(page, 'diff')).toHaveClass(/active/);
     await expect(diff(page).locator('.git-diff-path')).toHaveText('tracked.txt');
+    await expect(diff(page).locator('.git-diff-axis')).toHaveText('worktree ↔ index');
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
+    // 워킹 트리 쪽에만 있는 줄이 보여야 한다 (index: "one", worktree: "one\ntwo").
     await expect(diffEditor(page)).toContainText('two');
   });
 
@@ -114,7 +108,10 @@ test.describe('묶음 F — Diff 뷰', () => {
     // 목록은 그룹 순서(conflicts → staged → changes → untracked)를 따른다 —
     // untracked 는 마지막이다 (FR-GIT-53).
     const total = await changes(page).locator('.git-file').count();
-    await r.dblclick();
+    // untracked 는 편집기 탭으로 열린다 (FR-RTU-51) — 고른 것은 그대로이므로
+    // Diff 탭으로 돌아오면 그 대상이 서 있다.
+    await r.click();
+    await tab(page, 'diff').click();
 
     const pos = diff(page).locator('.git-diff-pos');
     const path = diff(page).locator('.git-diff-path');
@@ -126,11 +123,9 @@ test.describe('묶음 F — Diff 뷰', () => {
     await expect(path).not.toHaveText(last || '');
     // Diff 탭에서 이동하면 Changes 탭의 선택도 따라 움직인다 (같은 상태다).
     const moved = (await path.textContent()) || '';
-    await tab(page, 'changes').click();
     await expect(changes(page).locator('.git-file.sel')).toHaveCount(1);
-    await expect(changes(page).locator('.git-preview .git-preview-path')).toHaveText(moved);
+    await expect(changes(page).locator('.git-file.cur')).toHaveCount(1);
 
-    await tab(page, 'diff').click();
     await diff(page).locator('.git-diff-nav[data-nav="next"]').click();
     await expect(pos).toHaveText(`${total}/${total}`);
     await expect(path).toHaveText(last || '');
@@ -138,9 +133,13 @@ test.describe('묶음 F — Diff 뷰', () => {
 
   test('D4 (V11): side-by-side ↔ unified 전환이 동작한다', async ({ page }) => {
     const repo = fx('basic');
+    // **폭을 넓힌다.** Repo 창의 사이드가 260px 을 쓰므로 기본 1280 뷰포트에서는
+    // 본문이 inline 임계(900) 아래로 떨어진다 — 이 시험이 재는 것은 모드 전환
+    // 이지 폭 접힘이 아니다 (그쪽은 D5).
+    await page.setViewportSize({ width: 1400, height: 800 });
     await waitForInit(page);
     await openGit(page, repo);
-    await row(page, 'changes', 'tracked.txt').dblclick();
+    await row(page, 'changes', 'tracked.txt').click();
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
 
     const mode = diff(page).locator('.git-diff-mode');
@@ -161,7 +160,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     await page.setViewportSize({ width: 1400, height: 800 });
     await waitForInit(page);
     await openGit(page, repo);
-    await row(page, 'changes', 'tracked.txt').dblclick();
+    await row(page, 'changes', 'tracked.txt').click();
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
     await expect(diffEditor(page)).toHaveClass(/side-by-side/);
 
@@ -188,7 +187,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     await openGit(page, repo);
     const r = row(page, 'changes', 'ws.txt');
     await expect(r).toBeVisible({ timeout: 10000 });
-    await r.dblclick();
+    await r.click();
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
 
     // FR-GIT-50: ignoreTrimWhitespace 는 기본이 false 다 — Monaco 기본값을
@@ -214,9 +213,9 @@ test.describe('묶음 F — Diff 뷰', () => {
     await expect(changes(page).locator('.git-head-repo')).toHaveText('copy-d7', { timeout: 10000 });
 
     await row(page, 'changes', 'tracked.txt').click();
-    await expect(changes(page).locator('.git-preview .git-diff-note'))
+    await expect(diff(page).locator('.git-diff-note'))
       .toHaveText('에디터를 불러올 수 없습니다 — 네트워크를 확인하세요', { timeout: 20000 });
-    await expect(previewEditor(page)).toHaveCount(0);
+    await expect(diffEditor(page)).toHaveCount(0);
 
     // 헤더와 목록은 계속 동작한다.
     writeFileSync(join(repo, 'd7-new.txt'), 'x');
@@ -231,30 +230,37 @@ test.describe('묶음 F — Diff 뷰', () => {
     await expect(diff(page).locator('.git-diff-path')).toHaveText('tracked.txt');
   });
 
-  test('D8 (V12): 탭·리포를 20회 왕복해도 Monaco 모델이 늘지 않는다', async ({ page }) => {
+  /**
+   * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-72).** 리포 전환은 이제 **창 전환**이므로
+   * `gitPanel.setRepo` 는 Repo 창의 패널에서 조기 반환한다 — 그 자리에 두면
+   * 아무 일도 하지 않는 왕복을 20번 도는 시험이 된다. 그리고 패널이 창마다
+   * 유지되므로(FR-RTU-61) 기준선은 **두 창이 다 선 뒤에** 재야 한다.
+   */
+  test('D8 (V12): 탭·창을 20회 왕복해도 Monaco 모델이 늘지 않는다', async ({ page }) => {
     test.setTimeout(180_000);
     const a = fx('basic');
     const b = fx('detached');
     await waitForInit(page);
     await openGit(page, a);
-
     await row(page, 'changes', 'tracked.txt').click();
-    await expect(previewEditor(page)).toBeVisible({ timeout: 20000 });
+    await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
+    // 두 창을 다 세운 뒤가 기준선이다 — 창마다 패널이 하나이므로 (FR-RTU-60)
+    // 둘째 창이 서면서 그 창의 diff 뷰가 한 벌 더 만들어진다.
+    await openGit(page, b);
+    await openGit(page, a);
     await tab(page, 'diff').click();
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
     const baseline = await models(page);
     expect(baseline, 'diff 모델이 만들어지지 않았다').toBeGreaterThan(0);
 
     for (let i = 0; i < 20; i++) {
-      await tab(page, 'changes').click();
-      await expect(previewEditor(page)).toBeVisible({ timeout: 20000 });
+      await tab(page, 'history').click();
       await tab(page, 'diff').click();
       await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
-      // 리포 전환은 두 뷰를 clear 하고 대상을 초기화한다 (§3.5).
-      await setRepo(page, b);
-      await expect(diffEditor(page)).toHaveCount(0);
-      await setRepo(page, a);
+      await openGit(page, b);
+      await openGit(page, a);
       await selectFile(page, 'changes', 'tracked.txt');
+      await tab(page, 'diff').click();
       await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
     }
 
@@ -270,7 +276,7 @@ test.describe('묶음 F — Diff 뷰', () => {
 
     const r = row(page, 'changes', 'bin.dat');
     await expect(r).toBeVisible({ timeout: 10000 });
-    await r.dblclick();
+    await r.click();
     await expect(diff(page).locator('.git-diff-note')).toContainText('바이너리', { timeout: 20000 });
     await expect(diffEditor(page)).toHaveCount(0);
   });
@@ -282,20 +288,24 @@ test.describe('묶음 F — Diff 뷰', () => {
     await expect(row(page, 'changes', 'tracked.txt')).toBeVisible({ timeout: 10000 });
 
     // 추가 — original 이 absent 다. 빈 내용으로 다뤄 diff 가 성립한다 (FR-GIT-45).
+    //
+    // **스테이지한 뒤에 본다.** untracked 는 diff 가 아니라 편집기로 열리므로
+    // (FR-RTU-51 / D-RTU-8) 그 행을 눌러서는 추가 축의 diff 에 닿지 못한다.
+    // index↔HEAD 축에서 A 인 파일이 같은 사실을 말한다.
     writeFileSync(join(repo, 'd10-new.txt'), 'added line\n');
-    const added = row(page, 'untracked', 'd10-new.txt');
+    execFileSync('git', ['-C', repo, 'add', 'd10-new.txt'], { stdio: 'ignore' });
+    const added = row(page, 'staged', 'd10-new.txt');
     await expect(added).toBeVisible({ timeout: 10000 });
-    await added.dblclick();
+    await added.click();
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
     await expect(diffEditor(page)).toContainText('added line');
     await expect(diff(page).locator('.git-diff-note')).toContainText('새로 추가된 파일');
 
     // 삭제 — modified 가 absent 다.
     unlinkSync(join(repo, 'tracked.txt'));
-    await tab(page, 'changes').click();
     const gone = row(page, 'changes', 'tracked.txt');
     await expect(gone).toBeVisible({ timeout: 10000 });
-    await gone.dblclick();
+    await gone.click();
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
     await expect(diffEditor(page)).toContainText('one');
     await expect(diff(page).locator('.git-diff-note')).toContainText('삭제된 파일');
@@ -313,7 +323,7 @@ test.describe('묶음 F — Diff 뷰', () => {
 
     // 한 줄을 고쳐 추가와 삭제가 한 화면에 함께 나오게 한다 (index 쪽은 "one").
     writeFileSync(join(repo, 'tracked.txt'), 'ONE\ntwo\n');
-    await row(page, 'changes', 'tracked.txt').dblclick();
+    await row(page, 'changes', 'tracked.txt').click();
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
 
     const ins = () => bgOf(page, 'line-insert');
@@ -366,7 +376,7 @@ test.describe('묶음 F — Diff 뷰', () => {
 
     const r = row(page, 'changes', 'lfs.bin');
     await expect(r).toBeVisible({ timeout: 10000 });
-    await r.dblclick();
+    await r.click();
     await expect(diff(page).locator('.git-diff-note'))
       .toContainText('Git LFS 포인터', { timeout: 20000 });
     // 본문은 그리지 않는다 — 메타만 보인다.
@@ -389,16 +399,15 @@ test.describe('묶음 F — Diff 뷰', () => {
 
     const bin = row(page, 'changes', 'bin.dat');
     await expect(bin).toBeVisible({ timeout: 10000 });
-    await bin.dblclick();
+    await bin.click();
     await expect(diff(page).locator('.git-diff-note'))
       .toContainText('바이너리', { timeout: 20000 });
     // 픽스처의 두 쪽 크기다 (22 B → 31 B). 양쪽이 다르므로 각각 보인다.
     expect(await noteLines(page)).toMatch(/22 B[\s\S]*31 B/);
 
-    await tab(page, 'changes').click();
     const huge = row(page, 'changes', 'huge.txt');
     await expect(huge).toBeVisible({ timeout: 10000 });
-    await huge.dblclick();
+    await huge.click();
     await expect(diff(page).locator('.git-diff-note'))
       .toContainText('상한', { timeout: 20000 });
     // 상한을 얼마나 넘었는지는 안내가 아니라 크기가 답한다 (1MiB 초과).

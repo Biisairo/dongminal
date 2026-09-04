@@ -156,30 +156,25 @@ Monaco 0.56 은 EditContext API 를 쓴다. 포커스를 받는 요소는 textar
 
 ## 3. 요구사항
 
-### 3.1 묶음 D — Changes 두 칸의 크기조정 (FR-CSZ)
+### 3.1 묶음 D — Changes 두 칸의 크기조정 (FR-CSZ) — **폐기됨**
 
-**FR-CSZ-1** Changes 탭의 파일 목록과 미리보기 **사이에 손잡이**가 선다.
-가로 배치에서는 `col-resize`, 세로 배치(모바일)에서는 `row-resize` 다.
-
-**FR-CSZ-2** 드래그 중에는 **화면만** 바꾸고, 확정은 놓는 순간 한 번이다.
-`.ed-ex-handle` 과 같은 규약이다 — 드래그마다 저장하면 워크스페이스 쓰기가
-초당 수십 번 난다.
-
-**FR-CSZ-3** 크기는 `GIT_FILES_SIZE_MIN` 과 `GIT_FILES_SIZE_MAX`(둘 다 본문
-크기에 대한 비율) 사이로 제한한다. 어느 쪽도 0 이 되지 않는다 — 사라진 칸은
-되돌릴 손잡이도 함께 잃는다.
-
-**FR-CSZ-4** 값은 **기기별로** 보존한다(localStorage). Git 창은 워크스페이스의
-엔터티가 아니고, 이 값은 `gitDiffSideBySide`·`gitFileView` 와 같은 성질의
-화면 취향이다.
-
-**FR-CSZ-5** 가로 값과 세로 값은 **따로** 보존한다. 한 값을 공유하면 데스크톱에서
-정한 폭이 모바일의 높이가 된다.
-
-**FR-CSZ-6** 저장된 값이 없거나 망가졌으면 현행 기본(42%)을 쓴다.
-
-**FR-CSZ-7** 손잡이는 터치에서도 잡힌다 — 3px 요소에 손가락이 닿지 않는다.
-`.ed-ex-handle::before` 와 같은 방식으로 히트 영역을 넓힌다.
+> **FR-CSZ-1~7 은 폐기됐다** (2026-09-04, REPO_TAB_UNIFY_SRS FR-RTU-20 / D-RTU-22).
+>
+> 이 묶음의 대상은 Changes 탭 안의 두 칸 — `파일 목록`과 `인라인 diff 미리보기` —
+> 사이의 손잡이였다. Git·Editor 통합이 **Changes 를 창의 사이드(260px)로 옮기고
+> diff 를 본문의 탭으로** 만들면서(요구 ②) 그 인라인 미리보기 칸 자체를 걷어냈다.
+> 나눌 칸이 없으면 그 사이의 손잡이도 대상이 없다.
+>
+> 걷어낸 근거는 실측이다: 260px 사이드를 둘로 나누면 목록 칸이 ~90px 이 되어
+> `.git-file-path` 가 0 으로 눌리고, 호버 동작 버튼이 행 가운데를 덮어 **선택하려는
+> 클릭이 `stage` 를 실행했다.**
+>
+> 함께 사라진 것 — 구현: `_filesSizeKey`·`_filesVertical`·`_filesSizePref`·
+> `_setFilesSizePref`·`_clampFilesSize`·`_applyFilesSize`·`_wireFilesHandle`,
+> 상수: `GIT_FILES_W_KEY`·`GIT_FILES_H_KEY`·`GIT_FILES_SIZE_DEFAULT`·`_MIN`·`_MAX`,
+> CSS: `.git-files-handle`·`.git-preview*`, 검증: V-CSZ-1~8.
+>
+> **FR-DOR-5 의 절반도 함께 줄었다** — 토글이 걸리는 뷰가 Diff 탭 하나다.
 
 ### 3.2 묶음 O — Diff 개요 눈금 (FR-DOR)
 
@@ -195,9 +190,11 @@ Monaco 0.56 은 EditContext API 를 쓴다. 포커스를 받는 요소는 textar
 **FR-DOR-4** 접기 상태는 기기별로 보존한다(localStorage) — `gitDiffSideBySide`·
 `gitDiffIgnoreWs` 와 같은 규약이다.
 
-**FR-DOR-5** 토글은 Diff 탭과 Changes 탭 **미리보기에 함께** 걸린다. 둘은 같은
-`GitDiffView` 계약을 쓰므로 상태가 갈리면 사용자가 어느 쪽을 보는지 모른다
-(`_setIgnoreWs` 가 이미 그렇게 한다).
+**FR-DOR-5** 토글은 **Diff 탭**에 걸린다. `GitDiffView` 를 세우는 자리가 그 하나
+이므로 상태가 갈릴 자리도 없다.
+
+> 초판은 "Diff 탭과 Changes 탭 미리보기에 **함께**" 였다. Changes 사이드의 인라인
+> 미리보기가 폐기되면서(§3.1) 그 절반이 사라졌다 — REPO_TAB_UNIFY_SRS D-RTU-22.
 
 **FR-DOR-6** 눈금의 색은 테마에서 온다. `monacoTheme()` 이 이미 `--git-st-add`·
 `--git-st-del` 로 diff 색을 매핑하므로, 눈금의 색도 같은 자리에서 정한다 —
@@ -360,18 +357,11 @@ Shortcuts)를 딛는다. 종전에는 조합이 코드에 박혀 있어 바꿀 �
 
 | ID | 대상 | 방법 |
 |---|---|---|
-| **V-CSZ-1** | FR-CSZ-1·2 | 손잡이를 드래그하면 두 칸의 크기가 바뀐다 |
-| **V-CSZ-2** | FR-CSZ-3 | 상한·하한을 넘겨 끌어도 그 범위에서 멈춘다 |
-| **V-CSZ-3** | FR-CSZ-4 | 다시 열어도 값이 남는다 |
-| **V-CSZ-4** | FR-CSZ-5 | 가로 값과 세로 값이 서로를 덮지 않는다 |
-| **V-CSZ-5** | FR-CSZ-6 | 저장값이 망가져 있어도 기본값으로 선다 |
-| **V-CSZ-6** | FR-CSZ-1 | 모바일(세로 배치)에서 손잡이가 **높이**를 바꾼다 |
-| **V-CSZ-7** | FR-CSZ-5 | 세로 드래그가 가로 키를 건드리지 않는다 |
-| **V-CSZ-8** | FR-CSZ-3 | 세로에서도 하한 아래로 내려가지 않는다 |
+| ~~V-CSZ-1~8~~ | ~~FR-CSZ-1~7~~ | **폐기** — 나눌 두 칸이 사라졌다 (§3.1, REPO_TAB_UNIFY_SRS D-RTU-22) |
 | **V-DOR-1** | FR-DOR-1 | Diff 에 개요 눈금 요소가 그려진다 |
 | **V-DOR-2** | FR-DOR-2 | 접기 기본값이 꺼짐이다 |
 | **V-DOR-3** | FR-DOR-3·4 | 토글이 상태를 바꾸고 다시 열어도 남는다 |
-| **V-DOR-4** | FR-DOR-5 | Diff 탭과 Changes 미리보기의 상태가 같다 |
+| ~~V-DOR-4~~ | ~~FR-DOR-5~~ | **폐기** — 상태를 나눠 가질 둘째 뷰가 없다 (§3.2) |
 | **V-EQO-1** | FR-EQO-1·3 | 부분 문자열·대소문자 무시로 찾는다 |
 | **V-EQO-2** | FR-EQO-2 | 등록되지 않은 루트는 `outside_root` 다 |
 | **V-EQO-3** | FR-EQO-4 | 상한에서 끊고 `truncated` 를 준다 |

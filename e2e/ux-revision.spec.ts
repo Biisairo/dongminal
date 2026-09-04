@@ -57,8 +57,9 @@ test.describe('묶음 B — 사이드바 리스트 블루프린트 (FR-BLP-*)', 
     }
     // FR-BLP-8: `+ Add` 가 목록 위에 온다 — `+ New` 와 같은 자리.
     const addBeforeList = await page.evaluate(() => {
-      const btn = document.getElementById('git-add-repo');
-      const list = document.getElementById('git-repos');
+      // FR-RTU-5: `+ Add` 는 하나다 (`#repo-add`) — 목록도 하나다 (D-RTU-2).
+      const btn = document.getElementById('repo-add');
+      const list = document.getElementById('repo-entries');
       if (!btn || !list) return null;
       return !!(btn.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING);
     });
@@ -122,22 +123,40 @@ test.describe('묶음 B — 목록 순회 (FR-BLP-15~18)', () => {
     await page.evaluate(() => (window as any).app.executeAction('windowNext'));
     expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(from);
 
-    // ③ Git 목록: **목록 밖에 있으면 첫 항목으로 들어간다.**
-    //    핀이 하나뿐이고 그 리포를 보고 있지 않은 상태다 — 예전 Git 쪽 구현은
-    //    `length < 2` 로 먼저 걸러 아무 일도 하지 않았고, 창 쪽은 들어갔다.
+    /**
+     * ③ `Repo` 목록도 같은 규약이다 — 순회가 목록의 순서대로 돌고 감싼다.
+     *
+     * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-8).** 옛 시험은 "핀이 하나뿐이면 그
+     * 하나로 들어가고 더 돌 곳이 없다" 를 쟀다. `Repo` 목록에는 핀만이 아니라
+     * **고정 행**(`~`·메모장)도 있고(FR-EDT-13·14) 순회 대상이 그 둘을 이어
+     * 붙인 것이므로, 핀이 하나여도 돌 자리가 있다.
+     */
     const root = await pin(request, fx('basic'));
     await expect.poll(() => page.evaluate(() =>
       ((window as any).app._gitRepos?.pinned || []).length), { timeout: 20000 }).toBe(1);
     await page.locator('.sb-tab[data-panel="repo"]').click();
-    expect(await page.evaluate(() => (window as any).app.gitPanel.repo || null)).toBeNull();
 
-    await page.evaluate(() => (window as any).app.executeAction('windowNext'));
-    await expect.poll(() => page.evaluate(() =>
-      (window as any).app.gitPanel.repo), { timeout: 10000 }).toBe(root);
+    const order = await page.evaluate(() => [
+      ...document.querySelectorAll('#repo-entries .ed-entry'),
+      ...document.querySelectorAll('#repo-root .ed-entry'),
+    ].map((e) => (e as HTMLElement).dataset.edRoot!));
+    expect(order, '핀한 저장소가 목록에 없다').toContain(root);
+    expect(order.length, '순회할 행이 둘 이상이어야 한다').toBeGreaterThan(1);
 
-    // ④ 그 하나에 들어간 뒤로는 더 돌 곳이 없다 — 창 목록이 하나일 때와 같다.
-    await page.evaluate(() => (window as any).app.executeAction('windowNext'));
-    expect(await page.evaluate(() => (window as any).app.gitPanel.repo)).toBe(root);
+    const cur = () => page.evaluate(() => {
+      const a = (window as any).app;
+      return a._isEditorWin(a._aw()) ? a._edRootOf(a._aw()) : null;
+    });
+    const start = await cur();
+    let i = order.indexOf(start!);
+    expect(i, 'Repo 탭이 목록 안의 창으로 데려가지 않았다').toBeGreaterThanOrEqual(0);
+    // ④ 한 바퀴 돌면 제자리다 — 창 목록과 같다.
+    for (let n = 0; n < order.length; n++) {
+      await page.evaluate(() => (window as any).app.executeAction('windowNext'));
+      i = (i + 1) % order.length;
+      await expect.poll(cur, { timeout: 10000 }).toBe(order[i]);
+    }
+    await expect.poll(cur, { timeout: 10000 }).toBe(start);
     await unpinAll(request);
   });
 });
@@ -204,17 +223,21 @@ test.describe('묶음 W — 새 창의 cwd (FR-CWD-*)', () => {
 // ── 묶음 C — 창 닫기 ──
 
 test.describe('묶음 C — 창 닫기의 활성 창 (FR-CLS-*)', () => {
-  test('V-CLS-1·2: 일반 창을 닫아도 Git 탭으로 떨어지지 않는다', async ({ page }) => {
+  test('V-CLS-1·2: 일반 창을 닫아도 Repo 탭으로 떨어지지 않는다', async ({ page }) => {
     await init(page);
-    // Git 창을 만든다 — 리포 없이도 창 자체는 선다 (FR-GIT-26).
-    await page.evaluate(() => (window as any).app.openGitWindow());
+    /**
+     * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-70 / FR-EDT-13).** 옛 Git 창은 사라졌고
+     * `openGitWindow()` 는 경로 없이는 아무것도 열지 않는다. 그런데 이 시험이
+     * 필요로 하는 상황 — "일반 창을 닫으면 특수 창만 남는다" — 은 **저절로**
+     * 성립한다: Repo 창(`~`)이 늘 하나 있다 (FR-EDT-13).
+     */
     await expect
-      .poll(() => page.evaluate(() => (window as any).app.ws.windows.filter((w: any) => w.type === 'git').length))
-      .toBe(1);
-    // 일반 창으로 돌아가 그 창을 닫는다. 남는 것은 Git 창뿐인 상황이다.
+      .poll(() => page.evaluate(() => (window as any).app._edWindows().length))
+      .toBeGreaterThan(0);
+    // 일반 창으로 돌아가 그 창을 닫는다. 남는 것은 Repo 창뿐인 상황이다.
     const plain = await page.evaluate(() => {
       const app = (window as any).app;
-      const w = app.ws.windows.find((x: any) => x.type !== 'git');
+      const w = app._plainWindows()[0];
       app.switchWindow(w.id);
       return w.id;
     });

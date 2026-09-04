@@ -331,9 +331,9 @@ test.describe('묶음 C — 태그 push (FR-GIT-262)', () => {
     // 원격 이름은 클라이언트가 정하지 않는다 (FR-GIT-100 과 같은 규약).
     expect(jobBody!.remote, '클라이언트가 원격 이름을 정했다').toBeUndefined();
 
-    // 진행·취소 자리는 Changes 탭의 job 상자다 — 태그 push 도 같은 자리를 쓴다.
-    await page.click('#area .pn-tab[data-git-view="changes"]');
-    await expect(page.locator('.git-view.git-changes .git-job'), 'job 상자가 없다')
+    // 진행·취소 자리는 Changes 의 job 상자다 — 태그 push 도 같은 자리를 쓴다.
+    // Changes 는 창의 사이드에 늘 있다 (FR-RTU-32) — 돌아갈 탭이 없다.
+    await expect(page.locator('#area .ed-side .git-view.git-changes .git-job'), 'job 상자가 없다')
       .toHaveCount(1, { timeout: 10000 });
 
     await expect.poll(() => tagList(bare), { timeout: 20000 }).toContain('v9.0');

@@ -28,6 +28,12 @@ const git = (repo: string, ...args: string[]) =>
   execFileSync('git', ['-C', repo, ...args]).toString().trim();
 
 async function openView(page: Page, view: string, cls: RegExp) {
+  // REPO_TAB_UNIFY_SRS FR-RTU-32: `Changes` 는 본문 탭이 아니라 창의 **사이드**다 —
+  // 그리로 "돌아가는" 것은 사이드가 이미 그쪽이라는 확인뿐이다.
+  if (view === 'changes') {
+    await expect(changes(page)).toBeVisible({ timeout: 10000 });
+    return;
+  }
   await page.click(`#area .pn-tab[data-git-view="${view}"]`);
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(cls);
 }

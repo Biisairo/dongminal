@@ -46,13 +46,24 @@ function counter(page: Page, needle: string) {
 const switchToWindow = (page: Page, id: string) =>
   page.evaluate((i) => (window as any).app.switchWindow(i), id);
 
-const otherWindowId = (page: Page) => page.evaluate(() => {
-  const app = (window as any).app;
-  const g = app._gitWindow().id;
-  return (app.ws.windows.find((w: any) => w.id !== g) || {}).id || null;
-});
+/**
+ * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-70).** 옛 `WINDOW_TYPE_GIT` 창은 로드에
+ * 사라지므로 `app._gitWindow()` 는 `null` 이다. git 표면을 든 창은 **그 저장소의
+ * Repo 창**이며 `_edWindowFor(repo)` 가 그것을 준다.
+ */
+const repoWindowId = (page: Page, repo: string) => page.evaluate((r) => {
+  const w = (window as any).app._edWindowFor(r);
+  return w ? w.id : null;
+}, repo);
 
-const gitWindowId = (page: Page) => page.evaluate(() => (window as any).app._gitWindow().id);
+const otherWindowId = (page: Page, repo: string) => page.evaluate((r) => {
+  const app = (window as any).app;
+  const w = app._edWindowFor(r);
+  const gid = w ? w.id : null;
+  // 그 Repo 창이 아닌 아무 창. 다른 Repo 창이어도 된다 — 재는 것은 "떠난 창의
+  // 패널이 폴링을 멈추는가" 이므로 목적지의 종류는 상관없다.
+  return (app.ws.windows.find((x: any) => x && x.id !== gid) || {}).id || null;
+}, repo);
 
 test.describe('묶음 C 클라 — 변경 감지', () => {
   test('P1 (V6): Git 창이 활성일 때 status 폴링이 돈다', async ({ page, request }) => {
@@ -76,7 +87,7 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     await openGit(page, repo);
     await expect.poll(() => c.n, { timeout: 5000 }).toBeGreaterThanOrEqual(1);
 
-    const other = await otherWindowId(page);
+    const other = await otherWindowId(page, repo);
     expect(other, '비교할 다른 창이 없다').toBeTruthy();
     await switchToWindow(page, other!);
 
@@ -95,13 +106,13 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     await openGit(page, repo);
     await expect.poll(() => c.n, { timeout: 5000 }).toBeGreaterThanOrEqual(1);
 
-    const gid = await gitWindowId(page);
-    const other = await otherWindowId(page);
+    const gid = await repoWindowId(page, repo);
+    const other = await otherWindowId(page, repo);
     await switchToWindow(page, other!);
     await page.waitForTimeout(400);
     const base = c.n;
 
-    await switchToWindow(page, gid);
+    await switchToWindow(page, gid!);
     // 주기(1000ms)보다 이르게 와야 "즉시 1회 수집"이다.
     await expect.poll(() => c.n - base, { timeout: 800 }).toBeGreaterThanOrEqual(1);
   });
@@ -159,7 +170,9 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     });
 
     await openGit(page, slow);
-    await page.evaluate((r) => (window as any).app.gitPanel.setRepo(r), fast);
+    // **리포 전환은 창 전환이다** (FR-RTU-72). `gitPanel.setRepo` 는 Repo 창의
+    // 패널에서 조기 반환하므로 그 자리에 두면 아무 일도 하지 않는다.
+    await openGit(page, fast);
 
     const view = page.locator('#area .ed-side .git-view.git-changes');
     await expect(view.locator('.git-file[data-path="only-in-fast.txt"]')).toBeVisible({ timeout: 15000 });
