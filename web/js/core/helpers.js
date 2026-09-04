@@ -227,6 +227,10 @@ var defaultPreset=-1; // index into layoutPresets, -1 = none
 // /api/settings blob 에 실린다 — 브라우저 탭별이 아니라 서버의 값이어야
 // `dmctl list-workspace` 가 화면과 같은 이름을 낼 수 있다 (FR-TAN-18).
 var fgTabNames=true;
+// WORKBENCH_REVIEW_SRS FR-WBR-10·12: 편집기의 줄바꿈. 기본은 **끔**(한 줄 보기) —
+// 지금 동작이고, 코드에서 가로 스크롤은 "이 줄이 길다" 를 말한다.
+// /api/settings blob 에 실린다 — 취향이지 기기의 치수가 아니다 (D-WBR-7).
+var editorWordWrap=false;
 // UX_REVISION_SRS FR-KEY-6: 브라우저 기본 단축키 차단. 기본은 켬 — 이 앱은
 // 터미널이고, Ctrl 조합은 브라우저보다 터미널의 것이다.
 var blockBrowserKeys=true;

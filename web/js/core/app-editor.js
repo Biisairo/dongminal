@@ -98,13 +98,26 @@ Object.assign(App.prototype, {
     if(!d||typeof d.home!=='string'||!d.home){
       this._edOff=true;this._editors=null;return false;
     }
-    this._edApply(d);
+    this._edApplyServer(d);
     return true;
   },
 
-  // FR-EDT-20·30: 서버가 준 값만 반영한다. 배열이 아니거나 문자열이 아닌 항목은
-  // 조용히 버린다 — 손상된 워크스페이스가 목록 전체를 죽이지 않는다.
-  _edApply(d){
+  /**
+   * FR-EDT-20·30: 서버가 준 값만 반영한다. 배열이 아니거나 문자열이 아닌 항목은
+   * 조용히 버린다 — 손상된 워크스페이스가 목록 전체를 죽이지 않는다.
+   *
+   * WORKBENCH_REVIEW_SRS FR-WBR-31: **이름이 계약이다.** 이 함수는 `/api/editors`
+   * 의 응답 — `home`·`notes`·`list` 를 **전부** 아는 값 — 전용이며, 부르는 자리는
+   * `_edLoad` 하나다. 그 셋 중 일부만 아는 자리는 `_edPatchList` 로 간다.
+   *
+   *   이전 이름: `_edApply`
+   *   새  이름: `_edApplyServer`
+   *   이유:     "일부만 아는 값" 을 들고 이 함수를 부르면 나머지가 **조용히
+   *             지워진다.** 실제로 두 번 일어났다 — `app-cmd.js` 한 자리(당시
+   *             고침)와 `app.js` 의 워크스페이스 충돌 재시도(FR-WBR-30). 이름이
+   *             출처를 말하면 그것을 들고 오지 않은 자리가 부르지 않는다
+   */
+  _edApplyServer(d){
     if(!d||typeof d.home!=='string'||!d.home) return;
     this._edOff=false;
     this._editors={
@@ -120,7 +133,7 @@ Object.assign(App.prototype, {
   /**
    * NOTES_LIVE_EXPLORER_SRS FR-NOT-13: **목록만** 갈아끼운다.
    *
-   * `_edApply` 는 서버가 준 것 전부를 반영하므로 `home`·`notes` 를 함께 받아야
+   * `_edApplyServer` 는 서버가 준 것 전부를 반영하므로 `home`·`notes` 를 함께 받아야
    * 한다. 그런데 그것을 부르는 자리 셋(`_edApplyLinked`·`_edMutate`·
    * `_applyRemoteWorkspace`)은 하나같이 **목록만** 새로 알고 나머지는 이미 아는
    * 값을 도로 실어 보낸다. 그 리터럴이 셋으로 흩어져 있으면 필드가 늘 때마다
@@ -130,10 +143,14 @@ Object.assign(App.prototype, {
    *
    * 그래서 "아는 값은 그대로, 목록만" 을 **함수 하나**로 만든다. 넷째 호출처가
    * 생겨도 같은 실수를 할 자리가 없다.
+   *
+   * **넷째 호출처가 실제로 있었다** (WORKBENCH_REVIEW_SRS FR-WBR-30). `app.js` 의
+   * 워크스페이스 충돌 재시도가 `_edApplyServer` 를 직접 불렀고, 그 리터럴에
+   * `notes` 가 없어 충돌 한 번에 메모장이 사라졌다. 지금은 그 자리도 여기로 온다.
    */
   _edPatchList(list){
     if(!this._editors) return;
-    this._edApply({home:this._editors.home,notes:this._editors.notes,list});
+    this._edApplyServer({home:this._editors.home,notes:this._editors.notes,list});
   },
 
   // 목록은 workspace.json 최상위 `editors.list` 에 산다 (FR-EDT-19). 서버가
@@ -201,7 +218,30 @@ Object.assign(App.prototype, {
       if(s.id<cur.id){keep.set(root,s);drop.add(cur)} else drop.add(s);
     }
     let n=0;
+    // WORKBENCH_REVIEW_SRS FR-WBR-40: **저장하지 않은 편집이 있는 창은 지우지
+    // 않는다.**
+    //
+    //   이전 동작: 루트가 목록에서 빠지면 창을 통째로 splice 했다. 그 순간 탭
+    //             id 가 사라져 렌더러의 회수기가 편집기를 파괴하고
+    //             `_edDocDrop` 이 모델까지 dispose 한다 — 편집이 **묻지도
+    //             알리지도 않고** 사라졌다
+    //   새  동작: dirty 인 편집기가 있으면 그 창을 남긴다
+    //   이유:     탭을 닫을 때는 이미 묻고 있다 (`app-layout` 의 dirty 가드).
+    //             같은 손실을 다른 길에서 조용히 낼 이유가 없다
+    //
+    // **묻지 않는 이유는 NFR-WBR-3 이다** — 재조정은 SSE 로 아무 때나 불리는
+    // 비동기 반영이라 사용자의 답을 기다리는 동안 화면과 워크스페이스가 어긋난 채
+    // 멈춘다. **조용히 저장하지 않는 이유는 NFR-WBR-4** — 버리려던 내용이 디스크에
+    // 남는다. 그래서 미룬다: 저장하거나 되돌리면 다음 재조정이 거둔다 (FR-WBR-42).
+    const held=[];
+    for(const s of drop) if(this._edWinDirty(s)) held.push(s);
+    for(const s of held) drop.delete(s);
     for(let i=ws.length-1;i>=0;i--) if(drop.has(ws[i])){ws.splice(i,1);n++}
+    // FR-WBR-41: 목록과 창이 어긋난 채 남으므로 그 이유가 화면에 없으면 "지웠는데
+    // 안 지워진다" 가 된다. 같은 창을 두고 되풀이해 알리지는 않는다.
+    if(held.length) this._edNotifyHeld(held);
+    // 미룰 것이 없어지면 다음에 다시 알릴 수 있어야 한다.
+    else this._edHeldKey='';
     // ② 집합에 있는데 창이 없으면 만든다.
     for(const root of want){
       if(keep.has(root)) continue;
@@ -216,6 +256,36 @@ Object.assign(App.prototype, {
     // 여기서 빠지면 볼 사람이 없는 패널이 Monaco 를 든 채 남는다.
     this._gitPanelReap();
     return n;
+  },
+
+  /**
+   * FR-WBR-40: 이 Editor 창 안에 **저장하지 않은 편집**이 있는가.
+   *
+   * 편집기 Map 의 키는 복합키이므로(FR-WSL-75) 탭 id 로 판정한다 — 같은 탭이 두
+   * 칸에 보이면 인스턴스가 둘이고, 그중 하나만 dirty 여도 잃을 것이 있다.
+   * `_dirty` 는 뷰가 아니라 **문서**의 것이다 (`file-editor.js` 의 접근자).
+   */
+  _edWinDirty(s){
+    if(!s||!s.layout||!this.fileEditors) return false;
+    const ids=new Set();
+    for(const pn of this._flattenPanes(s.layout))
+      for(const t of (pn.tabs||[])) if(t&&t.type==='editor') ids.add(t.id);
+    if(!ids.size) return false;
+    for(const[k,v] of this.fileEditors)
+      if(v&&v._dirty&&ids.has(this._slotBase(k))) return true;
+    return false;
+  },
+
+  // FR-WBR-41: 미룬 사실을 알린다. 창 이름을 밝힌다 — 개수만 말하면 어느 것을
+  // 정리해야 하는지 알 수 없다 (FR-EDT-84 와 같은 근거).
+  _edNotifyHeld(held){
+    const names=held.map(s=>s&&s.name).filter(Boolean);
+    if(!names.length||!this._notify) return;
+    const key=names.slice().sort().join('\u0001');
+    // 재조정은 되풀이해 불린다 — 같은 창을 두고 매번 알리면 그것이 소음이다.
+    if(this._edHeldKey===key) return;
+    this._edHeldKey=key;
+    this._notify(EDITOR_HELD_DIRTY.replace('%s',names.join(', ')));
   },
 
   /**

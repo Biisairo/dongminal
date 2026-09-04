@@ -167,29 +167,66 @@ test.describe('묶음 W — 새 창의 cwd (FR-CWD-*)', () => {
   const toolCwd = async (request: APIRequestContext, toolId: string) =>
     (await (await request.get('/api/cwd?tool=' + toolId)).json()).cwd as string;
 
-  test('V-CWD-1: 새 창의 첫 도구가 포커스 분할 칸의 cwd 를 물려받는다', async ({ page, request }) => {
-    await init(page);
-    // 지금 분할 칸의 도구를 어떤 디렉터리로 보낸다 — 셸에 cd 를 치는 대신
-    // 그 경로에서 만든 도구를 기준으로 삼는다 (터미널 입력은 느리고 흔들린다).
-    const here = fx('basic');
-    const base = await page.evaluate(async ([cwd]) => {
-      const app = (window as any).app;
-      await app.addTab(app.focused, 'terminal', { cwd });
-      const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
-      const pane = win.layout;
-      return pane.tabs.find((t: any) => t.id === pane.activeTab).toolId;
-    }, [here]);
-    expect(await toolCwd(request, base)).toBe(here);
+  /**
+   * **뒤집혔다** — WORKBENCH_REVIEW_SRS FR-WBR-20 / D-WBR-1.
+   *
+   *   이전 계약: 새 창의 첫 도구가 포커스 분할 칸의 cwd 를 물려받는다 (FR-CWD-1)
+   *   새  계약: 새 창은 **홈**에서 뜬다. 승계는 같은 창의 새 탭·분할에만 남는다
+   *             (FR-WBR-21) — 아래 V-CWD-3 이 그것을 잰다
+   *   이유:     사용자 지시("터미널은 홈에서 시작하는 것이 맞다")
+   *
+   * 명시적 지정(FR-CWD-3)은 그대로 이긴다 — V-CWD-2 가 그 자리다.
+   */
+  test('V-CWD-1 (V-WBR-20): 새 창의 첫 도구는 홈에서 뜬다 — 포커스 칸을 물려받지 않는다',
+    async ({ page, request }) => {
+      await init(page);
+      // 지금 분할 칸의 도구를 어떤 디렉터리로 보낸다 — 셸에 cd 를 치는 대신
+      // 그 경로에서 만든 도구를 기준으로 삼는다 (터미널 입력은 느리고 흔들린다).
+      const here = fx('basic');
+      const base = await page.evaluate(async ([cwd]) => {
+        const app = (window as any).app;
+        await app.addTab(app.focused, 'terminal', { cwd });
+        const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
+        const pane = win.layout;
+        return pane.tabs.find((t: any) => t.id === pane.activeTab).toolId;
+      }, [here]);
+      expect(await toolCwd(request, base)).toBe(here);
 
-    // 그 상태에서 새 창을 만든다 — 1차 전에는 여기서 cwd 를 잃었다.
-    const made = await page.evaluate(async () => {
-      const app = (window as any).app;
-      const r = await app._mkWindow();
-      app.render();
-      return r.tab.toolId;
+      const made = await page.evaluate(async () => {
+        const app = (window as any).app;
+        const r = await app._mkWindow();
+        app.render();
+        return r.tab.toolId;
+      });
+      const got = await toolCwd(request, made);
+      expect(got, '새 창이 포커스 칸의 cwd 를 물려받았다').not.toBe(here);
+      // 도구가 아무 지시 없이 열리는 자리는 사용자의 홈이다 (`toolhub` 의
+      // `userHome` — "언제나 사용자의 홈이다"). 서버가 root 에디터의 경로로 같은
+      // 값을 준다 (FR-EDT-13).
+      const home = await page.evaluate(() => (window as any).app?._editors?.home as string);
+      expect(home, '서버가 홈을 주지 않았다').toBeTruthy();
+      expect(got).toBe(home);
     });
-    expect(await toolCwd(request, made), '새 창이 cwd 를 물려받지 않았다').toBe(here);
-  });
+
+  // FR-WBR-21: 같은 창 안에서 하나 더 여는 것은 뜻이 다르다 — 그쪽은 그대로
+  // 승계한다 (UX_REVISION_SRS A6 은 남는다).
+  test('V-CWD-3 (V-WBR-21): 같은 창의 새 탭은 그 칸의 cwd 를 그대로 받는다',
+    async ({ page, request }) => {
+      await init(page);
+      const here = fx('basic');
+      await page.evaluate(async ([cwd]) => {
+        const app = (window as any).app;
+        await app.addTab(app.focused, 'terminal', { cwd });
+      }, [here]);
+
+      const made = await page.evaluate(async () => {
+        const app = (window as any).app;
+        const before = new Set([...app.tools.keys()]);
+        await app.addTab(app.focused, 'terminal');
+        return [...app.tools.keys()].find((k) => !before.has(k)) as string;
+      });
+      expect(await toolCwd(request, made), '같은 창의 새 탭이 승계를 잃었다').toBe(here);
+    });
 
   test('V-CWD-2: dmctl 이 보낸 cwdTool 이 기준이 된다', async ({ page, request }) => {
     await init(page);

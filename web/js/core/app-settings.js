@@ -8,7 +8,7 @@ Object.assign(App.prototype, {
   async _saveSettings(){
     // 블롭 전체를 갈아치우므로 읽어 쓰는 값은 전부 실어야 한다 — git 주기(FR-GIT-23)는
     // UI 가 없지만 여기서 빠지면 다른 설정을 건드릴 때 조용히 사라진다.
-    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave})})}catch{}
+    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave,editorWordWrap})})}catch{}
   },
 
   /**
@@ -91,6 +91,36 @@ Object.assign(App.prototype, {
     });
   },
 
+  /**
+   * WORKBENCH_REVIEW_SRS FR-WBR-10·11: Settings ▸ Code 의 `줄 바꿈`.
+   *
+   * **이미 열려 있는 편집기에도 곧바로 반영한다** — 새로 여는 탭부터 듣게 하면
+   * 사용자는 설정이 고장난 것으로 읽는다. 옵션 갱신이지 편집기 재생성이 아니므로
+   * 편집 중인 내용과 커서를 잃지 않는다 (NFR-WBR-1).
+   */
+  _initWordWrap(){
+    const cb=document.getElementById('ds-wordwrap');
+    if(!cb) return;
+    cb.checked=editorWordWrap;
+    cb.addEventListener('change',()=>{
+      editorWordWrap=cb.checked;
+      this._edApplyWordWrap();
+      this._saveSettings();
+    });
+  },
+
+  /**
+   * 열려 있는 편집기 전부에 지금 값을 얹는다.
+   *
+   * 살아 있는 인스턴스의 목록은 `app.fileEditors` 다 (`renderer.js:533` 이 만들고
+   * `app-layout.js:428` 이 거둔다). `monaco.editor.getEditors()` 를 쓰지 않는
+   * 이유는 그것이 **diff 뷰 안의 편집기까지** 주기 때문이다 — 그쪽은 비목표다.
+   */
+  _edApplyWordWrap(){
+    if(!this.fileEditors) return;
+    for(const ed of this.fileEditors.values()) if(ed&&ed.applyWordWrap) ed.applyWordWrap();
+  },
+
   // ── Modal & Theme ──
 
   /**
@@ -130,6 +160,9 @@ Object.assign(App.prototype, {
       // 이 모달에 옛 상태로 남아 있으면 사용자가 그것을 켜진 줄로 읽는다.
       const dsLeave=document.getElementById('ds-confirmleave');
       if(dsLeave) dsLeave.checked=confirmLeave;
+      // FR-WBR-10: 열 때마다 현재 값을 다시 칠한다 (FR-LVC-3 과 같은 근거).
+      const dsWrap=document.getElementById('ds-wordwrap');
+      if(dsWrap) dsWrap.checked=editorWordWrap;
       // Auto-close drawer when opening settings on mobile
       if(this.isMobile && this._drawerOpen){this._toggleDrawer(false);this._rTopbar()}
     });
@@ -161,6 +194,7 @@ Object.assign(App.prototype, {
     this._initFgNames();
     this._initBlockKeys();
     this._initConfirmLeave();
+    this._initWordWrap();
     this._initLSP();
     this._initBackup();
     this._initSandboxPanel();
@@ -380,6 +414,17 @@ Object.assign(App.prototype, {
       confirmLeave=!!saved.confirmLeave;
       const cl=document.getElementById('ds-confirmleave');
       if(cl) cl.checked=confirmLeave;
+    }
+    // FR-WBR-10: 저장된 적 없으면 기본값(끔).
+    //
+    // 이 로더는 **비동기**라 편집기가 이미 서 있을 수 있다. 그때 값만 바꾸면
+    // 사용자는 설정이 듣지 않는 것으로 읽으므로 열려 있는 편집기에 얹는다
+    // (FR-WBR-11, `fgTabNames` 가 `_fgRepaint` 를 부르는 것과 같은 이유).
+    if(saved.editorWordWrap!==undefined){
+      editorWordWrap=!!saved.editorWordWrap;
+      const ww=document.getElementById('ds-wordwrap');
+      if(ww) ww.checked=editorWordWrap;
+      if(window.app&&app._edApplyWordWrap) app._edApplyWordWrap();
     }
     if(saved.fgTabNames===undefined) return;
     fgTabNames=!!saved.fgTabNames;

@@ -98,6 +98,47 @@ test.describe('워크스페이스 저장 충돌', () => {
     await B.context().close();
   });
 
+  /**
+   * V-WBR-30 (WORKBENCH_REVIEW_SRS FR-WBR-30) — 충돌 재시도가 메모장을 지우지
+   * 않는다.
+   *
+   * 409 뒤 이 화면은 서버의 `editors` 를 통째로 채택한다. 그 자리가
+   * `_edApplyServer({home,list})` 를 직접 불렀고 — **`notes` 가 빠져 있었다.**
+   * `_edApplyServer` 는 준 것 전부를 반영하므로 없는 필드는 지워지고(FR-NOT-11),
+   * 메모 루트가 `_edRoots()` 에서 빠지면 재조정이 **메모장 창을 삭제한다.**
+   * 사용자가 접수한 "editor 에서 메모장이 안 보이는 경우가 있음" 이 이것이다.
+   */
+  test('V-WBR-30: 충돌 재시도를 거쳐도 메모장 행과 창이 남는다', async ({ browser, request }) => {
+    const A = await openScreen(browser);
+    const B = await openScreen(browser);
+    const before = await serverPlain(request);
+
+    const notes = await B.evaluate(() => (window as any).app._editors?.notes as string);
+    expect(notes, '메모 루트가 없다 — 이 검사가 성립하지 않는다').toBeTruthy();
+
+    await blind(B);
+    await A.evaluate(() => (window as any).app.addWindow());
+    await expect.poll(() => serverPlain(request), { timeout: 15000 }).toBe(before + 1);
+
+    const codes = putCodes(B);
+    await touchAndSave(B, 251);
+    await expect.poll(() => codes.length, { timeout: 15000 }).toBeGreaterThan(0);
+    expect(codes[0], `첫 PUT 이 409 가 아니다: ${JSON.stringify(codes)}`).toBe(409);
+
+    // 채택이 끝나기를 기다린 뒤 본다.
+    await B.waitForFunction(
+      () => !(window as any).app._wsApplyInflight, undefined, { timeout: 15000 });
+
+    expect(await B.evaluate(() => (window as any).app._editors?.notes as string),
+      '충돌 재시도가 메모 루트를 지웠다').toBe(notes);
+    expect(await B.evaluate((r) =>
+      (window as any).app._edWindows().some((w: any) => w.editor && w.editor.root === r), notes),
+      '메모장 창이 사라졌다').toBe(true);
+
+    await A.context().close();
+    await B.context().close();
+  });
+
   // V-WSC-3 · FR-WSC-1: 같은 본문을 다시 밀어붙이지 않는다 — 그것이 손실의 방법이었다.
   //
   // **PUT 이 하나뿐인지를 재지 않는다.** 409 를 채택하면 그 채택 자체가 저장을

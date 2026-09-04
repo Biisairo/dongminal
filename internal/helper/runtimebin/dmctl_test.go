@@ -527,9 +527,15 @@ func TestRunDmctlListWorkspace_ServerError(t *testing.T) {
 	}
 }
 
-// TC-CWD-1 (UX_REVISION_SRS FR-CWD-4): new-window 는 호출한 셸의 도구를 실어
-// 보낸다 — 새 창의 첫 도구가 조정자와 같은 cwd 에서 떠야 하기 때문이다.
-func TestRunDmctlNewWindowCarriesCwdTool(t *testing.T) {
+// V-WBR-22 (WORKBENCH_REVIEW_SRS FR-WBR-22): new-window 는 호출자 도구를 **싣지
+// 않는다** — 새 창은 홈에서 뜬다.
+//
+//	이전 계약: TC-CWD-1 — 호출한 셸의 도구를 `cwdTool` 로 실어, 새 창의 첫
+//	           도구가 조정자와 같은 cwd 에서 떴다 (UX_REVISION_SRS FR-CWD-4)
+//	새  계약: 아무것도 싣지 않는다
+//	이유:     사용자 지시("터미널은 홈에서 시작하는 것이 맞다"). 호출자와 같은
+//	           자리가 필요한 쪽은 `--cwd` 로 명시한다 (FR-WBR-23)
+func TestRunDmctlNewWindowDoesNotCarryCwdTool(t *testing.T) {
 	var got map[string]any
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
@@ -544,11 +550,56 @@ func TestRunDmctlNewWindowCarriesCwdTool(t *testing.T) {
 		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
 	}
 	args := got["args"].(map[string]any)
-	if args["cwdTool"] != "tool-caller" {
-		t.Errorf("호출자 도구가 실리지 않았다: %v", args)
+	if _, ok := args["cwdTool"]; ok {
+		t.Errorf("호출자 도구를 실었다: %v", args)
 	}
 	if args["name"] != "team" || args["keepFocus"] != true {
 		t.Errorf("기존 인자가 흔들렸다: %v", args)
+	}
+}
+
+// V-WBR-23 (FR-WBR-23): `--cwd` 가 그 경로를 `args.cwd` 로 보낸다. `--workdir` 와
+// 다른 인자다 — 저쪽은 샌드박스 컨테이너 안의 자리다 (FR-SBX-40).
+func TestRunDmctlNewWindowCwdFlag(t *testing.T) {
+	var got map[string]any
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &got)
+		w.Write([]byte(`{"ok":true}`))
+	})
+	defer cleanup()
+	t.Setenv("DONGMINAL_TOOL_ID", "tool-caller")
+
+	var stdout, stderr bytes.Buffer
+	if rc := runDmctl([]string{"new-window", "--cwd", "/tmp/team-root"}, &stdout, &stderr); rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+	args := got["args"].(map[string]any)
+	if args["cwd"] != "/tmp/team-root" {
+		t.Errorf("cwd 가 실리지 않았다: %v", args)
+	}
+	if _, ok := args["workdir"]; ok {
+		t.Errorf("workdir 로 새어 나갔다: %v", args)
+	}
+}
+
+// `--cwd=<경로>` 붙임 형식도 같다.
+func TestRunDmctlNewWindowCwdFlagEquals(t *testing.T) {
+	var got map[string]any
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &got)
+		w.Write([]byte(`{"ok":true}`))
+	})
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	if rc := runDmctl([]string{"new-window", "--cwd=/tmp/x"}, &stdout, &stderr); rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+	args := got["args"].(map[string]any)
+	if args["cwd"] != "/tmp/x" {
+		t.Errorf("cwd 가 실리지 않았다: %v", args)
 	}
 }
 

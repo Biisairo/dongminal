@@ -186,6 +186,101 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
     await expect(fixedRows(page).locator('.sbl-name')).toHaveText('~');
     await expect(page.locator('.sb-tab[data-panel="repo"]')).toBeVisible();
   });
+
+  /**
+   * WORKBENCH_REVIEW_SRS 묶음 S (FR-WBR-40~42 / D-WBR-9).
+   *
+   * 루트가 `_edRoots()` 에서 빠지면 재조정이 그 창을 **통째로 splice** 하고
+   * (`app-editor.js`), 그 순간 탭 id 가 사라져 렌더러의 회수기가 편집기를
+   * 파괴하며 `_edDocDrop` 이 모델까지 dispose 한다 — **저장하지 않은 편집이
+   * 묻지도 알리지도 않고 사라진다.** 탭을 닫을 때는 이미 묻고 있다.
+   *
+   * 메모장이 유독 약한 이유는 `notes` 가 선택적이기 때문이다 (FR-NOT-11) —
+   * 응답 한 번에 빈 문자열이 되면 그 창이 지워진다.
+   */
+  test('V-WBR-40·41: 저장 안 된 편집이 있으면 메모장 창이 재조정에 지워지지 않는다',
+    async ({ page }) => {
+      await goto(page);
+      const notes = await notesRoot(page);
+      expect(notes, '메모 루트가 없다').not.toBe('');
+
+      // 메모 하나를 열고 저장하지 않은 채 고친다.
+      const file = notes + '/keep-me.txt';
+      await page.evaluate(async (f) => {
+        await fetch('/api/file/write', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: f, content: 'disk\n' }),
+        });
+        await (window as any).app._edOpenFile(f);
+      }, file);
+      await page.waitForFunction(() =>
+        [...(window as any).app.fileEditors.values()].some((e: any) => e._editor),
+        undefined, { timeout: 15000 });
+      await page.evaluate(() => {
+        const ed = [...(window as any).app.fileEditors.values()].find((e: any) => e._editor);
+        ed._editor.setValue('저장하지 않은 편집\n');
+      });
+      expect(await page.evaluate(() =>
+        [...(window as any).app.fileEditors.values()].some((e: any) => e._dirty))).toBe(true);
+
+      // `notes` 가 빠진 채로 재조정이 돈다 — FR-NOT-11 이 허용하는 응답이다.
+      const gone = await page.evaluate((r) => {
+        const a = (window as any).app;
+        a._editors.notes = '';
+        a._edReconcile();
+        return !a._edWindows().some((w: any) => w.editor && w.editor.root === r);
+      }, notes);
+      expect(gone, '저장하지 않은 편집이 있는데 창이 지워졌다').toBe(false);
+
+      // 내용도 그대로다 — 모델이 dispose 되지 않았다.
+      expect(await page.evaluate(() => {
+        const ed = [...(window as any).app.fileEditors.values()].find((e: any) => e._editor);
+        return ed ? ed._editor.getValue() : '';
+      })).toBe('저장하지 않은 편집\n');
+    });
+
+  test('V-WBR-42: 저장하면 다음 재조정이 그 창을 거둔다', async ({ page }) => {
+    await goto(page);
+    const notes = await notesRoot(page);
+    expect(notes).not.toBe('');
+
+    const file = notes + '/reap-me.txt';
+    await page.evaluate(async (f) => {
+      await fetch('/api/file/write', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: f, content: 'disk\n' }),
+      });
+      await (window as any).app._edOpenFile(f);
+    }, file);
+    await page.waitForFunction(() =>
+      [...(window as any).app.fileEditors.values()].some((e: any) => e._editor),
+      undefined, { timeout: 15000 });
+    await page.evaluate(() => {
+      const ed = [...(window as any).app.fileEditors.values()].find((e: any) => e._editor);
+      ed._editor.setValue('고친다\n');
+    });
+
+    // 미룬다.
+    await page.evaluate((r) => {
+      const a = (window as any).app;
+      a._editors.notes = '';
+      a._edReconcile();
+      return r;
+    }, notes);
+    expect(await page.evaluate((r) =>
+      (window as any).app._edWindows().some((w: any) => w.editor && w.editor.root === r), notes))
+      .toBe(true);
+
+    // 저장하면 미룰 이유가 사라진다 — 다음 재조정이 거둔다 (면제가 아니다).
+    await page.evaluate(async () => {
+      const ed = [...(window as any).app.fileEditors.values()].find((e: any) => e._editor);
+      await ed.save();
+    });
+    await page.evaluate(() => (window as any).app._edReconcile());
+    expect(await page.evaluate((r) =>
+      (window as any).app._edWindows().some((w: any) => w.editor && w.editor.root === r), notes))
+      .toBe(false);
+  });
 });
 
 // ── 묶음 L — 탐색기의 살아있는 반영 ─────────────────

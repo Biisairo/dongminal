@@ -337,7 +337,8 @@ class FileEditor {
       minimap: { enabled: true, scale: 1, showSlider: 'mouseover' },
       lineNumbers: 'on',
       scrollBeyondLastLine: false,
-      wordWrap: 'off',
+      // WORKBENCH_REVIEW_SRS FR-WBR-10: 설정이 정한다. 기본은 끔이다.
+      wordWrap: editorWordWrap ? 'on' : 'off',
       tabSize: 4,
       insertSpaces: true,
       fontSize: 13,
@@ -457,6 +458,19 @@ class FileEditor {
     this._editor.revealLineInCenter(ln);
     this._editor.setPosition({ lineNumber: ln, column: cl });
     this._editor.focus();
+  }
+
+  /**
+   * WORKBENCH_REVIEW_SRS FR-WBR-11: 설정이 바뀌면 **이미 열려 있는** 편집기도
+   * 곧바로 따라간다.
+   *
+   * `updateOptions` 는 옵션만 갈아끼운다 — 모델도 뷰 상태도 그대로이므로 편집
+   * 중인 내용과 커서를 잃지 않는다 (NFR-WBR-1). 아직 Monaco 가 뜨지 않았으면
+   * 할 일이 없다: 생성 인자가 같은 값을 읽는다.
+   */
+  applyWordWrap() {
+    if (!this._editor) return;
+    this._editor.updateOptions({ wordWrap: editorWordWrap ? 'on' : 'off' });
   }
 
   // FR-RTU-42: 이 편집기가 붙은 탭이 미리보기면 고정한다. 탭을 찾는 일은 App 이

@@ -66,7 +66,7 @@ dongminal 의 창/분할 칸/탭/도구 + 신뢰 채널 (`dmctl msg`) 로 **여�
 | 명령 | 용도 |
 |------|------|
 | `dmctl who-am-i` | 조정자(나) 식별자 |
-| `dmctl new-window --name <이름> -n` | Run 전용 창. 응답의 `newWindows[0]`·`newTabs[0]` 를 쓴다 |
+| `dmctl new-window --name <이름> -n --cwd "$PWD"` | Run 전용 창. 응답의 `newWindows[0]`·`newTabs[0]` 를 쓴다. **`--cwd` 없이 부르면 홈에서 뜬다** (FR-WBR-22) |
 | `dmctl split-h [N] --at <uuid> -n` | 전용 창 안에서 분할. 응답 `newTabs` 가 팀원 탭들 |
 | `dmctl rename-tab --at <uuid> <이름>` | 역할명 부여 (사이드바 관전성) |
 | `dmctl run start\|member\|launch\|status\|close` | 실행 기록. 아래 워크플로우가 전부다 |
@@ -109,15 +109,20 @@ MSG
 ### 1. Run 전용 창 만들기
 
 ```bash
-dmctl new-window --name "team-<목적>" -n
+dmctl new-window --name "team-<목적>" -n --cwd "$PWD"
 ```
 
 응답에서 두 값을 캡처한다 — `newWindows[0]` = **창 uuid**, `newTabs[0].uuid` = **첫 팀원 탭**.
 
-> **팀 창은 이 셸의 cwd 에서 열린다** (UX_REVISION_SRS FR-CWD-4). 분할로 태어나는
-> 나머지 팀원 탭도 그것을 물려받으므로, 팀 전원이 조정자와 같은 경로에서 뜬다 —
-> 프로젝트 밖에서 기동해 에이전트 정의를 찾지 못하는 일이 없다. 다른 경로에서
-> 띄우려면 `dmctl new-window` 전에 조정자 셸을 그 경로로 옮긴다.
+> **`--cwd` 를 반드시 붙인다** (WORKBENCH_REVIEW_SRS FR-WBR-22·23). 새 창은 이제
+> **홈**에서 뜬다 — 붙이지 않으면 팀 전원이 프로젝트 밖에서 기동해 에이전트 정의를
+> 찾지 못한다. 분할로 태어나는 나머지 팀원 탭은 그 창의 cwd 를 물려받으므로
+> (FR-WBR-21) 첫 창에만 주면 된다.
+>
+>   이전 동작: `dmctl` 이 호출자 도구를 자동으로 실어 이 셸의 cwd 에서 열렸다
+>             (UX_REVISION_SRS FR-CWD-4)
+>   새  동작: 자동 승계가 없다. `--cwd "$PWD"` 로 **명시**한다
+>   이유:     사용자 지시 — "새로 뜨는 창은 누가 열었든 홈" 이 규칙이 되었다
 
 ```json
 {"ok":true,"newWindows":["<WIN>"],"newTabs":[{"uuid":"<T1>","toolId":"..."}],"timedOut":false}
@@ -382,7 +387,7 @@ dmctl close-tab --at "$t"
 ## 체크리스트
 
 0. [ ] 선택 결정표에서 **패턴을 고른다.** P2P 패턴이면 첫 발신자·왕복 상한·탈출로를 먼저 정한다
-1. [ ] `dmctl new-window --name <이름> -n` → `newWindows[0]`=WIN, `newTabs[0].uuid`=T1
+1. [ ] `dmctl new-window --name <이름> -n --cwd "$PWD"` → `newWindows[0]`=WIN, `newTabs[0].uuid`=T1
 2. [ ] `dmctl split-h "$N" --at "$T1" -n` → `newTabs` = 나머지 팀원 탭
 3. [ ] `dmctl rename-tab --at <탭> <역할명>` 팀원마다
 4. [ ] `dmctl run start --objective <목적> --window "$WIN"` → RUN (격리가 필요할 때만 `--isolation`)

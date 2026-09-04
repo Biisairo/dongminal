@@ -407,7 +407,16 @@ class App {
                 // 값을 통째로 쓴다. 목록이 바뀌었으면 창도 따라와야 한다.
                 if(rem&&rem.editors&&this._edOn()){
                   this.ws.editors=rem.editors;
-                  this._edApply({home:this._editors.home,list:rem.editors.list});
+                  // WORKBENCH_REVIEW_SRS FR-WBR-30: **목록만** 갈아끼운다.
+                  //
+                  //   이전 동작: `_edApplyServer({home,list})` 를 직접 불렀다 —
+                  //             `notes` 가 빠져 이 경로를 한 번 지나면 메모장
+                  //             행과 창이 사라졌다 (FR-NOT-11 이 없으면 지운다)
+                  //   새  동작: `_edPatchList` 하나로 간다
+                  //   이유:     그 함수가 있는 이유가 바로 이것이다 — "아는 값은
+                  //             그대로, 목록만". 여기가 그 규약을 우회한 넷째
+                  //             자리였다
+                  this._edPatchList(rem.editors.list);
                   this._edReconcile();
                 }
                 /**

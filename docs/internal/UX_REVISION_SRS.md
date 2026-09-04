@@ -7,6 +7,9 @@
 > | FR-BLP-* (사이드바 목록 블루프린트 — 두 패널) | 패널이 `Windows`·`Repo` **둘**이다. `Repo` 의 목록 id 는 `repo-entries`(+ 고정 행은 `repo-root`), 버튼은 `repo-add` 다 | REPO_TAB_UNIFY_SRS FR-RTU-1·5 / D-RTU-2 |
 > | FR-BLP-15~18 (목록 순회) | `Repo` 의 순회 대상은 `items` + `fixed` 다 — 고정 행(`~`·메모장)이 포함되므로 항목이 하나여도 돌 자리가 있다 | REPO_TAB_UNIFY_SRS FR-RTU-8 |
 > | FR-CLS-1·2 (창 닫기의 활성 창) | 그대로다. 다만 "특수 창만 남는" 상황은 저절로 성립한다 — Repo 창(`~`)이 늘 하나 있다 (FR-EDT-13) | REPO_TAB_UNIFY_SRS FR-RTU-70 |
+> | **FR-CWD-1** (새 창의 첫 도구가 포커스 칸의 cwd 를 승계한다) | **폐기.** 새 창은 **홈**에서 뜬다. 같은 창의 새 탭·분할은 그대로 승계한다 (A6 유지) | WORKBENCH_REVIEW_SRS FR-WBR-20·21 / D-WBR-1·2 |
+> | **FR-CWD-4** (`dmctl new-window` 가 호출한 셸의 도구를 승계 기준으로 삼는다) | **폐기.** `dmctl` 은 `cwdTool` 을 자동으로 싣지 않는다 — 호출자와 같은 자리가 필요하면 새 플래그 `--cwd` 로 **명시**한다. 팀 스킬이 그것을 붙이도록 함께 고쳤다 | WORKBENCH_REVIEW_SRS FR-WBR-22·23 / D-WBR-3 |
+> | FR-CWD-2 (승계할 자리가 없으면 서버 기본 cwd) | 승계 자체가 없어졌으므로 **그것이 유일한 길**이 됐다 | WORKBENCH_REVIEW_SRS FR-WBR-20 |
 
 
 ## 1. 개요 (Introduction)
@@ -180,6 +183,12 @@
 > FR-CWD-4 가 접수한 말의 핵심이다. 팀 스킬은 `dmctl new-window` 로 팀 창을 열고
 > (A7) 그 안에서 분할한다. 지금은 그 첫 도구만 cwd 를 잃고, 분할로 태어난 나머지가
 > 그것을 **승계하므로 팀원 전원이 엉뚱한 경로**에서 뜬다.
+
+> **개정 (2026-09-04).** FR-CWD-1·4 는 **폐기됐다** — 사용자가 "터미널은 홈에서
+> 시작하는 것이 맞다" 로 정했다 (WORKBENCH_REVIEW_SRS D-WBR-1·3). 위 문단이 말한
+> 문제는 사라지지 않았고 **해법이 바뀌었다**: 팀 스킬이 `dmctl new-window --cwd
+> "$PWD"` 로 자리를 명시한다. 분할이 그것을 승계하는 것은 그대로이므로(FR-WBR-21)
+> 첫 창에만 주면 팀원 전원이 따라온다.
 
 ### 3.4 묶음 K — 브라우저 기본 키 차단
 

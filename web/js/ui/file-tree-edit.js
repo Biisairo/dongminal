@@ -137,6 +137,8 @@ Object.assign(FileTree.prototype, {
   // ── 조작 넷 (FR-EDT-88·89·90·91·92) ──
 
   async doCreate(dir,name,isDir){
+    // FR-WBR-1: 지난 실패의 사유는 다음 조작이 **시작될 때** 사라진다.
+    this._clearErr();
     const path=this._join(dir,name);
     const snap=this._snap([dir]);
     this._optimAdd(dir,name,isDir);
@@ -155,6 +157,9 @@ Object.assign(FileTree.prototype, {
    */
   async doRename(from,to){
     if(!from||!to||from===to) return;
+    // FR-WBR-1·4: 끌어 옮기는 길(`file-tree-xfer`)은 `_commitEdit` 를 지나지
+    // 않으므로 여기가 그 조작의 시작이다.
+    this._clearErr();
     // FR-EDT-85: 자기 자신·자기 하위로는 옮길 수 없다. 서버의 rename 은 이것을
     // 성공시키고 트리를 통째로 잃어버리므로 클라이언트가 막는 유일한 자리다.
     if(to===from||to.startsWith(from+'/')){this._fail(from,EDITOR_MOVE_INTO_SELF);return}
@@ -187,6 +192,7 @@ Object.assign(FileTree.prototype, {
    */
   async doDelete(p){
     if(!p||p===this.root) return;
+    this._clearErr();
     const isDir=this._kindOf(p)==='dir';
     const count=isDir?await this.app._edCountTree(this.root,p):null;
     const dirty=this.app._edDirtyUnder(p);

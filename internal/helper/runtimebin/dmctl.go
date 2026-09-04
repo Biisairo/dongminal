@@ -13,7 +13,7 @@ import (
 const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
 
 사용법:
-  dmctl new-window [--name <이름>] [-n] [--sandbox <프로파일>] [--workdir <경로>]
+  dmctl new-window [--name <이름>] [-n] [--cwd <경로>] [--sandbox <프로파일>] [--workdir <경로>]
                                          # -n: 백그라운드 생성 (포커스 유지)
                                          # --sandbox: 그 창의 도구를 컨테이너 안에서 실행
                                          # --workdir: 샌드박스 창의 작업 폴더
@@ -77,6 +77,8 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   --no-focus, -n          명령 실행 전후로 사용자 포커스를 이동시키지 않는다.
                           new-window/-tab 에선 백그라운드 생성 (활성 탭도 유지).
   --name <이름>           new-window/new-tab 전용. 새 창/탭 이름 (최대 64자).
+  --cwd <경로>            new-window 전용. 첫 도구가 뜰 절대경로. 생략하면 홈이다
+                          (호출자의 cwd 를 물려받지 않는다).
   --workdir <경로>        new-window 전용. 샌드박스 창의 작업 폴더. 컨테이너 안
                           /work 에 붙는다. 생략하면 부르는 자리를 승계한다.
   --sandbox <프로파일>    new-window 전용. 창을 샌드박스로 연다 (scratch · dev).
@@ -167,15 +169,15 @@ func runDmctlWithFlags(cmd string, parsed dmctlParsed, stdout, stderr io.Writer)
 		return 2
 	}
 	args := parsed.buildArgs()
-	// UX_REVISION_SRS FR-CWD-4: 새 창의 첫 도구는 **부른 셸의 cwd** 에서 떠야 한다.
-	// 브라우저의 포커스 분할 칸을 기준으로 삼으면 조정자가 보고 있지 않은 창의
-	// 경로를 물려받고, 팀 창 전원이 거기서 시작한다 (분할이 그것을 승계하므로).
-	// `focus` 의 sourcePane 과 같은 선례다 — 호출자 신원은 환경변수에 있다.
-	if action == "newWindow" {
-		if id := selfToolID(); id != "" {
-			args["cwdTool"] = id
-		}
-	}
+	// WORKBENCH_REVIEW_SRS FR-WBR-22 (UX_REVISION_SRS FR-CWD-4 폐기):
+	//
+	//   이전 동작: 부른 셸의 도구 id 를 `cwdTool` 로 실어, 새 창의 첫 도구가
+	//             호출자와 같은 cwd 에서 떴다
+	//   새  동작: 아무것도 싣지 않는다 — 새 창은 **홈**에서 뜬다
+	//   이유:     사용자 지시("터미널은 홈에서 시작하는 것이 맞다"). "새로 뜨는
+	//             창은 누가 열었든 홈" 이라는 규칙 하나가 예측 가능하다는 판단이며,
+	//             호출자와 같은 자리가 필요한 쪽(팀 창)은 `--cwd` 로 **명시한다**
+	//             (FR-WBR-23)
 	return dmctlPost(action, args, stdout, stderr)
 }
 
@@ -271,6 +273,7 @@ type dmctlParsed struct {
 	auto       bool
 	sandbox    string
 	workdir    string
+	cwd        string
 	positional string
 }
 
@@ -299,6 +302,11 @@ func (p dmctlParsed) buildArgs() map[string]any {
 	// FR-SBX-40: 샌드박스 창의 작업 폴더. 컨테이너 안 /work 에 붙는다.
 	if p.workdir != "" {
 		out["workdir"] = p.workdir
+	}
+	// WORKBENCH_REVIEW_SRS FR-WBR-23: 새 창의 cwd 를 **명시**한다. `--workdir` 와
+	// 다른 인자다 — 저쪽은 샌드박스 컨테이너 안의 자리를 말한다.
+	if p.cwd != "" {
+		out["cwd"] = p.cwd
 	}
 	return out
 }
@@ -356,6 +364,17 @@ func parseDmctlFlags(args []string) (dmctlParsed, error) {
 			continue
 		case len(a) > 10 && a[:10] == "--workdir=":
 			p.workdir = a[10:]
+		// WORKBENCH_REVIEW_SRS FR-WBR-23: 새 창의 첫 도구가 뜰 자리. 생략하면
+		// 홈이다 (FR-WBR-20·22) — 승계는 더 이상 없다.
+		case a == "--cwd":
+			if i+1 >= len(args) {
+				return p, fmt.Errorf("flag %s requires value", a)
+			}
+			p.cwd = args[i+1]
+			i += 2
+			continue
+		case len(a) > 6 && a[:6] == "--cwd=":
+			p.cwd = a[6:]
 		case a == "-h" || a == "--help":
 			// caller handles top-level help; ignore here
 		case a == "--":

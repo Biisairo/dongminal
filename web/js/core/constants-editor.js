@@ -399,4 +399,7 @@ const EDITOR_FS_ERR_UNKNOWN='조작하지 못했습니다';
 // FR-EDT-85: 서버에 묻기 전에 클라이언트가 막는 유일한 경우다 — os.Rename 은 이
 // 이동을 성공시키고 트리를 잃어버린다.
 const EDITOR_MOVE_INTO_SELF='자기 자신이나 자기 하위로는 옮길 수 없습니다';
+// WORKBENCH_REVIEW_SRS FR-WBR-41: 재조정이 지우려던 창을 미뤘다는 사실. 창 이름을
+// 밝히는 이유는 FR-EDT-84 와 같다 — 개수만으로는 무엇을 정리해야 할지 모른다.
+const EDITOR_HELD_DIRTY='저장하지 않은 편집이 있어 창을 닫지 않았습니다 — %s';
 const EDITOR_NAME_INVALID='이름에 / 를 쓸 수 없습니다';

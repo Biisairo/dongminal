@@ -248,6 +248,60 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     expect(fs.existsSync(j(R, 'src', 'a.txt'))).toBe(true);
   });
 
+  /**
+   * WORKBENCH_REVIEW_SRS 묶음 X — 실패 메시지의 **수명**.
+   *
+   * O5 가 내는 그 사유는 상태를 바꾸지 않는 실패다. 지우는 계기가 "성공으로 끝난
+   * 조작" 뿐이었으므로 한 번 뜨면 그 뒤의 모든 다시 그리기가 함께 그렸다 —
+   * 사용자가 접수한 "지워지지 않음" 이 그것이다 (FR-WBR-1·2·3·4).
+   */
+  test('O5b (V-WBR-2): 그 사유는 다른 행을 고르면 사라진다', async ({ page, request }) => {
+    const R = mkRoot('o5b');
+    await enter(page, request, R);
+    await row(page, j(R, 'src')).click();
+    await expect(row(page, j(R, 'src', 'deep'))).toBeVisible();
+
+    await row(page, j(R, 'src')).dragTo(row(page, j(R, 'src', 'deep')));
+    await expect(opErr(page)).toContainText('자기 하위');
+
+    // 다른 자리를 고른 것은 그 사유를 다 읽었다는 뜻이다.
+    await row(page, j(R, 'docs')).click();
+    await expect(opErr(page)).toHaveCount(0);
+  });
+
+  test('O5d (V-WBR-1): 그 사유는 다음 조작이 시작될 때 사라진다', async ({ page, request }) => {
+    const R = mkRoot('o5d');
+    await enter(page, request, R);
+    await row(page, j(R, 'src')).click();
+    await expect(row(page, j(R, 'src', 'deep'))).toBeVisible();
+
+    await row(page, j(R, 'src')).dragTo(row(page, j(R, 'src', 'deep')));
+    await expect(opErr(page)).toContainText('자기 하위');
+
+    // 우클릭 → 새 파일. **끝나지 않은 조작의 시작**이다 — 성공한 조작만이
+    // 지우던 것이 접수한 결함이었다 (FR-WBR-1).
+    await ctx(page, j(R, 'docs'), 'newFile');
+    await expect(input(page)).toBeVisible();
+    await expect(opErr(page)).toHaveCount(0);
+  });
+
+  test('O5c (V-WBR-3 / NFR-WBR-2): 실패 직후의 다시 그리기에는 남아 있다',
+    async ({ page, request }) => {
+      const R = mkRoot('o5c');
+      await enter(page, request, R);
+      await row(page, j(R, 'src')).click();
+      await expect(row(page, j(R, 'src', 'deep'))).toBeVisible();
+
+      await row(page, j(R, 'src')).dragTo(row(page, j(R, 'src', 'deep')));
+      await expect(opErr(page)).toContainText('자기 하위');
+
+      // 사용자가 아무것도 하지 않은 다시 그리기는 지우는 계기가 아니다 —
+      // 그렇지 않으면 읽기도 전에 사라진다.
+      await page.evaluate(() => (window as any).app.render());
+      await page.evaluate(() => (window as any).app.render());
+      await expect(opErr(page)).toContainText('자기 하위');
+    });
+
   test('O6 (V-EDT-62 / FR-EDT-86): 같은 이름이 있으면 거부하고 덮어쓰지 않는다', async ({ page, request }) => {
     const R = mkRoot('o6');
     w(j(R, 'docs', 'a.txt'), 'DOCS-A\n');
@@ -509,4 +563,93 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
     expect(t[0].id).toBe(first.id);
     expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(first.win);
   });
+});
+
+/**
+ * WORKBENCH_REVIEW_SRS 묶음 W — 편집기 줄바꿈 (FR-WBR-10~12 / NFR-WBR-1).
+ *
+ * 접수한 말은 "editor 에서 한줄보기/줄바꿔보기 옵션 필요" 다. 지금까지 편집기
+ * 옵션은 전부 코드 안의 고정값이었고, 이것이 설정으로 여는 첫 자리다.
+ */
+test.describe('묶음 W — 편집기 줄바꿈', () => {
+  const wrapOf = (page: Page) => page.evaluate(() => {
+    const a = (window as any).app;
+    const ed = [...a.fileEditors.values()][0];
+    return ed && ed._editor ? String(ed._editor.getRawOptions().wordWrap) : '';
+  });
+
+  async function openCodePanel(page: Page) {
+    await page.click('#settings-btn');
+    await expect(page.locator('#modal-overlay')).toBeVisible();
+    await page.click('button.mtab[data-tab="code"]');
+    await expect(page.locator('#panel-code')).toBeVisible();
+  }
+
+  test('W1 (V-WBR-10·11 / NFR-WBR-1): 설정을 켜면 열려 있던 편집기가 곧바로 줄을 바꾼다',
+    async ({ page, request }) => {
+      const R = mkRoot('ww1');
+      await enter(page, request, R);
+      await page.evaluate((p) => (window as any).app._edOpenFile(p), j(R, 'top.txt'));
+      await expect.poll(() => wrapOf(page), { timeout: 10000 }).toBe('off');
+
+      // 편집 중인 내용과 커서를 잃지 않는다 (NFR-WBR-1) — 재생성이 아니라
+      // 옵션 갱신이다. 값을 심어 두고 전환 뒤에 되본다.
+      await page.evaluate(() => {
+        const ed = [...(window as any).app.fileEditors.values()][0];
+        ed._editor.setValue('AAA\nBBB\nCCC\n');
+        ed._editor.setPosition({ lineNumber: 2, column: 3 });
+      });
+
+      await openCodePanel(page);
+      const cb = page.locator('#ds-wordwrap');
+      await expect(cb).not.toBeChecked();
+      await cb.check();
+      await expect.poll(() => wrapOf(page), { timeout: 10000 }).toBe('on');
+
+      const after = await page.evaluate(() => {
+        const ed = [...(window as any).app.fileEditors.values()][0];
+        const p = ed._editor.getPosition();
+        return { v: ed._editor.getValue(), ln: p.lineNumber, col: p.column };
+      });
+      expect(after.v).toBe('AAA\nBBB\nCCC\n');
+      expect(after.ln).toBe(2);
+      expect(after.col).toBe(3);
+
+      // 되돌리면 되돌아온다.
+      await cb.uncheck();
+      await expect.poll(() => wrapOf(page), { timeout: 10000 }).toBe('off');
+    });
+
+  test('W2 (V-WBR-11·12·13): 값이 서버에 남고, 새로고침 뒤 새 편집기에도 선다',
+    async ({ page, request }) => {
+      const R = mkRoot('ww2');
+      await enter(page, request, R);
+      await openCodePanel(page);
+      await page.locator('#ds-wordwrap').check();
+
+      // FR-WBR-12: `/api/settings` 블롭에 실린다 — 다른 설정을 건드려도 남는다
+      // (그 함수가 블롭 전체를 갈아치우므로 리터럴에서 빠지면 조용히 사라진다).
+      await expect.poll(async () => {
+        const r = await request.get('/api/settings');
+        return (await r.json()).editorWordWrap;
+      }, { timeout: 10000 }).toBe(true);
+
+      await page.evaluate(() => (window as any).app._saveSettings());
+      await expect.poll(async () => {
+        const r = await request.get('/api/settings');
+        const j = await r.json();
+        return j.editorWordWrap === true && typeof j.pageTitle !== 'undefined';
+      }, { timeout: 10000 }).toBe(true);
+
+      await page.reload();
+      await page.waitForSelector('#area .ed-win .ed-explorer .ed-tree', { timeout: 15000 });
+      await page.evaluate((p) => (window as any).app._edOpenFile(p), j(R, 'top.txt'));
+      await expect.poll(() => wrapOf(page), { timeout: 15000 }).toBe('on');
+
+      // 뒷정리 — 이 값은 서버에 살아 다음 스펙까지 따라간다.
+      await page.evaluate(() => {
+        (window as any).editorWordWrap = false;
+        (window as any).app._saveSettings();
+      });
+    });
 });

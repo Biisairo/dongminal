@@ -145,6 +145,10 @@ Object.assign(FileTree.prototype, {
     // 파일을 만드는 것보다 잃는 쪽이 안전하기 때문이다 (FR-GIT-97 과 같은 근거).
     if(this._edit) this.cancelEdit();
     const p=row.dataset.path,kind=row.dataset.kind;
+    // FR-WBR-2: 다른 자리를 고른 것은 그 사유를 다 읽었다는 뜻이다. 이것이
+    // 없으면 상태를 바꾸지 않는 실패(자기 하위로의 이동 거부 — FR-EDT-85)의
+    // 메시지가 **영영 남는다** — 지우는 계기가 성공한 조작뿐이었다.
+    this._clearErr();
     this._sel=p;
     // FR-EDT-60: 링크는 펼치지도 열지도 않는다 — 선택만 바뀐다. 링크된 디렉터리를
     // 파일로 취급하면 `apiFileRead` 가 not a file 400 을 낸다 (§2.6).
@@ -658,6 +662,17 @@ Object.assign(FileTree.prototype, {
   },
 
   _fail(anchor,msg){ this._err={anchor,msg}; this._paintAll() },
-  _clearErr(){ if(this._err){this._err=null} },
+  /**
+   * WORKBENCH_REVIEW_SRS FR-WBR-3: **지우면 그린다.**
+   *
+   *   이전 동작: 값만 비우고 다시 그리지 않았다 — 뒤이어 오는 다시 그리기가
+   *             치워 주는 것에 기댔다
+   *   새  동작: 비운 자리에서 곧바로 그린다
+   *   이유:     지우는 계기가 셋으로 늘었다 (FR-WBR-1·2·4). 그중 **선택 변경**과
+   *             **자기 하위 이동 거부**는 뒤이어 오는 다시 그리기가 없는 자리라
+   *             값만 비우면 화면에 남는다. 비어 있을 때는 아무 일도 하지 않으므로
+   *             기존 호출처의 비용은 늘지 않는다
+   */
+  _clearErr(){ if(!this._err) return; this._err=null; this._paintAll() },
 
 });

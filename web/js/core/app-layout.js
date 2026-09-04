@@ -102,22 +102,25 @@ Object.assign(App.prototype, {
     return null;
   },
 
+  /**
+   * WORKBENCH_REVIEW_SRS FR-WBR-20 (UX_REVISION_SRS FR-CWD-1 폐기).
+   *
+   *   이전 동작: 새 창의 첫 도구가 **포커스 분할 칸의 cwd 를 승계**했다
+   *   새  동작: 승계하지 않는다 — 호출자가 준 것이 없으면 **홈**이다
+   *   이유:     사용자 지시("터미널은 홈에서 시작하는 것이 맞다"). 새 창은
+   *             "새로 시작한다" 는 뜻이고, 지금 일하던 자리에서 하나 더 여는
+   *             것은 새 탭·분할이다 — 그쪽의 승계는 그대로다 (FR-WBR-21)
+   *
+   * 명시적 지정은 그대로 이긴다 (FR-CWD-3) — `opts.cwd` 와 `opts.cwdTool` 이다.
+   * `dmctl new-window --cwd` 가 그 길로 온다 (FR-WBR-23).
+   */
   async _mkWindow(opts={}){
-    // FR-CWD-1: 새 창의 첫 도구도 cwd 를 승계한다. `addTab`·`split` 은 이미
-    // `_paneNewToolRef` 로 승계하고 있었고 여기만 빠져 있었다 — 그래서
-    // `dmctl new-window` 로 연 팀 창의 팀원 전원이 조정자와 다른 경로에서 떴다
-    // (FR-CWD-4). 승계할 자리가 없으면 지금처럼 서버 기본 cwd 다 (FR-CWD-2).
-    const cur=this._aw();
-    const ref=(!opts.cwd&&!opts.cwdTool&&cur&&!this._isGitWin(cur)&&this.focused)
-      ? this._paneNewToolRef(cur,this.focused) : {};
     const sandbox=(typeof opts.sandbox==='string'&&opts.sandbox)?opts.sandbox:'';
-    // FR-SBX-40: 샌드박스 창은 **고른 폴더만** 쓴다. 승계하면 사용자가 고르지
-    // 않은 자리가 조용히 컨테이너 안으로 들어가고, 그러면 자기가 무엇을
-    // 노출했는지 모르는 채로 격리된 창을 쓰게 된다.
-    const cwd=sandbox?(opts.cwd||null):(opts.cwd||ref.cwd||null);
-    // FR-CWD-3: 호출자가 준 것이 이긴다. `cwdTool` 은 그 도구의 cwd 를 서버가
-    // 풀어 준다 (`/api/tools?cwdTool=`) — 브라우저는 경로를 모른 채 넘긴다.
-    const refTool=sandbox?null:(opts.cwdTool||ref.cwdTool||null);
+    // FR-SBX-40: 샌드박스 창은 **고른 폴더만** 쓴다.
+    const cwd=opts.cwd||null;
+    // FR-CWD-3: `cwdTool` 은 그 도구의 cwd 를 서버가 풀어 준다
+    // (`/api/tools?cwdTool=`) — 브라우저는 경로를 모른 채 넘긴다.
+    const refTool=sandbox?null:(opts.cwdTool||null);
     // FR-SBX-10: 창 id 를 도구보다 **먼저** 만든다. 순서가 반대면 첫 도구가
     // 자기 창을 모른 채 떠서, 샌드박스 창인데 첫 탭만 호스트에서 돈다.
     const wid=newEntityId();
