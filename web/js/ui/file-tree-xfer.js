@@ -166,7 +166,8 @@ Object.assign(FileTree.prototype, {
   async _after(dirs){
     this._clearErr();
     for(const d of dirs) await this.load(d);
-    this.pollGit();
+    // FR-DIR-32: 방금 한 조작의 결과다 — 늦춰 보일 이유가 없다.
+    this.pollGit({now:true});
   },
 
   // ── 진입점 둘 (FR-EDT-80) ──

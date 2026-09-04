@@ -367,7 +367,8 @@ Object.assign(App.prototype, {
     // 칸에서 부르든 요청은 한 벌이고, 결과는 모든 칸에 칠해진다 (FR-SVS-22).
     // FR-FSL-7 과 같은 짝: 활성화는 색과 목록 **둘 다**의 계기다. 색만 새로
     // 받으면 사용자는 창을 바꾸자마자 "색은 맞는데 목록은 옛것" 을 본다.
-    if(this._edLastActive!==s.id){this._edLastActive=s.id;t.pollGit();t.pollStamp()}
+    // FR-DIR-32: 활성화는 사용자가 방금 한 일이다 — 백오프를 넘겨 곧바로 묻는다.
+    if(this._edLastActive!==s.id){this._edLastActive=s.id;t.pollGit({now:true});t.pollStamp()}
     return t;
   },
 
@@ -825,6 +826,7 @@ Object.assign(App.prototype, {
   App.prototype._gitSignal=function(kind){
     base.call(this,kind);
     const t=this._edActiveTree();
-    if(t) t.pollGit();
+    // FR-DIR-32: 저장·커밋 같은 즉시 신호도 백오프를 넘긴다.
+    if(t) t.pollGit({now:true});
   };
 })();

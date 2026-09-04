@@ -225,67 +225,143 @@ Object.assign(FileTree.prototype, {
   // ── git 색 (FR-EDT-69~78) ──
 
   /**
-   * FR-EDT-69·71: 근거는 `status` 하나다. 응답의 `repo` 가 루트와 다르면 루트는
-   * 저장소의 **루트**가 아니므로 색을 입히지 않는다.
+   * FR-EDT-69·71: 근거는 `status` 하나다.
    *
-   * 판정은 한 번이고 결과는 인스턴스가 기억한다 — 다만 **확정은 서버가 "이 루트는
-   * 저장소가 아니다" 라고 답했을 때뿐**이다. 전송 실패와 5xx 는 판정이 아니라
-   * 이번 회차를 건너뛰는 사유다 — 한 번 끊겼다고 창의 색이 영영 죽으면 안 된다.
+   * **루트 판정은 서버가 한다** (GIT_DIR_ENTRY_SRS FR-DIR-5·30 / D-DIR-6). 옛
+   * 코드는 `d.repo!==this.root` 로 직접 비교했는데, 서버의 `repo` 는 git 이 심볼릭
+   * 링크를 푼 값이고 `this.root` 는 사용자가 추가한 원본이라 macOS 의 `/tmp` 아래
+   * Editor 는 그 비교가 **반드시** 어긋났다 — 그리고 어긋나는 순간 `_gitOff` 가
+   * 굳어 그 창의 색은 새로고침 전까지 영영 돌아오지 않았다 (§2.5 실측).
+   *
+   * FR-DIR-40: 루트가 저장소의 **안**이어도 색을 입힌다. 그때 상태 경로의 기준은
+   * 저장소 루트이므로 접두(`_repoPrefix`)를 함께 기억한다 (FR-DIR-41).
+   *
+   * FR-DIR-31: 실패의 수명은 사유마다 다르다.
+   *
+   *   503                     굳힌다 — git 자체가 없다. 다시 물어도 같다
+   *   404 · 그 밖의 4xx       늦춘다 — `git init` 이 뒤집을 수 있는 사유다
+   *   전송 실패 · 5xx         이번 회차만 건너뛴다
    */
-  async pollGit(){
+  async pollGit(opts){
     if(this._gitOff||this._gitBusy||!this.root) return;
+    // 백오프 중이면 건너뛴다. 창 활성화 같은 즉시 계기는 그것을 무시한다
+    // (FR-DIR-32) — 사용자가 방금 한 일의 결과를 늦춰 보일 이유가 없다.
+    const now=Date.now();
+    if(!(opts&&opts.now)&&this._gitRetryAt&&now<this._gitRetryAt) return;
     this._gitBusy=true;
     let r=null,d=null;
     try{r=await fetch(GIT_STATUS_API+'?repo='+encodeURIComponent(this.root))}catch{r=null}
     if(r){try{d=await r.json()}catch{d=null}}
     this._gitBusy=false;
     if(!r) return;
-    // 4xx 는 "이 경로로는 저장소를 물을 수 없다" 는 서버의 답이다 (not_repo 는
-    // 404). 503 도 답이다 — git 자체가 없다는 뜻이라 다시 물어도 같고, 그대로
-    // 두면 3초마다 영영 묻는다. Git 패널이 503 을 `_gitOff` 로 굳히는 것과 같은
-    // 관례다 (`app-git.js:264`). 그 밖의 5xx·게이트웨이 실패는 서버 쪽 사정이므로
-    // 다음 회차에 다시 묻는다.
     if(!r.ok){
-      if((r.status>=400&&r.status<500)||r.status===503){this._gitOff=true;this._setStatus(null)}
+      // 503 은 git 자체가 없다는 답이다 — 그대로 두면 3초마다 영영 묻는다. Git
+      // 패널이 503 을 `_gitOff` 로 굳히는 것과 같은 관례다 (`app-git.js:264`).
+      if(r.status===503){this._gitOff=true;this._setStatus(null);return}
+      // 404(`not_repo`)를 비롯한 4xx 는 **지금은** 저장소가 아니라는 답일 뿐이다.
+      if(r.status>=400&&r.status<500){this._gitBack(now);this._setStatus(null)}
       return;
     }
-    // 200 인데 본문을 읽지 못한 것은 답이 아니다 — 중간의 프록시일 수 있으므로
-    // 건너뛴다. 루트가 다르다는 답만이 "여기는 저장소의 루트가 아니다" 이다.
+    // 200 인데 본문을 읽지 못한 것은 답이 아니다 — 중간의 프록시일 수 있다.
     if(!d) return;
-    if(d.repo!==this.root){this._gitOff=true;this._setStatus(null);return}
+    const repo=d.repo||'';
+    // 옛 서버는 `rootMatch` 를 주지 않는다. 그때는 문자열 비교로 물러나되,
+    // 그 결과를 굳히지는 않는다.
+    const match=(typeof d.rootMatch==='boolean')?d.rootMatch:(repo===this.root);
+    if(!repo){this._gitBack(now);this._setStatus(null);return}
+    // FR-DIR-41·42: 저장소 루트로부터 이 트리 루트까지의 접두. 정규화를 아는 것은
+    // 서버뿐이므로 **서버가 준 두 값 사이에서만** 계산한다.
+    const resolved=(!match&&typeof d.requestedResolved==='string')?d.requestedResolved:'';
+    const prefix=match?'':this._prefixOf(repo,resolved);
+    if(prefix===null){this._gitBack(now);this._setStatus(null);return}
+    this._gitRetryAt=0;
+    this._repoPrefix=prefix;
     this._setStatus(d.status);
   },
 
+  // FR-DIR-31: 굳히는 대신 늦춘다. 다음 관측까지의 시각을 기억할 뿐이며,
+  // `_gitOff` 와 달리 되돌아올 수 있는 상태다.
+  _gitBack(now){ this._gitRetryAt=(now||Date.now())+EDITOR_GIT_BACKOFF_MS },
+
   /**
-   * 상태 응답을 경로→문자 맵 둘로 옮긴다.
+   * FR-DIR-41: 저장소 루트(`repo`)에서 이 트리 루트(`resolved`)까지의 접두를 낸다.
+   *
+   *   repo     /Users/me/app
+   *   resolved /Users/me/app/src   →  "src/"
+   *
+   * 루트가 저장소 밖이면 `null` 이다 — 색의 근거가 없다는 뜻이며 호출자가 그것을
+   * 백오프로 다룬다. `/appx` 가 `/app` 의 하위로 오인되지 않도록 경계는 구분자로
+   * 본다.
+   */
+  _prefixOf(repo,resolved){
+    if(!resolved) return null;
+    if(resolved===repo) return '';
+    const base=repo.endsWith('/')?repo:repo+'/';
+    if(!resolved.startsWith(base)) return null;
+    return resolved.slice(base.length)+'/';
+  },
+
+  /**
+   * 상태 응답을 경로→문자 맵 셋으로 옮긴다 (GIT_DIR_ENTRY_SRS FR-DIR-10).
+   *
+   *   `_st`      파일 자신의 상태
+   *   `_dirOwn`  **디렉터리 항목** 자신의 상태 — 서브모듈과 중첩 저장소
+   *   `_dirSt`   하위를 접어 올린 상태 (FR-EDT-73)
    *
    * FR-EDT-72: staged 와 unstaged 를 함께 가진 파일은 **unstaged 쪽 문자**를 쓴다 —
    * 나중에 놓는 쪽이 이긴다. 충돌은 그 위에 온다 (먼저 손봐야 하는 상태다).
+   *
+   * FR-DIR-43: 키는 **트리 루트 기준**으로 옮긴다. 루트가 저장소 안일 때 status 의
+   * 경로는 저장소 루트 기준이므로 접두를 벗기고, 접두 밖의 경로는 버린다 — 트리에
+   * 없는 경로가 접어 올림에 새어 들면 루트 폴더가 근거 없는 색을 얻는다.
    */
   _setStatus(st){
-    const m=new Map();
+    const files=new Map(),dirs=new Map();
     const put=(arr,ch)=>{
       for(const e of arr||[]){
         const c=ch(e);
         // '.' 는 porcelain 의 "변화 없음" 이다 — 상태가 아니다.
-        if(e&&e.path&&c&&c!=='.') m.set(e.path,c);
+        if(!e||!e.path||!c||c==='.') continue;
+        const k=this._stKey(e.path);
+        if(k===null) continue;
+        // FR-DIR-1: 파일인지 디렉터리인지는 **서버가 확정한다** (D-DIR-1).
+        (e.dir?dirs:files).set(k,c);
       }
     };
     put(st&&st.staged,e=>(e.xy||'..')[0]);
     put(st&&st.changes,e=>(e.xy||'..')[1]);
     put(st&&st.untracked,()=>'?');
     put(st&&st.conflicts,()=>'U');
-    this._st=m;
+    this._st=files;
+    this._dirOwn=dirs;
     // FR-GIT-190: staged 와 unstaged 를 함께 가진 파일. **Git 패널이 이것을
     // 상태색보다 앞세워 `--attn` 으로 칠하므로 탐색기도 같아야 한다** — 같은
     // 사실을 두 화면이 다른 색으로 말하지 않는다 (FR-STC-1 의 근거).
     // FR-EDT-72 는 **문자**의 규칙이고 이것은 **색**의 규칙이라 서로 다르다.
+    // FR-DIR-14: 서브모듈도 양쪽을 함께 가질 수 있으므로 같은 규칙을 받는다.
     this._partial=new Set();
     for(const e of (st&&st.staged)||[]){
-      if(e&&e.path&&e.staged&&e.unstaged) this._partial.add(e.path);
+      if(!e||!e.path||!e.staged||!e.unstaged) continue;
+      const k=this._stKey(e.path);
+      if(k!==null) this._partial.add(k);
     }
-    this._dirSt=this._rollup(m);
+    // FR-DIR-13: 접어 올림은 디렉터리 항목도 대상으로 삼는다 — 서브모듈이 바뀌면
+    // 그것을 담은 폴더도 하위에 변경이 있다는 사실을 말해야 한다.
+    this._dirSt=this._rollup(new Map([...files,...dirs]));
     this._paintAll();
+  },
+
+  /**
+   * status 의 경로(저장소 루트 기준)를 트리 루트 기준으로 옮긴다.
+   *
+   * 트리 밖이면 `null` 이다 — 버려야 할 경로라는 뜻이며, 빈 문자열(루트 자신)과
+   * 구분되어야 하므로 거짓값을 겸하는 `''` 를 쓰지 않는다.
+   */
+  _stKey(p){
+    const pre=this._repoPrefix||'';
+    if(!pre) return p;
+    if(!p.startsWith(pre)) return null;
+    return p.slice(pre.length);
   },
 
   /**
@@ -317,11 +393,54 @@ Object.assign(FileTree.prototype, {
     return !!(rel&&this._partial&&this._partial.has(rel));
   },
 
-  // FR-EDT-75: 폴더 자신이 상태를 갖는 일은 없다 — git 은 폴더를 추적하지 않는다.
+  /**
+   * 한 노드의 상태 문자.
+   *
+   * **FR-EDT-75 는 개정됐다** (GIT_DIR_ENTRY_SRS FR-DIR-11 / D-DIR-3) — 폴더도 자기
+   * 상태를 가질 수 있다. gitlink(모드 160000)와 중첩 저장소가 그것이며, 둘 다 git 이
+   * 디렉터리 하나를 상태의 단위로 보고한 것이다.
+   *
+   *   폴더 = 자기 항목 > 접어 올림 > 상속
+   *   파일 = 자기 상태 > 상속
+   *
+   * 자기 항목이 접어 올림을 이기는 이유는, 접어 올림은 **하위의 요약**이고 자기
+   * 항목은 **그 폴더 자신에 대한 git 의 보고**이기 때문이다.
+   */
   _stOf(p,kind){
     const rel=this._rel(p);
     if(!rel) return '';
-    return (kind==='dir'?this._dirSt.get(rel):this._st.get(rel))||'';
+    if(kind==='dir'){
+      const own=(this._dirOwn&&this._dirOwn.get(rel))||'';
+      if(own) return own;
+      const roll=(this._dirSt&&this._dirSt.get(rel))||'';
+      if(roll) return roll;
+    }else{
+      const own=(this._st&&this._st.get(rel))||'';
+      if(own) return own;
+    }
+    return this._inherit(rel);
+  },
+
+  /**
+   * FR-DIR-12: 디렉터리 항목의 색은 **하위 전체가 상속한다.**
+   *
+   * 상속이 없으면 사용자는 "폴더는 초록인데 안은 전부 무색" 을 본다 — 중첩 저장소
+   * 안의 파일은 부모의 status 에 **결코 나오지 않기 때문**이다 (§2.1). 그 무색은
+   * "변경 없음" 이 아니라 "이 저장소가 모르는 자리" 인데, 화면은 둘을 같게 말한다.
+   *
+   * 가장 **가까운** 조상이 이긴다 — 중첩 저장소 안에 또 다른 중첩이 있을 수 있고,
+   * 그때 사용자에게 가까운 사실은 안쪽의 것이다.
+   *
+   * NFR-DIR-2: 훑는 것은 조상 경로뿐이라 행마다 경로 깊이만큼이다. 디렉터리 항목
+   * 전체를 훑지 않는다.
+   */
+  _inherit(rel){
+    if(!this._dirOwn||!this._dirOwn.size) return '';
+    for(let i=rel.lastIndexOf('/');i>0;i=rel.lastIndexOf('/',i-1)){
+      const ch=this._dirOwn.get(rel.slice(0,i));
+      if(ch) return ch;
+    }
+    return '';
   },
 
   // ── 그리기 (FR-EDT-66·68) ──

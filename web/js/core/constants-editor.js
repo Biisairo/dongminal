@@ -213,6 +213,15 @@ const FS_STAMP_MAX=512;
 // 한쪽만 고쳐진다.
 const EDITOR_GIT_POLL_MS=GIT_REPOS_POLL_MS;
 
+// GIT_DIR_ENTRY_SRS FR-DIR-31 / D-DIR-7: **`_gitOff` 는 사유마다 수명이 다르다.**
+//
+// 404(`not_repo`)와 `rootMatch=false` 는 굳히지 않는다 — 그 자리에서 `git init` 이
+// 일어나면 참이 거짓으로 바뀌는 사유이기 때문이다. 굳혀 두면 init 직후에도 색이
+// 없고, 사용자는 init 이 실패했다고 읽는다. 대신 주기를 늦춰 계속 관측한다.
+//
+// 503(git 자체가 없다)만 굳는다 — 다시 물어도 답이 같다 (기존 관례).
+const EDITOR_GIT_BACKOFF_MS=EDITOR_GIT_POLL_MS*10;
+
 // 트리 행의 들여쓰기는 Git 패널의 트리와 같은 값을 딛는다 (GIT_TREE_PAD0·
 // GIT_TREE_INDENT) — 같은 앱 안의 두 트리가 다른 리듬으로 들여쓸 이유가 없다.
 

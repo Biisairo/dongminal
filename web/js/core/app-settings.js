@@ -93,6 +93,21 @@ Object.assign(App.prototype, {
 
   // ── Modal & Theme ──
 
+  /**
+   * SANDBOX_PICK_COPY_SRS FR-SPK-7: 설정 화면을 특정 탭으로 연다.
+   *
+   * **버튼과 탭을 실제로 누른다.** 여는 절차(패널 다시 칠하기·모바일 드로어
+   * 닫기·탭별 재조회)가 그 리스너 안에 있으므로, 여기서 클래스만 바꾸면 그
+   * 절차가 통째로 빠진 반쯤 열린 화면이 된다.
+   */
+  _openSettings(tab){
+    const btn=document.getElementById('settings-btn');
+    if(btn) btn.click();
+    if(!tab) return;
+    const t=document.querySelector('#modal .mtab[data-tab="'+tab+'"]');
+    if(t) t.click();
+  },
+
   _initModal(){
     const overlay=document.getElementById('modal-overlay');
     const modal=document.getElementById('modal');

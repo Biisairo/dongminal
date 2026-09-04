@@ -29,6 +29,23 @@ Object.assign(App.prototype, {
     ov.addEventListener('click',e=>{if(e.target===ov)cleanup()});
   },
 
+  /**
+   * SANDBOX_PICK_COPY_SRS NFR-SPK-2: 복사가 도는 동안 그 사실을 보인다.
+   *
+   * `_notify` 를 쓰지 않는다 — 그쪽은 확인 버튼이 있는 모달이라 사용자가 닫아야
+   * 사라지고, 진행은 **끝나면 스스로 사라져야** 한다. 상한 안(2 GiB)의 복사도
+   * 수십 초가 걸릴 수 있는데 그동안 화면이 아무 말도 하지 않으면 사용자는
+   * 고장으로 읽는다.
+   *
+   * 닫는 함수를 돌려준다 — 여는 쪽이 끝나는 시점을 안다.
+   */
+  _sbxProgress(msg){
+    const el=document.createElement('div');
+    el.className='sbx-progress';el.textContent=msg;
+    document.body.appendChild(el);
+    return ()=>el.remove();
+  },
+
   // 샌드박스 프로파일 선택 (FR-SBX-25). 격리 등급을 함께 보이는 것이 요점이다 —
   // `dev`·`agent` 는 컨테이너 안에서 dmctl 을 쓸 수 있어 호스트 워크스페이스를
   // 조작할 수 있고, 그것을 모른 채 "격리됐다" 고 믿으면 그 믿음이 위험이 된다
@@ -55,14 +72,17 @@ Object.assign(App.prototype, {
       const msg=document.createElement('div');msg.className='confirm-msg';
       msg.textContent='샌드박스 프로파일';
       box.appendChild(msg);
-      // FR-SBX-40: 동적 마운트를 받는 프로파일이 있을 때만 폴더를 묻는다.
-      const wantsDir=list.some(p=>p.workspace);
       let input=null;
-      if(wantsDir){
+      // SANDBOX_PICK_COPY_SRS FR-SPK-3: 작업 폴더 입력은 **언제나** 보인다.
+      //
+      // 옛 조건(`list.some(p=>p.workspace)`)은 scratch 하나뿐인 환경에서 거짓이라
+      // 입력란이 아예 없었고, 그 위의 `mustAsk` 가 창 자체를 띄우지 않았다 —
+      // 사용자에게는 "설정창이 안 뜬다" 로 보였다 (§2.1 실측).
+      {
         const wrap=document.createElement('div');wrap.className='sbx-workdir';
-        const label=document.createElement('label');label.textContent='작업 폴더';
+        const label=document.createElement('label');label.textContent=SANDBOX_WORKDIR_LABEL;
         input=document.createElement('input');
-        input.type='text';input.placeholder='비우면 마운트하지 않습니다';
+        input.type='text';input.placeholder=SANDBOX_WORKDIR_PLACEHOLDER;
         wrap.appendChild(label);wrap.appendChild(input);
         // 지금 있는 자리는 입력란 바로 오른쪽에 둔다 — 가장 자주 고를 값이고,
         // 입력란과 한 줄에 있어야 "여기에 넣는 것" 임이 보인다.
@@ -102,18 +122,46 @@ Object.assign(App.prototype, {
         grade.textContent=p.isolated?'격리':'비격리';
         b.textContent=p.name+' ';
         b.appendChild(grade);
+        // FR-SPK-5: 고른 폴더가 **어떻게 되는지**를 버튼이 함께 말한다. 등급만
+        // 보이던 동안 사용자는 마운트와 복사의 차이를 창 안에서 알 수 없었다.
+        const work=p.work||SANDBOX_WORK_NONE;
+        if(SANDBOX_WORK_LABEL[work]){
+          const wk=document.createElement('span');
+          wk.className='sbx-work sbx-work-'+work;
+          wk.textContent=SANDBOX_WORK_LABEL[work];
+          b.appendChild(wk);
+        }
         b.title=(p.image?p.image+String.fromCharCode(10):'')+
           (p.isolated
             ? '컨테이너 안 코드가 호스트를 조작할 수 없습니다.'
-            : 'dmctl 이 들어 있어 컨테이너 안에서 워크스페이스를 조작할 수 있습니다. 실수는 막지만 악의적 코드는 막지 못합니다.');
-        b.addEventListener('click',()=>cleanup({profile:p.name,workdir:input?input.value.trim():''}));
+            : 'dmctl 이 들어 있어 컨테이너 안에서 워크스페이스를 조작할 수 있습니다. 실수는 막지만 악의적 코드는 막지 못합니다.')+
+          String.fromCharCode(10)+(SANDBOX_WORK_TITLE[work]||'');
+        // FR-SPK-6: `none` 인 프로파일에서는 입력한 폴더가 버려진다 — 그
+        // 사실은 위 툴팁이 밝히고, 여기서는 값을 싣지 않는다.
+        b.addEventListener('click',()=>cleanup({profile:p.name,work,
+          workdir:(input&&work!==SANDBOX_WORK_NONE)?input.value.trim():''}));
         btns.appendChild(b);
       }
       const cancel=document.createElement('button');
       cancel.className='confirm-cancel';cancel.textContent='취소';
       cancel.addEventListener('click',()=>cleanup(null));
       btns.appendChild(cancel);
-      box.appendChild(btns);ov.appendChild(box);document.body.appendChild(ov);
+      box.appendChild(btns);
+      // FR-SPK-7: 고를 것이 scratch 하나뿐이면 늘리는 길을 안내한다. 이것이
+      // 없으면 사용자는 `sandbox.json` 이라는 자리가 있다는 것 자체를 모른다 —
+      // 접수한 말("프로파일 설정창이 안 뜬다")의 나머지 절반이 이쪽이다.
+      if(list.length===1&&list[0]&&list[0].name===SANDBOX_PROFILE_SCRATCH){
+        const hint=document.createElement('div');hint.className='sbx-hint';
+        hint.textContent=SANDBOX_DEV_HINT;
+        const open=document.createElement('button');
+        open.type='button';open.className='sbx-settings';open.textContent=SANDBOX_DEV_SETTINGS;
+        // 선택창을 닫고 설정을 연다 — 두 창이 겹치면 어느 쪽이 살아 있는지
+        // 알 수 없다.
+        open.addEventListener('click',()=>{cleanup(null);this._openSettings('sandbox')});
+        hint.appendChild(open);
+        box.appendChild(hint);
+      }
+      ov.appendChild(box);document.body.appendChild(ov);
       document.addEventListener('keydown',onKey);
       ov.addEventListener('click',e=>{if(e.target===ov)cleanup(null)});
       if(input) input.focus(); else {const f=btns.querySelector('.sbx-opt'); if(f) f.focus()}

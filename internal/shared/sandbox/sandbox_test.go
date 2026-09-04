@@ -145,7 +145,7 @@ func TestEnsure_PropagatesCreateFailure(t *testing.T) {
 // ── FR-SBX-12: exec argv ──────────────────────────────
 
 func TestExecSpec_ShapeAndInteractiveTTY(t *testing.T) {
-	spec := newMgr(&fakeDocker{}).ExecSpec("w1", "/usr/bin/docker", Scratch(), ExecEnv{})
+	spec := newMgr(&fakeDocker{}).ExecSpec("w1", "/usr/bin/docker", Scratch(), RunSpec{}, ExecEnv{})
 	if spec.Path != "/usr/bin/docker" {
 		t.Errorf("Path 가 docker 가 아니다: %q", spec.Path)
 	}
@@ -164,7 +164,7 @@ func TestExecSpec_ShapeAndInteractiveTTY(t *testing.T) {
 
 // FR-SBX-13: 마운트가 없는 프로파일은 이미지 기본 작업 디렉터리를 쓴다.
 func TestExecSpec_NoWorkdirWithoutMounts(t *testing.T) {
-	spec := newMgr(&fakeDocker{}).ExecSpec("w1", "docker", Scratch(), ExecEnv{})
+	spec := newMgr(&fakeDocker{}).ExecSpec("w1", "docker", Scratch(), RunSpec{}, ExecEnv{})
 	for _, a := range spec.Args {
 		if a == "-w" {
 			t.Fatal("마운트가 없는데 -w 를 붙였다 — 존재하지 않는 경로다 (FR-SBX-13)")
@@ -234,7 +234,7 @@ func TestReapOrphans_ScopesToOwnHome(t *testing.T) {
 // docker exec 는 호스트의 TERM 을 컨테이너로 전파하지 않는다. 넘기지 않으면
 // 컨테이너 안이 dumb 터미널이 되어 TUI 와 색이 깨진다.
 func TestExecSpec_CarriesTermIntoContainer(t *testing.T) {
-	spec := newMgr(&fakeDocker{}).ExecSpec("w1", "docker", Scratch(), ExecEnv{})
+	spec := newMgr(&fakeDocker{}).ExecSpec("w1", "docker", Scratch(), RunSpec{}, ExecEnv{})
 	got := joined(spec.Args)
 	if !strings.Contains(got, "-e TERM=xterm-256color") {
 		t.Fatalf("TERM 을 컨테이너로 넘기지 않았다: %s", got)
@@ -306,7 +306,7 @@ func TestFindRuntime_ReturnsResolvedPath(t *testing.T) {
 
 func devProfile() Profile {
 	return Profile{Name: ProfileDev, Image: "node:22", Network: "bridge",
-		Ports: []string{"3000", "5173-5180"}, Workspace: true, Helper: true}
+		Ports: []string{"3000", "5173-5180"}, Work: WorkMount, Helper: true}
 }
 
 func TestEnsure_MountsWorkdirAndPublishesPorts(t *testing.T) {
@@ -356,7 +356,7 @@ func TestEnsure_ScratchHasNoMountOrPorts(t *testing.T) {
 
 // FR-SBX-13: 마운트가 있는 프로파일은 컨테이너 안 작업 디렉터리를 지정한다.
 func TestExecSpec_UsesContainerWorkdirWhenMounted(t *testing.T) {
-	spec := newMgr(&fakeDocker{}).ExecSpec("w1", "docker", devProfile(), ExecEnv{})
+	spec := newMgr(&fakeDocker{}).ExecSpec("w1", "docker", devProfile(), RunSpec{HostDir: "/Users/me/app"}, ExecEnv{})
 	got := joined(spec.Args)
 	if !strings.Contains(got, "-w "+ContainerWorkdir) {
 		t.Fatalf("작업 디렉터리를 지정하지 않았다: %s", got)
@@ -394,7 +394,7 @@ func TestEnsure_ScratchNeverGetsHelper(t *testing.T) {
 // 주소만 컨테이너에서 호스트를 가리키게 바꾼다.
 func TestExecSpec_CarriesHelperEnvironment(t *testing.T) {
 	env := ExecEnv{ToolID: "tool-9", Port: "58146"}
-	spec := newMgr(&fakeDocker{}).ExecSpec("w1", "docker", devProfile(), env)
+	spec := newMgr(&fakeDocker{}).ExecSpec("w1", "docker", devProfile(), RunSpec{HostDir: "/Users/me/app"}, env)
 	got := joined(spec.Args)
 	for _, want := range []string{
 		"-e DONGMINAL_HOST=" + HostGateway,
@@ -409,7 +409,7 @@ func TestExecSpec_CarriesHelperEnvironment(t *testing.T) {
 
 func TestExecSpec_ScratchGetsNoHelperEnvironment(t *testing.T) {
 	env := ExecEnv{ToolID: "tool-9", Port: "58146"}
-	spec := newMgr(&fakeDocker{}).ExecSpec("w1", "docker", Scratch(), env)
+	spec := newMgr(&fakeDocker{}).ExecSpec("w1", "docker", Scratch(), RunSpec{}, env)
 	if strings.Contains(joined(spec.Args), "DONGMINAL_TOOL_ID") {
 		t.Fatal("scratch 에 서버 접속 정보가 들어갔다")
 	}

@@ -83,10 +83,12 @@ type ProfileInfo struct {
 	// Isolated 는 이 프로파일이 격리 **경계**인가다 (FR-SBX-23).
 	Isolated bool `json:"isolated"`
 	Helper   bool `json:"helper"`
-	// Workspace 는 이 프로파일이 동적 마운트(작업 폴더)를 받는가다 —
-	// 화면이 폴더를 물어야 할지 판단하는 근거다 (FR-SBX-40).
-	Workspace bool     `json:"workspace"`
-	Ports     []string `json:"ports,omitempty"`
+	// Work 는 이 프로파일이 작업 폴더를 **어떻게** 받는가다 — "mount"·"copy"·
+	// "none" (SANDBOX_PICK_COPY_SRS FR-SPK-23). 옛 `workspace` 불리언을
+	// 대체한다: 화면은 폴더를 물어야 할지뿐 아니라 **그 폴더가 어떻게 되는지**를
+	// 말해야 하고(FR-SPK-21), 불리언은 그것을 담지 못한다.
+	Work  WorkKind `json:"work"`
+	Ports []string `json:"ports,omitempty"`
 }
 
 // Info 는 표시용 요약을 낸다.
@@ -100,9 +102,12 @@ func (p Profile) Info() ProfileInfo {
 		// 마운트가 하나라도 있으면 경계가 아니다. 읽기 전용이어도 그 폴더의
 		// 내용은 유출되며, "여기서 무슨 일이 나도 호스트는 무사하다" 가 경계라는
 		// 말이 사용자에게 뜻하는 바다 (FR-SBX-39b).
-		Isolated:  !p.Helper && p.Network == "none" && !p.Workspace && len(p.BaseMounts) == 0,
-		Helper:    p.Helper,
-		Workspace: p.Workspace,
-		Ports:     p.Ports,
+		// FR-SPK-20: **복사는 등급을 낮추지 않는다.** 등급이 답하는 물음은
+		// "컨테이너 안 코드가 호스트를 조작할 수 있는가" 이고(FR-SBX-23·37),
+		// 복사에서 그 답은 아니오다 — 마운트와 달리 돌아오는 통로가 없다.
+		Isolated: !p.Helper && p.Network == "none" && p.Work != WorkMount && len(p.BaseMounts) == 0,
+		Helper:   p.Helper,
+		Work:     p.Work,
+		Ports:    p.Ports,
 	}
 }

@@ -46,7 +46,7 @@ func TestLoadProfiles_ReadsImageAndPorts(t *testing.T) {
 	}
 	// FR-SBX-1: dev 는 작업 폴더를 받고 네트워크를 연다. 그 정책은 파일이
 	// 아니라 프로파일 종류가 정한다 — 사용자가 실수로 끌 수 있으면 안 된다.
-	if !dev.Workspace || dev.Network != "bridge" || !dev.Helper {
+	if dev.Work != WorkMount || dev.Network != "bridge" || !dev.Helper {
 		t.Errorf("dev 정책이 다르다: %+v", dev)
 	}
 }
@@ -90,7 +90,7 @@ func TestProfileInfo_IsolationGradeFollowsPolicy(t *testing.T) {
 	if got := Scratch().Info(); !got.Isolated {
 		t.Errorf("scratch 가 경계로 보고되지 않았다: %+v", got)
 	}
-	dev := Profile{Name: ProfileDev, Image: "node:22", Network: "bridge", Helper: true, Workspace: true}
+	dev := Profile{Name: ProfileDev, Image: "node:22", Network: "bridge", Helper: true, Work: WorkMount}
 	if got := dev.Info(); got.Isolated {
 		t.Errorf("헬퍼가 있는데 경계로 보고됐다: %+v", got)
 	}

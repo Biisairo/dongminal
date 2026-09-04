@@ -427,8 +427,12 @@ Object.assign(GitPanel.prototype, {
     st.textContent=ch;
     const p=document.createElement('span'); p.className='git-file-path';
     this._fillPath(p,e);
+    // FR-DIR-20: 디렉터리 항목은 종류까지 밝힌다 — 서브모듈과 중첩 저장소는
+    // 사용자가 할 수 있는 일이 다르다.
+    if(e.dir) d.classList.add('dir-entry');
     d.title=(e.origPath?e.origPath+' → '+e.path:e.path)+(e.score?' ('+e.score+'%)':'')+
-      (partial?' — '+GIT_PARTIAL_TITLE:'');
+      (partial?' — '+GIT_PARTIAL_TITLE:'')+
+      (e.dir?' — '+(e.sub?GIT_DIR_ENTRY_TITLE_SUB:GIT_DIR_ENTRY_TITLE_NESTED):'');
     d.appendChild(st); d.appendChild(p);
     // 행 인라인 동작 (FR-GIT-64·65·89). 그룹이 할 수 있는 것만 붙인다.
     const acts=document.createElement('span'); acts.className='git-file-acts';
@@ -492,6 +496,15 @@ Object.assign(GitPanel.prototype, {
     }
     // 트리 보기는 디렉터리가 이미 행으로 갈려 있어 파일명만 남는다.
     seg(this._treeMode()?e.path.split('/').pop():e.path);
+    // GIT_DIR_ENTRY_SRS FR-DIR-20: 디렉터리 항목임을 접미 `/` 로 보인다.
+    // **판정은 서버의 `dir` 에서 온다** (D-DIR-1) — 경로 문자열로 판정하면
+    // 판정 자리가 둘이 된다. 그래서 서버는 경로에서 슬래시를 벗겨 보내고
+    // (FR-DIR-2), 표시가 필요한 여기서만 다시 붙인다.
+    if(e.dir){
+      const s=document.createElement('span');
+      s.className='git-file-path-dirmark'; s.textContent=GIT_DIR_ENTRY_SUFFIX;
+      p.appendChild(s);
+    }
   },
 
   // 상태문자는 xy 에서 뽑는다 — 그룹이 어느 축을 보는지가 곧 X/Y 선택이다.

@@ -132,6 +132,11 @@ Object.assign(App.prototype, {
     };
     // FR-SBX-18: 선택 필드다. 일반 창에는 키 자체를 두지 않는다.
     if(sandbox) s.sandbox=sandbox;
+    // SANDBOX_PICK_COPY_SRS FR-SPK-21·22: 이 창의 작업 폴더가 **복사본**이라는
+    // 사실. 컨테이너 안의 변경이 호스트로 돌아오지 않는다는 것은 창을 여는
+    // 순간에만 말하고 끝낼 성질이 아니다 — 사용자는 며칠 뒤에도 그 창에서
+    // 일한다. 폴더를 실제로 받은 창에만 적는다 (복사한 것이 없으면 뜻이 없다).
+    if(sandbox&&opts.sandboxWork===SANDBOX_WORK_COPY&&cwd) s.sandboxCopy=true;
     this.ws.windows.push(s);
     // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-2: keepFocus 면 창은 사이드바에만
     // 추가 — activeWindow/focused 무변화 (백그라운드 잡 컨테이너 패턴).

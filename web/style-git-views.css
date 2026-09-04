@@ -71,6 +71,13 @@
 .git-diff-note.vis{display:block}
 /* 본문을 못 주는 쪽의 메타(oid·크기) — 사유 아래 줄이다 (FR-GIT-46·47·48). */
 .git-diff-meta{display:block;margin-top:2px;color:var(--text-dim)}
+/* GIT_DIR_ENTRY_SRS FR-DIR-22: 사유에 딸린 진입점. 디렉터리 항목(서브모듈·중첩
+   저장소)에서 그 저장소로 가는 길이다 — 안내만 있고 길이 없으면 사용자는 같은
+   자리에서 매번 막힌다. */
+.git-diff-note-act{display:inline-block;margin-top:6px;padding:3px 8px;
+  font-size:11px;color:var(--text-bright);background:var(--bg-alt);
+  border:1px solid var(--border);border-radius:3px;cursor:pointer}
+.git-diff-note-act:hover{border-color:var(--accent);color:var(--accent)}
 .git-diff-host{flex:1 1 auto;min-height:0}
 
 /* ── Git History 탭 (FR-GIT-113~139) ── */

@@ -57,7 +57,7 @@ func devProfiles() map[string]sandbox.Profile {
 	return map[string]sandbox.Profile{
 		sandbox.ProfileScratch: sandbox.Scratch(),
 		sandbox.ProfileDev: {Name: sandbox.ProfileDev, Image: "node:22", Network: "bridge",
-			Ports: []string{"3000"}, Workspace: true, Helper: true},
+			Ports: []string{"3000"}, Work: sandbox.WorkMount, Helper: true},
 	}
 }
 

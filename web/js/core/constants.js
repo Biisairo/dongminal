@@ -153,6 +153,36 @@ const WINDOW_TYPE_TERMINAL='terminal';
 const WINDOW_TYPE_GIT='git';
 const TAB_TYPE_GIT='git';
 
+// ── 샌드박스 창의 작업 방식 (SANDBOX_PICK_COPY_SRS FR-SPK-10·23) ──
+//
+// 서버의 `WorkKind` 를 그대로 받는다 (`/api/sandbox/profiles` 의 `work`).
+// **뜻이 다른 것은 표기가 아니라 결과다** — 마운트는 컨테이너 안 변경이 호스트에
+// 남고, 복사는 남지 않는다. 그 차이를 화면 세 자리에서 같은 말로 알린다
+// (FR-SPK-21): 선택창의 버튼, 입력란 도움말, 사이드바 창 배지.
+// 프로파일 이름. 서버의 `ProfileScratch`·`ProfileDev` 와 같은 값이다.
+const SANDBOX_PROFILE_SCRATCH='scratch';
+const SANDBOX_WORK_MOUNT='mount';
+const SANDBOX_WORK_COPY='copy';
+const SANDBOX_WORK_NONE='none';
+const SANDBOX_WORK_LABEL={[SANDBOX_WORK_MOUNT]:'마운트',[SANDBOX_WORK_COPY]:'복사'};
+const SANDBOX_WORK_TITLE={
+  [SANDBOX_WORK_MOUNT]:'고른 폴더가 컨테이너에 이어집니다. 컨테이너 안 변경이 호스트에 그대로 남습니다.',
+  [SANDBOX_WORK_COPY]:'고른 폴더의 내용이 컨테이너로 복사됩니다. 컨테이너 안 변경은 호스트로 돌아오지 않습니다.',
+  [SANDBOX_WORK_NONE]:'이 프로파일은 작업 폴더를 쓰지 않습니다 — 고른 폴더는 쓰이지 않습니다.',
+};
+// FR-SPK-3·4: 입력란은 언제나 보이고 비어 있다. 지금 있는 자리는 버튼으로만 넣는다.
+const SANDBOX_WORKDIR_LABEL='작업 폴더';
+const SANDBOX_WORKDIR_PLACEHOLDER='비우면 아무것도 넣지 않습니다';
+// FR-SPK-7: 프로파일이 scratch 하나뿐일 때. 이 안내가 없으면 사용자는 프로파일을
+// 늘리는 길이 있다는 것 자체를 알 수 없다.
+const SANDBOX_DEV_HINT='마운트가 필요하면 설정에서 dev 프로파일을 정의하세요.';
+const SANDBOX_DEV_SETTINGS='설정 열기';
+// FR-SPK-22: 복사본으로 연 창의 사이드바 배지.
+const SANDBOX_COPY_PROGRESS='작업 폴더를 컨테이너로 복사하는 중입니다 — 크기에 따라 시간이 걸립니다.';
+const SANDBOX_COPY_BADGE='복사';
+const SANDBOX_COPY_BADGE_TITLE=
+  '작업 폴더의 복사본입니다 — 이 창 안의 변경은 호스트로 돌아오지 않습니다.';
+
 // ── 파일 전송 (FILE_TRANSFER_SRS §3.3) ──
 
 // FR-FTR-8: 완성되지 않은 OSC 시퀀스를 보류하는 상한과, 다음 청크를 기다리는

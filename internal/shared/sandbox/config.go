@@ -126,7 +126,7 @@ func (c Config) Profiles() map[string]Profile {
 	if c.Dev != nil {
 		out[ProfileDev] = Profile{
 			Name: ProfileDev, Image: c.Dev.Image, Network: "bridge",
-			Ports: c.Dev.Ports, Workspace: true, Helper: true, BaseMounts: c.Mounts,
+			Ports: c.Dev.Ports, Work: WorkMount, Helper: true, BaseMounts: c.Mounts,
 		}
 	}
 	return out

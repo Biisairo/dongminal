@@ -22,6 +22,17 @@ type FileEntry struct {
 	Untracked bool   `json:"untracked"`          // 레코드 종류가 '?'
 	Score     int    `json:"score,omitempty"`    // rename/copy 유사도 (R100 의 100)
 	Sub       string `json:"sub,omitempty"`      // 서브모듈 상태 필드. "N..." 이면 생략
+	// Dir 은 이 항목이 파일이 아니라 **디렉터리 하나**를 가리키는가다
+	// (GIT_DIR_ENTRY_SRS FR-DIR-1). 근거가 둘이라 서버가 확정한다 (D-DIR-1) —
+	// 클라이언트가 경로의 마지막 문자로 판정하면 판정 자리가 둘이 된다.
+	//
+	//   ? 레코드의 경로가 "/" 로 끝난다      → 중첩 저장소 (Sub 는 빈 값)
+	//   1·2 레코드의 sub 가 "S" 로 시작한다  → 서브모듈 (gitlink, 모드 160000)
+	//
+	// 두 경우 모두 그 디렉터리 **안**은 이 저장소의 관측 대상이 아니다 — git 이
+	// 다른 저장소 안을 들여다보지 않기 때문이며, --untracked-files=all 도
+	// 그것만은 펴지 못한다 (§2.1 실측).
+	Dir bool `json:"dir,omitempty"`
 }
 
 // Status 는 한 리포의 관측 결과다.
@@ -53,6 +64,7 @@ const (
 	statusDetached    = "(detached)"
 	statusNoChange    = '.'
 	statusSubNone     = "N..." // 서브모듈이 아니라는 표시. 실을 정보가 없다
+	statusSubIsSub    = "S"    // sub 필드의 첫 글자. gitlink 임을 뜻한다 (FR-DIR-1)
 	statusOrdFields   = 8      // 1 레코드: XY sub mH mI mW hH hI path
 	statusRenFields   = 9      // 2 레코드: + <X><score>
 	statusUnmerFields = 10     // u 레코드: XY sub m1 m2 m3 mW h1 h2 h3 path
@@ -104,7 +116,7 @@ func ParseStatusV2(out string) (Status, error) {
 			// 충돌 파일이 스테이징 가능한 것처럼 보인다.
 			st.Conflicts = append(st.Conflicts, e)
 		case strings.HasPrefix(tok, "? "):
-			st.Untracked = append(st.Untracked, FileEntry{Path: tok[2:], XY: statusUntrackedXY, Untracked: true})
+			st.Untracked = append(st.Untracked, newUntracked(tok[2:]))
 		case strings.HasPrefix(tok, "! "):
 			// --ignored 를 주지 않으므로 나오지 않아야 한다. 나와도 관심 대상이 아니다.
 		default:
@@ -207,6 +219,25 @@ func newTracked(xy, sub, path string) FileEntry {
 	}
 	if sub != statusSubNone {
 		e.Sub = sub
+		// FR-DIR-1: sub 필드의 첫 글자가 "S" 면 gitlink 다 — 이 항목은 파일이
+		// 아니라 서브모듈 디렉터리 하나를 가리킨다.
+		e.Dir = strings.HasPrefix(sub, statusSubIsSub)
+	}
+	return e
+}
+
+// newUntracked 는 ? 레코드 하나를 만든다.
+//
+// FR-DIR-2: 미추적 **디렉터리**는 경로가 "/" 로 끝나 온다. 그 슬래시를 벗기고
+// 사실은 Dir 로 옮긴다 — 경로 문법이 항목마다 달라지면 그 경로를 받는 모든
+// 곳(탐색기 매칭·스테이지·discard·diff)이 각자 슬래시를 처리해야 한다 (D-DIR-2).
+//
+// 벗기는 것은 **끝의 한 겹뿐**이다. 경로 안의 슬래시는 계층 구분이라 그대로 둔다.
+func newUntracked(path string) FileEntry {
+	e := FileEntry{Path: path, XY: statusUntrackedXY, Untracked: true}
+	if strings.HasSuffix(path, "/") {
+		e.Path = strings.TrimSuffix(path, "/")
+		e.Dir = true
 	}
 	return e
 }

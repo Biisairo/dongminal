@@ -265,3 +265,100 @@ func TestServiceStatus_PropagatesNotRepo(t *testing.T) {
 		t.Fatalf("err = %v, want ErrNotRepo", err)
 	}
 }
+
+// ── 디렉터리 상태 항목 (GIT_DIR_ENTRY_SRS 묶음 S) ──
+//
+// git 이 파일이 아니라 **디렉터리 하나**를 상태의 단위로 보고하는 경우가 둘 있다.
+// 중첩 저장소는 `--untracked-files=all` 로도 펴지지 않고(git 은 다른 저장소 안을
+// 보지 않는다), 서브모듈은 gitlink 로 디렉터리를 그대로 추적한다. 둘의 문법이
+// 서로 다르므로 판정은 여기 한 자리에서 한다 (D-DIR-1).
+
+// V-DIR-1: 중첩 저장소는 `? nested/` 로 온다. 끝의 `/` 를 벗기고 Dir 로 옮긴다.
+func TestParseStatusV2_UntrackedDirEntry(t *testing.T) {
+	in := nulRecords(hdrOid, hdrHead, "? nested/", "? plain.txt")
+	st, err := ParseStatusV2(in)
+	if err != nil {
+		t.Fatalf("ParseStatusV2: %v", err)
+	}
+	if len(st.Untracked) != 2 {
+		t.Fatalf("Untracked = %+v", st.Untracked)
+	}
+	// 정렬은 경로 오름차순이다 — "nested" < "plain.txt".
+	dir, file := st.Untracked[0], st.Untracked[1]
+	if dir.Path != "nested" {
+		t.Fatalf("dir.Path = %q, want %q (끝 슬래시를 벗긴다)", dir.Path, "nested")
+	}
+	if !dir.Dir {
+		t.Fatal("중첩 저장소 항목의 Dir 이 거짓이다")
+	}
+	if dir.Sub != "" {
+		t.Fatalf("dir.Sub = %q, want 빈 값 (중첩 저장소는 서브모듈이 아니다)", dir.Sub)
+	}
+	// V-DIR-3: 일반 미추적 파일은 그대로다.
+	if file.Path != "plain.txt" || file.Dir {
+		t.Fatalf("file = %+v, want {Path:plain.txt Dir:false}", file)
+	}
+}
+
+// V-DIR-2: 등록된 서브모듈은 경로에 슬래시가 없고 sub 가 S 로 시작한다.
+func TestParseStatusV2_SubmoduleIsDirEntry(t *testing.T) {
+	in := nulRecords(hdrOid, hdrHead,
+		"1 .M S.MU 160000 160000 160000 aaa bbb sub",
+		"1 .M N... 100644 100644 100644 aaa bbb file.txt",
+	)
+	st, err := ParseStatusV2(in)
+	if err != nil {
+		t.Fatalf("ParseStatusV2: %v", err)
+	}
+	if len(st.Changes) != 2 {
+		t.Fatalf("Changes = %+v", st.Changes)
+	}
+	var sub, file FileEntry
+	for _, e := range st.Changes {
+		if e.Path == "sub" {
+			sub = e
+		} else {
+			file = e
+		}
+	}
+	if !sub.Dir {
+		t.Fatalf("서브모듈 항목의 Dir 이 거짓이다: %+v", sub)
+	}
+	if sub.Sub != "S.MU" {
+		t.Fatalf("sub.Sub = %q, want S.MU", sub.Sub)
+	}
+	if file.Dir {
+		t.Fatalf("일반 파일의 Dir 이 참이다: %+v", file)
+	}
+}
+
+// V-DIR-5: 디렉터리 항목도 경로 하나로 센다 — 배지의 뜻이 바뀌지 않는다.
+func TestParseStatusV2_DirEntryCountsAsOnePath(t *testing.T) {
+	in := nulRecords(hdrOid, hdrHead,
+		"1 .M S.MU 160000 160000 160000 aaa bbb sub",
+		"? nested/",
+	)
+	st, err := ParseStatusV2(in)
+	if err != nil {
+		t.Fatalf("ParseStatusV2: %v", err)
+	}
+	if st.Total != 2 {
+		t.Fatalf("Total = %d, want 2", st.Total)
+	}
+}
+
+// 슬래시를 벗기는 것은 **미추적 디렉터리에만** 해당한다. 경로 안의 슬래시는
+// 그대로다 — `a/b/` 는 `a/b` 이지 `a` 가 아니다.
+func TestParseStatusV2_UntrackedNestedDirKeepsInnerSlashes(t *testing.T) {
+	in := nulRecords(hdrOid, hdrHead, "? a/b/nested/")
+	st, err := ParseStatusV2(in)
+	if err != nil {
+		t.Fatalf("ParseStatusV2: %v", err)
+	}
+	if len(st.Untracked) != 1 || st.Untracked[0].Path != "a/b/nested" {
+		t.Fatalf("Untracked = %+v", st.Untracked)
+	}
+	if !st.Untracked[0].Dir {
+		t.Fatal("Dir 이 거짓이다")
+	}
+}

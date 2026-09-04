@@ -31,7 +31,7 @@ app.init();
 if(!(defaultPreset>=0&&layoutPresets[defaultPreset]))document.getElementById('add-preset').style.display='none';
 document.getElementById('add-window').addEventListener('click',async(e)=>{
   // 안쪽 박스를 눌렀으면 샌드박스 창이다. 바깥은 종전대로 일반 창.
-  let sandbox='',workdir='';
+  let sandbox='',workdir='',work='';
   if(e.target.closest('#add-sandbox-window')){
     let list=[];
     try{const r=await fetch('/api/sandbox/profiles');if(r.ok) list=await r.json()}catch{}
@@ -41,24 +41,33 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
       app._notify('샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)이 설치되어 실행 중인지 확인하세요.');
       return;
     }
-    // 고를 것도 물을 것도 없으면 그대로 연다 — 선택지가 없는 선택은 절차만
-    // 늘린다. 작업 폴더를 받는 프로파일이 하나라도 있으면 매번 묻는다
-    // (FR-SBX-40).
-    const mustAsk=list.length>1||list.some(p=>p.workspace);
-    // 지금 있는 자리는 **버튼으로만** 낸다 — 자동으로 채우지 않는다.
-    const here=mustAsk?await app._focusedCwd().catch(()=>null):null;
-    const picked=mustAsk
-      ? await app._pickSandbox(list,here)
-      : {profile:list[0].name,workdir:''};
+    // SANDBOX_PICK_COPY_SRS FR-SPK-1 / D-SPK-1: **언제나 묻는다.**
+    //
+    // 옛 조건은 `list.length>1 || list.some(p=>p.workspace)` 였다. 그런데
+    // `sandbox.json` 이 없으면 프로파일은 scratch 하나이고 그것은 작업 폴더를
+    // 받지 않았으므로, 조건이 **거짓이 되어 창이 뜨지 않았다**(실측). 사용자
+    // 눈에는 작업 폴더를 고를 길도, 프로파일을 늘릴 길도 없었다.
+    // 지금은 scratch 도 폴더를 받는다 — 복사로 (FR-SPK-10).
+    // 지금 있는 자리는 **버튼으로만** 낸다 — 자동으로 채우지 않는다 (FR-SPK-4).
+    const here=await app._focusedCwd().catch(()=>null);
+    const picked=await app._pickSandbox(list,here);
     if(!picked||!picked.profile) return;
     sandbox=picked.profile;
     workdir=picked.workdir||'';
-    app._sbxRemember(workdir);
+    work=picked.work||'';
+    // FR-SPK-9: 비어 있는 값은 기억하지 않는다 — 최근 목록에 빈 줄이 쌓인다.
+    if(workdir) app._sbxRemember(workdir);
   }
+  // NFR-SPK-2: 복사는 상한 안에서도 수십 초가 걸릴 수 있다. 그동안 화면이
+  // 아무 말도 하지 않으면 사용자는 고장으로 읽는다.
+  const done=(sandbox&&work===SANDBOX_WORK_COPY&&workdir)
+    ? app._sbxProgress(SANDBOX_COPY_PROGRESS) : null;
   // 샌드박스 창은 실패가 흔하다(런타임 미실행·이미지 없음). 사유를 보이지 않으면
-  // "눌러도 아무 일이 없다" 로만 남는다 (FR-SBX-20).
-  app.addWindow(sandbox?{sandbox,cwd:workdir||undefined}:undefined)
-    .catch(err=>app._notify('창을 열지 못했습니다 — '+((err&&err.message)||err)));
+  // "눌러도 아무 일이 없다" 로만 남는다 (FR-SBX-20). 복사 상한을 넘긴 거부도
+  // 이 길로 온다 (FR-SPK-14).
+  app.addWindow(sandbox?{sandbox,cwd:workdir||undefined,sandboxWork:work}:undefined)
+    .catch(err=>app._notify('창을 열지 못했습니다 — '+((err&&err.message)||err)))
+    .finally(()=>{if(done)done()});
 });
 document.getElementById('add-preset').addEventListener('click',()=>{
   if(defaultPreset>=0&&layoutPresets[defaultPreset]) app._loadPreset(defaultPreset);

@@ -114,12 +114,20 @@ func (p *Placer) Place(pl toolhub.Placement) (*platform.ProcSpec, error) {
 	}
 
 	// 작업 폴더도 사용자가 고른 값이다. 없으면 여기서 멈춰 오타를 알린다 —
-	// 기본 마운트와 같은 규칙이다 (FR-SBX-41). 비어 있으면 마운트하지 않는
-	// 것이므로 볼 것이 없다 (FR-SBX-40).
-	if prof.Workspace && pl.HostDir != "" {
+	// 기본 마운트와 같은 규칙이며 마운트와 복사가 같다 (FR-SBX-41, FR-SPK-19).
+	// 비어 있으면 붙일 것도 넣을 것도 없다 (FR-SBX-40, FR-SPK-4).
+	if prof.Work != sandbox.WorkNone && pl.HostDir != "" {
 		if err := p.stat(pl.HostDir); err != nil {
 			return nil, fmt.Errorf("작업 폴더가 없습니다: %s", pl.HostDir)
 		}
+	}
+
+	// SANDBOX_PICK_COPY_SRS FR-SPK-14: 복사는 상한이 있다. **컨테이너를 만들기
+	// 전에** 잰다 — 만든 뒤에 거부하면 되돌리는 일이 따라붙고(FR-SPK-17), 그
+	// 되돌림은 실패할 수도 있다. 여기서 멈추면 만들 것도 없다.
+	if err := sandbox.VerifyCopySource(prof, pl.HostDir,
+		sandbox.CopyMaxBytes, sandbox.CopyMaxFiles); err != nil {
+		return nil, err
 	}
 
 	rs := sandbox.RunSpec{HostDir: pl.HostDir}
@@ -136,7 +144,7 @@ func (p *Placer) Place(pl toolhub.Placement) (*platform.ProcSpec, error) {
 	if err := p.mgr.Ensure(pl.WindowUUID, prof, rs); err != nil {
 		return nil, err
 	}
-	spec := p.mgr.ExecSpec(pl.WindowUUID, p.docker, prof,
+	spec := p.mgr.ExecSpec(pl.WindowUUID, p.docker, prof, rs,
 		sandbox.ExecEnv{ToolID: pl.ToolID, Port: p.port})
 	return &spec, nil
 }

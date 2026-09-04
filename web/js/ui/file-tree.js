@@ -86,8 +86,16 @@ class FileTree {
   set _partial(v){ this.store.partial=v }
   get _dirSt(){ return this.store.dirSt }
   set _dirSt(v){ this.store.dirSt=v }
+  // GIT_DIR_ENTRY_SRS FR-DIR-10·41: 디렉터리 항목과 저장소 접두. 관측의 것이므로
+  // 같은 루트를 보는 칸 넷이 한 벌을 나눠 쓴다 (FR-SVS-20).
+  get _dirOwn(){ return this.store.dirOwn }
+  set _dirOwn(v){ this.store.dirOwn=v }
+  get _repoPrefix(){ return this.store.repoPrefix }
+  set _repoPrefix(v){ this.store.repoPrefix=v }
   get _gitOff(){ return this.store.gitOff }
   set _gitOff(v){ this.store.gitOff=v }
+  get _gitRetryAt(){ return this.store.gitRetryAt }
+  set _gitRetryAt(v){ this.store.gitRetryAt=v }
   get _gitBusy(){ return this.store.gitBusy }
   set _gitBusy(v){ this.store.gitBusy=v }
   get _ign(){ return this.store.ign }

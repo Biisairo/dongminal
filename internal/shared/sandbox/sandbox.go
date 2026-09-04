@@ -56,9 +56,13 @@ type Profile struct {
 	Network string // "none" | "bridge"
 	// Ports 는 호스트와 같은 번호로 열 포트다. "3000" 또는 "5173-5180".
 	Ports []string
-	// Workspace 는 동적 마운트를 받는가다 — 창을 열 때 정해진 작업 폴더가
-	// 컨테이너 안 ContainerWorkdir 로 붙는다 (FR-SBX-40).
-	Workspace bool
+	// Work 는 창을 열 때 고른 **작업 폴더를 어떻게 다루는가**다
+	// (SANDBOX_PICK_COPY_SRS FR-SPK-10, D-SPK-8).
+	//
+	// 옛 `Workspace bool` 을 대체한다. 불리언을 남기고 복사 플래그를 따로
+	// 더하면 "마운트이면서 복사" 라는 **뜻을 갖지 않는 상태**가 표현되는데,
+	// 표현할 수 없는 상태는 타입이 막는 편이 낫다.
+	Work WorkKind
 	// BaseMounts 는 이 프로파일이면 언제나 붙는 마운트다 (FR-SBX-39).
 	BaseMounts []Mount
 	// Helper 는 컨테이너 안에서 dmctl 을 쓸 수 있게 하는가다. 켜면 그 창은
@@ -68,8 +72,11 @@ type Profile struct {
 
 // Scratch 는 신뢰하지 않는 코드를 돌리는 프로파일이다. 마운트도 네트워크도
 // 헬퍼도 없어, 세 프로파일 중 유일하게 격리 경계다 (FR-SBX-23).
+//
+// **작업 폴더는 복사로 받는다** (FR-SPK-10 / D-SPK-2). 마운트는 컨테이너 안
+// 코드에 호스트 파일을 내주어 경계를 깨지만, 복사에는 돌아오는 통로가 없다.
 func Scratch() Profile {
-	return Profile{Name: ProfileScratch, Image: ScratchImage, Network: "none"}
+	return Profile{Name: ProfileScratch, Image: ScratchImage, Network: "none", Work: WorkCopy}
 }
 
 // HostGateway 는 컨테이너에서 호스트를 부르는 이름이다. 컨테이너 안 dmctl 이
@@ -161,7 +168,10 @@ func (m *Manager) create(name, windowUUID string, p Profile, rs RunSpec) error {
 	}
 	// 창의 작업 디렉터리를 컨테이너 안 한 자리로 잇는다 (FR-SBX-1). 호스트
 	// 경로가 없으면 붙이지 않는다 — 빈 원본은 런타임이 거부한다.
-	if p.Workspace && rs.HostDir != "" {
+	//
+	// **복사 프로파일은 여기에 오지 않는다** (FR-SPK-10) — 잇는 것과 넣는 것은
+	// 다른 일이고, 복사는 컨테이너가 선 뒤에 한다 (아래 copyWork).
+	if p.Work == WorkMount && rs.HostDir != "" {
 		args = append(args, "-v", rs.HostDir+":"+ContainerWorkdir)
 	}
 	// 기본 마운트는 창이 달라도 같다 — 설정과 자격증명의 자리다 (FR-SBX-39).
@@ -202,6 +212,16 @@ func (m *Manager) create(name, windowUUID string, p Profile, rs RunSpec) error {
 		return fmt.Errorf("샌드박스 컨테이너를 만들지 못했습니다(이미지 %s): %w: %s",
 			p.Image, err, strings.TrimSpace(out))
 	}
+	// FR-SPK-11·12: 복사는 **만들 때 한 번**이다. 여기가 그 자리인 이유는 이
+	// 함수가 "컨테이너가 방금 생겼다" 를 아는 유일한 곳이기 때문이다 — 재접속
+	// 경로(Ensure 의 start)에서 복사하면 컨테이너 안의 작업을 호스트의 옛
+	// 내용이 덮는다.
+	if err := m.copyWork(name, p, rs); err != nil {
+		// FR-SPK-17: 반쯤 채워진 컨테이너를 남기지 않는다. 남기면 다음 열기가
+		// 복사를 건너뛰어(FR-SPK-12) 그 상태가 굳는다.
+		_, _ = m.run([]string{"rm", "-f", name})
+		return err
+	}
 	return nil
 }
 
@@ -220,7 +240,7 @@ func nameTaken(out string) bool {
 // 전파하지 않아서, 넘기지 않으면 컨테이너 안이 dumb 터미널이 되어 TUI 와 색이
 // 깨진다. 컨테이너 이름보다 **앞에** 와야 한다. 뒤에 두면 docker 가 그것을
 // 컨테이너 안에서 실행할 명령으로 읽는다.
-func (m *Manager) ExecSpec(windowUUID, dockerPath string, p Profile, env ExecEnv) platform.ProcSpec {
+func (m *Manager) ExecSpec(windowUUID, dockerPath string, p Profile, rs RunSpec, env ExecEnv) platform.ProcSpec {
 	name := m.ContainerName(windowUUID)
 	args := []string{dockerPath, "exec", "-it", "-e", "TERM=xterm-256color"}
 	// 헬퍼가 있는 프로파일에만 서버 접속 정보를 심는다. scratch 에 넣으면 그
@@ -234,7 +254,10 @@ func (m *Manager) ExecSpec(windowUUID, dockerPath string, p Profile, env ExecEnv
 	// 마운트가 있을 때만 작업 디렉터리를 지정한다. 없으면 이미지의 기본 자리이며,
 	// 호스트 경로를 넘기면 컨테이너 안에 없는 경로라 기동 자체가 실패한다
 	// (FR-SBX-13).
-	if p.Workspace {
+	// FR-SPK-18: 작업 폴더를 고른 창에서만 그 자리를 시작 디렉터리로 준다.
+	// 고르지 않았으면 `/work` 자체가 없고, 없는 자리를 주면 런타임이 그것을
+	// 만들어 **빈 폴더에서 시작한 것처럼** 보인다.
+	if p.Work != WorkNone && rs.HostDir != "" {
 		args = append(args, "-w", ContainerWorkdir)
 	}
 	args = append(args, name, "bash", "-l")

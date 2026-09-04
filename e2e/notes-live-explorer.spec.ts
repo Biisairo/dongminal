@@ -278,9 +278,19 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
     const notes = await notesRoot(page);
     await openEditorWin(page, notes);
     // FR-FSL-13 의 전제 — 이 루트에는 git 색이 없다.
+    //
+    // **판정의 표현이 바뀌었다** (GIT_DIR_ENTRY_SRS FR-DIR-31 / D-DIR-7).
+    //   이전 동작: 404 를 받으면 `_gitOff` 가 참으로 굳었다
+    //   새  동작: 굳지 않고 `_gitRetryAt` 으로 늦춘다. `_gitOff` 는 503 전용이다
+    //   이유:     404 는 `git init` 이 뒤집을 수 있는 사유다 — 굳혀 두면 init
+    //             직후에도 색이 없어 사용자가 init 을 실패로 읽는다
+    // 이 시험이 재는 것은 "색의 근거가 없다" 이므로 그 사실을 새 표현으로 잰다.
     await expect.poll(
-      () => page.evaluate(() => (window as any).app._edActiveTree()._gitOff),
-      { timeout: POLL_WAIT }).toBe(true);
+      () => page.evaluate(() => {
+        const t = (window as any).app._edActiveTree();
+        return { off: !!t._gitOff, backoff: t._gitRetryAt > 0, painted: t._st.size };
+      }),
+      { timeout: POLL_WAIT }).toEqual({ off: false, backoff: true, painted: 0 });
 
     const made = j(notes, 'v23-outside.md');
     fs.writeFileSync(made, 'x\n');

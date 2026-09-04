@@ -128,9 +128,13 @@ class GitDiffView {
   }
 
   // 본문 대신 안내를 보인다. 에디터와 모델은 함께 버린다 (FR-GIT-56).
-  clear(message,meta){
+  //
+  // GIT_DIR_ENTRY_SRS FR-DIR-22: `acts` 는 그 안내에 딸린 진입점이다
+  // (`[{label,title,run}]`). **무엇을 띄울지는 이 클래스가 정하지 않는다** —
+  // 여기는 diff 를 그리는 자리이고, 사유와 갈 길은 부른 쪽이 안다.
+  clear(message,meta,acts){
     this._seq++;
-    this._setNote(message||'',meta);
+    this._setNote(message||'',meta,acts);
     if(this._editor){this._editor.dispose();this._editor=null}
     this._dropModels(this._orig,this._mod);
     this._orig=null; this._mod=null;
@@ -202,7 +206,7 @@ class GitDiffView {
 
   // 안내 한 줄과 그 아래 메타 줄들 (FR-GIT-46·47·48). 메타는 별도 요소여야
   // 사유와 값이 한 줄로 뭉치지 않는다.
-  _setNote(text,meta){
+  _setNote(text,meta,acts){
     this._note.textContent=text||'';
     const lines=meta||[];
     for(const line of lines){
@@ -211,6 +215,16 @@ class GitDiffView {
       el.textContent=line;
       this._note.appendChild(el);
     }
-    this._note.classList.toggle('vis',!!(text||lines.length));
+    const list=acts||[];
+    for(const a of list){
+      if(!a||!a.label||typeof a.run!=='function') continue;
+      const b=document.createElement('button');
+      b.className='git-diff-note-act';
+      b.textContent=a.label;
+      if(a.title) b.title=a.title;
+      b.addEventListener('click',()=>a.run());
+      this._note.appendChild(b);
+    }
+    this._note.classList.toggle('vis',!!(text||lines.length||list.length));
   }
 }

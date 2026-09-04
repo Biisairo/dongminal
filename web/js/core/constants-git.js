@@ -136,6 +136,25 @@ const GIT_BULK_LABEL={stage:'Stage All',unstage:'Unstage All'};
 // FR-GIT-70: staged 와 unstaged 를 동시에 가진 파일. 체크박스의 indeterminate 와
 // 행 클래스 둘로 구분한다 — 색만으로는 무엇이 다른지 알 수 없다.
 const GIT_PARTIAL_TITLE='일부만 스테이지됨';
+
+// GIT_DIR_ENTRY_SRS 묶음 G — **디렉터리 항목**. git 이 파일이 아니라 디렉터리
+// 하나를 상태의 단위로 보고한 행이다 (FR-DIR-20~22).
+//
+// 이 행에 파일 diff 를 보이는 것은 사용자를 돕지 않는다 — 서브모듈의 diff 는
+// `Subproject commit …` 두 줄뿐이고 중첩 저장소는 아예 내용이 없다(실측).
+// 사용자가 알아야 하는 것은 **여기가 다른 저장소라는 사실**과 그리로 가는 길이다.
+const GIT_DIR_ENTRY_SUFFIX='/';
+const GIT_DIR_ENTRY_TITLE_SUB='서브모듈 — 이 저장소는 커밋 하나로만 추적합니다';
+const GIT_DIR_ENTRY_TITLE_NESTED='다른 저장소 — 이 저장소는 안을 들여다보지 않습니다';
+const GIT_DIR_ENTRY_NOTE_SUB=
+  '서브모듈입니다 — 이 저장소는 커밋 하나로만 이 폴더를 추적합니다. '+
+  '안의 변경은 여기서 보이지 않습니다.';
+const GIT_DIR_ENTRY_NOTE_NESTED=
+  '다른 저장소입니다 — 이 저장소는 안을 들여다보지 않습니다.';
+const GIT_DIR_ENTRY_ADD='저장소로 추가';
+const GIT_DIR_ENTRY_ADD_TITLE='이 폴더를 Repo 목록에 더하고 그 창으로 갑니다';
+const GIT_DIR_ENTRY_GO='저장소로 이동';
+const GIT_DIR_ENTRY_GO_TITLE='이미 목록에 있습니다 — 그 창으로 갑니다';
 // FR-GIT-72: 충돌 파일의 stage 는 "해결됨 표시" 다. 파괴적이 아니므로 1단계 확인이다.
 const GIT_ACT_RESOLVE='resolve_mark';
 const GIT_RESOLVE_TITLE='충돌을 해결됨으로 표시합니다';

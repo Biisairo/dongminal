@@ -12,6 +12,7 @@ import (
 
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/query"
+	"dongminal/internal/webserver/domain/wsentry"
 )
 
 // /api/git/* — 리포 해석·핀·상태·시그니처 (GIT_SRS §3.8 FR-GIT-60~63).
@@ -418,13 +419,25 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 		gitError(w, err)
 		return
 	}
+	// GIT_DIR_ENTRY_SRS FR-DIR-5·42 / D-DIR-6: **비교는 정규화를 아는 쪽이 한다.**
+	//
+	// `requested` 는 클라이언트가 보낸 값 그대로이고 `root` 는 git 이 심볼릭
+	// 링크를 푼 값이다 (실측: `/tmp/…` 로 물으면 `/private/tmp/…` 가 돌아온다).
+	// 클라이언트가 이 둘을 문자열로 비교하던 동안 macOS 의 `/tmp` 아래 Editor 는
+	// 색이 영구히 꺼졌다 (§2.5).
+	resolved := wsentry.NormalizePath(requested)
 	gitJSON(w, http.StatusOK, map[string]any{
-		"repo":             root,
-		"requested":        requested,
-		"cached":           cached,
-		"observedAtUnixMs": obs.ObservedAtUnixMs,
-		"signature":        obs.Signature,
-		"status":           obs.Status,
+		"repo":      root,
+		"requested": requested,
+		// 요청 경로가 이 저장소의 **루트**인가. 탐색기가 색의 기준을 정하는 값이다.
+		"rootMatch": resolved == root,
+		// 루트가 아닐 때 저장소 루트로부터의 접두를 계산할 근거다 (FR-DIR-41).
+		// 클라이언트는 심볼릭 링크를 풀 수 없으므로 정규화된 값을 함께 준다.
+		"requestedResolved": resolved,
+		"cached":            cached,
+		"observedAtUnixMs":  obs.ObservedAtUnixMs,
+		"signature":         obs.Signature,
+		"status":            obs.Status,
 	})
 }
 

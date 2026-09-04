@@ -25,8 +25,21 @@ class FileTreeStore {
     this.st=new Map();
     this.partial=new Set();
     this.dirSt=new Map();
-    // FR-EDT-69: 루트가 저장소 **루트**가 아니면 색이 없다.
+    // GIT_DIR_ENTRY_SRS FR-DIR-10: **디렉터리 항목** 자신의 상태 — 서브모듈과
+    // 중첩 저장소다. 접어 올린 값(dirSt)과 자리를 나누는 이유는 둘의 근거가
+    // 다르기 때문이다: 이쪽은 git 이 그 폴더를 두고 한 보고이고, 저쪽은 하위의
+    // 요약이다. 섞으면 어느 쪽이 이기는지 말할 수 없다 (FR-DIR-11).
+    this.dirOwn=new Map();
+    // FR-DIR-41: 저장소 루트에서 이 트리 루트까지의 접두. 루트가 저장소 루트면
+    // 빈 문자열이다. status 의 경로를 트리 기준으로 옮기는 데 쓴다.
+    this.repoPrefix='';
+    // FR-EDT-69: 루트에 저장소가 없으면 색이 없다.
+    //
+    // **`gitOff` 는 이제 503 에만 쓴다** (FR-DIR-31 / D-DIR-7). 404 처럼
+    // `git init` 이 뒤집을 수 있는 사유는 굳히지 않고 `gitRetryAt` 으로 늦춘다 —
+    // 굳혀 두면 init 직후에도 색이 없어 사용자가 init 을 실패로 읽는다.
     this.gitOff=false;
+    this.gitRetryAt=0;
     this.gitBusy=false;
     // FR-ETR-5·6: 무시된 이름. 겹별 Set.
     this.ign=new Map();

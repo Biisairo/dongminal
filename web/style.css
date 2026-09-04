@@ -101,6 +101,22 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .sbx-grade{margin-left:6px;padding:0 5px;border-radius:8px;font-size:10px;
   background:var(--accent-subtle);color:var(--text-dim)}
 .sbx-grade.iso{color:var(--accent)}
+/* SANDBOX_PICK_COPY_SRS FR-SPK-5: 고른 폴더가 어떻게 되는지. 등급 배지와 같은
+   모양이되 색을 나눈다 — 마운트는 호스트로 이어지고(주의), 복사는 이어지지
+   않는다(중립). 두 사실이 같은 색이면 배지를 읽을 이유가 없다. */
+.sbx-work{margin-left:4px;padding:0 5px;border-radius:8px;font-size:10px;
+  background:var(--accent-subtle);color:var(--text-dim)}
+.sbx-work-mount{color:var(--attn)}
+/* NFR-SPK-2: 복사가 도는 동안의 표시. 모달이 아니라 배너다 — 진행은 끝나면
+   스스로 사라져야 하고, 그동안 사용자가 다른 창을 보는 것을 막을 이유가 없다. */
+.sbx-progress{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;
+  padding:8px 14px;font-size:12px;color:var(--text-bright);background:var(--bg-alt);
+  border:1px solid var(--border);border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.35)}
+/* FR-SPK-7: 고를 것이 하나뿐일 때 늘리는 길. */
+.sbx-hint{margin:10px 0 0;font-size:11px;color:var(--text-dim)}
+.sbx-settings{margin-left:8px;padding:2px 8px;font-size:10px;background:transparent;
+  border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer}
+.sbx-settings:hover{color:var(--accent);border-color:var(--accent)}
 
 /* FR-GIT-226: 사이드바 목록 행이 30px 이 되었으므로 그 아래 버튼도 같은 높이를
    갖는다. 같은 패널의 같은 계열인데 한쪽만 낮으면 "너무 낮다" 가 한 줄 아래에서

@@ -37,6 +37,9 @@ Object.assign(GitPanel.prototype, {
     this.previewFile={
       repo:this.repo,group,axis:GIT_GROUP_AXIS[group],
       path:e.path,origPath:e.origPath||'',
+      // GIT_DIR_ENTRY_SRS FR-DIR-21: 이 대상이 디렉터리인가, 그리고 어느
+      // 종류인가. diff 를 부르는 대신 사유를 보이는 판단이 이 둘에 걸린다.
+      dir:!!e.dir,sub:e.sub||'',
     };
     const i=this._diffIndex(this._fileList());
     if(i>=0) this._diffPos=i;
@@ -519,7 +522,37 @@ Object.assign(GitPanel.prototype, {
     if(this[slot]===key) return;
     this[slot]=key;
     if(!f){view.clear(this.repo?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);return}
+    // GIT_DIR_ENTRY_SRS FR-DIR-21: 디렉터리 항목에는 diff 를 부르지 않는다.
+    // 서버가 줄 것이 없고(실측), 사용자가 알아야 할 것은 사유와 갈 길이다.
+    if(f.dir){
+      view.clear(f.sub?GIT_DIR_ENTRY_NOTE_SUB:GIT_DIR_ENTRY_NOTE_NESTED,
+        [f.path],this._dirEntryActs(f));
+      return;
+    }
     view.show(f,this.token());
+  },
+
+  /**
+   * FR-DIR-22: 디렉터리 항목 자리의 진입점 하나.
+   *
+   * 이미 Repo 목록에 있으면 **이동**이고, 없으면 **추가**다. 추가는
+   * `/api/editors/add` 한 번이며 연동이 Git 핀까지 함께 만든다 (FR-EDT-33·39) —
+   * 여기서 두 목록을 각각 건드리지 않는다.
+   */
+  _dirEntryActs(f){
+    const app=this.app;
+    if(!app||!f||!f.repo||!f.path) return [];
+    const abs=f.repo.replace(/\/+$/,'')+'/'+f.path;
+    const has=(app._edEntries?app._edEntries():[]).some(e=>e&&e.path===abs);
+    const go=()=>{
+      const w=app._edWindowFor&&app._edWindowFor(abs);
+      if(w) app.switchWindow(w.id);
+    };
+    if(has) return [{label:GIT_DIR_ENTRY_GO,title:GIT_DIR_ENTRY_GO_TITLE,run:go}];
+    return [{label:GIT_DIR_ENTRY_ADD,title:GIT_DIR_ENTRY_ADD_TITLE,run:async()=>{
+      // 추가가 실패하면 창도 없다 — 성공했을 때만 옮긴다.
+      if(await app._edMutate('/add',{path:abs})) go();
+    }}];
   },
 
   // 두 인스턴스는 같은 클래스다 (§3.2). 미리보기는 좁은 자리이므로 inline 을

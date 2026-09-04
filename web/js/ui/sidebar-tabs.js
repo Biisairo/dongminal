@@ -65,8 +65,14 @@ const SB_TAB_DEFS=[
         attn:app._windowHasAttn(s),
         // SANDBOX_WINDOW_SRS: 격리된 창임을 목록에서 구분한다. 어느 창이
         // 샌드박스인지 알 수 없으면 사용자가 격리를 신뢰할 근거가 없다.
-        badge:s.sandbox?{text:'▣ '+s.sandbox,cls:'si-sbx',
-          title:'샌드박스 창 — 이 창의 도구는 컨테이너 안에서 돕니다'}:null,
+        // SANDBOX_PICK_COPY_SRS FR-SPK-21·22: 작업 폴더가 복사본인 창은 그
+        // 사실을 함께 적는다 — 컨테이너 안의 변경이 호스트로 돌아오지 않는다는
+        // 것은 창을 여는 순간에만 말하고 끝낼 성질이 아니다. 폴더를 실제로 받은
+        // 창에만 붙는다 (복사한 것이 없으면 뜻이 없다).
+        badge:s.sandbox?{text:'▣ '+s.sandbox+(s.sandboxCopy?' · '+SANDBOX_COPY_BADGE:''),
+          cls:'si-sbx',
+          title:'샌드박스 창 — 이 창의 도구는 컨테이너 안에서 돕니다'
+            +(s.sandboxCopy?String.fromCharCode(10)+SANDBOX_COPY_BADGE_TITLE:'')}:null,
         removable:true,
         dataset:{sid:s.id,windowType:s.type||WINDOW_TYPE_TERMINAL},
         onOpen:app=>app.switchWindow(s.id),

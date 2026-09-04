@@ -481,6 +481,10 @@ body.mobile .git-files-handle::before{left:0;right:0;top:-8px;bottom:-8px}
 .git-file-path-dir{color:var(--text)}
 .git-file-path-name{color:var(--text-bright);font-weight:600}
 .git-file-path-arrow{color:var(--text-muted)}
+/* GIT_DIR_ENTRY_SRS FR-DIR-20: 디렉터리 항목의 접미 `/`. 서버는 경로에서 이
+   슬래시를 벗겨 보내므로(FR-DIR-2) 표시가 필요한 자리에서만 다시 붙인다 —
+   그래야 매칭·조작·diff 가 한 가지 경로 문법만 다룬다. */
+.git-file-path-dirmark{color:var(--text-muted)}
 /* UX_REVISION_SRS FR-STC-1~3: 상태문자의 색. 추가는 diff 의 add 와 같은 초록,
    삭제는 danger — 같은 뜻을 두 화면에서 다른 색으로 말하지 않는다.
    `--git-st-add` 는 `:root` 에 산다 — 탐색기 트리에는 `.git-files` 조상이 없고,
