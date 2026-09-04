@@ -52,6 +52,34 @@ jobs:
       - name: unit tests
         run: go test -race ./internal/... ./cmd/...
 
+  # 이음매와 크로스 컴파일 게이트 (CROSS_PLATFORM_SRS FR-XBD-2·3).
+  #
+  # 두 스크립트는 진작 있었는데 **아무도 CI 에 걸지 않았다.** 그래서
+  # `runtime.GOOS` 가 platform 밖으로 새어 나간 채로 main 이 초록이었고, 그것을
+  # 알아챈 것은 사람이 손으로 스크립트를 돌렸을 때였다. 검사기가 있어도 돌지
+  # 않으면 없는 것과 같다.
+  #
+  # 한 번만 돈다 — 둘 다 호스트에 의존하지 않는다. 이음매 검사는 소스를 훑는
+  # 일이고, 크로스 게이트는 GOOS·GOARCH 를 바꿔 가며 build·vet 을 돌리는 일이라
+  # 어느 러너에서 돌든 답이 같다. 매트릭스에 태우면 같은 답을 두 번 계산한다.
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      # OS 의존 호출이 internal/shared/platform 밖에 없는가 (FR-XPL-5).
+      - name: 이음매
+        run: scripts/check-seams.sh
+
+      # 대상 5종에 build 와 vet. vet 이 테스트 파일까지 타입 검사하므로 어느
+      # 플랫폼에서만 깨지는 테스트도 여기서 잡힌다.
+      - name: 크로스 컴파일
+        run: scripts/check-cross.sh
+
   windows-runtime:
     runs-on: windows-latest
     timeout-minutes: 15

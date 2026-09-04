@@ -614,6 +614,16 @@ Windows 산출물은 `.exe` 확장자를 갖는다. 옵션 없는 기본 동작�
 `net.Dial("unix")`, `"/proc/`, `exec.Command("lsof"`, `exec.Command("pgrep"`,
 `exec.Command("ps"`, `creack/pty`.
 
+**FR-XBD-3a** FR-XBD-2·3 의 두 게이트는 **CI 가 돌린다** (`verify.yml` 의 `gates`
+job). 신설만으로는 강제가 되지 않는다 — 두 스크립트가 있는 동안에도 `runtime.GOOS`
+가 `platform` 밖으로 새어 나간 채 main 이 초록이었고, 그것을 알아챈 것은 사람이
+손으로 스크립트를 돌렸을 때였다 (LSP_WINDOWS_PORTABILITY_SRS §6). **검사기가 있어도
+돌지 않으면 없는 것과 같다.**
+
+한 번만 돈다. 이음매 검사는 소스를 훑는 일이고 크로스 게이트는 `GOOS`·`GOARCH` 를
+바꿔 가며 build·vet 을 돌리는 일이라, 어느 러너에서 돌든 답이 같다 — 매트릭스에
+태우면 같은 답을 두 번 계산한다.
+
 **FR-XBD-4** `go test ./...` 는 darwin·linux 에서 전량 통과해야 한다. Windows 는
 `GOOS=windows go vet ./...` 통과와, 플랫폼 독립 테스트(§4.2)의 통과까지를 이 트랙의
 보증 범위로 한다 (§8 리스크 R-1).
