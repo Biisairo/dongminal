@@ -310,12 +310,62 @@ test.describe('13단계 — 원격 작업', () => {
     await expect(log(page)).toBeHidden();
 
     // 사라지는 것이 아니라 접히는 것이다 — 바를 누르면 다시 펼쳐진다.
-    // 누르는 자리는 바의 **글자**다 (R13 과 같은 근거).
+    // 누르는 자리는 바의 **글자**다 (R13 과 같은 근거). 폭과 무관한 계기는
+    // R20b 가 본다 (FR-RTU-100).
     await job(page).locator('.git-job-argv').click();
     await expect(log(page)).toBeVisible();
     await job(page).locator('.git-job-argv').click();
     await expect(log(page)).toBeHidden();
   });
+
+  test('R20b (V-RTU-94·95 / FR-RTU-100·101): 접기 토글은 폭이 줄어도 그 자리에 있다',
+    async ({ page }) => {
+      const { repo, remote } = copyPair('r20b');
+      advanceRemote(remote, 'for-r20b');
+      await waitForInit(page);
+      await openGit(page, repo);
+      await ready(page);
+
+      await btn(page, 'fetch').click();
+      await jobEnded(page, '완료');
+      await expect(log(page)).toBeHidden();
+
+      // 기본 220px 과 하한 100px 둘 다에서. 하한에서 무너지는 구조는 사용자가
+      // 손잡이를 끄는 순간 무너지는 구조다 (NFR-RTU-6).
+      for (const w of [220, 100]) {
+        await page.evaluate((v) => {
+          const a = (window as any).app;
+          a._edSetExplorerWidth(a._aw(), v);
+          a.render();
+        }, w);
+        await expect(page.locator('#area .ed-win .ed-side')).toHaveCSS('width', `${w}px`);
+
+        const fold = job(page).locator('.git-job-fold');
+        // 폭과 무관하게 자리와 크기가 고정이다 (FR-RTU-100).
+        const box = await fold.boundingBox();
+        expect(box, `${w}px 에서 토글이 없다`).not.toBeNull();
+        expect(box!.width).toBeGreaterThanOrEqual(30);
+        expect(box!.height).toBeGreaterThanOrEqual(30);
+
+        // **그 자리에 다른 버튼이 서지 않는다** — 지금까지의 결함은 누르려던
+        // 자리에 `copy`·`close` 가 와 있던 것이었다 (D-RTU-33).
+        const hit = await page.evaluate(([x, y]) => {
+          const el = document.elementFromPoint(x, y) as HTMLElement;
+          return el ? el.className : '';
+        }, [box!.x + box!.width / 2, box!.y + box!.height / 2]);
+        expect(hit, `${w}px 에서 토글 자리에 다른 것이 있다`).toContain('git-job-fold');
+
+        await fold.click();
+        await expect(log(page)).toBeVisible();
+        await fold.click();
+        await expect(log(page)).toBeHidden();
+
+        // FR-RTU-101: 무엇이 실행됐는지를 말하는 글자도 눌리지 않는다.
+        const argvW = await job(page).locator('.git-job-argv')
+          .evaluate((el) => el.getBoundingClientRect().width);
+        expect(argvW, `${w}px 에서 argv 가 눌렸다`).toBeGreaterThanOrEqual(60);
+      }
+    });
 
   test('R21 (V98 / FR-GIT-221): 실패한 작업은 접지 않는다', async ({ page }) => {
     const { repo, remote } = copyPair('r21');

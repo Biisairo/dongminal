@@ -12,6 +12,7 @@ IEEE 29148 준수. `./GIT_SRS.md` 를 **개정**하는 문서다 — 여기서 �
 > | FR-GIT-192~194 (GIT 섹션의 표식) | 목록이 하나가 됐다 — 행은 `.ed-entry` 이고 `#repo-entries`·`#repo-root` 에 그려진다 | REPO_TAB_UNIFY_SRS FR-RTU-1 / D-RTU-2 |
 > | FR-GIT-195~198 (히트 영역·행 높이 하한) | 그대로이며 **사이드 컨트롤도 대상이다** | REPO_TAB_UNIFY_SRS D-RTU-31 |
 > | FR-GIT-213 (커밋 영역의 정렬) | 그 영역은 창의 **사이드**에 있다 | REPO_TAB_UNIFY_SRS FR-RTU-20 |
+> | FR-GIT-221 (접힌 로그는 **바를 눌러** 편다) | 그 바가 220px 사이드로 옮겨져 **버튼 아닌 자리가 남지 않았다** — 펴는 일은 **전용 접기 토글**이 갖는다. 바 클릭도 그대로 남는다 | REPO_TAB_UNIFY_SRS FR-RTU-100 / D-RTU-33 |
 
 작성: 2026-08-26
 

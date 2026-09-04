@@ -747,6 +747,11 @@ const GIT_JOB_FAIL='실패';
 const GIT_JOB_CANCELED='취소했습니다';
 const GIT_JOB_CANCELING='취소하는 중…';
 const GIT_JOB_CLOSE='Close';
+// REPO_TAB_UNIFY_SRS FR-RTU-100: 로그 접기 토글. 폭이 줄어도 자리가 고정인 유일한
+// 계기이므로 라벨도 한 글자여야 한다 — 글자가 길면 그것이 다시 폭을 다툰다.
+const GIT_JOB_FOLD_OPEN='\u25be';
+const GIT_JOB_FOLD_CLOSED='\u25b8';
+const GIT_JOB_FOLD_TITLE='실행 로그 펼치기/접기';
 const GIT_JOB_COPY='Copy Output';
 const GIT_JOB_STREAM_FAIL='출력이 끊겼습니다 — 다시 잇는 중…';
 const GIT_JOB_START_FAIL='원격 작업을 시작하지 못했습니다';

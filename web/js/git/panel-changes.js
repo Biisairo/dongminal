@@ -154,6 +154,10 @@ Object.assign(GitPanel.prototype, {
       // 원격 작업 하나의 화면 (FR-GIT-102·103·105·108). 진행 중이 아니면 접힌다.
       '<div class="git-job">'+
         '<div class="git-job-bar">'+
+          // REPO_TAB_UNIFY_SRS FR-RTU-100: 접기·펴기는 **전용 토글**이 갖는다.
+          // 바의 나머지를 누르는 계기도 남지만, 폭이 줄면 그 자리가 버튼이 되므로
+          // 폭과 무관한 자리가 하나 있어야 한다 (D-RTU-33).
+          '<button class="git-job-fold"></button>'+
           '<span class="git-job-kind"></span>'+
           '<code class="git-job-argv"></code>'+
           '<span class="git-job-state"></span>'+
@@ -220,6 +224,7 @@ Object.assign(GitPanel.prototype, {
     for(const b of el.querySelectorAll('.git-job-cancel')) b.textContent=GIT_JOB_CANCEL;
     el.querySelector('.git-job-copy').textContent=GIT_JOB_COPY;
     el.querySelector('.git-job-close').textContent=GIT_JOB_CLOSE;
+    el.querySelector('.git-job-fold').title=GIT_JOB_FOLD_TITLE;
     el.querySelector('.git-job-auth-copy').textContent=GIT_JOB_AUTH_COPY;
     el.querySelector('.git-partial-close').textContent=GIT_NOTE_CLOSE;
     el.querySelector('.git-partial-close')

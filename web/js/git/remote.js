@@ -82,12 +82,20 @@ class GitRemote {
     const box=el.querySelector('.git-job'); if(!box) return;
     box.querySelector('.git-job-cancel').addEventListener('click',()=>this.cancel());
     box.querySelector('.git-job-copy').addEventListener('click',()=>this._copyLog());
-    // FR-GIT-221: 접힌 로그는 사라진 것이 아니다 — 바를 누르면 다시 펼쳐진다.
-    // 바 안의 버튼은 자기 일을 한다.
+    // FR-GIT-221 (REPO_TAB_UNIFY_SRS FR-RTU-100 개정): 접힌 로그는 사라진 것이
+    // 아니다 — 다시 펼칠 수 있다. 계기는 둘이고 하는 일은 같다.
+    //
+    //   이전 동작: 바를 누르면 펴진다. 바 안의 버튼은 자기 일을 한다
+    //   새  동작: **전용 토글**이 편다. 바를 누르는 것도 그대로 남는다
+    //   이유:     220px 사이드에서 `kind·state·cancel·copy·close` 가
+    //             `flex-shrink:0` 이라 argv 만 0 으로 눌린다 — 바에 버튼 아닌
+    //             자리가 남지 않아 펴려는 클릭이 `copy`·`close` 에 떨어졌다
+    //             (D-RTU-33). 토글은 폭과 무관하게 자리가 고정이다
+    const fold=()=>{this._logOpen=this._logCollapsed(); this._paint()};
+    box.querySelector('.git-job-fold').addEventListener('click',fold);
     box.querySelector('.git-job-bar').addEventListener('click',ev=>{
       if(ev.target.closest('button')) return;
-      this._logOpen=this._logCollapsed();
-      this._paint();
+      fold();
     });
     box.querySelector('.git-job-close').addEventListener('click',()=>{
       this._done=null; this._err=null; this._conflict=false;
@@ -218,7 +226,11 @@ class GitRemote {
     const msg=this._conflict?GIT_JOB_CONFLICT_NOTE:((this._sync&&this._sync.stopped)||'');
     note.textContent=msg;
     note.classList.toggle('vis',!!msg);
-    box.classList.toggle('log-collapsed',this._logCollapsed());
+    const collapsed=this._logCollapsed();
+    box.classList.toggle('log-collapsed',collapsed);
+    // FR-RTU-100: 토글은 지금 상태를 말한다 — 눌러서 무엇이 되는지가 아니라.
+    box.querySelector('.git-job-fold').textContent=
+      collapsed?GIT_JOB_FOLD_CLOSED:GIT_JOB_FOLD_OPEN;
     this._paintFail(box);
     this._paintLog(box);
   }

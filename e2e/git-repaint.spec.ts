@@ -266,4 +266,51 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     const m = await markCount(page, sel);
     expect(m.kept).toBe(m.total - 1);
   });
+
+  test('P12 (V-RTU-92 / NFR-RTU-5): 사이드 탭 전환이 변경 목록의 DOM 을 파괴하지 않는다',
+    async ({ page }) => {
+      await waitForInit(page);
+      await openGit(page, fx('basic'));
+      const sel = '#area .ed-side .git-view.git-changes .git-file';
+      await expect(page.locator(sel).first()).toBeVisible();
+      const n = await markAll(page, sel);
+      expect(n).toBeGreaterThan(0);
+
+      // 사이드는 뷰를 **갈아 끼운다** — 만들지 않는다. 뷰 DOM 의 주인은 패널이고
+      // (FR-RTU-32), 그래서 Explorer 에 다녀와도 같은 요소가 돌아온다. 다시
+      // 만들면 hover·드래그·선택이 그 자리에서 죽는다 (NFR-RTU-5).
+      await page.evaluate(() => {
+        const a = (window as any).app;
+        a._edSetSide(a._aw(), 'explorer');
+      });
+      await expect(page.locator('#area .ed-side .ed-explorer')).toBeVisible({ timeout: 10000 });
+      await page.evaluate(() => {
+        const a = (window as any).app;
+        a._edSetSide(a._aw(), 'changes');
+      });
+      await expect(page.locator(sel).first()).toBeVisible({ timeout: 10000 });
+
+      expect(await markCount(page, sel)).toEqual({ kept: n, total: n });
+    });
+
+  test('P13 (V-RTU-97 / NFR-RTU-2): 창을 오가도 그 저장소의 패널을 다시 만들지 않는다',
+    async ({ page }) => {
+      await waitForInit(page);
+      await openGit(page, fx('basic'));
+      const sel = '#area .ed-side .git-view.git-changes .git-file';
+      await expect(page.locator(sel).first()).toBeVisible();
+      const n = await markAll(page, sel);
+      expect(n).toBeGreaterThan(0);
+
+      // NFR-RTU-2 는 시간 예산으로 적혔지만 그 근거는 **패널을 유지하므로
+      // 재구성이 없어야 한다** 였다 (D-RTU-35). 재는 것은 그 근거다 — 밀리초는
+      // 기계가 정하고, 재구성이 없다는 사실은 구조가 정한다.
+      await page.evaluate((r: string) => (window as any).app.openGitWindow(r),
+        fx('with-remote'));
+      await expect(page.locator('#area .ed-win .ed-side')).toBeVisible({ timeout: 10000 });
+      await page.evaluate((r: string) => (window as any).app.openGitWindow(r), fx('basic'));
+      await expect(page.locator(sel).first()).toBeVisible({ timeout: 10000 });
+
+      expect(await markCount(page, sel)).toEqual({ kept: n, total: n });
+    });
 });

@@ -14,6 +14,7 @@ import { test, expect } from './fixtures';
 
 let BASE = '';
 let REPO = '';
+let CONFLICT = '';
 
 const j = (...p: string[]) => path.join(...p);
 const w = (p: string, s: string) => fs.writeFileSync(p, s);
@@ -37,9 +38,33 @@ function makeRepo(base: string) {
   return fs.realpathSync(d);
 }
 
+// 묶음 N — `conflicts` 그룹은 행 버튼이 **넷**(`↗`·`Ours`·`Theirs`·`+`)이라
+// 기본 220px 에서도 이름 60px 을 남기지 못한다. 그 폭이 규칙의 시험대다.
+function makeConflict(base: string) {
+  const d = j(base, 'conflict');
+  fs.mkdirSync(d, { recursive: true });
+  git(d, 'init', '-q', '-b', 'main', '.');
+  git(d, 'config', 'user.name', 'Fixture');
+  git(d, 'config', 'user.email', 'fixture@example.invalid');
+  git(d, 'config', 'commit.gpgsign', 'false');
+  w(j(d, 'c.txt'), 'base\n');
+  git(d, 'add', '-A');
+  git(d, 'commit', '-qm', 'base');
+  git(d, 'checkout', '-q', '-b', 'other');
+  w(j(d, 'c.txt'), 'other\n');
+  git(d, 'commit', '-qam', 'other');
+  git(d, 'checkout', '-q', 'main');
+  w(j(d, 'c.txt'), 'main\n');
+  git(d, 'commit', '-qam', 'main');
+  // 충돌이므로 실패로 끝난다 — 그것이 이 픽스처의 목적이다.
+  try { git(d, 'merge', 'other') } catch { /* 충돌 */ }
+  return fs.realpathSync(d);
+}
+
 test.beforeAll(() => {
   BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-rtu-')));
   REPO = makeRepo(BASE);
+  CONFLICT = makeConflict(BASE);
 });
 test.afterAll(() => {
   if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
@@ -503,5 +528,90 @@ test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
       });
       expect(over.items, '사이드 안에서 경계를 넘는 요소가 있다').toEqual([]);
       expect(over.scrollW).toBe(over.clientW);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 묶음 N — 좁은 폭의 손짓 (FR-RTU-101 / NFR-RTU-6, D-RTU-34)
+//
+// 사이드 폭은 사용자가 정한다 — 기본 220px · **하한 100px**. 그 안에서 글자만
+// `min-width:0` 이고 버튼이 `flex-shrink:0` 이면, 폭이 줄 때 버튼이 줄을 다 먹고
+// **선택하려는 클릭이 `stage` 를 실행한다** (C4b 실측). 규칙은 둘이다 —
+// 글자는 60px 아래로 눌리지 않고, 그것을 지키느라 버튼을 감추지 않는다.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SIDE_WIDTHS = [220, 100];
+
+async function setSideWidth(page: Page, w: number) {
+  await page.evaluate((v) => {
+    const a = (window as any).app;
+    a._edSetExplorerWidth(a._aw(), v);
+    a.render();
+  }, w);
+  // 폭이 실제로 바뀐 뒤에 잰다 — 렌더가 style.width 를 다시 쓴다.
+  await expect(side(page)).toHaveCSS('width', `${w}px`);
+}
+
+/** 행(또는 바) 안의 글자 자리 폭과, 버튼들이 그 칸 안에 들어오는지. */
+async function measure(page: Page, rowSel: string, textSel: string, actSel: string) {
+  return page.evaluate(([rs, ts, as]) => {
+    const row = document.querySelector(rs) as HTMLElement;
+    if (!row) throw new Error('행이 없다: ' + rs);
+    const host = row.closest('.ed-side') as HTMLElement;
+    const hr = host.getBoundingClientRect();
+    const text = row.querySelector(ts) as HTMLElement;
+    const acts = Array.from(row.querySelectorAll(as)) as HTMLElement[];
+    return {
+      textW: text ? text.getBoundingClientRect().width : 0,
+      acts: acts.map((b) => {
+        const r = b.getBoundingClientRect();
+        return {
+          act: b.dataset.act || b.className,
+          w: r.width, h: r.height,
+          inside: r.left >= hr.left - 1 && r.right <= hr.right + 1,
+        };
+      }),
+    };
+  }, [rowSel, textSel, actSel]);
+}
+
+test.describe('묶음 N — 좁은 폭에서도 누를 자리가 남는다', () => {
+  test('N1 (V-RTU-95·96): 변경 행의 이름이 60px 아래로 눌리지 않고 버튼이 전부 닿는다',
+    async ({ page, request }) => {
+      await enter(page, request, REPO);
+      await sideTab(page, 'changes').click();
+      const row = '#area .ed-side .git-file[data-path="src/a.ts"]';
+      await expect(page.locator(row)).toBeVisible({ timeout: 10000 });
+
+      for (const w of SIDE_WIDTHS) {
+        await setSideWidth(page, w);
+        const m = await measure(page, row, '.git-file-path', '.git-file-act');
+        expect(m.textW, `${w}px 에서 이름이 눌렸다`).toBeGreaterThanOrEqual(60);
+        // 감추지 않는다 — `changes` 그룹은 셋이다 (`↗`·`+`·`↺`).
+        expect(m.acts.length, `${w}px 에서 버튼이 사라졌다`).toBe(3);
+        for (const b of m.acts) {
+          expect(b.inside, `${w}px 에서 ${b.act} 가 사이드를 넘었다`).toBeTruthy();
+          // 히트 영역 하한은 그대로다 (FR-GIT-195~198).
+          expect(b.w).toBeGreaterThanOrEqual(30);
+          expect(b.h).toBeGreaterThanOrEqual(30);
+        }
+      }
+    });
+
+  test('N2 (V-RTU-96): 버튼 넷인 conflicts 행도 기본 폭에서 전부 닿는다',
+    async ({ page, request }) => {
+      await enter(page, request, CONFLICT);
+      await sideTab(page, 'changes').click();
+      const row = '#area .ed-side .git-file[data-path="c.txt"]';
+      await expect(page.locator(row)).toBeVisible({ timeout: 10000 });
+
+      for (const w of SIDE_WIDTHS) {
+        await setSideWidth(page, w);
+        const m = await measure(page, row, '.git-file-path', '.git-file-act');
+        expect(m.textW, `${w}px 에서 이름이 눌렸다`).toBeGreaterThanOrEqual(60);
+        expect(m.acts.length, `${w}px 에서 버튼이 사라졌다`).toBe(4);
+        for (const b of m.acts)
+          expect(b.inside, `${w}px 에서 ${b.act} 가 사이드를 넘었다`).toBeTruthy();
+      }
     });
 });

@@ -117,14 +117,30 @@ body.mobile .git-head-refresh{margin-right:2px;min-width:30px}
 /* ── 원격 작업 하나의 화면 (FR-GIT-102·103·105·108) ── */
 .git-job{display:none;flex:0 0 auto;flex-direction:column;border-bottom:1px solid var(--border)}
 .git-job.vis{display:flex}
+/* REPO_TAB_UNIFY_SRS FR-RTU-101 / NFR-RTU-6: 한 줄에 다 들어가지 않으면 **줄을
+   늘린다.** 감추면 닿을 길이 사라지고, 글자를 0 으로 누르면 무엇이 실행됐는지
+   말하지 못한다 (D-RTU-34). */
 .git-job-bar{
-  display:flex;align-items:center;gap:8px;padding:4px 10px;
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:4px 10px;
   font-size:11px;min-width:0;
 }
+/* FR-RTU-100: 폭과 무관하게 자리와 크기가 고정인 유일한 계기. 하한은 기존
+   히트 영역 규약을 그대로 쓴다 (FR-GIT-195~198). */
+.git-job-fold{
+  flex:0 0 auto;min-width:var(--git-hit);min-height:var(--git-hit);
+  display:flex;align-items:center;justify-content:center;
+  font:inherit;font-size:11px;line-height:1;cursor:pointer;
+  background:transparent;color:var(--text-muted);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-job-fold:hover{color:var(--text-bright);border-color:var(--accent)}
 .git-job-kind{color:var(--accent);flex-shrink:0}
+/* 기준 폭을 60px 로 **명시**한다 — `auto` 로 두면 wrap 이 argv 의 내용 길이로
+   줄을 갈라 두 줄이 세 줄이 된다 (FR-RTU-101). */
 .git-job-argv{
   color:var(--text-muted);font-family:monospace;font-size:10px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  flex:1 1 60px;min-width:60px;
 }
 .git-job-state{color:var(--text-muted);flex-shrink:0}
 .git-job-spacer{flex:1 1 auto}
@@ -440,7 +456,7 @@ body.mobile .git-head-refresh{margin-right:2px;min-width:30px}
    `background` 축약을 쓰면 이 선이 함께 지워진다. */
 .git-file,.git-dir{
   --git-depth:0;
-  display:flex;align-items:center;gap:6px;padding:0 6px 0 9px;
+  display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:0 6px 0 9px;
   min-height:var(--git-row-min);font-size:12px;white-space:nowrap;cursor:pointer;
   border-left:3px solid transparent;
   background-image:repeating-linear-gradient(to right,
@@ -455,7 +471,12 @@ body.mobile .git-head-refresh{margin-right:2px;min-width:30px}
 .git-file.sel{background-color:var(--accent-active)}
 .git-file.cur{border-left-color:var(--accent)}
 .git-file-st{width:10px;flex-shrink:0;text-align:center;color:var(--text-muted);font-family:monospace}
-.git-file-path{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* FR-RTU-101 / NFR-RTU-6: 이름은 60px 아래로 눌리지 않는다. 눌리면 호버 시
+   이름이 사라지고 동작 버튼이 행 가운데를 덮어, **선택하려는 클릭이 `stage` 를
+   실행한다** (C4b 실측). 들어가지 않으면 `.git-file-acts` 가 다음 줄로 가고,
+   버튼 넷이 그 줄에도 들어가지 않으면 버튼끼리 다시 줄을 나눈다 — 하한 100px 에서
+   `conflicts` 행이 그렇다 (실측). */
+.git-file-path{flex:1 1 60px;min-width:60px;overflow:hidden;text-overflow:ellipsis}
 /* FR-GIT-237: 경로는 디렉터리와 파일명으로 갈린다.
 
    **구별의 보장 축은 굵기이고 색은 보강이다.** `--text` 와 `--text-bright` 가 같은
@@ -510,7 +531,7 @@ body.mobile .git-head-refresh{margin-right:2px;min-width:30px}
 .git-file.partial .git-file-st{color:var(--attn)}
 /* 행 인라인 동작. **항상 보인다** — hover 로만 드러나면 있는 줄 모르고, 터치에는
    hover 가 없다. 강조는 버튼 자신의 :hover 가 한다 */
-.git-file-acts{display:flex;gap:2px;flex-shrink:0}
+.git-file-acts{display:flex;flex-wrap:wrap;gap:2px;flex-shrink:1;min-width:0}
 /* FR-GIT-195·226: 아이콘 하나짜리 버튼도 행과 같은 히트 영역을 갖는다 */
 .git-file-act{
   font:inherit;font-size:12px;line-height:1;cursor:pointer;
