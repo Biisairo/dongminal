@@ -3,9 +3,9 @@
 | 항목 | 값 |
 |---|---|
 | 문서 | REPO_TAB_UNIFY_SRS |
-| 상태 | **전 마일스톤 구현·검증** (2026-09-04) — M1~M7 · 묶음 B · 묶음 N. §4 에 미검증 항목이 없다 (수동인 V-RTU-93·98 제외) |
+| 상태 | **완료** (2026-09-05, `d79fae0`) — M1~M7 · 묶음 B · 묶음 N. §4 에 미검증 항목이 없다 (수동인 V-RTU-93·98 제외) |
 | 선행 | EDITOR_TAB_SRS · GIT_SRS(FR-GIT-25~31·179~186) · GIT_SIDEBAR_TABS_SRS · SLOT_VIEW_STATE_SRS · GIT_DIR_ENTRY_SRS |
-| 직전 커밋 | `ace65de` — 한 번 클릭이 diff 를 열고, 사이드가 모바일 순회에 든다 |
+| 마무리 커밋 | `d79fae0` — 좁은 사이드에서도 누를 자리가 남는다 |
 
 ## 1. 개요 (Introduction)
 

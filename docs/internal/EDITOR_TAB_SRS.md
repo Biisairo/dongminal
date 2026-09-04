@@ -12,6 +12,8 @@
 > | FR-EDT-76·77 (탐색기 폴링의 대상은 **활성 Editor 창**) | 그 창의 **사이드가 `Explorer` 일 때만**이다. 사이드는 탭 교체이므로 `Changes` 쪽에 있으면 트리는 화면에 없다 — 게이트가 없어 폴링을 끈 설정에서도 status 가 왔다 (실측) | REPO_TAB_UNIFY_SRS FR-RTU-12·14 / D-RTU-25 |
 > | FR-EDT-78 (즉시 갱신의 계기) | 같은 게이트를 받는다. 대신 사이드를 `Explorer` 로 돌리는 것이 **새 계기**다 — 그동안 쉰 트리는 낡았다 | REPO_TAB_UNIFY_SRS D-RTU-25 |
 > | Editor 창의 활성 복원 | id 가 아니라 **루트**로 되살린다 (`activeEditorRoot`) — 재조정이 같은 루트의 창을 새 id 로 만들 수 있다 | REPO_TAB_UNIFY_SRS D-RTU-32 |
+> | 저장하지 않은 편집의 가드 (탭 닫기에만 있었다) | **재조정이 창을 지울 때도 지킨다** — 루트가 목록에서 빠져도 dirty 편집기가 있으면 그 창을 남긴다. 묻지 않고 미룬다 (재조정은 SSE 로 아무 때나 불리는 비동기 반영이다) | WORKBENCH_REVIEW_SRS FR-WBR-40~42 / D-WBR-9 |
+> | 새 창의 첫 도구가 cwd 를 승계한다 (UX_REVISION_SRS FR-CWD-1) | **폐기.** 새 창은 홈에서 뜬다. 같은 창의 새 탭·분할은 그대로 승계한다 | WORKBENCH_REVIEW_SRS FR-WBR-20·21 / D-WBR-1·2 |
 > | 모바일의 Editor 창 | 사이드와 본문이 **순회의 자리 하나**씩이다 — 나란히 두지 않는다 | REPO_TAB_UNIFY_SRS FR-RTU-80 / D-RTU-29 |
 
 ## 1. 개요 (Introduction)

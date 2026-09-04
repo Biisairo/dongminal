@@ -1,5 +1,13 @@
 # SRS: md 포커스 상태에서 새 pane 의 cwd 를 md 파일 경로로 설정 (IEEE 29148 준수)
 
+> **개정 (2026-09-05).** 이 문서의 FR-1·2 는 **관측할 자리가 없어졌다.**
+> 옛 두 진입점(같은 pane 의 `addTab`, 같은 창의 split)은 Editor 창에서 이미
+> 막혔고(EDITOR_TAB_SRS FR-EDT-54·50·51), 마지막 관측점이던 `_mkWindow` 의 승계는
+> **폐기됐다** — 새 창은 홈에서 뜬다 (WORKBENCH_REVIEW_SRS FR-WBR-20 / D-WBR-1).
+> `_paneNewToolRef` 의 editor 분기는 남아 있으나 지금은 닿는 길이 없다 (D-WBR-8).
+> FR-3(terminal 탭의 승계)은 그대로이며 `editor-cwd-inherit.spec.ts` 가 잰다.
+
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)

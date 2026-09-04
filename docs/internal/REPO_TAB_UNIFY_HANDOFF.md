@@ -1,7 +1,14 @@
-# 인계: Git·Editor 통합 (REPO_TAB_UNIFY) — 2026-09-04 (3차 세션)
+# 인계: Git·Editor 통합 (REPO_TAB_UNIFY) — 닫혔다 (2026-09-05)
 
 스펙은 [`./REPO_TAB_UNIFY_SRS.md`](./REPO_TAB_UNIFY_SRS.md) 이고, 여기에는 그 스펙이
 말하지 않는 것 — **어디까지 섰고, 무엇이 왜 그렇게 됐는지** — 만 적는다.
+
+> **이 작업은 `d79fae0` 으로 끝났다.** 전 마일스톤(M1~M7 · 묶음 B · 묶음 N)이
+> 구현·검증됐고 §4 에 미검증 항목이 없다 (수동인 V-RTU-93·98 제외).
+>
+> **다음 세션은 이 문서가 아니라
+> [`./WORKBENCH_REVIEW_HANDOFF.md`](./WORKBENCH_REVIEW_HANDOFF.md) 에서 시작한다.**
+> 여기 남는 것은 §9 의 flake 관측 하나이며, 그것도 그쪽 문서가 이어받는다.
 
 ## 1. 지금 상태
 
