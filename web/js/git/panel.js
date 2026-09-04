@@ -25,12 +25,25 @@
  * 관측(`GitObserver`)은 observer.js, Monaco diff(`GitDiffView`)는 diff-view.js 다.
  */
 class GitPanel {
-  constructor(app){
+  /**
+   * REPO_TAB_UNIFY_SRS FR-RTU-60: 패널은 **(루트, 칸)마다** 하나다.
+   *
+   * `root` 는 이 패널이 속한 Repo 창의 루트다. 빈 문자열은 **옛 Git 창**의
+   * 것이며(마이그레이션 전까지 공존한다, FR-RTU-70) 그 창이 사라지면 함께
+   * 사라진다.
+   *
+   * 종전에는 키가 칸 번호뿐이었고 그 근거가 "Git 창은 워크스페이스에 하나" 였다
+   * (FR-GIT-26). 창이 경로마다 생기는 순간 그 전제가 깨져, 두 창이 같은 패널을
+   * 다투게 된다 — 한쪽에서 고른 파일이 다른 쪽의 diff 에 뜬다.
+   */
+  constructor(app,root){
     this.app=app;
+    this.root=root||'';
     // FR-SVS-30·40: 관측은 앱에 하나이고 이 패널은 그것을 **빌려 본다**. 아래
     // 접근자들이 `this._status` 같은 이름을 그대로 observer 로 잇는다 — 패널의
     // 본문이 관측의 자리를 알 필요가 없다.
-    this.obs=app._gitObs();
+    // 관측은 **이 패널의 저장소**의 것이다 (FR-RTU-64) — 앱에 하나가 아니다.
+    this.obs=app._gitObs(this.root);
     this.obs.attach(this);
 
     this._els=new Map(); // view key → 루트 DOM. **칸마다 따로다** (FR-SVS-42)
@@ -96,7 +109,21 @@ class GitPanel {
   get _stPoll(){ return this.obs._stPoll } set _stPoll(v){ this.obs._stPoll=v }
 
   // 활성 리포. Git 창의 win.git.repo 가 진실이고 이것은 그 읽기다 (FR-GIT-29).
+  /**
+   * 이 패널이 보는 저장소.
+   *
+   * **소유자가 둘로 갈린다** (REPO_TAB_UNIFY_SRS FR-RTU-60·65).
+   *
+   *   Repo 창(`root` 있음)  창의 루트가 곧 저장소다. **바뀌지 않는다** — 창
+   *                          하나가 저장소 하나이므로 갈아탈 대상이 없다
+   *   옛 Git 창             사용자가 사이드바에서 고른 리포이며 창 레코드
+   *                          (`w.git.repo`)가 그것을 든다 (FR-GIT-29)
+   *
+   * 종전에는 아래 절만 있었다. 그래서 Repo 창의 패널은 Git 창이 없는 순간
+   * `null` 을 돌려주었고, Changes 사이드가 "리포를 선택하세요" 로 굳었다(실측).
+   */
   get repo(){
+    if(this.root) return this.root;
     const w=this.app._gitWindow();
     return (w&&w.git&&w.git.repo)||null;
   }

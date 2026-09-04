@@ -1,5 +1,13 @@
 # SRS: 사이드바 상단 탭 — Windows / Git 분리 — IEEE 29148
 
+> **후속 문서가 이 SRS 의 일부를 개정했다.** 어긋나면 후속이 이긴다.
+>
+> | 개정된 것 | 어떻게 | 어디서 |
+> |---|---|---|
+> | 탭 셋 (Windows·Git·Editor) | **둘**이 됐다 — `Windows` · `Repo`. `Git` 과 `Editor` 의 목록이 서버 연동으로 이미 같은 집합이었다 | REPO_TAB_UNIFY_SRS FR-RTU-1 |
+> | FR-SBT-8 (git 이 없으면 Git 탭을 감춘다) | `Repo` 탭은 남는다 — 탐색기와 편집기는 git 없이 성립한다 | REPO_TAB_UNIFY_SRS FR-RTU-9 |
+> | FR-SBT-22·25 (탭 → Git 창 전환) | 가는 곳이 **그 저장소의 Repo 창**이다. Git 창은 사라졌다 | REPO_TAB_UNIFY_SRS FR-RTU-70·72 |
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)

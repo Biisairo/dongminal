@@ -211,6 +211,10 @@ Object.assign(App.prototype, {
     // 이름은 루트에서 파생된다 — 홈이 바뀌면 root 창의 이름도 따라간다 (FR-EDT-17).
     for(const[root,s] of keep){const nm=this._edName(root);if(s.name!==nm){s.name=nm;n++}}
     this._edReapTrees(ws);
+    // REPO_TAB_UNIFY_SRS FR-RTU-63: Git 패널도 창의 것이다 — 탐색기와 같은
+    // 자리에서 거둔다. 재조정은 창이 사라지는 것을 아는 유일한 자리이므로,
+    // 여기서 빠지면 볼 사람이 없는 패널이 Monaco 를 든 채 남는다.
+    this._gitPanelReap();
     return n;
   },
 
@@ -434,6 +438,58 @@ Object.assign(App.prototype, {
     },EDITOR_GIT_POLL_MS);
   },
 
+  /**
+   * REPO_TAB_UNIFY_SRS: **Repo 창의 신원은 id 가 아니라 루트다.**
+   *
+   * 실측한 결함이다 — 목록에 없던 경로를 `openGitWindow` 로 열면 로컬이 창을
+   * 만들고 그리로 전환하는데, 곧이어 도착한 `workspace_changed` 가 서버
+   * 스냅샷(아직 그 창이 없다)으로 목록을 덮는다. 재조정이 같은 루트의 창을 **새
+   * id 로** 다시 만들면 `activeWindow` 는 사라진 옛 id 를 가리키고, 폴백이
+   * 엉뚱한 일반 창을 활성으로 고른다. 브라우저가 둘일 때도 같은 순서가 성립한다.
+   *
+   * 그래서 **id 가 아니라 루트로 다시 찾는다.** 사용자에게 같은 저장소의 창은
+   * 같은 창이다.
+   */
+  _edKeepActive(sv){
+    if(!sv||!Array.isArray(sv.windows)) return;
+    const cur=this.ws.windows.find(s=>s&&s.id===this.ws.activeWindow);
+    if(!this._isEditorWin(cur)) return;
+    const root=this._edRootOf(cur);
+    if(!root) return;
+    const next=sv.windows.find(s=>this._isEditorWin(s)&&this._edRootOf(s)===root);
+    if(next) sv.activeWindow=next.id;
+  },
+
+  /**
+   * FR-RTU-42(④): 그 파일의 탭을 고정한다.
+   *
+   * 여는 것과 고정하는 것을 갈라 둔 이유는 **여는 자리가 여럿**이기 때문이다
+   * (탐색기·변경 목록·검색·`edit` 명령). 그 전부에 "고정할지" 를 인자로 흘리면
+   * 자리마다 판단이 생긴다 — 여기서는 계기를 받은 쪽이 한 줄로 부른다.
+   */
+  _edPinTabFor(filePath){
+    const found=filePath&&this._findEditorTab(filePath);
+    if(found) this._pinPreviewTab(found.tab);
+  },
+
+  // ── 사이드의 활성 탭 (REPO_TAB_UNIFY_SRS FR-RTU-12·13) ──
+
+  // 폭과 같은 규약으로 **워크스페이스**에 산다 — 창마다 따로이고 새로고침을
+  // 넘는다. 모르는 값은 기본으로 떨어뜨린다 (옛 워크스페이스에는 이 키가 없다).
+  _edSideOf(s){
+    const v=s&&s.editor&&s.editor.side;
+    return REPO_SIDE_TABS.some(d=>d.id===v)?v:REPO_SIDE_DEFAULT;
+  },
+
+  _edSetSide(s,id){
+    if(!s||!REPO_SIDE_TABS.some(d=>d.id===id)) return;
+    if(!s.editor) s.editor={};
+    if(s.editor.side===id) return;
+    s.editor.side=id;
+    this.render();
+    this._save();
+  },
+
   // ── 탐색기 폭 (FR-EDT-47 / D-18) ──
 
   _edExplorerWidth(s){
@@ -515,7 +571,10 @@ Object.assign(App.prototype, {
     const rid=(open&&open.win===w)?open.pane.id:this._edEnsurePane(w);
     if(!rid) return null;
     // addTab 의 editor 분기가 중복 방지와 refresh 를 이미 한다.
-    await this.addTab(rid,'editor',{filePath,name:(opts||{}).name,windowId:w.id});
+    // FR-RTU-40: `preview` 는 그대로 넘긴다 — 미리보기 탭을 만들지 대체할지는
+    // addTab 한 자리가 정한다.
+    await this.addTab(rid,'editor',
+      {filePath,name:(opts||{}).name,windowId:w.id,preview:!!(opts||{}).preview});
     // FR-EDT-102: 열면 그 창으로 전환된다. 열었는데 보이지 않으면 사용자는
     // 실패로 읽는다. 사이드바 탭은 FR-EDT-8 로 따라온다.
     this.switchWindow(w.id);
@@ -709,7 +768,8 @@ Object.assign(App.prototype, {
   // 과 같은 모양). **목록**에는 폴링이 없다 — 변경 계기가 SSE 와 자기 조작뿐이다.
   // 여기서 거는 폴링은 탐색기의 git 색이며 대상이 다르다 (FR-EDT-77).
   _initEditorSection(){
-    const add=document.getElementById('editor-add');
+    // FR-RTU-5: 진입점은 하나다 — 이 한 번이 목록과 핀을 함께 만든다 (연동).
+    const add=document.getElementById(REPO_ADD_ID);
     if(add) add.addEventListener('click',()=>this._edAdd());
     this._edStartGitPoll();
   },

@@ -28,9 +28,19 @@ const fx = (name: string) => realpathSync(join(FIXTURES, name));
 
 const copyFx = makeCopyFx(FIXTURES);
 async function openGit(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
+  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
+  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a._edSetSide(a._aw(), 'changes');
+    const p = a.gitPanel;
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+  });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-  await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
+  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }
 
 // 선택자에 걸리는 요소 전부에 표식을 심는다. 반환은 심은 개수다.
@@ -137,7 +147,7 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     }, fx('basic'));
     // 요소 보존을 보려면 요소가 화면에 있어야 한다 — GIT 패널은 탭 뒤다 (FR-SBT-2).
     await openGitTab(page);
-    const sel = '#git-repos .git-repo';
+    const sel = '#repo-entries .git-repo';
     await expect(page.locator(sel).first()).toBeVisible();
     const n = await markAll(page, sel);
     expect(n).toBeGreaterThan(0);

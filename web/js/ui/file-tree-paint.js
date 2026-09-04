@@ -149,8 +149,20 @@ Object.assign(FileTree.prototype, {
     // FR-EDT-60: 링크는 펼치지도 열지도 않는다 — 선택만 바뀐다. 링크된 디렉터리를
     // 파일로 취급하면 `apiFileRead` 가 not a file 400 을 낸다 (§2.6).
     if(kind==='dir') this.toggle(p);
-    else if(kind==='file') this.app._edOpenFile(p);
+    // REPO_TAB_UNIFY_SRS FR-RTU-40·43: 한 번 클릭은 **미리보기**다. 트리를 훑는
+    // 일이 탭 20개가 되면 목록을 보는 것 자체가 정리를 부른다 (D-RTU-9).
+    // 고정하려면 더블클릭한다 (FR-RTU-42).
+    else if(kind==='file') this.app._edOpenFile(p,{preview:true});
     else this._paintAll();
+  },
+
+  // FR-RTU-42(④): 행 더블클릭은 그 파일의 탭을 고정한다. 여는 일은 앞선 클릭이
+  // 이미 했다 (`_onClick`).
+  _onDbl(e){
+    const row=e.target.closest('.ed-row');
+    if(!row||!this.list.contains(row)) return;
+    if(row.dataset.kind!=='file') return;
+    this.app._edPinTabFor(row.dataset.path);
   },
 
   // ── 겹의 변경 감지 (NOTES_LIVE_EXPLORER_SRS 묶음 L / FR-FSL-6~14) ──

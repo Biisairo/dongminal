@@ -34,8 +34,8 @@ const SB_TAB_DEFS=[
     id:'windows',label:'Windows',panelId:'sb-panel-windows',
     // FR-SBT-13: 알람이 있는 창 수. `.si.attn` 이 목록 안에서만 알리던 것을 탭까지 끌어올린다.
     badge:app=>app._plainWindows().filter(s=>app._windowHasAttn(s)).length,
-    // FR-SBT-22·23: 마지막으로 활성이었던 일반 창. 대상 계산은 `_gitBackTarget` 한
-    // 자리다 — `_gitCloseWindow` 와 같은 것이므로 두 벌로 만들지 않는다 (FR-SBT-36).
+    // FR-SBT-22·23: 마지막으로 활성이었던 일반 창. 대상 계산은 `_gitBackTarget`
+    // 한 자리다 (FR-SBT-36).
     onActivate:app=>{const w=app._gitBackTarget();if(w)app.switchWindow(w.id)},
     // UX_REVISION_SRS FR-BLP-1~3: 목록의 서술자. 그리는 일도 순회도 SidebarList 가
     // 한다 — 이 탭이 주는 것은 **타깃뿐**이다.
@@ -95,127 +95,44 @@ const SB_TAB_DEFS=[
     },
   },
   {
-    id:'git',label:'Git',panelId:'sb-panel-git',
-    // FR-SBT-8: git 이 없는 환경이면 탭 자체가 없다.
-    visible:app=>!app._gitOff,
-    // FR-GOB-13: **헤더 배지가 없다.** 옛 FR-SBT-12 는 "변경사항이 있는 핀 리포의
-    // 개수" 를 보였지만, 그 숫자를 채우는 관측은 활성 리포 하나에서만 나왔다 —
-    // 클릭해 연 적 없는 핀은 세어지지 않고, 한 번 연 핀은 그때의 값이 굳었다.
-    // 관측을 Git 탭 안으로 가둔 이상(D-1) 그 밖에서 보이는 숫자는 근거가 없다.
-    // 근거 없는 숫자를 남기는 것은 "숫자는 떴는데 들어가면 확인이 안 된다" 를
-    // 고친 것이 아니다 (D-2).
-    // FR-SBT-25: Git 창이 없으면 만들지 않는다 — 창은 여전히 리포를 골라야 생긴다.
-    onActivate:app=>{const w=app._gitWindow();if(w)app.switchWindow(w.id)},
+    /**
+     * REPO_TAB_UNIFY_SRS FR-RTU-1: **`Git` 과 `Editor` 를 대신하는 하나의 탭.**
+     *
+     * 둘을 합치는 근거는 목록이 이미 같은 집합이라는 것이다 (§2.1) — `git.pinned`
+     * 와 `editors.list` 는 서버 연동이 한 번의 저장 안에서 함께 바꾼다. 화면만
+     * 둘로 그리고 있었고, 그래서 `+ Add` 한 번이 두 목록에 나타나는 것을 사용자가
+     * 두 가지 일로 읽었다.
+     *
+     * 배열 순서가 곧 직행 키 번호이므로 이 탭은 `Ctrl+Shift+Digit2` 다.
+     * `sidebarTab3` 은 파생이 사라지면서 함께 사라진다 (FR-RTU-7).
+     */
+    id:REPO_TAB_ID,label:REPO_TAB_LABEL,panelId:REPO_PANEL_ID,
+    // FR-EDT-120: 목록의 원천은 `/api/editors` 다 — 그것이 없으면 행을 만들 수
+    // 없다. **git 이 없는 것은 사유가 되지 않는다** (FR-RTU-9 / D-RTU-12):
+    // 탐색기와 편집기는 git 없이 성립하고, 그때 Changes 사이드가 사유를 보인다.
+    visible:app=>app._edOn(),
+    // FR-RTU-6: 헤더 배지는 두지 않는다 — 근거 없는 숫자를 남기지 않는다는
+    // FR-GOB-13 의 판단이 그대로다. 개수는 행마다 붙는다.
+    // FR-EDT-7: 탭을 고르면 콘텐츠 창까지 바뀐다.
+    onActivate:app=>{const w=app._edActivateTarget();if(w)app.switchWindow(w.id)},
     // FR-GOB-9: 들어간 순간 등록된 리포 전부를 관측한다. 다음 폴링(3초)을
     // 기다리면 사용자는 낡은 배지를 먼저 본다.
     onEnter:app=>{if(app._gitReposRefresh)app._gitReposRefresh()},
     list:{
-      containerId:'git-repos',
-      itemClass:'git-repo pinned',dotClass:'git-repo-dot',
-      nameClass:'git-repo-name',xClass:'git-repo-x',badgeClass:'git-badge',
-      // FR-BLP-8: `+ Add` 가 목록 **위**로 온다 — 창 패널과 같은 자리다.
-      actions:['git-add-repo'],
-      // 첫 응답 전에는 "없다" 를 말하지 않는다.
-      ready:app=>!!app._gitRepos,
-      emptyText:GIT_REPOS_NONE,emptyClass:'git-repos-none',
-      // FR-FLW-1: 핀만 그린다. follow 행은 없다.
-      items:app=>((app._gitRepos||{}).pinned||[]),
-      key:e=>'pin:'+((e&&e.path)||''),
-      // FR-SBT-31·32 + FR-BLP-15~18: 순회 대상은 핀 리포다. 저장소가 아닌 핀은
-      // 뺀다 — 목록에서도 클릭 리스너가 붙지 않는 항목이므로 순회로 도달하면
-      // 안 된다 (FR-GIT-11).
-      cycle:{
-        filter:e=>!!(e&&e.isRepo&&e.path),
-        currentKey:app=>app.gitPanel.repo?('pin:'+app.gitPanel.repo):null,
-        open:(app,e)=>app.openGitWindow(e.path),
-      },
-      row:(app,e)=>{
-        const path=e.path||'';
-        const active=!!path&&app.gitPanel.repo===path;
-        const b=e.badge;
-        // FR-GOB-14: 낡음의 근거가 **활성 리포 여부**에서 **관측 시각**으로
-        // 바뀌었다. 이제 Git 탭 안에서는 모든 핀이 매 주기 관측되므로, 활성이
-        // 아니라는 것이 곧 낡았다는 뜻이 아니다 (D-1).
-        const stale=!!b&&gitBadgeStale(b);
-        // FR-RMS-17: 사유는 사람이 읽는 문구로 옮긴다.
-        const why=e.reason?(GIT_WRITE_ERR[e.reason]||e.reason):'';
-        return {
-          name:e.name,
-          active,
-          // FR-GIT-11: 저장소가 아니면 흐리게 보이고 여는 동작이 없다.
-          cls:e.isRepo?'':'norepo',
-          dotCls:e.isRepo?'':'none',
-          title:e.isRepo?path:why+' — '+(e.cwd||path),
-          // 배지는 서버의 마지막 관측값이다. 0 을 보일 이유는 없다 (FR-GIT-14).
-          badge:(b&&b.total>0)?{
-            text:String(b.total),
-            cls:stale?'stale':'',
-            title:stale?'최신 아님 (마지막 관측: '+new Date(b.observedAtUnixMs).toLocaleTimeString()+')':'',
-          }:null,
-          removable:true,
-          dataset:{gitRepo:path||null},
-          onOpen:(e.isRepo&&path)?(app=>app.openGitWindow(path)):null,
-          onRemove:app=>app._gitUnpin(path),
-        };
-      },
-      reorder:{
-        type:'gitpin',
-        /**
-         * FR-BLP-10: **화면이 먼저 바뀐다.** 지금까지 이 목록은 서버 응답을 로컬
-         * 사본에 반영만 하고 다시 그리지 않아, 놓고 나서 최대 3초(폴링 주기)를
-         * 옛 순서로 기다렸다 (A15) — 그것이 접수한 말의 "딜레이" 다.
-         *
-         * 핀 순서의 권위는 여전히 서버다 (FR-GIT-223, O1). 여기서 바꾸는 것은
-         * 화면과 로컬 사본이고, 확정은 아래 commit 이 한다.
-         */
-        apply:(app,dr)=>{
-          const arr=(app._gitRepos||{}).pinned;
-          if(!Array.isArray(arr)) return false;
-          const key=p=>'pin:'+(p&&p.path||'');
-          const si=arr.findIndex(x=>key(x)===dr.src); if(si<0) return false;
-          const[moved]=arr.splice(si,1);
-          let ti=arr.findIndex(x=>key(x)===dr.target);
-          if(ti<0) arr.push(moved); else { if(!dr.before) ti++; arr.splice(ti,0,moved) }
-          // 워크스페이스 사본도 같은 순서로 맞춘다 — 다음 PUT 이 옛 순서를 싣지 않게.
-          if(app.ws.git&&Array.isArray(app.ws.git.pinned)){
-            app.ws.git.pinned=arr.map(x=>x&&x.path).filter(Boolean);
-          }
-          return true;
-        },
-        // FR-BLP-11·12: 서버 확정. 실패하면 서버가 아는 순서로 되돌린다.
-        commit:(app,dr)=>app._gitReorder(dr),
-      },
-    },
-  },
-  {
-    // EDITOR_TAB_SRS FR-EDT-1: 세 번째 서술자. 배열 순서가 곧 탭 순서이자 직행
-    // 키 번호이므로 `Ctrl+Shift+Digit3` 은 여기서 파생된다 (FR-EDT-5).
-    id:EDITOR_TAB_ID,label:EDITOR_TAB_LABEL,panelId:EDITOR_PANEL_ID,
-    // FR-EDT-120: `/api/editors` 가 실패하면 탭 자체가 없다. `home` 을 모르면
-    // root 행을 만들 수 없고, 추측한 홈으로 창을 만들면 나중에 서버가 알려준
-    // 홈과 어긋난 창이 남는다.
-    visible:app=>app._edOn(),
-    // FR-EDT-11: **배지가 없다.** 관측할 수치가 없다 (FR-GOB-13 과 같은 근거).
-    // FR-EDT-7: 탭을 고르면 콘텐츠 창까지 바뀐다. 대상은 마지막으로 활성이었던
-    // Editor 창이고, 없으면 root 에디터 창이다.
-    onActivate:app=>{const w=app._edActivateTarget();if(w)app.switchWindow(w.id)},
-    list:{
-      containerId:EDITOR_LIST_ID,
-      // FR-EDT-14: 고정 항목(root 행)의 자리는 **패널 최하단**이다 — 목록의
-      // 끝이 아니다. 목록이 길어 스크롤이 생겨도 그 아래에 그대로 남는다.
-      fixedContainerId:EDITOR_ROOT_ID,
+      containerId:REPO_LIST_ID,
+      // FR-EDT-14 / FR-NOT-10: 고정 항목(root·메모장)의 자리는 **패널 최하단**이다.
+      fixedContainerId:REPO_ROOT_ID,
       itemClass:'ed-entry',dotClass:'ed-entry-dot',
-      nameClass:'ed-entry-name',xClass:'ed-entry-x',
+      nameClass:'ed-entry-name',xClass:'ed-entry-x',badgeClass:'git-badge',
+      actions:[REPO_ADD_ID],
       // 첫 응답 전에는 "없다" 를 말하지 않는다.
       ready:app=>!!app._editors,
-      emptyText:EDITOR_ENTRIES_NONE,emptyClass:'ed-entries-none',
+      emptyText:REPO_ENTRIES_NONE,emptyClass:'ed-entries-none',
       items:app=>app._edEntries(),
-      // FR-EDT-2·14: 목록 뒤에 고정으로 붙는 항목. root 행이 그것이며 일반
-      // 목록과 **같은 컨테이너**의 마지막에 그려진다.
       key:e=>'ed:'+e.path,
       fixed:app=>app._edFixed(),
-      // FR-EDT-6: 순회 대상은 `items` 뒤에 `fixed` 를 이어 붙인 순서다 — root 행이
-      // 마지막 자리로 **포함된다.** 제외하면 키만으로는 root 에 갈 수 없다.
+      // FR-RTU-8: 순회 대상은 `items` 뒤에 `fixed` 를 이어 붙인 순서다 — 고정 행이
+      // 마지막 자리로 **포함된다.** 제외하면 키만으로는 거기 갈 수 없다.
       cycle:{
         currentKey:app=>{
           const w=app._aw();
@@ -225,30 +142,35 @@ const SB_TAB_DEFS=[
       },
       row:(app,e)=>{
         const w=app._edWindowFor(e.path);
-        // NOTES_LIVE_EXPLORER_SRS FR-NOT-10: 고정 행은 둘이고 성질이 같다 —
-        // 지울 수 없고 재배치의 출발점도 대상도 아니다. 가르는 것은 클래스뿐이며
-        // 그것이 CSS 가 둘을 다르게 그리는 근거다.
+        // FR-NOT-10: 고정 행 둘(`~`·메모장)은 지울 수 없고 재배치의 출발점도
+        // 대상도 아니다. 가르는 것은 클래스뿐이며 CSS 가 그것을 딛는다.
         const pinned=!!e.root||!!e.notes;
+        // FR-RTU-6: 변경 개수는 **git 쪽 관측**에서 온다. 두 목록이 같은 집합이므로
+        // 경로로 짝지으면 되고, 저장소가 아닌 행에는 배지가 없다.
+        const b=app._gitBadgeFor(e.path);
+        const stale=!!b&&gitBadgeStale(b);
         return {
-          // FR-EDT-10 / FR-NOT-9: 표시 이름은 경로의 마지막 조각, 툴팁은
-          // 절대경로 전체. 고정 행 둘의 이름은 `~`·`메모장` 이다.
+          // FR-EDT-10 / FR-NOT-9: 표시 이름은 경로의 마지막 조각, 툴팁은 절대경로.
           name:app._edName(e.path),
           title:e.path,
           active:!!w&&w.id===app.ws.activeWindow,
-          // FR-EDT-14: 구분선은 CSS 가 준다 — 컨테이너를 나누지 않는다.
           cls:e.root?'ed-root':(e.notes?'ed-notes':''),
-          // FR-EDT-15 / FR-NOT-10: 고정 행에는 `×` 가 없고 드래그의 출발점도
-          // 대상도 아니다.
+          // 배지는 서버의 마지막 관측값이다. 0 을 보일 이유는 없다 (FR-GIT-14).
+          badge:(b&&b.total>0)?{
+            text:String(b.total),
+            cls:stale?'stale':'',
+            title:stale?'최신 아님 (마지막 관측: '+new Date(b.observedAtUnixMs).toLocaleTimeString()+')':'',
+          }:null,
           fixed:pinned,
           removable:!pinned,
-          dataset:{edRoot:e.path},
-          // FR-EDT-9: 행을 클릭하면 그 행의 Editor 창이 활성화된다. 메모장 행도
-          // 같다 — 메모장 창은 루트가 메모 루트인 Editor 창이다 (FR-NOT-6).
+          dataset:{edRoot:e.path,gitRepo:e.path},
           onOpen:app=>app._edOpenWindow(e.path),
+          // FR-RTU-5 의 대칭: 제거도 하나다 — `/api/editors/remove` 가 연동으로
+          // 핀까지 함께 지운다 (FR-EDT-34).
           onRemove:pinned?null:(app=>app._edRemove(e.path)),
         };
       },
-      // FR-EDT-12·27: 순서는 서버가 권위다 — 핀과 같은 (src,target,before) 델타다.
+      // FR-EDT-12·27: 순서는 서버가 권위다 — (src,target,before) 델타다.
       reorder:{
         type:'editor',
         apply:(app,dr)=>{
@@ -285,6 +207,20 @@ for(let i=0;i<SB_TAB_DEFS.length&&i<9;i++){
   SHORTCUT_LABELS[k]='사이드바 탭: '+SB_TAB_DEFS[i].label;
   shortcuts[k]=SHORTCUT_DEFAULTS[k];
 }
+/**
+ * REPO_TAB_UNIFY_SRS FR-RTU-7: **탭이 줄면 파생도 줄어야 한다.**
+ *
+ * 탭 셋이 둘이 되면서 `sidebarTab3` 이 갈 곳을 잃었다. 그런데 그 값은 사용자의
+ * 설정 파일에 이미 저장돼 있을 수 있고(`settings.json` 의 `shortcuts`), 그대로
+ * 두면 설정 화면에 **아무 데도 가지 않는 단축키**가 남는다 — 눌러도 아무 일이
+ * 없는 항목은 고장으로 읽힌다.
+ */
+for(let i=SB_TAB_DEFS.length;i<9;i++){
+  const k=sbTabAction(i);
+  delete SHORTCUT_DEFAULTS[k];
+  delete SHORTCUT_LABELS[k];
+  delete shortcuts[k];
+}
 
 const SidebarTabs={
   // 등록된 서술자 중 지금 보이는 것들 (FR-SBT-19 `visible`).
@@ -301,7 +237,9 @@ const SidebarTabs={
    * `visible` 을 거치지 않는다 — 라벨은 그 탭이 지금 보이는지와 무관하다.
    */
   labelForWindow(app,w){
-    const id=app._isGitWin(w)?'git':app._isEditorWin(w)?EDITOR_TAB_ID:'windows';
+    // FR-RTU-1: Git 창과 Repo 창이 같은 탭에 속한다. 옛 Git 창은 마이그레이션
+    // 전까지 남으므로(FR-RTU-70) 그 라벨도 여기서 나온다.
+    const id=(app._isGitWin(w)||app._isEditorWin(w))?REPO_TAB_ID:'windows';
     const d=SB_TAB_DEFS.find(x=>x.id===id);
     return d?d.label:'';
   },
@@ -347,13 +285,14 @@ const SidebarTabs={
    * (탭만 전환, 콘텐츠 불변), 여기서 내려보내면 V-SBT-25 를 깬다.
    */
   syncToWindow(app){
-    if(app._isGitWin(app._aw())){this.setTab(app,'git',{silent:true});return}
-    // FR-EDT-8: Editor 창이 활성이면 탭도 `editor` 로 따라온다. 재진입은 기존
-    // `_sbBusy` 가드가 그대로 끊는다.
-    if(app._isEditorWin(app._aw())){this.setTab(app,EDITOR_TAB_ID,{silent:true});return}
-    if(app._sbTab==='git'&&app._gitWindow()) this.setTab(app,'windows',{silent:true});
-    // Git 쪽과 같은 조건이다 — Editor 창이 **실제로 있을 때만** 내려온다.
-    if(app._sbTab===EDITOR_TAB_ID&&app._edWindows().length) this.setTab(app,'windows',{silent:true});
+    // FR-EDT-8 + FR-RTU-1: Repo 창(과 아직 남아 있는 옛 Git 창)이 활성이면 탭도
+    // `repo` 로 따라온다. 재진입은 기존 `_sbBusy` 가드가 그대로 끊는다.
+    const w=app._aw();
+    if(app._isGitWin(w)||app._isEditorWin(w)){this.setTab(app,REPO_TAB_ID,{silent:true});return}
+    // 그 반대는 **갈 창이 실제로 있을 때만** 한다 — 없는데 내려보내면 탭만
+    // 전환된 상태(FR-SBT-25)를 깬다.
+    if(app._sbTab===REPO_TAB_ID&&(app._edWindows().length||app._gitWindow()))
+      this.setTab(app,'windows',{silent:true});
   },
 
   // FR-SBT-26·27·29: n 은 1-based 이며 **서술자 배열의 인덱스**다 — 숨은 탭이 있어도

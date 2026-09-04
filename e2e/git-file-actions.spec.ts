@@ -32,7 +32,7 @@ async function openView(page: Page, view: string, cls: RegExp) {
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(cls);
 }
 
-const changes = (page: Page) => page.locator('#area .pn-body .git-view.git-changes');
+const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
 const group = (page: Page, key: string) => changes(page).locator(`.git-group[data-group="${key}"]`);
 const st = (page: Page) => page.locator('#area .pn-body .git-view.git-stash');
 const stashRow = (page: Page, i: number) => st(page).locator(`.git-stash-row[data-index="${i}"]`);

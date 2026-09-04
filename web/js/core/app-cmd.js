@@ -405,6 +405,10 @@ Object.assign(App.prototype, {
     // git 핀 연동이) 만든 행의 창이 생기지 않고 지워진 행의 창이 남는다.
     if(this._editors&&sv.editors) this._edPatchList(sv.editors.list);
     if(this._edReconcile(sv.windows)) edChanged=true;
+    // 재조정이 같은 루트의 창을 새 id 로 만들었을 수 있다 — 그때 활성 창을
+    // **루트로** 다시 찾는다. 아래 폴백보다 먼저여야 한다: 폴백은 id 가 없으면
+    // 일반 창을 고르므로, 여기서 잇지 않으면 방금 연 Repo 창을 잃는다.
+    this._edKeepActive(sv);
     // FR-EDT-45: 활성 창의 폴백은 Editor 창이 아니다 (app.js 의 같은 자리와 한 쌍).
     if(!sv.windows.find(s=>s.id===sv.activeWindow))
       sv.activeWindow=(sv.windows.find(s=>!this._isEditorWin(s))||sv.windows[0])?.id||null;

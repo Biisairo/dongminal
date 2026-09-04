@@ -24,6 +24,31 @@ const GIT_VIEWS=[
   // 안에 밀어 넣지 않는다 — 그러면 Branches 탭이 두 가지 일을 한다.
   {key:'worktrees', name:'Worktrees'},
 ];
+// REPO_TAB_UNIFY_SRS FR-RTU-21 / D-RTU-5: Changes 사이드 머리의 진입점.
+//
+// **Changes 는 여기 없다** — 그것은 사이드 자신이고(FR-RTU-32), 나머지 다섯만
+// 본문 탭으로 열린다. 아이콘인 이유는 사이드가 좁기 때문이고, 무엇인지는 툴팁이
+// 말한다. 순서는 `GIT_VIEWS` 를 따른다 — 두 자리가 다른 순서를 말하지 않는다.
+const GIT_SIDE_ACTIONS=[
+  {key:'diff',     icon:'⇄', title:'Diff'},
+  {key:'history',  icon:'⏲', title:'History'},
+  {key:'branches', icon:'⎇', title:'Branches'},
+  {key:'stash',    icon:'≣', title:'Stash'},
+  {key:'console',  icon:'›', title:'Console'},
+  {key:'worktrees',icon:'⧉', title:'Worktrees'},
+];
+
+// REPO_TAB_UNIFY_SRS FR-RTU-25·26: 저장소가 아닌 자리와 거기서 만드는 길.
+//
+// **사실만 말하고 끝내지 않는다.** "저장소가 아닙니다" 는 사용자가 이미 아는
+// 것이고, 알고 싶은 것은 여기서 무엇을 할 수 있는가다.
+const GIT_INIT_ACTION='repo_init';
+const GIT_INIT_NOT_REPO='이 폴더는 git 저장소가 아닙니다.';
+const GIT_INIT_RUN='git init';
+const GIT_INIT_CONFIRM='이 폴더를 git 저장소로 만듭니다';
+const GIT_INIT_HINT='되돌리려면 그 폴더의 .git 을 지우면 됩니다. 저장소가 되면 Repo 목록에도 함께 섭니다.';
+const GIT_INIT_FAIL='저장소를 만들지 못했습니다';
+
 const GIT_PENDING_HINT='이후 마일스톤에서 제공됩니다';
 const GIT_NO_REPO_HINT='리포를 선택하세요';
 
@@ -78,6 +103,26 @@ const GIT_GROUP_AXIS={
   staged:GIT_AXIS.STAGED,   changes:GIT_AXIS.UNSTAGED,
   untracked:GIT_AXIS.UNSTAGED, conflicts:GIT_AXIS.CONFLICT,
 };
+/**
+ * REPO_TAB_UNIFY_SRS FR-RTU-50 / D-RTU-7: **오른쪽이 디스크의 파일인 축.**
+ *
+ * 판정 기준은 하나다 — 고친 것을 저장할 자리가 실재하는가. `worktree-*` 축의
+ * 오른쪽은 워킹 트리의 파일이므로 편집기 탭에서 여는 것과 같은 것이고, 저장도
+ * 같은 경로(`/api/file/write`)를 지난다 (FR-RTU-52).
+ *
+ * `index-head` 는 오른쪽이 **index** 다 — 파일이 아니라 git 내부 스냅샷이라
+ * 되돌려 쓸 자리가 없다. 그것을 고치는 일은 hunk 단위 스테이징의 몫이며
+ * (FR-GIT-278), 두 길을 다 열면 무엇이 스테이지를 정하는지 말할 수 없게 된다.
+ * VSCode 도 Index diff 를 읽기 전용으로 둔다.
+ */
+const GIT_AXIS_EDITABLE=new Set([GIT_AXIS.UNSTAGED,GIT_AXIS.CONFLICT]);
+// FR-RTU-54: 읽기 전용인 이유를 축마다 말한다. 조용히 무시하면 "타이핑이 먹지
+// 않는다" 가 된다.
+const GIT_AXIS_READONLY_WHY={
+  [GIT_AXIS.STAGED]:'스테이지된 내용은 파일이 아니라 git 의 스냅샷입니다 — 고치려면 워킹 트리 쪽에서 고치고 다시 스테이지하세요.',
+  [GIT_AXIS.COMMIT]:'커밋은 지나간 것입니다 — 여기서 고칠 수 없습니다.',
+};
+
 const GIT_AXIS_LABEL={
   'index-head':'index ↔ HEAD','worktree-index':'worktree ↔ index','worktree-head':'worktree ↔ HEAD',
   'commit-parent':'commit ↔ parent',
@@ -86,6 +131,8 @@ const GIT_AXIS_LABEL={
 const GIT_PREVIEW_HINT='파일을 선택하세요';
 const GIT_LOADING_HINT='불러오는 중…';
 const GIT_STALE_NOTE='갱신 실패';
+// FR-RTU-52: 저장 실패는 그 자리에 남는다 — 알림창은 닫는 순간 사유가 사라진다.
+const GIT_DIFF_SAVE_FAIL='저장하지 못했습니다';
 // FR-GIT-238: 새로고침. 이모지를 쓰지 않는다 (FR-GIT-187·192 와 같은 어휘).
 const GIT_REFRESH_LABEL='⟳';
 const GIT_REFRESH_TITLE='새로고침 — 상태·History·Branches·Console 을 전부 다시 받는다';

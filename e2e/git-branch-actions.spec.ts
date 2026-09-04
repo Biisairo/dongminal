@@ -82,15 +82,35 @@ function repoWithDivergedSide(tag: string) {
 }
 
 async function openBranches(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
+  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
+  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a._edSetSide(a._aw(), 'changes');
+    const p = a.gitPanel;
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+  });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   await page.click('#area .pn-tab[data-git-view="branches"]');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-branches/);
 }
 
 async function openChanges(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
+  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
+  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a._edSetSide(a._aw(), 'changes');
+    const p = a.gitPanel;
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+  });
+  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }
 
 const br = (page: Page) => page.locator('#area .pn-body .git-view.git-branches');
@@ -376,9 +396,9 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await expect.poll(() => opKind(page), { timeout: 20000 }).toBe('merge');
     await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/,
       { timeout: 15000 });
-    await expect(page.locator('#area .pn-body .git-changes .git-op-bar')).toBeVisible();
+    await expect(page.locator('#area .ed-side .git-changes .git-op-bar')).toBeVisible();
     // 충돌 그룹이 펼쳐져 있다 — 해결 진입점이 접힌 채면 갈 곳이 없다.
-    const conflicts = page.locator('#area .pn-body .git-changes .git-group[data-group="conflicts"]');
+    const conflicts = page.locator('#area .ed-side .git-changes .git-group[data-group="conflicts"]');
     await expect(conflicts).not.toHaveClass(/collapsed/, { timeout: 15000 });
     await expect(conflicts.locator('.git-file')).toHaveCount(1, { timeout: 15000 });
   });

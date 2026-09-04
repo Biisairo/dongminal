@@ -46,13 +46,23 @@ async function waitForInit(page: Page, mode: 'desktop' | 'mobile' = 'desktop') {
 }
 
 async function openGit(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
+  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
+  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a._edSetSide(a._aw(), 'changes');
+    const p = a.gitPanel;
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+  });
   // GIT_REVIEW4_SRS §3.6.5 FR-GIT-28(개정): 고정 탭이 Worktrees 를 더해 7개다.
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-  await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
+  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }
 
-const changes = (page: Page) => page.locator('#area .pn-body .git-view.git-changes');
+const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
 const group = (page: Page, key: string) => changes(page).locator(`.git-group[data-group="${key}"]`);
 const rows = (page: Page, key: string) => group(page, key).locator('.git-file');
 const files = (page: Page) => page.locator('#area .pn-body .git-file');
@@ -77,7 +87,7 @@ async function pin(request: APIRequestContext, path: string) {
   return (await r.json()).root as string;
 }
 const pinned = (page: Page, root: string) =>
-  page.locator(`#git-repos .git-repo.pinned[data-git-repo="${root}"]`);
+  page.locator(`#repo-entries .git-repo.pinned[data-git-repo="${root}"]`);
 async function cd(page: Page, dir: string) {
   await page.keyboard.type(`cd ${dir}`);
   await page.keyboard.press('Enter');
@@ -378,7 +388,7 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
       await page.waitForTimeout(300);
     }
     await page.click('#area .pn-tab[data-git-view="changes"]');
-    await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
+    await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 
     // 자리는 .git-head-spacer 뒤이며 .git-head-remote 밖이다(git-changes.spec.ts:70
     // 의 원격 버튼 카운트 3개 단정과 충돌하지 않아야 한다).
@@ -419,7 +429,7 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
     await page.click('#area .pn-tab[data-git-view="history"]');
     await page.waitForTimeout(300);
     await page.click('#area .pn-tab[data-git-view="changes"]');
-    await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
+    await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 
     const btn = changes(page).locator('.git-head-refresh');
     await expect(btn, '새로고침 버튼(.git-head-refresh)이 없다').toHaveCount(1, { timeout: 5000 });

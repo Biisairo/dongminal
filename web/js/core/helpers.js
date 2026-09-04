@@ -298,32 +298,45 @@ function normalizeLayout(n) {
  * `mkWindow()` 는 받을 일반 창이 하나도 없을 때 부르는 콜백이고 새 창을 반환해야
  * 한다 (O19). 반환값은 옮긴 탭 수다.
  */
+/**
+ * REPO_TAB_UNIFY_SRS FR-RTU-70·75: **Git 창을 걷어낸다.**
+ *
+ * 종전에는 Git 창 안의 남의 탭(터미널·편집기)을 일반 창으로 옮기고 창은 남겼다
+ * (FR-GIT-186). 이제 창 자체가 사라진다 — 저장소마다 Repo 창이 있고 git 뷰는
+ * 그 본문의 탭이므로(FR-RTU-30) 이 창에는 갈 곳도 올 곳도 없다.
+ *
+ * **고정 뷰 탭은 버린다** (D-RTU-14). 전부 재현 가능하고 옮길 자리도 없다.
+ * 남의 탭만 일반 창으로 건져 낸다 — 그쪽은 사용자가 만든 것이라 사라지면 안 된다.
+ *
+ * 돌려주는 값은 **옮긴 탭 수**다 (호출자가 "바뀐 것이 있나" 로 쓴다). 창을
+ * 지운 것도 변화이므로 그것도 센다.
+ */
 function migrateGitWindows(windows,mkWindow){
   if(!Array.isArray(windows)) return 0;
   const panesOf=n=>!n?[]:(n.type==='pane'?[n]:(n.children||[]).flatMap(panesOf));
-  let moved=0;
-  for(const s of windows){
-    if(!s||s.type!==WINDOW_TYPE_GIT||!s.layout) continue;
-    const panes=panesOf(s.layout);
-    const keep=[],out=[];
-    for(const p of panes)
-      for(const t of (p.tabs||[])) (t&&t.type===TAB_TYPE_GIT?keep:out).push(t);
-    // 이미 규격대로면 건드리지 않는다 — 단일 칸 + 고정 탭만.
-    if(!out.length&&panes.length<2) continue;
-    const wasActive=panes.map(p=>p.activeTab).find(id=>keep.some(t=>t.id===id));
-    s.layout={type:'pane',id:panes[0]?panes[0].id:newEntityId(),
-      tabs:keep,activeTab:wasActive||(keep[0]&&keep[0].id)||null};
-    delete s.focusedPane;
-    if(!out.length) continue;
-    let dst=windows.find(w=>w&&w.type!==WINDOW_TYPE_GIT&&w.layout);
-    if(!dst) dst=mkWindow&&mkWindow();
-    const dp=dst&&firstPane(dst.layout);
-    if(!dp) continue;
-    if(!Array.isArray(dp.tabs)) dp.tabs=[];
-    for(const t of out){dp.tabs.push(t);moved++}
-    if(!dp.activeTab&&dp.tabs.length) dp.activeTab=dp.tabs[0].id;
+  let changed=0;
+  for(let i=windows.length-1;i>=0;i--){
+    const s=windows[i];
+    if(!s||s.type!==WINDOW_TYPE_GIT) continue;
+    const out=[];
+    for(const p of panesOf(s.layout))
+      for(const t of (p.tabs||[])) if(t&&t.type!==TAB_TYPE_GIT) out.push(t);
+    if(out.length){
+      // 받는 곳은 **일반 창**이다 — Repo 창에는 터미널 탭이 들어갈 수 없다
+      // (FR-RTU-16).
+      let dst=windows.find(w=>w&&w.type!==WINDOW_TYPE_GIT&&w.type!==WINDOW_TYPE_EDITOR&&w.layout);
+      if(!dst) dst=mkWindow&&mkWindow();
+      const dp=dst&&firstPane(dst.layout);
+      if(dp){
+        if(!Array.isArray(dp.tabs)) dp.tabs=[];
+        for(const t of out){dp.tabs.push(t);changed++}
+        if(!dp.activeTab&&dp.tabs.length) dp.activeTab=dp.tabs[0].id;
+      }
+    }
+    windows.splice(i,1);
+    changed++;
   }
-  return moved;
+  return changed;
 }
 
 function doSplit(n,rid,nrs,dir){

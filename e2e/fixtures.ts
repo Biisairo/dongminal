@@ -93,7 +93,7 @@ export const test = base.extend<{ cleanTools: void }>({
  * 진입점을 직접 부른다 — 그런 스펙이 재려는 것은 탭 전환이 아니라 그 뒤의 패널이다.
  */
 export async function openGitTab(page: any) {
-  const tab = page.locator('.sb-tab[data-panel="git"]');
+  const tab = page.locator('.sb-tab[data-panel="repo"]');
   const box = await tab.boundingBox();
   const vp = page.viewportSize();
   // 모바일 드로어가 닫혀 있으면 사이드바는 화면 밖으로 밀려 있다 — 눌릴 수 없다.
@@ -101,7 +101,7 @@ export async function openGitTab(page: any) {
   if (clickable) await tab.click();
   else await page.evaluate(() => (window as any).app._sbSetTab('git'));
   await page.waitForFunction(
-    () => !document.getElementById('sb-panel-git')?.hasAttribute('hidden'),
+    () => !document.getElementById('sb-panel-repo')?.hasAttribute('hidden'),
     undefined, { timeout: 10000 });
 }
 
@@ -130,7 +130,9 @@ export async function plainWindows(page: any): Promise<any[]> {
  * 고치는 것은 이 숫자가 28개 스펙에 흩어져 있던 사실뿐이다. 숫자는 여전히 e2e 가
  * 독립적으로 적고, 다만 한 자리에 적는다 (E2E_HELPER_RECLAIM_SRS FR-EHR-5).
  */
-export const GIT_VIEW_TABS = 7;
+// **REPO_TAB_UNIFY_SRS FR-RTU-30·32 로 6이 됐다.** `Changes` 는 창의 **사이드**에
+// 살고 본문 탭이 되지 않으므로(요구 ②) 본문에 설 수 있는 뷰는 여섯이다.
+export const GIT_VIEW_TABS = 6;
 
 /**
  * 앱이 뜨고 포커스된 칸의 터미널이 입력을 받을 준비가 될 때까지 기다린다.
@@ -182,10 +184,28 @@ export async function waitSettled(page: any, timeout = 15000) {
 }
 
 /**
- * Git 창을 열고 고정 탭이 다 설 때까지 기다린다 (FR-EHR-4).
+ * 그 저장소의 Repo 창을 열고 git 뷰를 화면에 세운다 (FR-EHR-4).
+ *
+ * **창의 모양이 바뀌었다** (REPO_TAB_UNIFY_SRS).
+ *   이전: Git 창 하나에 고정 탭 7개가 처음부터 서 있었다
+ *   지금: 저장소마다 Repo 창이 있고, `Changes` 는 **사이드**에, 나머지 여섯은
+ *         **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32)
+ *
+ * 그래서 이 헬퍼가 여섯을 미리 연다 — 기존 스펙들이 "탭을 클릭한다" 로 뷰를
+ * 고르고, 그 조작은 탭이 있어야 성립한다. 사이드도 `Changes` 로 돌려 둔다:
+ * 그 목록을 딛는 검증이 스펙 전반에 있다.
  */
 export async function openGit(page: any, repo: string) {
   await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a._edSetSide(a._aw(), 'changes');
+    const p = a.gitPanel;
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) {
+      p.openView(v);
+    }
+  });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
 }
 

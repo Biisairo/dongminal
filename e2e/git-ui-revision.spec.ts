@@ -37,11 +37,11 @@ async function cdFocused(page: Page, dir: string) {
 async function openChanges(page: Page, repo: string) {
   await openGit(page, repo);
   await page.evaluate(() => (window as any).app.gitPanel.openView('changes'));
-  await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
+  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }
 
 const files = (page: Page) => page.locator('#area .pn-body .git-file');
-const gitRepos = (page: Page) => page.locator('#git-repos .git-repo');
+const gitRepos = (page: Page) => page.locator('#repo-entries .git-repo');
 
 // 파일 목록이 채워질 때까지 기다린다 — status 조회는 비동기다.
 async function waitFiles(page: Page, min = 1) {
@@ -150,7 +150,7 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
     await waitForInit(page);
     await openGit(page, fx('basic'));
     // Git 창에 들어가면 사이드바가 따라온다 (FR-SBT-14).
-    await expect(page.locator('.sb-tab[data-panel="git"]')).toHaveClass(/active/);
+    await expect(page.locator('.sb-tab[data-panel="repo"]')).toHaveClass(/active/);
     // 상단 바에는 더 이상 닫기 버튼이 없다 (FR-SBT-34).
     await expect(page.locator('#git-close')).toHaveCount(0);
 
@@ -166,7 +166,7 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
       (window as any).app.ws.windows.filter((w: any) => w.type === 'git').length)).toBe(1);
 
     // 그리고 언제든 다시 들어간다 — 두 번째 창이 생기지 않는다 (FR-GIT-26 유지).
-    await page.click('.sb-tab[data-panel="git"]');
+    await page.click('.sb-tab[data-panel="repo"]');
     await expect.poll(() => page.evaluate(() => {
       const a = (window as any).app;
       return (a.ws.windows.find((w: any) => w.id === a.ws.activeWindow) || {}).type || 'terminal';
@@ -436,7 +436,7 @@ test.describe('UI 개정 — 컨트롤 치수 (FR-GIT-195~199)', () => {
     // GIT 섹션의 리포 행도 목록이다.
     const side = (await measure(page, '#sidebar'))!;
     const repos = await page.evaluate(() =>
-      [...document.querySelectorAll('#git-repos .git-repo')].map(e => Math.round(e.getBoundingClientRect().height)));
+      [...document.querySelectorAll('#repo-entries .git-repo')].map(e => Math.round(e.getBoundingClientRect().height)));
     expect(Math.min(...repos)).toBeGreaterThanOrEqual(MIN_ROW);
     expect(side.buttons.filter(b => b.h < MIN_HIT)).toEqual([]);
   });
@@ -749,8 +749,8 @@ test.describe('UI 개정 — 터미널의 리포를 딛는 근거 (D-FLW-6, 옛 
     // Git 창으로 들어간다 — 포커스가 터미널을 떠난다.
     await openGit(page, repo);
 
-    await page.click('#git-add-repo');
-    const dlg = page.locator('#git-add-repo-dlg');
+    await page.click('#repo-add');
+    const dlg = page.locator('#repo-add-dlg');
     await expect(dlg).toBeVisible({ timeout: 10000 });
     // dongminal 자신이 아니라 마지막 터미널의 리포다.
     await expect(dlg.locator('.gar-path')).toHaveValue(repo, { timeout: 15000 });
@@ -787,8 +787,8 @@ test.describe('UI 개정 — 터미널의 리포를 딛는 근거 (D-FLW-6, 옛 
     await cdFocused(page, repoB);
 
     await openGit(page, repoA);
-    await page.click('#git-add-repo');
-    const dlg = page.locator('#git-add-repo-dlg');
+    await page.click('#repo-add');
+    const dlg = page.locator('#repo-add-dlg');
     await expect(dlg).toBeVisible({ timeout: 10000 });
     // 마지막으로 클릭한 칸(repoA)이 아니라 방금 떠나온 자리다.
     await expect(dlg.locator('.gar-path')).toHaveValue(repoB, { timeout: 15000 });
@@ -815,8 +815,8 @@ test.describe('UI 개정 — 터미널의 리포를 딛는 근거 (D-FLW-6, 옛 
     await cdFocused(page, repoB);
 
     await openGit(page, repoA);
-    await page.click('#git-add-repo');
-    const dlg = page.locator('#git-add-repo-dlg');
+    await page.click('#repo-add');
+    const dlg = page.locator('#repo-add-dlg');
     await expect(dlg).toBeVisible({ timeout: 10000 });
     await expect(dlg.locator('.gar-path')).toHaveValue(repoB, { timeout: 15000 });
   });
@@ -912,8 +912,8 @@ test.describe('UI 개정 — GIT 행 높이 (FR-GIT-219)', () => {
 async function dragPin(page: Page, src: string, dst: string, before = true) {
   await page.evaluate(({ s, d, b }) => {
     const dt = new DataTransfer();
-    const from = document.querySelector(`#git-repos .git-repo[data-git-repo="${s}"]`)!;
-    const to = document.querySelector(`#git-repos .git-repo[data-git-repo="${d}"]`)!;
+    const from = document.querySelector(`#repo-entries .git-repo[data-git-repo="${s}"]`)!;
+    const to = document.querySelector(`#repo-entries .git-repo[data-git-repo="${d}"]`)!;
     const r = to.getBoundingClientRect();
     const y = b ? r.top + 2 : r.bottom - 2;
     from.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
@@ -924,7 +924,7 @@ async function dragPin(page: Page, src: string, dst: string, before = true) {
 }
 
 const pinOrder = (page: Page) =>
-  page.evaluate(() => [...document.querySelectorAll('#git-repos .git-repo')]
+  page.evaluate(() => [...document.querySelectorAll('#repo-entries .git-repo')]
     .filter((e) => !e.classList.contains('follow'))
     .map((e) => (e as HTMLElement).dataset.gitRepo));
 
@@ -948,8 +948,8 @@ test.describe('UI 개정 — 핀 드래그 정렬 (FR-GIT-223)', () => {
     // 문서 전역이 drop 을 받고 마지막 dragover 가 기록한 대상으로 커밋한다.
     await page.evaluate(({ s, d }) => {
       const dt = new DataTransfer();
-      const from = document.querySelector(`#git-repos .git-repo[data-git-repo="${s}"]`)!;
-      const to = document.querySelector(`#git-repos .git-repo[data-git-repo="${d}"]`)!;
+      const from = document.querySelector(`#repo-entries .git-repo[data-git-repo="${s}"]`)!;
+      const to = document.querySelector(`#repo-entries .git-repo[data-git-repo="${d}"]`)!;
       const r = to.getBoundingClientRect();
       from.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
       to.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer: dt, clientY: r.bottom - 2 }));
@@ -972,13 +972,13 @@ test.describe('UI 개정 — 핀 드래그 정렬 (FR-GIT-223)', () => {
     await openGitTab(page);
     await expect.poll(() => gitRepos(page).count(), { timeout: 20000 }).toBeGreaterThanOrEqual(1);
 
-    const follow = page.locator('#git-repos .git-repo.follow');
+    const follow = page.locator('#repo-entries .git-repo.follow');
     if (await follow.count()) {
       // 핀이 아니고 늘 최상단 1줄이다 (FR-GIT-193).
       await expect(follow).not.toHaveAttribute('draggable', 'true');
     }
     // 핀 항목은 끌 수 있다.
-    await expect(page.locator('#git-repos .git-repo:not(.follow)').first())
+    await expect(page.locator('#repo-entries .git-repo:not(.follow)').first())
       .toHaveAttribute('draggable', 'true');
   });
 });
@@ -1128,7 +1128,7 @@ test.describe('UI 개정 — GIT 섹션의 간격 (FR-GIT-214 → FR-BLP-5·8)',
     // 간격은 요소 사각형 사이의 빈 거리다 — 숨은 패널에서는 잴 수 없다 (FR-SBT-2).
     await openGitTab(page);
 
-    const gitGap = await panelGap(page, 'sb-panel-git', 'git-repos');
+    const gitGap = await panelGap(page, 'sb-panel-repo', 'git-repos');
     expect(gitGap, '+ Add 와 목록이 붙어 있다').toBeGreaterThanOrEqual(MIN_GAP_ACTIONS_LIST);
     // FR-BLP-5: 두 패널의 골격이 같다 — 같은 자리의 같은 간격이어야 "구조가
     // 같다" 가 눈으로도 성립한다. 숨은 패널은 잴 수 없으므로 탭을 옮겨 잰다.
@@ -1146,7 +1146,7 @@ test.describe('UI 개정 — GIT 섹션의 간격 (FR-GIT-214 → FR-BLP-5·8)',
     await page.waitForTimeout(300);
     await openGitTab(page);
 
-    expect(await panelGap(page, 'sb-panel-git', 'git-repos')).toBeGreaterThanOrEqual(MIN_GAP_ACTIONS_LIST);
+    expect(await panelGap(page, 'sb-panel-repo', 'git-repos')).toBeGreaterThanOrEqual(MIN_GAP_ACTIONS_LIST);
   });
 });
 
@@ -1160,7 +1160,7 @@ test.describe('UI 개정 — GIT 섹션 표식 (FR-GIT-192~194)', () => {
       await (window as any).app._gitPin(p);
     }, fx('with-remote'));
     await openGit(page, fx('basic'));
-    await expect.poll(() => page.locator('#git-repos .git-repo').count(),
+    await expect.poll(() => page.locator('#repo-entries .git-repo').count(),
       { timeout: 20000 }).toBe(2);
 
     // 이모지를 쓰지 않는다.
@@ -1170,7 +1170,7 @@ test.describe('UI 개정 — GIT 섹션 표식 (FR-GIT-192~194)', () => {
 
     // 표식은 WINDOWS 의 점과 같은 어휘다 — 활성 리포만 accent 로 채운다.
     const dots = await page.evaluate(() => {
-      const rows = [...document.querySelectorAll('#git-repos .git-repo')] as HTMLElement[];
+      const rows = [...document.querySelectorAll('#repo-entries .git-repo')] as HTMLElement[];
       return rows.map(r => {
         const d = r.querySelector('.git-repo-dot') as HTMLElement | null;
         return {

@@ -118,15 +118,15 @@ async function goto(page: Page, st?: EdState): Promise<EdState> {
 
 const tab = (page: Page, id: string) => page.locator(`.sb-tab[data-panel="${id}"]`);
 // FR-EDT-14: root 행은 **패널 최하단의 별도 컨테이너**에 산다 — 목록의 끝이
-// 아니다. 화면에 보이는 순서는 `#editor-entries` 다음 `#editor-root` 이므로
+// 아니다. 화면에 보이는 순서는 `#repo-entries` 다음 `#repo-root` 이므로
 // 둘을 이어서 본다.
-const rows = (page: Page) => page.locator('#editor-entries .sbl-item, #editor-root .sbl-item');
-const rootRow = (page: Page) => page.locator('#editor-root .sbl-item');
+const rows = (page: Page) => page.locator('#repo-entries .sbl-item, #repo-root .sbl-item');
+const rootRow = (page: Page) => page.locator('#repo-root .sbl-item');
 
 async function openEditorTab(page: Page) {
-  await tab(page, 'editor').click();
+  await tab(page, 'repo').click();
   await page.waitForFunction(
-    () => !document.getElementById('sb-panel-editor')?.hasAttribute('hidden'),
+    () => !document.getElementById('sb-panel-repo')?.hasAttribute('hidden'),
     undefined, { timeout: 10000 });
 }
 
@@ -142,32 +142,44 @@ async function openFileInRoot(page: Page, filePath: string) {
 }
 
 test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
-  test('E1 (V-EDT-1): 탭이 Windows·Git·Editor 순으로 보인다', async ({ page }) => {
+  // **탭이 둘로 줄었다** (REPO_TAB_UNIFY_SRS FR-RTU-1).
+  //   이전 동작: Windows · Git · Editor 세 탭
+  //   새  동작: Windows · Repo 두 탭
+  //   이유:     `git.pinned` 와 `editors.list` 는 서버 연동이 함께 바꾸는 **같은
+  //             집합**이다 — 화면만 둘로 그리고 있었다
+  test('E1 (V-RTU-1): 탭이 Windows·Repo 순으로 보인다', async ({ page }) => {
     await goto(page);
     const labels = await page.locator('#sb-tabs .sb-tab:not([hidden]) .sb-tab-label').allTextContents();
-    expect(labels).toEqual(['Windows', 'Git', 'Editor']);
+    expect(labels).toEqual(['Windows', 'Repo']);
   });
 
-  test('E2 (V-EDT-2): Ctrl+Shift+Digit3 이 Editor 탭으로 간다', async ({ page }) => {
+  // FR-RTU-7: 번호는 **배열 인덱스에서 파생**되므로 탭이 줄면 함께 당겨진다.
+  test('E2 (V-RTU-4): Ctrl+Shift+Digit2 가 Repo 탭으로 간다', async ({ page }) => {
     await goto(page);
-    await page.keyboard.press('Control+Shift+Digit3');
-    await expect.poll(() => page.evaluate(() => (window as any).app._sbTab)).toBe('editor');
-    await expect(page.locator('#sb-panel-editor')).toBeVisible();
+    await page.keyboard.press('Control+Shift+Digit2');
+    await expect.poll(() => page.evaluate(() => (window as any).app._sbTab)).toBe('repo');
+    await expect(page.locator('#sb-panel-repo')).toBeVisible();
   });
 
-  test('E3 (V-EDT-3): 직행 키가 배열에서 파생된다 — 손으로 넣은 sidebarTab3 이 없다', async ({ page }) => {
+  // **파생의 증거가 뒤집혔다** (FR-RTU-7). 손으로 넣은 항목이 없으므로 탭이
+  // 줄자 `sidebarTab3` 도 **함께 사라졌다** — 남아 있다면 그것이 손으로 넣은
+  // 것이라는 뜻이다.
+  test('E3 (V-RTU-4): 직행 키가 배열에서 파생된다 — sidebarTab3 이 사라졌다', async ({ page }) => {
     await goto(page);
     const got = await page.evaluate(() => ({
-      binding: (window as any).shortcuts.sidebarTab3,
-      def: SHORTCUT_DEFAULTS.sidebarTab3,
-      label: SHORTCUT_LABELS.sidebarTab3,
-      derived: '사이드바 탭: ' + (SB_TAB_DEFS[2] as any).label,
-      // executeAction 의 맵도 배열에서 나온다 — 세 번째 이름이 있어야 한다.
+      binding2: (window as any).shortcuts.sidebarTab2,
+      def2: SHORTCUT_DEFAULTS.sidebarTab2,
+      label2: SHORTCUT_LABELS.sidebarTab2,
+      derived2: '사이드바 탭: ' + (SB_TAB_DEFS[1] as any).label,
+      binding3: (window as any).shortcuts.sidebarTab3,
+      def3: SHORTCUT_DEFAULTS.sidebarTab3,
       action: typeof (window as any).app.executeAction === 'function',
     }));
-    expect(got.binding).toBe('Ctrl+Shift+Digit3');
-    expect(got.def).toBe('Ctrl+Shift+Digit3');
-    expect(got.label).toBe(got.derived);
+    expect(got.binding2).toBe('Ctrl+Shift+Digit2');
+    expect(got.def2).toBe('Ctrl+Shift+Digit2');
+    expect(got.label2).toBe(got.derived2);
+    expect(got.binding3).toBeUndefined();
+    expect(got.def3).toBeUndefined();
     expect(got.action).toBe(true);
   });
 
@@ -201,7 +213,7 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
     // 행은 일반 둘 + root 하나 = 셋이며 root 가 마지막이다 (FR-EDT-14).
     await expect(rows(page)).toHaveCount(3);
     const order = await page.evaluate(() =>
-      [...document.querySelectorAll('#editor-entries .sbl-item, #editor-root .sbl-item')]
+      [...document.querySelectorAll('#repo-entries .sbl-item, #repo-root .sbl-item')]
         .map((e) => (e as HTMLElement).dataset.edRoot));
     expect(order).toEqual([PROJ_DIR, PROJ2_DIR, HOME_DIR].map(String));
     expect(st.list).toEqual([PROJ_DIR, PROJ2_DIR]);
@@ -238,14 +250,14 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
       const a = (window as any).app;
       a.switchWindow(a._edWindows()[0].id);
     });
-    await expect.poll(() => page.evaluate(() => (window as any).app._sbTab)).toBe('editor');
+    await expect.poll(() => page.evaluate(() => (window as any).app._sbTab)).toBe('repo');
   });
 
   test('E7 (V-EDT-7): root 행은 최하단이고 × 가 없으며 드래그 출발·도착 모두 불가', async ({ page }) => {
     await goto(page, { home: HOME_DIR, list: [PROJ_DIR, PROJ2_DIR] });
     await openEditorTab(page);
     // 목록에는 일반 둘만, 고정 컨테이너에는 root 하나만 있다.
-    await expect(page.locator('#editor-entries .sbl-item')).toHaveCount(2);
+    await expect(page.locator('#repo-entries .sbl-item')).toHaveCount(2);
     const last = rootRow(page);
     await expect(last).toHaveCount(1);
     await expect(last).toHaveClass(/ed-root/);
@@ -257,10 +269,10 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
     const before = await page.evaluate(() => (window as any).app._editors.list.slice());
     await page.evaluate((home) => {
       const a = (window as any).app;
-      const list = document.getElementById('editor-entries')!;
+      const list = document.getElementById('repo-entries')!;
       const src = list.querySelector('.sbl-item') as HTMLElement;
       const dst = document.querySelector(
-        `#editor-root .sbl-item[data-ed-root="${CSS.escape(home)}"]`) as HTMLElement;
+        `#repo-root .sbl-item[data-ed-root="${CSS.escape(home)}"]`) as HTMLElement;
       const dt = new DataTransfer();
       src.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
       dst.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer: dt, clientY: 5 }));
@@ -302,7 +314,7 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
     await initScripts(page);
     await page.goto('/');
     await waitReady(page);
-    await expect(tab(page, 'editor')).toBeHidden();
+    await expect(tab(page, 'repo')).toBeHidden();
     expect(await page.evaluate(() => (window as any).app._edOff)).toBe(true);
     // 표면이 없으면 창도 없다 — 추측한 홈으로 만든 창이 남지 않는다.
     expect(await edWins(page)).toHaveLength(0);
@@ -583,7 +595,12 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
   test('E22 (V-EDT-39 / FR-EDT-47): 탐색기 폭이 window.editor.explorerWidth 로 저장되고 복원된다', async ({ page }) => {
     await goto(page);
     await openEditorTab(page);
-    await expect(page.locator('#area .ed-win .ed-explorer')).toHaveCount(1);
+    // **폭을 갖는 요소가 바뀌었다** (REPO_TAB_UNIFY_SRS FR-RTU-11·12).
+    //   이전 동작: `.ed-explorer` 자신이 폭을 가졌다
+    //   새  동작: `.ed-side` 가 폭을 갖고 그 안에서 Explorer·Changes 가 갈린다
+    //   이유:     사이드가 두 탭을 갈아 끼우므로(D-RTU-3) 폭은 둘의 공통 자리인
+    //             사이드의 것이어야 한다 — 탭을 바꿀 때마다 폭이 흔들리지 않는다
+    await expect(page.locator('#area .ed-win .ed-side .ed-explorer')).toHaveCount(1);
     await page.evaluate(() => {
       const a = (window as any).app;
       a._edSetExplorerWidth(a._aw(), 310);
@@ -593,7 +610,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
       const w = (window as any).app._aw();
       return w.editor.explorerWidth;
     })).toBe(310);
-    await expect(page.locator('#area .ed-win .ed-explorer')).toHaveCSS('width', '310px');
+    await expect(page.locator('#area .ed-win .ed-side')).toHaveCSS('width', '310px');
 
     await flushSave(page);
     await page.reload();

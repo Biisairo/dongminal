@@ -80,7 +80,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     await waitForInit(page);
     await openGit(page, repo);
 
-    const view = page.locator('#area .pn-body .git-view.git-changes');
+    const view = page.locator('#area .ed-side .git-view.git-changes');
     await expect(view.locator('.git-head-repo')).toHaveAttribute('title', repo);
 
     rmSync(repo, { recursive: true, force: true });
@@ -98,7 +98,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m2');
     await waitForInit(page);
     await openGit(page, repo);
-    await expect(page.locator('#area .pn-body .git-view.git-changes .git-head-repo'))
+    await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo);
 
     rmSync(repo, { recursive: true, force: true });
@@ -139,7 +139,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
 
     // 소실 주기가 30초이므로 그 안에 와야 한다 — 사용자가 아무것도 누르지 않는다.
     await expect(missing(page)).toHaveCount(0, { timeout: 60000 });
-    await expect(page.locator('#area .pn-body .git-view.git-changes .git-head-repo'))
+    await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo, { timeout: UI_WAIT_MS });
 
     // 다른 탭도 제 내용으로 돌아온다.
@@ -165,7 +165,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     // 없다. 실제 흐름도 그렇다: 핀해 둔 리포가 나중에 사라진다.
     await page.evaluate((r) => (window as any).app._gitPin(r), repo);
     await page.evaluate((r) => (window as any).app.gitPanel.setRepo(r), repo);
-    await expect(page.locator('#area .pn-body .git-view.git-changes .git-head-repo'))
+    await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo, { timeout: UI_WAIT_MS });
 
     rmSync(repo, { recursive: true, force: true });
@@ -184,7 +184,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m6');
     await waitForInit(page);
     await page.evaluate((r) => (window as any).app._gitPin(r), repo);
-    const row = page.locator(`#git-repos .git-repo[data-git-repo="${repo}"]`);
+    const row = page.locator(`#repo-entries .git-repo[data-git-repo="${repo}"]`);
     await expect(row).toHaveCount(1, { timeout: UI_WAIT_MS });
 
     rmSync(repo, { recursive: true, force: true });
@@ -229,7 +229,7 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
     let failing = false;
     await failStatus(page, () => failing);
     await openGit(page, repo);
-    await expect(page.locator('#area .pn-body .git-view.git-changes .git-head-repo'))
+    await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo, { timeout: UI_WAIT_MS });
 
     failing = true;
@@ -247,7 +247,7 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
     let failing = false;
     await failStatus(page, () => failing);
     await openGit(page, repo);
-    await expect(page.locator('#area .pn-body .git-view.git-changes .git-head-repo'))
+    await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo, { timeout: UI_WAIT_MS });
 
     failing = true;
@@ -305,7 +305,7 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
     let failing = false;
     await failStatus(page, () => failing);
     await openGit(page, repo);
-    await expect(page.locator('#area .pn-body .git-view.git-changes .git-head-repo'))
+    await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo, { timeout: UI_WAIT_MS });
 
     // 실패 → 성공 → 실패 로 주기를 세 번 바꾼다. 재평가가 즉시 수집을 부르면

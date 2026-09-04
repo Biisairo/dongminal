@@ -20,7 +20,7 @@ test.afterAll(() => {
 });
 
 const fx = (name: string) => realpathSync(join(FIXTURES, name));
-const changes = (page: Page) => page.locator('#area .pn-body .git-view.git-changes');
+const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
 const hist = (page: Page) => page.locator('#area .pn-body .git-view.git-history');
 
 async function init(page: Page, mode: 'mobile' | 'desktop') {
@@ -186,7 +186,7 @@ test.describe('모바일 390px', () => {
     await page.waitForTimeout(800);
 
     // V10
-    const c = await overflow(page, '#area .pn-body .git-view.git-changes');
+    const c = await overflow(page, '#area .ed-side .git-view.git-changes');
     expect(c.items).toEqual([]);
     expect(c.scrollW).toBe(c.clientW);
 

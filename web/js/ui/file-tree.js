@@ -65,6 +65,10 @@ class FileTree {
 
     // 행은 reconcile 로 다시 만들어질 수 있다 — 리스너는 컨테이너 하나에만 건다.
     this.list.addEventListener('click',e=>this._onClick(e));
+    // FR-RTU-42(④): 더블클릭은 **고정**이다. 클릭 두 번이 이미 그 파일을 미리보기로
+    // 열어 두었으므로 여기서는 고정만 한다 — 목록에서 더블클릭하는 손짓은 "이것을
+    // 열어 둔다" 이지 "잠깐 본다" 가 아니다.
+    this.list.addEventListener('dblclick',e=>this._onDbl(e));
     // FR-EDT-80: 진입점 둘 중 하나. 같은 이유로 여기 한 번만 건다.
     this.list.addEventListener('contextmenu',e=>this._onCtx(e));
     this._initDnd();

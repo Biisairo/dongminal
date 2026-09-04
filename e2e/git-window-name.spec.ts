@@ -37,7 +37,7 @@ async function waitForInit(page: Page) {
 const topName = (page: Page) => page.locator('#window-name');
 // 사이드바 목록이 그 리포를 부르는 이름 — 상단이 맞춰야 할 값이다.
 const listName = (page: Page, root: string) =>
-  page.locator(`#git-repos .git-repo.pinned[data-git-repo="${root}"] .git-repo-name`);
+  page.locator(`#repo-entries .git-repo.pinned[data-git-repo="${root}"] .git-repo-name`);
 
 test.describe('Git 창의 상단 이름', () => {
   test('상단 이름이 지금 보고 있는 리포다 — 목록과 같은 이름으로', async ({ page, request }) => {

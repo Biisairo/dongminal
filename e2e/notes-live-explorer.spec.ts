@@ -52,9 +52,9 @@ async function goto(page: Page) {
 }
 
 async function openEditorTab(page: Page) {
-  await page.locator('.sb-tab[data-panel="editor"]').click();
+  await page.locator('.sb-tab[data-panel="repo"]').click();
   await page.waitForFunction(
-    () => !document.getElementById('sb-panel-editor')?.hasAttribute('hidden'),
+    () => !document.getElementById('sb-panel-repo')?.hasAttribute('hidden'),
     undefined, { timeout: 10000 });
 }
 
@@ -71,7 +71,7 @@ async function openEditorWin(page: Page, root: string) {
 const notesRoot = (page: Page) =>
   page.evaluate(() => (window as any).app._edNotes() as string);
 
-const fixedRows = (page: Page) => page.locator('#editor-root .sbl-item');
+const fixedRows = (page: Page) => page.locator('#repo-root .sbl-item');
 const treeRows = (page: Page) => page.locator('.ed-tree .ed-row');
 // 폴링 주기(EDITOR_GIT_POLL_MS)의 두 배 남짓. 한 주기를 놓쳐도 다음 회차가
 // 잡으므로 대기가 주기에 아슬아슬하게 걸리지 않는다.
@@ -144,7 +144,7 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
     await openEditorTab(page);
     const notes = await notesRoot(page);
     const paths = await page.evaluate(() =>
-      [...document.querySelectorAll('#editor-entries .sbl-item')]
+      [...document.querySelectorAll('#repo-entries .sbl-item')]
         .map((e) => (e as HTMLElement).dataset.edRoot));
     expect(paths).not.toContain(notes);
   });
@@ -184,7 +184,7 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
     await openEditorTab(page);
     await expect(fixedRows(page)).toHaveCount(1);
     await expect(fixedRows(page).locator('.sbl-name')).toHaveText('~');
-    await expect(page.locator('.sb-tab[data-panel="editor"]')).toBeVisible();
+    await expect(page.locator('.sb-tab[data-panel="repo"]')).toBeVisible();
   });
 });
 

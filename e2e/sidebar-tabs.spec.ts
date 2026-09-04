@@ -64,7 +64,7 @@ test.describe('묶음 T — 탭 바와 영속 (FR-SBT-1~8)', () => {
     await expect(tab(page, 'windows')).toHaveClass(/active/);
     await expect(tab(page, 'git')).not.toHaveClass(/active/);
     await expect(page.locator('#sb-panel-windows')).toBeVisible();
-    await expect(page.locator('#sb-panel-git')).toBeHidden();
+    await expect(page.locator('#sb-panel-repo')).toBeHidden();
     // FR-SBT-4: ⚙ 은 탭 밖이다 — 어느 탭에서나 보인다.
     await expect(page.locator('#settings-btn')).toBeVisible();
     await tab(page, 'git').click();
@@ -208,7 +208,7 @@ test.describe('묶음 T — 배지 (FR-SBT-13 · FR-GOB-13·14)', () => {
     // 픽스처의 값을 못박지 않고 보이는 것만 본다 — 옛 헤더 배지(변경 있는 리포
     // 수)와 세는 것이 다르다.
     await tab(page, 'git').click();
-    await expect(page.locator('#git-repos [data-git-repo="' + repo + '"] .git-badge'))
+    await expect(page.locator('#repo-entries [data-git-repo="' + repo + '"] .git-badge'))
       .toHaveText(/^[1-9][0-9]*$/, { timeout: 15000 });
 
     // 헤더 배지는 활성이든 아니든 뜨지 않는다.
@@ -323,7 +323,7 @@ test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
     // 둘이 되면 순회한다 — 활성 리포가 바뀌고 Git 창이 그것을 연다.
     await pin(page, b);
     await expect.poll(() =>
-      page.evaluate(() => document.querySelectorAll('#git-repos .git-repo').length),
+      page.evaluate(() => document.querySelectorAll('#repo-entries .git-repo').length),
       { timeout: 20000 }).toBe(2);
 
     await page.evaluate(() => (window as any).app.executeAction('windowNext'));

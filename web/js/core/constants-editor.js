@@ -5,11 +5,15 @@
  * `GIT_REPOS_POLL_MS` 를 참조한다.
  */
 // 탭 서술자의 고정 값들. index.html 의 패널 래퍼가 같은 id 를 쓴다 (§2.1).
-const EDITOR_TAB_ID='editor';
-const EDITOR_TAB_LABEL='Editor';
-const EDITOR_PANEL_ID='sb-panel-editor';
-const EDITOR_LIST_ID='editor-entries';
-const EDITOR_ROOT_ID='editor-root';
+//
+// REPO_TAB_UNIFY_SRS FR-RTU-1: `Git` 과 `Editor` 두 탭이 **하나**가 됐다. 목록이
+// 이미 같은 집합이었으므로(§2.1) 화면만 둘로 그리고 있었던 셈이다.
+const REPO_TAB_ID='repo';
+const REPO_TAB_LABEL='Repo';
+const REPO_PANEL_ID='sb-panel-repo';
+const REPO_LIST_ID='repo-entries';
+const REPO_ROOT_ID='repo-root';
+const REPO_ADD_ID='repo-add';
 // FR-EDT-10·44: root 에디터의 표시 이름. 행과 창이 같은 이름을 써야 사용자가
 // 둘을 같은 것으로 읽는다.
 const EDITOR_ROOT_NAME='~';
@@ -17,7 +21,7 @@ const EDITOR_ROOT_NAME='~';
 // 서듯 이것도 한 자리에서만 정해진다 — 행과 창이 같은 이름을 써야 사용자가 둘을
 // 같은 것으로 읽는다 (FR-EDT-10·44).
 const EDITOR_NOTES_NAME='메모장';
-const EDITOR_ENTRIES_NONE='+ Add 로 경로를 추가하세요';
+const REPO_ENTRIES_NONE='+ Add 로 경로를 추가하세요';
 
 // FR-EDT-28: `+ Add`. 지금 터미널의 cwd 를 미리 채운다 — 경로를 타이핑하게 하면
 // 리포 추가와 달리 딛을 자리가 없다.
@@ -211,6 +215,31 @@ const FS_STAMP_MAX=512;
 // FR-EDT-77: 활성 Editor 창의 색 갱신 주기. `GIT_REPOS_POLL_MS` 를 **값으로 딛는다**
 // — 같은 사실을 보는 두 화면이 다른 속도로 갱신될 이유가 없고, 두 벌로 적으면
 // 한쪽만 고쳐진다.
+// ── Repo 창의 사이드 (REPO_TAB_UNIFY_SRS 묶음 W) ──
+//
+// 좌측은 **탭 교체**다 (D-RTU-3). 세로로 쌓으면 파일 목록도 변경 목록도 절반
+// 높이가 되어 어느 쪽도 한눈에 들어오지 않는다.
+//
+// 라벨이 영어인 것은 기존 관례다 (D-RTU-15) — 사이드바 탭(`Windows`)도 git 뷰
+// 이름(`Changes`)도 영어이고, 한 화면에서 두 언어가 섞이지 않는다.
+const REPO_SIDE_EXPLORER='explorer';
+const REPO_SIDE_CHANGES='changes';
+const REPO_SIDE_TABS=[
+  {id:REPO_SIDE_EXPLORER,label:'Explorer'},
+  {id:REPO_SIDE_CHANGES, label:'Changes'},
+];
+const REPO_SIDE_DEFAULT=REPO_SIDE_EXPLORER;
+
+// ── 미리보기 탭 (REPO_TAB_UNIFY_SRS 묶음 P · FR-RTU-40~45) ──
+//
+// 변경 목록을 훑는 일이 탭 20개가 되면, 목록을 보는 것 자체가 정리를 부른다
+// (D-RTU-9). 한 번 클릭은 **한 탭을 재사용**하고 더블클릭이 그것을 고정한다 —
+// VSCode 의 규약이며 사용자가 이미 아는 동작이다.
+//
+// 기울임이 곧 "이 탭은 곧 대체된다" 는 표시다 (FR-RTU-41).
+const REPO_PREVIEW_CLASS='pn-tab-preview';
+const REPO_PREVIEW_TITLE='미리보기 — 다음에 고른 것이 이 자리를 대신합니다. 더블클릭하면 고정됩니다.';
+
 const EDITOR_GIT_POLL_MS=GIT_REPOS_POLL_MS;
 
 // GIT_DIR_ENTRY_SRS FR-DIR-31 / D-DIR-7: **`_gitOff` 는 사유마다 수명이 다르다.**

@@ -86,15 +86,35 @@ function stuckRepo(tag: string) {
 }
 
 async function openHistory(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
+  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
+  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a._edSetSide(a._aw(), 'changes');
+    const p = a.gitPanel;
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+  });
   await page.click('#area .pn-tab[data-git-view="history"]');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-history/);
   await expect(rows(page).first()).toBeVisible({ timeout: 20000 });
 }
 
 async function openChanges(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
+  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
+  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a._edSetSide(a._aw(), 'changes');
+    const p = a.gitPanel;
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+  });
+  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }
 
 const hist = (page: Page) => page.locator('#area .pn-body .git-view.git-history');

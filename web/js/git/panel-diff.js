@@ -18,6 +18,23 @@ Object.assign(GitPanel.prototype, {
    *
    * 어느 경우든 미리보기는 방금 누른 행이다. 그것이 포커스 행이다.
    */
+  /**
+   * REPO_TAB_UNIFY_SRS FR-RTU-51 / D-RTU-8: **untracked 는 diff 가 아니다.**
+   *
+   * 비교할 왼쪽이 없으므로 diff 는 빈 쪽과의 비교가 되고, 그 화면은 자리를 절반
+   * 쓰면서 알려 주는 것이 없다. VSCode 도 새 파일을 그냥 편집기로 연다.
+   *
+   * 디렉터리 항목(중첩 저장소·서브모듈)은 열 파일이 없으므로 여기 오지 않는다 —
+   * 그쪽은 사유와 진입점을 보인다 (GIT_DIR_ENTRY_SRS FR-DIR-21).
+   */
+  _openUntracked(e){
+    if(!this.repo||!e||!e.path||e.dir) return false;
+    const abs=String(this.repo).replace(/\/+$/,'')+'/'+e.path;
+    // 한 번 클릭이므로 미리보기다 (FR-RTU-40) — 목록을 훑어도 탭이 쌓이지 않는다.
+    this.app._edOpenFile(abs,{preview:true});
+    return true;
+  },
+
   _select(group,e,ev){
     const key=this._selKey(group,e.path);
     const multi=!!(ev&&(ev.metaKey||ev.ctrlKey));
@@ -51,13 +68,32 @@ Object.assign(GitPanel.prototype, {
     this.openView('diff');
   },
 
-  // 고정 탭 하나를 활성화한다 (FR-GIT-28). History 의 미커밋 변경 행이 Changes 를
-  // 여는 것과 파일 클릭이 Diff 를 여는 것이 같은 경로다.
+  /**
+   * 뷰 하나를 화면에 올린다. History 의 미커밋 변경 행이 Changes 를 여는 것과
+   * 파일 클릭이 Diff 를 여는 것이 같은 경로다.
+   *
+   * **표면이 둘이다** (REPO_TAB_UNIFY_SRS FR-RTU-73).
+   *
+   *   Repo 창(`this.root` 있음)  본문에 그 뷰의 탭을 연다. 없으면 만든다
+   *   옛 Git 창(`root` 없음)     고정 탭 7개 중 하나를 활성화한다 (FR-GIT-28)
+   *
+   * Changes 는 Repo 창에서 **사이드에만** 있으므로(FR-RTU-32) 탭으로 열지 않고
+   * 사이드를 그쪽으로 돌린다 — 그러지 않으면 "Changes 를 열었는데 아무 일도
+   * 없다" 가 된다.
+   */
   openView(view){
-    const w=this.app._gitWindow(); if(!w||!w.layout) return;
-    for(const pn of this.app._flattenPanes(w.layout)){
+    const app=this.app;
+    if(this.root){
+      const w=app._edWindowFor(this.root); if(!w) return;
+      if(view===REPO_SIDE_CHANGES){ app._edSetSide(w,REPO_SIDE_CHANGES); return }
+      const rid=app._edEnsurePane(w); if(!rid) return;
+      app.addTab(rid,TAB_TYPE_GIT,{gitView:view,windowId:w.id});
+      return;
+    }
+    const w=app._gitWindow(); if(!w||!w.layout) return;
+    for(const pn of app._flattenPanes(w.layout)){
       const t=(pn.tabs||[]).find(x=>x.type===TAB_TYPE_GIT&&x.gitView===view);
-      if(t){this.app.switchTab(pn.id,t.id);return}
+      if(t){app.switchTab(pn.id,t.id);return}
     }
   },
 
@@ -516,6 +552,10 @@ Object.assign(GitPanel.prototype, {
   // 대상이 그대로면 다시 부르지 않는다 — status 폴링마다 diff 를 재요청하면
   // 스크롤과 접힘이 매초 초기화된다.
   _showTarget(view,f,slot){
+    // FR-RTU-56: **편집 중인 diff 는 다시 읽지 않는다.** 폴링이 사용자의 편집을
+    // 덮으면 그 화면은 편집기가 아니다. 대상이 바뀌는 것은 사용자의 조작이므로
+    // 그때는 새로 읽는다 — 아래 key 비교가 그것을 가른다.
+    if(view&&view.dirty&&this[slot]) return;
     // 식별자는 (리포, 축, 경로, 리비전) 이다 (FR-GIT-54·145) — 리비전이 빠지면
     // 머지 커밋에서 부모를 바꿔도 같은 대상으로 보여 다시 받지 않는다.
     const key=f?[f.repo,f.axis,f.path,f.origPath,f.oid||'',f.parentOid||''].join('\u0000'):'';
@@ -564,8 +604,31 @@ Object.assign(GitPanel.prototype, {
       ignoreWhitespace:this._ignoreWsPref(),
       hideUnchanged:this._foldPref(),
       isStale:tok=>this.isStale(tok),
+      // FR-RTU-53: 저장되지 않은 변경은 탭 이름에 `●` 로 선다 — 편집기 탭과
+      // 같은 표시이며, 그 표시를 만드는 자리도 같다 (`tab.dirty`).
+      onDirty:v=>this._setDiffDirty(v),
+      // FR-RTU-55: 저장 뒤에는 관측을 즉시 갱신한다. 방금 고친 것이 목록과
+      // 색에 곧바로 서야 한다.
+      onSaved:()=>this._gitSaved(),
     });
     return this._diffView;
+  },
+
+  // diff 탭 하나의 dirty 를 탭 레코드에 옮긴다 (FR-RTU-53).
+  _setDiffDirty(v){
+    if(!this.root) return;
+    const w=this.app._edWindowFor(this.root); if(!w) return;
+    const found=this.app._findGitViewTab(w,'diff'); if(!found) return;
+    if(!!found.tab.dirty===!!v) return;
+    found.tab.dirty=!!v;
+    this.app.render();
+  },
+
+  _gitSaved(){
+    this.signal('write');
+    // 탐색기의 색도 같은 사실을 딛는다 (FR-EDT-78).
+    const t=this.app._edActiveTree&&this.app._edActiveTree();
+    if(t&&t.pollGit) t.pollGit({now:true});
   },
 
   _preview(){

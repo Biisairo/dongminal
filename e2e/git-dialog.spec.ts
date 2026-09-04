@@ -39,7 +39,17 @@ async function waitForInit(page: Page, mode: 'desktop' | 'mobile' = 'desktop') {
 
 async function openGit(page: Page, repo: string) {
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
+  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
+  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a._edSetSide(a._aw(), 'changes');
+    const p = a.gitPanel;
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+  });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
 }
 
@@ -134,7 +144,7 @@ test.describe('20단계 — 다이얼로그 공통 규약', () => {
 
     // 원격 `▾` 옵션 (FR-GIT-109·110)
     await page.click('#area .pn-tab[data-git-view="changes"]');
-    const more = page.locator('#area .pn-body .git-view.git-changes .git-head '
+    const more = page.locator('#area .ed-side .git-view.git-changes .git-head '
       + '.git-remote-more[data-remote="fetch"]');
     await expect(more).toBeEnabled({ timeout: 20000 });
     await more.click();
@@ -302,7 +312,7 @@ test.describe('20단계 — 다이얼로그 공통 규약', () => {
     await waitForInit(page);
     await openGit(page, repo);
     // 상태 지문은 관측된 status 를 딛는다 — 그것이 오기 전에 열면 비교 기준이 없다.
-    await expect(page.locator('#area .pn-body .git-view.git-changes .git-file').first())
+    await expect(page.locator('#area .ed-side .git-view.git-changes .git-file').first())
       .toBeVisible({ timeout: 20000 });
 
     await open(page);

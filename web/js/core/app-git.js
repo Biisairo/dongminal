@@ -7,37 +7,120 @@
 Object.assign(App.prototype, {
   // ── 관측과 시선의 레지스트리 (SLOT_VIEW_STATE_SRS 묶음 O·V) ──
 
-  // FR-SVS-30: 관측은 앱에 하나다. 폴링·status·소실이 여기 산다.
-  _gitObs(){
-    if(!this._gitObserver) this._gitObserver=new GitObserver(this);
-    return this._gitObserver;
+  /**
+   * 관측은 **저장소마다** 하나다.
+   *
+   * **FR-SVS-30 을 개정한다** (REPO_TAB_UNIFY_SRS FR-RTU-64). 그 규칙이 "앱에
+   * 하나" 였던 근거는 Git 창이 워크스페이스에 하나여서 **활성 저장소도 하나**
+   * 였다는 것이다 (FR-GIT-26·29). 관측기는 status·signature·소실·실패 누적을
+   * 통째로 들고 있으므로, 저장소마다 창이 서는 지금 그것을 하나로 두면 마지막에
+   * 수집한 저장소의 상태를 모든 창이 함께 본다 — 실측한 결함이다: 다른 창에서
+   * 파일을 만들어도 이 창의 목록이 갱신되지 않았다.
+   *
+   * 요청 수는 늘지 않는다. 관측이 도는 조건은 **그 표면이 화면에 있을 때**이고
+   * (FR-RTU-62), 화면에 있는 저장소만큼만 폴링이 돈다 — 종전에도 활성 저장소
+   * 하나가 폴링의 대상이었다.
+   */
+  _gitObs(root){
+    if(!this._gitObservers) this._gitObservers=new Map();
+    const key=root||'';
+    let o=this._gitObservers.get(key);
+    if(!o){o=new GitObserver(this);this._gitObservers.set(key,o)}
+    return o;
   },
 
   /**
-   * FR-SVS-40·42: Git 의 **시선**은 칸마다 하나다. 키가 `_slotKey` 를 지나므로
-   * 칸 0 의 키는 접미사가 없다 (FR-WSL-75 와 같은 이유).
+   * REPO_TAB_UNIFY_SRS FR-RTU-62: 창이 바뀌면 **모든 패널**이 폴링 조건을 다시
+   * 본다.
    *
-   * Git 창은 워크스페이스에 하나뿐이므로(FR-GIT-26) 키에 창 id 를 넣을 이유가
-   * 없다 — 칸 번호가 곧 신원이다.
+   * 종전에는 활성 칸의 패널 하나만 `_reschedule()` 했다 — 패널이 하나뿐이었기
+   * 때문이다. 저장소마다 패널이 서는 지금 그렇게 하면 **떠난 창의 패널이 타이머를
+   * 든 채 남는다**: `_pollOk` 는 `_applyCadence` 가 불릴 때만 검사되므로, 아무도
+   * 보지 않는 저장소를 계속 폴링한다 (실측).
    */
-  _gitPanel(slot){
+  _gitRescheduleAll(){
+    if(this._gitPanels) for(const p of this._gitPanels.values()) p._reschedule();
+    // 활성 창의 패널은 아직 만들어지지 않았을 수 있다 — getter 가 만들며 그
+    // 자리에서 첫 관측이 시작된다.
+    if(this.gitPanel) this.gitPanel._reschedule();
+  },
+
+  // 패널이 하나도 남지 않은 관측기는 거둔다 — 타이머를 든 채 남으면 사라진 창의
+  // 저장소를 영영 폴링한다.
+  _gitObsReap(){
+    if(!this._gitObservers) return;
+    for(const [k,o] of this._gitObservers){
+      if(o.panels.size) continue;
+      o.stopPolling();
+      this._gitObservers.delete(k);
+    }
+  },
+
+  /**
+   * FR-SVS-40·42 + REPO_TAB_UNIFY_SRS FR-RTU-60: Git 의 **시선**은 (루트, 칸)마다
+   * 하나다. 키가 `_slotKey` 를 지나므로 칸 0 의 키는 접미사가 없다 (FR-WSL-75).
+   *
+   * 종전 키는 칸 번호뿐이었고 근거가 "Git 창은 워크스페이스에 하나" 였다
+   * (FR-GIT-26). 창이 경로마다 생기면 그 전제가 깨진다 — 두 Repo 창이 같은
+   * 패널을 다투면 한쪽에서 고른 파일이 다른 쪽 diff 에 뜬다.
+   *
+   * `root` 가 빈 문자열이면 **옛 Git 창**의 패널이다. 마이그레이션(FR-RTU-70)
+   * 전까지 두 표면이 공존하므로 그 자리를 남겨 둔다.
+   */
+  _gitPanel(root,slot){
     if(!this._gitPanels) this._gitPanels=new Map();
-    const key=this._slotKey('git',slot||0);
+    const key=this._gitPanelKey(root,slot);
     let p=this._gitPanels.get(key);
-    if(!p){p=new GitPanel(this);this._gitPanels.set(key,p)}
+    if(!p){
+      // FR-RTU-24: Repo 창의 패널이 볼 저장소는 **그 창의 루트에서 나온다** —
+      // `repo` getter 가 그것을 주므로 여기서 따로 정하지 않는다. 옛 Git
+      // 창(root='')은 사용자가 사이드바에서 고른 리포를 따른다.
+      p=new GitPanel(this,root||'');
+      this._gitPanels.set(key,p);
+    }
     return p;
   },
 
-  // FR-SVS-46: 사라진 칸의 패널을 거둔다. Monaco 가 칸 수만큼 서므로 이 회수가
-  // 새면 인스턴스가 누적된다 (§7 R-1).
+  // 키의 조립은 여기 하나다 — 회수(`_gitPanelReap`)가 같은 규칙으로 되풀어야
+  // 하고, 두 벌이 되면 한쪽만 고쳐진다.
+  _gitPanelKey(root,slot){ return this._slotKey('git:'+(root||''),slot||0) },
+  _gitPanelRoot(key){
+    const base=this._slotBase(key);
+    return base.startsWith('git:')?base.slice(4):'';
+  },
+
+  /**
+   * FR-SVS-46 + FR-RTU-63: 사라진 **칸**과 사라진 **루트**의 패널을 거둔다.
+   * Monaco 가 패널마다 서므로 이 회수가 새면 인스턴스가 누적된다 (§7 R-1).
+   *
+   * 루트가 목록에서 사라지는 것은 재조정이 창을 지우는 것과 같은 사건이다
+   * (FR-EDT-42) — 창이 없는 패널은 볼 사람이 없다.
+   */
   _gitPanelReap(){
     if(!this._gitPanels||!this._gitPanels.size) return;
     const n=this.slotCount();
+    // 살아 있는 루트: Repo 창들의 루트 + 옛 Git 창의 자리('').
+    const live=new Set(['']);
+    for(const s of this.ws.windows) if(this._isEditorWin(s)) live.add(this._edRootOf(s));
     for(const [key,p] of this._gitPanels){
-      if(this._slotOf(key)<n) continue;
+      if(this._slotOf(key)<n&&live.has(this._gitPanelRoot(key))) continue;
       p.destroy();
       this._gitPanels.delete(key);
     }
+    // 패널이 사라지면 그 관측기도 볼 사람이 없다.
+    this._gitObsReap();
+  },
+
+  /**
+   * FR-RTU-65: 지금 활성인 창이 어느 git 표면인가.
+   *
+   * Repo 창이면 그 루트, 아니면 옛 Git 창의 자리('')다. **활성 창이 Repo 창이
+   * 아닐 때 빈 문자열을 주는 것이 요점이다** — 터미널 창에 서 있는 동안에도
+   * 상태바와 사이드바가 딛을 패널이 있어야 하고, 그 자리는 종전과 같다.
+   */
+  _gitRootOfActive(){
+    const w=this._aw();
+    return this._isEditorWin(w)?this._edRootOf(w):'';
   },
 
   // _gitWindow 는 워크스페이스의 Git 창이다. 없으면 null (FR-GIT-26).
@@ -60,52 +143,27 @@ Object.assign(App.prototype, {
    * (FR-SBT-36) — 두 벌로 만들면 한쪽만 고쳐진다.
    */
   /**
-   * 지금 보고 있던 리포가 목록에서 사라졌으면 그 자리를 떠난다.
+   * 지금 보고 있던 리포가 목록에서 사라졌을 때 떠나는 자리.
    *
-   * 핀을 지워도 Git 창은 **그 리포를 계속 보이고 있었다** — 사용자가 없앤 것이
-   * 화면에 남는다. 리포를 고르는 자리(사이드바)가 이미 비었으므로 그 창에는 갈
-   * 곳이 없다.
+   * **REPO_TAB_UNIFY_SRS FR-RTU-70 으로 할 일이 없어졌다.** 옛 Git 창은 리포를
+   * 갈아타는 창이라 "보고 있던 것이 사라졌다" 는 상태가 있었지만, Repo 창은
+   * 저장소 하나에 창 하나라 그 창 자체가 재조정으로 사라진다 — 그 처리는
+   * `_edAfterChange` 가 목록이 바뀌는 모든 경로에서 이미 한다.
    *
-   * 연동으로 같은 경로의 Editor 창도 함께 사라지므로(FR-EDT-32), 그쪽에 앉아
-   * 있었다면 재조정이 창을 빼는 순간 활성 창이 유령이 된다. 두 경우를 한
-   * 자리에서 본다.
+   * 자리를 남겨 두는 이유는 호출자(`_gitUnpin`)가 하나 있기 때문이다. 지우면서
+   * 그쪽 배선까지 건드리면 이 마일스톤의 범위를 넘는다.
    */
-  _gitLeaveIfRemoved(path){
-    const w=this._aw();
-    // 지운 리포를 그대로 보이고 있는 Git 창이면 떠난다. 리포를 고르는 자리가
-    // 이미 비었으므로 그 창에는 갈 곳이 없다.
-    //
-    // 연동으로 사라지는 Editor 창은 여기서 보지 않는다 — `_edAfterChange` 가
-    // 목록이 바뀌는 모든 경로에서 그것을 이미 처리한다.
-    if(!this._isGitWin(w)||!w.git||w.git.repo!==path) return;
-    const t=this._gitBackTarget();
-    if(t) this.switchWindow(t.id);
-  },
+  _gitLeaveIfRemoved(){},
 
+  // Windows 탭이 돌아갈 자리이기도 하다 (FR-SBT-23·36) — Git 창이 사라져도
+  // 그 계산은 남는다.
   _gitBackTarget(){
     const plain=this._plainWindows();
     return plain.find(s=>s.id===this._lastPlainWindow)||plain[0]||null;
   },
 
-  /**
-   * FR-GIT-183: Git 창을 닫는다. 다시 열면 새로 만들어진다 (FR-GIT-26 유지).
-   *
-   * **FR-SBT-34 로 이 함수를 부르는 UI 는 사라졌다.** 남겨 두는 이유가 둘이다
-   * (FR-SBT-36): ① 복귀 대상 계산(`_gitBackTarget`)이 `Windows` 탭과 같은 것이라
-   * 여기가 그 규칙의 집이다 ② Git 창을 파괴해야 하는 경로(마이그레이션·복구)가
-   * 나중에 필요해질 때 되살리는 것보다 남겨 두는 편이 싸다.
-   *
-   * **먼저 옮기고 나서 지운다.** 지운 뒤 옮기면 두 번 그리게 되고, 그 사이 한 번은
-   * 엉뚱한 창이 보인다.
-   */
-  _gitCloseWindow(){
-    const w=this._gitWindow(); if(!w) return;
-    const back=this._gitBackTarget();
-    if(back) this.switchWindow(back.id);
-    this.delWindow(w.id);
-  },
-
-  // FR-GIT-186: 개정 이전 워크스페이스의 Git 창 안 탭을 일반 창으로 옮긴다.
+  // FR-RTU-70: 옛 워크스페이스의 Git 창을 걷어낸다. 그 안의 남의 탭은 일반
+  // 창으로 건져 내고 고정 뷰 탭은 버린다 (D-RTU-14).
   // 판정과 이동은 helpers 의 순수 함수가 한다 — 로드 경로가 둘이라 여기서 두 벌로
   // 만들면 한쪽만 고쳐진다.
   _migrateGitWindow(list){
@@ -121,36 +179,32 @@ Object.assign(App.prototype, {
     if(n) this._save();
   },
 
-  // openGitWindow 는 Git 창을 활성화한다. 없으면 만든다 — 두 번 불러도 창은
-  // 하나다 (FR-GIT-26). repo 를 주면 활성 리포까지 전환한다 (FR-GIT-15).
+  /**
+   * REPO_TAB_UNIFY_SRS FR-RTU-72: **그 저장소의 Repo 창으로 간다.**
+   *
+   * 이름과 계약(경로 하나를 받아 그 표면을 연다)은 그대로 두었다 — 부르는 자리가
+   * 셋이기 때문이다: 사이드바 행, `dmctl`, e2e. 달라진 것은 가는 곳뿐이다.
+   *
+   * 목록에 없는 경로면 **먼저 더한다.** 연동이 핀까지 함께 만들고(FR-EDT-33)
+   * 재조정이 창을 세운다 (FR-EDT-42) — 즉 이 한 번이 요구 ①의 "add 하면 git·
+   * editor 가 같이" 그대로다.
+   */
   async openGitWindow(repo){
-    const win=this._gitWindow()||this._mkGitWindow(repo||null);
-    if(repo) this.gitPanel.setRepo(repo);
+    if(!repo) return null;
+    if(!this._edWindowFor(repo)) await this._edMutate('/add',{path:repo});
+    const win=this._edWindowFor(repo);
+    if(!win) return null;
     this.switchWindow(win.id);
     return win.id;
-  },
-
-  // _mkGitWindow 는 GIT_VIEWS 의 고정 탭을 갖춘 Git 창을 만든다. _mkWindow 와 달리
-  // _newTool 을 부르지 않는다 — Git 창의 초기 상태에는 PTY 가 필요 없다.
-  _mkGitWindow(repo){
-    const r=newEntityId();
-    const tabs=GIT_VIEWS.map(v=>({id:newEntityId(),name:v.name,type:TAB_TYPE_GIT,gitView:v.key}));
-    const s={
-      id:newEntityId(),name:GIT_WINDOW_NAME,type:WINDOW_TYPE_GIT,
-      // 활성 리포는 창에 붙는다 — 창이 곧 Git 표면이므로 (FR-GIT-29).
-      git:{repo:repo||null},
-      layout:{type:'pane',id:r,tabs,activeTab:tabs[0].id}
-    };
-    this.ws.windows.push(s);
-    return s;
   },
 
   // ── 좌측 GIT 섹션 (FR-GIT-9~17) ──
 
   // GIT 섹션 배선. 진입점은 정적 요소이므로 리스너는 여기서 한 번만 붙인다.
   _initGitSection(){
-    const add=document.getElementById('git-add-repo');
-    if(add) add.addEventListener('click',()=>this._gitAddRepo());
+    // FR-RTU-5: `+ Add` 는 Repo 탭 하나이고 그 배선은 app-editor.js 가 든다 —
+    // 두 목록이 한 종단(`/api/editors/add`)으로 함께 바뀌므로 진입점도 하나다.
+    // 옛 `#git-add-repo` 는 사라졌다.
     this._startGitReposPoll();
     this.gitPanel.init();
   },
@@ -227,6 +281,19 @@ Object.assign(App.prototype, {
   // FR-EDT-97: 라우팅의 기준이 되는 **활성 리포**. 창에 붙어 있는 값을 패널이
   // 쥐고 있다 (FR-GIT-29) — 판정 자리를 늘리지 않으려고 여기 하나로 읽는다.
   _gitActiveRepo(){ return (this.gitPanel&&this.gitPanel.repo)||'' },
+
+  /**
+   * REPO_TAB_UNIFY_SRS FR-RTU-6: 그 경로의 마지막 git 관측값.
+   *
+   * 두 목록이 같은 집합이므로(§2.1) 경로로 짝지으면 된다. 저장소가 아닌 행에는
+   * 배지가 없다 — `gitPinnedEntries` 가 그때 `badge:null` 을 싣는다.
+   */
+  _gitBadgeFor(path){
+    if(!path) return null;
+    const pinned=((this._gitRepos||{}).pinned)||[];
+    const hit=pinned.find(e=>e&&e.path===path);
+    return (hit&&hit.badge)||null;
+  },
 
   _gitPaneOf(w){
     return (w.focusedPane&&findPane(w.layout,w.focusedPane))?w.focusedPane:firstPane(w.layout)?.id;
@@ -549,6 +616,14 @@ Object.assign(App.prototype, {
 // 화면에 하나만 서고 사용자가 방금 조작한 자리에 속한다 (D-8). 접근자로 두는 덕에
 // `app.gitPanel` 을 딛던 자리들이 한 줄도 바뀌지 않는다.
 Object.defineProperty(App.prototype,'gitPanel',{
-  get(){ return this._gitPanel(this._slotFocused()) },
+  /**
+   * FR-RTU-65: 포커스 칸에서 **지금 보고 있는 git 표면**의 패널이다.
+   *
+   * 활성 창이 Repo 창이면 그 루트의 것이고, 아니면 옛 Git 창의 자리('')다.
+   * 터미널 창에 서 있을 때도 유효한 패널을 주어야 한다 — 상태바 chip 과
+   * 사이드바 배지가 창을 보지 않을 때도 이 값을 딛는다 (panel-poll 의 signal
+   * 주석과 같은 근거).
+   */
+  get(){ return this._gitPanel(this._gitRootOfActive(),this._slotFocused()) },
   configurable:true,
 });

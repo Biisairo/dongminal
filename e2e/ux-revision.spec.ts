@@ -50,7 +50,7 @@ async function unpinAll(request: APIRequestContext) {
 test.describe('묶음 B — 사이드바 리스트 블루프린트 (FR-BLP-*)', () => {
   test('V-BLP-1: 두 패널의 첫 자식이 액션 버튼 행이다', async ({ page }) => {
     await init(page);
-    for (const id of ['sb-panel-windows', 'sb-panel-git']) {
+    for (const id of ['sb-panel-windows', 'sb-panel-repo']) {
       const first = await page.evaluate(
         p => document.getElementById(p)?.firstElementChild?.className, id);
       expect(first, `${id} 의 첫 자식`).toBe('sb-actions');
@@ -128,7 +128,7 @@ test.describe('묶음 B — 목록 순회 (FR-BLP-15~18)', () => {
     const root = await pin(request, fx('basic'));
     await expect.poll(() => page.evaluate(() =>
       ((window as any).app._gitRepos?.pinned || []).length), { timeout: 20000 }).toBe(1);
-    await page.locator('.sb-tab[data-panel="git"]').click();
+    await page.locator('.sb-tab[data-panel="repo"]').click();
     expect(await page.evaluate(() => (window as any).app.gitPanel.repo || null)).toBeNull();
 
     await page.evaluate(() => (window as any).app.executeAction('windowNext'));

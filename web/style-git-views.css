@@ -663,9 +663,10 @@ body.mobile .git-repo-xslot{width:24px;height:24px}
    두 목록이 같아야 하므로 Git 쪽 사본을 두지 않는다 — 값이 같아도 두 벌이면
    한쪽만 고쳐진다. `--git-row-min` 과 같은 30px 이므로 FR-GIT-197·226 은 그대로
    지켜진다. */
-/* FR-GIT-239: 자리 칸은 `×` 와 같은 폭을 받는다 — 한쪽만 받으면 두 행의 오른쪽
-   끝이 어긋난다. `×` 자신의 하한은 `.sbl-x` 가 준다. */
-#git-repos .git-repo-xslot{min-width:var(--sbl-hit);min-height:var(--sbl-hit)}
+/* FR-GIT-239 의 자리 칸(`.git-repo-xslot`) 규칙은 사라졌다 — 통합된 Repo 목록의
+   행은 `.ed-entry` 이고, `×` 의 하한은 `.sbl-x` 가 이미 준다
+   (REPO_TAB_UNIFY_SRS FR-RTU-1). 죽은 선택자를 남기면 다음 사람이 그것이 아직
+   무엇을 잡는다고 읽는다. */
 
 /* ── GIT 섹션 표식 (FR-GIT-192~194) ──
    WINDOWS 목록의 `.si-dot` 과 같은 어휘다. 활성 리포 여부만 나타내고

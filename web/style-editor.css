@@ -22,6 +22,39 @@
 /* FR-EDT-46: 창은 좌우 둘로 나뉜다. 탐색기는 분할 트리 **밖**의 고정 영역이며
    어떤 드롭으로도 쪼개지지 않는다 — 트리는 `.ed-area` 안에만 산다. */
 .ed-win{display:flex;position:absolute;inset:0;overflow:hidden}
+/* REPO_TAB_UNIFY_SRS FR-RTU-11·12: 사이드는 탭 바와 본문 둘이고, `Explorer` 와
+   `Changes` 를 갈아 끼운다. 폭은 사이드가 갖고 그 안의 둘은 남은 자리를 채운다 —
+   세로로 쌓지 않는 이유가 D-RTU-3 이다(둘 다 절반 높이가 된다). */
+.ed-side{
+  flex:0 0 auto;min-width:0;display:flex;flex-direction:column;overflow:hidden;
+  background:var(--sidebar-bg);border-right:1px solid var(--border);
+}
+.ed-side-tabs{display:flex;flex:0 0 auto;border-bottom:1px solid var(--border)}
+/* 균등 분할이다 — 이름이 짧다고 제 몫을 빼앗기면 폭 최소값에서 둘 다 잘린다
+   (NFR-EDT-3 과 같은 근거). */
+.ed-side-tab{
+  flex:1 1 0;min-width:0;padding:5px 4px;font-size:11px;
+  background:transparent;border:none;border-bottom:2px solid transparent;
+  color:var(--text-muted);cursor:pointer;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.ed-side-tab:hover{color:var(--text)}
+.ed-side-tab.active{color:var(--text-bright);border-bottom-color:var(--accent)}
+/* FR-RTU-20·21: 진입점 아이콘 줄. Changes 탭에서만 서며 커밋 입력보다 위다 —
+   세로 순서가 곧 사용 빈도의 순서는 아니지만, 이 줄은 높이가 고정이라 목록의
+   스크롤에 밀리지 않는 자리에 있어야 한다. */
+.ed-side-acts{display:flex;flex:0 0 auto;gap:2px;padding:3px 4px;
+  border-bottom:1px solid var(--border)}
+.ed-side-act{
+  flex:1 1 0;min-width:0;padding:2px 0;font-size:12px;line-height:1.4;
+  background:transparent;border:1px solid transparent;border-radius:3px;
+  color:var(--text-muted);cursor:pointer;
+}
+.ed-side-act:hover{color:var(--accent);border-color:var(--border)}
+/* `.git-view` 가 `position:absolute;inset:0` 이므로 담는 쪽이 위치 기준이어야 한다. */
+.ed-side-body{flex:1 1 auto;position:relative;min-height:0;min-width:0;overflow:hidden}
+/* 사이드 안에서는 폭을 사이드가 정한다 — 탐색기는 남은 자리를 그대로 채운다. */
+.ed-side-body>.ed-explorer{position:absolute;inset:0;width:auto;border-right:none}
 .ed-explorer{
   flex:0 0 auto;min-width:0;display:flex;flex-direction:column;overflow:hidden;
   background:var(--sidebar-bg);border-right:1px solid var(--border);
@@ -40,6 +73,7 @@
 /* 모바일 배치는 후속이다 (비목표 8) — 탐색기를 접을 규약이 아직 없으므로 최소
    폭만 양보한다. */
 body.mobile .ed-explorer{max-width:40%}
+body.mobile .ed-side{max-width:40%}
 
 /* ── 탐색기 트리 (EDITOR_TAB_SRS 묶음 X) ── */
 

@@ -23,7 +23,7 @@ test.afterAll(() => {
 const fx = (name: string) => realpathSync(join(FIXTURES, name));
 
 const copyFx = makeCopyFx(FIXTURES);
-const changes = (page: Page) => page.locator('#area .pn-body .git-view.git-changes');
+const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
 const diff = (page: Page) => page.locator('#area .pn-body .git-view.git-diff');
 const row = (page: Page, group: string, path: string) =>
   changes(page).locator(`.git-group[data-group="${group}"] .git-file[data-path="${path}"]`);

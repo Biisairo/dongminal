@@ -1,5 +1,15 @@
 # SRS: Git 창 (MVP M1~M5) — IEEE 29148
 
+> **후속 문서가 이 SRS 의 일부를 개정했다.** 어긋나면 후속이 이긴다.
+>
+> | 개정된 것 | 어떻게 | 어디서 |
+> |---|---|---|
+> | FR-GIT-25~31 (Git 창은 워크스페이스에 1개) | **Git 창이 사라졌다.** 저장소마다 Repo 창이 서고 git 뷰는 그 본문의 탭이다 | REPO_TAB_UNIFY_SRS FR-RTU-70·30 |
+> | FR-GIT-28 (고정 탭 7개) | Changes 는 창의 **사이드**에, 나머지 여섯은 본문 탭으로 필요할 때 열린다 | REPO_TAB_UNIFY_SRS FR-RTU-30·32 |
+> | FR-GIT-29 (활성 리포는 창에 붙는다) | Repo 창의 저장소는 **창의 루트**이며 갈아타지 않는다 | REPO_TAB_UNIFY_SRS FR-RTU-60 |
+> | FR-GIT-34 (분류 대상은 변경 **파일**) | 디렉터리도 상태의 단위가 될 수 있다 — 서브모듈·중첩 저장소 | GIT_DIR_ENTRY_SRS FR-DIR-1 |
+> | diff 는 읽기 전용 | 워킹 트리 축의 오른쪽은 **편집·저장된다** | REPO_TAB_UNIFY_SRS FR-RTU-50 |
+
 > ⚠️ **이 문서는 단독으로 최신이 아니다.**
 > MVP 구현 후 사용자 검토로 UI 를 개정했다 —
 > [`./GIT_UI_REVISION_SRS.md`](./GIT_UI_REVISION_SRS.md) (FR-GIT-179~213).

@@ -22,6 +22,8 @@ import (
 const (
 	gitErrBadRequest = apierr.CodeBadRequest
 	gitErrNotRepo    = apierr.CodeNotRepo
+	// REPO_TAB_UNIFY_SRS FR-RTU-29: 이미 저장소인 자리에 `git init` 을 부른 경우.
+	gitErrExists = apierr.CodeExists
 	// GIT_REPO_MISSING_SRS FR-RMS-4: 폴더 자체가 사라졌다. 저장소가 아닌 것과
 	// 갈라 두어야 클라이언트가 "사라졌습니다" 를 확정으로 말할 수 있다.
 	gitErrRepoMissing = apierr.CodeRepoMissing

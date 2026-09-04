@@ -300,11 +300,17 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
   test('O8 (V-EDT-69 / FR-EDT-90): 이름 변경·이동을 열린 탭이 따라간다', async ({ page, request }) => {
     const R = mkRoot('o8');
     await enter(page, request, R);
+    // **더블클릭으로 연다** (REPO_TAB_UNIFY_SRS FR-RTU-40·42).
+    //   이전 동작: 한 번 클릭이 탭을 하나씩 만들었다
+    //   새  동작: 한 번 클릭은 **미리보기 탭 하나를 재사용**한다 — 목록을 훑어도
+    //             탭이 쌓이지 않게 하려는 것이다 (D-RTU-9)
+    //   이유:     이 시험은 탭 둘이 **동시에** 열려 있어야 성립한다. 고정하는
+    //             계기가 더블클릭이므로 그것을 쓴다
     await row(page, j(R, 'src')).click();
-    await row(page, j(R, 'src', 'a.txt')).click();
+    await row(page, j(R, 'src', 'a.txt')).dblclick();
     await openEditor(page, R);
     await row(page, j(R, 'src', 'deep')).click();
-    await row(page, j(R, 'src', 'deep', 'c.txt')).click();
+    await row(page, j(R, 'src', 'deep', 'c.txt')).dblclick();
     await openEditor(page, R);
     await expect.poll(async () => (await tabs(page)).length).toBe(2);
 
@@ -336,13 +342,15 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
   test('O9 (V-EDT-70 / FR-EDT-91): 삭제되면 그 탭이 닫힌다 — 폴더면 하위 전부', async ({ page, request }) => {
     const R = mkRoot('o9');
     await enter(page, request, R);
+    // FR-RTU-40·42: 한 번 클릭은 미리보기 탭 하나를 재사용한다 — 셋을 동시에
+    // 열어 두려면 고정해야 한다 (O8 과 같은 근거).
     await row(page, j(R, 'src')).click();
-    await row(page, j(R, 'src', 'a.txt')).click();
+    await row(page, j(R, 'src', 'a.txt')).dblclick();
     await openEditor(page, R);
     await row(page, j(R, 'src', 'deep')).click();
-    await row(page, j(R, 'src', 'deep', 'c.txt')).click();
+    await row(page, j(R, 'src', 'deep', 'c.txt')).dblclick();
     await openEditor(page, R);
-    await row(page, j(R, 'top.txt')).click();
+    await row(page, j(R, 'top.txt')).dblclick();
     await openEditor(page, R);
     await expect.poll(async () => (await tabs(page)).length).toBe(3);
 

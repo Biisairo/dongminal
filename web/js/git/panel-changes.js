@@ -24,8 +24,69 @@ Object.assign(GitPanel.prototype, {
       el.appendChild(d);
       return;
     }
+    // FR-RTU-25: 저장소가 아닌 자리다. **그 사실만 말하고 끝내지 않는다** —
+    // 여기서 만들 수 있으므로 그 길을 함께 둔다. Repo 창에서만 그린다: 옛
+    // 표면에는 "어느 폴더를 저장소로 만드는가" 라는 대상이 없다.
+    if(this.root&&this._notRepo){ this._renderInit(el); return }
     if(el.dataset.built!=='1') this._buildChanges(el);
     this._paintChanges(el);
+  },
+
+  /**
+   * FR-RTU-25·26: `git init` 의 자리.
+   *
+   * 확인을 거치는 이유는 홈처럼 넓은 경로에서 되돌리기가 사용자의 몫이 되기
+   * 때문이다 (D-RTU-13). 확인창은 **대상 절대경로를 밝힌다** — 어느 폴더인지
+   * 모른 채 누르는 일이 없어야 한다.
+   */
+  _renderInit(el){
+    el.dataset.built='';
+    this._commit().unmount();
+    el.innerHTML='';
+    const box=document.createElement('div'); box.className='git-init';
+    const msg=document.createElement('div'); msg.className='git-init-msg';
+    msg.textContent=GIT_INIT_NOT_REPO;
+    const path=document.createElement('div'); path.className='git-init-path';
+    path.textContent=this.root; path.title=this.root;
+    const btn=document.createElement('button');
+    btn.className='git-init-btn'; btn.textContent=GIT_INIT_RUN;
+    btn.addEventListener('click',()=>this.runInit());
+    box.appendChild(msg); box.appendChild(path); box.appendChild(btn);
+    // 실패는 그 자리에 남는다 — 알림창은 닫는 순간 사유가 사라진다.
+    if(this._initErr){
+      const e=document.createElement('div'); e.className='git-init-err';
+      e.textContent=this._initErr;
+      box.appendChild(e);
+    }
+    el.appendChild(box);
+  },
+
+  async runInit(){
+    if(this._initBusy||!this.root) return;
+    // 확인은 **GitConfirm 한 자리**를 지난다 (CONFIRM_ONE_STAGE_SRS FR-COS-1) —
+    // git 을 바꾸는 조작의 확인이 두 벌이 되면 한쪽만 정책을 따른다.
+    // `stages:1` 은 "파괴적은 아니지만 뜻을 먼저 알려야 한다" 이며, 여기서는
+    // **어느 폴더인지**가 그 뜻이다 (FR-RTU-26).
+    this._initBusy=true; this._initErr=null; this.obs.paintAll();
+    const res=await GitConfirm.open({
+      action:GIT_INIT_ACTION,title:GIT_INIT_CONFIRM,targets:[this.root],
+      hint:GIT_INIT_HINT,stages:1,
+      run:()=>this.post('/api/git/init',{path:this.root}),
+    });
+    this._initBusy=false;
+    if(res===true||(res&&res.ok)){
+      // FR-RTU-28: 서버가 캐시를 이미 지웠다 — 곧바로 다시 물으면 참이 온다.
+      this._notRepo=false; this._errMsg=null; this._failStreak=0;
+      this._applyCadence();
+      this.signal('init');
+      // 목록·핀이 함께 바뀌었다 (FR-RTU-27). 사이드바가 그것을 따라오게 한다.
+      if(this.app._edRefresh) this.app._edRefresh();
+      if(this.app._gitReposRefresh) this.app._gitReposRefresh();
+    }else if(res!==false){
+      // `false` 는 사용자가 취소한 것이다 — 실패가 아니므로 사유를 남기지 않는다.
+      this._initErr=(res&&res.message)||GIT_INIT_FAIL;
+    }
+    this.obs.paintAll();
   },
 
   _paint(){
@@ -83,9 +144,13 @@ Object.assign(GitPanel.prototype, {
   // 실패다 — 구조가 그것을 보장한다.
   _buildChanges(el){
     el.innerHTML=
-      GitPanel.headHTML()+
+      // REPO_TAB_UNIFY_SRS FR-RTU-20 / D-RTU-4: **커밋 입력이 브랜치 줄보다
+      // 위다.** 사용자 지시이며, 가장 자주 쓰는 입력이 목록의 스크롤에 밀리지
+      // 않는 자리에 있어야 한다는 것이 근거다.
+      //
       // 안쪽은 GitCommit 이 채운다 (FR-GIT-74~85). 자리와 고정 성질은 여기 있다.
       '<div class="git-commit"></div>'+
+      GitPanel.headHTML()+
       // 원격 작업 하나의 화면 (FR-GIT-102·103·105·108). 진행 중이 아니면 접힌다.
       '<div class="git-job">'+
         '<div class="git-job-bar">'+
@@ -456,7 +521,12 @@ Object.assign(GitPanel.prototype, {
     }
     d.appendChild(acts);
     d.addEventListener('click',ev=>this._select(group,e,ev));
-    d.addEventListener('dblclick',()=>this._openDiff(group,e));
+    // FR-RTU-51: 새 파일은 diff 가 아니라 편집기로 연다. 선택(위)은 그대로
+    // 두어 스테이지·discard 의 대상이 바뀌게 하고, 여는 것만 갈린다.
+    d.addEventListener('dblclick',()=>{
+      if(group==='untracked'&&this._openUntracked(e)) return;
+      this._openDiff(group,e);
+    });
     d.addEventListener('contextmenu',ev=>{
       ev.preventDefault();
       GitMenu.open('file',{group,path:e.path,origPath:e.origPath||''},ev);

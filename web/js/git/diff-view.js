@@ -84,6 +84,10 @@ class GitDiffView {
     // stale 판정의 절반은 바깥(세대·리포)이 안다. 나머지 절반은 자기 일련번호다
     // (FR-GIT-54).
     this._isStale=o.isStale||(()=>false);
+    // REPO_TAB_UNIFY_SRS FR-RTU-53·55: 편집의 두 계기를 밖으로 알린다. 이 클래스는
+    // 탭도 관측도 모른다 — 아는 쪽(GitPanel)이 그것을 받아 처리한다.
+    this.onDirty=o.onDirty||null;
+    this.onSaved=o.onSaved||null;
     this._seq=0; this._dead=false;
     this._editor=null; this._orig=null; this._mod=null;
     this._el=document.createElement('div');
@@ -124,7 +128,7 @@ class GitDiffView {
     if(!GIT_DIFF_DRAWABLE.has(a.kind)||!GIT_DIFF_DRAWABLE.has(b.kind)){
       this.clear(d.body.note||GIT_DIFF_LOAD_FAIL,gitBlobMetaLines(a,b)); return;
     }
-    this._draw(target.path,a.content||'',b.content||'',d.body.note||'');
+    this._draw(target.path,a.content||'',b.content||'',d.body.note||'',target);
   }
 
   // 본문 대신 안내를 보인다. 에디터와 모델은 함께 버린다 (FR-GIT-56).
@@ -178,7 +182,7 @@ class GitDiffView {
     return {ok:true,body:d};
   }
 
-  _draw(path,orig,mod,note){
+  _draw(path,orig,mod,note,target){
     this._setNote(note);
     const lang=monacoLang(path);
     if(!this._editor){
@@ -197,8 +201,69 @@ class GitDiffView {
     // 이전 모델은 새 모델을 붙인 뒤에 버린다 — 먼저 버리면 에디터가 사라진 모델을
     // 읽는다 (FR-GIT-56).
     this._dropModels(prevO,prevM);
+    // REPO_TAB_UNIFY_SRS FR-RTU-50: 오른쪽이 **디스크의 파일**인 축에서만 편집을
+    // 연다. 판정은 `GIT_AXIS_EDITABLE` 한 자리이며 여기서 다시 세지 않는다.
+    this._bindEdit(target);
     requestAnimationFrame(()=>this.layout());
   }
+
+  /**
+   * FR-RTU-50·52·53·54: diff 의 오른쪽을 고치고 저장하는 자리.
+   *
+   * **저장은 `/api/file/write` 다** — 편집기 탭이 쓰는 그 경로다 (FR-RTU-52).
+   * 새 쓰기 표면을 만들면 같은 파일을 두 길로 쓰게 되고 dirty·충돌 규약이 둘로
+   * 갈린다.
+   */
+  _bindEdit(target){
+    const axis=(target&&target.axis)||'';
+    const abs=this._absPath(target);
+    const editable=!!(abs&&GIT_AXIS_EDITABLE.has(axis));
+    this._editable=editable;
+    this._editTarget=editable?abs:'';
+    this._dirty=false;
+    this._editor.updateOptions({readOnly:!editable,originalEditable:false});
+    if(!editable) return;
+    const me=this._editor.getModifiedEditor();
+    // FR-RTU-54: 읽기 전용 쪽을 고치려 하면 **사유를 말한다.** 왼쪽(원본)은 어느
+    // 축에서도 고칠 수 없다 — 그것은 비교 대상이지 파일이 아니다.
+    this._mod.onDidChangeContent(()=>{
+      if(this._dirty) return;
+      this._dirty=true;
+      if(this.onDirty) this.onDirty(true);
+    });
+    me.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.KeyS,()=>this.save());
+  }
+
+  // 대상의 절대경로. 저장소 루트와 상대경로에서 만든다 — 서버가 그 둘을 주므로
+  // 여기서 다시 물을 이유가 없다.
+  _absPath(target){
+    if(!target||!target.repo||!target.path) return '';
+    return String(target.repo).replace(/\/+$/,'')+'/'+target.path;
+  }
+
+  async save(){
+    if(!this._editable||!this._dirty||!this._editTarget||!this._mod) return false;
+    const content=this._mod.getValue();
+    let r=null;
+    try{
+      r=await fetch('/api/file/write',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({path:this._editTarget,content})});
+    }catch{r=null}
+    if(!r||!r.ok){
+      this._setNote(GIT_DIFF_SAVE_FAIL);
+      return false;
+    }
+    this._dirty=false;
+    if(this.onDirty) this.onDirty(false);
+    // FR-RTU-55: 방금 고친 것이 목록과 색에 곧바로 서야 한다.
+    if(this.onSaved) this.onSaved();
+    return true;
+  }
+
+  // FR-RTU-56: 편집 중인 diff 는 폴링이 덮지 않는다. 사용자가 친 글자가 3초마다
+  // 사라지는 화면은 편집기가 아니다.
+  get dirty(){ return !!this._dirty }
 
   _dropModels(){
     for(const m of arguments) if(m) m.dispose();

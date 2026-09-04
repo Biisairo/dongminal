@@ -161,7 +161,7 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     await openGit(page, slow);
     await page.evaluate((r) => (window as any).app.gitPanel.setRepo(r), fast);
 
-    const view = page.locator('#area .pn-body .git-view.git-changes');
+    const view = page.locator('#area .ed-side .git-view.git-changes');
     await expect(view.locator('.git-file[data-path="only-in-fast.txt"]')).toBeVisible({ timeout: 15000 });
 
     // slow 의 응답이 도착할 시간을 준 뒤에도 화면은 fast 다.
@@ -216,7 +216,7 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
       p._history().reload = () => { throw new Error('reload boom') };
     });
 
-    const btn = page.locator('#area .pn-body .git-view.git-changes .git-head-refresh');
+    const btn = page.locator('#area .ed-side .git-view.git-changes .git-head-refresh');
     await btn.click();
 
     await expect(btn, '새로고침 버튼이 disabled 로 굳었다').toBeEnabled({ timeout: 3000 });
@@ -242,7 +242,7 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     await waitForInit(page);
     await openGit(page, repo);
 
-    const view = page.locator('#area .pn-body .git-view.git-changes');
+    const view = page.locator('#area .ed-side .git-view.git-changes');
     // 첫 관측이 그려진 뒤부터 시작한다 — 그래야 뒤이은 변경이 "새 관측" 이다.
     await expect(view.locator('.git-head-repo')).toHaveAttribute('title', repo);
 

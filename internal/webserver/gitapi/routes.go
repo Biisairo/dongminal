@@ -20,6 +20,9 @@ func exactPath(p string) func(string) bool {
 var routes = []route{
 	{http.MethodGet, exactPath("/api/git/repos"), (*GitServer).apiGitRepos},
 	{http.MethodGet, exactPath("/api/git/repo-at"), (*GitServer).apiGitRepoAt},
+	// REPO_TAB_UNIFY_SRS FR-RTU-29: 저장소가 아닌 자리를 저장소로 만든다. 핀
+	// 추가와 같은 묶음에 두는 이유는 성공의 결과가 곧 핀이기 때문이다.
+	{http.MethodPost, exactPath("/api/git/init"), (*GitServer).apiGitInit},
 	{http.MethodPost, exactPath("/api/git/repos/pin"), (*GitServer).apiGitPin},
 	{http.MethodPost, exactPath("/api/git/repos/unpin"), (*GitServer).apiGitUnpin},
 	{http.MethodPost, exactPath("/api/git/repos/reorder"), (*GitServer).apiGitReorder},

@@ -10,6 +10,9 @@
  */
 Object.assign(GitPanel.prototype, {
   setRepo(path){
+    // FR-RTU-60: Repo 창의 패널은 저장소가 **고정**이다 (창의 루트가 그것이다) —
+    // 갈아탈 대상이 없으므로 전환도 없다. 그 값은 `repo` getter 가 준다.
+    if(this.root) return;
     const w=this.app._gitWindow(); if(!w) return;
     if(!w.git) w.git={repo:null};
     if(w.git.repo===path) return;

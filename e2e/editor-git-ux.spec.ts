@@ -30,11 +30,21 @@ async function reopen(page: Page) {
 }
 
 async function openGit(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
+  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
+  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a._edSetSide(a._aw(), 'changes');
+    const p = a.gitPanel;
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+  });
+  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }
 
-const changes = (page: Page) => page.locator('#area .pn-body .git-view.git-changes');
+const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
 
 // constants.js 의 전역 상수 — <script> 로 로드되고 `const` 는 전역 렉시컬
 // 환경에 들어가므로 `window.X` 로는 잡히지 않는다. 맨 이름으로 읽는다
@@ -620,8 +630,18 @@ test.describe('묶음 D — 모바일 세로 크기조정', () => {
     await page.setViewportSize(MOBILE_VIEWPORT);
     await page.goto('/');
     await page.waitForSelector('body.mobile', { timeout: 15000 });
-    await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-    await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
+    await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
+  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
+  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a._edSetSide(a._aw(), 'changes');
+    const p = a.gitPanel;
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+  });
+    await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
   }
 
   // V-CSZ-6: 세로 배치에서 손잡이가 높이를 바꾼다.

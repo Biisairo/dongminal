@@ -3,6 +3,8 @@ package store
 import (
 	"container/list"
 	"context"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -213,6 +215,32 @@ func (st *Store) RepoRoot(ctx context.Context, cwd string) (string, error) {
 	st.roots[cwd] = rootEntry{root: root, err: err, at: st.now()}
 	st.mu.Unlock()
 	return root, err
+}
+
+/**
+ * ForgetRoot 는 그 경로(와 그 아래)의 루트 해석 기억을 지운다.
+ *
+ * REPO_TAB_UNIFY_SRS FR-RTU-28 / D-RTU-13: `RepoRoot` 는 **실패도 캐시한다**
+ * (TTL 2초). 그 자체는 옳다 — 저장소가 아닌 핀을 목록마다 다시 묻지 않기 위한
+ * 것이다. 그런데 `git init` 은 그 실패를 **참에서 거짓으로 바꾸는 조작**이라,
+ * 무효화하지 않으면 사용자가 누른 뒤 2초 동안 아무 일도 일어나지 않은 것처럼
+ * 보인다.
+ *
+ * 지우는 대상이 그 경로 **하나가 아닌** 이유는, 캐시의 키가 물어본 cwd 이기
+ * 때문이다 — 하위 디렉터리로 물었던 기억도 이제 다른 답을 갖는다.
+ */
+func (st *Store) ForgetRoot(path string) {
+	if path == "" {
+		return
+	}
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	prefix := path + string(filepath.Separator)
+	for k := range st.roots {
+		if k == path || strings.HasPrefix(k, prefix) {
+			delete(st.roots, k)
+		}
+	}
 }
 
 // gitDirs 는 gitdir·common-dir 해석을 캐시한다. 실패는 캐시하지 않는다 — TTL 이

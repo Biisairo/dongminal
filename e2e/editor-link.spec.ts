@@ -32,7 +32,7 @@ const edRoots = (page: Page) =>
 
 // 사이드바 Editor 탭에 실제로 그려진 행.
 const edRows = (page: Page) =>
-  page.locator('#editor-entries .sbl-item').evaluateAll(
+  page.locator('#repo-entries .sbl-item').evaluateAll(
     (els) => els.map((e) => (e as HTMLElement).dataset.edRoot || ''));
 
 const editorsList = (page: Page) =>
@@ -133,26 +133,35 @@ test.describe('묶음 L — git 핀 ↔ Editor 행 연동 (실서버)', () => {
     expect(ws.editors?.list).toContain(root);
   });
 
-  test('L6: 보고 있던 리포의 핀을 지우면 Git 창을 떠난다', async ({ page, request }) => {
-    await waitForInit(page);
-    const repo = makeRepo('dm-ed-link6-');
-    const root = (await (await request.post('/api/git/repos/pin', { data: { path: repo } })).json()).root as string;
-    await expect.poll(() => edRoots(page), { timeout: 10000 }).toContain(root);
+  // **떠나는 방식이 바뀌었다** (REPO_TAB_UNIFY_SRS FR-RTU-70).
+  //   이전 동작: Git 창 하나가 리포를 갈아타므로, 보던 리포가 사라지면 그 창이
+  //             갈 곳을 잃어 `_gitLeaveIfRemoved` 가 일반 창으로 옮겼다
+  //   새  동작: 저장소마다 창이므로 **그 창 자체가 재조정으로 사라진다**
+  //             (FR-EDT-42) — 활성 창이 유령이 되지 않게 `_edAfterChange` 가
+  //             그 자리를 처리한다
+  //   이유:     Git 창이 사라졌다. 갈아탈 대상이 없으므로 "떠난다" 는 개념도 없다
+  test('L6: 보고 있던 리포의 핀을 지우면 그 창이 사라지고 다른 창으로 간다',
+    async ({ page, request }) => {
+      await waitForInit(page);
+      const repo = makeRepo('dm-ed-link6-');
+      const root = (await (await request.post('/api/git/repos/pin', { data: { path: repo } })).json()).root as string;
+      await expect.poll(() => edRoots(page), { timeout: 10000 }).toContain(root);
 
-    // 그 리포의 Git 창에 앉는다.
-    await page.evaluate(async (p) => { await (window as any).app.openGitWindow(p) }, root);
-    await expect.poll(() => page.evaluate(() => {
-      const a = (window as any).app; const w = a._aw();
-      return w && w.type === 'git' ? (w.git && w.git.repo) : '';
-    })).toBe(root);
+      // 그 저장소의 Repo 창에 앉는다.
+      await page.evaluate(async (p) => { await (window as any).app.openGitWindow(p) }, root);
+      await expect.poll(() => page.evaluate(() => {
+        const a = (window as any).app; const w = a._aw();
+        return (w && w.editor && w.editor.root) || '';
+      }), { timeout: 10000 }).toBe(root);
 
-    // 핀을 지운다. 리포를 고르는 자리가 비었으므로 그 창에는 갈 곳이 없다 —
-    // 남아 있으면 사용자가 없앤 것이 화면에 그대로 뜬다.
-    await page.evaluate(async (p) => { await (window as any).app._gitUnpin(p) }, root);
+      // 핀을 지운다. 연동이 Editor 행도 함께 지우고(FR-EDT-32) 재조정이 창을 뺀다.
+      await page.evaluate(async (p) => { await (window as any).app._gitUnpin(p) }, root);
 
-    await expect.poll(() => page.evaluate(() => {
-      const a = (window as any).app; const w = a._aw();
-      return w ? (w.type || 'terminal') : '';
-    }), { timeout: 10000 }).toBe('terminal');
-  });
+      // 그 루트의 창이 없어졌고, 활성 창은 남아 있는 다른 창이다.
+      await expect.poll(() => edRoots(page), { timeout: 10000 }).not.toContain(root);
+      await expect.poll(() => page.evaluate(() => {
+        const a = (window as any).app; const w = a._aw();
+        return (w && w.editor && w.editor.root) || 'other';
+      }), { timeout: 10000 }).not.toBe(root);
+    });
 });

@@ -47,7 +47,7 @@ async function pin(request: APIRequestContext, path: string) {
 }
 
 const pinned = (page: Page, root: string) =>
-  page.locator(`#git-repos .git-repo.pinned[data-git-repo="${root}"]`);
+  page.locator(`#repo-entries .git-repo.pinned[data-git-repo="${root}"]`);
 
 test.describe('묶음 B — 좌측 GIT 섹션', () => {
   // FR-SBT-1·2·7 로 GIT 섹션은 **탭 뒤**로 옮겨졌다. 옛 `.git-sec-title` 은 사라지고
@@ -56,18 +56,18 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     await waitForInit(page);
     // V-SBT-1: 최초 접속은 Windows 활성, Git 패널 숨김.
     await expect(page.locator('.sb-tab[data-panel="windows"]')).toHaveClass(/active/);
-    await expect(page.locator('#sb-panel-git')).toBeHidden();
+    await expect(page.locator('#sb-panel-repo')).toBeHidden();
     // WINDOWS 목록은 그대로 남는다 — 옮겨진 것은 GIT 쪽이다.
     await expect(page.locator('#windows .si')).toHaveCount(1);
 
-    await expect(page.locator('.sb-tab[data-panel="git"] .sb-tab-label')).toHaveText('Git');
+    await expect(page.locator('.sb-tab[data-panel="repo"] .sb-tab-label')).toHaveText('Git');
     await openGitTab(page);
     await expect(page.locator('#sb-panel-windows')).toBeHidden();
-    await expect(page.locator('#git-repos')).toBeVisible();
-    await expect(page.locator('#git-add-repo')).toBeVisible();
+    await expect(page.locator('#repo-entries')).toBeVisible();
+    await expect(page.locator('#repo-add')).toBeVisible();
     // FR-FLW-11: follow 행이 사라져 이 섹션은 처음으로 빌 수 있게 됐다. 빈 자리는
     // 고장처럼 읽히므로 안내가 자리를 지킨다.
-    await expect(page.locator('#git-repos .git-repos-none')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#repo-entries .git-repos-none')).toBeVisible({ timeout: 10000 });
   });
 
   // V-FLW-1·4·5 (FR-FLW-1·4·5) — follow 를 지운 자리.
@@ -85,12 +85,12 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     await cd(page, repo);
 
     // follow 행은 없다. 저장소로 들어가도 목록은 비어 있다.
-    await expect(page.locator('#git-repos .git-repo.follow')).toHaveCount(0);
-    await expect(page.locator('#git-repos .git-repo')).toHaveCount(0, { timeout: 10000 });
+    await expect(page.locator('#repo-entries .git-repo.follow')).toHaveCount(0);
+    await expect(page.locator('#repo-entries .git-repo')).toHaveCount(0, { timeout: 10000 });
 
     await openGitTab(page);
-    await page.click('#git-add-repo');
-    const dlg = page.locator('#git-add-repo-dlg');
+    await page.click('#repo-add');
+    const dlg = page.locator('#repo-add-dlg');
     await expect(dlg).toBeVisible({ timeout: 10000 });
     // 지금 터미널의 리포가 이미 채워져 있다 — 타이핑 없이 한 번의 클릭이다.
     await expect(dlg.locator('.gar-path')).toHaveValue(repo, { timeout: 15000 });
@@ -133,12 +133,12 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     page,
   }) => {
     await waitForInit(page);
-    const before = await page.locator('#git-repos .git-repo').count();
+    const before = await page.locator('#repo-entries .git-repo').count();
     const dir = mkdtempSync(join(tmpdir(), 'dm-norepo-'));
 
     await openGitTab(page);
-    await page.click('#git-add-repo');
-    const dlg = page.locator('#git-add-repo-dlg');
+    await page.click('#repo-add');
+    const dlg = page.locator('#repo-add-dlg');
     await expect(dlg).toBeVisible({ timeout: 10000 });
     await dlg.locator('.gar-path').fill(dir);
     await dlg.locator('.git-dialog-go').click();
@@ -146,8 +146,8 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     await expect(dlg.locator('.git-dialog-err-reason')).toContainText('not_a_git_repo', { timeout: 10000 });
     // 닫히지 않는다.
     await expect(dlg).toBeVisible();
-    await expect(page.locator('#git-repos .git-repo.pinned')).toHaveCount(0);
-    await expect(page.locator('#git-repos .git-repo')).toHaveCount(before);
+    await expect(page.locator('#repo-entries .git-repo.pinned')).toHaveCount(0);
+    await expect(page.locator('#repo-entries .git-repo')).toHaveCount(before);
   });
 
   // V-FLW-7 (FR-FLW-8): 이미 있는 것을 다시 넣으면 목록이 늘지 않는다. 그 이유가
@@ -158,14 +158,14 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     await expect(pinned(page, root)).toHaveCount(1, { timeout: 10000 });
 
     await openGitTab(page);
-    await page.click('#git-add-repo');
-    const dlg = page.locator('#git-add-repo-dlg');
+    await page.click('#repo-add');
+    const dlg = page.locator('#repo-add-dlg');
     await expect(dlg).toBeVisible({ timeout: 10000 });
     await dlg.locator('.gar-path').fill(root);
     await dlg.locator('.git-dialog-go').click();
 
     await expect(dlg.locator('.git-dialog-err-reason')).toContainText('이미 목록에', { timeout: 10000 });
-    await expect(page.locator('#git-repos .git-repo.pinned')).toHaveCount(1);
+    await expect(page.locator('#repo-entries .git-repo.pinned')).toHaveCount(1);
   });
 
   test('S4 (V16): 핀한 리포가 목록에 나오고 × 로 사라진다', async ({ page, request }) => {
@@ -261,9 +261,9 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
       .toBeGreaterThan((set.y - (tabs.y + tabs.height)) * 0.9);
 
     await openGitTab(page);
-    await expect(page.locator('#git-repos')).toBeInViewport();
-    await expect(page.locator('#git-add-repo')).toBeInViewport();
-    const box = (await page.locator('#git-repos').boundingBox())!;
+    await expect(page.locator('#repo-entries')).toBeInViewport();
+    await expect(page.locator('#repo-add')).toBeInViewport();
+    const box = (await page.locator('#repo-entries').boundingBox())!;
     expect(box.y + box.height, 'GIT 목록이 사이드바 밖으로 밀렸다')
       .toBeLessThanOrEqual(sb.y + sb.height + 1);
     // V-SBT-2: 40% 상한이 사라졌다 — 남은 높이 전부를 쓴다.

@@ -1,5 +1,15 @@
 # SRS: Editor 탭 — 파일 탐색기와 편집기 창 — IEEE 29148
 
+> **후속 문서가 이 SRS 의 일부를 개정했다.** 어긋나면 후속이 이긴다.
+>
+> | 개정된 것 | 어떻게 | 어디서 |
+> |---|---|---|
+> | FR-EDT-54 (Editor 창에는 편집기 탭만) | **git 뷰 탭도 산다** — 본문에 Diff·History 등이 편집기 탭과 같은 자격으로 뜬다 | REPO_TAB_UNIFY_SRS FR-RTU-16·30 |
+> | FR-EDT-69 (루트가 저장소 **루트**일 때만 색) | 루트가 저장소 **안**이어도 색을 입힌다 | GIT_DIR_ENTRY_SRS FR-DIR-40 |
+> | FR-EDT-75 (폴더는 자기 상태를 갖지 않는다) | 서브모듈·중첩 저장소는 폴더가 상태의 단위다 | GIT_DIR_ENTRY_SRS FR-DIR-11 |
+> | Editor 창의 좌측 = 탐색기 | 좌측은 **사이드**이고 `Explorer`·`Changes` 두 탭을 갈아 끼운다 | REPO_TAB_UNIFY_SRS FR-RTU-11·12 |
+> | 사이드바 `Editor` 탭 | `Git` 과 합쳐 `Repo` 한 탭이 됐다 (`Ctrl+Shift+2`) | REPO_TAB_UNIFY_SRS FR-RTU-1·7 |
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)

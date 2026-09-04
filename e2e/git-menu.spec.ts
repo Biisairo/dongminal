@@ -304,7 +304,7 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
     writeFileSync(join(repo, 'n10.txt'), 'x');
     await waitForInit(page);
     await openGit(page, repo);
-    const file = page.locator('#area .pn-body .git-view.git-changes .git-file').first();
+    const file = page.locator('#area .ed-side .git-view.git-changes .git-file').first();
     await expect(file).toBeVisible({ timeout: 15000 });
     await file.click({ button: 'right' });
     // 같은 것을 두 번 만들지 않는다 — 옛 .git-ctxmenu 는 더 이상 없다.

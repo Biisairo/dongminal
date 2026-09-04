@@ -41,25 +41,19 @@
       </div>
       <div id="windows"></div>
     </div>
-    <div class="sb-panel" id="sb-panel-git" hidden>
+    <!-- REPO_TAB_UNIFY_SRS FR-RTU-1: `Git` 과 `Editor` 두 패널이 **하나**가 됐다.
+         목록이 이미 같은 집합이었기 때문이다 (§2.1) — `git.pinned` 와
+         `editors.list` 는 서버 연동이 한 번의 저장 안에서 함께 바꾼다.
+         FR-EDT-3: 패널 래퍼는 손으로 둔다 (§2.1, D-12).
+         FR-EDT-14: 고정 행(`~`·메모장)은 **패널의 최하단**이며 목록이 길어
+         스크롤이 생겨도 설정 버튼 바로 위에 남는다. -->
+    <div class="sb-panel" id="sb-panel-repo" hidden>
       <!-- FR-BLP-8: `+ Add` 는 목록 **위**다 — `+ New` 와 같은 자리. -->
       <div class="sb-actions">
-        <button id="git-add-repo" title="리포 추가">+ Add</button>
+        <button id="repo-add" title="저장소·폴더 추가">+ Add</button>
       </div>
-      <div id="git-repos"></div>
-    </div>
-    <!-- EDITOR_TAB_SRS FR-EDT-3: 패널 래퍼는 손으로 둔다 — 새 탭의 비용은
-         "서술자 1개 + 패널 래퍼 1개" 이고 그것이 기존 규약이다 (§2.1, D-12).
-         FR-EDT-14: 목록 컨테이너는 **하나**다. root 행은 같은 컨테이너의
-         마지막에 그려지고 구분선은 CSS 가 준다. -->
-    <div class="sb-panel" id="sb-panel-editor" hidden>
-      <div class="sb-actions">
-        <button id="editor-add" title="Editor 추가">+ Add</button>
-      </div>
-      <div id="editor-entries"></div>
-      <!-- FR-EDT-14: root 행은 **패널의 최하단**이다 — 목록의 끝이 아니다.
-           목록이 길어 스크롤이 생겨도 설정 버튼 바로 위에 그대로 남는다. -->
-      <div id="editor-root"></div>
+      <div id="repo-entries"></div>
+      <div id="repo-root"></div>
     </div>
     <!-- FR-SBT-4: 탭 밖 최하단. 어느 탭에서나 보인다.
          FR-SRL-8: 내부 새로고침도 같은 자리다 — 어느 탭에서 어긋남을 느끼든

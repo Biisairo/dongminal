@@ -121,12 +121,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 /* FR-GIT-226: 사이드바 목록 행이 30px 이 되었으므로 그 아래 버튼도 같은 높이를
    갖는다. 같은 패널의 같은 계열인데 한쪽만 낮으면 "너무 낮다" 가 한 줄 아래에서
    그대로 반복된다. */
-#add-window,#add-preset,#git-add-repo,#editor-add{
+/* REPO_TAB_UNIFY_SRS FR-RTU-41: 미리보기 탭. 기울임 하나로 "곧 대체된다" 를
+   말한다 — VSCode 와 같은 어휘이므로 사용자가 배울 것이 없다. */
+.pn-tab.pn-tab-preview .pn-tab-label{font-style:italic}
+
+#add-window,#add-preset,#repo-add{
   margin:0 8px 4px;padding:4px 8px;min-height:30px;
   background:transparent;border:1px solid var(--border);border-radius:4px;
   color:var(--text-muted);font-size:11px;cursor:pointer;text-align:left;
 }
-#add-window:hover,#add-preset:hover,#git-add-repo:hover,#editor-add:hover{background:var(--accent-hover);color:var(--accent)}
+#add-window:hover,#add-preset:hover,#repo-add:hover{background:var(--accent-hover);color:var(--accent)}
 /* 샌드박스 창 열기. `+ New` 안쪽 오른쪽에 앉는 작은 박스다 — 별개의 동작이
    아니라 새 창의 변종임을 자리로 말한다. */
 #add-window{position:relative;padding-right:52px}

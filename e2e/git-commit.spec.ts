@@ -27,12 +27,22 @@ const head = (repo: string) =>
   execFileSync('git', ['-C', repo, 'log', '-1', '--pretty=%B'], { encoding: 'utf8' }).trim();
 
 async function openGit(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
-  await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
+  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
+  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a._edSetSide(a._aw(), 'changes');
+    const p = a.gitPanel;
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+  });
+  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
   await expect(msg(page)).toBeEnabled({ timeout: 10000 });
 }
 
-const changes = (page: Page) => page.locator('#area .pn-body .git-view.git-changes');
+const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
 const commit = (page: Page) => changes(page).locator('.git-commit');
 const msg = (page: Page) => commit(page).locator('.git-commit-msg');
 const btn = (page: Page) => commit(page).locator('.git-commit-btn');
@@ -77,7 +87,7 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
     expect(st.git.pinned, 'draft 저장이 핀을 지웠다').toContain(repo);
 
     await page.reload();
-    await page.waitForSelector('#area .pn-body .git-view.git-changes .git-commit-msg',
+    await page.waitForSelector('#area .ed-side .git-view.git-changes .git-commit-msg',
       { timeout: 15000 });
     await expect(msg(page)).toHaveValue(text);
     // 새로고침 뒤에도 핀은 남아 있다.
@@ -261,7 +271,7 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
     );
     await page.evaluate(() => (window as any).app._save());
     await page.reload();
-    await page.waitForSelector('#area .pn-body .git-view.git-changes .git-commit-msg',
+    await page.waitForSelector('#area .ed-side .git-view.git-changes .git-commit-msg',
       { timeout: 15000 });
     await expect(msg(page)).toHaveValue('e13 사용자가 쓴 것');
   });

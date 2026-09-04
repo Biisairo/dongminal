@@ -247,9 +247,51 @@ Object.assign(App.prototype, {
     this._mPaneIdx=0;
     if(this.isMobile && this._drawerOpen) this._toggleDrawer(false);
     this._focusWindow(sid);
-    // FR-GIT-22: Git 창이 활성인지가 폴링 게이팅의 조건 하나다 — 창 전환은 재평가 시점이다.
-    this.gitPanel._reschedule();
+    // FR-GIT-22 + FR-RTU-62: 창 전환은 폴링 조건의 재평가 시점이다. **모든
+    // 패널**이 다시 본다 — 떠난 창의 패널이 타이머를 든 채 남으면 아무도 보지
+    // 않는 저장소를 계속 폴링한다.
+    this._gitRescheduleAll();
     this._save(); this.render();
+  },
+
+  /**
+   * REPO_TAB_UNIFY_SRS FR-RTU-40·43: 창의 **미리보기 탭**. 하나뿐이다.
+   */
+  _findPreviewTab(s){
+    if(!s||!s.layout) return null;
+    for(const pn of this._flattenPanes(s.layout)){
+      const tab=(pn.tabs||[]).find(t=>t&&t.preview);
+      if(tab) return {win:s,pane:pn,tab};
+    }
+    return null;
+  },
+
+  /**
+   * FR-RTU-42: 미리보기를 고정한다. 계기는 셋이다 — 더블클릭 · 그 탭에서 편집
+   * 시작 · 탭 이름 더블클릭. 어느 쪽이든 뜻은 같다: "이 탭은 남는다."
+   */
+  _pinPreviewTab(tab){
+    if(!tab||!tab.preview) return false;
+    delete tab.preview;
+    this.render();
+    this._save();
+    return true;
+  },
+
+  /**
+   * REPO_TAB_UNIFY_SRS FR-RTU-31: **그 창 안에서** 같은 뷰의 탭을 찾는다.
+   *
+   * `_findEditorTab` 이 워크스페이스 전체를 훑는 것과 다르다 — 편집기 탭은 파일
+   * 하나가 앱에 한 번 열리면 되지만, git 뷰는 **저장소마다** 자기 것이 있어야
+   * 한다. 전체를 훑으면 다른 저장소의 History 로 끌려간다.
+   */
+  _findGitViewTab(s, view) {
+    if (!s || !s.layout) return null;
+    for (const pn of this._flattenPanes(s.layout)) {
+      const tab = (pn.tabs || []).find(t => t && t.type === TAB_TYPE_GIT && t.gitView === view);
+      if (tab) return { win: s, pane: pn, tab };
+    }
+    return null;
   },
 
   _findEditorTab(filePath) {
@@ -283,9 +325,14 @@ Object.assign(App.prototype, {
     // FR-GIT-179: Git 창의 탭은 GIT_VIEWS 의 고정 탭뿐이다 — 더할 수 없다
     // (FR-GIT-28 개정으로 7개다. 숫자를 여기 적지 않는다 — 선언이 하나뿐이다).
     if (this._isGitWin(s)) return;
-    // FR-EDT-54: Editor 창에는 **편집기 탭만** 있다 — 터미널·run·git 탭을 만들
-    // 수 없다.
-    if (this._isEditorWin(s) && type !== 'editor') return;
+    // FR-EDT-54 → REPO_TAB_UNIFY_SRS FR-RTU-16 으로 개정: Repo 창의 본문에는
+    // **편집기 탭과 git 뷰 탭**이 산다. 터미널·run 탭은 여전히 만들 수 없다.
+    //
+    //   이전 동작: Editor 창에는 editor 탭만
+    //   새  동작: editor 와 git 탭 (Diff·History·Branches·Stash·Console·Worktrees)
+    //   이유:     diff·history 는 좁은 사이드가 아니라 본문에서 봐야 읽힌다.
+    //             그리고 그 탭들은 편집기 탭과 같은 자격이어야 한다 (FR-RTU-33)
+    if (this._isEditorWin(s) && type !== 'editor' && type !== TAB_TYPE_GIT) return;
     // FR-EDT-94·106: 그 반대도 불변식이다 — 편집기 탭은 어떤 경로로도 일반
     // 창에 생기지 않는다. Editor 표면이 없는 환경(FR-EDT-120)에서는 갈 곳이
     // 없으므로 옛 경로가 그대로 남는다.
@@ -324,9 +371,59 @@ Object.assign(App.prototype, {
       this._save();
       return { uuid: t };
     }
+    /**
+     * REPO_TAB_UNIFY_SRS FR-RTU-30·31: git 뷰 탭. editor·run 과 같은 비-PTY
+     * 경로이며 도구를 만들지 않는다.
+     *
+     * **창에 하나씩만** 연다 — 같은 History 를 두 탭으로 여는 것은 뜻이 없고,
+     * 뷰의 DOM 이 패널에 하나뿐이라 둘째 탭은 첫째에서 그것을 떼어 온다.
+     * 중복 방지가 editor·run 과 다른 점은 **창 안에서만** 찾는다는 것이다:
+     * 저장소마다 자기 History 가 있어야 한다.
+     */
+    if (type === TAB_TYPE_GIT) {
+      const view = opts.gitView;
+      const def = GIT_VIEWS.find(v => v.key === view);
+      if (!def) { console.warn('[addTab] git tab requires a known gitView'); return }
+      const existing = this._findGitViewTab(s, view);
+      if (existing) {
+        this.paneTabSet(existing.pane, existing.tab.id);
+        this._setFocus(existing.pane.id, s);
+        this.render();
+        this._save();
+        return { uuid: existing.tab.id };
+      }
+      const t = newEntityId();
+      pn.tabs.push({ id: t, name: def.name, type: TAB_TYPE_GIT, gitView: view });
+      this.paneTabSet(pn, t);
+      this.render();
+      this._save();
+      return { uuid: t };
+    }
     if (type === 'editor') {
       if (!opts.filePath) { console.warn('[addTab] editor tab requires filePath'); return }
       const existing = this._findEditorTab(opts.filePath);
+      // FR-RTU-45: 이미 **고정된** 탭이 있으면 미리보기를 만들지 않는다 —
+      // 아래 기존 분기가 그 탭으로 옮긴다 (FR-EDT-101 을 미리보기까지 넓힌 것).
+      // FR-RTU-40: 미리보기 요청이면 기존 미리보기 탭을 **대체한다.** 새 탭을
+      // 만들지 않으므로 목록을 훑어도 탭이 쌓이지 않는다.
+      if (!existing && opts.preview) {
+        const prev = this._findPreviewTab(s);
+        if (prev) {
+          prev.tab.filePath = opts.filePath;
+          prev.tab.name = (opts.name || opts.filePath.split('/').pop() || '').slice(0, 64);
+          // 편집기 인스턴스는 탭 id 로 산다 — 대상이 바뀌었으므로 버린다.
+          for (const [k, v] of [...this.fileEditors]) {
+            if (this._slotBase(k) !== prev.tab.id) continue;
+            try { v.destroy() } catch { /* 이미 파괴된 것은 오류가 아니다 */ }
+            this.fileEditors.delete(k);
+          }
+          this.paneTabSet(prev.pane, prev.tab.id);
+          this._setFocus(prev.pane.id, s);
+          this.render();
+          this._save();
+          return { uuid: prev.tab.id };
+        }
+      }
       if (existing) {
         const cur = this._aw(); if (cur) cur.focusedPane = this.focused;
         this.ws.activeWindow = existing.win.id;
@@ -342,11 +439,15 @@ Object.assign(App.prototype, {
       }
       const name = opts.name || opts.filePath.split('/').pop();
       const t = newEntityId();
-      pn.tabs.push({ id: t, name, type: 'editor', filePath: opts.filePath });
+      const tab = { id: t, name, type: 'editor', filePath: opts.filePath };
+      // FR-RTU-40·44: 미리보기라는 사실은 **워크스페이스에 남는다.** 저장하지
+      // 않으면 새로고침 뒤 모든 탭이 고정으로 되살아나 사용자가 정리해야 한다.
+      if (opts.preview) tab.preview = true;
+      pn.tabs.push(tab);
       this.paneTabSet(pn, t);
       this.render();
       this._save();
-      return;
+      return { uuid: t };
     }
     const ref = this._paneNewToolRef(s, rid);
     // FR-GIT-244: 호출자가 cwd 를 주면 그것이 이긴다 — worktree 에서 터미널을 열 때

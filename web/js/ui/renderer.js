@@ -234,9 +234,15 @@ class Renderer {
       const tid=app._slotBase(k);
       if(!allTabIds.has(tid)){v.destroy();app.fileEditors.delete(k)}
     }
-    // Git 창이 사라졌으면 루트를 area 로 되돌린다. 인스턴스는 유지 — 다시 열릴 수
-    // 있다. FR-SVS-42: 패널은 칸마다 있으므로 **전부** 되돌린다.
-    if(!app._gitWindow()&&app._gitPanels) for(const p of app._gitPanels.values()) p.detach();
+    // 옛 Git 창이 사라졌으면 그 창의 패널만 루트를 area 로 되돌린다. 인스턴스는
+    // 유지 — 다시 열릴 수 있다. FR-SVS-42: 패널은 칸마다 있으므로 그 자리의
+    // 것을 **전부** 되돌린다.
+    //
+    // **Repo 창의 패널(`root` 가 있는 것)은 건드리지 않는다** (FR-RTU-60).
+    // 그쪽의 Changes 는 창의 사이드에 붙어 있고, 여기서 함께 떼면 방금 그린
+    // 사이드가 비어 버린다 — 실측으로 확인한 결함이다.
+    if(!app._gitWindow()&&app._gitPanels)
+      for(const p of app._gitPanels.values()) if(!p.root) p.detach();
     requestAnimationFrame(()=>{
       for(const p of app.tools.values()){
         if(p.el.classList.contains('vis')){
@@ -318,6 +324,10 @@ class Renderer {
    */
   _rWindowInto(s,host){
     const app=this.app;
+    // FR-RTU-60: 지금 그리는 창. `_rSlot` 과 같은 규약이다 — 탭 본문을 붙이는
+    // 자리(`_mountTabBody`)가 **그 탭이 어느 창의 것인지** 알아야 패널을 고를
+    // 수 있고, 슬롯이 여럿이면 그 창은 활성 창이 아닐 수 있다.
+    this._rWin=s;
     // FR-EDT-46: Editor 창은 좌우 둘로 나뉜다 — 좌측 탐색기는 분할 트리 **밖**의
     // 고정 영역이므로 트리가 붙을 자리를 우측으로 바꾼다.
     const h=app._isEditorWin(s)?this._rEditorWin(s,host):host;
@@ -357,14 +367,13 @@ class Renderer {
    */
   _rEditorWin(s,area){
     const el=document.createElement('div'); el.className='ed-win';
-    // FR-EDT-57: 탐색기는 창별 인스턴스(FileTree)가 소유한다 — 여기서는 그 요소를
-    // 붙이기만 한다. `_rLayout` 이 `.ed-win` 을 매번 새로 만들므로 트리를 여기서
-    // 만들면 펼침·선택·스크롤이 매 render 마다 사라진다 (FR-EDT-66·68).
-    const ex=this.app._edTree(s,this._rSlot||0).mount();
-    ex.style.width=this.app._edExplorerWidth(s)+'px';
-    el.appendChild(ex);
+    // REPO_TAB_UNIFY_SRS FR-RTU-12: 사이드는 `Explorer` 와 `Changes` 를 **탭으로
+    // 갈아 끼운다** — 한 번에 하나만 보인다 (D-RTU-3).
+    const side=this._rSide(s);
+    side.style.width=this.app._edExplorerWidth(s)+'px';
+    el.appendChild(side);
     const h=document.createElement('div'); h.className='ed-ex-handle';
-    this._rEdHandle(h,s,ex);
+    this._rEdHandle(h,s,side);
     el.appendChild(h);
     const main=document.createElement('div'); main.className='ed-area';
     // FR-EDT-55: pane 이 없는 것이지 빈 pane 이 있는 것이 아니다 — 안내문을 둔다.
@@ -376,6 +385,59 @@ class Renderer {
     el.appendChild(main);
     area.appendChild(el);
     return main;
+  }
+
+  /**
+   * FR-RTU-11·12: 사이드의 골격 — 탭 바와 그 본문.
+   *
+   * **내용을 소유하지 않는다.** 탐색기는 `FileTree` 가, Changes 는 `GitPanel` 이
+   * 자기 DOM 을 들고 있고 여기서는 붙이기만 한다 — `_rLayout` 이 `.ed-win` 을 매
+   * render 마다 새로 만들기 때문이며, 여기서 만들면 펼침·선택·스크롤이 그때마다
+   * 사라진다 (FR-EDT-66·68, NFR-RTU-5).
+   */
+  _rSide(s){
+    const app=this.app, slot=this._rSlot||0;
+    const el=document.createElement('div'); el.className='ed-side';
+    const active=app._edSideOf(s);
+    const bar=document.createElement('div'); bar.className='ed-side-tabs';
+    for(const d of REPO_SIDE_TABS){
+      const b=document.createElement('button');
+      b.className='ed-side-tab'+(d.id===active?' active':'');
+      b.dataset.side=d.id; b.textContent=d.label;
+      b.addEventListener('click',()=>app._edSetSide(s,d.id));
+      bar.appendChild(b);
+    }
+    el.appendChild(bar);
+    const body=document.createElement('div'); body.className='ed-side-body';
+    if(active===REPO_SIDE_CHANGES){
+      // FR-RTU-32: Changes 는 **사이드에만** 있다. 본문 탭이 되지 않으므로 그
+      // 뷰의 DOM 을 여기로 가져온다 — 뷰를 만드는 자리는 패널 하나다.
+      const p=app._gitPanel(app._edRootOf(s),slot);
+      // FR-RTU-21·22: 나머지 다섯으로 가는 진입점. **Changes 탭에만** 둔다 —
+      // Explorer 에서는 git 의 자리가 아니고, 파일 작업 중에 보일 이유가 없다.
+      el.appendChild(this._rSideActions(p));
+      const view=p.elFor(REPO_SIDE_CHANGES);
+      view.classList.add('vis');
+      body.appendChild(view);
+    }else{
+      body.appendChild(app._edTree(s,slot).mount());
+    }
+    el.appendChild(body);
+    return el;
+  }
+
+  // FR-RTU-21: 진입점 다섯. 누르면 본문에 그 뷰의 탭이 열리고, 이미 있으면 그
+  // 탭으로 옮긴다 — 판정은 `openView` 한 자리다 (FR-RTU-31).
+  _rSideActions(panel){
+    const bar=document.createElement('div'); bar.className='ed-side-acts';
+    for(const a of GIT_SIDE_ACTIONS){
+      const b=document.createElement('button');
+      b.className='ed-side-act'; b.dataset.view=a.key;
+      b.textContent=a.icon; b.title=a.title;
+      b.addEventListener('click',()=>panel.openView(a.key));
+      bar.appendChild(b);
+    }
+    return bar;
   }
 
   // FR-EDT-47 / D-18: 폭은 워크스페이스에 저장한다 — `sidebarWidth` 와 같은
@@ -424,10 +486,15 @@ class Renderer {
   _mountTabBody(body,at){
     const slot=this._rSlot||0;
     if(at.type===TAB_TYPE_GIT){
-      // Git 창은 싱글턴이지만 **패널은 칸마다** 있다 (FR-SVS-40·42) — 그래야 두
-      // 칸이 같은 뷰를 볼 때 뒤 칸이 앞 칸에서 DOM 을 떼어 가지 않는다. 관측은
-      // 그 패널들이 함께 쓰는 `GitObserver` 에 하나로 있다 (FR-SVS-30).
-      const el=this.app._gitPanel(slot).elFor(at.gitView);
+      // 패널은 **(루트, 칸)마다** 있다 (FR-SVS-40·42 + FR-RTU-60) — 그래야 두
+      // 칸이 같은 뷰를 볼 때 뒤 칸이 앞 칸에서 DOM 을 떼어 가지 않고, 두 Repo
+      // 창이 같은 diff 대상을 다투지 않는다. 관측은 그 패널들이 함께 쓰는
+      // `GitObserver` 에 하나로 있다 (FR-SVS-30).
+      //
+      // 루트는 **이 탭이 있는 창**의 것이다 — 그리는 중인 창이 활성 창이 아닐
+      // 수 있으므로(슬롯) `_gitRootOfActive` 를 쓰지 않는다.
+      const root=this.app._isEditorWin(this._rWin)?this.app._edRootOf(this._rWin):'';
+      const el=this.app._gitPanel(root,slot).elFor(at.gitView);
       body.appendChild(el); el.classList.add('vis');
       return;
     }
@@ -482,14 +549,31 @@ class Renderer {
       if(isGit) t.dataset.gitView=tab.gitView;
       t.innerHTML='<span class="pn-tab-label"></span>'+(isGit?'':'<span class="pn-tab-x">×</span>');
       t.querySelector('.pn-tab-label').textContent=this._tabDisplayName(tab);
+      // REPO_TAB_UNIFY_SRS FR-RTU-41: 미리보기 탭은 기울임이다 — "이 자리는 곧
+      // 대체된다" 를 눈으로 알리는 유일한 표시다.
+      if(tab.preview){ t.classList.add(REPO_PREVIEW_CLASS); t.title=REPO_PREVIEW_TITLE }
       t.addEventListener('click',e=>{
         e.stopPropagation();
         if(e.target.classList.contains('pn-tab-x')) this.app.closeTab(n.id,tab.id,null,{slot});
         else this.app.switchTab(n.id,tab.id,slot);
       });
+      // FR-RTU-42: 탭 자체의 더블클릭이 고정한다. 이름 더블클릭(아래)은 이름
+      // 변경이므로 그쪽이 먼저 잡히고, 그 경우도 고정으로 친다.
+      t.addEventListener('dblclick',e=>{
+        if(!tab.preview) return;
+        e.stopPropagation();
+        this.app._pinPreviewTab(tab);
+      });
       // 탭은 `_renameTab` 이다 — 창의 `_rename` 과 달리 빈 문자열에 뜻이 있다
       // (FR-TAN-21).
-      if(!isGit) t.querySelector('.pn-tab-label').addEventListener('dblclick',e=>{e.stopPropagation();this.app._renameTab(tab,e.target)});
+      // FR-RTU-42: **미리보기 탭의 더블클릭은 고정이 먼저다.** 이름 변경은 그
+      // 다음이다 — 곧 대체될 탭의 이름을 고치는 것은 뜻이 없고, 사용자가 기대하는
+      // 것은 "이 탭을 남긴다" 이다 (VSCode 와 같은 어휘).
+      if(!isGit) t.querySelector('.pn-tab-label').addEventListener('dblclick',e=>{
+        e.stopPropagation();
+        if(tab.preview){this.app._pinPreviewTab(tab);return}
+        this.app._renameTab(tab,e.target);
+      });
       t.draggable=!isGit;
       t.addEventListener('dragstart',e=>{this.app._drag={type:'tab',srcPaneId:n.id,tabId:tab.id};e.dataTransfer.effectAllowed='move';e.stopPropagation();setTimeout(()=>t.classList.add('dragging'),0)});
       t.addEventListener('dragend',()=>{this.app._drag=null;t.classList.remove('dragging');tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none')});

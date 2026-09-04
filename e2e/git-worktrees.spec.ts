@@ -58,10 +58,20 @@ test.afterAll(() => {
 
 const copyFx = makeCopyFx(FIXTURES);
 async function openGit(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
+  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
+  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a._edSetSide(a._aw(), 'changes');
+    const p = a.gitPanel;
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+  });
   // FR-GIT-28(개정): 고정 탭이 Worktrees 를 더해 7개다.
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-  await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
+  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }
 
 async function openWorktrees(page: Page, repo: string) {
@@ -75,7 +85,17 @@ async function openWorktrees(page: Page, repo: string) {
 // "새 Git 창은 Changes 로 열린다"를 확인하는 용도라 여기 쓰면 그 단정이 깨진다
 // (V151 에서 실제로 겪었다 — 터미널 탭으로 Git 창을 벗어났다 돌아오는 자리).
 async function backToWorktrees(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
+  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
+  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a._edSetSide(a._aw(), 'changes');
+    const p = a.gitPanel;
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+  });
   await page.click('#area .pn-tab[data-git-view="worktrees"]');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-worktrees/);
 }
@@ -467,7 +487,7 @@ test.describe('묶음 N — Worktrees 행의 핀 토글 (FR-GIT-249)', () => {
 
     // 좌측 GIT 섹션의 × 로 푼다 — Worktrees 탭이 부른 것이 아니다. 상태 관측은
     // 그대로이므로, 판정이 그리기에 업혀 있으면 버튼이 낡은 채로 남는다 (FR-RPT-8).
-    const x = page.locator(`#git-repos .git-repo[data-git-repo="${wtPath}"] .git-repo-x`);
+    const x = page.locator(`#repo-entries .git-repo[data-git-repo="${wtPath}"] .git-repo-x`);
     await expect(x, '사이드바에 핀 행이 없다').toHaveCount(1, { timeout: 15000 });
     await x.click();
     await expect.poll(async () => (await pinned(request)).includes(wtPath), { timeout: 10000 }).toBe(false);
@@ -512,7 +532,7 @@ test.describe('행 동작은 hover 없이 보인다', () => {
     await expect(wtActs.locator('.git-wt-act').first()).toBeVisible();
 
     await page.click('#area .pn-tab[data-git-view="changes"]');
-    const fileActs = page.locator('#area .pn-body .git-view.git-changes .git-file .git-file-acts').first();
+    const fileActs = page.locator('#area .ed-side .git-view.git-changes .git-file .git-file-acts').first();
     await expect(fileActs).toBeVisible({ timeout: 20000 });
     await page.mouse.move(0, 0);
     await expect(fileActs).toHaveCSS('opacity', '1');

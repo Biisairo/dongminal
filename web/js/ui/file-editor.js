@@ -381,10 +381,18 @@ class FileEditor {
     // Track dirty state
     // 모델이 공유되므로 이 이벤트는 같은 파일을 보는 에디터 **모두**에 온다.
     // dirty 설정은 멱등이고, 라벨은 칸마다 있으므로 전부 갱신한다 (FR-SVS-54).
-    this._editor.onDidChangeModelContent(() => {
+    this._editor.onDidChangeModelContent((e) => {
       if (!this._dirty) {
         this._dirty = true;
         this._tabLabelAll();
+        // REPO_TAB_UNIFY_SRS FR-RTU-42: **편집을 시작하면 고정된다.** 고치던
+        // 파일이 다음 클릭에 사라지면 그것은 미리보기가 아니라 사고다.
+        //
+        // **`setValue` 는 편집이 아니다.** `refresh()` 가 디스크의 내용을 다시
+        // 넣을 때도 이 이벤트가 오는데(그 직후 dirty 를 되돌린다), 그것까지
+        // 편집으로 세면 파일을 열자마자 미리보기가 고정된다(실측). Monaco 가
+        // 그 구분을 `isFlush` 로 준다.
+        if (!(e && e.isFlush)) this._pinIfPreview();
       }
       // FR-EFP-17: 편집하는 동안 낡은 하이라이트가 남으면 그것이 거짓말이 된다.
       if (this._findVis()) this._findRun(true);
@@ -449,6 +457,20 @@ class FileEditor {
     this._editor.revealLineInCenter(ln);
     this._editor.setPosition({ lineNumber: ln, column: cl });
     this._editor.focus();
+  }
+
+  // FR-RTU-42: 이 편집기가 붙은 탭이 미리보기면 고정한다. 탭을 찾는 일은 App 이
+  // 하고(레이아웃은 그쪽의 것이다) 여기서는 계기만 전한다.
+  _pinIfPreview() {
+    const app = window.app;
+    if (!app || !app._pinPreviewTab) return;
+    for (const s of app.ws.windows || []) {
+      if (!s || !s.layout) continue;
+      for (const pn of app._flattenPanes(s.layout)) {
+        const tab = (pn.tabs || []).find((t) => t && t.id === this.id);
+        if (tab) { app._pinPreviewTab(tab); return }
+      }
+    }
   }
 
   async save() {

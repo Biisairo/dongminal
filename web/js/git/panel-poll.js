@@ -289,7 +289,13 @@ Object.assign(GitPanel.prototype, {
   _pollOk(){
     if(document.hidden) return false;
     if(this._gitMissing) return false;
-    const w=this.app._gitWindow();
+    // REPO_TAB_UNIFY_SRS FR-RTU-62: **이 패널의 표면**이 화면에 있는가.
+    //
+    // 종전에는 `_gitWindow()` 하나였다 — Git 창이 워크스페이스에 하나뿐이라
+    // 그것이 곧 "그 표면" 이었기 때문이다. 창이 경로마다 생기면 패널도 여럿이고,
+    // 그때 이 판정이 남의 창을 보면 비활성 창의 패널까지 git 을 부른다
+    // (NFR-RTU-1 이 그것을 금한다).
+    const w=this.root?this.app._edWindowFor(this.root):this.app._gitWindow();
     if(!w||!this.app._windowVisible(w.id)) return false;
     return !!this.repo;
   },
@@ -407,6 +413,9 @@ Object.assign(GitPanel.prototype, {
     // 첫 관측(`setRepo` 직후의 null)은 변화가 아니다 — 뷰는 열릴 때 스스로 받는다.
     if(prevFp!==null&&prevFp!==fp) this.obs.reloadViewsAll();
     this._errMsg=null; this._staleNote=false;
+    // 관측이 성공했다 — 저장소가 아니라는 판정은 더 이상 참이 아니다
+    // (FR-RTU-25). `git init` 뒤의 첫 성공이 이 자리를 지난다.
+    this._notRepo=false;
     /**
      * FR-GIT-227 (FR-RPT-1·2): 관측이 지난 회차와 같으면 다시 그리지 않는다.
      *
@@ -459,7 +468,13 @@ Object.assign(GitPanel.prototype, {
     this._fail();
     if(code==='not_a_git_repo'){
       this._errMsg=GIT_ERR_NOT_REPO; this._status=null;
+      // REPO_TAB_UNIFY_SRS FR-RTU-25: Repo 창은 **그 자리에서 만들 수 있다.**
+      // `setRepo(null)` 은 옛 표면의 처리다 — 거기서는 활성 리포를 놓는 것이
+      // 곧 "고를 자리로 돌아간다" 였지만, Repo 창의 저장소는 창의 루트라
+      // 놓을 대상이 없다 (그래서 `setRepo` 도 no-op 이다).
+      this._notRepo=true;
       this.setRepo(null);
+      this.obs.paintAll();
       return;
     }
     if(code==='git_missing'){

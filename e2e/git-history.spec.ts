@@ -25,7 +25,17 @@ const fx = (name: string) => realpathSync(join(FIXTURES, name));
 
 const copyFx = makeCopyFx(FIXTURES);
 async function openHistory(page: Page, repo: string) {
-  await page.evaluate((r) => (window as any).app.openGitWindow(r), repo);
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
+  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
+  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a._edSetSide(a._aw(), 'changes');
+    const p = a.gitPanel;
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+  });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   await page.click('#area .pn-tab[data-git-view="history"]');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-history/);
@@ -210,7 +220,7 @@ test.describe('16단계 — History 탭', () => {
     // 최상단이다.
     await expect(rows(page).first()).toHaveClass(/uncommitted/);
     await unc.click();
-    await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
+    await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
   });
 
   test('H9 (V64·FR-GIT-128): 정렬 순서를 고르면 그 순서로 다시 받는다', async ({ page }) => {
@@ -484,7 +494,7 @@ test.describe('17단계 — 커밋 상세', () => {
     // 탭이 비활성인 사이 목록에는 높이가 없다 — 그 상태로 행 창을 다시 잡으면
     // 화면 한 줄만 남고 펼친 상세와 스크롤 위치를 잃는다.
     await page.click('#area .pn-tab[data-git-view="changes"]');
-    await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-changes/);
+    await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
     await page.click('#area .pn-tab[data-git-view="history"]');
     await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-history/);
 

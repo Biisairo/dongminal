@@ -40,7 +40,7 @@ async function waitForInit(page: Page) {
 const topName = (page: Page) => page.locator('#window-name');
 const head = (page: Page, i: number) => page.locator(`#area .slot[data-slot="${i}"] .slot-head`);
 const listName = (page: Page, root: string) =>
-  page.locator(`#git-repos .git-repo.pinned[data-git-repo="${root}"] .git-repo-name`);
+  page.locator(`#repo-entries .git-repo.pinned[data-git-repo="${root}"] .git-repo-name`);
 
 const slotAdd = (page: Page) => page.evaluate(() => (window as any).app.slotAdd());
 const slotRemove = (page: Page) => page.evaluate(() => (window as any).app.slotRemove());

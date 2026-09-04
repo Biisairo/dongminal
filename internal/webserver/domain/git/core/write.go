@@ -32,6 +32,13 @@ var writeCommands = map[string]bool{
 	// query/remote.go 가 `config --list` 로 이미 얻으므로 읽기 허용 목록을 늘릴
 	// 일이 없고, 그래서 두 목록의 교집합도 그대로 비어 있다 (FR-GIT-95).
 	"remote": true,
+	// REPO_TAB_UNIFY_SRS FR-RTU-29: 저장소가 아닌 자리를 저장소로 만든다.
+	//
+	// **이 목록에서 유일하게 저장소 밖에서 도는 명령이다.** 그래서 인자를 하나도
+	// 받지 않는 모양으로 한정한다 (아래 guardInitArgs) — `--bare`·`--template`·
+	// `--separate-git-dir` 는 이 표면이 제공하지 않는 동작이고, 열어 두면 화면에
+	// 없는 저장소 모양이 API 직접 호출로 만들어진다.
+	"init": true,
 }
 
 // remoteSubArgs 는 `git remote` 가 지날 수 있는 하위 명령과 그 뒤 인자 수다
@@ -104,6 +111,24 @@ func GuardWriteArgs(args []string) error {
 	}
 	if args[0] == "remote" {
 		return guardRemoteArgs(args[1:])
+	}
+	if args[0] == "init" {
+		return guardInitArgs(args[1:])
+	}
+	return nil
+}
+
+// guardInitArgs 는 `git init` 을 **인자 없는 한 모양**으로 한정한다 (FR-RTU-29).
+//
+// 대상은 언제나 `dir`(실행 디렉터리)이다. 경로 인자를 받으면 그것이 곧 "이 종단이
+// 검사한 자리와 다른 자리에 저장소를 만드는" 길이 된다 — 핸들러의 존재·디렉터리
+// 검사가 그 순간 무의미해진다.
+//
+// 초기 브랜치 이름도 주지 않는다. 사용자의 `init.defaultBranch` 가 있고, 우리가
+// 정하면 그 설정과 어긋난 저장소가 만들어진다.
+func guardInitArgs(rest []string) error {
+	if len(rest) != 0 {
+		return fmt.Errorf("%w: git init 은 인자를 받지 않는다: %q", ErrUnsafeArgument, rest)
 	}
 	return nil
 }
