@@ -109,3 +109,78 @@ func TestExeSuffixMatchesBuild(t *testing.T) {
 		t.Fatalf("ExeSuffix = %q, want %q", got, want)
 	}
 }
+
+// V-LWP-1·2 (FR-LWP-3·4): Windows 의 실행 가능 판정은 **확장자**다.
+//
+// 이름만으로 하는 판정이므로 build tag 없이 컴파일되고, **darwin 호스트에서도**
+// 검증된다 (이 패키지 머리말 §4.2). 개발 호스트에서 볼 수 없는 것을 CI 왕복으로만
+// 확인하면 한 번에 하나씩밖에 배우지 못한다.
+func TestWinExecutableName(t *testing.T) {
+	const custom = ".EXE;.PY"
+	cases := []struct {
+		path    string
+		pathext string
+		want    bool
+	}{
+		// 기본 PATHEXT (빈 값이면 Windows 자신의 기본을 쓴다).
+		{`C:\lsp\bin\gopls.exe`, "", true},
+		{`C:\lsp\bin\gopls.EXE`, "", true},
+		{`C:\lsp\node_modules\.bin\tsserver.cmd`, "", true},
+		{`C:\x\a.bat`, "", true},
+		{`C:\x\a.com`, "", true},
+		// 확장자가 없으면 Windows 는 실행하지 못한다 — npm 이 함께 놓는 sh
+		// 스크립트가 이 자리다.
+		{`C:\lsp\node_modules\.bin\tsserver`, "", false},
+		{`C:\x\a.ps1`, "", false},
+		{`C:\x\a.txt`, "", false},
+		// PATHEXT 를 사용자가 바꿨으면 그것을 따른다.
+		{`C:\x\a.py`, custom, true},
+		{`C:\x\a.cmd`, custom, false},
+		// 구분자 주변의 공백과 점 없는 표기도 받아들인다.
+		{`C:\x\a.py`, "EXE ; PY", true},
+	}
+	for _, c := range cases {
+		if got := winExecutableName(c.path, c.pathext); got != c.want {
+			t.Fatalf("winExecutableName(%q, %q) = %v, want %v", c.path, c.pathext, got, c.want)
+		}
+	}
+}
+
+// V-LWP-3 (FR-LWP-4): 어느 판정이든 디렉터리는 실행 파일이 아니다. 없는 경로도
+// 마찬가지다 — 그것을 서버로 삼으면 기동이 우리 버그로 보이는 실패로 죽는다.
+func TestIsExecutableRejectsDirAndMissing(t *testing.T) {
+	dir := t.TempDir()
+	for _, p := range []Paths{posixPaths{}, windowsPaths{}} {
+		if p.IsExecutable(dir) {
+			t.Fatalf("%T 가 디렉터리를 실행 파일이라 했다", p)
+		}
+		if p.IsExecutable(filepath.Join(dir, "nope.exe")) {
+			t.Fatalf("%T 가 없는 경로를 실행 파일이라 했다", p)
+		}
+		if p.IsExecutable("") {
+			t.Fatalf("%T 가 빈 경로를 실행 파일이라 했다", p)
+		}
+	}
+}
+
+// V-LWP-3 (FR-LWP-2): POSIX 의 판정은 바뀌지 않았다 — 실행 비트가 서야 한다.
+func TestPosixIsExecutableNeedsExecBit(t *testing.T) {
+	if Current().OS == Windows {
+		t.Skip("Windows 는 권한 비트를 갖지 않는다 (FR-LWP-3)")
+	}
+	dir := t.TempDir()
+	plain := filepath.Join(dir, "plain")
+	if err := os.WriteFile(plain, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if (posixPaths{}).IsExecutable(plain) {
+		t.Fatal("실행 비트 없는 파일을 실행 가능이라 했다")
+	}
+	exe := filepath.Join(dir, "exe")
+	if err := os.WriteFile(exe, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if !(posixPaths{}).IsExecutable(exe) {
+		t.Fatal("실행 비트 있는 파일을 실행 불가라 했다")
+	}
+}

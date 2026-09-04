@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"dongminal/internal/shared/platform"
 )
 
 // InstallTimeout 은 설치 하나의 시간 상한이다 (FR-LSP-12).
@@ -119,10 +121,14 @@ func (r *InstallRunner) Install(ctx context.Context, d Descriptor) InstallOutcom
 		}
 	}
 	// 도구가 0 을 냈다 — 그러나 우리가 쓸 실행 파일이 실제로 놓였는가.
-	exe := ManagedExe(r.ManagedDir, d)
-	if !isExecutable(exe) {
+	//
+	// FR-LWP-6: 탐색과 **같은 함수**로 찾는다. 여기서 다른 이름을 보면 설치는
+	// 성공이라 하고 탐색은 없다고 한다.
+	exe := ManagedExeFound(r.ManagedDir, d)
+	if exe == "" {
 		return InstallOutcome{
-			Reason: fmt.Sprintf("%s 는 끝났는데 %s 가 놓이지 않았습니다", tool, exe),
+			Reason: fmt.Sprintf("%s 는 끝났는데 %s 가 놓이지 않았습니다",
+				tool, ManagedExe(r.ManagedDir, d)),
 			Detail: detail,
 		}
 	}
@@ -156,15 +162,13 @@ func (r *InstallRunner) isolate(d Descriptor) (args, env []string) {
 
 // isExecutable 은 Locator.executable 과 같은 판정이다. 두 벌인 것이 아니라
 // 수신자가 없는 자리에서 쓰는 같은 규칙이며, 아래 Locator 가 이것을 부른다.
+//
+// **판정 자체는 platform 이 갖는다** (LSP_WINDOWS_PORTABILITY_SRS FR-LWP-1).
+// 종전에는 여기서 실행 비트를 봤고, Go 가 Windows 의 보통 파일에 0666 을 주므로
+// 그 판정이 Windows 에서 **언제나 거짓**이었다 — 받아 둔 서버를 못 찾고, 받아
+// 놓고도 "놓이지 않았습니다" 라고 했다 (§2.1).
 func isExecutable(path string) bool {
-	if path == "" {
-		return false
-	}
-	fi, err := os.Stat(path)
-	if err != nil || fi.IsDir() {
-		return false
-	}
-	return fi.Mode().Perm()&0o111 != 0
+	return platform.Current().Paths.IsExecutable(path)
 }
 
 // tailOf 는 문자열의 끝쪽 n 바이트다. 도구의 출력에서 사용자가 읽을 부분은

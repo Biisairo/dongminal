@@ -3,6 +3,8 @@ package lsp
 import (
 	"os/exec"
 	"path/filepath"
+
+	"dongminal/internal/shared/platform"
 )
 
 // Status 는 한 서술자에 대한 **관측**이다 (FR-LSP-5·6·47).
@@ -60,15 +62,49 @@ func NewLocator(managedDir string, overrides map[string]string) *Locator {
 // `go install` 은 `GOBIN` 을 그대로 쓰므로 `<lsp>/bin/<exe>` 이고, `npm --prefix`
 // 는 자기 규약대로 `<lsp>/node_modules/.bin/<exe>` 에 놓는다. 설치와 탐색이 **같은
 // 함수**로 그 자리를 얻어야 한다 — 두 벌로 적으면 받아 두고도 못 찾는다.
+//
+// **이름은 OS 마다 다르다** (LSP_WINDOWS_PORTABILITY_SRS FR-LWP-5). Windows 에서
+// `go` 는 `gopls.exe` 를, `npm` 은 `<exe>.cmd` shim 을 놓는다. 여기서 나는 것은
+// **후보 중 첫째**이며, 실제로 있는 것을 고르는 일은 `ManagedExeFound` 가 한다.
 func ManagedExe(managedDir string, d Descriptor) string {
-	if managedDir == "" {
+	c := managedExeCandidates(managedDir, d)
+	if len(c) == 0 {
 		return ""
 	}
+	return c[0]
+}
+
+// ManagedExeFound 는 후보 중 **실제로 있고 실행할 수 있는 것**을 낸다 (FR-LWP-7).
+//
+// 후보가 여럿인 이유는 `node_modules/.bin` 이다 — npm 은 그 자리에 OS 마다 다른
+// shim 을 함께 놓으며, 한 이름으로 좁히면 받아 두고도 못 찾는 자리가 다시 생긴다.
+func ManagedExeFound(managedDir string, d Descriptor) string {
+	for _, p := range managedExeCandidates(managedDir, d) {
+		if isExecutable(p) {
+			return p
+		}
+	}
+	return ""
+}
+
+// managedExeCandidates 는 그 도구가 이 OS 에서 놓을 수 있는 이름들이다.
+// **설치의 성공 판정과 탐색이 이 하나를 함께 쓴다** (FR-LWP-6).
+func managedExeCandidates(managedDir string, d Descriptor) []string {
+	if managedDir == "" {
+		return nil
+	}
+	suffix := platform.Current().Paths.ExeSuffix()
 	switch d.Installer.Tool {
 	case "npm":
-		return filepath.Join(managedDir, "node_modules", ".bin", d.Exe)
+		dir := filepath.Join(managedDir, "node_modules", ".bin")
+		if suffix == "" {
+			return []string{filepath.Join(dir, d.Exe)}
+		}
+		// Windows: `.cmd` 가 셸 없이 실행되는 shim 이다. 확장자 없는 sh 스크립트도
+		// 함께 놓이지만 그것은 Windows 가 실행하지 못한다 (§5 비목표 4).
+		return []string{filepath.Join(dir, d.Exe+".cmd")}
 	default:
-		return filepath.Join(managedDir, "bin", d.Exe)
+		return []string{filepath.Join(managedDir, "bin", d.Exe+suffix)}
 	}
 }
 
@@ -90,7 +126,7 @@ func (l *Locator) Locate(d Descriptor) Status {
 	}
 	// ③ 전용 디렉터리 — 우리가 받아 둔 것. 자리는 도구가 정한다 (FR-LSP-7b).
 	if !st.Found {
-		if p := ManagedExe(l.ManagedDir, d); p != "" && l.executable(p) {
+		if p := ManagedExeFound(l.ManagedDir, d); p != "" {
 			st.Found, st.Exe, st.Origin = true, p, OriginManaged
 		}
 	}

@@ -4,7 +4,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"dongminal/internal/shared/platform"
 )
 
 // 시험용 Locator. PATH 와 파일시스템을 대신 주입한다 — 실제 PATH 에 의존하면
@@ -93,7 +96,10 @@ func TestLocate_Order(t *testing.T) {
 	managed := filepath.Join(dir, "managed")
 	d0, _ := DescriptorForExt(".go")
 	managedExe := putManaged(t, managed, d0)
-	cfgExe := filepath.Join(dir, "mine", "gopls")
+	// FR-LWP-9: 검사가 놓는 파일도 **그 OS 가 실행 가능하다고 볼 이름**이어야
+	// 한다. 확장자 없이 놓으면 Windows 는 실행 파일이 아니라고 보고(FR-LWP-3),
+	// 그러면 검사가 제품의 옳은 판정을 실패로 읽는다.
+	cfgExe := filepath.Join(dir, "mine", "gopls"+platform.Current().Paths.ExeSuffix())
 	if err := os.MkdirAll(filepath.Dir(cfgExe), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -168,6 +174,12 @@ func TestLocate_IsObservationNotCache(t *testing.T) {
 // TC-LSP-7 (FR-LSP-4): 전용 디렉터리에 **실행 권한 없는** 같은 이름의 파일이
 // 있으면 그것을 서버로 삼지 않는다.
 func TestLocate_ManagedNeedsExecBit(t *testing.T) {
+	// FR-LWP-2·3: 이것은 **POSIX 의 규약**이다. Windows 에는 실행 비트가 없고
+	// 판정이 확장자이므로, 같은 이름으로 놓은 파일은 거기서 실행 가능이 맞다 —
+	// 그 사실을 여기서 실패로 적으면 검사가 OS 를 착각하게 된다.
+	if platform.Current().OS == platform.Windows {
+		t.Skip("Windows 는 권한 비트를 갖지 않는다 (FR-LWP-3)")
+	}
 	managed := t.TempDir()
 	d, _ := DescriptorForExt(".go")
 	p := ManagedExe(managed, d)
@@ -197,9 +209,16 @@ func TestLocate_ManagedLayoutPerTool(t *testing.T) {
 	if ts.Installer.Tool != "npm" {
 		t.Fatalf("이 검사는 npm 서술자를 전제한다: %s", ts.Installer.Tool)
 	}
-	want := filepath.Join(managed, "node_modules", ".bin", ts.Exe)
-	if got := ManagedExe(managed, ts); got != want {
-		t.Fatalf("npm 서술자의 자리가 다르다: %s (기대 %s)", got, want)
+	// 재는 것은 **디렉터리**다 (FR-LSP-7b). 파일 이름은 OS 마다 다르며
+	// (Windows 는 `.cmd` shim, FR-LWP-5) 그 이름을 검사가 따로 적으면 제품과
+	// 두 벌이 되어 배치가 바뀔 때 먼저 통과한다.
+	wantDir := filepath.Join(managed, "node_modules", ".bin")
+	want := ManagedExe(managed, ts)
+	if filepath.Dir(want) != wantDir {
+		t.Fatalf("npm 서술자의 자리가 다르다: %s (기대 %s 아래)", want, wantDir)
+	}
+	if !strings.HasPrefix(filepath.Base(want), ts.Exe) {
+		t.Fatalf("npm 서술자의 이름이 실행 파일에서 나오지 않았다: %s", want)
 	}
 	putManaged(t, managed, ts)
 	st := testLocator(nil, managed, nil).Locate(ts)

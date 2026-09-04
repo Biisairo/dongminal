@@ -4,11 +4,27 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
 )
+
+// FR-LWP-8: 검사의 루트·파일 경로는 **그 플랫폼의 절대경로**다.
+//
+// POSIX 경로를 Windows 에서도 참이라고 가정하면, 옳은 URI 변환을 검사가 실패로
+// 읽는다 (LSP_WINDOWS_PORTABILITY_SRS §2.3) — `file:///root/a.go` 를 되풀면
+// Windows 에서는 `root\a.go` 이고 그것은 변환의 잘못이 아니다.
+// `TestPathURIRoundTrip` 이 이미 하는 것과 같은 규약을 나머지에도 준다.
+func tRoot() string {
+	if runtime.GOOS == "windows" {
+		return `C:\root`
+	}
+	return "/root"
+}
+
+func tFile(name string) string { return filepath.Join(tRoot(), name) }
 
 // TC-LSP-60: 경로와 URI 의 왕복. LSP 는 `file://` URI 로만 말하므로 이 변환이
 // 틀리면 서버가 우리가 말한 파일을 못 찾고, 증상은 "정의가 없다" 로 보인다.
@@ -98,7 +114,7 @@ func TestSession_HandshakeThenSyncThenAsk(t *testing.T) {
 			s.replyRaw(m["id"], map[string]any{"capabilities": map[string]any{}})
 		case "textDocument/definition":
 			s.replyRaw(m["id"], []map[string]any{{
-				"uri": pathToURI("/root/other.go"),
+				"uri": pathToURI(tFile("other.go")),
 				"range": map[string]any{
 					"start": map[string]any{"line": 41, "character": 7},
 					"end":   map[string]any{"line": 41, "character": 12},
@@ -107,10 +123,10 @@ func TestSession_HandshakeThenSyncThenAsk(t *testing.T) {
 		}
 	})
 
-	sess := newSession("/root", mustDesc(t, ".go"), "/fake/gopls", start, nil)
+	sess := newSession(tRoot(), mustDesc(t, ".go"), "/fake/gopls", start, nil)
 	defer sess.Close()
 
-	locs, err := sess.Definition(context.Background(), "/root/a.go", "package a\n", 1, 1)
+	locs, err := sess.Definition(context.Background(), tFile("a.go"), "package a\n", 1, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +134,7 @@ func TestSession_HandshakeThenSyncThenAsk(t *testing.T) {
 		t.Fatalf("정의가 하나가 아니다: %+v", locs)
 	}
 	// LSP 의 41,7 은 우리의 42,8 이다.
-	if locs[0].Path != "/root/other.go" || locs[0].Line != 42 || locs[0].Col != 8 {
+	if locs[0].Path != tFile("other.go") || locs[0].Line != 42 || locs[0].Col != 8 {
 		t.Fatalf("자리가 어긋났다: %+v", locs[0])
 	}
 
@@ -147,13 +163,13 @@ func TestSession_SecondAskSendsDidChange(t *testing.T) {
 			s.replyRaw(m["id"], []any{})
 		}
 	})
-	sess := newSession("/root", mustDesc(t, ".go"), "/fake/gopls", start, nil)
+	sess := newSession(tRoot(), mustDesc(t, ".go"), "/fake/gopls", start, nil)
 	defer sess.Close()
 
-	if _, err := sess.Definition(context.Background(), "/root/a.go", "v1\n", 1, 1); err != nil {
+	if _, err := sess.Definition(context.Background(), tFile("a.go"), "v1\n", 1, 1); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sess.Definition(context.Background(), "/root/a.go", "v2\n", 1, 1); err != nil {
+	if _, err := sess.Definition(context.Background(), tFile("a.go"), "v2\n", 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	opens, changes := 0, 0
@@ -178,12 +194,12 @@ func TestSession_HandshakeFailureFailsCalls(t *testing.T) {
 			s.replyErrorRaw(m["id"], -32603, "internal error")
 		}
 	})
-	sess := newSession("/root", mustDesc(t, ".go"), "/fake/gopls", start, nil)
+	sess := newSession(tRoot(), mustDesc(t, ".go"), "/fake/gopls", start, nil)
 	defer sess.Close()
 
 	done := make(chan error, 1)
 	go func() {
-		_, err := sess.Definition(context.Background(), "/root/a.go", "x\n", 1, 1)
+		_, err := sess.Definition(context.Background(), tFile("a.go"), "x\n", 1, 1)
 		done <- err
 	}()
 	select {
@@ -214,10 +230,10 @@ func TestSession_ReferencesPassesIncludeDeclaration(t *testing.T) {
 			s.replyRaw(m["id"], []any{})
 		}
 	})
-	sess := newSession("/root", mustDesc(t, ".go"), "/fake/gopls", start, nil)
+	sess := newSession(tRoot(), mustDesc(t, ".go"), "/fake/gopls", start, nil)
 	defer sess.Close()
 
-	if _, err := sess.References(context.Background(), "/root/a.go", "x\n", 1, 1, true); err != nil {
+	if _, err := sess.References(context.Background(), tFile("a.go"), "x\n", 1, 1, true); err != nil {
 		t.Fatal(err)
 	}
 	if !seen {
@@ -242,9 +258,9 @@ func TestSession_CloseStopsProcess(t *testing.T) {
 			s.replyRaw(m["id"], []any{})
 		}
 	})
-	sess := newSession("/root", mustDesc(t, ".go"), "/fake/gopls", start, nil)
+	sess := newSession(tRoot(), mustDesc(t, ".go"), "/fake/gopls", start, nil)
 	// 핸드셰이크가 실제로 돌게 한 뒤 닫는다.
-	if _, err := sess.Definition(context.Background(), "/root/a.go", "x\n", 1, 1); err != nil {
+	if _, err := sess.Definition(context.Background(), tFile("a.go"), "x\n", 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	sess.Close()
@@ -281,10 +297,10 @@ func TestSession_Hover(t *testing.T) {
 			})
 		}
 	})
-	sess := newSession("/root", mustDesc(t, ".go"), "/fake/gopls", start, nil)
+	sess := newSession(tRoot(), mustDesc(t, ".go"), "/fake/gopls", start, nil)
 	defer sess.Close()
 
-	got, err := sess.Hover(context.Background(), "/root/a.go", "package a\n", 1, 1)
+	got, err := sess.Hover(context.Background(), tFile("a.go"), "package a\n", 1, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -334,9 +350,9 @@ func TestSession_HoverContentShapes(t *testing.T) {
 					s.replyRaw(m["id"], res)
 				}
 			})
-			sess := newSession("/root", mustDesc(t, ".go"), "/fake/gopls", start, nil)
+			sess := newSession(tRoot(), mustDesc(t, ".go"), "/fake/gopls", start, nil)
 			defer sess.Close()
-			got, err := sess.Hover(context.Background(), "/root/a.go", "x\n", 1, 1)
+			got, err := sess.Hover(context.Background(), tFile("a.go"), "x\n", 1, 1)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -356,7 +372,7 @@ func TestSession_PublishDiagnostics(t *testing.T) {
 			s.replyRaw(m["id"], map[string]any{})
 			// 핸드셰이크 뒤에 밀어 준다 — 실제 서버가 그렇게 한다.
 			s.notifyRaw("textDocument/publishDiagnostics", map[string]any{
-				"uri": pathToURI("/root/a.go"),
+				"uri": pathToURI(tFile("a.go")),
 				"diagnostics": []map[string]any{
 					{
 						"range": map[string]any{
@@ -379,7 +395,7 @@ func TestSession_PublishDiagnostics(t *testing.T) {
 			})
 		}
 	})
-	sess := newSession("/root", mustDesc(t, ".go"), "/fake/gopls", start,
+	sess := newSession(tRoot(), mustDesc(t, ".go"), "/fake/gopls", start,
 		func(d Diagnostics) { got <- d })
 	defer sess.Close()
 
@@ -390,7 +406,7 @@ func TestSession_PublishDiagnostics(t *testing.T) {
 
 	select {
 	case d := <-got:
-		if d.Path != "/root/a.go" {
+		if d.Path != tFile("a.go") {
 			t.Fatalf("경로가 풀리지 않았다: %q", d.Path)
 		}
 		if len(d.Items) != 2 {
@@ -422,19 +438,19 @@ func TestSession_EmptyDiagnosticsStillNotifies(t *testing.T) {
 		if m["method"] == "initialize" {
 			s.replyRaw(m["id"], map[string]any{})
 			s.notifyRaw("textDocument/publishDiagnostics", map[string]any{
-				"uri":         pathToURI("/root/a.go"),
+				"uri":         pathToURI(tFile("a.go")),
 				"diagnostics": []any{},
 			})
 		}
 	})
-	sess := newSession("/root", mustDesc(t, ".go"), "/fake/gopls", start,
+	sess := newSession(tRoot(), mustDesc(t, ".go"), "/fake/gopls", start,
 		func(d Diagnostics) { got <- d })
 	defer sess.Close()
 	sess.waitReady(context.Background())
 
 	select {
 	case d := <-got:
-		if d.Path != "/root/a.go" {
+		if d.Path != tFile("a.go") {
 			t.Fatalf("경로가 다르다: %q", d.Path)
 		}
 		if d.Items == nil {

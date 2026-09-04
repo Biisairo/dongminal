@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -18,6 +19,18 @@ type Paths interface {
 
 	// ExeSuffix 는 실행 파일의 확장자다. POSIX 는 "", Windows 는 ".exe".
 	ExeSuffix() string
+
+	// IsExecutable 은 그 경로가 **실행할 수 있는 보통 파일**인가다
+	// (LSP_WINDOWS_PORTABILITY_SRS FR-LWP-1).
+	//
+	// 존재만 보지 않는 이유는 실패의 모양이다 — 실행할 수 없는 동명 파일을
+	// 골라 쓰면 기동이 permission denied 나 "실행 파일이 아닙니다" 로 죽고,
+	// 그 실패는 "없다" 가 아니라 "우리 버그" 로 보인다.
+	//
+	// **판정의 근거가 OS 마다 다르다.** POSIX 는 실행 비트이고 Windows 는
+	// 확장자다 — Go 는 Windows 의 보통 파일에 0666 을 주므로 실행 비트를 보면
+	// 언제나 거짓이 된다 (§2.1).
+	IsExecutable(path string) bool
 
 	// LinkOrCopy 는 dst 가 src 의 실행 가능한 링크 또는 사본이 되게 한다.
 	LinkOrCopy(src, dst string) error
@@ -39,6 +52,16 @@ type posixPaths struct{}
 func (posixPaths) DefaultLogFile() string { return filepath.Join("/tmp", logBaseName) }
 
 func (posixPaths) ExeSuffix() string { return "" }
+
+// FR-LWP-2: 실행 비트가 선 보통 파일. 종전 `lsp.isExecutable` 과 한 글자도 다르지
+// 않다 — 권한 없는 동명 파일을 서버로 삼지 않는 규약(TC-LSP-7)이 여기 산다.
+func (posixPaths) IsExecutable(path string) bool {
+	fi, ok := statRegular(path)
+	if !ok {
+		return false
+	}
+	return fi.Mode().Perm()&0o111 != 0
+}
 
 // symlink 를 먼저 시도하고 안 되면 복사한다. 종전 runtime.installHelper 와 같다.
 // 이미 같은 곳을 가리키는 symlink 면 아무 것도 하지 않는다.
@@ -72,6 +95,58 @@ type windowsPaths struct{}
 func (windowsPaths) DefaultLogFile() string { return windowsLogFile(os.Getenv, os.TempDir) }
 
 func (windowsPaths) ExeSuffix() string { return ".exe" }
+
+// FR-LWP-3: Windows 는 **확장자**로 판정한다. 권한 비트는 아무것도 말하지 않는다.
+func (windowsPaths) IsExecutable(path string) bool {
+	if _, ok := statRegular(path); !ok {
+		return false
+	}
+	return winExecutableName(path, os.Getenv("PATHEXT"))
+}
+
+// defaultPathExt 는 PATHEXT 가 비었을 때의 값이다. Windows 자신의 기본값이며,
+// 우리가 고른 목록이 아니다.
+const defaultPathExt = ".COM;.EXE;.BAT;.CMD"
+
+// winExecutableName 은 이름만으로 하는 판정이다.
+//
+// build tag 없이 컴파일되므로 **darwin 호스트에서도 검증된다** (platform 패키지
+// 머리말 §4.2 의 규약, V-LWP-1).
+func winExecutableName(path, pathext string) bool {
+	if pathext == "" {
+		pathext = defaultPathExt
+	}
+	ext := strings.ToUpper(filepath.Ext(path))
+	if ext == "" {
+		return false
+	}
+	for _, want := range strings.Split(pathext, ";") {
+		want = strings.ToUpper(strings.TrimSpace(want))
+		if want == "" {
+			continue
+		}
+		if !strings.HasPrefix(want, ".") {
+			want = "." + want
+		}
+		if ext == want {
+			return true
+		}
+	}
+	return false
+}
+
+// statRegular 는 "있고, 디렉터리가 아니다" 다 (FR-LWP-4). 두 어댑터가 같은
+// 앞머리를 쓰므로 한 자리에 둔다.
+func statRegular(path string) (os.FileInfo, bool) {
+	if path == "" {
+		return nil, false
+	}
+	fi, err := os.Stat(path)
+	if err != nil || fi.IsDir() {
+		return nil, false
+	}
+	return fi, true
+}
 
 // Windows 는 symlink 를 시도하지 않는다 (FR-XPA-3). 개발자 모드가 아닌 계정에서
 // symlink 는 관리자 권한을 요구하므로, 시도했다 복사로 물러서는 흐름은 매 기동마다
