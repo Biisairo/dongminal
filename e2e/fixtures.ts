@@ -147,6 +147,38 @@ export async function waitForInit(page: any) {
   await page.goto('/');
   // Wait for init() → render() → xterm readiness inside the focused pane.
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+  // FR-EQS-5: 터미널이 섰다고 화면이 멎은 것은 아니다 — 초기 저장 두 번이 아직
+  // 돈다 (E2E_QUIESCENCE_SRS §2.1). 그 사이에 시작한 검증은 `_onWorkspaceChanged`
+  // 가 유예되거나(§2.1) 서버가 아직 모르는 것을 읽는다(§2.2).
+  await waitSettled(page);
+}
+
+/**
+ * 화면의 저장·적용이 멎을 때까지 기다린다 (E2E_QUIESCENCE_SRS 묶음 Q).
+ *
+ * **브라우저가 만든 것은 브라우저의 `PUT /api/workspace` 로만 서버에 남는다.**
+ * `POST /api/commands` 의 응답은 "브라우저가 만들었다" 는 뜻이지 "서버에 남았다"
+ * 는 뜻이 아니다 (§2.2). 그것을 서버에서 읽기 전에, 또는 새로고침으로 확인하기
+ * 전에 이것을 부른다 (FR-EQS-6·7).
+ *
+ * FR-EQS-3: **연속으로** 조용해야 정착이다 — `_save()` 는 비행이 끝난 다음 틱에
+ * 다음 비행을 세울 수 있다 (FR-WSC-9).
+ */
+export async function waitSettled(page: any, timeout = 15000) {
+  await page.waitForFunction(
+    () => {
+      const a = (window as any).app;
+      if (!a) return false;
+      const quiet = !a._saveInflight && !a._savePending && !a._wsApplyInflight;
+      const n = quiet ? ((window as any).__dmQuiet || 0) + 1 : 0;
+      (window as any).__dmQuiet = n;
+      return n >= 3;
+    },
+    undefined,
+    // FR-EQS-4: 상한을 둔다. 넘으면 그 자리에서 실패로 알린다.
+    { timeout, polling: 50 },
+  );
+  await page.evaluate(() => { (window as any).__dmQuiet = 0 });
 }
 
 /**

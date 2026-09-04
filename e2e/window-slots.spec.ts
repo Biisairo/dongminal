@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit, waitSettled } from './fixtures';
 
 // 창 슬롯 — WINDOW_SLOTS_SRS §5 TC-WSL-*
 //
@@ -9,14 +9,6 @@ import { test, expect } from './fixtures';
 // 서버의 활성 탭 판정은 검증 대상이 아니다. `_save()` 가 PUT 에서
 // activeWindow·focusedPane 을 벗기므로(app.js:293) 그 판정은 슬롯 이전에도
 // 클라이언트의 현재 포커스를 따라오지 않았다 (SRS §2.7).
-
-async function waitForInit(page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 const slotCount = (page) => page.evaluate(() => (window as any).app.slotCount());
 const slotsState = (page) => page.evaluate(() => (window as any).app.slots);
@@ -130,6 +122,8 @@ test.describe('묶음 S·R — 슬롯 모델과 렌더링', () => {
     const wins = await slotsWith(page, 3);
     await expect(page.locator('#area .slot')).toHaveCount(3);
 
+    // FR-EQS-7: 만든 창이 서버에 닿기 전에 새로고침하면 복원할 것이 없다.
+    await waitSettled(page);
     await page.reload();
     await page.waitForSelector('#area .slot[data-slot="2"]', { timeout: 15000 });
     expect(await slotCount(page)).toBe(3);

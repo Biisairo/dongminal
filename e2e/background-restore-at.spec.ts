@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, waitSettled } from './fixtures';
 
 // 묶음 D (USER_CHECKLIST_FIXES_SRS §3.4 / §4.4) — restoreTool 의 대상 Pane 지정.
 //
@@ -28,6 +28,11 @@ async function twoPanes(page: Page, request: any) {
     const f = i.panes.find((p) => p.id === i.focused);
     return f ? f.tabCount : 0;
   }, { timeout: 10000 }).toBeGreaterThanOrEqual(2);
+
+  // FR-EQS-6: 아래에서 이 pane·탭의 uuid 를 `location` 으로 **서버에** 준다.
+  // 서버는 자기 워크스페이스에서 그 uuid 를 찾으므로, 화면이 만든 것이 PUT 으로
+  // 나가기 전에는 400 이다 (E2E_QUIESCENCE_SRS §2.2).
+  await waitSettled(page);
 
   const info = await paneInfo(page);
   const focused = info.panes.find((p) => p.id === info.focused)!;
@@ -125,6 +130,8 @@ test.describe('FR-BGR-1/2: location 으로 복귀 대상 Pane 을 지정한다',
     });
     expect(add.status()).toBe(200);
     await expect.poll(() => tabCountOf(page, other.id), { timeout: 10000 }).toBe(2);
+    // FR-EQS-6: 이 탭의 uuid 도 아래에서 `location` 으로 나간다.
+    await waitSettled(page);
 
     const toolId = focused.toolIds[0];
     await detach(page, request, toolId);

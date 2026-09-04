@@ -5,7 +5,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS } from './fixtures';
 
 // 칸별 시선 — SLOT_VIEW_STATE_SRS §8
 //
@@ -121,6 +121,8 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
     await focusSlot(page, 0);
     await clickTab(page, 0, 'Stash');
 
+    // FR-EQS-7: 칸별 시선도 워크스페이스 저장을 타고 남는다.
+    await waitSettled(page);
     await page.reload();
     await page.waitForSelector('#area .slot[data-slot="1"]', { timeout: 15000 });
 

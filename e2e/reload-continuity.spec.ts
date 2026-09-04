@@ -1,19 +1,11 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit, waitSettled } from './fixtures';
 
 // RELOAD_CONTINUITY_SRS §5 — TC-RLC-5~9 (묶음 Q, 돌아갈 자리의 기억).
 //
 // 묶음 P(자동 새로고침)는 version-autoreload.spec.ts 가 잰다 — 그쪽은 문서를
 // 다시 여는 것이 검증 대상이라 페이지를 살려 둘 수 없다.
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 const activeWindowOf = (page: Page) => page.evaluate(() => (window as any).app.ws.activeWindow);
 const plainIds = (page: Page) =>
@@ -37,6 +29,9 @@ const tabOf = (page: Page) => page.evaluate(() => (window as any).app._sbTab);
 // 활성 창이 Editor 창일 수 있고 (보관된 `sidebarTab` 이 그것이므로) 그 창에는
 // pane 이 없다 (FR-EDT-55) — 터미널을 기다리면 영영 오지 않는다.
 async function reload(page: Page) {
+  // FR-EQS-7: 화면이 만든 창·기억이 서버에 닿기 전에 새로고침하면 복원할 것이
+  // 없다 (E2E_QUIESCENCE_SRS §2.2).
+  await waitSettled(page);
   await page.reload();
   await page.waitForFunction(
     () => !!(window as any).app && !!(window as any).app._sbTab && !!(window as any).app.ws.activeWindow,

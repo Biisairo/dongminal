@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitSettled } from './fixtures';
 
 // WORKSPACE_IDENTITY_SRS §4 — 식별자(묶음 I)와 단일 실행자(묶음 X).
 //
@@ -247,6 +247,9 @@ test.describe('묶음 U — 식별자 통일', () => {
     const { uuid: tabUuid, toolId } = created.newTabs[0];
     expect(tabUuid).toMatch(UUID_RE);
     expect(toolId).toMatch(UUID_RE);
+    // FR-EQS-6: 탭을 만든 것은 브라우저다. `location` 조회는 **서버의**
+    // 워크스페이스를 훑으므로, 그 PUT 이 나간 뒤라야 찾을 수 있다 (§2.2).
+    await waitSettled(page);
 
     const byTool = await request.post('/api/commands', { data: { action: 'focus', args: { location: toolId } } });
     expect(byTool.status()).toBe(400);
@@ -263,6 +266,8 @@ test.describe('묶음 U — 식별자 통일', () => {
 
     const created = await (await request.post('/api/commands', { data: { action: 'newTab' } })).json();
     const toolId = created.newTabs[0].toolId;
+    // FR-EQS-6: whoami 의 좌표도 서버의 워크스페이스에서 나온다 (§2.2).
+    await waitSettled(page);
 
     const who = await (await request.get(`/api/whoami?toolId=${encodeURIComponent(toolId)}`)).json();
     expect(who.uuid).toMatch(UUID_RE);

@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { test, expect, plainWindows } from './fixtures';
+import { test, expect, plainWindows, waitForInit, waitSettled } from './fixtures';
 
 // /dongminal:team 과 /dongminal:workflow 스킬이 실제로 밟는 접합면을 라이브 서버에서
 // 검증한다. 스킬 문서는 명령·인자만 적혀 있어 정적 대조로는 "그 이름이 존재한다"
@@ -14,14 +14,6 @@ import { test, expect, plainWindows } from './fixtures';
 // 엔드포인트를 부르는 얇은 CLI 이므로, 여기서 같은 엔드포인트를 직접 호출하는 것이
 // 스킬이 밟는 경로와 동일하다. 브라우저 페이지를 함께 띄우는 이유는 그것이
 // /api/commands/sse 구독자이기 때문이다 — 스킬의 delivered>0 전제를 만족시킨다.
-
-async function waitForInit(page: any) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 // dmctl list-workspace 가 /api/state 를 읽어 만드는 행에서 스킬이 캡처하는 값들.
 // windowFocusMap 은 창별 "지금 보고 있는 탭"이다. `-n`(keepFocus)이 실제로
@@ -460,6 +452,11 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
     const seed: string = win.newTabs?.[0]?.uuid;
     expect(winId, '창 uuid 가 응답에 없다').toBeTruthy();
     expect(seed, '시드 탭 uuid 가 응답에 없다').toBeTruthy();
+
+    // FR-EQS-6: 창을 만든 것은 **브라우저**다. 워크스페이스에 남는 길은 그
+    // 브라우저의 PUT 하나뿐이므로, 서버에서 읽기 전에 그것이 나가기를 기다린다
+    // (E2E_QUIESCENCE_SRS §2.2).
+    await waitSettled(page);
 
     // 2. 사용자의 창들이 **그대로**다 — 전용 창이 방어를 구조로 푸는 근거다.
     //    새 창만 늘고, 기존 창의 활성 탭은 하나도 움직이지 않아야 한다.

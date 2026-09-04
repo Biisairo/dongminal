@@ -1,20 +1,12 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit, waitSettled } from './fixtures';
 
 // RELOAD_CONTINUITY_SRS §5 묶음 P — TC-RLC-1~4.
 //
 // 서빙되는 자산은 바이너리에 embed 되어 있어 테스트 중에 바꿀 수 없다. 대신
 // version-watch 가 버전을 읽는 그 요청(`GET /?_v=…`)만 가로채 `?v=` 를 갈아
 // 끼운다 — 재는 것은 **다른 버전을 봤을 때 무엇을 하는가** 하나다.
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 // 문서 자체(`/`)는 그대로 두고 버전 확인 요청만 바꾼다. 그러지 않으면 새로고침
 // 뒤의 페이지가 스텁된 HTML 로 서고, 그 안의 스크립트 경로가 실물과 어긋난다.
@@ -298,6 +290,11 @@ test('TC-RLC-26 (FR-RLC-26): 깨어남의 계기에서 침묵을 즉시 판정�
 test('TC-RLC-25 (FR-RLC-25): 침묵이 상한을 넘으면 스스로 다시 연다', async ({ page }) => {
   await waitForInit(page);
   const gen = await sseGen(page);
+
+  // FR-EQS-8: 초기 트래픽이 흐르는 동안 침묵을 흉내내면 **곧바로 덮인다** —
+  // 어떤 수신이든 `_sseSeen` 을 현재로 되돌린다 (FR-RLC-28). 조작 직전에 화면이
+  // 멎기를 기다린다 (E2E_QUIESCENCE_SRS §2.3).
+  await waitSettled(page);
 
   // 깨어남의 계기 없이도 감시가 돈다 — 화면을 보고 있지 않아도 되살아나야 한다.
   await fakeSilence(page, 120000);

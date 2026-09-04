@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit, waitSettled } from './fixtures';
 
 // TOOL_LIST_UNKNOWN_SRS §5 — TC-TLU-4~11.
 //
@@ -8,14 +8,6 @@ import { test, expect } from './fixtures';
 // 속도에 매달린다. 여기서 재려는 것은 **클라이언트가 `toolsKnown:false` 를 어떻게
 // 읽는가** 하나이므로 `/api/state` 응답을 가로채 그 한 비트만 바꾼다 — 결정적이고,
 // 서버가 그 비트를 정하는 규칙(FR-TLU-2)은 Go 테스트가 따로 잰다.
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 const toolKeys = (page: Page) => page.evaluate(() => [...(window as any).app.tools.keys()]);
 const windowCount = (page: Page) =>
