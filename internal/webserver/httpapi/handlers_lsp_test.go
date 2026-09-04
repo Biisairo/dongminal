@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -191,6 +192,22 @@ func lspServerWithRoot(t *testing.T, f LSPService) (*Server, *httptest.Server) {
 	return srv, httptest.NewServer(srv.Handler())
 }
 
+// lspBody 는 루트 아래 파일 하나를 가리키는 요청 본문이다.
+//
+// **경로를 날것으로 끼우지 않는다** (WINDOWS_TEST_PARITY_SRS FR-WTP-20). `C:\Users`
+// 의 `\U` 는 유효하지 않은 JSON 이스케이프이므로 본문 전체가 깨지고, 오류가 파싱
+// 단계에서 나므로 정작 재려던 것은 시작도 못 한다 — 종단이 400 을 내고 그 400 은
+// 가드의 400 과 구별되지 않는다. 파일 이름을 잇는 것도 `filepath.Join` 이다:
+// `root + "/a.go"` 는 Windows 에서 구분자가 섞인 경로가 된다.
+func lspBody(name, extra string) string {
+	b := `{"root":` + testpath.JSONQuote(lspTestRoot) +
+		`,"path":` + testpath.JSONQuote(filepath.Join(lspTestRoot, name))
+	if extra != "" {
+		b += "," + extra
+	}
+	return b + "}"
+}
+
 // TC-LSP-35 (FR-LSP-21·23 / D-3): 정의 요청은 **현재 텍스트를 함께** 싣고, 줄·열은
 // 1 부터다. 텍스트가 없으면 디스크만 보는 서버가 방금 쓴 함수를 모른다.
 func TestLSPDefinition(t *testing.T) {
@@ -198,7 +215,7 @@ func TestLSPDefinition(t *testing.T) {
 	srv, ts := lspServerWithRoot(t, f)
 	defer ts.Close()
 
-	body := `{"root":"` + lspTestRoot + `","path":"` + lspTestRoot + `/a.go","text":"package a\n","line":3,"col":5}`
+	body := lspBody("a.go", `"text":"package a\n","line":3,"col":5`)
 	resp, err := http.Post(ts.URL+"/api/lsp/definition", "application/json", strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -233,7 +250,7 @@ func TestLSPDefinition_ReasonOnFailure(t *testing.T) {
 	_, ts := lspServerWithRoot(t, f)
 	defer ts.Close()
 
-	body := `{"root":"` + lspTestRoot + `","path":"` + lspTestRoot + `/a.go","text":"x","line":1,"col":1}`
+	body := lspBody("a.go", `"text":"x","line":1,"col":1`)
 	resp, err := http.Post(ts.URL+"/api/lsp/definition", "application/json", strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -261,7 +278,7 @@ func TestLSPReferences_PassesIncludeDeclaration(t *testing.T) {
 	_, ts := lspServerWithRoot(t, f)
 	defer ts.Close()
 
-	body := `{"root":"` + lspTestRoot + `","path":"` + lspTestRoot + `/a.go","text":"x","line":1,"col":1,"includeDeclaration":true}`
+	body := lspBody("a.go", `"text":"x","line":1,"col":1,"includeDeclaration":true`)
 	resp, err := http.Post(ts.URL+"/api/lsp/references", "application/json", strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -301,7 +318,7 @@ func TestLSPHover(t *testing.T) {
 	_, ts := lspServerWithRoot(t, f)
 	defer ts.Close()
 
-	body := `{"root":"` + lspTestRoot + `","path":"` + lspTestRoot + `/a.go","text":"x","line":2,"col":3}`
+	body := lspBody("a.go", `"text":"x","line":2,"col":3`)
 	resp, err := http.Post(ts.URL+"/api/lsp/hover", "application/json", strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
