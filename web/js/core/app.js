@@ -8,6 +8,10 @@ class App {
     this.clientId=newUUID();
     this.ws={schemaVersion:2,windows:[],activeWindow:null};
     this.wsETag=null;
+    // FR-WSC-12: **원격이 본 적 있는 창의 id.** 409 채택이 무엇을 지워도 되는지의
+    // 유일한 근거다 (D-6) — 여기 없으면서 원격에도 없는 창은 원격이 한 번도 본
+    // 적 없는 창이며, 원격이 지웠을 리 없다.
+    this._wsSavedIds=new Set();
     this.focused=null;
     this._attn=new Map(); // toolId → {reason} 주의 상태 집합 (FR-PAN-9/16)
     this._attnNotifs={}; // toolId → Notification (재팝업 위해 직전 알림 보관)
@@ -134,6 +138,10 @@ class App {
       if(sv){
         if(sv.git) this.ws.git=sv.git;
         if(sv.editors) this.ws.editors=sv.editors;
+        // FR-WSC-12: 첫 로드도 원격이 아는 창을 알려 주는 자리다. 비어 있으면
+        // 비어 있는 것이 사실이며, 그 뒤 우리가 만드는 창은 전부 "원격이 본 적
+        // 없는 창" 이다.
+        this._wsMarkSaved(sv.windows);
       }
       if(sv&&sv.windows&&sv.windows.length){
         this.ws=sv;
@@ -313,6 +321,12 @@ class App {
     return map[action]?.();
   }
 
+  // FR-WSC-12: 원격이 아는 창 id 를 갈아 끼운다. 저장 성공과 원격 채택이 그
+  // 사실을 바꾸는 유일한 두 순간이다.
+  _wsMarkSaved(windows){
+    this._wsSavedIds=new Set((windows||[]).map(w=>w&&w.id).filter(Boolean));
+  }
+
   _save(){
     this._savePending=true;
     if(this._saveChain) return this._saveChain;
@@ -393,7 +407,40 @@ class App {
                  * 사실이 되어 살아 있는 도구·pane·창이 차례로 지워진다
                  * (FR-TLU-5·6 이 그 함정을 적고 있다).
                  */
-                if(rem&&rem.windows) this._applyRemoteWorkspace(rem,[],false);
+                if(rem&&rem.windows){
+                  /**
+                   * FR-WSC-12·14: **원격이 본 적 없는 창은 지우지 않는다** (§2.9).
+                   *
+                   * 채택이 지워도 되는 창은 원격이 **알았다가 없앤** 창뿐이다.
+                   * 그 판정은 `_wsSavedIds` 가 한다 — 우리 PUT 이 성공시킨 창의
+                   * id 이므로, 거기 있는데 원격에 없으면 삭제이고 거기에도 원격
+                   * 에도 없으면 **아직 나가지 못한 우리 창**이다 (핀 직후 연 Git
+                   * 창이 정확히 그것이다).
+                   *
+                   * §1.5 가 배제한 "창 합집합" 과 갈리는 자리다 (D-6): 합집합은
+                   * 닫힌 창을 되살리지만 이 판정은 되살리지 않는다.
+                   */
+                  const seen=this._wsSavedIds;
+                  const remIds=new Set((rem.windows||[]).map(w=>w&&w.id).filter(Boolean));
+                  const unseen=(this.ws.windows||[])
+                    .filter(w=>w&&w.id&&!remIds.has(w.id)&&!seen.has(w.id));
+                  // **적용기에 넣어 준다 — 적용한 뒤에 얹지 않는다.**
+                  //
+                  // `_applyRemoteWorkspace` 는 끝에서 `render()` 한다. 뒤에 얹으면
+                  // 그 render 가 **Git 창이 없는 상태**로 한 번 돌아 뷰를
+                  // unmount 하고, 그 뒤 되얹어도 DOM 은 죽은 뷰에 묶인 채 남는다
+                  // (핀 직후 ★ 클릭이 아무 일도 하지 않았다). 병합을 앞에 두면
+                  // 활성 창·활성 리포 보존도 그 안의 기존 규약이 그대로 한다.
+                  if(unseen.length) rem.windows=(rem.windows||[]).concat(unseen);
+                  this._applyRemoteWorkspace(rem,[],false);
+                  // 위 병합은 화면의 사실이지 원격의 사실이 아니다 — 원격이 아는
+                  // 창은 여전히 병합 이전의 것뿐이다 (FR-WSC-12).
+                  this._wsSavedIds=remIds;
+                  // FR-WSC-13: 화면에만 남기면 다음 새로고침에서 사라진다. 나가는
+                  // 것은 포기한 본문이 아니라 **채택한 원격에 이 창을 얹은 새
+                  // 본문**이므로 FR-WSC-1 에 어긋나지 않는다.
+                  if(unseen.length) this._savePending=true;
+                }
               }
             }catch{}
             // FR-WSC-7: 다음 저장을 잠시 미룬다 — 두 화면이 서로 밀어내는 동안
@@ -414,6 +461,9 @@ class App {
           if(res.ok){
             const et=res.headers.get('ETag')||res.headers.get('Etag');
             if(et) this.wsETag=et;
+            // FR-WSC-12: 이 본문이 서버에 남았다 — 여기 실린 창은 이제 원격이
+            // 아는 창이다.
+            this._wsMarkSaved(wsBody.windows);
             // FR-WSC-6: 성공하면 연속 충돌 수를 되돌린다.
             this._saveConflicts=0;
             this._saveHoldUntil=0;
@@ -436,10 +486,21 @@ class App {
       // 채택은 SSE 경로에게 맡긴다 (D-2) — 낡은 스냅샷 가드(FR-GRR-4)와 도구
       // 목록 치유를 그것이 이미 갖고 있다. 비행이 끝난 **뒤에** 부른다:
       // 그 함수는 비행 중이면 스스로 미루기 때문이다 (FR-WSC-4).
-      // **409 로 포기한 경우도 버린다** — 그 원격 상태는 409 처리가 이미
-      // 채택했으므로(FR-WSC-2), 미뤄 둔 알림을 또 적용하면 같은 일을 두 번 하고
-      // `/api/state` 를 한 번 더 읽는다.
+      //
+      // **위 가정은 §2.10 이 반증했다.** 저장 중에 온 알림이 남의 변경일 수
+      // 있고(핀이 그렇다), 그것을 버리면 다시 올 것이 없어 화면과 서버가 영영
+      // 갈린다. 409 로 포기한 경우의 에코는 FR-WSC-2 가 이미 채택했으므로 같은
+      // 판정에 걸린다 — 그 rev 는 채택으로 갱신된 ETag 를 넘지 못한다.
+      // FR-WSC-16: 유예한 rev 가 우리 ETag 보다 **새로우면 적용한다.** 낡거나
+      // 같으면 그것은 우리 PUT 의 에코이므로 버린다 — 위 문단이 지키려던 것이
+      // 그것이고, 그 판정을 **시점이 아니라 rev 로** 한다 (D-7).
+      const deferred=this._wsDeferRev;
       this._wsApplyPending=false;
+      this._wsDeferRev=undefined;
+      const seenRev=this.wsETag?parseInt(this.wsETag,10):-1;
+      if(deferred!==undefined&&!(deferred<=seenRev)){
+        setTimeout(()=>this._onWorkspaceChanged(deferred===Infinity?undefined:deferred),0);
+      }
       // FR-WSC-9: 채택 중에 새 저장이 예약됐으면(재조정이 창을 고친 경우가 그렇다)
       // 그것을 잃지 않는다. 백오프는 다음 비행의 앞머리가 지킨다.
       if(this._savePending) setTimeout(()=>this._save(),0);

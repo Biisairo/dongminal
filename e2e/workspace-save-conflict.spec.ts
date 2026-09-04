@@ -58,6 +58,22 @@ function putCodes(p: Page): number[] {
   return codes;
 }
 
+/**
+ * 나가는 PUT 의 **본문**을 모은다.
+ *
+ * 코드만 세면 `[409]` 인지 `[409,200]` 인지밖에 알 수 없고, 그 둘의 차이는
+ * FR-WSC-1 이 묻는 것이 아니다 — 묻는 것은 **포기한 그 본문이 다시 나갔는가** 다
+ * (FR-WSC-13 은 채택한 원격을 싣는 새 본문이 나가는 것을 허용한다).
+ */
+function putBodies(p: Page): any[] {
+  const out: any[] = [];
+  p.on('request', (r: any) => {
+    if (!r.url().includes('/api/workspace') || r.method() !== 'PUT') return;
+    try { out.push(JSON.parse(r.postData() || '{}')) } catch { out.push({}) }
+  });
+  return out;
+}
+
 test.describe('워크스페이스 저장 충돌', () => {
   // V-WSC-1 · FR-WSC-1 — 이 작업의 전부다.
   test('다른 화면이 만든 창이 내 저장에 사라지지 않는다', async ({ browser, request }) => {
@@ -83,22 +99,45 @@ test.describe('워크스페이스 저장 충돌', () => {
   });
 
   // V-WSC-3 · FR-WSC-1: 같은 본문을 다시 밀어붙이지 않는다 — 그것이 손실의 방법이었다.
+  //
+  // **PUT 이 하나뿐인지를 재지 않는다.** 409 를 채택하면 그 채택 자체가 저장을
+  // 부를 수 있고(Editor 창 재조정의 되쓰기 FR-EDT-42, 원격이 본 적 없는 창의
+  // 저장 FR-WSC-13), 그 PUT 은 **채택한 원격을 싣는 새 본문**이다. 손실의 방법은
+  // PUT 이 두 번 나가는 것이 아니라 **포기한 본문이 다시 나가는 것**이었다.
   test('409 뒤에 같은 본문을 다시 PUT 하지 않는다', async ({ browser, request }) => {
     const A = await openScreen(browser);
     const B = await openScreen(browser);
     const before = await serverPlain(request);
 
     await blind(B);
-    await A.evaluate(() => (window as any).app.addWindow());
+    // `addWindow()` 는 id 를 돌려주지 않는다 — 그 안의 `_mkWindow` 가 만든 엔터티
+    // id 가 필요하므로 같은 경로를 직접 탄다 (app-layout.js, FR-RCR-6/7).
+    const newWin: string = await A.evaluate(async () => {
+      const a = (window as any).app;
+      const r = await a._mkWindow({});
+      a.render();
+      return r.win;
+    });
     await expect.poll(() => serverPlain(request), { timeout: 15000 }).toBe(before + 1);
 
     const codes = putCodes(B);
+    const bodies = putBodies(B);
+    // 이 폭이 포기할 본문의 표식이다 — 다시 나가면 그것이 재시도다 (FR-WSC-5).
     await touchAndSave(B, 251);
     await expect.poll(() => codes.length, { timeout: 15000 }).toBeGreaterThan(0);
     await B.waitForTimeout(2000);
 
-    // 409 하나로 끝나야 한다. 200 이 뒤따르면 그것이 남의 창을 지운 그 저장이다.
-    expect(codes, `재시도가 일어났다: ${JSON.stringify(codes)}`).toEqual([409]);
+    expect(codes[0], `첫 PUT 이 409 가 아니다: ${JSON.stringify(codes)}`).toBe(409);
+    const after = bodies.slice(1);
+    expect(after.filter((b) => b.sidebarWidth === 251),
+      '포기한 본문이 다시 나갔다').toEqual([]);
+    // 뒤따르는 저장이 있었다면 그것은 **채택한 원격**이다 — A 의 창을 싣는다.
+    for (const b of after) {
+      expect((b.windows || []).map((w: any) => w.id),
+        '채택 뒤의 저장이 A 의 창을 지웠다').toContain(newWin);
+    }
+    // 그리고 A 의 창은 서버에 그대로 있다 (V-WSC-1 과 같은 불변식).
+    await expect.poll(() => serverPlain(request), { timeout: 15000 }).toBe(before + 1);
 
     await A.context().close();
     await B.context().close();

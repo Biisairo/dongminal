@@ -189,13 +189,30 @@ Object.assign(App.prototype, {
     connect();
   },
 
+  /**
+   * FR-WSC-15: 유예한 알림의 **rev 를 기억한다.** 무엇을 미뤘는지 모르면 비행이
+   * 끝날 때 그것을 버릴지 말지 판단할 수 없고, 판단하지 못한 채 버린 것이
+   * §2.10 의 영구 발산이었다. 여러 번 유예되면 가장 새로운 것을 남긴다.
+   *
+   * FR-WSC-17: rev 를 모르는 호출(`_onWorkspaceChanged()`)은 **버리지 않는다** —
+   * 모르는 것을 낡았다고 단정하면 그 손실이 그대로 돌아온다.
+   */
+  _wsDefer(rev){
+    this._wsApplyPending=true;
+    const r=(typeof rev==='number')?rev:Infinity;
+    if(this._wsDeferRev===undefined||r>this._wsDeferRev) this._wsDeferRev=r;
+  },
+
   async _onWorkspaceChanged(rev){
     // While a local save is in flight, the SSE we just received is almost
     // certainly an echo of our own PUT (the PUT response with the new ETag
     // hasn't returned yet, so wsETag is still stale and would erroneously
     // pass the rev check). Defer until save settles.
-    if(this._saveInflight){ this._wsApplyPending=true; return }
-    if(this._wsApplyInflight){ this._wsApplyPending=true; return }
+    //
+    // **"거의 확실히" 는 언제나가 아니다** (WORKSPACE_SAVE_CONFLICT_SRS §2.10).
+    // 그래서 유예는 rev 를 남기고, 비행의 끝이 그 rev 로 판정한다 (FR-WSC-15·16).
+    if(this._saveInflight){ this._wsDefer(rev); return }
+    if(this._wsApplyInflight){ this._wsDefer(rev); return }
     const cur=this.wsETag?parseInt(this.wsETag,10):-1;
     if(typeof rev==='number' && rev<=cur) return;
     this._wsApplyInflight=true;
@@ -334,6 +351,9 @@ Object.assign(App.prototype, {
    */
   _applyRemoteWorkspace(sv, serverPanes, toolsKnown){
     const known=toolsKnown!==false;
+    // FR-WSC-12: 이 스냅샷에 실린 창이 곧 **원격이 아는 창**이다. 아래에서
+    // 마이그레이션·재조정이 `sv.windows` 를 고치므로 그 전에 적어 둔다.
+    this._wsMarkSaved(sv.windows);
     // 전경 이름도 도구 목록에서 나온다 — 모르는 목록으로 지우면 탭 라벨이
     // 되돌아간다 (FR-TLU-7).
     if(known) this._fgApply(serverPanes);
