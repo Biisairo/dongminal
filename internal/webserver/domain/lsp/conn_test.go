@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"strings"
 	"sync"
@@ -283,4 +284,63 @@ func (f *fakeServer) replyErrorRaw(id any, code int, msg string) {
 func (f *fakeServer) notifyRaw(method string, params any) {
 	b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "method": method, "params": params})
 	_ = writeFrame(f.toClient, b)
+}
+
+// `fail` 은 **여럿이 동시에** 부른다 — `readLoop` 의 끝과 `Close` 가 각각 부르고,
+// 통로를 닫아도 읽기 루프가 곧바로 깨지 않는 구현에서는 그 둘이 겹친다.
+//
+// 종전에는 `done` 을 닫을지를 잠금 **밖에서** `select`/`default` 로 보았고, 둘이
+// 함께 default 를 보면 둘 다 닫아 `close of closed channel` 로 죽었다. 실제로
+// `go test -race` 가 간헐적으로 그것을 잡았다:
+//
+//	panic: close of closed channel
+//	  lsp.(*conn).fail  conn.go:148
+//	  lsp.(*conn).readLoop
+//
+// 간헐이므로 한 번 부르는 검사로는 재현되지 않는다. 여러 갈래가 같은 순간에
+// 들어가게 해서 그 창을 넓힌다.
+func TestConn_FailIsIdempotentUnderConcurrency(t *testing.T) {
+	for range 50 {
+		c, _ := newPair(t, nil)
+
+		const goroutines = 8
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		for i := range goroutines {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				<-start
+				if i%2 == 0 {
+					c.fail(errors.New("boom"))
+					return
+				}
+				c.Close()
+			}(i)
+		}
+		close(start) // 여기서 여덟이 함께 들어간다
+		wg.Wait()
+
+		select {
+		case <-c.done:
+		default:
+			t.Fatal("done 이 닫히지 않았다 — 대기자가 영원히 매달린다")
+		}
+	}
+}
+
+// 통로가 죽은 뒤의 호출은 **사유를 받는다.** 사유를 잠금 밖에서 읽던 것도 같은
+// 경쟁이었으므로, 그 값이 여전히 온전한지 함께 잰다.
+func TestConn_FailReportsCauseAfterClose(t *testing.T) {
+	c, _ := newPair(t, nil)
+	c.fail(errors.New("첫 사유"))
+	c.fail(errors.New("두 번째 사유"))
+
+	err := c.Call(context.Background(), "x", nil, nil)
+	if err == nil {
+		t.Fatal("죽은 통로가 오류를 내지 않았다")
+	}
+	if !strings.Contains(err.Error(), "첫 사유") {
+		t.Fatalf("첫 사유가 이기지 않았다: %v", err)
+	}
 }

@@ -3,16 +3,15 @@ package lsp
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	"dongminal/internal/shared/platform"
 )
 
 // HandshakeTimeout 은 `initialize` 의 상한이다.
@@ -513,33 +512,15 @@ func fromLSPPos(line, col int) (int, int) {
 
 // pathToURI 는 절대경로를 `file://` URI 로 옮긴다.
 //
-// `url.URL` 을 쓰는 이유는 공백과 한글이 든 경로다 — 손으로 이어 붙이면 그런
-// 경로에서 서버가 우리가 말한 파일을 못 찾고, 증상은 "정의가 없다" 로 보인다.
+// **판정은 `platform` 이 한다** (CROSS_PLATFORM_SRS FR-XPL-5). URI 의 모양이 OS
+// 마다 다르고(Windows 의 절대경로는 `/` 로 시작하지 않는다), 그 판단이 여기
+// 남아 있으면 `scripts/check-seams.sh` 가 그것을 실패로 잡는다 — 실제로 잡고
+// 있었다.
 func pathToURI(path string) string {
-	p := filepath.ToSlash(path)
-	if runtime.GOOS == "windows" && !strings.HasPrefix(p, "/") {
-		p = "/" + p
-	}
-	u := url.URL{Scheme: "file", Path: p}
-	return u.String()
+	return platform.Current().Paths.FileURI(path)
 }
 
 // uriToPath 는 그 역이다.
 func uriToPath(uri string) (string, error) {
-	if uri == "" {
-		return "", errors.New("lsp: empty uri")
-	}
-	u, err := url.Parse(uri)
-	if err != nil {
-		return "", err
-	}
-	if u.Scheme != "file" {
-		return "", fmt.Errorf("lsp: not a file uri: %s", uri)
-	}
-	p := u.Path
-	if runtime.GOOS == "windows" {
-		p = strings.TrimPrefix(p, "/")
-		return filepath.FromSlash(p), nil
-	}
-	return filepath.FromSlash(p), nil
+	return platform.Current().Paths.PathFromFileURI(uri)
 }

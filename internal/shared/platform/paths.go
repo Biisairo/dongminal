@@ -2,7 +2,9 @@ package platform
 
 import (
 	"errors"
+	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,6 +21,17 @@ type Paths interface {
 
 	// ExeSuffix 는 실행 파일의 확장자다. POSIX 는 "", Windows 는 ".exe".
 	ExeSuffix() string
+
+	// FileURI 는 절대경로를 `file://` URI 로 옮긴다 (FR-XPL-5).
+	//
+	// **URI 의 모양이 OS 마다 다르다.** POSIX 의 절대경로는 이미 `/` 로 시작하지만
+	// (`/a/b.go` → `file:///a/b.go`), Windows 는 드라이브 문자로 시작하므로
+	// (`C:\a\b.go` → `C:/a/b.go`) 앞에 `/` 를 하나 더해야 `file:///C:/a/b.go` 가
+	// 된다. 이 판단이 호출부에 남으면 그것은 이 패키지의 실패다.
+	FileURI(path string) string
+
+	// PathFromFileURI 는 그 역이다. `file:` 이 아닌 URI 는 오류다.
+	PathFromFileURI(uri string) (string, error)
 
 	// IsExecutable 은 그 경로가 **실행할 수 있는 보통 파일**인가다
 	// (LSP_WINDOWS_PORTABILITY_SRS FR-LWP-1).
@@ -52,6 +65,11 @@ type posixPaths struct{}
 func (posixPaths) DefaultLogFile() string { return filepath.Join("/tmp", logBaseName) }
 
 func (posixPaths) ExeSuffix() string { return "" }
+
+// POSIX 의 경로는 이미 슬래시 형태이고 절대경로는 `/` 로 시작한다 — 옮길 것이 없다.
+func (posixPaths) FileURI(path string) string { return fileURI(path, false) }
+
+func (posixPaths) PathFromFileURI(uri string) (string, error) { return uriSlashPath(uri, false) }
 
 // FR-LWP-2: 실행 비트가 선 보통 파일. 종전 `lsp.isExecutable` 과 한 글자도 다르지
 // 않다 — 권한 없는 동명 파일을 서버로 삼지 않는 규약(TC-LSP-7)이 여기 산다.
@@ -96,6 +114,20 @@ func (windowsPaths) DefaultLogFile() string { return windowsLogFile(os.Getenv, o
 
 func (windowsPaths) ExeSuffix() string { return ".exe" }
 
+// Windows 의 절대경로는 `/` 로 시작하지 않는다 — URI 의 경로 성분이 되려면 앞에
+// 하나가 더 필요하고, 되돌릴 때는 그것을 떼야 한다.
+func (windowsPaths) FileURI(path string) string {
+	return fileURI(strings.ReplaceAll(path, `\`, "/"), true)
+}
+
+func (windowsPaths) PathFromFileURI(uri string) (string, error) {
+	p, err := uriSlashPath(uri, true)
+	if err != nil {
+		return "", err
+	}
+	return strings.ReplaceAll(p, "/", `\`), nil
+}
+
 // FR-LWP-3: Windows 는 **확장자**로 판정한다. 권한 비트는 아무것도 말하지 않는다.
 func (windowsPaths) IsExecutable(path string) bool {
 	if _, ok := statRegular(path); !ok {
@@ -133,6 +165,45 @@ func winExecutableName(path, pathext string) bool {
 		}
 	}
 	return false
+}
+
+// fileURI 와 pathFromFileURI 는 두 어댑터가 함께 쓰는 몸통이다. **URI 를 손으로
+// 이어 붙이지 않는 이유**는 공백과 한글이 든 경로다 — 그런 경로에서 서버가 우리가
+// 말한 파일을 못 찾고, 증상은 "정의가 없다" 로 보인다.
+//
+// build tag 가 없으므로 두 갈래 모두 어느 호스트에서도 검증된다 (§4.2).
+// **구분자 변환을 `filepath` 에게 맡기지 않는다.** `filepath.ToSlash`·`FromSlash`
+// 는 그것이 도는 **호스트**의 구분자를 쓰므로, darwin 에서는 windows 어댑터가
+// 백슬래시를 그대로 두고 `url.URL` 이 그것을 `%5C` 로 인코딩한다 — 어댑터가
+// 호스트에 의존하면 §4.2 의 "Windows 갈래도 darwin 에서 검증된다" 가 깨진다.
+// 두 어댑터가 자기 구분자를 스스로 옮기고, 아래 몸통은 **슬래시 형태만** 다룬다.
+func fileURI(slashPath string, leadingSlash bool) string {
+	p := slashPath
+	if leadingSlash && !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	u := url.URL{Scheme: "file", Path: p}
+	return u.String()
+}
+
+// uriSlashPath 는 URI 에서 **슬래시 형태의** 경로를 꺼낸다. 구분자를 그 OS 의
+// 것으로 되돌리는 일은 부르는 어댑터가 한다.
+func uriSlashPath(uri string, trimLeading bool) (string, error) {
+	if uri == "" {
+		return "", errors.New("platform: empty file uri")
+	}
+	u, err := url.Parse(uri)
+	if err != nil {
+		return "", err
+	}
+	if u.Scheme != "file" {
+		return "", fmt.Errorf("platform: not a file uri: %s", uri)
+	}
+	p := u.Path
+	if trimLeading {
+		p = strings.TrimPrefix(p, "/")
+	}
+	return p, nil
 }
 
 // statRegular 는 "있고, 디렉터리가 아니다" 다 (FR-LWP-4). 두 어댑터가 같은

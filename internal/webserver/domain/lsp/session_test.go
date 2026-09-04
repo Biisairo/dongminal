@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"io"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // FR-LWP-8: 검사의 루트·파일 경로는 **그 플랫폼의 절대경로**다.
@@ -16,22 +17,22 @@ import (
 // POSIX 경로를 Windows 에서도 참이라고 가정하면, 옳은 URI 변환을 검사가 실패로
 // 읽는다 (LSP_WINDOWS_PORTABILITY_SRS §2.3) — `file:///root/a.go` 를 되풀면
 // Windows 에서는 `root\a.go` 이고 그것은 변환의 잘못이 아니다.
-// `TestPathURIRoundTrip` 이 이미 하는 것과 같은 규약을 나머지에도 준다.
-func tRoot() string {
-	if runtime.GOOS == "windows" {
-		return `C:\root`
-	}
-	return "/root"
-}
+//
+// 자리는 `testpath` 가 짓는다 — `runtime.GOOS` 로 가르면 그것이 곧 FR-XPL-5
+// 위반이고, 실제로 이 헬퍼가 `check-seams.sh` 에 걸렸다.
+func tRoot() string { return testpath.Abs("root") }
 
 func tFile(name string) string { return filepath.Join(tRoot(), name) }
 
 // TC-LSP-60: 경로와 URI 의 왕복. LSP 는 `file://` URI 로만 말하므로 이 변환이
 // 틀리면 서버가 우리가 말한 파일을 못 찾고, 증상은 "정의가 없다" 로 보인다.
 func TestPathURIRoundTrip(t *testing.T) {
-	paths := []string{"/a/b/c.go", "/a/b c/d.go", "/a/한글/e.go"}
-	if runtime.GOOS == "windows" {
-		paths = []string{`C:\a\b.go`, `C:\a b\c.go`}
+	// 공백과 한글이 든 경로가 요점이다 (그래서 URI 를 손으로 잇지 않는다).
+	// 볼륨은 `testpath` 가 붙이므로 OS 로 가르지 않는다.
+	paths := []string{
+		testpath.Abs("a", "b", "c.go"),
+		testpath.Abs("a", "b c", "d.go"),
+		testpath.Abs("a", "한글", "e.go"),
 	}
 	for _, p := range paths {
 		u := pathToURI(p)

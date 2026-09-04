@@ -165,11 +165,47 @@ FR-LSP-7b 는 **설치와 탐색이 같은 함수로 그 자리를 얻어야 한
 
 ## 5. 비목표 (Non-goals)
 
-1. `session.go` 가 `runtime.GOOS` 를 직접 만지는 것을 `platform` 으로 옮기기 —
-   FR-XPL-5 위반이지만 **동작은 옳고**, 이 판이 고치는 것은 무너진 검사다.
-   섞으면 무엇이 CI 를 고쳤는지 알 수 없게 된다.
+1. ~~`session.go` 가 `runtime.GOOS` 를 직접 만지는 것을 `platform` 으로 옮기기.~~
+   **뒤이어 했다** (§6). 이 판에서 미룬 이유는 그대로다 — CI 를 고친 커밋에 무관한
+   이동을 섞으면 무엇이 CI 를 고쳤는지 알 수 없게 된다. 다만 "동작은 옳으니 두어도
+   된다" 는 판단은 **틀렸다**: 그것은 문서상의 권고가 아니라 `scripts/check-seams.sh`
+   (FR-XBD-3)가 강제하는 조항이고, 그 검사는 이미 빨간 상태였다.
 2. Windows 에서 언어 서버를 실제로 받아 보는 종단 검사 — CI 러너에서 `go install`
    이 네트워크를 타므로 그 검사는 네트워크를 잰다.
 3. WSL 경로(`/mnt/c/...`)의 변환.
 4. `.ps1` shim 을 PowerShell 로 실행하기 — `.cmd` 로 충분하고, 셸을 거치지 않는
    규약(FR-EGS-9)을 흔든다.
+
+---
+
+## 6. 후속 (FR-LWP-10~12)
+
+`scripts/check-seams.sh` 는 이 판을 마친 뒤에도 빨갰다.
+
+```
+❌ runtime.GOOS 이(가) platform 밖에 있습니다:
+     internal/webserver/domain/lsp/session.go:520
+     internal/webserver/domain/lsp/session.go:540
+     internal/webserver/domain/lsp/session_test.go:21   ← 이 판이 더한 것
+     internal/webserver/domain/lsp/session_test.go:33
+```
+
+§5-1 이 미뤘던 자리이며, `verify.yml` 이 이 스크립트를 부르지 않아 CI 는 초록이었다.
+**검사기가 보지 않는 결함은 없는 것과 같지 않다** — 여기서는 검사기가 있었고 아무도
+그것을 CI 에 걸지 않았을 뿐이다.
+
+- **FR-LWP-10** `file://` URI 변환을 `platform.Paths` 로 옮긴다. URI 의 모양이 OS
+  마다 다르다는 것이 그 판단의 내용이며(POSIX 는 이미 `/` 로 시작, Windows 는 앞에
+  하나를 더해야 한다), 그것은 이 패키지가 답할 질문이다 (FR-XPL-5).
+- **FR-LWP-11** 어댑터는 **호스트에 의존하지 않는다.** `filepath.ToSlash`·`FromSlash`
+  는 도는 호스트의 구분자를 쓰므로, darwin 에서 windows 어댑터가 백슬래시를 그대로
+  두고 `url.URL` 이 그것을 `%5C` 로 인코딩한다. 구분자 변환을 어댑터가 스스로 하고
+  몸통은 **슬래시 형태만** 다룬다 — 그래야 §4.2 의 "Windows 갈래도 darwin 에서
+  검증된다" 가 실제로 성립한다.
+- **FR-LWP-12** 검사의 자리는 `testpath` 가 짓는다. `runtime.GOOS` 로 가르면 그것이
+  곧 같은 위반이다.
+
+| ID | 검증 | 수단 |
+|---|---|---|
+| **V-LWP-6** | `scripts/check-seams.sh` 가 초록이다 | 로컬 |
+| **V-LWP-7** | 두 OS 의 URI 모양과 왕복이 **한 호스트에서** 검증된다 (FR-LWP-11) | `go test ./internal/shared/platform` |

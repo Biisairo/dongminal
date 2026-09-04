@@ -184,3 +184,65 @@ func TestPosixIsExecutableNeedsExecBit(t *testing.T) {
 		t.Fatal("실행 비트 있는 파일을 실행 불가라 했다")
 	}
 }
+
+// FR-XPL-5: `file://` URI 의 모양은 OS 마다 다르다. **두 갈래 모두 어느
+// 호스트에서도 검증된다** — 어댑터에 build tag 가 없기 때문이다 (§4.2).
+//
+// 종전에는 이 판단이 `lsp/session.go` 안의 `runtime.GOOS` 였고, 그래서 Windows
+// 갈래는 CI 왕복으로만 확인할 수 있었다.
+func TestFileURIShapePerOS(t *testing.T) {
+	cases := []struct {
+		name string
+		p    Paths
+		path string
+		want string
+	}{
+		// POSIX 의 절대경로는 이미 `/` 로 시작한다.
+		{"posix", posixPaths{}, "/a/b.go", "file:///a/b.go"},
+		// Windows 는 드라이브 문자로 시작하므로 `/` 를 하나 더한다. 더하지
+		// 않으면 `file://C:/a/b.go` 가 되어 `C:` 가 **호스트**로 읽힌다.
+		{"windows", windowsPaths{}, `C:\a\b.go`, "file:///C:/a/b.go"},
+	}
+	for _, c := range cases {
+		if got := c.p.FileURI(c.path); got != c.want {
+			t.Fatalf("%s: FileURI(%q) = %q, want %q", c.name, c.path, got, c.want)
+		}
+	}
+}
+
+// 왕복이 경로를 바꾸지 않는다. 공백과 한글이 요점이다 — URI 를 손으로 이어
+// 붙이면 그런 경로에서 서버가 우리가 말한 파일을 못 찾는다.
+func TestFileURIRoundTripPerOS(t *testing.T) {
+	cases := []struct {
+		name  string
+		p     Paths
+		paths []string
+	}{
+		{"posix", posixPaths{}, []string{"/a/b/c.go", "/a/b c/d.go", "/a/한글/e.go"}},
+		{"windows", windowsPaths{}, []string{`C:\a\b.go`, `C:\a b\c.go`, `C:\한글\e.go`}},
+	}
+	for _, c := range cases {
+		for _, want := range c.paths {
+			u := c.p.FileURI(want)
+			got, err := c.p.PathFromFileURI(u)
+			if err != nil {
+				t.Fatalf("%s: %q → %q → 실패: %v", c.name, want, u, err)
+			}
+			if got != want {
+				t.Fatalf("%s: 왕복이 경로를 바꿨다: %q → %q → %q", c.name, want, u, got)
+			}
+		}
+	}
+}
+
+// `file:` 이 아닌 것은 오류다. 침묵하고 빈 경로를 내면 그 다음 실패가 "정의가
+// 없다" 로 보이고, 원인이 URI 였다는 사실이 사라진다.
+func TestPathFromFileURIRejectsNonFile(t *testing.T) {
+	for _, p := range []Paths{posixPaths{}, windowsPaths{}} {
+		for _, uri := range []string{"", "http://x/a.go", "::not a uri::"} {
+			if _, err := p.PathFromFileURI(uri); err == nil {
+				t.Fatalf("%T 가 %q 를 받아들였다", p, uri)
+			}
+		}
+	}
+}

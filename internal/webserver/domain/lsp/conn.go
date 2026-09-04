@@ -124,28 +124,37 @@ func (c *conn) readLoop() {
 }
 
 // fail 은 통로를 죽은 것으로 표시하고 대기자를 모두 풀어 준다.
+//
+// **둘이 동시에 들어온다.** `readLoop` 의 끝과 `Close` 가 각각 부르며, 통로를
+// 닫아도 읽기 루프가 곧바로 깨지 않는 구현에서는 그 둘이 겹친다.
+//
+// 그래서 "처음인가" 의 판정과 `done` 닫기가 **같은 잠금 아래** 있어야 한다.
+// 종전에는 밖에서 `select`/`default` 로 보고 밖에서 닫았고, 둘이 함께 default 를
+// 보면 둘 다 닫아 `close of closed channel` 로 죽었다 — `go test -race` 가
+// 간헐적으로 잡았다. `c.dead` 는 여기서만 쓰이므로 그것이 곧 처음의 표식이다.
 func (c *conn) fail(cause error) {
 	c.mu.Lock()
-	if c.dead == nil {
+	first := c.dead == nil
+	if first {
 		if cause == nil {
 			cause = ErrConnClosed
 		}
 		c.dead = cause
 	}
+	// 사유도 잠금 아래에서 뜬다 — 밖에서 `c.dead` 를 읽으면 그것 자체가 경쟁이다.
+	dead := c.dead
 	waiters := c.pending
 	c.pending = map[int64]chan rpcIncoming{}
+	if first {
+		close(c.done)
+	}
 	c.mu.Unlock()
 
 	for id, ch := range waiters {
 		i := id
 		// 버퍼가 1 이므로 아무도 읽지 않아도 막히지 않는다 (ctx 로 먼저 나간
 		// 호출자의 자리가 그것이다).
-		ch <- rpcIncoming{ID: &i, Error: &rpcError{Code: -32000, Message: c.dead.Error()}}
-	}
-	select {
-	case <-c.done:
-	default:
-		close(c.done)
+		ch <- rpcIncoming{ID: &i, Error: &rpcError{Code: -32000, Message: dead.Error()}}
 	}
 }
 
