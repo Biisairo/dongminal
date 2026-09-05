@@ -516,6 +516,13 @@ discard·clean·checkout 이 실제로 무엇을 지웠는지 되짚을 자리�
 | 파일 행 (`.git-file`) | **17px** | 22px (list row) |
 | 행 인라인 버튼 (`.git-file-act`) | **18×15** | 22×22 (action bar item) |
 | 그룹 일괄 버튼 (`.git-group-bulk`) | 77×**17**, 글꼴 **10px** | 26px |
+<!-- 개정 (WORKBENCH_REVIEW_SRS FR-WBR-52 / D-WBR-18): 이 버튼은 **라벨 버튼이
+     아니게 됐다.** 그룹당 동작이 둘이 되면서(스테이지 + 폐기) `Stage All` ·
+     `Discard All` 두 글자 라벨이 기본 폭 220px 에 들어가지 않았고(실측: 필요
+     136px, 남는 자리 80px), 줄을 늘리면 FR-GIT-220 이 깨졌다. 지금은 행 동작과
+     같은 어휘의 아이콘(`+`·`−`·`↺`)이며 FR-GIT-195 의 아이콘 버튼 쪽으로 간다 —
+     FR-GIT-226 이 두 하한을 30px 하나로 모았으므로 치수는 달라지지 않는다.
+     따라서 FR-GIT-196 의 목록에서 "일괄" 은 빠진다. -->
 | Fetch·Pull·Push (`.git-remote-btn`) | 46×**19** | 26px |
 | Commit (`.git-commit-btn`) | 56×**20** | 26px |
 | 트리·플랫 (`.git-files-mode`) | 37×**19** | 26px |

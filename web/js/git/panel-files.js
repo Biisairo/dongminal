@@ -183,6 +183,23 @@ Object.assign(GitPanel.prototype, {
     this._run(act,this._group(group).map(e=>({group,path:e.path,origPath:e.origPath||''})));
   },
 
+  /**
+   * FR-WBR-80·81: 트리 보기의 폴더 행 하나에 걸리는 일괄.
+   *
+   * 대상은 그 폴더 **아래 전부**다 — 그려진 행이 아니다. 목록이 잘려 보이는
+   * 것(`GIT_FILE_ROW_CHUNK`)이나 접혀 있는 것과 대상 범위는 별개이며, 이는
+   * `_bulk` 의 규약(FR-GIT-66·67)을 폴더로 좁힌 것이다.
+   *
+   * 한 그룹 안이다 (FR-WBR-82) — 트리가 그룹마다 따로 서므로 다른 그룹의 같은
+   * 이름 폴더는 **다른 행**이고 서로를 건드리지 않는다.
+   */
+  _dirBulk(group,path,act){
+    const pre=path+'/';
+    this._run(act,this._group(group)
+      .filter(e=>e.path.startsWith(pre))
+      .map(e=>({group,path:e.path,origPath:e.origPath||''})));
+  },
+
   // 쓰기 한 번의 단일 경로다. 충돌 stage 의 뜻 알림과 discard 의 파괴적 확인이
   // 여기서 갈린다.
   async _run(act,items){
@@ -264,7 +281,16 @@ Object.assign(GitPanel.prototype, {
     await GitDialog.confirm({
       action:GIT_ACT_DISCARD,title:GIT_DISCARD_TITLE,targets,
       // O8: stash 를 자동 생성하지 않는다 — 실행할 명령을 보여 준다.
-      hint:{note:GIT_DISCARD_NOTE,command:'git stash push -- '+targets.map(gitShQuote).join(' ')},
+      //
+      // FR-WBR-55: untracked 가 섞이면 되돌리기가 아니라 삭제라는 것을 먼저
+      // 말한다. FR-WBR-56: 명령은 **언제나 `-u`** 다 — 없으면 untracked 가
+      // 섞이기만 해도 pathspec 이 맞지 않아 실패하고 **하나도 stash 되지
+      // 않는다**(실측). tracked 만일 때 붙여도 경로가 정확한 파일 이름이라
+      // 대상이 넓어지지 않는다.
+      hint:{
+        note:(untracked.length?GIT_DISCARD_NOTE_DEL:'')+GIT_DISCARD_NOTE,
+        command:'git stash push -u -- '+targets.map(gitShQuote).join(' '),
+      },
       run:async()=>{
         const res=await this.post('/api/git/discard',{repo,tracked,untracked,confirm:true});
         this._after(res,items);

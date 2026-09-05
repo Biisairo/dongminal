@@ -154,7 +154,9 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     await expect(box.locator('.gc-go')).toHaveText('Run');
     // 같은 화면이 recovery hint 를 보인다 (FR-GIT-92, FR-COS-2). stash 는 안내만이다 (O8).
     await expect(box.locator('.gc-hint')).toBeVisible();
-    await expect(box.locator('.gc-hint-cmd')).toContainText('git stash push -- tracked.txt');
+    // WORKBENCH_REVIEW_SRS FR-WBR-56: 명령은 **언제나 `-u`** 다. 이전에는 `-u` 가
+    // 없어 untracked 가 섞이면 그 명령이 실패했다 (SRS §2.7 실측).
+    await expect(box.locator('.gc-hint-cmd')).toContainText('git stash push -u -- tracked.txt');
 
     await box.locator('.gc-go').click();
     await expect(box).toHaveCount(0, { timeout: 10000 });

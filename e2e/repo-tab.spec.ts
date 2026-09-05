@@ -598,6 +598,48 @@ test.describe('묶음 N — 좁은 폭에서도 누를 자리가 남는다', () 
       }
     });
 
+  // WORKBENCH_REVIEW_SRS NFR-WBR-10a / V-WBR-58 — 같은 규칙의 새 시험대다.
+  // 묶음 D 가 그룹 머리의 일괄을 **아이콘 둘**(`+`·`↺`)로 늘렸다. 기본 폭에서는
+  // 한 줄이고(NFR-WBR-10), 하한에서만 줄이 늘어난다.
+  test('N3 (V-WBR-58 / NFR-WBR-10a): 아이콘 둘이 된 그룹 머리도 이름을 60px 남긴다',
+    async ({ page, request }) => {
+      await enter(page, request, REPO);
+      await sideTab(page, 'changes').click();
+      const head = '#area .ed-side .git-group[data-group="changes"] .git-group-head';
+      await expect(page.locator(head)).toBeVisible({ timeout: 10000 });
+
+      for (const w of SIDE_WIDTHS) {
+        await setSideWidth(page, w);
+        const m = await measure(page, head, '.git-group-name', '.git-group-bulk');
+        expect(m.textW, `${w}px 에서 그룹 이름이 눌렸다`).toBeGreaterThanOrEqual(60);
+        // 감추지 않는다 — 둘 다 남는다 (FR-WBR-50).
+        expect(m.acts.length, `${w}px 에서 일괄 버튼이 사라졌다`).toBe(2);
+        for (const b of m.acts)
+          expect(b.inside, `${w}px 에서 ${b.act} 가 사이드를 넘었다`).toBeTruthy();
+      }
+    });
+
+  // WORKBENCH_REVIEW_SRS NFR-WBR-11 / V-WBR-85 — 묶음 F 가 트리 보기의 **폴더
+  // 행**에도 동작을 두었다. 행 클릭이 접기라는 뜻을 가지므로 같은 규칙이 온다.
+  test('N4 (V-WBR-85 / NFR-WBR-11): 폴더 행도 이름을 60px 남기고 동작이 닿는다',
+    async ({ page, request }) => {
+      await enter(page, request, REPO);
+      await sideTab(page, 'changes').click();
+      // 트리 보기여야 폴더 행이 있다 (FR-WBR-83).
+      await page.locator('#area .ed-side .git-files-mode[data-mode="tree"]').click();
+      const dir = '#area .ed-side .git-dir[data-dir="src"]';
+      await expect(page.locator(dir)).toBeVisible({ timeout: 10000 });
+
+      for (const w of SIDE_WIDTHS) {
+        await setSideWidth(page, w);
+        const m = await measure(page, dir, '.git-dir-name', '.git-file-act');
+        expect(m.textW, `${w}px 에서 폴더 이름이 눌렸다`).toBeGreaterThanOrEqual(60);
+        expect(m.acts.length, `${w}px 에서 동작이 사라졌다`).toBe(1);
+        for (const b of m.acts)
+          expect(b.inside, `${w}px 에서 ${b.act} 가 사이드를 넘었다`).toBeTruthy();
+      }
+    });
+
   test('N2 (V-RTU-96): 버튼 넷인 conflicts 행도 기본 폭에서 전부 닿는다',
     async ({ page, request }) => {
       await enter(page, request, CONFLICT);

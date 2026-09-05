@@ -156,6 +156,8 @@ var apiRoutes = []apiRoute{
 	{http.MethodPost, exactPath("/api/fs/create"), (*Server).apiFSCreate},
 	{http.MethodPost, exactPath("/api/fs/rename"), (*Server).apiFSRename},
 	{http.MethodPost, exactPath("/api/fs/delete"), (*Server).apiFSDelete},
+	// FR-WBR-60: 탐색기의 복사·복제. 루트를 **둘** 받는 유일한 fs 종단이다.
+	{http.MethodPost, exactPath("/api/fs/copy"), (*Server).apiFSCopy},
 	// 묶음 D·E — 탐색기의 전송 (FILE_TRANSFER_SRS FR-FTR-12·15). 터미널의
 	// /api/{upload,download} 와 같은 일을 하되 root 가드를 받는다.
 	{http.MethodGet, exactPath("/api/fs/download"), (*Server).apiFSDownload},

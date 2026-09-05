@@ -162,9 +162,13 @@ const GIT_TREE_PAD0=6;
 // ── 스테이징 (GIT_SRS §3A.1 / FR-GIT-64~73) ──
 
 // 그룹별 일괄 동작. tracked / untracked 구분은 그룹이 이미 하고 있으므로 그룹별
-// 일괄이 곧 FR-GIT-68 이다 — 버튼을 더 만들지 않는다. conflicts 는 일괄이 없다:
-// 충돌 stage 는 "해결됨 표시" 라 한 번에 밀어 넣을 동작이 아니다 (FR-GIT-72).
-const GIT_GROUP_BULK={staged:'unstage',changes:'stage',untracked:'stage'};
+// 일괄이 곧 FR-GIT-68 이다. conflicts 는 일괄이 없다: 충돌 stage 는 "해결됨 표시"
+// 라 한 번에 밀어 넣을 동작이 아니다 (FR-GIT-72).
+//
+// FR-WBR-50·51: 그룹당 **여럿**이다. 값이 배열인 이유가 그것이고, **순서가 곧
+// 손에서의 거리**다 — 파괴적인 것이 오른쪽에 온다. 행 동작의 원칙(FR-GIT-236)을
+// 그룹 머리로 옮긴 것이다.
+const GIT_GROUP_BULK={staged:['unstage'],changes:['stage','discard'],untracked:['stage','discard']};
 // 행 hover 버튼. 그룹이 할 수 있는 동작만 보인다 — staged 행의 `+` 는 뜻이 없다.
 // FR-GIT-236: Open File 이 먼저다 — 읽는 동작을 쓰는 동작 앞에 둔다. 되돌리기가
 // 늘 끝에 오므로 파괴적인 것이 손에서 가장 멀다.
@@ -174,12 +178,30 @@ const GIT_ROW_ACTS={
 };
 // UX_REVISION_SRS FR-STC-2: 상태문자 → CSS 클래스. 색은 style.css 한 자리에서
 // 정한다 (FR-STC-3). 여기 없는 문자는 `other` 로 떨어져 기존 색을 유지한다.
+// FR-WBR-80·84: 트리 보기의 **폴더 행** 동작. 그룹이 할 수 있는 것만이고
+// **폐기는 없다** — 접수한 말은 staging/unstaging 이다. 트리가 그룹마다 따로
+// 서므로(FR-WBR-82) 폴더 행은 한 그룹에만 속하고, 그래서 그룹 하나가 곧 답이다.
+// 플랫 보기에는 폴더 행이 없으므로 이 표가 닿지 않는다 (FR-WBR-83).
+const GIT_DIR_ACTS={staged:['unstage'],changes:['stage'],untracked:['stage']};
+const GIT_DIR_ACT_TITLE={stage:'이 폴더 전체를 스테이지',unstage:'이 폴더 전체를 언스테이지'};
 const GIT_ST_CLASS={M:'mod',A:'add',D:'del',R:'ren',C:'cpy','?':'new',U:'conf'};
 const GIT_ACT_LABEL={openFile:'↗',stage:'+',unstage:'−',discard:'↺',ours:'Ours',theirs:'Theirs'};
 // ours·theirs 의 툴팁은 **진행 중인 조작에 따라 달라지므로** 여기 두지 않는다 —
 // 행이 GIT_SIDE_TITLE 에서 그때 고른다 (FR-GIT-224).
 const GIT_ACT_TITLE={openFile:'파일 열기',stage:'스테이지',unstage:'언스테이지',discard:'변경 버리기'};
-const GIT_BULK_LABEL={stage:'Stage All',unstage:'Unstage All'};
+// FR-WBR-52 (D-WBR-18): 일괄은 **행 동작과 같은 어휘의 아이콘**이다 — 그래서
+// 라벨 표를 따로 두지 않고 `GIT_ACT_LABEL` 을 그대로 쓴다. "같은 어휘" 를 주석이
+// 아니라 코드가 보장하게 하는 자리다.
+//
+// 글자 라벨(`Stage All`·`Discard All`)을 버린 이유는 **실측**이다: 기본 폭 220px
+// 에서 머리 안쪽 203px 중 이름·개수·caret 이 쓰고 남는 자리가 80px 인데 두 라벨은
+// 136px 이 필요했다. 줄을 늘리면 머리가 36→71px 이 되어 FR-GIT-220 이 깨진다.
+//
+// FR-WBR-52a: 갈리는 것은 라벨이 아니라 **툴팁**이다. 두 그룹의 폐기는 같은
+// 명령이 아니다 — tracked 는 index 로 되돌리고(`checkout -q`), untracked 는
+// **파일을 지운다**(`clean -q -f`). 그룹별로 다른 것이 이 하나뿐이라 예외만 적는다.
+const GIT_BULK_TITLE={stage:'전부 스테이지',unstage:'전부 언스테이지',discard:'변경을 전부 버립니다'};
+const GIT_BULK_TITLE_GROUP={untracked:{discard:'파일을 전부 삭제합니다 — 되살릴 수 없습니다'}};
 // FR-GIT-70: staged 와 unstaged 를 동시에 가진 파일. 체크박스의 indeterminate 와
 // 행 클래스 둘로 구분한다 — 색만으로는 무엇이 다른지 알 수 없다.
 const GIT_PARTIAL_TITLE='일부만 스테이지됨';
@@ -233,6 +255,10 @@ const GIT_ACT_DISCARD='discard';
 const GIT_DISCARD_TITLE='워킹 트리의 변경을 폐기합니다';
 // O8: stash 를 자동 생성하지 않는다 — 안내만 한다.
 const GIT_DISCARD_NOTE='폐기 전에 아래를 실행하면 stash 로 남습니다 (자동 실행하지 않습니다)';
+// FR-WBR-55: untracked 가 섞이면 되돌리기가 아니라 **삭제**다. 서버의
+// `discardHint` 가 실행 **뒤에** 적는 것과 같은 뜻을, 실행 **전에** 화면이 말한다
+// — 그 hint 는 기록이라 확인창에 닿지 않는다.
+const GIT_DISCARD_NOTE_DEL='파일 자체가 삭제되며 되살릴 값이 없습니다. ';
 // FR-GIT-73 · §7.1 I2: git 은 경로별로 처리해 진짜 롤백이 없다. 부분 적용을
 // 조용히 넘기지 않는 것이 요구사항이고, 그것을 이 안내가 맡는다.
 const GIT_PARTIAL_NOTE='일부만 적용됐습니다 — 아래 경로가 바뀌었습니다';

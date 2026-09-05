@@ -43,6 +43,8 @@ const (
 var (
 	fsListMax   = 10000
 	fsDeleteMax = 10000
+	// FR-WBR-66: 복사도 같은 규약이다 — 먼저 세고, 넘으면 시작하지 않는다.
+	fsCopyMax = 10000
 )
 
 // fsError 는 코드와 사유를 묶는다. 헬퍼의 실패를 호출자가 그대로 응답으로 옮길 수

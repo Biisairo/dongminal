@@ -196,6 +196,14 @@ Object.assign(FileTree.prototype, {
         disabled:()=>kind==='link'?EDITOR_DOWNLOAD_LINK_NO:'',
         run:()=>this.download(p)},
       {sep:true},
+      // FR-WBR-70: 복사·붙여넣기·복제. 붙여넣는 자리는 만들기와 같은 규칙이
+      // 정한다 — 폴더면 그 안, 아니면 그 형제 (`dir` 이 그것이다).
+      {id:'copy',label:EDITOR_MENU_COPY,run:()=>this.app._edClipSet(this.root,p)},
+      {id:'paste',label:EDITOR_MENU_PASTE,
+        disabled:()=>this.app._edClipGet()?'':EDITOR_PASTE_NONE,
+        run:()=>this.doPasteInto(dir)},
+      {id:'duplicate',label:EDITOR_MENU_DUPLICATE,run:()=>this.doDuplicate(p)},
+      {sep:true},
       {id:'rename',label:EDITOR_MENU_RENAME,run:()=>this.startRename(p)},
       // 확인은 `doDelete` 가 한다 — 재귀 여부·항목 수·dirty 탭을 밝혀야 하므로
       // 메뉴의 일반 확인(GitDialog)으로는 FR-EDT-83·84 를 만족하지 못한다.

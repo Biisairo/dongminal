@@ -291,6 +291,9 @@ const EDITOR_TREE_ST_RANK={U:4,A:3,'?':3,M:2,R:1,C:1};
 const FS_CREATE_API='/api/fs/create';
 const FS_RENAME_API='/api/fs/rename';
 const FS_DELETE_API='/api/fs/delete';
+// FR-WBR-60: 복사·복제가 함께 쓰는 하나의 종단. 복제는 "원본의 형제 자리에
+// 붙여넣기" 이므로 종단을 나눌 이유가 없다.
+const FS_COPY_API='/api/fs/copy';
 // FILE_TRANSFER_SRS FR-FTR-12·15 — 조회·조작과 같은 root 가드를 받는 전송 둘.
 const FS_DOWNLOAD_API='/api/fs/download';
 const FS_UPLOAD_API='/api/fs/upload';
@@ -336,6 +339,12 @@ const EDITOR_HEAD_ICONS=new Set([EDITOR_TREE_NEW_FILE,EDITOR_TREE_NEW_DIR,EDITOR
 const EDITOR_MENU_NEW_FILE='새 파일';
 const EDITOR_MENU_NEW_DIR='새 폴더';
 const EDITOR_MENU_RENAME='이름 변경';
+// FR-WBR-70: 복사·붙여넣기·복제. 붙여넣기는 복사한 것이 없으면 비활성이고 그
+// 사유를 툴팁이 말한다 (다운로드의 링크 규약과 같다).
+const EDITOR_MENU_COPY='복사';
+const EDITOR_MENU_PASTE='붙여넣기';
+const EDITOR_MENU_DUPLICATE='복제';
+const EDITOR_PASTE_NONE='복사한 것이 없습니다';
 // FR-FTR-13·18 / FR-ETR-16·23: 탐색기의 전송. 다운로드는 폴더에서도 활성이며
 // 그때는 zip 으로 온다 (D-4). 링크는 여전히 비활성이다 — 링크 자신을 내려받는다는
 // 뜻이 정해져 있지 않다.

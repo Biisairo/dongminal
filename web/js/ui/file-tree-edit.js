@@ -210,6 +210,45 @@ Object.assign(FileTree.prototype, {
     await this._after([d]);
   },
 
+  /**
+   * FR-WBR-70: 복사·붙여넣기·복제. 종단은 **하나**다 (`/api/fs/copy`) — 복제는
+   * "원본의 형제 자리에 붙여넣기" 이기 때문이다.
+   *
+   * 낙관적 반영이 **없다.** 최종 이름을 서버가 정하므로(FR-WBR-62·63) 무엇이
+   * 생길지 클라이언트가 미리 알 수 없다 — 만들기·이동과 다른 자리다. 대신
+   * 응답의 `path` 를 받아 그 자리를 고른다.
+   *
+   * 루트가 갈려도 된다 (FR-WBR-61) — 복사한 트리의 루트와 붙여넣는 트리의 루트를
+   * 둘 다 보낸다. 둘 다 Editor 목록에 있는지는 서버가 본다.
+   */
+  async doPasteInto(dir){
+    const c=this.app._edClipGet();
+    if(!c||!dir) return;
+    // FR-WBR-1: 지난 실패의 사유는 다음 조작이 시작될 때 사라진다.
+    this._clearErr();
+    const r=await this.app._edFs(FS_COPY_API,
+      {srcRoot:c.root,src:c.path,dstRoot:this.root,dstDir:dir});
+    // FR-WBR-73: 원본이 사라졌으면 그 자리에 사유가 붙는다 (FR-EDT-92 의 규약).
+    if(!r.ok){this._fail(dir===this.root?'':dir,r.msg);return}
+    // FR-FTR-20b 와 같은 이유로 도착 폴더를 펼친다 — 접힌 폴더에 만들면 만든
+    // 것이 화면에서 사라지고 사용자는 실패로 읽는다.
+    if(dir!==this.root&&!this._open.has(dir)) this._open.add(dir);
+    const made=(r.data&&r.data.path)||'';
+    if(made) this._sel=made;
+    // FR-WBR-74: 영향받은 것은 **대상 폴더 하나**다 (FR-EDT-88).
+    await this._after([dir]);
+  },
+
+  // 복제는 원본의 형제 자리에 붙여넣는 것이다 — 클립보드를 거치지 않는다.
+  async doDuplicate(p){
+    if(!p||p===this.root) return;
+    const keep=this.app._edClipGet();
+    this.app._edClipSet(this.root,p);
+    await this.doPasteInto(this._parent(p));
+    // 복제가 사용자의 클립보드를 덮지 않는다 — 그것은 다른 조작이다.
+    this.app._edClipSet(keep&&keep.root,keep&&keep.path);
+  },
+
   // ── 전송 (FILE_TRANSFER_SRS FR-FTR-13·14·19 · EXPLORER_TRANSFER_IGNORE_SRS
   //    묶음 B·C·D) ──
 

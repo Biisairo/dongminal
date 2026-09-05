@@ -243,13 +243,17 @@ Object.assign(GitPanel.prototype, {
         '<div class="git-group-rows"></div>';
       d.querySelector('.git-group-name').textContent=g.name;
       d.querySelector('.git-group-head').addEventListener('click',()=>this._toggleGroup(g.key));
-      // 그룹별 일괄 (FR-GIT-66·67·68). 그룹이 이미 tracked / untracked 를
-      // 가르므로 그룹별 일괄이 곧 그 구분이다.
-      const act=GIT_GROUP_BULK[g.key];
-      if(act){
+      // 그룹별 일괄 (FR-GIT-66·67·68 / FR-WBR-50·51·52). 그룹이 이미 tracked /
+      // untracked 를 가르므로 그룹별 일괄이 곧 그 구분이다. 그리는 순서가 곧
+      // 손에서의 거리이므로 `GIT_GROUP_BULK` 의 배열 순서를 그대로 따른다 —
+      // 여기서 정렬하면 순서의 뜻이 두 자리에 살게 된다.
+      for(const act of GIT_GROUP_BULK[g.key]||[]){
         const b=document.createElement('button');
         b.className='git-group-bulk'; b.dataset.act=act;
-        b.textContent=GIT_BULK_LABEL[act];
+        // FR-WBR-52: 행 동작과 **같은 어휘**의 아이콘이다. FR-WBR-52a: 뜻이
+        // 갈리는 자리는 툴팁이다 — untracked 의 폐기는 삭제이고 되살릴 수 없다.
+        b.textContent=GIT_ACT_LABEL[act];
+        b.title=(GIT_BULK_TITLE_GROUP[g.key]||{})[act]||GIT_BULK_TITLE[act];
         // 헤더 클릭은 접기다 — 일괄 버튼이 그것을 함께 일으키지 않는다.
         b.addEventListener('click',ev=>{ev.stopPropagation();this._bulk(g.key,act)});
         d.querySelector('.git-group-head').appendChild(b);
@@ -375,9 +379,9 @@ Object.assign(GitPanel.prototype, {
   _paintGroup(el,g,entries){
     const box=el.querySelector('.git-group[data-group="'+g.key+'"]'); if(!box) return;
     box.querySelector('.git-group-count').textContent='('+entries.length+')';
-    // 빈 그룹에 일괄 동작은 뜻이 없다.
-    const bulk=box.querySelector('.git-group-bulk');
-    if(bulk) bulk.disabled=!entries.length;
+    // 빈 그룹에 일괄 동작은 뜻이 없다 — **버튼마다** 건다 (FR-WBR-53). 하나만
+    // 찾으면 둘째가 빈 그룹에서도 눌린다.
+    for(const b of box.querySelectorAll('.git-group-bulk')) b.disabled=!entries.length;
     const collapsed=this._collapsed.has(g.key)||!entries.length;
     box.classList.toggle('collapsed',collapsed);
     box.querySelector('.git-group-caret').textContent=collapsed?'▸':'▾';
@@ -477,9 +481,23 @@ Object.assign(GitPanel.prototype, {
     d.className='git-dir'+(it.collapsed?' collapsed':'');
     d.dataset.dir=it.path;
     this._indent(d,it.depth);
-    d.innerHTML='<span class="git-dir-caret"></span><span class="git-dir-name"></span>';
+    d.innerHTML='<span class="git-dir-caret"></span><span class="git-dir-name"></span>'+
+      '<span class="git-file-acts"></span>';
     d.querySelector('.git-dir-caret').textContent=it.collapsed?'▸':'▾';
     d.querySelector('.git-dir-name').textContent=it.label;
+    // FR-WBR-80: 폴더 행이 **그 그룹의** 동작을 갖는다. 파일 행과 같은 클래스를
+    // 쓰는 것은 같은 어휘의 아이콘이 자리마다 다르게 보이면 같은 것으로 읽히지
+    // 않기 때문이다 — 규약과 치수가 한 자리(`.git-file-act`)에 남는다.
+    const acts=d.querySelector('.git-file-acts');
+    for(const act of GIT_DIR_ACTS[it.group]||[]){
+      const b=document.createElement('button');
+      b.className='git-file-act'; b.dataset.act=act;
+      b.textContent=GIT_ACT_LABEL[act];
+      b.title=GIT_DIR_ACT_TITLE[act]||GIT_ACT_TITLE[act];
+      // 행 클릭은 접기다 — 동작 버튼이 그것을 함께 일으키지 않는다.
+      b.addEventListener('click',ev=>{ev.stopPropagation();this._dirBulk(it.group,it.path,act)});
+      acts.appendChild(b);
+    }
     d.addEventListener('click',()=>{
       if(this._dirCollapsed.has(key)) this._dirCollapsed.delete(key);
       else this._dirCollapsed.add(key);

@@ -706,6 +706,22 @@ Object.assign(App.prototype, {
   // ── 파일 조작의 뒷단 (FR-EDT-79~93) ──
 
   /**
+   * FR-WBR-71: "무엇을 복사했는가" 는 **앱이 든다.**
+   *
+   * dongminal 의 창은 브라우저 창이 아니라 화면 안의 레코드이므로, 여기 두면
+   * 모든 창·분할 칸·탐색기가 한 자리를 공유한다 — 왼쪽 탐색기에서 복사해
+   * 오른쪽에 붙여넣는 것이 곧 이 선택이다.
+   *
+   * **새로고침이면 비운다.** `localStorage` 나 워크스페이스에 두지 않는 이유는
+   * 무기한 사는 상태가 "언젠가 복사한 것" 을 메뉴에 남기기 때문이다 (D-WBR-16).
+   *
+   * OS 클립보드는 **쓸 수 없다** (FR-WBR-72) — 웹은 파일을 클립보드에 올릴 수
+   * 없고 `navigator.clipboard` 는 secure context 밖에서 아예 없다.
+   */
+  _edClipSet(root,path){this._edClip=(root&&path)?{root,path}:null},
+  _edClipGet(){return this._edClip||null},
+
+  /**
    * 조작 종단 셋의 단일 호출 자리. 실패는 **코드와 사람의 말**로 돌려준다
    * (FR-EDT-92·117).
    *
@@ -720,7 +736,9 @@ Object.assign(App.prototype, {
     }catch{r=null}
     if(!r) return {ok:false,code:'',msg:EDITOR_FS_ERR_UNKNOWN};
     try{d=await r.json()}catch{d=null}
-    if(r.ok&&d&&d.ok) return {ok:true,code:'',msg:''};
+    // 성공 응답의 본문을 함께 넘긴다 — 복사는 **서버가 정한 이름**을 응답으로만
+    // 알 수 있다 (FR-WBR-62). 다른 호출자는 `data` 를 보지 않는다.
+    if(r.ok&&d&&d.ok) return {ok:true,code:'',msg:'',data:d};
     const code=(d&&d.code)||'';
     return {ok:false,code,msg:EDITOR_FS_ERR_MSG[code]||(d&&d.message)||EDITOR_FS_ERR_UNKNOWN};
   },

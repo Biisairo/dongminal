@@ -429,23 +429,38 @@ body.mobile .git-head-refresh{margin-right:2px;min-width:30px}
 /* FR-GIT-220: 머리글 높이가 일괄 버튼의 유무로 달라지면 안 된다. 일괄이 없는
    Conflicts 만 20px 이었다 — 버튼(26px)이 밀어 올리던 높이를 머리글이 직접 갖는다.
    새 숫자를 발명하지 않는다: 버튼 높이 + 위아래 패딩이 곧 그 값이다. */
+/* FR-RTU-101 / NFR-RTU-6 (NFR-WBR-10): 머리에 버튼이 둘이 되면서 좁은 폭에서
+   그룹 이름이 눌린다. 감추지 않고 **줄을 늘린다** — 접기는 머리 아무 데나 누르는
+   것이므로, 이름이 0 으로 눌리면 접으려는 클릭이 갈 자리가 사라진다. */
 .git-group-head{
-  display:flex;align-items:center;gap:5px;padding:3px 8px;cursor:pointer;
-  min-height:calc(var(--git-btn-h) + 6px);
+  display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:3px 8px;cursor:pointer;
+  min-height:calc(var(--git-btn-h) + 6px);min-width:0;
   font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);
 }
 .git-group-head:hover{background:var(--accent-hover)}
 .git-group-caret{width:9px;flex-shrink:0}
-.git-group-name{color:var(--text)}
+/* 기준 폭을 60px 로 **명시**한다 — `auto` 로 두면 wrap 이 그룹 이름의 글자 수로
+   줄을 갈라 `CHANGES` 와 `UNTRACKED` 가 다른 폭에서 접힌다 (`.git-job-argv` 와
+   같은 이유). */
+.git-group-name{color:var(--text);flex:1 1 60px;min-width:60px;overflow:hidden;text-overflow:ellipsis}
+.git-group-count{flex-shrink:0}
 .git-group-spacer{flex:1 1 auto}
 /* FR-GIT-66·67·68: 그룹별 일괄. 그룹이 tracked / untracked 를 이미 가른다 */
-/* FR-GIT-196·198·226: 라벨을 가진 버튼의 높이 하한. 값은 토큰에 있다 */
+/* FR-WBR-52·52b (D-WBR-18): **아이콘 버튼**이다 — 글자 라벨 둘은 기본 폭 220px 에
+   들어가지 않았다(실측). 모양과 히트 영역을 `.git-file-act` 와 같이 둔다: 같은
+   어휘의 아이콘이 자리마다 다르게 보이면 같은 것으로 읽히지 않는다.
+   FR-GIT-195·226: 아이콘 버튼의 하한도 30px 이다 (`--git-hit`). */
 .git-group-bulk{
-  font:inherit;font-size:11px;padding:0 8px;cursor:pointer;flex-shrink:0;
-  min-height:var(--git-btn-h);text-transform:none;letter-spacing:normal;
-  background:var(--bg);color:var(--text);
+  font:inherit;font-size:12px;line-height:1;cursor:pointer;flex-shrink:0;
+  min-width:var(--git-hit);min-height:var(--git-hit);padding:0 5px;
+  display:flex;align-items:center;justify-content:center;
+  text-transform:none;letter-spacing:normal;
+  background:transparent;color:var(--text-muted);
   border:1px solid var(--border);border-radius:3px;
 }
+.git-group-bulk:hover:not(:disabled){color:var(--text-bright);border-color:var(--accent)}
+/* 파괴적인 것은 손에서 멀 뿐 아니라 색으로도 갈린다 — 행의 `↺` 와 같은 규약이다. */
+.git-group-bulk[data-act="discard"]:hover:not(:disabled){color:var(--danger);border-color:var(--danger)}
 .git-group-bulk:disabled{color:var(--text-dim);cursor:not-allowed}
 /* FR-GIT-197: 행 자체가 클릭 대상이다 (FR-GIT-187) — 히트 영역이 곧 행 높이이므로
    VSCode 의 목록 행(22px)을 하한으로 둔다. 좌측 여백은 포커스 바가 쓴다.
@@ -560,7 +575,10 @@ body.mobile .git-head-refresh{margin-right:2px;min-width:30px}
 .git-file.conflict .git-file-path-dir,.git-file.conflict .git-file-path-name,
 .git-file.conflict .git-file-path-arrow{color:var(--danger)}
 .git-dir-caret{width:9px;flex-shrink:0;color:var(--text-muted)}
-.git-dir-name{color:var(--text-muted)}
+/* FR-WBR-80 / NFR-WBR-11: 폴더 행도 동작을 가지므로 이름의 60px 하한이 그대로
+   온다 (NFR-RTU-6). `.git-dir` 은 `.git-file` 과 같은 규칙에서 이미 `flex-wrap`
+   을 받으므로, 좁아지면 버튼이 다음 줄로 간다 — 감추지 않는다. */
+.git-dir-name{color:var(--text-muted);flex:1 1 60px;min-width:60px;overflow:hidden;text-overflow:ellipsis}
 /* FR-GIT-42: 다음 덩어리를 이어 그릴 지점 */
 .git-file-more{padding:3px 8px;font-size:11px;color:var(--text-dim)}
 
