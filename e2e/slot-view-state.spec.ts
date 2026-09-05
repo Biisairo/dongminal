@@ -1063,6 +1063,70 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
     expect(fs.readFileSync(FILE, 'utf8')).toBe('saved by slot 0\n');
   });
 
+  // WORKBENCH_REVIEW_SRS 묶음 R — FR-WBR-90·91·92 (검증 V-WBR-90·91).
+  //
+  // `saving`·`dirty` 는 **문서의 것**인데 `save()` 가 그것을 뷰의 참조(`this._doc`)로
+  // 만졌다. 저장이 날아가 있는 동안 그 뷰가 파괴되면 `destroy()` 가 `_doc` 을 끊어
+  // `finally` 가 `saving` 을 못 내리고, 다른 칸이 문서를 붙들고 있으면 그 기록이
+  // 살아남아 **그 파일의 모든 저장이 조용히 건너뛰어진다.**
+  test('TC-SVS-53 (V-WBR-90·91): 저장 중에 그 칸이 사라져도 다른 칸의 저장이 계속 듣는다',
+    async ({ page, request }) => {
+      const keys = await sameFileInTwoSlots(page, request);
+
+      // 쓰기를 붙잡아 둔다 — 파괴가 **저장이 날아가 있는 동안** 와야 한다.
+      // 라우팅이 아니라 페이지 안에서 잡는다: 붙잡힌 요청을 두고 라우팅을 걷으면
+      // 그 핸들러가 매달린 채 남아 컨텍스트가 먼저 닫힌다 (실측).
+      await page.evaluate(() => {
+        const w = window as any;
+        const orig = w.fetch.bind(w);
+        w.__seen = 0;
+        w.__held = new Promise((res) => { w.__release = res });
+        w.__restore = () => { w.fetch = orig };
+        w.fetch = async (u: any, o: any) => {
+          if (String(u).includes('/api/file/write')) { w.__seen++; await w.__held }
+          return orig(u, o);
+        };
+      });
+
+      await page.evaluate((k) => {
+        const e = (window as any).app.fileEditors.get(k)._editor;
+        e.getModel().setValue('written while dying\n');
+      }, keys[1]);
+      // 저장을 **기다리지 않는다** — 날아가 있는 상태를 만들어야 한다.
+      await page.evaluate((k) => { (window as any).app.fileEditors.get(k).save() }, keys[1]);
+      await expect.poll(() => page.evaluate(() => (window as any).__seen), { timeout: 10000 }).toBe(1);
+      await expect.poll(() => page.evaluate(
+        () => [...(window as any).app._edDocs.values()][0].saving)).toBe(true);
+
+      // 그 칸을 없앤다 → 그 뷰의 `destroy()` 가 저장 도중에 온다.
+      await page.evaluate(() => {
+        (window as any).app.slotFocusTo(1);
+        (window as any).app.slotRemove();
+      });
+      await renderNow(page);
+      await page.waitForFunction(
+        () => [...(window as any).app._edDocs.values()][0].views.size === 1,
+        undefined, { timeout: 15000 });
+
+      await page.evaluate(() => { const w = window as any; w.__release(); w.__restore() });
+
+      // FR-WBR-90: 기록이 남지 않는다. FR-WBR-91: 쓰기가 성공했으므로 dirty 도 없다.
+      await expect.poll(() => page.evaluate(() => {
+        const d = [...(window as any).app._edDocs.values()][0];
+        return { saving: d.saving, dirty: d.dirty };
+      }), { timeout: 10000 }).toEqual({ saving: false, dirty: false });
+      expect(fs.readFileSync(FILE, 'utf8')).toBe('written while dying\n');
+
+      // 그리고 남은 칸의 저장이 **실제로 듣는다** — 이것이 사용자가 겪던 증상이다.
+      await page.evaluate((k) => {
+        const e = (window as any).app.fileEditors.get(k)._editor;
+        e.getModel().setValue('after the fix\n');
+      }, keys[0]);
+      await page.evaluate((k) => (window as any).app.fileEditors.get(k).save(), keys[0]);
+      await expect.poll(() => fs.readFileSync(FILE, 'utf8'), { timeout: 10000 })
+        .toBe('after the fix\n');
+    });
+
   test('TC-SVS-52: 문서는 마지막 칸이 떠날 때 거둬진다 (FR-SVS-55)', async ({ page, request }) => {
     const keys = await sameFileInTwoSlots(page, request);
     expect(await page.evaluate(() => (window as any).app._edDocs.size)).toBe(1);

@@ -1,4 +1,8 @@
-import { Page } from '@playwright/test';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+
+import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
 
@@ -182,4 +186,51 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
     await expect(btn(page)).not.toHaveClass(/busy/, { timeout: 20000 });
     await expect(btn(page)).toBeEnabled();
   });
+
+  // WORKBENCH_REVIEW_SRS FR-WBR-95 (검증 V-WBR-92).
+  //
+  // 이 단계는 **죽어 있었다** — `w.editor.refresh()` 를 불렀는데 `w.editor` 는 창
+  // 레코드의 `{root, side, explorerWidth}` 라 `refresh` 가 없고, `typeof` 가드가
+  // 그것을 조용히 삼켰다. 살아 있는 트리 뷰는 `_edTrees` 에 있다.
+  test('SR8 (V-WBR-92 / FR-WBR-95): 내부 새로고침이 탐색기의 열린 겹을 다시 읽는다',
+    async ({ page, request }) => {
+      const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'dm-srl-')));
+      fs.mkdirSync(path.join(base, 'sub'));
+      fs.writeFileSync(path.join(base, 'sub', 'a.txt'), 'A\n');
+      const r = await request.post('/api/editors/add', { data: { path: base } });
+      expect(r.ok(), `editors/add 실패: ${await r.text()}`).toBeTruthy();
+
+      await enter(page);
+      await page.waitForFunction(
+        () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
+        undefined, { timeout: 15000 });
+      await page.evaluate((root) => {
+        const a = (window as any).app;
+        const win = a._edWindows().find((x: any) => x.editor && x.editor.root === root);
+        a.switchWindow(win.id);
+      }, base);
+      await page.waitForSelector('.ed-win .ed-explorer .ed-tree', { timeout: 15000 });
+      const sub = path.join(base, 'sub');
+      await page.locator(`.ed-tree .ed-row[data-path="${sub}"]`).click();
+      await expect(page.locator(`.ed-tree .ed-row[data-path="${path.join(sub, 'a.txt')}"]`))
+        .toBeVisible({ timeout: 10000 });
+
+      // 폴링을 세운다 — 3초 주기가 대신 읽어 주면 이 시험이 무엇을 재는지 알 수 없다.
+      await page.evaluate(() => {
+        const a = (window as any).app;
+        if (a._edGitInterval) { clearInterval(a._edGitInterval); a._edGitInterval = null }
+      });
+      fs.writeFileSync(path.join(sub, 'b.txt'), 'B\n');
+      // 폴링이 서 있으므로 저절로는 오지 않는다.
+      await page.waitForTimeout(1000);
+      await expect(page.locator(`.ed-tree .ed-row[data-path="${path.join(sub, 'b.txt')}"]`))
+        .toHaveCount(0);
+
+      await btn(page).click();
+      // FR-EDT-64: 펼쳐진 겹만 다시 읽고 펼침은 보존된다.
+      await expect(page.locator(`.ed-tree .ed-row[data-path="${path.join(sub, 'b.txt')}"]`))
+        .toBeVisible({ timeout: 15000 });
+
+      fs.rmSync(base, { recursive: true, force: true });
+    });
 });

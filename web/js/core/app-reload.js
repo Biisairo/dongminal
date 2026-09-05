@@ -47,9 +47,21 @@ Object.assign(App.prototype, {
         const p=this.gitPanel;
         if(p&&typeof p.refresh==='function') p.refresh();
       });
+      // WORKBENCH_REVIEW_SRS FR-WBR-95: 살아 있는 트리 뷰는 `_edTrees` 에 있다.
+      //
+      //   이전 동작: `w.editor.refresh()` — `w.editor` 는 창 레코드의
+      //             `{root, side, explorerWidth}` 라 `refresh` 가 없고,
+      //             `typeof` 가드가 그것을 **조용히 삼켰다**
+      //   새  동작: `_edTrees` 의 뷰마다 `refresh()` (FR-EDT-64 — 펼쳐진 겹만
+      //             다시 읽고 펼침을 보존한다)
+      //   이유:     내부 새로고침은 "서버 상태를 다시 받는" 기능인데 탐색기만
+      //             낡은 채 남았다
+      //
+      // 같은 루트를 보는 칸이 여럿이어도 요청은 한 벌이다 — `_busy` 가 store 로
+      // 위임하므로 둘째 호출이 그 자리에서 돌아간다 (FR-SVS-20).
       this._softStep('trees',()=>{
-        for(const w of (this._edWindows?this._edWindows():[])){
-          if(w&&w.editor&&typeof w.editor.refresh==='function') w.editor.refresh();
+        for(const t of (this._edTrees?this._edTrees.values():[])){
+          if(t&&typeof t.refresh==='function') t.refresh();
         }
       });
       // ⑤ 터미널 (FR-SRL-5, D-2): **전부** 다시 붙인다. 화면이 어긋난 것 같을 때

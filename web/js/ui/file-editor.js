@@ -492,8 +492,18 @@ class FileEditor {
     // FR-SVS-53: 저장은 **문서 하나에 대한 한 번**이다. 두 칸이 같은 파일을 볼 때
     // 양쪽에서 Ctrl+S 가 겹치면 같은 내용을 두 번 쓰게 되고, 그 사이의 편집이
     // 어느 쪽 버퍼에 담겼는지에 따라 결과가 갈린다.
-    if (this._doc && this._doc.saving) return;
-    if (this._doc) this._doc.saving = true;
+    // WORKBENCH_REVIEW_SRS FR-WBR-90~92: 플래그의 임자는 **문서**이므로 여기서
+    // 한 번 잡고 끝까지 그것으로 만진다.
+    //
+    //   이전 동작: `this._doc` 을 그때그때 거쳤다
+    //   새  동작: 저장을 시작할 때 잡은 문서로 내린다
+    //   이유:     `destroy()` 는 `this._doc = null` 로 끊는다. 저장이 날아가 있는
+    //             동안 그 뷰가 파괴되면 `finally` 의 조건이 거짓이 되어 공유
+    //             문서의 `saving` 을 못 내렸고, 다른 칸이 문서를 붙들고 있으면
+    //             그 기록이 살아남아 **그 파일의 모든 저장이 조용히 건너뛰어졌다**
+    const doc = this._doc;
+    if (doc && doc.saving) return;
+    if (doc) doc.saving = true;
     const content = this._editor.getValue();
     try {
       const r = await fetch('/api/file/write', {
@@ -502,8 +512,12 @@ class FileEditor {
         body: JSON.stringify({ path: this.filePath, content }),
       });
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      this._dirty = false;
-      this._tabLabelAll();
+      // FR-WBR-91·92: dirty 와 탭 표시도 문서를 딛는다. `set _dirty` 는 `_doc` 이
+      // 끊겨 있으면 **죽은 필드**(`__dirty`)에 쓰므로, 파괴된 뒤에는 쓰기가
+      // 성공해도 문서가 dirty 로 남았다 — 남은 칸의 탭에 저장 안 됨 표시가 남고
+      // 재조정이 그 창을 붙든다 (FR-WBR-40·41).
+      if (doc) { doc.dirty = false; for (const v of doc.views) v._updateTabLabel() }
+      else { this._dirty = false; this._tabLabelAll() }
       // 파일 저장은 즉시 신호다 (FR-GIT-18) — 작업 트리가 방금 바뀌었다.
       if (typeof app !== 'undefined' && app) app._gitSignal('write');
     } catch (e) {
@@ -512,7 +526,7 @@ class FileEditor {
       this.el.style.boxShadow = 'inset 0 0 0 2px #f44';
       setTimeout(() => { this.el.style.boxShadow = ''; }, 500);
     } finally {
-      if (this._doc) this._doc.saving = false;
+      if (doc) doc.saving = false;
     }
   }
 
