@@ -504,6 +504,7 @@ Editor 목록에 있어야 한다(FR-EDT-87·112 의 검사를 두 번 한다). 
 | V-WBR-57 | T | 확인창의 명령이 `git stash push -u -- …` 다 — **행의 `↺` 도** 같다 | 56 | `git-discard-all` D7 · **`git-staging` E8 개정** |
 | V-WBR-58 | T | 사이드 폭 **220px 과 100px** 에서 그룹 이름이 60px 이상이고 버튼 둘이 다 닿는다 | NFR-10a | `repo-tab` **N3** — 묶음 N 에 장치(`setSideWidth`·`measure`)가 이미 있다 |
 | V-WBR-59 | T | 기본 폭에서 **모든 그룹 머리의 높이가 같다** (회귀) | NFR-10 | `git-ui-revision` V97 (기존) |
+| V-WBR-59b | T | 아이콘 버튼의 히트 영역이 30px 하한을 지킨다 | 52b | `git-ui-revision` **V80** (기존 — `#area .ed-win` 의 `button` 전부를 훑는다) |
 | **묶음 P — 복사·복제** |||||
 | V-WBR-60 | G | 충돌 없는 복사는 이름을 바꾸지 않는다 | 63 | `TestFSCopyKeepsNameWhenFree` |
 | V-WBR-61 | G | 충돌하면 `a copy.txt` → `a copy 2.txt` 로 올라가고 응답이 그 경로를 준다 | 62·63 | `TestFSCopyRenamesOnConflict` |
