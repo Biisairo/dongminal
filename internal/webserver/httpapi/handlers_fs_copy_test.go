@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -255,6 +256,11 @@ func TestFSCopyOverMaxDoesNotStart(t *testing.T) {
 
 // V-WBR-68 (FR-WBR-68): 파일 모드를 보존한다. 실행 비트가 사라지면 복사한
 // 스크립트가 돌지 않는다.
+//
+// **재는 것은 "원본과 같은가" 다.** Windows 에는 실행 비트가 없어 `os.Chmod` 가
+// 읽기전용 비트만 만지고 `Perm()` 은 `0666` 을 돌려준다(CI 실측) — "0755 인가" 로
+// 재면 코드가 아니라 시험의 전제가 플랫폼을 탄다. 같은지를 재면 어느 쪽에서도
+// 요구를 그대로 재고, POSIX 의 실행 비트는 아래에서 한 번 더 못박는다.
 func TestFSCopyPreservesMode(t *testing.T) {
 	s, ws, home := fsTestServer(t)
 	seedRoot(t, ws, home)
@@ -265,12 +271,20 @@ func TestFSCopyPreservesMode(t *testing.T) {
 	if err := os.WriteFile(exe, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	src, err := os.Stat(exe)
+	if err != nil {
+		t.Fatal(err)
+	}
 	got := copyOK(t, s, home, exe, home, filepath.Join(home, "sub"))
 	st, err := os.Stat(got)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.Mode().Perm()&0o111 == 0 {
+	if st.Mode().Perm() != src.Mode().Perm() {
+		t.Fatalf("모드 = %v, want %v", st.Mode().Perm(), src.Mode().Perm())
+	}
+	// POSIX 에서는 그 값이 곧 실행 비트다 — 위의 비교가 무엇을 지키는지 못박는다.
+	if runtime.GOOS != "windows" && st.Mode().Perm()&0o111 == 0 {
 		t.Fatalf("실행 비트가 사라졌다: %v", st.Mode())
 	}
 }
