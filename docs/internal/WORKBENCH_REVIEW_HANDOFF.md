@@ -9,7 +9,18 @@
 |---|---|
 | `go build ./...` · `go test ./...` | **전부 통과** |
 | `npx playwright test` (chromium + mobile-touch) | **1117 통과 · 3 skip · 0 실패** (22.3분) |
-| CI 가 도는 것 | `go vet` · `go test -race` · `check-seams.sh` · `check-cross.sh`(5종) — **전부 로컬에서 통과 확인** |
+| CI 가 도는 것 | `go vet` · `go test -race` · `check-seams.sh` · `check-cross.sh`(5종) · **Windows 잡** |
+
+> **CI 에서 두 번 붉었고 둘 다 로컬에서 피할 수 있었다.** 적어 둔다.
+>
+> | 무엇 | 왜 |
+> |---|---|
+> | Windows 의 `TestFSCopyPreservesMode` | Windows 에는 실행 비트가 없다 — `os.Chmod` 가 읽기전용 비트만 만지고 `Perm()` 은 `0666` 이다. "0755 인가" 가 아니라 **"원본과 같은가"** 로 재야 플랫폼을 타지 않는다 |
+> | `check-seams.sh` 의 `runtime.GOOS` | 그 값은 `internal/shared/platform` 안에서만 만진다(FR-XPL-5). `platform.BuildTarget()` 은 주석이 **"분기의 근거가 아니다"** 라고 못박으므로 우회로가 아니다 |
+>
+> **게이트는 코드를 고친 *뒤에* 다시 돌려야 한다.** 두 번째 실패는 내가 게이트를
+> 돌린 다음에 `runtime.GOOS` 를 넣어서 났다. 푸시 전 순서는
+> `go vet ./...` → `check-seams.sh` → `check-cross.sh` → `go test -race` 다.
 | 커밋 | `770a37e`(3차 스펙) · `4489218`(묶음 D·P·F) · 이 커밋(묶음 R) |
 
 접수한 아홉 건 중 **여덟이 닫혔고**, 하나는 사용자가 넘기기로 했다. 남은 것은

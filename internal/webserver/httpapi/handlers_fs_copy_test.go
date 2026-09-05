@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -259,8 +258,12 @@ func TestFSCopyOverMaxDoesNotStart(t *testing.T) {
 //
 // **재는 것은 "원본과 같은가" 다.** Windows 에는 실행 비트가 없어 `os.Chmod` 가
 // 읽기전용 비트만 만지고 `Perm()` 은 `0666` 을 돌려준다(CI 실측) — "0755 인가" 로
-// 재면 코드가 아니라 시험의 전제가 플랫폼을 탄다. 같은지를 재면 어느 쪽에서도
-// 요구를 그대로 재고, POSIX 의 실행 비트는 아래에서 한 번 더 못박는다.
+// 재면 코드가 아니라 시험의 전제가 플랫폼을 탄다.
+//
+// 동등성이 요구를 그대로 잰다. POSIX 에서 0755 를 0644 로 떨어뜨리면 걸리고,
+// 실행 비트를 표현하지 못하는 플랫폼에서는 원본에도 없으므로 "보존한다" 가 참이다.
+// `runtime.GOOS` 로 갈라 한 줄 더 두지 않는 이유는 이음매 규칙이다 (FR-XPL-5,
+// `scripts/check-seams.sh`) — 그 값은 `internal/shared/platform` 안에서만 만진다.
 func TestFSCopyPreservesMode(t *testing.T) {
 	s, ws, home := fsTestServer(t)
 	seedRoot(t, ws, home)
@@ -282,9 +285,5 @@ func TestFSCopyPreservesMode(t *testing.T) {
 	}
 	if st.Mode().Perm() != src.Mode().Perm() {
 		t.Fatalf("모드 = %v, want %v", st.Mode().Perm(), src.Mode().Perm())
-	}
-	// POSIX 에서는 그 값이 곧 실행 비트다 — 위의 비교가 무엇을 지키는지 못박는다.
-	if runtime.GOOS != "windows" && st.Mode().Perm()&0o111 == 0 {
-		t.Fatalf("실행 비트가 사라졌다: %v", st.Mode())
 	}
 }
