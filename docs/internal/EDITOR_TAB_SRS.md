@@ -14,6 +14,9 @@
 > | Editor 창의 활성 복원 | id 가 아니라 **루트**로 되살린다 (`activeEditorRoot`) — 재조정이 같은 루트의 창을 새 id 로 만들 수 있다 | REPO_TAB_UNIFY_SRS D-RTU-32 |
 > | 저장하지 않은 편집의 가드 (탭 닫기에만 있었다) | **재조정이 창을 지울 때도 지킨다** — 루트가 목록에서 빠져도 dirty 편집기가 있으면 그 창을 남긴다. 묻지 않고 미룬다 (재조정은 SSE 로 아무 때나 불리는 비동기 반영이다) | WORKBENCH_REVIEW_SRS FR-WBR-40~42 / D-WBR-9 |
 > | 새 창의 첫 도구가 cwd 를 승계한다 (UX_REVISION_SRS FR-CWD-1) | **폐기.** 새 창은 홈에서 뜬다. 같은 창의 새 탭·분할은 그대로 승계한다 | WORKBENCH_REVIEW_SRS FR-WBR-20·21 / D-WBR-1·2 |
+> | FR-EDT-86 (충돌은 **거부**한다 — 덮어쓰지도 자동 개명하지도 않는다) | **복사·복제만 자동 개명한다** (`name copy` → `name copy 2`). 이름 변경·이동·생성·업로드는 그대로 거부다. **덮어쓰기 금지는 어디에도 그대로다** — 금하는 둘 중 자동 개명만 새 종단이 갖는다 | WORKBENCH_REVIEW_SRS FR-WBR-63 / D-WBR-15 |
+> | 탐색기 조작은 **루트 하나** 안에서만 일어난다 (FR-EDT-87·112) | **복사만 두 루트를 받는다** — `srcRoot`·`dstRoot` 둘 다 Editor 목록에 있는지 검사한다. `rename` 은 그대로 한 루트다 | WORKBENCH_REVIEW_SRS FR-WBR-61 / D-WBR-17 |
+> | FR-EDT-85 의 "자기 하위로는 옮길 수 없다" 를 **클라이언트만** 막는다 | 복사는 **서버가 막는다** — 막지 않으면 무한 재귀로 디스크를 채운다 | WORKBENCH_REVIEW_SRS FR-WBR-64 |
 > | 모바일의 Editor 창 | 사이드와 본문이 **순회의 자리 하나**씩이다 — 나란히 두지 않는다 | REPO_TAB_UNIFY_SRS FR-RTU-80 / D-RTU-29 |
 
 ## 1. 개요 (Introduction)

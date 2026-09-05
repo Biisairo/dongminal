@@ -330,6 +330,11 @@ merge·rebase·cherry-pick·revert 를 열면 **충돌로 멈춘 중간 상태**
   `Reset`(mixed) · `Clean`(untracked 제거).
   - Clean 은 파괴적이다 (`clean_untracked`) — 되살릴 수 없으므로 hint 는
     `git stash push -u` 다 (discard 의 선례).
+    > **정정 (WORKBENCH_REVIEW_SRS §2.7 / D-WBR-13).** "discard 의 선례" 는
+    > **사실이 아니었다.** discard 의 hint 는 `git stash push -- <경로들>` 로
+    > `-u` 가 없었고(`panel-files.js:267`), 그래서 untracked 가 섞이기만 해도
+    > 그 명령이 실패했다(실측). 코드가 이 문장이 말한 것보다 좁았던 것이며
+    > FR-WBR-56 이 discard 쪽을 `-u` 로 맞춘다 — 이 줄의 요구는 바뀌지 않는다.
 
 ### 3.7 묶음 G — 부분 스테이징
 
