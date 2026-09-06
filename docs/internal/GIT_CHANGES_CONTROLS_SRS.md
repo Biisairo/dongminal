@@ -48,6 +48,10 @@
   버튼용 `GIT_REMOTE_ICON` 을 따로 세운다.
 - **D-7** 새로고침은 진입점 줄의 **오른쪽 끝**에 선다. 그 줄의 나머지는 "뷰를 여는 것" 이고 이것은
   "지금 것을 다시 읽는 것" 이라 성질이 다르다 — 여백으로 갈라 같은 줄에 두되 섞이지 않게 한다.
+- **D-7a 정정 (구현 실측).** 진입점 줄에 넣어 보니 그쪽은 여섯 칸이 폭을 나눠 갖는 자리라 일곱
+  번째가 **다음 줄로 밀렸다.** 그래서 자리는 **사이드 탭 줄**(`.ed-side-tabs`)의 오른쪽 끝이다 —
+  탭 둘뿐이라 오른쪽이 비어 있고, "창의 최상단" 이라는 D-4 의 뜻에도 그쪽이 더 맞는다.
+  `Changes` 탭에서만 서는 조건(FR-GCC-12)은 그대로다.
 - **D-8** 클래스 이름(`.git-head-refresh`)은 **바꾸지 않는다.** 자리가 바뀌었을 뿐 같은 버튼이고,
   이름까지 바꾸면 이 변경과 무관한 스펙·문서가 함께 흔들린다.
 
@@ -93,7 +97,7 @@
 | V-3 (FR-GCC-5·7) | e2e: 세 원격 버튼의 글자가 아이콘이고 `title` 이 비어 있지 않다. |
 | V-4 (FR-GCC-6) | e2e: 작업이 도는 동안 진행 표시에는 `Fetch`/`Pull`/`Push` 가 글자로 뜬다. |
 | V-5 (FR-GCC-8) | e2e: `Tree`·`Flat` 버튼이 `data-mode` 를 유지하고 `title` 을 가진다. |
-| V-6 (FR-GCC-10·11·12) | e2e: `.git-head-refresh` 가 `.ed-side-acts` 안에 있고 `.git-head` 에는 없다. 눌러 목록이 갱신된다. |
+| V-6 (FR-GCC-10·11·12) | e2e: `.git-head-refresh` 가 `.ed-side-tabs` 안에 있고 `.git-head` 에는 없다 (D-7a). 눌러 목록이 갱신된다. |
 | V-7 (NFR-1) | `npx playwright test e2e/git-remote.spec.ts e2e/git-remote-actions.spec.ts` 통과. |
 | V-8 (FR-GCC-13) | e2e: 사이드 탭의 첫 번째가 `Changes` 다. |
 
@@ -101,4 +105,6 @@
 - MEDIUM: 서버 종단 제거는 되돌리기 비용이 있다. 클라이언트가 유일한 소비자임을 확인했다(전수 grep).
 - MEDIUM: 새로고침의 자리가 바뀌면 그 버튼을 `.git-view.git-changes` 안에서 찾던 e2e 가 전부 어긋난다 —
   스코프를 사이드로 올려야 한다(실측 대상: git-improve · git-polling · git-view-refresh · git-worktrees).
+  **전량 실행에서 드러난 것은 그 넷이 아니었다** — `git-head-mobile` 도 같은 이유로 무너졌고, 그
+  파일은 `Sync`·`Preview` 가 머리에 **서는 것**까지 단정하고 있었다 (V1·V2·V3·V5·V6·V7).
 - LOW: 아이콘 오독. `⤓`(fetch)와 `↓`(pull)은 방향이 같아 헷갈릴 수 있다 — 툴팁이 그 자리를 메운다 (D-5).

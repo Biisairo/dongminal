@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/jobs"
@@ -18,7 +17,10 @@ import (
 	"net/url"
 )
 
-// 묶음 E 서버측 — /api/git/{remotes,remote/add,remote/remove,sync,push/preview}
+// 묶음 E 서버측 — /api/git/{remotes,remote/add,remote/remove}
+//
+// `sync` 와 `push/preview` 는 GIT_CHANGES_CONTROLS_SRS FR-GCC-4 로 지워졌다 —
+// 클라이언트가 유일한 소비자였으므로 종단도 함께 걷혔다.
 // (GIT_ACTIONS_SRS §3.5 FR-GIT-269·270·271, 검증 V196·V197·V198).
 //
 // **서버가 마지막 방어선이다** — Sync 의 "앞이 실패하면 뒤를 돌리지 않는다"를
@@ -274,17 +276,4 @@ func gitActSteps(seen *[]string, mu *sync.Mutex, exit map[string]int) jobs.JobRu
 		emit("stderr", "remote: "+args[0])
 		return exit[args[0]], nil
 	}
-}
-
-func gitActWaitSync(t *testing.T, s *GitServer, id string) map[string]any {
-	t.Helper()
-	for i := 0; i < 600; i++ {
-		_, out := gitReq(t, s, http.MethodGet, "/api/git/sync?id="+id, "")
-		if out["done"] == true {
-			return out
-		}
-		time.Sleep(3 * time.Millisecond)
-	}
-	t.Fatalf("sync %s 가 끝나지 않았다", id)
-	return nil
 }
