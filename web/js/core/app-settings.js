@@ -8,7 +8,7 @@ Object.assign(App.prototype, {
   async _saveSettings(){
     // 블롭 전체를 갈아치우므로 읽어 쓰는 값은 전부 실어야 한다 — git 주기(FR-GIT-23)는
     // UI 가 없지만 여기서 빠지면 다른 설정을 건드릴 때 조용히 사라진다.
-    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave,editorWordWrap})})}catch{}
+    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave,editorWordWrap,tabFixedWidth,tabWidthPx})})}catch{}
   },
 
   /**
@@ -34,6 +34,52 @@ Object.assign(App.prototype, {
       // FR-PGT-5: 글자마다 PUT 을 보내지 않는다.
       clearTimeout(this._titleSaveTimer);
       this._titleSaveTimer=setTimeout(()=>this._saveSettings(),500);
+    });
+  },
+
+  /**
+   * TAB_WIDTH_SRS FR-TBW-1·2·10: Settings ▸ Display 의 `탭 너비 고정`과 그 폭.
+   *
+   * 값이 서버에 있는 이유는 다른 표시 설정과 같다 (FR-TBW-8) — 기기를 옮겨도
+   * 따라와야 하고, 브라우저 탭별 저장으로는 그것이 서지 않는다.
+   *
+   * 폭 입력은 `input` 마다 적용하되 저장은 미룬다 — 타이핑 한 글자마다 PUT 을
+   * 보내면 요청이 글자 수만큼 난다 (`ds-title` 과 같은 규약).
+   */
+  _initTabWidth(){
+    const cb=document.getElementById('ds-tabfix');
+    const num=document.getElementById('ds-tabw');
+    if(!cb||!num) return;
+    cb.checked=tabFixedWidth;
+    num.value=String(tabWidthPx);
+    applyTabWidth();
+    cb.addEventListener('change',()=>{
+      tabFixedWidth=cb.checked;
+      applyTabWidth();
+      this._saveSettings();
+    });
+    num.addEventListener('input',()=>{
+      // FR-TBW-4: 자르는 것은 적용하는 값뿐이다 — 입력란의 글자를 그때그때
+      // 고쳐 쓰면 타이핑이 튄다 (`160` 을 지우고 `9` 를 치는 순간 `40` 이 된다).
+      tabWidthPx=clampTabWidth(num.value);
+      applyTabWidth();
+      clearTimeout(this._tabwSaveTimer);
+      this._tabwSaveTimer=setTimeout(()=>this._saveSettings(),500);
+    });
+    /**
+     * 포커스를 놓을 때 두 가지를 한다.
+     *
+     * ① 입력란을 실제로 쓰이는 값과 맞춘다 — 잘린 사실이 보여야 사용자가 왜 그
+     *    폭인지 안다 (FR-TBW-4).
+     * ② **곧바로 저장한다.** 디바운스는 타이핑 중 요청이 글자 수만큼 나는 것을
+     *    막는 장치이지 확정을 미루는 장치가 아니다 — 값을 바꾸고 바로 새로고침하면
+     *    500ms 가 지나지 않아 **입력이 통째로 날아갔다** (실측, W7). 포커스를
+     *    놓는 순간이 곧 확정이므로 그때 미룰 이유가 없다.
+     */
+    num.addEventListener('blur',()=>{
+      num.value=String(tabWidthPx);
+      clearTimeout(this._tabwSaveTimer);
+      this._saveSettings();
     });
   },
 
@@ -191,6 +237,7 @@ Object.assign(App.prototype, {
       });
     });
     this._initPageTitle();
+    this._initTabWidth();
     this._initFgNames();
     this._initBlockKeys();
     this._initConfirmLeave();
@@ -372,12 +419,14 @@ Object.assign(App.prototype, {
         const label=document.createElement('span');label.textContent=SHORTCUT_LABELS[k];
         const btn=document.createElement('button');btn.className='sc-key';btn.dataset.action=k;
         btn.textContent=displayKey(shortcuts[k]||'');
+        // FR-TIP-1: 키 조합이 라벨이므로 **누르면 무슨 일이 나는지**는 라벨에 없다.
+        btn.title=SHORTCUT_REBIND_TITLE;
         // Click → record mode
         btn.addEventListener('click',()=>{
           this._cancelRecording();
           this._recording=k;btn.textContent='키를 누르세요...';btn.classList.add('recording');
         });
-        const rst=document.createElement('button');rst.className='sc-rst';rst.textContent='↺';rst.title='초기화';
+        const rst=document.createElement('button');rst.className='sc-rst';rst.textContent='↺';rst.title=SHORTCUT_RESET_TITLE;
         rst.addEventListener('click',()=>{shortcuts[k]=SHORTCUT_DEFAULTS[k];this._saveSettings();btn.textContent=displayKey(shortcuts[k])});
         row.appendChild(label);
         const btns=document.createElement('div');btns.className='sc-btns';
@@ -425,6 +474,20 @@ Object.assign(App.prototype, {
       const ww=document.getElementById('ds-wordwrap');
       if(ww) ww.checked=editorWordWrap;
       if(window.app&&app._edApplyWordWrap) app._edApplyWordWrap();
+    }
+    // FR-TBW-8: 저장된 적 없으면 기본값(끔·160). 다른 값들과 같이 각자 판단한다.
+    //
+    // 이 로더는 **비동기**라 탭이 이미 그려져 있을 수 있다 — 그래서 값만 바꾸지
+    // 않고 곧바로 얹는다 (`editorWordWrap` 이 `_edApplyWordWrap` 을 부르는 것과
+    // 같은 이유). 얹는 일은 클래스와 변수 하나뿐이라 다시 그리지 않는다.
+    if(saved.tabFixedWidth!==undefined||saved.tabWidthPx!==undefined){
+      if(saved.tabFixedWidth!==undefined) tabFixedWidth=!!saved.tabFixedWidth;
+      if(saved.tabWidthPx!==undefined) tabWidthPx=clampTabWidth(saved.tabWidthPx);
+      const tf=document.getElementById('ds-tabfix');
+      if(tf) tf.checked=tabFixedWidth;
+      const tw=document.getElementById('ds-tabw');
+      if(tw) tw.value=String(tabWidthPx);
+      applyTabWidth();
     }
     if(saved.fgTabNames===undefined) return;
     fgTabNames=!!saved.fgTabNames;

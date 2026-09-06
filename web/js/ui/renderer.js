@@ -433,6 +433,7 @@ class Renderer {
       const b=document.createElement('button');
       b.className='ed-side-tab'+(d.id===active?' active':'');
       b.dataset.side=d.id; b.textContent=d.label;
+      if(d.title) b.title=d.title;
       b.addEventListener('click',()=>app._edSetSide(s,d.id));
       bar.appendChild(b);
     }
@@ -587,7 +588,17 @@ class Renderer {
       if(tab.toolId) t.dataset.toolid=tab.toolId;
       if(isGit) t.dataset.gitView=tab.gitView;
       t.innerHTML='<span class="pn-tab-label"></span><span class="pn-tab-x">×</span>';
-      t.querySelector('.pn-tab-label').textContent=this._tabDisplayName(tab);
+      const tlab=t.querySelector('.pn-tab-label');
+      tlab.textContent=this._tabDisplayName(tab);
+      /**
+       * TAB_WIDTH_SRS FR-TBW-6 / D-5: **언제나** 붙인다 — 고정 폭에서만 붙이면
+       * 그 시점이 설정 변경 경로에 생기고, 그 경로를 타지 않는(이미 그려진) 탭이
+       * 빠진다. 잘리지 않는 폭에서는 보이지 않을 뿐이므로 해가 없다.
+       *
+       * 말줄임만 있고 전체 이름을 볼 길이 없으면 고정 폭은 이름을 **지우는**
+       * 기능이 된다.
+       */
+      t.title=this._tabDisplayName(tab);
       // REPO_TAB_UNIFY_SRS FR-RTU-41: 미리보기 탭은 기울임이다 — "이 자리는 곧
       // 대체된다" 를 눈으로 알리는 유일한 표시다.
       if(tab.preview){ t.classList.add(REPO_PREVIEW_CLASS); t.title=REPO_PREVIEW_TITLE }
@@ -628,6 +639,7 @@ class Renderer {
     const noAdd=this.app._isGitWin(aw)||this.app._isEditorWin(aw);
     if(!noAdd){
       const add=document.createElement('button'); add.className='pn-tab-add'; add.textContent='+';
+      add.title=TAB_ADD_TITLE;
       add.addEventListener('click',e=>{e.stopPropagation();this.app.addTab(n.id)});
       tabs.appendChild(add);
     }

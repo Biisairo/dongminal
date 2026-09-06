@@ -244,6 +244,36 @@ var pageTitle='';
 // **기본값이 거짓인 것이 규칙이다** (D-1). 접수한 요구가 "묻지 않기" 이므로,
 // 켬을 기본으로 두면 요구는 이뤄지지 않은 채 설정 항목만 하나 늘어난다.
 var confirmLeave=false;
+/**
+ * TAB_WIDTH_SRS FR-TBW-1·2: 탭 너비 고정과 그 폭.
+ *
+ * 기본은 **끔**이며 그때의 동작은 종전과 완전히 같다 (FR-TBW-9) — 이 기능은 켠
+ * 사람에게만 보인다. 폭의 기본 160 은 VSCode 의 `tabSizingFixedMaxWidth` 기본과
+ * 같은 값이다.
+ */
+var tabFixedWidth=false;
+var tabWidthPx=TAB_WIDTH_DEFAULT;
+
+/**
+ * 폭을 **CSS 변수 하나**로 전달한다 (NFR-TBW-1) — 탭마다 인라인 스타일을 쓰면
+ * 탭 수만큼 재계산이 늘고 규칙이 CSS 와 JS 두 곳에 갈린다.
+ *
+ * 켜고 끄는 것도 클래스 토글 하나다 (NFR-TBW-2) — 렌더러가 탭을 다시 만들지
+ * 않으므로 스크롤 위치와 드래그 상태가 그대로 남는다.
+ */
+function applyTabWidth(){
+  const px=clampTabWidth(tabWidthPx);
+  document.documentElement.style.setProperty('--tab-w',px+'px');
+  document.body.classList.toggle('tabfix',!!tabFixedWidth);
+}
+
+// FR-TBW-4: 범위 밖은 **자른다** — 거부하지 않는다. 숫자 입력은 타이핑 도중에
+// 잠깐 범위 밖이 되며, 그때마다 오류를 내면 입력 자체가 불가능해진다.
+function clampTabWidth(v){
+  const n=Math.round(Number(v));
+  if(!isFinite(n)) return TAB_WIDTH_DEFAULT;
+  return Math.min(TAB_WIDTH_MAX,Math.max(TAB_WIDTH_MIN,n));
+}
 // EDITOR_LSP_SRS FR-LSP-3·4b: 언어 서버의 절대경로를 사용자가 직접 적은 표
 // (서술자 id → 경로). **기기별이다** — 서버 실행 파일의 자리는 그 기계의 사실이고,
 // 서버 설정에 두면 다른 기계의 경로가 따라와 없는 파일을 가리킨다.
