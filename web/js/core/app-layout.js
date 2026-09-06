@@ -799,18 +799,8 @@ Object.assign(App.prototype, {
       if(on) localStorage.setItem(SIDEBAR_COLLAPSED_KEY,'1');
       else localStorage.removeItem(SIDEBAR_COLLAPSED_KEY);
     }catch{}
-    this._syncSidebarToggle();
     for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
   },
 
   _toggleSidebar(){this._setSidebarCollapsed(!this._sidebarCollapsed())},
-
-  // FR-SBC-9·10: 버튼이 상태를 말한다. 툴팁과 `aria-expanded` 는 같은 사실의 두
-  // 표현이므로 한 자리에서 함께 고친다.
-  _syncSidebarToggle(){
-    const b=document.getElementById('sidebar-toggle'); if(!b) return;
-    const on=this._sidebarCollapsed();
-    b.title=on?SIDEBAR_TOGGLE_TITLE_EXPAND:SIDEBAR_TOGGLE_TITLE_COLLAPSE;
-    b.setAttribute('aria-expanded',on?'false':'true');
-  },
 });

@@ -318,6 +318,8 @@ class App {
       // 한쪽만 고쳐진다.
       bgToggle:()=>this._bgModalToggle(),
       runsToggle:()=>this._runsModalToggle(),
+      // FR-SBC-7a: 손잡이 드래그와 같은 함수다 (input-binding).
+      sidebarToggle:()=>this._toggleSidebar(),
       // FR-SRL-9: 다른 앱 단축키와 **같은 길**을 탄다 — 설정에서 바꿀 수 있고,
       // 터미널보다 앞서는 우선순위도 그 체계가 준다 (shortcuts.md).
       softReload:()=>this.softReload(),

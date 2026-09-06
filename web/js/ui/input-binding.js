@@ -42,18 +42,42 @@ class InputBinding {
     });
     // SIDEBAR_COLLAPSE_SRS FR-SBC-7·9: 접기 토글. 리사이즈 핸들 바로 옆에 배선을
     // 두는 것은 둘이 같은 것(사이드바의 폭)을 건드리기 때문이다.
-    const sbt=document.getElementById('sidebar-toggle');
-    if(sbt){
-      sbt.addEventListener('click',()=>this.app._toggleSidebar());
-      // 첫 프레임의 클래스는 인라인 스크립트가 이미 붙였다 (FR-SBC-5). 버튼의
-      // 툴팁·aria 는 그 사실을 아직 모르므로 여기서 한 번 맞춘다.
-      this.app._syncSidebarToggle();
-    }
     const sb=sbEl,sbh=document.getElementById('sb-handle');
-    sbh.addEventListener('mousedown',e=>{e.preventDefault();
-      const sx=e.clientX,sw=sb.offsetWidth;
-      const mv=e=>{const w=sw+(e.clientX-sx);if(w>=100&&w<=400){document.documentElement.style.setProperty('--sb-w',w+'px');this.app.ws.sidebarWidth=w}};
-      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();try{localStorage.setItem('sidebarWidth',this.app.ws.sidebarWidth)}catch{}this.app._save()};
+    /**
+     * SIDEBAR_COLLAPSE_SRS FR-SBC-7 (2026-09-06 개정): **손잡이 하나가 접고 편다.**
+     *
+     *   이전 동작: 탑바의 `☰` 버튼이 접고 폈고, 손잡이는 폭만 바꿨다
+     *   새  동작: 버튼이 없다. 폭을 줄이다 `SIDEBAR_COLLAPSE_AT_PX` 아래로 끌면
+     *             접히고, 접힌 경계를 오른쪽으로 끌면 펼쳐진다
+     *   이유:     접는 것과 좁히는 것은 같은 손짓의 끝과 끝이다 (사용자 지시).
+     *             손이 이미 그 자리에 있으므로 화면에 버튼을 세울 이유가 없다.
+     *
+     * 키로도 같은 일을 한다 (`sidebarToggle`) — 손잡이는 마우스의 길이고, 그것이
+     * 유일한 길이면 키보드만 쓰는 사람에게는 길이 없다.
+     */
+    sbh.addEventListener('mousedown',e=>{
+      e.preventDefault();
+      // 접힘에서 시작하면 기준은 레일의 폭이다 — 그 자리에서 오른쪽으로 끌면
+      // 임계를 넘어 펼쳐진다.
+      const sx=e.clientX, sw=sb.offsetWidth;
+      const mv=e=>{
+        const raw=sw+(e.clientX-sx);
+        const collapse=raw<SIDEBAR_COLLAPSE_AT_PX;
+        // 접힘 자체는 `_setSidebarCollapsed` 한 자리에서 정한다 — 클래스·저장·
+        // 터미널 재적합이 거기 묶여 있고, 두 벌로 두면 한쪽만 고쳐진다.
+        if(collapse!==this.app._sidebarCollapsed()) this.app._setSidebarCollapsed(collapse);
+        // 펼친 동안에만 폭을 따라간다. 접힌 폭(레일)은 고정이다 (FR-SBC-2·16).
+        if(!collapse&&raw>=100&&raw<=400){
+          document.documentElement.style.setProperty('--sb-w',raw+'px');
+          this.app.ws.sidebarWidth=raw;
+        }
+      };
+      const up=()=>{
+        document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);
+        for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
+        try{localStorage.setItem('sidebarWidth',this.app.ws.sidebarWidth)}catch{}
+        this.app._save();
+      };
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
     });
     this.app._recording=null;

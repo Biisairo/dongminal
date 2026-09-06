@@ -150,6 +150,10 @@ const SHORTCUT_DEFAULTS={
   // 인 이유는 `R` 을 쓸 수 없기 때문이다 — 아래 D-6 과 같은 근거다.
   bgToggle:'Ctrl+Shift+KeyB',
   runsToggle:'Ctrl+Shift+KeyO',
+  // SIDEBAR_COLLAPSE_SRS FR-SBC-7a: 사이드바 접기/펼치기. 손잡이 드래그와 **같은
+  // 함수**를 부른다 — 마우스가 유일한 길이면 키보드만 쓰는 사람에게는 길이 없다.
+  // `E`(Explorer)는 이 목록에서 비어 있던 자리다.
+  sidebarToggle:'Ctrl+Shift+KeyE',
   // SOFT_RELOAD_SRS FR-SRL-9: `R` 계열은 브라우저가 가져가므로 쓸 수 없다 (D-6).
   softReload:'Ctrl+Shift+KeyK',
   // EDITOR_GIT_UX_SRS FR-EKB-5: Editor 창의 검색 셋. 종전에는 키가 코드에 박혀
@@ -178,6 +182,7 @@ const SHORTCUT_LABELS={
   slotAdd:'창 슬롯 더하기',
   slotRemove:'창 슬롯 빼기',
   bgToggle:'백그라운드 도구',
+  sidebarToggle:'사이드바 접기/펼치기',
   runsToggle:'Run 오케스트레이션',
   softReload:'내부 새로고침',
   edGotoDef:'정의로 이동 (Editor)',

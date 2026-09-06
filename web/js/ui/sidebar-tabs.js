@@ -363,10 +363,19 @@ const SidebarTabs={
     const l=document.createElement('span');l.className='sb-tab-label';l.textContent=d.label;
     const g=document.createElement('span');g.className='sb-tab-badge';g.hidden=true;
     b.appendChild(i);b.appendChild(l);b.appendChild(g);
-    // FR-SBC-17·18: 레일에서의 클릭은 **전환하고 펼친다.** 접힌 채 탭만 바꾸는
-    // 것은 아무것도 보여 주지 않으므로 뜻이 없고, 이미 활성인 탭이면 할 수 있는
-    // 일(펼침)만 한다 — setTab 이 같은 탭에서 no-op 인 것과 맞물린다.
-    b.addEventListener('click',()=>{this.setTab(app,d.id);app._setSidebarCollapsed(false)});
+    /**
+     * FR-SBC-17·18 (2026-09-06 개정): 레일에서의 클릭은 **전환만 한다.**
+     *
+     *   이전 동작: 전환하고 **펼쳤다**
+     *   새  동작: 접힘을 유지한 채 활성 탭만 바꾼다
+     *   이유:     접어 둔 것은 접어 두려는 뜻이다 (사용자 지시). 탭을 고르는 일과
+     *             사이드바를 펼치는 일은 서로 다른 결정이고, 펼치는 손잡이는
+     *             경계에 따로 있다 (FR-SBC-7 개정).
+     *
+     * 접힌 채 탭을 바꾸면 레일의 활성 표시가 옮겨 간다 — 보이는 것이 없지는 않고,
+     * 다음에 펼쳤을 때 그 탭이 선다.
+     */
+    b.addEventListener('click',()=>this.setTab(app,d.id));
     return b;
   },
 

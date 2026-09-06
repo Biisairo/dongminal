@@ -97,13 +97,14 @@
       <button id="settings-btn" title="Settings">⚙</button>
     </div>
   </div>
-  <div id="sb-handle"></div>
+  <!-- SIDEBAR_COLLAPSE_SRS FR-SBC-7 (2026-09-06 개정): **접기 버튼이 없다.**
+       이 손잡이가 폭도 바꾸고 접기도 한다 — 끝까지 끌면 접히고, 접힌 경계를
+       오른쪽으로 끌면 펼쳐진다. 접는 것과 좁히는 것은 같은 손짓의 끝과 끝이므로
+       손이 이미 여기 있고, 화면에 버튼을 따로 세울 이유가 없다.
+       키로도 같은 일을 한다 (`sidebarToggle`, 기본 Ctrl+Shift+E). -->
+  <div id="sb-handle" title="Drag to resize — drag all the way in to collapse"></div>
   <div id="content">
     <div id="topbar">
-      <!-- SIDEBAR_COLLAPSE_SRS FR-SBC-7·8: 맨 왼쪽이 지정된 자리다 — 사이드바
-           **밖**이어야 접힌 상태에서도 같은 자리에 남는다. 안에 두면 접을 때
-           함께 줄어 여는 손잡이가 사라진다. 리스너는 input-binding.js 가 붙인다. -->
-      <button class="tbtn desktop-only" id="sidebar-toggle" title="Collapse the sidebar" aria-expanded="true">☰</button>
       <span id="window-name"></span>
       <span class="m-pane-nav mobile-only">
         <button class="mtbtn" id="m-pane-prev" title="Focus the previous pane">‹</button>

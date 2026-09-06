@@ -160,9 +160,14 @@ const RETURN_WINDOW_KEY={plain:'lastPlainWindow',editor:'lastEditorWindow'};
 // 첫 프레임에 같은 이름을 붙이며(FR-SBC-5), **그 문자열과 여기가 같아야 한다.**
 const SIDEBAR_COLLAPSED_KEY='sidebarCollapsed';
 const SIDEBAR_COLLAPSED_CLASS='sb-collapsed';
-// FR-SBC-9: 토글 버튼의 툴팁은 상태를 말한다.
-const SIDEBAR_TOGGLE_TITLE_COLLAPSE='Collapse the sidebar';
-const SIDEBAR_TOGGLE_TITLE_EXPAND='Expand the sidebar';
+/**
+ * FR-SBC-7 (2026-09-06 개정): **접기 버튼이 없다.** 손잡이가 그 일을 한다.
+ *
+ * 폭을 줄이다 이 값 아래로 끌면 접히고, 접힌 경계를 오른쪽으로 끌면 펼쳐진다 —
+ * 접는 것과 좁히는 것은 사용자에게 같은 손짓의 끝과 끝이다. 최소 폭(100)보다
+ * 작아야 한다: 그 사이가 "더 좁히려 했다" 는 뜻을 담는 구간이다.
+ */
+const SIDEBAR_COLLAPSE_AT_PX=70;
 
 const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight','ShiftLeft','ShiftRight']);
 /**

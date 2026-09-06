@@ -194,7 +194,11 @@ html.sb-collapsed body:not(.mobile) #sidebar{
 }
 /* FR-SBC-16: 레일의 폭은 고정이다. 핸들이 남으면 접힌 사이드바를 끌어 펼칠 수
    있는 것처럼 보인다. */
-html.sb-collapsed body:not(.mobile) #sb-handle{display:none}
+/* FR-SBC-16 (개정): 레일에서도 경계는 남는다 — **그것이 펼치는 길**이기 때문이다.
+   종전에는 감췄고(끌어서 펼칠 수 있는 것처럼 보인다는 이유), 그때는 펼치는 버튼이
+   탑바에 있었다. 지금은 손잡이가 그 일을 하므로 감추면 길이 사라진다.
+   레일의 폭은 여전히 고정이다: 끌어도 임계를 넘기 전에는 아무것도 바뀌지 않는다. */
+html.sb-collapsed body:not(.mobile) #sb-handle{background:var(--border)}
 /* FR-SBC-11: 40px 에서 목록은 읽히지 않는다. 남는 것은 탭 아이콘과 `#sb-bottom` 뿐. */
 html.sb-collapsed body:not(.mobile) .sb-panel{display:none}
 

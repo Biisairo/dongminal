@@ -470,7 +470,7 @@ Object.assign(App.prototype, {
       {label:'분할',keys:['splitH','splitV','slotAdd','slotRemove']},
       // PANEL_SHORTCUTS_SRS FR-PSC-5: 상단 툴바의 진입점 셋. 목록의 차례를
       // 툴바의 차례(Runs · Background · Agents)와 맞춘다.
-      {label:'패널',keys:['runsToggle','bgToggle','agentsToggle']},
+      {label:'패널',keys:['runsToggle','bgToggle','agentsToggle','sidebarToggle']},
       {label:'새로고침',keys:['softReload']},
       // EDITOR_GIT_UX_SRS FR-EKB-5: 편집기의 검색 셋. 좁은 것부터 넓은 것으로
       // 늘어놓는다 — 파일 안 → 파일 이름 → 파일 내용 전체.
