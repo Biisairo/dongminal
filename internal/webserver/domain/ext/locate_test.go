@@ -47,6 +47,14 @@ func putManaged(t *testing.T, root string, m Manifest, s Server) string {
 	return p
 }
 
+// exeSuffix 는 이 플랫폼의 실행 파일 확장자다 (FR-EXT-41 / FR-LWP-1).
+//
+// 검사가 만드는 가짜 배포본도 **실제 배포본과 같은 이름 규칙**을 따라야 한다 —
+// Windows 의 node 아카이브가 `node.exe` 를 담는 것처럼(`builtin/node.json` 의
+// win32-* 타깃), 확장자 없는 파일은 그 OS 에서 실행 파일이 아니다. 이름을 그대로
+// 두면 검사는 **제품이 옳게 판정한 것**을 실패로 읽는다.
+func exeSuffix() string { return platform.Current().Paths.ExeSuffix() }
+
 func mustExec(t *testing.T, path string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o755); err != nil {
@@ -121,7 +129,7 @@ func TestLocate_Order(t *testing.T) {
 	}
 
 	// ① 설정이 전부를 이긴다 — 적었다는 것 자체가 의사표시다
-	cfg := filepath.Join(root, "from-config")
+	cfg := filepath.Join(root, "from-config"+exeSuffix())
 	mustExec(t, cfg)
 	st = testLocator(root, onPath, map[string]string{"gopls": cfg}).Locate(m, s)
 	if st.Origin != OriginConfig || st.Exe != cfg {

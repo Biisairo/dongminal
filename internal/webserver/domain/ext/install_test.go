@@ -265,10 +265,10 @@ func TestInstall_SkipsRuntimeWhenHostHasIt(t *testing.T) {
 // TC-EXT-58 (FR-EXT-11): archive 팩의 서버는 선언이 정한 자리에서 선다.
 func TestInstall_ArchiveServer(t *testing.T) {
 	root := t.TempDir()
-	blob := makeTarGz(t, []tarEntry{{name: "wrap/bin/thing", body: "#!/bin/sh\n", mode: 0o755}})
+	blob := makeTarGz(t, []tarEntry{{name: "wrap/bin/thing" + exeSuffix(), body: "#!/bin/sh\n", mode: 0o755}})
 	js := `{"id":"thing","kind":"server","source":{"kind":"archive","targets":{"` +
 		CurrentTarget() + `":{"url":"https://e.test/a.tar.gz","sha256":"` + sum(blob) +
-		`","strip":1,"bin":"bin/thing"}}},
+		`","strip":1,"bin":"bin/thing` + exeSuffix() + `"}}},
 		"servers":[{"id":"thing","exe":"thing","langs":["x"],"exts":[".x"]}]}`
 	if CurrentTarget() == "" {
 		t.Skip("이 빌드의 타깃 이름을 모른다")
@@ -286,7 +286,7 @@ func TestInstall_ArchiveServer(t *testing.T) {
 	if len(rec.calls) != 0 {
 		t.Fatalf("archive 조달이 명령을 실행했다: %+v", rec.calls)
 	}
-	if !isExecutable(filepath.Join(PluginDir(root, "thing"), "bin", "thing")) {
+	if !isExecutable(filepath.Join(PluginDir(root, "thing"), "bin", "thing"+exeSuffix())) {
 		t.Fatal("아카이브의 실행 파일이 서지 않았다")
 	}
 }

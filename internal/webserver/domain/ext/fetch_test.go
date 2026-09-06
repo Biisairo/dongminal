@@ -105,7 +105,7 @@ func blobFetch(blob []byte, err error) Fetch {
 func TestFetchArchive_ExtractsAndStrips(t *testing.T) {
 	root := t.TempDir()
 	blob := makeTarGz(t, []tarEntry{
-		{name: "node-v1/bin/node", body: "#!/bin/sh\n", mode: 0o755},
+		{name: "node-v1/bin/node" + exeSuffix(), body: "#!/bin/sh\n", mode: 0o755},
 		{name: "node-v1/README", body: "hi"},
 	})
 	dest := filepath.Join(root, "out")
@@ -117,9 +117,9 @@ func TestFetchArchive_ExtractsAndStrips(t *testing.T) {
 	if b, err := os.ReadFile(filepath.Join(dest, "README")); err != nil || string(b) != "hi" {
 		t.Fatalf("앞 디렉터리가 벗겨지지 않았다: %v %q", err, b)
 	}
-	exe := filepath.Join(dest, "bin", "node")
+	exe := filepath.Join(dest, "bin", "node"+exeSuffix())
 	if !isExecutable(exe) {
-		t.Fatalf("실행 비트가 보존되지 않았다: %s", exe)
+		t.Fatalf("풀린 것이 실행 파일이 아니다: %s", exe)
 	}
 }
 
