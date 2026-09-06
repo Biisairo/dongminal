@@ -33,6 +33,39 @@ const BOOT_FADE_MS=180;
 // 않는다고 화면이 영구히 잠기면, 사용자는 무엇이 잘못됐는지 볼 길조차 없다.
 const BOOT_MAX_MS=6000;
 
+// ── 포커스를 잃은 창의 가장자리 표시 (UNFOCUSED_EDGE_SRS 묶음 UFE) ──
+// D-8: 표시 여부는 `documentElement` 의 클래스 하나로 정한다 — 포커스는 초당
+// 여러 번 오갈 수 있고, 그때마다 DOM 을 짓고 허물 이유가 없다. 세기·깊이·전이
+// 시간은 CSS 변수(`--ufe-*`, style.css)에 산다: 그 값들을 읽는 것은 CSS 뿐이다.
+const WIN_UNFOCUSED_CLASS='win-unfocused';
+/**
+ * FR-UFE-10·12 / D-4a·D-8e: 가장자리 표시의 **세기 레벨**(0~10). 0 이 곧 끔이다.
+ *
+ * 스위치와 정도를 따로 두지 않는 이유는 "켜져 있는데 0" 이 뜻 없는 상태이기
+ * 때문이고, 알파가 아니라 레벨을 저장하는 이유는 눈금과 저장값이 두 벌이 되면
+ * 손으로 고친 설정 파일이 눈금 사이에 앉기 때문이다.
+ *
+ * D-8b: 알파는 여기서 파생한다 — `:root` 에 같은 값을 리터럴로 두지 않는다
+ * (한쪽만 고쳐진다). 오버레이가 보이는 것 자체가 `win-unfocused`(JS 소관)에
+ * 달렸으므로, 세기도 JS 가 세우는 편이 경계가 맞다.
+ *
+ * 레벨 5(기본)가 알파 .2 다 — 눈에 띄는 값 중 가장 옅은 쪽. 10 이면 .4 이고,
+ * 그보다 진해지면 가장자리의 글자가 반전색에 삼켜진다.
+ */
+const UFE_LEVEL_DEFAULT=5;
+const UFE_LEVEL_MAX=10;
+const UFE_ALPHA_PER_LEVEL=.04;
+// D-8c: 중간 정지점은 세기에서 파생한다. 선형으로 사라지게 두면 사이드바(150px)와
+// 탑바가 통째로 깊이 안에 들어 그 글자들의 대비가 깎인다(실측) — 세기를 가장자리
+// 쪽으로 몰면 띠는 그대로 보이면서 글자 위의 영향은 사라진다.
+const UFE_ALPHA_MID_RATIO=.27;
+// FR-UFE-15 / SETTINGS_CONTROLS_SRS D-7: 0 은 숫자가 아니라 상태다.
+const UFE_LEVEL_OFF_LABEL='끔';
+// FR-UFE-18: 레인지에서 손을 뗀 뒤 미리보기를 유지하는 시간.
+const UFE_PREVIEW_MS=1400;
+// 미리보기 동안 붙는 클래스. style.css 가 같은 이름을 안다.
+const UFE_PREVIEW_CLASS='ufe-preview';
+
 // 활동 패널 자동 새로고침 주기 기본값(ms). 설정에서 변경(per-device localStorage).
 // 비정상 종료·hook 누락으로 SSE 가 안 와도 주기적으로 서버와 동기화 (FR-AAP-19).
 const AGENTS_POLL_DEFAULT=5000;

@@ -35,19 +35,24 @@
      단계 문구의 초기값도 여기 있다 — 스크립트가 한 줄도 돌지 않은 시점에 사용자가
      보는 것이 이 문장이다. -->
 <div id="boot">
-  <svg class="boot-logo" viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
-    <defs>
-      <linearGradient id="boot-tile" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="64" y2="64">
-        <stop offset="0" stop-color="#4F8461"/>
-        <stop offset="1" stop-color="#356146"/>
-      </linearGradient>
-    </defs>
-    <rect width="64" height="64" rx="15" fill="url(#boot-tile)"/>
-    <path d="M16.5 13 H34 A17 17 0 0 1 51 32 A17 17 0 0 1 34 51 H16.5 A3.5 3.5 0 0 1 13 47.5 V16.5 A3.5 3.5 0 0 1 16.5 13 Z" fill="none" stroke="#08110D" stroke-width="7.5"/>
-    <path d="M24 26.5 L29.5 32 L24 37.5" fill="none" stroke="#08110D" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>
-  <div class="boot-spin"></div>
-  <div id="boot-step">설정을 불러옵니다</div>
+  <div class="boot-inner">
+    <svg class="boot-logo" viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
+      <defs>
+        <linearGradient id="boot-tile" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="64" y2="64">
+          <stop offset="0" stop-color="#4F8461"/>
+          <stop offset="1" stop-color="#356146"/>
+        </linearGradient>
+      </defs>
+      <rect width="64" height="64" rx="15" fill="url(#boot-tile)"/>
+      <path d="M16.5 13 H34 A17 17 0 0 1 51 32 A17 17 0 0 1 34 51 H16.5 A3.5 3.5 0 0 1 13 47.5 V16.5 A3.5 3.5 0 0 1 16.5 13 Z" fill="none" stroke="#08110D" stroke-width="7.5"/>
+      <path d="M24 26.5 L29.5 32 L24 37.5" fill="none" stroke="#08110D" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="boot-name">Dongminal</div>
+    <!-- 진행 바는 **얼마나 남았는지 모른다**. 부팅의 두 걸음(설정·워크스페이스)은
+         각자 네트워크에 달려 있어 비율로 말할 수 없다 — 그래서 채우는 대신 흐른다. -->
+    <div class="boot-bar"><i></i></div>
+    <div id="boot-step">설정을 불러옵니다</div>
+  </div>
 </div>
 <div id="app">
   <div id="drawer-backdrop"></div>
@@ -211,9 +216,14 @@
           <!-- FR-WSL-81: 슬롯 방향. 값은 창 안 분할과 같은 용어다. -->
           <div class="ds-row">
             <span>슬롯 방향</span>
-            <!-- FR-WSL-81: 값이 둘뿐이라 **누를 때마다 뒤집는 토글**이다. 지금
-                 값이 버튼에 그대로 적혀 있으므로 고를 목록이 따로 없다. -->
-            <button type="button" class="ds-toggle" id="ds-slotdir" title="Switch the direction new window slots are added"></button>
+            <!-- SETTINGS_CONTROLS_SRS FR-SCT-4 / D-3a·D-4a: 흔히 보는 토글 스위치다.
+                 두 값의 이름은 트랙 **바깥 양쪽**에 마크업으로 그대로 적는다 — 바뀌지
+                 않는 이름이고 자리도 고정이라 JS 가 채울 것이 없다. -->
+            <span class="ds-switch" id="ds-slotdir">
+              <span class="ds-sw-lbl l">Horizontal</span>
+              <button type="button" role="switch" aria-checked="false"><i></i></button>
+              <span class="ds-sw-lbl r">Vertical</span>
+            </span>
           </div>
           <div class="ds-hint">두 창을 나란히 볼 때(⧉ Slot · Ctrl+Shift+S) 칸을 어느 축으로 나눌지 정합니다.</div>
           <div class="ds-row">
@@ -250,6 +260,17 @@
             <input type="checkbox" id="ds-confirmleave">
           </div>
           <div class="ds-hint">탭을 닫거나 새로고침할 때 되묻습니다. 끄면 실수로 닫아도 묻지 않고 터미널 세션과의 연결을 잃습니다(세션 자체는 서버에 남아 다시 접속하면 이어집니다). 확인 문구는 브라우저가 정하므로 바꿀 수 없습니다. 새 판을 받는 자동 새로고침은 이 설정과 무관하게 묻지 않습니다.</div>
+          <!-- UNFOCUSED_EDGE_SRS FR-UFE-10 -->
+          <!-- UNFOCUSED_EDGE_SRS FR-UFE-10 / D-4a: 스위치와 정도가 **한 손잡이**다.
+               0 이 곧 끔이므로 "켜져 있는데 0" 같은 뜻 없는 상태가 없다. -->
+          <div class="ds-row">
+            <span>포커스 잃은 창 표시</span>
+            <span class="ds-range">
+              <input type="range" id="ds-focusedge" min="0" max="10" step="1" title="How strong the edge indicator is — 0 turns it off">
+              <b id="ds-focusedge-val"></b>
+            </span>
+          </div>
+          <div class="ds-hint">이 브라우저 창이 키를 받지 않는 동안 화면 가장자리에 옅은 띠를 그립니다. 0 으로 내리면 그리지 않습니다. 세기는 옮기는 동안 화면에 그대로 미리 보입니다. 색은 그 자리에 있는 색의 반대값이라 어느 테마에서나 눈에 띄고, 화면 안쪽은 건드리지 않아 글을 읽는 데는 지장이 없습니다. 창을 여러 개 띄웠을 때 어느 쪽에 키가 가는지 눌러 보지 않고 알기 위한 것입니다.</div>
         </div>
       </div>
       <!-- EDITOR_LSP_SRS 묶음 A — 언어 서버의 관측과 받기 (FR-LSP-46) -->
@@ -346,6 +367,10 @@
     </div>
   </div>
 </div>
+<!-- UNFOCUSED_EDGE_SRS FR-UFE-1·2 / D-8: 포커스를 잃은 창의 가장자리 표시. 내용이
+     없고 포인터도 받지 않는다 — 있는 것은 색뿐이며, 그 색은 아래 픽셀에서 나온다
+     (`mix-blend-mode:difference`, D-5). 보일지는 `html.win-unfocused` 가 정한다. -->
+<div id="focus-edge"></div>
 <script src="vendor/xterm.js"></script>
 <script src="vendor/addon-fit.js"></script>
 <script src="vendor/addon-web-links.js"></script>

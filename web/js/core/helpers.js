@@ -257,6 +257,16 @@ var pageTitle='';
 // 켬을 기본으로 두면 요구는 이뤄지지 않은 채 설정 항목만 하나 늘어난다.
 var confirmLeave=false;
 /**
+ * UNFOCUSED_EDGE_SRS FR-UFE-10·12·13: 포커스를 잃은 창의 가장자리 표시 세기(0~10).
+ *
+ * `/api/settings` blob 에 실린다 — `confirmLeave` 와 같은 근거(D-7): 취향 스위치가
+ * 기기마다 어긋나면 같은 사람이 기기를 옮길 때마다 다시 끈다.
+ *
+ * 기본이 0 이 아닌 것은 이 기능이 **모르는 사이 잘못 친 키**를 줄이기 위한 것이기
+ * 때문이다 — 켜야만 보이는 안전장치는 그것이 필요한 사람에게 닿지 않는다.
+ */
+var focusEdgeLevel=UFE_LEVEL_DEFAULT;
+/**
  * TAB_WIDTH_SRS FR-TBW-1·2: 탭 너비 고정과 그 폭.
  *
  * 기본은 **끔**이며 그때의 동작은 종전과 완전히 같다 (FR-TBW-9) — 이 기능은 켠

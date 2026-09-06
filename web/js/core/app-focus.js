@@ -110,9 +110,32 @@ Object.assign(App.prototype, {
   _initFocusSync(){
     window.addEventListener('focus',()=>{
       this._windowFocused=true;
+      this._paintFocusEdge();
       if(this.ws.activeWindow) this._focusWindow(this.ws.activeWindow);
     });
-    window.addEventListener('blur',()=>{this._windowFocused=false});
+    window.addEventListener('blur',()=>{this._windowFocused=false;this._paintFocusEdge()});
+    // FR-UFE-8: 첫 화면도 실제 상태를 말한다 — 배경 탭에서 연 창은 이벤트가 한
+    // 번도 오지 않으므로, 여기서 한 번 칠하지 않으면 포커스가 없는 채로 포커스
+    // 있는 얼굴을 하고 있다. (`_windowFocused` 의 초기값은 `document.hasFocus()`)
+    this._paintFocusEdge();
+  },
+
+  /**
+   * UNFOCUSED_EDGE_SRS FR-UFE-6·7: 가장자리 표시의 유일한 스위치.
+   *
+   * 조건이 둘인 것이 요점이다 — **설정이 켜져 있고, 포커스가 없을 때**만 붙는다.
+   * 포커스 상태는 `_windowFocused` 하나에서 읽는다 (D-8): 여기서 `hasFocus()` 를
+   * 다시 물으면 이벤트가 아직 안 온 순간에 두 값이 갈린다.
+   */
+  _paintFocusEdge(){
+    const ds=document.documentElement;
+    // FR-UFE-17 / D-8b·D-8c·D-8e: 레벨 하나에서 두 값을 편다. 파생을 CSS 의
+    // `calc()` 로 미루지 않는 이유는 그 관계가 곡선의 성질이지 표현이 아니어서다.
+    const a=focusEdgeLevel*UFE_ALPHA_PER_LEVEL;
+    ds.style.setProperty('--ufe-alpha',a);
+    ds.style.setProperty('--ufe-alpha-mid',+(a*UFE_ALPHA_MID_RATIO).toFixed(4));
+    // 0 은 곧 끔이다 (D-4a) — 스위치를 따로 묻지 않는다.
+    ds.classList.toggle(WIN_UNFOCUSED_CLASS, focusEdgeLevel>0 && !this._windowFocused);
   },
 
   // _focusWindow is the SINGLE entry point for claiming window ownership.

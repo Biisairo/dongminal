@@ -35,7 +35,8 @@ test.describe('Boot screen', () => {
     await expect(boot).toBeVisible();
     // 로고·스피너·단계 문구가 함께 있다 (FR-BTS-6·9).
     await expect(page.locator('#boot svg')).toBeVisible();
-    await expect(page.locator('#boot .boot-spin')).toBeVisible();
+    await expect(page.locator('#boot .boot-bar i')).toBeVisible();
+    await expect(page.locator('#boot .boot-name')).toHaveText('Dongminal');
     await expect(page.locator('#boot-step')).not.toBeEmpty();
     // 배경은 테마의 `--bg` 다 (FR-BTS-7).
     const painted = await page.evaluate(

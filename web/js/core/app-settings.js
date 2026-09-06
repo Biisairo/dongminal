@@ -8,7 +8,7 @@ Object.assign(App.prototype, {
   async _saveSettings(){
     // 블롭 전체를 갈아치우므로 읽어 쓰는 값은 전부 실어야 한다 — git 주기(FR-GIT-23)는
     // UI 가 없지만 여기서 빠지면 다른 설정을 건드릴 때 조용히 사라진다.
-    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave,editorWordWrap,tabFixedWidth,tabWidthPx})})}catch{}
+    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave,editorWordWrap,tabFixedWidth,tabWidthPx,focusEdgeLevel})})}catch{}
   },
 
   /**
@@ -138,6 +138,70 @@ Object.assign(App.prototype, {
   },
 
   /**
+   * UNFOCUSED_EDGE_SRS FR-UFE-10·11: Settings ▸ Display 의 `포커스 잃은 창 표시`.
+   *
+   * 바꾼 값은 **그 자리에서** 화면에 닿는다 (`_paintFocusEdge`). 저장만 하고
+   * 다음 로드로 미루면 사용자는 스위치가 듣지 않는 것으로 읽는다 —
+   * `fgTabNames` 가 `_fgRepaint` 를 부르는 것과 같은 이유다.
+   */
+  /**
+   * UNFOCUSED_EDGE_SRS FR-UFE-10·11·16: Settings ▸ Display 의 `포커스 잃은 창 표시`.
+   *
+   * 손잡이가 하나다 (D-4a): 0 이 곧 끔이므로 스위치를 따로 두지 않는다.
+   * 바꾼 값은 **그 자리에서** 화면에 닿는다 — 저장만 하고 다음 로드로 미루면
+   * 사용자는 손잡이가 듣지 않는 것으로 읽는다 (`fgTabNames` 와 같은 이유).
+   */
+  _initFocusEdge(){
+    const sl=document.getElementById('ds-focusedge');
+    if(!sl) return;
+    sl.max=UFE_LEVEL_MAX;
+    this._focusEdgePaintRow();
+    // FR-UFE-16: 움직이는 대로 화면이 따라야 고른 것을 볼 수 있다. 저장은 멎은
+    // 뒤 한 번이다 — `tabWidthPx` 와 같은 근거(한 번의 드래그가 수십 번의 PUT).
+    sl.addEventListener('input',()=>{
+      focusEdgeLevel=Number(sl.value);
+      this._focusEdgePaintRow();
+      this._paintFocusEdge();
+      this._focusEdgePreview();
+      clearTimeout(this._ufeSaveTimer);
+      this._ufeSaveTimer=setTimeout(()=>this._saveSettings(),500);
+    });
+    // 손을 떼는 순간이 값이 정해지는 순간이다 — 그때는 기다리지 않고 보낸다.
+    // `tabWidthPx` 가 `blur` 에서 하는 것과 같은 자리다: 디바운스는 드래그 **중**의
+    // PUT 폭주를 막으려는 것이지, 정해진 값을 늦추려는 것이 아니다.
+    sl.addEventListener('change',()=>{
+      clearTimeout(this._ufeSaveTimer);
+      this._saveSettings();
+    });
+  },
+
+  // FR-UFE-14·15 / FR-SCT-8: 레인지와 그 값 표시, 채움 비율을 함께 되돌린다.
+  // 0 은 숫자가 아니라 상태이므로 `끔` 이라 적는다 (SETTINGS_CONTROLS_SRS D-7).
+  _focusEdgePaintRow(){
+    const sl=document.getElementById('ds-focusedge');
+    const out=document.getElementById('ds-focusedge-val');
+    if(!sl) return;
+    sl.value=focusEdgeLevel;
+    sl.style.setProperty('--fill',(focusEdgeLevel/UFE_LEVEL_MAX*100)+'%');
+    if(out) out.textContent=focusEdgeLevel?String(focusEdgeLevel):UFE_LEVEL_OFF_LABEL;
+  },
+
+  /**
+   * FR-UFE-18 / D-8d: 고르는 동안 보인다.
+   *
+   * 이 표시는 포커스를 잃었을 때만 뜨는데, 레인지를 만지는 동안 창은 **반드시**
+   * 포커스를 가지고 있다. 미리보기가 없으면 사용자는 눈을 감고 값을 고른다.
+   * 0 에서는 보여 줄 것이 없으므로 켜지 않는다.
+   */
+  _focusEdgePreview(){
+    const ds=document.documentElement;
+    clearTimeout(this._ufePreviewTimer);
+    if(!focusEdgeLevel){ds.classList.remove(UFE_PREVIEW_CLASS);return}
+    ds.classList.add(UFE_PREVIEW_CLASS);
+    this._ufePreviewTimer=setTimeout(()=>ds.classList.remove(UFE_PREVIEW_CLASS),UFE_PREVIEW_MS);
+  },
+
+  /**
    * WORKBENCH_REVIEW_SRS FR-WBR-10·11: Settings ▸ Code 의 `줄 바꿈`.
    *
    * **이미 열려 있는 편집기에도 곧바로 반영한다** — 새로 여는 탭부터 듣게 하면
@@ -206,6 +270,9 @@ Object.assign(App.prototype, {
       // 이 모달에 옛 상태로 남아 있으면 사용자가 그것을 켜진 줄로 읽는다.
       const dsLeave=document.getElementById('ds-confirmleave');
       if(dsLeave) dsLeave.checked=confirmLeave;
+      // FR-UFE-14: 같은 근거로 이 행도 열 때마다 다시 칠한다 — 체크박스와 세기가
+      // 함께 움직이므로 한 함수가 둘을 맡는다.
+      this._focusEdgePaintRow();
       // FR-WBR-10: 열 때마다 현재 값을 다시 칠한다 (FR-LVC-3 과 같은 근거).
       const dsWrap=document.getElementById('ds-wordwrap');
       if(dsWrap) dsWrap.checked=editorWordWrap;
@@ -241,6 +308,7 @@ Object.assign(App.prototype, {
     this._initFgNames();
     this._initBlockKeys();
     this._initConfirmLeave();
+    this._initFocusEdge();
     this._initWordWrap();
     this._initLSP();
     this._initBackup();
@@ -463,6 +531,17 @@ Object.assign(App.prototype, {
       confirmLeave=!!saved.confirmLeave;
       const cl=document.getElementById('ds-confirmleave');
       if(cl) cl.checked=confirmLeave;
+    }
+    // FR-UFE-12·13: 저장된 적 없으면 기본값(켬). 값을 바꿨으면 화면에도 얹는다 —
+    // 이 로더가 도는 시점에 창은 이미 포커스를 잃었을 수 있다.
+    // FR-UFE-12·13: 저장된 적 없으면 기본값(5). 범위 밖이거나 정수가 아닌 값은
+    // 받지 않는다 — 손으로 고친 settings.json 하나가 화면을 통째로 반전시키는
+    // 일이 없어야 한다.
+    if(saved.focusEdgeLevel!==undefined){
+      const lv=Math.round(Number(saved.focusEdgeLevel));
+      if(lv>=0&&lv<=UFE_LEVEL_MAX) focusEdgeLevel=lv;
+      app._focusEdgePaintRow();
+      app._paintFocusEdge();
     }
     // FR-WBR-10: 저장된 적 없으면 기본값(끔).
     //

@@ -23,10 +23,9 @@ const SLOT_SIZE_DEFAULT=1;
 const SLOT_MIN_PX=80;                    // 손잡이가 칸을 이보다 좁히지 않는다
 const SLOT_DIR_KEY='slotDir';            // FR-WSL-82
 const SLOT_DIR_DEFAULT='horizontal';     // FR-WSL-80
-// FR-WSL-81: 토글에 적히는 **지금 값**이다. 고를 목록이 아니라 현재 상태이므로
-// 그림과 말이 함께 있어야 한다 — 그림만으로는 어느 쪽이 켜진 것인지 모른다.
-const SLOT_DIR_LABEL={horizontal:'▐▌ 가로',vertical:'▀▄ 세로'};
-// FR-TIP-2: 라벨은 지금 상태를, 툴팁은 누르면 무엇이 되는지를 말한다.
+// FR-SCT-4 / D-4a: 두 값의 이름(`Horizontal`·`Vertical`)은 **마크업**에 산다 —
+// 바뀌지 않는 이름이고 화면의 자리도 고정이라 코드가 들고 있을 이유가 없다.
+// FR-TIP-2: 툴팁은 지금 값이 무엇을 뜻하는지와, 누르면 무엇이 되는지를 함께 말한다.
 const SLOT_DIR_TITLE={horizontal:'Split side by side — click to split top and bottom',
   vertical:'Split top and bottom — click to split side by side'};
 
@@ -540,11 +539,11 @@ Object.assign(App.prototype, {
     if(add) add.addEventListener('click',()=>this.slotAdd());
     const rm=document.getElementById('slot-remove');
     if(rm) rm.addEventListener('click',()=>this.slotRemove());
-    // FR-WSL-81: 값이 둘뿐이라 누를 때마다 뒤집는다. 고를 목록을 펼치는 것보다
-    // 한 번 누르는 편이 짧다.
+    // FR-WSL-81 / SETTINGS_CONTROLS_SRS FR-SCT-5: 값이 둘뿐이라 누를 때마다 뒤집는다.
     const t=document.getElementById('ds-slotdir');
     if(t){
-      t.addEventListener('click',()=>{
+      const sw=t.querySelector('button');
+      if(sw) sw.addEventListener('click',()=>{
         this.slotDir=this.slotDir==='vertical'?'horizontal':'vertical';
         this._slotDirPaint();
       });
@@ -552,15 +551,17 @@ Object.assign(App.prototype, {
     }
   },
 
-  // 버튼에 적힌 것은 **지금 값**이지 다음 값이 아니다. 눌러서 바뀌는 방향은
-  // title 이 말한다 — 둘을 뒤집어 적으면 켜진 것이 무엇인지 읽을 수 없다.
+  // FR-SCT-1·3: 지금 값은 컨테이너의 `data-v` 하나가 말한다 — 손잡이의 자리도,
+  // 켜진 이름도 CSS 가 그것에서 그린다. 값을 밖에서 읽는 자리를 하나로 남긴다.
   _slotDirPaint(){
     const t=document.getElementById('ds-slotdir');
     if(!t) return;
     const cur=this.slotDir==='vertical'?'vertical':'horizontal';
-    t.textContent=SLOT_DIR_LABEL[cur];
-    t.title=SLOT_DIR_TITLE[cur];
     t.dataset.v=cur;
+    const sw=t.querySelector('button');
+    if(!sw) return;
+    sw.setAttribute('aria-checked',cur==='vertical'?'true':'false');
+    sw.title=SLOT_DIR_TITLE[cur];
   },
 
   // ── 손잡이 (FR-WSL-32) ──
