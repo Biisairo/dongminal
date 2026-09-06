@@ -221,12 +221,18 @@ Object.assign(GitPanel.prototype, {
         '</div>'+
       '</div>';
     this._wireHead(el);
-    for(const b of el.querySelectorAll('.git-job-cancel')) b.textContent=GIT_JOB_CANCEL;
-    el.querySelector('.git-job-copy').textContent=GIT_JOB_COPY;
-    el.querySelector('.git-job-close').textContent=GIT_JOB_CLOSE;
+    for(const b of el.querySelectorAll('.git-job-cancel')){
+      b.textContent=GIT_JOB_CANCEL; b.title=GIT_TIP_JOB_CANCEL;
+    }
+    const jobCopy=el.querySelector('.git-job-copy');
+    jobCopy.textContent=GIT_JOB_COPY; jobCopy.title=GIT_TIP_JOB_COPY;
+    const jobClose=el.querySelector('.git-job-close');
+    jobClose.textContent=GIT_JOB_CLOSE; jobClose.title=GIT_TIP_JOB_CLOSE;
     el.querySelector('.git-job-fold').title=GIT_JOB_FOLD_TITLE;
-    el.querySelector('.git-job-auth-copy').textContent=GIT_JOB_AUTH_COPY;
-    el.querySelector('.git-partial-close').textContent=GIT_NOTE_CLOSE;
+    const authCopy=el.querySelector('.git-job-auth-copy');
+    authCopy.textContent=GIT_JOB_AUTH_COPY; authCopy.title=GIT_TIP_JOB_AUTH_COPY;
+    const partClose=el.querySelector('.git-partial-close');
+    partClose.textContent=GIT_NOTE_CLOSE; partClose.title=GIT_TIP_NOTE_CLOSE;
     el.querySelector('.git-partial-close')
       .addEventListener('click',()=>{this._note=null;this._paint()});
     for(const b of el.querySelectorAll('.git-op-act')){
@@ -260,8 +266,10 @@ Object.assign(GitPanel.prototype, {
       }
       files.appendChild(d);
     }
-    for(const b of el.querySelectorAll('.git-files-mode'))
+    for(const b of el.querySelectorAll('.git-files-mode')){
+      b.title=GIT_FILE_VIEW_TITLE[b.dataset.mode]||'';
       b.addEventListener('click',()=>this._setFileView(b.dataset.mode));
+    }
     this._commit().mount(el.querySelector('.git-commit'));
     // 원격 버튼과 작업 영역의 동작 (FR-GIT-98~112). 골격은 여기 있고 상태는
     // GitRemote 가 들고 있다 — 골격을 다시 세워도 진행 중 작업이 사라지지 않는다.
@@ -485,15 +493,38 @@ Object.assign(GitPanel.prototype, {
       '<span class="git-file-acts"></span>';
     d.querySelector('.git-dir-caret').textContent=it.collapsed?'▸':'▾';
     d.querySelector('.git-dir-name').textContent=it.label;
-    // FR-WBR-80: 폴더 행이 **그 그룹의** 동작을 갖는다. 파일 행과 같은 클래스를
-    // 쓰는 것은 같은 어휘의 아이콘이 자리마다 다르게 보이면 같은 것으로 읽히지
-    // 않기 때문이다 — 규약과 치수가 한 자리(`.git-file-act`)에 남는다.
+    /**
+     * FR-WBR-80: 폴더 행이 **그 그룹의** 동작을 갖는다. 파일 행과 같은 클래스를
+     * 쓰는 것은 같은 어휘의 아이콘이 자리마다 다르게 보이면 같은 것으로 읽히지
+     * 않기 때문이다 — 규약과 치수가 한 자리(`.git-file-act`)에 남는다.
+     *
+     * UX_BATCH5_SRS FR-DBA-3: **파일 행과 열을 맞춘다.**
+     *
+     *   이전 동작: 폴더가 가진 동작만 그렸다. 묶음이 오른쪽 정렬이므로 개수가
+     *              적은 폴더 행에서는 같은 아이콘이 파일 행의 다른 열에 섰다
+     *   새  동작: `GIT_ROW_ACTS` 를 돌면서 폴더가 갖지 않는 자리에는 **자리지킴**을
+     *             둔다 — 순서와 폭이 파일 행과 같아진다
+     *   이유:     접수한 말의 뒷문장이 "행과 열을 맞춰줘" 다
+     *
+     * 폴더가 가진 동작이 하나도 없으면(conflicts) 자리지킴도 두지 않는다 —
+     * 맞출 버튼이 없는데 빈 칸만 서면 그것은 정렬이 아니라 여백이다.
+     */
     const acts=d.querySelector('.git-file-acts');
-    for(const act of GIT_DIR_ACTS[it.group]||[]){
+    const own=GIT_DIR_ACTS[it.group]||[];
+    for(const act of (own.length?(GIT_ROW_ACTS[it.group]||[]):[])){
+      if(!own.includes(act)){
+        // 클릭 대상이 아니고 읽히지도 않는다 — 자리만 차지한다.
+        const gap=document.createElement('span');
+        gap.className='git-act-gap'; gap.setAttribute('aria-hidden','true');
+        acts.appendChild(gap);
+        continue;
+      }
       const b=document.createElement('button');
       b.className='git-file-act'; b.dataset.act=act;
       b.textContent=GIT_ACT_LABEL[act];
-      b.title=GIT_DIR_ACT_TITLE[act]||GIT_ACT_TITLE[act];
+      // FR-DBA-4: untracked 의 폐기는 삭제다 — 그룹이 뜻을 가르는 자리다.
+      b.title=(GIT_DIR_ACT_TITLE_GROUP[it.group]||{})[act]||
+        GIT_DIR_ACT_TITLE[act]||GIT_ACT_TITLE[act];
       // 행 클릭은 접기다 — 동작 버튼이 그것을 함께 일으키지 않는다.
       b.addEventListener('click',ev=>{ev.stopPropagation();this._dirBulk(it.group,it.path,act)});
       acts.appendChild(b);

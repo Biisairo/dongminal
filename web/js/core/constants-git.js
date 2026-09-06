@@ -23,6 +23,10 @@ const GIT_VIEWS=[
   // FR-GIT-28 (개정): 고정 탭이 7개가 된다. 요청이 "관리 **탭**" 이었으므로 기존 탭
   // 안에 밀어 넣지 않는다 — 그러면 Branches 탭이 두 가지 일을 한다.
   {key:'worktrees', name:'Worktrees'},
+  // UX_BATCH5_SRS FR-SUB-6: 고정 탭이 8개가 된다. Worktrees 바로 뒤인 이유는 둘이
+  // 같은 성질이기 때문이다 — 저장소 안에 있으나 **자기 .git 을 가진 것**들이고,
+  // 둘 다 `openGitWindow` 로 열린다 (D-10).
+  {key:'submodules', name:'Submodules'},
 ];
 // REPO_TAB_UNIFY_SRS FR-RTU-21 / D-RTU-5: Changes 사이드 머리의 진입점.
 //
@@ -36,6 +40,7 @@ const GIT_SIDE_ACTIONS=[
   {key:'stash',    icon:'≣', title:'Stash'},
   {key:'console',  icon:'›', title:'Console'},
   {key:'worktrees',icon:'⧉', title:'Worktrees'},
+  {key:'submodules',icon:'⊞', title:'Submodules'},
 ];
 
 // REPO_TAB_UNIFY_SRS FR-RTU-25·26: 저장소가 아닌 자리와 거기서 만드는 길.
@@ -135,7 +140,7 @@ const GIT_STALE_NOTE='갱신 실패';
 const GIT_DIFF_SAVE_FAIL='저장하지 못했습니다';
 // FR-GIT-238: 새로고침. 이모지를 쓰지 않는다 (FR-GIT-187·192 와 같은 어휘).
 const GIT_REFRESH_LABEL='⟳';
-const GIT_REFRESH_TITLE='새로고침 — 상태·History·Branches·Console 을 전부 다시 받는다';
+const GIT_REFRESH_TITLE='Refresh everything — status, History, Branches and Console';
 const GIT_ERR_NOT_REPO='저장소가 아닙니다';
 const GIT_ERR_GIT_MISSING='git 을 찾을 수 없습니다';
 // ── 소실 (GIT_REPO_MISSING_SRS FR-RMS-8·17) ──
@@ -148,10 +153,18 @@ const GIT_RMS_REASON_PREFIX='사유: ';
 const GIT_RMS_CODE='repo_missing';
 const GIT_RMS_UNPIN='핀 제거';
 const GIT_RMS_RECHECK='다시 확인';
+const GIT_TIP_MISSING_UNPIN='Remove this repository from the GIT section';
+const GIT_TIP_MISSING_RECHECK='Check again whether this folder is back';
 // 파일 목록은 한 번에 다 그리지 않는다 (FR-GIT-42). 스크롤이 끝에 닿을 때마다
 // 이만큼 늘린다.
 const GIT_FILE_ROW_CHUNK=200;
 const GIT_FILE_VIEW_KEY='gitFileView'; // 플랫/트리 선택은 기기별 취향이다
+// FR-TIP-1·2: 두 보기가 무엇을 다르게 하는지는 라벨(`Tree`·`Flat`)만으로는
+// 보이지 않는다 — 툴팁이 그 차이를 말한다.
+const GIT_FILE_VIEW_TITLE={
+  tree:'Group changed files by folder',
+  flat:'List changed files with their full paths',
+};
 // FR-GIT-211: 트리의 들여쓰기 단위. 행의 padding 과 깊이 세로선이 **같은 값**을
 // 딛는다 — 두 곳에 적으면 한쪽만 고쳐져 선이 글자와 어긋난다. CSS 는 이 값을
 // `--git-indent` 로 받는다.
@@ -178,17 +191,37 @@ const GIT_ROW_ACTS={
 };
 // UX_REVISION_SRS FR-STC-2: 상태문자 → CSS 클래스. 색은 style.css 한 자리에서
 // 정한다 (FR-STC-3). 여기 없는 문자는 `other` 로 떨어져 기존 색을 유지한다.
-// FR-WBR-80·84: 트리 보기의 **폴더 행** 동작. 그룹이 할 수 있는 것만이고
-// **폐기는 없다** — 접수한 말은 staging/unstaging 이다. 트리가 그룹마다 따로
-// 서므로(FR-WBR-82) 폴더 행은 한 그룹에만 속하고, 그래서 그룹 하나가 곧 답이다.
-// 플랫 보기에는 폴더 행이 없으므로 이 표가 닿지 않는다 (FR-WBR-83).
-const GIT_DIR_ACTS={staged:['unstage'],changes:['stage'],untracked:['stage']};
-const GIT_DIR_ACT_TITLE={stage:'이 폴더 전체를 스테이지',unstage:'이 폴더 전체를 언스테이지'};
+/**
+ * 트리 보기의 **폴더 행** 동작 (FR-WBR-80·82·83 / UX_BATCH5_SRS FR-DBA-1·2).
+ *
+ *   이전 동작: `{staged:['unstage'],changes:['stage'],untracked:['stage']}` 를
+ *              **손으로 적었고**, 폐기가 없었다 (FR-WBR-84)
+ *   새  동작: `GIT_ROW_ACTS` 에서 `openFile` 만 뺀 것이다 — 폐기가 함께 온다
+ *   이유:     접수한 말이 "디스카드, 리버트도 하면 좋겠어" 다. 그리고 두 표를
+ *             따로 적으면 파일 행에 동작이 하나 늘 때 폴더 행이 조용히 뒤처진다 —
+ *             지금이 바로 그 상태였다 (D-1)
+ *
+ * 폴더는 편집기로 여는 대상이 아니므로 `openFile` 만 빠진다. 트리가 그룹마다 따로
+ * 서므로(FR-WBR-82) 폴더 행은 한 그룹에만 속하고, 그래서 그룹 하나가 곧 답이다.
+ * 플랫 보기에는 폴더 행이 없으므로 이 표가 닿지 않는다 (FR-WBR-83).
+ */
+const GIT_DIR_ACTS=Object.fromEntries(Object.entries(GIT_ROW_ACTS)
+  .map(([k,v])=>[k,v.filter(a=>a!=='openFile')]));
+// conflicts 만 예외다. `ours`·`theirs` 는 폴더 단위로 뜻이 서지 않고, 충돌 stage 는
+// "해결됨 표시" 라 한 번에 밀어 넣을 동작이 아니다 (FR-GIT-72) — 그룹 일괄이 없는
+// 것과 같은 근거다. 예외가 하나뿐이므로 예외만 적는다.
+GIT_DIR_ACTS.conflicts=[];
+const GIT_DIR_ACT_TITLE={stage:'Stage this whole folder',unstage:'Unstage this whole folder',
+  discard:'Discard every change in this folder'};
+// FR-DBA-4: 두 그룹의 폐기는 같은 명령이 아니다 — tracked 는 index 로 되돌리고,
+// untracked 는 **파일을 지운다**. `GIT_BULK_TITLE_GROUP` 과 같은 규약이며 갈리는
+// 것이 이 하나뿐이라 예외만 적는다.
+const GIT_DIR_ACT_TITLE_GROUP={untracked:{discard:'Delete every file in this folder — this cannot be undone'}};
 const GIT_ST_CLASS={M:'mod',A:'add',D:'del',R:'ren',C:'cpy','?':'new',U:'conf'};
 const GIT_ACT_LABEL={openFile:'↗',stage:'+',unstage:'−',discard:'↺',ours:'Ours',theirs:'Theirs'};
 // ours·theirs 의 툴팁은 **진행 중인 조작에 따라 달라지므로** 여기 두지 않는다 —
 // 행이 GIT_SIDE_TITLE 에서 그때 고른다 (FR-GIT-224).
-const GIT_ACT_TITLE={openFile:'파일 열기',stage:'스테이지',unstage:'언스테이지',discard:'변경 버리기'};
+const GIT_ACT_TITLE={openFile:'Open this file',stage:'Stage',unstage:'Unstage',discard:'Discard changes'};
 // FR-WBR-52 (D-WBR-18): 일괄은 **행 동작과 같은 어휘의 아이콘**이다 — 그래서
 // 라벨 표를 따로 두지 않고 `GIT_ACT_LABEL` 을 그대로 쓴다. "같은 어휘" 를 주석이
 // 아니라 코드가 보장하게 하는 자리다.
@@ -200,8 +233,8 @@ const GIT_ACT_TITLE={openFile:'파일 열기',stage:'스테이지',unstage:'언�
 // FR-WBR-52a: 갈리는 것은 라벨이 아니라 **툴팁**이다. 두 그룹의 폐기는 같은
 // 명령이 아니다 — tracked 는 index 로 되돌리고(`checkout -q`), untracked 는
 // **파일을 지운다**(`clean -q -f`). 그룹별로 다른 것이 이 하나뿐이라 예외만 적는다.
-const GIT_BULK_TITLE={stage:'전부 스테이지',unstage:'전부 언스테이지',discard:'변경을 전부 버립니다'};
-const GIT_BULK_TITLE_GROUP={untracked:{discard:'파일을 전부 삭제합니다 — 되살릴 수 없습니다'}};
+const GIT_BULK_TITLE={stage:'Stage all',unstage:'Unstage all',discard:'Discard all changes'};
+const GIT_BULK_TITLE_GROUP={untracked:{discard:'Delete all these files — this cannot be undone'}};
 // FR-GIT-70: staged 와 unstaged 를 동시에 가진 파일. 체크박스의 indeterminate 와
 // 행 클래스 둘로 구분한다 — 색만으로는 무엇이 다른지 알 수 없다.
 const GIT_PARTIAL_TITLE='일부만 스테이지됨';
@@ -224,6 +257,13 @@ const GIT_DIR_ENTRY_ADD='저장소로 추가';
 const GIT_DIR_ENTRY_ADD_TITLE='이 폴더를 Repo 목록에 더하고 그 창으로 갑니다';
 const GIT_DIR_ENTRY_GO='저장소로 이동';
 const GIT_DIR_ENTRY_GO_TITLE='이미 목록에 있습니다 — 그 창으로 갑니다';
+// UX_BATCH5_SRS FR-SUB-11: 서브모듈 항목에서 **그것을 관리하는 자리**로 가는 길.
+//
+// `저장소로 이동`(위)과 다른 것이다 — 그쪽은 서브모듈 **자신의** 창으로 가고,
+// 이쪽은 **부모 저장소의** Submodules 탭으로 간다: init·update·sync 가 사는 자리다.
+// 중첩 저장소에는 붙지 않는다 (`.gitmodules` 에 없으므로 그 목록에 서지 않는다).
+const GIT_DIR_ENTRY_SUBTAB='Submodules 탭';
+const GIT_DIR_ENTRY_SUBTAB_TITLE='이 저장소의 Submodules 탭으로 갑니다 — init·update·sync 가 그 자리에 있습니다';
 // FR-GIT-72: 충돌 파일의 stage 는 "해결됨 표시" 다. 파괴적이 아니므로 1단계 확인이다.
 const GIT_ACT_RESOLVE='resolve_mark';
 const GIT_RESOLVE_TITLE='충돌을 해결됨으로 표시합니다';
@@ -239,11 +279,12 @@ const GIT_RESOLVE_SIDE_TITLE='한쪽 내용으로 덮고 해결됨으로 표시�
 const GIT_RESOLVE_SIDE_NOTE='충돌 표식과 손대던 내용은 되살릴 값이 없습니다. 충돌 상태로 되돌리려면 아래를 실행합니다';
 // 진행 중인 조작별 설명. 모르면 둘 다 밝힌다 — 틀린 한쪽을 단정하지 않는다.
 const GIT_SIDE_TITLE={
-  merge:{ours:'현재 브랜치(ours) 쪽 내용으로 덮습니다',theirs:'병합해 들어오는(theirs) 쪽 내용으로 덮습니다'},
-  rebase:{ours:'올려놓는 대상(ours) 쪽 내용으로 덮습니다 — 내 커밋이 아닙니다',
-          theirs:'내 커밋(theirs) 쪽 내용으로 덮습니다'},
-  '':{ours:'ours 쪽 내용으로 덮습니다 (rebase 중에는 올려놓는 대상 쪽입니다)',
-      theirs:'theirs 쪽 내용으로 덮습니다 (rebase 중에는 내 커밋 쪽입니다)'},
+  merge:{ours:'Take the current branch (ours) side',
+         theirs:'Take the incoming (theirs) side'},
+  rebase:{ours:'Take the branch being replayed onto (ours) — not your commits',
+          theirs:'Take your commits (theirs) side'},
+  '':{ours:'Take the ours side (during a rebase this is the branch replayed onto)',
+      theirs:'Take the theirs side (during a rebase this is your commits)'},
 };
 // preflight 의 코드값 → 조작 이름.
 const GIT_OP_BY_BLOCK={merge_in_progress:'merge',rebase_in_progress:'rebase',
@@ -264,6 +305,20 @@ const GIT_DISCARD_NOTE_DEL='파일 자체가 삭제되며 되살릴 값이 없�
 const GIT_PARTIAL_NOTE='일부만 적용됐습니다 — 아래 경로가 바뀌었습니다';
 const GIT_WRITE_FAIL='동작이 실패했습니다';
 const GIT_NOTE_CLOSE='Close';
+// ── 툴팁 (UX_BATCH5_SRS FR-TIP-1·2) ──
+//
+// 아래는 라벨이 한두 낱말이라 **무엇을** 하는지 말하지 않는 버튼들이다. 각 상수는
+// 그 라벨 옆이 아니라 여기 모여 산다 (FR-TIP-4).
+const GIT_TIP_NOTE_CLOSE='Dismiss this message';
+const GIT_TIP_JOB_CANCEL='Cancel the running remote operation';
+const GIT_TIP_JOB_COPY='Copy the full output of this operation';
+const GIT_TIP_JOB_CLOSE='Dismiss this operation panel';
+const GIT_TIP_JOB_AUTH_COPY='Copy this command so you can run it in a terminal';
+const GIT_TIP_JOB_FIX='Retry the push with this option';
+const GIT_TIP_PREFLIGHT_COPY='Copy this fix command to the clipboard';
+const GIT_TIP_UNDO='Undo the commit you just made (keeps your changes staged)';
+const GIT_TIP_RETRY='Try loading this list again';
+const GIT_TIP_SEARCH_REPO='Search the whole repository, not just the commits already loaded';
 const GIT_WRITE_ERR={
   bad_request:'잘못된 요청입니다',
   confirmation_required:'확인이 필요합니다',
@@ -295,6 +350,8 @@ const GIT_COMMIT_HEIGHT_KEY='gitCommitHeight';
 const GIT_COMMIT_DRAFT_DEBOUNCE_MS=300;
 const GIT_COMMIT_BTN='Commit';
 const GIT_COMMIT_MORE='▾';
+// FR-TIP-1: `▾` 만으로는 무엇이 열리는지 보이지 않는다.
+const GIT_COMMIT_MORE_TITLE='More commit options';
 const GIT_COMMIT_AMEND='amend';
 // FR-GIT-79: VSCode 의 조합 명령 20개를 이 체크박스 3개가 대체한다. **선택을
 // localStorage 에 남기지 않는다** — no-verify 가 기억되면 훅이 조용히 계속 꺼진다.
@@ -307,6 +364,26 @@ const GIT_COMMIT_GPG='서명 커밋'; // FR-GIT-85
 // FR-GIT-84: 왜 못 누르는지 보이지 않으면 요구사항 실패다.
 const GIT_COMMIT_WHY_EMPTY='커밋 메시지를 입력하세요';
 const GIT_COMMIT_WHY_NOTHING='staged 변경이 없습니다 — 파일을 스테이지하거나 commit all 을 켜세요';
+/**
+ * UX_BATCH5_SRS FR-TIP-2·3: **같은 사유가 두 자리에 다른 말로 산다.**
+ *
+ * 버튼 옆 한 줄은 화면에 보이는 글자이므로 그대로 두고(FR-TIP-3), 툴팁만 영어다
+ * (FR-TIP-2). 그래서 `_why()` 는 문자열이 아니라 **사유 코드**를 답하고, 두 표가
+ * 각자 그것을 옮긴다 — 문자열을 키로 쓰면 한쪽 문구를 고치는 순간 짝이 끊긴다.
+ */
+const GIT_COMMIT_WHY_NO_REPO='no-repo';
+const GIT_COMMIT_WHY_EMPTY_CODE='empty-message';
+const GIT_COMMIT_WHY_NOTHING_CODE='nothing-staged';
+const GIT_COMMIT_WHY_TEXT={
+  [GIT_COMMIT_WHY_NO_REPO]:GIT_NO_REPO_HINT,
+  [GIT_COMMIT_WHY_EMPTY_CODE]:GIT_COMMIT_WHY_EMPTY,
+  [GIT_COMMIT_WHY_NOTHING_CODE]:GIT_COMMIT_WHY_NOTHING,
+};
+const GIT_COMMIT_WHY_TITLE={
+  [GIT_COMMIT_WHY_NO_REPO]:'Select a repository first',
+  [GIT_COMMIT_WHY_EMPTY_CODE]:'Enter a commit message',
+  [GIT_COMMIT_WHY_NOTHING_CODE]:'Nothing is staged — stage a file or turn on commit all',
+};
 const GIT_COMMIT_RUNNING='커밋 중…';
 // FR-GIT-81·83 · O7: 5초 고정. 만료는 서버 토큰이 함께 강제한다.
 const GIT_UNDO_MS=5000;
@@ -337,6 +414,11 @@ const GIT_CONFIRM_RUN='Run';
 const GIT_CONFIRM_CANCEL='Cancel';
 const GIT_CONFIRM_COPY='Copy';
 const GIT_CONFIRM_HINT_LABEL='복구 수단';
+// UX_BATCH5_SRS FR-TIP-1: 확인창·다이얼로그의 버튼. 라벨(`Run`·`Cancel`·
+// `Copy`)은 한 낱말이라 **무엇이** 실행·취소·복사되는지 말하지 않는다.
+const GIT_CONFIRM_RUN_TITLE='Run the command shown above';
+const GIT_CONFIRM_CANCEL_TITLE='Close without running anything';
+const GIT_CONFIRM_COPY_TITLE='Copy this command to the clipboard';
 const GIT_CONFIRM_RUNNING='Running…';
 const GIT_CONFIRM_FAIL='동작이 실패했습니다';
 // FR-GIT-92: 값을 얻지 못한 hint 를 조용히 빈 칸으로 두지 않는다.
@@ -432,6 +514,12 @@ const GIT_DIFF_WS_KEY='gitDiffIgnoreWs';
 const GIT_DIFF_FOLD_KEY='gitDiffHideUnchanged';
 const GIT_DIFF_FOLD_LABEL='Fold Unchanged';
 const GIT_DIFF_MODE_LABEL={side:'side-by-side',inline:'unified'};
+// FR-TIP-1: 라벨이 지금 **무엇인지**를 말하므로, 누르면 무엇이 되는지는 툴팁이
+// 말한다 — 라벨만으로는 그것이 상태인지 동작인지 알 수 없다.
+const GIT_DIFF_MODE_TITLE='Switch between side-by-side and unified diff';
+// 파일 사이를 오가는 화살표. `\u2039`·`\u203a` 만으로는 무엇의 이전·다음인지
+// 보이지 않는다.
+const GIT_DIFF_NAV_TITLE={prev:'Previous changed file',next:'Next changed file'};
 const GIT_DIFF_WS_LABEL='Ignore Whitespace';
 // FR-GIT-55: Monaco 로드 실패는 Git 창의 나머지를 멈추지 않는다 — diff 자리에만
 // 사유를 보인다.
@@ -468,6 +556,8 @@ const GIT_DIFF_ERR={
 // 찬다. 기본은 쓰기와 실패만 보이고, 토글이 읽기까지 연다.
 const GIT_CON_READS_LABEL='Show Reads';
 const GIT_CON_REFRESH='Refresh';
+// FR-TIP-1: 무엇을 다시 받는지가 라벨에 없다 — 머리의 `⟳` 와 대상이 다르다.
+const GIT_CON_REFRESH_TITLE='Reload the list of git commands this app has run';
 const GIT_CON_EMPTY='아직 실행한 명령이 없습니다';
 const GIT_CON_EMPTY_READS='기록이 없습니다';
 const GIT_CON_FAIL='기록을 불러오지 못했습니다';
@@ -527,9 +617,12 @@ const GIT_HIST_FILTERS=[
   {key:'path',  label:'Path'},
 ];
 const GIT_HIST_APPLY='Apply';
+// FR-TIP-1: `Apply`·`Go` 만으로는 무엇에 적용하고 어디로 가는지 보이지 않는다.
+const GIT_HIST_APPLY_TITLE='Apply these filters to the history list';
+const GIT_JUMP_GO_TITLE='Jump to this commit in the history list';
 // HISTORY_BRANCH_BUTTON_SRS FR-HBB-3: 같은 바의 라벨은 같은 자리에 모인다.
 const GIT_HIST_BRANCH='+ Branch';
-const GIT_HIST_BRANCH_TITLE='현재 HEAD 에서 새 브랜치를 만든다 (커밋을 골라 만들려면 그 커밋을 우클릭)';
+const GIT_HIST_BRANCH_TITLE='Create a branch at the current HEAD (right-click a commit to branch from it instead)';
 
 // reflog 포함 (FR-GIT-280). 어떤 ref 도 가리키지 않게 된 커밋 — reset 으로 되돌린
 // 것, 지운 브랜치의 끝 — 은 이 토글로만 목록에 들어온다.
@@ -542,8 +635,8 @@ const GIT_SEARCH_REPO='repo';
 const GIT_SEARCH_PLACEHOLDER='검색';
 const GIT_SEARCH_MODE_LABEL={loaded:'로드된 범위',repo:'저장소 전체'};
 const GIT_SEARCH_MODE_TITLE={
-  loaded:'이미 받은 커밋만 걸러냅니다 — 즉시',
-  repo:'git 에 grep 을 내려보냅니다 — 느립니다',
+  loaded:'Filter only the commits already loaded — instant',
+  repo:'Run the search through git across the whole repository — slower',
 };
 // 로드 범위에서 0건이면 저장소 전체를 권한다 — 권하지 않으면 사용자는 "없다"와
 // "아직 안 받았다"를 구분할 수 없다.
@@ -646,6 +739,8 @@ const GIT_BR_GROUPS=[
 ];
 const GIT_BR_SEARCH_PLACEHOLDER='이름 검색';
 const GIT_BR_NEW='+ New Branch';
+// FR-TIP-1: 어디에서 갈라지는지가 라벨에 없다 — 그것이 이 버튼의 유일한 물음이다.
+const GIT_BR_NEW_TITLE='Create a new branch from the current HEAD';
 const GIT_BR_EMPTY='이름이 일치하는 ref 가 없습니다';
 const GIT_BR_LOAD_FAIL='브랜치 목록을 불러오지 못했습니다';
 const GIT_BR_RETRY='Retry';
@@ -711,6 +806,10 @@ const GIT_BR_VALIDATE_DEBOUNCE_MS=200;
 // ── Stash 탭 (GIT_SRS §3D.2 / FR-GIT-161~170) ──
 
 const GIT_STASH_NEW='+ New Stash';
+// FR-TIP-1: 무엇이 담기는지가 라벨에 없다.
+const GIT_STASH_NEW_TITLE='Stash the current working tree changes';
+// 막혔을 때. 사유의 한국어 원문은 버튼 옆 한 줄이 말한다 (FR-TIP-3).
+const GIT_STASH_BLOCKED_TITLE='Nothing to stash right now';
 const GIT_STASH_EMPTY='stash 가 없습니다';
 const GIT_STASH_LOAD_FAIL='stash 목록을 불러오지 못했습니다';
 const GIT_STASH_PREVIEW_FAIL='stash 미리보기를 불러오지 못했습니다';
@@ -748,16 +847,18 @@ const GIT_STASH_DROP_NOTE='gc 전이면 아래 명령으로 되살릴 수 있습
 const GIT_REMOTE_KINDS=['fetch','pull','push'];
 const GIT_REMOTE_LABEL={fetch:'Fetch',pull:'Pull',push:'Push'};
 const GIT_REMOTE_TITLE={
-  fetch:'원격을 가져옵니다 (git fetch)',
-  pull:'가져와 현재 브랜치에 합칩니다 (git pull)',
-  push:'현재 브랜치를 원격에 밀어 올립니다 (git push)',
+  fetch:'Fetch from the remote (git fetch)',
+  pull:'Fetch and merge into the current branch (git pull)',
+  push:'Push the current branch to the remote (git push)',
 };
 const GIT_REMOTE_MORE='▾';
-const GIT_REMOTE_MORE_TITLE='옵션';
-const GIT_REMOTE_WHY_NO_STATUS='저장소 상태를 아직 읽지 못했습니다';
+const GIT_REMOTE_MORE_TITLE='More options';
+// FR-TIP-2: 이 둘은 **툴팁 전용**이다 — 꺼진 버튼의 사유를 title 로만 알린다
+// (FR-GIT-101). 화면에 글자로 서는 자리가 없으므로 영어로 옮긴다.
+const GIT_REMOTE_WHY_NO_STATUS='Repository status has not been read yet';
 // FR-GIT-101: 진행 중에는 같은 리포의 다른 원격 버튼도 막는다. 사유 없이 꺼진
 // 버튼은 사용자가 해소할 수 없다.
-const GIT_REMOTE_WHY_BUSY='이 저장소의 원격 작업이 진행 중입니다';
+const GIT_REMOTE_WHY_BUSY='A remote operation is already running for this repository';
 // argv 는 그대로 보인다 — 무엇이 실행됐는지 모르면 다이얼로그의 선택이 반영됐는지
 // 사용자가 확인할 수 없다 (FR-GIT-109·110).
 const GIT_PROGRESS_FLAG='--progress';
@@ -849,6 +950,8 @@ const GIT_SB_JOB_TITLE='진행 중인 원격 작업';
 // ── Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5 / FR-GIT-240~244) ──
 
 const GIT_WT_ADD='+ New Worktree';
+// FR-TIP-1: worktree 가 무엇인지 모르는 사용자에게 라벨은 아무 말도 하지 않는다.
+const GIT_WT_ADD_TITLE='Create a worktree — a second checkout of this repository in its own folder';
 const GIT_WT_EMPTY='worktree 가 없습니다';
 const GIT_WT_LOAD_FAIL='worktree 목록을 불러오지 못했습니다';
 const GIT_WT_DETACHED='detached';
@@ -865,13 +968,80 @@ const GIT_WT_OWN_TITLE={
 // FR-GIT-249: 핀은 **상태의 토글**이다 — 이미 핀된 것에 Pin 을 다시 보이면 눌러도
 // 아무 일이 없고(서버 pin 은 멱등이다) 사용자는 그것을 고장으로 읽는다.
 const GIT_WT_ACT_LABEL={open:'Open',pin:'Pin',unpin:'Unpin',term:'Shell',remove:'Remove'};
+/**
+  * UX_BATCH5_SRS FR-WTG-2: `open` 의 문구가 **하는 일과 어긋나 있었다.**
+  *
+  *   이전 문구: "이 worktree 를 활성 리포로 엽니다"
+  *   새  문구: 그 워크트리의 **저장소 창**을 연다
+  *   이유:     REPO_TAB_UNIFY_SRS FR-RTU-72 로 리포 전환이 창 전환이 됐다 —
+  *             갈아 끼울 "활성 리포" 라는 것이 더 이상 없다. 옛 표현이 그대로
+  *             남아 있었다 (묶음 E 실측에서 확인)
+  */
 const GIT_WT_ACT_TITLE={
-  open:'이 worktree 를 활성 리포로 엽니다',
-  pin:'GIT 섹션에 핀합니다',
-  unpin:'GIT 섹션의 핀을 풉니다',
-  term:'이 worktree 에서 터미널 탭을 엽니다 (Git 창이 아닌 창)',
-  remove:'이 worktree 를 지웁니다',
+  open:'Open this worktree as its own repository window',
+  pin:'Pin it to the GIT section',
+  unpin:'Remove it from the GIT section',
+  term:'Open a terminal tab in this worktree (in a non-Git window)',
+  remove:'Delete this worktree',
 };
+// ── Submodules 탭 (UX_BATCH5_SRS 묶음 D / FR-SUB-1~11) ──
+//
+// 골격과 규약은 **Worktrees 탭과 같다** (FR-SUB-7) — 머리의 일괄, 안내 줄, 목록.
+// 새 규약을 만들지 않는다: 같은 모양의 목록이 둘이면 규칙도 하나여야 한다.
+
+const GIT_SUB_EMPTY='서브모듈이 없습니다';
+const GIT_SUB_LOAD_FAIL='서브모듈 목록을 불러오지 못했습니다';
+// 상태 라벨. 서버의 `State*` 와 짝이며, 그 판정은 `git submodule status` 의 접두
+// 문자에서 온다 (FR-SUB-2) — 우리가 다시 계산하지 않는다.
+const GIT_SUB_STATE_OK='ok';
+const GIT_SUB_STATE_UNINIT='uninitialized';
+const GIT_SUB_STATE_MODIFIED='modified';
+const GIT_SUB_STATE_CONFLICT='conflict';
+const GIT_SUB_STATE_LABEL={
+  [GIT_SUB_STATE_OK]:'ok',
+  [GIT_SUB_STATE_UNINIT]:'uninit',
+  [GIT_SUB_STATE_MODIFIED]:'modified',
+  [GIT_SUB_STATE_CONFLICT]:'conflict',
+};
+// 상태 배지는 `<span>` 이라 FR-TIP-1 의 대상이 아니지만, 같은 표면의 툴팁이
+// 언어를 섞으면 그것이 더 읽기 어렵다 — 이 탭의 툴팁은 전부 영어다.
+const GIT_SUB_STATE_TITLE={
+  [GIT_SUB_STATE_OK]:'Checked out at the recorded commit',
+  [GIT_SUB_STATE_UNINIT]:'Not initialized — the folder is empty',
+  [GIT_SUB_STATE_MODIFIED]:'Checked out at a different commit than recorded',
+  [GIT_SUB_STATE_CONFLICT]:'Has a merge conflict',
+};
+// 행 동작 (FR-SUB-8). 초기화되지 않은 서브모듈에는 `open`·`term` 이 붙지 않는다 —
+// 열 저장소가 없고, 눌리지만 아무 일도 하지 않는 버튼은 고장으로 읽힌다
+// (FR-GIT-180). 그 자리에는 `init` 이 대신 선다.
+const GIT_SUB_ACT_LABEL={open:'Open',init:'Init',update:'Update',sync:'Sync',term:'Shell'};
+const GIT_SUB_ACT_TITLE={
+  open:'Open this submodule as its own repository window',
+  init:'Initialize this submodule and check out its recorded commit',
+  update:'Move this submodule to its recorded commit — may overwrite changes inside it',
+  sync:'Copy the URL from .gitmodules into this repository config',
+  term:'Open a terminal tab in this submodule (in a non-Git window)',
+};
+// 머리의 일괄 (FR-SUB-9). 대상이 **전부**이므로 라벨이 그것을 말한다.
+const GIT_SUB_BULK_LABEL={update:'Update all',sync:'Sync all'};
+const GIT_SUB_BULK_TITLE={
+  update:'Initialize and update every submodule to its recorded commit',
+  sync:'Copy every submodule URL from .gitmodules into this repository config',
+};
+// FR-SUB-5: `update` 는 파괴적이다 — 서브모듈 안의 커밋되지 않은 변경을 덮을 수
+// 있다. `sync` 는 설정만 옮기므로 그렇지 않다.
+const GIT_SUB_UPDATE_ACTION='submodule_update';
+const GIT_SUB_SYNC_ACTION='submodule_sync';
+const GIT_SUB_UPDATE_TITLE='서브모듈을 등록된 커밋으로 옮깁니다';
+const GIT_SUB_UPDATE_NOTE='서브모듈 안의 커밋되지 않은 변경이 있으면 덮이거나 거부됩니다.';
+const GIT_SUB_SYNC_TITLE='서브모듈의 URL 을 설정으로 옮깁니다';
+const GIT_SUB_SYNC_NOTE='.gitmodules 의 URL 을 이 저장소의 .git/config 로 옮깁니다. 체크아웃은 바뀌지 않습니다.';
+const GIT_SUB_UPDATE_FAIL='서브모듈을 갱신하지 못했습니다';
+const GIT_SUB_SYNC_FAIL='서브모듈 URL 을 옮기지 못했습니다';
+const GIT_SUB_UPDATED='갱신했습니다: ';
+const GIT_SUB_SYNCED='URL 을 옮겼습니다: ';
+const GIT_SUB_ALL='전부';
+
 const GIT_WT_CREATE_TITLE='새 worktree 를 만듭니다';
 const GIT_WT_CREATE_RUN='Create';
 const GIT_WT_NAME_PH='이름 — 디렉터리 이름이 됩니다';
@@ -923,9 +1093,9 @@ const GIT_OP_ACT_LABEL={
   [GIT_OP_ABORT]:'Abort',
 };
 const GIT_OP_ACT_TITLE={
-  [GIT_OP_CONTINUE]:'해결한 내용으로 이어서 진행합니다',
-  [GIT_OP_SKIP]:'이 커밋을 건너뜁니다',
-  [GIT_OP_ABORT]:'작업을 중단하고 시작 전 상태로 돌아갑니다',
+  [GIT_OP_CONTINUE]:'Continue with what you resolved',
+  [GIT_OP_SKIP]:'Skip this commit',
+  [GIT_OP_ABORT]:'Abort and go back to the state before this operation',
 };
 const GIT_ACT_OP_ABORT='operation_abort';
 const GIT_OP_ABORT_TITLE='진행 중인 작업을 중단합니다';
@@ -1024,7 +1194,7 @@ const GIT_FILE_HISTORY='File history';
 // Diff 탭이 Monaco·파일 선택·큰 파일 잘림 규약을 이미 들고 있다.
 const GIT_FILE_BLAME='Blame';
 const GIT_BLAME_TOGGLE='Blame';
-const GIT_BLAME_TOGGLE_TITLE='줄마다 어느 커밋에서 왔는지 보인다';
+const GIT_BLAME_TOGGLE_TITLE='Show which commit each line came from';
 const GIT_BLAME_LOADING='blame 을 읽는 중…';
 const GIT_BLAME_FAIL='blame 을 읽지 못했습니다';
 // 아직 커밋되지 않은 줄. git 은 author 를 "Not Committed Yet" 으로 답하지만 그것을
@@ -1071,9 +1241,9 @@ const GIT_HUNK_ACTS={
 const GIT_HUNK_LABEL={stage:'Stage hunk',unstage:'Unstage hunk',revert:'Revert hunk'};
 const GIT_HUNK_LINE_LABEL={stage:'Stage lines',unstage:'Unstage lines',revert:'Revert lines'};
 const GIT_HUNK_TITLE={
-  stage:'이 조각만 스테이지합니다',
-  unstage:'이 조각만 스테이지에서 내립니다',
-  revert:'이 조각을 워킹 트리에서 버립니다 — 되돌릴 수 없습니다',
+  stage:'Stage only this hunk',
+  unstage:'Unstage only this hunk',
+  revert:'Discard this hunk from the working tree — this cannot be undone',
 };
 const GIT_HUNK_LINE_CLASS={'+':' add','-':' del',' ':'','\\':' meta'};
 const GIT_HUNK_LOADING='조각을 불러오는 중…';
@@ -1101,7 +1271,7 @@ Object.assign(GIT_WRITE_ERR,{
 // (FR-GIT-104) — 화면이 다시 가리지 않는다. 가리는 자리가 둘이면 한쪽만 고쳐진다.
 const GIT_RM_TITLE='Remotes';
 const GIT_RM_ADD='+ Add Remote';
-const GIT_RM_ADD_TITLE='새 원격을 더합니다 (git remote add)';
+const GIT_RM_ADD_TITLE='Add a new remote (git remote add)';
 const GIT_RM_EMPTY='원격이 없습니다';
 const GIT_RM_LOAD_FAIL='원격 목록을 불러오지 못했습니다';
 const GIT_RM_REMOVE='Remove';
@@ -1129,7 +1299,7 @@ const GIT_RM_REMOVE_FAIL='원격을 지우지 못했습니다';
 // FR-GIT-270: Sync 는 pull 후 push 를 한 진입점으로 묶는다. **앞이 실패하면 뒤를
 // 돌리지 않는다** — 그 판정은 서버가 하고 화면은 그 사실을 보인다.
 const GIT_SYNC_LABEL='Sync';
-const GIT_SYNC_TITLE='가져와 합친 뒤 밀어 올립니다 (pull → push)';
+const GIT_SYNC_TITLE='Pull then push (pull → push)';
 // 단계는 라벨로 보인다 — "1/2" 가 없으면 사용자는 무엇이 도는지 모른다.
 const GIT_SYNC_STEP_LABEL={pull:'Sync 1/2 — Pull',push:'Sync 2/2 — Push'};
 const GIT_SYNC_STOPPED='pull 이 끝나지 않아 push 를 돌리지 않았습니다';
@@ -1142,7 +1312,7 @@ const GIT_SYNC_POLL_MAX=60;
 // force-with-lease 를 그 자리에서 켠다 — force 는 기존 확인 규약을 그대로 탄다
 // (FR-GIT-106, GIT_ACT_FORCE_PUSH).
 const GIT_PP_LABEL='Preview';
-const GIT_PP_BTN_TITLE='밀기 전에 올라갈 커밋을 봅니다';
+const GIT_PP_BTN_TITLE='Review the commits that will be pushed';
 const GIT_PP_TITLE='Push 미리보기';
 const GIT_PP_RUN='Push';
 const GIT_PP_FAIL='미리보기를 불러오지 못했습니다';

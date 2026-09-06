@@ -557,6 +557,16 @@ body.mobile .git-head-refresh{margin-right:2px;min-width:30px}
 }
 .git-file-act:hover{color:var(--text-bright);border-color:var(--accent)}
 .git-file-act[data-act="discard"]:hover{color:var(--danger);border-color:var(--danger)}
+/* FR-DBA-3: 폴더 행이 갖지 않는 동작의 **자리지킴**. 파일 행과 열을 맞추는 것이
+   전부이므로 `.git-file-act` 와 치수가 같아야 한다 — 테두리도 자리를 먹으므로
+   지우지 않고 투명하게 둔다. 보이지 않고, 눌리지 않고, 읽히지 않는다. */
+.git-act-gap{
+  min-width:var(--git-hit);min-height:var(--git-hit);padding:0 5px;
+  border:1px solid transparent;border-radius:3px;
+  /* `flex-shrink` 를 손대지 않는다 — 버튼과 다르게 줄면 좁은 폭에서 열이 다시
+     어긋난다. 좁아졌을 때 버튼이 다음 줄로 가는 것도 함께 따라야 한다. */
+  pointer-events:none;
+}
 
 /* FR-GIT-73 · §7.1 I2: 부분 적용을 조용히 넘기지 않는다 */
 .git-partial-note{display:none;padding:4px 10px;font-size:11px;
