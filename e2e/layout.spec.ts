@@ -147,6 +147,15 @@ test.describe('Layout & navigation', () => {
     // Click 2: while the new-pane fetch is in flight, simulate an SSE
     // workspace_changed apply by directly invoking _onWorkspaceChanged
     // with the server's current rev (which would replace this.ws).
+    //
+    // **도구 생성을 늦추는 것이 이 검사의 결정성이다.** 재려는 순간은 "메아리의
+    // 적용이 `_newTool` 대기 **중에** 끝난다" 이고, 늦추지 않으면 그 둘의 순서가
+    // 기계 속도에 달린다 — 느린 기계에서는 적용이 도구 생성보다 늦게 끝나 분할이
+    // 뒤엎이고, 그것은 이 검사가 재려는 경쟁이 아니다(러너에서 실측).
+    await page.route('**/api/tools', async (route: any) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      return route.fallback();
+    });
     await page.evaluate(async () => {
       const app = (window as any).app;
       const p = app.split('horizontal');
@@ -156,6 +165,7 @@ test.describe('Layout & navigation', () => {
       await app._onWorkspaceChanged();
       await p;
     });
+    await page.unroute('**/api/tools');
 
     await expect(page.locator('#area .pn')).toHaveCount(before + 2, { timeout: 10000 });
     await expect(page.locator('#area .pn.focused')).toHaveCount(1);
