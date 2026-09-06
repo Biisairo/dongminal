@@ -151,6 +151,11 @@ gitlink 몫이 실제로 스테이지되기 때문이다. 그래서 **버튼은 
 **FR-SDN-13** 꺼진 `Stage` 의 `title` 은 사유를 말한다 — 이 저장소가 담을 변경이
 없다는 것과, 서브모듈 안에서 먼저 커밋해야 한다는 것.
 
+> **개정.** 그 문장은 **영어**다 (UX_BATCH5_SRS FR-TIP-2). 버튼의 `title` 은 언어가
+> 정해져 있고, 이 자리도 버튼이다 — 초판이 한국어로 적은 것은 그 규약을 지나쳤다.
+> 말하는 **내용**은 그대로다: `Nothing here for this repository to stage — commit
+> inside the submodule first`.
+
 **FR-SDN-14** A·C 의 `Stage` 는 그대로 살아 있다. `Discard` 는 상태와 무관하게
 바뀌지 않는다 — 그것은 gitlink 를 되돌리는 별개의 동작이다.
 
