@@ -33,7 +33,7 @@ func TestToolAdapter_EmptyManager(t *testing.T) {
 	}
 }
 
-func TestWorkspaceAdapter_ResolveAndLabels(t *testing.T) {
+func TestWorkspaceAdapter_ResolveAndEntries(t *testing.T) {
 	pm := toolhub.NewToolManager(t.TempDir(), nil)
 	t.Cleanup(pm.StopSaving)
 	dir := t.TempDir()
@@ -44,10 +44,7 @@ func TestWorkspaceAdapter_ResolveAndLabels(t *testing.T) {
 	defer wsMgr.Close()
 	a := Workspace{WS: wsMgr}
 
-	// empty workspace → no labels, no entries
-	if got := a.Labels(); len(got) != 0 {
-		t.Errorf("Labels=%v", got)
-	}
+	// empty workspace → no entries
 	if got := a.Entries(); len(got) != 0 {
 		t.Errorf("Entries=%v", got)
 	}

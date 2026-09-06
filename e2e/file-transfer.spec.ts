@@ -315,24 +315,51 @@ test.describe('묶음 C — 터미널 (FR-FTR-8·10·11)', () => {
     let uploads = 0;
     page.on('request', (r) => { if (r.url().includes('/api/upload')) uploads++ });
 
-    const said = await page.evaluate(async () => {
+    // TERM_XFER_NOTICE_SRS FR-TXN-9: 사유는 터미널 화면이 아니라 팝업에 뜬다.
+    await page.evaluate(async () => {
       const app = (window as any).app;
       const tool = [...app.tools.values()][0];
-      const lines: string[] = [];
-      const orig = tool._say.bind(tool);
-      tool._say = (s: string) => { lines.push(s); return orig(s) };
       await new Promise<void>((res) => {
         const dt = new DataTransfer();
         dt.items.add(new File(['UP'], 'nope.txt', { type: 'text/plain' }));
         tool._uploadFiles(dt.files);
         setTimeout(res, 1500);
       });
-      tool._say = orig;
-      return lines.join('');
     });
 
     expect(uploads).toBe(0);
-    expect(said).toContain('업로드하지 않았습니다');
+    // 사유 팝업은 8초 남는다 (FR-TXN-4) — 1.5초 뒤에도 읽을 수 있다.
+    const err = page.locator('.toast-host .toast.err');
+    await expect(err).toHaveText(/업로드하지 않았습니다/);
+    // FR-TXN-6: 누르면 곧바로 닫힌다 — 자동 소멸을 기다릴 필요가 없다.
+    await err.click();
+    await expect(page.locator('.toast-host .toast')).toHaveCount(0);
+  });
+
+  test('FT13 (V-TXN-2): 업로드 알림은 터미널이 아니라 하단 팝업이다 (FR-TXN-1~4)', async ({ page, request }) => {
+    const R = mkRoot('ft13');
+    await enter(page, request, R);
+    // 도구의 cwd 를 확정해 업로드가 실제로 일어나게 한다 (FR-FTR-11 의 `tool`).
+    await page.route('**/api/cwd*', (route) =>
+      route.fulfill({ json: { cwd: R, source: 'tool' } }));
+
+    // FR-TXN-1: 터미널 화면에 쓰는 경로 자체가 없다.
+    expect(await page.evaluate(() =>
+      typeof [...(window as any).app.tools.values()][0]._say)).toBe('undefined');
+
+    await page.evaluate(async () => {
+      const app = (window as any).app;
+      const tool = [...app.tools.values()][0];
+      const dt = new DataTransfer();
+      dt.items.add(new File(['UP'], 'toast.txt', { type: 'text/plain' }));
+      tool._uploadFiles(dt.files);
+    });
+
+    // FR-TXN-3: 진행 팝업이 같은 자리에서 성공 문구로 바뀐다.
+    await expect(page.locator('.toast-host .toast.ok')).toHaveText(/toast\.txt 업로드 완료/);
+    expect(fs.readFileSync(j(R, 'toast.txt'), 'utf8')).toBe('UP');
+    // FR-TXN-4: 성공 팝업은 3초 뒤 사라진다.
+    await expect(page.locator('.toast-host .toast')).toHaveCount(0, { timeout: 6000 });
   });
 
   test('FT10 (V-FTR-8): OSC 가 청크 경계에서 갈려도 다운로드가 일어난다', async ({ page, request }) => {

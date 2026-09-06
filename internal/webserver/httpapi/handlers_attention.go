@@ -133,6 +133,9 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 		State  string `json:"state"`
 		Tool   string `json:"tool"`
 		Detail string `json:"detail"`
+		// UserPrompt 는 이 턴이 사용자 프롬프트에서 시작되었다는 곁들이 값이다
+		// (FR-ATN-2). 활동 상태 어휘는 이것으로 바뀌지 않는다.
+		UserPrompt bool `json:"userPrompt"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" || !hub.ValidActivityState(req.State) {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -140,10 +143,19 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.Tools != nil {
 		if s.AttnTracker != nil {
+			// FR-ATN-1: 표시를 먼저 세운다. 활동 보고와 별도 경로인 것은 둘이
+			// 다른 것을 말하기 때문이다 — 활동은 "지금 무엇을 하는가", 이것은
+			// "이 턴이 왜 시작되었는가" 다.
+			if req.UserPrompt {
+				s.AttnTracker.NoteUserPrompt(req.ToolID)
+			}
 			s.AttnTracker.SetActivity(req.ToolID, req.State,
 				hub.SanitizeActivityField(req.Tool, hub.ActivityToolMax),
 				hub.SanitizeActivityField(req.Detail, hub.ActivityDetailMax))
 		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
+			if req.UserPrompt {
+				tool.NoteUserPrompt()
+			}
 			tool.SetActivity(req.State, hub.SanitizeActivityField(req.Tool, hub.ActivityToolMax), hub.SanitizeActivityField(req.Detail, hub.ActivityDetailMax))
 		}
 	}

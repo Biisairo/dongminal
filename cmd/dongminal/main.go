@@ -27,6 +27,7 @@ import (
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
+	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/lsp"
 	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/domain/sysstat"
@@ -336,11 +337,18 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 	// 여러 개여도 git 실행 횟수가 창 수에 비례하지 않게 한다 (FR-GIT-63).
 	gitStore := store.NewStore(core.New())
 
-	// 편집기 코드 탐색의 언어 서버 (EDITOR_LSP_SRS 묶음 A). 전용 디렉터리는
-	// worktrees 와 같은 규약으로 홈 아래에 잡는다 — **우리가 받은 서버만** 그
-	// 안에 살고, 지우면 원상복구된다 (FR-LSP-7). 시스템·사용자 전역은 건드리지
-	// 않는다.
-	lspSvc := lsp.NewService(dataPath(cfg.DataDir, "lsp"))
+	// 편집기 코드 탐색의 언어 서버 (LSP_PLUGIN_SRS). 격리 칸은 worktrees 와 같은
+	// 규약으로 홈 아래에 잡는다 — **우리가 받은 것만** 그 안에 살고, 그 칸 하나를
+	// 지우면 원상복구된다 (FR-EXT-22). 시스템·사용자 전역은 건드리지 않는다.
+	//
+	// 무엇이 있는지는 **플러그인 선언**이 정한다 (FR-EXT-1). 여기서 하는 일은
+	// 동봉 선언을 한 번 펴 두는 것뿐이며(FR-EXT-34), 서버도 런타임도 받지 않는다 —
+	// 그것은 사용자가 눌러야 일어난다 (FR-EXT-16).
+	extSvc := ext.NewService(dataPath(cfg.DataDir, "ext"))
+	for _, err := range extSvc.Deploy() {
+		log.Printf("플러그인 선언을 펴지 못했습니다: %v", err)
+	}
+	lspSvc := lsp.NewService(extSvc)
 	// FR-LSP-32: 진단은 **요청 없이** 오므로 이미 있는 push 길로 밀어낸다 (D-2).
 	// 도메인 계층은 이것이 SSE 인지 모른다 (D-4) — 그 결정이 여기 있다.
 	//

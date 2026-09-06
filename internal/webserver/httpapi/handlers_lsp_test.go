@@ -11,14 +11,16 @@ import (
 	"testing"
 
 	"dongminal/internal/shared/testpath"
+	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/lsp"
 )
 
 type fakeLSP struct {
-	statuses   []lsp.Status
+	statuses   []ext.Status
+	problems   []string
 	gotOverrid map[string]string
 	installID  string
-	outcome    lsp.InstallOutcome
+	outcome    ext.Outcome
 
 	locs    []lsp.Location
 	hover   string
@@ -31,12 +33,12 @@ type fakeLSP struct {
 	askIncl bool
 }
 
-func (f *fakeLSP) Status(overrides map[string]string) []lsp.Status {
+func (f *fakeLSP) Status(overrides map[string]string) ([]ext.Status, []string) {
 	f.gotOverrid = overrides
-	return f.statuses
+	return f.statuses, f.problems
 }
 
-func (f *fakeLSP) Install(_ context.Context, id string) lsp.InstallOutcome {
+func (f *fakeLSP) Install(_ context.Context, id string) ext.Outcome {
 	f.installID = id
 	return f.outcome
 }
@@ -58,9 +60,10 @@ func (f *fakeLSP) Hover(_ context.Context, root, path, text string, line, col in
 
 // TC-LSP-30 (FR-LSP-46): 상태 조회가 서술자 목록을 돌려준다.
 func TestLSPStatus(t *testing.T) {
-	f := &fakeLSP{statuses: []lsp.Status{
-		{ID: "gopls", Langs: []string{"go"}, Found: true, Exe: "/usr/bin/gopls", Origin: lsp.OriginPath, CanInstall: true},
-		{ID: "pyright", Langs: []string{"python"}, Installer: "npm"},
+	f := &fakeLSP{statuses: []ext.Status{
+		{Pack: "gopls", ID: "gopls", Langs: []string{"go"}, Found: true, Exe: "/usr/bin/gopls", Origin: ext.OriginPath, CanInstall: true},
+		{Pack: "pyright", ID: "pyright", Langs: []string{"python"},
+			Missing: &ext.Missing{Kind: ext.MissingRuntime, Name: "node"}},
 	}}
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{LSP: f})
 	ts := httptest.NewServer(srv.Handler())
@@ -75,7 +78,7 @@ func TestLSPStatus(t *testing.T) {
 		t.Fatalf("상태 조회가 %d 를 냈다", resp.StatusCode)
 	}
 	var got struct {
-		Servers []lsp.Status `json:"servers"`
+		Servers []ext.Status `json:"servers"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
 		t.Fatal(err)
@@ -83,7 +86,7 @@ func TestLSPStatus(t *testing.T) {
 	if len(got.Servers) != 2 {
 		t.Fatalf("서술자 줄 수가 다르다: %d", len(got.Servers))
 	}
-	if got.Servers[0].Origin != lsp.OriginPath {
+	if got.Servers[0].Origin != ext.OriginPath {
 		t.Fatalf("어디서 찾았는지가 실리지 않았다: %+v", got.Servers[0])
 	}
 }
@@ -110,7 +113,7 @@ func TestLSPStatus_PassesOverrides(t *testing.T) {
 // TC-LSP-32 (FR-LSP-8·10): 설치는 id 를 받아 결과를 돌려준다. 실패도 200 으로
 // **사유와 함께** 온다 — 조용히 실패하지 않는다.
 func TestLSPInstall(t *testing.T) {
-	f := &fakeLSP{outcome: lsp.InstallOutcome{Reason: "go 가 이 기계에 없어…"}}
+	f := &fakeLSP{outcome: ext.Outcome{Reason: "go 가 이 기계에 없어…"}}
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{LSP: f})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
@@ -127,7 +130,7 @@ func TestLSPInstall(t *testing.T) {
 	if f.installID != "gopls" {
 		t.Fatalf("id 가 넘어가지 않았다: %q", f.installID)
 	}
-	var got lsp.InstallOutcome
+	var got ext.Outcome
 	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
 		t.Fatal(err)
 	}

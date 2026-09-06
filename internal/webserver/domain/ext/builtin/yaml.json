@@ -1,0 +1,16 @@
+{
+  "id": "yaml",
+  "kind": "server",
+  "version": "1.24.0",
+  "needs": ["node"],
+  "source": {"kind": "npm", "packages": ["yaml-language-server@1.24.0"]},
+  "servers": [
+    {
+      "id": "yaml-language-server",
+      "langs": ["yaml"],
+      "exts": [".yaml", ".yml"],
+      "exe": "yaml-language-server",
+      "args": ["--stdio"]
+    }
+  ]
+}

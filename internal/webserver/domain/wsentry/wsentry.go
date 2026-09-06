@@ -63,6 +63,14 @@ type Store struct {
 	// 비면 메모장 표면이 없다 (FR-NOT-11) — 홈과 달리 이것 하나가 없다고
 	// Editor 표면 전체가 죽지는 않는다.
 	NotesDir string
+
+	// PluginsDir 은 언어 서버 플러그인의 선언들이 사는 자리다
+	// (LSP_PLUGIN_SRS FR-EXT-9b).
+	//
+	// 탐색기에 한 줄로 세우는 이유는 그 선언이 **사용자가 고치라고 만든 파일**
+	// 이기 때문이다 (FR-EXT-9). 자리가 Editor 루트 밖이면 루트 가드가 막아
+	// 열 길이 없고, 그러면 파일 관리자로 숨은 디렉터리를 찾아가라는 말이 된다.
+	PluginsDir string
 }
 
 // Home 은 정규화된 홈 디렉터리다. 저장하지 않고 매번 파생한다 (FR-EDT-17).
@@ -90,6 +98,20 @@ func (s *Store) Notes() (string, error) {
 		return "", err
 	}
 	return NormalizePath(s.NotesDir), nil
+}
+
+// Plugins 는 플러그인 선언들의 루트다 (FR-EXT-9b).
+//
+// 메모 루트와 같은 규약이다 — 얻지 못하는 것은 응답의 실패가 아니라 그 행 하나가
+// 없는 것이다 (FR-NOT-11 과 같은 근거).
+func (s *Store) Plugins() (string, error) {
+	if s.PluginsDir == "" {
+		return "", ErrUnavailable
+	}
+	if err := os.MkdirAll(s.PluginsDir, 0o755); err != nil {
+		return "", err
+	}
+	return NormalizePath(s.PluginsDir), nil
 }
 
 // Read 는 저장된 두 목록을 준다.
@@ -126,10 +148,14 @@ func (s *Store) Roots() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make([]string, 0, len(list)+2)
+	out := make([]string, 0, len(list)+3)
 	out = append(out, home)
 	if notes, err := s.Notes(); err == nil {
 		out = append(out, notes)
+	}
+	// FR-EXT-9b: 선언을 편집기로 열려면 루트 가드를 지나야 한다.
+	if plugins, err := s.Plugins(); err == nil {
+		out = append(out, plugins)
 	}
 	return append(out, list...), nil
 }

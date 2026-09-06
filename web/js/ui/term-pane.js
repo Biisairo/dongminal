@@ -527,15 +527,19 @@ class TerminalTool {
     // precmd·에이전트 hook 은 같은 OSC 경로를 탄다 — 셸 명령 직후의 즉시 신호다 (FR-GIT-18).
     if(app)app._gitSignal('cwd');
   }
-  // FR-FTR-9: 화면 기록이 실패해도 전송을 막지 않는다. term 은 pane 이 붙기
-  // 전에는 없다 — `_doFlush` 가 같은 호출을 감싸는 것과 같은 이유다.
-  _say(s){ if(this.term) try{this.term.write(s)}catch{} }
+  // FR-TXN-1: 알림은 터미널 화면이 아니라 창 하단 팝업으로 간다 — 셸이 소유한
+  // 화면에 남이 쓰면 프롬프트가 어긋나 명령이 도는 것처럼 보인다
+  // (TERM_XFER_NOTICE_SRS §1.2). FR-TXN-10: 팝업을 만들다 실패해도 전송은
+  // 계속된다 (옛 FR-FTR-9 와 같은 규약).
+  _toast(text,kind,ms){ try{return Toast.show(text,kind,ms)}catch{return null} }
 
   _downloadFile(path){
     const a=document.createElement('a');
     a.href='/api/download?path='+encodeURIComponent(path);
     a.download='';document.body.appendChild(a);a.click();a.remove();
-    this._say('\x1b[2m↓ Downloading: '+path+'\x1b[0m\r\n');
+    // 앵커 클릭은 끝나는 시점을 알려 주지 않는다 — 진행 문구를 잠시 보이고
+    // 스스로 사라진다 (FR-TXN-8).
+    this._toast(TERM_DOWNLOAD_BUSY.replace('%s',path),'',TOAST_MS);
   }
   _uploadFiles(files){
     if(!files||!files.length)return;
@@ -543,7 +547,7 @@ class TerminalTool {
     fetch('/api/cwd?tool='+this.id).then(r=>r.json()).then(({cwd,source})=>{
       // FR-FTR-11: 서버의 cwd 는 이 도구의 폴더가 아니다 — 보고 있지 않은 곳에
       // 파일을 떨어뜨리지 않는다. `source` 는 그 구분을 위해 있다 (D-4).
-      if(source!=='tool'||!cwd){this._say('\x1b[31m'+TERM_UPLOAD_NO_CWD+'\x1b[0m\r\n');return}
+      if(source!=='tool'||!cwd){this._toast(TERM_UPLOAD_NO_CWD,'err',TOAST_ERR_MS);return}
       let i=0;
       const uploadNext=()=>{
         // FR-FTR-10: 끝나도 셸에 엔터를 보내지 않는다 — 그 순간 돌고 있는 것이
@@ -551,18 +555,21 @@ class TerminalTool {
         if(i>=files.length) return;
         const f=files[i++];
         const fd=new FormData();fd.append('file',f);
-        this._say('\x1b[2m↑ Uploading: '+f.name+'\x1b[0m\r\n');
+        // FR-TXN-3·5: 파일 하나의 일은 팝업 하나에서 마친다. 진행 팝업은 스스로
+        // 사라지지 않는다 — 전송이 소멸 시간보다 길면 시작한 일이 사라진다.
+        const t=this._toast(TERM_UPLOAD_BUSY.replace('%s',f.name),'',0);
         fetch('/api/upload?dir='+encodeURIComponent(cwd),{method:'POST',body:fd})
           .then(r=>r.ok?r.json():Promise.reject(r))
           .then(d=>{
-            this._say('\x1b[2m  ✓ '+d.name+' ('+this._fmtSize(d.size)+')\x1b[0m\r\n');
+            if(t)t.update(TERM_UPLOAD_OK.replace('%s',d.name).replace('%z',this._fmtSize(d.size)),'ok');
             uploadNext();
           }).catch(()=>{
-            this._say('\x1b[31m  ✗ Upload failed\x1b[0m\r\n');uploadNext();
+            if(t)t.update(TERM_UPLOAD_FAIL.replace('%s',f.name),'err',TOAST_ERR_MS);
+            uploadNext();
           });
       };
       uploadNext();
-    }).catch(()=>this._say('\x1b[31m'+TERM_UPLOAD_NO_CWD+'\x1b[0m\r\n'));
+    }).catch(()=>this._toast(TERM_UPLOAD_NO_CWD,'err',TOAST_ERR_MS));
   }
   _fmtSize(b){
     if(b<1024)return b+'B';

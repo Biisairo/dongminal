@@ -1,0 +1,16 @@
+{
+  "id": "svg",
+  "kind": "server",
+  "version": "0.2.0",
+  "needs": ["node"],
+  "source": {"kind": "npm", "packages": ["svg-language-server@0.2.0"]},
+  "servers": [
+    {
+      "id": "svg-language-server",
+      "langs": ["svg"],
+      "exts": [".svg"],
+      "exe": "svg-language-server",
+      "args": ["--stdio"]
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+/* 문서 렌더 뷰 (DOC_RENDER_VIEW_SRS 묶음 C).
+ *
+ * FR-DRV-18: **색은 CSS 변수에서 파생한다.** 하이라이터가 들고 오는 기성 테마를
+ * 쓰지 않는 이유가 그것이다 (FR-DRV-13d) — 쓰면 코드 블록만 테마를 따라오지 않아
+ * 밝은 테마에서 어두운 섬으로 남는다. */
+
+.doc-render{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  background:var(--bg);color:var(--text);outline:none;
+}
+.doc-render.vis{display:flex}
+
+.dr-bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:8px;
+  padding:4px 8px;border-bottom:1px solid var(--border);
+  background:var(--bg-alt,var(--bg));
+}
+.dr-source{
+  flex:0 0 auto;padding:2px 8px;border:1px solid var(--border);border-radius:4px;
+  background:transparent;color:var(--text-dim);font-size:11px;cursor:pointer;
+}
+.dr-source:hover{color:var(--text);border-color:var(--accent)}
+.dr-path{
+  flex:1 1 auto;min-width:0;color:var(--text-dim);font-size:11px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+
+.dr-body{
+  flex:1 1 auto;min-height:0;overflow:auto;
+  padding:16px 20px 40px;line-height:1.7;font-size:14px;
+  /* 읽는 화면이므로 본문 폭을 제한한다 — 넓은 칸에서 한 줄이 화면을 가로지르면
+     눈이 다음 줄의 첫머리를 잃는다. */
+  max-width:52em;
+}
+/* 그림에는 그 제한이 걸리지 않는다 — 읽는 것이 아니라 보는 것이다. */
+.dr-body:has(.dr-svg-wrap),.dr-body:has(.dr-html-wrap){max-width:none;display:flex;padding:12px}
+/* 표는 폭을 제한하지 않되 흐르게 둔다 — 넓은 표는 자기 상자 안에서 가로로 구른다. */
+.dr-body:has(.dr-table){max-width:none}
+.dr-note{color:var(--text-dim);font-size:12px;font-style:italic}
+
+/* ── 본문 요소 ── */
+.dr-body h1,.dr-body h2,.dr-body h3,.dr-body h4{
+  margin:1.4em 0 .6em;line-height:1.3;font-weight:600;
+}
+.dr-body h1{font-size:1.7em;padding-bottom:.25em;border-bottom:1px solid var(--border)}
+.dr-body h2{font-size:1.35em;padding-bottom:.2em;border-bottom:1px solid var(--border)}
+.dr-body h3{font-size:1.15em}
+.dr-body p{margin:.7em 0}
+.dr-body a{color:var(--accent);text-decoration:none}
+.dr-body a:hover{text-decoration:underline}
+.dr-body img{max-width:100%;height:auto}
+.dr-body hr{border:0;border-top:1px solid var(--border);margin:1.5em 0}
+.dr-body blockquote{
+  margin:.8em 0;padding:.1em 1em;border-left:3px solid var(--border);color:var(--text-dim);
+}
+.dr-body ul,.dr-body ol{margin:.7em 0;padding-left:1.6em}
+.dr-body li{margin:.25em 0}
+.dr-body table{border-collapse:collapse;margin:1em 0;display:block;overflow-x:auto}
+.dr-body th,.dr-body td{border:1px solid var(--border);padding:5px 10px;text-align:left}
+.dr-body th{background:var(--bg-alt,var(--bg));font-weight:600}
+
+.dr-body code{
+  padding:.15em .4em;border-radius:3px;font-size:.88em;
+  background:color-mix(in srgb,var(--text) 10%,var(--bg));
+  font-family:'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace;
+}
+.dr-body pre{
+  margin:.9em 0;padding:10px 12px;border:1px solid var(--border);border-radius:5px;
+  overflow-x:auto;background:color-mix(in srgb,var(--text) 6%,var(--bg));
+}
+.dr-body pre code{padding:0;background:none;font-size:12px;line-height:1.55}
+
+/* ── 하이라이터의 토큰 (FR-DRV-13d) ──
+ *
+ * hljs 의 클래스 이름만 빌리고 색은 우리가 준다. 터미널 팔레트에서 파생하므로
+ * 편집기·터미널·렌더가 같은 색 세계를 쓴다. */
+.dr-body .hljs-keyword,.dr-body .hljs-selector-tag,.dr-body .hljs-literal,
+.dr-body .hljs-section,.dr-body .hljs-doctag,.dr-body .hljs-name{color:var(--term-magenta,var(--accent))}
+.dr-body .hljs-string,.dr-body .hljs-regexp,.dr-body .hljs-addition,
+.dr-body .hljs-attribute,.dr-body .hljs-meta .hljs-string{color:var(--term-green,var(--text))}
+.dr-body .hljs-number,.dr-body .hljs-symbol,.dr-body .hljs-bullet,
+.dr-body .hljs-link,.dr-body .hljs-selector-attr{color:var(--term-cyan,var(--text))}
+.dr-body .hljs-title,.dr-body .hljs-title.function_,.dr-body .hljs-built_in{color:var(--term-blue,var(--accent))}
+.dr-body .hljs-type,.dr-body .hljs-class .hljs-title,.dr-body .hljs-params{color:var(--term-yellow,var(--text))}
+.dr-body .hljs-comment,.dr-body .hljs-quote{color:var(--text-dim);font-style:italic}
+.dr-body .hljs-deletion{color:var(--term-red,var(--danger))}
+.dr-body .hljs-emphasis{font-style:italic}
+.dr-body .hljs-strong{font-weight:600}
+
+/* ── 편집기 우상단의 진입 버튼 (FR-DRV-3) ──
+ *
+ * 자리는 찾기 패널·알림과 같은 규약이다 — `.file-editor` 가 이미 좌표계다. */
+.fe-render{
+  position:absolute;top:6px;right:8px;z-index:6;
+  width:22px;height:22px;padding:0;border:1px solid var(--border);border-radius:4px;
+  background:var(--bg);color:var(--text-dim);font-size:12px;line-height:1;cursor:pointer;
+  opacity:.65;transition:opacity .12s;
+}
+.fe-render:hover{opacity:1;color:var(--accent);border-color:var(--accent)}
+
+/* ── SVG (FR-DRV-14) ──
+ *
+ * 원본 비율을 지키고 칸보다 크면 줄여 맞춘다 — 이미지 뷰(FR-EVW-4)와 같은 규약이다. */
+.dr-svg-wrap{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  height:100%;min-height:0;
+}
+.dr-svg{
+  flex:1 1 auto;min-height:0;max-width:100%;object-fit:contain;
+}
+.dr-svg-meta{flex:0 0 auto;color:var(--text-dim);font-size:11px}
+
+/* ── HTML (FR-DRV-15·22) ── */
+.dr-html-wrap{display:flex;flex-direction:column;height:100%;min-height:0;gap:6px}
+/* 스크립트가 돌지 않는다는 사실. 이 줄이 없으면 빈 화면이 우리 버그로 읽힌다. */
+.dr-html-note{
+  flex:0 0 auto;padding:3px 8px;border:1px solid var(--border);border-radius:4px;
+  background:color-mix(in srgb,var(--text) 6%,var(--bg));
+  color:var(--text-dim);font-size:11px;
+}
+.dr-html{
+  flex:1 1 auto;min-height:0;width:100%;border:1px solid var(--border);border-radius:4px;
+  background:#fff;   /* 문서 자신의 배경을 쓴다 — 우리 테마를 문서에 강요하지 않는다 */
+}
+
+/* ── 표 (FR-DRV-16) ── */
+.dr-table{
+  border-collapse:collapse;font-size:12px;
+  font-family:'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace;
+}
+.dr-table th,.dr-table td{
+  border:1px solid var(--border);padding:3px 8px;text-align:left;white-space:pre;
+  max-width:40em;overflow:hidden;text-overflow:ellipsis;
+}
+.dr-table th{background:var(--bg-alt,var(--bg));font-weight:600;position:sticky;top:0}
+.dr-table tr:nth-child(even) td{background:color-mix(in srgb,var(--text) 3%,var(--bg))}

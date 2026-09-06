@@ -592,7 +592,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     })).toBe(1);
   });
 
-  test('E22 (V-EDT-39 / FR-EDT-47): 탐색기 폭이 window.editor.explorerWidth 로 저장되고 복원된다', async ({ page }) => {
+  test('E22 (V-RSW-1~4 / FR-RSW-1~5): 사이드 폭이 워크스페이스 변수 하나이고 모든 Repo 창이 같다', async ({ page }) => {
     await goto(page);
     await openEditorTab(page);
     // **폭을 갖는 요소가 바뀌었다** (REPO_TAB_UNIFY_SRS FR-RTU-11·12).
@@ -601,24 +601,54 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     //   이유:     사이드가 두 탭을 갈아 끼우므로(D-RTU-3) 폭은 둘의 공통 자리인
     //             사이드의 것이어야 한다 — 탭을 바꿀 때마다 폭이 흔들리지 않는다
     await expect(page.locator('#area .ed-win .ed-side .ed-explorer')).toHaveCount(1);
-    await page.evaluate(() => {
+    // FR-RSW-1: 폭은 창 레코드가 아니라 워크스페이스 최상위 한 자리다.
+    const stored = await page.evaluate(() => {
       const a = (window as any).app;
-      a._edSetExplorerWidth(a._aw(), 310);
+      a._edSetSideWidth(310);
       a.render();
+      return {
+        ws: a.ws.repoSideWidth,
+        onWindows: a.ws.windows.some((w: any) => w.editor && 'explorerWidth' in w.editor),
+      };
     });
-    expect(await page.evaluate(() => {
-      const w = (window as any).app._aw();
-      return w.editor.explorerWidth;
-    })).toBe(310);
+    expect(stored.ws).toBe(310);
+    expect(stored.onWindows).toBe(false);
     await expect(page.locator('#area .ed-win .ed-side')).toHaveCSS('width', '310px');
+
+    // FR-RSW-2: 다른 Repo 창으로 옮겨도 같은 폭이다 — 창마다 기억하지 않는다.
+    await page.evaluate((home) => {
+      const a = (window as any).app;
+      a.switchWindow(a._edWindows().find((w: any) => w.editor.root !== home).id);
+    }, HOME_DIR);
+    await expect(page.locator('#area .ed-win .ed-side')).toHaveCSS('width', '310px');
+
+    // FR-RSW-4: 상·하한에서 자른다. 값이 없으면 기본이다.
+    expect(await page.evaluate(() => {
+      const a = (window as any).app;
+      a._edSetSideWidth(9999); const hi = a.ws.repoSideWidth;
+      a._edSetSideWidth(1); const lo = a.ws.repoSideWidth;
+      delete a.ws.repoSideWidth; const none = a._edSideWidth();
+      a._edSetSideWidth(310);
+      return { hi, lo, none };
+    })).toEqual({ hi: 520, lo: 100, none: 220 });
 
     await flushSave(page);
     await page.reload();
     await waitLoaded(page);
-    expect(await page.evaluate((home) => {
-      const w = (window as any).app._edWindowFor(home);
-      return w.editor.explorerWidth;
-    }, HOME_DIR)).toBe(310);
+    expect(await page.evaluate(() => (window as any).app.ws.repoSideWidth)).toBe(310);
+
+    // FR-RSW-5: 개정 이전의 창별 폭은 승계되고 창 레코드에서 지워진다.
+    expect(await page.evaluate(() => {
+      const a = (window as any).app;
+      delete a.ws.repoSideWidth;
+      for (const w of a._edWindows()) w.editor.explorerWidth = 275;
+      const moved = a._edMigrateSideWidth();
+      return {
+        moved,
+        ws: a.ws.repoSideWidth,
+        onWindows: a.ws.windows.some((w: any) => w.editor && 'explorerWidth' in w.editor),
+      };
+    })).toEqual({ moved: true, ws: 275, onWindows: false });
   });
 });
 

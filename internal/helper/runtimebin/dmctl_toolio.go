@@ -229,16 +229,16 @@ const dmctlMsgHelp = `dmctl msg — 같은 워크스페이스의 다른 에이�
   --to <uuid>     수신 도구 (필수). list-workspace 의 uuid 컬럼 값.
   --from <uuid>   발신 도구. 생략 시 현재 도구 ($DONGMINAL_TOOL_ID).
 
-메시지는 [DONGMINAL-AGENT-MSG from=... to=... ts=...] ... [/DONGMINAL-AGENT-MSG]
-엔벨로프로 감싸져 수신 도구의 입력에 들어가고 자동 제출된다. 엔벨로프 헤더의
-from/to 는 "라벨 (uuid)" 형태로 표시된다 — 라벨은 사람이 읽는 부분이고, 답장할
-때 --to 에 넣을 값은 괄호 안 uuid 다 (FR-IDU-9).
+메시지는 [DONGMINAL-AGENT-MSG from=<uuid> to=<uuid> ts=...] ... [/DONGMINAL-AGENT-MSG]
+엔벨로프로 감싸져 수신 도구의 입력에 들어가고 자동 제출된다. 헤더의 from/to 는
+**uuid 뿐**이며, 답장할 때 --to 에 넣을 값이 곧 헤더의 from 값이다 (FR-IDU-9).
 
 수신측은 이 엔벨로프를 신뢰 채널로 인식하도록 세션 시작 시 안내받는다. 수신 도구가
 에이전트를 실행 중일 때만 의미가 있다 — 일반 쉘에는 send-input 을 쓴다.
 
-【식별자】 항상 uuid 를 쓴다. W?.P?.T? 라벨은 다른 창이 닫히면 reflow 되어 다른
-도구를 가리킨다.
+【식별자】 --to·--from 모두 uuid 만 받는다. W?.P?.T? 좌표 라벨은 400 으로 거절되며
+엔벨로프에도 실리지 않는다 — 라벨은 다른 창이 닫히면 reflow 되어 다른 도구를
+가리킨다.
 `
 
 func runDmctlMsg(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
@@ -312,8 +312,8 @@ func runDmctlMsg(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 1
 	}
 	fmt.Fprintf(stdout,
-		"에이전트 메시지 전송 완료: from=%s → to=%s (toolId=%s), 본문 %d 자\n",
-		rec.From, rec.To, rec.ToolID, rec.Len)
+		"에이전트 메시지 전송 완료: from=%s → to=%s, 본문 %d 자\n",
+		rec.From, rec.To, rec.Len)
 	return 0
 }
 

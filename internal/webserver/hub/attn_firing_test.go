@@ -19,6 +19,19 @@ func firingTracker(idleMS int) (*AttnTracker, *fakeBroker) {
 	return tr, fb
 }
 
+// startStaleWork 는 L2 가 발화할 수 있는 최소 전제를 세운다 — 턴이 **진행 중**
+// 이고 (FR-ATN-10), 그 `working` 보고는 이미 **굳었다** (FR-ATF-10). 직접 모드의
+// 동명 헬퍼와 같은 뜻이다 (NFR-4).
+//
+// 개정 전 이 전제는 `SetActivity(id, "done", "", "")` 한 줄이었다. 묶음 N 이 그
+// 자리를 뒤집었다 — 종결을 보고한 뒤의 정적은 L1 이 이미 알린 사실이다.
+func startStaleWork(tr *AttnTracker, toolID string) {
+	orig := tr.nowFn
+	tr.nowFn = func() int64 { return -toolhub.AttnWorkingStale }
+	tr.SetActivity(toolID, "working", "Bash", "make")
+	tr.nowFn = orig
+}
+
 func firedIdle(fb *fakeBroker, toolID string) int {
 	n := 0
 	for _, p := range fb.sent {
@@ -48,7 +61,7 @@ func TestAttnTracker_Idle_OnlyAgentTools(t *testing.T) {
 func TestAttnTracker_Idle_AgentToolFires(t *testing.T) {
 	tr, fb := firingTracker(1000)
 	tr.nowFn = func() int64 { return 0 }
-	tr.SetActivity("agent", "done", "", "")
+	startStaleWork(tr, "agent")
 	tr.FeedOutput("agent", []byte("x"))
 
 	tr.SweepIdleAt(int64(2_000) * 1e6)
@@ -62,7 +75,7 @@ func TestAttnTracker_Idle_AgentToolFires(t *testing.T) {
 func TestAttnTracker_Idle_EndedRevokesAgentMark(t *testing.T) {
 	tr, fb := firingTracker(1000)
 	tr.nowFn = func() int64 { return 0 }
-	tr.SetActivity("agent", "done", "", "")
+	startStaleWork(tr, "agent")
 	tr.SetActivity("agent", "ended", "", "")
 	tr.FeedOutput("agent", []byte("x"))
 
@@ -77,7 +90,7 @@ func TestAttnTracker_Idle_EndedRevokesAgentMark(t *testing.T) {
 func TestAttnTracker_Rearm_RequiresUserInput(t *testing.T) {
 	tr, fb := firingTracker(1000)
 	tr.nowFn = func() int64 { return 0 }
-	tr.SetActivity("agent", "done", "", "")
+	startStaleWork(tr, "agent")
 	tr.FeedOutput("agent", []byte("x"))
 	tr.SweepIdleAt(int64(2_000) * 1e6)
 	if got := firedIdle(fb, "agent"); got != 1 {
@@ -141,12 +154,12 @@ func TestAttnTracker_Idle_StaleWorkingDoesNotSuppress(t *testing.T) {
 func TestAttnTracker_Forget_DropsRearmLock(t *testing.T) {
 	tr, fb := firingTracker(1000)
 	tr.nowFn = func() int64 { return 0 }
-	tr.SetActivity("agent", "done", "", "")
+	startStaleWork(tr, "agent")
 	tr.Attend("agent")
 
 	tr.Forget("agent")
 
-	tr.SetActivity("agent", "done", "", "")
+	startStaleWork(tr, "agent")
 	tr.FeedOutput("agent", []byte("x"))
 	tr.SweepIdleAt(int64(2_000) * 1e6)
 	if got := firedIdle(fb, "agent"); got != 1 {
@@ -159,7 +172,7 @@ func TestAttnTracker_Forget_DropsRearmLock(t *testing.T) {
 func TestAttnTracker_ClearAll_DoesNotResurrect(t *testing.T) {
 	tr, fb := firingTracker(1000)
 	tr.nowFn = func() int64 { return 0 }
-	tr.SetActivity("agent", "done", "", "")
+	startStaleWork(tr, "agent")
 	tr.FeedOutput("agent", []byte("x"))
 	tr.SweepIdleAt(int64(2_000) * 1e6)
 	if got := firedIdle(fb, "agent"); got != 1 {

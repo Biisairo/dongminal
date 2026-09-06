@@ -22,9 +22,11 @@
   --accent-subtle:rgba(122,162,247,.08);
   --attn:#e0af68;--attn-subtle:rgba(224,175,104,.16);--attn-glow:rgba(224,175,104,.5);
   /* UX_REVISION_SRS FR-STC-1~3 · EDITOR_TAB_SRS FR-EDT-70: 상태문자의 초록.
-     전역 테마에 "추가" 색이 없으므로 `.git-hunks` 가 +/- 에 세운 규약대로 값을
-     **이 한 자리에서** 정한다. Git 패널 밖(탐색기 트리)도 같은 값을 봐야 하므로
-     `.git-files` 가 아니라 여기 산다 (D-4). */
+     전역 테마에 "추가" 색이 없으므로 값을 **이 한 자리에서** 정한다. Git 패널
+     밖(탐색기 트리·편집기의 변경 표시)도 같은 값을 봐야 하므로 `.git-files` 가
+     아니라 여기 산다 (D-4).
+     (규약의 선례로 `.git-hunks` 를 들고 있었는데 그 선택자는 폐기됐다 —
+      DIFF_HUNK_BAR_SRS FR-DHB-1. 값이 여기 사는 근거는 그대로다.) */
   --git-st-add:#9ece6a;
   --m-kb-h:38px;
   /* SIDEBAR_COLLAPSE_SRS FR-SBC-2: 접힌 사이드바(아이콘 레일)의 폭. 펼침 폭
@@ -668,6 +670,25 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   background:rgba(0,0,0,.6);border:2px dashed var(--accent);
   color:var(--accent);font-size:14px;z-index:20;pointer-events:none;
 }
+/* ── 전송 알림 팝업 (TERM_XFER_NOTICE_SRS FR-TXN-2·7, NFR-TXN-3) ──
+   자리는 오른쪽 아래다 — 하단 가운데의 `.git-undo-toast` 와 다투지 않는다 (D-2).
+   컨테이너는 클릭을 통과시키고 팝업 자신만 받는다: 알림이 떠 있는 동안 그 아래의
+   터미널을 누를 수 없으면 알림이 방해가 된다. */
+.toast-host{
+  position:fixed;right:16px;bottom:52px;z-index:420;
+  display:flex;flex-direction:column;align-items:flex-end;gap:6px;
+  pointer-events:none;
+}
+.toast{
+  pointer-events:auto;cursor:pointer;max-width:min(70vw,420px);
+  padding:6px 12px;font-size:12px;border-radius:6px;
+  background:var(--bg);color:var(--text-muted);
+  border:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,.5);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.toast.ok{border-color:var(--accent-border);color:var(--text-bright)}
+.toast.err{border-color:var(--danger);color:var(--danger)}
+
 .tp-overlay{
   position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:6px;

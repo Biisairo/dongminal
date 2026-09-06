@@ -1306,20 +1306,31 @@ const GIT_HUNK_ACTS={
 // 동작인지 누르기 전에 보여야 한다.
 const GIT_HUNK_LABEL={stage:'Stage hunk',unstage:'Unstage hunk',revert:'Revert hunk'};
 const GIT_HUNK_LINE_LABEL={stage:'Stage lines',unstage:'Unstage lines',revert:'Revert lines'};
+// DIFF_HUNK_BAR_SRS FR-DHB-10·21: hover 툴바는 Monaco content widget 하나다.
+// id 는 그 위젯을 다시 찾는 열쇠이므로 문자열을 한 자리에만 둔다.
+const GIT_HUNK_BAR_ID='git.hunk.bar';
+// FR-DHB-13: 손을 떼자마자 사라지면 버튼까지 마우스를 옮기는 사이에 없어진다.
+const GIT_HUNK_BAR_HIDE_MS=180;
 const GIT_HUNK_TITLE={
   stage:'Stage only this hunk',
   unstage:'Unstage only this hunk',
   revert:'Discard this hunk from the working tree — this cannot be undone',
 };
-const GIT_HUNK_LINE_CLASS={'+':' add','-':' del',' ':'','\\':' meta'};
+// DIFF_HUNK_BAR_SRS FR-DHB-2: `GIT_HUNK_LINE_CLASS` 는 폐기됐다 — 하단 목록이
+// unified diff 를 한 줄씩 다시 그리던 시절의 색표다. 그 diff 는 이제 Monaco 가
+// 그리고 색도 그쪽 테마에서 온다.
 const GIT_HUNK_LOADING='조각을 불러오는 중…';
 const GIT_HUNK_LOAD_FAIL='조각을 불러오지 못했습니다';
 const GIT_HUNK_NONE='이 파일에는 나눌 조각이 없습니다';
-const GIT_HUNK_HINT='줄을 누르면 범위가 잡힙니다 — Shift 로 넓히고, 같은 줄을 다시 누르면 놓습니다';
+// FR-DHB-2: `GIT_HUNK_HINT`·`GIT_HUNK_CLEAR`·`GIT_HUNK_CLEAR_TITLE` 는 폐기됐다 —
+// 커스텀 줄 선택의 조작법을 설명하던 말들이고, 그 조작이 Monaco 의 텍스트 선택으로
+// 바뀌면서 설명할 것이 없어졌다 (I-2).
+//
+// 아래 둘은 **남는다** (FR-DHB-3): 고른 범위를 화면이 말해야 하는 자리가 하나 남아
+// 있다 — revert 확인 대화의 대상 라벨이다. 무엇을 되돌리는지 밝히지 않는 파괴적
+// 확인은 확인이 아니다.
 const GIT_HUNK_SEL_LABEL='선택 ';
 const GIT_HUNK_SEL_SEP='~';
-const GIT_HUNK_CLEAR='Clear';
-const GIT_HUNK_CLEAR_TITLE='줄 선택을 지웁니다';
 const GIT_HUNK_TARGET_SEP=' · ';
 // revert 는 파괴적이다 (FR-GIT-279) — discard 와 같은 뜻이므로 그 이름을 쓴다.
 const GIT_HUNK_REVERT_TITLE='고른 줄을 워킹 트리에서 버립니다';

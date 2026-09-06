@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"dongminal/internal/webserver/domain/ext"
 )
 
 // IdleAfter 는 쓰이지 않은 세션을 정지시키기까지의 시간이다 (FR-LSP-17).
@@ -88,12 +90,20 @@ func (s *Service) session(root, path string) (*Session, error) {
 	if !underRoot(root, path) {
 		return nil, fmt.Errorf("루트 밖의 경로입니다")
 	}
-	d, ok := DescriptorForExt(filepath.Ext(path))
+	// 확장자 → 서버는 **플러그인 선언**이 푼다 (FR-EXT-1·4). 이 패키지에는 어떤
+	// 언어가 있는지에 대한 앎이 없다.
+	if s.Ext == nil {
+		return nil, fmt.Errorf("플러그인 계층이 배선되지 않았습니다")
+	}
+	m, srv, st, ok := s.Ext.Resolve(filepath.Ext(path), s.Overrides)
 	if !ok {
 		return nil, fmt.Errorf("%s 는 코드 탐색을 지원하는 언어가 아닙니다", filepath.Ext(path))
 	}
 
-	key := sessionKey(root, d.ID)
+	// 세션의 단위는 서버다 (FR-EXT-4 / FR-LSP-13). 팩이 여럿을 내므로 키에 팩과
+	// 서버가 함께 들어간다 — 서버 id 만 쓰면 다른 팩의 같은 이름과 부딪힌다.
+	descID := m.ID + "/" + srv.ID
+	key := sessionKey(root, descID)
 	s.mu.Lock()
 	if s.sessions == nil {
 		s.sessions = map[string]*Session{}
@@ -105,19 +115,18 @@ func (s *Service) session(root, path string) (*Session, error) {
 	// FR-LSP-16: 기동 실패는 기억된다 — 매 요청마다 프로세스를 되풀이 띄우지
 	// 않는다. 설치가 바뀌면 이 기억은 지워진다 (Install 이 그것을 한다).
 	if s.failed != nil {
-		if err, bad := s.failed[d.ID]; bad {
+		if err, bad := s.failed[descID]; bad {
 			s.mu.Unlock()
 			return nil, err
 		}
 	}
 	s.mu.Unlock()
 
-	// 실행 파일을 찾는다. 못 찾으면 **무엇이 없는지**를 사유로 낸다.
-	loc := &Locator{LookPath: s.lookPath(), ManagedDir: s.Dir, Overrides: s.Overrides}
-	st := loc.Locate(d)
+	// 못 찾으면 **무엇이 없는지**를 사유로 낸다 (FR-EXT-29 / D-9).
 	if !st.Found {
-		err := fmt.Errorf("%s 가 없어 코드 탐색을 할 수 없습니다 — 설정 ▸ Code 에서 받으세요", d.Exe)
-		s.remember(d.ID, err)
+		err := fmt.Errorf("%s 가 없어 코드 탐색을 할 수 없습니다 — %s (설정 ▸ Code)",
+			srv.Exe, ext.MissingText(st))
+		s.remember(descID, err)
 		return nil, err
 	}
 
@@ -126,9 +135,9 @@ func (s *Service) session(root, path string) (*Session, error) {
 		start = StartProcess
 	}
 	// FR-LSP-32: 진단은 요청 없이 오므로 세션을 세울 때 통로를 잇는다.
-	sess := newSession(root, d, st.Exe, start, s.OnDiagnostics)
+	sess := newSession(root, srv, st.Exe, start, s.OnDiagnostics)
 	if sess.initErr != nil {
-		s.remember(d.ID, sess.initErr)
+		s.remember(descID, sess.initErr)
 		sess.Close()
 		return nil, sess.initErr
 	}

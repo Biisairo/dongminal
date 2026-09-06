@@ -65,6 +65,10 @@
     // 물으면 자동이 아니게 된다 — 사용자가 화면을 보고 있지 않으면 대화만 떠 있고
     // 갱신은 영영 오지 않는다. 가드 자체는 남는다 (그쪽이 이 값을 읽는다).
     window.__dmReloading=true;
+    // BOOT_SCREEN_REUSE_SRS FR-BTR-10 / D-BTR-7: 다시 열리는 문서의 `#boot` 와
+    // 이어 붙인다. 이 표시가 없으면 요청부터 새 문서의 첫 페인트까지 옛 화면이
+    // 아무 말 없이 남는다.
+    BootScreen.show(BOOT_STEP_VERSION);
     location.reload();
   };
 

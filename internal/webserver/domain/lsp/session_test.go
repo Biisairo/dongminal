@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/testpath"
+	"dongminal/internal/webserver/domain/ext"
 )
 
 // FR-LWP-8: 검사의 루트·파일 경로는 **그 플랫폼의 절대경로**다.
@@ -273,13 +274,17 @@ func TestSession_CloseStopsProcess(t *testing.T) {
 	}
 }
 
-func mustDesc(t *testing.T, ext string) Descriptor {
+// mustDesc 는 세션이 받는 서버 선언이다.
+//
+// **더 이상 전역 표에서 오지 않는다** (FR-EXT-1) — 세션은 선언 하나를 받아 프로세스를
+// 세울 뿐이고, 그 선언이 어디서 왔는지 알지 않는다. 검사가 값을 직접 짓는 것이
+// 그 경계를 그대로 보여 준다.
+func mustDesc(t *testing.T, e string) ext.Server {
 	t.Helper()
-	d, ok := DescriptorForExt(ext)
-	if !ok {
-		t.Fatalf("%s 서술자가 없다", ext)
+	if e != ".go" {
+		t.Fatalf("이 검사가 아는 확장자가 아니다: %s", e)
 	}
-	return d
+	return ext.Server{ID: "gopls", Langs: []string{"go"}, Exts: []string{".go"}, Exe: "gopls"}
 }
 
 // TC-LSP-67 (FR-LSP-29·30): 호버는 정의 이동과 **같은 세션·같은 동기화**를 쓴다.

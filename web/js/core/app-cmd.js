@@ -443,6 +443,9 @@ Object.assign(App.prototype, {
     }
     if('displayMode' in this.ws) delete this.ws.displayMode;
     if('mobileBreakpoint' in this.ws) delete this.ws.mobileBreakpoint;
+    // REPO_SIDE_WIDTH_SRS FR-RSW-5: 다른 브라우저가 개정 이전 모양을 보내올 수
+    // 있다 — 옮긴 키를 지우는 자리는 첫 로드와 여기 둘이다.
+    if(this._edMigrateSideWidth()) edChanged=true;
     if(this.ws.sidebarWidth){
       const w=Math.max(100,Math.min(400,this.ws.sidebarWidth));
       document.documentElement.style.setProperty('--sb-w',w+'px');

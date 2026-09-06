@@ -13,6 +13,7 @@ import (
 	"context"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/submodule"
+	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/wsentry"
 	"fmt"
 	"io/fs"
@@ -141,8 +142,15 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	if cfg.DataDir != "" {
 		notesDir = filepath.Join(cfg.DataDir, "notes")
 	}
+	// FR-EXT-9b: 플러그인 선언의 자리. 칸 이름은 `ext` 가 정한다 — 여기서 따로
+	// 적으면 탐색기가 보는 곳과 조달이 쓰는 곳이 갈린다.
+	pluginsDir := ""
+	if cfg.DataDir != "" {
+		pluginsDir = ext.PluginsDir(ext.RootIn(cfg.DataDir))
+	}
 	srv.Entries = &wsentry.Store{
-		Work: deps.Work, Commands: cmds, RepoRoot: repoRoot, NotesDir: notesDir,
+		Work: deps.Work, Commands: cmds, RepoRoot: repoRoot,
+		NotesDir: notesDir, PluginsDir: pluginsDir,
 	}
 	srv.git = &gitapi.GitServer{
 		Git:      deps.Git,

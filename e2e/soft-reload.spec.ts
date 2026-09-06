@@ -190,7 +190,7 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
   // WORKBENCH_REVIEW_SRS FR-WBR-95 (검증 V-WBR-92).
   //
   // 이 단계는 **죽어 있었다** — `w.editor.refresh()` 를 불렀는데 `w.editor` 는 창
-  // 레코드의 `{root, side, explorerWidth}` 라 `refresh` 가 없고, `typeof` 가드가
+  // 레코드의 `{root, side}` 라 `refresh` 가 없고, `typeof` 가드가
   // 그것을 조용히 삼켰다. 살아 있는 트리 뷰는 `_edTrees` 에 있다.
   test('SR8 (V-WBR-92 / FR-WBR-95): 내부 새로고침이 탐색기의 열린 겹을 다시 읽는다',
     async ({ page, request }) => {

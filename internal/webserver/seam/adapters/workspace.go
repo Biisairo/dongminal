@@ -14,8 +14,6 @@ func (a Workspace) Resolve(id string) (string, error) { return a.WS.Resolve(id) 
 // delegates to Resolve, so behavior is unchanged until 묶음 I lands.
 func (a Workspace) ResolveStrict(id string) (string, error) { return a.WS.ResolveStrict(id) }
 
-func (a Workspace) Labels() map[string]string { return a.WS.Labels() }
-
 func (a Workspace) CoordinateOf(id string) (string, error) { return a.WS.CoordinateOf(id) }
 
 func (a Workspace) IsKnownTabID(id string) bool { return a.WS.IsKnownTabID(id) }

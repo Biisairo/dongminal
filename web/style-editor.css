@@ -417,3 +417,63 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
    다투면 둘 중 하나가 가려진다. */
 .fe-offer ~ .fe-find{top:38px}
 .fe-offer ~ .fe-note{top:38px}
+
+/* ── 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS 묶음 M·P) ──
+
+   색은 탐색기 트리의 규약 그대로다 (위 `.ed-row.st-*`) — 같은 창의 두 표면이
+   같은 사실에 다른 색을 쓰면 그중 하나는 거짓말이 된다 (FR-EDD-23).
+
+   FR-EDD-24: 막대는 좁다. `lineDecorationsWidth` 를 늘리지 않으므로 Monaco 가
+   이미 잡아 둔 여백 안에 선다. */
+.fe-dd-add,.fe-dd-mod,.fe-dd-del{
+  width:3px!important;margin-left:3px;
+}
+.fe-dd-add{background:var(--git-st-add)}
+.fe-dd-mod{background:var(--accent)}
+/* 삭제된 줄은 남아 있지 않다 — 그 자리에 **오게 된** 줄의 위 경계에 표식을
+   둔다. 막대가 아니라 삼각형인 이유는 "이 줄이 바뀌었다" 가 아니라 "여기서
+   무언가 사라졌다" 이기 때문이다. */
+.fe-dd-del{
+  background:none;width:0!important;margin-left:3px;
+  border-left:3px solid transparent;border-right:3px solid transparent;
+  border-top:4px solid var(--danger);
+  height:0;
+}
+
+/* 인라인 팝업 (FR-EDD-30~37). Monaco 의 view zone 안에 놓이므로 자리는 편집기가
+   잡는다 — 여기서 정하는 것은 생김새뿐이다. */
+.fe-dd-peek{
+  display:flex;flex-direction:column;min-height:0;
+  background:var(--sidebar-bg);border-left:2px solid var(--accent);
+  font-size:12px;
+  /* view zone 은 `.view-lines` 와 형제이고 그쪽이 뒤에 그려진다 — 자리는 비어
+     있는데 **클릭이 본문에 먹혔다** (실측: playwright 가 `.view-lines
+     intercepts pointer events` 로 거부했다). 쌓임 순서를 올려 팝업이 자기
+     클릭을 받게 한다. */
+  position:relative;z-index:6;
+}
+.fe-dd-peek-bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:6px;
+  padding:2px 6px;border-bottom:1px solid var(--border);
+}
+.fe-dd-peek-act,.fe-dd-peek-close{
+  background:none;border:1px solid var(--border);border-radius:3px;
+  color:var(--text);font-size:11px;padding:1px 6px;cursor:pointer;
+}
+.fe-dd-peek-act:hover:not(:disabled),.fe-dd-peek-close:hover{
+  color:var(--text-bright);border-color:var(--accent);
+}
+.fe-dd-peek-act:disabled{opacity:.45;cursor:default}
+.fe-dd-peek-close{margin-left:auto}
+/* 사유와 진행 상태. 침묵은 고장과 구별되지 않는다 (FR-EDD-44·46·47). */
+.fe-dd-peek-note{
+  flex:1 1 auto;min-width:0;color:var(--text-dim);font-size:11px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.fe-dd-peek-old{
+  flex:1 1 auto;min-height:0;margin:0;padding:2px 6px;overflow:auto;
+  color:var(--text);font-family:'Menlo','Monaco','Consolas',monospace;
+  font-size:12px;line-height:1.5;white-space:pre;
+}
+/* 이전에 아무것도 없던 자리 — 파일의 내용이 아니라 우리의 말이다. */
+.fe-dd-peek-old.none{color:var(--text-dim);font-style:italic}

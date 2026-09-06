@@ -58,7 +58,16 @@ class GitPanel {
     // 만들지 않는다. _hunkKey 는 이미 받아 둔 대상, _hunks 는 그 관측이다.
     this._hunkKey=null;
     this._hunks=null;             // {diffId,list,note} 또는 {err}
-    this._hunkSel=null;           // {hunk,from,to,anchor} — 한 덩어리 안의 줄 범위
+    // DIFF_HUNK_BAR_SRS: 줄 범위는 이제 **Monaco 의 선택**이다 (I-2) — 화면이
+    // 따로 들고 있던 `_hunkSel` 은 폐기됐다 (FR-DHB-2). 아래 일곱은 hover 툴바의
+    // 것이며 화면 상태가 아니라 **지금 마우스가 어디 있는가**다 (FR-DHB-11·21).
+    this._hunkBarEd=null;         // 툴바가 붙은 모디파이드 에디터
+    this._hunkBarWidget=null;     // Monaco content widget (하나)
+    this._hunkBarEl=null;         // 그 위젯의 DOM (하나, 재사용)
+    this._hunkBarPos=null;        // 위젯의 자리. null 이면 뜨지 않는다
+    this._hunkBarHunk=-1;         // 지금 가리키는 덩어리 번호
+    this._hunkBarSubs=null;       // 에디터 리스너들 (정리 대상)
+    this._hunkBarT=null;          // 숨김 지연 타이머 (FR-DHB-13)
     this._diffPos=0;              // 목록에서 사라진 대상을 클램프할 기준 (FR-GIT-53)
     this._sideBy=null;            // FR-GIT-51 의 보기 모드
     this._ignWs=null;             // FR-GIT-50 의 공백무시 토글

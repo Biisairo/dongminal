@@ -2,10 +2,12 @@
  * GitPanel — 고른 것을 보여 주는 일 (SPLIT_REFACTOR_SRS 묶음 B).
  *
  * 행 선택에서 diff 로 가는 길(`_select`·`_openDiff`·`_showTarget`), Diff 탭과 Changes
- * 미리보기의 두 `GitDiffView`, blame, 그리고 부분 스테이징의 조각
- * (`_paintHunks`·`_hunkPick`·`_hunkAct`, FR-GIT-278·279)이 여기 산다.
+ * 미리보기의 두 `GitDiffView`, blame, 그리고 부분 스테이징
+ * (`_paintHunks`·`_hunkBar*`·`_hunkAct`, FR-GIT-278·279)이 여기 산다.
  *
- * 조각은 서버가 만든 diff 에서 온다 — 이 파일이 만들지 않는다.
+ * 조각은 서버가 만든 diff 에서 온다 — 이 파일이 만들지 않는다. **화면에 그리지도
+ * 않는다** (DIFF_HUNK_BAR_SRS): diff 를 그리는 것은 Monaco 하나이고, 여기가 얹는
+ * 것은 그 위에 hover 로 뜨는 동작 툴바뿐이다.
  */
 Object.assign(GitPanel.prototype, {
   /**
@@ -126,6 +128,10 @@ Object.assign(GitPanel.prototype, {
         '<span class="git-diff-pos"></span>'+
         '<span class="git-diff-gone"></span>'+
         '<span class="git-diff-rev"></span>'+
+        // DIFF_HUNK_BAR_SRS FR-DHB-4·5: 조각 관측의 상태가 서는 한 줄이다 —
+        // 받는 중·못 받음·나눌 조각 없음·거부 사유. 하단 패널이 그것을 들고
+        // 있었고, 그 패널이 세로 공간의 42% 를 먹었다 (I-3).
+        '<span class="git-diff-hunk-note"></span>'+
         '<span class="git-diff-spacer"></span>'+
         '<button class="git-diff-blame"></button>'+
         '<button class="git-diff-mode"></button>'+
@@ -140,14 +146,10 @@ Object.assign(GitPanel.prototype, {
         '<div class="git-blame-note"></div>'+
         '<div class="git-blame-rows"></div>'+
       '</div>'+
-      '<div class="git-diff-body"></div>'+
-      // 부분 스테이징의 자리다 (FR-GIT-278). Monaco 는 두 모델을 그릴 뿐이고
-      // hunk 의 경계를 모른다 — 조각과 그 동작은 서버가 준 경계 위에 선다.
-      '<div class="git-hunks"></div>';
+      '<div class="git-diff-body"></div>';
     el.querySelector('.git-diff-ws').appendChild(document.createTextNode(GIT_DIFF_WS_LABEL));
     el.querySelector('.git-diff-fold').appendChild(document.createTextNode(GIT_DIFF_FOLD_LABEL));
     el.querySelector('.git-diff-body').appendChild(this._diff().el);
-    el.querySelector('.git-hunks').addEventListener('click',ev=>this._hunkClick(ev));
     for(const b of el.querySelectorAll('.git-diff-nav')){
       b.title=GIT_DIFF_NAV_TITLE[b.dataset.nav]||'';
       b.addEventListener('click',()=>this._diffMove(b.dataset.nav==='next'?1:-1));
@@ -301,31 +303,46 @@ Object.assign(GitPanel.prototype, {
     this._openDiff(t.group,{path:t.path,origPath:t.origPath||''});
   },
 
-  // ── 부분 스테이징 (FR-GIT-278·279) ──
+  // ── 부분 스테이징 (FR-GIT-278·279 · DIFF_HUNK_BAR_SRS) ──
   //
   // 패치는 **서버가 만든다** (D6). 여기서 만드는 것은 좌표뿐이다 —
   // (경로, 축, hunk 번호, 줄 범위, 관측 식별자). 패치 문자열을 조립하는 코드가
   // 이 파일에 없어야 하고, 있으면 그것이 임의 쓰기 표면이 된다.
+  //
+  // 좌표 **사상**도 이 파일의 것이 아니다 — `core/hunk-coords.js` 가 서버 규약을
+  // 딛고 그것을 편집기 쪽과 나눠 쓴다 (D-2).
 
+  /**
+   * 조각 관측을 관리하고 머리의 한 줄을 갱신한다 (FR-DHB-4·5·50).
+   *
+   * **화면에 조각을 그리지 않는다.** 그리는 것은 Monaco 이고, 동작은 hover 로
+   * 뜨는 툴바가 갖는다 — 이 함수가 만지는 DOM 은 안내 한 줄뿐이다.
+   */
   _paintHunks(el,f){
-    const box=el.querySelector('.git-hunks'); if(!box) return;
+    const note=el.querySelector('.git-diff-hunk-note');
     const on=!!(f&&f.repo&&GIT_HUNK_AXES.has(f.axis));
-    box.classList.toggle('vis',on);
     if(!on){
-      this._hunkKey=null; this._hunks=null; this._hunkSel=null;
-      box.dataset.sig=''; box.innerHTML=''; return;
+      // FR-DHB-19: 부분 스테이징이 없는 자리다 (blame 모드·커밋 축·untracked).
+      this._hunkKey=null; this._hunks=null;
+      this._hunkBarHide();
+      this._hunkNote(note,'');
+      return;
     }
-    // 대상이 그대로면 다시 부르지 않는다 — 폴링마다 재요청하면 스크롤과 줄 선택이
-    // 매초 초기화된다 (_showTarget 과 같은 규약).
+    // 대상이 그대로면 다시 부르지 않는다 — 폴링마다 재요청하면 관측이 매초
+    // 바뀌고 그때마다 툴바의 좌표가 흔들린다 (_showTarget 과 같은 규약).
     const key=[f.repo,f.axis,f.path].join('\u0000');
     if(this._hunkKey!==key){
-      this._hunkKey=key; this._hunks=null; this._hunkSel=null;
+      this._hunkKey=key; this._hunks=null;
+      // 대상이 바뀌면 툴바가 가리키던 조각은 없는 것이다.
+      this._hunkBarHide();
       // 다른 대상으로 옮겨 갔을 때만 사유를 지운다 — 같은 대상을 다시 받는 것은
       // 방금 그 거부가 일으킨 일이다.
       if(this._hunkErrKey!==key){this._hunkErr=null; this._hunkErrKey=null}
       this._loadHunks(f,key);
     }
-    this._drawHunks(box,f);
+    this._hunkNote(note,this._hunkText());
+    // 쓰기 중 버튼 비활성(FR-DHB-18)도 이 회차에 따라온다.
+    this._hunkBarPaint();
   },
 
   async _loadHunks(f,key){
@@ -346,118 +363,205 @@ Object.assign(GitPanel.prototype, {
     this._paint();
   },
 
-  _drawHunks(box,f){
-    const h=this._hunks,sel=this._hunkSel;
-    // 같은 관측·같은 선택이면 다시 그리지 않는다 — 폴링마다 다시 그리면 스크롤이
-    // 매초 맨 위로 돌아간다.
-    const sig=[this._hunkKey,h?(h.err||h.diffId||'-'):'',
-      sel?[sel.hunk,sel.from,sel.to].join(','):'',this._hunkErr||'',
-      // 쓰기 중에는 버튼이 비활성이다 — 그 상태도 그림의 일부이므로 식별자에 든다.
-      this._writing?'w':''].join('\u0000');
-    if(box.dataset.sig===sig) return;
-    box.dataset.sig=sig;
-    box.innerHTML='';
-    const note=document.createElement('div');
-    note.className='git-hunk-note';
-    if(!h){note.textContent=GIT_HUNK_LOADING;box.appendChild(note);return}
-    if(h.err){note.textContent=h.err;box.appendChild(note);return}
-    if(!h.list.length){note.textContent=h.note||GIT_HUNK_NONE;box.appendChild(note);return}
-    note.textContent=this._hunkErr||GIT_HUNK_HINT;
-    note.classList.toggle('fail',!!this._hunkErr);
-    box.appendChild(note);
-    for(const hunk of h.list) box.appendChild(this._hunkEl(hunk,f,sel));
+  // FR-DHB-5: 머리의 한 줄이 말하는 넷. 아무 문제가 없으면 빈 문자열이고, 그때
+  // 그 자리는 아무것도 차지하지 않는다.
+  _hunkText(){
+    if(this._hunkErr) return this._hunkErr;
+    const h=this._hunks;
+    if(!h) return GIT_HUNK_LOADING;
+    if(h.err) return h.err;
+    if(!h.list.length) return h.note||GIT_HUNK_NONE;
+    return '';
   },
 
-  _hunkEl(hunk,f,sel){
-    const has=!!(sel&&sel.hunk===hunk.index);
+  // FR-DHB-53: 내용이 같으면 다시 쓰지 않는다 — 폴링이 3초마다 같은 글자를 넣으면
+  // 그 자리가 매초 깜빡인다 (옛 `box.dataset.sig` 와 같은 근거).
+  _hunkNote(el,text){
+    if(!el) return;
+    const fail=!!text&&text===this._hunkErr;
+    const sig=text+'\u0000'+(fail?'1':'');
+    if(el.dataset.sig===sig) return;
+    el.dataset.sig=sig;
+    // 서버가 보낸 사유가 이 자리에 닿는다 — 텍스트 노드로만 넣는다 (NFR-DHB-3).
+    el.textContent=text;
+    el.classList.toggle('vis',!!text);
+    el.classList.toggle('fail',fail);
+  },
+
+  /**
+   * FR-DHB-10~13: 모디파이드 에디터에 hover 툴바를 배선한다.
+   *
+   * `GitDiffView` 가 에디터를 세울 때·버릴 때 이 함수를 부른다 (D-4) — 그 클래스는
+   * 관측을 모르고, 관측을 아는 쪽이 여기다. `ed` 가 `null` 이면 정리다.
+   */
+  _hunkBarWire(ed){
+    this._hunkBarDispose();
+    if(!ed) return;
+    this._hunkBarEd=ed;
+    const node=this._hunkBarNode();
+    // FR-DHB-12: 자리는 조각의 첫 줄이다. `getPosition` 이 null 이면 Monaco 가
+    // 그리지 않으므로, 숨김이 곧 위치를 놓는 일이다 (위젯을 붙였다 뗐다 하지
+    // 않는다 — FR-DHB-21).
+    this._hunkBarWidget={
+      getId:()=>GIT_HUNK_BAR_ID,
+      getDomNode:()=>node,
+      getPosition:()=>this._hunkBarPos||null,
+      // 첫 줄의 조각에서 위쪽으로 뜰 자리가 없으면 에디터 경계를 넘어야 한다.
+      allowEditorOverflow:true,
+    };
+    ed.addContentWidget(this._hunkBarWidget);
+    this._hunkBarSubs=[
+      ed.onMouseMove(ev=>this._hunkBarMove(ev)),
+      ed.onMouseLeave(()=>this._hunkBarLeave()),
+      // FR-DHB-37: 선택이 바뀌면 라벨이 곧바로 따라온다 — 무엇에 걸리는 동작인지
+      // 누르기 전에 보인다.
+      ed.onDidChangeCursorSelection(()=>this._hunkBarPaint()),
+    ];
+  },
+
+  _hunkBarDispose(){
+    clearTimeout(this._hunkBarT);
+    for(const d of this._hunkBarSubs||[]) if(d&&d.dispose) d.dispose();
+    this._hunkBarSubs=null;
+    // FR-GIT-56 / FR-DHB-22: 에디터가 버려지기 **전에** 뗀다. 뒤에 떼려 하면 뗄
+    // 대상이 이미 없다.
+    if(this._hunkBarEd&&this._hunkBarWidget) this._hunkBarEd.removeContentWidget(this._hunkBarWidget);
+    this._hunkBarEd=null; this._hunkBarWidget=null;
+    this._hunkBarPos=null; this._hunkBarHunk=-1;
+  },
+
+  // 툴바의 DOM 은 하나다 (FR-DHB-21) — 조각을 옮겨 다닐 때 자리와 라벨만 바뀐다.
+  _hunkBarNode(){
+    if(this._hunkBarEl) return this._hunkBarEl;
     const el=document.createElement('div');
-    el.className='git-hunk'+(has?' sel':'');
-    el.dataset.hunk=String(hunk.index);
-    const head=document.createElement('div');
-    head.className='git-hunk-head';
-    head.appendChild(gitHunkSpan('git-hunk-header',hunk.header||''));
-    if(has){
-      head.appendChild(gitHunkSpan('git-hunk-range',
-        GIT_HUNK_SEL_LABEL+sel.from+GIT_HUNK_SEL_SEP+sel.to));
-      const c=document.createElement('button');
-      c.className='git-hunk-clear'; c.textContent=GIT_HUNK_CLEAR; c.title=GIT_HUNK_CLEAR_TITLE;
-      head.appendChild(c);
-    }
-    head.appendChild(gitHunkSpan('git-hunk-spacer',''));
-    // 붙는 동작은 축이 정한다 — 방향이 축에서 갈린다 (FR-GIT-278).
-    for(const act of (GIT_HUNK_ACTS[f.axis]||[])){
-      const b=document.createElement('button');
-      b.className='git-hunk-act'; b.dataset.act=act;
-      b.textContent=has?GIT_HUNK_LINE_LABEL[act]:GIT_HUNK_LABEL[act];
-      b.title=GIT_HUNK_TITLE[act];
-      b.disabled=this._writing;
-      head.appendChild(b);
-    }
-    el.appendChild(head);
-    const body=document.createElement('div');
-    body.className='git-hunk-body';
-    const lines=hunk.lines||[];
-    for(let i=0;i<lines.length;i++){
-      const n=i+1,l=lines[i];
-      const row=document.createElement('div');
-      row.className='git-hunk-line'+(GIT_HUNK_LINE_CLASS[l[0]]||'')+
-        ((has&&n>=sel.from&&n<=sel.to)?' sel':'');
-      row.dataset.i=String(n);
-      row.textContent=l;
-      body.appendChild(row);
-    }
-    el.appendChild(body);
+    el.className='git-hunk-bar';
+    // FR-DHB-13: 툴바 자신에 올라가 있는 동안은 사라지지 않는다 — 그러지 않으면
+    // 버튼까지 마우스를 옮기는 사이에 없어져 누를 수 없다.
+    el.addEventListener('mouseenter',()=>clearTimeout(this._hunkBarT));
+    el.addEventListener('mouseleave',()=>this._hunkBarLeave());
+    el.addEventListener('click',ev=>{
+      const b=ev.target.closest('.git-hunk-act');
+      if(b&&!b.disabled) this._hunkAct(b.dataset.act);
+    });
+    this._hunkBarEl=el;
     return el;
   },
 
-  _hunkClick(ev){
-    const btn=ev.target.closest('.git-hunk-act');
-    if(btn){
-      const h=btn.closest('.git-hunk');
-      if(h) this._hunkAct(btn.dataset.act,Number(h.dataset.hunk));
-      return;
+  // FR-DHB-11·14·20: 마우스가 어느 조각 위에 있는가. 관측이 오기 전에는 뜨지
+  // 않는다 — 경계를 모르는 동안 뜨는 버튼은 무엇에 걸리는지 말할 수 없다.
+  _hunkBarMove(ev){
+    const h=this._hunks;
+    if(!h||h.err||!h.list||!h.list.length){this._hunkBarHide();return}
+    const pos=ev&&ev.target&&ev.target.position;
+    const hunk=pos?gitHunkAt(h.list,pos.lineNumber):null;
+    if(!hunk){this._hunkBarHide();return}
+    clearTimeout(this._hunkBarT);
+    if(this._hunkBarHunk!==hunk.index||!this._hunkBarPos){
+      this._hunkBarHunk=hunk.index;
+      this._hunkBarPos={
+        position:{lineNumber:Math.max(1,hunk.newStart),column:1},
+        preference:[
+          monaco.editor.ContentWidgetPositionPreference.ABOVE,
+          monaco.editor.ContentWidgetPositionPreference.BELOW,
+        ],
+      };
     }
-    if(ev.target.closest('.git-hunk-clear')){this._hunkSel=null;this._paint();return}
-    const line=ev.target.closest('.git-hunk-line');
-    if(!line) return;
-    const h=line.closest('.git-hunk'); if(!h) return;
-    this._hunkPick(Number(h.dataset.hunk),Number(line.dataset.i),!!ev.shiftKey);
+    this._hunkBarPaint();
+  },
+
+  _hunkBarLeave(){
+    clearTimeout(this._hunkBarT);
+    this._hunkBarT=setTimeout(()=>this._hunkBarHide(),GIT_HUNK_BAR_HIDE_MS);
+  },
+
+  _hunkBarHide(){
+    clearTimeout(this._hunkBarT);
+    if(!this._hunkBarPos) return;
+    this._hunkBarPos=null; this._hunkBarHunk=-1;
+    if(this._hunkBarEd&&this._hunkBarWidget){
+      this._hunkBarEd.layoutContentWidget(this._hunkBarWidget);
+    }
   },
 
   /**
-   * 줄 선택은 **한 덩어리 안에서만** 잡힌다 — 덩어리를 넘는 범위는 패치가 되지
-   * 않는다. 다른 덩어리를 누르면 선택이 그쪽으로 옮겨간다.
+   * FR-DHB-15·16·18: 붙는 동작은 축이 정하고, 라벨은 선택이 정한다.
    *
-   * 같은 한 줄을 다시 누르면 놓는다 — 선택을 지울 길이 Clear 뿐이면 한 줄을 잘못
-   * 고른 사용자가 갇힌다.
+   * 버튼을 매번 다시 만들지 않는다 — 축과 라벨과 쓰기 상태가 같으면 그림도 같다.
    */
-  _hunkPick(hunk,i,extend){
-    const s=this._hunkSel;
-    if(extend&&s&&s.hunk===hunk){
-      this._hunkSel={hunk,from:Math.min(s.anchor,i),to:Math.max(s.anchor,i),anchor:s.anchor};
-    }else if(s&&s.hunk===hunk&&s.from===i&&s.to===i){
-      this._hunkSel=null;
-    }else{
-      this._hunkSel={hunk,from:i,to:i,anchor:i};
+  _hunkBarPaint(){
+    const ed=this._hunkBarEd,el=this._hunkBarEl,w=this._hunkBarWidget;
+    if(!ed||!el||!w) return;
+    if(this._hunkBarPos){
+      const f=this.commitFile?null:this._diffTarget();
+      const acts=(f&&GIT_HUNK_ACTS[f.axis])||[];
+      // 붙을 동작이 없으면 뜨지 않는다 — 빈 상자는 무엇을 할 수 있는지 말하지
+      // 않으면서 diff 를 가린다 (FR-DHB-15).
+      if(!acts.length){this._hunkBarHide();return}
+      const co=this._hunkBarCoords();
+      // 좌표가 조각 전체면(선택이 없거나 바뀐 줄에 걸리지 않았다) 라벨도 조각의
+      // 것이다 (FR-DHB-31·34).
+      const lines=!!(co&&co.from);
+      const sig=[acts.join(','),lines?'l':'h',this._writing?'w':''].join('|');
+      if(el.dataset.sig!==sig){
+        el.dataset.sig=sig;
+        el.innerHTML='';
+        for(const act of acts){
+          const b=document.createElement('button');
+          b.className='git-hunk-act'; b.dataset.act=act;
+          b.textContent=lines?GIT_HUNK_LINE_LABEL[act]:GIT_HUNK_LABEL[act];
+          b.title=GIT_HUNK_TITLE[act];
+          b.disabled=!!this._writing;
+          el.appendChild(b);
+        }
+      }
     }
-    this._paint();
+    ed.layoutContentWidget(w);
   },
 
   /**
-   * 조각 하나의 동작. 보내는 것은 좌표뿐이다 — 패치는 서버가 자기가 만든 diff 에서
-   * 잘라 짓는다 (D6).
+   * FR-DHB-30~35·38: 지금 무엇에 걸리는 동작인가 — `{hunk,from,to}`.
+   *
+   * **누를 때 다시 읽는다** (D-5). 라벨을 그린 시점과 누르는 시점 사이에 선택이
+   * 바뀔 수 있고, 그 사이의 값을 들고 있으면 화면이 말한 것과 보내는 것이 달라진다.
+   */
+  _hunkBarCoords(){
+    const h=this._hunks;
+    if(!h||!h.list) return null;
+    const hunk=h.list.find(x=>x.index===this._hunkBarHunk);
+    if(!hunk) return null;
+    const whole={hunk:hunk.index,from:0,to:0};
+    const ed=this._hunkBarEd;
+    const sel=ed&&ed.getSelection();
+    // 커서만 있으면 조각 전체다 (FR-DHB-31).
+    if(!sel||sel.isEmpty()) return whole;
+    let s=sel.startLineNumber,e=sel.endLineNumber;
+    // 줄 끝에서 시작해 다음 줄 1열에서 끝나는 선택은 그 다음 줄을 **포함하지
+    // 않는다** — 드래그로 줄을 고르면 흔히 그런 범위가 된다.
+    if(sel.endColumn===1&&e>s) e--;
+    // FR-DHB-32: 선택이 여러 조각을 걸쳐도 적용되는 것은 이 조각 안의 범위뿐이다.
+    // 서버 `patch` 가 hunk 번호를 하나만 받으므로 그것이 규약의 한계다 (D-3).
+    s=Math.max(s,hunk.newStart);
+    e=Math.min(e,hunk.newStart+Math.max(hunk.newLines,1)-1);
+    if(s>e) return whole;
+    const r=gitHunkRangeForLines(hunk,s,e);
+    return r?{hunk:hunk.index,from:r[0],to:r[1]}:whole;
+  },
+
+  /**
+   * 조각 하나에 동작을 적용한다 (FR-GIT-278·279).
    *
    * `diffId` 는 화면이 본 관측의 식별자다. 서버가 다시 만든 diff 와 다르면 409 로
    * 거부되고, 그때 화면은 조각을 다시 받는다 — 낡은 번호로 다른 곳을 고치지 않는다.
    */
-  async _hunkAct(op,idx){
+  async _hunkAct(op){
     const f=this.commitFile?null:this._diffTarget();
     const h=this._hunks;
-    if(!f||!h||!h.list||!h.list[idx]||this._writing) return;
-    const sel=(this._hunkSel&&this._hunkSel.hunk===idx)?this._hunkSel:null;
-    const body={repo:f.repo,axis:f.axis,path:f.path,op,hunk:idx,
-      from:sel?sel.from:0,to:sel?sel.to:0,diffId:h.diffId};
-    if(op===GIT_PATCH_REVERT){this._hunkRevert(body,f,h.list[idx],sel);return}
+    const co=this._hunkBarCoords();
+    if(!f||!h||!co||this._writing) return;
+    const hunk=(h.list||[]).find(x=>x.index===co.hunk);
+    const body={repo:f.repo,axis:f.axis,path:f.path,op,
+      hunk:co.hunk,from:co.from,to:co.to,diffId:h.diffId};
+    if(op===GIT_PATCH_REVERT){this._hunkRevert(body,f,hunk,co);return}
     this._afterHunk(await this.post('/api/git/patch',body));
   },
 
@@ -466,8 +570,12 @@ Object.assign(GitPanel.prototype, {
    * 같은 규약을 지난다: 판정은 서버의 목록이 하고(GitConfirm), 확인을 거치며,
    * 실행 요청에 confirm 을 함께 보낸다 — 서버도 그것을 요구한다.
    */
-  async _hunkRevert(body,f,hunk,sel){
-    const label=sel?(GIT_HUNK_SEL_LABEL+sel.from+GIT_HUNK_SEL_SEP+sel.to):(hunk.header||'');
+  async _hunkRevert(body,f,hunk,co){
+    // FR-DHB-42: 무엇을 되돌리는지 밝힌다. 줄 범위를 골랐으면 그 범위이고,
+    // 아니면 조각의 머리다.
+    const label=co.from
+      ?(GIT_HUNK_SEL_LABEL+co.from+GIT_HUNK_SEL_SEP+co.to)
+      :((hunk&&hunk.header)||'');
     await GitDialog.confirm({
       action:GIT_ACT_DISCARD,
       title:GIT_HUNK_REVERT_TITLE,
@@ -491,15 +599,16 @@ Object.assign(GitPanel.prototype, {
    * 그리기에서 다시 받는다.
    */
   _afterHunk(res){
-    // **거부 사유는 누른 자리에 보인다.** `applyWriteFail` 의 안내 줄은 Changes 탭
-    // 골격에만 있어(`.git-partial-note`) Diff 탭에서 낸 실패는 화면에 자국을 남기지
-    // 않는다 — 조각을 누른 사람은 Diff 탭에 있다 (FR-GIT-278 의 stale 거부가 이
-    // 자리를 실제로 필요로 한다).
+    // **거부 사유는 누른 자리에 보인다** (FR-DHB-6). 그 자리가 이제 Diff 탭의
+    // 머리다 — `applyWriteFail` 의 안내 줄은 Changes 사이드의 골격에만 있어
+    // 조각을 누른 사람에게 닿지 않는다.
     this._hunkErr=res.ok?null:this.writeError(res);
     // 사유는 **그 대상의 것**이다. 아래에서 목록을 다시 받으려고 키를 비우므로,
     // 어느 대상의 사유인지 따로 들고 있어야 다시 받는 그 회차에 지워지지 않는다.
     this._hunkErrKey=res.ok?null:this._hunkKey;
-    this._hunkKey=null; this._hunks=null; this._hunkSel=null;
+    this._hunkKey=null; this._hunks=null;
+    // FR-DHB-44: 사라진 조각 위에 툴바가 남지 않는다 — 다시 hover 로만 뜬다.
+    this._hunkBarHide();
     // Monaco 의 두 모델도 낡았다 — 같은 대상이라도 내용이 바뀌었다 (FR-GIT-71).
     this._diffKey=null;
     if(res.ok){this._note=null; this.adopt(res.data); return}
@@ -643,6 +752,9 @@ Object.assign(GitPanel.prototype, {
       // FR-RTU-55: 저장 뒤에는 관측을 즉시 갱신한다. 방금 고친 것이 목록과
       // 색에 곧바로 서야 한다.
       onSaved:()=>this._gitSaved(),
+      // DIFF_HUNK_BAR_SRS D-4 / FR-DHB-10: 에디터가 서면 hover 툴바를 배선하고
+      // 사라지면 걷는다. `GitDiffView` 는 관측을 모르므로 그 배선을 여기서 한다.
+      onEditor:ed=>this._hunkBarWire(ed),
     });
     return this._diffView;
   },
@@ -666,9 +778,13 @@ Object.assign(GitPanel.prototype, {
 
   _destroyViews(){
     if(!this._diffView) return;
+    // `destroy()` 가 `clear()` 를 지나며 `onEditor(null)` 을 부르므로 위젯과
+    // 리스너는 그 길에서 걷힌다 (FR-DHB-22). 여기서 한 번 더 부르는 것은 뷰가
+    // 에디터를 세운 적 없는 경우의 몫이다 — 그때는 아무 일도 하지 않는다.
     this._diffView.destroy(); this._diffView=null;
+    this._hunkBarDispose();
     this._diffKey=null;
-    this._hunkKey=null; this._hunks=null; this._hunkSel=null;
+    this._hunkKey=null; this._hunks=null;
     // 골격이 버린 뷰의 DOM 을 들고 있다 — 다시 열릴 때 새 뷰로 세운다.
     const el=this._els.get('diff'); if(el) el.dataset.built='';
   },

@@ -353,9 +353,12 @@ func TestDaemonAttnTrackerL2Idle(t *testing.T) {
 	}()
 	defer cmdHub.Remove(sub)
 
-	// ATTENTION_FIRING_SRS FR-ATF-1: L2 는 에이전트 도구에만 운다. 이 테스트가
-	// 재는 것은 데몬 모드의 sweeper 배선이므로, 전제인 활동 보고를 세워 둔다.
-	tracker.SetActivity("p1", "done", "", "")
+	// ATTENTION_FIRING_SRS FR-ATF-1·ATN-10: L2 는 에이전트 도구에, 그것도 턴이
+	// 진행 중일 때만 운다. 이 테스트가 재는 것은 데몬 모드의 sweeper 배선이므로
+	// 두 전제를 세워 둔다 — 일을 시작했고(`working`), 지금은 물음을 던져 둔
+	// 상태다(`waiting`). 종결(`done`)로 세우면 L2 는 더 이상 울지 않는다.
+	tracker.SetActivity("p1", "working", "Bash", "make")
+	tracker.SetActivity("p1", "waiting", "", "")
 	// Feed initial output to arm the idle detector
 	tracker.FeedOutput("p1", []byte("prompt"))
 
@@ -480,13 +483,16 @@ func TestDaemonAttnTrackerMultipleTools(t *testing.T) {
 	tracker := hub.NewAttnTracker(cmdHub, 10000)
 
 	// Signal attention for tool A (FeedOutput first to register)
+	// FR-ATN-4·6 의 전제 — 재는 것은 도구별 독립성이다.
 	tracker.FeedOutput("A", []byte("prompt"))
+	tracker.NoteUserPrompt("A")
 	tracker.SignalAttention("A", "done")
 	if !tracker.Attention("A") {
 		t.Fatal("tool A should have attention")
 	}
 
 	// Signal attention for tool B
+	tracker.SetActivity("B", "working", "Bash", "")
 	tracker.SignalAttention("B", "waiting")
 	if !tracker.Attention("B") {
 		t.Fatal("tool B should have attention")
@@ -656,10 +662,11 @@ func TestDaemonAttnTrackerL2IdleSuppressedWhileWorking(t *testing.T) {
 	}
 	mu.Unlock()
 
-	// Agent stops working → idle should fire. `ended` 로 말하지 않는다 — 그것은
-	// 세션 종료이고 에이전트 표시를 내려 L2 자체를 끈다 (FR-ATF-2). 여기서 재는
-	// 것은 "working 이 아니면 운다" 다.
-	tracker.SetActivity("p1", "done", "", "")
+	// 에이전트가 물음을 던졌다 → 턴은 아직 진행 중이므로 운다. `done` 으로
+	// 말하지 않는다 — 그것은 턴의 종결이고, 종결 뒤의 정적은 L1 이 이미 알린
+	// 사실이라 L2 를 끈다 (FR-ATN-10). `ended` 도 아니다 — 그것은 세션 종료이고
+	// 에이전트 표시 자체를 내린다 (FR-ATF-2).
+	tracker.SetActivity("p1", "waiting", "", "")
 	tracker.FeedOutput("p1", []byte("more output"))
 	time.Sleep(1300 * time.Millisecond)
 	mu.Lock()

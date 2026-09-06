@@ -372,6 +372,10 @@ class FileEditor {
     // FR-LSP-44: 이 파일의 언어 서버가 없으면 제안한다. 판정은 app 이 하며
     // 상태를 파일마다 다시 묻지 않는다.
     if (window.app && window.app._lspOfferFor) window.app._lspOfferFor(this);
+    // DOC_RENDER_VIEW_SRS FR-DRV-2·3: 렌더할 수 있는 문서면 버튼을 세우고, 이
+    // 파일의 렌더 뷰에 모델이 생겼음을 알린다. 판정과 버튼은 app 이 갖는다 —
+    // 편집기는 자기가 무슨 문서인지 알 필요가 없다.
+    if (window.app && window.app._docRenderMount) window.app._docRenderMount(this);
 
     // Save on Ctrl+S / Cmd+S
     this._editor.addCommand(
@@ -397,6 +401,9 @@ class FileEditor {
       }
       // FR-EFP-17: 편집하는 동안 낡은 하이라이트가 남으면 그것이 거짓말이 된다.
       if (this._findVis()) this._findRun(true);
+      // FR-EDD-53: 변경 표시도 같은 계기다. 디바운스는 관리자가 갖는다 —
+      // 모델이 공유되므로 이 이벤트는 칸마다 오고, 계산은 한 번이어야 한다.
+      if (this._dd) this._dd.schedule();
     });
 
     /**
@@ -419,6 +426,13 @@ class FileEditor {
       if (window.app) window.app._edTrySearchKey(e);
     }, true);
 
+    // FR-EDD-34: 팝업을 닫는 길 둘 중 하나. 찾기 패널이 포커스를 갖고 있으면
+    // 그 패널의 핸들러가 먼저 먹고 전파를 멈추므로(`_findWire`) 이 자리는 돌지
+    // 않는다 — 두 Escape 가 다투지 않는다.
+    this.el.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this._ddZone) { e.preventDefault(); this._ddClose() }
+    }, true);
+
     // Keyboard interop: prevent terminal shortcuts from firing in editor
     this.el.addEventListener('keydown', (e) => {
       // 검색 키는 위의 capture 리스너가 이미 판정했다 — 여기서 다시 묻지 않는다.
@@ -439,6 +453,11 @@ class FileEditor {
     // 박으면 설정에서 바꾼 키가 Monaco 안에서만 듣지 않는다 — 위의 keydown 이
     // 그 자리를 대신한다. 전역 keydown 은 편집기에 포커스가 있는 동안 한 줄도
     // 돌지 않으므로(input-binding.js 의 activeElement 게이트) 이 배선이 필요하다.
+
+    // EDITOR_DIRTY_DIFF_SRS FR-EDD-15: 변경 표시는 **모델**의 것이다 — 이 칸은
+    // 클릭과 팝업만 갖는다. `file-editor-diff.js` 가 없으면 편집기는 지금까지와
+    // 똑같이 동작한다 (NFR-EDD-3).
+    if (this._ddInit) this._ddInit();
 
     if (this._pendingReveal) {
       const r = this._pendingReveal; this._pendingReveal = null;
@@ -626,9 +645,11 @@ class FileEditor {
     const el = document.createElement('div');
     el.className = 'fe-offer';
     el.dataset.id = st.id;
+    // 받을 수 없을 때의 사유는 **서버가 사람의 말로 적어 보낸다** (FR-EXT-29) —
+    // 화면이 다시 쓰면 서버가 아는 사유와 사용자가 읽는 문장이 갈린다.
     const body = st.canInstall
       ? LSP_OFFER_BODY.replace('%s', st.id)
-      : LSP_OFFER_NO_TOOL.replace(/%t/g, st.installer || '').replace('%s', st.id);
+      : (st.note || LSP_OFFER_BLOCKED).replace('%s', st.id);
     el.innerHTML =
       '<span class="fe-offer-msg"></span>' +
       (st.canInstall
@@ -646,7 +667,9 @@ class FileEditor {
       go.addEventListener('click', () => {
         go.disabled = true;
         go.textContent = LSP_INSTALLING;
-        if (window.app) window.app._lspOfferInstall(st.id, this);
+        // 조달의 단위는 **팩**이다 (FR-EXT-5·31) — 서버 id 로 부르면 다섯을 내는
+        // 팩에서 아무것도 받지 못한다.
+        if (window.app) window.app._lspOfferInstall(st.pack || st.id, this);
       });
     }
     const set = el.querySelector('.fe-offer-set');
@@ -923,6 +946,9 @@ class FileEditor {
       this._editor.dispose();
       this._editor = null;
     }
+    // FR-EDD-16: 팝업과 등록을 먼저 걷는다 — 문서를 놓기 전이어야 관리자가
+    // 살아 있는 동안 정리된다.
+    if (this._ddDrop) this._ddDrop();
     if (typeof app !== 'undefined' && app && app._edDocDrop) {
       app._edDocDrop(this.filePath, this);
     }
@@ -971,6 +997,10 @@ function edFindReOk(src) {
 // setTheme 을 부르면 살아 있는 에디터와 diff 뷰가 함께 따라온다 (FR-GIT-49).
 FileEditor.applyTheme = function() {
   if (typeof monaco === 'undefined') return;
+  // EDITOR_DIRTY_DIFF_SRS FR-EDD-23b: 변경 표시의 색도 CSS 변수에서 왔으므로
+  // 여기서 함께 다시 세운다. 두 번째 테마 훅을 만들지 않는다.
+  if (typeof edDdReset === 'function') edDdReset();
+  if (window.app && window.app._edDirtyDiffRepaint) window.app._edDirtyDiffRepaint();
   const name = monacoTheme();
   if (name !== MONACO_THEME) return;
   monaco.editor.setTheme(name);

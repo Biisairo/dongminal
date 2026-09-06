@@ -142,11 +142,14 @@ func (s *Server) apiToolMessage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	fromLabel, toLabel, fromToolID := s.envelopeLabels(body.From, toolID)
+	fromToolID, ok := s.resolveSender(w, body.From)
+	if !ok {
+		return
+	}
+	sender := envelopeSender(fromToolID)
 	envelope := fmt.Sprintf(
 		"[DONGMINAL-AGENT-MSG from=%s to=%s ts=%s]\n%s\n[/DONGMINAL-AGENT-MSG]",
-		envelopeParty(fromLabel, fromToolID), envelopeParty(toLabel, toolID),
-		time.Now().Format("15:04:05"), body.Message,
+		sender, toolID, time.Now().Format("15:04:05"), body.Message,
 	)
 	if err := s.ToolIO.SendPaste(toolID, []byte(envelope), true); err != nil {
 		writeToolIOError(w, http.StatusInternalServerError, err.Error())
@@ -155,47 +158,44 @@ func (s *Server) apiToolMessage(w http.ResponseWriter, r *http.Request) {
 	// FR-RVZ-14: 배달에 성공한 것만 Run 의 사실로 적는다. 실패는 위에서 이미
 	// 돌아갔으므로 여기 도달한 것은 전부 전달된 메시지다. 본문은 넘기지 않는다.
 	s.recordRunMessage(fromToolID, toolID, len(body.Message))
-	log.Printf("[toolio] message from=%s(input=%s) to=%s(input=%s tool=%s) msgLen=%d",
-		fromLabel, body.From, toLabel, body.To, toolID, len(body.Message))
+	log.Printf("[toolio] message from=%s(input=%s) to=%s(input=%s) msgLen=%d",
+		sender, body.From, toolID, body.To, len(body.Message))
 	writeJSON(w, map[string]any{
-		"toolId": toolID, "from": fromLabel, "to": toLabel, "len": len(body.Message),
+		"toolId": toolID, "from": sender, "to": toolID, "len": len(body.Message),
 	})
 }
 
-// envelopeLabels normalizes the envelope header for human readability: a uuid or
-// toolId input is rendered as its workspace label, and the resolved toolId comes
-// back with it so the header can carry both (FR-IDU-9). An unresolvable `from`
-// passes through verbatim; an empty one becomes "unknown".
+// resolveSender resolves the envelope's `from` party to a tool uuid under the
+// same rule as `to` — labels are rejected (FR-IDU-9). An empty `from` is allowed
+// and returns "", which the header renders as "unknown".
 //
-// 발신자 해석은 Resolve 를 그대로 쓴다 (FR-IDU-9). 라우팅은 이미 resolveToolID 가
-// 끝냈으므로 여기서 라벨을 받아 줘도 배달 대상은 달라지지 않는다 — 표시 전용이다.
-func (s *Server) envelopeLabels(from, toToolID string) (fromLabel, toLabel, fromToolID string) {
-	labels := s.WorkIndex.Labels()
-	fromLabel = from
-	if fromLabel == "" {
-		fromLabel = "unknown"
-	} else if pid, err := s.WorkIndex.Resolve(from); err == nil {
-		fromToolID = pid
-		if l, ok := labels[pid]; ok {
-			fromLabel = l
+// --to 와 규칙을 같이 두는 이유: 헤더의 `from=` 값이 곧 답장의 `--to` 다. 표시
+// 전용이라며 라벨을 받아 주면 메시지 경로에 좌표 라벨이 남고, 그 값은 창이 닫히면
+// 다른 도구를 가리킨다 (§1.3 reflow). 존재 검사(`ToolIO.Has`)는 하지 않는다 —
+// 발신자의 PTY 생존은 배달과 무관하고, 라우팅은 --to 가 정한다.
+func (s *Server) resolveSender(w http.ResponseWriter, from string) (string, bool) {
+	if from == "" {
+		return "", true
+	}
+	toolID, err := s.WorkIndex.ResolveStrict(from)
+	if err != nil {
+		status := http.StatusNotFound
+		if errors.Is(err, workspace.ErrLabelIdentifier) {
+			status = http.StatusBadRequest
 		}
+		writeToolIOError(w, status, err.Error())
+		return "", false
 	}
-	toLabel = toToolID
-	if l, ok := labels[toToolID]; ok {
-		toLabel = l
-	}
-	return fromLabel, toLabel, fromToolID
+	return toolID, true
 }
 
-// envelopeParty renders one header party as "<label> (<uuid>)" (FR-IDU-9).
-// 라벨만으로는 답장할 수 없으므로 — 접합면은 uuid 만 받는다 (FR-IDU-4) — 답장에
-// 쓸 값을 헤더가 직접 들고 있어야 한다. 라벨을 못 찾았거나 라벨이 곧 uuid 면
-// 괄호를 붙이지 않는다.
-func envelopeParty(label, toolID string) string {
-	if toolID == "" || toolID == label {
-		return label
+// envelopeSender renders the `from=` value. 발신자를 주지 않은 호출(dongminal
+// 외부)만 "unknown" 이 된다.
+func envelopeSender(fromToolID string) string {
+	if fromToolID == "" {
+		return "unknown"
 	}
-	return label + " (" + toolID + ")"
+	return fromToolID
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

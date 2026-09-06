@@ -1,0 +1,19 @@
+{
+  "id": "typescript",
+  "kind": "server",
+  "version": "6.0.0",
+  "needs": ["node"],
+  "source": {
+    "kind": "npm",
+    "packages": ["typescript-language-server@6.0.0", "typescript@6.0.3"]
+  },
+  "servers": [
+    {
+      "id": "typescript-language-server",
+      "langs": ["typescript", "javascript"],
+      "exts": [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"],
+      "exe": "typescript-language-server",
+      "args": ["--stdio"]
+    }
+  ]
+}

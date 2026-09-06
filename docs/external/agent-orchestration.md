@@ -59,7 +59,7 @@ MSG
 `dmctl msg` 로 보낸 메시지는 봉투로 감싸져 수신 도구의 입력에 자동 제출됩니다.
 
 ```
-[DONGMINAL-AGENT-MSG from=W1.P1.T2 to=W1.P1.T1 ts=14:50:00]
+[DONGMINAL-AGENT-MSG from=<발신 도구 uuid> to=<수신 도구 uuid> ts=14:50:00]
 ...본문...
 [/DONGMINAL-AGENT-MSG]
 ```
@@ -70,7 +70,8 @@ MSG
 있습니다.
 
 - `--from` 은 생략합니다 — 발신자가 자동으로 채워집니다.
-- 헤더의 `from`/`to` 는 사람이 읽기 좋게 라벨로 정규화돼 표시되지만, 라우팅 키는 uuid 입니다.
+- 헤더의 `from`/`to` 는 **uuid 뿐**입니다. 받은 봉투에 답할 때는 헤더의 `from` 값을
+  그대로 `--to` 에 넣습니다.
 - 식별자로는 **항상 uuid** 를 씁니다. `W?.P?.T?` 라벨은 다른 창이 닫히면 다른 탭을
   가리키게 됩니다.
 

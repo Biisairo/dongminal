@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="style-git.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-git-views.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-editor.css?v=__ASSETV__">
+  <link rel="stylesheet" href="style-docrender.css?v=__ASSETV__">
   <!-- SIDEBAR_COLLAPSE_SRS FR-SBC-5 / D-2: 폭과 접힘을 **같은 걸음**에서 읽는다.
        자리를 나누면 폭은 첫 프레임에, 접힘은 스크립트 로드 뒤에 걸려 사이드바가
        한 번 펄럭인다. body 가 아직 없으므로 클래스는 documentElement 에 붙는다. -->
@@ -377,9 +378,17 @@
 <script src="vendor/addon-web-links.js"></script>
 <script src="vendor/addon-unicode11.js"></script>
 <script src="vendor/addon-search.js"></script>
+<script src="vendor/markdown-it.js"></script>
+<script src="vendor/purify.js"></script>
+<script src="vendor/highlight.js"></script>
 <script src="js/core/constants.js?v=__ASSETV__"></script>
 <script src="js/core/constants-git.js?v=__ASSETV__"></script>
 <script src="js/core/constants-editor.js?v=__ASSETV__"></script>
+<!-- 서버 hunk 좌표의 클라이언트 측 사상 (DIFF_HUNK_BAR_SRS D-2). 편집기의 변경
+     표시와 Diff 탭의 hover 툴바가 함께 쓴다 — 순수 함수뿐이므로 상수 뒤 아무
+     자리나 되지만, 두 소비자보다 앞이어야 읽는 순서가 곧 의존 순서가 된다. -->
+<script src="js/core/hunk-coords.js?v=__ASSETV__"></script>
+<script src="js/core/constants-docrender.js?v=__ASSETV__"></script>
 <!-- 부팅 화면 손잡이 (BOOT_SCREEN_SRS). constants.js 뒤여야 한다 — 로드 시점에
      `BOOT_MAX_MS` 로 상한을 건다. -->
 <script src="js/ui/boot-screen.js?v=__ASSETV__"></script>
@@ -392,9 +401,14 @@
      뒤, 렌더러 앞이어야 한다 — 렌더러가 이것으로 두 목록을 그린다. -->
 <script src="js/ui/sidebar-list.js?v=__ASSETV__"></script>
 <script src="js/ui/themes.js?v=__ASSETV__"></script>
+<script src="js/ui/toast.js?v=__ASSETV__"></script>
 <script src="js/ui/term-clipboard.js?v=__ASSETV__"></script>
 <script src="js/ui/term-pane.js?v=__ASSETV__"></script>
 <script src="js/ui/file-editor.js?v=__ASSETV__"></script>
+<script src="js/ui/doc-render.js?v=__ASSETV__"></script>
+<!-- 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS). file-editor.js 뒤여야 한다 —
+     `FileEditor.prototype` 을 확장한다. -->
+<script src="js/ui/file-editor-diff.js?v=__ASSETV__"></script>
 <script src="js/ui/input-binding.js?v=__ASSETV__"></script>
 <!-- REFACTOR_STABILIZATION_SRS FR-RST-21: 뷰들이 공유하는 조각. `api.js` 앞이다 —
      gitFetch 는 호출 시점에만 필요하므로 순서가 뒤여도 되지만, 공유물이 먼저
@@ -446,6 +460,7 @@
 <script src="js/core/app-git.js?v=__ASSETV__"></script>
 <!-- Editor 탭·창 (EDITOR_TAB_SRS). app.js 뒤 main.js 앞 — prototype 확장이다. -->
 <script src="js/core/app-editor.js?v=__ASSETV__"></script>
+<script src="js/core/app-docrender.js?v=__ASSETV__"></script>
 <script src="js/core/app-lsp.js?v=__ASSETV__"></script>
 <script src="js/core/app-edsearch.js?v=__ASSETV__"></script>
 <!-- Run 시각화 (ORCHESTRATION_V2_SRS 묶음 V). app.js 뒤 — prototype 확장. -->

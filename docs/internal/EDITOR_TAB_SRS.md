@@ -18,6 +18,7 @@
 > | 탐색기 조작은 **루트 하나** 안에서만 일어난다 (FR-EDT-87·112) | **복사만 두 루트를 받는다** — `srcRoot`·`dstRoot` 둘 다 Editor 목록에 있는지 검사한다. `rename` 은 그대로 한 루트다 | WORKBENCH_REVIEW_SRS FR-WBR-61 / D-WBR-17 |
 > | FR-EDT-85 의 "자기 하위로는 옮길 수 없다" 를 **클라이언트만** 막는다 | 복사는 **서버가 막는다** — 막지 않으면 무한 재귀로 디스크를 채운다 | WORKBENCH_REVIEW_SRS FR-WBR-64 |
 > | 모바일의 Editor 창 | 사이드와 본문이 **순회의 자리 하나**씩이다 — 나란히 두지 않는다 | REPO_TAB_UNIFY_SRS FR-RTU-80 / D-RTU-29 |
+> | FR-EDT-47 / D-18 (탐색기 폭은 **창마다 따로** — `window.editor.explorerWidth`) | 사이드 폭은 **워크스페이스 변수 하나**다 (`ws.repoSideWidth`) — 모든 Repo 창이 같은 폭이고 드래그도 함께 움직인다. 창 레코드는 폭을 갖지 않는다 | REPO_SIDE_WIDTH_SRS FR-RSW-1~5 / D-1~D-3 |
 
 ## 1. 개요 (Introduction)
 
@@ -440,6 +441,8 @@ FR-EDT-16 이 그 추가를 "목록을 바꾸지 않는" 무동작으로 규정�
 **FR-EDT-47.** 탐색기 폭은 드래그로 조절하고 `window.editor.explorerWidth` 로
 **워크스페이스에 저장한다** — `sidebarWidth` 와 같은 규약이다 (§2.10). 창마다 따로
 기억된다.
+> **개정됨** — 폭은 사이드의 것이고 **창마다 따로가 아니다**: `ws.repoSideWidth`
+> 하나를 모든 Repo 창이 읽는다 (REPO_SIDE_WIDTH_SRS FR-RSW-1·2).
 
 **FR-EDT-48.** 편집기 영역은 기존 pane · tab · split 모델을 **그대로** 쓴다.
 `doSplit`·`doRemove`·`findPane`·`firstPane`·`findPath` 는 타입을 가리지 않으므로
@@ -941,7 +944,7 @@ FR-EDT-83·86·115 의 각 항목으로 한다.
 | V-EDT-36 | T | 같은 창 안 pane 간 이동은 된다 (게이트가 탭 타입 자리에 들어가지 않았다) | 53 |
 | V-EDT-37 | T | Editor 창에 터미널 탭을 만들 수 없다 | 54 |
 | V-EDT-38 | T | 갓 만든 Editor 창에 pane 이 없고, 파일을 열면 하나 생긴다 | 55·100 |
-| V-EDT-39 | T | 탐색기 폭이 `window.editor.explorerWidth` 로 저장되고 새로고침 후 복원된다 | 47 |
+| V-EDT-39 | T | 사이드 폭이 `ws.repoSideWidth` 로 저장되고 새로고침 후 복원된다 (개정: REPO_SIDE_WIDTH_SRS V-RSW-1·2) | 47 |
 | V-EDT-40 | T | dot 파일·dot 폴더가 보인다 | 58 |
 | V-EDT-41 | T | 폴더를 펼칠 때만 그 폴더가 조회된다 (요청 수로 확인) | 59 |
 | V-EDT-42 | T | 심볼릭 링크는 펼쳐지지도 열리지도 않는다. `linkDir` 이 응답에 있다 | 60·108 |
@@ -1100,7 +1103,7 @@ root 에디터로 보낸다" 까지만 한다. M6 이 연결·리포 규칙을 �
 | **D-15** | 경로 정규화는 **`EvalSymlinks` + `Clean` 하나**로 통일한다 | 두 정규화가 갈리면 연동의 짝이 조용히 깨진다 (macOS `/tmp`) |
 | **D-16** | 파일 조작 API 는 **`root` 를 함께 받아** 그 아래로 제한한다 | 조작은 트리에서 파생된 경로를 지운다. 기존 `/api/file/*` 의 무제한 가드를 물려받으면 버그 하나가 홈 밖을 지운다 |
 | **D-17** | 연동은 **새 패키지 `wsentry`** 가 소유하고 `RepoRootFn` 을 주입받는다 | `httpapi` 가 `gitapi` 를 import 하지 않고 FR-EDT-33 을 판정하는 유일한 길 |
-| **D-18** | 탐색기 폭은 **워크스페이스**에 저장한다 | `sidebarWidth` 가 그렇다 — localStorage 는 첫 페인트용 사본이다 (§2.10) |
+| **D-18** | 탐색기 폭은 **워크스페이스**에 저장한다 (개정: 창별이 아니라 최상위 변수 하나 — REPO_SIDE_WIDTH_SRS D-3) | `sidebarWidth` 가 그렇다 — localStorage 는 첫 페인트용 사본이다 (§2.10) |
 | **D-19** | 편집기 탭 마이그레이션은 **`clean()` 밖**에서 한다 | `clean` 은 편집기 탭을 보존하도록 만들어져 있고 창 타입을 모른다 (§2.9) |
 | **D-20** | 탐색기 항목 **정렬은 서버가** 한다 | 잘림 경계가 요청마다 흔들리지 않으려면 순서가 한 자리에서 정해져야 한다 (FR-EDT-61) |
 | **D-21** | `list` 는 경로 전체를, 조작 셋은 **부모까지만** 심볼릭 링크를 푼다 | 조작은 아직 없는 이름을 다루고 링크 자신을 대상으로 삼을 수 있어야 한다 (FR-EDT-112) |

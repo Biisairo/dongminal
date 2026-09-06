@@ -4,16 +4,14 @@
  * 형태여야 한다.
  */
 /**
- * 조각 머리의 텍스트 한 조각 (FR-GIT-278). 값은 **textContent 로만** 넣는다 —
- * hunk 의 본문은 사용자의 파일 내용이고, 그것을 마크업으로 넣으면 파일이 화면을
- * 고칠 수 있다.
+ * `gitHunkSpan` 이 여기 있었다 (FR-GIT-278) — 조각 머리의 텍스트 한 조각을 만드는
+ * 함수였다. 하단 조각 목록이 폐기되면서(DIFF_HUNK_BAR_SRS FR-DHB-2) 부르는 자리가
+ * 없어졌다.
+ *
+ * **그 함수가 지킨 규약은 남는다**: 사용자의 파일 내용이 닿는 자리는 언제나
+ * `textContent` 다 (NFR-DHB-3). 새 코드에서 그 자리는 Diff 탭 머리의 안내
+ * 한 줄(`_hunkNote`)과 revert 확인 대화의 대상 라벨이다.
  */
-function gitHunkSpan(cls,text){
-  const el=document.createElement('span');
-  el.className=cls;
-  el.textContent=text;
-  return el;
-}
 
 function gitShQuote(p){
   const s=String(p==null?'':p);
@@ -88,6 +86,10 @@ class GitDiffView {
     // 탭도 관측도 모른다 — 아는 쪽(GitPanel)이 그것을 받아 처리한다.
     this.onDirty=o.onDirty||null;
     this.onSaved=o.onSaved||null;
+    // DIFF_HUNK_BAR_SRS D-4: **이 클래스가 여는 것은 훅 하나다.** 에디터가 서거나
+    // 사라졌다는 사실은 여기가 알고, 그 위에 무엇을 붙일지는 부르는 쪽이 안다 —
+    // hunk 관측을 이 안에 넣으면 "탭도 관측도 모른다" 는 원칙이 깨진다.
+    this.onEditor=o.onEditor||null;
     this._seq=0; this._dead=false;
     this._editor=null; this._orig=null; this._mod=null;
     this._el=document.createElement('div');
@@ -139,6 +141,9 @@ class GitDiffView {
   clear(message,meta,acts){
     this._seq++;
     this._setNote(message||'',meta,acts);
+    // 에디터를 버리기 **전에** 알린다 — 받은 쪽이 위젯을 떼야 하고, dispose 된
+    // 에디터에는 뗄 수도 없다 (FR-GIT-56).
+    if(this._editor&&this.onEditor) this.onEditor(null);
     if(this._editor){this._editor.dispose();this._editor=null}
     this._dropModels(this._orig,this._mod);
     this._orig=null; this._mod=null;
@@ -193,6 +198,9 @@ class GitDiffView {
         hideUnchangedRegions:{enabled:this._fold},
         theme:monacoTheme(),
       }));
+      // 생성은 한 번뿐이다 — 아래 setModel 이 대상마다 모델만 갈아끼운다. 그래서
+      // 이 훅도 에디터의 수명에 한 번 돈다 (FR-DHB-21·22).
+      if(this.onEditor) this.onEditor(this._editor.getModifiedEditor());
     }
     const prevO=this._orig,prevM=this._mod;
     this._orig=monaco.editor.createModel(orig,lang);

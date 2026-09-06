@@ -23,6 +23,10 @@ Object.assign(App.prototype, {
     if(this._softReloading) return false;
     this._softReloading=true;
     this._softReloadPaint(true);
+    // BOOT_SCREEN_REUSE_SRS FR-BTR-7: 다시 세우는 동안의 화면은 조작 대상이
+    // 아니다. 버튼의 `busy` 는 눌린 사실만 말하고(FR-SRL-11), 그 사이에도 낡은
+    // 화면은 눌린다 — 첫 부팅과 같은 오버레이로 덮는다.
+    BootScreen.show(BOOT_STEP_RELOAD);
     try{
       // ① 구독이 죽어 있으면 되살린다. 이것이 먼저인 이유는, 죽은 채로 두면
       //    지금 받아 온 것이 **다음 변화부터 다시 낡기** 때문이다 (§2.2).
@@ -50,7 +54,7 @@ Object.assign(App.prototype, {
       // WORKBENCH_REVIEW_SRS FR-WBR-95: 살아 있는 트리 뷰는 `_edTrees` 에 있다.
       //
       //   이전 동작: `w.editor.refresh()` — `w.editor` 는 창 레코드의
-      //             `{root, side, explorerWidth}` 라 `refresh` 가 없고,
+      //             `{root, side}` 라 `refresh` 가 없고,
       //             `typeof` 가드가 그것을 **조용히 삼켰다**
       //   새  동작: `_edTrees` 의 뷰마다 `refresh()` (FR-EDT-64 — 펼쳐진 겹만
       //             다시 읽고 펼침을 보존한다)
@@ -72,6 +76,9 @@ Object.assign(App.prototype, {
     }finally{
       this._softReloading=false;
       this._softReloadPaint(false);
+      // FR-BTR-7: 한 갈래가 실패해도 화면은 걷힌다 — 실패는 오버레이에 갇히는
+      // 사유가 아니다 (FR-BTS-13 과 같은 근거).
+      BootScreen.done();
     }
     return true;
   },

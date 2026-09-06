@@ -33,7 +33,6 @@ func statusServer(t *testing.T) (*Server, *toolhub.ToolManager, *toolhub.Tool) {
 			"W1.P1.T1":                             "p1",
 			"aaaaaaaa-1111-2222-3333-444444444444": "p1",
 		},
-		labels: map[string]string{"p1": "W1.P1.T1"},
 		coords: map[string]string{},
 	}
 	return &Server{Deps: Deps{Tools: m, ToolIO: io, WorkIndex: wi}}, m, p
@@ -264,7 +263,7 @@ func TestApiToolStatusWait_ArgumentValidation(t *testing.T) {
 func TestToolStatus_DirectDaemonParity(t *testing.T) {
 	io := newFakeToolIO()
 	io.setHas("p1", true)
-	wi := &fakeWorkIndex{resolve: map[string]string{"p1": "p1"}, labels: map[string]string{}, coords: map[string]string{}}
+	wi := &fakeWorkIndex{resolve: map[string]string{"p1": "p1"}, coords: map[string]string{}}
 
 	// direct: 상태는 toolhub.ToolManager 의 toolhub.Tool 에 있다.
 	m := toolhub.NewToolManager("", nil)

@@ -660,7 +660,7 @@ func (s *Server) fsEntries(w http.ResponseWriter) bool {
 	return true
 }
 
-// GET /api/editors — {home, notes, list}. home·notes 는 list 에 없다
+// GET /api/editors — {home, notes, plugins, list}. 앞의 셋은 list 에 없다
 // (FR-EDT-29·110, NOTES_LIVE_EXPLORER_SRS FR-NOT-3).
 func (s *Server) apiEditorsGet(w http.ResponseWriter, r *http.Request) {
 	if !s.fsEntries(w) {
@@ -676,6 +676,11 @@ func (s *Server) apiEditorsGet(w http.ResponseWriter, r *http.Request) {
 	// 빠지고 클라이언트에는 메모장 행 하나가 없을 뿐이다.
 	if notes, err := s.Entries.Notes(); err == nil {
 		out["notes"] = notes
+	}
+	// FR-EXT-9b: 플러그인 선언의 자리도 같은 규약이다 — 얻지 못하면 키가 빠지고
+	// 화면에는 그 행 하나가 없을 뿐이다.
+	if plugins, err := s.Entries.Plugins(); err == nil {
+		out["plugins"] = plugins
 	}
 	fsJSON(w, http.StatusOK, out)
 }

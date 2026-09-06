@@ -391,11 +391,12 @@ class Renderer {
       // 갈아 끼운다** — 한 번에 하나만 보인다 (D-RTU-3).
       const side=this._rSide(s);
       // 모바일에서는 폭을 지정하지 않는다 — 자리 전체를 쓴다 (CSS 가 `flex:1`).
-      if(!mob) side.style.width=this.app._edExplorerWidth(s)+'px';
+      // REPO_SIDE_WIDTH_SRS FR-RSW-2: 폭은 창의 것이 아니라 **워크스페이스 하나**다.
+      if(!mob) side.style.width=this.app._edSideWidth()+'px';
       el.appendChild(side);
       if(!mob){
         const h=document.createElement('div'); h.className='ed-ex-handle';
-        this._rEdHandle(h,s,side);
+        this._rEdHandle(h,side);
         el.appendChild(h);
       }
     }
@@ -490,17 +491,27 @@ class Renderer {
     return bar;
   }
 
-  // FR-EDT-47 / D-18: 폭은 워크스페이스에 저장한다 — `sidebarWidth` 와 같은
-  // 규약이다 (§2.10). 드래그 중에는 화면만 바꾸고 확정은 mouseup 한 번이다.
-  _rEdHandle(h,s,ex){
+  /**
+   * FR-RSW-3: 폭은 워크스페이스 하나에 저장한다 — `sidebarWidth` 와 같은 규약이다
+   * (§2.10). 드래그 중에는 화면만 바꾸고 확정은 mouseup 한 번이다.
+   *
+   * 끄는 동안 **보이는 사이드 전부**를 함께 움직인다 (D-5). 칸 둘이 나란히 Repo
+   * 창을 보일 때 하나만 따라오면 확정 전까지 둘이 어긋나 보인다. 다시 그리지
+   * 않는 이유는 `_rLayout` 이 매 render 마다 `.ed-win` 을 새로 만들기 때문이다 —
+   * 드래그마다 트리와 편집기를 재조립할 이유가 없다 (NFR-RSW-1).
+   */
+  _rEdHandle(h,ex){
     h.addEventListener('mousedown',e=>{
       e.preventDefault();
       const sx=e.clientX, start=ex.offsetWidth;
-      const clamp=w=>Math.max(EDITOR_EXPLORER_W_MIN,Math.min(EDITOR_EXPLORER_W_MAX,w));
-      const mv=ev=>{ex.style.width=clamp(start+(ev.clientX-sx))+'px'};
+      const clamp=w=>Math.max(REPO_SIDE_W_MIN,Math.min(REPO_SIDE_W_MAX,w));
+      const mv=ev=>{
+        const w=clamp(start+(ev.clientX-sx))+'px';
+        for(const el of document.querySelectorAll('.ed-win>.ed-side')) el.style.width=w;
+      };
       const up=ev=>{
         document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);
-        this.app._edSetExplorerWidth(s,clamp(start+(ev.clientX-sx)));
+        this.app._edSetSideWidth(clamp(start+(ev.clientX-sx)));
         for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
       };
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
@@ -521,7 +532,10 @@ class Renderer {
   // 판정과 파생은 `tabName` 한 곳에 있다 (helpers.js) — dmctl 이 같은 규칙을
   // Go 로 다시 쓰므로, 브라우저 안에서만이라도 자리가 둘이면 안 된다.
   _tabDisplayName(tab){
-    return (tab.dirty?'● ':'')+tabName(tab,this.app._fgNames);
+    // FR-DRV-11: 렌더 탭임을 알리는 표시. **여기서 붙인다** — `tabName` 은 dmctl 이
+    // 같은 규칙을 Go 로 다시 쓰는 자리이며(helpers.js), 그쪽이 모르는 표시를 그
+    // 함수에 넣으면 두 구현이 어긋난다.
+    return (tab.dirty?'● ':'')+(tab.render?DOC_RENDER_TAB_MARK:'')+tabName(tab,this.app._fgNames);
   }
 
   // 활성 탭의 **본문**을 pane body 에 붙인다. 타입별로 실체가 다르다 — git 은
@@ -551,7 +565,14 @@ class Renderer {
     if(at.type==='editor'){
       const key=this.app._slotKey(at.id,slot);
       let editor=this.app.fileEditors.get(key);
-      if(!editor){editor=new FileEditor(at.id,at.name,at.filePath);this.app.fileEditors.set(key,editor)}
+      // DOC_RENDER_VIEW_SRS D-1: 타입은 하나이고 **실체가 둘**이다. 두 뷰가 같은
+      // 계약을 만족하므로(FR-DRV-32) 이 Map 을 훑는 나머지 자리는 종류를 묻지 않는다.
+      if(!editor){
+        editor=at.render
+          ? new DocRender(at.id,at.name,at.filePath)
+          : new FileEditor(at.id,at.name,at.filePath);
+        this.app.fileEditors.set(key,editor);
+      }
       body.appendChild(editor.el);editor.el.classList.add('vis');
       return;
     }

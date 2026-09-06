@@ -11,6 +11,7 @@ import (
 func TestAttnTrackerForgetClearsAndDrops(t *testing.T) {
 	fb := &fakeBroker{}
 	tr := NewAttnTracker(fb, 0)
+	tr.NoteUserPrompt("t1") // FR-ATN-4 의 전제 — 재는 것은 주의의 수명이다
 	tr.SignalAttention("t1", "done")
 	if !tr.Attention("t1") {
 		t.Fatalf("주의가 서지 않았다")
@@ -74,7 +75,9 @@ func TestAttnTrackerForgetUnknown(t *testing.T) {
 func TestAttnTrackerAttentionIDsFiltersDeadTools(t *testing.T) {
 	fb := &fakeBroker{}
 	tr := NewAttnTracker(fb, 0)
+	tr.NoteUserPrompt("alive") // FR-ATN-4 의 전제 — 재는 것은 주의의 수명이다
 	tr.SignalAttention("alive", "done")
+	tr.NoteUserPrompt("dead") // FR-ATN-4 의 전제 — 재는 것은 주의의 수명이다
 	tr.SignalAttention("dead", "done")
 	tr.SetLiveProbe(func(id string) bool { return id == "alive" })
 
@@ -88,7 +91,9 @@ func TestAttnTrackerAttentionIDsFiltersDeadTools(t *testing.T) {
 func TestAttnTrackerAttentionIDsWithoutProbe(t *testing.T) {
 	fb := &fakeBroker{}
 	tr := NewAttnTracker(fb, 0)
+	tr.NoteUserPrompt("a") // FR-ATN-4 의 전제 — 재는 것은 주의의 수명이다
 	tr.SignalAttention("a", "done")
+	tr.NoteUserPrompt("b") // FR-ATN-4 의 전제 — 재는 것은 주의의 수명이다
 	tr.SignalAttention("b", "done")
 	if got := len(tr.AttentionIDs()); got != 2 {
 		t.Fatalf("probe 가 없으면 전부여야 한다: %d", got)

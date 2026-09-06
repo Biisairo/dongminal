@@ -71,7 +71,6 @@ func (f *fakeToolIO) Size(string) string { return "80x24" }
 type fakeWorkIndex struct {
 	resolve  map[string]string
 	labelIdx map[string]string
-	labels   map[string]string
 	coords   map[string]string
 	entries  []toolaccess.WorkspaceEntry
 }
@@ -100,7 +99,6 @@ func (f *fakeWorkIndex) ResolveStrict(id string) (string, error) {
 	return "", errors.New("not found: " + id)
 }
 
-func (f *fakeWorkIndex) Labels() map[string]string { return f.labels }
 func (f *fakeWorkIndex) Entries() []toolaccess.WorkspaceEntry {
 	return f.entries
 }
@@ -131,7 +129,6 @@ func toolIOServer(t *testing.T) (*httptest.Server, *fakeToolIO, *fakeWorkIndex) 
 			"dead-tool":                            "p9",
 		},
 		labelIdx: map[string]string{"W1.P1.T1": "p1", "W1.P1.T2": "p2"},
-		labels:   map[string]string{"p1": "W1.P1.T1", "p2": "W1.P1.T2"},
 		coords:   map[string]string{},
 	}
 	srv, err := New(Config{DataDir: t.TempDir()}, Deps{ToolIO: io, WorkIndex: wi})
@@ -365,14 +362,14 @@ func TestToolMessage_WrapsInEnvelope(t *testing.T) {
 	if !got.Submit {
 		t.Fatal("에이전트 메시지는 항상 자동 엔터여야 한다")
 	}
-	if !strings.HasPrefix(got.Text, "[DONGMINAL-AGENT-MSG from=W1.P1.T2 (p2) to=W1.P1.T1 (p1) ts=") {
+	if !strings.HasPrefix(got.Text, "[DONGMINAL-AGENT-MSG from=p2 to=p1 ts=") {
 		t.Fatalf("envelope 헤더 불일치:\n%s", got.Text)
 	}
 	if !strings.HasSuffix(got.Text, "\n리뷰 부탁\n[/DONGMINAL-AGENT-MSG]") {
 		t.Fatalf("envelope 본문/닫힘 불일치:\n%s", got.Text)
 	}
-	if body["from"] != "W1.P1.T2" || body["to"] != "W1.P1.T1" {
-		t.Fatalf("응답 라벨=%v/%v want W1.P1.T2/W1.P1.T1", body["from"], body["to"])
+	if body["from"] != "p2" || body["to"] != "p1" {
+		t.Fatalf("응답 식별자=%v/%v want p2/p1", body["from"], body["to"])
 	}
 }
 
@@ -394,8 +391,9 @@ func TestToolMessage_RecordingHookDoesNotGateDelivery(t *testing.T) {
 	}
 }
 
-// FR-API-3: uuid 로 들어온 from/to 는 사람 가독성용 라벨로 정규화된다.
-func TestToolMessage_NormalizesUUIDToLabel(t *testing.T) {
+// FR-IDU-9: 탭 uuid 로 들어온 from/to 는 도구 uuid 로 정규화된다 — 라벨은 거치지
+// 않는다. 헤더의 값이 곧 답장에 쓸 `--to` 다.
+func TestToolMessage_NormalizesTabUUIDToToolID(t *testing.T) {
 	ts, io, _ := toolIOServer(t)
 	postJSON(t, ts.URL+"/api/tools/message", map[string]any{
 		"to":      "aaaaaaaa-1111-2222-3333-444444444444",
@@ -405,28 +403,41 @@ func TestToolMessage_NormalizesUUIDToLabel(t *testing.T) {
 	if len(io.pastes) != 1 {
 		t.Fatalf("pastes=%d want 1", len(io.pastes))
 	}
-	if !strings.Contains(io.pastes[0].Text, "from=W1.P1.T2 (p2) to=W1.P1.T1 (p1)") {
-		t.Fatalf("uuid 가 라벨로 정규화되지 않았다:\n%s", io.pastes[0].Text)
+	if !strings.Contains(io.pastes[0].Text, "from=p2 to=p1") {
+		t.Fatalf("uuid 가 도구 uuid 로 정규화되지 않았다:\n%s", io.pastes[0].Text)
+	}
+	if strings.Contains(io.pastes[0].Text, "W1.P1.") {
+		t.Fatalf("좌표 라벨이 헤더에 새어 나왔다:\n%s", io.pastes[0].Text)
 	}
 	if io.pastes[0].ToolID != "p1" {
 		t.Fatalf("라우팅 toolId=%s want p1", io.pastes[0].ToolID)
 	}
 }
 
-// 라벨이 없는 식별자는 그대로 통과한다 (MCP 시절 LabelFromPassThrough 계약).
-func TestToolMessage_UnresolvableFromPassesThrough(t *testing.T) {
+// FR-IDU-9: 해석되지 않는 --from 은 404 다. 임의 문자열을 헤더에 그대로 싣던
+// 이전 계약(MCP 시절 LabelFromPassThrough)은 발신자 표기를 검증 없는 자유 문자열로
+// 만들었다 — 답장할 수 없는 값이 헤더에 앉는다.
+func TestToolMessage_UnresolvableFromRejected(t *testing.T) {
 	ts, io, _ := toolIOServer(t)
-	postJSON(t, ts.URL+"/api/tools/message",
+	resp, _ := postJSON(t, ts.URL+"/api/tools/message",
 		map[string]any{"to": "p1", "from": "외부-에이전트", "message": "x"})
-	if !strings.Contains(io.pastes[0].Text, "from=외부-에이전트") {
-		t.Fatalf("from 이 보존되지 않았다:\n%s", io.pastes[0].Text)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status=%d want 404", resp.StatusCode)
+	}
+	if len(io.pastes) != 0 {
+		t.Fatal("발신자 해석 실패인데 paste 가 나갔다")
 	}
 }
 
+// V-IDU-10: 발신자를 안 준 호출(dongminal 외부)은 배달을 막지 않는다 — 라우팅은
+// --to 가 정하므로, 발신자 표기만 unknown 이 된다.
 func TestToolMessage_EmptyFromBecomesUnknown(t *testing.T) {
 	ts, io, _ := toolIOServer(t)
-	postJSON(t, ts.URL+"/api/tools/message",
+	resp, _ := postJSON(t, ts.URL+"/api/tools/message",
 		map[string]any{"to": "p1", "message": "x"})
+	if resp.StatusCode != 200 {
+		t.Fatalf("status=%d want 200", resp.StatusCode)
+	}
 	if !strings.Contains(io.pastes[0].Text, "from=unknown") {
 		t.Fatalf("빈 from 이 unknown 이 아니다:\n%s", io.pastes[0].Text)
 	}
@@ -614,34 +625,36 @@ func TestToolIO_UnknownUUIDStays404(t *testing.T) {
 	}
 }
 
-// FR-IDU-9: 엔벨로프 헤더는 라벨과 uuid 를 함께 싣는다. 라벨만으로는 답장할 수
-// 없기 때문이다 (접합면은 uuid 만 받는다).
-func TestToolMessage_EnvelopeCarriesReplyableUUID(t *testing.T) {
+// V-IDU-8: 엔벨로프 헤더는 uuid 만 싣는다. 식별자가 둘이면 수신 에이전트가 어느
+// 쪽을 답장에 쓸지 판단해야 하고, 그 판단은 --to 가 라벨을 400 으로 거부하는 것과
+// 짝이 맞지 않는다.
+func TestToolMessage_EnvelopeCarriesUUIDOnly(t *testing.T) {
 	ts, io, _ := toolIOServer(t)
 	postJSON(t, ts.URL+"/api/tools/message",
 		map[string]any{"to": "p1", "from": "p2", "message": "x"})
 	header := io.pastes[0].Text
-	if !strings.Contains(header, "from=W1.P1.T2 (p2)") {
-		t.Fatalf("발신자 uuid 가 헤더에 없다:\n%s", header)
+	if !strings.Contains(header, "from=p2 to=p1 ts=") {
+		t.Fatalf("헤더가 uuid 만 싣지 않는다:\n%s", header)
 	}
-	if !strings.Contains(header, "to=W1.P1.T1 (p1)") {
-		t.Fatalf("수신자 uuid 가 헤더에 없다:\n%s", header)
+	if strings.Contains(header, "W1.P1.") || strings.Contains(header, "(p") {
+		t.Fatalf("좌표 라벨 표기가 남아 있다:\n%s", header)
 	}
 }
 
-// FR-IDU-9: 발신자 표기는 Resolve 를 그대로 쓴다 — 표시 목적이고 라우팅에 쓰이지
-// 않으므로 라벨로 온 --from 은 계속 받아 준다. 배달 대상은 --to 가 정한다.
-func TestToolMessage_SenderLabelStillDisplays(t *testing.T) {
+// V-IDU-9: 라벨로 온 --from 은 400 이며 **아무것도 배달되지 않는다.** 표시 전용이라
+// 받아 주던 이전 동작은 라벨을 메시지 경로에 남기는 유일한 구멍이었다.
+func TestToolMessage_SenderLabelRejected(t *testing.T) {
 	ts, io, _ := toolIOServer(t)
 	resp, body := postJSON(t, ts.URL+"/api/tools/message",
 		map[string]any{"to": "p1", "from": "W1.P1.T2", "message": "x"})
-	if resp.StatusCode != 200 {
-		t.Fatalf("status=%d want 200 — 발신자 라벨은 라우팅에 쓰이지 않는다", resp.StatusCode)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d want 400", resp.StatusCode)
 	}
-	if body["from"] != "W1.P1.T2" {
-		t.Fatalf("from=%v want W1.P1.T2", body["from"])
+	msg, _ := body["error"].(string)
+	if !strings.Contains(msg, "좌표 라벨(W1.P1.T2)") {
+		t.Fatalf("진단에 라벨 문안이 없다: %q", msg)
 	}
-	if !strings.Contains(io.pastes[0].Text, "from=W1.P1.T2 (p2)") {
-		t.Fatalf("발신자 표기가 깨졌다:\n%s", io.pastes[0].Text)
+	if len(io.pastes) != 0 {
+		t.Fatal("라벨 발신자가 거절됐는데 paste 가 나갔다")
 	}
 }

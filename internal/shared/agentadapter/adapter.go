@@ -45,6 +45,14 @@ type Report struct {
 	Transcript string
 	// Compacted 는 컨텍스트 압축이 일어났다는 **확정 신호**다. 추정이 아니다.
 	Compacted bool
+
+	// UserPrompt 는 이 턴이 **사용자 프롬프트에서 시작되었다**는 뜻이다
+	// (ATTENTION_FIRING_SRS FR-ATN-2). 배경 이벤트로 깨어난 턴에는 서지 않으며,
+	// 그 차이가 알람의 발화를 가른다 (FR-ATN-4).
+	//
+	// 상태 어휘를 건드리지 않는 **곁들이 값**이다 — Compacted 와 같은 자리에
+	// 같은 이유로 있다 (FR-CBG-1 의 선례).
+	UserPrompt bool
 }
 
 // PromptInjection 은 초기 프롬프트를 에이전트에 전달하는 방식이다.

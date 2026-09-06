@@ -85,7 +85,11 @@ type Tool struct {
 	// 활동 보고가 세우고 `ended` 가 내린다. L2 idle 은 이것 없이는 울지 않는다 —
 	// 전경 프로세스가 있다는 것은 "무언가 돌고 있다" 는 뜻이지 "나를 기다린다"
 	// 는 뜻이 아니다 (B1).
-	agentSeen        atomic.Bool
+	agentSeen atomic.Bool
+	// turn 은 에이전트 훅이 말한 턴의 상태다 (묶음 N). agentSeen 이 "에이전트가
+	// 있는가" 라면 이쪽은 "지금 무엇이 벌어지는 중인가" 이며, 알람이 새 사건에만
+	// 서게 만드는 것이 그 쓰임이다 (FR-ATN-1·7).
+	turn             AgentTurn
 	attnCarry        []byte
 	allowBell        bool
 	onAttention      func(id, reason string)
@@ -402,7 +406,15 @@ func (p *Tool) setAttention(reason string) bool {
 // by explicit agent signals (`dmctl notify` → set endpoint): each discrete
 // completion/waiting event must re-alert the user even if a prior unattended
 // alarm is still active. The state itself stays idempotent (already-true).
+//
+// **다만 무엇이 사건인지는 먼저 묻는다** (묶음 N). edge 게이팅이 없는 것은
+// 의도였고 그대로 남지만, 그 전제 — 훅이 오는 모든 순간이 새 사건이다 — 는
+// 사실이 아니었다 (§2.7). 배경 턴의 종료와 입력 유휴 알림은 되풀이지 사건이
+// 아니므로, 여기서 걸러 낸다. 걸러진 신호는 방송도 하지 않는다 (FR-ATN-4).
 func (p *Tool) SignalAttention(reason string) {
+	if !p.turn.AllowSignal(reason) {
+		return
+	}
 	p.attention.Store(true)
 	if p.onAttention != nil {
 		p.onAttention(p.ID, reason)
@@ -483,6 +495,11 @@ func (p *Tool) maybeIdle(now, threshold int64) {
 	if !p.agentSeen.Load() || !attnBusyProbe(p) {
 		return
 	}
+	// FR-ATN-10: 턴이 진행 중이 아니면 알릴 것이 없다. 종결 뒤의 정적은 L1 이
+	// 이미 알린 사실이고, 시작한 적 없는 도구의 정적은 사건이 아니다.
+	if !p.turn.InProgress() {
+		return
+	}
 	if ActivityStillWorking(p.activity.Load(), now) {
 		return
 	}
@@ -518,10 +535,16 @@ type ActivitySnap struct {
 	UpdatedAt int64  `json:"updatedAt"`
 }
 
+// NoteUserPrompt 는 사용자 프롬프트로 턴이 시작되었음을 기록한다 (FR-ATN-1).
+// 활동 보고와 **별도 경로**인 이유는 둘이 다른 것을 말하기 때문이다 — 활동은
+// "지금 무엇을 하는가" 이고, 이것은 "이 턴이 왜 시작되었는가" 다.
+func (p *Tool) NoteUserPrompt() { p.turn.NoteUserPrompt() }
+
 func (p *Tool) SetActivity(state, tool, detail string) {
 	// FR-ATF-2: 보고했다는 사실이 에이전트 표시를 세우고, `ended` 가 내린다.
 	// 상태의 종류는 묻지 않는다 — 에이전트만이 활동을 보고하기 때문이다.
 	p.agentSeen.Store(state != "ended")
+	p.turn.NoteActivity(state)
 	if state == "ended" {
 		p.activity.Store(nil) // 종료 → 카드 제거(스냅샷에서 빠짐)
 	} else {

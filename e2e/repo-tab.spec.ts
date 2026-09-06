@@ -558,7 +558,7 @@ const SIDE_WIDTHS = [220, 100];
 async function setSideWidth(page: Page, w: number) {
   await page.evaluate((v) => {
     const a = (window as any).app;
-    a._edSetExplorerWidth(a._aw(), v);
+    a._edSetSideWidth(v);
     a.render();
   }, w);
   // 폭이 실제로 바뀐 뒤에 잰다 — 렌더가 style.width 를 다시 쓴다.

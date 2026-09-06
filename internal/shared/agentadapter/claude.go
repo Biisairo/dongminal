@@ -65,7 +65,9 @@ func parseClaudeHook(data []byte) (Report, bool) {
 		// 유실됐으므로 소비자는 이 신호를 크기보다 우선한다 (FR-CBG-1).
 		rep = Report{State: "working", Compacted: true}
 	case "UserPromptSubmit":
-		rep = Report{State: "working", Detail: ev.Prompt}
+		// FR-ATN-3: 턴의 출처를 말하는 훅은 이것 하나뿐이다. 다른 훅도
+		// `working` 을 보고하지만 **왜** 시작되었는지는 말하지 않는다.
+		rep = Report{State: "working", Detail: ev.Prompt, UserPrompt: true}
 	case "Notification":
 		rep = Report{State: "waiting"}
 	case "Stop":

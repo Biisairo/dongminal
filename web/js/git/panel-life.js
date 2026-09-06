@@ -68,7 +68,9 @@ Object.assign(GitPanel.prototype, {
     if(this._consoleView) this._consoleView.reset();
     // 이전 리포의 diff 가 새 리포의 헤더와 함께 보이는 순간이 있어서는 안 된다.
     this._diffKey=null; this._diffPos=0; this.commitFile=null;
-    this._hunkKey=null; this._hunks=null; this._hunkSel=null;
+    this._hunkKey=null; this._hunks=null;
+    // 앞 리포의 조각을 가리키던 툴바가 새 리포의 diff 위에 남아서는 안 된다.
+    this._hunkBarHide();
     // blame 은 파일에 붙은 것이다 — 새 리포로 넘겨 오면 다른 파일을 가리킨다.
     this._blameOn=false; this._blameKey=null; this._blameData=null; this._blameErr=null;
     if(this._diffView) this._diffView.clear(path?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);
@@ -119,7 +121,8 @@ Object.assign(GitPanel.prototype, {
     const el=this._els.get(view); if(!el) return;
     if(view==='diff'&&this._diffView){
       this._diffView.destroy(); this._diffView=null;
-      this._diffKey=null; this._hunkKey=null; this._hunks=null; this._hunkSel=null;
+      this._hunkBarDispose();
+      this._diffKey=null; this._hunkKey=null; this._hunks=null;
     }
     // FR-RST-20·21: 맵을 손으로 적지 않는다 — 종전 맵에 Submodules 가 빠져 탭을
     // 닫아도 언마운트되지 않았다. 출처는 `GIT_VIEWS` 하나다.

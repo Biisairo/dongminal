@@ -217,23 +217,34 @@ uuid 전용이며(FR-DMC-9), 본 SRS 는 라벨을 되살리지 않는다.
 **FR-IDU-8** `team`·`workflow` 스킬 문서에서 "라벨도 받지만" 류의 서술을 제거하고,
 uuid 만이 유효한 입력임을 단정한다.
 
-**FR-IDU-9 (추가, 2026-08-28)** 신뢰 채널 엔벨로프 헤더는 발신자·수신자를
-**`<라벨> (<uuid>)`** 형태로 싣는다.
+**FR-IDU-9 (개정, 2026-09-06)** 신뢰 채널 엔벨로프 헤더는 발신자·수신자를
+**uuid 만**으로 싣는다. 좌표 라벨은 헤더·응답·안내문 어디에도 실리지 않는다.
 
-라벨만 싣던 기존 동작은 **회신을 막는 구조**였다. 수신 에이전트가 답장하려면 uuid 가
-필요한데 헤더에는 라벨뿐이라, `dmctl list-workspace` 를 되짚어 매칭해야 했다. 실제로
-`dmctl_agentcontext.go` 의 SessionStart 안내문이 그 우회를 **명시적으로 지시**하고
-있었다 — "발신자 uuid 는 엔벨로프 헤더의 라벨이 아니라 `dmctl list-workspace` 로
-확인한 uuid 를 쓴다".
+    [DONGMINAL-AGENT-MSG from=<uuid> to=<uuid> ts=<시각>]
 
-묶음 I 가 접합면을 uuid 전용으로 좁히면 이 마찰이 **필수 절차**가 된다. 헤더에 uuid 를
-함께 실으면 우회 자체가 사라지므로, 좁히기와 짝을 이루어야 한다.
+  이전 동작: `from=<라벨> (<uuid>)` — 라벨과 uuid 를 함께 실었다 (2026-08-28 추가)
+  새  동작: `from=<uuid>` — uuid 만 싣는다
+  이유:     사용자 지시 — 세션 간 통신의 식별자는 uuid 하나이며, 좌표 라벨은
+            메시지 경로에 **넘기지 않는다**
 
-- 라우팅에는 여전히 uuid 만 쓴다. 라벨은 **사람이 읽는 부분**이다 (FR-IDU-6 와 일관)
-- 발신자 표기 경로는 `Resolve` 를 유지한다 — 표시 목적이며 해석 실패가 전달을 막지
-  않는다
-- SessionStart 안내문(`dmctl_agentcontext.go`)과 `dmctl msg` 도움말의 관련 서술을
-  함께 고친다
+라벨을 함께 실은 것은 사람이 읽기 좋게 하려는 표시상의 선택이었으나, 헤더에 두 개의
+식별자가 있으면 수신 에이전트가 **어느 쪽을 답장에 쓸지 판단해야 한다.** 그 판단은
+`--to` 가 라벨을 400 으로 거부하는 것과 짝이 맞지 않으며, 라벨이 reflow 로 다른 탭을
+가리키는 값이라는 사실(§1.3)과도 어긋난다. 헤더에 uuid 하나만 있으면 판단할 것이
+없다 — 헤더의 `from=` 값이 곧 `--to` 에 넣을 값이다.
+
+- `--from` 은 `--to` 와 **같은 규칙**으로 해석한다: `ResolveStrict` 를 쓰고, 라벨
+  형태는 **400**(FR-IDU-2 문안), 해석 불가는 **404** 다. FR-IDU-4 의 표가 이미
+  `msg` 의 `--to`·`--from` 둘 다를 적용 지점으로 선언하고 있었고, 본 개정이 그것을
+  구현으로 맞춘다
+- `--from` 이 비어 있으면(dongminal 외부 호출자) 헤더는 `from=unknown` 이다.
+  `dmctl msg` 는 `$DONGMINAL_TOOL_ID` 로 자동 채우므로 정상 경로에서는 나오지 않는다
+- `POST /api/tools/message` 응답의 `from`·`to` 도 uuid 다 (이전에는 라벨)
+- `list-workspace` 의 `label=` 컬럼은 그대로다 (FR-IDU-6). 라벨은 **사람이 화면을
+  읽을 때의 좌표**로만 남고, 에이전트 간 통신 경로에서는 사라진다
+- SessionStart 안내문(`dmctl_agentcontext.go`), `dmctl msg` 도움말, `team` 스킬
+  문서(`SKILL.md`·`references/patterns.md`), `docs/external/agent-orchestration.md`
+  의 관련 서술을 함께 고친다
 
 #### 3.1.3 검증 (묶음 I)
 
@@ -246,6 +257,9 @@ uuid 만이 유효한 입력임을 단정한다.
 | V-IDU-5 | uuid 로 `dmctl split-h --at` | 기존과 동일하게 성공 (회귀 없음) |
 | V-IDU-6 | 존재하지 않는 uuid 로 `dmctl msg` | 404 + 기존 문안 (400 아님) |
 | V-IDU-7 | `Resolve` 단위 테스트 — 라벨 3단계가 살아 있음 | 통과 (레이아웃 경로 보존) |
+| V-IDU-8 | uuid 로 `dmctl msg` 성공 후 엔벨로프 헤더 | `from=<uuid> to=<uuid>` — 라벨 문자열이 **없다** |
+| V-IDU-9 | 라벨로 `dmctl msg --from` (`--to` 는 uuid) | 400 + FR-IDU-2 문안, 대상 PTY 에 **아무것도 쓰이지 않음** |
+| V-IDU-10 | `--from` 생략 + `$DONGMINAL_TOOL_ID` 없음 | rc=0, 헤더는 `from=unknown` |
 
 ---
 

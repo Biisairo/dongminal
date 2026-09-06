@@ -167,6 +167,9 @@ Object.assign(App.prototype, {
     this._bkPending=null;
     // §2.5 / FR-RLC-5a: 앱이 스스로 여는 새로고침은 이탈 가드를 지난다.
     window.__dmReloading=true;
+    // BOOT_SCREEN_REUSE_SRS FR-BTR-11: 되돌린 설정은 다시 열린 문서에서야
+    // 화면에 닿는다. 그 사이의 옛 화면을 덮는다.
+    BootScreen.show(BOOT_STEP_BACKUP);
     location.reload();
     return true;
   },

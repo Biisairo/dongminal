@@ -1,0 +1,16 @@
+{
+  "id": "pyright",
+  "kind": "server",
+  "version": "1.1.413",
+  "needs": ["node"],
+  "source": {"kind": "npm", "packages": ["pyright@1.1.413"]},
+  "servers": [
+    {
+      "id": "pyright",
+      "langs": ["python"],
+      "exts": [".py", ".pyi"],
+      "exe": "pyright-langserver",
+      "args": ["--stdio"]
+    }
+  ]
+}

@@ -32,6 +32,12 @@ Object.assign(App.prototype, {
    */
   _edNotes(){return this._edOn()?((this._editors||{}).notes||''):''},
 
+  /**
+   * FR-EXT-9b: 플러그인 선언의 루트. 메모 루트와 같은 규약이며, 서버가 주지
+   * 못하면 없는 것은 **그 행 하나뿐**이다.
+   */
+  _edPlugins(){return this._edOn()?((this._editors||{}).plugins||''):''},
+
   // 경로의 마지막 조각. 행 이름과 창 이름이 같은 규칙을 쓴다 (FR-EDT-10·44).
   _edBase(p){
     const s=String(p||'').replace(/\/+$/,'');
@@ -42,6 +48,7 @@ Object.assign(App.prototype, {
   _edName(root){
     if(root===this._edHome()) return EDITOR_ROOT_NAME;
     if(root&&root===this._edNotes()) return EDITOR_NOTES_NAME;
+    if(root&&root===this._edPlugins()) return EDITOR_PLUGINS_NAME;
     return this._edBase(root);
   },
 
@@ -66,6 +73,9 @@ Object.assign(App.prototype, {
     if(notes) out.push({path:notes,notes:true});
     const home=this._edHome();
     if(home) out.push({path:home,root:true});
+    // 플러그인 선언은 `~` **아래**다 — 늘 쓰는 자리가 아니라 고칠 때 찾는 자리다.
+    const plugins=this._edPlugins();
+    if(plugins) out.push({path:plugins,plugins:true});
     return out;
   },
   /**
@@ -81,7 +91,10 @@ Object.assign(App.prototype, {
     const home=this._edHome();
     if(!home) return [];
     const notes=this._edNotes();
-    return [home,...(notes?[notes]:[]),...this._edEntries().map(e=>e.path)];
+    const plugins=this._edPlugins();
+    // 순서는 서버의 `Roots()` 와 같다 — [home, notes, plugins, ...list].
+    return [home,...(notes?[notes]:[]),...(plugins?[plugins]:[]),
+      ...this._edEntries().map(e=>e.path)];
   },
 
   /**
@@ -389,7 +402,9 @@ Object.assign(App.prototype, {
     if(!d){
       // `model` 은 첫 뷰가 내용을 받아 온 뒤에 채운다 — 문서의 자리를 먼저 잡아야
       // 두 번째 뷰가 "이미 누가 열어 두었다" 를 알 수 있다.
-      d={model:null,dirty:false,saving:false,views:new Set()};
+      // `dd` 는 변경 표시(EDITOR_DIRTY_DIFF_SRS)다. 문서의 것인 이유는 기준과
+      // 계산이 모델 하나에 대한 것이기 때문이다 (FR-EDD-5·15 / D-4).
+      d={model:null,dirty:false,saving:false,dd:null,views:new Set()};
       this._edDocs.set(filePath,d);
     }
     return d;
@@ -403,8 +418,32 @@ Object.assign(App.prototype, {
     if(!d) return;
     d.views.delete(view);
     if(d.views.size) return;
+    // FR-EDD-16·55: 표시의 수명은 문서의 수명이다. 모델보다 **먼저** 걷는다 —
+    // 데코레이션을 버려진 모델에서 지우려 하면 그 자리가 예외다.
+    if(d.dd){d.dd.dispose();d.dd=null}
     if(d.model){try{d.model.dispose()}catch{}}
     this._edDocs.delete(filePath);
+  },
+
+  /**
+   * EDITOR_DIRTY_DIFF_SRS FR-EDD-5: 이 파일의 변경 표시. 문서마다 하나이므로
+   * 같은 파일을 두 칸에서 열어도 기준 취득과 계산은 한 번이다 (NFR-EDD-2).
+   *
+   * `file-editor-diff.js` 가 없으면 `null` 이다 — 편집기가 그 경우를 그대로
+   * 지난다 (NFR-EDD-3).
+   */
+  _edDirtyDiff(filePath){
+    if(typeof EdDirtyDiff!=='function') return null;
+    const d=this._edDoc(filePath);
+    if(!d.dd) d.dd=new EdDirtyDiff(this,filePath);
+    return d.dd;
+  },
+
+  // FR-EDD-23b: 테마가 바뀌면 색을 다시 읽어 칠한다. 계기는 `FileEditor.applyTheme`
+  // 하나이며 여기는 그것이 부르는 자리다.
+  _edDirtyDiffRepaint(){
+    if(!this._edDocs) return;
+    for(const d of this._edDocs.values()) if(d.dd) d.dd.recompute();
   },
 
   /**
@@ -599,22 +638,51 @@ Object.assign(App.prototype, {
     this._save();
   },
 
-  // ── 탐색기 폭 (FR-EDT-47 / D-18) ──
+  // ── 사이드 폭 (REPO_SIDE_WIDTH_SRS FR-RSW-1~5) ──
 
-  _edExplorerWidth(s){
-    const w=parseInt((s&&s.editor&&s.editor.explorerWidth),10);
-    if(!Number.isFinite(w)) return EDITOR_EXPLORER_W_DEFAULT;
-    return Math.max(EDITOR_EXPLORER_W_MIN,Math.min(EDITOR_EXPLORER_W_MAX,w));
+  /**
+   * 폭은 **워크스페이스 하나**에 산다 — `sidebarWidth` 가 그렇다 (§2.10).
+   *
+   *   이전 동작: 창 레코드마다 하나였다 (`window.editor.explorerWidth`, FR-EDT-47)
+   *   새  동작: `ws.repoSideWidth` 하나를 모든 Repo 창이 읽는다
+   *   이유:     폭은 "이 창을 어떻게 볼까" 가 아니라 목록 자리의 치수다. 창마다
+   *             따로면 창을 옮길 때마다 같은 자리가 다른 폭으로 선다 (D-1·D-2)
+   */
+  _edSideWidth(){
+    const w=parseInt(this.ws&&this.ws.repoSideWidth,10);
+    if(!Number.isFinite(w)) return REPO_SIDE_W_DEFAULT;
+    return Math.max(REPO_SIDE_W_MIN,Math.min(REPO_SIDE_W_MAX,w));
   },
-  // 폭은 **워크스페이스**에 산다 — `sidebarWidth` 가 그렇다 (§2.10). 창마다
-  // 따로 기억되므로 창 레코드에 붙인다.
-  _edSetExplorerWidth(s,w){
-    if(!s) return;
-    const v=Math.max(EDITOR_EXPLORER_W_MIN,Math.min(EDITOR_EXPLORER_W_MAX,Math.round(w)));
-    if(!s.editor) s.editor={};
-    if(s.editor.explorerWidth===v) return;
-    s.editor.explorerWidth=v;
+
+  _edSetSideWidth(w){
+    const v=Math.max(REPO_SIDE_W_MIN,Math.min(REPO_SIDE_W_MAX,Math.round(w)));
+    if(this.ws.repoSideWidth===v) return;
+    this.ws.repoSideWidth=v;
     this._save();
+  },
+
+  /**
+   * FR-RSW-5: 창별 폭을 워크스페이스 하나로 옮긴다.
+   *
+   * `displayMode` 를 지우는 두 자리와 같은 규약이다 — 옮긴 키는 첫 진입과 원격
+   * 반영 **둘 다**에서 지운다. 승계는 배열에서 처음 만나는 유효한 값 하나이며
+   * (결정론적이다), 이미 새 값이 있으면 승계하지 않는다.
+   *
+   * 바뀐 것이 있으면 참이다. 저장은 호출자가 한다.
+   */
+  _edMigrateSideWidth(){
+    let changed=false, take=0;
+    for(const s of (this.ws.windows||[])){
+      if(!s||!s.editor||!('explorerWidth' in s.editor)) continue;
+      const w=parseInt(s.editor.explorerWidth,10);
+      if(!take&&Number.isFinite(w)) take=w;
+      delete s.editor.explorerWidth;
+      changed=true;
+    }
+    if(take&&!this.ws.repoSideWidth){
+      this.ws.repoSideWidth=Math.max(REPO_SIDE_W_MIN,Math.min(REPO_SIDE_W_MAX,take));
+    }
+    return changed;
   },
 
   // ── 파일 열기 라우팅 (FR-EDT-94~102) ──
@@ -1017,5 +1085,8 @@ Object.assign(App.prototype, {
     const t=this._edActiveTree();
     // FR-DIR-32: 저장·커밋 같은 즉시 신호도 백오프를 넘긴다.
     if(t) t.pollGit({now:true});
+    // EDITOR_DIRTY_DIFF_SRS FR-EDD-50·51: 편집기의 기준도 이 신호로 따라온다.
+    // 편집기는 자기 주기의 폴링을 갖지 않으므로(D-5) 이 자리가 그 유일한 계기다.
+    if(this._edDocs) for(const d of this._edDocs.values()) if(d.dd) d.dd.refresh();
   };
 })();

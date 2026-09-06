@@ -34,11 +34,11 @@ const (
 // **내용이 우선이다** (FR-EVW-2). 확장자는 근거가 아니다 — `.txt` 로 저장된
 // PNG 도, 확장자 없는 스크립트도 흔하고, 확장자를 믿으면 전자는 깨진 글자로
 // 열리고 후자는 열리지 않는다.
-func probeFile(f *os.File) (kind, mime string, err error) {
-	head := make([]byte, binaryProbeLen)
+func probeFile(f *os.File) (kind, mime string, head []byte, err error) {
+	head = make([]byte, binaryProbeLen)
 	n, rerr := io.ReadFull(f, head)
 	if rerr != nil && rerr != io.EOF && rerr != io.ErrUnexpectedEOF {
-		return "", "", rerr
+		return "", "", nil, rerr
 	}
 	head = head[:n]
 
@@ -50,12 +50,65 @@ func probeFile(f *os.File) (kind, mime string, err error) {
 
 	switch {
 	case strings.HasPrefix(mime, "image/"):
-		return fileKindImage, mime, nil
+		return fileKindImage, mime, head, nil
 	case bytes.IndexByte(head, 0) >= 0:
-		return fileKindBinary, mime, nil
+		return fileKindBinary, mime, head, nil
 	default:
-		return fileKindText, mime, nil
+		// **SVG 는 여기 남는다** — 그것이 편집할 수 있는 문서이기 때문이다
+		// (DOC_RENDER_VIEW_SRS FR-DRV-14). 그리는 일은 렌더 뷰의 것이고, 이
+		// 판정이 이미지로 갈리면 그 파일을 고칠 길이 사라진다.
+		return fileKindText, mime, head, nil
 	}
+}
+
+// looksLikeSVG 는 **내용으로** SVG 를 판정한다 (FR-DRV-24 ①).
+//
+// 확장자를 믿지 않는 근거는 FR-EVW-2 와 같고, 여기서는 더 무겁다 — 이 판정이
+// 참이면 그 바이트가 `image/svg+xml` 로 우리 출처에서 나간다. `.svg` 로 이름만
+// 바꾼 HTML 이 통과하면 확장자 하나가 저장형 XSS 의 길이 된다.
+//
+// XML 선언·주석·DOCTYPE 을 건너뛰고 **루트 요소가 `<svg`인지**를 본다. 대문자를
+// 받지 않는 것은 XML 이 대소문자를 가리기 때문이다 — `<SVG` 는 SVG 가 아니며,
+// 그것을 받아 주는 쪽은 HTML 파서다.
+func looksLikeSVG(head []byte) bool {
+	b := bytes.TrimLeft(head, "\xef\xbb\xbf \t\r\n")
+	for len(b) > 0 {
+		switch {
+		case bytes.HasPrefix(b, []byte("<?")):
+			i := bytes.Index(b, []byte("?>"))
+			if i < 0 {
+				return false
+			}
+			b = b[i+2:]
+		case bytes.HasPrefix(b, []byte("<!--")):
+			i := bytes.Index(b, []byte("-->"))
+			if i < 0 {
+				return false
+			}
+			b = b[i+3:]
+		case bytes.HasPrefix(b, []byte("<!")):
+			i := bytes.IndexByte(b, '>')
+			if i < 0 {
+				return false
+			}
+			b = b[i+1:]
+		default:
+			if !bytes.HasPrefix(b, []byte("<svg")) {
+				return false
+			}
+			// `<svgfoo` 를 배제한다 — 요소 이름은 여기서 끝나야 한다.
+			if len(b) == 4 {
+				return true
+			}
+			switch b[4] {
+			case ' ', '\t', '\r', '\n', '>', '/':
+				return true
+			}
+			return false
+		}
+		b = bytes.TrimLeft(b, " \t\r\n")
+	}
+	return false
 }
 
 // openRegularFile 은 절대경로의 **일반 파일**을 연다. 두 종단이 같은 가드를
@@ -92,7 +145,7 @@ func (s *Server) apiFileProbe(w http.ResponseWriter, r *http.Request) {
 	}
 	defer f.Close()
 
-	kind, mime, err := probeFile(f)
+	kind, mime, _, err := probeFile(f)
 	if err != nil {
 		http.Error(w, "cannot read file", http.StatusForbidden)
 		return
@@ -105,10 +158,14 @@ func (s *Server) apiFileProbe(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/file/raw?path=<abs> — 이미지 바이트를 인라인으로 (FR-EVW-5).
 //
-// **이미지만 내보낸다.** 임의의 파일을 추론된 MIME 으로 같은 출처에서 인라인
-// 제공하면 저장형 XSS 가 된다 — HTML 하나면 족하다. 기존 종단 둘은 이 함정을
-// 각자 피하고 있다: `/api/file/read` 는 언제나 text/plain, `/api/download` 는
-// octet-stream + attachment 다. 새 종단만 예외일 수 없다.
+// **이미지와 SVG 만 내보낸다.** 임의의 파일을 추론된 MIME 으로 같은 출처에서
+// 인라인 제공하면 저장형 XSS 가 된다 — HTML 하나면 족하다. 기존 종단 둘은 이
+// 함정을 각자 피하고 있다: `/api/file/read` 는 언제나 text/plain, `/api/download`
+// 는 octet-stream + attachment 다. 새 종단만 예외일 수 없다.
+//
+// SVG 가 뒤에 더해졌다 (FR-DRV-24). 그것은 **이미지이면서 문서인** 유일한
+// 형식이며, 그래서 다른 것들에는 없는 잠금장치가 함께 간다 — 내용 판정과
+// `Content-Security-Policy: sandbox` 다. 아래 분기의 주석이 그 값을 적고 있다.
 func (s *Server) apiFileRaw(w http.ResponseWriter, r *http.Request) {
 	f, st, ok := openRegularFile(w, r)
 	if !ok {
@@ -116,14 +173,25 @@ func (s *Server) apiFileRaw(w http.ResponseWriter, r *http.Request) {
 	}
 	defer f.Close()
 
-	kind, mime, err := probeFile(f)
+	kind, mime, head, err := probeFile(f)
 	if err != nil {
 		http.Error(w, "cannot read file", http.StatusForbidden)
 		return
 	}
-	if kind != fileKindImage {
+	// DOC_RENDER_VIEW_SRS FR-DRV-24: **SVG 에 문을 내되 잠금장치를 함께 단다.**
+	//
+	// Markdown 문서 안에서 참조된 `.svg` 이미지가 이 길로 온다. 판정은 내용이고
+	// (`looksLikeSVG`), 나갈 때는 `nosniff` 와 `sandbox` 를 함께 보낸다 — 사용자가
+	// 이 URL 을 주소창에 직접 열었을 때 문서의 스크립트가 우리 출처에서 도는 것을
+	// 막는 것은 그 헤더뿐이다. `<img>` 안에서 안전한 것과 그것은 다른 이야기다.
+	svg := kind == fileKindText && looksLikeSVG(head)
+	if kind != fileKindImage && !svg {
 		http.Error(w, "not an image", http.StatusUnsupportedMediaType)
 		return
+	}
+	if svg {
+		mime = "image/svg+xml"
+		w.Header().Set("Content-Security-Policy", "sandbox")
 	}
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		http.Error(w, "cannot read file", http.StatusForbidden)

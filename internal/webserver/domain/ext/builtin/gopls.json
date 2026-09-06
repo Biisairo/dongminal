@@ -1,0 +1,14 @@
+{
+  "id": "gopls",
+  "kind": "server",
+  "version": "v0.23.0",
+  "source": {
+    "kind": "toolchain",
+    "tool": "go",
+    "args": ["install", "golang.org/x/tools/gopls@v0.23.0"],
+    "bin": "bin"
+  },
+  "servers": [
+    {"id": "gopls", "langs": ["go"], "exts": [".go"], "exe": "gopls"}
+  ]
+}

@@ -189,9 +189,11 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
     });
     expect(r.status(), `msg 가 ${r.status()} 로 실패했다`).toBe(200);
     const body = await r.json();
-    // 헤더 표시는 사람 가독성용 라벨로 정규화된다.
-    expect(body.from).toMatch(/^W\d+\.P\d+\.T\d+$/);
-    expect(body.to).toMatch(/^W\d+\.P\d+\.T\d+$/);
+    // FR-IDU-9: 헤더·응답의 from/to 는 도구 uuid 뿐이다 — 좌표 라벨은 실리지 않는다.
+    expect(body.from).not.toMatch(/^W\d+\.P\d+\.T\d+$/);
+    expect(body.to).not.toMatch(/^W\d+\.P\d+\.T\d+$/);
+    expect(body.to).toBe(body.toolId);
+    expect(body.from).toBe(body.toolId);
 
     await expect.poll(async () => {
       const out = await (await request.get(

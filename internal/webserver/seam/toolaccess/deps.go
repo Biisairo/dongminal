@@ -50,7 +50,6 @@ type WorkspaceReader interface {
 	// label cannot silently retarget another tool after a reflow; layout
 	// commands keep using Resolve. Step 0: delegates to Resolve.
 	ResolveStrict(id string) (string, error)
-	Labels() map[string]string
 	Entries() []WorkspaceEntry
 	// CoordinateOf rewrites a UUID into the canonical positional coordinate
 	// ("W{n}.P{n}.T{n}") consumed by the browser command pipeline. Non-UUID

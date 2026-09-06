@@ -143,12 +143,16 @@ class App {
         // 없는 창" 이다.
         this._wsMarkSaved(sv.windows);
       }
+      // REPO_SIDE_WIDTH_SRS FR-RSW-5: 마이그레이션이 무언가 옮겼는지. 저장은 아래
+      // 재조정의 `_save()` 와 겹치므로 여기서는 표시만 든다.
+      let sideWidthMoved=false;
       if(sv&&sv.windows&&sv.windows.length){
         this.ws=sv;
         // Migration: displayMode/mobileBreakpoint were briefly stored in workspace.
         // Now per-device (localStorage); strip from synced state.
         if('displayMode' in this.ws) delete this.ws.displayMode;
         if('mobileBreakpoint' in this.ws) delete this.ws.mobileBreakpoint;
+        sideWidthMoved=this._edMigrateSideWidth();
         if(this.ws.sidebarWidth){
           const w=Math.max(100,Math.min(400,this.ws.sidebarWidth));
           document.documentElement.style.setProperty('--sb-w',w+'px');
@@ -188,7 +192,7 @@ class App {
       if(!this._plainWindows().length) await this._mkWindow();
       // FR-EDT-42·43: 재조정이 도는 첫 번째 자리. 워크스페이스가 비어 있어도
       // root 에디터 창은 있어야 한다 (FR-EDT-13).
-      if(this._edReconcile()) this._save();
+      if(this._edReconcile()||sideWidthMoved) this._save();
     }catch(e){
       console.error('[App] init error:',e);
       if(!this.ws.windows.length) await this._mkWindow();

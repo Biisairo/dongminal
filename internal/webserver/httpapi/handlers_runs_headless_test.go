@@ -191,8 +191,6 @@ func (w *syncWorkIndex) Resolve(id string) (string, error) {
 // ResolveStrict 는 실물과 같이 살아있는 toolId·엔터티 uuid 만 본다 (FR-IDU-1).
 func (w *syncWorkIndex) ResolveStrict(id string) (string, error) { return w.Resolve(id) }
 
-func (w *syncWorkIndex) Labels() map[string]string { return map[string]string{} }
-
 func (w *syncWorkIndex) Entries() []toolaccess.WorkspaceEntry {
 	w.mu.Lock()
 	defer w.mu.Unlock()

@@ -276,7 +276,7 @@ func TestDmctlMsg_SendsToAndFrom(t *testing.T) {
 	var got map[string]any
 	var path string
 	defer captureAPI(t,
-		`{"toolId":"p1","from":"W1.P1.T2","to":"W1.P1.T1","len":6}`, &got, &path, nil)()
+		`{"toolId":"p1","from":"tool-b","to":"tool-a","len":6}`, &got, &path, nil)()
 	t.Setenv("DONGMINAL_TOOL_ID", "self-uuid")
 
 	var stdout, stderr bytes.Buffer
@@ -294,8 +294,9 @@ func TestDmctlMsg_SendsToAndFrom(t *testing.T) {
 	if got["from"] != "self-uuid" {
 		t.Fatalf("from=%v want self-uuid", got["from"])
 	}
-	if !strings.Contains(stdout.String(), "W1.P1.T2") || !strings.Contains(stdout.String(), "W1.P1.T1") {
-		t.Fatalf("stdout 이 정규화된 라벨을 보고하지 않는다: %q", stdout.String())
+	// FR-IDU-9: 보고에도 uuid 만 나온다 — 좌표 라벨은 메시지 경로 어디에도 없다.
+	if !strings.Contains(stdout.String(), "from=tool-b") || !strings.Contains(stdout.String(), "to=tool-a") {
+		t.Fatalf("stdout 이 uuid 를 보고하지 않는다: %q", stdout.String())
 	}
 }
 

@@ -33,6 +33,12 @@ const BOOT_FADE_MS=180;
 // 않는다고 화면이 영구히 잠기면, 사용자는 무엇이 잘못됐는지 볼 길조차 없다.
 const BOOT_MAX_MS=6000;
 
+// BOOT_SCREEN_REUSE_SRS D-BTR-8: 다시 세울 때의 단계 문구. 부르는 자리마다 적으면
+// 같은 장면이 자리마다 다른 말을 한다.
+const BOOT_STEP_RELOAD='화면을 다시 세웁니다';
+const BOOT_STEP_VERSION='새 버전을 받았습니다 — 다시 엽니다';
+const BOOT_STEP_BACKUP='설정을 되돌렸습니다 — 다시 엽니다';
+
 // ── 포커스를 잃은 창의 가장자리 표시 (UNFOCUSED_EDGE_SRS 묶음 UFE) ──
 // D-8: 표시 여부는 `documentElement` 의 클래스 하나로 정한다 — 포커스는 초당
 // 여러 번 오갈 수 있고, 그때마다 DOM 을 짓고 허물 이유가 없다. 세기·깊이·전이
@@ -331,6 +337,17 @@ const SBX_RT_DOCS='https://docs.docker.com/get-started/get-docker/';
 const OSC_CARRY_MAX=4096;
 const OSC_CARRY_MS=50;
 const TERM_UPLOAD_NO_CWD='✗ 이 터미널의 폴더를 알 수 없어 업로드하지 않았습니다';
+
+// ── 전송 알림 (TERM_XFER_NOTICE_SRS §3) ──
+
+// FR-TXN-4: 성공은 3초, 읽고 판단할 것이 있는 알림은 8초. 진행 팝업은 0 —
+// 스스로 사라지지 않는다 (FR-TXN-5).
+const TOAST_MS=3000;
+const TOAST_ERR_MS=8000;
+const TERM_UPLOAD_BUSY='↑ %s 업로드 중…';
+const TERM_UPLOAD_OK='✓ %s 업로드 완료 (%z)';
+const TERM_UPLOAD_FAIL='✗ %s 업로드 실패';
+const TERM_DOWNLOAD_BUSY='↓ %s 내려받는 중…';
 
 // ── Editor 탭 · Editor 창 (EDITOR_TAB_SRS 묶음 T·W) ──
 

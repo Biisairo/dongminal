@@ -12,6 +12,7 @@ func TestTool_Kill_ClearsAttention(t *testing.T) {
 	var mu sync.Mutex
 	var attn, clear []string
 	p := newAttnPane("1", &mu, &attn, &clear)
+	p.NoteUserPrompt() // FR-ATN-4 의 전제 — 재는 것은 kill 의 정리다
 	p.SignalAttention("done")
 	if !p.Attention() {
 		t.Fatalf("주의가 서지 않았다")
@@ -49,6 +50,7 @@ func TestTool_Kill_TwiceClearsOnce(t *testing.T) {
 	var mu sync.Mutex
 	var attn, clear []string
 	p := newAttnPane("1", &mu, &attn, &clear)
+	p.NoteUserPrompt() // FR-ATN-4 의 전제 — 재는 것은 kill 의 정리다
 	p.SignalAttention("done")
 
 	p.kill()

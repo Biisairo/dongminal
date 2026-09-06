@@ -37,9 +37,10 @@
 |--------|------|------|
 | GET | `/api/tools/output?id=&bytes=&strip=` | 도구의 스크롤백. `strip=1` 이면 ANSI 제거. `bytes<=0`/생략이면 전체 (기본값 판단은 `dmctl` 몫). `{ toolId, text, dropped }` |
 | POST | `/api/tools/input` | `{ id, text, execute }` — bracketed paste 로 주입, `execute` 면 자동 엔터 |
-| POST | `/api/tools/message` | `{ to, from, message }` — 신뢰 봉투로 감싸 주입 + 자동 엔터. `from` 이 비면 `unknown`. 응답의 `from`/`to` 는 정규화된 라벨 |
+| POST | `/api/tools/message` | `{ to, from, message }` — 신뢰 봉투로 감싸 주입 + 자동 엔터. `from` 이 비면 `unknown`. 봉투 헤더와 응답의 `from`/`to` 는 **uuid** 뿐 |
 
-`id`/`to` 는 tab uuid·`toolId`·라벨 모두 받는다. 대상이 없으면 404 `{ "error": … }`.
+`id`/`to`/`from` 은 tab uuid·`toolId` 만 받는다. `W?.P?.T?` 좌표 라벨은 400, 대상이
+없으면 404 `{ "error": … }`.
 
 ### 주의 알림 · 활동
 

@@ -25,23 +25,32 @@ func TestTool_MaybeIdle_OnlyAgentTools(t *testing.T) {
 	}
 }
 
-// V-ATF-2: 활동을 보고한 도구는 같은 조건에서 운다. 보고한 상태의 종류는 묻지
-// 않는다 — 표시를 세우는 것은 보고했다는 사실이다 (FR-ATF-2).
+// V-ATF-2: 활동을 보고한 도구는 같은 조건에서 운다.
+//
+// **개정 (묶음 N):** 관문이 하나 늘었다 — 턴이 **진행 중**이어야 한다
+// (FR-ATN-10). 개정 전 이 테스트는 `idle`·`waiting`·`done` 어느 상태를 보고해도
+// 운다고 고정했으나, 그중 둘은 "에이전트가 일하고 있지 않다" 는 뜻이었다.
+// 에이전트 표시(FR-ATF-2)의 규약 자체는 그대로다 — 활동 보고는 여전히 상태를
+// 가리지 않고 그 표시를 세우며, 그것이 없으면 아래는 아예 시작하지 않는다.
 func TestTool_MaybeIdle_AgentToolFires(t *testing.T) {
 	defer SetAttnBusyProbe(func(*Tool) bool { return true })()
 	var mu sync.Mutex
 	var attn, clear []string
 	const threshold = int64(1000)
 
-	for _, state := range []string{"idle", "waiting", "done"} {
+	// 진행 중인 턴 — `working` 뒤에 무엇을 보고했든 턴은 아직 열려 있다.
+	// `working` 자체는 여기서 재지 않는다. 그 상태는 굳었는지에 따라 억제가
+	// 갈리므로 V-ATF-7 의 몫이다.
+	for _, state := range []string{"idle", "waiting"} {
 		attn, clear = nil, nil
 		p := newAttnPane("agent", &mu, &attn, &clear)
+		startStaleWork(p)
 		p.SetActivity(state, "", "")
 		p.LastOutputAt.Store(0)
 		p.attnArmed.Store(true)
 		p.maybeIdle(threshold+1, threshold)
 		if len(attn) != 1 || attn[0] != "agent:idle" {
-			t.Fatalf("활동=%q 를 보고한 도구가 울지 않았다: %v", state, attn)
+			t.Fatalf("진행 중에 활동=%q 를 보고한 도구가 울지 않았다: %v", state, attn)
 		}
 	}
 }
@@ -55,7 +64,7 @@ func TestTool_MaybeIdle_EndedRevokesAgentMark(t *testing.T) {
 	const threshold = int64(1000)
 
 	p := newAttnPane("agent", &mu, &attn, &clear)
-	p.SetActivity("done", "", "")
+	startStaleWork(p)
 	p.SetActivity("ended", "", "")
 	p.LastOutputAt.Store(0)
 	p.attnArmed.Store(true)
@@ -74,7 +83,7 @@ func TestTool_Rearm_RequiresUserInput(t *testing.T) {
 	const threshold = int64(1000)
 
 	p := newAttnPane("agent", &mu, &attn, &clear)
-	p.SetActivity("done", "", "")
+	startStaleWork(p)
 	p.LastOutputAt.Store(0)
 	p.attnArmed.Store(true)
 	p.maybeIdle(threshold, threshold)
@@ -118,6 +127,7 @@ func TestTool_Rearm_LockDoesNotSilenceL1(t *testing.T) {
 	}
 
 	p.clearAttention()
+	p.NoteUserPrompt() // FR-ATN-4: done 은 사용자 턴이 있어야 알람이다
 	p.SignalAttention("done")
 	if len(attn) != 2 || attn[1] != "agent:done" {
 		t.Fatalf("잠금이 훅 신호를 삼켰다: %v", attn)

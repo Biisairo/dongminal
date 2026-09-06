@@ -42,6 +42,7 @@ type lspStatusReq struct {
 	Overrides map[string]string `json:"overrides"`
 }
 
+// lspInstallReq 의 ID 는 **팩**이다 (FR-EXT-31) — 조달의 단위가 그것이다.
 type lspInstallReq struct {
 	ID string `json:"id"`
 }
@@ -59,7 +60,14 @@ func (s *Server) apiLSPStatus(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeJSON(w, map[string]any{"servers": s.LSP.Status(req.Overrides)})
+	servers, problems := s.LSP.Status(req.Overrides)
+	out := map[string]any{"servers": servers}
+	// FR-EXT-8: 읽지 못한 선언이 있으면 그 사실을 싣는다. 조용히 빠지면 사용자는
+	// 자기가 고친 파일이 무시된 이유를 알 수 없다.
+	if len(problems) > 0 {
+		out["problems"] = problems
+	}
+	writeJSON(w, out)
 }
 
 // apiLSPInstall 은 서술자 하나를 받는다 (FR-LSP-8·10).

@@ -311,7 +311,9 @@ Object.assign(App.prototype, {
         if (!n || result) return;
         if (n.type === 'pane' && n.tabs) {
           for (const t of n.tabs) {
-            if (t.type === 'editor' && t.filePath === filePath) {
+            // FR-DRV-10: **소스 탭만이다.** 렌더 탭이 이 판정에 걸리면 탐색기에서
+            // 연 파일이 소스가 아니라 렌더로 열린다.
+            if (t.type === 'editor' && !t.render && t.filePath === filePath) {
               result = { tab: t, pane: n, win: s };
               return;
             }

@@ -53,38 +53,73 @@ Object.assign(App.prototype, {
       return;
     }
     this._lspPaint(d.servers);
+    // FR-EXT-8: 읽지 못한 선언이 있으면 그 사실이 보여야 한다.
+    if(Array.isArray(d.problems)&&d.problems.length){
+      const box=document.createElement('div');
+      box.className='lsp-empty';
+      box.textContent=LSP_DECL_PROBLEM+': '+d.problems.join(' / ');
+      list.appendChild(box);
+    }
   },
 
+  /**
+   * FR-EXT-5·28·29: **팩이 줄이고 서버가 그 아래다.**
+   *
+   * 조달의 단위가 팩이므로 버튼도 팩마다 하나다 — 서버 다섯을 내는 패키지를 서버마다
+   * 받으면 같은 것을 다섯 번 받는다. 그리고 PATH 에서 찾은 것은 **격리되지 않았음**을
+   * 함께 말한다: 사용자가 자기 것을 쓰는 것은 정당하지만 그 사실이 조용하면
+   * "격리했다" 는 말이 거짓이 된다.
+   */
   _lspPaint(servers){
     const list=document.getElementById('lsp-list');
     if(!list) return;
-    list.innerHTML=servers.map(s=>{
-      // FR-LSP-5: 있음이면 **어디서 찾았는지**까지 말한다. 그것이 "왜 저 서버가
-      // 쓰이는가" 의 답이다.
+    const packs=new Map();
+    for(const s of servers){
+      const k=s.pack||s.id;
+      if(!packs.has(k)) packs.set(k,[]);
+      packs.get(k).push(s);
+    }
+    const rows=[];
+    for(const [pack,srvs] of packs){
+      const found=srvs.filter(x=>x.found).length;
+      const head=srvs[0]||{};
+      // 어디서 찾았는지는 선 것들의 것이다 — 하나도 없으면 말할 것이 없다.
+      const origin=(srvs.find(x=>x.found)||{}).origin;
+
       let state;
-      if(s.found) state=LSP_FOUND+' · '+(LSP_ORIGIN_LABEL[s.origin]||s.origin||'');
-      else if(s.installer&&!s.canInstall) state=LSP_MISSING+' · '+LSP_NO_TOOL.replace('%s',s.installer);
-      else state=LSP_MISSING;
+      if(found===srvs.length&&found>0){
+        state=LSP_FOUND+' · '+(LSP_ORIGIN_LABEL[origin]||origin||'');
+        if(origin&&origin!=='managed') state+=' · '+LSP_NOT_ISOLATED;
+      }else if(found>0){
+        state=LSP_PARTIAL+' ('+found+'/'+srvs.length+')';
+      }else{
+        state=LSP_MISSING+(head.note?' · '+head.note:'');
+      }
 
-      const btn=s.installing
-        ? '<button class="lsp-install" title="'+escHtml(LSP_INSTALL_TITLE)+'" data-id="'+escHtml(s.id)+'" disabled>'+LSP_INSTALLING+'</button>'
-        // 이미 있는 서버에도 버튼을 두지 않는다 — M1 에서 다시 받을 이유가 없고,
-        // 그 자리는 갱신(M5)의 것이다.
-        : (s.found ? ''
-          : '<button class="lsp-install" title="'+escHtml(LSP_INSTALL_TITLE)+'" data-id="'+escHtml(s.id)+'"'+
-            (s.canInstall?'':' disabled')+'>'+LSP_INSTALL+'</button>');
+      const done=found===srvs.length&&found>0;
+      const btn=head.installing
+        ? '<button class="lsp-install" title="'+escHtml(LSP_INSTALL_TITLE)+'" data-id="'+escHtml(pack)+'" disabled>'+LSP_INSTALLING+'</button>'
+        : (done ? ''
+          : '<button class="lsp-install" title="'+escHtml(LSP_INSTALL_TITLE)+'" data-id="'+escHtml(pack)+'"'+
+            (head.canInstall?'':' disabled')+'>'+LSP_INSTALL+'</button>');
 
-      return '<div class="lsp-row" data-id="'+escHtml(s.id)+'" data-found="'+(!!s.found)+'">'+
+      // 이 팩이 덮는 언어들. 서버가 준 표를 그대로 쓴다 (FR-EXT-1) — 화면이 따로
+      // 적으면 선언과 어긋난다.
+      const langs=[];
+      for(const x of srvs) for(const l of (x.langs||[])) if(!langs.includes(l)) langs.push(l);
+
+      rows.push('<div class="lsp-row" data-id="'+escHtml(pack)+'" data-found="'+done+'">'+
         '<div class="lsp-head">'+
-          '<span class="lsp-name">'+escHtml((s.langs||[]).join(' · '))+'</span>'+
-          '<span class="lsp-id">'+escHtml(s.id)+'</span>'+
+          '<span class="lsp-name">'+escHtml(langs.join(' · '))+'</span>'+
+          '<span class="lsp-id">'+escHtml(pack)+'</span>'+
         '</div>'+
         '<div class="lsp-state">'+escHtml(state)+'</div>'+
-        '<div class="lsp-path">'+escHtml(s.exe||'')+'</div>'+
+        '<div class="lsp-path">'+escHtml((srvs.find(x=>x.found)||{}).exe||'')+'</div>'+
         '<div class="lsp-act">'+btn+'</div>'+
         '<div class="lsp-msg"></div>'+
-      '</div>';
-    }).join('');
+      '</div>');
+    }
+    list.innerHTML=rows.join('');
     for(const b of list.querySelectorAll('.lsp-install')){
       b.addEventListener('click',()=>this._lspInstall(b.dataset.id));
     }
@@ -235,14 +270,22 @@ Object.assign(App.prototype, {
    * Monaco 가 뜬 뒤에 불려야 하므로 `FileEditor` 가 편집기를 세운 직후에 부른다.
    * 두 번째부터는 아무 일도 하지 않는다.
    */
-  _lspHoverRegister(){
-    if(this._lspHoverOn) return;
+  async _lspHoverRegister(){
     if(typeof monaco==='undefined'||!monaco.languages) return;
-    this._lspHoverOn=true;
-    for(const lang of LSP_HOVER_LANGS){
-      monaco.languages.registerHoverProvider(lang,{
-        provideHover:(model,position,token)=>this._lspHover(model,position,token),
-      });
+    // 언어 목록은 **선언에서 온다** (FR-EXT-1). 화면이 표를 따로 갖고 있으면
+    // 언어를 더할 때 한쪽만 고쳐져 그 언어에서 호버가 붙지 않는다.
+    const list=await this._lspStatusCached();
+    if(!list) return;
+    if(!this._lspHoverLangs) this._lspHoverLangs=new Set();
+    for(const s of list){
+      for(const lang of (s.langs||[])){
+        // FR-LSP-39: 언어마다 한 번이다 — 늘면 같은 호버가 여러 번 뜬다.
+        if(this._lspHoverLangs.has(lang)) continue;
+        this._lspHoverLangs.add(lang);
+        monaco.languages.registerHoverProvider(lang,{
+          provideHover:(model,position,token)=>this._lspHover(model,position,token),
+        });
+      }
     }
   },
 

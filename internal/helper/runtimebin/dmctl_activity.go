@@ -57,7 +57,8 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	if toolID == "" {
 		return 0
 	}
-	body := map[string]any{"toolId": toolID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail}
+	body := map[string]any{"toolId": toolID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail,
+		"userPrompt": rep.UserPrompt}
 	httpPostJSON(baseURL()+"/api/tools/activity/set", body)
 	reportContext(rep, toolID)
 	return 0

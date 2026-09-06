@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/platform"
+	"dongminal/internal/webserver/domain/ext"
 )
 
 // HandshakeTimeout 은 `initialize` 의 상한이다.
@@ -113,7 +114,7 @@ func (p rwPipes) Close() error {
 // `typescript-language-server` 를 공유한다.
 type Session struct {
 	root string
-	desc Descriptor
+	srv ext.Server
 	exe  string
 
 	c    *conn
@@ -137,11 +138,11 @@ type Session struct {
 
 // newSession 은 세션을 만든다. 프로세스는 여기서 서고, 핸드셰이크는 **첫 요청이**
 // 기다린다 — 기동만 해 두고 아무도 묻지 않는 경우에 그 비용을 미리 내지 않는다.
-func newSession(root string, d Descriptor, exe string, start Starter,
+func newSession(root string, d ext.Server, exe string, start Starter,
 	onDiag DiagFunc) *Session {
 	s := &Session{
 		root:    root,
-		desc:    d,
+		srv:     d,
 		exe:     exe,
 		ready:   make(chan struct{}),
 		open:    map[string]int{},
@@ -168,7 +169,7 @@ func newSession(root string, d Descriptor, exe string, start Starter,
 
 // Root·ID 는 관리자가 세션을 가리키는 데 쓴다.
 func (s *Session) Root() string { return s.root }
-func (s *Session) ID() string   { return s.desc.ID }
+func (s *Session) ID() string   { return s.srv.ID }
 
 // LastUse 는 idle 정리가 읽는다 (FR-LSP-17).
 func (s *Session) LastUse() time.Time {
@@ -229,11 +230,11 @@ func (s *Session) handshake() {
 		},
 	}, &res)
 	if err != nil {
-		s.initErr = fmt.Errorf("lsp: %s 의 initialize 가 실패했습니다: %w", s.desc.ID, err)
+		s.initErr = fmt.Errorf("lsp: %s 의 initialize 가 실패했습니다: %w", s.srv.ID, err)
 		return
 	}
 	if err := s.c.Notify("initialized", map[string]any{}); err != nil {
-		s.initErr = fmt.Errorf("lsp: %s 에 initialized 를 보내지 못했습니다: %w", s.desc.ID, err)
+		s.initErr = fmt.Errorf("lsp: %s 에 initialized 를 보내지 못했습니다: %w", s.srv.ID, err)
 	}
 }
 
@@ -282,8 +283,8 @@ func (s *Session) languageFor(path string) string {
 	case ".jsx":
 		return "javascriptreact"
 	}
-	if len(s.desc.Langs) > 0 {
-		return s.desc.Langs[0]
+	if len(s.srv.Langs) > 0 {
+		return s.srv.Langs[0]
 	}
 	return ""
 }

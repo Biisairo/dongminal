@@ -277,10 +277,12 @@ submit 지연을 재구현하지 않는다. `{"toolId":"…","len":<int>,"execut
 - 전송은 `SendPaste(pid, envelope, true)`
 - 로그 한 줄을 남긴다 (입력값과 정규화 결과를 함께)
 
-반환: `{"toolId":"…","from":"<라벨>","to":"<라벨>","len":<int>}`.
+반환: `{"toolId":"…","from":"<uuid>","to":"<uuid>","len":<int>}` — 좌표 라벨은
+실리지 않는다 (ORCHESTRATION_V2_SRS FR-IDU-9).
 
-**FR-API-4** FR-API-1~3 의 `id`/`to` 는 `WorkspaceReader.Resolve` 로 해석한다 — uuid,
-`toolId`, 라벨 모두 받는다. 대상 도구가 없으면 404 + `{"error":"…"}`.
+**FR-API-4** FR-API-1~3 의 `id`/`to`/`from` 은 `WorkspaceReader.ResolveStrict` 로
+해석한다 — tab uuid 와 `toolId` 만 받는다. 좌표 라벨은 400
+(ORCHESTRATION_V2_SRS FR-IDU-1·2·9), 대상 도구가 없으면 404 + `{"error":"…"}`.
 
 **FR-API-5** FR-API-1~3 은 `apiRoutes` 테이블에 등재한다. 메서드 불일치는 기존 라우터
 규약을 따른다.

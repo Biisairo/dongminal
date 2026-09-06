@@ -5,10 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"dongminal/internal/webserver/domain/ext"
 )
 
 // countingStarter 는 프로세스가 **몇 번 섰는지** 센다. 그것이 lazy·재사용·실패
@@ -48,11 +52,41 @@ func echoHandler(s *fakeServer, m map[string]any) {
 	}
 }
 
+// goPackDecl 은 검사가 놓는 플러그인 선언이다.
+//
+// **목록이 코드에 없으므로**(FR-EXT-1) 검사도 파일로 놓는다 — 종전처럼 전역 표를
+// 부르면 재는 것이 제품과 달라진다.
+const goPackDecl = `{
+  "id":"gopls","kind":"server","version":"v0",
+  "source":{"kind":"toolchain","tool":"go","args":["install","x@v1"],"bin":"bin"},
+  "servers":[{"id":"gopls","langs":["go"],"exts":[".go"],"exe":"gopls"}]
+}`
+
+// tsPackDecl 은 **하나가 여럿을 덮는** 팩이다 — TS 와 JS 가 한 서버를 쓴다
+// (FR-EXT-4 / FR-LSP-13).
+const tsPackDecl = `{
+  "id":"typescript","kind":"server","version":"v0",
+  "source":{"kind":"toolchain","tool":"go","args":["install","x@v1"],"bin":"bin"},
+  "servers":[{"id":"typescript-language-server",
+    "langs":["typescript","javascript"],
+    "exts":[".ts",".tsx",".mts",".cts",".js",".jsx",".mjs",".cjs"],
+    "exe":"typescript-language-server","args":["--stdio"]}]
+}`
+
 func svcWith(t *testing.T, start Starter, onPath map[string]string) *Service {
 	t.Helper()
-	svc := &Service{
-		Dir:   t.TempDir(),
-		Start: start,
+	root := t.TempDir()
+	for id, decl := range map[string]string{"gopls": goPackDecl, "typescript": tsPackDecl} {
+		dir := ext.PluginDir(root, id)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, ext.ManifestName), []byte(decl), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	e := &ext.Service{
+		Root: root,
 		LookPath: func(name string) (string, error) {
 			if p, ok := onPath[name]; ok {
 				return p, nil
@@ -60,6 +94,7 @@ func svcWith(t *testing.T, start Starter, onPath map[string]string) *Service {
 			return "", errors.New("not found")
 		},
 	}
+	svc := &Service{Ext: e, Start: start}
 	t.Cleanup(svc.Shutdown)
 	return svc
 }
@@ -171,7 +206,7 @@ func TestManager_InstallClearsFailureMemory(t *testing.T) {
 		t.Fatalf("기동 시도가 %d 번", n.get())
 	}
 	// 설치를 시도하면(성공이든 실패든) 기억을 지운다.
-	svc.Exec = func(context.Context, string, []string, []string, string) ([]byte, error) { return nil, nil }
+	svc.Ext.Exec = func(context.Context, string, []string, []string, string) ([]byte, error) { return nil, nil }
 	svc.Install(context.Background(), "gopls")
 
 	svc.Definition(context.Background(), "/root", "/root/a.go", "x\n", 1, 1)

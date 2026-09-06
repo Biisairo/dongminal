@@ -322,3 +322,28 @@ func TestParseCodexHook_ClaimsNoContextSignal(t *testing.T) {
 		t.Fatalf("codex 가 갖지 않은 신호를 지어냈다: %+v", r)
 	}
 }
+
+// V-ATN-4 (ATTENTION_FIRING_SRS 묶음 N): 턴의 출처를 말하는 훅은
+// `UserPromptSubmit` 하나뿐이다. 나머지도 `working` 을 보고하지만, 그것들은
+// 턴이 **왜** 시작되었는지 말하지 않는다 (FR-ATN-3).
+func TestClaudeHook_UserPromptIsTheOnlySourceMark(t *testing.T) {
+	claude, err := Get("claude")
+	if err != nil {
+		t.Fatalf("claude 어댑터가 없다: %v", err)
+	}
+
+	r, ok := claude.HookParse([]byte(`{"hook_event_name":"UserPromptSubmit","prompt":"고쳐줘"}`))
+	if !ok || !r.UserPrompt {
+		t.Fatalf("UserPromptSubmit 이 출처를 말하지 않았다: %+v ok=%v", r, ok)
+	}
+
+	for _, ev := range []string{"PreToolUse", "PostToolUse", "SubagentStop", "PreCompact", "Stop", "Notification", "SessionStart"} {
+		r, ok := claude.HookParse([]byte(`{"hook_event_name":"` + ev + `"}`))
+		if !ok {
+			t.Fatalf("%s 가 파싱되지 않았다", ev)
+		}
+		if r.UserPrompt {
+			t.Fatalf("%s 가 사용자 턴 표시를 세웠다: %+v", ev, r)
+		}
+	}
+}

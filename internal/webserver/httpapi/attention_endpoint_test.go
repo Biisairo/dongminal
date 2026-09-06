@@ -97,6 +97,12 @@ func TestApiToolAttentionSet(t *testing.T) {
 	m.Adopt(p)
 	s := &Server{Deps: Deps{Tools: m}}
 
+	// FR-ATN-4·6 의 전제: 사용자 프롬프트로 시작된 턴이 진행 중이다. 이 테스트가
+	// 재는 것은 **종단의 배선과 재알림**이지 판정이 아니다 (판정은 묶음 N 의 단위
+	// 테스트가 잰다).
+	p.NoteUserPrompt()
+	p.SetActivity("working", "Bash", "")
+
 	rec := httptest.NewRecorder()
 	s.apiToolAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/set",
 		strings.NewReader(`{"toolId":"9","reason":"done"}`)))
@@ -213,7 +219,9 @@ func TestApiToolAttentionClear_TypedUnlocksRearm(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tr := hub.NewAttnTracker(hub.NewCommandHub(), idleMS)
 			tr.SetBusyProbe(func(string) bool { return true })
-			tr.SetActivity("a", "done", "", "")
+			// 진행 중인 턴 — L2 가 울 수 있는 전제다 (FR-ATN-10). 이 테스트가
+			// 재는 것은 `typed` 가 재무장 잠금을 푸는가 이다.
+			tr.SetActivity("a", "working", "Bash", "")
 			s := &Server{Deps: Deps{Tools: toolhub.NewToolManager("", nil), AttnTracker: tr}}
 			t.Cleanup(s.Tools.(*toolhub.ToolManager).StopSaving)
 

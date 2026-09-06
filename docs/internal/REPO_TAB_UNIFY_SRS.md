@@ -246,7 +246,9 @@ Working Tree diff 의 오른쪽은 **편집·저장된다.** Index diff 의 오�
 > 높이가 된다. 탭이면 보이는 쪽이 사이드 전체 높이를 쓴다.
 
 **FR-RTU-13.** 사이드의 활성 탭은 **창마다** 기억되고 워크스페이스에 저장된다
-(`window.editor.side`). 폭도 종전대로 저장된다 (`explorerWidth`, FR-EDT-47).
+(`window.editor.side`). 폭도 워크스페이스에 저장된다.
+> **개정됨** — 폭은 창별이 아니라 **워크스페이스 변수 하나**다 (`ws.repoSideWidth`,
+> REPO_SIDE_WIDTH_SRS FR-RSW-1). 활성 탭은 그대로 창마다다 (같은 문서 D-7).
 
 **FR-RTU-14.** 파일을 열면 사이드가 `Explorer` 로 바뀌지 **않는다.** 사용자가 고른
 탭은 사용자의 것이다.

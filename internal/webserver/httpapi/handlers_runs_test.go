@@ -39,7 +39,7 @@ func runsServer(t *testing.T, caller string) (*Server, *toolhub.ToolManager, *ru
 	m := toolhub.NewToolManager("", nil)
 	t.Cleanup(m.StopSaving)
 	io := newFakeToolIO()
-	wi := &fakeWorkIndex{resolve: map[string]string{}, labels: map[string]string{}, coords: map[string]string{}}
+	wi := &fakeWorkIndex{resolve: map[string]string{}, coords: map[string]string{}}
 	for _, id := range []string{"tool-a", "tool-b"} {
 		p := &toolhub.Tool{ID: id}
 		m.Adopt(p)

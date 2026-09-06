@@ -1,0 +1,14 @@
+{
+  "id": "vscode-langservers",
+  "kind": "server",
+  "version": "4.10.0",
+  "needs": ["node"],
+  "source": {"kind": "npm", "packages": ["vscode-langservers-extracted@4.10.0"]},
+  "servers": [
+    {"id": "html", "langs": ["html"], "exts": [".html", ".htm"], "exe": "vscode-html-language-server", "args": ["--stdio"]},
+    {"id": "css", "langs": ["css", "scss", "less"], "exts": [".css", ".scss", ".less"], "exe": "vscode-css-language-server", "args": ["--stdio"]},
+    {"id": "json", "langs": ["json"], "exts": [".json", ".jsonc"], "exe": "vscode-json-language-server", "args": ["--stdio"]},
+    {"id": "markdown", "langs": ["markdown"], "exts": [".md", ".markdown"], "exe": "vscode-markdown-language-server", "args": ["--stdio"]},
+    {"id": "eslint", "langs": [], "exts": [], "exe": "vscode-eslint-language-server", "args": ["--stdio"]}
+  ]
+}

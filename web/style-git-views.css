@@ -798,44 +798,51 @@ select:focus{border-color:var(--accent);outline:none}
   min-height:var(--git-row-min);display:flex;align-items:center;gap:6px;cursor:pointer;
 }
 
-/* ── 부분 스테이징 (GIT_ACTIONS_SRS §3.7 FR-GIT-278·279) ──
-   조각은 Monaco 아래 자기 자리에 선다. Monaco 는 두 모델을 그릴 뿐 hunk 의 경계를
-   모르므로, 경계 위에 서는 동작은 이 목록이 갖는다.
-   버튼·행의 치수 하한은 위의 `.git-view button` 이 이미 준다 (FR-GIT-226). */
-.git-hunks{
-  display:none;flex:0 0 auto;max-height:42%;overflow:auto;
-  border-top:var(--git-sec-divider);
-  /* 색은 여기 한 번만 둔다 — 전역 테마에 +/- 색이 없다 */
-  --git-hunk-add:#9ece6a;--git-hunk-del:var(--danger);
+/* ── 부분 스테이징 (GIT_ACTIONS_SRS §3.7 · DIFF_HUNK_BAR_SRS) ──
+   **하단 조각 목록은 폐기됐다** (FR-DHB-1). `.git-hunks` 가 `max-height:42%` 로
+   자리를 먹으면서 같은 diff 를 두 번 그렸고, 그것이 사용자가 "공간을 가린다" 고
+   접수한 것이다. 동작은 이제 diff 위에 hover 로 뜨는 content widget 이다 —
+   **세로 공간을 한 픽셀도 먹지 않는다** (NFR-DHB-1).
+
+   함께 사라진 선택자: `.git-hunks`·`.git-hunk`·`.git-hunk-head`·`.git-hunk-body`·
+   `.git-hunk-line`·`.git-hunk-header`·`.git-hunk-range`·`.git-hunk-spacer`·
+   `.git-hunk-clear`·`.git-hunk-note`. */
+
+/* hover 툴바 (FR-DHB-10~17). Monaco 가 자리를 잡아 주므로 여기서 정하는 것은
+   생김새뿐이다. 버튼의 치수 하한은 `.git-view button` 이 이미 준다 (FR-GIT-226) —
+   그런데 이 위젯은 Monaco 의 오버플로 컨테이너로 나갈 수 있어(allowEditorOverflow)
+   그 조상 밖에 설 수 있으므로, 최소 높이를 자기 자리에서 한 번 더 세운다. */
+.git-hunk-bar{
+  display:flex;align-items:center;gap:4px;
+  padding:2px 4px;
+  background:var(--sidebar-bg);
+  border:1px solid var(--border);border-radius:4px;
+  box-shadow:0 1px 4px rgba(0,0,0,.3);
+  /* diff 의 글자 위에 겹쳐 뜨므로 그 위여야 한다. */
+  z-index:12;
 }
-.git-hunks.vis{display:block}
-.git-hunk-note{padding:5px 10px;font-size:11px;color:var(--text-muted)}
-.git-hunk{border-bottom:1px solid var(--border)}
-.git-hunk-head{
-  display:flex;align-items:center;gap:6px;padding:2px 8px;font-size:11px;
-  background:var(--sidebar-bg);border-bottom:1px solid var(--border);
-  position:sticky;top:0;z-index:1;
-}
-.git-hunk-header{color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.git-hunk-range{color:var(--accent);flex-shrink:0}
-.git-hunk-spacer{flex:1 1 auto}
-.git-hunk-act,.git-hunk-clear{
+.git-hunk-act{
   font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;
+  min-height:var(--git-row-min);
   background:var(--bg);color:var(--text);
   border:1px solid var(--border);border-radius:3px;
 }
+.git-hunk-act:hover:not(:disabled){color:var(--text-bright);border-color:var(--accent)}
 .git-hunk-act:disabled{color:var(--text-dim);cursor:not-allowed}
 /* revert 는 파괴적이다 — 색으로도 그 사실이 보여야 한다 (FR-GIT-89·279) */
 .git-hunk-act[data-act="revert"]{color:var(--attn)}
-.git-hunk-body{font-family:ui-monospace,monospace;font-size:11px;line-height:1.5}
-.git-hunk-line{padding:0 10px;white-space:pre;cursor:pointer}
-.git-hunk-line.add{color:var(--git-hunk-add)}
-.git-hunk-line.del{color:var(--git-hunk-del)}
-.git-hunk-line.meta{color:var(--text-dim)}
-/* 고른 범위는 배경으로 말한다 — 글자색만 바꾸면 +/- 의 뜻과 겹친다 */
-.git-hunk-line.sel{background:var(--accent-active)}
-/* 조각 동작이 거부된 사유. 누른 자리가 Diff 탭이므로 여기 보인다 (FR-GIT-278). */
-.git-hunk-note.fail{color:var(--danger)}
+
+/* 조각 관측의 상태 한 줄 (FR-DHB-4·5). Diff 탭 **머리**에 산다 — 빈 문자열이면
+   자리를 갖지 않으므로 아무것도 가리지 않는다. */
+.git-diff-hunk-note{
+  display:none;flex-shrink:1;min-width:0;
+  font-size:11px;color:var(--text-muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.git-diff-hunk-note.vis{display:inline-block}
+/* 조각 동작이 거부된 사유. 누른 자리가 Diff 탭이므로 여기 보인다 (FR-DHB-6). */
+.git-diff-hunk-note.fail{color:var(--danger)}
+
 /* ── 원격 동작 (FR-GIT-269~271) ────────────────────────────────────────────
    Sync·Preview 는 `.git-head-remote` **밖**이다 — 안에 넣으면 "원격 버튼 한 벌은
    세 쌍" 이라는 기존 단정이 깨진다 (FR-GIT-238 의 새로고침과 같은 이유). */
@@ -986,8 +993,8 @@ body.mobile .runs-box .runs-del{min-height:44px;padding:0 12px}
 .run-view .run-graph{display:block;margin:0 auto}
 
 /* FR-RVZ-12: 노드 시각 규약. 색은 전부 테마 변수다.
-   `--run-ok` 만 여기서 정한다 — 전역 테마에 "성공" 색이 없다 (.git-hunks 가
-   +/- 색에 대해 세운 것과 같은 규약이며, 값을 두는 자리는 이 한 곳이다). */
+   `--run-ok` 만 여기서 정한다 — 전역 테마에 "성공" 색이 없다 (`--git-st-add` 가
+   style.css 에서 세운 것과 같은 규약이며, 값을 두는 자리는 이 한 곳이다). */
 .run-view{--run-ok:#9ece6a}
 .run-view .run-node .run-node-box{fill:var(--sidebar-bg);stroke:var(--border);stroke-width:1.5}
 .run-view .run-node .run-node-role{fill:var(--text-bright);font-size:12px;font-family:inherit}

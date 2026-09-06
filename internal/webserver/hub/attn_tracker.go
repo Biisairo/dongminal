@@ -47,9 +47,12 @@ type attnPaneState struct {
 	attention       atomic.Bool
 	attnRearmLocked atomic.Bool // FR-ATF-5
 	agentSeen       atomic.Bool // FR-ATF-1
-	attnCarry       []byte
-	allowBell       bool
-	activity        atomic.Pointer[toolhub.ActivityState]
+	// turn 은 에이전트 훅이 말한 턴의 상태다 (묶음 N). 직접 모드의 `Tool.turn`
+	// 과 **같은 타입**이다 — 판정을 두 벌로 적지 않는다 (FR-ATN-14).
+	turn      toolhub.AgentTurn
+	attnCarry []byte
+	allowBell bool
+	activity  atomic.Pointer[toolhub.ActivityState]
 }
 
 // DefaultIdleMS returns the L2 idle threshold in milliseconds, honoring the
@@ -172,9 +175,16 @@ func (t *AttnTracker) FeedOutput(toolID string, data []byte) {
 }
 
 // SignalAttention sets attention explicitly (dmctl notify).
+//
+// **무엇이 사건인지는 먼저 묻는다** (묶음 N). 배경 턴의 종료와 입력 유휴 알림은
+// 되풀이지 사건이 아니므로 여기서 걸러 내며, 걸러진 신호는 방송도 하지 않는다
+// (FR-ATN-4·6). 직접 모드 `Tool.SignalAttention` 과 같은 자리, 같은 판정이다.
 func (t *AttnTracker) SignalAttention(toolID, reason string) {
 	ps := t.state(toolID)
 
+	if !ps.turn.AllowSignal(reason) {
+		return
+	}
 	ps.attention.Store(true)
 	if reason == "" {
 		reason = "signaled"
@@ -282,12 +292,16 @@ func (t *AttnTracker) ClearAllAttention() int {
 	return n
 }
 
+// NoteUserPrompt 는 사용자 프롬프트로 턴이 시작되었음을 기록한다 (FR-ATN-1).
+func (t *AttnTracker) NoteUserPrompt(toolID string) { t.state(toolID).turn.NoteUserPrompt() }
+
 // SetActivity sets the activity state for a tool.
 func (t *AttnTracker) SetActivity(toolID, state, tool, detail string) {
 	ps := t.state(toolID)
 
 	// FR-ATF-2: 보고했다는 사실이 에이전트 표시를 세우고, `ended` 가 내린다.
 	ps.agentSeen.Store(state != "ended")
+	ps.turn.NoteActivity(state)
 	if state == "ended" {
 		ps.activity.Store(nil)
 	} else {
@@ -392,6 +406,10 @@ func (t *AttnTracker) SweepIdleAt(now int64) {
 		}
 		ps.attnArmed.Store(false)
 		if !ps.agentSeen.Load() || probe == nil || !probe(ps.id) {
+			continue
+		}
+		// FR-ATN-10: 턴이 진행 중이 아니면 알릴 것이 없다.
+		if !ps.turn.InProgress() {
 			continue
 		}
 		if toolhub.ActivityStillWorking(ps.activity.Load(), now) {

@@ -24,6 +24,10 @@ const EDITOR_ROOT_NAME='~';
 // 서듯 이것도 한 자리에서만 정해진다 — 행과 창이 같은 이름을 써야 사용자가 둘을
 // 같은 것으로 읽는다 (FR-EDT-10·44).
 const EDITOR_NOTES_NAME='메모장';
+// LSP_PLUGIN_SRS FR-EXT-9b: 언어 서버 플러그인의 선언들이 사는 자리. 메모장과 같은
+// 규약으로 탐색기에 한 줄로 선다 — 선언은 사용자가 고치라고 만든 파일이므로
+// (FR-EXT-9) 우리 편집기로 열 수 있어야 한다.
+const EDITOR_PLUGINS_NAME='플러그인';
 const REPO_ENTRIES_NONE='+ Add 로 경로를 추가하세요';
 
 // FR-EDT-28: `+ Add`. 지금 터미널의 cwd 를 미리 채운다 — 경로를 타이핑하게 하면
@@ -120,9 +124,15 @@ const LSP_ORIGIN_LABEL={
 };
 const LSP_FOUND='있음';
 const LSP_MISSING='없음';
-// FR-LSP-11: 무엇이 없어서 받을 수 없는지를 **이름으로** 알린다. "설치 실패" 는
-// 사용자가 다음에 할 일을 알려주지 않는다.
-const LSP_NO_TOOL='%s 가 없어 받을 수 없습니다';
+// FR-EXT-28: PATH 의 것을 쓰는 것은 정당하지만, 그것이 우리 격리의 **예외**라는
+// 사실까지 조용하면 "격리했다" 는 말이 거짓이 된다.
+const LSP_NOT_ISOLATED='격리 안 됨';
+// 팩이 내는 서버 중 일부만 선 상태. 전부 없는 것과 다른 말이어야 사용자가 다시
+// 받아야 할지 판단할 수 있다.
+const LSP_PARTIAL='일부만 있음';
+// FR-EXT-8: 읽지 못한 선언이 있으면 알린다 — 조용히 빠지면 사용자는 자기가 고친
+// 파일이 무시된 이유를 알 수 없다.
+const LSP_DECL_PROBLEM='읽지 못한 플러그인 선언';
 const LSP_INSTALL='받기';
 // FR-TIP-1: 라벨은 한 낱말이라 무엇을 받는지 말하지 않는다. 라벨 자체는
 // 그대로다 (FR-TIP-3) — 툴팁만 더한다.
@@ -134,8 +144,9 @@ const LSP_UNAVAILABLE='이 서버는 코드 탐색을 제공하지 않습니다'
 const LSP_INSTALL_OK='받았습니다';
 const LSP_PANEL_HINT=
   '정의로 이동·참조 찾기·호버·진단은 언어 서버가 있어야 동작합니다. '+
-  'PATH 에 이미 있으면 그것을 쓰고, 없을 때 `받기` 를 누르면 이 기계의 go·npm 으로 '+
-  'dongminal 전용 폴더에만 받습니다 — 시스템은 건드리지 않고, 그 폴더를 지우면 원상복구됩니다.';
+  '무엇이 있는지는 플러그인 선언이 정하며, 선언은 탐색기의 `플러그인` 에서 고칠 수 있습니다. '+
+  'PATH 에 이미 있으면 그것을 쓰고, 없을 때 `받기` 를 누르면 dongminal 전용 폴더에만 받습니다 '+
+  '— 시스템은 건드리지 않고, 그 폴더를 지우면 원상복구됩니다.';
 
 // ── 코드 탐색: 정의·참조 이동 (EDITOR_LSP_SRS 묶음 C·F · M2) ──
 const LSP_DEF_API='/api/lsp/definition';
@@ -164,10 +175,9 @@ const LSP_HOVER_API='/api/lsp/hover';
 // FR-LSP-39: provider 는 **언어마다 한 번** 등록된다. 편집기를 여럿 세워도
 // 등록이 늘지 않아야 한다 — 늘면 같은 호버가 여러 번 뜬다.
 //
-// 서술자가 덮는 언어는 서버가 알려 주지만, 등록은 Monaco 가 뜬 뒤에 해야 하므로
-// 화면이 그 목록을 갖고 있어야 한다. 서버의 서술자와 어긋나면 그 언어에서 호버가
-// 뜨지 않으므로, 여기 적은 것이 곧 계약이다.
-const LSP_HOVER_LANGS=['go','typescript','javascript','typescriptreact','javascriptreact','python'];
+// **언어 목록이 여기 없다** (FR-EXT-1). 종전에는 이 표와 서술자 표가 두 자리에
+// 적혀 있어, 언어를 더할 때 한쪽만 고치면 그 언어에서 호버가 붙지 않았다. 이제
+// 상태 응답의 `langs` 가 그 목록이며 등록은 그것을 따라간다.
 
 // ── 코드 탐색: 진단 (묶음 E · M4) ──
 //
@@ -193,18 +203,12 @@ const LSP_DIAG_HINT='언어 서버가 찾은 문제를 편집기에 밑줄로 �
 // 그것이 곧 고장이므로, 닫으면 그 언어에 다시 뜨지 않는다 — 그 기억은 기기별이다.
 const LSP_OFFER_KEY='lspOfferDismissed';
 const LSP_OFFER_BODY='%s 를 설치하면 이 파일에서 정의 이동·참조 찾기·호버·진단이 동작합니다.';
-// FR-LSP-11: 받을 수 없으면 **무엇이 없어서** 그런지를 이름으로 말한다.
-const LSP_OFFER_NO_TOOL='%t 가 없어 %s 를 받을 수 없습니다 — %t 를 먼저 설치하세요.';
+// FR-EXT-29: 받을 수 없는 사유는 **서버가 사람의 말로 적어 보낸다**(`note`).
+// 이것은 그 값이 비었을 때만 쓰는 안전망이다.
+const LSP_OFFER_BLOCKED='%s 를 지금 받을 수 없습니다.';
 const LSP_OFFER_INSTALL='받기';
 const LSP_OFFER_DISMISS='다시 보지 않기';
 const LSP_OFFER_SETTINGS='설정에서 보기';
-
-// FR-EDT-47 / D-18: 탐색기 폭은 워크스페이스에 산다 (`window.editor.explorerWidth`).
-// 상·하한은 사이드바(`--sb-w`)의 규약을 그대로 따른다 — 같은 종류의 값이 서로 다른
-// 한계를 가질 이유가 없다.
-const EDITOR_EXPLORER_W_DEFAULT=220;
-const EDITOR_EXPLORER_W_MIN=100;
-const EDITOR_EXPLORER_W_MAX=520;
 
 // ── Editor 탐색기 (EDITOR_TAB_SRS 묶음 X · FR-EDT-57~78) ──
 
@@ -240,6 +244,16 @@ const REPO_SIDE_TABS=[
   {id:REPO_SIDE_EXPLORER,label:'Explorer',title:'Browse files in this repository'},
 ];
 const REPO_SIDE_DEFAULT=REPO_SIDE_EXPLORER;
+
+// REPO_SIDE_WIDTH_SRS FR-RSW-1 / D-3·D-4: 사이드 폭은 **워크스페이스 하나**에 산다
+// (`ws.repoSideWidth`) — `sidebarWidth` 와 같은 규약이다. 창마다 두던 값이었고
+// (`window.editor.explorerWidth`, FR-EDT-47) 그러면 창을 옮길 때마다 목록의 폭이
+// 달라졌다. 이름이 `EXPLORER` 가 아닌 이유는 그 폭이 `Changes` 의 것이기도 하기
+// 때문이다. 상·하한은 사이드바(`--sb-w`)의 규약을 그대로 따른다 — 같은 종류의 값이
+// 서로 다른 한계를 가질 이유가 없다.
+const REPO_SIDE_W_DEFAULT=220;
+const REPO_SIDE_W_MIN=100;
+const REPO_SIDE_W_MAX=520;
 
 // ── 미리보기 탭 (REPO_TAB_UNIFY_SRS 묶음 P · FR-RTU-40~45) ──
 //
@@ -420,3 +434,52 @@ const EDITOR_MOVE_INTO_SELF='자기 자신이나 자기 하위로는 옮길 수 
 // 밝히는 이유는 FR-EDT-84 와 같다 — 개수만으로는 무엇을 정리해야 할지 모른다.
 const EDITOR_HELD_DIRTY='저장하지 않은 편집이 있어 창을 닫지 않았습니다 — %s';
 const EDITOR_NAME_INVALID='이름에 / 를 쓸 수 없습니다';
+
+// ── 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS) ──
+//
+// 기준은 **index** 다 (FR-EDD-1 / D-2). 서버의 부분 스테이징이 op 마다 축을
+// 못박으므로(`write/patch.go:105`) 화면과 서버가 같은 축을 봐야 조각의 경계가
+// 어긋나지 않는다. VSCode 도 스테이지하면 이 표시가 사라지는 index 기준이다.
+const ED_DD_AXIS=GIT_AXIS.UNSTAGED;
+
+// FR-EDD-13: 계산의 상한. 줄 수는 파일의 크기, 편집 거리는 diff 의 크기다 —
+// 둘 중 하나만 두면 나머지 한쪽이 커진 파일에서 계산이 끝나지 않는다.
+const ED_DD_MAX_LINES=50000;
+const ED_DD_MAX_EDITS=2000;
+
+// FR-EDD-14: 모델 변경에서 재계산까지. 타이핑 한 글자마다 diff 를 돌리지 않는다.
+const ED_DD_DEBOUNCE_MS=180;
+
+// FR-EDD-11: 조각의 세 종류. CSS 클래스와 색 변수가 이 값에서 파생한다 —
+// 문자열을 세 곳에 흩뿌리면 한쪽만 바뀐다.
+const ED_DD_ADD='add';
+const ED_DD_MOD='mod';
+const ED_DD_DEL='del';
+// FR-EDD-23: 색은 탐색기 트리의 규약 그대로다 (`style-editor.css:175~177`) —
+// 같은 창의 두 표면이 같은 사실에 다른 색을 쓰면 그중 하나는 거짓말이 된다.
+const ED_DD_COLOR_VAR={
+  [ED_DD_ADD]:'--git-st-add',
+  [ED_DD_MOD]:'--accent',
+  [ED_DD_DEL]:'--danger',
+};
+
+// FR-EDD-31·35: 팝업의 말. 조각의 종류마다 이전 쪽이 무엇이었는지가 다르다.
+const ED_DD_PEEK_ADDED='이 줄들은 새로 더해졌습니다 — 이전에는 없던 자리입니다';
+const ED_DD_REVERT='되돌리기';
+const ED_DD_REVERT_TITLE='이 조각을 index 의 내용으로 되돌립니다 (되돌리기는 Cmd+Z 로 취소됩니다)';
+const ED_DD_STAGE='스테이지';
+const ED_DD_STAGE_TITLE='이 조각을 스테이지합니다 — 저장하지 않은 편집이 있으면 먼저 저장합니다';
+const ED_DD_PEEK_CLOSE_TITLE='닫기';
+// FR-EDD-44·46·47: 스테이지가 못 선 사유. 침묵은 고장과 구별되지 않는다.
+const ED_DD_SAVE_FAIL='저장하지 못해 스테이지하지 않았습니다';
+const ED_DD_STAGE_FAIL='스테이지하지 못했습니다';
+const ED_DD_STAGE_STALE='그 사이 파일이 바뀌었습니다 — 다시 고르세요';
+const ED_DD_STAGE_WIDE='조각의 경계를 좁히지 못해 덩어리 전체를 스테이지했습니다';
+const ED_DD_STAGING='스테이지하는 중…';
+// 서버 DiffSide.kind 중 본문을 diff 할 수 있는 하나. `GIT_DIFF_DRAWABLE` 은
+// `absent`(한쪽이 없다)까지 포함하는데, 그것은 여기서 "표시하지 않는다" 다
+// (FR-EDD-6) — 두 판정이 다르므로 그 집합을 빌려 쓰지 않는다.
+const ED_DD_KIND_TEXT='text';
+// 팝업이 한 번에 보이는 이전 줄의 상한. 넘으면 팝업 안에서 스크롤한다 —
+// 조각 하나가 화면을 통째로 덮으면 그것은 팝업이 아니라 다른 화면이다.
+const ED_DD_PEEK_MAX_LINES=12;
