@@ -126,6 +126,14 @@ class TerminalTool {
   // FR-MTI-15~17: sticky 는 입력 길이와 무관하게 첫 코드포인트로 판정하고,
   // 대상이 아니어도 소비한다 — 잔존하면 다음 입력을 오염시킨다.
   _applyStickyMods(s){
+    // xterm 이 **스스로 내는 포커스 보고**(CSI `I`·`O`)는 사용자의 입력이 아니다.
+    //
+    // 그것도 `onData` 로 오므로 여기를 지나는데, sticky 는 대상이 아니어도
+    // **소비된다**(그것이 FR-MTI-15~17 의 규약이다). 그래서 창이 포커스를 되찾는
+    // 순간 사용자가 눌러 둔 Ctrl 이 조용히 사라진다 — 키바에서 Ctrl 을 누르고
+    // 글자를 누르는 사이에 포커스가 오가는 것은 모바일에서 흔한 일이다.
+    // (Windows CI 에서 실측: 그 OS 는 포커스 보고가 늦게 도착해 매번 재현됐다.)
+    if(s==='\x1b[I'||s==='\x1b[O') return s;
     const A=window.app;
     if(!(A && A.isMobile && A._modKbd)) return s;
     const mk=A._modKbd;
