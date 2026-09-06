@@ -21,6 +21,18 @@ const enc=new TextEncoder(), dec=new TextDecoder();
 // PAGE_TITLE_SRS FR-PGT-7: 설정이 비었을 때 쓰는 페이지 제목.
 const DEFAULT_PAGE_TITLE='Dongminal';
 
+// ── 부팅 화면 (BOOT_SCREEN_SRS) ──
+// 마지막에 적용한 테마의 **최종 CSS 변수 맵**이 사는 자리. `index.html` 의 head
+// 인라인 스크립트가 첫 페인트 전에 이것을 읽는다 — 그 스크립트는 constants.js
+// 보다 먼저 돌므로 **키 문자열이 그쪽에도 리터럴로 적혀 있다**. 바꿀 때는 둘을
+// 함께 바꾼다 (FR-BTS-3).
+const THEME_VARS_KEY='dm.themeVars';
+// 걷힘 애니메이션. 화면이 이미 준비된 뒤의 시간이므로 짧다.
+const BOOT_FADE_MS=180;
+// FR-BTS-14: 준비 신호가 오지 않아도 이 시간이 지나면 걷는다. 서버가 답하지
+// 않는다고 화면이 영구히 잠기면, 사용자는 무엇이 잘못됐는지 볼 길조차 없다.
+const BOOT_MAX_MS=6000;
+
 // 활동 패널 자동 새로고침 주기 기본값(ms). 설정에서 변경(per-device localStorage).
 // 비정상 종료·hook 누락으로 SSE 가 안 와도 주기적으로 서버와 동기화 (FR-AAP-19).
 const AGENTS_POLL_DEFAULT=5000;

@@ -84,28 +84,40 @@ const BORDER_STRONG_MIX=.35;
 const SLOT_EDGE_MIX=.55;
 
 function applyThemeObj(t){
-  const s=document.documentElement.style;
   const ui=t.ui;
-  s.setProperty('--bg',ui.bg);
-  s.setProperty('--sidebar-bg',ui.sidebarBg);
-  s.setProperty('--border',ui.border);
-  s.setProperty('--accent',ui.accent);
-  s.setProperty('--text',ui.text);
-  s.setProperty('--text-muted',ui.textMuted);
-  s.setProperty('--text-bright',ui.textBright);
-  s.setProperty('--text-dim',ui.textDim);
-  s.setProperty('--danger',ui.danger);
-  s.setProperty('--accent-border',ui.accentBorder);
-  s.setProperty('--border-strong',mixHex(ui.border,ui.text,BORDER_STRONG_MIX));
-  s.setProperty('--slot-edge',mixHex(ui.border,ui.accent,SLOT_EDGE_MIX));
-  s.setProperty('--accent-hover',hexToRgba(ui.accent,.1));
-  s.setProperty('--accent-active',hexToRgba(ui.accent,.12));
-  s.setProperty('--accent-subtle',hexToRgba(ui.accent,.08));
   // 주의 알림색은 팔레트 중 accent(포커스)와 가장 대비되는 색 — 포커스와 겹치지 않게 (FR-PAN-10)
   const attn=pickAttnColor(t);
-  s.setProperty('--attn',attn);
-  s.setProperty('--attn-subtle',hexToRgba(attn,.16));
-  s.setProperty('--attn-glow',hexToRgba(attn,.5));
+  /**
+   * BOOT_SCREEN_SRS FR-BTS-1 / D-4: 세우는 변수를 **맵으로 한 번에** 만든다.
+   *
+   * 첫 페인트 선주입(`index.html` 의 head 인라인)이 이 맵을 그대로 다시 세우기
+   * 때문이다 — 파생값(`mixHex`·`pickAttnColor`)의 계산은 **여기 한 자리**에만
+   * 남고, 선주입은 그것을 다시 계산하지 않는다.
+   */
+  const vars={
+    '--bg':ui.bg,
+    '--sidebar-bg':ui.sidebarBg,
+    '--border':ui.border,
+    '--accent':ui.accent,
+    '--text':ui.text,
+    '--text-muted':ui.textMuted,
+    '--text-bright':ui.textBright,
+    '--text-dim':ui.textDim,
+    '--danger':ui.danger,
+    '--accent-border':ui.accentBorder,
+    '--border-strong':mixHex(ui.border,ui.text,BORDER_STRONG_MIX),
+    '--slot-edge':mixHex(ui.border,ui.accent,SLOT_EDGE_MIX),
+    '--accent-hover':hexToRgba(ui.accent,.1),
+    '--accent-active':hexToRgba(ui.accent,.12),
+    '--accent-subtle':hexToRgba(ui.accent,.08),
+    '--attn':attn,
+    '--attn-subtle':hexToRgba(attn,.16),
+    '--attn-glow':hexToRgba(attn,.5),
+  };
+  const s=document.documentElement.style;
+  for(const k in vars) s.setProperty(k,vars[k]);
+  // FR-BTS-2: 기록 실패는 다음 부팅의 첫 페인트가 기본값이 된다는 뜻일 뿐이다.
+  try{localStorage.setItem(THEME_VARS_KEY,JSON.stringify(vars))}catch{}
   TOPTS.theme=t.terminal;
   document.getElementById('area').style.background=ui.bg;
   for(const p of app.tools.values()){if(p.term)p.term.options.theme=t.terminal}

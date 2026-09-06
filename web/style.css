@@ -1018,3 +1018,26 @@ body.mobile #bg-btn{padding:4px 6px}
 .sbx-del:hover{color:var(--accent);border-color:var(--accent)}
 .sbx-status{font-size:11px;color:var(--text-dim)}
 .sbx-status.err{color:var(--accent)}
+
+
+/* ── 부팅 화면 (BOOT_SCREEN_SRS 묶음 BTS) ──
+   FR-BTS-7: 색은 테마의 것이다 — head 인라인이 선주입한 변수를 그대로 쓰므로,
+   캐시가 있으면 사용자의 테마 색으로, 없으면 `:root` 기본값으로 그려진다 (D-2).
+   z-index 는 앱의 최상단(모달 200)보다 위여야 한다 — 부팅 중에는 그 무엇도 이
+   화면 위에 없다. */
+#boot{
+  position:fixed;inset:0;z-index:1000;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  background:var(--bg);color:var(--text-muted);
+  transition:opacity .18s ease;
+}
+/* FR-BTS-8·12: 걷히는 동안에는 입력을 아래로 흘려보낸다 — 화면은 이미 준비됐다. */
+#boot.gone{opacity:0;pointer-events:none}
+.boot-logo{width:56px;height:56px}
+.boot-spin{
+  width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:boot-spin .7s linear infinite;
+}
+@keyframes boot-spin{to{transform:rotate(360deg)}}
+#boot-step{font-size:12px}
+@media (prefers-reduced-motion:reduce){.boot-spin{animation-duration:2.4s}}

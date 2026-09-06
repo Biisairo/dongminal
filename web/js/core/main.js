@@ -9,7 +9,9 @@ window.__dongminalDebug={
 };
 
 // Restore saved theme from server
-(async()=>{try{const r=await fetch('/api/settings');if(r.ok){const saved=await r.json();
+// BOOT_SCREEN_SRS FR-BTS-13: 이 프로미스가 걷힘 조건의 한쪽이다 — **테마가
+// 결정되는 시점**이고, 결정에는 실패도 포함된다 (그때는 선주입한 색이 그대로다).
+const themeReady=(async()=>{try{const r=await fetch('/api/settings');if(r.ok){const saved=await r.json();
   if(saved.shortcuts) Object.assign(shortcuts,saved.shortcuts);
   if(saved.statusBar) Object.assign(statusBar,saved.statusBar);
   if(saved.statsInterval) statsInterval=saved.statsInterval;
@@ -25,9 +27,19 @@ window.__dongminalDebug={
   if(saved.pageTitle!==undefined){pageTitle=saved.pageTitle;app._applyPageTitle()}
   // 설정 변경은 감지 계층의 재평가 시점이다 (FR-GIT-23).
   app.gitPanel._reschedule();
-}}catch{}})();
+}}catch{}
+  // FR-BTS-11: 설정이 왔든 오지 않았든, 남은 것은 워크스페이스다.
+  BootScreen.step('워크스페이스를 복원합니다');
+})();
 
-app.init();
+/**
+ * FR-BTS-13: 부팅 화면은 **둘 다 끝나야** 걷힌다 — 테마 결정과 워크스페이스 준비.
+ *
+ * `allSettled` 인 것은 실패도 끝이기 때문이다: 설정을 못 읽거나 `init` 이 예외로
+ * 끝나도 사용자는 화면을 봐야 한다. 영영 오지 않는 경우의 방어는 상한이 따로
+ * 맡는다 (FR-BTS-14, boot-screen.js).
+ */
+Promise.allSettled([themeReady,app.init()]).then(()=>BootScreen.done());
 if(!(defaultPreset>=0&&layoutPresets[defaultPreset]))document.getElementById('add-preset').style.display='none';
 document.getElementById('add-window').addEventListener('click',async(e)=>{
   // 안쪽 박스를 눌렀으면 샌드박스 창이다. 바깥은 종전대로 일반 창.

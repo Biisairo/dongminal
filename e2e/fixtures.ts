@@ -351,6 +351,10 @@ export async function waitForInit(page: any, opts: InitOpts = {}) {
   const ready = opts.readyFor;
   if (ready?.fn) await page.waitForFunction(ready.fn, undefined, { timeout: 15000 });
   else await page.waitForSelector(ready?.selector || INIT_READY_SELECTOR, { timeout: 15000 });
+  // BOOT_SCREEN_SRS FR-BTS-16: 부팅 화면이 살아 있는 동안의 클릭은 그 화면이
+  // 받는다. 준비 판정에 "걷혔다" 를 더하지 않으면 그 클릭이 어디로 갔는지
+  // 알 수 없는 무작위 실패가 된다.
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
   await waitSettled(page);
 }
 
