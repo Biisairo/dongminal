@@ -1,0 +1,81 @@
+name: e2e
+
+# 브라우저 종단간 (Playwright). **매 푸시에는 돌지 않는다.**
+#
+# 1,205개를 한 서버 인스턴스에서 이어 돌리면 로컬 실측 25분이고, 러너는 그보다
+# 느리다. 매 푸시에 얹으면 그 시간이 모든 커밋에 붙는데, 이 저장소의 커밋 대부분은
+# Go 층이거나 문서다 — `verify` 가 이미 그쪽을 지키고 있다.
+#
+# 그래서 **사람이 부를 때**(workflow_dispatch)와 **태그를 밀 때**만 돈다. 태그는
+# 드물면서 웹 UI 가 실제로 배포되는 순간이라, 그때 한 번 훑는 것이 값이 있다.
+#
+# **릴리스를 막지 않는다.** `release.yml` 의 gate 와 별개의 워크플로우이므로 여기가
+# 빨개도 애셋은 나간다. 이것은 의도다 — 이 스위트는 지금까지 개발 호스트(macOS·zsh)
+# 에서만 돌았고, 리눅스에서의 통과율을 아직 모른다. 몇 번 돌려 그것을 알고 난 뒤에
+# 게이트로 승격할지 정한다.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  e2e:
+    # 샤드로 가른다. `playwright.config.ts` 는 `workers: 1` · `fullyParallel: false`
+    # 이고 그것은 바꿀 수 없다 — 테스트 전부가 **서버 인스턴스 하나**를 공유하고,
+    # fixtures 가 매 테스트 앞에서 워크스페이스를 비우기 때문이다 (E2E_QUIESCENCE_SRS).
+    # 한 러너 안에서 못 나누는 대신 러너를 나눈다: 샤드마다 자기 서버가 뜨므로
+    # 그 제약과 부딪히지 않는다.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 픽스처가 만드는 저장소의 전제다.
+      #
+      # `git_fixture.sh` 는 `reset --hard main` 을 쓴다 — 개발 호스트에는
+      # `init.defaultBranch=main` 이 있어 그냥 통과하지만, 러너의 기본은 `master`
+      # 라 그대로 두면 git 스펙이 통째로 무너진다.
+      # 이름·메일은 스펙 대부분이 저장소마다 직접 세우지만, 세우지 않는 자리가
+      # 하나라도 있으면 `commit` 이 거기서 멈춘다 — 전역에 두는 편이 싸다.
+      - name: git 기본값
+        run: |
+          git config --global init.defaultBranch main
+          git config --global user.name  'dongminal e2e'
+          git config --global user.email 'e2e@example.invalid'
+
+      - name: 의존
+        run: npm ci
+
+      - name: 브라우저
+        run: npx playwright install --with-deps chromium
+
+      # `webServer` 는 `go run` 으로 서버를 띄우고 60초 안에 응답하기를 기다린다.
+      # 캐시가 빈 러너에서 그 컴파일이 60초를 넘으면 **테스트가 아니라 기동에서**
+      # 죽는다. 미리 한 번 빌드해 캐시를 데운다.
+      - name: 빌드 캐시 예열
+        run: go build ./cmd/dongminal
+
+      - name: e2e (샤드 ${{ matrix.shard }}/4)
+        run: npx playwright test --shard=${{ matrix.shard }}/4
+
+      # 실패했을 때만 남긴다. 초록인 실행의 리포트는 아무도 열지 않는다.
+      - name: 리포트 (실패 시)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.shard }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
