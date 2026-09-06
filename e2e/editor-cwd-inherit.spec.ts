@@ -77,6 +77,21 @@ async function paneCwd(request, toolId: string): Promise<string> {
   return j.cwd as string;
 }
 
+/**
+ * 그 도구의 cwd 가 `want` 가 될 때까지 기다린다.
+ *
+ * **관측의 길이 OS 마다 다르기 때문이다.** POSIX 는 서버가 그 프로세스의 cwd 를
+ * 직접 읽으므로(`/proc`·lsof) 도구가 서는 즉시 옳은 값이 나온다. Windows 는 그
+ * 길이 없어(`windowsProcInfo.CWD` 는 언제나 거짓) **셸 훅의 보고**가 유일한
+ * 출처이고, 그 보고는 첫 프롬프트가 돌아야 온다 — 그 전까지 서버는 자기 cwd 를
+ * 답한다(`cwdOrServer`). 재는 것은 "어디서 떴는가" 이지 "언제 알렸는가" 가
+ * 아니므로 기다린다.
+ */
+async function expectCwd(request, toolId: string, want: string, msg: string) {
+  await expect.poll(() => paneCwd(request, toolId), { timeout: 20000 }).toBe(want);
+  expect(await paneCwd(request, toolId), msg).toBe(want);
+}
+
 // 편집기 탭을 root 에디터 창(FR-EDT-13)에 열고, 그 창을 활성 창으로, 그
 // 탭이 있는 pane 을 포커스로 만든다 — `_edOpenFile` 이 이 셋을 함께 보장한다
 // (`app-editor.js` FR-EDT-94·102).
@@ -101,9 +116,9 @@ test.describe('편집기 탭 → 새 도구의 cwd 상속', () => {
         return c?.tab?.toolId as string;
       });
       expect(toolId).toBeTruthy();
-      const cwd = await paneCwd(request, toolId);
-      expect(cwd, '편집 중 파일의 디렉터리를 승계했다').not.toBe(expectedCwd);
-      expect(cwd).toBe(await serverHome(page));
+      const home = await serverHome(page);
+      expect(home, '편집 중 파일의 디렉터리를 승계했다').not.toBe(expectedCwd);
+      await expectCwd(request, toolId, home, '홈에서 뜨지 않았다');
     });
 
   test('FR-2 (V-WBR-20): 원격 newWindow 커맨드도 홈에서 뜬다', async ({ page, request }) => {
@@ -117,9 +132,9 @@ test.describe('편집기 탭 → 새 도구의 cwd 상속', () => {
     expect(win.ok, `newWindow 실패: ${JSON.stringify(win)}`).toBeTruthy();
     const toolId: string = win.newTabs?.[0]?.toolId;
     expect(toolId).toBeTruthy();
-    const cwd = await paneCwd(request, toolId);
-    expect(cwd, '편집 중 파일의 디렉터리를 승계했다').not.toBe(expectedCwd);
-    expect(cwd).toBe(await serverHome(page));
+    const home = await serverHome(page);
+    expect(home, '편집 중 파일의 디렉터리를 승계했다').not.toBe(expectedCwd);
+    await expectCwd(request, toolId, home, '홈에서 뜨지 않았다');
   });
 
   // FR-WBR-23: 명시하면 그것이 이긴다 — 팀 창이 서는 길이다.
@@ -135,7 +150,7 @@ test.describe('편집기 탭 → 새 도구의 cwd 상속', () => {
       expect(win.ok, `newWindow 실패: ${JSON.stringify(win)}`).toBeTruthy();
       const toolId: string = win.newTabs?.[0]?.toolId;
       expect(toolId).toBeTruthy();
-      expect(await paneCwd(request, toolId)).toBe(expectedCwd);
+      await expectCwd(request, toolId, expectedCwd, '지정한 cwd 에서 뜨지 않았다');
     });
 
   test('FR-3: terminal 탭이 활성이면 여전히 그 도구의 cwd 를 상속 (회귀)', async ({ page, request }) => {

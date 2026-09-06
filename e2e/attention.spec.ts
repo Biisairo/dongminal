@@ -1,4 +1,5 @@
 import { test, expect, waitForInit } from './fixtures';
+import { chain, dmctl, echoCmd, sleepCmd } from './osenv';
 
 // PANE_ATTENTION_NOTIFY_SRS e2e: terminal-monitoring attention.
 // Covers TC-PAN-15 (background tab highlight, distinct from focus),
@@ -10,12 +11,14 @@ import { test, expect, waitForInit } from './fixtures';
 // 보고 하나뿐이므로, 셸에서도 실제 배선과 같은 순서로 부른다 — 표시 없이
 // `notify done` 만 부르면 그것은 배경 턴의 종료이고 조용한 것이 맞다 (V-ATN-2).
 //
-// `sleep 2` 는 알람이 **탭을 옮긴 뒤에** 도착하게 하려는 것이다. 절대경로로 부르는
-// 이유는 PATH 앞쪽의 낡은 dmctl 이 `notify` 를 모를 수 있기 때문이다.
-const NOTIFY_DONE =
-  `echo '{"hook_event_name":"UserPromptSubmit","prompt":"e2e"}'`
-  + ' | "$DONGMINAL_HOME/bin/dmctl" activity claude'
-  + ' && sleep 2 && "$DONGMINAL_HOME/bin/dmctl" notify done';
+// 기다림은 알람이 **탭을 옮긴 뒤에** 도착하게 하려는 것이다. 셸의 말투는 OS 가
+// 정하므로 조각을 `osenv` 에서 받는다 (CI_E2E_MATRIX_SRS FR-CEM-9).
+const HOOK_JSON = '{"hook_event_name":"UserPromptSubmit","prompt":"e2e"}';
+const NOTIFY_DONE = chain(
+  `${echoCmd(HOOK_JSON)} | ${dmctl('activity', 'claude')}`,
+  sleepCmd(2),
+  dmctl('notify', 'done'),
+);
 
 test.describe('Pane attention', () => {
   test('background pane attention: highlight, center, jump-to-clear', async ({ page }) => {

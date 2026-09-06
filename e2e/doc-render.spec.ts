@@ -277,7 +277,7 @@ test.describe('문서 렌더 뷰', () => {
 
   // V-DRV-10 · V-DRV-11: 종단의 잠금장치. 브라우저를 거치지 않고 직접 잰다.
   test('raw 는 SVG 를 sandbox 로 내보내고, 이름만 SVG 인 HTML 은 거절한다', async ({ request }) => {
-    const ok = await request.get('/api/file/raw?path=' + encodeURIComponent(ROOT + '/icon.svg'));
+    const ok = await request.get('/api/file/raw?path=' + encodeURIComponent(j(ROOT, 'icon.svg')));
     expect(ok.status()).toBe(200);
     const h = ok.headers();
     expect(h['content-type']).toBe('image/svg+xml');
@@ -286,7 +286,7 @@ test.describe('문서 렌더 뷰', () => {
     // **우리 출처에서** 돈다 (FR-DRV-24 ③).
     expect(h['content-security-policy']).toBe('sandbox');
 
-    const bad = await request.get('/api/file/raw?path=' + encodeURIComponent(ROOT + '/evil.svg'));
+    const bad = await request.get('/api/file/raw?path=' + encodeURIComponent(j(ROOT, 'evil.svg')));
     expect(bad.status()).toBe(415);
   });
 
@@ -384,7 +384,8 @@ test.describe('문서 렌더 뷰', () => {
     await expect(img).toBeVisible({ timeout: 15000 });
     const src = await img.getAttribute('src') || '';
     const got = decodeURIComponent(src.split('path=')[1] || '');
-    expect(got).toBe(ROOT + '/img/root.png');
+    // 서버가 푼 경로는 그 OS 의 구분자를 쓴다 (FR-CEM-11).
+    expect(got).toBe(j(ROOT, 'img', 'root.png'));
     // 실제로 받아지는가 — 경로가 맞아야 200 이다.
     await expect.poll(async () =>
       img.evaluate((el: any) => el.naturalWidth), { timeout: 15000 }).toBeGreaterThan(0);

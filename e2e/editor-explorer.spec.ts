@@ -151,7 +151,7 @@ const rows = (page: Page) => page.locator('.ed-tree .ed-row');
 const row = (page: Page, p: string) => page.locator(`.ed-tree .ed-row[data-path="${String(p).replace(/\\/g, '\\\\')}"]`);
 const names = (page: Page) =>
   page.evaluate(() => [...document.querySelectorAll('.ed-tree .ed-row')]
-    .map((e) => (e as HTMLElement).dataset.path!.split('/').pop()));
+    .map((e) => (e as HTMLElement).dataset.path!.split(/[\\/]/).pop()));
 
 // var(--x) 가 실제로 어떤 색으로 풀리는지. 테마가 값을 덮어써도 비교가 성립한다.
 const varColor = (page: Page, name: string) =>

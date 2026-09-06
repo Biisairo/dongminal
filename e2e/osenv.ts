@@ -70,3 +70,45 @@ export function realPath(p: string): string {
 export function cssPath(p: string): string {
   return String(p).replace(/\\/g, '\\\\');
 }
+
+/**
+ * 도구 셸에 타이핑할 명령 (FR-CEM-9).
+ *
+ * 셸이 OS 마다 다르다 — POSIX 는 zsh·bash, Windows 는 pwsh 다
+ * (`platform.Shell`). 세 가지가 특히 다르다.
+ *
+ *   환경변수  `$NAME` ↔ `$env:NAME`
+ *   기다림    `sleep 2` ↔ `Start-Sleep 2`
+ *   실행 파일 `dmctl` ↔ `dmctl.exe` (`platform.Paths.ExeSuffix`)
+ *
+ * 파이프와 `&&` 는 둘 다 받는다 (pwsh 7). 그래서 이 셋만 바꾸면 같은 문장이
+ * 양쪽에서 같은 일을 한다.
+ */
+export function envRef(name: string): string {
+  return isWin ? '$env:' + name : '$' + name;
+}
+
+/** 그 홈 아래 `bin` 의 헬퍼를 부르는 조각. 절대경로인 이유는 PATH 앞쪽의 낡은
+ * dmctl 이 새 하위명령을 모를 수 있기 때문이다. */
+export function dmctl(...args: string[]): string {
+  const path = isWin
+    ? `"${envRef('DONGMINAL_HOME')}\\bin\\dmctl.exe"`
+    : `"${envRef('DONGMINAL_HOME')}/bin/dmctl"`;
+  return [isWin ? '& ' + path : path, ...args].join(' ');
+}
+
+/** 초 단위로 기다리는 조각. */
+export function sleepCmd(sec: number): string {
+  return isWin ? `Start-Sleep ${sec}` : `sleep ${sec}`;
+}
+
+/** 문자열을 그대로 표준 출력으로 내는 조각 — 파이프의 앞머리다. */
+export function echoCmd(text: string): string {
+  // 두 셸 모두 홑따옴표는 축자 문자열이다. JSON 안의 겹따옴표가 그대로 지나간다.
+  return isWin ? `'${text}'` : `echo '${text}'`;
+}
+
+/** 차례로 잇는다 — 앞이 성공해야 뒤가 돈다. */
+export function chain(...parts: string[]): string {
+  return parts.join(' && ');
+}

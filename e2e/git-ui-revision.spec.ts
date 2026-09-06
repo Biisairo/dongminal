@@ -1221,7 +1221,7 @@ test.describe('UI 개정 — GIT 섹션 표식 (FR-GIT-192~194)', () => {
       return rows.map(r => {
         const d = r.querySelector('.ed-entry-dot') as HTMLElement | null;
         return {
-          repo: (r.dataset.gitRepo || '').split('/').pop(),
+          repo: (r.dataset.gitRepo || '').split(/[\\/]/).pop(),
           active: r.classList.contains('active'),
           hasDot: !!d,
           bg: d ? getComputedStyle(d).backgroundColor : null,

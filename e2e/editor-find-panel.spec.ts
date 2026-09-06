@@ -84,7 +84,7 @@ async function openFile(page: Page, name: string) {
   await page.evaluate((p) => (window as any).app._edOpenFile(p), `${ROOT}/${name}`);
   await page.waitForFunction((n) => {
     const v = (window as any).app._edActiveEditor();
-    return !!(v && v._editor && String(v.filePath).endsWith('/' + n) && v.el.offsetParent !== null);
+    return !!(v && v._editor && new RegExp('[\\\\/]' + n + '$').test(String(v.filePath)) && v.el.offsetParent !== null);
   }, name, { timeout: 20000 });
 }
 

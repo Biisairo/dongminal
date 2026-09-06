@@ -109,7 +109,7 @@ test.describe('묶음 F·G·K — Editor 검색', () => {
       // list 는 **문자열 배열**이다 (wsentry.Lists.Editors).
       const list: string[] = (j.list || []).filter(Boolean);
       // 서버가 정규화한 값을 그대로 쓴다 — 우리가 다시 정규화하면 갈린다.
-      return list.find((r) => r.endsWith('/basic')) || list[0] || '';
+      return list.find((r) => /[\\/]basic$/.test(r)) || list[0] || '';
     }, path);
   }
 
@@ -196,7 +196,7 @@ test.describe('묶음 V — 열 수 있는 것과 없는 것', () => {
       if (!r.ok) return '';
       const j = await r.json();
       const list: string[] = (j.list || []).filter(Boolean);
-      return list.find((x) => x.endsWith('/basic')) || list[0] || '';
+      return list.find((x) => /[\\/]basic$/.test(x)) || list[0] || '';
     }, fx('basic'));
   }
 
@@ -322,7 +322,8 @@ test.describe('묶음 K — 검색 루트의 배선', () => {
     await waitForInit(page);
     await activateEditorWindow(page);
     const root = await page.evaluate(() => (window as any).app._edSearchRoot());
-    expect(root.endsWith('/basic')).toBe(true);
+    // 구분자는 그 OS 의 것이다 (FR-CEM-11).
+    expect(/[\\/]basic$/.test(root), `루트가 basic 이 아니다: ${root}`).toBe(true);
   });
 
   // V-EKB-4: 루트가 잡히면 패널이 실제로 뜨고 질의 칸에 포커스가 간다.
