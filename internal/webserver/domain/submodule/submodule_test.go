@@ -5,7 +5,16 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
+
+// repoPath 는 이 호스트의 **OS 형태 절대경로**다.
+//
+// `"/repo"` 리터럴을 쓰면 Windows 에서 `filepath.IsAbs` 가 거짓이라 `checkRepo`
+// 가 전부 거부한다 — CI 가 그렇게 깨졌다. `testpath` 가 정확히 이것을 위해 있다
+// (WINDOWS_TEST_PARITY_SRS FR-WTP-10·11).
+var repoPath = testpath.Abs("repo")
 
 // UX_BATCH5_SRS 묶음 D — 서브모듈 목록과 조작 (FR-SUB-1~5).
 //
@@ -31,7 +40,7 @@ func TestListParsesFourStates(t *testing.T) {
 		"U3333333333333333333333333333333333333333 vendor/conflicted",
 	}, "\n")
 	m, _ := mgr(out, nil)
-	got, err := m.List("/repo")
+	got, err := m.List(repoPath)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -49,7 +58,7 @@ func TestListParsesFourStates(t *testing.T) {
 func TestListHandlesPathWithSpaces(t *testing.T) {
 	// 경로에 공백이 있어도 describe 는 **끝**에 온다. 공백으로 자르면 경로가 잘린다.
 	m, _ := mgr(" 4444444444444444444444444444444444444444 vendor/my lib (heads/main)", nil)
-	got, err := m.List("/repo")
+	got, err := m.List(repoPath)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -65,7 +74,7 @@ func TestListEmptyIsNotAnError(t *testing.T) {
 	// 서브모듈이 없는 저장소는 흔하다 — 빈 출력은 정상이다. 오류로 바꾸면 탭이
 	// 저장소마다 실패를 보인다 (FR-SUB-10).
 	m, _ := mgr("", nil)
-	got, err := m.List("/repo")
+	got, err := m.List(repoPath)
 	if err != nil {
 		t.Fatalf("빈 목록이 오류가 됐다: %v", err)
 	}
@@ -78,7 +87,7 @@ func TestListRejectsGarbageLine(t *testing.T) {
 	// 알아보지 못한 줄은 **버린다.** 반쯤 채운 항목을 만들면 화면이 빈 경로의
 	// 행을 그리고, 그 행의 동작이 저장소 전체를 가리킨다.
 	m, _ := mgr(" short-oid vendor/x\n\n 5555555555555555555555555555555555555555 vendor/ok (m)", nil)
-	got, err := m.List("/repo")
+	got, err := m.List(repoPath)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -91,14 +100,14 @@ func TestListUsesStatusSubcommand(t *testing.T) {
 	// FR-SUB-3: `--recursive` 를 쓰지 않는다 — 깊이를 섞으면 어느 행이 누구의
 	// 것인지 말할 수 없다. 중첩은 그 서브모듈을 저장소로 연 뒤 그 창에서 본다.
 	m, calls := mgr("", nil)
-	if _, err := m.List("/repo"); err != nil {
+	if _, err := m.List(repoPath); err != nil {
 		t.Fatalf("List: %v", err)
 	}
 	if len(*calls) != 1 {
 		t.Fatalf("호출 %d 회", len(*calls))
 	}
 	got := (*calls)[0]
-	if got[0] != "/repo" {
+	if got[0] != repoPath {
 		t.Errorf("dir = %q", got[0])
 	}
 	if got[1] != "submodule" || got[2] != "status" {
@@ -115,7 +124,7 @@ func TestListPropagatesFailure(t *testing.T) {
 	// 실패를 빈 목록으로 낮추지 않는다 — "서브모듈이 없다" 와 "확인에 실패했다" 는
 	// 사용자가 할 일이 다르다 (RepoRoot 의 ErrNotRepo 와 같은 근거).
 	m, _ := mgr("fatal: not a git repository", errors.New("exit status 128"))
-	if _, err := m.List("/repo"); err == nil {
+	if _, err := m.List(repoPath); err == nil {
 		t.Fatal("실패가 오류로 오지 않았다")
 	}
 }
@@ -142,7 +151,7 @@ func TestUpdateArgv(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			m, calls := mgr("", nil)
-			if err := m.Update("/repo", tc.path, tc.init, tc.recursive); err != nil {
+			if err := m.Update(repoPath, tc.path, tc.init, tc.recursive); err != nil {
 				t.Fatalf("Update: %v", err)
 			}
 			args := (*calls)[0][1:]
@@ -165,7 +174,7 @@ func TestUpdateArgv(t *testing.T) {
 
 func TestSyncArgv(t *testing.T) {
 	m, calls := mgr("", nil)
-	if err := m.Sync("/repo", "vendor/x"); err != nil {
+	if err := m.Sync(repoPath, "vendor/x"); err != nil {
 		t.Fatalf("Sync: %v", err)
 	}
 	argv := strings.Join((*calls)[0][1:], " ")
@@ -181,7 +190,7 @@ func TestPathGuardRejectsEscape(t *testing.T) {
 		"/etc", "../outside", "vendor/../../etc", `C:\win`, "-rf", "--force",
 	} {
 		m, calls := mgr("", nil)
-		if err := m.Update("/repo", bad, false, false); err == nil {
+		if err := m.Update(repoPath, bad, false, false); err == nil {
 			t.Errorf("%q: 거부되지 않았다", bad)
 		}
 		if len(*calls) != 0 {
@@ -193,7 +202,7 @@ func TestPathGuardRejectsEscape(t *testing.T) {
 func TestPathGuardAllowsNormal(t *testing.T) {
 	for _, ok := range []string{"vendor/inner", "a", "a/b/c", "my lib"} {
 		m, _ := mgr("", nil)
-		if err := m.Update("/repo", ok, false, false); err != nil {
+		if err := m.Update(repoPath, ok, false, false); err != nil {
 			t.Errorf("%q: 거부됐다: %v", ok, err)
 		}
 	}
