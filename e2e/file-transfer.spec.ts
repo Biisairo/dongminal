@@ -1,11 +1,10 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { APIRequestContext, Locator, Page } from '@playwright/test';
 
 import { test, expect, openRowMenu, rmTree } from './fixtures';
-import { realPath, cssPath } from './osenv';
+import { TMP, realPath, cssPath } from './osenv';
 
 // FILE_TRANSFER_SRS §5 — V-FTR-8·12·14~21.
 //
@@ -35,7 +34,7 @@ function mkRoot(tag: string) {
   return realPath(d);
 }
 
-test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-ftr-'))) });
+test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-ftr-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
 async function addEditor(request: APIRequestContext, p: string) {

@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import { mkdtempSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, openGitTab, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as fxWaitForInit, openGit, gitFixture, cleanGitFixture, waitShellReady } from './fixtures';
-import { tmpPath, realPath, cssPath } from './osenv';
+import { TMP, tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_REVIEW4_SRS §3.6.1~§3.6.4 — 개선 I1~I4. 검증 V132~V142
 // (FR-GIT-236~239).
@@ -61,7 +60,7 @@ async function waitFiles(page: Page, min = 1) {
 // 서버는 rev-parse 로 정규화한 경로를 준다(macOS 의 /tmp → /private/tmp) —
 // follow 행의 data-git-repo 와 직접 비교하려면 여기서도 realPath 를 지나야 한다.
 function makeRepoWithChange(prefix: string) {
-  const dir = mkdtempSync(join(tmpdir(), prefix));
+  const dir = mkdtempSync(join(TMP, prefix));
   execFileSync('git', ['init', '-q', dir]);
   writeFileSync(join(dir, 'a.txt'), 'x\n');
   return realPath(dir);

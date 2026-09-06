@@ -5,8 +5,6 @@ import (
 
 	"bytes"
 	"encoding/binary"
-	"errors"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -138,26 +136,22 @@ func TestHandleWS_OpInput(t *testing.T) {
 		t.Fatalf("write input: %v", err)
 	}
 
-	// 에코를 기다린다. **읽기 시한 초과는 "아직 안 왔다" 이고, 연결이 끊긴 것과
-	// 다르다** — 그 둘을 갈라야 예산이 예산으로 쓰인다.
+	// 에코를 기다린다. 재는 것은 **에코의 도착**이지 러너의 속도가 아니므로
+	// 예산을 넉넉히 둔다 — ConPTY 가 셸을 띄우는 데 초 단위가 걸린다.
 	//
-	// 이전에는 `err != nil` 이면 곧바로 `break` 했다. 시한 초과도 error 이므로
-	// 예산이 3초여도 실제로 재던 것은 **첫 500ms 안에 에코가 오는가** 였고,
-	// ConPTY 가 셸을 띄우는 데 그보다 오래 걸리는 Windows 러너에서 죽었다
-	// (verify 33353308649). 러너의 부하에 따라 통과하던 검사다 — 재는 것이
-	// 에코의 도착이지 러너의 속도가 아니므로, 시한 초과에는 계속 기다린다.
+	// **시한은 한 번만 세운다.** 짧은 시한을 걸고 초과할 때마다 `continue` 하던
+	// 판이 있었는데, gorilla 는 읽기가 한 번 실패하면(시한 초과도 실패다) 그
+	// 연결을 **영구 실패**로 표시하고 이후의 읽기를 곧바로 되돌린다 — 그러면
+	// 루프가 빈틈없이 돌다가 1000회에서 그 패키지가 스스로 패닉한다
+	// ("repeated read on failed websocket connection", Windows verify 실측).
+	// 예산 전체를 한 시한으로 두면 시한 초과는 곧 "오지 않았다" 이고, 그 자리에서
+	// 끝난다.
 	found := false
-	deadline := time.Now().Add(15 * time.Second)
-	for time.Now().Before(deadline) {
-		ws.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	ws.SetReadDeadline(time.Now().Add(15 * time.Second))
+	for {
 		mt, msg, err := ws.ReadMessage()
 		if err != nil {
-			var ne net.Error
-			if errors.As(err, &ne) && ne.Timeout() {
-				continue
-			}
-			// 연결이 끊겼다 — 더 기다려도 오지 않는다.
-			t.Fatalf("read: %v", err)
+			break // 시한 초과이거나 연결이 끊겼다 — 둘 다 "오지 않았다" 이다
 		}
 		if mt == websocket.BinaryMessage && len(msg) > 0 && msg[0] == toolhub.OpOutput {
 			if bytes.Contains(msg[1:], []byte("ws_test")) {

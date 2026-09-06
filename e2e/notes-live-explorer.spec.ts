@@ -1,11 +1,10 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, rmTree } from './fixtures';
-import { realPath, cssPath } from './osenv';
+import { TMP, realPath, cssPath } from './osenv';
 
 // NOTES_LIVE_EXPLORER_SRS §5.2 — 묶음 N(메모장)·묶음 L(탐색기의 살아있는 반영)의
 // 클라이언트 검증 V-13~V-25.
@@ -21,7 +20,7 @@ let PLAIN = '';
 const j = (...p: string[]) => path.join(...p);
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-nle-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-nle-')));
   PLAIN = j(BASE, 'plain');
   fs.mkdirSync(PLAIN);
   fs.mkdirSync(j(PLAIN, 'sub'));

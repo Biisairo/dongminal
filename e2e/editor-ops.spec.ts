@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, rmTree } from './fixtures';
-import { realPath, cssPath } from './osenv';
+import { TMP, realPath, cssPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M5(파일 조작) · M6(파일 열기 라우팅)의 검증
 // V-EDT-57~62·68~71 (조작) · V-EDT-73~79 (라우팅).
@@ -61,7 +60,7 @@ function mkRepo(tag: string) {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-edop-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-edop-')));
   REPO = mkRepo('repo');
 });
 test.afterAll(() => {

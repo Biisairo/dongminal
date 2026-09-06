@@ -1,10 +1,9 @@
 import { execFileSync } from 'child_process';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { test, expect, plainWindows, waitForInit, waitSettled } from './fixtures';
-import { realPath, slash } from './osenv';
+import { TMP, realPath, slash } from './osenv';
 
 // /dongminal:team 과 /dongminal:workflow 스킬이 실제로 밟는 접합면을 라이브 서버에서
 // 검증한다. 스킬 문서는 명령·인자만 적혀 있어 정적 대조로는 "그 이름이 존재한다"
@@ -677,7 +676,7 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
   let repo = '';
 
   test.beforeAll(() => {
-    repo = mkdtempSync(join(tmpdir(), 'dmn-e2e-repo-'));
+    repo = mkdtempSync(join(TMP, 'dmn-e2e-repo-'));
     repo = realPath(repo);
     const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, stdio: 'pipe' });
     git('init', '-b', 'main');
@@ -773,7 +772,7 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
   });
 
   test('비git 디렉터리의 격리 Run 은 명확히 실패한다', async ({ request }) => {
-    const plain = realPath(mkdtempSync(join(tmpdir(), 'dmn-e2e-plain-')));
+    const plain = realPath(mkdtempSync(join(TMP, 'dmn-e2e-plain-')));
     const r = await request.post('/api/runs', {
       data: { objective: 'e2e 비git', projection: 'inline', isolation: 'per-member', cwd: plain },
     });

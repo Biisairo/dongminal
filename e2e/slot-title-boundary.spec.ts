@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import { mkdtempSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, waitForInit } from './fixtures';
-import { cssPath } from './osenv';
+import { TMP, cssPath } from './osenv';
 
 // 브라우저 쪽 전역 렉시컬 바인딩 (classic script 의 최상위 `const`).
 declare const THEMES: Record<string, { ui: Record<string, string> }>;
@@ -20,7 +19,7 @@ declare const SLOT_EDGE_MIX: number;
 // 다른 색·굵기로 그려진다.
 
 function makeRepo(prefix: string) {
-  const dir = mkdtempSync(join(tmpdir(), prefix));
+  const dir = mkdtempSync(join(TMP, prefix));
   execFileSync('git', ['init', '-q', dir]);
   writeFileSync(join(dir, 'a.txt'), 'x');
   return dir;

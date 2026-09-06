@@ -65,7 +65,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
 
@@ -111,7 +111,7 @@ jobs:
       # 이름을 올리고, `upload-artifact@v4` 는 같은 이름을 두 번 받지 않는다.
       - name: 리포트 (실패 시)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-report-${{ matrix.os }}-${{ matrix.shard }}
           path: |

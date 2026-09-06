@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath, realPath, cssPath } from './osenv';
+import { TMP, tmpPath, realPath, cssPath } from './osenv';
 
 /**
  * UX_BATCH5_SRS 묶음 E — 워크트리를 **그 자체 저장소로** 다루는 경로 (FR-WTG-1).
@@ -48,7 +47,7 @@ const copyFx = makeCopyFx(FIXTURES);
  * 준 값을 쓰므로 비교 대상도 같은 형태여야 한다.
  */
 function addWorktree(repo: string, name: string, opts: { detached?: boolean } = {}) {
-  const dir = mkdtempSync(join(tmpdir(), 'dm-wtrepo-'));
+  const dir = mkdtempSync(join(TMP, 'dm-wtrepo-'));
   rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); // git 이 직접 만들게 둔다
   const args = opts.detached
     ? ['-C', repo, 'worktree', 'add', '--detach', dir, 'HEAD']

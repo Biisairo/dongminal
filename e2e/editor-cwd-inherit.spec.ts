@@ -1,9 +1,8 @@
 import { test, expect } from './fixtures';
-import { realPath } from './osenv';
+import { TMP, realPath } from './osenv';
 // @ts-ignore
 import * as fs from 'fs';
 // @ts-ignore
-import * as os from 'os';
 // @ts-ignore
 import * as path from 'path';
 
@@ -55,7 +54,7 @@ async function gotoFresh(page, request) {
 }
 
 function makeFileInDir(): { filePath: string; expectedCwd: string } {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mdcwd-'));
+  const dir = fs.mkdtempSync(path.join(TMP, 'mdcwd-'));
   const fp = path.join(dir, 'doc.md');
   fs.writeFileSync(fp, '# doc\n\nhello\n');
   // macOS resolves /var → /private/var; shell-reported cwd uses the realpath.

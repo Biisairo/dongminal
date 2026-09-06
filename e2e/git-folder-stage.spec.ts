@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit, gitFixture, cleanGitFixture, rmTree } from './fixtures';
-import { tmpPath, realPath, cssPath } from './osenv';
+import { TMP, tmpPath, realPath, cssPath } from './osenv';
 
 // WORKBENCH_REVIEW_SRS 묶음 F — git Changes 의 폴더 단위 스테이징
 // (FR-WBR-80~84, 검증 V-WBR-80~84).
@@ -87,7 +86,7 @@ function mkConflictTree(tag: string) {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-gfs-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-gfs-')));
   TREE = mkTree('tree');
   gitFixture(FIXTURES);
 });

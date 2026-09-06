@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import { mkdtempSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
 import { basename, join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, openGitTab, waitForInit, waitShellReady } from './fixtures';
-import { cssPath } from './osenv';
+import { TMP, cssPath } from './osenv';
 
 // GIT_M1_STEP4_CONTRACT §4 — 좌측 GIT 섹션. 검증 V17·V16·V3·V7.
 //
@@ -33,10 +32,10 @@ async function cd(page: Page, dir: string) {
   await expect(page.locator('#area .pn.focused .xterm-rows')).toContainText('moved_ok', { timeout: 10000 });
 }
 
-// makeRepo 는 tmpdir 아래에 저장소 하나를 만든다. 추적되지 않은 파일 하나를
+// makeRepo 는 임시 뿌리 아래에 저장소 하나를 만든다. 추적되지 않은 파일 하나를
 // 두므로 배지의 total 은 1 이다.
 function makeRepo(prefix: string) {
-  const dir = mkdtempSync(join(tmpdir(), prefix));
+  const dir = mkdtempSync(join(TMP, prefix));
   execFileSync('git', ['init', '-q', dir]);
   writeFileSync(join(dir, 'a.txt'), 'x');
   return dir;

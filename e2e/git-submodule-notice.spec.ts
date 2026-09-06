@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
 import { test, expect, openGit as fxOpenGit, rmTree } from './fixtures';
-import { realPath, cssPath } from './osenv';
+import { TMP, realPath, cssPath } from './osenv';
 
 // SUBMODULE_DIRTY_NOTICE_SRS §5 — 검증 V-SDN-*.
 //
@@ -76,7 +75,7 @@ function makeParent(base: string, kind: 'commit' | 'inner' | 'both') {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-sdn-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-sdn-')));
   for (const k of ['commit', 'inner', 'both'] as const) REPO[k] = makeParent(BASE, k);
 });
 test.afterAll(() => {

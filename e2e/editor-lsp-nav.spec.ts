@@ -6,13 +6,12 @@
  * peek 이 그 일을 못 하기 때문에 우리가 맡은 바로 그 부분이다 (그 SRS §2.11 / D-8b).
  */
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, rmTree } from './fixtures';
-import { realPath, cssPath } from './osenv';
+import { TMP, realPath, cssPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
 
@@ -26,7 +25,7 @@ let BASE = '';
 let ROOT = '';
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-lspnav-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-lspnav-')));
   ROOT = j(BASE, 'root');
   // 정의가 **다른 파일, 그리고 깊은 겹**에 있다 — 조상 펼치기까지 걸린다.
   fs.mkdirSync(j(ROOT, 'pkg', 'deep'), { recursive: true });

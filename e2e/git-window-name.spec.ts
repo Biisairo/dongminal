@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import { mkdtempSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, waitForInit } from './fixtures';
-import { cssPath } from './osenv';
+import { TMP, cssPath } from './osenv';
 
 // 상단의 창 이름은 **지금 무엇을 보고 있는지**를 말해야 한다. Window·Editor 는
 // 창 자체가 대상이라 저장된 이름이 곧 목록의 이름인데, Git 창만 `Git` 으로
@@ -17,7 +16,7 @@ import { cssPath } from './osenv';
 // 값 — 리포를 갈아타면 그것이 따라오는가 — 이다.
 
 function makeRepo(prefix: string) {
-  const dir = mkdtempSync(join(tmpdir(), prefix));
+  const dir = mkdtempSync(join(TMP, prefix));
   execFileSync('git', ['init', '-q', dir]);
   writeFileSync(join(dir, 'a.txt'), 'x');
   return dir;

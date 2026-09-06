@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, openGit as fxOpenGit, rmTree } from './fixtures';
-import { realPath, cssPath } from './osenv';
+import { TMP, realPath, cssPath } from './osenv';
 
 // GIT_DIR_ENTRY_SRS §4 — 디렉터리 상태 항목의 검증 V-DIR-10~42.
 //
@@ -72,7 +71,7 @@ function makeParent(base: string) {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-dir-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-dir-')));
   PARENT = makeParent(BASE);
   SUBDIR = j(PARENT, 'src');
 });

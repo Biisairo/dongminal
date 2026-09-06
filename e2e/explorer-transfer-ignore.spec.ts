@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { APIRequestContext, Locator, Page } from '@playwright/test';
 
 import { test, expect, openRowMenu, rmTree } from './fixtures';
-import { realPath, cssPath } from './osenv';
+import { TMP, realPath, cssPath } from './osenv';
 
 // EXPLORER_TRANSFER_IGNORE_SRS §5 — V-ETR-6~8·21~27·29~31·33~38.
 //
@@ -22,7 +21,7 @@ let BASE = '';
 const j = (...p: string[]) => path.join(...p);
 const w = (p: string, s: string) => fs.writeFileSync(p, s);
 
-test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-etr-'))) });
+test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-etr-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
 function git(dir: string, ...args: string[]) {

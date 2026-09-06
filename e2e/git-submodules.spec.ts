@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, GIT_VIEW_TABS, GIT_BODY_VIEWS, clickGitView, rmTree } from './fixtures';
-import { realPath, cssPath } from './osenv';
+import { TMP, realPath, cssPath } from './osenv';
 
 /**
  * UX_BATCH5_SRS 묶음 D — Submodules 탭 (FR-SUB-1~11).
@@ -74,7 +73,7 @@ function mkTree(tag: string) {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-gsub-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-gsub-')));
 });
 test.afterAll(() => {
   rmTree(BASE);

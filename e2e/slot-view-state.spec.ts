@@ -1,11 +1,10 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS, gitFixture, cleanGitFixture, copyDir, rmTree, rmTreeHard } from './fixtures';
-import { tmpPath, realPath, cssPath } from './osenv';
+import { TMP, tmpPath, realPath, cssPath } from './osenv';
 
 // 칸별 시선 — SLOT_VIEW_STATE_SRS §8
 //
@@ -471,7 +470,7 @@ test.describe('묶음 F — 함께 고치는 결함 (FR-SVS-60)', () => {
   let SOME_FILE = '';
 
   test.beforeAll(() => {
-    HOME_DIR = realPath(fs.mkdtempSync(path.join(os.tmpdir(), 'dm-svs-')));
+    HOME_DIR = realPath(fs.mkdtempSync(path.join(TMP, 'dm-svs-')));
     SOME_FILE = path.join(HOME_DIR, 'm1.txt');
     fs.writeFileSync(SOME_FILE, 'hello\n');
   });
@@ -525,7 +524,7 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
   let ROOT = '';
 
   test.beforeAll(() => {
-    BASE = realPath(fs.mkdtempSync(path.join(os.tmpdir(), 'dm-svs-x-')));
+    BASE = realPath(fs.mkdtempSync(path.join(TMP, 'dm-svs-x-')));
     ROOT = path.join(BASE, 'proj');
     fs.mkdirSync(ROOT);
     for (const d of ['dirA', 'dirB']) {
@@ -953,7 +952,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
   let FILE = '';
 
   test.beforeAll(() => {
-    BASE = realPath(fs.mkdtempSync(path.join(os.tmpdir(), 'dm-svs-e-')));
+    BASE = realPath(fs.mkdtempSync(path.join(TMP, 'dm-svs-e-')));
     ROOT = path.join(BASE, 'proj');
     fs.mkdirSync(ROOT);
     FILE = path.join(ROOT, 'doc.txt');

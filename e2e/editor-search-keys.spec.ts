@@ -1,11 +1,10 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, rmTree } from './fixtures';
-import { realPath, cssPath } from './osenv';
+import { TMP, realPath, cssPath } from './osenv';
 
 // EDITOR_GIT_UX_SRS §4 — V-EKB-3~6 (FR-EKB-5·6).
 //
@@ -19,7 +18,7 @@ let BASE = '';
 let ROOT = '';
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-edk-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-edk-')));
   ROOT = j(BASE, 'root');
   // 조상이 셋인 파일 — 재귀 전개가 한 겹만 여는지 전부 여는지 가른다.
   fs.mkdirSync(j(ROOT, 'aa', 'bb', 'cc'), { recursive: true });

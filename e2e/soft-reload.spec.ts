@@ -1,11 +1,10 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, addEditorRoot } from './fixtures';
-import { realPath, cssPath } from './osenv';
+import { TMP, realPath, cssPath } from './osenv';
 
 // SOFT_RELOAD_SRS §5 — V-SRL-1~9.
 //
@@ -195,7 +194,7 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
   // 그것을 조용히 삼켰다. 살아 있는 트리 뷰는 `_edTrees` 에 있다.
   test('SR8 (V-WBR-92 / FR-WBR-95): 내부 새로고침이 탐색기의 열린 겹을 다시 읽는다',
     async ({ page, request }) => {
-      const base = realPath(fs.mkdtempSync(path.join(os.tmpdir(), 'dm-srl-')));
+      const base = realPath(fs.mkdtempSync(path.join(TMP, 'dm-srl-')));
       fs.mkdirSync(path.join(base, 'sub'));
       fs.writeFileSync(path.join(base, 'sub', 'a.txt'), 'A\n');
       // 서버가 저장한 철자를 그대로 받는다 — 창을 찾는 쪽은 문자열 완전 일치다.

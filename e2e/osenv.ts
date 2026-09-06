@@ -19,15 +19,26 @@ export function slash(p: string): string {
 }
 
 /**
- * 임시 디렉터리의 뿌리 (FR-CEM-7).
+ * 임시 디렉터리의 뿌리 (FR-CEM-7 · FR-CEM-22).
  *
  * POSIX 는 `/tmp` 를 그대로 쓴다. `os.tmpdir()` 로 통일하고 싶은 유혹이 있으나
  * macOS 의 그 값은 `/var/folders/…/T`(48자)이고, 인스턴스 홈 아래에는 **유닉스
  * 도메인 소켓**(`paned.sock`)이 산다 — macOS 의 소켓 경로 상한은 104바이트다.
  * 홈 이름과 소켓 이름을 더하면 그 상한에 붙으므로, 통일의 대가가 데몬의 기동
- * 실패다. Windows 에는 `/tmp` 가 없으니 그쪽만 `os.tmpdir()` 이다.
+ * 실패다.
+ *
+ * **Windows 는 `RUNNER_TEMP` 를 먼저 본다.** 그 OS 의 `os.tmpdir()` 은
+ * `C:\Users\<사용자>\AppData\Local\Temp` 이고, 그것은 **사용자의 홈 안**이다 —
+ * 앱은 홈을 뿌리로 하는 편집기를 늘 하나 세우므로(FR-EDT-13) 검사가 만든 모든
+ * 임시 뿌리가 그 창에 **중첩**된다. POSIX 의 `/tmp` 에서는 한 번도 없던 겹침이고,
+ * 그래서 여러 스펙이 "내 뿌리를 품는 창은 내 것뿐" 을 조용히 전제하고 있다
+ * (러너 실측: 화면에 뜬 트리가 검사의 뿌리가 아니라 홈이었다).
+ *
+ * 러너의 `RUNNER_TEMP`(`D:\a\_temp`)는 홈 밖이다. 없으면 `os.tmpdir()` 로
+ * 물러선다 — 그 처지에서는 중첩이 그대로이지만, 그것은 **앱이 다뤄야 할 실제
+ * 상황**이지 검사가 만든 것이 아니다.
  */
-export const TMP = isWin ? slash(tmpdir()) : '/tmp';
+export const TMP = isWin ? slash(process.env.RUNNER_TEMP || tmpdir()) : '/tmp';
 
 /** 임시 디렉터리 아래의 한 자리. 구분자는 언제나 슬래시다 (FR-CEM-8). */
 export function tmpPath(name: string): string {

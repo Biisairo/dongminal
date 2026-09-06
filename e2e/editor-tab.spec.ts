@@ -1,11 +1,10 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
 import { test, expect, gitFixture, cleanGitFixture, rmTree } from './fixtures';
-import { tmpPath, realPath } from './osenv';
+import { TMP, tmpPath, realPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M2(탭·창 골격)의 검증 V-EDT-*.
 //
@@ -22,7 +21,7 @@ let SOME_FILE = '';
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
-  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'dm-edt-'));
+  const base = fs.mkdtempSync(path.join(TMP, 'dm-edt-'));
   HOME_DIR = realPath(base);
   PROJ_DIR = path.join(HOME_DIR, 'proj');
   PROJ2_DIR = path.join(HOME_DIR, 'proj2');

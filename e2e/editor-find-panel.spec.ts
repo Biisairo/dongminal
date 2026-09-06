@@ -9,13 +9,12 @@
  * 그것이 이 결함이 살아남은 이유다.
  */
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, rmTree } from './fixtures';
-import { realPath } from './osenv';
+import { TMP, realPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
 
@@ -46,7 +45,7 @@ const BODY = [...LINES, ...PAD, 'omega needle last', ''].join('\n');
 const NEEDLE_LINE_LAST = LINES.length + PAD.length + 1; // 105
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-efp-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-efp-')));
   ROOT = j(BASE, 'root');
   fs.mkdirSync(ROOT, { recursive: true });
   fs.writeFileSync(j(ROOT, 'find.txt'), BODY);

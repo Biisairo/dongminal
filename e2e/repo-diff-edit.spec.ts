@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, rmTree } from './fixtures';
-import { realPath, cssPath } from './osenv';
+import { TMP, realPath, cssPath } from './osenv';
 
 // REPO_TAB_UNIFY_SRS §4 — diff 편집의 검증 V-RTU-50~56.
 //
@@ -43,7 +42,7 @@ function makeRepo(base: string) {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-rde-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-rde-')));
   REPO = makeRepo(BASE);
 });
 test.afterAll(() => {

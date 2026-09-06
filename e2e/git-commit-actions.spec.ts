@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, clickGitView, openRowMenu } from './fixtures';
-import { realPath } from './osenv';
+import { TMP, realPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.4 — 묶음 D 커밋 동작 (FR-GIT-263~267, 검증 V191~V194).
 //
@@ -24,7 +23,7 @@ function git(dir: string, ...args: string[]) {
 }
 
 function newRepo(tag: string) {
-  const dir = realPath(mkdtempSync(join(tmpdir(), 'dm-git-co-' + tag + '-')));
+  const dir = realPath(mkdtempSync(join(TMP, 'dm-git-co-' + tag + '-')));
   git(dir, 'init', '-q', '-b', 'main', '.');
   git(dir, 'config', 'user.name', 'Fixture');
   git(dir, 'config', 'user.email', 'fixture@example.invalid');

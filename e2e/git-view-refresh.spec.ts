@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, GIT_VIEW_TABS, openGit, gitFixture, cleanGitFixture, copyDir } from './fixtures';
-import { tmpPath, realPath } from './osenv';
+import { TMP, tmpPath, realPath } from './osenv';
 
 // GIT_VIEW_REFRESH_SRS §4 — 쓰기 뒤 뷰 갱신. 검증 V-GVR-1~8.
 //
@@ -45,7 +44,7 @@ function copyPair(tag: string) {
 
 // 원격을 한 커밋 앞세운다 — 별도 클론에서 밀어야 bare 를 정직하게 움직인다.
 function advanceRemote(remote: string, text: string) {
-  const work = realPath(mkdtempSync(join(tmpdir(), 'dm-git-adv-')));
+  const work = realPath(mkdtempSync(join(TMP, 'dm-git-adv-')));
   const clone = join(work, 'c');
   execFileSync('git', ['clone', '-q', remote, clone]);
   git(clone, 'config', 'user.name', 'dm');

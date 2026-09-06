@@ -1,11 +1,11 @@
 import { execFileSync } from 'child_process';
 import { mkdtempSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit } from './fixtures';
+import { TMP } from './osenv';
 
 // EDITOR_TAB_SRS §3.4 — git 핀 ↔ Editor 행 연동 (FR-EDT-31~39, V-EDT-17·18·21·26).
 //
@@ -18,7 +18,7 @@ import { test, expect, waitForInit } from './fixtures';
 // 나타나야 한다 (FR-EDT-20·39·43).
 
 function makeRepo(prefix: string) {
-  const dir = mkdtempSync(join(tmpdir(), prefix));
+  const dir = mkdtempSync(join(TMP, prefix));
   execFileSync('git', ['init', '-q', dir]);
   writeFileSync(join(dir, 'a.txt'), 'x');
   return dir;

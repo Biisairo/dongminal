@@ -6,13 +6,12 @@
  * 나머지는 그 결과가 **안전한가**(FR-DRV-20)와 **살아 있는가**(FR-DRV-40)를 잰다.
  */
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, rmTree } from './fixtures';
-import { realPath } from './osenv';
+import { TMP, realPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
 let BASE = '';
@@ -42,7 +41,7 @@ const DOC = [
 ].join('\n');
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-drv-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-drv-')));
   ROOT = j(BASE, 'root');
   fs.mkdirSync(ROOT, { recursive: true });
   fs.writeFileSync(j(ROOT, 'doc.md'), DOC);

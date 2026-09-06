@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath, realPath, cssPath } from './osenv';
+import { TMP, tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_REVIEW4_SRS §3.6.5 — I7 Worktrees 탭. 검증 V143~V152 (FR-GIT-28 개정·240~245).
 // V145·V148·V159 는 Go 단위 테스트다(다른 담당). V153·V154·V157·V160 은 이미 끝났다.
@@ -90,7 +89,7 @@ const wtRows = (page: Page) => wt(page).locator('.git-wt-row');
 // 새로 만든 임시 디렉터리에 git worktree add 로 "바깥 것"을 직접 만든다 — 관리
 // 영역(user/run root) 밖이므로 소유는 무조건 outside 다. 서버 API 를 쓰지 않는다.
 function addOutsideWorktree(repo: string, name: string, ref = 'main') {
-  const dir = mkdtempSync(join(tmpdir(), 'dm-wt-outside-'));
+  const dir = mkdtempSync(join(TMP, 'dm-wt-outside-'));
   rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); // git worktree add 가 직접 만들게 둔다
   execFileSync('git', ['-C', repo, 'worktree', 'add', '-b', name, dir, ref], { stdio: 'pipe' });
   // 서버가 rev-parse 로 정규화한 값과 비교해야 하므로 여기서도 realpath 한다

@@ -1,11 +1,10 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, openRowMenu, rmTree } from './fixtures';
-import { realPath, cssPath } from './osenv';
+import { TMP, realPath, cssPath } from './osenv';
 
 // WORKBENCH_REVIEW_SRS 묶음 P — 탐색기의 복사·복제 (FR-WBR-70~74,
 // 검증 V-WBR-69~74).
@@ -38,7 +37,7 @@ function mkRoot(tag: string) {
   return realPath(d);
 }
 
-test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-edcp-'))) });
+test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-edcp-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
 async function addEditor(request: APIRequestContext, p: string) {

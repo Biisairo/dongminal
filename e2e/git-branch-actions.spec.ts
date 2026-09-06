@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, waitRows, openRowMenu, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath, realPath } from './osenv';
+import { TMP, tmpPath, realPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.2 · §3.5 — 묶음 B 브랜치 동작 (FR-GIT-253~259 · 268).
 // 검증 V177~V186 · V195.
@@ -41,7 +40,7 @@ function runHint(repo: string, cmd: string) {
 
 // 충돌하는 머지를 만들어 **멈춘 채로** 남긴다 (git-operation.spec.ts 와 같은 방식).
 function repoWithConflictedMerge(tag: string) {
-  const dir = realPath(mkdtempSync(join(tmpdir(), 'dm-git-bra-' + tag + '-')));
+  const dir = realPath(mkdtempSync(join(TMP, 'dm-git-bra-' + tag + '-')));
   git(dir, 'init', '-q', '-b', 'main', '.');
   git(dir, 'config', 'user.name', 'Fixture');
   git(dir, 'config', 'user.email', 'fixture@example.invalid');
@@ -65,7 +64,7 @@ function repoWithConflictedMerge(tag: string) {
 
 // 충돌 **직전** 까지만 만든 저장소. 같은 줄이 갈라져 있으므로 머지하면 반드시 멈춘다.
 function repoWithDivergedSide(tag: string) {
-  const dir = realPath(mkdtempSync(join(tmpdir(), 'dm-git-bra-' + tag + '-')));
+  const dir = realPath(mkdtempSync(join(TMP, 'dm-git-bra-' + tag + '-')));
   git(dir, 'init', '-q', '-b', 'main', '.');
   git(dir, 'config', 'user.name', 'Fixture');
   git(dir, 'config', 'user.email', 'fixture@example.invalid');

@@ -113,6 +113,19 @@ export default defineConfig({
     baseURL: 'http://localhost:' + E2E_PORT0,
     trace: 'on-first-retry',
     viewport: { width: 1280, height: 720 },
+    /**
+     * 조작 하나의 상한 (CI_E2E_MATRIX_SRS FR-CEM-20).
+     *
+     * 기본값은 **없음**이다 — `click` 하나가 테스트 예산 전부를 먹는다. 그래서
+     * 나타나지 않을 요소를 누르려던 검사가 Windows 에서 120초를 기다리고, 재시도가
+     * 그것을 한 번 더 돌려 **실패 하나에 4분**을 썼다(러너 실측: 샤드 시간의
+     * 대부분이 그 기다림이었다).
+     *
+     * 조작이 20초 안에 되지 않으면 그것은 느린 것이 아니라 **되지 않는 것**이다.
+     * 단정(`expect`)의 상한은 그대로 두므로 "언제 나타나는가" 를 재는 검사는
+     * 영향받지 않는다.
+     */
+    actionTimeout: 20_000,
   },
   projects: [
     {

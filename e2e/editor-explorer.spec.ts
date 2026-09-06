@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, rmTree } from './fixtures';
-import { realPath, cssPath } from './osenv';
+import { TMP, realPath, cssPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M3(파일 탐색기) · M4(탐색기의 git 색)의 검증 V-EDT-40~56.
 //
@@ -103,7 +102,7 @@ function makeRepo(base: string) {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-edx-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-edx-')));
   PLAIN = makePlain(BASE);
   REPO = makeRepo(BASE);
 });
@@ -505,7 +504,7 @@ test.describe('묶음 X — 다시 그리기와 실패의 회복 (FR-EDT-66·69)
       })).toBe(false);
     });
   test('X16 (FR-EDT-42): 일반 창에 있는 동안 Editor 행을 지워도 그 창의 탐색기가 즉시 거둬진다', async ({ page, request }) => {
-    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'dm-ed-reap-'));
+    const base = fs.mkdtempSync(path.join(TMP, 'dm-ed-reap-'));
     const root = makePlain(base);
     await enter(page, request, root);
     await expect.poll(() => page.evaluate(() => (window as any).app._edTrees?.size || 0)).toBeGreaterThan(0);

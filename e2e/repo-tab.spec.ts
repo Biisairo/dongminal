@@ -1,12 +1,11 @@
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, rmTree } from './fixtures';
-import { realPath, cssPath } from './osenv';
+import { TMP, realPath, cssPath } from './osenv';
 
 // REPO_TAB_UNIFY_SRS §4 — 통합 창의 검증 V-RTU-10~35.
 //
@@ -63,7 +62,7 @@ function makeConflict(base: string) {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-rtu-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-rtu-')));
   REPO = makeRepo(BASE);
   CONFLICT = makeConflict(BASE);
 });
