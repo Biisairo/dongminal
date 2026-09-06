@@ -963,12 +963,22 @@ test.describe('UI 개정 — 핀 드래그 정렬 (FR-GIT-223)', () => {
     // (실측: 세 개를 걸었는데 둘만 섰다).
     //
     // 드래그는 행의 사각형을 읽는다 — 숨은 패널의 사각형은 0 이다 (FR-SBT-2).
+    // 핀은 서버가 권위이고(O1) 그 목록은 워크스페이스에 산다. 셋을 연속으로 거는
+    // 동안 저장이 겹치면 앞의 것이 밀려날 수 있다 — 실측에서 `basic` 이 빠졌다.
+    //
+    // **빠진 것만 덧붙이면 안 된다**: 다시 건 핀은 목록 맨 뒤로 가므로 순서가
+    // 뒤집힌다(실측: `[with-remote, stashes, basic]`). 어긋났으면 전부 지우고
+    // 순서대로 다시 건다 — 이 시험이 재려는 것이 **순서**이기 때문이다.
+    const pin = (p: string) =>
+      page.evaluate(async (x) => { await (window as any).app._gitPin(x) }, p);
+    const unpin = (p: string) =>
+      page.evaluate(async (x) => { await (window as any).app._gitUnpin(x) }, p);
     await expect(async () => {
-      // **이미 걸린 것을 다시 걸지 않는다** — 다시 걸면 그 핀이 목록 맨 뒤로 가
-      // 순서가 뒤집힌다 (실측: 개수는 3이 되는데 순서가 어긋났다). 빠진 것만 건다.
       const cur = await pinOrder(page);
-      for (const p of [a, b, c]) {
-        if (!cur.includes(p)) await page.evaluate(async (x) => { await (window as any).app._gitPin(x) }, p);
+      const ok = cur.length === 3 && cur[0] === a && cur[1] === b && cur[2] === c;
+      if (!ok) {
+        for (const p of cur) await unpin(p);
+        for (const p of [a, b, c]) await pin(p);
       }
       await openGitTab(page);
       expect(await pinOrder(page)).toEqual([a, b, c]);

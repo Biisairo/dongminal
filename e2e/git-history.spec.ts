@@ -686,7 +686,11 @@ test.describe('5차 검토 — HEAD 판정의 근거 (V165~V167)', () => {
     await waitForInit(page);
     await openHistory(page, repo);
     await waitLoaded(page, 1);
-    expect(await headName(page), '픽스처의 시작 브랜치가 main 이 아니다').toBe('main');
+    // HEAD 이름은 관측이 닿아야 선다 — 목록이 그려졌다고 그것까지 온 것은 아니다
+    // (실측: null 인 채로 즉시 실패했다).
+    await expect
+      .poll(() => headName(page), { timeout: 15000 })
+      .toBe('main');
 
     // 간다 — 낡은 decoration 에서도 `isHead` 가 false 라 지금도 통과하는 방향이다.
     await badge(page, 'no-upstream').dblclick();
