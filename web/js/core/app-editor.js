@@ -840,7 +840,9 @@ Object.assign(App.prototype, {
   _edTabsUnder(p){
     const out=[];
     if(!p) return out;
-    const pre=p==='/'?'/':p+'/';
+    // 구분자는 그 경로의 것을 쓴다 — `/` 로 굳히면 Windows 에서 어떤 탭도
+    // 그 폴더 아래로 잡히지 않아, 폴더를 지우거나 옮겨도 탭이 그대로 남는다.
+    const pre=p==='/'?'/':p+pathSep(p);
     for(const s of this.ws.windows){
       if(!s||!s.layout) continue;
       const panes=[];this._collectPanes(s.layout,panes);

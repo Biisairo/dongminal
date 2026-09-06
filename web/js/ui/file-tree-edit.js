@@ -103,7 +103,7 @@ Object.assign(FileTree.prototype, {
   },
 
   _rekey(from,to){
-    const pre=from+'/';
+    const pre=from+pathSep(from);
     const map=p=>p===from?to:(p.startsWith(pre)?to+p.slice(from.length):p);
     // 캐시는 공유다 — 한 번만 갈아탄다.
     const kids=new Map();
@@ -124,7 +124,7 @@ Object.assign(FileTree.prototype, {
   // 사라진 가지의 캐시·펼침·선택을 거둔다. 남겨 두면 같은 이름이 다시 생겼을 때
   // 낡은 목록이 먼저 보인다.
   _forget(p){
-    const pre=p+'/';
+    const pre=p+pathSep(p);
     for(const k of [...this._kids.keys()]) if(k===p||k.startsWith(pre)) this._kids.delete(k);
     for(const v of this.store.views) v._forgetView(p,pre);
   },

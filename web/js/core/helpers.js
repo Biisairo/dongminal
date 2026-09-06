@@ -60,6 +60,16 @@ function pathSep(dir){
 }
 
 /**
+ * 절대경로인가. POSIX 는 `/` 로 시작하고, Windows 는 `C:\\…` 또는 UNC(`\\\\srv\\…`)다.
+ *
+ * `startsWith('/')` 만으로 재면 **Windows 의 절대경로가 전부 상대로 읽힌다.**
+ */
+function isAbsPath(p){
+  const s=String(p==null?'':p);
+  return s.startsWith('/')||s.startsWith('\\\\')||/^[A-Za-z]:[\\/]/.test(s);
+}
+
+/**
  * `p` 가 `root` **아래**(또는 root 자신)인가.
  *
  * `startsWith(root)` 만으로는 `/a/bc` 가 `/a/b` 아래로 잡히므로 구분자까지

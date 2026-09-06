@@ -18,6 +18,13 @@ import { test, expect, rmTree } from './fixtures';
 import { realPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
+
+/**
+ * ROOT 아래의 자리. **템플릿에 `/` 를 박지 않는다** — Windows 에서는 구분자가
+ * 섞인 문자열(`C:\…\root/aa`)이 되고, 그것은 서버가 주는 값과도 화면의
+ * `data-path` 와도 다르다 (CI_E2E_MATRIX_SRS FR-CEM-11).
+ */
+const P = (rel: string) => j(ROOT, ...rel.split('/'));
 let BASE = '';
 let ROOT = '';
 
@@ -81,7 +88,7 @@ async function enter(page: Page, request: APIRequestContext) {
 // 탭을 열면 첫 편집기는 숨겨진 채 DOM 에 남고, `.first()` 는 그 숨은 것을 잡는다.
 // 기다릴 대상은 "지금 활성인 편집기가 이 파일이고 화면에 있다" 는 사실이다.
 async function openFile(page: Page, name: string) {
-  await page.evaluate((p) => (window as any).app._edOpenFile(p), `${ROOT}/${name}`);
+  await page.evaluate((p) => (window as any).app._edOpenFile(p), P(name));
   await page.waitForFunction((n) => {
     const v = (window as any).app._edActiveEditor();
     return !!(v && v._editor && new RegExp('[\\\\/]' + n + '$').test(String(v.filePath)) && v.el.offsetParent !== null);
@@ -439,7 +446,7 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     await enter(page, request);
     await openFile(page, 'find.txt');
     // 이미지 탭으로 옮긴다 — Monaco 가 서지 않는다 (FR-EVW-4).
-    await page.evaluate((p) => (window as any).app._edOpenFile(p), `${ROOT}/pic.png`);
+    await page.evaluate((p) => (window as any).app._edOpenFile(p), P('pic.png'));
     await expect(page.locator('.fe-image .fe-img')).toBeVisible({ timeout: 20000 });
 
     await page.keyboard.press('Control+f');

@@ -309,6 +309,14 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 		p.onActivity = hooks.OnActivity
 		p.allowBell = hooks.AllowBell
 	}
+	// **뜬 자리를 기억한다** (WINDOWS_TOOL_CWD_SRS FR-WTC-6).
+	//
+	// 직접 조회가 되는 처지에서는 필요 없지만(그쪽이 이긴다), Windows 에서는
+	// 첫 프롬프트가 돌기 전까지 이 도구의 자리를 **아무도 모른다** — 그 사이에
+	// 이 도구를 기준으로 새 도구를 만들면(`cwdTool=…`) 승계가 홈으로 떨어진다
+	// (러너 실측: 요청한 자리 대신 `C:\Users\runneradmin` 이 나왔다). 서버는
+	// 어디서 띄웠는지 알고 있으므로 그것을 말한다.
+	p.noteCwdReport(startDir)
 	go p.readPTY()
 	log.Printf("[tool %s] started shell=%s pid=%d cwd=%s cols=%d rows=%d",
 		id, spec.Path, term.PID(), startDir, cols, rows)

@@ -125,3 +125,24 @@ func TestCwdOrServer_PrefersReport(t *testing.T) {
 		t.Fatalf("cwdOrServer() = %q, want %q", got, "/reported")
 	}
 }
+
+// V-WTC-6 (FR-WTC-6): 뜬 자리가 처음 값이다. 첫 프롬프트가 돌기 전까지 서버가
+// 아는 사실은 그것 하나이며, 승계(`cwdTool=…`)가 그 값을 딛는다.
+func TestToolCwd_SeededFromStartDir(t *testing.T) {
+	dir := t.TempDir()
+	p, err := StartTool("t-seed", "seed", dir, 80, 24, nil, nil, nil)
+	if err != nil {
+		t.Skipf("이 호스트에서 셸을 띄울 수 없다: %v", err)
+	}
+	defer p.kill()
+	// 어떤 출력도 기다리지 않는다 — 지금 물어도 답이 있어야 한다.
+	got := p.Cwd()
+	if got == "" {
+		t.Fatal("갓 뜬 도구가 자기 자리를 모른다 — 승계가 홈으로 떨어진다")
+	}
+	// 직접 조회가 되는 처지(POSIX)에서는 그쪽이 이기므로 심링크가 풀린 값일 수
+	// 있다. 어느 쪽이든 **서버의 cwd 가 아니어야** 한다는 것이 요점이다.
+	if srv, _ := os.Getwd(); got == srv {
+		t.Fatalf("Cwd() = %q — 서버의 cwd 가 도구의 것으로 나간다", got)
+	}
+}

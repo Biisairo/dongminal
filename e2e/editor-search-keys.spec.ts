@@ -111,7 +111,13 @@ test('전체 검색으로 연 파일의 조상 폴더가 모두 펼쳐진다', a
   await expect(page.locator('.ed-find-row').first()).toBeVisible({ timeout: 10000 });
   await page.locator('.ed-find-row').first().click();
 
-  for (const p of [`${ROOT}/aa`, `${ROOT}/aa/bb`, `${ROOT}/aa/bb/cc`, `${ROOT}/aa/bb/cc/deep.txt`]) {
+  // 경로는 `path.join` 으로 잇는다 — 템플릿에 `/` 를 박으면 Windows 에서 구분자가
+  // 섞인 문자열(`C:\…\root/aa`)이 되고, 그것은 화면의 `data-path` 와 다르다
+  // (CI_E2E_MATRIX_SRS FR-CEM-11).
+  for (const p of [
+    j(ROOT, 'aa'), j(ROOT, 'aa', 'bb'), j(ROOT, 'aa', 'bb', 'cc'),
+    j(ROOT, 'aa', 'bb', 'cc', 'deep.txt'),
+  ]) {
     await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`)).toBeVisible({ timeout: 10000 });
   }
   // 연 파일은 선택으로 표시된다 — 어느 것을 열었는지가 보여야 한다.

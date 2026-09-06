@@ -1,9 +1,9 @@
-import { rmSync } from 'fs';
-import { join } from 'path';
+import { mkdirSync, renameSync, rmSync } from 'fs';
+import { dirname, join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGit, waitForInit, gitFixture, cleanGitFixture, copyDir, rmTreeHard } from './fixtures';
+import { test, expect, openGit, waitForInit, gitFixture, cleanGitFixture, copyDir, rmTreeHard, rmTree } from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_REPO_MISSING_SRS — 소실의 확정과 알림, 그리고 실패 백오프.
@@ -19,15 +19,50 @@ test.afterAll(() => {
 });
 
 // 소실을 만들려면 지울 수 있는 사본이어야 한다 — 공용 fixture 를 지우면 뒤 테스트가 죽는다.
+//
+// **사본은 자기 껍데기 안에 산다** (`case-<태그>/repo`). 그 껍데기가 소실을 만드는
+// 손잡이다 — 아래 `vanish` 의 근거를 보라.
+function caseDir(tag: string) {
+  return join(FIXTURES, 'case-' + tag);
+}
 function copyFx(tag: string) {
-  const dst = join(FIXTURES, 'copy-' + tag);
-  rmSync(dst, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  const shell = caseDir(tag);
+  rmSync(shell, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  mkdirSync(shell, { recursive: true });
+  const dst = join(shell, 'repo');
   copyDir(join(FIXTURES, 'basic'), dst);
   return realPath(dst);
 }
 
+/**
+ * 그 저장소를 **없앤다** — 이 스펙이 재는 사건 그 자체다.
+ *
+ * 폴더를 그냥 지우면 Windows 에서 `EBUSY` 다. 서버는 그 저장소를 폴링하며
+ * `git` 을 계속 띄우고 그 프로세스의 **cwd 가 바로 그 폴더**인데, Windows 는
+ * 어느 프로세스의 현재 디렉터리인 폴더를 지우지도 이름을 바꾸지도 못한다
+ * (러너 실측: 15초를 재시도해도 틈이 없었다). 이것은 검사의 결함이 아니라 그
+ * OS 의 사실이다 — 사용자가 탐색기로 지우려 해도 같은 거절을 받는다.
+ *
+ * 그래서 **한 겹 위**를 치운다. 잠긴 것은 `repo` 이지 그 부모가 아니므로 부모의
+ * 이름은 바꿀 수 있고, 그 순간 `repo` 의 경로는 존재하지 않는다 — 앱이 보는
+ * 사건은 정확히 같다. 옮긴 껍데기는 뒷정리로 지운다(남아도 job 과 함께 사라진다).
+ */
+function vanish(repo: string) {
+  const shell = dirname(repo);
+  const away = shell + '-gone-' + Date.now();
+  try {
+    renameSync(shell, away);
+    rmTree(away);
+    return;
+  } catch {
+    // 부모까지 잠겼다면 종전의 길로 간다 — 그쪽이 성공하면 사건은 같다.
+  }
+  rmTreeHard(repo);
+}
+
 // 사라진 폴더를 되살린다 — 같은 경로에 같은 내용이 돌아오는 것이 복구다.
 function restore(repo: string) {
+  mkdirSync(dirname(repo), { recursive: true });
   copyDir(join(FIXTURES, 'basic'), repo);
 }
 
@@ -83,7 +118,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const view = page.locator('#area .ed-side .git-view.git-changes');
     await expect(view.locator('.git-head-repo')).toHaveAttribute('title', repo);
 
-    rmTreeHard(repo);
+    vanish(repo);
 
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
     // 사유와 경로가 함께 보여야 "사라졌다는 표시가 참인지" 판정할 수 있다.
@@ -101,7 +136,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo);
 
-    rmTreeHard(repo);
+    vanish(repo);
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
     // 해제하면 복구할 대상을 잃는다 (D-RMS-5).
@@ -113,7 +148,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m3');
     await waitForInit(page);
     await openGit(page, repo);
-    rmTreeHard(repo);
+    vanish(repo);
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) {
@@ -132,7 +167,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m4');
     await waitForInit(page);
     await openGit(page, repo);
-    rmTreeHard(repo);
+    vanish(repo);
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
     restore(repo);
@@ -166,7 +201,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo, { timeout: UI_WAIT_MS });
 
-    rmTreeHard(repo);
+    vanish(repo);
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
     await expect(missing(page).locator('.git-missing-unpin')).toBeVisible({ timeout: UI_WAIT_MS });
 
@@ -185,7 +220,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const row = page.locator(`#repo-entries .ed-entry[data-git-repo="${cssPath(repo)}"]`);
     await expect(row).toHaveCount(1, { timeout: UI_WAIT_MS });
 
-    rmTreeHard(repo);
+    vanish(repo);
 
     // 사유 코드가 아니라 사람이 읽는 문구다 (FR-RMS-17).
     await expect(row).toHaveAttribute('title', /폴더가 없습니다/, { timeout: UI_WAIT_MS });
@@ -197,7 +232,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m7');
     await waitForInit(page);
     await openGit(page, repo);
-    rmTreeHard(repo);
+    vanish(repo);
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
     const c = counter(page, '/api/git/status');

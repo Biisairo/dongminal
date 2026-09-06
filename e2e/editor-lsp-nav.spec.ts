@@ -15,6 +15,13 @@ import { test, expect, rmTree } from './fixtures';
 import { realPath, cssPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
+
+/**
+ * ROOT 아래의 자리. **템플릿에 `/` 를 박지 않는다** — Windows 에서는 구분자가
+ * 섞인 문자열(`C:\…\root/aa`)이 되고, 그것은 서버가 주는 값과도 화면의
+ * `data-path` 와도 다르다 (CI_E2E_MATRIX_SRS FR-CEM-11).
+ */
+const P = (rel: string) => j(ROOT, ...rel.split('/'));
 let BASE = '';
 let ROOT = '';
 
@@ -52,7 +59,7 @@ async function enter(page: Page, request: APIRequestContext) {
 }
 
 async function openFile(page: Page, rel: string) {
-  await page.evaluate((p) => (window as any).app._edOpenFile(p), `${ROOT}/${rel}`);
+  await page.evaluate((p) => (window as any).app._edOpenFile(p), P(rel));
   await page.waitForFunction((p) => {
     const v = (window as any).app._edActiveEditor();
     return !!(v && v._editor && String(v.filePath).endsWith(p) && v.el.offsetParent !== null);
@@ -111,26 +118,26 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
 
     const seen: any[] = [];
     await stubLSP(page, 'definition',
-      { locations: [{ path: `${ROOT}/pkg/deep/helper.go`, line: 4, col: 6 }] }, seen);
+      { locations: [{ path: P('pkg/deep/helper.go'), line: 4, col: 6 }] }, seen);
 
     // 깊은 겹은 아직 접혀 있다 — 이것이 출발점이다.
     await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(j(ROOT, 'pkg', 'deep', 'helper.go'))}"]`)).toHaveCount(0);
 
     await page.keyboard.press('F12');
-    await waitEditorAt(page, `${ROOT}/pkg/deep/helper.go`);
+    await waitEditorAt(page, P('pkg/deep/helper.go'));
     expect(await cursor(page)).toEqual({ line: 4, col: 6 });
 
     // FR-LSP-23 / D-3: **현재 텍스트와 좌표가 실려 갔다.** 텍스트가 없으면 디스크만
     // 보는 서버가 방금 쓴 함수를 모른다.
     expect(seen.length, '정의 요청이 가지 않았다').toBeGreaterThan(0);
     expect(seen[0].root).toBe(ROOT);
-    expect(seen[0].path).toBe(`${ROOT}/main.go`);
+    expect(seen[0].path).toBe(P('main.go'));
     expect(seen[0].text).toContain('func main()');
     expect(seen[0].line).toBe(4);
     expect(seen[0].col).toBe(3);
 
     // FR-EKB-6 을 딛는다 — 조상이 모두 펼쳐지고 그 행이 선택으로 표시된다.
-    for (const p of [`${ROOT}/pkg`, `${ROOT}/pkg/deep`, `${ROOT}/pkg/deep/helper.go`]) {
+    for (const p of [P('pkg'), P('pkg/deep'), P('pkg/deep/helper.go')]) {
       await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`)).toBeVisible({ timeout: 10000 });
     }
   });
@@ -141,14 +148,14 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
     await openFile(page, 'main.go');
     await putCursor(page, 4, 3);
     await stubLSP(page, 'definition',
-      { locations: [{ path: `${ROOT}/pkg/deep/helper.go`, line: 4, col: 6 }] });
+      { locations: [{ path: P('pkg/deep/helper.go'), line: 4, col: 6 }] });
 
     await page.keyboard.press('F12');
     await expect.poll(() => activePath(page), { timeout: 15000 })
-      .toBe(`${ROOT}/pkg/deep/helper.go`);
+      .toBe(P('pkg/deep/helper.go'));
 
     await page.keyboard.press('Control+Alt+Minus');
-    await waitEditorAt(page, `${ROOT}/main.go`);
+    await waitEditorAt(page, P('main.go'));
     expect(await cursor(page)).toEqual({ line: 4, col: 3 });
   });
 
@@ -164,7 +171,7 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
     await expect(note(page)).toBeVisible({ timeout: 10000 });
     await expect(note(page)).toContainText('gopls');
     // 옮기지 않았다 — 사유가 왔으면 그 자리에 머문다.
-    expect(await activePath(page)).toBe(`${ROOT}/main.go`);
+    expect(await activePath(page)).toBe(P('main.go'));
   });
 
   // V-LSP-15 · FR-LSP-28: 결과가 비어도 그 사실이 보인다.
@@ -187,8 +194,8 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
     const seen: any[] = [];
     await stubLSP(page, 'references', {
       locations: [
-        { path: `${ROOT}/main.go`, line: 4, col: 2 },
-        { path: `${ROOT}/pkg/deep/helper.go`, line: 4, col: 6 },
+        { path: P('main.go'), line: 4, col: 2 },
+        { path: P('pkg/deep/helper.go'), line: 4, col: 6 },
       ],
     }, seen);
 
@@ -200,7 +207,7 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
 
     // 둘째를 고른다 — 그 줄로 열린다.
     await panel.locator('.ed-find-row').nth(1).click();
-    await waitEditorAt(page, `${ROOT}/pkg/deep/helper.go`);
+    await waitEditorAt(page, P('pkg/deep/helper.go'));
     expect(await cursor(page)).toEqual({ line: 4, col: 6 });
   });
 
@@ -232,18 +239,18 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
     await openFile(page, 'main.go');
     await putCursor(page, 4, 3);
     await stubLSP(page, 'definition',
-      { locations: [{ path: `${ROOT}/pkg/deep/helper.go`, line: 4, col: 6 }] });
+      { locations: [{ path: P('pkg/deep/helper.go'), line: 4, col: 6 }] });
 
     await page.evaluate(() => { (window as any).shortcuts.edGotoDef = 'Ctrl+Shift+KeyY' });
 
     // 옛 기본값은 더 이상 듣지 않는다.
     await page.keyboard.press('F12');
     await page.waitForTimeout(400);
-    expect(await activePath(page)).toBe(`${ROOT}/main.go`);
+    expect(await activePath(page)).toBe(P('main.go'));
 
     await page.keyboard.press('Control+Shift+KeyY');
     await expect.poll(() => activePath(page), { timeout: 15000 })
-      .toBe(`${ROOT}/pkg/deep/helper.go`);
+      .toBe(P('pkg/deep/helper.go'));
   });
 });
 
@@ -348,7 +355,7 @@ test.describe('코드 탐색 — 진단 (M4)', () => {
     await enter(page, request);
     await openFile(page, 'main.go');
 
-    await push(page, `${ROOT}/main.go`, [
+    await push(page, P('main.go'), [
       { line: 4, col: 2, endLine: 4, endCol: 8, severity: 1, message: 'undefined: helper' },
       { line: 3, col: 1, endLine: 3, endCol: 5, severity: 2, message: 'unused' },
     ]);
@@ -360,7 +367,7 @@ test.describe('코드 탐색 — 진단 (M4)', () => {
     expect(got.find((m: any) => m.line === 3)?.sev).toBe(4);
 
     // 갱신이 앞선 것을 **덮는다** — owner 가 하나이므로 겹쳐 남지 않는다.
-    await push(page, `${ROOT}/main.go`, [
+    await push(page, P('main.go'), [
       { line: 5, col: 1, endLine: 5, endCol: 2, severity: 1, message: 'only one now' },
     ]);
     await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(1);
@@ -371,12 +378,12 @@ test.describe('코드 탐색 — 진단 (M4)', () => {
   test('빈 진단이 오면 밑줄이 걷힌다', async ({ page, request }) => {
     await enter(page, request);
     await openFile(page, 'main.go');
-    await push(page, `${ROOT}/main.go`, [
+    await push(page, P('main.go'), [
       { line: 4, col: 2, endLine: 4, endCol: 8, severity: 1, message: 'boom' },
     ]);
     await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(1);
 
-    await push(page, `${ROOT}/main.go`, []);
+    await push(page, P('main.go'), []);
     await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(0);
   });
 
@@ -384,7 +391,7 @@ test.describe('코드 탐색 — 진단 (M4)', () => {
   test('다른 파일의 진단은 이 파일에 얹히지 않는다', async ({ page, request }) => {
     await enter(page, request);
     await openFile(page, 'main.go');
-    await push(page, `${ROOT}/pkg/deep/helper.go`, [
+    await push(page, P('pkg/deep/helper.go'), [
       { line: 1, col: 1, endLine: 1, endCol: 2, severity: 1, message: '남의 것' },
     ]);
     await page.waitForTimeout(400);
@@ -396,7 +403,7 @@ test.describe('코드 탐색 — 진단 (M4)', () => {
   test('설정에서 끄면 밑줄이 걷히고 새 진단도 얹히지 않는다', async ({ page, request }) => {
     await enter(page, request);
     await openFile(page, 'main.go');
-    await push(page, `${ROOT}/main.go`, [
+    await push(page, P('main.go'), [
       { line: 4, col: 2, endLine: 4, endCol: 8, severity: 1, message: 'boom' },
     ]);
     await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(1);
@@ -410,7 +417,7 @@ test.describe('코드 탐색 — 진단 (M4)', () => {
 
     await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(0);
     // 꺼진 뒤에 온 진단도 얹히지 않는다.
-    await push(page, `${ROOT}/main.go`, [
+    await push(page, P('main.go'), [
       { line: 4, col: 2, endLine: 4, endCol: 8, severity: 1, message: 'again' },
     ]);
     await page.waitForTimeout(400);

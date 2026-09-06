@@ -698,9 +698,12 @@ Object.assign(App.prototype, {
     const pn=findPane(sess.layout,rid);if(!pn)return {};
     const tab=pn.tabs.find(t=>t.id===this.paneTab(pn));
     if(!tab) return {};
-    if(tab.type==='editor' && typeof tab.filePath==='string' && tab.filePath.startsWith('/')){
-      const i=tab.filePath.lastIndexOf('/');
-      const dir = i>0 ? tab.filePath.substring(0,i) : '/';
+    // 절대경로 판정과 부모 자르기를 `/` 로 굳히지 않는다 — Windows 의 절대경로는
+    // `C:\…` 로 시작하고 그 안에 `/` 가 없다. 굳히면 편집기 탭에서 만든 도구가
+    // 그 파일의 폴더가 아니라 서버의 자리에서 뜬다.
+    if(tab.type==='editor' && typeof tab.filePath==='string' && isAbsPath(tab.filePath)){
+      const i=Math.max(tab.filePath.lastIndexOf('/'),tab.filePath.lastIndexOf('\\'));
+      const dir = i>0 ? tab.filePath.substring(0,i) : pathSep(tab.filePath);
       return {cwd: dir};
     }
     const toolId = tab.toolId;

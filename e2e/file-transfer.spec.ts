@@ -365,22 +365,30 @@ test.describe('묶음 C — 터미널 (FR-FTR-8·10·11)', () => {
 
   test('FT10 (V-FTR-8): OSC 가 청크 경계에서 갈려도 다운로드가 일어난다', async ({ page, request }) => {
     const R = mkRoot('ft10');
+    // 내려받을 파일은 **이 검사가 만든다**. `/etc/hosts` 리터럴을 쓰면 Windows
+    // 에는 그 파일이 없어 종단이 404 를 내고, 브라우저는 그 오류 본문을
+    // `download.txt` 로 저장한다 — 재려는 것은 OSC 의 청크 경계이지 그 OS 에
+    // 어떤 파일이 있는가가 아니다 (CI_E2E_MATRIX_SRS FR-CEM-7).
+    w(j(R, 'hosts'), 'HOSTS\n');
+    const target = j(R, 'hosts');
     await enter(page, request, R);
 
     const dl = page.waitForEvent('download');
-    const leftover = await page.evaluate(() => {
+    const leftover = await page.evaluate((t: string) => {
       const app = (window as any).app;
       const tool = [...app.tools.values()][0];
       const enc = new TextEncoder();
-      // `\x1b]777;Download;/etc/host` 와 `s\x07` — BEL 이 다음 청크에 있다.
-      tool._handleOutput(enc.encode('\x1b]777;Download;/etc/host'));
+      // 경로의 마지막 글자를 다음 청크로 넘긴다 — BEL 이 뒤 청크에 있다.
+      const head = '\x1b]777;Download;' + t.slice(0, -1);
+      const tail = t.slice(-1) + '\x07';
+      tool._handleOutput(enc.encode(head));
       tool._doFlush();
       const mid = tool._outputBuf;
-      tool._handleOutput(enc.encode('s\x07'));
+      tool._handleOutput(enc.encode(tail));
       tool._doFlush();
       // 앞 조각을 보류했는가, 그리고 화면에 잔재가 남지 않았는가.
       return { mid, after: tool._outputBuf };
-    });
+    }, target);
     expect(leftover.mid).toContain('777;Download');
     expect(leftover.after).toBe('');
     const got = await dl;
