@@ -1,11 +1,11 @@
 import { execFileSync } from 'child_process';
-import { realpathSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openRowMenu } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openRowMenu, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // GIT_M5_STEP1821_CONTRACT §1.3 — Branches 탭. 검증 V53~V55 · V67 · V68.
 //
@@ -16,13 +16,13 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-br-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
-const fx = (name: string) => realpathSync(join(FIXTURES, name));
+const fx = (name: string) => realPath(join(FIXTURES, name));
 
 const copyFx = makeCopyFx(FIXTURES);
 const git = (repo: string, ...args: string[]) =>

@@ -15,6 +15,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
+import { realPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
 let BASE = '';
@@ -38,7 +39,7 @@ const BODY = [...LINES, ...PAD, 'omega needle last', ''].join('\n');
 const NEEDLE_LINE_LAST = LINES.length + PAD.length + 1; // 105
 
 test.beforeAll(() => {
-  BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-efp-')));
+  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-efp-')));
   ROOT = j(BASE, 'root');
   fs.mkdirSync(ROOT, { recursive: true });
   fs.writeFileSync(j(ROOT, 'find.txt'), BODY);
@@ -47,7 +48,7 @@ test.beforeAll(() => {
   fs.writeFileSync(j(ROOT, 'pic.png'), Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==',
     'base64'));
-  ROOT = fs.realpathSync(ROOT);
+  ROOT = realPath(ROOT);
 });
 test.afterAll(() => {
   if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
@@ -67,7 +68,7 @@ async function enter(page: Page, request: APIRequestContext) {
     undefined, { timeout: 15000 });
   await page.evaluate((root) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && x.editor.root === root);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === root);
     if (!win) throw new Error('Editor 창이 없다: ' + root);
     a.switchWindow(win.id);
   }, ROOT);

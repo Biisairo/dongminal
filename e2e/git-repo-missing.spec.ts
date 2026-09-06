@@ -1,11 +1,11 @@
 import { execFileSync } from 'child_process';
-import { realpathSync, rmSync } from 'fs';
+import { rmSync } from 'fs';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGit, waitForInit } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, openGit, waitForInit, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // GIT_REPO_MISSING_SRS — 소실의 확정과 알림, 그리고 실패 백오프.
 // 검증 V-RMS-4~20.
@@ -13,10 +13,10 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-missing-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
 // 소실을 만들려면 지울 수 있는 사본이어야 한다 — 공용 fixture 를 지우면 뒤 테스트가 죽는다.
@@ -24,7 +24,7 @@ function copyFx(tag: string) {
   const dst = join(FIXTURES, 'copy-' + tag);
   rmSync(dst, { recursive: true, force: true });
   execFileSync('cp', ['-R', join(FIXTURES, 'basic'), dst]);
-  return realpathSync(dst);
+  return realPath(dst);
 }
 
 // 사라진 폴더를 되살린다 — 같은 경로에 같은 내용이 돌아오는 것이 복구다.

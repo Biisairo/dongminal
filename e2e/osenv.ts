@@ -5,6 +5,7 @@
  * 흩어지면 한쪽만 고쳐진다 — 스펙은 여기 있는 이름을 부르고, 무엇이 OS 마다
  * 다른가는 이 파일만 안다.
  */
+import { realpathSync } from 'fs';
 import { tmpdir } from 'os';
 
 export const isWin = process.platform === 'win32';
@@ -31,4 +32,20 @@ export const TMP = isWin ? slash(tmpdir()) : '/tmp';
 /** 임시 디렉터리 아래의 한 자리. 구분자는 언제나 슬래시다 (FR-CEM-8). */
 export function tmpPath(name: string): string {
   return TMP + '/' + name;
+}
+
+/**
+ * 서버가 내는 모양의 **실제 경로** (FR-CEM-11).
+ *
+ * 경로를 값으로 견주는 자리가 많다 — 창의 `data-git-repo`, 헤더의 `title`, 활성
+ * 리포. 그 값을 만드는 것은 서버이고 서버는 `git rev-parse --show-toplevel` 을
+ * 쓰는데, git 은 Windows 에서도 **슬래시**로 답한다. 검사가 `path.join` 이 준
+ * 역슬래시 경로를 그대로 견주면 그 자리는 어느 것도 맞지 않는다.
+ *
+ * `realpathSync` 를 함께 지나는 이유는 종전과 같다 — macOS 의 `/tmp` 는
+ * `/private/tmp` 의 심링크이고, Windows 의 `RUNNER~1` 은 `runneradmin` 의 짧은
+ * 이름이다. 서버가 보는 것은 풀린 쪽이다.
+ */
+export function realPath(p: string): string {
+  return slash(realpathSync(p));
 }

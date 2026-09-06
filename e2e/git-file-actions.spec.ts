@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, openGit, waitForInit, clickGitView } from './fixtures';
+import { test, expect, makeCopyFx, openGit, waitForInit, clickGitView, gitFixture, cleanGitFixture } from './fixtures';
 import { tmpPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.6 묶음 F — stash · 파일 · 미커밋 행.
@@ -18,10 +18,10 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-fileact-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
 const copyFx = makeCopyFx(FIXTURES);

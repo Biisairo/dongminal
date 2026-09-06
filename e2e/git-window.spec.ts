@@ -1,20 +1,18 @@
-import { execFileSync } from 'child_process';
-import { realpathSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, plainWindows, waitForInit } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, plainWindows, waitForInit, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 const FIXTURES = tmpPath('dm-git-fx-gitwin-' + process.pid);
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
-const fx = (name: string) => realpathSync(join(FIXTURES, name));
+const fx = (name: string) => realPath(join(FIXTURES, name));
 
 /**
  * GIT_M1_STEP3_CONTRACT §6 — **Repo 창의 골격.** 검증 V8·V19·V21.

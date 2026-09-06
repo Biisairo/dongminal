@@ -12,13 +12,14 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
+import { realPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
 let BASE = '';
 let ROOT = '';
 
 test.beforeAll(() => {
-  BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-lspnav-')));
+  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-lspnav-')));
   ROOT = j(BASE, 'root');
   // 정의가 **다른 파일, 그리고 깊은 겹**에 있다 — 조상 펼치기까지 걸린다.
   fs.mkdirSync(j(ROOT, 'pkg', 'deep'), { recursive: true });
@@ -26,7 +27,7 @@ test.beforeAll(() => {
   fs.writeFileSync(j(ROOT, 'pkg', 'deep', 'helper.go'),
     'package deep\n\n// helper 는 여기 있다.\nfunc helper() {\n}\n');
   fs.writeFileSync(j(ROOT, 'notes.txt'), 'plain text\n');
-  ROOT = fs.realpathSync(ROOT);
+  ROOT = realPath(ROOT);
 });
 test.afterAll(() => {
   if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
@@ -43,7 +44,7 @@ async function enter(page: Page, request: APIRequestContext) {
     undefined, { timeout: 15000 });
   await page.evaluate((root) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && x.editor.root === root);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === root);
     if (!win) throw new Error('Editor 창이 없다: ' + root);
     a.switchWindow(win.id);
   }, ROOT);

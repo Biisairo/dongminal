@@ -1,11 +1,10 @@
-import { execFileSync } from 'child_process';
-import { readFileSync, realpathSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, openGit } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, makeCopyFx, waitForInit, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // GIT_M2_STEP1011_CONTRACT §3 — 스테이징 클라이언트. 검증 V30·V32·V37
 // (E1·E2·E8 + FR-GIT-72).
@@ -17,13 +16,13 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-staging-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
-const fx = (name: string) => realpathSync(join(FIXTURES, name));
+const fx = (name: string) => realPath(join(FIXTURES, name));
 
 const copyFx = makeCopyFx(FIXTURES);
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');

@@ -29,7 +29,14 @@ async function installSendSpy(page: Page) {
     if ((p as any).__spied) return;
     const orig = p._send.bind(p);
     p._send = (m: Uint8Array) => {
-      (window as any).__sent.push(Array.from(m));
+      // xterm 의 **포커스 보고**(CSI `I`·`O`)는 사용자가 보낸 키가 아니다 — 창이
+      // 포커스를 얻고 잃을 때 터미널이 스스로 낸다. 그 시각은 OS 마다 다르므로
+      // (Windows 러너에서 실측: `\x1b[I` 가 첫 키 앞에 끼어들었다) 기록에 섞이면
+      // 검사가 기계에 묶인다.
+      const a = Array.from(m);
+      const focus = a.length === 4 && a[0] === 0 && a[1] === 0x1b && a[2] === 0x5b
+        && (a[3] === 0x49 || a[3] === 0x4f);
+      if (!focus) (window as any).__sent.push(a);
       return orig(m);
     };
     (p as any).__spied = true;

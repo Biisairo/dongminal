@@ -1,12 +1,12 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, realpathSync } from 'fs';
+import { mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGitTab, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as fxWaitForInit, openGit } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, openGitTab, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as fxWaitForInit, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // GIT_REVIEW4_SRS §3.6.1~§3.6.4 — 개선 I1~I4. 검증 V132~V142
 // (FR-GIT-236~239).
@@ -29,10 +29,10 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-improve-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
 const copyFx = makeCopyFx(FIXTURES);
@@ -59,12 +59,12 @@ async function waitFiles(page: Page, min = 1) {
 
 // 사이드바 핀 헬퍼 (e2e/git-sidebar.spec.ts 를 따른다).
 // 서버는 rev-parse 로 정규화한 경로를 준다(macOS 의 /tmp → /private/tmp) —
-// follow 행의 data-git-repo 와 직접 비교하려면 여기서도 realpathSync 해야 한다.
+// follow 행의 data-git-repo 와 직접 비교하려면 여기서도 realPath 를 지나야 한다.
 function makeRepoWithChange(prefix: string) {
   const dir = mkdtempSync(join(tmpdir(), prefix));
   execFileSync('git', ['init', '-q', dir]);
   execFileSync('bash', ['-c', `echo x > '${dir}/a.txt'`]);
-  return realpathSync(dir);
+  return realPath(dir);
 }
 async function pin(request: APIRequestContext, path: string) {
   const r = await request.post('/api/git/repos/pin', { data: { path } });

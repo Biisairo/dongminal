@@ -6,6 +6,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
+import { realPath } from './osenv';
 
 // REPO_TAB_UNIFY_SRS §4 — diff 편집의 검증 V-RTU-50~56.
 //
@@ -38,11 +39,11 @@ function makeRepo(base: string) {
   git(d, 'add', 'staged.txt');
   // untracked — diff 가 아니라 편집기로 열린다
   w(j(d, 'fresh.txt'), 'brand new\n');
-  return fs.realpathSync(d);
+  return realPath(d);
 }
 
 test.beforeAll(() => {
-  BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-rde-')));
+  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-rde-')));
   REPO = makeRepo(BASE);
 });
 test.afterAll(() => {

@@ -1,11 +1,11 @@
 import { execFileSync } from 'child_process';
-import { realpathSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, openGit, waitForInit, clickGitView, openRowMenu } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, makeCopyFx, openGit, waitForInit, clickGitView, openRowMenu, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // GIT_M4_STEP1417_CONTRACT §4.2 — 컨텍스트 메뉴 프레임워크. 검증 V52 + FR-GIT-140~146.
 //
@@ -16,13 +16,13 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-menu-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
-const fx = (name: string) => realpathSync(join(FIXTURES, name));
+const fx = (name: string) => realPath(join(FIXTURES, name));
 
 const copyFx = makeCopyFx(FIXTURES);
 async function openHistory(page: Page, repo: string) {

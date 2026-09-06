@@ -6,6 +6,7 @@ import * as path from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, GIT_VIEW_TABS, GIT_BODY_VIEWS, clickGitView } from './fixtures';
+import { realPath } from './osenv';
 
 /**
  * UX_BATCH5_SRS 묶음 D — Submodules 탭 (FR-SUB-1~11).
@@ -69,11 +70,11 @@ function mkTree(tag: string) {
   commit(parent, 'add submodules');
   // beta 만 비운다 — alpha 는 초기화된 채로 남는다.
   git(parent, 'submodule', 'deinit', '-f', 'vendor/beta');
-  return fs.realpathSync(parent);
+  return realPath(parent);
 }
 
 test.beforeAll(() => {
-  BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-gsub-')));
+  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-gsub-')));
 });
 test.afterAll(() => {
   if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
@@ -215,7 +216,7 @@ test.describe('묶음 D — Submodules 탭', () => {
       const plain = mkRepo(j(BASE, 'd7-plain'));
       fs.writeFileSync(j(plain, 'f.txt'), 'x\n');
       git(plain, 'add', '-A'); commit(plain, 'init');
-      await openSubmodules(page, fs.realpathSync(plain));
+      await openSubmodules(page, realPath(plain));
 
       await expect(sub(page).locator('.git-sub-empty')).toHaveClass(/vis/, { timeout: 15000 });
       await expect(sub(page).locator('.git-sub-row')).toHaveCount(0);

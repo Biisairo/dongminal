@@ -6,6 +6,7 @@ import * as path from 'path';
 import { APIRequestContext, Locator, Page } from '@playwright/test';
 
 import { test, expect, openRowMenu } from './fixtures';
+import { realPath } from './osenv';
 
 // EXPLORER_TRANSFER_IGNORE_SRS §5 — V-ETR-6~8·21~27·29~31·33~38.
 //
@@ -21,7 +22,7 @@ let BASE = '';
 const j = (...p: string[]) => path.join(...p);
 const w = (p: string, s: string) => fs.writeFileSync(p, s);
 
-test.beforeAll(() => { BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-etr-'))) });
+test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-etr-'))) });
 test.afterAll(() => { if (BASE) fs.rmSync(BASE, { recursive: true, force: true }) });
 
 function git(dir: string, ...args: string[]) {
@@ -56,7 +57,7 @@ function mkIgnoreRoot(tag: string) {
   git(d, 'add', '-f', 'tracked.log');
   git(d, 'add', '.gitignore', 'src');
   git(d, 'commit', '-m', 'init');
-  return fs.realpathSync(d);
+  return realPath(d);
 }
 
 /** 저장소가 아닌 평범한 트리. 전송 검사에 쓴다. */
@@ -65,7 +66,7 @@ function mkPlainRoot(tag: string) {
   fs.mkdirSync(j(d, 'box'), { recursive: true });
   w(j(d, 'box', 'a.txt'), 'A\n');
   w(j(d, 'top.txt'), 'T\n');
-  return fs.realpathSync(d);
+  return realPath(d);
 }
 
 async function addEditor(request: APIRequestContext, p: string) {
@@ -83,7 +84,7 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
     undefined, { timeout: 15000 });
   await page.evaluate((r) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && x.editor.root === r);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === r);
     if (!win) throw new Error('Editor 창이 없다: ' + r);
     a.switchWindow(win.id);
   }, root);

@@ -1,9 +1,7 @@
-import { execFileSync } from 'child_process';
-import { realpathSync } from 'fs';
 import { join } from 'path';
 
-import { test, expect, waitForInit, GIT_VIEW_TABS } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, waitForInit, GIT_VIEW_TABS, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // V-FLW-9 (FR-FLW-12) — 상태바의 **브랜치 chip 은 없다.**
 //
@@ -18,13 +16,13 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-sb-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
-const fx = (name: string) => realpathSync(join(FIXTURES, name));
+const fx = (name: string) => realPath(join(FIXTURES, name));
 
 test.describe('묶음 G — 상태바 (브랜치 chip 철회)', () => {
   test('B1 (V-FLW-9): 리포를 열어도 상태바에 브랜치 chip 이 없다', async ({ page }) => {

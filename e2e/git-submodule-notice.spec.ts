@@ -6,6 +6,7 @@ import * as path from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, openGit as fxOpenGit } from './fixtures';
+import { realPath } from './osenv';
 
 // SUBMODULE_DIRTY_NOTICE_SRS §5 — 검증 V-SDN-*.
 //
@@ -71,11 +72,11 @@ function makeParent(base: string, kind: 'commit' | 'inner' | 'both') {
     w(j(sub, 'untracked.txt'), 'x\n');   // u 자리를 채운다
   }
   if (kind === 'both') fs.appendFileSync(j(sub, 'a.txt'), 'more\n');
-  return fs.realpathSync(d);
+  return realPath(d);
 }
 
 test.beforeAll(() => {
-  BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-sdn-')));
+  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-sdn-')));
   for (const k of ['commit', 'inner', 'both'] as const) REPO[k] = makeParent(BASE, k);
 });
 test.afterAll(() => {
@@ -214,7 +215,9 @@ test.describe('묶음 N — 툴팁과 안내문', () => {
       await openGit(page, REPO.inner);
       const stage = fileRow(page, 'sub').locator('.git-file-act[data-act="stage"]');
       await expect(stage).toBeDisabled();
-      await expect(stage).toHaveAttribute('title', /담을 변경이 없습니다/);
+      // 사유는 **영어**로 말한다 (FR-TIP-2) — 버튼의 `title` 이기 때문이다.
+      // 말하는 내용은 FR-SDN-13 그대로다.
+      await expect(stage).toHaveAttribute('title', /Nothing here for this repository to stage/);
       // Discard 는 그대로다 — gitlink 를 되돌리는 별개의 동작이다 (FR-SDN-14).
       await expect(fileRow(page, 'sub').locator('.git-file-act[data-act="discard"]')).toBeEnabled();
     });

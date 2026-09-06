@@ -5,6 +5,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
+import { realPath } from './osenv';
 
 // EDITOR_GIT_UX_SRS §4 — V-EKB-3~6 (FR-EKB-5·6).
 //
@@ -18,13 +19,13 @@ let BASE = '';
 let ROOT = '';
 
 test.beforeAll(() => {
-  BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-edk-')));
+  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-edk-')));
   ROOT = j(BASE, 'root');
   // 조상이 셋인 파일 — 재귀 전개가 한 겹만 여는지 전부 여는지 가른다.
   fs.mkdirSync(j(ROOT, 'aa', 'bb', 'cc'), { recursive: true });
   fs.writeFileSync(j(ROOT, 'aa', 'bb', 'cc', 'deep.txt'), 'needle_marker_zz\n');
   fs.writeFileSync(j(ROOT, 'top.txt'), 'top\n');
-  ROOT = fs.realpathSync(ROOT);
+  ROOT = realPath(ROOT);
 });
 test.afterAll(() => {
   if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
@@ -41,7 +42,7 @@ async function enter(page: Page, request: APIRequestContext) {
     undefined, { timeout: 15000 });
   await page.evaluate((root) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && x.editor.root === root);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === root);
     if (!win) throw new Error('Editor 창이 없다: ' + root);
     a.switchWindow(win.id);
   }, ROOT);

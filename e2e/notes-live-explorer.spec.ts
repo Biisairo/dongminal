@@ -5,6 +5,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
+import { realPath } from './osenv';
 
 // NOTES_LIVE_EXPLORER_SRS §5.2 — 묶음 N(메모장)·묶음 L(탐색기의 살아있는 반영)의
 // 클라이언트 검증 V-13~V-25.
@@ -20,13 +21,13 @@ let PLAIN = '';
 const j = (...p: string[]) => path.join(...p);
 
 test.beforeAll(() => {
-  BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-nle-')));
+  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-nle-')));
   PLAIN = j(BASE, 'plain');
   fs.mkdirSync(PLAIN);
   fs.mkdirSync(j(PLAIN, 'sub'));
   fs.writeFileSync(j(PLAIN, 'sub', 'inner.txt'), 'x\n');
   fs.writeFileSync(j(PLAIN, 'a.txt'), 'x\n');
-  PLAIN = fs.realpathSync(PLAIN);
+  PLAIN = realPath(PLAIN);
 });
 test.afterAll(() => {
   if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
@@ -61,7 +62,7 @@ async function openEditorTab(page: Page) {
 async function openEditorWin(page: Page, root: string) {
   await page.evaluate((r) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && x.editor.root === r);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === r);
     if (!win) throw new Error('Editor 창이 없다: ' + r);
     a.switchWindow(win.id);
   }, root);

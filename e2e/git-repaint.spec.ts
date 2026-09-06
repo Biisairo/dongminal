@@ -1,12 +1,10 @@
-import { execFileSync } from 'child_process';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
-import { realpathSync } from 'fs';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // GIT_REVIEW4_SRS §3.2·§3.5 — 바깥 계기의 다시 그리기.
 // 검증 V104~V113 (FR-RPT-1~7, FR-GIT-227).
@@ -19,13 +17,13 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-repaint-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
-const fx = (name: string) => realpathSync(join(FIXTURES, name));
+const fx = (name: string) => realPath(join(FIXTURES, name));
 
 const copyFx = makeCopyFx(FIXTURES);
 // 선택자에 걸리는 요소 전부에 표식을 심는다. 반환은 심은 개수다.

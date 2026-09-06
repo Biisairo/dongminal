@@ -5,6 +5,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, openRowMenu } from './fixtures';
+import { realPath } from './osenv';
 
 // WORKBENCH_REVIEW_SRS 묶음 P — 탐색기의 복사·복제 (FR-WBR-70~74,
 // 검증 V-WBR-69~74).
@@ -34,10 +35,10 @@ function mkRoot(tag: string) {
   w(j(d, 'src', 'b.txt'), 'B\n');
   w(j(d, 'docs', 'd.txt'), 'D\n');
   w(j(d, 'top.txt'), 'T\n');
-  return fs.realpathSync(d);
+  return realPath(d);
 }
 
-test.beforeAll(() => { BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-edcp-'))) });
+test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-edcp-'))) });
 test.afterAll(() => { if (BASE) fs.rmSync(BASE, { recursive: true, force: true }) });
 
 async function addEditor(request: APIRequestContext, p: string) {
@@ -57,7 +58,7 @@ async function goto(page: Page) {
 async function openEditor(page: Page, root: string) {
   await page.evaluate((r) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && x.editor.root === r);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === r);
     if (!win) throw new Error('Editor 창이 없다: ' + r);
     a.switchWindow(win.id);
   }, root);

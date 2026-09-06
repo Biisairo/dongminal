@@ -1,10 +1,9 @@
-import { execFileSync } from 'child_process';
-import { existsSync, readFileSync, realpathSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit, gitFixture, cleanGitFixture } from './fixtures';
 import { tmpPath } from './osenv';
 
 // WORKBENCH_REVIEW_SRS 묶음 D — `Changes`·`Untracked` 의 Discard All
@@ -16,10 +15,10 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-discardall-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
 const copyFx = makeCopyFx(FIXTURES);

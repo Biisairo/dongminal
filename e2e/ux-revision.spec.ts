@@ -1,11 +1,9 @@
-import { execFileSync } from 'child_process';
-import { realpathSync } from 'fs';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, plainWindows } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, plainWindows, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // UX_REVISION_SRS §4 — 검증 V-DEL-*·V-FIT-*·V-CLS-*·V-MOV-*·V-NAM-*·V-BLP-*·V-KEY-*.
 //
@@ -23,13 +21,13 @@ async function init(page: Page) {
 const FIXTURES = tmpPath('dm-git-fx-uxr-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
-const fx = (name: string) => realpathSync(join(FIXTURES, name));
+const fx = (name: string) => realPath(join(FIXTURES, name));
 
 // 보낸 경로가 아니라 응답의 root 로 항목을 찾아야 한다 (git-sidebar 와 같은 규약).
 async function pin(request: APIRequestContext, path: string) {

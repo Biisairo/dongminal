@@ -1,12 +1,12 @@
 import { execFileSync } from 'child_process';
-import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // GIT_REVIEW4_SRS §3.6.5 — I7 Worktrees 탭. 검증 V143~V152 (FR-GIT-28 개정·240~245).
 // V145·V148·V159 는 Go 단위 테스트다(다른 담당). V153·V154·V157·V160 은 이미 끝났다.
@@ -51,10 +51,10 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-worktrees-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
 const copyFx = makeCopyFx(FIXTURES);
@@ -95,7 +95,7 @@ function addOutsideWorktree(repo: string, name: string, ref = 'main') {
   execFileSync('git', ['-C', repo, 'worktree', 'add', '-b', name, dir, ref], { stdio: 'pipe' });
   // 서버가 rev-parse 로 정규화한 값과 비교해야 하므로 여기서도 realpath 한다
   // (macOS 의 /tmp → /private/tmp, e2e/git-changes.spec.ts:25 의 fx() 와 같은 이유).
-  return realpathSync(dir);
+  return realPath(dir);
 }
 
 // 실제 Run 오케스트레이션(§3.4, 기존 /api/runs)으로 "Run 것" worktree 를 만든다 —

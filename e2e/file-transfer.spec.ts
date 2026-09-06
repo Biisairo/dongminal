@@ -5,6 +5,7 @@ import * as path from 'path';
 import { APIRequestContext, Locator, Page } from '@playwright/test';
 
 import { test, expect, openRowMenu } from './fixtures';
+import { realPath } from './osenv';
 
 // FILE_TRANSFER_SRS §5 — V-FTR-8·12·14~21.
 //
@@ -31,10 +32,10 @@ function mkRoot(tag: string) {
   w(j(d, 'a', 'b', 'c', 'deep.txt'), 'DEEP\n');
   w(j(d, 'docs', 'd.txt'), 'D\n');
   w(j(d, 'top.txt'), 'T\n');
-  return fs.realpathSync(d);
+  return realPath(d);
 }
 
-test.beforeAll(() => { BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-ftr-'))) });
+test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-ftr-'))) });
 test.afterAll(() => { if (BASE) fs.rmSync(BASE, { recursive: true, force: true }) });
 
 async function addEditor(request: APIRequestContext, p: string) {
@@ -52,7 +53,7 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
     undefined, { timeout: 15000 });
   await page.evaluate((r) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && x.editor.root === r);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === r);
     if (!win) throw new Error('Editor 창이 없다: ' + r);
     a.switchWindow(win.id);
   }, root);

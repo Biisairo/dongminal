@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit, openRowMenu } from './fixtures';
+import { test, expect, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit, openRowMenu, gitFixture, cleanGitFixture } from './fixtures';
 import { tmpPath } from './osenv';
 
 // BRANCH_MENU_UNIFY_SRS §5 TC-BMU-*
@@ -14,10 +14,10 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-bmu-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
 const copyFx = makeCopyFx(FIXTURES);

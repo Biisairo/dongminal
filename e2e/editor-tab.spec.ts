@@ -1,12 +1,11 @@
-import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M2(탭·창 골격)의 검증 V-EDT-*.
 //
@@ -22,9 +21,9 @@ let PROJ2_DIR = '';
 let SOME_FILE = '';
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'dm-edt-'));
-  HOME_DIR = fs.realpathSync(base);
+  HOME_DIR = realPath(base);
   PROJ_DIR = path.join(HOME_DIR, 'proj');
   PROJ2_DIR = path.join(HOME_DIR, 'proj2');
   fs.mkdirSync(PROJ_DIR);
@@ -33,11 +32,11 @@ test.beforeAll(() => {
   fs.writeFileSync(SOME_FILE, 'hello\n');
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
   if (HOME_DIR) fs.rmSync(HOME_DIR, { recursive: true, force: true });
 });
 
-const fx = (name: string) => fs.realpathSync(path.join(FIXTURES, name));
+const fx = (name: string) => realPath(path.join(FIXTURES, name));
 
 type EdState = { home: string; list: string[] };
 
@@ -427,7 +426,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
       const dupB = { id: 'zzzz-zzz', name: '~', type: 'editor', editor: { root }, layout: null };
       a.ws.windows.push(dupB, dupA);
       a._edReconcile();
-      const left = a.ws.windows.filter((w: any) => w.type === 'editor' && w.editor.root === root);
+      const left = a.ws.windows.filter((w: any) => w.type === 'editor' && String(w.editor.root).replace(/\\/g, '/') === root);
       return { n: left.length, id: left[0] && left[0].id, origId: orig.id };
     });
     expect(kept.n).toBe(1);

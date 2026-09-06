@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, waitSettled } from './fixtures';
 
 /**
  * TAB_WIDTH_SRS — 탭 너비 고정 (FR-TBW-1~11).
@@ -151,6 +151,10 @@ test.describe('탭 너비 고정 (FR-TBW-1~11)', () => {
     await setFixed(page, true, 120);
     expect((await widths(page))[0]).toBe(120);
 
+    // 설정의 저장이 서버에 닿은 뒤에 새로고침한다 (FR-EQS-*). 저장은 디바운스를
+    // 지나므로, 느린 기계에서는 그것이 날기 전에 문서가 다시 열려 값이 사라진다
+    // (러너에서 실측: 폭 넷이 제각각으로 돌아왔다).
+    await waitSettled(page);
     await page.reload();
     await waitForInit(page);
     await expect(page.locator(TAB).first()).toBeVisible({ timeout: 15000 });

@@ -5,8 +5,8 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // WORKBENCH_REVIEW_SRS 묶음 F — git Changes 의 폴더 단위 스테이징
 // (FR-WBR-80~84, 검증 V-WBR-80~84).
@@ -54,7 +54,7 @@ function mkTree(tag: string) {
   w(j(d, 'src', 'n2.txt'), 'N2\n');
   fs.appendFileSync(j(d, 'lib', 'x.txt'), 'x2\n');
   git(d, 'add', 'lib/x.txt');
-  return fs.realpathSync(d);
+  return realPath(d);
 }
 
 /**
@@ -83,16 +83,16 @@ function mkConflictTree(tag: string) {
   } catch {
     /* 기대한 실패 */
   }
-  return fs.realpathSync(d);
+  return realPath(d);
 }
 
 test.beforeAll(() => {
-  BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-gfs-')));
+  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-gfs-')));
   TREE = mkTree('tree');
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
   if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
 });
 

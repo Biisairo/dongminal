@@ -5,6 +5,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
+import { realPath } from './osenv';
 
 // SOFT_RELOAD_SRS §5 — V-SRL-1~9.
 //
@@ -194,7 +195,7 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
   // 그것을 조용히 삼켰다. 살아 있는 트리 뷰는 `_edTrees` 에 있다.
   test('SR8 (V-WBR-92 / FR-WBR-95): 내부 새로고침이 탐색기의 열린 겹을 다시 읽는다',
     async ({ page, request }) => {
-      const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'dm-srl-')));
+      const base = realPath(fs.mkdtempSync(path.join(os.tmpdir(), 'dm-srl-')));
       fs.mkdirSync(path.join(base, 'sub'));
       fs.writeFileSync(path.join(base, 'sub', 'a.txt'), 'A\n');
       const r = await request.post('/api/editors/add', { data: { path: base } });
@@ -206,7 +207,7 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
         undefined, { timeout: 15000 });
       await page.evaluate((root) => {
         const a = (window as any).app;
-        const win = a._edWindows().find((x: any) => x.editor && x.editor.root === root);
+        const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === root);
         a.switchWindow(win.id);
       }, base);
       await page.waitForSelector('.ed-win .ed-explorer .ed-tree', { timeout: 15000 });

@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { realPath } from './osenv';
 // @ts-ignore
 import * as fs from 'fs';
 // @ts-ignore
@@ -58,7 +59,7 @@ function makeFileInDir(): { filePath: string; expectedCwd: string } {
   const fp = path.join(dir, 'doc.md');
   fs.writeFileSync(fp, '# doc\n\nhello\n');
   // macOS resolves /var → /private/var; shell-reported cwd uses the realpath.
-  return { filePath: fp, expectedCwd: fs.realpathSync(dir) };
+  return { filePath: fp, expectedCwd: realPath(dir) };
 }
 
 // 도구가 아무 지시 없이 열리는 자리 — `os.UserHomeDir()` 이다 (`toolhub/tool.go`

@@ -150,7 +150,13 @@ test.describe('FR-MTI-26: 키보드 내리기 버튼', () => {
       (p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement).focus();
       (window as any).__sent = [];
       const orig = p._send.bind(p);
-      p._send = (m: Uint8Array) => { if (m[0] === 0) (window as any).__sent.push(1); return orig(m) };
+      p._send = (m: Uint8Array) => {
+        // 포커스 보고(CSI I·O)는 사용자가 보낸 키가 아니다 — 창이 포커스를 얻고
+        // 잃을 때 터미널이 스스로 낸다 (Windows 러너에서 실측).
+        const t = m[0] === 0 ? new TextDecoder().decode(m.subarray(1)) : '';
+        if (m[0] === 0 && t !== '\x1b[I' && t !== '\x1b[O') (window as any).__sent.push(1);
+        return orig(m);
+      };
     });
     await btn.click();
     await page.waitForTimeout(200);

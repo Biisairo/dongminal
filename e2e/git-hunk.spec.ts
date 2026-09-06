@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, openGit } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, openGit, gitFixture, cleanGitFixture } from './fixtures';
 import { tmpPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.7 묶음 G — 부분 스테이징 (FR-GIT-278·279).
@@ -23,10 +23,10 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-hunk-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
 const copyFx = makeCopyFx(FIXTURES);

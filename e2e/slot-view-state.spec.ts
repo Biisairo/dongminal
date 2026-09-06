@@ -5,8 +5,8 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // 칸별 시선 — SLOT_VIEW_STATE_SRS §8
 //
@@ -32,12 +32,12 @@ const slotsState = (page: Page) => page.evaluate(() => (window as any).app.slots
  */
 const TOP_FIXTURES = tmpPath('dm-git-fx-svs-top-' + process.pid);
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', TOP_FIXTURES], { stdio: 'ignore' });
+  gitFixture(TOP_FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', TOP_FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(TOP_FIXTURES);
 });
-const topFx = (name: string) => fs.realpathSync(path.join(TOP_FIXTURES, name));
+const topFx = (name: string) => realPath(path.join(TOP_FIXTURES, name));
 
 const openGitWindow = async (page: Page) => {
   const repo = topFx('basic');
@@ -472,7 +472,7 @@ test.describe('묶음 F — 함께 고치는 결함 (FR-SVS-60)', () => {
   let SOME_FILE = '';
 
   test.beforeAll(() => {
-    HOME_DIR = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'dm-svs-')));
+    HOME_DIR = realPath(fs.mkdtempSync(path.join(os.tmpdir(), 'dm-svs-')));
     SOME_FILE = path.join(HOME_DIR, 'm1.txt');
     fs.writeFileSync(SOME_FILE, 'hello\n');
   });
@@ -526,7 +526,7 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
   let ROOT = '';
 
   test.beforeAll(() => {
-    BASE = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'dm-svs-x-')));
+    BASE = realPath(fs.mkdtempSync(path.join(os.tmpdir(), 'dm-svs-x-')));
     ROOT = path.join(BASE, 'proj');
     fs.mkdirSync(ROOT);
     for (const d of ['dirA', 'dirB']) {
@@ -547,7 +547,7 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
       undefined, { timeout: 15000 });
     const edWin = await page.evaluate((root) => {
       const a = (window as any).app;
-      const win = a._edWindows().find((x: any) => x.editor && x.editor.root === root);
+      const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === root);
       if (!win) throw new Error('Editor 창이 없다: ' + root);
       a.switchWindow(win.id);
       return win.id;
@@ -601,7 +601,7 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
     await slotAdd(page);
     await slotAdd(page);
     const edWin = await page.evaluate((root) =>
-      (window as any).app._edWindows().find((x: any) => x.editor && x.editor.root === root).id, ROOT);
+      (window as any).app._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === root).id, ROOT);
     for (let i = 0; i < 4; i++) await openInSlot(page, i, edWin);
     await renderNow(page);
     await page.waitForFunction(
@@ -688,13 +688,13 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
   const FIXTURES = tmpPath('dm-git-fx-svs-' + process.pid);
 
   test.beforeAll(() => {
-    execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+    gitFixture(FIXTURES);
   });
   test.afterAll(() => {
-    execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+    cleanGitFixture(FIXTURES);
   });
 
-  const fx = (name: string) => fs.realpathSync(path.join(FIXTURES, name));
+  const fx = (name: string) => realPath(path.join(FIXTURES, name));
 
   // 상태를 바꾸는 검사는 픽스처를 복사해 쓴다 — 원본을 오염시키면 뒤 검사가 앞
   // 검사의 순서에 묶인다.
@@ -702,7 +702,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     const dst = path.join(FIXTURES, 'copy-' + tag);
     fs.rmSync(dst, { recursive: true, force: true });
     execFileSync('cp', ['-R', path.join(FIXTURES, name), dst]);
-    return fs.realpathSync(dst);
+    return realPath(dst);
   }
 
   async function twoSlotsOnGit(page: Page, repo: string) {
@@ -954,7 +954,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
   let FILE = '';
 
   test.beforeAll(() => {
-    BASE = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'dm-svs-e-')));
+    BASE = realPath(fs.mkdtempSync(path.join(os.tmpdir(), 'dm-svs-e-')));
     ROOT = path.join(BASE, 'proj');
     fs.mkdirSync(ROOT);
     FILE = path.join(ROOT, 'doc.txt');
@@ -975,7 +975,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
       undefined, { timeout: 15000 });
     const edWin = await page.evaluate((root) => {
       const a = (window as any).app;
-      const win = a._edWindows().find((x: any) => x.editor && x.editor.root === root);
+      const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === root);
       a.switchWindow(win.id);
       return win.id;
     }, ROOT);

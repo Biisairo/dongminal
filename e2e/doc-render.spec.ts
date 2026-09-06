@@ -12,6 +12,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
+import { realPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
 let BASE = '';
@@ -41,7 +42,7 @@ const DOC = [
 ].join('\n');
 
 test.beforeAll(() => {
-  BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-drv-')));
+  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-drv-')));
   ROOT = j(BASE, 'root');
   fs.mkdirSync(ROOT, { recursive: true });
   fs.writeFileSync(j(ROOT, 'doc.md'), DOC);
@@ -75,7 +76,7 @@ test.beforeAll(() => {
     '# 위\n\n[다른 문서](./doc.md)\n\n[바깥](https://example.invalid/x)\n\n' +
     '[아래로](#아래)\n\n' + Array.from({ length: 80 }, (_, i) => 'pad ' + i).join('\n\n') +
     '\n\n## 아래\n\n끝\n');
-  ROOT = fs.realpathSync(ROOT);
+  ROOT = realPath(ROOT);
 });
 test.afterAll(() => {
   if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
@@ -92,7 +93,7 @@ async function enter(page: Page, request: APIRequestContext) {
     undefined, { timeout: 15000 });
   await page.evaluate((root) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && x.editor.root === root);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === root);
     if (!win) throw new Error('Editor 창이 없다: ' + root);
     a.switchWindow(win.id);
   }, ROOT);

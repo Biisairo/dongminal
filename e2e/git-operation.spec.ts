@@ -1,11 +1,12 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit } from './fixtures';
+import { realPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.1 — 묶음 A 진행 중 작업 (FR-GIT-251·252, 검증 V176).
 //
@@ -24,7 +25,7 @@ function git(dir: string, ...args: string[]) {
 // 충돌하는 머지를 만들어 **멈춘 채로** 남긴다. 같은 파일의 같은 줄을 두 갈래가
 // 다르게 고치므로 git 이 반드시 멈춘다.
 function repoWithConflictedMerge(tag: string) {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'dm-git-op-' + tag + '-')));
+  const dir = realPath(mkdtempSync(join(tmpdir(), 'dm-git-op-' + tag + '-')));
   git(dir, 'init', '-q', '-b', 'main', '.');
   git(dir, 'config', 'user.name', 'Fixture');
   git(dir, 'config', 'user.email', 'fixture@example.invalid');

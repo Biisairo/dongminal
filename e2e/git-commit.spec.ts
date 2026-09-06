@@ -1,11 +1,10 @@
 import { execFileSync } from 'child_process';
-import { realpathSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // GIT_M2_STEP1011_CONTRACT §3 — 커밋 클라이언트. 검증 V33·V35·V36
 // (E3·E4·E5·E6·E7·E9 + FR-GIT-74).
@@ -13,13 +12,13 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-commit-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
-const fx = (name: string) => realpathSync(join(FIXTURES, name));
+const fx = (name: string) => realPath(join(FIXTURES, name));
 
 const copyFx = makeCopyFx(FIXTURES);
 const commits = (repo: string) =>

@@ -1,9 +1,10 @@
 import { execFileSync } from 'child_process';
-import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { test, expect, plainWindows, waitForInit, waitSettled } from './fixtures';
+import { realPath, slash } from './osenv';
 
 // /dongminal:team 과 /dongminal:workflow 스킬이 실제로 밟는 접합면을 라이브 서버에서
 // 검증한다. 스킬 문서는 명령·인자만 적혀 있어 정적 대조로는 "그 이름이 존재한다"
@@ -677,7 +678,7 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
 
   test.beforeAll(() => {
     repo = mkdtempSync(join(tmpdir(), 'dmn-e2e-repo-'));
-    repo = realpathSync(repo);
+    repo = realPath(repo);
     const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, stdio: 'pipe' });
     git('init', '-b', 'main');
     git('config', 'user.email', 'e2e@example.com');
@@ -700,7 +701,9 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
     });
     expect(started.status(), await started.text()).toBe(200);
     const run = await started.json();
-    expect(run.repo).toBe(repo);
+    // 서버가 돌려주는 경로의 구분자는 OS 가 정한다 — 같은 자리인지만 본다
+    // (CI_E2E_MATRIX_SRS FR-CEM-11).
+    expect(slash(run.repo)).toBe(slash(repo));
     expect(run.base).toBe('main');
     const wt = run.worktree;
     expect(wt?.path, '공유 worktree 가 없다').toBeTruthy();
@@ -708,7 +711,7 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
     // $DONGMINAL_HOME/worktrees 다. (playwright.config 의 E2E_HOME 을 여기서 읽지
     // 않는 이유: 그 값은 모듈 평가 시점의 Date.now()·pid 라 워커 프로세스에서
     // 다시 계산되어 서버가 쓰는 값과 어긋난다.)
-    expect(wt.path, `worktrees 루트 밖이다: ${wt.path}`)
+    expect(slash(wt.path), `worktrees 루트 밖이다: ${wt.path}`)
       .toMatch(/dongminal-e2e-[^/]+\/worktrees\//);
     expect(existsSync(wt.path), '경로가 실제로 만들어지지 않았다').toBe(true);
     // --no-track: base 의 upstream 을 물려받지 않는다 (FR-WKT-2).
@@ -750,7 +753,7 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
     })).json();
     const path = member.worktree.path;
     // 경로 확인 뒤에만 쓴다 — 빈 값이면 join 이 이 저장소 안에 파일을 만든다 (§4.3).
-    expect(path, `worktrees 루트 밖이다: ${path}`).toMatch(/dongminal-e2e-[^/]+\/worktrees\//);
+    expect(slash(path), `worktrees 루트 밖이다: ${path}`).toMatch(/dongminal-e2e-[^/]+\/worktrees\//);
     const work = join(path, '작업물.txt');
     writeFileSync(work, '지우면 안 된다\n');
 
@@ -770,7 +773,7 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
   });
 
   test('비git 디렉터리의 격리 Run 은 명확히 실패한다', async ({ request }) => {
-    const plain = realpathSync(mkdtempSync(join(tmpdir(), 'dmn-e2e-plain-')));
+    const plain = realPath(mkdtempSync(join(tmpdir(), 'dmn-e2e-plain-')));
     const r = await request.post('/api/runs', {
       data: { objective: 'e2e 비git', projection: 'inline', isolation: 'per-member', cwd: plain },
     });

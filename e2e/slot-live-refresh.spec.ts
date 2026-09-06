@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, gitFixture, cleanGitFixture } from './fixtures';
 import { tmpPath } from './osenv';
 
 // SLOT_VIEW_STATE_SRS §8 M6 — TC-SVS-60~64.
@@ -18,10 +18,10 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-slr-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
 const copyFx = makeCopyFx(FIXTURES);

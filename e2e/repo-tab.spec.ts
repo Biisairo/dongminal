@@ -6,6 +6,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
+import { realPath } from './osenv';
 
 // REPO_TAB_UNIFY_SRS §4 — 통합 창의 검증 V-RTU-10~35.
 //
@@ -35,7 +36,7 @@ function makeRepo(base: string) {
   git(d, 'commit', '-qm', 'init');
   // 변경 하나 — Changes 사이드가 보일 것이 있어야 한다.
   fs.appendFileSync(j(d, 'src', 'a.ts'), 'export const b = 2\n');
-  return fs.realpathSync(d);
+  return realPath(d);
 }
 
 // 묶음 N — `conflicts` 그룹은 행 버튼이 **넷**(`↗`·`Ours`·`Theirs`·`+`)이라
@@ -58,11 +59,11 @@ function makeConflict(base: string) {
   git(d, 'commit', '-qam', 'main');
   // 충돌이므로 실패로 끝난다 — 그것이 이 픽스처의 목적이다.
   try { git(d, 'merge', 'other') } catch { /* 충돌 */ }
-  return fs.realpathSync(d);
+  return realPath(d);
 }
 
 test.beforeAll(() => {
-  BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-rtu-')));
+  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-rtu-')));
   REPO = makeRepo(BASE);
   CONFLICT = makeConflict(BASE);
 });
@@ -87,7 +88,7 @@ async function goto(page: Page) {
 async function openRepo(page: Page, root: string) {
   await page.evaluate((r) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && x.editor.root === r);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === r);
     if (!win) throw new Error('Repo 창이 없다: ' + r);
     a.switchWindow(win.id);
   }, root);
@@ -243,7 +244,7 @@ test.describe('묶음 C — Changes 사이드', () => {
 
   test('C2 (V-RTU-24·25): 저장소가 아니면 사유와 git init 버튼이 나온다',
     async ({ page, request }) => {
-      const plain = fs.realpathSync(fs.mkdtempSync(j(BASE, 'plain-')));
+      const plain = realPath(fs.mkdtempSync(j(BASE, 'plain-')));
       w(j(plain, 'note.md'), 'x\n');
       await enter(page, request, plain);
       await sideTab(page, 'changes').click();
@@ -258,7 +259,7 @@ test.describe('묶음 C — Changes 사이드', () => {
 
   test('C3 (V-RTU-26): git init 이 확인을 거쳐 저장소를 만들고 곧바로 반영된다',
     async ({ page, request }) => {
-      const fresh = fs.realpathSync(fs.mkdtempSync(j(BASE, 'fresh-')));
+      const fresh = realPath(fs.mkdtempSync(j(BASE, 'fresh-')));
       w(j(fresh, 'a.txt'), 'x\n');
       await enter(page, request, fresh);
       await sideTab(page, 'changes').click();
@@ -451,7 +452,7 @@ test.describe('묶음 S — 관측의 경계 (NFR-RTU-1)', () => {
         fs.mkdirSync(d, { recursive: true });
         git(d, 'init', '-q', '-b', 'main', '.');
         w(j(d, 'x.txt'), 'x\n');
-        others.push(fs.realpathSync(d));
+        others.push(realPath(d));
       }
       for (const p of others) await addEditor(request, p);
       await enter(page, request, REPO);

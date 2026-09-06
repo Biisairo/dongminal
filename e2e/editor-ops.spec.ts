@@ -6,6 +6,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
+import { realPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M5(파일 조작) · M6(파일 열기 라우팅)의 검증
 // V-EDT-57~62·68~71 (조작) · V-EDT-73~79 (라우팅).
@@ -42,7 +43,7 @@ function mkRoot(tag: string) {
   w(j(d, 'src', 'deep', 'c.txt'), 'C\n');
   w(j(d, 'docs', 'd.txt'), 'D\n');
   w(j(d, 'top.txt'), 'T\n');
-  return fs.realpathSync(d);
+  return realPath(d);
 }
 
 function mkRepo(tag: string) {
@@ -56,11 +57,11 @@ function mkRepo(tag: string) {
   git(d, 'add', '-A');
   git(d, 'commit', '-qm', 'base');
   fs.appendFileSync(j(d, 'sub', 'x.txt'), 'two\n');
-  return fs.realpathSync(d);
+  return realPath(d);
 }
 
 test.beforeAll(() => {
-  BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-edop-')));
+  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-edop-')));
   REPO = mkRepo('repo');
 });
 test.afterAll(() => {
@@ -88,7 +89,7 @@ async function goto(page: Page) {
 async function openEditor(page: Page, root: string) {
   await page.evaluate((r) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && x.editor.root === r);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === r);
     if (!win) throw new Error('Editor 창이 없다: ' + r);
     a.switchWindow(win.id);
   }, root);
@@ -449,7 +450,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
 test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
   test('R1 (V-EDT-73 / FR-EDT-95): 중첩된 Editor 둘이면 깊은 쪽이 이긴다', async ({ page, request }) => {
     const OUT = mkRoot('r1');
-    const IN = fs.realpathSync(j(OUT, 'src'));
+    const IN = realPath(j(OUT, 'src'));
     await addEditor(request, OUT);
     await addEditor(request, IN);
     await goto(page);
@@ -488,7 +489,7 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
   test('R4 (V-EDT-76 / FR-EDT-97): Git Open File 은 파일이 아니라 리포로 고른다', async ({ page, request }) => {
     // 리포와 **리포 안의 더 깊은 루트**를 함께 세운다. 파일 경로로 골랐다면
     // 깊은 쪽(FR-EDT-95)이 이겼을 자리다.
-    const SUB = fs.realpathSync(j(REPO, 'sub'));
+    const SUB = realPath(j(REPO, 'sub'));
     await addEditor(request, REPO);
     await addEditor(request, SUB);
     await goto(page);
@@ -500,7 +501,7 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
   });
 
   test('R5 (V-EDT-77 / FR-EDT-98·99): Open File (HEAD) 의 임시 파일도 리포의 Editor 로 간다', async ({ page, request }) => {
-    const SUB = fs.realpathSync(j(REPO, 'sub'));
+    const SUB = realPath(j(REPO, 'sub'));
     await addEditor(request, REPO);
     await addEditor(request, SUB);
     await goto(page);

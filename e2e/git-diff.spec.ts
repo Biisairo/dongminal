@@ -1,11 +1,11 @@
 import { execFileSync } from 'child_process';
-import { realpathSync, unlinkSync, writeFileSync } from 'fs';
+import { unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, openGit, waitForInit } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // GIT_M1_STEP7_CONTRACT §4 — Diff 뷰 (D1~D10). 검증 V10·V11·V12·V26.
 //
@@ -15,13 +15,13 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-diff-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
-const fx = (name: string) => realpathSync(join(FIXTURES, name));
+const fx = (name: string) => realPath(join(FIXTURES, name));
 
 const copyFx = makeCopyFx(FIXTURES);
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');

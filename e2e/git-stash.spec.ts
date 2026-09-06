@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openRowMenu } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openRowMenu, gitFixture, cleanGitFixture } from './fixtures';
 import { tmpPath } from './osenv';
 
 // GIT_M5_STEP1821_CONTRACT §2 — Stash 탭. 검증 V56~V58 · V69.
@@ -15,10 +15,10 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-stash-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
 const copyFx = makeCopyFx(FIXTURES);

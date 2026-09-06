@@ -1,11 +1,10 @@
-import { execFileSync } from 'child_process';
-import { realpathSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, openGit } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // EDITOR_GIT_UX_SRS — Diff 개요 눈금(묶음 O) · Editor 검색(묶음 F·G·K).
 // 검증 V-DOR-1~3, V-EQO-2~3, V-EKB-2.
@@ -19,13 +18,13 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-ux-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
-const fx = (name: string) => realpathSync(join(FIXTURES, name));
+const fx = (name: string) => realPath(join(FIXTURES, name));
 
 // 다시 불러온다. `waitForInit` 을 쓸 수 없다 — Git 창이 활성인 상태로
 // 복원되면 포커스된 pane 에 터미널이 없어 그 대기가 영영 끝나지 않는다.

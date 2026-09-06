@@ -6,6 +6,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
+import { realPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M3(파일 탐색기) · M4(탐색기의 git 색)의 검증 V-EDT-40~56.
 //
@@ -44,7 +45,7 @@ function makePlain(base: string) {
   // 대상 종류는 linkDir 이 알린다.
   fs.symlinkSync(j(d, 'alpha'), j(d, 'dlink'));
   fs.symlinkSync(j(d, 'apple.txt'), j(d, 'flink'));
-  return fs.realpathSync(d);
+  return realPath(d);
 }
 
 /**
@@ -98,11 +99,11 @@ function makeRepo(base: string) {
   w(j(d, 'stagedir', 's2.txt'), 'a\n');
   git(d, 'add', 'stagedir/s2.txt');
   fs.appendFileSync(j(d, 'stagedir', 's2.txt'), 'b\n');
-  return fs.realpathSync(d);
+  return realPath(d);
 }
 
 test.beforeAll(() => {
-  BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-edx-')));
+  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-edx-')));
   PLAIN = makePlain(BASE);
   REPO = makeRepo(BASE);
 });
@@ -131,7 +132,7 @@ async function goto(page: Page) {
 async function openEditor(page: Page, root: string) {
   await page.evaluate((r) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && x.editor.root === r);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === r);
     if (!win) throw new Error('Editor 창이 없다: ' + r);
     a.switchWindow(win.id);
   }, root);
@@ -519,7 +520,7 @@ test.describe('묶음 X — 다시 그리기와 실패의 회복 (FR-EDT-66·69)
     });
     expect(before).toBeGreaterThan(0);
 
-    await page.evaluate(async (r) => { await (window as any).app._edRemove(r) }, fs.realpathSync(root));
+    await page.evaluate(async (r) => { await (window as any).app._edRemove(r) }, realPath(root));
 
     await expect.poll(() => page.evaluate(() => (window as any).app._edTrees.size)).toBeLessThan(before);
   });

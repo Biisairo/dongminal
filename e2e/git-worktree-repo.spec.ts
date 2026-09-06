@@ -1,12 +1,12 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, realpathSync, rmSync } from 'fs';
+import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, makeCopyFx, waitForInit, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 /**
  * UX_BATCH5_SRS 묶음 E — 워크트리를 **그 자체 저장소로** 다루는 경로 (FR-WTG-1).
@@ -32,10 +32,10 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-wtrepo-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
 const copyFx = makeCopyFx(FIXTURES);
@@ -54,7 +54,7 @@ function addWorktree(repo: string, name: string, opts: { detached?: boolean } = 
     ? ['-C', repo, 'worktree', 'add', '--detach', dir, 'HEAD']
     : ['-C', repo, 'worktree', 'add', '-b', name, dir, 'main'];
   execFileSync('git', args, { stdio: 'pipe' });
-  return realpathSync(dir);
+  return realPath(dir);
 }
 
 const made: string[] = [];

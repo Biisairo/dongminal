@@ -1,8 +1,7 @@
-import { execFileSync } from 'child_process';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_BODY_VIEWS, clickGitView } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_BODY_VIEWS, clickGitView, gitFixture, cleanGitFixture } from './fixtures';
 import { tmpPath } from './osenv';
 
 /**
@@ -22,10 +21,10 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-tooltips-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
 const copyFx = makeCopyFx(FIXTURES);

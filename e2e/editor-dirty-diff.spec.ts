@@ -1,11 +1,11 @@
 import { execFileSync } from 'child_process';
-import { mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, openGit } from './fixtures';
-import { tmpPath } from './osenv';
+import { tmpPath, realPath } from './osenv';
 
 // constants-editor.js 의 전역 상수 — `const` 는 전역 렉시컬 환경에 들어가므로
 // `window.X` 로는 잡히지 않는다. 맨 이름으로 읽는다 (editor-git-ux.spec.ts 의
@@ -36,7 +36,7 @@ function mkrepo(name: string, files: Record<string, string>): string {
   for (const [p, c] of Object.entries(files)) writeFileSync(join(d, p), c);
   execFileSync('git', ['-C', d, 'add', '-A']);
   execFileSync('git', ['-C', d, 'commit', '-qm', 'init']);
-  return realpathSync(d);
+  return realPath(d);
 }
 
 const git = (repo: string, ...args: string[]) =>

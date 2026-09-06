@@ -1,12 +1,12 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, GIT_VIEW_TABS, openGit } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, waitForInit, GIT_VIEW_TABS, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // GIT_VIEW_REFRESH_SRS §4 — 쓰기 뒤 뷰 갱신. 검증 V-GVR-1~8.
 //
@@ -20,10 +20,10 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-vrefresh-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
 const git = (repo: string, ...args: string[]) =>
@@ -37,15 +37,15 @@ function copyPair(tag: string) {
   rmSync(bare, { recursive: true, force: true });
   execFileSync('cp', ['-R', join(FIXTURES, 'with-remote'), dst]);
   execFileSync('cp', ['-R', join(FIXTURES, 'remote.git'), bare]);
-  const repo = realpathSync(dst);
-  const remote = realpathSync(bare);
+  const repo = realPath(dst);
+  const remote = realPath(bare);
   git(repo, 'remote', 'set-url', 'origin', remote);
   return { repo, remote };
 }
 
 // 원격을 한 커밋 앞세운다 — 별도 클론에서 밀어야 bare 를 정직하게 움직인다.
 function advanceRemote(remote: string, text: string) {
-  const work = realpathSync(mkdtempSync(join(tmpdir(), 'dm-git-adv-')));
+  const work = realPath(mkdtempSync(join(tmpdir(), 'dm-git-adv-')));
   const clone = join(work, 'c');
   execFileSync('git', ['clone', '-q', remote, clone]);
   git(clone, 'config', 'user.name', 'dm');

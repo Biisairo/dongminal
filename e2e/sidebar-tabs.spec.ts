@@ -1,11 +1,9 @@
-import { execFileSync } from 'child_process';
-import { realpathSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit as fxWaitForInit } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, waitForInit as fxWaitForInit, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // GIT_SIDEBAR_TABS_SRS §4.2 — 검증 V-SBT-*.
 //
@@ -18,13 +16,13 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-sbt-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
-const fx = (name: string) => realpathSync(join(FIXTURES, name));
+const fx = (name: string) => realPath(join(FIXTURES, name));
 
 async function waitForInit(page: Page) {
   // 활성 탭은 localStorage 에 산다 (FR-SBT-6). **첫 로드에서만** 지운다 — 그냥

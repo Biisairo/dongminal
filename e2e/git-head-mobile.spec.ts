@@ -1,11 +1,9 @@
-import { execFileSync } from 'child_process';
-import { realpathSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGit, GIT_VIEW_TABS, clickGitView } from './fixtures';
-import { tmpPath } from './osenv';
+import { test, expect, openGit, GIT_VIEW_TABS, clickGitView, gitFixture, cleanGitFixture } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // GIT_HEAD_MOBILE_SRS 검증 V1~V13 — 머리의 왼쪽 정렬 · History 이식 · 모바일 폭.
 //
@@ -19,13 +17,13 @@ import { tmpPath } from './osenv';
 const FIXTURES = tmpPath('dm-git-fx-head-' + process.pid);
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
-const fx = (name: string) => realpathSync(join(FIXTURES, name));
+const fx = (name: string) => realPath(join(FIXTURES, name));
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
 const hist = (page: Page) => page.locator('#area .pn-body .git-view.git-history');
 // FR-GCC-10 / D-8: 자리가 바뀌었을 뿐 같은 버튼이다 — 클래스 이름은 그대로이고

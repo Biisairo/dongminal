@@ -69,7 +69,14 @@ test('TC-MTI-26 (FR-MTI-28): 마우스 리포팅이 켜진 TUI 에는 휠 리포
     (window as any).__sent = [];
     const orig = p._send.bind(p);
     p._send = (m: Uint8Array) => {
-      if (m[0] === 0) (window as any).__sent.push(new TextDecoder().decode(m.subarray(1)));
+      if (m[0] === 0) {
+        // xterm 의 **포커스 보고**(CSI `I`·`O`)는 사용자가 보낸 키가 아니다 — 창이
+        // 포커스를 얻고 잃을 때 터미널이 스스로 낸다. 그 시각은 OS 마다 다르므로
+        // (Windows 러너에서 실측: `\x1b[I` 가 첫 키 앞에 끼어들었다) 기록에 섞이면
+        // 검사가 기계에 묶인다.
+        const t = new TextDecoder().decode(m.subarray(1));
+        if (t !== '\x1b[I' && t !== '\x1b[O') (window as any).__sent.push(t);
+      }
       return orig(m);
     };
     p.term.write('\x1b[?1000h\x1b[?1006h');

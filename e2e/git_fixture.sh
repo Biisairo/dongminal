@@ -30,6 +30,18 @@ fi
 mkdir -p "$OUT"
 : > "$OUT/.dm-git-fixture"   # --clean 의 안전 표식
 
+# 파이썬은 이름이 하나가 아니다.
+#
+# 8번 픽스처(대량 커밋)가 `fast-import` 입력을 만드는 데 파이썬을 쓴다. 개발
+# 호스트와 리눅스 러너에는 `python3` 가 있지만 **Windows 의 git-bash 에는 없다** —
+# 거기서는 `python` 이 그것이다. 이름 하나만 부르면 스크립트가 통째로 멈추고,
+# `set -e` 때문에 그 뒤의 픽스처도 서지 않는다 (Windows CI 에서 실측).
+PY_BIN="$(command -v python3 || command -v python || true)"
+if [ -z "$PY_BIN" ]; then
+  echo "거부: python3(또는 python)이 없습니다 — 대량 커밋 픽스처를 만들 수 없습니다" >&2
+  exit 1
+fi
+
 # 픽스처는 사용자의 전역 설정에 의존하지 않는다 — user.name 이 없는 환경에서도
 # 스크립트가 성립해야 하고, preflight 검증(FR-GIT-86)이 전역 설정에 흔들리면 안 된다.
 init() {
@@ -118,7 +130,7 @@ say many-files "변경 파일 2000개"
 # ── 8. 대량 커밋 + 분기·머지 — FR-GIT-114~120, V46/V48 ──
 # fast-import 로 만든다. commit --allow-empty 를 1만 번 돌리면 수십 초가 걸린다.
 d=$(init many-commits)
-python3 - "$d" <<'PY'
+"$PY_BIN" - "$d" <<'PY'
 import subprocess, sys, time
 repo = sys.argv[1]
 N = 10000

@@ -6,6 +6,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, openGit as fxOpenGit } from './fixtures';
+import { realPath } from './osenv';
 
 // GIT_DIR_ENTRY_SRS §4 — 디렉터리 상태 항목의 검증 V-DIR-10~42.
 //
@@ -67,11 +68,11 @@ function makeParent(base: string) {
   w(j(d, 'plaindir', 'p.txt'), 'x\n');
   // 하위 루트에서 볼 변경 하나 (FR-DIR-40·41).
   fs.appendFileSync(j(d, 'src', 'keep.txt'), 'two\n');
-  return fs.realpathSync(d);
+  return realPath(d);
 }
 
 test.beforeAll(() => {
-  BASE = fs.realpathSync(fs.mkdtempSync(j(os.tmpdir(), 'dm-dir-')));
+  BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-dir-')));
   PARENT = makeParent(BASE);
   SUBDIR = j(PARENT, 'src');
 });
@@ -98,7 +99,7 @@ async function goto(page: Page) {
 async function openEditor(page: Page, root: string) {
   await page.evaluate((r) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && x.editor.root === r);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === r);
     if (!win) throw new Error('Editor 창이 없다: ' + r);
     a.switchWindow(win.id);
   }, root);
@@ -320,7 +321,7 @@ const gitOff = (page: Page, root: string) =>
 test.describe('묶음 R — _gitOff 는 사유마다 수명이 다르다', () => {
   test('R1 (V-DIR-31): 저장소가 아니면 굳지 않고, git init 뒤 색이 돌아온다',
     async ({ page, request }) => {
-      const plain = fs.realpathSync(fs.mkdtempSync(j(BASE, 'plain-')));
+      const plain = realPath(fs.mkdtempSync(j(BASE, 'plain-')));
       w(j(plain, 'f.txt'), 'x\n');
       await enter(page, request, plain);
       // 404 를 받아도 굳지 않는다 — `git init` 이 뒤집을 수 있는 사유다.

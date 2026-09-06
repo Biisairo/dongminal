@@ -1,10 +1,9 @@
-import { execFileSync } from 'child_process';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as fxWaitForInit, openGit as fxOpenGit } from './fixtures';
+import { test, expect, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as fxWaitForInit, openGit as fxOpenGit, gitFixture, cleanGitFixture } from './fixtures';
 import { tmpPath } from './osenv';
 
 // GIT_M5_STEP1821_CONTRACT §3 — 다이얼로그 공통 규약. 검증 V59
@@ -20,10 +19,10 @@ const DESKTOP = { width: 1280, height: 720 };
 const MOBILE = { width: 390, height: 640 };
 
 test.beforeAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
+  gitFixture(FIXTURES);
 });
 test.afterAll(() => {
-  execFileSync('bash', ['e2e/git_fixture.sh', '--clean', FIXTURES], { stdio: 'ignore' });
+  cleanGitFixture(FIXTURES);
 });
 
 const copyFx = makeCopyFx(FIXTURES);
