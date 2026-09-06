@@ -18,7 +18,7 @@ Object.assign(App.prototype, {
   _notify(msg){
     const ov=document.createElement('div');ov.className='confirm-overlay';
     ov.innerHTML='<div class="confirm-box"><div class="confirm-msg notify-msg"></div>'+
-      '<div class="confirm-btns"><button class="confirm-ok">확인</button></div></div>';
+      '<div class="confirm-btns"><button class="confirm-ok" title="'+TIP_NOTIFY_OK+'">확인</button></div></div>';
     ov.querySelector('.confirm-msg').textContent=msg;
     document.body.appendChild(ov);
     const btn=ov.querySelector('.confirm-ok');btn.focus();
@@ -44,6 +44,154 @@ Object.assign(App.prototype, {
     el.className='sbx-progress';el.textContent=msg;
     document.body.appendChild(el);
     return ()=>el.remove();
+  },
+
+  /**
+   * 컨테이너 런타임의 지금 상태 (UX_BATCH5_SRS FR-SRT-1·5).
+   *
+   * **프로파일보다 먼저 묻는다.** 프로파일 목록은 서버가 뜰 때 바이너리가 있었는지만
+   * 말하므로, 데몬이 죽어도 정상 목록이 온다 (§2.3 실측) — 그것에 업으면 실패가
+   * 창을 만드는 순간까지 미뤄지고 사용자에게는 "버튼이 고장났다" 로 보인다.
+   *
+   * 조회 자체가 실패하면 `null` 이다. 그때는 갈래를 가르지 않고 종전 흐름으로
+   * 간다 — 서버에 닿지 못하는 것은 런타임의 문제가 아니고, 여기서 막으면 멀쩡한
+   * 환경에서 샌드박스를 못 쓰게 된다.
+   */
+  async _sbxRuntime(){
+    try{
+      const r=await fetch('/api/sandbox/runtime');
+      if(!r.ok) return null;
+      return await r.json();
+    }catch{return null}
+  },
+
+  /**
+   * 런타임이 없거나 죽었을 때의 한 자리 (FR-SRT-6·7).
+   *
+   * 두 상태가 한 함수인 이유는 껍데기와 규약이 같기 때문이다 — 다른 것은 문장과
+   * 버튼뿐이고, 그것을 두 함수로 가르면 닫기·Esc·복사가 두 벌이 된다.
+   *
+   * `true` 를 돌려주면 **하려던 일을 이어도 된다**는 뜻이다 (FR-SRT-7): 기동이
+   * 끝나 `ok` 가 됐을 때만 그렇다. 닫거나 실패하면 `false` 다.
+   *
+   * FR-SRT-8: 기존 확인창 껍데기를 쓰고, 본문은 `textContent` 로 넣는다 — 여기
+   * 오는 문자열은 런타임이 만든 진단이라 마크업으로 해석되면 안 된다.
+   */
+  _sbxRuntimeModal(st){
+    return new Promise(resolve=>{
+      const missing=st.state===SBX_RT_MISSING;
+      const ov=document.createElement('div');
+      ov.className='confirm-overlay'; ov.dataset.state=st.state;
+      const box=document.createElement('div'); box.className='confirm-box sbx-rt';
+      const title=document.createElement('div'); title.className='confirm-msg';
+      title.textContent=missing?SBX_RT_TITLE_MISSING:SBX_RT_TITLE_STOPPED;
+      box.appendChild(title);
+
+      const msg=document.createElement('div'); msg.className='sbx-rt-msg';
+      // 실행할 수 없는 OS 에서는 "실행할까요" 가 아니라 "직접 실행하세요" 다 (D-5).
+      msg.textContent=missing?SBX_RT_MSG_MISSING
+        :(st.startTryable?SBX_RT_MSG_STOPPED:SBX_RT_MSG_MANUAL);
+      box.appendChild(msg);
+
+      // 보일 명령은 상태가 정한다 — 설치인지 기동인지.
+      const cmd=missing?(st.installCommand||''):(st.startCommand||'');
+      // 실행 버튼이 있으면 명령을 함께 보이지 않는다: 누를 것이 둘이면 어느 쪽이
+      // 진짜인지 말할 수 없다. 실행할 수 없을 때에만 칠 것을 준다.
+      const showCmd=!!cmd&&(missing||!st.startTryable);
+      if(showCmd){
+        const row=document.createElement('div'); row.className='sbx-rt-cmdrow';
+        const code=document.createElement('code'); code.className='sbx-rt-cmd';
+        code.textContent=cmd;
+        const copy=document.createElement('button');
+        copy.type='button'; copy.className='sbx-rt-copy'; copy.textContent=SBX_RT_COPY;
+        copy.addEventListener('click',async()=>{
+          // 복사가 막힌 환경(비 HTTPS·권한)에서도 명령은 화면에 남아 있다 —
+          // 실패를 알릴 뿐 흐름을 막지 않는다.
+          try{await navigator.clipboard.writeText(cmd); copy.textContent=SBX_RT_COPIED}
+          catch{}
+        });
+        row.appendChild(code); row.appendChild(copy);
+        box.appendChild(row);
+      }else if(missing){
+        // 명령을 모르는 OS 다. 안내만 남기고 지어내지 않는다.
+        const n=document.createElement('div'); n.className='sbx-rt-msg';
+        n.textContent=SBX_RT_NO_CMD; box.appendChild(n);
+      }
+      if(missing){
+        const rs=document.createElement('div'); rs.className='sbx-rt-restart';
+        rs.textContent=SBX_RT_MSG_RESTART;
+        box.appendChild(rs);
+        const docs=document.createElement('div'); docs.className='sbx-rt-docs';
+        // 바깥 링크를 열지 않는다 — 글자로 둔다 (FR-SRT-6).
+        docs.textContent=SBX_RT_DOCS;
+        box.appendChild(docs);
+      }
+
+      // 진행과 사유가 함께 사는 자리. 닫히지 않으므로 읽을 시간이 있다.
+      const note=document.createElement('div'); note.className='sbx-rt-note';
+      note.hidden=true;
+      box.appendChild(note);
+
+      const btns=document.createElement('div'); btns.className='confirm-btns';
+      let start=null;
+      if(!missing&&st.startTryable){
+        start=document.createElement('button');
+        start.type='button'; start.className='confirm-ok sbx-rt-start';
+        start.textContent=SBX_RT_START;
+        btns.appendChild(start);
+      }
+      const close=document.createElement('button');
+      close.type='button'; close.className='confirm-cancel'; close.textContent=SBX_RT_CLOSE;
+      btns.appendChild(close);
+      box.appendChild(btns);
+      ov.appendChild(box);
+      document.body.appendChild(ov);
+
+      let done=false;
+      const cleanup=v=>{
+        if(done) return; done=true;
+        ov.remove(); document.removeEventListener('keydown',onKey); resolve(v);
+      };
+      const onKey=e=>{if(e.key==='Escape'){e.preventDefault();cleanup(false)}};
+      document.addEventListener('keydown',onKey);
+      close.addEventListener('click',()=>cleanup(false));
+      ov.addEventListener('click',e=>{if(e.target===ov)cleanup(false)});
+      if(start) start.addEventListener('click',()=>this._sbxRuntimeStart(start,note,cleanup));
+      (start||close).focus();
+    });
+  },
+
+  /**
+   * 기동 한 번 (FR-SRT-3·4·7).
+   *
+   * `started:true` 는 명령이 오류 없이 반환됐다는 뜻일 뿐이므로 **그것으로 끝내지
+   * 않는다** — 데몬이 떴는지는 상태를 다시 물어 확정한다. 그동안 모달은 닫히지
+   * 않는다: 닫으면 진행도 사유도 읽을 자리가 사라진다 (FR-GIT-175 와 같은 근거).
+   */
+  async _sbxRuntimeStart(btn,note,cleanup){
+    btn.disabled=true;
+    note.hidden=false; note.textContent=SBX_RT_STARTING;
+    let res=null;
+    try{
+      const r=await fetch('/api/sandbox/runtime/start',{method:'POST'});
+      if(r.ok) res=await r.json();
+    }catch{}
+    if(!res||!res.started){
+      btn.disabled=false;
+      note.textContent=SBX_RT_START_FAIL+((res&&res.detail)?' — '+res.detail:'');
+      return;
+    }
+    // NFR-SRT-2: 2초 주기, 60초 상한. 데몬이 뜨면 그 자리에서 이어진다.
+    const until=Date.now()+SBX_RT_POLL_MAX_MS;
+    for(;;){
+      await new Promise(r=>setTimeout(r,SBX_RT_POLL_MS));
+      const st=await this._sbxRuntime();
+      if(st&&st.state===SBX_RT_OK){cleanup(true);return}
+      if(Date.now()>=until) break;
+    }
+    btn.disabled=false;
+    // 상한을 넘긴 것은 실패와 다르다 — 명령은 돌았고 데몬이 아직 안 떴을 뿐이다.
+    note.textContent=SBX_RT_TIMEOUT;
   },
 
   // 샌드박스 프로파일 선택 (FR-SBX-25). 격리 등급을 함께 보이는 것이 요점이다 —
@@ -143,7 +291,7 @@ Object.assign(App.prototype, {
         btns.appendChild(b);
       }
       const cancel=document.createElement('button');
-      cancel.className='confirm-cancel';cancel.textContent='취소';
+      cancel.className='confirm-cancel';cancel.textContent='취소';cancel.title=TIP_SBX_CANCEL;
       cancel.addEventListener('click',()=>cleanup(null));
       btns.appendChild(cancel);
       box.appendChild(btns);
@@ -155,6 +303,7 @@ Object.assign(App.prototype, {
         hint.textContent=SANDBOX_DEV_HINT;
         const open=document.createElement('button');
         open.type='button';open.className='sbx-settings';open.textContent=SANDBOX_DEV_SETTINGS;
+        open.title=TIP_SBX_SETTINGS;
         // 선택창을 닫고 설정을 연다 — 두 창이 겹치면 어느 쪽이 살아 있는지
         // 알 수 없다.
         open.addEventListener('click',()=>{cleanup(null);this._openSettings('sandbox')});
@@ -171,13 +320,14 @@ Object.assign(App.prototype, {
   _confirmClose(msg, opts = {}){
     return new Promise(resolve=>{
       const ov=document.createElement('div');ov.className='confirm-overlay';
-      let btns = '<button class="confirm-ok">닫기</button><button class="confirm-cancel">취소</button>';
+      let btns = `<button class="confirm-ok" title="${TIP_CLOSE_TOOL}">닫기</button>`
+        + `<button class="confirm-cancel" title="${TIP_CLOSE_CANCEL}">취소</button>`;
       if (opts.saveBtn) {
-        btns = '<button class="confirm-save">저장 후 닫기</button>' + btns;
+        btns = `<button class="confirm-save" title="${TIP_CLOSE_SAVE}">저장 후 닫기</button>` + btns;
       }
       // FR-BG-3/4: 실행 중인 도구를 살려두고 닫는 선택지.
       if (opts.bgBtn) {
-        btns = `<button class="confirm-bg">${opts.bgLabel||'백그라운드로'}</button>` + btns;
+        btns = `<button class="confirm-bg" title="${TIP_CLOSE_BG}">${opts.bgLabel||'백그라운드로'}</button>` + btns;
       }
       ov.innerHTML=`<div class="confirm-box"><div class="confirm-msg">${msg}</div><div class="confirm-btns">${btns}</div></div>`;
       document.body.appendChild(ov);

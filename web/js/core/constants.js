@@ -183,6 +183,83 @@ const SANDBOX_COPY_BADGE='복사';
 const SANDBOX_COPY_BADGE_TITLE=
   '작업 폴더의 복사본입니다 — 이 창 안의 변경은 호스트로 돌아오지 않습니다.';
 
+// UX_BATCH5_SRS FR-TIP-1: 칸의 탭 추가 버튼. `+` 만으로는 무엇이 더해지는지
+// 보이지 않는다.
+// ── 탭 너비 (TAB_WIDTH_SRS FR-TBW-2·3) ──
+//
+// 기본 160 은 VSCode 의 `tabSizingFixedMaxWidth` 기본과 같은 값이다 — "긴 이름도
+// 웬만큼 보이는 폭" 으로 이미 검증된 수다.
+//
+// 하한 40 의 근거는 실측이다 (D-3): `.pn-tab` 은 좌우 패딩 20px + gap 4px +
+// 닫기(`×`, 11px 글자 ≈ 8px) 를 쓰므로 **32px 이 이름 이전에 소비된다.** 그보다
+// 좁으면 닫기가 잘려 **닫을 수 없는 탭**이 된다.
+const TAB_WIDTH_DEFAULT=160;
+const TAB_WIDTH_MIN=40;
+const TAB_WIDTH_MAX=480;
+
+const TAB_ADD_TITLE='Add a tab to this pane';
+
+// ── 툴팁 (UX_BATCH5_SRS 묶음 C / FR-TIP-1·2·4) ──
+//
+// 라벨이 한두 낱말인 버튼들이다 — `예`·`아니오`·`확인`·`복사` 는 **무엇을** 하는지
+// 말하지 않는다. 문자열은 상수 표에 산다 (FR-TIP-4).
+const TIP_NOTIFY_OK='Dismiss this message';
+const TIP_CLOSE_TOOL='Close this tool and end its session';
+const TIP_CLOSE_CANCEL='Keep this tool open';
+const TIP_CLOSE_SAVE='Save the file, then close';
+const TIP_CLOSE_BG='Keep it running in the background instead of closing';
+const TIP_SBX_CANCEL='Close without creating a sandbox window';
+const TIP_SBX_SETTINGS='Open settings to define more sandbox profiles';
+const TIP_COPY_DO='Copy the selected text to the clipboard';
+const TIP_COPY_CLOSE='Close without copying';
+const TIP_DEL_OK='Delete permanently — this cannot be undone';
+const TIP_DEL_CANCEL='Keep it and close';
+const TIP_BG_KILL_YES='Terminate this background tool';
+const TIP_BG_KILL_NO='Leave it running';
+const TIP_RUNS_DEL='Remove this run from the list and its history';
+const TIP_RUNS_YES='Delete this run permanently';
+const TIP_RUNS_NO='Keep this run';
+// FR-TIP-1: 단축키 설정의 두 버튼. 키 조합과 `↺` 가 라벨이라 무엇을 하는지는
+// 툴팁만 말할 수 있다.
+const SHORTCUT_REBIND_TITLE='Click, then press the keys you want for this action';
+const SHORTCUT_RESET_TITLE='Reset this shortcut to its default';
+
+// ── 컨테이너 런타임의 상태 (UX_BATCH5_SRS 묶음 B / FR-SRT-1~8) ──
+//
+// 종전에는 프로파일이 비었다는 것 하나로 "설치 안 됨" 과 "실행 안 됨" 을 한꺼번에
+// 알렸다. 그 둘은 **사용자가 할 일이 다르다** — 하나는 설치이고 하나는 실행이다.
+// 그리고 데몬이 죽어도 프로파일 목록은 정상으로 오므로(§2.3 실측), 그 안내는
+// 실제로 닿지도 않았다.
+//
+// 값은 서버의 상수와 짝이다 (`internal/shared/sandbox/runtime.go`).
+const SBX_RT_OK='ok';
+const SBX_RT_STOPPED='stopped';
+const SBX_RT_MISSING='missing';
+// FR-SRT-7: 기동 뒤 데몬이 뜨기를 기다리는 주기와 상한 (NFR-SRT-2). Docker Desktop
+// 의 기동은 수십 초가 걸리므로 상한을 넉넉히 둔다.
+const SBX_RT_POLL_MS=2000;
+const SBX_RT_POLL_MAX_MS=60000;
+const SBX_RT_TITLE_MISSING='컨테이너 런타임이 없습니다';
+const SBX_RT_TITLE_STOPPED='컨테이너 런타임이 실행 중이 아닙니다';
+const SBX_RT_MSG_MISSING='샌드박스 창은 컨테이너 런타임(docker) 위에서 돕니다. 아래 명령으로 설치하세요.';
+// FR-SRT-6: 이 문장이 없으면 사용자는 설치하고도 같은 모달을 다시 본다 — 런타임을
+// 찾는 일은 서버가 뜰 때 한 번뿐이다 (`sandboxplace.Wire`).
+const SBX_RT_MSG_RESTART='설치한 뒤에는 dongminal 을 다시 시작해야 합니다.';
+const SBX_RT_MSG_STOPPED='docker 는 설치되어 있으나 데몬에 닿지 못했습니다. 지금 실행할까요?';
+// D-5: linux 의 기동은 권한을 요구한다. 서버가 sudo 를 부르면 비밀번호를 받을 길이
+// 없어 무응답으로 멈추므로, 사용자가 자기 셸에서 치는 것이 유일하게 끝나는 길이다.
+const SBX_RT_MSG_MANUAL='아래 명령을 직접 실행하세요.';
+const SBX_RT_START='실행';
+const SBX_RT_COPY='복사';
+const SBX_RT_COPIED='복사했습니다';
+const SBX_RT_CLOSE='닫기';
+const SBX_RT_STARTING='실행 중입니다 — 데몬이 뜰 때까지 기다립니다…';
+const SBX_RT_START_FAIL='실행하지 못했습니다';
+// 상한을 넘긴 것은 실패와 다르다 — 명령은 돌았고 데몬이 아직 안 떴을 뿐이다.
+const SBX_RT_TIMEOUT='기다리는 동안 데몬이 뜨지 않았습니다 — 조금 뒤 다시 눌러 보세요.';
+const SBX_RT_NO_CMD='이 운영체제의 설치 명령을 알지 못합니다 — docker 문서를 참고하세요.';
+const SBX_RT_DOCS='https://docs.docker.com/get-started/get-docker/';
+
 // ── 파일 전송 (FILE_TRANSFER_SRS §3.3) ──
 
 // FR-FTR-8: 완성되지 않은 OSC 시퀀스를 보류하는 상한과, 다음 청크를 기다리는
@@ -228,7 +305,7 @@ const TERM_COPY_CLOSE='닫기';
 // 탐색기의 펼침·스크롤, Git 패널의 열린 탭이 함께 사라진다. 이쪽은 **서버의
 // 사실만 다시 받는다.**
 const RELOAD_BTN_ID='soft-reload-btn';
-const RELOAD_TITLE='내부 새로고침 — 서버 상태를 다시 가져옵니다';
+const RELOAD_TITLE='Reload the app without a full page refresh';
 const RELOAD_BUSY_TITLE='다시 가져오는 중…';
 
 // ── 레이아웃 프리셋 ──

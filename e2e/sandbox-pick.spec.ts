@@ -17,7 +17,27 @@ async function withProfiles(page: Page, list: unknown[]) {
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(list) }));
 }
 
+/**
+ * UX_BATCH5_SRS FR-SRT-5: 버튼이 프로파일보다 **먼저** 런타임 상태를 묻는다.
+ *
+ * 이 묶음이 재는 것은 그 뒤의 갈래(무엇을 묻는가)이므로 앞 갈래를 고정해야 한다 —
+ * 고정하지 않으면 **docker 데몬이 죽은 호스트에서 전부 깨진다**: 런타임 모달이
+ * 서서 선택창까지 닿지 못한다. 파일 머리의 "런타임을 요구하지 않는다" 가 계속
+ * 참이려면 이것이 있어야 한다. 상태별 갈래 자체는 `sandbox-runtime.spec.ts` 다.
+ */
+async function withRuntimeOK(page: Page) {
+  await page.route('**/api/sandbox/runtime', (route) =>
+    route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({
+        state: 'ok', os: 'darwin', runtime: 'docker', path: '/usr/local/bin/docker',
+        detail: '', installCommand: '', startCommand: 'open -a Docker', startTryable: true,
+      }),
+    }));
+}
+
 async function goto(page: Page) {
+  await withRuntimeOK(page);
   await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
   await page.goto('/');
   await page.waitForSelector('#add-sandbox-window', { timeout: 15000 });

@@ -33,11 +33,31 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
   // 안쪽 박스를 눌렀으면 샌드박스 창이다. 바깥은 종전대로 일반 창.
   let sandbox='',workdir='',work='';
   if(e.target.closest('#add-sandbox-window')){
+    /**
+     * UX_BATCH5_SRS FR-SRT-5: **런타임 상태를 먼저 묻는다.**
+     *
+     *   이전 동작: 프로파일 목록이 비면 "설치되어 실행 중인지 확인하세요" 한 줄
+     *   새  동작: `missing` 과 `stopped` 를 갈라 각각의 다음 걸음을 준다
+     *   이유:     둘은 사용자가 할 일이 다르다(설치 / 실행). 그리고 **데몬이 죽어도
+     *             프로파일 목록은 정상으로 온다** — `Wire` 가 바이너리 유무만 보기
+     *             때문이다(§2.3 실측). 그래서 옛 안내는 실제로 닿지도 않았고,
+     *             실패는 창을 만드는 순간까지 미뤄졌다
+     *
+     * 조회에 실패하면 `null` 이고 그때는 갈래를 가르지 않는다 — 서버에 닿지 못하는
+     * 것은 런타임의 문제가 아니다.
+     */
+    const rt=await app._sbxRuntime();
+    if(rt&&rt.state!==SBX_RT_OK){
+      // 기동이 끝나 ok 가 됐을 때만 참이다 — 그때는 하려던 일을 그대로 잇는다
+      // (FR-SRT-7). 사용자가 버튼을 다시 누르게 하지 않는다.
+      const go=await app._sbxRuntimeModal(rt);
+      if(!go) return;
+    }
     let list=[];
     try{const r=await fetch('/api/sandbox/profiles');if(r.ok) list=await r.json()}catch{}
     if(!list.length){
-      // 런타임이 없으면 고를 것이 없다. 그 사실을 말해 주지 않으면 버튼이
-      // 고장난 것으로 보인다 (FR-SBX-20).
+      // 런타임은 살아 있는데 고를 것이 없는 경우다 — 상태 갈래가 위에서 끝났으므로
+      // 여기 남는 것은 정의가 비었거나 조회가 실패한 때다 (FR-SBX-20).
       app._notify('샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)이 설치되어 실행 중인지 확인하세요.');
       return;
     }

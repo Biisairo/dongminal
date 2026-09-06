@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/sandbox"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/workspace"
@@ -125,6 +126,9 @@ var apiRoutes = []apiRoute{
 	{http.MethodGet, exactPath("/api/focus"), (*Server).apiFocusGet},
 	{http.MethodPost, exactPath("/api/focus/claim"), (*Server).apiFocusClaim},
 	{http.MethodGet, exactPath("/api/sandbox/profiles"), (*Server).apiSandboxProfiles},
+	// UX_BATCH5_SRS FR-SRT-1·3 — 런타임의 지금 상태와, 그것을 띄우는 시도.
+	{http.MethodGet, exactPath("/api/sandbox/runtime"), (*Server).apiSandboxRuntime},
+	{http.MethodPost, exactPath("/api/sandbox/runtime/start"), (*Server).apiSandboxRuntimeStart},
 	{http.MethodGet, exactPath("/api/sandbox/config"), (*Server).apiSandboxConfigGet},
 	{http.MethodPut, exactPath("/api/sandbox/config"), (*Server).apiSandboxConfigPut},
 	{http.MethodGet, exactPath("/api/workspace"), (*Server).apiWorkspaceGet},
@@ -394,6 +398,38 @@ func (s *Server) apiSandboxProfiles(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(list)
+}
+
+/**
+ * apiSandboxRuntime 은 컨테이너 런타임의 상태를 낸다 (UX_BATCH5_SRS FR-SRT-1).
+ *
+ * `s.Sandbox` 를 보지 않는다 — 그것은 서버가 **뜰 때** 바이너리가 있었는지를
+ * 말할 뿐이고(`Wire`), 이 표면이 답해야 하는 것은 **지금** 데몬에 닿는지다.
+ * 그 둘을 섞으면 §2.3 의 구멍이 그대로 남는다.
+ *
+ * 실패해도 200 이다. "런타임이 없다" 는 이 조회의 **정상 응답**이지 오류가
+ * 아니다 (NFR-SBX-3 과 같은 근거) — 4xx 로 내면 화면이 세 갈래를 가를 수 없다.
+ */
+func (s *Server) apiSandboxRuntime(w http.ResponseWriter, r *http.Request) {
+	// OS 는 `platform` 이 아는 값이다 — `runtime.GOOS` 를 여기서 읽으면 이음매
+	// 규칙을 깬다 (FR-XPL-5). 표시·기록용 값이라는 `OSKind` 의 성질과도 맞는다:
+	// 명령을 **고르는** 일은 sandbox 안에서 하고 여기서는 값만 넘긴다.
+	st := sandbox.Probe(string(platform.Current().OS), sandbox.LookPath, sandbox.CLIExec)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(st)
+}
+
+/**
+ * apiSandboxRuntimeStart 는 데몬 기동을 시도한다 (FR-SRT-3).
+ *
+ * linux 에서는 **아무것도 실행하지 않고** 사용자가 칠 명령을 답한다 (D-5).
+ * 성공 응답의 `started` 는 명령이 오류 없이 반환됐다는 뜻일 뿐이며, 데몬이 떴는지는
+ * 화면이 FR-SRT-1 을 다시 물어 확정한다 (FR-SRT-4).
+ */
+func (s *Server) apiSandboxRuntimeStart(w http.ResponseWriter, r *http.Request) {
+	res := sandbox.StartRuntime(string(platform.Current().OS), sandbox.StartExec)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(res)
 }
 
 // apiSandboxConfigGet 은 지금 저장된 샌드박스 정의를 낸다 (FR-SBX-43).
