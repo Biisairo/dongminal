@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit } from './fixtures';
 
 // WORKBENCH_REVIEW_SRS 묶음 D — `Changes`·`Untracked` 의 Discard All
 // (FR-WBR-50~56, 검증 V-WBR-50~57).
@@ -24,13 +24,7 @@ test.afterAll(() => {
 const copyFx = makeCopyFx(FIXTURES);
 
 async function openGit(page: Page, repo: string) {
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
-  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
-  await page.evaluate(() => {
-    const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
-  });
-  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
+  await fxOpenGit(page, repo);
 }
 
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');

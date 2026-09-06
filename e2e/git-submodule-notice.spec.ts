@@ -5,7 +5,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, openGit as fxOpenGit } from './fixtures';
 
 // SUBMODULE_DIRTY_NOTICE_SRS §5 — 검증 V-SDN-*.
 //
@@ -95,14 +95,7 @@ const fileRow = (page: Page, p: string) =>
 
 async function openGit(page: Page, repo: string) {
   await goto(page);
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
-  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
-  await page.evaluate(() => {
-    const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
-    a.gitPanel.openView('diff');
-  });
-  await expect(changes(page)).toBeVisible({ timeout: 10000 });
+  await fxOpenGit(page, repo);
   await expect(changes(page).locator('.git-file').first()).toBeVisible({ timeout: 10000 });
 }
 

@@ -5,7 +5,7 @@ import { realpathSync } from 'fs';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView } from './fixtures';
+import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit } from './fixtures';
 
 // GIT_REVIEW4_SRS §3.2·§3.5 — 바깥 계기의 다시 그리기.
 // 검증 V104~V113 (FR-RPT-1~7, FR-GIT-227).
@@ -27,22 +27,6 @@ test.afterAll(() => {
 const fx = (name: string) => realpathSync(join(FIXTURES, name));
 
 const copyFx = makeCopyFx(FIXTURES);
-async function openGit(page: Page, repo: string) {
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
-  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
-  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
-  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
-  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
-  await page.evaluate(() => {
-    const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
-    const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
-  });
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
-}
-
 // 선택자에 걸리는 요소 전부에 표식을 심는다. 반환은 심은 개수다.
 const markAll = (page: Page, sel: string) =>
   page.evaluate((s: string) => {

@@ -5,7 +5,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, openGit as fxOpenGit } from './fixtures';
 
 // GIT_DIR_ENTRY_SRS §4 — 디렉터리 상태 항목의 검증 V-DIR-10~42.
 //
@@ -246,18 +246,7 @@ const diffView = (page: Page) => page.locator('#area .pn-body .git-view.git-diff
 
 async function openGit(page: Page, repo: string) {
   await goto(page);
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
-  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
-  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
-  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
-  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
-  await page.evaluate(() => {
-    const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
-    const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
-  });
-  await expect(changes(page)).toBeVisible({ timeout: 10000 });
+  await fxOpenGit(page, repo);
   // 첫 관측이 닿아야 행이 선다.
   await expect(changes(page).locator('.git-file').first()).toBeVisible({ timeout: 10000 });
 }

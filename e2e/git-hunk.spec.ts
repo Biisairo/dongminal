@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, openGit } from './fixtures';
 
 // GIT_ACTIONS_SRS §3.7 묶음 G — 부분 스테이징 (FR-GIT-278·279).
 // 검증 V205(hunk 하나만 · 관측이 바뀌면 거부) · V206(줄 범위 · revert 확인).
@@ -51,21 +51,6 @@ function hunkRepo(tag: string) {
 
 const indexOf = (repo: string) => git(repo, 'show', ':f.txt');
 const worktreeOf = (repo: string) => readFileSync(join(repo, 'f.txt'), 'utf8');
-
-async function openGit(page: Page, repo: string) {
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
-  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
-  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
-  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
-  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
-  await page.evaluate(() => {
-    const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
-    const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
-  });
-  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
-}
 
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
 const diff = (page: Page) => page.locator('#area .pn-body .git-view.git-diff');

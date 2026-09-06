@@ -397,6 +397,18 @@ export async function waitSettled(page: any, timeout = 15000) {
  * 고르고, 그 조작은 탭이 있어야 성립한다. 사이드도 `Changes` 로 돌려 둔다:
  * 그 목록을 딛는 검증이 스펙 전반에 있다.
  */
+/**
+ * 저장소를 Git 창으로 열고 **첫 관측이 닿을 때까지** 기다린다.
+ *
+ * REFACTOR_STABILIZATION_SRS FR-RST-13: 로컬에 16벌이 복제돼 있었고 그 몸통은
+ * 주석까지 바이트 동일했다. 다른 것은 마지막 한두 줄의 단언뿐이었는데, **공용판이
+ * 오히려 약했다** — 탭 개수만 세고 사이드가 실제로 섰는지를 보지 않았다. 강한
+ * 쪽을 채택한다.
+ *
+ * `statusOf()` 대기가 요점이다. 창이 서고 탭이 그려진 것과 **저장소를 읽은 것은
+ * 다른 사건**이며, 뒤따르는 단언(그룹 개수·버튼 활성·HEAD 이름)은 모두 뒤쪽에
+ * 기댄다. 그것을 각 스펙이 각자 기다리다 부하에서 무너졌다.
+ */
 export async function openGit(page: any, repo: string) {
   await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
@@ -409,6 +421,12 @@ export async function openGit(page: any, repo: string) {
     }
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
+  // 로컬 16벌 중 14벌이 보던 단언 — 사이드가 실제로 섰는가.
+  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
+  // 첫 관측. 이것이 닿아야 그룹 개수·버튼 활성이 뜻을 갖는다.
+  await page.waitForFunction(
+    () => !!(window as any).app?.gitPanel?.statusOf(),
+    undefined, { timeout: 20000 });
 }
 
 /**

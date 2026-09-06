@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as fxWaitForInit } from './fixtures';
+import { test, expect, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as fxWaitForInit, openGit as fxOpenGit } from './fixtures';
 
 // GIT_M5_STEP1821_CONTRACT §3 — 다이얼로그 공통 규약. 검증 V59
 // (FR-GIT-171~178).
@@ -36,19 +36,10 @@ async function waitForInit(page: Page, mode: 'desktop' | 'mobile' = 'desktop') {
 }
 
 async function openGit(page: Page, repo: string) {
+  // 이 스펙의 waitForInit 은 `GitDialog` 가 실린 것까지만 본다 — 터미널이 서는
+  // 것은 여기서 기다린다 (FR-RST-15).
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
-  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
-  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
-  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
-  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
-  await page.evaluate(() => {
-    const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
-    const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
-  });
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
+  await fxOpenGit(page, repo);
 }
 
 type OpenArgs = {

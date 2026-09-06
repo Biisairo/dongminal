@@ -5,7 +5,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit } from './fixtures';
 
 // WORKBENCH_REVIEW_SRS 묶음 F — git Changes 의 폴더 단위 스테이징
 // (FR-WBR-80~84, 검증 V-WBR-80~84).
@@ -99,13 +99,7 @@ const copyFx = makeCopyFx(FIXTURES);
 const copyTree = (tag: string) => mkTree(tag);
 
 async function openGit(page: Page, repo: string) {
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
-  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
-  await page.evaluate(() => {
-    const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
-  });
-  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
+  await fxOpenGit(page, repo);
 }
 
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
