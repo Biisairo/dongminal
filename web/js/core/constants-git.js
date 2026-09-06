@@ -253,6 +253,42 @@ const GIT_DIR_ENTRY_NOTE_SUB=
   '안의 변경은 여기서 보이지 않습니다.';
 const GIT_DIR_ENTRY_NOTE_NESTED=
   '다른 저장소입니다 — 이 저장소는 안을 들여다보지 않습니다.';
+
+// ── SUBMODULE_DIRTY_NOTICE_SRS 묶음 SDN — 서브모듈 행이 여기서 처리될 수 있는가 ──
+//
+// porcelain v2 `sub` 필드(`S<c><m><u>`)의 자리값. 파싱은 `gitSubParts` 한 곳이
+// 하고(FR-SDN-2), 그 함수가 읽는 글자를 여기서 정한다 — 값을 함수 안에 박으면
+// 형식이 어디서 왔는지 알 수 없게 된다.
+const GIT_SUB_IS_SUB='S';
+const GIT_SUB_COMMIT='C';
+const GIT_SUB_MODIFIED='M';
+const GIT_SUB_UNTRACKED='U';
+
+// FR-SDN-8: 툴팁의 문장. 성분을 알면 `GIT_DIR_ENTRY_TITLE_SUB` 을 **대체한다** —
+// 뒤에 덧붙이면 "서브모듈" 이 한 툴팁에 두 번 나오고, 종전 문장이 말하던 것을
+// 이 문장들이 더 정확히 말한다. 툴팁은 짧아야 하므로 사실 하나씩만 싣는다.
+const GIT_SUB_TITLE_COMMIT='서브모듈 — 기록된 커밋이 바뀌었습니다, 스테이지하면 담깁니다';
+const GIT_SUB_TITLE_INNER='서브모듈 안의 변경 — 여기서는 스테이지해도 사라지지 않습니다';
+const GIT_SUB_TITLE_BOTH='서브모듈 — 기록된 커밋은 담기고, 안의 변경은 남습니다';
+
+// FR-SDN-9: 미리보기의 안내문. 자리가 넓으므로 무엇을 해야 하는지까지 싣는다.
+//
+// FR-SDN-6: 안쪽만인 경우(B)는 **사라지지 않는다는 사실을 먼저** 말한다. 순서가
+// 뒤집히면 "먼저 커밋하라" 가 조언으로 읽히고 지금 눈앞의 행은 설명되지 않는다.
+const GIT_SUB_NOTE_COMMIT=
+  '서브모듈입니다 — 기록된 커밋이 바뀌었습니다. '+
+  '스테이지하면 이 저장소에 그 커밋이 담깁니다. 안의 변경은 여기서 보이지 않습니다.';
+// 안내문은 `textContent` 로 들어간다 (diff-view.js `_setNote`) — 마크다운 강조가
+// 렌더링되지 않으므로 별표를 쓰지 않는다. 무게는 문장 순서가 진다 (FR-SDN-6).
+const GIT_SUB_NOTE_INNER=
+  '서브모듈입니다 — 여기서는 스테이지·커밋해도 이 행이 사라지지 않습니다. '+
+  '기록된 커밋은 그대로이고 바뀐 것은 서브모듈 안이기 때문입니다: '+
+  '이 저장소가 커밋할 수 있는 것은 서브모듈의 커밋 해시 하나뿐입니다. '+
+  '서브모듈을 자기 저장소로 열어 그 안에서 먼저 커밋하세요.';
+const GIT_SUB_NOTE_BOTH=
+  '서브모듈입니다 — 기록된 커밋이 바뀌었고, 서브모듈 안에도 커밋하지 않은 변경이 있습니다. '+
+  '스테이지하면 커밋 몫은 담기지만 안쪽 몫은 이 행에 남습니다 — '+
+  '그것은 서브모듈을 자기 저장소로 열어 그 안에서 커밋해야 합니다.';
 const GIT_DIR_ENTRY_ADD='저장소로 추가';
 const GIT_DIR_ENTRY_ADD_TITLE='이 폴더를 Repo 목록에 더하고 그 창으로 갑니다';
 const GIT_DIR_ENTRY_GO='저장소로 이동';

@@ -541,3 +541,32 @@ function gitBadgeStale(badge){
   if(!at) return true;
   return (Date.now()-at)>GIT_BADGE_STALE_MS;
 }
+
+/**
+ * SUBMODULE_DIRTY_NOTICE_SRS FR-SDN-1~4: porcelain v2 의 `sub` 필드를 두 성분으로
+ * 가른다.
+ *
+ *   S<c><m><u>   c='C' 기록된 커밋(gitlink)이 바뀌었다
+ *                m='M' 서브모듈 안에 추적 중인 변경이 있다
+ *                u='U' 서브모듈 안에 추적되지 않는 파일이 있다
+ *
+ * 가르는 이유는 **부모 저장소가 커밋할 수 있는 것이 gitlink 하나**이기 때문이다.
+ * `commit` 이 거짓인데 `inner` 만 참인 행은 여기서 스테이지·커밋해도 사라지지
+ * 않는다 — `git add` 가 index 에 올릴 변화가 없다 (SRS §1.1 실측).
+ *
+ * FR-SDN-2: **판정은 이 함수 하나다.** 툴팁과 안내문이 각자 문자열을 뜯으면 두
+ * 자리가 서로 다른 답을 낼 수 있고, 그 어긋남은 둘을 나란히 놓기 전까지 아무도
+ * 모른다.
+ *
+ * FR-SDN-4: 자리 수가 모자란 문자열도 오류가 아니다 — 없는 자리는 `.` 로 읽는다.
+ * git 이 형식을 늘려도 화면이 깨져서는 안 된다.
+ */
+function gitSubParts(sub){
+  const s=typeof sub==='string'?sub:'';
+  // FR-SDN-3: 서브모듈이 아닌 것에 서브모듈의 사정을 말하지 않는다.
+  if(s.charAt(0)!==GIT_SUB_IS_SUB) return {commit:false,inner:false};
+  return {
+    commit:s.charAt(1)===GIT_SUB_COMMIT,
+    inner:s.charAt(2)===GIT_SUB_MODIFIED||s.charAt(3)===GIT_SUB_UNTRACKED,
+  };
+}

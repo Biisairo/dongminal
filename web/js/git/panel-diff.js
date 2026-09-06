@@ -564,11 +564,30 @@ Object.assign(GitPanel.prototype, {
     // GIT_DIR_ENTRY_SRS FR-DIR-21: 디렉터리 항목에는 diff 를 부르지 않는다.
     // 서버가 줄 것이 없고(실측), 사용자가 알아야 할 것은 사유와 갈 길이다.
     if(f.dir){
-      view.clear(f.sub?GIT_DIR_ENTRY_NOTE_SUB:GIT_DIR_ENTRY_NOTE_NESTED,
-        [f.path],this._dirEntryActs(f));
+      view.clear(this._dirEntryNote(f),[f.path],this._dirEntryActs(f));
       return;
     }
     view.show(f,this.token());
+  },
+
+  /**
+   * SUBMODULE_DIRTY_NOTICE_SRS FR-SDN-5·9: 디렉터리 항목의 사유.
+   *
+   * 서브모듈은 세 상태로 갈린다 — 여기서 커밋할 수 있는 몫(gitlink)이 있는가,
+   * 서브모듈 **안**에만 있는 몫이 있는가. 종전에는 `f.sub` 를 참/거짓으로만 보아
+   * "스테이지하면 담기는 행" 과 "아무리 눌러도 사라지지 않는 행" 이 같은 문장을
+   * 받았다 (SRS §2.2).
+   *
+   * 성분이 하나도 없으면 종전 문구 그대로다 (FR-SDN-7). 중첩 저장소도 그대로다
+   * (FR-SDN-11) — `sub` 가 비어 있어 가를 것이 없다.
+   */
+  _dirEntryNote(f){
+    if(!f||!f.sub) return GIT_DIR_ENTRY_NOTE_NESTED;
+    const p=gitSubParts(f.sub);
+    if(p.commit&&p.inner) return GIT_SUB_NOTE_BOTH;
+    if(p.commit) return GIT_SUB_NOTE_COMMIT;
+    if(p.inner) return GIT_SUB_NOTE_INNER;
+    return GIT_DIR_ENTRY_NOTE_SUB;
   },
 
   /**

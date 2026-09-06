@@ -580,7 +580,10 @@ Object.assign(GitPanel.prototype, {
     if(e.dir) d.classList.add('dir-entry');
     d.title=(e.origPath?e.origPath+' → '+e.path:e.path)+(e.score?' ('+e.score+'%)':'')+
       (partial?' — '+GIT_PARTIAL_TITLE:'')+
-      (e.dir?' — '+(e.sub?GIT_DIR_ENTRY_TITLE_SUB:GIT_DIR_ENTRY_TITLE_NESTED):'');
+      // SUBMODULE_DIRTY_NOTICE_SRS FR-SDN-8: 서브모듈 행은 **여기서 처리될 수
+      // 있는지**까지 말한다. 종전 문장은 "다른 저장소다" 만 말했고, 사용자가
+      // 부딪힌 것은 "눌러도 사라지지 않는다" 였다 (SRS §1.1).
+      (e.dir?' — '+this._dirTitle(e):'');
     d.appendChild(st); d.appendChild(p);
     // 행 인라인 동작 (FR-GIT-64·65·89). 그룹이 할 수 있는 것만 붙인다.
     const acts=document.createElement('span'); acts.className='git-file-acts';
@@ -672,6 +675,25 @@ Object.assign(GitPanel.prototype, {
       s.className='git-file-path-dirmark'; s.textContent=GIT_DIR_ENTRY_SUFFIX;
       p.appendChild(s);
     }
+  },
+
+  /**
+   * FR-SDN-5·7: 디렉터리 행의 툴팁 문장.
+   *
+   * 판정은 `gitSubParts` 하나가 하고(FR-SDN-2), 갈래도 미리보기 안내
+   * (`_dirEntryNote`)와 **같은 모양**이다 — 두 자리가 다른 구조를 가지면 상태가
+   * 하나 늘 때 한쪽만 고쳐진다.
+   *
+   * 성분이 하나도 없으면(`S...`) 종전 문장 그대로다: 그 행이 왜 목록에 있는지
+   * 알지 못하며, 모르는 것에 대해 말하지 않는다 (FR-SDN-7).
+   */
+  _dirTitle(e){
+    if(!e.sub) return GIT_DIR_ENTRY_TITLE_NESTED;
+    const p=gitSubParts(e.sub);
+    if(p.commit&&p.inner) return GIT_SUB_TITLE_BOTH;
+    if(p.commit) return GIT_SUB_TITLE_COMMIT;
+    if(p.inner) return GIT_SUB_TITLE_INNER;
+    return GIT_DIR_ENTRY_TITLE_SUB;
   },
 
   // 상태문자는 xy 에서 뽑는다 — 그룹이 어느 축을 보는지가 곧 X/Y 선택이다.
