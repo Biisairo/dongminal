@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS, gitFixture, cleanGitFixture, copyDir, rmTree } from './fixtures';
+import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS, gitFixture, cleanGitFixture, copyDir, rmTree, rmTreeHard } from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
 
 // 칸별 시선 — SLOT_VIEW_STATE_SRS §8
@@ -841,7 +841,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     const repo = copyFx('basic', 'gone');
     await twoSlotsOnGit(page, repo);
 
-    fs.rmSync(repo, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    rmTreeHard(repo);
     /**
      * 폴링이 소실을 관측하면 두 칸 모두 안내로 간다.
      *

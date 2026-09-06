@@ -162,7 +162,7 @@ Object.assign(FileTree.prototype, {
     this._clearErr();
     // FR-EDT-85: 자기 자신·자기 하위로는 옮길 수 없다. 서버의 rename 은 이것을
     // 성공시키고 트리를 통째로 잃어버리므로 클라이언트가 막는 유일한 자리다.
-    if(to===from||to.startsWith(from+'/')){this._fail(from,EDITOR_MOVE_INTO_SELF);return}
+    if(pathUnder(from,to)){this._fail(from,EDITOR_MOVE_INTO_SELF);return}
     const sd=this._parent(from),dd=this._parent(to);
     // FR-FTR-20b: 도착 폴더를 펼친다. 접힌 폴더로 옮기면 옮긴 것이 화면에서
     // 사라지고, 사용자는 잃은 것으로 읽는다 (업로드가 같은 이유로 펼친다).

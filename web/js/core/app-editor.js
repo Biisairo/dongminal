@@ -689,11 +689,7 @@ Object.assign(App.prototype, {
 
   // 경로가 루트 아래인가. 루트 자신도 포함이다. `startsWith(root)` 만으로는
   // `/a/bc` 가 `/a/b` 아래로 잡히므로 구분자까지 함께 본다.
-  _edUnder(root,p){
-    if(!root||!p) return false;
-    if(p===root) return true;
-    return p.startsWith(root==='/'?'/':root+'/');
-  },
+  _edUnder(root,p){ return pathUnder(root,p) },
 
   /**
    * FR-EDT-95: **연결된 Editor** 는 그 절대경로를 자기 루트 아래에 포함하는 창이다.

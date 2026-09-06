@@ -104,6 +104,41 @@ func DetectAttentionSignal(b []byte, allowBell bool, maxCarry int) (bool, []byte
 	return false, nil
 }
 
+// DetectCwdReport 는 b 에서 셸 훅의 cwd 보고를 읽는다 — `ESC ] 777 ; Cwd ; <경로>`
+// (BEL 또는 ST 로 끝난다). 마지막 것이 이긴다: 한 청크에 프롬프트가 여럿 들어
+// 있으면 가장 나중의 자리가 지금의 자리다. 없으면 빈 문자열이다.
+//
+// **이 함수가 있는 이유는 Windows 다** (WINDOWS_TOOL_CWD_SRS). 서버가 프로세스의
+// cwd 를 직접 읽는 길은 POSIX 에만 있고(`/proc`·lsof), Windows 의
+// `windowsProcInfo.CWD` 는 언제나 거짓이다. 셸 훅은 매 프롬프트마다 이 시퀀스를
+// 내보내지만 그것을 먹는 쪽이 **브라우저뿐**이었다 — 서버는 자기 cwd 를 도구의
+// 것으로 답했고, 그 값이 `+ Add` 의 자동채움·git follow·새 도구의 승계로 흘렀다.
+//
+// 관측 전용이다. 스트림을 바꾸지 않는다.
+func DetectCwdReport(b []byte) string {
+	const marker = "777;Cwd;"
+	out := ""
+	i, n := 0, len(b)
+	for i < n {
+		if b[i] != 0x1b || i+1 >= n || b[i+1] != ']' {
+			i++
+			continue
+		}
+		end, termLen := findOSCTerminator(b, i+2)
+		if end < 0 {
+			break // 아직 끝나지 않은 OSC — 다음 청크의 carry 가 잇는다
+		}
+		body := b[i+2 : end]
+		if bytes.HasPrefix(body, []byte(marker)) {
+			if v := string(body[len(marker):]); v != "" {
+				out = v
+			}
+		}
+		i = end + termLen
+	}
+	return out
+}
+
 // findOSCTerminator returns the index and length of the OSC string terminator
 // (BEL=1 byte, or ST "ESC \"=2 bytes) at or after from, or (-1, 0) if the OSC
 // is not yet terminated within b.

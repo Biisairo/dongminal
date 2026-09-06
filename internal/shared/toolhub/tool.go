@@ -111,6 +111,11 @@ type Tool struct {
 	// 입력 경로가 읽는다.
 	bracketedPaste atomic.Bool
 	bpCarryBuf     []byte
+
+	// reportedCwd 는 셸 훅이 OSC 777;Cwd 로 알린 작업 디렉터리다
+	// (WINDOWS_TOOL_CWD_SRS FR-WTC-2). readPTY 고루틴이 쓰고 아무 고루틴이나
+	// 읽으므로 원자값이다. 값이 실린 적이 없으면 nil 이다.
+	reportedCwd atomic.Value
 }
 
 // toolBusyProbe is the busy-detection function used by Tool.IsBusy. It is a
@@ -145,7 +150,20 @@ func (p *Tool) Cwd() string {
 			return cwd
 		}
 	}
+	// 직접 조회가 안 되는 처지(Windows)에서는 **셸 훅이 알린 값**이 답이다
+	// (FR-WTC-3). 순서가 이러한 이유는 신선도다: 직접 조회는 지금의 값이고,
+	// 보고는 마지막 프롬프트의 값이다 — 둘 다 있으면 앞의 것이 낫다.
+	if v, ok := p.reportedCwd.Load().(string); ok && v != "" {
+		return v
+	}
 	return ""
+}
+
+// noteCwdReport 는 셸 훅의 보고를 기록한다 (FR-WTC-2).
+func (p *Tool) noteCwdReport(cwd string) {
+	if cwd != "" {
+		p.reportedCwd.Store(cwd)
+	}
 }
 
 // cwdOrServer 는 종전 Cwd 의 동작이다. 도구의 cwd 를 **비워 둘 수 없는** 자리가
@@ -370,15 +388,19 @@ func (p *Tool) observeOutputAt(chunk []byte, now int64) {
 	if !p.attnRearmLocked.Load() {
 		p.attnArmed.Store(true)
 	}
-	if p.onAttention == nil {
-		return
-	}
 	scan := chunk
 	if len(p.attnCarry) > 0 {
 		scan = append(append([]byte(nil), p.attnCarry...), chunk...)
 	}
 	if bytes.IndexByte(scan, 0x1b) < 0 && bytes.IndexByte(scan, 0x07) < 0 {
 		p.attnCarry = nil
+		return
+	}
+	// cwd 보고는 **알람 배선과 무관하게** 읽는다 (FR-WTC-2). 이 함수의 위쪽에서
+	// `onAttention == nil` 로 돌아가지 않도록 순서를 지킨다 — 알람을 켜지 않은
+	// 도구도 자기 자리는 말해야 한다.
+	p.noteCwdReport(DetectCwdReport(scan))
+	if p.onAttention == nil {
 		return
 	}
 	sig, carry := DetectAttentionSignal(scan, p.allowBell, AttnMaxCarry)

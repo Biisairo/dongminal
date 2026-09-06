@@ -108,13 +108,13 @@ Object.assign(FileTree.prototype, {
    */
   async revealPath(p){
     if(!p||!this.root) return;
-    const root=String(this.root).replace(/\/+$/,'');
-    if(p!==root&&!String(p).startsWith(root+'/')) return;   // 이 트리의 것이 아니다
+    const root=String(this.root).replace(/[\\/]+$/,'');
+    if(!pathUnder(root,p)) return;   // 이 트리의 것이 아니다
     // 부모부터 위로 훑어 루트 바로 아래까지 모은다. 상한을 두는 이유는 `_parent`
     // 가 최상위에서 `'/'` 를 내기 때문이다 — 루트가 `'/'` 면 멈추지 않는다.
     const chain=[];
     let d=this._parent(p);
-    for(let i=0;i<EDITOR_TREE_REVEAL_MAX&&d&&d!==root&&d.startsWith(root+'/');i++){
+    for(let i=0;i<EDITOR_TREE_REVEAL_MAX&&d&&d!==root&&pathUnder(root,d);i++){
       chain.unshift(d);
       d=this._parent(d);
     }

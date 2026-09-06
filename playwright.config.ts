@@ -48,7 +48,25 @@ export default defineConfig({
   globalTeardown: './e2e/global-teardown.ts',
   testDir: './e2e',
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  /**
+   * 재시도는 **한 번**이다 (CI_E2E_MATRIX_SRS FR-CEM-17).
+   *
+   * 재시도의 값은 "산발적 실패를 한 번 더 눌러 본다" 이고 그 값은 **두 번째
+   * 시도에서 거의 다 나온다** — 세 번째는 값이 아니라 비용이다. 실패 하나가
+   * 세 번 도는 동안 나머지가 밀렸고, Windows 4샤드 회차에서 한 샤드가 23분에
+   * 74항목만 지난 채 247항목을 남기고 잘린 것이 그 계산의 결과였다.
+   */
+  retries: process.env.CI ? 1 : 0,
+  /**
+   * 실패의 상한 (FR-CEM-18).
+   *
+   * 어느 샤드가 20건을 넘겨 실패하고 있다면 그것은 **개별 결함이 아니라 계통의
+   * 문제**다 — 남은 항목을 마저 돌려도 같은 사유가 반복될 뿐이고, 그 반복이
+   * 러너의 한 시간을 먹는다. 거기서 멈추고 목록을 넘긴다.
+   *
+   * 로컬은 상한이 없다(0). 고치는 사람은 전체 목록을 봐야 한다.
+   */
+  maxFailures: process.env.CI ? 20 : 0,
   /**
    * E2E_PARALLEL_SRS D-1·D-2: 갈리는 단위는 **파일**이다.
    *

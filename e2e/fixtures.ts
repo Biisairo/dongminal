@@ -654,6 +654,21 @@ export function rmTree(p: string) {
 }
 
 /**
+ * 디렉터리를 **반드시** 지운다 — 소실을 *만드는* 자리다 (FR-CEM-19).
+ *
+ * `rmTree` 와 뜻이 다르다. 저것은 뒷정리라 실패해도 삼키지만, 이것은 검사의
+ * **전제**를 만든다: 지워지지 않으면 그 뒤의 단정이 뜻을 잃는다.
+ *
+ * Windows 는 열린 핸들이 있는 디렉터리를 지우지 못한다. 서버는 그 저장소를
+ * 폴링하며 `git` 자식 프로세스를 계속 띄우므로, 그 프로세스가 살아 있는 동안은
+ * `EBUSY` 다 — 다만 **잠깐씩 비는 틈이 있다**(폴링 사이). 그 틈을 기다린다:
+ * 15초는 폴링 주기의 여러 배다. 그래도 안 되면 던진다.
+ */
+export function rmTreeHard(p: string) {
+  rmSync(p, { recursive: true, force: true, maxRetries: 60, retryDelay: 250 });
+}
+
+/**
  * 디렉터리를 통째로 복사한다 (FR-CEM-14).
  *
  * **`cp -R` 을 부르지 않는다.** `cp` 는 git bash 의 `usr/bin` 에 있고 그 자리는

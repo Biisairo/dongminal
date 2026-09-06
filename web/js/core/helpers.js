@@ -60,6 +60,28 @@ function pathSep(dir){
 }
 
 /**
+ * `p` 가 `root` **아래**(또는 root 자신)인가.
+ *
+ * `startsWith(root)` 만으로는 `/a/bc` 가 `/a/b` 아래로 잡히므로 구분자까지
+ * 본다. 그 구분자를 `/` 로 굳히면 **Windows 에서는 어떤 경로도 아래로 잡히지
+ * 않는다** — `C:\\Users\\x` 아래의 어떤 것도 `C:\\Users\\x/` 로 시작하지
+ * 않기 때문이다. 트리의 펼침·이동 금지·창 고르기가 전부 이 판정을 딛는다.
+ */
+function pathUnder(root,p){
+  const raw=String(root==null?'':root);
+  const s=String(p==null?'':p);
+  if(!raw||!s) return false;
+  if(s===raw) return true;
+  // 구분자는 **자식 경로**에게 묻는다. 루트가 드라이브 뿌리(`C:\\`)이면 그
+  // 문자열만으로는 구분자를 알 수 없다.
+  const sep=pathSep(s);
+  // 끝의 구분자는 있으나 없으나 같은 자리다 — 접두를 만들 때 한 번만 붙인다.
+  const base=raw.endsWith(sep)?raw.slice(0,-sep.length):raw;
+  if(s===base) return true;
+  return s.startsWith(base+sep);
+}
+
+/**
  * 그 경로의 **마지막 조각**. 사람에게 보이는 이름이다.
  *
  * `split('/')` 로는 안 된다 — Windows 의 절대경로는 `C:\\Users\\x\\repo` 이고

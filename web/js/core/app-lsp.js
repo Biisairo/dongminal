@@ -253,9 +253,11 @@ Object.assign(App.prototype, {
       .replace('%s',String(locs.length));
   },
 
+  // 구분자를 `/` 로 굳히지 않는다 — Windows 에서는 어떤 절대경로도 그 접두로
+  // 시작하지 않아 **상대화가 통째로 실패한다**(그러면 패널이 절대경로를 상대인
+  // 척 들고 있다가 `pathJoin` 에서 루트를 두 번 이은 경로를 만든다).
   _lspRel(root,abs){
-    const r=String(root).replace(/\/+$/,'')+'/';
-    return String(abs).startsWith(r)?String(abs).slice(r.length):String(abs);
+    return pathUnder(root,abs)?pathRel(root,abs):String(abs);
   },
 
   // ── 호버 (묶음 D · M3) ──

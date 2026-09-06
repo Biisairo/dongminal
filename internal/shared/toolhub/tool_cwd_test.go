@@ -43,3 +43,85 @@ func TestCwdOrServer_FallsBackToServer(t *testing.T) {
 		t.Fatalf("cwdOrServer() = %q, want %q — 영속이 딛는 폴백이 사라졌다", got, want)
 	}
 }
+
+// ── WINDOWS_TOOL_CWD_SRS — 셸 훅의 보고를 서버가 듣는다 ──
+
+const oscCwd = "\x1b]777;Cwd;"
+
+// V-WTC-1: 종단자는 BEL 과 ST 둘 다다. 다른 OSC 와 섞여 있어도 골라낸다.
+func TestDetectCwdReport_Terminators(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"BEL", oscCwd + "/a/b\x07", "/a/b"},
+		{"ST", oscCwd + "/a/b\x1b\\", "/a/b"},
+		{"윈도우 경로", oscCwd + `C:\Users\x\repo` + "\x07", `C:\Users\x\repo`},
+		{"앞뒤에 글자", "prompt$ " + oscCwd + "/a\x07 tail", "/a"},
+		{"다른 OSC 와 섞임", "\x1b]0;title\x07" + oscCwd + "/a\x07", "/a"},
+		{"보고 없음", "\x1b]0;title\x07plain", ""},
+		{"끝나지 않은 OSC", oscCwd + "/a", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := DetectCwdReport([]byte(c.in)); got != c.want {
+				t.Fatalf("DetectCwdReport(%q) = %q, want %q", c.in, got, c.want)
+			}
+		})
+	}
+}
+
+// V-WTC-1 (D-5): 한 청크에 프롬프트가 여럿이면 **마지막**이 지금의 자리다.
+func TestDetectCwdReport_LastWins(t *testing.T) {
+	in := oscCwd + "/first\x07out" + oscCwd + "/second\x07"
+	if got := DetectCwdReport([]byte(in)); got != "/second" {
+		t.Fatalf("DetectCwdReport = %q, want %q", got, "/second")
+	}
+}
+
+// FR-WTC-5: 빈 보고는 아는 것을 덮지 않는다.
+func TestToolCwd_EmptyReportDoesNotClobber(t *testing.T) {
+	p := NewDetachedTool("t1", nil)
+	p.observeOutput([]byte(oscCwd + "/known\x07"))
+	p.observeOutput([]byte(oscCwd + "\x07"))
+	if got := p.Cwd(); got != "/known" {
+		t.Fatalf("Cwd() = %q, want %q — 빈 보고가 아는 값을 덮었다", got, "/known")
+	}
+}
+
+// V-WTC-3: 직접 조회가 안 되는 처지(합성 Tool = pid 없음)에서는 보고가 답이다.
+// 이것이 Windows 의 처지 그대로다 — `windowsProcInfo.CWD` 는 언제나 거짓이다.
+func TestToolCwd_UsesHookReportWhenProbeFails(t *testing.T) {
+	p := NewDetachedTool("t1", nil)
+	if got := p.Cwd(); got != "" {
+		t.Fatalf("보고 전 Cwd() = %q, want %q", got, "")
+	}
+	p.observeOutput([]byte("PS C:\\> " + oscCwd + `C:\Users\x\repo` + "\x07"))
+	if got, want := p.Cwd(), `C:\Users\x\repo`; got != want {
+		t.Fatalf("Cwd() = %q, want %q — 훅 보고가 서버에 닿지 않는다", got, want)
+	}
+}
+
+// FR-WTC-2 (D-4): 알람 배선이 없는 도구도 자기 자리는 말한다. 종전 관측 경로는
+// `onAttention == nil` 이면 곧바로 돌아갔다.
+func TestToolCwd_ReportedWithoutAttentionWiring(t *testing.T) {
+	p := NewDetachedTool("t1", nil) // hooks 가 nil 이므로 onAttention 도 nil 이다
+	if p.onAttention != nil {
+		t.Fatal("전제가 깨졌다 — 이 도구에는 알람 배선이 없어야 한다")
+	}
+	p.observeOutput([]byte(oscCwd + "/reported\x07"))
+	if got := p.Cwd(); got != "/reported" {
+		t.Fatalf("Cwd() = %q, want %q", got, "/reported")
+	}
+}
+
+// FR-WTC-3: 보고가 있어도 **폴백의 계약은 그대로다** — 보고가 있으면 그것이
+// 도구의 값이므로 서버의 cwd 로 떨어지지 않는다.
+func TestCwdOrServer_PrefersReport(t *testing.T) {
+	p := NewDetachedTool("t1", nil)
+	p.observeOutput([]byte(oscCwd + "/reported\x07"))
+	if got := cwdOrServer(p); got != "/reported" {
+		t.Fatalf("cwdOrServer() = %q, want %q", got, "/reported")
+	}
+}
