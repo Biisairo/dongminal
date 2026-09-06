@@ -452,6 +452,17 @@ Object.assign(GitPanel.prototype, {
   _hunkBarMove(ev){
     const h=this._hunks;
     if(!h||h.err||!h.list||!h.list.length){this._hunkBarHide();return}
+    /**
+     * FR-DHB-13: **툴바 위에서는 사라지지 않는다.**
+     *
+     * 버튼까지 마우스를 옮기는 길도 에디터 안이므로 Monaco 는 그 이동에도
+     * `onMouseMove` 를 준다. 그런데 그때의 target 은 content widget 이라 줄
+     * 자리(`position`)가 없다 — 그것을 "조각 밖" 으로 읽으면 **버튼에 닿는 순간
+     * 툴바가 사라져 누를 수 없다**(실측: `mouseenter` 는 숨김 **타이머**만 멎게
+     * 하고, 이 갈래의 숨김은 타이머를 지나지 않는다).
+     */
+    const over=ev&&ev.target&&ev.target.element;
+    if(over&&this._hunkBarEl&&(over===this._hunkBarEl||this._hunkBarEl.contains(over))) return;
     const pos=ev&&ev.target&&ev.target.position;
     const hunk=pos?gitHunkAt(h.list,pos.lineNumber):null;
     if(!hunk){this._hunkBarHide();return}
