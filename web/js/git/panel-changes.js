@@ -224,7 +224,7 @@ Object.assign(GitPanel.prototype, {
     jobCopy.textContent=GIT_JOB_COPY; jobCopy.title=GIT_TIP_JOB_COPY;
     const jobClose=el.querySelector('.git-job-close');
     jobClose.textContent=GIT_JOB_CLOSE; jobClose.title=GIT_TIP_JOB_CLOSE;
-    el.querySelector('.git-job-fold').title=GIT_JOB_FOLD_TITLE;
+    el.querySelector('.git-job-fold').title=GIT_TIP_JOB_FOLD;
     const authCopy=el.querySelector('.git-job-auth-copy');
     authCopy.textContent=GIT_JOB_AUTH_COPY; authCopy.title=GIT_TIP_JOB_AUTH_COPY;
     const partClose=el.querySelector('.git-partial-close');
@@ -603,7 +603,7 @@ Object.assign(GitPanel.prototype, {
        */
       if(a==='stage'){
         const sp=gitSubParts(e.sub);
-        if(sp.inner&&!sp.commit){b.disabled=true; b.title=GIT_SUB_STAGE_OFF_TITLE}
+        if(sp.inner&&!sp.commit){b.disabled=true; b.title=GIT_TIP_SUB_STAGE_OFF}
       }
       b.addEventListener('click',ev=>{
         ev.stopPropagation();

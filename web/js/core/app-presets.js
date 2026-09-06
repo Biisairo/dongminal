@@ -141,15 +141,15 @@ Object.assign(App.prototype, {
       item.appendChild(info);
       // Star (default) button
       const star=document.createElement('button');star.className='preset-btn';
-      star.textContent=i===defaultPreset?'★':'☆';star.title='기본 프리셋으로 설정';
+      star.textContent=i===defaultPreset?'★':'☆';star.title='Make this the default preset';
       star.addEventListener('click',e=>{e.stopPropagation();defaultPreset=defaultPreset===i?-1:i;this._saveSettings();this._renderPresets()});
       item.appendChild(star);
       // Load button
-      const load=document.createElement('button');load.className='preset-btn';load.textContent='▶';load.title='불러오기';
+      const load=document.createElement('button');load.className='preset-btn';load.textContent='▶';load.title='Load this preset';
       load.addEventListener('click',e=>{e.stopPropagation();this._loadPreset(i)});
       item.appendChild(load);
       // Delete button
-      const del=document.createElement('button');del.className='preset-btn del';del.textContent='✕';del.title='삭제';
+      const del=document.createElement('button');del.className='preset-btn del';del.textContent='✕';del.title='Delete this preset';
       del.addEventListener('click',e=>{e.stopPropagation();this._deletePreset(i)});
       item.appendChild(del);
       el.appendChild(item);

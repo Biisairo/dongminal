@@ -602,7 +602,7 @@ Object.assign(App.prototype, {
     // 이 표식이 켜지면 그 창은 더 이상 격리 경계가 아니다 (FR-SBX-39b).
     const sc=flag('scratch','격리 창에도 붙입니다 — 켜면 그 창은 격리 경계가 아니게 됩니다',m.scratch);
     const del=document.createElement('button');
-    del.type='button';del.className='sbx-del';del.textContent='×';del.title='이 마운트를 지웁니다';
+    del.type='button';del.className='sbx-del';del.textContent='×';del.title='Remove this mount';
     del.addEventListener('click',()=>row.remove());
     row.append(host,cont,ro,sc,del);
     return row;

@@ -294,7 +294,7 @@ const GIT_SUB_TITLE_INNER='서브모듈 안의 변경 — 여기서는 스테이
 const GIT_SUB_TITLE_BOTH='서브모듈 — 기록된 커밋은 담기고, 안의 변경은 남습니다';
 // FR-SDN-12·13 (D-2a): 담을 몫이 없는 행의 `Stage` 는 꺼지고, 그 사유를 말한다.
 // 사유 없이 꺼진 버튼은 사용자가 해소할 수 없다 (FR-GIT-101 과 같은 규약).
-const GIT_SUB_STAGE_OFF_TITLE='이 저장소가 담을 변경이 없습니다 — 서브모듈 안에서 먼저 커밋하세요';
+
 
 // FR-SDN-9: 미리보기의 안내문. 자리가 넓으므로 무엇을 해야 하는지까지 싣는다.
 //
@@ -380,6 +380,14 @@ const GIT_TIP_PREFLIGHT_COPY='Copy this fix command to the clipboard';
 const GIT_TIP_UNDO='Undo the commit you just made (keeps your changes staged)';
 const GIT_TIP_RETRY='Try loading this list again';
 const GIT_TIP_SEARCH_REPO='Search the whole repository, not just the commits already loaded';
+// UX_BATCH5_SRS FR-TIP-2 가 미달이던 자리 (CI 전량 실행이 찾았다). 이 넷은 버튼의
+// 툴팁이므로 **영어**이고, 같은 사실을 말하는 화면의 글자는 한국어 그대로다
+// (FR-TIP-3) — 그래서 replay 는 상수를 둘로 가른다: 확인창의 제목은 사용자가 읽는
+// 글자이고, 이것은 툴팁이다.
+const GIT_TIP_CON_REPLAY='Run this git command again';
+const GIT_TIP_RM_REMOVE='Remove this remote (git remote remove)';
+const GIT_TIP_JOB_FOLD='Expand or collapse the operation log';
+const GIT_TIP_SUB_STAGE_OFF='Nothing here for this repository to stage — commit inside the submodule first';
 const GIT_WRITE_ERR={
   bad_request:'잘못된 요청입니다',
   confirmation_required:'확인이 필요합니다',
@@ -944,7 +952,7 @@ const GIT_JOB_CLOSE='Close';
 // 계기이므로 라벨도 한 글자여야 한다 — 글자가 길면 그것이 다시 폭을 다툰다.
 const GIT_JOB_FOLD_OPEN='\u25be';
 const GIT_JOB_FOLD_CLOSED='\u25b8';
-const GIT_JOB_FOLD_TITLE='실행 로그 펼치기/접기';
+
 const GIT_JOB_COPY='Copy Output';
 const GIT_JOB_STREAM_FAIL='출력이 끊겼습니다 — 다시 잇는 중…';
 const GIT_JOB_START_FAIL='원격 작업을 시작하지 못했습니다';
@@ -1172,6 +1180,8 @@ const GIT_MENU_OP_BUSY='%s — 먼저 그 작업을 끝내거나 중단하세요
 // ── Console 의 검색·replay (GIT_ACTIONS_SRS §3.8 / FR-GIT-281) ──
 const GIT_CON_SEARCH_PH='명령·경로·오류 검색';
 const GIT_CON_REPLAY='Replay';
+// 확인창의 제목이다 — 사용자가 **읽는** 글자이므로 한국어다 (FR-TIP-3).
+// 버튼의 툴팁은 `GIT_TIP_CON_REPLAY` 가 따로 든다 (FR-TIP-2).
 const GIT_CON_REPLAY_TITLE='이 명령을 다시 실행합니다';
 // 다시 도는 것도 같은 문을 지난다 — 그래서 이 실행도 기록에 남고, 원래 것이
 // 파괴적이었으면 확인도 파괴적 확인이다.
@@ -1352,7 +1362,7 @@ const GIT_RM_ADD_TITLE='Add a new remote (git remote add)';
 const GIT_RM_EMPTY='원격이 없습니다';
 const GIT_RM_LOAD_FAIL='원격 목록을 불러오지 못했습니다';
 const GIT_RM_REMOVE='Remove';
-const GIT_RM_REMOVE_TITLE='이 원격 설정을 지웁니다 (git remote remove)';
+
 const GIT_RM_PUSH_PREFIX='push → ';
 // 자격증명이 박힌 URL 은 그 자리가 가려져 온다. 가려졌다는 사실을 말하지 않으면
 // 사용자는 URL 이 그렇게 저장돼 있다고 읽는다.

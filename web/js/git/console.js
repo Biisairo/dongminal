@@ -194,7 +194,7 @@ class GitConsole {
     // FR-GIT-281: 같은 명령을 다시 돌린다. **클릭이 행으로 올라가지 않는다** —
     // 올라가면 상세가 여닫혀 목록이 다시 그려지고 버튼이 사라진다.
     const rp=document.createElement('button'); rp.className='git-con-replay';
-    rp.textContent=GIT_CON_REPLAY; rp.title=GIT_CON_REPLAY_TITLE;
+    rp.textContent=GIT_CON_REPLAY; rp.title=GIT_TIP_CON_REPLAY;
     rp.addEventListener('click',ev=>{ev.stopPropagation();this._replay(rec)});
 
     row.appendChild(t); row.appendChild(a); row.appendChild(b);

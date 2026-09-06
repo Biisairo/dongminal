@@ -729,7 +729,7 @@ class GitRemoteList {
     d.appendChild(url);
     const rm=document.createElement('button');
     rm.type='button'; rm.className='git-rm-del';
-    rm.textContent=GIT_RM_REMOVE; rm.title=GIT_RM_REMOVE_TITLE;
+    rm.textContent=GIT_RM_REMOVE; rm.title=GIT_TIP_RM_REMOVE;
     rm.addEventListener('click',()=>this.remove(r));
     d.appendChild(rm);
     return d;
