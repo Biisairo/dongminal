@@ -18,6 +18,8 @@ const SB_TAB_KEY='sidebarTab'; // FR-SBT-6: 보는 방식은 클라이언트의 
  *
  *   id          안정 식별자. 영속(FR-SBT-6)·직행 키 라벨의 키
  *   label       탭 헤더에 보이는 이름
+ *   icon        접힌 사이드바(레일)에서 라벨 대신 보이는 글자 하나
+ *               (SIDEBAR_COLLAPSE_SRS FR-SBC-13). 없으면 라벨의 첫 글자다
  *   panelId     이 탭이 보이게 할 패널 래퍼 id (§3.9.1)
  *   badge(app)  헤더 배지 값. 0·null 이면 표시하지 않는다 (FR-SBT-12/13)
  *   visible(app)탭 자체의 표시 여부 (FR-SBT-8)
@@ -31,7 +33,7 @@ const SB_TAB_KEY='sidebarTab'; // FR-SBT-6: 보는 방식은 클라이언트의 
  */
 const SB_TAB_DEFS=[
   {
-    id:'windows',label:'Windows',panelId:'sb-panel-windows',
+    id:'windows',label:'Windows',icon:'▣',panelId:'sb-panel-windows',
     // FR-TIP-1·2: 무슨 탭인지 영어로 알린다. 라벨만으로는 이 목록이
     // **무엇의** 목록인지 처음 보는 사용자에게 보이지 않는다.
     title:'Terminal windows in this workspace',
@@ -109,7 +111,7 @@ const SB_TAB_DEFS=[
      * 배열 순서가 곧 직행 키 번호이므로 이 탭은 `Ctrl+Shift+Digit2` 다.
      * `sidebarTab3` 은 파생이 사라지면서 함께 사라진다 (FR-RTU-7).
      */
-    id:REPO_TAB_ID,label:REPO_TAB_LABEL,panelId:REPO_PANEL_ID,
+    id:REPO_TAB_ID,label:REPO_TAB_LABEL,icon:'⎇',panelId:REPO_PANEL_ID,
     title:'Repositories and folders opened as editor windows',
     // FR-EDT-120: 목록의 원천은 `/api/editors` 다 — 그것이 없으면 행을 만들 수
     // 없다. **git 이 없는 것은 사유가 되지 않는다** (FR-RTU-9 / D-RTU-12):
@@ -353,10 +355,18 @@ const SidebarTabs={
     b.className='sb-tab';b.dataset.panel=d.id;b.type='button';b.setAttribute('role','tab');
     // FR-TIP-1: 문자열은 탭 정의가 든다 — 만드는 자리에 적으면 표가 두 벌이 된다.
     if(d.title) b.title=d.title;
+    // SIDEBAR_COLLAPSE_SRS FR-SBC-13: 아이콘은 항상 DOM 에 있고 보임은 CSS 가
+    // 정한다 — 접힘마다 버튼을 다시 만들면 C-3(버튼을 다시 만들지 않는다)이 깨진다.
+    // 필드가 없는 서술자는 라벨의 첫 글자를 쓴다: 탭이 늘어도 여기를 고치지 않는다.
+    const i=document.createElement('span');i.className='sb-tab-icon';
+    i.textContent=d.icon||(d.label||'?').charAt(0);
     const l=document.createElement('span');l.className='sb-tab-label';l.textContent=d.label;
     const g=document.createElement('span');g.className='sb-tab-badge';g.hidden=true;
-    b.appendChild(l);b.appendChild(g);
-    b.addEventListener('click',()=>this.setTab(app,d.id));
+    b.appendChild(i);b.appendChild(l);b.appendChild(g);
+    // FR-SBC-17·18: 레일에서의 클릭은 **전환하고 펼친다.** 접힌 채 탭만 바꾸는
+    // 것은 아무것도 보여 주지 않으므로 뜻이 없고, 이미 활성인 탭이면 할 수 있는
+    // 일(펼침)만 한다 — setTab 이 같은 탭에서 no-op 인 것과 맞물린다.
+    b.addEventListener('click',()=>{this.setTab(app,d.id);app._setSidebarCollapsed(false)});
     return b;
   },
 

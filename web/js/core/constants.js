@@ -106,6 +106,19 @@ const TOOLS_ALL_LIVE={has(){return true}};
 // 와 같은 범주이므로 같은 자리(sessionStorage)에 산다 (SRS §2.3).
 const RETURN_WINDOW_KEY={plain:'lastPlainWindow',editor:'lastEditorWindow'};
 
+// ── 사이드바 접기 (SIDEBAR_COLLAPSE_SRS 묶음 SBC) ──
+//
+// FR-SBC-4 / D-4: 접힘은 `sidebarTab` 과 같은 범주의 "이 기기가 보는 방식" 이므로
+// localStorage 에만 산다. 워크스페이스에 두면 다른 기기의 화면 폭에 맞춘 선택이
+// 이 기기로 넘어온다.
+// D-1·2: 클래스는 `documentElement` 에 붙는다 — index.html 의 인라인 스크립트가
+// 첫 프레임에 같은 이름을 붙이며(FR-SBC-5), **그 문자열과 여기가 같아야 한다.**
+const SIDEBAR_COLLAPSED_KEY='sidebarCollapsed';
+const SIDEBAR_COLLAPSED_CLASS='sb-collapsed';
+// FR-SBC-9: 토글 버튼의 툴팁은 상태를 말한다.
+const SIDEBAR_TOGGLE_TITLE_COLLAPSE='Collapse the sidebar';
+const SIDEBAR_TOGGLE_TITLE_EXPAND='Expand the sidebar';
+
 const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight','ShiftLeft','ShiftRight']);
 /**
  * UX_REVISION_SRS FR-KEY-4: 브라우저 기본 동작을 **막지 않는** 키.

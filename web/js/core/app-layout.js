@@ -766,4 +766,51 @@ Object.assign(App.prototype, {
     this.closeTab(pn.id,this.paneTab(pn));
   },
   closeWindowActive(){this.delWindow(this.ws.activeWindow)},
+
+  /**
+   * SIDEBAR_COLLAPSE_SRS 묶음 SBC — 사이드바 접기.
+   *
+   * D-5: 상태 변경·저장·재적합이 한 자리에 모인다. 흩어 두면 나중에 단축키가
+   * 붙을 때 배선이 세 벌이 된다.
+   *
+   * D-1: 접힘은 **클래스 하나**다. 폭을 계산해 `--sb-w` 에 쓰면 펼침 폭을 잃는다
+   * (FR-SBC-2) — CSS 가 `#sidebar` 의 폭을 덮는 쪽이 되돌릴 것이 없다.
+   * D-2: 자리는 `documentElement` 다. index.html 의 인라인 스크립트가 같은 곳에
+   * 붙이며(FR-SBC-5), 그 시점에 `body` 는 아직 없다.
+   */
+  _sidebarCollapsed(){
+    return document.documentElement.classList.contains(SIDEBAR_COLLAPSED_CLASS);
+  },
+
+  /**
+   * FR-SBC-4·6: 상태는 `localStorage` 에만 산다 — `sidebarTab` 과 같은 범주의
+   * "이 기기가 보는 방식" 이다 (D-4). 저장이 막힌 환경에서도 화면은 바뀐다.
+   *
+   * FR-SBC-19: 폭이 바뀌면 터미널의 열 수가 바뀐다. 재적합은 드래그 리사이즈가
+   * 끝날 때와 **같은 코드**다 (input-binding.js) — 두 벌로 두면 한쪽만 고쳐진다.
+   * 상태가 그대로면 아무것도 하지 않는다: 레일의 활성 탭 클릭(FR-SBC-18)이 이미
+   * 펼쳐진 사이드바에 재적합을 걸 이유가 없다.
+   */
+  _setSidebarCollapsed(on){
+    on=!!on;
+    if(this._sidebarCollapsed()===on) return;
+    document.documentElement.classList.toggle(SIDEBAR_COLLAPSED_CLASS,on);
+    try{
+      if(on) localStorage.setItem(SIDEBAR_COLLAPSED_KEY,'1');
+      else localStorage.removeItem(SIDEBAR_COLLAPSED_KEY);
+    }catch{}
+    this._syncSidebarToggle();
+    for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
+  },
+
+  _toggleSidebar(){this._setSidebarCollapsed(!this._sidebarCollapsed())},
+
+  // FR-SBC-9·10: 버튼이 상태를 말한다. 툴팁과 `aria-expanded` 는 같은 사실의 두
+  // 표현이므로 한 자리에서 함께 고친다.
+  _syncSidebarToggle(){
+    const b=document.getElementById('sidebar-toggle'); if(!b) return;
+    const on=this._sidebarCollapsed();
+    b.title=on?SIDEBAR_TOGGLE_TITLE_EXPAND:SIDEBAR_TOGGLE_TITLE_COLLAPSE;
+    b.setAttribute('aria-expanded',on?'false':'true');
+  },
 });

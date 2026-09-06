@@ -40,6 +40,15 @@ class InputBinding {
       const def=SidebarList.defByDragType(dr.type);
       if(def){e.preventDefault();SidebarList.commit(this.app,def,dr)}
     });
+    // SIDEBAR_COLLAPSE_SRS FR-SBC-7·9: 접기 토글. 리사이즈 핸들 바로 옆에 배선을
+    // 두는 것은 둘이 같은 것(사이드바의 폭)을 건드리기 때문이다.
+    const sbt=document.getElementById('sidebar-toggle');
+    if(sbt){
+      sbt.addEventListener('click',()=>this.app._toggleSidebar());
+      // 첫 프레임의 클래스는 인라인 스크립트가 이미 붙였다 (FR-SBC-5). 버튼의
+      // 툴팁·aria 는 그 사실을 아직 모르므로 여기서 한 번 맞춘다.
+      this.app._syncSidebarToggle();
+    }
     const sb=sbEl,sbh=document.getElementById('sb-handle');
     sbh.addEventListener('mousedown',e=>{e.preventDefault();
       const sx=e.clientX,sw=sb.offsetWidth;

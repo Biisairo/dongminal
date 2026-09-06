@@ -17,7 +17,10 @@
   <link rel="stylesheet" href="style-git.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-git-views.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-editor.css?v=__ASSETV__">
-  <script>try{var w=parseInt(localStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px')}catch(e){}</script>
+  <!-- SIDEBAR_COLLAPSE_SRS FR-SBC-5 / D-2: 폭과 접힘을 **같은 걸음**에서 읽는다.
+       자리를 나누면 폭은 첫 프레임에, 접힘은 스크립트 로드 뒤에 걸려 사이드바가
+       한 번 펄럭인다. body 가 아직 없으므로 클래스는 documentElement 에 붙는다. -->
+  <script>try{var w=parseInt(localStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px');if(localStorage.getItem('sidebarCollapsed')==='1')document.documentElement.classList.add('sb-collapsed')}catch(e){}</script>
 </head>
 <body>
 <div id="app">
@@ -66,6 +69,10 @@
   <div id="sb-handle"></div>
   <div id="content">
     <div id="topbar">
+      <!-- SIDEBAR_COLLAPSE_SRS FR-SBC-7·8: 맨 왼쪽이 지정된 자리다 — 사이드바
+           **밖**이어야 접힌 상태에서도 같은 자리에 남는다. 안에 두면 접을 때
+           함께 줄어 여는 손잡이가 사라진다. 리스너는 input-binding.js 가 붙인다. -->
+      <button class="tbtn desktop-only" id="sidebar-toggle" title="Collapse the sidebar" aria-expanded="true">☰</button>
       <span id="window-name"></span>
       <span class="m-pane-nav mobile-only">
         <button class="mtbtn" id="m-pane-prev" title="Focus the previous pane">‹</button>

@@ -27,6 +27,10 @@
      `.git-files` 가 아니라 여기 산다 (D-4). */
   --git-st-add:#9ece6a;
   --m-kb-h:38px;
+  /* SIDEBAR_COLLAPSE_SRS FR-SBC-2: 접힌 사이드바(아이콘 레일)의 폭. 펼침 폭
+     (`--sb-w`)은 건드리지 않는다 — 접힘이 그것을 덮으면 펼쳤을 때 돌아갈
+     자리가 없다 (FR-SBC-3). */
+  --sb-rail-w:40px;
 }
 
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:-apple-system,sans-serif;color:var(--text);font-size:13px}
@@ -174,6 +178,55 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 #sb-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border);position:relative}
 #sb-handle:hover{background:var(--accent)}
 #sb-handle::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
+
+/* ── 접힌 사이드바 = 아이콘 레일 (SIDEBAR_COLLAPSE_SRS 묶음 SBC) ──
+
+   D-1: 접힘은 **클래스 하나**다 — 폭을 JS 로 계산해 `--sb-w` 에 쓰면 펼침 폭을
+   잃는다. CSS 가 폭을 덮는 쪽이 되돌릴 것이 없다.
+   D-2: 자리는 `html` 이다. index.html 의 인라인 스크립트가 첫 프레임에 붙이며
+   (FR-SBC-5) 그때 `body` 는 아직 없다.
+
+   FR-SBC-20: `body:not(.mobile)` 로 한정한다. 모바일에서 사이드바는 드로어이고
+   (§2.4) 여는 손잡이를 `#m-drawer-toggle` 이 이미 갖고 있다 — 두 규약이 겹치면
+   드로어를 연 채 접힌 상태가 된다. 규칙마다 되돌리는 대신 아예 걸리지 않게 한다. */
+html.sb-collapsed body:not(.mobile) #sidebar{
+  width:var(--sb-rail-w);min-width:var(--sb-rail-w);
+}
+/* FR-SBC-16: 레일의 폭은 고정이다. 핸들이 남으면 접힌 사이드바를 끌어 펼칠 수
+   있는 것처럼 보인다. */
+html.sb-collapsed body:not(.mobile) #sb-handle{display:none}
+/* FR-SBC-11: 40px 에서 목록은 읽히지 않는다. 남는 것은 탭 아이콘과 `#sb-bottom` 뿐. */
+html.sb-collapsed body:not(.mobile) .sb-panel{display:none}
+
+/* FR-SBC-12: 탭 바가 눕는다. 밑줄은 왼쪽 띠가 된다 — 세로 목록에서 아래 테두리는
+   탭 사이의 구분선처럼 읽힌다. */
+html.sb-collapsed body:not(.mobile) #sb-tabs{flex-direction:column;border-bottom:none}
+html.sb-collapsed body:not(.mobile) .sb-tab{
+  flex:0 0 auto;height:36px;padding:0;position:relative;
+  border-bottom:none;border-left:2px solid transparent;
+}
+html.sb-collapsed body:not(.mobile) .sb-tab.active{border-left-color:var(--accent)}
+html.sb-collapsed body:not(.mobile) .sb-tab-label{display:none}
+html.sb-collapsed body:not(.mobile) .sb-tab-icon{display:block;font-size:14px;line-height:1}
+/* FR-SBC-14: 배지 규약(비활성 탭에서만·0 이면 없음)은 그대로이고 **자리만** 옮긴다 —
+   레일에 나란히 놓을 폭이 없다. */
+html.sb-collapsed body:not(.mobile) .sb-tab-badge{
+  position:absolute;top:2px;right:2px;min-width:12px;padding:0 3px;
+  font-size:8px;line-height:12px;border-radius:6px;
+}
+/* FR-SBC-15: 두 버튼이 쌓인다. 좌우 여백은 레일 폭에 맞춰 줄인다.
+
+   `margin-top:auto` 는 자리를 지키기 위한 것이다 — 펼침에서 이 행을 최하단으로
+   미는 것은 `.sb-panel` 의 `flex:1 1 auto` 인데, 레일에서는 그 패널이 숨으므로
+   (FR-SBC-11) 미는 힘이 사라져 `⟳`·`⚙` 가 탭 바로 아래로 딸려 올라간다.
+   접었다는 이유로 버튼이 화면을 가로질러 옮겨 다녀서는 안 된다 (FR-SBC-15). */
+html.sb-collapsed body:not(.mobile) #sb-bottom{
+  flex-direction:column;gap:4px;margin:auto 4px 8px;
+}
+
+/* 아이콘은 항상 DOM 에 있고(FR-SBC-13, C-3) 보임은 여기서 정한다 — 펼침에서는
+   라벨이 이름을 말하므로 아이콘이 그 옆에 겹칠 이유가 없다. */
+.sb-tab-icon{display:none}
 
 /* ── Content ── */
 #content{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
