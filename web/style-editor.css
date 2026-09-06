@@ -30,6 +30,15 @@
   background:var(--sidebar-bg);border-right:1px solid var(--border);
 }
 .ed-side-tabs{display:flex;flex:0 0 auto;border-bottom:1px solid var(--border)}
+/* FR-GCC-10: 탭 줄 오른쪽 여백의 새로고침. 탭은 왼쪽에서 자기 폭만 쓰고, 이
+   버튼이 남은 자리의 끝에 앉는다 — `margin-left:auto` 하나면 된다. */
+.ed-side-refresh{
+  margin-left:auto;flex:0 0 auto;min-width:30px;
+  background:transparent;border:0;border-radius:3px;
+  color:var(--text-muted);font-size:12px;cursor:pointer;
+}
+.ed-side-refresh:hover:not(:disabled){color:var(--accent);background:var(--accent-hover)}
+.ed-side-refresh:disabled{color:var(--text-dim);cursor:not-allowed}
 /* 균등 분할이다 — 이름이 짧다고 제 몫을 빼앗기면 폭 최소값에서 둘 다 잘린다
    (NFR-EDT-3 과 같은 근거). */
 /* FR-GIT-195~198: Git 표면의 컨트롤은 히트 영역 하한(30px)을 넘는다. 통합이
@@ -61,6 +70,7 @@
   color:var(--text-muted);cursor:pointer;
 }
 .ed-side-act:hover{color:var(--accent);border-color:var(--border)}
+
 /* `.git-view` 가 `position:absolute;inset:0` 이므로 담는 쪽이 위치 기준이어야 한다. */
 .ed-side-body{flex:1 1 auto;position:relative;min-height:0;min-width:0;overflow:hidden}
 /* 사이드 안에서는 폭을 사이드가 정한다 — 탐색기는 남은 자리를 그대로 채운다. */

@@ -232,9 +232,12 @@ const REPO_SIDE_EXPLORER='explorer';
 const REPO_SIDE_CHANGES='changes';
 // UX_BATCH5_SRS FR-TIP-1·2: 툴팁은 정의 표가 든다 — 그리는 자리에 적으면 표가
 // 두 벌이 된다 (FR-TIP-4).
+// GIT_CHANGES_CONTROLS_SRS FR-GCC-13 (사용자 지시, 2026-09-06): **Changes 가 왼쪽**이다.
+// 이 창을 여는 이유가 대개 변경을 보는 것이고, 왼쪽이 먼저 읽히는 자리다.
+// 기본 탭(`REPO_SIDE_DEFAULT`)은 건드리지 않는다 — 순서와 기본값은 다른 물음이다.
 const REPO_SIDE_TABS=[
-  {id:REPO_SIDE_EXPLORER,label:'Explorer',title:'Browse files in this repository'},
   {id:REPO_SIDE_CHANGES, label:'Changes', title:'Uncommitted changes in this repository'},
+  {id:REPO_SIDE_EXPLORER,label:'Explorer',title:'Browse files in this repository'},
 ];
 const REPO_SIDE_DEFAULT=REPO_SIDE_EXPLORER;
 

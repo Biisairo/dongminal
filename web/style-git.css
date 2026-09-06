@@ -76,7 +76,7 @@
 .git-head-ab{color:var(--text-muted);font-size:11px;white-space:nowrap}
 .git-head-spacer{flex:1 1 auto}
 .git-head-remote{display:flex;gap:4px;flex-shrink:0}
-.git-remote-btn,.git-commit-btn,.git-files-mode,.git-head-refresh{
+.git-remote-btn,.git-commit-btn,.git-files-mode{
   font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;
   background:var(--bg);color:var(--text);
   border:1px solid var(--border);border-radius:3px;
@@ -92,27 +92,21 @@
   background:var(--accent-hover);color:var(--accent);
 }
 /* 사유 없이 꺼진 버튼은 사용자가 해소할 수 없다 — title 이 그것을 맡는다 */
-.git-remote-btn:disabled,.git-commit-btn:disabled,.git-remote-more:disabled,
-.git-head-refresh:disabled{
+.git-remote-btn:disabled,.git-commit-btn:disabled,.git-remote-more:disabled{
   color:var(--text-dim);cursor:not-allowed;
 }
-/* FR-GIT-238: 새로고침. 헤더가 좁아져도 줄어들지 않고, 원격 버튼 한 벌과 붙어
-   보이지 않게 사이를 벌린다 */
-.git-head-refresh{flex-shrink:0;margin-right:6px}
-.git-head-refresh:hover:not(:disabled){background:var(--accent-hover);color:var(--accent)}
 
 /* ── 좁은 폭의 머리 (FR-GHM-10·11) ── */
 /* 줄바꿈한 머리에서 여백은 뜻이 없다 — 마지막 줄의 남은 자리를 다시 먹기만 한다 */
 body.mobile .git-head-spacer{display:none}
 body.mobile .git-head{gap:6px;padding:6px 8px}
 body.mobile .git-head-remote{gap:2px}
-/* 손가락이 닿을 크기. 라벨을 지우지 않는다 — 아이콘만 남기면 무엇을 누르는지
-   읽히지 않는다 (원격 동작은 되돌리기 어렵다) */
-body.mobile .git-remote-btn,body.mobile .git-remote-more,
-body.mobile .git-head-refresh,body.mobile .git-remote-sync,body.mobile .git-push-preview{
+/* 손가락이 닿을 크기. GIT_CHANGES_CONTROLS_SRS FR-GCC-5 로 라벨이 아이콘이 됐으므로
+   폭도 함께 준다 — 글자 넷이 잡아 주던 너비가 사라졌다. 무엇을 누르는지는 툴팁이
+   말한다 (NFR-3). */
+body.mobile .git-remote-btn,body.mobile .git-remote-more{
   min-height:28px;
 }
-body.mobile .git-head-refresh{margin-right:2px;min-width:30px}
 
 /* ── 원격 작업 하나의 화면 (FR-GIT-102·103·105·108) ── */
 .git-job{display:none;flex:0 0 auto;flex-direction:column;border-bottom:1px solid var(--border)}

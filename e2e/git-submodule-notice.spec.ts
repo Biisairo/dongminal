@@ -202,6 +202,33 @@ test.describe('묶음 N — 툴팁과 안내문', () => {
       await expect(note).toContainText('안쪽 몫은 이 행에 남습니다');
     });
 
+  /**
+   * V-SDN-10 (FR-SDN-12·13, D-2a): **담을 몫이 없으면 버튼이 꺼진다.**
+   *
+   * 접수한 말은 "여전히 staging 조차 되지 않는다" 였다. 실측이 그 정체를 밝혔다:
+   * 안쪽만 더러운 행에서 `git add` 는 index 에 올릴 것이 없어 요청은 200 이고
+   * 화면은 그대로다 — 사용자는 툴팁을 열기 전에 버튼을 먼저 누른다.
+   */
+  test('N6 (V-SDN-10): 안쪽만 더러운 행의 Stage 는 꺼지고 사유를 말한다',
+    async ({ page }) => {
+      await openGit(page, REPO.inner);
+      const stage = fileRow(page, 'sub').locator('.git-file-act[data-act="stage"]');
+      await expect(stage).toBeDisabled();
+      await expect(stage).toHaveAttribute('title', /담을 변경이 없습니다/);
+      // Discard 는 그대로다 — gitlink 를 되돌리는 별개의 동작이다 (FR-SDN-14).
+      await expect(fileRow(page, 'sub').locator('.git-file-act[data-act="discard"]')).toBeEnabled();
+    });
+
+  // A(커밋만)와 C(둘 다)는 실제로 담기는 것이 있다 (FR-SDN-14). 저장소마다
+  // 테스트를 가르는 이유는 `openGit` 이 `goto` 를 품기 때문이다 — 한 테스트에서
+  // 두 번 열면 두 번째 로드에서 터미널이 서지 않는다(실측).
+  for (const kind of ['commit', 'both'] as const) {
+    test(`N7-${kind} (V-SDN-10): 담을 몫이 있는 행의 Stage 는 살아 있다`, async ({ page }) => {
+      await openGit(page, REPO[kind]);
+      await expect(fileRow(page, 'sub').locator('.git-file-act[data-act="stage"]')).toBeEnabled();
+    });
+  }
+
   test('N5 (V-SDN-9): 중첩 저장소의 문구는 바뀌지 않았다', async ({ page }) => {
     // 중첩 저장소는 `sub` 가 비어 있어 가를 것이 없다 (FR-SDN-11). 서브모듈
     // 저장소 안에 하나 세워 같은 화면에서 확인한다.

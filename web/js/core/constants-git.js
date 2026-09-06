@@ -43,11 +43,16 @@ const GIT_VIEW_FIELD_BY_KEY=Object.fromEntries(
   GIT_VIEWS.filter(v=>v.field).map(v=>[v.key,v.field]));
 // REPO_TAB_UNIFY_SRS FR-RTU-21 / D-RTU-5: Changes 사이드 머리의 진입점.
 //
-// **Changes 는 여기 없다** — 그것은 사이드 자신이고(FR-RTU-32), 나머지 다섯만
+// **Changes 는 여기 없다** — 그것은 사이드 자신이고(FR-RTU-32), 나머지 여섯만
 // 본문 탭으로 열린다. 아이콘인 이유는 사이드가 좁기 때문이고, 무엇인지는 툴팁이
 // 말한다. 순서는 `GIT_VIEWS` 를 따른다 — 두 자리가 다른 순서를 말하지 않는다.
+//
+// **`Diff` 도 여기 없다** (FR-RTU-21 개정). 다른 여섯과 성질이 다르기 때문이다:
+// 나머지는 이 줄이 유일한 진입점이지만 Diff 는 **변경 목록의 파일을 누르면 이미
+// 열리고**(panel-changes 의 행 클릭), 커밋 축도 `showCommitDiff` 가 스스로 연다.
+// 게다가 대상 없이 누르면 경로도 축도 빈 `0/0` 껍데기가 열렸다 — 다른 여섯은
+// 대상 없이도 자기 내용을 가진다.
 const GIT_SIDE_ACTIONS=[
-  {key:'diff',     icon:'⇄', title:'Diff'},
   {key:'history',  icon:'⏲', title:'History'},
   {key:'branches', icon:'⎇', title:'Branches'},
   {key:'stash',    icon:'≣', title:'Stash'},
@@ -153,6 +158,10 @@ const GIT_STALE_NOTE='갱신 실패';
 const GIT_DIFF_SAVE_FAIL='저장하지 못했습니다';
 // FR-GIT-238: 새로고침. 이모지를 쓰지 않는다 (FR-GIT-187·192 와 같은 어휘).
 const GIT_REFRESH_LABEL='⟳';
+// FR-GCC-8: 파일 목록의 보기 방식. 같은 패널의 언어를 하나로 모은다 — 글자
+// 버튼 둘만 남으면 그 줄에서 눈이 한 번 더 멎는다. 툴팁은 이미 있는
+// `GIT_FILE_VIEW_TITLE` 이 말한다 — 같은 것을 두 벌로 두지 않는다.
+const GIT_FILES_MODE_ICON={tree:'⊟',flat:'☰'};
 const GIT_REFRESH_TITLE='Refresh everything — status, History, Branches and Console';
 const GIT_ERR_NOT_REPO='저장소가 아닙니다';
 const GIT_ERR_GIT_MISSING='git 을 찾을 수 없습니다';
@@ -283,6 +292,9 @@ const GIT_SUB_UNTRACKED='U';
 const GIT_SUB_TITLE_COMMIT='서브모듈 — 기록된 커밋이 바뀌었습니다, 스테이지하면 담깁니다';
 const GIT_SUB_TITLE_INNER='서브모듈 안의 변경 — 여기서는 스테이지해도 사라지지 않습니다';
 const GIT_SUB_TITLE_BOTH='서브모듈 — 기록된 커밋은 담기고, 안의 변경은 남습니다';
+// FR-SDN-12·13 (D-2a): 담을 몫이 없는 행의 `Stage` 는 꺼지고, 그 사유를 말한다.
+// 사유 없이 꺼진 버튼은 사용자가 해소할 수 없다 (FR-GIT-101 과 같은 규약).
+const GIT_SUB_STAGE_OFF_TITLE='이 저장소가 담을 변경이 없습니다 — 서브모듈 안에서 먼저 커밋하세요';
 
 // FR-SDN-9: 미리보기의 안내문. 자리가 넓으므로 무엇을 해야 하는지까지 싣는다.
 //
@@ -894,7 +906,12 @@ const GIT_STASH_DROP_NOTE='gc 전이면 아래 명령으로 되살릴 수 있습
 // FR-GIT-98·99: 버튼은 **기본 동작만** 한다. 변형(--prune·--rebase·force)은 `▾`
 // 다이얼로그에서만 온다 — 여기서 라벨과 사유를 붙인다.
 const GIT_REMOTE_KINDS=['fetch','pull','push'];
+// **글자다.** 작업 진행 표시(상태바·작업 로그의 이름)가 이것을 쓴다 — 버튼을
+// 아이콘으로 바꾸면서 이 값을 함께 바꾸면 "⤓ 중" 이 된다 (GIT_CHANGES_CONTROLS_SRS D-6).
 const GIT_REMOTE_LABEL={fetch:'Fetch',pull:'Pull',push:'Push'};
+// FR-GCC-5: **버튼의 얼굴**. 좁은 사이드에서 글자 셋과 `▾` 셋은 두 줄을 먹었고
+// `Push` 의 `▾` 는 줄을 넘겼다(실측). 무엇인지는 툴팁(GIT_REMOTE_TITLE)이 말한다.
+const GIT_REMOTE_ICON={fetch:'⤓',pull:'↓',push:'↑'};
 const GIT_REMOTE_TITLE={
   fetch:'Fetch from the remote (git fetch)',
   pull:'Fetch and merge into the current branch (git pull)',
@@ -1345,37 +1362,6 @@ const GIT_RM_REMOVE_CONFIRM_TITLE='원격 설정을 지웁니다';
 const GIT_RM_REMOVE_NOTE='가져온 객체와 refs/remotes 는 남습니다. 아래로 되살릴 수 있습니다';
 const GIT_RM_REMOVE_FAIL='원격을 지우지 못했습니다';
 
-// FR-GIT-270: Sync 는 pull 후 push 를 한 진입점으로 묶는다. **앞이 실패하면 뒤를
-// 돌리지 않는다** — 그 판정은 서버가 하고 화면은 그 사실을 보인다.
-const GIT_SYNC_LABEL='Sync';
-const GIT_SYNC_TITLE='Pull then push (pull → push)';
-// 단계는 라벨로 보인다 — "1/2" 가 없으면 사용자는 무엇이 도는지 모른다.
-const GIT_SYNC_STEP_LABEL={pull:'Sync 1/2 — Pull',push:'Sync 2/2 — Push'};
-const GIT_SYNC_STOPPED='pull 이 끝나지 않아 push 를 돌리지 않았습니다';
-const GIT_SYNC_START_FAIL='Sync 를 시작하지 못했습니다';
-// 두 번째 단계의 작업 식별자는 서버가 준다. 폴링 간격·횟수는 상수로 못박는다.
-const GIT_SYNC_POLL_MS=250;
-const GIT_SYNC_POLL_MAX=60;
-
-// FR-GIT-271: Push preview. 밀기 전에 올라갈 커밋을 보이고, 대상을 고치게 하며,
-// force-with-lease 를 그 자리에서 켠다 — force 는 기존 확인 규약을 그대로 탄다
-// (FR-GIT-106, GIT_ACT_FORCE_PUSH).
-const GIT_PP_LABEL='Preview';
-const GIT_PP_BTN_TITLE='Review the commits that will be pushed';
-const GIT_PP_TITLE='Push 미리보기';
-const GIT_PP_RUN='Push';
-const GIT_PP_FAIL='미리보기를 불러오지 못했습니다';
-const GIT_PP_NONE='올라갈 커밋이 없습니다';
-const GIT_PP_COUNT_PREFIX='올라갈 커밋 ';
-const GIT_PP_COUNT_SUFFIX='개';
-const GIT_PP_PUBLISH_NOTE='원격에 이 브랜치가 없습니다 — 미는 순간 만들어지고, 아래는 이 브랜치의 커밋입니다';
-const GIT_PP_REMOTE_LABEL='대상 원격';
-const GIT_PP_BRANCH_LABEL='대상 브랜치';
-const GIT_PP_LEASE='--force-with-lease 로 밀기';
-// force 세기의 이름은 서버(write.PushLease)와 같은 문자열이다.
-const GIT_PUSH_FORCE_LEASE='lease';
-const GIT_PP_UPSTREAM='이 원격을 upstream 으로 설정 (-u)';
-const GIT_PP_WHY_BRANCH='대상 브랜치가 필요합니다';
 // ── 커밋 동작 (GIT_ACTIONS_SRS §3.4 / FR-GIT-263~267) ──
 //
 // History 의 커밋 행이 줄 수 있는 것들이다. 안내문은 한국어, 버튼은 영어다

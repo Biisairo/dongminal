@@ -166,7 +166,11 @@ Object.assign(GitPanel.prototype, {
   // 방어이고 `disabled` 는 그것을 화면에 보이는 것이다.
   _paintRefresh(){
     const el=this._els.get('changes'); if(!el) return;
-    const b=el.querySelector('.git-head-refresh');
+    // GIT_CHANGES_CONTROLS_SRS FR-GCC-10: 버튼은 이제 **뷰 밖**(사이드 최상단의
+    // 진입점 줄)에 산다. 슬롯이 둘이면 사이드도 둘이므로, 이 뷰가 담긴 사이드에서
+    // 찾아야 남의 칸을 끄지 않는다.
+    const side=el.closest('.ed-side');
+    const b=side&&side.querySelector('.git-head-refresh');
     if(b) b.disabled=this._refreshing;
   },
 

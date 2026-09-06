@@ -153,9 +153,20 @@ test.describe('묶음 W — 사이드는 Explorer 와 Changes 를 갈아 끼운�
       await expect(side(page).locator('.ed-side-acts')).toBeVisible();
       // Changes 는 여기 없다 — 그것은 사이드 자신이다 (FR-RTU-32).
       await expect(side(page).locator('.ed-side-act[data-view="changes"]')).toHaveCount(0);
-      // UX_BATCH5_SRS FR-SUB-6 으로 Submodules 가 더해져 **일곱이 됐다.**
-      // 숫자는 `GIT_SIDE_ACTIONS` 의 길이이며, e2e 는 그것을 독립적으로 적는다.
-      await expect(side(page).locator('.ed-side-act')).toHaveCount(7);
+      // UX_BATCH5_SRS FR-SUB-6 으로 Submodules 가 더해져 일곱이 됐다가, Diff 가
+      // 빠져 **여섯이 됐다** (FR-RTU-21 개정). 숫자는 `GIT_SIDE_ACTIONS` 의
+      // 길이이며, e2e 는 그것을 독립적으로 적는다.
+      //
+      // `[data-view]` 로 세는 이유가 있다: 같은 줄의 오른쪽 끝에 **새로고침**이
+      // 함께 서지만(GIT_CHANGES_CONTROLS_SRS FR-GCC-10) 그것은 진입점이 아니다.
+      await expect(side(page).locator('.ed-side-act[data-view]')).toHaveCount(6);
+      // Diff 는 이 줄에 없다 — 파일을 누르면 열린다 (FR-RTU-21 개정).
+      await expect(side(page).locator('.ed-side-act[data-view="diff"]')).toHaveCount(0);
+      // FR-GCC-10: 새로고침은 창의 최상단(탭 줄 오른쪽 끝)이다 — 브랜치 줄에는 없다.
+      await expect(side(page).locator('.ed-side-tabs .git-head-refresh')).toHaveCount(1);
+      await expect(side(page).locator('.git-head .git-head-refresh')).toHaveCount(0);
+      // FR-GCC-13: 사이드 탭의 첫 번째는 Changes 다.
+      await expect(side(page).locator('.ed-side-tab').first()).toHaveAttribute('data-side', 'changes');
     });
 });
 

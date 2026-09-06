@@ -437,13 +437,33 @@ class Renderer {
       b.addEventListener('click',()=>app._edSetSide(s,d.id));
       bar.appendChild(b);
     }
+    /**
+     * GIT_CHANGES_CONTROLS_SRS FR-GCC-10 / D-7·D-8: 새로고침은 **창의 최상단**,
+     * 탭 줄의 오른쪽 여백에 선다.
+     *
+     * 종전 자리는 브랜치 줄 안이었고, 목록을 다시 읽고 싶은 손이 세 번째 줄까지
+     * 내려가야 했다. 진입점 줄에 넣어 봤더니 그쪽은 여섯 칸이 폭을 나눠 갖는
+     * 자리라 일곱 번째가 **다음 줄로 밀렸다**(실측) — 탭 줄은 탭 둘뿐이라 오른쪽이
+     * 비어 있고, 최상단이라는 뜻에도 그쪽이 더 맞는다.
+     *
+     * `Changes` 탭에서만 둔다: 새로고침하는 대상이 git 이고, Explorer 에서는
+     * 그 자리가 뜻을 잃는다 (FR-RTU-22 와 같은 근거). 클래스 이름은 그대로다 —
+     * 자리가 바뀌었을 뿐 같은 버튼이다.
+     */
+    if(active===REPO_SIDE_CHANGES){
+      const rf=document.createElement('button');
+      rf.className='ed-side-refresh git-head-refresh';
+      rf.textContent=GIT_REFRESH_LABEL; rf.title=GIT_REFRESH_TITLE;
+      rf.addEventListener('click',()=>app._gitPanel(app._edRootOf(s),slot).refresh());
+      bar.appendChild(rf);
+    }
     el.appendChild(bar);
     const body=document.createElement('div'); body.className='ed-side-body';
     if(active===REPO_SIDE_CHANGES){
       // FR-RTU-32: Changes 는 **사이드에만** 있다. 본문 탭이 되지 않으므로 그
       // 뷰의 DOM 을 여기로 가져온다 — 뷰를 만드는 자리는 패널 하나다.
       const p=app._gitPanel(app._edRootOf(s),slot);
-      // FR-RTU-21·22: 나머지 다섯으로 가는 진입점. **Changes 탭에만** 둔다 —
+      // FR-RTU-21·22: 나머지 여섯으로 가는 진입점. **Changes 탭에만** 둔다 —
       // Explorer 에서는 git 의 자리가 아니고, 파일 작업 중에 보일 이유가 없다.
       el.appendChild(this._rSideActions(p));
       const view=p.elFor(REPO_SIDE_CHANGES);
@@ -456,7 +476,7 @@ class Renderer {
     return el;
   }
 
-  // FR-RTU-21: 진입점 다섯. 누르면 본문에 그 뷰의 탭이 열리고, 이미 있으면 그
+  // FR-RTU-21: 진입점 여섯. 누르면 본문에 그 뷰의 탭이 열리고, 이미 있으면 그
   // 탭으로 옮긴다 — 판정은 `openView` 한 자리다 (FR-RTU-31).
   _rSideActions(panel){
     const bar=document.createElement('div'); bar.className='ed-side-acts';

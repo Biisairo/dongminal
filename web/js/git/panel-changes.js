@@ -114,13 +114,9 @@ Object.assign(GitPanel.prototype, {
   _wireHead(el){
     const head=el&&el.querySelector('.git-head'); if(!head) return;
     for(const b of head.querySelectorAll('.git-remote-btn'))
-      b.textContent=GIT_REMOTE_LABEL[b.dataset.remote]||'';
+      b.textContent=GIT_REMOTE_ICON[b.dataset.remote]||'';
     for(const b of head.querySelectorAll('.git-remote-more')) b.textContent=GIT_REMOTE_MORE;
-    const rf=head.querySelector('.git-head-refresh');
-    rf.textContent=GIT_REFRESH_LABEL; rf.title=GIT_REFRESH_TITLE;
-    rf.addEventListener('click',()=>this.refresh());
-    // FR-GIT-282: 리포명 자체가 전환 자리다. 헤더에 새 버튼을 더하면 원격 버튼을
-    // 세는 기존 단정이 흔들린다 (.git-head-refresh 가 밖에 선 것과 같은 이유).
+    // FR-GIT-282: 리포명 자체가 전환 자리다 — 헤더에 새 버튼을 더하지 않는다.
     head.querySelector('.git-head-repo').addEventListener('click',ev=>this._openRepoPicker(ev));
     this._remote().bindHead(head);
   },
@@ -214,8 +210,8 @@ Object.assign(GitPanel.prototype, {
       '<div class="git-changes-body">'+
         '<div class="git-files">'+
           '<div class="git-files-bar">'+
-            '<button class="git-files-mode" data-mode="tree">Tree</button>'+
-            '<button class="git-files-mode" data-mode="flat">Flat</button>'+
+            '<button class="git-files-mode" data-mode="tree"></button>'+
+            '<button class="git-files-mode" data-mode="flat"></button>'+
             '<span class="git-files-spacer"></span>'+
           '</div>'+
         '</div>'+
@@ -267,6 +263,8 @@ Object.assign(GitPanel.prototype, {
       files.appendChild(d);
     }
     for(const b of el.querySelectorAll('.git-files-mode')){
+      // FR-GCC-8 / NFR-3: 아이콘만 남으므로 툴팁이 유일한 설명이다.
+      b.textContent=GIT_FILES_MODE_ICON[b.dataset.mode]||'';
       b.title=GIT_FILE_VIEW_TITLE[b.dataset.mode]||'';
       b.addEventListener('click',()=>this._setFileView(b.dataset.mode));
     }
@@ -595,6 +593,18 @@ Object.assign(GitPanel.prototype, {
       b.title=(a==='ours'||a==='theirs')
         ? (GIT_SIDE_TITLE[this._op()]||GIT_SIDE_TITLE[''])[a]
         : GIT_ACT_TITLE[a];
+      /**
+       * SUBMODULE_DIRTY_NOTICE_SRS FR-SDN-12·13 (D-2a): 담을 몫이 없으면 끈다.
+       *
+       * 안쪽만 더러운 서브모듈(상태 B)에서 `git add` 는 index 에 올릴 것이 없다 —
+       * 요청은 200 으로 돌아오고 화면은 그대로다. 툴팁으로만 알린 판은 모자랐다:
+       * 사용자는 툴팁을 열기 전에 버튼을 먼저 누르고, 아무 일도 일어나지 않는
+       * 것을 고장으로 읽는다 (접수: "여전히 staging 조차 되지 않는다").
+       */
+      if(a==='stage'){
+        const sp=gitSubParts(e.sub);
+        if(sp.inner&&!sp.commit){b.disabled=true; b.title=GIT_SUB_STAGE_OFF_TITLE}
+      }
       b.addEventListener('click',ev=>{
         ev.stopPropagation();
         // FR-GIT-236: Open File 은 선택을 끌어오지 않는다 — `_rowTargets` 는 쓰기
@@ -750,9 +760,6 @@ Object.assign(GitPanel, {
     return '<div class="git-head">'+
       '<span class="git-head-repo"></span><span class="git-head-branch"></span>'+
       '<span class="git-head-badges"></span><span class="git-head-ab"></span>'+
-      // FR-GIT-238: 새로고침. **`.git-head-remote` 밖**에 둔다 — 안에 넣으면 원격
-      // 버튼을 세는 기존 단정이 깨진다.
-      '<button class="git-head-refresh"></button>'+
       // 원격 버튼은 기본 동작만 하고 변형은 `▾` 다이얼로그에서 온다
       // (FR-GIT-98·99). 동작은 GitRemote 가 붙인다.
       '<span class="git-head-remote">'+GIT_REMOTE_KINDS.map(k=>
