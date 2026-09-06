@@ -693,7 +693,7 @@ MVP(M1~M5)에서 하지 않는다. 각 항목은 후속 또는 범위 밖이다.
 | git hooks 설치 | — | 침습적이며 워킹 트리 수정을 못 잡음 |
 | 자격증명 저장·중계 | — | **의도적 배제.** git credential helper 에 위임 (FR-GIT-104) |
 | clone / init | P2 | 터미널로 충분. 이후 재평가 |
-| submodule · worktree UI | P2 | 이후. dongminal 의 Run worktree 와 접점은 별도 검토 |
+| submodule · worktree UI | ~~P2~~ **완료** | worktree 는 GIT_REVIEW4_SRS(FR-GIT-240~244), submodule 은 [UX_BATCH5_SRS](./UX_BATCH5_SRS.md) 묶음 D. Run worktree 와의 접점은 소유 판정(`owner`)으로 갈렸다 |
 
 ## 6. 구현 계획 (Implementation Plan)
 
