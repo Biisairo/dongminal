@@ -1,10 +1,11 @@
 import { readdirSync, rmSync, statSync } from 'fs';
-import { basename, join } from 'path';
+import { basename } from 'path';
 
 import { E2E_HOME } from '../playwright.config';
 import { stopDaemon } from './daemon-cleanup';
+import { TMP, tmpPath } from './osenv';
 
-// 이전 실행이 남긴 /tmp/dongminal-e2e-* 를 정리한다.
+// 이전 실행이 남긴 `<임시>/dongminal-e2e-*` 를 정리한다 (`TMP` 는 osenv 가 정한다).
 //
 // 주의: playwright 는 webServer 를 globalSetup 보다 **먼저** 띄운다. 따라서
 // 이름 접두사만 보고 지우면 방금 뜬 서버의 홈까지 삭제되어, 테스트 내내
@@ -14,14 +15,14 @@ async function globalSetup() {
   const current = basename(E2E_HOME);
   let entries: string[] = [];
   try {
-    entries = readdirSync('/tmp');
+    entries = readdirSync(TMP);
   } catch {
-    return; // /tmp 읽기 불가 — 정리 생략
+    return; // 임시 디렉터리 읽기 불가 — 정리 생략
   }
   for (const entry of entries) {
     if (!entry.startsWith('dongminal-e2e-')) continue;
     if (entry === current) continue; // 이번 실행의 홈 — 보존
-    const fullPath = join('/tmp', entry);
+    const fullPath = tmpPath(entry);
     try {
       if (!statSync(fullPath).isDirectory()) continue;
     } catch {

@@ -1,37 +1,43 @@
 name: e2e
 
-# 브라우저 종단간 (Playwright). **매 푸시에는 돌지 않는다.**
+# 브라우저 종단간 (Playwright). **세 OS · 매 푸시** (CI_E2E_MATRIX_SRS).
 #
-# 1,205개를 한 서버 인스턴스에서 이어 돌리면 로컬 실측 25분이고, 러너는 그보다
-# 느리다. 매 푸시에 얹으면 그 시간이 모든 커밋에 붙는데, 이 저장소의 커밋 대부분은
-# Go 층이거나 문서다 — `verify` 가 이미 그쪽을 지키고 있다.
+# 종전에는 ubuntu 하나에서, 그것도 사람이 부를 때와 태그를 밀 때만 돌았다. 그
+# 판단은 비용에 대한 것이었고("커밋 대부분은 Go 층이거나 문서이며 그쪽은 `verify`
+# 가 지킨다"), 접수한 지시는 덮개에 대한 것이다 — 확인하려면 돌아야 한다 (D-1).
 #
-# 그래서 **사람이 부를 때**(workflow_dispatch)와 **태그를 밀 때**만 돈다. 태그는
-# 드물면서 웹 UI 가 실제로 배포되는 순간이라, 그때 한 번 훑는 것이 값이 있다.
-#
-# **릴리스를 막지 않는다.** `release.yml` 의 gate 와 별개의 워크플로우이므로 여기가
-# 빨개도 애셋은 나간다. 이것은 의도다 — 이 스위트는 지금까지 개발 호스트(macOS·zsh)
-# 에서만 돌았고, 리눅스에서의 통과율을 아직 모른다. 몇 번 돌려 그것을 알고 난 뒤에
-# 게이트로 승격할지 정한다.
+# 한 OS 의 초록은 다른 OS 를 말하지 않는다. 이 앱의 결함이 실제로 나온 자리가
+# 플랫폼 계층이고(CROSS_PLATFORM_SRS §11), 브라우저 종단간은 그 계층을 가장 많이
+# 지나는 표면이다.
 
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     tags: ['v*']
+  pull_request:
 
 jobs:
   e2e:
-    # 샤드로 가른다. `playwright.config.ts` 는 `workers: 1` · `fullyParallel: false`
-    # 이고 그것은 바꿀 수 없다 — 테스트 전부가 **서버 인스턴스 하나**를 공유하고,
-    # fixtures 가 매 테스트 앞에서 워크스페이스를 비우기 때문이다 (E2E_QUIESCENCE_SRS).
-    # 한 러너 안에서 못 나누는 대신 러너를 나눈다: 샤드마다 자기 서버가 뜨므로
-    # 그 제약과 부딪히지 않는다.
+    # OS × 샤드. OS 마다 job 을 따로 적으면 스텝이 세 벌이 되고, 세 벌이면 한쪽만
+    # 고쳐진다 (FR-E2I-1 의 선례) — 그래서 매트릭스다 (D-2).
+    #
+    # 샤드로 가르는 이유는 그대로다. `playwright.config.ts` 는 `workers: 1` ·
+    # `fullyParallel: false` 이고 그것은 바꿀 수 없다 — 테스트 전부가 **서버
+    # 인스턴스 하나**를 공유하고, fixtures 가 매 테스트 앞에서 워크스페이스를
+    # 비운다 (E2E_QUIESCENCE_SRS). 한 러너 안에서 못 나누는 대신 러너를 나눈다.
+    #
+    # `fail-fast: false` 는 규약이다 (D-3). 한 OS 의 실패로 나머지를 끊으면 고칠
+    # 때마다 한 OS 씩만 보이게 된다 — 세 OS 의 실패 목록을 한 번에 받아야 한다.
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         shard: [1, 2, 3, 4]
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    runs-on: ${{ matrix.os }}
+    # 로컬(macOS) 실측이 전체 25분이므로 샤드 하나는 그 1/4 이지만, 러너는 그보다
+    # 느리고 `retries: 2` 가 실패 항목마다 두 번을 더 돈다 (FR-CEM-6).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
@@ -41,14 +47,17 @@ jobs:
         with:
           node-version: 22
 
-      # 픽스처가 만드는 저장소의 전제다.
+      # 픽스처가 만드는 저장소의 전제다 (FR-CEM-5).
       #
       # `git_fixture.sh` 는 `reset --hard main` 을 쓴다 — 개발 호스트에는
       # `init.defaultBranch=main` 이 있어 그냥 통과하지만, 러너의 기본은 `master`
       # 라 그대로 두면 git 스펙이 통째로 무너진다.
       # 이름·메일은 스펙 대부분이 저장소마다 직접 세우지만, 세우지 않는 자리가
       # 하나라도 있으면 `commit` 이 거기서 멈춘다 — 전역에 두는 편이 싸다.
+      #
+      # `shell: bash` 는 windows 러너에서도 같은 한 벌을 쓰기 위한 것이다.
       - name: git 기본값
+        shell: bash
         run: |
           git config --global init.defaultBranch main
           git config --global user.name  'dongminal e2e'
@@ -70,11 +79,13 @@ jobs:
         run: npx playwright test --shard=${{ matrix.shard }}/4
 
       # 실패했을 때만 남긴다. 초록인 실행의 리포트는 아무도 열지 않는다.
+      # 이름에 OS 가 들어가는 것은 규약이다 (D-6) — 샤드 번호만 쓰면 세 OS 가 같은
+      # 이름을 올리고, `upload-artifact@v4` 는 같은 이름을 두 번 받지 않는다.
       - name: 리포트 (실패 시)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ matrix.shard }}
+          name: playwright-report-${{ matrix.os }}-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/

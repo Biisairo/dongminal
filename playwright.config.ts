@@ -2,11 +2,13 @@ import { mkdirSync } from 'fs';
 
 import { defineConfig, devices } from '@playwright/test';
 
+import { tmpPath } from './e2e/osenv';
+
 // 이 실행의 격리된 DONGMINAL_HOME. global-setup 이 자기 실행의 홈을 지우지
 // 않도록 setup/teardown 이 같은 값을 참조해야 한다 — playwright 는 webServer
 // 를 globalSetup 보다 먼저 띄우므로, 이름으로만 판별하면 방금 뜬 서버의 홈을
 // 삭제해 테스트 내내 영속화가 실패한다.
-export const E2E_HOME = '/tmp/dongminal-e2e-' + Date.now() + '-' + process.pid;
+export const E2E_HOME = tmpPath('dongminal-e2e-' + Date.now() + '-' + process.pid);
 
 // 도구 셸의 홈. E2E_HOME **아래의 별도 칸**이다 — 인스턴스 홈을 그대로 셸의
 // 홈으로 주면 셸이 `.zsh_history`·`.zcompdump` 를 workspace·tools 와 같은
