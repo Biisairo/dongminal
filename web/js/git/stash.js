@@ -154,12 +154,9 @@ class GitStash {
   }
 
   _paintNote(){
-    const box=this._el.querySelector('.git-stash-note');
-    const n=this._note;
-    box.classList.toggle('vis',!!n);
-    box.dataset.kind=(n&&n.kind)||'';
-    box.querySelector('.git-stash-note-msg').textContent=(n&&n.msg)||'';
+    gitPaintNote(this._el,'git-stash',this._note);
   }
+
 
   _paintList(){
     const box=this._el.querySelector('.git-stash-list');

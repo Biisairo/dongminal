@@ -366,18 +366,8 @@ Object.assign(App.prototype, {
   // 목록은 주기적으로 갱신하되 탭이 숨겨졌으면 건너뛴다 — 보이지 않는 섹션을
   // 위해 요청을 살 이유가 없다 (_startStatsPoll 의 선례, FR-STAT-17).
   _startGitReposPoll(){
-    if(this._gitReposInterval)clearInterval(this._gitReposInterval);
-    if(!this._gitReposVisHook){
-      this._gitReposVisHook=true;
-      document.addEventListener('visibilitychange',()=>{
-        if(!document.hidden)this._gitReposRefresh();
-      });
-    }
-    this._gitReposInterval=setInterval(()=>{
-      if(document.hidden)return;
-      this._gitReposRefresh();
-    },GIT_REPOS_POLL_MS);
-    this._gitReposRefresh();
+    if(this._gitReposPoll) this._gitReposPoll.stop();
+    this._gitReposPoll=visiblePoll(GIT_REPOS_POLL_MS,()=>this._gitReposRefresh(),{immediate:true});
   },
 
   /**

@@ -24,21 +24,10 @@ Object.assign(App.prototype, {
     this._renderStatusBarSettings();
   },
   _startStatsPoll(){
-    if(this._statsInterval)clearInterval(this._statsInterval);
-    // Skip polling while the tab is hidden — the status bar isn't visible, so
-    // the request buys nothing (SYSTEM_STATS_SRS FR-STAT-17). Registered once;
-    // _startStatsPoll also runs on interval changes.
-    if(!this._statsVisHook){
-      this._statsVisHook=true;
-      document.addEventListener('visibilitychange',()=>{
-        if(!document.hidden)this._pollStats();
-      });
-    }
-    this._statsInterval=setInterval(()=>{
-      if(document.hidden)return;
-      this._pollStats();
-    },statsInterval);
-    this._pollStats();
+    if(this._statsPoll) this._statsPoll.stop();
+    // FR-RST-23: 숨은 탭에서는 돌지 않고, 돌아오면 즉시 한 번 갚는다
+    // (SYSTEM_STATS_SRS FR-STAT-17). 규약은 `visiblePoll` 하나가 갖는다.
+    this._statsPoll=visiblePoll(statsInterval,()=>this._pollStats(),{immediate:true});
   },
   async _pollStats(){
     // Measure real network latency with lightweight ping

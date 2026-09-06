@@ -344,10 +344,12 @@ Object.assign(FileTree.prototype, {
         (e.dir?dirs:files).set(k,c);
       }
     };
-    put(st&&st.staged,e=>(e.xy||'..')[0]);
-    put(st&&st.changes,e=>(e.xy||'..')[1]);
-    put(st&&st.untracked,()=>'?');
-    put(st&&st.conflicts,()=>'U');
+    // FR-RST-22: 문자를 뽑는 규칙은 Git 패널과 **한 출처**다. 종전에는 같은
+    // 규칙이 두 화면에 따로 적혀 있었다 — 주석이 "같아야 한다" 고 밝히면서도.
+    put(st&&st.staged,e=>gitStateChar('staged',e));
+    put(st&&st.changes,e=>gitStateChar('changes',e));
+    put(st&&st.untracked,()=>gitStateChar('untracked'));
+    put(st&&st.conflicts,()=>gitStateChar('conflicts'));
     this._st=files;
     this._dirOwn=dirs;
     // FR-GIT-190: staged 와 unstaged 를 함께 가진 파일. **Git 패널이 이것을

@@ -341,6 +341,10 @@
 <script src="js/ui/term-pane.js?v=__ASSETV__"></script>
 <script src="js/ui/file-editor.js?v=__ASSETV__"></script>
 <script src="js/ui/input-binding.js?v=__ASSETV__"></script>
+<!-- REFACTOR_STABILIZATION_SRS FR-RST-21: 뷰들이 공유하는 조각. `api.js` 앞이다 —
+     gitFetch 는 호출 시점에만 필요하므로 순서가 뒤여도 되지만, 공유물이 먼저
+     서는 것이 읽는 사람에게 자연스럽다. -->
+<script src="js/git/view-util.js?v=__ASSETV__"></script>
 <script src="js/git/api.js?v=__ASSETV__"></script>
 <script src="js/git/observer.js?v=__ASSETV__"></script>
 <script src="js/git/panel.js?v=__ASSETV__"></script>

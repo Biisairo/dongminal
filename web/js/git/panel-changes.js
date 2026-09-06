@@ -696,13 +696,9 @@ Object.assign(GitPanel.prototype, {
     return GIT_DIR_ENTRY_TITLE_SUB;
   },
 
-  // 상태문자는 xy 에서 뽑는다 — 그룹이 어느 축을 보는지가 곧 X/Y 선택이다.
-  _stateChar(group,e){
-    if(group==='untracked') return '?';
-    if(group==='conflicts') return 'U';
-    const xy=e.xy||'..';
-    return group==='staged'?xy[0]:xy[1];
-  },
+  // 상태문자의 규칙은 탐색기와 **한 출처**를 쓴다 (FR-RST-22) — 두 화면이 같은
+  // 사실을 다른 문자로 말하지 않게 하는 자리다.
+  _stateChar(group,e){ return gitStateChar(group,e) },
 
   _toggleGroup(key){
     if(this._collapsed.has(key)) this._collapsed.delete(key); else this._collapsed.add(key);

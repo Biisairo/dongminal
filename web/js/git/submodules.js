@@ -90,12 +90,9 @@ class GitSubmodules {
   }
 
   _paintNote(){
-    const box=this._el.querySelector('.git-sub-note');
-    const n=this._note;
-    box.classList.toggle('vis',!!n);
-    box.dataset.kind=(n&&n.kind)||'';
-    box.querySelector('.git-sub-note-msg').textContent=(n&&n.msg)||'';
+    gitPaintNote(this._el,'git-sub',this._note);
   }
+
 
   /**
    * FR-RPT-1·3: 바깥 계기로 다시 그려도 바뀌지 않은 행은 그대로 둔다. 판정 근거는
@@ -193,26 +190,9 @@ class GitSubmodules {
   // ── 질의 ──
 
   async _load(){
-    const repo=this._repo; if(!repo) return;
-    const tok=this.panel.token();
-    this._loading=true;
-    // stale 가드는 **보낸 값의 echo** 로 짝을 맞춘다 (FR-GIT-16). `d.repo` 는
-    // 서버가 정규화한 루트라 보낸 값과 다를 수 있고, 그것으로 비교하면 목록이
-    // 영원히 실패로 남는다 — gitEchoOk 가 그 함정을 안다.
-    const res=await gitFetch('/api/git/submodules',{repo},
-      {stale:()=>this.panel.isStale(tok),echo:{repo}});
-    if(res.stale) return;
-    this._loading=false;
-    if(!res.ok){
-      this._err=GIT_SUB_LOAD_FAIL;
-      if(this._el) this.paint();
-      return;
-    }
-    const d=res.data;
-    this._err=null;
-    this._list=Array.isArray(d.submodules)?d.submodules:[];
-    if(this._el) this.paint();
+    await gitLoadList(this,{url:'/api/git/submodules',key:'submodules',failMsg:GIT_SUB_LOAD_FAIL});
   }
+
 
   // ── 쓰기 ──
 

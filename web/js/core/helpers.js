@@ -543,6 +543,61 @@ function gitBadgeStale(badge){
 }
 
 /**
+ * 화면이 보일 때만 도는 주기 실행 (REFACTOR_STABILIZATION_SRS FR-RST-23).
+ *
+ * 같은 일을 하는 `setInterval` 감싸기가 다섯 자리에 있었고 **정확도가 제각각이었다**:
+ *
+ *   app-statusbar  hidden 스킵 O · 복귀 시 갱신 O
+ *   app-git        hidden 스킵 O · 복귀 시 갱신 O   (주석이 statusbar 를 선례로 인정)
+ *   app-editor     hidden 스킵 O · 복귀 시 갱신 X
+ *   git/console    hidden + isConnected + vis       · 복귀 시 갱신 X
+ *   app-agents     **아무 방어 없음**
+ *
+ * `console.js` 가 가장 정확한 판정에 도달했다 — "`vis` 만 보면 떠난 탭에서도 계속
+ * 받는다. 탭을 바꾸면 `_rLayout` 이 본문을 통째로 버리는데 클래스는 그대로 남기
+ * 때문이다." 그 지식이 나머지 넷에 전파되지 않았다. 여기서 `when` 으로 받는다.
+ *
+ * 숨은 탭에서 멈추는 근거는 FR-STAT-17 이다 — 보이지 않는 화면을 위해 요청을 살
+ * 이유가 없다. 복귀하면 즉시 한 번 돈다: 멈춰 있던 동안의 낡음을 그때 갚는다.
+ *
+ * @returns {{stop:Function}} 정지 손잡이. 리스너까지 함께 걷는다.
+ */
+function visiblePoll(ms, fn, opts){
+  opts=opts||{};
+  const when=opts.when||(()=>true);
+  const alive=()=>!document.hidden&&when();
+  const tick=()=>{ if(alive()) fn() };
+  const onShow=()=>{ if(alive()) fn() };
+  document.addEventListener('visibilitychange',onShow);
+  const id=setInterval(tick,ms);
+  if(opts.immediate) fn();
+  return {
+    stop(){
+      clearInterval(id);
+      document.removeEventListener('visibilitychange',onShow);
+    },
+  };
+}
+
+/**
+ * 변경 항목의 **상태문자** (REFACTOR_STABILIZATION_SRS FR-RST-22).
+ *
+ * 그룹이 어느 축을 보는지가 곧 X/Y 선택이다 — staged 는 X, 나머지는 Y 이고,
+ * untracked·conflicts 는 축이 아니라 그룹 자체가 답이다.
+ *
+ * **두 화면이 이 규칙을 따로 갖고 있었다** — Git 패널의 `_stateChar` 와 탐색기의
+ * `_setStatus` 다. 둘 다 "같아야 한다" 고 주석이 밝히면서도 같은 자리에서 나오지
+ * 않았고, 그래서 한쪽만 고쳐질 수 있었다. 색표(`GIT_ST_CLASS`)는 이미 공유하고
+ * 있었으므로 문자를 뽑는 규칙도 여기로 모은다.
+ */
+function gitStateChar(group, entry){
+  if(group==='untracked') return '?';
+  if(group==='conflicts') return 'U';
+  const xy=(entry&&entry.xy)||'..';
+  return group==='staged'?xy[0]:xy[1];
+}
+
+/**
  * SUBMODULE_DIRTY_NOTICE_SRS FR-SDN-1~4: porcelain v2 의 `sub` 필드를 두 성분으로
  * 가른다.
  *

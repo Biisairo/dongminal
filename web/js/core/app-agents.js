@@ -63,10 +63,11 @@ Object.assign(App.prototype, {
   // FR-AAP-19: 패널 열림 동안 주기적으로 서버 스냅샷과 동기화(자동 새로고침)
   _agentsStartPoll(){
     this._agentsStopPoll();
-    this._agentsTimer=setInterval(()=>this._activityRestore(),this.agentsPollMs);
+    // FR-RST-23: 종전에는 숨김 판정조차 없어 보이지 않는 탭에서도 계속 받았다.
+    this._agentsTimer=visiblePoll(this.agentsPollMs,()=>this._activityRestore());
   },
   _agentsStopPoll(){
-    if(this._agentsTimer){clearInterval(this._agentsTimer);this._agentsTimer=null}
+    if(this._agentsTimer){this._agentsTimer.stop();this._agentsTimer=null}
   },
 
   // 활동 패널의 폴링 주기 설정. 알림 설정(`_initAttn`)이 이웃한 DOM 이라는 이유로

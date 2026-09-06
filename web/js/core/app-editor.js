@@ -520,11 +520,12 @@ Object.assign(App.prototype, {
    * FR-FSL-14: 대상도 같다. 화면에 없는 창의 탐색기는 둘 다 묻지 않는다.
    */
   _edStartGitPoll(){
-    if(this._edGitInterval) clearInterval(this._edGitInterval);
-    this._edGitInterval=setInterval(()=>{
-      if(document.hidden) return;
+    if(this._edGitPoll) this._edGitPoll.stop();
+    // FR-RST-23: 종전에는 숨김만 보고 **복귀 시 갱신이 없었다** — 돌아온 화면이
+    // 한 주기 동안 낡은 채였다. 공용 규약이 그것을 함께 준다.
+    this._edGitPoll=visiblePoll(EDITOR_GIT_POLL_MS,()=>{
       for(const t of this._edVisibleTrees()){ t.pollGit(); t.pollStamp() }
-    },EDITOR_GIT_POLL_MS);
+    });
   },
 
   /**
