@@ -15,19 +15,32 @@ const GIT_WINDOW_NAME='Git';
 // pending 인 탭은 M1 에서 자리만 있고 "준비 중" 을 표시한다.
 const GIT_VIEWS=[
   {key:'changes',  name:'Changes'},
+  // `diff` 의 뷰 객체는 `_diffView` 이지만 `field` 를 두지 않는다 — Monaco 를 들고
+  // 있어 언마운트가 아니라 `destroy()` 를 지나야 풀린다 (FR-GIT-56). 같은 목록에
+  // 넣으면 그 차이가 지워진다.
   {key:'diff',     name:'Diff'},
-  {key:'history',  name:'History'},
-  {key:'branches', name:'Branches'},
-  {key:'stash',    name:'Stash'},
-  {key:'console',  name:'Console'},
+  {key:'history',  name:'History',   field:'_historyView'},
+  {key:'branches', name:'Branches',  field:'_branchesView'},
+  {key:'stash',    name:'Stash',     field:'_stashView'},
+  {key:'console',  name:'Console',   field:'_consoleView'},
   // FR-GIT-28 (개정): 고정 탭이 7개가 된다. 요청이 "관리 **탭**" 이었으므로 기존 탭
   // 안에 밀어 넣지 않는다 — 그러면 Branches 탭이 두 가지 일을 한다.
-  {key:'worktrees', name:'Worktrees'},
+  {key:'worktrees', name:'Worktrees', field:'_worktreesView'},
   // UX_BATCH5_SRS FR-SUB-6: 고정 탭이 8개가 된다. Worktrees 바로 뒤인 이유는 둘이
   // 같은 성질이기 때문이다 — 저장소 안에 있으나 **자기 .git 을 가진 것**들이고,
   // 둘 다 `openGitWindow` 로 열린다 (D-10).
-  {key:'submodules', name:'Submodules'},
+  {key:'submodules', name:'Submodules', field:'_submodulesView'},
 ];
+// REFACTOR_STABILIZATION_SRS FR-RST-20·21: 뷰 객체를 가진 탭의 **필드 이름**.
+//
+// 목록을 손으로 또 적지 않고 `GIT_VIEWS` 에서 파생시킨다. 종전에는 이 집합이
+// 다섯 자리에 손으로 열거돼 있었고, 여덟 번째 탭(Submodules)이 그중 넷에서
+// 빠져 있었다 — 필드 선언·탭 활성화 시 재조회·`dropView` 언마운트·`detach`.
+// 뷰를 더하는 비용이 여섯 자리였기 때문에 생긴 결함이며, 파생시키면 그 비용이
+// **배열 한 줄**이 된다.
+const GIT_PANEL_VIEW_FIELDS=GIT_VIEWS.filter(v=>v.field).map(v=>v.field);
+const GIT_VIEW_FIELD_BY_KEY=Object.fromEntries(
+  GIT_VIEWS.filter(v=>v.field).map(v=>[v.key,v.field]));
 // REPO_TAB_UNIFY_SRS FR-RTU-21 / D-RTU-5: Changes 사이드 머리의 진입점.
 //
 // **Changes 는 여기 없다** — 그것은 사이드 자신이고(FR-RTU-32), 나머지 다섯만

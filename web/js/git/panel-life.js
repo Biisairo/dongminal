@@ -100,7 +100,7 @@ Object.assign(GitPanel.prototype, {
     // 받아 둘 이유가 없다.
     // Worktrees 도 같다 — 열지 않은 탭이 목록을 미리 받아 둘 이유가 없다
     // (FR-STAT-17 과 같은 원칙).
-    if(view==='branches'||view==='stash'||view==='console'||view==='worktrees')
+    if(view==='branches'||view==='stash'||view==='console'||view==='worktrees'||view==='submodules')
       this._render(view);
     return el;
   },
@@ -121,8 +121,9 @@ Object.assign(GitPanel.prototype, {
       this._diffView.destroy(); this._diffView=null;
       this._diffKey=null; this._hunkKey=null; this._hunks=null; this._hunkSel=null;
     }
-    const v={history:'_historyView',branches:'_branchesView',stash:'_stashView',
-      console:'_consoleView',worktrees:'_worktreesView'}[view];
+    // FR-RST-20·21: 맵을 손으로 적지 않는다 — 종전 맵에 Submodules 가 빠져 탭을
+    // 닫아도 언마운트되지 않았다. 출처는 `GIT_VIEWS` 하나다.
+    const v=GIT_VIEW_FIELD_BY_KEY[view];
     if(v&&this[v]&&this[v].unmount) this[v].unmount();
     if(el.parentNode) el.parentNode.removeChild(el);
     this._els.delete(view);
@@ -148,11 +149,16 @@ Object.assign(GitPanel.prototype, {
     // 창이 사라지면 커밋 영역의 토스트도 함께 사라진다 — 진입점이 화면 없이
     // 남아 있어서는 안 된다 (FR-GIT-83).
     this._commit().unmount();
-    this._history().unmount();
-    this._branches().unmount();
-    this._stash().unmount();
-    this._console().unmount();
-    this._worktrees().unmount();
+    // REFACTOR_STABILIZATION_SRS FR-RST-20: **게터를 부르지 않는다.**
+    //
+    // `this._history()` 류는 없으면 만든다. 그래서 종전 코드는 창을 닫을 때
+    // 한 번도 열지 않은 뷰 여섯 개를 새로 만든 뒤 언마운트했다 — `panel-views.js`
+    // 가 표방한 지연 생성("Git 창을 열지 않은 브라우저는 아무것도 만들지 않는다")을
+    // 창을 닫는 경로가 깨뜨리고 있었다.
+    //
+    // 목록에 `_submodulesView` 가 빠져 있던 것도 여기서 함께 고친다 — 창을 닫아도
+    // Submodules 뷰가 언마운트되지 않았다.
+    for(const f of GIT_PANEL_VIEW_FIELDS) if(this[f]) this[f].unmount();
     const area=document.getElementById('area');
     for(const el of this._els.values()){
       el.classList.remove('vis');

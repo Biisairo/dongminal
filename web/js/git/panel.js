@@ -71,6 +71,7 @@ class GitPanel {
     this._stashView=null;         // Stash 탭 (FR-GIT-161~170)
     this._consoleView=null;       // Console 탭 (FR-GIT-218)
     this._worktreesView=null;     // Worktrees 탭 (FR-GIT-240~244)
+    this._submodulesView=null;    // Submodules 탭 (UX_BATCH5_SRS 묶음 SUB)
     this._remoteView=null;        // 원격 작업 (FR-GIT-98~112)
     // 커밋 축의 diff 대상 (FR-GIT-138). previewFile 과 자리를 나눈다 — 같은 자리에
     // 두면 Changes 탭의 미리보기가 커밋의 diff 를 보이면서 목록에는 아무 행도
