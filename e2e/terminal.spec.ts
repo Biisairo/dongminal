@@ -1,4 +1,5 @@
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, waitShellReady } from './fixtures';
+import { TMP } from './osenv';
 
 test.describe('Terminal features', () => {
   test('search opens and closes', async ({ page }) => {
@@ -12,7 +13,7 @@ test.describe('Terminal features', () => {
 
   test('search finds text in terminal', async ({ page }) => {
     await waitForInit(page);
-    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
+    await waitShellReady(page);
     await page.click('#area .pn.focused .xterm-screen');
 
     // Type a unique string.
@@ -39,7 +40,7 @@ test.describe('Terminal features', () => {
 
   test('multiple sequential commands produce output', async ({ page }) => {
     await waitForInit(page);
-    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
+    await waitShellReady(page);
     await page.click('#area .pn.focused .xterm-screen');
 
     for (let i = 0; i < 3; i++) {
@@ -52,7 +53,7 @@ test.describe('Terminal features', () => {
 
   test('terminal survives page refresh', async ({ page }) => {
     await waitForInit(page);
-    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
+    await waitShellReady(page);
     await page.click('#area .pn.focused .xterm-screen');
 
     await page.keyboard.type('echo survive_refresh');
@@ -70,17 +71,18 @@ test.describe('Terminal features', () => {
 
   test('typing in terminal updates status bar cwd', async ({ page }) => {
     await waitForInit(page);
-    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
+    await waitShellReady(page);
     await page.click('#area .pn.focused .xterm-screen');
 
-    // cd to /tmp and echo something.
-    await page.keyboard.type('cd /tmp');
+    // 임시 디렉터리로 옮기고 무언가를 찍는다. 경로 리터럴을 두지 않는 이유는
+    // Windows 에 `/tmp` 가 없기 때문이다 (FR-CEM-7).
+    await page.keyboard.type(`cd ${TMP}`);
     await page.keyboard.press('Enter');
     await page.keyboard.type('echo cwd_test');
     await page.keyboard.press('Enter');
     await expect(page.locator('#area .pn.focused .xterm-rows')).toContainText('cwd_test', { timeout: 10000 });
 
-    // Status bar should eventually reflect /tmp.
+    // Status bar should eventually reflect the temp dir.
     const statusText = await page.locator('#status-bar').textContent();
     expect(statusText.length).toBeGreaterThan(0);
   });

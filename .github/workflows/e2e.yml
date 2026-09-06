@@ -1,6 +1,7 @@
 name: e2e
 
-# 브라우저 종단간 (Playwright). **세 OS · 매 푸시** (CI_E2E_MATRIX_SRS).
+# 브라우저 종단간 (Playwright). **개발 호스트가 아닌 두 OS · 매 푸시**
+# (CI_E2E_MATRIX_SRS).
 #
 # 종전에는 ubuntu 하나에서, 그것도 사람이 부를 때와 태그를 밀 때만 돌았다. 그
 # 판단은 비용에 대한 것이었고("커밋 대부분은 Go 층이거나 문서이며 그쪽은 `verify`
@@ -9,6 +10,10 @@ name: e2e
 # 한 OS 의 초록은 다른 OS 를 말하지 않는다. 이 앱의 결함이 실제로 나온 자리가
 # 플랫폼 계층이고(CROSS_PLATFORM_SRS §11), 브라우저 종단간은 그 계층을 가장 많이
 # 지나는 표면이다.
+#
+# **darwin 은 여기서 돌지 않는다** (D-7). 개발 호스트가 macOS 이고 전량을 밀기
+# 전에 그 자리에서 돌린다 — 같은 것을 러너에서 한 번 더 돌리는 값이 없다. 러너가
+# 덮는 것은 **사람이 손으로 볼 수 없는 두 OS** 다.
 
 on:
   workflow_dispatch:
@@ -19,7 +24,7 @@ on:
 
 jobs:
   e2e:
-    # OS × 샤드. OS 마다 job 을 따로 적으면 스텝이 세 벌이 되고, 세 벌이면 한쪽만
+    # OS × 샤드. OS 마다 job 을 따로 적으면 스텝이 두 벌이 되고, 두 벌이면 한쪽만
     # 고쳐진다 (FR-E2I-1 의 선례) — 그래서 매트릭스다 (D-2).
     #
     # 샤드로 가르는 이유는 그대로다. `playwright.config.ts` 는 `workers: 1` ·
@@ -28,19 +33,25 @@ jobs:
     # 비운다 (E2E_QUIESCENCE_SRS). 한 러너 안에서 못 나누는 대신 러너를 나눈다.
     #
     # `fail-fast: false` 는 규약이다 (D-3). 한 OS 의 실패로 나머지를 끊으면 고칠
-    # 때마다 한 OS 씩만 보이게 된다 — 세 OS 의 실패 목록을 한 번에 받아야 한다.
+    # 때마다 한 OS 씩만 보이게 된다 — 두 OS 의 실패 목록을 한 번에 받아야 한다.
+    #
+    # 샤드가 8인 것은 Windows 의 실측이다 (D-8). 그 OS 는 셸(pwsh) 기동이 느려
+    # 항목당 시간이 macOS 의 몇 배이고, 4샤드로는 한 샤드가 상한 안에 끝나지
+    # 않았다. 나누는 값은 러너 수뿐이므로 ubuntu 도 같은 수로 둔다 — OS 마다
+    # 다른 수를 쓰면 `--shard=n/N` 의 N 이 두 벌이 되고, 그것이 D-2 가 막으려던
+    # 바로 그 모양이다.
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        shard: [1, 2, 3, 4]
+        os: [ubuntu-latest, windows-latest]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     runs-on: ${{ matrix.os }}
-    # 로컬(macOS) 실측이 전체 25분이므로 샤드 하나는 그 1/4 이지만, 러너는 그보다
+    # 로컬(macOS) 실측이 전체 25분이므로 샤드 하나는 그 1/8 이지만, 러너는 그보다
     # 느리고 `retries: 2` 가 실패 항목마다 두 번을 더 돈다 (FR-CEM-6).
     #
-    # 60분인 것은 Windows 의 실측 때문이다 — 1차 실행에서 한 샤드가 33분을 쓰고도
-    # 229항목을 남긴 채 잘렸다. 그 대부분은 픽스처 실패의 재시도였지만, 초록인
-    # 실행도 그 OS 에서는 셸 기동이 느려 여유가 필요하다.
+    # 60분인 것은 Windows 의 실측 때문이다 — 4샤드 시절 한 샤드가 23분에 74항목만
+    # 지났다. 샤드를 8로 늘려 몫을 절반으로 줄였지만, 그 OS 는 셸 기동이 느려
+    # 여유가 필요하다.
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
@@ -82,11 +93,11 @@ jobs:
       # 리포터를 둘 세운다. `html` 은 실패 시 올리는 artifact 의 것이고, `line` 은
       # **로그에 남는 것**이다 — html 만 두면 job 로그에 서버 로그만 남아, 무엇이
       # 몇 개 실패했는지 로그만 보고는 알 수 없다 (Windows 1차 실행에서 실측).
-      - name: e2e (샤드 ${{ matrix.shard }}/4)
-        run: npx playwright test --shard=${{ matrix.shard }}/4 --reporter=line,html
+      - name: e2e (샤드 ${{ matrix.shard }}/8)
+        run: npx playwright test --shard=${{ matrix.shard }}/8 --reporter=line,html
 
       # 실패했을 때만 남긴다. 초록인 실행의 리포트는 아무도 열지 않는다.
-      # 이름에 OS 가 들어가는 것은 규약이다 (D-6) — 샤드 번호만 쓰면 세 OS 가 같은
+      # 이름에 OS 가 들어가는 것은 규약이다 (D-6) — 샤드 번호만 쓰면 두 OS 가 같은
       # 이름을 올리고, `upload-artifact@v4` 는 같은 이름을 두 번 받지 않는다.
       - name: 리포트 (실패 시)
         if: failure()

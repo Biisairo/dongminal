@@ -1,11 +1,11 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync } from 'fs';
+import { mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGitTab, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as fxWaitForInit, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, openGitTab, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as fxWaitForInit, openGit, gitFixture, cleanGitFixture, waitShellReady } from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_REVIEW4_SRS §3.6.1~§3.6.4 — 개선 I1~I4. 검증 V132~V142
@@ -63,7 +63,7 @@ async function waitFiles(page: Page, min = 1) {
 function makeRepoWithChange(prefix: string) {
   const dir = mkdtempSync(join(tmpdir(), prefix));
   execFileSync('git', ['init', '-q', dir]);
-  execFileSync('bash', ['-c', `echo x > '${dir}/a.txt'`]);
+  writeFileSync(join(dir, 'a.txt'), 'x\n');
   return realPath(dir);
 }
 async function pin(request: APIRequestContext, path: string) {
@@ -74,6 +74,9 @@ async function pin(request: APIRequestContext, path: string) {
 const pinned = (page: Page, root: string) =>
   page.locator(`#repo-entries .ed-entry[data-git-repo="${cssPath(root)}"]`);
 async function cd(page: Page, dir: string) {
+  // 셸이 입력을 받을 수 있어야 한다 — xterm 이 선 것과 셸이 뜬 것은 다르다
+  // (FR-CEM-13).
+  await waitShellReady(page);
   await page.keyboard.type(`cd ${dir}`);
   await page.keyboard.press('Enter');
   await page.keyboard.type('echo moved_ok');

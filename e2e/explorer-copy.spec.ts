@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openRowMenu } from './fixtures';
+import { test, expect, openRowMenu, rmTree } from './fixtures';
 import { realPath, cssPath } from './osenv';
 
 // WORKBENCH_REVIEW_SRS 묶음 P — 탐색기의 복사·복제 (FR-WBR-70~74,
@@ -39,7 +39,7 @@ function mkRoot(tag: string) {
 }
 
 test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-edcp-'))) });
-test.afterAll(() => { if (BASE) fs.rmSync(BASE, { recursive: true, force: true }) });
+test.afterAll(() => { rmTree(BASE) });
 
 async function addEditor(request: APIRequestContext, p: string) {
   const r = await request.post('/api/editors/add', { data: { path: p } });

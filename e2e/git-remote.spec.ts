@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, copyDir } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 // GIT_M3_STEP1213_CONTRACT §3 — 원격 작업 클라이언트. 검증 V40·V41·V42·V44·V62·V63.
@@ -30,10 +30,10 @@ const git = (repo: string, ...args: string[]) =>
 function copyPair(tag: string) {
   const dst = join(FIXTURES, 'copy-' + tag);
   const bare = join(FIXTURES, 'bare-' + tag + '.git');
-  rmSync(dst, { recursive: true, force: true });
-  rmSync(bare, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, 'with-remote'), dst]);
-  execFileSync('cp', ['-R', join(FIXTURES, 'remote.git'), bare]);
+  rmSync(dst, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  rmSync(bare, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  copyDir(join(FIXTURES, 'with-remote'), dst);
+  copyDir(join(FIXTURES, 'remote.git'), bare);
   const repo = realPath(dst);
   const remote = realPath(bare);
   git(repo, 'remote', 'set-url', 'origin', remote);
@@ -52,7 +52,7 @@ function advanceRemote(remote: string, text: string) {
   git(clone, 'add', '-A');
   git(clone, 'commit', '-qm', text);
   git(clone, 'push', '-q', 'origin', 'HEAD:main');
-  rmSync(work, { recursive: true, force: true });
+  rmSync(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }
 
 // 원격이 같은 줄을 다르게 고치게 한다 — pull 이 충돌로 끝나는 유일한 정직한 방법이다.
@@ -66,7 +66,7 @@ function conflictRemote(remote: string) {
   writeFileSync(join(clone, 'f.txt'), 'a\nfrom-remote\n');
   git(clone, 'commit', '-qam', 'remote edit');
   git(clone, 'push', '-q', 'origin', 'HEAD:main');
-  rmSync(work, { recursive: true, force: true });
+  rmSync(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }
 
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');

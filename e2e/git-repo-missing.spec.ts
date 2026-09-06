@@ -1,10 +1,9 @@
-import { execFileSync } from 'child_process';
 import { rmSync } from 'fs';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGit, waitForInit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, openGit, waitForInit, gitFixture, cleanGitFixture, copyDir } from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_REPO_MISSING_SRS — 소실의 확정과 알림, 그리고 실패 백오프.
@@ -22,14 +21,14 @@ test.afterAll(() => {
 // 소실을 만들려면 지울 수 있는 사본이어야 한다 — 공용 fixture 를 지우면 뒤 테스트가 죽는다.
 function copyFx(tag: string) {
   const dst = join(FIXTURES, 'copy-' + tag);
-  rmSync(dst, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, 'basic'), dst]);
+  rmSync(dst, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  copyDir(join(FIXTURES, 'basic'), dst);
   return realPath(dst);
 }
 
 // 사라진 폴더를 되살린다 — 같은 경로에 같은 내용이 돌아오는 것이 복구다.
 function restore(repo: string) {
-  execFileSync('cp', ['-R', join(FIXTURES, 'basic'), repo]);
+  copyDir(join(FIXTURES, 'basic'), repo);
 }
 
 async function patchSettings(request: APIRequestContext, patch: Record<string, unknown>) {
@@ -84,7 +83,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const view = page.locator('#area .ed-side .git-view.git-changes');
     await expect(view.locator('.git-head-repo')).toHaveAttribute('title', repo);
 
-    rmSync(repo, { recursive: true, force: true });
+    rmSync(repo, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
     // 사유와 경로가 함께 보여야 "사라졌다는 표시가 참인지" 판정할 수 있다.
@@ -102,7 +101,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo);
 
-    rmSync(repo, { recursive: true, force: true });
+    rmSync(repo, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
     // 해제하면 복구할 대상을 잃는다 (D-RMS-5).
@@ -114,7 +113,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m3');
     await waitForInit(page);
     await openGit(page, repo);
-    rmSync(repo, { recursive: true, force: true });
+    rmSync(repo, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) {
@@ -133,7 +132,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m4');
     await waitForInit(page);
     await openGit(page, repo);
-    rmSync(repo, { recursive: true, force: true });
+    rmSync(repo, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
     restore(repo);
@@ -167,7 +166,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo, { timeout: UI_WAIT_MS });
 
-    rmSync(repo, { recursive: true, force: true });
+    rmSync(repo, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
     await expect(missing(page).locator('.git-missing-unpin')).toBeVisible({ timeout: UI_WAIT_MS });
 
@@ -186,7 +185,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const row = page.locator(`#repo-entries .ed-entry[data-git-repo="${cssPath(repo)}"]`);
     await expect(row).toHaveCount(1, { timeout: UI_WAIT_MS });
 
-    rmSync(repo, { recursive: true, force: true });
+    rmSync(repo, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 
     // 사유 코드가 아니라 사람이 읽는 문구다 (FR-RMS-17).
     await expect(row).toHaveAttribute('title', /폴더가 없습니다/, { timeout: UI_WAIT_MS });
@@ -198,7 +197,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m7');
     await waitForInit(page);
     await openGit(page, repo);
-    rmSync(repo, { recursive: true, force: true });
+    rmSync(repo, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
     const c = counter(page, '/api/git/status');

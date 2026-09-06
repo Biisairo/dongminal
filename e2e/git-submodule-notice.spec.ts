@@ -5,7 +5,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGit as fxOpenGit } from './fixtures';
+import { test, expect, openGit as fxOpenGit, rmTree } from './fixtures';
 import { realPath, cssPath } from './osenv';
 
 // SUBMODULE_DIRTY_NOTICE_SRS §5 — 검증 V-SDN-*.
@@ -80,7 +80,7 @@ test.beforeAll(() => {
   for (const k of ['commit', 'inner', 'both'] as const) REPO[k] = makeParent(BASE, k);
 });
 test.afterAll(() => {
-  if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
+  rmTree(BASE);
 });
 
 async function goto(page: Page) {
@@ -244,7 +244,7 @@ test.describe('묶음 N — 툴팁과 안내문', () => {
       await expect(note).toContainText('다른 저장소', { timeout: 10000 });
       await expect(note).not.toContainText('서브모듈');
     } finally {
-      fs.rmSync(nested, { recursive: true, force: true });
+      fs.rmSync(nested, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     }
   });
 });

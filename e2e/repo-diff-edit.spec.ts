@@ -5,7 +5,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, rmTree } from './fixtures';
 import { realPath, cssPath } from './osenv';
 
 // REPO_TAB_UNIFY_SRS §4 — diff 편집의 검증 V-RTU-50~56.
@@ -47,7 +47,7 @@ test.beforeAll(() => {
   REPO = makeRepo(BASE);
 });
 test.afterAll(() => {
-  if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
+  rmTree(BASE);
 });
 
 async function enter(page: Page, request: APIRequestContext, root: string) {

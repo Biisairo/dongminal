@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, gitFixture, cleanGitFixture, rmTree } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M2(탭·창 골격)의 검증 V-EDT-*.
@@ -33,7 +33,7 @@ test.beforeAll(() => {
 });
 test.afterAll(() => {
   cleanGitFixture(FIXTURES);
-  if (HOME_DIR) fs.rmSync(HOME_DIR, { recursive: true, force: true });
+  rmTree(HOME_DIR);
 });
 
 const fx = (name: string) => realPath(path.join(FIXTURES, name));

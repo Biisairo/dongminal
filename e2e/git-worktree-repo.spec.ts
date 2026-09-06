@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, rmSync } from 'fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -49,7 +49,7 @@ const copyFx = makeCopyFx(FIXTURES);
  */
 function addWorktree(repo: string, name: string, opts: { detached?: boolean } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'dm-wtrepo-'));
-  rmSync(dir, { recursive: true, force: true }); // git 이 직접 만들게 둔다
+  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); // git 이 직접 만들게 둔다
   const args = opts.detached
     ? ['-C', repo, 'worktree', 'add', '--detach', dir, 'HEAD']
     : ['-C', repo, 'worktree', 'add', '-b', name, dir, 'main'];
@@ -64,7 +64,7 @@ const mkWt = (repo: string, name: string, opts?: { detached?: boolean }) => {
   return p;
 };
 test.afterAll(() => {
-  for (const p of made) rmSync(p, { recursive: true, force: true });
+  for (const p of made) rmSync(p, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 });
 
 // 사용자가 `+ Add` 로 하는 일 그대로다 — 사이드바 버튼이 부르는 종단이 이것이다
@@ -120,7 +120,7 @@ test.describe('묶음 E — 워크트리를 저장소로 (FR-WTG-1 확정)', () 
       const repo = copyFx('basic', 'e2');
       const wtPath = mkWt(repo, 'e2-wt');
       // 워크트리에만 있는 미추적 파일. 원본에는 없다.
-      execFileSync('bash', ['-c', `printf 'only-here\\n' > ${JSON.stringify(wtPath)}/wt-only.txt`]);
+      writeFileSync(join(wtPath, 'wt-only.txt'), 'only-here\n');
       await waitForInit(page);
       await addRepo(request, wtPath);
       await openSideChanges(page, wtPath);
@@ -236,7 +236,7 @@ test.describe('묶음 E — 워크트리를 저장소로 (FR-WTG-1 확정)', () 
     const repo = copyFx('basic', 'e6');
     const wtPath = mkWt(repo, 'e6-wt');
     const g = (...a: string[]) => execFileSync('git', ['-C', wtPath, ...a], { stdio: 'pipe' });
-    execFileSync('bash', ['-c', `printf 'x\\n' > ${JSON.stringify(wtPath)}/wt-commit.txt`]);
+    writeFileSync(join(wtPath, 'wt-commit.txt'), 'x\n');
     g('add', '-A');
     g('-c', 'user.name=Fx', '-c', 'user.email=fx@example.invalid',
       '-c', 'commit.gpgsign=false', 'commit', '-qm', 'only-in-worktree');

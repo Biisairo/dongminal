@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, GIT_VIEW_TABS, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, waitForInit, GIT_VIEW_TABS, openGit, gitFixture, cleanGitFixture, copyDir } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 // GIT_VIEW_REFRESH_SRS §4 — 쓰기 뒤 뷰 갱신. 검증 V-GVR-1~8.
@@ -33,10 +33,10 @@ const git = (repo: string, ...args: string[]) =>
 function copyPair(tag: string) {
   const dst = join(FIXTURES, 'copy-' + tag);
   const bare = join(FIXTURES, 'bare-' + tag + '.git');
-  rmSync(dst, { recursive: true, force: true });
-  rmSync(bare, { recursive: true, force: true });
-  execFileSync('cp', ['-R', join(FIXTURES, 'with-remote'), dst]);
-  execFileSync('cp', ['-R', join(FIXTURES, 'remote.git'), bare]);
+  rmSync(dst, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  rmSync(bare, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  copyDir(join(FIXTURES, 'with-remote'), dst);
+  copyDir(join(FIXTURES, 'remote.git'), bare);
   const repo = realPath(dst);
   const remote = realPath(bare);
   git(repo, 'remote', 'set-url', 'origin', remote);
@@ -55,7 +55,7 @@ function advanceRemote(remote: string, text: string) {
   git(clone, 'add', '-A');
   git(clone, 'commit', '-qm', text);
   git(clone, 'push', '-q', 'origin', 'HEAD:main');
-  rmSync(work, { recursive: true, force: true });
+  rmSync(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }
 
 const tab = (page: Page, v: string) => page.locator(`#area .pn-tab[data-git-view="${v}"]`);

@@ -5,7 +5,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, rmTree } from './fixtures';
 import { realPath, cssPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M3(파일 탐색기) · M4(탐색기의 git 색)의 검증 V-EDT-40~56.
@@ -108,7 +108,7 @@ test.beforeAll(() => {
   REPO = makeRepo(BASE);
 });
 test.afterAll(() => {
-  if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
+  rmTree(BASE);
 });
 
 // ── 진입 ────────────────────────────────────────────

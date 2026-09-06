@@ -5,7 +5,7 @@ import { basename, join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGitTab, waitForInit } from './fixtures';
+import { test, expect, openGitTab, waitForInit, waitShellReady } from './fixtures';
 import { cssPath } from './osenv';
 
 // GIT_M1_STEP4_CONTRACT §4 — 좌측 GIT 섹션. 검증 V17·V16·V3·V7.
@@ -23,6 +23,9 @@ async function projectRepo(request: APIRequestContext) {
 
 // follow 대상은 포커스된 칸의 셸 cwd 다 — 셸을 실제로 이동시킨다.
 async function cd(page: Page, dir: string) {
+  // 셸이 입력을 받을 수 있어야 한다 — xterm 이 선 것과 셸이 뜬 것은 다르다
+  // (FR-CEM-13).
+  await waitShellReady(page);
   await page.keyboard.type(`cd ${dir}`);
   await page.keyboard.press('Enter');
   await page.keyboard.type('echo moved_ok');

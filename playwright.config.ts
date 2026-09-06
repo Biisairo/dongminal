@@ -2,7 +2,7 @@ import { mkdirSync } from 'fs';
 
 import { defineConfig, devices } from '@playwright/test';
 
-import { tmpPath } from './e2e/osenv';
+import { isWin, tmpPath } from './e2e/osenv';
 
 // 이 실행의 격리된 DONGMINAL_HOME. global-setup 이 자기 실행의 홈을 지우지
 // 않도록 setup/teardown 이 같은 값을 참조해야 한다 — playwright 는 webServer
@@ -40,7 +40,18 @@ export default defineConfig({
    * 실제로 답하는 데 걸리는 시간을 기준이 인정한다.
    */
   expect: { timeout: 10_000 },
-  timeout: 60_000,
+  /**
+   * CI_E2E_MATRIX_SRS FR-CEM-6: 테스트 하나의 상한.
+   *
+   * Windows 만 두 배인 것은 실측이다 — 그 OS 는 셸(pwsh·PSReadLine) 기동과 파일
+   * 접근이 느려 항목당 시간이 다른 둘의 몇 배다. 60초는 monaco 가 처음 서는
+   * 항목에서 **검사가 아니라 기다림**에 걸렸다 (러너 실측: `doc-render` 가 파일
+   * 하나를 연 뒤 다음 하나를 열 시간이 남지 않았다).
+   *
+   * 이것은 실패를 덮는 것이 아니다. 실패는 그대로 실패로 남고, 다만 그 OS 에서
+   * 앱이 **실제로 답하는 데 걸리는 시간**을 상한이 인정한다.
+   */
+  timeout: isWin ? 120_000 : 60_000,
   use: {
     baseURL: 'http://localhost:58147',
     trace: 'on-first-retry',

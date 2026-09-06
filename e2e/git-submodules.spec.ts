@@ -5,7 +5,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, GIT_VIEW_TABS, GIT_BODY_VIEWS, clickGitView } from './fixtures';
+import { test, expect, waitForInit, GIT_VIEW_TABS, GIT_BODY_VIEWS, clickGitView, rmTree } from './fixtures';
 import { realPath, cssPath } from './osenv';
 
 /**
@@ -77,7 +77,7 @@ test.beforeAll(() => {
   BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-gsub-')));
 });
 test.afterAll(() => {
-  if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
+  rmTree(BASE);
 });
 
 async function openSubmodules(page: Page, repo: string) {

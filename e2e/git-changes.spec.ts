@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process';
-import { readFileSync, writeFileSync } from 'fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
@@ -95,7 +95,7 @@ test.describe('묶음 E — Changes 탭', () => {
     await openGit(page, repo);
     await expect(rows(page, 'untracked').first()).toBeVisible({ timeout: 10000 });
 
-    execFileSync('mkdir', ['-p', join(repo, 'newdir', 'nested')]);
+    mkdirSync(join(repo, 'newdir', 'nested'), { recursive: true });
     writeFileSync(join(repo, 'newdir', 'nested', 'doc.md'), '# hi\n');
 
     // 디렉터리가 아니라 **파일**이 목록에 온다.

@@ -11,7 +11,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, rmTree } from './fixtures';
 import { realPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
@@ -79,7 +79,7 @@ test.beforeAll(() => {
   ROOT = realPath(ROOT);
 });
 test.afterAll(() => {
-  if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
+  rmTree(BASE);
 });
 
 async function enter(page: Page, request: APIRequestContext) {

@@ -1,4 +1,6 @@
 import { execFileSync } from 'child_process';
+import { appendFileSync } from 'fs';
+import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
@@ -29,7 +31,7 @@ const git = (repo: string, ...args: string[]) =>
   execFileSync('git', ['-C', repo, ...args]).toString().trim();
 
 function commit(repo: string, msg: string) {
-  execFileSync('sh', ['-c', `echo ${msg} >> ${repo}/f.txt`]);
+  appendFileSync(join(repo, 'f.txt'), msg + '\n');
   git(repo, 'add', '-A');
   git(repo, 'commit', '-qm', msg);
 }
@@ -128,7 +130,7 @@ test.describe('M6 — 보이면 갱신된다', () => {
     expect(info.active).not.toBe(info.git);
 
     // 작업 트리를 더럽힌다 — Changes 는 관측(`collect`)이 나르는 자리다.
-    execFileSync('sh', ['-c', `echo dirty61 >> ${repo}/f.txt`]);
+    appendFileSync(join(repo, 'f.txt'), 'dirty61\n');
     await expect(page.locator('.git-view.git-changes .git-file[data-path="f.txt"]'))
       .toHaveCount(1, { timeout: 20000 });
   });

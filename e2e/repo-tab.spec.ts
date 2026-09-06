@@ -5,7 +5,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, rmTree } from './fixtures';
 import { realPath, cssPath } from './osenv';
 
 // REPO_TAB_UNIFY_SRS §4 — 통합 창의 검증 V-RTU-10~35.
@@ -68,7 +68,7 @@ test.beforeAll(() => {
   CONFLICT = makeConflict(BASE);
 });
 test.afterAll(() => {
-  if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
+  rmTree(BASE);
 });
 
 async function addEditor(request: APIRequestContext, p: string) {

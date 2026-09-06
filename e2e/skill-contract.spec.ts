@@ -689,7 +689,7 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
   });
 
   test.afterAll(() => {
-    rmSync(repo, { recursive: true, force: true });
+    rmSync(repo, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   });
 
   test('격리 Run 이 트리를 만들고 close 가 정리한다', async ({ page, request }) => {
@@ -767,7 +767,7 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
     const status = await (await request.get(`/api/runs?id=${run.id}`)).json();
     expect(status.members[0].worktree.residue).toBe('dirty');
 
-    rmSync(path, { recursive: true, force: true });
+    rmSync(path, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     execFileSync('git', ['worktree', 'prune'], { cwd: repo, stdio: 'pipe' });
     await request.post('/api/tools/activity/set', { data: { toolId, state: 'idle' } });
   });
@@ -779,6 +779,6 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
     });
     expect(r.status()).toBe(400);
     expect((await r.json()).error).toBe('not_a_git_repo');
-    rmSync(plain, { recursive: true, force: true });
+    rmSync(plain, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   });
 });

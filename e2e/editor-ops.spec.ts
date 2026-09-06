@@ -5,7 +5,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, rmTree } from './fixtures';
 import { realPath, cssPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M5(파일 조작) · M6(파일 열기 라우팅)의 검증
@@ -65,7 +65,7 @@ test.beforeAll(() => {
   REPO = mkRepo('repo');
 });
 test.afterAll(() => {
-  if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
+  rmTree(BASE);
 });
 
 // ── 진입 ────────────────────────────────────────────

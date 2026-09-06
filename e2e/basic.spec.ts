@@ -1,4 +1,4 @@
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, waitShellReady } from './fixtures';
 
 test.describe('Basic connection & lifecycle', () => {
   test('server starts and initial session is rendered', async ({ page }) => {
@@ -26,9 +26,9 @@ test.describe('Basic connection & lifecycle', () => {
   test('terminal input produces output', async ({ page }) => {
     await waitForInit(page);
 
-    // Wait for xterm to render inside the focused pane.
-    await page.waitForSelector('#area .pn.focused .xterm-rows', { timeout: 15000 });
-    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
+    // 셸이 입력을 받을 수 있을 때까지 기다린다 — xterm 이 선 것과 셸이 뜬 것은
+    // 다르고, Windows 에서는 그 사이에 넣은 입력이 사라진다 (FR-CEM-13).
+    await waitShellReady(page);
 
     // Click the terminal canvas to focus it.
     await page.click('#area .pn.focused .xterm-screen');
@@ -43,7 +43,7 @@ test.describe('Basic connection & lifecycle', () => {
 
   test('page refresh reconnects existing pane', async ({ page }) => {
     await waitForInit(page);
-    await page.waitForSelector('#area .pn.focused .xterm-rows', { timeout: 15000 });
+    await waitShellReady(page);
 
     // Type something.
     await page.click('#area .pn.focused .xterm-screen');

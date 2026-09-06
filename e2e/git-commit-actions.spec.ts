@@ -147,7 +147,7 @@ test.describe('묶음 D — 커밋 동작 (V191~V194)', () => {
     return d;
   };
   test.afterAll(() => {
-    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    for (const d of dirs) rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   });
 
   // ── V191: 머지 커밋의 부모를 묻는다 ──

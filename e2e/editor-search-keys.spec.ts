@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, rmTree } from './fixtures';
 import { realPath, cssPath } from './osenv';
 
 // EDITOR_GIT_UX_SRS §4 — V-EKB-3~6 (FR-EKB-5·6).
@@ -28,7 +28,7 @@ test.beforeAll(() => {
   ROOT = realPath(ROOT);
 });
 test.afterAll(() => {
-  if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
+  rmTree(BASE);
 });
 
 async function enter(page: Page, request: APIRequestContext) {

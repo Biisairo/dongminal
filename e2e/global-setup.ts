@@ -30,7 +30,7 @@ async function globalSetup() {
     }
     stopDaemon(fullPath); // 크래시로 남은 데몬의 PTY 회수
     try {
-      rmSync(fullPath, { recursive: true, force: true });
+      rmSync(fullPath, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     } catch {
       // 지울 수 없는 항목은 건너뛴다
     }

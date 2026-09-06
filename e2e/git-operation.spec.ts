@@ -71,7 +71,7 @@ const opKind = (page: Page) =>
 test.describe('묶음 A — 진행 중 작업의 출구 (V176)', () => {
   const dirs: string[] = [];
   test.afterAll(() => {
-    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    for (const d of dirs) rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   });
 
   test('A10 (V176 / FR-GIT-251·252): 멈춘 머지에 상태와 출구가 보인다 — merge 에 Skip 은 없다', async ({ page }) => {

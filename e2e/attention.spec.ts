@@ -1,4 +1,4 @@
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, waitShellReady } from './fixtures';
 import { chain, dmctl, echoCmd, sleepCmd } from './osenv';
 
 // PANE_ATTENTION_NOTIFY_SRS e2e: terminal-monitoring attention.
@@ -29,7 +29,7 @@ test.describe('Pane attention', () => {
     // real agent hook runs (the agent owns the pane's foreground), while we
     // switch away so the signalling pane is in the background — not the
     // focused-active tab, which would be suppressed.
-    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
+    await waitShellReady(page);
     // Absolute path: a stale dmctl earlier in PATH would not understand `notify`
     // (the real wrappers also call dmctl by absolute path for this reason).
     await page.keyboard.type(NOTIFY_DONE);
@@ -80,7 +80,7 @@ test.describe('Pane attention', () => {
   // 아무것도 없었다 (B4·B6). 해제는 이제 실제 상호작용에서만 온다 (D-1).
   test('포커스된 칸의 알람이 남고, 포커스 표식과 함께 보인다 (V-ATV-1·2, V-ATA-1)', async ({ page }) => {
     await waitForInit(page);
-    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
+    await waitShellReady(page);
 
     // 포커스된 활성 탭에서 알람을 낸다. 탭을 옮기지 않는다 — 개정 전이라면
     // 이것만으로 알람이 즉시 사라졌다.
@@ -126,7 +126,7 @@ test.describe('Pane attention', () => {
   // 뜨지 않았다. 방해를 막으려던 조건이 기능 자체를 막고 있었다.
   test('키 입력이 알람을 해제하고, 보고 있어도 알림이 난다 (V-ATA-3·4)', async ({ page }) => {
     await waitForInit(page);
-    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
+    await waitShellReady(page);
 
     // 비프와 데스크톱 알림을 가로챈다. 실제 소리·배너 대신 호출만 센다 —
     // 실제 배너는 Playwright 가 보지 못하므로 "우리가 띄우려 했는가" 까지가
@@ -167,7 +167,7 @@ test.describe('Pane attention', () => {
   // 클릭해도 아무 데도 가지 않았다 — `모두 제거` 말고는 없앨 방법이 없었다.
   test('알람이 뜬 탭을 닫으면 알람도 사라진다 (V-ATL-1·6·7·8)', async ({ page }) => {
     await waitForInit(page);
-    await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
+    await waitShellReady(page);
     await page.keyboard.type(NOTIFY_DONE);
     await page.keyboard.press('Enter');
 

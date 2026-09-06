@@ -1,11 +1,10 @@
-import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS, gitFixture, cleanGitFixture, copyDir, rmTree } from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
 
 // 칸별 시선 — SLOT_VIEW_STATE_SRS §8
@@ -477,7 +476,7 @@ test.describe('묶음 F — 함께 고치는 결함 (FR-SVS-60)', () => {
     fs.writeFileSync(SOME_FILE, 'hello\n');
   });
   test.afterAll(() => {
-    if (HOME_DIR) fs.rmSync(HOME_DIR, { recursive: true, force: true });
+    rmTree(HOME_DIR);
   });
 
   test('TC-SVS-6: 칸 2·3 의 편집기가 render 로 파괴되지 않는다', async ({ page }) => {
@@ -535,7 +534,7 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
     }
   });
   test.afterAll(() => {
-    if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
+    rmTree(BASE);
   });
 
   async function twoSlotsOnEditor(page: Page, request: any) {
@@ -700,8 +699,8 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
   // 검사의 순서에 묶인다.
   function copyFx(name: string, tag: string) {
     const dst = path.join(FIXTURES, 'copy-' + tag);
-    fs.rmSync(dst, { recursive: true, force: true });
-    execFileSync('cp', ['-R', path.join(FIXTURES, name), dst]);
+    fs.rmSync(dst, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    copyDir(path.join(FIXTURES, name), dst);
     return realPath(dst);
   }
 
@@ -842,7 +841,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     const repo = copyFx('basic', 'gone');
     await twoSlotsOnGit(page, repo);
 
-    fs.rmSync(repo, { recursive: true, force: true });
+    fs.rmSync(repo, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     /**
      * 폴링이 소실을 관측하면 두 칸 모두 안내로 간다.
      *
@@ -961,7 +960,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
     fs.writeFileSync(FILE, 'hello\n');
   });
   test.afterAll(() => {
-    if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
+    rmTree(BASE);
   });
 
   // 같은 파일 탭을 두 칸에서 보게 만든다. 편집기 인스턴스는 이미 칸마다 서므로

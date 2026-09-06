@@ -27,7 +27,7 @@ const BASE = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
 
 function mkrepo(name: string, files: Record<string, string>): string {
   const d = join(ROOT, name);
-  rmSync(d, { recursive: true, force: true });
+  rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   mkdirSync(d, { recursive: true });
   execFileSync('git', ['-C', d, 'init', '-q', '-b', 'main', '.']);
   execFileSync('git', ['-C', d, 'config', 'user.name', 'Fixture']);
@@ -43,7 +43,7 @@ const git = (repo: string, ...args: string[]) =>
   execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' });
 
 test.beforeAll(() => { mkdirSync(ROOT, { recursive: true }) });
-test.afterAll(() => { rmSync(ROOT, { recursive: true, force: true }) });
+test.afterAll(() => { rmSync(ROOT, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }) });
 
 // 편집기를 세우고 Monaco 가 뜰 때까지 기다린다. `openGit` 이 Repo 창을 세우므로
 // 그 안의 편집기 탭이 이 파일을 연다 (FR-EDD-3 의 창 루트가 그 창의 것이다).
@@ -219,7 +219,7 @@ test.describe('묶음 M — 표시 (FR-EDD-20~28)', () => {
 
   test('V-EDD-6: 저장소가 아닌 자리에서도 편집기는 그대로다', async ({ page }) => {
     const plain = join(ROOT, 'plain');
-    rmSync(plain, { recursive: true, force: true });
+    rmSync(plain, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     mkdirSync(plain, { recursive: true });
     writeFileSync(join(plain, 'a.txt'), BASE.join('\n') + '\n');
     await waitForInit(page);

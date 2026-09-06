@@ -1,4 +1,5 @@
 import { execFileSync } from 'child_process';
+import { writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
@@ -247,7 +248,7 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
 
   test('E13 (FR-GIT-76): commit.template 이 초기 내용으로 채워지고 draft 를 덮지 않는다', async ({ page }) => {
     const repo = copyFx('basic', 'e13');
-    execFileSync('bash', ['-c', `printf 'tmpl: 제목\\n\\n본문\\n' > ${JSON.stringify(repo)}/.gitmessage`]);
+    writeFileSync(join(repo, '.gitmessage'), 'tmpl: 제목\n\n본문\n');
     execFileSync('git', ['-C', repo, 'config', 'commit.template', '.gitmessage']);
     await waitForInit(page);
     await openGit(page, repo);
@@ -281,7 +282,7 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
 
   test('E15 (FR-GIT-87): detached HEAD 의 커밋은 막지 않고 먼저 경고한다', async ({ page }) => {
     const repo = copyFx('detached', 'e15');
-    execFileSync('bash', ['-c', `printf 'x\\n' > ${JSON.stringify(repo)}/e15.txt`]);
+    writeFileSync(join(repo, 'e15.txt'), 'x\n');
     execFileSync('git', ['-C', repo, 'add', 'e15.txt']);
     const before = commits(repo);
     await waitForInit(page);

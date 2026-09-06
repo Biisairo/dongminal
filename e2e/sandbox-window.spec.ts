@@ -111,7 +111,7 @@ test.describe('샌드박스 창', () => {
 
     // 여기서부터 컨테이너 안이다. 호스트 쪽 원본을 지운다 — 마운트였다면
     // 아래 cat 이 실패한다. 복사이므로 컨테이너 안에는 그대로 남는다.
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     await page.click('#area .pn.focused .xterm-screen');
     await page.keyboard.type('cat /work/marker.txt');
     await page.keyboard.press('Enter');

@@ -149,7 +149,7 @@ async function passConfirm(page: Page) {
 test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
   const dirs: string[] = [];
   test.afterAll(() => {
-    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    for (const d of dirs) rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   });
 
   test('BR1 (V178 / FR-GIT-253): rename 이 목록·상태·status.branch 에 반영된다', async ({ page }) => {

@@ -3,7 +3,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit as fxWaitForInit, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath, realPath } from './osenv';
+import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_SIDEBAR_TABS_SRS §4.2 — 검증 V-SBT-*.
 //
@@ -247,7 +247,7 @@ test.describe('묶음 T — 배지 (FR-SBT-13 · FR-GOB-13·14)', () => {
     // 픽스처의 값을 못박지 않고 보이는 것만 본다 — 옛 헤더 배지(변경 있는 리포
     // 수)와 세는 것이 다르다.
     await tab(page, 'repo').click();
-    await expect(page.locator('#repo-entries [data-git-repo="' + repo + '"] .git-badge'))
+    await expect(page.locator('#repo-entries [data-git-repo="' + cssPath(repo) + '"] .git-badge'))
       .toHaveText(/^[1-9][0-9]*$/, { timeout: 15000 });
 
     // 헤더 배지는 활성이든 아니든 뜨지 않는다.

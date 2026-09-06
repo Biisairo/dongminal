@@ -22,7 +22,7 @@ async function globalTeardown() {
     }
     stopDaemon(fullPath);
     try {
-      rmSync(fullPath, { recursive: true, force: true });
+      rmSync(fullPath, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     } catch {
       // 지울 수 없는 항목은 건너뛴다
     }

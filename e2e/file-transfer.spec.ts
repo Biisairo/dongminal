@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Locator, Page } from '@playwright/test';
 
-import { test, expect, openRowMenu } from './fixtures';
+import { test, expect, openRowMenu, rmTree } from './fixtures';
 import { realPath, cssPath } from './osenv';
 
 // FILE_TRANSFER_SRS §5 — V-FTR-8·12·14~21.
@@ -36,7 +36,7 @@ function mkRoot(tag: string) {
 }
 
 test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(os.tmpdir(), 'dm-ftr-'))) });
-test.afterAll(() => { if (BASE) fs.rmSync(BASE, { recursive: true, force: true }) });
+test.afterAll(() => { rmTree(BASE) });
 
 async function addEditor(request: APIRequestContext, p: string) {
   const r = await request.post('/api/editors/add', { data: { path: p } });

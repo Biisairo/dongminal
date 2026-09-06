@@ -1,8 +1,10 @@
 import { execFileSync } from 'child_process';
-import { cpSync, realpathSync, rmSync } from 'fs';
+import { cpSync, rmSync } from 'fs';
 import { join } from 'path';
 
 import { test as base, expect } from '@playwright/test';
+
+import { realPath } from './osenv';
 
 
 // FR-RST-10: 워크스페이스 리셋의 409 재시도 횟수. 겹침은 앞 테스트의 마지막
@@ -391,6 +393,37 @@ export async function waitSettled(page: any, timeout = 15000) {
 }
 
 /**
+ * 도구 셸이 **입력을 받을 수 있을 때까지** 기다린다 (FR-CEM-13).
+ *
+ * `waitForInit` 이 끝났다는 것은 xterm 이 섰다는 뜻이지 셸이 떴다는 뜻이 아니다.
+ * POSIX 에서는 그 차이가 보이지 않는다 — tty 입력 큐가 먼저 온 바이트를 들고
+ * 있다가 셸이 읽는다. **Windows 의 ConPTY 에는 그 큐가 없다**: 세션을 열며
+ * 인사말 16바이트(`\x1b[?9001h\x1b[?1004h`)를 즉시 내보내고, 그때 넣은 입력은
+ * 프롬프트가 먹지 못하고 사라진다 (`httpapi/shellready_test.go` 의 실측이 같은
+ * 사실을 서버 쪽에서 적어 두었다). pwsh 는 PSReadLine 을 올리는 데 초 단위가
+ * 걸리므로 고정 대기로도 맞출 수 없다.
+ *
+ * 그래서 doctor·서버 검사와 **같은 신호**를 쓴다: 출력이 오고 **조용해지는 것**.
+ */
+export async function waitShellReady(page: any, sel = '#area .pn.focused .xterm-rows', timeout = 25000) {
+  await page.waitForFunction(
+    ({ s, quiet }: { s: string; quiet: number }) => {
+      const el = document.querySelector(s) as HTMLElement | null;
+      if (!el) return false;
+      const txt = el.innerText || '';
+      const w = window as any;
+      const st = w.__dmShellQ || (w.__dmShellQ = {});
+      const prev = st[s];
+      const now = Date.now();
+      if (!prev || prev.txt !== txt) { st[s] = { txt, at: now }; return false; }
+      return txt.trim().length > 0 && now - prev.at >= quiet;
+    },
+    { s: sel, quiet: 700 },
+    { timeout, polling: 50 },
+  );
+}
+
+/**
  * 그 저장소의 Repo 창을 열고 git 뷰를 화면에 세운다 (FR-EHR-4).
  *
  * **창의 모양이 바뀌었다** (REPO_TAB_UNIFY_SRS).
@@ -497,6 +530,36 @@ function runFixture(args: string[]) {
 }
 
 /**
+ * 임시 디렉터리를 지운다 — **지워지지 않아도 검사를 죽이지 않는다** (FR-CEM-15).
+ *
+ * POSIX 는 열려 있는 파일이 있어도 이름을 지운다. **Windows 는 그러지 않는다**:
+ * 서버가 그 저장소를 관측하고 있으면 핸들이 남고 `rmdir` 이 `EBUSY` 로 실패한다
+ * (러너 실측 — `afterAll` 의 정리가 스펙 전체를 빨갛게 만들었다).
+ *
+ * 그래서 둘을 한다. 먼저 **재시도**한다 — 핸들은 대개 관측 한 바퀴 뒤에 놓인다.
+ * 그래도 남으면 **삼킨다**: 이 자리는 검증이 아니라 뒷정리이고, 러너의 임시
+ * 디렉터리는 job 이 끝나면 통째로 사라진다.
+ */
+export function rmTree(p: string) {
+  if (!p) return;
+  try {
+    rmSync(p, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  } catch { /* 뒷정리다 — 남은 핸들이 검사의 판정을 바꾸지 않는다 */ }
+}
+
+/**
+ * 디렉터리를 통째로 복사한다 (FR-CEM-14).
+ *
+ * **`cp -R` 을 부르지 않는다.** `cp` 는 git bash 의 `usr/bin` 에 있고 그 자리는
+ * Windows 러너의 PATH 에 없다 — 픽스처를 만드는 이 자리는 셸을 지나지 않으므로
+ * 그 명령을 부를 길이 아예 없다 (CI_E2E_MATRIX_SRS FR-CEM-10 의 예외). Node 가
+ * 복사하면 두 OS 에서 같은 한 벌이다.
+ */
+export function copyDir(src: string, dst: string) {
+  cpSync(src, dst, { recursive: true });
+}
+
+/**
  * 픽스처 저장소를 복사해 그 실제 경로를 준다.
  *
  * **팩토리인 이유는 `FIXTURES` 가 스펙마다 다르기 때문이다** (`dm-git-fx-<태그>-<pid>`,
@@ -506,14 +569,14 @@ function runFixture(args: string[]) {
 export function makeCopyFx(root: string) {
   return (name: string, tag: string): string => {
     const dst = join(root, 'copy-' + tag);
-    rmSync(dst, { recursive: true, force: true });
-    // `cp -R` 이 아니라 Node 가 복사한다. `cp` 는 git-bash 의 `usr/bin` 에 있고
-    // 그 자리는 Windows 러너의 PATH 에 없다 — 셸을 지나지 않는 이 자리에서는
-    // 부를 수 없다 (CI_E2E_MATRIX_SRS FR-CEM-10 의 예외).
-    cpSync(join(root, name), dst, { recursive: true });
+    rmSync(dst, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    copyDir(join(root, name), dst);
     // 서버가 저장하는 것과 같은 모양이다 (FR-CEM-11) — `EvalSymlinks` 를 지난 뒤의
-    // **그 OS 의 정규형**이다. 구분자를 바꾸지 않는 근거는 `osenv.realPath` 에 있다.
-    return realpathSync(dst);
+    // **그 OS 의 정규형**이다. `osenv.realPath` 를 지나는 것이 규약인 이유는
+    // Windows 의 **짧은 이름**이다: 순수 JS 의 `realpathSync` 는 `RUNNER~1` 을
+    // 그대로 두고, 서버는 긴 이름으로 답한다 — 그 둘은 문자열로 같지 않아
+    // `_edWindowFor` 가 방금 더한 창을 찾지 못한다 (러너 실측).
+    return realPath(dst);
   };
 }
 

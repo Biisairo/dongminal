@@ -5,7 +5,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGit as fxOpenGit } from './fixtures';
+import { test, expect, openGit as fxOpenGit, rmTree } from './fixtures';
 import { realPath, cssPath } from './osenv';
 
 // GIT_DIR_ENTRY_SRS §4 — 디렉터리 상태 항목의 검증 V-DIR-10~42.
@@ -77,7 +77,7 @@ test.beforeAll(() => {
   SUBDIR = j(PARENT, 'src');
 });
 test.afterAll(() => {
-  if (BASE) fs.rmSync(BASE, { recursive: true, force: true });
+  rmTree(BASE);
 });
 
 // ── 진입 ────────────────────────────────────────────
