@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [1.0.10] — 2026-09-06
+
 ### 추가
 
 - **좌측 사이드바를 접습니다.** 상단바 맨 왼쪽의 `☰` 로 사이드바를 접고 펼칩니다.
@@ -776,6 +778,7 @@
   에이전트 간 메시지와 API 입력 주입이 그 셸에서 통째로 깨져 있었다. 이제 셸이
   그 모드를 켰을 때만 감싼다
 
+[1.0.10]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.10
 [1.0.9]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.9
 [1.0.8]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.8
 [1.0.7]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.7
