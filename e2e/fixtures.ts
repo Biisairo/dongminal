@@ -422,8 +422,18 @@ export async function openGit(page: any, repo: string) {
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   // 로컬 16벌 중 14벌이 보던 단언 — 사이드가 실제로 섰는가.
-  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
+  //
+  // **모바일에서는 보지 않는다.** 그 열여섯은 전부 데스크톱 스펙이었고, 모바일은
+  // 창의 모양이 달라 이 자리가 같은 뜻을 갖지 않는다 — 넣었더니 모바일 스펙이
+  // `element(s) not found` 로 무너졌다 (실측).
+  const mobile = await page.evaluate(() => document.body.classList.contains('mobile'));
+  if (!mobile) {
+    await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
+  }
   // 첫 관측. 이것이 닿아야 그룹 개수·버튼 활성이 뜻을 갖는다.
+  //
+  // 관측의 **주인**까지 확인하려 `gitPanel.repo === repo` 를 걸어 봤으나 그 값은
+  // Repo 창의 root 라 보낸 경로와 다를 수 있어 영원히 기다렸다 — 되돌렸다.
   await page.waitForFunction(
     () => !!(window as any).app?.gitPanel?.statusOf(),
     undefined, { timeout: 20000 });

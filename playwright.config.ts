@@ -24,6 +24,21 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   reporter: 'html',
+  /**
+   * REFACTOR_STABILIZATION_SRS: 단정과 테스트의 기준 시간.
+   *
+   * playwright 의 기본값은 expect 5초 · 테스트 30초다. 스펙 하나만 돌릴 때는
+   * 넉넉하지만 **1200개를 한 서버 인스턴스에서 이어 돌리면 그렇지 않다** — 도구가
+   * 쌓이고 관측이 밀리며, 그 지연이 단정 하나하나에 얹힌다. 실측에서 매 회차
+   * 서로 다른 한둘이 이 5초에 걸려 무너졌고, 그때마다 그 스펙에 개별 타임아웃을
+   * 덧붙이는 식으로 대응해 왔다.
+   *
+   * 기준선을 한 자리에서 올린다. 이것은 **재시도로 실패를 덮는 것과 다르다**
+   * (그것은 이 SRS 의 비목표다): 실패는 여전히 실패로 남고, 다만 부하에서 앱이
+   * 실제로 답하는 데 걸리는 시간을 기준이 인정한다.
+   */
+  expect: { timeout: 10_000 },
+  timeout: 60_000,
   use: {
     baseURL: 'http://localhost:58147',
     trace: 'on-first-retry',
