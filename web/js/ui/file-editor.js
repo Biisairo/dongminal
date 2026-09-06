@@ -159,7 +159,7 @@ function monacoMix(c1, c2, ratio) {
 }
 
 function monacoExt(path) {
-  const base = path.split('/').pop() || '';
+  const base = pathBase(path);
   const dot = base.lastIndexOf('.');
   if (dot >= 0) {
     const ext = base.substring(dot).toLowerCase();

@@ -22,6 +22,13 @@ on:
     tags: ['v*']
   pull_request:
 
+# 새 푸시는 같은 ref 의 이전 실행을 끊는다 (E2E_PARALLEL_SRS FR-EPL-10 / D-8).
+# 고치는 동안 옛 실행이 러너를 붙들고 있으면 새 실행이 큐에서 기다린다 —
+# Windows 샤드가 한 시간을 쓰던 회차에서 그것이 그대로 대기 시간이 되었다.
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   e2e:
     # OS × 샤드. OS 마다 job 을 따로 적으면 스텝이 두 벌이 되고, 두 벌이면 한쪽만
@@ -84,15 +91,18 @@ jobs:
       - name: 브라우저
         run: npx playwright install --with-deps chromium
 
-      # `webServer` 는 `go run` 으로 서버를 띄우고 60초 안에 응답하기를 기다린다.
-      # 캐시가 빈 러너에서 그 컴파일이 60초를 넘으면 **테스트가 아니라 기동에서**
-      # 죽는다. 미리 한 번 빌드해 캐시를 데운다.
+      # `globalSetup` 이 서버 바이너리를 만든다 (E2E_PARALLEL_SRS FR-EPL-8).
+      # 그 컴파일을 러너의 빈 캐시로 하면 첫 워커가 그만큼 늦게 뜨므로, 여기서
+      # 한 번 돌려 캐시를 데운다.
       - name: 빌드 캐시 예열
         run: go build ./cmd/dongminal
 
       # 리포터를 둘 세운다. `html` 은 실패 시 올리는 artifact 의 것이고, `line` 은
       # **로그에 남는 것**이다 — html 만 두면 job 로그에 서버 로그만 남아, 무엇이
       # 몇 개 실패했는지 로그만 보고는 알 수 없다 (Windows 1차 실행에서 실측).
+      # 러너 **안**은 워커가 나눈다 (E2E_PARALLEL_SRS FR-EPL-7·11). 워커마다 자기
+      # 서버·자기 인스턴스 홈·자기 포트를 갖는다 — 샤드를 더 늘리는 것은 러너의
+      # 셋업 비용을 반복하지만 워커는 그러지 않는다.
       - name: e2e (샤드 ${{ matrix.shard }}/8)
         run: npx playwright test --shard=${{ matrix.shard }}/8 --reporter=line,html
 

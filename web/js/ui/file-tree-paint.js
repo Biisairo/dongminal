@@ -646,8 +646,10 @@ Object.assign(FileTree.prototype, {
 
   // ── 파일 조작 (FR-EDT-79~93) ──
 
-  _base(p){ return String(p||'').split('/').pop() },
-  _parent(p){ const i=String(p||'').lastIndexOf('/'); return i<=0?'/':p.slice(0,i) },
+  _base(p){ return pathBase(p) },
+  // 부모는 **그 경로의 구분자**로 자른다 — `/` 만 보면 Windows 의 절대경로에서
+  // 자를 자리를 찾지 못해 언제나 루트를 답한다.
+  _parent(p){ const s=String(p||''); const i=Math.max(s.lastIndexOf('/'),s.lastIndexOf('\\')); return i<=0?'/':s.slice(0,i) },
 
   // 종류는 **부모의 캐시**가 안다 — 행을 그리는 근거와 같은 값을 쓴다.
   _kindOf(p){

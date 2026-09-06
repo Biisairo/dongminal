@@ -263,7 +263,7 @@ Object.assign(GitPanel.prototype, {
       const head=document.createElement('div'); head.className='git-head';
       const name=document.createElement('span'); name.className='git-head-repo';
       const repo=this._missing||'';
-      name.textContent=repo.split('/').filter(Boolean).pop()||repo;
+      name.textContent=pathBase(repo)||repo;
       name.title=repo;
       head.appendChild(name);
       el.appendChild(head);

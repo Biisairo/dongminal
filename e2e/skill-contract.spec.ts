@@ -708,11 +708,11 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
     const wt = run.worktree;
     expect(wt?.path, '공유 worktree 가 없다').toBeTruthy();
     // 관리 루트 밖에 만들면 정리의 안전 가드가 무의미해진다 (FR-WKT-10). 루트는
-    // $DONGMINAL_HOME/worktrees 다. (playwright.config 의 E2E_HOME 을 여기서 읽지
-    // 않는 이유: 그 값은 모듈 평가 시점의 Date.now()·pid 라 워커 프로세스에서
-    // 다시 계산되어 서버가 쓰는 값과 어긋난다.)
+    // $DONGMINAL_HOME/worktrees 다. 절대경로를 통째로 단정하지 않고 **모양**만
+    // 본다 — 인스턴스 홈은 `<이 실행의 뿌리>/w<워커>` 이고 워커 번호는 그때그때
+    // 다르다 (E2E_PARALLEL_SRS FR-EPL-1).
     expect(slash(wt.path), `worktrees 루트 밖이다: ${wt.path}`)
-      .toMatch(/dongminal-e2e-[^/]+\/worktrees\//);
+      .toMatch(/dongminal-e2e-[^/]+\/w\d+\/worktrees\//);
     expect(existsSync(wt.path), '경로가 실제로 만들어지지 않았다').toBe(true);
     // --no-track: base 의 upstream 을 물려받지 않는다 (FR-WKT-2).
     expect(() => execFileSync('git', ['rev-parse', '--abbrev-ref', `${wt.branch}@{upstream}`],
@@ -753,7 +753,7 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
     })).json();
     const path = member.worktree.path;
     // 경로 확인 뒤에만 쓴다 — 빈 값이면 join 이 이 저장소 안에 파일을 만든다 (§4.3).
-    expect(slash(path), `worktrees 루트 밖이다: ${path}`).toMatch(/dongminal-e2e-[^/]+\/worktrees\//);
+    expect(slash(path), `worktrees 루트 밖이다: ${path}`).toMatch(/dongminal-e2e-[^/]+\/w\d+\/worktrees\//);
     const work = join(path, '작업물.txt');
     writeFileSync(work, '지우면 안 된다\n');
 

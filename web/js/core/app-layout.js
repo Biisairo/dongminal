@@ -428,7 +428,7 @@ Object.assign(App.prototype, {
         const prev = this._findPreviewTab(s);
         if (prev) {
           prev.tab.filePath = opts.filePath;
-          prev.tab.name = (opts.name || opts.filePath.split('/').pop() || '').slice(0, 64);
+          prev.tab.name = (opts.name || pathBase(opts.filePath) || '').slice(0, 64);
           // 편집기 인스턴스는 탭 id 로 산다 — 대상이 바뀌었으므로 버린다.
           for (const [k, v] of [...this.fileEditors]) {
             if (this._slotBase(k) !== prev.tab.id) continue;
@@ -455,7 +455,7 @@ Object.assign(App.prototype, {
         this._save();
         return;
       }
-      const name = opts.name || opts.filePath.split('/').pop();
+      const name = opts.name || pathBase(opts.filePath);
       const t = newEntityId();
       const tab = { id: t, name, type: 'editor', filePath: opts.filePath };
       // FR-RTU-40·44: 미리보기라는 사실은 **워크스페이스에 남는다.** 저장하지

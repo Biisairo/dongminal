@@ -214,7 +214,9 @@ test.describe('묶음 M — I7 Worktrees 목록 (FR-GIT-240)', () => {
     // 어긋난다, e2e/skill-contract.spec.ts:671 의 선례와 같은 이유). 파생 규칙의
     // **모양**만 검증한다.
     expect(path, `경로가 파생 규칙(.../<repo>-<hash8>/이름)과 다르다: ${path}`)
-      .toMatch(/\/git-worktrees\/[^/]+-[0-9a-f]{8}\/v147-made$/);
+      // 구분자를 `/` 로 굳히지 않는다 — Windows 에서는 어느 자리도 맞지 않는다
+      // (CI_E2E_MATRIX_SRS FR-CEM-8 의 같은 뿌리).
+      .toMatch(/[\\/]git-worktrees[\\/][^\\/]+-[0-9a-f]{8}[\\/]v147-made$/);
     expect(existsSync(path), '만들어진 경로가 실제로 없다').toBe(true);
 
     // "화면에 보인다" — 안내 자리(worktrees.js:305 GIT_WT_CREATED+path)에도 뜬다.

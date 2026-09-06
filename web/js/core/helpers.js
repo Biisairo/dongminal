@@ -60,6 +60,21 @@ function pathSep(dir){
 }
 
 /**
+ * 그 경로의 **마지막 조각**. 사람에게 보이는 이름이다.
+ *
+ * `split('/')` 로는 안 된다 — Windows 의 절대경로는 `C:\\Users\\x\\repo` 이고
+ * 그 문자열에는 `/` 가 하나도 없어 **경로 전체가 이름으로 나온다** (러너 실측:
+ * Changes 머리의 리포명 자리에 절대경로가 통째로 찍혔다). 구분자는 `pathSep` 이
+ * 그 경로에게 묻는다.
+ */
+function pathBase(p){
+  const s=String(p==null?'':p);
+  if(!s) return '';
+  const parts=s.split(/[\\/]+/).filter(Boolean);
+  return parts.length?parts[parts.length-1]:s;
+}
+
+/**
  * `root` 아래의 절대경로를 **git 의 상대경로**로 옮긴다.
  *
  * git 은 어느 OS 에서도 `/` 로 답한다. 상태·색·접어 올림의 키가 그 값이므로,

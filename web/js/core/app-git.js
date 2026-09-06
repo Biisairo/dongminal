@@ -293,7 +293,7 @@ Object.assign(App.prototype, {
    */
   async _gitOpenFileHead(openPath,relPath){
     if(!openPath) return;
-    const name=((relPath||openPath).split('/').pop())+GIT_HEAD_TAB_SUFFIX;
+    const name=pathBase(relPath||openPath)+GIT_HEAD_TAB_SUFFIX;
     // FR-EDT-94·98: Open File 과 같은 규약이다 — **리포로 고른다.** 서버는 HEAD 의
     // 내용을 저장소 밖에 놓으므로 파일로 고르면 언제나 폴백으로 떨어진다. 그 임시
     // 파일이 탐색기 루트 밖인 것은 정상이다 (FR-EDT-99).
@@ -311,7 +311,7 @@ Object.assign(App.prototype, {
     if(!cwd) return;
     const w=await this._gitPlainTarget(); if(!w) return;
     const rid=this._gitPaneOf(w);
-    if(rid) await this.addTab(rid,'terminal',{cwd,windowId:w.id,name:cwd.split('/').pop()});
+    if(rid) await this.addTab(rid,'terminal',{cwd,windowId:w.id,name:pathBase(cwd)});
   },
 
   /**

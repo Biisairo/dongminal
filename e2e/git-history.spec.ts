@@ -58,7 +58,12 @@ async function loadedCount(page: Page): Promise<number> {
 }
 
 async function waitLoaded(page: Page, min: number) {
-  await expect.poll(() => loadedCount(page), { timeout: 20000 }).toBeGreaterThanOrEqual(min);
+  // 30초인 것은 **병렬 실행의 부하** 때문이다 (E2E_PARALLEL_SRS D-6). 이 스펙의
+  // 픽스처는 300·10,000 커밋짜리이고, 그 목록이 서고 세어지는 데 걸리는 시간은
+  // 같은 기계에서 도는 다른 워커의 관측과 자리를 다툰다 — 20초에서 한 회차에
+  // 하나꼴로 걸렸다(실측). 재는 것은 "목록이 서는가" 이지 "몇 초에 서는가" 가
+  // 아니다.
+  await expect.poll(() => loadedCount(page), { timeout: 30000 }).toBeGreaterThanOrEqual(min);
 }
 
 // 고정 행 높이는 constants.js 가 정하고 목록이 CSS 변수로 싣는다 — 테스트가

@@ -152,7 +152,15 @@ test.describe('Layout & navigation', () => {
     // 적용이 `_newTool` 대기 **중에** 끝난다" 이고, 늦추지 않으면 그 둘의 순서가
     // 기계 속도에 달린다 — 느린 기계에서는 적용이 도구 생성보다 늦게 끝나 분할이
     // 뒤엎이고, 그것은 이 검사가 재려는 경쟁이 아니다(러너에서 실측).
-    await page.route('**/api/tools', async (route: any) => {
+    //
+    // 패턴이 **정규식**인 것은 실측이다 — `'**/api/tools'` 는 이 요청에 걸리지
+    // 않는다. 실제 URL 은 `/api/tools?cols=120&rows=40&cwdTool=…` 이고 glob 은
+    // 쿼리까지 포함한 전체 URL 과 견준다. 걸리지 않은 route 는 조용하다: 러너의
+    // 트레이스에서 그 POST 가 2ms 에 끝나 있었고, 그래서 늦추지 않은 것과 같았다.
+    // `?` 를 요구하므로 `DELETE /api/tools/<id>` 나 `/api/tools/activity` 는
+    // 걸리지 않는다.
+    const TOOLS_CREATE = /\/api\/tools\?/;
+    await page.route(TOOLS_CREATE, async (route: any) => {
       await new Promise((r) => setTimeout(r, 1500));
       return route.fallback();
     });
@@ -165,7 +173,7 @@ test.describe('Layout & navigation', () => {
       await app._onWorkspaceChanged();
       await p;
     });
-    await page.unroute('**/api/tools');
+    await page.unroute(TOOLS_CREATE);
 
     await expect(page.locator('#area .pn')).toHaveCount(before + 2, { timeout: 10000 });
     await expect(page.locator('#area .pn.focused')).toHaveCount(1);

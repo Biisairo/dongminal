@@ -1,9 +1,11 @@
-import { execFileSync } from 'child_process';
-import { cpSync, rmSync } from 'fs';
+import { execFileSync, spawn } from 'child_process';
+import { cpSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 
 import { test as base, expect } from '@playwright/test';
 
+import { E2E_BIN, E2E_HOME, E2E_PORT0 } from '../playwright.config';
+import { stopDaemon } from './daemon-cleanup';
 import { realPath } from './osenv';
 
 
@@ -126,7 +128,94 @@ async function clearAttention(request: any) {
   }
 }
 
-export const test = base.extend<{ cleanTools: void }>({
+/**
+ * 한 워커의 서버 인스턴스 (E2E_PARALLEL_SRS FR-EPL-1).
+ *
+ * **격리의 단위를 프로세스가 아니라 인스턴스로 옮긴 것이 이 병렬의 전부다.**
+ * 종전에는 `webServer` 가 인스턴스 하나를 띄우고 1,257항목이 그것을 공유했다 —
+ * 픽스처가 매 테스트 앞에서 워크스페이스를 비우므로(E2E_QUIESCENCE_SRS) 둘이
+ * 동시에 돌면 한쪽이 다른 쪽의 화면을 지웠다. 워커마다 인스턴스를 하나씩 주면
+ * 그 규약이 그대로 성립한다: 비우는 대상이 자기 것이다.
+ */
+type DmServer = { port: number; home: string; baseURL: string };
+
+async function pingUntilUp(url: string, limitMs: number) {
+  const until = Date.now() + limitMs;
+  let last = '';
+  while (Date.now() < until) {
+    try {
+      const r = await fetch(url);
+      if (r.ok) return;
+      last = 'HTTP ' + r.status;
+    } catch (e: any) {
+      last = String((e && e.message) || e);
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error(`서버가 ${limitMs}ms 안에 뜨지 않았다 (${url}) — 마지막: ${last}`);
+}
+
+export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
+  /**
+   * 이 워커의 서버를 띄우고, 워커가 끝날 때 서버와 **데몬**을 함께 세운다
+   * (FR-EPL-1·4·5).
+   *
+   * `parallelIndex` 를 쓰는 이유는 포트다 — `workerIndex` 는 워커가 다시 뜰
+   * 때마다 커지므로 포트가 끝없이 흘러간다. `parallelIndex` 는 0..workers-1 에
+   * 머물고, 그 자리의 앞 워커는 이 픽스처의 teardown 을 이미 지났다.
+   */
+  dmServer: [
+    async ({}, use, workerInfo) => {
+      const i = workerInfo.parallelIndex;
+      const port = E2E_PORT0 + i;
+      const home = E2E_HOME + '/w' + i;
+      // 도구 셸의 홈은 인스턴스 홈 **아래의 별도 칸**이다 (FR-EPL-3) — 인스턴스
+      // 홈을 그대로 주면 셸이 `.zsh_history`·`.zcompdump` 를 workspace·tools 와
+      // 같은 디렉터리에 쓰고, 그 쓰기가 인스턴스의 저장과 같은 자리에서 겹친다.
+      const toolHome = home + '/tool-home';
+      mkdirSync(toolHome, { recursive: true });
+
+      const child = spawn(E2E_BIN, ['start', '--foreground'], {
+        env: {
+          ...process.env,
+          PORT: String(port),
+          DONGMINAL_HOME: home,
+          DONGMINAL_TOOL_HOME: toolHome,
+        },
+        // 서버의 말은 **모아 두었다가 실패했을 때만** 낸다. 그대로 흘리면 워커
+        // 수만큼의 요청 로그가 리포터의 줄을 덮어, 무엇이 몇 개 실패했는지 로그만
+        // 보고는 알 수 없다 (Windows 1차 실행에서 실측한 그 문제다).
+        stdio: ['ignore', 'ignore', 'pipe'],
+      });
+      let tail = '';
+      child.stderr?.on('data', (b: any) => { tail = (tail + String(b)).slice(-4000) });
+      let exited: string | null = null;
+      child.on('exit', (code, sig) => { exited = `code=${code} signal=${sig}` });
+
+      try {
+        // 러너의 첫 기동은 느리다 (FR-EPL-5).
+        await pingUntilUp(`http://localhost:${port}/api/ping`, 90_000);
+      } catch (err) {
+        throw new Error(
+          `워커 ${i} 의 서버 기동 실패 (port=${port}, home=${home})` +
+          (exited ? ` — 프로세스 종료: ${exited}` : '') +
+          `\n${err}\n--- 서버 stderr (마지막 4KB) ---\n${tail}`);
+      }
+
+      await use({ port, home, baseURL: `http://localhost:${port}` });
+
+      // 데몬을 먼저 세운다 — 웹서버만 죽이면 detach 된 dongminald 가 자기 도구
+      // 셸들의 PTY 를 계속 붙든다 (FR-EPL-4).
+      stopDaemon(home);
+      try { child.kill('SIGTERM') } catch { /* 이미 종료 */ }
+    },
+    { scope: 'worker', auto: true },
+  ],
+
+  // FR-EPL-2: 스펙은 `page.goto('/')` · `request.get('/api/…')` 를 그대로 쓴다.
+  // 어느 인스턴스를 보는가는 여기서만 정해진다 (NFR-EPL-2).
+  baseURL: async ({ dmServer }, use) => { await use(dmServer.baseURL) },
+
   cleanTools: [
     async ({ request }, use) => {
       await resetWorkspace(request);
@@ -154,7 +243,15 @@ export const test = base.extend<{ cleanTools: void }>({
  */
 export async function clickGitView(page: any, view: string) {
   await expect(async () => {
-    await page.locator(`#area .pn-tab[data-git-view="${view}"]`).click({ timeout: 5000 });
+    // **탭이 없으면 먼저 연다.** 본문 탭 바는 관측이 닿을 때마다 다시 그려지고,
+    // 창이 바뀌거나 워크스페이스가 다시 적용되면 그 탭이 통째로 사라질 수 있다 —
+    // 그때 클릭만 되풀이하면 없는 것을 25초 동안 기다린다(병렬 실행의 부하에서
+    // 실측). 여는 것은 멱등이므로 이미 있으면 아무 일도 하지 않는다.
+    const tab = page.locator(`#area .pn-tab[data-git-view="${view}"]`);
+    if (await tab.count() === 0) {
+      await page.evaluate((v: string) => (window as any).app?.gitPanel?.openView(v), view);
+    }
+    await tab.first().click({ timeout: 5000 });
     await expect(page.locator('#area .pn-body .git-view.vis'))
       .toHaveClass(new RegExp('git-' + view), { timeout: 3000 });
   }).toPass({ timeout: 25000 });
@@ -513,9 +610,18 @@ export function gitFixture(out: string) {
   runFixture([out]);
 }
 
-/** 그 픽스처를 지운다. 스크립트가 자기 표식(`.dm-git-fixture`)을 확인한다. */
+/**
+ * 그 픽스처를 지운다. 스크립트가 자기 표식(`.dm-git-fixture`)을 확인한다.
+ *
+ * **실패해도 던지지 않는다** (FR-CEM-15 와 같은 규약). Windows 는 열린 핸들이
+ * 있는 디렉터리를 지우지 못하고(`rm: Device or resource busy`), 서버가 그
+ * 저장소를 관측하는 동안은 늘 그렇다 — 그 실패가 `afterAll` 에서 던지면 마지막
+ * 검사가 **뒷정리 때문에** 빨개진다 (러너 실측).
+ */
 export function cleanGitFixture(out: string) {
-  runFixture(['--clean', out]);
+  try {
+    runFixture(['--clean', out]);
+  } catch { /* 뒷정리다 — 러너의 임시 디렉터리는 job 과 함께 사라진다 */ }
 }
 
 function runFixture(args: string[]) {

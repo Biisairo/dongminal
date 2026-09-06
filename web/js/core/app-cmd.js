@@ -498,12 +498,12 @@ Object.assign(App.prototype, {
       // 자신이므로 anchor 를 따로 주지 않는다. `location` 은 따라가지 않는다:
       // 어느 창에 열지는 루트가 정하지 사용자가 서 있던 자리가 정하지 않는다.
       if(this._edOn()){
-        this._edOpenFile(filePath,{name:name||filePath.split('/').pop()});
+        this._edOpenFile(filePath,{name:name||pathBase(filePath)});
         return;
       }
       if(location) this._focusLocation(location);
       const rid=this.focused;
-      if(rid) this.addTab(rid,'editor',{name:name||filePath.split('/').pop(),filePath});
+      if(rid) this.addTab(rid,'editor',{name:name||pathBase(filePath),filePath});
       return;
     }
     // RENAME_TAB_SESSION_SRS FR-RNS-1/2: 순수 데이터 변경 — 포커스 무영향.

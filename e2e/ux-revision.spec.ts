@@ -167,6 +167,23 @@ test.describe('묶음 W — 새 창의 cwd (FR-CWD-*)', () => {
     (await (await request.get('/api/cwd?tool=' + toolId)).json()).cwd as string;
 
   /**
+   * 그 도구의 cwd 가 `want` 가 될 때까지 기다린다.
+   *
+   * **관측의 길이 OS 마다 다르기 때문이다.** POSIX 는 서버가 그 프로세스의 cwd 를
+   * 직접 읽으므로(`/proc`·lsof) 도구가 서는 즉시 옳은 값이 나온다. Windows 는 그
+   * 길이 없어(`windowsProcInfo.CWD` 는 언제나 거짓) **셸 훅의 보고**가 유일한
+   * 출처이고, 그 보고는 첫 프롬프트가 돌아야 온다 — 그 전까지 서버는 자기 cwd 를
+   * 답한다(`cwdOrServer`). 재는 것은 "어디서 떴는가" 이지 "언제 알렸는가" 가
+   * 아니므로 기다린다 (editor-cwd-inherit 의 `expectCwd` 와 같은 규약).
+   */
+  const expectToolCwd = async (
+    request: APIRequestContext, toolId: string, want: string, msg?: string,
+  ) => {
+    await expect.poll(() => toolCwd(request, toolId), { timeout: 20000 }).toBe(want);
+    expect(await toolCwd(request, toolId), msg).toBe(want);
+  };
+
+  /**
    * **뒤집혔다** — WORKBENCH_REVIEW_SRS FR-WBR-20 / D-WBR-1.
    *
    *   이전 계약: 새 창의 첫 도구가 포커스 분할 칸의 cwd 를 물려받는다 (FR-CWD-1)
@@ -189,7 +206,7 @@ test.describe('묶음 W — 새 창의 cwd (FR-CWD-*)', () => {
         const pane = win.layout;
         return pane.tabs.find((t: any) => t.id === pane.activeTab).toolId;
       }, [here]);
-      expect(await toolCwd(request, base)).toBe(here);
+      await expectToolCwd(request, base, here);
 
       const made = await page.evaluate(async () => {
         const app = (window as any).app;
@@ -197,14 +214,13 @@ test.describe('묶음 W — 새 창의 cwd (FR-CWD-*)', () => {
         app.render();
         return r.tab.toolId;
       });
-      const got = await toolCwd(request, made);
-      expect(got, '새 창이 포커스 칸의 cwd 를 물려받았다').not.toBe(here);
       // 도구가 아무 지시 없이 열리는 자리는 사용자의 홈이다 (`toolhub` 의
       // `userHome` — "언제나 사용자의 홈이다"). 서버가 root 에디터의 경로로 같은
       // 값을 준다 (FR-EDT-13).
       const home = await page.evaluate(() => (window as any).app?._editors?.home as string);
       expect(home, '서버가 홈을 주지 않았다').toBeTruthy();
-      expect(got).toBe(home);
+      await expectToolCwd(request, made, home);
+      expect(await toolCwd(request, made), '새 창이 포커스 칸의 cwd 를 물려받았다').not.toBe(here);
     });
 
   // FR-WBR-21: 같은 창 안에서 하나 더 여는 것은 뜻이 다르다 — 그쪽은 그대로
@@ -224,7 +240,7 @@ test.describe('묶음 W — 새 창의 cwd (FR-CWD-*)', () => {
         await app.addTab(app.focused, 'terminal');
         return [...app.tools.keys()].find((k) => !before.has(k)) as string;
       });
-      expect(await toolCwd(request, made), '같은 창의 새 탭이 승계를 잃었다').toBe(here);
+      await expectToolCwd(request, made, here, '같은 창의 새 탭이 승계를 잃었다');
     });
 
   test('V-CWD-2: dmctl 이 보낸 cwdTool 이 기준이 된다', async ({ page, request }) => {
@@ -252,7 +268,7 @@ test.describe('묶음 W — 새 창의 cwd (FR-CWD-*)', () => {
       return out && out.newTabs[0].toolId;
     }, [caller]);
     expect(made, 'newWindow 가 탭을 만들지 않았다').toBeTruthy();
-    expect(await toolCwd(request, made)).toBe(here);
+    await expectToolCwd(request, made, here);
   });
 });
 

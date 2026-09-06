@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 
 // dongminal 은 웹서버와 별도로 detached dongminald(PTY 데몬)를 띄운다.
@@ -18,5 +18,29 @@ export function stopDaemon(home: string): void {
     process.kill(pid, 'SIGTERM');
   } catch {
     // 이미 종료
+  }
+}
+
+/**
+ * 그 뿌리 **바로 아래**의 워커 홈들(`w0`, `w1` …)의 데몬을 세운다.
+ *
+ * 실행마다 인스턴스가 여럿이 되었으므로(E2E_PARALLEL_SRS FR-EPL-1) `paned.pid`
+ * 도 여럿이다. 뿌리 하나만 보면 워커의 데몬이 통째로 남는다.
+ */
+export function stopDaemonsUnder(root: string): void {
+  let entries: string[] = [];
+  try {
+    entries = readdirSync(root);
+  } catch {
+    return;
+  }
+  for (const e of entries) {
+    const p = join(root, e);
+    try {
+      if (!statSync(p).isDirectory()) continue;
+    } catch {
+      continue;
+    }
+    stopDaemon(p);
   }
 }

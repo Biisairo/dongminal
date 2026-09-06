@@ -128,7 +128,7 @@ Object.assign(App.prototype, {
     // 그래서 저장·복원·회수·창 가드가 이미 이 탭을 안다.
     src.tabs.push({
       id, type: 'editor', render: true, filePath,
-      name: name || filePath.split('/').pop() || '',
+      name: name || pathBase(filePath) || '',
     });
     const sib = this._paneSiblingOf(src.id);
     // 두 함수가 각자 `_save`·`render` 를 한다 — 여기서 다시 부르지 않는다.

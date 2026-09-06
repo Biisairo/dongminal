@@ -40,8 +40,8 @@ Object.assign(App.prototype, {
 
   // 경로의 마지막 조각. 행 이름과 창 이름이 같은 규칙을 쓴다 (FR-EDT-10·44).
   _edBase(p){
-    const s=String(p||'').replace(/\/+$/,'');
-    return s.split('/').pop()||s||p||'';
+    const s=String(p||'').replace(/[\\/]+$/,'');
+    return pathBase(s)||s||p||'';
   },
   // FR-NOT-9: 고정 행 둘은 경로에서 이름을 뽑지 않는다 — 파생시키면 `~` 가
   // 홈 디렉터리 이름이 되고 메모장이 `notes` 가 된다.
@@ -879,7 +879,7 @@ Object.assign(App.prototype, {
     for(const {tab} of list){
       const np=tab.filePath===from?to:to+tab.filePath.slice(from.length);
       tab.filePath=np;
-      tab.name=np.split('/').pop()||tab.name;
+      tab.name=pathBase(np)||tab.name;
       const ed=this.fileEditors.get(tab.id);
       if(ed){ed.filePath=np;ed.name=tab.name}
     }
@@ -942,7 +942,7 @@ Object.assign(App.prototype, {
   // FR-EDT-83·84 의 문장을 조립하는 한 자리. 폴더면 재귀와 항목 수를, dirty 탭이
   // 있으면 그 사실을 밝힌다.
   _edConfirmDelete(path,isDir,count,dirty){
-    const name=path.split('/').pop()||path;
+    const name=pathBase(path)||path;
     const lines=[];
     if(isDir){
       const n=count&&count.more

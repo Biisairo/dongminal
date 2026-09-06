@@ -303,7 +303,7 @@ Object.assign(GitPanel.prototype, {
   _paintHead(el,s){
     const repo=this.repo||'';
     const r=el.querySelector('.git-head-repo');
-    r.textContent=repo.split('/').filter(Boolean).pop()||repo;
+    r.textContent=pathBase(repo)||repo;
     r.title=repo;
     // detached 면 브랜치 자리에 해시 앞 7자가 온다.
     el.querySelector('.git-head-branch').textContent=
@@ -368,7 +368,7 @@ Object.assign(GitPanel.prototype, {
   _repoChoices(){
     const d=this.app._gitRepos||{};
     const out=[],seen=new Set();
-    const name=p=>p.split('/').filter(Boolean).pop()||p;
+    const name=p=>pathBase(p)||p;
     const add=e=>{
       if(!e||!e.path||!e.isRepo||seen.has(e.path)) return;
       seen.add(e.path);
