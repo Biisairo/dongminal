@@ -312,9 +312,12 @@ Object.assign(FileTree.prototype, {
   _prefixOf(repo,resolved){
     if(!resolved) return null;
     if(resolved===repo) return '';
-    const base=repo.endsWith('/')?repo:repo+'/';
+    // 구분자는 그 경로의 것이다 — Windows 에서 `/` 로 이으면 이 접두는 어떤
+    // 경로에도 걸리지 않고, 그러면 저장소 안의 루트가 색을 통째로 잃는다.
+    const sep=pathSep(repo);
+    const base=repo.endsWith(sep)?repo:repo+sep;
     if(!resolved.startsWith(base)) return null;
-    return resolved.slice(base.length)+'/';
+    return resolved.slice(base.length).replace(/\\/g,'/')+'/';
   },
 
   /**

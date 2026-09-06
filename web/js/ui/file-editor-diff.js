@@ -160,9 +160,11 @@ function edDdDecoOptions(type){
 function edDdPrefix(repo,resolved){
   if(!resolved) return null;
   if(resolved===repo) return '';
-  const base=repo.endsWith('/')?repo:repo+'/';
+  // 구분자는 그 경로의 것이다 (file-tree-paint 의 `_prefixOf` 와 같은 규약).
+  const sep=pathSep(repo);
+  const base=repo.endsWith(sep)?repo:repo+sep;
   if(!resolved.startsWith(base)) return null;
-  return resolved.slice(base.length)+'/';
+  return resolved.slice(base.length).replace(/\\/g,'/')+'/';
 }
 
 /**

@@ -246,7 +246,7 @@ class GitDiffView {
   // 여기서 다시 물을 이유가 없다.
   _absPath(target){
     if(!target||!target.repo||!target.path) return '';
-    return String(target.repo).replace(/\/+$/,'')+'/'+target.path;
+    return pathJoin(target.repo,target.path);
   }
 
   async save(){

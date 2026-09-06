@@ -243,7 +243,7 @@ Object.assign(App.prototype, {
     const it=p._items[p._sel];
     if(!it) return;
     this._edPanelClose();
-    const abs=p._root.replace(/\/+$/,'')+'/'+it.path;
+    const abs=pathJoin(p._root,it.path);
     // `find` 만 파일 자체를 열고, 나머지(grep·refs·defs)는 **그 줄로** 연다.
     this._edOpenFile(abs,p._mode==='find'?undefined:{line:it.line,col:it.col});
   },

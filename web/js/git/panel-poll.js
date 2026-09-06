@@ -70,7 +70,7 @@ Object.assign(GitPanel.prototype, {
   // 메뉴는 GitMenu 프레임워크가 그린다 — 5단계의 자체 메뉴를 그것이 흡수했다.
   // 여기 남는 것은 항목이 부르는 동작뿐이다.
 
-  absPath(t){return (this.repo||'')+'/'+t.path},
+  absPath(t){return pathJoin(this.repo||'',t.path)},
 
   openFileDiff(t){this._openDiff(t.group,{path:t.path,origPath:t.origPath||''})},
 

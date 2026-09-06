@@ -27,6 +27,52 @@ function matchShortcut(e,s){
 function fmtShortcut(e){const p=[];if(e.ctrlKey)p.push('Ctrl');if(e.altKey)p.push('Alt');if(e.metaKey)p.push('Meta');if(e.shiftKey)p.push('Shift');p.push(e.code);return p.join('+')}
 function displayKey(s){return s.replace(/Key/g,'').replace(/BracketLeft/g,'[').replace(/BracketRight/g,']').replace(/Mod/g,'⌘/⌃').replace(/Meta/g,'⌘').replace(/Ctrl/g,'⌃').replace(/Alt/g,'⌥').replace(/Shift/g,'⇧').replace(/Arrow/g,'')}
 
+// ── 경로 잇기 ──
+
+/**
+ * 디렉터리와 그 아래의 이름을 잇는다.
+ *
+ * **구분자는 그 경로가 이미 쓰고 있는 것을 따른다.** 서버가 주는 절대경로의
+ * 모양은 OS 가 정한다 — Windows 에서는 `C:\Users\x` 다. 여기서 `/` 로 이으면
+ * 한 문자열에 둘이 섞이고(`C:\Users\x/a.txt`), 그 값이 곧 화면의 `data-path`
+ * 이자 서버로 되돌아가는 키가 된다. 서버는 `filepath.Clean` 으로 그것을 고쳐
+ * 읽으므로 **동작은 하지만**, 화면이 든 문자열과 서버가 든 문자열이 갈린다 —
+ * 그러면 그 둘을 견주는 자리(탐색기의 선택·git 색·검사)가 전부 어긋난다.
+ *
+ * `rel` 이 여러 겹(`a/b`)일 수 있다. 그것은 git 이 늘 `/` 로 주는 상대경로이며,
+ * 이 함수는 **잇는 자리 하나만** 바꾼다 — 안쪽까지 손대면 git 이 준 값을 다시
+ * 쓰는 셈이고, 그 값은 서버가 그대로 받아 쓴다.
+ */
+function pathJoin(dir,rel){
+  const d=String(dir==null?'':dir);
+  const r=String(rel==null?'':rel);
+  if(!d) return r;
+  if(!r) return d;
+  if(d==='/') return '/'+r;
+  const sep=(d.includes('\\')&&!d.includes('/'))?'\\':'/';
+  return d.replace(/[\\/]+$/,'')+sep+r;
+}
+
+/** 그 경로가 쓰는 구분자. 서버가 준 절대경로의 모양이 곧 그 OS 의 모양이다. */
+function pathSep(dir){
+  const d=String(dir==null?'':dir);
+  return (d.includes('\\')&&!d.includes('/'))?'\\':'/';
+}
+
+/**
+ * `root` 아래의 절대경로를 **git 의 상대경로**로 옮긴다.
+ *
+ * git 은 어느 OS 에서도 `/` 로 답한다. 상태·색·접어 올림의 키가 그 값이므로,
+ * 화면이 든 경로(그 OS 의 구분자)를 키로 쓰려면 여기서 한 번 맞춰야 한다 —
+ * 맞추지 않으면 Windows 에서 **어느 행도 자기 상태를 찾지 못한다**.
+ */
+function pathRel(root,p){
+  const r=String(root==null?'':root), s=String(p==null?'':p);
+  if(!r||s===r) return '';
+  const cut=r==='/'?1:r.length+1;
+  return s.slice(cut).replace(/\\/g,'/');
+}
+
 // ── HTML escaping ──
 
 // escHtml 은 문자열을 HTML 에 넣기 전에 무해하게 만든다 (FR-CAF-17).

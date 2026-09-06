@@ -31,7 +31,7 @@ Object.assign(GitPanel.prototype, {
    */
   _openUntracked(e){
     if(!this.repo||!e||!e.path||e.dir) return false;
-    const abs=String(this.repo).replace(/\/+$/,'')+'/'+e.path;
+    const abs=pathJoin(this.repo,e.path);
     // 한 번 클릭이므로 미리보기다 (FR-RTU-40) — 목록을 훑어도 탭이 쌓이지 않는다.
     this.app._edOpenFile(abs,{preview:true});
     return true;

@@ -198,13 +198,12 @@ class FileTree {
 
   // ── 조회 (FR-EDT-59·63·65) ──
 
-  _join(dir,name){ return dir==='/'?'/'+name:dir+'/'+name }
+  // 구분자는 `pathJoin` 이 정한다 (helpers.js) — 그 OS 의 것을 따른다.
+  _join(dir,name){ return pathJoin(dir,name) }
 
   // 루트 기준 상대경로. git status 의 경로가 그 형식이다.
-  _rel(p){
-    if(p===this.root) return '';
-    return p.slice(this.root==='/'?1:this.root.length+1);
-  }
+  // 키는 git 의 것이다 — 어느 OS 에서도 `/` 다 (helpers.js `pathRel`).
+  _rel(p){ return pathRel(this.root,p) }
 }
 
 // 고전 스크립트의 class 선언은 window 의 속성이 되지 않는다 — e2e 가 창 밖에서

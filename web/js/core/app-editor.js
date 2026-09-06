@@ -832,7 +832,7 @@ Object.assign(App.prototype, {
       n+=j.entries.length;
       if(j.truncated) more=true;
       for(const e of j.entries){
-        if(e&&e.dir&&!e.link) q.push(d==='/'?'/'+e.name:d+'/'+e.name);
+        if(e&&e.dir&&!e.link) q.push(pathJoin(d,e.name));
       }
       if(n>=EDITOR_DEL_COUNT_MAX){more=true;break}
     }
