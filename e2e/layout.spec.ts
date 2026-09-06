@@ -1,4 +1,4 @@
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, waitSettled } from './fixtures';
 
 test.describe('Layout & navigation', () => {
   test('split horizontal increases pane count', async ({ page }) => {
@@ -134,6 +134,14 @@ test.describe('Layout & navigation', () => {
       await (window as any).app.split('horizontal');
     });
     await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
+    // 첫 분할의 **저장이 서버에 닿을 때까지** 기다린다 (FR-EQS-*).
+    //
+    // 이 검사가 흉내 내려는 것은 "첫 분할의 저장이 낳은 `workspace_changed` 메아리가
+    // 둘째 분할의 `_newTool` 대기 중에 도착하는" 순간이다. 기다리지 않으면 아래의
+    // `_onWorkspaceChanged` 가 **첫 분할이 아직 없는** 서버 사본을 가져오고, 그러면
+    // 둘째 분할은 사라진 대상 칸을 보고 물러선다 — 그것은 이 검사가 재려는 경쟁이
+    // 아니라 기계 속도가 만든 다른 상황이다(러너에서 실측).
+    await waitSettled(page);
     const afterFirstId = await page.locator('#area .pn.focused').getAttribute('data-paneid');
 
     // Click 2: while the new-pane fetch is in flight, simulate an SSE

@@ -31,7 +31,13 @@ async function measure(page: Page) {
         return r.right > box.right + 0.5 || r.bottom > box.bottom + 0.5;
       }).map((k) => k.textContent!.slice(0, 12)),
       // 상자가 글자보다 좁아진 지표 (개정 전 겹침의 원인).
-      squeezed: kids.filter((k) => k.scrollWidth > k.clientWidth + 0.5).map((k) => k.textContent!.slice(0, 12)),
+      //
+      // **한 줄보다 넓은 지표는 세지 않는다** (FR-SBR-6). 그것은 줄을 넘겨도 풀리지
+      // 않는 경우이고, 스펙이 "그 지표만 잘린다" 로 이미 받아들인 자리다 — 호스트명이
+      // 긴 기계에서 `💻 <fqdn>` 이 정확히 그렇다(러너에서 실측). 여기서 재려는 것은
+      // **자기 줄에는 들어갈 수 있는데도 눌린** 지표다.
+      squeezed: kids.filter((k) => k.scrollWidth > k.clientWidth + 0.5
+        && k.scrollWidth <= box.width + 0.5).map((k) => k.textContent!.slice(0, 12)),
       rows: (() => {
         const h = Math.max(...kids.map((k) => k.getBoundingClientRect().height), 1);
         const tops = kids.map((k) => k.getBoundingClientRect().top).sort((a, b) => a - b);

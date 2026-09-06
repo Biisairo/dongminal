@@ -85,8 +85,14 @@ test.describe('FR-BGK-1..3: 종료 목표와 확인', () => {
       await expect(btn).toBeVisible();
       // 마우스를 올리지 않은 상태의 계산값이어야 한다 — .git-repo-x 의 opacity:0
       // 규약이 여기 새어 들어오면 터치 기기에서 닿을 수 없다.
-      expect(await btn.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
-      expect(await btn.evaluate((el) => getComputedStyle(el).visibility)).toBe('visible');
+      //
+      // 값은 **다시 찾아 가며** 읽는다. 목록은 배경 도구 관측이 닿을 때마다 다시
+      // 그려지므로, 보임을 확인한 그 요소가 다음 줄에서는 문서에서 떨어져 있을 수
+      // 있다 — 그때 `getComputedStyle` 은 빈 문자열을 준다(러너에서 실측).
+      await expect.poll(() => btn.evaluate((el) => getComputedStyle(el).opacity),
+        { timeout: 10000 }).toBe('1');
+      await expect.poll(() => btn.evaluate((el) => getComputedStyle(el).visibility),
+        { timeout: 10000 }).toBe('visible');
     }
   });
 
