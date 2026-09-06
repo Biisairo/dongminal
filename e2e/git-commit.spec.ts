@@ -36,7 +36,7 @@ async function openGit(page: Page, repo: string) {
     const a = (window as any).app;
     a._edSetSide(a._aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
   await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
   await expect(msg(page)).toBeEnabled({ timeout: 10000 });
@@ -118,7 +118,9 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
     await expect(btn(page)).toBeDisabled();
     await expect(why(page)).toBeVisible();
     await expect(why(page)).toHaveText('커밋 메시지를 입력하세요');
-    await expect(btn(page)).toHaveAttribute('title', '커밋 메시지를 입력하세요');
+    // FR-TIP-2·3: 툴팁은 영어이고, 버튼 옆 한 줄은 한국어 그대로다 — 같은
+    // 사유가 두 자리에 다른 말로 산다. 둘 다 재서 그 대칭을 지킨다.
+    await expect(btn(page)).toHaveAttribute('title', 'Enter a commit message');
 
     // staged 가 있고 메시지가 있으면 누를 수 있다.
     await msg(page).fill('e5');

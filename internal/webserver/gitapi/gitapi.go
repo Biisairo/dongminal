@@ -9,6 +9,7 @@ package gitapi
 
 import (
 	"dongminal/internal/webserver/domain/git/store"
+	"dongminal/internal/webserver/domain/submodule"
 	"dongminal/internal/webserver/domain/worktree"
 )
 
@@ -54,6 +55,11 @@ type GitServer struct {
 	// (FR-GIT-246) — domain/git 의 화이트리스트를 넓히지 않는다. nil 이면
 	// Worktrees 탭의 목록·생성·제거가 전부 503 이다.
 	UserWorktrees *worktree.Manager
+	// Submodules 는 서브모듈 조작의 Manager 다 (UX_BATCH5_SRS FR-SUB-1~5).
+	// worktree 와 같은 이유로 별도 도메인이다 (D-9 정정): `git submodule` 은 한
+	// 하위 명령에 읽기와 쓰기가 함께 있어 domain/git 의 어느 화이트리스트에도
+	// 들어갈 수 없다 (FR-GIT-95). nil 이면 Submodules 탭의 목록·조작이 전부 503 이다.
+	Submodules *submodule.Manager
 	// RunWorktreeRoot 는 Run 격리 영역의 root 경로 문자열뿐이다 (FR-GIT-240 소유
 	// 판정) — Run 의 Manager 전체를 들고 오지 않는다. 이 패키지가 그 Manager 로
 	// git 을 실행할 일이 없기 때문이다(worktree 실행은 UserWorktrees 하나로 충분).

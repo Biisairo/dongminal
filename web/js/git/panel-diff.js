@@ -148,12 +148,16 @@ Object.assign(GitPanel.prototype, {
     el.querySelector('.git-diff-fold').appendChild(document.createTextNode(GIT_DIFF_FOLD_LABEL));
     el.querySelector('.git-diff-body').appendChild(this._diff().el);
     el.querySelector('.git-hunks').addEventListener('click',ev=>this._hunkClick(ev));
-    for(const b of el.querySelectorAll('.git-diff-nav'))
+    for(const b of el.querySelectorAll('.git-diff-nav')){
+      b.title=GIT_DIFF_NAV_TITLE[b.dataset.nav]||'';
       b.addEventListener('click',()=>this._diffMove(b.dataset.nav==='next'?1:-1));
+    }
     const bl=el.querySelector('.git-diff-blame');
     bl.textContent=GIT_BLAME_TOGGLE; bl.title=GIT_BLAME_TOGGLE_TITLE;
     bl.addEventListener('click',()=>{this._blameOn=!this._blameOn; this._paint()});
-    el.querySelector('.git-diff-mode').addEventListener('click',()=>this._toggleSideBySide());
+    const dm=el.querySelector('.git-diff-mode');
+    dm.title=GIT_DIFF_MODE_TITLE;
+    dm.addEventListener('click',()=>this._toggleSideBySide());
     el.querySelector('.git-diff-ws input')
       .addEventListener('change',ev=>this._setIgnoreWs(ev.target.checked));
     el.querySelector('.git-diff-fold input')
@@ -583,11 +587,26 @@ Object.assign(GitPanel.prototype, {
       const w=app._edWindowFor&&app._edWindowFor(abs);
       if(w) app.switchWindow(w.id);
     };
-    if(has) return [{label:GIT_DIR_ENTRY_GO,title:GIT_DIR_ENTRY_GO_TITLE,run:go}];
-    return [{label:GIT_DIR_ENTRY_ADD,title:GIT_DIR_ENTRY_ADD_TITLE,run:async()=>{
-      // 추가가 실패하면 창도 없다 — 성공했을 때만 옮긴다.
-      if(await app._edMutate('/add',{path:abs})) go();
-    }}];
+    const acts=has
+      ? [{label:GIT_DIR_ENTRY_GO,title:GIT_DIR_ENTRY_GO_TITLE,run:go}]
+      : [{label:GIT_DIR_ENTRY_ADD,title:GIT_DIR_ENTRY_ADD_TITLE,run:async()=>{
+          // 추가가 실패하면 창도 없다 — 성공했을 때만 옮긴다.
+          if(await app._edMutate('/add',{path:abs})) go();
+        }}];
+    /**
+     * UX_BATCH5_SRS FR-SUB-11: **서브모듈에만** 관리 자리로 가는 길을 더한다.
+     *
+     * 위의 둘과 목적이 다르다 — 그쪽은 서브모듈 **자신의** 창으로 가고, 이쪽은
+     * 지금 저장소의 Submodules 탭이다 (init·update·sync 가 사는 자리).
+     *
+     * 중첩 저장소(`f.sub` 가 거짓)에는 붙이지 않는다: `.gitmodules` 에 없으므로
+     * 그 목록에 서지 않고, 눌러도 자기 행이 없는 탭이 열린다 (FR-GIT-180).
+     */
+    if(f.sub) acts.push({
+      label:GIT_DIR_ENTRY_SUBTAB,title:GIT_DIR_ENTRY_SUBTAB_TITLE,
+      run:()=>this.openView('submodules'),
+    });
+    return acts;
   },
 
   // 두 인스턴스는 같은 클래스다 (§3.2). 미리보기는 좁은 자리이므로 inline 을

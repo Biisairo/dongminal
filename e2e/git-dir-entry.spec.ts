@@ -255,7 +255,7 @@ async function openGit(page: Page, repo: string) {
     const a = (window as any).app;
     a._edSetSide(a._aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
   await expect(changes(page)).toBeVisible({ timeout: 10000 });
   // 첫 관측이 닿아야 행이 선다.

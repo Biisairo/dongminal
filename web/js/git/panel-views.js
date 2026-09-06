@@ -126,6 +126,26 @@ Object.assign(GitPanel.prototype, {
     this._worktrees().paint();
   },
 
+  // ── Submodules 탭 (UX_BATCH5_SRS 묶음 D / FR-SUB-6~11) ──
+
+  _submodules(){
+    if(!this._submodulesView) this._submodulesView=new GitSubmodules(this);
+    return this._submodulesView;
+  },
+
+  _renderSubmodules(el){
+    if(!this.repo){
+      el.dataset.built=''; el.innerHTML='';
+      this._submodules().unmount();
+      const d=document.createElement('div'); d.className='git-empty';
+      d.textContent=this._errMsg||GIT_NO_REPO_HINT;
+      el.appendChild(d);
+      return;
+    }
+    if(el.dataset.built!=='1'){this._submodules().mount(el);el.dataset.built='1'}
+    this._submodules().paint();
+  },
+
   // ── Stash 탭 (FR-GIT-161~170) ──
 
   _stash(){

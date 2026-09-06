@@ -71,7 +71,7 @@ async function openBranches(page: Page, repo: string) {
     const a = (window as any).app;
     a._edSetSide(a._aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
   // FR-GIT-28(개정): 고정 탭은 7개다.
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
@@ -203,7 +203,7 @@ test.describe('묶음 C — 태그 생성 (FR-GIT-260)', () => {
     const a = (window as any).app;
     a._edSetSide(a._aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
     await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
 

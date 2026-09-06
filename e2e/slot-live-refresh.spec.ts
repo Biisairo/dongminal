@@ -43,7 +43,7 @@ async function openGitView(page: Page, repo: string, view: string) {
     const a = (window as any).app;
     a._edSetSide(a._aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   // FR-RTU-32: `Changes` 는 본문 탭이 아니라 창의 **사이드**다 — `openGit` 이 이미

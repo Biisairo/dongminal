@@ -91,7 +91,7 @@ async function openBranches(page: Page, repo: string) {
     const a = (window as any).app;
     a._edSetSide(a._aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   await page.click('#area .pn-tab[data-git-view="branches"]');
@@ -108,7 +108,7 @@ async function openChanges(page: Page, repo: string) {
     const a = (window as any).app;
     a._edSetSide(a._aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
   await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }

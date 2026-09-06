@@ -109,6 +109,11 @@ var routes = []route{
 	{http.MethodPost, exactPath("/api/git/drop"), (*GitServer).apiGitDrop},
 	{http.MethodGet, exactPath("/api/git/commit-range"), (*GitServer).apiGitCommitRange},
 	// 묶음 W7 — Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5, FR-GIT-240~243).
+	// UX_BATCH5_SRS FR-SUB-1·4 — 서브모듈의 목록과 조작. worktree 와 같은 자리에
+	// 두는 이유는 같은 성질이기 때문이다: 둘 다 domain/git 밖의 Manager 를 지난다.
+	{http.MethodGet, exactPath("/api/git/submodules"), (*GitServer).apiGitSubmodules},
+	{http.MethodPost, exactPath("/api/git/submodules/update"), (*GitServer).apiGitSubmoduleUpdate},
+	{http.MethodPost, exactPath("/api/git/submodules/sync"), (*GitServer).apiGitSubmoduleSync},
 	{http.MethodGet, exactPath("/api/git/worktrees"), (*GitServer).apiGitWorktrees},
 	{http.MethodPost, exactPath("/api/git/worktrees/create"), (*GitServer).apiGitWorktreeCreate},
 	{http.MethodPost, exactPath("/api/git/worktrees/remove"), (*GitServer).apiGitWorktreeRemove},

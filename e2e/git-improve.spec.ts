@@ -55,7 +55,7 @@ async function openGit(page: Page, repo: string) {
     const a = (window as any).app;
     a._edSetSide(a._aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
   // GIT_REVIEW4_SRS §3.6.5 FR-GIT-28(개정): 고정 탭이 Worktrees 를 더해 7개다.
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);

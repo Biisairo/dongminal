@@ -131,8 +131,15 @@ export async function plainWindows(page: any): Promise<any[]> {
  * 독립적으로 적고, 다만 한 자리에 적는다 (E2E_HELPER_RECLAIM_SRS FR-EHR-5).
  */
 // **REPO_TAB_UNIFY_SRS FR-RTU-30·32 로 6이 됐다.** `Changes` 는 창의 **사이드**에
-// 살고 본문 탭이 되지 않으므로(요구 ②) 본문에 설 수 있는 뷰는 여섯이다.
-export const GIT_VIEW_TABS = 6;
+// 살고 본문 탭이 되지 않으므로(요구 ②) 본문에 설 수 있는 뷰는 그 나머지다.
+// **UX_BATCH5_SRS FR-SUB-6 으로 Submodules 가 더해져 일곱이 됐다.**
+//
+// 숫자를 목록에서 **파생시킨다** — 둘을 따로 적으면 뷰가 늘 때 한쪽만 고쳐지고,
+// 그 어긋남은 스펙 수십 개가 한꺼번에 깨지는 모습으로 나타난다 (이번에 겪었다).
+export const GIT_BODY_VIEWS = [
+  'diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules',
+] as const;
+export const GIT_VIEW_TABS = GIT_BODY_VIEWS.length;
 
 /**
  * 앱이 뜨고 포커스된 칸의 터미널이 입력을 받을 준비가 될 때까지 기다린다.
@@ -202,7 +209,7 @@ export async function openGit(page: any, repo: string) {
     const a = (window as any).app;
     a._edSetSide(a._aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) {
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) {
       p.openView(v);
     }
   });

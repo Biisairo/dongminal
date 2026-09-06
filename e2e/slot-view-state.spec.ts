@@ -46,7 +46,7 @@ const openGitWindow = async (page: Page) => {
     const a = (window as any).app;
     a._edSetSide(a._aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   const id = await page.evaluate((r: string) => (window as any).app._edWindowFor(r).id, repo);
@@ -708,7 +708,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     const a = (window as any).app;
     a._edSetSide(a._aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
     await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
     // FR-RTU-70: 옛 `_gitWindow()` 는 사라졌다 — 창의 신원은 루트다 (D-RTU-18).

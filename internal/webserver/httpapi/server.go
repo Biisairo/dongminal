@@ -11,6 +11,8 @@ import (
 
 	"bufio"
 	"context"
+	"dongminal/internal/webserver/domain/git/store"
+	"dongminal/internal/webserver/domain/submodule"
 	"dongminal/internal/webserver/domain/wsentry"
 	"fmt"
 	"io/fs"
@@ -143,10 +145,14 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		Work: deps.Work, Commands: cmds, RepoRoot: repoRoot, NotesDir: notesDir,
 	}
 	srv.git = &gitapi.GitServer{
-		Git:             deps.Git,
-		Work:            deps.Work,
-		Commands:        cmds,
-		Tools:           deps.Tools,
+		Git:      deps.Git,
+		Work:     deps.Work,
+		Commands: cmds,
+		Tools:    deps.Tools,
+		// UX_BATCH5_SRS FR-SUB-1: 서브모듈 Manager 는 **Git 이 있을 때만** 선다.
+		// 저장소가 없는 배선에서는 물을 대상이 없고, nil 이면 그 표면이 503 이다
+		// (UserWorktrees 와 같은 규약).
+		Submodules:      submoduleManager(deps.Git),
 		UserWorktrees:   deps.UserWorktrees,
 		RunWorktreeRoot: runWorktreeRoot,
 	}
@@ -344,4 +350,16 @@ func (s *Server) assetVersion() string {
 		s.assetVer = computeAssetVersion(s.cfg.StaticFS)
 	})
 	return s.assetVer
+}
+
+// submoduleManager 는 서브모듈 조작의 Manager 를 만든다 (UX_BATCH5_SRS FR-SUB-1).
+//
+// **git 실행을 직접 든다** — domain/git 의 화이트리스트를 지나지 않는다. `git
+// submodule` 이 한 하위 명령에 읽기와 쓰기를 함께 갖기 때문이며, 그것이 이 도메인이
+// 따로 있는 이유 전부다 (D-9 정정). worktree Manager 와 같은 모양이다.
+func submoduleManager(git *store.Store) *submodule.Manager {
+	if git == nil {
+		return nil
+	}
+	return submodule.New(submodule.ExecGit)
 }

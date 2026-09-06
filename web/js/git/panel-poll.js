@@ -157,6 +157,7 @@ Object.assign(GitPanel.prototype, {
       // 곳(FR-GVR-3)과 사용자가 명시적으로 누른 새로고침(FR-GVR-6)뿐이다.
       if(withConsole&&this._consoleView) jobs.push(this._consoleView.reload());
       if(this._worktreesView) jobs.push(this._worktreesView.reload());
+      if(this._submodulesView) jobs.push(this._submodulesView.reload());
     }
     return jobs;
   },

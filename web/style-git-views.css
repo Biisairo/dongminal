@@ -636,6 +636,68 @@ body.mobile .git-repo-xslot{width:24px;height:24px}
   border:1px solid var(--border);border-radius:3px;
 }
 
+/* ── Submodules 탭 (UX_BATCH5_SRS 묶음 D / FR-SUB-6~11) ──
+   골격이 Worktrees 와 같으므로(FR-SUB-7) 규칙도 그것을 그대로 딛는다. 값을 다시
+   적는 대신 선택자를 함께 걸었다면 더 좋았겠으나, 두 탭의 행 구성이 달라(경로+
+   상태+커밋 vs 경로+브랜치+소유) 폭 배분이 갈린다 — 공통인 것만 함께 건다. */
+.git-submodules{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.git-sub-head{
+  display:flex;align-items:center;gap:8px;flex:0 0 auto;
+  padding:4px 10px;border-bottom:1px solid var(--border);
+}
+.git-sub-spacer{flex:1 1 auto}
+.git-sub-note{display:none;padding:4px 10px;font-size:11px;
+  color:var(--attn);background:var(--attn-subtle)}
+.git-sub-note.vis{display:flex;align-items:center;gap:8px}
+.git-sub-note-msg{flex:1 1 auto;min-width:0;word-break:break-all}
+.git-sub-list{flex:1 1 auto;min-height:0;overflow-y:auto}
+.git-sub-empty{display:none;padding:6px 10px;font-size:11px;color:var(--text-dim)}
+.git-sub-empty.vis{display:block}
+.git-sub-row{
+  display:flex;align-items:center;gap:8px;padding:0 6px 0 10px;
+  min-height:var(--git-row-min);font-size:12px;white-space:nowrap;
+}
+.git-sub-row:hover{background-color:var(--accent-hover)}
+/* 경로가 이 행의 본체다 — 좁아지면 이것만 줄어든다 (.git-wt-path 와 같은 규약) */
+.git-sub-path{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  color:var(--text-bright)}
+/* 상태는 색으로 갈린다. `ok` 만 조용하다 — 나머지 셋은 사용자가 무엇인가 해야
+   하는 상태이며, 그 사실이 목록에서 바로 보여야 한다 */
+.git-sub-state{flex-shrink:0;font-size:10px;padding:0 5px;border-radius:8px;
+  background:var(--accent-subtle);color:var(--text-muted)}
+.git-sub-state[data-state="ok"]{color:var(--git-st-add)}
+.git-sub-state[data-state="uninitialized"]{color:var(--text-dim)}
+.git-sub-state[data-state="modified"]{color:var(--attn)}
+.git-sub-state[data-state="conflict"]{color:var(--danger)}
+.git-sub-oid{flex-shrink:0;font-family:monospace;font-size:11px;color:var(--text-muted)}
+.git-sub-desc{flex-shrink:0;font-size:10px;color:var(--text-dim)}
+.git-sub-rowspacer{flex:0 0 4px}
+.git-sub-acts{display:flex;gap:2px;flex-shrink:0}
+.git-sub-act{
+  font:inherit;font-size:11px;line-height:1;cursor:pointer;padding:0 6px;
+  display:flex;align-items:center;justify-content:center;
+  background:transparent;color:var(--text-muted);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-sub-act:hover:not(:disabled){color:var(--text-bright);border-color:var(--accent)}
+/* FR-SUB-5: update 는 서브모듈 안의 변경을 덮을 수 있다 — 파괴적인 것은 색으로도
+   갈린다 (행의 `↺` 와 같은 규약) */
+.git-sub-act[data-act="update"]:hover:not(:disabled),
+.git-sub-act[data-act="init"]:hover:not(:disabled){color:var(--danger);border-color:var(--danger)}
+.git-sub-act:disabled{color:var(--text-dim);cursor:not-allowed}
+.git-sub-bulk{
+  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:3px;
+}
+.git-sub-bulk:hover:not(:disabled){background:var(--accent-hover);color:var(--accent)}
+.git-sub-bulk:disabled{color:var(--text-dim);cursor:not-allowed}
+.git-sub-note-close{
+  flex-shrink:0;font:inherit;font-size:11px;padding:0 8px;cursor:pointer;
+  background:transparent;color:var(--text-muted);
+  border:1px solid var(--border);border-radius:3px;
+}
+
 /* ── Git 컨트롤 치수 하한 (FR-GIT-195~199, **FR-GIT-226 으로 개정**) ──
    기준은 VSCode(22/26)가 아니라 **이 앱의 WINDOWS 목록 행(`.si` 30px)** 이다 —
    같은 앱 안에서 목록마다 다른 높이를 쓸 이유가 없다 (사용자 검토).

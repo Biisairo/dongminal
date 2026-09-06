@@ -187,6 +187,7 @@ Object.assign(GitPanel.prototype, {
     if(view==='stash'){this._renderStash(el);return}
     if(view==='console'){this._renderConsole(el);return}
     if(view==='worktrees'){this._renderWorktrees(el);return}
+    if(view==='submodules'){this._renderSubmodules(el);return}
     el.innerHTML='';
     if(!this.repo){
       const d=document.createElement('div'); d.className='git-empty';
@@ -284,11 +285,13 @@ Object.assign(GitPanel.prototype, {
     if(this._missingPinned()){
       const un=document.createElement('button');
       un.className='git-missing-unpin'; un.textContent=GIT_RMS_UNPIN;
+      un.title=GIT_TIP_MISSING_UNPIN;
       un.addEventListener('click',()=>this._missingUnpin());
       acts.appendChild(un);
     }
     const re=document.createElement('button');
     re.className='git-missing-recheck'; re.textContent=GIT_RMS_RECHECK;
+    re.title=GIT_TIP_MISSING_RECHECK;
     // FR-RMS-16·27: 사용자의 계기는 주기를 기다리지 않는다. 기존 새로고침을 지난다.
     re.addEventListener('click',()=>this.refresh());
     acts.appendChild(re);

@@ -116,7 +116,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     rmSync(repo, { recursive: true, force: true });
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) {
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) {
       await gitTab(page, v).click();
       await expect(missing(page), `${v} 탭이 소실을 보이지 않는다`).toBeVisible({ timeout: 5000 });
       // 문구가 탭마다 다르면 블록을 만드는 자리가 하나가 아니다 (V-RMS-15).

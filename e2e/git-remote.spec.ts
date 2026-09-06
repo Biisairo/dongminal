@@ -78,7 +78,7 @@ async function openGit(page: Page, repo: string) {
     const a = (window as any).app;
     a._edSetSide(a._aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
@@ -188,7 +188,8 @@ test.describe('13단계 — 원격 작업', () => {
       await expect(more(page, kind)).toBeDisabled();
     }
     // 사유 없이 꺼진 버튼은 사용자가 해소할 수 없다.
-    await expect(btn(page, 'fetch')).toHaveAttribute('title', /진행 중/);
+    // FR-TIP-2 로 영어가 됐다 — 사유를 말한다는 계약은 그대로다 (FR-GIT-101).
+    await expect(btn(page, 'fetch')).toHaveAttribute('title', /already running/);
     // FR-GIT-102: 취소가 나타난다.
     await expect(job(page).locator('.git-job-cancel')).toBeVisible();
 

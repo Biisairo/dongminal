@@ -81,7 +81,7 @@ async function openGit(page: Page, repo: string) {
     const a = (window as any).app;
     a._edSetSide(a._aw(), 'changes');
     const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees']) p.openView(v);
+    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
   await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
@@ -310,7 +310,9 @@ test.describe('묶음 E — 원격 동작 (FR-GIT-269~271)', () => {
     await expect(syncBtn(page)).toBeDisabled();
     await expect(previewBtn(page)).toBeDisabled();
     // 사유 없이 꺼진 버튼은 사용자가 해소할 수 없다.
-    await expect(syncBtn(page)).toHaveAttribute('title', /진행 중/);
+    // UX_BATCH5_SRS FR-TIP-2 로 사유 툴팁이 영어가 됐다 (`GIT_REMOTE_WHY_BUSY`).
+    // 재는 것은 그대로다 — 꺼진 버튼이 **왜** 꺼졌는지 말하는가.
+    await expect(syncBtn(page)).toHaveAttribute('title', /already running/);
   });
 
   // ── V198: Push preview ──

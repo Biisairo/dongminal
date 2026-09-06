@@ -153,7 +153,9 @@ test.describe('묶음 W — 사이드는 Explorer 와 Changes 를 갈아 끼운�
       await expect(side(page).locator('.ed-side-acts')).toBeVisible();
       // Changes 는 여기 없다 — 그것은 사이드 자신이다 (FR-RTU-32).
       await expect(side(page).locator('.ed-side-act[data-view="changes"]')).toHaveCount(0);
-      await expect(side(page).locator('.ed-side-act')).toHaveCount(6);
+      // UX_BATCH5_SRS FR-SUB-6 으로 Submodules 가 더해져 **일곱이 됐다.**
+      // 숫자는 `GIT_SIDE_ACTIONS` 의 길이이며, e2e 는 그것을 독립적으로 적는다.
+      await expect(side(page).locator('.ed-side-act')).toHaveCount(7);
     });
 });
 
@@ -634,7 +636,9 @@ test.describe('묶음 N — 좁은 폭에서도 누를 자리가 남는다', () 
         await setSideWidth(page, w);
         const m = await measure(page, dir, '.git-dir-name', '.git-file-act');
         expect(m.textW, `${w}px 에서 폴더 이름이 눌렸다`).toBeGreaterThanOrEqual(60);
-        expect(m.acts.length, `${w}px 에서 동작이 사라졌다`).toBe(1);
+        // UX_BATCH5_SRS FR-DBA-1 로 **둘이 됐다** (`stage`·`discard`). 자리지킴
+        // (`.git-act-gap`)은 버튼이 아니므로 여기 세지 않는다 (FR-TIP-6).
+        expect(m.acts.length, `${w}px 에서 동작이 사라졌다`).toBe(2);
         for (const b of m.acts)
           expect(b.inside, `${w}px 에서 ${b.act} 가 사이드를 넘었다`).toBeTruthy();
       }
