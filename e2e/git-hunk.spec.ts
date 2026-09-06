@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, openGit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.7 묶음 G — 부분 스테이징 (FR-GIT-278·279).
 // DIFF_HUNK_BAR_SRS 묶음 R·B·S·W — 검증 V-DHB-1~13.
@@ -19,7 +20,7 @@ import { test, expect, makeCopyFx, waitForInit, openGit } from './fixtures';
 //
 // 상태를 **바꾸는** 테스트이므로 픽스처를 복사해 쓴다 (git-staging.spec.ts 의 선례).
 
-const FIXTURES = '/tmp/dm-git-fx-hunk-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-hunk-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
@@ -84,6 +85,13 @@ async function openDiff(page: Page, group: string, path: string) {
     const h = (window as any).app?.gitPanel?._hunks;
     return !!(h && h.list && h.list.length);
   }, undefined, { timeout: 20000 });
+  // **에디터도 기다린다.** 조각 관측(`/api/git/hunks`)과 diff 본문은 서로 다른
+  // 요청이고 도착 순서가 보장되지 않는다 — 관측만 기다리면 에디터가 아직 서지
+  // 않은 순간에 hover 가 떠나, 좌표를 물을 대상이 `null` 이다. 툴바는 에디터의
+  // content widget 이므로(FR-DHB-21) 그것이 서기 전에는 잴 것이 없다.
+  await page.waitForFunction(
+    () => !!(window as any).app?.gitPanel?._diffView?._editor,
+    undefined, { timeout: 20000 });
 }
 
 // 조각의 개수. 화면이 그리지 않으므로 관측에서 읽는다 — 그림이 없는 것이 이번

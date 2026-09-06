@@ -6,6 +6,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, GIT_VIEW_TABS, openGit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_VIEW_REFRESH_SRS §4 — 쓰기 뒤 뷰 갱신. 검증 V-GVR-1~8.
 //
@@ -16,7 +17,7 @@ import { test, expect, waitForInit, GIT_VIEW_TABS, openGit } from './fixtures';
 // 형태는 git-remote.spec.ts 를 그대로 본뜬다 — 원격 표면의 e2e 규약이 두 벌이면
 // 한쪽만 고쳐진다.
 
-const FIXTURES = '/tmp/dm-git-fx-vrefresh-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-vrefresh-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
@@ -313,7 +314,9 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     git(repo, 'stash', 'push', '-m', '바깥에서 만든 stash');
 
     await openTab(page, 'changes');
-    const refreshBtn = changes(page).locator('.git-head-refresh');
+    // FR-GCC-10 / D-7a: 새로고침은 사이드 **탭 줄**의 오른쪽 끝이다 — 머리에서
+    // 올라왔고 클래스 이름은 그대로다 (D-8).
+    const refreshBtn = page.locator('#area .ed-side .ed-side-tabs .git-head-refresh');
     await expect(refreshBtn, '새로고침 버튼이 없다').toHaveCount(1, { timeout: 20000 });
     await refreshBtn.click();
     await expect(refreshBtn, '새로고침이 끝나지 않았다').toBeEnabled({ timeout: 20000 });

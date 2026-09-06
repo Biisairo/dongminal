@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, openGit, waitForInit, clickGitView, openRowMenu } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_M4_STEP1417_CONTRACT §4.2 — 컨텍스트 메뉴 프레임워크. 검증 V52 + FR-GIT-140~146.
 //
@@ -12,7 +13,7 @@ import { test, expect, makeCopyFx, openGit, waitForInit, clickGitView, openRowMe
 // 그래서 이 스펙은 GIT_MENUS 에 테스트용 kind 를 얹고 프레임워크만 시험한다 —
 // 실제 항목의 동작은 커밋 메뉴(FR-GIT-142~144)로 따로 본다.
 
-const FIXTURES = '/tmp/dm-git-fx-menu-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-menu-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

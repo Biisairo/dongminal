@@ -5,8 +5,9 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, plainWindows, waitForInit } from './fixtures';
+import { tmpPath } from './osenv';
 
-const FIXTURES = '/tmp/dm-git-fx-gitwin-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-gitwin-' + process.pid);
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
 });

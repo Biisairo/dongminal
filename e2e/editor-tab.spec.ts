@@ -6,6 +6,7 @@ import * as path from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
+import { tmpPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M2(탭·창 골격)의 검증 V-EDT-*.
 //
@@ -14,7 +15,7 @@ import { test, expect } from './fixtures';
 // 잰다 — 목업 서버를 띄우지 않는다. 서버가 실제로 뜨면 라우트만 걷히고 같은
 // 코드가 그대로 돈다 (FR-EDT-120 이 그 사이를 메운다).
 
-const FIXTURES = '/tmp/dm-git-fx-edt-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-edt-' + process.pid);
 let HOME_DIR = '';
 let PROJ_DIR = '';
 let PROJ2_DIR = '';

@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, openGit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // constants-editor.js 의 전역 상수 — `const` 는 전역 렉시컬 환경에 들어가므로
 // `window.X` 로는 잡히지 않는다. 맨 이름으로 읽는다 (editor-git-ux.spec.ts 의
@@ -19,7 +20,7 @@ declare function edDiffLines(a: string[], b: string[]): any;
 // 여럿(rename·유니코드·충돌)이라 "한 줄만 고쳤다" 를 재는 자리로는 잡음이 많다 —
 // 여기서 재는 것은 조각 하나의 좌표이므로 입력이 정확해야 한다.
 
-const ROOT = '/tmp/dm-dd-' + process.pid;
+const ROOT = tmpPath('dm-dd-' + process.pid);
 
 // 기준 파일. 줄 번호가 그대로 단언이 되므로 내용을 짧고 다르게 둔다.
 const BASE = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];

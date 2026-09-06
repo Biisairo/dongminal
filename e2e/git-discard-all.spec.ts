@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // WORKBENCH_REVIEW_SRS 묶음 D — `Changes`·`Untracked` 의 Discard All
 // (FR-WBR-50~56, 검증 V-WBR-50~57).
@@ -12,7 +13,7 @@ import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit } from './f
 // 폭 시험(V-WBR-58 / NFR-WBR-10)은 여기 없다 — 규칙이 사는 `repo-tab` 묶음 N 의
 // N3 이고, 그 파일에 `setSideWidth`·`measure` 장치가 이미 있다.
 
-const FIXTURES = '/tmp/dm-git-fx-discardall-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-discardall-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

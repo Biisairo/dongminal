@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, openGitTab, plainWindows, makeCopyFx, openGit, waitForInit, GIT_VIEW_TABS, clickGitView } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_UI_REVISION_SRS §4 — 검증 V70~V79.
 //
@@ -12,7 +13,7 @@ import { test, expect, openGitTab, plainWindows, makeCopyFx, openGit, waitForIni
 // (FR-GIT-179~186), 파일 선택을 체크박스에서 행 클릭 + 보조키로 옮기고
 // (FR-GIT-187~191), GIT 섹션의 이모지 표식을 없앤다 (FR-GIT-192~194).
 
-const FIXTURES = '/tmp/dm-git-fx-uirev-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-uirev-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

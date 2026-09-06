@@ -3,6 +3,7 @@ import { execFileSync } from 'child_process';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit, openRowMenu } from './fixtures';
+import { tmpPath } from './osenv';
 
 // BRANCH_MENU_UNIFY_SRS §5 TC-BMU-*
 //
@@ -10,7 +11,7 @@ import { test, expect, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit, ope
 // 만들던 것을 정리한다. merge 는 **동작이 하나였으므로** 항목도 하나가 되고,
 // 삭제는 동작이 둘이므로 **둘을 함께 하는 셋째 길**이 생긴다.
 
-const FIXTURES = '/tmp/dm-git-fx-bmu-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-bmu-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

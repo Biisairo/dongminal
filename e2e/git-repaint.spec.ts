@@ -6,6 +6,7 @@ import { realpathSync } from 'fs';
 import { Page } from '@playwright/test';
 
 import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_REVIEW4_SRS §3.2·§3.5 — 바깥 계기의 다시 그리기.
 // 검증 V104~V113 (FR-RPT-1~7, FR-GIT-227).
@@ -15,7 +16,7 @@ import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, click
 // 남았는지를 본다. 표식은 DOM 속성이 아니라 객체 프로퍼티라 재생성에서 살아남지
 // 않는다.
 
-const FIXTURES = '/tmp/dm-git-fx-repaint-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-repaint-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

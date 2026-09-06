@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit as fxWaitForInit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_SIDEBAR_TABS_SRS §4.2 — 검증 V-SBT-*.
 //
@@ -14,7 +15,7 @@ import { test, expect, waitForInit as fxWaitForInit } from './fixtures';
 // 기존 Git 스펙의 가시성 전제 수정은 `fixtures.ts` 의 `openGitTab` 이 맡는다 (§4.1).
 // 여기는 **탭 자체의 계약**만 본다.
 
-const FIXTURES = '/tmp/dm-git-fx-sbt-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-sbt-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

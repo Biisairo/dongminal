@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, openGit, waitForInit, clickGitView } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.6 묶음 F — stash · 파일 · 미커밋 행.
 // 검증 V199(FR-GIT-272) · V200(273) · V201(274·275) · V203(277).
@@ -14,7 +15,7 @@ import { test, expect, makeCopyFx, openGit, waitForInit, clickGitView } from './
 // 테스트 저장소는 e2e/git_fixture.sh 가 만든다 — 테스트 안에서 git init 을
 // 되풀이하지 않는다. 상태를 바꾸는 스펙은 **복사본**에서 돈다.
 
-const FIXTURES = '/tmp/dm-git-fx-fileact-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-fileact-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

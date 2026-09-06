@@ -3,6 +3,7 @@ import { realpathSync } from 'fs';
 import { join } from 'path';
 
 import { test, expect, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { tmpPath } from './osenv';
 
 // V-FLW-9 (FR-FLW-12) — 상태바의 **브랜치 chip 은 없다.**
 //
@@ -14,7 +15,7 @@ import { test, expect, waitForInit, GIT_VIEW_TABS } from './fixtures';
 // 깨진다. 진행 중 원격 작업 표시(FR-GIT-112)는 남으며 git-remote.spec.ts 의
 // R16 이 그것을 지킨다.
 
-const FIXTURES = '/tmp/dm-git-fx-sb-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-sb-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

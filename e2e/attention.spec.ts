@@ -5,6 +5,18 @@ import { test, expect, waitForInit } from './fixtures';
 // TC-PAN-18 (title/badge count), TC-PAN-21 (notification center list),
 // TC-PAN-22 (center item click → jump + clear).
 
+// ATTENTION_FIRING_SRS FR-ATN-1·3·4: `done` 알람은 **사용자 프롬프트로 시작된
+// 턴**이 끝났을 때만 선다. 그 표시를 세우는 자리는 `UserPromptSubmit` 훅의 활동
+// 보고 하나뿐이므로, 셸에서도 실제 배선과 같은 순서로 부른다 — 표시 없이
+// `notify done` 만 부르면 그것은 배경 턴의 종료이고 조용한 것이 맞다 (V-ATN-2).
+//
+// `sleep 2` 는 알람이 **탭을 옮긴 뒤에** 도착하게 하려는 것이다. 절대경로로 부르는
+// 이유는 PATH 앞쪽의 낡은 dmctl 이 `notify` 를 모를 수 있기 때문이다.
+const NOTIFY_DONE =
+  `echo '{"hook_event_name":"UserPromptSubmit","prompt":"e2e"}'`
+  + ' | "$DONGMINAL_HOME/bin/dmctl" activity claude'
+  + ' && sleep 2 && "$DONGMINAL_HOME/bin/dmctl" notify done';
+
 test.describe('Pane attention', () => {
   test('background pane attention: highlight, center, jump-to-clear', async ({ page }) => {
     await waitForInit(page);
@@ -17,7 +29,7 @@ test.describe('Pane attention', () => {
     await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
     // Absolute path: a stale dmctl earlier in PATH would not understand `notify`
     // (the real wrappers also call dmctl by absolute path for this reason).
-    await page.keyboard.type('sleep 2 && "$DONGMINAL_HOME/bin/dmctl" notify done');
+    await page.keyboard.type(NOTIFY_DONE);
     await page.keyboard.press('Enter');
 
     // Add a new tab → it becomes the focused/active tab; the first tab's pane
@@ -69,7 +81,7 @@ test.describe('Pane attention', () => {
 
     // 포커스된 활성 탭에서 알람을 낸다. 탭을 옮기지 않는다 — 개정 전이라면
     // 이것만으로 알람이 즉시 사라졌다.
-    await page.keyboard.type('sleep 2 && "$DONGMINAL_HOME/bin/dmctl" notify done');
+    await page.keyboard.type(NOTIFY_DONE);
     await page.keyboard.press('Enter');
 
     const pane = page.locator('#area .pn.focused');
@@ -130,7 +142,7 @@ test.describe('Pane attention', () => {
       (window as any).Notification = Spy;
     });
 
-    await page.keyboard.type('sleep 2 && "$DONGMINAL_HOME/bin/dmctl" notify done');
+    await page.keyboard.type(NOTIFY_DONE);
     await page.keyboard.press('Enter');
 
     const pane = page.locator('#area .pn.focused');
@@ -153,7 +165,7 @@ test.describe('Pane attention', () => {
   test('알람이 뜬 탭을 닫으면 알람도 사라진다 (V-ATL-1·6·7·8)', async ({ page }) => {
     await waitForInit(page);
     await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
-    await page.keyboard.type('sleep 2 && "$DONGMINAL_HOME/bin/dmctl" notify done');
+    await page.keyboard.type(NOTIFY_DONE);
     await page.keyboard.press('Enter');
 
     const before = await page.locator('#area .pn.focused .pn-tab').count();

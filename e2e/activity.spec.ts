@@ -6,7 +6,10 @@ import { test, expect, waitForInit } from './fixtures';
 // alarm composited onto the card), TC-AAP-19 (new agent appends at bottom,
 // status update keeps position), TC-AAP-20 (drag reorder persisted).
 
-async function setActivity(page, toolId, state, tool, detail) {
+// userPrompt 는 이 턴이 사용자 프롬프트에서 시작되었다는 곁들이 값이다
+// (ATTENTION_FIRING_SRS FR-ATN-2). 기본값이 거짓인 것은 활동 패널을 보는
+// 테스트 대부분이 턴의 출처와 무관하기 때문이다.
+async function setActivity(page, toolId, state, tool, detail, userPrompt = false) {
   return page.evaluate(
     async (a) => {
       const r = await fetch('/api/tools/activity/set', {
@@ -16,7 +19,7 @@ async function setActivity(page, toolId, state, tool, detail) {
       });
       return r.status;
     },
-    { toolId, state, tool, detail },
+    { toolId, state, tool, detail, userPrompt },
   );
 }
 
@@ -173,7 +176,9 @@ test.describe('Agent activity panel', () => {
     const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
     expect(pid).toBeTruthy();
     // done (not pruned by the busy check) so the card stays put through polling.
-    expect(await setActivity(page, pid, 'done', '', 'finished')).toBe(200);
+    // userPrompt: 사용자 프롬프트로 시작된 턴이라고 말한다 — 그 표시가 없으면
+    // 아래의 `done` 신호는 배경 턴의 종료이고 알람이 되지 않는다 (FR-ATN-4).
+    expect(await setActivity(page, pid, 'done', '', 'finished', true)).toBe(200);
 
     await page.locator('#agents-toggle').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();

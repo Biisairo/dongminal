@@ -6,6 +6,7 @@ import { join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, openGitTab, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as fxWaitForInit, openGit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_REVIEW4_SRS §3.6.1~§3.6.4 — 개선 I1~I4. 검증 V132~V142
 // (FR-GIT-236~239).
@@ -21,9 +22,11 @@ import { test, expect, openGitTab, makeCopyFx, GIT_VIEW_TABS, clickGitView, wait
 // 고치면 된다:
 //   - `.git-file-act[data-act="openFile"]`  Open File 인라인 버튼 (I1)
 //   - `.git-file-path-dir` / `.git-file-path-name`  디렉터리·파일명 분리 요소 (I2)
-//   - `.git-head-refresh`                    Changes 헤더 새로고침 버튼 (I3)
+//   - `.git-head-refresh`                    새로고침 버튼 (I3). **자리가 바뀌었다** —
+//     GIT_CHANGES_CONTROLS_SRS FR-GCC-10 이 이 버튼을 머리에서 **사이드 탭 줄**로
+//     올렸다(D-8: 이름은 그대로다). 그래서 재는 자리는 `.ed-side-tabs` 다.
 
-const FIXTURES = '/tmp/dm-git-fx-improve-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-improve-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
@@ -44,6 +47,10 @@ const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-chang
 const group = (page: Page, key: string) => changes(page).locator(`.git-group[data-group="${key}"]`);
 const rows = (page: Page, key: string) => group(page, key).locator('.git-file');
 const files = (page: Page) => page.locator('#area .ed-side .git-file');
+// FR-GCC-10: 새로고침은 사이드 탭 줄의 오른쪽 끝이다 — `.git-view.git-changes`
+// 안이 아니다. `Changes` 탭에서만 선다 (FR-GCC-12).
+const sideRefresh = (page: Page) =>
+  page.locator('#area .ed-side .ed-side-tabs .git-head-refresh');
 
 // 파일 목록이 채워질 때까지 기다린다 — status 조회는 비동기다.
 async function waitFiles(page: Page, min = 1) {
@@ -366,8 +373,8 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
     // Changes 는 사이드에 늘 있다 (FR-RTU-32) — 돌아갈 탭이 없다.
     await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 
-    // 자리는 .git-head-spacer 뒤이며 .git-head-remote 밖이다(git-changes.spec.ts:70
-    // 의 원격 버튼 카운트 3개 단정과 충돌하지 않아야 한다).
+    // 자리는 사이드 탭 줄이며 머리의 원격부 밖이다 (FR-GCC-10) — 원격 버튼
+    // 카운트 단정(git-changes.spec.ts C1)과 충돌하지 않아야 한다.
     const remoteBtnCountBefore = await changes(page).locator('.git-remote-btn').count();
 
     const seen = { status: 0, log: 0, refs: 0, records: 0 };
@@ -379,10 +386,11 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
       if (u.includes('/api/git/records')) seen.records++;
     });
 
-    const btn = changes(page).locator('.git-head-refresh');
-    await expect(btn, '새로고침 버튼(.git-head-refresh)이 .git-head 안에 없다').toHaveCount(1, { timeout: 5000 });
-    // .git-head-remote 안에 들어가지 않았는지도 함께 확인한다 — 들어가면 기존
-    // 단정(git-changes.spec.ts:70~73, .git-remote-btn count 3)이 깨진다.
+    const btn = sideRefresh(page);
+    await expect(btn, '새로고침 버튼(.git-head-refresh)이 사이드 탭 줄에 없다').toHaveCount(1, { timeout: 5000 });
+    // 머리로 되돌아가지 않았는지도 함께 확인한다 (FR-GCC-10) — 되돌아가면 그
+    // 자리를 다투던 문제가 그대로 살아난다.
+    await expect(changes(page).locator('.git-head-refresh')).toHaveCount(0);
     expect(await changes(page).locator('.git-remote-btn').count()).toBe(remoteBtnCountBefore);
 
     const before = { ...seen };
@@ -407,7 +415,7 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
     // Changes 는 사이드에 늘 있다 (FR-RTU-32) — 돌아갈 탭이 없다.
     await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 
-    const btn = changes(page).locator('.git-head-refresh');
+    const btn = sideRefresh(page);
     await expect(btn, '새로고침 버튼(.git-head-refresh)이 없다').toHaveCount(1, { timeout: 5000 });
 
     let logHits = 0;

@@ -6,6 +6,7 @@ import * as path from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS } from './fixtures';
+import { tmpPath } from './osenv';
 
 // 칸별 시선 — SLOT_VIEW_STATE_SRS §8
 //
@@ -29,7 +30,7 @@ const slotsState = (page: Page) => page.evaluate(() => (window as any).app.slots
  * 고정 탭이 아니라 **필요할 때 여는 본문 탭**이므로(FR-RTU-30) 이 묶음이 재는
  * "칸마다 다른 탭" 을 위해 여섯을 미리 세운다.
  */
-const TOP_FIXTURES = '/tmp/dm-git-fx-svs-top-' + process.pid;
+const TOP_FIXTURES = tmpPath('dm-git-fx-svs-top-' + process.pid);
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', TOP_FIXTURES], { stdio: 'ignore' });
 });
@@ -684,7 +685,7 @@ test.describe('묶음 F — 누른 한 번이 듣는다 (FR-SVS-61)', () => {
 
 test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
   // 저장소는 e2e/git_fixture.sh 가 만든다 — 다른 git 스펙과 같은 규약이다.
-  const FIXTURES = '/tmp/dm-git-fx-svs-' + process.pid;
+  const FIXTURES = tmpPath('dm-git-fx-svs-' + process.pid);
 
   test.beforeAll(() => {
     execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

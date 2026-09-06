@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.3 — 묶음 C 태그 동작. 검증 V187~V190 (FR-GIT-260~262).
 //
@@ -32,7 +33,7 @@ import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView } fr
 //   job 표시      Changes 탭의 `.git-job` — 태그 push 는 기존 원격 job 경로를 그대로
 //                 탄다(FR-GIT-262·101~104, remote.js:_attach).
 
-const FIXTURES = '/tmp/dm-git-fx-tag-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-tag-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

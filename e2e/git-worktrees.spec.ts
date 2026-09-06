@@ -6,6 +6,7 @@ import { join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_REVIEW4_SRS §3.6.5 — I7 Worktrees 탭. 검증 V143~V152 (FR-GIT-28 개정·240~245).
 // V145·V148·V159 는 Go 단위 테스트다(다른 담당). V153·V154·V157·V160 은 이미 끝났다.
@@ -35,9 +36,9 @@ import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, ope
 //                      FR-COS-1·2 — 걸음 수는 GitConfirm 이 정한다).
 //   목록 재계기        폴링이 없다(worktrees.js:_load 는 mount 시 1회 + reload() 뿐).
 //                      유일한 재계기는 I3 새로고침이며 panel.js:1396 이 이미 마운트된
-//                      _worktreesView.reload() 를 부른다 — Changes 탭 DOM 안의
+//                      _worktreesView.reload() 를 부른다 — 사이드 탭 줄의
 //                      .git-head-refresh 를 눌러야 한다(Worktrees 자체엔 새로고침
-//                      버튼이 없다).
+//                      버튼이 없다, FR-GCC-10).
 //   제거 실패          200 으로 온다(removed:false + residue). 4xx 가 아니다.
 //   브랜치 삭제 옵션    **이 경로엔 없다** — _runRemove 가 deleteBranch:false 를 항상
 //                      보낸다(worktrees.js:238-243, 주석: "파괴적 확인이 옵션 폼을
@@ -47,7 +48,7 @@ import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, ope
 //   open 동작          활성 리포 행에는 안 붙는다(worktrees.js:119 `_canOpen`) —
 //                      이미 그것이므로 여는 것이 아무 일도 안 한다(FR-GIT-180).
 
-const FIXTURES = '/tmp/dm-git-fx-worktrees-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-worktrees-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
@@ -403,7 +404,7 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
 
   // Worktrees 목록은 폴링이 없다(worktrees.js: _load 는 mount 시 1회 + reload() 뿐,
   // 조정자 확인). 유일한 재계기는 I3 새로고침이고, 그 버튼(.git-head-refresh)은
-  // Changes 탭 DOM 안에만 있다 — 그리로 갔다가 눌러 재계기를 일으킨 뒤 Worktrees 로
+  // 사이드 탭 줄에 있다 (FR-GCC-10 / D-7a) — 눌러 재계기를 일으킨 뒤 Worktrees 로
   // 돌아와 **바뀌지 않은 행의 표식이 남는지**를 본다(V134·git-repaint.spec.ts P1~P11
   // 과 같은 표식 기법, 계기만 다르다).
   test('V152 (FR-GIT-245 · RPT-1·3): 새로고침 뒤에도 바뀌지 않은 Worktrees 행의 표식이 남는다', async ({ page }) => {
@@ -421,8 +422,8 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
     }, sel);
     expect(n).toBeGreaterThan(0);
 
-    // FR-RTU-32: Changes 는 사이드에 늘 있다 — 돌아갈 탭이 없다.
-    const refreshBtn = page.locator('.git-view.git-changes .git-head-refresh');
+    // FR-RTU-32: Changes 는 사이드에 늘 있다 — 돌아갈 탭이 없다 (FR-GCC-10).
+    const refreshBtn = page.locator('#area .ed-side .ed-side-tabs .git-head-refresh');
     await expect(refreshBtn, '새로고침 버튼이 없다').toHaveCount(1, { timeout: 5000 });
     await refreshBtn.click();
     await expect(refreshBtn, '새로고침이 끝나지 않았다').toBeEnabled({ timeout: 15000 });

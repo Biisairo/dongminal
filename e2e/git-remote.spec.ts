@@ -6,6 +6,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, GIT_VIEW_TABS, clickGitView, openGit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_M3_STEP1213_CONTRACT §3 — 원격 작업 클라이언트. 검증 V40·V41·V42·V44·V62·V63.
 //
@@ -13,7 +14,7 @@ import { test, expect, waitForInit, GIT_VIEW_TABS, clickGitView, openGit } from 
 // 쓰지 않으므로 테스트가 외부에 의존하지 않는다. 쓰기를 하므로 저장소와 원격을
 // 매 테스트마다 **복사본**으로 만든다 — 원본을 밀면 다음 테스트가 무너진다.
 
-const FIXTURES = '/tmp/dm-git-fx-remote-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-remote-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

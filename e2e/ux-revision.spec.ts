@@ -5,6 +5,7 @@ import { join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, plainWindows } from './fixtures';
+import { tmpPath } from './osenv';
 
 // UX_REVISION_SRS §4 — 검증 V-DEL-*·V-FIT-*·V-CLS-*·V-MOV-*·V-NAM-*·V-BLP-*·V-KEY-*.
 //
@@ -19,7 +20,7 @@ async function init(page: Page) {
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
-const FIXTURES = '/tmp/dm-git-fx-uxr-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-uxr-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

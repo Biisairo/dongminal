@@ -14,6 +14,11 @@ const MAX_MS = 6000;
 
 const boot = (page: any) => page.locator('#boot');
 
+// `boot-screen.js` 의 최상위 `const` 는 스크립트의 전역 렉시컬 바인딩이다 —
+// 이름으로는 보이지만 `window` 의 속성이 아니다. 다른 스펙이 전역 상수를 쓰는
+// 방식과 같이 선언만 둔다.
+declare const BootScreen: any;
+
 test.describe('Boot screen reuse', () => {
   test('V-BTR-1: 내부 새로고침이 로딩 화면을 다시 세우고 끝나면 걷는다', async ({ page }) => {
     await waitForInit(page);
@@ -40,19 +45,19 @@ test.describe('Boot screen reuse', () => {
   test('V-BTR-2: 서 있는 동안 다시 세워도 화면은 하나다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate(() => {
-      (window as any).BootScreen.show('첫째');
-      (window as any).BootScreen.show('둘째');
+      BootScreen.show('첫째');
+      BootScreen.show('둘째');
     });
     await expect(boot(page)).toHaveCount(1);
     await expect(page.locator('#boot-step')).toHaveText('둘째');
-    await page.evaluate(() => (window as any).BootScreen.done());
+    await page.evaluate(() => BootScreen.done());
     await expect(boot(page)).toHaveCount(0);
   });
 
   test('V-BTR-3: 걷히는 도중 다시 세우면 그 제거가 새 화면을 떼지 않는다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate(() => {
-      const b = (window as any).BootScreen;
+      const b = BootScreen;
       b.show('가는 중');
       b.done();
       b.show('다시');
@@ -62,13 +67,13 @@ test.describe('Boot screen reuse', () => {
     await expect(boot(page)).toHaveCount(1);
     await expect(boot(page)).toBeVisible();
 
-    await page.evaluate(() => (window as any).BootScreen.done());
+    await page.evaluate(() => BootScreen.done());
     await expect(boot(page)).toHaveCount(0);
   });
 
   test('V-BTR-4: 다시 세운 화면에도 상한이 걸린다', async ({ page }) => {
     await waitForInit(page);
-    await page.evaluate(() => (window as any).BootScreen.show('상한'));
+    await page.evaluate(() => BootScreen.show('상한'));
     await expect(boot(page)).toBeVisible();
     // FR-BTR-3: 아무도 걷지 않아도 상한에서 걷힌다.
     await expect(boot(page)).toHaveCount(0, { timeout: MAX_MS + 4000 });
@@ -78,7 +83,7 @@ test.describe('Boot screen reuse', () => {
     await waitForInit(page);
     // 문서가 다시 열리므로 관측은 새로고침을 건너는 자리에 남긴다.
     await page.evaluate(() => {
-      const b = (window as any).BootScreen;
+      const b = BootScreen;
       const orig = b.show.bind(b);
       b.show = (t: string) => {
         try { sessionStorage.setItem('e2eBootShown', t || '') } catch { /* 사생활 모드 */ }

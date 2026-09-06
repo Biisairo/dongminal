@@ -6,6 +6,7 @@ import * as path from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // WORKBENCH_REVIEW_SRS 묶음 F — git Changes 의 폴더 단위 스테이징
 // (FR-WBR-80~84, 검증 V-WBR-80~84).
@@ -16,7 +17,7 @@ import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit } from './f
 // 폭 시험(V-WBR-85 / NFR-WBR-11)은 여기 없다 — 규칙이 사는 `repo-tab` 묶음 N 의
 // N4 다.
 
-const FIXTURES = '/tmp/dm-git-fx-folderstage-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-folderstage-' + process.pid);
 let BASE = '';
 let TREE = '';
 

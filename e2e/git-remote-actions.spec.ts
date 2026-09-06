@@ -6,6 +6,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, GIT_VIEW_TABS, clickGitView, openGit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.5 묶음 E — 원격 동작. 검증 V196·V197·V198.
 //
@@ -16,7 +17,7 @@ import { test, expect, waitForInit, GIT_VIEW_TABS, clickGitView, openGit } from 
 // 형태는 git-remote.spec.ts 를 그대로 본뜬다 — 원격 표면의 e2e 규약이 두 벌이면
 // 한쪽만 고쳐진다.
 
-const FIXTURES = '/tmp/dm-git-fx-remact-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-remact-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

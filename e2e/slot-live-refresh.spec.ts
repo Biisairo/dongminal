@@ -3,6 +3,7 @@ import { execFileSync } from 'child_process';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView } from './fixtures';
+import { tmpPath } from './osenv';
 
 // SLOT_VIEW_STATE_SRS §8 M6 — TC-SVS-60~64.
 //
@@ -14,7 +15,7 @@ import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView } fr
 //
 // 규칙은 하나다 — **화면에 있으면 갱신된다.** 포커스는 그 조건이 아니다.
 
-const FIXTURES = '/tmp/dm-git-fx-slr-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-slr-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

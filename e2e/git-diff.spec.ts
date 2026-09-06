@@ -5,13 +5,14 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, openGit, waitForInit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_M1_STEP7_CONTRACT §4 — Diff 뷰 (D1~D10). 검증 V10·V11·V12·V26.
 //
 // diff 렌더링은 monaco.editor.createDiffEditor 다 (FR-GIT-43) — 자체 하이라이트
 // 엔진이 없으므로 단정도 Monaco 의 DOM·API 에 걸린다.
 
-const FIXTURES = '/tmp/dm-git-fx-diff-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-diff-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

@@ -3,6 +3,7 @@ import { execFileSync } from 'child_process';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, GIT_BODY_VIEWS, clickGitView } from './fixtures';
+import { tmpPath } from './osenv';
 
 /**
  * UX_BATCH5_SRS 묶음 C — 모든 버튼의 영어 툴팁 (FR-TIP-1·2·7).
@@ -18,7 +19,7 @@ import { test, expect, makeCopyFx, waitForInit, GIT_BODY_VIEWS, clickGitView } f
  * 바꾸는 것은 `title` 한 속성뿐이다 (FR-TIP-3). 라벨·안내·오류의 언어는 그대로다.
  */
 
-const FIXTURES = '/tmp/dm-git-fx-tooltips-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-tooltips-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
@@ -310,10 +311,14 @@ test.describe('묶음 C — 띄워야 보이는 표면', () => {
   });
 
   /**
-   * hunk 버튼은 **diff 를 열고 그 안의 조각에 hover 해야** 선다 (FR-GIT-278).
+   * hunk 버튼은 **diff 를 열고 바뀐 줄에 hover 해야** 선다 (FR-DHB-11).
    * 부분 스테이징의 진입점이므로 파괴적인 것(`Revert hunk`)이 그 안에 있다.
+   *
+   * **개정 (DIFF_HUNK_BAR_SRS I-1·I-2).** 하단 조각 목록(`.git-hunks`·
+   * `.git-hunk-head`)이 폐기되고 그 자리를 diff 위의 hover 툴바가 대신한다 —
+   * 재는 버튼은 이제 `.git-hunk-bar .git-hunk-act` 다.
    */
-  test('C15 (V-TIP-15 / FR-TIP-1·2): diff 의 hunk 버튼', async ({ page }) => {
+  test('C15 (V-TIP-15 / FR-TIP-1·2): diff 의 hunk 툴바', async ({ page }) => {
     await waitForInit(page);
     await openGitSurfaces(page, copyFx('basic', 'tip15'));
     const changes = page.locator('#area .ed-side .git-view.git-changes');
@@ -322,10 +327,31 @@ test.describe('묶음 C — 띄워야 보이는 표면', () => {
     await row.click();
     const diff = page.locator('#area .pn-body .git-view.git-diff');
     await expect(diff).toBeVisible({ timeout: 15000 });
-    // 조각 머리가 서야 그 버튼도 선다 (`.git-hunk-head`, panel-diff.js:377).
-    const hunk = diff.locator('.git-hunk-head').first();
-    await expect(hunk).toBeVisible({ timeout: 20000 });
-    await hunk.hover();
-    await assertAll(page, 'diff · hunk');
+
+    // 관측과 에디터가 **둘 다** 서야 툴바가 뜬다 (FR-DHB-20·21) — 경계를 모르는
+    // 동안 뜨는 버튼은 무엇에 걸리는지 말할 수 없고, 에디터가 없으면 붙을 자리가
+    // 없다.
+    await page.waitForFunction(() => {
+      const p = (window as any).app?.gitPanel;
+      return !!(p && p._hunks && p._hunks.list && p._hunks.list.length
+        && p._diffView && p._diffView._editor);
+    }, undefined, { timeout: 20000 });
+
+    // 첫 조각의 머리 줄로 마우스를 옮긴다. `.view-line` 의 DOM 순서는 줄 번호와
+    // 다를 수 있으므로(Monaco 는 그것을 보장하지 않는다) 좌표를 에디터에게 묻는다 —
+    // git-hunk.spec.ts 의 `hoverLine` 과 같은 기법이다.
+    const at = await page.evaluate(() => {
+      const p = (window as any).app.gitPanel;
+      const ln = Math.max(1, p._hunks.list[0].newStart);
+      const ed = p._diffView._editor.getModifiedEditor();
+      ed.revealLine(ln);
+      const q = ed.getScrolledVisiblePosition({ lineNumber: ln, column: 1 });
+      const r = ed.getDomNode().getBoundingClientRect();
+      return { x: r.left + q.left + 30, y: r.top + q.top + q.height / 2 };
+    });
+    await page.mouse.move(at.x, at.y);
+    await expect(page.locator('.git-hunk-bar .git-hunk-act').first())
+      .toBeVisible({ timeout: 10000 });
+    await assertAll(page, 'diff · hunk 툴바');
   });
 });

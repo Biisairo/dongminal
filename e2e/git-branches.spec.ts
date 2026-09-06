@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openRowMenu } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_M5_STEP1821_CONTRACT §1.3 — Branches 탭. 검증 V53~V55 · V67 · V68.
 //
@@ -12,7 +13,7 @@ import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, ope
 // 하는 스펙은 **복사본**에서 돈다 — 원본을 옮기면 뒤따르는 스펙이 다른 저장소를
 // 본다.
 
-const FIXTURES = '/tmp/dm-git-fx-br-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-br-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

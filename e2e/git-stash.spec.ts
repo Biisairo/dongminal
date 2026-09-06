@@ -5,13 +5,14 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openRowMenu } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_M5_STEP1821_CONTRACT §2 — Stash 탭. 검증 V56~V58 · V69.
 //
 // `stashes` 픽스처는 stash 2개 + 현재 변경 1개다 (design/README.md). 쓰기를 하는
 // 스펙은 **복사본**에서 돈다.
 
-const FIXTURES = '/tmp/dm-git-fx-stash-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-stash-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

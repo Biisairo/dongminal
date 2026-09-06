@@ -6,6 +6,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, waitRows, openRowMenu } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.2 · §3.5 — 묶음 B 브랜치 동작 (FR-GIT-253~259 · 268).
 // 검증 V177~V186 · V195.
@@ -17,7 +18,7 @@ import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, wai
 // 남는 것이 목적이므로 픽스처를 공유하지 않고 테스트마다 자기 것을 만든다
 // (git-operation.spec.ts 의 repoWithConflictedMerge 와 같은 근거).
 
-const FIXTURES = '/tmp/dm-git-fx-bra-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-bra-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

@@ -5,13 +5,14 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, openGit, waitForInit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // 묶음 Q — Console 탭 (GIT_UI_REVISION_SRS FR-GIT-218, 검증 V95).
 //
 // Console 은 터미널이 아니라 **dongminal 이 대신 실행한 git 명령의 기록**이다.
 // 그 명령들은 서버 프로세스 안에서 돌아 사용자의 터미널에는 남지 않는다.
 
-const FIXTURES = '/tmp/dm-git-fx-console-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-console-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

@@ -6,6 +6,7 @@ import { join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit } from './fixtures';
+import { tmpPath } from './osenv';
 
 /**
  * UX_BATCH5_SRS 묶음 E — 워크트리를 **그 자체 저장소로** 다루는 경로 (FR-WTG-1).
@@ -28,7 +29,7 @@ import { test, expect, makeCopyFx, waitForInit } from './fixtures';
  * 갈라 딛는다 (`core/dirs.go:17`).
  */
 
-const FIXTURES = '/tmp/dm-git-fx-wtrepo-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-wtrepo-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

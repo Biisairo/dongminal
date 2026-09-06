@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openRowMenu } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_M4_STEP1417_CONTRACT §3·§4·§5 — History 탭. 검증 V47~V51 · V64 · V65 + V48 성능.
 //
@@ -12,7 +13,7 @@ import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, ope
 // 성능은 many-commits(10,000 커밋)로만 본다 — 그보다 작은 저장소에서는 가상
 // 스크롤과 전부 그리기가 구분되지 않는다.
 
-const FIXTURES = '/tmp/dm-git-fx-hist-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-hist-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

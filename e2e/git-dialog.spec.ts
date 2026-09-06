@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as fxWaitForInit, openGit as fxOpenGit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_M5_STEP1821_CONTRACT §3 — 다이얼로그 공통 규약. 검증 V59
 // (FR-GIT-171~178).
@@ -13,7 +14,7 @@ import { test, expect, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as f
 // 모으는 단계다. 그래서 여기서 재는 것은 **골격 자체**이고, 흡수한 다이얼로그가
 // 그것을 쓰는지는 D1 이 가른다.
 
-const FIXTURES = '/tmp/dm-git-fx-dialog-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-dialog-' + process.pid);
 
 const DESKTOP = { width: 1280, height: 720 };
 const MOBILE = { width: 390, height: 640 };

@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView } from './fixtures';
+import { tmpPath } from './osenv';
 
 // HISTORY_BRANCH_BUTTON_SRS §5 TC-HBB-*
 //
@@ -12,7 +13,7 @@ import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView } fr
 // 가는 **길 하나** — History 바의 버튼 — 이며, 그 길이 공용 머리(FR-GHM-4)를
 // 건드리지 않았는지다.
 
-const FIXTURES = '/tmp/dm-git-fx-hbb-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-hbb-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });

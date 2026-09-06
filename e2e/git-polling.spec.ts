@@ -5,10 +5,11 @@ import { join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, openGit, waitForInit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // GIT_M1_STEP56_CONTRACT §4 — 변경 감지 3계층. 검증 V6·V18·V5·V4.
 
-const FIXTURES = '/tmp/dm-git-fx-polling-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-polling-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
@@ -229,7 +230,9 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
       p._history().reload = () => { throw new Error('reload boom') };
     });
 
-    const btn = page.locator('#area .ed-side .git-view.git-changes .git-head-refresh');
+    // FR-GCC-10: 새로고침은 사이드 **탭 줄**의 오른쪽 끝이다 — `Changes` 뷰
+    // 안이 아니다 (자리만 바뀌었고 클래스 이름은 그대로다, D-8).
+    const btn = page.locator('#area .ed-side .ed-side-tabs .git-head-refresh');
     await btn.click();
 
     await expect(btn, '새로고침 버튼이 disabled 로 굳었다').toBeEnabled({ timeout: 3000 });

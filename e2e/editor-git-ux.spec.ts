@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, openGit } from './fixtures';
+import { tmpPath } from './osenv';
 
 // EDITOR_GIT_UX_SRS — Diff 개요 눈금(묶음 O) · Editor 검색(묶음 F·G·K).
 // 검증 V-DOR-1~3, V-EQO-2~3, V-EKB-2.
@@ -15,7 +16,7 @@ import { test, expect, waitForInit, openGit } from './fixtures';
 //
 // Git 픽스처는 git-changes.spec.ts 와 같은 규약이다 (design/README.md).
 
-const FIXTURES = '/tmp/dm-git-fx-ux-' + process.pid;
+const FIXTURES = tmpPath('dm-git-fx-ux-' + process.pid);
 
 test.beforeAll(() => {
   execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES], { stdio: 'ignore' });
