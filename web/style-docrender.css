@@ -97,6 +97,9 @@
   opacity:.65;transition:opacity .12s;
 }
 .fe-render:hover{opacity:1;color:var(--accent);border-color:var(--accent)}
+/* 언어 서버 설치 제안(`.fe-offer`)이 서면 위쪽 가로 띠가 이 자리를 덮는다. 찾기
+   패널·알림 줄과 같은 값으로 내려 앉는다 (style-editor.css 의 `.fe-offer ~ …`). */
+.file-editor.fe-offered .fe-render{top:38px}
 
 /* ── SVG (FR-DRV-14) ──
  *

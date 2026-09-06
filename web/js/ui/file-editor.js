@@ -661,6 +661,11 @@ class FileEditor {
     el.querySelector('.fe-offer-msg').textContent = body;
     this.el.appendChild(el);
     this._offerEl = el;
+    // 제안 띠는 편집기의 위쪽 가로 띠 전부를 먹는다. 그 자리를 이미 쓰고 있는
+    // 손잡이(렌더 진입 `◈`)를 아래로 내려 앉히기 위해 표식을 남긴다 — 형제
+    // 선택자(`.fe-offer ~ …`)로는 안 된다: 그 손잡이는 편집기를 세울 때 붙으므로
+    // 뒤늦게 오는 이 띠보다 **앞선 형제**다.
+    this.el.classList.add('fe-offered');
 
     const go = el.querySelector('.fe-offer-go');
     if (go) {
@@ -698,6 +703,7 @@ class FileEditor {
     if (!this._offerEl) return;
     this._offerEl.remove();
     this._offerEl = null;
+    this.el.classList.remove('fe-offered');
   }
 
   // ── 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS 묶음 B·C·D) ──

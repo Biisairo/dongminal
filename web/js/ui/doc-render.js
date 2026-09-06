@@ -530,13 +530,18 @@ class DocRender {
     if (this.kind !== 'markdown' || !this._body) return;
     const n = Math.max(1, parseInt(line, 10) || 1);
     let best = null;
+    let first = null;
     for (const el of this._body.querySelectorAll('[data-line]')) {
       const v = parseInt(el.getAttribute('data-line'), 10);
       if (!isFinite(v)) continue;
+      if (!first) first = el;
       if (v > n) break;
       best = el;
     }
-    if (!best) { this._body.scrollTop = 0; return }
+    // 첫 블록 위에는 아무것도 없다. 그 머리를 꼭대기에 맞추려 하면 상자의
+    // 위 여백(padding-top + 그 블록의 margin)만큼 밀려, **소스가 첫 줄에 있는데도
+    // 렌더는 스크롤된 상태**가 된다. 문서의 처음은 스크롤 0 이다.
+    if (!best || best === first) { this._body.scrollTop = 0; return }
     const r = best.getBoundingClientRect();
     const b = this._body.getBoundingClientRect();
     this._body.scrollTop += (r.top - b.top);
