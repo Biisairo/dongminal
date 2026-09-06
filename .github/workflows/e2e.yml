@@ -37,7 +37,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     # 로컬(macOS) 실측이 전체 25분이므로 샤드 하나는 그 1/4 이지만, 러너는 그보다
     # 느리고 `retries: 2` 가 실패 항목마다 두 번을 더 돈다 (FR-CEM-6).
-    timeout-minutes: 45
+    #
+    # 60분인 것은 Windows 의 실측 때문이다 — 1차 실행에서 한 샤드가 33분을 쓰고도
+    # 229항목을 남긴 채 잘렸다. 그 대부분은 픽스처 실패의 재시도였지만, 초록인
+    # 실행도 그 OS 에서는 셸 기동이 느려 여유가 필요하다.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
@@ -75,8 +79,11 @@ jobs:
       - name: 빌드 캐시 예열
         run: go build ./cmd/dongminal
 
+      # 리포터를 둘 세운다. `html` 은 실패 시 올리는 artifact 의 것이고, `line` 은
+      # **로그에 남는 것**이다 — html 만 두면 job 로그에 서버 로그만 남아, 무엇이
+      # 몇 개 실패했는지 로그만 보고는 알 수 없다 (Windows 1차 실행에서 실측).
       - name: e2e (샤드 ${{ matrix.shard }}/4)
-        run: npx playwright test --shard=${{ matrix.shard }}/4
+        run: npx playwright test --shard=${{ matrix.shard }}/4 --reporter=line,html
 
       # 실패했을 때만 남긴다. 초록인 실행의 리포트는 아무도 열지 않는다.
       # 이름에 OS 가 들어가는 것은 규약이다 (D-6) — 샤드 번호만 쓰면 세 OS 가 같은
