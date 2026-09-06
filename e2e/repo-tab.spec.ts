@@ -6,7 +6,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
-import { realPath } from './osenv';
+import { realPath, cssPath } from './osenv';
 
 // REPO_TAB_UNIFY_SRS §4 — 통합 창의 검증 V-RTU-10~35.
 //
@@ -88,7 +88,7 @@ async function goto(page: Page) {
 async function openRepo(page: Page, root: string) {
   await page.evaluate((r) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === r);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(r).replace(/\\/g, '/'));
     if (!win) throw new Error('Repo 창이 없다: ' + r);
     a.switchWindow(win.id);
   }, root);
@@ -293,13 +293,13 @@ test.describe('묶음 P — 미리보기 탭', () => {
       const tree = page.locator('#area .ed-side .ed-tree');
       await expect(tree.locator('.ed-row').first()).toBeVisible({ timeout: 10000 });
 
-      await tree.locator(`.ed-row[data-path="${j(REPO, 'README.md')}"]`).click();
+      await tree.locator(`.ed-row[data-path="${cssPath(j(REPO, 'README.md'))}"]`).click();
       await expect(mainTabs(page)).toHaveCount(1, { timeout: 10000 });
       await expect(mainTabs(page).first()).toHaveClass(/pn-tab-preview/);
 
       // 다른 파일을 누르면 **같은 탭이 대상을 갈아탄다** — 탭이 쌓이지 않는다.
-      await tree.locator(`.ed-row[data-path="${j(REPO, 'src')}"]`).click();
-      await tree.locator(`.ed-row[data-path="${j(REPO, 'src', 'a.ts')}"]`).click();
+      await tree.locator(`.ed-row[data-path="${cssPath(j(REPO, 'src'))}"]`).click();
+      await tree.locator(`.ed-row[data-path="${cssPath(j(REPO, 'src', 'a.ts'))}"]`).click();
       await expect(mainTabs(page)).toHaveCount(1);
       await expect(mainTabs(page).first()).toContainText('a.ts');
     });
@@ -310,13 +310,13 @@ test.describe('묶음 P — 미리보기 탭', () => {
       const tree = page.locator('#area .ed-side .ed-tree');
       await expect(tree.locator('.ed-row').first()).toBeVisible({ timeout: 10000 });
 
-      await tree.locator(`.ed-row[data-path="${j(REPO, 'README.md')}"]`).click();
+      await tree.locator(`.ed-row[data-path="${cssPath(j(REPO, 'README.md'))}"]`).click();
       await expect(mainTabs(page)).toHaveCount(1, { timeout: 10000 });
       await mainTabs(page).first().dblclick();
       await expect(mainTabs(page).first()).not.toHaveClass(/pn-tab-preview/);
 
-      await tree.locator(`.ed-row[data-path="${j(REPO, 'src')}"]`).click();
-      await tree.locator(`.ed-row[data-path="${j(REPO, 'src', 'a.ts')}"]`).click();
+      await tree.locator(`.ed-row[data-path="${cssPath(j(REPO, 'src'))}"]`).click();
+      await tree.locator(`.ed-row[data-path="${cssPath(j(REPO, 'src', 'a.ts'))}"]`).click();
       // 고정된 탭은 남고 미리보기가 하나 더 선다 — 창에 미리보기는 하나뿐이다.
       await expect(mainTabs(page)).toHaveCount(2);
       await expect(mainTabs(page).locator('.pn-tab-preview')).toHaveCount(0);
@@ -327,7 +327,7 @@ test.describe('묶음 P — 미리보기 탭', () => {
     await enter(page, request, REPO);
     const tree = page.locator('#area .ed-side .ed-tree');
     await expect(tree.locator('.ed-row').first()).toBeVisible({ timeout: 10000 });
-    await tree.locator(`.ed-row[data-path="${j(REPO, 'README.md')}"]`).click();
+    await tree.locator(`.ed-row[data-path="${cssPath(j(REPO, 'README.md'))}"]`).click();
     await expect(mainTabs(page).first()).toHaveClass(/pn-tab-preview/, { timeout: 10000 });
 
     await page.evaluate(() => (window as any).app._save());
@@ -422,7 +422,7 @@ test.describe('묶음 P — 미리보기의 경계 (FR-RTU-45)', () => {
     async ({ page, request }) => {
       await enter(page, request, REPO);
       const tree = page.locator('#area .ed-side .ed-tree');
-      const row = (p: string) => tree.locator(`.ed-row[data-path="${p}"]`);
+      const row = (p: string) => tree.locator(`.ed-row[data-path="${cssPath(p)}"]`);
       await expect(tree.locator('.ed-row').first()).toBeVisible({ timeout: 10000 });
 
       // README 를 고정한다 (FR-RTU-42 ④ — 탐색기 행의 더블클릭).

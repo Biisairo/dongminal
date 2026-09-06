@@ -6,7 +6,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
-import { realPath } from './osenv';
+import { realPath, cssPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M5(파일 조작) · M6(파일 열기 라우팅)의 검증
 // V-EDT-57~62·68~71 (조작) · V-EDT-73~79 (라우팅).
@@ -89,7 +89,7 @@ async function goto(page: Page) {
 async function openEditor(page: Page, root: string) {
   await page.evaluate((r) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === r);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(r).replace(/\\/g, '/'));
     if (!win) throw new Error('Editor 창이 없다: ' + r);
     a.switchWindow(win.id);
   }, root);
@@ -103,7 +103,7 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
   await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
 }
 
-const row = (page: Page, p: string) => page.locator(`.ed-tree .ed-row[data-path="${p}"]`);
+const row = (page: Page, p: string) => page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`);
 const input = (page: Page) => page.locator('.ed-tree .ed-input');
 const opErr = (page: Page) => page.locator('.ed-tree .ed-op-err');
 const confirmMsg = (page: Page) => page.locator('.ed-confirm .confirm-msg');

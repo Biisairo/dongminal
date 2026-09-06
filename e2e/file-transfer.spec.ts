@@ -5,7 +5,7 @@ import * as path from 'path';
 import { APIRequestContext, Locator, Page } from '@playwright/test';
 
 import { test, expect, openRowMenu } from './fixtures';
-import { realPath } from './osenv';
+import { realPath, cssPath } from './osenv';
 
 // FILE_TRANSFER_SRS §5 — V-FTR-8·12·14~21.
 //
@@ -53,7 +53,7 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
     undefined, { timeout: 15000 });
   await page.evaluate((r) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === r);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(r).replace(/\\/g, '/'));
     if (!win) throw new Error('Editor 창이 없다: ' + r);
     a.switchWindow(win.id);
   }, root);
@@ -61,7 +61,7 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
   await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
 }
 
-const row = (page: Page, p: string) => page.locator(`.ed-tree .ed-row[data-path="${p}"]`);
+const row = (page: Page, p: string) => page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`);
 const opErr = (page: Page) => page.locator('.ed-tree .ed-op-err');
 const head = (page: Page) => page.locator('.ed-explorer .ed-head');
 const tree = (page: Page) => page.locator('.ed-explorer .ed-tree');

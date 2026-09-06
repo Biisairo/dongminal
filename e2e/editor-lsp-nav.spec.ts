@@ -12,7 +12,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
-import { realPath } from './osenv';
+import { realPath, cssPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
 let BASE = '';
@@ -44,7 +44,7 @@ async function enter(page: Page, request: APIRequestContext) {
     undefined, { timeout: 15000 });
   await page.evaluate((root) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === root);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
     if (!win) throw new Error('Editor 창이 없다: ' + root);
     a.switchWindow(win.id);
   }, ROOT);
@@ -114,7 +114,7 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
       { locations: [{ path: `${ROOT}/pkg/deep/helper.go`, line: 4, col: 6 }] }, seen);
 
     // 깊은 겹은 아직 접혀 있다 — 이것이 출발점이다.
-    await expect(page.locator(`.ed-tree .ed-row[data-path="${ROOT}/pkg/deep/helper.go"]`)).toHaveCount(0);
+    await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(j(ROOT, 'pkg', 'deep', 'helper.go'))}"]`)).toHaveCount(0);
 
     await page.keyboard.press('F12');
     await waitEditorAt(page, `${ROOT}/pkg/deep/helper.go`);
@@ -131,7 +131,7 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
 
     // FR-EKB-6 을 딛는다 — 조상이 모두 펼쳐지고 그 행이 선택으로 표시된다.
     for (const p of [`${ROOT}/pkg`, `${ROOT}/pkg/deep`, `${ROOT}/pkg/deep/helper.go`]) {
-      await expect(page.locator(`.ed-tree .ed-row[data-path="${p}"]`)).toBeVisible({ timeout: 10000 });
+      await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`)).toBeVisible({ timeout: 10000 });
     }
   });
 

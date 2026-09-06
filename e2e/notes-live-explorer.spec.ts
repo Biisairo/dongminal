@@ -5,7 +5,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
-import { realPath } from './osenv';
+import { realPath, cssPath } from './osenv';
 
 // NOTES_LIVE_EXPLORER_SRS §5.2 — 묶음 N(메모장)·묶음 L(탐색기의 살아있는 반영)의
 // 클라이언트 검증 V-13~V-25.
@@ -62,7 +62,7 @@ async function openEditorTab(page: Page) {
 async function openEditorWin(page: Page, root: string) {
   await page.evaluate((r) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === r);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(r).replace(/\\/g, '/'));
     if (!win) throw new Error('Editor 창이 없다: ' + r);
     a.switchWindow(win.id);
   }, root);
@@ -136,7 +136,7 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
 
     const made = j(notes, 'memo-v16.md');
     await expect.poll(() => fs.existsSync(made), { timeout: 10000 }).toBe(true);
-    await expect(page.locator(`.ed-tree .ed-row[data-path="${made}"]`)).toBeVisible();
+    await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(made)}"]`)).toBeVisible();
     fs.rmSync(made, { force: true });
   });
 
@@ -296,7 +296,7 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
     const made = j(PLAIN, 'v19-outside.txt');
     fs.writeFileSync(made, 'x\n');
     try {
-      await expect(page.locator(`.ed-tree .ed-row[data-path="${made}"]`))
+      await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(made)}"]`))
         .toBeVisible({ timeout: POLL_WAIT });
     } finally {
       fs.rmSync(made, { force: true });
@@ -309,11 +309,11 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
     await addEditor(request, PLAIN);
     await goto(page);
     await openEditorWin(page, PLAIN);
-    await expect(page.locator(`.ed-tree .ed-row[data-path="${doomed}"]`))
+    await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(doomed)}"]`))
       .toBeVisible({ timeout: 10000 });
 
     fs.rmSync(doomed);
-    await expect(page.locator(`.ed-tree .ed-row[data-path="${doomed}"]`))
+    await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(doomed)}"]`))
       .toHaveCount(0, { timeout: POLL_WAIT });
   });
 
@@ -322,14 +322,14 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
     await goto(page);
     await openEditorWin(page, PLAIN);
     const sub = j(PLAIN, 'sub');
-    await page.locator(`.ed-tree .ed-row[data-path="${sub}"]`).click();
-    await expect(page.locator(`.ed-tree .ed-row[data-path="${j(sub, 'inner.txt')}"]`))
+    await page.locator(`.ed-tree .ed-row[data-path="${cssPath(sub)}"]`).click();
+    await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(j(sub, 'inner.txt'))}"]`))
       .toBeVisible({ timeout: 10000 });
 
     const made = j(sub, 'v19-deep.txt');
     fs.writeFileSync(made, 'x\n');
     try {
-      await expect(page.locator(`.ed-tree .ed-row[data-path="${made}"]`))
+      await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(made)}"]`))
         .toBeVisible({ timeout: POLL_WAIT });
     } finally {
       fs.rmSync(made, { force: true });
@@ -356,11 +356,11 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
     await openEditorWin(page, PLAIN);
     const sub = j(PLAIN, 'sub');
     // 한 번 펼쳤다 접는다 — 캐시(`_kids`)는 남지만 화면에는 없다.
-    await page.locator(`.ed-tree .ed-row[data-path="${sub}"]`).click();
-    await expect(page.locator(`.ed-tree .ed-row[data-path="${j(sub, 'inner.txt')}"]`))
+    await page.locator(`.ed-tree .ed-row[data-path="${cssPath(sub)}"]`).click();
+    await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(j(sub, 'inner.txt'))}"]`))
       .toBeVisible({ timeout: 10000 });
-    await page.locator(`.ed-tree .ed-row[data-path="${sub}"]`).click();
-    await expect(page.locator(`.ed-tree .ed-row[data-path="${j(sub, 'inner.txt')}"]`))
+    await page.locator(`.ed-tree .ed-row[data-path="${cssPath(sub)}"]`).click();
+    await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(j(sub, 'inner.txt'))}"]`))
       .toHaveCount(0);
 
     const dirs = await page.evaluate(() =>
@@ -391,7 +391,7 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
     const made = j(notes, 'v23-outside.md');
     fs.writeFileSync(made, 'x\n');
     try {
-      await expect(page.locator(`.ed-tree .ed-row[data-path="${made}"]`))
+      await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(made)}"]`))
         .toBeVisible({ timeout: POLL_WAIT });
     } finally {
       fs.rmSync(made, { force: true });

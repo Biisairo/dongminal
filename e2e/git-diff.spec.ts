@@ -5,7 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath, realPath } from './osenv';
+import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_M1_STEP7_CONTRACT §4 — Diff 뷰 (D1~D10). 검증 V10·V11·V12·V26.
 //
@@ -27,7 +27,7 @@ const copyFx = makeCopyFx(FIXTURES);
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
 const diff = (page: Page) => page.locator('#area .pn-body .git-view.git-diff');
 const row = (page: Page, group: string, path: string) =>
-  changes(page).locator(`.git-group[data-group="${group}"] .git-file[data-path="${path}"]`);
+  changes(page).locator(`.git-group[data-group="${group}"] .git-file[data-path="${cssPath(path)}"]`);
 const tab = (page: Page, view: string) => page.locator(`#area .pn-tab[data-git-view="${view}"]`);
 
 const diffEditor = (page: Page) => diff(page).locator('.git-diff-body .monaco-diff-editor');

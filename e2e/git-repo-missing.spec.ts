@@ -5,7 +5,7 @@ import { join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, openGit, waitForInit, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath, realPath } from './osenv';
+import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_REPO_MISSING_SRS — 소실의 확정과 알림, 그리고 실패 백오프.
 // 검증 V-RMS-4~20.
@@ -183,7 +183,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m6');
     await waitForInit(page);
     await page.evaluate((r) => (window as any).app._gitPin(r), repo);
-    const row = page.locator(`#repo-entries .ed-entry[data-git-repo="${repo}"]`);
+    const row = page.locator(`#repo-entries .ed-entry[data-git-repo="${cssPath(repo)}"]`);
     await expect(row).toHaveCount(1, { timeout: UI_WAIT_MS });
 
     rmSync(repo, { recursive: true, force: true });

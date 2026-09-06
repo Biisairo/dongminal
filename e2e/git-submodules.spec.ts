@@ -6,7 +6,7 @@ import * as path from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, GIT_VIEW_TABS, GIT_BODY_VIEWS, clickGitView } from './fixtures';
-import { realPath } from './osenv';
+import { realPath, cssPath } from './osenv';
 
 /**
  * UX_BATCH5_SRS 묶음 D — Submodules 탭 (FR-SUB-1~11).
@@ -95,7 +95,7 @@ async function openSubmodules(page: Page, repo: string) {
 }
 
 const sub = (page: Page) => page.locator('#area .pn-body .git-view.git-submodules');
-const row = (page: Page, p: string) => sub(page).locator(`.git-sub-row[data-path="${p}"]`);
+const row = (page: Page, p: string) => sub(page).locator(`.git-sub-row[data-path="${cssPath(p)}"]`);
 const box = (page: Page) => page.locator('#git-confirm .gc-box');
 // Submodules 탭의 행. 위의 `row` 와 같은 것이지만 이름을 갈라 두어야
 // 어느 표면을 보는지가 시험 본문에서 읽힌다.

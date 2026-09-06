@@ -4,7 +4,6 @@ import { join } from 'path';
 
 import { test as base, expect } from '@playwright/test';
 
-import { slash } from './osenv';
 
 // FR-RST-10: 워크스페이스 리셋의 409 재시도 횟수. 겹침은 앞 테스트의 마지막
 // 저장 하나가 원인이므로 몇 번이면 충분하다 — 무한 재시도는 서버가 정말 바쁠 때
@@ -446,6 +445,27 @@ export async function openGit(page: any, repo: string) {
 }
 
 /**
+ * 편집기 목록에 루트를 더하고 **서버가 저장한 철자**를 돌려준다.
+ *
+ * 검사가 보낸 문자열과 서버가 저장하는 문자열은 같지 않을 수 있다 —
+ * `wsentry.NormalizePath` 가 `EvalSymlinks`+`Clean` 을 지나므로 심링크·짧은
+ * 이름(`RUNNER~1`)·구분자가 그 자리에서 바뀐다. 창을 찾는 쪽은 **문자열 완전
+ * 일치**이므로(`_edWindowFor`), 검사가 자기 철자를 들고 있으면 그 창을 영원히
+ * 찾지 못한다 (Windows CI 실측).
+ *
+ * 그래서 짐작하지 않고 **묻는다**. 목록에서 같은 자리를 가리키는 항목을 골라
+ * 그 값을 그대로 쓴다.
+ */
+export async function addEditorRoot(request: any, path: string): Promise<string> {
+  const r = await request.post('/api/editors/add', { data: { path } });
+  expect(r.ok(), `editors/add 실패: ${await r.text()}`).toBeTruthy();
+  const body = await r.json();
+  const key = (p: string) => String(p).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+  const hit = ((body.list || []) as string[]).find((e) => key(e) === key(path));
+  return hit || path;
+}
+
+/**
  * 검사용 저장소 픽스처를 세운다 (`e2e/git_fixture.sh`).
  *
  * 38개 스펙이 같은 두 줄을 복제하고 있었다. 한 자리로 모으는 이유는 **실패의 모양**
@@ -491,9 +511,9 @@ export function makeCopyFx(root: string) {
     // 그 자리는 Windows 러너의 PATH 에 없다 — 셸을 지나지 않는 이 자리에서는
     // 부를 수 없다 (CI_E2E_MATRIX_SRS FR-CEM-10 의 예외).
     cpSync(join(root, name), dst, { recursive: true });
-    // 서버가 내는 모양으로 돌려준다 (FR-CEM-11): `git rev-parse --show-toplevel`
-    // 은 Windows 에서도 슬래시를 쓴다. 화면의 값과 견주는 자리가 이 경로다.
-    return slash(realpathSync(dst));
+    // 서버가 저장하는 것과 같은 모양이다 (FR-CEM-11) — `EvalSymlinks` 를 지난 뒤의
+    // **그 OS 의 정규형**이다. 구분자를 바꾸지 않는 근거는 `osenv.realPath` 에 있다.
+    return realpathSync(dst);
   };
 }
 

@@ -4,7 +4,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, openGit, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath, realPath } from './osenv';
+import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_M2_STEP1011_CONTRACT §3 — 스테이징 클라이언트. 검증 V30·V32·V37
 // (E1·E2·E8 + FR-GIT-72).
@@ -29,7 +29,7 @@ const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-chang
 const group = (page: Page, key: string) => changes(page).locator(`.git-group[data-group="${key}"]`);
 const count = (page: Page, key: string) => group(page, key).locator('.git-group-count');
 const row = (page: Page, key: string, path: string) =>
-  group(page, key).locator(`.git-file[data-path="${path}"]`);
+  group(page, key).locator(`.git-file[data-path="${cssPath(path)}"]`);
 const allRows = (page: Page) => changes(page).locator('.git-files .git-file');
 
 // 인라인 동작 버튼은 자리를 늘 잡고 hover 에서만 보인다 — 클릭 전에 행 위로

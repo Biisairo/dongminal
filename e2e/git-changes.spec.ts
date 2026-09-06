@@ -5,7 +5,7 @@ import { join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, openRowMenu, openGit, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath, realPath } from './osenv';
+import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_M1_STEP56_CONTRACT §4 — Changes 탭. 검증 V22·V23·V24 + FR-GIT-36·39.
 //
@@ -289,11 +289,11 @@ test.describe('묶음 E — Changes 탭', () => {
 
     // 충돌 그룹에서 빠진다 — `checkout --ours` 만으로는 unmerged 가 남으므로
     // (실측) 여기서 빠졌다는 것이 곧 `add` 까지 갔다는 뜻이다.
-    await expect(group(page, 'conflicts').locator(`.git-file[data-path="${path}"]`))
+    await expect(group(page, 'conflicts').locator(`.git-file[data-path="${cssPath(path)}"]`))
       .toHaveCount(0, { timeout: 20000 });
     // ours 쪽이 HEAD 와 같으면 add 뒤 index == HEAD 라 **어느 그룹에도 없다** —
     // staged 를 단정하면 git 이 옳은데 테스트가 틀린다.
-    await expect(changes(page).locator(`.git-file[data-path="${path}"]`))
+    await expect(changes(page).locator(`.git-file[data-path="${cssPath(path)}"]`))
       .toHaveCount(0, { timeout: 10000 });
 
     // 워킹 트리가 ours 쪽 내용이다 — 충돌 표식이 남아 있으면 해결이 아니다.
@@ -315,7 +315,7 @@ test.describe('묶음 E — Changes 탭', () => {
     const box = page.locator('#git-confirm .gc-box');
     await expect(box).toBeVisible({ timeout: 10000 });
     await page.locator('#git-confirm .gc-go').click();
-    await expect(group(page, 'staged').locator(`.git-file[data-path="${path}"]`))
+    await expect(group(page, 'staged').locator(`.git-file[data-path="${cssPath(path)}"]`))
       .toBeVisible({ timeout: 20000 });
     expect(readFileSync(join(repo, path!), 'utf8')).not.toContain('<<<<<<<');
   });
@@ -335,7 +335,7 @@ test.describe('묶음 E — Changes 탭', () => {
     await page.locator('#git-confirm .gc-cancel').click();
 
     await page.waitForTimeout(1200);
-    await expect(group(page, 'conflicts').locator(`.git-file[data-path="${path}"]`))
+    await expect(group(page, 'conflicts').locator(`.git-file[data-path="${cssPath(path)}"]`))
       .toBeVisible();
     expect(readFileSync(join(repo, path!), 'utf8')).toBe(before);
   });

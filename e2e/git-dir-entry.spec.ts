@@ -6,7 +6,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, openGit as fxOpenGit } from './fixtures';
-import { realPath } from './osenv';
+import { realPath, cssPath } from './osenv';
 
 // GIT_DIR_ENTRY_SRS §4 — 디렉터리 상태 항목의 검증 V-DIR-10~42.
 //
@@ -99,7 +99,7 @@ async function goto(page: Page) {
 async function openEditor(page: Page, root: string) {
   await page.evaluate((r) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === r);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(r).replace(/\\/g, '/'));
     if (!win) throw new Error('Editor 창이 없다: ' + r);
     a.switchWindow(win.id);
   }, root);
@@ -114,12 +114,12 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
 }
 
 const row = (page: Page, p: string) =>
-  page.locator(`.ed-tree .ed-row[data-path="${p}"]`);
+  page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`);
 
 // 상태 클래스는 CSS 색표의 키다 (FR-STC-3) — 색값이 아니라 이것으로 잰다.
 const stClass = async (page: Page, p: string) =>
   page.evaluate((sel) => {
-    const el = document.querySelector(`.ed-tree .ed-row[data-path="${sel}"]`);
+    const el = document.querySelector(`.ed-tree .ed-row[data-path="${String(sel).replace(/\\/g, '\\\\')}"]`);
     if (!el) return null;
     return [...el.classList].filter((c) => c.startsWith('st-')).join(' ');
   }, p);
@@ -253,7 +253,7 @@ async function openGit(page: Page, repo: string) {
 }
 
 const fileRow = (page: Page, p: string) =>
-  changes(page).locator(`.git-file[data-path="${p}"]`);
+  changes(page).locator(`.git-file[data-path="${cssPath(p)}"]`);
 
 test.describe('묶음 G — Git 패널의 디렉터리 행', () => {
   test('G1 (V-DIR-20·26): 디렉터리 행에 `/` 가 붙고 파일 행에는 붙지 않는다',

@@ -3,7 +3,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, openGitTab, plainWindows, makeCopyFx, openGit, waitForInit, GIT_VIEW_TABS, clickGitView, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath, realPath } from './osenv';
+import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_UI_REVISION_SRS §4 — 검증 V70~V79.
 //
@@ -936,8 +936,8 @@ test.describe('UI 개정 — GIT 행 높이 (FR-GIT-219)', () => {
 async function dragPin(page: Page, src: string, dst: string, before = true) {
   await page.evaluate(({ s, d, b }) => {
     const dt = new DataTransfer();
-    const from = document.querySelector(`#repo-entries .ed-entry[data-git-repo="${s}"]`)!;
-    const to = document.querySelector(`#repo-entries .ed-entry[data-git-repo="${d}"]`)!;
+    const from = document.querySelector(`#repo-entries .ed-entry[data-git-repo="${String(s).replace(/\\/g, '\\\\')}"]`)!;
+    const to = document.querySelector(`#repo-entries .ed-entry[data-git-repo="${String(d).replace(/\\/g, '\\\\')}"]`)!;
     const r = to.getBoundingClientRect();
     const y = b ? r.top + 2 : r.bottom - 2;
     from.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
@@ -991,8 +991,8 @@ test.describe('UI 개정 — 핀 드래그 정렬 (FR-GIT-223)', () => {
     // 문서 전역이 drop 을 받고 마지막 dragover 가 기록한 대상으로 커밋한다.
     await page.evaluate(({ s, d }) => {
       const dt = new DataTransfer();
-      const from = document.querySelector(`#repo-entries .ed-entry[data-git-repo="${s}"]`)!;
-      const to = document.querySelector(`#repo-entries .ed-entry[data-git-repo="${d}"]`)!;
+      const from = document.querySelector(`#repo-entries .ed-entry[data-git-repo="${String(s).replace(/\\/g, '\\\\')}"]`)!;
+      const to = document.querySelector(`#repo-entries .ed-entry[data-git-repo="${String(d).replace(/\\/g, '\\\\')}"]`)!;
       const r = to.getBoundingClientRect();
       from.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
       to.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer: dt, clientY: r.bottom - 2 }));

@@ -4,8 +4,8 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
-import { realPath } from './osenv';
+import { test, expect, addEditorRoot } from './fixtures';
+import { realPath, cssPath } from './osenv';
 
 // SOFT_RELOAD_SRS §5 — V-SRL-1~9.
 //
@@ -198,8 +198,8 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
       const base = realPath(fs.mkdtempSync(path.join(os.tmpdir(), 'dm-srl-')));
       fs.mkdirSync(path.join(base, 'sub'));
       fs.writeFileSync(path.join(base, 'sub', 'a.txt'), 'A\n');
-      const r = await request.post('/api/editors/add', { data: { path: base } });
-      expect(r.ok(), `editors/add 실패: ${await r.text()}`).toBeTruthy();
+      // 서버가 저장한 철자를 그대로 받는다 — 창을 찾는 쪽은 문자열 완전 일치다.
+      const stored = await addEditorRoot(request, base);
 
       await enter(page);
       await page.waitForFunction(
@@ -207,13 +207,13 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
         undefined, { timeout: 15000 });
       await page.evaluate((root) => {
         const a = (window as any).app;
-        const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === root);
+        const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
         a.switchWindow(win.id);
-      }, base);
+      }, stored);
       await page.waitForSelector('.ed-win .ed-explorer .ed-tree', { timeout: 15000 });
       const sub = path.join(base, 'sub');
-      await page.locator(`.ed-tree .ed-row[data-path="${sub}"]`).click();
-      await expect(page.locator(`.ed-tree .ed-row[data-path="${path.join(sub, 'a.txt')}"]`))
+      await page.locator(`.ed-tree .ed-row[data-path="${cssPath(sub)}"]`).click();
+      await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(path.join(sub, 'a.txt'))}"]`))
         .toBeVisible({ timeout: 10000 });
 
       // 폴링을 세운다 — 3초 주기가 대신 읽어 주면 이 시험이 무엇을 재는지 알 수 없다.
@@ -224,12 +224,12 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
       fs.writeFileSync(path.join(sub, 'b.txt'), 'B\n');
       // 폴링이 서 있으므로 저절로는 오지 않는다.
       await page.waitForTimeout(1000);
-      await expect(page.locator(`.ed-tree .ed-row[data-path="${path.join(sub, 'b.txt')}"]`))
+      await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(path.join(sub, 'b.txt'))}"]`))
         .toHaveCount(0);
 
       await btn(page).click();
       // FR-EDT-64: 펼쳐진 겹만 다시 읽고 펼침은 보존된다.
-      await expect(page.locator(`.ed-tree .ed-row[data-path="${path.join(sub, 'b.txt')}"]`))
+      await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(path.join(sub, 'b.txt'))}"]`))
         .toBeVisible({ timeout: 15000 });
 
       fs.rmSync(base, { recursive: true, force: true });

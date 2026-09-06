@@ -6,6 +6,7 @@ import { basename, join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, openGitTab, waitForInit } from './fixtures';
+import { cssPath } from './osenv';
 
 // GIT_M1_STEP4_CONTRACT §4 — 좌측 GIT 섹션. 검증 V17·V16·V3·V7.
 //
@@ -53,7 +54,7 @@ async function pin(request: APIRequestContext, path: string) {
  * 배지 클래스(`.git-badge`)는 그대로다.
  */
 const pinned = (page: Page, root: string) =>
-  page.locator(`#repo-entries .ed-entry[data-git-repo="${root}"]`);
+  page.locator(`#repo-entries .ed-entry[data-git-repo="${cssPath(root)}"]`);
 
 test.describe('묶음 B — 좌측 GIT 섹션', () => {
   // FR-SBT-1·2·7 로 GIT 섹션은 **탭 뒤**로 옮겨졌다. 옛 `.git-sec-title` 은 사라지고

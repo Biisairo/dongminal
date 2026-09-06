@@ -6,7 +6,7 @@ import * as path from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath, realPath } from './osenv';
+import { tmpPath, realPath, cssPath } from './osenv';
 
 // 칸별 시선 — SLOT_VIEW_STATE_SRS §8
 //
@@ -547,7 +547,7 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
       undefined, { timeout: 15000 });
     const edWin = await page.evaluate((root) => {
       const a = (window as any).app;
-      const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === root);
+      const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
       if (!win) throw new Error('Editor 창이 없다: ' + root);
       a.switchWindow(win.id);
       return win.id;
@@ -565,7 +565,7 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
   }
 
   const rowIn = (page: Page, slot: number, p: string) =>
-    page.locator(`#area .slot[data-slot="${slot}"] .ed-row[data-path="${p}"]`);
+    page.locator(`#area .slot[data-slot="${slot}"] .ed-row[data-path="${cssPath(p)}"]`);
 
   // 이 묶음은 **X(관측과 시선)만** 재려 하므로 포커스를 명시적으로 옮긴 뒤 행을
   // 누른다. 비포커스 칸을 한 번 눌러도 듣는다는 것은 FR-SVS-61 의 요구이고
@@ -601,7 +601,7 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
     await slotAdd(page);
     await slotAdd(page);
     const edWin = await page.evaluate((root) =>
-      (window as any).app._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === root).id, ROOT);
+      (window as any).app._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/')).id, ROOT);
     for (let i = 0; i < 4; i++) await openInSlot(page, i, edWin);
     await renderNow(page);
     await page.waitForFunction(
@@ -650,7 +650,7 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
       () => document.querySelectorAll('#area .ed-explorer').length === 1,
       undefined, { timeout: 15000 });
 
-    await expect(page.locator(`#area .ed-row[data-path="${path.join(A, 'inside.txt')}"]`))
+    await expect(page.locator(`#area .ed-row[data-path="${cssPath(path.join(A, 'inside.txt'))}"]`))
       .toHaveCount(1);
     expect(await page.evaluate(() => (window as any).app._edTrees.size)).toBe(1);
     expect(await page.evaluate(() => (window as any).app._edStores.size)).toBe(1);
@@ -735,7 +735,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
   }
 
   const fileIn = (page: Page, slot: number, group: string, p: string) =>
-    page.locator(`#area .slot[data-slot="${slot}"] .git-view.git-changes .git-file[data-group="${group}"][data-path="${p}"]`);
+    page.locator(`#area .slot[data-slot="${slot}"] .git-view.git-changes .git-file[data-group="${group}"][data-path="${cssPath(p)}"]`);
 
   /**
    * FR-RTU-60: 패널의 키는 **(루트, 칸)** 이다 — 칸 번호 하나가 아니다.
@@ -975,7 +975,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
       undefined, { timeout: 15000 });
     const edWin = await page.evaluate((root) => {
       const a = (window as any).app;
-      const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === root);
+      const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
       a.switchWindow(win.id);
       return win.id;
     }, ROOT);

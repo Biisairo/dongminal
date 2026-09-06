@@ -6,6 +6,7 @@ import { join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, waitForInit } from './fixtures';
+import { cssPath } from './osenv';
 
 // 상단의 창 이름은 **지금 무엇을 보고 있는지**를 말해야 한다. Window·Editor 는
 // 창 자체가 대상이라 저장된 이름이 곧 목록의 이름인데, Git 창만 `Git` 으로
@@ -31,7 +32,7 @@ async function pin(request: APIRequestContext, path: string) {
 const topName = (page: Page) => page.locator('#window-name');
 // 사이드바 목록이 그 리포를 부르는 이름 — 상단이 맞춰야 할 값이다.
 const listName = (page: Page, root: string) =>
-  page.locator(`#repo-entries .ed-entry[data-git-repo="${root}"] .ed-entry-name`);
+  page.locator(`#repo-entries .ed-entry[data-git-repo="${cssPath(root)}"] .ed-entry-name`);
 
 test.describe('Git 창의 상단 이름', () => {
   test('상단 이름이 지금 보고 있는 리포다 — 목록과 같은 이름으로', async ({ page, request }) => {

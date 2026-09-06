@@ -5,7 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, openGit, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath } from './osenv';
+import { tmpPath, cssPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.7 묶음 G — 부분 스테이징 (FR-GIT-278·279).
 // DIFF_HUNK_BAR_SRS 묶음 R·B·S·W — 검증 V-DHB-1~13.
@@ -60,7 +60,7 @@ const worktreeOf = (repo: string) => readFileSync(join(repo, 'f.txt'), 'utf8');
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
 const diff = (page: Page) => page.locator('#area .pn-body .git-view.git-diff');
 const row = (page: Page, group: string, path: string) =>
-  changes(page).locator(`.git-group[data-group="${group}"] .git-file[data-path="${path}"]`);
+  changes(page).locator(`.git-group[data-group="${group}"] .git-file[data-path="${cssPath(path)}"]`);
 const tab = (page: Page, view: string) => page.locator(`#area .pn-tab[data-git-view="${view}"]`);
 
 // 새 표면 셋. 툴바는 Monaco 의 content widget 이므로 에디터 안(또는 오버플로

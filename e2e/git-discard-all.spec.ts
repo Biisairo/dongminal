@@ -4,7 +4,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath } from './osenv';
+import { tmpPath, cssPath } from './osenv';
 
 // WORKBENCH_REVIEW_SRS 묶음 D — `Changes`·`Untracked` 의 Discard All
 // (FR-WBR-50~56, 검증 V-WBR-50~57).
@@ -35,7 +35,7 @@ const bulk = (page: Page, key: string) => group(page, key).locator('.git-group-b
 const bulkAct = (page: Page, key: string, act: string) =>
   group(page, key).locator(`.git-group-bulk[data-act="${act}"]`);
 const row = (page: Page, key: string, path: string) =>
-  group(page, key).locator(`.git-file[data-path="${path}"]`);
+  group(page, key).locator(`.git-file[data-path="${cssPath(path)}"]`);
 const box = (page: Page) => page.locator('#git-confirm .gc-box');
 
 // 한글 파일 이름은 픽스처가 정한다 — 여기서 되풀이하지 않는다.

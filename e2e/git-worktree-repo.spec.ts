@@ -6,7 +6,7 @@ import { join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath, realPath } from './osenv';
+import { tmpPath, realPath, cssPath } from './osenv';
 
 /**
  * UX_BATCH5_SRS 묶음 E — 워크트리를 **그 자체 저장소로** 다루는 경로 (FR-WTG-1).
@@ -192,8 +192,8 @@ test.describe('묶음 E — 워크트리를 저장소로 (FR-WTG-1 확정)', () 
       await expect(wt).toBeVisible({ timeout: 10000 });
 
       // 둘 다 선다. main 표식은 **원본**에 붙는다 — 워크트리에서 봐도 그렇다.
-      await expect(wt.locator(`.git-wt-row[data-path="${wtPath}"]`)).toBeVisible({ timeout: 15000 });
-      const mainRow = wt.locator(`.git-wt-row[data-path="${repo}"]`);
+      await expect(wt.locator(`.git-wt-row[data-path="${cssPath(wtPath)}"]`)).toBeVisible({ timeout: 15000 });
+      const mainRow = wt.locator(`.git-wt-row[data-path="${cssPath(repo)}"]`);
       await expect(mainRow).toBeVisible();
       await expect(mainRow).toHaveClass(/\bmain\b/);
     });
@@ -217,7 +217,7 @@ test.describe('묶음 E — 워크트리를 저장소로 (FR-WTG-1 확정)', () 
     await page.evaluate(() => (window as any).app.gitPanel.openView('worktrees'));
     const wt = page.locator('#area .pn-body .git-view.git-worktrees');
     await expect(wt).toBeVisible({ timeout: 10000 });
-    const row = wt.locator(`.git-wt-row[data-path="${wtPath}"]`);
+    const row = wt.locator(`.git-wt-row[data-path="${cssPath(wtPath)}"]`);
     await expect(row).toBeVisible({ timeout: 15000 });
 
     const open = row.locator('.git-wt-act[data-act="open"]');

@@ -6,7 +6,7 @@ import { join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath, realPath } from './osenv';
+import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_REVIEW4_SRS §3.6.5 — I7 Worktrees 탭. 검증 V143~V152 (FR-GIT-28 개정·240~245).
 // V145·V148·V159 는 Go 단위 테스트다(다른 담당). V153·V154·V157·V160 은 이미 끝났다.
@@ -485,7 +485,7 @@ test.describe('묶음 N — Worktrees 행의 핀 토글 (FR-GIT-249)', () => {
     // 좌측 GIT 섹션의 × 로 푼다 — Worktrees 탭이 부른 것이 아니다. 상태 관측은
     // 그대로이므로, 판정이 그리기에 업혀 있으면 버튼이 낡은 채로 남는다 (FR-RPT-8).
     // FR-RTU-1: 목록 행은 `.ed-entry` 이고 제거는 `.ed-entry-x` 다 (D-RTU-2).
-    const x = page.locator(`#repo-entries .ed-entry[data-git-repo="${wtPath}"] .ed-entry-x`);
+    const x = page.locator(`#repo-entries .ed-entry[data-git-repo="${cssPath(wtPath)}"] .ed-entry-x`);
     await expect(x, '사이드바에 핀 행이 없다').toHaveCount(1, { timeout: 15000 });
     await x.click();
     await expect.poll(async () => (await pinned(request)).includes(wtPath), { timeout: 10000 }).toBe(false);

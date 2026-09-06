@@ -6,7 +6,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
-import { realPath } from './osenv';
+import { realPath, cssPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M3(파일 탐색기) · M4(탐색기의 git 색)의 검증 V-EDT-40~56.
 //
@@ -132,7 +132,7 @@ async function goto(page: Page) {
 async function openEditor(page: Page, root: string) {
   await page.evaluate((r) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === r);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(r).replace(/\\/g, '/'));
     if (!win) throw new Error('Editor 창이 없다: ' + r);
     a.switchWindow(win.id);
   }, root);
@@ -148,7 +148,7 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
 }
 
 const rows = (page: Page) => page.locator('.ed-tree .ed-row');
-const row = (page: Page, p: string) => page.locator(`.ed-tree .ed-row[data-path="${p}"]`);
+const row = (page: Page, p: string) => page.locator(`.ed-tree .ed-row[data-path="${String(p).replace(/\\/g, '\\\\')}"]`);
 const names = (page: Page) =>
   page.evaluate(() => [...document.querySelectorAll('.ed-tree .ed-row')]
     .map((e) => (e as HTMLElement).dataset.path!.split('/').pop()));
@@ -166,7 +166,7 @@ const varColor = (page: Page, name: string) =>
 
 const nameColor = (page: Page, p: string) =>
   page.evaluate((sel) => {
-    const el = document.querySelector(`.ed-tree .ed-row[data-path="${sel}"] .ed-name`);
+    const el = document.querySelector(`.ed-tree .ed-row[data-path="${String(sel).replace(/\\/g, '\\\\')}"] .ed-name`);
     return el ? getComputedStyle(el).color : '';
   }, p);
 
@@ -303,7 +303,7 @@ test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
       return t.scrollTop;
     }), { timeout: 5000 }).toBe(before);
     const el = await page.evaluateHandle(
-      (p) => document.querySelector(`.ed-tree .ed-row[data-path="${p}"]`),
+      (p) => document.querySelector(`.ed-tree .ed-row[data-path="${String(p).replace(/\\/g, '\\\\')}"]`),
       j(REPO, 'bulk', 'f10.txt'));
 
     const poll = await page.evaluate(() => EDITOR_GIT_POLL_MS);
@@ -318,7 +318,7 @@ test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
     // FR-EDT-68: 값이 그대로면 요소도 그대로여야 한다 — 다시 만들면 hover 와
     // 진행 중인 조작이 함께 사라진다.
     expect(await page.evaluate(
-      (e) => e === document.querySelector(`.ed-tree .ed-row[data-path="${(e as HTMLElement).dataset.path}"]`),
+      (e) => e === document.querySelector(`.ed-tree .ed-row[data-path="${String((e as HTMLElement).dataset.path).replace(/\\/g, '\\\\')}"]`),
       el)).toBe(true);
   });
 });

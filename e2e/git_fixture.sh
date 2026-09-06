@@ -130,7 +130,11 @@ say many-files "변경 파일 2000개"
 # ── 8. 대량 커밋 + 분기·머지 — FR-GIT-114~120, V46/V48 ──
 # fast-import 로 만든다. commit --allow-empty 를 1만 번 돌리면 수십 초가 걸린다.
 d=$(init many-commits)
-"$PY_BIN" - "$d" <<'PY'
+# `PYTHONIOENCODING` 은 이 스크립트가 한국어를 찍기 때문이다. Windows 의 파이썬은
+# stdout 을 그 기계의 코드 페이지(cp1252·cp949)로 인코딩하고, 그 표에 없는 글자를
+# 만나면 `UnicodeEncodeError` 로 죽는다 — 마지막 한 줄의 진행 보고가 픽스처 전체를
+# 쓰러뜨렸다(Windows CI 실측). `set -e` 때문에 그 뒤의 픽스처도 서지 않는다.
+PYTHONIOENCODING=utf-8 "$PY_BIN" - "$d" <<'PY'
 import subprocess, sys, time
 repo = sys.argv[1]
 N = 10000

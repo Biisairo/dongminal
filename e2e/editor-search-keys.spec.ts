@@ -5,7 +5,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
-import { realPath } from './osenv';
+import { realPath, cssPath } from './osenv';
 
 // EDITOR_GIT_UX_SRS §4 — V-EKB-3~6 (FR-EKB-5·6).
 //
@@ -42,7 +42,7 @@ async function enter(page: Page, request: APIRequestContext) {
     undefined, { timeout: 15000 });
   await page.evaluate((root) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === root);
+    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
     if (!win) throw new Error('Editor 창이 없다: ' + root);
     a.switchWindow(win.id);
   }, ROOT);
@@ -103,7 +103,7 @@ test('터미널 창의 Mod+F 는 종전대로 터미널 검색이다', async ({ 
 test('전체 검색으로 연 파일의 조상 폴더가 모두 펼쳐진다', async ({ page, request }) => {
   await enter(page, request);
   // 깊은 겹은 아직 접혀 있다 — 이것이 출발점이다.
-  await expect(page.locator(`.ed-tree .ed-row[data-path="${ROOT}/aa/bb/cc/deep.txt"]`)).toHaveCount(0);
+  await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(j(ROOT, 'aa', 'bb', 'cc', 'deep.txt'))}"]`)).toHaveCount(0);
 
   await page.keyboard.press('Control+Shift+f');
   await expect(panel(page)).toBeVisible({ timeout: 5000 });
@@ -112,17 +112,17 @@ test('전체 검색으로 연 파일의 조상 폴더가 모두 펼쳐진다', a
   await page.locator('.ed-find-row').first().click();
 
   for (const p of [`${ROOT}/aa`, `${ROOT}/aa/bb`, `${ROOT}/aa/bb/cc`, `${ROOT}/aa/bb/cc/deep.txt`]) {
-    await expect(page.locator(`.ed-tree .ed-row[data-path="${p}"]`)).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`)).toBeVisible({ timeout: 10000 });
   }
   // 연 파일은 선택으로 표시된다 — 어느 것을 열었는지가 보여야 한다.
-  await expect(page.locator(`.ed-tree .ed-row[data-path="${ROOT}/aa/bb/cc/deep.txt"]`))
+  await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(j(ROOT, 'aa', 'bb', 'cc', 'deep.txt'))}"]`))
     .toHaveClass(/\bsel\b/);
 });
 
 // FR-EKB-6: 파일 검색(quick open)으로 열어도 같다 — 두 검색이 갈리면 한쪽만 고쳐진다.
 test('파일 검색으로 연 파일도 탐색기에서 보인다', async ({ page, request }) => {
   await enter(page, request);
-  await expect(page.locator(`.ed-tree .ed-row[data-path="${ROOT}/aa/bb/cc/deep.txt"]`)).toHaveCount(0);
+  await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(j(ROOT, 'aa', 'bb', 'cc', 'deep.txt'))}"]`)).toHaveCount(0);
 
   await page.keyboard.press('Control+p');
   await expect(panel(page)).toBeVisible({ timeout: 5000 });
@@ -130,6 +130,6 @@ test('파일 검색으로 연 파일도 탐색기에서 보인다', async ({ pag
   await expect(page.locator('.ed-find-row').first()).toBeVisible({ timeout: 10000 });
   await page.locator('.ed-find-row').first().click();
 
-  await expect(page.locator(`.ed-tree .ed-row[data-path="${ROOT}/aa/bb/cc/deep.txt"]`))
+  await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(j(ROOT, 'aa', 'bb', 'cc', 'deep.txt'))}"]`))
     .toBeVisible({ timeout: 10000 });
 });

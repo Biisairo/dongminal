@@ -6,7 +6,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
-import { realPath } from './osenv';
+import { realPath, cssPath } from './osenv';
 
 // REPO_TAB_UNIFY_SRS §4 — diff 편집의 검증 V-RTU-50~56.
 //
@@ -61,7 +61,8 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
     undefined, { timeout: 15000 });
   await page.evaluate((x) => {
     const a = (window as any).app;
-    const win = a._edWindows().find((s: any) => s.editor && s.editor.root === x);
+    const win = a._edWindows().find((s: any) => s.editor
+      && String(s.editor.root).replace(/\\/g, '/') === String(x).replace(/\\/g, '/'));
     if (!win) throw new Error('Repo 창이 없다: ' + x);
     a.switchWindow(win.id);
   }, root);
@@ -77,7 +78,7 @@ declare const GIT_AXIS_READONLY_WHY: Record<string, string>;
 declare const GIT_AXIS: Record<string, string>;
 
 const row = (page: Page, group: string, p: string) =>
-  page.locator(`#area .ed-side .git-group[data-group="${group}"] .git-file[data-path="${p}"]`);
+  page.locator(`#area .ed-side .git-group[data-group="${group}"] .git-file[data-path="${cssPath(p)}"]`);
 const diffTab = (page: Page) => page.locator('#area .ed-area .pn-tab[data-git-view="diff"]');
 const modified = (page: Page) =>
   page.locator('#area .ed-area .git-diff .monaco-diff-editor .editor.modified');

@@ -6,7 +6,7 @@ import * as path from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, openGit as fxOpenGit } from './fixtures';
-import { realPath } from './osenv';
+import { realPath, cssPath } from './osenv';
 
 // SUBMODULE_DIRTY_NOTICE_SRS §5 — 검증 V-SDN-*.
 //
@@ -92,7 +92,7 @@ async function goto(page: Page) {
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
 const diffView = (page: Page) => page.locator('#area .pn-body .git-view.git-diff');
 const fileRow = (page: Page, p: string) =>
-  changes(page).locator(`.git-file[data-path="${p}"]`);
+  changes(page).locator(`.git-file[data-path="${cssPath(p)}"]`);
 
 async function openGit(page: Page, repo: string) {
   await goto(page);

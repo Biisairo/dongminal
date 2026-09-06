@@ -6,7 +6,7 @@ import * as path from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath, realPath } from './osenv';
+import { tmpPath, realPath, cssPath } from './osenv';
 
 // WORKBENCH_REVIEW_SRS 묶음 F — git Changes 의 폴더 단위 스테이징
 // (FR-WBR-80~84, 검증 V-WBR-80~84).
@@ -107,9 +107,9 @@ const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-chang
 const group = (page: Page, key: string) => changes(page).locator(`.git-group[data-group="${key}"]`);
 const count = (page: Page, key: string) => group(page, key).locator('.git-group-count');
 const dir = (page: Page, key: string, p: string) =>
-  group(page, key).locator(`.git-dir[data-dir="${p}"]`);
+  group(page, key).locator(`.git-dir[data-dir="${cssPath(p)}"]`);
 const row = (page: Page, key: string, p: string) =>
-  group(page, key).locator(`.git-file[data-path="${p}"]`);
+  group(page, key).locator(`.git-file[data-path="${cssPath(p)}"]`);
 // 파괴적 확인은 한 자리를 지난다 (CONFIRM_ONE_STAGE_SRS) — 폴더 폐기도 같은 창이다.
 const box = (page: Page) => page.locator('#git-confirm .gc-box');
 

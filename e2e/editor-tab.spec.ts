@@ -426,7 +426,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
       const dupB = { id: 'zzzz-zzz', name: '~', type: 'editor', editor: { root }, layout: null };
       a.ws.windows.push(dupB, dupA);
       a._edReconcile();
-      const left = a.ws.windows.filter((w: any) => w.type === 'editor' && String(w.editor.root).replace(/\\/g, '/') === root);
+      const left = a.ws.windows.filter((w: any) => w.type === 'editor' && String(w.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
       return { n: left.length, id: left[0] && left[0].id, origId: orig.id };
     });
     expect(kept.n).toBe(1);

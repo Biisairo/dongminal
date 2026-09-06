@@ -6,6 +6,7 @@ import { join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, waitForInit } from './fixtures';
+import { cssPath } from './osenv';
 
 // 브라우저 쪽 전역 렉시컬 바인딩 (classic script 의 최상위 `const`).
 declare const THEMES: Record<string, { ui: Record<string, string> }>;
@@ -34,7 +35,7 @@ async function pin(request: APIRequestContext, path: string) {
 const topName = (page: Page) => page.locator('#window-name');
 const head = (page: Page, i: number) => page.locator(`#area .slot[data-slot="${i}"] .slot-head`);
 const listName = (page: Page, root: string) =>
-  page.locator(`#repo-entries .ed-entry[data-git-repo="${root}"] .ed-entry-name`);
+  page.locator(`#repo-entries .ed-entry[data-git-repo="${cssPath(root)}"] .ed-entry-name`);
 
 const slotAdd = (page: Page) => page.evaluate(() => (window as any).app.slotAdd());
 const slotRemove = (page: Page) => page.evaluate(() => (window as any).app.slotRemove());

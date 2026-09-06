@@ -6,7 +6,7 @@ import { join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, openGitTab, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as fxWaitForInit, openGit, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath, realPath } from './osenv';
+import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_REVIEW4_SRS §3.6.1~§3.6.4 — 개선 I1~I4. 검증 V132~V142
 // (FR-GIT-236~239).
@@ -72,7 +72,7 @@ async function pin(request: APIRequestContext, path: string) {
   return (await r.json()).root as string;
 }
 const pinned = (page: Page, root: string) =>
-  page.locator(`#repo-entries .ed-entry[data-git-repo="${root}"]`);
+  page.locator(`#repo-entries .ed-entry[data-git-repo="${cssPath(root)}"]`);
 async function cd(page: Page, dir: string) {
   await page.keyboard.type(`cd ${dir}`);
   await page.keyboard.press('Enter');
