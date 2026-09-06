@@ -26,7 +26,9 @@ const SLOT_DIR_DEFAULT='horizontal';     // FR-WSL-80
 // FR-WSL-81: 토글에 적히는 **지금 값**이다. 고를 목록이 아니라 현재 상태이므로
 // 그림과 말이 함께 있어야 한다 — 그림만으로는 어느 쪽이 켜진 것인지 모른다.
 const SLOT_DIR_LABEL={horizontal:'▐▌ 가로',vertical:'▀▄ 세로'};
-const SLOT_DIR_TITLE={horizontal:'좌우로 나눔 — 누르면 위아래로',vertical:'위아래로 나눔 — 누르면 좌우로'};
+// FR-TIP-2: 라벨은 지금 상태를, 툴팁은 누르면 무엇이 되는지를 말한다.
+const SLOT_DIR_TITLE={horizontal:'Split side by side — click to split top and bottom',
+  vertical:'Split top and bottom — click to split side by side'};
 
 Object.assign(App.prototype, {
   // ── 상태 (FR-WSL-73) ──

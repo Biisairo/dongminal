@@ -32,6 +32,9 @@ const SB_TAB_KEY='sidebarTab'; // FR-SBT-6: 보는 방식은 클라이언트의 
 const SB_TAB_DEFS=[
   {
     id:'windows',label:'Windows',panelId:'sb-panel-windows',
+    // FR-TIP-1·2: 무슨 탭인지 영어로 알린다. 라벨만으로는 이 목록이
+    // **무엇의** 목록인지 처음 보는 사용자에게 보이지 않는다.
+    title:'Terminal windows in this workspace',
     // FR-SBT-13: 알람이 있는 창 수. `.si.attn` 이 목록 안에서만 알리던 것을 탭까지 끌어올린다.
     badge:app=>app._plainWindows().filter(s=>app._windowHasAttn(s)).length,
     // FR-SBT-22·23: 마지막으로 활성이었던 일반 창. 대상 계산은 `_gitBackTarget`
@@ -107,6 +110,7 @@ const SB_TAB_DEFS=[
      * `sidebarTab3` 은 파생이 사라지면서 함께 사라진다 (FR-RTU-7).
      */
     id:REPO_TAB_ID,label:REPO_TAB_LABEL,panelId:REPO_PANEL_ID,
+    title:'Repositories and folders opened as editor windows',
     // FR-EDT-120: 목록의 원천은 `/api/editors` 다 — 그것이 없으면 행을 만들 수
     // 없다. **git 이 없는 것은 사유가 되지 않는다** (FR-RTU-9 / D-RTU-12):
     // 탐색기와 편집기는 git 없이 성립하고, 그때 Changes 사이드가 사유를 보인다.
@@ -347,6 +351,8 @@ const SidebarTabs={
   build(app,d){
     const b=document.createElement('button');
     b.className='sb-tab';b.dataset.panel=d.id;b.type='button';b.setAttribute('role','tab');
+    // FR-TIP-1: 문자열은 탭 정의가 든다 — 만드는 자리에 적으면 표가 두 벌이 된다.
+    if(d.title) b.title=d.title;
     const l=document.createElement('span');l.className='sb-tab-label';l.textContent=d.label;
     const g=document.createElement('span');g.className='sb-tab-badge';g.hidden=true;
     b.appendChild(l);b.appendChild(g);

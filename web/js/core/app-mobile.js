@@ -92,7 +92,7 @@ Object.assign(App.prototype, {
     const sb=document.getElementById('sidebar');
     if(sb && !sb.querySelector('.drawer-close')){
       const xb=document.createElement('button');
-      xb.className='drawer-close';xb.textContent='✕';xb.title='닫기';
+      xb.className='drawer-close';xb.textContent='✕';xb.title='Close the sidebar';
       xb.addEventListener('click',()=>{this._toggleDrawer(false);this._rTopbar()});
       sb.insertBefore(xb, sb.firstChild);
     }
@@ -151,7 +151,10 @@ Object.assign(App.prototype, {
       '↑':'Arrow Up','↓':'Arrow Down','←':'Arrow Left','→':'Arrow Right',
       '|':'Pipe','~':'Tilde','/':'Slash','-':'Hyphen',
       'Home':'Home','End':'End','PgUp':'Page Up','PgDn':'Page Down',
-      '⌨':'키보드 내리기',
+      // UX_BATCH5_SRS FR-TIP-2: 이 표의 나머지 열다섯은 이미 영어다 — 하나만
+      // 한국어인 것이 표의 일관성을 깨고 있었다. long-press 툴팁도 같은 값을
+      // 쓰므로 접수한 말("영어로 무슨 버튼인지")이 그대로 성립한다.
+      '⌨':'Dismiss keyboard',
     };
     this._modKbd={ctrl:false,alt:false};
     const refresh=()=>this._mkbRefresh();

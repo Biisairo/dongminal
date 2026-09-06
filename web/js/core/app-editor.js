@@ -852,7 +852,9 @@ Object.assign(App.prototype, {
       }
       const btns=document.createElement('div'); btns.className='confirm-btns';
       const ok=document.createElement('button'); ok.className='confirm-ok'; ok.textContent=okLabel;
+      ok.title=TIP_DEL_OK;
       const no=document.createElement('button'); no.className='confirm-cancel'; no.textContent=EDITOR_DEL_CANCEL;
+      no.title=TIP_DEL_CANCEL;
       btns.appendChild(ok); btns.appendChild(no);
       box.appendChild(msg); box.appendChild(btns); ov.appendChild(box);
       document.body.appendChild(ov);

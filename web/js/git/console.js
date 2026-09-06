@@ -37,7 +37,8 @@ class GitConsole {
       '</div>'+
       '<div class="git-con-list"></div>';
     el.querySelector('.git-con-reads span').textContent=GIT_CON_READS_LABEL;
-    el.querySelector('.git-con-refresh').textContent=GIT_CON_REFRESH;
+    const conRf=el.querySelector('.git-con-refresh');
+    conRf.textContent=GIT_CON_REFRESH; conRf.title=GIT_CON_REFRESH_TITLE;
     el.querySelector('.git-con-reads input').addEventListener('change',ev=>{
       this._reads=!!ev.target.checked;
       this._paintList();

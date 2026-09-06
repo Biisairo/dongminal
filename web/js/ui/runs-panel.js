@@ -180,7 +180,8 @@ Object.assign(RunsPanel.prototype, {
   _runsDelBtn(rv) {
     const btn = document.createElement('button');
     btn.className = 'tbtn runs-del'; btn.textContent = '삭제';
-    btn.title = `Run ${rv.short || ''} 을 목록과 기록에서 지운다`;
+    // FR-TIP-2: 툴팁은 영어다. 어느 Run 인지는 라벨 옆의 행이 이미 말한다.
+    btn.title = TIP_RUNS_DEL;
     btn.dataset.runid = rv.id;
     btn.addEventListener('click', e => { e.stopPropagation(); this._runsConfirmSet(rv.id) });
     return btn;
@@ -196,10 +197,10 @@ Object.assign(RunsPanel.prototype, {
       ? '삭제? 진행 중인 Run 이며 기록도 함께 사라진다.'
       : '삭제? 기록이 사라진다.'));
     const yes = document.createElement('button');
-    yes.className = 'tbtn runs-yes'; yes.textContent = '예';
+    yes.className = 'tbtn runs-yes'; yes.textContent = '예'; yes.title = TIP_RUNS_YES;
     yes.addEventListener('click', e => { e.stopPropagation(); this._runsDelete(rv.id) });
     const no = document.createElement('button');
-    no.className = 'tbtn runs-no'; no.textContent = '아니오';
+    no.className = 'tbtn runs-no'; no.textContent = '아니오'; no.title = TIP_RUNS_NO;
     no.addEventListener('click', e => { e.stopPropagation(); this._runsConfirmSet(null) });
     wrap.appendChild(yes); wrap.appendChild(no);
     return wrap;

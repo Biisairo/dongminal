@@ -45,10 +45,18 @@
 /* FR-RTU-20·21: 진입점 아이콘 줄. Changes 탭에서만 서며 커밋 입력보다 위다 —
    세로 순서가 곧 사용 빈도의 순서는 아니지만, 이 줄은 높이가 고정이라 목록의
    스크롤에 밀리지 않는 자리에 있어야 한다. */
-.ed-side-acts{display:flex;flex:0 0 auto;gap:2px;padding:3px 4px;
+/* UX_BATCH5_SRS FR-SUB-6: 진입점이 일곱이 됐다 (Submodules 추가).
+   **줄바꿈을 켠다.** 종전에는 `flex:1 1 0; min-width:0` 으로 균등 분할했는데,
+   그러면 개수가 늘 때마다 폭이 줄어 히트 영역 하한(FR-GIT-226, 30px)을 조용히
+   깬다 — 일곱째에서 실제로 28px 이 됐다(실측, V80 이 잡았다). 하한을 기준 폭으로
+   두고 wrap 을 켜면 좁을 때 줄이 늘 뿐 버튼이 작아지지 않는다.
+   줄이 늘어도 `flex:0 0 auto` 라 목록의 스크롤에 밀리지 않는다 — FR-RTU-21 이
+   요구한 것은 "고정 높이" 가 아니라 그 성질이다. */
+.ed-side-acts{display:flex;flex-wrap:wrap;flex:0 0 auto;gap:2px;padding:3px 4px;
   border-bottom:1px solid var(--border)}
 .ed-side-act{
-  flex:1 1 0;min-width:0;min-height:30px;padding:2px 0;font-size:12px;line-height:1.4;
+  flex:1 1 var(--git-hit);min-width:var(--git-hit);min-height:30px;
+  padding:2px 0;font-size:12px;line-height:1.4;
   background:transparent;border:1px solid transparent;border-radius:3px;
   color:var(--text-muted);cursor:pointer;
 }

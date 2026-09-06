@@ -124,6 +124,9 @@ const LSP_MISSING='없음';
 // 사용자가 다음에 할 일을 알려주지 않는다.
 const LSP_NO_TOOL='%s 가 없어 받을 수 없습니다';
 const LSP_INSTALL='받기';
+// FR-TIP-1: 라벨은 한 낱말이라 무엇을 받는지 말하지 않는다. 라벨 자체는
+// 그대로다 (FR-TIP-3) — 툴팁만 더한다.
+const LSP_INSTALL_TITLE='Download and install this language server';
 const LSP_INSTALLING='받는 중…';
 const LSP_STATUS_FAIL='언어 서버 상태를 읽지 못했습니다';
 const LSP_UNAVAILABLE='이 서버는 코드 탐색을 제공하지 않습니다';
@@ -227,9 +230,11 @@ const FS_STAMP_MAX=512;
 // 이름(`Changes`)도 영어이고, 한 화면에서 두 언어가 섞이지 않는다.
 const REPO_SIDE_EXPLORER='explorer';
 const REPO_SIDE_CHANGES='changes';
+// UX_BATCH5_SRS FR-TIP-1·2: 툴팁은 정의 표가 든다 — 그리는 자리에 적으면 표가
+// 두 벌이 된다 (FR-TIP-4).
 const REPO_SIDE_TABS=[
-  {id:REPO_SIDE_EXPLORER,label:'Explorer'},
-  {id:REPO_SIDE_CHANGES, label:'Changes'},
+  {id:REPO_SIDE_EXPLORER,label:'Explorer',title:'Browse files in this repository'},
+  {id:REPO_SIDE_CHANGES, label:'Changes', title:'Uncommitted changes in this repository'},
 ];
 const REPO_SIDE_DEFAULT=REPO_SIDE_EXPLORER;
 
@@ -274,7 +279,7 @@ const EDITOR_TREE_REFRESH=
   '<path d="M13.6 8A5.6 5.6 0 1 1 11.9 4"/>'+
   '<path d="M13.8 1.9v3.3h-3.3"/>'+
   '</svg>';
-const EDITOR_TREE_REFRESH_TITLE='새로고침 (펼친 폴더만 다시 읽습니다)';
+const EDITOR_TREE_REFRESH_TITLE='Refresh the tree (re-reads expanded folders only)';
 // FR-EDT-65: 상한을 넘긴 폴더. **조회는 실패하지 않는다** — 잘렸다는 사실만 알린다.
 const EDITOR_TREE_TRUNCATED='%s개 이상 — 잘림';
 // FR-EDT-63: 조회 실패는 그 폴더 행에만 남고 트리를 깨뜨리지 않는다.
@@ -324,14 +329,14 @@ const EDITOR_TREE_NEW_FILE=
   '<path d="M9 1.6V5.2h3.6"/>'+
   '<path d="M11.6 10.2v4.4M9.4 12.4h4.4"/>'+
   '</svg>';
-const EDITOR_TREE_NEW_FILE_TITLE='새 파일 (선택한 폴더 아래)';
+const EDITOR_TREE_NEW_FILE_TITLE='New file in the selected folder';
 const EDITOR_TREE_NEW_DIR=
   '<svg viewBox="0 0 16 16" aria-hidden="true">'+
   '<path d="M1.8 12.6V3.6a1.1 1.1 0 0 1 1.1-1.1h2.7l1.4 1.8h6.2a1.1 1.1 0 0 1 1.1 1.1V8"/>'+
   '<path d="M1.8 12.6a1.1 1.1 0 0 0 1.1 1.1H8"/>'+
   '<path d="M11.6 10.2v4.4M9.4 12.4h4.4"/>'+
   '</svg>';
-const EDITOR_TREE_NEW_DIR_TITLE='새 폴더 (선택한 폴더 아래)';
+const EDITOR_TREE_NEW_DIR_TITLE='New folder in the selected folder';
 // 머리 버튼이 그림으로 넣어도 되는 값의 **전부**다. 화이트리스트로 두는 이유는
 // "우리가 쓴 상수뿐" 이라는 사실을 주석이 아니라 코드가 보장하게 하기 위해서다 —
 // 나중에 사용자 입력이 그 자리에 닿아도 그림이 되지 않는다.

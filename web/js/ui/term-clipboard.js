@@ -161,6 +161,7 @@ const TermClipboard={
     row.className='tc-copy-row';
     const copy=document.createElement('button');
     copy.type='button'; copy.className='tc-copy-do'; copy.textContent=TERM_COPY_DO;
+    copy.title=TIP_COPY_DO;
     copy.addEventListener('click',()=>{
       // 이 클릭이 곧 제스처다 — 2단이 여기서는 통한다 (D-12).
       ta.focus(); ta.select();
@@ -171,6 +172,7 @@ const TermClipboard={
     });
     const close=document.createElement('button');
     close.type='button'; close.className='tc-copy-close'; close.textContent=TERM_COPY_CLOSE;
+    close.title=TIP_COPY_CLOSE;
     close.addEventListener('click',()=>TermClipboard.close());
     row.appendChild(copy); row.appendChild(close);
     box.appendChild(row);

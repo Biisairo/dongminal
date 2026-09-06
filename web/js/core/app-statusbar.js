@@ -165,7 +165,9 @@ Object.assign(App.prototype, {
     const btn=document.getElementById('bg-btn');if(!btn)return;
     const n=(this._bg&&this._bg.length)||0;
     btn.textContent=n?`Background ${n}`:'Background';
-    btn.title=n?`백그라운드 도구 ${n}개`:'백그라운드 도구 없음';
+    // FR-TIP-2: 툴팁은 영어다. 배지의 숫자는 그대로 — 바뀌는 것은 title 뿐이다.
+    btn.title=n?`${n} tool${n===1?'':'s'} running in the background`
+              :'No tools running in the background';
     btn.classList.toggle('on',!!n);
   },
 
@@ -267,7 +269,9 @@ Object.assign(App.prototype, {
     const wrap=document.createElement('span'); wrap.className='bg-confirm';
     const q=document.createElement('span'); q.className='bg-q'; q.textContent=this._bgKillQuestion(b);
     const yes=document.createElement('button'); yes.className='tbtn bg-yes'; yes.textContent='예';
+    yes.title=TIP_BG_KILL_YES;
     const no=document.createElement('button'); no.className='tbtn bg-no'; no.textContent='아니오';
+    no.title=TIP_BG_KILL_NO;
     yes.addEventListener('click',e=>{e.stopPropagation();this._bgKill(b.toolId)});
     no.addEventListener('click',e=>{e.stopPropagation();this._bgConfirmSet(null)});
     wrap.appendChild(q); wrap.appendChild(yes); wrap.appendChild(no);

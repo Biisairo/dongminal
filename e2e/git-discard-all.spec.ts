@@ -71,10 +71,13 @@ test.describe('묶음 D — Changes·Untracked 의 Discard All', () => {
 
       // FR-WBR-52a: 갈리는 것은 툴팁이다 — untracked 의 폐기는 삭제이고 되살릴
       // 수 없다. 두 그룹의 명령이 다르다는 사실을 여기서 말한다.
-      await expect(bulk(page, 'changes').nth(1)).toHaveAttribute('title', /버립니다/);
+      //
+      // UX_BATCH5_SRS FR-TIP-2 로 **툴팁의 언어가 영어가 됐다.** 재는 것은
+      // 그대로다: 두 그룹의 문구가 갈리는가, 그리고 삭제라는 사실이 거기 있는가.
+      await expect(bulk(page, 'changes').nth(1)).toHaveAttribute('title', /Discard/);
       const del = bulk(page, 'untracked').nth(1);
-      await expect(del).toHaveAttribute('title', /삭제/);
-      await expect(del).toHaveAttribute('title', /되살릴 수 없/);
+      await expect(del).toHaveAttribute('title', /Delete/);
+      await expect(del).toHaveAttribute('title', /cannot be undone/);
     });
 
   test('D1b (V-WBR-59 / NFR-WBR-10): 기본 폭에서 네 그룹의 머리 높이가 같다',

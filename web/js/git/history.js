@@ -142,12 +142,16 @@ class GitHistory {
     this._spBot=el.querySelector('.git-hist-sp-bot');
     el.querySelector('.git-hist-search').placeholder=GIT_SEARCH_PLACEHOLDER;
     el.querySelector('.git-hist-jump').placeholder=GIT_JUMP_PLACEHOLDER;
-    el.querySelector('.git-hist-jump-go').textContent=GIT_JUMP_GO;
-    el.querySelector('.git-hist-apply').textContent=GIT_HIST_APPLY;
+    const jumpGo=el.querySelector('.git-hist-jump-go');
+    jumpGo.textContent=GIT_JUMP_GO; jumpGo.title=GIT_JUMP_GO_TITLE;
+    const apply=el.querySelector('.git-hist-apply');
+    apply.textContent=GIT_HIST_APPLY; apply.title=GIT_HIST_APPLY_TITLE;
     const brb=el.querySelector('.git-hist-branch');
     brb.textContent=GIT_HIST_BRANCH; brb.title=GIT_HIST_BRANCH_TITLE;
-    el.querySelector('.git-hist-searchrepo').textContent=GIT_SEARCH_TRY_REPO;
-    el.querySelector('.git-hist-retry').textContent=GIT_HIST_APPLY;
+    const searchRepo=el.querySelector('.git-hist-searchrepo');
+    searchRepo.textContent=GIT_SEARCH_TRY_REPO; searchRepo.title=GIT_TIP_SEARCH_REPO;
+    const histRetry=el.querySelector('.git-hist-retry');
+    histRetry.textContent=GIT_HIST_APPLY; histRetry.title=GIT_TIP_RETRY;
     const ord=el.querySelector('.git-hist-order');
     for(const o of GIT_HIST_ORDERS){
       const op=document.createElement('option'); op.value=o.key; op.textContent=o.label;

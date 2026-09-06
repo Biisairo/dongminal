@@ -65,8 +65,10 @@ class GitStash {
           '<div class="git-stash-files"></div>'+
         '</div>'+
       '</div>';
-    el.querySelector('.git-stash-new').textContent=GIT_STASH_NEW;
-    el.querySelector('.git-stash-note-close').textContent=GIT_NOTE_CLOSE;
+    const stNew=el.querySelector('.git-stash-new');
+    stNew.textContent=GIT_STASH_NEW; stNew.title=GIT_STASH_NEW_TITLE;
+    const stClose=el.querySelector('.git-stash-note-close');
+    stClose.textContent=GIT_NOTE_CLOSE; stClose.title=GIT_TIP_NOTE_CLOSE;
     el.querySelector('.git-stash-new').addEventListener('click',()=>this._create());
     // FR-GIT-272: 필터는 **이미 받아 둔 목록**에만 건다 — 다시 받을 이유가 없고,
     // 키 하나마다 요청을 사면 목록이 깜빡인다.
@@ -133,7 +135,15 @@ class GitStash {
     const why=this._why();
     const btn=el.querySelector('.git-stash-new');
     btn.disabled=!!why;
-    btn.title=why;
+    /**
+     * FR-TIP-1·2: 툴팁은 **언제나** 있고 영어다.
+     *
+     * 종전에는 사유(`why`)를 그대로 실었으므로 누를 수 있는 동안에는 title 이
+     * 빈 문자열이었다 — 정상일 때 아무 안내도 없었다는 뜻이다. 막혔을 때의
+     * 사유는 버튼 옆 한 줄이 이미 한국어로 말하므로(FR-TIP-3) 여기서는 그
+     * 사실만 영어로 옮긴다.
+     */
+    btn.title=why?GIT_STASH_BLOCKED_TITLE:GIT_STASH_NEW_TITLE;
     const w=el.querySelector('.git-stash-why');
     w.textContent=why;
     w.classList.toggle('vis',!!why);

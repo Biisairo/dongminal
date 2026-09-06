@@ -79,8 +79,10 @@ class GitBranches {
       // 원격 설정은 그것을 보조한다. 채우는 것은 GitRemoteList 다 (remote.js).
       '<div class="git-br-remotes"></div>';
     el.querySelector('.git-br-search').placeholder=GIT_BR_SEARCH_PLACEHOLDER;
-    el.querySelector('.git-br-new').textContent=GIT_BR_NEW;
-    el.querySelector('.git-br-retry').textContent=GIT_BR_RETRY;
+    const brNew=el.querySelector('.git-br-new');
+    brNew.textContent=GIT_BR_NEW; brNew.title=GIT_BR_NEW_TITLE;
+    const brRetry=el.querySelector('.git-br-retry');
+    brRetry.textContent=GIT_BR_RETRY; brRetry.title=GIT_TIP_RETRY;
     el.querySelector('.git-br-search').addEventListener('input',ev=>{
       this._q=ev.target.value; this._paintTree();
     });

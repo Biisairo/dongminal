@@ -293,6 +293,7 @@ class GitRemote {
       // 클래스가 하나뿐인 것이 요구사항이다 — force 를 눈에 띄게 만들지 않는다.
       b.className='git-job-opt'; b.dataset.fix=fix; b.type='button';
       b.textContent=GIT_JOB_FIX_LABEL[fix]||fix;
+      b.title=GIT_TIP_JOB_FIX;
       b.addEventListener('click',()=>this._fix(fix));
       opts.appendChild(b);
     }

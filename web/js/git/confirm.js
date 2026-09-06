@@ -235,17 +235,19 @@ class GitConfirm {
     hint.querySelector('.gc-hint-note').textContent=
       (this.hint&&this.hint.note)||(this.hint?'':GIT_CONFIRM_NO_HINT);
     hint.querySelector('.gc-hint-cmd').textContent=(this.hint&&this.hint.command)||'';
-    hint.querySelector('.gc-copy-hint').textContent=GIT_CONFIRM_COPY;
+    const copyHint=hint.querySelector('.gc-copy-hint');
+    copyHint.textContent=GIT_CONFIRM_COPY; copyHint.title=GIT_CONFIRM_COPY_TITLE;
     const err=b.querySelector('.gc-err');
     err.classList.toggle('vis',!!this.err);
     err.querySelector('.gc-err-reason').textContent=(this.err&&this.err.reason)||'';
     err.querySelector('.gc-err-tail').textContent=(this.err&&this.err.tail)||'';
-    err.querySelector('.gc-copy-err').textContent=GIT_CONFIRM_COPY;
+    const copyErr=err.querySelector('.gc-copy-err');
+    copyErr.textContent=GIT_CONFIRM_COPY; copyErr.title=GIT_CONFIRM_COPY_TITLE;
     b.querySelector('.gc-progress').textContent=this.busy?GIT_CONFIRM_RUNNING:'';
     const cancel=b.querySelector('.gc-cancel'),go=b.querySelector('.gc-go');
-    cancel.textContent=GIT_CONFIRM_CANCEL;
+    cancel.textContent=GIT_CONFIRM_CANCEL; cancel.title=GIT_CONFIRM_CANCEL_TITLE;
     // FR-COS-4: 넘어갈 다음 걸음이 없으므로 버튼은 언제나 실행이다.
-    go.textContent=GIT_CONFIRM_RUN;
+    go.textContent=GIT_CONFIRM_RUN; go.title=GIT_CONFIRM_RUN_TITLE;
     cancel.disabled=this.busy; go.disabled=this.busy;
   }
 

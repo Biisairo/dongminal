@@ -23,11 +23,11 @@
   el.innerHTML=
     '<div class="dg-bar">'+
       '<span class="dg-t">DIAG</span>'+
-      '<button class="dg-b" data-a="send">전송</button>'+
-      '<button class="dg-b" data-a="clear">지우기</button>'+
-      '<button class="dg-b" data-a="pause">멈춤</button>'+
-      '<button class="dg-b" data-a="env">환경</button>'+
-      '<button class="dg-b" data-a="min">─</button>'+
+      '<button class="dg-b" data-a="send" title="Upload this log to the server as a file">전송</button>'+
+      '<button class="dg-b" data-a="clear" title="Clear the collected log lines">지우기</button>'+
+      '<button class="dg-b" data-a="pause" title="Pause and resume log collection">멈춤</button>'+
+      '<button class="dg-b" data-a="env" title="Log the current environment (viewport, user agent, feature flags)">환경</button>'+
+      '<button class="dg-b" data-a="min" title="Minimize this overlay">─</button>'+
     '</div>'+
     '<div class="dg-log"></div>';
   const style=document.createElement('style');

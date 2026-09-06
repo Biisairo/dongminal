@@ -64,7 +64,8 @@ class GitCommit {
     this._msg.placeholder=GIT_COMMIT_PLACEHOLDER;
     el.querySelector('.git-commit-amend span').textContent=GIT_COMMIT_AMEND;
     el.querySelector('.git-commit-btn').textContent=GIT_COMMIT_BTN;
-    el.querySelector('.git-commit-more').textContent=GIT_COMMIT_MORE;
+    const more=el.querySelector('.git-commit-more');
+    more.textContent=GIT_COMMIT_MORE; more.title=GIT_COMMIT_MORE_TITLE;
     const menu=el.querySelector('.git-commit-menu');
     for(const o of GIT_COMMIT_OPTS){
       const lab=document.createElement('label');
@@ -258,24 +259,29 @@ class GitCommit {
     el.querySelector('.git-commit-menu').classList.toggle('vis',this._menuOpen);
     el.querySelector('.git-commit-more').classList.toggle('active',this._menuOpen);
     // 왜 못 누르는지 보인다 (FR-GIT-84). 버튼 옆 한 줄과 title 둘로 알린다.
+    //
+    // FR-TIP-2·3: 두 자리가 **다른 말**을 쓴다 — 보이는 줄은 한국어 그대로이고
+    // 툴팁만 영어다. 그래서 `_why()` 는 코드를 답하고 표가 그것을 옮긴다.
     const why=this._why();
     const btn=el.querySelector('.git-commit-btn');
     btn.disabled=!!why||this._busy;
-    btn.title=why||'';
+    btn.title=why?(GIT_COMMIT_WHY_TITLE[why]||''):'';
+    const whyText=why?(GIT_COMMIT_WHY_TEXT[why]||''):'';
     const w=el.querySelector('.git-commit-why');
-    w.textContent=this._busy?GIT_COMMIT_RUNNING:(this._err||why||'');
+    w.textContent=this._busy?GIT_COMMIT_RUNNING:(this._err||whyText||'');
     w.classList.toggle('vis',!!w.textContent);
     w.classList.toggle('err',!this._busy&&!!this._err);
     this._paintBlocks();
   }
 
+  // 사유 **코드**를 답한다 (FR-TIP-2·3) — 문구는 부르는 쪽이 표에서 고른다.
   _why(){
-    if(!this._repo) return GIT_NO_REPO_HINT;
-    if(!this._msg.value.trim()) return GIT_COMMIT_WHY_EMPTY;
+    if(!this._repo) return GIT_COMMIT_WHY_NO_REPO;
+    if(!this._msg.value.trim()) return GIT_COMMIT_WHY_EMPTY_CODE;
     // 서버와 같은 판정이다 — `-a` 는 tracked 변경을 스스로 담으므로 staged 가
     // 없어도 커밋할 것이 있다 (FR-GIT-84).
     const staged=(this._st&&this._st.staged&&this._st.staged.length)||0;
-    if(!staged&&!this._opts.all) return GIT_COMMIT_WHY_NOTHING;
+    if(!staged&&!this._opts.all) return GIT_COMMIT_WHY_NOTHING_CODE;
     return '';
   }
 
@@ -305,6 +311,7 @@ class GitCommit {
       code.className='git-preflight-cmd'; code.textContent=(b&&b.fix)||'';
       const cp=document.createElement('button');
       cp.className='git-preflight-copy'; cp.textContent=GIT_PREFLIGHT_COPY;
+      cp.title=GIT_TIP_PREFLIGHT_COPY;
       cp.addEventListener('click',()=>this.panel.copyText((b&&b.fix)||''));
       f.appendChild(lab); f.appendChild(code); f.appendChild(cp);
       d.appendChild(r); d.appendChild(f);
@@ -409,7 +416,7 @@ class GitCommit {
     const s=document.createElement('span');
     s.className='git-undo-text'; s.textContent=GIT_UNDO_TEXT;
     const b=document.createElement('button');
-    b.className='git-undo-btn'; b.textContent=GIT_UNDO_LABEL;
+    b.className='git-undo-btn'; b.textContent=GIT_UNDO_LABEL; b.title=GIT_TIP_UNDO;
     b.addEventListener('click',()=>this._undoRun());
     t.appendChild(s); t.appendChild(b);
     document.body.appendChild(t);

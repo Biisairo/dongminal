@@ -313,15 +313,18 @@ class GitDialog {
     const tail=err.querySelector('.git-dialog-err-tail');
     tail.textContent=(this.err&&this.err.tail)||'';
     tail.classList.toggle('vis',!!tail.textContent);
-    err.querySelector('.git-dialog-copy').textContent=GIT_CONFIRM_COPY;
+    const dlgCopy=err.querySelector('.git-dialog-copy');
+    dlgCopy.textContent=GIT_CONFIRM_COPY; dlgCopy.title=GIT_CONFIRM_COPY_TITLE;
     // FR-GIT-174: 실행 중에는 진행을 보이고 옵션·버튼을 전부 막는다.
     for(const i of b.querySelectorAll('.git-dialog-fields input')) i.disabled=this.busy;
     const go=b.querySelector('.git-dialog-go');
     if(!go) return;
     b.querySelector('.git-dialog-progress').textContent=this.busy?GIT_CONFIRM_RUNNING:'';
     const cancel=b.querySelector('.git-dialog-cancel');
-    cancel.textContent=GIT_CONFIRM_CANCEL;
-    go.textContent=this.runLabel;
+    cancel.textContent=GIT_CONFIRM_CANCEL; cancel.title=GIT_CONFIRM_CANCEL_TITLE;
+    // 실행 라벨은 다이얼로그마다 다르므로(`Create`·`Push`…) 툴팁도 그 라벨을
+    // 딛는다 — 여기서 무엇이 실행되는지는 그 라벨이 유일한 근거다.
+    go.textContent=this.runLabel; go.title=this.runLabel;
     cancel.disabled=this.busy;
     go.disabled=this.busy||!!this.whyKind;
   }

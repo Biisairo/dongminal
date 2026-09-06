@@ -47,8 +47,10 @@ class GitWorktrees {
       '</div>'+
       '<div class="git-wt-list"></div>'+
       '<div class="git-wt-empty"></div>';
-    el.querySelector('.git-wt-add').textContent=GIT_WT_ADD;
-    el.querySelector('.git-wt-note-close').textContent=GIT_NOTE_CLOSE;
+    const wtAdd=el.querySelector('.git-wt-add');
+    wtAdd.textContent=GIT_WT_ADD; wtAdd.title=GIT_WT_ADD_TITLE;
+    const wtClose=el.querySelector('.git-wt-note-close');
+    wtClose.textContent=GIT_NOTE_CLOSE; wtClose.title=GIT_TIP_NOTE_CLOSE;
     el.querySelector('.git-wt-add').addEventListener('click',()=>this._create());
     el.querySelector('.git-wt-note-close').addEventListener('click',()=>{
       this._note=null; this._paintNote();

@@ -67,11 +67,11 @@ Object.assign(App.prototype, {
       else state=LSP_MISSING;
 
       const btn=s.installing
-        ? '<button class="lsp-install" data-id="'+escHtml(s.id)+'" disabled>'+LSP_INSTALLING+'</button>'
+        ? '<button class="lsp-install" title="'+escHtml(LSP_INSTALL_TITLE)+'" data-id="'+escHtml(s.id)+'" disabled>'+LSP_INSTALLING+'</button>'
         // 이미 있는 서버에도 버튼을 두지 않는다 — M1 에서 다시 받을 이유가 없고,
         // 그 자리는 갱신(M5)의 것이다.
         : (s.found ? ''
-          : '<button class="lsp-install" data-id="'+escHtml(s.id)+'"'+
+          : '<button class="lsp-install" title="'+escHtml(LSP_INSTALL_TITLE)+'" data-id="'+escHtml(s.id)+'"'+
             (s.canInstall?'':' disabled')+'>'+LSP_INSTALL+'</button>');
 
       return '<div class="lsp-row" data-id="'+escHtml(s.id)+'" data-found="'+(!!s.found)+'">'+
