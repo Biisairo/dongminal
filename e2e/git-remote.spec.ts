@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, waitForInit, GIT_VIEW_TABS, clickGitView } from './fixtures';
 
 // GIT_M3_STEP1213_CONTRACT §3 — 원격 작업 클라이언트. 검증 V40·V41·V42·V44·V62·V63.
 //
@@ -103,7 +103,11 @@ const jobChip = (page: Page) => page.locator('#sb-items .sb-git-job');
 // 버튼이 살아났음 = status 를 읽었음이다. 이것을 기다리지 않고 클릭하면 disabled
 // 버튼을 눌러 아무 일도 일어나지 않는다.
 async function ready(page: Page) {
-  await expect(btn(page, 'push')).toBeEnabled({ timeout: 20000 });
+  // 관측을 기다리는 동안 사이드가 다시 그려지면 버튼 자체가 잠시 사라진다
+  // (실측: `element(s) not found` 로 끝났다). 재시도로 감싸 그때 다시 잡는다.
+  await expect(async () => {
+    await expect(btn(page, 'push')).toBeEnabled({ timeout: 10000 });
+  }).toPass({ timeout: 40000 });
 }
 
 // 작업 하나의 종료는 상태 문구로 판정한다. `.git-job-close` 는 앞선 작업의 것도
@@ -483,7 +487,7 @@ test.describe('13단계 — 원격 작업', () => {
     await more(page, 'pull').click();
     await dialog(page).locator('.gro-field[data-key="mode"] input[value="no-ff"]').check();
     await dialog(page).locator('.gro-go').click();
-    await page.click('#area .pn-tab[data-git-view="stash"]');
+    await clickGitView(page, 'stash');
     await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-stash/);
 
     // FR-GIT-111: 충돌이 남았으면 Changes 로 되돌리고 충돌 그룹을 펼친다.

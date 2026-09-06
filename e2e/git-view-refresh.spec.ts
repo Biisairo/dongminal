@@ -87,8 +87,15 @@ async function openTab(page: Page, v: string) {
     await expect(changes(page)).toBeVisible({ timeout: 10000 });
     return;
   }
-  await tab(page, v).click();
-  await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(new RegExp('git-' + v));
+  // 탭 바는 관측이 닿을 때마다 다시 그려진다 — 클릭하려던 행이 그 사이 DOM 에서
+  // 떨어져 나가면 playwright 가 `element was detached` 로 멈춘다 (실측). 재렌더는
+  // 앱의 정상 동작이므로 **테스트가 견뎌야 한다**: 눌러 보고, 뷰가 바뀌지 않았으면
+  // 다시 누른다.
+  await expect(async () => {
+    await tab(page, v).click({ timeout: 5000 });
+    await expect(page.locator('#area .pn-body .git-view.vis'))
+      .toHaveClass(new RegExp('git-' + v), { timeout: 3000 });
+  }).toPass({ timeout: 20000 });
 }
 
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');

@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // 브라우저 쪽 전역 렉시컬 바인딩 (classic script 의 최상위 `const`).
 declare const THEMES: Record<string, { ui: Record<string, string> }>;
@@ -29,12 +29,6 @@ async function pin(request: APIRequestContext, path: string) {
   const r = await request.post('/api/git/repos/pin', { data: { path } });
   expect(r.ok(), `pin 실패: ${await r.text()}`).toBeTruthy();
   return (await r.json()).root as string;
-}
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 const topName = (page: Page) => page.locator('#window-name');

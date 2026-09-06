@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, openGit, GIT_VIEW_TABS, clickGitView } from './fixtures';
 
 // GIT_HEAD_MOBILE_SRS 검증 V1~V13 — 머리의 왼쪽 정렬 · History 이식 · 모바일 폭.
 //
@@ -70,7 +70,7 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
      * "남는 공간" 자체가 없어 이 비율이 뜻을 잃는다 (실측 245/219). 머리 골격은
      * 두 뷰가 같은 것을 쓰므로(`headHTML`) 어느 쪽에서 재도 같은 계약이다.
      */
-    await page.click('#area .pn-tab[data-git-view="history"]');
+    await clickGitView(page, 'history');
     await expect(hist(page).locator('.git-head')).toHaveCount(1);
     const geom = await hist(page).locator('.git-head').evaluate((h) => {
       const hr = h.getBoundingClientRect();
@@ -90,7 +90,7 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
     await openGit(page, fx('with-remote'));
     await expect(changes(page).locator('.git-head-branch')).toHaveText('main', { timeout: 10000 });
 
-    await page.click('#area .pn-tab[data-git-view="history"]');
+    await clickGitView(page, 'history');
     await expect(hist(page)).toHaveClass(/vis/);
 
     // V3
@@ -117,7 +117,7 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
     await init(page, 'desktop');
     await openGit(page, fx('with-remote'));
     await expect(changes(page).locator('.git-head-branch')).toHaveText('main', { timeout: 10000 });
-    await page.click('#area .pn-tab[data-git-view="history"]');
+    await clickGitView(page, 'history');
     await expect(hist(page).locator('.git-head-repo')).toHaveText('with-remote');
 
     // V6: 새로고침이 오류 없이 돌고 머리가 살아 있다.
@@ -134,7 +134,7 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
     await init(page, 'desktop');
     await openGit(page, fx('with-remote'));
     await expect(changes(page).locator('.git-head-branch')).toHaveText('main', { timeout: 10000 });
-    await page.click('#area .pn-tab[data-git-view="history"]');
+    await clickGitView(page, 'history');
     await expect(hist(page).locator('.git-head-repo')).toHaveText('with-remote');
 
     // 비활성 탭의 루트는 문서에서 떼여 있다 — locator 로 닿지 않으므로 패널이
@@ -220,7 +220,7 @@ test.describe('모바일 390px', () => {
 
     // ── 본문 자리 ───────────────────────────────────────────────────
     await page.click('#m-pane-next');
-    await page.click('#area .pn-tab[data-git-view="history"]');
+    await clickGitView(page, 'history');
     await expect(hist(page).locator('.git-head-repo')).toHaveText('with-remote', { timeout: 10000 });
     await page.waitForTimeout(800);
     const h = await overflow(page, '#area .pn-body .git-view.git-history');

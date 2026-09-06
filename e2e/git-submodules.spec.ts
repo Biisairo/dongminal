@@ -5,7 +5,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, GIT_VIEW_TABS, GIT_BODY_VIEWS } from './fixtures';
+import { test, expect, waitForInit, GIT_VIEW_TABS, GIT_BODY_VIEWS, clickGitView } from './fixtures';
 
 /**
  * UX_BATCH5_SRS 묶음 D — Submodules 탭 (FR-SUB-1~11).
@@ -89,7 +89,7 @@ async function openSubmodules(page: Page, repo: string) {
   }, GIT_BODY_VIEWS);
   // FR-SUB-6: 고정 탭이 하나 늘었다.
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-  await page.click('#area .pn-tab[data-git-view="submodules"]');
+  await clickGitView(page, 'submodules');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-submodules/);
 }
 
@@ -279,5 +279,63 @@ test.describe('묶음 D — Submodules 탭', () => {
 
     await expect(sub(page).locator('.git-sub-note')).toHaveClass(/vis/, { timeout: 10000 });
     await expect(row(page, 'vendor/alpha')).toHaveAttribute('data-state', 'ok');
+  });
+
+  /**
+   * REFACTOR_STABILIZATION_SRS V-RST-4 (FR-RST-20).
+   *
+   * 뷰 집합이 다섯 자리에 손으로 열거돼 있었고 여덟 번째 탭인 이 탭이 그중 넷에서
+   * 빠져 있었다. 그 결과 **탭을 닫아도 언마운트되지 않았다** — `dropView` 의 맵에
+   * `submodules` 가 없었기 때문이다 (`panel-life.js`).
+   */
+  test('D10 (V-RST-4): 탭을 닫으면 Submodules 뷰가 언마운트된다', async ({ page }) => {
+    await waitForInit(page);
+    const repo = mkTree('d10');
+    await openSubmodules(page, repo);
+    await expect(row(page, 'vendor/alpha')).toBeVisible({ timeout: 15000 });
+
+    // 뷰가 실제로 섰다 — 여기까지는 종전에도 맞았다.
+    expect(await page.evaluate(() => !!(window as any).app.gitPanel._submodulesView)).toBe(true);
+
+    await page.evaluate(() => (window as any).app.gitPanel.dropView('submodules'));
+
+    // 언마운트되면 자기 DOM 을 놓는다. 종전에는 맵에 없어 그대로 남았다.
+    expect(await page.evaluate(() => {
+      const v = (window as any).app.gitPanel._submodulesView;
+      return !!v && !!v.el;
+    })).toBe(false);
+  });
+
+  /**
+   * V-RST-5 (FR-RST-20): `detach()` 가 게터를 부르면 **없는 뷰를 만든다.**
+   *
+   * 종전 코드는 창을 닫을 때 `this._history()` 류를 여섯 번 불렀고, 그 게터들은
+   * 없으면 생성하므로 한 번도 열지 않은 뷰가 그 자리에서 태어났다 —
+   * `panel-views.js` 가 표방한 지연 생성이 창을 닫는 경로에서 깨졌다.
+   */
+  test('D11 (V-RST-5): 창을 닫아도 열지 않은 뷰는 만들어지지 않는다', async ({ page }) => {
+    await waitForInit(page);
+    const repo = mkTree('d11');
+    // **`openSubmodules` 를 쓰지 않는다** — 그 헬퍼는 여덟 탭을 모두 미리 열어
+    // 뷰를 전부 만든다. 여기서 재려는 것은 "열지 않은 뷰" 이므로 창만 세운다.
+    await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+
+    // 아무 본문 탭도 열지 않았다 — 뷰는 하나도 없어야 한다.
+    const before = await page.evaluate(() => {
+      const p = (window as any).app.gitPanel;
+      return ['_historyView', '_branchesView', '_stashView', '_worktreesView']
+        .filter((f) => !!p[f]);
+    });
+    expect(before).toEqual([]);
+
+    await page.evaluate(() => (window as any).app.gitPanel.detach());
+
+    const after = await page.evaluate(() => {
+      const p = (window as any).app.gitPanel;
+      return ['_historyView', '_branchesView', '_stashView', '_worktreesView']
+        .filter((f) => !!p[f]);
+    });
+    expect(after, 'detach 가 열지 않은 뷰를 만들었다').toEqual([]);
   });
 });

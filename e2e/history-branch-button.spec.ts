@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView } from './fixtures';
 
 // HISTORY_BRANCH_BUTTON_SRS §5 TC-HBB-*
 //
@@ -47,7 +47,7 @@ async function openView(page: Page, repo: string, view: string, cls: RegExp) {
       .toBeVisible({ timeout: 10000 });
     return;
   }
-  await page.click(`#area .pn-tab[data-git-view="${view}"]`);
+  await clickGitView(page, view);
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(cls);
 }
 

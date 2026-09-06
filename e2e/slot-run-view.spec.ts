@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // SLOT_RUN_VIEW_SRS §5 TC-SRV-*
 //
@@ -34,12 +34,6 @@ async function mockRuns(page: Page) {
         state: 'open', isolation: 'per-member', createdAt: NOW() - 100, members: [] }] }) }));
   await page.route('**/api/runs/*/graph', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(graphA()) }));
-}
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 // 활성 창의 첫 pane 에 Run 탭을 만들고 그 탭 id 를 준다.

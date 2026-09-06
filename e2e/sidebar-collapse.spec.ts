@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit as fxWaitForInit } from './fixtures';
 
 // SIDEBAR_COLLAPSE_SRS §5 — 검증 V-SBC-*.
 //
@@ -17,22 +17,12 @@ const sidebarWidth = (page: Page) =>
   page.evaluate(() => document.getElementById('sidebar')!.getBoundingClientRect().width);
 
 async function waitForInit(page: Page, opts?: { mobile?: boolean }) {
-  const mobile = !!(opts && opts.mobile);
-  await page.context().addInitScript((m) => {
-    sessionStorage.setItem('displayMode', m ? 'mobile' : 'desktop');
-    // 접힘은 localStorage 에 산다 (FR-SBC-4). 앞선 테스트의 값이 남으면 "처음에는
-    // 펼쳐져 있다" 를 재는 항목이 오염된다.
-    //
-    // **첫 로드에서만 지운다** — initScript 는 reload 에서도 도므로 그냥 지우면
-    // 영속(SBC3)을 재는 순간 테스트가 자기 검증 대상을 지운다. sidebar-tabs.spec.ts
-    // 가 `sidebarTab` 에 쓴 것과 같은 수법이다.
-    if (!sessionStorage.getItem('sbCollapseCleared')) {
-      localStorage.removeItem('sidebarCollapsed');
-      sessionStorage.setItem('sbCollapseCleared', '1');
-    }
-  }, mobile);
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+  await fxWaitForInit(page, {
+    mode: opts && opts.mobile ? 'mobile' : 'desktop',
+    // 접힘은 localStorage 에 산다 (FR-SBC-4). **첫 로드에서만** 지운다 — 그냥
+    // 지우면 영속(SBC3)을 재는 순간 테스트가 자기 검증 대상을 지운다.
+    clearOnFirstLoad: 'sidebarCollapsed',
+  });
 }
 
 test.describe('묶음 SBC — 접힘 상태와 토글 (FR-SBC-1~10)', () => {

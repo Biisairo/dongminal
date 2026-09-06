@@ -5,7 +5,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Locator, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, openRowMenu } from './fixtures';
 
 // EXPLORER_TRANSFER_IGNORE_SRS §5 — V-ETR-6~8·21~27·29~31·33~38.
 //
@@ -95,8 +95,7 @@ const row = (page: Page, p: string) => page.locator(`.ed-tree .ed-row[data-path=
 const opErr = (page: Page) => page.locator('.ed-tree .ed-op-err');
 
 async function ctxMenu(page: Page, p: string) {
-  await row(page, p).click({ button: 'right' });
-  await expect(page.locator('.git-menu')).toBeVisible();
+  await openRowMenu(page, row(page, p));
 }
 
 async function ctx(page: Page, p: string, id: string) {

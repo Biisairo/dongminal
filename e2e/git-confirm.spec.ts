@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit as fxWaitForInit } from './fixtures';
 
 // GIT_M2_STEP9_CONTRACT §6 — 클라이언트 확인. 검증 V37·V38
 // (FR-GIT-90·91·94·96·97·175·176·178) + CONFIRM_ONE_STAGE_SRS §5 TC-COS-*.
@@ -16,13 +16,12 @@ const DESKTOP = { width: 1280, height: 720 };
 const MOBILE = { width: 390, height: 640 };
 
 async function waitForInit(page: Page, mode: 'desktop' | 'mobile') {
-  await page.context().addInitScript((m) => {
-    sessionStorage.setItem('displayMode', m as string);
-  }, mode);
-  await page.setViewportSize(mode === 'mobile' ? MOBILE : DESKTOP);
-  await page.goto('/');
-  await page.waitForSelector('#area', { timeout: 15000 });
-  await page.waitForFunction(() => !!(window as any).GitConfirm, null, { timeout: 15000 });
+  await fxWaitForInit(page, {
+    mode,
+    viewport: mode === 'mobile' ? MOBILE : DESKTOP,
+    // 이 스펙이 재는 것은 확인창이므로 터미널이 아니라 `GitConfirm` 이 준비 신호다.
+    readyFor: { fn: () => !!document.querySelector('#area') && !!(window as any).GitConfirm },
+  });
 }
 
 type OpenArgs = {

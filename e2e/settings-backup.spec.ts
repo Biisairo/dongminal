@@ -1,19 +1,11 @@
 import { readFileSync } from 'fs';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // SETTINGS_PORTABILITY_SRS §7 — 설정 내보내기·가져오기.
 //
 // 설정은 세 저장소에 흩어져 있다 (§2.1). 이 스펙이 지키는 것은 "한 파일로
 // 전부 나가고, 그 파일로 전부 돌아온다" 이다.
-
-async function waitForInit(page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 async function openBackupTab(page) {
   await page.click('#settings-btn');

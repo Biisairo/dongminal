@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, openRowMenu } from './fixtures';
 
 // WORKBENCH_REVIEW_SRS 묶음 P — 탐색기의 복사·복제 (FR-WBR-70~74,
 // 검증 V-WBR-69~74).
@@ -77,8 +77,7 @@ const menuItem = (page: Page, id: string) =>
   page.locator(`.git-menu .git-menu-item[data-id="${id}"]`);
 
 async function openMenu(page: Page, p: string) {
-  await row(page, p).click({ button: 'right' });
-  await expect(page.locator('.git-menu')).toBeVisible();
+  await openRowMenu(page, row(page, p));
 }
 
 async function ctx(page: Page, p: string, id: string) {

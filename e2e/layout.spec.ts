@@ -1,12 +1,4 @@
-import { test, expect } from './fixtures';
-
-async function waitForInit(page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
+import { test, expect, waitForInit } from './fixtures';
 
 test.describe('Layout & navigation', () => {
   test('split horizontal increases pane count', async ({ page }) => {

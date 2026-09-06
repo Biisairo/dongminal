@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, waitForInit, GIT_VIEW_TABS, clickGitView } from './fixtures';
 
 // GIT_ACTIONS_SRS §3.5 묶음 E — 원격 동작. 검증 V196·V197·V198.
 //
@@ -104,7 +104,7 @@ const remotes = (page: Page) => branches(page).locator('.git-br-remotes');
 const remoteRows = (page: Page) => remotes(page).locator('.git-rm-row');
 
 async function openBranches(page: Page) {
-  await page.click('#area .pn-tab[data-git-view="branches"]');
+  await clickGitView(page, 'branches');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-branches/);
 }
 

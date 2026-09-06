@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openRowMenu } from './fixtures';
 
 // GIT_M5_STEP1821_CONTRACT §1.3 — Branches 탭. 검증 V53~V55 · V67 · V68.
 //
@@ -40,7 +40,7 @@ async function openBranches(page: Page, repo: string) {
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-  await page.click('#area .pn-tab[data-git-view="branches"]');
+  await clickGitView(page, 'branches');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-branches/);
 }
 
@@ -178,7 +178,7 @@ test.describe('18단계 — Branches 탭', () => {
     await page.reload();
     await expect(page.locator('#area .pn-tab[data-git-view]'))
       .toHaveCount(GIT_VIEW_TABS, { timeout: 15000 });
-    await page.click('#area .pn-tab[data-git-view="branches"]');
+    await clickGitView(page, 'branches');
     await waitRefs(page, 2);
     await expect(group(page, 'fav').locator('.git-br-row[data-short="no-upstream"]')).toHaveCount(1);
   });
@@ -189,7 +189,7 @@ test.describe('18단계 — Branches 탭', () => {
     await openBranches(page, repo);
     await waitRefs(page, 2);
 
-    await row(page, 'no-upstream').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'no-upstream'));
     await items(page).filter({ hasText: /^Checkout$/ }).click();
 
     await expect.poll(() => git(repo, 'branch', '--show-current'), { timeout: 20000 })
@@ -208,7 +208,7 @@ test.describe('18단계 — Branches 탭', () => {
     await openBranches(page, repo);
     await waitRefs(page, 3);
 
-    await row(page, 'origin/feat').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'origin/feat'));
     await items(page).filter({ hasText: 'Checkout as local' }).click();
 
     await expect.poll(() => git(repo, 'branch', '--show-current'), { timeout: 20000 }).toBe('feat');
@@ -224,7 +224,7 @@ test.describe('18단계 — Branches 탭', () => {
     await openBranches(page, repo);
     await waitRefs(page, 4);
 
-    await row(page, 'origin/feat').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'origin/feat'));
     await items(page).filter({ hasText: 'Checkout as local' }).click();
 
     // 서버가 준 순서 그대로 3개다 — 목록을 프론트가 복제하지 않는다.
@@ -251,7 +251,7 @@ test.describe('18단계 — Branches 탭', () => {
     await openBranches(page, repo);
     await waitRefs(page, 2);
 
-    await row(page, 'no-upstream').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'no-upstream'));
     await items(page).filter({ hasText: /^Checkout$/ }).click();
 
     await expect(choice(page)).toBeVisible({ timeout: 15000 });
@@ -366,7 +366,7 @@ test.describe('18단계 — Branches 탭', () => {
         w.__copied.push((e.target as HTMLTextAreaElement).value);
       }, true);
     });
-    await row(page, 'main').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'main'));
     await items(page).filter({ hasText: '브랜치 이름 복사' }).click();
     await expect.poll(() => page.evaluate(() => (window as any).__copied)).toContain('main');
 

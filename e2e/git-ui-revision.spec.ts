@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab, plainWindows, makeCopyFx, openGit, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, openGitTab, plainWindows, makeCopyFx, openGit, waitForInit, GIT_VIEW_TABS, clickGitView } from './fixtures';
 
 // GIT_UI_REVISION_SRS §4 — 검증 V70~V79.
 //
@@ -494,7 +494,7 @@ test.describe('UI 개정 — 컨트롤 치수 (FR-GIT-195~199)', () => {
     expect(tok).toEqual([si, si, si]);
 
     // History 의 가상 스크롤 행 높이도 같다 — CSS 와 어긋나면 목록이 틀어진다.
-    await page.locator('#area .pn-tab[data-git-view="history"]').click();
+    await clickGitView(page, 'history');
     await expect(page.locator('#area .pn-body .git-hist-row').first())
       .toBeVisible({ timeout: 20000 });
     const rowH = await page.locator('#area .pn-body .git-hist-list')
@@ -957,13 +957,22 @@ test.describe('UI 개정 — 핀 드래그 정렬 (FR-GIT-223)', () => {
   test('V100 (FR-GIT-223): 핀을 끌어 순서를 바꾸고 새로고침 후에도 남는다', async ({ page }) => {
     const a = fx('basic'), b = fx('with-remote'), c = fx('stashes');
     await waitForInit(page);
-    for (const p of [a, b, c]) {
-      await page.evaluate(async (x) => { await (window as any).app._gitPin(x) }, p);
-    }
+    // 핀은 서버가 권위다 (O1) — 다시 거는 것이 안전하며 이미 있으면 목록이
+    // 그대로다. 셋이 다 설 때까지 되풀이하는 이유는, 핀에 딸린 목록 연동이
+    // 워크스페이스 저장을 타고 그 저장이 겹치면 밀릴 수 있기 때문이다
+    // (실측: 세 개를 걸었는데 둘만 섰다).
+    //
     // 드래그는 행의 사각형을 읽는다 — 숨은 패널의 사각형은 0 이다 (FR-SBT-2).
-    await openGitTab(page);
-    await expect.poll(async () => (await pinOrder(page)).length, { timeout: 20000 }).toBe(3);
-    expect(await pinOrder(page)).toEqual([a, b, c]);
+    await expect(async () => {
+      // **이미 걸린 것을 다시 걸지 않는다** — 다시 걸면 그 핀이 목록 맨 뒤로 가
+      // 순서가 뒤집힌다 (실측: 개수는 3이 되는데 순서가 어긋났다). 빠진 것만 건다.
+      const cur = await pinOrder(page);
+      for (const p of [a, b, c]) {
+        if (!cur.includes(p)) await page.evaluate(async (x) => { await (window as any).app._gitPin(x) }, p);
+      }
+      await openGitTab(page);
+      expect(await pinOrder(page)).toEqual([a, b, c]);
+    }).toPass({ timeout: 25000 });
 
     // 마지막을 맨 앞으로.
     await dragPin(page, c, a, true);
@@ -1105,7 +1114,7 @@ test.describe('UI 개정 — 섹션 경계 (FR-GIT-216)', () => {
     await openGit(page, fx('with-remote'));
 
     // Branches — 로컬·원격·태그 그룹.
-    await page.locator('#area .pn-tab[data-git-view="branches"]').click();
+    await clickGitView(page, 'branches');
     await expect.poll(async () => (await edges(page, '#area .pn-body .git-br-group', 'top')).length,
       { timeout: 20000 }).toBeGreaterThanOrEqual(2);
     const br = await edges(page, '#area .pn-body .git-br-group', 'top');
@@ -1116,7 +1125,7 @@ test.describe('UI 개정 — 섹션 경계 (FR-GIT-216)', () => {
     expect(pfx.filter((p) => p.w >= SEC_BORDER_W), '접두사 묶음이 섹션처럼 그려졌다').toEqual([]);
 
     // History refs — 로컬·원격·태그 그룹.
-    await page.locator('#area .pn-tab[data-git-view="history"]').click();
+    await clickGitView(page, 'history');
     await expect.poll(async () => (await edges(page, '#area .pn-body .git-refs-group', 'top')).length,
       { timeout: 20000 }).toBeGreaterThanOrEqual(2);
     const rf = await edges(page, '#area .pn-body .git-refs-group', 'top');

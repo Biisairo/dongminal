@@ -1,17 +1,9 @@
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // PANE_ATTENTION_NOTIFY_SRS e2e: terminal-monitoring attention.
 // Covers TC-PAN-15 (background tab highlight, distinct from focus),
 // TC-PAN-18 (title/badge count), TC-PAN-21 (notification center list),
 // TC-PAN-22 (center item click → jump + clear).
-
-async function waitForInit(page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 test.describe('Pane attention', () => {
   test('background pane attention: highlight, center, jump-to-clear', async ({ page }) => {

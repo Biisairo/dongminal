@@ -1,18 +1,10 @@
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // AGENT_ACTIVITY_PANEL_SRS e2e: agent activity panel.
 // Covers TC-AAP-11 (card with location/state/detail), TC-AAP-12 (toggle),
 // TC-AAP-13 (click → jump), TC-AAP-14 (in-place update), TC-AAP-17 (attention
 // alarm composited onto the card), TC-AAP-19 (new agent appends at bottom,
 // status update keeps position), TC-AAP-20 (drag reorder persisted).
-
-async function waitForInit(page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 async function setActivity(page, toolId, state, tool, detail) {
   return page.evaluate(

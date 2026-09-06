@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView } from './fixtures';
 
 // GIT_REVIEW4_SRS §3.6.5 — I7 Worktrees 탭. 검증 V143~V152 (FR-GIT-28 개정·240~245).
 // V145·V148·V159 는 Go 단위 테스트다(다른 담당). V153·V154·V157·V160 은 이미 끝났다.
@@ -76,7 +76,7 @@ async function openGit(page: Page, repo: string) {
 
 async function openWorktrees(page: Page, repo: string) {
   await openGit(page, repo);
-  await page.click('#area .pn-tab[data-git-view="worktrees"]');
+  await clickGitView(page, 'worktrees');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-worktrees/);
 }
 
@@ -96,7 +96,7 @@ async function backToWorktrees(page: Page, repo: string) {
     const p = a.gitPanel;
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
-  await page.click('#area .pn-tab[data-git-view="worktrees"]');
+  await clickGitView(page, 'worktrees');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-worktrees/);
 }
 
@@ -443,7 +443,7 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
     await expect(refreshBtn, '새로고침 버튼이 없다').toHaveCount(1, { timeout: 5000 });
     await refreshBtn.click();
     await expect(refreshBtn, '새로고침이 끝나지 않았다').toBeEnabled({ timeout: 15000 });
-    await page.click('#area .pn-tab[data-git-view="worktrees"]');
+    await clickGitView(page, 'worktrees');
 
     const kept = await page.evaluate((s: string) => {
       const els = [...document.querySelectorAll(s)];

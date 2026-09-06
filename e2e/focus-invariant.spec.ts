@@ -1,29 +1,10 @@
 import { Page, APIRequestContext } from '@playwright/test';
 
-import { test, expect, plainWindows } from './fixtures';
+import { test, expect, plainWindows, waitForInit } from './fixtures';
 
 // SRS: APP_DECOMPOSE_SRS.md (S1-Phase1)
 //   불변식: this.focused === active session.focusedPane
 //   본 스펙은 _setFocus 도입 이후 18 사이트의 동작이 1:1 보존되는지 검증.
-
-async function resetWorkspace(request: APIRequestContext) {
-  const get = await request.get('/api/workspace');
-  const rev = get.headers()['etag'] || '0';
-  await request.put('/api/workspace', {
-    headers: { 'If-Match': rev, 'Content-Type': 'application/json' },
-    data: '{"schemaVersion":2,"windows":[]}',
-  });
-}
-
-async function waitForInit(page: Page, request: APIRequestContext) {
-  await resetWorkspace(request);
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-    try { localStorage.clear(); } catch {}
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 async function readInvariant(page: Page) {
   return page.evaluate(() => {
@@ -39,14 +20,14 @@ async function readInvariant(page: Page) {
 
 test.describe('Focus invariant (S1-Phase1)', () => {
   test('initial state holds invariant', async ({ page, request }) => {
-    await waitForInit(page, request);
+    await waitForInit(page, { clearLocalStorage: true });
     const inv = await readInvariant(page);
     expect(inv.focused).toBe(inv.windowFocusedPane);
     expect(inv.focused).not.toBeNull();
   });
 
   test('split keeps invariant on new pane focus', async ({ page, request }) => {
-    await waitForInit(page, request);
+    await waitForInit(page, { clearLocalStorage: true });
     await page.click('#split-h');
     await page.waitForFunction(() => document.querySelectorAll('#area .pn').length >= 2, { timeout: 5000 });
     const inv = await readInvariant(page);
@@ -54,7 +35,7 @@ test.describe('Focus invariant (S1-Phase1)', () => {
   });
 
   test('switchTab keeps invariant', async ({ page, request }) => {
-    await waitForInit(page, request);
+    await waitForInit(page, { clearLocalStorage: true });
     // Add a new tab via UI button, then switch.
     await page.evaluate(() => {
       const a = (window as any).app;
@@ -68,7 +49,7 @@ test.describe('Focus invariant (S1-Phase1)', () => {
   });
 
   test('session switch then return restores focused pane', async ({ page, request }) => {
-    await waitForInit(page, request);
+    await waitForInit(page, { clearLocalStorage: true });
     await page.click('#split-h');
     await page.waitForFunction(() => document.querySelectorAll('#area .pn').length >= 2, { timeout: 5000 });
 
@@ -94,7 +75,7 @@ test.describe('Focus invariant (S1-Phase1)', () => {
   });
 
   test('closeTab on active tab moves to adjacent (FR-10)', async ({ page, request }) => {
-    await waitForInit(page, request);
+    await waitForInit(page, { clearLocalStorage: true });
     // Stub busy check to keep the test deterministic — fresh shells often
     // briefly look busy while sourcing rc files, which would block close
     // behind a confirm dialog and make the test flaky.
@@ -145,7 +126,7 @@ test.describe('Focus invariant (S1-Phase1)', () => {
   });
 
   test('setFocus on different pane updates both sides', async ({ page, request }) => {
-    await waitForInit(page, request);
+    await waitForInit(page, { clearLocalStorage: true });
     await page.click('#split-h');
     await page.waitForFunction(() => document.querySelectorAll('#area .pn').length >= 2, { timeout: 5000 });
 

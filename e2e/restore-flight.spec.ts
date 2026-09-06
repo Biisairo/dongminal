@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // RESTORE_FLIGHT_SRS e2e: 복원 비행 중에 도착한 갱신은 스냅숏보다 새롭다.
 // 비행(요청 출발 ~ 응답 적용) 안에서 상태가 바뀌면, 그 응답은 그 id 를 추가도
@@ -6,14 +6,6 @@ import { test, expect } from './fixtures';
 //
 // 실제 레이스를 기다리면 재현되지 않으므로 fetch 를 게이트로 붙잡아 창을
 // 결정론적으로 연다 (attention.spec.ts 의 V-ATL-7 과 같은 기법).
-
-async function waitForInit(page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 // 비행을 연다. match 에 걸리는 요청만 붙잡아 두었다가 body 로 응답한다.
 // during() 이 비행 중에 일어나는 일이고, 그 뒤 응답이 풀린다.

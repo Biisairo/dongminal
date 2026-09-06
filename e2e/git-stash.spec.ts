@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openRowMenu } from './fixtures';
 
 // GIT_M5_STEP1821_CONTRACT §2 — Stash 탭. 검증 V56~V58 · V69.
 //
@@ -40,7 +40,7 @@ async function openStash(page: Page, repo: string) {
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-  await page.click('#area .pn-tab[data-git-view="stash"]');
+  await clickGitView(page, 'stash');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-stash/);
 }
 
@@ -81,12 +81,22 @@ test.describe('19단계 — Stash 탭', () => {
     await openStash(page, repo);
     await waitStashes(page, 2);
 
-    await row(page, 1).click({ button: 'right' });
-    await expect(menu(page)).toHaveAttribute('data-kind', 'stash');
-    await items(page).filter({ hasText: /^Apply$/ }).click();
+    // 목록은 관측이 닿을 때마다 다시 그려진다 — 우클릭한 행이 그 사이 DOM 에서
+    // 떨어져 나가면 메뉴가 뜨지 않거나 닫히고, 그러면 `Apply` 는 눌린 적이 없는데
+    // 폴링만 20초를 서 있다 (실측: 다른 스펙 뒤에 돌 때 그랬다).
+    //
+    // **적용됐는지를 먼저 보고 안 됐을 때만 다시 누른다** — apply 를 무턱대고
+    // 되풀이하면 같은 stash 를 두 번 얹어 충돌을 만든다.
+    await expect(async () => {
+      if (git(repo, 'status', '--porcelain') !== '') return;
+      await row(page, 1).click({ button: 'right' });
+      await expect(menu(page)).toHaveAttribute('data-kind', 'stash', { timeout: 3000 });
+      await items(page).filter({ hasText: /^Apply$/ }).click({ timeout: 3000 });
+      await expect.poll(() => git(repo, 'status', '--porcelain'), { timeout: 6000 }).not.toBe('');
+    }).toPass({ timeout: 25000 });
 
     // 변경은 워킹 트리에 얹히고 stash 는 그대로 2개다.
-    await expect.poll(() => git(repo, 'status', '--porcelain'), { timeout: 20000 }).not.toBe('');
+    expect(git(repo, 'status', '--porcelain')).not.toBe('');
     expect(stashCount(repo)).toBe(2);
     await waitStashes(page, 2);
   });
@@ -124,7 +134,7 @@ test.describe('19단계 — Stash 탭', () => {
     await openStash(page, repo);
     await waitStashes(page, 2);
 
-    await row(page, 0).click({ button: 'right' });
+    await openRowMenu(page, row(page, 0));
     // 메뉴가 선 것을 보고 나서 고른다 — 아직 그려지는 중인 항목을 누르면
     // 클릭이 유실되고, 그 뒤의 기다림은 일어나지 않은 일을 기다린다.
     await expect(menu(page)).toHaveAttribute('data-kind', 'stash');
@@ -144,7 +154,7 @@ test.describe('19단계 — Stash 탭', () => {
     await openStash(page, repo);
     await waitStashes(page, 2);
 
-    await row(page, 1).click({ button: 'right' });
+    await openRowMenu(page, row(page, 1));
     // 메뉴가 선 것을 보고 나서 고른다 — 아직 그려지는 중인 항목을 누르면
     // 클릭이 유실되고, 그 뒤의 기다림은 일어나지 않은 일을 기다린다.
     await expect(menu(page)).toHaveAttribute('data-kind', 'stash');
@@ -209,7 +219,7 @@ test.describe('19단계 — Stash 탭', () => {
     await openStash(page, repo);
     await waitStashes(page, 2);
 
-    await row(page, 0).click({ button: 'right' });
+    await openRowMenu(page, row(page, 0));
     // 메뉴가 선 것을 보고 나서 고른다 — 아직 그려지는 중인 항목을 누르면
     // 클릭이 유실되고, 그 뒤의 기다림은 일어나지 않은 일을 기다린다.
     await expect(menu(page)).toHaveAttribute('data-kind', 'stash');
@@ -257,7 +267,7 @@ test.describe('19단계 — Stash 탭', () => {
     await openStash(page, repo);
     await waitStashes(page, 2);
 
-    await row(page, 0).click({ button: 'right' });
+    await openRowMenu(page, row(page, 0));
     // 메뉴가 선 것을 보고 나서 고른다 — 아직 그려지는 중인 항목을 누르면
     // 클릭이 유실되고, 그 뒤의 기다림은 일어나지 않은 일을 기다린다.
     await expect(menu(page)).toHaveAttribute('data-kind', 'stash');

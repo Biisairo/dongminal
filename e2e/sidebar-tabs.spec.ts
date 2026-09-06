@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit as fxWaitForInit } from './fixtures';
 
 // GIT_SIDEBAR_TABS_SRS §4.2 — 검증 V-SBT-*.
 //
@@ -26,22 +26,9 @@ test.afterAll(() => {
 const fx = (name: string) => realpathSync(join(FIXTURES, name));
 
 async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-    // 활성 탭은 localStorage 에 산다 (FR-SBT-6). 앞선 테스트의 값이 남으면
-    // "최초 접속" 을 단정하는 항목이 오염된다.
-    //
-    // **첫 로드에서만 지운다.** initScript 는 reload 에서도 실행되므로 그냥
-    // 지우면 "탭을 고르고 새로고침하면 돌아온다"(T2)를 재는 순간 테스트가
-    // 자기 검증 대상을 지운다. sessionStorage 는 reload 를 넘어 살고 새
-    // 컨텍스트에서는 비어 있으므로, 테스트 간 격리는 그대로다.
-    if (!sessionStorage.getItem('sbTabCleared')) {
-      localStorage.removeItem('sidebarTab');
-      sessionStorage.setItem('sbTabCleared', '1');
-    }
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+  // 활성 탭은 localStorage 에 산다 (FR-SBT-6). **첫 로드에서만** 지운다 — 그냥
+  // 지우면 "탭을 고르고 새로고침하면 돌아온다"(T2)가 자기 검증 대상을 지운다.
+  await fxWaitForInit(page, { clearOnFirstLoad: 'sidebarTab' });
 }
 
 const tab = (page: Page, id: string) => page.locator(`.sb-tab[data-panel="${id}"]`);
@@ -179,10 +166,26 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
     expect(await page.evaluate(() => (window as any).app._lastPlainWindow)).toBe(from);
 
     // 직전 창을 워크스페이스에서 들어낸다 — 복귀 대상이 사라진 상태다.
-    await page.evaluate((id) => {
-      const a = (window as any).app;
-      a.ws.windows = a.ws.windows.filter((w: any) => w.id !== id);
-    }, from);
+    //
+    // **서버까지 알린다.** 클라이언트의 `ws.windows` 만 고치면 서버는 그 창을
+    // 여전히 알고 있고, 다음 `workspace_changed` 한 번에 되살아난다 — 그러면
+    // `_gitBackTarget` 이 되살아난 직전 창을 찾아내 이 테스트가 세운 전제
+    // ("복귀 대상이 사라졌다") 자체가 무너진다. 실측으로 확인한 실패였다:
+    // 앞선 스펙이 Editor 창 재조정을 남기면 그 왕복이 실제로 일어난다.
+    // 저장이 409 로 겹치면 앱은 **그 저장을 포기하고** 서버 것을 채택한다
+    // (WORKSPACE_SAVE_CONFLICT_SRS FR-WSC-1) — 지운 창이 그대로 돌아온다. 한 번
+    // 부르고 마는 것으로는 부족하므로, 서버가 실제로 지워진 목록을 갖게 될
+    // 때까지 지우고-저장하기를 되풀이한다. 포기한 저장은 클라이언트 ws 를 서버
+    // 것으로 갱신하므로 다음 회차의 ETag 는 맞는다.
+    await expect(async () => {
+      await page.evaluate(async (id) => {
+        const a = (window as any).app;
+        a.ws.windows = a.ws.windows.filter((w: any) => w.id !== id);
+        await a._save();
+      }, from);
+      const st = await (await page.request.get('/api/state')).json();
+      expect((st?.workspace?.windows || []).some((w: any) => w.id === from)).toBe(false);
+    }).toPass({ timeout: 20000 });
 
     await tab(page, 'windows').click();
     const [first, active] = await page.evaluate(() => {

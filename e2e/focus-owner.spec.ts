@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // 묶음 E — 크로스 기기 창 포커스 소유권 (SRS §3.5 FR-XDF-*, §4.5 TC-XDF-*)
 //
@@ -10,11 +10,6 @@ import { test, expect } from './fixtures';
 // OS 포커스를 보고할 수 있어(init-time claim, app.js:166) 클릭 기반 트리거는
 // 순서가 결정론적이지 않다. 검증하는 대상은 클릭 결선이 아니라 전파이므로
 // 트리거만 API 로 하고 **효과는 DOM(pn-dimmed)으로 확인**한다.
-
-async function waitForInit(page) {
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 // osFocused:false 로 띄우면 app.js:166 의 init-time claim 이 발동하지 않는다.
 // 그 claim 은 document.hasFocus() 만 보므로, 늦게 접속한 Client 가 접속만으로

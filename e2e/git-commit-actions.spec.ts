@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, clickGitView, openRowMenu } from './fixtures';
 
 // GIT_ACTIONS_SRS §3.4 — 묶음 D 커밋 동작 (FR-GIT-263~267, 검증 V191~V194).
 //
@@ -97,7 +97,7 @@ async function openHistory(page: Page, repo: string) {
     const p = a.gitPanel;
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
-  await page.click('#area .pn-tab[data-git-view="history"]');
+  await clickGitView(page, 'history');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-history/);
   await expect(rows(page).first()).toBeVisible({ timeout: 20000 });
 }
@@ -132,9 +132,7 @@ const rowOf = (page: Page, subject: string) =>
   rows(page).filter({ has: page.locator('.git-hist-subject', { hasText: subject }) }).first();
 
 async function openMenuOn(page: Page, subject: string) {
-  await rowOf(page, subject).click({ button: 'right' });
-  await expect(menu(page)).toHaveCount(1);
-  expect(await menu(page).getAttribute('data-kind')).toBe('commit');
+  await openRowMenu(page, rowOf(page, subject), { kind: 'commit' });
 }
 
 const headOid = (dir: string) => git(dir, 'rev-parse', 'HEAD').trim();
@@ -367,7 +365,7 @@ test.describe('묶음 D — 커밋 동작 (V191~V194)', () => {
       )
       .toBe('merge');
 
-    await page.click('#area .pn-tab[data-git-view="history"]');
+    await clickGitView(page, 'history');
     await expect(rows(page).first()).toBeVisible({ timeout: 20000 });
     // HEAD 도 루트도 머지도 아닌 행이다 — 막힌 이유가 "진행 중" 하나로 좁혀진다.
     await openMenuOn(page, 'm1');

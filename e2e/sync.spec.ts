@@ -1,9 +1,4 @@
-import { test, expect } from './fixtures';
-
-async function waitForInit(page) {
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
+import { test, expect, waitForInit } from './fixtures';
 
 test.describe('Multi-client synchronization via SSE', () => {
   test('client A creates session and client B syncs', async ({ browser }) => {

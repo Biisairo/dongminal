@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openRowMenu } from './fixtures';
 
 // GIT_M4_STEP1417_CONTRACT §3·§4·§5 — History 탭. 검증 V47~V51 · V64 · V65 + V48 성능.
 //
@@ -37,7 +37,7 @@ async function openHistory(page: Page, repo: string) {
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-  await page.click('#area .pn-tab[data-git-view="history"]');
+  await clickGitView(page, 'history');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-history/);
 }
 
@@ -446,7 +446,7 @@ test.describe('17단계 — 커밋 상세', () => {
 
     // 두 번째 부모로 바꾼다 — 같은 (리포, 축, 경로) 이므로 리비전이 식별자에
     // 들어 있지 않으면 이전 응답이 그대로 남는다 (FR-GIT-54·145).
-    await page.click('#area .pn-tab[data-git-view="history"]');
+    await clickGitView(page, 'history');
     await d.locator('.git-hist-d-parentpick').selectOption('1');
     await expect(d.locator('.git-hist-file[data-path="f0.txt"]')).toBeVisible({ timeout: 15000 });
     await d.locator('.git-hist-file[data-path="f0.txt"]').click();
@@ -497,7 +497,7 @@ test.describe('17단계 — 커밋 상세', () => {
     // 화면 한 줄만 남고 펼친 상세와 스크롤 위치를 잃는다.
     // FR-RTU-32: Changes 는 사이드에 늘 있다 — 돌아갈 탭이 없다.
     await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
-    await page.click('#area .pn-tab[data-git-view="history"]');
+    await clickGitView(page, 'history');
     await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-history/);
 
     await expect(hist(page).locator(`.git-hist-row[data-oid="${oid}"]`)).toBeVisible();
@@ -658,7 +658,7 @@ test.describe('4차 검토 — 커밋 행의 ref 배지 (V121~V123)', () => {
     // 태그 배지의 우클릭은 tag 메뉴다.
     const tag = badge(page, 'tag').first();
     if (await tag.count()) {
-      await tag.click({ button: 'right' });
+      await openRowMenu(page, tag);
       await expect(menu).toHaveCount(1);
       expect(await menu.getAttribute('data-kind')).toBe('tag');
       await page.keyboard.press('Escape');

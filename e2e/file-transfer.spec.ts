@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Locator, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, openRowMenu } from './fixtures';
 
 // FILE_TRANSFER_SRS §5 — V-FTR-8·12·14~21.
 //
@@ -66,8 +66,7 @@ const head = (page: Page) => page.locator('.ed-explorer .ed-head');
 const tree = (page: Page) => page.locator('.ed-explorer .ed-tree');
 
 async function ctxMenu(page: Page, p: string) {
-  await row(page, p).click({ button: 'right' });
-  await expect(page.locator('.git-menu')).toBeVisible();
+  await openRowMenu(page, row(page, p));
 }
 
 async function ctx(page: Page, p: string, id: string) {

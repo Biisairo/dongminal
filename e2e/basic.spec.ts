@@ -1,13 +1,4 @@
-import { test, expect } from './fixtures';
-
-async function waitForInit(page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  // Wait for init() → render() → xterm readiness inside the focused pane.
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
+import { test, expect, waitForInit } from './fixtures';
 
 test.describe('Basic connection & lifecycle', () => {
   test('server starts and initial session is rendered', async ({ page }) => {

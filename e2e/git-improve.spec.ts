@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGitTab, makeCopyFx, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, openGitTab, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as fxWaitForInit } from './fixtures';
 
 // GIT_REVIEW4_SRS §3.6.1~§3.6.4 — 개선 I1~I4. 검증 V132~V142
 // (FR-GIT-236~239).
@@ -37,12 +37,7 @@ const DESKTOP = { width: 1280, height: 720 };
 const MOBILE = { width: 390, height: 640 };
 
 async function waitForInit(page: Page, mode: 'desktop' | 'mobile' = 'desktop') {
-  await page.context().addInitScript((m) => {
-    sessionStorage.setItem('displayMode', m as string);
-  }, mode);
-  await page.setViewportSize(mode === 'mobile' ? MOBILE : DESKTOP);
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+  await fxWaitForInit(page, { mode, viewport: mode === 'mobile' ? MOBILE : DESKTOP });
 }
 
 async function openGit(page: Page, repo: string) {
@@ -382,7 +377,7 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
     // FR-STAT-17 의 원칙과 같다). 셋 다 마운트시킨 뒤 Changes 로 돌아온다 — 그래야
     // "지금 보고 있는 탭과 무관하게 다시 받는다"까지 함께 검증된다.
     for (const v of ['history', 'branches', 'console']) {
-      await page.click(`#area .pn-tab[data-git-view="${v}"]`);
+      await clickGitView(page, v);
       await page.waitForTimeout(300);
     }
     // Changes 는 사이드에 늘 있다 (FR-RTU-32) — 돌아갈 탭이 없다.
@@ -424,7 +419,7 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
     // status 는 1초 폴링도 쓰는 엔드포인트라(FR-GIT-18~24) 클릭이 두 벌 나갔는지
     // 가릴 계기로 못 쓴다 — 새로고침 경로에서만 나가는 /api/git/log 로 센다.
     // History 를 먼저 마운트해야 새로고침이 그것을 대상에 넣는다(V138 과 같은 이유).
-    await page.click('#area .pn-tab[data-git-view="history"]');
+    await clickGitView(page, 'history');
     await page.waitForTimeout(300);
     // Changes 는 사이드에 늘 있다 (FR-RTU-32) — 돌아갈 탭이 없다.
     await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });

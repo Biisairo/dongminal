@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, waitRows, openRowMenu } from './fixtures';
 
 // GIT_ACTIONS_SRS §3.2 · §3.5 — 묶음 B 브랜치 동작 (FR-GIT-253~259 · 268).
 // 검증 V177~V186 · V195.
@@ -94,7 +94,7 @@ async function openBranches(page: Page, repo: string) {
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-  await page.click('#area .pn-tab[data-git-view="branches"]');
+  await clickGitView(page, 'branches');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-branches/);
 }
 
@@ -128,8 +128,12 @@ const branchOf = (page: Page) =>
 const opKind = (page: Page) =>
   page.evaluate(() => (((window as any).app.gitPanel.statusOf() || {}).operation || {}).kind || '');
 
+/**
+ * 브랜치 행이 뜰 때까지 기다린다. 뷰가 비면 탭을 다시 눌러 되살린다 —
+ * 규약은 공용 `waitRows` 가 갖는다 (REFACTOR_STABILIZATION_SRS FR-RST-12).
+ */
 async function waitRefs(page: Page, min = 1) {
-  await expect.poll(() => rows(page).count(), { timeout: 20000 }).toBeGreaterThanOrEqual(min);
+  await waitRows(page, rows(page), min, () => clickGitView(page, 'branches'));
 }
 
 // 파괴적 확인을 끝까지 진행한다. **한 번** 눌러야 실행되는 것이 요구사항이다
@@ -153,7 +157,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await openBranches(page, repo);
     await waitRefs(page, 2);
 
-    await row(page, 'no-upstream').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'no-upstream'));
     await item(page, 'rename').click();
 
     await expect(rename(page)).toBeVisible({ timeout: 15000 });
@@ -206,7 +210,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await openBranches(page, repo);
     await waitRefs(page, 3);
 
-    await row(page, 'merged-topic').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'merged-topic'));
     await item(page, 'delete').click();
 
     // 한 화면이 대상과 hint 를 함께 보인다 (FR-COS-2).
@@ -238,7 +242,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await openBranches(page, repo);
     await waitRefs(page, 2);
 
-    await row(page, 'no-upstream').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'no-upstream'));
     await item(page, 'delete').click();
     await passConfirm(page);
 
@@ -264,7 +268,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await openBranches(page, repo);
     await waitRefs(page, 2);
 
-    await row(page, 'main').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'main'));
     await expect(item(page, 'delete')).toHaveClass(/disabled/);
     // 왜 못 누르는지 보이지 않으면 사용자는 고장으로 읽는다 (FR-GIT-180).
     await expect(item(page, 'delete')).toHaveAttribute('title', /현재 브랜치/);
@@ -277,7 +281,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     git(repo, 'fetch', '-q', 'origin');
     await page.evaluate(() => (window as any).app.gitPanel.refresh());
     await expect(row(page, 'origin/feat')).toHaveCount(1, { timeout: 20000 });
-    await row(page, 'origin/feat').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'origin/feat'));
     for (const id of ['delete', 'rename', 'push', 'upstream-set']) {
       await expect(item(page, id), id + ' 가 원격 ref 에서 열려 있다').toHaveClass(/disabled/);
       await expect(item(page, id)).toHaveAttribute('title', /로컬 브랜치/);
@@ -298,7 +302,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await expect(row(page, 'topic-a')).toHaveClass(/sel/);
     await expect(row(page, 'topic-b')).toHaveClass(/sel/);
 
-    await row(page, 'topic-a').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'topic-a'));
     await item(page, 'delete').click();
     // 1단계 목록이 **고른 것 전부**를 보인다 — 보이는 것과 지워지는 것이 같아야 한다.
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
@@ -414,9 +418,9 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await openChanges(page, repo);
     await expect.poll(() => opKind(page), { timeout: 20000 }).toBe('merge');
 
-    await page.click('#area .pn-tab[data-git-view="branches"]');
+    await clickGitView(page, 'branches');
     await waitRefs(page, 2);
-    await row(page, 'side').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'side'));
 
     // 새 작업을 시작하는 항목만 막힌다 — 사유는 진행 중인 작업의 이름을 담는다.
     // BRANCH_MENU_UNIFY_SRS FR-BMU-1: 옛 `remote-pull` 은 `merge` 에 합쳐졌다.
@@ -447,7 +451,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await openBranches(page, repo);
     await waitRefs(page, 2);
 
-    await row(page, 'side').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'side'));
     await item(page, 'rebase').click();
 
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
@@ -476,7 +480,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     // 상자가 뜰 때까지 다시 연다 — 한 번의 클릭에 기대면 폴링과 겹치는
     // 회차에서만 무너진다.
     await expect(async () => {
-      await row(page, 'no-upstream').click({ button: 'right' });
+      await openRowMenu(page, row(page, 'no-upstream'));
       await expect(item(page, 'upstream-unset')).toHaveClass(/disabled/);
       await expect(item(page, 'upstream-unset')).toHaveAttribute('title', /upstream/);
       await item(page, 'upstream-set').click();
@@ -503,7 +507,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
 
     // unset 은 파괴적이 아니다 — 확인 없이 바로 지나가고 표시가 사라진다.
     await expect(async () => {
-      await row(page, 'no-upstream').click({ button: 'right' });
+      await openRowMenu(page, row(page, 'no-upstream'));
       await expect(item(page, 'upstream-unset')).not.toHaveClass(/disabled/);
       await item(page, 'upstream-unset').click();
       await expect(row(page, 'no-upstream').locator('.git-br-up')).toHaveText('', { timeout: 5000 });
@@ -519,7 +523,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
 
     // **대상이 현재 브랜치가 아니다** — main 이 현재이고 no-upstream 을 민다.
     expect(git(repo, 'branch', '--show-current')).toBe('main');
-    await row(page, 'no-upstream').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'no-upstream'));
     await item(page, 'push').click();
 
     // 무엇이 설정되는지가 대상에 보인다 (FR-GIT-100).
@@ -559,7 +563,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await waitRefs(page, 3);
 
     // ① Fetch into local — 같은 이름의 로컬 ref 를 만든다.
-    await row(page, 'origin/feat').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'origin/feat'));
     await item(page, 'remote-fetch').click();
     await expect.poll(() => git(repo, 'branch', '--list', 'feat'), { timeout: 30000 }).not.toBe('');
     expect(git(repo, 'rev-parse', 'feat')).toBe(oid);
@@ -596,7 +600,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await openBranches(page, repo);
     await waitRefs(page, 2);
 
-    await row(page, 'no-upstream').click({ button: 'right' });
+    await openRowMenu(page, row(page, 'no-upstream'));
     await item(page, 'branch-from').click();
 
     const create = page.locator('#git-br-create .gbc-box');

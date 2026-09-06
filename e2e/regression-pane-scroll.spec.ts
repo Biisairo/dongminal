@@ -1,28 +1,9 @@
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // SRS: PANE_SCROLL_PRESERVE_SRS.md
 //   FR-1/FR-2: _rLayout 을 거치는 모든 경로(세션 전환, 같은 pane 의 탭 전환)
 //   에서 xterm viewport(viewportY) + .xterm-viewport.scrollTop 가 직전 위치로
 //   복원되어야 한다.
-
-async function resetWorkspace(request) {
-  const get = await request.get('/api/workspace');
-  const rev = get.headers()['etag'] || '0';
-  await request.put('/api/workspace', {
-    headers: { 'If-Match': rev, 'Content-Type': 'application/json' },
-    data: '{"schemaVersion":2,"windows":[]}',
-  });
-}
-
-async function waitForInit(page, request) {
-  await resetWorkspace(request);
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-    try { localStorage.clear(); } catch {}
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 async function addWindow(page) {
   const before = await page.locator('#windows .si').count();
@@ -96,7 +77,7 @@ async function scrollUp(page, lines: number) {
 
 test.describe('Pane scroll preserve regression', () => {
   test('xterm scroll position survives session switch and return', async ({ page, request }) => {
-    await waitForInit(page, request);
+    await waitForInit(page, { clearLocalStorage: true });
 
     const sidA = await page.evaluate(() => (window as any).app.ws.activeWindow);
     await fillScrollback(page, 200);
@@ -116,7 +97,7 @@ test.describe('Pane scroll preserve regression', () => {
   });
 
   test('xterm scroll position survives same-pane tab switch', async ({ page, request }) => {
-    await waitForInit(page, request);
+    await waitForInit(page, { clearLocalStorage: true });
 
     // 같은 pane 에 두 번째 터미널 탭 추가.
     const tabIds = await page.evaluate(async () => {

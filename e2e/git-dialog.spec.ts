@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as fxWaitForInit } from './fixtures';
 
 // GIT_M5_STEP1821_CONTRACT §3 — 다이얼로그 공통 규약. 검증 V59
 // (FR-GIT-171~178).
@@ -28,13 +28,11 @@ test.afterAll(() => {
 const copyFx = makeCopyFx(FIXTURES);
 // 골격만 재는 스펙은 저장소가 필요 없다 — window.GitDialog 를 직접 부른다.
 async function waitForInit(page: Page, mode: 'desktop' | 'mobile' = 'desktop') {
-  await page.context().addInitScript((m) => {
-    sessionStorage.setItem('displayMode', m as string);
-  }, mode);
-  await page.setViewportSize(mode === 'mobile' ? MOBILE : DESKTOP);
-  await page.goto('/');
-  await page.waitForSelector('#area', { timeout: 15000 });
-  await page.waitForFunction(() => !!(window as any).GitDialog, null, { timeout: 15000 });
+  await fxWaitForInit(page, {
+    mode,
+    viewport: mode === 'mobile' ? MOBILE : DESKTOP,
+    readyFor: { fn: () => !!document.querySelector('#area') && !!(window as any).GitDialog },
+  });
 }
 
 async function openGit(page: Page, repo: string) {
@@ -127,14 +125,14 @@ test.describe('20단계 — 다이얼로그 공통 규약', () => {
     await openGit(page, repo);
 
     // 브랜치 생성 (FR-GIT-158)
-    await page.click('#area .pn-tab[data-git-view="branches"]');
+    await clickGitView(page, 'branches');
     await page.click('#area .pn-body .git-view.git-branches .git-br-new');
     await hasSkeleton(page, 'git-br-create');
     await page.keyboard.press('Escape');
     await expect(page.locator('#git-br-create')).toHaveCount(0);
 
     // stash 생성 (FR-GIT-166)
-    await page.click('#area .pn-tab[data-git-view="stash"]');
+    await clickGitView(page, 'stash');
     const newStash = page.locator('#area .pn-body .git-view.git-stash .git-stash-new');
     await expect(newStash).toBeEnabled({ timeout: 20000 });
     await newStash.click();

@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_BODY_VIEWS } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_BODY_VIEWS, clickGitView } from './fixtures';
 
 /**
  * UX_BATCH5_SRS 묶음 C — 모든 버튼의 영어 툴팁 (FR-TIP-1·2·7).
@@ -115,7 +115,7 @@ test.describe('묶음 C — 모든 버튼의 영어 툴팁', () => {
     await assertAll(page, 'Git · Changes');
 
     for (const v of GIT_BODY_VIEWS) {
-      await page.click(`#area .pn-tab[data-git-view="${v}"]`);
+      await clickGitView(page, v);
       await page.waitForTimeout(250);
       await assertAll(page, 'Git · ' + v);
     }
@@ -192,7 +192,7 @@ test.describe('묶음 C — 모달과 조건부 표면', () => {
   test('C8 (V-TIP-8 / FR-TIP-1·2): 옵션 다이얼로그', async ({ page }) => {
     await waitForInit(page);
     await openGitSurfaces(page, copyFx('basic', 'tip8'));
-    await page.click('#area .pn-tab[data-git-view="branches"]');
+    await clickGitView(page, 'branches');
     await expect(page.locator('#area .pn-body .git-view.git-branches'))
       .toBeVisible({ timeout: 10000 });
     await page.locator('#area .pn-body .git-branches .git-br-new').click();

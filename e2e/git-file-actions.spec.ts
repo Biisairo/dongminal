@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, openGit, waitForInit } from './fixtures';
+import { test, expect, makeCopyFx, openGit, waitForInit, clickGitView } from './fixtures';
 
 // GIT_ACTIONS_SRS §3.6 묶음 F — stash · 파일 · 미커밋 행.
 // 검증 V199(FR-GIT-272) · V200(273) · V201(274·275) · V203(277).
@@ -34,7 +34,7 @@ async function openView(page: Page, view: string, cls: RegExp) {
     await expect(changes(page)).toBeVisible({ timeout: 10000 });
     return;
   }
-  await page.click(`#area .pn-tab[data-git-view="${view}"]`);
+  await clickGitView(page, view);
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(cls);
 }
 

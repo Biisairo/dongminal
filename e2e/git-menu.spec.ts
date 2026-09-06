@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, openGit, waitForInit } from './fixtures';
+import { test, expect, makeCopyFx, openGit, waitForInit, clickGitView, openRowMenu } from './fixtures';
 
 // GIT_M4_STEP1417_CONTRACT §4.2 — 컨텍스트 메뉴 프레임워크. 검증 V52 + FR-GIT-140~146.
 //
@@ -26,7 +26,7 @@ const fx = (name: string) => realpathSync(join(FIXTURES, name));
 const copyFx = makeCopyFx(FIXTURES);
 async function openHistory(page: Page, repo: string) {
   await openGit(page, repo);
-  await page.click('#area .pn-tab[data-git-view="history"]');
+  await clickGitView(page, 'history');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-history/);
 }
 
@@ -200,7 +200,7 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
     await items(page).filter({ hasText: '커밋 해시 복사' }).click();
     expect(await page.evaluate(() => (window as any).__copied)).toEqual([oid]);
 
-    await row.click({ button: 'right' });
+    await openRowMenu(page, row);
     await items(page).filter({ hasText: '커밋 제목 복사' }).click();
     const copied: string[] = await page.evaluate(() => (window as any).__copied);
     expect(copied).toHaveLength(2);
@@ -214,7 +214,7 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
     await openHistory(page, repo);
     const { head, row, oid } = await otherCommit(page, repo);
 
-    await row.click({ button: 'right' });
+    await openRowMenu(page, row);
     const it = items(page).filter({ hasText: '브랜치 생성' });
     await expect(it).not.toHaveClass(/disabled/);
     await it.click();
@@ -246,7 +246,7 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
     // 판정은 status 를 딛는다 — 폴링이 한 번 온 뒤에 본다.
     await expect(hist(page).locator('.git-hist-row.uncommitted')).toHaveCount(1, { timeout: 15000 });
 
-    await row.click({ button: 'right' });
+    await openRowMenu(page, row);
     const it = items(page).filter({ hasText: 'detached' });
     // 더 이상 막지 않는다 — dirty 는 묶음 N 의 처리를 따른다 (FR-GIT-144).
     await expect(it).not.toHaveClass(/disabled/);
@@ -286,7 +286,7 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
       .locator(`.git-hist-row[data-oid]:not([data-oid="${head}"])`).first();
     const oid = await target.getAttribute('data-oid');
 
-    await target.click({ button: 'right' });
+    await openRowMenu(page, target);
     const it = items(page).filter({ hasText: 'detached' });
     await expect(it).not.toHaveClass(/disabled/);
     await it.click();

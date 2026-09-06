@@ -55,6 +55,9 @@ async function clickCommit(page: Page) {
     (r) => r.url().includes('/api/git/commit') && r.request().method() === 'POST',
     { timeout: 15000 },
   );
+  // 스테이지 사실이 관측을 타고 닿기 전까지 커밋 버튼은 잠겨 있다 — 눌러 봐야
+  // 아무 일도 일어나지 않고 타임아웃까지 선다 (실측).
+  await expect(btn(page)).toBeEnabled({ timeout: 20000 });
   await btn(page).click();
   const res = await wait;
   return { status: res.status(), body: await res.json() };
@@ -295,6 +298,10 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
     await openGit(page, repo);
 
     await msg(page).fill('e15 detached 커밋');
+    // 스테이지는 창을 열기 **전에** 했다. 그 사실이 관측을 타고 화면에 닿기
+    // 전까지 커밋 버튼은 "Nothing is staged" 로 잠겨 있다 — 눌러 봐야 아무 일도
+    // 일어나지 않고 30초를 선다 (실측). 열릴 때까지 기다린다.
+    await expect(btn(page)).toBeEnabled({ timeout: 20000 });
     await btn(page).click();
 
     // 막지 않되 결과를 명시적으로 알린다.
@@ -312,6 +319,9 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
         (r) => r.url().includes('/api/git/commit') && r.request().method() === 'POST',
         { timeout: 15000 },
       );
+      // 스테이지 사실이 관측을 타고 닿기 전까지 커밋 버튼은 잠겨 있다 — 눌러 봐야
+      // 아무 일도 일어나지 않고 타임아웃까지 선다 (실측).
+      await expect(btn(page)).toBeEnabled({ timeout: 20000 });
       await btn(page).click();
       await page.locator('#git-confirm .gc-go').click();
       const r = await wait;

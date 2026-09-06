@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // SRS: MD_VIEWER_REGRESSION_FIX_SRS.md 의 포커스 불변식 부분.
 //   FR-2: switchTab 후 창 전환→복귀 시 마지막 탭/분할 칸이 복원되어야 한다.
@@ -8,25 +8,6 @@ import { test, expect } from './fixtures';
 // 이 SRS 의 MdViewer 관련 요구(FR-1 캐시 유지, FR-9 스크롤 보존)는 markdown
 // 뷰어가 8dc0a3f 에서 제거되며 대상이 사라져 함께 삭제했다. 나머지는 뷰어와
 // 무관한 focusedPane 불변식이라 그대로 유지한다.
-
-async function resetWorkspace(request) {
-  const get = await request.get('/api/workspace');
-  const rev = get.headers()['etag'] || '0';
-  await request.put('/api/workspace', {
-    headers: { 'If-Match': rev, 'Content-Type': 'application/json' },
-    data: '{"schemaVersion":2,"windows":[]}',
-  });
-}
-
-async function waitForInit(page, request) {
-  await resetWorkspace(request);
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-    try { localStorage.clear(); } catch {}
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
 
 async function addWindow(page) {
   const before = await page.locator('#windows .si').count();
@@ -39,7 +20,7 @@ async function addWindow(page) {
 
 test.describe('focusedPane 불변식 회귀', () => {
   test('FR-2: switchTab persists s.focusedPane across session switch', async ({ page, request }) => {
-    await waitForInit(page, request);
+    await waitForInit(page, { clearLocalStorage: true });
 
     // Split horizontally → 2 panes in session 1.
     await page.evaluate(() => (window as any).app.split('h'));
@@ -75,7 +56,7 @@ test.describe('focusedPane 불변식 회귀', () => {
   });
 
   test('FR-3: closing active pane updates s.focusedPane in active session', async ({ page, request }) => {
-    await waitForInit(page, request);
+    await waitForInit(page, { clearLocalStorage: true });
 
     // Split → 2 panes; close the second pane (focused after split).
     await page.evaluate(() => (window as any).app.split('h'));
@@ -126,7 +107,7 @@ test.describe('focusedPane 불변식 회귀', () => {
 
   // FR-4: split 후 s.focusedPane 이 새 pane 과 일치해야 한다.
   test('FR-4: split updates s.focusedPane to the new pane', async ({ page, request }) => {
-    await waitForInit(page, request);
+    await waitForInit(page, { clearLocalStorage: true });
 
     const result = await page.evaluate(async () => {
       const a = (window as any).app;
@@ -145,7 +126,7 @@ test.describe('focusedPane 불변식 회귀', () => {
 
   // FR-5: keepFocus=true 로 split 하면 원래 pane 으로 focusedPane 이 유지돼야 한다.
   test('FR-5: split with keepFocus keeps s.focusedPane on original pane', async ({ page, request }) => {
-    await waitForInit(page, request);
+    await waitForInit(page, { clearLocalStorage: true });
 
     const result = await page.evaluate(async () => {
       const a = (window as any).app;
@@ -165,7 +146,7 @@ test.describe('focusedPane 불변식 회귀', () => {
 
   // FR-7: 활성 세션 삭제 시 이동한 세션의 저장된 focusedPane 을 보존한다.
   test('FR-7: delWindow preserves target session focusedPane', async ({ page, request }) => {
-    await waitForInit(page, request);
+    await waitForInit(page, { clearLocalStorage: true });
 
     // 세션 A 에서 split + 두 번째 pane 으로 포커스 이동.
     const sidA = await page.evaluate(() => (window as any).app.ws.activeWindow);
@@ -214,7 +195,7 @@ test.describe('focusedPane 불변식 회귀', () => {
 
   // FR-6: split 후 세션 전환→복귀 시 새 pane 으로 포커스 복원.
   test('FR-6: split focus survives session switch and return', async ({ page, request }) => {
-    await waitForInit(page, request);
+    await waitForInit(page, { clearLocalStorage: true });
 
     const session1Id = await page.evaluate(() => (window as any).app.ws.activeWindow);
 
@@ -234,7 +215,7 @@ test.describe('focusedPane 불변식 회귀', () => {
 
   // FR-10: 활성 탭을 닫으면 첫 탭이 아니라 인접 탭(다음, 없으면 이전)으로 이동.
   test('FR-10: closeTab activates neighbor tab, not first', async ({ page, request }) => {
-    await waitForInit(page, request);
+    await waitForInit(page, { clearLocalStorage: true });
 
     // 동일 pane 에 탭 4개 만들기 (terminal 기본 1개 + 3개 추가).
     const ids = await page.evaluate(async () => {

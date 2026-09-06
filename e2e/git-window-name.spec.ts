@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // 상단의 창 이름은 **지금 무엇을 보고 있는지**를 말해야 한다. Window·Editor 는
 // 창 자체가 대상이라 저장된 이름이 곧 목록의 이름인데, Git 창만 `Git` 으로
@@ -26,12 +26,6 @@ async function pin(request: APIRequestContext, path: string) {
   const r = await request.post('/api/git/repos/pin', { data: { path } });
   expect(r.ok(), `pin 실패: ${await r.text()}`).toBeTruthy();
   return (await r.json()).root as string;
-}
-
-async function waitForInit(page: Page) {
-  await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
 const topName = (page: Page) => page.locator('#window-name');

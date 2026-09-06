@@ -1,12 +1,4 @@
-import { test, expect } from './fixtures';
-
-async function waitForInit(page) {
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-}
+import { test, expect, waitForInit } from './fixtures';
 
 test.describe('Tab management', () => {
   test('tab can be closed via x button', async ({ page }) => {

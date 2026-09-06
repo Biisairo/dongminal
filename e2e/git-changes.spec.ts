@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, openRowMenu } from './fixtures';
 
 // GIT_M1_STEP56_CONTRACT §4 — Changes 탭. 검증 V22·V23·V24 + FR-GIT-36·39.
 //
@@ -185,10 +185,15 @@ test.describe('묶음 E — Changes 탭', () => {
 
     const row = rows(page, 'untracked').first();
     await expect(row).toBeVisible({ timeout: 10000 });
-    await row.click({ button: 'right' });
     // 17단계가 이 메뉴를 GitMenu 프레임워크로 흡수했다 (FR-GIT-146).
     const menu = page.locator('.git-menu');
-    await expect(menu).toBeVisible();
+    // 메뉴가 뜬 뒤 항목을 세는 사이에 목록이 다시 그려지면 우클릭한 행이 사라지고
+    // 메뉴도 닫힌다 — 그러면 항목이 0개다 (실측). 여는 것과 세는 것을 한 재시도
+    // 안에 둔다.
+    await expect(async () => {
+      await openRowMenu(page, row);
+      await expect(menu.locator('.git-menu-item')).toHaveCount(7, { timeout: 3000 });
+    }).toPass({ timeout: 20000 });
     // FR-GIT-273·274·275 로 항목이 늘었고 FR-GIT-276(Blame)이 하나 더 늘렸다
     // (GIT_ACTIONS_SRS §3.6·§3.8). **저장소를 바꾸는 항목이 하나도 없다**는 것이
     // 이 시험의 본체이고(FR-GIT-41), 그 단정은 아래에 그대로 있다 — 개수는 그

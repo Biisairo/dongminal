@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, waitForInit as fxWaitForInit } from './fixtures';
 
 /**
  * CONVENIENCE_SRS 묶음 N — 전경 프로세스 기반 탭 이름 (FR-TAN-*).
@@ -47,12 +47,9 @@ async function installStateStub(page) {
 }
 
 async function waitForInit(page) {
+  // stub 은 `page.route()` 이므로 goto 전에 Node 쪽에서 걸어야 한다 (FR-RST-15).
   await installStateStub(page);
-  await page.context().addInitScript(() => {
-    sessionStorage.setItem('displayMode', 'desktop');
-  });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+  await fxWaitForInit(page);
 }
 
 // 활성 pane 의 첫 탭 정보를 꺼낸다.

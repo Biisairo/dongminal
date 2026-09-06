@@ -309,8 +309,15 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
 
       // A 가 창을 하나 더 만든다 → B 에 workspace_changed 가 온다.
       const beforeB = await pageB.locator('#windows .si').count();
-      await pageA.click('#add-window');
-      await expect(pageB.locator('#windows .si')).toHaveCount(beforeB + 1, { timeout: 15000 });
+      // A 의 저장이 방금 B 가 낸 저장들과 겹치면 **A 의 저장이 포기된다**
+      // (WORKSPACE_SAVE_CONFLICT_SRS FR-WSC-1) — 서버에 창이 늘지 않으니 B 에는
+      // 아무것도 오지 않고, 기다리기만 하면 15초를 서 있다 (실측: 3회 중 2회).
+      // 겹침은 앱이 설계한 상황이므로 테스트는 다시 눌러야 한다. 여기서 재는
+      // 것은 "구조 변경이 전파된다" 이므로 몇 개가 늘었는지는 중요하지 않다.
+      await expect(async () => {
+        await pageA.click('#add-window');
+        await expect(pageB.locator('#windows .si')).not.toHaveCount(beforeB, { timeout: 6000 });
+      }).toPass({ timeout: 30000 });
 
       // 구조는 따라왔지만 각 칸이 보던 탭은 그대로다.
       expect(await activeTabId(pageB, 0)).toBe(tabs[0].id);

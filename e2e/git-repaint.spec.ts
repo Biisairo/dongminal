@@ -5,7 +5,7 @@ import { realpathSync } from 'fs';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView } from './fixtures';
 
 // GIT_REVIEW4_SRS §3.2·§3.5 — 바깥 계기의 다시 그리기.
 // 검증 V104~V113 (FR-RPT-1~7, FR-GIT-227).
@@ -183,7 +183,7 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     // 쓰기 하나가 기록을 만든다 — Console 은 쓰기와 실패만 기본으로 보인다.
     await page.locator('.git-view.git-changes .git-group[data-group="untracked"] .git-file')
       .first().locator('.git-file-act[data-act="stage"]').click();
-    await page.locator('#area .pn-tab[data-git-view="console"]').click();
+    await clickGitView(page, 'console');
     const sel = '#area .pn-body .git-view.git-console .git-con-row';
     await expect(page.locator(sel).first()).toBeVisible();
     /**

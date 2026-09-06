@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView } from './fixtures';
 
 // SLOT_VIEW_STATE_SRS §8 M6 — TC-SVS-60~64.
 //
@@ -53,7 +53,7 @@ async function openGitView(page: Page, repo: string, view: string) {
       .toBeVisible({ timeout: 10000 });
     return;
   }
-  await page.click(`#area .pn-tab[data-git-view="${view}"]`);
+  await clickGitView(page, view);
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(
     new RegExp('git-' + view));
 }
