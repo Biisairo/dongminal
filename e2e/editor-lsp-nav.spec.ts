@@ -85,11 +85,18 @@ async function expectHoverGround(page: Page) {
       lang: (v && v._editor && v._editor.getModel() && v._editor.getModel().getLanguageId()) || null,
       root: path ? (a._lspRootOfPath(path) || null) : null,
       roots: a._edWindows().map((w: any) => (w.editor && w.editor.root) || null),
+      // provider 가 실제로 걸렸는가. 이것이 비면 Monaco 는 아무에게도 묻지 않는다.
+      hoverLangs: [...(a._lspHoverLangs || [])],
+      monaco: typeof (window as any).monaco !== 'undefined',
+      statusLangs: ((a._lspStatus || []) as any[]).flatMap((x: any) => x.langs || []),
     };
   });
   expect(g.hasModel, `활성 편집기에 모델이 없다: ${JSON.stringify(g)}`).toBe(true);
   expect(g.lang, `모델의 언어가 go 가 아니다 — provider 가 걸리지 않는다: ${JSON.stringify(g)}`).toBe('go');
   expect(g.root, `이 파일을 품는 Editor 루트를 못 찾았다 — 호버 요청이 만들어지지 않는다: ${JSON.stringify(g)}`).toBeTruthy();
+  // provider 가 걸리지 않았으면 Monaco 는 **아무에게도 묻지 않는다** — 그때
+  // "말풍선이 안 뜬다" 는 증상은 provider 의 속과 아무 상관이 없다.
+  expect(g.hoverLangs, `호버 provider 가 go 에 등록되지 않았다: ${JSON.stringify(g)}`).toContain('go');
 }
 
 // 커서를 그 자리에 둔다 — 요청이 싣는 좌표가 이것이다.
