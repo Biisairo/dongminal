@@ -186,9 +186,28 @@ Object.assign(App.prototype, {
   // would never fire again for a client that still remembers owning it.
   // Re-claiming only when OS-focused keeps a backgrounded device from stealing
   // the PTY size back from the active one (FR-XDF-13).
+  /**
+   * FR-XDF-6: 서버가 미는 **전체 소유권 맵**. 증분이 아니므로 통째로 갈아치우면
+   * 되고 자기 에코 필터가 필요 없다 (FR-XDF-14 — 멱등).
+   *
+   * 종전에는 이 배선이 `app-cmd.js` 의 `onmessage` 안에 익명으로 있었다. 이름을
+   * 주는 이유는 `state-registry` 가 그것을 가리켜야 하기 때문이다 — 이름 없는
+   * 핸들러는 등록부에 설 수 없다.
+   */
+  _onWindowFocus(a){
+    this._windowFocusOwner=(a&&a.owners)||{};
+    this._applyFocusOverlay();
+  },
+
+  /**
+   * 합류·복귀 시의 스냅샷. `state-registry` 의 `merge:'latest'` — 추월만 막는다.
+   */
   _focusRestore(){
+    const t=this._restoreBegin('focus');
     fetch('/api/focus').then(r=>r.ok?r.json():null).then(j=>{
       if(!j) return;
+      if(!this._restoreLive('focus',t)) return;
+      this._restoreEnd('focus',t);
       this._windowFocusOwner=j.owners||{};
       this._applyFocusOverlay();
       // FR-WSL-12: 슬롯이 둘이면 둘 다 재주장한다 — 각 슬롯의 구독이 따로 끊기고

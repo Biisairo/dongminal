@@ -199,7 +199,7 @@ Object.assign(App.prototype, {
       let lastTouchEndAt=0;   // 합성 click(ghost click) 억제용
 
       const cancelPress=()=>{
-        if(pressTimer){clearTimeout(pressTimer);pressTimer=null}
+        if(pressTimer){TIMERS.cancel(pressTimer);pressTimer=null}
       };
       const activate=()=>{
         if(k.act==='hidekb'){
@@ -226,7 +226,7 @@ Object.assign(App.prototype, {
         startPt=t?{x:t.clientX,y:t.clientY}:null;
         moved=false;longPressFired=false;
         cancelPress();
-        pressTimer=setTimeout(()=>{longPressFired=true;showTip(full,b)},MKB_LONG_PRESS_MS);
+        pressTimer=TIMERS.after(MKB_LONG_PRESS_MS,()=>{longPressFired=true;showTip(full,b)},{owner:'mkb',label:'long-press'});
       },{passive:true});
 
       // FR-MTB-5: 이동 거리 임계값으로 판정한다. touchmove 발생만으로 취소하면
@@ -286,11 +286,9 @@ Object.assign(App.prototype, {
   // layout viewport 가 함께 줄어 window resize 로 알린다. 후자에서는 kbH 가 0 에
   // 수렴해 vv 경로가 스스로 비활성되므로, window resize 쪽도 반드시 묶여야 한다.
   _scheduleFit(){
-    if(this._mFitRaf) return;
-    this._mFitRaf=requestAnimationFrame(()=>{
-      this._mFitRaf=null;
+    TIMERS.frame(()=>{
       for(const p of this.tools.values()){if(p.el.classList.contains('vis'))p.doFit()}
-    });
+    },{owner:'app', coalesce:'fit'});
   },
 
   // 이전 이름. 모바일 전용이 아니게 되었으므로 _scheduleFit 을 쓴다.

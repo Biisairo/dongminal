@@ -374,9 +374,9 @@ class FileEditor {
 
 
     // Ensure Monaco fills the container after DOM insertion
-    requestAnimationFrame(() => {
+    TIMERS.frame(() => {
       if (this._editor) this._editor.layout();
-    });
+    },{owner:this,label:'editor-frame'});
     this._findKillMonacoKeys();
     // FR-LSP-39: 호버 provider 는 **언어마다 한 번**이다. 편집기를 여럿 세워도
     // 등록이 늘지 않아야 한다 — 늘면 같은 호버가 여러 번 뜬다. 그 판정은 app 이
@@ -556,7 +556,7 @@ class FileEditor {
       console.error('[FileEditor] save error:', e);
       // Visual feedback — flash the editor border red briefly
       this.el.style.boxShadow = 'inset 0 0 0 2px #f44';
-      setTimeout(() => { this.el.style.boxShadow = ''; }, 500);
+      TIMERS.after(500, () => { this.el.style.boxShadow = ''; }, {owner:this,label:'flash'});
     } finally {
       if (doc) doc.saving = false;
     }
@@ -640,11 +640,11 @@ class FileEditor {
     }
     this._note.textContent = text;
     this._note.classList.add('vis');
-    clearTimeout(this._noteT);
+    TIMERS.cancel(this._noteT);
     // 스스로 사라진다 — 닫는 조작을 배워야 하는 알림은 알림이 아니라 창이다.
-    this._noteT = setTimeout(() => {
+    this._noteT = TIMERS.after(ms || FE_NOTE_MS, () => {
       if (this._note) this._note.classList.remove('vis');
-    }, ms || FE_NOTE_MS);
+    }, {owner:this,label:'note-hide'});
   }
 
   /**

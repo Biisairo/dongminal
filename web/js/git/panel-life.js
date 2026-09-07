@@ -31,7 +31,7 @@ Object.assign(GitPanel.prototype, {
     // 진행 중인 요청의 소유권을 끊는다 — 그 응답은 가드에 걸려 버려지고, 새 리포는
     // 앞선 요청이 끝나기를 기다리지 않는다.
     this._seq++; this._busy=false; this._again=false; this._sigBusy=false;
-    if(this._sigT){clearTimeout(this._sigT);this._sigT=null}
+    if(this._sigT){TIMERS.cancel(this._sigT);this._sigT=null}
     // FR-SVS-34: 활성 리포는 창의 것이므로 **모든 칸이 같은 리포를 본다.** 그래서
     // 리포에 붙은 시선은 칸마다 되돌아간다 — 한 칸만 되돌리면 다른 칸이 이전
     // 리포의 선택·diff 를 새 리포의 헤더와 함께 보인다.
@@ -87,7 +87,7 @@ Object.assign(GitPanel.prototype, {
     }
     // 탭 전환마다 루트가 DOM 에서 떼였다 붙는다 — Monaco 는 그 사이 크기를 0 으로
     // 보므로 다시 붙은 뒤 한 번 재배치한다.
-    if(view==='diff'&&this._diffView) requestAnimationFrame(()=>this._diffView.layout());
+    if(view==='diff'&&this._diffView) TIMERS.frame(()=>this._diffView.layout(),{owner:this,label:'diff-layout'});
     // History 는 탭이 활성일 때만 목록을 받는다 — 열지 않은 탭이 10,000 커밋을
     // 미리 받아 둘 이유가 없다.
     // 아래의 탭별 재조회는 **`_render` 를 지난다** — 직접 `_renderHistory` 를 부르면
@@ -96,7 +96,7 @@ Object.assign(GitPanel.prototype, {
       this._render(view);
       // 여기서는 루트가 아직 pane 본문에 붙기 전이라 목록의 높이가 0 이다 —
       // 붙은 뒤에 한 번 더 칠해야 스크롤 위치와 펼친 상세가 되돌아온다.
-      requestAnimationFrame(()=>{if(!this._missing&&this._historyView) this._historyView.paint()});
+      TIMERS.frame(()=>{if(!this._missing&&this._historyView) this._historyView.paint()},{owner:this,label:'history-paint'});
     }
     // Branches·Stash 도 탭이 활성일 때 받는다 — 열지 않은 탭이 refs·stash 를 미리
     // 받아 둘 이유가 없다.

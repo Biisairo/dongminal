@@ -345,14 +345,14 @@ Object.assign(FileTree.prototype, {
     this._springCancel();
     if(!p||this._open.has(p)) return;
     this._springPath=p;
-    this._springTimer=setTimeout(()=>{
+    this._springTimer=TIMERS.after(EDITOR_SPRING_MS,()=>{
       this._springTimer=null; this._springPath='';
       if(!this._open.has(p)) this.toggle(p);
-    },EDITOR_SPRING_MS);
+    },{owner:this,label:'spring-open'});
   },
 
   _springCancel(){
-    if(this._springTimer){clearTimeout(this._springTimer);this._springTimer=null}
+    if(this._springTimer){TIMERS.cancel(this._springTimer);this._springTimer=null}
     this._springPath='';
   },
 });

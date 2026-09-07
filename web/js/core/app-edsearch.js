@@ -156,8 +156,8 @@ Object.assign(App.prototype, {
     const q=p.querySelector('.ed-find-q');
     // 입력마다 부르지 않는다 — 한 글자에 저장소 전체를 훑는 요청이 나간다.
     q.addEventListener('input',()=>{
-      clearTimeout(p._t);
-      p._t=setTimeout(()=>this._edPanelQuery(p),ED_SEARCH_DEBOUNCE_MS);
+      TIMERS.cancel(p._t);
+      p._t=this.timers.after(ED_SEARCH_DEBOUNCE_MS,()=>this._edPanelQuery(p),{owner:'app',label:'ed-search'});
     });
     q.addEventListener('keydown',e=>{
       // 패널 안의 키는 밖으로 내보내지 않는다 — 앱 단축키가 끼어들면

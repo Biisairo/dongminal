@@ -157,7 +157,7 @@ class FileTree {
    */
   mount(){
     const y=this._scrollY;
-    if(y) requestAnimationFrame(()=>{ if(this.list.scrollTop!==y) this.list.scrollTop=y });
+    if(y) TIMERS.frame(()=>{ if(this.list.scrollTop!==y) this.list.scrollTop=y },{owner:this,label:'tree-frame'});
     // FR-EDT-66: 스크롤과 같은 함정이 인라인 입력에도 있다. 요소가 문서에서
     // 떨어지는 순간 포커스가 사라지므로(SSE 한 번이면 충분하다) 값으로 되돌린다 —
     // 입력이 **열려 있는 동안**에만이다.
@@ -176,7 +176,7 @@ class FileTree {
     const el=this.list.querySelector('.ed-input');
     if(!el) return;
     const a=el.selectionStart,b=el.selectionEnd;
-    requestAnimationFrame(()=>{
+    TIMERS.frame(()=>{
       if(!this._edit||!el.isConnected||document.activeElement===el) return;
       // 다른 요소가 포커스를 쥐고 있으면 뺏지 않는다. 떨어져 나가면서 잃은
       // 포커스는 `body` 로 돌아가므로 그 경우만 우리 것이다 — 입력이 잃은 blur 는
@@ -185,7 +185,7 @@ class FileTree {
       if(cur&&cur!==document.body) return;
       el.focus();
       el.setSelectionRange(a,b);
-    });
+    },{owner:this,label:'tree-frame'});
   }
 
   destroy(){

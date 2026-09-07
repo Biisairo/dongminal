@@ -262,12 +262,12 @@ class EdDirtyDiff{
 
   // FR-EDD-14: 타이핑 한 글자마다 돌리지 않는다.
   schedule(ms){
-    clearTimeout(this._timer);
-    this._timer=setTimeout(()=>this.recompute(),ms===undefined?ED_DD_DEBOUNCE_MS:ms);
+    TIMERS.cancel(this._timer);
+    this._timer=TIMERS.after(ms===undefined?ED_DD_DEBOUNCE_MS:ms,()=>this.recompute(),{owner:this, label:'dirty-diff'});
   }
 
   recompute(){
-    clearTimeout(this._timer);
+    TIMERS.cancel(this._timer);
     const m=this._model;
     if(!m||(m.isDisposed&&m.isDisposed())) return;
     if(!this.base){this.changes=[];this._paint([]);this._sync();return}
@@ -389,7 +389,7 @@ class EdDirtyDiff{
   }
 
   dispose(){
-    clearTimeout(this._timer);
+    TIMERS.cancel(this._timer);
     this._seq++;
     // FR-EDD-16: 모델이 살아 있으면 데코레이션을 걷는다. 남기면 다시 열었을 때
     // 낡은 막대가 먼저 보인다.

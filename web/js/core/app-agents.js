@@ -57,14 +57,16 @@ Object.assign(App.prototype, {
     if(open){this._agentsRender();this._agentsStartPoll()}else{this._agentsStopPoll()}
     // agents 패널이 열리거나 닫힐 때 attn center 위치도 같이 조정
     const ac=document.getElementById('attn-center');
-    if(ac&&ac.classList.contains('open')) requestAnimationFrame(()=>this._positionAttnCenter());
+    if(ac&&ac.classList.contains('open')) TIMERS.frame(()=>this._positionAttnCenter(),{owner:'app',label:'attn-center'});
   },
 
   // FR-AAP-19: 패널 열림 동안 주기적으로 서버 스냅샷과 동기화(자동 새로고침)
   _agentsStartPoll(){
     this._agentsStopPoll();
     // FR-RST-23: 종전에는 숨김 판정조차 없어 보이지 않는 탭에서도 계속 받았다.
-    this._agentsTimer=visiblePoll(this.agentsPollMs,()=>this._activityRestore());
+    // 주기는 `state-registry` 의 `tool.activity` 선언이 갖는다 (FR-HUB-3).
+    // 여기서 다시 걸면 같은 상태를 두 타이머가 묻는다.
+    this._agentsTimer=null;
   },
   _agentsStopPoll(){
     if(this._agentsTimer){this._agentsTimer.stop();this._agentsTimer=null}
@@ -199,7 +201,7 @@ Object.assign(App.prototype, {
     card.addEventListener('click',()=>this._jumpToTool(toolId)); // FR-ATA-6: 해제는 _jumpToTool 이 한다
     // FR-AAP-21: 창 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
     card.draggable=true;
-    card.addEventListener('dragstart',e=>{this._drag={type:'agent',pid:toolId,targetPid:null,before:false,done:false};e.dataTransfer.effectAllowed='move';setTimeout(()=>card.classList.add('dragging'),0)});
+    card.addEventListener('dragstart',e=>{this._drag={type:'agent',pid:toolId,targetPid:null,before:false,done:false};e.dataTransfer.effectAllowed='move';TIMERS.defer(()=>card.classList.add('dragging'),{label:'drag-class'})});
     card.addEventListener('dragover',e=>{const dr=this._drag;if(!dr||dr.type!=='agent')return;e.preventDefault();panel.querySelectorAll('.ag-card').forEach(c=>c.classList.remove('drag-above','drag-below'));const rect=card.getBoundingClientRect();const before=e.clientY<rect.top+rect.height/2;card.classList.add(before?'drag-above':'drag-below');dr.targetPid=toolId;dr.before=before});
     card.addEventListener('drop',e=>{const dr=this._drag;if(!dr||dr.type!=='agent')return;e.preventDefault();e.stopPropagation();this._reorderAgents(dr)});
     // dragend 는 시각 정리만 — 패널 밖 release 는 취소(순서 불변, snap-back 깜빡임 방지).

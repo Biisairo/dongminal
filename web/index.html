@@ -391,6 +391,11 @@
 <script src="js/core/constants-docrender.js?v=__ASSETV__"></script>
 <!-- 부팅 화면 손잡이 (BOOT_SCREEN_SRS). constants.js 뒤여야 한다 — 로드 시점에
      `BOOT_MAX_MS` 로 상한을 건다. -->
+<!-- 시간과 전파의 소유자. constants 뒤(값을 딛는다) helpers 앞(visiblePoll 이
+     이 위에 선다)에 온다 — 번들러가 없으므로 로드 순서가 곧 의존 순서다. -->
+<script src="js/core/timer-hub.js?v=__ASSETV__"></script>
+<script src="js/core/event-bus.js?v=__ASSETV__"></script>
+<script src="js/core/state-registry.js?v=__ASSETV__"></script>
 <script src="js/ui/boot-screen.js?v=__ASSETV__"></script>
 <script src="js/core/helpers.js?v=__ASSETV__"></script>
 <script src="js/ui/repaint.js?v=__ASSETV__"></script>

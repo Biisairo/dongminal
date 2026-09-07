@@ -441,8 +441,12 @@ class GitRemote {
     const job=this._job;
     if(!job||typeof EventSource==='undefined') return;
     const id=job.id;
-    const es=new EventSource('/api/git/job/events?id='+encodeURIComponent(id)+
-      '&after='+this._seq);
+    // 채널은 버스가 연다 (FR-BUS-7 · INV-2). 재시도는 이 클래스의 것이다 —
+    // `_retries`·`GIT_JOB_RETRY_MS` 가 job 의 수명에 매여 있기 때문이다.
+    const es=this.app.bus.openChannel('git-job',
+      '/api/git/job/events?id='+encodeURIComponent(id)+'&after='+this._seq,
+      {owner:this});
+    if(!es) return;
     this._stream=es;
     es.addEventListener('line',ev=>{
       if(this._stream!==es) return;
@@ -468,9 +472,9 @@ class GitRemote {
       }
       this._retries++;
       this._streamErr=true; this._paint();
-      setTimeout(()=>{
+      TIMERS.after(GIT_JOB_RETRY_MS,()=>{
         if(this._job&&this._job.id===id&&!this._stream) this._openStream();
-      },GIT_JOB_RETRY_MS);
+      },{owner:this,label:'job-retry'});
     };
   }
 

@@ -12,6 +12,9 @@ import { test, expect } from './fixtures';
 // 그것은 WebSocket 생성자를 세는 것으로 결정적으로 관측되기 때문이다.
 
 const TERM_PANE_JS = join(process.cwd(), 'web', 'js', 'ui', 'term-pane.js');
+// EVENT_TIMER_HUB_SRS INV-1: `TermPane` 의 타이머는 전역 `TIMERS` 를 지난다.
+// 재는 것은 바뀌지 않는다 — 백오프·종단 판정은 여전히 이 클래스의 것이다.
+const TIMER_HUB_JS = join(process.cwd(), 'web', 'js', 'core', 'timer-hub.js');
 
 // term-pane.js 가 기대하는 전역 중 재연결 경로가 쓰는 것만 세운다.
 // WebSocket 은 생성 횟수를 세고 마지막 인스턴스를 노출하는 가짜다.
@@ -46,6 +49,7 @@ async function loadTermPane(page: Page) {
     }
     (window as any).WebSocket = FakeWS;
   });
+  await page.addScriptTag({ path: TIMER_HUB_JS });
   await page.addScriptTag({ path: TERM_PANE_JS });
   // `class` 선언은 전역 렉시컬 환경에 들어가고 window 에는 붙지 않는다
   // (repaint.js 의 `function` 선언과 다른 점). 이름으로 꺼내 올려둔다.

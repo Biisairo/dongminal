@@ -42,22 +42,22 @@ const BootScreen={
   // FR-BTS-14 / D-BTR-4: 상한은 **세울 때마다** 다시 건다. 한 번만 걸면 두 번째
   // 표시에는 잠김 방어가 없다.
   _arm(){
-    clearTimeout(this._timer);
-    this._timer=setTimeout(()=>this.done(),BOOT_MAX_MS);
+    TIMERS.cancel(this._timer);
+    this._timer=TIMERS.after(BOOT_MAX_MS,()=>this.done(),{owner:'boot',label:'boot-max'});
   },
   // FR-BTS-12: 두 번 불려도 한 번만 동작한다 — 준비 완료와 상한이 겹쳐 도착할 수 있다.
   done(){
     if(this._done) return;
     this._done=true;
     // D-BTR-5: 남겨 두면 이번 상한이 뒤늦게 도착해 **다음에 세운 화면**을 걷는다.
-    clearTimeout(this._timer);
+    TIMERS.cancel(this._timer);
     this._timer=0;
     const el=this._el;
     if(!el) return;
     el.classList.add('gone');
     // FR-BTR-5 / D-BTR-6: 페이드가 도는 동안 다시 세워졌을 수 있다. 그때의
     // 제거는 방금 붙인 노드를 떼어 가는 일이다.
-    setTimeout(()=>{if(this._done) el.remove()},BOOT_FADE_MS);
+    TIMERS.after(BOOT_FADE_MS,()=>{if(this._done) el.remove()},{owner:'boot',label:'boot-fade'});
   },
 };
 

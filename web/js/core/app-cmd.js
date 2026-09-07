@@ -23,170 +23,90 @@ Object.assign(App.prototype, {
    * FG_RESTORE_RACE_SRS 는 이 규약을 주석으로 선언만 하고 손으로 옮겨 적다
    * 한 방향을 놓쳤다. 그래서 함수로 둔다 — 옮겨 적을 자리가 없다.
    */
-  _restoreBegin(key){
-    const t=new Set();
-    (this._restoreFlight||(this._restoreFlight={}))[key]=t;
-    return t;
-  },
-  _restoreLive(key,t){ return !!this._restoreFlight && this._restoreFlight[key]===t },
-  _restoreNote(key,id){
-    const t=this._restoreFlight&&this._restoreFlight[key];
-    if(t&&id) t.add(id);
-  },
+  // **경쟁 해소는 `EventBus` 가 갖는다** (FR-BUS-6). 아래 다섯은 위임 껍데기다
+  // (FR-HUB-7) — 부르는 이름이 셋(`fg`·`attn`·`activity`)에 이미 박혀 있고
+  // e2e 도 그것을 본다.
+  //
+  // 버스로 옮긴 값어치는 **적용 범위**다. 종전에는 이 방어가 셋에만 있었고
+  // `background` 와 `focus` 는 같은 경쟁에 열려 있었다 (SRS §2.5). 소유자가
+  // 하나가 되면 다섯 전부가 같은 규약을 받는다.
+  _restoreBegin(key){ return this.bus.beginSnapshot(key) },
+  _restoreLive(key,t){ return this.bus.isLive(key,t) },
+  _restoreNote(key,id){ this.bus.noteTouched(key,id) },
   // FR-RSF-5: 전체 초기화는 만진 id 로 표현되지 않는다. 그 비행은 통째로 버린다.
-  _restoreVoid(key){ if(this._restoreFlight) this._restoreFlight[key]=null },
-  _restoreEnd(key,t){ if(this._restoreLive(key,t)) this._restoreFlight[key]=null },
+  _restoreVoid(key){ this.bus.voidSnapshot(key) },
+  _restoreEnd(key,t){ this.bus.endSnapshot(key,t) },
 
-  // 외부 CLI(dmctl) → 서버 → SSE 브로드캐스트 수신 → executeAction 재사용
+  /**
+   * 외부 CLI(dmctl) → 서버 → SSE 브로드캐스트 수신 → `_execRemote` 재사용.
+   *
+   * **채널과 라우팅은 `EventBus` 가 갖는다** (EVENT_TIMER_HUB_SRS 묶음 B).
+   * 여기 남는 것은 **배선**뿐이다 — 어떤 action 이 무엇을 부르는가.
+   *
+   * 종전에는 이 자리에 149줄이 있었다: EventSource 생성, 백오프 재시도, 강제
+   * 재연결, 침묵 감시, 깨어남 리스너 셋, 그리고 `m.action` 을 13번 비교하는
+   * if-체인. 그 구조에서는 한 action 에 구독자가 둘일 수 없었고(두 곳이 알아야
+   * 하면 한쪽이 다른 쪽을 직접 부르는 배선이 생겼다), 어떤 이벤트가 몇 번 왔는지
+   * 볼 자리가 없었으며, 구독을 뗄 방법이 없었다 (SRS §2.6).
+   *
+   * **게이팅 순서를 보존한다** (FR-BUS-5). 아래 구독된 action 들은 종전 코드에서
+   * `execClientId` 검사 **앞**에 있었으므로, 지명받지 못한 클라이언트에도 도달해야
+   * 한다. 버스는 "구독자가 있으면 지명을 보지 않는다" 로 그것을 지킨다.
+   */
   _subscribeCommands(){
-    // FR-RCS-6: 백오프에 상한은 두되 **포기하지 않는다.** 이 구독이 끊긴 채로
-    // 남으면 워크스페이스 변경이 도달하지 않고, 그러면 `_applyRemoteWorkspace`
-    // 의 죽은 도구 정리가 돌지 않아 없어진 도구를 향한 재접속이 영원히 계속된다.
-    let retry=SSE_RETRY_MIN_MS, pending=null;
-    const schedule=()=>{
-      if(pending) return;
-      pending=setTimeout(()=>{pending=null;connect()},retry);
-      retry=Math.min(retry*2, SSE_RETRY_MAX_MS);
-    };
-    // FR-SRL-3: 강제 재연결의 손잡이. 백오프 대기 중이면 그것을 취소하고 지금
-    // 붙는다 — 사용자가 부른 것이므로 기다릴 이유가 없다.
-    this._sseKick=()=>reconnect();
-    const connect=()=>{
-      try{
-        // FR-XDF-8: clientId 를 실어 서버가 구독↔Client 를 결선한다. 이 결선이
-        // 구독 해제 시 소유권 해제(FR-XDF-9)의 선행 조건이다.
-        const es=new EventSource('/api/commands/sse?clientId='+encodeURIComponent(this.clientId));
-        // FR-SRL-3: 내부 새로고침이 구독의 **상태를 보고** 죽었으면 다시 연다.
-        // 클로저 안에 갇혀 있으면 밖에서 볼 수도 되살릴 수도 없다 (§2.2).
-        this._sse=es;
-        // FR-RLC-25: 이 구독이 몇 번째로 열린 것인가, 그리고 마지막으로 무엇이
-        // 온 것이 언제인가. 뒤의 값이 생존 판정의 유일한 근거다 (D-7).
-        this._sseGen=(this._sseGen||0)+1;
-        this._sseSeen=Date.now();
-        es.onopen=()=>{this._sseSeen=Date.now();retry=SSE_RETRY_MIN_MS;this._attnRestore();this._activityRestore();this._bgRefresh();this._focusRestore();this._fgRestore()};
-        es.onmessage=(e)=>{
-          // FR-RLC-28: **모든** 수신이 생존의 증거다. 인사만 세면 다른 이벤트가
-          // 활발히 오는 동안에도 인사 하나가 늦으면 끊게 된다.
-          this._sseSeen=Date.now();
-          try{
-            const m=JSON.parse(e.data);
-            // RELOAD_CONTINUITY_SRS FR-RLC-20·24: 구독이 열릴 때 서버가 건네는
-            // 자기 판. 자산이 바뀌는 길은 프로세스 교체뿐이고 그때 이 구독이
-            // 끊기므로, **이 인사가 곧 "자산이 바뀌었을 수 있다" 의 신호**다.
-            // 판정은 version-watch 의 것이다 — 여기서는 값만 넘긴다.
-            if(m.action==='server_hello'){
-              const v=m.args&&m.args.assetVersion;
-              if(v&&window.__dmAssetVersion) window.__dmAssetVersion(String(v));
-              return;
-            }
-            // EDITOR_LSP_SRS FR-LSP-32: 언어 서버가 밀어 준 진단. 요청 없이
-            // 오므로 이 길이 필요하다 — 폴링으로 바꾸면 타이핑을 멈춘 뒤 밑줄이
-            // 늦게 서거나, 멈추지 않았는데도 계속 묻게 된다.
-            if(m.action===LSP_DIAG_ACTION){
-              this._lspOnDiagnostics(m.args||{});
-              return;
-            }
-            if(m.action==='workspace_changed'){
-              this._onWorkspaceChanged(m.args&&m.args.rev);
-              return;
-            }
-            if(m.action==='tool_attention'){
-              this._onToolAttention(m.args||{});
-              return;
-            }
-            if(m.action==='tool_attention_clear'){
-              this._onToolAttentionClear(m.args||{});
-              return;
-            }
-            // FR-RVZ-16: Run 이 바뀌었다. 열려 있는 그 Run 의 탭만 /graph 를
-            // 다시 부른다 — 폴링하지 않으며, 열린 Run 탭이 없으면 아무 요청도
-            // 나가지 않는다.
-            if(m.action==='run_changed'){
-              this._onRunChanged(m.args||{});
-              return;
-            }
-            // UX_REVISION_SRS FR-BGV-1: 서버가 백그라운드 도구를 늘리거나 줄였다.
-            // 목록만 다시 받는다 — 워크스페이스는 바뀌지 않았으므로 다시 그리지
-            // 않는다 (`_bgRefresh` 가 배지까지 갱신한다).
-            if(m.action==='tools_background_changed'){
-              this._bgRefresh();
-              return;
-            }
-            if(m.action==='tool_activity'){
-              this._onToolActivity(m.args||{});
-              return;
-            }
-            // FR-TAN-8/9: 전경 프로세스 이름이 **바뀌었을 때만** 온다. 서버가
-            // 이미 중복을 걸렀으므로 여기서 또 거르지 않는다.
-            if(m.action==='tool_foreground'){
-              this._onToolForeground(m.args||{});
-              return;
-            }
-            // FR-XDF-6: 전체 소유권 맵이 온다. 증분이 아니므로 통째로 갈아치우면
-            // 되고, 자기 에코 필터가 필요 없다 (FR-XDF-14 — 멱등).
-            if(m.action==='window_focus'){
-              this._windowFocusOwner=(m.args&&m.args.owners)||{};
-              this._applyFocusOverlay();
-              return;
-            }
-            // FR-SXE-3: 서버가 실행자를 지명한 명령은 그 클라이언트만 수행한다.
-            // 어떤 action 을 게이팅할지는 서버만 정하므로 여기서 종류를 보지
-            // 않는다. 지명이 없으면(구독자에 clientId 가 없는 경우) 게이팅하지
-            // 않는다 — FR-SXE-5 의 열화 경로다.
-            if(m.execClientId&&m.execClientId!==this.clientId) return;
-            // REMOTE_COMMAND_RESULT_SRS: reqId 는 broadcast payload 의 top-level
-            // 이므로 args 에 합쳐 _execRemote 로 전달 (echo correlation).
-            const args=m.args||{};
-            if(m.reqId) args.reqId=m.reqId;
-            this._execRemote(m.action, args);
-          }catch(err){console.error('[cmd] parse',err)}
-        };
-        es.onerror=()=>{
-          try{es.close()}catch{}
-          schedule();
-        };
-        this._cmdES=es;
-      }catch(e){console.error('[cmd] connect',e); schedule()}
-    };
-    // 지금 붙어 있는 구독을 버리고 새로 연다. 백오프 대기 중이면 그것도 접는다.
-    const reconnect=()=>{
-      if(pending){clearTimeout(pending);pending=null}
-      retry=SSE_RETRY_MIN_MS;
-      try{if(this._sse)this._sse.close()}catch{}
-      connect();
-    };
+    const bus=this.bus;
+
+    // ── 라우팅 (FR-BUS-4) — 종전 13분기 if-체인 ──
+    //
+    // RELOAD_CONTINUITY_SRS FR-RLC-20·24: 구독이 열릴 때 서버가 건네는 자기 판.
+    // 자산이 바뀌는 길은 프로세스 교체뿐이고 그때 이 구독이 끊기므로, **이 인사가
+    // 곧 "자산이 바뀌었을 수 있다" 의 신호**다. 판정은 version-watch 의 것이다.
+    bus.subscribe('server_hello',a=>{
+      const v=a&&a.assetVersion;
+      if(v&&window.__dmAssetVersion) window.__dmAssetVersion(String(v));
+    },{owner:'app'});
+
+    // EDITOR_LSP_SRS FR-LSP-32: 언어 서버가 밀어 준 진단. 요청 없이 오므로 이
+    // 길이 필요하다 — 폴링으로 바꾸면 타이핑을 멈춘 뒤 밑줄이 늦게 서거나,
+    // 멈추지 않았는데도 계속 묻게 된다.
+    bus.subscribe(LSP_DIAG_ACTION,a=>this._lspOnDiagnostics(a),{owner:'app'});
+
+    bus.subscribe('workspace_changed',a=>this._onWorkspaceChanged(a&&a.rev),{owner:'app'});
+
+    // FR-RVZ-16: Run 이 바뀌었다. 열려 있는 그 Run 의 탭만 /graph 를 다시 부른다 —
+    // 폴링하지 않으며, 열린 Run 탭이 없으면 아무 요청도 나가지 않는다.
+    bus.subscribe('run_changed',a=>this._onRunChanged(a),{owner:'app'});
 
     /**
-     * FR-RLC-25: **침묵을 잰다.**
+     * ── 다섯 상태는 **등록부에서 파생된다** (FR-HUB-3) ──
      *
-     * 서버는 인사를 `sseHelloEvery`(15초)마다 보내므로(FR-RLC-20a), 상한을 넘도록
-     * 아무것도 오지 않았다면 이 구독은 죽은 것이다 — `readyState` 가 무어라 하든.
-     * 잠에서 깬 기기의 half-open 소켓이 정확히 그 자리이며, 그 상태에서 멎는 것은
-     * 판 소식만이 아니다 (FR-RLC-20b).
+     * 여기 있던 것: `tool_attention`·`tool_attention_clear`·`tool_activity`·
+     * `tool_foreground`·`tools_background_changed`·`window_focus` 구독 여섯과,
+     * `sse:open` 에 이어 붙은 복원 다섯.
+     *
+     * 같은 목록이 `app-reload.js` 에 또 있었고 그 둘이 어긋날 수 있었다. 이제
+     * 한 곳(`state-registry.js`)이 정하고 여기는 그것을 부르기만 한다 — 새 상태를
+     * 더할 때 이 파일은 바뀌지 않는다.
      */
-    const reviveIfSilent=()=>{
-      if(!this._sse) return false;
-      if(Date.now()-(this._sseSeen||0)<=SSE_SILENCE_MS) return false;
-      reconnect();
-      return true;
-    };
-    setInterval(reviveIfSilent, SSE_SILENCE_CHECK_MS);
+    wireStateRegistry(this);
 
-    // FR-RCS-6: 잠에서 깬 기기와 되돌아온 네트워크는 백오프를 기다릴 이유가 없다.
-    // 원격(Tailscale) 사용에서 끊김의 대부분이 이 둘이므로, 여기서 즉시 되붙는
-    // 것이 체감 복구 시간을 30초에서 0으로 줄인다.
-    const wake=()=>{
-      // 2 = EventSource.CLOSED. 살아 있거나 연결 중이면 **침묵부터 본다** —
-      // FR-RLC-26: 상한을 기다리면 사용자는 화면을 보고 있는데도 그 시간만큼
-      // 옛 화면을 본다. 살아 있고 조용하지도 않으면 건드리지 않는다 (중복 구독은
-      // 명령을 두 번 실행시킨다).
-      if(this._cmdES && this._cmdES.readyState!==2){ reviveIfSilent(); return }
-      reconnect();
-    };
-    window.addEventListener('online',wake);
-    window.addEventListener('focus',wake);
-    document.addEventListener('visibilitychange',()=>{if(!document.hidden)wake()});
-    connect();
+    // 구독자가 없는 action 은 여기로 온다. 서버가 지명한 실행자만 수행하며
+    // (FR-SXE-3), 지명이 없으면 게이팅하지 않는다 (FR-SXE-5 의 열화 경로).
+    bus.setFallback((action,args)=>this._execRemote(action,args));
+
+    // FR-RCS-6 · FR-RLC-26: 잠에서 깬 기기와 되돌아온 네트워크는 백오프를 기다릴
+    // 이유가 없다. 원격(Tailscale) 사용에서 끊김의 대부분이 이 둘이므로, 즉시
+    // 되붙는 것이 체감 복구 시간을 30초에서 0으로 줄인다. 리스너는 버스에 하나다
+    // (FR-BUS-8) — 종전에는 같은 신호를 네 곳이 각자 듣고 각자 해석했다.
+    bus.startLifecycle();
+
+    // FR-XDF-8: clientId 를 실어 서버가 구독↔Client 를 결선한다. 이 결선이 구독
+    // 해제 시 소유권 해제(FR-XDF-9)의 선행 조건이다.
+    bus.connect('/api/commands/sse?clientId='+encodeURIComponent(this.clientId));
+
+    // FR-SRL-3: 강제 재연결의 손잡이. 백오프 대기 중이면 그것을 취소하고 지금
+    // 붙는다 — 사용자가 부른 것이므로 기다릴 이유가 없다.
+    this._sseKick=()=>bus.reconnect();
   },
 
   /**
@@ -716,5 +636,29 @@ Object.assign(App.prototype, {
     this._setFocus(pn.id, sess);
     this._focusWindow(sess.id);
     this._save(); this.render();
+  },
+});
+
+/**
+ * SSE 의 내부 상태를 붙잡던 이름들 (FR-HUB-7).
+ *
+ * 채널은 `EventBus` 로 갔지만 이 이름들은 남는다 — `app-reload.js` 의 소프트리로드
+ * 1단계가 `_sse.readyState` 로 생존을 보고, e2e 여섯이 `_sse`·`_cmdES`·`_sseGen`·
+ * `_sseSeen` 을 직접 만진다 (`version-autoreload` 는 `_sseSeen` 에 **쓴다** —
+ * 침묵을 흉내내는 유일한 방법이다).
+ *
+ * 위임 껍데기가 메서드에만 적용된다고 보면 이 자리를 놓친다. **바깥은 상태
+ * 필드에도 손을 뻗는다** — `APP_STATE_EXTRACT_SRS` §2.3 이 같은 함정을 실측으로
+ * 기록했다.
+ */
+Object.defineProperties(App.prototype,{
+  // 종전 코드에서 `_sse` 와 `_cmdES` 는 같은 EventSource 를 가리켰다.
+  _sse:   {get(){ return this.bus?this.bus._es:null }, configurable:true},
+  _cmdES: {get(){ return this.bus?this.bus._es:null }, configurable:true},
+  _sseGen:{get(){ return this.bus?this.bus.gen():0 }, configurable:true},
+  _sseSeen:{
+    get(){ return this.bus?this.bus.lastSeen():0 },
+    set(v){ if(this.bus) this.bus._seen=v },
+    configurable:true,
   },
 });

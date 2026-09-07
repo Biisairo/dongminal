@@ -137,9 +137,9 @@ class GitCommit {
     // 입력이 있으면 앞선 차단 표시는 낡은 것이다 — 다음 시도가 다시 채운다.
     this._blocks=null;
     const repo=this._repo,v=this._msg.value;
-    if(this._saveT) clearTimeout(this._saveT);
+    TIMERS.cancel(this._saveT);
     // 입력이 멈춘 뒤에 저장한다 — 키 하나마다 PUT 을 보내지 않는다.
-    this._saveT=setTimeout(()=>{this._saveT=null;this._draftSet(repo,v)},GIT_COMMIT_DRAFT_DEBOUNCE_MS);
+    this._saveT=TIMERS.after(GIT_COMMIT_DRAFT_DEBOUNCE_MS,()=>{this._saveT=null;this._draftSet(repo,v)},{owner:this,label:'commit-draft'});
     this._paint();
   }
 
@@ -148,7 +148,7 @@ class GitCommit {
     this._amend=false; this._stash=null;
     this._opts={signoff:false,noVerify:false,all:false};
     this._menuOpen=false; this._blocks=null; this._err=null; this._busy=false;
-    if(this._saveT){clearTimeout(this._saveT);this._saveT=null}
+    if(this._saveT){TIMERS.cancel(this._saveT);this._saveT=null}
     // 앞선 리포의 undo 진입점을 새 리포의 화면에 남기지 않는다.
     this._undoHide();
     this._pf=null; this._pfRepo=null;
@@ -393,7 +393,7 @@ class GitCommit {
     }
     // FR-GIT-80: 상태를 갱신하고 입력을 비운다. draft 도 함께 지운다.
     this.panel.adopt(d);
-    if(this._saveT){clearTimeout(this._saveT);this._saveT=null}
+    if(this._saveT){TIMERS.cancel(this._saveT);this._saveT=null}
     this._setValue('');
     this._draftSet(repo,'');
     this._amend=false; this._stash=null; this._tmplRepo=repo;
@@ -420,13 +420,13 @@ class GitCommit {
     b.addEventListener('click',()=>this._undoRun());
     t.appendChild(s); t.appendChild(b);
     document.body.appendChild(t);
-    this._undo={repo,token,el:t,timer:setTimeout(()=>this._undoHide(),GIT_UNDO_MS)};
+    this._undo={repo,token,el:t,timer:TIMERS.after(GIT_UNDO_MS,()=>this._undoHide(),{owner:this,label:'undo-window'})};
   }
 
   _undoHide(){
     const u=this._undo; if(!u) return;
     this._undo=null;
-    clearTimeout(u.timer);
+    TIMERS.cancel(u.timer);
     if(u.el) u.el.remove();
   }
 

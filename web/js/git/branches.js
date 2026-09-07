@@ -830,10 +830,10 @@ class GitBranchCreate {
   // 검사는 git 실행이다.
   _onName(v,d,key){
     if(key&&key!=='name') return {kind:this.whyKind,why:this.why};
-    if(this._t) clearTimeout(this._t);
+    TIMERS.cancel(this._t);
     const name=(v.name||'').trim();
     if(!name) return this._set('empty',GIT_BR_WHY_EMPTY);
-    this._t=setTimeout(()=>{this._t=null;this._validate(name,d)},GIT_BR_VALIDATE_DEBOUNCE_MS);
+    this._t=TIMERS.after(GIT_BR_VALIDATE_DEBOUNCE_MS,()=>{this._t=null;this._validate(name,d)},{owner:this,label:'branch-validate'});
     // 검사 중에는 실행을 막는다 — 판정을 모르는 동안 실행을 열어 두면 규칙 위반이
     // 그대로 지나간다 (FR-GIT-159).
     return this._set(GIT_DIALOG_WHY_PENDING,'');

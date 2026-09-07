@@ -191,7 +191,7 @@ const SidebarList = {
     el.addEventListener('dragstart', e => {
       app._drag = { type: d.reorder.type, src: r.key, target: null, before: false, done: false };
       if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-      setTimeout(() => el.classList.add('dragging'), 0);
+      TIMERS.defer(() => el.classList.add('dragging'), {label:'drag-class'});
     });
     el.addEventListener('dragover', e => {
       const dr = app._drag; if (!dr || dr.type !== d.reorder.type) return;

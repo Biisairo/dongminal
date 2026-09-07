@@ -187,13 +187,14 @@ Object.assign(App.prototype, {
     const n=this.slotCount();
     for(let i=1;i<SLOT_MAX;i++){
       const want=i<n;
+      // 채널은 버스가 연다 (INV-2). 메시지를 처리하지 않으므로 topic 도 없다 —
+      // 여기서 여는 것 자체가 목적이다.
       if(want&&!this._slotSse[i]){
-        try{
-          this._slotSse[i]=new EventSource(
-            '/api/commands/sse?clientId='+encodeURIComponent(this._slotIdentity(i)));
-        }catch{ this._slotSse[i]=null }
+        this._slotSse[i]=this.bus.openChannel('slot:'+i,
+          '/api/commands/sse?clientId='+encodeURIComponent(this._slotIdentity(i)),
+          {owner:'slots'});
       }else if(!want&&this._slotSse[i]){
-        try{this._slotSse[i].close()}catch{}
+        this.bus.closeChannel('slot:'+i);
         this._slotSse[i]=null;
       }
     }
@@ -201,7 +202,7 @@ Object.assign(App.prototype, {
   _slotCloseAllSubs(){
     for(let i=1;i<SLOT_MAX;i++){
       if(!this._slotSse[i]) continue;
-      try{this._slotSse[i].close()}catch{}
+      this.bus.closeChannel('slot:'+i);
       this._slotSse[i]=null;
     }
   },

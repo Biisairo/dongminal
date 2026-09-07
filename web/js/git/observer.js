@@ -66,8 +66,8 @@ class GitObserver {
     if(kind==='sig') p._pollSignature(); else p.collect();
   }
   stopPolling(){
-    if(this._sigPoll){clearInterval(this._sigPoll);this._sigPoll=null}
-    if(this._stPoll){clearInterval(this._stPoll);this._stPoll=null}
+    if(this._sigPoll){this._sigPoll.stop();this._sigPoll=null}
+    if(this._stPoll){this._stPoll.stop();this._stPoll=null}
     this._pollOn=false;
   }
 

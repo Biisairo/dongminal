@@ -28,7 +28,7 @@ Object.assign(App.prototype, {
   _searchOpen(){return !document.getElementById('search-bar').classList.contains('hidden')},
   _researchIfOpen(){
     if(!this._searchOpen())return;
-    setTimeout(()=>this._doSearch('next'),50);
+    this.timers.after(50,()=>this._doSearch('next'),{owner:'app',label:'search-first'});
   },
   _focusedTerminal(){
     if(!this.focused)return null;

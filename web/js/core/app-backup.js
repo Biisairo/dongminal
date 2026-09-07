@@ -81,7 +81,7 @@ Object.assign(App.prototype, {
     const a=document.createElement('a');
     a.href=url; a.download=this._bkFileName(now);
     document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),0);
+    TIMERS.defer(()=>URL.revokeObjectURL(url),{label:'revoke-url'});
     this._bkMsg('내보냈습니다 — '+a.download,'ok');
     return true;
   },

@@ -32,8 +32,8 @@ Object.assign(App.prototype, {
       // FR-PGT-9: 저장을 기다리지 않고 지금 값이 탭에서 어떻게 보이는지 보인다.
       this._applyPageTitle();
       // FR-PGT-5: 글자마다 PUT 을 보내지 않는다.
-      clearTimeout(this._titleSaveTimer);
-      this._titleSaveTimer=setTimeout(()=>this._saveSettings(),500);
+      TIMERS.cancel(this._titleSaveTimer);
+      this._titleSaveTimer=this.timers.after(500,()=>this._saveSettings(),{owner:'app',label:'save-title'});
     });
   },
 
@@ -63,8 +63,8 @@ Object.assign(App.prototype, {
       // 고쳐 쓰면 타이핑이 튄다 (`160` 을 지우고 `9` 를 치는 순간 `40` 이 된다).
       tabWidthPx=clampTabWidth(num.value);
       applyTabWidth();
-      clearTimeout(this._tabwSaveTimer);
-      this._tabwSaveTimer=setTimeout(()=>this._saveSettings(),500);
+      TIMERS.cancel(this._tabwSaveTimer);
+      this._tabwSaveTimer=this.timers.after(500,()=>this._saveSettings(),{owner:'app',label:'save-tabw'});
     });
     /**
      * 포커스를 놓을 때 두 가지를 한다.
@@ -78,7 +78,7 @@ Object.assign(App.prototype, {
      */
     num.addEventListener('blur',()=>{
       num.value=String(tabWidthPx);
-      clearTimeout(this._tabwSaveTimer);
+      TIMERS.cancel(this._tabwSaveTimer);
       this._saveSettings();
     });
   },
@@ -163,14 +163,14 @@ Object.assign(App.prototype, {
       this._focusEdgePaintRow();
       this._paintFocusEdge();
       this._focusEdgePreview();
-      clearTimeout(this._ufeSaveTimer);
-      this._ufeSaveTimer=setTimeout(()=>this._saveSettings(),500);
+      TIMERS.cancel(this._ufeSaveTimer);
+      this._ufeSaveTimer=this.timers.after(500,()=>this._saveSettings(),{owner:'app',label:'save-ufe'});
     });
     // 손을 떼는 순간이 값이 정해지는 순간이다 — 그때는 기다리지 않고 보낸다.
     // `tabWidthPx` 가 `blur` 에서 하는 것과 같은 자리다: 디바운스는 드래그 **중**의
     // PUT 폭주를 막으려는 것이지, 정해진 값을 늦추려는 것이 아니다.
     sl.addEventListener('change',()=>{
-      clearTimeout(this._ufeSaveTimer);
+      TIMERS.cancel(this._ufeSaveTimer);
       this._saveSettings();
     });
   },
@@ -195,10 +195,10 @@ Object.assign(App.prototype, {
    */
   _focusEdgePreview(){
     const ds=document.documentElement;
-    clearTimeout(this._ufePreviewTimer);
+    TIMERS.cancel(this._ufePreviewTimer);
     if(!focusEdgeLevel){ds.classList.remove(UFE_PREVIEW_CLASS);return}
     ds.classList.add(UFE_PREVIEW_CLASS);
-    this._ufePreviewTimer=setTimeout(()=>ds.classList.remove(UFE_PREVIEW_CLASS),UFE_PREVIEW_MS);
+    this._ufePreviewTimer=this.timers.after(UFE_PREVIEW_MS,()=>ds.classList.remove(UFE_PREVIEW_CLASS),{owner:'app',label:'ufe-preview'});
   },
 
   /**

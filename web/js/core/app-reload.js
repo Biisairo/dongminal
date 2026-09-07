@@ -39,11 +39,15 @@ Object.assign(App.prototype, {
       await this._softStepAsync('workspace',()=>this._onWorkspaceChanged());
       // ③ 워크스페이스에 없는 것들. SSE 는 **변화**만 나르므로 합류 시점의
       //    사실은 이 복원으로만 온다.
-      this._softStep('attn',()=>this._attnRestore&&this._attnRestore());
-      this._softStep('activity',()=>this._activityRestore&&this._activityRestore());
-      this._softStep('background',()=>this._bgRefresh&&this._bgRefresh());
-      this._softStep('focus',()=>this._focusRestore&&this._focusRestore());
-      this._softStep('foreground',()=>this._fgRestore&&this._fgRestore());
+      //    **다섯을 손으로 나열하지 않는다** (EVENT_TIMER_HUB_SRS FR-HUB-3).
+      //
+      //    종전에는 여기 다섯 줄이 있었고 `app-cmd.js` 의 `onopen` 에 같은 다섯이
+      //    또 있었다. 각 줄의 `&&` 가드는 이름이 사라져도 조용히 지나갔다 — 그
+      //    실패 모드가 `trees` 단계에서 실제로 터졌다 (아래 FR-WBR-95).
+      //
+      //    이제 등록부에 `softreload` 를 재검증 계기로 적은 상태가 전부 돈다.
+      //    새 상태를 더해도 이 파일은 바뀌지 않는다.
+      this._softStep('states',()=>this.bus.publish('softreload',{}));
       // ④ 목록과 패널.
       await this._softStepAsync('editors',()=>this._edLoad&&this._edLoad());
       this._softStep('gitRepos',()=>this._gitReposRefresh&&this._gitReposRefresh());

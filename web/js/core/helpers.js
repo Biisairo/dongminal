@@ -692,19 +692,24 @@ function gitBadgeStale(badge){
  */
 function visiblePoll(ms, fn, opts){
   opts=opts||{};
-  const when=opts.when||(()=>true);
-  const alive=()=>!document.hidden&&when();
-  const tick=()=>{ if(alive()) fn() };
-  const onShow=()=>{ if(alive()) fn() };
-  document.addEventListener('visibilitychange',onShow);
-  const id=setInterval(tick,ms);
-  if(opts.immediate) fn();
-  return {
-    stop(){
-      clearInterval(id);
-      document.removeEventListener('visibilitychange',onShow);
-    },
-  };
+  // EVENT_TIMER_HUB_SRS FR-HUB-6: **이 함수는 이제 `TimerHub` 위의 얇은
+  // 래퍼다.** 호출부 다섯은 한 글자도 바뀌지 않는다.
+  //
+  // 위 주석이 적어 둔 다섯 축 중 이 함수가 흡수한 것은 visibility 하나였다.
+  // 나머지 넷(낡은 응답 폐기·single-flight·백오프·시한)은 `TimerHub` 가 갖는다 —
+  // `every` 로 등록하면 그것들이 함께 온다.
+  //
+  // `sched` 를 주입받는 이유는 격리 검사 때문이다. 앱 없이 이 함수만 얹고
+  // 계약을 재는 자리가 있고(`event-timer-hub-contract.spec.ts`), 거기에는
+  // `window.app` 이 없다.
+  const sched=opts.sched||(typeof window!=='undefined'&&window.app&&window.app.timers);
+  return sched.every({
+    id:opts.id, owner:opts.owner||null,
+    every:()=>ms,
+    when:opts.when||(()=>true),
+    run:fn,
+    immediate:!!opts.immediate,
+  });
 }
 
 /**

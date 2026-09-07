@@ -239,7 +239,10 @@ class TerminalTool {
   _imeClose(){
     this._imeOpen=false;
     this._imeSettling=true;
-    setTimeout(()=>setTimeout(()=>this._imeFlush(),0),0);
+    // 중첩이 계약이다 — xterm 이 자기 `compositionend`(bubble) 안에서 거는
+    // `setTimeout(0)` **뒤에** 서야 한다. `defer` 는 큐잉도 병합도 하지 않고
+    // 원시 호출을 그대로 쓴다 (FR-SCH-13).
+    TIMERS.defer(()=>TIMERS.defer(()=>this._imeFlush(),{owner:this}),{owner:this,label:'ime-flush'});
   }
 
   _imeFlush(){
@@ -335,14 +338,14 @@ class TerminalTool {
       this._touchScrollBy(v);
       v*=MTI_FLING_DECAY;
       if(Math.abs(v)<MTI_FLING_MIN_V) return;
-      this._flingId=requestAnimationFrame(step);
+      this._flingId=TIMERS.frame(step,{owner:this,label:'fling'});
     };
-    this._flingId=requestAnimationFrame(step);
+    this._flingId=TIMERS.frame(step,{owner:this,label:'fling'});
   }
 
   _flingStop(){
-    if(this._flingId){cancelAnimationFrame(this._flingId);this._flingId=null}
-    if(this._wheelRaf){cancelAnimationFrame(this._wheelRaf);this._wheelRaf=null;this._wheelPend=0}
+    if(this._flingId){TIMERS.cancel(this._flingId);this._flingId=null}
+    if(this._wheelRaf){TIMERS.cancel(this._wheelRaf);this._wheelRaf=null;this._wheelPend=0}
   }
 
   // FR-MTI-22/26: 소프트 키보드를 내린다. 모바일에서만 의미가 있다.
@@ -369,12 +372,11 @@ class TerminalTool {
   _touchScrollBy(px){
     if(!px) return;
     this._wheelPend=(this._wheelPend||0)+px;
-    if(this._wheelRaf) return;
-    this._wheelRaf=requestAnimationFrame(()=>{
+    this._wheelRaf=TIMERS.frame(()=>{
       this._wheelRaf=null;
       const d=this._wheelPend; this._wheelPend=0;
       if(d) this._dispatchWheel(d);
-    });
+    },{owner:this,coalesce:'wheel'});
   }
 
   _dispatchWheel(px){
@@ -416,10 +418,10 @@ class TerminalTool {
   // FR-RCS-3: 연결이 WS_HEALTHY_MS 이상 유지되어야 백오프를 되돌린다.
   _markHealthy(){
     this._clearHealthy();
-    this._healthyTimer=setTimeout(()=>{this._healthyTimer=null;this._retryDelay=0},WS_HEALTHY_MS);
+    this._healthyTimer=TIMERS.after(WS_HEALTHY_MS,()=>{this._healthyTimer=null;this._retryDelay=0},{owner:this,label:'ws-healthy'});
   }
   _clearHealthy(){
-    if(this._healthyTimer){clearTimeout(this._healthyTimer);this._healthyTimer=null}
+    if(this._healthyTimer){TIMERS.cancel(this._healthyTimer);this._healthyTimer=null}
   }
   _onWsOpen(){
     this._markHealthy();
@@ -442,7 +444,7 @@ class TerminalTool {
         // 지울 오버레이가 없었고, 그래서 빠져 있었다. `reconnectNow()` 가
         // 오버레이를 띄운 채 이 함수를 부르게 되면서 그것이 결함이 됐다 —
         // 연결은 붙는데 "다시 연결" 화면이 영영 남는다 (실측).
-        setTimeout(()=>{this._hideOverlay();this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},300);
+        TIMERS.after(300,()=>{this._hideOverlay();this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},{owner:this,label:'overlay-hide'});
       }
     };
     this.ws.onmessage=e=>{
@@ -514,7 +516,7 @@ class TerminalTool {
     if(this._retryDelay===0){ delay=0; this._retryDelay=200 }
     else if(this._retryDelay<=500){ this._retryDelay=Math.min(this._retryDelay*2.5,1000) }
     else{ this._retryDelay=Math.min(this._retryDelay*1.2,10000) }
-    setTimeout(()=>{
+    TIMERS.after(delay,()=>{
       // FR-RCS-5: 대기 중에 판정이 섰을 수 있다. 깨어난 뒤에 다시 본다.
       if(this._destroyed||this._exited) return;
       const ws=new WebSocket(this._wsURL()); ws.binaryType='arraybuffer';
@@ -524,7 +526,7 @@ class TerminalTool {
         this.ws=ws;
         this._pendingWs=null;
         this._onWsOpen();
-        setTimeout(()=>{this._hideOverlay();this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},300);
+        TIMERS.after(300,()=>{this._hideOverlay();this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},{owner:this,label:'overlay-hide'});
       };
       ws.onmessage=e=>{
         const d=new Uint8Array(e.data); if(d.length) this._onOp(d);
@@ -542,7 +544,7 @@ class TerminalTool {
         this._showOverlay('연결 오류','재연결 중...');
         this._scheduleReconnect();
       };
-    },delay);
+    },{owner:this,label:'ws-retry'});
   }
   _showOverlay(title,sub){
     let ov=this.el.querySelector('.tp-overlay');
@@ -559,9 +561,9 @@ class TerminalTool {
     this._outputBuf+=this._decoder.decode(data,{stream:true});
     if(this._flushScheduled) return;
     this._flushScheduled=true;
-    // Use setTimeout instead of requestAnimationFrame so output flushes
-    // even when the browser tab is hidden/backgrounded.
-    setTimeout(()=>this._doFlush(),0);
+    // 프레임이 아니라 매크로태스크다 — 숨은 탭에서도 출력이 흘러야 한다.
+    // `frame` 은 탭이 백그라운드면 멎는다.
+    TIMERS.defer(()=>this._doFlush(),{owner:this,label:'term-flush'});
   }
 
   /**
@@ -588,7 +590,7 @@ class TerminalTool {
 
   _doFlush(){
     this._flushScheduled=false;
-    if(this._carryTimer){clearTimeout(this._carryTimer);this._carryTimer=null}
+    if(this._carryTimer){TIMERS.cancel(this._carryTimer);this._carryTimer=null}
     let text=this._outputBuf; this._outputBuf='';
     const cut=this._oscCarryAt(text);
     if(cut>=0){
@@ -596,7 +598,7 @@ class TerminalTool {
       // 다음 청크가 언제 올지는 모른다 — 사용자가 키를 누를 때까지 안 올 수도
       // 있다. 보류한 것이 프롬프트의 일부이면 화면이 멈춘 것으로 보이므로,
       // 짧은 시간 뒤에는 그냥 내보낸다.
-      this._carryTimer=setTimeout(()=>{this._carryTimer=null;this._doFlush()},OSC_CARRY_MS);
+      this._carryTimer=TIMERS.after(OSC_CARRY_MS,()=>{this._carryTimer=null;this._doFlush()},{owner:this,label:'osc-carry'});
     }
     if(!text) return;
     const re=/\x1b\]777;(\w+);([^\x07]*)\x07/g;
@@ -670,7 +672,7 @@ class TerminalTool {
     this._destroyed=true;
     this._flingStop();
     this._clearHealthy();
-    if(this._carryTimer){clearTimeout(this._carryTimer);this._carryTimer=null}
+    if(this._carryTimer){TIMERS.cancel(this._carryTimer);this._carryTimer=null}
     if(this._pendingWs&&this._pendingWs!==this.ws){
       try{this._pendingWs.onopen=null;this._pendingWs.onclose=null;this._pendingWs.onerror=null;this._pendingWs.onmessage=null;this._pendingWs.close()}catch{}
       this._pendingWs=null;

@@ -240,7 +240,7 @@ class GitDiffView {
     // REPO_TAB_UNIFY_SRS FR-RTU-50: 오른쪽이 **디스크의 파일**인 축에서만 편집을
     // 연다. 판정은 `GIT_AXIS_EDITABLE` 한 자리이며 여기서 다시 세지 않는다.
     this._bindEdit(target);
-    requestAnimationFrame(()=>this.layout());
+    TIMERS.frame(()=>this.layout(),{owner:this,label:'diff-layout'});
     // FR-GLV-1: **내용이 실제로 바뀐 회차에만** 알린다. 조각(hunk) 관측처럼 이
     // 본문에서 파생되는 것들이 그때만 다시 받으면 되고, 그러지 않으면 폴링마다
     // 두 번째 요청이 따라붙는다.

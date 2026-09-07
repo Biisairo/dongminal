@@ -27,10 +27,10 @@ const Toast = {
   show(text,kind,ms){
     const el=document.createElement('div');
     let timer=null;
-    const close=()=>{if(timer){clearTimeout(timer);timer=null}el.remove()};
+    const close=()=>{if(timer){timer.stop();timer=null}el.remove()};
     const arm=d=>{
-      if(timer){clearTimeout(timer);timer=null}
-      if(d>0) timer=setTimeout(close,d);
+      if(timer){timer.stop();timer=null}
+      if(d>0) timer=TIMERS.after(d,close,{owner:'toast',label:'toast'});
     };
     el.className='toast'+(kind?' '+kind:'');
     el.textContent=text;

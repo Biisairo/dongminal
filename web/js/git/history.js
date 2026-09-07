@@ -1058,12 +1058,12 @@ class GitHistory {
     const idx=items.findIndex(it=>it.i===i);
     this._list.scrollTop=Math.max(0,idx*this._rowH());
     this._paintBar(); this._paintRows();
-    if(this._flashT) clearTimeout(this._flashT);
-    this._flashT=setTimeout(()=>{
+    TIMERS.cancel(this._flashT);
+    this._flashT=TIMERS.after(GIT_JUMP_FLASH_MS,()=>{
       this._flashT=null;
       if(this._jumped!==oid) return;
       this._jumped=null; this._ver++; this._paintRows();
-    },GIT_JUMP_FLASH_MS);
+    },{owner:this,label:'jump-flash'});
   }
 
   // ── 스크롤·반응형 ──

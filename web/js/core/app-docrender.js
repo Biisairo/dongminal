@@ -59,11 +59,9 @@ Object.assign(App.prototype, {
     // 끊기기 때문이다. 프레임 예약이 남아 뒤늦게 돌 수는 있는데, 그때는
     // `_docRenderSync` 의 첫 줄이 편집기가 없음을 보고 물러선다.
     view._docRenderScroll = view._editor.onDidScrollChange(() => {
-      if (view._docRenderRaf) return;
-      view._docRenderRaf = requestAnimationFrame(() => {
-        view._docRenderRaf = 0;
-        this._docRenderSync(view);
-      });
+      // 프레임당 한 번으로 접는다. 종전에는 `_docRenderRaf` 를 손으로 붙들고
+      // `if(...) return` 으로 걸렀다 — 그 관용구가 `coalesce` 다 (FR-SCH-15).
+      TIMERS.frame(() => this._docRenderSync(view), {owner:view, coalesce:'doc-scroll'});
     });
   },
 

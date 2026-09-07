@@ -187,11 +187,11 @@ const TermClipboard={
     document.body.appendChild(box);
     TermClipboard._cur=box;
     // 붙기 전에는 focus 가 아무 일도 하지 않는다.
-    requestAnimationFrame(()=>{
+    TIMERS.frame(()=>{
       if(!box.isConnected) return;
       ta.focus(); ta.select();
       try{ta.setSelectionRange(0,text.length)}catch{}
-    });
+    },{owner:this,label:'clip-frame'});
   },
 
   close(){

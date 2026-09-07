@@ -167,10 +167,10 @@ class GitTagCreate {
   }
 
   _onName(v,d){
-    if(this._t) clearTimeout(this._t);
+    TIMERS.cancel(this._t);
     const name=(v.name||'').trim();
     if(!name){this._setName('empty',GIT_TAG_WHY_EMPTY);return}
-    this._t=setTimeout(()=>{this._t=null;this._validate(name,d)},GIT_BR_VALIDATE_DEBOUNCE_MS);
+    this._t=TIMERS.after(GIT_BR_VALIDATE_DEBOUNCE_MS,()=>{this._t=null;this._validate(name,d)},{owner:this,label:'tag-validate'});
     // 검사 중에는 실행을 막는다 — 판정을 모르는 동안 실행을 열어 두면 규칙 위반이
     // 그대로 지나간다.
     this._setName(GIT_DIALOG_WHY_PENDING,'');

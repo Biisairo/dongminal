@@ -298,7 +298,7 @@ Object.assign(RunsPanel.prototype, {
     // 마운트 직후에는 wrap 이 아직 배치되지 않아 폭이 0 일 수 있다. 다음 프레임에
     // 한 번 더 맞춘다 — ResizeObserver 가 첫 배치를 알려 주지만, 그 사이 한 프레임
     // 동안 기본 크기로 보이는 것을 없앤다.
-    requestAnimationFrame(() => this._runFitGraph(v.root));
+    TIMERS.frame(() => this._runFitGraph(v.root),{owner:this,label:'run-fit'});
     return v.root;
   },
 
@@ -365,7 +365,7 @@ Object.assign(RunsPanel.prototype, {
   _runDisposeView(v) {
     if (!v) return;
     if (v.ro) { try { v.ro.disconnect() } catch {} v.ro = null }
-    if (v.decay) { clearTimeout(v.decay); v.decay = null }
+    if (v.decay) { TIMERS.cancel(v.decay); v.decay = null }
   },
 
   // ── 대시보드 (FR-RVZ-10~13) ──
@@ -398,7 +398,7 @@ Object.assign(RunsPanel.prototype, {
   // 만료 시점에 **다시 그리기만** 예약한다 — 요청은 나가지 않으므로 폴링이
   // 아니다 (V-RVZ-4 는 요청 건수를 센다).
   _runScheduleDecay(v, d) {
-    if (v.decay) { clearTimeout(v.decay); v.decay = null }
+    if (v.decay) { TIMERS.cancel(v.decay); v.decay = null }
     const now = Date.now() / 1000;
     let soonest = Infinity;
     for (const e of d.edges || []) {
@@ -408,10 +408,10 @@ Object.assign(RunsPanel.prototype, {
       if (left >= 0 && left < soonest) soonest = left;
     }
     if (soonest === Infinity) return;
-    v.decay = setTimeout(() => {
+    v.decay = TIMERS.after(Math.ceil(soonest * 1000) + 50, () => {
       v.decay = null;
       if (this._runViewMap().get(v.key) === v) this._runPaint(v);
-    }, Math.ceil(soonest * 1000) + 50);
+    }, {owner:this,label:'run-decay'});
   },
 
   // FR-RVZ-10: 요약. 도해의 `패턴` 행은 그리지 않는다 — Run 레코드에 패턴 필드가

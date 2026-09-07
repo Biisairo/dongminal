@@ -13,9 +13,23 @@ import { test, expect } from './fixtures';
 // term-pane 과 같은 방식으로 빈 페이지에 얹고 계약만 시험한다.
 
 const APP_CMD_JS = join(process.cwd(), 'web', 'js', 'core', 'app-cmd.js');
+const TIMER_HUB_JS = join(process.cwd(), 'web', 'js', 'core', 'timer-hub.js');
+const EVENT_BUS_JS = join(process.cwd(), 'web', 'js', 'core', 'event-bus.js');
+// `_subscribeCommands` 가 다섯 상태의 배선을 등록부에 넘긴다 (FR-HUB-3).
+const STATE_REGISTRY_JS = join(process.cwd(), 'web', 'js', 'core', 'state-registry.js');
+
+// EVENT_TIMER_HUB_SRS 묶음 B: 채널은 `EventBus` 로 갔다. **재는 것은 바뀌지
+// 않는다** — FR-RCS-6 "포기하지 않는다" 는 그대로이고, 그 계약을 지키는 자리만
+// `app-cmd.js` 에서 버스로 옮겼다. 최상위 `class` 는 전역 객체의 프로퍼티가
+// 아니므로 이름으로 직접 조회한다.
+declare const TimerHub: any;
+declare const EventBus: any;
 
 async function loadAppCmd(page: Page) {
   await page.setContent('<!doctype html><title>app-cmd</title>');
+  await page.addScriptTag({ path: TIMER_HUB_JS });
+  await page.addScriptTag({ path: EVENT_BUS_JS });
+  await page.addScriptTag({ path: STATE_REGISTRY_JS });
   await page.evaluate(() => {
     // 백오프를 밀리초 단위로 줄여 재시도 25회를 한 호흡에 관측한다.
     // 계약은 "포기하지 않는다"이지 특정 지연값이 아니다.
@@ -26,6 +40,10 @@ async function loadAppCmd(page: Page) {
     // 여기서 끊어 주면 "몇 번째 구독인가" 를 세는 단정이 흔들린다.
     (window as any).SSE_SILENCE_MS = 3600000;
     (window as any).SSE_SILENCE_CHECK_MS = 3600000;
+    // 라우팅 표가 **구독 시점에** 상수를 읽는다 — 종전 if-체인은 메시지가 올
+    // 때만 읽었으므로 없어도 조용히 지나갔다. 상수 누락이 로드에서 드러나는 것이
+    // 옳다 (constants-editor.js 를 통째로 얹으면 그 의존 체인까지 따라온다).
+    (window as any).LSP_DIAG_ACTION = 'lsp_diagnostics';
 
     const made: any[] = [];
     (window as any).__made = made;
@@ -49,6 +67,15 @@ async function loadAppCmd(page: Page) {
     // onopen 이 부르는 스냅샷 복원 다섯은 다른 파일에 있으므로 여기서 무해하게 막는다.
     (window as any).App = class {
       clientId = 'test-client';
+      timers: any;
+      bus: any;
+      constructor() {
+        this.timers = new TimerHub();
+        this.bus = new EventBus(this, {
+          every: (spec: any) => this.timers.every(spec),
+          after: (ms: number, fn: any, o: any) => this.timers.after(ms, fn, o),
+        });
+      }
       _attnRestore() {}
       _activityRestore() {}
       _bgRefresh() {}

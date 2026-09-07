@@ -6,6 +6,20 @@ class App {
     this.tools=new Map();
     this.fileEditors=new Map();
     this.clientId=newUUID();
+    /**
+     * 시간과 전파의 소유자 (EVENT_TIMER_HUB_SRS §1.2 INV-1·2).
+     *
+     * **가장 먼저 선다.** 나머지 배선이 전부 이 둘을 딛기 때문이다.
+     *
+     * 버스는 시간 계층을 **모른다** (C-6 · D-2). 침묵 감시에 타이머가 필요하지만
+     * 버스가 그것을 붙들면 순환이 생긴다 — 버스 → 시간 → (콜백) → 버스.
+     * 그래서 여기서 **표면만 주입한다**: 버스는 자기가 받은 것이 무엇인지 모른다.
+     */
+    this.timers=TIMERS;
+    this.bus=new EventBus(this,{
+      every:(spec)=>this.timers.every(spec),
+      after:(ms,fn,o)=>this.timers.after(ms,fn,o),
+    });
     this.ws={schemaVersion:2,windows:[],activeWindow:null};
     this.wsETag=null;
     // FR-WSC-12: **원격이 본 적 있는 창의 id.** 409 채택이 무엇을 지워도 되는지의
@@ -104,7 +118,7 @@ class App {
       let st=null;
       try{ st=await res.clone().json() }catch{ return res }
       if(!st||st.toolsKnown!==false) return res;
-      await new Promise(r=>setTimeout(r,STATE_UNKNOWN_RETRY_MS));
+      await this.timers.sleep(STATE_UNKNOWN_RETRY_MS,{owner:'app',label:'state-retry'});
       res=await fetch('/api/state');
     }
     return res;
@@ -357,7 +371,7 @@ class App {
       while(this._savePending){
         // FR-WSC-7·9: 충돌 뒤에는 잠시 미룬다. 미루는 것이지 버리는 것이 아니다.
         const hold=(this._saveHoldUntil||0)-Date.now();
-        if(hold>0) await new Promise(r=>setTimeout(r,hold));
+        if(hold>0) await this.timers.sleep(hold,{owner:'app',label:'hold'});
         this._savePending=false;
         try{
           const headers={'Content-Type':'application/json'};
@@ -530,11 +544,11 @@ class App {
       this._wsDeferRev=undefined;
       const seenRev=this.wsETag?parseInt(this.wsETag,10):-1;
       if(deferred!==undefined&&!(deferred<=seenRev)){
-        setTimeout(()=>this._onWorkspaceChanged(deferred===Infinity?undefined:deferred),0);
+        this.timers.defer(()=>this._onWorkspaceChanged(deferred===Infinity?undefined:deferred),{owner:'app',label:'ws-deferred'});
       }
       // FR-WSC-9: 채택 중에 새 저장이 예약됐으면(재조정이 창을 고친 경우가 그렇다)
       // 그것을 잃지 않는다. 백오프는 다음 비행의 앞머리가 지킨다.
-      if(this._savePending) setTimeout(()=>this._save(),0);
+      if(this._savePending) this.timers.defer(()=>this._save(),{owner:'app',label:'save-pending'});
     };
     this._saveChain=run();
     return this._saveChain;

@@ -426,7 +426,7 @@ Object.assign(GitPanel.prototype, {
   },
 
   _hunkBarDispose(){
-    clearTimeout(this._hunkBarT);
+    TIMERS.cancel(this._hunkBarT);
     for(const d of this._hunkBarSubs||[]) if(d&&d.dispose) d.dispose();
     this._hunkBarSubs=null;
     // FR-GIT-56 / FR-DHB-22: 에디터가 버려지기 **전에** 뗀다. 뒤에 떼려 하면 뗄
@@ -443,7 +443,7 @@ Object.assign(GitPanel.prototype, {
     el.className='git-hunk-bar';
     // FR-DHB-13: 툴바 자신에 올라가 있는 동안은 사라지지 않는다 — 그러지 않으면
     // 버튼까지 마우스를 옮기는 사이에 없어져 누를 수 없다.
-    el.addEventListener('mouseenter',()=>clearTimeout(this._hunkBarT));
+    el.addEventListener('mouseenter',()=>TIMERS.cancel(this._hunkBarT));
     el.addEventListener('mouseleave',()=>this._hunkBarLeave());
     el.addEventListener('click',ev=>{
       const b=ev.target.closest('.git-hunk-act');
@@ -472,7 +472,7 @@ Object.assign(GitPanel.prototype, {
     const pos=ev&&ev.target&&ev.target.position;
     const hunk=pos?gitHunkAt(h.list,pos.lineNumber):null;
     if(!hunk){this._hunkBarHide();return}
-    clearTimeout(this._hunkBarT);
+    TIMERS.cancel(this._hunkBarT);
     if(this._hunkBarHunk!==hunk.index||!this._hunkBarPos){
       this._hunkBarHunk=hunk.index;
       this._hunkBarPos={
@@ -487,12 +487,12 @@ Object.assign(GitPanel.prototype, {
   },
 
   _hunkBarLeave(){
-    clearTimeout(this._hunkBarT);
-    this._hunkBarT=setTimeout(()=>this._hunkBarHide(),GIT_HUNK_BAR_HIDE_MS);
+    TIMERS.cancel(this._hunkBarT);
+    this._hunkBarT=TIMERS.after(GIT_HUNK_BAR_HIDE_MS,()=>this._hunkBarHide(),{owner:this,label:'hunk-bar'});
   },
 
   _hunkBarHide(){
-    clearTimeout(this._hunkBarT);
+    TIMERS.cancel(this._hunkBarT);
     if(!this._hunkBarPos) return;
     this._hunkBarPos=null; this._hunkBarHunk=-1;
     if(this._hunkBarEd&&this._hunkBarWidget){

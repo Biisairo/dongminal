@@ -215,9 +215,10 @@ Object.assign(GitPanel.prototype, {
   signal(kind){
     if(document.hidden) return;
     if(!this.repo||this._gitMissing) return;
-    if(this._sigT) clearTimeout(this._sigT);
+    TIMERS.cancel(this._sigT);
     // 연속 신호가 status 를 연발하지 않게 하나로 합친다.
-    this._sigT=setTimeout(()=>{this._sigT=null;this.collect()},GIT_SIGNAL_DEBOUNCE_MS);
+    this._sigT=TIMERS.after(GIT_SIGNAL_DEBOUNCE_MS,()=>{this._sigT=null;this.collect()},
+      {owner:this,label:'git-sig-debounce'});
   },
 
   // 폴링 두 계층은 세 조건이 전부 참일 때만 돈다 (FR-GIT-22).
@@ -285,8 +286,29 @@ Object.assign(GitPanel.prototype, {
     // 주기 0 은 그 계층을 걸지 않는다 (FR-GIT-23).
     // FR-SVS-30: 콜백은 **observer** 를 지난다. 특정 패널을 캡처하면 그 칸이
     // 사라진 뒤에도 죽은 패널을 붙들고 부른다.
-    if(sig>0) this._sigPoll=setInterval(()=>this.obs.tick('sig'),sig);
-    if(st>0) this._stPoll=setInterval(()=>this.obs.tick('status'),st);
+    //
+    // EVENT_TIMER_HUB_SRS FR-OBS-1: 두 계층이 `TimerHub` 의 `every` 로 표현된다.
+    // **주기를 함수로 주지 않고 값으로 준다** — 이 자리는 `_applyCadence` 가
+    // 이미 실효 주기를 계산해 넘긴 뒤이고, 주기가 바뀌면 `_applyCadence` 가
+    // `_stop()` 후 다시 걸기 때문이다 (FR-RMS-28: 다시 거는 것과 수집하는 것은
+    // 다른 일이다). 여기서 `every:()=>...` 로 다시 계산하면 두 곳이 같은 판단을
+    // 하게 되고, 그 둘이 어긋나면 어느 쪽이 맞는지 알 수 없다.
+    //
+    // **조건을 스케줄러에 주지 않는다.** 이 계층의 계약은 위 주석이 정한 그대로
+    // "조건이 거짓이면 완전히 멈춘다 — 콜백에서 return 으로 넘기지 않는다" 이고,
+    // 참이 되면 `_reschedule()` 이 **즉시 1회 수집한 뒤** 주기를 건다
+    // (FR-GIT-22). `when` 이나 `whenHidden:'pause'` 를 주면 정확히 그 금지된
+    // 모양이 된다 — 타이머는 살아 있고 콜백만 빈손으로 돌아가며, 조건이 참으로
+    // 바뀐 순간의 즉시 수집도 사라진다.
+    //
+    // 가시성 판정이 스케줄러의 것보다 넓기도 하다. `_pollOk()` 는
+    // `document.hidden` 뿐 아니라 창이 보이는지, **이 패널의 표면**이 화면에
+    // 있는지까지 본다 (FR-RTU-62 · FR-SVS-39a).
+    const opts={owner:this, whenHidden:'run'};
+    if(sig>0) this._sigPoll=TIMERS.every({...opts,id:'git.sig:'+(this.root||'-'),
+      every:()=>sig, run:()=>this.obs.tick('sig')});
+    if(st>0) this._stPoll=TIMERS.every({...opts,id:'git.status:'+(this.root||'-'),
+      every:()=>st, run:()=>this.obs.tick('status')});
     return true;
   },
 
@@ -296,8 +318,8 @@ Object.assign(GitPanel.prototype, {
   },
 
   _stop(){
-    if(this._sigPoll){clearInterval(this._sigPoll);this._sigPoll=null}
-    if(this._stPoll){clearInterval(this._stPoll);this._stPoll=null}
+    if(this._sigPoll){this._sigPoll.stop();this._sigPoll=null}
+    if(this._stPoll){this._stPoll.stop();this._stPoll=null}
     this._pollOn=false;
   },
 

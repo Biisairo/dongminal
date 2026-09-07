@@ -184,7 +184,7 @@ Object.assign(App.prototype, {
     // NFR-SRT-2: 2초 주기, 60초 상한. 데몬이 뜨면 그 자리에서 이어진다.
     const until=Date.now()+SBX_RT_POLL_MAX_MS;
     for(;;){
-      await new Promise(r=>setTimeout(r,SBX_RT_POLL_MS));
+      await this.timers.sleep(SBX_RT_POLL_MS,{owner:'app',label:'sbx-wait'});
       const st=await this._sbxRuntime();
       if(st&&st.state===SBX_RT_OK){cleanup(true);return}
       if(Date.now()>=until) break;
@@ -405,12 +405,23 @@ Object.assign(App.prototype, {
     }catch{return false}
   },
 
+  /**
+   * 백그라운드 목록 (FR-BGV-1).
+   *
+   * `state-registry` 의 `merge:'latest'` — **추월만 막는다.**
+   * `tools_background_changed` 는 증분을 나르지 않고 "목록을 다시 받으라" 는
+   * 신호이므로 만진 id 라는 개념이 없다. 막아야 하는 것은 두 스냅샷이 겹칠 때
+   * 늦게 떠난 것이 먼저 도착해 새 목록을 낡은 것으로 되돌리는 일이다.
+   */
   async _bgRefresh(){
+    const t=this._restoreBegin('background');
     try{
       const r=await fetch('/api/tools/background');
       if(!r.ok) return;
       const j=await r.json();
+      if(!this._restoreLive('background',t)) return;
       this._bg=Array.isArray(j.background)?j.background:[];
+      this._restoreEnd('background',t);
     }catch{return}
     this._updateStatusBar();
     if(this._bgModalOpen) this._bgModalRender();
@@ -440,7 +451,7 @@ Object.assign(App.prototype, {
       if(pn) return pn;
       // 창이 하나도 없는 것은 delWindow 가 _mkWindow 를 끝내기 전의 과도
       // 상태뿐이다. 조용히 무효가 되지 않도록 그 왕복만큼 기다린다.
-      await new Promise(r=>setTimeout(r,RESTORE_PANE_WAIT_MS));
+      await this.timers.sleep(RESTORE_PANE_WAIT_MS,{owner:'app',label:'restore-pane'});
     }
     return null;
   },

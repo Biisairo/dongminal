@@ -306,8 +306,8 @@ class DocRender {
   }
 
   _schedule(ms) {
-    clearTimeout(this._timer);
-    this._timer = setTimeout(() => this._paint(), ms == null ? DOC_RENDER_DEBOUNCE_MS : ms);
+    TIMERS.cancel(this._timer);
+    this._timer = TIMERS.after(ms == null ? DOC_RENDER_DEBOUNCE_MS : ms, () => this._paint(), {owner:this, label:'doc-paint'});
   }
 
   /**
@@ -574,7 +574,7 @@ class DocRender {
   applyWordWrap() { /* no-op */ }
 
   destroy() {
-    clearTimeout(this._timer);
+    TIMERS.cancel(this._timer);
     this._revokeBlob();
     if (this._sub) { this._sub.dispose(); this._sub = null }
     this._model = null;
