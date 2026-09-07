@@ -187,6 +187,50 @@ func TestRunClose_ClosesMemberAndEmptyTabs(t *testing.T) {
 	f.waitAction(t, "closeTab")
 }
 
+// V-RUN-5 (FR-RUN-6d): **닫는 탭의 표식을 지우려 workspace 를 쓰지 않는다.**
+//
+// 쓰면 rev 가 오르고, 그 직후 `closeTab` 을 받은 브라우저의 PUT 이 409 를 맞는다 —
+// 그쪽의 해소는 원격 채택이라 자기 삭제를 버리고 탭이 되살아난다 (ubuntu 러너
+// 실측 · e2e `skill-contract`). 사라질 자리의 표식은 지울 것이 없다.
+func TestRunClose_DoesNotWriteWorkspaceForClosedTabs(t *testing.T) {
+	f := newHeadlessFixture(t)
+	ws := newFakeWorkspaceStore()
+	ws.raw = []byte(`{"schemaVersion":2,"windows":[{"id":"win-1","layout":` +
+		`{"type":"pane","id":"p1","tabs":[{"id":"tab-a","name":"Shell","toolId":"tool-a"}]}}]}`)
+	f.s.Work = ws
+
+	code, out := postRun(t, f.s, "/api/runs",
+		`{"objective":"정리","projection":"dedicated-window","isolation":"none","windowId":"win-1"}`)
+	if code != http.StatusOK {
+		t.Fatalf("run start want 200, got %d (%+v)", code, out)
+	}
+	runID, _ := out["id"].(string)
+	f.wi.setWindow("tab-a", "win-1")
+	postRun(t, f.s, "/api/runs/members",
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"작가","agent":"claude","id":"tab-a"}`)
+	postRun(t, f.s, "/api/runs/report", `{"toolId":"tool-a","outcome":"succeeded","summary":"끝"}`)
+
+	// 등록이 남긴 표식까지 세면 무엇을 재는지 알 수 없다 — 기준점은 close 직전이다.
+	ws.mu.Lock()
+	ws.saves = 0
+	ws.mu.Unlock()
+
+	code, closed := postRun(t, f.s, "/api/runs/close", `{"runId":`+testpath.JSONQuote(runID)+`}`)
+	if code != http.StatusOK {
+		t.Fatalf("close want 200, got %d (%+v)", code, closed)
+	}
+	tabs, _ := closed["closedTabs"].([]any)
+	if len(tabs) != 1 {
+		t.Fatalf("멤버 탭이 닫히지 않았다: %+v", closed["closedTabs"])
+	}
+	ws.mu.Lock()
+	n := ws.saves
+	ws.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("닫는 탭의 표식을 지우려 workspace 를 %d회 썼다 — 그 쓰기가 브라우저의 삭제를 되돌린다", n)
+	}
+}
+
 // FR-RUN-8: `--keep-tools` 는 아무것도 닫지 않는다 — 종전 규약이 그대로 남는다.
 func TestRunClose_KeepToolsClosesNothing(t *testing.T) {
 	f := newHeadlessFixture(t)

@@ -566,7 +566,14 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
     // 표식이 기존 필드를 훼손하면 안 된다.
     expect(marked?.toolId).toBeTruthy();
 
-    await request.post('/api/runs/close', { data: { runId: run.id, force: true } });
+    // `keepTools` 인 이유는 **자리가 남아야 표식을 지울 뜻이 있기 때문**이다
+    // (UX_BATCH6_SRS FR-RUN-6d). 그것 없이 close 하면 이 탭은 닫히고, 닫는 자리의
+    // 표식은 지우지 않는다 — 지우려 workspace 를 쓰면 그 쓰기가 브라우저의 탭
+    // 삭제를 409 로 되돌린다.
+    const closed = await (
+      await request.post('/api/runs/close', { data: { runId: run.id, force: true, keepTools: true } })
+    ).json();
+    expect(closed.closedTabs, 'keepTools 인데 탭을 닫았다').toHaveLength(0);
     const cleared = await findTab();
     expect(cleared?.runId, 'close 후에도 표식이 남았다').toBeUndefined();
   });

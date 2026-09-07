@@ -504,6 +504,21 @@ uuid 를 싣고, 브라우저의 `_resolveLocation` 이 그것을 받는다.
 **FR-RUN-6c.** 종료 명령은 **도는 것이 있을 때만** 보낸다. 셸 프롬프트에 `/exit` 를
 치면 "그런 파일이 없다" 한 줄이 남을 뿐이고, 그것은 정리가 아니라 잡음이다.
 
+**FR-RUN-6d. 닫는 자리의 표식은 지우지 않는다 — 자리가 사라진다.**
+
+`close` 는 표식 해제(FR-RUN-7 의 `runId`·`ownerRunId`)를 **탭을 닫고 난 뒤, 남은
+자리에만** 한다. 멤버 탭이 하나도 남지 않으면 창의 표식도 대상이 아니다.
+
+**근거 (실측).** 표식 해제는 서버가 workspace.json 을 쓰는 유일한 자리이고, 쓰면
+rev 가 오른다. 그 직후 `closeTab` 을 받은 브라우저가 탭을 지우고 PUT 하면 **409** 다 —
+그쪽의 해소는 머지가 아니라 원격 채택이라(WORKSPACE_IDENTITY_SRS §2.4) 자기 삭제를
+버린다. 탭이 되살아나고 전용 창이 화면에 남는다. ubuntu 러너에서 e2e
+`skill-contract` 가 네 번 모두 이 순서로 걸렸다 (PUT 200 → PUT 409 → GET → 재PUT
+없음). macOS·Windows 는 순서가 반대로 나 초록이었다.
+
+`--keep-tools` 는 닫는 것이 없으므로 종전대로 표식을 지운다 — 자리가 남는 쪽에서는
+지우는 것이 옳다.
+
 **FR-RUN-7.** 정리는 **Run 창에 남은 빈 탭까지** 대상이다. 멤버가 결속되지 않은 채
 셸만 도는 탭은 조정자가 만들었으나 쓰이지 않은 자리다.
 
@@ -612,6 +627,7 @@ diff 에서는 근거가 하나 더 있다 — 그쪽에는 개요 눈금(`rende
 | V-RUN-2 | FR-RUN-4·5 | Go 단위 — 승계 뒤 도착한 요약이 프리앰블에 실린다 |
 | V-RUN-3 | FR-RUN-6·7·8 | Go 단위 — close 가 탭과 빈 탭을 닫고, `--keep-tools` 는 닫지 않는다 |
 | V-RUN-4 | FR-RUN-6a·6b | e2e — uuid 로 지목한 탭이 닫히고, 없는 자리를 지목하면 아무것도 닫히지 않는다 |
+| V-RUN-5 | FR-RUN-6d | Go 단위 — 닫는 탭의 표식을 지우려 workspace 를 쓰지 않는다 |
 | V-DSP-1 | FR-DSP-1·2 | e2e — 새 Repo 창의 사이드가 Changes 다. 저장된 선택은 유지된다 |
 | V-DSP-3 | FR-DSP-1a | e2e — 저장소가 아닌 루트의 `git status` 요청 수가 늘지 않는다 (`editor-explorer` X9) |
 | V-DSP-4 | FR-DSP-1c | e2e — 사이드가 Changes 인 창에서 연 파일이 탐색기로 가면 드러난다 (`editor-nested-root` N4) |

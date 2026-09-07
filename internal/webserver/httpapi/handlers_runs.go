@@ -447,7 +447,6 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 		writeRunError(w, err, extra)
 		return
 	}
-	s.markWorkspaceRun(rec, "", "") // 표식 해제
 	cleanup := make([]map[string]any, 0, len(rec.Members))
 	for _, m := range rec.Members {
 		cleanup = append(cleanup, map[string]any{
@@ -464,6 +463,16 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 	// 절차를 건너뛴 조정자가 남긴 것이 접수 ⑩(닫히지 않는 세션·창)과
 	// ⑬(빈 터미널)이다. 무엇을 닫아야 하는지 아는 것은 기록이고 기록은 여기 있다.
 	closed := s.closeRunTabs(rec, body.KeepTools)
+	// UX_BATCH6_SRS FR-RUN-6d: 표식 해제는 **닫고 난 뒤, 남은 자리에만** 한다.
+	//
+	//   이전 동작: 닫기 전에 표식을 지워 workspace.json 을 썼다 (rev+1)
+	//   새  동작: 닫은 탭은 대상에서 빼고, 뺄 것이 없으면 쓰지 않는다
+	//   이유:     쓰기가 rev 를 올린 직후 `closeTab` 방송이 나가면, 탭을 지운
+	//             브라우저의 PUT 이 **409** 를 받는다. 그쪽의 해소는 원격 채택이라
+	//             자기 삭제를 버리고, 탭이 되살아나 전용 창이 화면에 남는다
+	//             (ubuntu 러너 실측 · e2e `skill-contract`). 사라질 자리의 표식은
+	//             지울 것이 없다 — 자리가 사라진다.
+	s.markWorkspaceRunExcept(rec, "", "", closedTabIDs(closed))
 	trees := s.cleanupWorktrees(rec, body.KeepWorktrees)
 	residue := 0
 	for _, t := range trees {
@@ -538,20 +547,35 @@ func (s *Server) tabIDOfTool(toolID string) string {
 // runs.json 이다 (FR-RUN-10). 그래서 실패는 로그 한 줄로 끝내고 요청을 깨뜨리지
 // 않는다 (NFR-RUN-3).
 func (s *Server) markWorkspaceRun(rec run.Record, tabID, runID string) {
+	s.markWorkspaceRunExcept(rec, tabID, runID, nil)
+}
+
+// markWorkspaceRunExcept 는 skip 에 든 탭을 대상에서 뺀다 (FR-RUN-6d). 정리가
+// 이미 닫은 자리가 그것이며, 그 자리의 표식은 지울 것이 없다 — 탭이 사라진다.
+//
+// 멤버 탭이 하나도 남지 않으면 **창의 표식도 대상이 아니다.** 마지막 탭이 닫히면
+// 전용 창은 스스로 사라지고, 그때 쓰는 한 줄이 브라우저의 삭제를 409 로 되돌린다.
+func (s *Server) markWorkspaceRunExcept(rec run.Record, tabID, runID string, skip map[string]bool) {
 	if s.Work == nil {
 		return
 	}
 	tabs := map[string]bool{}
 	if tabID != "" {
-		tabs[tabID] = true
+		if !skip[tabID] {
+			tabs[tabID] = true
+		}
 	} else {
 		for _, m := range rec.Members {
-			if m.TabID != "" {
+			if m.TabID != "" && !skip[m.TabID] {
 				tabs[m.TabID] = true
 			}
 		}
 	}
-	markWindow := rec.Projection == run.DedicatedWindow && rec.WindowID != ""
+	windowID := rec.WindowID
+	if len(skip) > 0 && len(tabs) == 0 {
+		windowID = "" // 창이 사라진다 — 그 표식을 쓰려고 rev 를 올리지 않는다
+	}
+	markWindow := rec.Projection == run.DedicatedWindow && windowID != ""
 
 	for attempt := 0; attempt < 3; attempt++ {
 		blob, rev := s.Work.Snapshot()
@@ -563,7 +587,7 @@ func (s *Server) markWorkspaceRun(rec run.Record, tabID, runID string) {
 			log.Printf("[run] workspace 표식 생략 — 파싱 실패: %v", err)
 			return
 		}
-		if !applyRunMarks(tree, tabs, rec.WindowID, markWindow, runID) {
+		if !applyRunMarks(tree, tabs, windowID, markWindow, runID) {
 			return // 바꿀 것이 없다
 		}
 		out, err := json.Marshal(tree)
@@ -588,6 +612,17 @@ func (s *Server) markWorkspaceRun(rec run.Record, tabID, runID string) {
 		}
 	}
 	log.Printf("[run] workspace 표식 포기 — 동시 편집으로 3회 stale (runId=%s)", runID)
+}
+
+// closedTabIDs 는 정리가 닫은 탭의 uuid 집합이다 (FR-RUN-6d).
+func closedTabIDs(closed []map[string]any) map[string]bool {
+	out := map[string]bool{}
+	for _, c := range closed {
+		if id, _ := c["tabId"].(string); id != "" {
+			out[id] = true
+		}
+	}
+	return out
 }
 
 // applyRunMarks mutates the decoded workspace tree in place. It walks generic
