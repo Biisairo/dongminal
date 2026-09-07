@@ -223,7 +223,10 @@ class EdDirtyDiff{
     if(!d.repo){this._back();return false}
     const prefix=d.rootMatch?'':edDdPrefix(d.repo,d.requestedResolved||'');
     if(prefix===null){this._back();return false}
-    const tail=this.filePath.slice(root.endsWith('/')?root.length:root.length+1);
+    // git 이 받는 경로는 어느 OS 에서도 `/` 다. 그냥 잘라 내면 Windows 에서
+    // `sub\file.txt` 가 그대로 나가고, 서버는 그런 경로를 모른다 — 표시가 통째로
+    // 서지 않는다 (`pathRel` 이 자른 뒤 구분자를 맞춘다).
+    const tail=pathRel(root,this.filePath);
     if(!tail) return false;
     this._retryAt=0;
     const rel=prefix+tail;

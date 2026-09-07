@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, rmTree } from './fixtures';
+import { test, expect, rmTree, switchToEditorRoot } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M3(파일 탐색기) · M4(탐색기의 git 색)의 검증 V-EDT-40~56.
@@ -129,12 +129,7 @@ async function goto(page: Page) {
 }
 
 async function openEditor(page: Page, root: string) {
-  await page.evaluate((r) => {
-    const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(r).replace(/\\/g, '/'));
-    if (!win) throw new Error('Editor 창이 없다: ' + r);
-    a.switchWindow(win.id);
-  }, root);
+  await switchToEditorRoot(page, root);
   await page.waitForSelector('.ed-win .ed-explorer .ed-tree', { timeout: 10000 });
 }
 

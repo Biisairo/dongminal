@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGit as fxOpenGit, rmTree } from './fixtures';
+import { test, expect, openGit as fxOpenGit, rmTree, switchToEditorRoot } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // GIT_DIR_ENTRY_SRS §4 — 디렉터리 상태 항목의 검증 V-DIR-10~42.
@@ -96,12 +96,7 @@ async function goto(page: Page) {
 }
 
 async function openEditor(page: Page, root: string) {
-  await page.evaluate((r) => {
-    const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(r).replace(/\\/g, '/'));
-    if (!win) throw new Error('Editor 창이 없다: ' + r);
-    a.switchWindow(win.id);
-  }, root);
+  await switchToEditorRoot(page, root);
   await page.waitForSelector('.ed-win .ed-explorer .ed-tree', { timeout: 10000 });
 }
 

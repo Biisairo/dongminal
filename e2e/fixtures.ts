@@ -669,6 +669,36 @@ export function rmTreeHard(p: string) {
 }
 
 /**
+ * 그 뿌리의 Editor 창으로 옮기고, **그 창이 실제로 활성이 될 때까지** 기다린다
+ * (CI_E2E_MATRIX_SRS FR-CEM-23).
+ *
+ * `switchWindow` 를 부르고 `.ed-tree .ed-row` 가 보이기만 기다리면 **아무 창의
+ * 트리라도 그 조건을 만족한다.** 앱은 사용자의 홈을 뿌리로 하는 편집기를 늘 하나
+ * 세우므로(FR-EDT-13) 그 창의 트리에는 언제나 행이 있고, 전환이 뒤늦은 워크스페이스
+ * 적용에 덮여도 검사는 그것을 모른 채 진행한다 — 그 뒤의 모든 단정이 남의 트리를
+ * 본다 (러너 실측: 화면에 뜬 것이 검사의 뿌리가 아니라 `C:\Users\runneradmin`
+ * 이었다).
+ *
+ * 구분자는 견주기 전에 맞춘다. 서버가 저장한 철자와 검사가 든 철자는 같은 자리를
+ * 가리키면서도 구분자만 다를 수 있다 (FR-CEM-11).
+ */
+export async function switchToEditorRoot(page: any, root: string, timeout = 15000) {
+  await page.waitForFunction(
+    (r: string) => {
+      const a = (window as any).app;
+      if (!a?._edWindows) return false;
+      const key = (p: any) => String(p == null ? '' : p).replace(/\\/g, '/');
+      const win = a._edWindows().find((x: any) => x.editor && key(x.editor.root) === key(r));
+      if (!win) return false;
+      if (key(a._edRootOf(a._aw())) === key(r)) return true;
+      a.switchWindow(win.id);
+      return false;
+    },
+    root, { timeout, polling: 100 },
+  );
+}
+
+/**
  * 디렉터리를 통째로 복사한다 (FR-CEM-14).
  *
  * **`cp -R` 을 부르지 않는다.** `cp` 는 git bash 의 `usr/bin` 에 있고 그 자리는

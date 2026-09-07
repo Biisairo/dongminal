@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, rmTree } from './fixtures';
+import { test, expect, rmTree, switchToEditorRoot } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // NOTES_LIVE_EXPLORER_SRS §5.2 — 묶음 N(메모장)·묶음 L(탐색기의 살아있는 반영)의
@@ -59,12 +59,7 @@ async function openEditorTab(page: Page) {
 }
 
 async function openEditorWin(page: Page, root: string) {
-  await page.evaluate((r) => {
-    const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(r).replace(/\\/g, '/'));
-    if (!win) throw new Error('Editor 창이 없다: ' + r);
-    a.switchWindow(win.id);
-  }, root);
+  await switchToEditorRoot(page, root);
   await page.waitForSelector('.ed-win .ed-explorer .ed-tree', { timeout: 10000 });
 }
 

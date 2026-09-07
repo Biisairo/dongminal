@@ -104,19 +104,33 @@ function docFmtBytes(n) {
  * 루트를 모르면(창 밖의 파일 등) `/` 표기를 파일시스템 절대경로로 그대로 받는다.
  * 없는 기준을 지어내지 않는다.
  */
+/** 그 파일이 든 디렉터리. 구분자는 그 경로의 것이다. */
+function docDirOf(filePath) {
+  const s = String(filePath || '');
+  const i = Math.max(s.lastIndexOf('/'), s.lastIndexOf('\\'));
+  return i > 0 ? s.slice(0, i) : (pathSep(s) === '\\' ? s : '/');
+}
+
 function docResolvePath(baseDir, rel, root) {
   // `/` 로 시작하면 그것은 "어딘가의 루트부터" 라는 뜻이다. 루트를 알면 그것이
   // 기준이고, 모르면 **그 표기를 그대로 절대경로로 받는다** — 문서 디렉터리 뒤에
   // 붙이면 같은 이름의 엉뚱한 파일을 열 수 있고, 그 어긋남은 조용하다.
-  const abs = String(rel).startsWith('/');
+  //
+  // 구분자는 **기준 경로의 것**을 쓴다. `/` 로 굳히면 Windows 에서 기준이 한
+  // 조각으로 뭉개져(`D:\a\root` 에는 `/` 가 없다) 결과가 `/D:\a\root\x` 가
+  // 된다 — 그 경로는 어디에도 없다. 문서 안의 참조(`rel`)는 어느 OS 에서도
+  // `/` 로 적히므로 양쪽을 다 받아 가른다.
+  const abs = /^[\\/]/.test(String(rel));
   const from = abs ? (root || '') : baseDir;
-  const parts = String(from).split('/').filter(Boolean);
-  for (const seg of String(rel).split('/')) {
+  const sep = pathSep(String(from || baseDir || '/'));
+  const parts = String(from).split(/[\\/]/).filter(Boolean);
+  for (const seg of String(rel).split(/[\\/]/)) {
     if (!seg || seg === '.') continue;
     if (seg === '..') { parts.pop(); continue }
     parts.push(seg);
   }
-  return '/' + parts.join('/');
+  // POSIX 는 뿌리의 구분자가 앞에 하나 붙고, Windows 는 드라이브 문자가 첫 조각이다.
+  return (sep === '/' ? '/' : '') + parts.join(sep);
 }
 
 /**
@@ -128,8 +142,7 @@ function docResolvePath(baseDir, rel, root) {
  */
 function docInsideRoot(abs, root) {
   if (!root) return true;   // 기준이 없으면 판정하지 않는다 — 서버가 가른다
-  const pre = String(root).replace(/\/+$/, '') + '/';
-  return String(abs).startsWith(pre);
+  return pathUnder(root, abs);
 }
 
 /**
@@ -137,7 +150,7 @@ function docInsideRoot(abs, root) {
  * (I-4 — VS Code 와 같이 그린다).
  */
 function docFixImages(el, filePath, fsRoot) {
-  const dir = filePath.slice(0, filePath.lastIndexOf('/')) || '/';
+  const dir = docDirOf(filePath);
   for (const img of el.querySelectorAll('img[src]')) {
     const src = img.getAttribute('src') || '';
     if (/^(https?:|data:)/i.test(src)) continue;
@@ -391,7 +404,7 @@ class DocRender {
     if (!target) { this._goAnchor(frag); return }
     let rel = target;
     try { rel = decodeURIComponent(target) } catch { /* 잘못 인코딩된 링크는 그대로 쓴다 */ }
-    const dir = this.filePath.slice(0, this.filePath.lastIndexOf('/')) || '/';
+    const dir = docDirOf(this.filePath);
     const abs = docResolvePath(dir, rel, this.fsRoot);
     // FR-DRV-26: 루트 밖으로는 가지 않는다. `_edOpenFile` 도 거절하지만, 거절이
     // 침묵이면 링크가 죽은 것인지 우리가 막은 것인지 갈리지 않는다.

@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, rmTree } from './fixtures';
+import { test, expect, rmTree, switchToEditorRoot } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // REPO_TAB_UNIFY_SRS §4 — diff 편집의 검증 V-RTU-50~56.
@@ -58,13 +58,7 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
   await page.waitForFunction(
     () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
     undefined, { timeout: 15000 });
-  await page.evaluate((x) => {
-    const a = (window as any).app;
-    const win = a._edWindows().find((s: any) => s.editor
-      && String(s.editor.root).replace(/\\/g, '/') === String(x).replace(/\\/g, '/'));
-    if (!win) throw new Error('Repo 창이 없다: ' + x);
-    a.switchWindow(win.id);
-  }, root);
+  await switchToEditorRoot(page, root);
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 10000 });
   // Changes 사이드로 옮겨 변경 목록을 띄운다.
   await page.locator('.ed-side-tab[data-side="changes"]').click();

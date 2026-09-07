@@ -119,7 +119,17 @@ export function echoCmd(text: string): string {
   return isWin ? `'${text}'` : `echo '${text}'`;
 }
 
-/** 차례로 잇는다 — 앞이 성공해야 뒤가 돈다. */
+/**
+ * 차례로 잇는다.
+ *
+ * **`;` 다.** `&&` 는 pwsh 7 도 받지만, 세 조각을 한 줄로 이어 타이핑하면 그 셸이
+ * 입력을 미완성으로 보고 계속 프롬프트(`>>>`)를 띄운 채 멈춘 경우가 있었다
+ * (러너 실측: 화면에 명령은 그대로 찍혔는데 실행되지 않았다). `;` 는 두 셸 모두
+ * **한 줄의 끝**으로 확실히 받는다.
+ *
+ * "앞이 성공해야 뒤가 돈다" 는 성질은 잃지만, 이 자리가 쓰는 것은 순서뿐이다 —
+ * 앞이 실패하면 뒤의 단정이 그것을 잡는다.
+ */
 export function chain(...parts: string[]): string {
-  return parts.join(' && ');
+  return parts.join('; ');
 }

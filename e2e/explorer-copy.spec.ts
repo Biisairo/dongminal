@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openRowMenu, rmTree } from './fixtures';
+import { test, expect, openRowMenu, rmTree, switchToEditorRoot } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // WORKBENCH_REVIEW_SRS 묶음 P — 탐색기의 복사·복제 (FR-WBR-70~74,
@@ -55,12 +55,7 @@ async function goto(page: Page) {
 }
 
 async function openEditor(page: Page, root: string) {
-  await page.evaluate((r) => {
-    const a = (window as any).app;
-    const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(r).replace(/\\/g, '/'));
-    if (!win) throw new Error('Editor 창이 없다: ' + r);
-    a.switchWindow(win.id);
-  }, root);
+  await switchToEditorRoot(page, root);
   await page.waitForSelector('.ed-win .ed-explorer .ed-tree', { timeout: 10000 });
 }
 
