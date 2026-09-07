@@ -288,6 +288,12 @@ func TestRelayOutput_StopsOnWriteFailure(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("쓰기 실패 후에도 릴레이가 살아 있다 — 폭주 경로가 되살아났다")
 	}
+	// **먹인 것이 다 들어간 뒤에 센다.** 릴레이는 첫 건에서 끝나므로 그것을
+	// 기다리는 것만으로는 feeder 가 어디까지 넣었는지 알 수 없고, 아직 넣지 않은
+	// 것이 "릴레이가 삼킨 것" 으로 보인다 — 러너가 느릴수록 그렇다 (Windows
+	// 실측: 13건만 들어온 채로 재고 "51건을 더 소비했다" 로 읽었다). 버퍼가 64 라
+	// 이 대기는 릴레이가 멎어 있어도 반드시 풀린다.
+	<-feeding
 	if got := len(out); got < 60 {
 		t.Fatalf("릴레이가 실패 후에도 %d 건을 더 소비했다; 첫 실패에서 끊어야 한다", 64-got)
 	}
