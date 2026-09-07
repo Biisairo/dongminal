@@ -36,6 +36,10 @@ type gitLogResponse struct {
 	// 자기가 요청한 만큼 받았다고 믿고 페이징을 어긋나게 계산한다 (FR-GIT-114).
 	Limit   int            `json:"limit"`
 	Commits []query.Commit `json:"commits"`
+	// Signature 는 `git log` 가 끝난 **직후**의 저장소 signature 값이다 (GIT_VIEW_REFRESH_SRS
+	// FR-GVR-8a). 클라이언트가 이 목록이 어느 시각의 저장소인지 알아야, 관측의
+	// 기준선이 그보다 새로울 때 목록이 낡았음을 판정할 수 있다. 읽지 못하면 빈 값이다.
+	Signature string `json:"signature"`
 }
 
 // GET /api/git/log?repo=&ref=&skip=&limit=&order=&author=&since=&until=&path=&grep=&reflog=
@@ -72,8 +76,12 @@ func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 		gitError(w, err)
 		return
 	}
+	// 목록 **뒤에** 읽는다 — 앞에 읽으면 그 사이의 변경이 목록에는 있고 값에는
+	// 없어, 클라이언트가 "낡았다" 고 한 번 더 받는다. 실패는 목록의 실패가 아니다.
+	sig, _ := s.Git.Signature(r.Context(), root)
 	gitJSON(w, http.StatusOK, gitLogResponse{
 		Requested: req, Repo: root, Limit: query.LogLimit(req.Limit), Commits: commits,
+		Signature: sig.Value,
 	})
 }
 

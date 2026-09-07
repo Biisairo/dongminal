@@ -52,6 +52,7 @@ class GitObserver {
   paintAll(){ for(const p of this.panels) p._paint() }
   paintAllViews(){ for(const p of this.panels) p._paintAllViews() }
   reloadViewsAll(){ for(const p of this.panels) p._reloadViews() }
+  reloadStaleViewsAll(sig){ for(const p of this.panels) p._reloadStaleViews(sig) }
   notifyStatusAll(){ for(const p of this.panels) if(p._remoteView) p._remoteView.notifyStatus() }
 
   // 주기 타이머의 종단. 패널이 하나도 없으면 폴 이유가 없다.

@@ -37,6 +37,7 @@ class GitHistory {
     this._loading=false;
     this._loadP=null;
     this._again=false;     // 받는 도중에 온 다시 받기 (FR-SVS-39d)
+    this._loadedSig=null;  // 지금 목록이 받아진 시각의 저장소 signature (FR-GVR-8a)
     this._err=null;
     this._note='';
     this._ref=null;        // 선택된 ref. _adopt 가 리포별 저장값으로 채운다
@@ -795,10 +796,12 @@ class GitHistory {
     return this._loadP;
   }
 
-  // 미룬 다시 받기 하나. 리포가 바뀌었거나 뷰가 내려갔으면 뜻이 없다 — `_adopt` 가
-  // 새 리포를 처음부터 받는다.
+  // 미룬 다시 받기 하나, 또는 받는 사이에 관측이 지나간 경우 (FR-GVR-8a: 기준선이
+  // 이 로드 중에 도착했으면 `_reloadStaleViews` 는 아직 모른다고 보고 지나갔다).
+  // 리포가 바뀌었거나 뷰가 내려갔으면 뜻이 없다 — `_adopt` 가 새 리포를 처음부터
+  // 받는다.
   _drain(){
-    if(!this._again) return;
+    if(!this._again&&!this.staleFor(this.panel._lastSig)) return;
     this._again=false;
     if(!this._el||this.panel.repo!==this._repo) return;
     return this._load(false);
@@ -821,6 +824,9 @@ class GitHistory {
       // 것인지 _sameReq 가 가른다.
       reflog:this._reflog,
     };
+    // 받는 동안은 모른다 — 낡음 판정(`staleFor`)이 이전 목록의 값으로 이 로드를
+    // 또 부르지 않게 한다. 뒷장(`more`)은 같은 목록이라 값을 바꾸지 않는다.
+    if(!more) this._loadedSig=null;
     this._loading=true; this._err=null;
     this._paintBar(); this._paintFoot();
     /**
@@ -844,8 +850,19 @@ class GitHistory {
     const eff=d.limit||sent.limit;
     this._commits=more?this._commits.concat(got):got;
     this._end=got.length<eff;
+    // FR-GVR-8a: 이 목록은 서버가 `git log` 직후에 읽은 저장소의 것이다.
+    if(!more) this._loadedSig=(typeof d.signature==='string'&&d.signature)||null;
     this._rebuild();
     this.paint();
+  }
+
+  /**
+   * FR-GVR-8a: 이 목록이 관측보다 **낡았는가.** 목록이 받아진 시각의 signature 와
+   * 관측의 signature 가 다르면 그 사이에 저장소가 움직였다. 둘 중 하나를 모르면
+   * (받는 중이거나 관측이 아직 없으면) 판정하지 않는다.
+   */
+  staleFor(sig){
+    return !!this._loadedSig&&!!sig&&this._loadedSig!==sig;
   }
 
   // ref 를 바꾼 쓰기 뒤에 사이드바를 다시 채운다 (FR-GIT-160). 목록은 _adopt 에서만
