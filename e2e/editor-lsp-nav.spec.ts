@@ -66,6 +66,32 @@ async function openFile(page: Page, rel: string) {
   }, abs, { timeout: 20000 });
 }
 
+/**
+ * 호버가 딛는 **전제**를 먼저 확인한다.
+ *
+ * `provideHover` 는 그 모델의 파일이 어느 Editor 루트 아래인지 알아야 요청을
+ * 만든다 (`_lspHoverWhere` → `_lspRootOfPath`). 그 앞단이 비면 요청이 **아예
+ * 가지 않고**, 말풍선만 재는 검사는 "안 떴다" 라고만 말한다 — 무엇을 고쳐야
+ * 하는지 알 수 없다. 그래서 그 자리를 이름 붙여 확인한다.
+ */
+async function expectHoverGround(page: Page) {
+  const g = await page.evaluate(() => {
+    const a = (window as any).app;
+    const v = a._edActiveEditor();
+    const path = v && v.filePath;
+    return {
+      path: path || null,
+      hasModel: !!(v && v._editor && v._editor.getModel()),
+      lang: (v && v._editor && v._editor.getModel() && v._editor.getModel().getLanguageId()) || null,
+      root: path ? (a._lspRootOfPath(path) || null) : null,
+      roots: a._edWindows().map((w: any) => (w.editor && w.editor.root) || null),
+    };
+  });
+  expect(g.hasModel, `활성 편집기에 모델이 없다: ${JSON.stringify(g)}`).toBe(true);
+  expect(g.lang, `모델의 언어가 go 가 아니다 — provider 가 걸리지 않는다: ${JSON.stringify(g)}`).toBe('go');
+  expect(g.root, `이 파일을 품는 Editor 루트를 못 찾았다 — 호버 요청이 만들어지지 않는다: ${JSON.stringify(g)}`).toBeTruthy();
+}
+
 // 커서를 그 자리에 둔다 — 요청이 싣는 좌표가 이것이다.
 async function putCursor(page: Page, line: number, col: number) {
   await page.evaluate(([l, c]) => {
@@ -276,6 +302,7 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
     // 재려는 것은 provider 의 속이지 마우스 이동이 아니다. 다만 **편집기가 실제로
     // 포커스를 쥐어야** 그 명령이 선다: `focus()` 만으로는 부족한 처지가 있어
     // 화면을 한 번 누른다.
+    await expectHoverGround(page);
     await page.locator('.file-editor.vis .monaco-editor').first().click();
     await putCursor(page, 4, 3);
     await page.evaluate(() => {
@@ -330,6 +357,7 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
       });
     });
 
+    await expectHoverGround(page);
     await page.locator('.file-editor.vis .monaco-editor').first().click();
     await putCursor(page, 4, 3);
     await page.evaluate(() => {

@@ -389,6 +389,26 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
       return a._isEditorWin(a._aw()) ? a._edRootOf(a._aw()) : null;
     }), { timeout: 15000 }).toBe(wtPath);
 
+    /**
+     * **터미널을 먼저 거둔다.**
+     *
+     * 이 검사는 조금 전 그 worktree 안에 터미널을 열었다. POSIX 는 열린 cwd 가
+     * 있어도 디렉터리를 지우지만 **Windows 는 지우지 않는다** — 어느 프로세스의
+     * 현재 디렉터리인 폴더는 삭제도 이름 바꾸기도 거부된다. 그러면
+     * `git worktree remove` 가 "failed to delete" 로 끝나고, 확인 상자가 사유를
+     * 남긴 채 열려 있다(러너 실측).
+     *
+     * 그것은 앱의 결함이 아니라 그 OS 의 사실이며, 사용자도 같은 순서를 밟는다 —
+     * 그 자리에서 돌던 셸을 닫고 지운다. 재는 것은 네 동작이 **각각** 되는가이지
+     * "셸이 도는 채로 지울 수 있는가" 가 아니다.
+     */
+    await page.evaluate(async () => {
+      const a = (window as any).app;
+      for (const [id] of [...a.tools]) await a._killTool(id);
+    });
+    await expect.poll(async () => (await (await request.get('/api/state')).json()).tools?.length ?? 0,
+      { timeout: 15000 }).toBe(0);
+
     // 제거 — 앞의 `open` 이 다른 창으로 데려갔으므로 되돌아온다.
     await backToWorktrees(page, repo);
     const row3 = wt(page).locator('.git-wt-row').filter({ hasText: 'v151-acts' });
