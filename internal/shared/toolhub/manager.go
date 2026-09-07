@@ -41,6 +41,16 @@ type ToolManager struct {
 	// 프로파일도 알지 않으며, 완성된 명세만 받는다.
 	placer func(Placement) (*platform.ProcSpec, error)
 
+	// bgChanged 는 **아무도 부탁하지 않은 백그라운드 목록의 변화**를 위층에
+	// 알린다 — 곧 도구 프로세스의 죽음이다 (UX_BATCH6_SRS FR-BGP-1·2).
+	// invalidator·placer 와 같은 방향이다: toolhub 는 SSE 도 브라우저도 알지
+	// 않으며 사실만 낸다.
+	//
+	// 사용자가 부탁한 변화(보냄·되돌림)는 이 훅이 아니라 HTTP 종단이 알린다 —
+	// 그쪽에는 두 모드가 공유하는 한 자리가 있고, 이 훅은 데몬 모드에서 구독자
+	// 없는 프로세스에서 돈다.
+	bgChanged func()
+
 	// mutated 는 **기동 후 한 번이라도 상태가 바뀌었는가** 다. 한 번 서면 내려오지
 	// 않으며, 그것이 이 값의 뜻이다 (FR-CAF-13).
 	//
@@ -272,6 +282,25 @@ func (m *ToolManager) SetInvalidator(f func(string)) {
 	m.mu.Unlock()
 }
 
+// SetBackgroundChanged 는 백그라운드 목록 변화의 수신자를 꽂는다 (FR-BGP-2).
+func (m *ToolManager) SetBackgroundChanged(f func()) {
+	m.mu.Lock()
+	m.bgChanged = f
+	m.mu.Unlock()
+}
+
+// notifyBackground 는 수신자를 잠금 밖에서 부른다 — 수신자가 SSE 브로드캐스트를
+// 하며, 그 안에서 다시 이 매니저를 물을 수 있다 (`BackgroundList`). 잠금을 쥔 채
+// 부르면 그 자리에서 잠긴다.
+func (m *ToolManager) notifyBackground() {
+	m.mu.RLock()
+	f := m.bgChanged
+	m.mu.RUnlock()
+	if f != nil {
+		f()
+	}
+}
+
 // defaultToolName은 새 도구의 표시명이다. FR-UNI-8 로 id 에서 분리됐다 — 이전에는
 // "Shell #{카운터}" 였고, 표시명이 id 파생이라 id 형식 변경에 끌려다녔다. 도구 간
 // 구분은 좌표 라벨(W{n}.P{n}.T{n})과 cwd 가 담당한다.
@@ -298,6 +327,24 @@ type Placement struct {
 	WindowUUID string
 	// Profile 이 비어 있으면 일반 창이며, 도구는 호스트에서 돈다.
 	Profile string
+
+	// Work 는 이 창이 고른 **작업 방식**이다 — "mount" · "copy" · "none"
+	// (UX_BATCH6_SRS FR-SBM-3). 비거나 모르는 값이면 프로파일의 것을 쓴다.
+	//
+	// 프로파일이 아니라 여기 있는 이유는 그것이 **이번 창의 선택**이기
+	// 때문이다. 같은 프로파일로 어떤 창은 마운트하고 어떤 창은 복사한다.
+	Work string
+
+	// Command 는 **로그인 셸 대신 띄울 명령**이다 (UX_BATCH6_SRS FR-BGP-3).
+	//
+	// 비면 종전대로 대화형 셸이며, 그때의 동작은 이 필드가 없던 때와 완전히
+	// 같다. 명령이 있으면 그 프로세스가 곧 이 도구의 수명이다 — 끝나면 도구가
+	// 죽고, 죽으면 백그라운드 목록에서 사라진다 (FR-BGP-4). "명령이 끝났다" 를
+	// 따로 감지하는 자리는 없다.
+	//
+	// 샌드박스 프로파일과 함께 쓰지 않는다. 컨테이너 안에서 무엇을 띄울지는
+	// 그쪽 명세가 정하며, 둘이 동시에 참이면 어느 쪽이 이기는지 말할 수 없다.
+	Command string
 
 	// 아래 둘은 **ToolManager 가 채운다.** 호출자는 건드리지 않는다 — 도구
 	// 식별자는 여기서 만들어지고, 작업 디렉터리는 Create 의 인자이므로 바깥에서
@@ -339,6 +386,11 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 		log.Printf("[tool %s] create error: %v", id, err)
 		return nil, err
 	}
+	// FR-BGP-3 / FR-SBX-27: `sandboxed` 는 "컨테이너 안에서 돈다" 이지 "명세를
+	// 받았다" 가 아니다. `StartTool` 은 명세 유무만 보므로, 명령으로 띄운 도구가
+	// 샌드박스로 오인되어 백그라운드로 갈 수 없게 된다 — 그 도구는 백그라운드에
+	// 살라고 만든 것이다.
+	p.sandboxed = place.Profile != ""
 	m.tools[id] = p
 	log.Printf("[tool %s] registered total=%d", id, len(m.tools))
 	m.mutated.Store(true)
@@ -359,7 +411,16 @@ func (m *ToolManager) SetPlacer(f func(Placement) (*platform.ProcSpec, error)) {
 // 경로가 이 기능 도입 전과 완전히 같아야 한다 (NFR-SBX-2).
 func (m *ToolManager) placement(place Placement) (*platform.ProcSpec, error) {
 	if place.Profile == "" {
-		return nil, nil
+		// FR-BGP-3: 셸 대신 명령. 셸을 띄우고 그 안에 타이핑하는 대신 명령
+		// 자체를 도구의 프로세스로 세운다 — 그래야 그 명령의 끝이 도구의 끝이다.
+		if place.Command == "" {
+			return nil, nil
+		}
+		argv := platform.Current().Shell.RunCommand(place.Command)
+		if len(argv) == 0 {
+			return nil, fmt.Errorf("이 호스트의 셸에서 명령을 실행할 방법을 알지 못합니다")
+		}
+		return &platform.ProcSpec{Path: argv[0], Args: argv}, nil
 	}
 	m.mu.RLock()
 	f := m.placer
@@ -435,6 +496,9 @@ func (m *ToolManager) Delete(id string) {
 	m.mu.Lock()
 	p := m.tools[id]
 	delete(m.tools, id)
+	// UX_BATCH6_SRS FR-BGP-1: 백그라운드 목록은 **살아 있는 프로세스의 목록**이다.
+	// 지우는 것은 종전과 같고, 달라진 것은 그 사실을 알린다는 점이다.
+	_, wasBg := m.background[id]
 	delete(m.background, id)
 	remaining := len(m.tools)
 	m.mu.Unlock()
@@ -444,6 +508,9 @@ func (m *ToolManager) Delete(id string) {
 	}
 	m.mutated.Store(true)
 	m.saveAsync()
+	if wasBg {
+		m.notifyBackground()
+	}
 }
 
 // saveAsync 는 저장을 요청 경로 밖으로 떨어뜨리되 **셀 수 있게** 한다.

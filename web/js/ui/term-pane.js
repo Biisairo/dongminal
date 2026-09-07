@@ -40,6 +40,9 @@ class TerminalTool {
     try{TermClipboard.attach(this.term,this.id)}catch(e){}
     this.term.open(this.box);
     this.term.attachCustomKeyEventHandler(e=>{
+      // UX_BATCH6_SRS FR-IME-1: 조합이 아직 끝나지 않았으면 이 키는 xterm 이
+      // 보아서는 안 된다. 가장 앞에 둔다 — 뒤의 갈래들도 조합보다 앞서면 안 된다.
+      if(!this._imeGate(e)) return false;
       if(e.key==='Enter'&&e.shiftKey&&!e.ctrlKey&&!e.altKey&&!e.metaKey){
         if(e.type==='keydown') this._send(new Uint8Array([OP.INPUT,0x1b,0x0d]));
         e.preventDefault();
@@ -106,6 +109,9 @@ class TerminalTool {
       // 증분 계산(_dataAlreadySent)도 사라져 확정마다 누적 전체가 다시 나간다.
       ta.addEventListener('compositionstart',()=>{this._imeOpen=true},true);
       ta.addEventListener('compositionend',()=>this._imeClose(),true);
+      // FR-IME-5: `compositionend` 가 오지 않는 경로(포커스 상실)에서 보류분이
+      // 영영 갇히지 않게 하는 그물이다. 이미 정리됐으면 아무 일도 하지 않는다.
+      ta.addEventListener('blur',()=>{if(this._imeBusy())this._imeClose()},true);
     }
     this._initTouchScroll();
     try{this.fit.fit()}catch{}
@@ -159,24 +165,100 @@ class TerminalTool {
     if(handled) return;                           // FR-MTI-19
     if(!e.data) return;
     e.preventDefault();
-    // FR-MTI-30: 조합이 아직 닫히지 않았으면 보류한다. isComposing 은 이미
-    // false 로 오지만 compositionend 는 그 뒤에 온다 — 그 사이에 보내면
-    // 조합 문자열보다 앞선다.
-    if(this._imeOpen){
-      this._imeQueue=(this._imeQueue||'')+e.data;
+    // FR-MTI-30 / UX_BATCH6_SRS FR-IME-6: 조합이 아직 정리되지 않았으면 보류한다.
+    if(this._imeBusy()){
+      this._imePush({t:'text',v:e.data});
       return;
     }
     this._sendText(this._applyStickyMods(e.data));
   }
 
-  // FR-MTI-30: 조합이 닫히면 보류분을 보낸다. 조합 문자열은 xterm 이
-  // compositionend 에서 setTimeout(0) 으로 보내므로, 그 뒤에 나가도록 한 틱 더
-  // 미룬다. 이 순서가 " 여전히" 를 "여전히 " 로 되돌린다.
+  /**
+   * UX_BATCH6_SRS FR-IME-1·4: 조합이 정리되기 전에 들어온 키를 붙잡는다.
+   *
+   * `false` 를 돌려주면 xterm 은 이 키를 보지 않는다. 그것이 요점이다 —
+   * `CompositionHelper.keydown` 은 조합 중에 다른 키를 보면 그 자리에서
+   * `_finalizeComposition(false)` 로 **아직 낡은** 조합 조각을 내보내고
+   * (`_compositionPosition.end` 가 `setTimeout` 으로 갱신되므로 한 글자 뒤진다),
+   * 이어서 그 키의 데이터를 보낸다. 그래서 "마지막 글자 전에 엔터" 가 된다
+   * (SRS §2.2).
+   *
+   * 제외 목록은 `CompositionHelper.keydown` 이 쓰는 것과 **같은 것**이다 —
+   * IME 가 나르는 229 와 수식키 셋. 다른 목록을 두면 어느 한쪽만 고쳐질 때
+   * 조합 자체가 깨진다.
+   *
+   * 보류하는 형태가 둘인 이유는 xterm 의 전송 경로가 둘이기 때문이다 (FR-IME-2).
+   * 인쇄 가능한 한 글자는 `_keyPress` 가 보내므로 키다운만 다시 발행해서는
+   * 되살아나지 않는다 — 그것은 **글자로** 보류한다. 나머지(Enter·Tab·Esc·커서·
+   * Ctrl 조합)는 `_keyDown` 이 표를 보고 만들며, 그 표는 xterm 의 것이므로
+   * **이벤트를 다시 발행**해 그쪽이 만들게 한다.
+   */
+  _imeGate(e){
+    if(e.type!=='keydown') return true;
+    if(e.__dmImeReplay) return true;
+    if(!this._imeBusy()) return true;
+    const kc=e.keyCode;
+    if(kc===229||kc===16||kc===17||kc===18) return true;
+    const one=!!e.key&&[...e.key].length===1;
+    this._imePush(one&&!e.ctrlKey&&!e.altKey&&!e.metaKey
+      ?{t:'text',v:e.key}
+      :{t:'key',v:this._imeKeyInit(e)});
+    // 기본 동작을 막지 않으면 이 키가 textarea 를 고쳐 xterm 의 조합 계산을
+    // 어긋나게 하고, `keypress`·`beforeinput` 으로 같은 글자가 한 번 더 나간다.
+    e.preventDefault();
+    return false;
+  }
+
+  // 다시 발행할 때 `evaluateKeyboardEvent` 가 읽는 값 전부다. 하나라도 빠지면
+  // 그 키의 해석이 원본과 달라진다.
+  _imeKeyInit(e){
+    return {key:e.key,code:e.code,keyCode:e.keyCode,which:e.which,
+      location:e.location,repeat:e.repeat,
+      ctrlKey:e.ctrlKey,altKey:e.altKey,shiftKey:e.shiftKey,metaKey:e.metaKey,
+      bubbles:true,cancelable:true};
+  }
+
+  // 조합이 열려 있거나, 닫혔지만 xterm 의 전송이 아직 나가지 않았다.
+  _imeBusy(){ return !!(this._imeOpen||this._imeSettling) }
+
+  _imePush(item){ (this._imeQ||(this._imeQ=[])).push(item) }
+
+  /**
+   * FR-MTI-30 / UX_BATCH6_SRS FR-IME-3: 조합이 닫혔다. 보류분은 **xterm 이 조합
+   * 문자열을 보낸 뒤**에 나간다.
+   *
+   *   이전 동작: `compositionend` 를 보면 곧바로 `_imeOpen` 을 내렸다
+   *   새  동작: 내리되 **정리 중**(`_imeSettling`)으로 들어가고, 두 tick 뒤에
+   *             보류분을 흘려 보내며 그 창을 닫는다
+   *   이유:     xterm 은 자기 `compositionend`(bubble) 안에서 `setTimeout(0)` 으로
+   *             조합을 보낸다. 우리 캡처 핸들러가 먼저 도므로, 그 사이에 도착한
+   *             확정 문자를 즉시 보내면 조합보다 앞선다 — 접수한 모바일 증상이
+   *             그것이다(" 여전히"). 종전 가드는 `compositionend` **앞에** 온
+   *             문자만 잡았고, 뒤에 온 문자는 그대로 새 나갔다 (SRS §2.2)
+   */
   _imeClose(){
     this._imeOpen=false;
-    const q=this._imeQueue; this._imeQueue='';
-    if(!q) return;
-    setTimeout(()=>setTimeout(()=>this._sendText(this._applyStickyMods(q)),0),0);
+    this._imeSettling=true;
+    setTimeout(()=>setTimeout(()=>this._imeFlush(),0),0);
+  }
+
+  _imeFlush(){
+    // 다음 조합이 이미 열렸으면 아직 흘릴 때가 아니다 — 그 조합이 닫힐 때 다시
+    // 이 자리로 온다. 순서는 도착 순 그대로 유지된다.
+    if(this._imeOpen) return;
+    this._imeSettling=false;
+    const q=this._imeQ; this._imeQ=null;
+    if(!q||!q.length) return;
+    const ta=this.box&&this.box.querySelector('.xterm-helper-textarea');
+    for(const it of q){
+      if(it.t==='text'){ this._sendText(this._applyStickyMods(it.v)); continue }
+      if(!ta) continue;
+      const ev=new KeyboardEvent('keydown',it.v);
+      // 게이트가 다시 잡지 않게 표식을 단다 — 이 시점에는 조합이 닫혀 있지만,
+      // 다음 조합이 열린 뒤에 흘려 보내는 경우가 남는다.
+      ev.__dmImeReplay=true;
+      ta.dispatchEvent(ev);
+    }
   }
 
   // ── 터치 스크롤 (MOBILE_TUI_INPUT_SCROLL_SRS §3.2) ──

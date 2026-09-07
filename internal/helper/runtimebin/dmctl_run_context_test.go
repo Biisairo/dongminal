@@ -192,3 +192,36 @@ func TestDmctlRunStatus_PrintsContextEndToEnd(t *testing.T) {
 		}
 	}
 }
+
+// V-CTX-5 (UX_BATCH6_SRS FR-CTX-8): 멤버 행이 **분자와 분모**를 함께 낸다.
+//
+// 비율만 보이면 "1M 을 쓰는데 왜 70% 인가" 를 CLI 에서 물을 수 없다 — 접수 ⑨의
+// 절반이 그 물음이었다.
+func TestContextCell_ShowsTokensAndLimit(t *testing.T) {
+	m := runMember{
+		ContextLevel: "ok", ContextRatio: 0.2,
+		ContextTokens: 202185, ContextLimit: 1000000,
+	}
+	got := m.contextCell()
+	for _, want := range []string{"ctx=~20%", "202k", "1.0M"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("%q 가 없다: %s", want, got)
+		}
+	}
+}
+
+// 실측 토큰이 없으면 종전대로 비율만이다 — 그때의 비율은 파일 크기 추정이며
+// 없는 분모를 지어내지 않는다 (FR-CTX-4).
+func TestContextCell_OmitsUnknownTokens(t *testing.T) {
+	m := runMember{ContextLevel: "warn", ContextRatio: 0.75}
+	if got := m.contextCell(); strings.Contains(got, "[") {
+		t.Errorf("모르는 값을 지어냈다: %s", got)
+	}
+}
+
+// 관측이 없으면 0% 가 아니라 — 다 (FR-CBG-5 의 규약은 그대로다).
+func TestContextCell_UnknownStaysUnknown(t *testing.T) {
+	if got := (runMember{}).contextCell(); got != "ctx=— (unknown)" {
+		t.Errorf("모름의 표기가 바뀌었다: %s", got)
+	}
+}

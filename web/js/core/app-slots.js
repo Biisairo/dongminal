@@ -157,6 +157,7 @@ Object.assign(App.prototype, {
     return this._slots.windows.includes(id);
   },
 
+
   // ── 신원 (FR-WSL-10·11) ──
 
   // 칸 0 은 App.clientId 를 그대로 쓴다 — 단일 슬롯 모드에서 서버가 보는 신원이

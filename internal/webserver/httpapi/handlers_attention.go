@@ -223,6 +223,22 @@ func (s *Server) apiToolBackgroundSet(w http.ResponseWriter, r *http.Request) {
 	if !body.Background {
 		s.reconcileMemberTab(body.ToolID)
 	}
+	/**
+	 * UX_BATCH6_SRS FR-BGP-2: 목록이 바뀌었음을 **모든 구독자에게** 알린다.
+	 *
+	 *   이전 동작: 아무것도 알리지 않았다. 이 요청을 보낸 브라우저만 자기
+	 *             `_bgRefresh` 로 배지를 고쳤다
+	 *   새  동작: `tools_background_changed` 를 방송한다 (FR-BGV-1 이 이미 정의한
+	 *             그 사건이며, 종전에는 헤드리스 생성 한 곳만 냈다)
+	 *   이유:     접수 ⑮ — "background 버튼에 있는 갯수가 다른 브라우저에서
+	 *             갱신되는 경우 갱신되지 않는다". 다른 브라우저는 SSE 재연결
+	 *             전까지 낡은 수를 보인다
+	 *
+	 * 이 자리인 이유는 **두 모드가 공유하는 유일한 자리**이기 때문이다. 데몬
+	 * 모드에서 `SetBackground` 는 웹서버가 아니라 데몬 프로세스에서 돌아 알릴
+	 * 구독자가 없다.
+	 */
+	s.broadcastLayout("tools_background_changed", nil)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"ok": true})
 }

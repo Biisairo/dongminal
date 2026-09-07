@@ -238,6 +238,10 @@ test.describe('M6 — Editor 도 같은 원칙', () => {
     const info = await page.evaluate((root) => {
       const app = (window as any).app;
       const ed = app._edWindows().find((w: any) => w.editor && w.editor.root === root);
+      // UX_BATCH6_SRS FR-DSP-1: 사이드의 기본이 Changes 다. 재려는 것은 **탐색기**의
+      // 갱신이므로 그 자리를 명시로 연다 — 이 창은 활성이 아니라서 공용
+      // `openExplorerSide`(활성 창을 본다)로는 닿지 않는다.
+      app._edSetSide(ed, 'explorer');
       const plain = app._plainWindows()[0];
       app.slotAdd();
       app.slotOpen(0, plain.id);

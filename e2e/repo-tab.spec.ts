@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, rmTree, switchToEditorRoot } from './fixtures';
+import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // REPO_TAB_UNIFY_SRS §4 — 통합 창의 검증 V-RTU-10~35.
@@ -103,15 +103,26 @@ const sideTab = (page: Page, id: string) => side(page).locator(`.ed-side-tab[dat
 const mainTabs = (page: Page) => page.locator('#area .ed-area .pn-tab');
 
 test.describe('묶음 W — 사이드는 Explorer 와 Changes 를 갈아 끼운다', () => {
-  test('W1 (V-RTU-10·11): 사이드에 탭 둘이 서고 기본은 Explorer 다',
+  /**
+   * W1 — **개정** (UX_BATCH6_SRS FR-DSP-1).
+   *
+   *   이전 계약: 기본은 Explorer
+   *   새   계약: 기본은 **Changes**
+   *   이유:      탭 순서를 Changes 로 옮긴 근거(FR-GCC-13)가 기본값에도 그대로
+   *              적용된다 — Repo 창을 여는 이유가 대개 변경을 보는 것이다.
+   *              두 물음을 갈라 둔 동안 첫 화면과 탭 순서가 서로 다른 말을 했다
+   *
+   * 탭이 둘이라는 것과 **한 번에 하나만 보인다**(FR-RTU-12)는 그대로다.
+   */
+  test('W1 (V-RTU-10·11 / V-DSP-1): 사이드에 탭 둘이 서고 기본은 Changes 다',
     async ({ page, request }) => {
       await enter(page, request, REPO);
       await expect(sideTab(page, 'explorer')).toHaveText('Explorer');
       await expect(sideTab(page, 'changes')).toHaveText('Changes');
-      await expect(sideTab(page, 'explorer')).toHaveClass(/active/);
+      await expect(sideTab(page, 'changes')).toHaveClass(/active/);
       // 한 번에 하나만 보인다 (FR-RTU-12).
-      await expect(side(page).locator('.ed-explorer')).toHaveCount(1);
-      await expect(side(page).locator('.git-view.git-changes')).toHaveCount(0);
+      await expect(side(page).locator('.git-view.git-changes')).toHaveCount(1);
+      await expect(side(page).locator('.ed-explorer')).toHaveCount(0);
     });
 
   test('W2 (V-RTU-11): Changes 로 바꾸면 변경 목록이 사이드에 뜬다',
@@ -143,6 +154,9 @@ test.describe('묶음 W — 사이드는 Explorer 와 Changes 를 갈아 끼운�
   test('W4 (V-RTU-23): 진입점 아이콘 줄은 Changes 탭에서만 보인다',
     async ({ page, request }) => {
       await enter(page, request, REPO);
+      // 기본이 Changes 이므로(UX_BATCH6_SRS FR-DSP-1) **Explorer 로 가서** 없음을
+      // 먼저 확인한다 — 재려는 것은 "Changes 탭에서만" 이라는 배타성이다.
+      await sideTab(page, 'explorer').click();
       await expect(side(page).locator('.ed-side-acts')).toHaveCount(0);
       await sideTab(page, 'changes').click();
       await expect(side(page).locator('.ed-side-acts')).toBeVisible();
@@ -284,6 +298,7 @@ test.describe('묶음 P — 미리보기 탭', () => {
   test('P1 (V-RTU-40·41): 한 번 클릭은 탭 하나를 재사용하고 기울임으로 보인다',
     async ({ page, request }) => {
       await enter(page, request, REPO);
+      await openExplorerSide(page);
       const tree = page.locator('#area .ed-side .ed-tree');
       await expect(tree.locator('.ed-row').first()).toBeVisible({ timeout: 10000 });
 
@@ -301,6 +316,7 @@ test.describe('묶음 P — 미리보기 탭', () => {
   test('P2 (V-RTU-42·43): 더블클릭이 고정하고 다음 미리보기는 새 탭이 된다',
     async ({ page, request }) => {
       await enter(page, request, REPO);
+      await openExplorerSide(page);
       const tree = page.locator('#area .ed-side .ed-tree');
       await expect(tree.locator('.ed-row').first()).toBeVisible({ timeout: 10000 });
 
@@ -319,6 +335,7 @@ test.describe('묶음 P — 미리보기 탭', () => {
 
   test('P3 (V-RTU-44): 미리보기 상태가 새로고침을 넘는다', async ({ page, request }) => {
     await enter(page, request, REPO);
+    await openExplorerSide(page);
     const tree = page.locator('#area .ed-side .ed-tree');
     await expect(tree.locator('.ed-row').first()).toBeVisible({ timeout: 10000 });
     await tree.locator(`.ed-row[data-path="${cssPath(j(REPO, 'README.md'))}"]`).click();
@@ -415,6 +432,7 @@ test.describe('묶음 P — 미리보기의 경계 (FR-RTU-45)', () => {
   test('X5 (V-RTU-45): 고정 탭이 있는 대상은 미리보기를 만들지 않는다',
     async ({ page, request }) => {
       await enter(page, request, REPO);
+      await openExplorerSide(page);
       const tree = page.locator('#area .ed-side .ed-tree');
       const row = (p: string) => tree.locator(`.ed-row[data-path="${cssPath(p)}"]`);
       await expect(tree.locator('.ed-row').first()).toBeVisible({ timeout: 10000 });

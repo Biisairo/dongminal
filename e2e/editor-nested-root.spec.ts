@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, addEditorRoot, rmTree, switchToEditorRoot } from './fixtures';
+import { test, expect, addEditorRoot, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 /**
@@ -99,6 +99,7 @@ test.describe('중첩된 Editor 루트 — 안쪽이 이긴다 (FR-EDT-95)', () 
     await expect.poll(async () => key(await activeRoot(page)), { timeout: 15000 })
       .toBe(key(INNER));
     // 조상까지 펼쳐진다 (FR-EDT-63) — 중첩이어도 그 규약은 같다.
+    await openExplorerSide(page);
     for (const p of [j(INNER, 'deep'), j(INNER, 'deep', 'nested.txt')]) {
       await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`))
         .toBeVisible({ timeout: 15000 });

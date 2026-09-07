@@ -361,15 +361,11 @@ dmctl run close --run "$RUN"
 
 미보고 멤버가 있으면 **거부하고 목록을 낸다** — 보고하지 않은 팀원은 완료의 증거가 아니다. 정말 접으려면 `--force`.
 
-`close` 는 도구를 닫지 않는다. 정리 대상(`role`/`toolId`/`tabId`)을 돌려주므로 조정자가 순서대로 마무리한다:
+**`close` 가 정리까지 한다.** 팀원마다 `/exit` 를 보내고, 셸로 돌아온 것을 확인한 뒤 그 탭을 닫는다. 전용 창에 남은 **빈 탭**도 함께 거둔다. 조정자가 `send-input --execute "/exit"` 나 `close-tab` 을 칠 일이 없다 — 출력의 `탭 N건 정리` 가 무엇을 닫았는지 말한다.
 
-```bash
-dmctl send-input --at "$t" --execute "/exit"    # 팀원마다. 대화를 저장하고 정상 종료
-# 쉘 복귀 확인 후
-dmctl close-tab --at "$t"
-```
+닫지 못한 것이 있으면 `남은 탭` 으로 나온다. 그때만 `dmctl close-tab --at <tabId>` 를 쓴다.
 
-헤드리스 멤버의 도구는 **`dmctl run close` 가 닫는다.** 닫을 탭이 없으므로 Run 이 소유권을 갖기 때문이다 — 탭 부착 멤버처럼 `/exit` → `close-tab` 을 칠 필요가 없다. 화면에 붙어 있는 도구는 close 가 건드리지 않는다.
+헤드리스 멤버의 도구도 `close` 가 닫는다 — 닫을 탭이 없으므로 Run 이 소유권을 갖는다.
 
 남기려면 `--keep-tools`. 남긴 것은 이후 `dmctl run status` 의 **고아 목록**에 계속 나온다 — 조용히 남는 자원이 없어야 하기 때문이고, worktree 잔여물과 같은 규약이다.
 
@@ -380,7 +376,7 @@ dmctl close-tab --at "$t"
 `dmctl run status --run "$RUN"` 에도 남는다. 사용자에게 그대로 전달하라. 전부
 남기려면 `dmctl run close --run "$RUN" --keep-worktrees`.
 
-`/exit` 를 먼저 하는 이유: 실행 중인 CC 의 탭을 바로 닫으면 브라우저가 "프로세스 종료?" 확인창을 띄워 무인 정리가 그 자리에서 막힌다. 마지막 탭이 닫히면 **전용 창은 스스로 사라진다** — `close-window` 를 쓰지 않는다.
+`close` 가 `/exit` 를 먼저 보내는 이유: 실행 중인 CC 의 탭을 바로 닫으면 브라우저가 "프로세스 종료?" 확인창을 띄워 무인 정리가 그 자리에서 막힌다. 마지막 탭이 닫히면 **전용 창은 스스로 사라진다** — `close-window` 를 쓰지 않는다.
 
 ---
 
@@ -388,17 +384,17 @@ dmctl close-tab --at "$t"
 
 0. [ ] 선택 결정표에서 **패턴을 고른다.** P2P 패턴이면 첫 발신자·왕복 상한·탈출로를 먼저 정한다
 1. [ ] `dmctl new-window --name <이름> -n --cwd "$PWD"` → `newWindows[0]`=WIN, `newTabs[0].uuid`=T1
-2. [ ] `dmctl split-h "$N" --at "$T1" -n` → `newTabs` = 나머지 팀원 탭
+2. [ ] `dmctl split-h "$N" --at "$T1" -n` → `newTabs` = 나머지 팀원 탭. **N 은 팀원 수에서 하나를 뺀 값이다** — 넉넉히 나누면 그만큼 빈 터미널이 남는다
 3. [ ] `dmctl rename-tab --at <탭> <역할명>` 팀원마다
 4. [ ] `dmctl run start --objective <목적> --window "$WIN"` → RUN (격리가 필요할 때만 `--isolation`)
-5. [ ] 팀원마다 `dmctl run member ... --at <탭> | --headless` → member uuid. **brief 하나에 관심사 하나**, `--at`/`--headless` 는 정확히 하나 (§3.2)
+5. [ ] 팀원마다 `dmctl run member ... --at <탭> | --headless` → member uuid. **brief 하나에 관심사 하나**, `--at`/`--headless` 는 정확히 하나 (§3.2). **만든 탭 수와 멤버 수가 같아야 한다** — 남는 탭은 아무도 앉지 않은 빈 터미널이 된다
 6. [ ] 격리 Run 이면 팀원마다 `dmctl send-input --at <탭> --execute "cd '<worktree>'"` 를 먼저 보낸다
 7. [ ] **한 `Bash` 호출에서 `&` + `wait`** 로 `dmctl run launch --member <m> | dmctl send-input --at <탭> --execute -`
 8. [ ] **같은 턴 안에서** 팀원마다 `dmctl wait --at <탭> --for ready` (rc=5 면 진단, rc=4 는 체크포인트)
 9. [ ] **같은 턴 안에서** `dmctl msg --to <시작 팀원>` Kickoff (P2P 패턴이면 첫 발신자에게만, 왕복 상한·탈출로를 함께) → `dmctl status` 로 `working` 확인
 10. [ ] 위 7~9 를 끝낸 **다음에야** 턴 종료 — 보고 대기
 11. [ ] `dmctl run status --run "$RUN"` 로 결과 종합 → 사용자에 보고
-12. [ ] 정리 확인 → `dmctl run close --run "$RUN"` (잔여물이 나오면 사용자에게 전달) → `/exit` → `dmctl close-tab`
+12. [ ] 정리 확인 → `dmctl run close --run "$RUN"` — **정리는 close 가 한다.** 출력의 `잔여물`·`남은 탭`·`고아` 만 사용자에게 전달
 
 ---
 

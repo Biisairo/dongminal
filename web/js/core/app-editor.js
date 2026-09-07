@@ -475,6 +475,13 @@ Object.assign(App.prototype, {
     let t=this._edTrees.get(key);
     if(t&&t.root!==this._edRootOf(s)){t.destroy();t=null}
     if(!t){t=new FileTree(this,s);this._edTrees.set(key,t)}
+    // FR-DSP-1c: 트리가 없던 동안 열린 파일을 이제 드러낸다. 한 번만이다 —
+    // 지운 뒤에 부르므로 다음 render 가 같은 일을 되풀이하지 않는다.
+    if(this._edReveal&&this._edReveal.has(s.id)){
+      const want=this._edReveal.get(s.id);
+      this._edReveal.delete(s.id);
+      if(t.revealPath) t.revealPath(want);
+    }
     // FR-EDT-78: 창 활성화가 즉시 갱신의 계기 하나다. 여기가 그 사실을 아는
     // 유일한 자리다 — 마운트는 활성 창에만 일어난다. 관측이 공유되므로 어느
     // 칸에서 부르든 요청은 한 벌이고, 결과는 모든 칸에 칠해진다 (FR-SVS-22).
@@ -765,6 +772,22 @@ Object.assign(App.prototype, {
     // (검색 둘·git 변경파일·dmctl open) 각 부름터가 아니라 이 자리에 둔다.
     const tree=this._edTreeFor(w);
     if(tree&&tree.revealPath) tree.revealPath(filePath);
+    /**
+     * UX_BATCH6_SRS FR-DSP-1c: **탐색기가 아직 없으면 기억해 둔다.**
+     *
+     *   이전 동작: `_edTreeFor` 가 null 이면 그대로 끝났다. 사이드의 기본이
+     *             Explorer 였으므로 트리는 늘 있었다
+     *   새  동작: 사이드가 Changes 인 창에서는 트리가 만들어지지 않으므로
+     *             (`_edTree` 는 그릴 때만 불린다) 경로를 적어 두고, 그 자리에
+     *             갔을 때 드러낸다
+     *   이유:     FR-DSP-1 로 기본이 Changes 가 되면서 **연 파일이 탐색기에서
+     *             드러나는 일이 통째로 사라졌다** — 검색·`dmctl open`·변경 클릭이
+     *             모두 이 자리를 지난다. e2e `editor-nested-root` N4 가 잡았다
+     *
+     * 창마다 하나다 — 마지막에 연 파일이 드러날 자리이며, 그 앞의 것은 이미
+     * 뜻을 잃었다.
+     */
+    if(!tree) (this._edReveal||(this._edReveal=new Map())).set(w.id,filePath);
     return w.id;
   },
 

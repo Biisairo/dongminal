@@ -727,6 +727,24 @@ export async function switchToEditorRoot(page: any, root: string, timeout = 1500
 }
 
 /**
+ * 사이드를 **Explorer 로 세우고** 트리가 설 때까지 기다린다.
+ *
+ * UX_BATCH6_SRS FR-DSP-1 로 Repo 창의 기본 사이드가 `Changes` 가 됐다. 탐색기를
+ * 재는 스펙은 그 자리를 **명시로** 연다 — 기본값에 기대던 동안은 기본값이 바뀌는
+ * 날 전부가 함께 무너진다 (실측: 이 개정 하나에 일곱 스펙이 걸렸다).
+ *
+ * `openGit` 이 Changes 를 명시로 여는 것과 같은 규약이다 (fixtures.ts:552).
+ */
+export async function openExplorerSide(page: any, timeout = 15000) {
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    const w = a._aw();
+    if (w) a._edSetSide(w, 'explorer');
+  });
+  await page.waitForSelector('.ed-win .ed-explorer .ed-tree', { timeout });
+}
+
+/**
  * **쓸 수 있는 빈 디렉터리**의 자리를 준다 (FR-CEM-25).
  *
  * "지우고 새로 만든다" 는 POSIX 에서는 언제나 되지만 Windows 에서는 아니다 —

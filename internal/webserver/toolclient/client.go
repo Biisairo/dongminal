@@ -532,6 +532,11 @@ func (pc *ToolClient) Create(cwd string, cols, rows uint16, place toolhub.Placem
 	resp, err := pc.call("create", map[string]interface{}{
 		"cwd": cwd, "cols": cols, "rows": rows,
 		"window": place.WindowUUID, "profile": place.Profile,
+		// UX_BATCH6_SRS FR-BGP-3: 셸 대신 띄울 명령. 데몬 모드에서도 프로세스를
+		// 세우는 것은 데몬이므로 값만 실어 보낸다 — 프로파일과 같은 방향이다.
+		"command": place.Command,
+		// UX_BATCH6_SRS FR-SBM-3: 작업 방식도 데몬이 배치할 때 쓴다.
+		"work": place.Work,
 	})
 	if err != nil {
 		return nil, err

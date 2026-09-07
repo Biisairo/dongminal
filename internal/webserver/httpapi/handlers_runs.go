@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/apierr"
@@ -258,7 +259,7 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 		if mi.Worktree != nil && mi.Worktree.Path != "" {
 			cwd = mi.Worktree.Path
 		}
-		if toolID, err = s.createHeadlessTool(cwd); err != nil {
+		if toolID, err = s.createHeadlessTool(cwd, ""); err != nil {
 			s.rollbackMember(mi)
 			writeToolIOError(w, http.StatusInternalServerError, "헤드리스 도구 생성 실패: "+err.Error())
 			return
@@ -316,11 +317,52 @@ func (s *Server) apiRunPreamble(w http.ResponseWriter, r *http.Request) {
 		writeRunError(w, run.ErrUnknownMember, map[string]any{"memberId": memberID})
 		return
 	}
+	/**
+	 * UX_BATCH6_SRS FR-RUN-4·5: **늦게 오는 인수인계를 기다린다.**
+	 *
+	 *   이전 동작: 승계가 시한 안에 요약을 받지 못하면 그대로 끝났고, 뒤늦게
+	 *             도착한 요약은 전임자 레코드에만 남아 후임에게 닿지 않았다
+	 *   새  동작: 청해 두고 아직 오지 않았으면 여기서 상한만큼 기다린다
+	 *   이유:     프리앰블은 이미 전임자의 요약을 **만드는 시점에 다시 읽는다**
+	 *             (`HandoffClause`). 빠진 것은 "아직 오는 중" 이라는 사실뿐이고,
+	 *             그것을 알면 기다릴 수 있다 — 어느 쪽이 빠르든 문서가 버려지지
+	 *             않는다 (접수 ⑫)
+	 *
+	 * 기다린 뒤에는 표식을 지운다. 오지 않은 것은 오지 않은 것이며, 다음 조회가
+	 * 같은 시간을 또 먹어서는 안 된다.
+	 */
+	if s.Runs.HandoffWaiting(m.ID) {
+		s.waitHandoff(m.ID)
+		if _, cur, ok := s.Runs.FindMember(m.ID); ok {
+			m = cur
+		}
+	}
 	writeJSON(w, map[string]any{
 		"runId": rec.ID, "memberId": m.ID, "role": m.Role, "agent": m.Agent,
 		"tabId": m.TabID, "toolId": m.ToolID, "runState": rec.State,
 		"preamble": run.Preamble(rec, m),
 	})
+}
+
+// waitHandoff 는 전임자의 요약이 도착하기를 상한 안에서 기다린다 (FR-RUN-4).
+//
+// 상한을 넘기면 **기다림을 접는다** (FR-RUN-5) — 없는 것은 없다고 말하며, 그
+// 사실은 프리앰블의 인수인계 절이 이미 적는다.
+func (s *Server) waitHandoff(memberID string) {
+	deadline := time.Now().Add(handoffPreambleWait)
+	for time.Now().Before(deadline) {
+		remaining := time.Until(deadline)
+		if remaining > handoffPollInterval {
+			remaining = handoffPollInterval
+		}
+		time.Sleep(remaining)
+		if !s.Runs.HandoffWaiting(memberID) {
+			return
+		}
+	}
+	log.Printf("[run] handoff 기다림 종료 member=%s wait=%s — 요약 없이 프리앰블을 낸다",
+		memberID, handoffPreambleWait)
+	s.Runs.GiveUpHandoff(memberID)
 }
 
 // apiRunReport implements POST /api/runs/report (FR-PRE-2/5/7).
@@ -359,9 +401,18 @@ func (s *Server) apiRunReport(w http.ResponseWriter, r *http.Request) {
 
 // apiRunClose implements POST /api/runs/close (FR-RUN-10/11).
 //
-// **도구를 여기서 닫지 않는다.** 실행 중인 도구의 탭을 닫으면 브라우저가 확인창을
-// 띄우므로(FR-BG-3) 무인 정리가 그 자리에서 막힌다. 대신 정리 대상을 돌려주고,
-// 조정자가 에이전트의 종료 명령 → `close-tab` 순으로 처리한다. §6 의 개정 참조.
+// **정리까지 한다** (UX_BATCH6_SRS FR-RUN-6~9).
+//
+//	이전 동작: 정리 대상 목록만 돌려주고, 에이전트 종료 명령 → `close-tab` 은
+//	          조정자가 직접 쳤다
+//	새  동작: 여기서 `/exit` 를 보내고, 셸로 돌아온 뒤 탭을 닫는다. 전용 창에
+//	          남은 빈 탭도 함께 거둔다
+//	이유:     접수 ⑩·⑬ — 그 절차를 건너뛴 조정자가 죽은 에이전트의 탭과 아무도
+//	          앉지 않은 터미널을 남겼다. 무엇을 닫아야 하는지 아는 것은 기록이고,
+//	          옮겨 적는 단계가 있으면 빠뜨릴 수 있다
+//
+// 확인창을 피하는 종전 근거(FR-BG-3)는 그대로다 — 그래서 **먼저 끝내고 나서**
+// 닫는다. `--keep-tools` 면 아무것도 닫지 않는다 (FR-RUN-8).
 func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 	if !s.runsReady(w) {
 		return
@@ -408,6 +459,11 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 	// 도구는 위 cleanup 목록으로 조정자에게 넘어간다 — 서버가 화면에 있는 것을
 	// 말없이 죽이지 않는다.
 	kept := s.closeHeadlessTools(rec, body.KeepTools)
+	// UX_BATCH6_SRS FR-RUN-6·7: **탭 부착 멤버의 정리도 여기서 한다.** 종전에는
+	// `cleanup` 목록만 돌려주고 `/exit` → `close-tab` 을 조정자에게 맡겼고, 그
+	// 절차를 건너뛴 조정자가 남긴 것이 접수 ⑩(닫히지 않는 세션·창)과
+	// ⑬(빈 터미널)이다. 무엇을 닫아야 하는지 아는 것은 기록이고 기록은 여기 있다.
+	closed := s.closeRunTabs(rec, body.KeepTools)
 	trees := s.cleanupWorktrees(rec, body.KeepWorktrees)
 	residue := 0
 	for _, t := range trees {
@@ -440,6 +496,8 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 		"closedAt": rec.ClosedAt, "windowId": rec.WindowID, "cleanup": cleanup,
 		"worktrees": trees, "residue": residue, "swept": sweep,
 		"keptTools": kept, "orphans": orphans,
+		// FR-RUN-9: 무엇을 닫았는가. `cleanup` 은 **대상**이고 이쪽은 **결과**다.
+		"closedTabs": closed,
 	})
 }
 

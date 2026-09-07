@@ -59,6 +59,11 @@ type graphMember struct {
 	ContextRatio float64 `json:"contextRatio,omitempty"`
 	ContextLevel string  `json:"contextLevel,omitempty"`
 	CompactCount int     `json:"compactCount,omitempty"`
+	// UX_BATCH6_SRS FR-CTX-8: 비율이 **무엇을 무엇으로 나눈 것인지**. 화면이
+	// 그것을 말할 수 없으면 "70% 라는데 정말인가" 를 물을 자리가 없다 — 접수 ⑨의
+	// 절반이 그 물음이었다. 숫자 둘뿐이며 transcript 의 내용도 경로도 아니다.
+	ContextTokens int64   `json:"contextTokens,omitempty"`
+	ContextLimit  float64 `json:"contextLimit,omitempty"`
 
 	SucceededBy   string `json:"succeededBy,omitempty"`
 	SucceededFrom string `json:"succeededFrom,omitempty"`
@@ -153,6 +158,8 @@ func (s *Server) graphMembers(rec run.Record) []graphMember {
 			ContextRatio:  m.ContextRatio,
 			ContextLevel:  m.ContextLevel,
 			CompactCount:  m.CompactCount,
+			ContextTokens: m.ContextTokens,
+			ContextLimit:  m.ContextLimit,
 			SucceededBy:   m.SucceededBy,
 			SucceededFrom: m.SucceededFrom,
 			CreatedAt:     m.CreatedAt,

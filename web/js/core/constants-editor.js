@@ -238,12 +238,23 @@ const REPO_SIDE_CHANGES='changes';
 // 두 벌이 된다 (FR-TIP-4).
 // GIT_CHANGES_CONTROLS_SRS FR-GCC-13 (사용자 지시, 2026-09-06): **Changes 가 왼쪽**이다.
 // 이 창을 여는 이유가 대개 변경을 보는 것이고, 왼쪽이 먼저 읽히는 자리다.
-// 기본 탭(`REPO_SIDE_DEFAULT`)은 건드리지 않는다 — 순서와 기본값은 다른 물음이다.
 const REPO_SIDE_TABS=[
   {id:REPO_SIDE_CHANGES, label:'Changes', title:'Uncommitted changes in this repository'},
   {id:REPO_SIDE_EXPLORER,label:'Explorer',title:'Browse files in this repository'},
 ];
-const REPO_SIDE_DEFAULT=REPO_SIDE_EXPLORER;
+/**
+ * UX_BATCH6_SRS FR-DSP-1: 기본 탭도 **Changes** 다.
+ *
+ *   이전 동작: Explorer
+ *   새  동작: Changes
+ *   이유:     순서를 Changes 로 옮긴 근거(FR-GCC-13)가 기본값에도 그대로 적용된다 —
+ *             Repo 창을 여는 이유가 대개 변경을 보는 것이다. 두 물음을 갈라 둔
+ *             동안 첫 화면과 탭 순서가 서로 다른 말을 했다
+ *
+ * FR-DSP-2: 이미 저장된 창의 선택은 바뀌지 않는다 — 이 값은 **키가 없을 때**의
+ * 답이며 `_edSideOf` 가 그렇게 읽는다.
+ */
+const REPO_SIDE_DEFAULT=REPO_SIDE_CHANGES;
 
 // REPO_SIDE_WIDTH_SRS FR-RSW-1 / D-3·D-4: 사이드 폭은 **워크스페이스 하나**에 산다
 // (`ws.repoSideWidth`) — `sidebarWidth` 와 같은 규약이다. 창마다 두던 값이었고

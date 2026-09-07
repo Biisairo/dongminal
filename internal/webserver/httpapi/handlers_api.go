@@ -278,6 +278,8 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 	tool, err := s.Tools.Create(cwd, cols, rows, toolhub.Placement{
 		WindowUUID: r.URL.Query().Get("window"),
 		Profile:    r.URL.Query().Get("sandbox"),
+		// UX_BATCH6_SRS FR-SBM-3: 창이 고른 작업 방식. 비면 프로파일의 것이다.
+		Work: r.URL.Query().Get("sandboxWork"),
 	})
 	if err != nil {
 		http.Error(w, err.Error(), 500)

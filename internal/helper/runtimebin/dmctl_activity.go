@@ -1,9 +1,11 @@
 package runtimebin
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"dongminal/internal/shared/agentadapter"
 )
@@ -93,7 +95,101 @@ func reportContext(rep agentadapter.Report, toolID string) {
 	if size, ok := transcriptSize(rep.Transcript); ok {
 		body["bytes"] = size
 	}
+	// UX_BATCH6_SRS FR-CTX-1·3: 실측 토큰과 그것을 낸 모델. **숫자와 식별자뿐**이며
+	// 본문은 여기서도 빠져나가지 않는다 (NFR-4).
+	if u, ok := transcriptUsage(rep.Transcript); ok {
+		body["tokens"] = u.tokens
+		if u.model != "" {
+			body["model"] = u.model
+		}
+	}
 	httpPostJSON(baseURL()+contextObservePath, body)
+}
+
+// usageObs 는 transcript 의 마지막 assistant 줄에서 읽은 것이다 — 그 요청이
+// 실제로 모델에 보낸 컨텍스트의 크기와, 답한 모델의 이름.
+type usageObs struct {
+	tokens int64
+	model  string
+}
+
+// usageTailMax 는 뒤에서부터 읽을 상한이다 (NFR-CBG-1 의 개정).
+//
+// 파일 전체를 읽지 않는다 — 훅은 에이전트의 핫패스이고 transcript 는 대화가
+// 길어질수록 커진다. 마지막 assistant 줄은 파일 끝에 있으므로 꼬리만 보면 된다.
+// 상한 안에 그 줄이 없으면(거대한 도구 결과 하나가 꼬리를 다 먹은 경우) **모르는
+// 것으로 둔다** — 서버가 바이트 추정으로 떨어진다 (FR-CTX-4).
+const usageTailMax = 256 * 1024
+
+// transcriptUsage 는 transcript 꼬리에서 마지막 usage 를 읽는다 (FR-CTX-1·2).
+//
+// 세는 것은 `input + cache_creation + cache_read` 다. 이 셋의 합이 그 요청의
+// 입력 컨텍스트이며, `output_tokens` 는 그 요청의 **답**이라 다음 요청의 입력에
+// 들어가기 전까지는 컨텍스트가 아니다.
+//
+// **내용은 돌려주지 않는다.** 반환 타입이 숫자와 모델 이름뿐인 것이 NFR-4 의
+// 첫 방벽이다 — `transcriptSize` 와 같은 규약이다.
+func transcriptUsage(path string) (usageObs, bool) {
+	if path == "" {
+		return usageObs{}, false
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return usageObs{}, false
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil || st.IsDir() || st.Size() == 0 {
+		return usageObs{}, false
+	}
+	off, n := int64(0), st.Size()
+	if n > usageTailMax {
+		off, n = st.Size()-usageTailMax, usageTailMax
+	}
+	buf := make([]byte, n)
+	if _, err := f.ReadAt(buf, off); err != nil && err != io.EOF {
+		return usageObs{}, false
+	}
+	lines := strings.Split(string(buf), "\n")
+	// 처음부터 읽지 않았으면 첫 조각은 잘린 줄이다 — 해석하면 오답이 아니라
+	// 실패이지만, 애초에 후보에서 뺀다.
+	if off > 0 && len(lines) > 0 {
+		lines = lines[1:]
+	}
+	for i := len(lines) - 1; i >= 0; i-- {
+		if u, ok := parseUsageLine(lines[i]); ok {
+			return u, true
+		}
+	}
+	return usageObs{}, false
+}
+
+// parseUsageLine 은 JSONL 한 줄에서 usage 를 뽑는다. usage 가 없으면 그 줄은
+// 후보가 아니다 — 사용자 줄·요약 줄·메타 줄이 그렇다.
+func parseUsageLine(line string) (usageObs, bool) {
+	line = strings.TrimSpace(line)
+	if line == "" || !strings.Contains(line, `"usage"`) {
+		return usageObs{}, false
+	}
+	var rec struct {
+		Message struct {
+			Model string `json:"model"`
+			Usage *struct {
+				Input      int64 `json:"input_tokens"`
+				CacheWrite int64 `json:"cache_creation_input_tokens"`
+				CacheRead  int64 `json:"cache_read_input_tokens"`
+			} `json:"usage"`
+		} `json:"message"`
+	}
+	if err := json.Unmarshal([]byte(line), &rec); err != nil || rec.Message.Usage == nil {
+		return usageObs{}, false
+	}
+	u := rec.Message.Usage
+	total := u.Input + u.CacheWrite + u.CacheRead
+	if total <= 0 {
+		return usageObs{}, false
+	}
+	return usageObs{tokens: total, model: rec.Message.Model}, true
 }
 
 // transcriptSize 는 transcript 의 **크기만** 잰다 — stat 1회이며 파일을 열지도

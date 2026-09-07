@@ -649,6 +649,7 @@ Object.assign(RunsPanel.prototype, {
       key: m => m.id,
       sig: m => [m.role, m.agent, m.state, m.headless ? 1 : 0, m.contextLevel || '',
         Math.round((m.contextRatio || 0) * 100), m.compactCount || 0,
+        m.contextTokens || 0, m.contextLimit || 0,
         (m.worktree && m.worktree.branch) || '', m.succeededBy || ''].join(':'),
       build: m => this._runCardEl(m),
     });
@@ -664,7 +665,14 @@ Object.assign(RunsPanel.prototype, {
     if (m.contextLevel) {
       const pct = Math.round((m.contextRatio || 0) * 100);
       const warn = m.contextLevel === 'ok' ? '' : ' ⚠';
-      card.appendChild(runDiv('run-card-ctx lv-' + m.contextLevel, `ctx ~${pct}%${warn}`));
+      const ctx = runDiv('run-card-ctx lv-' + m.contextLevel, `ctx ~${pct}%${warn}`);
+      // UX_BATCH6_SRS FR-CTX-8: **무엇을 무엇으로 나눈 값인지**를 말한다.
+      // 비율만 보이면 "1M 을 쓰는데 왜 70% 인가" 를 화면에서 물을 수 없다 —
+      // 접수 ⑨의 절반이 그 물음이었다.
+      if (m.contextTokens && m.contextLimit) {
+        ctx.title = `${this._runTokens(m.contextTokens)} / ${this._runTokens(m.contextLimit)} 토큰`;
+      }
+      card.appendChild(ctx);
     }
     if (m.compactCount) card.appendChild(runDiv('run-card-compact', `compact ${m.compactCount}회`));
     if (m.worktree && m.worktree.branch) card.appendChild(runDiv('run-card-wt', 'wt: ' + m.worktree.branch));
@@ -710,6 +718,16 @@ Object.assign(RunsPanel.prototype, {
   },
 
   // ── 표기 ──
+
+  // 토큰 수를 사람이 읽을 크기로. 1000 단위이며 소수 한 자리다 — 컨텍스트는
+  // 자릿수가 읽히면 되고, 정확한 값은 툴팁이 아니라 기록의 것이다.
+  _runTokens(n) {
+    const v = Number(n) || 0;
+    if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+    if (v >= 1e3) return Math.round(v / 1e3) + 'k';
+    return String(Math.round(v));
+  },
+
 
   // 서버 시각은 Unix **초**다 (run/store.go 의 now()).
   _runAgo(ts) {

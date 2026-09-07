@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openRowMenu, rmTree, switchToEditorRoot } from './fixtures';
+import { test, expect, openRowMenu, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // WORKBENCH_REVIEW_SRS 묶음 P — 탐색기의 복사·복제 (FR-WBR-70~74,
@@ -56,7 +56,7 @@ async function goto(page: Page) {
 
 async function openEditor(page: Page, root: string) {
   await switchToEditorRoot(page, root);
-  await page.waitForSelector('.ed-win .ed-explorer .ed-tree', { timeout: 10000 });
+  await openExplorerSide(page);
 }
 
 async function enter(page: Page, request: APIRequestContext, root: string) {

@@ -113,6 +113,20 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .sbx-work{margin-left:4px;padding:0 5px;border-radius:8px;font-size:10px;
   background:var(--accent-subtle);color:var(--text-dim)}
 .sbx-work-mount{color:var(--attn)}
+/* UX_BATCH6_SRS FR-SBM-1: 작업 방식을 고르는 줄. 작업 폴더 입력 바로 아래에
+   두는 이유는 그 둘이 한 물음이기 때문이다 — "어느 폴더를, 어떻게". */
+.sbx-work-pick{display:flex;align-items:center;gap:6px;margin:-8px 0 10px}
+.sbx-work-pick label{color:var(--text-dim);font-size:11px;flex:0 0 auto}
+.sbx-work-opt{padding:2px 10px;font-size:11px;background:transparent;
+  border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer}
+.sbx-work-opt:hover{color:var(--text-bright);border-color:var(--accent)}
+.sbx-work-opt.on{color:var(--text-bright);border-color:var(--accent);
+  background:var(--accent-subtle)}
+.sbx-work-opt.sbx-work-mount.on{color:var(--attn);border-color:var(--attn)}
+/* FR-SBM-5: 고른 것의 결과. 등급 배지와 **다른 자리**다 — 배지는 프로파일의
+   성질이고 이 줄은 이번 선택의 결과다. 비어 있으면 자리를 차지하지 않는다. */
+.sbx-work-warn{display:none;margin:-4px 0 10px;font-size:11px;color:var(--attn)}
+.sbx-work-warn.vis{display:block}
 /* NFR-SPK-2: 복사가 도는 동안의 표시. 모달이 아니라 배너다 — 진행은 끝나면
    스스로 사라져야 하고, 그동안 사용자가 다른 창을 보는 것을 막을 이유가 없다. */
 .sbx-progress{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;

@@ -110,11 +110,17 @@ func ParseSize(r *http.Request) (uint16, uint16) {
 // before. The flag records the *intent* that it outlives its tab, which is the
 // one thing the server could not express — and without it "no tab references
 // this tool" cannot be told apart from a leak (FR-BG).
+//
+// **여기서 방송하지 않는다** (UX_BATCH6_SRS FR-BGP-2). 이 경로에는 언제나 HTTP
+// 종단(`apiToolBackgroundSet`)이 앞에 있고, 데몬 모드에서는 이 함수가 웹서버가
+// 아니라 데몬 프로세스에서 돈다 — 거기에는 알릴 구독자가 없다. 방송은 두 모드가
+// 공유하는 그 종단이 한다. 이 훅이 답하는 것은 **아무도 부탁하지 않은 변화**,
+// 곧 프로세스의 죽음뿐이다 (`Delete`).
 func (m *ToolManager) SetBackground(id string, bg bool) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	t, ok := m.tools[id]
-	if !ok {
+	t, found := m.tools[id]
+	if !found {
 		return false
 	}
 	// FR-SBX-27: 샌드박스 도구는 백그라운드로 갈 수 없다. 백그라운드 도구는

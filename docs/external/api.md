@@ -58,7 +58,8 @@
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
 | GET | `/api/tools/background` | `{ background: [{toolId, name, cwd, since}] }` — 어느 탭에도 매이지 않고 도는 도구 |
-| POST | `/api/tools/background/set` | 바디 `{toolId, background}`. 도구를 백그라운드로 보내거나 복귀시킨다. 미지 `toolId` 는 404 |
+| POST | `/api/tools/background/set` | 바디 `{toolId, background}`. 도구를 백그라운드로 보내거나 복귀시킨다. 미지 `toolId` 는 404. 목록이 바뀌면 `tools_background_changed` 를 방송한다 |
+| POST | `/api/tools/headless` | 바디 `{cwd, command}`. 탭 없는 도구를 만들어 백그라운드에 등록한다. `command` 가 있으면 **그 명령이 도구의 프로세스**이며 끝나면 도구가 죽는다. 비면 로그인 셸 |
 
 백그라운드 도구는 데몬 재시작을 넘기지 않는다 — `tools.json` 에는 탭이 참조하는 도구만 기록된다.
 

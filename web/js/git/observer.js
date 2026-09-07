@@ -53,6 +53,10 @@ class GitObserver {
   paintAllViews(){ for(const p of this.panels) p._paintAllViews() }
   reloadViewsAll(){ for(const p of this.panels) p._reloadViews() }
   reloadStaleViewsAll(sig){ for(const p of this.panels) p._reloadStaleViews(sig) }
+  // UX_BATCH6_SRS FR-GLV-1: 열려 있는 Diff 는 **관측 회차마다** 다시 받는다.
+  // `_viewFp` 에 업히지 않는 이유는 그 근거가 작업 트리의 **내용**을 보지 않기
+  // 때문이다 (SRS §2.4) — 파일이 또 고쳐져도 fp 는 한 톨도 움직이지 않는다.
+  reloadDiffAll(){ for(const p of this.panels) p.reloadDiff() }
   notifyStatusAll(){ for(const p of this.panels) if(p._remoteView) p._remoteView.notifyStatus() }
 
   // 주기 타이머의 종단. 패널이 하나도 없으면 폴 이유가 없다.
@@ -65,6 +69,30 @@ class GitObserver {
     if(this._sigPoll){clearInterval(this._sigPoll);this._sigPoll=null}
     if(this._stPoll){clearInterval(this._stPoll);this._stPoll=null}
     this._pollOn=false;
+  }
+
+  /**
+   * UX_BATCH6_SRS FR-GLV-4: 패널 하나가 물러난 뒤 **남은 패널로 주기를 다시
+   * 세운다.**
+   *
+   *   이전 동작: `GitPanel.detach()` 의 `_stop()` 이 관측자의 공유 타이머를 껐고,
+   *             다시 거는 자리가 없었다
+   *   새  동작: 끈 뒤 이 함수를 지난다 — 조건이 참인 패널이 남아 있으면 그것으로
+   *             주기를 다시 걸고 즉시 1회 수집한다
+   *   이유:     타이머는 **관측자의 것**이고(`panel.js` 의 통로 접근자), 패널은
+   *             칸마다 있다. 칸을 늘렸다 줄이면 초과 칸의 패널이 `destroy()` 되면서
+   *             — 남은 칸의 Git 창이 눈앞에 있는데도 — 그 저장소의 폴링이 통째로
+   *             멎었다 (SRS §2.5)
+   *
+   * 조건이 참인 패널이 하나도 없으면 아무것도 하지 않는다 (FR-GLV-5) — 멎어 있는
+   * 것이 옳은 상태다.
+   */
+  resettle(){
+    for(const p of this.panels){
+      if(!p._pollOk()) continue;
+      p._reschedule();
+      return;
+    }
   }
 }
 

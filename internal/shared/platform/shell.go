@@ -19,6 +19,15 @@ type ShellProvider interface {
 	// 자리에 쓴다.
 	EchoCommand(text string) []string
 
+	// RunCommand 는 cmdline 한 줄을 **그 셸의 문법으로** 실행하고 끝나는 명령의
+	// argv 다 (UX_BATCH6_SRS FR-BGP-3).
+	//
+	// EchoCommand 와 갈라 두는 이유는 쓰임이 다르기 때문이다 — 저쪽은 배관을
+	// 시험하는 고정 문구이고, 이쪽은 사용자가 준 명령이다. 인용 규칙이
+	// `Quote` 와 같은 셸이어야 하므로 대화형 셸과 **같은 것**을 고른다:
+	// 그러지 않으면 화면에서 인용한 명령과 여기서 도는 셸의 문법이 갈린다.
+	RunCommand(cmdline string) []string
+
 	// Shell 은 이 호스트의 대화형 셸 명세를 낸다. binDir 은 헬퍼와 훅이
 	// 설치된 곳이며, 훅 주입 환경변수가 이 경로를 참조한다.
 	Shell(binDir string) ShellSpec
@@ -77,6 +86,13 @@ func (s posixShell) Quote(v string) string {
 
 func (s posixShell) EchoCommand(text string) []string {
 	return []string{s.pick(), "-c", "echo " + text}
+}
+
+// -c 하나다. 로그인 셸로 띄우지 않는 이유는 환경을 이미 호출자가 세워 주기
+// 때문이다 (`toolhub.StartTool` 이 PATH·HOME·TERM 을 명시로 넣는다) — 프로필을
+// 한 번 더 읽으면 그 값이 조용히 덮인다.
+func (s posixShell) RunCommand(cmdline string) []string {
+	return []string{s.pick(), "-c", cmdline}
 }
 
 func (s posixShell) Shell(binDir string) ShellSpec {
@@ -155,6 +171,17 @@ func (s windowsShell) EchoCommand(text string) []string {
 		comspec = "cmd.exe"
 	}
 	return []string{comspec, "/c", "echo " + text}
+}
+
+// PowerShell 이면 `-Command`, cmd.exe 로 떨어졌으면 `/c` 다. 고르는 셸이
+// `Shell()` 과 같아야 `Quote()` 의 인용 규칙이 여기에도 맞는다.
+func (s windowsShell) RunCommand(cmdline string) []string {
+	path := s.pick()
+	base := strings.ToLower(filepath.Base(path))
+	if strings.Contains(base, "powershell") || strings.Contains(base, "pwsh") {
+		return []string{path, "-NoLogo", "-ExecutionPolicy", "Bypass", "-Command", cmdline}
+	}
+	return []string{path, "/c", cmdline}
 }
 
 func (s windowsShell) Shell(binDir string) ShellSpec {

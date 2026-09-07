@@ -550,6 +550,14 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 		// 하나는 **선택**의 보고이고 하나는 **상태**의 보고다.
 		KeptTools []runOrphan `json:"keptTools"`
 		Orphans   []runOrphan `json:"orphans"`
+		// UX_BATCH6_SRS FR-RUN-9: 서버가 **실제로 닫은** 탭. `Cleanup` 이 대상의
+		// 목록이라면 이쪽은 결과의 목록이다.
+		ClosedTabs []struct {
+			Role   string `json:"role"`
+			TabID  string `json:"tabId"`
+			Exited bool   `json:"exited"`
+			Empty  bool   `json:"empty"`
+		} `json:"closedTabs"`
 	}
 	if err := json.Unmarshal(raw, &rec); err != nil {
 		fmt.Fprintf(stderr, "dmctl: invalid close response: %v\n", err)
@@ -560,17 +568,46 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 	} else {
 		fmt.Fprintf(stdout, "run=%s  state=%s\n", rec.ID, rec.State)
 	}
-	// 탭이 있는 멤버만 조정자의 몫이다. 헤드리스 멤버의 도구는 close 가 이미
-	// 처리했으므로(FR-HLM-4) 여기 섞으면 조정자가 없는 탭을 닫으러 간다.
-	var toClose []int
-	for i, c := range rec.Cleanup {
-		if c.TabID != "" {
-			toClose = append(toClose, i)
+	/**
+	 * UX_BATCH6_SRS FR-RUN-6·9: **닫는 일은 서버가 이미 했다.**
+	 *
+	 *   이전 동작: "정리 대상 (에이전트 종료 후 dmctl close-tab --at …)" 를 내고
+	 *             조정자가 그 목록대로 쳤다
+	 *   새  동작: 무엇을 닫았는지 보고한다. 칠 것이 남지 않는다
+	 *   이유:     접수 ⑩·⑬ — 그 절차를 건너뛴 조정자가 탭과 창을 남겼다
+	 *
+	 * 닫지 못한 것이 있으면 그것만 남긴다 — 조용히 사라지는 자원이 없어야 한다는
+	 * 규약은 잔여물·보존 도구와 같다.
+	 */
+	if len(rec.ClosedTabs) > 0 {
+		fmt.Fprintf(stdout, "탭 %d건 정리:\n", len(rec.ClosedTabs))
+		for _, c := range rec.ClosedTabs {
+			if c.Empty {
+				fmt.Fprintf(stdout, "  tabId=%s  (빈 탭)\n", c.TabID)
+				continue
+			}
+			note := ""
+			if !c.Exited {
+				note = "  (에이전트가 시한 안에 끝나지 않았다)"
+			}
+			fmt.Fprintf(stdout, "  role=%s  tabId=%s%s\n", c.Role, c.TabID, note)
 		}
 	}
-	if len(toClose) > 0 {
-		fmt.Fprintln(stdout, "정리 대상 (에이전트 종료 후 dmctl close-tab --at <tabId>):")
-		for _, i := range toClose {
+	// 닫히지 않은 채 남은 멤버 탭. `--keep-tools` 를 주었거나 도구가 이미 죽어
+	// 대상에서 빠진 경우이며, 그 사실을 조정자가 알아야 한다.
+	closed := map[string]bool{}
+	for _, c := range rec.ClosedTabs {
+		closed[c.TabID] = true
+	}
+	var left []int
+	for i, c := range rec.Cleanup {
+		if c.TabID != "" && !closed[c.TabID] {
+			left = append(left, i)
+		}
+	}
+	if len(left) > 0 {
+		fmt.Fprintln(stdout, "남은 탭 (필요하면 dmctl close-tab --at <tabId>):")
+		for _, i := range left {
 			c := rec.Cleanup[i]
 			fmt.Fprintf(stdout, "  role=%s  toolId=%s  tabId=%s  live=%v\n", c.Role, c.ToolID, c.TabID, c.Live)
 		}
@@ -585,15 +622,15 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 	printOrphans(stdout, rec.Orphans)
 	// 잔여물은 조용히 남기지 않는다 (FR-WKT-12). 지운 것은 굳이 나열하지 않는다 —
 	// 목록이 길어지면 정작 남은 것이 묻힌다.
-	var left []runWorktree
+	var leftTrees []runWorktree
 	for _, wt := range rec.Worktrees {
 		if !wt.Removed {
-			left = append(left, wt)
+			leftTrees = append(leftTrees, wt)
 		}
 	}
-	if len(left) > 0 {
-		fmt.Fprintf(stdout, "잔여물 %d건 (지우지 않았다):\n", len(left))
-		for _, wt := range left {
+	if len(leftTrees) > 0 {
+		fmt.Fprintf(stdout, "잔여물 %d건 (지우지 않았다):\n", len(leftTrees))
+		for _, wt := range leftTrees {
 			line := fmt.Sprintf("  %s  branch=%s  사유=%s", wt.Path, wt.Branch, wt.Residue)
 			if wt.Detail != "" {
 				line += "  (" + wt.Detail + ")"
@@ -631,9 +668,13 @@ type runMember struct {
 
 	// 묶음 C — 컨텍스트 예산 (FR-CBG-13). 전부 서버측 추정이며, ContextLevel 이
 	// 비어 있으면 **모른다**는 뜻이다 (FR-CBG-5).
-	ContextRatio  float64 `json:"contextRatio"`
-	ContextLevel  string  `json:"contextLevel"`
-	CompactCount  int     `json:"compactCount"`
+	ContextRatio float64 `json:"contextRatio"`
+	ContextLevel string  `json:"contextLevel"`
+	CompactCount int     `json:"compactCount"`
+	// UX_BATCH6_SRS FR-CTX-8: 비율의 **분자와 분모**. 조정자가 "200k 로 재고
+	// 있나" 를 산문 없이 확인할 수 있어야 한다 (접수 ⑨).
+	ContextTokens int64   `json:"contextTokens"`
+	ContextLimit  float64 `json:"contextLimit"`
 	SucceededFrom string  `json:"succeededFrom"`
 }
 
@@ -647,10 +688,27 @@ func (m runMember) contextCell() string {
 		return "ctx=— (unknown)"
 	}
 	cell := fmt.Sprintf("ctx=~%d%% (%s)", int(m.ContextRatio*100+0.5), m.ContextLevel)
+	// 실측 토큰이 있으면 분자와 분모를 함께 낸다 (FR-CTX-8). 없으면 종전대로
+	// 비율만이며, 그때의 비율은 파일 크기 추정이다 (FR-CTX-4).
+	if m.ContextTokens > 0 && m.ContextLimit > 0 {
+		cell += fmt.Sprintf(" [%s/%s]", tokenShort(float64(m.ContextTokens)), tokenShort(m.ContextLimit))
+	}
 	if m.CompactCount > 0 {
 		cell += fmt.Sprintf(" compact=%d", m.CompactCount)
 	}
 	return cell
+}
+
+// tokenShort 는 토큰 수를 자릿수가 읽히는 크기로 줄인다. 정확한 값은 기록의
+// 것이고, 여기서 필요한 것은 "몇십만인가 몇백만인가" 다.
+func tokenShort(v float64) string {
+	switch {
+	case v >= 1e6:
+		return fmt.Sprintf("%.1fM", v/1e6)
+	case v >= 1e3:
+		return fmt.Sprintf("%.0fk", v/1e3)
+	}
+	return fmt.Sprintf("%.0f", v)
 }
 
 type runRecord struct {

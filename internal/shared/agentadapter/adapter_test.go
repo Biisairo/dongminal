@@ -146,6 +146,7 @@ func (s *recordingShell) Quote(v string) string {
 	return "«" + v + "»"
 }
 func (s *recordingShell) EchoCommand(string) []string     { return nil }
+func (s *recordingShell) RunCommand(string) []string      { return nil }
 func (s *recordingShell) Shell(string) platform.ShellSpec { return platform.ShellSpec{} }
 func (s *recordingShell) HookRoot() string                { return "" }
 

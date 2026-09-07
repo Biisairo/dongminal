@@ -25,7 +25,24 @@ import (
 // 조정자가 --timeout-ms 로 줄이거나 늘린다. 무한정 기다리지 않는 이유는
 // 승계당하는 멤버가 이미 응답 능력을 잃었을 수 있기 때문이다 — 그것이 애초에
 // 승계하는 이유다 (V-CBG-7).
-const handoffWaitDefault = 30 * time.Second
+//
+// UX_BATCH6_SRS FR-RUN-3: **180초다.**
+//
+//	이전 동작: 30초
+//	새  동작: 180초
+//	이유:     에이전트가 인수인계 요약을 쓰는 데 걸리는 시간이 30초보다 길다.
+//	          그래서 이 시한은 거의 언제나 초과됐고, 승계는 늘 "요약 없음" 으로
+//	          끝났다 — 접수 ⑫("승계 문서가 버려진다")의 절반이 그것이다
+//
+// 나머지 절반은 시한을 늘려도 남는다. 그쪽은 FR-RUN-4 가 맡는다 — 늦게 온 요약도
+// 후임의 프리앰블에 실린다.
+const handoffWaitDefault = 180 * time.Second
+
+// handoffPreambleWait 는 **프리앰블이** 늦은 요약을 기다리는 상한이다 (FR-RUN-4).
+//
+// 승계보다 짧다. 여기 오기까지 이미 승계의 시한만큼 기다렸으므로, 같은 길이를 한
+// 번 더 주면 조정자의 한 명령이 6분을 먹는다.
+const handoffPreambleWait = 90 * time.Second
 
 // handoffPollInterval 은 요약이 도착했는지 되짚어 보는 간격이다.
 const handoffPollInterval = 250 * time.Millisecond
@@ -114,14 +131,23 @@ func (s *Server) apiRunContext(w http.ResponseWriter, r *http.Request) {
 		Bytes     *int64 `json:"bytes"`
 		SessionID string `json:"sessionId"`
 		Compacted bool   `json:"compacted"`
+		// UX_BATCH6_SRS FR-CTX-1·5: 실측 토큰과 그것을 낸 모델. Bytes 와 같은
+		// 규약으로 포인터다 — 재지 못한 것과 0 을 가른다.
+		Tokens *int64 `json:"tokens"`
+		Model  string `json:"model"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
 		return
 	}
-	obs := run.ContextObservation{SessionID: body.SessionID, Compacted: body.Compacted}
+	obs := run.ContextObservation{
+		SessionID: body.SessionID, Compacted: body.Compacted, Model: body.Model,
+	}
 	if body.Bytes != nil && *body.Bytes >= 0 {
 		obs.Bytes, obs.HasBytes = *body.Bytes, true
+	}
+	if body.Tokens != nil && *body.Tokens >= 0 {
+		obs.Tokens, obs.HasTokens = *body.Tokens, true
 	}
 	sender := s.callerToolID(r, body.ToolID)
 	m, entered, found := s.Runs.ObserveContext(sender, obs, s.contextPolicy())
@@ -136,6 +162,9 @@ func (s *Server) apiRunContext(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"observed": true, "memberId": m.ID, "level": m.ContextLevel,
 		"ratio": m.ContextRatio, "compactCount": m.CompactCount, "entered": entered,
+		// FR-CTX-5·8: 무엇을 무엇으로 나눈 값인지 함께 낸다 — 비율만 보이면
+		// "200k 로 재는가" 를 화면에서도 CLI 에서도 물을 수 없다.
+		"tokens": m.ContextTokens, "limit": m.ContextLimit,
 	})
 }
 
@@ -253,7 +282,7 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 			cwd = s.Tools.Cwd(prev.ToolID)
 		}
 		var err error
-		if toolID, err = s.createHeadlessTool(cwd); err != nil {
+		if toolID, err = s.createHeadlessTool(cwd, ""); err != nil {
 			writeToolIOError(w, http.StatusInternalServerError, "헤드리스 도구 생성 실패: "+err.Error())
 			return
 		}
@@ -266,7 +295,7 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 
 	// 1) 인수인계를 청한다. 이전 멤버가 이미 죽었으면 청할 곳이 없으므로
 	//    곧바로 요약 없는 승계로 간다 (V-CBG-7).
-	summary := s.requestHandoff(rec, prev, body.TimeoutMs)
+	summary, asked := s.requestHandoff(rec, prev, body.TimeoutMs)
 
 	// 2) 사슬을 잇는다. worktree 는 물려받고 새로 만들지 않는다.
 	prevAfter, next, err := s.Runs.Succeed(run.SucceedSpec{
@@ -275,6 +304,9 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 		TabID:        s.tabIDOfTool(toolID),
 		Headless:     body.Headless,
 		Summary:      summary,
+		// FR-RUN-4: 청했는데 시한 안에 오지 않았다면 표식을 남긴다 — 후임의
+		// 프리앰블이 그것을 기다린다.
+		HandoffAsked: asked,
 	})
 	if err != nil {
 		// 보상 삭제 — 우리가 만든 도구인데 승계가 거부되면 그 도구는 누구의 것도
@@ -311,11 +343,14 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 //
 // 요청 문안은 서버가 조립한다. 이전 멤버는 `dmctl run handoff --summary -` 로
 // 답하고, 그 응답이 저장소에 적히는 것을 여기서 되짚어 본다.
-func (s *Server) requestHandoff(rec run.Record, prev run.Member, timeoutMs int) string {
+//
+// 두 번째 값은 **청했는가**다 (UX_BATCH6_SRS FR-RUN-4). 청하지도 못한 것과 청했는데
+// 늦는 것은 다르다 — 앞은 기다릴 이유가 없고, 뒤는 오는 중일 수 있다.
+func (s *Server) requestHandoff(rec run.Record, prev run.Member, timeoutMs int) (string, bool) {
 	baseline := prev.HandoffSummary
 	if s.ToolIO == nil || !s.ToolIO.Has(prev.ToolID) {
 		// 청할 상대가 없다. 이미 남겨 둔 요약이 있으면 그것을 쓴다.
-		return baseline
+		return baseline, false
 	}
 	ask := fmt.Sprintf(
 		"[HANDOFF-REQUEST run=%s member=%s]\n"+
@@ -329,7 +364,7 @@ func (s *Server) requestHandoff(rec run.Record, prev run.Member, timeoutMs int) 
 		prev.ID, time.Now().Format("15:04:05"), ask)
 	if err := s.ToolIO.SendPaste(prev.ToolID, []byte(envelope), true); err != nil {
 		log.Printf("[run] handoff 요청 실패 run=%s member=%s: %v", rec.Short, prev.ID, err)
-		return baseline
+		return baseline, false
 	}
 
 	wait := handoffWaitDefault
@@ -349,12 +384,12 @@ func (s *Server) requestHandoff(rec run.Record, prev run.Member, timeoutMs int) 
 		}
 		time.Sleep(remaining)
 		if _, cur, ok := s.Runs.FindMember(prev.ID); ok && cur.HandoffSummary != baseline {
-			return cur.HandoffSummary
+			return cur.HandoffSummary, true
 		}
 	}
-	log.Printf("[run] handoff 시한 초과 run=%s member=%s wait=%s — 요약 없이 승계한다",
+	log.Printf("[run] handoff 시한 초과 run=%s member=%s wait=%s — 요약 없이 승계하고 기다림을 프리앰블로 넘긴다",
 		rec.Short, prev.ID, wait)
-	return baseline
+	return baseline, true
 }
 
 // apiRunHandoff implements POST /api/runs/handoff (FR-CBG-9 의 1단계 응답).

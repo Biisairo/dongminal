@@ -105,6 +105,9 @@ class GitDiffView {
   // 리비전(oid·parentOid)은 커밋 축만 쓴다 (FR-GIT-138).
   async show(target,token){
     const seq=++this._seq;
+    // FR-GLV-6: 새 시도는 거부 표식을 지우고 시작한다 — 대상이 바뀌었거나
+    // 사용자가 다시 부른 것이며, 지난번의 거부가 그것을 막아서는 안 된다.
+    this._refused=false;
     if(!target||!target.repo||!target.path){this.clear(GIT_PREVIEW_HINT);return}
     this._setNote(GIT_LOADING_HINT);
     // Monaco 로드 실패는 밖으로 던지지 않는다 — Git 창의 나머지가 계속 동작해야
@@ -116,7 +119,7 @@ class GitDiffView {
     if(!loaded){this.clear(GIT_DIFF_MONACO_FAIL);return}
     const d=await this._fetch(target);
     if(this._stale(seq,token)) return;
-    if(!d.ok){this.clear(d.msg);return}
+    if(!d.ok){this._refused=!!d.refused; this.clear(d.msg);return}
     // 서버가 되돌려준 요청값도 확인한다 — 같은 세대 안에서도 응답 순서가 뒤바뀔
     // 수 있다 (FR-GIT-54).
     const q=d.body.requested||{};
@@ -128,6 +131,9 @@ class GitDiffView {
     // 한쪽이라도 본문이 없으면 에디터를 만들지 않고 서버가 준 사유를 보인다
     // (FR-GIT-46·47·48).
     if(!GIT_DIFF_DRAWABLE.has(a.kind)||!GIT_DIFF_DRAWABLE.has(b.kind)){
+      // 그릴 수 없는 종류(바이너리·상한 초과)다. 다시 물어도 같은 답이므로
+      // 폴링이 이것을 매 회차 다시 받지 않는다 (FR-GLV-6).
+      this._refused=true;
       this.clear(d.body.note||GIT_DIFF_LOAD_FAIL,gitBlobMetaLines(a,b)); return;
     }
     this._draw(target.path,a.content||'',b.content||'',d.body.note||'',target);
@@ -147,6 +153,7 @@ class GitDiffView {
     if(this._editor){this._editor.dispose();this._editor=null}
     this._dropModels(this._orig,this._mod);
     this._orig=null; this._mod=null;
+    this._drawnKey=null;
     this._host.innerHTML='';
   }
 
@@ -182,12 +189,33 @@ class GitDiffView {
     let r=null,d=null;
     try{r=await fetch(u)}catch{r=null}
     if(r){try{d=await r.json()}catch{d=null}}
+    // 닿지 못한 것과 거부당한 것을 가른다 (UX_BATCH6_SRS FR-GLV-6). 앞은
+    // 일시적일 수 있고 뒤는 다시 물어도 같은 답이 온다.
     if(!r||!d) return {ok:false,msg:GIT_DIFF_LOAD_FAIL};
-    if(!r.ok) return {ok:false,msg:GIT_DIFF_ERR[d.error]||GIT_DIFF_LOAD_FAIL};
+    if(!r.ok) return {ok:false,refused:true,msg:GIT_DIFF_ERR[d.error]||GIT_DIFF_LOAD_FAIL};
     return {ok:true,body:d};
   }
 
   _draw(path,orig,mod,note,target){
+    /**
+     * UX_BATCH6_SRS FR-GLV-3: **내용이 그대로면 모델을 갈지 않는다.**
+     *
+     * 폴링이 나른 재적재(FR-GLV-1)는 대부분 같은 값을 가져온다. 그때마다
+     * `createModel` → `setModel` 을 지나면 커서·스크롤·접힘이 매 회차 원점으로
+     * 돌아가 화면을 읽을 수 없다 — 실시간 갱신을 얻으려다 읽기를 잃는 거래다.
+     *
+     * 근거에 **대상**을 함께 넣는다. 내용만 보면 내용이 같은 다른 파일로 옮겼을 때
+     * 건너뛰어, `_bindEdit` 이 앞 파일의 절대경로를 든 채로 남는다.
+     *
+     * 편집 중이면 애초에 여기 닿지 않는다 (`_showTarget` 의 dirty 가드).
+     */
+    const key=this._drawKey(target,path);
+    if(this._editor&&this._orig&&this._mod&&!this._dirty&&this._drawnKey===key
+      &&this._orig.getValue()===orig&&this._mod.getValue()===mod){
+      this._setNote(note);
+      return;
+    }
+    this._drawnKey=key;
     this._setNote(note);
     const lang=monacoLang(path);
     if(!this._editor){
@@ -213,6 +241,17 @@ class GitDiffView {
     // 연다. 판정은 `GIT_AXIS_EDITABLE` 한 자리이며 여기서 다시 세지 않는다.
     this._bindEdit(target);
     requestAnimationFrame(()=>this.layout());
+    // FR-GLV-1: **내용이 실제로 바뀐 회차에만** 알린다. 조각(hunk) 관측처럼 이
+    // 본문에서 파생되는 것들이 그때만 다시 받으면 되고, 그러지 않으면 폴링마다
+    // 두 번째 요청이 따라붙는다.
+    if(this.onChanged) this.onChanged();
+  }
+
+  // 그린 대상의 식별자. `_showTarget` 의 키와 같은 축이되 `origPath` 는 빼지
+  // 않는다 — 이름이 바뀐 파일도 다른 대상이다.
+  _drawKey(target,path){
+    const t=target||{};
+    return [t.repo||'',t.axis||'',path||'',t.origPath||'',t.oid||'',t.parentOid||''].join('\u0000');
   }
 
   /**
@@ -272,6 +311,11 @@ class GitDiffView {
   // FR-RTU-56: 편집 중인 diff 는 폴링이 덮지 않는다. 사용자가 친 글자가 3초마다
   // 사라지는 화면은 편집기가 아니다.
   get dirty(){ return !!this._dirty }
+
+  // FR-GLV-6: 서버가 **거부한** 대상인가. 폴링의 자동 재적재가 이것을 보고 멈춘다 —
+  // 다시 물어도 같은 답이 오는 것을 매초 다시 묻지 않는다. 닿지 못한 것(네트워크)은
+  // 여기 포함되지 않는다: 그쪽은 일시적일 수 있다.
+  get refused(){ return !!this._refused }
 
   _dropModels(){
     for(const m of arguments) if(m) m.dispose();

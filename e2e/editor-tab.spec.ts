@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, gitFixture, cleanGitFixture, rmTree } from './fixtures';
+import { test, expect, gitFixture, cleanGitFixture, rmTree, openExplorerSide } from './fixtures';
 import { TMP, tmpPath, realPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M2(탭·창 골격)의 검증 V-EDT-*.
@@ -599,6 +599,10 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     //   새  동작: `.ed-side` 가 폭을 갖고 그 안에서 Explorer·Changes 가 갈린다
     //   이유:     사이드가 두 탭을 갈아 끼우므로(D-RTU-3) 폭은 둘의 공통 자리인
     //             사이드의 것이어야 한다 — 탭을 바꿀 때마다 폭이 흔들리지 않는다
+    // UX_BATCH6_SRS FR-DSP-1: 기본 사이드가 Changes 가 됐다. 재려는 것은 **폭을
+    // 갖는 요소**이므로 어느 탭이 서 있든 상관없지만, 이 단정이 딛는 `.ed-explorer`
+    // 는 그 탭에서만 있다 — 그 자리를 명시로 연다.
+    await openExplorerSide(page);
     await expect(page.locator('#area .ed-win .ed-side .ed-explorer')).toHaveCount(1);
     // FR-RSW-1: 폭은 창 레코드가 아니라 워크스페이스 최상위 한 자리다.
     const stored = await page.evaluate(() => {

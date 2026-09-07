@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, rmTree, switchToEditorRoot } from './fixtures';
+import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M5(파일 조작) · M6(파일 열기 라우팅)의 검증
@@ -87,7 +87,7 @@ async function goto(page: Page) {
 
 async function openEditor(page: Page, root: string) {
   await switchToEditorRoot(page, root);
-  await page.waitForSelector('.ed-win .ed-explorer .ed-tree', { timeout: 10000 });
+  await openExplorerSide(page);
 }
 
 async function enter(page: Page, request: APIRequestContext, root: string) {
@@ -640,7 +640,7 @@ test.describe('묶음 W — 편집기 줄바꿈', () => {
       }, { timeout: 10000 }).toBe(true);
 
       await page.reload();
-      await page.waitForSelector('#area .ed-win .ed-explorer .ed-tree', { timeout: 15000 });
+      await openExplorerSide(page);
       await page.evaluate((p) => (window as any).app._edOpenFile(p), j(R, 'top.txt'));
       await expect.poll(() => wrapOf(page), { timeout: 15000 }).toBe('on');
 

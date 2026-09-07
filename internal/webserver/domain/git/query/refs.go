@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -100,7 +101,46 @@ func ParseRefs(out string) ([]Ref, error) {
 		r.IsHead = strings.TrimSpace(f[4]) == "*"
 		refs = append(refs, r)
 	}
+	sortTagsNewestFirst(refs)
 	return refs, nil
+}
+
+// sortTagsNewestFirst 는 **태그만** 최신순으로 다시 세운다 (UX_BATCH6_SRS FR-DSP-3).
+//
+//	이전 동작: for-each-ref 의 기본 순서 — refname 오름차순
+//	새  동작: 태그는 creatordate 내림차순 (`AtUnixMs`)
+//	이유:     맨 위가 가장 오래된 태그였고, 판(version) 이름은 사전순이 뜻을
+//	          갖지 않는다 — `v1.10` 이 `v1.9` 보다 위에 왔다
+//
+// 정렬을 `--sort` 로 git 에게 맡기지 않는 이유는 이 한 번의 호출이 브랜치도 함께
+// 가져오기 때문이다 (FR-DSP-4: 브랜치의 순서는 바뀌지 않는다). **태그가 있던
+// 자리에 태그를 되돌려 놓는다** — 종류 사이의 배치는 건드리지 않으므로, 세 종류가
+// 어떻게 섞여 오든 이 함수의 결과는 같다.
+func sortTagsNewestFirst(refs []Ref) {
+	idx := []int{}
+	for i, r := range refs {
+		if r.Kind == RefKindTag {
+			idx = append(idx, i)
+		}
+	}
+	if len(idx) < 2 {
+		return
+	}
+	tags := make([]Ref, 0, len(idx))
+	for _, i := range idx {
+		tags = append(tags, refs[i])
+	}
+	// 시각이 같으면 이름으로 가른다 — 한 커밋에 여러 태그를 단 저장소에서
+	// 순서가 호출마다 달라지면 목록이 이유 없이 흔들린다.
+	sort.SliceStable(tags, func(a, b int) bool {
+		if tags[a].AtUnixMs != tags[b].AtUnixMs {
+			return tags[a].AtUnixMs > tags[b].AtUnixMs
+		}
+		return tags[a].Name > tags[b].Name
+	})
+	for k, i := range idx {
+		refs[i] = tags[k]
+	}
 }
 
 // parseTrack 은 `[ahead 2, behind 1]` 에서 수를 뽑는다. 없는 쪽은 0 이다 —

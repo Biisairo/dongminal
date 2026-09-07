@@ -602,9 +602,28 @@ Object.assign(App.prototype, {
     if(action==='closeTab' && args.location){
       const tgt=this._resolveLocation(args.location);
       if(tgt && tgt.paneId && tgt.tabId){
-        this.closeTab(tgt.paneId, tgt.tabId, tgt.windowId);
+        // UX_BATCH6_SRS FR-RUN-6: `force` 는 확인창을 건너뛴다. 서버가 이미
+        // 에이전트에게 종료를 청하고 기다린 뒤이며, 사용자의 결정은 그 명령을
+        // 부른 순간에 있었다.
+        this.closeTab(tgt.paneId, tgt.tabId, tgt.windowId, args.force?{force:true}:undefined);
         return;
       }
+      /**
+       * UX_BATCH6_SRS FR-RUN-6b: **자리를 찾지 못하면 아무것도 닫지 않는다.**
+       *
+       *   이전 동작: 아래 공통 경로로 떨어져 `_focusLocation` 이 실패하고,
+       *             그대로 `executeAction('closeTab')` 이 **포커스 탭**을 닫았다
+       *   새  동작: 사유를 남기고 끝낸다
+       *   이유:     지목한 자리를 못 찾은 명령이 **엉뚱한 탭을 지우는** 것은
+       *             어떤 경우에도 옳지 않다. 이미 닫힌 탭을 한 번 더 닫으라는
+       *             요청이 사용자의 터미널을 없애는 것을 실측했다 (e2e
+       *             `skill-contract` 의 "사용자 공간이 전후로 같다" 가 잡았다)
+       *
+       * `_resolveLocation` 과 `_focusLocation` 은 같은 규칙을 쓰므로, 앞이
+       * 실패했으면 뒤도 실패한다 — 이 갈래에서 잃을 정상 동작이 없다.
+       */
+      console.warn('[cmd] closeTab: 대상 없음',args.location);
+      return;
     }
     let savedWindow=null, savedFocused=null;
     if(args.location && keepFocus){
@@ -629,10 +648,26 @@ Object.assign(App.prototype, {
     });
   },
 
+  /**
+   * UX_BATCH6_SRS FR-RUN-6a: **탭 uuid 를 먼저 본다.**
+   *
+   *   이전 동작: 좌표(`W1.P1.T1`)만 해석했다
+   *   새  동작: uuid 면 그 탭을 찾고, 아니면 종전대로 좌표로 읽는다
+   *   이유:     좌표는 **자리**라 앞의 탭이 닫히면 뒤의 것이 밀린다. 여러 탭을
+   *             한 번에 닫는 명령(Run 정리, FR-RUN-6)이 좌표를 미리 계산해
+   *             보내면 두 번째부터 **엉뚱한 탭**을 가리킨다. uuid 는 그 성질이
+   *             없고, 그것이 uuid 를 둔 이유다 (FR-IDU-1)
+   *
+   * `/api/commands` 는 종전대로 uuid 를 좌표로 바꿔 보낸다 — 그 경로는 바뀌지
+   * 않는다. 여기서 uuid 를 함께 받는 것은 **서버가 직접 방송하는** 명령을 위한
+   * 것이다.
+   */
   _resolveLocation(loc){
     if(!loc) return null;
     const m=String(loc).toUpperCase().trim().match(/^W?(\d+)(?:[.\s]+P?(\d+))?(?:[.\s]+T?(\d+))?$/);
-    if(!m) return null;
+    // 좌표 모양이 아니면 uuid 다. **좌표를 먼저 본다** — 옛 워크스페이스의 짧은
+    // 숫자 id 가 좌표로도 읽히는 경우에 뜻이 갈리지 않게 한다.
+    if(!m) return this._findTabById(String(loc));
     const si=parseInt(m[1],10)-1;
     const pi=m[2]?parseInt(m[2],10)-1:0;
     const ti=m[3]?parseInt(m[3],10)-1:0;
@@ -641,6 +676,20 @@ Object.assign(App.prototype, {
     const pn=panes[pi]; if(!pn) return null;
     const tab=pn.tabs[ti]; if(!tab) return null;
     return {windowId:sess.id,paneId:pn.id,tabId:tab.id,win:sess,pane:pn,tab:tab};
+  },
+
+  // 탭 uuid 로 그 자리를 찾는다. 없으면 null 이다 (FR-RUN-6a).
+  _findTabById(id){
+    for(const win of this.ws.windows){
+      const panes=[]; this._collectPanes(win.layout,panes);
+      for(const pn of panes){
+        for(const tab of (pn.tabs||[])){
+          if(tab.id!==id) continue;
+          return {windowId:win.id,paneId:pn.id,tabId:tab.id,win,pane:pn,tab};
+        }
+      }
+    }
+    return null;
   },
 
   // "4.1.1", "W4.P1.T1", "4", "4.2" 등을 지원. 1-base positional (window.pane.tab).

@@ -80,6 +80,46 @@ func hookJSON(t *testing.T, fields map[string]any) io.Reader {
 	return strings.NewReader(string(blob))
 }
 
+// V-CTX-2 (UX_BATCH6_SRS FR-CTX-1·3): 관측이 **실측 토큰과 모델**을 함께 싣고,
+// 그러고도 본문은 새지 않는다.
+//
+// 카나리아를 assistant 줄의 본문 자리에 심는다 — usage 를 읽는 새 경로가 그 줄을
+// 통째로 파싱하므로, 잠금장치가 지켜야 할 자리가 바로 거기다.
+func TestReportContext_SendsMeasuredTokensAndModel(t *testing.T) {
+	const canary = "CANARY-SECRET-DO-NOT-TRANSMIT"
+	path := writeTranscript(t, `{"type":"user","message":{"content":"`+canary+`"}}`+"\n"+
+		`{"type":"assistant","message":{"model":"claude-opus-5[1m]",`+
+		`"content":[{"type":"text","text":"`+canary+`"}],`+
+		`"usage":{"input_tokens":2,"cache_creation_input_tokens":100,`+
+		`"cache_read_input_tokens":400000,"output_tokens":50}}}`+"\n")
+	cap := startCapture(t, "tool-1")
+
+	var out, errb strings.Builder
+	if code := runDmctlActivity([]string{"claude"}, hookJSON(t, map[string]any{
+		"hook_event_name": "PostToolUse",
+		"tool_name":       "Bash",
+		"session_id":      "s-1",
+		"transcript_path": path,
+	}), &out, &errb); code != 0 {
+		t.Fatalf("훅은 항상 0 으로 끝난다, got %d", code)
+	}
+
+	cap.mu.Lock()
+	all := strings.Join(append(append([]string{}, cap.activity...), cap.context...), "\n")
+	cap.mu.Unlock()
+	if strings.Contains(all, canary) {
+		t.Fatalf("transcript 내용이 서버로 흘렀다 (NFR-4):\n%s", all)
+	}
+
+	got := cap.lastContext(t)
+	if int64(got["tokens"].(float64)) != 2+100+400000 {
+		t.Fatalf("실측 토큰이 실리지 않았다: %v", got["tokens"])
+	}
+	if got["model"] != "claude-opus-5[1m]" {
+		t.Fatalf("모델이 실리지 않았다: %v", got["model"])
+	}
+}
+
 // V-CBG-11 / NFR-4 — **이 테스트가 이 워크스트림의 잠금장치다.**
 //
 // transcript 의 내용은 어떤 형태로도 서버에 도달해서는 안 된다. 크기와 줄

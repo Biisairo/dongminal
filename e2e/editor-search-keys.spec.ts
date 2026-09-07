@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, rmTree, switchToEditorRoot } from './fixtures';
+import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // EDITOR_GIT_UX_SRS §4 — V-EKB-3~6 (FR-EKB-5·6).
@@ -40,6 +40,7 @@ async function enter(page: Page, request: APIRequestContext) {
     () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
     undefined, { timeout: 15000 });
   await switchToEditorRoot(page, ROOT);
+  await openExplorerSide(page);
   await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
 }
 

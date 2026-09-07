@@ -67,18 +67,77 @@ test.describe('묶음 P — 선택창은 언제나 뜬다', () => {
       await expect(input).toHaveValue('');
     });
 
-  test('P2 (V-SPK-5): 프로파일 버튼이 작업 방식을 함께 보인다', async ({ page }) => {
-    await withProfiles(page, [SCRATCH, DEV]);
+  /**
+   * P2 — **개정** (UX_BATCH6_SRS FR-SBM-1·4).
+   *
+   *   이전 계약: 프로파일 버튼이 자기 작업 방식을 배지로 보였다 (FR-SPK-5)
+   *   새   계약: 작업 방식은 **고르는 값**이므로 전용 줄에 서고, 버튼에 겹쳐
+   *              표기하지 않는다 — 두 자리가 같은 것을 말하면 어느 쪽이 지금
+   *              값인지 알 수 없다
+   *   이유:      접수 ② — "마운트가 없어도 마운트 선택 가능"
+   *
+   * 등급 배지는 그대로다. 등급은 프로파일의 성질이고 작업 방식은 이번 선택이다
+   * (FR-SBM-4).
+   */
+  test('P2 (V-SBM-1·4): 작업 방식은 고르는 줄에 서고 등급은 프로파일의 것이다',
+    async ({ page }) => {
+      await withProfiles(page, [SCRATCH, DEV]);
+      await goto(page);
+      await page.locator('#add-sandbox-window').click();
+      await expect(dialog(page)).toBeVisible({ timeout: 10000 });
+
+      const picks = dialog(page).locator('.sbx-work-opt');
+      await expect(picks).toHaveCount(2);
+      await expect(picks.nth(0)).toHaveText('마운트');
+      await expect(picks.nth(1)).toHaveText('복사');
+      // FR-SBM-2: 기본 선택은 첫 프로파일(scratch)의 방식 — 복사다.
+      await expect(dialog(page).locator('.sbx-work-opt.on')).toHaveText('복사');
+      // 버튼에는 방식 배지가 없다.
+      await expect(opt(page, 'scratch').locator('.sbx-work')).toHaveCount(0);
+      // FR-SBM-4/6: 등급은 프로파일의 정책이다.
+      await expect(opt(page, 'scratch').locator('.sbx-grade')).toHaveText('격리');
+      await expect(opt(page, 'dev').locator('.sbx-grade')).toHaveText('비격리');
+    });
+
+  // V-SBM-1: **scratch 하나뿐이어도 마운트를 고를 수 있다.** 접수한 말의 핵이다.
+  test('P2b (V-SBM-1): scratch 하나뿐이어도 마운트를 고른다', async ({ page }) => {
+    await withProfiles(page, [SCRATCH]);
     await goto(page);
     await page.locator('#add-sandbox-window').click();
     await expect(dialog(page)).toBeVisible({ timeout: 10000 });
-
-    await expect(opt(page, 'scratch').locator('.sbx-work')).toHaveText('복사');
-    await expect(opt(page, 'dev').locator('.sbx-work')).toHaveText('마운트');
-    // FR-SPK-20: 복사는 등급을 낮추지 않는다 — scratch 는 여전히 경계다.
-    await expect(opt(page, 'scratch').locator('.sbx-grade')).toHaveText('격리');
-    await expect(opt(page, 'dev').locator('.sbx-grade')).toHaveText('비격리');
+    const mount = dialog(page).locator('.sbx-work-opt[data-work="mount"]');
+    await expect(mount).toBeVisible();
+    await mount.click();
+    await expect(mount).toHaveClass(/\bon\b/);
   });
+
+  /**
+   * V-SBM-3 (FR-SBM-5): 마운트 + 폴더를 고르면 **그 사실을 말한다.**
+   *
+   * 등급 배지와 다른 자리여야 한다 — 배지는 프로파일의 성질이고 이 줄은 이번
+   * 선택의 결과다. 폴더를 비우면 사라진다: 넣을 것이 없으면 새는 것도 없다.
+   */
+  test('P2c (V-SBM-5): 마운트에 폴더를 넣으면 경고가 서고 지우면 사라진다',
+    async ({ page }) => {
+      await withProfiles(page, [SCRATCH]);
+      await goto(page);
+      await page.locator('#add-sandbox-window').click();
+      const warn = dialog(page).locator('.sbx-work-warn');
+      const input = dialog(page).locator('.sbx-workdir input');
+
+      await dialog(page).locator('.sbx-work-opt[data-work="mount"]').click();
+      await expect(warn).not.toHaveClass(/\bvis\b/);   // 폴더가 없으면 조용하다
+      await input.fill('/tmp/some-dir');
+      await expect(warn).toHaveClass(/\bvis\b/);
+      await expect(warn).toContainText('격리 경계가 아닙니다');
+      // 복사로 되돌리면 사라진다 — 복사에는 돌아오는 통로가 없다.
+      await dialog(page).locator('.sbx-work-opt[data-work="copy"]').click();
+      await expect(warn).not.toHaveClass(/\bvis\b/);
+      await dialog(page).locator('.sbx-work-opt[data-work="mount"]').click();
+      await expect(warn).toHaveClass(/\bvis\b/);
+      await input.fill('');
+      await expect(warn).not.toHaveClass(/\bvis\b/);
+    });
 
   test('P3 (V-SPK-6·7): scratch 하나뿐이면 dev 안내와 설정 버튼이 나온다',
     async ({ page }) => {

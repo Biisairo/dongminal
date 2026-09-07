@@ -199,3 +199,63 @@ func TestRefs_RealGit_AnnotatedTag(t *testing.T) {
 	}
 	t.Fatalf("v2.0 이 없다: %+v", rs)
 }
+
+// V-DSP-2 (UX_BATCH6_SRS FR-DSP-3): 태그는 **최신이 위**다.
+//
+// for-each-ref 의 기본은 refname 오름차순이라 맨 위가 가장 오래된 태그였고,
+// 판 이름은 사전순이 뜻을 갖지 않는다 — `v1.10` 이 `v1.9` 보다 위에 왔다.
+func TestParseRefs_TagsNewestFirst(t *testing.T) {
+	out := refStream(
+		refRec("refs/tags/v1.10", "aa", "", "", " ", "십", "1700000010"),
+		refRec("refs/tags/v1.2", "bb", "", "", " ", "이", "1700000002"),
+		refRec("refs/tags/v1.9", "cc", "", "", " ", "구", "1700000009"),
+	)
+	rs, err := ParseRefs(out)
+	if err != nil {
+		t.Fatalf("ParseRefs: %v", err)
+	}
+	var got []string
+	for _, r := range rs {
+		got = append(got, r.Short)
+	}
+	want := []string{"v1.10", "v1.9", "v1.2"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("태그 순서 = %v, want %v", got, want)
+		}
+	}
+}
+
+// FR-DSP-4: 브랜치의 순서는 바뀌지 않는다. 그리고 종류 사이의 배치도 그대로다 —
+// 태그가 있던 자리에 태그가 돌아온다.
+func TestParseRefs_BranchOrderUntouched(t *testing.T) {
+	out := refStream(
+		refRec("refs/heads/main", "aa", "", "", "*", "메인", "1700000001"),
+		refRec("refs/tags/v1.0", "bb", "", "", " ", "일", "1700000002"),
+		refRec("refs/heads/zzz", "cc", "", "", " ", "제트", "1700000003"),
+		refRec("refs/tags/v2.0", "dd", "", "", " ", "이", "1700000009"),
+	)
+	rs, err := ParseRefs(out)
+	if err != nil {
+		t.Fatalf("ParseRefs: %v", err)
+	}
+	want := []string{"main", "v2.0", "zzz", "v1.0"}
+	for i, w := range want {
+		if rs[i].Short != w {
+			t.Fatalf("순서 = %s want %s (전체 %+v)", rs[i].Short, w, rs)
+		}
+	}
+}
+
+// 시각이 같으면 이름으로 가른다 — 한 커밋에 여러 태그를 단 저장소에서 순서가
+// 호출마다 달라지면 목록이 이유 없이 흔들린다.
+func TestParseRefs_TagTieBreaksByName(t *testing.T) {
+	out := refStream(
+		refRec("refs/tags/a", "aa", "", "", " ", "", "1700000000"),
+		refRec("refs/tags/b", "bb", "", "", " ", "", "1700000000"),
+	)
+	rs, _ := ParseRefs(out)
+	if rs[0].Short != "b" || rs[1].Short != "a" {
+		t.Fatalf("동시각 태그의 순서가 결정적이지 않다: %s, %s", rs[0].Short, rs[1].Short)
+	}
+}

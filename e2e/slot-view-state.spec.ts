@@ -547,6 +547,9 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
       const a = (window as any).app;
       const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
       if (!win) throw new Error('Editor 창이 없다: ' + root);
+      // UX_BATCH6_SRS FR-DSP-1: 사이드의 기본이 Changes 다. 이 묶음이 재는 것은
+      // **탐색기**의 관측과 시선이므로 그 자리를 명시로 연다.
+      a._edSetSide(win, 'explorer');
       a.switchWindow(win.id);
       return win.id;
     }, ROOT);

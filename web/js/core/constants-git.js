@@ -564,6 +564,11 @@ const GIT_DIFF_OPTIONS={
   // 직접 그리지 않는 이유는 D-1 이다 — 접기·줄바꿈·side-by-side 의 좌표계를
   // 다시 계산하는 일을 Monaco 가 이미 한다.
   renderOverviewRuler:true,
+  // UX_BATCH6_SRS FR-MMP-1: 미리보기도 **같은 좌표계**에 선다. 기본값
+  // `'proportional'` 은 파일이 길면 미리보기 자신이 함께 스크롤해, 미리보기의
+  // 슬라이더가 스크롤바·개요 눈금과 다른 자리에 선다 — 세 표시가 한 문서의 같은
+  // 자리를 가리켜야 한다는 것이 FR-DOR-1 의 뜻이기도 하다.
+  minimap:{size:'fit'},
 };
 // FR-DOR-6: 눈금의 색은 `monacoTheme()` 의 diffEditorOverview.* 매핑에서 온다.
 // 그 매핑은 이미 있다 — 여기서 색을 다시 정하면 두 자리가 갈린다.

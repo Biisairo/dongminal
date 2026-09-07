@@ -198,8 +198,14 @@ Object.assign(GitPanel.prototype, {
     el.querySelector('.git-diff-ws input').checked=this._ignoreWsPref();
     el.querySelector('.git-diff-fold input').checked=this._foldPref();
     el.querySelector('.git-diff-blame').classList.toggle('on',!!this._blameOn);
-    this._showTarget(this._diff(),f,'_diffKey');
+    // UX_BATCH6_SRS FR-GLV-1: 관측이 나른 재적재는 **같은 대상을 다시 받는
+    // 것**이므로 키 비교를 지나야 한다. 플래그를 여기서 소비하는 이유는 한 번의
+    // 계기가 한 번만 받아야 하기 때문이다 — 남겨 두면 이후 모든 회차가 다시 받는다.
+    const force=!!this._diffStale; this._diffStale=false;
+    this._showTarget(this._diff(),f,'_diffKey',force);
     // blame 모드에서는 hunk 조각이 뜻을 잃는다 — 부분 스테이징의 대상은 diff 다.
+    // **force 를 넘기지 않는다** — 조각이 낡는 계기는 본문이 바뀐 것이고, 그것은
+    // `onChanged` 가 `_hunkKey` 를 지워 알린다 (FR-GLV-1).
     this._paintHunks(el,(cf||this._blameOn)?null:f);
     this._paintBlame(el);
   },
@@ -670,7 +676,15 @@ Object.assign(GitPanel.prototype, {
 
   // 대상이 그대로면 다시 부르지 않는다 — status 폴링마다 diff 를 재요청하면
   // 스크롤과 접힘이 매초 초기화된다.
-  _showTarget(view,f,slot){
+  /**
+   * `force` 는 **같은 대상을 다시 받으라**는 뜻이다 (UX_BATCH6_SRS FR-GLV-1·2).
+   *
+   * 관측이 파일의 변화를 알렸을 때 지나는 길이며, 대상을 바꾸지 않으므로 목록
+   * 위치·side-by-side·공백무시는 그대로다. 편집 중 보호(FR-RTU-56)는 그 앞에
+   * 있으므로 `force` 도 그것을 넘지 못한다 — 폴링이 사용자의 편집을 덮는 일은
+   * 이 인자가 생겨도 없다.
+   */
+  _showTarget(view,f,slot,force){
     // FR-RTU-56: **편집 중인 diff 는 다시 읽지 않는다.** 폴링이 사용자의 편집을
     // 덮으면 그 화면은 편집기가 아니다. 대상이 바뀌는 것은 사용자의 조작이므로
     // 그때는 새로 읽는다 — 아래 key 비교가 그것을 가른다.
@@ -678,7 +692,7 @@ Object.assign(GitPanel.prototype, {
     // 식별자는 (리포, 축, 경로, 리비전) 이다 (FR-GIT-54·145) — 리비전이 빠지면
     // 머지 커밋에서 부모를 바꿔도 같은 대상으로 보여 다시 받지 않는다.
     const key=f?[f.repo,f.axis,f.path,f.origPath,f.oid||'',f.parentOid||''].join('\u0000'):'';
-    if(this[slot]===key) return;
+    if(this[slot]===key&&!force) return;
     this[slot]=key;
     if(!f){view.clear(this.repo?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);return}
     // GIT_DIR_ENTRY_SRS FR-DIR-21: 디렉터리 항목에는 diff 를 부르지 않는다.
@@ -750,6 +764,35 @@ Object.assign(GitPanel.prototype, {
 
   // 두 인스턴스는 같은 클래스다 (§3.2). 미리보기는 좁은 자리이므로 inline 을
   // 기본으로 둔다 (§3.4).
+  /**
+   * UX_BATCH6_SRS FR-GLV-1·2: 관측 회차마다 **지금 보고 있는 diff 를 다시 받는다.**
+   *
+   *   이전 동작: Diff 는 `_reloadViews` 의 목록에 없었고, `_diffKey` 가 같은 한
+   *             다시 받지 않았다 — 터미널에서 파일을 고쳐도 화면이 그대로였다
+   *   새  동작: 관측이 돌 때마다 같은 대상을 다시 받고, 내용이 같으면 그리지
+   *             않는다 (FR-GLV-3 이 `GitDiffView._draw` 에서 그것을 판정한다)
+   *   이유:     파일 **내용**의 변화는 관측으로 알 수 없다. `git status` 는 이미
+   *             수정된 파일이 또 수정돼도 같은 줄을 내고, `signature` 도
+   *             `_viewFp` 도 작업 트리의 내용을 보지 않는다 (SRS §2.4) — 알 수
+   *             없는 것을 기다리는 대신 열려 있는 하나를 다시 묻는다
+   *
+   * 한 번도 열지 않은 Diff 는 대상이 아니다 (FR-GVR-4) — `_diffView` 가 없으면
+   * 볼 사람도 없다. 편집 중이면 받지 않는다 (FR-RTU-56).
+   */
+  reloadDiff(user){
+    if(!this._diffView||this._diffView.dirty) return;
+    // FR-GLV-6: 서버가 거부한 대상은 **폴링이** 다시 묻지 않는다 — 바이너리·상한
+    // 초과·사라진 경로가 그렇고, 매 회차 다시 물으면 콘솔과 서버 로그가 그 실패로
+    // 채워진다 (실측으로 확인했다).
+    //
+    // **사용자가 누른 새로고침은 예외다** (D-8: 새로고침은 백업이다). 자동 경로가
+    // 멈춘 자리에서 손으로 다시 시도할 길이 없으면 그 화면은 사유에 갇힌다.
+    if(!user&&this._diffView.refused) return;
+    const el=this._els.get('diff'); if(!el||el.dataset.built!=='1') return;
+    this._diffStale=true;
+    this._renderDiff(el);
+  },
+
   _diff(){
     if(!this._diffView) this._diffView=new GitDiffView({
       inlineBreakpoint:GIT_DIFF_OPTIONS.renderSideBySideInlineBreakpoint,
@@ -766,6 +809,9 @@ Object.assign(GitPanel.prototype, {
       // DIFF_HUNK_BAR_SRS D-4 / FR-DHB-10: 에디터가 서면 hover 툴바를 배선하고
       // 사라지면 걷는다. `GitDiffView` 는 관측을 모르므로 그 배선을 여기서 한다.
       onEditor:ed=>this._hunkBarWire(ed),
+      // UX_BATCH6_SRS FR-GLV-1: 본문이 실제로 바뀐 회차다. 조각 관측은 이
+      // 본문에서 파생되므로 그때만 낡는다 — 폴링마다 다시 받으면 요청이 배로 는다.
+      onChanged:()=>{this._hunkKey=null; this._hunkBarHide()},
     });
     return this._diffView;
   },

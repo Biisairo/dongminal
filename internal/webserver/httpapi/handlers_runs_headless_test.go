@@ -42,6 +42,16 @@ type headlessHub struct {
 	// io 는 생성·삭제를 liveness 에도 반영한다. toolLive 는 ToolIO.Has 를 보므로
 	// 둘을 따로 두면 "죽은 도구가 살아 있다고 보고되는" 테스트만의 상태가 된다.
 	io *fakeToolIO
+
+	// UX_BATCH6_SRS FR-BGP-3: 마지막 배치. 헤드리스 생성이 명령을 실어 보내는지가
+	// 검증 대상이므로 인자 전량을 남긴다.
+	lastPlace toolhub.Placement
+}
+
+func (h *headlessHub) lastPlacement() toolhub.Placement {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.lastPlace
 }
 
 func newHeadlessHub(io *fakeToolIO) *headlessHub {
@@ -68,6 +78,7 @@ func (h *headlessHub) Create(cwd string, cols, rows uint16, place toolhub.Placem
 	h.tools[id] = tool
 	h.created = append(h.created, id)
 	h.lastCwd, h.lastCols, h.lastRows = cwd, cols, rows
+	h.lastPlace = place
 	h.mu.Unlock()
 	h.io.setHas(id, true)
 	return tool, nil
@@ -159,6 +170,18 @@ func (w *syncWorkIndex) bind(toolID, tabID string) {
 	defer w.mu.Unlock()
 	w.entries = append(w.entries, toolaccess.WorkspaceEntry{ToolID: toolID, TabUUID: tabID})
 	w.resolve[tabID] = toolID
+}
+
+// setWindow 는 그 탭이 **어느 창**에 있는지 적는다 (UX_BATCH6_SRS FR-RUN-7).
+// 전용 창의 빈 탭을 거두는 판정이 이 값을 딛는다.
+func (w *syncWorkIndex) setWindow(tabID, windowID string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for i := range w.entries {
+		if w.entries[i].TabUUID == tabID {
+			w.entries[i].WindowUUID = windowID
+		}
+	}
 }
 
 func (w *syncWorkIndex) unbind(toolID string) {

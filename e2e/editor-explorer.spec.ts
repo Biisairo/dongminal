@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, rmTree, switchToEditorRoot } from './fixtures';
+import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M3(파일 탐색기) · M4(탐색기의 git 색)의 검증 V-EDT-40~56.
@@ -130,7 +130,7 @@ async function goto(page: Page) {
 
 async function openEditor(page: Page, root: string) {
   await switchToEditorRoot(page, root);
-  await page.waitForSelector('.ed-win .ed-explorer .ed-tree', { timeout: 10000 });
+  await openExplorerSide(page);
 }
 
 // 루트 하나를 세우고 그 Editor 창을 연다. 첫 행이 보이면 뿌리 조회가 끝난 것이다.
@@ -347,9 +347,21 @@ test.describe('묶음 X — 탐색기의 git 색 (FR-EDT-69~78)', () => {
     const c = counter(page, isStatusOf(PLAIN));
     await openEditor(page, PLAIN);
     await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
-    await expect.poll(() => c.n, { timeout: 10000 }).toBe(1);
+    await expect.poll(() => c.n, { timeout: 10000 }).toBeGreaterThan(0);
     await expect(page.locator('.ed-tree .ed-row[data-st]')).toHaveCount(0);
-    // 판정은 한 번이다 — 저장소가 아님을 안 뒤로는 다시 묻지 않는다 (FR-EDT-69).
+    /**
+     * **개정** (UX_BATCH6_SRS FR-DSP-1·1a).
+     *
+     *   이전 계약: 정확히 1회 — 창을 여는 순간의 판정 하나
+     *   새   계약: **늘지 않는다.** 몇 회인지는 세지 않는다
+     *   이유:      사이드의 기본이 Changes 가 되면서 그 표면도 한 번 묻는다.
+     *              재려는 것은 그 수가 아니라 **되풀이하지 않는다**는 사실이고
+     *              (FR-EDT-69), 수를 박아 두면 표면이 하나 늘 때마다 이 줄이
+     *              고쳐진다
+     *
+     * 멈추는 쪽도 함께 재는 셈이다 — FR-DSP-1a 가 없으면 Changes 사이드가
+     * 기준 주기로 영원히 물어 이 단정이 곧바로 깨진다.
+     */
     const seen = c.n;
     const poll = await page.evaluate(() => EDITOR_GIT_POLL_MS);
     await page.waitForTimeout(poll * 2);

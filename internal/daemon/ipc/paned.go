@@ -188,11 +188,14 @@ func (pc *panedConn) create(req *toolipc.PanedRequest) interface{} {
 		Rows    uint16 `json:"rows"`
 		Window  string `json:"window"`
 		Profile string `json:"profile"`
+		Command string `json:"command"`
+		Work    string `json:"work"`
 	}
 	if err := json.Unmarshal(req.Params, &p); err != nil {
 		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
-	tool, err := pc.pm.Create(p.Cwd, p.Cols, p.Rows, toolhub.Placement{WindowUUID: p.Window, Profile: p.Profile})
+	tool, err := pc.pm.Create(p.Cwd, p.Cols, p.Rows,
+		toolhub.Placement{WindowUUID: p.Window, Profile: p.Profile, Command: p.Command, Work: p.Work})
 	if err != nil {
 		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32603, Message: err.Error()}}
 	}

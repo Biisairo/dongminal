@@ -245,6 +245,10 @@ Working Tree diff 의 오른쪽은 **편집·저장된다.** Index diff 의 오�
 > 요구 ③의 근거를 그대로 따른다 — 세로로 쌓으면 파일 목록도 변경 목록도 절반
 > 높이가 된다. 탭이면 보이는 쪽이 사이드 전체 높이를 쓴다.
 
+> **개정 (UX_BATCH6_SRS FR-DSP-1, 2026-09-07).** 기본 탭이 `Explorer` 에서
+> `Changes` 로 바뀌었다. 탭 **순서**를 Changes 로 옮긴 근거(GIT_CHANGES_CONTROLS_SRS
+> FR-GCC-13)가 기본값에도 그대로 적용된다.
+
 **FR-RTU-13.** 사이드의 활성 탭은 **창마다** 기억되고 워크스페이스에 저장된다
 (`window.editor.side`). 폭도 워크스페이스에 저장된다.
 > **개정됨** — 폭은 창별이 아니라 **워크스페이스 변수 하나**다 (`ws.repoSideWidth`,

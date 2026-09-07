@@ -368,10 +368,19 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
     expect(closed.status()).toBe(200);
     const body = await closed.json();
     expect(body.state).toBe('closed');
-    // 도구를 서버가 닫지 않는다 — 정리 대상만 돌려준다 (FR-BG-3 의 확인창 회피).
     expect(body.cleanup[0].tabId).toBe(uuid);
-    const stillThere = await request.get(`/api/tools/activity/get?id=${uuid}`);
-    expect(stillThere.status(), 'close 가 도구를 종료했다').toBe(200);
+    /**
+     * **개정** (UX_BATCH6_SRS FR-RUN-6·9).
+     *
+     *   이전 계약: close 는 정리 대상만 돌려주고 `/exit` → `close-tab` 은
+     *              조정자의 몫이었다 (FR-BG-3 의 확인창 회피)
+     *   새   계약: close 가 그 절차까지 수행하고 **무엇을 닫았는지** 보고한다
+     *   이유:      접수 ⑩·⑬ — 그 절차를 건너뛴 조정자가 죽은 에이전트의 탭과
+     *              아무도 앉지 않은 터미널을 남겼다
+     *
+     * 확인창을 피하는 근거는 그대로다 — 먼저 끝내고 나서 닫는다 (FR-RUN-6).
+     */
+    expect(body.closedTabs.map((c: any) => c.tabId)).toContain(uuid);
 
     await request.post('/api/tools/activity/set', { data: { toolId, state: 'idle' } });
   });
@@ -504,8 +513,12 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
     const closed = await request.post('/api/runs/close', { data: { runId: run.id } });
     expect(closed.status()).toBe(200);
 
-    // 7. 정리 — 팀원 탭을 닫으면 전용 창은 스스로 사라진다 (close-window 불필요).
-    await request.post('/api/commands', { data: { action: 'closeTab', args: { location: seed } } });
+    // 7. 정리 — **close 가 이미 팀원 탭을 닫았다** (UX_BATCH6_SRS FR-RUN-6).
+    //    마지막 탭이 닫히면 전용 창은 스스로 사라진다 (close-window 불필요).
+    expect(
+      (await closed.json()).closedTabs.map((c: any) => c.tabId),
+      'close 가 팀원 탭을 닫지 않았다',
+    ).toContain(seed);
     await expect
       .poll(async () => {
         const st = await (await request.get('/api/state')).json();

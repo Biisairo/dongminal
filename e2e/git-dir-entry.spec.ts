@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGit as fxOpenGit, rmTree, switchToEditorRoot } from './fixtures';
+import { test, expect, openGit as fxOpenGit, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // GIT_DIR_ENTRY_SRS §4 — 디렉터리 상태 항목의 검증 V-DIR-10~42.
@@ -97,7 +97,7 @@ async function goto(page: Page) {
 
 async function openEditor(page: Page, root: string) {
   await switchToEditorRoot(page, root);
-  await page.waitForSelector('.ed-win .ed-explorer .ed-tree', { timeout: 10000 });
+  await openExplorerSide(page);
 }
 
 async function enter(page: Page, request: APIRequestContext, root: string) {

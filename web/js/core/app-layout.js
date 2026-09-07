@@ -121,10 +121,13 @@ Object.assign(App.prototype, {
     // FR-CWD-3: `cwdTool` 은 그 도구의 cwd 를 서버가 풀어 준다
     // (`/api/tools?cwdTool=`) — 브라우저는 경로를 모른 채 넘긴다.
     const refTool=sandbox?null:(opts.cwdTool||null);
+    // UX_BATCH6_SRS FR-SBM-3: 선택창에서 고른 작업 방식. 모르는 값은 싣지 않는다 —
+    // 서버가 무시하지만, 워크스페이스에 뜻 없는 값이 굳는 것도 막는다.
+    const work=SANDBOX_WORK_KINDS.includes(opts.sandboxWork)?opts.sandboxWork:'';
     // FR-SBX-10: 창 id 를 도구보다 **먼저** 만든다. 순서가 반대면 첫 도구가
     // 자기 창을 모른 채 떠서, 샌드박스 창인데 첫 탭만 호스트에서 돈다.
     const wid=newEntityId();
-    const p=await this._newTool(cwd, cwd?null:refTool, {id:wid,sandbox});
+    const p=await this._newTool(cwd, cwd?null:refTool, {id:wid,sandbox,sandboxWork:sandbox?work:''});
     const r=newEntityId(),t=newEntityId();
     const name=(typeof opts.name==='string'&&opts.name?opts.name:'Window').slice(0,64);
     const s={
@@ -135,11 +138,13 @@ Object.assign(App.prototype, {
     };
     // FR-SBX-18: 선택 필드다. 일반 창에는 키 자체를 두지 않는다.
     if(sandbox) s.sandbox=sandbox;
+    // FR-SBM-3: 창의 것이다 — 이 창에 뒤로 생기는 탭도 같은 컨테이너에 들어간다.
+    if(sandbox&&work) s.sandboxWork=work;
     // SANDBOX_PICK_COPY_SRS FR-SPK-21·22: 이 창의 작업 폴더가 **복사본**이라는
     // 사실. 컨테이너 안의 변경이 호스트로 돌아오지 않는다는 것은 창을 여는
     // 순간에만 말하고 끝낼 성질이 아니다 — 사용자는 며칠 뒤에도 그 창에서
     // 일한다. 폴더를 실제로 받은 창에만 적는다 (복사한 것이 없으면 뜻이 없다).
-    if(sandbox&&opts.sandboxWork===SANDBOX_WORK_COPY&&cwd) s.sandboxCopy=true;
+    if(sandbox&&work===SANDBOX_WORK_COPY&&cwd) s.sandboxCopy=true;
     this.ws.windows.push(s);
     // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-2: keepFocus 면 창은 사이드바에만
     // 추가 — activeWindow/focused 무변화 (백그라운드 잡 컨테이너 패턴).
@@ -535,7 +540,11 @@ Object.assign(App.prototype, {
       // run·editor 는 도구가 없다 — toolId 없이 busy 를 물으면
       // /api/tools/undefined/busy 404 가 콘솔에 남는다 (FR-RVZ-6).
       // editor 는 위 isEditor 게이트로 이 경로를 피하지만 run 은 그 게이트가 없다.
-      if(tab.toolId && !opts.keepTool && await this._isToolBusy(tab.toolId)){
+      // UX_BATCH6_SRS FR-RUN-6: `force` 는 **이미 물었다**는 뜻이다. Run 정리가
+      // 그 길로 온다 — 서버가 에이전트에게 종료를 청하고 셸로 돌아오기를 기다린
+      // 뒤이며, 그러고도 도는 프로세스에 확인창을 띄우면 무인 정리가 그 자리에서
+      // 막힌다. 사용자의 결정은 `dmctl run close` 를 부른 순간에 이미 있었다.
+      if(tab.toolId && !opts.keepTool && !opts.force && await this._isToolBusy(tab.toolId)){
         const r=await this._confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?',
           {bgBtn:toolBackgroundCapable(tab.type)});
         if(!r) return;

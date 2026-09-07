@@ -13,6 +13,9 @@ const detachHelp = `detach — 현재 도구를 백그라운드로 보내고 탭
 
 사용법:
   detach                        현재 탭의 도구를 백그라운드로 (탭은 닫힘)
+  detach --run <명령>           백그라운드에 새 도구를 만들어 그 명령을 돌린다
+  detach --run <명령> --cwd <경로>
+                                그 명령을 이 디렉터리에서 돌린다
   detach --list                 백그라운드 도구 목록
   detach --restore <id>         백그라운드 도구를 현재 분할 칸의 새 탭으로 복귀
   detach --restore <id> --at <uuid>
@@ -25,6 +28,11 @@ const detachHelp = `detach — 현재 도구를 백그라운드로 보내고 탭
 
 백그라운드 도구는 계속 실행되지만 어느 탭에도 매이지 않는다. 데몬을 재시작하면
 복원되지 않는다 — 복원해도 돌던 작업이 아니라 빈 셸이 되살아날 뿐이다.
+
+--run 으로 만든 도구는 **그 명령이 곧 프로세스**다. 명령이 끝나면 도구가 죽고
+백그라운드 목록에서 사라진다 — 대화형 셸이 남아 기다리지 않는다. 명령 자체는 그
+호스트의 셸에 넘어가므로 파이프·리디렉션은 그대로 쓸 수 있고, 끝난 뒤에도 자리를
+남기려면 그것까지 명령에 적는다 (예: npm test; exec $SHELL).
 
 이름이 bg 가 아닌 이유: bg 는 zsh/bash 의 작업 제어 빌트인이다.
 `
@@ -42,12 +50,33 @@ func runDetach(args []string, stdout, stderr io.Writer) int {
 	doList := false
 	restoreID := ""
 	at := ""
+	// UX_BATCH6_SRS FR-BGP-3: 돌릴 명령과 그 자리. 빈 문자열과 "주지 않았다" 를
+	// 가르기 위해 플래그 유무를 따로 든다 — `--run ''` 는 오류이지 무동작이 아니다.
+	runCmd, hasRun, cwd := "", false, ""
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
 		case a == "-h" || a == "--help":
 			fmt.Fprint(stdout, detachHelp)
 			return 0
+		case a == "--run":
+			if i+1 >= len(args) {
+				fmt.Fprintln(stderr, "detach: --run 은 실행할 명령이 필요합니다")
+				return 2
+			}
+			runCmd, hasRun = args[i+1], true
+			i++
+		case strings.HasPrefix(a, "--run="):
+			runCmd, hasRun = strings.TrimPrefix(a, "--run="), true
+		case a == "--cwd":
+			if i+1 >= len(args) {
+				fmt.Fprintln(stderr, "detach: --cwd 는 경로가 필요합니다")
+				return 2
+			}
+			cwd = args[i+1]
+			i++
+		case strings.HasPrefix(a, "--cwd="):
+			cwd = strings.TrimPrefix(a, "--cwd=")
 		case a == "--list" || a == "-l":
 			doList = true
 		case a == "--restore" || a == "-r":
@@ -77,6 +106,23 @@ func runDetach(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
+	if hasRun {
+		if strings.TrimSpace(runCmd) == "" {
+			fmt.Fprintln(stderr, "detach: --run 은 실행할 명령이 필요합니다")
+			return 2
+		}
+		if doList || restoreID != "" || at != "" {
+			fmt.Fprintln(stderr, "detach: --run 은 --list·--restore·--at 과 함께 쓸 수 없습니다")
+			return 2
+		}
+		return detachRun(runCmd, cwd, stdout, stderr)
+	}
+	if cwd != "" {
+		// --cwd 는 --run 의 인자다. 단독 사용은 오해이므로 조용히 무시하지 않는다
+		// (--at 과 같은 규약, FR-BGR-3).
+		fmt.Fprintln(stderr, "detach: --cwd 는 --run 과 함께만 씁니다")
+		return 2
+	}
 	if doList {
 		return detachList(stdout, stderr)
 	}
@@ -127,6 +173,36 @@ func detachPost(action string, args map[string]any, stdout, stderr io.Writer) in
 		fmt.Fprintln(stderr, "detach: 구독 중인 브라우저가 없습니다 — 페이지를 새로고침하세요")
 		return 1
 	}
+	return 0
+}
+
+/**
+ * detachRun 은 백그라운드에 도구를 만들어 명령 하나를 돌린다 (FR-BGP-3).
+ *
+ * 브라우저를 거치지 않는다 — 만드는 것이 **탭 없는 도구**이므로 화면에 자리를
+ * 잡을 필요가 없고, 그래서 `detachPost` 의 "구독 중인 브라우저가 없습니다" 도
+ * 여기에는 해당하지 않는다. 종단은 헤드리스 생성이 쓰는 그것이다.
+ */
+func detachRun(cmdline, cwd string, stdout, stderr io.Writer) int {
+	body := map[string]any{"command": cmdline}
+	if cwd != "" {
+		body["cwd"] = cwd
+	}
+	status, raw, err := httpPostJSON(baseURL()+"/api/tools/headless", body)
+	if err != nil {
+		fmt.Fprintf(stderr, "detach: %v\n", err)
+		return 1
+	}
+	if status < 200 || status >= 300 {
+		fmt.Fprintf(stderr, "detach: 서버 오류 %d: %s\n", status, string(raw))
+		return 1
+	}
+	var resp struct {
+		ToolID string `json:"toolId"`
+	}
+	json.Unmarshal(raw, &resp)
+	fmt.Fprintf(stdout, "background  toolId=%s  cmd=%s\n", resp.ToolID, cmdline)
+	fmt.Fprintln(stdout, "  명령이 끝나면 이 도구는 스스로 사라진다 — detach --list 로 확인")
 	return 0
 }
 

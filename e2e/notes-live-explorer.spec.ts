@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, rmTree, switchToEditorRoot } from './fixtures';
+import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // NOTES_LIVE_EXPLORER_SRS §5.2 — 묶음 N(메모장)·묶음 L(탐색기의 살아있는 반영)의
@@ -60,7 +60,7 @@ async function openEditorTab(page: Page) {
 
 async function openEditorWin(page: Page, root: string) {
   await switchToEditorRoot(page, root);
-  await page.waitForSelector('.ed-win .ed-explorer .ed-tree', { timeout: 10000 });
+  await openExplorerSide(page);
 }
 
 const notesRoot = (page: Page) =>
@@ -105,7 +105,10 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
     expect(notes).not.toBe('');
 
     await fixedRows(page).first().click();
-    await page.waitForSelector('.ed-win .ed-explorer', { timeout: 10000 });
+    // 재려는 것은 **어느 창이 활성인가**이지 어느 사이드 탭이 섰는가가 아니다.
+    // 사이드의 기본이 Changes 가 됐으므로(UX_BATCH6_SRS FR-DSP-1) 탭에 매이지
+    // 않는 자리를 기다린다.
+    await page.waitForSelector('.ed-win .ed-side', { timeout: 10000 });
     const got = await page.evaluate(() => {
       const a = (window as any).app;
       const w = a._aw();
@@ -114,6 +117,9 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
     expect(got.root).toBe(notes);
     // FR-NOT-9: 행과 창이 같은 이름을 쓴다.
     expect(got.name).toBe('메모장');
+    // 그 이름이 서는 자리는 **탐색기의 머리**다 — 사이드의 기본이 Changes 가
+    // 됐으므로(UX_BATCH6_SRS FR-DSP-1) 그 자리를 명시로 연다.
+    await openExplorerSide(page);
     await expect(page.locator('.ed-win .ed-head-name')).toHaveText('메모장');
   });
 

@@ -106,6 +106,22 @@ func (p *Placer) Place(pl toolhub.Placement) (*platform.ProcSpec, error) {
 		return nil, fmt.Errorf("샌드박스 프로파일 %q 가 정의되지 않았습니다 — %s 에 이미지를 적어 주세요",
 			pl.Profile, sandbox.ProfilesFileName)
 	}
+	/**
+	 * UX_BATCH6_SRS FR-SBM-3: 창이 고른 **작업 방식**이 프로파일의 것을 덮는다.
+	 *
+	 *   이전 동작: 프로파일이 방식을 고정했다 — scratch 는 복사, dev 는 마운트
+	 *   새  동작: 선택창에서 고른 값이 이긴다. 고르지 않았으면 종전 그대로다
+	 *   이유:     접수 ②. `sandbox.json` 에 dev 를 정의하지 않은 사용자에게는
+	 *             마운트를 고를 길이 화면 어디에도 없었다 ("마운트가 없어도
+	 *             마운트 선택 가능")
+	 *
+	 * 모르는 값은 **무시한다.** 오타 하나로 창이 열리지 않는 것보다, 프로파일의
+	 * 뜻대로 여는 편이 낫다 — 무엇이 일어났는지는 어느 쪽이든 배지가 말한다.
+	 */
+	switch sandbox.WorkKind(pl.Work) {
+	case sandbox.WorkMount, sandbox.WorkCopy, sandbox.WorkNone:
+		prof.Work = sandbox.WorkKind(pl.Work)
+	}
 
 	// 기본 마운트의 원본은 사용자가 적은 것이다. 없으면 여기서 멈춰 오타를
 	// 알린다 — 그대로 넘기면 런타임이 호스트에 빈 디렉터리를 만든다 (FR-SBX-39).

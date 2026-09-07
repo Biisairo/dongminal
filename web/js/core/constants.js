@@ -233,7 +233,17 @@ const SANDBOX_PROFILE_SCRATCH='scratch';
 const SANDBOX_WORK_MOUNT='mount';
 const SANDBOX_WORK_COPY='copy';
 const SANDBOX_WORK_NONE='none';
+// UX_BATCH6_SRS FR-SBM-1: 아는 작업 방식 전부. 판정을 표 하나에서 파생시킨다 —
+// 손으로 적으면 넷째가 생길 때 한쪽만 고쳐진다.
+const SANDBOX_WORK_KINDS=[SANDBOX_WORK_MOUNT,SANDBOX_WORK_COPY,SANDBOX_WORK_NONE];
 const SANDBOX_WORK_LABEL={[SANDBOX_WORK_MOUNT]:'마운트',[SANDBOX_WORK_COPY]:'복사'};
+// FR-SBM-1: 선택창의 두 갈래. `none` 은 고를 것이 아니라 **그 프로파일이 폴더를
+// 쓰지 않는다**는 사실이므로 고르는 목록에 없다.
+const SANDBOX_WORK_PICKS=[SANDBOX_WORK_MOUNT,SANDBOX_WORK_COPY];
+// FR-SBM-5: 마운트에 폴더를 함께 고르면 그 창은 격리 경계가 아니다. 등급 배지는
+// 프로파일의 것이므로(FR-SBM-4) 그 사실은 이 줄이 따로 말한다.
+const SANDBOX_MOUNT_WARN='이 창 안의 코드가 고른 폴더를 고칠 수 있습니다 — 격리 경계가 아닙니다.';
+const SANDBOX_WORK_PICK_LABEL='작업 방식';
 const SANDBOX_WORK_TITLE={
   [SANDBOX_WORK_MOUNT]:'고른 폴더가 컨테이너에 이어집니다. 컨테이너 안 변경이 호스트에 그대로 남습니다.',
   [SANDBOX_WORK_COPY]:'고른 폴더의 내용이 컨테이너로 복사됩니다. 컨테이너 안 변경은 호스트로 돌아오지 않습니다.',
@@ -244,7 +254,10 @@ const SANDBOX_WORKDIR_LABEL='작업 폴더';
 const SANDBOX_WORKDIR_PLACEHOLDER='비우면 아무것도 넣지 않습니다';
 // FR-SPK-7: 프로파일이 scratch 하나뿐일 때. 이 안내가 없으면 사용자는 프로파일을
 // 늘리는 길이 있다는 것 자체를 알 수 없다.
-const SANDBOX_DEV_HINT='마운트가 필요하면 설정에서 dev 프로파일을 정의하세요.';
+// UX_BATCH6_SRS FR-SBM-1: 마운트는 이제 여기서 고른다 — 안내가 가리키던 것이
+// 사라졌다. 남은 것은 **이미지**다: scratch 는 debian 한 벌이고, 다른 도구가
+// 필요하면 dev 프로파일에 그 이미지를 적어야 한다.
+const SANDBOX_DEV_HINT='다른 이미지가 필요하면 설정에서 dev 프로파일을 정의하세요.';
 const SANDBOX_DEV_SETTINGS='설정 열기';
 // FR-SPK-22: 복사본으로 연 창의 사이드바 배지.
 const SANDBOX_COPY_PROGRESS='작업 폴더를 컨테이너로 복사하는 중입니다 — 크기에 따라 시간이 걸립니다.';

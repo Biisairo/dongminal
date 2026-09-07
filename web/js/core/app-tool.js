@@ -259,6 +259,53 @@ Object.assign(App.prototype, {
           box.appendChild(bar);
         }
       }
+      /**
+       * UX_BATCH6_SRS FR-SBM-1·2: **작업 방식을 고르는 자리.**
+       *
+       *   이전 동작: 프로파일이 방식을 고정했고 버튼은 그것을 표기만 했다.
+       *             `sandbox.json` 에 dev 를 정의하지 않은 사용자에게는 마운트를
+       *             고를 길이 화면 어디에도 없었다 (SRS §2.3)
+       *   새  동작: 마운트·복사를 언제나 고른다. 프로파일이 정하는 것은 **기본
+       *             선택**뿐이다
+       *   이유:     접수 ② — "마운트가 없어도 마운트 선택 가능. 마운트가 없는
+       *             마운트 프로파일일 뿐"
+       *
+       * `none` 인 프로파일을 고르면 방식도 폴더도 **버려진다** (FR-SBM-2 / FR-SPK-6).
+       * 이 줄을 프로파일마다 잠그지 않는 이유는 순서다 — 방식을 고르는 것이
+       * 프로파일을 고르는 것보다 앞이고, 앞선 선택을 뒤의 선택이 되돌아가 잠그면
+       * 창이 손 밑에서 움직인다.
+       */
+      let work=null;
+      const workBtns=new Map();
+      {
+        const wrap=document.createElement('div');wrap.className='sbx-work-pick';
+        const label=document.createElement('label');label.textContent=SANDBOX_WORK_PICK_LABEL;
+        wrap.appendChild(label);
+        for(const k of SANDBOX_WORK_PICKS){
+          const b=document.createElement('button');
+          b.type='button';b.className='sbx-work-opt sbx-work-'+k;b.dataset.work=k;
+          b.textContent=SANDBOX_WORK_LABEL[k];b.title=SANDBOX_WORK_TITLE[k]||'';
+          b.addEventListener('click',()=>setWork(k));
+          workBtns.set(k,b);wrap.appendChild(b);
+        }
+        box.appendChild(wrap);
+      }
+      // FR-SBM-5: 고른 것의 결과. 등급 배지와 **다른 자리**여야 한다 — 배지는
+      // 프로파일의 것이고(FR-SBM-4) 이 줄은 이번 선택의 것이다.
+      const warn=document.createElement('div');warn.className='sbx-work-warn';
+      box.appendChild(warn);
+      const syncWarn=()=>{
+        const on=work===SANDBOX_WORK_MOUNT&&!!(input&&input.value.trim());
+        warn.textContent=on?SANDBOX_MOUNT_WARN:'';
+        warn.classList.toggle('vis',on);
+      };
+      const setWork=k=>{
+        work=k;
+        for(const [key,b] of workBtns) b.classList.toggle('on',key===k);
+        syncWarn();
+      };
+      if(input) input.addEventListener('input',syncWarn);
+
       const btns=document.createElement('div');btns.className='confirm-btns sbx-pick';
       const cleanup=v=>{ov.remove();document.removeEventListener('keydown',onKey);resolve(v)};
       const onKey=e=>{if(e.key==='Escape'){e.preventDefault();cleanup(null)}};
@@ -270,24 +317,19 @@ Object.assign(App.prototype, {
         grade.textContent=p.isolated?'격리':'비격리';
         b.textContent=p.name+' ';
         b.appendChild(grade);
-        // FR-SPK-5: 고른 폴더가 **어떻게 되는지**를 버튼이 함께 말한다. 등급만
-        // 보이던 동안 사용자는 마운트와 복사의 차이를 창 안에서 알 수 없었다.
-        const work=p.work||SANDBOX_WORK_NONE;
-        if(SANDBOX_WORK_LABEL[work]){
-          const wk=document.createElement('span');
-          wk.className='sbx-work sbx-work-'+work;
-          wk.textContent=SANDBOX_WORK_LABEL[work];
-          b.appendChild(wk);
-        }
+        // FR-SPK-5 (FR-SBM-1 로 개정): 방식은 이제 **위에서 고른다.** 프로파일이
+        // 정하는 것은 기본 선택뿐이므로 버튼에 표기를 겹치지 않는다 — 두 자리가
+        // 같은 것을 말하면 어느 쪽이 지금 값인지 알 수 없다.
+        const def=p.work||SANDBOX_WORK_NONE;
         b.title=(p.image?p.image+String.fromCharCode(10):'')+
           (p.isolated
             ? '컨테이너 안 코드가 호스트를 조작할 수 없습니다.'
             : 'dmctl 이 들어 있어 컨테이너 안에서 워크스페이스를 조작할 수 있습니다. 실수는 막지만 악의적 코드는 막지 못합니다.')+
-          String.fromCharCode(10)+(SANDBOX_WORK_TITLE[work]||'');
-        // FR-SPK-6: `none` 인 프로파일에서는 입력한 폴더가 버려진다 — 그
-        // 사실은 위 툴팁이 밝히고, 여기서는 값을 싣지 않는다.
-        b.addEventListener('click',()=>cleanup({profile:p.name,work,
-          workdir:(input&&work!==SANDBOX_WORK_NONE)?input.value.trim():''}));
+          String.fromCharCode(10)+(SANDBOX_WORK_TITLE[def]||'');
+        // FR-SPK-6 / FR-SBM-2: `none` 인 프로파일에서는 입력한 폴더가 버려진다.
+        b.addEventListener('click',()=>cleanup({profile:p.name,
+          work:def===SANDBOX_WORK_NONE?SANDBOX_WORK_NONE:work,
+          workdir:(input&&def!==SANDBOX_WORK_NONE)?input.value.trim():''}));
         btns.appendChild(b);
       }
       const cancel=document.createElement('button');
@@ -310,6 +352,10 @@ Object.assign(App.prototype, {
         hint.appendChild(open);
         box.appendChild(hint);
       }
+      // FR-SBM-2: 기본 선택은 **첫 프로파일의 방식**이다. 그것이 `none` 이거나
+      // 없으면 복사로 떨어진다 — 되돌아오는 통로가 없는 쪽이 안전한 기본이다.
+      const first=(list[0]&&list[0].work)||'';
+      setWork(SANDBOX_WORK_PICKS.includes(first)?first:SANDBOX_WORK_COPY);
       ov.appendChild(box);document.body.appendChild(ov);
       document.addEventListener('keydown',onKey);
       ov.addEventListener('click',e=>{if(e.target===ov)cleanup(null)});
@@ -426,8 +472,12 @@ Object.assign(App.prototype, {
     // 프로파일을 창 id 와 **함께** 보낸다. 서버가 workspace 를 조회하게 하면,
     // 창이 저장되기 전에 탭이 만들어지는 순간 샌드박스 창이 일반 창으로 읽혀
     // 호스트에서 뜬다 (FR-SBX-10).
-    if(win&&win.sandbox&&win.id)
+    if(win&&win.sandbox&&win.id){
       q+='&window='+encodeURIComponent(win.id)+'&sandbox='+encodeURIComponent(win.sandbox);
+      // UX_BATCH6_SRS FR-SBM-3: 이 창이 고른 작업 방식. 창 레코드에 사는 이유는
+      // 뒤에 만드는 탭도 **같은 컨테이너**에 들어가기 때문이다 — 프로파일과 같다.
+      if(win.sandboxWork) q+='&sandboxWork='+encodeURIComponent(win.sandboxWork);
+    }
     const r=await fetch('/api/tools?cols=120&rows=40'+q,{method:'POST'});
     if(!r.ok){
       // FR-SBX-20: 샌드박스 기동 실패의 사유는 사용자에게 닿아야 한다 — 런타임

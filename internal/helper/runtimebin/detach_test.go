@@ -3,6 +3,7 @@ package runtimebin
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -235,5 +236,65 @@ func TestDetach_DashLStaysList(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "백그라운드 도구 없음") {
 		t.Errorf("목록 출력이 아니다: %s", out.String())
+	}
+}
+
+// UX_BATCH6_SRS FR-BGP-3·6 — `detach --run <명령>` 의 CLI 절반.
+//
+// 브라우저를 거치지 않는다 — 만드는 것이 **탭 없는 도구**이므로 화면에 자리를 잡을
+// 필요가 없고, 종단은 헤드리스 생성이 쓰는 그것이다.
+func TestDetach_RunPostsHeadlessWithCommand(t *testing.T) {
+	var path, body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		b, _ := io.ReadAll(r.Body)
+		body = string(b)
+		w.Write([]byte(`{"toolId":"t-9"}`))
+	}))
+	defer srv.Close()
+	setTestServer(t, srv)
+
+	var out, errOut bytes.Buffer
+	if rc := runDetach([]string{"--run", "npm run build", "--cwd", "/w"}, &out, &errOut); rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, errOut.String())
+	}
+	if path != "/api/tools/headless" {
+		t.Fatalf("종단이 다르다: %s", path)
+	}
+	if !strings.Contains(body, `"command":"npm run build"`) {
+		t.Errorf("명령이 실리지 않았다: %s", body)
+	}
+	if !strings.Contains(body, `"cwd":"/w"`) {
+		t.Errorf("작업 자리가 실리지 않았다: %s", body)
+	}
+	if !strings.Contains(out.String(), "t-9") {
+		t.Errorf("만들어진 도구를 알리지 않았다: %s", out.String())
+	}
+}
+
+// `--cwd` 는 `--run` 의 인자다. 단독 사용은 오해이므로 조용히 무시하지 않는다
+// (`--at` 과 같은 규약, FR-BGR-3).
+func TestDetach_CwdWithoutRunIsRejected(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if rc := runDetach([]string{"--cwd", "/w"}, &out, &errOut); rc == 0 {
+		t.Error("--run 없는 --cwd 가 성공했다")
+	}
+}
+
+// 빈 명령은 무동작이 아니라 오류다 — 무엇을 돌릴지 말하지 않은 요청이다.
+func TestDetach_RunRequiresCommand(t *testing.T) {
+	for _, args := range [][]string{{"--run"}, {"--run", "   "}, {"--run="}} {
+		var out, errOut bytes.Buffer
+		if rc := runDetach(args, &out, &errOut); rc == 0 {
+			t.Errorf("%v 가 성공했다", args)
+		}
+	}
+}
+
+// `--run` 은 목록·복귀와 함께 쓸 수 없다 — 셋은 서로 다른 일이다.
+func TestDetach_RunIsExclusive(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if rc := runDetach([]string{"--run", "ls", "--list"}, &out, &errOut); rc == 0 {
+		t.Error("--run 과 --list 가 함께 성공했다")
 	}
 }

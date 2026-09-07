@@ -140,7 +140,15 @@ type Member struct {
 	// "모른다" 와 "괜찮다" 는 다르므로 ok 로도 "unknown" 문자열로도 채우지 않는다.
 	// omitempty 가 그 의미를 그대로 실어 나른다.
 	ContextBytes int64   `json:"contextBytes,omitempty"` // transcript 크기 (stat 1회)
-	ContextRatio float64 `json:"contextRatio,omitempty"` // 0.0~1.0+ 추정 사용률
+	ContextRatio float64 `json:"contextRatio,omitempty"` // 0.0~1.0+ 사용률
+	// UX_BATCH6_SRS FR-CTX-1: **실측 토큰**이다. transcript 의 마지막 assistant
+	// 줄이 적은 usage 합이며, 그것이 그 요청이 실제로 모델에 보낸 컨텍스트다.
+	// 없으면 종전대로 `ContextBytes` 로 추정한다 (FR-CTX-4).
+	ContextTokens int64 `json:"contextTokens,omitempty"`
+	// FR-CTX-5·7: 이 멤버의 컨텍스트 창 크기. 모델이 말했거나(`[1m]`) 관측이
+	// 넓힌 값이며, 한 번 넓혀지면 좁아지지 않는다 — 압축으로 사용량이 내려가도
+	// 창은 그대로다.
+	ContextLimit float64 `json:"contextLimit,omitempty"`
 	ContextLevel string  `json:"contextLevel,omitempty"` // "" | ok | warn | critical
 	ContextAt    int64   `json:"contextAt,omitempty"`    // 마지막 관측 시각
 	CompactCount int     `json:"compactCount,omitempty"` // PreCompact 도달 횟수
@@ -155,6 +163,15 @@ type Member struct {
 	// 필드를 명시하지 않았지만 FR-CBG-9 의 3단계(새 멤버 프리앰블에 인수인계 절을
 	// 넣는다)가 저장 위치를 요구한다 — 프리앰블 조립은 승계 호출보다 뒤에 일어난다.
 	HandoffSummary string `json:"handoffSummary,omitempty"`
+
+	// HandoffPending 은 **요약을 청했으나 아직 오지 않았다**는 뜻이다
+	// (UX_BATCH6_SRS FR-RUN-4).
+	//
+	// 승계가 시한 안에 요약을 받지 못하면 여기 표식이 남는다. 후임의 프리앰블을
+	// 만드는 종단이 그 표식을 보고 기다리므로, **어느 쪽이 빨랐든 요약은 버려지지
+	// 않는다** — 종전에는 시한을 넘긴 요약이 전임자 레코드에만 남고 후임에게는
+	// 닿지 않았다 (SRS §2.11).
+	HandoffPending bool `json:"handoffPending,omitempty"`
 }
 
 // Reported reports whether the member has sent its one terminal report.

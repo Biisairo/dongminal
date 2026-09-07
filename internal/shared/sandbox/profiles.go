@@ -105,7 +105,20 @@ func (p Profile) Info() ProfileInfo {
 		// FR-SPK-20: **복사는 등급을 낮추지 않는다.** 등급이 답하는 물음은
 		// "컨테이너 안 코드가 호스트를 조작할 수 있는가" 이고(FR-SBX-23·37),
 		// 복사에서 그 답은 아니오다 — 마운트와 달리 돌아오는 통로가 없다.
-		Isolated: !p.Helper && p.Network == "none" && p.Work != WorkMount && len(p.BaseMounts) == 0,
+		//
+		// UX_BATCH6_SRS FR-SBM-6: **`Work` 를 보지 않는다.**
+		//
+		//   이전 동작: `p.Work != WorkMount` 가 근거에 있었다
+		//   새  동작: 헬퍼·네트워크·기본 마운트 셋뿐이다
+		//   이유:     작업 방식은 이제 창을 여는 사람이 고르는 값이다
+		//             (FR-SBM-1). 고르는 값이 프로파일의 등급을 정하면 같은
+		//             프로파일이 누를 때마다 다른 등급으로 보인다 — 등급은
+		//             "이 프로파일이 무엇인가" 이지 "이번에 무엇을 골랐나" 가
+		//             아니다. 고른 것의 결과는 선택창이 따로 말한다 (FR-SBM-5)
+		//
+		// 지금 있는 두 프로파일의 값은 이 변경으로 바뀌지 않는다 — scratch 는
+		// 여전히 true, dev 는 헬퍼와 bridge 때문에 여전히 false 다.
+		Isolated: !p.Helper && p.Network == "none" && len(p.BaseMounts) == 0,
 		Helper:   p.Helper,
 		Work:     p.Work,
 		Ports:    p.Ports,

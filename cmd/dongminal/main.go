@@ -213,6 +213,9 @@ func buildDeps(cfg httpapi.Config) (builtDeps, error) {
 	// Wire attention SSE before LoadAll so restored tools also get detection.
 	hub.WireAttention(pm, cmdHub)
 	hub.WireActivity(pm, cmdHub)
+	// UX_BATCH6_SRS FR-BGP-2: 백그라운드 목록의 변화도 방송한다 — 보냄·되돌림·
+	// 도구의 죽음 셋 모두가 이 길을 지난다.
+	hub.WireBackground(pm, cmdHub)
 	// CONVENIENCE_SRS FR-TAN-7: direct 모드는 PTY 를 자기가 들고 있으므로 전경
 	// 조회도 여기서 일어난다. 데몬 모드의 짝은 serve() 의 OnForeground 다.
 	hub.WireForeground(pm, cmdHub)
@@ -469,6 +472,16 @@ func serve(home, host, port string) int {
 			panedClient.OnExit = func(toolID string, code int) {
 				attnTracker.SetActivity(toolID, "ended", "", "")
 				attnTracker.Forget(toolID)
+				// UX_BATCH6_SRS FR-BGP-1·2: 백그라운드 목록은 살아 있는
+				// 프로세스의 목록이다. 데몬 모드에서 그 죽음을 웹서버가 아는
+				// 자리는 여기 하나다 — direct 모드의 짝은 `hub.WireBackground`.
+				//
+				// **백그라운드였는지 가리지 않는다.** 그 사실을 아는 것은 데몬의
+				// 레지스트리이고, 여기 닿을 때는 이미 지워진 뒤다. 방송이 나르는
+				// 것은 "다시 물어라" 한 줄이므로(BackgroundChangedPayload), 탭에
+				// 붙은 도구가 죽었을 때 한 번 더 묻는 값은 목록 조회 한 번이다 —
+				// 가리려고 데몬에 왕복을 더하는 것보다 싸다.
+				bd.deps.Commands.Broadcast(hub.BackgroundChangedPayload())
 			}
 			// FR-TAN-7: PTY 를 dongminald 가 들고 있으므로 전경 이름은 IPC push
 			// 로 온다. direct 모드의 WireForeground 와 같은 Broadcast 에 잇는다.

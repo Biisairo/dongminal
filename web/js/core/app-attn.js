@@ -226,6 +226,23 @@ Object.assign(App.prototype, {
     this._attnClear(toolId);
     this.ws.activeWindow=loc.win.id;
     try{sessionStorage.setItem('activeWindow', loc.win.id)}catch{}
+    /**
+     * UX_BATCH6_SRS FR-RUN-1: **포커스 칸이 그 창을 받는다.**
+     *
+     *   이전 동작: `ws.activeWindow` 만 바꿨다
+     *   새  동작: `switchWindow` 와 **같은 한 줄**을 지난다 (`_slotOnSwitch`)
+     *   이유:     슬롯 모드에서 무엇이 보이는가는 `_slots.windows` 가 정한다
+     *             (`_windowVisible`). `activeWindow` 만 바꾸면 **아무 일도
+     *             일어나지 않는다** — 접수 ⑧("run 에서 하위 세션 클릭했을 때
+     *             해당 세션으로 이동하지 않음")이 그 자리다
+     *
+     * **포커스 칸을 옮기지 않는다.** 그 창이 이미 다른 칸에 보인다고 그리로
+     * 포커스를 옮기면 FR-SVS-12 가 깨진다 — 알람이 부른 탭은 사용자가 서 있는
+     * 칸에 떠야 하고, 사용자는 포커스 칸에 있다 (TC-SVS-56 이 그것을 잰다).
+     *
+     * 단일 슬롯에서는 `_slots` 가 없어 무동작이다 (FR-RUN-2).
+     */
+    this._slotOnSwitch(loc.win.id);
     // FR-SVS-12: 알람은 사용자를 부르는 것이고 사용자는 포커스 칸에 있다.
     this.paneTabSet(loc.pane,loc.tab.id);
     this._setFocus(loc.pane.id, loc.win);

@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, addEditorRoot, rmTree } from './fixtures';
+import { test, expect, addEditorRoot, rmTree, openExplorerSide } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // SOFT_RELOAD_SRS §5 — V-SRL-1~9.
@@ -209,7 +209,7 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
         const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
         a.switchWindow(win.id);
       }, stored);
-      await page.waitForSelector('.ed-win .ed-explorer .ed-tree', { timeout: 15000 });
+      await openExplorerSide(page);
       const sub = path.join(base, 'sub');
       await page.locator(`.ed-tree .ed-row[data-path="${cssPath(sub)}"]`).click();
       await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(path.join(sub, 'a.txt'))}"]`))

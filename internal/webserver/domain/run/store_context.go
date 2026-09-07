@@ -69,9 +69,36 @@ func (p ContextPolicy) withDefaults() ContextPolicy {
 }
 
 // Ratio 는 transcript 크기에서 추정 사용률을 낸다 (FR-CBG-2).
+//
+// **되도록 쓰지 않는다** (UX_BATCH6_SRS FR-CTX-1·4). 파일 크기는 대화 전체의
+// 누적이라 압축·잘림과 무관하게 자라며, 실측에서 202,185 토큰인 세션의 크기가
+// 968KB 였다 — 이 공식으로는 134% 다. 실측 토큰을 얻지 못했을 때의 차선이다.
 func (p ContextPolicy) Ratio(bytes int64) float64 {
 	p = p.withDefaults()
 	return (float64(bytes) / p.BytesPerToken) / p.LimitTokens
+}
+
+// EstimateTokens 는 transcript 크기를 토큰으로 환산한다 (FR-CTX-4 의 차선).
+func (p ContextPolicy) EstimateTokens(bytes int64) float64 {
+	return float64(bytes) / p.withDefaults().BytesPerToken
+}
+
+// Grade 는 사용률에서 등급을 매긴다 (FR-CBG-4 / FR-CTX-9).
+//
+// `Level` 과 갈라 둔 이유는 입력이 다르기 때문이다 — 저쪽은 바이트, 이쪽은 이미
+// 계산된 비율이다. 경계와 압축 우선 규칙은 한 벌이며 여기 산다.
+func (p ContextPolicy) Grade(ratio float64, compactCount int) string {
+	if compactCount > 0 {
+		return LevelCritical
+	}
+	d := p.withDefaults()
+	switch {
+	case ratio >= d.CriticalRatio:
+		return LevelCritical
+	case ratio >= d.WarnRatio:
+		return LevelWarn
+	}
+	return LevelOK
 }
 
 // Level 은 등급을 판정한다 (FR-CBG-4).
@@ -80,16 +107,7 @@ func (p ContextPolicy) Ratio(bytes int64) float64 {
 // 이미 유실됐다는 뜻이고, 압축 직후 transcript 는 오히려 작아지므로 크기만 보면
 // 등급이 도로 내려간다 — 그 자리가 이 규칙이 막는 곳이다.
 func (p ContextPolicy) Level(bytes int64, compactCount int) string {
-	if compactCount > 0 {
-		return LevelCritical
-	}
-	switch r := p.Ratio(bytes); {
-	case r >= p.withDefaults().CriticalRatio:
-		return LevelCritical
-	case r >= p.withDefaults().WarnRatio:
-		return LevelWarn
-	}
-	return LevelOK
+	return p.Grade(p.Ratio(bytes), compactCount)
 }
 
 // ContextObservation 은 훅 하나가 실어 온 신호다 (FR-CBG-1).
@@ -104,6 +122,16 @@ type ContextObservation struct {
 	SessionID string
 	// Compacted 는 PreCompact 훅이 왔다는 뜻이다. 추정이 아니라 확정이다.
 	Compacted bool
+
+	// UX_BATCH6_SRS FR-CTX-1: 실측 토큰. transcript 의 마지막 assistant 줄이
+	// 적은 usage 합이며, 바이트 추정을 대체한다. Bytes 와 같은 규약으로
+	// "모른다"(HasTokens=false)와 0 을 가른다.
+	Tokens    int64
+	HasTokens bool
+	// Model 은 그 줄이 적은 모델 이름이다 (FR-CTX-5). 창 크기의 근거이며,
+	// 답하지 못하면 빈 문자열이다. **내용이 아니라 식별자다** — NFR-4 가 금하는
+	// 것은 대화의 본문이고, 어느 모델이 답했는가는 그것이 아니다.
+	Model string
 }
 
 // ObserveContext 는 관측 하나를 멤버에 반영한다 (FR-CBG-3).
@@ -135,7 +163,34 @@ func (s *Store) ObserveContext(toolID string, obs ContextObservation, policy Con
 	}
 	if obs.HasBytes {
 		cur.ContextBytes = obs.Bytes
-		cur.ContextRatio = policy.Ratio(obs.Bytes)
+	}
+	if obs.HasTokens {
+		cur.ContextTokens = obs.Tokens
+	}
+	/**
+	 * UX_BATCH6_SRS FR-CTX-5·6·7: 이 멤버의 컨텍스트 창.
+	 *
+	 * 순서가 요구사항이다. ① 모델이 말하면 그것이 이긴다. ② 아직 모르면 정책의
+	 * 값(설정, 기본 200k)에서 출발한다. ③ 관측이 그 창을 넘으면 넓힌다 —
+	 * 창을 넘는 사용률은 불가능한 관측이므로 창이 더 크다는 뜻이고, 그것은
+	 * 추측이 아니라 확정이다.
+	 *
+	 * 넓힌 값은 남는다 (FR-CTX-7). 압축으로 사용량이 내려가도 창은 그대로다.
+	 */
+	if w, ok := WindowForModel(obs.Model); ok {
+		cur.ContextLimit = w
+	}
+	if cur.ContextLimit <= 0 {
+		cur.ContextLimit = policy.withDefaults().LimitTokens
+	}
+	tokens := float64(cur.ContextTokens)
+	if tokens <= 0 {
+		// FR-CTX-4: 실측을 얻지 못했다 — 종전의 바이트 추정으로 떨어진다.
+		tokens = policy.EstimateTokens(cur.ContextBytes)
+	}
+	if tokens > 0 {
+		cur.ContextLimit = WidenWindow(cur.ContextLimit, tokens)
+		cur.ContextRatio = tokens / cur.ContextLimit
 	}
 	// 크기를 한 번도 재지 못했고 압축 신호도 없으면 등급을 매길 근거가 없다 —
 	// 빈 채로 둔다 (FR-CBG-5).
@@ -152,8 +207,8 @@ func (s *Store) ObserveContext(toolID string, obs ContextObservation, policy Con
 	// 그래서 압축 뒤에 등급이 안 내려가는 것은 단조성 때문이 아니다. compactCount
 	// 가 남아 있는 한 policy.Level 이 크기를 보지 않기 때문이며(FR-CBG-4), 그것은
 	// **압축이 일어난 뒤에만** 참이다. 둘을 섞어 읽으면 없는 불변을 믿게 된다.
-	if cur.ContextBytes > 0 || cur.CompactCount > 0 {
-		level := policy.Level(cur.ContextBytes, cur.CompactCount)
+	if cur.ContextBytes > 0 || cur.ContextTokens > 0 || cur.CompactCount > 0 {
+		level := policy.Grade(cur.ContextRatio, cur.CompactCount)
 		if levelRank(level) > levelRank(cur.ContextLevel) && level != LevelOK {
 			entered = level
 		}
@@ -198,6 +253,10 @@ type SucceedSpec struct {
 	// Summary 는 인수인계 요약이다. 비어 있으면 요약 없는 승계이며, 그 사실이
 	// 프리앰블에 명시된다 (V-CBG-7).
 	Summary string
+	// HandoffAsked 는 **요약을 청했는가**다 (UX_BATCH6_SRS FR-RUN-4). 청하지도
+	// 못한 경우(전임자의 도구가 이미 죽었다)와 청했는데 시한을 넘긴 경우는
+	// 다르다 — 앞은 기다릴 이유가 없고, 뒤는 오는 중일 수 있다.
+	HandoffAsked bool
 }
 
 // Succeed 는 멤버 하나를 새 멤버로 교체한다 (FR-CBG-9).
@@ -264,6 +323,11 @@ func (s *Store) Succeed(spec SucceedSpec) (prev Member, next Member, err error) 
 	old.SucceededBy = id
 	if sum := strings.TrimSpace(spec.Summary); sum != "" {
 		old.HandoffSummary = sum
+		old.HandoffPending = false
+	} else {
+		// UX_BATCH6_SRS FR-RUN-4: 요약 없이 승계했다 — 청한 것이 아직 오는
+		// 중일 수 있다. 표식을 남겨 후임의 프리앰블이 그것을 기다리게 한다.
+		old.HandoffPending = spec.HandoffAsked
 	}
 	// Outcome 은 건드리지 않는다 (FR-CBG-9). 승계는 결말이 아니다.
 
@@ -301,6 +365,9 @@ func (s *Store) Handoff(senderToolID, claimedMemberID, summary string) (Member, 
 		return Member{}, ErrRunMemberMismatch
 	}
 	m.HandoffSummary = strings.TrimSpace(summary)
+	// UX_BATCH6_SRS FR-RUN-4: 청한 것이 도착했다. 기다리던 쪽이 이 표식을 보고
+	// 멈춘다 — 늦게 왔어도 버려지지 않는다.
+	m.HandoffPending = false
 	out := *m
 	if err := s.save(); err != nil {
 		return Member{}, err
@@ -318,6 +385,57 @@ func (s *Store) indexOfMember(memberID string) (runIdx, memberIdx int) {
 		}
 	}
 	return -1, -1
+}
+
+// HandoffWaiting 은 이 멤버의 전임자가 **아직 요약을 쓰고 있는가**를 답한다
+// (UX_BATCH6_SRS FR-RUN-4).
+//
+// 승계로 만들어지지 않았거나, 요약이 이미 있거나, 청한 적이 없으면 거짓이다.
+// 프리앰블을 만드는 종단이 이것으로 기다릴지 정한다.
+func (s *Store) HandoffWaiting(memberID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ri, mi := s.indexOfMember(memberID)
+	if ri < 0 {
+		return false
+	}
+	from := s.runs[ri].Members[mi].SucceededFrom
+	if from == "" {
+		return false
+	}
+	for _, c := range s.runs[ri].Members {
+		if c.ID != from {
+			continue
+		}
+		return c.HandoffPending && strings.TrimSpace(c.HandoffSummary) == ""
+	}
+	return false
+}
+
+// GiveUpHandoff 는 기다림을 접는다 (FR-RUN-5). 표식만 지우며 요약을 만들지
+// 않는다 — 없는 것은 없다고 말해야 한다 (V-CBG-7).
+func (s *Store) GiveUpHandoff(memberID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ri, mi := s.indexOfMember(memberID)
+	if ri < 0 {
+		return
+	}
+	from := s.runs[ri].Members[mi].SucceededFrom
+	if from == "" {
+		return
+	}
+	for i := range s.runs[ri].Members {
+		if s.runs[ri].Members[i].ID != from {
+			continue
+		}
+		if !s.runs[ri].Members[i].HandoffPending {
+			return
+		}
+		s.runs[ri].Members[i].HandoffPending = false
+		_ = s.save()
+		return
+	}
 }
 
 // HandoffClause 는 승계로 만들어진 멤버의 프리앰블에 들어가는 인수인계 절이다

@@ -10,7 +10,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, rmTree, switchToEditorRoot } from './fixtures';
+import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
 import { TMP, realPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
@@ -91,6 +91,7 @@ async function enter(page: Page, request: APIRequestContext) {
     () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
     undefined, { timeout: 15000 });
   await switchToEditorRoot(page, ROOT);
+  await openExplorerSide(page);
   await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
 }
 

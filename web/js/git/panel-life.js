@@ -145,6 +145,10 @@ Object.assign(GitPanel.prototype, {
     for(const el of this._els.values()) if(el.parentNode) el.parentNode.removeChild(el);
     this._els.clear();
     this.obs.detach(this);
+    // UX_BATCH6_SRS FR-GLV-4: 목록에서 빠진 **뒤에** 다시 세운다. `detach()` 안의
+    // 재정착은 아직 자신이 목록에 있으므로, 이 패널이 마지막이었을 때에도 남은
+    // 것으로 세었다 — 그 판정을 여기서 한 번 더 지나 바로잡는다.
+    this.obs.resettle();
   },
 
   detach(){

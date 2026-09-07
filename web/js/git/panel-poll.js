@@ -155,6 +155,10 @@ Object.assign(GitPanel.prototype, {
       // 늘어나고(`post()` 와 잡의 `RecordWrite`), 터미널에서 친 git 은 기록에
       // 남지 않는다 — 폴링이 받아 봐야 늘 같은 값이다. 받는 자리는 쓰기가 끝난
       // 곳(FR-GVR-3)과 사용자가 명시적으로 누른 새로고침(FR-GVR-6)뿐이다.
+      // FR-GLV-1 / D-8: 새로고침이 자동 경로보다 **적게** 하지 않는다. 오히려
+      // 하나 더 한다 — `withConsole` 은 "사용자가 눌렀다" 의 표식이고, 그때는
+      // 거부 표식(FR-GLV-6)도 넘어 다시 시도한다.
+      if(this._diffView) jobs.push(this.reloadDiff(!!withConsole));
       if(withConsole&&this._consoleView) jobs.push(this._consoleView.reload());
       if(this._worktreesView) jobs.push(this._worktreesView.reload());
       if(this._submodulesView) jobs.push(this._submodulesView.reload());
@@ -369,6 +373,9 @@ Object.assign(GitPanel.prototype, {
     // signature(log 응답이 싣는다)와 견주므로, 같은 시각이면 요청이 나가지 않는다 —
     // 무조건 한 번 더 받으면 늦게 온 기준선이 펼친 상세와 뒷장을 덮는다 (실측).
     else this.obs.reloadStaleViewsAll(this._lastSig);
+    // FR-GLV-1: Diff 는 위 갈래 **밖**이다. 근거가 되는 것이 관측이 아니라 파일의
+    // 내용이므로 fp 가 같아도 낡을 수 있다 — 그래서 매 회차 지난다.
+    this.obs.reloadDiffAll();
     this._errMsg=null; this._staleNote=false;
     // 관측이 성공했다 — 저장소가 아니라는 판정은 더 이상 참이 아니다
     // (FR-RTU-25). `git init` 뒤의 첫 성공이 이 자리를 지난다.
@@ -431,6 +438,23 @@ Object.assign(GitPanel.prototype, {
       // 놓을 대상이 없다 (그래서 `setRepo` 도 no-op 이다).
       this._notRepo=true;
       this.setRepo(null);
+      /**
+       * UX_BATCH6_SRS FR-DSP-1a: **확정된 "저장소가 아니다" 는 폴링을 멈춘다.**
+       *
+       *   이전 동작: 사유만 그리고 주기는 그대로 돌았다. `_applyCadence` 는 성공
+       *             경로에만 있으므로 실패 백오프도 걸리지 않아, 기준 주기(3초)로
+       *             영원히 물었다
+       *   새  동작: `git_missing` 과 같이 멈춘다
+       *   이유:     사이드의 기본이 Changes 가 되면서(FR-DSP-1) **저장소가 아닌
+       *             루트**도 그 표면을 갖게 됐다 — `~` 와 메모장이 그렇다. 그
+       *             자리에서 물을 것은 없다: 화면에 서는 것은 목록이 아니라
+       *             `git init` 버튼이다
+       *
+       * 되살아나는 길은 셋이다 — 창·탭에 포커스가 오면 `signal()` 이 한 번 묻고
+       * (그쪽은 `_pollOk` 를 보지 않는다), 새로고침 버튼이 묻고, 이 창의
+       * `git init`(FR-RTU-26)이 성공하면 그 자리에서 다시 선다.
+       */
+      this._stop();
       this.obs.paintAll();
       return;
     }

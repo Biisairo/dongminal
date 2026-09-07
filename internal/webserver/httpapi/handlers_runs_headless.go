@@ -49,18 +49,20 @@ func (s *Server) apiToolsHeadless(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		Cwd string `json:"cwd"`
+		// UX_BATCH6_SRS FR-BGP-3: 띄울 명령. 비면 종전대로 로그인 셸이다.
+		Command string `json:"command"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
 		return
 	}
-	toolID, err := s.createHeadlessTool(body.Cwd)
+	toolID, err := s.createHeadlessTool(body.Cwd, body.Command)
 	if err != nil {
 		writeToolIOError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, map[string]any{
-		"toolId": toolID, "cwd": body.Cwd,
+		"toolId": toolID, "cwd": body.Cwd, "command": body.Command,
 		"cols": headlessCols, "rows": headlessRows, "headless": true,
 	})
 }
@@ -72,13 +74,21 @@ func (s *Server) apiToolsHeadless(w http.ResponseWriter, r *http.Request) {
 // 살아있는 도구" 가 되어 ⏻ 목록에도 탭에도 없는 — 어디서도 닿을 수 없는 상태가
 // 된다. 기존 detach 경로가 대상 확정을 백그라운드 해제보다 앞세우는 것과 같은
 // 이유다 (FR-BGR-5).
-func (s *Server) createHeadlessTool(cwd string) (string, error) {
-	tool, err := s.Tools.Create(cwd, headlessCols, headlessRows, toolhub.Placement{})
+//
+// UX_BATCH6_SRS FR-BGP-3·4: `command` 가 있으면 **그 명령이 도구의 프로세스**다.
+// 셸을 띄우고 그 안에 타이핑하던 종전 방식과 달리, 명령이 끝나면 도구가 죽고
+// 죽으면 백그라운드 목록에서 사라진다 — "명령이 끝났다" 를 따로 감지하는 자리가
+// 없어야 한다는 것이 요구다 ("프로세스가 있으면 살아있고 없으면 죽는것").
+//
+// 비면 종전대로 로그인 셸이다. Run 의 멤버 기동(`run launch | send-input`)이 그
+// 경로를 그대로 쓴다 (FR-BGP-5).
+func (s *Server) createHeadlessTool(cwd, command string) (string, error) {
+	tool, err := s.Tools.Create(cwd, headlessCols, headlessRows, toolhub.Placement{Command: command})
 	if err != nil {
 		return "", err
 	}
 	s.Tools.SetBackground(tool.ID, true)
-	log.Printf("[run] headless tool=%s cwd=%s %dx%d", tool.ID, cwd, headlessCols, headlessRows)
+	log.Printf("[run] headless tool=%s cwd=%s cmd=%q %dx%d", tool.ID, cwd, command, headlessCols, headlessRows)
 	// UX_REVISION_SRS FR-BGV-1: 브라우저의 ⏻ 목록은 **자기 행동**(detach·복귀)과
 	// SSE 재연결로만 갱신된다. 서버가 만든 백그라운드 도구를 알리지 않으면 배지가
 	// 0 인 채로 남고, 사용자는 모달을 열거나 새로고침해야 그것을 본다 —

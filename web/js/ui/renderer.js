@@ -16,12 +16,64 @@ class Renderer {
     }
     this.app._applyMobileMode();
     this._rSbTabs();this._rLists();this._rTopbar();this._rLayout();
+    // UX_BATCH6_SRS FR-SCR-2: 갈무리해 둔 스크롤을 되돌린다. **여기여야 한다** —
+    // 요소가 문서에 붙은 뒤에만 `scrollTop` 이 값을 받는다.
+    this._restoreScroll();
     this.app._updateCwd();
     this.app._updateStatusBar();
     // Apply window focus overlay after every render so the DOM is
     // guaranteed to exist (BroadcastChannel may trigger _applyFocusOverlay
     // before the first render completes).
     this.app._applyFocusOverlay();
+  }
+
+  /**
+   * UX_BATCH6_SRS FR-SCR-1: 다시 붙을 캐시 DOM 의 스크롤을 갈무리한다.
+   *
+   *   이전 동작: `_rSide` 가 `.ed-side-body` 를 매 render 마다 새로 만들고 캐시된
+   *             `.git-view` 를 그리로 옮겼다. 문서에서 떼는 순간 그 하위의
+   *             스크롤 위치는 브라우저가 버린다 — 변경 하나를 클릭할 때마다
+   *             목록이 맨 위로 돌아간 자리가 그것이다 (SRS §2.6)
+   *   새  동작: 옮기기 **전에** 재고, render 가 끝난 뒤 되돌린다
+   *   이유:     터미널은 이미 같은 대비를 갖고 있다 (`_rLayout` 의
+   *             `.xterm-viewport`). 없던 것이 git 뷰 쪽이다
+   *
+   * **어느 것이 스크롤러인지 묻지 않는다** — 하위 전부를 훑는다. 렌더러가
+   * `.git-files` 같은 안쪽 이름을 알면 CSS 가 바뀔 때마다 여기가 낡는다.
+   *
+   * FR-SCR-4: 0 은 기록하지 않는다. 복원할 것이 없고, 새로 그려진 요소의 자연스러운
+   * 자리를 0 으로 덮는 일도 없어야 한다.
+   */
+  _keepScrollAll(){
+    const keep=this._scrollKeep=[];
+    const push=n=>{
+      const t=n.scrollTop,l=n.scrollLeft;
+      if(t||l) keep.push([n,t,l]);
+    };
+    const take=el=>{
+      // 이미 떼여 있으면 잴 것이 없다 — 떨어진 요소의 `scrollTop` 은 0 이다.
+      if(!el||!el.isConnected) return;
+      push(el);
+      for(const n of el.querySelectorAll('*')) push(n);
+    };
+    const app=this.app;
+    // git 뷰 — 사이드의 Changes 와 본문의 여섯 (FR-SCR-3).
+    //
+    // **탐색기와 터미널은 여기 없다.** 둘은 이미 자기 대비를 갖고 있다 —
+    // `FileTree.mount` 의 `_scrollY`(FR-EDT-68)와 `_rLayout` 의
+    // `.xterm-viewport`. 같은 일을 두 벌로 하면 어느 쪽이 이겼는지 말할 수 없다.
+    if(app._gitPanels) for(const p of app._gitPanels.values()) for(const el of p._els.values()) take(el);
+  }
+
+  _restoreScroll(){
+    const list=this._scrollKeep; this._scrollKeep=null;
+    if(!list) return;
+    for(const [n,t,l] of list){
+      // 이번 render 에서 결국 붙지 않은 요소는 되돌릴 자리가 없다.
+      if(!n.isConnected) continue;
+      if(t) n.scrollTop=t;
+      if(l) n.scrollLeft=l;
+    }
   }
 
   /**
@@ -158,6 +210,10 @@ class Renderer {
   _rLayout(){
     const area=document.getElementById('area');
     const app=this.app;
+    // FR-SCR-1: **무엇보다 먼저** 잰다. 아래에서 `.ed-win`·`.pn` 을 지우는 순간
+    // 그 안의 캐시 DOM 이 문서에서 떨어지고, 떨어진 요소의 스크롤 위치는
+    // 브라우저가 버린다 (SRS §2.6).
+    this._keepScrollAll();
     for(const p of app.tools.values()){
       if(p.el.classList.contains('vis')){
         const vp=p.el.querySelector('.xterm-viewport');
