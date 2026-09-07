@@ -1,10 +1,10 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { mkdtempSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, gitFixture, cleanGitFixture, rmTree } from './fixtures';
 import { TMP, tmpPath, realPath, cssPath } from './osenv';
 
 /**
@@ -48,7 +48,7 @@ const copyFx = makeCopyFx(FIXTURES);
  */
 function addWorktree(repo: string, name: string, opts: { detached?: boolean } = {}) {
   const dir = mkdtempSync(join(TMP, 'dm-wtrepo-'));
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); // git 이 직접 만들게 둔다
+  rmTree(dir); // git 이 직접 만들게 둔다
   const args = opts.detached
     ? ['-C', repo, 'worktree', 'add', '--detach', dir, 'HEAD']
     : ['-C', repo, 'worktree', 'add', '-b', name, dir, 'main'];
@@ -63,7 +63,7 @@ const mkWt = (repo: string, name: string, opts?: { detached?: boolean }) => {
   return p;
 };
 test.afterAll(() => {
-  for (const p of made) rmSync(p, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  for (const p of made) rmTree(p);
 });
 
 // 사용자가 `+ Add` 로 하는 일 그대로다 — 사이드바 버튼이 부르는 종단이 이것이다

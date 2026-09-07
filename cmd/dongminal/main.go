@@ -402,7 +402,9 @@ func main() {
 	// 데몬 진입점. `dongminal d` 이거나 argv[0] basename 이 dongminald 인
 	// 경우다 — 내부 진입점이므로 액션 목록에 없다 (FR-CLI-8). startDaemon()
 	// 이 `exe d` 로 자식을 띄우는 계약을 유지한다.
-	if (len(os.Args) > 1 && os.Args[1] == "d") || filepath.Base(os.Args[0]) == "dongminald" {
+	// argv[0] 은 확장자를 떼고 본다 — Windows 의 실행 파일은 `dongminald.exe` 다
+	// (`runtimebin.helperName` 과 같은 근거).
+	if (len(os.Args) > 1 && os.Args[1] == "d") || runtimebin.HelperName(os.Args[0]) == "dongminald" {
 		home, err := resolveHome()
 		if err != nil {
 			log.Fatal(err)

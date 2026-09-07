@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, addEditorRoot } from './fixtures';
+import { test, expect, addEditorRoot, rmTree } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // SOFT_RELOAD_SRS §5 — V-SRL-1~9.
@@ -231,6 +231,6 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
       await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(path.join(sub, 'b.txt'))}"]`))
         .toBeVisible({ timeout: 15000 });
 
-      fs.rmSync(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      rmTree(base);
     });
 });

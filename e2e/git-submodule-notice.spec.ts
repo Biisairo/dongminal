@@ -244,7 +244,7 @@ test.describe('묶음 N — 툴팁과 안내문', () => {
       await expect(note).toContainText('다른 저장소', { timeout: 10000 });
       await expect(note).not.toContainText('서브모듈');
     } finally {
-      fs.rmSync(nested, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      rmTree(nested);
     }
   });
 });

@@ -1,10 +1,10 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { mkdtempSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, rmTree } from './fixtures';
 import { TMP, realPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.1 — 묶음 A 진행 중 작업 (FR-GIT-251·252, 검증 V176).
@@ -70,7 +70,7 @@ const opKind = (page: Page) =>
 test.describe('묶음 A — 진행 중 작업의 출구 (V176)', () => {
   const dirs: string[] = [];
   test.afterAll(() => {
-    for (const d of dirs) rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    for (const d of dirs) rmTree(d);
   });
 
   test('A10 (V176 / FR-GIT-251·252): 멈춘 머지에 상태와 출구가 보인다 — merge 에 Skip 은 없다', async ({ page }) => {

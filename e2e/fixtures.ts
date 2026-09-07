@@ -563,15 +563,21 @@ export async function openGit(page: any, repo: string) {
   // `element(s) not found` 로 무너졌다 (실측).
   const mobile = await page.evaluate(() => document.body.classList.contains('mobile'));
   if (!mobile) {
-    await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 20000 });
   }
   // 첫 관측. 이것이 닿아야 그룹 개수·버튼 활성이 뜻을 갖는다.
   //
   // 관측의 **주인**까지 확인하려 `gitPanel.repo === repo` 를 걸어 봤으나 그 값은
   // Repo 창의 root 라 보낸 경로와 다를 수 있어 영원히 기다렸다 — 되돌렸다.
+  //
+  // 상한이 30초인 것은 **병렬의 부하** 때문이다 (E2E_PARALLEL_SRS D-6). 이 대기가
+  // 딛는 것은 `git status` 한 바퀴이고, 같은 기계에서 도는 다른 워커의 `git` 들과
+  // 자리를 다툰다 — 20초에서 회차마다 서로 다른 git 스펙 몇이 여기 걸렸고, 하나씩
+  // 격리해 돌리면 모두 통과했다. 재는 것은 "관측이 닿는가" 이지 "몇 초에 닿는가"
+  // 가 아니다.
   await page.waitForFunction(
     () => !!(window as any).app?.gitPanel?.statusOf(),
-    undefined, { timeout: 20000 });
+    undefined, { timeout: 30000 });
 }
 
 /**
@@ -721,6 +727,28 @@ export async function switchToEditorRoot(page: any, root: string, timeout = 1500
 }
 
 /**
+ * **쓸 수 있는 빈 디렉터리**의 자리를 준다 (FR-CEM-25).
+ *
+ * "지우고 새로 만든다" 는 POSIX 에서는 언제나 되지만 Windows 에서는 아니다 —
+ * 서버가 그 자리를 관측하고 있으면 `EBUSY` 다. 그때 실패로 끝내면 검사가 **시작도
+ * 못 한다**.
+ *
+ * 지울 수 있으면 그 자리를 쓰고, 지울 수 없으면 **옆에 새 자리를 판다.** 검사가
+ * 원한 것은 그 이름이 아니라 "깨끗한 자리" 이므로 뜻이 달라지지 않는다.
+ */
+export function freshDir(p: string): string {
+  try {
+    rmSync(p, { recursive: true, force: true, maxRetries: 20, retryDelay: 150 });
+    mkdirSync(p, { recursive: true });
+    return p;
+  } catch {
+    const alt = p + '-' + Date.now().toString(36);
+    mkdirSync(alt, { recursive: true });
+    return alt;
+  }
+}
+
+/**
  * 디렉터리를 통째로 복사한다 (FR-CEM-14).
  *
  * **`cp -R` 을 부르지 않는다.** `cp` 는 git bash 의 `usr/bin` 에 있고 그 자리는
@@ -741,8 +769,9 @@ export function copyDir(src: string, dst: string) {
  */
 export function makeCopyFx(root: string) {
   return (name: string, tag: string): string => {
-    const dst = join(root, 'copy-' + tag);
-    rmSync(dst, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    // 자리를 먼저 확보한다 (FR-CEM-25) — 앞 검사의 사본을 서버가 아직 붙들고
+    // 있으면 그 이름은 쓸 수 없고, 그때는 옆자리가 답이다.
+    const dst = freshDir(join(root, 'copy-' + tag));
     copyDir(join(root, name), dst);
     // 서버가 저장하는 것과 같은 모양이다 (FR-CEM-11) — `EvalSymlinks` 를 지난 뒤의
     // **그 OS 의 정규형**이다. `osenv.realPath` 를 지나는 것이 규약인 이유는

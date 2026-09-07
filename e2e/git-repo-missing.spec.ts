@@ -1,9 +1,9 @@
-import { mkdirSync, renameSync, rmSync } from 'fs';
+import { mkdirSync, renameSync } from 'fs';
 import { dirname, join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGit, waitForInit, gitFixture, cleanGitFixture, copyDir, rmTreeHard, rmTree } from './fixtures';
+import { test, expect, openGit, waitForInit, gitFixture, cleanGitFixture, copyDir, rmTreeHard, rmTree, freshDir } from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_REPO_MISSING_SRS — 소실의 확정과 알림, 그리고 실패 백오프.
@@ -27,8 +27,7 @@ function caseDir(tag: string) {
 }
 function copyFx(tag: string) {
   const shell = caseDir(tag);
-  rmSync(shell, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-  mkdirSync(shell, { recursive: true });
+  freshDir(shell);
   const dst = join(shell, 'repo');
   copyDir(join(FIXTURES, 'basic'), dst);
   return realPath(dst);

@@ -1,10 +1,10 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { mkdtempSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, waitRows, openRowMenu, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, waitRows, openRowMenu, gitFixture, cleanGitFixture, rmTree } from './fixtures';
 import { TMP, tmpPath, realPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.2 · §3.5 — 묶음 B 브랜치 동작 (FR-GIT-253~259 · 268).
@@ -148,7 +148,7 @@ async function passConfirm(page: Page) {
 test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
   const dirs: string[] = [];
   test.afterAll(() => {
-    for (const d of dirs) rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    for (const d of dirs) rmTree(d);
   });
 
   test('BR1 (V178 / FR-GIT-253): rename 이 목록·상태·status.branch 에 반영된다', async ({ page }) => {

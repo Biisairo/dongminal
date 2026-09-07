@@ -1,10 +1,9 @@
 import { execFileSync } from 'child_process';
-import { rmSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, gitFixture, cleanGitFixture, copyDir } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, gitFixture, cleanGitFixture, copyDir, freshDir } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.3 — 묶음 C 태그 동작. 검증 V187~V190 (FR-GIT-260~262).
@@ -49,8 +48,8 @@ const copyFx = makeCopyFx(FIXTURES);
 // 각 테스트가 자기 원격만 건드리게 한다.
 function copyRepoWithRemote(tag: string) {
   const repo = copyFx('with-remote', tag);
-  const bare = join(FIXTURES, 'copy-' + tag + '-remote.git');
-  rmSync(bare, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  let bare = join(FIXTURES, 'copy-' + tag + '-remote.git');
+  bare = freshDir(bare);
   copyDir(join(FIXTURES, 'remote.git'), bare);
   execFileSync('git', ['-C', repo, 'remote', 'set-url', 'origin', bare], { stdio: 'pipe' });
   return { repo, bare: realPath(bare) };

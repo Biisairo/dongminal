@@ -390,7 +390,8 @@ test.describe('FR-GIT-282 — 헤더의 리포 전환 드롭다운', () => {
     await expect(menu.locator('.git-menu-item')).toHaveCount(2);
     await expect(menu.locator('.git-menu-item.cur')).toHaveCount(1);
 
-    await menu.locator(`.git-menu-item[data-id="${other}"]`).click();
+    // 경로를 CSS 속성 선택자에 넣는 자리다 — 이스케이프를 거른다 (FR-CEM-16).
+    await menu.locator(`.git-menu-item[data-id="${cssPath(other)}"]`).click();
     await expect(head.locator('.git-head-repo')).toHaveText('with-remote', { timeout: 10000 });
     await expect(head.locator('.git-head-repo')).toHaveAttribute('title', other);
     // 헤더만 바뀌고 목록이 앞 리포의 것이면 사용자는 남의 변경을 자기 것으로 읽는다.

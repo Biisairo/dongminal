@@ -1,10 +1,10 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { mkdtempSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, clickGitView, openRowMenu } from './fixtures';
+import { test, expect, waitForInit, clickGitView, openRowMenu, rmTree } from './fixtures';
 import { TMP, realPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.4 — 묶음 D 커밋 동작 (FR-GIT-263~267, 검증 V191~V194).
@@ -146,7 +146,7 @@ test.describe('묶음 D — 커밋 동작 (V191~V194)', () => {
     return d;
   };
   test.afterAll(() => {
-    for (const d of dirs) rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    for (const d of dirs) rmTree(d);
   });
 
   // ── V191: 머지 커밋의 부모를 묻는다 ──

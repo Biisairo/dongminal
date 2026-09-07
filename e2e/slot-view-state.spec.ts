@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS, gitFixture, cleanGitFixture, copyDir, rmTree, rmTreeHard } from './fixtures';
+import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS, gitFixture, cleanGitFixture, copyDir, rmTree, rmTreeHard, freshDir } from './fixtures';
 import { TMP, tmpPath, realPath, cssPath } from './osenv';
 
 // 칸별 시선 — SLOT_VIEW_STATE_SRS §8
@@ -697,8 +697,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
   // 상태를 바꾸는 검사는 픽스처를 복사해 쓴다 — 원본을 오염시키면 뒤 검사가 앞
   // 검사의 순서에 묶인다.
   function copyFx(name: string, tag: string) {
-    const dst = path.join(FIXTURES, 'copy-' + tag);
-    fs.rmSync(dst, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    const dst = freshDir(path.join(FIXTURES, 'copy-' + tag));
     copyDir(path.join(FIXTURES, name), dst);
     return realPath(dst);
   }

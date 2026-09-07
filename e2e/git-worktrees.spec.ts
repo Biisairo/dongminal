@@ -1,10 +1,10 @@
 import { execFileSync } from 'child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdtempSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, rmTree } from './fixtures';
 import { TMP, tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_REVIEW4_SRS §3.6.5 — I7 Worktrees 탭. 검증 V143~V152 (FR-GIT-28 개정·240~245).
@@ -90,7 +90,7 @@ const wtRows = (page: Page) => wt(page).locator('.git-wt-row');
 // 영역(user/run root) 밖이므로 소유는 무조건 outside 다. 서버 API 를 쓰지 않는다.
 function addOutsideWorktree(repo: string, name: string, ref = 'main') {
   const dir = mkdtempSync(join(TMP, 'dm-wt-outside-'));
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); // git worktree add 가 직접 만들게 둔다
+  rmTree(dir); // git worktree add 가 직접 만들게 둔다
   execFileSync('git', ['-C', repo, 'worktree', 'add', '-b', name, dir, ref], { stdio: 'pipe' });
   // 서버가 rev-parse 로 정규화한 값과 비교해야 하므로 여기서도 realpath 한다
   // (macOS 의 /tmp → /private/tmp, e2e/git-changes.spec.ts:25 의 fx() 와 같은 이유).
@@ -504,7 +504,7 @@ test.describe('묶음 N — Worktrees 행의 핀 토글 (FR-GIT-249)', () => {
     await expect(wtRows(page).filter({ hasText: 'v170-gone' })).toHaveCount(1, { timeout: 15000 });
 
     // 목록을 다시 받지 않은 채 대상만 사라지게 한다 — 서버의 rev-parse 가 실패한다.
-    rmSync(wtPath, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    rmTree(wtPath);
     await act(page, 'v170-gone', 'pin').click();
 
     const note = wt(page).locator('.git-wt-note.vis .git-wt-note-msg');
