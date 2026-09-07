@@ -153,7 +153,9 @@ test.describe('Agent activity panel', () => {
         const s = document.querySelector(`#agents-panel .ag-card[data-toolid="${src}"]`)!;
         const d = document.querySelector(`#agents-panel .ag-card[data-toolid="${dst}"]`)!;
         const rect = d.getBoundingClientRect();
-        const y = rect.bottom - 2; // lower half → insert after
+        // 경계에서 2px 만 들어오면 행 높이가 다른 OS 에서 위쪽 절반으로
+        // 반올림될 수 있다 — 아래쪽 절반의 **한가운데**를 겨냥한다.
+        const y = rect.top + rect.height * 0.75; // lower half → insert after
         s.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
         d.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer: dt, clientY: y }));
         // Release far outside the panel — handled by the document-level drop.

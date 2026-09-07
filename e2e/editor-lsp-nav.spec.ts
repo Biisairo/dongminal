@@ -273,18 +273,23 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
     });
 
     // 마우스를 흉내내지 않고 Monaco 에게 그 자리의 호버를 띄우라고 시킨다 —
-    // 재려는 것은 provider 의 속이지 마우스 이동이 아니다.
+    // 재려는 것은 provider 의 속이지 마우스 이동이 아니다. 다만 **편집기가 실제로
+    // 포커스를 쥐어야** 그 명령이 선다: `focus()` 만으로는 부족한 처지가 있어
+    // 화면을 한 번 누른다.
+    await page.locator('.file-editor.vis .monaco-editor').first().click();
     await putCursor(page, 4, 3);
     await page.evaluate(() => {
       const ed = (window as any).app._edActiveEditor()._editor;
       ed.trigger('test', 'editor.action.showHover', null);
     });
 
+    // **물었는가를 먼저 본다.** 말풍선의 글자를 먼저 재면, 요청이 아예 가지 않은
+    // 경우와 갔는데 그려지지 않은 경우가 같은 실패로 보인다 — 그 둘은 고치는
+    // 자리가 다르다 (FR-LSP-23 / D-3: 호버도 현재 텍스트를 싣는다).
+    await expect.poll(() => seen.length, { timeout: 10000 }).toBeGreaterThan(0);
+
     await expect(page.locator('.monaco-editor .monaco-hover').first())
       .toContainText('func helper()', { timeout: 10000 });
-
-    // FR-LSP-23 / D-3: 호버도 현재 텍스트를 싣는다 — 정의 이동과 같은 동기화다.
-    expect(seen.length, '호버 요청이 가지 않았다').toBeGreaterThan(0);
     expect(seen[0].text).toContain('func main()');
     expect(seen[0].root).toBe(ROOT);
   });
@@ -325,11 +330,14 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
       });
     });
 
+    await page.locator('.file-editor.vis .monaco-editor').first().click();
     await putCursor(page, 4, 3);
     await page.evaluate(() => {
       const ed = (window as any).app._edActiveEditor()._editor;
       ed.trigger('test', 'editor.action.showHover', null);
     });
+    // 물었는가를 먼저 본다 (위 검사와 같은 근거).
+    await expect.poll(() => calls, { timeout: 10000 }).toBeGreaterThan(0);
     await expect(page.locator('.monaco-editor .monaco-hover').first())
       .toContainText('func helper()', { timeout: 10000 });
     await page.waitForTimeout(500);

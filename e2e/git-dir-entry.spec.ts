@@ -119,12 +119,20 @@ const stClass = async (page: Page, p: string) =>
   }, p);
 
 // 폴더를 펼친다. 클릭은 조회를 부르므로 하위 행이 나타날 때까지 기다린다.
+//
+// **하위 판정에 `/` 를 굳히지 않는다** — Windows 의 자식은 `…\nested\inner.txt`
+// 라 `sel + '/'` 로는 **결코** 걸리지 않고, 이 대기가 10초를 다 쓴다 (러너 실측).
+// 구분자를 맞춘 뒤에 견준다 (CI_E2E_MATRIX_SRS FR-CEM-11).
 async function expand(page: Page, p: string) {
   await row(page, p).click();
   await page.waitForFunction(
-    (sel) => [...document.querySelectorAll('.ed-tree .ed-row')]
-      .some((e) => (e as HTMLElement).dataset.path!.startsWith(sel + '/')),
-    p, { timeout: 10000 });
+    (sel) => {
+      const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
+      const pre = key(sel).replace(/\/+$/, '') + '/';
+      return [...document.querySelectorAll('.ed-tree .ed-row')]
+        .some((e) => key((e as HTMLElement).dataset.path).startsWith(pre));
+    },
+    p, { timeout: 15000 });
 }
 
 // ── 묶음 S — 서버가 확정한다 (FR-DIR-1~5) ────────────

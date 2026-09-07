@@ -385,7 +385,10 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     expect(t.map((x) => x.file).sort()).toEqual([
       j(R, 'docs', 'a.txt'), j(R, 'src2', 'deep', 'c.txt'),
     ]);
-    expect(t.find((x) => x.file.endsWith('docs/a.txt'))!.name).toBe('a.txt');
+    // 꼬리를 그대로 견주지 않는다 — Windows 의 경로는 `docs\a.txt` 다 (FR-CEM-11).
+    const moved = t.find((x) => x.file.replace(/\\/g, '/').endsWith('docs/a.txt'));
+    expect(moved, '옮긴 파일의 탭을 찾지 못했다').toBeTruthy();
+    expect(moved!.name).toBe('a.txt');
   });
 
   test('O9 (V-EDT-70 / FR-EDT-91): 삭제되면 그 탭이 닫힌다 — 폴더면 하위 전부', async ({ page, request }) => {

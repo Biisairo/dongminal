@@ -939,7 +939,9 @@ async function dragPin(page: Page, src: string, dst: string, before = true) {
     const from = document.querySelector(`#repo-entries .ed-entry[data-git-repo="${String(s).replace(/\\/g, '\\\\')}"]`)!;
     const to = document.querySelector(`#repo-entries .ed-entry[data-git-repo="${String(d).replace(/\\/g, '\\\\')}"]`)!;
     const r = to.getBoundingClientRect();
-    const y = b ? r.top + 2 : r.bottom - 2;
+    // 경계에서 2px 만 들어오면 행 높이가 다른 OS 에서 반대쪽 절반으로 반올림될
+    // 수 있다(러너 실측: 드래그가 커밋되지 않았다) — 각 절반의 한가운데를 겨냥한다.
+    const y = b ? r.top + r.height * 0.25 : r.top + r.height * 0.75;
     from.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
     to.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer: dt, clientY: y }));
     to.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt, clientY: y }));
@@ -995,7 +997,8 @@ test.describe('UI 개정 — 핀 드래그 정렬 (FR-GIT-223)', () => {
       const to = document.querySelector(`#repo-entries .ed-entry[data-git-repo="${String(d).replace(/\\/g, '\\\\')}"]`)!;
       const r = to.getBoundingClientRect();
       from.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
-      to.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer: dt, clientY: r.bottom - 2 }));
+      to.dispatchEvent(new DragEvent('dragover',
+        { bubbles: true, dataTransfer: dt, clientY: r.top + r.height * 0.75 }));
       // 목록 밖(본문)에서 손을 뗀다.
       document.getElementById('area')!
         .dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt, clientY: 5 }));

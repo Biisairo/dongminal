@@ -396,7 +396,7 @@ func (m *Manager) Remove(s RemoveSpec) Result {
 		res.Residue = ResidueDirty
 		return res
 	}
-	if _, err := m.git(s.Repo, "worktree", "remove", s.Path); err != nil {
+	if err := m.removeWithRetry(s); err != nil {
 		// 조회·제거 실패를 "사라졌다"의 증거로 쓰지 않는다 — prune 뒤 실제로
 		// 사라졌는지 재확인하고, 아니면 잔여물로 보고한다.
 		_, _ = m.git(s.Repo, "worktree", "prune")
@@ -408,6 +408,31 @@ func (m *Manager) Remove(s RemoveSpec) Result {
 	res.Removed = true
 	m.deleteBranch(s, &res)
 	return res
+}
+
+// removeWithRetry 는 `git worktree remove` 를 **잠깐 되풀이한다** (FR-WKT-18).
+//
+// Windows 는 어느 프로세스의 현재 디렉터리이거나 열린 핸들이 있는 폴더를 지우지
+// 못한다. 그런데 그 폴더를 붙들고 있는 것이 **대개 우리 자신**이다 — 이 서버는
+// 핀된 자리를 쉬지 않고 관측하며 `git` 을 띄운다. 그러면 사용자가 제거를 눌러도
+// "git 이 제거하지 못했습니다" 만 보고, 그 사유는 그의 것이 아니다(러너 실측).
+//
+// 관측의 틈은 짧고 주기적이므로 몇 번 되풀이하면 만난다. 끝내 안 되면 그때는
+// 정직하게 실패다 — 잠금의 주인이 우리가 아닐 수 있고, 그 사실을 삼키면 안 된다.
+//
+// POSIX 에서는 첫 시도가 성공하므로 이 함수가 하는 일이 없다.
+func (m *Manager) removeWithRetry(s RemoveSpec) error {
+	const tries = 6
+	var err error
+	for i := 0; i < tries; i++ {
+		if _, err = m.git(s.Repo, "worktree", "remove", s.Path); err == nil {
+			return nil
+		}
+		if i < tries-1 {
+			time.Sleep(250 * time.Millisecond)
+		}
+	}
+	return err
 }
 
 // deleteBranch 는 머지된 브랜치만 지운다. 남으면 잔여물이다 — 사용자의 커밋을
