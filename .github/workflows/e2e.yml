@@ -84,6 +84,12 @@ jobs:
           git config --global init.defaultBranch main
           git config --global user.name  'dongminal e2e'
           git config --global user.email 'e2e@example.invalid'
+          # 줄바꿈을 건드리지 않는다 (FR-CEM-24). Git for Windows 의 기본값은
+          # `core.autocrlf=true` 라 체크아웃이 `\n` 을 `\r\n` 으로 바꾼다 —
+          # 픽스처가 쓴 내용과 검사가 읽은 내용이 그 한 글자만큼 갈리고,
+          # 실패는 "A 를 기대했는데 A 가 왔다" 처럼 읽혀 원인을 감춘다.
+          git config --global core.autocrlf false
+          git config --global core.eol lf
 
       - name: 의존
         run: npm ci

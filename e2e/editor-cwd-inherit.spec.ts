@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, waitSettled } from './fixtures';
 import { TMP, realPath } from './osenv';
 // @ts-ignore
 import * as fs from 'fs';
@@ -51,6 +51,7 @@ async function gotoFresh(page, request) {
   });
   await page.goto('/');
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+  await waitSettled(page);
 }
 
 function makeFileInDir(): { filePath: string; expectedCwd: string } {

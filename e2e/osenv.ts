@@ -71,6 +71,25 @@ export function realPath(p: string): string {
 }
 
 /**
+ * 앱이 절대경로를 만드는 **그 규약**으로 잇는다 (`web/js/core/helpers.js` 의
+ * `pathJoin`).
+ *
+ * 검사가 `repo + '/' + rel` 로 지어내면 Windows 에서 구분자가 섞인 문자열이 되고
+ * (`D:\…\copy-v161/디렉터리 한글/…`), 그것은 앱이 든 값과 다르다 — 앱은 **잇는
+ * 자리 하나만** 그 경로의 구분자로 바꾸고 `rel` 안쪽(git 이 준 `/`)은 그대로 둔다.
+ * 짐작하지 말고 같은 규칙을 쓴다 (FR-CEM-11).
+ */
+export function appJoin(dir: string, rel: string): string {
+  const d = String(dir == null ? '' : dir);
+  const r = String(rel == null ? '' : rel);
+  if (!d) return r;
+  if (!r) return d;
+  if (d === '/') return '/' + r;
+  const sep = d.includes('\\') && !d.includes('/') ? '\\' : '/';
+  return d.replace(/[\\/]+$/, '') + sep + r;
+}
+
+/**
  * 경로를 **CSS 속성 선택자**에 넣는 형태로 만든다.
  *
  * CSS 에서 역슬래시는 이스케이프 문자다. `[data-path="C:\\Users\\x"]` 를 그대로

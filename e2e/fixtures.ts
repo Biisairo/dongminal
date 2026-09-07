@@ -664,8 +664,25 @@ export function rmTree(p: string) {
  * `EBUSY` 다 — 다만 **잠깐씩 비는 틈이 있다**(폴링 사이). 그 틈을 기다린다:
  * 15초는 폴링 주기의 여러 배다. 그래도 안 되면 던진다.
  */
-export function rmTreeHard(p: string) {
-  rmSync(p, { recursive: true, force: true, maxRetries: 60, retryDelay: 250 });
+export async function rmTreeHard(p: string, limitMs = 45_000) {
+  const until = Date.now() + limitMs;
+  let last: any = null;
+  for (;;) {
+    try {
+      rmSync(p, { recursive: true, force: true, maxRetries: 20, retryDelay: 150 });
+      return;
+    } catch (e) {
+      last = e;
+      if (Date.now() > until) break;
+      // **매번 처음부터 다시 시도한다.** node 의 내부 재시도는 실패한 그 한
+      // 자리만 다시 두드리는데, 우리가 노리는 것은 서버의 폴링이 띄운 `git`
+      // 자식이 **없는 순간**이다 — 그 틈은 짧고 주기적이므로 바깥에서 되풀이해야
+      // 만난다. **잠들며** 기다린다: 바쁜 대기는 이벤트 루프를 막아 브라우저
+      // 조작까지 멈춘다.
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  }
+  throw last;
 }
 
 /**
@@ -696,6 +713,11 @@ export async function switchToEditorRoot(page: any, root: string, timeout = 1500
     },
     root, { timeout, polling: 100 },
   );
+  // **전환을 정착시킨다** (E2E_QUIESCENCE_SRS FR-EQS-6·7). 전환은 워크스페이스를
+  // 바꾸고 그 저장은 뒤따른다 — 비행 중에 서버의 낡은 스냅샷이 적용되면 활성
+  // 창이 조용히 되돌아가고, 그 뒤의 단정은 남의 창을 본다 (러너 실측: 파일은
+  // 옳은 창에 열렸는데 화면에 뜬 트리는 홈이었다).
+  await waitSettled(page);
 }
 
 /**

@@ -840,7 +840,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     const repo = copyFx('basic', 'gone');
     await twoSlotsOnGit(page, repo);
 
-    rmTreeHard(repo);
+    await rmTreeHard(repo);
     /**
      * 폴링이 소실을 관측하면 두 칸 모두 안내로 간다.
      *

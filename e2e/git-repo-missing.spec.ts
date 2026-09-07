@@ -47,7 +47,7 @@ function copyFx(tag: string) {
  * 이름은 바꿀 수 있고, 그 순간 `repo` 의 경로는 존재하지 않는다 — 앱이 보는
  * 사건은 정확히 같다. 옮긴 껍데기는 뒷정리로 지운다(남아도 job 과 함께 사라진다).
  */
-function vanish(repo: string) {
+async function vanish(repo: string) {
   const shell = dirname(repo);
   const away = shell + '-gone-' + Date.now();
   try {
@@ -57,7 +57,7 @@ function vanish(repo: string) {
   } catch {
     // 부모까지 잠겼다면 종전의 길로 간다 — 그쪽이 성공하면 사건은 같다.
   }
-  rmTreeHard(repo);
+  await rmTreeHard(repo);
 }
 
 // 사라진 폴더를 되살린다 — 같은 경로에 같은 내용이 돌아오는 것이 복구다.
@@ -118,7 +118,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const view = page.locator('#area .ed-side .git-view.git-changes');
     await expect(view.locator('.git-head-repo')).toHaveAttribute('title', repo);
 
-    vanish(repo);
+    await vanish(repo);
 
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
     // 사유와 경로가 함께 보여야 "사라졌다는 표시가 참인지" 판정할 수 있다.
@@ -136,7 +136,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo);
 
-    vanish(repo);
+    await vanish(repo);
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
     // 해제하면 복구할 대상을 잃는다 (D-RMS-5).
@@ -148,7 +148,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m3');
     await waitForInit(page);
     await openGit(page, repo);
-    vanish(repo);
+    await vanish(repo);
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) {
@@ -167,7 +167,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m4');
     await waitForInit(page);
     await openGit(page, repo);
-    vanish(repo);
+    await vanish(repo);
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
     restore(repo);
@@ -201,7 +201,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo, { timeout: UI_WAIT_MS });
 
-    vanish(repo);
+    await vanish(repo);
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
     await expect(missing(page).locator('.git-missing-unpin')).toBeVisible({ timeout: UI_WAIT_MS });
 
@@ -220,7 +220,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const row = page.locator(`#repo-entries .ed-entry[data-git-repo="${cssPath(repo)}"]`);
     await expect(row).toHaveCount(1, { timeout: UI_WAIT_MS });
 
-    vanish(repo);
+    await vanish(repo);
 
     // 사유 코드가 아니라 사람이 읽는 문구다 (FR-RMS-17).
     await expect(row).toHaveAttribute('title', /폴더가 없습니다/, { timeout: UI_WAIT_MS });
@@ -232,7 +232,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m7');
     await waitForInit(page);
     await openGit(page, repo);
-    vanish(repo);
+    await vanish(repo);
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
     const c = counter(page, '/api/git/status');

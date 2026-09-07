@@ -1,6 +1,6 @@
 import { CDPSession, Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitSettled } from './fixtures';
 
 // 묶음 C (USER_CHECKLIST_FIXES_SRS §3.3 / §4.3) — 모바일 키바 실기기 터치 경로.
 //
@@ -14,6 +14,7 @@ async function gotoMobile(page: Page) {
   });
   await page.goto('/');
   await page.waitForSelector('body.mobile', { timeout: 15000 });
+  await waitSettled(page);
   await page.waitForSelector('#mobile-keybar .mkb-btn', { timeout: 15000 });
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }

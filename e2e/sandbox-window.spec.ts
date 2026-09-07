@@ -2,7 +2,7 @@ import { execSync } from 'child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitSettled } from './fixtures';
 import { TMP } from './osenv';
 
 // SANDBOX_WINDOW_SRS §4.2: 컨테이너 런타임이 있어야만 도는 시험이다. 없는
@@ -46,6 +46,7 @@ test.describe('샌드박스 창', () => {
     });
     await page.goto('/');
     await page.waitForSelector('#add-sandbox-window', { timeout: 15000 });
+    await waitSettled(page);
     const before = sandboxContainers().length;
 
     // FR-SBX-34: 진입점은 `+ New` 안쪽의 박스다.

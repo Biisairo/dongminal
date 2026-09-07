@@ -253,8 +253,9 @@ class EdDirtyDiff{
     let best='';
     for(const r of app._edRoots()){
       if(!r) continue;
-      const base=r.endsWith('/')?r:r+'/';
-      if(this.filePath.startsWith(base)&&r.length>best.length) best=r;
+      // 구분자를 `/` 로 굳히지 않는다 — Windows 에서는 **어떤 루트도 걸리지
+      // 않아** 이 함수가 늘 빈 값을 내고, 변경 표시가 통째로 서지 않는다.
+      if(pathUnder(r,this.filePath)&&r.length>best.length) best=r;
     }
     return best;
   }

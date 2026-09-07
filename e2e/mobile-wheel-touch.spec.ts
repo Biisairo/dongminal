@@ -1,5 +1,5 @@
 import { CDPSession, Page } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, waitSettled } from './fixtures';
 
 // MOBILE_TUI_INPUT_SCROLL_SRS §7 — 실기기 로그가 지목한 근본 원인의 교정.
 
@@ -7,6 +7,7 @@ async function gotoMobile(page: Page) {
   await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'mobile') });
   await page.goto('/');
   await page.waitForSelector('body.mobile', { timeout: 15000 });
+  await waitSettled(page);
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 

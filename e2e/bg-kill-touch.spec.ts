@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitSettled } from './fixtures';
 
 // 묶음 X (CONVENIENCE_SRS §3.2) — V-BGK-12 의 실기기 터치 경로.
 //
@@ -15,6 +15,7 @@ async function gotoMobile(page: Page) {
   });
   await page.goto('/');
   await page.waitForSelector('body.mobile', { timeout: 15000 });
+  await waitSettled(page);
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 

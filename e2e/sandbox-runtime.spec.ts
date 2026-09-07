@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, waitSettled } from './fixtures';
 
 /**
  * UX_BATCH5_SRS 묶음 B — 컨테이너 런타임의 상태별 갈래 (FR-SRT-5~8).
@@ -71,6 +71,10 @@ async function goto(page: Page) {
   await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
   await page.goto('/');
   await page.waitForSelector('#add-sandbox-window', { timeout: 15000 });
+  // **화면이 멎을 때까지 기다린다** (E2E_QUIESCENCE_SRS FR-EQS-5·6). 뿌리 편집기
+  // 창들은 초기 저장이 도는 동안 뒤늦게 선다 — 그 전에 창 수를 세면 기준값이
+  // 0 이고, 나중에 센 값과 어긋난다 (러너 실측: 0 을 기대했는데 3 이었다).
+  await waitSettled(page);
 }
 
 // FR-SRT-8: 새 껍데기를 만들지 않는다 — 기존 확인창 위에 선다.

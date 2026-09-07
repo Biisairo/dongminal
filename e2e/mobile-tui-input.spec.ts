@@ -1,5 +1,5 @@
 import { Page } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, waitSettled } from './fixtures';
 
 // MOBILE_TUI_INPUT_SCROLL_SRS §4 — 데스크톱 회귀 (FR-MTI-4 / FR-MTI-11).
 // 이 파일은 chromium(hasTouch:false) 프로젝트에서 돈다.
@@ -10,6 +10,7 @@ async function gotoDesktop(page: Page) {
   });
   await page.goto('/');
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+  await waitSettled(page);
 }
 
 test('TC-MTI-4: 데스크톱 모드에서는 beforeinput 을 가로채지 않는다', async ({ page }) => {

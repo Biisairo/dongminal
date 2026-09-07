@@ -5,7 +5,7 @@ import { join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, openGitTab, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit as fxWaitForInit, openGit, gitFixture, cleanGitFixture, waitShellReady } from './fixtures';
-import { TMP, tmpPath, realPath, cssPath } from './osenv';
+import { TMP, tmpPath, realPath, cssPath, appJoin } from './osenv';
 
 // GIT_REVIEW4_SRS §3.6.1~§3.6.4 — 개선 I1~I4. 검증 V132~V142
 // (FR-GIT-236~239).
@@ -227,8 +227,8 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
     const calls = await page.evaluate(() => (window as any).__openFileCalls);
     expect(calls.length, `_gitOpenFile 호출이 1번이 아니다(선택 전체가 열렸을 수 있다): ${JSON.stringify(calls)}`)
       .toBe(1);
-    expect(calls[0], '첫 항목이 열렸다 — 누른 행이 아니다').toBe(repo + '/' + lastPath);
-    expect(calls[0]).not.toBe(repo + '/' + firstPath);
+    expect(calls[0], '첫 항목이 열렸다 — 누른 행이 아니다').toBe(appJoin(repo, lastPath));
+    expect(calls[0]).not.toBe(appJoin(repo, firstPath));
   });
 });
 

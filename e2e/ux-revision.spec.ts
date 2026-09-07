@@ -2,7 +2,7 @@ import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, plainWindows, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, plainWindows, gitFixture, cleanGitFixture, waitSettled } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 // UX_REVISION_SRS §4 — 검증 V-DEL-*·V-FIT-*·V-CLS-*·V-MOV-*·V-NAM-*·V-BLP-*·V-KEY-*.
@@ -16,6 +16,7 @@ async function init(page: Page) {
   });
   await page.goto('/');
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+  await waitSettled(page);
 }
 
 const FIXTURES = tmpPath('dm-git-fx-uxr-' + process.pid);

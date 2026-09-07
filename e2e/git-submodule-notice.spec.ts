@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGit as fxOpenGit, rmTree } from './fixtures';
+import { test, expect, openGit as fxOpenGit, rmTree, waitSettled } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // SUBMODULE_DIRTY_NOTICE_SRS §5 — 검증 V-SDN-*.
@@ -86,6 +86,7 @@ async function goto(page: Page) {
   await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
   await page.goto('/');
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+  await waitSettled(page);
 }
 
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
