@@ -75,9 +75,8 @@ export function realPath(p: string): string {
  * `pathJoin`).
  *
  * 검사가 `repo + '/' + rel` 로 지어내면 Windows 에서 구분자가 섞인 문자열이 되고
- * (`D:\…\copy-v161/디렉터리 한글/…`), 그것은 앱이 든 값과 다르다 — 앱은 **잇는
- * 자리 하나만** 그 경로의 구분자로 바꾸고 `rel` 안쪽(git 이 준 `/`)은 그대로 둔다.
- * 짐작하지 말고 같은 규칙을 쓴다 (FR-CEM-11).
+ * (`D:\…\copy-v161/디렉터리 한글/…`), 그것은 앱이 든 값과 다르다. 짐작하지 말고
+ * 같은 규칙을 쓴다 (FR-CEM-11).
  */
 export function appJoin(dir: string, rel: string): string {
   const d = String(dir == null ? '' : dir);
@@ -86,7 +85,10 @@ export function appJoin(dir: string, rel: string): string {
   if (!r) return d;
   if (d === '/') return '/' + r;
   const sep = d.includes('\\') && !d.includes('/') ? '\\' : '/';
-  return d.replace(/[\\/]+$/, '') + sep + r;
+  // 안쪽 구분자까지 맞춘다 — 앱의 `pathJoin` 과 같다. 섞인 경로는 절대경로로
+  // 쓰이는 순간 어디와도 견줄 수 없다.
+  const tail = sep === '\\' ? r.replace(/\//g, '\\') : r;
+  return d.replace(/[\\/]+$/, '') + sep + tail;
 }
 
 /**

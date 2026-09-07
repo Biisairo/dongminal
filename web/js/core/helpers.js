@@ -39,9 +39,16 @@ function displayKey(s){return s.replace(/Key/g,'').replace(/BracketLeft/g,'[').r
  * 읽으므로 **동작은 하지만**, 화면이 든 문자열과 서버가 든 문자열이 갈린다 —
  * 그러면 그 둘을 견주는 자리(탐색기의 선택·git 색·검사)가 전부 어긋난다.
  *
- * `rel` 이 여러 겹(`a/b`)일 수 있다. 그것은 git 이 늘 `/` 로 주는 상대경로이며,
- * 이 함수는 **잇는 자리 하나만** 바꾼다 — 안쪽까지 손대면 git 이 준 값을 다시
- * 쓰는 셈이고, 그 값은 서버가 그대로 받아 쓴다.
+ * `rel` 이 여러 겹(`a/b`)일 수 있다. 그것은 git 이 늘 `/` 로 주는 상대경로다.
+ * **그 안쪽도 함께 맞춘다.** 잇는 자리 하나만 바꾸면 결과가 `D:\a\root\aa/bb/cc`
+ * 처럼 **섞인 채로** 나오고, 그 값은 절대경로로 쓰이는 순간 전부 어긋난다 —
+ * `pathSep` 은 섞인 문자열을 `/` 로 읽고, `pathUnder` 는 그래서 자기 루트조차
+ * 아래로 보지 않으며, 화면의 `data-path`(서버가 준 순수한 OS 경로)와도 다르다.
+ * 러너에서 실측한 자리다: 검색 결과로 연 파일이 어느 창에도 속하지 않는 것으로
+ * 판정돼 홈 창으로 떨어졌고, 탐색기는 그 파일을 끝내 펼치지 못했다.
+ *
+ * git 이 준 값 자체는 바뀌지 않는다 — 바뀌는 것은 **이 함수가 만든 절대경로**뿐이고,
+ * 그것이 이 함수의 목적이다.
  */
 function pathJoin(dir,rel){
   const d=String(dir==null?'':dir);
@@ -50,7 +57,8 @@ function pathJoin(dir,rel){
   if(!r) return d;
   if(d==='/') return '/'+r;
   const sep=(d.includes('\\')&&!d.includes('/'))?'\\':'/';
-  return d.replace(/[\\/]+$/,'')+sep+r;
+  const tail=sep==='\\'?r.replace(/\//g,'\\'):r;
+  return d.replace(/[\\/]+$/,'')+sep+tail;
 }
 
 /** 그 경로가 쓰는 구분자. 서버가 준 절대경로의 모양이 곧 그 OS 의 모양이다. */
