@@ -67,6 +67,24 @@ async function openFile(page: Page, rel: string) {
 }
 
 /**
+ * 상태를 stub 한다 (FR-LSP-44 의 표는 **서버가 준다**).
+ *
+ * 이 기계에 gopls 가 있는지는 환경마다 다르고, 선언이 격리 칸에 펴졌는지도
+ * 러너마다 다르다 — 그것에 기대는 검사는 자기가 재려는 것(우리 경로) 대신
+ * 러너의 형편을 잰다.
+ */
+const stubStatus = (page: Page, servers: any[]) => page.route('**/api/lsp/status',
+  (r: any) => r.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ servers }),
+  }));
+
+const GOPLS_MISSING = {
+  id: 'gopls', langs: ['go'], exts: ['.go'],
+  found: false, installer: 'go', canInstall: true,
+};
+
+/**
  * 호버가 딛는 **전제**를 먼저 확인한다.
  *
  * `provideHover` 는 그 모델의 파일이 어느 Editor 루트 아래인지 알아야 요청을
@@ -75,7 +93,7 @@ async function openFile(page: Page, rel: string) {
  * 하는지 알 수 없다. 그래서 그 자리를 이름 붙여 확인한다.
  */
 async function expectHoverGround(page: Page) {
-  const g = await page.evaluate(() => {
+  const ground = () => page.evaluate(() => {
     const a = (window as any).app;
     const v = a._edActiveEditor();
     const path = v && v.filePath;
@@ -87,16 +105,19 @@ async function expectHoverGround(page: Page) {
       roots: a._edWindows().map((w: any) => (w.editor && w.editor.root) || null),
       // provider 가 실제로 걸렸는가. 이것이 비면 Monaco 는 아무에게도 묻지 않는다.
       hoverLangs: [...(a._lspHoverLangs || [])],
-      monaco: typeof (window as any).monaco !== 'undefined',
-      statusLangs: ((a._lspStatus || []) as any[]).flatMap((x: any) => x.langs || []),
     };
   });
+  const g = await ground();
   expect(g.hasModel, `활성 편집기에 모델이 없다: ${JSON.stringify(g)}`).toBe(true);
   expect(g.lang, `모델의 언어가 go 가 아니다 — provider 가 걸리지 않는다: ${JSON.stringify(g)}`).toBe('go');
   expect(g.root, `이 파일을 품는 Editor 루트를 못 찾았다 — 호버 요청이 만들어지지 않는다: ${JSON.stringify(g)}`).toBeTruthy();
-  // provider 가 걸리지 않았으면 Monaco 는 **아무에게도 묻지 않는다** — 그때
-  // "말풍선이 안 뜬다" 는 증상은 provider 의 속과 아무 상관이 없다.
-  expect(g.hoverLangs, `호버 provider 가 go 에 등록되지 않았다: ${JSON.stringify(g)}`).toContain('go');
+  // **등록은 비동기다.** provider 는 `/api/lsp/status` 의 답을 받은 뒤에 걸리므로
+  // (`_lspHoverRegister` → `_lspStatusCached`), 편집기가 선 그 순간에는 아직
+  // 걸리지 않았을 수 있다 — 러너가 느릴수록 그 틈이 벌어진다 (Windows 실측).
+  // 걸리기 전에 호버를 트리거하면 Monaco 는 **아무에게도 묻지 않고**, 증상은
+  // "말풍선이 안 뜬다" 로만 보인다.
+  await expect.poll(async () => (await ground()).hoverLangs, { timeout: 15000 })
+    .toContain('go');
 }
 
 // 커서를 그 자리에 둔다 — 요청이 싣는 좌표가 이것이다.
@@ -294,6 +315,7 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
   // 같은 파일 안의 일이므로 탭 시스템을 알 필요가 없다 (D-8).
   test('심볼에 호버하면 타입이 보인다', async ({ page, request }) => {
     await enter(page, request);
+    await stubStatus(page, [GOPLS_MISSING]);
     await openFile(page, 'main.go');
 
     const seen: any[] = [];
@@ -332,11 +354,15 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
   // 무언가 뜨면 그것이 곧 방해다.
   test('호버가 비면 아무것도 뜨지 않는다', async ({ page, request }) => {
     await enter(page, request);
+    await stubStatus(page, [GOPLS_MISSING]);
     await openFile(page, 'main.go');
     await page.route('**/api/lsp/hover', (r: any) => r.fulfill({
       status: 200, contentType: 'application/json', body: '{"markdown":""}',
     }));
 
+    // provider 가 걸리지 않았으면 아무것도 뜨지 않는 것이 **당연**해진다 — 그때
+    // 이 검사는 재는 것 없이 초록이다.
+    await expectHoverGround(page);
     await putCursor(page, 2, 1);
     await page.evaluate(() => {
       const ed = (window as any).app._edActiveEditor()._editor;
@@ -351,6 +377,7 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
   // 두 번 나가지 않는다 — 나가면 같은 말풍선이 여러 번 뜬다.
   test('편집기를 여럿 세워도 호버가 한 번만 묻는다', async ({ page, request }) => {
     await enter(page, request);
+    await stubStatus(page, [GOPLS_MISSING]);
     await openFile(page, 'main.go');
     await openFile(page, 'pkg/deep/helper.go');
     await openFile(page, 'main.go');
@@ -471,19 +498,6 @@ test.describe('코드 탐색 — 진단 (M4)', () => {
 });
 
 test.describe('코드 탐색 — 설치 제안 (M5)', () => {
-  // 상태를 stub 한다. 이 기계에 gopls 가 있는지는 환경마다 다르므로, 있다고
-  // 단정하거나 없다고 단정하면 어느 한쪽 환경에서 거짓이 된다.
-  const stubStatus = (page: Page, servers: any[]) => page.route('**/api/lsp/status',
-    (r: any) => r.fulfill({
-      status: 200, contentType: 'application/json',
-      body: JSON.stringify({ servers }),
-    }));
-
-  const GOPLS_MISSING = {
-    id: 'gopls', langs: ['go'], exts: ['.go'],
-    found: false, installer: 'go', canInstall: true,
-  };
-
   const offer = (page: Page) => page.locator('.file-editor:visible .fe-offer');
 
   // V-LSP-20 · FR-LSP-44: 서버가 없는 파일을 열면 제안한다 — 무엇을 설치하면

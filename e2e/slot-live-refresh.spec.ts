@@ -95,8 +95,31 @@ const pollOk = (page: Page, repo: string, slot = 1) =>
     return !!a._gitPanel(r, n)._pollOk();
   }, [repo, slot] as const);
 
+/**
+ * 잡지 못했을 때 **무엇 때문인지**를 남긴다.
+ *
+ * 관측이 실패를 누적하면 주기가 기준 × 2ⁿ 으로 늘어 30초 상한에 붙고
+ * (`GIT_FAIL_BACKOFF_MAX_MS`), 소실로 판정되면 곧바로 30초다
+ * (`GIT_REPO_MISSING_POLL_MS`). 그 셋 — 폴링이 멎었다 · 느려졌다 · 돌았는데
+ * 배지가 안 왔다 — 은 "배지가 없다" 는 같은 증상으로 보이고, 고치는 자리는 다르다.
+ */
+const pollDiag = (page: Page) => page.evaluate(() => {
+  const p = (window as any).app.gitPanel;
+  if (!p) return null;
+  return {
+    repo: p.repo, failStreak: p._failStreak, missing: p._missing,
+    pollOn: p._pollOn, sigMs: p._pollSig, stMs: p._pollSt,
+    badges: [...document.querySelectorAll('.git-view.git-history .git-hist-badge')]
+      .map((e: any) => e.textContent),
+  };
+});
+
 // 목록에 그 제목이 나타날 때까지 기다린다. 폴링이 멎어 있으면 오지 않는다.
-async function waitSubject(page: Page, text: string, ms = 15000) {
+//
+// **45초다** (CI_E2E_MATRIX_SRS FR-CEM-31). 관측이 한 번이라도 실패하면 주기가
+// 기준 × 2ⁿ 으로 늘어 30초 상한에 붙는다 — 그보다 짧은 예산은 "폴링이 멎었다" 와
+// "러너에서 한 번 실패했다" 를 같은 실패로 만든다.
+async function waitSubject(page: Page, text: string, ms = 45000) {
   const t0 = Date.now();
   while (Date.now() - t0 < ms) {
     if ((await histSubjects(page)).some((s) => s.includes(text))) return true;
@@ -119,7 +142,8 @@ test.describe('M6 — 보이면 갱신된다', () => {
     expect(await pollOk(page, repo), '보이는데도 관측 조건이 거짓이다').toBe(true);
 
     commit(repo, 'aside60');
-    expect(await waitSubject(page, 'aside60'), '옆 칸 History 가 멎어 있다').toBe(true);
+    expect(await waitSubject(page, 'aside60'),
+      `옆 칸 History 가 멎어 있다: ${JSON.stringify(await pollDiag(page))}`).toBe(true);
   });
 
   test('TC-SVS-61 (FR-SVS-39a): 같은 배치에서 Changes 도 따라온다', async ({ page }) => {
@@ -131,8 +155,9 @@ test.describe('M6 — 보이면 갱신된다', () => {
 
     // 작업 트리를 더럽힌다 — Changes 는 관측(`collect`)이 나르는 자리다.
     appendFileSync(join(repo, 'f.txt'), 'dirty61\n');
+    // 폴링이 나르는 자리다 — 예산은 백오프 상한을 견딘다 (FR-CEM-31).
     await expect(page.locator('.git-view.git-changes .git-file[data-path="f.txt"]'))
-      .toHaveCount(1, { timeout: 20000 });
+      .toHaveCount(1, { timeout: 45000 });
   });
 
   test('TC-SVS-62 (FR-SVS-38): 단일 슬롯의 판정은 종전과 같다', async ({ page }) => {
@@ -175,7 +200,8 @@ test.describe('M6 — 보이면 갱신된다', () => {
     '로딩 잠금이 풀리지 않았다').toBe(false);
 
     commit(repo, 'stale64');
-    expect(await waitSubject(page, 'stale64'), '목록이 멎었다').toBe(true);
+    expect(await waitSubject(page, 'stale64'),
+      `목록이 멎었다: ${JSON.stringify(await pollDiag(page))}`).toBe(true);
   });
 });
 
@@ -234,6 +260,7 @@ async function waitBadge(page: Page, name: string, want: boolean, ms = 15000) {
   return false;
 }
 
+
 test.describe('묶음 R — 브랜치가 늘고 주는 것도 변화다', () => {
   test('V-GVR-20·21 (FR-GVR-20): UI 로 만든 브랜치가 커밋 행의 배지에 나타나고, 지우면 사라진다', async ({ page }) => {
     const repo = copyFx('with-remote', 'gvr-20');
@@ -266,6 +293,9 @@ test.describe('묶음 R — 브랜치가 늘고 주는 것도 변화다', () => 
   });
 
   test('V-GVR-26 (FR-GVR-21): 터미널에서 만든 브랜치도 폴링이 잡는다', async ({ page }) => {
+    // 두 번의 대기가 각각 45초까지 간다 — Windows 의 기본 예산(120초)은 그 둘을
+    // 담지 못하고, 넘치면 단정의 진단 대신 timeout 만 남는다.
+    test.setTimeout(180_000);
     const repo = copyFx('with-remote', 'gvr-26');
     await waitForInit(page);
     await openGitView(page, repo, 'history');
@@ -273,12 +303,15 @@ test.describe('묶음 R — 브랜치가 늘고 주는 것도 변화다', () => 
     expect(await badges(page)).not.toContain('r26');
 
     // 우리 쓰기가 아니다 — 감지는 signature 가 해야 한다.
+    // **45초를 기다린다.** 여기서 재는 것은 "폴링이 잡는가" 이지 "몇 초 안에"
+    // 가 아니고, 관측이 한 번이라도 실패하면 주기가 30초 상한까지 늘어난다
+    // (`GIT_FAIL_BACKOFF_MAX_MS`) — 20초는 그 한 번을 견디지 못한다.
     git(repo, 'branch', 'r26');
-    expect(await waitBadge(page, 'r26', true, 20000),
-      '창 밖에서 만든 브랜치를 폴링이 잡지 못했다').toBe(true);
+    expect(await waitBadge(page, 'r26', true, 45000),
+      `창 밖에서 만든 브랜치를 폴링이 잡지 못했다: ${JSON.stringify(await pollDiag(page))}`).toBe(true);
 
     git(repo, 'branch', '-D', 'r26');
-    expect(await waitBadge(page, 'r26', false, 20000),
-      '창 밖에서 지운 브랜치가 배지에 남았다').toBe(true);
+    expect(await waitBadge(page, 'r26', false, 45000),
+      `창 밖에서 지운 브랜치가 배지에 남았다: ${JSON.stringify(await pollDiag(page))}`).toBe(true);
   });
 });
