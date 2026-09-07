@@ -159,9 +159,15 @@ test.describe('탭 너비 고정 (FR-TBW-1~11)', () => {
     await waitForInit(page);
     await expect(page.locator(TAB).first()).toBeVisible({ timeout: 15000 });
     // R3: `_saveSettings` 목록에서 빠지면 여기서 드러난다.
-    const w = await widths(page);
-    expect(new Set(w).size).toBe(1);
-    expect(w[0]).toBe(120);
+    //
+    // **폭은 poll 로 잰다** (CI_E2E_MATRIX_SRS FR-CEM-35). 새로고침 뒤 탭은 설정
+    // (`GET /api/settings`)보다 먼저 그려지므로, 첫 탭이 보인 순간에 재면 설정
+    // 이전의 폭 — 이름을 따르는 넷 — 을 읽는다 (Windows 러너 실측: 서버에는 값이
+    // 있었고 설정 응답은 탭이 선 뒤 290ms 에 왔다).
+    await expect.poll(async () => {
+      const w = await widths(page);
+      return new Set(w).size === 1 && w[0] === 120;
+    }, { timeout: 15000 }).toBe(true);
   });
 
   test('W8 (V-TBW-8 / FR-TBW-11 · NFR-TBW-1): `+` 는 대상이 아니고, 인라인 폭을 쓰지 않는다',

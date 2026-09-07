@@ -354,8 +354,14 @@ Object.assign(GitPanel.prototype, {
     const fp=this._viewFp(d);
     const prevFp=this._lastViewFp;
     this._lastViewFp=fp;
-    // 첫 관측(`setRepo` 직후의 null)은 변화가 아니다 — 뷰는 열릴 때 스스로 받는다.
-    if(prevFp!==null&&prevFp!==fp) this.obs.reloadViewsAll();
+    // FR-GVR-8a: **첫 관측 뒤에도 한 번 받는다.** 뷰는 열릴 때 스스로 받지만 그
+    // 목록과 이 기준선은 서로 다른 시각의 저장소다 — 뷰의 `git log` 가 변경 **전**에
+    // 돌고 기준선의 `git status` 가 변경 **후**에 돌면, 그 변경은 기준선에 이미
+    // 들어 있어 이후 어떤 관측도 "달라졌다" 고 말하지 않는다. 느린 러너에서 그
+    // 틈이 넓다 (V-GVR-26 · TC-SVS-60 의 trace 실측: 첫 status 가 이미 새 oid 를
+    // 실었고 목록은 그 전의 것이었다). 아직 열리지 않은 뷰는 `reload()` 의 가드가
+    // 걸러 요청이 나가지 않는다.
+    if(prevFp===null||prevFp!==fp) this.obs.reloadViewsAll();
     this._errMsg=null; this._staleNote=false;
     // 관측이 성공했다 — 저장소가 아니라는 판정은 더 이상 참이 아니다
     // (FR-RTU-25). `git init` 뒤의 첫 성공이 이 자리를 지난다.
