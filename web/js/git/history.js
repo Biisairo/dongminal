@@ -215,6 +215,8 @@ class GitHistory {
     if(!this._el) return;
     if(this.panel.repo!==this._repo) this._adopt();
     if(!this._el) return;
+    // FR-DSP-1d: 뷰가 관측보다 늦게 서면 여기가 그 관측을 처음 읽는 자리다.
+    this._syncStatus();
     this._paintBar();
     this._paintRefs();
     this._paintFoot();
@@ -228,18 +230,37 @@ class GitHistory {
    */
   paintStatus(){
     if(!this._el||this.panel.repo!==this._repo) return;
-    const n=this.panel.dirtyCount();
-    // FR-GIT-233: HEAD 표식을 관측에서 파생하므로 HEAD 가 움직이면 행을 다시 그려야
-    // 한다 — 미커밋 개수만 보면 체크아웃 직후의 표식이 낡은 채로 남는다.
-    const h=this.panel.headName();
-    const o=(this.panel.statusOf()||{}).oid||'';
-    if(n===this._dirtyN&&h===this._headName&&o===this._headOid) return;
-    this._dirtyN=n; this._headName=h; this._headOid=o; this._ver++;
+    if(!this._syncStatus()) return;
     // FR-GIT-248: 사이드바의 HEAD 표식도 같은 관측에서 파생한다. 이 경로는 refs 를
     // 다시 받지 않으므로(`_paintRefs` 의 뼈대가 그대로다) 표식만 고친다 —
     // 창 밖에서 체크아웃한 경우가 이 자리다.
     this._paintRefSel(this._el.querySelector('.git-refs'));
     this._paintRows();
+  }
+
+  /**
+   * UX_BATCH6_SRS FR-DSP-1d: 관측에서 파생하는 값을 **지금의 관측**으로 맞춘다.
+   * 바뀌었으면 true 다.
+   *
+   *   이전 동작: 이 파생은 `paintStatus` 안에만 있었고, 그것은 관측이 **바뀐**
+   *             회차에만 불렸다 (`_applyStatus` 의 `_obsSig` 가드)
+   *   새  동작: `paint()` 도 같은 자리를 지난다 — 뷰가 서는 순간 지금의 관측에서
+   *             파생한다
+   *   이유:     뷰는 관측보다 **늦게 설 수 있다.** 첫 관측 뒤에 History 를 열면
+   *             `_dirtyN` 이 0 인 채로 남고, 저장소가 그대로면 관측도 그대로라
+   *             다시 그릴 계기가 영영 오지 않는다 — 미커밋 행이 없는 채로 굳는다.
+   *             사이드의 기본이 Changes 가 되며(FR-DSP-1) 첫 관측이 창을 여는
+   *             즉시 나가게 되어 그 순서가 뒤집혔다 (ubuntu 러너 실측)
+   */
+  _syncStatus(){
+    const n=this.panel.dirtyCount();
+    // FR-GIT-233: HEAD 표식을 관측에서 파생하므로 HEAD 가 움직이면 행을 다시 그려야
+    // 한다 — 미커밋 개수만 보면 체크아웃 직후의 표식이 낡은 채로 남는다.
+    const h=this.panel.headName();
+    const o=(this.panel.statusOf()||{}).oid||'';
+    if(n===this._dirtyN&&h===this._headName&&o===this._headOid) return false;
+    this._dirtyN=n; this._headName=h; this._headOid=o; this._ver++;
+    return true;
   }
 
   _adopt(){

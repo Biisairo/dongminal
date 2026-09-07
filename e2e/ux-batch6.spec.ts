@@ -52,6 +52,30 @@ test('V-DSP-1 (FR-DSP-2): 저장된 사이드 선택은 유지된다', async ({ 
   expect(side).toBe('explorer');
 });
 
+// V-DSP-5 (FR-DSP-1d): **관측이 뷰보다 먼저 와도** History 가 그 관측을 읽는다.
+//
+// FR-DSP-1 로 사이드 기본이 Changes 가 되면서 관측이 창을 여는 즉시 나가게 됐고,
+// 그러면 뒤에 선 History 는 `paintStatus` 를 한 번도 받지 못한다 — 저장소가
+// 그대로면 관측도 그대로라 다시 그릴 계기가 오지 않는다. 미커밋 행이 없는 채로
+// 굳었다 (ubuntu 러너 실측: git-history H8 · git-menu N8·N11 · git-file-actions
+// F10~F12 일곱 건).
+test('V-DSP-5 (FR-DSP-1d): 첫 관측이 History 보다 먼저 와도 미커밋 행이 선다',
+  async ({ page }) => {
+    const repo = copyFx('basic', 'b6-late-view');
+    await waitForInit(page);
+    await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+    // 관측이 뷰보다 먼저 오는 순서를 **만든다** — 러너에서만 나던 순서다.
+    await page.waitForTimeout(4000);
+    await page.evaluate(() => {
+      const a = (window as any).app;
+      a._edSetSide(a._aw(), 'changes');
+      a.gitPanel.openView('history');
+    });
+    await expect(page.locator('#area .pn-body .git-view.git-history .git-hist-row.uncommitted'))
+      .toHaveCount(1, { timeout: 15000 });
+  });
+
 // ── 묶음 R — 스크롤 ──────────────────────────────────
 
 // V-SCR-1 (FR-SCR-1·2): 변경 하나를 클릭해도 목록의 자리가 남는다.

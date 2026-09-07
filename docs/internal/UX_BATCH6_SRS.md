@@ -546,6 +546,17 @@ Changes 인 창은 `_edTree` 를 지나지 않으므로 트리가 없고, 그러
 기본값에 기대던 동안은 기본값이 바뀌는 날 전부가 함께 무너진다 — 이 개정 하나에
 일곱 스펙이 걸린 것이 그 증거다.
 
+**FR-DSP-1d. 관측이 뷰보다 먼저 와도 뷰는 그 관측을 읽는다.** History 는 자기가
+서는 순간(`paint`) 지금의 관측에서 미커밋 개수와 HEAD 를 파생한다.
+
+**근거 (실측).** 관측에서 파생하는 값을 맞추는 자리는 `paintStatus` 하나였고,
+그것은 관측이 **바뀐** 회차에만 불린다(`_applyStatus` 의 `_obsSig` 가드). 기본이
+Changes 가 되면서 첫 관측이 창을 여는 즉시 나가게 됐고, 그 뒤에 선 History 는
+`_dirtyN` 이 0 인 채로 남는다 — 저장소가 그대로면 관측도 그대로라 다시 그릴 계기가
+영영 오지 않는다. ubuntu 러너에서 일곱 건이 이 순서로 무너졌다 (git-history H8 ·
+git-menu N8·N11 · git-file-actions F10~F12). macOS·Windows 는 순서가 반대로 나
+초록이었다.
+
 **FR-DSP-3.** 태그는 **최신이 위**다. 정렬 근거는 `creatordate` 내림차순이며, 그것은
 `Ref.AtUnixMs` 가 이미 싣고 있는 값이다.
 
@@ -605,6 +616,7 @@ diff 에서는 근거가 하나 더 있다 — 그쪽에는 개요 눈금(`rende
 | V-DSP-3 | FR-DSP-1a | e2e — 저장소가 아닌 루트의 `git status` 요청 수가 늘지 않는다 (`editor-explorer` X9) |
 | V-DSP-4 | FR-DSP-1c | e2e — 사이드가 Changes 인 창에서 연 파일이 탐색기로 가면 드러난다 (`editor-nested-root` N4) |
 | V-DSP-2 | FR-DSP-3 | Go 단위 — 태그가 creatordate 내림차순이다 |
+| V-DSP-5 | FR-DSP-1d | e2e — 첫 관측이 지난 **뒤에** History 를 열어도 미커밋 행이 선다 |
 | V-SRT-1 | FR-SBM-7 | 기존 `sandbox-runtime.spec.ts` 가 그대로 통과한다 (①의 회귀 방지) |
 | V-MMP-1 | FR-MMP-1 | e2e — 긴 파일을 중간으로 스크롤했을 때 미니맵 슬라이더와 스크롤바 슬라이더의 top·height 가 같다 |
 

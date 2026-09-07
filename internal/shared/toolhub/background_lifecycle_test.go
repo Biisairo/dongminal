@@ -101,6 +101,10 @@ func TestCreate_NoCommandKeepsShell(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
+	// 이 검사만 셸을 살려 둔 채 끝난다 — Windows 에서는 그 프로세스의 cwd 가
+	// `t.TempDir()` 을 붙들어 정리(RemoveAll)가 실패하고, 그 실패가 곧 검사의
+	// 실패다 (CI 실측). defer 는 TempDir 의 cleanup 보다 먼저 돈다.
+	defer m.Delete(p.ID)
 	time.Sleep(400 * time.Millisecond)
 	if !m.IsLive(p.ID) {
 		t.Fatal("셸이 곧바로 죽었다")
