@@ -96,23 +96,36 @@ const pollOk = (page: Page, repo: string, slot = 1) =>
   }, [repo, slot] as const);
 
 /**
- * 잡지 못했을 때 **무엇 때문인지**를 남긴다.
+ * 잡지 못했을 때 **무엇 때문인지**를 남긴다 (CI_E2E_MATRIX_SRS FR-CEM-33).
  *
  * 관측이 실패를 누적하면 주기가 기준 × 2ⁿ 으로 늘어 30초 상한에 붙고
  * (`GIT_FAIL_BACKOFF_MAX_MS`), 소실로 판정되면 곧바로 30초다
- * (`GIT_REPO_MISSING_POLL_MS`). 그 셋 — 폴링이 멎었다 · 느려졌다 · 돌았는데
- * 배지가 안 왔다 — 은 "배지가 없다" 는 같은 증상으로 보이고, 고치는 자리는 다르다.
+ * (`GIT_REPO_MISSING_POLL_MS`). 관측의 single-flight 잠금(`_busy`)이 남으면 타이머는
+ * 살아 있는데 status 만 멎고, History 의 로딩 잠금(`_loading`)이 남으면 관측은
+ * 돌았는데 목록이 그대로다. 그 넷 — 폴링이 멎었다 · 느려졌다 · 잠겼다 · 돌았는데
+ * 그리지 않았다 — 은 "배지가 없다" 는 같은 증상으로 보이고, 고치는 자리는 다르다.
+ *
+ * **그 저장소의 패널을 읽는다** — `app.gitPanel` 은 활성 창의 것이라 터미널 칸에
+ * 서 있는 배치(TC-SVS-60)에서는 `repo:null · pollOn:false` 를 말하고, 그것은 결함이
+ * 아니라 잘못 읽은 것이다 (러너 실측).
  */
-const pollDiag = (page: Page) => page.evaluate(() => {
-  const p = (window as any).app.gitPanel;
-  if (!p) return null;
-  return {
-    repo: p.repo, failStreak: p._failStreak, missing: p._missing,
-    pollOn: p._pollOn, sigMs: p._pollSig, stMs: p._pollSt,
-    badges: [...document.querySelectorAll('.git-view.git-history .git-hist-badge')]
-      .map((e: any) => e.textContent),
-  };
-});
+const pollDiag = (page: Page, repo: string, slot = 0) =>
+  page.evaluate(([r, n]) => {
+    const a = (window as any).app;
+    const p = a._gitPanel(r, n);
+    if (!p) return null;
+    const h = p._historyView;
+    return {
+      repo: p.repo, failStreak: p._failStreak, missing: p._missing,
+      pollOn: p._pollOn, sigMs: p._pollSig, stMs: p._pollSt,
+      busy: p._busy, again: p._again, lastSig: p._lastSig, viewFp: p._lastViewFp,
+      hist: h ? { loading: h._loading, again: h._again, err: h._err,
+        n: (h._commits || []).length, repo: h._repo } : null,
+      panels: [...p.obs.panels].map((q: any) => q.root),
+      badges: [...document.querySelectorAll('.git-view.git-history .git-hist-badge')]
+        .map((e: any) => e.textContent),
+    };
+  }, [repo, slot] as const);
 
 // 목록에 그 제목이 나타날 때까지 기다린다. 폴링이 멎어 있으면 오지 않는다.
 //
@@ -143,7 +156,7 @@ test.describe('M6 — 보이면 갱신된다', () => {
 
     commit(repo, 'aside60');
     expect(await waitSubject(page, 'aside60'),
-      `옆 칸 History 가 멎어 있다: ${JSON.stringify(await pollDiag(page))}`).toBe(true);
+      `옆 칸 History 가 멎어 있다: ${JSON.stringify(await pollDiag(page, repo, 1))}`).toBe(true);
   });
 
   test('TC-SVS-61 (FR-SVS-39a): 같은 배치에서 Changes 도 따라온다', async ({ page }) => {
@@ -181,8 +194,11 @@ test.describe('M6 — 보이면 갱신된다', () => {
     await openGitView(page, repo, 'history');
     await page.waitForSelector('.git-hist-row', { timeout: 20000 });
 
-    // 로그 응답을 붙잡아 두고 그 사이에 관측을 낡게 만든다 — 쓰기 한 번이면
-    // `_seq` 가 올라가고 그 요청은 stale 이 된다.
+    // 로그 응답을 붙잡아 두고 그 사이에 관측을 낡게 만든다. 낡음의 근거는 `isStale`
+    // 이 보는 **세대**(`_gen`)다 (FR-SVS-39c) — `_seq` 는 status 의 single-flight
+    // 일련번호라 로그와 무관하고, 그것을 밖에서 올리면 진행 중인 status 응답이
+    // 소유권을 잃어 `_busy` 가 영구히 참으로 남는다 (Windows 러너 실측: 이 자리 뒤
+    // 46초 동안 status 요청이 한 건도 없었다).
     await page.route('**/api/git/log**', async (route) => {
       await new Promise((r) => setTimeout(r, 600));
       await route.continue();
@@ -190,7 +206,7 @@ test.describe('M6 — 보이면 갱신된다', () => {
     const reloading = page.evaluate(() =>
       (window as any).app.gitPanel._historyView.reload());
     await page.waitForTimeout(150);
-    await page.evaluate(() => { (window as any).app.gitPanel._seq++ });
+    await page.evaluate(() => { (window as any).app.gitPanel._gen++ });
     await reloading.catch(() => {});
     await page.unroute('**/api/git/log**');
 
@@ -201,7 +217,7 @@ test.describe('M6 — 보이면 갱신된다', () => {
 
     commit(repo, 'stale64');
     expect(await waitSubject(page, 'stale64'),
-      `목록이 멎었다: ${JSON.stringify(await pollDiag(page))}`).toBe(true);
+      `목록이 멎었다: ${JSON.stringify(await pollDiag(page, repo))}`).toBe(true);
   });
 });
 
@@ -308,10 +324,10 @@ test.describe('묶음 R — 브랜치가 늘고 주는 것도 변화다', () => 
     // (`GIT_FAIL_BACKOFF_MAX_MS`) — 20초는 그 한 번을 견디지 못한다.
     git(repo, 'branch', 'r26');
     expect(await waitBadge(page, 'r26', true, 45000),
-      `창 밖에서 만든 브랜치를 폴링이 잡지 못했다: ${JSON.stringify(await pollDiag(page))}`).toBe(true);
+      `창 밖에서 만든 브랜치를 폴링이 잡지 못했다: ${JSON.stringify(await pollDiag(page, repo))}`).toBe(true);
 
     git(repo, 'branch', '-D', 'r26');
     expect(await waitBadge(page, 'r26', false, 45000),
-      `창 밖에서 지운 브랜치가 배지에 남았다: ${JSON.stringify(await pollDiag(page))}`).toBe(true);
+      `창 밖에서 지운 브랜치가 배지에 남았다: ${JSON.stringify(await pollDiag(page, repo))}`).toBe(true);
   });
 });

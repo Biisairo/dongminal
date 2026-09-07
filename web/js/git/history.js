@@ -36,6 +36,7 @@ class GitHistory {
     this._end=false;
     this._loading=false;
     this._loadP=null;
+    this._again=false;     // 받는 도중에 온 다시 받기 (FR-SVS-39d)
     this._err=null;
     this._note='';
     this._ref=null;        // 선택된 ref. _adopt 가 리포별 저장값으로 채운다
@@ -777,10 +778,30 @@ class GitHistory {
     return true;
   }
 
+  /**
+   * FR-SVS-39d: 받는 도중에 온 **전체 다시 받기**는 버리지 않는다 — 끝난 뒤 한 번
+   * 더 받는다.
+   *
+   * 단순히 `_loadP` 를 돌려주면 그 요청은 **앞선 요청의 결과**를 받는데, 그것은
+   * 요청 이전의 저장소다. 폴링이 새 커밋을 잡아 `reload()` 를 불렀는데 첫 로드가
+   * 아직 오는 중이면 새 커밋은 화면에 오지 않고, 다음 계기는 없다 — 저장소는 이미
+   * 그 상태라 관측이 다시 움직이지 않는다 (TC-SVS-60 · Windows 러너 실측: 첫 로드가
+   * 느린 곳에서 결정적으로 났다). 추가 로드(`more`)는 대상이 아니다 — 그것은 같은
+   * 목록의 뒷장이다.
+   */
   _load(more){
-    if(this._loading) return this._loadP;
-    this._loadP=this._doLoad(more);
+    if(this._loading){ if(!more) this._again=true; return this._loadP }
+    this._loadP=this._doLoad(more).then(()=>this._drain(),()=>this._drain());
     return this._loadP;
+  }
+
+  // 미룬 다시 받기 하나. 리포가 바뀌었거나 뷰가 내려갔으면 뜻이 없다 — `_adopt` 가
+  // 새 리포를 처음부터 받는다.
+  _drain(){
+    if(!this._again) return;
+    this._again=false;
+    if(!this._el||this.panel.repo!==this._repo) return;
+    return this._load(false);
   }
 
   async _doLoad(more){

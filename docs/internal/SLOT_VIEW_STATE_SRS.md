@@ -372,6 +372,18 @@ if(!allTabIds.has(tid)){v.destroy();app.fileEditors.delete(k)}
   > 왼쪽(refs)은 `_loadRefs()` 라는 별도 경로라 그 잠금이 없다. 그래서 **한쪽만
   > 살아 있는** 것으로 보였고, 그것이 이 결함의 지문이다.
 
+- **FR-SVS-39d (사후 추가)** 로그를 받는 **도중에 온 전체 다시 받기는 버리지
+  않는다** — 끝난 뒤 한 번 더 받는다 (`_again`). 지금은 `_load` 가 진행 중인
+  `_loadP` 를 그대로 돌려주는데, 그 응답은 **요청 이전의 저장소**다. 폴링이 새
+  커밋을 잡아 `reload()` 를 불렀을 때 첫 로드가 아직 오는 중이면 새 커밋은 화면에
+  오지 않고 다음 계기도 없다 — 저장소는 이미 그 상태라 관측이 다시 움직이지 않는다.
+  추가 로드(뒷장)는 대상이 아니다.
+
+  > 이전 동작: 로딩 중의 `reload()` 는 진행 중인 결과를 받고 끝났다. 새 동작: 끝난
+  > 뒤 한 번 더 받는다. 이유: TC-SVS-60 이 Windows 러너에서 결정적으로 빨갰다 — status
+  > 는 새 oid 를 잡았고 `_reloadViews()` 도 돌았는데 `/api/git/log` 요청이 나가지
+  > 않았다 (trace 실측). 첫 로드가 느린 러너에서 그 겹침이 늘 일어난다.
+
 ### 3.4 V — Git 시선
 
 - **FR-SVS-40** `GitPanel` 은 **칸별 인스턴스**가 된다. §2.5 의 시선 필드 18개가
@@ -583,5 +595,12 @@ if(!allTabIds.has(tid)){v.destroy();app.fileEditors.delete(k)}
   아니면 돌지 않는다 (FR-SVS-38)
 - **TC-SVS-63** 칸 둘에 Editor 창을 놓고 한쪽에 선다. 밖에서 파일을 고친다 →
   **양쪽** 탐색기의 git 색이 따라온다 (FR-SVS-39b)
-- **TC-SVS-64** 로그를 받는 도중 관측이 낡는다 → 그 응답은 버려지되 **다음 로드가
-  돈다.** 새 커밋이 목록에 나타난다 (FR-SVS-39c)
+- **TC-SVS-64** 로그를 받는 도중 관측이 낡는다(`_gen` 이 오른다 — `isStale` 의
+  근거) → 그 응답은 버려지되 **다음 로드가 돈다.** 새 커밋이 목록에 나타난다
+  (FR-SVS-39c). `_seq` 를 올리는 것은 낡음이 아니다 — 그것은 status 의 single-flight
+  일련번호라, 밖에서 올리면 진행 중인 status 응답이 소유권을 잃어 `_busy` 가 영구히
+  참으로 남는다
+- **TC-SVS-60·64 의 진단** 은 **그 저장소의 패널**(`_gitPanel(repo, slot)`)을 읽고
+  single-flight 잠금(`_busy`·`_again`)·History 잠금(`_loading`·`_again`)·관측 근거
+  (`_lastSig`·`_lastViewFp`)를 함께 남긴다 — `app.gitPanel` 은 활성 창의 것이라
+  터미널 칸에 서 있으면 빈 값을 말한다 (CI_E2E_MATRIX_SRS FR-CEM-33)

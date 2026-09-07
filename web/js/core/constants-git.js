@@ -519,6 +519,10 @@ const GIT_DIALOG_FP_GROUPS=['staged','changes','conflicts','untracked'];
 // 기본 주기(ms). 0 이면 그 계층을 끈다 (FR-GIT-23).
 const GIT_SIGNATURE_POLL_MS=500;
 const GIT_STATUS_POLL_MS=1000;
+// status 요청 하나의 시한 (FR-RMS-29). 큰 저장소의 `git status` 가 몇 초일 수 있으니
+// 넉넉하되, 백오프 상한(GIT_FAIL_BACKOFF_MAX_MS)보다는 짧다 — 시한이 그보다 길면
+// 실패가 주기를 늘리기 전에 다음 회차들이 먼저 밀린다.
+const GIT_STATUS_FETCH_TIMEOUT_MS=20000;
 // 즉시 신호는 몰아서 온다 — 셸 훅·에디터 저장·포커스 복귀가 겹친다. 하나로 합쳐
 // status 를 연발하지 않게 한다 (FR-GIT-20).
 const GIT_SIGNAL_DEBOUNCE_MS=150;

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"dongminal/internal/webserver/domain/git/core"
 )
@@ -186,6 +187,85 @@ func TestSignature_TracksRefAddRemove(t *testing.T) {
 	}
 	if removed.Value == added.Value {
 		t.Fatalf("브랜치를 지웠는데 값이 그대로다: %q", removed.Value)
+	}
+}
+
+// V-GVR-22a: 디렉터리 mtime 이 갱신되지 않아도 ref 의 추가·삭제가 잡힌다 (FR-GVR-21a).
+//
+// Windows 러너의 작업 디스크가 그랬다 — `git branch` 뒤 45초 동안 `refs/heads` 의
+// mtime 이 그대로였다 (CI_E2E_MATRIX_SRS FR-CEM-32, V-GVR-26 의 trace 실측). 여기서는
+// 그 상태를 `Chtimes` 로 만든다: 파일을 만든 뒤 디렉터리 시각을 이전 값으로 되돌린다.
+// mtime 근거가 실제로 같음을 함께 단정한다 — 그것이 다르면 이 검사는 재려는 것을
+// 재지 않는다.
+func TestSignature_RefAddSurvivesStaleDirMtime(t *testing.T) {
+	repo := tempRepo(t)
+	s := core.New()
+	ctx := context.Background()
+	dirs := []string{
+		filepath.Join(repo, ".git", refsDir),
+		filepath.Join(repo, ".git", refsDir, "heads"),
+	}
+	// 지금 시각을 기억해 두고, 되돌릴 수 있는 함수를 준다.
+	pin := func() func() {
+		t.Helper()
+		var mts []time.Time
+		for _, d := range dirs {
+			fi, err := os.Stat(d)
+			if err != nil {
+				t.Fatalf("stat %s: %v", d, err)
+			}
+			mts = append(mts, fi.ModTime())
+		}
+		return func() {
+			for i, d := range dirs {
+				if err := os.Chtimes(d, mts[i], mts[i]); err != nil {
+					t.Fatalf("chtimes %s: %v", d, err)
+				}
+			}
+		}
+	}
+
+	first, err := SignatureOf(s, ctx, repo)
+	if err != nil {
+		t.Fatalf("Signature: %v", err)
+	}
+
+	restore := pin()
+	gitIn(t, repo, "branch", "sig-probe")
+	restore()
+	added, err := SignatureOf(s, ctx, repo)
+	if err != nil {
+		t.Fatalf("Signature: %v", err)
+	}
+	if added.RefsMtimeNs != first.RefsMtimeNs {
+		t.Fatalf("전제가 깨졌다 — 디렉터리 mtime 을 되돌렸는데 근거가 다르다: %d → %d",
+			first.RefsMtimeNs, added.RefsMtimeNs)
+	}
+	if added.RefsShape == first.RefsShape {
+		t.Fatalf("브랜치를 만들었는데 이름 근거가 그대로다: %d", added.RefsShape)
+	}
+	if added.Value == first.Value {
+		t.Fatalf("디렉터리 mtime 이 낡아 있으면 브랜치 추가를 놓친다: %q", added.Value)
+	}
+
+	restore = pin()
+	gitIn(t, repo, "branch", "-D", "sig-probe")
+	restore()
+	removed, err := SignatureOf(s, ctx, repo)
+	if err != nil {
+		t.Fatalf("Signature: %v", err)
+	}
+	if removed.RefsMtimeNs != added.RefsMtimeNs {
+		t.Fatalf("전제가 깨졌다 — 디렉터리 mtime 을 되돌렸는데 근거가 다르다: %d → %d",
+			added.RefsMtimeNs, removed.RefsMtimeNs)
+	}
+	if removed.Value == added.Value {
+		t.Fatalf("디렉터리 mtime 이 낡아 있으면 브랜치 삭제를 놓친다: %q", removed.Value)
+	}
+	// 같은 이름들로 돌아왔으므로 이름 근거도 처음으로 돌아온다 — 근거가 상태의
+	// 함수라는 뜻이다 (V-GVR-25 와 같은 요구).
+	if removed.RefsShape != first.RefsShape {
+		t.Fatalf("같은 ref 목록인데 이름 근거가 다르다: %d ≠ %d", removed.RefsShape, first.RefsShape)
 	}
 }
 

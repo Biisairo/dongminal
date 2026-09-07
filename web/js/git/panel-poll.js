@@ -300,7 +300,13 @@ Object.assign(GitPanel.prototype, {
     const seq=++this._seq;
     const tok=this.token();
     let r=null,d=null;
-    try{r=await fetch('/api/git/status?repo='+encodeURIComponent(repo))}catch{r=null}
+    // 시한이 있다 (FR-RMS-29). 이 요청은 single-flight 라 답이 오지 않으면 `_busy`
+    // 가 영구히 참으로 남고, 그 뒤의 모든 `collect()` 가 조용히 되돌아간다 —
+    // 타이머는 살아 있는데 status 만 멎는 모양이다 (TC-SVS-64 · Windows 러너 실측:
+    // 46초 동안 signature 요청만 돌았다). 넘기면 망 실패와 같은 길을 간다 — 이전
+    // 화면을 지키고 백오프를 지난다.
+    try{r=await fetch('/api/git/status?repo='+encodeURIComponent(repo),
+      {signal:AbortSignal.timeout(GIT_STATUS_FETCH_TIMEOUT_MS)})}catch{r=null}
     if(r){try{d=await r.json()}catch{d=null}}
     // 리포가 바뀌면 setRepo 가 소유권을 끊는다 — 그 뒤 도착한 응답은 플래그를
     // 건드리지 않는다.

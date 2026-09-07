@@ -137,6 +137,9 @@
 | FR-CEM-29 | 러너마다 달라지는 **서버의 관측**에 기대는 검사는 그것을 stub 한다. `/api/lsp/status` 가 그 자리다 — 무엇이 설치돼 있는지도, 동봉 선언이 격리 칸에 펴졌는지도 기계마다 다르며, 그것에 기댄 검사는 자기가 재려는 것 대신 러너의 형편을 잰다. | 필수 |
 | FR-CEM-30 | **비동기 등록을 딛는 조작은 등록을 기다린 뒤에 친다.** Monaco 의 호버 provider 는 `/api/lsp/status` 의 답을 받은 뒤에 걸리므로(`_lspHoverRegister`), 편집기가 선 그 순간에 호버를 트리거하면 Monaco 는 **아무에게도 묻지 않는다** — 증상은 "말풍선이 안 뜬다" 로만 보여 provider 의 속을 의심하게 만든다. 러너가 느릴수록 그 틈이 벌어진다 (Windows 실측). | 필수 |
 | FR-CEM-31 | **폴링이 잡는가**를 재는 검사의 예산은 폴링의 **백오프 상한**을 견딘다. 관측이 한 번이라도 실패하면 주기가 기준 × 2ⁿ 으로 늘어 30초에 붙고(`GIT_FAIL_BACKOFF_MAX_MS`), 소실 판정이면 곧바로 30초다 — 그보다 짧은 예산은 "폴링이 안 돈다" 와 "러너에서 한 번 실패했다" 를 같은 실패로 만든다. 예산이 테스트의 기본 한도를 넘으면 그 검사가 `test.setTimeout` 으로 자기 한도를 넓힌다 — 넘치면 단정의 진단 대신 timeout 만 남는다. | 필수 |
+| FR-CEM-32 | 변화 감지는 **디렉터리 mtime 에 기대지 않는다.** Windows 러너의 작업 디스크(`D:\a\_temp`)에서 `git branch` 가 `refs/heads/r26` 을 만든 뒤 **45초 동안** `refs/heads` 의 mtime 이 그대로였다 — 같은 시간에 `git for-each-ref` 는 그 브랜치를 돌려주었다 (V-GVR-26 의 trace: status 응답 45건의 signature 가 한 값). 서버의 signature 는 항목 **이름**을 함께 근거에 넣는다 (GIT_VIEW_REFRESH_SRS FR-GVR-21a). 유닛 검사는 그 파일시스템 없이도 이 조건을 만든다 — `Chtimes` 로 디렉터리 시각을 되돌린다 (V-GVR-22a). | 필수 |
+| FR-CEM-33 | 폴링을 재는 검사의 **진단은 그 저장소의 패널을 읽는다** (`_gitPanel(repo, slot)`) — `app.gitPanel` 은 활성 창의 것이라 터미널 칸에 서 있는 배치(TC-SVS-60)에서는 `repo:null · pollOn:false` 를 말하고, 그것은 결함이 아니라 잘못 읽은 것이다. 진단에는 관측의 single-flight 잠금(`_busy`·`_again`)과 History 의 로딩 잠금(`_loading`·`_again`), 관측 근거(`_lastSig`·`_lastViewFp`)가 든다 — "폴링이 멎었다 · 잠겼다 · 돌았는데 그리지 않았다" 는 같은 증상으로 보이고 고치는 자리가 다르다. | 필수 |
+| FR-CEM-34 | **첫 관측을 딛는 조작은 그 관측이 닿은 뒤에 친다.** recovery hint 의 되돌릴 HEAD 는 `statusOf().oid` 에서 오므로(`_restoreCmd`), History 의 행이 보이는 것(log 가 닿았다)만 기다리고 메뉴를 열면 status 가 아직 오는 중일 수 있다 — 그때 hint 는 빈 채로 뜬다 (Windows 러너 실측: D5 의 두 시도 모두 `<code class="gc-hint-cmd"></code>`). `fixtures.openGit` 이 이미 `statusOf()` 를 기다리는 것과 같은 근거다. | 필수 |
 
 ## 4. 검증 (Verification)
 
@@ -148,6 +151,7 @@
 | V-CEM-4 | 한 OS 가 빨개도 나머지 OS 의 job 이 끝까지 돈다 (`fail-fast: false`) |
 | V-CEM-7 | 두 OS 의 `[parity]` 줄이 **같은 수**를 말한다 — 돈 항목과 건너뛴 항목, 그리고 사유별 개수. 다르면 그 차이가 곧 동등성의 구멍이고, 그것을 설명할 수 있어야 한다 (FR-CEM-27) |
 | V-CEM-8 | 호버를 재는 검사가 provider 등록을 **확인한 뒤에** 트리거한다 (`expectHoverGround` 의 `hoverLangs` 대기) — 그 확인이 없으면 "아무것도 뜨지 않는다" 를 재는 검사는 provider 가 없을 때 **재는 것 없이 초록**이다 (FR-CEM-29·30) |
+| V-CEM-9 | `TestSignature_RefAddSurvivesStaleDirMtime` 이 통과한다 — 디렉터리 mtime 을 되돌려 놓아도 ref 의 추가·삭제로 signature 가 달라진다 (FR-CEM-32). `slot-live-refresh` 의 진단이 `_gitPanel(repo, slot)` 을 읽고 `busy`·`hist` 를 싣는다 (FR-CEM-33). `git-commit-actions` 의 `openHistory` 가 `statusOf().oid` 를 기다린다 (FR-CEM-34) |
 | V-CEM-6 | `grep -rn "execFileSync('\(cp\|sh\|mkdir\)'" e2e` 가 비어 있다 (FR-CEM-14 의 회귀 검출) |
 | V-CEM-5 | `grep -rn "'/tmp" e2e playwright.config.ts` 에 남는 것이 **파일시스템에 닿지 않는 문자열뿐**이다 — 모의 응답의 값(`{cwd:'/tmp'}`), 검사가 해석하지 않는 원격 URL, 모의 워크스페이스의 파일 경로. 실제로 만들거나 지우거나 여는 경로는 하나도 리터럴이 아니다 (FR-CEM-7 의 회귀 검출) |
 

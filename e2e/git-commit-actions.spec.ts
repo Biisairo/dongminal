@@ -100,6 +100,14 @@ async function openHistory(page: Page, repo: string) {
   await clickGitView(page, 'history');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-history/);
   await expect(rows(page).first()).toBeVisible({ timeout: 20000 });
+  // CI_E2E_MATRIX_SRS FR-CEM-34: recovery hint 의 되돌릴 HEAD 는 첫 관측
+  // (`statusOf().oid`)에서 온다 (`_restoreCmd`). 행이 보이는 것은 log 가 닿았다는
+  // 뜻이지 status 가 닿았다는 뜻이 아니다 — Windows 러너에서 그 사이에 메뉴를 열면
+  // hint 가 빈 채로 뜬다 (D5 실측, 두 시도 모두). 상한은 `fixtures.openGit` 과 같은
+  // 근거로 30초다 — 병렬 워커의 `git` 들과 자리를 다툰다.
+  await page.waitForFunction(
+    () => !!(window as any).app?.gitPanel?.statusOf()?.oid,
+    undefined, { timeout: 30000 });
 }
 
 async function openChanges(page: Page, repo: string) {
