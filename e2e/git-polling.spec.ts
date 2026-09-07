@@ -6,7 +6,28 @@ import { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
-// GIT_M1_STEP56_CONTRACT §4 — 변경 감지 3계층. 검증 V6·V18·V5·V4.
+// GIT_M1_STEP56_CONTRACT §4 — 변경 감지. 검증 V6·V18·V5·V4.
+//
+// **GIT_PUSH_OBSERVE_SRS 로 감지의 주체가 바뀌었다.** 종전에는 브라우저가
+// signature(500ms)와 status(1s)를 물어 변화를 스스로 찾았다. 이제 서버가 관측해
+// 바뀌었을 때만 `git_changed` 를 방송하고, 브라우저의 status 폴링은 **안전망**
+// (30초)으로 남는다.
+//
+// 그래서 아래 검사들은 **"폴링이 도는가" 대신 "변화가 화면에 따라오는가"** 를
+// 잰다 — 그것이 애초에 재려던 계약이고, 폴링은 그 계약을 재던 수단이었다.
+// 관측의 **경계**(누가 언제 관측하는가)를 재는 검사는 그대로 남는다: 그것은
+// 수단이 아니라 계약이며(NFR-RTU-1), 안전망 폴링에도 같은 경계가 적용된다.
+
+// 안전망 주기를 검사용으로 줄인다. 재는 것은 "폴링이 경계를 지키는가" 이지
+// 30초라는 값이 아니다 — 값을 재면 상수를 바꿀 때 검사가 깨진다.
+const FAST_SAFETY_MS = 700;
+async function fastSafetyNet(page: Page) {
+  await page.evaluate((ms) => {
+    (window as any).gitStatusInterval = ms;
+    const app = (window as any).app;
+    if (app._gitPanels) for (const p of app._gitPanels.values()) p._reschedule();
+  }, FAST_SAFETY_MS);
+}
 
 const FIXTURES = tmpPath('dm-git-fx-polling-' + process.pid);
 
@@ -66,17 +87,27 @@ const otherWindowId = (page: Page, repo: string) => page.evaluate((r) => {
 }, repo);
 
 test.describe('묶음 C 클라 — 변경 감지', () => {
-  test('P1 (V6): Git 창이 활성일 때 status 폴링이 돈다', async ({ page, request }) => {
+  // V6 이 재려던 것은 "활성 창의 저장소가 계속 관측된다" 이고, 종전에는 그것을
+  // 폴링 횟수로 셌다. 이제 관측은 서버가 밀어 주므로 **화면이 따라오는가**로 잰다 —
+  // 폴링이 도는지가 아니라, 이 창이 살아 있는 관측을 갖는지가 계약이다.
+  test('P1 (V6): Git 창이 활성이면 변화가 화면에 따라온다', async ({ page, request }) => {
     await defaultIntervals(request);
-    const repo = fx('basic');
+    const repo = copyFx('basic', 'p1');
     await waitForInit(page);
     const c = counter(page, '/api/git/status');
     await openGit(page, repo);
 
+    // 창을 열면 곧 첫 관측이 온다 — 그 하나는 여전히 브라우저가 받아 간다.
     await expect.poll(() => c.n, { timeout: 5000 }).toBeGreaterThanOrEqual(1);
-    const first = c.n;
-    await page.waitForTimeout(2200);
-    expect(c.n, 'status 폴링이 이어지지 않는다').toBeGreaterThan(first);
+
+    const rows = page.locator(
+      '#area .ed-side .git-view.git-changes .git-group[data-group="untracked"] .git-file');
+    const before = await rows.count();
+    writeFileSync(join(repo, 'p1-new.txt'), 'x\n');
+
+    // 안전망(30초)보다 훨씬 짧은 창에서 따라와야 한다 — 그보다 오래 걸리면
+    // 관측을 살린 것은 푸시가 아니라 폴링이다.
+    await expect.poll(() => rows.count(), { timeout: 8000 }).toBeGreaterThan(before);
   });
 
   test('P2 (V6): 다른 창으로 전환하면 status 요청이 0건이 된다', async ({ page, request }) => {
@@ -193,20 +224,48 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
    * 두 주기가 겹치는 순간(1000ms)마다 재현되므로, 첫 회차만 세면 통과해 버린다 —
    * **기준 구간을 지난 뒤의 증가분**을 본다.
    */
-  test('P7 (회귀): status 폴링과 함께 돌아도 signature 폴링이 죽지 않는다', async ({ page, request }) => {
+  /**
+   * P7 (회귀): **관측이 겹쳐도 고착되지 않는다.**
+   *
+   * 원래 이 검사는 signature 폴링(500ms)과 status 폴링(1s)이 겹칠 때 단일 비행
+   * 플래그(`_busy`)가 참으로 남아 signature 가 멎는 것을 잡았다. signature 계층은
+   * GIT_PUSH_OBSERVE_SRS 로 사라졌지만 **재던 계약은 그대로다** — 겹친 수집이
+   * 잠금을 남기면 그 뒤 모든 수집이 조용히 되돌아간다.
+   *
+   * 겹침을 만드는 자리가 바뀌었다: 이제 푸시와 안전망 폴링이 겹친다. 안전망을
+   * 짧게 줄여 그 겹침을 촘촘히 만든 뒤, 잠금이 풀린 채로 남는지 본다.
+   */
+  test('P7 (회귀): 관측이 겹쳐도 단일 비행 잠금이 고착되지 않는다', async ({ page, request }) => {
     await defaultIntervals(request);
-    const repo = fx('basic');
+    const repo = copyFx('basic', 'p7');
     await waitForInit(page);
-    const sig = counter(page, '/api/git/signature');
     await openGit(page, repo);
+    await fastSafetyNet(page);
 
-    // 두 주기가 최소 두 번 겹칠 만큼 기다린다 — 고착은 그 겹침에서 일어난다.
-    await page.waitForTimeout(2200);
-    const base = sig.n;
-    await page.waitForTimeout(2600);
-    // 500ms 주기면 2.6초에 5회다. 절반만 와도 "살아 있다" 로 본다.
-    expect(sig.n - base, 'signature 폴링이 멈췄다 (단일 비행 플래그 고착)')
-      .toBeGreaterThanOrEqual(3);
+    // 폴링과 푸시가 여러 번 겹칠 만큼 파일을 연달아 만든다.
+    for (let i = 0; i < 4; i++) {
+      writeFileSync(join(repo, `p7-${i}.txt`), 'x\n');
+      await page.waitForTimeout(400);
+    }
+    await page.waitForTimeout(1500);
+
+    const stuck = await page.evaluate(() => {
+      const app = (window as any).app;
+      for (const o of app._gitObservers.values()) {
+        const p = o.any();
+        if (p && o._busy) return true;
+      }
+      return false;
+    });
+    expect(stuck, '겹친 수집이 단일 비행 잠금을 남겼다 — 그 뒤 수집이 전부 멎는다')
+      .toBe(false);
+
+    // 잠금이 살아 있으면 다음 변화가 화면에 오지 않는다 — 값으로 확인한다.
+    const rows = page.locator(
+      '#area .ed-side .git-view.git-changes .git-group[data-group="untracked"] .git-file');
+    const before = await rows.count();
+    writeFileSync(join(repo, 'p7-last.txt'), 'x\n');
+    await expect.poll(() => rows.count(), { timeout: 8000 }).toBeGreaterThan(before);
   });
 
   /**
@@ -256,6 +315,10 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     const repo = copyFx('basic', 'p9-paint');
     await waitForInit(page);
     await openGit(page, repo);
+    // **다음 관측**이 필요한 검사다. 푸시는 변화가 있을 때만 오므로, 예외로
+    // 놓친 그 회차를 메우는 것은 안전망이다 — 그 주기를 검사용으로 줄인다.
+    // 재는 것은 "다시 그리는가" 이지 안전망이 30초인가가 아니다.
+    await fastSafetyNet(page);
 
     const view = page.locator('#area .ed-side .git-view.git-changes');
     // 첫 관측이 그려진 뒤부터 시작한다 — 그래야 뒤이은 변경이 "새 관측" 이다.

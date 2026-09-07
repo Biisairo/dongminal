@@ -517,8 +517,16 @@ const GIT_DIALOG_FP_GROUPS=['staged','changes','conflicts','untracked'];
 // ── 변경 감지 3계층 (GIT_SRS §3.3 / FR-GIT-18~24) ──
 
 // 기본 주기(ms). 0 이면 그 계층을 끈다 (FR-GIT-23).
-const GIT_SIGNATURE_POLL_MS=500;
-const GIT_STATUS_POLL_MS=1000;
+// GIT_PUSH_OBSERVE_SRS FR-GPO-20: **0 이 기본이다.** 서버가 signature 를
+// 확인하고 바뀌었을 때만 `git_changed` 를 방송하므로(FR-GPO-1), 브라우저가
+// 500ms 마다 다시 물을 이유가 없다. 0 은 "그 계층을 끈다" 는 뜻이다 (FR-GIT-23).
+//
+// 설정으로 되살릴 수 있다 — 푸시를 믿지 못하는 환경의 손잡이로 남긴다.
+const GIT_SIGNATURE_POLL_MS=0;
+// FR-GPO-20: status 폴링은 **안전망**이다. 두 가지를 겸한다 —
+// 푸시가 끊겼을 때의 회복(C-5)과 관심 표명의 갱신(FR-GPO-11 의 90초보다 세 배
+// 잦다). 종전 1초는 푸시가 없을 때의 주기였다.
+const GIT_STATUS_POLL_MS=30000;
 // status 요청 하나의 시한 (FR-RMS-29). 큰 저장소의 `git status` 가 몇 초일 수 있으니
 // 넉넉하되, 백오프 상한(GIT_FAIL_BACKOFF_MAX_MS)보다는 짧다 — 시한이 그보다 길면
 // 실패가 주기를 늘리기 전에 다음 회차들이 먼저 밀린다.

@@ -73,6 +73,28 @@ const STATE_REGISTRY=[
     revalidateOn:['sse:open','softreload'],
   },
   {
+    /**
+     * GIT_PUSH_OBSERVE_SRS — **서버가 밀어 준다.**
+     *
+     * `every` 가 없다. 종전에는 브라우저가 signature 를 500ms 마다 물어 변화를
+     * 스스로 찾았고, 60초에 180번(sig 120 + status 60)이 나갔다. 이제 서버가
+     * 그것을 확인하고 바뀌었을 때만 알린다 (FR-GPO-1).
+     *
+     * 안전망 폴링은 여기 없고 `GitObserver` 의 `_applyCadence` 가 갖는다 —
+     * 그 계층은 백오프(FR-RMS-22)·소실 고정 주기(FR-RMS-6)·활성 저장소 판정
+     * (`_pollOk`)을 함께 쥐고 있어서, 주기만 떼어 올 수 없다.
+     *
+     * `restore` 도 그쪽 손잡이를 부른다. 재검증 계기는 하나뿐이다 —
+     * 구독이 열린 순간, 끊겨 있던 동안의 변화는 방송으로 오지 않았다
+     * (FR-GPO-23).
+     */
+    id:'git.observe',
+    restore:'_gitObserveRestore',
+    merge:'latest',
+    events:{git_changed:'_onGitChanged'},
+    revalidateOn:['sse:open'],
+  },
+  {
     id:'window.focus',
     restore:'_focusRestore',
     // 전체 소유권 맵이 온다. 증분이 아니므로 통째로 갈아치우면 되고 자기 에코

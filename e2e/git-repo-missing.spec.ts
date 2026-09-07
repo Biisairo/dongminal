@@ -254,8 +254,18 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
     });
   }
 
+  /**
+   * 백오프는 **안전망 폴링 위에 그대로 산다** (GIT_PUSH_OBSERVE_SRS FR-GPO-24).
+   *
+   * 기준 주기가 1초에서 30초(안전망)로 바뀌었을 뿐 규칙은 같다 — 실패가 쌓이면
+   * 2ⁿ 로 늘고, 그치면 즉시 기준으로 돌아온다. 검사 창을 30초로 늘리는 대신
+   * 기준을 명시로 세운다: 재는 것은 **비율**이지 기준값이 아니다.
+   */
+  const backoffBase = (request: APIRequestContext) =>
+    patchSettings(request, { gitStatusInterval: 1000, gitSignatureInterval: 0 });
+
   test('B1 (V-RMS-16): 연속 실패가 쌓이면 요청 간격이 늘어난다', async ({ page, request }) => {
-    await defaultIntervals(request);
+    await backoffBase(request);
     const repo = copyFx('b1');
     await waitForInit(page);
     let failing = false;
@@ -273,7 +283,7 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
   });
 
   test('B2 (V-RMS-17): 실패가 그치면 주기가 즉시 기준으로 돌아온다', async ({ page, request }) => {
-    await defaultIntervals(request);
+    await backoffBase(request);
     const repo = copyFx('b2');
     await waitForInit(page);
     let failing = false;

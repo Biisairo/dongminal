@@ -127,7 +127,16 @@ Object.assign(GitPanel.prototype, {
       // FR-SVS-42: 뷰는 칸마다 있으므로 칸마다 받는다. 두 칸이 같은 뷰를 보면
       // 같은 요청이 두 번 나가지만, 그 목록은 각 칸의 것이다 (§7 R-1).
       const jobs=[];
-      for(const p of this.obs.panels) jobs.push(...p._reloadViews(true));
+      // 뷰 하나의 동기 throw 가 **관측까지 삼키지 않는다.**
+      //
+      // `_reloadViews` 는 async 가 아니므로 여기서 터지면 아래 줄에 닿지 못하고,
+      // 그러면 사용자가 새로고침을 눌렀는데 status 를 다시 받지 않는다. 종전에는
+      // 1초 폴링이 그 자리를 곧 메웠기 때문에 드러나지 않았다 — 폴링이 서버 푸시로
+      // 바뀌며 보이게 됐다 (GIT_PUSH_OBSERVE_SRS §2.10).
+      //
+      // 위 `finally` 가 지키는 것은 **잠금**이고, 여기가 지키는 것은 **관측**이다.
+      try{ for(const p of this.obs.panels) jobs.push(...p._reloadViews(true)) }
+      catch(e){ console.error('[git] reloadViews',e) }
       await Promise.allSettled([this.collect(),...jobs]);
     }finally{
       this._refreshing=false;

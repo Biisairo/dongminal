@@ -421,6 +421,14 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 		gitError(w, err)
 		return
 	}
+	// 이 요청이 곧 관심 표명이다 (FR-GPO-10). 서버가 이 저장소의 signature 를
+	// 감시하기 시작하고, 바뀌면 `git_changed` 를 방송한다 — 브라우저는 500ms
+	// 마다 묻는 대신 그것을 기다린다.
+	//
+	// 오류 뒤에 두는 이유는 **답할 수 있는 저장소만** 감시하기 위해서다.
+	if s.Watch != nil {
+		s.Watch.Note(root, obs)
+	}
 	// GIT_DIR_ENTRY_SRS FR-DIR-5·42 / D-DIR-6: **비교는 정규화를 아는 쪽이 한다.**
 	//
 	// `requested` 는 클라이언트가 보낸 값 그대로이고 `root` 는 git 이 심볼릭

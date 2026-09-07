@@ -326,7 +326,15 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await expect(stashRows(page).first().locator('.git-stash-msg')).toContainText('바깥에서');
   });
 
-  test('G8 (V-GVR-8 / FR-GVR-7): 폴링 주기·요청 수가 변하지 않는다', async ({ page }) => {
+  /**
+   * FR-GVR-7 이 지키는 것은 **"뷰 갱신이 요청을 늘리지 않는다"** 다. 종전에는
+   * 그것을 status 폴링 횟수와 함께 쟀는데, 관측이 서버 푸시로 바뀌며 그 횟수는
+   * 더 이상 상수가 아니다 (GIT_PUSH_OBSERVE_SRS).
+   *
+   * 그래서 두 축을 나눈다: **관측은 살아 있다**(안전망을 줄여 짧은 창에서 확인)와
+   * **가만히 있으면 뷰 조회가 늘지 않는다**(원래의 계약).
+   */
+  test('G8 (V-GVR-8 / FR-GVR-7): 관측은 살아 있고 뷰 조회는 늘지 않는다', async ({ page }) => {
     const { repo } = copyPair('g8');
     await waitForInit(page);
     const status = counter(page, (u) => u.includes('/api/git/status'));
@@ -334,15 +342,20 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
 
     await openGit(page, repo);
     await ready(page);
+    await page.evaluate(() => {
+      (window as any).gitStatusInterval = 600;
+      const app = (window as any).app;
+      if (app._gitPanels) for (const p of app._gitPanels.values()) p._reschedule();
+    });
     // 창을 여는 동안의 요청이 가라앉을 여유를 준다.
     await page.waitForTimeout(500);
     const stBase = status.n;
     const vBase = views.n;
     await page.waitForTimeout(2600);
 
-    // 주기는 1000ms 그대로다 — 멈추지도(0), 빨라지지도 않는다.
-    expect(status.n - stBase, 'status 폴링이 멎었다').toBeGreaterThanOrEqual(2);
-    expect(status.n - stBase, 'status 폴링 주기가 빨라졌다').toBeLessThanOrEqual(5);
+    // 관측이 멎지도, 폭주하지도 않는다.
+    expect(status.n - stBase, '관측이 멎었다').toBeGreaterThanOrEqual(2);
+    expect(status.n - stBase, '관측이 폭주한다').toBeLessThanOrEqual(8);
     // 갱신은 계기가 있을 때만 한다 — 아무 일도 없는 동안 뷰 조회가 늘지 않는다.
     expect(views.n - vBase, '가만히 있는데 뷰 조회가 늘었다').toBe(0);
   });

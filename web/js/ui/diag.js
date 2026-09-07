@@ -27,6 +27,7 @@
       '<button class="dg-b" data-a="clear" title="Clear the collected log lines">지우기</button>'+
       '<button class="dg-b" data-a="pause" title="Pause and resume log collection">멈춤</button>'+
       '<button class="dg-b" data-a="env" title="Log the current environment (viewport, user agent, feature flags)">환경</button>'+
+      '<button class="dg-b" data-a="hub" title="Dump pending timers and event topics (TimerHub / EventBus)">허브</button>'+
       '<button class="dg-b" data-a="min" title="Minimize this overlay">─</button>'+
     '</div>'+
     '<div class="dg-log"></div>';
@@ -171,6 +172,7 @@
     if(a==='clear'){lines.length=0;logEl.textContent='';return}
     if(a==='min'){el.classList.toggle('min');return}
     if(a==='env'){env();return}
+    if(a==='hub'){hub();return}
     if(a==='pause'){paused=!paused;e.target.textContent=paused?'재개':'멈춤';return}
     if(a==='send'){
       const body=lines.join('\n')+'\n';
@@ -186,6 +188,46 @@
   // 오버레이 자체의 터치가 터미널 핸들러로 새지 않게 한다.
   el.addEventListener('touchstart',e=>e.stopPropagation(),true);
   el.addEventListener('touchmove',e=>e.stopPropagation(),true);
+
+  /**
+   * 시간과 전파의 지금 상태 (EVENT_TIMER_HUB_SRS FR-SCH-11 · FR-BUS-9).
+   *
+   * **"이벤트가 안 온다" 를 재현 대신 스냅샷으로 푼다.** 종전 진단은
+   * `console.error('[cmd] parse')` 한 줄이 전부였고, 무엇이 언제 왔는지 볼
+   * 자리가 없었다.
+   *
+   * 이 파일은 두 클래스 위에 서지 않는다 (D-3) — 그러나 들여다볼 수는 있어야
+   * 한다. 없으면 조용히 지난다: 앱이 서기 전이나 부서진 뒤에도 진단은 살아야
+   * 한다는 것이 이 계층의 규칙이다.
+   */
+  const hub=()=>{
+    const app=window.app;
+    if(!app){put('HUB app 이 아직 없다');return}
+    if(app.timers){
+      const ps=app.timers.pending();
+      put('HUB timers pending='+ps.length);
+      // 주기적인 것부터 — 마감이 가까운 순으로 본다.
+      ps.slice().sort((a,b)=>(a.inMs==null?1e15:a.inMs)-(b.inMs==null?1e15:b.inMs))
+        .slice(0,24)
+        .forEach(x=>put('  ['+x.kind+'] '+(x.id||x.label||'?')
+          +' owner='+(typeof x.owner==='string'?x.owner:(x.owner?'obj':'-'))
+          +(x.inMs!=null?' in='+x.inMs+'ms':'')
+          +(x.every?' every='+x.every:'')
+          +(x.runs!=null?' runs='+x.runs:'')
+          +(x.fails?' fails='+x.fails:'')
+          +(x.inflight?' INFLIGHT':'')));
+      if(ps.length>24) put('  … +'+(ps.length-24));
+    }else put('HUB timers 없음');
+    if(app.bus){
+      const s=app.bus.stats();
+      put('HUB channels '+JSON.stringify(s.channel)+' extra='+((s.channels||[]).length-1));
+      for(const c of (s.channels||[])) put('  ch '+c.id+' alive='+c.alive);
+      // 온 적 없는 topic 이 곧 "안 오는 이벤트" 다 — 그것부터 보이게 둔다.
+      s.topics.slice().sort((a,b)=>a.count-b.count).forEach(x=>
+        put('  · '+x.topic+' subs='+x.subs+' n='+x.count
+          +(x.agoMs!=null?' ago='+x.agoMs+'ms':' (온 적 없음)')));
+    }else put('HUB bus 없음');
+  };
 
   setTimeout(env,800);
 })();

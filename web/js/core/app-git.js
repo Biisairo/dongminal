@@ -436,6 +436,51 @@ Object.assign(App.prototype, {
     return this._sbTab===REPO_TAB_ID;
   },
 
+  /**
+   * 서버가 알린 저장소 변화 (GIT_PUSH_OBSERVE_SRS FR-GPO-21·22).
+   *
+   * **자기가 보는 저장소가 아니면 무시한다.** 방송은 모든 브라우저에 가고,
+   * 저마다 다른 저장소를 볼 수 있다.
+   *
+   * `mark` 가 마지막으로 본 값과 같으면 수집하지 않는다 (FR-GPO-22) — 재연결
+   * 직후 서버가 현재 값을 다시 알릴 수 있고, 그때 이미 받은 화면을 다시 받을
+   * 이유가 없다.
+   *
+   * **signature 로 거르지 않는다.** 그 값은 `.git` 만 보므로 작업 트리 변화에서는
+   * 그대로이고, 그것으로 거르면 파일이 생겨도 알림이 삼켜진다 — 실측한 결함이다
+   * (GIT_PUSH_OBSERVE_SRS §2.9). 거르는 근거는 서버가 **방송을 내보내게 만든 그
+   * 판단**과 같아야 한다.
+   */
+  _onGitChanged(a){
+    const repo=a&&a.repo;
+    if(!repo||!this._gitObservers) return;
+    // 관측기는 **저장소마다** 하나다 (FR-GIT-26·29). 방송이 가리키는 저장소를
+    // 보고 있는 관측기만 움직인다 — 남의 저장소 이벤트로 이 창이 요청을 내면
+    // 종전에 없던 요청이 생긴다.
+    for(const o of this._gitObservers.values()){
+      const p=o.any();
+      if(!p||p.repo!==repo) continue;
+      // 이미 본 값이면 받지 않는다 (FR-GPO-22). 재연결 직후 서버가 현재 값을
+      // 다시 알릴 수 있고, 그때 방금 받은 화면을 또 받을 이유가 없다.
+      if(a.mark&&o._gitMark===a.mark) continue;
+      o._gitMark=a.mark||'';
+      p.collect();
+    }
+  },
+
+  /**
+   * 구독이 열렸다 (FR-GPO-23). 끊겨 있던 동안의 변화는 방송으로 오지 않았으므로
+   * 한 번 받아 온다. `_reschedule` 이 아니라 `collect` 인 이유는 주기를 다시
+   * 걸 일이 없기 때문이다 — 주기는 `_applyCadence` 의 것이고 그것은 이미 서 있다.
+   */
+  _gitObserveRestore(){
+    if(!this._gitObservers) return;
+    for(const o of this._gitObservers.values()){
+      const p=o.any();
+      if(p) p.collect();
+    }
+  },
+
   // _gitReposRefresh 는 GIT 섹션의 목록을 갱신한다. 실패하면 이전 목록을 유지한다 —
   // 네트워크가 한 번 튀었다고 섹션이 비면 안 된다.
   async _gitReposRefresh(){

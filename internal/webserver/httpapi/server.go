@@ -11,9 +11,9 @@ import (
 
 	"bufio"
 	"context"
+	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/submodule"
-	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/wsentry"
 	"fmt"
 	"io/fs"
@@ -60,6 +60,11 @@ type Server struct {
 	// 그래서 `Git == nil` 은 라우팅 miss 가 아니라 핸들러 안의 503 으로 걸린다
 	// (gitapi.gitResolveRepo, FR-GIT-60 · FR-DPN-24).
 	git *gitapi.GitServer
+
+	// gitWatch 는 저장소 signature 를 감시해 `git_changed` 를 방송한다
+	// (GIT_PUSH_OBSERVE_SRS). `Git` 이 nil 이면 이 자리도 nil 이고, 그때
+	// `GitServer.Watch` 가 nil 이라 표명이 무해하게 지나간다.
+	gitWatch *hub.GitWatcher
 
 	started time.Time
 
@@ -152,11 +157,18 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		Work: deps.Work, Commands: cmds, RepoRoot: repoRoot,
 		NotesDir: notesDir, PluginsDir: pluginsDir,
 	}
+	// GIT_PUSH_OBSERVE_SRS: signature 감시자. 저장소 계층이 없으면 서지 않는다 —
+	// 감시할 대상이 없고, 그때 `GitServer.Watch` 는 nil 이라 표명이 무해하게
+	// 지나간다.
+	if deps.Git != nil {
+		srv.gitWatch = hub.NewGitWatcher(deps.Git, cmds)
+	}
 	srv.git = &gitapi.GitServer{
 		Git:      deps.Git,
 		Work:     deps.Work,
 		Commands: cmds,
 		Tools:    deps.Tools,
+		Watch:    srv.gitWatch,
 		// UX_BATCH5_SRS FR-SUB-1: 서브모듈 Manager 는 **Git 이 있을 때만** 선다.
 		// 저장소가 없는 배선에서는 물을 대상이 없고, nil 이면 그 표면이 503 이다
 		// (UserWorktrees 와 같은 규약).
@@ -370,4 +382,12 @@ func submoduleManager(git *store.Store) *submodule.Manager {
 		return nil
 	}
 	return submodule.New(submodule.ExecGit)
+}
+
+// StartGitWatch 는 signature 감시 회차를 돌린다 (GIT_PUSH_OBSERVE_SRS FR-GPO-13).
+//
+// `StartRunReaper` 와 같은 형태로 합성 루트가 부른다. 감시자가 없으면(저장소
+// 계층이 없는 배선) 아무 일도 하지 않는다.
+func (s *Server) StartGitWatch(stop <-chan struct{}) {
+	hub.StartGitWatch(s.gitWatch, stop)
 }

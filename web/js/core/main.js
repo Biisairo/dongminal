@@ -16,6 +16,16 @@ const themeReady=(async()=>{try{const r=await fetch('/api/settings');if(r.ok){co
   if(saved.statusBar) Object.assign(statusBar,saved.statusBar);
   if(saved.statsInterval) statsInterval=saved.statsInterval;
   // FR-GIT-23: 0 은 그 계층을 끈다는 뜻이므로 truthy 검사로는 안 된다.
+  //
+  // GIT_PUSH_OBSERVE_SRS: **저장된 값은 그대로 존중한다.**
+  //
+  // 한때 "옛 기본값(500/1s)이면 새 기본으로 옮긴다" 를 넣었다가 걷어냈다 —
+  // 저장된 값이 기본을 그대로 담은 것인지 사용자가 고른 것인지 **구분할 수단이
+  // 없다.** 검사가 주기를 명시로 세워도 그 마이그레이션이 삼켰고(실측), 사용자가
+  // 1초를 골랐어도 같은 일이 일어난다.
+  //
+  // 저장된 설정이 없으면 새 기본(푸시 + 안전망)을 받는다. 있으면 그것이 곧 그
+  // 사람의 선택이다.
   if(saved.gitSignatureInterval!==undefined) gitSignatureInterval=saved.gitSignatureInterval;
   if(saved.gitStatusInterval!==undefined) gitStatusInterval=saved.gitStatusInterval;
   if(saved.layoutPresets) layoutPresets=saved.layoutPresets;

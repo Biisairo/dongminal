@@ -34,3 +34,21 @@ test('전송이 /api/upload 로 로그를 올린다', async ({ page }) => {
   ]);
   expect(req.url()).toContain('dir=');
 });
+
+// EVENT_TIMER_HUB_SRS FR-SCH-11 · FR-BUS-9 — 진단은 두 클래스를 들여다본다.
+//
+// 진단 계층은 피진단 계층에 **의존하지 않지만**(D-3: `diag.js` 는 게이트의
+// 항구적 예외다) 읽을 수는 있어야 한다. "이벤트가 안 온다" 를 재현 대신
+// 스냅샷으로 푸는 자리가 이것이다 — 종전 진단은 `console.error('[cmd] parse')`
+// 한 줄이 전부였다.
+test('허브가 대기 타이머와 topic 을 찍는다', async ({ page }) => {
+  await page.goto('/?diag=1');
+  await expect(page.locator('#diag-ov')).toHaveCount(1);
+  await page.locator('#diag-ov .dg-b[data-a="hub"]').click();
+
+  const log = page.locator('#diag-ov .dg-log');
+  await expect(log).toContainText('HUB timers pending=', { timeout: 10000 });
+  // 온 적 없는 topic 도 보여야 한다 — 그것이 곧 "안 오는 이벤트" 다.
+  await expect(log).toContainText('HUB channels');
+  await expect(log).toContainText('git_changed');
+});

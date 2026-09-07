@@ -477,7 +477,16 @@ test.describe('묶음 S — 관측의 경계 (NFR-RTU-1)', () => {
         if (!u.includes('/api/git/status')) return;
         for (const p of [REPO, ...others]) if (u.includes(p)) hits.set(p, (hits.get(p) || 0) + 1);
       });
-      const poll = await page.evaluate(() => gitStatusInterval);
+      // GIT_PUSH_OBSERVE_SRS: 관측은 서버 푸시 + 안전망 폴링이다. **경계는
+      // 그대로** — 보이지 않는 표면은 어느 쪽으로도 관측되지 않는다. 안전망을
+      // 검사용으로 줄여 그 경계를 짧은 창에서 확인한다 (재는 것은 경계이지
+      // 주기값이 아니다).
+      const poll = await page.evaluate(() => {
+        (window as any).gitStatusInterval = 600;
+        const app = (window as any).app;
+        if (app._gitPanels) for (const p of app._gitPanels.values()) p._reschedule();
+        return 600;
+      });
       await page.waitForTimeout(poll * 3 + 500);
 
       expect(hits.get(REPO) || 0, '보이는 저장소가 폴링되지 않았다').toBeGreaterThan(0);

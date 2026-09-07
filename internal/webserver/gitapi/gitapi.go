@@ -29,6 +29,15 @@ type ToolLocator interface {
 	Cwd(id string) string
 }
 
+// RepoWatcher 는 "이 저장소를 지금 보고 있다" 를 받는 쪽이다. `hub.GitWatcher`
+// 가 이것을 만족한다.
+// 관측을 함께 받는 이유는 **기준선의 경계** 때문이다: 브라우저가 받은 바로 그
+// 관측이 기준선이어야, 표명과 첫 감시 회차 사이의 변화를 놓치지 않는다
+// (GIT_PUSH_OBSERVE_SRS §2.8).
+type RepoWatcher interface {
+	Note(repo string, obs store.Observation)
+}
+
 // GitServer는 /api/git/* 핸들러의 리시버다. 필드는 핸들러가 실제로 쓰는 것만
 // 담는다 — 넓은 Server 를 그대로 들고 오면 경계를 옮긴 의미가 없다.
 type GitServer struct {
@@ -36,6 +45,14 @@ type GitServer struct {
 	Work     WorkspaceStore
 	Commands Broadcaster
 	Tools    ToolLocator
+
+	// Watch 는 관심 표명을 받는다 (GIT_PUSH_OBSERVE_SRS FR-GPO-10).
+	//
+	// status 요청이 곧 "지금 이 저장소를 본다" 이므로 별도 API 를 만들지 않는다.
+	// 인터페이스로 받는 이유는 이 패키지가 `hub` 를 참조하지 않게 하기 위해서다 —
+	// 방향은 합성 루트에서만 만난다. nil 이면 아무 일도 하지 않는다(감시 없는
+	// 구성에서도 핸들러가 그대로 돈다).
+	Watch RepoWatcher
 
 	// gitUndo 는 방금 만든 커밋을 되돌릴 권한을 쥔다 (FR-GIT-83). 제로값도 쓸 수
 	// 있다 — 클라이언트 타이머만으로는 만료를 강제할 수 없으므로 이 자리가 없어서

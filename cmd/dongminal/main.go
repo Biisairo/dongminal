@@ -25,9 +25,9 @@ import (
 	"dongminal/internal/shared/runtime"
 	"dongminal/internal/shared/uuid"
 	"dongminal/internal/shared/workspace"
+	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
-	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/lsp"
 	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/domain/sysstat"
@@ -537,6 +537,10 @@ func serve(home, host, port string) int {
 	// direct 에서는 ForegroundNames() 를 직접 부르고, 데몬에서는 list RPC 가
 	// 되어 dongminald 안에서 같은 일을 시킨다.
 	hub.StartForegroundPoll(bd.deps.Tools, ctx.Done())
+	// GIT_PUSH_OBSERVE_SRS FR-GPO-1·13: 저장소 signature 를 확인해 바뀌었을 때만
+	// 알린다. 브라우저가 500ms 마다 묻던 것을 서버가 대신 본다 — 그 확인은 git 을
+	// 실행하지 않고 read 1회 + stat 2회다.
+	srv.StartGitWatch(ctx.Done())
 	// UX_REVISION_SRS FR-DEL-14/18: 끝난 Run 과 조정자를 잃은 Run 을 거둔다.
 	// 부팅 직후 한 번 돌므로 epoch 펜싱이 aborted 로 표시한 Run 도 여기서 사라진다.
 	srv.StartRunReaper(ctx.Done())
