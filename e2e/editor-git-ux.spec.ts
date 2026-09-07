@@ -457,7 +457,8 @@ test.describe('묶음 K — Monaco 안에서의 키', () => {
     const focused = await page.evaluate((f) => {
       const app = (window as any).app;
       const v = [...app.fileEditors.values()]
-        .find((x: any) => String(x.filePath).endsWith(f)) as any;
+        // 꼬리를 그대로 견주지 않는다 — 구분자를 맞춘 뒤에 본다 (FR-CEM-11).
+        .find((x: any) => String(x.filePath).replace(/\\/g, '/').endsWith(String(f).replace(/\\/g, '/'))) as any;
       if (!v || !v._editor) return '';
       v._editor.focus();
       const ae = document.activeElement as HTMLElement | null;

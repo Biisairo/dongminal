@@ -80,7 +80,13 @@ export default defineConfig({
    */
   workers: workerCount(),
   fullyParallel: false,
-  reporter: 'html',
+  /**
+   * `html` 은 실패했을 때 올리는 산출물이고, `parity-reporter` 는 **동등성**을
+   * 결과에서 읽게 한다 (CI_E2E_MATRIX_SRS FR-CEM-27) — 어느 OS 에서 몇 개가
+   * 실제로 돌았고 몇 개가 어떤 사유로 건너뛰어졌는지. 두 OS 의 그 한 줄을
+   * 나란히 놓으면 "같은 테스트가 같은 결과를 냈는가" 를 눈으로 가를 수 있다.
+   */
+  reporter: [['html'], ['./e2e/parity-reporter.ts']],
   /**
    * REFACTOR_STABILIZATION_SRS: 단정과 테스트의 기준 시간.
    *

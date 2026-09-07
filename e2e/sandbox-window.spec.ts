@@ -5,12 +5,27 @@ import { join } from 'path';
 import { test, expect, waitSettled, rmTree } from './fixtures';
 import { TMP } from './osenv';
 
-// SANDBOX_WINDOW_SRS §4.2: 컨테이너 런타임이 있어야만 도는 시험이다. 없는
-// 호스트에서는 건너뛴다 — 이 시험의 부재가 다른 시험을 막아서는 안 된다.
+/**
+ * SANDBOX_WINDOW_SRS §4.2: 컨테이너 런타임이 있어야만 도는 시험이다. 없는
+ * 호스트에서는 건너뛴다 — 이 시험의 부재가 다른 시험을 막아서는 안 된다.
+ *
+ * **`docker info` 의 성공만으로는 부족하다** (CI_E2E_MATRIX_SRS FR-CEM-26).
+ * Windows 러너에도 docker 는 있지만 그 데몬은 **Windows 컨테이너 모드**로 돌고,
+ * 이 제품의 샌드박스 이미지는 리눅스다 — 그 처지에서 이 검사는 건너뛰지도
+ * 통과하지도 못한 채 **실패**한다(러너 실측: 컨테이너 안이어야 할 셸에
+ * `PS C:\Users\runneradmin>` 이 떴다).
+ *
+ * 그래서 데몬에게 **무엇을 돌릴 수 있는지** 묻는다. `OSType` 이 linux 가 아니면
+ * 이 검사의 전제가 없는 것이고, 그것은 결함이 아니라 그 호스트의 사정이다.
+ */
 function runtimeReady(): boolean {
   try {
-    execSync('docker info', { stdio: 'ignore' });
-    return true;
+    // stderr 를 버린다 — 데몬이 없는 개발 기계에서 그 사유가 검사 출력에
+    // 섞이면 "무엇이 실패했는가" 를 읽기 어렵다. 건너뛴다는 사실은 skip 사유가
+    // 이미 말한다.
+    const osType = execSync('docker info --format "{{.OSType}}"',
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    return osType === 'linux';
   } catch {
     return false;
   }

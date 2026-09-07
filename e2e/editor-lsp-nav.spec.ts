@@ -53,11 +53,17 @@ async function enter(page: Page, request: APIRequestContext) {
 }
 
 async function openFile(page: Page, rel: string) {
-  await page.evaluate((p) => (window as any).app._edOpenFile(p), P(rel));
+  const abs = P(rel);
+  await page.evaluate((p) => (window as any).app._edOpenFile(p), abs);
+  // **꼬리로 견주지 않는다.** `endsWith('pkg/deep/helper.go')` 는 Windows 의
+  // 경로(`…\pkg\deep\helper.go`)에 결코 맞지 않아 이 대기가 20초를 다 쓴다
+  // (러너 실측). 절대경로를 통째로 견주되 구분자만 맞춘다 (FR-CEM-11).
   await page.waitForFunction((p) => {
     const v = (window as any).app._edActiveEditor();
-    return !!(v && v._editor && String(v.filePath).endsWith(p) && v.el.offsetParent !== null);
-  }, rel, { timeout: 20000 });
+    if (!v || !v._editor || v.el.offsetParent === null) return false;
+    const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
+    return key(v.filePath) === key(p);
+  }, abs, { timeout: 20000 });
 }
 
 // 커서를 그 자리에 둔다 — 요청이 싣는 좌표가 이것이다.
@@ -94,7 +100,9 @@ const activePath = (page: Page) => page.evaluate(
 async function waitEditorAt(page: Page, abs: string) {
   await page.waitForFunction((p) => {
     const v = (window as any).app._edActiveEditor();
-    return !!(v && v._editor && String(v.filePath) === p);
+    if (!v || !v._editor) return false;
+    const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
+    return key(v.filePath) === key(p);
   }, abs, { timeout: 20000 });
 }
 const cursor = (page: Page) => page.evaluate(() => {
