@@ -364,6 +364,23 @@ Object.assign(App.prototype, {
     if(this.ws.activeWindow) this._focusWindow(this.ws.activeWindow,i);
   },
 
+  /**
+   * WINDOW_SLOTS_SRS FR-WSL-56 (2026-09-08 접수): 칸 사이를 **직접** 오간다.
+   *
+   *   이전 동작: 칸 이동에는 키가 없었다 — pane 이동이 창의 **끝에서** 넘어가는
+   *              것이 유일한 길이었다 (FR-WSL-40, D-5)
+   *   새  동작: 이전 칸·다음 칸에 각자 키가 있다. 끝에서는 반대편으로 감긴다
+   *   이유:     끝으로 밀어야 넘어가는 이동은 칸 안의 분할이 깊을수록 멀다.
+   *              가려는 자리가 정해져 있는데 그 앞을 다 지나야 했다 (사용자 지시)
+   *
+   * 칸이 하나면 아무 일도 하지 않는다 — 감아 봐야 제자리다. `slotFocusTo` 를
+   * 지나므로 활성 창·활성 탭 동기화와 소유권 주장이 클릭과 **같은 길**이다.
+   */
+  slotNav(delta){
+    const n=this.slotCount(); if(n<=1) return;
+    this.slotFocusTo((this._slotFocused()+delta+n)%n);
+  },
+
   // 강조만 칠한다. render 를 대신하는 것이 아니라 그 **앞자리**를 메운다 —
   // 사용자가 누른 칸이 즉시 켜져 보여야 하기 때문이다.
   _slotPaintFocus(){

@@ -27,12 +27,14 @@ Object.assign(App.prototype, {
        * 그 자리를 보여야 한다: 열었는데 보이지 않으면 사용자는 실패로 읽는다
        * (FR-EDT-102 와 같은 근거). 그 구분이 여기서 난다 — 포커스가 실제로
        * 바뀐 부름만 사이드를 떠난다.
+       *
+       * FR-RTU-83: **이 자리만으로는 모자라다.** 이미 포커스인 pane 에 여는
+       * 부름은 `moved` 가 거짓이라 여기를 지나지 않는다 — 그래서 여는 쪽이
+       * `_mobileShowPane` 을 직접 부른다 (`_edOpenFile`·`openView`·
+       * `_docRenderOpen`). 여기는 그 함수의 **포커스 경로**일 뿐이다.
        */
       if(moved && this.isMobile && this._mobileOnSide&&this._mobileOnSide()){
-        const s=this._aw();
-        const regs=(s&&s.layout)?this._flattenPanes(s.layout):[];
-        const i=regs.findIndex(r=>r&&r.id===rid);
-        if(i>=0) this._mPaneIdx=i+this._mobileSideSlots();
+        this._mobileShowPane(rid);
       }
       // ATTENTION_FIRING_SRS FR-ATA-1: 포커스는 더 이상 해제가 아니다. 여기
       // 있던 `_attnClearFocused()` 가 "사용자가 보기 전에 알람이 사라진다" 의

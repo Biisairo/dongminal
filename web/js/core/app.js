@@ -340,6 +340,9 @@ class App {
       // 한쪽만 고쳐진다.
       slotAdd:()=>this.slotAdd(),
       slotRemove:()=>this.slotRemove(),
+      // FR-WSL-56: 손잡이 클릭과 같은 길이다 (`slotFocusTo`).
+      slotPrev:()=>this.slotNav(-1),
+      slotNext:()=>this.slotNav(1),
       // FR-PSC-3: 버튼 클릭과 **같은 함수**를 부른다. 여는 길이 둘로 갈리면
       // 한쪽만 고쳐진다.
       bgToggle:()=>this._bgModalToggle(),

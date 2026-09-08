@@ -243,10 +243,15 @@ const SHORTCUT_DEFAULTS={
   closeWindow:'Ctrl+Shift+KeyW',closeTab:'Ctrl+Shift+KeyD',
   agentsToggle:'Ctrl+Shift+KeyA',
   // WINDOW_SLOTS_SRS FR-WSL-51: 칸 더하기·빼기. `S`(Slot)·`X`(빼기) 둘 다 비어
-  // 있던 자리다. 칸 **사이의 이동**에는 키를 만들지 않는다 — pane 이동이 창의
-  // 끝에서 넘어간다 (FR-WSL-40, D-5).
+  // 있던 자리다.
   slotAdd:'Ctrl+Shift+KeyS',
   slotRemove:'Ctrl+Shift+KeyX',
+  // FR-WSL-56 (2026-09-08 접수): 칸 **사이의 이동**. 종전에는 키를 두지 않고
+  // pane 이동이 창의 끝에서 넘어가는 데 맡겼다 (D-5) — 그 결정을 뒤집는다.
+  // 대괄호인 것은 `windowPrev`·`windowNext` 와 **같은 관용**이기 때문이고,
+  // 모디파이어가 `Alt` 인 것은 `Ctrl+Shift+[`·`]` 가 그쪽 것이기 때문이다.
+  slotPrev:'Ctrl+Alt+BracketLeft',
+  slotNext:'Ctrl+Alt+BracketRight',
   // PANEL_SHORTCUTS_SRS FR-PSC-1/2: 상단 툴바의 나머지 두 진입점. `Runs` 가 `O`
   // 인 이유는 `R` 을 쓸 수 없기 때문이다 — 아래 D-6 과 같은 근거다.
   bgToggle:'Ctrl+Shift+KeyB',
@@ -282,6 +287,8 @@ const SHORTCUT_LABELS={
   agentsToggle:'에이전트 패널',
   slotAdd:'창 슬롯 더하기',
   slotRemove:'창 슬롯 빼기',
+  slotPrev:'이전 슬롯',
+  slotNext:'다음 슬롯',
   bgToggle:'백그라운드 도구',
   sidebarToggle:'사이드바 접기/펼치기',
   runsToggle:'Run 오케스트레이션',

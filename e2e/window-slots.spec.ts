@@ -562,3 +562,58 @@ test.describe('묶음 D — 슬롯 방향', () => {
     expect(await slotAxis(page)).toBe('vertical');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 묶음 N 보강 — 칸 사이의 직접 이동 (FR-WSL-56, TC-WSL-28)
+//
+// FR-WSL-40 의 경계 넘침과 다른 손짓이다: 그쪽은 "옆으로 계속 가다 보니 칸을
+// 넘는다" 이고 이쪽은 "칸으로 간다". 그래서 이쪽만 끝에서 감긴다.
+test.describe('묶음 N — 칸 사이의 직접 이동 (FR-WSL-56)', () => {
+  const focusedSlot = (page) => page.evaluate(() => (window as any).app._slotFocused());
+
+  test('TC-WSL-28: 다음·이전 칸으로 옮기고 끝에서 감긴다', async ({ page }) => {
+    await waitForInit(page);
+    const wins = await slotsWith(page, 3);
+    expect(await focusedSlot(page)).toBe(0);
+
+    await page.evaluate(() => (window as any).app.executeAction('slotNext'));
+    expect(await focusedSlot(page)).toBe(1);
+    expect(await activeWindowOf(page)).toBe(wins[1]);
+
+    await page.evaluate(() => (window as any).app.executeAction('slotNext'));
+    expect(await focusedSlot(page)).toBe(2);
+
+    // 끝에서 한 번 더 — 첫 칸으로 감긴다.
+    await page.evaluate(() => (window as any).app.executeAction('slotNext'));
+    expect(await focusedSlot(page)).toBe(0);
+    expect(await activeWindowOf(page)).toBe(wins[0]);
+
+    // 반대 방향도 같은 규약이다.
+    await page.evaluate(() => (window as any).app.executeAction('slotPrev'));
+    expect(await focusedSlot(page)).toBe(2);
+    expect(await activeWindowOf(page)).toBe(wins[2]);
+
+    // 포커스 칸의 강조도 따라온다 — 클릭과 같은 길(`slotFocusTo`)을 지난다.
+    await expect(page.locator('#area .slot[data-slot="2"]')).toHaveClass(/slot-focused/);
+  });
+
+  test('TC-WSL-28b: 칸이 하나면 두 액션 모두 무동작이다', async ({ page }) => {
+    await waitForInit(page);
+    expect(await slotCount(page)).toBe(1);
+    await page.evaluate(() => (window as any).app.executeAction('slotNext'));
+    await page.evaluate(() => (window as any).app.executeAction('slotPrev'));
+    expect(await slotCount(page)).toBe(1);
+    expect(await focusedSlot(page)).toBe(0);
+  });
+
+  // 기본 바인딩이 실제로 그 액션에 닿는가 — 표에만 있고 배선이 없으면 설정
+  // 화면에는 보이는데 눌러도 아무 일이 없다.
+  test('TC-WSL-28c: 기본 키가 칸을 옮긴다', async ({ page }) => {
+    await waitForInit(page);
+    await slotsWith(page, 3);
+    await page.keyboard.press('Control+Alt+BracketRight');
+    expect(await focusedSlot(page)).toBe(1);
+    await page.keyboard.press('Control+Alt+BracketLeft');
+    expect(await focusedSlot(page)).toBe(0);
+  });
+});

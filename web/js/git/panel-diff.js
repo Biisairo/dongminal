@@ -111,6 +111,9 @@ Object.assign(GitPanel.prototype, {
       if(view===REPO_SIDE_CHANGES){ app._edSetSide(w,REPO_SIDE_CHANGES); return }
       const rid=app._edEnsurePane(w); if(!rid) return;
       app.addTab(rid,TAB_TYPE_GIT,{gitView:view,windowId:w.id});
+      // FR-RTU-83: 모바일은 사이드(Changes)에 서서 이 부름을 낸다. 본문의 칸을
+      // 가리키지 않으면 diff 탭은 생기고 화면은 Changes 그대로다.
+      app._mobileShowPane(rid,{render:true});
       return;
     }
     const w=app._gitWindow(); if(!w||!w.layout) return;

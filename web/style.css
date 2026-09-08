@@ -585,8 +585,14 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
  *              창이 출렁이고, 그때마다 탭 줄과 닫기 버튼의 자리가 옮겨 갔다
  *   새  동작: 높이를 고정하고 넘치는 내용은 **본문 하나가** 스크롤한다
  *   이유:     상자의 크기는 그 안의 탭이 정할 성질이 아니다 (사용자 지시) */
+/* UI_KIT_SRS FR-UIK-14 (2026-09-08 접수): **가로로는 스크롤하지 않는다.**
+ *
+ *   이전 동작: 580px 고정. 탭 줄이 682px 라 가로로 밀렸고(Backup 이 화면 밖),
+ *              390px 기기에서는 상자 자신이 뷰포트를 넘었다
+ *   새  동작: 탭 열이 한 줄로 서는 폭을 주고, 좁은 화면에서는 뷰포트를 따른다
+ *   이유:     가로 스크롤은 "거기 더 있다" 를 감춘다 (사용자 지시) */
 #modal{
-  width:580px;height:min(80vh,720px);
+  width:min(760px,94vw);height:min(80vh,720px);
   background:var(--bg);border:1px solid var(--border);border-radius:10px;
   display:flex;flex-direction:column;overflow:hidden;
   box-shadow:0 8px 32px rgba(0,0,0,.5);
@@ -615,10 +621,9 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 }
 .modal-close:hover{background:var(--border);color:var(--danger)}
 
-/* 탭이 일곱(Backup 추가, FR-SPT-14)이 되며 580px 에 한 줄로 서지 않는다. 이름을
-   접으면 탭 줄만 두 줄로 깊어지므로, 접지 않고 좁으면 가로로 민다. */
-.modal-tabs{display:flex;border-bottom:1px solid var(--border);padding:0 10px;overflow-x:auto;scrollbar-width:none}
-.modal-tabs::-webkit-scrollbar{display:none}
+/* FR-UIK-14: 넓힌 폭에 탭 열이 한 줄로 선다. 그래도 서지 못하는 폭(모바일)에서는
+   **가로로 미는 대신 접는다** — 밀면 화면 밖의 탭을 찾을 계기가 없다. */
+.modal-tabs{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--border);padding:0 10px}
 .mtab{
   padding:10px 11px;background:none;border:none;border-bottom:2px solid transparent;
   color:var(--text-muted);font-size:12px;cursor:pointer;
@@ -629,14 +634,16 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 
 /* FR-UIK-13: 스크롤은 **여기 하나**다. 패널마다 자기 `max-height` 를 들면 상자
    안에 스크롤이 둘 생기고, 어느 쪽이 움직일지는 마우스 자리가 정하게 된다. */
-.modal-body{flex:1 1 auto;min-height:0;padding:18px;overflow-y:auto}
+/* FR-UIK-14: `overflow-y` 만 주면 다른 축은 `auto` 로 계산된다 — 한 행이 넘치는
+   순간 가로 막대가 선다. 넘치는 것은 줄바꿈으로 받는다 (`.ds-row` 아래). */
+.modal-body{flex:1 1 auto;min-height:0;padding:18px;overflow-y:auto;overflow-x:hidden}
 .modal-body::-webkit-scrollbar{width:6px}
 .modal-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 
 /* ── Theme layout (list + preview) ── */
 .theme-layout{display:flex;gap:12px;height:380px}
 .theme-list{
-  width:160px;min-width:160px;
+  width:200px;min-width:200px;
   overflow-y:auto;border:1px solid var(--border);border-radius:6px;
   background:var(--sidebar-bg);
 }
@@ -659,7 +666,9 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 }
 .tl-dots{display:flex;gap:2px}
 .tl-dots span{width:8px;height:8px;border-radius:2px}
-.tl-name{font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* FR-UIK-14: 이름을 말줄임으로 자르지 않는다 — 자르면 `Tokyo Night Storm` 과
+   `Tokyo Night Light` 가 같은 글자로 보인다. 길면 줄을 바꾼다. */
+.tl-name{font-size:11px;color:var(--text);line-height:1.4;min-width:0;overflow-wrap:anywhere}
 .tl-item.active .tl-name{color:var(--text-bright);font-weight:500}
 
 /* ── Theme preview panel ── */
@@ -813,9 +822,13 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .sb-sep{color:var(--border);margin:0 2px}
 
 /* ── Status Bar Settings ── */
-.sb-settings{overflow-y:auto;max-height:60vh}
-.sbs-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+/* FR-UIK-13: 스크롤은 `.modal-body` 하나다 (종전 `max-height:60vh` 를 걷었다) —
+   `.sc-list` 가 이미 같은 이유로 비어 있다. */
+.sb-settings{}
+.sbs-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03)}
 .sbs-row span{color:var(--text);font-size:12px}
+.sbs-row>span{flex:1 1 auto;min-width:0;line-height:1.5;overflow-wrap:anywhere}
+.sbs-row>:not(span){flex:0 0 auto}
 .sbs-row label{position:relative;width:36px;height:20px;cursor:pointer}
 .sbs-row input{opacity:0;width:0;height:0}
 .sbs-row .slider{position:absolute;inset:0;background:var(--border);border-radius:10px;transition:.2s}
@@ -888,8 +901,13 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 
 /* ── Display Settings ── */
 .display-settings{display:flex;flex-direction:column;gap:10px}
-.ds-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.ds-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03)}
 .ds-row span{color:var(--text);font-size:12px}
+/* FR-UIK-14: 라벨이 길면 **줄을 바꾼다.** 종전에는 줄지 않는 글자가 손잡이를
+   오른쪽으로 밀어 본문에 가로 막대를 세웠다. 손잡이 쪽은 줄지 않는다 — 줄어야
+   하는 것은 읽는 글자가 아니라 글자의 줄 수다. */
+.ds-row>span:first-child{flex:1 1 auto;min-width:0;line-height:1.5;overflow-wrap:anywhere}
+.ds-row>:not(span:first-child){flex:0 0 auto}
 .ds-num,.ds-text{
   width:90px;background:var(--bg);border:1px solid var(--border);border-radius:4px;
   color:var(--text);font-size:12px;padding:3px 8px;font-family:inherit;outline:none;

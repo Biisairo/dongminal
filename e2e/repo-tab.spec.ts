@@ -564,6 +564,67 @@ test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
       expect(over.items, '사이드 안에서 경계를 넘는 요소가 있다').toEqual([]);
       expect(over.scrollW).toBe(over.clientW);
     });
+
+  /**
+   * M3 (V-RTU-83): **본문에 pane 이 이미 있어도 연 것이 보인다.**
+   *
+   * 회귀의 조건이 까다롭다 — pane 이 **없을 때** 연 첫 파일은 pane 이 새로 생기며
+   * 포커스 id 가 바뀌므로 종전 코드로도 열렸다. 두 번째부터가 먹통이었다. 그래서
+   * 이 검사는 파일 하나를 먼저 열어 두는 것으로 시작한다.
+   */
+  test('M3 (V-RTU-83): 사이드에서 연 파일·diff 가 본문 자리를 보인다',
+    async ({ page, request }) => {
+      await enterMobile(page, request, REPO);
+
+      // ① 첫 파일 — pane 이 여기서 선다. 종전 코드도 통과하던 자리다.
+      await page.evaluate((p) => (window as any).app._edOpenFile(p), j(REPO, 'README.md'));
+      await expect(indicator(page)).toHaveText('2/2', { timeout: 15000 });
+
+      // 사이드로 돌아간다. 이제 본문의 pane 은 **있고 이미 포커스**다.
+      await page.click('#m-pane-prev');
+      await expect(indicator(page)).toHaveText('1/2');
+      await openExplorerSide(page);
+      const tree = page.locator('#area .ed-side .ed-tree');
+      await expect(tree.locator('.ed-row').first()).toBeVisible({ timeout: 10000 });
+
+      // ② 두 번째 파일 — 종전에는 탭만 생기고 화면은 Explorer 그대로였다.
+      await tree.locator(`.ed-row[data-path="${cssPath(j(REPO, 'src'))}"]`).click();
+      await tree.locator(`.ed-row[data-path="${cssPath(j(REPO, 'src', 'a.ts'))}"]`).click();
+      await expect(indicator(page)).toHaveText('2/2', { timeout: 10000 });
+      await expect(page.locator('#area .ed-win .ed-area')).toHaveCount(1);
+      await expect(page.locator('#area .ed-area .pn-tab.active')).toContainText('a.ts');
+
+      // ③ diff — 다른 진입점(`openView`)이고 같은 규약이다.
+      await page.click('#m-pane-prev');
+      await expect(indicator(page)).toHaveText('1/2');
+      await sideTab(page, 'changes').click();
+      const changed = side(page).locator('.git-view.git-changes .git-file').first();
+      await expect(changed).toBeVisible({ timeout: 15000 });
+      await changed.click();
+      await expect(page.locator('#area .ed-area .git-view.git-diff')).toBeVisible({ timeout: 15000 });
+      await expect(page.locator('#area .ed-win .ed-side')).toHaveCount(0);
+    });
+
+  /**
+   * M4 (V-RTU-83): 미리보기는 **옆 칸**에 열리고 (FR-DRV-5) 모바일에서 옆 칸은
+   * 순회의 다음 자리다. 여기서 서지 못하면 버튼을 눌러도 아무 일이 없어 보인다.
+   */
+  test('M4 (V-RTU-83): 미리보기가 그 자리를 보인다',
+    async ({ page, request }) => {
+      await enterMobile(page, request, REPO);
+      await page.evaluate((p) => (window as any).app._edOpenFile(p), j(REPO, 'README.md'));
+      await expect(indicator(page)).toHaveText('2/2', { timeout: 15000 });
+
+      const btn = page.locator('#area .ed-area .fe-render');
+      await expect(btn).toBeVisible({ timeout: 15000 });
+      await btn.click();
+
+      // 칸이 하나 늘고 순회가 그 자리에 선다 — 렌더 탭이 활성이다.
+      await expect(indicator(page)).toHaveText('3/3', { timeout: 15000 });
+      await expect(page.locator('#area .ed-area .pn-tab.active')).toContainText('README.md');
+      await expect(page.locator('#area .ed-area .doc-render .dr-body'))
+        .toHaveCount(1, { timeout: 15000 });
+    });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -117,6 +117,8 @@ Object.assign(App.prototype, {
     if (ex) {
       this.paneTabSet(ex.pane, ex.tab.id);
       this._setFocus(ex.pane.id, s);
+      // FR-RTU-83: 모바일 순회가 그 칸을 가리켜야 렌더 탭이 화면에 온다.
+      this._mobileShowPane(ex.pane.id);
       this.render();
       this._save();
       return;
@@ -134,6 +136,11 @@ Object.assign(App.prototype, {
     // 두 함수가 각자 `_save`·`render` 를 한다 — 여기서 다시 부르지 않는다.
     if (sib) this._moveTabToPane(src.id, id, sib.id, null, false);
     else this._splitPaneWithTab(src.id, id, src.id, 'right');
+    // FR-RTU-83: **옆 칸은 모바일 화면에 없다.** 나눈 뒤의 칸 id 는 여기서 만든
+    // 것이 아니므로 탭을 다시 찾아 그 자리를 가리킨다 — 순회에서 `옆 칸` 은 다음
+    // 자리이고, 그리로 가지 않으면 미리보기는 열리고도 보이지 않는다.
+    const put = this._findRenderTab(filePath);
+    if (put) this._mobileShowPane(put.pane.id, {render:true});
   },
 
   /**

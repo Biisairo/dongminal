@@ -49,6 +49,33 @@ Object.assign(App.prototype, {
     return i>=0?regs[i]:null;
   },
 
+  /**
+   * REPO_TAB_UNIFY_SRS FR-RTU-83 (2026-09-08 접수): **연 것은 보여야 한다.**
+   *
+   *   이전 동작: 사이드를 떠나는 판정이 `_setFocus` 의 `moved`(포커스 pane 이
+   *              실제로 **바뀌었는가**)에만 있었다. 본문에 pane 이 이미 있고
+   *              그것이 이미 포커스면 옮겨 갈 것이 없으므로 사이드에 남았다 —
+   *              탭은 생기는데 화면은 그대로였다
+   *   새  동작: 여는 부름이 **자기가 연 칸을 가리킨다.** 포커스가 움직였는지와
+   *              무관하다
+   *   이유:     실측(Pixel 7): pane 이 없던 첫 파일만 열리고, 그 뒤의 파일·
+   *              diff·이미지·미리보기는 전부 먹통이었다. 넷이 이 한 자리였다
+   *
+   * 데스크톱에서는 곧바로 물러선다 — 모바일 순회에만 있는 자리다.
+   * 바뀐 것이 있을 때만 `true` 이고, `opts.render` 면 그때만 다시 그린다.
+   */
+  _mobileShowPane(rid,opts){
+    if(!rid||!this.isMobile) return false;
+    const s=this._aw(); if(!s||!s.layout) return false;
+    const i=this._flattenPanes(s.layout).findIndex(p=>p&&p.id===rid);
+    if(i<0) return false;
+    const idx=i+this._mobileSideSlots();
+    if(this._mPaneIdx===idx) return false;
+    this._mPaneIdx=idx;
+    if(opts&&opts.render) this.render();
+    return true;
+  },
+
   // FR-RTU-82: 계수는 **사이드를 포함한다** — pane 이 둘이면 `1/3` 이다.
   _mobilePaneCount(){
     const s=this._aw(); if(!s) return 0;
@@ -86,8 +113,8 @@ Object.assign(App.prototype, {
       const pn=this._mobileCurrentPane(); if(pn) this.addTab(pn.id);
     });
     if(srch) srch.addEventListener('click',()=>this.toggleSearch&&this.toggleSearch());
-    if(drwr) drwr.addEventListener('click',()=>{this._toggleDrawer();this._rTopbar()});
-    if(bd) bd.addEventListener('click',()=>{this._toggleDrawer(false);this._rTopbar()});
+    if(drwr) drwr.addEventListener('click',()=>{this._toggleDrawer();this.renderer._rTopbar()});
+    if(bd) bd.addEventListener('click',()=>{this._toggleDrawer(false);this.renderer._rTopbar()});
     // Drawer close button injected into sidebar (visible only on mobile)
     const sb=document.getElementById('sidebar');
     if(sb && !sb.querySelector('.drawer-close')){
@@ -95,7 +122,7 @@ Object.assign(App.prototype, {
       xb.className='ui-btn ui-btn-icon ui-btn-ghost drawer-close';
       xb.appendChild(UIKit.icon('x'));
       xb.title='Close the sidebar';xb.setAttribute('aria-label','Close the sidebar');
-      xb.addEventListener('click',()=>{this._toggleDrawer(false);this._rTopbar()});
+      xb.addEventListener('click',()=>{this._toggleDrawer(false);this.renderer._rTopbar()});
       sb.insertBefore(xb, sb.firstChild);
     }
     // Auto-close drawer on window switch (mobile)

@@ -221,3 +221,72 @@ test.describe('페이지 제목', () => {
     expect(saved.pageTitle).toBe(TITLE);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI_KIT_SRS FR-UIK-14 / V-10a — 설정 모달은 가로로 스크롤하지 않는다.
+//
+// 종전에는 탭 열이 682px 라 580px 상자에서 가로로 밀렸고(Backup 이 화면 밖),
+// 390px 기기에서는 상자 자신이 뷰포트를 넘었다.
+test.describe('설정 모달의 가로 (FR-UIK-14)', () => {
+  const TABS = ['theme', 'shortcuts', 'statusbar', 'polling', 'presets',
+    'display', 'code', 'notify', 'sandbox', 'backup'];
+
+  test('UIK14a: 어느 탭에서도 본문이 가로로 넘치지 않는다', async ({ page }) => {
+    await waitForInit(page);
+    await page.click('#settings-btn');
+    await expect(page.locator('#modal')).toBeVisible();
+    for (const t of TABS) {
+      await page.click(`button.mtab[data-tab="${t}"]`);
+      const over = await page.evaluate(() => {
+        const b = document.querySelector('.modal-body') as HTMLElement;
+        return b.scrollWidth - b.clientWidth;
+      });
+      expect(over, `${t} 탭에서 본문이 가로로 넘친다`).toBe(0);
+    }
+  });
+
+  test('UIK14b: 탭 열이 한 줄로 서고 가로로 밀리지 않는다', async ({ page }) => {
+    await waitForInit(page);
+    await page.click('#settings-btn');
+    await expect(page.locator('#modal')).toBeVisible();
+    const tabs = await page.evaluate(() => {
+      const el = document.querySelector('.modal-tabs') as HTMLElement;
+      const rows = new Set([...el.children].map(c => Math.round(c.getBoundingClientRect().top)));
+      return { over: el.scrollWidth - el.clientWidth, rows: rows.size };
+    });
+    expect(tabs.over, '탭 열이 가로로 밀린다').toBe(0);
+    expect(tabs.rows, '탭 열이 한 줄이 아니다').toBe(1);
+  });
+
+  test('UIK14c: 좁은 뷰포트에서 상자가 화면 안에 든다', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await waitForInit(page);
+    await page.click('#settings-btn');
+    await expect(page.locator('#modal')).toBeVisible();
+    const fit = await page.evaluate(() => {
+      const r = (document.getElementById('modal') as HTMLElement).getBoundingClientRect();
+      const b = document.querySelector('.modal-body') as HTMLElement;
+      return { left: r.left, right: r.right, vw: window.innerWidth,
+        bodyOver: b.scrollWidth - b.clientWidth,
+        docOver: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+    });
+    expect(fit.left).toBeGreaterThanOrEqual(0);
+    expect(fit.right).toBeLessThanOrEqual(fit.vw);
+    expect(fit.bodyOver).toBe(0);
+    expect(fit.docOver, '문서가 가로로 넘친다').toBe(0);
+  });
+
+  // FR-UIK-13: 스크롤은 본문 하나다 — 상태바 패널이 자기 `max-height` 를 들고
+  // 있었다.
+  test('UIK14d: 상태바 패널이 자기 스크롤을 갖지 않는다', async ({ page }) => {
+    await waitForInit(page);
+    await page.click('#settings-btn');
+    await page.click('button.mtab[data-tab="statusbar"]');
+    await expect(page.locator('#panel-statusbar')).toBeVisible();
+    const own = await page.evaluate(() => {
+      const el = document.getElementById('sb-settings') as HTMLElement;
+      return { over: el.scrollHeight - el.clientHeight, oy: getComputedStyle(el).overflowY };
+    });
+    expect(own.over, '상태바 패널이 스스로 스크롤한다').toBe(0);
+  });
+});

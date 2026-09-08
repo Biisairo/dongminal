@@ -471,7 +471,7 @@ Object.assign(App.prototype, {
       const dsWrap=document.getElementById('ds-wordwrap');
       if(dsWrap) dsWrap.checked=editorWordWrap;
       // Auto-close drawer when opening settings on mobile
-      if(this.isMobile && this._drawerOpen){this._toggleDrawer(false);this._rTopbar()}
+      if(this.isMobile && this._drawerOpen){this._toggleDrawer(false);this.renderer._rTopbar()}
     });
     document.getElementById('modal-close').addEventListener('click',()=>overlay.classList.remove('open'));
     overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('open')});
@@ -662,7 +662,7 @@ Object.assign(App.prototype, {
       {label:'Pane',keys:['paneUp','paneDown','paneLeft','paneRight']},
       // FR-WSL-51: 창 **안**의 분할과 창 **밖**의 슬롯은 다른 것이다 (§7 R-3).
       // 같은 그룹에 두되 라벨이 그 차이를 말한다.
-      {label:'분할',keys:['splitH','splitV','slotAdd','slotRemove']},
+      {label:'분할',keys:['splitH','splitV','slotAdd','slotRemove','slotPrev','slotNext']},
       // PANEL_SHORTCUTS_SRS FR-PSC-5: 상단 툴바의 진입점 셋. 목록의 차례를
       // 툴바의 차례(Runs · Background · Agents)와 맞춘다.
       {label:'패널',keys:['runsToggle','bgToggle','agentsToggle','sidebarToggle']},
