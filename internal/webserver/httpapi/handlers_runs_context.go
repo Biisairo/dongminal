@@ -156,16 +156,30 @@ func (s *Server) apiRunContext(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 기록은 이미 갱신됐다. 통지가 실패해도 그 사실은 남는다 (FR-CBG-8).
+	//
+	// ALERT_MOBILE_CONTEXT_SRS FR-RCX-10 / D-14: 조정자 관측은 `entered` 를 내지
+	// 않으므로 이 갈래를 지나지 않는다. 조정자 자신의 등급을 조정자에게 알리면
+	// 그 통지가 조정자의 컨텍스트를 더 먹는다.
 	if entered != "" {
 		s.notifyContextAlert(m, entered)
 	}
-	writeJSON(w, map[string]any{
-		"observed": true, "memberId": m.ID, "level": m.ContextLevel,
+	// FR-RCX-6·7: 멤버가 아니라 **조정자 자리**에 앉은 관측은 멤버 id 가 없다.
+	// 빈 문자열을 내는 대신 그 사실을 말한다 — 받는 쪽이 "멤버를 못 찾았다" 와
+	// 구분할 수 있어야 한다.
+	out := map[string]any{
+		"observed": true, "level": m.ContextLevel,
 		"ratio": m.ContextRatio, "compactCount": m.CompactCount, "entered": entered,
 		// FR-CTX-5·8: 무엇을 무엇으로 나눈 값인지 함께 낸다 — 비율만 보이면
 		// "200k 로 재는가" 를 화면에서도 CLI 에서도 물을 수 없다.
 		"tokens": m.ContextTokens, "limit": m.ContextLimit,
-	})
+	}
+	if m.ID == "" {
+		out["coordinator"] = true
+		out["runId"] = m.RunID
+	} else {
+		out["memberId"] = m.ID
+	}
+	writeJSON(w, out)
 }
 
 // notifyContextAlert 는 등급 전이를 조정자에게 한 번 알린다 (FR-CBG-6).

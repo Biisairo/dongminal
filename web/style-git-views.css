@@ -1011,6 +1011,12 @@ body.mobile .runs-box .runs-del{min-height:44px;padding:0 12px}
 /* V-RVZ-5: 헤드리스 = 점선 테두리. 상태색은 그대로 두고 선만 끊는다. */
 .run-view .run-node.headless .run-node-box{stroke-dasharray:5 3}
 /* V-RVZ-6: 컨텍스트 게이지. 노드 하단에 붙는다. */
+/* ALERT_MOBILE_CONTEXT_SRS FR-RCX-4: 게이지 옆의 **숫자**. 4px 막대만으로는
+   "얼마나" 를 읽을 수 없다 — 접수한 말("run 의 context 표기")이 그것이다.
+   색은 카드의 `.run-card-ctx` 와 같은 등급 어휘를 쓴다. */
+.run-view .run-node .run-node-ctx{fill:var(--text-muted);font-size:9px;font-family:inherit}
+.run-view .run-node .run-node-ctx.lv-warn{fill:var(--attn)}
+.run-view .run-node .run-node-ctx.lv-critical{fill:var(--danger)}
 .run-view .run-gauge-bg{fill:var(--border)}
 .run-view .run-gauge.lv-ok{fill:var(--text-muted)}
 .run-view .run-gauge.lv-warn{fill:var(--attn)}

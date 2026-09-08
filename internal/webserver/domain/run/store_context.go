@@ -152,23 +152,56 @@ func (s *Store) ObserveContext(toolID string, obs ContextObservation, policy Con
 
 	ri, mi, ok := s.findByTool(toolID)
 	if !ok {
-		return Member{}, "", false
+		/**
+		 * ALERT_MOBILE_CONTEXT_SRS FR-RCX-6: **멤버가 아니라고 곧바로 버리지 않는다.**
+		 *
+		 * 훅은 조정자에게도 붙는다. 멤버 목록에서 못 찾은 `toolId` 를 그대로
+		 * 버리던 것이 접수한 물음("조정자 스스로의 context 사용량은 확인 못하나?")의
+		 * 원인이었다 — 신호는 도착해 있었고 앉을 자리가 없었다.
+		 *
+		 * 여기까지 와서도 못 찾으면 그때는 정말 버린다 (FR-RCX-12). 이 훅은 Run 과
+		 * 무관한 claude 전부에서 돌므로 그것은 실패가 아니라 정상이다.
+		 */
+		return s.observeCoordinator(toolID, obs, policy)
 	}
 	cur := &s.runs[ri].Members[mi]
+	// FR-RCX-8: 멤버와 조정자가 **같은 함수**를 지난다 — 등급 판정이 두 벌이 되면
+	// 화면의 두 자리가 다른 규칙으로 색을 고르게 된다.
+	entered = applyContextObservation(&cur.ContextState, obs, policy, s.now())
+	out := *cur
+	if err := s.save(); err != nil {
+		// 영속 실패로 관측을 잃어도 훅과 activity 는 살아 있어야 한다
+		// (NFR-CBG-2). 저장소가 못 쓰게 된 사실은 save 가 이미 로그로 남긴다.
+		return out, entered, true
+	}
+	return out, entered, true
+}
+
+/**
+ * applyContextObservation 은 관측 하나를 컨텍스트 상태에 얹는다.
+ *
+ * ALERT_MOBILE_CONTEXT_SRS FR-RCX-8: **멤버와 조정자가 이 함수를 함께 지난다.**
+ * 창 넓히기·추정 폴백·등급 판정이 한 자리에 있어야 두 화면이 같은 규칙으로
+ * 그려진다 — 이 함수를 뽑기 전에는 그 규칙이 멤버 경로 안에만 있었다.
+ *
+ * entered 는 이 관측이 만든 **등급 전이**다 (FR-CBG-6). 통지할지는 호출자가
+ * 정한다 — 조정자 경로는 이 값을 버린다 (FR-RCX-10).
+ */
+func applyContextObservation(cs *ContextState, obs ContextObservation, policy ContextPolicy, now int64) (entered string) {
 	if obs.Compacted {
-		cur.CompactCount++
+		cs.CompactCount++
 	}
 	if obs.SessionID != "" {
-		cur.SessionID = obs.SessionID
+		cs.SessionID = obs.SessionID
 	}
 	if obs.HasBytes {
-		cur.ContextBytes = obs.Bytes
+		cs.ContextBytes = obs.Bytes
 	}
 	if obs.HasTokens {
-		cur.ContextTokens = obs.Tokens
+		cs.ContextTokens = obs.Tokens
 	}
 	/**
-	 * UX_BATCH6_SRS FR-CTX-5·6·7: 이 멤버의 컨텍스트 창.
+	 * UX_BATCH6_SRS FR-CTX-5·6·7: 이 에이전트의 컨텍스트 창.
 	 *
 	 * 순서가 요구사항이다. ① 모델이 말하면 그것이 이긴다. ② 아직 모르면 정책의
 	 * 값(설정, 기본 200k)에서 출발한다. ③ 관측이 그 창을 넘으면 넓힌다 —
@@ -178,19 +211,19 @@ func (s *Store) ObserveContext(toolID string, obs ContextObservation, policy Con
 	 * 넓힌 값은 남는다 (FR-CTX-7). 압축으로 사용량이 내려가도 창은 그대로다.
 	 */
 	if w, ok := WindowForModel(obs.Model); ok {
-		cur.ContextLimit = w
+		cs.ContextLimit = w
 	}
-	if cur.ContextLimit <= 0 {
-		cur.ContextLimit = policy.withDefaults().LimitTokens
+	if cs.ContextLimit <= 0 {
+		cs.ContextLimit = policy.withDefaults().LimitTokens
 	}
-	tokens := float64(cur.ContextTokens)
+	tokens := float64(cs.ContextTokens)
 	if tokens <= 0 {
 		// FR-CTX-4: 실측을 얻지 못했다 — 종전의 바이트 추정으로 떨어진다.
-		tokens = policy.EstimateTokens(cur.ContextBytes)
+		tokens = policy.EstimateTokens(cs.ContextBytes)
 	}
 	if tokens > 0 {
-		cur.ContextLimit = WidenWindow(cur.ContextLimit, tokens)
-		cur.ContextRatio = tokens / cur.ContextLimit
+		cs.ContextLimit = WidenWindow(cs.ContextLimit, tokens)
+		cs.ContextRatio = tokens / cs.ContextLimit
 	}
 	// 크기를 한 번도 재지 못했고 압축 신호도 없으면 등급을 매길 근거가 없다 —
 	// 빈 채로 둔다 (FR-CBG-5).
@@ -207,21 +240,54 @@ func (s *Store) ObserveContext(toolID string, obs ContextObservation, policy Con
 	// 그래서 압축 뒤에 등급이 안 내려가는 것은 단조성 때문이 아니다. compactCount
 	// 가 남아 있는 한 policy.Level 이 크기를 보지 않기 때문이며(FR-CBG-4), 그것은
 	// **압축이 일어난 뒤에만** 참이다. 둘을 섞어 읽으면 없는 불변을 믿게 된다.
-	if cur.ContextBytes > 0 || cur.ContextTokens > 0 || cur.CompactCount > 0 {
-		level := policy.Grade(cur.ContextRatio, cur.CompactCount)
-		if levelRank(level) > levelRank(cur.ContextLevel) && level != LevelOK {
+	if cs.ContextBytes > 0 || cs.ContextTokens > 0 || cs.CompactCount > 0 {
+		level := policy.Grade(cs.ContextRatio, cs.CompactCount)
+		if levelRank(level) > levelRank(cs.ContextLevel) && level != LevelOK {
 			entered = level
 		}
-		cur.ContextLevel = level
+		cs.ContextLevel = level
 	}
-	cur.ContextAt = s.now()
-	out := *cur
-	if err := s.save(); err != nil {
-		// 영속 실패로 관측을 잃어도 훅과 activity 는 살아 있어야 한다
-		// (NFR-CBG-2). 저장소가 못 쓰게 된 사실은 save 가 이미 로그로 남긴다.
-		return out, entered, true
+	cs.ContextAt = now
+	return entered
+}
+
+/**
+ * observeCoordinator 는 관측을 **조정자 자리**에 앉힌다 (FR-RCX-6·7).
+ *
+ * 호출자는 락을 이미 쥐고 있다.
+ *
+ * 반환하는 `Member` 는 `ID` 가 비어 있다 — 조정자는 멤버가 아니고, 그 사실을
+ * 빈 id 가 말한다 (핸들러가 그것으로 응답을 가른다). `RunID` 는 채운다: 어느
+ * Run 의 조정자인가는 사실이기 때문이다.
+ *
+ * **`entered` 를 내지 않는다** (FR-RCX-10 / D-14). 멤버가 critical 이면 서버가
+ * 조정자에게 한 번 알리는데(FR-CBG-7), 조정자 자신의 등급을 조정자에게 알리면
+ * 그 통지가 조정자의 컨텍스트를 더 먹는다. 관측은 기록하고 화면에만 보인다.
+ */
+func (s *Store) observeCoordinator(toolID string, obs ContextObservation, policy ContextPolicy) (Member, string, bool) {
+	if toolID == "" {
+		return Member{}, "", false
 	}
-	return out, entered, true
+	for i := range s.runs {
+		r := &s.runs[i]
+		// 닫힌 Run 은 관측의 대상이 아니다 — `findByTool` 이 멤버에 대해 세운
+		// 규약과 같다.
+		if r.CoordinatorToolID != toolID || r.State != Open {
+			continue
+		}
+		if r.Coordinator == nil {
+			r.Coordinator = &ContextState{}
+		}
+		applyContextObservation(r.Coordinator, obs, policy, s.now())
+		out := Member{RunID: r.ID, ContextState: *r.Coordinator}
+		if err := s.save(); err != nil {
+			// 영속 실패로 관측을 잃어도 훅과 activity 는 살아 있어야 한다
+			// (NFR-CBG-2). 저장소가 못 쓰게 된 사실은 save 가 이미 로그로 남긴다.
+			return out, "", true
+		}
+		return out, "", true
+	}
+	return Member{}, "", false
 }
 
 // levelRank 는 등급의 서열이다. 빈 값("모른다")은 ok 보다도 아래다 — 모르는

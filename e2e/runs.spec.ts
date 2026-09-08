@@ -34,7 +34,8 @@ function member(id: string, role: string, over: Json = {}): Json {
   return { id, role, agent: 'claude', toolId: 'tool-' + id, state: 'working', createdAt: NOW() - 300, ...over };
 }
 
-// 멤버 4명(헤드리스 2) · 승계 1쌍 · critical 1명 — V-RVZ-5·6·7 이 한 Run 에서 읽힌다.
+// 멤버 5명(헤드리스 2) · 승계 1쌍 · critical 1명 · 실측 토큰 1명 —
+// V-RVZ-5·6·7 과 V-12 가 한 Run 에서 읽힌다.
 function graphA(): Json {
   const t = NOW();
   const members = [
@@ -44,6 +45,12 @@ function graphA(): Json {
     // 승계로 들어온 멤버는 `succeededFrom` 을 들고 오며, 서버는 이 멤버에
     // `member_add` 를 내지 않고 `succeed` 만 낸다 (같은 시각에 두 줄이 되지 않게).
     member('m4', '기록', { state: 'succeeded', succeededFrom: 'm1', tabId: 'tab-m4' }),
+    // FR-RCX-1·2: **실측 토큰**을 가진 멤버. 추정(`~`)과 실측을 한 화면에서
+    // 가르려면 둘 다 있어야 한다 (m3 가 추정 쪽이다).
+    member('m5', '편집', {
+      state: 'working', contextRatio: 0.128, contextLevel: 'ok',
+      contextTokens: 128000, contextLimit: 1000000,
+    }),
   ];
   return {
     runId: RUN_A, short: 'a1b2', objective: '토론으로 초안을 다듬는다',
@@ -179,7 +186,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     await expect(view.locator('.run-summary')).toContainText('Run a1b2');
     await expect(view.locator('.run-summary')).toContainText('토론으로 초안을 다듬는다');
     await expect(view.locator('.run-graph')).toBeVisible();
-    await expect(view.locator('.run-card')).toHaveCount(4);
+    await expect(view.locator('.run-card')).toHaveCount(5);
     await expect(view.locator('.run-tl-row')).toHaveCount(2);
   });
 
@@ -221,7 +228,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     await expect(page.locator('#area .run-view.vis')).toBeVisible();
   });
 
-  test('V-RVZ-5: 헤드리스 멤버는 점선 노드다 (4명 중 2명)', async ({ page }) => {
+  test('V-RVZ-5: 헤드리스 멤버는 점선 노드다 (5명 중 2명)', async ({ page }) => {
     const a = graphA();
     await mockRuns(page, listOf(a), { [RUN_A]: a });
     await waitForInit(page);
@@ -231,9 +238,9 @@ test.describe('Run 시각화 (묶음 V)', () => {
 
     const view = page.locator('#area .run-view.vis');
     // 조정자 노드는 멤버가 아니므로 세지 않는다.
-    await expect(view.locator('.run-node:not(.coord)')).toHaveCount(4);
+    await expect(view.locator('.run-node:not(.coord)')).toHaveCount(5);
     await expect(view.locator('.run-node.headless')).toHaveCount(2);
-    await expect(view.locator('.run-node:not(.coord):not(.headless)')).toHaveCount(2);
+    await expect(view.locator('.run-node:not(.coord):not(.headless)')).toHaveCount(3);
     // 점선은 클래스가 아니라 실제로 그려진 선이어야 한다.
     const dash = await view.locator('.run-node.headless .run-node-box').first()
       .evaluate((el) => getComputedStyle(el).strokeDasharray);
@@ -262,6 +269,67 @@ test.describe('Run 시각화 (묶음 V)', () => {
     // 추정이 없는 멤버(m1)에는 게이지 자체가 없다 — "모른다" 는 ok 가 아니다.
     await expect(view.locator('.run-node[data-node="m1"] .run-gauge')).toHaveCount(0);
     await expect(view.locator('.run-card[data-member="m3"] .run-card-ctx.lv-critical')).toBeVisible();
+  });
+
+  /**
+   * ALERT_MOBILE_CONTEXT_SRS V-12 (FR-RCX-1·2·5) — **숫자가 툴팁 밖으로 나온다.**
+   *
+   * 툴팁은 마우스를 올려야 보이고 터치에는 없다. 접수한 말("run 의 context
+   * 표기")이 그 자리를 본문으로 옮기라는 것이다.
+   */
+  test('V-12 (FR-RCX-1·2·5): 카드 본문에 토큰·한계·퍼센트가 있다', async ({ page }) => {
+    const a = graphA();
+    await mockRuns(page, listOf(a), { [RUN_A]: a });
+    await waitForInit(page);
+    await openModal(page);
+    await runRow(page, RUN_A).click();
+    const view = page.locator('#area .run-view.vis');
+    await expect(view).toBeVisible();
+
+    // 실측 토큰이 있는 멤버는 **무엇을 무엇으로 나눈 값인지**를 본문에 적는다.
+    await expect(view.locator('.run-card[data-member="m5"] .run-card-ctx'))
+      .toHaveText('128k / 1.0M · 13%');   // `_runTokens` 는 M 단위에 소수 한 자리다
+    // FR-RCX-2: 실측이 없어 바이트 추정으로 낸 값은 `~` 를 유지한다 — 추정과
+    // 실측이 같은 얼굴이면 안 된다.
+    await expect(view.locator('.run-card[data-member="m3"] .run-card-ctx'))
+      .toHaveText('ctx ~93% ⚠');
+    // FR-RCX-5: 값이 없으면 아무것도 적지 않는다. "모른다" 와 "0%" 는 다르다.
+    await expect(view.locator('.run-card[data-member="m1"] .run-card-ctx')).toHaveCount(0);
+  });
+
+  /**
+   * V-14 (FR-RCX-9·11) — **조정자도 자기 사용량을 보인다.**
+   *
+   * 접수한 물음("조정자 스스로의 context 사용량은 확인 못하나?")의 화면 쪽이다.
+   * 서버가 관측을 버리던 자리를 고쳤고(FR-RCX-6), 여기서는 그것이 그려지는지 잰다.
+   */
+  test('V-14 (FR-RCX-9): 조정자 노드에 게이지와 숫자가 뜬다', async ({ page }) => {
+    const a = graphA();
+    a.coordinator = { contextTokens: 700000, contextLimit: 1000000, contextRatio: 0.7, contextLevel: 'warn' };
+    await mockRuns(page, listOf(a), { [RUN_A]: a });
+    await waitForInit(page);
+    await openModal(page);
+    await runRow(page, RUN_A).click();
+    const view = page.locator('#area .run-view.vis');
+    await expect(view).toBeVisible();
+
+    const coord = view.locator('.run-node.coord');
+    await expect(coord.locator('.run-gauge.lv-warn')).toHaveCount(1);
+    await expect(coord.locator('.run-node-ctx')).toHaveText('70%');
+  });
+
+  // FR-RCX-11: 필드가 없던 옛 레코드는 빈 값이며 아무것도 그리지 않는다.
+  test('V-14 (FR-RCX-11): 조정자 관측이 없으면 아무것도 그리지 않는다', async ({ page }) => {
+    const a = graphA();
+    await mockRuns(page, listOf(a), { [RUN_A]: a });
+    await waitForInit(page);
+    await openModal(page);
+    await runRow(page, RUN_A).click();
+    const view = page.locator('#area .run-view.vis');
+    await expect(view).toBeVisible();
+
+    await expect(view.locator('.run-node.coord .run-gauge')).toHaveCount(0);
+    await expect(view.locator('.run-node.coord .run-node-ctx')).toHaveCount(0);
   });
 
   test('V-RVZ-7: 승계가 있으면 굵은 화살표가 그려진다', async ({ page }) => {

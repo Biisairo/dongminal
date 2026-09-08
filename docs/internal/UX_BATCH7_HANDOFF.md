@@ -21,7 +21,7 @@
 | ⑦ | Changes 에서 changes/untracked 통합 | B | **완료** |
 | ⑧ | 크기조절 핸들에 양쪽 크기 실시간 표시 | A | **팩토리만 완료** — 여섯 자리 배선이 남음 |
 | ⑨ | History 검색 둘을 하나로 · 옵션은 드롭다운 | B | **완료** |
-| ⑩ | Run 의 context 표기 + 조정자 자신의 사용량 | C | 미착수 |
+| ⑩ | Run 의 context 표기 + 조정자 자신의 사용량 | C | **완료** |
 | ⑪ | **폴링 주기를 설정에서 조절** (2026-09-08 접수) | — | **완료** ([`POLL_INTERVAL_SETTINGS_SRS`](./POLL_INTERVAL_SETTINGS_SRS.md)) |
 
 **2026-09-08 후반에 추가로 접수한 다섯:**

@@ -591,10 +591,21 @@ Object.assign(RunsPanel.prototype, {
   // FR-RVZ-12: 상태=테두리 색, 헤드리스=점선, 컨텍스트=하단 게이지.
   _runPaintNodes(root, d, members, at) {
     const g = root.querySelector('.run-nodes');
-    const items = [{ id: RUN_COORD, role: '조정자', agent: '', state: '', coord: true }];
+    /**
+     * FR-RCX-9: 조정자 노드도 **자기 관측을 싣는다.**
+     *
+     * 이 노드는 멤버가 아니라 합성된 가상 노드이고(D-13), 관측은 Run 레코드의
+     * 전용 필드에 산다. 여기서 그것을 얹으면 아래 게이지·숫자 코드가 멤버와
+     * **같은 갈래**를 지난다 — 조정자만 다른 규칙으로 그리면 색과 숫자가 두
+     * 벌이 된다.
+     */
+    const items = [Object.assign(
+      { id: RUN_COORD, role: '조정자', agent: '', state: '', coord: true },
+      d.coordinator || {})];
     for (const m of members) items.push(m);
     reconcileList(g, items, {
       key: it => it.id,
+      // FR-RPT-2: 보이는 값 전부다. 퍼센트가 글자로 나왔으므로 그것도 여기 든다.
       sig: it => [it.coord ? 'c' : 'm', it.role, it.agent, it.state, it.headless ? 1 : 0,
         it.contextLevel || '', Math.round((it.contextRatio || 0) * 100), at.get(it.id)].join(':'),
       build: it => this._runNodeEl(it, at.get(it.id)),
@@ -627,9 +638,15 @@ Object.assign(RunsPanel.prototype, {
     sub.textContent = m.coord ? '' : [m.agent, m.state].filter(Boolean).join(' · ');
     g.appendChild(sub);
 
-    // V-RVZ-6: 컨텍스트 게이지. contextLevel 이 비면 "모른다" 이므로 그리지
-    // 않는다 — ok 로 칠하면 없는 관측을 있다고 말하는 것이 된다 (FR-CBG-5).
-    if (!m.coord && m.contextLevel) {
+    /**
+     * V-RVZ-6: 컨텍스트 게이지. `contextLevel` 이 비면 "모른다" 이므로 그리지
+     * 않는다 — ok 로 칠하면 없는 관측을 있다고 말하는 것이 된다 (FR-CBG-5).
+     *
+     * FR-RCX-9: **`!m.coord` 제약이 사라졌다.** 조정자에게 관측이 없어서 뺐던
+     * 것이고, 이제 있다 (FR-RCX-6). 값이 없으면 `contextLevel` 이 비므로 이
+     * 조건 하나가 두 경우를 다 가른다.
+     */
+    if (m.contextLevel) {
       const gw = RUN_NODE_W - 16;
       g.appendChild(runSvg('rect', {
         class: 'run-gauge-bg', x: x + 8, y: y + RUN_NODE_H - 9, width: gw, height: 4, rx: 2,
@@ -638,6 +655,14 @@ Object.assign(RunsPanel.prototype, {
         class: 'run-gauge lv-' + m.contextLevel, x: x + 8, y: y + RUN_NODE_H - 9,
         width: Math.max(2, Math.round(gw * Math.min(1, m.contextRatio || 0))), height: 4, rx: 2,
       }));
+      // FR-RCX-4: 게이지 옆에 **숫자**도 적는다. 4px 막대만으로는 "얼마나" 를
+      // 읽을 수 없다 — 접수한 말("run 의 context 표기")이 그것이다.
+      const pct = runSvg('text', {
+        class: 'run-node-ctx lv-' + m.contextLevel, x: cx, y: y + RUN_NODE_H - 13,
+        'text-anchor': 'middle',
+      });
+      pct.textContent = Math.round((m.contextRatio || 0) * 100) + '%';
+      g.appendChild(pct);
     }
     return g;
   },
@@ -665,14 +690,22 @@ Object.assign(RunsPanel.prototype, {
     if (m.contextLevel) {
       const pct = Math.round((m.contextRatio || 0) * 100);
       const warn = m.contextLevel === 'ok' ? '' : ' ⚠';
-      const ctx = runDiv('run-card-ctx lv-' + m.contextLevel, `ctx ~${pct}%${warn}`);
-      // UX_BATCH6_SRS FR-CTX-8: **무엇을 무엇으로 나눈 값인지**를 말한다.
-      // 비율만 보이면 "1M 을 쓰는데 왜 70% 인가" 를 화면에서 물을 수 없다 —
-      // 접수 ⑨의 절반이 그 물음이었다.
-      if (m.contextTokens && m.contextLimit) {
-        ctx.title = `${this._runTokens(m.contextTokens)} / ${this._runTokens(m.contextLimit)} 토큰`;
-      }
-      card.appendChild(ctx);
+      /**
+       * FR-RCX-1: **숫자가 본문으로 나온다.**
+       *
+       * UX_BATCH6_SRS FR-CTX-8 이 "무엇을 무엇으로 나눈 값인지 말한다" 를 세웠고
+       * 그 답을 툴팁에 두었는데, 툴팁은 마우스를 올려야 보이고 터치에는 없다.
+       * 접수한 말("run 의 context 표기")이 그 자리를 본문으로 옮기라는 것이다.
+       *
+       * FR-RCX-2: 실측 토큰이 없어 바이트 추정으로 낸 값은 `~` 로 남는다 —
+       * 추정과 실측을 같은 얼굴로 보이면 안 된다 (NFR-CBG-3). 실측이 있으면
+       * 그 물결이 사라지고 대신 토큰 수가 선다.
+       */
+      const measured = m.contextTokens && m.contextLimit;
+      const text = measured
+        ? `${this._runTokens(m.contextTokens)} / ${this._runTokens(m.contextLimit)} · ${pct}%${warn}`
+        : `ctx ~${pct}%${warn}`;
+      card.appendChild(runDiv('run-card-ctx lv-' + m.contextLevel, text));
     }
     if (m.compactCount) card.appendChild(runDiv('run-card-compact', `compact ${m.compactCount}회`));
     if (m.worktree && m.worktree.branch) card.appendChild(runDiv('run-card-wt', 'wt: ' + m.worktree.branch));
