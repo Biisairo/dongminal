@@ -4,9 +4,22 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
+
+// requirePosixShell 은 posix 훅을 posix 호스트에서만 잰다.
+//
+// Windows 의 도구 셸은 PowerShell 이고 그쪽에는 이 훅이 주입되지 않는다
+// (VIEWER_URL_OPEN_SRS 비목표). 러너에 Git Bash 가 있다고 해서 그것이 검증
+// 대상이 되는 것은 아니다 — 제품이 그 셸을 쓰지 않는다.
+func requirePosixShell(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("posix 훅은 Windows 도구 셸에 주입되지 않는다")
+	}
+}
 
 // V10 (VIEWER_URL_OPEN_SRS FR-VUO-14): 쉘 훅의 `open`/`xdg-open` 은 URL 만
 // 가로채고 나머지는 원래 명령에 위임한다.
@@ -47,6 +60,7 @@ func hookFixture(t *testing.T) (home, binDir, log string) {
 // runHook 은 훅을 푼 뒤 source 하고 cmd 를 실행한다. 로그 내용을 낸다.
 func runHook(t *testing.T, shell, hookRel, cmd string) string {
 	t.Helper()
+	requirePosixShell(t)
 	if _, err := exec.LookPath(shell); err != nil {
 		t.Skipf("%s 없음", shell)
 	}
@@ -137,6 +151,7 @@ func TestXdgOpenHook_InterceptsHTTPURL(t *testing.T) {
 
 // 헬퍼가 없는 환경(설치 전, 다른 홈)에서는 위임한다 — 훅이 명령을 삼키면 안 된다.
 func TestOpenHook_NoHelperDelegates(t *testing.T) {
+	requirePosixShell(t)
 	if _, err := exec.LookPath("bash"); err != nil {
 		t.Skip("bash 없음")
 	}
