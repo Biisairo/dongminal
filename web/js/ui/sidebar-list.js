@@ -110,14 +110,10 @@ const SidebarList = {
     dot.className = ['sbl-dot', d.dotClass, r.dotCls].filter(Boolean).join(' ');
     el.appendChild(dot);
 
-    // FR-RAL-2·6: 레일의 행은 점 하나와 **이름 첫 글자**다. 값은 같은 서술자의
-    // `name` 에서 파생하므로 레일 전용 데이터가 생기지 않는다. 보임은 CSS 가
-    // 정한다 — 접을 때마다 다시 그리면 FR-RPT-3 이 깨진다.
-    const initial = document.createElement('span');
-    initial.className = 'sbl-initial';
-    initial.textContent = (r.name || '').charAt(0);
-    el.appendChild(initial);
-
+    // FR-RAL-2·6 (개정): 레일의 행은 점 하나와 **이름**이다 — 첫 글자를 따로 들던
+    // `.sbl-initial` 을 걷었다. 한 글자는 구분에 쓰이지 않았고, 지금은 같은
+    // `.sbl-name` 이 레일에서 작은 글자로 접혀 선다 (`style.css`). 요소가 하나면
+    // 레일 전용 데이터도, 두 값이 갈릴 자리도 없다.
     const name = document.createElement('span');
     name.className = ['sbl-name', d.nameClass].filter(Boolean).join(' ');
     name.textContent = r.name || '';

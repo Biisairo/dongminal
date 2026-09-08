@@ -270,20 +270,63 @@ test.describe('묶음 RAL — 레일의 목록 (FR-RAL-1~10)', () => {
     await expect(row).toBeVisible();
     const box = await row.boundingBox();
     expect(box!.width).toBeLessThanOrEqual(RAIL_W);
-    await expect(row.locator('.sbl-initial')).toBeVisible();
-    // 이름·×·배지는 자리를 내준다.
-    await expect(row.locator('.sbl-name')).toBeHidden();
+    // FR-RAL-2 (개정): 남는 것은 **이름**이다 — 첫 글자가 아니다.
+    await expect(row.locator('.sbl-name')).toBeVisible();
+    // ×·배지는 자리를 내준다.
     await expect(row.locator('.sbl-x')).toBeHidden();
   });
 
-  // FR-RAL-3: 한 글자로 줄어든 이름에 닿는 유일한 길이다.
+  /**
+   * RAL1b (FR-RAL-2 개정): 레일의 이름은 **줄여서 두 줄까지** 서고, 모든 행이
+   * 같은 크기다. 한 행만 커지면 목록이 계단처럼 보인다 (사용자 지시).
+   */
+  test('RAL1b (FR-RAL-2): 레일의 이름은 작은 글자로 두 줄까지 서고 크기가 한 벌이다',
+    async ({ page }) => {
+      await waitForInit(page);
+      // 두 줄을 넘겨 `…` 가 설 만큼 긴 이름을 하나 둔다.
+      await page.evaluate(() => {
+        const a = (window as any).app;
+        a._plainWindows()[0].name = '아주아주긴이름을가진창하나';
+        a.render();
+      });
+      await page.locator('#add-window').click();
+      await expect(page.locator('#windows .si')).toHaveCount(2, { timeout: 10000 });
+      await toggleKey(page);
+
+      const m = await page.evaluate(() => {
+        const rows = [...document.querySelectorAll('#windows .si')] as HTMLElement[];
+        return rows.map((r) => {
+          const n = r.querySelector('.sbl-name') as HTMLElement;
+          const cs = getComputedStyle(n);
+          return {
+            fs: cs.fontSize, clamp: cs.webkitLineClamp,
+            w: n.getBoundingClientRect().width,
+            rowW: r.getBoundingClientRect().width,
+            lines: Math.round(n.scrollHeight / parseFloat(cs.lineHeight)),
+          };
+        });
+      });
+      // 크기가 한 벌이다 — 행마다 다르면 그 자체가 결함이다.
+      expect(new Set(m.map((x) => x.fs)).size, '행마다 글자 크기가 다르다').toBe(1);
+      // 펼침(12px)보다 작다 — 그래야 26px 폭에 여러 글자가 든다.
+      expect(parseFloat(m[0].fs)).toBeLessThan(12);
+      // 두 줄까지다. 넘치면 마지막 줄 끝에 `…` 가 선다.
+      expect(m[0].clamp).toBe('2');
+      for (const x of m) expect(x.rowW).toBeLessThanOrEqual(RAIL_W);
+      // 한 글자보다 넓다 — 첫 글자만 남던 종전과 갈리는 자리다.
+      expect(m[0].w).toBeGreaterThan(parseFloat(m[0].fs) * 1.5);
+    });
+
+  // FR-RAL-3: 두 줄에도 들지 않는 이름에 닿는 유일한 길이다. 이름을 줄여 싣게
+  // 된 지금도(FR-RAL-2 개정) 이 길은 남는다 — 접힌 글자는 여전히 잘릴 수 있다.
   test('RAL2 (FR-RAL-3): 전체 이름은 title 로 닿는다', async ({ page }) => {
     await waitForInit(page);
     await toggleKey(page);
     const name = await page.evaluate(() => (window as any).app._plainWindows()[0].name);
     const row = page.locator('#windows .si').first();
     await expect(row).toHaveAttribute('title', name);
-    await expect(row.locator('.sbl-initial')).toHaveText(name.charAt(0));
+    // 화면의 글자도 **전체 이름**이다 — 잘리는 일은 CSS 가 한다.
+    await expect(row.locator('.sbl-name')).toHaveText(name);
   });
 
   /**
@@ -388,12 +431,13 @@ test.describe('묶음 RAL — 레일의 목록 (FR-RAL-1~10)', () => {
     expect(await page.evaluate(() => (window as any).app._sbRail())).toBe(false);
     const d = await page.evaluate(() => {
       const row = document.querySelector('#windows .si') as HTMLElement;
-      return {
-        name: getComputedStyle(row.querySelector('.sbl-name')!).display,
-        initial: getComputedStyle(row.querySelector('.sbl-initial')!).display,
-      };
+      const cs = getComputedStyle(row.querySelector('.sbl-name')!);
+      return { display: cs.display, fs: cs.fontSize, rowFs: getComputedStyle(row).fontSize };
     });
-    expect(d.name).not.toBe('none');
-    expect(d.initial).toBe('none');
+    expect(d.display).not.toBe('none');
+    // 레일의 작은 글자(`--sb-rail-fs`)가 아니라 행에서 물려받은 크기 그대로다.
+    // 값을 적지 않는 이유는 모바일이 자기 크기를 갖기 때문이다
+    // (`body.mobile .sbl-item`) — 재려는 것은 **레일 규칙이 걸리지 않았다** 이다.
+    expect(d.fs).toBe(d.rowFs);
   });
 });

@@ -431,9 +431,14 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 .fe-offer-go{border-color:var(--accent);color:var(--text-bright)}
 .fe-offer-x{border-color:transparent;color:var(--text-muted)}
 /* 제안 띠가 있으면 찾기 패널과 알림 줄이 그 아래로 내려 앉는다 — 같은 자리를
-   다투면 둘 중 하나가 가려진다. */
-.fe-offer ~ .fe-find{top:38px}
-.fe-offer ~ .fe-note{top:38px}
+   다투면 둘 중 하나가 가려진다.
+
+   FR-LSP-44a: 내려 앉는 값은 **띠가 실제로 먹은 높이**다 (`--fe-offer-h`, JS 가
+   재어 넘긴다). 종전의 `38px` 은 띠가 한 줄이라는 가정이었고, 390px 폭에서
+   안내가 접히면 띠가 그보다 커져 아래 것들을 그대로 덮었다. 폴백 32px 은 한
+   줄일 때의 높이이므로 넓은 화면의 결과는 종전과 같다. */
+.fe-offer ~ .fe-find{top:calc(var(--fe-offer-h,32px) + 6px)}
+.fe-offer ~ .fe-note{top:calc(var(--fe-offer-h,32px) + 6px)}
 
 /* ── 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS 묶음 M·P) ──
 

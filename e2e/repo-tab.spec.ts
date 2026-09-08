@@ -608,15 +608,42 @@ test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
   /**
    * M4 (V-RTU-83): 미리보기는 **옆 칸**에 열리고 (FR-DRV-5) 모바일에서 옆 칸은
    * 순회의 다음 자리다. 여기서 서지 못하면 버튼을 눌러도 아무 일이 없어 보인다.
+   *
+   * V-LSP-21 (FR-LSP-44a) 도 여기서 걸린다. **설치 제안 띠를 세워 두고** 누른다 —
+   * 그 띠가 서면 손잡이가 아래로 내려 앉는데, 내려 앉는 값이 `38px` 로 박혀
+   * 있어서 390px 폭(안내가 두 줄로 접힌다)에서는 여전히 띠 **안**에 있었다.
+   * CI ubuntu 러너가 이것을 잡았다 — 그 러너에는 markdown 서버가 없다.
+   * 여기서는 상태를 세워 어느 호스트에서도 같은 조건이 되게 한다.
    */
-  test('M4 (V-RTU-83): 미리보기가 그 자리를 보인다',
+  test('M4 (V-RTU-83 · V-LSP-23): 설치 제안 띠 아래에서도 미리보기가 그 자리를 보인다',
     async ({ page, request }) => {
+      await page.route('**/api/lsp/status', (r) => r.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ servers: [{
+          id: 'markdown', langs: ['markdown'], exts: ['.md'],
+          found: false, installer: 'npm', canInstall: true,
+        }] }),
+      }));
       await enterMobile(page, request, REPO);
       await page.evaluate((p) => (window as any).app._edOpenFile(p), j(REPO, 'README.md'));
       await expect(indicator(page)).toHaveText('2/2', { timeout: 15000 });
 
+      // 띠가 실제로 서야 이 검사가 뜻을 갖는다.
+      const offer = page.locator('#area .ed-area .fe-offer');
+      await expect(offer).toBeVisible({ timeout: 15000 });
+
+      // 손잡이는 띠 **아래**에 있다 — 띠가 두 줄이어도.
       const btn = page.locator('#area .ed-area .fe-render');
       await expect(btn).toBeVisible({ timeout: 15000 });
+      const clear = await page.evaluate(() => {
+        const o = document.querySelector('#area .ed-area .fe-offer') as HTMLElement;
+        const b = document.querySelector('#area .ed-area .fe-render') as HTMLElement;
+        return { offerBottom: o.getBoundingClientRect().bottom, btnTop: b.getBoundingClientRect().top };
+      });
+      expect(clear.btnTop, '미리보기 손잡이가 제안 띠에 덮인다')
+        .toBeGreaterThanOrEqual(clear.offerBottom);
+
+      // 그래서 `force` 없이 눌린다 — 덮여 있으면 여기서 띠가 클릭을 먹는다.
       await btn.click();
 
       // 칸이 하나 늘고 순회가 그 자리에 선다 — 렌더 탭이 활성이다.

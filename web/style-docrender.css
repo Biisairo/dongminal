@@ -110,8 +110,12 @@
 }
 .fe-render:hover{opacity:1;color:var(--accent);border-color:var(--accent)}
 /* 언어 서버 설치 제안(`.fe-offer`)이 서면 위쪽 가로 띠가 이 자리를 덮는다. 찾기
-   패널·알림 줄과 같은 값으로 내려 앉는다 (style-editor.css 의 `.fe-offer ~ …`). */
-.file-editor.fe-offered .fe-render{top:38px}
+   패널·알림 줄과 같은 값으로 내려 앉는다 (style-editor.css 의 `.fe-offer ~ …`).
+
+   FR-LSP-44a: 그 값은 **띠가 실제로 먹은 높이**다. 박아 둔 `38px` 은 좁은 화면에서
+   모자랐고, 그때 이 손잡이는 띠 아래가 아니라 띠 **안**에 있었다 — 눌러도 띠가
+   먹는다. 모바일에서 "미리보기가 동작하지 않는다" 의 두 원인 중 하나였다. */
+.file-editor.fe-offered .fe-render{top:calc(var(--fe-offer-h,32px) + 6px)}
 
 /* ── SVG (FR-DRV-14) ──
  *

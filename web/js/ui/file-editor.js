@@ -680,6 +680,24 @@ class FileEditor {
     // 선택자(`.fe-offer ~ …`)로는 안 된다: 그 손잡이는 편집기를 세울 때 붙으므로
     // 뒤늦게 오는 이 띠보다 **앞선 형제**다.
     this.el.classList.add('fe-offered');
+    /**
+     * EDITOR_LSP_SRS FR-LSP-44a (2026-09-08 접수): **띠의 높이는 고정이 아니다.**
+     *
+     *   이전 동작: 아래로 내려 앉는 값이 `38px` 로 박혀 있었다 — 띠가 한 줄이라는
+     *              가정이다
+     *   새  동작: 실제 높이를 재어 `--fe-offer-h` 로 넘긴다
+     *   이유:     390px 폭에서 안내가 두세 줄로 접히면 띠가 38px 을 넘고, 그러면
+     *              `◈ 미리보기` 손잡이를 **그대로 덮는다** — 눌러도 띠가 먹는다
+     *              (CI ubuntu 실측: 그 러너에는 markdown 서버가 없어 띠가 늘 선다)
+     *
+     * 폭이 바뀌면 줄 수도 바뀌므로 한 번 재는 것으로는 모자라다. 관측을 띠와 같은
+     * 수명으로 두고 `offerClose` 에서 함께 놓는다.
+     */
+    this._offerMeasure();
+    if (typeof ResizeObserver === 'function') {
+      this._offerRo = new ResizeObserver(() => this._offerMeasure());
+      this._offerRo.observe(el);
+    }
 
     const go = el.querySelector('.fe-offer-go');
     if (go) {
@@ -713,14 +731,26 @@ class FileEditor {
     el.querySelector('.fe-offer-x').addEventListener('click', () => this.offerClose());
   }
 
+  // FR-LSP-44a: 띠가 지금 먹고 있는 높이. 이 값 하나로 손잡이·찾기 줄·알림 줄이
+  // 다 같이 내려 앉는다 (`style-editor.css`·`style-docrender.css`).
+  _offerMeasure() {
+    if (!this._offerEl) return;
+    this.el.style.setProperty('--fe-offer-h', this._offerEl.offsetHeight + 'px');
+  }
+
   offerClose() {
     if (!this._offerEl) return;
+    if (this._offerRo) { this._offerRo.disconnect(); this._offerRo = null }
     this._offerEl.remove();
     this._offerEl = null;
     this.el.classList.remove('fe-offered');
+    this.el.style.removeProperty('--fe-offer-h');
   }
 
   destroy() {
+    // FR-LSP-44a: 띠의 관측은 띠와 같은 수명이다. 닫히지 않은 채 뷰가 파괴되면
+    // `offerClose` 를 지나지 않으므로 여기서도 놓는다.
+    if (this._offerRo) { this._offerRo.disconnect(); this._offerRo = null }
     // 하이라이트는 에디터와 함께 사라지지만, 컬렉션을 명시적으로 걷는다 —
     // dispose 순서에 기대지 않는다.
     if (this._findDecos) { this._findDecos.clear(); this._findDecos = null }
