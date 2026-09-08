@@ -295,8 +295,14 @@ const UIKit = {
     handle.addEventListener('mousedown', e => {
       if (e.button !== 0) return;
       e.preventDefault();
-      const ctx = o.start ? o.start(e) : {};
+      let ctx = o.start ? o.start(e) : {};
       if (ctx === false) return;
+      if (!ctx || typeof ctx !== 'object') ctx = {};
+      // FR-HSZ-1: **시작 좌표는 골격의 것이다.** 여섯 자리가 저마다
+      // `const sx=e.clientX` 를 다시 적을 이유가 없고, `sides` 도 그 값을
+      // 기준으로 변화량을 낸다.
+      ctx.sx0 = e.clientX;
+      ctx.sy0 = e.clientY;
       // 좌표는 **누적 상태**로 든다. `TIMERS.frame` 의 coalesce 는 먼저 잡힌
       // 예약이 이기므로(timer-hub §frame), 콜백이 클로저의 옛 좌표를 읽으면
       // HUD 가 한 프레임 전 자리에 멎는다.
@@ -352,6 +358,11 @@ const UIKit = {
       if (s.cell) { const c = document.createElement('i'); c.textContent = s.cell; b.appendChild(c) }
       if (s.pct != null) { const p = document.createElement('i'); p.textContent = Math.round(s.pct) + '%'; b.appendChild(p) }
       const sign = i === 0 ? -1 : 1;
+      // FR-HSZ-4b: 핸들에 **붙는 변**을 가지런히 한다 — 왼쪽 상자는 오른쪽
+      // 정렬, 오른쪽 상자는 왼쪽 정렬. 세로 핸들에서는 붙는 변이 상하이므로
+      // 좌우 정렬에 뜻이 없다 (가운데로 둔다).
+      b.classList.toggle('to-r', axis !== 'y' && i === 0);
+      b.classList.toggle('to-l', axis !== 'y' && i === 1);
       let x = axis === 'y' ? px : px + sign * gapX;
       let y = axis === 'y' ? py + sign * gapY : py;
       // 화면 밖으로 나가면 안쪽으로 민다.
@@ -388,10 +399,45 @@ const UIKit = {
   },
 
   // 셀 크기와 픽셀 크기에서 `C×R`. 셀을 재지 못했으면 빈 문자열이다.
-  cellFit(cell, w, h) {
+  /**
+   * FR-HSZ-5·9: 어떤 영역이 **터미널이면** 거기서 예상되는 `C×R`.
+   *
+   * 끄는 동안 fit 을 돌리지 않는다 — SIGWINCH 가 이벤트 수만큼 나가고 TUI 가
+   * 매번 프레임 전체를 다시 그린다 (FR-MTI-12 와 같은 근거). 그래서 이 값은
+   * **예상값**이다.
+   *
+   * 셀 크기는 폭·높이와 무관하므로 지금 값이 그대로 유효하다. 반면
+   * `.xterm-screen` 은 fit 이 돌기 전까지 **옛 크기**이므로, 그 크기에 이 칸이
+   * 얻거나 잃을 양(`dw`·`dh`)을 더해서 나눈다.
+   *
+   * 터미널이 아니면 빈 문자열이다 — 없는 값을 0 으로 적지 않는다 (FR-HSZ-5).
+   */
+  grid(pane, axis, dw, dh) {
+    if (!pane || !pane.term || !pane.el) return '';
+    const scr = pane.el.querySelector('.xterm-screen');
+    if (!scr) return '';
+    const cell = this.cellSize(pane.term, pane.el);
+    if (!cell) return '';
+    const r = scr.getBoundingClientRect();
+    return this.cellFit(cell, axis, r.width + (dw || 0), r.height + (dh || 0));
+  },
+  /**
+   * FR-HSZ-4a (2026-09-08 개정): **끄는 축의 값만 낸다.**
+   *
+   *   이전 동작: 언제나 `C×R`
+   *   새  동작: 가로 핸들이면 `NN cols`, 세로 핸들이면 `NN rows`
+   *   이유:     같은 상자의 `px` 와 `%` 는 **끌어서 바뀌는 값**인데 가운데 줄만
+   *             축 밖의 값을 함께 실었다. 가로 핸들에서 rows 는 아무리 끌어도
+   *             변하지 않으므로, 변하지 않는 숫자가 변하는 숫자들 사이에 앉아
+   *             있었다 (사용자 지적). 세 줄이 한 축을 말해야 상자가 한 가지를
+   *             말한다.
+   *
+   * 단위를 붙이는 이유는 숫자 하나만 남으면 그것이 무엇인지 알 수 없기 때문이다 —
+   * `71×33` 은 표기가 곧 설명이었지만 `71` 은 아니다.
+   */
+  cellFit(cell, axis, w, h) {
     if (!cell || !(cell.w > 0) || !(cell.h > 0)) return '';
-    const c = Math.max(1, Math.floor(w / cell.w));
-    const r = Math.max(1, Math.floor(h / cell.h));
-    return c + '×' + r;
+    if (axis === 'y') return Math.max(1, Math.floor(h / cell.h)) + ' rows';
+    return Math.max(1, Math.floor(w / cell.w)) + ' cols';
   },
 };

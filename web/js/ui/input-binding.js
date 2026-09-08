@@ -9,16 +9,39 @@ class InputBinding {
   bind(){
     if(this.app._kb) return; this.app._kb=true;
     const sbEl=document.getElementById('sidebar');
+    // FR-HSZ-3: 두 핸들의 반대쪽이 같은 요소다 — 콘텐츠 영역.
+    const contentEl=document.getElementById('content');
     document.getElementById('split-h').addEventListener('click',()=>this.app.split('horizontal'));
     document.getElementById('split-v').addEventListener('click',()=>this.app.split('vertical'));
     document.getElementById('agents-toggle').addEventListener('click',()=>this.app._agentsToggle());
     const ap=document.getElementById('agents-panel'),aph=document.getElementById('agents-handle');
     try{if(localStorage.getItem('agentsPanelOpen')==='1'){ap.classList.add('open');aph.classList.add('open');document.getElementById('agents-toggle').classList.add('open');this.app._agentsStartPoll()}}catch{}
-    aph.addEventListener('mousedown',e=>{e.preventDefault();
-      const sx=e.clientX,sw=ap.offsetWidth;
-      const mv=e=>{const w=sw-(e.clientX-sx);if(w>=160&&w<=480){document.documentElement.style.setProperty('--ag-w',w+'px')}};
-      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();try{localStorage.setItem('agentsWidth',ap.offsetWidth)}catch{}};
-      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
+    /**
+     * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다.
+     *
+     * `sides` 가 이 핸들의 **양쪽이 무엇인가**를 말한다 — 왼쪽은 콘텐츠(터미널이
+     * 들어 있으므로 `C×R` 이 나온다), 오른쪽은 Agents 패널이다. 자리로 어느
+     * 값인지 말하므로 라벨을 붙이지 않는다 (FR-HSZ-3).
+     */
+    UIKit.drag(aph,{
+      axis:'x',
+      start:()=>({w0:ap.offsetWidth,c0:contentEl?contentEl.offsetWidth:0}),
+      move:(ctx,ev)=>{
+        const w=ctx.w0-(ev.clientX-ctx.sx0);
+        if(w>=160&&w<=480) document.documentElement.style.setProperty('--ag-w',w+'px');
+      },
+      sides:(ctx)=>{
+        const aw=ap.offsetWidth, cw=contentEl?contentEl.offsetWidth:0, tot=aw+cw;
+        return [
+          {px:cw,cell:UIKit.grid(this.app._focusedTerminal&&this.app._focusedTerminal(),'x',cw-ctx.c0,0),
+            pct:tot?cw/tot*100:null},
+          {px:aw,pct:tot?aw/tot*100:null},
+        ];
+      },
+      end:()=>{
+        for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
+        try{localStorage.setItem('agentsWidth',ap.offsetWidth)}catch{}
+      },
     });
     try{const aw=parseInt(localStorage.getItem('agentsWidth'));if(aw>=160&&aw<=480)document.documentElement.style.setProperty('--ag-w',aw+'px')}catch{}
     // 문서 전역 DnD 수락(1회 바인딩): 드래그 중 화면 전체를 드롭 수락 영역으로 만들어
@@ -55,13 +78,13 @@ class InputBinding {
      * 키로도 같은 일을 한다 (`sidebarToggle`) — 손잡이는 마우스의 길이고, 그것이
      * 유일한 길이면 키보드만 쓰는 사람에게는 길이 없다.
      */
-    sbh.addEventListener('mousedown',e=>{
-      e.preventDefault();
+    UIKit.drag(sbh,{
+      axis:'x',
       // 접힘에서 시작하면 기준은 레일의 폭이다 — 그 자리에서 오른쪽으로 끌면
       // 임계를 넘어 펼쳐진다.
-      const sx=e.clientX, sw=sb.offsetWidth;
-      const mv=e=>{
-        const raw=sw+(e.clientX-sx);
+      start:()=>({w0:sb.offsetWidth,c0:contentEl?contentEl.offsetWidth:0}),
+      move:(ctx,ev)=>{
+        const raw=ctx.w0+(ev.clientX-ctx.sx0);
         const collapse=raw<SIDEBAR_COLLAPSE_AT_PX;
         // 접힘 자체는 `_setSidebarCollapsed` 한 자리에서 정한다 — 클래스·저장·
         // 터미널 재적합이 거기 묶여 있고, 두 벌로 두면 한쪽만 고쳐진다.
@@ -71,14 +94,22 @@ class InputBinding {
           document.documentElement.style.setProperty('--sb-w',raw+'px');
           this.app.ws.sidebarWidth=raw;
         }
-      };
-      const up=()=>{
-        document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);
+      },
+      // FR-HSZ-3: 왼쪽은 사이드바, 오른쪽은 콘텐츠다. 사이드바에는 `C×R` 이
+      // 없다 — 터미널이 아니다 (FR-HSZ-5).
+      sides:(ctx)=>{
+        const sw=sb.offsetWidth, cw=contentEl?contentEl.offsetWidth:0, tot=sw+cw;
+        return [
+          {px:sw,pct:tot?sw/tot*100:null},
+          {px:cw,cell:UIKit.grid(this.app._focusedTerminal&&this.app._focusedTerminal(),'x',cw-ctx.c0,0),
+            pct:tot?cw/tot*100:null},
+        ];
+      },
+      end:()=>{
         for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
         try{localStorage.setItem('sidebarWidth',this.app.ws.sidebarWidth)}catch{}
         this.app._save();
-      };
-      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
+      },
     });
     this.app._recording=null;
     window.addEventListener('keydown',e=>{

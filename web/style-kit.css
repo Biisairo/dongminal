@@ -189,3 +189,13 @@
    핸들 옆에서 화면 밖으로 나간다. */
 .ui-size-box b{display:block;font-weight:600;color:var(--accent)}
 .ui-size-box i{display:block;font-style:normal;color:var(--text-muted)}
+/* FR-HSZ-4b (사용자 지시 2026-09-08): **핸들에 붙는 쪽으로 정렬한다.**
+
+   세 줄의 길이는 서로 다르다 (`621px` · `71 cols` · `55%`). 가운데 정렬이면 세
+   줄의 양쪽 끝이 모두 어긋나 상자가 흔들려 보이고, 핸들에 가까운 변이 들쭉날쭉
+   해진다. 그 변을 가지런히 하면 두 상자가 핸들을 가운데 두고 마주 본다.
+
+   가로 핸들에서만 뜻이 있다 — 세로 핸들의 두 상자는 위/아래로 놓이고 가로
+   위치가 같으므로, 붙는 변이 좌우가 아니라 상하다. 그때는 가운데로 둔다. */
+.ui-size-box.to-r{text-align:right}
+.ui-size-box.to-l{text-align:left}

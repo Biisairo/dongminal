@@ -82,7 +82,7 @@ class GitCommit {
     el.querySelector('.git-commit-more').addEventListener('click',()=>{
       this._menuOpen=!this._menuOpen; this._paint();
     });
-    el.querySelector('.git-commit-resize').addEventListener('mousedown',ev=>this._drag(ev));
+    this._bindResize(el.querySelector('.git-commit-resize'));
     // 골격이 새로 세워졌으므로 다음 paint 가 리포 상태를 다시 채워야 한다.
     this._repo=null;
   }
@@ -194,23 +194,43 @@ class GitCommit {
     ta.style.height=Math.max(base,Math.min(need,max))+'px';
   }
 
-  _drag(ev){
-    ev.preventDefault();
-    const ta=this._msg;
-    const y0=ev.clientY,h0=ta.getBoundingClientRect().height;
-    const min=this._rowsPx(1);
-    const move=e=>{
-      this._h=Math.round(Math.max(min,h0+(e.clientY-y0)));
-      ta.style.height=this._h+'px';
-    };
-    const up=()=>{
-      document.removeEventListener('mousemove',move,true);
-      document.removeEventListener('mouseup',up,true);
-      try{localStorage.setItem(GIT_COMMIT_HEIGHT_KEY,String(this._height()))}catch{}
-      this._grow();
-    };
-    document.addEventListener('mousemove',move,true);
-    document.addEventListener('mouseup',up,true);
+  /**
+   * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다.
+   *
+   * 이 핸들만 **세로축**이며(`axis:'y'`) 위쪽이 커밋 입력, 아래쪽이 그 뒤에 오는
+   * 파일 목록이다. 양쪽 다 터미널이 아니므로 `C×R` 줄은 붙지 않는다 (FR-HSZ-5).
+   *
+   * 종전의 리스너가 `capture` 단계였다 — 커밋 입력 위에서 시작하는 드래그를
+   * 텍스트 선택이 먼저 삼키기 때문이다. 골격은 버블 단계이지만 손잡이 자신에
+   * 걸리고 `preventDefault` 를 하므로 같은 결과가 된다.
+   */
+  _bindResize(h){
+    if(!h) return;
+    UIKit.drag(h,{
+      axis:'y',
+      start:()=>{
+        const ta=this._msg;
+        if(!ta) return false;
+        const side=h.closest('.ed-side')||h.closest('.git-view')||h.parentElement;
+        return {ta,side,h0:ta.getBoundingClientRect().height,min:this._rowsPx(1)};
+      },
+      move:(ctx,ev)=>{
+        this._h=Math.round(Math.max(ctx.min,ctx.h0+(ev.clientY-ctx.sy0)));
+        ctx.ta.style.height=this._h+'px';
+      },
+      sides:(ctx)=>{
+        const th=ctx.ta.getBoundingClientRect().height;
+        const tot=ctx.side?ctx.side.getBoundingClientRect().height:th;
+        return [
+          {px:th,pct:tot?th/tot*100:null},
+          {px:Math.max(0,tot-th),pct:tot?(tot-th)/tot*100:null},
+        ];
+      },
+      end:()=>{
+        try{localStorage.setItem(GIT_COMMIT_HEIGHT_KEY,String(this._height()))}catch{}
+        this._grow();
+      },
+    });
   }
 
   // ── preflight (FR-GIT-76·85·87) ──

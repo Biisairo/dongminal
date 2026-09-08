@@ -560,20 +560,28 @@ class Renderer {
    * 드래그마다 트리와 편집기를 재조립할 이유가 없다 (NFR-RSW-1).
    */
   _rEdHandle(h,ex){
-    h.addEventListener('mousedown',e=>{
-      e.preventDefault();
-      const sx=e.clientX, start=ex.offsetWidth;
-      const clamp=w=>Math.max(REPO_SIDE_W_MIN,Math.min(REPO_SIDE_W_MAX,w));
-      const mv=ev=>{
-        const w=clamp(start+(ev.clientX-sx))+'px';
+    const clamp=w=>Math.max(REPO_SIDE_W_MIN,Math.min(REPO_SIDE_W_MAX,w));
+    // FR-HSZ-5: 양쪽 다 터미널이 아니다 — 사이드(탐색기·Changes)와 편집기이므로
+    // `C×R` 줄이 붙지 않는다.
+    UIKit.drag(h,{
+      axis:'x',
+      start:()=>({start:ex.offsetWidth,win:h.closest('.ed-win')}),
+      move:(ctx,ev)=>{
+        const w=clamp(ctx.start+(ev.clientX-ctx.sx0))+'px';
         for(const el of document.querySelectorAll('.ed-win>.ed-side')) el.style.width=w;
-      };
-      const up=ev=>{
-        document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);
-        this.app._edSetSideWidth(clamp(start+(ev.clientX-sx)));
+      },
+      sides:(ctx)=>{
+        const sw=ex.offsetWidth;
+        const tot=ctx.win?ctx.win.offsetWidth:sw;
+        return [
+          {px:sw,pct:tot?sw/tot*100:null},
+          {px:Math.max(0,tot-sw),pct:tot?(tot-sw)/tot*100:null},
+        ];
+      },
+      end:(ctx,ev)=>{
+        this.app._edSetSideWidth(clamp(ctx.start+(ev.clientX-ctx.sx0)));
         for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
-      };
-      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
+      },
     });
   }
 
@@ -787,28 +795,45 @@ class Renderer {
   }
 
   _handle(h,sp){
-    h.addEventListener('mousedown',e=>{
-      e.preventDefault();
-      const dir=sp.dataset.d, prev=h.previousElementSibling, next=h.nextElementSibling;
-      const sx=e.clientX, sy=e.clientY;
-      const tot=dir==='horizontal'?prev.offsetWidth+next.offsetWidth:prev.offsetHeight+next.offsetHeight;
-      const start=dir==='horizontal'?prev.offsetWidth:prev.offsetHeight;
-      const mv=e=>{
-        if(dir==='horizontal'){
-          const nw=start+(e.clientX-sx);if(nw<60||tot-nw<60)return;
-          prev.style.flex=`${nw/tot}`;next.style.flex=`${(tot-nw)/tot}`;
-        }else{
-          const nh=start+(e.clientY-sy);if(nh<60||tot-nh<60)return;
-          prev.style.flex=`${nh/tot}`;next.style.flex=`${(tot-nh)/tot}`;
-        }
-      };
-      const up=()=>{
-        document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);
+    /**
+     * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다.
+     *
+     * 이 핸들은 양쪽이 **둘 다 터미널일 수 있는** 유일한 자리다 (분할 칸).
+     * `_termIn` 이 각 칸에서 그것을 찾고, 없으면 `C×R` 줄이 붙지 않는다.
+     */
+    const dirOf=()=>sp.dataset.d;
+    UIKit.drag(h,{
+      axis:dirOf()==='horizontal'?'x':'y',
+      start:()=>{
+        const prev=h.previousElementSibling, next=h.nextElementSibling;
+        const horiz=dirOf()==='horizontal';
+        return {
+          prev,next,horiz,
+          tot:horiz?prev.offsetWidth+next.offsetWidth:prev.offsetHeight+next.offsetHeight,
+          p0:horiz?prev.offsetWidth:prev.offsetHeight,
+        };
+      },
+      move:(ctx,ev)=>{
+        const {prev,next,horiz,tot,p0}=ctx;
+        const n=p0+(horiz?ev.clientX-ctx.sx0:ev.clientY-ctx.sy0);
+        if(n<60||tot-n<60) return;
+        prev.style.flex=`${n/tot}`;next.style.flex=`${(tot-n)/tot}`;
+      },
+      sides:(ctx)=>{
+        const {prev,next,horiz,tot,p0}=ctx;
+        const pw=horiz?prev.offsetWidth:prev.offsetHeight;
+        const nw=tot-pw, d=pw-p0;
+        const cell=(el,delta)=>UIKit.grid(this.app._termIn(el),horiz?'x':'y',horiz?delta:0,horiz?0:delta);
+        return [
+          {px:pw,cell:cell(prev,d),pct:tot?pw/tot*100:null},
+          {px:nw,cell:cell(next,-d),pct:tot?nw/tot*100:null},
+        ];
+      },
+      end:()=>{
         const nd=sp._node;
         if(nd){nd.sizes=[];for(const c of sp.children){if(c.classList.contains('sc'))nd.sizes.push(parseFloat(c.style.flex)||1)}this.app._save()}
         for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
-      };
-      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
+      },
     });
   }
 }

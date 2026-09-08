@@ -826,4 +826,20 @@ Object.assign(App.prototype, {
    * 드로어이고(FR-SBC-20) 그때 접힘 클래스는 아무것도 좁히지 않는다.
    */
   _sbRail(){return this._sidebarCollapsed()&&!this.isMobile},
+
+  /**
+   * UI_KIT_SRS FR-HSZ-5: **이 영역 안에 있는 보이는 터미널.**
+   *
+   * 핸들의 한쪽이 터미널이면 크기 표시에 `C×R` 줄이 붙고, 아니면 붙지 않는다.
+   * 그 판정을 각 핸들이 따로 하면 "어느 칸이 터미널인가" 가 여섯 벌이 된다.
+   *
+   * `vis` 를 함께 보는 이유는 숨은 도구가 DOM 에 남아 있기 때문이다 — 그것을
+   * 집으면 보이지 않는 칸의 격자를 보이는 칸의 값으로 적게 된다.
+   */
+  _termIn(el){
+    if(!el) return null;
+    for(const p of this.tools.values())
+      if(p.term&&p.el&&p.el.classList.contains('vis')&&el.contains(p.el)) return p;
+    return null;
+  },
 });

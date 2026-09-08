@@ -572,33 +572,50 @@ Object.assign(App.prototype, {
   // 분할의 손잡이(`_handle`)와 같은 규약이다.
   _slotHandleBind(h,i){
     if(!h) return;
-    h.addEventListener('mousedown',e=>{
-      e.preventDefault();
-      const vert=this.slotDir==='vertical';
-      const a=document.querySelector(`#area .slot[data-slot="${i}"]`);
-      const b=document.querySelector(`#area .slot[data-slot="${i+1}"]`);
-      if(!a||!b) return;
-      const ra=a.getBoundingClientRect(), rb=b.getBoundingClientRect();
-      const aPx0=vert?ra.height:ra.width;
-      const total=aPx0+(vert?rb.height:rb.width);
-      const sum=this._slots.sizes[i]+this._slots.sizes[i+1];
-      const start=vert?e.clientY:e.clientX;
-      const move=ev=>{
-        const delta=(vert?ev.clientY:ev.clientX)-start;
-        const aPx=Math.min(total-SLOT_MIN_PX,Math.max(SLOT_MIN_PX,aPx0+delta));
-        this._slots.sizes[i]=sum*(aPx/total);
-        this._slots.sizes[i+1]=sum-this._slots.sizes[i];
+    /**
+     * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다.
+     *
+     * FR-HSZ-6: 여기서 `%` 는 **곧 저장되는 값**이다 (`_slots.sizes`) — 화면이
+     * 보이는 수치와 워크스페이스에 남는 수치가 같다.
+     */
+    const vertOf=()=>this.slotDir==='vertical';
+    UIKit.drag(h,{
+      axis:vertOf()?'y':'x',
+      start:()=>{
+        const vert=vertOf();
+        const a=document.querySelector(`#area .slot[data-slot="${i}"]`);
+        const b=document.querySelector(`#area .slot[data-slot="${i+1}"]`);
+        if(!a||!b) return false;
+        const ra=a.getBoundingClientRect(), rb=b.getBoundingClientRect();
+        const aPx0=vert?ra.height:ra.width;
+        return {
+          a,b,vert,aPx0,
+          total:aPx0+(vert?rb.height:rb.width),
+          sum:this._slots.sizes[i]+this._slots.sizes[i+1],
+        };
+      },
+      move:(ctx,ev)=>{
+        const delta=(ctx.vert?ev.clientY-ctx.sy0:ev.clientX-ctx.sx0);
+        const aPx=Math.min(ctx.total-SLOT_MIN_PX,Math.max(SLOT_MIN_PX,ctx.aPx0+delta));
+        this._slots.sizes[i]=ctx.sum*(aPx/ctx.total);
+        this._slots.sizes[i+1]=ctx.sum-this._slots.sizes[i];
         this._slotApplySizes();
-      };
-      const up=()=>{
-        document.removeEventListener('mousemove',move);
-        document.removeEventListener('mouseup',up);
+      },
+      sides:(ctx)=>{
+        const {a,b,vert,aPx0,total}=ctx;
+        const ap=vert?a.getBoundingClientRect().height:a.getBoundingClientRect().width;
+        const bp=Math.max(0,total-ap), d=ap-aPx0;
+        const cell=(el,delta)=>UIKit.grid(this._termIn(el),vert?'y':'x',vert?0:delta,vert?delta:0);
+        return [
+          {px:ap,cell:cell(a,d),pct:total?ap/total*100:null},
+          {px:bp,cell:cell(b,-d),pct:total?bp/total*100:null},
+        ];
+      },
+      end:()=>{
         this._slotsPersist();
         // 배분이 바뀌면 PTY 크기도 바뀐다 — 놓는 순간 한 번만 맞춘다.
         for(const p of this.tools.values()){ if(p.el.classList.contains('vis')) p.doFit() }
-      };
-      document.addEventListener('mousemove',move);
-      document.addEventListener('mouseup',up);
+      },
     });
   },
 
