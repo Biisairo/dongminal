@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -71,11 +72,31 @@ func (s *Server) apiSettingsGet(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// settingsChangedPayload 는 "설정이 바뀌었으니 다시 받으라" 는 신호다
+// (SETTINGS_LIVE, 2026-09-08 접수).
+//
+// **본문을 싣지 않는다.** 이 blob 은 서버가 해석하지 않는 것이고(파일 머리의
+// 규약), 방송에 실으면 그 순간부터 서버가 그 모양을 아는 셈이 된다. 받는 쪽은
+// `GET /api/settings` 로 자기가 읽는다 — `tools_background_changed` 와 같은
+// 규약이며, 그래서 클라이언트의 병합 정책도 같은 `latest` 다.
+func settingsChangedPayload() []byte {
+	b, _ := json.Marshal(map[string]any{
+		"action": "settings_changed",
+		"args":   map[string]any{},
+	})
+	return b
+}
+
 func (s *Server) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
 	body, _ := io.ReadAll(r.Body)
 	if s.Settings != nil {
 		s.Settings.set(body)
 		s.Settings.save()
+	}
+	// 저장이 끝난 **뒤에** 알린다 — 받은 창이 곧바로 GET 하므로, 먼저 알리면
+	// 그 GET 이 옛 값을 읽을 수 있다.
+	if s.Commands != nil {
+		s.Commands.Broadcast(settingsChangedPayload())
 	}
 	w.WriteHeader(200)
 }

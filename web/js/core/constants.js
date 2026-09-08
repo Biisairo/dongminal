@@ -60,7 +60,15 @@ const WIN_UNFOCUSED_CLASS='win-unfocused';
  */
 const UFE_LEVEL_DEFAULT=5;
 const UFE_LEVEL_MAX=10;
-const UFE_ALPHA_PER_LEVEL=.04;
+/* D-5a: 레벨당 .1 이다 (종전 .04).
+ *
+ *   이전 동작: 기본 5 에서 알파 .2 — 반전이 20% 만 섞여 어느 테마에서든 옅은
+ *              흰빛 하나로 수렴했다 (접수: "그냥 흰색같아서")
+ *   새  동작: 기본 5 가 .5, 10 이 1.0(완전 반전)
+ *   이유:     세기를 곡선의 **가장자리**에만 몰아 준다 — 20px 안쪽부터는
+ *             `UFE_ALPHA_MID_RATIO` 로 급히 떨어지므로 글자 위의 영향은 종전과
+ *             거의 같고, 띠 자체는 실제로 반대색으로 보인다 */
+const UFE_ALPHA_PER_LEVEL=.1;
 // D-8c: 중간 정지점은 세기에서 파생한다. 선형으로 사라지게 두면 사이드바(150px)와
 // 탑바가 통째로 깊이 안에 들어 그 글자들의 대비가 깎인다(실측) — 세기를 가장자리
 // 쪽으로 몰면 띠는 그대로 보이면서 글자 위의 영향은 사라진다.
@@ -71,6 +79,23 @@ const UFE_LEVEL_OFF_LABEL='끔';
 const UFE_PREVIEW_MS=1400;
 // 미리보기 동안 붙는 클래스. style.css 가 같은 이름을 안다.
 const UFE_PREVIEW_CLASS='ufe-preview';
+
+/* ── 알림 가장자리 (ALERT_MOBILE_CONTEXT_SRS 묶음 AED) ──
+ *
+ * 포커스 표시와 **같은 규약, 다른 값**이다 (D-9): 손잡이 하나(0~10), 기본 5,
+ * 0 이 곧 끔. 저장 키를 따로 두는 이유는 취향이 다르기 때문이다 — 포커스 표시는
+ * 상시 켜져 있고, 알림은 드물게·강하게 온다.
+ *
+ * 레벨당 .1 이므로 기본 5 가 알파 .5 다. 이 띠는 맥박하며 사라졌다 나타나므로
+ * 정지한 띠보다 눈에 잘 들어온다 — 같은 세기라도 더 강하게 읽힌다.
+ */
+const ATTN_EDGE_LEVEL_DEFAULT=5;
+const ATTN_EDGE_LEVEL_MAX=10;
+const ATTN_EDGE_ALPHA_PER_LEVEL=.1;
+const ATTN_EDGE_PREVIEW_MS=1400;
+const ATTN_EDGE_PREVIEW_CLASS='ae-preview';
+// FR-AED-6: 알림이 있는 동안 documentElement 에 붙는 클래스. style.css 가 같은 이름을 안다.
+const ATTN_EDGE_ON_CLASS='attn-edge-on';
 
 // 활동 패널 자동 새로고침 주기 기본값(ms). 설정에서 변경(per-device localStorage).
 // 비정상 종료·hook 누락으로 SSE 가 안 와도 주기적으로 서버와 동기화 (FR-AAP-19).
@@ -280,6 +305,8 @@ const TAB_WIDTH_MIN=40;
 const TAB_WIDTH_MAX=480;
 
 const TAB_ADD_TITLE='Add a tab to this pane';
+// UI_KIT_SRS FR-GLY-6: 아이콘만 있는 자리는 툴팁이 유일한 이름이다.
+const TAB_CLOSE_TITLE='Close this tab';
 
 // ── 툴팁 (UX_BATCH5_SRS 묶음 C / FR-TIP-1·2·4) ──
 //

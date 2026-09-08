@@ -111,6 +111,7 @@ Object.assign(App.prototype, {
     window.addEventListener('focus',()=>{
       this._windowFocused=true;
       this._paintFocusEdge();
+    this._paintAttnEdge();
       if(this.ws.activeWindow) this._focusWindow(this.ws.activeWindow);
     });
     window.addEventListener('blur',()=>{this._windowFocused=false;this._paintFocusEdge()});
@@ -136,6 +137,19 @@ Object.assign(App.prototype, {
     ds.style.setProperty('--ufe-alpha-mid',+(a*UFE_ALPHA_MID_RATIO).toFixed(4));
     // 0 은 곧 끔이다 (D-4a) — 스위치를 따로 묻지 않는다.
     ds.classList.toggle(WIN_UNFOCUSED_CLASS, focusEdgeLevel>0 && !this._windowFocused);
+  },
+
+  /**
+   * ALERT_MOBILE_CONTEXT_SRS FR-AED-13: 알림 가장자리의 세기.
+   *
+   * 포커스 표시와 같은 규약이다 — 레벨 하나에서 알파를 펴고, 0 이면 켜지지
+   * 않는다. 보일지의 판정(`attn-edge-on`)은 여기 없다: 그것은 알림의 유무이고
+   * `_attnRefresh` 가 이미 그 자리에서 결정한다 (FR-AED-6, 진실을 둘로 만들지
+   * 않는다).
+   */
+  _paintAttnEdge(){
+    document.documentElement.style.setProperty('--ae-alpha',
+      attnEdgeLevel*ATTN_EDGE_ALPHA_PER_LEVEL);
   },
 
   // _focusWindow is the SINGLE entry point for claiming window ownership.

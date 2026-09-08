@@ -13,6 +13,9 @@
   <link rel="icon" href="assets/favicon-16.png" sizes="16x16" type="image/png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="vendor/xterm.css">
+  <!-- UI_KIT_SRS FR-UIK-1 / D-6: 공통 키트는 **넷보다 먼저** 온다. 캐스케이드가
+       곧 의미이므로 키트가 먼저 서고 기존 파일이 그것을 덮을 수 있어야 한다. -->
+  <link rel="stylesheet" href="style-kit.css?v=__ASSETV__">
   <link rel="stylesheet" href="style.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-git.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-git-views.css?v=__ASSETV__">
@@ -31,6 +34,49 @@
   <script>try{var tv=JSON.parse(localStorage.getItem('dm.themeVars')||'null');if(tv&&typeof tv==='object'){var ds=document.documentElement.style;for(var k in tv)if(k.slice(0,2)==='--')ds.setProperty(k,tv[k])}}catch(e){}</script>
 </head>
 <body>
+<!-- UI_KIT_SRS FR-GLY-1·2·3: UI 아이콘 스프라이트.
+     아이콘 모양은 Lucide (https://lucide.dev) — MIT License, Copyright (c) for
+     portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT).
+     심볼은 **모양만** 갖는다. 색·굵기·크기는 `.ui-icon`(style-kit.css)이 준다 —
+     그래서 44개 테마 어디서나 글자색을 그대로 따르고, 크기는 버튼 높이에서
+     파생한다 (FR-GLY-5). 새 아이콘은 여기 한 줄을 더하는 것으로 끝난다. -->
+<svg id="ui-sprite" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7M12 19V5"/></symbol>
+  <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14m7-7-7 7-7-7"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 12h16M4 6h16M4 18h16"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+  <symbol id="i-git-branch" viewBox="0 0 24 24"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+  <symbol id="i-external-link" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/></symbol>
+  <symbol id="i-keyboard" viewBox="0 0 24 24"><path d="M10 8h.01M12 12h.01M14 8h.01M16 12h.01M18 8h.01M6 8h.01M7 16h10"/><rect x="2" y="4" width="20" height="16" rx="2"/></symbol>
+  <symbol id="i-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></symbol>
+  <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/></symbol>
+  <symbol id="i-columns" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/></symbol>
+  <symbol id="i-rows" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3"/><path d="M14 2v4M8 10v4M16 18v4"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 3.5v17l14-8.5z"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><path d="m4 17 6-6-6-6M12 19h8"/></symbol>
+  <symbol id="i-panel-left" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></symbol>
+</svg>
 <!-- BOOT_SCREEN_SRS FR-BTS-6·9 / D-7: **정적 마크업**이다. JS 로 만들면 그 스크립트가
      실행될 때까지 아래 골격이 그대로 노출되고, 그것이 이 스펙이 없애려는 장면이다.
      단계 문구의 초기값도 여기 있다 — 스크립트가 한 줄도 돌지 않은 시점에 사용자가
@@ -71,8 +117,8 @@
         <!-- SANDBOX_WINDOW_SRS: 샌드박스 창은 `+ New` 의 변종이므로 버튼을
              따로 세우지 않고 그 안에 둔다. span 인 것은 button 안에 button 을
              넣을 수 없기 때문이며, 분기는 클릭 대상으로 한다. -->
-        <button id="add-window" title="New window">+ New<span id="add-sandbox-window" title="샌드박스 창 — 이 창의 모든 탭이 하나의 컨테이너 안에서 돕니다 (docker 필요)">▣ Box</span></button>
-        <button id="add-preset" title="New window from default preset">★ Preset</button>
+        <button id="add-window" class="ui-btn" title="New window"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg>New<span id="add-sandbox-window" title="샌드박스 창 — 이 창의 모든 탭이 하나의 컨테이너 안에서 돕니다 (docker 필요)"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-box"/></svg>Box</span></button>
+        <button id="add-preset" class="ui-btn" title="New window from default preset"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg>Preset</button>
       </div>
       <div id="windows"></div>
     </div>
@@ -85,7 +131,7 @@
     <div class="sb-panel" id="sb-panel-repo" hidden>
       <!-- FR-BLP-8: `+ Add` 는 목록 **위**다 — `+ New` 와 같은 자리. -->
       <div class="sb-actions">
-        <button id="repo-add" title="Add a repository or folder">+ Add</button>
+        <button id="repo-add" class="ui-btn" title="Add a repository or folder"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg>Add</button>
       </div>
       <div id="repo-entries"></div>
       <div id="repo-root"></div>
@@ -94,8 +140,8 @@
          FR-SRL-8: 내부 새로고침도 같은 자리다 — 어느 탭에서 어긋남을 느끼든
          손이 닿아야 한다. -->
     <div id="sb-bottom">
-      <button id="soft-reload-btn" title="Reload the app without a full page refresh">⟳</button>
-      <button id="settings-btn" title="Settings">⚙</button>
+      <button id="soft-reload-btn" class="ui-btn ui-btn-icon ui-btn-lg ui-btn-ghost" title="Reload the app without a full page refresh" aria-label="Reload the app"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-refresh-cw"/></svg></button>
+      <button id="settings-btn" class="ui-btn ui-btn-icon ui-btn-lg ui-btn-ghost" title="Settings" aria-label="Settings"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-settings"/></svg></button>
     </div>
   </div>
   <!-- SIDEBAR_COLLAPSE_SRS FR-SBC-7 (2026-09-06 개정): **접기 버튼이 없다.**
@@ -108,44 +154,44 @@
     <div id="topbar">
       <span id="window-name"></span>
       <span class="m-pane-nav mobile-only">
-        <button class="mtbtn" id="m-pane-prev" title="Focus the previous pane">‹</button>
+        <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost" id="m-pane-prev" title="Focus the previous pane" aria-label="Focus the previous pane"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
         <span id="m-pane-indicator">1/1</span>
-        <button class="mtbtn" id="m-pane-next" title="Focus the next pane">›</button>
+        <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost" id="m-pane-next" title="Focus the next pane" aria-label="Focus the next pane"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-right"/></svg></button>
       </span>
       <span class="spacer"></span>
-      <button class="tbtn" id="attn-badge" title="Tools waiting for your attention" style="display:none">🔔<span class="attn-count">0</span></button>
-      <button class="tbtn desktop-only" id="split-h" title="Split Horizontal (Ctrl+Shift+H)">Split H</button>
-      <button class="tbtn desktop-only" id="split-v" title="Split Vertical (Ctrl+Shift+V)">Split V</button>
+      <button class="tbtn ui-btn" id="attn-badge" title="Tools waiting for your attention" aria-label="Tools waiting for your attention" style="display:none"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bell"/></svg><span class="attn-count">0</span></button>
+      <button class="tbtn ui-btn desktop-only" id="split-h" title="Split Horizontal (Ctrl+Shift+H)">Split H</button>
+      <button class="tbtn ui-btn desktop-only" id="split-v" title="Split Vertical (Ctrl+Shift+V)">Split V</button>
       <!-- ORCHESTRATION_V2_SRS FR-RVZ-1: Run 시각화 진입점. Split V 와 Agents
            사이가 지정된 자리다. 리스너는 app-runs.js 가 붙인다. -->
-      <button class="tbtn desktop-only" id="runs-btn" title="Run orchestration">Runs</button>
+      <button class="tbtn ui-btn desktop-only" id="runs-btn" title="Run orchestration">Runs</button>
       <!-- STATUS_BAR_REFLOW_SRS FR-SBR-8/12: Runs 와 Agents 사이. 이웃과 달리
            desktop-only 가 아니다 — 모바일에서 백그라운드 도구에 닿는 유일한
            통로다 (§2.5). 리스너는 app-statusbar.js 가 붙인다. -->
-      <button class="tbtn" id="bg-btn" title="Tools running in the background">Background</button>
+      <button class="tbtn ui-btn" id="bg-btn" title="Tools running in the background">Background</button>
       <!-- WINDOW_SLOTS_SRS FR-WSL-50: 창 **밖**을 쪼갠다 — 창 **안**을 쪼개는
            Split H·V 와 떨어진 자리다 (§7 R-3). 한계에 닿으면 비활성이 된다.
            리스너는 app-slots.js 가 붙인다. -->
       <span class="slot-ctl desktop-only">
-        <button class="tbtn" id="slot-remove" title="Remove a window slot (Ctrl+Shift+X)">−</button>
+        <button class="tbtn ui-btn ui-btn-icon" id="slot-remove" title="Remove a window slot (Ctrl+Shift+X)" aria-label="Remove a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-minus"/></svg></button>
         <span class="slot-ctl-label">Slot</span>
-        <button class="tbtn" id="slot-add" title="Add a window slot (Ctrl+Shift+S)">+</button>
+        <button class="tbtn ui-btn ui-btn-icon" id="slot-add" title="Add a window slot (Ctrl+Shift+S)" aria-label="Add a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
       </span>
       <!-- FR-WSL-50: Agents 가 데스크톱 버튼 중 가장 오른쪽이다. -->
-      <button class="tbtn desktop-only" id="agents-toggle" title="Show all agents in one place">Agents</button>
-      <button class="mtbtn mobile-only" id="m-search-btn" title="Search in this terminal">🔍</button>
-      <button class="mtbtn mobile-only" id="m-add-tab" title="New tab">+</button>
-      <button class="mtbtn mobile-only" id="m-drawer-toggle" title="Open the menu">☰</button>
+      <button class="tbtn ui-btn ui-btn-attn desktop-only" id="agents-toggle" title="Show all agents in one place">Agents</button>
+      <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-search-btn" title="Search in this terminal" aria-label="Search in this terminal"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg></button>
+      <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-add-tab" title="New tab" aria-label="New tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
+      <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-drawer-toggle" title="Open the menu" aria-label="Open the menu"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button>
     </div>
     <div id="area"></div>
     <div id="search-bar" class="search-bar hidden">
-      <span class="search-icon">⌕</span>
+      <span class="search-icon"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg></span>
       <input id="search-input" type="text" placeholder="검색...">
-      <button id="search-prev" title="Previous match (Shift+Enter)">↑</button>
-      <button id="search-next" title="Next match (Enter)">↓</button>
-      <button id="search-case" title="Match case">Aa</button>
+      <button id="search-prev" class="ui-btn ui-btn-icon ui-btn-sm" title="Previous match (Shift+Enter)" aria-label="Previous match"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-up"/></svg></button>
+      <button id="search-next" class="ui-btn ui-btn-icon ui-btn-sm" title="Next match (Enter)" aria-label="Next match"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-down"/></svg></button>
+      <button id="search-case" class="ui-btn ui-btn-sm" title="Match case">Aa</button>
       <span id="search-count"></span>
-      <button id="search-close" title="Close (Esc)">✕</button>
+      <button id="search-close" class="ui-btn ui-btn-icon ui-btn-sm ui-btn-ghost" title="Close (Esc)" aria-label="Close"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>
     </div>
     <div id="status-bar" class="status-bar">
       <span id="sb-items"></span>
@@ -164,7 +210,7 @@
   <div id="modal">
     <div class="modal-header">
       <span class="modal-title">Settings</span>
-      <button class="modal-close" id="modal-close" title="Close settings">×</button>
+      <button class="modal-close ui-btn ui-btn-icon ui-btn-ghost" id="modal-close" title="Close settings" aria-label="Close settings"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>
     </div>
     <div class="modal-tabs">
       <button class="mtab active" data-tab="theme" title="Theme settings">Theme</button>
@@ -185,7 +231,7 @@
           <div class="theme-list" id="theme-list"></div>
           <div class="theme-preview-panel" id="theme-preview"></div>
         </div>
-        <button id="custom-toggle" title="Toggle the custom theme editor">✏ Customize Current Theme</button>
+        <button id="custom-toggle" class="ui-btn" title="Toggle the custom theme editor"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-pencil"/></svg>Customize Current Theme</button>
         <div id="custom-editor" style="display:none">
           <div class="ce-section"><div class="ce-title">UI Colors</div><div class="ce-colors" id="ce-ui"></div></div>
           <div class="ce-section"><div class="ce-title">Terminal Colors</div><div class="ce-colors" id="ce-terminal"></div></div>
@@ -272,6 +318,16 @@
               <b id="ds-focusedge-val"></b>
             </span>
           </div>
+          <!-- ALERT_MOBILE_CONTEXT_SRS FR-AED-8·11: 포커스 표시와 **같은 손잡이 하나**다 —
+               0 이 곧 끔이고 기본은 5 (FR-UFE-10 의 D-4a 를 그대로 잇는다). -->
+          <div class="ds-row">
+            <span>알림 가장자리 점멸</span>
+            <span class="ds-range">
+              <input type="range" id="ds-attnedge" min="0" max="10" step="1" title="How strong the alert edge pulse is — 0 turns it off">
+              <b id="ds-attnedge-val"></b>
+            </span>
+          </div>
+          <div class="ds-hint">주의가 필요한 도구가 하나라도 있으면 화면 가장자리가 알람색으로 2초에 한 번 숨을 쉽니다. 어느 창의 알림이든 켜지므로, 다른 창을 보고 있어도 눈에 들어옵니다. 0 으로 내리면 그리지 않습니다. 세기는 옮기는 동안 그대로 미리 보입니다. 칸·탭·목록의 기존 표시는 그대로 남고 이 띠가 그 위에 더해집니다.</div>
           <div class="ds-hint">이 브라우저 창이 키를 받지 않는 동안 화면 가장자리에 옅은 띠를 그립니다. 0 으로 내리면 그리지 않습니다. 세기는 옮기는 동안 화면에 그대로 미리 보입니다. 색은 그 자리에 있는 색의 반대값이라 어느 테마에서나 눈에 띄고, 화면 안쪽은 건드리지 않아 글을 읽는 데는 지장이 없습니다. 창을 여러 개 띄웠을 때 어느 쪽에 키가 가는지 눌러 보지 않고 알기 위한 것입니다.</div>
         </div>
       </div>
@@ -369,9 +425,18 @@
     </div>
   </div>
 </div>
-<!-- UNFOCUSED_EDGE_SRS FR-UFE-1·2 / D-8: 포커스를 잃은 창의 가장자리 표시. 내용이
-     없고 포인터도 받지 않는다 — 있는 것은 색뿐이며, 그 색은 아래 픽셀에서 나온다
-     (`mix-blend-mode:difference`, D-5). 보일지는 `html.win-unfocused` 가 정한다. -->
+<!-- UNFOCUSED_EDGE_SRS FR-UFE-1·2 / D-8 (2026-09-08 개정 D-5a): 포커스를 잃은 창의
+     가장자리 표시. 내용이 없고 포인터도 받지 않는다. 색은 **아래 픽셀에서 나온다** —
+     `backdrop-filter:invert(1) saturate(…)` 다 (D-5a). 겹은 **하나**이고 액자의
+     모양은 마스크가 만든다 (D-5e) — 겹을 나누면 모서리에서 필터가 두 번 걸리고,
+     대각으로 자르면(`clip-path`) 같은 요소의 마스크가 무효가 되어 페이드가 죽는다.
+     보일지는 `html.win-unfocused` 가 정한다. -->
+<!-- ALERT_MOBILE_CONTEXT_SRS FR-AED-1 / D-6: 알림이 있는 동안의 가장자리.
+     `#focus-edge` 와 **별개의 겹**이다 — 계기(포커스 vs 알림)도 움직임(정지 vs
+     맥박)도 다르므로, 한 요소에 두 규칙을 걸면 전이가 서로를 자른다.
+     안쪽 `<i>` 는 맥박만 진다 (세기는 바깥이 든다, D-8).
+     색은 `--attn`(테마의 알람색)이고 보일지는 `html.attn-edge-on` 이 정한다. -->
+<div id="attn-edge"><i></i></div>
 <div id="focus-edge"></div>
 <script src="vendor/xterm.js"></script>
 <script src="vendor/addon-fit.js"></script>
@@ -399,6 +464,9 @@
 <script src="js/ui/boot-screen.js?v=__ASSETV__"></script>
 <script src="js/core/helpers.js?v=__ASSETV__"></script>
 <script src="js/ui/repaint.js?v=__ASSETV__"></script>
+<!-- 공통 UI 키트 (UI_KIT_SRS). repaint.js 뒤·sidebar-tabs.js 앞이어야 한다 —
+     뒤의 것들이 이 팩토리로 버튼·탭을 만든다 (FR-UIK-20). -->
+<script src="js/ui/ui-kit.js?v=__ASSETV__"></script>
 <!-- 사이드바 탭 (GIT_SIDEBAR_TABS_SRS). renderer.js 앞이어야 한다 — 렌더러가
      활성 탭 상태를 읽는다. -->
 <script src="js/ui/sidebar-tabs.js?v=__ASSETV__"></script>

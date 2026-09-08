@@ -120,7 +120,10 @@ const SidebarList = {
     if (r.removable) {
       const x = document.createElement('span');
       x.className = ['sbl-x', d.xClass].filter(Boolean).join(' ');
-      x.textContent = '×';
+      // UI_KIT_SRS FR-GLY-4: 글자 `×` 가 아니라 아이콘이다. 클래스는 그대로
+      // 남으므로 CSS 와 e2e 는 이 자리를 종전처럼 짚는다 (FR-UIK-10).
+      x.appendChild(UIKit.icon('x', { size: 'sm' }));
+      x.title = r.removeTitle || 'Remove';
       x.addEventListener('click', e => { e.stopPropagation(); r.onRemove(app) });
       el.appendChild(x);
     }

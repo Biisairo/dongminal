@@ -1,0 +1,191 @@
+/* Dongminal — 공통 UI 키트 (UI_KIT_SRS 묶음 A).
+ *
+ * 여기 사는 것: 크기 토큰 · 버튼 · 탭 · 상자(모달) · 메뉴 · 컨트롤 · 배지 ·
+ * 아이콘 · 핸들의 크기 표시(HUD).
+ *
+ * **이 파일은 넷보다 먼저 온다** (index.html 의 <link> 순서). 캐스케이드가 곧
+ * 의미이므로, 키트가 먼저 서고 기존 파일이 그것을 덮을 수 있어야 한다
+ * (FR-UIK-1·11). 그래서 여기에는 `!important` 가 없다.
+ *
+ * **기존 클래스를 지우지 않는다** (D-5 / FR-UIK-10). `.ui-btn` 은 `.tbtn` 과
+ * 함께 붙는다 — e2e 131개와 기존 캐스케이드가 옛 이름 위에 서 있다.
+ *
+ * 색은 소유하지 않는다 (FR-UIK-2). `--accent`·`--border`·`--text-*`·`--danger`
+ * 는 style.css 의 :root 와 테마가 준다.
+ */
+
+:root{
+  /* FR-UIK-2 — 크기 토큰. 값의 출처는 실측이다: `.tbtn` 이 4px+11px+4px ≈ 24px,
+     `.mtbtn` 이 26px 이었다. 둘의 가운데인 26 을 표준으로 삼는다. */
+  --ui-btn-h:26px;
+  --ui-btn-h-sm:22px;
+  --ui-btn-h-lg:30px;
+  --ui-btn-px:10px;
+  --ui-radius:4px;
+  --ui-gap:6px;
+  --ui-font:11px;
+  /* FR-UIK-5 / D-7: 아이콘 변은 **버튼 높이에서 파생한다**. 두 값을 따로 적으면
+     버튼을 키울 때 아이콘만 남는다. */
+  --ui-icon-ratio:.68;
+  /* 버튼 밖(목록의 점·행의 표식)에 쓰는 두 눈금 (FR-GLY-5). 자리마다 px 를
+     적지 않는다. */
+  --ui-icon-sm:13px;
+  --ui-icon-md:16px;
+  --ui-tab-h:30px;
+}
+
+/* ── 아이콘 (FR-GLY-2·5) ───────────────────────────────────────────────
+   스프라이트의 <symbol> 은 모양만 갖고 색·굵기는 여기서 온다 — 그래서 44개
+   테마 어디서나 글자색을 그대로 따른다. */
+.ui-icon{
+  width:var(--ui-icon-md);height:var(--ui-icon-md);flex:0 0 auto;
+  fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
+  vertical-align:-.15em;pointer-events:none;
+}
+.ui-icon-sm{width:var(--ui-icon-sm);height:var(--ui-icon-sm)}
+.ui-icon-lg{width:20px;height:20px}
+/* 채워 그리는 모양(점 등)은 획이 아니라 면이다. */
+.ui-icon-fill{fill:currentColor;stroke:none}
+
+/* ── 버튼 (FR-UIK-3·4·5) ─────────────────────────────────────────────── */
+.ui-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  height:var(--ui-btn-h);padding:0 var(--ui-btn-px);
+  border:1px solid var(--border);border-radius:var(--ui-radius);
+  background:transparent;color:var(--text-muted);
+  font-family:inherit;font-size:var(--ui-font);line-height:1;
+  cursor:pointer;flex-shrink:0;white-space:nowrap;
+}
+.ui-btn:hover{background:var(--accent-active);color:var(--accent);border-color:var(--accent-border)}
+.ui-btn:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
+.ui-btn:disabled,.ui-btn.disabled{opacity:.4;cursor:default;background:transparent;color:var(--text-dim);border-color:var(--border)}
+
+/* FR-UIK-5 / 요구 ⑤: 아이콘 버튼은 정사각이고 **아이콘이 상자를 꽉 채운다**. */
+.ui-btn-icon{width:var(--ui-btn-h);padding:0}
+.ui-btn-icon>.ui-icon{
+  width:calc(var(--ui-btn-h) * var(--ui-icon-ratio));
+  height:calc(var(--ui-btn-h) * var(--ui-icon-ratio));
+}
+.ui-btn-sm{height:var(--ui-btn-h-sm);font-size:10px;padding:0 7px}
+.ui-btn-sm.ui-btn-icon{width:var(--ui-btn-h-sm)}
+.ui-btn-sm.ui-btn-icon>.ui-icon{
+  width:calc(var(--ui-btn-h-sm) * var(--ui-icon-ratio));
+  height:calc(var(--ui-btn-h-sm) * var(--ui-icon-ratio));
+}
+.ui-btn-lg{height:var(--ui-btn-h-lg);font-size:12px}
+.ui-btn-lg.ui-btn-icon{width:var(--ui-btn-h-lg)}
+.ui-btn-lg.ui-btn-icon>.ui-icon{
+  width:calc(var(--ui-btn-h-lg) * var(--ui-icon-ratio));
+  height:calc(var(--ui-btn-h-lg) * var(--ui-icon-ratio));
+}
+
+.ui-btn-primary{color:var(--accent);border-color:var(--accent-border);background:var(--accent-subtle)}
+.ui-btn-primary:hover{background:var(--accent-active);border-color:var(--accent)}
+.ui-btn-danger{color:var(--danger);border-color:var(--danger);background:rgba(247,118,142,.12)}
+.ui-btn-danger:hover{background:rgba(247,118,142,.2);color:var(--danger);border-color:var(--danger)}
+.ui-btn-attn{color:var(--attn);border-color:var(--attn-subtle)}
+.ui-btn-attn:hover{background:var(--attn-subtle);color:var(--attn);border-color:var(--attn)}
+/* 테두리 없이 사는 버튼 — 행 안의 동작처럼 이웃과 경쟁하지 않아야 하는 자리. */
+.ui-btn-ghost{border-color:transparent;background:transparent}
+.ui-btn-ghost:hover{border-color:transparent;background:var(--accent-hover)}
+
+/* ── 탭 (FR-UIK-6) ───────────────────────────────────────────────────── */
+.ui-tab{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;position:relative;
+  height:var(--ui-tab-h);padding:0 10px;flex-shrink:0;
+  border:0;background:transparent;color:var(--text-muted);
+  font-family:inherit;font-size:var(--ui-font);line-height:1;cursor:pointer;
+}
+.ui-tab:hover{color:var(--text)}
+.ui-tab.active{color:var(--text-bright)}
+.ui-tab:focus-visible{outline:1px solid var(--accent);outline-offset:-2px}
+/* 활성 표시의 **축**은 수식어가 고른다 — 레일은 세로다 (FR-UIK-6). */
+.ui-tabs-underline .ui-tab.active::after{
+  content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--accent);
+}
+.ui-tabs-side .ui-tab{justify-content:flex-start;border-left:2px solid transparent}
+.ui-tabs-side .ui-tab.active{border-left-color:var(--accent)}
+.ui-tab-badge{
+  min-width:15px;padding:0 4px;border-radius:8px;
+  background:var(--accent);color:var(--bg);font-size:9px;line-height:15px;text-align:center;
+}
+
+/* ── 상자 (FR-UIK-7) ─────────────────────────────────────────────────── */
+.ui-modal{
+  position:fixed;inset:0;z-index:200;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.55);
+}
+.ui-modal-box{
+  display:flex;flex-direction:column;min-width:280px;max-width:90vw;max-height:82vh;
+  background:var(--sidebar-bg);border:1px solid var(--border);border-radius:6px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+}
+.ui-modal-head{
+  display:flex;align-items:center;gap:8px;flex:0 0 auto;
+  padding:10px 12px;border-bottom:1px solid var(--border);
+  color:var(--text-bright);font-size:13px;font-weight:600;
+}
+.ui-modal-head .ui-modal-spacer{flex:1 1 auto}
+.ui-modal-body{flex:1 1 auto;min-height:0;overflow:auto;padding:14px}
+.ui-modal-foot{
+  display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;
+  padding:10px 12px;border-top:1px solid var(--border);
+}
+
+/* ── 메뉴 (FR-UIK-8) ─────────────────────────────────────────────────── */
+.ui-menu{
+  position:fixed;z-index:3000;min-width:160px;padding:3px;
+  background:var(--sidebar-bg);border:1px solid var(--border-strong);border-radius:5px;
+  box-shadow:0 6px 20px rgba(0,0,0,.45);font-size:12px;color:var(--text);
+}
+.ui-menu-item{
+  display:flex;align-items:center;gap:7px;
+  padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;
+}
+.ui-menu-item:hover{background:var(--accent-hover);color:var(--accent)}
+.ui-menu-item.disabled{opacity:.4;pointer-events:none}
+.ui-menu-item.danger{color:var(--danger)}
+.ui-menu-item.danger:hover{background:rgba(247,118,142,.14);color:var(--danger)}
+.ui-menu-sep{height:1px;margin:3px 6px;background:var(--border)}
+.ui-menu-label{padding:5px 10px 3px;color:var(--text-dim);font-size:10px}
+/* 메뉴 안에 앉는 컨트롤 무리 — 필터·옵션처럼 누르는 것이 아니라 채우는 것들. */
+.ui-menu-group{padding:4px 10px 6px;display:flex;flex-direction:column;gap:6px}
+
+/* ── 컨트롤 (FR-UIK-9) ───────────────────────────────────────────────── */
+.ui-field{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03);
+}
+.ui-field-label{color:var(--text);font-size:12px}
+.ui-input,.ui-select{
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--ui-radius);
+  color:var(--text);font-family:inherit;font-size:12px;padding:3px 8px;outline:none;
+}
+.ui-input:focus,.ui-select:focus{border-color:var(--accent)}
+.ui-input::placeholder{color:var(--text-dim)}
+.ui-hint{color:var(--text-dim);font-size:11px;line-height:1.5;margin-top:6px}
+.ui-badge{
+  min-width:16px;padding:0 5px;border-radius:8px;
+  background:var(--accent-subtle);border:1px solid var(--accent-border);
+  color:var(--accent);font-size:10px;line-height:14px;text-align:center;
+}
+.ui-badge-attn{background:var(--attn-subtle);border-color:var(--attn);color:var(--attn)}
+
+/* ── 핸들의 크기 표시 (FR-HSZ-2·3·4·8) ────────────────────────────────
+   문서에 **하나**뿐인 겹이다 (D-10). 끄는 동안만 보이고, 손을 가로채지 않는다. */
+#ui-size-hud{
+  position:fixed;inset:0;z-index:450;display:none;pointer-events:none;
+}
+#ui-size-hud.on{display:block}
+.ui-size-box{
+  position:absolute;transform:translate(-50%,-50%);
+  padding:4px 8px;border:1px solid var(--accent-border);border-radius:var(--ui-radius);
+  background:var(--sidebar-bg);color:var(--text-bright);
+  font-family:inherit;font-size:11px;line-height:1.35;text-align:center;white-space:nowrap;
+  box-shadow:0 2px 10px rgba(0,0,0,.4);
+}
+/* FR-HSZ-4 / D-4: 한 벌의 내용은 **세로로 쌓인 줄**이다 — 가로로 이으면 좁은
+   핸들 옆에서 화면 밖으로 나간다. */
+.ui-size-box b{display:block;font-weight:600;color:var(--accent)}
+.ui-size-box i{display:block;font-style:normal;color:var(--text-muted)}

@@ -140,16 +140,18 @@ Object.assign(App.prototype, {
       info.appendChild(name);info.appendChild(desc);
       item.appendChild(info);
       // Star (default) button
-      const star=document.createElement('button');star.className='preset-btn';
-      star.textContent=i===defaultPreset?'★':'☆';star.title='Make this the default preset';
+      // UI_KIT_SRS FR-GLY-4: 채움과 획으로 기본 여부를 가른다 — 별 두 글자가
+      // 하던 일을 같은 모양의 두 상태가 한다.
+      const star=UIKit.button({icon:'star',iconFill:i===defaultPreset,
+        title:'Make this the default preset',kind:'ghost',cls:'preset-btn'});
       star.addEventListener('click',e=>{e.stopPropagation();defaultPreset=defaultPreset===i?-1:i;this._saveSettings();this._renderPresets()});
       item.appendChild(star);
       // Load button
-      const load=document.createElement('button');load.className='preset-btn';load.textContent='▶';load.title='Load this preset';
+      const load=UIKit.button({icon:'play',title:'Load this preset',kind:'ghost',cls:'preset-btn'});
       load.addEventListener('click',e=>{e.stopPropagation();this._loadPreset(i)});
       item.appendChild(load);
       // Delete button
-      const del=document.createElement('button');del.className='preset-btn del';del.textContent='✕';del.title='Delete this preset';
+      const del=UIKit.button({icon:'x',title:'Delete this preset',kind:'ghost',cls:'preset-btn del'});
       del.addEventListener('click',e=>{e.stopPropagation();this._deletePreset(i)});
       item.appendChild(del);
       el.appendChild(item);

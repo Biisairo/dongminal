@@ -33,7 +33,7 @@ const SB_TAB_KEY='sidebarTab'; // FR-SBT-6: 보는 방식은 클라이언트의 
  */
 const SB_TAB_DEFS=[
   {
-    id:'windows',label:'Windows',icon:'▣',panelId:'sb-panel-windows',
+    id:'windows',label:'Windows',icon:'terminal',panelId:'sb-panel-windows',
     // FR-TIP-1·2: 무슨 탭인지 영어로 알린다. 라벨만으로는 이 목록이
     // **무엇의** 목록인지 처음 보는 사용자에게 보이지 않는다.
     title:'Terminal windows in this workspace',
@@ -111,7 +111,7 @@ const SB_TAB_DEFS=[
      * 배열 순서가 곧 직행 키 번호이므로 이 탭은 `Ctrl+Shift+Digit2` 다.
      * `sidebarTab3` 은 파생이 사라지면서 함께 사라진다 (FR-RTU-7).
      */
-    id:REPO_TAB_ID,label:REPO_TAB_LABEL,icon:'⎇',panelId:REPO_PANEL_ID,
+    id:REPO_TAB_ID,label:REPO_TAB_LABEL,icon:'git-branch',panelId:REPO_PANEL_ID,
     title:'Repositories and folders opened as editor windows',
     // FR-EDT-120: 목록의 원천은 `/api/editors` 다 — 그것이 없으면 행을 만들 수
     // 없다. **git 이 없는 것은 사유가 되지 않는다** (FR-RTU-9 / D-RTU-12):
@@ -351,18 +351,23 @@ const SidebarTabs={
   },
 
   build(app,d){
-    const b=document.createElement('button');
-    b.className='sb-tab';b.dataset.panel=d.id;b.type='button';b.setAttribute('role','tab');
-    // FR-TIP-1: 문자열은 탭 정의가 든다 — 만드는 자리에 적으면 표가 두 벌이 된다.
-    if(d.title) b.title=d.title;
-    // SIDEBAR_COLLAPSE_SRS FR-SBC-13: 아이콘은 항상 DOM 에 있고 보임은 CSS 가
-    // 정한다 — 접힘마다 버튼을 다시 만들면 C-3(버튼을 다시 만들지 않는다)이 깨진다.
-    // 필드가 없는 서술자는 라벨의 첫 글자를 쓴다: 탭이 늘어도 여기를 고치지 않는다.
-    const i=document.createElement('span');i.className='sb-tab-icon';
-    i.textContent=d.icon||(d.label||'?').charAt(0);
-    const l=document.createElement('span');l.className='sb-tab-label';l.textContent=d.label;
-    const g=document.createElement('span');g.className='sb-tab-badge';g.hidden=true;
-    b.appendChild(i);b.appendChild(l);b.appendChild(g);
+    /**
+     * UI_KIT_SRS FR-UIK-24: 탭을 만드는 자리는 하나다 (`UIKit.tab`).
+     *
+     * 기존 클래스(`sb-tab`·`sb-tab-icon`·`sb-tab-label`·`sb-tab-badge`)는
+     * **함께** 붙는다 — e2e 와 CSS 가 그 이름 위에 서 있다 (FR-UIK-10 / D-5).
+     *
+     * SIDEBAR_COLLAPSE_SRS FR-SBC-13: 아이콘은 항상 DOM 에 있고 보임은 CSS 가
+     * 정한다 — 접힘마다 버튼을 다시 만들면 C-3 이 깨진다. 서술자에 아이콘이
+     * 없으면 라벨의 첫 글자로 떨어지는 규약도 그대로다 (`iconText`).
+     */
+    const b=UIKit.tab({
+      id:d.id,label:d.label,
+      // FR-TIP-1: 문자열은 탭 정의가 든다 — 만드는 자리에 적으면 표가 두 벌이 된다.
+      title:d.title,
+      icon:d.icon,iconText:d.icon?null:(d.label||'?').charAt(0),
+      cls:'sb-tab',iconCls:'sb-tab-icon',labelCls:'sb-tab-label',badgeCls:'sb-tab-badge',
+    });
     /**
      * FR-SBC-17·18 (2026-09-06 개정): 레일에서의 클릭은 **전환만 한다.**
      *

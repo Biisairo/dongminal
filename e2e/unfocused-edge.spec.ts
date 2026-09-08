@@ -1,7 +1,14 @@
 import { test, expect, waitForInit } from './fixtures';
 
 /**
- * UNFOCUSED_EDGE_SRS 검증 (V-1 ~ V-5).
+ * UNFOCUSED_EDGE_SRS 검증 (V-1 ~ V-7).
+ *
+ * **2026-09-08 개정 (D-5e·D-6a) 이후의 규약을 잰다.** 바뀐 것 셋:
+ *   ① 색은 `mix-blend-mode:difference` 가 아니라
+ *      `backdrop-filter:invert(1) saturate(…)` 에서 나온다 — 여전히 아래 픽셀에서
+ *      파생하고 팔레트의 고정색을 쓰지 않는다 (FR-UFE-4 의 뜻은 그대로다)
+ *   ② 액자는 **겹 하나**이고 모양은 마스크가 만든다 (배경 그라데이션이 아니다)
+ *   ③ **세기가 곧 opacity** 다 — 그래서 "보인다" 는 `1` 이 아니라 `--ufe-alpha`
  *
  * 헤드리스 브라우저의 페이지는 포커스를 **가진 채** 뜬다 — 그래서 평상시 이
  * 표시는 없고(NFR-4), 잃은 상태는 `blur` 이벤트로 만든다. 앱이 보는 것도 그
@@ -51,10 +58,9 @@ const alphaVar = (page: any) =>
     Number(getComputedStyle(document.documentElement).getPropertyValue('--ufe-alpha').trim()),
   );
 
-const midVar = (page: any) =>
-  page.evaluate(() =>
-    Number(getComputedStyle(document.documentElement).getPropertyValue('--ufe-alpha-mid').trim()),
-  );
+// 지금 보이는 정도. 세기가 곧 opacity 이므로 "켜짐" 은 레벨에서 파생한 값이다 (D-5e).
+const expectedOn = (page: any, level: number) =>
+  page.evaluate((lv: number) => lv * UFE_ALPHA_PER_LEVEL, level);
 
 test.describe('Unfocused window edge', () => {
   test('V-1: 포커스를 잃으면 표시가 서고, 되찾으면 사라진다', async ({ page }) => {
@@ -66,7 +72,8 @@ test.describe('Unfocused window edge', () => {
 
     await setWindowFocus(page, false);
     await expect(page.locator('html')).toHaveClass(/win-unfocused/);
-    await expect.poll(() => edgeOpacity(page)).toBe(1);
+    const def = await page.evaluate(() => UFE_LEVEL_DEFAULT);
+    await expect.poll(() => edgeOpacity(page)).toBeCloseTo(await expectedOn(page, def), 4);
 
     await setWindowFocus(page, true);
     await expect(page.locator('html')).not.toHaveClass(/win-unfocused/);
@@ -76,7 +83,8 @@ test.describe('Unfocused window edge', () => {
   test('V-2·V-3: 조작을 가로채지 않고, 색은 아래 픽셀에서 파생한다', async ({ page }) => {
     await waitForInit(page);
     await setWindowFocus(page, false);
-    await expect.poll(() => edgeOpacity(page)).toBe(1);
+    const def = await page.evaluate(() => UFE_LEVEL_DEFAULT);
+    await expect.poll(() => edgeOpacity(page)).toBeCloseTo(await expectedOn(page, def), 4);
 
     const seen = await page.evaluate(() => {
       const el = document.getElementById('focus-edge')!;
@@ -87,19 +95,23 @@ test.describe('Unfocused window edge', () => {
       );
       return {
         pointer: cs.pointerEvents,
-        blend: cs.mixBlendMode,
-        bg: cs.backgroundImage,
+        filter: cs.backdropFilter || (cs as any).webkitBackdropFilter,
+        mask: cs.maskImage,
+        composite: cs.maskComposite,
+        children: el.children.length,
         hitsOverlay: hit === el,
       };
     });
     expect(seen.pointer).toBe('none');
     expect(seen.hitsOverlay).toBe(false);
-    expect(seen.blend).toBe('difference');
-    // 네 변의 그라데이션이며, 어떤 정지점도 완전 불투명이 아니다 (FR-UFE-5).
-    expect(seen.bg.match(/linear-gradient/g)?.length).toBe(4);
-    const alphas = [...seen.bg.matchAll(/rgba?\([^)]*?,\s*([0-9.]+)\)/g)].map((m) => Number(m[1]));
-    expect(alphas.length).toBeGreaterThan(0);
-    expect(Math.max(...alphas)).toBeLessThan(1);
+    // FR-UFE-4 (D-5a): 색은 아래 픽셀의 반전에서 나온다 — 팔레트의 고정색이 아니다.
+    expect(seen.filter).toContain('invert(1)');
+    expect(seen.filter).toContain('saturate');
+    // D-5e: 액자는 **겹 하나**이고 마스크가 만든다 — 전체(1장)에서 안쪽(4장)을 뺀다.
+    expect(seen.children).toBe(0);
+    expect(seen.mask.match(/gradient/g)?.length).toBe(5);
+    expect(seen.composite).toContain('exclude');
+    expect(seen.composite).toContain('intersect');
 
     await setWindowFocus(page, true);
   });
@@ -132,7 +144,7 @@ test.describe('Unfocused window edge', () => {
     // 다시 올리면 그 자리에서 산다 — 새로고침을 요구하지 않는다.
     await setLevel(page, def);
     await setWindowFocus(page, false);
-    await expect.poll(() => edgeOpacity(page)).toBe(1);
+    await expect.poll(() => edgeOpacity(page)).toBeCloseTo(await expectedOn(page, def), 4);
     await setWindowFocus(page, true);
   });
 
@@ -141,20 +153,18 @@ test.describe('Unfocused window edge', () => {
     await page.click('#settings-btn');
     await page.click('#modal .mtab[data-tab="display"]');
 
-    const sl = page.locator('#ds-focusedge');
     await moveRange(page, 8);
 
-    // FR-UFE-17: 알파도 중간 정지점도 레벨 하나에서 편다.
+    // FR-UFE-17: 세기는 레벨 하나에서 편다. (중간 정지점은 D-5e 로 사라졌다 —
+    // 액자의 페이드를 마스크가 지므로 알파를 두 벌로 들 이유가 없다.)
     const per = await page.evaluate(() => UFE_ALPHA_PER_LEVEL);
-    const ratio = await page.evaluate(() => UFE_ALPHA_MID_RATIO);
     await expect.poll(() => alphaVar(page)).toBeCloseTo(8 * per, 4);
-    expect(await midVar(page)).toBeCloseTo(8 * per * ratio, 4);
     await expect(page.locator('#ds-focusedge-val')).toHaveText('8');
     // FR-SCT-8: 채움 비율이 값과 함께 간다.
     expect(await page.evaluate(() =>
       document.getElementById('ds-focusedge')!.style.getPropertyValue('--fill'))).toBe('80%');
-    // FR-UFE-18: 조절 중에는 포커스가 있어도 보인다.
-    await expect.poll(() => edgeOpacity(page)).toBe(1);
+    // FR-UFE-18: 조절 중에는 포커스가 있어도 보인다. 보이는 정도가 곧 세기다.
+    await expect.poll(() => edgeOpacity(page)).toBeCloseTo(8 * per, 4);
 
     // 0 에서는 미리보기도 없다.
     await moveRange(page, 0);

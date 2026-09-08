@@ -74,6 +74,27 @@ const STATE_REGISTRY=[
   },
   {
     /**
+     * SETTINGS_LIVE (2026-09-08 접수) — **설정도 상태다.**
+     *
+     * 접수한 말은 "설정값이 바뀌었을 때 다른 브라우저창은 바로 갱신이 안된다"
+     * 이고, 원인은 설정에 갱신 경로가 **없었다**는 것이다: 부팅에서 한 번 읽고
+     * 끝이었다. 여기 한 줄을 더하면 다른 넷과 같은 규약을 그대로 받는다 —
+     * 구독이 열릴 때 재검증하고, 소프트 리로드에서 다시 받고, 방송이 오면 얹는다.
+     *
+     * `merge:'latest'` 인 것은 `background` 와 같은 근거다 — 방송이 증분을
+     * 나르지 않고 "다시 받으라" 는 신호다. 만진 id 라는 개념이 없다.
+     *
+     * `every` 는 없다. 설정은 사용자가 바꿀 때만 바뀌고, 그 순간을 서버가 안다.
+     */
+    id:'settings',
+    restore:'_settingsRestore',
+    merge:'latest',
+    flight:'settings',
+    events:{settings_changed:'_settingsRestore'},
+    revalidateOn:['sse:open','softreload'],
+  },
+  {
+    /**
      * GIT_PUSH_OBSERVE_SRS — **서버가 밀어 준다.**
      *
      * `every` 가 없다. 종전에는 브라우저가 signature 를 500ms 마다 물어 변화를

@@ -372,6 +372,9 @@ var confirmLeave=false;
  * 때문이다 — 켜야만 보이는 안전장치는 그것이 필요한 사람에게 닿지 않는다.
  */
 var focusEdgeLevel=UFE_LEVEL_DEFAULT;
+// FR-AED-8·9: 알림 가장자리의 세기. 같은 blob 에 실리고 같은 규약을 쓴다 —
+// 취향 스위치가 기기마다 어긋나면 같은 사람이 기기를 옮길 때마다 다시 끈다.
+var attnEdgeLevel=ATTN_EDGE_LEVEL_DEFAULT;
 /**
  * TAB_WIDTH_SRS FR-TBW-1·2: 탭 너비 고정과 그 폭.
  *

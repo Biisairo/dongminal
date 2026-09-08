@@ -267,6 +267,17 @@ Object.assign(App.prototype, {
   _attnRefresh(){
     const n=this._attn.size;
     this._applyPageTitle(); // FR-PAN-13b · PAGE_TITLE_SRS FR-PGT-8
+    /**
+     * ALERT_MOBILE_CONTEXT_SRS FR-AED-6 / D-1: 화면 가장자리의 점멸.
+     *
+     * 판정은 **여기 하나**다 — 상단바 배지가 쓰는 것과 같은 값(`_attn.size`)이며,
+     * 그래서 배지와 가장자리가 다른 사실을 말할 수 없다 (FR-UFE-7 이 포커스에
+     * 대해 세운 것과 같은 규약).
+     *
+     * 어느 창의 알림이든 켠다 — 다른 창에서 에이전트가 기다리는 것을 화면을
+     * 보지 않고도 알아야 한다는 것이 이 기능의 이유다.
+     */
+    document.documentElement.classList.toggle(ATTN_EDGE_ON_CLASS, attnEdgeLevel>0 && n>0);
     // 사이드바 창 알람 표시 갱신 (전체 재렌더 없이)
     document.querySelectorAll('#windows .si').forEach(el=>{
       const s=this.ws.windows.find(x=>x.id===el.dataset.sid);

@@ -11,33 +11,14 @@ window.__dongminalDebug={
 // Restore saved theme from server
 // BOOT_SCREEN_SRS FR-BTS-13: 이 프로미스가 걷힘 조건의 한쪽이다 — **테마가
 // 결정되는 시점**이고, 결정에는 실패도 포함된다 (그때는 선주입한 색이 그대로다).
-const themeReady=(async()=>{try{const r=await fetch('/api/settings');if(r.ok){const saved=await r.json();
-  if(saved.shortcuts) Object.assign(shortcuts,saved.shortcuts);
-  if(saved.statusBar) Object.assign(statusBar,saved.statusBar);
-  if(saved.statsInterval) statsInterval=saved.statsInterval;
-  // FR-GIT-23: 0 은 그 계층을 끈다는 뜻이므로 truthy 검사로는 안 된다.
-  //
-  // GIT_PUSH_OBSERVE_SRS: **저장된 값은 그대로 존중한다.**
-  //
-  // 한때 "옛 기본값(500/1s)이면 새 기본으로 옮긴다" 를 넣었다가 걷어냈다 —
-  // 저장된 값이 기본을 그대로 담은 것인지 사용자가 고른 것인지 **구분할 수단이
-  // 없다.** 검사가 주기를 명시로 세워도 그 마이그레이션이 삼켰고(실측), 사용자가
-  // 1초를 골랐어도 같은 일이 일어난다.
-  //
-  // 저장된 설정이 없으면 새 기본(푸시 + 안전망)을 받는다. 있으면 그것이 곧 그
-  // 사람의 선택이다.
-  if(saved.gitSignatureInterval!==undefined) gitSignatureInterval=saved.gitSignatureInterval;
-  if(saved.gitStatusInterval!==undefined) gitStatusInterval=saved.gitStatusInterval;
-  if(saved.layoutPresets) layoutPresets=saved.layoutPresets;
-  if(saved.defaultPreset!==undefined) defaultPreset=saved.defaultPreset;
-  if(saved.customTheme){customTheme=saved.customTheme;applyThemeObj(customTheme)}
-  else if(saved.themeName&&THEMES[saved.themeName]){currentThemeName=saved.themeName;applyThemeObj(THEMES[currentThemeName])}
-  // PAGE_TITLE_SRS FR-PGT-10: 저장된 제목을 브라우저 탭에 올린다. 없으면
-  // `<title>` 이 가진 기본 이름 그대로다.
-  if(saved.pageTitle!==undefined){pageTitle=saved.pageTitle;app._applyPageTitle()}
-  // 설정 변경은 감지 계층의 재평가 시점이다 (FR-GIT-23).
-  app.gitPanel._reschedule();
-}}catch{}
+const themeReady=(async()=>{try{
+  const r=await fetch('/api/settings');
+  // SETTINGS_LIVE (2026-09-08): 키를 여기서 나열하지 않는다. 얹는 규약은
+  // `_settingsApply` 한 자리이며, 부팅·SSE 방송·소프트 리로드가 같은 길을
+  // 지난다 — 종전에는 이 자리와 `app-settings.js` 의 IIFE 가 키를 각자 나열해,
+  // 다른 창에서 바뀐 값을 받아 얹을 자리가 아예 없었다.
+  if(r.ok) app._settingsApply(await r.json(),{boot:true});
+}catch{}
   // FR-BTS-11: 설정이 왔든 오지 않았든, 남은 것은 워크스페이스다.
   BootScreen.step('워크스페이스를 복원합니다');
 })();

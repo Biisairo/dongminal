@@ -173,6 +173,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   margin:0 8px 4px;padding:4px 8px;min-height:30px;
   background:transparent;border:1px solid var(--border);border-radius:4px;
   color:var(--text-muted);font-size:11px;cursor:pointer;text-align:left;
+  /* UI_KIT_SRS: 아이콘이 라벨 앞에 서면서 행이 flex 가 된다. 이름은 왼쪽에
+     남아야 한다 — 목록의 행들과 같은 축이다. */
+  display:flex;align-items:center;gap:6px;justify-content:flex-start;
 }
 #add-window:hover,#add-preset:hover,#repo-add:hover{background:var(--accent-hover);color:var(--accent)}
 /* 샌드박스 창 열기. `+ New` 안쪽 오른쪽에 앉는 작은 박스다 — 별개의 동작이
@@ -535,8 +538,15 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   display:none;align-items:center;justify-content:center;
 }
 #modal-overlay.open{display:flex}
+/* UI_KIT_SRS FR-UIK-12·13 (2026-09-08 접수): **크기가 탭에 따라 달라지지 않는다.**
+ *
+ *   이전 동작: `max-height:80vh` 라 내용이 짧은 탭에서 상자가 줄었다 —
+ *              Theme(380px 고정 레이아웃)과 Notifications(행 셋)를 오가면
+ *              창이 출렁이고, 그때마다 탭 줄과 닫기 버튼의 자리가 옮겨 갔다
+ *   새  동작: 높이를 고정하고 넘치는 내용은 **본문 하나가** 스크롤한다
+ *   이유:     상자의 크기는 그 안의 탭이 정할 성질이 아니다 (사용자 지시) */
 #modal{
-  width:580px;max-height:80vh;
+  width:580px;height:min(80vh,720px);
   background:var(--bg);border:1px solid var(--border);border-radius:10px;
   display:flex;flex-direction:column;overflow:hidden;
   box-shadow:0 8px 32px rgba(0,0,0,.5);
@@ -564,7 +574,9 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .mtab:hover{color:var(--text)}
 .mtab.active{color:var(--accent);border-bottom-color:var(--accent)}
 
-.modal-body{padding:18px;overflow-y:auto}
+/* FR-UIK-13: 스크롤은 **여기 하나**다. 패널마다 자기 `max-height` 를 들면 상자
+   안에 스크롤이 둘 생기고, 어느 쪽이 움직일지는 마우스 자리가 정하게 된다. */
+.modal-body{flex:1 1 auto;min-height:0;padding:18px;overflow-y:auto}
 .modal-body::-webkit-scrollbar{width:6px}
 .modal-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 
@@ -630,7 +642,8 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .ce-item input[type=color]{width:22px;height:22px;border:1px solid var(--border);border-radius:3px;padding:1px;cursor:pointer;background:transparent}
 
 /* ── Shortcuts ── */
-.sc-list{overflow-y:auto;max-height:60vh}
+/* FR-UIK-13: 스크롤은 `.modal-body` 하나다 (종전 `max-height:60vh` 를 걷었다). */
+.sc-list{}
 .sc-list::-webkit-scrollbar{width:6px}
 .sc-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 .sc-group-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
@@ -760,7 +773,8 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .sbs-select:focus{border-color:var(--accent)}
 
 /* ── Presets ── */
-.preset-list{overflow-y:auto;max-height:55vh;display:flex;flex-direction:column;gap:4px}
+/* FR-UIK-13: 같은 근거로 자기 스크롤을 갖지 않는다. */
+.preset-list{display:flex;flex-direction:column;gap:4px}
 .preset-item{
   display:flex;align-items:center;gap:8px;
   padding:7px 10px;border:1px solid var(--border);border-radius:6px;
@@ -1174,33 +1188,128 @@ body.mobile #bg-btn{padding:4px 6px}
 
 
 /* ── 포커스를 잃은 창의 가장자리 표시 (UNFOCUSED_EDGE_SRS 묶음 UFE) ──
-   FR-UFE-3·4·5 / D-5·D-6: 네 변에서 안쪽으로 페이드아웃하고, 그 안쪽은 손대지
-   않는다. 색을 팔레트에서 고르지 않는 이유는 43개 테마 중 어디서도 대비를
-   보장할 수 없기 때문이다 — `difference` 는 아래 픽셀의 반대값을 그리므로
-   무엇 위에 얹히든 반드시 갈린다.
-   blur 를 쓰지 않는다: 터미널은 1px 획의 텍스트라 약한 흐림에도 글자가 뭉개지고,
-   그것은 이 표시가 지켜야 할 조건(읽는 데 지장이 없을 것)과 정면으로 부딪힌다. */
+   FR-UFE-3·4·5 / D-5: 네 변에서 안쪽으로 페이드아웃하고, 그 안쪽은 손대지 않는다.
+   색을 팔레트에서 고르지 않는 이유는 44개 테마 중 어디서도 대비를 보장할 수
+   없기 때문이다 — 아래 픽셀의 반대값은 무엇 위에 얹히든 반드시 갈린다.
+
+   **D-5a (2026-09-08 개정): 반전에 채도를 얹는다.**
+
+     이전 동작: 흰색 그라데이션 + `mix-blend-mode:difference`
+     새  동작: `backdrop-filter:invert(1) saturate(--ufe-sat)` + 마스크
+     이유:     접수한 말은 "보색으로 해달라고 했는데 그냥 흰색같아서" 다. 흰
+               소스의 difference 는 수학적으로 invert 와 **같고**, 어두운 테마
+               (`#1a1b26`)의 반전값은 `#e5e4d9` — 실제로 거의 흰색이다. 반전을
+               버리지 않고(고정색을 쓰지 않는다는 D-3·D-5 는 그대로다) 그 결과의
+               채도를 올리면 배경의 색기가 반대편에서 살아난다.
+
+   blur 를 쓰지 않는다 (D-6): 터미널은 1px 획의 텍스트라 약한 흐림에도 글자가
+   뭉개지고, 그것은 이 표시가 지켜야 할 조건(읽는 데 지장이 없을 것)과 부딪힌다. */
 :root{
-  /* 가장자리에서 이만큼 들어오면 완전히 투명하다. 조절 대상이 아니므로 여기 산다. */
-  --ufe-depth:88px;
+  /* 액자가 안쪽으로 스미는 거리 = 사다리꼴의 깊이. 조절 대상이 아니다 —
+     사용자가 고르는 것은 세기 하나뿐이라는 D-4a 가 그대로다. 두 표시가 같은
+     변수를 쓰는 이유는 액자의 **모양**이 같기 때문이다: 다른 것은 색과 움직임뿐이다. */
+  --edge-fade:64px;
+  /* D-5a: 반전 뒤에 얹는 채도. 조절 대상이 아니다 — 사용자가 고르는 것은 세기
+     하나뿐이라는 D-4a 가 그대로다.
+
+     **10 은 실측으로 고른 값이다.** UI 배경은 채도가 낮아(Dracula `#282a36` 은
+     s≈17%) 반전만으로는 밝은 회색이 나온다 — 그것이 "그냥 흰색같아서" 의 정체다.
+     같은 자리를 재면: 2.4 → s 24%, 10 → s 41%(h 55°, 배경 h≈230° 의 반대편).
+     화면에서 실제로 **색**으로 읽히는 것은 뒤쪽이다. */
+  --ufe-sat:10;
   /* D-8b: `--ufe-alpha` 와 `--ufe-alpha-mid` 는 **여기 없다.** 사용자 값이므로
      JS 가 세운다 (`_paintFocusEdge`) — 리터럴을 함께 두면 한쪽만 고쳐진다.
      그 전에는 이 오버레이가 보이지도 않는다: 보이게 하는 클래스도 JS 가 붙인다. */
 }
+/* **액자 하나 — 전체에서 안쪽을 뺀 것.**
+ *
+ * 접수한 말 넷이 이 모양을 정했다:
+ *   ① "모서리쪽 색상 겹치면서 보색의보색으로 나오는거같은데"
+ *   ② "그냥 테두리를 따로따로 말고 한번에… 사각형으로말이야"
+ *   ③ "액자처럼 대각으로 모서리 잘라서 연결하듯이"
+ *   ④ "색상이 안쪽으로 들어갈수록 흐려지는거지?"
+ *
+ * ①의 정체는 **겹침**이다. 네 변을 각자의 요소로 두면 모서리에서 둘이 포개지고
+ * `invert` 가 두 번 걸려 그 자리만 원래 색으로 돌아간다.
+ *
+ * ③을 위해 각 변을 사다리꼴로 잘라(`clip-path`) 봤고, 거기서 사실 하나를 실측으로
+ * 확인했다 — **같은 요소의 `clip-path` 는 `mask-image` 를 무효로 만든다.** 페이드가
+ * 죽고 균일한 색만 남았다(상단 프로파일 y=0~60 이 같은 값, y=70 에서 뚝 끊김).
+ * 대각 자르기와 ④(안쪽으로 흐려짐)는 한 요소에서 공존하지 못한다.
+ *
+ * 그래서 겹을 **하나**로 두고 액자를 마스크로 만든다: 전체(L1)에서 안쪽(L2~L5 의
+ * 교집합)을 뺀다. 안쪽 사각형의 경계가 `--edge-fade` 에 걸쳐 부드러우므로 색은
+ * 안쪽으로 갈수록 옅어지고(④), 겹이 하나라 이음매도 이중 반전도 없다(①②).
+ *
+ * blur 는 쓰지 않는다 (D-6): 흐려지는 것은 **마스크의 알파**이지 화면의 픽셀이
+ * 아니다 — 터미널 글자는 한 번도 뭉개지지 않는다. */
 #focus-edge{
   position:fixed;inset:0;z-index:500;pointer-events:none;
   opacity:0;transition:opacity .2s ease;
-  mix-blend-mode:difference;
-  background:
-    linear-gradient(to bottom,rgba(255,255,255,var(--ufe-alpha)),rgba(255,255,255,var(--ufe-alpha-mid)) 20px,rgba(255,255,255,0) var(--ufe-depth)),
-    linear-gradient(to top,rgba(255,255,255,var(--ufe-alpha)),rgba(255,255,255,var(--ufe-alpha-mid)) 20px,rgba(255,255,255,0) var(--ufe-depth)),
-    linear-gradient(to right,rgba(255,255,255,var(--ufe-alpha)),rgba(255,255,255,var(--ufe-alpha-mid)) 20px,rgba(255,255,255,0) var(--ufe-depth)),
-    linear-gradient(to left,rgba(255,255,255,var(--ufe-alpha)),rgba(255,255,255,var(--ufe-alpha-mid)) 20px,rgba(255,255,255,0) var(--ufe-depth));
+  /* 보이지 않는 동안에는 필터를 걸지 않는다 — `backdrop-filter` 는 그 아래가
+     다시 그려질 때마다(터미널은 늘 그렇다) 재합성을 부른다. */
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+  -webkit-mask-image:
+    linear-gradient(#000 0 0),
+    linear-gradient(to bottom,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to top,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to right,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to left,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade));
+  mask-image:
+    linear-gradient(#000 0 0),
+    linear-gradient(to bottom,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to top,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to right,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to left,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade));
+  -webkit-mask-composite:xor,source-in,source-in,source-in;
+  mask-composite:exclude,intersect,intersect,intersect;
 }
-/* FR-UFE-6·9: 서는 것도 지는 것도 opacity 하나다 — 창을 오갈 때 깜빡이지 않는다. */
 html.win-unfocused #focus-edge,
-/* FR-UFE-18 / D-8d: 세기를 고르는 동안에는 포커스가 있어도 보인다. 그러지 않으면
-   슬라이더를 만지는 내내(창은 반드시 포커스를 가진 상태다) 아무것도 보이지 않아,
-   사용자는 눈을 감고 값을 고르게 된다. */
-html.ufe-preview #focus-edge{opacity:1}
+/* FR-UFE-18 / D-8d: 세기를 고르는 동안에는 포커스가 있어도 보인다 — 그러지 않으면
+   슬라이더를 만지는 내내 아무것도 보이지 않아 눈을 감고 고르는 셈이 된다. */
+html.ufe-preview #focus-edge{
+  opacity:var(--ufe-alpha);
+  backdrop-filter:invert(1) saturate(var(--ufe-sat));
+  -webkit-backdrop-filter:invert(1) saturate(var(--ufe-sat));
+}
+
+#attn-edge{
+  position:fixed;inset:0;z-index:501;pointer-events:none;
+  display:none;opacity:var(--ae-alpha,0);
+}
+/* FR-AED-6: 알림이 하나라도 있으면 켜진다. 판정은 `_attnRefresh` 한 자리다.
+   FR-AED-12: 세기를 고르는 동안에는 알림이 없어도 보인다. */
+html.attn-edge-on #attn-edge,
+html.ae-preview #attn-edge{display:block}
+/* 색과 맥박만 다르다 — 액자의 모양은 위와 같은 마스크가 만든다. */
+#attn-edge i{
+  position:absolute;inset:0;display:block;background:var(--attn);
+  /* FR-AED-5 / D-8: 주기·곡선은 `attn-pulse-*` 여섯과 **같은 값**이다. */
+  animation:attn-edge-pulse 2s ease-in-out infinite;
+  -webkit-mask-image:
+    linear-gradient(#000 0 0),
+    linear-gradient(to bottom,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to top,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to right,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to left,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade));
+  mask-image:
+    linear-gradient(#000 0 0),
+    linear-gradient(to bottom,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to top,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to right,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade)),
+    linear-gradient(to left,transparent 0,rgba(0,0,0,.18) calc(var(--edge-fade)*.35),rgba(0,0,0,.5) calc(var(--edge-fade)*.65),#000 var(--edge-fade));
+  -webkit-mask-composite:xor,source-in,source-in,source-in;
+  mask-composite:exclude,intersect,intersect,intersect;
+}
+@keyframes attn-edge-pulse{0%,100%{opacity:1}50%{opacity:0}}
+/* FR-ATP-5 와 같은 근거: 움직임을 원하지 않는 사람에게는 정지한 띠가 남는다. */
+@media (prefers-reduced-motion:reduce){#attn-edge i{animation:none}}
+/* FR-AED-7 / D-2·D-7: **알림이 이긴다.** 가장자리의 뜻은 한 번에 하나여야 읽힌다.
+   클래스 하나가 정하므로 JS 가 두 겹을 각각 끄고 켜지 않는다. */
+html.attn-edge-on #focus-edge{opacity:0}
+
+/* FR-UFE-6·9·18: 서는 것도 지는 것도, 세기도 자식의 opacity 하나다 (위 규칙).
+   미리보기(D-8d)가 같은 자리에 있는 이유는 그것이 "보이는 조건" 의 하나이기
+   때문이다 — 슬라이더를 만지는 동안 창은 반드시 포커스를 가지고 있어서, 이
+   조건이 없으면 사용자는 눈을 감고 값을 고르게 된다.
 

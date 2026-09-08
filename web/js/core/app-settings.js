@@ -8,7 +8,7 @@ Object.assign(App.prototype, {
   async _saveSettings(){
     // 블롭 전체를 갈아치우므로 읽어 쓰는 값은 전부 실어야 한다 — git 주기(FR-GIT-23)는
     // UI 가 없지만 여기서 빠지면 다른 설정을 건드릴 때 조용히 사라진다.
-    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave,editorWordWrap,tabFixedWidth,tabWidthPx,focusEdgeLevel})})}catch{}
+    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave,editorWordWrap,tabFixedWidth,tabWidthPx,focusEdgeLevel,attnEdgeLevel})})}catch{}
   },
 
   /**
@@ -161,6 +161,7 @@ Object.assign(App.prototype, {
     sl.addEventListener('input',()=>{
       focusEdgeLevel=Number(sl.value);
       this._focusEdgePaintRow();
+      this._attnEdgePaintRow();
       this._paintFocusEdge();
       this._focusEdgePreview();
       TIMERS.cancel(this._ufeSaveTimer);
@@ -173,6 +174,55 @@ Object.assign(App.prototype, {
       TIMERS.cancel(this._ufeSaveTimer);
       this._saveSettings();
     });
+  },
+
+  /**
+   * ALERT_MOBILE_CONTEXT_SRS FR-AED-8·10·12: 알림 가장자리의 세기.
+   *
+   * 손잡이도 규약도 포커스 표시와 같다 (FR-UFE-16 의 근거 그대로: 움직이는 대로
+   * 화면이 따라야 고른 것을 볼 수 있고, 저장은 멎은 뒤 한 번이다). 다른 것은
+   * **미리보기의 이유**다 — 저쪽은 창이 포커스를 가진 동안 보이지 않아서이고,
+   * 이쪽은 알림이 없는 동안 보이지 않아서다.
+   */
+  _initAttnEdge(){
+    const sl=document.getElementById('ds-attnedge');
+    if(!sl) return;
+    sl.max=ATTN_EDGE_LEVEL_MAX;
+    this._attnEdgePaintRow();
+    sl.addEventListener('input',()=>{
+      attnEdgeLevel=Number(sl.value);
+      this._attnEdgePaintRow();
+      this._paintAttnEdge();
+      this._attnEdgePreview();
+      // 세기를 0 으로 내리면 지금 켜져 있던 띠도 그 자리에서 꺼져야 한다.
+      this._attnRefresh();
+      TIMERS.cancel(this._aeSaveTimer);
+      this._aeSaveTimer=this.timers.after(500,()=>this._saveSettings(),{owner:'app',label:'save-ae'});
+    });
+    sl.addEventListener('change',()=>{
+      TIMERS.cancel(this._aeSaveTimer);
+      this._saveSettings();
+    });
+  },
+
+  // FR-AED-11: 0 은 숫자가 아니라 상태다 — `끔` 이라 적는다.
+  _attnEdgePaintRow(){
+    const sl=document.getElementById('ds-attnedge');
+    const out=document.getElementById('ds-attnedge-val');
+    if(!sl) return;
+    sl.value=attnEdgeLevel;
+    sl.style.setProperty('--fill',(attnEdgeLevel/ATTN_EDGE_LEVEL_MAX*100)+'%');
+    if(out) out.textContent=attnEdgeLevel?String(attnEdgeLevel):UFE_LEVEL_OFF_LABEL;
+  },
+
+  // FR-AED-12: 고르는 동안 보인다. 알림이 없어도 — 없을 때가 대부분이다.
+  _attnEdgePreview(){
+    const ds=document.documentElement;
+    TIMERS.cancel(this._aePreviewTimer);
+    if(!attnEdgeLevel){ds.classList.remove(ATTN_EDGE_PREVIEW_CLASS);return}
+    ds.classList.add(ATTN_EDGE_PREVIEW_CLASS);
+    this._aePreviewTimer=this.timers.after(ATTN_EDGE_PREVIEW_MS,
+      ()=>ds.classList.remove(ATTN_EDGE_PREVIEW_CLASS),{owner:'app',label:'ae-preview'});
   },
 
   // FR-UFE-14·15 / FR-SCT-8: 레인지와 그 값 표시, 채움 비율을 함께 되돌린다.
@@ -248,6 +298,110 @@ Object.assign(App.prototype, {
     if(t) t.click();
   },
 
+  /**
+   * 서버 설정 blob 하나를 **화면에 얹는다** (SETTINGS_LIVE: 2026-09-08 접수).
+   *
+   * 종전에는 이 일이 두 곳에 흩어져 있었다 — `main.js` 의 부팅 로더(테마·단축키·
+   * 상태바·주기·프리셋·제목)와 이 파일 끝의 IIFE(브라우저 키·떠날 때 확인·
+   * 가장자리·줄바꿈·탭 너비·프로세스 이름). 둘 다 키를 손으로 나열했고, 그래서
+   * **다른 창에서 바뀐 값을 받아 얹을 자리가 아예 없었다**: 접수한 말이
+   * "설정값이 바뀌었을 때 다른 브라우저창은 바로 갱신이 안된다" 다.
+   *
+   * 얹는 규약을 한 함수로 내리면 세 계기가 같은 길을 지난다 — 부팅 · SSE 방송 ·
+   * 소프트 리로드. 새 설정을 더할 때 고칠 자리도 하나다.
+   *
+   * `boot` 는 **부팅에서만 해야 하는 일**을 가른다. 지금은 그런 것이 없지만,
+   * 값을 지우는 쪽(예: `saved.x===undefined` 일 때 기본으로 되돌리기)은 부팅과
+   * 갱신에서 뜻이 다를 수 있어 자리를 비워 둔다.
+   */
+  _settingsApply(saved,opts){
+    if(!saved||typeof saved!=='object') return;
+    if(saved.shortcuts) Object.assign(shortcuts,saved.shortcuts);
+    if(saved.statusBar) Object.assign(statusBar,saved.statusBar);
+    if(saved.statsInterval) statsInterval=saved.statsInterval;
+    // FR-GIT-23: 0 은 그 계층을 끈다는 뜻이므로 truthy 검사로는 안 된다.
+    if(saved.gitSignatureInterval!==undefined) gitSignatureInterval=saved.gitSignatureInterval;
+    if(saved.gitStatusInterval!==undefined) gitStatusInterval=saved.gitStatusInterval;
+    if(saved.layoutPresets) layoutPresets=saved.layoutPresets;
+    if(saved.defaultPreset!==undefined) defaultPreset=saved.defaultPreset;
+    // 테마는 둘 중 하나다 — 사용자 정의가 있으면 그것이 이긴다.
+    if(saved.customTheme){customTheme=saved.customTheme;applyThemeObj(customTheme)}
+    else if(saved.themeName&&THEMES[saved.themeName]){customTheme=null;currentThemeName=saved.themeName;applyThemeObj(THEMES[currentThemeName])}
+    // PAGE_TITLE_SRS FR-PGT-10
+    if(saved.pageTitle!==undefined){pageTitle=saved.pageTitle;this._applyPageTitle()}
+    // FR-KEY-6: 저장된 적 없으면 기본값(켬).
+    if(saved.blockBrowserKeys!==undefined){
+      blockBrowserKeys=!!saved.blockBrowserKeys;
+      const bk=document.getElementById('sc-blockbrowser');
+      if(bk) bk.checked=blockBrowserKeys;
+    }
+    // FR-LVC-6: 저장된 적 없으면 기본값(끔).
+    if(saved.confirmLeave!==undefined){
+      confirmLeave=!!saved.confirmLeave;
+      const cl=document.getElementById('ds-confirmleave');
+      if(cl) cl.checked=confirmLeave;
+    }
+    // FR-UFE-12·13: 범위 밖이거나 정수가 아닌 값은 받지 않는다 — 손으로 고친
+    // settings.json 하나가 화면을 통째로 반전시키는 일이 없어야 한다.
+    if(saved.focusEdgeLevel!==undefined){
+      const lv=Math.round(Number(saved.focusEdgeLevel));
+      if(lv>=0&&lv<=UFE_LEVEL_MAX) focusEdgeLevel=lv;
+      this._focusEdgePaintRow();
+      this._paintFocusEdge();
+    }
+    // FR-AED-9: 같은 규약, 다른 키 (D-9). 범위 밖은 기본값으로 떨어진다.
+    if(saved.attnEdgeLevel!==undefined){
+      const lv=Math.round(Number(saved.attnEdgeLevel));
+      attnEdgeLevel=(lv>=0&&lv<=ATTN_EDGE_LEVEL_MAX)?lv:ATTN_EDGE_LEVEL_DEFAULT;
+      this._attnEdgePaintRow();
+      this._paintAttnEdge();
+      this._attnRefresh();
+    }
+    // FR-WBR-10·11: 값만 바꾸면 사용자는 설정이 듣지 않는 것으로 읽는다 —
+    // 이미 열려 있는 편집기에도 얹는다.
+    if(saved.editorWordWrap!==undefined){
+      editorWordWrap=!!saved.editorWordWrap;
+      const ww=document.getElementById('ds-wordwrap');
+      if(ww) ww.checked=editorWordWrap;
+      if(this._edApplyWordWrap) this._edApplyWordWrap();
+    }
+    // FR-TBW-8: 같은 근거로 곧바로 얹는다. 클래스와 변수 하나뿐이라 다시 그리지 않는다.
+    if(saved.tabFixedWidth!==undefined||saved.tabWidthPx!==undefined){
+      if(saved.tabFixedWidth!==undefined) tabFixedWidth=!!saved.tabFixedWidth;
+      if(saved.tabWidthPx!==undefined) tabWidthPx=clampTabWidth(saved.tabWidthPx);
+      const tf=document.getElementById('ds-tabfix');
+      if(tf) tf.checked=tabFixedWidth;
+      const tw=document.getElementById('ds-tabw');
+      if(tw) tw.value=String(tabWidthPx);
+      applyTabWidth();
+    }
+    if(saved.fgTabNames!==undefined){
+      fgTabNames=!!saved.fgTabNames;
+      if(this._fgRepaint) this._fgRepaint();
+      const cb=document.getElementById('ds-fgnames');
+      if(cb) cb.checked=fgTabNames;
+    }
+    // 설정 변경은 감지 계층의 재평가 시점이다 (FR-GIT-23).
+    if(this.gitPanel&&this.gitPanel._reschedule) this.gitPanel._reschedule();
+  },
+
+  /**
+   * 서버의 설정을 다시 받아 얹는다. `STATE_REGISTRY` 의 `settings` 가 부른다 —
+   * 계기는 셋이다: SSE `settings_changed` · 구독이 열린 순간 · 소프트 리로드.
+   *
+   * `merge:'latest'` 인 이유는 이 상태에 **증분이 없기** 때문이다 (FR-HUB 의
+   * `background` 와 같은 근거) — 방송은 "다시 받으라" 는 신호이고, 막아야 하는
+   * 것은 스냅샷끼리의 추월뿐이다.
+   */
+  _settingsRestore(){
+    const t=this._restoreBegin('settings');
+    return fetch('/api/settings').then(r=>r.ok?r.json():null).then(saved=>{
+      if(!this._restoreLive('settings',t)) return;
+      this._settingsApply(saved);
+      this._restoreEnd('settings',t);
+    }).catch(()=>{});
+  },
+
   _initModal(){
     const overlay=document.getElementById('modal-overlay');
     const modal=document.getElementById('modal');
@@ -309,6 +463,7 @@ Object.assign(App.prototype, {
     this._initBlockKeys();
     this._initConfirmLeave();
     this._initFocusEdge();
+    this._initAttnEdge();
     this._initWordWrap();
     this._initLSP();
     this._initBackup();
@@ -494,7 +649,7 @@ Object.assign(App.prototype, {
           this._cancelRecording();
           this._recording=k;btn.textContent='키를 누르세요...';btn.classList.add('recording');
         });
-        const rst=document.createElement('button');rst.className='sc-rst';rst.textContent='↺';rst.title=SHORTCUT_RESET_TITLE;
+        const rst=UIKit.button({icon:'undo',title:SHORTCUT_RESET_TITLE,kind:'ghost',size:'sm',cls:'sc-rst'});
         rst.addEventListener('click',()=>{shortcuts[k]=SHORTCUT_DEFAULTS[k];this._saveSettings();btn.textContent=displayKey(shortcuts[k])});
         row.appendChild(label);
         const btns=document.createElement('div');btns.className='sc-btns';
@@ -511,70 +666,6 @@ Object.assign(App.prototype, {
     this._recording=null;
   },
 });
-
-// FR-TAN-19 의 값을 서버에서 읽어 온다. main.js 의 설정 로더가 키를 하나씩
-// 나열하는 구조라 이 값만 따로 받는다 — 로더에 한 줄 붙이는 편이 요청이 하나
-// 줄지만, 그 파일은 이 작업의 소유가 아니다.
-(async()=>{
-  try{
-    const r=await fetch('/api/settings');
-    if(!r.ok) return;
-    const saved=await r.json();
-    // FR-KEY-6: 저장된 적 없으면 기본값(켬). 두 값이 각자 그렇게 판단한다.
-    if(saved.blockBrowserKeys!==undefined){
-      blockBrowserKeys=!!saved.blockBrowserKeys;
-      const bk=document.getElementById('sc-blockbrowser');
-      if(bk) bk.checked=blockBrowserKeys;
-    }
-    // FR-LVC-6: 저장된 적 없으면 기본값(끔). 다른 값들과 같이 각자 판단한다.
-    if(saved.confirmLeave!==undefined){
-      confirmLeave=!!saved.confirmLeave;
-      const cl=document.getElementById('ds-confirmleave');
-      if(cl) cl.checked=confirmLeave;
-    }
-    // FR-UFE-12·13: 저장된 적 없으면 기본값(켬). 값을 바꿨으면 화면에도 얹는다 —
-    // 이 로더가 도는 시점에 창은 이미 포커스를 잃었을 수 있다.
-    // FR-UFE-12·13: 저장된 적 없으면 기본값(5). 범위 밖이거나 정수가 아닌 값은
-    // 받지 않는다 — 손으로 고친 settings.json 하나가 화면을 통째로 반전시키는
-    // 일이 없어야 한다.
-    if(saved.focusEdgeLevel!==undefined){
-      const lv=Math.round(Number(saved.focusEdgeLevel));
-      if(lv>=0&&lv<=UFE_LEVEL_MAX) focusEdgeLevel=lv;
-      app._focusEdgePaintRow();
-      app._paintFocusEdge();
-    }
-    // FR-WBR-10: 저장된 적 없으면 기본값(끔).
-    //
-    // 이 로더는 **비동기**라 편집기가 이미 서 있을 수 있다. 그때 값만 바꾸면
-    // 사용자는 설정이 듣지 않는 것으로 읽으므로 열려 있는 편집기에 얹는다
-    // (FR-WBR-11, `fgTabNames` 가 `_fgRepaint` 를 부르는 것과 같은 이유).
-    if(saved.editorWordWrap!==undefined){
-      editorWordWrap=!!saved.editorWordWrap;
-      const ww=document.getElementById('ds-wordwrap');
-      if(ww) ww.checked=editorWordWrap;
-      if(window.app&&app._edApplyWordWrap) app._edApplyWordWrap();
-    }
-    // FR-TBW-8: 저장된 적 없으면 기본값(끔·160). 다른 값들과 같이 각자 판단한다.
-    //
-    // 이 로더는 **비동기**라 탭이 이미 그려져 있을 수 있다 — 그래서 값만 바꾸지
-    // 않고 곧바로 얹는다 (`editorWordWrap` 이 `_edApplyWordWrap` 을 부르는 것과
-    // 같은 이유). 얹는 일은 클래스와 변수 하나뿐이라 다시 그리지 않는다.
-    if(saved.tabFixedWidth!==undefined||saved.tabWidthPx!==undefined){
-      if(saved.tabFixedWidth!==undefined) tabFixedWidth=!!saved.tabFixedWidth;
-      if(saved.tabWidthPx!==undefined) tabWidthPx=clampTabWidth(saved.tabWidthPx);
-      const tf=document.getElementById('ds-tabfix');
-      if(tf) tf.checked=tabFixedWidth;
-      const tw=document.getElementById('ds-tabw');
-      if(tw) tw.value=String(tabWidthPx);
-      applyTabWidth();
-    }
-    if(saved.fgTabNames===undefined) return;
-    fgTabNames=!!saved.fgTabNames;
-    if(window.app&&app._fgRepaint) app._fgRepaint();
-    const cb=document.getElementById('ds-fgnames');
-    if(cb) cb.checked=fgTabNames;
-  }catch{}
-})();
 
 /**
  * 샌드박스 설정 (SANDBOX_WINDOW_SRS FR-SBX-43).
@@ -601,8 +692,7 @@ Object.assign(App.prototype, {
     const ro=flag('ro','읽기 전용으로 붙입니다',m.readonly);
     // 이 표식이 켜지면 그 창은 더 이상 격리 경계가 아니다 (FR-SBX-39b).
     const sc=flag('scratch','격리 창에도 붙입니다 — 켜면 그 창은 격리 경계가 아니게 됩니다',m.scratch);
-    const del=document.createElement('button');
-    del.type='button';del.className='sbx-del';del.textContent='×';del.title='Remove this mount';
+    const del=UIKit.button({icon:'x',title:'Remove this mount',kind:'ghost',size:'sm',cls:'sbx-del'});
     del.addEventListener('click',()=>row.remove());
     row.append(host,cont,ro,sc,del);
     return row;

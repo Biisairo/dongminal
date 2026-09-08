@@ -190,7 +190,9 @@ class Renderer {
       }
     }
     const dt=document.getElementById('m-drawer-toggle');
-    if(dt) dt.textContent = this.app._drawerOpen ? '✕' : '☰';
+    // UI_KIT_SRS FR-GLY-4: 글자가 아니라 아이콘이므로 `textContent` 로 바꿀 수
+    // 없다 — 그 대입은 `<svg>` 를 지운다.
+    if(dt) dt.replaceChildren(UIKit.icon(this.app._drawerOpen?'x':'menu'));
     // FR-WSL-50·62: 칸 더하기·빼기. 모바일에는 칸을 만드는 길이 없다.
     // 한계에 닿은 버튼은 비활성이다 — 눌리지만 아무 일도 하지 않는 버튼은
     // 고장으로 읽힌다 (FR-GIT-180 이 세운 규약).
@@ -684,7 +686,8 @@ class Renderer {
       t.dataset.tabId=tab.id;
       if(tab.toolId) t.dataset.toolid=tab.toolId;
       if(isGit) t.dataset.gitView=tab.gitView;
-      t.innerHTML='<span class="pn-tab-label"></span><span class="pn-tab-x">×</span>';
+      t.innerHTML='<span class="pn-tab-label"></span>'
+        +'<span class="pn-tab-x" title="'+TAB_CLOSE_TITLE+'">'+UIKit.iconHTML('x','ui-icon-sm')+'</span>';
       const tlab=t.querySelector('.pn-tab-label');
       tlab.textContent=this._tabDisplayName(tab);
       /**
@@ -735,7 +738,8 @@ class Renderer {
     const aw=this.app._aw();
     const noAdd=this.app._isGitWin(aw)||this.app._isEditorWin(aw);
     if(!noAdd){
-      const add=document.createElement('button'); add.className='pn-tab-add'; add.textContent='+';
+      const add=document.createElement('button'); add.className='pn-tab-add';
+      add.appendChild(UIKit.icon('plus',{size:'sm'}));
       add.title=TAB_ADD_TITLE;
       add.addEventListener('click',e=>{e.stopPropagation();this.app.addTab(n.id)});
       tabs.appendChild(add);
