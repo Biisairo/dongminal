@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [1.0.12] — 2026-09-08
+
 ### 추가
 
 - **창 슬롯을 키로 곧바로 오갑니다.** `이전 슬롯`·`다음 슬롯` (`Ctrl+Alt+[` · `]`)
@@ -989,6 +991,7 @@
   에이전트 간 메시지와 API 입력 주입이 그 셸에서 통째로 깨져 있었다. 이제 셸이
   그 모드를 켰을 때만 감싼다
 
+[1.0.12]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.12
 [1.0.11]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.11
 [1.0.10]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.10
 [1.0.9]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.9
