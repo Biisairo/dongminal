@@ -338,7 +338,10 @@ const STATUS_ITEMS={
 };
 var statusBar={}; // {itemKey: true/false}
 for(const[k,v]of Object.entries(STATUS_ITEMS))statusBar[k]=v.def;
-var statsInterval=3000;
+// POLL_INTERVAL_SETTINGS_SRS FR-PIS-11: 기본값은 상수로 세운다 — 값이 깨졌을 때
+// 돌아갈 자리이며, 그 자리가 리터럴이면 `pollValue` 가 딛을 것이 없다.
+const STATS_INTERVAL_DEFAULT=3000;
+var statsInterval=STATS_INTERVAL_DEFAULT;
 var layoutPresets=[]; // [{name, layout}] — layout = stripped layout tree
 var defaultPreset=-1; // index into layoutPresets, -1 = none
 // CONVENIENCE_SRS FR-TAN-19: 전경 프로세스 이름을 탭 이름으로 쓸지. 기본은 켬.
@@ -670,8 +673,21 @@ function toolDisplayName(toolId,fgNames,tab,fallback){
 function gitBadgeStale(badge){
   const at=badge&&badge.observedAtUnixMs;
   if(!at) return true;
-  return (Date.now()-at)>GIT_BADGE_STALE_MS;
+  return (Date.now()-at)>gitBadgeStaleMs();
 }
+
+/**
+ * POLL_INTERVAL_SETTINGS_SRS FR-PIS-12 / D-7: 낡음의 기준은 **주기에서 파생한다.**
+ *
+ * 종전에는 `const GIT_BADGE_STALE_MS=GIT_REPOS_POLL_MS*4` 로 로드 시점에 굳었고,
+ * 주기가 설정이 되면 그 상수만 옛 값에 남는다. 계수를 남기고 곱셈을 여기로
+ * 옮기면 기준이 주기를 따라간다 — 둘은 같은 사실의 앞뒤이기 때문이다 (FR-GOB-14).
+ */
+function gitBadgeStaleMs(){ return gitReposInterval*GIT_BADGE_STALE_FACTOR }
+
+// 같은 근거의 편집기 쪽 백오프 (FR-DIR-31). 소비 지점은 트리의 `_gitBack` 과
+// dirty diff 의 `_back` 둘이다.
+function editorGitBackoffMs(){ return gitReposInterval*EDITOR_GIT_BACKOFF_FACTOR }
 
 /**
  * 화면이 보일 때만 도는 주기 실행 (REFACTOR_STABILIZATION_SRS FR-RST-23).
@@ -695,6 +711,10 @@ function gitBadgeStale(badge){
  */
 function visiblePoll(ms, fn, opts){
   opts=opts||{};
+  // POLL_INTERVAL_SETTINGS_SRS FR-PIS-13 / D-8: 첫 인자가 **함수면 그대로 넘긴다.**
+  // `TimerHub` 는 `every` 를 매 재무장마다 재평가하므로(`_arm`), 그것이 곧 "주기가
+  // 설정을 읽는다" 이다. 값을 주는 기존 호출 방식은 그대로 동작한다 — 계약이
+  // 넓어질 뿐 깨지지 않는다.
   // EVENT_TIMER_HUB_SRS FR-HUB-6: **이 함수는 이제 `TimerHub` 위의 얇은
   // 래퍼다.** 호출부 다섯은 한 글자도 바뀌지 않는다.
   //
@@ -708,7 +728,7 @@ function visiblePoll(ms, fn, opts){
   const sched=opts.sched||(typeof window!=='undefined'&&window.app&&window.app.timers);
   return sched.every({
     id:opts.id, owner:opts.owner||null,
-    every:()=>ms,
+    every:typeof ms==='function'?ms:()=>ms,
     when:opts.when||(()=>true),
     run:fn,
     immediate:!!opts.immediate,

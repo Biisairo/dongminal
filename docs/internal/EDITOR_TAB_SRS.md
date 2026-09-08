@@ -643,8 +643,11 @@ DOM 재사용(`reconcileList`, `repaint.js:61`)을 쓰고 매 갱신마다 트�
 **FR-EDT-76.** 상태 갱신은 **Editor 창이 활성일 때만** 돈다. 비활성 창은 git 을
 호출하지 않는다 (FR-GIT-24 와 같은 근거).
 
-**FR-EDT-77.** 활성일 때의 주기는 `EDITOR_GIT_POLL_MS` 이며 **`GIT_REPOS_POLL_MS` 와
-같은 3000ms** 다 (`constants.js:114`). 같은 사실을 보는 두 화면이 다른 속도로
+**FR-EDT-77.** (개정 2026-09-08) 활성일 때의 주기는 **`gitReposInterval`** 이다 —
+사이드바 목록과 **같은 이름 하나**를 딛는다. 종전에는 `EDITOR_GIT_POLL_MS` 라는
+별칭이 `GIT_REPOS_POLL_MS` 를 가리켰고, 주기가 설정이 되면서(POLL_INTERVAL_SETTINGS_SRS
+FR-PIS-12) 그 별칭만 로드 시점 값에 굳는 자리가 됐다. "둘이 같아야 한다" 는 이 조항의
+요구는 이름을 하나로 만들어 더 강하게 지켜진다. 기본값은 `GIT_REPOS_POLL_MS`(3000ms). 같은 사실을 보는 두 화면이 다른 속도로
 갱신될 이유가 없다. 캐시 TTL 200ms + single-flight(§2.7) 위에 얹히므로 Git 패널과
 동시에 떠 있어도 git 실행이 겹치지 않는다.
 
@@ -1043,7 +1046,7 @@ root 에디터로 보낸다" 까지만 한다. M6 이 연결·리포 규칙을 �
 | `internal/webserver/httpapi/handlers_files.go` | `safeResolve` 재사용 (변경 없음, 참조만) | M1 |
 | `internal/webserver/httpapi/handlers_api.go` | 라우트 8개 등록 | M1 |
 | `internal/webserver/httpapi/server.go` | `wsentry.Store` 조립 (`RepoRoot` 주입) | M1 |
-| `web/js/core/constants.js` | `WINDOW_TYPE_EDITOR` · `EDITOR_GIT_POLL_MS` · 문자열 · 폴더 색 우선순위 | M2 |
+| `web/js/core/constants.js` | `WINDOW_TYPE_EDITOR` · 문자열 · 폴더 색 우선순위 (옛 `EDITOR_GIT_POLL_MS` 는 사라졌다 — FR-EDT-77 개정) | M2 |
 | `web/index.html` | 패널 래퍼 1개, 스크립트 2개 | M2 |
 | `web/js/ui/sidebar-tabs.js` | 서술자 1개 | M2 |
 | `web/js/ui/sidebar-list.js` | `fixed(app)` 지원 | M2 |

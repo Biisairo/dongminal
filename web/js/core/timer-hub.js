@@ -62,6 +62,9 @@ class TimerHub {
       timeout:spec.timeout||0,
       gen:0, inflight:false, again:false, failStreak:0, lastRun:0, runs:0,
       nextAt:0,
+      // POLL_INTERVAL_SETTINGS_SRS D-8a: 마지막으로 **건** 주기. `refreshChanged`
+      // 가 "바뀐 것만" 을 가리는 근거이며, `every()` 를 매번 견줄 대상이다.
+      armedMs:null,
     };
     this._jobs.set(id,job);
     this._arm(job);
@@ -80,8 +83,34 @@ class TimerHub {
   // 다음 마감을 계산해 건다. 주기 0 은 그 계층을 걸지 않는다 (FR-GIT-23).
   _arm(job){
     const ms=+job.every()||0;
+    job.armedMs=ms;
     job.nextAt=ms>0?Date.now()+ms:0;
     this._reschedule();
+  }
+
+  /**
+   * POLL_INTERVAL_SETTINGS_SRS FR-PIS-14·14a / D-8a — **주기가 바뀐 job 만 다시 건다.**
+   *
+   * 설정에서 주기를 바꾸는 자리(`_settingsApply`)가 부르는 유일한 진입점이다.
+   * 핸들마다 `refresh()` 를 부르는 길은 **핸들에 닿을 수 있는 것에만** 통한다 —
+   * git 콘솔의 타이머는 `observer → panels → panel._consoleView` 세 단 아래에
+   * 있고, 그 길을 설정이 알아야 할 이유가 없다.
+   *
+   * **전부 다시 걸지 않는다.** `_arm` 은 마감을 `now+ms` 로 다시 계산하므로,
+   * 안 바뀐 job 까지 걸면 설정을 한 번 만질 때마다 모든 폴링의 다음 회차가
+   * 뒤로 밀린다.
+   *
+   * **발화하지 않는다** (FR-SCH-5 · FR-RMS-28): 주기를 바꾼 것은 수집의 계기가
+   * 아니다. 다른 브라우저 창에서 바뀐 값이 SSE 로 올 때 열려 있는 창 전부가
+   * 즉시 요청을 내면 그것이 곧 폭주다.
+   */
+  refreshChanged(){
+    let n=0;
+    for(const job of this._jobs.values()){
+      if((+job.every()||0)===job.armedMs) continue;
+      this._arm(job); n++;
+    }
+    return n;
   }
 
   _alive(job){

@@ -108,12 +108,9 @@ class GitPanel {
   get _writing(){ return this.obs._writing } set _writing(v){ this.obs._writing=v }
   get _busy(){ return this.obs._busy } set _busy(v){ this.obs._busy=v }
   get _again(){ return this.obs._again } set _again(v){ this.obs._again=v }
-  get _sigBusy(){ return this.obs._sigBusy } set _sigBusy(v){ this.obs._sigBusy=v }
   get _sigT(){ return this.obs._sigT } set _sigT(v){ this.obs._sigT=v }
   get _pollOn(){ return this.obs._pollOn } set _pollOn(v){ this.obs._pollOn=v }
-  get _pollSig(){ return this.obs._pollSig } set _pollSig(v){ this.obs._pollSig=v }
   get _pollSt(){ return this.obs._pollSt } set _pollSt(v){ this.obs._pollSt=v }
-  get _sigPoll(){ return this.obs._sigPoll } set _sigPoll(v){ this.obs._sigPoll=v }
   get _stPoll(){ return this.obs._stPoll } set _stPoll(v){ this.obs._stPoll=v }
 
   // 활성 리포. Git 창의 win.git.repo 가 진실이고 이것은 그 읽기다 (FR-GIT-29).

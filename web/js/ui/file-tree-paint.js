@@ -297,7 +297,7 @@ Object.assign(FileTree.prototype, {
 
   // FR-DIR-31: 굳히는 대신 늦춘다. 다음 관측까지의 시각을 기억할 뿐이며,
   // `_gitOff` 와 달리 되돌아올 수 있는 상태다.
-  _gitBack(now){ this._gitRetryAt=(now||Date.now())+EDITOR_GIT_BACKOFF_MS },
+  _gitBack(now){ this._gitRetryAt=(now||Date.now())+editorGitBackoffMs() },
 
   /**
    * FR-DIR-41: 저장소 루트(`repo`)에서 이 트리 루트(`resolved`)까지의 접두를 낸다.

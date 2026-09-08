@@ -38,8 +38,9 @@ function touch(repo: string, name: string) {
 test.describe('GIT_PUSH_OBSERVE — 서버가 밀어 준다', () => {
   // B-1: 서버가 알리면 화면이 따라온다.
   //
-  // 브라우저의 signature 폴링이 꺼져 있으므로(GIT_SIGNATURE_POLL_MS=0), 이
-  // 검사가 통과한다는 것은 **방송이 실제로 도착해 수집을 불렀다**는 뜻이다.
+  // 브라우저에는 signature 폴링 계층이 **없으므로**(POLL_INTERVAL_SETTINGS_SRS
+  // FR-PIS-1 — 종전에는 주기 0 으로 꺼 두었을 뿐이었다), 이 검사가 통과한다는
+  // 것은 **방송이 실제로 도착해 수집을 불렀다**는 뜻이다.
   // status 안전망은 30초라 그 안에 끼어들지 못한다.
   test('B-1 파일이 생기면 방송을 받아 목록에 나타난다', async ({ page }) => {
     const repo = copyFx('basic', 'b1');

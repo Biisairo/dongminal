@@ -268,14 +268,15 @@ Object.assign(GitPanel.prototype, {
    *
    * 소실은 확정된 사실이라 점증하지 않고 곧바로 고정 주기다. 그 밖의 실패는
    * 일시적일 수 있으므로 기준 × 2ⁿ 으로 늘리되 같은 값을 상한으로 둔다.
+   *
+   * POLL_INTERVAL_SETTINGS_SRS FR-PIS-4: 인자가 둘에서 하나가 됐다 — 브라우저
+   * signature 폴링이 사라지면서 실효 주기를 계산할 계층이 status 하나만 남았다.
    */
-  _cadence(st,sig){
-    const fix=v=>v>0?GIT_REPO_MISSING_POLL_MS:0;
-    if(this._missing) return {st:fix(st),sig:fix(sig)};
+  _cadence(st){
+    if(this._missing) return st>0?GIT_REPO_MISSING_POLL_MS:0;
     const n=this._failStreak;
-    if(n<=0) return {st,sig};
-    const slow=v=>v>0?Math.min(v*Math.pow(2,n),GIT_FAIL_BACKOFF_MAX_MS):0;
-    return {st:slow(st),sig:slow(sig)};
+    if(n<=0) return st;
+    return st>0?Math.min(st*Math.pow(2,n),GIT_FAIL_BACKOFF_MAX_MS):0;
   },
 
   /**
@@ -288,10 +289,10 @@ Object.assign(GitPanel.prototype, {
   // 다시 걸었으면 true 다 — 호출자가 "즉시 1회 수집" 을 붙일지 그것으로 정한다.
   _applyCadence(){
     if(!this._pollOk()){this._stop();return false}
-    const {st,sig}=this._cadence(gitStatusInterval,gitSignatureInterval);
-    if(this._pollOn&&this._pollSig===sig&&this._pollSt===st) return false;
+    const st=this._cadence(gitStatusInterval);
+    if(this._pollOn&&this._pollSt===st) return false;
     this._stop();
-    this._pollOn=true; this._pollSig=sig; this._pollSt=st;
+    this._pollOn=true; this._pollSt=st;
     // 주기 0 은 그 계층을 걸지 않는다 (FR-GIT-23).
     // FR-SVS-30: 콜백은 **observer** 를 지난다. 특정 패널을 캡처하면 그 칸이
     // 사라진 뒤에도 죽은 패널을 붙들고 부른다.
@@ -314,10 +315,8 @@ Object.assign(GitPanel.prototype, {
     // `document.hidden` 뿐 아니라 창이 보이는지, **이 패널의 표면**이 화면에
     // 있는지까지 본다 (FR-RTU-62 · FR-SVS-39a).
     const opts={owner:this, whenHidden:'run'};
-    if(sig>0) this._sigPoll=TIMERS.every({...opts,id:'git.sig:'+(this.root||'-'),
-      every:()=>sig, run:()=>this.obs.tick('sig')});
     if(st>0) this._stPoll=TIMERS.every({...opts,id:'git.status:'+(this.root||'-'),
-      every:()=>st, run:()=>this.obs.tick('status')});
+      every:()=>st, run:()=>this.obs.tick()});
     return true;
   },
 
@@ -327,7 +326,6 @@ Object.assign(GitPanel.prototype, {
   },
 
   _stop(){
-    if(this._sigPoll){this._sigPoll.stop();this._sigPoll=null}
     if(this._stPoll){this._stPoll.stop();this._stPoll=null}
     this._pollOn=false;
   },
@@ -495,30 +493,5 @@ Object.assign(GitPanel.prototype, {
       return;
     }
     this._staleNote=true; this.obs.paintAll();
-  },
-
-  // signature 는 git 을 실행하지 않는 감지 경로다. 값이 그대로면 아무것도 하지
-  // 않는다 (FR-GIT-19).
-  async _pollSignature(){
-    const repo=this.repo; if(!repo) return;
-    if(this._sigBusy) return;
-    this._sigBusy=true;
-    const tok=this.token();
-    const res=await gitFetch('/api/git/signature',{repo});
-    const d=res.ok?res.data:null;
-    // 단일 비행 플래그는 **무조건** 되돌린다. 여기서 `_seq` 로 소유권을 따지면
-    // 안 된다 — 그것은 status 의 일련번호이고 `collect()` 가 관측마다 올린다.
-    // 상태 폴링이 도는 동안 signature 응답은 늘 "내 것이 아니다" 로 판정되어
-    // 플래그가 영구히 참으로 남고, 감지 계층이 첫 회차에 죽는다 (FR-GIT-19).
-    // 리포가 바뀐 경우의 되돌림은 이미 `setRepo` 가 한다.
-    this._sigBusy=false;
-    if(!d||this.isStale(tok)||d.requested!==tok.repo) return;
-    const v=(d.signature&&d.signature.value)||'';
-    if(v===this._lastSig) return;
-    this._lastSig=v;
-    // 뷰의 갱신은 여기서 부르지 않는다. 근거(`_viewFp`)는 status 응답이 실어
-    // 오므로 `collect()` 의 응답이 도착한 자리에서 판정한다 — 여기서 부르면
-    // 아직 옛 값을 들고 다시 받는다.
-    this.collect();
   },
 });

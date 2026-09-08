@@ -135,7 +135,9 @@ class InputBinding {
     this.app._initMobile();
     this.app._initMobileKeybar();
     this.app._initAttn();
-    this.app._initAgentsSettings();
+    // POLL_INTERVAL_SETTINGS_SRS FR-PIS-20: `Polling` 탭의 행을 표에서 만든다.
+    // 옛 `_initAgentsSettings` 가 있던 자리이며, 그 드롭다운이 이 탭으로 옮겼다.
+    this.app._initPollingSettings();
   }
 
   /**

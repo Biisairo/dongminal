@@ -120,8 +120,15 @@ Settings 모달 6개 탭이 만지는 값이 이 셋에 나뉘어 있다 — 사
 | `session` | `mobileBreakpoint` | Display ▸ Mobile Breakpoint |
 
 **FR-SPT-2.** 블롭 계층은 키를 세지 않고 **통째로** 담는다 (§2.2). UI 가 아직 없는
-설정(`gitSignatureInterval`·`gitStatusInterval`)도 그래서 함께 실린다 — 값이 설정인
-것과 화면에 칸이 있는 것은 다른 문제다.
+설정도 그래서 함께 실린다 — 값이 설정인 것과 화면에 칸이 있는 것은 다른 문제다.
+
+> 2026-09-08: 예로 들던 둘은 이제 그 예가 아니다 — `gitStatusInterval` 은 `Polling`
+> 탭에 칸이 생겼고 `gitSignatureInterval` 은 계층째 사라졌다
+> (POLL_INTERVAL_SETTINGS_SRS). 조항이 말하는 규약 자체는 그대로다.
+>
+> 같은 SRS 의 FR-PIS-18 로 이식 표에서 `agentsPollMs` **한 줄이 빠졌다** — 값이
+> 서버 설정으로 옮겼기 때문이다. 표가 담는 것은 여전히 localStorage·sessionStorage
+> 뿐이라는 규약(FR-SPT-3)의 결과다.
 
 **FR-SPT-3.** 이식 표 밖의 `localStorage`·`sessionStorage` 키(`sidebarWidth`·
 `agentsWidth`·`sidebarTab`·`gitFileView`·리포별 마지막 ref·활성 창·포커스 pane …)는

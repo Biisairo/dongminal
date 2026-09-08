@@ -9,8 +9,10 @@
  * 의존성이며(architecture.md), 선언을 파일만 옮기고 내용은 고치지 않았다.
  *
  * 로드 순서: constants.js → constants-git.js → constants-editor.js
- * (`EDITOR_GIT_POLL_MS` 가 `GIT_REPOS_POLL_MS` 를 참조한다 — 버킷을 넘는
- * 참조는 그 하나뿐이고, 이 순서가 그것을 만족시킨다.)
+ * (`constants-editor.js` 가 git 버킷의 값을 딛는다 — `ED_DD_AXIS` 가 `GIT_AXIS`
+ * 를 참조하는 자리 하나이고, 이 순서가 그것을 만족시킨다. 종전에 예로 들던
+ * `EDITOR_GIT_POLL_MS` 는 `GIT_REPOS_POLL_MS` 의 별칭이었고
+ * POLL_INTERVAL_SETTINGS_SRS FR-PIS-12 로 사라졌다.)
  *
  * **선언만 옮기는 것이 아니다.** `Object.assign(GIT_WRITE_ERR, …)` 처럼 뒤에서
  * 값을 덧붙이는 top-level 문장이 있고, 그것은 대상 상수와 **같은 파일·같은
@@ -100,6 +102,14 @@ const ATTN_EDGE_ON_CLASS='attn-edge-on';
 // 활동 패널 자동 새로고침 주기 기본값(ms). 설정에서 변경(per-device localStorage).
 // 비정상 종료·hook 누락으로 SSE 가 안 와도 주기적으로 서버와 동기화 (FR-AAP-19).
 const AGENTS_POLL_DEFAULT=5000;
+/**
+ * POLL_INTERVAL_SETTINGS_SRS FR-PIS-16 / D-3: **저장 자리가 서버 설정으로 옮겼다.**
+ *
+ * 종전에는 `localStorage` 였고(app.js 의 접근자), 그래서 다섯 주기 중 이것 하나만
+ * 다른 브라우저 창에 전파되지 않았다. 나머지 넷과 같은 자리에 두면 `settings_changed`
+ * 전파(FR-SYN)를 그대로 받는다. 상수는 기본값으로 남는다 (FR-PIS-11).
+ */
+var agentsPollInterval=AGENTS_POLL_DEFAULT;
 // 상태별 글꼴 기호(이모지 아님) — 색(.ag-state.<state>)과 함께 상태를 구분.
 const AGENT_STATE_ICON={working:'●',done:'✓',waiting:'…',idle:'○'};
 

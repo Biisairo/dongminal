@@ -367,7 +367,7 @@ Object.assign(App.prototype, {
   // 위해 요청을 살 이유가 없다 (_startStatsPoll 의 선례, FR-STAT-17).
   _startGitReposPoll(){
     if(this._gitReposPoll) this._gitReposPoll.stop();
-    this._gitReposPoll=visiblePoll(GIT_REPOS_POLL_MS,()=>this._gitReposRefresh(),{immediate:true});
+    this._gitReposPoll=visiblePoll(()=>gitReposInterval,()=>this._gitReposRefresh(),{immediate:true});
   },
 
   /**

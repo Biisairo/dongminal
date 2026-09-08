@@ -53,8 +53,10 @@ async function patchSettings(request: APIRequestContext, patch: Record<string, u
   expect(r.ok(), `설정 저장 실패: ${await r.text()}`).toBeTruthy();
 }
 
+// POLL_INTERVAL_SETTINGS_SRS FR-PIS-1: `gitSignatureInterval` 은 더 없다 — 브라우저
+// signature 폴링 계층 자체가 사라졌다.
 const defaultIntervals = (request: APIRequestContext) =>
-  patchSettings(request, { gitStatusInterval: undefined, gitSignatureInterval: undefined });
+  patchSettings(request, { gitStatusInterval: undefined });
 
 // 요청 수는 가로채기로 센다 — 클라이언트 내부 카운터를 믿으면 "요청을 실제로
 // 보내지 않았다"를 증명할 수 없다.
@@ -149,10 +151,12 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
   });
 
   test('P4 (V18): 주기 0 이면 폴링이 돌지 않는다', async ({ page, request }) => {
-    await patchSettings(request, { gitStatusInterval: 0, gitSignatureInterval: 0 });
+    await patchSettings(request, { gitStatusInterval: 0 });
     const repo = fx('basic');
     await waitForInit(page);
     const st = counter(page, '/api/git/status');
+    // FR-PIS-1: 계층이 사라졌으므로 주기와 무관하게 0 건이다 — 그 증거는
+    // `poll-interval` PIS2 가 옛 설정 키로 따로 잰다.
     const sig = counter(page, '/api/git/signature');
     await openGit(page, repo);
 
@@ -160,13 +164,13 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     const base = st.n;
     await page.waitForTimeout(2600);
     expect(st.n - base, '주기 0 인데 status 폴링이 돈다').toBe(0);
-    expect(sig.n, '주기 0 인데 signature 폴링이 돈다').toBe(0);
+    expect(sig.n, '지워진 signature 폴링이 되살아났다').toBe(0);
     await defaultIntervals(request);
   });
 
   test('P5 (V5): 같은 순간의 신호 여러 개가 status 1건으로 합쳐진다', async ({ page, request }) => {
     // 폴링을 끄고 즉시 신호만 남긴다 — 디바운스만 측정한다.
-    await patchSettings(request, { gitStatusInterval: 0, gitSignatureInterval: 0 });
+    await patchSettings(request, { gitStatusInterval: 0 });
     const repo = fx('basic');
     await waitForInit(page);
     const c = counter(page, '/api/git/status');

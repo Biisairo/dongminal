@@ -217,6 +217,9 @@
       <button class="mtab active" data-tab="theme" title="Theme settings">Theme</button>
       <button class="mtab" data-tab="shortcuts" title="Keyboard shortcut settings">Shortcuts</button>
       <button class="mtab" data-tab="statusbar" title="Status bar settings">Status Bar</button>
+      <!-- FR-PIS-20 / D-2: 흩어져 있던 주기 손잡이가 한 자리로 모인다. 자리가
+           Status Bar 옆인 것은 옮겨 온 둘 중 하나가 거기 있었기 때문이다. -->
+      <button class="mtab" data-tab="polling" title="Polling interval settings">Polling</button>
       <button class="mtab" data-tab="presets" title="Layout preset settings">Presets</button>
       <button class="mtab" data-tab="display" title="Display settings">Display</button>
       <!-- EDITOR_LSP_SRS FR-LSP-46 -->
@@ -361,18 +364,16 @@
             <span>사운드</span>
             <input type="checkbox" id="attn-sound">
           </div>
-          <div class="ds-row">
-            <span>에이전트 패널 새로고침 주기</span>
-            <select id="agents-poll" class="sbs-select">
-              <option value="2000">2초</option>
-              <option value="3000">3초</option>
-              <option value="5000">5초</option>
-              <option value="10000">10초</option>
-              <option value="30000">30초</option>
-            </select>
-          </div>
           <div class="ds-hint">데스크톱 알림은 브라우저 권한 허용이 필요합니다. 시각 강조와 탭 제목 배지는 항상 동작합니다.</div>
         </div>
+      </div>
+      <!-- POLL_INTERVAL_SETTINGS_SRS FR-PIS-20: 행은 `_initPollingSettings` 가
+           `POLL_SETTINGS` 에서 만든다 — 여기 다섯을 손으로 적으면 주기를 더할 때
+           고칠 자리가 둘이 된다 (FR-PIS-6). -->
+      <div class="mpanel" id="panel-polling" style="display:none">
+        <div class="display-settings" id="poll-settings"></div>
+        <!-- FR-PIS-25: 주기를 늘려도 화면이 낡은 채 남지 않는 이유를 적는다. -->
+        <div class="ds-hint">숨은 브라우저 탭과 보이지 않는 화면에서는 아무것도 묻지 않고, 돌아오면 즉시 한 번 갚습니다. 창 전환·저장·git 명령처럼 결과를 곧바로 봐야 하는 순간은 주기와 무관하게 그때 갱신합니다.</div>
       </div>
       <!-- FR-SPT-14·15: 무엇이 실리고 무엇이 실리지 않는지를 함께 적는다. -->
       <div class="mpanel" id="panel-sandbox" style="display:none">
@@ -541,6 +542,9 @@
 <script src="js/core/app-runs.js?v=__ASSETV__"></script>
 <script src="js/core/app-search.js?v=__ASSETV__"></script>
 <script src="js/core/app-mobile.js?v=__ASSETV__"></script>
+<!-- 폴링 주기 설정 (POLL_INTERVAL_SETTINGS_SRS). 표가 진실이므로 app-settings.js
+     **앞**이어야 한다 — 그쪽 `_settingsApply` 가 `POLL_SETTINGS` 를 지난다. -->
+<script src="js/core/app-polling.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings.js?v=__ASSETV__"></script>
 <!-- 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS). app.js 뒤·main.js 앞이면 된다. -->
 <script src="js/core/app-backup.js?v=__ASSETV__"></script>

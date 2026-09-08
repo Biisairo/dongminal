@@ -156,8 +156,8 @@ git 바이너리가 사라진 경우와 섞일 수 있고, 그것은 이미 `Err
 
 | ID | 요구사항 |
 |---|---|
-| **FR-RMS-13** | 소실 상태에서 폴링은 **멈추지 않고 주기를 낮춘다.** status·signature 두 계층 모두 `GIT_REPO_MISSING_POLL_MS`(30 000ms) 를 쓴다. |
-| **FR-RMS-14** | 복구되면 주기가 사용자 설정값(`gitStatusInterval`·`gitSignatureInterval`)으로 돌아온다. |
+| **FR-RMS-13** | 소실 상태에서 폴링은 **멈추지 않고 주기를 낮춘다.** `GIT_REPO_MISSING_POLL_MS`(30 000ms) 를 쓴다. (2026-09-08 개정: 대상이 status 한 계층이다 — signature 계층은 POLL_INTERVAL_SETTINGS_SRS FR-PIS-1 에서 사라졌다.) |
+| **FR-RMS-14** | 복구되면 주기가 사용자 설정값(`gitStatusInterval`)으로 돌아온다. |
 | **FR-RMS-15** | 주기 0(계층 끔, FR-GIT-23)은 소실 상태에서도 0 이다 — 소실이 꺼 둔 계층을 되살리지 않는다. |
 | **FR-RMS-16** | `다시 확인` 은 주기를 기다리지 않는다. |
 
@@ -181,7 +181,7 @@ git 바이너리가 사라진 경우와 섞일 수 있고, 그것은 이미 `Err
 | ID | 요구사항 |
 |---|---|
 | **FR-RMS-22** | 연속 실패는 폴링 주기를 늘린다. 대상은 **관측이 성공하지 못한 모든 경우** — 네트워크 오류·`git_failed`·`git_timeout` 이 같다. |
-| **FR-RMS-23** | 유효 주기는 `min(기준 × 2^연속실패수, GIT_FAIL_BACKOFF_MAX_MS)` 다. 기준은 사용자 설정값(`gitStatusInterval`·`gitSignatureInterval`)이고 상한은 30 000ms 다. |
+| **FR-RMS-23** | 유효 주기는 `min(기준 × 2^연속실패수, GIT_FAIL_BACKOFF_MAX_MS)` 다. 기준은 사용자 설정값(`gitStatusInterval`)이고 상한은 30 000ms 다. |
 | **FR-RMS-24** | 관측이 성공하면 연속 실패수가 0 이 되고 주기가 **즉시** 기준으로 돌아온다. |
 | **FR-RMS-25** | 기준 0(계층 끔, FR-GIT-23)은 백오프의 대상이 아니다 — 0 은 0 으로 남는다. 소실 상태(FR-RMS-15)와 같은 규약이다. |
 | **FR-RMS-26** | 소실이 확정되면 백오프 대신 FR-RMS-13 의 고정 주기를 쓴다. 소실은 "일시적일지 모른다" 가 아니라 확정된 사실이므로 점증할 이유가 없다. |

@@ -193,10 +193,17 @@ OSC 777 `Cwd;<pwd>` 로 갱신한다. **리포 해석에 디스크 스캔이 필
   도입하지 않는다.
   1. 즉시 신호 — 터미널 `precmd` OSC, 에이전트 hook, `POST /api/file/write`,
      브라우저 가시성·포커스 복귀
-  2. signature 폴링 (기본 500ms)
-  3. `git status` 폴링 (기본 1s)
-- **FR-GIT-19** signature 는 `HEAD` 내용 + `index` mtime + 현재 ref mtime 으로
-  구성한다. 값이 그대로면 status 재조회를 생략한다.
+  2. ~~signature 폴링 (기본 500ms)~~ **폐기** — 아래 FR-GIT-19 개정
+  3. `git status` 폴링 — GIT_PUSH_OBSERVE_SRS 로 **안전망**이 되었고 기본 30초다
+- **FR-GIT-19** (개정 2026-09-08) signature 는 `HEAD` 내용 + `index` mtime + 현재
+  ref mtime 으로 구성한다. **그 값을 쓰는 주체가 브라우저에서 서버로 옮겼다** —
+  서버의 `StartGitWatch` 가 그것을 감시해 `git_changed` 를 방송하고(FR-GPO-1),
+  브라우저는 방송을 받는다. status 응답이 싣는 signature(`_lastSig`)는 남아
+  확인창·히스토리 재조회·다이얼로그 지문이 딛는다.
+- **FR-GIT-19-old** (폐기) 종전 문장: 브라우저가 signature 를 500ms 마다 물어 값이
+  그대로면 status 재조회를 생략한다. 서버 push 로 대체되어 기본이 0(꺼짐)이 되었고,
+  그 뒤로 한 번도 켜지지 않은 채 감지 전부가 성립했다. 계층 자체는
+  POLL_INTERVAL_SETTINGS_SRS FR-PIS-1 에서 걷어냈다.
 - **FR-GIT-20** 즉시 신호는 150ms 디바운스로 합친다. 연속 신호가 status 를 연발
   실행시키지 않아야 한다.
 - **FR-GIT-21** 같은 리포의 status 조회는 single-flight 다. 진행 중 조회가 있으면

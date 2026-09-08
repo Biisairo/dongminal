@@ -193,7 +193,8 @@ async function loadPanelPoll(page: Page) {
       _staleNote = false;
       _obsSig = null as any;
       _pollOn = false;
-      _sigPoll = null as any;
+      // POLL_INTERVAL_SETTINGS_SRS FR-PIS-1: signature 폴링 계층이 사라졌다 —
+      // `_sigPoll` 도 함께 걷는다.
       _stPoll = null as any;
       app = {
         _gitWindow: () => ({ id: 'w1' }),
@@ -209,7 +210,6 @@ async function loadPanelPoll(page: Page) {
       _paint() {}
     };
     // 주기는 설정으로 덮을 수 있다 (FR-GIT-23) — 전역이 그 자리다.
-    (window as any).gitSignatureInterval = 500;
     (window as any).gitStatusInterval = 1000;
     (window as any).pathJoin = (a: string, b: string) => a + '/' + b;
   });
@@ -247,26 +247,32 @@ test.describe('T-5·6·7·11 — 주기와 잠금 (FR-RMS-22·28·29 · FR-GIT-2
 
   // T-11: 기준 0 은 0 으로 남는다. 실패가 그것을 되살리면 사용자가 끈 것이
   // 저절로 켜진다 (FR-GIT-23).
+  /**
+   * POLL_INTERVAL_SETTINGS_SRS FR-PIS-4: `_cadence` 의 인자가 둘에서 하나가 됐다.
+   *
+   * 종전에는 켜 둔 계층이 백오프를 받는지도 함께 쟀는데, 그 "켜 둔 계층" 이
+   * signature 였다. 백오프 규약 자체는 status 로 그대로 잰다 — 재던 것은 계층의
+   * 개수가 아니라 **0 이 백오프를 이긴다**는 것이었다.
+   */
   test('T-11 주기 0 은 실패가 쌓여도 0 이고, 그 계층을 걸지 않는다 (FR-GIT-23)', async ({ page }) => {
     await loadPanelPoll(page);
 
     const r = await page.evaluate(() => {
       const p = (window as any).__p;
       p._failStreak = 5;
-      const cad = p._cadence(0, 500);
+      const off = p._cadence(0);
+      const on = p._cadence(500);
 
       // 실제로 타이머가 걸리는지도 본다 — status 주기가 0 이면 그 계층은 없다.
       (window as any).gitStatusInterval = 0;
-      (window as any).gitSignatureInterval = 500;
       p._failStreak = 0;
       p._applyCadence();
-      return { cad, st: p._stPoll, sig: p._sigPoll === null ? null : 'set' };
+      return { off, on, st: p._stPoll };
     });
 
-    expect(r.cad.st, '꺼 둔 계층을 백오프가 되살렸다 (FR-GIT-23)').toBe(0);
-    expect(r.cad.sig, '켜 둔 계층이 백오프를 받지 않았다').toBeGreaterThan(500);
+    expect(r.off, '꺼 둔 계층을 백오프가 되살렸다 (FR-GIT-23)').toBe(0);
+    expect(r.on, '켜 둔 계층이 백오프를 받지 않았다').toBeGreaterThan(500);
     expect(r.st, '주기 0 인데 status 타이머가 걸렸다').toBeNull();
-    expect(r.sig, '주기가 있는데 signature 타이머가 걸리지 않았다').toBe('set');
   });
 
   // T-6: 주기를 다시 거는 것과 수집하는 것은 다른 일이다.

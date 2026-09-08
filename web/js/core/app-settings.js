@@ -6,9 +6,13 @@
  */
 Object.assign(App.prototype, {
   async _saveSettings(){
-    // 블롭 전체를 갈아치우므로 읽어 쓰는 값은 전부 실어야 한다 — git 주기(FR-GIT-23)는
-    // UI 가 없지만 여기서 빠지면 다른 설정을 건드릴 때 조용히 사라진다.
-    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,statsInterval,gitSignatureInterval,gitStatusInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave,editorWordWrap,tabFixedWidth,tabWidthPx,focusEdgeLevel,attnEdgeLevel})})}catch{}
+    // 블롭 전체를 갈아치우므로 읽어 쓰는 값은 전부 실어야 한다 — 여기서 빠지면
+    // 다른 설정을 건드릴 때 조용히 사라진다.
+    //
+    // POLL_INTERVAL_SETTINGS_SRS FR-PIS-6: 주기 다섯이 나란히 실린다.
+    // `gitSignatureInterval` 은 **빠졌다** — 읽을 계층이 없으므로 실어도 아무
+    // 일도 하지 않고, 남기면 지운 계층이 아직 있다고 읽힌다 (FR-PIS-2).
+    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,agentsPollInterval,statsInterval,gitStatusInterval,gitReposInterval,gitConsoleInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave,editorWordWrap,tabFixedWidth,tabWidthPx,focusEdgeLevel,attnEdgeLevel})})}catch{}
   },
 
   /**
@@ -318,10 +322,24 @@ Object.assign(App.prototype, {
     if(!saved||typeof saved!=='object') return;
     if(saved.shortcuts) Object.assign(shortcuts,saved.shortcuts);
     if(saved.statusBar) Object.assign(statusBar,saved.statusBar);
-    if(saved.statsInterval) statsInterval=saved.statsInterval;
-    // FR-GIT-23: 0 은 그 계층을 끈다는 뜻이므로 truthy 검사로는 안 된다.
-    if(saved.gitSignatureInterval!==undefined) gitSignatureInterval=saved.gitSignatureInterval;
-    if(saved.gitStatusInterval!==undefined) gitStatusInterval=saved.gitStatusInterval;
+    /**
+     * POLL_INTERVAL_SETTINGS_SRS FR-PIS-7·8: **주기 다섯이 여기 한 자리를 지난다.**
+     *
+     * 부팅 · SSE `settings_changed` · 소프트 리로드가 같은 길이므로 새 전파 경로가
+     * 생기지 않는다 (D-4). 값의 검사도 여기 하나다 — 손으로 고친 `settings.json`
+     * 하나가 초당 폴링을 만들지 않아야 한다 (FR-UFE-12·13 과 같은 근거).
+     */
+    // FR-GIT-23 의 `0`(그 계층을 걸지 않는다)은 예외가 아니라 **표 안에** 있다 —
+    // `off:true` 를 가진 주기만 0 을 통과시킨다 (FR-PIS-9).
+    //
+    // `!==undefined` 가드는 **이 파일의 다른 설정 전부와 같은 규약**이다 (FR-PIS-8):
+    // 서버가 말하지 않은 키에 대해 화면이 판단하지 않는다. 부팅에서는 변수가 이미
+    // 상수 기본값이라 결과가 같고, 갱신에서는 이것이 유일하게 안전한 답이다 —
+    // 되돌려 버리면 이 자리에 값을 직접 넣어 둔 쪽(검사·진단)의 값을 방송 하나가
+    // 지운다. 위 주석의 "`saved.x===undefined` 일 때 기본으로 되돌리기는 부팅과
+    // 갱신에서 뜻이 다르다" 가 정확히 이 자리다.
+    for(const spec of POLL_SETTINGS)
+      if(saved[spec.key]!==undefined) spec.set(pollValue(saved[spec.key],spec));
     if(saved.layoutPresets) layoutPresets=saved.layoutPresets;
     if(saved.defaultPreset!==undefined) defaultPreset=saved.defaultPreset;
     // 테마는 둘 중 하나다 — 사용자 정의가 있으면 그것이 이긴다.
@@ -381,8 +399,30 @@ Object.assign(App.prototype, {
       const cb=document.getElementById('ds-fgnames');
       if(cb) cb.checked=fgTabNames;
     }
-    // 설정 변경은 감지 계층의 재평가 시점이다 (FR-GIT-23).
+    // 설정 변경은 감지 계층의 재평가 시점이다 (FR-GIT-23). 이 계층만 따로인
+    // 이유는 백오프·소실 판정·활성 저장소 판정을 함께 쥐고 있어 주기만 떼어 올
+    // 수 없기 때문이다 (FR-PIS-15).
     if(this.gitPanel&&this.gitPanel._reschedule) this.gitPanel._reschedule();
+    /**
+     * FR-PIS-14 / D-8a: 나머지 주기는 **도는 타이머에 닿아야** 한다.
+     *
+     * 진입점이 하나인 이유는 핸들에 닿는 길이 저마다 다르기 때문이다 — git
+     * 콘솔의 타이머는 `observer → panels → panel._consoleView` 세 단 아래에 있고,
+     * 그 길을 설정이 알아야 할 이유가 없다. 바뀐 job 만 다시 걸리고, **발화하지
+     * 않는다**: 주기를 바꾼 것은 수집의 계기가 아니다.
+     */
+    TIMERS.refreshChanged();
+    // 화면의 드롭다운도 같은 값을 보여야 한다 — 다른 창에서 바뀐 값이 SSE 로
+    // 왔을 때 열려 있는 설정창이 옛 값을 든 채 남지 않는다 (FR-SYN).
+    if(this._pollPaintRows) this._pollPaintRows();
+    /**
+     * FR-PIS-17 / D-9: `agentsPollMs` 의 이사는 **부팅에서만** 한다.
+     *
+     * `boot` 가 가르는 자리가 바로 이런 것이라고 위 주석이 적어 두었다 — SSE
+     * 방송마다 로컬을 다시 보면, 그 사이 다른 창에서 바꾼 값을 옛 로컬 값이
+     * 덮는다. 이사는 한 번이고 조용하다.
+     */
+    if(opts&&opts.boot) this._pollMigrateAgents(saved);
   },
 
   /**

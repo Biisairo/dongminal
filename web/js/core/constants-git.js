@@ -2,7 +2,7 @@
  * Remote Terminal — git 패널 상수 (constants.js 에서 분리)
  *
  * `constants.js` **뒤**, `constants-editor.js` **앞**에 로드된다 —
- * `EDITOR_GIT_POLL_MS` 가 여기의 `GIT_REPOS_POLL_MS` 를 참조한다.
+ * 그쪽의 `ED_DD_AXIS` 가 여기의 `GIT_AXIS` 를 참조한다.
  *
  * `GIT_WRITE_ERR` 는 선언 뒤에 `Object.assign` 으로 세 번 더 채워진다. 그 문장들이
  * 선언과 같은 파일·같은 순서로 있어야 한다.
@@ -82,10 +82,14 @@ const GIT_NO_REPO_HINT='리포를 선택하세요';
 // 밖에서는 캐시만 읽으므로 git 을 실행하지 않는다 (FR-GIT-24).
 const GIT_REPOS_POLL_MS=3000;
 
-// 배지를 "낡음" 으로 볼 관측 나이(ms). Git 탭 안에서는 매 주기 관측이 도므로 이
-// 값을 넘지 않는다 — 넘었다면 관측이 실제로 멎은 것이다 (FR-GOB-14). 주기에서
+// 배지를 "낡음" 으로 볼 관측 나이. Git 탭 안에서는 매 주기 관측이 도므로 이 값을
+// 넘지 않는다 — 넘었다면 관측이 실제로 멎은 것이다 (FR-GOB-14). 주기에서
 // 파생시키는 이유는 둘이 같은 사실의 앞뒤이기 때문이다.
-const GIT_BADGE_STALE_MS=GIT_REPOS_POLL_MS*4;
+//
+// POLL_INTERVAL_SETTINGS_SRS FR-PIS-12 / D-7: 주기가 설정이 되면서 **계수만**
+// 남는다. ms 로 굳혀 두면 주기를 바꿔도 이 기준만 옛 값에 남는다. 곱셈은
+// `gitBadgeStaleMs()` 가 한다.
+const GIT_BADGE_STALE_FACTOR=4;
 
 // FR-GIT-12 · FR-FLW-5~10: 리포 추가. follow 행이 하던 일(핀하지 않은 리포로 가는
 // 한 번의 클릭)을 이 다이얼로그가 대신하므로 **지금 터미널의 리포가 미리 채워진다.**
@@ -582,15 +586,19 @@ const GIT_DIALOG_WHY_PENDING='pending';
 // 자리마다 다르게 묶인다.
 const GIT_DIALOG_FP_GROUPS=['staged','working','conflicts'];
 
-// ── 변경 감지 3계층 (GIT_SRS §3.3 / FR-GIT-18~24) ──
-
-// 기본 주기(ms). 0 이면 그 계층을 끈다 (FR-GIT-23).
-// GIT_PUSH_OBSERVE_SRS FR-GPO-20: **0 이 기본이다.** 서버가 signature 를
-// 확인하고 바뀌었을 때만 `git_changed` 를 방송하므로(FR-GPO-1), 브라우저가
-// 500ms 마다 다시 물을 이유가 없다. 0 은 "그 계층을 끈다" 는 뜻이다 (FR-GIT-23).
+// ── 변경 감지 2계층 (GIT_SRS §3.3 / FR-GIT-18~24) ──
 //
-// 설정으로 되살릴 수 있다 — 푸시를 믿지 못하는 환경의 손잡이로 남긴다.
-const GIT_SIGNATURE_POLL_MS=0;
+// **셋이었다가 둘이 됐다** (POLL_INTERVAL_SETTINGS_SRS FR-PIS-1).
+//
+// 걷어낸 것은 브라우저의 signature 폴링(`GIT_SIGNATURE_POLL_MS`)이다. 서버가
+// signature 를 감시해 바뀌었을 때만 `git_changed` 를 방송하면서(FR-GPO-1) 기본이
+// 0(꺼짐)이 되었고, 그 뒤로 **한 번도 켜지지 않은 채** 감지 전부가 성립했다 —
+// `git-push-observe` B-1~B-5 와 `git-polling` P1~P9 가 그 증거다. 남겨 두면 설정에
+// 손잡이가 달리고, 켜지는 순간 그 SRS 가 없앤 60초당 120회 요청이 되살아난다.
+//
+// 서버 쪽 signature 는 그대로다 — `StartGitWatch` 와 `/api/git/signature` 종단은
+// push 의 근거이며, status 응답이 실어 오는 `_lastSig` 도 남는다 (FR-PIS-3).
+//
 // FR-GPO-20: status 폴링은 **안전망**이다. 두 가지를 겸한다 —
 // 푸시가 끊겼을 때의 회복(C-5)과 관심 표명의 갱신(FR-GPO-11 의 90초보다 세 배
 // 잦다). 종전 1초는 푸시가 없을 때의 주기였다.
@@ -615,9 +623,17 @@ const GIT_FAIL_BACKOFF_MAX_MS=30000;
 // 안내에 실을 재확인 주기 (초). 상수에서 파생한다 — 두 곳에 적으면 갈린다.
 const GIT_RMS_AUTO_NOTE=(GIT_REPO_MISSING_POLL_MS/1000)+
   '초마다 다시 확인합니다 — 폴더가 돌아오면 자동으로 복구됩니다';
-// 주기는 설정으로 덮을 수 있다 (FR-GIT-23) — statsInterval 과 같은 방식이다.
-var gitSignatureInterval=GIT_SIGNATURE_POLL_MS;
+/**
+ * 주기는 설정으로 덮을 수 있다 (FR-GIT-23) — statsInterval 과 같은 방식이다.
+ *
+ * POLL_INTERVAL_SETTINGS_SRS FR-PIS-6·11: **상수는 기본값으로 남고 변수가 설정을
+ * 든다.** 아래 셋이 같은 모양이며, 값을 얹는 자리는 `_settingsApply` 하나다
+ * (FR-PIS-7) — 여기서 다시 읽는 코드를 만들지 않는다.
+ */
 var gitStatusInterval=GIT_STATUS_POLL_MS;
+var gitReposInterval=GIT_REPOS_POLL_MS;
+// `gitConsoleInterval` 은 `GIT_CON_POLL_MS` 선언 **뒤**에 있다 (이 파일 아래쪽) —
+// `const` 의 TDZ 때문에 그 앞에서는 참조할 수 없다.
 
 // ── Diff (GIT_SRS §3.6 / FR-GIT-43~56) ──
 
@@ -722,6 +738,8 @@ const GIT_CON_LIMIT=500;
 // 쓰기가 끝나면 곧바로 다시 읽는다 — 방금 한 일이 이력의 맨 위에 있어야 한다.
 // 그 밖에는 탭이 활성일 때만 받는다 (History·Branches·Stash 와 같은 규약).
 const GIT_CON_POLL_MS=2000;
+// FR-PIS-6·11: 콘솔 주기도 설정이 든다. 자리가 여기인 이유는 위 주석과 같다.
+var gitConsoleInterval=GIT_CON_POLL_MS;
 
 // ── History 탭 (GIT_SRS §3C / FR-GIT-113~134) ──
 

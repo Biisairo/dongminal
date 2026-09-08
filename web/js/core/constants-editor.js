@@ -1,8 +1,8 @@
 /**
  * Remote Terminal — 편집기·탐색기 상수 (constants.js 에서 분리)
  *
- * `constants-git.js` **뒤**에 로드된다 — `EDITOR_GIT_POLL_MS` 가
- * `GIT_REPOS_POLL_MS` 를 참조한다.
+ * `constants-git.js` **뒤**에 로드된다 — `ED_DD_AXIS` 가 `GIT_AXIS` 를
+ * 참조한다 (`const` 이므로 TDZ 에 걸린다).
  */
 // 탭 서술자의 고정 값들. index.html 의 패널 래퍼가 같은 id 를 쓴다 (§2.1).
 //
@@ -276,7 +276,10 @@ const REPO_SIDE_W_MAX=520;
 const REPO_PREVIEW_CLASS='pn-tab-preview';
 const REPO_PREVIEW_TITLE='미리보기 — 다음에 고른 것이 이 자리를 대신합니다. 더블클릭하면 고정됩니다.';
 
-const EDITOR_GIT_POLL_MS=GIT_REPOS_POLL_MS;
+// POLL_INTERVAL_SETTINGS_SRS FR-PIS-12: **별칭이 사라졌다.** `EDITOR_GIT_POLL_MS`
+// 는 `GIT_REPOS_POLL_MS` 의 다른 이름일 뿐이었고, 주기가 설정이 되면 그 별칭만
+// 로드 시점 값에 굳는다. 소비 지점(`_edStartGitPoll`)이 `gitReposInterval` 을
+// 직접 읽으므로 "둘이 같아야 한다"(FR-EDT-77)는 요구가 **한 이름**으로 지켜진다.
 
 // GIT_DIR_ENTRY_SRS FR-DIR-31 / D-DIR-7: **`_gitOff` 는 사유마다 수명이 다르다.**
 //
@@ -285,7 +288,8 @@ const EDITOR_GIT_POLL_MS=GIT_REPOS_POLL_MS;
 // 없고, 사용자는 init 이 실패했다고 읽는다. 대신 주기를 늦춰 계속 관측한다.
 //
 // 503(git 자체가 없다)만 굳는다 — 다시 물어도 답이 같다 (기존 관례).
-const EDITOR_GIT_BACKOFF_MS=EDITOR_GIT_POLL_MS*10;
+// FR-PIS-12 / D-7: 계수만 남고 곱셈은 `editorGitBackoffMs()` 가 한다.
+const EDITOR_GIT_BACKOFF_FACTOR=10;
 
 // 트리 행의 들여쓰기는 Git 패널의 트리와 같은 값을 딛는다 (GIT_TREE_PAD0·
 // GIT_TREE_INDENT) — 같은 앱 안의 두 트리가 다른 리듬으로 들여쓸 이유가 없다.

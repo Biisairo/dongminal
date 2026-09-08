@@ -219,9 +219,10 @@ Git Graph 에서 통과선은 자기 일이 없는 행에서도 왼쪽으로 휜
 - **FR-GIT-120**(레인 상한·압축 표식)의 `clampLanes` 는 남는다. 이름이 겹치므로
   이 문서는 **열 압축(compaction)** 과 **상한 접기(clamping)** 를 구분해 쓴다.
 - **FR-GIT-121**(새 머리는 위쪽 진입선을 그리지 않는다)은 그대로다.
-- **폴링 주기는 바꾸지 않는다.** 설정으로 노출된 값이고(`gitSignatureInterval`·
-  `gitStatusInterval`·`statsInterval`·`agentsPollMs`), 주기를 늘리는 것은 감지 지연을
-  늘려 다른 요구사항을 해친다.
+- **폴링 주기는 바꾸지 않는다.** 설정으로 노출된 값이고, 주기를 늘리는 것은 감지
+  지연을 늘려 다른 요구사항을 해친다. (2026-09-08 개정: 그 목록은 이제 다섯이고
+  `Polling` 탭 한 자리에 있다 — POLL_INTERVAL_SETTINGS_SRS. `gitSignatureInterval`
+  은 계층째 사라졌다.)
 - **FR-GIT-222 의 규약**은 그대로다 — 더블클릭은 메뉴와 같은 경로(`GitMenu.runPrimary`)
   로 가고, 메뉴에서 막힌 것을 제스처로 통과시키지 않는다.
 - **FR-GIT-225 의 예외 목록**은 그대로다. FR-RPT 는 그 예외가 실제로 쓰일 수 있게

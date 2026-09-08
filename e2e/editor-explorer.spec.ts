@@ -300,7 +300,7 @@ test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
       (p) => document.querySelector(`.ed-tree .ed-row[data-path="${String(p).replace(/\\/g, '\\\\')}"]`),
       j(REPO, 'bulk', 'f10.txt'));
 
-    const poll = await page.evaluate(() => EDITOR_GIT_POLL_MS);
+    const poll = await page.evaluate(() => (window as any).gitReposInterval);
     const c = counter(page, isStatusOf(REPO));
     await expect.poll(() => c.n, { timeout: poll * 3 + 5000 }).toBeGreaterThanOrEqual(2);
 
@@ -363,7 +363,7 @@ test.describe('묶음 X — 탐색기의 git 색 (FR-EDT-69~78)', () => {
      * 기준 주기로 영원히 물어 이 단정이 곧바로 깨진다.
      */
     const seen = c.n;
-    const poll = await page.evaluate(() => EDITOR_GIT_POLL_MS);
+    const poll = await page.evaluate(() => (window as any).gitReposInterval);
     await page.waitForTimeout(poll * 2);
     expect(c.n).toBe(seen);
   });
@@ -427,7 +427,7 @@ test.describe('묶음 X — 탐색기의 git 색 (FR-EDT-69~78)', () => {
     await openEditor(page, REPO);
     await expect(row(page, j(REPO, 'a.txt'))).toHaveAttribute('data-st', 'M', { timeout: 10000 });
     await openEditor(page, PLAIN);
-    const poll = await page.evaluate(() => EDITOR_GIT_POLL_MS);
+    const poll = await page.evaluate(() => (window as any).gitReposInterval);
     const c = counter(page, isStatusOf(REPO));
     await page.waitForTimeout(poll * 3 + 1000);
     expect(c.n).toBe(0);
@@ -501,7 +501,7 @@ test.describe('묶음 X — 다시 그리기와 실패의 회복 (FR-EDT-66·69)
 
       await enter(page, request, REPO);
       expect(failed, '500 을 돌려줄 기회가 없었다').toBe(true);
-      const poll = await page.evaluate(() => EDITOR_GIT_POLL_MS);
+      const poll = await page.evaluate(() => (window as any).gitReposInterval);
       await expect(row(page, j(REPO, 'a.txt')))
         .toHaveAttribute('data-st', 'M', { timeout: poll * 3 + 10000 });
       // 판정이 굳지 않았다는 사실 자체도 재둔다 — 색이 늦게 오는 것과 구분된다.

@@ -35,9 +35,10 @@ class GitObserver {
     // FR-SVS-45: 쓰기 한 번은 한 번이다. 칸마다 두면 두 칸이 같은 쓰기를 함께 보낸다.
     this._writing=false;
     // single-flight 와 주기. 칸이 늘어도 이것들이 하나이므로 요청이 늘지 않는다.
-    this._busy=false; this._again=false; this._sigBusy=false; this._sigT=null;
-    this._pollOn=false; this._pollSig=null; this._pollSt=null;
-    this._sigPoll=null; this._stPoll=null;
+    // `_sigT` 는 즉시 신호의 150ms 합치기 창이다 — 지워진 signature 폴링과
+    // 이름만 비슷하고 성질이 다르다 (FR-PIS-3).
+    this._busy=false; this._again=false; this._sigT=null;
+    this._pollOn=false; this._pollSt=null; this._stPoll=null;
     this._inited=false;           // 문서 이벤트 등록은 앱당 한 번이다
   }
 
@@ -60,13 +61,13 @@ class GitObserver {
   notifyStatusAll(){ for(const p of this.panels) if(p._remoteView) p._remoteView.notifyStatus() }
 
   // 주기 타이머의 종단. 패널이 하나도 없으면 폴 이유가 없다.
-  tick(kind){
+  // FR-PIS-1: 갈래가 사라졌다 — 걸리는 계층이 status 하나뿐이다.
+  tick(){
     const p=this.any();
     if(!p){ this.stopPolling(); return }
-    if(kind==='sig') p._pollSignature(); else p.collect();
+    p.collect();
   }
   stopPolling(){
-    if(this._sigPoll){this._sigPoll.stop();this._sigPoll=null}
     if(this._stPoll){this._stPoll.stop();this._stPoll=null}
     this._pollOn=false;
   }

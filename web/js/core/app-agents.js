@@ -72,18 +72,14 @@ Object.assign(App.prototype, {
     if(this._agentsTimer){this._agentsTimer.stop();this._agentsTimer=null}
   },
 
-  // 활동 패널의 폴링 주기 설정. 알림 설정(`_initAttn`)이 이웃한 DOM 이라는 이유로
-  // 이 배선을 데리고 있었으나, 만지는 것은 `agentsPollMs` 와 `_agentsTimer` —
-  // 둘 다 이 파일의 것이다 (ATTN_UTIL_RELOCATE_SRS §5 N2).
-  _initAgentsSettings(){
-    const ap=document.getElementById('agents-poll');
-    if(!ap) return;
-    ap.value=String(this.agentsPollMs);
-    ap.addEventListener('change',()=>{
-      this.agentsPollMs=parseInt(ap.value);
-      if(this._agentsTimer) this._agentsStartPoll(); // 폴링 중이면 새 주기로 재시작
-    });
-  },
+  /**
+   * POLL_INTERVAL_SETTINGS_SRS FR-PIS-22: **`_initAgentsSettings` 가 사라졌다.**
+   *
+   * 이 배선이 만지던 것은 Notifications 탭의 `에이전트 패널 새로고침 주기`
+   * 드롭다운 하나였고, 그 손잡이는 `Polling` 탭으로 옮겼다 (D-2). 주기의 배선은
+   * 이제 `POLL_SETTINGS` 의 한 행이며, 재시작도 재무장 한 줄이 한다 —
+   * `_agentsTimer` 는 이미 `null` 이었다 (주기는 `state-registry` 의 것이다).
+   */
 
   // FR-AAP-21: 활동 카드 드래그 재배치. drop(즉시) 1순위 + dragend 폴백, done 으로 중복 차단.
   _reorderAgents(dr){

@@ -18,7 +18,8 @@
 const BACKUP_KEYS=[
   {store:'local',   key:'attnDesktop'},      // Notifications ▸ 데스크톱 알림
   {store:'local',   key:'attnSound'},        // Notifications ▸ 사운드
-  {store:'local',   key:'agentsPollMs'},     // Notifications ▸ 패널 새로고침 주기
+  // POLL_INTERVAL_SETTINGS_SRS FR-PIS-18: `agentsPollMs` 가 여기서 빠졌다 — 값이
+  // 서버 설정으로 옮겼고(D-3), 이 표는 localStorage·sessionStorage 만 담는다.
   {store:'local',   key:'slotDir'},          // Display ▸ 슬롯 방향
   {store:'session', key:'displayMode'},      // Display ▸ Display Mode
   {store:'session', key:'mobileBreakpoint'}, // Display ▸ Mobile Breakpoint

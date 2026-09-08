@@ -68,7 +68,7 @@ const notesRoot = (page: Page) =>
 
 const fixedRows = (page: Page) => page.locator('#repo-root .sbl-item');
 const treeRows = (page: Page) => page.locator('.ed-tree .ed-row');
-// 폴링 주기(EDITOR_GIT_POLL_MS)의 두 배 남짓. 한 주기를 놓쳐도 다음 회차가
+// 폴링 주기(`gitReposInterval`)의 두 배 남짓. 한 주기를 놓쳐도 다음 회차가
 // 잡으므로 대기가 주기에 아슬아슬하게 걸리지 않는다.
 const POLL_WAIT = 9000;
 

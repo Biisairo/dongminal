@@ -305,7 +305,7 @@ Editor 목록과 Git 핀에 함께 더해지고(FR-EDT-33·39), 그 저장소의
 | 사유 | 처리 |
 |---|---|
 | 503 (git 없음) | 굳힌다 — 다시 물어도 같다 (기존 관례) |
-| 404 `not_repo` · 그 밖의 4xx | **굳히지 않는다.** 폴링 주기를 늦춰(`EDITOR_GIT_BACKOFF_MS`) 계속 관측한다 |
+| 404 `not_repo` · 그 밖의 4xx | **굳히지 않는다.** 폴링 주기를 늦춰(`editorGitBackoffMs()` — 옛 `EDITOR_GIT_BACKOFF_MS`) 계속 관측한다 |
 | `rootMatch=false` | 굳히지 않는다 — 저장소가 나중에 생길 수 있다 |
 | 전송 실패 · 5xx | 이번 회차만 건너뛴다 (기존) |
 
@@ -412,7 +412,7 @@ Editor 루트  /Users/me/app/src        →  repoPrefix = "src/"
 | `internal/webserver/gitapi/handlers_git.go` | `rootMatch`·`requestedResolved` 를 응답에 | M1 |
 | `web/js/ui/file-tree-paint.js` | 판정·맵 셋·상속·백오프 | M2·M3·M5 |
 | `web/js/ui/file-tree.js` | `repoPrefix` 를 반영한 `_rel` | M5 |
-| `web/js/core/constants-editor.js` | `EDITOR_GIT_BACKOFF_MS` | M2 |
+| `web/js/core/constants-editor.js` | `EDITOR_GIT_BACKOFF_FACTOR` (옛 `EDITOR_GIT_BACKOFF_MS`) | M2 |
 | `web/js/git/panel-changes.js` | 디렉터리 행 표시·트리 잎 | M4 |
 | `web/js/git/panel-diff.js` | 디렉터리 선택의 사유 화면 | M4 |
 | `web/js/core/constants-git.js` | 사유 문구 · 버튼 라벨 | M4 |

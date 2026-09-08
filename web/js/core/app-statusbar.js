@@ -27,7 +27,7 @@ Object.assign(App.prototype, {
     if(this._statsPoll) this._statsPoll.stop();
     // FR-RST-23: 숨은 탭에서는 돌지 않고, 돌아오면 즉시 한 번 갚는다
     // (SYSTEM_STATS_SRS FR-STAT-17). 규약은 `visiblePoll` 하나가 갖는다.
-    this._statsPoll=visiblePoll(statsInterval,()=>this._pollStats(),{immediate:true});
+    this._statsPoll=visiblePoll(()=>statsInterval,()=>this._pollStats(),{immediate:true});
   },
   async _pollStats(){
     // Measure real network latency with lightweight ping
@@ -342,18 +342,16 @@ Object.assign(App.prototype, {
   _renderStatusBarSettings(){
     const el=document.getElementById('sb-settings');if(!el)return;
     el.innerHTML='';
-    // Interval selector
-    const iRow=document.createElement('div');iRow.className='sbs-row';
-    const iLabel=document.createElement('span');iLabel.textContent='갱신 주기';
-    const iSel=document.createElement('select');iSel.className='sbs-select';
-    [{v:1000,t:'1초'},{v:2000,t:'2초'},{v:3000,t:'3초'},{v:5000,t:'5초'},{v:10000,t:'10초'},{v:30000,t:'30초'}].forEach(o=>{
-      const opt=document.createElement('option');opt.value=o.v;opt.textContent=o.t;
-      if(String(statsInterval)===String(o.v))opt.selected=true;
-      iSel.appendChild(opt);
-    });
-    iSel.addEventListener('change',()=>{statsInterval=parseInt(iSel.value);this._saveSettings();this._startStatsPoll()});
-    iRow.appendChild(iLabel);iRow.appendChild(iSel);
-    el.appendChild(iRow);
+    /**
+     * POLL_INTERVAL_SETTINGS_SRS FR-PIS-22: **`갱신 주기` 행이 여기서 빠졌다.**
+     *
+     * `Polling` 탭으로 옮겼다 (D-2) — 같은 값의 손잡이가 두 자리에 있으면 어느
+     * 쪽이 진실인지 화면이 말하지 않는다. 이 패널에 남는 것은 **무엇을 보일지**
+     * 뿐이고, **얼마나 자주 물을지**는 주기의 것이다.
+     *
+     * `_startStatsPoll` 을 다시 부르던 자리도 함께 사라졌다: 주기를 함수로 주므로
+     * (FR-PIS-13) 재무장 한 줄이 그 일을 하고, 그쪽은 **발화하지 않는다**.
+     */
     // Item toggles
     for(const[k,v]of Object.entries(STATUS_ITEMS)){
       const row=document.createElement('div');row.className='sbs-row';row.dataset.item=k;

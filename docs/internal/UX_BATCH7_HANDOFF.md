@@ -15,14 +15,14 @@
 | ① | agents 패널에 창별 그룹 · 그룹 안 드래그 | B | **완료** |
 | ② | 알림 시 가장자리 점멸 (0~10, 기본 5) | C | **완료** |
 | ③ | 모바일: `⌨` 눌렀을 때만 키보드 · `⌨` 를 맨 왼쪽 · `^C` 추가 | C | 미착수 |
-| ④ | 접힌 사이드바에서도 목록 보이기 | B | 미착수 |
+| ④ | 접힌 사이드바에서도 목록 보이기 | B | **완료** |
 | ⑤ | 아이콘이 작다 — 버튼을 꽉 채우게 | A | **진행 중** (표면 5/10 — git 패널 포함) |
 | ⑥ | 버튼·탭 등 중복 UI 공통화 (JS 팩토리까지) | A | **진행 중** (키트 완성, 이전 5/10) |
 | ⑦ | Changes 에서 changes/untracked 통합 | B | **완료** |
 | ⑧ | 크기조절 핸들에 양쪽 크기 실시간 표시 | A | **팩토리만 완료** — 여섯 자리 배선이 남음 |
 | ⑨ | History 검색 둘을 하나로 · 옵션은 드롭다운 | B | **완료** |
 | ⑩ | Run 의 context 표기 + 조정자 자신의 사용량 | C | 미착수 |
-| ⑪ | **폴링 주기를 설정에서 조절** (2026-09-08 접수) | — | 미착수 |
+| ⑪ | **폴링 주기를 설정에서 조절** (2026-09-08 접수) | — | **완료** ([`POLL_INTERVAL_SETTINGS_SRS`](./POLL_INTERVAL_SETTINGS_SRS.md)) |
 
 **2026-09-08 후반에 추가로 접수한 다섯:**
 
@@ -109,6 +109,31 @@
 `STATE_REGISTRY` 에 `settings` 항목이 있다. **새 설정을 더하면 `_saveSettings` 의 키 목록과
 `_settingsApply` 두 곳만 고치면 된다.**
 
+`opts.boot` 는 "부팅에서만 해야 하는 일" 을 가르는 자리이며, ⑪ 이 그 첫 손님이다
+(`agentsPollMs` 의 localStorage → 서버 이사). SSE 방송마다 로컬을 다시 보면 그 사이
+다른 창에서 바꾼 값을 옛 로컬 값이 덮는다.
+
+### 2.6 주기는 표 하나가 진다 (⑪ 이 만든 자리)
+
+`web/js/core/app-polling.js` 의 **`POLL_SETTINGS`** 가 폴링 주기 다섯의 유일한 진실이다 —
+설정 키 · 화면 id · 라벨 · 안내 문구 · 기본값 · 읽기/쓰기 · 선택지 · `0` 허용 여부가 한 행에 있다.
+`Polling` 탭의 행도 이 배열에서 그려지므로 index.html 에 다섯을 손으로 적지 않는다.
+
+**주기를 더할 때 고치는 자리는 두 곳이다**: 이 배열 한 행과 `_saveSettings` 의 키 목록.
+
+> **함정 둘**
+> - `const` 의 TDZ. `gitConsoleInterval` 은 `GIT_CON_POLL_MS`(`constants-git.js` 아래쪽)
+>   **뒤**에 선언해야 한다 — 다른 주기 변수와 나란히 위쪽에 두면 로드가
+>   `ReferenceError` 로 죽는다.
+> - 도는 타이머에 닿는 길은 **`TIMERS.refreshChanged()` 하나**다. 핸들마다
+>   `refresh()` 를 부르면 핸들에 닿을 수 있는 것에만 통한다 (git 콘솔의 타이머는
+>   `observer → panels → panel._consoleView` 세 단 아래에 있다). 그 함수는 **주기가
+>   실제로 바뀐 job 만** 다시 걸고 **발화하지 않는다** — 전부 다시 걸면 설정을 한 번
+>   만질 때마다 모든 폴링의 다음 회차가 뒤로 밀리고, 발화하면 다른 창에서 바뀐 값의
+>   SSE 하나가 열려 있는 창 전부에서 즉시 요청을 낸다.
+
+`visiblePoll` 의 첫 인자는 이제 **값이거나 함수**다. 함수로 주면 주기가 설정을 읽는다.
+
 ---
 
 ## 3. 다음에 할 일 — 권장 순서
@@ -128,24 +153,37 @@
    **구현이 밝힌 예외 하나**: 입력이 리비전으로 해석되면 `--grep` 확장을 **하지 않는다** —
    해시를 메시지 검색으로 보내면 0건이 돌아와 목록이 비고, 방금 뜬 리비전 줄이 가리키는
    커밋조차 사라져 누를 곳으로 갈 수 없게 된다 (PANEL_SURFACE_SRS §5.1).
-4. **④ 레일 목록** (`style.css` 의 `html.sb-collapsed` 절 + `SidebarList`) — 서술자를 그대로 쓰고
-   레일 전용 데이터를 만들지 않는다 (D-11).
+4. ~~**④ 레일 목록**~~ (`style.css` 의 `html.sb-collapsed` 절 + `SidebarList`) — 서술자를
+   그대로 쓰고 레일 전용 데이터를 만들지 않았다 (D-11). 앞 세션이 되돌리기 전에 확인한
+   것 둘이 그대로 맞았고, 그 위에 셋을 더 알았다 — **PANEL_SURFACE_SRS §4.1** 에 적었다.
+   요점: `title` 은 조건부일 수 없고, 재배치 차단의 판정은 `app._sbRail()` 한 자리이며
+   (CSS 선택자 `html.sb-collapsed body:not(.mobile)` 와 같은 뜻이다 — 모바일을 함께
+   빼야 FR-RAL-10 이 선다), 레일의 점 색은 `.active` 가 이미 accent 를 쓰고 `.attn` 이
+   덮여서는 안 되므로 `has-badge:not(.attn)` 로 한정한다.
+   e2e 는 `sidebar-collapse.spec.ts` 의 `묶음 RAL` 여덟이고, 같은 파일의 **SBC5 를
+   함께 고쳤다** (`.sb-panel` 이 숨는다고 재던 자리 = 옛 FR-SBC-11).
 
-4. **④ 레일 목록** — 이번 세션에서 착수했다가 **되돌렸다** (git 이 아니므로 다음 세션).
-   되돌리기 전까지 확인한 것: `SidebarList._build` 가 `title` 을 조건부로만 붙이므로
-   FR-RAL-3 을 위해 `r.title || r.name` 으로 항상 채워야 하고, FR-RAL-9(레일에서 재배치
-   금지)는 CSS 로 되지 않아 `_bindDrag` 의 `dragstart` 에서 `app._sidebarCollapsed()` 로
-   막아야 한다. 나머지는 `html.sb-collapsed body:not(.mobile) .sb-panel{display:none}`
-   (`style.css:222`) 한 줄을 걷고 `.sbl-item` 을 40px 로 줄이는 CSS 다.
-
-### 3.1a ⑪ 폴링 주기 설정 (2026-09-08 접수)
+### 3.1a ~~⑪ 폴링 주기 설정~~ (2026-09-08 접수 · **완료**)
 
 > "polling 이 한쪽에 모여있잖아? setting 에서 이 값을 조절할 수 있도록."
 
-주기의 진실은 **`state-registry.js` 의 선언**과 `constants-git.js` 의 상수 몇이다.
-설정에 손잡이를 다는 일은 값을 옮기는 것이 아니라 **그 선언이 설정을 읽게** 하는 것이다 —
-`_settingsApply` 한 자리(§2.3)가 이미 그 길이므로 새 전파 경로를 만들지 않는다.
-`agentsPollMs` 가 그 모양의 선례다 (`app-agents.js` 의 `_initAgentsSettings`).
+스펙은 [`POLL_INTERVAL_SETTINGS_SRS`](./POLL_INTERVAL_SETTINGS_SRS.md) 다. 이 메모의
+방향("값을 옮기는 것이 아니라 **그 선언이 설정을 읽게** 한다")이 그대로 D-4 가 됐고,
+전파는 `_settingsApply` 한 자리를 지난다.
+
+조사가 메모를 두 군데 넓혔다:
+
+- **주기는 다섯이 아니라 여섯이었다.** 목록에 없던 것이 `GIT_CON_POLL_MS`(2초, git
+  콘솔)이고, 상수라 설정 블롭에 자리조차 없었다.
+- **여섯 중 하나는 켜지지 않는 계층이었다.** 브라우저 signature 폴링
+  (`gitSignatureInterval`, 기본 0)이며 GIT_PUSH_OBSERVE 로 대체된 잔재다. 사용자 지시는
+  "사용하지 않는 건 지우고 나머지 전부" 였고, 없이도 성립하는지 **먼저 확인했다** —
+  `git-push-observe`+`git-polling`+`event-timer-hub-contract` 26건 전량 통과가 그 근거다
+  (SRS §2.4). 그 뒤에 지웠다.
+
+지금 상태: `Polling` 탭 하나에 다섯이 나란히 서고(흩어져 있던 둘도 그리로 옮겼다),
+`agentsPollMs` 는 서버 설정으로 이사했다. **주기를 더할 때 고치는 자리는
+`POLL_SETTINGS` 배열 한 행이다** — `_saveSettings` 의 키 목록만 함께 본다.
 
 ### 3.2 묶음 A 잔여
 

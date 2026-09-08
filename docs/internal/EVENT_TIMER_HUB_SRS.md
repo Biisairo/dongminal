@@ -139,7 +139,7 @@ fire-and-forget 이 섞여 있고, 하나의 `clearTimeout` 이 여러 자리를
 | 낡은 응답 폐기 | **4** | `_gitReposRefresh`(FR-GRR-1) · `console.reload`(seq+token+repo) · `GitObserver`(gen+seq) · `_restore*`(집합 동일성) |
 | single-flight | **3** | `GitObserver._busy/_again`(boolean) · `_restore*`(집합 동일성) · `FileTreeStore.busy`(경로별 Set) |
 | visibility | **2** | `visiblePoll` (5곳) · `GitObserver._pollOk` |
-| 실패 백오프 | **2** | `GitObserver._cadence` · `EDITOR_GIT_BACKOFF_MS` |
+| 실패 백오프 | **2** | `GitObserver._cadence` · `editorGitBackoffMs()` (옛 `EDITOR_GIT_BACKOFF_MS` — POLL_INTERVAL_SETTINGS_SRS FR-PIS-12 로 계수 파생이 됐다) |
 | fetch 타임아웃 | **1** | `/api/git/status` 만 (`GIT_STATUS_FETCH_TIMEOUT_MS`) |
 
 마지막 줄이 특히 중요하다. 그 타임아웃은 추측이 아니라 실측에서 왔다 — TC-SVS-64,

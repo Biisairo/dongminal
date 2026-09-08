@@ -315,8 +315,16 @@ class App {
   set attnDesktop(v){try{localStorage.setItem('attnDesktop',v?'1':'0')}catch{}}
   get attnSound(){try{return localStorage.getItem('attnSound')==='1'}catch{return false}}
   set attnSound(v){try{localStorage.setItem('attnSound',v?'1':'0')}catch{}}
-  get agentsPollMs(){try{const v=parseInt(localStorage.getItem('agentsPollMs'));return v>=1000?v:AGENTS_POLL_DEFAULT}catch{return AGENTS_POLL_DEFAULT}}
-  set agentsPollMs(v){try{localStorage.setItem('agentsPollMs',String(v))}catch{}}
+  /**
+   * POLL_INTERVAL_SETTINGS_SRS FR-PIS-16·19: **접근자는 남고 저장 자리만 바뀌었다.**
+   *
+   * `state-registry.js` 의 `tool.activity` 가 `every:(app)=>app.agentsPollMs` 로
+   * 이것을 딛고 있다. 이 요구는 값이 사는 곳을 localStorage 에서 서버 설정으로
+   * 옮기는 것이지 선언을 고치는 것이 아니므로(D-4), 이름은 그대로 둔다.
+   *
+   * 값의 검사는 `pollValue` 한 자리다 — 여기서 다시 하면 두 벌이 된다.
+   */
+  get agentsPollMs(){return agentsPollInterval}
 
   executeAction(action){
     const map={

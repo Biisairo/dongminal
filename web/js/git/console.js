@@ -80,7 +80,7 @@ class GitConsole {
     //
     // 이 판정이 다섯 폴링 중 가장 정확했고, FR-RST-23 이 그것을 `when` 으로
     // 받아 나머지에도 같은 규약을 준다.
-    this._timer=visiblePoll(GIT_CON_POLL_MS,()=>this.reload(),{
+    this._timer=visiblePoll(()=>gitConsoleInterval,()=>this.reload(),{
       when:()=>!!this._el&&this._el.isConnected&&this._el.classList.contains('vis'),
     });
   }

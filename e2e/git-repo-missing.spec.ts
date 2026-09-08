@@ -76,7 +76,7 @@ async function patchSettings(request: APIRequestContext, patch: Record<string, u
 }
 
 const defaultIntervals = (request: APIRequestContext) =>
-  patchSettings(request, { gitStatusInterval: undefined, gitSignatureInterval: undefined });
+  patchSettings(request, { gitStatusInterval: undefined });
 
 function counter(page: Page, needle: string) {
   const state = { n: 0 };
@@ -262,7 +262,7 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
    * 기준을 명시로 세운다: 재는 것은 **비율**이지 기준값이 아니다.
    */
   const backoffBase = (request: APIRequestContext) =>
-    patchSettings(request, { gitStatusInterval: 1000, gitSignatureInterval: 0 });
+    patchSettings(request, { gitStatusInterval: 1000 });
 
   test('B1 (V-RMS-16): 연속 실패가 쌓이면 요청 간격이 늘어난다', async ({ page, request }) => {
     await backoffBase(request);

@@ -243,7 +243,7 @@ class EdDirtyDiff{
     return true;
   }
 
-  _back(){ this._retryAt=Date.now()+EDITOR_GIT_BACKOFF_MS }
+  _back(){ this._retryAt=Date.now()+editorGitBackoffMs() }
 
   // 이 파일을 담는 Editor 루트. 가장 **긴** 것을 고른다 — 루트가 겹치면 안쪽이
   // 그 파일의 창이고, 그 창의 루트가 status 의 대상이다 (FR-EDD-3).

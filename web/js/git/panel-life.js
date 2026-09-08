@@ -30,7 +30,7 @@ Object.assign(GitPanel.prototype, {
     if(path) this._errMsg=null;
     // 진행 중인 요청의 소유권을 끊는다 — 그 응답은 가드에 걸려 버려지고, 새 리포는
     // 앞선 요청이 끝나기를 기다리지 않는다.
-    this._seq++; this._busy=false; this._again=false; this._sigBusy=false;
+    this._seq++; this._busy=false; this._again=false;
     if(this._sigT){TIMERS.cancel(this._sigT);this._sigT=null}
     // FR-SVS-34: 활성 리포는 창의 것이므로 **모든 칸이 같은 리포를 본다.** 그래서
     // 리포에 붙은 시선은 칸마다 되돌아간다 — 한 칸만 되돌리면 다른 칸이 이전
