@@ -16,5 +16,6 @@ func newPlatform() Platform {
 		IPC:     unixSocketIPC{isSocket: posixIsSocket},
 		Paths:   posixPaths{},
 		Browser: macBrowser(),
+		Opener:  macOpener(),
 	}
 }

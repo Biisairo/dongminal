@@ -793,6 +793,16 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .toast.ok{border-color:var(--accent-border);color:var(--text-bright)}
 .toast.err{border-color:var(--danger);color:var(--danger)}
 
+/* ── 여기서 열기 확인 (VIEWER_URL_OPEN_SRS FR-VUO-7) ──
+   상자·백드롭·중앙 정렬은 `.ui-modal` 이 갖는다. 여기에는 주소가 길어도 상자를
+   밀지 않게 하는 규칙만 둔다. */
+.openurl-ask{display:flex;flex-direction:column;gap:8px}
+.openurl-lead{color:var(--text-muted);font-size:12px}
+.openurl-addr{
+  color:var(--text-bright);font-size:13px;line-height:1.5;
+  word-break:break-all;
+}
+
 .tp-overlay{
   position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:6px;

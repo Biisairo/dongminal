@@ -192,6 +192,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/commands", s.handleCommandPost)
 	mux.HandleFunc("/api/commands/sse", s.handleCommandSSE)
 	mux.HandleFunc("/api/command-result", s.handleCommandResult)
+	// VIEWER_URL_OPEN_SRS FR-VUO-19: 부작용 없는 판정 조회.
+	mux.HandleFunc("/api/open-url/where", s.handleOpenURLWhere)
 	// 그물이 로깅 **안쪽**에 있어야 한다 (FR-CAF-6). 그래야 패닉으로 끝난
 	// 요청도 로그에 남고, 그물이 `responseWriter` 를 보고 "응답이 이미
 	// 시작됐는가" 를 판정할 수 있다.

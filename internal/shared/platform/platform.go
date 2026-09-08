@@ -43,6 +43,7 @@ type Platform struct {
 	IPC     IPC
 	Paths   Paths
 	Browser Browser
+	Opener  Opener
 }
 
 var (

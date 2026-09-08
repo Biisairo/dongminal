@@ -33,6 +33,12 @@ type browserChain struct {
 }
 
 func (b browserChain) FramelessCommand(url string) (string, []string, error) {
+	return b.resolve(url)
+}
+
+// resolve 는 체인 해소 규칙이다. Opener 도 이것을 쓴다 (opener.go) — 규칙이
+// 둘로 갈리면 한쪽이 조용히 뒤처진다.
+func (b browserChain) resolve(url string) (string, []string, error) {
 	for _, l := range b.chain {
 		if name, args, ok := l.command(url); ok {
 			return name, args, nil

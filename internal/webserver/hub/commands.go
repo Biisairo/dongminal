@@ -82,6 +82,9 @@ var singleExecutorActions = map[string]bool{
 	"splitV":        true,
 	"openEditorTab": true,
 	"restoreTool":   true,
+	// VIEWER_URL_OPEN_SRS FR-VUO-16: 엔티티를 만들지는 않지만 **한 곳에서만**
+	// 열려야 한다. 게이팅하지 않으면 붙어 있는 기기마다 같은 URL 이 열린다.
+	"openUrl": true,
 }
 
 // IsSingleExecutorAction reports whether action must run on one client only.
@@ -223,6 +226,7 @@ var AllowedCmdActions = map[string]bool{
 	"renameWindow":  true,
 	"detachTab":     true,
 	"restoreTool":   true,
+	"openUrl":       true,
 }
 
 // AllowedAction reports whether the action is accepted by the hub.

@@ -410,6 +410,10 @@ Object.assign(App.prototype, {
       }
       this._focusLocation(args.location); return
     }
+    // VIEWER_URL_OPEN_SRS FR-VUO-3: 서버가 원격 뷰어라 판정했을 때만 온다.
+    // 지명(execClientId)은 event-bus 가 이미 걸렀으므로 여기 오면 이 기기가
+    // 열 차례다.
+    if(action==='openUrl'){ OpenUrl.handle(args.url); return }
     if(action==='openEditorTab'){
       const{name,filePath,location}=args;
       if(!filePath){console.warn('[cmd] openEditorTab: filePath required');return}

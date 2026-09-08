@@ -30,6 +30,7 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl rename-tab --at <uuid> --auto      # 탭 이름을 자동(전경 프로세스)으로 되돌린다
   dmctl rename-window --at <uuid> <이름>  # 그 도구가 속한 창 이름 변경
   dmctl open-editor --at <uuid> [--name <이름>] <파일 절대경로>
+  dmctl open-url <url>   # 보고 있는 기기의 브라우저로 연다
   dmctl list-workspace [--json]         # 열린 도구 목록 (uuid 포함, ▶=현재 포커스)
   dmctl who-am-i [--json]           # 현재 쉘이 속한 탭의 식별 정보
   dmctl notify [label]              # 현재 도구에 주의 알림 (에이전트 hook 에서 호출)
@@ -140,6 +141,8 @@ func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, 
 		return runDmctlMsg(rest, os.Stdin, stdout, stderr), true
 	case "open-editor":
 		return runDmctlOpenEditor(rest, stdout, stderr), true
+	case "open-url":
+		return runOpenURL(rest, stdout, stderr), true
 	case "status":
 		return runDmctlStatus(rest, stdout, stderr), true
 	case "wait":

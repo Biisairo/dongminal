@@ -30,10 +30,16 @@ type FocusRegistry struct {
 	// working" (WORKSPACE_IDENTITY_SRS FR-SXE-4).
 	claimed  map[string]uint64
 	claimSeq uint64
+	// addrs maps a clientId to the remote address of its newest subscription.
+	// 뷰어가 서버와 같은 컴퓨터인지 판정하는 근거다
+	// (VIEWER_URL_OPEN_SRS FR-VUO-1). 모르면 빈 문자열이고, 그때는 원격으로
+	// 취급된다 — 확인을 한 번 더 묻는 쪽이 안전하다.
+	addrs map[string]string
 }
 
 func NewFocusRegistry() *FocusRegistry {
-	return &FocusRegistry{owners: map[string]string{}, live: map[string]uint64{}, claimed: map[string]uint64{}}
+	return &FocusRegistry{owners: map[string]string{}, live: map[string]uint64{}, claimed: map[string]uint64{},
+		addrs: map[string]string{}}
 }
 
 // Snapshot returns a copy of the current ownership map (FR-XDF-7).
@@ -89,6 +95,23 @@ func (f *FocusRegistry) Claim(clientID, windowID string) bool {
 func (f *FocusRegistry) Executor() string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	return f.executorLocked()
+}
+
+// ExecutorAddr 은 뽑힌 뷰어와 그 구독의 원격 주소를 **한 락 안에서** 함께 낸다
+// (FR-VUO-1). 둘로 나누어 물으면 그 사이에 뷰어가 떠나 다른 클라이언트의 주소로
+// 판정할 수 있다. 구독이 없으면 둘 다 빈 문자열이다 (FR-VUO-4).
+func (f *FocusRegistry) ExecutorAddr() (clientID, remoteAddr string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	cid := f.executorLocked()
+	if cid == "" {
+		return "", ""
+	}
+	return cid, f.addrs[cid]
+}
+
+func (f *FocusRegistry) executorLocked() string {
 	best, bestClaim := "", uint64(0)
 	for cid := range f.live {
 		if c := f.claimed[cid]; c > bestClaim {
@@ -109,7 +132,19 @@ func (f *FocusRegistry) Executor() string {
 
 // Attach registers a live subscription for clientID and returns its epoch. The
 // epoch is the token Detach must present; a newer Attach supersedes older ones.
-func (f *FocusRegistry) Attach(clientID string) uint64 {
+// LiveCount 는 지금 붙어 있는 구독 수다. 진단이 "뷰어가 없어서 로컬" 인지
+// "뷰어가 있는데 로컬로 판정" 인지 구별하는 데 쓴다 (VIEWER_URL_OPEN_SRS FR-VUO-19).
+func (f *FocusRegistry) LiveCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.live)
+}
+
+func (f *FocusRegistry) Attach(clientID string) uint64 { return f.AttachFrom(clientID, "") }
+
+// AttachFrom 은 Attach 에 구독의 원격 주소를 함께 남긴다 (FR-VUO-1). 주소를
+// 아는 호출자는 이쪽을 쓴다.
+func (f *FocusRegistry) AttachFrom(clientID, remoteAddr string) uint64 {
 	if clientID == "" {
 		return 0
 	}
@@ -117,6 +152,11 @@ func (f *FocusRegistry) Attach(clientID string) uint64 {
 	defer f.mu.Unlock()
 	f.epoch++
 	f.live[clientID] = f.epoch
+	if remoteAddr != "" {
+		f.addrs[clientID] = remoteAddr
+	} else {
+		delete(f.addrs, clientID)
+	}
 	return f.epoch
 }
 
@@ -134,6 +174,7 @@ func (f *FocusRegistry) Detach(clientID string, ep uint64) bool {
 	}
 	delete(f.live, clientID)
 	delete(f.claimed, clientID)
+	delete(f.addrs, clientID)
 	changed := false
 	for wid, owner := range f.owners {
 		if owner == clientID {

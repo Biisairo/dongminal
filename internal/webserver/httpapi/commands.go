@@ -66,7 +66,9 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	// FR-XDF-9: 구독이 끊기면 그 Client 의 소유권을 즉시 해제한다 —
 	// grace period 없음. epoch 로 재연결 경합을 막는다 (FR-XDF-10).
 	if cid := r.URL.Query().Get("clientId"); cid != "" && s.Focus != nil {
-		ep := s.Focus.Attach(cid)
+		// VIEWER_URL_OPEN_SRS FR-VUO-1: 구독의 원격 주소를 함께 남긴다. 이 값이
+		// "보고 있는 기기가 서버와 같은 컴퓨터인가" 의 유일한 근거다.
+		ep := s.Focus.AttachFrom(cid, r.RemoteAddr)
 		defer func() {
 			if s.Focus.Detach(cid, ep) {
 				s.broadcastFocusOwners()
@@ -133,6 +135,17 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unknown action: "+req.Action, http.StatusBadRequest)
 		return
 	}
+	// VIEWER_URL_OPEN_SRS: 열 URL 을 먼저 거르고(FR-VUO-18) 어디서 열지 정한다.
+	// 로컬이면 브로드캐스트하지 않는다 — 부른 쉘이 직접 연다 (FR-VUO-2).
+	openURLWhere := ""
+	if req.Action == OpenURLAction {
+		if _, verr := openURLTarget(req.Args); verr != nil {
+			http.Error(w, verr.Error(), http.StatusBadRequest)
+			return
+		}
+		openURLWhere, _ = s.openURLWhere()
+	}
+
 	origLoc, finalLoc, err := translateLocationUUID(&req.Args, s.Work)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -159,6 +172,18 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		"action":            req.Action,
 		"location":          finalLoc,
 		"requestedLocation": origLoc,
+	}
+
+	if openURLWhere != "" {
+		// FR-VUO-1: dmctl 이 이 값을 보고 로컬 실행 여부를 정한다.
+		resp["where"] = openURLWhere
+	}
+	if openURLWhere == whereLocal {
+		resp["delivered"] = 0
+		log.Printf("[cmd] action=%s where=local (뷰어가 서버와 같은 컴퓨터 — 부른 셸이 연다)", req.Action)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+		return
 	}
 
 	if hub.IsCreatingAction(req.Action) {

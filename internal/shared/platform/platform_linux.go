@@ -22,5 +22,6 @@ func newPlatform() Platform {
 		IPC:     unixSocketIPC{isSocket: posixIsSocket},
 		Paths:   posixPaths{},
 		Browser: unixBrowser(exec.LookPath),
+		Opener:  unixOpener(exec.LookPath),
 	}
 }
