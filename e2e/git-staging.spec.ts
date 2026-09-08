@@ -47,15 +47,16 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     await waitForInit(page);
     await openGit(page, repo);
 
-    await expect(count(page, 'untracked')).toHaveText('(1)', { timeout: 10000 });
-    await act(page, 'untracked', 'untracked.txt', 'stage');
+    // `basic` 의 워킹 그룹은 수정 2 + 새 파일 1 이다 (FR-CMG-2).
+    await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
+    await act(page, 'working', 'untracked.txt', 'stage');
 
     // FR-GIT-71: 폴링 주기를 기다리지 않고 응답의 status 로 즉시 갱신된다.
     await expect(row(page, 'staged', 'untracked.txt')).toBeVisible({ timeout: 3000 });
-    await expect(count(page, 'untracked')).toHaveText('(0)');
+    await expect(count(page, 'working')).toHaveText('(2)');
 
     await act(page, 'staged', 'untracked.txt', 'unstage');
-    await expect(row(page, 'untracked', 'untracked.txt')).toBeVisible({ timeout: 3000 });
+    await expect(row(page, 'working', 'untracked.txt')).toBeVisible({ timeout: 3000 });
   });
 
   test('E1b (V30): 그룹 일괄 stage/unstage 가 그룹 전체에 걸린다', async ({ page }) => {
@@ -63,9 +64,9 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     await waitForInit(page);
     await openGit(page, repo);
 
-    await expect(count(page, 'changes')).toHaveText('(2)', { timeout: 10000 });
-    await group(page, 'changes').locator('.git-group-bulk[data-act="stage"]').click();
-    await expect(count(page, 'changes')).toHaveText('(0)', { timeout: 5000 });
+    await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
+    await group(page, 'working').locator('.git-group-bulk[data-act="stage"]').click();
+    await expect(count(page, 'working')).toHaveText('(0)', { timeout: 5000 });
 
     // staged 그룹 일괄은 언스테이지다 (FR-GIT-67).
     await group(page, 'staged').locator('.git-group-bulk[data-act="unstage"]').click();
@@ -93,8 +94,8 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     // 있으면 선택 전체가 대상이다.
     await allRows(page).nth(4).hover();
     await allRows(page).nth(4).locator('.git-file-act[data-act="stage"]').click();
-    await expect(count(page, 'changes')).toHaveText('(0)', { timeout: 5000 });
-    await expect(count(page, 'untracked')).toHaveText('(0)');
+    await expect(count(page, 'working')).toHaveText('(0)', { timeout: 5000 });
+    await expect(count(page, 'working')).toHaveText('(0)');
     // 처리한 대상은 선택에서 빠진다 — 같은 선택이 남아 다음 동작에 끌려가지 않는다.
     await expect(selected).toHaveCount(0);
   });
@@ -127,7 +128,7 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     await waitForInit(page);
     await openGit(page, repo);
 
-    await act(page, 'changes', 'tracked.txt', 'discard');
+    await act(page, 'working', 'tracked.txt', 'discard');
 
     // 1단계는 영향 범위다 — 개수만이 아니라 목록을 보인다 (FR-GIT-91).
     const box = page.locator('#git-confirm .gc-box');
@@ -145,7 +146,7 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
 
     await box.locator('.gc-go').click();
     await expect(box).toHaveCount(0, { timeout: 10000 });
-    await expect(row(page, 'changes', 'tracked.txt')).toHaveCount(0, { timeout: 5000 });
+    await expect(row(page, 'working', 'tracked.txt')).toHaveCount(0, { timeout: 5000 });
     // 워킹 트리가 실제로 되돌아갔다.
     expect(readFileSync(join(repo, 'tracked.txt'), 'utf8')).toBe('one\n');
   });
@@ -155,13 +156,13 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     await waitForInit(page);
     await openGit(page, repo);
 
-    await act(page, 'changes', 'tracked.txt', 'discard');
+    await act(page, 'working', 'tracked.txt', 'discard');
     const box = page.locator('#git-confirm .gc-box');
     await expect(box).toBeVisible({ timeout: 10000 });
     await box.locator('.gc-cancel').click();
     await expect(box).toHaveCount(0);
 
-    await expect(row(page, 'changes', 'tracked.txt')).toBeVisible();
+    await expect(row(page, 'working', 'tracked.txt')).toBeVisible();
     expect(readFileSync(join(repo, 'tracked.txt'), 'utf8')).toBe('one\ntwo\n');
   });
 

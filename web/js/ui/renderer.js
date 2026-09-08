@@ -512,7 +512,8 @@ class Renderer {
     if(active===REPO_SIDE_CHANGES){
       const rf=document.createElement('button');
       rf.className='ed-side-refresh git-head-refresh';
-      rf.textContent=GIT_REFRESH_LABEL; rf.title=GIT_REFRESH_TITLE;
+      // 요구 ③/⑤: 글자가 아니라 아이콘이다. 크기는 `.ui-icon` 이 정한다.
+      rf.appendChild(UIKit.icon(GIT_REFRESH_LABEL)); rf.title=GIT_REFRESH_TITLE;
       rf.addEventListener('click',()=>app._gitPanel(app._edRootOf(s),slot).refresh());
       bar.appendChild(rf);
     }

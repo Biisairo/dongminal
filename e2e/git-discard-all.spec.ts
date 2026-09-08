@@ -6,8 +6,13 @@ import { Page } from '@playwright/test';
 import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit, gitFixture, cleanGitFixture } from './fixtures';
 import { tmpPath, cssPath } from './osenv';
 
-// WORKBENCH_REVIEW_SRS 묶음 D — `Changes`·`Untracked` 의 Discard All
-// (FR-WBR-50~56, 검증 V-WBR-50~57).
+// WORKBENCH_REVIEW_SRS 묶음 D — 워킹 그룹의 Discard All (FR-WBR-50~56,
+// 검증 V-WBR-50~57).
+//
+// PANEL_SURFACE_SRS FR-CMG-6·7·8 (V-9)로 **두 그룹이 하나가 됐다.** 종전에는
+// `Changes` 와 `Untracked` 가 각자 폐기 버튼을 가졌고 뜻은 툴팁에만 있었다.
+// 지금은 버튼 하나가 둘을 지나며, 되돌림과 삭제를 가르는 자리는 **확인창**이다 —
+// 그것이 유일한 방어선이므로(SRS §5) 확인창 없이 실행되는 길이 없어야 한다.
 //
 // 폭 시험(V-WBR-58 / NFR-WBR-10)은 여기 없다 — 규칙이 사는 `repo-tab` 묶음 N 의
 // N3 이고, 그 파일에 `setSideWidth`·`measure` 장치가 이미 있다.
@@ -48,87 +53,111 @@ async function rowAct(page: Page, key: string, path: string, action: string) {
   await r.locator(`.git-file-act[data-act="${action}"]`).click();
 }
 
-test.describe('묶음 D — Changes·Untracked 의 Discard All', () => {
-  test('D1 (V-WBR-50·51 / FR-WBR-50·51·52·52a): 아이콘 둘과 그 순서, 그리고 갈리는 툴팁',
+test.describe('묶음 D — 워킹 그룹의 Discard All', () => {
+  test('D1 (V-WBR-50·51 / FR-CMG-6): 아이콘 둘과 그 순서, 그리고 삭제를 알리는 툴팁',
     async ({ page }) => {
       const repo = copyFx('basic', 'd1');
       await waitForInit(page);
       await openGit(page, repo);
-      await expect(count(page, 'changes')).toHaveText('(2)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
 
       // FR-WBR-50·51·52: 행 동작과 **같은 어휘**의 아이콘이고 파괴적인 것이
-      // 오른쪽이다. 글자 라벨은 220px 에 들어가지 않는다 (D-WBR-18).
-      await expect(bulk(page, 'changes')).toHaveText(['+', '↺']);
-      await expect(bulk(page, 'untracked')).toHaveText(['+', '↺']);
-      // staged 는 그대로 하나다 — 폐기가 뜻을 갖지 않는다.
-      await expect(bulk(page, 'staged')).toHaveText(['−']);
-
-      // FR-WBR-52a: 갈리는 것은 툴팁이다 — untracked 의 폐기는 삭제이고 되살릴
-      // 수 없다. 두 그룹의 명령이 다르다는 사실을 여기서 말한다.
+      // 오른쪽이다. FR-CMG-6: 일괄은 `stage` 하나와 `discard` 하나다.
       //
-      // UX_BATCH5_SRS FR-TIP-2 로 **툴팁의 언어가 영어가 됐다.** 재는 것은
-      // 그대로다: 두 그룹의 문구가 갈리는가, 그리고 삭제라는 사실이 거기 있는가.
-      await expect(bulk(page, 'changes').nth(1)).toHaveAttribute('title', /Discard/);
-      const del = bulk(page, 'untracked').nth(1);
-      await expect(del).toHaveAttribute('title', /Delete/);
+      // 뜻의 출처는 `data-act` 다 — 라벨이 글자에서 스프라이트 아이콘이 됐고
+      // (UI_KIT_SRS §7.1), 글자를 재면 그 교체가 이 시험을 깨뜨린다.
+      expect(await bulk(page, 'working').evaluateAll(
+        (els) => els.map((e) => (e as HTMLElement).dataset.act))).toEqual(['stage', 'discard']);
+      // staged 는 그대로 하나다 — 폐기가 뜻을 갖지 않는다.
+      expect(await bulk(page, 'staged').evaluateAll(
+        (els) => els.map((e) => (e as HTMLElement).dataset.act))).toEqual(['unstage']);
+      // 요구 ③/⑤: 아이콘이 상자를 꽉 채운다 — 스프라이트를 참조하는 `<svg>` 다.
+      await expect(bulk(page, 'working').first().locator('svg.ui-icon use'))
+        .toHaveAttribute('href', '#i-plus');
+
+      // 버튼 하나가 삭제를 포함하므로 툴팁이 그 사실을 말한다. 정확한 내역은
+      // 확인창이 보인다 (FR-CMG-7).
+      const del = bulk(page, 'working').nth(1);
+      await expect(del).toHaveAttribute('title', /Discard/);
+      await expect(del).toHaveAttribute('title', /deleted/);
       await expect(del).toHaveAttribute('title', /cannot be undone/);
+
+      // FR-CMG-5: **행**의 폐기는 그 행의 출신을 말한다 — 그룹이 아니다.
+      const nu = row(page, 'working', 'untracked.txt');
+      await nu.hover();
+      await expect(nu.locator('.git-file-act[data-act="discard"]'))
+        .toHaveAttribute('title', /Delete this file/);
+      const tr = row(page, 'working', 'tracked.txt');
+      await tr.hover();
+      await expect(tr.locator('.git-file-act[data-act="discard"]'))
+        .toHaveAttribute('title', 'Discard changes');
     });
 
-  test('D1b (V-WBR-59 / NFR-WBR-10): 기본 폭에서 네 그룹의 머리 높이가 같다',
+  test('D1b (V-WBR-59 / NFR-WBR-10): 기본 폭에서 그룹 머리의 높이가 같다',
     async ({ page }) => {
       const repo = copyFx('basic', 'd1b');
       await waitForInit(page);
       await openGit(page, repo);
-      await expect(count(page, 'changes')).toHaveText('(2)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
 
       // 아이콘을 고른 이유가 이것이다 — 글자 라벨은 줄을 늘려 36→71px 이 됐다.
-      const hs = await changes(page).locator('.git-group-head').evaluateAll(
+      const hs = await changes(page).locator('.git-group:not(.gone) .git-group-head').evaluateAll(
         (els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
       expect([...new Set(hs)], '머리 높이가 그룹마다 다르다: ' + JSON.stringify(hs))
         .toHaveLength(1);
+      // FR-CMG-1: 그룹은 셋이되 충돌이 없는 `basic` 에서는 둘만 선다.
+      expect(hs).toHaveLength(2);
     });
 
-  test('D2 (V-WBR-52 / FR-WBR-50): Changes 의 Discard All 은 그룹 전부를 되돌리고 staged 분은 남긴다',
+  test('D2 (V-9 / FR-CMG-7·8): 확인창이 되돌릴 것과 지울 것을 나눠 보이고, 둘 다 실행된다',
     async ({ page }) => {
       const repo = copyFx('basic', 'd2');
       await waitForInit(page);
       await openGit(page, repo);
-      await expect(count(page, 'changes')).toHaveText('(2)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
+      expect(existsSync(join(repo, 'untracked.txt'))).toBeTruthy();
 
-      await bulkAct(page, 'changes', 'discard').click();
+      await bulkAct(page, 'working', 'discard').click();
       await expect(box(page)).toBeVisible({ timeout: 10000 });
       // 그려진 행이 아니라 그룹 전체다 (FR-GIT-66·67 의 규약).
-      await expect(box(page).locator('.gc-count')).toContainText('2개');
+      await expect(box(page).locator('.gc-count')).toContainText('3개');
+      // FR-CMG-7: 두 무리를 나눠 보인다 — 되돌릴 수 없는 삭제가 눈에 보여야 한다.
+      await expect(box(page).locator('.gc-target-sect')).toHaveText(['되돌릴 2개', '지울 1개']);
+
       await box(page).locator('.gc-go').click();
       await expect(box(page)).toHaveCount(0, { timeout: 10000 });
 
-      await expect(count(page, 'changes')).toHaveText('(0)', { timeout: 5000 });
-      // 워킹 트리가 index 로 돌아갔다.
+      await expect(count(page, 'working')).toHaveText('(0)', { timeout: 5000 });
+      // FR-CMG-8: 두 명령이 다 실행됐다 — 되돌림(checkout)과 삭제(clean).
       expect(readFileSync(join(repo, 'tracked.txt'), 'utf8')).toBe('one\n');
       expect(readFileSync(join(repo, KO), 'utf8')).toBe('ko\nboth\n');
+      expect(existsSync(join(repo, 'untracked.txt'))).toBeFalsy();
       // staged 분은 남는다 — discard 는 index 를 건드리지 않는다.
       await expect(row(page, 'staged', KO)).toBeVisible();
       await expect(row(page, 'staged', 'renamed to.txt')).toBeVisible();
     });
 
-  test('D3 (V-WBR-53 / FR-WBR-50·52): Untracked 의 Delete All 은 파일을 지운다',
+  test('D3 (V-9 / FR-CMG-7): 지울 것이 없으면 그 무리를 적지 않는다',
     async ({ page }) => {
       const repo = copyFx('basic', 'd3');
       await waitForInit(page);
       await openGit(page, repo);
-      await expect(count(page, 'untracked')).toHaveText('(1)', { timeout: 10000 });
-      expect(existsSync(join(repo, 'untracked.txt'))).toBeTruthy();
+      await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
 
-      await bulkAct(page, 'untracked', 'discard').click();
+      // 새 파일을 스테이지로 옮기면 워킹 그룹에는 되돌릴 것만 남는다.
+      await rowAct(page, 'working', 'untracked.txt', 'stage');
+      await expect(count(page, 'working')).toHaveText('(2)', { timeout: 10000 });
+
+      await bulkAct(page, 'working', 'discard').click();
       await expect(box(page)).toBeVisible({ timeout: 10000 });
+      // 무리가 하나뿐이면 머리를 붙이지 않는다 — 읽을 것만 늘어난다.
+      await expect(box(page).locator('.gc-target-sect')).toHaveCount(0);
+      await expect(box(page).locator('.gc-count')).toContainText('2개');
       await box(page).locator('.gc-go').click();
       await expect(box(page)).toHaveCount(0, { timeout: 10000 });
 
-      await expect(count(page, 'untracked')).toHaveText('(0)', { timeout: 5000 });
-      // 되돌리기가 아니라 삭제다 — 라벨이 말한 그대로다.
-      expect(existsSync(join(repo, 'untracked.txt'))).toBeFalsy();
-      // tracked 쪽은 건드리지 않는다.
-      expect(readFileSync(join(repo, 'tracked.txt'), 'utf8')).toBe('one\ntwo\n');
+      // 스테이지로 옮겨 둔 새 파일은 지워지지 않았다.
+      expect(existsSync(join(repo, 'untracked.txt'))).toBeTruthy();
     });
 
   test('D4 (V-WBR-54 / FR-WBR-53): 그룹이 비면 두 버튼이 다 비활성이다',
@@ -136,18 +165,17 @@ test.describe('묶음 D — Changes·Untracked 의 Discard All', () => {
       const repo = copyFx('basic', 'd4');
       await waitForInit(page);
       await openGit(page, repo);
-      await expect(count(page, 'untracked')).toHaveText('(1)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
 
       // 처음에는 둘 다 살아 있다.
-      await expect(bulk(page, 'untracked').nth(0)).toBeEnabled();
-      await expect(bulk(page, 'untracked').nth(1)).toBeEnabled();
+      await expect(bulk(page, 'working').nth(0)).toBeEnabled();
+      await expect(bulk(page, 'working').nth(1)).toBeEnabled();
 
-      await bulkAct(page, 'untracked', 'stage').click();
-      await expect(count(page, 'untracked')).toHaveText('(0)', { timeout: 5000 });
+      await bulkAct(page, 'working', 'stage').click();
+      await expect(count(page, 'working')).toHaveText('(0)', { timeout: 10000 });
 
-      // 지금은 그룹의 **유일한** 버튼에만 걸리므로 이 단언이 둘째를 잡는다.
-      await expect(bulk(page, 'untracked').nth(0)).toBeDisabled();
-      await expect(bulk(page, 'untracked').nth(1)).toBeDisabled();
+      await expect(bulk(page, 'working').nth(0)).toBeDisabled();
+      await expect(bulk(page, 'working').nth(1)).toBeDisabled();
     });
 
   test('D5 (V-WBR-55 / FR-WBR-54): Conflicts 머리에는 폐기가 없다',
@@ -161,15 +189,15 @@ test.describe('묶음 D — Changes·Untracked 의 Discard All', () => {
       await expect(bulk(page, 'conflicts')).toHaveCount(0);
     });
 
-  test('D6 (V-WBR-56 / FR-WBR-55): 확인창의 note 가 그룹에 맞춰 갈린다',
+  test('D6 (V-WBR-56 / FR-CMG-5): 확인창의 note 가 대상의 출신에 맞춰 갈린다',
     async ({ page }) => {
       const repo = copyFx('basic', 'd6');
       await waitForInit(page);
       await openGit(page, repo);
-      await expect(count(page, 'untracked')).toHaveText('(1)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
 
-      // untracked — 파일 자체가 사라지고 되살릴 값이 없다는 것을 먼저 말한다.
-      await bulkAct(page, 'untracked', 'discard').click();
+      // 새 파일이 섞여 있다 — 파일 자체가 사라지고 되살릴 값이 없다는 것을 먼저 말한다.
+      await rowAct(page, 'working', 'untracked.txt', 'discard');
       await expect(box(page)).toBeVisible({ timeout: 10000 });
       const note = box(page).locator('.gc-hint-note');
       await expect(note).toContainText('삭제');
@@ -177,8 +205,8 @@ test.describe('묶음 D — Changes·Untracked 의 Discard All', () => {
       await box(page).locator('.gc-cancel').click();
       await expect(box(page)).toHaveCount(0);
 
-      // tracked — 되돌리기이므로 그 말을 하지 않는다.
-      await bulkAct(page, 'changes', 'discard').click();
+      // tracked 만이면 되돌리기이므로 그 말을 하지 않는다.
+      await rowAct(page, 'working', 'tracked.txt', 'discard');
       await expect(box(page)).toBeVisible({ timeout: 10000 });
       await expect(box(page).locator('.gc-hint-note')).not.toContainText('되살릴 값이 없');
     });
@@ -188,24 +216,24 @@ test.describe('묶음 D — Changes·Untracked 의 Discard All', () => {
       const repo = copyFx('basic', 'd7');
       await waitForInit(page);
       await openGit(page, repo);
-      await expect(count(page, 'untracked')).toHaveText('(1)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
 
-      // ① 그룹 일괄 — untracked 만. `-u` 가 없으면 이 명령이 실패한다 (SRS §2.7).
-      await bulkAct(page, 'untracked', 'discard').click();
+      // ① 그룹 일괄 — 두 출신이 섞인다. `-u` 가 없으면 이 명령이 실패한다 (SRS §2.7).
+      await bulkAct(page, 'working', 'discard').click();
       await expect(box(page)).toBeVisible({ timeout: 10000 });
       await expect(box(page).locator('.gc-hint-cmd')).toContainText('git stash push -u -- ');
       await box(page).locator('.gc-cancel').click();
       await expect(box(page)).toHaveCount(0);
 
       // ② 행의 `↺` 도 같은 자리를 지난다 — 고치는 것이 한 자리라는 뜻이다.
-      await rowAct(page, 'untracked', 'untracked.txt', 'discard');
+      await rowAct(page, 'working', 'untracked.txt', 'discard');
       await expect(box(page)).toBeVisible({ timeout: 10000 });
       await expect(box(page).locator('.gc-hint-cmd')).toContainText('git stash push -u -- ');
       await box(page).locator('.gc-cancel').click();
       await expect(box(page)).toHaveCount(0);
 
       // ③ tracked 만이어도 `-u` 다 — 붙여도 대상이 넓어지지 않는다 (실측).
-      await rowAct(page, 'changes', 'tracked.txt', 'discard');
+      await rowAct(page, 'working', 'tracked.txt', 'discard');
       await expect(box(page)).toBeVisible({ timeout: 10000 });
       await expect(box(page).locator('.gc-hint-cmd')).toContainText('git stash push -u -- ');
     });

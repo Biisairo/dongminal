@@ -134,7 +134,7 @@ test.describe('묶음 R — 하단 패널 폐기', () => {
     hunkFile(repo, 'f.txt', { 10: 'TEN' });
     await waitForInit(page);
     await openGit(page, repo);
-    await openDiff(page, 'changes', 'f.txt');
+    await openDiff(page, 'working', 'f.txt');
     await expect(diff(page).locator('.git-hunks')).toHaveCount(0);
     await expect(diff(page).locator('.git-hunk-line')).toHaveCount(0);
   });
@@ -147,7 +147,7 @@ test.describe('묶음 B·W — hover 툴바와 조각 단위 쓰기', () => {
     hunkFile(repo, 'f.txt', { 5: 'ALPHA', 15: 'BRAVO', 25: 'CHARLIE' });
     await waitForInit(page);
     await openGit(page, repo);
-    await openDiff(page, 'changes', 'f.txt');
+    await openDiff(page, 'working', 'f.txt');
     expect(await hunkCount(page)).toBe(3);
 
     await hoverLine(page, 15);
@@ -194,7 +194,7 @@ test.describe('묶음 B·W — hover 툴바와 조각 단위 쓰기', () => {
     hunkFile(repo, 'f.txt', { 5: 'ALPHA', 25: 'CHARLIE' });
     await waitForInit(page);
     await openGit(page, repo);
-    await openDiff(page, 'changes', 'f.txt');
+    await openDiff(page, 'working', 'f.txt');
     expect(await hunkCount(page)).toBe(2);
 
     await hoverLine(page, 5);
@@ -216,7 +216,7 @@ test.describe('묶음 B·W — hover 툴바와 조각 단위 쓰기', () => {
     hunkFile(repo, 'f.txt', { 25: 'CHARLIE' });
     await waitForInit(page);
     await openGit(page, repo);
-    await openDiff(page, 'changes', 'f.txt');
+    await openDiff(page, 'working', 'f.txt');
 
     await hoverLine(page, 25);
     // 조각 밖의 줄로 옮기면 사라진다 (FR-DHB-14).
@@ -241,7 +241,7 @@ test.describe('묶음 B·W — hover 툴바와 조각 단위 쓰기', () => {
     hunkFile(repo, 'f.txt', { 15: 'BRAVO' });
     await waitForInit(page);
     await openGit(page, repo);
-    await openDiff(page, 'changes', 'f.txt');
+    await openDiff(page, 'working', 'f.txt');
     await hoverLine(page, 15);
 
     await diff(page).locator('.git-diff-blame').click();
@@ -259,7 +259,7 @@ test.describe('묶음 S — Monaco 선택으로 고르는 줄 범위', () => {
     hunkFile(repo, 'f.txt', { 10: 'TEN', 12: 'TWELVE' });
     await waitForInit(page);
     await openGit(page, repo);
-    await openDiff(page, 'changes', 'f.txt');
+    await openDiff(page, 'working', 'f.txt');
     expect(await hunkCount(page)).toBe(1);
 
     await hoverLine(page, 10);
@@ -304,7 +304,7 @@ test.describe('묶음 S — Monaco 선택으로 고르는 줄 범위', () => {
     hunkFile(repo, 'f.txt', { 10: 'TEN', 12: 'TWELVE' });
     await waitForInit(page);
     await openGit(page, repo);
-    await openDiff(page, 'changes', 'f.txt');
+    await openDiff(page, 'working', 'f.txt');
 
     await hoverLine(page, 10);
     await selectLines(page, 10, 10);
@@ -335,7 +335,7 @@ test.describe('묶음 S — Monaco 선택으로 고르는 줄 범위', () => {
     hunkFile(repo, 'f.txt', { 10: 'TEN' });
     await waitForInit(page);
     await openGit(page, repo);
-    await openDiff(page, 'changes', 'f.txt');
+    await openDiff(page, 'working', 'f.txt');
 
     await hoverLine(page, 10);
     await act(page, 'revert').click();
@@ -358,7 +358,7 @@ test.describe('묶음 S — Monaco 선택으로 고르는 줄 범위', () => {
     hunkFile(repo, 'f.txt', { 5: 'ALPHA', 25: 'CHARLIE' });
     await waitForInit(page);
     await openGit(page, repo);
-    await openDiff(page, 'changes', 'f.txt');
+    await openDiff(page, 'working', 'f.txt');
     expect(await hunkCount(page)).toBe(2);
 
     // 파일의 거의 전부를 고른다 — 두 조각이 다 들어간다.
@@ -378,7 +378,7 @@ test.describe('묶음 S — Monaco 선택으로 고르는 줄 범위', () => {
     hunkFile(repo, 'f.txt', { 15: 'BRAVO' });
     await waitForInit(page);
     await openGit(page, repo);
-    await openDiff(page, 'changes', 'f.txt');
+    await openDiff(page, 'working', 'f.txt');
 
     await hoverLine(page, 15);
     await selectLines(page, 15, 15);

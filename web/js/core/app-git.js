@@ -459,7 +459,19 @@ Object.assign(App.prototype, {
     // 종전에 없던 요청이 생긴다.
     for(const o of this._gitObservers.values()){
       const p=o.any();
-      if(!p||p.repo!==repo) continue;
+      if(!p) continue;
+      /**
+       * 방송이 싣는 경로는 **git 이 푼 루트**다 (`apiGitStatus` 의 `root`).
+       * 패널의 `repo` 는 사용자가 연 그대로이고, 그 둘은 심볼릭 링크에서
+       * 갈린다 — macOS 에서 `/tmp/x` 로 연 저장소의 방송은 `/private/tmp/x` 로
+       * 온다. 문자열 하나로만 견주면 그 저장소는 방송을 **한 건도** 받지 못하고,
+       * 남는 갱신 경로가 30초 안전망과 손으로 누르는 새로고침뿐이 된다.
+       *
+       * 관측 응답이 그 루트를 함께 실어 주므로(`status.repo`) 둘 다 본다 —
+       * FR-DIR-5 의 "비교는 정규화를 아는 쪽이 한다" 를 방송 경로까지 넓힌 것이다.
+       */
+      const root=(o._status&&o._status.repo)||'';
+      if(p.repo!==repo&&root!==repo) continue;
       // 이미 본 값이면 받지 않는다 (FR-GPO-22). 재연결 직후 서버가 현재 값을
       // 다시 알릴 수 있고, 그때 방금 받은 화면을 또 받을 이유가 없다.
       if(a.mark&&o._gitMark===a.mark) continue;

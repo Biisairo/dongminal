@@ -716,6 +716,24 @@ function visiblePoll(ms, fn, opts){
 }
 
 /**
+ * PANEL_SURFACE_SRS FR-CMG-2 / D-7·D-8: **화면 그룹 하나의 항목들.**
+ *
+ * 서버 응답은 건드리지 않고(D-7) 여기서만 합친다. 합친 뒤의 순서는 **경로**다 —
+ * 출신에 따라 뭉치면 같은 폴더의 파일이 목록의 두 자리로 갈린다.
+ *
+ * 판정이 한 자리인 것이 이 함수의 전부다: 그리는 쪽(`_paintGroup`)과 대상을 모으는
+ * 쪽(`_group`)과 다이얼로그의 지문이 같은 묶음을 보아야 한다 (FR-CMG-13).
+ */
+function gitGroupEntries(status,key){
+  if(!status) return [];
+  const src=GIT_GROUP_SRC[key];
+  if(!src) return status[key]||[];
+  const out=[];
+  for(const k of src) for(const e of status[k]||[]) out.push(e);
+  return out.sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0);
+}
+
+/**
  * 변경 항목의 **상태문자** (REFACTOR_STABILIZATION_SRS FR-RST-22).
  *
  * 그룹이 어느 축을 보는지가 곧 X/Y 선택이다 — staged 는 X, 나머지는 Y 이고,
@@ -727,6 +745,10 @@ function visiblePoll(ms, fn, opts){
  * 있었으므로 문자를 뽑는 규칙도 여기로 모은다.
  */
 function gitStateChar(group, entry){
+  // PANEL_SURFACE_SRS FR-CMG-3: 출신은 **항목**이 안다 (`untracked`) — 워킹 그룹은
+  // 두 출신을 함께 담으므로 그룹만으로는 답이 나오지 않는다. 그룹으로 묻는 자리
+  // (항목 없이 부르는 탐색기)는 그대로 남는다.
+  if(entry&&entry.untracked) return '?';
   if(group==='untracked') return '?';
   if(group==='conflicts') return 'U';
   const xy=(entry&&entry.xy)||'..';

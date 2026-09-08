@@ -109,7 +109,17 @@ class GitDiffView {
     // 사용자가 다시 부른 것이며, 지난번의 거부가 그것을 막아서는 안 된다.
     this._refused=false;
     if(!target||!target.repo||!target.path){this.clear(GIT_PREVIEW_HINT);return}
-    this._setNote(GIT_LOADING_HINT);
+    /**
+     * FR-RPT-1 의 정신: **바깥 계기의 다시 받기는 화면에 자기 흔적을 남기지 않는다.**
+     *
+     * `reloadDiff` 는 관측 회차마다 부른다 (FR-GLV-1). 그때마다 "불러오는 중" 을
+     * 세우면 그 글자가 폴링 주기로 나타났다 사라진다 — 접수한 말이 "diff 를 열면
+     * 상단에 불러오는중이 계속 깜빡인다" 이고, 원인이 정확히 이 한 줄이다.
+     *
+     * 그릴 것이 이미 서 있으면 조용히 받는다. 결과는 `_draw` 가 얹고, 실패하면
+     * `clear` 가 사유를 그 자리에 남긴다 — 알릴 것이 있을 때만 글자가 바뀐다.
+     */
+    if(!this._editor) this._setNote(GIT_LOADING_HINT);
     // Monaco 로드 실패는 밖으로 던지지 않는다 — Git 창의 나머지가 계속 동작해야
     // 한다 (FR-GIT-55).
     const loaded=await loadMonaco().then(()=>true,e=>{

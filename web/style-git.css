@@ -81,6 +81,18 @@
   background:var(--bg);color:var(--text);
   border:1px solid var(--border);border-radius:3px;
 }
+/* 요구 ③: 아이콘만 있는 버튼은 정사각이고 아이콘이 상자를 꽉 채운다. 눈금은
+   버튼 높이에서 파생한다 (FR-GLY-5 / FR-UIK-5) — 글자 화살표는 폰트 크기를
+   따라 작게 남아 있었고, 그것이 접수한 말("아이콘이 너무 작다")이다. */
+.git-remote-btn,.git-files-mode{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:var(--git-btn-h);height:var(--git-btn-h);padding:0;
+}
+.git-remote-btn>.ui-icon,.git-files-mode>.ui-icon{
+  width:calc(var(--git-btn-h) * .62);height:calc(var(--git-btn-h) * .62);
+}
+.git-remote-more{display:inline-flex;align-items:center;justify-content:center}
+.git-remote-more>.ui-icon{width:12px;height:12px}
 /* 변형은 `▾` 다이얼로그에서만 온다 (FR-GIT-99) — 버튼과 붙여 한 벌로 보인다 */
 .git-remote-more{
   font:inherit;font-size:10px;padding:2px 4px;cursor:pointer;
@@ -420,6 +432,11 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
    FR-GIT-216: 굵기·색을 행 구분선과 다르게 한다. 같으면 그것이 섹션의 시작인지
    그저 또 하나의 선인지 읽히지 않는다. 값은 `--git-sec-divider` 한 곳에 있다 */
 .git-group+.git-group{border-top:var(--git-sec-divider)}
+/* 비어 있으면 서지 않는 그룹 (충돌). 뒤따르는 그룹이 목록의 **시작**이 되므로
+   그 위의 구분선도 함께 걷는다 — 첫 그룹 위에 선이 없다는 규약(FR-GIT-212)이
+   "첫 번째 자식" 이 아니라 "처음 보이는 것" 을 뜻하기 때문이다. */
+.git-group.gone{display:none}
+.git-group.gone+.git-group{border-top:none}
 /* FR-GIT-220: 머리글 높이가 일괄 버튼의 유무로 달라지면 안 된다. 일괄이 없는
    Conflicts 만 20px 이었다 — 버튼(26px)이 밀어 올리던 높이를 머리글이 직접 갖는다.
    새 숫자를 발명하지 않는다: 버튼 높이 + 위아래 패딩이 곧 그 값이다. */
@@ -427,7 +444,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
    그룹 이름이 눌린다. 감추지 않고 **줄을 늘린다** — 접기는 머리 아무 데나 누르는
    것이므로, 이름이 0 으로 눌리면 접으려는 클릭이 갈 자리가 사라진다. */
 .git-group-head{
-  display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:3px 8px;cursor:pointer;
+  display:flex;flex-wrap:nowrap;align-items:center;gap:5px;padding:0 6px 0 9px;cursor:pointer;
   min-height:calc(var(--git-btn-h) + 6px);min-width:0;
   font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);
 }
@@ -436,7 +453,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 /* 기준 폭을 60px 로 **명시**한다 — `auto` 로 두면 wrap 이 그룹 이름의 글자 수로
    줄을 갈라 `CHANGES` 와 `UNTRACKED` 가 다른 폭에서 접힌다 (`.git-job-argv` 와
    같은 이유). */
-.git-group-name{color:var(--text);flex:1 1 60px;min-width:60px;overflow:hidden;text-overflow:ellipsis}
+.git-group-name{color:var(--text);flex:1 1 40px;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .git-group-count{flex-shrink:0}
 .git-group-spacer{flex:1 1 auto}
 /* FR-GIT-66·67·68: 그룹별 일괄. 그룹이 tracked / untracked 를 이미 가른다 */
@@ -445,17 +462,34 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
    어휘의 아이콘이 자리마다 다르게 보이면 같은 것으로 읽히지 않는다.
    FR-GIT-195·226: 아이콘 버튼의 하한도 30px 이다 (`--git-hit`). */
 .git-group-bulk{
-  font:inherit;font-size:12px;line-height:1;cursor:pointer;flex-shrink:0;
-  min-width:var(--git-hit);min-height:var(--git-hit);padding:0 5px;
+  font:inherit;font-size:12px;line-height:1;cursor:pointer;flex:0 0 auto;
+  min-width:var(--git-hit);min-height:var(--git-hit);padding:0;
   display:flex;align-items:center;justify-content:center;
   text-transform:none;letter-spacing:normal;
   background:transparent;color:var(--text-muted);
-  border:1px solid var(--border);border-radius:3px;
+  border:0;border-radius:3px;
 }
-.git-group-bulk:hover:not(:disabled){color:var(--text-bright);border-color:var(--accent)}
-/* 파괴적인 것은 손에서 멀 뿐 아니라 색으로도 갈린다 — 행의 `↺` 와 같은 규약이다. */
-.git-group-bulk[data-act="discard"]:hover:not(:disabled){color:var(--danger);border-color:var(--danger)}
+.git-group-bulk:hover:not(:disabled){color:var(--text-bright);background:var(--accent-hover)}
+/* 파괴적인 것은 손에서 멀 뿐 아니라 색으로도 갈린다 — 행의 폐기와 같은 규약이다. */
+.git-group-bulk[data-act="discard"]:hover:not(:disabled){color:var(--danger);background:var(--attn-subtle)}
 .git-group-bulk:disabled{color:var(--text-dim);cursor:not-allowed}
+/* 머리의 일괄은 행과 **같은 겹**이다 — 오른쪽 6px 에 고정되므로 열이 구조로
+   맞는다. 다만 **항상 보인다**: 그 자리가 곧 그룹의 손잡이이고, 접기 위에
+   마우스를 올리지 않고도 무엇을 할 수 있는지 읽혀야 한다.
+
+   겹으로 옮기지 않으면 100px 에서 그룹 이름이 0 으로 눌린다 — 종전에는 줄을
+   늘려 막았고(FR-RTU-101), 줄을 늘리지 않기로 한 지금은 이 배치가 그 자리를
+   대신한다. 이름은 겹 밑으로 흘러 페이드에서 잘린다. */
+.git-group-head{position:relative}
+.git-group-acts{
+  position:absolute;right:6px;top:0;bottom:0;align-items:center;
+  padding-left:14px;
+  background:linear-gradient(to right,transparent,var(--sidebar-bg) 14px);
+}
+.git-group-head:hover .git-group-acts{
+  background:linear-gradient(to right,transparent,var(--accent-hover) 14px),
+             linear-gradient(to right,transparent,var(--sidebar-bg) 14px);
+}
 /* FR-GIT-197: 행 자체가 클릭 대상이다 (FR-GIT-187) — 히트 영역이 곧 행 높이이므로
    VSCode 의 목록 행(22px)을 하한으로 둔다. 좌측 여백은 포커스 바가 쓴다.
 
@@ -465,7 +499,9 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
    `background` 축약을 쓰면 이 선이 함께 지워진다. */
 .git-file,.git-dir{
   --git-depth:0;
-  display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:0 6px 0 9px;
+  /* 줄을 넘기지 않는다 — 동작 열이 자리지킴으로 **언제나** 잡혀 있으므로
+     넘길 이유가 사라졌다. 좁아지면 이름이 줄고, 버튼은 제자리에 남는다. */
+  display:flex;flex-wrap:nowrap;align-items:center;gap:6px;padding:0 6px 0 9px;
   min-height:var(--git-row-min);font-size:12px;white-space:nowrap;cursor:pointer;
   border-left:3px solid transparent;
   background-image:repeating-linear-gradient(to right,
@@ -485,7 +521,10 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
    실행한다** (C4b 실측). 들어가지 않으면 `.git-file-acts` 가 다음 줄로 가고,
    버튼 넷이 그 줄에도 들어가지 않으면 버튼끼리 다시 줄을 나눈다 — 하한 100px 에서
    `conflicts` 행이 그렇다 (실측). */
-.git-file-path{flex:1 1 60px;min-width:60px;overflow:hidden;text-overflow:ellipsis}
+/* 하한 60px 은 **버튼이 이름 위를 덮던 시절**의 방어였다 (C4b). 동작이 자기 열을
+   갖고 이름과 겹치지 않는 지금은 좁은 폭에서 이름이 더 줄어드는 편이 낫다 —
+   줄을 넘기는 것보다 낫고, 전체 경로는 `title` 이 갖는다. */
+.git-file-path{flex:1 1 40px;min-width:0;overflow:hidden;text-overflow:ellipsis}
 /* FR-GIT-237: 경로는 디렉터리와 파일명으로 갈린다.
 
    **구별의 보장 축은 굵기이고 색은 보강이다.** `--text` 와 `--text-bright` 가 같은
@@ -538,28 +577,114 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
    FR-STC-4: 이 둘은 상태색보다 뒤에 와서 이긴다 — 부분 스테이지와 충돌은
    "무엇이 바뀌었나" 보다 먼저 알아야 하는 사실이다. */
 .git-file.partial .git-file-st{color:var(--attn)}
-/* 행 인라인 동작. **항상 보인다** — hover 로만 드러나면 있는 줄 모르고, 터치에는
-   hover 가 없다. 강조는 버튼 자신의 :hover 가 한다 */
-.git-file-acts{display:flex;flex-wrap:wrap;gap:2px;flex-shrink:1;min-width:0}
-/* FR-GIT-195·226: 아이콘 하나짜리 버튼도 행과 같은 히트 영역을 갖는다 */
+/* 행 인라인 동작 (사용자 지시 2026-09-08: "hover 에서만 펼치고 아이콘만 남기고
+   테두리 제거, 열도 맞춰라").
+
+     이전 동작: 테두리를 두른 버튼 둘~넷이 **항상** 보였고, 그룹마다 개수가 달라
+                오른쪽 정렬이 그룹마다 다른 자리에서 시작했다. 좁아지면
+                `flex-wrap` 으로 다음 줄에 내려갔다
+     새  동작: 열은 `GIT_ACT_COLS` 셋으로 고정이고 자리지킴이 빈 열을 메운다.
+                버튼은 테두리 없는 아이콘이며 **hover·선택·포커스에서만 보인다**
+     이유:     접수한 말 그대로다
+
+   `visibility` 로 감춘다 — `display:none` 이면 hover 마다 이름 폭이 튀고, 그것이
+   C4b 의 결함(호버 시 버튼이 행 가운데를 덮어 선택 클릭이 stage 를 실행)을 되살린다.
+   자리는 언제나 잡혀 있고 보이기만 바뀐다.
+
+   터치에는 hover 가 없다 — 그 자리의 손잡이는 우클릭(길게 누르기) 메뉴이며
+   `.git-file.sel` 이 고른 행의 버튼을 세워 둔다. */
+.git-file-acts,.git-act-cols{display:flex;flex-wrap:nowrap;gap:2px;flex:0 0 auto}
+/**
+ * 행의 동작은 **흐름 밖의 겹**이다.
+ *
+ *   이전 동작: 버튼이 행의 자리를 먹었다. 그룹마다 개수가 달라 열이 어긋났고,
+ *              좁은 폭에서는 `flex-wrap` 으로 다음 줄에 내려갔다
+ *   새  동작: 오른쪽 6px 에 고정된 겹이다. 보이지 않을 때 이름이 폭을 **다** 쓰고,
+ *              보일 때는 어느 폭에서도 같은 열에 서며 사이드를 넘지 않는다
+ *   이유:     접수한 말 셋을 한 번에 만족하는 유일한 배치다 — 버튼이 적어 보이고,
+ *              열이 맞고, 줄이 넘어가지 않는다. VSCode 의 SCM 목록과 같은 규약이다
+ *
+ * 감추는 수단은 `opacity` 다. `visibility:hidden` 은 요소를 **닿을 수 없게**
+ * 만들고, 그러면 폴링이 행을 갈아 끼운 그 순간 커서 밑의 버튼이 사라져 누르려던
+ * 손이 빈자리를 친다 (FR-RPT-3 이 막으려던 바로 그 사고다).
+ *
+ * 겹의 바탕은 **두 겹의 그러데이션**이다: 아래가 패널의 불투명한 바탕이고 위가
+ * 행 상태의 색이다. 색 하나로 칠하면 `--accent-hover` 가 반투명인 테마에서 밑의
+ * 글자가 비친다 — 44개 테마를 한 규칙으로 덮는 자리다. 왼쪽 14px 의 페이드가
+ * 이름과 버튼 사이의 경계를 만든다.
+ */
+.git-file,.git-dir{position:relative}
+.git-file .git-file-acts,.git-dir .git-file-acts{
+  position:absolute;right:6px;top:0;bottom:0;align-items:center;
+  padding-left:14px;
+  opacity:0;pointer-events:none;
+  background:linear-gradient(to right,transparent,var(--sidebar-bg) 14px);
+}
+.git-file:hover .git-file-acts,.git-dir:hover .git-file-acts,
+.git-file.sel .git-file-acts,.git-file .git-file-acts:focus-within{
+  opacity:1;pointer-events:auto;
+}
+.git-file:hover .git-file-acts,.git-dir:hover .git-file-acts{
+  background:linear-gradient(to right,transparent,var(--accent-hover) 14px),
+             linear-gradient(to right,transparent,var(--sidebar-bg) 14px);
+}
+.git-file.sel .git-file-acts{
+  background:linear-gradient(to right,transparent,var(--accent-active) 14px),
+             linear-gradient(to right,transparent,var(--sidebar-bg) 14px);
+}
+/* FR-GIT-195·226: 아이콘 하나짜리 버튼도 행과 같은 히트 영역을 갖는다. 테두리가
+   사라져도 누를 자리는 그대로다 — 히트 영역과 테두리는 다른 것이다. */
 .git-file-act{
   font:inherit;font-size:12px;line-height:1;cursor:pointer;
-  min-width:var(--git-hit);min-height:var(--git-hit);padding:0 5px;
+  min-width:var(--git-hit);min-height:var(--git-hit);padding:0;
   display:flex;align-items:center;justify-content:center;
   background:transparent;color:var(--text-muted);
-  border:1px solid var(--border);border-radius:3px;
+  border:0;border-radius:3px;
 }
-.git-file-act:hover{color:var(--text-bright);border-color:var(--accent)}
-.git-file-act[data-act="discard"]:hover{color:var(--danger);border-color:var(--danger)}
-/* FR-DBA-3: 폴더 행이 갖지 않는 동작의 **자리지킴**. 파일 행과 열을 맞추는 것이
-   전부이므로 `.git-file-act` 와 치수가 같아야 한다 — 테두리도 자리를 먹으므로
-   지우지 않고 투명하게 둔다. 보이지 않고, 눌리지 않고, 읽히지 않는다. */
+.git-file-act:hover{color:var(--text-bright);background:var(--accent-hover)}
+.git-file-act[data-act="discard"]:hover{color:var(--danger);background:var(--attn-subtle)}
+.git-file-act:disabled{color:var(--text-dim);cursor:not-allowed}
+/* `ours`·`theirs` 는 글자다 (FR-GLY-8) — 정사각에 갇히지 않는다. */
+/* `ours`·`theirs` 는 글자다 (FR-GLY-8) — 정사각에 갇히지 않는다. 겹이 사이드를
+   넘지 않도록 좁은 폭에서는 줄어든다: 읽기 어려워지는 것이 닿지 못하는 것보다 낫다. */
+.git-act-word{padding:0 6px;font-size:11px;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* 요구 ③/⑤: 아이콘이 상자를 꽉 채운다. 눈금은 히트 영역에서 파생한다
+   (FR-GLY-5) — 자리마다 px 를 적지 않는다. */
+.git-file-act>.ui-icon,.git-group-bulk>.ui-icon{
+  width:calc(var(--git-hit) * .58);height:calc(var(--git-hit) * .58);
+}
+/* FR-DBA-3: 그 자리가 갖지 않는 동작의 **자리지킴**. 열을 맞추는 것이 전부이므로
+   `.git-file-act` 와 치수가 같아야 한다. 보이지 않고, 눌리지 않고, 읽히지 않는다. */
 .git-act-gap{
-  min-width:var(--git-hit);min-height:var(--git-hit);padding:0 5px;
-  border:1px solid transparent;border-radius:3px;
-  /* `flex-shrink` 를 손대지 않는다 — 버튼과 다르게 줄면 좁은 폭에서 열이 다시
-     어긋난다. 좁아졌을 때 버튼이 다음 줄로 가는 것도 함께 따라야 한다. */
+  min-width:var(--git-hit);min-height:var(--git-hit);padding:0;
+  flex:0 0 auto;
   pointer-events:none;
+}
+
+/**
+ * **아주 좁을 때는 옛 규약으로 돌아간다.**
+ *
+ * `REPO_SIDE_W_MIN` 은 100px 이고(실재하는 폭이다), 거기에는 아이콘 열 셋(90px)과
+ * 페이드가 들어갈 자리가 없다 — 겹을 그대로 두면 버튼이 사이드 밖으로 나가 닿지
+ * 못한다 (실측: 100px 에서 `discard` 의 오른쪽이 사이드보다 17px 밖).
+ *
+ * 그래서 165px 아래에서만 흐름으로 되돌리고 줄을 늘린다. 접수한 말("좁아지면
+ * 버튼이 아래로 가는 모양도 못생겼다")이 겨눈 것은 **기본 폭(220px)에서 그렇게
+ * 되던 것**이고, 그 폭에서는 이제 줄이 늘지 않는다. 닿지 못하는 버튼보다 줄이
+ * 늘어난 버튼이 낫다.
+ */
+.git-files{container-type:inline-size}
+@container (max-width:165px){
+  .git-file .git-file-acts,.git-dir .git-file-acts,.git-group-acts{
+    position:static;opacity:1;pointer-events:auto;
+    background:none;padding-left:0;flex-wrap:wrap;
+    /* 줄이 늘어나려면 **줄어들 수 있어야** 한다 — `flex:0 0 auto` 로는 묶음이
+       자기 자연폭(94px)을 고집해 84px 짜리 행을 오른쪽으로 넘는다 (실측). */
+    flex:0 1 auto;min-width:0;
+  }
+  .git-file,.git-dir,.git-group-head{flex-wrap:wrap}
+  .git-file-path{flex:1 1 60px;min-width:60px}
+  .git-group-name{flex:1 1 60px;min-width:60px}
 }
 
 /* FR-GIT-73 · §7.1 I2: 부분 적용을 조용히 넘기지 않는다 */

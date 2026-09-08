@@ -587,9 +587,22 @@ async function setSideWidth(page: Page, w: number) {
   await expect(side(page)).toHaveCSS('width', `${w}px`);
 }
 
-/** 행(또는 바) 안의 글자 자리 폭과, 버튼들이 그 칸 안에 들어오는지. */
+/**
+ * 행(또는 바) 안의 글자 자리 폭과, 버튼들이 그 칸 안에 들어오는지.
+ *
+ * **글자 폭은 호버 전에, 버튼은 호버 뒤에 잰다** (사용자 지시 2026-09-08).
+ * 행의 동작은 흐름 밖의 겹이 되어 호버에서만 보이므로, 평소의 이름 폭과 드러난
+ * 버튼의 자리는 서로 다른 순간의 사실이다 — 한 번에 재면 둘 중 하나가 거짓이 된다.
+ */
 async function measure(page: Page, rowSel: string, textSel: string, actSel: string) {
-  return page.evaluate(([rs, ts, as]) => {
+  const textW = await page.evaluate(([rs, ts]) => {
+    const row = document.querySelector(rs) as HTMLElement;
+    if (!row) throw new Error('행이 없다: ' + rs);
+    const t = row.querySelector(ts) as HTMLElement;
+    return t ? t.getBoundingClientRect().width : 0;
+  }, [rowSel, textSel]);
+  await page.locator(rowSel).first().hover();
+  const rest = await page.evaluate(([rs, ts, as]) => {
     const row = document.querySelector(rs) as HTMLElement;
     if (!row) throw new Error('행이 없다: ' + rs);
     const host = row.closest('.ed-side') as HTMLElement;
@@ -608,6 +621,7 @@ async function measure(page: Page, rowSel: string, textSel: string, actSel: stri
       }),
     };
   }, [rowSel, textSel, actSel]);
+  return { ...rest, textW };
 }
 
 test.describe('묶음 N — 좁은 폭에서도 누를 자리가 남는다', () => {
@@ -621,8 +635,11 @@ test.describe('묶음 N — 좁은 폭에서도 누를 자리가 남는다', () 
       for (const w of SIDE_WIDTHS) {
         await setSideWidth(page, w);
         const m = await measure(page, row, '.git-file-path', '.git-file-act');
+        // 평소(호버 전) 이름은 60px 아래로 눌리지 않는다. 동작이 흐름 밖의 겹이
+        // 된 뒤로 이 폭은 오히려 넓어졌다 — 220px 에서 120 → 185px (실측).
         expect(m.textW, `${w}px 에서 이름이 눌렸다`).toBeGreaterThanOrEqual(60);
-        // 감추지 않는다 — `changes` 그룹은 셋이다 (`↗`·`+`·`↺`).
+        // 호버하면 셋이 다 선다 (`openFile`·`stage`·`discard`). 자리지킴은 세지
+        // 않는다 (FR-TIP-6).
         expect(m.acts.length, `${w}px 에서 버튼이 사라졌다`).toBe(3);
         for (const b of m.acts) {
           expect(b.inside, `${w}px 에서 ${b.act} 가 사이드를 넘었다`).toBeTruthy();
@@ -640,12 +657,13 @@ test.describe('묶음 N — 좁은 폭에서도 누를 자리가 남는다', () 
     async ({ page, request }) => {
       await enter(page, request, REPO);
       await sideTab(page, 'changes').click();
-      const head = '#area .ed-side .git-group[data-group="changes"] .git-group-head';
+      const head = '#area .ed-side .git-group[data-group="working"] .git-group-head';
       await expect(page.locator(head)).toBeVisible({ timeout: 10000 });
 
       for (const w of SIDE_WIDTHS) {
         await setSideWidth(page, w);
         const m = await measure(page, head, '.git-group-name', '.git-group-bulk');
+        // 머리의 일괄은 흐름 안에 있고 **늘 보인다** — 그룹의 손잡이가 그 자리다.
         expect(m.textW, `${w}px 에서 그룹 이름이 눌렸다`).toBeGreaterThanOrEqual(60);
         // 감추지 않는다 — 둘 다 남는다 (FR-WBR-50).
         expect(m.acts.length, `${w}px 에서 일괄 버튼이 사라졌다`).toBe(2);

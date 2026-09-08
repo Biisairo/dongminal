@@ -21,15 +21,34 @@ Object.assign(GitPanel.prototype, {
    * 어느 경우든 미리보기는 방금 누른 행이다. 그것이 포커스 행이다.
    */
   /**
-   * REPO_TAB_UNIFY_SRS FR-RTU-51 / D-RTU-8: **untracked 는 diff 가 아니다.**
+   * FR-RTU-51 / D-RTU-8 (개정 — 사용자 지시 2026-09-08: "vsc 의 패턴을 똑같이"):
+   * **비교의 왼쪽이 아예 없는 행만 편집기로 연다.**
    *
-   * 비교할 왼쪽이 없으므로 diff 는 빈 쪽과의 비교가 되고, 그 화면은 자리를 절반
-   * 쓰면서 알려 주는 것이 없다. VSCode 도 새 파일을 그냥 편집기로 연다.
+   *   이전 규칙: `untracked` 인가 — 그룹의 성질로 갈랐다
+   *   새   규칙: 그 행의 **축에서 왼쪽이 실재하는가** — 항목의 상태로 가른다
+   *   이유:     같은 파일이 상태에 따라 두 그림을 갖는다. 새 파일을 스테이지한 뒤
+   *             고치면 `Changes` 행의 축(index↔worktree)에는 양쪽이 다 있으므로
+   *             diff 가 뜻을 갖고, 다시 스테이지하거나 되돌리면 한쪽이 사라져
+   *             편집기가 맞다. VS Code 가 그렇게 가른다
    *
-   * 디렉터리 항목(중첩 저장소·서브모듈)은 열 파일이 없으므로 여기 오지 않는다 —
-   * 그쪽은 사유와 진입점을 보인다 (GIT_DIR_ENTRY_SRS FR-DIR-21).
+   * 왼쪽이 없는 자리는 둘뿐이다:
+   *   - 워킹 그룹의 새 파일 (`untracked`) — index 에 그 경로가 없다
+   *   - staged 그룹의 추가 (`A`) — HEAD 에 그 경로가 없다
+   *
+   * 삭제는 여기 오지 않는다 — 없는 것은 **오른쪽**이고, 사라진 내용을 보여 주는
+   * 것이 그 행의 뜻이다.
    */
-  _openUntracked(e){
+  _noBaseline(group,e){
+    if(!e) return false;
+    if(e.untracked) return true;
+    return group==='staged'&&(e.xy||'').charAt(0)===GIT_ST_ADDED;
+  },
+
+  /**
+   * 그 행을 편집기로 연다. 디렉터리 항목(중첩 저장소·서브모듈)은 열 파일이 없어
+   * 여기 오지 않는다 — 그쪽은 사유와 진입점을 보인다 (GIT_DIR_ENTRY_SRS FR-DIR-21).
+   */
+  _openInEditor(e){
     if(!this.repo||!e||!e.path||e.dir) return false;
     const abs=pathJoin(this.repo,e.path);
     // 한 번 클릭이므로 미리보기다 (FR-RTU-40) — 목록을 훑어도 탭이 쌓이지 않는다.
@@ -59,6 +78,8 @@ Object.assign(GitPanel.prototype, {
       // GIT_DIR_ENTRY_SRS FR-DIR-21: 이 대상이 디렉터리인가, 그리고 어느
       // 종류인가. diff 를 부르는 대신 사유를 보이는 판단이 이 둘에 걸린다.
       dir:!!e.dir,sub:e.sub||'',
+      // FR-CMG-3: 출신은 그룹이 아니라 항목이 안다 — 워킹 그룹에는 둘이 함께 있다.
+      untracked:!!e.untracked,
     };
     const i=this._diffIndex(this._fileList());
     if(i>=0) this._diffPos=i;
@@ -652,9 +673,9 @@ Object.assign(GitPanel.prototype, {
     if(!s||!this.repo) return [];
     const out=[];
     for(const g of GIT_GROUPS)
-      for(const e of (s[g.key]||[]))
+      for(const e of gitGroupEntries(s,g.key))
         out.push({repo:this.repo,group:g.key,axis:GIT_GROUP_AXIS[g.key],
-          path:e.path,origPath:e.origPath||''});
+          path:e.path,origPath:e.origPath||'',untracked:!!e.untracked});
     return out;
   },
 
@@ -671,7 +692,7 @@ Object.assign(GitPanel.prototype, {
     i=Math.max(0,Math.min(list.length-1,i));
     this._diffPos=i;
     const t=list[i];
-    this._select(t.group,{path:t.path,origPath:t.origPath});
+    this._select(t.group,{path:t.path,origPath:t.origPath,untracked:t.untracked});
   },
 
   // 대상이 그대로면 다시 부르지 않는다 — status 폴링마다 diff 를 재요청하면

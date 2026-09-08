@@ -535,10 +535,20 @@ test.describe('묶음 N — Worktrees 행의 핀 토글 (FR-GIT-249)', () => {
   });
 });
 
-test.describe('행 동작은 hover 없이 보인다', () => {
-  // hover 로만 드러나면 있는 줄 모르고, 터치에는 hover 가 없어 아예 누를 수 없다.
-  // Changes 행과 Worktrees 행이 **같은 규약**을 쓰므로 둘을 함께 고정한다.
-  test('W-VIS1: 마우스를 올리지 않아도 Worktrees 행과 Changes 행의 버튼이 보인다', async ({ page }) => {
+test.describe('행 동작의 드러남', () => {
+  /**
+   * **두 목록의 규약이 갈렸다** (사용자 지시 2026-09-08).
+   *
+   *   Worktrees 행: 그대로 **늘 보인다.** 행이 몇 개 되지 않고 이름이 짧아
+   *                 버튼이 자리를 다투지 않는다
+   *   Changes  행: **hover·선택에서만** 보인다. 접수한 말이 "버튼이 너무 많아서
+   *                 못생겼다" 였고, 수백 행이 각자 버튼 셋을 늘 세우면 목록이
+   *                 이름보다 버튼으로 읽힌다
+   *
+   * 감추는 수단은 `opacity` 다 — 자리와 히트 영역은 그대로 두고 보임만 바꾼다
+   * (`visibility:hidden` 은 폴링이 행을 갈아 끼운 순간 커서 밑의 버튼을 없앤다).
+   */
+  test('W-VIS1: Worktrees 행의 버튼은 마우스를 올리지 않아도 보인다', async ({ page }) => {
     const repo = copyFx('basic', 'wtvis');
     await waitForInit(page);
     await openWorktrees(page, repo);
@@ -549,12 +559,30 @@ test.describe('행 동작은 hover 없이 보인다', () => {
     const wtActs = wtRows(page).first().locator('.git-wt-acts');
     await expect(wtActs).toHaveCSS('opacity', '1');
     await expect(wtActs.locator('.git-wt-act').first()).toBeVisible();
+  });
 
+  test('W-VIS2: Changes 행의 버튼은 hover 에서 드러나고, 자리는 늘 잡혀 있다', async ({ page }) => {
+    const repo = copyFx('basic', 'chvis');
+    await waitForInit(page);
+    await openWorktrees(page, repo);
     // FR-RTU-32: Changes 는 사이드에 늘 있다 — 돌아갈 탭이 없다.
-    const fileActs = page.locator('#area .ed-side .git-view.git-changes .git-file .git-file-acts').first();
-    await expect(fileActs).toBeVisible({ timeout: 20000 });
+    const row = page.locator('#area .ed-side .git-view.git-changes .git-file').first();
+    await expect(row).toBeVisible({ timeout: 20000 });
+    const acts = row.locator('.git-file-acts');
+    const btn = acts.locator('.git-file-act').first();
+
+    // 투명해지는 것은 **묶음**이다 — 겹 하나가 opacity 를 지므로 자식의 계산값은
+    // 1 로 남는다 (opacity 는 상속되는 값이 아니다).
     await page.mouse.move(0, 0);
-    await expect(fileActs).toHaveCSS('opacity', '1');
-    await expect(fileActs.locator('.git-file-act').first()).toBeVisible();
+    await expect(acts).toHaveCSS('opacity', '0');
+    // **자리는 잡혀 있다.** 흐름 밖의 겹이므로 행의 크기를 흔들지 않고, 그래서
+    // hover 마다 이름 폭이 튀지 않는다.
+    const box = await btn.boundingBox();
+    expect(box!.width).toBeGreaterThanOrEqual(30);
+
+    await row.hover();
+    await expect(acts).toHaveCSS('opacity', '1');
+    const after = await btn.boundingBox();
+    expect(after!.x, 'hover 가 버튼의 자리를 옮겼다').toBe(box!.x);
   });
 });

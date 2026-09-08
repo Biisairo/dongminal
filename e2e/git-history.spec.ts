@@ -43,6 +43,37 @@ async function openHistory(page: Page, repo: string) {
 }
 
 const hist = (page: Page) => page.locator('#area .pn-body .git-view.git-history');
+
+/**
+ * PANEL_SURFACE_SRS §3.4 (요구 ⑨) — 상단이 **입력 하나 + 옵션 드롭다운**이 됐다.
+ *
+ * 정렬·필터 넷·reflog·Apply 는 드롭다운 안에 있으므로(FR-HSU-9) 손이 두 걸음이다:
+ * 열고, 채우고, Apply. 그 세 걸음을 시험마다 되풀지 않는다.
+ */
+const optsMenu = (page: Page) => page.locator('.ui-menu.git-hist-optsmenu');
+async function setFilter(page: Page, key: string, value: string) {
+  await hist(page).locator('.git-hist-opts').click();
+  await expect(optsMenu(page)).toBeVisible({ timeout: 10000 });
+  await optsMenu(page).locator(`.git-hist-f[data-f="${key}"]`).fill(value);
+  await optsMenu(page).locator('.git-hist-apply').click();
+  await expect(optsMenu(page)).toHaveCount(0);
+}
+async function filterValue(page: Page, key: string) {
+  await hist(page).locator('.git-hist-opts').click();
+  await expect(optsMenu(page)).toBeVisible({ timeout: 10000 });
+  const v = await optsMenu(page).locator(`.git-hist-f[data-f="${key}"]`).inputValue();
+  await page.keyboard.press('Escape');
+  await expect(optsMenu(page)).toHaveCount(0);
+  return v;
+}
+/**
+ * FR-HSU-6·7: `Go` 가 하던 일. 검색 입력에 리비전을 넣으면 결과 위에 그 줄이
+ * 뜨고, 그 줄을 누르면 그리로 간다.
+ */
+async function jumpTo(page: Page, rev: string) {
+  await hist(page).locator('.git-hist-search').fill(rev);
+  await hist(page).locator('.git-hist-rev.vis').click({ timeout: 30000 });
+}
 const list = (page: Page) => hist(page).locator('.git-hist-list');
 const rows = (page: Page) => hist(page).locator('.git-hist-row');
 const commits = (page: Page) => hist(page).locator('.git-hist-row[data-oid]');
@@ -239,37 +270,64 @@ test.describe('16단계 — History 탭', () => {
       seen.push(new URL(route.request().url()).searchParams.get('order') || '');
       route.continue();
     });
-    await hist(page).locator('.git-hist-order').selectOption('topo');
+    await hist(page).locator('.git-hist-opts').click();
+    await expect(optsMenu(page)).toBeVisible({ timeout: 10000 });
+    await optsMenu(page).locator('.git-hist-order').selectOption('topo');
     await expect.poll(() => seen.length, { timeout: 15000 }).toBeGreaterThan(0);
     expect(seen[0]).toBe('topo');
     await waitLoaded(page, 300);
   });
 
-  test('H10 (V49·FR-GIT-129): 검색 두 모드가 화면에 구분되고 0건이면 전체 검색을 권한다', async ({ page }) => {
+  /**
+   * H10 — **개정** (PANEL_SURFACE_SRS FR-HSU-1~5·8·14 / V-11·V-12).
+   *
+   *   이전 계약: 입력 둘 + 모드 버튼. 0건이면 "저장소 전체로 찾기" 를 권했다
+   *   새   계약: 입력 하나. 치는 동안 불러온 범위를 즉시 거르고, 손이 멎으면
+   *              **저절로** 저장소 전체로 넓힌다. 범위는 바닥의 한 줄이 말한다
+   *   이유:     범위를 고르는 것은 사용자의 일이 아니다 (D-6)
+   */
+  test('H10 (V-11·V-12 / FR-HSU-2·3·4·8·14): 입력 하나가 즉시 거르고 저절로 넓힌다',
+    async ({ page }) => {
+      await waitForInit(page);
+      await openHistory(page, fx('many-commits'));
+      await waitLoaded(page, 300);
+
+      const greps: string[] = [];
+      await page.route('**/api/git/log**', (route) => {
+        const g = new URL(route.request().url()).searchParams.get('grep');
+        if (g) greps.push(g);
+        route.continue();
+      });
+
+      const scope = hist(page).locator('.git-hist-scope');
+      // ① 로드된 300개(9700~9999) 안에 있는 제목 — 즉시 걸러진다 (FR-HSU-3).
+      await hist(page).locator('.git-hist-search').fill('commit 9998');
+      await expect.poll(() => commits(page).count(), { timeout: 10000 }).toBeGreaterThan(0);
+      await expect(scope).toHaveText(/로드된 300개 중/);
+
+      // ② 로드 범위 **밖**의 제목 — 손이 멎으면 저장소 전체로 넓어진다 (FR-HSU-4).
+      await hist(page).locator('.git-hist-search').fill('commit 12 —');
+      await expect(scope).toHaveText(/저장소 전체에서/, { timeout: 20000 });
+      await expect.poll(() => loadedCount(page), { timeout: 20000 }).toBeGreaterThan(0);
+      await expect(commits(page).first().locator('.git-hist-subject')).toHaveText(/commit 12 —/);
+
+      // FR-HSU-14: 글자마다 나가지 않는다 — 멎은 뒤 **한 번**이다.
+      expect(greps.filter((g) => g === 'commit 12 —')).toHaveLength(1);
+    });
+
+  test('H10b (V-11 / FR-HSU-2): 같은 입력이 작성자와 해시 앞자리도 찾는다', async ({ page }) => {
     await waitForInit(page);
     await openHistory(page, fx('many-commits'));
     await waitLoaded(page, 300);
 
-    const mode = hist(page).locator('.git-hist-smode');
-    await expect(mode).toHaveAttribute('data-mode', 'loaded');
-    await expect(mode).toHaveText(/로드된 범위/);
-
-    // 로드된 300개(9700~9999) 안에 있는 제목.
-    await hist(page).locator('.git-hist-search').fill('commit 9998');
-    await expect.poll(() => commits(page).count(), { timeout: 10000 }).toBeGreaterThan(0);
-    await expect(hist(page).locator('.git-hist-searchnone')).toBeHidden();
-
-    // 로드 범위 밖의 제목 — 0건이므로 저장소 전체 검색을 권한다.
-    await hist(page).locator('.git-hist-search').fill('commit 12 —');
-    const none = hist(page).locator('.git-hist-searchnone');
-    await expect(none).toBeVisible({ timeout: 10000 });
-    await expect(none).toHaveText(/300/);
-    await none.locator('.git-hist-searchrepo').click();
-    await expect(mode).toHaveAttribute('data-mode', 'repo', { timeout: 15000 });
-    await expect(mode).toHaveText(/저장소 전체/);
-    // 저장소 전체 질의는 로드 범위에 없던 커밋을 찾아낸다.
-    await expect.poll(() => loadedCount(page), { timeout: 20000 }).toBeGreaterThan(0);
-    await expect(commits(page).first().locator('.git-hist-subject')).toHaveText(/commit 12 —/);
+    const first = await page.evaluate(() =>
+      (window as any).app.gitPanel._historyView._commits[0]);
+    // 해시 앞자리 — 불러온 범위에서 즉시 걸러진다.
+    await hist(page).locator('.git-hist-search').fill(String(first.oid).slice(0, 7));
+    await expect.poll(() => commits(page).count(), { timeout: 10000 }).toBe(1);
+    // 작성자 — 픽스처의 모든 커밋이 같은 작성자이므로 하나도 빠지지 않는다.
+    await hist(page).locator('.git-hist-search').fill(String(first.authorName));
+    await expect.poll(() => commits(page).count(), { timeout: 10000 }).toBeGreaterThan(1);
   });
 
   test('H11 (V65·FR-GIT-130): author·path 필터를 git 옵션으로 내려보낸다', async ({ page }) => {
@@ -277,19 +335,19 @@ test.describe('16단계 — History 탭', () => {
     await openHistory(page, fx('many-commits'));
     await waitLoaded(page, 300);
 
-    await hist(page).locator('.git-hist-f[data-f="path"]').fill('f7.txt');
-    await hist(page).locator('.git-hist-apply').click();
+    await setFilter(page, 'path', 'f7.txt');
     // 걸러낸 결과가 오기를 기다린다 — 필터 전의 300 을 그대로 읽으면 안 된다.
     await expect.poll(() => loadedCount(page), { timeout: 20000 }).toBeLessThan(300);
     expect(await loadedCount(page)).toBeGreaterThan(0);
+    // FR-HSU-10: 걸린 필터가 있음이 접힌 채로도 배지로 보인다.
+    await expect(hist(page).locator('.git-hist-opts-badge')).toHaveText('1');
 
-    await hist(page).locator('.git-hist-f[data-f="author"]').fill('아무도아님');
-    await hist(page).locator('.git-hist-apply').click();
+    await setFilter(page, 'author', '아무도아님');
     await expect.poll(() => loadedCount(page), { timeout: 20000 }).toBe(0);
     await expect(hist(page).locator('.git-hist-empty')).toBeVisible();
   });
 
-  test('H12 (V65·FR-GIT-131): 로드 범위 밖의 해시로 jump 하면 로드한 뒤 이동한다', async ({ page }) => {
+  test('H12 (V-13 / FR-HSU-6·7): 로드 범위 밖의 해시도 리비전 줄로 이동한다', async ({ page }) => {
     const repo = fx('many-commits');
     // 로드 범위(최근 300개) 밖의 커밋.
     const far = execFileSync('git', ['-C', repo, 'rev-parse', 'main~800']).toString().trim();
@@ -297,16 +355,15 @@ test.describe('16단계 — History 탭', () => {
     await openHistory(page, repo);
     await waitLoaded(page, 300);
 
-    await hist(page).locator('.git-hist-jump').fill(far);
-    await hist(page).locator('.git-hist-jump-go').click();
+    await jumpTo(page, far);
     await expect.poll(() => loadedCount(page), { timeout: 40000 }).toBeGreaterThan(800);
     await expect(hist(page).locator(`.git-hist-row[data-oid="${far}"]`))
       .toHaveClass(/jumped/, { timeout: 20000 });
 
-    // 없는 대상은 사실만 알린다.
-    await hist(page).locator('.git-hist-jump').fill('0000000000000000000000000000000000000000');
-    await hist(page).locator('.git-hist-jump-go').click();
-    await expect(hist(page).locator('.git-hist-note')).toHaveText(/찾지 못했습니다/, { timeout: 20000 });
+    // 없는 대상은 **줄 자체가 서지 않는다** — 오류가 아니라 그냥 리비전이 아니다.
+    await hist(page).locator('.git-hist-search').fill('0000000000000000000000000000000000000000');
+    await page.waitForTimeout(2000);
+    await expect(hist(page).locator('.git-hist-rev')).not.toHaveClass(/vis/);
   });
 
   test('H13 (V65·FR-GIT-132): 로드 실패는 사유를 보이고 이미 로드된 목록을 지우지 않는다', async ({ page }) => {
@@ -327,15 +384,14 @@ test.describe('16단계 — History 탭', () => {
     await waitForInit(page);
     await openHistory(page, fx('many-commits'));
     await waitLoaded(page, 300);
-    await hist(page).locator('.git-hist-f[data-f="path"]').fill('f7.txt');
-    await hist(page).locator('.git-hist-apply').click();
+    await setFilter(page, 'path', 'f7.txt');
     await expect.poll(() => loadedCount(page), { timeout: 20000 }).toBeLessThan(300);
 
     // **리포 전환은 창 전환이다** (FR-RTU-72). `gitPanel.setRepo` 는 Repo 창의
     // 패널에서 조기 반환하므로 그 자리에 두면 아무 일도 하지 않는다.
     await openHistory(page, fx('basic'));
     // 필터가 남아 새 리포의 목록을 조용히 걸러내면 요구사항 실패다.
-    await expect(hist(page).locator('.git-hist-f[data-f="path"]')).toHaveValue('');
+    expect(await filterValue(page, 'path')).toBe('');
     await expect(hist(page).locator('.git-hist-detail')).toHaveCount(0);
     await waitLoaded(page, 1);
     await expect(commits(page).first().locator('.git-hist-subject')).not.toHaveText(/commit 9999/);
@@ -379,8 +435,7 @@ test.describe('17단계 — 커밋 상세', () => {
     await waitLoaded(page, 300);
 
     // 머지 커밋은 로드 범위 안에 있다 (200 커밋마다 하나).
-    await hist(page).locator('.git-hist-jump').fill(merge);
-    await hist(page).locator('.git-hist-jump-go').click();
+    await jumpTo(page, merge);
     const row = hist(page).locator(`.git-hist-row[data-oid="${merge}"]`);
     await expect(row).toHaveClass(/jumped/, { timeout: 20000 });
     await row.click();
@@ -437,8 +492,7 @@ test.describe('17단계 — 커밋 상세', () => {
     await openHistory(page, repo);
     await waitLoaded(page, 300);
 
-    await hist(page).locator('.git-hist-jump').fill(merge);
-    await hist(page).locator('.git-hist-jump-go').click();
+    await jumpTo(page, merge);
     const row = hist(page).locator(`.git-hist-row[data-oid="${merge}"]`);
     await expect(row).toHaveClass(/jumped/, { timeout: 20000 });
     await row.click();
@@ -769,17 +823,27 @@ test.describe('FR-GIT-280 — reflog 언급 커밋 포함', () => {
     await waitLoaded(page, 1);
 
     const dropped = hist(page).locator('.git-hist-row[data-oid]', { hasText: DROPPED });
-    const toggle = hist(page).locator('.git-hist-reflog input');
+    // FR-HSU-9: reflog 는 옵션 드롭다운 안이다.
+    const reflog = async (on: boolean) => {
+      await hist(page).locator('.git-hist-opts').click();
+      await expect(optsMenu(page)).toBeVisible({ timeout: 10000 });
+      const cb = optsMenu(page).locator('.ui-field input[type="checkbox"]');
+      if (on) await cb.check(); else await cb.uncheck();
+      await page.keyboard.press('Escape');
+      await expect(optsMenu(page)).toHaveCount(0);
+    };
     const before = await loadedCount(page);
     await expect(dropped).toHaveCount(0);
 
-    await toggle.check();
+    await reflog(true);
     await expect.poll(() => loadedCount(page), { timeout: 20000 }).toBe(before + 1);
     await expect(dropped).toHaveCount(1);
+    // FR-HSU-10: reflog 도 걸린 것이므로 배지에 센다.
+    await expect(hist(page).locator('.git-hist-opts-badge')).toHaveText('1');
 
     // 끈 것이 화면에 반영되지 않으면 사용자는 껐다고 믿는 목록에서 그 커밋을
     // 계속 본다.
-    await toggle.uncheck();
+    await reflog(false);
     await expect.poll(() => loadedCount(page), { timeout: 20000 }).toBe(before);
     await expect(dropped).toHaveCount(0);
   });

@@ -164,7 +164,7 @@ test.describe('묶음 F — stash · 파일 · 미커밋 행', () => {
     await openGit(page, repo);
     await openView(page, 'changes', /git-changes/);
 
-    const row = group(page, 'untracked').locator('.git-file[data-path="untracked.txt"]');
+    const row = group(page, 'working').locator('.git-file[data-path="untracked.txt"]');
     await expect(row).toBeVisible({ timeout: 20000 });
     await ctx(page, row);
     await item(page, 'ignore').click();
@@ -175,7 +175,7 @@ test.describe('묶음 F — stash · 파일 · 미커밋 행', () => {
       })
       .toBe('/untracked.txt\n');
     // 무시되었으므로 untracked 목록에서 사라진다 — 응답의 status 로 즉시 갱신된다.
-    await expect(group(page, 'untracked').locator('.git-file[data-path="untracked.txt"]')).toHaveCount(0);
+    await expect(group(page, 'working').locator('.git-file[data-path="untracked.txt"]')).toHaveCount(0);
   });
 
   test('F6 (V200 / FR-GIT-273): 중복 줄을 더하지 않는다 — 이미 있음을 그 자리에 알린다', async ({
@@ -188,7 +188,7 @@ test.describe('묶음 F — stash · 파일 · 미커밋 행', () => {
     await openView(page, 'changes', /git-changes/);
 
     // .gitignore 자체가 새 untracked 파일이 된다 — 대상은 그것이 아니라 tracked 변경이다.
-    const row = group(page, 'changes').locator('.git-file[data-path="tracked.txt"]');
+    const row = group(page, 'working').locator('.git-file[data-path="tracked.txt"]');
     await expect(row).toBeVisible({ timeout: 20000 });
 
     for (let i = 0; i < 2; i++) {
@@ -236,7 +236,7 @@ test.describe('묶음 F — stash · 파일 · 미커밋 행', () => {
     await openGit(page, repo);
     await openView(page, 'changes', /git-changes/);
 
-    const row = group(page, 'changes').locator('.git-file[data-path="tracked.txt"]');
+    const row = group(page, 'working').locator('.git-file[data-path="tracked.txt"]');
     await expect(row).toBeVisible({ timeout: 20000 });
     await ctx(page, row);
     await item(page, 'openFileHead').click();
@@ -275,16 +275,25 @@ test.describe('묶음 F — stash · 파일 · 미커밋 행', () => {
     await openGit(page, repo);
     await openView(page, 'changes', /git-changes/);
 
-    const row = group(page, 'changes').locator('.git-file[data-path="tracked.txt"]');
+    const row = group(page, 'working').locator('.git-file[data-path="tracked.txt"]');
     await expect(row).toBeVisible({ timeout: 20000 });
     await ctx(page, row);
     await item(page, 'fileHistory').click();
 
     // 새 조회가 아니라 이미 있는 path 필터다 (FR-GIT-129).
     await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-history/);
-    await expect(hist(page).locator('.git-hist-f[data-f="path"]')).toHaveValue('tracked.txt', {
-      timeout: 20000,
-    });
+    /**
+     * FR-HSU-13: 필터는 **드롭다운 안**으로 들어갔다 (요구 ⑨). 그래서 두 가지를
+     * 함께 본다 — 열지 않아도 걸려 있음이 배지로 보이고(FR-HSU-10), 열면 그 값이
+     * 실제로 채워져 있다.
+     */
+    await expect(hist(page).locator('.git-hist-opts-badge')).toHaveText('1', { timeout: 20000 });
+    await hist(page).locator('.git-hist-opts').click();
+    const menu = page.locator('.ui-menu.git-hist-optsmenu');
+    await expect(menu).toBeVisible({ timeout: 10000 });
+    await expect(menu.locator('.git-hist-f[data-f="path"]')).toHaveValue('tracked.txt');
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
     // 그 경로를 건드린 커밋만 남는다 — basic 은 init 하나뿐이다.
     await expect(hist(page).locator('.git-hist-row[data-oid]')).toHaveCount(1, { timeout: 20000 });
   });

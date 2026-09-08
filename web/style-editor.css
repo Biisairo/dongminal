@@ -33,10 +33,13 @@
 /* FR-GCC-10: 탭 줄 오른쪽 여백의 새로고침. 탭은 왼쪽에서 자기 폭만 쓰고, 이
    버튼이 남은 자리의 끝에 앉는다 — `margin-left:auto` 하나면 된다. */
 .ed-side-refresh{
-  margin-left:auto;flex:0 0 auto;min-width:30px;
+  margin-left:auto;flex:0 0 auto;min-width:30px;min-height:30px;
+  display:inline-flex;align-items:center;justify-content:center;
   background:transparent;border:0;border-radius:3px;
   color:var(--text-muted);font-size:12px;cursor:pointer;
 }
+/* 요구 ③/⑤: 아이콘이 상자를 꽉 채운다 (FR-GLY-5). */
+.ed-side-refresh>.ui-icon{width:18px;height:18px}
 .ed-side-refresh:hover:not(:disabled){color:var(--accent);background:var(--accent-hover)}
 .ed-side-refresh:disabled{color:var(--text-dim);cursor:not-allowed}
 /* 균등 분할이다 — 이름이 짧다고 제 몫을 빼앗기면 폭 최소값에서 둘 다 잘린다

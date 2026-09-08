@@ -93,42 +93,48 @@ test.describe('묶음 E — Changes 탭', () => {
     const repo = copyFx('basic', 'c4b');
     await waitForInit(page);
     await openGit(page, repo);
-    await expect(rows(page, 'untracked').first()).toBeVisible({ timeout: 10000 });
+    await expect(rows(page, 'working').first()).toBeVisible({ timeout: 10000 });
 
     mkdirSync(join(repo, 'newdir', 'nested'), { recursive: true });
     writeFileSync(join(repo, 'newdir', 'nested', 'doc.md'), '# hi\n');
 
     // 디렉터리가 아니라 **파일**이 목록에 온다.
-    const doc = group(page, 'untracked').locator('.git-file[data-path="newdir/nested/doc.md"]');
+    const doc = group(page, 'working').locator('.git-file[data-path="newdir/nested/doc.md"]');
     await expect(doc).toBeVisible({ timeout: 10000 });
     // 접힌 디렉터리 항목은 없다.
-    const paths = await rows(page, 'untracked').evaluateAll(
+    const paths = await rows(page, 'working').evaluateAll(
       (els) => els.map((e) => (e as HTMLElement).dataset.path || ''));
     expect(paths.filter((p) => p.endsWith('/')), '디렉터리가 항목으로 왔다').toEqual([]);
     // 이름이 비어 있는 행이 없다.
-    const names = await rows(page, 'untracked').locator('.git-file-path').allTextContents();
+    const names = await rows(page, 'working').locator('.git-file-path').allTextContents();
     expect(names.filter((n) => !n.trim()), '이름이 빈 행이 있다').toEqual([]);
 
     // 클릭하면 본문이 그 파일을 연다 (REPO_TAB_UNIFY_SRS FR-RTU-40 — 사이드의
-    // 인라인 미리보기는 폐기됐다, §7 D-RTU-22). untracked 이므로 diff 가 아니라
-    // **편집기 탭**이다 (FR-RTU-51 / D-RTU-8): 비교할 왼쪽이 없다.
+    // 인라인 미리보기는 폐기됐다, §7 D-RTU-22). 새 파일은 **비교의 왼쪽이 없어**
+    // 편집기 탭이다 (FR-RTU-51 — index 에 그 경로가 없다).
     await doc.click();
     const tab = page.locator('#area .ed-area .pn-tab', { hasText: 'doc.md' });
     await expect(tab).toHaveCount(1, { timeout: 10000 });
     await expect(page.locator('#area .file-editor.vis')).toContainText('hi', { timeout: 20000 });
   });
 
-  test('C4 (V23): 파일을 만들면 untracked 그룹 개수가 늘고 행이 보인다', async ({ page }) => {
+  // PANEL_SURFACE_SRS FR-CMG-1·2·3 (V-8): 워킹 그룹 하나에 수정과 새 파일이 함께
+  // 있고, 갈리는 것은 앞단의 상태 문자다. `basic` 은 수정 2 + 새 파일 1 이다.
+  test('C4 (V23 / V-8): 파일을 만들면 워킹 그룹 개수가 늘고 행이 `?` 로 보인다', async ({ page }) => {
     const repo = copyFx('basic', 'c4');
     await waitForInit(page);
     await openGit(page, repo);
 
-    const g = group(page, 'untracked');
-    await expect(g.locator('.git-group-count')).toHaveText('(1)', { timeout: 10000 });
+    const g = group(page, 'working');
+    await expect(g.locator('.git-group-count')).toHaveText('(3)', { timeout: 10000 });
     writeFileSync(join(repo, 'c4-new.txt'), 'x');
-    await expect(g.locator('.git-group-count')).toHaveText('(2)', { timeout: 10000 });
+    await expect(g.locator('.git-group-count')).toHaveText('(4)', { timeout: 10000 });
     await expect(g.locator('.git-file[data-path="c4-new.txt"]')).toBeVisible();
+    // FR-CMG-3: 출신은 상태 문자가 말한다 — 그룹이 아니다.
     await expect(g.locator('.git-file[data-path="c4-new.txt"] .git-file-st')).toHaveText('?');
+    await expect(g.locator('.git-file[data-path="tracked.txt"] .git-file-st')).toHaveText('M');
+    // FR-CMG-11: 합계 옆의 내역이 지울 것이 있는지 말한다.
+    await expect(g.locator('.git-group-count')).toHaveAttribute('title', '추적 2 · 새 파일 2');
   });
 
   test('C5 (V23): git add 한 파일이 staged 그룹에 있다', async ({ page }) => {
@@ -136,11 +142,12 @@ test.describe('묶음 E — Changes 탭', () => {
     await waitForInit(page);
     await openGit(page, repo);
 
-    await expect(rows(page, 'untracked').first()).toBeVisible({ timeout: 10000 });
+    await expect(rows(page, 'working').first()).toBeVisible({ timeout: 10000 });
     execFileSync('git', ['-C', repo, 'add', 'untracked.txt']);
     await expect(group(page, 'staged').locator('.git-file[data-path="untracked.txt"]'))
       .toBeVisible({ timeout: 10000 });
-    await expect(group(page, 'untracked').locator('.git-group-count')).toHaveText('(0)');
+    // 새 파일이 staged 로 옮겨 갔으므로 워킹 그룹은 수정 2 만 남는다.
+    await expect(group(page, 'working').locator('.git-group-count')).toHaveText('(2)');
   });
 
   test('C6 (V23): 트리/플랫 토글이 동작한다', async ({ page }) => {
@@ -149,10 +156,10 @@ test.describe('묶음 E — Changes 탭', () => {
     await openGit(page, repo);
 
     const files = changes(page).locator('.git-files');
-    await expect(rows(page, 'changes').first()).toBeVisible({ timeout: 10000 });
+    await expect(rows(page, 'working').first()).toBeVisible({ timeout: 10000 });
     // 기본은 플랫 — 디렉터리 노드가 없고 경로가 통째로 보인다.
     await expect(files.locator('.git-dir')).toHaveCount(0);
-    await expect(rows(page, 'changes').filter({ hasText: '디렉터리 한글/파일 이름.txt' })).toHaveCount(1);
+    await expect(rows(page, 'working').filter({ hasText: '디렉터리 한글/파일 이름.txt' })).toHaveCount(1);
 
     await files.locator('.git-files-mode[data-mode="tree"]').click();
     await expect(files.locator('.git-dir').first()).toBeVisible();
@@ -168,7 +175,7 @@ test.describe('묶음 E — Changes 탭', () => {
     await waitForInit(page);
     await openGit(page, repo);
 
-    const row = rows(page, 'untracked').first();
+    const row = rows(page, 'working').first();
     await expect(row).toBeVisible({ timeout: 10000 });
     // 17단계가 이 메뉴를 GitMenu 프레임워크로 흡수했다 (FR-GIT-146).
     const menu = page.locator('.git-menu');
@@ -205,7 +212,7 @@ test.describe('묶음 E — Changes 탭', () => {
 
     const commit = changes(page).locator('.git-commit');
     const files = changes(page).locator('.git-files');
-    await expect(rows(page, 'changes').first()).toBeVisible({ timeout: 20000 });
+    await expect(rows(page, 'working').first()).toBeVisible({ timeout: 20000 });
     await expect(commit).toBeInViewport();
     const before = (await commit.boundingBox())!;
 
@@ -225,29 +232,29 @@ test.describe('묶음 E — Changes 탭', () => {
     const repo = fx('many-files'); // 변경 파일 2000개
     await waitForInit(page);
     await openGit(page, repo);
-    await expect(rows(page, 'changes').first()).toBeVisible({ timeout: 20000 });
+    await expect(rows(page, 'working').first()).toBeVisible({ timeout: 20000 });
 
     // 개수 배지는 전부를 세지만 DOM 은 첫 덩어리만 갖는다 — 수천 행을 한 번에
     // 만들면 렌더가 화면을 멈춘다.
     // constants.js 의 const 는 window 프로퍼티가 아니다 — 전역 식별자로 읽는다.
     const chunk = await page.evaluate(() => GIT_FILE_ROW_CHUNK);
     expect(chunk, '청크 상수를 읽지 못했다').toBeGreaterThan(0);
-    await expect(group(page, 'changes').locator('.git-group-head'))
+    await expect(group(page, 'working').locator('.git-group-head'))
       .toContainText('2000');
-    const first = await rows(page, 'changes').count();
+    const first = await rows(page, 'working').count();
     expect(first, `첫 렌더가 ${first}행이다 — 청크(${chunk})를 넘으면 이어 그리는 것이 아니다`)
       .toBeLessThanOrEqual(chunk);
 
     // 끝까지 스크롤하면 다음 덩어리가 이어진다.
-    const more = group(page, 'changes').locator('.git-file-more');
+    const more = group(page, 'working').locator('.git-file-more');
     await expect(more).toHaveCount(1);
     await more.scrollIntoViewIfNeeded();
     await expect
-      .poll(() => rows(page, 'changes').count(), { timeout: 20000 })
+      .poll(() => rows(page, 'working').count(), { timeout: 20000 })
       .toBeGreaterThan(first);
 
     // 그래도 전부를 그리지는 않는다 — 이어 그리기가 무한 확장이면 뜻이 없다.
-    expect(await rows(page, 'changes').count()).toBeLessThan(2000);
+    expect(await rows(page, 'working').count()).toBeLessThan(2000);
   });
 
   test('C9 (FR-GIT-36): rename 한 파일이 원본 → 대상 으로 보인다', async ({ page }) => {

@@ -112,19 +112,39 @@ const GIT_PIN_FAIL_LABEL='리포 추가 실패';
 
 // 그룹 순서. 충돌이 맨 위인 이유는 그것이 먼저 해결돼야 하는 상태이기 때문이다.
 const GIT_GROUPS=[
-  {key:'conflicts',name:'Conflicts'},
+  /**
+   * `hideEmpty` — **비어 있으면 아예 서지 않는다** (사용자 지시 2026-09-08:
+   * "conflicts 그룹은 컨플릭트 있을때만 나타나게 하자").
+   *
+   * 빈 그룹도 개수를 보이는 것이 이 목록의 기본이다 — 숨기면 "없다" 와 "모른다" 가
+   * 같아지기 때문이다. 충돌만 예외인 근거는 그것이 **예외 상태**라는 것이다:
+   * 스테이지와 워킹은 저장소가 언제나 갖는 두 자리라 "0개" 가 사실을 말하지만,
+   * 충돌은 머지가 멈춰 있는 동안에만 존재하고 그 밖의 시간에는 물음 자체가 없다.
+   * 늘 서 있는 `Conflicts (0)` 은 답이 아니라 소음이다.
+   */
+  {key:'conflicts',name:'Conflicts',hideEmpty:true},
   {key:'staged',   name:'Staged'},
-  {key:'changes',  name:'Changes'},
-  {key:'untracked',name:'Untracked'},
+  // PANEL_SURFACE_SRS FR-CMG-1 / D-8: `changes` 와 `untracked` 는 **한 그룹**이다.
+  // 둘은 diff 축도 행 동작도 그룹 일괄도 같았고(§2.3), 갈리는 것은 상태 문자와
+  // 폐기의 명령뿐이다 — 앞의 것은 행이 보이고(FR-CMG-3), 뒤의 것은 확인창이
+  // 나눠 보인다 (FR-CMG-7).
+  {key:'working',  name:'Changes'},
 ];
+/**
+ * 화면의 그룹 하나가 서버 응답의 어느 배열들인가 (D-7·D-8).
+ *
+ * 서버는 네 배열을 그대로 보낸다 — 각 행이 자기 출신을 알아야 폐기가 옳은 명령으로
+ * 가고(FR-CMG-4), 응답 모양은 e2e·다른 뷰·다이얼로그가 함께 딛는 공개 계약이다.
+ * 여기 없는 키는 서버 배열 이름이 곧 그룹 이름이다.
+ */
+const GIT_GROUP_SRC={working:['changes','untracked']};
 // 그룹이 diff 축을 결정한다 (FR-GIT-52). 값은 /api/git/diff-content 의 axis 인자다.
 // commit-parent 는 다른 셋과 달리 리비전을 인자로 받는다 (FR-GIT-138·139) —
 // worktree·index·HEAD 는 암묵적 리비전이지만 커밋 축은 두 커밋을 명시해야 한다.
 const GIT_AXIS={STAGED:'index-head',UNSTAGED:'worktree-index',CONFLICT:'worktree-head',
   COMMIT:'commit-parent'};
 const GIT_GROUP_AXIS={
-  staged:GIT_AXIS.STAGED,   changes:GIT_AXIS.UNSTAGED,
-  untracked:GIT_AXIS.UNSTAGED, conflicts:GIT_AXIS.CONFLICT,
+  staged:GIT_AXIS.STAGED, working:GIT_AXIS.UNSTAGED, conflicts:GIT_AXIS.CONFLICT,
 };
 /**
  * REPO_TAB_UNIFY_SRS FR-RTU-50 / D-RTU-7: **오른쪽이 디스크의 파일인 축.**
@@ -157,11 +177,11 @@ const GIT_STALE_NOTE='갱신 실패';
 // FR-RTU-52: 저장 실패는 그 자리에 남는다 — 알림창은 닫는 순간 사유가 사라진다.
 const GIT_DIFF_SAVE_FAIL='저장하지 못했습니다';
 // FR-GIT-238: 새로고침. 이모지를 쓰지 않는다 (FR-GIT-187·192 와 같은 어휘).
-const GIT_REFRESH_LABEL='⟳';
+const GIT_REFRESH_LABEL='refresh-cw';
 // FR-GCC-8: 파일 목록의 보기 방식. 같은 패널의 언어를 하나로 모은다 — 글자
 // 버튼 둘만 남으면 그 줄에서 눈이 한 번 더 멎는다. 툴팁은 이미 있는
 // `GIT_FILE_VIEW_TITLE` 이 말한다 — 같은 것을 두 벌로 두지 않는다.
-const GIT_FILES_MODE_ICON={tree:'⊟',flat:'☰'};
+const GIT_FILES_MODE_ICON={tree:'folder',flat:'list'};
 const GIT_REFRESH_TITLE='Refresh everything — status, History, Branches and Console';
 const GIT_ERR_NOT_REPO='저장소가 아닙니다';
 const GIT_ERR_GIT_MISSING='git 을 찾을 수 없습니다';
@@ -203,13 +223,15 @@ const GIT_TREE_PAD0=6;
 // FR-WBR-50·51: 그룹당 **여럿**이다. 값이 배열인 이유가 그것이고, **순서가 곧
 // 손에서의 거리**다 — 파괴적인 것이 오른쪽에 온다. 행 동작의 원칙(FR-GIT-236)을
 // 그룹 머리로 옮긴 것이다.
-const GIT_GROUP_BULK={staged:['unstage'],changes:['stage','discard'],untracked:['stage','discard']};
+// FR-CMG-6: 워킹 그룹의 일괄은 `stage` 하나와 `discard` 하나다 — 두 출신이 같은
+// 버튼을 지나고, 되돌림과 삭제를 가르는 것은 확인창이다 (FR-CMG-7).
+const GIT_GROUP_BULK={staged:['unstage'],working:['stage','discard']};
 // 행 hover 버튼. 그룹이 할 수 있는 동작만 보인다 — staged 행의 `+` 는 뜻이 없다.
 // FR-GIT-236: Open File 이 먼저다 — 읽는 동작을 쓰는 동작 앞에 둔다. 되돌리기가
 // 늘 끝에 오므로 파괴적인 것이 손에서 가장 멀다.
 const GIT_ROW_ACTS={
-  staged:['openFile','unstage'], changes:['openFile','stage','discard'],
-  untracked:['openFile','stage','discard'], conflicts:['openFile','ours','theirs','stage'],
+  staged:['openFile','unstage'], working:['openFile','stage','discard'],
+  conflicts:['openFile','ours','theirs','stage'],
 };
 // UX_REVISION_SRS FR-STC-2: 상태문자 → CSS 클래스. 색은 style.css 한 자리에서
 // 정한다 (FR-STC-3). 여기 없는 문자는 `other` 로 떨어져 기존 색을 유지한다.
@@ -238,9 +260,43 @@ const GIT_DIR_ACT_TITLE={stage:'Stage this whole folder',unstage:'Unstage this w
 // FR-DBA-4: 두 그룹의 폐기는 같은 명령이 아니다 — tracked 는 index 로 되돌리고,
 // untracked 는 **파일을 지운다**. `GIT_BULK_TITLE_GROUP` 과 같은 규약이며 갈리는
 // 것이 이 하나뿐이라 예외만 적는다.
-const GIT_DIR_ACT_TITLE_GROUP={untracked:{discard:'Delete every file in this folder — this cannot be undone'}};
+// FR-CMG-9: 한 폴더 아래에 두 출신이 섞일 수 있다. 정확한 내역은 확인창이
+// 보이므로(FR-CMG-7) 툴팁은 **지우는 것이 섞여 있을 수 있다**는 사실만 말한다.
+const GIT_DIR_ACT_TITLE_GROUP={working:{discard:'Discard everything in this folder — new files here are deleted and cannot be undone'}};
 const GIT_ST_CLASS={M:'mod',A:'add',D:'del',R:'ren',C:'cpy','?':'new',U:'conf'};
+// porcelain 의 상태 문자 중 **판정에 쓰는 것**. 문자열을 코드에 흩뿌리면 어느
+// 규칙의 문자인지 알 수 없게 된다 (FR-RTU-51 의 "왼쪽이 없다" 가 이 하나다).
+const GIT_ST_ADDED='A';
 const GIT_ACT_LABEL={openFile:'↗',stage:'+',unstage:'−',discard:'↺',ours:'Ours',theirs:'Theirs'};
+/**
+ * UI_KIT_SRS §7.1 / FR-GLY-4: 문자 라벨의 **아이콘 이름**. 여기 없는 동작
+ * (`ours`·`theirs`)은 글자로 남는다 — 어휘이지 아이콘이 아니다 (FR-GLY-8).
+ *
+ * 크기는 여기서 정하지 않는다. `.ui-icon` 이 버튼 높이에서 파생시킨다 (FR-GLY-5) —
+ * 그래서 요구 ⑤("아이콘이 버튼을 꽉 채운다")가 자리마다 다시 적히지 않는다.
+ */
+const GIT_ACT_ICON={openFile:'external-link',stage:'plus',unstage:'minus',discard:'undo'};
+/**
+ * 행·폴더·그룹 머리가 함께 서는 **열**. 셋이며 순서가 곧 손에서의 거리다 —
+ * 읽는 것이 앞, 되돌릴 수 없는 것이 끝이다.
+ *
+ * 접수한 말이 "conflicts/staged/changes 에 있는 버튼들과 파일 및 폴더에 있는
+ * 버튼들이 정렬이 안되었다" 다. 열을 그룹마다 세면 그룹이 가진 동작 수만큼
+ * 오른쪽 정렬이 밀린다 — 열을 **문서 하나**로 두고 없는 자리는 자리지킴이 메운다
+ * (FR-DBA-3 을 모든 자리로 넓힌 것이다).
+ *
+ * 한 열에 두 이름이 있는 것은 `stage`/`unstage` 뿐이다 — 같은 자리의 반대 동작이다.
+ * 그 밖의 동작(`ours`·`theirs`)은 글자 버튼이라 폭이 다르므로 세 열 **앞**에 선다.
+ */
+const GIT_ACT_COLS=[['openFile'],['stage','unstage'],['discard']];
+/**
+ * 그룹 머리·폴더가 쓰는 열. 열기는 그 자리의 동작이 아니므로 빠진다.
+ *
+ * 뺄 수 있는 근거는 **오른쪽 정렬**이다 — 뒤에서부터 맞으므로 앞 열이 몇 개든
+ * 폐기와 스테이지는 파일 행의 같은 자리에 선다. 열을 셋으로 두면 머리에서
+ * 30px 이 자리지킴으로 죽고, 220px 사이드에서 그만큼 그룹 이름이 잘린다 (실측).
+ */
+const GIT_BULK_COLS=GIT_ACT_COLS.slice(1);
 // ours·theirs 의 툴팁은 **진행 중인 조작에 따라 달라지므로** 여기 두지 않는다 —
 // 행이 GIT_SIDE_TITLE 에서 그때 고른다 (FR-GIT-224).
 const GIT_ACT_TITLE={openFile:'Open this file',stage:'Stage',unstage:'Unstage',discard:'Discard changes'};
@@ -256,7 +312,13 @@ const GIT_ACT_TITLE={openFile:'Open this file',stage:'Stage',unstage:'Unstage',d
 // 명령이 아니다 — tracked 는 index 로 되돌리고(`checkout -q`), untracked 는
 // **파일을 지운다**(`clean -q -f`). 그룹별로 다른 것이 이 하나뿐이라 예외만 적는다.
 const GIT_BULK_TITLE={stage:'Stage all',unstage:'Unstage all',discard:'Discard all changes'};
-const GIT_BULK_TITLE_GROUP={untracked:{discard:'Delete all these files — this cannot be undone'}};
+const GIT_BULK_TITLE_GROUP={working:{discard:'Discard everything here — new files are deleted and cannot be undone'}};
+// FR-CMG-5: **행**의 폐기는 그 행의 출신에 따라 갈린다 — 새 파일의 폐기는 삭제다.
+// 그룹이 아니라 항목이 답을 주는 자리이므로 표가 따로 있다.
+const GIT_ACT_TITLE_UNTRACKED={discard:'Delete this file — this cannot be undone'};
+// FR-CMG-11: 머리의 개수는 합계다. 합계만으로는 지울 것이 있는지 보이지 않으므로
+// 내역을 툴팁에 적는다.
+const GIT_GROUP_COUNT_TITLE=(n,m)=>'추적 '+n+' · 새 파일 '+m;
 // FR-GIT-70: staged 와 unstaged 를 동시에 가진 파일. 체크박스의 indeterminate 와
 // 행 클래스 둘로 구분한다 — 색만으로는 무엇이 다른지 알 수 없다.
 const GIT_PARTIAL_TITLE='일부만 스테이지됨';
@@ -496,6 +558,10 @@ const GIT_CONFIRM_NO_HINT='복구 수단이 없습니다 — 이 동작은 되�
 const GIT_CONFIRM_CHANGED='대상이 변경되었습니다';
 // FR-GIT-91: 개수는 목록과 함께 보이는 것이다 — 개수만 보이면 요구사항 실패다.
 const GIT_CONFIRM_COUNT_LABEL='대상';
+// FR-CMG-7: 일괄 폐기의 확인창은 두 무리를 **나눠** 보인다. 되돌릴 수 없는 삭제가
+// 되돌림과 같은 목록에 섞여 있으면 사용자는 그 차이를 볼 자리가 없다.
+const GIT_DISCARD_SECT_REVERT='되돌릴';
+const GIT_DISCARD_SECT_DELETE='지울';
 
 // ── 다이얼로그 공통 골격 (GIT_SRS §3D.3 / FR-GIT-171~178) ──
 
@@ -512,7 +578,9 @@ const GIT_DIALOG_RADIO='radio';
 const GIT_DIALOG_WHY='why';
 const GIT_DIALOG_WHY_PENDING='pending';
 // FR-GIT-178 의 상태 지문에 넣는 그룹. 대상 파일들의 `xy` 조합이다.
-const GIT_DIALOG_FP_GROUPS=['staged','changes','conflicts','untracked'];
+// FR-CMG-13: 화면과 **같은 묶음**을 딛는다 — 한쪽만 합치면 같은 파일 집합이
+// 자리마다 다르게 묶인다.
+const GIT_DIALOG_FP_GROUPS=['staged','working','conflicts'];
 
 // ── 변경 감지 3계층 (GIT_SRS §3.3 / FR-GIT-18~24) ──
 
@@ -705,7 +773,6 @@ const GIT_HIST_FILTERS=[
 const GIT_HIST_APPLY='Apply';
 // FR-TIP-1: `Apply`·`Go` 만으로는 무엇에 적용하고 어디로 가는지 보이지 않는다.
 const GIT_HIST_APPLY_TITLE='Apply these filters to the history list';
-const GIT_JUMP_GO_TITLE='Jump to this commit in the history list';
 // HISTORY_BRANCH_BUTTON_SRS FR-HBB-3: 같은 바의 라벨은 같은 자리에 모인다.
 const GIT_HIST_BRANCH='+ Branch';
 const GIT_HIST_BRANCH_TITLE='Create a branch at the current HEAD (right-click a commit to branch from it instead)';
@@ -715,24 +782,34 @@ const GIT_HIST_BRANCH_TITLE='Create a branch at the current HEAD (right-click a 
 const GIT_HIST_REFLOG='reflog';
 const GIT_HIST_REFLOG_TITLE='어떤 ref 도 가리키지 않는 커밋을 reflog 에서 찾아 함께 보인다';
 
-// 검색 두 모드 (FR-GIT-129). **두 결과가 다를 수 있음이 드러나야 한다.**
-const GIT_SEARCH_LOADED='loaded';
-const GIT_SEARCH_REPO='repo';
-const GIT_SEARCH_PLACEHOLDER='검색';
-const GIT_SEARCH_MODE_LABEL={loaded:'로드된 범위',repo:'저장소 전체'};
-const GIT_SEARCH_MODE_TITLE={
-  loaded:'Filter only the commits already loaded — instant',
-  repo:'Run the search through git across the whole repository — slower',
-};
-// 로드 범위에서 0건이면 저장소 전체를 권한다 — 권하지 않으면 사용자는 "없다"와
-// "아직 안 받았다"를 구분할 수 없다.
-const GIT_SEARCH_NONE='로드된 %n개 중에는 없습니다';
-const GIT_SEARCH_TRY_REPO='Search Whole Repo';
+/**
+ * 검색 (PANEL_SURFACE_SRS §3.4 / 요구 ⑨).
+ *
+ *   이전 동작: 입력이 **둘**이었다 — 왼쪽은 모드 버튼을 가진 검색(로드 범위 ↔
+ *              저장소 전체), 오른쪽은 리비전 이동(`Go`)
+ *   새  동작: 입력 **하나**다. 치는 동안 불러온 것을 즉시 거르고(FR-HSU-3), 손이
+ *             멎으면 저장소 전체로 자동 확장한다(FR-HSU-4). 실재하는 리비전이면
+ *             결과 위에 그 줄이 뜬다 (FR-HSU-6)
+ *   이유:     "찾는다" 는 하나의 일이다 (D-5·D-6) — 범위를 고르는 것은 사용자의
+ *             일이 아니고, `Go` 가 하던 일은 결과의 한 줄로 옮길 수 있다
+ */
+const GIT_SEARCH_PLACEHOLDER='검색 — 메시지 · 작성자 · 해시 · ref';
+// FR-HSU-14: 손이 멎은 뒤 한 번이다. 글자마다 저장소 전체를 훑지 않는다.
+const GIT_SEARCH_DEBOUNCE_MS=400;
+// FR-HSU-8: 지금 보고 있는 범위. 사용자가 "없다" 와 "아직 안 받았다" 를 가른다.
+const GIT_SEARCH_SCOPE_LOADED='로드된 %n개 중 %m개';
+const GIT_SEARCH_SCOPE_REPO='저장소 전체에서 %m개';
+const GIT_SEARCH_SCOPE_WIDENING='저장소 전체로 넓히는 중…';
+// FR-HSU-6: 입력이 실재하는 리비전일 때 결과 위에 서는 줄.
+const GIT_SEARCH_REV_MARK='이 리비전';
+const GIT_SEARCH_REV_TITLE='Jump to this commit in the history list';
+// FR-HSU-9·10: 정렬·필터·reflog 를 담는 드롭다운.
+const GIT_HIST_OPTS='옵션';
+const GIT_HIST_OPTS_TITLE='Sorting, filters and reflog';
+const GIT_HIST_OPTS_ORDER='정렬';
 
 // jump (FR-GIT-131). 상한을 넘으면 찾지 못했다고 알린다 — 무한히 받아 오지 않는다.
 const GIT_JUMP_MAX_PAGES=20;
-const GIT_JUMP_PLACEHOLDER='해시·브랜치·태그';
-const GIT_JUMP_GO='Go';
 const GIT_JUMP_NOT_FOUND='찾지 못했습니다';
 const GIT_JUMP_SEARCHING='찾는 중…';
 // 찾은 행은 잠깐 강조한다 — 스크롤만 하면 어느 줄로 갔는지 알 수 없다.
@@ -936,13 +1013,13 @@ const GIT_REMOTE_KINDS=['fetch','pull','push'];
 const GIT_REMOTE_LABEL={fetch:'Fetch',pull:'Pull',push:'Push'};
 // FR-GCC-5: **버튼의 얼굴**. 좁은 사이드에서 글자 셋과 `▾` 셋은 두 줄을 먹었고
 // `Push` 의 `▾` 는 줄을 넘겼다(실측). 무엇인지는 툴팁(GIT_REMOTE_TITLE)이 말한다.
-const GIT_REMOTE_ICON={fetch:'⤓',pull:'↓',push:'↑'};
+const GIT_REMOTE_ICON={fetch:'download',pull:'arrow-down',push:'arrow-up'};
 const GIT_REMOTE_TITLE={
   fetch:'Fetch from the remote (git fetch)',
   pull:'Fetch and merge into the current branch (git pull)',
   push:'Push the current branch to the remote (git push)',
 };
-const GIT_REMOTE_MORE='▾';
+const GIT_REMOTE_MORE='chevron-down';
 const GIT_REMOTE_MORE_TITLE='More options';
 // FR-TIP-2: 이 둘은 **툴팁 전용**이다 — 꺼진 버튼의 사유를 title 로만 알린다
 // (FR-GIT-101). 화면에 글자로 서는 자리가 없으므로 영어로 옮긴다.

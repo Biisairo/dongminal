@@ -97,7 +97,7 @@ test.describe('FR-RPT — Changes 목록 (V104~V107)', () => {
     const repo = copyFx('basic', 'p4');
     await waitForInit(page);
     await openGit(page, repo);
-    const untracked = page.locator('.git-view.git-changes .git-group[data-group="untracked"]');
+    const untracked = page.locator('.git-view.git-changes .git-group[data-group="working"]');
     await expect(untracked.locator('.git-file').first()).toBeVisible();
     const count = untracked.locator('.git-group-count');
     const was = (await count.textContent())!;
@@ -164,7 +164,7 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     await waitForInit(page);
     await openGit(page, repo);
     // 쓰기 하나가 기록을 만든다 — Console 은 쓰기와 실패만 기본으로 보인다.
-    await page.locator('.git-view.git-changes .git-group[data-group="untracked"] .git-file')
+    await page.locator('.git-view.git-changes .git-group[data-group="working"] .git-file')
       .first().locator('.git-file-act[data-act="stage"]').click();
     await clickGitView(page, 'console');
     const sel = '#area .pn-body .git-view.git-console .git-con-row';

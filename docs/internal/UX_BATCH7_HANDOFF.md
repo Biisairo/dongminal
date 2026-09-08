@@ -12,16 +12,29 @@
 
 | # | 요구 | 묶음 | 상태 |
 |---|---|---|---|
-| ① | agents 패널에 창별 그룹 · 그룹 안 드래그 | B | 미착수 |
+| ① | agents 패널에 창별 그룹 · 그룹 안 드래그 | B | **완료** |
 | ② | 알림 시 가장자리 점멸 (0~10, 기본 5) | C | **완료** |
 | ③ | 모바일: `⌨` 눌렀을 때만 키보드 · `⌨` 를 맨 왼쪽 · `^C` 추가 | C | 미착수 |
 | ④ | 접힌 사이드바에서도 목록 보이기 | B | 미착수 |
-| ⑤ | 아이콘이 작다 — 버튼을 꽉 채우게 | A | **진행 중** (표면 4/10) |
-| ⑥ | 버튼·탭 등 중복 UI 공통화 (JS 팩토리까지) | A | **진행 중** (키트 완성, 이전 4/10) |
-| ⑦ | Changes 에서 changes/untracked 통합 | B | 미착수 |
+| ⑤ | 아이콘이 작다 — 버튼을 꽉 채우게 | A | **진행 중** (표면 5/10 — git 패널 포함) |
+| ⑥ | 버튼·탭 등 중복 UI 공통화 (JS 팩토리까지) | A | **진행 중** (키트 완성, 이전 5/10) |
+| ⑦ | Changes 에서 changes/untracked 통합 | B | **완료** |
 | ⑧ | 크기조절 핸들에 양쪽 크기 실시간 표시 | A | **팩토리만 완료** — 여섯 자리 배선이 남음 |
-| ⑨ | History 검색 둘을 하나로 · 옵션은 드롭다운 | B | 미착수 |
+| ⑨ | History 검색 둘을 하나로 · 옵션은 드롭다운 | B | **완료** |
 | ⑩ | Run 의 context 표기 + 조정자 자신의 사용량 | C | 미착수 |
+| ⑪ | **폴링 주기를 설정에서 조절** (2026-09-08 접수) | — | 미착수 |
+
+**2026-09-08 후반에 추가로 접수한 다섯:**
+
+| 접수한 말 | 한 일 |
+|---|---|
+| "git changes 에서 open file/stage/discard 버튼이 너무 많아서 못생겼다… 정렬이 안되었다… 좁아지면 버튼이 아래로 간다" → 인터뷰 답: **"hover 에서만 펼치고 아이콘만 남기고 테두리 제거, 열도 맞춰"** | 행·폴더의 동작을 **흐름 밖의 겹**으로 옮겼다 (`.git-file-acts{position:absolute;right:6px}`). 안 보일 때 이름이 폭을 다 쓰고(220px 에서 120→185px 실측), 보일 때는 오른쪽 오프셋이 같아 그룹 머리·파일·폴더의 열이 **구조로** 맞는다. 열은 `GIT_ACT_COLS` 셋이고 없는 자리는 `.git-act-gap` 이 메운다. 머리의 일괄은 같은 겹이되 **늘 보인다** |
+| "git fetch, pull, push 아이콘이 너무 작다… 모든 버튼안에는 아이콘이 꽉 차야한다" | git 패널의 문자 라벨을 스프라이트 아이콘으로 옮겼다 (UI_KIT_SRS §7.1 의 표 그대로). `⤓↓↑`→`download`·`arrow-down`·`arrow-up`, `↗+−↺`→`external-link`·`plus`·`minus`·`undo`, `⟳`→`refresh-cw`, `⊟☰`→`folder`·`list`, `▾`→`chevron-down`. 크기는 버튼 높이에서 파생한다 (FR-GLY-5) |
+| "diff 를 열면 상단에 불러오는중이 계속 깜빡인데 풀링으로 인한 문제로 보인다" | `GitDiffView.show()` 가 **매번** `_setNote(GIT_LOADING_HINT)` 를 세우고 있었고 `reloadDiff` 는 관측 회차마다 부른다 (FR-GLV-1). 그릴 것이 이미 서 있으면(`this._editor`) 조용히 받는다 |
+| "여전히 git 이 실시간 업데이트가 되지 않음… 새로고침을 눌러서만 갱신이 됨" | 격리 인스턴스에서는 **재현되지 않았다** (아래 §4 참고). 조사 중 결함 둘을 찾아 고쳤다: ① `_onGitChanged` 가 방송의 경로와 패널의 경로를 문자열 그대로 견주어, 심볼릭 링크로 연 저장소는 방송을 한 건도 받지 못했다, ② 서버의 `obsMark` 에 `Conflicts` 가 빠져 있어 머지 중 충돌 파일의 변화가 방송되지 않았다 |
+| "staged 에 들어간 파일이 수정되지 않았다면 원본/파일간의 diff 를, 수정되었다면 staged/수정된 결과물간의 diff 를" | 실측 결과 **이미 그렇게 동작한다.** 부분 스테이지 파일에서 STAGED 행은 `index↔HEAD`(`ko`→`ko,both`), CHANGES 행은 `worktree↔index`(`ko,both`→`ko,both,and more`) 다. 스테이지된 것이 없는 파일에서 index 가 HEAD 와 같아 "HEAD ↔ 작업본" 처럼 보이는 것은 비교 대상이 실제로 그것뿐이기 때문이다 |
+| "새파일이든 수정파일이든 하는거야 … 실제 vsc 동작처럼" → "새 파일은 그냥 editor 로 열리는데 새 파일을 스테이징한 뒤 수정하고 diff 를 열면 diff 로 보이는거야. 다시 스테이징하거나 언스테이징하면 editor 로 열리고" | 가르는 규칙을 **그룹에서 항목으로** 옮겼다 (`_noBaseline`). 판정은 "그 행의 축에서 **왼쪽이 실재하는가**" 하나이며, 없는 자리는 둘뿐이다 — 워킹 그룹의 새 파일(index 에 없다)과 staged 그룹의 추가 `A`(HEAD 에 없다). 삭제는 없는 것이 **오른쪽**이므로 그대로 diff 다 |
+| "conflicts 그룹은 컨플릭트 있을때만 나타나게 하자" | `GIT_GROUPS` 에 `hideEmpty` 를 두고 충돌에만 붙였다 (FR-CMG-1a) |
 
 **작업 중 추가로 접수한 넷** (전부 완료):
 
@@ -60,6 +73,36 @@
 > - 부모에 `opacity:<1` 을 두면 backdrop root 가 생겨 자식의 `backdrop-filter` 가 **바깥 화면을 보지 못한다.**
 > - 같은 요소의 `clip-path` 는 `mask-image` 를 **무효로 만든다.**
 
+### 2.4 git 그룹은 **화면의 것**이고 출신은 **항목의 것**이다
+
+`GIT_GROUPS` 는 화면이 보이는 묶음이고, 서버 응답의 배열 이름과 더는 1:1 이 아니다.
+그 사상은 `GIT_GROUP_SRC` 한 자리에 있고 `gitGroupEntries(status,key)` 가 그것을 읽는다 —
+그리는 쪽(`_paintGroup`)·대상을 모으는 쪽(`_group`)·다이얼로그 지문이 **같은 함수**를 지난다.
+
+행이 무엇인지는 그룹이 아니라 **항목**이 말한다:
+
+| 물음 | 판정 |
+|---|---|
+| 새 파일인가 | `e.untracked` (서버가 이미 싣는다) |
+| 폐기가 삭제인가 | `i.untracked` — `_target()` 이 대상마다 싣는다 |
+| 편집기로 열 것인가 | `_noBaseline(group,e)` — 그 축의 **왼쪽이 실재하는가** |
+
+**그룹 이름으로 갈래를 만들지 않는다.** 워킹 그룹에는 두 출신이 함께 있으므로
+`group==='untracked'` 류의 판정은 전부 거짓이 된다.
+
+### 2.5 git 패널의 동작 버튼은 **흐름 밖의 겹**이다
+
+`.git-file-acts` 는 `position:absolute;right:6px` 이고 hover·선택에서만 보인다.
+열은 `GIT_ACT_COLS` 셋(열기·스테이지·폐기)이며 없는 자리는 `.git-act-gap` 이 메운다.
+그룹 머리(`GIT_BULK_COLS`, 두 열)는 같은 오른쪽 오프셋을 쓰므로 **구조로** 정렬된다 —
+오른쪽 정렬이라 앞 열이 몇 개든 뒤가 맞는다.
+
+> **함정** — 165px 아래에서는 컨테이너 쿼리로 옛 규약(흐름 안 + 줄 늘리기)으로
+> 되돌린다. `REPO_SIDE_W_MIN` 이 100px 이고 거기에는 30px 짜리 열 셋이 들어가지
+> 않는다 (실측: 100px 에서 `discard` 의 오른쪽이 사이드보다 17px 밖). 되돌릴 때
+> `.git-file-acts` 에 `flex:0 1 auto;min-width:0` 을 주어야 한다 — `flex:0 0 auto`
+> 로는 묶음이 자기 자연폭을 고집해 줄을 넘겨도 여전히 넘친다.
+
 ### 2.3 설정이 상태가 됐다
 
 `_settingsApply(saved)` 하나가 얹는 일을 전부 지고, 부팅·SSE·소프트 리로드가 같은 길을 지난다.
@@ -72,16 +115,37 @@
 
 ### 3.1 묶음 B (사용자 체감이 가장 큼, git 충돌 위험 해소됨)
 
-1. **① agents 창 그룹** (`app-agents.js`) — `_agentsRender` 가 `_findToolLocation` 으로 창을 이미
+> ①·⑦ 은 **끝났다.** 아래 1·2 는 무엇을 했는지의 기록이고, 남은 것은 3·4 다.
+
+1. ~~**① agents 창 그룹**~~ (`app-agents.js`) — `_agentsRender` 가 `_findToolLocation` 으로 창을 이미
    알고 있다. 그룹은 **파생**이며 `ws` 에 저장하지 않는다 (D-9). 순서는 `ws.agentsOrder` 그대로 두고
    창별로 거른다 (D-10). 카드의 `.ag-loc` 에서 창 이름을 빼고 머리로 올린다 (FR-AGG-13).
-2. **⑦ changes/untracked 통합** (`constants-git.js`·`panel-changes.js`) — 서버 응답은 건드리지 않고
+2. ~~**⑦ changes/untracked 통합**~~ (`constants-git.js`·`panel-changes.js`) — 서버 응답은 건드리지 않고
    화면에서만 합친다 (D-7). 그룹 키는 `working` 하나(D-8). **일괄 폐기는 확인창이 유일한 방어선**이므로
    그 경로 없이 실행되는 길이 없어야 한다 (FR-CMG-7).
-3. **⑨ History 검색 통합** (`history.js`) — 입력 하나 + 옵션 드롭다운(`UIKit.menu`). 저장소 전체 확장은
+3. ~~**⑨ History 검색 통합**~~ (`history.js`) — 입력 하나 + 옵션 드롭다운(`UIKit.menu`). 저장소 전체 확장은
    `--grep` 갈래만이다 (D-13). 리비전으로 해석되면 결과 맨 위에 한 줄 (D-12).
+   **구현이 밝힌 예외 하나**: 입력이 리비전으로 해석되면 `--grep` 확장을 **하지 않는다** —
+   해시를 메시지 검색으로 보내면 0건이 돌아와 목록이 비고, 방금 뜬 리비전 줄이 가리키는
+   커밋조차 사라져 누를 곳으로 갈 수 없게 된다 (PANEL_SURFACE_SRS §5.1).
 4. **④ 레일 목록** (`style.css` 의 `html.sb-collapsed` 절 + `SidebarList`) — 서술자를 그대로 쓰고
    레일 전용 데이터를 만들지 않는다 (D-11).
+
+4. **④ 레일 목록** — 이번 세션에서 착수했다가 **되돌렸다** (git 이 아니므로 다음 세션).
+   되돌리기 전까지 확인한 것: `SidebarList._build` 가 `title` 을 조건부로만 붙이므로
+   FR-RAL-3 을 위해 `r.title || r.name` 으로 항상 채워야 하고, FR-RAL-9(레일에서 재배치
+   금지)는 CSS 로 되지 않아 `_bindDrag` 의 `dragstart` 에서 `app._sidebarCollapsed()` 로
+   막아야 한다. 나머지는 `html.sb-collapsed body:not(.mobile) .sb-panel{display:none}`
+   (`style.css:222`) 한 줄을 걷고 `.sbl-item` 을 40px 로 줄이는 CSS 다.
+
+### 3.1a ⑪ 폴링 주기 설정 (2026-09-08 접수)
+
+> "polling 이 한쪽에 모여있잖아? setting 에서 이 값을 조절할 수 있도록."
+
+주기의 진실은 **`state-registry.js` 의 선언**과 `constants-git.js` 의 상수 몇이다.
+설정에 손잡이를 다는 일은 값을 옮기는 것이 아니라 **그 선언이 설정을 읽게** 하는 것이다 —
+`_settingsApply` 한 자리(§2.3)가 이미 그 길이므로 새 전파 경로를 만들지 않는다.
+`agentsPollMs` 가 그 모양의 선례다 (`app-agents.js` 의 `_initAgentsSettings`).
 
 ### 3.2 묶음 A 잔여
 
@@ -103,10 +167,25 @@
 
 ## 4. 확인·검증 메모
 
+- **최종 회귀 (2026-09-08): 1320건 중 1316 통과.** 남은 넷 중 셋(`git-changes` C12 ·
+  `git-history` H14 · `git-repaint` P8)은 단독 재실행으로 통과하는 플레이키이고,
+  넷째(`repo-diff-edit` D5)는 위의 "상태 문자를 기다린다" 로 고쳤다.
 - 회귀는 `npx playwright test` 다. 이 세션에서 `unfocused-edge.spec.ts` 를 **새 규약에 맞게 고쳤다**
   (세기가 곧 opacity · `backdrop-filter` · 마스크 5장). 그것은 회귀가 아니라 의도된 변경이다.
-- 묶음 B 는 `git-changes`·`git-discard-all`·`git-history`·`git-dialog`·`activity`·`sidebar-collapse` 를
-  **함께 고쳐야 한다** (PANEL_SURFACE_SRS §5).
+- 묶음 B 는 e2e **열여덟**을 함께 고쳤다 (§5 가 넷으로 봤던 것). 목록과 함정 둘은
+  PANEL_SURFACE_SRS §5 에 적었다.
+- **행 동작이 hover 규약이 되면서 e2e 의 습관이 하나 바뀌었다**: `.git-file-act` 를
+  누르기 전에 그 행을 `hover()` 해야 한다. 겹이 `pointer-events:none` 이므로
+  hover 없이는 클릭이 닿지 않는다 (`git-improve` V132·V133, `slot-view-state`
+  TC-SVS-23 이 그 자리였다). 그리고 투명해지는 것은 **묶음**이므로 opacity 를 잴
+  때는 `.git-file-acts` 를 봐야 한다 — opacity 는 상속되는 값이 아니라 자식의
+  계산값은 1 로 남는다.
+- **⑦ 이후 "행이 보인다" 는 상태 전환의 증거가 아니다.** 같은 파일이 상태가 바뀌어도
+  같은 워킹 그룹에 그대로 있으므로, 스테이지 전후를 가르려면 **상태 문자**(`?`→`M`,
+  `A`)를 기다려야 한다 (`repo-diff-edit` D5 가 그 자리였다).
+- **e2e 를 도는 중에 소스를 고치지 마라.** 브라우저가 파일을 디스크에서 읽으므로
+  달리는 검사가 반쯤 바뀐 코드를 본다 — 이 세션에서 1321건 중 388건이 그렇게 깨졌고,
+  그 결과는 회귀의 증거가 아니었다.
 - 화면을 눈으로 확인할 때는 **격리 인스턴스**를 쓴다:
   `DONGMINAL_HOME=<임시홈> ./dm start --port 58999`.
   **`dongminal stop` 과 `pkill -f dongminal` 은 쓰지 않는다** — 홈을 격리해도 사용자의 서버가 함께 죽는다

@@ -783,17 +783,17 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     await twoSlotsOnGit(page, fx('basic'));
 
     await focusSlot(page, 0);
-    await fileIn(page, 0, 'changes', 'tracked.txt').click();
+    await fileIn(page, 0, 'working', 'tracked.txt').click();
     await focusSlot(page, 1);
-    await fileIn(page, 1, 'untracked', 'untracked.txt').click();
+    await fileIn(page, 1, 'working', 'untracked.txt').click();
 
     // 미리보기 대상이 칸마다 다르다 — 예전에는 패널이 하나라 함께 움직였다.
     expect(await previewOf(page, 0)).toBe('tracked.txt');
     expect(await previewOf(page, 1)).toBe('untracked.txt');
 
     // 선택 표시도 각자다.
-    await expect(fileIn(page, 0, 'changes', 'tracked.txt')).toHaveClass(/sel/);
-    await expect(fileIn(page, 1, 'changes', 'tracked.txt')).not.toHaveClass(/sel/);
+    await expect(fileIn(page, 0, 'working', 'tracked.txt')).toHaveClass(/sel/);
+    await expect(fileIn(page, 1, 'working', 'tracked.txt')).not.toHaveClass(/sel/);
   });
 
   test('TC-SVS-22: status 요청이 칸 수만큼 늘지 않는다 (FR-SVS-31)', async ({ page }) => {
@@ -831,7 +831,9 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
 
     // 칸 0 에서 unstaged 파일을 스테이징한다.
     await focusSlot(page, 0);
-    await fileIn(page, 0, 'changes', 'tracked.txt').locator('.git-file-act[data-act="stage"]').click();
+    // 행 동작은 hover 에서 드러난다 (사용자 지시 2026-09-08).
+    await fileIn(page, 0, 'working', 'tracked.txt').hover();
+    await fileIn(page, 0, 'working', 'tracked.txt').locator('.git-file-act[data-act="stage"]').click();
 
     // 결과는 관측이므로 **양쪽** 목록이 함께 움직인다.
     await expect(fileIn(page, 0, 'staged', 'tracked.txt')).toHaveCount(1, { timeout: 15000 });
@@ -882,9 +884,9 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
 
     // 두 칸이 각자 파일을 고른다.
     await focusSlot(page, 0);
-    await fileIn(page, 0, 'changes', 'tracked.txt').click();
+    await fileIn(page, 0, 'working', 'tracked.txt').click();
     await focusSlot(page, 1);
-    await fileIn(page, 1, 'untracked', 'untracked.txt').click();
+    await fileIn(page, 1, 'working', 'untracked.txt').click();
     expect(await previewOf(page, 0)).toBe('tracked.txt');
     expect(await previewOf(page, 1)).toBe('untracked.txt');
 

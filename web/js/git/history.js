@@ -45,7 +45,15 @@ class GitHistory {
     this._filters={};
     this._reflog=false;
     this._q='';
-    this._mode=GIT_SEARCH_LOADED;
+    // FR-HSU-4·5: 지금 **서버에 실어 보낸** 검색어. `_q`(치는 중인 것)와 다르면
+    // 아직 확장 전이고, 같으면 목록이 곧 저장소 전체의 답이다.
+    this._grep='';
+    // 디바운스 (FR-HSU-14). 리포가 바뀌면 함께 끈다 — 옛 검색어의 확장이 새
+    // 저장소로 나가면 사용자가 치지 않은 질의가 목록을 거른다.
+    TIMERS.cancel(this._qT);
+    this._qT=null;
+    this._expanding=false;
+    this._rev=null;       // 입력이 해석된 리비전 (FR-HSU-6)
     this._open=null;      // 펼친 커밋의 oid. 한 번에 하나다
     this._detail=null;
     this._detailErr=null;
@@ -102,30 +110,29 @@ class GitHistory {
       // FR-GHM-3: Changes 와 **같은 머리**다. 마크업도 배선도 GitPanel 이 한 자리에서
       // 만든다 — History 가 자기 것을 만들면 두 탭의 머리가 갈린다.
       GitPanel.headHTML()+
+      /**
+       * FR-HSU-1·9: 바에 남는 것은 **검색 입력 · 옵션 버튼 · `+ Branch`** 셋이다.
+       * 정렬·필터 넷·reflog·Apply 는 드롭다운으로 들어갔고, `.git-hist-jump` 와
+       * `Go` 는 사라졌다 — 그 일은 검색이 흡수했다 (FR-HSU-6).
+       */
       '<div class="git-hist-bar">'+
         '<span class="git-hist-search-box">'+
           '<input class="git-hist-search" type="text">'+
-          '<button class="git-hist-smode"></button>'+
         '</span>'+
-        '<select class="git-hist-order"></select>'+
-        '<span class="git-hist-filters"></span>'+
-        '<button class="git-hist-apply"></button>'+
-        '<label class="git-hist-reflog"><input type="checkbox"><span></span></label>'+
+        '<button class="git-hist-opts"><span class="git-hist-opts-badge"></span></button>'+
         '<span class="git-hist-spacer"></span>'+
         // FR-HBB-1·2: 브랜치 생성 진입점. 여백 **뒤**다 — 왼쪽 무리는 목록을
         // 거르는 것들이고 이 버튼은 거기 속하지 않는다. 공용 머리(.git-head)에
         // 두지 않는 이유는 §2.2 다 — 그 자리는 Changes 와 공유한다.
         '<button class="git-hist-branch"></button>'+
-        '<input class="git-hist-jump" type="text">'+
-        '<button class="git-hist-jump-go"></button>'+
       '</div>'+
+      // FR-HSU-6: 입력이 실재하는 리비전이면 **결과 맨 위**에 그 줄이 선다.
+      // 가상 목록 안에 끼우지 않고 목록 바로 위의 줄로 둔다 — 행 창의 좌표 계산이
+      // 항목 수와 1:1 이어서, 목록에 없는 항목을 끼우면 그 계약이 깨진다.
+      '<div class="git-hist-rev"></div>'+
       '<div class="git-hist-note">'+
         '<span class="git-hist-note-msg"></span>'+
         '<button class="git-hist-retry"></button>'+
-      '</div>'+
-      '<div class="git-hist-searchnone">'+
-        '<span class="git-hist-searchnone-msg"></span>'+
-        '<button class="git-hist-searchrepo"></button>'+
       '</div>'+
       '<div class="git-hist-main">'+
         '<div class="git-refs"></div>'+
@@ -136,6 +143,8 @@ class GitHistory {
       '</div>'+
       '<div class="git-hist-foot">'+
         '<span class="git-hist-loaded" data-n="0"></span>'+
+        // FR-HSU-8: 지금 어느 범위를 보고 있는가.
+        '<span class="git-hist-scope"></span>'+
         '<span class="git-hist-state"></span>'+
       '</div>';
     this.panel._wireHead(el);
@@ -143,50 +152,22 @@ class GitHistory {
     this._spTop=el.querySelector('.git-hist-sp-top');
     this._spBot=el.querySelector('.git-hist-sp-bot');
     el.querySelector('.git-hist-search').placeholder=GIT_SEARCH_PLACEHOLDER;
-    el.querySelector('.git-hist-jump').placeholder=GIT_JUMP_PLACEHOLDER;
-    const jumpGo=el.querySelector('.git-hist-jump-go');
-    jumpGo.textContent=GIT_JUMP_GO; jumpGo.title=GIT_JUMP_GO_TITLE;
-    const apply=el.querySelector('.git-hist-apply');
-    apply.textContent=GIT_HIST_APPLY; apply.title=GIT_HIST_APPLY_TITLE;
     const brb=el.querySelector('.git-hist-branch');
     brb.textContent=GIT_HIST_BRANCH; brb.title=GIT_HIST_BRANCH_TITLE;
-    const searchRepo=el.querySelector('.git-hist-searchrepo');
-    searchRepo.textContent=GIT_SEARCH_TRY_REPO; searchRepo.title=GIT_TIP_SEARCH_REPO;
     const histRetry=el.querySelector('.git-hist-retry');
     histRetry.textContent=GIT_HIST_APPLY; histRetry.title=GIT_TIP_RETRY;
-    const ord=el.querySelector('.git-hist-order');
-    for(const o of GIT_HIST_ORDERS){
-      const op=document.createElement('option'); op.value=o.key; op.textContent=o.label;
-      ord.appendChild(op);
-    }
-    const fbox=el.querySelector('.git-hist-filters');
-    for(const f of GIT_HIST_FILTERS){
-      const i=document.createElement('input');
-      i.type='text'; i.className='git-hist-f'; i.dataset.f=f.key; i.placeholder=f.label;
-      i.addEventListener('keydown',ev=>{if(ev.key==='Enter')this._applyFilters()});
-      fbox.appendChild(i);
-    }
-    const rl=el.querySelector('.git-hist-reflog');
-    rl.querySelector('span').textContent=GIT_HIST_REFLOG;
-    rl.title=GIT_HIST_REFLOG_TITLE;
-    rl.querySelector('input').addEventListener('change',ev=>{this._reflog=ev.target.checked;this._reload()});
-    ord.addEventListener('change',ev=>{this._order=ev.target.value;this._reload()});
-    el.querySelector('.git-hist-apply').addEventListener('click',()=>this._applyFilters());
+    const opts=el.querySelector('.git-hist-opts');
+    opts.title=GIT_HIST_OPTS_TITLE;
+    opts.insertBefore(UIKit.icon('sliders'),opts.firstChild);
+    opts.addEventListener('click',ev=>this._openOpts(ev));
     // FR-HBB-4·6: 인자 없이 부르면 startRef 가 빈 값이고 서버가 HEAD 를 쓴다.
     // 커밋·ref 를 시작점으로 삼는 길은 우클릭 메뉴가 그대로 갖는다 (§2.3).
     brb.addEventListener('click',()=>this.panel.createBranchFrom());
     el.querySelector('.git-hist-retry').addEventListener('click',()=>{this._err=null;this._reload()});
     el.querySelector('.git-hist-search').addEventListener('input',ev=>this._search(ev.target.value));
     el.querySelector('.git-hist-search').addEventListener('keydown',ev=>{
-      // 저장소 전체 질의는 느리다 — 키 하나마다 보내지 않고 Enter 로 받는다.
-      if(ev.key==='Enter'&&this._mode===GIT_SEARCH_REPO) this._reload();
-    });
-    el.querySelector('.git-hist-smode').addEventListener('click',()=>this._setMode(
-      this._mode===GIT_SEARCH_LOADED?GIT_SEARCH_REPO:GIT_SEARCH_LOADED));
-    el.querySelector('.git-hist-searchrepo').addEventListener('click',()=>this._setMode(GIT_SEARCH_REPO));
-    el.querySelector('.git-hist-jump-go').addEventListener('click',()=>this._jump());
-    el.querySelector('.git-hist-jump').addEventListener('keydown',ev=>{
-      if(ev.key==='Enter') this._jump();
+      // Enter 는 디바운스를 기다리지 않겠다는 뜻이다 — 손을 멈춘 것과 같다.
+      if(ev.key==='Enter'){TIMERS.cancel(this._qT);this._qT=null;this._expand()}
     });
     this._list.addEventListener('scroll',()=>this._onScroll());
     // FR-GIT-125: 컬럼 숨김은 **목록 폭**을 보고 정한다. 미디어 쿼리는 창 폭이라
@@ -279,30 +260,112 @@ class GitHistory {
     if(this._barRepo!==this._repo){
       this._barRepo=this._repo;
       el.querySelector('.git-hist-search').value=this._q;
-      el.querySelector('.git-hist-order').value=this._order;
-      el.querySelector('.git-hist-jump').value='';
-      for(const i of el.querySelectorAll('.git-hist-f')) i.value=this._filters[i.dataset.f]||'';
-      el.querySelector('.git-hist-reflog input').checked=this._reflog;
     }
-    // FR-GIT-129: 현재 모드를 라벨로 보인다. 두 결과가 다를 수 있음이 드러나야 한다.
-    const m=el.querySelector('.git-hist-smode');
-    m.dataset.mode=this._mode;
-    m.textContent=GIT_SEARCH_MODE_LABEL[this._mode];
-    m.title=GIT_SEARCH_MODE_TITLE[this._mode];
+    /**
+     * FR-HSU-10·13: 걸린 필터의 개수를 배지로 보인다.
+     *
+     * 접힌 채로도 목록이 걸러져 있음이 보여야 한다 — `filterPath` 로 들어온
+     * 파일 히스토리가 바로 그 자리다. 드롭다운을 열지 않아도 그 사실이 보인다.
+     */
+    const b=el.querySelector('.git-hist-opts-badge');
+    const n=this._optCount();
+    b.textContent=n?String(n):'';
+    b.hidden=!n;
+    el.querySelector('.git-hist-opts').classList.toggle('on',!!n);
     // FR-GIT-132: 사유를 보이고 목록은 지우지 않는다.
     const note=el.querySelector('.git-hist-note');
     const msg=this._err||this._note;
     note.classList.toggle('vis',!!msg);
     note.querySelector('.git-hist-note-msg').textContent=msg||'';
     note.querySelector('.git-hist-retry').classList.toggle('vis',!!this._err);
-    // 로드 범위에서 0건이면 저장소 전체를 권한다 — 권하지 않으면 "없다"와
-    // "아직 안 받았다"가 구분되지 않는다 (FR-GIT-129).
-    const none=el.querySelector('.git-hist-searchnone');
-    const show=this._mode===GIT_SEARCH_LOADED&&!!this._q.trim()&&
-      !this._view.length&&!!this._commits.length;
-    none.classList.toggle('vis',show);
-    none.querySelector('.git-hist-searchnone-msg').textContent=
-      show?GIT_SEARCH_NONE.replace('%n',String(this._commits.length)):'';
+    this._paintRev();
+  }
+
+  /**
+   * FR-HSU-10: 걸린 필터의 수. 정렬은 세지 않는다 — 목록을 **거르는** 것이 아니라
+   * 늘어놓는 방식이다. reflog 는 목록에 없던 것을 들여오므로 센다.
+   */
+  _optCount(){
+    let n=0;
+    for(const f of GIT_HIST_FILTERS) if((this._filters[f.key]||'').trim()) n++;
+    if(this._reflog) n++;
+    return n;
+  }
+
+  /**
+   * FR-HSU-6·7: 입력이 실재하는 리비전이면 결과 위에 한 줄이 뜬다. 누르면 그리로
+   * 간다 — `Go` 가 하던 일이 이 줄로 옮겨 왔다 (D-12).
+   */
+  _paintRev(){
+    const box=this._el&&this._el.querySelector('.git-hist-rev'); if(!box) return;
+    const c=this._rev;
+    box.classList.toggle('vis',!!c);
+    if(!c){box.innerHTML='';box.onclick=null;return}
+    const sig=c.oid+'\u0001'+(c.subject||'');
+    if(box.dataset.sig===sig) return;
+    box.dataset.sig=sig;
+    box.innerHTML='';
+    const mark=document.createElement('span');
+    mark.className='git-hist-rev-mark'; mark.textContent=GIT_SEARCH_REV_MARK;
+    const oid=document.createElement('span');
+    oid.className='git-hist-rev-oid'; oid.textContent=(c.oid||'').slice(0,7);
+    const sub=document.createElement('span');
+    sub.className='git-hist-rev-subject'; sub.textContent=c.subject||'';
+    box.appendChild(mark); box.appendChild(oid); box.appendChild(sub);
+    box.title=GIT_SEARCH_REV_TITLE;
+    box.onclick=()=>this._jumpTo(c.oid);
+  }
+
+  /**
+   * FR-HSU-9·11·12: 정렬·필터 넷·reflog·Apply 를 담는 드롭다운.
+   *
+   * `UIKit.menu` 규약을 쓴다 — 바깥 클릭·`Esc` 로 닫히는 자리가 한 곳이다
+   * (FR-UIK-8·26). 컨트롤은 열 때마다 **새로 만든다**: 팩토리는 상태를 갖지
+   * 않는다는 계약(FR-UIK-28 ①)을 지키고, 값의 진실은 `this._filters` 다.
+   */
+  _openOpts(ev){
+    const rows=[];
+    const ord=document.createElement('select');
+    ord.className='ui-select git-hist-order';
+    for(const o of GIT_HIST_ORDERS){
+      const op=document.createElement('option'); op.value=o.key; op.textContent=o.label;
+      ord.appendChild(op);
+    }
+    ord.value=this._order;
+    ord.addEventListener('change',e=>{this._order=e.target.value;this._reload()});
+    rows.push({el:UIKit.field({label:GIT_HIST_OPTS_ORDER,control:ord})});
+    rows.push({sep:true});
+    const inputs=[];
+    for(const f of GIT_HIST_FILTERS){
+      const i=document.createElement('input');
+      i.type='text'; i.className='ui-input git-hist-f'; i.dataset.f=f.key;
+      i.value=this._filters[f.key]||'';
+      // FR-HSU-12: 드롭다운 안의 `Enter` 는 `Apply` 와 같다 (현행 유지).
+      i.addEventListener('keydown',e=>{if(e.key==='Enter')this._applyOpts(inputs)});
+      inputs.push(i);
+      rows.push({el:UIKit.field({label:f.label,control:i})});
+    }
+    rows.push({sep:true});
+    const rf=document.createElement('input');
+    rf.type='checkbox'; rf.checked=this._reflog;
+    rf.addEventListener('change',e=>{this._reflog=e.target.checked;this._reload()});
+    const rfRow=UIKit.field({label:GIT_HIST_REFLOG,control:rf});
+    rfRow.title=GIT_HIST_REFLOG_TITLE;
+    rows.push({el:rfRow});
+    const apply=UIKit.button({label:GIT_HIST_APPLY,title:GIT_HIST_APPLY_TITLE,
+      kind:'primary',cls:'git-hist-apply',onClick:()=>this._applyOpts(inputs)});
+    const wrap=document.createElement('div');
+    wrap.className='git-hist-opts-foot'; wrap.appendChild(apply);
+    rows.push({el:wrap});
+    const r=ev.currentTarget.getBoundingClientRect();
+    UIKit.menu(rows,{at:{x:r.left,y:r.bottom+2},cls:'git-hist-optsmenu'});
+  }
+
+  _applyOpts(inputs){
+    for(const i of inputs) this._filters[i.dataset.f]=i.value.trim();
+    UIKit.closeMenu();
+    this._err=null;
+    this._reload();
   }
 
   _paintFoot(){
@@ -310,6 +373,17 @@ class GitHistory {
     const n=el.querySelector('.git-hist-loaded');
     n.dataset.n=String(this._commits.length);
     n.textContent=GIT_HIST_LOADED_N.replace('%n',String(this._commits.length));
+    // FR-HSU-8: **지금 무엇을 보고 있는가.** 확장 전에는 불러온 범위를 거른
+    // 결과이고, 확장 뒤에는 저장소 전체의 답이다 — 그 둘이 구분되지 않으면
+    // "없다" 와 "아직 안 받았다" 가 같은 화면이 된다.
+    const q=this._q.trim();
+    const sc=el.querySelector('.git-hist-scope');
+    sc.textContent=!q?''
+      :this._expanding?GIT_SEARCH_SCOPE_WIDENING
+      :this._grep===q?GIT_SEARCH_SCOPE_REPO.replace('%m',String(this._view.length))
+      :GIT_SEARCH_SCOPE_LOADED.replace('%n',String(this._commits.length))
+        .replace('%m',String(this._view.length));
+    sc.classList.toggle('vis',!!sc.textContent);
     el.querySelector('.git-hist-state').textContent=
       this._loading?GIT_HIST_LOADING:(this._end?GIT_HIST_END:'');
   }
@@ -840,7 +914,9 @@ class GitHistory {
       order:this._order,
       author:this._filters.author||'',since:this._filters.since||'',
       until:this._filters.until||'',path:this._filters.path||'',
-      grep:this._mode===GIT_SEARCH_REPO?this._q.trim():'',
+      // FR-HSU-5: 저장소 전체 확장은 `--grep` 갈래다 (D-13). 작성자로 전체를
+      // 찾는 일은 옵션의 `Author` 가 정확히 한다.
+      grep:this._grep,
       // 꺼졌을 때도 보낸다 — requested 로 되돌아와야 늦게 온 응답이 어느 토글의
       // 것인지 _sameReq 가 가른다.
       reflog:this._reflog,
@@ -953,12 +1029,6 @@ class GitHistory {
     return this._load(false);
   }
 
-  _applyFilters(){
-    for(const i of this._el.querySelectorAll('.git-hist-f')) this._filters[i.dataset.f]=i.value.trim();
-    this._err=null;
-    this._reload();
-  }
-
   /**
    * FR-GIT-275: 그 경로의 커밋만 보인다 (File history).
    *
@@ -986,25 +1056,78 @@ class GitHistory {
 
   // ── 검색 (FR-GIT-129, 검증 V49) ──
 
+  /**
+   * FR-HSU-3·4·14: 치는 동안은 **불러온 범위**를 즉시 거르고, 손이 멎으면 한 번만
+   * 저장소 전체로 넓힌다. 사용자가 모드를 고르는 손잡이는 없다 (D-6).
+   */
   _search(v){
     this._q=v;
-    if(this._mode===GIT_SEARCH_REPO) return; // Enter 로 보낸다 — 느린 질의다
     this._rebuild();
     this._paintBar(); this._paintFoot(); this._paintRows();
+    TIMERS.cancel(this._qT);
+    this._qT=TIMERS.after(GIT_SEARCH_DEBOUNCE_MS,()=>{this._qT=null;this._expand()},
+      {owner:this,label:'hist-search'});
   }
 
-  _setMode(mode){
-    if(this._mode===mode){return}
-    this._mode=mode;
-    if(mode===GIT_SEARCH_REPO){this._err=null;this._reload();return}
-    this._rebuild();
-    this.paint();
+  /**
+   * 손이 멎었다. 둘을 한다 — 리비전으로 해석해 보고(FR-HSU-6), 아직 그 말로 묻지
+   * 않았으면 저장소 전체로 넓힌다(FR-HSU-4).
+   *
+   * 넓히기가 **한 번**인 근거가 `_grep===q` 다 (FR-HSU-14): 같은 물음을 다시
+   * 보내지 않으므로, 글자를 지웠다 같은 말로 되돌아와도 왕복이 생기지 않는다.
+   */
+  async _expand(){
+    if(!this._el||!this._repo) return;
+    const q=this._q.trim();
+    await this._revLookup(q);
+    if(!this._el||this._q.trim()!==q) return;
+    /**
+     * **리비전으로 해석된 말은 넓히지 않는다.**
+     *
+     * `--grep` 은 커밋 **메시지**를 찾는다 (D-13). 해시나 ref 이름을 그 갈래로
+     * 보내면 서버는 0건을 돌려주고, 그 0건이 목록을 비워 방금 뜬 리비전 줄이
+     * 가리키는 커밋조차 목록에서 사라진다 — 누를 곳으로 갈 수 없게 된다
+     * (실측: 로드 범위 밖 해시로 이동하는 e2e 가 여기서 멎었다).
+     *
+     * 리비전 줄이 곧 그 물음의 답이므로 넓힐 이유도 없다.
+     */
+    if(this._rev) return;
+    if(this._grep===q) return;
+    this._grep=q;
+    this._err=null;
+    this._expanding=true; this._paintFoot();
+    try{ await this._reload() }
+    finally{
+      this._expanding=false;
+      if(this._el) this._paintFoot();
+    }
+  }
+
+  /**
+   * FR-HSU-6 / D-12: **리비전 해석은 검색을 대신하지 않고 얹힌다.**
+   *
+   * rev-parse 전용 라우트가 없다 — `/api/git/log?ref=<rev>&limit=1` 이 해석과
+   * 검증을 함께 하고, 없는 리비전은 404 라 `_get` 이 null 을 준다. 그러므로
+   * "없다" 는 오류가 아니며 사유를 화면에 적지 않는다.
+   */
+  async _revLookup(q){
+    if(!q||!this._repo){this._rev=null;this._paintRev();return}
+    const tok=this.panel.token();
+    const d=await this._get('/api/git/log',{repo:this._repo,ref:q,limit:1});
+    if(this.panel.isStale(tok)||!this._el) return;
+    // 늦게 온 응답이 지금 치고 있는 말을 덮지 않는다.
+    if(this._q.trim()!==q) return;
+    const c=(d&&Array.isArray(d.commits)&&d.commits.length)?d.commits[0]:null;
+    this._rev=c||null;
+    this._paintRev();
   }
 
   // 로드 범위 검색이 걸러낸 목록으로 레인을 다시 잡는다. 걸러낸 목록의 부모는
   // 목록 밖에 있을 수 있으므로 그래프는 그 범위 안에서만 뜻을 갖는다.
   _rebuild(){
-    const q=this._mode===GIT_SEARCH_LOADED?this._q.trim().toLowerCase():'';
+    // 확장이 끝난 뒤에는 목록 자체가 그 물음의 답이다 — 그 위에 다시 거르면
+    // 서버가 찾아 준 것을 클라이언트의 좁은 규칙이 도로 걸러낸다.
+    const q=(this._grep===this._q.trim())?'':this._q.trim().toLowerCase();
     this._view=q?this._commits.filter(c=>this._match(c,q)):this._commits;
     // buildLaneGraph 의 입력은 {hash,parents} 이고 응답은 {oid,parents} 다 —
     // 명시적으로 옮긴다 (계약 §3.1.1).
@@ -1023,19 +1146,15 @@ class GitHistory {
 
   // ── jump (FR-GIT-131) ──
 
-  async _jump(){
-    const inp=this._el.querySelector('.git-hist-jump');
-    const rev=inp.value.trim(); if(!rev) return;
+  /**
+   * FR-HSU-7: 그 커밋으로 간다. 로드 범위 밖이면 나올 때까지 받는다 — `_jump` 의
+   * 로직은 남고, 대상을 **입력이 아니라 oid** 로 받는 것만 달라졌다.
+   */
+  async _jumpTo(oid){
+    if(!oid||!this._repo) return;
     const tok=this.panel.token();
     this._note=GIT_JUMP_SEARCHING; this._err=null; this._paintBar();
-    // rev-parse 전용 라우트가 없다 — /api/git/log?ref=<rev>&limit=1 이 해석과
-    // 검증을 함께 한다 (없는 리비전은 404 다).
-    const d=await this._get('/api/git/log',{repo:this._repo,ref:rev,limit:1});
-    if(this.panel.isStale(tok)) return;
-    const oid=d&&Array.isArray(d.commits)&&d.commits.length?d.commits[0].oid:'';
-    if(!oid){this._note=GIT_JUMP_NOT_FOUND;this._paintBar();return}
-    // 로드 범위 밖이면 나올 때까지 받는다. 상한을 둔다 — 없는 것을 끝없이 받아
-    // 오지 않는다.
+    // 상한을 둔다 — 없는 것을 끝없이 받아 오지 않는다.
     for(let p=0;p<GIT_JUMP_MAX_PAGES;p++){
       if(this._commits.some(c=>c.oid===oid)) break;
       if(this._end||this._err) break;
@@ -1071,8 +1190,9 @@ class GitHistory {
   _onScroll(){
     this._paintRows();
     if(this._end||this._loading||this._err) return;
-    // 로드 범위 검색 중에는 늘리지 않는다 — 걸러낸 목록의 끝은 로드의 끝이 아니다.
-    if(this._mode===GIT_SEARCH_LOADED&&this._q.trim()) return;
+    // 로드 범위를 거르는 동안에는 늘리지 않는다 — 걸러낸 목록의 끝은 로드의 끝이
+    // 아니다. 확장이 끝났으면 목록이 곧 서버의 답이므로 뒷장을 이어 받는다.
+    if(this._q.trim()&&this._grep!==this._q.trim()) return;
     const l=this._list;
     if(l.scrollTop+l.clientHeight>=l.scrollHeight-GIT_LOG_NEAR_END_PX) this._load(true);
   }

@@ -90,7 +90,7 @@ Object.assign(GitPanel.prototype, {
   dirtyCount(){
     const s=this._status&&this._status.status; if(!s) return 0;
     let n=0;
-    for(const g of GIT_GROUPS) n+=(s[g.key]||[]).length;
+    for(const g of GIT_GROUPS) n+=gitGroupEntries(s,g.key).length;
     return n;
   },
 
@@ -116,9 +116,16 @@ Object.assign(GitPanel.prototype, {
 
   _selKey(group,path){return group+'\x00'+path},
 
+  // FR-CMG-2: 화면이 보이는 묶음과 **같은 묶음**이다 — 대상을 모으는 자리가
+  // 그리는 자리와 다른 목록을 보면 일괄의 범위가 화면과 어긋난다.
   _group(key){
-    const s=this._status&&this._status.status;
-    return (s&&s[key])||[];
+    return gitGroupEntries(this._status&&this._status.status,key);
+  },
+
+  // 대상 하나의 기술. 출신(`untracked`)을 함께 싣는다 — 워킹 그룹은 두 출신을
+  // 담으므로 그룹 이름만으로는 폐기가 어느 명령인지 말할 수 없다 (FR-CMG-4).
+  _target(group,e){
+    return {group,path:e.path,origPath:e.origPath||'',untracked:!!e.untracked};
   },
 
   // 선택은 status 에 남아 있는 것만 뜻한다 — 사라진 경로의 선택은 저절로 잊힌다.
@@ -127,7 +134,7 @@ Object.assign(GitPanel.prototype, {
     for(const g of GIT_GROUPS)
       for(const e of this._group(g.key))
         if(this._sel.has(this._selKey(g.key,e.path)))
-          out.push({group:g.key,path:e.path,origPath:e.origPath||''});
+          out.push(this._target(g.key,e));
     return out;
   },
 
@@ -146,7 +153,7 @@ Object.assign(GitPanel.prototype, {
   // 동작이 뜻을 갖는 대상만 남긴다 — staged 행을 stage 하거나 untracked 행을
   // unstage 하는 것은 아무 일도 하지 않는다.
   _fit(act,items){
-    if(act==='unstage') return items.filter(i=>i.group!=='untracked');
+    if(act==='unstage') return items.filter(i=>!i.untracked);
     return items.filter(i=>i.group!=='staged');
   },
 
@@ -157,8 +164,8 @@ Object.assign(GitPanel.prototype, {
    * 여러 개를 골라 두고 그 중 아무 행에서나 누르면 골라 둔 것에 걸린다.
    * 선택 밖의 행을 누르는 것은 "이 행만" 이라는 뜻이므로 선택을 끌어오지 않는다.
    */
-  _rowTargets(act,group,path,origPath){
-    const one=[{group,path,origPath:origPath||''}];
+  _rowTargets(act,group,path,origPath,untracked){
+    const one=[{group,path,origPath:origPath||'',untracked:!!untracked}];
     if(!this._sel.has(this._selKey(group,path))) return this._fit(act,one);
     const all=this._fit(act,this._selected());
     return all.length?all:this._fit(act,one);
@@ -180,7 +187,7 @@ Object.assign(GitPanel.prototype, {
   // 그룹 일괄은 그려진 행이 아니라 그룹 **전체**다 (FR-GIT-66·67) — 목록이
   // 잘려 보이는 것과 대상 범위는 별개다.
   _bulk(group,act){
-    this._run(act,this._group(group).map(e=>({group,path:e.path,origPath:e.origPath||''})));
+    this._run(act,this._group(group).map(e=>this._target(group,e)));
   },
 
   /**
@@ -197,7 +204,7 @@ Object.assign(GitPanel.prototype, {
     const pre=path+'/';
     this._run(act,this._group(group)
       .filter(e=>e.path.startsWith(pre))
-      .map(e=>({group,path:e.path,origPath:e.origPath||''})));
+      .map(e=>this._target(group,e)));
   },
 
   // 쓰기 한 번의 단일 경로다. 충돌 stage 의 뜻 알림과 discard 의 파괴적 확인이
@@ -273,13 +280,21 @@ Object.assign(GitPanel.prototype, {
   // 확인을 거치며, 실행 요청에는 confirm 을 함께 보낸다 — 서버도 그것을
   // 요구한다.
   async _discard(items){
-    const tracked=items.filter(i=>i.group!=='untracked').map(i=>i.path);
-    const untracked=items.filter(i=>i.group==='untracked').map(i=>i.path);
+    // FR-CMG-4: 갈림은 그룹이 아니라 **항목**이 준다 — 워킹 그룹에는 두 출신이
+    // 함께 있고, 되돌림(`checkout`)과 삭제(`clean`)는 같은 명령이 아니다.
+    const tracked=items.filter(i=>!i.untracked).map(i=>i.path);
+    const untracked=items.filter(i=>i.untracked).map(i=>i.path);
     const targets=tracked.concat(untracked);
     if(!targets.length) return;
     const repo=this.repo;
     await GitDialog.confirm({
       action:GIT_ACT_DISCARD,title:GIT_DISCARD_TITLE,targets,
+      // FR-CMG-7: 두 무리를 **나눠** 보인다. 지울 것이 없으면 그 무리를 적지
+      // 않는다 — 빈 무리는 정보가 아니다.
+      sections:[
+        {label:GIT_DISCARD_SECT_REVERT,paths:tracked},
+        {label:GIT_DISCARD_SECT_DELETE,paths:untracked},
+      ].filter(x=>x.paths.length),
       // O8: stash 를 자동 생성하지 않는다 — 실행할 명령을 보여 준다.
       //
       // FR-WBR-55: untracked 가 섞이면 되돌리기가 아니라 삭제라는 것을 먼저

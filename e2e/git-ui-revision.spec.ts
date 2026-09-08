@@ -743,11 +743,15 @@ test.describe('UI 개정 — 목록의 구조 (FR-GIT-211~212)', () => {
     await waitFiles(page, 3);
 
     const borders = await page.evaluate(() =>
-      [...document.querySelectorAll('#area .ed-side .git-group')].map((e) => ({
-        group: (e as HTMLElement).dataset.group,
-        top: getComputedStyle(e).borderTopWidth,
-      })));
-    expect(borders.length).toBe(4);
+      [...document.querySelectorAll('#area .ed-side .git-group')]
+        .filter((e) => !e.classList.contains('gone'))
+        .map((e) => ({
+          group: (e as HTMLElement).dataset.group,
+          top: getComputedStyle(e).borderTopWidth,
+        })));
+    // FR-CMG-1: 그룹은 셋이고, 충돌이 없는 `basic` 에서는 그중 둘만 선다
+    // (사용자 지시 2026-09-08: 충돌 그룹은 충돌이 있을 때만 나타난다).
+    expect(borders.map((b) => b.group)).toEqual(['staged', 'working']);
     expect(borders[0].top, '첫 그룹 위에 선이 있다').toBe('0px');
     for (const b of borders.slice(1)) {
       expect(b.top, '구분선이 없다: ' + b.group).not.toBe('0px');
@@ -870,34 +874,24 @@ test.describe('UI 개정 — 동작의 진입점 (FR-GIT-207~209)', () => {
     await page.locator('#area .ed-side .git-files-mode[data-mode="flat"]').click();
     await page.waitForTimeout(500);
 
-    const untracked = page.locator('#area .ed-side .git-group[data-group="untracked"] .git-file');
-    await expect.poll(() => untracked.count(), { timeout: 15000 }).toBeGreaterThanOrEqual(1);
+    // FR-CMG-1: 워킹 그룹 하나에 수정과 새 파일이 함께 있다 — `basic` 은 셋이다.
+    const work = page.locator('#area .ed-side .git-group[data-group="working"] .git-file');
+    await expect.poll(() => work.count(), { timeout: 15000 }).toBe(3);
 
-    // untracked 를 전부 고른 뒤, 그 중 한 행의 `+` 를 누른다.
-    const n = await untracked.count();
-    await untracked.nth(0).click();
-    for (let i = 1; i < n; i++) await untracked.nth(i).click({ modifiers: ['ControlOrMeta'] });
-    await expect(page.locator('#area .ed-side .git-file.sel')).toHaveCount(n);
+    // ① 선택 **밖**의 행에서 누른다 — 그 행만 대상이다.
+    await work.nth(0).click();
+    await expect(page.locator('#area .ed-side .git-file.sel')).toHaveCount(1);
+    await work.nth(1).hover();
+    await work.nth(1).locator('.git-file-act[data-act="stage"]').click();
+    await expect.poll(() => work.count(), { timeout: 20000 }).toBe(2);
 
-    await untracked.nth(0).hover();
-    await untracked.nth(0).locator('.git-file-act[data-act="stage"]').click();
-
-    // 선택 전체가 스테이지된다 — 누른 행 하나가 아니다.
-    await expect.poll(() =>
-      page.locator('#area .ed-side .git-group[data-group="untracked"] .git-file').count(),
-      { timeout: 20000 }).toBe(0);
-
-    // 이번엔 선택 밖의 행에서 누른다 — 그 행만 대상이다.
-    const changes = page.locator('#area .ed-side .git-group[data-group="changes"] .git-file');
-    await expect.poll(() => changes.count(), { timeout: 15000 }).toBeGreaterThanOrEqual(2);
-    const before = await changes.count();
-    // 선택을 staged 쪽 한 행으로 옮겨 changes 행들이 선택 밖이 되게 한다.
-    await page.locator('#area .ed-side .git-group[data-group="staged"] .git-file').first().click();
-    await changes.nth(0).hover();
-    await changes.nth(0).locator('.git-file-act[data-act="stage"]').click();
-    await expect.poll(() =>
-      page.locator('#area .ed-side .git-group[data-group="changes"] .git-file').count(),
-      { timeout: 20000 }).toBe(before - 1);
+    // ② 선택 **안**의 행에서 누른다 — 선택 전체가 대상이다.
+    await work.nth(0).click();
+    await work.nth(1).click({ modifiers: ['ControlOrMeta'] });
+    await expect(page.locator('#area .ed-side .git-file.sel')).toHaveCount(2);
+    await work.nth(0).hover();
+    await work.nth(0).locator('.git-file-act[data-act="stage"]').click();
+    await expect.poll(() => work.count(), { timeout: 20000 }).toBe(0);
   });
 });
 
@@ -1091,10 +1085,12 @@ test.describe('UI 개정 — 섹션 경계 (FR-GIT-216)', () => {
     expect(strong, '--border-strong 이 없다').toBeTruthy();
     expect(strong.toLowerCase(), '섹션 색이 행 구분선과 같다').not.toBe(plain.toLowerCase());
 
-    // ① Changes 그룹 — 첫 그룹 위에는 없고, 둘째부터 경계를 갖는다.
-    await expect.poll(async () => (await edges(page, '#area .ed-side .git-group', 'top')).length,
+    // ① Changes 그룹 — **처음 보이는** 그룹 위에는 없고, 그다음부터 경계를 갖는다.
+    // 충돌이 없으면 `Conflicts` 는 서지 않으므로(`.gone`) 세는 대상에서 뺀다.
+    const SEL_GROUP = '#area .ed-side .git-group:not(.gone)';
+    await expect.poll(async () => (await edges(page, SEL_GROUP, 'top')).length,
       { timeout: 15000 }).toBeGreaterThanOrEqual(2);
-    const groups = await edges(page, '#area .ed-side .git-group', 'top');
+    const groups = await edges(page, SEL_GROUP, 'top');
     expect(groups[0].w, '첫 그룹 위에 선이 있다').toBe(0);
     expect(groups[1].w).toBeGreaterThanOrEqual(SEC_BORDER_W);
 

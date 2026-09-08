@@ -88,6 +88,11 @@ Object.assign(App.prototype, {
   // FR-AAP-21: 활동 카드 드래그 재배치. drop(즉시) 1순위 + dragend 폴백, done 으로 중복 차단.
   _reorderAgents(dr){
     if(!dr||dr.done||!dr.pid||!dr.targetPid||dr.pid===dr.targetPid) return;
+    // FR-AGG-7·8: 재배치는 **그룹 안**의 일이다. 다른 창의 카드 위에 놓는 것은
+    // 아무 일도 아니다 — 창 사이의 이동은 탭을 옮기는 일이고, 그 손잡이는
+    // 사이드바에 이미 있다 (`tabDrop`). done 을 세워 dragend 폴백도 막는다.
+    const sl=this._findToolLocation(dr.pid),tl=this._findToolLocation(dr.targetPid);
+    if(!sl||!tl||sl.win.id!==tl.win.id){dr.done=true;return}
     dr.done=true;
     const ord=this.ws.agentsOrder;
     if(!Array.isArray(ord)) return;
@@ -142,28 +147,96 @@ Object.assign(App.prototype, {
   _agentsRender(){
     const panel=document.getElementById('agents-panel');
     if(!panel||!panel.classList.contains('open')) return;
-    const items=[{t:'head'}];
+    // FR-AGG-5·9: 카드의 소속은 `_findToolLocation` 이 준다 — 어디에도 저장하지
+    // 않는다 (D-9). 순서는 `ws.agentsOrder` 그대로이고, 그룹 안 순서는 그 평면
+    // 배열을 창으로 거른 것이다 (D-10).
+    const byWin=new Map();
     for(const toolId of this._agentOrderSync()){ // ws.agentsOrder 순서(신규=최하단)
       const loc=this._findToolLocation(toolId);
       if(!loc) continue;
-      items.push({t:'card',toolId,info:this._activity.get(toolId),loc});
+      let g=byWin.get(loc.win.id);
+      if(!g) byWin.set(loc.win.id,g=[]);
+      g.push({t:'card',toolId,info:this._activity.get(toolId),loc});
     }
-    if(items.length===1) items.push({t:'empty'});
+    const items=[{t:'head'}],fold=this._agFolded();
+    let cards=0;
+    // FR-AGG-2·3: 그룹 순서는 `ws.windows` 의 순서다. 패널이 따로 갖는 순서가
+    // 없으므로 창 순서가 바뀌면 그 자리에서 따라간다.
+    for(const win of this.ws.windows||[]){
+      const g=byWin.get(win.id);
+      if(!g||!g.length) continue; // FR-AGG-4: 빈 머리는 정보가 아니다
+      cards+=g.length;
+      const folded=fold.has(win.id);
+      // FR-AGG-11: 알람 수는 접혀 있어도 보인다 — 접었다고 알람이 사라지면 안 된다.
+      items.push({t:'group',win,attn:g.reduce((n,c)=>n+(this._attnHas(c.toolId)?1:0),0),folded});
+      if(!folded) for(const c of g) items.push(c);
+    }
+    if(!cards) items.push({t:'empty'});
     reconcileList(panel,items,{
-      key:it=>it.t==='card'?'card:'+it.toolId:it.t,
+      key:it=>it.t==='card'?'card:'+it.toolId:it.t==='group'?'grp:'+it.win.id:it.t,
       sig:it=>{
+        // FR-AGG-14: 머리도 항목이다 — 값이 바뀌는 항목이므로 근거를 준다.
+        if(it.t==='group') return [it.win.name||'',it.attn,it.folded?1:0].join('\u0001');
         if(it.t!=='card') return '1';
         const i=it.info||{};
         // `_agCardEl` 이 읽는 값 전부다 (FR-RPT-2).
         // FR-NAM-6: 표시 이름이 근거에 들어간다 — 파생 이름이 바뀌면 카드도 바뀐다.
-        return [it.loc.win.name||'',this._toolName(it.toolId,it.loc.tab.name),i.state||'',i.tool||'',i.detail||'',
+        // FR-AGG-13: 창 이름은 더 이상 카드가 읽지 않으므로 근거에서도 빠진다 —
+        // 창을 옮긴 카드는 **자리**가 바뀌고, 그것은 items 순서가 말한다.
+        return [this._toolName(it.toolId,it.loc.tab.name),i.state||'',i.tool||'',i.detail||'',
                 this._attnHas(it.toolId)?1:0,this._isToolFocusedActive(it.toolId)?1:0]
           .join('\u0001');
       },
       build:it=>it.t==='head'?this._agHeadEl()
+        :it.t==='group'?this._agGroupEl(it.win,it.attn,it.folded)
         :it.t==='empty'?this._agEmptyEl()
         :this._agCardEl(panel,it.toolId,it.info,it.loc),
     });
+  },
+
+  // FR-AGG-10: 그룹 접힘은 창 id 별로 **클라이언트**에 남는다 — 보는 방식은
+  // 워크스페이스의 것이 아니다 (FR-SBT-6 과 같은 근거).
+  _agFolded(){
+    if(!this._agFold){
+      let ids=null;
+      try{ids=JSON.parse(localStorage.getItem('agentsGroupFold')||'[]')}catch{}
+      this._agFold=new Set(Array.isArray(ids)?ids:[]);
+    }
+    return this._agFold;
+  },
+
+  _agFoldToggle(winId){
+    const f=this._agFolded();
+    if(f.has(winId)) f.delete(winId); else f.add(winId);
+    try{localStorage.setItem('agentsGroupFold',JSON.stringify(Array.from(f)))}catch{}
+    this._agentsRender();
+  },
+
+  // FR-AGG-1·10·11·12: 그룹 머리. 창 이름을 말하고, 접히고, 알람 수를 보이고,
+  // 누르면 그 창으로 간다.
+  _agGroupEl(win,attn,folded){
+    const g=document.createElement('div');
+    g.className='ag-group'+(folded?' folded':'')+(attn?' attn':'');
+    g.dataset.sid=win.id;
+    g.appendChild(UIKit.button({
+      icon:folded?'chevron-right':'chevron-down',
+      title:folded?'펼치기':'접기',
+      kind:'ghost',size:'sm',cls:'ag-group-fold',
+      onClick:e=>{e.stopPropagation();this._agFoldToggle(win.id)},
+    }));
+    const name=document.createElement('div');
+    name.className='ag-group-name';
+    name.textContent=name.title=win.name||win.id;
+    g.appendChild(name);
+    if(attn){
+      const b=document.createElement('span');
+      b.className='ag-group-attn ui-badge ui-badge-attn';
+      b.textContent=String(attn);
+      b.title=attn+'개의 알람';
+      g.appendChild(b);
+    }
+    g.addEventListener('click',()=>this.switchWindow(win.id));
+    return g;
   },
 
   _agHeadEl(){
@@ -189,8 +262,9 @@ Object.assign(App.prototype, {
     card.dataset.toolid=toolId;
     // FR-NAM-1·6: 도구 이름은 한 자리에서 온다 — 에이전트 패널이 화면의 탭과
     // 다른 이름을 부르면 어느 도구인지 짚을 수 없다.
+    // FR-AGG-13: 창 이름은 머리가 말한다. 카드에는 도구 이름만 남는다.
     const locDiv=document.createElement('div');locDiv.className='ag-loc';
-    locDiv.textContent=(loc.win.name||'')+' · '+this._toolName(toolId,loc.tab.name||toolId);
+    locDiv.textContent=this._toolName(toolId,loc.tab.name||toolId);
     const st=document.createElement('div');st.className='ag-state';
     if(info.state) st.classList.add(info.state); // 상태별 색(.ag-state.working 등)
     st.textContent=(AGENT_STATE_ICON[info.state]||'●')+' '+info.state+(info.tool?' · '+info.tool:'');

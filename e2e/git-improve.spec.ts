@@ -89,8 +89,11 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
     await openGit(page, copyFx('basic', 'v132'));
     await waitFiles(page, 3);
 
-    const btn = rows(page, 'changes').first().locator('.git-file-act[data-act="openFile"]');
+    const btn = rows(page, 'working').first().locator('.git-file-act[data-act="openFile"]');
     await expect(btn, 'Open File 인라인 버튼이 없다').toHaveCount(1, { timeout: 5000 });
+    // 행 동작은 hover 에서 드러난다 (사용자 지시 2026-09-08) — 손이 그 행에 있어야
+    // 누를 수 있고, 그것이 실제 사용자의 순서다.
+    await rows(page, 'working').first().hover();
     await btn.click();
 
     await expect.poll(() => page.evaluate(() => {
@@ -123,7 +126,7 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
       '그룹 머리에 Open File 이 있다').toHaveCount(0);
 
     await filesBox.locator('.git-files-mode[data-mode="flat"]').click();
-    const row = rows(page, 'changes').first();
+    const row = rows(page, 'working').first();
     const btn = row.locator('.git-file-act[data-act="openFile"]');
     await expect(btn, '인라인 Open File 버튼이 없다').toHaveCount(1, { timeout: 5000 });
 
@@ -136,6 +139,8 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
       a._gitOpenFile = (p: string) => { (window as any).__openFileCalls.push(p); return orig(p); };
     });
 
+    // 행 동작은 hover 에서 드러난다 (사용자 지시 2026-09-08).
+    await row.hover();
     await btn.click();
 
     // FR-GIT-41·185: Open File 은 대상 창을 활성화한다 — 그래서 인라인 버튼을
@@ -160,7 +165,7 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
     await openGit(page, copyFx('basic', 'v134'));
     await waitFiles(page, 3);
 
-    const row = rows(page, 'changes').first();
+    const row = rows(page, 'working').first();
     await expect(row).toBeVisible({ timeout: 10000 });
     await row.hover();
 
@@ -173,7 +178,7 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
     for (let i = 0; i < 3; i++) await expect(acts.nth(i)).toHaveCSS('opacity', '1');
 
     // V106 과 같은 방법 — 요소에 표식을 심고 폴링 주기를 넘겨도 살아남는지 본다.
-    const sel = '.git-view.git-changes .git-group[data-group="changes"] .git-file:first-child .git-file-act';
+    const sel = '.git-view.git-changes .git-group[data-group="working"] .git-file:first-child .git-file-act';
     const n = await page.evaluate((s: string) => {
       const els = [...document.querySelectorAll(s)];
       for (const e of els) (e as any).__rptMark = 1;
@@ -199,7 +204,7 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
 
     // 다중 선택 방법은 e2e/git-ui-revision.spec.ts:726 V86(FR-GIT-208)을 그대로
     // 물려받는다: 첫 행 평클릭 + 나머지 ControlOrMeta 클릭.
-    const changesRows = rows(page, 'changes');
+    const changesRows = rows(page, 'working');
     const n = await changesRows.count();
     expect(n, 'basic 픽스처의 changes 그룹이 2개 미만이다').toBeGreaterThanOrEqual(2);
     await changesRows.nth(0).click();
@@ -276,7 +281,7 @@ test.describe('묶음 J — I2 경로 표시 분리 (FR-GIT-237)', () => {
     // Light). Tokyo Night 는 다르다(#a9b1d6 ≠ #c0caf5).
     await applyThemeName(page, 'Tokyo Night');
 
-    const row = rows(page, 'changes').filter({ hasText: '디렉터리 한글/파일 이름.txt' });
+    const row = rows(page, 'working').filter({ hasText: '디렉터리 한글/파일 이름.txt' });
     await expect(row, '중첩 경로 행을 찾지 못했다').toHaveCount(1, { timeout: 10000 });
 
     const dirLoc = row.locator('.git-file-path-dir');
@@ -310,7 +315,7 @@ test.describe('묶음 J — I2 경로 표시 분리 (FR-GIT-237)', () => {
     await openGit(page, copyFx('basic', 'v136'));
     await waitFiles(page, 3);
 
-    const row = rows(page, 'changes').filter({ hasText: '디렉터리 한글/파일 이름.txt' });
+    const row = rows(page, 'working').filter({ hasText: '디렉터리 한글/파일 이름.txt' });
     const dirLoc = row.locator('.git-file-path-dir');
     const nameLoc = row.locator('.git-file-path-name');
     await expect(dirLoc, '디렉터리 요소(.git-file-path-dir)가 없다').toHaveCount(1, { timeout: 5000 });
@@ -345,7 +350,8 @@ test.describe('묶음 J — I2 경로 표시 분리 (FR-GIT-237)', () => {
     await openGit(page, copyFx('basic', 'v137'));
     await waitFiles(page, 3);
 
-    const row = rows(page, 'changes').filter({ hasText: 'tracked.txt' });
+    // 워킹 그룹에는 `untracked.txt` 도 있다 — 부분 일치로는 둘이 걸린다.
+    const row = group(page, 'working').locator('.git-file[data-path="tracked.txt"]');
     await expect(row, '뿌리 파일(tracked.txt) 행을 찾지 못했다').toHaveCount(1, { timeout: 10000 });
 
     const nameLoc = row.locator('.git-file-path-name');

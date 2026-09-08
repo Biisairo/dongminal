@@ -454,9 +454,15 @@ test.describe('13단계 — 원격 작업', () => {
     await openGit(page, repo);
     await ready(page);
 
-    // 빈 충돌 그룹을 접어 둔다 — 펼치는 것이 동작임을 여기서 가른다.
-    await group(page, 'conflicts').locator('.git-group-head').click();
-    await expect(group(page, 'conflicts')).toHaveClass(/collapsed/);
+    /**
+     * 충돌 그룹을 **접힘으로 표시해 둔다** — 펼치는 것이 동작임을 여기서 가른다.
+     *
+     * 종전에는 그 머리를 눌렀다. 지금은 충돌이 없는 동안 그 그룹이 아예 서지
+     * 않으므로(FR-CMG-1a) 누를 머리가 없다 — 접힘의 진실인 `_collapsed` 를 직접
+     * 세운다. 클릭이 하던 일과 같은 것이고, 상태는 그룹이 다시 설 때까지 남는다.
+     */
+    await page.evaluate(() => (window as any).app.gitPanel._collapsed.add('conflicts'));
+    await expect(group(page, 'conflicts')).toHaveClass(/gone/);
 
     // 로컬 pull 은 즉시 끝난다. 작업 식별자가 늦게 도착하게 해 두면 그 사이에
     // 다른 탭으로 옮겨 갈 수 있고, 되돌아오는 것이 동작임을 볼 수 있다.
@@ -481,6 +487,8 @@ test.describe('13단계 — 원격 작업', () => {
     // 잰다.
     await expect(page.locator('#area .ed-side .ed-side-tab[data-side="changes"]'))
       .toHaveClass(/active/, { timeout: 30000 });
+    // 충돌이 생겼으므로 그 그룹이 다시 서고(FR-CMG-1a), 접어 두었던 것이 펼쳐진다.
+    await expect(group(page, 'conflicts')).not.toHaveClass(/gone/);
     await expect(group(page, 'conflicts')).not.toHaveClass(/collapsed/);
     await expect(group(page, 'conflicts').locator('.git-file')).not.toHaveCount(0);
     await expect(job(page).locator('.git-job-note')).toContainText('충돌이 남았습니다');

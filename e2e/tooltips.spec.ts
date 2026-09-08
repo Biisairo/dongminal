@@ -183,7 +183,7 @@ test.describe('묶음 C — 모달과 조건부 표면', () => {
     const changes = page.locator('#area .ed-side .git-view.git-changes');
     await expect(changes.locator('.git-file').first()).toBeVisible({ timeout: 15000 });
     // 그룹 일괄 폐기가 GitConfirm 을 띄운다 (CONFIRM_ONE_STAGE_SRS).
-    await changes.locator('.git-group[data-group="changes"] .git-group-bulk[data-act="discard"]')
+    await changes.locator('.git-group[data-group="working"] .git-group-bulk[data-act="discard"]')
       .click();
     await expect(page.locator('#git-confirm .gc-box')).toBeVisible({ timeout: 10000 });
     await assertAll(page, '확인창');
@@ -321,7 +321,7 @@ test.describe('묶음 C — 띄워야 보이는 표면', () => {
     await waitForInit(page);
     await openGitSurfaces(page, copyFx('basic', 'tip15'));
     const changes = page.locator('#area .ed-side .git-view.git-changes');
-    const row = changes.locator('.git-group[data-group="changes"] .git-file').first();
+    const row = changes.locator('.git-group[data-group="working"] .git-file').first();
     await expect(row).toBeVisible({ timeout: 15000 });
     await row.click();
     const diff = page.locator('#area .pn-body .git-view.git-diff');

@@ -54,7 +54,7 @@ class GitConfirm {
    * (계약 §1.1). **몇 걸음으로 물을지는 이 클래스가 정하므로** 두 값 모두 한
    * 걸음이 되며, 호출부는 한 줄도 바뀌지 않는다 (D-1).
    */
-  static async open({action,title,targets,hint,mobile,run,stages}){
+  static async open({action,title,targets,sections,hint,mobile,run,stages}){
     // 파괴적 확인은 한 번에 하나다 — 겹치면 어느 대상의 확인인지 알 수 없다.
     if(GitConfirm._cur) return false;
     const destructive=await GitConfirm.destructive(action);
@@ -64,7 +64,7 @@ class GitConfirm {
       const res=await run();
       return !!(res&&res.ok);
     }
-    const c=new GitConfirm({action,title,targets,hint,mobile,run,destructive});
+    const c=new GitConfirm({action,title,targets,sections,hint,mobile,run,destructive});
     return c._show();
   }
 
@@ -135,6 +135,14 @@ class GitConfirm {
     this.action=o.action||'';
     this.title=o.title||GIT_CONFIRM_TITLE;
     this.targets=Array.isArray(o.targets)?o.targets:[];
+    /**
+     * PANEL_SURFACE_SRS FR-CMG-7: 대상을 **뜻이 다른 무리로 나눠** 보인다.
+     *
+     * `[{label,paths}]` 이며, 없으면 지금까지처럼 한 목록이다 — 무리가 하나뿐인
+     * 확인창에 머리를 붙이면 읽을 것만 늘어난다. 되돌릴 수 없는 삭제가 되돌림과
+     * 같은 목록에 섞이면 사용자에게는 그 차이를 볼 자리가 없다.
+     */
+    this.sections=Array.isArray(o.sections)?o.sections.filter(x=>x&&(x.paths||[]).length):[];
     this.hint=o.hint||null;
     this.run=typeof o.run==='function'?o.run:null;
     // 모바일 판정은 호출자가 덮을 수 있다. 기본은 app.isMobile (FR-GIT-94).
@@ -220,9 +228,20 @@ class GitConfirm {
     b.querySelector('.gc-count').textContent=
       GIT_CONFIRM_COUNT_LABEL+' '+this.targets.length+'개';
     const ul=b.querySelector('.gc-targets'); ul.innerHTML='';
-    for(const t of this.targets){
+    const put=t=>{
       const li=document.createElement('li'); li.className='gc-target'; li.textContent=t;
       ul.appendChild(li);
+    };
+    if(this.sections.length>1){
+      for(const sec of this.sections){
+        const h=document.createElement('li');
+        h.className='gc-target-sect';
+        h.textContent=sec.label+' '+sec.paths.length+'개';
+        ul.appendChild(h);
+        for(const t of sec.paths) put(t);
+      }
+    }else{
+      for(const t of this.targets) put(t);
     }
     // FR-COS-2·3: 영향 범위와 recovery hint 를 **같은 화면**에 함께 보인다.
     //

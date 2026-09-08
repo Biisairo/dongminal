@@ -28,7 +28,7 @@ const copyFx = makeCopyFx(FIXTURES);
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');
 // 새 파일은 untracked 그룹에 선다.
 const untracked = (page: Page) =>
-  changes(page).locator('.git-group[data-group="untracked"] .git-file');
+  changes(page).locator('.git-group[data-group="working"] .git-file');
 
 // 변화 한 번을 만든다 — 작업 트리에 파일을 더하면 index 와 무관하게 status 가 바뀐다.
 function touch(repo: string, name: string) {

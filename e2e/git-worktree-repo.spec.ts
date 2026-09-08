@@ -128,7 +128,7 @@ test.describe('묶음 E — 워크트리를 저장소로 (FR-WTG-1 확정)', () 
       await expect.poll(() => page.evaluate(() => (window as any).app.gitPanel.repo),
         { timeout: 15000 }).toBe(wtPath);
 
-      const untracked = changes(page).locator('.git-group[data-group="untracked"]');
+      const untracked = changes(page).locator('.git-group[data-group="working"]');
       await expect(untracked.locator('.git-file[data-path="wt-only.txt"]'))
         .toBeVisible({ timeout: 15000 });
       // 원본에만 있는 미추적 파일(`untracked.txt`)은 여기 없다 — 있으면 원본을 보고 있다.

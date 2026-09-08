@@ -113,9 +113,12 @@ Object.assign(GitPanel.prototype, {
    */
   _wireHead(el){
     const head=el&&el.querySelector('.git-head'); if(!head) return;
+    // 요구 ③: 아이콘이 버튼을 꽉 채운다 — 크기는 `.ui-icon` 이 버튼 높이에서
+    // 파생시킨다 (FR-GLY-5). 글자 화살표는 폰트 크기를 따라 작게 남아 있었다.
     for(const b of head.querySelectorAll('.git-remote-btn'))
-      b.textContent=GIT_REMOTE_ICON[b.dataset.remote]||'';
-    for(const b of head.querySelectorAll('.git-remote-more')) b.textContent=GIT_REMOTE_MORE;
+      b.appendChild(UIKit.icon(GIT_REMOTE_ICON[b.dataset.remote]));
+    for(const b of head.querySelectorAll('.git-remote-more'))
+      b.appendChild(UIKit.icon(GIT_REMOTE_MORE,{size:'sm'}));
     // FR-GIT-282: 리포명 자체가 전환 자리다 — 헤더에 새 버튼을 더하지 않는다.
     head.querySelector('.git-head-repo').addEventListener('click',ev=>this._openRepoPicker(ev));
     this._remote().bindHead(head);
@@ -249,22 +252,29 @@ Object.assign(GitPanel.prototype, {
       // untracked 를 가르므로 그룹별 일괄이 곧 그 구분이다. 그리는 순서가 곧
       // 손에서의 거리이므로 `GIT_GROUP_BULK` 의 배열 순서를 그대로 따른다 —
       // 여기서 정렬하면 순서의 뜻이 두 자리에 살게 된다.
-      for(const act of GIT_GROUP_BULK[g.key]||[]){
+      // 일괄도 행과 **같은 열**에 선다 (GIT_ACT_COLS) — 자리지킴이 없는 열을
+      // 메운다. 머리와 행의 오른쪽 끝이 어긋나면 같은 뜻의 아이콘이 다른 자리에
+      // 서고, 그것이 접수한 말의 "정렬이 안되었다" 다.
+      const acts=document.createElement('span');
+      acts.className='git-act-cols git-group-acts';
+      for(const c of this._actCols(GIT_GROUP_BULK[g.key]||[],GIT_BULK_COLS)){
+        if(!c.act){acts.appendChild(this._actGap());continue}
         const b=document.createElement('button');
-        b.className='git-group-bulk'; b.dataset.act=act;
+        b.className='git-group-bulk'; b.dataset.act=c.act;
         // FR-WBR-52: 행 동작과 **같은 어휘**의 아이콘이다. FR-WBR-52a: 뜻이
-        // 갈리는 자리는 툴팁이다 — untracked 의 폐기는 삭제이고 되살릴 수 없다.
-        b.textContent=GIT_ACT_LABEL[act];
-        b.title=(GIT_BULK_TITLE_GROUP[g.key]||{})[act]||GIT_BULK_TITLE[act];
+        // 갈리는 자리는 툴팁이다 — 워킹 그룹의 폐기는 삭제를 포함한다.
+        b.appendChild(UIKit.icon(GIT_ACT_ICON[c.act]));
+        b.title=(GIT_BULK_TITLE_GROUP[g.key]||{})[c.act]||GIT_BULK_TITLE[c.act];
         // 헤더 클릭은 접기다 — 일괄 버튼이 그것을 함께 일으키지 않는다.
-        b.addEventListener('click',ev=>{ev.stopPropagation();this._bulk(g.key,act)});
-        d.querySelector('.git-group-head').appendChild(b);
+        b.addEventListener('click',ev=>{ev.stopPropagation();this._bulk(g.key,c.act)});
+        acts.appendChild(b);
       }
+      d.querySelector('.git-group-head').appendChild(acts);
       files.appendChild(d);
     }
     for(const b of el.querySelectorAll('.git-files-mode')){
       // FR-GCC-8 / NFR-3: 아이콘만 남으므로 툴팁이 유일한 설명이다.
-      b.textContent=GIT_FILES_MODE_ICON[b.dataset.mode]||'';
+      b.appendChild(UIKit.icon(GIT_FILES_MODE_ICON[b.dataset.mode]));
       b.title=GIT_FILE_VIEW_TITLE[b.dataset.mode]||'';
       b.addEventListener('click',()=>this._setFileView(b.dataset.mode));
     }
@@ -292,7 +302,8 @@ Object.assign(GitPanel.prototype, {
     // 아직 불러오는 중인 것은 오류가 아니다 — 같은 자리에 다른 색으로 알린다.
     note.classList.toggle('loading',loading);
     this._paintOp(el,s);
-    for(const g of GIT_GROUPS) this._paintGroup(el,g,(s&&s[g.key])||[]);
+    // FR-CMG-2: 워킹 그룹은 서버의 두 배열을 합친 것이다 — 판정은 한 자리다.
+    for(const g of GIT_GROUPS) this._paintGroup(el,g,gitGroupEntries(s,g.key));
     this._paintMode(el);
     this._paintNote(el);
     this._commit().paint(s||null);
@@ -384,7 +395,18 @@ Object.assign(GitPanel.prototype, {
 
   _paintGroup(el,g,entries){
     const box=el.querySelector('.git-group[data-group="'+g.key+'"]'); if(!box) return;
-    box.querySelector('.git-group-count').textContent='('+entries.length+')';
+    // 비어 있으면 서지 않는 그룹 (`hideEmpty`). 골격에서 빼지 않고 감추는 이유는
+    // 접힘·무한 스크롤·트리 보기가 전부 이 상자를 딛기 때문이다 — 다시 만들면
+    // 그 상태가 회차마다 날아간다 (FR-RPT-3 과 같은 근거).
+    box.classList.toggle('gone',!!g.hideEmpty&&!entries.length);
+    const cnt=box.querySelector('.git-group-count');
+    cnt.textContent='('+entries.length+')';
+    // FR-CMG-11: 합계만으로는 **지울 것이 있는지** 보이지 않는다. 두 출신이 섞이는
+    // 그룹에서만 내역을 적는다 — 갈리지 않는 그룹에 같은 말을 두면 뜻이 없다.
+    if(GIT_GROUP_SRC[g.key]){
+      const m=entries.filter(e=>e.untracked).length;
+      cnt.title=GIT_GROUP_COUNT_TITLE(entries.length-m,m);
+    }
     // 빈 그룹에 일괄 동작은 뜻이 없다 — **버튼마다** 건다 (FR-WBR-53). 하나만
     // 찾으면 둘째가 빈 그룹에서도 눌린다.
     for(const b of box.querySelectorAll('.git-group-bulk')) b.disabled=!entries.length;
@@ -417,7 +439,7 @@ Object.assign(GitPanel.prototype, {
     const e=it.e,group=it.group;
     return [
       it.depth,e.path,e.origPath||'',e.staged||'',e.unstaged||'',
-      e.conflict?1:0,e.score||'',this._stateChar(group,e),
+      e.conflict?1:0,e.untracked?1:0,e.score||'',this._stateChar(group,e),
       this._sel.has(this._selKey(group,e.path))?1:0,
       (this.previewFile&&this.previewFile.group===group&&this.previewFile.path===e.path)?1:0,
       this._treeMode()?1:0,
@@ -509,22 +531,16 @@ Object.assign(GitPanel.prototype, {
      */
     const acts=d.querySelector('.git-file-acts');
     const own=GIT_DIR_ACTS[it.group]||[];
-    for(const act of (own.length?(GIT_ROW_ACTS[it.group]||[]):[])){
-      if(!own.includes(act)){
-        // 클릭 대상이 아니고 읽히지도 않는다 — 자리만 차지한다.
-        const gap=document.createElement('span');
-        gap.className='git-act-gap'; gap.setAttribute('aria-hidden','true');
-        acts.appendChild(gap);
-        continue;
-      }
+    for(const c of (own.length?this._actCols(own,GIT_BULK_COLS):[])){
+      if(!c.act){acts.appendChild(this._actGap());continue}
       const b=document.createElement('button');
-      b.className='git-file-act'; b.dataset.act=act;
-      b.textContent=GIT_ACT_LABEL[act];
-      // FR-DBA-4: untracked 의 폐기는 삭제다 — 그룹이 뜻을 가르는 자리다.
-      b.title=(GIT_DIR_ACT_TITLE_GROUP[it.group]||{})[act]||
-        GIT_DIR_ACT_TITLE[act]||GIT_ACT_TITLE[act];
+      b.className='git-file-act'; b.dataset.act=c.act;
+      b.appendChild(UIKit.icon(GIT_ACT_ICON[c.act]));
+      // FR-CMG-9: 폴더 아래에 두 출신이 섞일 수 있다 — 정확한 내역은 확인창이 보인다.
+      b.title=(GIT_DIR_ACT_TITLE_GROUP[it.group]||{})[c.act]||
+        GIT_DIR_ACT_TITLE[c.act]||GIT_ACT_TITLE[c.act];
       // 행 클릭은 접기다 — 동작 버튼이 그것을 함께 일으키지 않는다.
-      b.addEventListener('click',ev=>{ev.stopPropagation();this._dirBulk(it.group,it.path,act)});
+      b.addEventListener('click',ev=>{ev.stopPropagation();this._dirBulk(it.group,it.path,c.act)});
       acts.appendChild(b);
     }
     d.addEventListener('click',()=>{
@@ -585,14 +601,19 @@ Object.assign(GitPanel.prototype, {
     d.appendChild(st); d.appendChild(p);
     // 행 인라인 동작 (FR-GIT-64·65·89). 그룹이 할 수 있는 것만 붙인다.
     const acts=document.createElement('span'); acts.className='git-file-acts';
-    for(const a of (GIT_ROW_ACTS[group]||[])){
+    for(const c of this._actCols(GIT_ROW_ACTS[group]||[])){
+      if(!c.act){acts.appendChild(this._actGap());continue}
+      const a=c.act;
       const b=document.createElement('button');
       b.className='git-file-act'; b.dataset.act=a;
-      b.textContent=GIT_ACT_LABEL[a];
+      // `ours`·`theirs` 는 어휘이지 아이콘이 아니다 (FR-GLY-8).
+      if(GIT_ACT_ICON[a]) b.appendChild(UIKit.icon(GIT_ACT_ICON[a]));
+      else{b.classList.add('git-act-word');b.textContent=GIT_ACT_LABEL[a]}
       // ours·theirs 는 진행 중인 조작에 따라 뜻이 뒤집힌다 (FR-GIT-224).
+      // FR-CMG-5: 폐기의 뜻은 그 행의 출신이 정한다 — 새 파일의 폐기는 삭제다.
       b.title=(a==='ours'||a==='theirs')
         ? (GIT_SIDE_TITLE[this._op()]||GIT_SIDE_TITLE[''])[a]
-        : GIT_ACT_TITLE[a];
+        : ((e.untracked&&GIT_ACT_TITLE_UNTRACKED[a])||GIT_ACT_TITLE[a]);
       /**
        * SUBMODULE_DIRTY_NOTICE_SRS FR-SDN-12·13 (D-2a): 담을 몫이 없으면 끈다.
        *
@@ -610,8 +631,8 @@ Object.assign(GitPanel.prototype, {
         // FR-GIT-236: Open File 은 선택을 끌어오지 않는다 — `_rowTargets` 는 쓰기
         // 동작의 규약이고, 그것을 그대로 쓰면 고른 수만큼 편집기 탭이 열린다.
         this._run(a, a==='openFile'
-          ? [{group,path:e.path,origPath:e.origPath||''}]
-          : this._rowTargets(a,group,e.path,e.origPath));
+          ? [this._target(group,e)]
+          : this._rowTargets(a,group,e.path,e.origPath,e.untracked));
       });
       acts.appendChild(b);
     }
@@ -634,12 +655,14 @@ Object.assign(GitPanel.prototype, {
     d.addEventListener('click',ev=>{
       this._select(group,e,ev);
       if(ev&&(ev.metaKey||ev.ctrlKey||ev.shiftKey)) return;
-      if(group==='untracked'&&this._openUntracked(e)) return;
+      // FR-RTU-51 (개정): 비교의 왼쪽이 없는 행만 편집기다 — 판정은 그룹이 아니라
+      // **항목**이 준다 (`_noBaseline`).
+      if(this._noBaseline(group,e)&&this._openInEditor(e)) return;
       this.openView('diff');
     });
     d.addEventListener('contextmenu',ev=>{
       ev.preventDefault();
-      GitMenu.open('file',{group,path:e.path,origPath:e.origPath||''},ev);
+      GitMenu.open('file',this._target(group,e),ev);
     });
     return d;
   },
@@ -708,6 +731,33 @@ Object.assign(GitPanel.prototype, {
 
   // 상태문자의 규칙은 탐색기와 **한 출처**를 쓴다 (FR-RST-22) — 두 화면이 같은
   // 사실을 다른 문자로 말하지 않게 하는 자리다.
+  /**
+   * 동작 목록을 **열**로 편다 (`GIT_ACT_COLS`).
+   *
+   * 돌려주는 것은 열 하나마다 `{act}` 또는 `{}`(자리지킴)다. 열에 없는 동작
+   * (`ours`·`theirs`)은 앞에 그대로 실린다 — 글자 버튼이라 폭이 다르고, 뒤에 두면
+   * 오른쪽 세 열이 그 폭만큼 밀린다.
+   *
+   * 목록이 비면 빈 배열이다: 정렬할 버튼이 하나도 없으면 맞출 열도 없다
+   * (FR-DBA-1 의 conflicts 폴더 행이 그 자리다).
+   */
+  _actCols(have,cols){
+    if(!have||!have.length) return [];
+    const use=cols||GIT_ACT_COLS;
+    const set=new Set(have),out=[];
+    const inCol=new Set([].concat(...use));
+    for(const a of have) if(!inCol.has(a)) out.push({act:a});
+    for(const col of use) out.push({act:col.find(a=>set.has(a))||null});
+    return out;
+  },
+
+  // 클릭 대상이 아니고 읽히지도 않는다 — 열 하나의 자리만 차지한다.
+  _actGap(){
+    const g=document.createElement('span');
+    g.className='git-act-gap'; g.setAttribute('aria-hidden','true');
+    return g;
+  },
+
   _stateChar(group,e){ return gitStateChar(group,e) },
 
   _toggleGroup(key){

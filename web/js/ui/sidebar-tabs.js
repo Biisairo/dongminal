@@ -95,7 +95,9 @@ const SB_TAB_DEFS=[
           return true;
         },
         // 창 순서는 클라이언트가 workspace.json 에 쓴다 — 서버 확정이 없다.
-        commit:app=>app._save(),
+        // FR-AGG-3: agents 패널의 그룹 순서는 이 배열에서 파생하므로(D-9) 같은
+        // 자리에서 다시 그린다 — 폴링을 기다리면 방금 만든 순서를 한 박자 늦게 본다.
+        commit:app=>{app._save();if(app._agentsRender)app._agentsRender()},
       },
     },
   },

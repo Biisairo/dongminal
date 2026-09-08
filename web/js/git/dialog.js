@@ -66,8 +66,10 @@ class GitDialog {
     const s=(p.statusOf&&p.statusOf())||null;
     if(s){
       out.push(s.oid||'',s.branch||'');
+      // FR-CMG-13: 화면과 같은 묶음이다 — 한쪽만 합치면 같은 파일이 자리마다
+      // 다른 그룹 이름으로 지문에 들어간다.
       for(const g of GIT_DIALOG_FP_GROUPS)
-        for(const e of (s[g]||[])) out.push(g+' '+(e.xy||'')+' '+e.path);
+        for(const e of gitGroupEntries(s,g)) out.push(g+' '+(e.xy||'')+' '+e.path);
     }
     return out.join('\n');
   }

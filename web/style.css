@@ -475,6 +475,12 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .ag-refresh,.ag-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;line-height:1;padding:2px 4px;border-radius:3px}
 .ag-refresh:hover,.ag-close:hover{color:var(--accent);background:var(--accent-hover)}
 .ag-empty{padding:12px 10px;font-size:12px;color:var(--text-dim)}
+/* PANEL_SURFACE_SRS FR-AGG-1·10·11·12: 창 그룹의 머리. 카드가 있는 창만 갖는다. */
+.ag-group{display:flex;align-items:center;gap:4px;padding:5px 8px;cursor:pointer;background:var(--bg-alt);border-bottom:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}
+.ag-group:hover{color:var(--accent);background:var(--accent-hover)}
+.ag-group-fold{flex:none}
+.ag-group-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ag-group.attn .ag-group-name{color:var(--attn)}
 .ag-card{padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
 .ag-card:hover{background:var(--accent-hover)}
 .ag-card.attn{box-shadow:inset 3px 0 0 var(--attn);animation:attn-pulse-bar 2s ease-in-out infinite}

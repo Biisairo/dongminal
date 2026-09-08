@@ -79,7 +79,7 @@ const modified = (page: Page) =>
 test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
   test('D1 (V-RTU-50·54): unstaged 는 오른쪽이 편집 가능하다', async ({ page, request }) => {
     await enter(page, request, REPO);
-    await row(page, 'changes', 'mod.txt').click();
+    await row(page, 'working', 'mod.txt').click();
     await expect(diffTab(page)).toHaveCount(1, { timeout: 10000 });
     await expect(modified(page)).toBeVisible({ timeout: 20000 });
 
@@ -113,7 +113,7 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
   test('D3 (V-RTU-52·53·55): 고치고 저장하면 파일이 바뀌고 목록이 따라온다',
     async ({ page, request }) => {
       await enter(page, request, REPO);
-      await row(page, 'changes', 'mod.txt').click();
+      await row(page, 'working', 'mod.txt').click();
       await expect(modified(page)).toBeVisible({ timeout: 20000 });
 
       // 오른쪽 모델을 고친다 — 타이핑과 같은 경로(onDidChangeContent)를 지난다.
@@ -134,7 +134,7 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
 
   test('D4 (V-RTU-56): 편집 중에는 폴링이 내용을 덮지 않는다', async ({ page, request }) => {
     await enter(page, request, REPO);
-    await row(page, 'changes', 'mod.txt').click();
+    await row(page, 'working', 'mod.txt').click();
     await expect(modified(page)).toBeVisible({ timeout: 20000 });
 
     await page.evaluate(() => {
@@ -148,30 +148,48 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
     expect(kept).toBe('편집 중인 내용\n');
   });
 
-  test('D5 (V-RTU-52): untracked 는 diff 가 아니라 편집기 탭으로 열린다',
+  /**
+   * D5 — FR-RTU-51 (개정, 사용자 지시 2026-09-08 "vsc 의 패턴을 똑같이").
+   *
+   * 가르는 것은 그룹이 아니라 **비교의 왼쪽이 실재하는가**다. 새 파일은 index 에
+   * 그 경로가 없으므로 편집기이고, 스테이지한 뒤 다시 고치면 index↔worktree 의
+   * 양쪽이 생겨 diff 가 된다. 다시 스테이지하면 왼쪽이 또 사라져 편집기다.
+   */
+  test('D5 (V-RTU-52): 왼쪽이 없는 행은 편집기, 생기면 diff — 그리고 다시 없어지면 편집기',
     async ({ page, request }) => {
-      // **이름을 매번 새로 만든다.** 워크스페이스는 시험 사이에 남으므로, 같은
-      // 이름을 쓰면 앞 실행이 열어 둔 탭이 `_findEditorTab` 에 걸려 "이미 열려
-      // 있으면 그 탭으로" (FR-EDT-101) 경로를 타고, 미리보기 여부가 그때의
-      // 상태에 좌우된다.
+      // **이름을 매번 새로 만든다.** 워크스페이스는 시험 사이에 남는다.
       const name = 'fresh-' + Date.now() + '.txt';
       w(j(REPO, name), 'brand new\n');
       await enter(page, request, REPO);
-      await row(page, 'untracked', name).click();
 
-      // 편집기 탭이며 diff 탭이 아니다 — 비교할 왼쪽이 없기 때문이다 (D-RTU-8).
+      // ① 새 파일 — index 에 없다. 편집기 탭이며 미리보기다 (FR-RTU-40·41).
+      await row(page, 'working', name).click();
       const tab = page.locator('#area .ed-area .pn-tab', { hasText: name });
       await expect(tab).toHaveCount(1, { timeout: 10000 });
       await expect(tab).not.toHaveAttribute('data-git-view', /.*/);
       await expect(diffTab(page)).toHaveCount(0);
-      /**
-       * **그리고 미리보기다** (FR-RTU-40·41).
-       *
-       * 이 단언은 앞 세션에서 주석 처리돼 있었고 "만든 뒤 누군가 `preview` 를
-       * 지운다" 로 기록돼 있었다. **결함이 아니었다** — 그때 이 시험은 행을
-       * `dblclick` 했고, 그 경로는 FR-RTU-42 ④(목록 더블클릭 = 고정)에 걸려
-       * 고정되는 것이 옳았다. 지금은 **한 번 클릭이 연다** (D-RTU-23).
-       */
       await expect(tab).toHaveClass(/pn-tab-preview/);
+
+      // ② 스테이지한 뒤 고친다 — index↔worktree 의 양쪽이 생겼다.
+      //
+      // **행이 보이는 것으로는 부족하다.** ⑦ 이후 그 파일은 상태가 바뀌어도 같은
+      // 워킹 그룹에 그대로 있으므로(FR-CMG-1), 행의 존재는 아직 새 파일일 때도
+      // 참이다. 상태 문자가 `?`→`M` 으로 바뀐 것을 기다린다 — 그것이 index 에
+      // 왼쪽이 생겼다는 유일한 증거다 (FR-CMG-3).
+      git(REPO, 'add', name);
+      w(j(REPO, name), 'brand new\nsecond line\n');
+      await expect(row(page, 'working', name).locator('.git-file-st'))
+        .toHaveText('M', { timeout: 20000 });
+      await row(page, 'working', name).click();
+      await expect(diffTab(page)).toHaveCount(1, { timeout: 15000 });
+      await expect(page.locator('#area .monaco-diff-editor'))
+        .toContainText('second line', { timeout: 20000 });
+
+      // ③ 같은 파일의 staged 행은 HEAD 에 왼쪽이 없다 (`A`) — 편집기다.
+      await expect(row(page, 'staged', name).locator('.git-file-st'))
+        .toHaveText('A', { timeout: 20000 });
+      await row(page, 'staged', name).click();
+      await expect(page.locator('#area .ed-area .pn-tab', { hasText: name }))
+        .toHaveCount(1, { timeout: 15000 });
     });
 });

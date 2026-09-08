@@ -76,7 +76,11 @@ func obsMark(o store.Observation) string {
 	fmt.Fprintf(h, "%s|%s|%s|%t|%d|%d|",
 		o.Signature.Value, o.Status.Oid, o.Status.Branch, o.Status.Detached,
 		o.Status.Ahead, o.Status.Behind)
-	for _, g := range [][]query.FileEntry{o.Status.Staged, o.Status.Changes, o.Status.Untracked} {
+	// Conflicts 가 빠져 있었다. 머지가 멈춘 동안 사용자가 손대는 것이 바로 그
+	// 파일들인데, 그 변화만 방송이 잡지 못해 30초 안전망까지 화면이 낡았다.
+	for _, g := range [][]query.FileEntry{
+		o.Status.Staged, o.Status.Changes, o.Status.Untracked, o.Status.Conflicts,
+	} {
 		fmt.Fprintf(h, "#%d", len(g))
 		for _, f := range g {
 			fmt.Fprintf(h, "%s:%s:%s;", f.Path, f.XY, f.Sub)

@@ -101,7 +101,7 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     await expect.poll(() => c.n, { timeout: 5000 }).toBeGreaterThanOrEqual(1);
 
     const rows = page.locator(
-      '#area .ed-side .git-view.git-changes .git-group[data-group="untracked"] .git-file');
+      '#area .ed-side .git-view.git-changes .git-group[data-group="working"] .git-file');
     const before = await rows.count();
     writeFileSync(join(repo, 'p1-new.txt'), 'x\n');
 
@@ -262,7 +262,7 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
 
     // 잠금이 살아 있으면 다음 변화가 화면에 오지 않는다 — 값으로 확인한다.
     const rows = page.locator(
-      '#area .ed-side .git-view.git-changes .git-group[data-group="untracked"] .git-file');
+      '#area .ed-side .git-view.git-changes .git-group[data-group="working"] .git-file');
     const before = await rows.count();
     writeFileSync(join(repo, 'p7-last.txt'), 'x\n');
     await expect.poll(() => rows.count(), { timeout: 8000 }).toBeGreaterThan(before);
