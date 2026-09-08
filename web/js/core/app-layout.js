@@ -817,4 +817,13 @@ Object.assign(App.prototype, {
   },
 
   _toggleSidebar(){this._setSidebarCollapsed(!this._sidebarCollapsed())},
+
+  /**
+   * PANEL_SURFACE_SRS FR-RAL-9·10: **사이드바가 지금 레일인가.**
+   *
+   * CSS 선택자 `html.sb-collapsed body:not(.mobile)` 와 같은 판정이며, JS 쪽의
+   * 유일한 자리다. 접힘만으로는 답이 되지 않는다 — 모바일에서 사이드바는
+   * 드로어이고(FR-SBC-20) 그때 접힘 클래스는 아무것도 좁히지 않는다.
+   */
+  _sbRail(){return this._sidebarCollapsed()&&!this.isMobile},
 });

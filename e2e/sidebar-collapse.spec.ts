@@ -123,8 +123,10 @@ test.describe('묶음 SBC — 레일의 구성 (FR-SBC-11~16)', () => {
     await waitForInit(page);
     await toggleKey(page);
 
-    // 목록과 액션 버튼 행은 숨는다 — 40px 에서 읽히지 않는다 (FR-SBC-11).
-    await expect(page.locator('#sb-panel-windows')).toBeHidden();
+    // FR-SBC-11 개정 (PANEL_SURFACE_SRS FR-RAL-1): 목록은 **남는다.** 숨는 것은
+    // 40px 에 들어가지 않는 것 — 액션 버튼 행 — 뿐이다.
+    await expect(page.locator('#sb-panel-windows')).toBeVisible();
+    await expect(page.locator('#sb-panel-windows .sb-actions')).toBeHidden();
     // 탭은 남되 라벨 대신 아이콘이다 (FR-SBC-12·13).
     await expect(page.locator('.sb-tab[data-panel="windows"] .sb-tab-icon')).toBeVisible();
     await expect(page.locator('.sb-tab[data-panel="windows"] .sb-tab-label')).toBeHidden();
@@ -133,9 +135,9 @@ test.describe('묶음 SBC — 레일의 구성 (FR-SBC-11~16)', () => {
     await expect(page.locator('#settings-btn')).toBeVisible();
   });
 
-  // FR-SBC-15: 펼침에서 이 행을 아래로 미는 것은 `.sb-panel` 의 `flex:1 1 auto`
-  // 인데 레일에서는 그 패널이 숨는다 — 미는 힘을 레일이 따로 세우지 않으면
-  // `⟳`·`⚙` 가 탭 바로 아래로 딸려 올라간다.
+  // FR-SBC-15 / FR-RAL-8: 이 행을 아래로 미는 것은 `.sb-panel` 의 `flex:1 1 auto`
+  // 다. 레일에서도 그 패널이 남으므로(FR-RAL-1) 미는 힘은 살아 있지만, 목록이
+  // 비어 패널이 자연 높이로 줄어드는 순간에도 `⟳`·`⚙` 는 바닥이어야 한다.
   test('SBC5b (V-SBC-4): 레일에서도 하단 버튼은 최하단에 남는다', async ({ page }) => {
     await waitForInit(page);
     await toggleKey(page);
@@ -247,5 +249,151 @@ test.describe('묶음 SBC — 부수 효과 (FR-SBC-19·20)', () => {
     // 로 한정돼 있기 때문이다.
     expect(await collapsed(page)).toBe(true);
     expect(await sidebarWidth(page)).toBeGreaterThan(RAIL_W);
+  });
+});
+
+/**
+ * PANEL_SURFACE_SRS §3.2 — 레일의 목록 (FR-RAL-1~10 · 검증 V-6·V-7).
+ *
+ * 요구 ④ "좌측 패널 줄였을 때도 리스트가 보이도록하고싶다." 접힘은 목록을 감추는
+ * 일이 아니라 **40px 에 들어가지 않는 것을 걷어 내는** 일이 된다.
+ */
+test.describe('묶음 RAL — 레일의 목록 (FR-RAL-1~10)', () => {
+  // 레일에서도 행이 보이고, 남는 것은 점과 첫 글자다 (FR-RAL-1·2).
+  test('RAL1 (V-6): 레일에서도 목록 행이 보이고 40px 안에 든다', async ({ page }) => {
+    await waitForInit(page);
+    const row = page.locator('#windows .si').first();
+    await expect(row).toBeVisible();
+
+    await toggleKey(page);
+
+    await expect(row).toBeVisible();
+    const box = await row.boundingBox();
+    expect(box!.width).toBeLessThanOrEqual(RAIL_W);
+    await expect(row.locator('.sbl-initial')).toBeVisible();
+    // 이름·×·배지는 자리를 내준다.
+    await expect(row.locator('.sbl-name')).toBeHidden();
+    await expect(row.locator('.sbl-x')).toBeHidden();
+  });
+
+  // FR-RAL-3: 한 글자로 줄어든 이름에 닿는 유일한 길이다.
+  test('RAL2 (FR-RAL-3): 전체 이름은 title 로 닿는다', async ({ page }) => {
+    await waitForInit(page);
+    await toggleKey(page);
+    const name = await page.evaluate(() => (window as any).app._plainWindows()[0].name);
+    const row = page.locator('#windows .si').first();
+    await expect(row).toHaveAttribute('title', name);
+    await expect(row.locator('.sbl-initial')).toHaveText(name.charAt(0));
+  });
+
+  /**
+   * FR-RAL-5: 행을 누르면 그 항목이 열리고, 사이드바는 **접힌 채로** 남는다 —
+   * 접어 둔 것은 접어 두려는 뜻이다 (FR-SBC-17·18 의 판단 그대로).
+   */
+  test('RAL3 (V-6): 레일의 행을 누르면 창이 바뀌고 접힘이 유지된다', async ({ page }) => {
+    await waitForInit(page);
+    // 옮겨 갈 곳이 있어야 "열렸다" 가 증거가 된다.
+    await page.locator('#add-window').click();
+    await expect(page.locator('#windows .si')).toHaveCount(2, { timeout: 10000 });
+    const [first, second] = await page.evaluate(() =>
+      (window as any).app._plainWindows().map((s: any) => s.id).slice(0, 2));
+    await page.evaluate((id) => (window as any).app.switchWindow(id), first);
+
+    await toggleKey(page);
+    await page.locator(`#windows .si[data-sid="${second}"]`).click();
+
+    expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(second);
+    expect(await collapsed(page)).toBe(true);
+  });
+
+  // FR-RAL-4: 표시는 펼친 목록과 **같은 클래스**다 — 색과 맥박이 두 벌이 되지 않는다.
+  test('RAL4 (V-7): 알람이 걸린 창의 레일 행이 `.attn` 을 갖는다', async ({ page }) => {
+    await waitForInit(page);
+    await toggleKey(page);
+    const sid = await page.evaluate(() => {
+      const app = (window as any).app;
+      const s = app._plainWindows()[0];
+      const ids: string[] = [];
+      const walk = (n: any) => {
+        if (!n) return;
+        if (n.type === 'pane') (n.tabs || []).forEach((t: any) => t.toolId && ids.push(t.toolId));
+        (n.children || []).forEach(walk);
+      };
+      walk(s.layout);
+      app._attn.set(ids[0], { reason: 'test' });
+      app._attnRefresh();
+      return s.id;
+    });
+    await expect(page.locator(`#windows .si[data-sid="${sid}"]`)).toHaveClass(/attn/);
+  });
+
+  /**
+   * FR-RAL-9: 40px 폭에서 위/아래 절반을 가르는 판정은 실패하기 쉽다. CSS 로는
+   * 막을 수 없으므로 제스처의 **출발점**에서 끊는다 — 펼침에서는 그대로 시작한다.
+   */
+  test('RAL5 (FR-RAL-9): 레일에서는 재배치가 시작되지 않는다', async ({ page }) => {
+    await waitForInit(page);
+    const dragStart = () => page.evaluate(() => {
+      const app = (window as any).app;
+      app._drag = null;
+      const el = document.querySelector('#windows .si') as HTMLElement;
+      const e = new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() });
+      el.dispatchEvent(e);
+      const started = !!app._drag;
+      app._drag = null;
+      return { started, prevented: e.defaultPrevented };
+    });
+
+    expect(await dragStart()).toEqual({ started: true, prevented: false });
+
+    await toggleKey(page);
+    expect(await dragStart()).toEqual({ started: false, prevented: true });
+  });
+
+  // FR-RAL-8: 넘치면 목록만 스크롤한다. `⟳`·`⚙` 의 자리는 SBC5b 가 이미 잰다.
+  test('RAL6 (FR-RAL-8): 레일에서도 목록만 세로로 스크롤한다', async ({ page }) => {
+    await waitForInit(page);
+    await toggleKey(page);
+    const ov = await page.evaluate(() =>
+      getComputedStyle(document.getElementById('windows')!).overflowY);
+    expect(ov).toBe('auto');
+  });
+
+  /**
+   * FR-RAL-7: 배지(변경 수·샌드박스)는 숫자를 40px 에 넣지 않고 **점의 색**으로
+   * 축약된다. 배지를 실제로 띄우려면 저장소가 필요하므로, 여기서 재는 것은
+   * 그 축약을 성립시키는 규칙이다 — 행에 붙는 클래스와 점의 색.
+   */
+  test('RAL7 (FR-RAL-7): 배지가 있는 행은 레일에서 점의 색이 바뀐다', async ({ page }) => {
+    await waitForInit(page);
+    await toggleKey(page);
+    const { plain, badged } = await page.evaluate(() => {
+      const row = document.querySelector('#windows .si') as HTMLElement;
+      const dot = row.querySelector('.sbl-dot') as HTMLElement;
+      // 활성 행은 이미 accent 다 — 축약이 더할 것이 없는 자리이므로 비켜 둔다.
+      row.classList.remove('active');
+      const plain = getComputedStyle(dot).backgroundColor;
+      row.classList.add('has-badge');
+      const badged = getComputedStyle(dot).backgroundColor;
+      return { plain, badged };
+    });
+    expect(badged).not.toBe(plain);
+  });
+
+  // FR-RAL-10: 접힘은 데스크톱의 것이다. 모바일의 사이드바는 드로어이고, 그
+  // 클래스가 붙어도 목록은 펼침 그대로다 (SBC13 이 폭에 대해 재는 것과 같은 경계).
+  test('RAL8 (FR-RAL-10): 모바일에서는 레일 규약이 걸리지 않는다', async ({ page }) => {
+    await waitForInit(page, { mobile: true });
+    await page.evaluate(() => (window as any).app._setSidebarCollapsed(true));
+    expect(await page.evaluate(() => (window as any).app._sbRail())).toBe(false);
+    const d = await page.evaluate(() => {
+      const row = document.querySelector('#windows .si') as HTMLElement;
+      return {
+        name: getComputedStyle(row.querySelector('.sbl-name')!).display,
+        initial: getComputedStyle(row.querySelector('.sbl-initial')!).display,
+      };
+    });
+    expect(d.name).not.toBe('none');
+    expect(d.initial).toBe('none');
   });
 });

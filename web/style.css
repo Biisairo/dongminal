@@ -64,6 +64,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .sbl-item.active .sbl-dot{background:var(--accent)}
 .sbl-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sbl-item.active .sbl-name{color:var(--text-bright);font-weight:500}
+/* PANEL_SURFACE_SRS FR-RAL-2: 이름 첫 글자. 항상 DOM 에 있고 보임은 레일 규칙이
+   정한다 (FR-SBC-13 이 탭 아이콘에 세운 것과 같은 규약) — 접을 때마다 목록을
+   다시 만들면 FR-RPT-3 이 깨진다. */
+.sbl-initial{display:none;flex:0 0 auto;white-space:nowrap}
 .rename-input{
   font:inherit;font-size:12px;background:var(--bg);color:var(--text-bright);
   border:1px solid var(--accent-border);border-radius:2px;
@@ -218,8 +222,34 @@ html.sb-collapsed body:not(.mobile) #sidebar{
    탑바에 있었다. 지금은 손잡이가 그 일을 하므로 감추면 길이 사라진다.
    레일의 폭은 여전히 고정이다: 끌어도 임계를 넘기 전에는 아무것도 바뀌지 않는다. */
 html.sb-collapsed body:not(.mobile) #sb-handle{background:var(--border)}
-/* FR-SBC-11: 40px 에서 목록은 읽히지 않는다. 남는 것은 탭 아이콘과 `#sb-bottom` 뿐. */
-html.sb-collapsed body:not(.mobile) .sb-panel{display:none}
+/* ── 레일의 목록 (PANEL_SURFACE_SRS FR-RAL-1~9 · FR-SBC-11 개정) ──
+
+   종전에는 `.sb-panel` 을 통째로 감췄다 — 40px 에서 목록은 읽히지 않는다는
+   이유였고, 그래서 접힌 사이드바에서 창을 고르려면 반드시 펼쳐야 했다.
+   개정: 감추는 것은 목록이 아니라 **40px 에 들어가지 않는 것들**이다 —
+   액션 버튼 행 · 이름 · 배지 · `×` · 빈 안내. 남는 것은 점 하나와 이름
+   첫 글자다 (FR-RAL-2).
+
+   목록은 펼침과 **같은 DOM**이므로 활성·알람 표시가 두 벌이 되지 않고
+   (FR-RAL-4), 레일 전용 데이터도 생기지 않는다 (FR-RAL-6). */
+html.sb-collapsed body:not(.mobile) .sb-actions{display:none}
+html.sb-collapsed body:not(.mobile) .sbl-name,
+html.sb-collapsed body:not(.mobile) .sbl-badge,
+html.sb-collapsed body:not(.mobile) .sbl-x,
+html.sb-collapsed body:not(.mobile) .sbl-none,
+html.sb-collapsed body:not(.mobile) .ed-entries-none{display:none}
+/* 여백이 3px 이어야 점(5px)과 글자가 40px 안에 함께 든다 — 펼침의 10px 로는
+   글자에 7px 밖에 남지 않는다. */
+html.sb-collapsed body:not(.mobile) .sbl-item{padding:0 3px;gap:3px}
+html.sb-collapsed body:not(.mobile) .sbl-initial{
+  display:block;flex:1 1 auto;min-width:0;overflow:hidden;text-align:center;
+}
+/* FR-RAL-7: 배지(변경 수·샌드박스)는 숫자를 넣을 자리가 없으므로 **점의 색**으로
+   축약된다. 알람은 그 위이므로(`.attn` 이 색을 이미 말한다) 비켜 준다 — 두 색이
+   한 점을 다투면 급한 쪽이 가려진다. */
+html.sb-collapsed body:not(.mobile) .sbl-item.has-badge:not(.attn) .sbl-dot{
+  background:var(--accent);
+}
 
 /* FR-SBC-12: 탭 바가 눕는다. 밑줄은 왼쪽 띠가 된다 — 세로 목록에서 아래 테두리는
    탭 사이의 구분선처럼 읽힌다. */
@@ -240,8 +270,9 @@ html.sb-collapsed body:not(.mobile) .sb-tab-badge{
 /* FR-SBC-15: 두 버튼이 쌓인다. 좌우 여백은 레일 폭에 맞춰 줄인다.
 
    `margin-top:auto` 는 자리를 지키기 위한 것이다 — 펼침에서 이 행을 최하단으로
-   미는 것은 `.sb-panel` 의 `flex:1 1 auto` 인데, 레일에서는 그 패널이 숨으므로
-   (FR-SBC-11) 미는 힘이 사라져 `⟳`·`⚙` 가 탭 바로 아래로 딸려 올라간다.
+   미는 것은 `.sb-panel` 의 `flex:1 1 auto` 이고, 레일에서도 그 패널이 이제
+   남으므로(FR-RAL-1) 미는 힘은 살아 있다. 그래도 남겨 둔다: 목록이 비어 패널이
+   자연 높이로 줄어드는 순간에도 `⟳`·`⚙` 는 바닥이어야 하고(FR-RAL-8),
    접었다는 이유로 버튼이 화면을 가로질러 옮겨 다녀서는 안 된다 (FR-SBC-15). */
 html.sb-collapsed body:not(.mobile) #sb-bottom{
   flex-direction:column;gap:4px;margin:auto 4px 8px;

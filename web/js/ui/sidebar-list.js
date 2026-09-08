@@ -95,14 +95,28 @@ const SidebarList = {
   _build(app, def, r) {
     const d = def.list;
     const el = document.createElement('div');
-    el.className = ['sbl-item', d.itemClass, r.cls, r.active ? 'active' : '', r.attn ? 'attn' : '']
+    // PANEL_SURFACE_SRS FR-RAL-7: 레일에는 숫자를 넣을 자리가 없으므로 배지는
+    // **점의 색**으로 축약된다. 그 판정은 행의 클래스여야 CSS 가 딛을 수 있다.
+    el.className = ['sbl-item', d.itemClass, r.cls, r.active ? 'active' : '', r.attn ? 'attn' : '',
+      r.badge ? 'has-badge' : '']
       .filter(Boolean).join(' ');
     if (r.dataset) for (const k in r.dataset) if (r.dataset[k] != null) el.dataset[k] = r.dataset[k];
-    if (r.title) el.title = r.title;
+    // FR-RAL-3: 툴팁은 **늘** 있다. 레일에서는 이름이 한 글자로 줄어들어(FR-RAL-2)
+    // 툴팁이 전체 이름에 닿는 유일한 길이 되기 때문이다 — 조건부로 붙이면 창
+    // 목록처럼 `title` 을 주지 않는 서술자가 레일에서 벙어리가 된다.
+    el.title = r.title || r.name || '';
 
     const dot = document.createElement('span');
     dot.className = ['sbl-dot', d.dotClass, r.dotCls].filter(Boolean).join(' ');
     el.appendChild(dot);
+
+    // FR-RAL-2·6: 레일의 행은 점 하나와 **이름 첫 글자**다. 값은 같은 서술자의
+    // `name` 에서 파생하므로 레일 전용 데이터가 생기지 않는다. 보임은 CSS 가
+    // 정한다 — 접을 때마다 다시 그리면 FR-RPT-3 이 깨진다.
+    const initial = document.createElement('span');
+    initial.className = 'sbl-initial';
+    initial.textContent = (r.name || '').charAt(0);
+    el.appendChild(initial);
 
     const name = document.createElement('span');
     name.className = ['sbl-name', d.nameClass].filter(Boolean).join(' ');
@@ -192,6 +206,10 @@ const SidebarList = {
       x.classList.remove('drag-above', 'drag-below'));
     el.draggable = true;
     el.addEventListener('dragstart', e => {
+      // FR-RAL-9: 레일에서는 재배치를 하지 않는다 — 40px 폭에서 위/아래 절반을
+      // 가르는 판정(아래 dragover)은 실패하기 쉽고, 순서를 바꾸려는 사람은 이미
+      // 펼칠 이유가 있다. CSS 로는 막을 수 없으므로 제스처의 출발점에서 끊는다.
+      if (app._sbRail && app._sbRail()) { e.preventDefault(); return }
       app._drag = { type: d.reorder.type, src: r.key, target: null, before: false, done: false };
       if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
       TIMERS.defer(() => el.classList.add('dragging'), {label:'drag-class'});
