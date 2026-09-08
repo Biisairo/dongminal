@@ -25,6 +25,9 @@
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 
+/* FR-SCR-2: 스크롤 표면은 키트가 정한다 (`.ui-scroll`). 여기서 폭·색을 다시 적지
+   않는다 — 미리보기는 소스 편집기와 나란히 서고, 그 차이가 가장 크게 보이는
+   자리였다. */
 .dr-body{
   flex:1 1 auto;min-height:0;overflow:auto;
   padding:16px 20px 40px;line-height:1.7;font-size:14px;
@@ -87,14 +90,23 @@
 .dr-body .hljs-emphasis{font-style:italic}
 .dr-body .hljs-strong{font-weight:600}
 
-/* ── 편집기 우상단의 진입 버튼 (FR-DRV-3) ──
+/* ── 편집기 좌상단의 진입 버튼 (FR-DRV-3 · UX_BATCH8_SRS FR-DRB-1·2·3) ──
  *
- * 자리는 찾기 패널·알림과 같은 규약이다 — `.file-editor` 가 이미 좌표계다. */
+ * 편집기에 얹히는 오버레이라는 규약은 찾기 패널·알림과 같다 — `.file-editor` 가
+ * 이미 좌표계다.
+ *
+ * 라벨을 담으므로 폭은 내용이 정한다. 기본 불투명도와 글자색을 올린다 —
+ * `.65`·`--text-dim` 의 22px 정사각은 미니맵 위에서 배경에 잠겼고, 그것이
+ * "버튼이 없음" 으로 접수됐다.
+ *
+ * **자리는 왼쪽이다** (FR-DRB-3). 오른쪽에서는 미니맵과 스크롤바를 덮었고, 라벨이
+ * 서면서 덮는 폭이 세 배가 됐다 — 접수한 말이 그것이다. 오른쪽 위는 찾기
+ * 패널(`.fe-find`)과 알림 줄(`.fe-note`)이 이미 나눠 쓰는 자리이기도 하다. */
 .fe-render{
-  position:absolute;top:6px;right:8px;z-index:6;
-  width:22px;height:22px;padding:0;border:1px solid var(--border);border-radius:4px;
-  background:var(--bg);color:var(--text-dim);font-size:12px;line-height:1;cursor:pointer;
-  opacity:.65;transition:opacity .12s;
+  position:absolute;top:6px;left:8px;z-index:6;
+  height:22px;padding:0 8px;border:1px solid var(--border);border-radius:4px;
+  background:var(--bg);color:var(--text);font-size:11px;line-height:1;cursor:pointer;
+  white-space:nowrap;opacity:.9;transition:opacity .12s;
 }
 .fe-render:hover{opacity:1;color:var(--accent);border-color:var(--accent)}
 /* 언어 서버 설치 제안(`.fe-offer`)이 서면 위쪽 가로 띠가 이 자리를 덮는다. 찾기

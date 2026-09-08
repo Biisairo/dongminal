@@ -18,7 +18,10 @@ const DOC_RENDER_EXTS = {
 // TSV 와 탭이 든 CSV 가 둘 다 흔하고, 추측이 틀리면 표가 통째로 어긋난다.
 const DOC_RENDER_DELIM = { '.csv': ',', '.tsv': '\t' };
 
-const DOC_RENDER_BTN = '◈';
+// UX_BATCH8_SRS FR-DRB-1·4: **낱말 하나다.** 종전의 `◈` 는 무엇을 하는 버튼인지
+// 말하지 않았고("버튼이 없음" 으로 접수됐다), 라벨이 선 뒤로는 그 기호가 뜻을
+// 보태지 않는다 — 이름 앞의 장식일 뿐이다.
+const DOC_RENDER_BTN = '미리보기';
 const DOC_RENDER_BTN_TITLE = '옆 칸에 렌더된 모습 열기';
 const DOC_RENDER_SOURCE = '‹ 소스';
 const DOC_RENDER_SOURCE_TITLE = '이 문서의 소스로 돌아가기';

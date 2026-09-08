@@ -318,6 +318,10 @@ const TAB_ADD_TITLE='Add a tab to this pane';
 // UI_KIT_SRS FR-GLY-6: 아이콘만 있는 자리는 툴팁이 유일한 이름이다.
 const TAB_CLOSE_TITLE='Close this tab';
 
+// UX_BATCH8_SRS FR-CLG-1: 닫기 가드의 문구는 **한 자리**다 — 탭 닫기와 창 닫기가
+// 같은 사건을 두고 다른 말을 쓰면 같은 팝업으로 읽히지 않는다.
+const CLOSE_DIRTY_MSG='저장되지 않은 변경사항이 있습니다.';
+
 // ── 툴팁 (UX_BATCH5_SRS 묶음 C / FR-TIP-1·2·4) ──
 //
 // 라벨이 한두 낱말인 버튼들이다 — `예`·`아니오`·`확인`·`복사` 는 **무엇을** 하는지

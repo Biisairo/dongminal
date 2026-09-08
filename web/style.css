@@ -184,9 +184,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 #add-window:hover,#add-preset:hover,#repo-add:hover{background:var(--accent-hover);color:var(--accent)}
 /* 샌드박스 창 열기. `+ New` 안쪽 오른쪽에 앉는 작은 박스다 — 별개의 동작이
    아니라 새 창의 변종임을 자리로 말한다. */
-#add-window{position:relative;padding-right:52px}
+/* FR-GAP-1: 안쪽 `Box` 가 간격만큼 넓어졌다 — 오른쪽 여백도 그만큼 따라간다.
+   실측: Box 48px + `right:5px` = 53px 이 그 상자가 차지하는 폭이다. */
+#add-window{position:relative;padding-right:60px}
+/* UX_BATCH8_SRS FR-GAP-1: 아이콘과 글자 사이에 키트의 간격을 둔다 — 바깥
+   `#add-window` 가 이미 그 값을 쓰고 있고, 안쪽만 `inline` 이라 걸리지 않았다. */
 #add-sandbox-window{
   position:absolute;right:5px;top:50%;transform:translateY(-50%);
+  display:inline-flex;align-items:center;gap:var(--ui-gap);
   padding:1px 5px;border:1px solid var(--border);border-radius:3px;
   font-size:10px;line-height:14px;color:var(--text-dim);opacity:.75;
 }
@@ -366,7 +371,8 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 #area[data-slotdir="vertical"] .slot-handle::before{content:'';position:absolute;left:0;right:0;top:-6px;bottom:-6px}
 /* FR-WSL-50: 토프바의 `− Slot +`. 두 버튼이 한 덩어리로 읽혀야 창 안 분할과
    섞이지 않는다 (§7 R-3). */
-.slot-ctl{display:inline-flex;align-items:center;gap:2px;margin:0 2px}
+/* FR-GAP-2: 간격은 키트의 토큰이다 — 한 덩어리로 읽히는 것과 맞붙는 것은 다르다. */
+.slot-ctl{display:inline-flex;align-items:center;gap:var(--ui-gap);margin:0 2px}
 .slot-ctl .tbtn{min-width:22px;padding:2px 6px}
 .slot-ctl .tbtn:disabled{opacity:.35;cursor:default}
 .slot-ctl-label{font-size:11px;opacity:.6;user-select:none}
@@ -535,11 +541,8 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .tp.vis{display:block}
 .tp.vis>.xterm{height:100%}
 
-/* ── xterm ── */
-.xterm-viewport::-webkit-scrollbar{width:8px}
-.xterm-viewport::-webkit-scrollbar-track{background:transparent}
-.xterm-viewport::-webkit-scrollbar-thumb{background:var(--text-dim);border-radius:4px}
-.xterm-viewport::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}
+/* xterm 뷰포트의 스크롤바는 키트가 정한다 (`style-kit.css` 의 `.ui-scroll`,
+   UX_BATCH8_SRS FR-SCR-3) — 렌더 뷰와 같은 정의를 딛는다. */
 
 /* ── Settings button ── */
 /* FR-SRL-8: 내부 새로고침과 설정은 사이드바 최하단에 나란히 선다. 새로고침이

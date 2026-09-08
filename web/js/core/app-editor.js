@@ -289,6 +289,45 @@ Object.assign(App.prototype, {
     return false;
   },
 
+  /**
+   * UX_BATCH8_SRS FR-CLG-5: **이 앱 어딘가에 저장하지 않은 편집이 있는가.**
+   *
+   * 떠남 확인의 사유가 종전에는 도구 하나뿐이었다 (`main.js`). 도구가 없는
+   * Editor 창만 열어 두고 새로고침하면 편집이 묻지도 알리지도 않고 사라진다 —
+   * `_edWinDirty` 가 창 하나를 두고 답하는 물음을, 이것은 앱 전체를 두고 답한다.
+   *
+   * 문서가 공유되므로 같은 파일의 뷰가 여럿이면 여러 번 세어지는데, 재는 것이
+   * "하나라도 있는가" 이므로 그것은 답을 바꾸지 않는다.
+   */
+  _edAnyDirty(){
+    if(!this.fileEditors) return false;
+    for(const v of this.fileEditors.values()) if(v&&v._dirty) return true;
+    return false;
+  },
+
+  /**
+   * FR-CLG-2: 이 창의 dirty 편집기를 **모두** 저장한다.
+   *
+   * 같은 파일이 두 칸에 열려 있으면 뷰가 둘이고 문서는 하나다 (FR-SVS-50) — 뒤
+   * 뷰의 `save()` 는 이미 저장된 문서를 두 번 쓴다. 탭 id 로 한 번만 부른다.
+   *
+   * 한 파일이 실패해도 나머지를 시도한다. 그 실패는 `save()` 가 이미 알리며,
+   * 여기서 멈추면 저장할 수 있었던 것까지 잃는다.
+   */
+  async _edWinSaveDirty(s){
+    if(!s||!s.layout||!this.fileEditors) return;
+    const ids=new Set();
+    for(const pn of this._flattenPanes(s.layout))
+      for(const t of (pn.tabs||[])) if(t&&t.type==='editor') ids.add(t.id);
+    const done=new Set();
+    for(const[k,v] of this.fileEditors){
+      const base=this._slotBase(k);
+      if(!v||!v._dirty||!ids.has(base)||done.has(base)) continue;
+      done.add(base);
+      await v.save();
+    }
+  },
+
   // FR-WBR-41: 미룬 사실을 알린다. 창 이름을 밝힌다 — 개수만 말하면 어느 것을
   // 정리해야 하는지 알 수 없다 (FR-EDT-84 와 같은 근거).
   _edNotifyHeld(held){

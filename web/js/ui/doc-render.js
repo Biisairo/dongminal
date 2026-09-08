@@ -250,7 +250,8 @@ class DocRender {
           DOC_RENDER_SOURCE + '</button>' +
         '<span class="dr-path"></span>' +
       '</div>' +
-      '<div class="dr-body"><div class="dr-note">' + DOC_RENDER_LOADING + '</div></div>';
+      // UX_BATCH8_SRS FR-SCR-2: 스크롤 표면은 키트의 것이다 (`.ui-scroll`).
+      '<div class="dr-body ui-scroll"><div class="dr-note">' + DOC_RENDER_LOADING + '</div></div>';
     this._body = this.el.querySelector('.dr-body');
     this.el.querySelector('.dr-path').textContent = name || '';
     // FR-DRV-6: **같은 버튼이 되돌린다.** 렌더를 켠 손이 끄는 법을 따로 배우지 않는다.

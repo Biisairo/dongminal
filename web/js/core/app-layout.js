@@ -171,6 +171,25 @@ Object.assign(App.prototype, {
     // 아래 확인 대화에서 취소될 수 있기 때문이다. 지운 뒤에 부른다 (아래).
 
     const s=this.ws.windows[i];
+    /**
+     * UX_BATCH8_SRS FR-CLG-1·3·4: **저장하지 않은 편집을 먼저 묻는다.**
+     *
+     *   이전 동작: 실행 중인 프로세스만 물었다. 편집기가 dirty 여도 창이 그대로
+     *             사라지고, 그 순간 탭 id 가 없어져 편집기와 모델이 함께 버려진다
+     *   새  동작: 탭 닫기와 같은 팝업을 같은 문구로 띄운다 (`app-layout` 의 dirty
+     *             가드와 한 벌이다)
+     *   이유:     접수 — "수정된 파일 닫을 때 저장하고닫기/그냥닫기/취소 팝업".
+     *             그 팝업은 탭 닫기에 이미 있었고 이 길에만 없었다
+     *
+     * 프로세스 확인보다 **앞에** 선다 (FR-CLG-4). 여기서 취소하면 창이 남으므로
+     * 도구를 어떻게 할지 물을 일 자체가 없다. 워크스페이스는 답을 받은 뒤에야
+     * 바뀐다 (NFR-2) — 이 위의 `findIndex` 는 읽기일 뿐이다.
+     */
+    if(this._edWinDirty&&this._edWinDirty(s)){
+      const r=await this._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
+      if(!r) return;
+      if(r==='save') await this._edWinSaveDirty(s);
+    }
     const pids=allPids(s.layout);
     const busyChecks=await Promise.all(pids.map(pid=>this._isToolBusy(pid)));
     // FR-BG-4/4a: 일괄 전환 대상은 busy 인 도구만이다. 확인창이 뜨는 사유가
@@ -524,7 +543,7 @@ Object.assign(App.prototype, {
       // dirty 라는 사실은 삭제 확인창이 이미 밝혔고(FR-EDT-84), 여기서 취소해도
       // 파일은 이미 없다.
       if(editor && editor._dirty && !opts.force){
-        const result=await this._confirmClose('저장되지 않은 변경사항이 있습니다.', { saveBtn: true });
+        const result=await this._confirmClose(CLOSE_DIRTY_MSG, { saveBtn: true });
         if(result==='save'){
           await editor.save();
         }else if(!result){

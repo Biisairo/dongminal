@@ -335,19 +335,20 @@ class FileEditor {
       theme: monacoTheme(),
       automaticLayout: true,
       /**
-       * UX_BATCH6_SRS FR-MMP-1: `size:'fit'` — **미리보기가 스크롤바와 같은
-       * 좌표계에 선다.**
+       * UX_BATCH8_SRS FR-MMP-2: `size:'fill'` — **미리보기가 스크롤바와 같은
+       * 좌표계에 선다. 늘려서라도.**
        *
-       *   이전 동작: Monaco 기본값 `'proportional'`. 파일이 미리보기 높이보다
-       *             길면 미리보기 자신이 함께 스크롤하므로, 미리보기의 슬라이더와
-       *             스크롤바의 슬라이더가 다른 자리에 선다
-       *   새  동작: 파일 전체를 미리보기 높이에 맞춰 줄인다. 두 슬라이더의 자리와
-       *             높이가 정확히 같아진다
-       *   이유:     접수 ⑯. 실측 — 800줄 파일을 45% 지점으로 스크롤했을 때
-       *             `proportional` 은 미리보기 `{top:517,h:118}` · 스크롤바
-       *             `{top:531,h:86}`, `fit` 은 둘 다 `{top:531,h:86}`
+       *   이전 동작: `'fit'` (FR-MMP-1). 줄이기만 하므로 **문서가 편집기보다
+       *             짧으면 아무것도 하지 않는다** — 그때 미니맵은 자기 콘텐츠
+       *             높이(줄수×2px)를 좌표계로 삼아 스크롤바와 갈라선다
+       *   새  동작: 문서 길이와 무관하게 미니맵 높이가 편집기 높이다
+       *   이유:     접수 — "minimap 과 스크롤이 동기화 되지 않음", "vsc 에서는
+       *             미니맵을 늘려서라도 적용되게 하던데". 실측(400줄·높이 1180)
+       *             45% 지점에서 `fit` 은 미니맵 `{top:311}` · 스크롤바
+       *             `{top:454}`, `fill` 은 둘 다 `{top:454,h:171}`. 3000줄에서는
+       *             둘 다 일치하므로 긴 문서의 결과는 바뀌지 않는다
        */
-      minimap: { enabled: true, size: 'fit', scale: 1, showSlider: 'mouseover' },
+      minimap: { enabled: true, size: 'fill', scale: 1, showSlider: 'mouseover' },
       lineNumbers: 'on',
       scrollBeyondLastLine: false,
       // WORKBENCH_REVIEW_SRS FR-WBR-10: 설정이 정한다. 기본은 끔이다.

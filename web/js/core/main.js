@@ -132,6 +132,18 @@ window.addEventListener('resize',()=>{
 //    여는 것은 실수가 아니다 — 거기서 물으면 자동 갱신이 자동이 아니게 된다
 //    (사용자가 화면을 보고 있지 않으면 대화만 떠 있고 갱신은 영영 오지 않는다).
 //  - `tools.size`    — 잃을 연결이 하나라도 있는가
+//  - `_edAnyDirty()` — 잃을 **편집**이 하나라도 있는가 (UX_BATCH8_SRS FR-CLG-5)
+//
+// 넷째 조건이 늦게 붙은 것은 사유가 하나였기 때문이다:
+//
+//   이전 동작: 도구가 없으면 묻지 않았다. Editor 창만 열어 둔 채 새로고침하면
+//             저장하지 않은 편집이 **묻지도 알리지도 않고** 사라진다
+//   새  동작: dirty 인 편집기가 하나라도 있으면 묻는다
+//   이유:     접수한 "수정된 파일 닫을 때 …" 는 탭과 창만의 일이 아니다. 탭 닫기·
+//             창 닫기가 막는 손실을 브라우저 새로고침이 그대로 낸다
+//
+// **스위치 아래에 선다** (FR-CLG-6). 되묻기를 끈 사용자에게 새 사유로 다시 묻는
+// 것은 그 스위치를 되돌리는 일이다.
 //
 // 판정은 이 자리 하나이며 스위치를 읽는 곳을 늘리지 않는다 (FR-LVC-9) — 두 벌로
 // 두면 한쪽만 고쳐진다. 전역을 그때그때 읽으므로 설정을 바꾼 뒤 다시 적재할
@@ -139,5 +151,5 @@ window.addEventListener('resize',()=>{
 window.addEventListener('beforeunload',e=>{
   if(!confirmLeave) return;
   if(window.__dmReloading) return;
-  if(app.tools.size>0) e.preventDefault();
+  if(app.tools.size>0||app._edAnyDirty()) e.preventDefault();
 });
