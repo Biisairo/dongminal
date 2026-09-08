@@ -67,12 +67,26 @@
 .ed-side-acts{display:flex;flex-wrap:wrap;flex:0 0 auto;gap:2px;padding:3px 4px;
   border-bottom:1px solid var(--border)}
 .ed-side-act{
-  flex:1 1 var(--git-hit);min-width:var(--git-hit);min-height:30px;
+  flex:1 1 var(--git-hit);min-width:var(--git-hit);min-height:var(--git-hit);
   padding:2px 0;font-size:12px;line-height:1.4;
   background:transparent;border:1px solid transparent;border-radius:3px;
   color:var(--text-muted);cursor:pointer;
 }
-.ed-side-act:hover{color:var(--accent);border-color:var(--border)}
+.ed-side-act:hover{color:var(--accent);border-color:var(--accent-border)}
+/* UI_KIT_SRS FR-GLY-5 / FR-UIK-3: **아이콘은 이 버튼의 높이에서 파생한다.**
+
+   `.ui-btn-icon` 의 규칙은 `--ui-btn-h`(26px)를 딛는데 이 버튼의 하한은
+   `--git-hit`(30px)이다 — git 표면의 히트 영역은 WINDOWS 목록 행과 같아야
+   한다는 별개 규약이 그 값을 정했다 (FR-GIT-226). 그래서 키트 규칙 그대로는
+   30px 버튼에 17.7px 아이콘이 앉아 비율이 0.59 가 됐다 (실측). 접수한 말이
+   "모든 버튼안에는 아이콘이 꽉 차야한다" 이므로 그 자리의 높이로 다시 파생한다.
+
+   px 를 적지 않는 것이 이 규칙의 요점이다 — `--git-hit` 이 바뀌면 아이콘도
+   따라간다. */
+.ed-side-act.ui-btn-icon>.ui-icon{
+  width:calc(var(--git-hit) * var(--ui-icon-ratio));
+  height:calc(var(--git-hit) * var(--ui-icon-ratio));
+}
 
 /* `.git-view` 가 `position:absolute;inset:0` 이므로 담는 쪽이 위치 기준이어야 한다. */
 .ed-side-body{flex:1 1 auto;position:relative;min-height:0;min-width:0;overflow:hidden}

@@ -178,18 +178,18 @@ class GitConfirm {
           '<div class="gc-hint-label"></div>'+
           '<div class="gc-hint-note"></div>'+
           '<code class="gc-hint-cmd"></code>'+
-          '<button type="button" class="gc-copy gc-copy-hint"></button>'+
+          '<button type="button" class="ui-btn ui-btn-sm gc-copy gc-copy-hint"></button>'+
         '</div>'+
         '<div class="gc-err">'+
           '<div class="gc-err-reason"></div>'+
           '<pre class="gc-err-tail"></pre>'+
-          '<button type="button" class="gc-copy gc-copy-err"></button>'+
+          '<button type="button" class="ui-btn ui-btn-sm gc-copy gc-copy-err"></button>'+
         '</div>'+
         // 실행 버튼이 목록과 분리된 별도 행이다 (FR-GIT-94·177).
         '<div class="gc-actions">'+
           '<span class="gc-progress"></span>'+
-          '<button type="button" class="gc-cancel"></button>'+
-          '<button type="button" class="gc-go"></button>'+
+          '<button type="button" class="ui-btn gc-cancel"></button>'+
+          '<button type="button" class="ui-btn ui-btn-danger gc-go"></button>'+
         '</div>'+
       '</div>';
     document.body.appendChild(ov);

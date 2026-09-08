@@ -669,7 +669,7 @@ class FileEditor {
         ? '<button type="button" class="fe-offer-go">' + LSP_OFFER_INSTALL + '</button>'
         : '<button type="button" class="fe-offer-set">' + LSP_OFFER_SETTINGS + '</button>') +
       '<button type="button" class="fe-offer-no">' + LSP_OFFER_DISMISS + '</button>' +
-      '<button type="button" class="fe-offer-x" title="' + ED_FIND_CLOSE_TITLE + '">✕</button>';
+      '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost fe-offer-x" title="' + ED_FIND_CLOSE_TITLE + '" aria-label="' + ED_FIND_CLOSE_TITLE + '">' + UIKit.iconHTML('x') + '</button>';
     // 사유는 텍스트 노드로 넣는다 — 서버가 보낸 이름이 그 자리에 닿는다.
     el.querySelector('.fe-offer-msg').textContent = body;
     this.el.appendChild(el);
@@ -782,9 +782,9 @@ class FileEditor {
       + opt('case', ED_FIND_OPT_CASE, ED_FIND_OPT_CASE_TITLE)
       + opt('regex', ED_FIND_OPT_REGEX, ED_FIND_OPT_REGEX_TITLE)
       + opt('word', ED_FIND_OPT_WORD, ED_FIND_OPT_WORD_TITLE)
-      + '<button type="button" class="fe-find-prev" title="' + ED_FIND_PREV_TITLE + '">↑</button>'
-      + '<button type="button" class="fe-find-next" title="' + ED_FIND_NEXT_TITLE + '">↓</button>'
-      + '<button type="button" class="fe-find-close" title="' + ED_FIND_CLOSE_TITLE + '">✕</button>';
+      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost fe-find-prev" title="' + ED_FIND_PREV_TITLE + '" aria-label="' + ED_FIND_PREV_TITLE + '">' + UIKit.iconHTML('arrow-up') + '</button>'
+      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost fe-find-next" title="' + ED_FIND_NEXT_TITLE + '" aria-label="' + ED_FIND_NEXT_TITLE + '">' + UIKit.iconHTML('arrow-down') + '</button>'
+      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost fe-find-close" title="' + ED_FIND_CLOSE_TITLE + '" aria-label="' + ED_FIND_CLOSE_TITLE + '">' + UIKit.iconHTML('x') + '</button>';
     this.el.appendChild(p);
     this._find = p;
     this._findOpts = edFindOptsLoad();

@@ -441,11 +441,12 @@ Object.assign(FileEditor.prototype,{
       '<div class="fe-dd-peek-bar">'+
         '<button type="button" class="fe-dd-peek-act" data-act="revert" title="'+
           escHtml(ED_DD_REVERT_TITLE)+'">'+escHtml(ED_DD_REVERT)+'</button>'+
-        '<button type="button" class="fe-dd-peek-act" data-act="stage" title="'+
+        '<button type="button" class="ui-btn ui-btn-sm fe-dd-peek-act" data-act="stage" title="'+
           escHtml(ED_DD_STAGE_TITLE)+'">'+escHtml(ED_DD_STAGE)+'</button>'+
         '<span class="fe-dd-peek-note"></span>'+
-        '<button type="button" class="fe-dd-peek-close" title="'+
-          escHtml(ED_DD_PEEK_CLOSE_TITLE)+'">✕</button>'+
+        '<button type="button" class="ui-btn ui-btn-icon ui-btn-sm ui-btn-ghost fe-dd-peek-close" title="'+
+          escHtml(ED_DD_PEEK_CLOSE_TITLE)+'" aria-label="'+escHtml(ED_DD_PEEK_CLOSE_TITLE)+'">'+
+          UIKit.iconHTML('x')+'</button>'+
       '</div>'+
       '<pre class="fe-dd-peek-old"></pre>';
     // FR-EDD-32: 파일의 내용은 **텍스트 노드**로 넣는다. 마크업으로 넣으면 파일이

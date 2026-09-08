@@ -593,9 +593,22 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   padding:14px 18px;border-bottom:1px solid var(--border);
 }
 .modal-title{font-size:14px;font-weight:600;color:var(--text-bright)}
+/* UI_KIT_SRS FR-GLY-5: 이 버튼은 자기 치수(24px)를 갖는다 — 키트의
+   `--ui-btn-h`(26px)가 아니다. 병기만 하면 26px 기준의 아이콘이 24px 버튼에
+   앉아 **넘친다** (실측 0.74, 목표 0.68). `.ed-side-act` 는 같은 부류의 반대
+   방향이었다: 30px 버튼에 26px 기준 아이콘이라 덜 찼다.
+
+   토큰을 하나 세워 높이와 아이콘이 **같은 값에서** 파생하게 한다 — 그래야
+   한쪽만 고쳐지는 일이 없다. */
 .modal-close{
+  --modal-close-h:24px;
   background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;
-  width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:4px;
+  width:var(--modal-close-h);height:var(--modal-close-h);
+  display:flex;align-items:center;justify-content:center;border-radius:4px;
+}
+.modal-close.ui-btn-icon>.ui-icon{
+  width:calc(var(--modal-close-h) * var(--ui-icon-ratio));
+  height:calc(var(--modal-close-h) * var(--ui-icon-ratio));
 }
 .modal-close:hover{background:var(--border);color:var(--danger)}
 

@@ -541,9 +541,11 @@ class Renderer {
   _rSideActions(panel){
     const bar=document.createElement('div'); bar.className='ed-side-acts';
     for(const a of GIT_SIDE_ACTIONS){
+      // FR-GLY-4·6 / FR-UIK-10: 스프라이트로 바꾸되 기존 클래스는 그대로 둔다.
       const b=document.createElement('button');
-      b.className='ed-side-act'; b.dataset.view=a.key;
-      b.textContent=a.icon; b.title=a.title;
+      b.className='ui-btn ui-btn-icon ui-btn-ghost ed-side-act'; b.dataset.view=a.key;
+      b.appendChild(UIKit.icon(a.icon));
+      b.title=a.title; b.setAttribute('aria-label',a.title);
       b.addEventListener('click',()=>panel.openView(a.key));
       bar.appendChild(b);
     }

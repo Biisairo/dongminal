@@ -52,13 +52,20 @@ const GIT_VIEW_FIELD_BY_KEY=Object.fromEntries(
 // 열리고**(panel-changes 의 행 클릭), 커밋 축도 `showCommitDiff` 가 스스로 연다.
 // 게다가 대상 없이 누르면 경로도 축도 빈 `0/0` 껍데기가 열렸다 — 다른 여섯은
 // 대상 없이도 자기 내용을 가진다.
+/**
+ * UI_KIT_SRS FR-GLY-4: **`icon` 은 이제 스프라이트 이름이다** (문자가 아니다).
+ *
+ * 이 여섯은 인계 노트가 "git 패널 아이콘 완료" 로 적은 묶음에서 빠져 있었다 —
+ * 그쪽은 fetch·pull·push 와 행 동작이었고, 본문 뷰로 가는 진입점 여섯은 여전히
+ * 문자였다. `⏲≣⊞` 는 폰트마다 모양이 크게 달라 특히 그랬다.
+ */
 const GIT_SIDE_ACTIONS=[
-  {key:'history',  icon:'⏲', title:'History'},
-  {key:'branches', icon:'⎇', title:'Branches'},
-  {key:'stash',    icon:'≣', title:'Stash'},
-  {key:'console',  icon:'›', title:'Console'},
-  {key:'worktrees',icon:'⧉', title:'Worktrees'},
-  {key:'submodules',icon:'⊞', title:'Submodules'},
+  {key:'history',  icon:'clock',      title:'History'},
+  {key:'branches', icon:'git-branch', title:'Branches'},
+  {key:'stash',    icon:'archive',    title:'Stash'},
+  {key:'console',  icon:'terminal',   title:'Console'},
+  {key:'worktrees',icon:'columns',    title:'Worktrees'},
+  {key:'submodules',icon:'box',       title:'Submodules'},
 ];
 
 // REPO_TAB_UNIFY_SRS FR-RTU-25·26: 저장소가 아닌 자리와 거기서 만드는 길.
@@ -271,7 +278,16 @@ const GIT_ST_CLASS={M:'mod',A:'add',D:'del',R:'ren',C:'cpy','?':'new',U:'conf'};
 // porcelain 의 상태 문자 중 **판정에 쓰는 것**. 문자열을 코드에 흩뿌리면 어느
 // 규칙의 문자인지 알 수 없게 된다 (FR-RTU-51 의 "왼쪽이 없다" 가 이 하나다).
 const GIT_ST_ADDED='A';
-const GIT_ACT_LABEL={openFile:'↗',stage:'+',unstage:'−',discard:'↺',ours:'Ours',theirs:'Theirs'};
+/**
+ * 아이콘이 **없는** 동작의 글자 라벨. `GIT_ACT_ICON` 이 있는 것은 이 표를 지나지
+ * 않는다 (`panel-changes.js` 의 갈래) — `ours`·`theirs` 는 어휘이지 아이콘이
+ * 아니므로 그 둘만 남는다 (FR-GLY-8).
+ *
+ * 종전에는 `openFile:'↗' stage:'+' unstage:'−' discard:'↺'` 도 여기 있었다.
+ * 아이콘으로 옮긴 뒤 값이 죽었는데 표에 남아, 다음 사람이 그것이 아직 쓰인다고
+ * 읽을 자리였다.
+ */
+const GIT_ACT_LABEL={ours:'Ours',theirs:'Theirs'};
 /**
  * UI_KIT_SRS §7.1 / FR-GLY-4: 문자 라벨의 **아이콘 이름**. 여기 없는 동작
  * (`ours`·`theirs`)은 글자로 남는다 — 어휘이지 아이콘이 아니다 (FR-GLY-8).

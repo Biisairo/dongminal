@@ -238,7 +238,11 @@ Object.assign(App.prototype, {
   _agHeadEl(){
     const head=document.createElement('div');
     head.className='ag-head';
-    head.innerHTML=`<span class="ag-title">Agents</span><button class="ag-refresh" title="새로고침">↻</button><button class="ag-close" title="닫기">✕</button>`;
+    // UI_KIT_SRS FR-GLY-4·6 / FR-TIP-2: 문자에서 스프라이트로. 문구도 영어가
+    // 된다 — 아이콘만 있는 버튼은 툴팁이 이름의 유일한 자리다.
+    head.innerHTML=`<span class="ag-title">Agents</span>`
+      +`<button class="ui-btn ui-btn-icon ui-btn-ghost ag-refresh" title="Refresh the activity list" aria-label="Refresh the activity list">${UIKit.iconHTML('refresh-cw')}</button>`
+      +`<button class="ui-btn ui-btn-icon ui-btn-ghost ag-close" title="Close the panel" aria-label="Close the panel">${UIKit.iconHTML('x')}</button>`;
     head.querySelector('.ag-refresh').addEventListener('click',e=>{e.stopPropagation();this._activityRestore()});
     head.querySelector('.ag-close').addEventListener('click',e=>{e.stopPropagation();this._agentsToggle()});
     return head;

@@ -163,14 +163,14 @@ class GitDialog {
         '<div class="git-dialog-err '+ns+'-err">'+
           '<div class="git-dialog-err-reason"></div>'+
           '<pre class="git-dialog-err-tail"></pre>'+
-          '<button type="button" class="git-dialog-copy"></button>'+
+          '<button type="button" class="ui-btn ui-btn-sm git-dialog-copy"></button>'+
         '</div>'+
         '<div class="git-dialog-opts '+ns+'-opts"></div>'+
         // 실행 버튼은 옵션과 분리된 별도 행이다 (FR-GIT-94·177).
         '<div class="git-dialog-actions '+ns+'-actions">'+
           '<span class="git-dialog-progress '+ns+'-progress"></span>'+
-          '<button type="button" class="git-dialog-cancel '+ns+'-cancel"></button>'+
-          '<button type="button" class="git-dialog-go '+ns+'-go"></button>'+
+          '<button type="button" class="ui-btn git-dialog-cancel '+ns+'-cancel"></button>'+
+          '<button type="button" class="ui-btn ui-btn-primary git-dialog-go '+ns+'-go"></button>'+
         '</div>'+
       '</div>';
     document.body.appendChild(ov);
@@ -264,7 +264,7 @@ class GitDialog {
     for(const o of this.choices){
       const b=document.createElement('button');
       b.type='button';
-      b.className='git-dialog-opt '+this.ns+'-opt'+(o.danger?' danger':'');
+      b.className='ui-btn '+(o.danger?'ui-btn-danger ':'')+'git-dialog-opt '+this.ns+'-opt'+(o.danger?' danger':'');
       b.dataset.opt=o.id;
       b.textContent=o.label||o.id;
       b.addEventListener('click',()=>this._pick(o.id));
