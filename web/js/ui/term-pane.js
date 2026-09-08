@@ -84,6 +84,9 @@ class TerminalTool {
     // Enter 가 textarea 를 비우면 직전 글자를 잃는다. beforeinput 을 취소하면
     // textarea 값이 변하지 않아 그 diff 가 항상 빈 값이 된다.
     const ta=this.box.querySelector('.xterm-helper-textarea');
+    // FR-MKB-1: 터치해도 소프트 키보드가 올라오지 않는다. 터미널이 서는 이 자리가
+    // textarea 가 처음 존재하는 순간이다 — 늦게 걸면 첫 터치 한 번이 새어 나간다.
+    this._kbApply();
     if(ta){
       // FR-MTI-19: 물리 키보드로 들어온 키는 xterm 이 이미 전송한다. 그 키에
       // 딸린 beforeinput 까지 우리가 보내면 글자가 두 번 들어간다. 두 신호로
@@ -352,6 +355,54 @@ class TerminalTool {
   _blurInput(){
     const ta=this.el.querySelector('.xterm-helper-textarea');
     if(ta && document.activeElement===ta){try{ta.blur()}catch{}}
+  }
+
+  /**
+   * ALERT_MOBILE_CONTEXT_SRS FR-MKB-2·3 / D-10 — **`inputmode` 의 주인은 여기다.**
+   *
+   * 접수한 말은 "`⌨` 눌렀을때만 키보드가 올라오게" 다. 지금은 터미널을 터치하면
+   * xterm 이 `.xterm-helper-textarea` 에 포커스를 주고 소프트 키보드가 따라
+   * 올라온다 — 화면의 절반이 사라지고, 그것을 내리려면 `⌨` 를 눌러야 한다.
+   *
+   * **포커스를 막지 않는다.** 막으면 물리 키보드·선택·붙여넣기·키바 전송이 함께
+   * 죽는다. 막는 것은 소프트 키보드뿐이며 그 손잡이가 `inputmode='none'` 이다.
+   *
+   * 키바가 이 메서드를 부르고 속성을 직접 쓰지 않는다 (D-10) — 두 곳이 쓰면
+   * "올라와 있는데 none" 같은 상태가 생기고, 그때 어느 쪽이 맞는지 알 수 없다.
+   */
+  _kbTextarea(){ return this.el.querySelector('.xterm-helper-textarea') }
+
+  // FR-MKB-13: 데스크톱은 영향을 받지 않는다. 모바일이 아니게 되면 속성을 걷는다 —
+  // 남겨 두면 브라우저 폭을 넓힌 뒤 물리 키보드 사용자가 IME 를 잃는다.
+  _kbApply(){
+    const ta=this._kbTextarea();
+    if(!ta) return;
+    if(!document.body.classList.contains('mobile')){ta.removeAttribute('inputmode');return}
+    ta.setAttribute('inputmode','none');
+  }
+
+  _kbSuppressed(){
+    const ta=this._kbTextarea();
+    return !!ta && ta.getAttribute('inputmode')==='none';
+  }
+
+  // FR-MKB-4: `⌨` 가 푸는 유일한 자리. 속성을 걷고 **포커스를 다시 준다** —
+  // 이미 포커스가 있으면 브라우저가 키보드를 올리지 않으므로 한 번 놓았다 잡는다.
+  _kbAllow(){
+    const ta=this._kbTextarea();
+    if(!ta) return;
+    ta.removeAttribute('inputmode');
+    try{ta.blur()}catch{}
+    this.focus();
+    try{ta.focus()}catch{}
+  }
+
+  // FR-MKB-5: 같은 버튼의 반대 방향. 속성을 되걸고 내린다.
+  _kbSuppress(){
+    const ta=this._kbTextarea();
+    if(!ta) return;
+    if(document.body.classList.contains('mobile')) ta.setAttribute('inputmode','none');
+    this._blurInput();
   }
 
   // FR-MTI-28: 스크롤을 직접 처리하지 않고 xterm 의 wheel 경로로 넘긴다.

@@ -140,11 +140,25 @@ test.describe('FR-MTI-25: 자동 focus 억제', () => {
   });
 });
 
-test.describe('FR-MTI-26: 키보드 내리기 버튼', () => {
+/**
+ * FR-MTI-26 → ALERT_MOBILE_CONTEXT_SRS FR-MKB-4·5 로 개정.
+ *
+ * 버튼의 `act` 가 `hidekb` 에서 `kb` 가 됐다 — 내리기만 하던 것이 **두 방향**을
+ * 갖는다. 재는 계약은 그대로다: 누르면 blur 되고 **키를 보내지 않는다.**
+ *
+ * 다만 출발 상태를 세워야 한다. FR-MKB-1 이후 터미널의 `inputmode` 는 `none` 이고,
+ * 그 상태에서 이 버튼은 **올리는** 쪽으로 동작한다. 내리는 쪽을 재려면 먼저
+ * 풀어 둔다 — 그것이 사용자가 `⌨` 를 한 번 누른 뒤의 상태다.
+ */
+test.describe('FR-MKB-5: 키보드 내리기 (옛 FR-MTI-26)', () => {
   test('TC-MTI-21: 버튼이 있고, 누르면 blur 되며 키를 보내지 않는다', async ({ page }) => {
     await gotoMobile(page);
-    const btn = page.locator('#mobile-keybar .mkb-btn[data-act="hidekb"]');
+    const btn = page.locator('#mobile-keybar .mkb-btn[data-act="kb"]');
     await expect(btn).toHaveCount(1);
+    await page.evaluate(() => {
+      const p = (window as any).app._focusedTerminal();
+      p._kbAllow();
+    });
 
     await page.evaluate(() => {
       const p = (window as any).app._focusedTerminal();

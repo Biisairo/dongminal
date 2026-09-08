@@ -125,9 +125,20 @@ Object.assign(App.prototype, {
     if(!bar) return;
     bar.innerHTML='';
     const keys=[
+      // FR-MKB-8: `⌨` 는 **맨 왼쪽**이다. 종전에는 열일곱 개 중 열일곱 번째였고,
+      // 키보드를 내리려면 키바를 끝까지 가로로 밀어야 했다. 이제 이 버튼은
+      // 키보드를 **올리는** 유일한 길이기도 하므로(FR-MKB-4) 손이 먼저 닿는
+      // 자리에 있어야 한다.
+      {label:'⌨',act:'kb'},
       {label:'Esc',send:''},
       {label:'Tab',send:'\t'},
       {label:'Ctrl',mod:'ctrl'},
+      // FR-MKB-9·10 / D-4·D-12: `Ctrl` 바로 옆이다. 소프트 키보드를 올리지
+      // 않기로 하면(③) `Ctrl` 을 켠 뒤 `c` 를 칠 자리가 사라지므로, 접수한 말이
+      // 그 둘을 한 문장에 담고 있었다. **모디파이어를 거치지 않고** 곧바로
+      // `0x03` 을 보낸다 — 중단은 급할 때 누르는 것이고, 두 번 눌러야 하는
+      // 중단은 중단이 아니다. `Ctrl` 의 sticky 를 읽지도 바꾸지도 않는다.
+      {label:'^C',raw:''},
       {label:'Alt',mod:'alt'},
       {label:'↑',send:'[A'},
       {label:'↓',send:'[B'},
@@ -141,20 +152,18 @@ Object.assign(App.prototype, {
       {label:'End',send:'[F'},
       {label:'PgUp',send:'[5~'},
       {label:'PgDn',send:'[6~'},
-      // FR-MTI-26: 키보드를 내리는 명시적 탈출구. Android Chrome 은 focus 된
-      // 입력 요소가 있으면 탭마다 키보드를 재표시하므로, 포커스를 놓는 길이
-      // 사용자에게 있어야 한다. 키를 보내지 않으므로 send 도 mod 도 없다.
-      {label:'⌨',act:'hidekb'},
     ];
     const FULL_NAMES={
       'Esc':'Escape','Tab':'Tab','Ctrl':'Control (modifier)','Alt':'Alt (modifier)',
       '↑':'Arrow Up','↓':'Arrow Down','←':'Arrow Left','→':'Arrow Right',
       '|':'Pipe','~':'Tilde','/':'Slash','-':'Hyphen',
       'Home':'Home','End':'End','PgUp':'Page Up','PgDn':'Page Down',
-      // UX_BATCH5_SRS FR-TIP-2: 이 표의 나머지 열다섯은 이미 영어다 — 하나만
-      // 한국어인 것이 표의 일관성을 깨고 있었다. long-press 툴팁도 같은 값을
-      // 쓰므로 접수한 말("영어로 무슨 버튼인지")이 그대로 성립한다.
-      '⌨':'Dismiss keyboard',
+      // UX_BATCH5_SRS FR-TIP-2: 이 표는 전부 영어다 — long-press 툴팁도 같은
+      // 값을 쓰므로 접수한 말("영어로 무슨 버튼인지")이 그대로 성립한다.
+      // FR-MKB-5: 버튼 하나가 두 방향을 가지므로 이름도 방향을 말하지 않는다.
+      '⌨':'Toggle keyboard',
+      // FR-MKB-11: 무엇을 보내는지 이름이 말한다.
+      '^C':'Interrupt (Ctrl+C)',
     };
     this._modKbd={ctrl:false,alt:false};
     const refresh=()=>this._mkbRefresh();
@@ -202,10 +211,34 @@ Object.assign(App.prototype, {
         if(pressTimer){TIMERS.cancel(pressTimer);pressTimer=null}
       };
       const activate=()=>{
-        if(k.act==='hidekb'){
+        /**
+         * FR-MKB-4·5·6: **버튼 하나가 두 방향을 갖는다.**
+         *
+         *   막혀 있으면 푼다 → 소프트 키보드가 올라온다
+         *   그렇지 않으면 막고 내린다
+         *
+         * 판정도 조작도 `TerminalTool` 이 갖는다 (D-10) — 여기서 속성을 직접
+         * 쓰면 두 곳이 `inputmode` 의 진실을 다툰다.
+         */
+        if(k.act==='kb'){
           const p=this._focusedTerminal();
-          if(p&&p._blurInput) p._blurInput();
-          else{const ae=document.activeElement;if(ae&&ae.blur)try{ae.blur()}catch{}}
+          // 터미널이 아닌 것(편집기·git 입력)에 포커스가 있을 수 있다. 그쪽은
+          // 이 규칙의 대상이 아니므로(FR-MKB-14) 종전대로 내리기만 한다.
+          if(!p||!p._kbSuppressed){
+            const ae=document.activeElement;if(ae&&ae.blur)try{ae.blur()}catch{}
+            this._mkbRefresh();
+            return;
+          }
+          if(p._kbSuppressed()) p._kbAllow(); else p._kbSuppress();
+          this._mkbRefresh();
+          return;
+        }
+        // FR-MKB-10 / D-12: sticky 를 거치지 않는 날것의 바이트.
+        if(k.raw!==undefined){
+          const p=this._focusedTerminal();
+          if(!p) return;
+          if(p.term){try{p.term.focus()}catch{}}
+          p._sendText(k.raw);
           return;
         }
         if(k.mod){
@@ -323,7 +356,20 @@ Object.assign(App.prototype, {
        && typeof this._mKbH==='number' && Math.abs(kbH-this._mKbH)<MTI_KB_EPS_PX
        && typeof this._mKbOff==='number' && Math.abs(off-this._mKbOff)<MTI_KB_EPS_PX) return;
     this._mKbH=kbH;this._mKbOff=off;
+    /**
+     * FR-MKB-7 / D-11: **키보드가 내려가면 `inputmode` 를 되돌린다.**
+     *
+     * `⌨` 로 한 번 풀면 그 뒤로는 터치마다 키보드가 올라오는데, 그것이 정확히
+     * ③ 이 없애려던 동작이다. 되돌리는 계기를 따로 만들지 않고 이미 오르내림을
+     * 아는 이 자리에서 한다.
+     *
+     * **전이에서만 한다** (`true → false`). 매번 하면 `⌨` 로 방금 푼 것을 —
+     * 키보드가 아직 올라오는 중이라 `isUp` 이 거짓인 그 순간에 — 다시 잠근다.
+     * 위 게이트를 지난 시점의 `keyboard-up` 이 전이 전 값이다.
+     */
+    const wasUp=document.body.classList.contains('keyboard-up');
     document.body.classList.toggle('keyboard-up', isUp);
+    if(wasUp&&!isUp) this._kbSuppressAll();
     if(isUp){
       if(bar) bar.style.bottom = kbH + 'px';
       // FR-MKV-4: WebKit 은 포커스된 요소를 드러내려 visual viewport 를 위로
@@ -348,11 +394,33 @@ Object.assign(App.prototype, {
     this._scheduleFit();
   },
 
+  /**
+   * FR-MKB-7: 열려 있는 터미널 전부의 `inputmode` 를 되돌린다.
+   *
+   * 포커스된 하나만 되돌리면 다른 칸의 터미널이 풀린 채 남고, 그 칸을 터치하는
+   * 순간 키보드가 올라온다 — 속성은 요소마다이므로 대상도 요소 전부다.
+   */
+  _kbSuppressAll(){
+    for(const p of this.tools.values()) if(p._kbApply) p._kbApply();
+    this._mkbRefresh();
+  },
+
   _mkbRefresh(){
     document.querySelectorAll('#mobile-keybar .mkb-btn[data-mod]').forEach(b=>{
       const m=b.dataset.mod, st=this._modKbd&&this._modKbd[m];
       b.classList.toggle('sticky', st===true);
       b.classList.toggle('locked', st==='lock');
     });
+    /**
+     * FR-MKB-6: `⌨` 의 현재 방향을 모디파이어와 **같은 방식**으로 보인다.
+     *
+     * 켜짐 = 소프트 키보드가 올라올 수 있다(= 막혀 있지 않다). 두 방향을 가진
+     * 버튼은 지금 어느 쪽인지 보이지 않으면 누를 때마다 도박이 된다.
+     */
+    const kb=document.querySelector('#mobile-keybar .mkb-btn[data-act="kb"]');
+    if(kb){
+      const p=this._focusedTerminal&&this._focusedTerminal();
+      kb.classList.toggle('sticky', !!(p&&p._kbSuppressed&&!p._kbSuppressed()));
+    }
   },
 });

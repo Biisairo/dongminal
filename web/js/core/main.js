@@ -109,7 +109,13 @@ window.addEventListener('resize',()=>{
   if(ac&&ac.classList.contains('open')) app._positionAttnCenter();
   const wasMobile=document.body.classList.contains('mobile');
   const nowMobile=app.isMobile;
-  if(wasMobile!==nowMobile){app.render()}
+  if(wasMobile!==nowMobile){
+    app.render();
+    // FR-MKB-13: `inputmode` 조작은 모바일에서만 한다. 폭이 바뀌어 모드가
+    // 뒤집히면 속성도 따라가야 한다 — 데스크톱으로 넘어간 뒤에도 `none` 이
+    // 남으면 물리 키보드 사용자가 IME 를 잃는다.
+    if(app._kbSuppressAll) app._kbSuppressAll();
+  }
   // FR-MTI-20: Android Chrome 은 소프트 키보드를 window resize 로 알린다
   // (interactive-widget=resizes-content). 그 연속 발화마다 즉시 fit 하면
   // SIGWINCH 가 그만큼 나가 TUI 가 프레임 전체를 다시 그린다.

@@ -383,9 +383,13 @@ test.describe('Mobile keybar tooltips (SRS REQ-T-1..T-4)', () => {
     End: 'End',
     PgUp: 'Page Up',
     PgDn: 'Page Down',
-    // FR-MTI-26: 키보드를 내리는 버튼. 키를 보내지 않는다.
-    // UX_BATCH5_SRS FR-TIP-2 로 영어가 됐다 — 표의 나머지와 같아졌다.
-    '⌨': 'Dismiss keyboard',
+    // ALERT_MOBILE_CONTEXT_SRS FR-MKB-4·5: **두 방향을 갖게 됐다** — 소프트
+    // 키보드가 막혀 있으면 올리고, 올라와 있으면 내린다. 그래서 이름도 방향을
+    // 말하지 않는다 (옛 `Dismiss keyboard`).
+    '⌨': 'Toggle keyboard',
+    // FR-MKB-9·11: `Ctrl` 옆의 새 키. 소프트 키보드를 올리지 않기로 하면
+    // `Ctrl` 을 켠 뒤 `c` 를 칠 자리가 사라진다.
+    '^C': 'Interrupt (Ctrl+C)',
   };
 
   test('TC-T1: every key button has matching title and aria-label', async ({ page }) => {
