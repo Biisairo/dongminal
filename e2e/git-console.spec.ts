@@ -129,7 +129,17 @@ test.describe('묶음 H — Console 의 검색·replay (FR-GIT-281)', () => {
     await waitForInit(page);
     await openConsole(page, repo);
     // 읽기까지 보이게 해 거를 것을 충분히 만든다.
-    await con(page).locator('.git-con-reads input').check();
+    //
+    // **한 번에 켜지지 않을 수 있다.** 이 체크박스는 `mount()` 가 만든다
+    // (`console.js:32`) — 목록 다시 그리기(`_paintList`)는 건드리지 않지만, 뷰가
+    // 다시 마운트되면 통째로 새로 만들어진다. 그 사이에 누르면 playwright 가
+    // `element was detached from the DOM, retrying` 로 맴돌다 끝난다 (실측).
+    // 눌러 보고, 켜졌는지 보고, 아니면 다시 — 이 저장소의 공용 골격이다.
+    const reads = con(page).locator('.git-con-reads input');
+    await expect(async () => {
+      await reads.check({ timeout: 5000 });
+      await expect(reads).toBeChecked({ timeout: 2000 });
+    }).toPass({ timeout: 20000 });
     await expect.poll(() => rows(page).count(), { timeout: 15000 }).toBeGreaterThan(0);
 
     const all = await argvs(page);

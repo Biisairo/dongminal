@@ -390,6 +390,31 @@ if(this.gitPanel&&this.gitPanel.notifyPins) this.gitPanel.notifyPins();
 데이터는 맞고 **다시 그리라고 말해 주는 쪽**이 빠져 있었다. e2e `git-worktrees`
 V168·V169 가 그 자리를 간헐로 잡아 왔다.
 
+### 7.6 남은 flaky 다섯 — 부채로 기록한다
+
+재시도 상한 1 · `retain-on-first-failure` 로 전량 1회를 돌린 결과: **실패 0 ·
+flaky 6 · 1,375 통과.** 그중 원인이 확정된 하나(`git-console` K10)만 고쳤고 —
+playwright 가 기전을 직접 적어 주었다(`element was detached from the DOM`), 그
+체크박스는 `mount()` 만 만들므로 뷰 remount 가 유일한 설명이다 — 나머지 다섯은
+**원인을 확정하지 못해 손대지 않았다.**
+
+**여섯 모두에 대해 확정된 사실 하나:** 트레이스의 API 응답 중 **1.5초를 넘은 것이
+하나도 없다** (전부 200). 즉 "병렬 부하로 `git` 이 느려졌다" 는 설명은 이 여섯에
+대해 **반증됐다.** `fixtures.ts` 의 30초 상한이 그 가정 위에 서 있으므로, 다음에
+이 자리를 볼 때 그 주석부터 의심해야 한다.
+
+| 스펙 | 확정된 것 | 확정하지 못한 것 |
+|---|---|---|
+| `git-branch-actions` BR11 | `.git-view.vis` 가 없다 (element not found), 15초 | 왜 뷰가 하나도 안 보이는가 |
+| `git-branches` B6 | 개수가 0 (≥2 기대), 20초 | 목록이 왜 안 차는가 |
+| `git-history` H15 | `.git-hist-loaded` 없음, 20초 | 뷰가 안 선 것인지 값이 안 온 것인지 |
+| `git-polling` P4 | `openGit` 의 첫 관측 대기 30초 초과 | **가설:** 이 검사는 `gitStatusInterval: 0` 이다 — 주기가 0 이면 재시도할 타이머가 없어(`_applyCadence` 의 `if(st>0)`) 첫 수집을 놓치면 영영 오지 않는다. `_pollOk()` 가 그때 거짓이었는지는 **관측하지 못했다** |
+| `repo-tab` X4 | `.git-file[data-path="src/a.ts"]` 없음, 20초 | 사이드가 Changes 로 안 바뀐 것인지 목록이 안 온 것인지 |
+
+**다음에 이것을 볼 사람에게:** 트레이스는 이제 남는다(`retain-on-first-failure`).
+DOM 스냅숏을 손으로 파싱하려 했으나 형식이 달라 신뢰할 수 없었다 — `npx playwright
+show-trace <trace.zip>` 로 여는 편이 빠르다.
+
 ### 7.6 남은 것
 
 `web/js/git/history.js`(1,236) · `web/js/core/app-editor.js`(1,152) ·
