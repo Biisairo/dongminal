@@ -15,103 +15,26 @@
  * `dirty` 는 "사용자 작업이 있어 지우지 않았다" 다 (FR-GIT-243). 조용히 넘기지 않고
  * 그 자리에 보인다 — 눌렀는데 아무 일도 없으면 사용자는 고장으로 읽는다.
  */
-class GitWorktrees {
+class GitWorktrees extends GitListTab {
   constructor(panel){
-    this.panel=panel;
-    this.app=panel.app;
-    this._el=null;
-    this._repo=undefined;
-    this.reset();
+    super(panel,'git-wt');
   }
 
-  reset(){
-    this._list=[];
-    this._err=null;
-    this._loading=false;
-    this._note=null;   // {kind,msg}
+  // ── 골격이 채워 달라는 자리 (GitListTab, FR-DRC-7) ──
+
+  _headHTML(){return '<button class="git-wt-add"></button>'}
+
+  _mountHead(el){
+    const add=el.querySelector('.git-wt-add');
+    add.textContent=GIT_WT_ADD; add.title=GIT_WT_ADD_TITLE;
+    add.addEventListener('click',()=>this._create());
   }
 
-  // ── 골격 ──
+  _emptyText(){return GIT_WT_EMPTY}
 
-  mount(el){
-    if(!el) return;
-    this._el=el;
-    el.innerHTML=
-      '<div class="git-wt-head">'+
-        '<button class="git-wt-add"></button>'+
-        '<span class="git-wt-spacer"></span>'+
-      '</div>'+
-      '<div class="git-wt-note">'+
-        '<span class="git-wt-note-msg"></span>'+
-        '<button class="git-wt-note-close"></button>'+
-      '</div>'+
-      '<div class="git-wt-list"></div>'+
-      '<div class="git-wt-empty"></div>';
-    const wtAdd=el.querySelector('.git-wt-add');
-    wtAdd.textContent=GIT_WT_ADD; wtAdd.title=GIT_WT_ADD_TITLE;
-    const wtClose=el.querySelector('.git-wt-note-close');
-    wtClose.textContent=GIT_NOTE_CLOSE; wtClose.title=GIT_TIP_NOTE_CLOSE;
-    el.querySelector('.git-wt-add').addEventListener('click',()=>this._create());
-    el.querySelector('.git-wt-note-close').addEventListener('click',()=>{
-      this._note=null; this._paintNote();
-    });
-    this._repo=undefined;
-  }
-
-  unmount(){
-    this._el=null;
-    this._repo=undefined;
-  }
-
-  // ── 칠하기 ──
-
-  paint(){
-    if(!this._el) return;
-    if(this.panel.repo!==this._repo) this._adopt();
-    if(!this._el) return;
-    this._paintNote();
-    this._paintList();
-  }
-
-  // FR-GIT-238: 새로고침이 부르는 공개 진입점. 목록만 다시 받는다.
-  reload(){
-    if(!this._el||this.panel.repo!==this._repo) return;
-    return this._load();
-  }
-
-  _adopt(){
-    this._repo=this.panel.repo;
-    this.reset();
-    if(!this._repo) return;
-    this._load();
-  }
-
-  _paintNote(){
-    gitPaintNote(this._el,'git-wt',this._note);
-  }
-
-
-  /**
-   * FR-GIT-245: 이 목록이 바깥 계기로 다시 그려지면 FR-RPT-1·3 을 따른다. 지금
-   * 계기는 자기 것뿐이지만 공통 수단을 쓴다 — 목록마다 손으로 막으면 다음 목록에서
-   * 또 빠진다 (FR-RPT-6). 판정 근거는 **행이 읽는 값 전부**다 (FR-RPT-2).
-   */
-  _paintList(){
-    const box=this._el.querySelector('.git-wt-list');
-    const empty=this._el.querySelector('.git-wt-empty');
-    const msg=this._err||(this._list.length?'':(this._loading?GIT_LOADING_HINT:GIT_WT_EMPTY));
-    empty.textContent=msg;
-    empty.classList.toggle('vis',!!msg);
-    reconcileList(box,this._err?[]:this._list,{
-      key:e=>e.path,
-      sig:e=>this._sig(e),
-      build:e=>this._rowEl(e),
-    });
-  }
-
-  _sig(e){
+  _sigParts(e){
     return [e.path,e.branch||'',e.detached?1:0,e.owner||'',e.main?1:0,
-      this._canOpen(e)?1:0,this._isPinned(e.path)?1:0].join('\u0001');
+      this._canOpen(e)?1:0,this._isPinned(e.path)?1:0];
   }
 
   // 활성 리포 행에는 열기를 붙이지 않는다 — 이미 그것이다 (FR-GIT-180 의 근거).

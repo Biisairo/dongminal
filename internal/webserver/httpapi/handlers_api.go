@@ -15,6 +15,7 @@ import (
 	"dongminal/internal/shared/sandbox"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/workspace"
+	"dongminal/internal/webserver/httproute"
 )
 
 func fmtDuration(d time.Duration) string {
@@ -57,132 +58,124 @@ func (s *Server) getStats() map[string]interface{} {
 	return out
 }
 
-// apiRoute couples a method+path matcher with the handler. The first matching
-// route is dispatched; non-match falls through to 404.
-type apiRoute struct {
-	method string // "" matches any method
-	match  func(path string) bool
-	handle func(s *Server, w http.ResponseWriter, r *http.Request)
-}
-
-func exactPath(p string) func(string) bool {
-	return func(s string) bool { return s == p }
-}
+// apiRoute 는 method+경로 매처를 핸들러에 묶는다. 첫 매칭이 디스패치되고,
+// 매칭이 없으면 404 로 떨어진다.
+//
+// 표의 모양과 디스패치는 `httproute` 가 소유한다 (FR-DRC-10) — `gitapi` 가 같은
+// 표를 따로 들고 있었고, 한쪽에만 있는 규칙이 다른 쪽에 없다는 것을 아무것도
+// 알려주지 않았다. 여기 남는 것은 **이 표면의 종단 목록**뿐이다.
+type apiRoute = httproute.Route[*Server]
 
 var apiRoutes = []apiRoute{
-	{http.MethodGet, exactPath("/api/state"), (*Server).apiStateGet},
-	{http.MethodGet, exactPath("/api/whoami"), (*Server).apiWhoAmI},
-	{http.MethodPost, exactPath("/api/tools"), (*Server).apiToolsCreate},
-	{http.MethodGet, exactPath("/api/tools/attention"), (*Server).apiToolsAttention},
-	{http.MethodPost, exactPath("/api/tools/attention/set"), (*Server).apiToolAttentionSet},
-	{http.MethodPost, exactPath("/api/tools/attention/clear"), (*Server).apiToolAttentionClear},
-	{http.MethodPost, exactPath("/api/tools/attention/clear-all"), (*Server).apiToolAttentionClearAll},
-	{http.MethodGet, exactPath("/api/tools/activity"), (*Server).apiToolsActivity},
+	httproute.Get("/api/state", (*Server).apiStateGet),
+	httproute.Get("/api/whoami", (*Server).apiWhoAmI),
+	httproute.Post("/api/tools", (*Server).apiToolsCreate),
+	httproute.Get("/api/tools/attention", (*Server).apiToolsAttention),
+	httproute.Post("/api/tools/attention/set", (*Server).apiToolAttentionSet),
+	httproute.Post("/api/tools/attention/clear", (*Server).apiToolAttentionClear),
+	httproute.Post("/api/tools/attention/clear-all", (*Server).apiToolAttentionClearAll),
+	httproute.Get("/api/tools/activity", (*Server).apiToolsActivity),
 	// 에이전트 접합면 (SKILL_INJECTION_SRS FR-API-1/2/3). dmctl read-screen /
 	// read-output / send-input / msg 가 호출한다.
-	{http.MethodGet, exactPath("/api/tools/output"), (*Server).apiToolOutput},
-	{http.MethodPost, exactPath("/api/tools/input"), (*Server).apiToolInput},
-	{http.MethodPost, exactPath("/api/tools/message"), (*Server).apiToolMessage},
-	{http.MethodGet, exactPath("/api/tools/background"), (*Server).apiToolsBackground},
-	{http.MethodPost, exactPath("/api/tools/background/set"), (*Server).apiToolBackgroundSet},
-	{http.MethodPost, exactPath("/api/tools/activity/set"), (*Server).apiToolActivitySet},
+	httproute.Get("/api/tools/output", (*Server).apiToolOutput),
+	httproute.Post("/api/tools/input", (*Server).apiToolInput),
+	httproute.Post("/api/tools/message", (*Server).apiToolMessage),
+	httproute.Get("/api/tools/background", (*Server).apiToolsBackground),
+	httproute.Post("/api/tools/background/set", (*Server).apiToolBackgroundSet),
+	httproute.Post("/api/tools/activity/set", (*Server).apiToolActivitySet),
 	// 묶음 S — 상태·대기 계약 (RUN_ORCHESTRATION_SRS FR-STA-1/2/3).
 	// dmctl status / dmctl wait 가 호출한다.
-	{http.MethodGet, exactPath("/api/tools/activity/get"), (*Server).apiToolStatus},
-	{http.MethodGet, exactPath("/api/tools/activity/wait"), (*Server).apiToolStatusWait},
+	httproute.Get("/api/tools/activity/get", (*Server).apiToolStatus),
+	httproute.Get("/api/tools/activity/wait", (*Server).apiToolStatusWait),
 	// 묶음 R — Run 레코드 (RUN_ORCHESTRATION_SRS FR-RUN-1/2/8/11).
-	{http.MethodGet, exactPath("/api/runs"), (*Server).apiRunsGet},
-	{http.MethodPost, exactPath("/api/runs"), (*Server).apiRunStart},
-	{http.MethodPost, exactPath("/api/runs/members"), (*Server).apiRunMemberAdd},
-	{http.MethodPost, exactPath("/api/runs/report"), (*Server).apiRunReport},
-	{http.MethodPost, exactPath("/api/runs/close"), (*Server).apiRunClose},
+	httproute.Get("/api/runs", (*Server).apiRunsGet),
+	httproute.Post("/api/runs", (*Server).apiRunStart),
+	httproute.Post("/api/runs/members", (*Server).apiRunMemberAdd),
+	httproute.Post("/api/runs/report", (*Server).apiRunReport),
+	httproute.Post("/api/runs/close", (*Server).apiRunClose),
 	// 묶음 P — 멤버 프리앰블 (RUN_ORCHESTRATION_SRS FR-PRE-1). dmctl run launch.
-	{http.MethodGet, exactPath("/api/runs/preamble"), (*Server).apiRunPreamble},
+	httproute.Get("/api/runs/preamble", (*Server).apiRunPreamble),
 	// ── ORCHESTRATION_V2 · CONVENIENCE ──
 	//
-	// 순서 주의: 매칭은 **첫 성공이 이긴다**(§dispatch). 아래 exactPath 들이
+	// 순서 주의: 매칭은 **첫 성공이 이긴다**(§dispatch). 아래 정확 매칭 종단들이
 	// /api/runs/{id}/graph 의 prefix 매칭보다 먼저 와야 한다.
-	{http.MethodGet, exactPath("/api/runs/peers"), (*Server).apiRunPeers},      // 묶음 P (WS-4)
-	{http.MethodPost, exactPath("/api/runs/attach"), (*Server).apiRunAttach},   // 묶음 H (WS-2)
-	{http.MethodPost, exactPath("/api/runs/detach"), (*Server).apiRunDetach},   // 묶음 H (WS-2)
-	{http.MethodPost, exactPath("/api/runs/succeed"), (*Server).apiRunSucceed}, // 묶음 C (WS-3)
-	{http.MethodPost, exactPath("/api/runs/handoff"), (*Server).apiRunHandoff}, // 묶음 C (WS-3)
+	httproute.Get("/api/runs/peers", (*Server).apiRunPeers),      // 묶음 P (WS-4)
+	httproute.Post("/api/runs/attach", (*Server).apiRunAttach),   // 묶음 H (WS-2)
+	httproute.Post("/api/runs/detach", (*Server).apiRunDetach),   // 묶음 H (WS-2)
+	httproute.Post("/api/runs/succeed", (*Server).apiRunSucceed), // 묶음 C (WS-3)
+	httproute.Post("/api/runs/handoff", (*Server).apiRunHandoff), // 묶음 C (WS-3)
 	// 관측 수신 종단. activity/set(= WS-2 파일)에 필드를 붙이는 대신 전용 경로를
 	// 둔다 — 라우트 1줄이 남의 핸들러 본문 수정보다 싸고, 컨텍스트 관측은
 	// activity(무엇을 하는가)와 직교하는 별개 레이어다.
-	{http.MethodPost, exactPath("/api/runs/context"), (*Server).apiRunContext},      // 묶음 C (WS-3)
-	{http.MethodPost, exactPath("/api/tools/headless"), (*Server).apiToolsHeadless}, // 묶음 H (WS-2)
-	{http.MethodPost, exactPath("/api/tools/kill"), (*Server).apiToolKill},          // 묶음 X (WS-8)
-	{http.MethodGet, func(p string) bool {
-		return strings.HasPrefix(p, "/api/runs/") && strings.HasSuffix(p, "/graph")
-	}, (*Server).apiRunGraph}, // 묶음 V (WS-5)
-	// UX_REVISION_SRS FR-DEL-5: Run 레코드 삭제. exactPath 가 아닌 이유는 id 가
+	httproute.Post("/api/runs/context", (*Server).apiRunContext),                                       // 묶음 C (WS-3)
+	httproute.Post("/api/tools/headless", (*Server).apiToolsHeadless),                                  // 묶음 H (WS-2)
+	httproute.Post("/api/tools/kill", (*Server).apiToolKill),                                           // 묶음 X (WS-8)
+	httproute.When(http.MethodGet, httproute.UnderWith("/api/runs/", "/graph"), (*Server).apiRunGraph), // 묶음 V (WS-5)
+	// UX_REVISION_SRS FR-DEL-5: Run 레코드 삭제. 정확 매칭이 아닌 이유는 id 가
 	// 경로에 오기 때문이며, /api/tools/ 의 DELETE 와 같은 모양이다.
-	{http.MethodDelete, func(p string) bool { return strings.HasPrefix(p, "/api/runs/") }, (*Server).apiRunDelete},
-	{http.MethodGet, func(p string) bool {
-		return strings.HasPrefix(p, "/api/tools/") && strings.HasSuffix(p, "/busy")
-	}, (*Server).apiToolBusy},
-	{http.MethodDelete, func(p string) bool { return strings.HasPrefix(p, "/api/tools/") }, (*Server).apiToolDelete},
-	{http.MethodGet, exactPath("/api/focus"), (*Server).apiFocusGet},
-	{http.MethodPost, exactPath("/api/focus/claim"), (*Server).apiFocusClaim},
-	{http.MethodGet, exactPath("/api/sandbox/profiles"), (*Server).apiSandboxProfiles},
+	httproute.When(http.MethodDelete, httproute.Under("/api/runs/"), (*Server).apiRunDelete),
+	httproute.When(http.MethodGet, httproute.UnderWith("/api/tools/", "/busy"), (*Server).apiToolBusy),
+	httproute.When(http.MethodDelete, httproute.Under("/api/tools/"), (*Server).apiToolDelete),
+	httproute.Get("/api/focus", (*Server).apiFocusGet),
+	httproute.Post("/api/focus/claim", (*Server).apiFocusClaim),
+	httproute.Get("/api/sandbox/profiles", (*Server).apiSandboxProfiles),
 	// UX_BATCH5_SRS FR-SRT-1·3 — 런타임의 지금 상태와, 그것을 띄우는 시도.
-	{http.MethodGet, exactPath("/api/sandbox/runtime"), (*Server).apiSandboxRuntime},
-	{http.MethodPost, exactPath("/api/sandbox/runtime/start"), (*Server).apiSandboxRuntimeStart},
-	{http.MethodGet, exactPath("/api/sandbox/config"), (*Server).apiSandboxConfigGet},
-	{http.MethodPut, exactPath("/api/sandbox/config"), (*Server).apiSandboxConfigPut},
-	{http.MethodGet, exactPath("/api/workspace"), (*Server).apiWorkspaceGet},
-	{http.MethodPut, exactPath("/api/workspace"), (*Server).apiWorkspacePut},
-	{http.MethodGet, exactPath("/api/settings"), (*Server).apiSettingsGet},
-	{http.MethodPut, exactPath("/api/settings"), (*Server).apiSettingsPut},
-	{http.MethodPost, exactPath("/api/upload"), (*Server).apiUpload},
-	{http.MethodGet, exactPath("/api/download"), (*Server).apiDownload},
-	{http.MethodGet, exactPath("/api/cwd"), (*Server).apiCwd},
-	{http.MethodGet, exactPath("/api/file/read"), (*Server).apiFileRead},
-	{http.MethodPost, exactPath("/api/file/write"), (*Server).apiFileWrite},
+	httproute.Get("/api/sandbox/runtime", (*Server).apiSandboxRuntime),
+	httproute.Post("/api/sandbox/runtime/start", (*Server).apiSandboxRuntimeStart),
+	httproute.Get("/api/sandbox/config", (*Server).apiSandboxConfigGet),
+	httproute.Put("/api/sandbox/config", (*Server).apiSandboxConfigPut),
+	httproute.Get("/api/workspace", (*Server).apiWorkspaceGet),
+	httproute.Put("/api/workspace", (*Server).apiWorkspacePut),
+	httproute.Get("/api/settings", (*Server).apiSettingsGet),
+	httproute.Put("/api/settings", (*Server).apiSettingsPut),
+	httproute.Post("/api/upload", (*Server).apiUpload),
+	httproute.Get("/api/download", (*Server).apiDownload),
+	httproute.Get("/api/cwd", (*Server).apiCwd),
+	httproute.Get("/api/file/read", (*Server).apiFileRead),
+	httproute.Post("/api/file/write", (*Server).apiFileWrite),
 	// EDITOR_GIT_UX_SRS 묶음 V — 열 수 있는 형식인가, 그리고 이미지 바이트.
-	{http.MethodGet, exactPath("/api/file/probe"), (*Server).apiFileProbe},
-	{http.MethodGet, exactPath("/api/file/raw"), (*Server).apiFileRaw},
+	httproute.Get("/api/file/probe", (*Server).apiFileProbe),
+	httproute.Get("/api/file/raw", (*Server).apiFileRaw),
 	// 묶음 S — 탐색기의 디렉터리 조회·파일 조작과 Editor 목록
 	// (EDITOR_TAB_SRS FR-EDT-108~110). /api/file/* 과 달리 전부 root 를 함께 받아
 	// 그 아래로 제한한다 (D-16) — 조작은 트리에서 파생된 경로를 지운다.
-	{http.MethodGet, exactPath("/api/fs/list"), (*Server).apiFSList},
+	httproute.Get("/api/fs/list", (*Server).apiFSList),
 	// NOTES_LIVE_EXPLORER_SRS 묶음 L — 겹이 바뀌었는지만 묻는다. list 옆에 두는
 	// 이유는 같은 것(겹)을 보는 두 물음이기 때문이다: 이쪽이 "바뀌었나", 저쪽이
 	// "무엇이 있나" 다.
-	{http.MethodPost, exactPath("/api/fs/stamp"), (*Server).apiFSStamp},
+	httproute.Post("/api/fs/stamp", (*Server).apiFSStamp),
 	// EDITOR_GIT_UX_SRS 묶음 F·G — Editor 창의 파일 이름 찾기·전체 내용 찾기.
-	{http.MethodGet, exactPath("/api/fs/find"), (*Server).apiFSFind},
-	{http.MethodGet, exactPath("/api/fs/grep"), (*Server).apiFSGrep},
+	httproute.Get("/api/fs/find", (*Server).apiFSFind),
+	httproute.Get("/api/fs/grep", (*Server).apiFSGrep),
 	// EXPLORER_TRANSFER_IGNORE_SRS 묶음 A — 한 겹에서 무시된 이름을 가른다.
 	// status 폴링에 얹지 않는 이유는 D-1 이다.
-	{http.MethodPost, exactPath("/api/fs/ignored"), (*Server).apiFSIgnored},
-	{http.MethodPost, exactPath("/api/fs/create"), (*Server).apiFSCreate},
-	{http.MethodPost, exactPath("/api/fs/rename"), (*Server).apiFSRename},
-	{http.MethodPost, exactPath("/api/fs/delete"), (*Server).apiFSDelete},
+	httproute.Post("/api/fs/ignored", (*Server).apiFSIgnored),
+	httproute.Post("/api/fs/create", (*Server).apiFSCreate),
+	httproute.Post("/api/fs/rename", (*Server).apiFSRename),
+	httproute.Post("/api/fs/delete", (*Server).apiFSDelete),
 	// FR-WBR-60: 탐색기의 복사·복제. 루트를 **둘** 받는 유일한 fs 종단이다.
-	{http.MethodPost, exactPath("/api/fs/copy"), (*Server).apiFSCopy},
+	httproute.Post("/api/fs/copy", (*Server).apiFSCopy),
 	// 묶음 D·E — 탐색기의 전송 (FILE_TRANSFER_SRS FR-FTR-12·15). 터미널의
 	// /api/{upload,download} 와 같은 일을 하되 root 가드를 받는다.
-	{http.MethodGet, exactPath("/api/fs/download"), (*Server).apiFSDownload},
+	httproute.Get("/api/fs/download", (*Server).apiFSDownload),
 	// EXPLORER_TRANSFER_IGNORE_SRS 묶음 B — 폴더를 zip 으로. 파일 종단과 나눈
 	// 이유는 FR-ETR-11 이다 — 두 종단이 서로의 일을 대신하지 않는다.
-	{http.MethodGet, exactPath("/api/fs/download-dir"), (*Server).apiFSDownloadDir},
-	{http.MethodPost, exactPath("/api/fs/upload"), (*Server).apiFSUpload},
+	httproute.Get("/api/fs/download-dir", (*Server).apiFSDownloadDir),
+	httproute.Post("/api/fs/upload", (*Server).apiFSUpload),
 	// EDITOR_LSP_SRS 묶음 A — 언어 서버의 관측과 설치. 둘 다 POST 인 것은 본문이
 	// 필요하기 때문이다 (FR-LSP-4b: 절대경로 표가 요청에 실린다) — `/api/fs/stamp`
 	// 와 같은 이유다.
-	{http.MethodPost, exactPath("/api/lsp/status"), (*Server).apiLSPStatus},
-	{http.MethodPost, exactPath("/api/lsp/install"), (*Server).apiLSPInstall},
+	httproute.Post("/api/lsp/status", (*Server).apiLSPStatus),
+	httproute.Post("/api/lsp/install", (*Server).apiLSPInstall),
 	// 정의·참조는 `fsRoot` 가드를 딛는다 (FR-LSP-24·49) — /api/fs/* 와 같은 가드다.
-	{http.MethodPost, exactPath("/api/lsp/definition"), (*Server).apiLSPDefinition},
-	{http.MethodPost, exactPath("/api/lsp/references"), (*Server).apiLSPReferences},
-	{http.MethodPost, exactPath("/api/lsp/hover"), (*Server).apiLSPHover},
-	{http.MethodGet, exactPath("/api/editors"), (*Server).apiEditorsGet},
-	{http.MethodPost, exactPath("/api/editors/add"), (*Server).apiEditorsAdd},
-	{http.MethodPost, exactPath("/api/editors/remove"), (*Server).apiEditorsRemove},
-	{http.MethodPost, exactPath("/api/editors/reorder"), (*Server).apiEditorsReorder},
-	{"", exactPath("/api/ping"), (*Server).apiPing},
+	httproute.Post("/api/lsp/definition", (*Server).apiLSPDefinition),
+	httproute.Post("/api/lsp/references", (*Server).apiLSPReferences),
+	httproute.Post("/api/lsp/hover", (*Server).apiLSPHover),
+	httproute.Get("/api/editors", (*Server).apiEditorsGet),
+	httproute.Post("/api/editors/add", (*Server).apiEditorsAdd),
+	httproute.Post("/api/editors/remove", (*Server).apiEditorsRemove),
+	httproute.Post("/api/editors/reorder", (*Server).apiEditorsReorder),
+	httproute.Any("/api/ping", (*Server).apiPing),
 	// 묶음 B·C — 리포 해석·핀·변경 감지 (GIT_SRS FR-GIT-60/61). UI 는 이 표면
 	// 위에만 서고, git 실행 결과를 다른 경로로 얻지 않는다.
 	// FR-GIT-223: 핀 순서는 서버가 권위로 쓴다 (O1) — 재배치도 서버를 지난다.
@@ -199,19 +192,12 @@ var apiRoutes = []apiRoute{
 	// 준다 (FR-GIT-147) — 여기에 새 조회를 만들지 않는다.
 	// 묶음 O — stash (GIT_SRS FR-GIT-161~170). drop 은 파괴적이므로 confirm 을
 	// 서버가 다시 검사한다.
-	{http.MethodGet, exactPath("/api/stats"), (*Server).apiStats},
+	httproute.Get("/api/stats", (*Server).apiStats),
 }
 
 func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
-	p := r.URL.Path
-	for _, rt := range apiRoutes {
-		if rt.method != "" && rt.method != r.Method {
-			continue
-		}
-		if rt.match(p) {
-			rt.handle(s, w, r)
-			return
-		}
+	if httproute.Dispatch(apiRoutes, s, w, r) {
+		return
 	}
 	if s.git != nil && s.git.Handle(w, r) {
 		return

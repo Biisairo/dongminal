@@ -20,6 +20,10 @@ import (
 // 자동 개행(?20l). direct 모드와 daemon 모드가 **같은 값을 보내야** 하므로 한 곳에 둔다.
 var termReset = []byte("\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l")
 
+// wsReadLimit 은 클라이언트 프레임 하나의 상한이다 (1MiB). 터미널 입력과 붙여넣기
+// 한 번이 지나는 크기이며, 상한이 없으면 프레임 하나가 서버 메모리를 정한다.
+const wsReadLimit = 1 << 20
+
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	if s.Tools == nil {
 		http.Error(w, "tools unavailable", http.StatusInternalServerError)
@@ -192,8 +196,30 @@ func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhu
 
 	go pingLoop(conn, done)
 
-	// Read loop: input → dongminald, resize → dongminald
-	conn.SetReadLimit(1 << 20)
+	// Read loop: input → dongminald, resize → dongminald.
+	//
+	// 데몬 배선에서는 쓰기 실패가 이 연결의 끝이 아니다 — 도구는 다른 프로세스에
+	// 있고, 재연결이 그 소유자를 되찾는다. 그래서 오류를 삼킨다.
+	wsReadLoop(conn, toolID,
+		func(b []byte) error { _ = pc.Write(toolID, b); return nil },
+		func(c, ro uint16) { _ = pc.Resize(toolID, c, ro) })
+}
+
+// wsReadLoop 는 클라이언트 → 도구 방향의 읽기 한 벌이다 (DRIFT_RECLAIM_SRS
+// FR-DRC-11).
+//
+// 직접 배선(`readWS`)과 데몬 배선(`handleWSDaemon`)이 이 루프를 각자 적고
+// 있었다. 다른 것은 **입력을 어디로 흘리는지** 둘뿐이었고, 같은 것은 이 표면의
+// 규약 전부였다 — 읽기 한도, PongWait 기한과 그 갱신, 정상 종료로 칠 close 코드
+// 넷, 빈 프레임 무시, opcode 분기, resize 의 5바이트 최소 길이.
+//
+// 규약이 두 벌이면 한쪽에만 새 opcode 가 들어가고, 그 사실을 아무것도 알려주지
+// 않는다.
+//
+// input 이 오류를 돌려주면 그 연결은 거기서 끝난다 — 도구에 쓸 수 없는 소켓을
+// 계속 읽어 봐야 할 일이 없다.
+func wsReadLoop(conn *toolhub.SafeConn, toolID string, input func([]byte) error, resize func(cols, rows uint16)) {
+	conn.SetReadLimit(wsReadLimit)
 	conn.SetReadDeadline(time.Now().Add(toolhub.PongWait))
 	conn.SetPongHandler(func(string) error {
 		conn.SetReadDeadline(time.Now().Add(toolhub.PongWait))
@@ -202,9 +228,11 @@ func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhu
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
+			// 정상 종료와 사라진 소켓은 로그로 남기지 않는다 — 브라우저 탭을
+			// 닫을 때마다 오류가 쌓이면 진짜 오류가 묻힌다.
 			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseNoStatusReceived) &&
 				!strings.Contains(err.Error(), "use of closed network connection") {
-				log.Printf("[tool %s] readWS error: %v", toolID, err)
+				log.Printf("[tool %s] readWS error addr=%s: %v", toolID, conn.RemoteAddr(), err)
 			}
 			return
 		}
@@ -213,12 +241,15 @@ func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhu
 		}
 		switch msg[0] {
 		case toolhub.OpInput:
-			_ = pc.Write(toolID, msg[1:])
+			if err := input(msg[1:]); err != nil {
+				log.Printf("[tool %s] 터미널 쓰기 오류: %v", toolID, err)
+				return
+			}
 		case toolhub.OpResize:
+			// 5바이트에 못 미치면 폭·높이가 없다. 없는 값으로 크기를 바꾸면
+			// 화면이 0열이 된다.
 			if len(msg) >= 5 {
-				c := binary.BigEndian.Uint16(msg[1:3])
-				ro := binary.BigEndian.Uint16(msg[3:5])
-				_ = pc.Resize(toolID, c, ro)
+				resize(binary.BigEndian.Uint16(msg[1:3]), binary.BigEndian.Uint16(msg[3:5]))
 			}
 		}
 	}
@@ -230,38 +261,7 @@ func readWS(conn *toolhub.SafeConn, tool *toolhub.Tool) {
 			log.Printf("[tool %s] readWS panic addr=%s: %v\n%s", tool.ID, conn.RemoteAddr(), r, debug.Stack())
 		}
 	}()
-	conn.SetReadLimit(1 << 20)
-	conn.SetReadDeadline(time.Now().Add(toolhub.PongWait))
-	conn.SetPongHandler(func(string) error {
-		conn.SetReadDeadline(time.Now().Add(toolhub.PongWait))
-		return nil
-	})
-	for {
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseNoStatusReceived) &&
-				!strings.Contains(err.Error(), "use of closed network connection") {
-				log.Printf("[tool %s] readWS error addr=%s: %v", tool.ID, conn.RemoteAddr(), err)
-			}
-			return
-		}
-		if len(msg) == 0 {
-			continue
-		}
-		switch msg[0] {
-		case toolhub.OpInput:
-			if err := tool.Write(msg[1:]); err != nil {
-				log.Printf("[tool %s] 터미널 쓰기 오류: %v", tool.ID, err)
-				return
-			}
-		case toolhub.OpResize:
-			if len(msg) >= 5 {
-				c := binary.BigEndian.Uint16(msg[1:3])
-				ro := binary.BigEndian.Uint16(msg[3:5])
-				tool.Resize(c, ro)
-			}
-		}
-	}
+	wsReadLoop(conn, tool.ID, tool.Write, func(c, ro uint16) { tool.Resize(c, ro) })
 }
 
 // readWSDirect is the original WS read loop kept for direct mode.

@@ -7,8 +7,13 @@ import (
 	"time"
 
 	"dongminal/internal/helper/runtimebin"
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/runtime"
 )
+
+// healthPingTimeout 은 HTTP 생존 확인의 대기다. 사람이 결과를 기다리는 명령이므로
+// 짧다 — 떠 있으면 즉시 답하고, 떠 있지 않으면 재시도해도 답하지 않는다.
+const healthPingTimeout = 3 * time.Second
 
 // RunHealth는 `dongminal health` 다 (FR-ACT-9/10).
 func RunHealth(o HealthOpts, stdout, stderr io.Writer) int {
@@ -20,7 +25,11 @@ func RunHealth(o HealthOpts, stdout, stderr io.Writer) int {
 	port := o.ResolvePort()
 
 	fail := 0
-	if ping(fmt.Sprintf("http://localhost:%s/", port), 3*time.Second) {
+	// 호스트는 `dmenv.DefaultHost` 다 (FR-DRC-12). 여기만 "localhost" 를 박아
+	// 두었더니 그 이름이 `::1` 로 먼저 풀리는 환경에서 health 만 실패했다 —
+	// 서버는 `127.0.0.1` 에 떠 있고, 옆의 `migrate.go` 는 이미 이 상수를 쓴다.
+	// 같은 데몬을 두 이름으로 부르면 한쪽이 다른 인스턴스를 본다 (dmenv.go:40).
+	if ping(fmt.Sprintf("http://%s:%s/", dmenv.DefaultHost, port), healthPingTimeout) {
 		fmt.Fprintf(stdout, "✅ dongminal HTTP :%s\n", port)
 	} else {
 		fmt.Fprintf(stdout, "❌ dongminal HTTP :%s — 응답 없음\n", port)

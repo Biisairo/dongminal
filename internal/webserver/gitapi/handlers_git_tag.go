@@ -190,27 +190,25 @@ func (s *GitServer) gitTagRemoteRoute(w http.ResponseWriter, r *http.Request, co
 	if t.stop() {
 		return
 	}
-	if confirm && !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
-			"원격 ref 삭제는 파괴적이다: confirm:true 를 요구한다 (FR-GIT-89·261)")
+	t.requireConfirm(confirm, req.Confirm,
+		"원격 ref 삭제는 파괴적이다: confirm:true 를 요구한다 (FR-GIT-89·261)")
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	root := t.root
 	remote := req.Remote
 	if remote == "" {
 		got, err := query.DefaultRemote(s.Git.Service(), r.Context(), root)
 		if err != nil {
-			gitError(w, err)
+			t.reject(err)
 			return
 		}
 		remote = got
 	}
 	sp, err := spec(root, write.TagRemoteOpts{Remote: remote, Name: req.Name, All: req.All})
 	if err != nil {
-		gitError(w, err)
+		t.reject(err)
 		return
 	}
 	s.gitStartJob(w, req.Repo, root, "push", sp, map[string]any{"remote": remote, "tag": req.Name, "all": req.All})

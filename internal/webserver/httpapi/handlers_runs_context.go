@@ -136,8 +136,7 @@ func (s *Server) apiRunContext(w http.ResponseWriter, r *http.Request) {
 		Tokens *int64 `json:"tokens"`
 		Model  string `json:"model"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 	obs := run.ContextObservation{
@@ -257,8 +256,7 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 		TimeoutMs int    `json:"timeoutMs"`
 		ToolID    string `json:"toolId"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 	if strings.TrimSpace(body.MemberID) == "" {
@@ -269,9 +267,8 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 		writeRunError(w, fmt.Errorf("%w: --at 과 --headless 는 함께 쓸 수 없다", run.ErrInvalidArgument), nil)
 		return
 	}
-	rec, prev, ok := s.Runs.FindMember(body.MemberID)
+	rec, prev, ok := s.runMember(w, body.MemberID)
 	if !ok {
-		writeRunError(w, run.ErrUnknownMember, map[string]any{"memberId": body.MemberID})
 		return
 	}
 	if rec.State != run.Open {
@@ -417,8 +414,7 @@ func (s *Server) apiRunHandoff(w http.ResponseWriter, r *http.Request) {
 		ToolID   string `json:"toolId"`
 		Summary  string `json:"summary"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 	sender := s.callerToolID(r, body.ToolID)

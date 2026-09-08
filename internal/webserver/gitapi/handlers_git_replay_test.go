@@ -104,7 +104,7 @@ func TestAPIGitReplay_RunsRecordedArgv(t *testing.T) {
 func TestAPIGitReplay_RouteRegisteredAndUnavailable(t *testing.T) {
 	found := false
 	for _, rt := range routes {
-		if rt.method == http.MethodPost && rt.match("/api/git/records/replay") {
+		if rt.Method == http.MethodPost && rt.Match("/api/git/records/replay") {
 			found = true
 			break
 		}

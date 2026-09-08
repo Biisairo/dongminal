@@ -79,6 +79,10 @@ jobs:
       - name: 시간과 전파
         run: scripts/check-timers.sh
 
+      # git 쓰기가 전부 gitWrite 파이프라인을 지나는가 (FR-DRC-8).
+      - name: git 쓰기 파이프라인
+        run: scripts/check-gitwrite.sh
+
       # 대상 5종에 build 와 vet. vet 이 테스트 파일까지 타입 검사하므로 어느
       # 플랫폼에서만 깨지는 테스트도 여기서 잡힌다.
       - name: 크로스 컴파일

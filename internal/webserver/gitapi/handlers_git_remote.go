@@ -363,22 +363,16 @@ func (s *GitServer) gitRemoteWrite(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	root := t.root
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		return run(ctx, root, req)
-	})
-	if !ok {
+	t.apply(func(ctx context.Context) error { return run(ctx, root, req) })
+	if t.stop() {
 		return
 	}
 	list, err := query.Remotes(s.Git.Service(), r.Context(), root)
 	if err != nil {
-		gitError(w, err)
+		t.reject(err)
 		return
 	}
-	gitWriteOK(w, req.Repo, root, after, map[string]any{"remotes": list})
+	t.ok(map[string]any{"remotes": list})
 }
 
 // gitPushTarget 은 미리보기의 대상이다. 인자가 없으면 저장소가 정한다 — upstream 이

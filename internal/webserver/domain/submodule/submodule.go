@@ -19,6 +19,7 @@ package submodule
 
 import (
 	"context"
+	"dongminal/internal/shared/diagtail"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -282,14 +283,10 @@ func ExecGit(dir string, args ...string) (string, error) {
 	return text, nil
 }
 
-func tail(out string, err error) string {
-	s := strings.TrimSpace(out)
-	if s == "" && err != nil {
-		s = err.Error()
-	}
-	const max = 2000
-	if len(s) > max {
-		s = s[len(s)-max:]
-	}
-	return s
-}
+// failMax 는 `ErrFailed` 에 감싸 올릴 진단의 길이 상한이다. 이 문자열은 다시
+// `gitTail` 을 지나 응답에 실린다 — 여기서 너무 짧게 자르면 그때는 이미 사유가
+// 없다.
+const failMax = 2000
+
+// tail 은 판정을 `diagtail` 에 맡기고 이 표면의 상한만 정한다 (FR-DRC-9).
+func tail(out string, err error) string { return diagtail.Of(out, err, failMax) }

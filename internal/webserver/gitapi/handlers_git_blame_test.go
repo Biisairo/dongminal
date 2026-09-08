@@ -70,7 +70,7 @@ func gitBlameServer(t *testing.T, f *gitBlameFake) *GitServer {
 func TestGitBlameRouteRegistered(t *testing.T) {
 	found := false
 	for _, rt := range routes {
-		if (rt.method == "" || rt.method == http.MethodGet) && rt.match("/api/git/blame") {
+		if (rt.Method == "" || rt.Method == http.MethodGet) && rt.Match("/api/git/blame") {
 			found = true
 			break
 		}

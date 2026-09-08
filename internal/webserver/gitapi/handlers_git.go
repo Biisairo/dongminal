@@ -2,12 +2,13 @@ package gitapi
 
 import (
 	"context"
+	"dongminal/internal/shared/diagtail"
+	"dongminal/internal/shared/listorder"
 	"encoding/json"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"dongminal/internal/webserver/apierr"
@@ -75,13 +76,9 @@ func gitError(w http.ResponseWriter, err error) {
 	gitFail(w, code, name, gitTail(err.Error()))
 }
 
-// gitTail 은 뒤쪽을 남긴다 — git 의 실패 이유는 stderr 끝에 있다.
-func gitTail(msg string) string {
-	if len(msg) <= gitMessageMax {
-		return msg
-	}
-	return strings.ToValidUTF8(msg[len(msg)-gitMessageMax:], "")
-}
+// gitTail 은 뒤쪽을 남긴다 — git 의 실패 이유는 stderr 끝에 있다. 자르는 규칙은
+// `diagtail` 이 소유한다 (FR-DRC-9); 여기서 정하는 것은 상한 하나다.
+func gitTail(msg string) string { return diagtail.Cut(msg, gitMessageMax) }
 
 // GET /api/git/repos[?observe=1] — 핀 목록과 각 배지 (FR-FLW-2, FR-GOB-1).
 //
@@ -264,18 +261,35 @@ func gitDecodePath(w http.ResponseWriter, r *http.Request) (string, bool) {
 	return req.Path, true
 }
 
+// gitDecodeAbsPath 는 본문의 path 를 읽고 **절대경로임까지** 확인한다
+// (DRIFT_RECLAIM_SRS FR-DRC-11).
+//
+// 상대경로를 받으면 그것이 어디 기준인지가 서버의 작업 디렉터리에 달리고, 그 값은
+// 클라이언트가 알 수 없다. 그래서 조용히 풀지 않고 거부한다.
+//
+// `apiGitUnpin` 은 이것을 쓰지 않는다 — 그 종단은 저장된 문자열과의 일치로만
+// 지우므로 상대경로가 들어와도 아무 일이 일어나지 않는다. 거기에 검사를 더하면
+// 지금까지 200 이던 요청이 400 이 된다.
+func gitDecodeAbsPath(w http.ResponseWriter, r *http.Request) (string, bool) {
+	path, ok := gitDecodePath(w, r)
+	if !ok {
+		return "", false
+	}
+	if !filepath.IsAbs(path) {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "path 는 절대경로여야 한다")
+		return "", false
+	}
+	return path, true
+}
+
 // POST /api/git/repos/pin — 저장소를 재확인한 뒤 그 루트를 핀한다 (FR-GIT-12·62).
 func (s *GitServer) apiGitPin(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)
 		return
 	}
-	path, ok := gitDecodePath(w, r)
+	path, ok := gitDecodeAbsPath(w, r)
 	if !ok {
-		return
-	}
-	if !filepath.IsAbs(path) {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "path 는 절대경로여야 한다")
 		return
 	}
 	// 클라이언트가 보낸 경로를 그대로 저장하지 않는다. 하위 디렉터리를 핀하면
@@ -366,37 +380,10 @@ func (s *GitServer) apiGitReorder(w http.ResponseWriter, r *http.Request) {
 // 이미 화면이 낡았다는 뜻이고, 그때 순서를 흔들면 사용자가 보지 않은 변경이 남는다.
 // target 이 없으면 맨 끝이다 — 끌어다 놓은 곳이 사라졌다고 조작을 통째로 잃지 않는다.
 func gitReorderPins(cur []string, src, target string, before bool) []string {
-	si := -1
-	for i, p := range cur {
-		if p == src {
-			si = i
-			break
-		}
-	}
-	if si < 0 || src == target {
-		return cur
-	}
-	out := make([]string, 0, len(cur))
-	out = append(out, cur[:si]...)
-	out = append(out, cur[si+1:]...)
-
-	ti := -1
-	for i, p := range out {
-		if p == target {
-			ti = i
-			break
-		}
-	}
-	if ti < 0 {
-		return append(out, src)
-	}
-	if !before {
-		ti++
-	}
-	out = append(out, "")
-	copy(out[ti+1:], out[ti:])
-	out[ti] = src
-	return out
+	// ToEnd 다 — 핀 목록에서는 끌어다 놓은 자리가 사라졌다고 조작을 통째로 잃지
+	// 않는다. 편집기 탭 목록은 반대 정책을 쓴다 (`wsentry.reorder`); 그 갈림의
+	// 근거는 `listorder` 의 머리 주석에 있다.
+	return listorder.Move(cur, src, target, before, listorder.ToEnd)
 }
 
 // gitRepoParam 은 repo 인자를 정규 루트로 옮긴다. 클라이언트가 보낸 경로를 그대로

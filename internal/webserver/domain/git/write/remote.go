@@ -142,6 +142,32 @@ func PullSpec(o PullOpts) (core.WriteSpec, error) {
 	return core.WriteSpec{Argv: argv}, nil
 }
 
+// pushForceArgs 는 force 모드 하나를 argv 조각으로 옮긴다
+// (DRIFT_RECLAIM_SRS FR-DRC-11).
+//
+// 이 판정이 두 벌 있었다 (`PushSpec` · `PushBranchSpec`). 판정에는 **정책**이
+// 들려 있다 — `--force` 는 2단계 확인을 요구하고 `--force-with-lease` 는 요구하지
+// 않는다는 것. 두 벌로 두면 한쪽만 확인을 빼도 그 사실을 아무것도 알려주지 않으며,
+// 그것은 원격의 커밋을 잃는 경로다 (I5).
+//
+// 모르는 값은 **거부한다.** 조용히 no-force 로 접으면 클라이언트가 force 를 보낸
+// 줄 알고 있는데 서버는 하지 않은 상태가 된다.
+func pushForceArgs(force string, confirm bool) ([]string, error) {
+	switch force {
+	case PushNoForce:
+		return nil, nil
+	case PushLease:
+		return []string{"--force-with-lease"}, nil
+	case PushForce:
+		if !confirm {
+			return nil, fmt.Errorf("%w: --force 는 2단계 확인을 요구한다", ErrForceConfirm)
+		}
+		return []string{"--force"}, nil
+	default:
+		return nil, fmt.Errorf("%w: %q", ErrPushForce, force)
+	}
+}
+
 // PushSpec 은 저장소의 현재 상태를 보고 push 의 argv 를 만든다.
 //
 // upstream 이 없으면 Push 는 Publish 다 (FR-GIT-100) — `-u <remote> <branch>`.
@@ -153,18 +179,11 @@ func PullSpec(o PullOpts) (core.WriteSpec, error) {
 func PushSpec(s *core.Service, ctx context.Context, repo string, o PushOpts) (core.WriteSpec, PushPlan, error) {
 	argv := []string{"push", progressFlag}
 	plan := PushPlan{Force: o.Force}
-	switch o.Force {
-	case PushNoForce:
-	case PushLease:
-		argv = append(argv, "--force-with-lease")
-	case PushForce:
-		if !o.Confirm {
-			return core.WriteSpec{}, plan, fmt.Errorf("%w: --force 는 2단계 확인을 요구한다", ErrForceConfirm)
-		}
-		argv = append(argv, "--force")
-	default:
-		return core.WriteSpec{}, plan, fmt.Errorf("%w: %q", ErrPushForce, o.Force)
+	force, err := pushForceArgs(o.Force, o.Confirm)
+	if err != nil {
+		return core.WriteSpec{}, plan, err
 	}
+	argv = append(argv, force...)
 	spec := core.WriteSpec{Destructive: o.Force != PushNoForce}
 
 	// 대상을 지목한 push (FR-GIT-271). 저장소의 upstream 을 보지 않는다 — 사용자가

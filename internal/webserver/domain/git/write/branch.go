@@ -491,18 +491,11 @@ func BranchPushSpec(s *core.Service, ctx context.Context, repo string, o BranchP
 		return core.WriteSpec{}, plan, err
 	}
 	argv := []string{"push", progressFlag}
-	switch o.Force {
-	case PushNoForce:
-	case PushLease:
-		argv = append(argv, "--force-with-lease")
-	case PushForce:
-		if !o.Confirm {
-			return core.WriteSpec{}, plan, fmt.Errorf("%w: --force 는 2단계 확인을 요구한다", ErrForceConfirm)
-		}
-		argv = append(argv, "--force")
-	default:
-		return core.WriteSpec{}, plan, fmt.Errorf("%w: %q", ErrPushForce, o.Force)
+	force, err := pushForceArgs(o.Force, o.Confirm)
+	if err != nil {
+		return core.WriteSpec{}, plan, err
 	}
+	argv = append(argv, force...)
 	spec := core.WriteSpec{Destructive: o.Force != PushNoForce}
 
 	up, err := query.BranchUpstream(s, ctx, repo, o.Branch)

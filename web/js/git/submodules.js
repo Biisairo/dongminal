@@ -6,116 +6,45 @@
  * 있는 것(`+`)도 함께 보인다: 목록이 git 과 다르면 사용자가 "왜 안 되지" 를
  * 헛갈린다.
  *
- * **골격은 Worktrees 탭과 같다** (FR-SUB-7). 머리에 일괄, 그 아래 안내 줄, 그
- * 아래 `reconcileList` 로 그리는 목록 — 같은 모양의 목록이 둘이면 규칙도 하나여야
- * 한다. `worktrees.js` 를 읽으면 이 파일이 읽힌다.
+ * **골격은 `GitListTab` 이 소유한다** (FR-SUB-7, FR-DRC-7). 머리에 일괄, 그 아래
+ * 안내 줄, 그 아래 `reconcileList` 로 그리는 목록 — 같은 모양의 목록이 둘이면
+ * 규칙도 하나여야 한다. 여기 남는 것은 서브모듈 고유의 **내용**뿐이다.
  *
  * 보이는 것과 할 수 있는 것은 다르다 (FR-SUB-8): 초기화되지 않은 서브모듈에는
  * 여는 길도 터미널도 붙지 않는다 — 열 저장소가 아직 없기 때문이며, 눌리지만
  * 아무 일도 하지 않는 버튼은 고장으로 읽힌다 (FR-GIT-180).
  */
-class GitSubmodules {
+class GitSubmodules extends GitListTab {
   constructor(panel){
-    this.panel=panel;
-    this.app=panel.app;
-    this._el=null;
-    this._repo=undefined;
-    this.reset();
+    super(panel,'git-sub');
   }
 
-  reset(){
-    this._list=[];
-    this._err=null;
-    this._loading=false;
-    this._note=null;   // {kind,msg}
+  // ── 골격이 채워 달라는 자리 ──
+
+  _headHTML(){
+    return '<button class="git-sub-bulk" data-act="update"></button>'+
+           '<button class="git-sub-bulk" data-act="sync"></button>';
   }
 
-  // ── 골격 ──
-
-  mount(el){
-    if(!el) return;
-    this._el=el;
-    el.innerHTML=
-      '<div class="git-sub-head">'+
-        '<button class="git-sub-bulk" data-act="update"></button>'+
-        '<button class="git-sub-bulk" data-act="sync"></button>'+
-        '<span class="git-sub-spacer"></span>'+
-      '</div>'+
-      '<div class="git-sub-note">'+
-        '<span class="git-sub-note-msg"></span>'+
-        '<button class="git-sub-note-close"></button>'+
-      '</div>'+
-      '<div class="git-sub-list"></div>'+
-      '<div class="git-sub-empty"></div>';
+  _mountHead(el){
     for(const b of el.querySelectorAll('.git-sub-bulk')){
       b.textContent=GIT_SUB_BULK_LABEL[b.dataset.act]||'';
       b.title=GIT_SUB_BULK_TITLE[b.dataset.act]||'';
       // FR-SUB-9: 대상이 **전부**다 — 경로를 비워 보내는 것이 그 뜻이다.
       b.addEventListener('click',()=>this._act(b.dataset.act,null));
     }
-    const subClose=el.querySelector('.git-sub-note-close');
-    subClose.textContent=GIT_NOTE_CLOSE; subClose.title=GIT_TIP_NOTE_CLOSE;
-    el.querySelector('.git-sub-note-close').addEventListener('click',()=>{
-      this._note=null; this._paintNote();
-    });
-    this._repo=undefined;
   }
 
-  unmount(){
-    this._el=null;
-    this._repo=undefined;
-  }
-
-  // ── 칠하기 ──
-
-  paint(){
-    if(!this._el) return;
-    if(this.panel.repo!==this._repo) this._adopt();
-    if(!this._el) return;
-    this._paintNote();
-    this._paintList();
-  }
-
-  // FR-GIT-238: 새로고침이 부르는 공개 진입점. 목록만 다시 받는다.
-  reload(){
-    if(!this._el||this.panel.repo!==this._repo) return;
-    return this._load();
-  }
-
-  _adopt(){
-    this._repo=this.panel.repo;
-    this.reset();
-    if(!this._repo) return;
-    this._load();
-  }
-
-  _paintNote(){
-    gitPaintNote(this._el,'git-sub',this._note);
-  }
-
-
-  /**
-   * FR-RPT-1·3: 바깥 계기로 다시 그려도 바뀌지 않은 행은 그대로 둔다. 판정 근거는
-   * **행이 읽는 값 전부**다 (FR-RPT-2) — 좁히면 그 값의 변화가 화면에 닿지 않는다.
-   */
-  _paintList(){
-    const box=this._el.querySelector('.git-sub-list');
-    const empty=this._el.querySelector('.git-sub-empty');
-    const msg=this._err||(this._list.length?'':(this._loading?GIT_LOADING_HINT:GIT_SUB_EMPTY));
-    empty.textContent=msg;
-    empty.classList.toggle('vis',!!msg);
-    // FR-SUB-9: 서브모듈이 없으면 일괄에 뜻이 없다 (FR-WBR-53 과 같은 근거).
+  // FR-SUB-9: 서브모듈이 없으면 일괄에 뜻이 없다 (FR-WBR-53 과 같은 근거).
+  _paintHead(){
     for(const b of this._el.querySelectorAll('.git-sub-bulk'))
       b.disabled=!this._list.length||this._busy;
-    reconcileList(box,this._err?[]:this._list,{
-      key:e=>e.path,
-      sig:e=>this._sig(e),
-      build:e=>this._rowEl(e),
-    });
   }
 
-  _sig(e){
-    return [e.path,e.oid||'',e.state||'',e.describe||'',this._busy?1:0].join('');
+  _emptyText(){return GIT_SUB_EMPTY}
+
+  _sigParts(e){
+    return [e.path,e.oid||'',e.state||'',e.describe||'',this._busy?1:0];
   }
 
   _rowEl(e){

@@ -163,10 +163,10 @@ func TestGitRemoteRoutesRegistered(t *testing.T) {
 		path := strings.SplitN(ep.path, "?", 2)[0]
 		found := false
 		for _, rt := range routes {
-			if rt.method != "" && rt.method != ep.method {
+			if rt.Method != "" && rt.Method != ep.method {
 				continue
 			}
-			if rt.match(path) {
+			if rt.Match(path) {
 				found = true
 				break
 			}

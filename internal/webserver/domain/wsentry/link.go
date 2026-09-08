@@ -1,5 +1,7 @@
 package wsentry
 
+import "dongminal/internal/shared/listorder"
+
 // 연동 4규칙 (FR-EDT-31~34). 전부 **순수 함수**이며 서로를 호출하지 않는다
 // (FR-EDT-36) — 부르는 순간 사용자 조작 한 번에 규칙이 두 겹 적용되고, 결과가
 // 호출 순서에 달린다. link_test.go 가 이 사실을 코드로 검사한다.
@@ -91,38 +93,7 @@ func removeAll(cur []string, p string) []string {
 // 옮긴다. 둘을 하나로 접으면 낡은 화면이 보낸 델타가 사용자가 지시한 적 없는
 // "맨 끝으로" 가 된다 (FR-EDT-27).
 func reorder(cur []string, src, target string, before bool) []string {
-	si := -1
-	for i, p := range cur {
-		if p == src {
-			si = i
-			break
-		}
-	}
-	if si < 0 || src == target {
-		return cur
-	}
-	out := make([]string, 0, len(cur))
-	out = append(out, cur[:si]...)
-	out = append(out, cur[si+1:]...)
-
-	ti := -1
-	for i, p := range out {
-		if p == target {
-			ti = i
-			break
-		}
-	}
-	if ti < 0 {
-		if target == "" {
-			return append(out, src)
-		}
-		return cur
-	}
-	if !before {
-		ti++
-	}
-	out = append(out, "")
-	copy(out[ti+1:], out[ti:])
-	out[ti] = src
-	return out
+	// Keep 이다 — 사라진 target 은 낡은 화면의 델타이고, 그것을 "맨 끝으로" 로
+	// 읽으면 사용자가 지시한 적 없는 이동이 된다 (FR-EDT-27).
+	return listorder.Move(cur, src, target, before, listorder.Keep)
 }

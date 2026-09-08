@@ -188,7 +188,7 @@ func TestAPIGitDiffContent_Unavailable(t *testing.T) {
 func TestAPIGitDiffContent_RouteRegistered(t *testing.T) {
 	found := false
 	for _, rt := range routes {
-		if rt.method == http.MethodGet && rt.match("/api/git/diff-content") {
+		if rt.Method == http.MethodGet && rt.Match("/api/git/diff-content") {
 			found = true
 		}
 	}

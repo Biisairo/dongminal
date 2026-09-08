@@ -2,8 +2,8 @@ package sandbox
 
 import (
 	"context"
+	"dongminal/internal/shared/diagtail"
 	"os/exec"
-	"strings"
 	"time"
 )
 
@@ -201,16 +201,10 @@ func StartExec(path string, args []string) (string, error) {
 	return string(out), err
 }
 
-// tail 은 진단 문자열을 사람이 읽을 만큼만 남긴다. 오류만 있고 출력이 없는 경우도
-// 있으므로 둘을 함께 본다 — 어느 쪽도 조용히 버리지 않는다.
-func tail(out string, err error) string {
-	s := strings.TrimSpace(out)
-	if s == "" && err != nil {
-		s = err.Error()
-	}
-	const max = 400
-	if len(s) > max {
-		s = s[len(s)-max:]
-	}
-	return s
-}
+// detailMax 는 `Detail` 에 실을 진단의 길이 상한이다. 이 자리는 상태 한 줄 옆에
+// 붙으므로 짧다 — 길면 상태가 로그에 묻힌다.
+const detailMax = 400
+
+// tail 은 진단 문자열을 사람이 읽을 만큼만 남긴다. 판정은 `diagtail` 이 소유한다
+// (FR-DRC-9) — 여기서 정하는 것은 이 표면의 상한뿐이다.
+func tail(out string, err error) string { return diagtail.Of(out, err, detailMax) }

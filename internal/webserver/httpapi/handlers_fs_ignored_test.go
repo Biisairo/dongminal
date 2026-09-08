@@ -235,7 +235,7 @@ func TestFSIgnored_RejectsPathInNames(t *testing.T) {
 func TestFSIgnoredRouteRegistered(t *testing.T) {
 	found := false
 	for _, rt := range apiRoutes {
-		if rt.method == http.MethodPost && rt.match("/api/fs/ignored") {
+		if rt.Method == http.MethodPost && rt.Match("/api/fs/ignored") {
 			found = true
 		}
 	}

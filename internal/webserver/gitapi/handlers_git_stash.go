@@ -111,20 +111,16 @@ func (s *GitServer) apiGitStashPush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	root := t.root
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
+	before := t.snapshot()
+	if t.stop() {
 		return
 	}
 	// 담을 것이 없으면 **실행하지 않는다** (FR-GIT-167). git 은 그 실행을 exit 0 으로
 	// 끝내므로 성공으로 답하면 사용자는 만들어지지 않은 stash 를 찾는다.
 	if write.StashableCount(before, req.IncludeUntracked) == 0 {
-		gitJSON(w, http.StatusConflict, map[string]any{
-			"error":     gitErrNothingToStash,
-			"message":   write.StashEmptyReason(before, req.IncludeUntracked),
-			"requested": req.Repo,
-			"repo":      root,
-			"status":    before,
-		})
+		t.rejectBody(http.StatusConflict, gitErrNothingToStash,
+			write.StashEmptyReason(before, req.IncludeUntracked),
+			map[string]any{"status": before})
 		return
 	}
 	opts := write.StashPushOpts{
@@ -193,24 +189,24 @@ func (s *GitServer) apiGitStashBranch(w http.ResponseWriter, r *http.Request) {
 	// 순수 함수가 argv 를 만들 수 있는지로 판정한다 — 판정이 두 벌이면 한쪽만
 	// 고쳐진다 (FR-GIT-250 ①).
 	if _, err := write.StashBranchArgs(req.Name, req.Index); err != nil {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
+		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
 		return
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
 	// 이름 규칙 전체는 git 에 묻는다 — 우리가 다시 구현하지 않는다 (FR-GIT-159).
-	if err := query.ValidBranchName(s.Git.Service(), r.Context(), root, req.Name); err != nil {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
+	if err := query.ValidBranchName(s.Git.Service(), r.Context(), t.root, req.Name); err != nil {
+		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
 		return
 	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
+	before := t.snapshot()
+	if t.stop() {
 		return
 	}
-	s.gitStashApply(w, r, req.Repo, root, before, func(ctx context.Context) (map[string]any, error) {
-		_, err := write.StashBranch(s.Git.Service(), ctx, root, req.Name, req.Index)
+	s.gitStashApply(w, r, t.requested, t.root, before, func(ctx context.Context) (map[string]any, error) {
+		_, err := write.StashBranch(s.Git.Service(), ctx, t.root, req.Name, req.Index)
 		return nil, err
 	})
 }
@@ -223,26 +219,23 @@ func (s *GitServer) gitStashIndexRoute(w http.ResponseWriter, r *http.Request, c
 	if t.stop() {
 		return
 	}
-	if confirm && !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
-			"파괴적 동작은 confirm:true 를 요구한다 (FR-GIT-89·168)")
+	t.requireConfirm(confirm, req.Confirm,
+		"파괴적 동작은 confirm:true 를 요구한다 (FR-GIT-89·168)")
+	if t.stop() {
 		return
 	}
 	// 인덱스는 인자로 넘기기 전에 본다 — `stash@{-1}` 은 git 에서 다른 뜻이 된다.
 	if _, err := write.StashRef(req.Index); err != nil {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
+		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
 		return
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
+	t.resolve(req.Repo)
+	before := t.snapshot()
+	if t.stop() {
 		return
 	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
-		return
-	}
-	s.gitStashApply(w, r, req.Repo, root, before, func(ctx context.Context) (map[string]any, error) {
-		return run(ctx, root, req)
+	s.gitStashApply(w, r, t.requested, t.root, before, func(ctx context.Context) (map[string]any, error) {
+		return run(ctx, t.root, req)
 	})
 }
 

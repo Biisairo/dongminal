@@ -52,8 +52,7 @@ func (s *Server) apiToolsHeadless(w http.ResponseWriter, r *http.Request) {
 		// UX_BATCH6_SRS FR-BGP-3: 띄울 명령. 비면 종전대로 로그인 셸이다.
 		Command string `json:"command"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 	toolID, err := s.createHeadlessTool(body.Cwd, body.Command)
@@ -112,13 +111,11 @@ func (s *Server) apiRunAttach(w http.ResponseWriter, r *http.Request) {
 		// (FR-HLM-6, FR-BGR-4 와 같은 규약).
 		Location string `json:"location"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
-	_, m, ok := s.Runs.FindMember(body.MemberID)
+	_, m, ok := s.runMember(w, body.MemberID)
 	if !ok {
-		writeRunError(w, run.ErrUnknownMember, map[string]any{"memberId": body.MemberID})
 		return
 	}
 	if m.TabID != "" {
@@ -178,13 +175,11 @@ func (s *Server) apiRunDetach(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		MemberID string `json:"memberId"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
-	_, m, ok := s.Runs.FindMember(body.MemberID)
+	_, m, ok := s.runMember(w, body.MemberID)
 	if !ok {
-		writeRunError(w, run.ErrUnknownMember, map[string]any{"memberId": body.MemberID})
 		return
 	}
 	if m.TabID == "" {

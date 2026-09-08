@@ -285,6 +285,34 @@ type fsCreateReq struct {
 // POST /api/fs/create (FR-EDT-109·115).
 //
 // **Stat 후 생성하지 않는다.** 검사와 생성 사이의 경합은 os.Mkdir 와
+// fsRootTarget 은 요청의 root 와 경로를 실제 자리 하나로 옮긴다
+// (DRIFT_RECLAIM_SRS FR-DRC-11).
+//
+// 쓰기 세 종단(create·rename·delete)이 이 두 단계를 각각 적고 있었다. 순서가
+// 요점이다 — **root 를 먼저 확정한 뒤에만 경로를 푼다.** 뒤집으면 클라이언트가
+// 보낸 경로가 root 밖을 가리키는지 판정할 기준이 아직 없다.
+func (s *Server) fsRootTarget(w http.ResponseWriter, reqRoot, reqPath string) (root, target string, ok bool) {
+	root, ok = s.fsRoot(w, reqRoot)
+	if !ok {
+		return "", "", false
+	}
+	target, ok = fsTargetIn(w, root, reqPath)
+	if !ok {
+		return "", "", false
+	}
+	return root, target, true
+}
+
+// fsTargetIn 은 이미 확정된 root 아래의 또 다른 경로다 (rename 의 `to`).
+func fsTargetIn(w http.ResponseWriter, root, p string) (string, bool) {
+	target, err := fsResolveTarget(root, p)
+	if err != nil {
+		fsFailErr(w, err)
+		return "", false
+	}
+	return target, true
+}
+
 // os.OpenFile(O_EXCL) 의 원자성으로 막는다 — 편집기의 저장과 겹칠 수 있다
 // (FR-EDT-93).
 func (s *Server) apiFSCreate(w http.ResponseWriter, r *http.Request) {
@@ -294,13 +322,8 @@ func (s *Server) apiFSCreate(w http.ResponseWriter, r *http.Request) {
 	if !fsDecode(w, r, &req) {
 		return
 	}
-	root, ok := s.fsRoot(w, req.Root)
+	_, target, ok := s.fsRootTarget(w, req.Root, req.Path)
 	if !ok {
-		return
-	}
-	target, err := fsResolveTarget(root, req.Path)
-	if err != nil {
-		fsFailErr(w, err)
 		return
 	}
 	if req.Dir {
@@ -336,18 +359,12 @@ func (s *Server) apiFSRename(w http.ResponseWriter, r *http.Request) {
 	if !fsDecode(w, r, &req) {
 		return
 	}
-	root, ok := s.fsRoot(w, req.Root)
+	root, from, ok := s.fsRootTarget(w, req.Root, req.From)
 	if !ok {
 		return
 	}
-	from, err := fsResolveTarget(root, req.From)
-	if err != nil {
-		fsFailErr(w, err)
-		return
-	}
-	to, err := fsResolveTarget(root, req.To)
-	if err != nil {
-		fsFailErr(w, err)
+	to, ok := fsTargetIn(w, root, req.To)
+	if !ok {
 		return
 	}
 	if _, err := os.Lstat(from); err != nil {
@@ -438,13 +455,8 @@ func (s *Server) apiFSDelete(w http.ResponseWriter, r *http.Request) {
 	if !fsDecode(w, r, &req) {
 		return
 	}
-	root, ok := s.fsRoot(w, req.Root)
+	root, target, ok := s.fsRootTarget(w, req.Root, req.Path)
 	if !ok {
-		return
-	}
-	target, err := fsResolveTarget(root, req.Path)
-	if err != nil {
-		fsFailErr(w, err)
 		return
 	}
 	if err := s.fsDeletable(root, target); err != nil {

@@ -128,63 +128,40 @@ type gitWorktreeCreateReq struct {
 // 사용자 영역은 사람이 고른 이름이라 충돌이 실제로 있고, 조용히 비켜가면
 // "내가 만든 게 어디 갔지"가 된다.
 func (s *GitServer) apiGitWorktreeCreate(w http.ResponseWriter, r *http.Request) {
-	if s.UserWorktrees == nil {
-		gitWorktreesUnavailable(w)
-		return
-	}
 	var req gitWorktreeCreateReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
+	t := s.beginServiceWrite(w, r, &req, s.UserWorktrees != nil, gitWorktreesUnavailable)
 	if err := worktree.CheckName(req.Name); err != nil {
-		gitFail(w, http.StatusBadRequest, gitErrRefName, gitTail(err.Error()))
-		return
+		t.rejectWith(http.StatusBadRequest, gitErrRefName, gitTail(err.Error()))
 	}
 	if strings.TrimSpace(req.Ref) == "" {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "ref 가 없다")
-		return
+		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, "ref 가 없다")
 	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
+	t.resolve(req.Repo)
+	if t.stop() {
 		return
 	}
 
-	bucket := worktree.RepoBucket(root)
-	path := s.UserWorktrees.Path(bucket, req.Name)
+	// 여기부터는 이 표면 고유의 충돌 판정이다 — 파이프라인이 대신할 수 없다.
+	// root 를 읽어야 하므로 `resolve` 뒤여야 하고, 실행 **전에** 답해야 한다.
+	path := s.UserWorktrees.Path(worktree.RepoBucket(t.root), req.Name)
 	if _, err := os.Stat(path); err == nil {
-		gitJSON(w, http.StatusConflict, map[string]any{
-			"error":     gitErrWorktreeExists,
-			"message":   "이미 있는 이름이다: " + req.Name,
-			"requested": req.Repo, "repo": root, "path": path,
-		})
+		t.rejectBody(http.StatusConflict, gitErrWorktreeExists,
+			"이미 있는 이름이다: "+req.Name, map[string]any{"path": path})
 		return
 	}
 
-	spec := worktree.Spec{Repo: root, Path: path, Base: req.Ref}
+	spec := worktree.Spec{Repo: t.root, Path: path, Base: req.Ref}
 	if req.NewBranch {
-		if s.UserWorktrees.BranchExists(root, req.Name) {
-			gitJSON(w, http.StatusConflict, map[string]any{
-				"error":     gitErrBranchExists,
-				"message":   "로컬 브랜치 " + req.Name + " 가 이미 있다",
-				"requested": req.Repo, "repo": root, "branch": req.Name,
-			})
+		if s.UserWorktrees.BranchExists(t.root, req.Name) {
+			t.rejectBody(http.StatusConflict, gitErrBranchExists,
+				"로컬 브랜치 "+req.Name+" 가 이미 있다", map[string]any{"branch": req.Name})
 			return
 		}
 		spec.Branch = req.Name
 	}
 
-	if err := s.UserWorktrees.Create(spec); err != nil {
-		gitError(w, err)
-		return
-	}
-	// `ok` 는 **클라이언트의 성공 판정**이다 — `panel.post` 가
-	// `!!(r&&r.ok&&d&&d.ok)` 로 계산하므로 HTTP 200 만으로는 성공이 되지 않는다.
-	// 다른 쓰기 핸들러가 이미 지키는 규약이다 (handlers_git_write.go).
-	gitJSON(w, http.StatusOK, map[string]any{
-		"ok":   true,
-		"repo": root, "requested": req.Repo,
-		"path": spec.Path, "branch": spec.Branch,
-	})
+	t.exec(func(string) error { return s.UserWorktrees.Create(spec) }, gitError)
+	t.okPlain(map[string]any{"path": spec.Path, "branch": spec.Branch})
 }
 
 // gitWorktreeRemoveReq 는 제거의 본문이다 (FR-GIT-243). Confirm 은 파괴적 동작의
@@ -204,29 +181,23 @@ type gitWorktreeRemoveReq struct {
 // (FR-WKT-13). 소유 판정을 다시 구현하면 그 판정이 checkPath 와 어긋날 때 구멍이
 // 생긴다.
 func (s *GitServer) apiGitWorktreeRemove(w http.ResponseWriter, r *http.Request) {
-	if s.UserWorktrees == nil {
-		gitWorktreesUnavailable(w)
-		return
-	}
 	var req gitWorktreeRemoveReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	if !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
-			"worktree 제거는 확인을 요구한다: confirm:true (FR-GIT-243)")
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
+	t := s.beginServiceWrite(w, r, &req, s.UserWorktrees != nil, gitWorktreesUnavailable)
+	t.requireConfirm(true, req.Confirm,
+		"worktree 제거는 확인을 요구한다: confirm:true (FR-GIT-243)")
+	t.resolve(req.Repo)
+
 	// 지울 브랜치 이름은 클라이언트를 믿지 않는다 — 실제 목록에서 다시 찾는다.
-	entries, err := s.UserWorktrees.List(root)
-	if err != nil {
-		gitError(w, err)
+	var entries []worktree.Entry
+	t.exec(func(root string) error {
+		var err error
+		entries, err = s.UserWorktrees.List(root)
+		return err
+	}, gitError)
+	if t.stop() {
 		return
 	}
+
 	target := filepath.Clean(req.Path)
 	var branch string
 	found := false
@@ -237,20 +208,19 @@ func (s *GitServer) apiGitWorktreeRemove(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	if !found {
-		gitFail(w, http.StatusNotFound, gitErrNotFound, "이 저장소의 worktree 가 아니다: "+req.Path)
+		t.rejectWith(http.StatusNotFound, gitErrNotFound,
+			"이 저장소의 worktree 가 아니다: "+req.Path)
 		return
 	}
 	if !req.DeleteBranch {
 		// 브랜치를 함께 지우는 것은 별도 선택이며 기본이 아니다 (FR-GIT-243).
 		branch = ""
 	}
-	res := s.UserWorktrees.Remove(worktree.RemoveSpec{Repo: root, Path: req.Path, Branch: branch})
+	res := s.UserWorktrees.Remove(worktree.RemoveSpec{Repo: t.root, Path: req.Path, Branch: branch})
 	// `ok` 는 "요청을 처리했다" 이고 `removed` 는 "실제로 지웠다" 다 — 둘은 다르다.
-	// 지우지 않은 경우(dirty)도 정상 처리이며 사유는 `residue` 가 싣는다. 여기서
-	// `ok` 를 빼면 클라이언트가 그 사유를 읽는 분기에 들어오지 못한다.
-	gitJSON(w, http.StatusOK, map[string]any{
-		"ok":   true,
-		"repo": root, "requested": req.Repo,
+	// 지우지 않은 경우(dirty)도 정상 처리이며 사유는 `residue` 가 싣는다. 그래서
+	// 이 자리는 `rejectBody` 가 아니라 `okPlain` 이다.
+	t.okPlain(map[string]any{
 		"path": res.Path, "branch": res.Branch,
 		"removed": res.Removed, "residue": res.Residue, "detail": res.Detail,
 	})

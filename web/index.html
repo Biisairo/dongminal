@@ -452,6 +452,9 @@
 <script src="vendor/highlight.js"></script>
 <script src="js/core/constants.js?v=__ASSETV__"></script>
 <script src="js/core/constants-git.js?v=__ASSETV__"></script>
+<!-- GIT_ACTIONS_SRS 의 동작 상수 + GIT_WRITE_ERR (DRIFT_RECLAIM_SRS
+     FR-DRC-13). constants-git.js 뒤여야 한다. -->
+<script src="js/core/constants-git-actions.js?v=__ASSETV__"></script>
 <script src="js/core/constants-editor.js?v=__ASSETV__"></script>
 <!-- 서버 hunk 좌표의 클라이언트 측 사상 (DIFF_HUNK_BAR_SRS D-2). 편집기의 변경
      표시와 Diff 탭의 hover 툴바가 함께 쓴다 — 순수 함수뿐이므로 상수 뒤 아무
@@ -482,6 +485,9 @@
 <script src="js/ui/term-clipboard.js?v=__ASSETV__"></script>
 <script src="js/ui/term-pane.js?v=__ASSETV__"></script>
 <script src="js/ui/file-editor.js?v=__ASSETV__"></script>
+<!-- 편집기의 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS). file-editor.js 뒤여야
+     한다 — FileEditor.prototype 에 얹는다 (DRIFT_RECLAIM_SRS FR-DRC-13). -->
+<script src="js/ui/file-editor-find.js?v=__ASSETV__"></script>
 <script src="js/ui/doc-render.js?v=__ASSETV__"></script>
 <!-- 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS). file-editor.js 뒤여야 한다 —
      `FileEditor.prototype` 을 확장한다. -->
@@ -512,6 +518,9 @@
 <script src="js/git/stash.js?v=__ASSETV__"></script>
 <script src="js/git/tag.js?v=__ASSETV__"></script>
 <script src="js/git/console.js?v=__ASSETV__"></script>
+<!-- Worktrees·Submodules 탭의 공통 골격 (DRIFT_RECLAIM_SRS FR-DRC-7).
+     두 탭보다 앞이어야 한다 — 둘 다 이 클래스를 상속한다. -->
+<script src="js/git/list-tab.js?v=__ASSETV__"></script>
 <script src="js/git/worktrees.js?v=__ASSETV__"></script>
 <script src="js/git/submodules.js?v=__ASSETV__"></script>
 <script src="js/git/remote.js?v=__ASSETV__"></script>

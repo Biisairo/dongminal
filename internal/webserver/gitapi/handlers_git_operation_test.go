@@ -121,7 +121,7 @@ func TestAPIGitOperation_RunsMatchingAction(t *testing.T) {
 func TestAPIGitOperation_RouteRegisteredAndUnavailable(t *testing.T) {
 	found := false
 	for _, rt := range routes {
-		if rt.method == http.MethodPost && rt.match("/api/git/operation") {
+		if rt.Method == http.MethodPost && rt.Match("/api/git/operation") {
 			found = true
 			break
 		}

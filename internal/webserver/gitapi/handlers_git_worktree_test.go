@@ -114,10 +114,10 @@ func TestGitWorktreeRoutes_RegisteredAndUnavailable(t *testing.T) {
 	for _, ep := range endpoints {
 		found := false
 		for _, rt := range routes {
-			if rt.method != "" && rt.method != ep.method {
+			if rt.Method != "" && rt.Method != ep.method {
 				continue
 			}
-			if rt.match(strings.SplitN(ep.path, "?", 2)[0]) {
+			if rt.Match(strings.SplitN(ep.path, "?", 2)[0]) {
 				found = true
 				break
 			}

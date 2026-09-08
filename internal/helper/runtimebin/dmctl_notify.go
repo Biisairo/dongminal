@@ -42,18 +42,7 @@ func runDmctlNotify(args []string, stdout, stderr io.Writer) int {
 	// Report codex activity on every notify attempt, even if the attention
 	// POST itself fails. Best-effort and silent — never affects exit status.
 	reportCodexActivity(label, args, toolID)
-	if err != nil {
-		fmt.Fprintf(stderr, "dmctl notify: %v\n", err)
-		return 1
-	}
-	if status >= 400 {
-		stderr.Write(resp)
-		if len(resp) == 0 || resp[len(resp)-1] != '\n' {
-			fmt.Fprintln(stderr)
-		}
-		return 1
-	}
-	return 0
+	return dmctlHTTPResult("dmctl notify", status, resp, err, false, io.Discard, stderr)
 }
 
 // sanitizeNotifyLabel strips control chars and bounds the length of the reason.

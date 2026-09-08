@@ -46,7 +46,7 @@ func gitRecServer(t *testing.T, f *gitRecFake) (*GitServer, *core.Service) {
 func TestGitRecordsRoute_Registered(t *testing.T) {
 	found := false
 	for _, rt := range routes {
-		if rt.method == http.MethodGet && rt.match("/api/git/records") {
+		if rt.Method == http.MethodGet && rt.Match("/api/git/records") {
 			found = true
 			break
 		}
@@ -198,7 +198,7 @@ func TestGitRecords_LimitParam(t *testing.T) {
 func TestGitReorderRoute_Registered(t *testing.T) {
 	found := false
 	for _, rt := range routes {
-		if rt.method == http.MethodPost && rt.match("/api/git/repos/reorder") {
+		if rt.Method == http.MethodPost && rt.Match("/api/git/repos/reorder") {
 			found = true
 			break
 		}

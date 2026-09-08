@@ -83,33 +83,19 @@ func (s *GitServer) gitUncommittedRoute(w http.ResponseWriter, r *http.Request, 
 	if t.stop() {
 		return
 	}
-	if confirm && !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrConfirmRequired,
-			"파괴적 동작은 confirm:true 를 요구한다 (FR-GIT-89·277)")
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
-	before, ok := s.gitStatusBefore(w, r, root)
-	if !ok {
+	t.requireConfirm(confirm, req.Confirm,
+		"파괴적 동작은 confirm:true 를 요구한다 (FR-GIT-89·277)")
+	t.resolve(req.Repo)
+	before := t.snapshot()
+	if t.stop() {
 		return
 	}
 	// 실행 전 거부는 **실행 전 상태로** 판정한다 (StashPush 의 선례). write 패키지도
 	// 같은 것을 다시 막지만, 여기서 걸러야 사유가 코드로 온다.
 	if name, msg := blocked(before); name != "" {
-		gitJSON(w, http.StatusConflict, map[string]any{
-			"error": name, "message": msg,
-			"requested": req.Repo, "repo": root, "status": before,
-		})
+		t.rejectBody(http.StatusConflict, name, msg, map[string]any{"status": before})
 		return
 	}
-	after, ok := s.gitApply(w, r, req.Repo, root, before, func(ctx context.Context) error {
-		return run(ctx, root)
-	})
-	if !ok {
-		return
-	}
-	gitWriteOK(w, req.Repo, root, after, nil)
+	t.apply(func(ctx context.Context) error { return run(ctx, t.root) })
+	t.ok(nil)
 }

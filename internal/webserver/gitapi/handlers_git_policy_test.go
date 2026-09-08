@@ -140,10 +140,10 @@ func TestGitPolicyRoutesRegistered(t *testing.T) {
 		path := strings.SplitN(ep, "?", 2)[0]
 		found := false
 		for _, rt := range routes {
-			if rt.method != "" && rt.method != http.MethodGet {
+			if rt.Method != "" && rt.Method != http.MethodGet {
 				continue
 			}
-			if rt.match(path) {
+			if rt.Match(path) {
 				found = true
 				break
 			}

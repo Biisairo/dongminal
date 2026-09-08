@@ -249,7 +249,7 @@ func TestBundleFRoutesRegistered(t *testing.T) {
 	for _, w := range want {
 		found := false
 		for _, rt := range routes {
-			if rt.method == w.method && rt.match(w.path) {
+			if rt.Method == w.method && rt.Match(w.path) {
 				found = true
 			}
 		}

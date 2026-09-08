@@ -685,10 +685,10 @@ func TestFSRoutesRegistered(t *testing.T) {
 	for _, ep := range eps {
 		found := false
 		for _, rt := range apiRoutes {
-			if rt.method != "" && rt.method != ep.method {
+			if rt.Method != "" && rt.Method != ep.method {
 				continue
 			}
-			if rt.match(ep.path) {
+			if rt.Match(ep.path) {
 				found = true
 				break
 			}

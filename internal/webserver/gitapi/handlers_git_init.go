@@ -3,7 +3,6 @@ package gitapi
 import (
 	"net/http"
 	"os"
-	"path/filepath"
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/wsentry"
@@ -27,12 +26,8 @@ func (s *GitServer) apiGitInit(w http.ResponseWriter, r *http.Request) {
 		gitUnavailable(w)
 		return
 	}
-	path, ok := gitDecodePath(w, r)
+	path, ok := gitDecodeAbsPath(w, r)
 	if !ok {
-		return
-	}
-	if !filepath.IsAbs(path) {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "path 는 절대경로여야 한다")
 		return
 	}
 	// 정규화는 핀·Editor 목록과 **같은 함수**를 지나야 한다 (FR-EDT-24) — 갈리면

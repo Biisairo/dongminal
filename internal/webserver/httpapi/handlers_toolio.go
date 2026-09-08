@@ -41,13 +41,8 @@ func (s *Server) resolveToolID(w http.ResponseWriter, id string) (string, bool) 
 		writeToolIOError(w, http.StatusBadRequest, "id 누락")
 		return "", false
 	}
-	toolID, err := s.WorkIndex.ResolveStrict(id)
-	if err != nil {
-		status := http.StatusNotFound
-		if errors.Is(err, workspace.ErrLabelIdentifier) {
-			status = http.StatusBadRequest
-		}
-		writeToolIOError(w, status, err.Error())
+	toolID, ok := s.resolveToolStrict(w, id)
+	if !ok {
 		return "", false
 	}
 	if !s.ToolIO.Has(toolID) {
@@ -101,8 +96,7 @@ func (s *Server) apiToolInput(w http.ResponseWriter, r *http.Request) {
 		Text    string `json:"text"`
 		Execute bool   `json:"execute"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 	toolID, ok := s.resolveToolID(w, body.ID)
@@ -130,8 +124,7 @@ func (s *Server) apiToolMessage(w http.ResponseWriter, r *http.Request) {
 		From    string `json:"from"`
 		Message string `json:"message"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 	if body.Message == "" {
@@ -173,11 +166,35 @@ func (s *Server) apiToolMessage(w http.ResponseWriter, r *http.Request) {
 // 전용이라며 라벨을 받아 주면 메시지 경로에 좌표 라벨이 남고, 그 값은 창이 닫히면
 // 다른 도구를 가리킨다 (§1.3 reflow). 존재 검사(`ToolIO.Has`)는 하지 않는다 —
 // 발신자의 PTY 생존은 배달과 무관하고, 라우팅은 --to 가 정한다.
+// decodeJSONBody 는 요청 본문을 읽고, 실패를 이 표면의 오류로 답한다
+// (DRIFT_RECLAIM_SRS FR-DRC-11).
+//
+// 같은 세 줄이 열두 자리에 있었다. 세 줄이라 사소해 보이지만 **사유 문구와 상태
+// 코드가 그 열두 벌에 각각 있었다** — 한 곳만 400 이 아닌 값으로 바뀌어도 그 사실을
+// 아무것도 알려주지 않는다.
+func decodeJSONBody(w http.ResponseWriter, r *http.Request, body any) bool {
+	if err := json.NewDecoder(r.Body).Decode(body); err != nil {
+		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
+		return false
+	}
+	return true
+}
+
 func (s *Server) resolveSender(w http.ResponseWriter, from string) (string, bool) {
 	if from == "" {
 		return "", true
 	}
-	toolID, err := s.WorkIndex.ResolveStrict(from)
+	return s.resolveToolStrict(w, from)
+}
+
+// resolveToolStrict 는 식별자를 tool id 로 옮기고, 실패를 이 표면의 오류로 답한다
+// (FR-DRC-11).
+//
+// **라벨과 미지의 id 는 다른 실패다.** 라벨은 클라이언트가 보낸 것이 규칙에
+// 어긋난다는 뜻(400)이고, 나머지는 그런 도구가 없다는 뜻(404)이다 — 사용자가 할
+// 일이 다르다. 이 판정이 두 벌이면 한쪽만 고쳐진다.
+func (s *Server) resolveToolStrict(w http.ResponseWriter, ident string) (string, bool) {
+	toolID, err := s.WorkIndex.ResolveStrict(ident)
 	if err != nil {
 		status := http.StatusNotFound
 		if errors.Is(err, workspace.ErrLabelIdentifier) {

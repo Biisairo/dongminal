@@ -133,10 +133,10 @@ func TestGitRoutesRegistered(t *testing.T) {
 		path := strings.SplitN(ep.path, "?", 2)[0]
 		found := false
 		for _, rt := range routes {
-			if rt.method != "" && rt.method != ep.method {
+			if rt.Method != "" && rt.Method != ep.method {
 				continue
 			}
-			if rt.match(path) {
+			if rt.Match(path) {
 				found = true
 				break
 			}
@@ -237,7 +237,7 @@ func TestGitRepoAt(t *testing.T) {
 	t.Run("라우트 등록", func(t *testing.T) {
 		found := false
 		for _, rt := range routes {
-			if (rt.method == "" || rt.method == http.MethodGet) && rt.match("/api/git/repo-at") {
+			if (rt.Method == "" || rt.Method == http.MethodGet) && rt.Match("/api/git/repo-at") {
 				found = true
 			}
 		}

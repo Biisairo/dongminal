@@ -108,12 +108,18 @@ type fsFindHit struct {
 // 심링크를 따라가지 않는다 (FR-EQO-6). `filepath.WalkDir` 은 심링크를 열지 않고
 // 항목으로만 보므로 순환이 성립하지 않는다 — 이것이 `filepath.Walk` 대신
 // `WalkDir` 을 쓰는 이유의 절반이고, 나머지 절반은 Lstat 를 아끼는 것이다.
-func findFiles(ctx context.Context, root, q string, limit int) ([]fsFindHit, bool, error) {
-	needle := strings.ToLower(filepath.ToSlash(q))
-	out := make([]fsFindHit, 0, 32)
-	truncated := false
-
-	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+// fsWalkFiles 는 두 검색 구현이 공유하는 순회다 (DRIFT_RECLAIM_SRS FR-DRC-11).
+//
+// 정책이 여기 하나로 있다: 읽을 수 없는 가지는 건너뛰고, 취소는 즉시 올리고,
+// `fsSkipDirs` 는 통째로 자르고, 심링크는 따라가지 않는다. 이전에는 이 다섯이
+// `findFiles` 와 `grepWithGo` 에 각각 적혀 있었고 — **한쪽에만 새 스킵 규칙이
+// 들어가면 파일 찾기와 내용 찾기가 서로 다른 트리를 보게 된다.**
+//
+// visit 은 일반 파일 하나마다 불린다. `rel` 은 root 기준의 슬래시 경로이며 —
+// 구분자 규칙을 두 벌로 두면 Windows 에서 어긋난다 — 순회가 계산해 넘긴다.
+// visit 이 false 를 돌려주면 거기서 끝낸다 (한도 도달).
+func fsWalkFiles(ctx context.Context, root string, visit func(path, rel string, d fs.DirEntry) bool) error {
+	return filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			// 읽을 수 없는 가지는 건너뛴다 — 권한 없는 디렉터리 하나가 검색
 			// 전체를 실패시키지 않는다.
@@ -140,16 +146,28 @@ func findFiles(ctx context.Context, root, q string, limit int) ([]fsFindHit, boo
 		if rerr != nil {
 			return nil
 		}
-		rel = filepath.ToSlash(rel)
-		if !strings.Contains(strings.ToLower(rel), needle) {
+		if visit(p, filepath.ToSlash(rel), d) {
 			return nil
+		}
+		return fs.SkipAll
+	})
+}
+
+func findFiles(ctx context.Context, root, q string, limit int) ([]fsFindHit, bool, error) {
+	needle := strings.ToLower(filepath.ToSlash(q))
+	out := make([]fsFindHit, 0, 32)
+	truncated := false
+
+	err := fsWalkFiles(ctx, root, func(_, rel string, d fs.DirEntry) bool {
+		if !strings.Contains(strings.ToLower(rel), needle) {
+			return true
 		}
 		if len(out) >= limit {
 			truncated = true
-			return fs.SkipAll
+			return false
 		}
 		out = append(out, fsFindHit{Path: rel, Name: d.Name()})
-		return nil
+		return true
 	})
 	if err != nil && ctx.Err() != nil {
 		return nil, false, err
@@ -288,38 +306,15 @@ func grepWithGo(ctx context.Context, root, q string, limit int) ([]grepMatch, bo
 	matches := make([]grepMatch, 0, 32)
 	truncated := false
 
-	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			if d != nil && d.IsDir() {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		if d.IsDir() {
-			if p != root && fsSkipDirs[d.Name()] {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if d.Type()&os.ModeSymlink != 0 {
-			return nil
-		}
+	err := fsWalkFiles(ctx, root, func(p, rel string, d fs.DirEntry) bool {
 		info, ierr := d.Info()
 		if ierr != nil || info.Size() > fsGrepMaxBytes {
-			return nil
+			return true
 		}
 		blob, rerr := os.ReadFile(p)
 		if rerr != nil || isBinary(blob) {
-			return nil
+			return true
 		}
-		rel, rerr := filepath.Rel(root, p)
-		if rerr != nil {
-			return nil
-		}
-		rel = filepath.ToSlash(rel)
 		for i, line := range strings.Split(string(blob), "\n") {
 			idx := strings.Index(strings.ToLower(line), needle)
 			if idx < 0 {
@@ -327,7 +322,7 @@ func grepWithGo(ctx context.Context, root, q string, limit int) ([]grepMatch, bo
 			}
 			if len(matches) >= limit {
 				truncated = true
-				return fs.SkipAll
+				return false
 			}
 			matches = append(matches, grepMatch{
 				Path: rel,
@@ -336,7 +331,7 @@ func grepWithGo(ctx context.Context, root, q string, limit int) ([]grepMatch, bo
 				Text: clipLine(strings.TrimRight(line, "\r")),
 			})
 		}
-		return nil
+		return true
 	})
 	if err != nil && ctx.Err() != nil {
 		return nil, false, err

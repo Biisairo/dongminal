@@ -50,14 +50,33 @@ type gitWrite struct {
 	after     query.Status
 }
 
-// beginWrite 는 쓰기를 연다 — git 가용성 검사와 본문 디코드까지가 여기다.
+// beginWrite 는 domain/git 이 실행하는 쓰기를 연다.
 //
-// 둘 다 **모든** 쓰기가 하는 일이고, 하지 않으면 nil 역참조이거나 빈 요청으로
-// 실행하는 것이다. 그래서 선택지로 두지 않는다.
+// 가용성 검사와 본문 디코드는 **모든** 쓰기가 하는 일이고, 하지 않으면 nil
+// 역참조이거나 빈 요청으로 실행하는 것이다. 그래서 선택지로 두지 않는다.
 func (s *GitServer) beginWrite(w http.ResponseWriter, r *http.Request, req any) *gitWrite {
+	return s.beginServiceWrite(w, r, req, s.Git != nil, gitUnavailable)
+}
+
+// beginServiceWrite 는 `s.Git` 이 **아닌** 관리자가 실행하는 쓰기를 연다
+// (DRIFT_RECLAIM_SRS FR-DRC-1).
+//
+// Submodules·Worktrees 는 domain/git 의 어느 화이트리스트에도 들어갈 수 없다 —
+// `git submodule`·`git worktree` 는 한 하위 명령에 읽기와 쓰기가 함께 있어 어느
+// 목록에 넣어도 반대쪽이 함께 열린다 (FR-GIT-95 의 교집합-금지). 그래서 그 둘은
+// 자기 Manager 를 딛고, 가용성도 자기 Manager 로 판정한다.
+//
+// **그 차이가 파이프라인 전체를 못 쓸 이유는 아니었다.** 이전에는 `s.Git == nil`
+// 이 `beginWrite` 안에 박혀 있어서 두 표면이 사다리를 통째로 복제했고, 복제본은
+// 이미 갈라져 있었다 — 같은 "confirm 이 없다"가 한쪽은 `bad_request`,
+// 다른 쪽은 `confirmation_required` 로 나갔다 (FR-DRC-5).
+//
+// `unavailable` 을 함수로 받는 이유는 사유 문구가 표면마다 다르기 때문이다 —
+// "git 서비스가" 와 "서브모듈 관리자가" 는 사용자가 할 일이 다르다.
+func (s *GitServer) beginServiceWrite(w http.ResponseWriter, r *http.Request, req any, available bool, unavailable func(http.ResponseWriter)) *gitWrite {
 	t := &gitWrite{s: s, w: w, r: r}
-	if s.Git == nil {
-		gitUnavailable(w)
+	if !available {
+		unavailable(w)
 		t.done = true
 		return t
 	}
@@ -104,6 +123,29 @@ func (t *gitWrite) rejectWith(status int, code, msg string) {
 		return
 	}
 	gitFail(t.w, status, code, msg)
+	t.done = true
+}
+
+// rejectBody 는 실행 전 거부에 표면 고유의 맥락을 함께 싣는다 — `okPlain` 의 거울.
+//
+// 충돌 응답이 그것을 필요로 한다: "이미 있는 이름이다" 만으로는 화면이 **무엇이**
+// 이미 있는지 말할 수 없어서, 사용자가 다음에 무엇을 바꿔야 하는지 모른다.
+// `requested`·`repo` 는 성공 응답과 같은 자리에 둔다 — 같은 요청의 두 결말이
+// 서로 다른 모양이면 클라이언트가 그 둘을 따로 읽어야 한다.
+func (t *gitWrite) rejectBody(status int, code, msg string, extra map[string]any) {
+	if t.done {
+		return
+	}
+	body := map[string]any{
+		"error":     code,
+		"message":   msg,
+		"requested": t.requested,
+		"repo":      t.root,
+	}
+	for k, v := range extra {
+		body[k] = v
+	}
+	gitJSON(t.w, status, body)
 	t.done = true
 }
 
@@ -172,5 +214,67 @@ func (t *gitWrite) ok(extra map[string]any) {
 		return
 	}
 	gitWriteOK(t.w, t.requested, t.root, t.after, extra)
+	t.done = true
+}
+
+// exec 는 관리자의 조작을 실행한다 (FR-DRC-3) — `apply` 의 자매다.
+//
+// `apply` 와 갈라 두는 이유는 **status 왕복이 여기서 값을 벌지 않기** 때문이다.
+// `apply` 는 실행 전후의 status 를 찍어 부분 적용을 판정한다 (FR-GIT-73). 그 판정은
+// 작업 트리를 건드리는 쓰기에만 뜻이 있다 — 서브모듈 체크아웃 이동이나 worktree
+// 생성은 부모의 status 를 그런 식으로 갈라 놓지 않는다. 판정하지 않을 값을 위해
+// git 을 두 번 더 부르지 않는다.
+//
+// 오류 번역기를 **표면이 준다.** `gitSubmoduleError` 는 안전 가드의 거부(400)와
+// 실행 실패(500)를 가르고, `gitError` 는 sentinel 등록부를 본다 — 판정이 다르므로
+// 한쪽으로 접으면 다른 쪽이 틀린 코드를 내보낸다.
+func (t *gitWrite) exec(run func(root string) error, fail func(http.ResponseWriter, error)) {
+	if t.done {
+		return
+	}
+	if err := run(t.root); err != nil {
+		fail(t.w, err)
+		t.done = true
+	}
+}
+
+// invalidate 는 관측 캐시를 버린다.
+//
+// `apply` 는 이것을 스스로 한다 (`handlers_git_write.go:250`). `exec` 로 도는
+// 쓰기는 **부모 저장소의 status 를 바꿨는지가 조작마다 다르므로** 호출을 남긴다 —
+// `git submodule update` 는 체크아웃을 옮겨 부모의 status 를 바꾸고, `sync` 는
+// `.git/config` 만 건드려 바꾸지 않는다. 그 차이를 파이프라인이 대신 정하면
+// 한쪽이 반드시 틀린다.
+//
+// `s.Git` 이 없는 배선에서도 무해하게 지나간다 — 이 표면들은 `s.Git` 을 실행에
+// 쓰지 않으므로 그것 없이도 돈다 (FR-GIT-246).
+func (t *gitWrite) invalidate() {
+	if t.done || t.s.Git == nil {
+		return
+	}
+	t.s.Git.Invalidate(t.root)
+}
+
+// okPlain 은 status 없이 답하는 성공이다 (FR-DRC-2) — `exec` 의 종단.
+//
+// `ok` 와 같은 세 필드(`ok`·`repo`·`requested`)를 싣는다. `ok` 가 **클라이언트의
+// 성공 판정**이고 (`panel-write.js:166` 의 `!!(r&&r.ok&&d&&d.ok)`), `requested` 는
+// 늦게 온 남의 응답을 자기 것으로 읽지 않게 하는 대조 근거다 (`:185`).
+//
+// `status` 를 싣지 않으므로 화면의 `adopt` 는 이 응답에서 그냥 되돌아간다 — 그것이
+// 맞다: 여기 담을 실행 후 status 가 없다.
+func (t *gitWrite) okPlain(extra map[string]any) {
+	if t.done {
+		return
+	}
+	body := map[string]any{
+		"ok":        true,
+		"repo":      t.root,
+		"requested": t.requested,
+	}
+	for k, v := range extra {
+		body[k] = v
+	}
+	gitJSON(t.w, http.StatusOK, body)
 	t.done = true
 }

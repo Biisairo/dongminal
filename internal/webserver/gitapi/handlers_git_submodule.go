@@ -85,6 +85,10 @@ func (s *GitServer) apiGitSubmodules(w http.ResponseWriter, r *http.Request) {
 //
 // `Path` 가 비면 저장소의 서브모듈 전부가 대상이다. `Confirm` 은 파괴적 조작의
 // 규약이며, 클라이언트만 막으면 API 직접 호출이 그대로 우회한다.
+// gitSubmoduleConfirmReason 은 확인 없이 온 요청에 답하는 사유다. 두 쓰기가 같은
+// 문구를 쓴다 — 조작마다 다르게 두면 어느 것이 무엇을 요구하는지 말할 수 없다.
+const gitSubmoduleConfirmReason = "서브모듈 조작은 확인을 요구한다: confirm:true (FR-SUB-4)"
+
 type gitSubmoduleReq struct {
 	Repo      string `json:"repo"`
 	Path      string `json:"path"`
@@ -101,34 +105,17 @@ POST /api/git/submodules/update — 서브모듈을 등록된 커밋으로 옮�
 같은 규약이다.
 */
 func (s *GitServer) apiGitSubmoduleUpdate(w http.ResponseWriter, r *http.Request) {
-	if s.Submodules == nil {
-		gitSubmodulesUnavailable(w)
-		return
-	}
 	var req gitSubmoduleReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	if !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "confirm 이 없다")
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
-	if err := s.Submodules.Update(root, req.Path, req.Init, req.Recursive); err != nil {
-		gitSubmoduleError(w, err)
-		return
-	}
-	// 상태가 바뀌었으므로 관측 캐시를 버린다 — 서브모듈의 체크아웃이 옮겨지면
-	// 부모의 status 도 달라진다. 그러지 않으면 화면이 한 주기 동안 옛 상태를
-	// 보인다 (쓰기 경로의 공통 규약, `handlers_git_write.go:250` 와 같다).
-	s.Git.Invalidate(root)
-	// **`ok` 를 싣는다.** 이 표면의 성공 판정은 HTTP 200 이 아니라 본문의 `ok` 다
-	// (`panel-write.js:166`) — 부분 적용도 200 으로 오기 때문이다 (FR-GIT-73).
-	// 빠뜨리면 화면이 성공을 실패로 읽고 확인창이 닫히지 않는다 (실측).
-	gitJSON(w, http.StatusOK, map[string]any{"ok": true, "repo": root})
+	t := s.beginServiceWrite(w, r, &req, s.Submodules != nil, gitSubmodulesUnavailable)
+	t.requireConfirm(true, req.Confirm, gitSubmoduleConfirmReason)
+	t.resolve(req.Repo)
+	t.exec(func(root string) error {
+		return s.Submodules.Update(root, req.Path, req.Init, req.Recursive)
+	}, gitSubmoduleError)
+	// 체크아웃이 옮겨지면 부모의 status 도 달라진다 — 관측 캐시를 버리지 않으면
+	// 화면이 한 주기 동안 옛 상태를 보인다.
+	t.invalidate()
+	t.okPlain(nil)
 }
 
 // POST /api/git/submodules/sync — `.gitmodules` 의 URL 을 `.git/config` 로 옮긴다.
@@ -137,25 +124,15 @@ func (s *GitServer) apiGitSubmoduleUpdate(w http.ResponseWriter, r *http.Request
 // 요구한다: 쓰기 표면의 규약을 조작마다 다르게 두면 어느 것이 무엇을 요구하는지
 // 말할 수 없다.
 func (s *GitServer) apiGitSubmoduleSync(w http.ResponseWriter, r *http.Request) {
-	if s.Submodules == nil {
-		gitSubmodulesUnavailable(w)
-		return
-	}
 	var req gitSubmoduleReq
-	if !gitDecodeBody(w, r, &req) {
-		return
-	}
-	if !req.Confirm {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "confirm 이 없다")
-		return
-	}
-	root, ok := s.gitResolveRepo(w, r, req.Repo)
-	if !ok {
-		return
-	}
-	if err := s.Submodules.Sync(root, req.Path); err != nil {
-		gitSubmoduleError(w, err)
-		return
-	}
-	gitJSON(w, http.StatusOK, map[string]any{"ok": true, "repo": root})
+	t := s.beginServiceWrite(w, r, &req, s.Submodules != nil, gitSubmodulesUnavailable)
+	t.requireConfirm(true, req.Confirm, gitSubmoduleConfirmReason)
+	t.resolve(req.Repo)
+	t.exec(func(root string) error {
+		return s.Submodules.Sync(root, req.Path)
+	}, gitSubmoduleError)
+	// **`invalidate` 가 없다.** sync 는 `.git/config` 만 옮기고 체크아웃을 건드리지
+	// 않으므로 부모의 status 가 달라지지 않는다 (FR-SUB-5). 버릴 것이 없는 캐시를
+	// 버리면 다음 조회가 공짜로 한 번 더 돈다.
+	t.okPlain(nil)
 }

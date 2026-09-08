@@ -122,6 +122,21 @@ func writeRunError(w http.ResponseWriter, err error, extra map[string]any) {
 }
 
 // apiRunsGet implements GET /api/runs[?id=] (FR-RUN-8).
+// runMember 는 memberId 를 회원으로 옮기고, 없으면 이 표면의 오류로 답한다
+// (DRIFT_RECLAIM_SRS FR-DRC-11).
+//
+// **`sender_not_member` 를 쓰지 않는다** — 그것은 보고 **권한**의 사유이고,
+// 여기서 실패한 것은 조회다. 뭉뚱그리면 조정자가 권한 문제로 오진한다. 그 구분이
+// 네 자리에 흩어져 있으면 한 곳만 다른 사유를 쓰게 된다.
+func (s *Server) runMember(w http.ResponseWriter, memberID string) (run.Record, run.Member, bool) {
+	rec, m, ok := s.Runs.FindMember(memberID)
+	if !ok {
+		writeRunError(w, run.ErrUnknownMember, map[string]any{"memberId": memberID})
+		return run.Record{}, run.Member{}, false
+	}
+	return rec, m, true
+}
+
 func (s *Server) apiRunsGet(w http.ResponseWriter, r *http.Request) {
 	if !s.runsReady(w) {
 		return
@@ -160,8 +175,7 @@ func (s *Server) apiRunStart(w http.ResponseWriter, r *http.Request) {
 		Cwd  string `json:"cwd"`
 		Base string `json:"base"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 	if body.Isolation == "" {
@@ -224,8 +238,7 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 		// 헤드리스 멤버에게는 cd 를 대신 쳐 줄 사람이 없다.
 		Cwd string `json:"cwd"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 	// FR-HLM-1: 정확히 하나여야 한다. 서버도 같은 검사를 하는 이유는 dmctl 만이
@@ -378,8 +391,7 @@ func (s *Server) apiRunReport(w http.ResponseWriter, r *http.Request) {
 		Summary  string   `json:"summary"`
 		Files    []string `json:"files"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 	sender := s.callerToolID(r, body.ToolID)
@@ -427,8 +439,7 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 		// 보존한 도구는 이후 run status 의 고아 목록에 남는다 (FR-HLM-5).
 		KeepTools bool `json:"keepTools"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
+	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 	// 이미 끝난 Run 에 --force 를 주면 **정리 전용 진입**이다 (FR-WKT-8a).

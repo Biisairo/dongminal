@@ -296,7 +296,7 @@ func TestFSDownloadDir_RootItself(t *testing.T) {
 func TestFSDownloadDirRouteRegistered(t *testing.T) {
 	found := false
 	for _, rt := range apiRoutes {
-		if rt.method == http.MethodGet && rt.match("/api/fs/download-dir") {
+		if rt.Method == http.MethodGet && rt.Match("/api/fs/download-dir") {
 			found = true
 		}
 	}

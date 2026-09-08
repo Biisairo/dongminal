@@ -302,13 +302,13 @@ func TestToolStatus_MissingDepsIs503(t *testing.T) {
 func TestStatusRoutesRegistered(t *testing.T) {
 	var wantGet, wantWait bool
 	for _, rt := range apiRoutes {
-		if rt.method != http.MethodGet {
+		if rt.Method != http.MethodGet {
 			continue
 		}
-		if rt.match("/api/tools/activity/get") {
+		if rt.Match("/api/tools/activity/get") {
 			wantGet = true
 		}
-		if rt.match("/api/tools/activity/wait") {
+		if rt.Match("/api/tools/activity/wait") {
 			wantWait = true
 		}
 	}

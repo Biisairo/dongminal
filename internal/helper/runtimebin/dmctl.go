@@ -397,12 +397,19 @@ func parseDmctlFlags(args []string) (dmctlParsed, error) {
 	return p, nil
 }
 
-func dmctlPost(action string, args map[string]any, stdout, stderr io.Writer) int {
-	url := baseURL() + "/api/commands"
-	body := map[string]any{"action": action, "args": args}
-	status, resp, err := httpPostJSON(url, body)
+// dmctlHTTPResult 는 POST 한 번의 결과를 dmctl 의 종료 코드로 옮긴다
+// (DRIFT_RECLAIM_SRS FR-DRC-11).
+//
+// 같은 열두 줄이 세 자리에 있었다 (`dmctlPost` · `dmctlSend` · `dmctlNotify`).
+// 그중 한 줄이 이 도구의 규약이다 — **서버가 준 본문이 개행으로 끝나지 않으면
+// 하나 붙인다.** 셸에서 다음 프롬프트가 같은 줄에 붙으면 사용자는 출력이 잘린 것으로
+// 읽는다. 세 벌로 두면 새 종단이 그 규약을 빠뜨려도 아무것도 알려주지 않는다.
+//
+// echo 는 **성공** 본문을 stdout 으로 되실을지다. notify 는 되싣지 않는다 — 훅에서
+// 불리므로 성공을 조용히 지나야 한다.
+func dmctlHTTPResult(prefix string, status int, resp []byte, err error, echo bool, stdout, stderr io.Writer) int {
 	if err != nil {
-		fmt.Fprintf(stderr, "dmctl: %v\n", err)
+		fmt.Fprintf(stderr, "%s: %v\n", prefix, err)
 		return 1
 	}
 	if status >= 400 {
@@ -412,9 +419,18 @@ func dmctlPost(action string, args map[string]any, stdout, stderr io.Writer) int
 		}
 		return 1
 	}
-	stdout.Write(resp)
-	fmt.Fprintln(stdout)
+	if echo {
+		stdout.Write(resp)
+		fmt.Fprintln(stdout)
+	}
 	return 0
+}
+
+func dmctlPost(action string, args map[string]any, stdout, stderr io.Writer) int {
+	url := baseURL() + "/api/commands"
+	body := map[string]any{"action": action, "args": args}
+	status, resp, err := httpPostJSON(url, body)
+	return dmctlHTTPResult("dmctl", status, resp, err, true, stdout, stderr)
 }
 
 func dmctlSend(args []string, stdout, stderr io.Writer) int {
@@ -433,18 +449,5 @@ func dmctlSend(args []string, stdout, stderr io.Writer) int {
 	url := baseURL() + "/api/commands"
 	body := map[string]any{"action": action, "args": rawArgs}
 	status, resp, err := httpPostJSON(url, body)
-	if err != nil {
-		fmt.Fprintf(stderr, "dmctl: %v\n", err)
-		return 1
-	}
-	if status >= 400 {
-		stderr.Write(resp)
-		if len(resp) == 0 || resp[len(resp)-1] != '\n' {
-			fmt.Fprintln(stderr)
-		}
-		return 1
-	}
-	stdout.Write(resp)
-	fmt.Fprintln(stdout)
-	return 0
+	return dmctlHTTPResult("dmctl", status, resp, err, true, stdout, stderr)
 }
