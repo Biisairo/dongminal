@@ -155,6 +155,14 @@ async function pingUntilUp(url: string, limitMs: number) {
   throw new Error(`서버가 ${limitMs}ms 안에 뜨지 않았다 (${url}) — 마지막: ${last}`);
 }
 
+/**
+ * 페이지를 열던 순간의 가시성. 실패한 테스트에서만 읽는다 (아래 afterEach).
+ *
+ * 러너에서 페이지가 뒤에 있으면 폴링과 Monaco 명령이 함께 멎는데, 그 상태는
+ * 실패 뒤에 물어보면 이미 사라져 있다 — 그래서 그때 찍어 둔다.
+ */
+const pageEnvAtOpen = new WeakMap<any, any>();
+
 export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
   /**
    * 이 워커의 서버를 띄우고, 워커가 끝날 때 서버와 **데몬**을 함께 세운다
@@ -241,6 +249,28 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
  * 한 자리에 둔다 — 같은 클릭이 29개 파일에 복제돼 있었고, 그래서 한 곳을 고쳐도
  * 다음 실행에서는 다른 파일이 같은 이유로 무너졌다.
  */
+/**
+ * 실패한 테스트의 **가시성·포커스**를 남긴다.
+ *
+ * 이 두 값이 폴링(`document.hidden`)과 Monaco 명령(포커스)의 전제이므로, 요청이
+ * 0건인 실패는 거의 언제나 여기서 갈린다. 통과한 테스트에는 아무 것도 찍지 않는다.
+ */
+test.afterEach(async ({ page }, testInfo) => {
+  if (testInfo.status === testInfo.expectedStatus) return;
+  let now: any = null;
+  try {
+    now = await page.evaluate(() => ({
+      hidden: document.hidden,
+      visibility: document.visibilityState,
+      focused: document.hasFocus(),
+    }));
+  } catch { /* 페이지가 닫혔다 */ }
+  const atOpen = pageEnvAtOpen.get(page) ?? null;
+  const line = `[진단:가시성] ${testInfo.title} | 열 때=${JSON.stringify(atOpen)} | 실패 때=${JSON.stringify(now)}`;
+  testInfo.annotations.push({ type: 'page-visibility', description: line });
+  console.log(line);
+});
+
 export async function clickGitView(page: any, view: string) {
   await expect(async () => {
     // **탭이 없으면 먼저 연다.** 본문 탭 바는 관측이 닿을 때마다 다시 그려지고,
@@ -476,6 +506,27 @@ export async function waitForInit(page: any, opts: InitOpts = {}) {
   }, first);
   if (opts.beforeGoto) await page.context().addInitScript(opts.beforeGoto);
   if (mobile) await page.setViewportSize(opts.viewport || { width: 420, height: 860 });
+
+  /**
+   * **페이지를 앞으로 가져온 뒤에 연다** (E2E_HIDDEN_PAGE 조사).
+   *
+   * `timer-hub` 는 `document.hidden` 이면 폴링 job 을 재우고(`timer-hub.js:117·319`),
+   * Monaco 의 명령은 편집기가 포커스를 쥐어야 선다. 러너에서 페이지가 뒤에 있으면
+   * 그 둘이 함께 멎어, "바깥의 변화가 화면에 따라오는가" 를 재는 스펙과 호버·정의
+   * 이동이 **요청 0건**으로 실패한다 — 느린 것이 아니라 오지 않는 것이므로 상한을
+   * 늘려도 낫지 않는다.
+   *
+   * 여는 순간의 상태를 먼저 남긴다. 앞으로 가져온 **뒤**에는 언제나 visible 이라,
+   * 원래 어땠는지는 이 자리에서만 알 수 있다.
+   */
+  try {
+    pageEnvAtOpen.set(page, await page.evaluate(() => ({
+      hidden: document.hidden,
+      visibility: document.visibilityState,
+      focused: document.hasFocus(),
+    })));
+  } catch { /* about:blank 조차 아직 없다 */ }
+  await page.bringToFront().catch(() => { /* 이 브라우저는 못 한다 */ });
 
   await page.goto('/');
   const ready = opts.readyFor;
