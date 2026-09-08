@@ -3,7 +3,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit, gitFixture, cleanGitFixture, clickRowAct } from './fixtures';
 import { tmpPath, cssPath } from './osenv';
 
 // WORKBENCH_REVIEW_SRS 묶음 D — 워킹 그룹의 Discard All (FR-WBR-50~56,
@@ -49,8 +49,7 @@ const KO = '디렉터리 한글/파일 이름.txt';
 async function rowAct(page: Page, key: string, path: string, action: string) {
   const r = row(page, key, path);
   await expect(r).toBeVisible({ timeout: 10000 });
-  await r.hover();
-  await r.locator(`.git-file-act[data-act="${action}"]`).click();
+  await clickRowAct(page, r, action);
 }
 
 test.describe('묶음 D — 워킹 그룹의 Discard All', () => {

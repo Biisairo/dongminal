@@ -282,9 +282,18 @@ test.describe('FR-BGK-2·12: 모바일 배치와 Run 소속', () => {
     const btn = row(page, a).locator('.bg-kill');
     await expect(btn).toBeVisible();
     expect(await btn.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
-    const box = await btn.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.height, '터치 타깃이 너무 낮다').toBeGreaterThanOrEqual(32);
+    /**
+     * **재는 것과 단언을 한 묶음으로 본다** (DRIFT_RECLAIM_SRS FR-DRC-18).
+     *
+     * `toBeVisible()` 이 통과한 뒤에도 `boundingBox()` 가 `null` 로 올 수 있다 —
+     * 그 사이에 목록이 다시 그려져 방금 본 요소가 교체되면 그 요소는 더 이상
+     * 화면에 없다. 재렌더는 앱의 정상 동작이므로 견디는 쪽은 테스트다.
+     * 전량 회차에서 이 자리가 `expect(box).not.toBeNull()` 로 두 번 걸렸다.
+     */
+    await expect
+      .poll(async () => (await btn.boundingBox())?.height ?? 0,
+        { timeout: 10000, message: '터치 타깃이 너무 낮다' })
+      .toBeGreaterThanOrEqual(32);
   });
 
   // V-BGK-13. 실데이터 경로다 — Run 을 열고 헤드리스 멤버를 붙이면 그 도구가

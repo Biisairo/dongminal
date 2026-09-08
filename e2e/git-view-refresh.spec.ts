@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, GIT_VIEW_TABS, openGit, gitFixture, cleanGitFixture, copyDir, rmTree, freshDir } from './fixtures';
+import { test, expect, waitForInit, GIT_VIEW_TABS, openGit, clickGitView, gitFixture, cleanGitFixture, copyDir, rmTree, freshDir } from './fixtures';
 import { TMP, tmpPath, realPath } from './osenv';
 
 // GIT_VIEW_REFRESH_SRS §4 — 쓰기 뒤 뷰 갱신. 검증 V-GVR-1~8.
@@ -71,15 +71,14 @@ async function openTab(page: Page, v: string) {
     await expect(changes(page)).toBeVisible({ timeout: 10000 });
     return;
   }
-  // 탭 바는 관측이 닿을 때마다 다시 그려진다 — 클릭하려던 행이 그 사이 DOM 에서
-  // 떨어져 나가면 playwright 가 `element was detached` 로 멈춘다 (실측). 재렌더는
-  // 앱의 정상 동작이므로 **테스트가 견뎌야 한다**: 눌러 보고, 뷰가 바뀌지 않았으면
-  // 다시 누른다.
-  await expect(async () => {
-    await tab(page, v).click({ timeout: 5000 });
-    await expect(page.locator('#area .pn-body .git-view.vis'))
-      .toHaveClass(new RegExp('git-' + v), { timeout: 3000 });
-  }).toPass({ timeout: 20000 });
+  // 나머지는 공용 헬퍼가 한다 (E2E_HELPER_RECLAIM_SRS FR-EHR-1·2).
+  //
+  // **여기 있던 복제가 한 겹을 놓치고 있었다.** 재렌더를 견디는 재시도는 같았지만,
+  // `clickGitView` 가 그 뒤에 배운 것 — **탭이 아예 없으면 먼저 연다** — 이 없었다.
+  // 창이 바뀌거나 워크스페이스가 다시 적용되면 그 탭이 통째로 사라질 수 있고,
+  // 그때 클릭만 되풀이하면 없는 것을 20초 동안 기다리다 끝난다. G2 가 그 자리를
+  // 간헐로 잡았다 (DRIFT_RECLAIM_SRS §7.5).
+  await clickGitView(page, v);
 }
 
 const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-changes');

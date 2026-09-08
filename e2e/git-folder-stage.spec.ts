@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit, gitFixture, cleanGitFixture, rmTree } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit, gitFixture, cleanGitFixture, rmTree, clickRowAct } from './fixtures';
 import { TMP, tmpPath, realPath, cssPath } from './osenv';
 
 // WORKBENCH_REVIEW_SRS 묶음 F — git Changes 의 폴더 단위 스테이징
@@ -120,8 +120,7 @@ async function setView(page: Page, mode: 'tree' | 'flat') {
 async function dirAct(page: Page, key: string, p: string, act: string) {
   const d = dir(page, key, p);
   await expect(d).toBeVisible({ timeout: 10000 });
-  await d.hover();
-  await d.locator(`.git-file-act[data-act="${act}"]`).click();
+  await clickRowAct(page, d, act);
 }
 
 test.describe('묶음 F — 폴더 단위 스테이징', () => {

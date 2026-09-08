@@ -2,7 +2,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab, plainWindows, makeCopyFx, openGit, waitForInit, GIT_VIEW_TABS, clickGitView, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, openGitTab, plainWindows, makeCopyFx, openGit, waitForInit, GIT_VIEW_TABS, clickGitView, gitFixture, cleanGitFixture, clickRowAct } from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_UI_REVISION_SRS §4 — 검증 V70~V79.
@@ -521,7 +521,19 @@ test.describe('UI 개정 — 컨트롤 치수 (FR-GIT-195~199)', () => {
     await openChanges(page, fx('basic'));
     await waitFiles(page, 3);
     await page.setViewportSize({ width: 420, height: 800 });
-    await page.waitForTimeout(1200);
+    /**
+     * **시간이 아니라 상태로 기다린다** (E2E_QUIESCENCE_SRS I-1).
+     *
+     * 종전에는 1200ms 를 세고 곧바로 쟀다. 모바일 셸로 갈아타는 일이 그 안에
+     * 끝나지 않으면 `#area .pn-body` 가 아직 없고, `measure` 는 null 을 돌려
+     * 다음 줄이 `Cannot read properties of null` 로 죽는다 — 간헐로 실제 관측됐다.
+     * 재는 것은 "치수가 하한을 넘는가" 이지 "몇 밀리초에 다시 서는가" 가 아니다.
+     *
+     * `body.mobile` 을 기다리지 않는다 — 420px 는 **좁은 폭**일 뿐 이 앱의 모바일
+     * 모드가 켜지는 조건이 아니다 (실측: 그 클래스는 붙지 않는다). 이 검사가
+     * 재려는 것도 모바일 모드가 아니라 좁은 폭에서의 치수다.
+     */
+    await expect(page.locator('#area .pn-body')).toBeVisible();
 
     const m = (await measure(page, '#area .pn-body'))!;
     const tooSmall = m.buttons.filter((b) => b.w < MIN_HIT || b.h < MIN_HIT);
@@ -881,16 +893,14 @@ test.describe('UI 개정 — 동작의 진입점 (FR-GIT-207~209)', () => {
     // ① 선택 **밖**의 행에서 누른다 — 그 행만 대상이다.
     await work.nth(0).click();
     await expect(page.locator('#area .ed-side .git-file.sel')).toHaveCount(1);
-    await work.nth(1).hover();
-    await work.nth(1).locator('.git-file-act[data-act="stage"]').click();
+    await clickRowAct(page, work.nth(1), 'stage');
     await expect.poll(() => work.count(), { timeout: 20000 }).toBe(2);
 
     // ② 선택 **안**의 행에서 누른다 — 선택 전체가 대상이다.
     await work.nth(0).click();
     await work.nth(1).click({ modifiers: ['ControlOrMeta'] });
     await expect(page.locator('#area .ed-side .git-file.sel')).toHaveCount(2);
-    await work.nth(0).hover();
-    await work.nth(0).locator('.git-file-act[data-act="stage"]').click();
+    await clickRowAct(page, work.nth(0), 'stage');
     await expect.poll(() => work.count(), { timeout: 20000 }).toBe(0);
   });
 });

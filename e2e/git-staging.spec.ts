@@ -3,7 +3,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, openGit, gitFixture, cleanGitFixture, clickRowAct } from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_M2_STEP1011_CONTRACT §3 — 스테이징 클라이언트. 검증 V30·V32·V37
@@ -37,8 +37,7 @@ const allRows = (page: Page) => changes(page).locator('.git-files .git-file');
 async function act(page: Page, key: string, path: string, action: string) {
   const r = row(page, key, path);
   await expect(r).toBeVisible({ timeout: 10000 });
-  await r.hover();
-  await r.locator(`.git-file-act[data-act="${action}"]`).click();
+  await clickRowAct(page, r, action);
 }
 
 test.describe('묶음 H — 스테이징 (클라이언트)', () => {
@@ -92,8 +91,7 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
 
     // FR-GIT-207·208: 진입점은 행 인라인 버튼 하나이고, 누른 행이 선택 안에
     // 있으면 선택 전체가 대상이다.
-    await allRows(page).nth(4).hover();
-    await allRows(page).nth(4).locator('.git-file-act[data-act="stage"]').click();
+    await clickRowAct(page, allRows(page).nth(4), 'stage');
     await expect(count(page, 'working')).toHaveText('(0)', { timeout: 5000 });
     await expect(count(page, 'working')).toHaveText('(0)');
     // 처리한 대상은 선택에서 빠진다 — 같은 선택이 남아 다음 동작에 끌려가지 않는다.

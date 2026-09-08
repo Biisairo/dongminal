@@ -53,6 +53,17 @@ Object.assign(App.prototype, {
     if(this._gitPanels) for(const p of this._gitPanels.values()) p._reschedule();
   },
 
+  /**
+   * FR-GIT-249 (FR-DRC-16): 핀 목록이 바뀌었음을 **모든 패널**에 알린다.
+   *
+   * `_gitRescheduleAll` 과 같은 골격이고 같은 근거다 — 패널이 저장소마다,
+   * 칸마다 서므로 활성인 하나만 알리면 나머지는 낡은 값을 그린 채 남는다.
+   */
+  _gitNotifyPinsAll(){
+    if(!this._gitPanels) return;
+    for(const p of this._gitPanels.values()) if(p.notifyPins) p.notifyPins();
+  },
+
   // 패널이 하나도 남지 않은 관측기는 거둔다 — 타이머를 든 채 남으면 사라진 창의
   // 저장소를 영영 폴링한다.
   _gitObsReap(){
@@ -525,7 +536,17 @@ Object.assign(App.prototype, {
     // FR-GIT-249 (FR-RPT-8): 핀 목록이 **도착하는 자리**다. Worktrees 행의 핀 버튼이
     // 이 값을 읽으므로 여기서 알린다 — 상태 폴링의 다시 그리기에 업으면 관측이 같은
     // 회차에 버튼이 낡은 채로 남는다 (FR-GIT-227).
-    if(this.gitPanel&&this.gitPanel.notifyPins) this.gitPanel.notifyPins();
+    //
+    // **모든 패널에 알린다** (DRIFT_RECLAIM_SRS FR-DRC-16). 종전에는
+    // `this.gitPanel` 하나였다 — 그 getter 는 **활성 창의 루트와 포커스 칸**의
+    // 패널을 준다(`_gitRootOfActive`). 핀을 찍은 화면이 그 자리가 아니면
+    // (다른 창에 서 있거나 다른 칸이 포커스면) 그 화면은 통지를 받지 못하고
+    // 버튼이 낡은 채로 남는다.
+    //
+    // 바로 위 `_gitRescheduleAll` 이 **같은 이유로 이미 고쳐진 자리**다:
+    // "종전에는 활성 칸의 패널 하나만 `_reschedule()` 했다 — 패널이 하나뿐이었기
+    // 때문이다." 폴링은 옮겨졌고 이 통지만 옛 모양으로 남아 있었다.
+    this._gitNotifyPinsAll();
   },
 
   // FR-GIT-12: 경로를 물어 핀한다. M1 에는 공통 다이얼로그가 없으므로 prompt 를

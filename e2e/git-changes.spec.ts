@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, openRowMenu, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, openRowMenu, openGit, gitFixture, cleanGitFixture, clickRowAct } from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_M1_STEP56_CONTRACT §4 — Changes 탭. 검증 V22·V23·V24 + FR-GIT-36·39.
@@ -285,8 +285,7 @@ test.describe('묶음 E — Changes 탭', () => {
     const path = await r.getAttribute('data-path');
     expect(path).toBeTruthy();
 
-    await r.hover();
-    await r.locator('.git-file-act[data-act="ours"]').click();
+    await clickRowAct(page, r, 'ours');
 
     // 파괴적이다 — 확인을 거친다 (FR-GIT-89·95). 걸음은 하나다 (FR-COS-1).
     const box = page.locator('#git-confirm .gc-box');
@@ -317,8 +316,7 @@ test.describe('묶음 E — Changes 탭', () => {
     const r = rows(page, 'conflicts').first();
     await expect(r).toBeVisible({ timeout: 15000 });
     const path = await r.getAttribute('data-path');
-    await r.hover();
-    await r.locator('.git-file-act[data-act="theirs"]').click();
+    await clickRowAct(page, r, 'theirs');
     const box = page.locator('#git-confirm .gc-box');
     await expect(box).toBeVisible({ timeout: 10000 });
     await page.locator('#git-confirm .gc-go').click();
@@ -336,8 +334,7 @@ test.describe('묶음 E — Changes 탭', () => {
     await expect(r).toBeVisible({ timeout: 15000 });
     const path = await r.getAttribute('data-path');
     const before = readFileSync(join(repo, path!), 'utf8');
-    await r.hover();
-    await r.locator('.git-file-act[data-act="ours"]').click();
+    await clickRowAct(page, r, 'ours');
     await expect(page.locator('#git-confirm .gc-box')).toBeVisible({ timeout: 10000 });
     await page.locator('#git-confirm .gc-cancel').click();
 

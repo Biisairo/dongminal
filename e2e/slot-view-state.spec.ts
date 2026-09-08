@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS, gitFixture, cleanGitFixture, copyDir, rmTree, rmTreeHard, freshDir } from './fixtures';
+import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS, gitFixture, cleanGitFixture, copyDir, rmTree, rmTreeHard, freshDir, clickRowAct } from './fixtures';
 import { TMP, tmpPath, realPath, cssPath } from './osenv';
 
 // 칸별 시선 — SLOT_VIEW_STATE_SRS §8
@@ -832,8 +832,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     // 칸 0 에서 unstaged 파일을 스테이징한다.
     await focusSlot(page, 0);
     // 행 동작은 hover 에서 드러난다 (사용자 지시 2026-09-08).
-    await fileIn(page, 0, 'working', 'tracked.txt').hover();
-    await fileIn(page, 0, 'working', 'tracked.txt').locator('.git-file-act[data-act="stage"]').click();
+    await clickRowAct(page, fileIn(page, 0, 'working', 'tracked.txt'), 'stage');
 
     // 결과는 관측이므로 **양쪽** 목록이 함께 움직인다.
     await expect(fileIn(page, 0, 'staged', 'tracked.txt')).toHaveCount(1, { timeout: 15000 });

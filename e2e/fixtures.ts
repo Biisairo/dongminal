@@ -278,6 +278,36 @@ export async function clickRow(page: any, row: any, verify?: () => Promise<void>
 }
 
 /**
+ * 행의 **인라인 동작**을 누른다 (DRIFT_RECLAIM_SRS FR-DRC-18).
+ *
+ * 그 버튼들은 겹에 있고 기본이 `pointer-events:none` 이다 — 행이 hover·선택일
+ * 때만 눌린다 (`style-git.css` 의 `.git-file-acts`). 그래서 스펙들은 `row.hover()`
+ * 한 번을 앞에 두었다.
+ *
+ * **hover 한 번으로는 부족하다.** 목록은 관측이 닿을 때마다 다시 그려지고
+ * (`reconcileList`), 행이 교체되면 마우스가 움직이지 않은 새 요소에는 `:hover` 가
+ * 붙지 않는다. 그 사이에 누르면 클릭이 겹을 지나 **경로 라벨에 맞는다** —
+ * playwright 가 그것을 그대로 적어 준다:
+ *
+ *     <span class="git-file-path">…</span> intercepts pointer events
+ *
+ * 전량 회차에서 `git-changes` C12·C13·C14 가 이 자리로 흔들렸다. 재렌더는 앱의
+ * 정상 동작이므로 **견디는 쪽은 테스트다** — `clickRow`·`openRowMenu` 와 같은
+ * 골격이다: 다시 hover 하고, 눌러 보고, 아니면 다시.
+ */
+export async function clickRowAct(
+  page: any, row: any, act: string, verify?: () => Promise<void>,
+) {
+  const btn = row.locator(`.git-file-act[data-act="${act}"]`);
+  await expect(async () => {
+    // 매 회차 다시 올린다 — 앞 회차와 다른 요소일 수 있다.
+    await row.hover({ timeout: 5000 });
+    await btn.click({ timeout: 5000 });
+    if (verify) await verify();
+  }).toPass({ timeout: 20000 });
+}
+
+/**
  * 행에서 컨텍스트 메뉴를 연다.
  *
  * 우클릭 58회(17파일) 중 **메뉴가 떴는지까지 확인하던 것은 한 곳뿐**이었다.
@@ -547,15 +577,32 @@ export async function waitShellReady(page: any, sel = '#area .pn.focused .xterm-
 export async function openGit(page: any, repo: string) {
   await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
-  await page.evaluate(() => {
-    const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
-    const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) {
-      p.openView(v);
-    }
-  });
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
+  /**
+   * 뷰를 여는 일과 **그것이 실제로 섰는지**를 한 묶음으로 본다
+   * (DRIFT_RECLAIM_SRS FR-DRC-19).
+   *
+   * `a.gitPanel` 은 **활성 창의 루트와 포커스 칸**의 패널을 주는 getter 다
+   * (`_gitRootOfActive`). `.ed-side` 가 DOM 에 섰다는 것과 그 창이 활성이 됐다는
+   * 것은 다르므로, 이 사이에 부르면 **다른 패널에 뷰를 연다** — 보이는 창에는
+   * 탭이 하나도 생기지 않고, 뒤따르는 단언이 `0 !== 7` 로 끝난다 (전량 회차에서
+   * `git-remote` R20 이 그 자리였다).
+   *
+   * 한 번 더 부르는 것은 멱등이므로(이미 열린 뷰는 아무 일도 하지 않는다) 열어
+   * 보고, 섰는지 보고, 아니면 다시 — `clickGitView` 와 같은 골격이다.
+   */
+  await expect(async () => {
+    await page.evaluate(() => {
+      const a = (window as any).app;
+      a._edSetSide(a._aw(), 'changes');
+      const p = a.gitPanel;
+      if (!p) throw new Error('gitPanel 이 아직 없다');
+      for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) {
+        p.openView(v);
+      }
+    });
+    await expect(page.locator('#area .pn-tab[data-git-view]'))
+      .toHaveCount(GIT_VIEW_TABS, { timeout: 5000 });
+  }).toPass({ timeout: 25000 });
   // 로컬 16벌 중 14벌이 보던 단언 — 사이드가 실제로 섰는가.
   //
   // **모바일에서는 보지 않는다.** 그 열여섯은 전부 데스크톱 스펙이었고, 모바일은

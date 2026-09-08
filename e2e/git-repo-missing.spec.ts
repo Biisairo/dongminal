@@ -3,7 +3,7 @@ import { dirname, join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGit, waitForInit, gitFixture, cleanGitFixture, copyDir, rmTreeHard, rmTree, freshDir } from './fixtures';
+import { test, expect, openGit, waitForInit, gitFixture, cleanGitFixture, copyDir, rmTreeHard, rmTree, freshDir, clickGitView } from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_REPO_MISSING_SRS — 소실의 확정과 알림, 그리고 실패 백오프.
@@ -151,7 +151,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) {
-      await gitTab(page, v).click();
+      await clickGitView(page, v);
       await expect(missing(page), `${v} 탭이 소실을 보이지 않는다`).toBeVisible({ timeout: 5000 });
       // 문구가 탭마다 다르면 블록을 만드는 자리가 하나가 아니다 (V-RMS-15).
       await expect(missing(page).locator('.git-missing-path')).toHaveText(repo);
@@ -177,7 +177,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
       .toHaveAttribute('title', repo, { timeout: UI_WAIT_MS });
 
     // 다른 탭도 제 내용으로 돌아온다.
-    await gitTab(page, 'branches').click();
+    await clickGitView(page, 'branches');
     await expect(page.locator('#area .pn-body .git-view.git-branches')).toBeVisible({ timeout: UI_WAIT_MS });
     await expect(missing(page)).toHaveCount(0);
   });

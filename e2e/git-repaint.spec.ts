@@ -3,7 +3,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, clickRowAct } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 // GIT_REVIEW4_SRS §3.2·§3.5 — 바깥 계기의 다시 그리기.
@@ -167,8 +167,7 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     // 행 동작은 hover 에서 드러난다 (사용자 지시 2026-09-08) — 겹이
     // `pointer-events:none` 이라 hover 없이는 클릭이 이름에 가로막힌다.
     const p8row = page.locator('.git-view.git-changes .git-group[data-group="working"] .git-file').first();
-    await p8row.hover();
-    await p8row.locator('.git-file-act[data-act="stage"]').click();
+    await clickRowAct(page, p8row, 'stage');
     await clickGitView(page, 'console');
     const sel = '#area .pn-body .git-view.git-console .git-con-row';
     await expect(page.locator(sel).first()).toBeVisible();

@@ -234,10 +234,22 @@ const UIKit = {
       if (e.type === 'mousedown' && m.contains(e.target)) return;
       UIKit.closeMenu();
     };
-    // defer 하지 않으면 이 메뉴를 연 그 클릭이 곧바로 닫는다.
+    /**
+     * `Esc` 는 **즉시** 걸고, 바깥 `mousedown` 만 다음 태스크로 미룬다.
+     *
+     * 미루는 이유는 하나뿐이다 — 이 메뉴를 연 그 클릭의 `mousedown` 이 아직
+     * 전파 중이면 메뉴가 뜨자마자 자기 자신을 닫는다. 그 사유는 키에는 없다:
+     * `Esc` 로 메뉴를 여는 길이 없으므로 방금의 키가 이 리스너를 깨울 수 없다
+     * (전파 중에 같은 노드·같은 단계에 더한 리스너는 그 이벤트에 불리지 않는다).
+     *
+     * 둘을 함께 미뤘더니 **메뉴가 뜬 뒤 한 태스크 동안 `Esc` 가 죽어 있었다.**
+     * 그 사이의 `Esc` 는 아무 일도 하지 않고, 한 번 놓친 키는 다시 오지 않으므로
+     * 메뉴가 열린 채로 남는다 — e2e 가 그 창을 실제로 맞았고(H14 · F9), 빠르게
+     * 누르는 사용자도 같은 창을 맞는다.
+     */
+    document.addEventListener('keydown', UIKit._menuOff, true);
     TIMERS.defer(() => {
       document.addEventListener('mousedown', UIKit._menuOff, true);
-      document.addEventListener('keydown', UIKit._menuOff, true);
     }, { label: 'ui-menu-open' });
     return m;
   },

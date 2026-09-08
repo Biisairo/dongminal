@@ -3,7 +3,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture, clickGitView, clickRowAct } from './fixtures';
 import { tmpPath } from './osenv';
 
 // 묶음 Q — Console 탭 (GIT_UI_REVISION_SRS FR-GIT-218, 검증 V95).
@@ -28,7 +28,7 @@ const argvs = (page: Page) => rows(page).locator('.git-con-argv').allTextContent
 
 async function openConsole(page: Page, repo: string) {
   await openGit(page, repo);
-  await tab(page, 'console').click();
+  await clickGitView(page, 'console');
   await expect(con(page)).toHaveClass(/vis/);
 }
 
@@ -50,12 +50,11 @@ test.describe('묶음 Q — Console 탭', () => {
     // Changes 에서 파일 하나를 스테이지한다 — dongminal 이 `git add` 를 실행한다.
     const row = page.locator('#area .ed-side .git-group[data-group="working"] .git-file[data-path="tracked.txt"]');
     await expect(row).toBeVisible({ timeout: 10000 });
-    await row.hover();
-    await row.locator('.git-file-act[data-act="stage"]').click();
+    await clickRowAct(page, row, 'stage');
     await expect(page.locator('#area .ed-side .git-group[data-group="staged"] .git-file[data-path="tracked.txt"]'))
       .toBeVisible({ timeout: 15000 });
 
-    await tab(page, 'console').click();
+    await clickGitView(page, 'console');
     await expect.poll(async () => (await argvs(page))[0], { timeout: 15000 })
       .toContain('add');
   });
@@ -83,8 +82,7 @@ test.describe('묶음 Q — Console 탭', () => {
     writeFileSync(join(repo, 'k4.txt'), 'x\n');
     const row = page.locator('#area .ed-side .git-group[data-group="working"] .git-file[data-path="k4.txt"]');
     await expect(row).toBeVisible({ timeout: 10000 });
-    await row.hover();
-    await row.locator('.git-file-act[data-act="discard"]').click();
+    await clickRowAct(page, row, 'discard');
     // 파괴적 동작도 확인은 한 걸음이다 (FR-GIT-95~97, FR-COS-1).
     const box = page.locator('#git-confirm .gc-box');
     await expect(box).toBeVisible({ timeout: 10000 });
@@ -92,7 +90,7 @@ test.describe('묶음 Q — Console 탭', () => {
     await page.locator('#git-confirm .gc-go').click();
     await expect(row).toHaveCount(0, { timeout: 15000 });
 
-    await tab(page, 'console').click();
+    await clickGitView(page, 'console');
     const destructive = con(page).locator('.git-con-row[data-destructive="1"]');
     await expect(destructive.first()).toBeVisible({ timeout: 15000 });
 
@@ -161,7 +159,7 @@ test.describe('묶음 H — Console 의 검색·replay (FR-GIT-281)', () => {
       await (window as any).app.gitPanel.post('/api/git/stage',
         { repo: r, paths: ['tracked.txt'] });
     }, repo);
-    await tab(page, 'console').click();
+    await clickGitView(page, 'console');
     await expect(con(page)).toHaveClass(/vis/);
 
     const row = rows(page).filter({ hasText: 'add' }).first();

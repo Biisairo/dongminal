@@ -66,6 +66,7 @@ class GitHistory {
     this._winKey=null;
     this._top=0;          // 마지막 스크롤 위치. 탭을 떠났다 돌아올 때 되돌린다
     this._noLayout=false; // 목록에 높이가 없는 동안 행 창을 잡지 않았다
+    this._layoutT=null;   // 높이가 서기를 기다리는 프레임 대기
     this._barRepo=null;
     this._pal=null;
   }
@@ -185,6 +186,7 @@ class GitHistory {
   }
 
   unmount(){
+    this._stopLayout();
     if(this._ro){this._ro.disconnect();this._ro=null}
     this._el=null; this._list=null; this._detailEl=null;
     this._repo=undefined;
@@ -523,12 +525,48 @@ class GitHistory {
     return items.findIndex(it=>it.i!==undefined&&this._view[it.i].oid===this._open);
   }
 
+  /**
+   * 목록에 높이가 설 때까지 프레임마다 다시 본다 (FR-DRC-14).
+   *
+   * **프레임이 맞는 계기다.** 높이는 브라우저가 레이아웃을 한 뒤에 생기고, 그
+   * 시점을 아는 것은 타이머가 아니라 rAF 다. 탭이 숨으면 rAF 가 아예 멎으므로
+   * 대기가 저절로 멈추고, 다시 보이면 그 자리에서 이어진다 — 숨은 탭을 위해
+   * 도는 타이머가 남지 않는다.
+   *
+   * 상한을 두는 이유는 **영영 서지 않는 경우**다. 뷰가 마운트된 채로 높이가 0
+   * 인 화면(접힌 칸)이 있으면 이 사슬이 끝나지 않는다.
+   */
+  _awaitLayout(n){
+    if(this._layoutT) return;
+    this._layoutT=TIMERS.frame(()=>{
+      this._layoutT=null;
+      if(!this._el||!this._list) return;
+      if(!this._list.clientHeight){
+        if(n<GIT_HIST_LAYOUT_FRAMES) this._awaitLayout(n+1);
+        return;
+      }
+      // 높이가 섰다. `_paintRows` 가 `_noLayout` 을 풀며 스크롤을 되돌린다.
+      this._paintRows();
+    },{owner:this,label:'git.hist.layout'});
+  }
+
+  _stopLayout(){
+    if(this._layoutT){this._layoutT.stop();this._layoutT=null}
+  }
+
   _paintRows(){
     const list=this._list; if(!list) return;
     // 탭이 비활성인 사이에는 목록에 높이가 없다. 그 상태로 행 창을 잡으면 화면
-    // 한 줄만 남기고 **펼친 상세와 스크롤 위치를 잃는다** — 다시 칠할 때까지 손대지
-    // 않는다 (elFor 가 루트를 붙인 뒤 한 번 더 부른다).
-    if(!list.clientHeight){this._noLayout=true;return}
+    // 한 줄만 남기고 **펼친 상세와 스크롤 위치를 잃는다** — 높이가 설 때까지
+    // 손대지 않는다.
+    //
+    // **되찾는 일을 바깥에 맡기지 않는다** (DRIFT_RECLAIM_SRS FR-DRC-14).
+    // 종전에는 "elFor 가 루트를 붙인 뒤 한 번 더 부른다" 에 걸려 있었다 — 복구가
+    // 바깥의 **두 번째 호출 하나**에 달려 있었고, 그 호출이 레이아웃보다 먼저
+    // 닿으면 여기서 다시 돌아간다. 세 번째를 부를 사람은 없으므로 스크롤 위치와
+    // 펼친 상세를 잃은 채로 남는다 — 탭을 떠났다 돌아온 사용자가 보던 자리를
+    // 잃는 것이며, e2e H22 가 그 자리를 간헐로 잡아 왔다.
+    if(!list.clientHeight){this._noLayout=true;this._awaitLayout(0);return}
     // 루트가 DOM 에서 떼였다 붙는 사이 브라우저가 스크롤 위치를 잃는다.
     if(this._noLayout){
       this._noLayout=false;

@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture, clickGitView } from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_M1_STEP7_CONTRACT §4 — Diff 뷰 (D1~D10). 검증 V10·V11·V12·V26.
@@ -84,7 +84,7 @@ test.describe('묶음 F — Diff 뷰', () => {
 
     // 고르기 전에는 안내만 있고 에디터가 없다. **탭을 직접 눌러 본다** — 한 번
     // 클릭이 곧 Diff 를 여는 지금, 고르지 않은 상태의 Diff 는 탭으로만 닿는다.
-    await tab(page, 'diff').click();
+    await clickGitView(page, 'diff');
     await expect(diff(page).locator('.git-diff-note')).toHaveText(
       '파일을 선택하세요', { timeout: 10000 });
     await expect(diffEditor(page)).toHaveCount(0);
@@ -116,7 +116,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     // 새 파일은 편집기 탭으로 열린다 (FR-RTU-51) — 고른 것은 그대로이므로
     // Diff 탭으로 돌아오면 그 대상이 서 있다.
     await r.click();
-    await tab(page, 'diff').click();
+    await clickGitView(page, 'diff');
 
     const pos = diff(page).locator('.git-diff-pos');
     const path = diff(page).locator('.git-diff-path');
@@ -228,7 +228,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     await expect(changes(page).locator('.git-head-branch')).toHaveText('main');
 
     // Diff 탭도 같은 사유를 보이고 바는 살아 있다.
-    await tab(page, 'diff').click();
+    await clickGitView(page, 'diff');
     await expect(diff(page).locator('.git-diff-note'))
       .toHaveText('에디터를 불러올 수 없습니다 — 네트워크를 확인하세요');
     await expect(diff(page).locator('.git-diff-path')).toHaveText('tracked.txt');
@@ -252,19 +252,19 @@ test.describe('묶음 F — Diff 뷰', () => {
     // 둘째 창이 서면서 그 창의 diff 뷰가 한 벌 더 만들어진다.
     await openGit(page, b);
     await openGit(page, a);
-    await tab(page, 'diff').click();
+    await clickGitView(page, 'diff');
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
     const baseline = await models(page);
     expect(baseline, 'diff 모델이 만들어지지 않았다').toBeGreaterThan(0);
 
     for (let i = 0; i < 20; i++) {
-      await tab(page, 'history').click();
-      await tab(page, 'diff').click();
+      await clickGitView(page, 'history');
+      await clickGitView(page, 'diff');
       await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
       await openGit(page, b);
       await openGit(page, a);
       await selectFile(page, 'working', 'tracked.txt');
-      await tab(page, 'diff').click();
+      await clickGitView(page, 'diff');
       await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
     }
 
