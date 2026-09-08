@@ -260,12 +260,26 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
    * 기준 주기가 1초에서 30초(안전망)로 바뀌었을 뿐 규칙은 같다 — 실패가 쌓이면
    * 2ⁿ 로 늘고, 그치면 즉시 기준으로 돌아온다. 검사 창을 30초로 늘리는 대신
    * 기준을 명시로 세운다: 재는 것은 **비율**이지 기준값이 아니다.
+   *
+   * **값을 화면에 직접 넣는다** (POLL_INTERVAL_SETTINGS_SRS FR-PIS-8·8a).
+   * 종전에는 설정으로 넣었는데, 주기가 사용자 설정이 되면서 `1000` 은 그 주기의
+   * 선택지 밖(하한 10초)이 되어 저장하면 기본값으로 되돌아간다 — 화면에서 고를
+   * 수 없는 값을 파일로는 넣을 수 있다면 선택지를 나눈 이유가 사라지기 때문이다.
+   * 검사가 원하는 것은 사용자 설정이 아니라 **그 자리의 값**이므로 `fastSafetyNet`
+   * (`git-polling.spec.ts`)과 같은 길을 쓴다. 그 값이 설정 방송에 지워지지 않는
+   * 것은 FR-PIS-8a 의 `!==undefined` 가드가 지켜 준다.
    */
-  const backoffBase = (request: APIRequestContext) =>
-    patchSettings(request, { gitStatusInterval: 1000 });
+  const BACKOFF_BASE_MS = 1000;
+  async function backoffBase(page: Page) {
+    await page.evaluate((ms) => {
+      (window as any).gitStatusInterval = ms;
+      const app = (window as any).app;
+      if (app._gitPanels) for (const p of app._gitPanels.values()) p._reschedule();
+      if (app.gitPanel && app.gitPanel._reschedule) app.gitPanel._reschedule();
+    }, BACKOFF_BASE_MS);
+  }
 
-  test('B1 (V-RMS-16): 연속 실패가 쌓이면 요청 간격이 늘어난다', async ({ page, request }) => {
-    await backoffBase(request);
+  test('B1 (V-RMS-16): 연속 실패가 쌓이면 요청 간격이 늘어난다', async ({ page }) => {
     const repo = copyFx('b1');
     await waitForInit(page);
     let failing = false;
@@ -273,6 +287,8 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
     await openGit(page, repo);
     await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo, { timeout: UI_WAIT_MS });
+    // 패널이 선 뒤에 기준을 세운다 — 다시 거는 대상이 있어야 한다.
+    await backoffBase(page);
 
     failing = true;
     const c = counter(page, '/api/git/status');
@@ -282,8 +298,7 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
     expect(c.n, '아예 멈춰 버렸다 — 백오프는 중단이 아니다').toBeGreaterThanOrEqual(1);
   });
 
-  test('B2 (V-RMS-17): 실패가 그치면 주기가 즉시 기준으로 돌아온다', async ({ page, request }) => {
-    await backoffBase(request);
+  test('B2 (V-RMS-17): 실패가 그치면 주기가 즉시 기준으로 돌아온다', async ({ page }) => {
     const repo = copyFx('b2');
     await waitForInit(page);
     let failing = false;
@@ -291,6 +306,7 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
     await openGit(page, repo);
     await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo, { timeout: UI_WAIT_MS });
+    await backoffBase(page);
 
     failing = true;
     await page.waitForTimeout(6000);
@@ -313,31 +329,34 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
     const got = await page.evaluate(() => {
       const p = (window as any).app.gitPanel;
       const out: any = {};
-      // 기준 1000/500, 실패 없음
+      // POLL_INTERVAL_SETTINGS_SRS FR-PIS-4: 인자와 반환이 **하나**가 됐다 —
+      // 브라우저 signature 폴링이 사라지면서 실효 주기를 계산할 계층이 status
+      // 하나만 남았다. 재는 규약(백오프·상한·0·소실 고정)은 그대로다.
+      // 기준 1000, 실패 없음
       p._missing = null; p._failStreak = 0;
-      out.base = p._cadence(1000, 500);
+      out.base = p._cadence(1000);
       // 연속 실패 2회 → 4배
       p._failStreak = 2;
-      out.backoff = p._cadence(1000, 500);
+      out.backoff = p._cadence(1000);
       // 상한을 넘지 않는다
       p._failStreak = 20;
-      out.capped = p._cadence(1000, 500);
+      out.capped = p._cadence(1000);
       // 기준 0 은 0 으로 남는다 (꺼 둔 계층을 되살리지 않는다)
-      out.off = p._cadence(0, 0);
+      out.off = p._cadence(0);
       // 소실은 고정 주기다 — 백오프로 점증하지 않는다
       p._missing = '/gone'; p._failStreak = 20;
-      out.missing = p._cadence(1000, 500);
-      out.missingOff = p._cadence(0, 0);
+      out.missing = p._cadence(1000);
+      out.missingOff = p._cadence(0);
       p._missing = null; p._failStreak = 0;
       return out;
     });
 
-    expect(got.base).toEqual({ st: 1000, sig: 500 });
-    expect(got.backoff).toEqual({ st: 4000, sig: 2000 });
-    expect(got.capped).toEqual({ st: 30000, sig: 30000 });
-    expect(got.off, '꺼 둔 계층이 백오프로 되살아났다').toEqual({ st: 0, sig: 0 });
-    expect(got.missing, '소실인데 고정 주기가 아니다').toEqual({ st: 30000, sig: 30000 });
-    expect(got.missingOff, '소실이 꺼 둔 계층을 되살렸다').toEqual({ st: 0, sig: 0 });
+    expect(got.base).toBe(1000);
+    expect(got.backoff).toBe(4000);
+    expect(got.capped).toBe(30000);
+    expect(got.off, '꺼 둔 계층이 백오프로 되살아났다').toBe(0);
+    expect(got.missing, '소실인데 고정 주기가 아니다').toBe(30000);
+    expect(got.missingOff, '소실이 꺼 둔 계층을 되살렸다').toBe(0);
   });
 
   test('B4 (V-RMS-20): 관측이 주기를 바꿔도 관측이 관측을 부르지 않는다', async ({ page, request }) => {

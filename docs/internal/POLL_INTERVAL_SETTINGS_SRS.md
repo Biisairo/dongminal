@@ -285,6 +285,21 @@ GIT_PUSH_OBSERVE 가 없앤 60초당 120회 요청이 되살아난다.
 | `SETTINGS_PORTABILITY_SRS` FR-SPT-2 | 예로 들던 둘이 더는 그 예가 아니다. FR-PIS-18 로 이식 표에서 한 줄이 빠진 것도 함께 적었다 |
 | `EVENT_TIMER_HUB_SRS` · `GIT_DIR_ENTRY_SRS` · `NOTES_LIVE_EXPLORER_SRS` · `GIT_REVIEW4_SRS` | 개칭된 이름의 병기 |
 
+**전량 회귀가 잡은 것 넷** (스펙별 검사에서는 보이지 않았다):
+
+| 자리 | 왜 깨졌나 |
+|---|---|
+| `event-timer-hub-contract` T-5 | `_cadence` 의 옛 반환(`{st,sig}`)을 딛는다. T-11 은 고쳤는데 **같은 파일의 T-5 를 놓쳤다** — 이름으로 찾을 때 `signature` 로만 검색했고 T-5 는 그 단어를 쓰지 않는다 |
+| `git-repo-missing` B3 | 같은 부류 |
+| `git-repo-missing` B1·B2 | **범위 검사가 만든 것이다.** 두 검사가 `gitStatusInterval:1000` 을 설정으로 넣어 기준 주기를 세우는데, 그 주기의 선택지 하한이 10초이므로 FR-PIS-8 이 그것을 기본값(30초)으로 되돌린다 → 폴링이 검사 창 안에 돌지 않는다. 값을 화면에 직접 넣는 길(`fastSafetyNet` 의 선례)로 바꿨고, 그 값이 방송에 지워지지 않는 것은 FR-PIS-8a 가 지킨다 |
+| `settings-backup` | `agentsPollMs` 가 `BACKUP_KEYS` 에서 빠진 것(FR-PIS-18)을 이 검사에 반영하지 않았다. 표 안의 값 둘을 재던 자리이므로 둘째를 `slotDir`(여전히 로컬에 사는 표 안의 값)로 바꿨다 |
+
+**B1·B2 가 이 SRS 의 값어치를 한 번 더 보인다.** 사용자가 고를 수 없는 값을
+파일로는 넣을 수 있게 두면 선택지를 나눈 이유가 사라진다는 것이 FR-PIS-8 이었고,
+그 규칙이 세워지자 **그 값을 쓰던 검사가 곧바로 드러났다.** 검사가 원한 것은
+사용자 설정이 아니라 그 자리의 값이었으므로, 원하는 것을 원하는 방식으로 넣게
+고치는 것이 답이다 — 규칙을 느슨하게 하는 것이 아니다.
+
 소스 주석 셋도 고쳤다 — `constants.js`·`constants-git.js`·`constants-editor.js` 의
 **로드 순서 근거**가 `EDITOR_GIT_POLL_MS → GIT_REPOS_POLL_MS` 참조를 들고 있었다.
 근거는 여전히 유효하지만(`ED_DD_AXIS` 가 `GIT_AXIS` 를 참조한다) 예로 든 이름이

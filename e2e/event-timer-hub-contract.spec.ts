@@ -231,18 +231,21 @@ test.describe('T-5·6·7·11 — 주기와 잠금 (FR-RMS-22·28·29 · FR-GIT-2
       const out: any[] = [];
       for (const n of [0, 1, 2, 3, 20, 40]) {
         p._failStreak = n;
-        out.push(p._cadence(1000, 500));
+        // POLL_INTERVAL_SETTINGS_SRS FR-PIS-4: 인자와 반환이 **하나**가 됐다.
+        // 종전에는 `(st,sig)` → `{st,sig}` 였고, signature 계층이 사라지면서
+        // 실효 주기를 계산할 계층이 status 하나만 남았다.
+        out.push(p._cadence(1000));
       }
       return out;
     });
 
-    expect(seen[0], '실패가 없는데 주기가 늘었다').toEqual({ st: 1000, sig: 500 });
-    expect(seen[1], '1회 실패에 2배가 아니다').toEqual({ st: 2000, sig: 1000 });
-    expect(seen[2], '2회 실패에 4배가 아니다').toEqual({ st: 4000, sig: 2000 });
-    expect(seen[3], '3회 실패에 8배가 아니다').toEqual({ st: 8000, sig: 4000 });
+    expect(seen[0], '실패가 없는데 주기가 늘었다').toBe(1000);
+    expect(seen[1], '1회 실패에 2배가 아니다').toBe(2000);
+    expect(seen[2], '2회 실패에 4배가 아니다').toBe(4000);
+    expect(seen[3], '3회 실패에 8배가 아니다').toBe(8000);
     // 20회와 40회가 같다는 것이 곧 상한의 존재다 — 없다면 2²⁰ 배가 더 벌어진다.
-    expect(seen[5], '백오프에 상한이 없다 — 주기가 무한히 늘어난다').toEqual(seen[4]);
-    expect(seen[4].st, '상한이 기준 주기보다 작다').toBeGreaterThan(1000);
+    expect(seen[5], '백오프에 상한이 없다 — 주기가 무한히 늘어난다').toBe(seen[4]);
+    expect(seen[4], '상한이 기준 주기보다 작다').toBeGreaterThan(1000);
   });
 
   // T-11: 기준 0 은 0 으로 남는다. 실패가 그것을 되살리면 사용자가 끈 것이

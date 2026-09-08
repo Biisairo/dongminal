@@ -86,14 +86,19 @@ test.describe('Settings export/import', () => {
     await waitForInit(page);
     await page.evaluate(() => {
       localStorage.setItem('attnSound', '1');
-      localStorage.setItem('agentsPollMs', '10000');
+      localStorage.setItem('slotDir', 'vertical');
       localStorage.setItem('sidebarWidth', '333'); // 표 밖 — 기기별 치수
     });
     await openBackupTab(page);
 
     const { envelope } = await exportEnvelope(page);
     expect(envelope.local.attnSound).toBe('1');
-    expect(envelope.local.agentsPollMs).toBe('10000');
+    // 표 안의 값 둘을 재는 자리다. 종전에는 `agentsPollMs` 가 그 둘째였는데,
+    // POLL_INTERVAL_SETTINGS_SRS FR-PIS-18 로 **표에서 빠졌다** — 값이 서버 설정으로
+    // 옮겼고(D-3) 이 표는 localStorage·sessionStorage 만 담는다 (FR-SPT-3).
+    // 그 자리를 `slotDir` 이 받는다: 여전히 로컬에 사는 표 안의 값이다.
+    expect(envelope.local.slotDir).toBe('vertical');
+    expect(envelope.local.agentsPollMs, 'FR-PIS-18: 표에서 빠졌다').toBeUndefined();
     expect(envelope.local.sidebarWidth).toBeUndefined();
     expect(envelope.session.displayMode).toBe('desktop');
   });
