@@ -1048,6 +1048,22 @@ class Renderer {
     });
     el.addEventListener('mousedown',()=>{
       const n=node(); if(!n) return;
+      /**
+       * FR-SVS-63 (§2.13): **칸이 먼저, pane 이 그 다음이다.**
+       *
+       *   이전 동작: pane 이 먼저 포커스를 정했고, 그 대상이 **이전 칸의 창**이었다
+       *   새  동작: 누른 pane 이 있는 칸으로 포커스를 옮긴 뒤 그 pane 을 정한다
+       *   이유:     이 리스너는 칸의 것보다 **먼저** 돈다(버블은 안에서 밖으로).
+       *             `setFocus` 는 창을 인자로 받지 않으므로 대상이 늘 그 순간의
+       *             활성 창이고, 순서가 뒤집혀 있으면 이전 칸의 창이 누른 칸의
+       *             pane id 를 자기 `focusedPane` 으로 받는다 — 그 창으로
+       *             돌아갈 때 보던 분할 칸을 잃었다 (실측)
+       *
+       * 가드는 칸 리스너(`_makeSlot`)와 **같은 판정**이다. 같은 칸이면 부르지
+       * 않으므로 단일 슬롯 모드와 칸 안의 클릭은 종전과 한 글자도 다르지 않다.
+       * 그리기는 여전히 미룬다 (FR-SVS-61).
+       */
+      if(app._slotFocused()!==slotOf()) app.slotFocusTo(slotOf(),{deferRender:true});
       app.setFocus(n.id);
       // FR-MTI-25: 모바일에서 키보드를 올리는 유일한 경로. render 는 focus 하지
       // 않으므로 여기서 하지 않으면 모바일에서 입력을 시작할 길이 없다.

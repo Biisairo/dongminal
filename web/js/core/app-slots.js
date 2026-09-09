@@ -358,6 +358,7 @@ Object.assign(App.prototype, {
     if(opts&&opts.deferRender){
       this._slotPaintFocus();
       this._slotRenderPending=true;
+      this._slotRenderArm();
     }else{
       this.render();
     }
@@ -396,6 +397,34 @@ Object.assign(App.prototype, {
   _slotRenderFlush(){
     if(!this._slotRenderPending) return;
     this.render();
+  },
+
+  /**
+   * FR-SVS-62 (§2.11.1): **click 은 오지 않을 수 있는 신호다.**
+   *
+   *   이전 동작: 미룬 그리기를 하는 자리는 칸 el 의 click 하나였다
+   *   새  동작: click 이 오지 않아도 그 누름이 끝나면 미룬 그리기가 돈다
+   *   이유:     xterm 은 출력을 갱신할 때 문자 span 을 교체한다. mousedown 을
+   *             받은 그 span 이 사라지면 브라우저는 click 을 발생시키지 않고,
+   *             미룬 `render()` 가 영영 유실된다 — 칸 포커스 이동에 딸린 활성
+   *             탭·창 이름·사이드바 탭·소유권 흐림이 함께 멎었고, 무관한 git
+   *             폴링이 사이드바 탭만 우연히 정정하고 있었다 (실측)
+   *
+   * 예약이 **mouseup 뒤**여야 하는 이유는 그 사이에 click 이 서기 때문이다.
+   * 누르고 있는 동안 그리면 FR-SVS-61 이 막은 결함이 되살아난다. click 이 오면
+   * 그것이 먼저 그리고 `_slotRenderPending` 이 내려가므로 이 예약은 아무 일도
+   * 하지 않는다 — **먼저 온 신호 하나만** 그린다.
+   *
+   * 듣는 자리가 칸 el 이 아니라 window 인 것은 칸 안에서 눌러 밖에서 놓는
+   * 누름도 끝난 누름이기 때문이다.
+   */
+  _slotRenderArm(){
+    if(this._slotRenderArmed) return;
+    this._slotRenderArmed=true;
+    window.addEventListener('mouseup',()=>{
+      this._slotRenderArmed=false;
+      setTimeout(()=>this._slotRenderFlush(),0);
+    },{once:true});
   },
 
   // 포커스 칸의 창을 `ws.activeWindow` 로 옮긴다 (FR-WSL-3). `focused`(pane) 도 그

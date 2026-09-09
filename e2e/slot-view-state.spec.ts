@@ -682,6 +682,125 @@ test.describe('묶음 F — 누른 한 번이 듣는다 (FR-SVS-61)', () => {
     // 칸 0 은 자기 탭을 그대로 본다.
     expect(await activeTabLabel(page, 0)).toBe('Diff');
   });
+
+  /**
+   * TC-SVS-42 (FR-SVS-62): **click 은 오지 않을 수 있는 신호다** (§2.11.1).
+   *
+   * xterm 은 자기 출력을 갱신할 때 문자 `SPAN` 을 교체한다. mousedown 을 받은 그
+   * span 이 사라지면 브라우저는 click 을 발생시키지 않으므로, click 하나에 걸린
+   * 미룬 그리기는 **영영 돌지 않는다.** 접수된 증상은 그 유실이 사이드바 탭에서
+   * 보인 것이다 — 무관한 git 폴링이 우연히 정정할 때까지 걸린 딜레이.
+   *
+   * 원인을 그대로 세운다: 이 누름의 mousedown 대상을 **그것이 무엇이든** 제거한다.
+   * 지우는 자리가 **document 의 버블**이므로 pane·칸의 mousedown 리스너는 이미
+   * 돌았고, 남은 것은 click 이 서지 않는다는 사실뿐이다.
+   *
+   * 검사가 놓은 요소를 대상으로 삼지 않는 이유는 그것이 **다시 그리기에 지워질 수
+   * 있기 때문이다** — `_place` 가 칸의 자식을 머리글·본문으로 맞추고
+   * `_mountTabBody` 가 본문을 갈아 끼운다. 부하가 높을 때 무관한 그리기가 끼어들면
+   * 그 요소가 사라져 누름이 빗나갔다 (실측: flaky).
+   */
+  test('TC-SVS-42: click 이 소실돼도 미룬 그리기가 돈다 (FR-SVS-62)', async ({ page }) => {
+    await waitForInit(page);
+    const term = await activeWindowOf(page);
+    const repo = await openGitWindow(page);
+    await slotAdd(page);
+    await openInSlot(page, 0, term);
+    await openInSlot(page, 1, repo);
+    await focusSlot(page, 1);
+    // Repo 창이 활성이므로 사이드바 탭은 `repo` 다 (FR-SBT-14).
+    await expect.poll(() => page.evaluate(() => (window as any).app._sbTab)).toBe('repo');
+    expect(await page.evaluate(() => (window as any).app._slotRenderPending)).toBeFalsy();
+
+    await page.evaluate(() => {
+      const w = window as any;
+      const app = w.app;
+      w.__clicks = 0;
+      w.__flush = [];
+      const fl = app._slotRenderFlush.bind(app);
+      app._slotRenderFlush = () => { w.__flush.push(!!app._slotRenderPending); return fl() };
+      document.addEventListener('click', () => w.__clicks++, true);
+      // 이 한 번의 누름만 대상으로 한다 — 뒤따르는 조작까지 먹으면 검사가 앱을
+      // 망가뜨린다.
+      w.__armed = true;
+      document.addEventListener('mousedown', (e: any) => {
+        if (!w.__armed) return;
+        w.__armed = false;
+        w.__removed = e.target && (e.target.tagName + '.' + String(e.target.className)).slice(0, 40);
+        if (e.target && e.target.remove) e.target.remove();
+      }, false);
+    });
+
+    const box = await page.locator('#area .slot[data-slot="0"] .pn-body').first().boundingBox();
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    // 전제: 대상을 실제로 제거했다.
+    expect(await page.evaluate(() => (window as any).__removed)).toBeTruthy();
+
+    // 전제: 이 누름의 click 은 실제로 발생하지 않았다.
+    expect(await page.evaluate(() => (window as any).__clicks)).toBe(0);
+    // 그런데도 포커스는 옮겨졌고 미룬 그리기가 돈다.
+    expect(await page.evaluate(() => (window as any).app.slots.focused)).toBe(0);
+    await expect.poll(() => page.evaluate(() => (window as any).__flush.length), { timeout: 2000 })
+      .toBeGreaterThan(0);
+    expect(await page.evaluate(() => (window as any).app._slotRenderPending)).toBeFalsy();
+    expect(await page.evaluate(() => (window as any).app._sbTab)).toBe('windows');
+  });
+
+  /**
+   * TC-SVS-43 (FR-SVS-63): **칸이 먼저, pane 이 그 다음이다** (§2.13).
+   *
+   * pane 의 mousedown 이 칸의 것보다 먼저 도는데(버블은 안에서 밖으로), 그 순간
+   * `ws.activeWindow` 는 아직 이전 포커스 칸의 창이다. `setFocus` 는 창을 인자로
+   * 받지 않으므로 그 창이 **누른 칸의 pane id** 를 자기 `focusedPane` 으로 받았고,
+   * 돌아갈 때 보던 분할 칸을 잃었다.
+   */
+  test('TC-SVS-43: 다른 칸을 눌러도 그 칸 창의 포커스 자리가 남는다 (FR-SVS-63)', async ({ page }) => {
+    await waitForInit(page);
+    const winA = await activeWindowOf(page);
+    // 창 B 를 만들고 분할해 pane 둘로 만든다.
+    const winB = await page.evaluate(async () => {
+      const a = (window as any).app;
+      const r = await a._mkWindow();
+      a.switchWindow(r.win);
+      await a.executeAction('splitH');
+      a.render();
+      return r.win;
+    });
+    const bPanes: string[] = await page.evaluate((id: string) => {
+      const a = (window as any).app;
+      const w = a.ws.windows.find((x: any) => x.id === id);
+      const out: any[] = []; a._collectPanes(w.layout, out);
+      return out.map((p: any) => p.id);
+    }, winB);
+    expect(bPanes.length).toBe(2);
+
+    await slotAdd(page);
+    await openInSlot(page, 0, winA);
+    await openInSlot(page, 1, winB);
+    await focusSlot(page, 1);
+    // 칸 1 에서 **둘째** pane 에 선다.
+    await page.evaluate((pid: string) => (window as any).app.setFocus(pid), bPanes[1]);
+    expect(await page.evaluate((id: string) =>
+      (window as any).app.ws.windows.find((x: any) => x.id === id).focusedPane, winB))
+      .toBe(bPanes[1]);
+
+    // 칸 0 의 pane 을 실제로 누른다.
+    const box = await page.locator('#area .slot[data-slot="0"] .pn').first().boundingBox();
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    expect(await page.evaluate(() => (window as any).app.slots.focused)).toBe(0);
+
+    // 창 B 가 보던 자리를 그대로 들고 있다 — 세션 보관물도 같다.
+    expect(await page.evaluate((id: string) =>
+      (window as any).app.ws.windows.find((x: any) => x.id === id).focusedPane, winB))
+      .toBe(bPanes[1]);
+    expect(await page.evaluate((id: string) => {
+      try { return JSON.parse(sessionStorage.getItem('focusedPanes') || '{}')[id] } catch { return 'ERR' }
+    }, winB)).toBe(bPanes[1]);
+
+    // 그래서 칸 1 로 돌아가면 그 자리를 되찾는다.
+    await focusSlot(page, 1);
+    expect(await page.evaluate(() => (window as any).app.focused)).toBe(bPanes[1]);
+  });
 });
 
 test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
