@@ -277,6 +277,9 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 		env = append(env, "USER="+u.Username, "LOGNAME="+u.Username)
 	}
 	env = append(env, sh.Env...)
+	// TOOL_HISTORY_ISOLATION_SRS FR-THI-1·21: 이 도구만의 히스토리 파일. 심을 수
+	// 없으면 비어 있고, 그때 셸은 종전대로 사용자 히스토리를 공유한다.
+	env = append(env, toolHistEnv(id, shell)...)
 	env = append(os.Environ(), env...)
 	startDir := userHome()
 	if cwd != "" {

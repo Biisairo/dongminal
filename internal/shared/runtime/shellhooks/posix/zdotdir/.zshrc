@@ -2,6 +2,17 @@ export HISTFILE="$HOME/.zsh_history"
 export SHELL_SESSIONS_DISABLE=1
 export ZSH_COMPDUMP="$HOME/.zcompdump"
 [ -f "$HOME/.zshrc" ] && source "$HOME/.zshrc"
+
+# TOOL_HISTORY_ISOLATION_SRS FR-THI-23: 이 도구만의 히스토리를 **되살린다.**
+#
+# 값은 서버가 정해 `DONGMINAL_HISTFILE` 로 심는다. 여기서 다시 대입하는 이유는
+# 이 자리를 지나기 전에 두 번 덮이기 때문이다 — `/etc/zshrc` 가 `HISTFILE` 을
+# `${ZDOTDIR:-$HOME}/.zsh_history` 로 무조건 덮고, 그다음 사용자의 `.zshrc` 가
+# 자기 값을 넣을 수 있다. 그래서 **둘 다 지나간 뒤인 여기**여야 한다.
+#
+# 위의 1행(`$HOME/.zsh_history`)은 그대로 둔다. 그것은 서버가 심어 주지 못했을
+# 때(구버전·주입 실패) `<ZDOTDIR>/.zsh_history` 로 흘러가는 것을 막는 자리다.
+[ -n "$DONGMINAL_HISTFILE" ] && export HISTFILE="$DONGMINAL_HISTFILE"
 _rt_cwd_hook() { printf '\033]777;Cwd;%s\007' "$PWD" }
 autoload -Uz add-zsh-hook
 add-zsh-hook precmd _rt_cwd_hook

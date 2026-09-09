@@ -31,6 +31,16 @@ const (
 	// 뒤의 것을 사용자 홈에 둔 채였다.
 	EnvToolHome = "DONGMINAL_TOOL_HOME"
 
+	// EnvHistFile 은 도구 셸이 쓸 히스토리 파일이다 (TOOL_HISTORY_ISOLATION_SRS
+	// FR-THI-21·22). 서버는 이 값과 `HISTFILE` 을 함께 심는다.
+	//
+	// 둘을 심는 이유는 zsh 때문이다. macOS `/etc/zshrc` 가 `HISTFILE` 을
+	// `${ZDOTDIR:-$HOME}/.zsh_history` 로 **무조건 덮으므로**, 환경으로 심은 값은
+	// rc 단계에서 사라진다. 그래서 값은 서버가 정하고(한 곳), zdotdir 의 rc 는
+	// 사용자 rc 까지 모두 지나간 뒤 이 변수로 그것을 되살리기만 한다 — 경로를
+	// 만드는 규칙이 셸 스크립트로 복제되지 않는다.
+	EnvHistFile = "DONGMINAL_HISTFILE"
+
 	// EnvHost·EnvPort 는 서버가 자식에게 알려 주는 자기 주소다. dmctl 은 이
 	// 값으로 서버에 되붙는다.
 	EnvHost = "DONGMINAL_HOST"
