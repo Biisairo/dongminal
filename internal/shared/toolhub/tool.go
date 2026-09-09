@@ -496,6 +496,9 @@ func (p *Tool) Attend() {
 func (p *Tool) AttendTyped() {
 	p.attnArmed.Store(false)
 	p.attnRearmLocked.Store(false)
+	// FR-ATN-16: 같은 구분을 L1 명시 신호에도 준다 — 키를 눌렀으면 그다음의
+	// 대기는 새 사건이다.
+	p.turn.NoteAttendTyped()
 	p.clearAttention()
 }
 

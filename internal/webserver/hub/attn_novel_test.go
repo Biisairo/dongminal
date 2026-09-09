@@ -139,3 +139,34 @@ func TestAttnTracker_Ended_DropsTurnMarks(t *testing.T) {
 		t.Fatalf("세션이 끝난 도구의 신호가 알람이 되었다: %q", fb.sent)
 	}
 }
+
+// V-ATN-14·16: 대기 하나가 낳는 알람은 한 번뿐이다. 직접 모드
+// (`TestTool_SignalWaiting_FiresOncePerWait`) 와 같은 항목을 잰다 (NFR-4).
+func TestAttnTracker_SignalWaiting_FiresOncePerWait(t *testing.T) {
+	tr, fb := firingTracker(1000)
+
+	tr.SetActivity("agent", "working", "Bash", "rm -rf")
+	tr.SignalAttention("agent", "waiting")
+	if got := firedReason(fb, "agent", "waiting"); got != 1 {
+		t.Fatalf("권한 요청의 waiting 이 알람이 되지 않았다: %d", got)
+	}
+
+	for range 4 {
+		tr.SignalAttention("agent", "waiting")
+	}
+	if got := firedReason(fb, "agent", "waiting"); got != 1 {
+		t.Fatalf("되풀이 훅이 알람을 되풀이했다: %d", got)
+	}
+
+	tr.Attend("agent")
+	tr.SignalAttention("agent", "waiting")
+	if got := firedReason(fb, "agent", "waiting"); got != 1 {
+		t.Fatalf("거둔 뒤의 되풀이 훅이 알람을 되살렸다: %d", got)
+	}
+
+	tr.AttendTyped("agent")
+	tr.SignalAttention("agent", "waiting")
+	if got := firedReason(fb, "agent", "waiting"); got != 2 {
+		t.Fatalf("응답 뒤의 waiting 이 알람이 되지 않았다: %d", got)
+	}
+}

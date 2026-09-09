@@ -818,13 +818,16 @@ class Renderer {
     el.dataset.paneid=n.id;
     // FR-SVS-1: 이 pane 이 **이 칸에서** 보이는 탭.
     const shown=app.paneTab(n,slot);
-    // FR-PAN-9: 활성탭 pane 이 주의 상태이고 pane 이 포커스 안 됐을 때만 pane 강조.
     // FR-WSL-35: 포커스로 그리는 것은 포커스 칸 하나다.
     const focused=n.id===app.focused&&slot===app._slotFocused();
     const at=(n.tabs||[]).find(t=>t.id===shown);
     el.classList.toggle('focused',focused);
-    el.classList.toggle('attn',!focused&&!!at&&!!app._attnHas(at.toolId));
-    this._rTabs(el.firstChild,n,shown,focused,key);
+    // FR-ATV-1: 알람 표식은 포커스 여부와 **무관하게** 그려진다. 여기 남아 있던
+    // 옛 FR-PAN-9 의 포커스 예외가 `_attnRefresh` 의 토글을 다음 render() 마다
+    // 도로 떼고 있었다 — 포커스 칸에서 뜬 알람의 링이 보이지 않던 자리다.
+    // 두 표식은 서로 다른 픽셀에 앉으므로 겹쳐도 서로를 가리지 않는다 (FR-ATV-2).
+    el.classList.toggle('attn',!!at&&!!app._attnHas(at.toolId));
+    this._rTabs(el.firstChild,n,shown,key);
     this._mountTabBody(el.lastChild,at);
     return el;
   }
@@ -833,7 +836,7 @@ class Renderer {
    * FR-PDR-4: 탭 바를 다시 짓지 않는다. 남은 탭은 그 요소 그대로 두고 라벨과
    * 클래스만 고치며, 사라진 것만 거두고 새것만 만든다.
    */
-  _rTabs(tabs,n,shown,focused,key){
+  _rTabs(tabs,n,shown,key){
     const app=this.app;
     const kids=[];
     for(const tab of(n.tabs||[])){
@@ -857,9 +860,10 @@ class Renderer {
       if(tab.toolId) t.dataset.toolid=tab.toolId; else delete t.dataset.toolid;
       const isGit=tab.type===TAB_TYPE_GIT;
       if(isGit) t.dataset.gitView=tab.gitView; else delete t.dataset.gitView;
-      // FR-PAN-9/TC-PAN-17: 사용자가 지금 보고 있는 탭은 강조하지 않는다.
+      // FR-ATV-1·3: 보고 있는 탭도 알람을 그린다. 활성 배경은 활성 색에 머물고
+      // 밑줄만 맥박하므로(`.pn-tab.active.attn`) 알람이 활성 표시를 빼앗지 않는다.
       const active=tab.id===shown;
-      const attn=app._attnHas(tab.toolId)&&!(focused&&active);
+      const attn=app._attnHas(tab.toolId);
       // FR-RTU-41: 미리보기 탭은 기울임이다 — "이 자리는 곧 대체된다".
       t.className='pn-tab'+(active?' active':'')+(attn?' attn':'')+(isGit?' git':'')
         +(tab.preview?' '+REPO_PREVIEW_CLASS:'');

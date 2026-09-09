@@ -115,3 +115,60 @@ func TestAgentTurn_EndedDropsBothMarks(t *testing.T) {
 		t.Fatalf("ended 뒤에도 사용자 턴 표시가 남았다")
 	}
 }
+
+// V-ATN-14: 한 번의 대기가 낳는 waiting 알람은 **한 번뿐**이다. `Notification`
+// 훅은 대기가 이어지는 동안 되풀이 발화하므로, 그 되풀이를 새 사건으로 읽으면
+// 같은 대기가 몇 번이고 운다 (FR-ATN-15, B7).
+func TestAgentTurn_WaitingMarkIsConsumedOnce(t *testing.T) {
+	var turn AgentTurn
+	turn.NoteActivity("working")
+
+	if !turn.AllowSignal("waiting") {
+		t.Fatalf("첫 waiting 이 알람이 되지 않았다")
+	}
+	for i := range 3 {
+		if turn.AllowSignal("waiting") {
+			t.Fatalf("되풀이 훅 %d 의 waiting 이 알람이 되었다", i)
+		}
+	}
+}
+
+// V-ATN-15: 표시를 내리는 것은 "사용자가 새 일을 시켰다" 는 신호다 — 다시
+// 일하기 시작했다는 `working` 보고가 그 하나다 (FR-ATN-16).
+func TestAgentTurn_WaitingMarkClearsOnNewWork(t *testing.T) {
+	var turn AgentTurn
+	turn.NoteActivity("working")
+	turn.AllowSignal("waiting")
+
+	turn.NoteActivity("working") // 승인 뒤 도구가 실제로 돌기 시작했다
+	if !turn.AllowSignal("waiting") {
+		t.Fatalf("새 일 뒤의 waiting 이 알람이 되지 않았다")
+	}
+}
+
+// V-ATN-16: 키를 누른 주목도 표시를 내린다 (FR-ATN-16). 보기만 한 주목은
+// 내리지 않는다 — 재무장 잠금을 가르는 구분(FR-ATF-5·6)과 같은 규약이다.
+func TestAgentTurn_WaitingMarkClearsOnTypedAttend(t *testing.T) {
+	var turn AgentTurn
+	turn.NoteActivity("working")
+	turn.AllowSignal("waiting")
+
+	turn.NoteAttendTyped()
+	if !turn.AllowSignal("waiting") {
+		t.Fatalf("키를 누른 주목 뒤의 waiting 이 알람이 되지 않았다")
+	}
+}
+
+// V-ATN-17: `ended` 는 대기 표시도 함께 버린다 (FR-ATN-5). 남은 표시가 같은
+// 도구의 다음 세션을 조용하게 만들면 안 된다.
+func TestAgentTurn_EndedDropsTheWaitingMark(t *testing.T) {
+	var turn AgentTurn
+	turn.NoteActivity("working")
+	turn.AllowSignal("waiting")
+
+	turn.NoteActivity("ended")
+	turn.NoteActivity("working")
+	if !turn.AllowSignal("waiting") {
+		t.Fatalf("새 세션의 waiting 이 알람이 되지 않았다")
+	}
+}

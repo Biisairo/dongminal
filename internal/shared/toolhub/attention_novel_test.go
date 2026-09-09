@@ -186,3 +186,40 @@ func TestTool_Ended_DropsTurnMarks(t *testing.T) {
 		t.Fatalf("세션이 끝난 도구의 신호가 알람이 되었다: %v", attn)
 	}
 }
+
+// V-ATN-14·16: 대기 하나가 낳는 알람은 한 번뿐이다. `Notification` 훅의
+// 되풀이는 조용하고, 사용자가 키를 눌러 응답한 뒤의 대기는 다시 알람이다
+// (FR-ATN-15·16, B7).
+func TestTool_SignalWaiting_FiresOncePerWait(t *testing.T) {
+	var mu sync.Mutex
+	var attn, clear []string
+	p := newAttnPane("agent", &mu, &attn, &clear)
+
+	p.SetActivity("working", "Bash", "rm -rf")
+	p.SignalAttention("waiting")
+	if len(attn) != 1 {
+		t.Fatalf("권한 요청의 waiting 이 알람이 되지 않았다: %v", attn)
+	}
+
+	// 대기가 이어지는 동안 훅이 되풀이 발화한다.
+	for range 4 {
+		p.SignalAttention("waiting")
+	}
+	if len(attn) != 1 {
+		t.Fatalf("되풀이 훅이 알람을 되풀이했다: %v", attn)
+	}
+
+	// 사용자가 보기만 하고 거둔다 — 그래도 되풀이는 조용해야 한다.
+	p.Attend()
+	p.SignalAttention("waiting")
+	if len(attn) != 1 {
+		t.Fatalf("거둔 뒤의 되풀이 훅이 알람을 되살렸다: %v", attn)
+	}
+
+	// 키를 눌러 응답했다 — 그다음의 대기는 새 사건이다.
+	p.AttendTyped()
+	p.SignalAttention("waiting")
+	if len(attn) != 2 || attn[1] != "agent:waiting" {
+		t.Fatalf("응답 뒤의 waiting 이 알람이 되지 않았다: %v", attn)
+	}
+}
