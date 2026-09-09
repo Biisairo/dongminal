@@ -46,6 +46,12 @@ class GitObserver {
     // 이름만 비슷하고 성질이 다르다 (FR-PIS-3).
     this._busy=false; this._again=false; this._sigT=null;
     this._pollOn=false; this._pollSt=null; this._stPoll=null;
+    // GIT_OBSERVE_REVIVE_SRS FR-GOR-2 / D-2: 워치독이 **되살리기를 시도한** 시각.
+    //
+    // `_lastObsAt` 으로 절제할 수 없다 — 그것은 **성공한** 관측의 것이라 실패가
+    // 이어지면 영영 낡은 채이고, 그 값으로 문턱을 세우면 렌더마다 요청이 나간다.
+    // 시도는 시도대로 세어야 절제가 절제가 된다.
+    this._wdTryAt=0;
     this._inited=false;           // 문서 이벤트 등록은 앱당 한 번이다
   }
 
@@ -55,6 +61,18 @@ class GitObserver {
   // 살아 있는 패널 하나. 주기 타이머가 딛는 자리다 — 콜백이 특정 패널을 캡처하면
   // 그 칸이 사라진 뒤에도 죽은 패널을 붙들고 부른다.
   any(){ for(const p of this.panels) return p; return null }
+
+  /**
+   * GIT_OBSERVE_REVIVE_SRS FR-GOR-4·5 / D-3: **이 관측기가 폴링할 이유가 있는가.**
+   *
+   * 판정은 패널마다이지만(`_pollOk` 은 그 칸의 표면을 본다) 타이머는 관측기의
+   * 것이다. 그 둘이 어긋나 있었다 — 패널 하나가 자기 판정으로 공유 타이머를 껐고,
+   * 보이지 않는 칸이 **보이는 칸의 폴링까지** 멈췄다 (SRS §2.3, 실측). 전 패널을
+   * 도는 자리(`_gitRescheduleAll`)에서는 마지막에 도는 패널이 이겼다.
+   *
+   * 소유와 판정을 같은 자리에 둔다: 딸린 패널 중 하나라도 보고 있으면 돈다.
+   */
+  pollOkAny(){ for(const p of this.panels) if(p._pollOk()) return true; return false }
 
   // FR-SVS-32: 관측이 갱신되면 살아 있는 **모든** 패널이 칠한다.
   paintAll(){ for(const p of this.panels) p._paint() }

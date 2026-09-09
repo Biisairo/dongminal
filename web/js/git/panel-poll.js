@@ -288,7 +288,20 @@ Object.assign(GitPanel.prototype, {
    */
   // 다시 걸었으면 true 다 — 호출자가 "즉시 1회 수집" 을 붙일지 그것으로 정한다.
   _applyCadence(){
-    if(!this._pollOk()){this._stop();return false}
+    /**
+     * GIT_OBSERVE_REVIVE_SRS FR-GOR-4·5: 판정의 대상은 **관측기에 딸린 패널
+     * 전부**다.
+     *
+     *   이전 동작: `this._pollOk()` — 부른 패널 자기 것
+     *   새  동작: `this.obs.pollOkAny()` — 하나라도 보고 있으면 돈다
+     *   이유:     타이머는 관측기의 것이고 패널은 칸마다 있다. 자기 것만 보면
+     *             보이지 않는 칸의 `_reschedule()` 한 번이 **보이는 칸의 폴링을
+     *             끈다** (SRS §2.3). 전 패널을 도는 자리에서는 순서가 결과를
+     *             정했다 — 마지막에 도는 패널이 이겼다
+     *
+     * 멈추는 조건은 그대로 좁다: 전부 거짓이어야 멈춘다 (NFR-RTU-1 · FR-GLR-3).
+     */
+    if(!this.obs.pollOkAny()){this._stop();return false}
     const st=this._cadence(gitStatusInterval);
     if(this._pollOn&&this._pollSt===st) return false;
     this._stop();
@@ -341,6 +354,11 @@ Object.assign(GitPanel.prototype, {
    *
    * 요청은 **멈춰 있을 때만** 는다 (FR-GLR-7). 정상 회차에서는 나이가 주기보다
    * 어리므로 이 함수는 산술 몇 번으로 끝난다.
+   *
+   * GIT_OBSERVE_REVIVE_SRS: "멈춰 있다" 에는 **타이머가 도는데 답이 오지 않는**
+   * 것도 든다 (D-3 이 처음부터 그렇게 적었다). 그 회차에서도 수집까지 간다
+   * (FR-GOR-1) — 종전에는 경고만 찍었다. 대신 물어보는 일에 주기를 걸어 요청은
+   * 멎어 있는 관측기당 주기마다 한 번을 넘지 않는다 (FR-GOR-2).
    */
   _watchdog(){
     // FR-GLR-3: 되살리기도 같은 판정을 먼저 지난다 — 아무도 보지 않는 저장소를
@@ -351,10 +369,42 @@ Object.assign(GitPanel.prototype, {
     if(st<=0) return false;
     const age=this._lastObsAt?Date.now()-this._lastObsAt:Infinity;
     if(this._pollOn&&age<st*GIT_WATCHDOG_FACTOR) return false;
+    /**
+     * GIT_OBSERVE_REVIVE_SRS FR-GOR-2: **물어보는 일에만 주기를 건다.**
+     *
+     * 아래가 수집까지 가게 된 이상(FR-GOR-1) 이 자리는 요청원이다. 답이 오지
+     * 않는 동안 나이는 줄지 않으므로, 문턱이 없으면 렌더마다(1초) 한 건씩 나간다
+     * (R-B9-1). 정상 회차는 위 나이 판정에서 이미 돌아갔으므로 이 문턱이 여는
+     * 것은 **멎어 있는 관측기당 주기마다 한 번**뿐이다 (NFR-GOR-1).
+     *
+     * **주기를 다시 거는 일은 이 문턱 밖이다** — 그것은 요청이 아니고, 함께 묶으면
+     * 직전에 한 번 물어본 탓에 꺼진 타이머가 한 주기를 더 꺼진 채로 남는다.
+     */
+    const ask=!this._wdTryAt||Date.now()-this._wdTryAt>=st;
+    if(!ask&&this._pollOn) return false;   // 걸 것도 물을 것도 없다
+    // FR-GLR-6 (FR-GOR-7): 관측기는 **루트마다** 서므로 `repo` 만으로는 어느
+    // 표면이 멎었는지 특정되지 않는다 — 같은 문자열이 여럿이다 (SRS §2.4).
     console.warn('[git] 관측이 멈춰 있어 되살립니다 — age='+(age===Infinity?'never':Math.round(age/1000)+'s')
-      +' poll='+(this._pollOn?'on':'off')+' repo='+this.repo);   // FR-GLR-6
+      +' poll='+(this._pollOn?'on':'off')+' repo='+this.repo+' root='+(this.root||'-'));
     this._obsSig=null; this._lastViewFp=null;                    // FR-GLR-4
-    this._reschedule();
+    /**
+     * FR-GOR-1: **주기를 다시 걸고, 그 자리에서 한 번 수집한다.**
+     *
+     *   이전 동작: `_reschedule()` — 수집은 `_applyCadence()` 가 참을 돌려줄
+     *             때만 따라왔다. 폴링이 이미 켜져 있고 주기가 그대로면 그 값은
+     *             거짓이므로(`:293`) **경고만 찍고 물러났다**
+     *   새  동작: 두 일을 따로 부른다
+     *   이유:     `_applyCadence` 의 반환값이 답하는 것은 "주기를 다시 걸었는가"
+     *             이고 워치독이 묻는 것은 "관측이 낡았는가" 다. 둘을 묶어 둔 탓에
+     *             `D-3` 이 이 장치의 존재 이유로 든 상태 — 타이머는 살아 있는데
+     *             응답이 오지 않는 모양 — 에서 아무 일도 하지 않았다 (SRS §2.1).
+     *             적재 직후 5.4초 동안 관측이 없던 자리가 그것이다 (§2.2 실측)
+     *
+     * `_reschedule()` 은 건드리지 않는다 — 그쪽은 "조건이 참이 된 순간" 의 규약
+     * 이며(FR-GIT-22) 부르는 자리가 여럿이다.
+     */
+    this._applyCadence();
+    if(ask){ this._wdTryAt=Date.now(); this.collect() }
     return true;
   },
 

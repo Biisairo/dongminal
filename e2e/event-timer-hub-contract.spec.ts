@@ -176,6 +176,12 @@ async function loadPanelPoll(page: Page) {
       obs = {
         ticks: [] as string[],
         paints: 0,
+        // GIT_OBSERVE_REVIVE_SRS FR-GOR-4: 폴링 여부는 **관측기**가 딸린 패널
+        // 전부를 보고 정한다. 더블도 그 규약을 그대로 든다 — 여기서 `() => true`
+        // 로 고정하면 T-11 이 "주기 0 이면 타이머를 걸지 않는다" 를 재는 동안
+        // 조건 판정만 실물과 갈린다.
+        panels: new Set<any>(),
+        pollOkAny(this: any) { for (const p of this.panels) if (p._pollOk()) return true; return false },
         tick(k: string) { this.ticks.push(k) },
         paintAll() { this.paints++ },
         paintAllViews() {},
@@ -215,7 +221,9 @@ async function loadPanelPoll(page: Page) {
   });
   await page.addScriptTag({ path: PANEL_POLL_JS });
   await page.evaluate(() => {
-    (window as any).__p = new (window as any).GitPanel();
+    const p = new (window as any).GitPanel();
+    p.obs.panels.add(p);   // 실물의 `GitPanel` 생성자가 하는 일 (`obs.attach`)
+    (window as any).__p = p;
   });
 }
 

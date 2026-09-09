@@ -113,6 +113,7 @@ class GitPanel {
   get _pollOn(){ return this.obs._pollOn } set _pollOn(v){ this.obs._pollOn=v }
   get _pollSt(){ return this.obs._pollSt } set _pollSt(v){ this.obs._pollSt=v }
   get _stPoll(){ return this.obs._stPoll } set _stPoll(v){ this.obs._stPoll=v }
+  get _wdTryAt(){ return this.obs._wdTryAt } set _wdTryAt(v){ this.obs._wdTryAt=v }
 
   // 활성 리포. Git 창의 win.git.repo 가 진실이고 이것은 그 읽기다 (FR-GIT-29).
   /**
