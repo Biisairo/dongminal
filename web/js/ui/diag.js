@@ -77,6 +77,23 @@
       ' sTop='+(vp?Math.round(vp.scrollTop):-1)+' sH='+(vp?vp.scrollHeight:-1)+' cH='+(vp?vp.clientHeight:-1);
   }
 
+  /**
+   * UX_BATCH9_SRS FR-GLR-5: **지금 이 git 화면이 언제의 것인가.**
+   *
+   * 자동 갱신이 멎어도 화면에는 낡은 목록이 정상처럼 그려져 있다 (SRS §2.4).
+   * 그 침묵을 깨는 값이 관측의 나이이며, 워치독이 판정에 쓰는 것과 같은 값이다.
+   */
+  function gitObsState(){
+    const a=window.app;
+    if(!a||!a._gitPanels||!a._gitPanels.size) return 'git: 패널 없음';
+    const out=[];
+    for(const p of a._gitPanels.values()){
+      const age=p._lastObsAt?Math.round((Date.now()-p._lastObsAt)/1000)+'s':'never';
+      out.push((p.repo||'-')+' obs='+age+' poll='+(p._pollOn?p._pollSt:'off'));
+    }
+    return 'git: '+out.join(' | ');
+  }
+
   function env(){
     const a=window.app;
     const p=pane();
@@ -95,6 +112,7 @@
     put('mouseEventsActive='+(p&&p.term&&p.term._core&&p.term._core.coreMouseService?p.term._core.coreMouseService.areMouseEventsActive:'?'));
     put('active='+cn(document.activeElement));
     put(scrollState());
+    put(gitObsState());
     put('--- /ENV ---');
   }
 
@@ -122,7 +140,15 @@
       if(e.inputType) s+=' it='+e.inputType;
       if(typeof e.isComposing!=='undefined') s+=' comp='+e.isComposing;
       s+=' tgt='+cn(e.target);
-      setTimeout(()=>put(s+' dp='+e.defaultPrevented),0);
+      // UX_BATCH9_SRS FR-IMK-4: 조합 게이트가 이 키를 어떻게 다뤘는가.
+      //
+      // 게이트의 판정은 내부 상태라 이벤트만 보아서는 읽히지 않는다. 보류 큐의
+      // 길이와 정리 창의 상태를 이벤트 **직후**에 함께 찍으면 그 순서가 드러난다 —
+      // Enter 와 모바일 되풀이(SRS §2.8)를 실측으로 특정하기 위한 자리다.
+      const ip=pane();
+      const imeInfo=ip?(' ime='+(ip._imeOpen?'open':(ip._imeSettling?'settling':'-'))
+        +' q='+((ip._imeQ||[]).length)):'';
+      setTimeout(()=>put(s+' dp='+e.defaultPrevented+imeInfo),0);
     },{capture:true,passive:true});
   }
 

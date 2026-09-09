@@ -54,6 +54,25 @@ Object.assign(App.prototype, {
   },
 
   /**
+   * UX_BATCH9_SRS FR-GLR-1: 멈춘 관측을 되살리는 **상시 계기**.
+   *
+   * 위의 `_gitRescheduleAll` 은 "표면이 바뀌었다" 를 아는 자리들이 부른다. 그
+   * 목록이 완전하다는 보장이 없고, 하나가 새면 그 패널은 영구히 멎는다 (SRS
+   * §2.4). 이 함수는 그 목록에 기대지 않는다 — **관측이 낡았는지**만 보고,
+   * 낡았을 때만 움직인다.
+   *
+   * 렌더마다 불려도 좋도록 두 겹으로 싸 둔다: 여기의 시간 문턱과, 패널 쪽의
+   * 나이 판정(`_watchdog`)이다. 정상 상태에서 이 경로가 내는 요청은 0 이다.
+   */
+  _gitWatchdogAll(){
+    if(!this._gitPanels||!this._gitPanels.size) return;
+    const now=Date.now();
+    if(this._gitWdAt&&now-this._gitWdAt<GIT_WATCHDOG_CHECK_MS) return;
+    this._gitWdAt=now;
+    for(const p of this._gitPanels.values()) p._watchdog();
+  },
+
+  /**
    * FR-GIT-249 (FR-DRC-16): 핀 목록이 바뀌었음을 **모든 패널**에 알린다.
    *
    * `_gitRescheduleAll` 과 같은 골격이고 같은 근거다 — 패널이 저장소마다,

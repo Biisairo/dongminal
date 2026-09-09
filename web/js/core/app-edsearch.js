@@ -74,7 +74,10 @@ Object.assign(App.prototype, {
    * preventDefault 까지 하고 아무 일도 안 하면 그 키는 죽은 키가 된다.
    */
   _edTrySearchKey(e){
-    for(const[action,fn] of Object.entries(ED_CAPTURE_ACTIONS)){
+    // UX_BATCH9_SRS FR-ESV-2: **app 이 수행하는 것만** 돈다. 편집기 인스턴스의
+    // 액션(저장)은 그 편집기가 자기 자리에서 판정한다 — 여기서 잡으면 "어느
+    // 편집기가" 를 다시 골라야 하고, 그 고르기가 결함의 원인이었다 (§2.1).
+    for(const[action,fn] of Object.entries(ED_APP_ACTIONS)){
       if(!matchShortcut(e,shortcuts[action])) continue;
       // 게이트는 액션의 성질이 정한다. 통과하지 못하면 **삼키지 않고** false 를
       // 돌려준다 (FR-EKB-4 · FR-LSP-40b) — 삼키면 그 조합이 죽은 키가 된다.

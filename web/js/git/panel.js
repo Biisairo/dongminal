@@ -105,6 +105,7 @@ class GitPanel {
   get _missing(){ return this.obs._missing } set _missing(v){ this.obs._missing=v }
   get _failStreak(){ return this.obs._failStreak } set _failStreak(v){ this.obs._failStreak=v }
   get _obsSig(){ return this.obs._obsSig } set _obsSig(v){ this.obs._obsSig=v }
+  get _lastObsAt(){ return this.obs._lastObsAt } set _lastObsAt(v){ this.obs._lastObsAt=v }
   get _writing(){ return this.obs._writing } set _writing(v){ this.obs._writing=v }
   get _busy(){ return this.obs._busy } set _busy(v){ this.obs._busy=v }
   get _again(){ return this.obs._again } set _again(v){ this.obs._again=v }

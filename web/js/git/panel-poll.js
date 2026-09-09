@@ -320,6 +320,44 @@ Object.assign(GitPanel.prototype, {
     return true;
   },
 
+  /**
+   * UX_BATCH9_SRS FR-GLR-1~4: **멈춰 있으면 스스로 되살아난다.**
+   *
+   * 종전의 자동 갱신은 두 경로처럼 보였으나 하나였다 (SRS §2.3): 주기 폴링이
+   * 멎으면 `/api/git/status` 가 나가지 않고, 그 요청이 곧 서버의 관심 표명이므로
+   * 90초 뒤에는 `git_changed` 방송까지 함께 멎는다. 그리고 폴링은 조건이 거짓이면
+   * **완전히 멈추며**(`_applyCadence` → `_stop`), 되살아나는 계기는 밖에서 알려
+   * 주는 것뿐이다 — 그 계기가 하나라도 새면 그 패널의 자동 갱신은 영구히 죽고,
+   * 죽었다는 것을 아무도 알지 못한다. 접수된 증상이 그것이다: 보고 있는데도
+   * 바뀌지 않고, 새로고침을 누를 때까지 영영 그대로.
+   *
+   * 새는 계기를 하나 더 메우는 대신 **조용한 정지를 없앤다** (D-2).
+   *
+   * 판정은 시각이 아니라 **관측의 나이**다 (D-3) — 타이머의 유무로는 "타이머는
+   * 살아 있는데 답이 오지 않는" 모양을 놓친다.
+   *
+   * 되살릴 때 두 가드를 푼다 (FR-GLR-4). 멈춰 있던 동안의 변화가 "지난번과 같다"
+   * 로 판정되면 화면은 낡은 채 남고, 그러면 되살린 뜻이 없다.
+   *
+   * 요청은 **멈춰 있을 때만** 는다 (FR-GLR-7). 정상 회차에서는 나이가 주기보다
+   * 어리므로 이 함수는 산술 몇 번으로 끝난다.
+   */
+  _watchdog(){
+    // FR-GLR-3: 되살리기도 같은 판정을 먼저 지난다 — 아무도 보지 않는 저장소를
+    // 깨우지 않는다.
+    if(!this._pollOk()) return false;
+    const st=this._cadence(gitStatusInterval);
+    // 주기 0 은 사용자가 끈 것이다 (FR-GIT-23). 끈 것을 되살리지 않는다.
+    if(st<=0) return false;
+    const age=this._lastObsAt?Date.now()-this._lastObsAt:Infinity;
+    if(this._pollOn&&age<st*GIT_WATCHDOG_FACTOR) return false;
+    console.warn('[git] 관측이 멈춰 있어 되살립니다 — age='+(age===Infinity?'never':Math.round(age/1000)+'s')
+      +' poll='+(this._pollOn?'on':'off')+' repo='+this.repo);   // FR-GLR-6
+    this._obsSig=null; this._lastViewFp=null;                    // FR-GLR-4
+    this._reschedule();
+    return true;
+  },
+
   // 조건이 참이 되면 즉시 1회 수집하고 주기를 건다 (FR-GIT-22).
   _reschedule(){
     if(this._applyCadence()) this.collect();
@@ -373,6 +411,8 @@ Object.assign(GitPanel.prototype, {
     // 관측이 성공했다 — 누적을 놓고 주기를 기준으로 되돌린다 (FR-RMS-24).
     // 소실이었다면 여기가 복구 지점이다 (FR-RMS-11).
     this._failStreak=0;
+    // UX_BATCH9_SRS FR-GLR-2: 화면이 언제의 것인지를 남기는 유일한 자리다.
+    this._lastObsAt=Date.now();
     this._leaveMissing();
     this._applyCadence();
     this._status=d;

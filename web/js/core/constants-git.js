@@ -607,6 +607,16 @@ const GIT_DIALOG_FP_GROUPS=['staged','working','conflicts'];
 // 푸시가 끊겼을 때의 회복(C-5)과 관심 표명의 갱신(FR-GPO-11 의 90초보다 세 배
 // 잦다). 종전 1초는 푸시가 없을 때의 주기였다.
 const GIT_STATUS_POLL_MS=30000;
+
+// UX_BATCH9_SRS FR-GLR-2: 관측이 주기의 몇 배까지 낡으면 멈춘 것으로 보는가.
+//
+// 둘이면 한 회차를 통째로 걸러도 아직 정상이다 — 느린 응답이나 한 번의 실패로
+// 워치독이 깨어나면 그것이 새로운 요청원이 된다 (R-B9-1).
+const GIT_WATCHDOG_FACTOR=2;
+
+// 워치독 검사 자체의 문턱. 렌더는 잦고 판정은 싸지만, 같은 프레임에 여러 번
+// 그리는 경로가 있으므로 한 번으로 접는다.
+const GIT_WATCHDOG_CHECK_MS=1000;
 // status 요청 하나의 시한 (FR-RMS-29). 큰 저장소의 `git status` 가 몇 초일 수 있으니
 // 넉넉하되, 백오프 상한(GIT_FAIL_BACKOFF_MAX_MS)보다는 짧다 — 시한이 그보다 길면
 // 실패가 주기를 늘리기 전에 다음 회차들이 먼저 밀린다.

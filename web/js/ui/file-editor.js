@@ -391,12 +391,6 @@ class FileEditor {
     // 편집기는 자기가 무슨 문서인지 알 필요가 없다.
     if (window.app && window.app._docRenderMount) window.app._docRenderMount(this);
 
-    // Save on Ctrl+S / Cmd+S
-    this._editor.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-      () => this.save()
-    );
-
     // Track dirty state
     // 모델이 공유되므로 이 이벤트는 같은 파일을 보는 에디터 **모두**에 온다.
     // dirty 설정은 멱등이고, 라벨은 칸마다 있으므로 전부 갱신한다 (FR-SVS-54).
@@ -437,7 +431,11 @@ class FileEditor {
      * 적으면 설정에서 바꾼 키가 안쪽에만 반영되지 않는다.
      */
     this.el.addEventListener('keydown', (e) => {
-      if (window.app) window.app._edTrySearchKey(e);
+      if (window.app && window.app._edTrySearchKey(e)) return;
+      // UX_BATCH9_SRS FR-ESV-1·2: **이 편집기의** 액션. 여섯과 같은 자리에서
+      // 판정하되 수행은 인스턴스가 한다 — 포커스가 있는 편집기가 곧 이 요소의
+      // 임자이므로, "어느 편집기를 저장할 것인가" 를 따로 고르지 않는다.
+      this._edViewKey(e);
     }, true);
 
     // FR-EDD-34: 팝업을 닫는 길 둘 중 하나. 찾기 패널이 포커스를 갖고 있으면
@@ -467,6 +465,10 @@ class FileEditor {
     // 박으면 설정에서 바꾼 키가 Monaco 안에서만 듣지 않는다 — 위의 keydown 이
     // 그 자리를 대신한다. 전역 keydown 은 편집기에 포커스가 있는 동안 한 줄도
     // 돌지 않으므로(input-binding.js 의 activeElement 게이트) 이 배선이 필요하다.
+    //
+    // UX_BATCH9_SRS FR-ESV-2: **저장도 여기 합류했다.** 그것만 `addCommand` 로
+    // 남아 있었고, 그 등록이 인스턴스가 아니라 전역이라 편집기를 둘 열면 `Cmd+S`
+    // 가 마지막에 만든 편집기로 갔다 (SRS §2.1).
 
     // EDITOR_DIRTY_DIFF_SRS FR-EDD-15: 변경 표시는 **모델**의 것이다 — 이 칸은
     // 클릭과 팝업만 갖는다. `file-editor-diff.js` 가 없으면 편집기는 지금까지와
@@ -518,6 +520,23 @@ class FileEditor {
         if (tab) { app._pinPreviewTab(tab); return }
       }
     }
+  }
+
+  /**
+   * UX_BATCH9_SRS FR-ESV-1·4: 이 편집기가 수행하는 액션의 판정.
+   *
+   * 잡았으면 브라우저 기본 동작을 막고 전파를 끊는다. **잡지 못했으면 삼키지
+   * 않는다** — 삼키면 그 조합이 죽은 키가 된다 (FR-EKB-4 와 같은 규약).
+   */
+  _edViewKey(e) {
+    for (const [action, fn] of Object.entries(ED_VIEW_ACTIONS)) {
+      if (!matchShortcut(e, shortcuts[action])) continue;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      this[fn]();
+      return true;
+    }
+    return false;
   }
 
   async save() {

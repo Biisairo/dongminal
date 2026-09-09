@@ -274,6 +274,11 @@ const SHORTCUT_DEFAULTS={
   edGotoDef:'F12',
   edFindRefs:'Shift+F12',
   edNavBack:'Mod+Alt+Minus',
+  // UX_BATCH9_SRS FR-ESV-3: 편집기 저장. 종전에는 Monaco 의 `addCommand` 로 코드에
+  // 박혀 있었고(FR-EKB-5 가 금한 그 방식), 그 등록이 **인스턴스가 아니라 전역**이라
+  // 편집기를 둘 열면 `Cmd+S` 가 마지막에 만든 편집기로 갔다 — 그쪽이 dirty 가
+  // 아니면 아무 일도 일어나지 않는다 (SRS §2.1).
+  edSave:'Mod+KeyS',
 };
 const SHORTCUT_LABELS={
   // GIT_SIDEBAR_TABS_SRS FR-SBT-31·33: 이 키는 **활성 사이드바 탭의 목록**을 순회한다
@@ -319,13 +324,24 @@ const ED_LSP_ACTIONS={
   edNavBack:'_lspNavBack',
 };
 
+// UX_BATCH9_SRS FR-ESV-2: 편집기 **인스턴스**가 수행하는 액션.
+//
+// 위의 여섯과 수행 주체가 다르다 — 그쪽은 app 의 메서드이고 이쪽은 `FileEditor`
+// 의 메서드다. "어느 편집기가" 가 답의 일부이므로 app 이 대신 고를 수 없다.
+const ED_VIEW_ACTIONS={
+  edSave:'save',
+};
+
 // 편집기 안에서 **우리가 먼저 잡는** 액션 전부다.
 //
 // 한 이름으로 두는 이유는 이 표를 읽는 자리가 둘이기 때문이다 — 편집기 안팎의
 // 판정(`_edTrySearchKey`)과, 전역 배선이 그 셋을 건너뛰는 자리
 // (`input-binding.js`). 두 벌로 적으면 새 액션을 더할 때 한쪽만 고쳐지고, 그러면
 // 그 키가 Editor 창이 아닐 때 삼켜져 죽은 키가 된다 (FR-EKB-4).
-const ED_CAPTURE_ACTIONS={...ED_SEARCH_ACTIONS,...ED_LSP_ACTIONS};
+// app 이 수행하는 것 — `_edTrySearchKey` 가 이 표를 돈다.
+const ED_APP_ACTIONS={...ED_SEARCH_ACTIONS,...ED_LSP_ACTIONS};
+// 전역 배선이 건너뛰어야 하는 것 전부 — 수행 주체와 무관하다 (input-binding.js).
+const ED_CAPTURE_ACTIONS={...ED_APP_ACTIONS,...ED_VIEW_ACTIONS};
 var shortcuts={...SHORTCUT_DEFAULTS};
 
 // ── Status bar state ──

@@ -54,6 +54,20 @@ class TerminalTool {
     // Block browser Ctrl+ shortcuts → let them go to terminal
     // Cmd+ shortcuts left for browser (copy/paste/tab close etc)
     this.box.addEventListener('keydown',e=>{
+      /**
+       * UX_BATCH9_SRS FR-IMK-1·2: **조합이 정리되기 전에는 이 자리도 지나지 않는다.**
+       *
+       * 이 리스너는 xterm 의 `attachCustomKeyEventHandler` 밖이다. 게이트가 거기서
+       * `false` 를 돌려줘도 `stopPropagation` 은 하지 않으므로 keydown 은 그대로
+       * 여기까지 버블하고, 그때 이 자리가 커서 이동을 **즉시** 보내 왔다 —
+       * 조합 문자가 그다음에 나가므로 옮겨진 자리에 글자가 찍힌다 (SRS §2.7).
+       *
+       * 게이트를 여기서 다시 부르지 않는다. 그것은 보류 큐에 넣는 일이고, 이미
+       * 넣은 키를 한 번 더 넣으면 재생 때 두 번 움직인다 (FR-IMK-2). 상태만 묻고
+       * 물러난다 — 보류분은 `_imeFlush` 가 되발행하며, 그 이벤트는 `__dmImeReplay`
+       * 를 달고 오므로 이 자리를 정상적으로 지난다.
+       */
+      if(this._imeBusy()&&!e.__dmImeReplay) return;
       // Cmd+Left/Right → Home/End
       if(e.metaKey&&!e.ctrlKey&&!e.altKey){
         if(e.key==='ArrowLeft'){e.preventDefault();this._send(new Uint8Array([OP.INPUT,0x01]));return}

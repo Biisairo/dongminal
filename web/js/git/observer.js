@@ -22,6 +22,13 @@ class GitObserver {
 
     this._gen=0;
     this._status=null;   // /api/git/status 의 마지막 유효 응답
+    // UX_BATCH9_SRS FR-GLR-2·5: **마지막으로 성공한 관측의 시각.**
+    //
+    // "타이머가 걸려 있는가" 로는 멈춤을 알 수 없다 — 타이머는 살아 있는데 응답이
+    // 오지 않는 모양이 실재하고(FR-RMS-29 가 그것을 고쳤다), 반대로 타이머가
+    // 조용히 걷힌 뒤 아무도 다시 걸어 주지 않는 모양도 있다 (SRS §2.4). 사용자가
+    // 겪는 것은 둘 다 "화면이 낡았다" 이고, 그 값이 바로 이것이다.
+    this._lastObsAt=0;
     this._lastSig=null;  // FR-GIT-19 의 비교 대상
     this._lastViewFp=null; // FR-GVR-8 의 비교 대상 (Changes 밖의 뷰)
     this._errMsg=null;
