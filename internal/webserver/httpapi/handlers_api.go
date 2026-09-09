@@ -128,6 +128,11 @@ var apiRoutes = []apiRoute{
 	httproute.Put("/api/workspace", (*Server).apiWorkspacePut),
 	httproute.Get("/api/settings", (*Server).apiSettingsGet),
 	httproute.Put("/api/settings", (*Server).apiSettingsPut),
+	// ACCESS_ALLOWLIST_SRS FR-ACL-19·20. 게이트 **뒤**에 있다 — 허용된 기기는
+	// 이미 PTY 전권이라 access.json 을 직접 고칠 수 있고, 종단만 막는 것은
+	// 방어가 아니면서 원격 관리만 불가능하게 만든다 (FR-ACL-21).
+	httproute.Get("/api/access", (*Server).apiAccessGet),
+	httproute.Put("/api/access", (*Server).apiAccessPut),
 	httproute.Post("/api/upload", (*Server).apiUpload),
 	httproute.Get("/api/download", (*Server).apiDownload),
 	httproute.Get("/api/cwd", (*Server).apiCwd),

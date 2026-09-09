@@ -81,6 +81,11 @@ curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/lat
 **인증이 없으므로 신뢰하는 망에서만 쓰세요** — 사내망이나 Tailscale 같은
 사설망을 권합니다.
 
+여기에 더해 **Settings ▸ Access** 에서 접속을 허용할 출발지를 지정할 수 있습니다.
+IP(`100.117.248.111`) · 대역(`192.168.0.0/24`) · 이름(`macmini`) 을 넣으면 그
+출발지만 들어옵니다. 서버가 도는 컴퓨터에서는 목록과 무관하게 언제나 접속되므로
+잘못 설정해도 되돌릴 수 있습니다.
+
 **5. 멈춥니다.**
 
 ```bash

@@ -227,6 +227,8 @@
       <!-- EDITOR_LSP_SRS FR-LSP-46 -->
       <button class="mtab" data-tab="code" title="Editor and code settings">Code</button>
       <button class="mtab" data-tab="notify" title="Notification settings">Notifications</button>
+      <!-- ACCESS_ALLOWLIST_SRS FR-ACL-22: --expose 뒤의 유일한 문. -->
+      <button class="mtab" data-tab="access" title="Network access allowlist">Access</button>
       <!-- SETTINGS_PORTABILITY_SRS FR-SPT-14: 설정을 파일로 옮기는 자리. -->
       <button class="mtab" data-tab="sandbox" title="Sandbox profile settings">Sandbox</button>
       <button class="mtab" data-tab="backup" title="Backup and restore settings">Backup</button>
@@ -378,6 +380,29 @@
         <div class="ds-hint">숨은 브라우저 탭과 보이지 않는 화면에서는 아무것도 묻지 않고, 돌아오면 즉시 한 번 갚습니다. 창 전환·저장·git 명령처럼 결과를 곧바로 봐야 하는 순간은 주기와 무관하게 그때 갱신합니다.</div>
       </div>
       <!-- FR-SPT-14·15: 무엇이 실리고 무엇이 실리지 않는지를 함께 적는다. -->
+      <div class="mpanel" id="panel-access" style="display:none">
+        <div class="display-settings">
+          <div class="ds-row">
+            <span>허용 목록 적용</span>
+            <label class="sbx-flag"><input type="checkbox" id="acl-enabled"><span>켜기</span></label>
+          </div>
+          <div class="ds-hint">끄면 접속에 아무 제한이 없습니다(지금까지의 동작). 켜면 아래 목록에 있는 출발지만 들어옵니다. <b><code>--expose</code> 로 띄웠다면 이것을 켜지 않는 한 같은 네트워크의 누구나 이 서버의 터미널과 파일에 접근할 수 있습니다.</b></div>
+
+          <div class="ds-row"><span>지금 내 주소</span><span id="acl-you" class="sbx-status"></span></div>
+          <div class="ds-hint">이 값이 목록에 없으면 저장하는 순간 이 브라우저는 끊깁니다. <b>서버가 돌고 있는 컴퓨터에서는 목록과 무관하게 언제나 접속되므로</b>, 잘못 설정해도 그 컴퓨터에서 되돌릴 수 있습니다.</div>
+
+          <div class="ds-row"><span>허용 목록</span>
+            <button type="button" class="ds-toggle" id="acl-add" title="Add an allowlist entry">+ 추가</button>
+          </div>
+          <div id="acl-list" class="sbx-mounts"></div>
+          <div class="ds-hint">IP(<code>100.117.248.111</code>) · 대역(<code>192.168.0.0/24</code>) · 이름(<code>macmini</code>, <code>macmini.tail5da9ae.ts.net</code>)을 넣습니다. 이름은 서버가 주기적으로 해석해 IP 와 대조하며, 해석된 주소가 줄 끝에 보입니다 — <code>.local</code>(mDNS)은 해석되지 않습니다. 같은 기기라도 <b>tailscale 로 붙을 때와 같은 LAN 에서 붙을 때 주소가 다르므로</b>, 쓰는 경로를 모두 넣으세요.</div>
+
+          <div class="ds-row">
+            <span id="acl-status" class="sbx-status"></span>
+            <button type="button" class="ds-toggle" id="acl-save" title="Save the access allowlist">저장</button>
+          </div>
+        </div>
+      </div>
       <div class="mpanel" id="panel-sandbox" style="display:none">
         <div class="display-settings">
           <div class="ds-row">

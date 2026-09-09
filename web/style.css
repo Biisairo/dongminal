@@ -1229,6 +1229,18 @@ body.mobile #bg-btn{padding:4px 6px}
 .sbx-status.err{color:var(--accent)}
 
 
+/* ── 접속 허용 목록 (ACCESS_ALLOWLIST_SRS FR-ACL-22) ── */
+.acl-row{display:flex;align-items:center;gap:6px}
+.acl-row input[type=text]{min-width:0;padding:3px 6px;font-size:11px;
+  background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-bright)}
+.acl-row input[type=text]:focus{outline:none;border-color:var(--accent)}
+.acl-value{flex:2 1 0}
+.acl-label{flex:1 1 0}
+/* 해석 결과는 줄의 끝에서 조용히 있어야 한다 — 평소에는 배경이고, 실패했을 때만 눈에 든다. */
+.acl-state{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:10px;color:var(--text-dim)}
+.acl-state.err{color:var(--accent)}
+
 /* ── 부팅 화면 (BOOT_SCREEN_SRS 묶음 BTS) ──
    FR-BTS-7: 색은 테마의 것이다 — head 인라인이 선주입한 변수를 그대로 쓰므로,
    캐시가 있으면 사용자의 테마 색으로, 없으면 `:root` 기본값으로 그려진다 (D-2).

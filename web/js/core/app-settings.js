@@ -486,6 +486,9 @@ Object.assign(App.prototype, {
         // 샌드박스 정의는 파일이 진실이다. 열 때마다 다시 읽어야 바깥에서
         // 고친 것과 어긋나지 않는다.
         if(tab.dataset.tab==='sandbox')this._loadSandboxPanel();
+        // 허용 목록도 파일이 진실이다. 게다가 해석 상태는 관측값이라 캐시할
+        // 수 없다 — 열 때마다 서버에 묻는다.
+        if(tab.dataset.tab==='access')this._loadAccessPanel();
         // FR-LSP-47: 언어 서버의 상태는 캐시가 아니라 관측이다 — 샌드박스와
         // 같은 근거로 열 때마다 다시 읽는다.
         if(tab.dataset.tab==='code'){
@@ -508,6 +511,7 @@ Object.assign(App.prototype, {
     this._initLSP();
     this._initBackup();
     this._initSandboxPanel();
+    this._initAccessPanel();
   },
 
   _renderThemePanel(){
@@ -806,6 +810,191 @@ Object.assign(App.prototype, {
         status.textContent='저장하지 못했습니다 — '+((e&&e.message)||e);
         status.classList.add('err');
       }
+    });
+  },
+
+  /**
+   * ACCESS_ALLOWLIST_SRS 묶음 E — 접속 허용 목록 패널.
+   *
+   * 이 화면이 잠글 수 있는 것은 **원격 브라우저뿐**이다. 서버가 도는 컴퓨터는
+   * 목록과 무관하게 통과하므로(FR-ACL-5) 되돌릴 길이 언제나 남는다. 그래서
+   * 저장을 서버가 막지 않고, 여기서 한 걸음 확인만 받는다 (FR-ACL-24).
+   */
+  _aclRow(e){
+    const row=document.createElement('div');
+    row.className='acl-row';
+    row.dataset.id=(e&&e.id)||'';
+    const on=document.createElement('label');
+    on.className='sbx-flag';
+    on.title='이 줄을 적용합니다';
+    const cb=document.createElement('input');
+    cb.type='checkbox';
+    cb.checked=e?e.enabled!==false:true;
+    on.appendChild(cb);
+    const val=document.createElement('input');
+    val.type='text';val.className='acl-value';
+    val.placeholder='100.117.248.111 · 192.168.0.0/24 · macmini';
+    val.value=(e&&e.value)||'';
+    const lab=document.createElement('input');
+    lab.type='text';lab.className='acl-label';
+    lab.placeholder='이름표';
+    lab.value=(e&&e.label)||'';
+    const st=document.createElement('span');
+    st.className='acl-state';
+    // FR-ACL-16: 해석 실패가 조용히 지나가면 사용자는 규칙이 걸린 줄 안다.
+    if(e&&e.error){st.textContent='해석 실패';st.classList.add('err');st.title=e.error}
+    else if(e&&e.resolved&&e.resolved.length){st.textContent=e.resolved.join(', ');st.title='해석된 주소'}
+    const del=UIKit.button({icon:'x',title:'Remove this entry',kind:'ghost',size:'sm',cls:'sbx-del'});
+    del.addEventListener('click',()=>row.remove());
+    row.append(on,val,lab,st,del);
+    return row;
+  },
+
+  _aclCollect(){
+    const entries=[];
+    for(const row of document.querySelectorAll('#acl-list .acl-row')){
+      const value=row.querySelector('.acl-value').value.trim();
+      // 추가만 하고 두고 간 빈 줄은 조용히 버린다 (마운트 줄과 같은 규약).
+      if(!value) continue;
+      entries.push({
+        id:row.dataset.id||(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random()),
+        value,
+        label:row.querySelector('.acl-label').value.trim(),
+        enabled:row.querySelector('input[type=checkbox]').checked,
+      });
+    }
+    return {enabled:document.getElementById('acl-enabled').checked,entries};
+  },
+
+  _aclV4(s){
+    const p=String(s).split('.');
+    if(p.length!==4) return null;
+    let n=0;
+    for(const x of p){
+      const v=Number(x);
+      if(!Number.isInteger(v)||v<0||v>255||x==='') return null;
+      n=n*256+v;
+    }
+    return n>>>0;
+  },
+
+  _aclCidrHas(cidr,ip){
+    const i=cidr.indexOf('/');
+    if(i<0) return false;
+    const bits=Number(cidr.slice(i+1));
+    const a=this._aclV4(cidr.slice(0,i)),b=this._aclV4(ip);
+    if(a===null||b===null||!Number.isInteger(bits)||bits<0||bits>32) return false;
+    if(bits===0) return true;
+    const mask=(-1<<(32-bits))>>>0;
+    return ((a&mask)>>>0)===((b&mask)>>>0);
+  },
+
+  /**
+   * 저장하려는 목록이 지금 이 브라우저를 통과시키는가.
+   *
+   * **모르면 통과로 친다.** 이 판정은 경고를 낼지 말지를 정할 뿐이고, 확신 없이
+   * 경고를 띄우면 사용자가 경고를 읽지 않게 된다. 아직 해석되지 않은 새 호스트명·
+   * IPv6 대역이 그 "모르는" 경우다.
+   */
+  _aclCoversYou(cfg,you,known){
+    if(!you) return true;
+    for(const e of cfg.entries){
+      if(!e.enabled) continue;
+      if(e.value===you) return true;
+      if(e.value.indexOf('/')>=0){
+        if(this._aclCidrHas(e.value,you)) return true;
+        // 판정할 수 없는 것은 **IPv6 대역**뿐이다. IPv4 대역이라면 상대가
+        // IPv6 주소여도 결론은 확실하다 — 포함하지 않는다.
+        if(this._aclV4(e.value.slice(0,e.value.indexOf('/')))===null) return true;
+        continue;
+      }
+      const v=(known||[]).find(x=>x.value===e.value);
+      if(v&&v.resolved&&v.resolved.indexOf(you)>=0) return true;
+      if(!v&&!/^[0-9.]+$/.test(e.value)&&e.value.indexOf(':')<0) return true; // 해석 전인 새 이름
+    }
+    return false;
+  },
+
+  async _loadAccessPanel(){
+    const box=document.getElementById('acl-list');
+    const status=document.getElementById('acl-status');
+    if(!box) return;
+    box.innerHTML='';status.textContent='';status.classList.remove('err');
+    try{
+      const r=await fetch('/api/access');
+      if(!r.ok){
+        status.textContent=(await r.text()).trim()||'허용 목록을 읽지 못했습니다';
+        status.classList.add('err');
+        return;
+      }
+      const v=await r.json();
+      this._aclKnown=v.entries||[];
+      this._aclYou=v.you||'';
+      document.getElementById('acl-enabled').checked=!!v.enabled;
+      const you=document.getElementById('acl-you');
+      you.textContent=v.you||'(알 수 없음)';
+      you.title=(v.self&&v.self.length)?('이 서버의 주소: '+v.self.join(', ')):'';
+      for(const e of this._aclKnown) box.appendChild(this._aclRow(e));
+    }catch(e){
+      status.textContent='허용 목록을 읽지 못했습니다 — '+((e&&e.message)||e);
+      status.classList.add('err');
+    }
+  },
+
+  async _aclSave(cfg){
+    const status=document.getElementById('acl-status');
+    status.classList.remove('err');status.textContent='저장 중…';
+    try{
+      const r=await fetch('/api/access',{method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(cfg)});
+      if(!r.ok){
+        // 거부 사유가 그대로 온다 — 어느 줄이 잘못됐는지 모르면 고칠 수 없다.
+        status.textContent=(await r.text()).trim()||'저장하지 못했습니다';
+        status.classList.add('err');
+        return;
+      }
+      // 재로드가 상태줄을 비우므로 문구는 그 **뒤에** 쓴다. 순서가 바뀌면
+      // 저장에 성공해도 화면에는 아무 말도 남지 않는다.
+      await this._loadAccessPanel();
+      status.textContent='저장했습니다';
+    }catch(e){
+      status.textContent='저장하지 못했습니다 — '+((e&&e.message)||e);
+      status.classList.add('err');
+    }
+  },
+
+  _initAccessPanel(){
+    const add=document.getElementById('acl-add');
+    const save=document.getElementById('acl-save');
+    if(!add||!save) return;
+    add.addEventListener('click',()=>
+      document.getElementById('acl-list').appendChild(this._aclRow()));
+    save.addEventListener('click',()=>{
+      const cfg=this._aclCollect();
+      if(!cfg.enabled||this._aclCoversYou(cfg,this._aclYou,this._aclKnown)){
+        this._aclSave(cfg);
+        return;
+      }
+      // FR-ACL-24: 확인은 한 걸음이다 (CONFIRM_ONE_STAGE_SRS).
+      const body=document.createElement('div');
+      body.innerHTML='<p>이 목록은 지금 접속 중인 주소 <code>'+
+        (this._aclYou||'')+'</code> 를 허용하지 않습니다.</p>'+
+        '<p>저장하면 <b>이 브라우저의 접속이 끊깁니다.</b> 서버가 돌고 있는 컴퓨터에서는 '+
+        '언제나 접속되므로 거기서 되돌릴 수 있습니다.</p>';
+      const m=UIKit.modal({
+        title:'이 브라우저가 차단됩니다',
+        cls:'acl-confirm',
+        width:'min(460px,90vw)',
+        body,
+        // title 을 주면 그것이 aria-label 이 되어 접근 이름이 라벨을 덮는다.
+        // 라벨만 둔다 (open-url.js 와 같은 규약).
+        actions:[
+          {label:'취소'},
+          {label:'그래도 저장',kind:'danger',onClick:()=>this._aclSave(cfg)},
+        ],
+      });
+      document.body.appendChild(m.el);
     });
   },
 });

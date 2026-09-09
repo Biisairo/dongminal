@@ -66,6 +66,10 @@ type Server struct {
 	// `GitServer.Watch` 가 nil 이라 표명이 무해하게 지나간다.
 	gitWatch *hub.GitWatcher
 
+	// Access 는 접속 허용 목록이다 (ACCESS_ALLOWLIST_SRS). nil 이 아니면 게이트가
+	// 모든 표면 앞에 선다. `--expose` 뒤에 아무 제어가 없던 자리를 여기가 메운다.
+	Access *accessStore
+
 	started time.Time
 
 	// misses 는 "없는 도구를 향한 WebSocket 요청"의 되풀이를 센다
@@ -123,10 +127,19 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	// 않으므로 새 필드를 빠뜨릴 자리가 없다.
 	deps.Commands = cmds
 	deps.Settings = settings
+	accessPath := "access.json"
+	if cfg.DataDir != "" {
+		accessPath = filepath.Join(cfg.DataDir, "access.json")
+	}
+	access := newAccessStore(accessPath)
+	// 부팅 시 1회 — 자기 인터페이스 주소를 모른 채로 서면 자기 이름으로 붙는
+	// 첫 요청이 막힌다 (FR-ACL-5a).
+	access.refresh()
 	srv := &Server{
 		Deps:    deps,
 		cfg:     cfg,
 		Focus:   hub.NewFocusRegistry(),
+		Access:  access,
 		started: time.Now(),
 	}
 	runWorktreeRoot := ""
@@ -197,7 +210,9 @@ func (s *Server) Handler() http.Handler {
 	// 그물이 로깅 **안쪽**에 있어야 한다 (FR-CAF-6). 그래야 패닉으로 끝난
 	// 요청도 로그에 남고, 그물이 `responseWriter` 를 보고 "응답이 이미
 	// 시작됐는가" 를 판정할 수 있다.
-	return loggingMiddlewareFor(s, recoverMiddleware(mux))
+	// 게이트는 로깅 **안쪽**, recover **바깥쪽**이다 (FR-ACL-10): 거절이 접근
+	// 로그에 남아야 하고, mux 바깥이라야 정적 자산·/api/*·/ws 가 한 겹에 덮인다.
+	return loggingMiddlewareFor(s, accessGate(s.Access, recoverMiddleware(mux)))
 }
 
 // Run starts the HTTP server on addr and blocks until ctx is cancelled.
