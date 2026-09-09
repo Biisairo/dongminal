@@ -496,3 +496,82 @@ test.describe('T-12 — 소프트리로드의 재검증 목록 (SRS §2.4)', () 
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T-13 — 돌지 않은 회차도 마감을 다시 건다 (SCHEDULER_REARM_SRS FR-SRA-1·2)
+//
+// `_fire` 의 두 조기 반환(`!_alive` · `inflight`+`drop`)은 콜백을 부르지 않는다.
+// 그런데 그 회차의 마감(`job.nextAt`)은 **과거에 남는다** — `_tick` 은 마감을
+// 옮기지 않고 `_arm` 은 콜백이 끝난 뒤에만 불린다. 그러면 뒤이은 `_reschedule`
+// 이 과거를 가장 이른 마감으로 골라 `setTimeout(…, 0)` 을 걸고, 조건이 바뀔
+// 때까지 그것이 되풀이된다.
+//
+// **콜백 횟수로는 보이지 않는다** — 도는 것은 스케줄러이지 job 이 아니다.
+// 그래서 여기서 재는 것은 `runs` 가 아니라 **깨어난 횟수**다.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('T-13 — 돌지 않은 회차의 마감 (FR-SRA-1·2)', () => {
+  /**
+   * 원시 `setTimeout` 을 세어 스케줄러가 깨어난 횟수를 잰다. 정상이라면 주기마다
+   * 한 번(400ms/50ms ≈ 8회)이고, 스핀이면 브라우저의 최소 지연(≈4ms)마다다.
+   * 문턱 30 은 그 둘 사이의 어디를 잡아도 판정이 같은 자리다.
+   */
+  const SPIN_PROBE = `
+    const realST = window.setTimeout.bind(window);
+    let wakes = 0;
+    window.setTimeout = (fn, ms, ...a) => { wakes++; return realST(fn, ms, ...a) };
+    const restore = () => { window.setTimeout = realST };
+    const wait = (ms) => new Promise((r) => realST(r, ms));
+  `;
+
+  test('T-13 조건이 거짓인 회차가 스케줄러를 공회전시키지 않는다', async ({ page }) => {
+    await page.setContent('<!doctype html><title>rearm-when</title>');
+    await page.addScriptTag({ path: TIMER_HUB_JS });
+
+    const r = await page.evaluate(`(async () => {
+      ${SPIN_PROBE}
+      const sched = new TimerHub();
+      let on = false, n = 0;
+      const h = sched.every({ id: 't13', every: 50, when: () => on, run: () => { n++ } });
+
+      await wait(400);
+      const spun = wakes, off = n;
+
+      // 조건이 참이 되면 그 다음 회차에 돈다 — 재무장이 그 자리를 지킨다
+      // (T-10b 와 같은 계약).
+      on = true;
+      await wait(200);
+      const onCount = n;
+
+      h.stop(); restore();
+      return { spun, off, onCount };
+    })()`) as any;
+
+    expect(r.off, 'when 이 거짓인데 돌았다').toBe(0);
+    expect(r.spun, '조건이 거짓인 동안 스케줄러가 공회전했다').toBeLessThan(30);
+    expect(r.onCount, 'when 이 참이 됐는데 돌지 않았다 — 재무장이 끊겼다').toBeGreaterThan(0);
+  });
+
+  test('T-13b 주기보다 오래 걸리는 회차가 스케줄러를 공회전시키지 않는다', async ({ page }) => {
+    await page.setContent('<!doctype html><title>rearm-inflight</title>');
+    await page.addScriptTag({ path: TIMER_HUB_JS });
+
+    const r = await page.evaluate(`(async () => {
+      ${SPIN_PROBE}
+      const sched = new TimerHub();
+      let n = 0;
+      // 한 회차가 주기의 여섯 배를 쓴다 — 그 동안의 마감은 전부 겹침으로 버려진다
+      // (overlap 기본값 'drop', FR-SCH-7).
+      const h = sched.every({ id: 't13b', every: 50, run: () => { n++; return wait(300) } });
+
+      await wait(400);
+      const spun = wakes;
+
+      h.stop(); restore();
+      return { spun, n };
+    })()`) as any;
+
+    expect(r.n, '한 번도 돌지 않았다 — 검사가 성립하지 않는다').toBeGreaterThan(0);
+    expect(r.spun, '비행 중인 job 의 버려진 마감이 스케줄러를 공회전시켰다').toBeLessThan(30);
+  });
+});

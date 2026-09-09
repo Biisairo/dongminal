@@ -118,13 +118,35 @@ class TimerHub {
     return !!job.when();
   }
 
+  /**
+   * SCHEDULER_REARM_SRS FR-SRA-1·2: **돌지 않고 나가는 갈래도 마감을 다시 건다.**
+   *
+   *   이전 동작: 아래 두 `return` 이 `job.nextAt` 을 과거에 둔 채 나갔다
+   *   새  동작: 나가기 전에 `_arm` 을 지난다
+   *   이유:     이 스케줄러는 **가장 이른 마감 하나만** 예약한다 (FR-SCH-3).
+   *             과거의 마감이 하나 남으면 그것이 언제나 가장 이르므로
+   *             `_reschedule` 이 `setTimeout(…, 0)` 을 걸고, 조건이 바뀔 때까지
+   *             `_tick` → `_fire`(조기 반환) → `_reschedule` 이 브라우저의 최소
+   *             지연(≈4ms)마다 되풀이된다. 실측: 주기 50ms 의 job 이 조건 거짓인
+   *             400ms 동안 **85회** 깨어났다 (SRS §2.2)
+   *
+   * 콜백은 종전과 정확히 같은 회차에 돈다 (FR-SRA-4) — 바뀌는 것은 **스케줄러가
+   * 언제 깨어나는가**뿐이다.
+   */
   async _fire(job){
-    if(!this._alive(job)) return;
+    // 조건은 주기마다 다시 묻는다 (FR-SRA-3 / D-1). 여기서 재우면 `when` 이
+    // 참으로 바뀌어도 깨울 계기가 없다 — 그것은 임의의 술어이고 변화를 알려
+    // 주는 자리가 없다 (T-10b 가 그것을 금한다).
+    if(!this._alive(job)){ this._arm(job); return }
     if(job.inflight){
       // 겹침 정책은 job 이 고른다 (FR-SCH-7). `queue` 는 "쓰기 직후의 상태를
       // 반드시 한 번 더 본다"(FR-GIT-21), `drop` 은 "최신 스냅샷만 있으면
       // 된다". 하나로 통일하면 둘 중 하나가 깨진다.
+      //
+      // 어느 쪽이든 **이 회차를 버리는 것이지 job 을 멈추는 것이 아니다** (D-3).
+      // `queue` 가 건 마감은 비행이 끝난 뒤의 `again` 회차가 다시 덮는다.
       if(job.overlap==='queue') job.again=true;
+      this._arm(job);
       return;
     }
     job.inflight=true;
