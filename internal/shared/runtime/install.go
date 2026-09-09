@@ -354,6 +354,26 @@ func dmctlPath(binDir string) string {
 	return filepath.Join(binDir, "dmctl"+platform.Current().Paths.ExeSuffix())
 }
 
+// hookCommand 는 에이전트 훅에 적을 명령 한 줄이다 — **실행 파일만** 인용한다
+// (HOST_PARITY_SRS FR-HPR-4·5).
+//
+// 인용이 필요한 이유는 훅을 무엇이 실행하는지 우리가 정하지 못하기 때문이다.
+// Claude Code 는 Windows 에서 Git Bash 가 PATH 에 있으면 `bash -c`, 없으면
+// `cmd.exe` 로 훅을 돌리며 그 선택은 암묵적이다. 무인용 백슬래시는 bash 에서
+// escape 로 소비되어 `C:\Users\foo\…` 가 `C:Usersfoo…` 가 되고, 공백은 cmd
+// 에서 명령을 자른다 — 훅 전량이 무성 실패한다 (§2.2). 큰따옴표는 bash·cmd·
+// PowerShell 셋 모두에서 경로를 한 덩어리로 만든다.
+//
+// 인자는 감싸지 않는다. 명령 전체를 감싸면 셸이 그것을 한 덩어리 파일명으로
+// 읽는다 (D-2).
+func hookCommand(exe string, args ...string) string {
+	cmd := `"` + exe + `"`
+	if len(args) > 0 {
+		cmd += " " + strings.Join(args, " ")
+	}
+	return cmd
+}
+
 // installAgentPluginHooks writes the plugin's SessionStart hook. dmctl is
 // referenced by absolute path for the same reason installAgentHooks does it —
 // a stale dmctl earlier in PATH would not understand `agent-context`.
@@ -368,7 +388,7 @@ func installAgentPluginHooks(binDir, pluginDir string) error {
 				"matcher": "",
 				"hooks": []any{map[string]any{
 					"type":    "command",
-					"command": dmctlPath(binDir) + " agent-context",
+					"command": hookCommand(dmctlPath(binDir), "agent-context"),
 				}},
 			}},
 		},
@@ -392,9 +412,9 @@ func installAgentHooks(binDir string) error {
 	}
 	dmctl := dmctlPath(binDir)
 	notifyHook := func(label string) map[string]any {
-		return map[string]any{"type": "command", "command": dmctl + " notify " + label}
+		return map[string]any{"type": "command", "command": hookCommand(dmctl, "notify", label)}
 	}
-	activityHook := map[string]any{"type": "command", "command": dmctl + " activity claude"}
+	activityHook := map[string]any{"type": "command", "command": hookCommand(dmctl, "activity", "claude")}
 	event := func(hooks ...any) any {
 		return []any{map[string]any{"matcher": "", "hooks": hooks}}
 	}

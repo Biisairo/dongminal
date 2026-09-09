@@ -27,7 +27,7 @@ Browser (xterm.js)                    ┌─ ② dongminald ──────�
 `shared/toolhub` 를 ②③ 이 함께 실행한다.
 
 - 프론트엔드는 `go:embed` 로 바이너리에 포함.
-- 런타임 헬퍼(`dmctl`, `edit`, `download`, `detach`)는 multi-call CLI — `$DONGMINAL_HOME/bin/` 에 바이너리를 가리키는 symlink 로 설치된다. zsh/bash cwd 훅은 `go:embed` 로 풀린다. 각 터미널의 shell 은 자동으로 이 경로를 `PATH` 에 얹고 `ZDOTDIR`/`BASH_ENV` 로 훅 연결.
+- 런타임 헬퍼(`dmctl`, `edit`, `download`, `detach`)는 multi-call CLI — `$DONGMINAL_HOME/bin/` 에 바이너리를 가리키는 symlink 로 설치된다. zsh/bash cwd 훅은 `go:embed` 로 풀린다. 각 터미널의 shell 은 자동으로 이 경로를 `PATH` 에 얹고 `ZDOTDIR`(zsh)·`--rcfile`(bash) 로 훅 연결.
 - PTY 프로세스는 브라우저 새로고침해도 유지 (서버 메모리 버퍼).
 - 워크스페이스(창/분할 칸/탭) 는 `workspace.json` 에 비동기 영속화 (H5 latest-wins coalescing). 탭이 참조하는 도구는 `tools.json` 에 기록되고, 백그라운드 도구는 기록되지 않아 데몬 재시작을 넘기지 않는다.
 - 에이전트 접합면: 액션은 `dmctl` 서브커맨드, 정책은 `--plugin-dir`/`--settings` 로 세션 스코프 주입되는 스킬·훅. 등록 절차 없음. 자세히는 [docs/external/agent-orchestration.md](docs/external/agent-orchestration.md).
@@ -240,7 +240,7 @@ if (!res.ok)   { …사유를 보이고 이미 받은 목록은 지우지 않는
 ```
 PATH=<기존>:$DONGMINAL_HOME/bin
 zsh  → ZDOTDIR=$DONGMINAL_HOME/bin/zdotdir
-bash → BASH_ENV=$DONGMINAL_HOME/bin/bash-hook.sh
+bash → --rcfile $DONGMINAL_HOME/bin/bash-hook.sh   (HOST_PARITY_SRS FR-HPR-7)
 TERM=xterm-256color, COLORTERM=truecolor, LANG/LC_ALL/LC_CTYPE=en_US.UTF-8
 DONGMINAL_PORT=<서버 포트>   # main() 이 setenv, 자식 PTY 가 상속
 DONGMINAL_TOOL_ID=<도구 id>  # detach 가 자기 도구를 식별하는 근거

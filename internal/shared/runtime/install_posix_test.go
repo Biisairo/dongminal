@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"dongminal/internal/shared/agentadapter"
+	"dongminal/internal/shared/testpath"
 )
 
 // POSIX 전용 검사 (WINDOWS_TEST_PARITY_SRS FR-WTP-30·31).
@@ -70,9 +71,10 @@ func TestInstallShellHooks(t *testing.T) {
 	if err := json.Unmarshal(blob, &parsed); err != nil {
 		t.Fatalf("claude.json is not valid JSON: %v", err)
 	}
-	// Hook commands must reference dmctl by absolute path (PATH-independent).
-	wantCmd := filepath.Join(dir, "dmctl") + " notify"
-	if !strings.Contains(string(blob), wantCmd) {
+	// Hook commands must reference dmctl by absolute path (PATH-independent),
+	// 그리고 그 경로는 인용된다 (HOST_PARITY_SRS FR-HPR-4).
+	wantCmd := hookCommand(filepath.Join(dir, "dmctl"), "notify")
+	if !strings.Contains(string(blob), testpath.JSONInner(wantCmd)) {
 		t.Fatalf("claude.json should invoke %q, got:\n%s", wantCmd, blob)
 	}
 }

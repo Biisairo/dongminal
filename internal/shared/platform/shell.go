@@ -59,16 +59,35 @@ const (
 // posixShellFallbacks 는 $SHELL 이 없거나 쓸 수 없을 때의 차선이다.
 var posixShellFallbacks = []string{"/bin/bash", "/bin/sh"}
 
-// posixShellHook 은 셸별 훅 주입 방식이다. 셸마다 비대화형 시작 시 읽는
-// 파일과 그것을 가리키는 변수가 다르다. **OS 분기가 아니라 셸 분기다.**
+// posixShellHook 은 셸별 훅 주입 방식이다. 셸마다 시작 시 읽는 파일과 그것을
+// 가리키는 자리가 다르다. **OS 분기가 아니라 셸 분기다.**
 type posixShellHook struct {
 	match string
-	env   func(binDir string) string
+	// apply 는 이 셸에 훅을 건다. **거는 자리가 셸마다 다르다** — zsh 는
+	// 환경변수(ZDOTDIR)이고 bash 는 인자(--rcfile)다. 종전에는 이 필드가
+	// 환경변수만 낼 수 있었고, 그래서 bash 가 쓸 수 없는 변수에 묶여 있었다
+	// (HOST_PARITY_SRS FR-HPR-7).
+	apply func(binDir string, spec *ShellSpec)
 }
 
+// BashHookFile 은 bash 훅 스크립트의 파일명이다. 임베드 자산의 이름과 이 배선이
+// 어긋나지 않도록 상수로 둔다 — PowerShellHookFile 과 같은 사정이다.
+const BashHookFile = "bash-hook.sh"
+
 var posixShellHooks = []posixShellHook{
-	{"zsh", func(b string) string { return "ZDOTDIR=" + filepath.Join(b, "zdotdir") }},
-	{"bash", func(b string) string { return "BASH_ENV=" + filepath.Join(b, "bash-hook.sh") }},
+	{"zsh", func(b string, s *ShellSpec) {
+		s.Env = append(s.Env, "ZDOTDIR="+filepath.Join(b, "zdotdir"))
+	}},
+	// bash 는 `BASH_ENV` 로 걸 수 없다 — 그것은 **비대화형** 셸만 읽고 도구
+	// 셸은 대화형이다. 그래서 훅이 아예 로드되지 않았고, Linux 기본 환경에서
+	// `claude` 래퍼·cwd 보고·`open` 가로채기가 전부 죽어 있었다 (§2.3).
+	//
+	// `--rcfile` 이 zsh 의 ZDOTDIR 에 대응하는 자리다. 로그인 셸과 함께 쓸 수
+	// 없으므로(bash 는 로그인 셸에서 이 인자를 읽지 않는다) `-l` 을 대신하며,
+	// 로그인 셸이 읽던 profile 은 훅이 스스로 읽는다 (D-3·D-4).
+	{"bash", func(b string, s *ShellSpec) {
+		s.Args = []string{"--rcfile", filepath.Join(b, BashHookFile)}
+	}},
 }
 
 type posixShell struct {
@@ -113,7 +132,7 @@ func (s posixShell) Shell(binDir string) ShellSpec {
 	}
 	for _, h := range posixShellHooks {
 		if strings.Contains(path, h.match) {
-			spec.Env = append(spec.Env, h.env(binDir))
+			h.apply(binDir, &spec)
 			break
 		}
 	}

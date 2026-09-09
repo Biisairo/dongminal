@@ -17,6 +17,23 @@ try {
     # 인코딩을 못 바꿔도 셸은 떠야 한다.
 }
 
+# ── 히스토리 ──────────────────────────────────────────
+# 이 도구만의 명령 기록을 되살린다 (HOST_PARITY_SRS FR-HPR-14).
+#
+# PSReadLine 은 `HISTFILE` 을 읽지 않는다 — 자기 자리(ConsoleHost_history.txt)를
+# 쓰며 그것을 옮기는 길은 이 옵션 하나다. 그래서 Windows 에서는 도구별 히스토리
+# 격리가 통째로 무효였고, 재기동 한 번에 모든 터미널의 기록이 합쳐졌다 (§2.5).
+#
+# 값은 서버가 정해 `DONGMINAL_HISTFILE` 로 심는다. 여기서는 **대입만 한다** —
+# 경로 규칙이 셸 스크립트로 복제되면 두 벌이 된다 (FR-THI-20·D-7).
+if ($env:DONGMINAL_HISTFILE) {
+    try {
+        Set-PSReadLineOption -HistorySavePath $env:DONGMINAL_HISTFILE -ErrorAction SilentlyContinue
+    } catch {
+        # PSReadLine 이 없는 처지에서도 셸은 떠야 한다 (FR-HPR-15).
+    }
+}
+
 # ── cwd 통지 ──────────────────────────────────────────
 # 매 프롬프트마다 OSC 777 로 현재 디렉터리를 알린다. POSIX 훅의
 # _rt_cwd_hook 과 **같은 시퀀스**여야 한다 — 받는 쪽이 하나다.

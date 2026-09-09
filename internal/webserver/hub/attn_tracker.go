@@ -21,6 +21,14 @@ type AttnTracker struct {
 	idleThreshold int64             // nanos, 0 disables
 	busyProbe     func(string) bool // foreground-process check; nil → never idle
 
+	// allowBell 은 맨 BEL 을 알람으로 볼지다 (HOST_PARITY_SRS FR-HPR-17).
+	//
+	// **직접 모드와 같은 자리에서 온다** — 종전에는 이 값을 읽는 코드가 아예
+	// 없어 `attnPaneState.allowBell` 이 zero value 로 굳었고,
+	// `DONGMINAL_ATTENTION_BELL=1` 이 데몬 모드에서 무성 무시되었다. 이 파일
+	// 머리말이 약속한 동형성(FR-ATF-12·NFR-4)이 깨져 있던 자리다.
+	allowBell bool
+
 	// nowFn 은 이 추적기의 시계다 (ATTENTION_FIRING_SRS NFR-5). 굳은 `working`
 	// 의 판정이 시각을 보므로, 테스트가 잠들지 않고 그 자리를 재려면 시계가
 	// 주입 가능해야 한다.
@@ -66,6 +74,7 @@ func NewAttnTracker(hub CommandBroker, idleMS int) *AttnTracker {
 		tools:         map[string]*attnPaneState{},
 		hub:           hub,
 		idleThreshold: int64(idleMS) * int64(time.Millisecond),
+		allowBell:     toolhub.AttentionAllowBell(),
 		nowFn:         func() int64 { return time.Now().UnixNano() },
 	}
 	t.onAttention = func(id, reason string) {
@@ -223,7 +232,7 @@ func (t *AttnTracker) state(toolID string) *attnPaneState {
 	defer t.mu.Unlock()
 	ps := t.tools[toolID]
 	if ps == nil {
-		ps = &attnPaneState{id: toolID}
+		ps = &attnPaneState{id: toolID, allowBell: t.allowBell}
 		t.tools[toolID] = ps
 	}
 	return ps

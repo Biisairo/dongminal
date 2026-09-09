@@ -98,7 +98,12 @@ cmd_from_B
 
 `toolhub/tool.go:271` — `dmenv.EnvToolID + "=" + id` (`DONGMINAL_TOOL_ID`).
 
-### 2.7 bash 훅은 도구 셸에서 로드되지 않는다 (실측)
+### 2.7 bash 훅은 도구 셸에서 로드되지 않는다 (실측 — **해소됨**)
+
+> 이 결함은 `HOST_PARITY_SRS` 묶음 C 가 닫았다. bash 는 이제 `--rcfile` 로 뜨고,
+> 훅이 로그인 셸이 읽던 profile 을 스스로 읽는다 (FR-HPR-7·8). 아래는 당시의
+> 기록이다.
+
 
 `platform/shell.go:71` 은 bash 에 `BASH_ENV=<binDir>/bash-hook.sh` 를 심는다.
 그런데 `BASH_ENV` 는 **비대화형** 셸만 읽는다. 도구 셸은 `-l` 대화형이다.

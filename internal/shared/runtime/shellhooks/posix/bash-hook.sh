@@ -1,3 +1,32 @@
+# dongminal 셸 훅 (bash). `--rcfile` 로 읽힌다 (HOST_PARITY_SRS FR-HPR-7).
+#
+# `BASH_ENV` 를 쓸 수 없는 이유는 그것이 **비대화형** 셸만 읽기 때문이다. 도구
+# 셸은 대화형이라 이 파일이 아예 로드되지 않았고, 그동안 Linux 기본 환경에서
+# `claude` 래퍼·cwd 보고·`open` 가로채기가 전부 죽어 있었다 (SRS §2.3).
+#
+# ── 사용자 rc ────────────────────────────────────────
+# `--rcfile` 은 로그인 셸과 함께 쓸 수 없다(bash 는 로그인 셸에서 이 인자를 읽지
+# 않는다). 그래서 도구 셸은 더 이상 로그인 셸이 아니고, 로그인 셸이 읽던 것을
+# 여기서 **같은 순서로** 대신 읽는다 (FR-HPR-8, D-4).
+#
+# 실패해도 계속한다 — 사용자 rc 의 오류가 아래 훅 정의를 막으면 안 된다
+# (FR-HPR-10). `zdotdir/.zshrc` 가 사용자 `.zshrc` 를 source 하는 것과 같은 자리다.
+[ -f /etc/profile ] && . /etc/profile
+_dm_sourced_profile=
+for _dm_rc in "$HOME/.bash_profile" "$HOME/.bash_login" "$HOME/.profile"; do
+  if [ -f "$_dm_rc" ]; then
+    . "$_dm_rc"
+    _dm_sourced_profile=1
+    break
+  fi
+done
+# profile 을 하나도 읽지 못했을 때만 `.bashrc` 로 내려간다. profile 이 있으면
+# 그것이 `.bashrc` 를 부를지 정하며, 그 판단은 사용자의 것이다 — 여기서 한 번 더
+# 부르면 PATH 누적 같은 것이 두 번 일어난다.
+[ -z "$_dm_sourced_profile" ] && [ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
+unset _dm_rc _dm_sourced_profile
+
+# ── cwd 통지 ──────────────────────────────────────────
 _rt_cwd_hook() { printf '\033]777;Cwd;%s\007' "$PWD"; }
 PROMPT_COMMAND="_rt_cwd_hook${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -215,6 +216,12 @@ type windowsTerminal struct {
 	closeOnce sync.Once
 	hpcOnce   sync.Once
 
+	// hpcClosed 는 의사 콘솔이 닫혔다는 사실이다 (HOST_PARITY_SRS FR-HPR-18).
+	// `Resize` 가 이것을 보고 물러선다 — 닫힌 HPCON 에 API 를 부르면 무슨 일이
+	// 일어나는지 정의되어 있지 않고, 브라우저의 리사이즈는 `Close` 뒤에도
+	// 도착한다.
+	hpcClosed atomic.Bool
+
 	// exited 는 자식이 끝나면 닫힌다. 프로세스 핸들의 소유자는 reap 하나이며
 	// Wait 는 이 채널만 본다 — 두 곳에서 같은 핸들을 기다리다 한쪽이 닫으면
 	// 다른 쪽이 닫힌 핸들을 만진다.
@@ -253,7 +260,16 @@ func (t *windowsTerminal) reap() {
 // closePseudoConsole 은 의사 콘솔을 한 번만 닫는다. reap 과 Close 가 모두
 // 부르므로 순서를 가리지 않아야 한다.
 func (t *windowsTerminal) closePseudoConsole() {
-	t.hpcOnce.Do(func() { procClosePseudoConsole.Call(uintptr(t.hpc)) })
+	t.hpcOnce.Do(func() {
+		t.hpcClosed.Store(true)
+		procClosePseudoConsole.Call(uintptr(t.hpc))
+	})
+}
+
+// markPseudoConsoleClosed 는 API 를 부르지 않고 닫힘만 적는다. 실제 핸들이 없는
+// 상태에서 `Resize` 의 물러섬을 재려면 이 자리가 필요하다 (V-HPR-11).
+func (t *windowsTerminal) markPseudoConsoleClosed() {
+	t.hpcOnce.Do(func() { t.hpcClosed.Store(true) })
 }
 
 func (t *windowsTerminal) Read(b []byte) (int, error)  { return t.out.Read(b) }
@@ -274,6 +290,11 @@ func (t *windowsTerminal) Close() error {
 }
 
 func (t *windowsTerminal) Resize(cols, rows uint16) error {
+	// FR-HPR-18: 닫힌 뒤에는 만지지 않는다. 크기도 바꾸지 않는다 — 마지막으로
+	// 정한 값이 이 터미널이 아는 마지막 사실이다.
+	if t.hpcClosed.Load() {
+		return fmt.Errorf("의사 콘솔이 닫혔습니다")
+	}
 	ret, _, _ := procResizePseudoConsole.Call(uintptr(t.hpc), packCoord(cols, rows))
 	if ret != 0 {
 		return fmt.Errorf("ResizePseudoConsole: %w", windows.Errno(ret))

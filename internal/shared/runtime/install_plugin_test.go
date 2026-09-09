@@ -107,7 +107,8 @@ func TestInstallAgentPlugin_Hooks(t *testing.T) {
 	if _, ok := parsed.Hooks["SessionStart"]; !ok {
 		t.Fatalf("hooks.json must wire SessionStart, got: %v", parsed.Hooks)
 	}
-	want := dmctlPath(dir) + " agent-context"
+	// 실행 파일 경로는 인용된다 (HOST_PARITY_SRS FR-HPR-5).
+	want := hookCommand(dmctlPath(dir), "agent-context")
 	if !strings.Contains(string(blob), testpath.JSONInner(want)) {
 		t.Fatalf("hooks.json should invoke %q, got:\n%s", want, blob)
 	}

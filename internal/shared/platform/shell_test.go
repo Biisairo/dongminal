@@ -69,6 +69,9 @@ func TestPosixShellNeverReturnsEmpty(t *testing.T) {
 }
 
 // 셸마다 rc 를 읽는 변수가 다르다. 잘못 주입하면 훅이 조용히 안 걸린다.
+//
+// bash 는 여기 없다 — 변수가 아니라 인자(`--rcfile`)로 걸며, 그것은
+// shell_bash_test.go 가 본다 (HOST_PARITY_SRS FR-HPR-7).
 func TestPosixShellHookEnv(t *testing.T) {
 	bin := filepath.Join("/home", "u", "bin")
 	cases := []struct {
@@ -76,7 +79,6 @@ func TestPosixShellHookEnv(t *testing.T) {
 		want  string
 	}{
 		{"/bin/zsh", "ZDOTDIR=" + filepath.Join(bin, "zdotdir")},
-		{"/bin/bash", "BASH_ENV=" + filepath.Join(bin, "bash-hook.sh")},
 	}
 	for _, tc := range cases {
 		t.Run(tc.shell, func(t *testing.T) {

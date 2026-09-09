@@ -25,10 +25,11 @@ func TestInstallAgentHooks_Activity(t *testing.T) {
 		t.Fatalf("read claude.json: %v", err)
 	}
 	s := string(blob)
-	if want := testpath.JSONInner(dmctlPath(dir) + " activity claude"); !strings.Contains(s, want) {
+	// 실행 파일 경로는 인용된다 (HOST_PARITY_SRS FR-HPR-4).
+	if want := testpath.JSONInner(hookCommand(dmctlPath(dir), "activity", "claude")); !strings.Contains(s, want) {
 		t.Fatalf("claude.json should invoke %q, got:\n%s", want, s)
 	}
-	if want := testpath.JSONInner(dmctlPath(dir) + " notify done"); !strings.Contains(s, want) {
+	if want := testpath.JSONInner(hookCommand(dmctlPath(dir), "notify", "done")); !strings.Contains(s, want) {
 		t.Fatalf("attention notify hook must be preserved %q, got:\n%s", want, s)
 	}
 	var parsed struct {

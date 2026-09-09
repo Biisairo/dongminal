@@ -64,7 +64,13 @@ func runHook(t *testing.T, shell, hookRel, cmd string) string {
 	}
 	hook := filepath.Join(unpacked, hookRel)
 
-	script := ". " + hook + "\n" + cmd + "\n"
+	// PATH 를 훅 **뒤에** 다시 세운다. bash 훅은 `/etc/profile` 을 읽고
+	// (HOST_PARITY_SRS FR-HPR-8), macOS 의 `path_helper` 는 그 안에서 PATH 를
+	// 재구성해 앞에 놓아 둔 가짜 `open` 을 뒤로 민다. 재는 것은 `open` 함수의
+	// 위임이지 PATH 의 순서가 아니므로, 픽스처가 자기 전제를 되세운다.
+	script := ". " + hook + "\n" +
+		"PATH=" + filepath.Join(home, "fakebin") + string(os.PathListSeparator) + "$PATH\n" +
+		cmd + "\n"
 	c := exec.Command(shell, "-c", script)
 	c.Env = append(os.Environ(),
 		"HOME="+home,
@@ -155,7 +161,11 @@ func TestOpenHook_NoHelperDelegates(t *testing.T) {
 	if err := unpackEmbedded(shellhookFS, "shellhooks/posix", unpacked); err != nil {
 		t.Fatal(err)
 	}
-	c := exec.Command("bash", "-c", ". "+filepath.Join(unpacked, "bash-hook.sh")+"\nopen https://x.dev\n")
+	// PATH 를 훅 뒤에 되세우는 이유는 runHook 과 같다 (FR-HPR-8).
+	script := ". " + filepath.Join(unpacked, "bash-hook.sh") + "\n" +
+		"PATH=" + filepath.Join(home, "fakebin") + string(os.PathListSeparator) + "$PATH\n" +
+		"open https://x.dev\n"
+	c := exec.Command("bash", "-c", script)
 	c.Env = append(os.Environ(), "HOME="+home, "DONGMINAL_HOME="+home,
 		"PATH="+filepath.Join(home, "fakebin")+string(os.PathListSeparator)+os.Getenv("PATH"))
 	if out, err := c.CombinedOutput(); err != nil {

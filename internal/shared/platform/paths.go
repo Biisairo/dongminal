@@ -222,7 +222,41 @@ func statRegular(path string) (os.FileInfo, bool) {
 // Windows 는 symlink 를 시도하지 않는다 (FR-XPA-3). 개발자 모드가 아닌 계정에서
 // symlink 는 관리자 권한을 요구하므로, 시도했다 복사로 물러서는 흐름은 매 기동마다
 // 권한 오류만 남기고 결과는 같다.
-func (windowsPaths) LinkOrCopy(src, dst string) error { return copyExecutable(src, dst) }
+//
+// **하드링크는 다르다** — 권한을 요구하지 않는다 (HOST_PARITY_SRS FR-HPR-11).
+// 헬퍼 다섯은 모두 이 바이너리 자신이므로, 복사하면 매 기동마다 그 크기의 다섯
+// 배를 쓴다. 볼륨이 다르거나 파일시스템이 지원하지 않으면 실패하며, 그때가
+// 종전의 복사다 (D-5).
+//
+// 링크도 **옆에 걸고 rename 으로 덮는다** — posix 갈래가 symlink 에 그렇게 하는
+// 이유(FR-ATI-1: 그 창에 exec 한 훅이 죽는다)가 여기에도 그대로 있다.
+func (windowsPaths) LinkOrCopy(src, dst string) error {
+	if sameFileAt(src, dst) {
+		return nil
+	}
+	tmp := tempSibling(dst)
+	if err := os.Link(src, tmp); err == nil {
+		if err := replaceFile(tmp, dst); err == nil {
+			return nil
+		}
+	}
+	_ = os.Remove(tmp)
+	return copyExecutable(src, dst)
+}
+
+// sameFileAt 은 두 경로가 같은 실체인지다. 하드링크에는 posix 갈래의
+// `Readlink` 에 해당하는 되묻기가 없으므로 파일 동일성으로 본다.
+func sameFileAt(a, b string) bool {
+	fa, err := os.Stat(a)
+	if err != nil {
+		return false
+	}
+	fb, err := os.Stat(b)
+	if err != nil {
+		return false
+	}
+	return os.SameFile(fa, fb)
+}
 
 // windowsLogFile 은 로그 자리를 정한다. env·tempDir 주입점은 테스트를 위한
 // 것이다 — 이 함수는 build tag 가 없어 어느 호스트에서도 검증된다 (§4.2).

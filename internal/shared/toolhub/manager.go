@@ -121,7 +121,7 @@ func NewToolManager(dataDir string, invalidator func(string)) *ToolManager {
 		dataDir:       dataDir,
 		invalidator:   invalidator,
 		idleThreshold: int64(AttentionIdleThreshold()),
-		allowBell:     attentionAllowBell(),
+		allowBell:     AttentionAllowBell(),
 	}
 }
 

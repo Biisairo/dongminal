@@ -49,9 +49,13 @@ func AttentionIdleThreshold() time.Duration {
 	return time.Duration(ms) * time.Millisecond
 }
 
-// attentionAllowBell resolves whether a bare BEL counts as an attention signal.
+// AttentionAllowBell resolves whether a bare BEL counts as an attention signal.
 // Off by default (BEL is noisy: tab-completion, etc.).
-func attentionAllowBell() bool {
+//
+// 공개인 이유는 데몬 모드가 **같은 자리**를 딛어야 하기 때문이다
+// (HOST_PARITY_SRS FR-HPR-17). 종전에는 데몬 모드가 이 값을 읽는 코드 자체가
+// 없어 `DONGMINAL_ATTENTION_BELL` 이 그쪽에서 무성 무시되었다.
+func AttentionAllowBell() bool {
 	return os.Getenv("DONGMINAL_ATTENTION_BELL") == "1"
 }
 
@@ -171,11 +175,16 @@ func isAttentionOSC(body []byte) bool {
 	case "99":
 		return true
 	case "9":
-		// OSC 9;4;... is ConEmu/Windows-Terminal progress, not a notification.
-		if bytes.Equal(rest, []byte("4")) || bytes.HasPrefix(rest, []byte("4;")) {
-			return false
-		}
-		return true
+		// OSC 9 는 두 규약이 한 번호를 나눠 쓴다 (HOST_PARITY_SRS FR-HPR-1·2).
+		//
+		//	ConEmu 확장   ESC ] 9 ; <숫자> ; …    제어 명령이다
+		//	iTerm2 알림   ESC ] 9 ; <문장>        이것만 알림이다
+		//
+		// 종전에는 `9;4`(progress) 하나만 걸러 냈다. 그래서 Windows 프롬프트가
+		// 매번 내보내는 `9;9;<경로>`(CWD 보고)가 알람이 되었고, 명령 하나가
+		// 끝날 때마다 알람이 울렸다. 목록을 적어 두면 늘어나는 쪽을 우리가
+		// 뒤따르게 되므로 **규약 자체**로 가른다 (D-1).
+		return !isConEmuExtension(rest)
 	case "777":
 		sub := rest
 		if j := bytes.IndexByte(rest, ';'); j >= 0 {
@@ -184,6 +193,25 @@ func isAttentionOSC(body []byte) bool {
 		return string(sub) == "notify"
 	}
 	return false
+}
+
+// isConEmuExtension 은 OSC 9 의 본문이 ConEmu 의 제어 명령인지다 — 첫 필드가
+// **숫자로만** 이루어져 있으면 그렇다. 본문이 없는 `OSC 9` 는 확장이 아니다
+// (알릴 것이 비었을 뿐 알림이다).
+func isConEmuExtension(rest []byte) bool {
+	head := rest
+	if i := bytes.IndexByte(rest, ';'); i >= 0 {
+		head = rest[:i]
+	}
+	if len(head) == 0 {
+		return false
+	}
+	for _, c := range head {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // boundedCarry copies frag for use as the next carry, or returns nil when it

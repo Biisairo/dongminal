@@ -186,9 +186,11 @@ func doctorInstall(r *checkReport, p platform.Platform, home, binDir string) {
 			r.ok("훅 존재: %s", path)
 		}
 	}
+	// 환경변수로 거는 셸은 zsh 뿐이다. bash 는 인자(`--rcfile`)로 걸리며 위
+	// 루프가 이미 그것을 본다 (HOST_PARITY_SRS FR-HPR-7).
 	for _, kv := range spec.Env {
 		k, v, ok := strings.Cut(kv, "=")
-		if !ok || (k != "BASH_ENV" && k != "ZDOTDIR") {
+		if !ok || k != "ZDOTDIR" {
 			continue
 		}
 		if _, err := os.Stat(v); err != nil {

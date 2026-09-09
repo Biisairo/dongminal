@@ -54,8 +54,29 @@ func toolHistEnv(id, shellPath string) []string {
 		return nil
 	}
 	path := filepath.Join(dir, id+"."+shell)
-	seedHistFile(path, filepath.Join(toolHome(), "."+shell+"_history"))
+	seedHistFile(path, userHistFile(shell))
 	return []string{"HISTFILE=" + path, dmenv.EnvHistFile + "=" + path}
+}
+
+// userHistFile 은 그 셸이 **평소 쓰는** 히스토리 자리다. 시드의 원본이며 규칙이
+// 셸마다 다르다 (HOST_PARITY_SRS FR-HPR-16).
+//
+// PowerShell 만 홈 밑의 점파일이 아니다 — PSReadLine 은 로밍 프로필 아래 고정된
+// 자리를 쓴다. 종전에는 이 갈래가 없어 `~/.powershell_history` 라는 실재하지 않는
+// 파일을 시드 원본으로 삼았고, Windows 사용자는 새 도구마다 빈 기록을 받았다.
+//
+// 규칙이 여기 한 곳에 있는 이유는 FR-THI-20 이다 — 훅 스크립트로 새면 두 벌이
+// 된다.
+func userHistFile(shell string) string {
+	if shell == "powershell" || shell == "pwsh" {
+		base := os.Getenv("APPDATA")
+		if base == "" {
+			return ""
+		}
+		return filepath.Join(base, "Microsoft", "Windows", "PowerShell",
+			"PSReadLine", "ConsoleHost_history.txt")
+	}
+	return filepath.Join(toolHome(), "."+shell+"_history")
 }
 
 // histShellName 은 실행 경로에서 셸 이름을 뽑는다 — `/bin/zsh` → `zsh`,

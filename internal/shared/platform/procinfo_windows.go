@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -29,14 +30,13 @@ const (
 	afInet6             = 23
 )
 
-// procEntry 는 스냅샷 한 줄이다.
-type procEntry struct {
-	pid, ppid int
-	name      string
-}
+// winSnaps 는 이 프로세스의 스냅샷 캐시다. 조회 셋(HasChildren·Names·ParentPID)이
+// 한 벌을 나눠 쓴다 (HOST_PARITY_SRS FR-HPR-12).
+var winSnaps = &snapCache{ttl: winSnapTTL, now: time.Now, load: processSnapshot}
 
 // processSnapshot 은 전체 프로세스 목록을 한 번에 읽는다. pid 마다 조회하지
-// 않는 이유는 NFR-XP-4 다.
+// 않는 이유는 NFR-XP-4 다. 부르는 자리는 winSnaps 하나이며, 그 캐시가 호출
+// 빈도와 무관하게 상한을 세운다.
 func processSnapshot() ([]procEntry, error) {
 	snap, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
 	if err != nil {
@@ -61,7 +61,7 @@ func (windowsProcInfo) HasChildren(pid int) bool {
 	if pid <= 0 {
 		return false
 	}
-	entries, err := processSnapshot()
+	entries, err := winSnaps.get()
 	if err != nil {
 		return false
 	}
@@ -88,7 +88,7 @@ func (windowsProcInfo) Names(pids []int) map[int]string {
 	if len(want) == 0 {
 		return res
 	}
-	entries, err := processSnapshot()
+	entries, err := winSnaps.get()
 	if err != nil {
 		return res
 	}
@@ -112,7 +112,7 @@ func (windowsProcInfo) ParentPID(pid int) (int, bool) {
 	if pid <= 0 {
 		return 0, false
 	}
-	entries, err := processSnapshot()
+	entries, err := winSnaps.get()
 	if err != nil {
 		return 0, false
 	}
