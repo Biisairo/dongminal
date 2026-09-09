@@ -423,7 +423,10 @@ Object.assign(App.prototype, {
     this._slotRenderArmed=true;
     window.addEventListener('mouseup',()=>{
       this._slotRenderArmed=false;
-      setTimeout(()=>this._slotRenderFlush(),0);
+      // FR-SCH-13: `defer` 는 기다리는 것이 아니라 **순서를 미루는 것**이다 —
+      // 이 자리가 원하는 것이 정확히 그것이다. click 은 mouseup 의 **뒤에**
+      // 서므로, 마감을 가진 지연이 아니라 다음 태스크여야 한다.
+      this.timers.defer(()=>this._slotRenderFlush(),{owner:'slots',label:'render-flush'});
     },{once:true});
   },
 
