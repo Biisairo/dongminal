@@ -4,8 +4,132 @@
  * / _buildSp / _handle 책임을 분리. Renderer 내부 메서드 호출은 this.X 로,
  * App 상태·메서드는 this.app.X 로 접근한다. 동작은 1:1 보존.
  */
+// `#area` 에서 이 렌더러가 임자인 요소들. 나머지는 남의 것이므로 건드리지 않는다.
+const LAYOUT_CLASSES=['sp','pn','ed-win','slot','slot-handle'];
+
 class Renderer {
-  constructor(app){ this.app = app; }
+  constructor(app){
+    this.app = app;
+    /**
+     * PANE_DOM_RECONCILE_SRS FR-PDR-1: 키 → 골격 요소.
+     *
+     * `render()` 는 레이아웃을 **다시 짓지 않는다.** 같은 자리에 같은 것이 다시
+     * 오면 그때 만든 요소를 그대로 쓴다. 골격이 남으면 그 안의 라이브 위젯
+     * (xterm·편집기·Git 패널·Run 뷰)이 DOM 에서 움직이지 않고, 움직이지 않으면
+     * 스크롤을 갈무리했다 되돌릴 일 자체가 없다 (SRS §2.3 의 결함이 사라지는
+     * 자리다).
+     */
+    this._dom = new Map();
+    // 이번 그리기에서 쓰인 키. 쓰이지 않은 것은 끝에서 거둔다.
+    this._domUsed = new Set();
+    // 이번 그리기에서 pane 본문에 붙은 위젯 요소들 (FR-PDR-9).
+    this._mounted = new Set();
+    // 이번 그리기에서 **실제로 부모가 바뀐** 터미널 (FR-PDR-10). 사후 처리는
+    // 이 목록에만 적용한다 — 재사용된 것은 건드리지 않는다.
+    this._moved = [];
+  }
+
+  /**
+   * FR-PDR-1: 키로 골격을 재사용한다. 없을 때만 `make()` 로 만든다.
+   *
+   * 이벤트 배선은 `make()` 안에서만 한다 (FR-PDR-7). 재사용할 때마다 다시 걸면
+   * 클릭 한 번이 두 번 동작하고, 걸지 않으면 낡은 클로저를 본다 — 그래서
+   * 핸들러가 읽는 가변 컨텍스트는 클로저가 아니라 요소에 붙인다 (FR-PDR-8).
+   */
+  _keep(key,make){
+    let el=this._dom.get(key);
+    if(!el){ el=make(); this._dom.set(key,el) }
+    this._domUsed.add(key);
+    return el;
+  }
+
+  /**
+   * FR-PDR-1·3: `parent` 의 자식을 `list` 로 맞춘다.
+   *
+   * **이미 그 자리에 있는 것은 건드리지 않는다.** 같은 부모에 `appendChild` 를
+   * 다시 부르는 것도 DOM 에서는 떼었다 붙이는 것이며, 그 한 번에 스크롤이
+   * 사라진다 — 이 함수의 존재 이유가 그 한 줄을 없애는 것이다.
+   */
+  _place(parent,list){
+    let ref=parent.firstChild;
+    for(const el of list){
+      if(ref===el){ ref=el.nextSibling; continue }
+      parent.insertBefore(el,ref);
+    }
+    while(ref){ const next=ref.nextSibling; ref.remove(); ref=next }
+  }
+
+  /**
+   * `#area` 전용 배치. 그 자리에는 레이아웃 말고도 남의 보관물이 온다 — Git 패널이
+   * 창을 닫을 때 자기 뷰를 여기로 물린다 (`panel-life` 의 `detach`). `_place` 로
+   * 쓸면 그것까지 지우므로, **레이아웃 요소만** 대상으로 삼는다.
+   */
+  _placeLayout(parent,list){
+    const mine=el=>LAYOUT_CLASSES.some(c=>el.classList.contains(c));
+    for(const c of [...parent.children]) if(mine(c)&&!list.includes(c)) c.remove();
+    let prev=null;
+    for(const el of list){
+      const want=prev?prev.nextSibling:parent.firstChild;
+      if(el!==want) parent.insertBefore(el,want);
+      prev=el;
+    }
+  }
+
+  // 이번 그리기에서 쓰이지 않은 골격을 거둔다. 그 안에 있던 라이브 위젯은
+  // 인스턴스가 잡고 있으므로 사라지지 않는다 — 다시 쓰일 때 옮겨 붙는다.
+  _domGC(){
+    for(const [k,el] of [...this._dom]){
+      if(this._domUsed.has(k)) continue;
+      this._dom.delete(k);
+      if(el&&el.remove) el.remove();
+    }
+  }
+
+  /**
+   * FR-PDR-11·12: 옮기기 **직전**의 시선. 절대 위치보다 먼저 "맨 아래에 붙어
+   * 있었는가"를 적는다 — 출력이 흐르는 터미널에서는 그것만이 뜻을 잃지 않는다.
+   */
+  _grabScroll(p){
+    const rec={p,atBottom:true,y:0,top:0,alt:false};
+    try{
+      const buf=p.term&&p.term.buffer.active;
+      if(buf){
+        rec.alt=buf.type==='alternate';
+        rec.y=buf.viewportY;
+        rec.atBottom=buf.viewportY>=buf.baseY;
+      }
+      const vp=p.el.querySelector('.xterm-viewport');
+      if(vp) rec.top=vp.scrollTop;
+    }catch{}
+    return rec;
+  }
+
+  /**
+   * FR-PDR-10~12: 옮겨진 터미널 하나의 시선을 되돌린다.
+   *
+   * 맨 아래에 있었으면 **맨 아래로** 보낸다. 그 사이 출력이 들어와 버퍼가 길어졌어도
+   * 옳은 자리이며, 라인 번호로 되돌리면 그 순간 `ydisp !== ybase` 가 되어 xterm 이
+   * 이후 출력을 따라가지 않는다 (§2.3).
+   *
+   * 대체 화면에는 되돌릴 스크롤이 없다. 그 위에 픽셀을 대입하면 해가 된다.
+   */
+  _restoreScrollOf(rec){
+    const p=rec&&rec.p;
+    if(!p||!p.term||!p.el.classList.contains('vis')) return;
+    try{
+      const buf=p.term.buffer.active;
+      if(rec.alt||buf.type==='alternate') return;
+      if(rec.atBottom){ p.term.scrollToBottom(); return }
+      const max=Math.max(0,buf.length-p.term.rows);
+      const target=Math.min(Math.max(0,rec.y),max);
+      // xterm 은 `scrollToLine(ydisp)` 를 무시하므로(early return) 한 번 흔들어
+      // `_onScroll` 을 깨운다 — 그래야 DOM 의 scrollTop 이 함께 맞는다.
+      if(target>0){ p.term.scrollToTop(); p.term.scrollToLine(target) }
+      else if(max>0){ p.term.scrollToBottom(); p.term.scrollToTop() }
+      const vp=p.el.querySelector('.xterm-viewport');
+      if(vp&&rec.top) vp.scrollTop=rec.top;
+    }catch{}
+  }
 
   render(){
     const oldFocus=this.app._prevFocus;
@@ -25,6 +149,10 @@ class Renderer {
     // guaranteed to exist (BroadcastChannel may trigger _applyFocusOverlay
     // before the first render completes).
     this.app._applyFocusOverlay();
+    // UX_BATCH9_SRS FR-GLR-1: 그리고 난 자리에서 묻는다 — 지금 보이는 표면의
+    // 관측이 멎어 있지는 않은가. 표면 판정이 정확하려면 레이아웃이 선 **뒤**여야
+    // 한다.
+    this.app._gitWatchdogAll();
   }
 
   /**
@@ -212,25 +340,13 @@ class Renderer {
   _rLayout(){
     const area=document.getElementById('area');
     const app=this.app;
-    // FR-SCR-1: **무엇보다 먼저** 잰다. 아래에서 `.ed-win`·`.pn` 을 지우는 순간
-    // 그 안의 캐시 DOM 이 문서에서 떨어지고, 떨어진 요소의 스크롤 위치는
-    // 브라우저가 버린다 (SRS §2.6).
+    // FR-SCR-1: **무엇보다 먼저** 잰다 — git 뷰의 스크롤이다. 터미널은 이제
+    // 움직이지 않으므로 여기 없다 (PANE_DOM_RECONCILE_SRS FR-PDR-20).
     this._keepScrollAll();
-    for(const p of app.tools.values()){
-      if(p.el.classList.contains('vis')){
-        const vp=p.el.querySelector('.xterm-viewport');
-        if(vp) p._scrollTop=vp.scrollTop;
-        if(p.term){try{p._viewportY=p.term.buffer.active.viewportY}catch{}}
-      }
-      p.el.classList.remove('vis');area.appendChild(p.el);
-    }
-    for(const v of app.fileEditors.values()){
-      v.el.classList.remove('vis');area.appendChild(v.el);
-    }
-    for(const c of [...area.children]){
-      if(c.classList.contains('sp')||c.classList.contains('pn')||c.classList.contains('ed-win')
-        ||c.classList.contains('slot')||c.classList.contains('slot-handle'))c.remove();
-    }
+    // FR-PDR-1·9: 이번 그리기의 장부를 연다. `_moved` 는 여기서 비우지 않는다 —
+    // 프레임이 오기 전에 다시 그려지면 그 이동이 장부에서 사라진다.
+    this._domUsed=new Set();
+    this._mounted=new Set();
     // WINDOW_SLOTS_SRS FR-WSL-4·60: 단일 슬롯 모드와 모바일에서는 슬롯 컨테이너를
     // 만들지 않는다. `.sp`·`.pn` 의 `inset:0` 이 딛는 조상이 바뀌면 기존 e2e 가
     // 전부 그 위에 서 있으므로(D-4), 슬롯이 1개일 때의 DOM 은 지금과 같아야 한다.
@@ -242,43 +358,41 @@ class Renderer {
     }else{
       area.dataset.slotdir=app.slotDir;
       const n=app.slotCount();
+      // 골격을 먼저 세워 자리에 놓고, 본문은 그다음에 채운다 — 붙기 전에 채우면
+      // 첫 그리기에서 문서 밖의 요소를 재는 코드가 생긴다.
+      const kids=[],bodies=[];
       for(let i=0;i<n;i++){
-        const el=document.createElement('div');
-        el.className='slot'+(i===slots.focused?' slot-focused':'');
-        el.dataset.slot=String(i);
+        const el=this._keep('slot:'+i,()=>this._makeSlot(i));
         const win=app._slotWindow(i);
-        if(!win) el.classList.add('slot-empty');   // FR-WSL-6
-        // FR-WSL-55 / FR-SVS-61: 포커스는 mousedown 에 옮기고 **그리기는 클릭이
-        // 끝난 뒤**로 미룬다. 여기서 곧바로 그리면 이 클릭이 어떤 핸들러에도
-        // 닿지 못한다 (§2.11).
-        el.addEventListener('mousedown',()=>{if(app._slotFocused()!==i)app.slotFocusTo(i,{deferRender:true})});
-        // 클릭이 자기 일로 render 를 돌면 `App.render` 가 플래그를 지우므로 이
-        // 자리는 아무 일도 하지 않는다. 빈 자리를 눌러 아무 핸들러도 걸리지
-        // 않았을 때를 위한 자리다 — 그때도 사이드바의 활성 표시는 따라와야 한다.
-        el.addEventListener('click',()=>app._slotRenderFlush());
-        // FR-WSL-35: 칸이 둘을 넘으면 위치만으로는 어느 칸이 무슨 창인지 읽히지
-        // 않는다. 이름을 적는다 (D-10). 흐리게 하는 방식은 쓸 수 없다 — 그것은
-        // 이미 소유권 없음(`.pn-dimmed`)의 뜻이다.
-        const head=document.createElement('div');
-        head.className='slot-head';
+        el.classList.toggle('slot-focused',i===slots.focused);
+        el.classList.toggle('slot-empty',!win);   // FR-WSL-6
+        el.dataset.slot=String(i);
+        // FR-WSL-35 / D-10: 칸이 둘을 넘으면 위치만으로는 어느 칸이 무슨 창인지
+        // 읽히지 않는다. 이름을 적는다.
+        const head=this._keep('slot:'+i+'/head',()=>{
+          const h=document.createElement('div'); h.className='slot-head'; return h;
+        });
         head.textContent=win?this._rWinTitle(win):'창 없음';
-        el.appendChild(head);
-        // 분할 트리는 `inset:0` 으로 조상을 채우므로(§2.2) 머리글과 겹치지 않게
-        // 자기 몫의 상자를 준다.
-        const body=document.createElement('div');
-        body.className='slot-body';
-        el.appendChild(body);
-        area.appendChild(el);
+        // 분할 트리는 `inset:0` 으로 조상을 채우므로 머리글과 겹치지 않게 자기
+        // 몫의 상자를 준다.
+        const body=this._keep('slot:'+i+'/body',()=>{
+          const b=document.createElement('div'); b.className='slot-body'; return b;
+        });
+        this._place(el,[head,body]);
+        kids.push(el);
+        bodies.push([i,win,body]);
         if(i<n-1){
-          const h=document.createElement('div');
-          h.className='slot-handle';
-          h.dataset.slotHandle=String(i);
-          area.appendChild(h);
-          app._slotHandleBind(h,i);               // FR-WSL-32
+          kids.push(this._keep('slot:'+i+'/handle',()=>{
+            const h=document.createElement('div');
+            h.className='slot-handle';
+            h.dataset.slotHandle=String(i);
+            app._slotHandleBind(h,i);            // FR-WSL-32 — 배선은 만들 때 한 번
+            return h;
+          }));
         }
-        this._rSlot=i;
-        this._rWindowInto(win,body);
       }
+      this._placeLayout(area,kids);
+      for(const [i,win,body] of bodies){ this._rSlot=i; this._rWindowInto(win,body) }
       app._slotApplySizes();
       this._rSlot=0;
     }
@@ -301,53 +415,22 @@ class Renderer {
     // 사이드가 비어 버린다 — 실측으로 확인한 결함이다.
     if(!app._gitWindow()&&app._gitPanels)
       for(const p of app._gitPanels.values()) if(!p.root) p.detach();
+    // FR-PDR-9: 이번에 어디에도 붙지 못한 위젯만 물러난다. **떼지 않는다** —
+    // 자리를 지키고 있어야 다시 보일 때 옮기지 않는다.
+    for(const p of app.tools.values()) if(!this._mounted.has(p.el)) p.el.classList.remove('vis');
+    for(const v of app.fileEditors.values()) if(!this._mounted.has(v.el)) v.el.classList.remove('vis');
+    this._domGC();
     TIMERS.frame(()=>{
       for(const p of app.tools.values()){
         if(p.el.classList.contains('vis')){
           if(!p._opened)p.open();
           p.doFit();
-          // Restore scrollback after DOM detach.
-          //
-          // xterm v5 keeps two states: internal `buffer.ydisp` (drives row
-          // rendering) and DOM `.xterm-viewport.scrollTop` (drives scrollbar
-          // and scroll events). Detach + display:none + reattach via
-          // appendChild fires scroll events which `_handleScroll` either
-          // ignores (offsetParent null) or applies (offsetParent non-null).
-          // The exact timing is browser-dependent, leaving us in any of:
-          //   (a) ydisp preserved, scrollTop reset → scrollbar at top, content correct
-          //   (b) ydisp reset, scrollTop preserved → scrollbar at original, content at top
-          //   (c) both reset → both at top  (the user-reported case)
-          //   (d) both preserved → no fix needed
-          // `term.scrollLines(delta)` early-returns when delta==0, so the
-          // case where ydisp matches our target is a no-op and leaves the
-          // DOM unsynced. We force a guaranteed resync by toggling ydisp
-          // through 0 (or away from target if target==0) before scrolling
-          // back, which always fires `_onScroll` → `syncScrollArea` →
-          // `_innerRefresh`. _innerRefresh then sets scrollTop = ydisp *
-          // rowHeight authoritatively. As a safety net we also write the
-          // captured pixel value directly.
-          if(p.term&&typeof p._viewportY==='number'){
-            try{
-              const buf=p.term.buffer.active;
-              const max=Math.max(0,buf.length-p.term.rows);
-              const target=Math.min(Math.max(0,p._viewportY),max);
-              if(target>0){
-                p.term.scrollToTop();
-                p.term.scrollToLine(target);
-              }else if(max>0){
-                p.term.scrollToBottom();
-                p.term.scrollToTop();
-              }else{
-                p.term.scrollToTop();
-              }
-            }catch{}
-          }
-          if(typeof p._scrollTop==='number'){
-            const vp=p.el.querySelector('.xterm-viewport');
-            if(vp){try{vp.scrollTop=p._scrollTop}catch{}}
-          }
         }
       }
+      // FR-PDR-10: **옮겨진 것만** 되돌린다. 재사용된 pane 은 이 목록에 없고,
+      // 그래서 어떤 스크롤 API 도 닿지 않는다 — 그것이 이 작업의 요점이다.
+      const moved=this._moved; this._moved=[];
+      for(const rec of moved) this._restoreScrollOf(rec);
       // FR-MTI-25: 모바일에서는 render 가 터미널에 focus 하지 않는다. focus 된
       // 입력 요소가 있으면 Android Chrome 이 탭마다 키보드를 재표시하므로, 첫
       // 로드와 모든 재렌더가 키보드를 불러들이게 된다. 모바일에서 키보드를
@@ -374,6 +457,24 @@ class Renderer {
   }
 
   /**
+   * FR-WSL-55 / FR-SVS-61 (FR-PDR-7): 칸 하나의 껍데기. **배선은 여기 한 번뿐이다** —
+   * 칸의 자리(인덱스)가 곧 키이므로 `i` 는 이 요소에 대해 변하지 않는다.
+   *
+   * 포커스는 mousedown 에 옮기고 **그리기는 클릭이 끝난 뒤**로 미룬다. 여기서
+   * 곧바로 그리면 이 클릭이 어떤 핸들러에도 닿지 못한다 (§2.11).
+   */
+  _makeSlot(i){
+    const app=this.app;
+    const el=document.createElement('div');
+    el.className='slot';
+    el.addEventListener('mousedown',()=>{if(app._slotFocused()!==i)app.slotFocusTo(i,{deferRender:true})});
+    // 클릭이 자기 일로 render 를 돌면 `App.render` 가 플래그를 지우므로 이 자리는
+    // 아무 일도 하지 않는다. 빈 자리를 눌렀을 때를 위한 자리다.
+    el.addEventListener('click',()=>app._slotRenderFlush());
+    return el;
+  }
+
+  /**
    * 슬롯 하나(또는 단일 슬롯 모드의 `#area`)에 창 하나를 그린다.
    *
    * `_rLayout` 에서 뽑아낸 것이며 동작은 그대로다 — 달라진 것은 **붙일 자리를
@@ -382,16 +483,21 @@ class Renderer {
    */
   _rWindowInto(s,host){
     const app=this.app;
-    // FR-RTU-60: 지금 그리는 창. `_rSlot` 과 같은 규약이다 — 탭 본문을 붙이는
-    // 자리(`_mountTabBody`)가 **그 탭이 어느 창의 것인지** 알아야 패널을 고를
-    // 수 있고, 슬롯이 여럿이면 그 창은 활성 창이 아닐 수 있다.
+    // FR-RTU-60: 지금 그리는 창. 탭 본문을 붙이는 자리(`_mountTabBody`)가 **그 탭이
+    // 어느 창의 것인지** 알아야 패널을 고를 수 있다.
     this._rWin=s;
     // FR-EDT-46: Editor 창은 좌우 둘로 나뉜다 — 좌측 탐색기는 분할 트리 **밖**의
-    // 고정 영역이므로 트리가 붙을 자리를 우측으로 바꾼다.
-    const h=app._isEditorWin(s)?this._rEditorWin(s,host):host;
+    // 고정 영역이므로 트리가 붙을 자리를 우측으로 바꾼다. 골격은 재사용한다.
+    const ed=app._isEditorWin(s)?this._rEditorWin(s):null;
+    if(ed) this._placeLayout(host,[ed.root]);
+    const h=ed?ed.main:host;
     // FR-EDT-55: pane 이 하나도 없는 창이 있다. 그리기를 건너뛴다 — 죽은 편집기
     // 회수는 호출자(_rLayout)가 슬롯 바깥에서 한다.
-    if(!s||!s.layout) return;
+    if(!s||!s.layout){
+      // 옛 트리가 남아 있으면 거둔다. Editor 창은 `_rEditorWin` 이 안내문을 놓았다.
+      if(!ed) this._placeLayout(host,[]);
+      return;
+    }
     // 포커스 보정은 **포커스 슬롯에서만** 한다. 비포커스 슬롯의 창을 그린다고
     // 해서 `app.focused`(포커스 슬롯의 pane)를 옮기면 안 된다.
     const isFocusedSlot=this._rSlot===app._slotFocused();
@@ -415,12 +521,12 @@ class Renderer {
         const fIdx=regs.findIndex(r=>r.id===app.focused);
         if(fIdx>=0) app._mPaneIdx=fIdx+off;
         const target=regs[app._mPaneIdx-off];
-        if(target){app._setFocus(target.id,s);dom=this._buildPane(target)}
+        if(target){app._setFocus(target.id,s);dom=this._buildPane(target,'m')}
       }
     }else{
-      dom=this._buildNode(s.layout);
+      dom=this._buildNode(s.layout,'0');
     }
-    if(dom&&h) h.appendChild(dom);
+    if(h) this._placeLayout(h,dom?[dom]:[]);
   }
 
   /**
@@ -432,47 +538,59 @@ class Renderer {
    * 탐색기의 내용은 M3 의 것이다. 여기서는 자리와 폭만 잡는다.
    * 분할 트리가 붙을 요소를 돌려준다.
    */
-  _rEditorWin(s,area){
-    const el=document.createElement('div'); el.className='ed-win';
+  _rEditorWin(s){
+    const app=this.app, slot=this._rSlot||0;
+    // FR-PDR-1: 골격은 창(과 칸)마다 하나다. 이것이 남아 있어야 `.ed-area` 안의
+    // 분할 트리도, 그 안의 터미널도 제자리를 지킨다.
+    const key='edwin:'+slot+':'+((s&&s.id)||'');
+    const el=this._keep(key,()=>{
+      const e=document.createElement('div'); e.className='ed-win'; return e;
+    });
     /**
      * FR-RTU-80: **모바일은 사이드와 본문을 나란히 두지 않는다.**
      *
-     * 폭이 없다 — 종전에는 사이드를 `max-width:40%` 로 양보시켰고 그러면 둘 다
-     * 쓸 수 없었다 (390px 에서 Changes 의 커밋 버튼·원격 버튼·일괄 버튼이 경계를
-     * 넘었다, 실측 V10). 대신 순회의 자리 하나로 만들어 **한 번에 하나**를 전체
-     * 폭으로 보인다 (D-RTU-11).
+     * 폭이 없다 — 대신 순회의 자리 하나로 만들어 **한 번에 하나**를 전체 폭으로
+     * 보인다 (D-RTU-11).
      */
-    const mob=this.app.isMobile;
-    const onSide=mob&&this.app._mobileOnSide();
+    const mob=app.isMobile;
+    const onSide=mob&&app._mobileOnSide();
+    const kids=[];
     if(!mob||onSide){
-      // REPO_TAB_UNIFY_SRS FR-RTU-12: 사이드는 `Explorer` 와 `Changes` 를 **탭으로
-      // 갈아 끼운다** — 한 번에 하나만 보인다 (D-RTU-3).
+      // REPO_TAB_UNIFY_SRS FR-RTU-12: 사이드는 `Explorer` 와 `Changes` 를 탭으로
+      // 갈아 끼운다. 사이드 안쪽은 이 SRS 의 범위 밖이므로 종전대로 매번 세운다 —
+      // 그 안의 스크롤은 `_keepScrollAll` 이 이미 지킨다 (FR-SCR-1).
       const side=this._rSide(s);
-      // 모바일에서는 폭을 지정하지 않는다 — 자리 전체를 쓴다 (CSS 가 `flex:1`).
-      // REPO_SIDE_WIDTH_SRS FR-RSW-2: 폭은 창의 것이 아니라 **워크스페이스 하나**다.
-      if(!mob) side.style.width=this.app._edSideWidth()+'px';
-      el.appendChild(side);
+      // REPO_SIDE_WIDTH_SRS FR-RSW-2: 폭은 창의 것이 아니라 워크스페이스 하나다.
+      if(!mob) side.style.width=app._edSideWidth()+'px';
+      kids.push(side);
       if(!mob){
-        const h=document.createElement('div'); h.className='ed-ex-handle';
-        this._rEdHandle(h,side);
-        el.appendChild(h);
+        const h=this._keep(key+'/exh',()=>{
+          const x=document.createElement('div'); x.className='ed-ex-handle';
+          this._rEdHandle(x);                    // FR-PDR-7: 배선은 한 번
+          return x;
+        });
+        kids.push(h);
       }
     }
     if(onSide){
-      // 본문은 그리지 않는다. `_rWindowInto` 가 붙일 자리가 없으므로 null 이다.
-      area.appendChild(el);
-      return null;
+      // 본문은 그리지 않는다 — `_rWindowInto` 가 붙일 자리가 없다.
+      this._place(el,kids);
+      return {root:el,main:null};
     }
-    const main=document.createElement('div'); main.className='ed-area';
+    const main=this._keep(key+'/main',()=>{
+      const m=document.createElement('div'); m.className='ed-area'; return m;
+    });
+    kids.push(main);
+    this._place(el,kids);
     // FR-EDT-55: pane 이 없는 것이지 빈 pane 이 있는 것이 아니다 — 안내문을 둔다.
-    if(!s.layout){
-      const hint=document.createElement('div'); hint.className='ed-empty';
-      hint.textContent=EDITOR_EMPTY_HINT;
-      main.appendChild(hint);
+    if(!s||!s.layout){
+      const hint=this._keep(key+'/hint',()=>{
+        const x=document.createElement('div'); x.className='ed-empty';
+        x.textContent=EDITOR_EMPTY_HINT; return x;
+      });
+      this._place(main,[hint]);
     }
-    el.appendChild(main);
-    area.appendChild(el);
-    return main;
+    return {root:el,main};
   }
 
   /**
@@ -561,19 +679,22 @@ class Renderer {
    * 않는 이유는 `_rLayout` 이 매 render 마다 `.ed-win` 을 새로 만들기 때문이다 —
    * 드래그마다 트리와 편집기를 재조립할 이유가 없다 (NFR-RSW-1).
    */
-  _rEdHandle(h,ex){
+  _rEdHandle(h){
     const clamp=w=>Math.max(REPO_SIDE_W_MIN,Math.min(REPO_SIDE_W_MAX,w));
+    // FR-PDR-8: 핸들은 재사용되고 사이드는 매 그리기마다 새로 선다. 그때의 것을
+    // **그때 찾는다** — 클로저로 잡으면 첫 그리기의 사이드를 영영 잰다.
+    const ex=()=>h.previousElementSibling;
     // FR-HSZ-5: 양쪽 다 터미널이 아니다 — 사이드(탐색기·Changes)와 편집기이므로
     // `C×R` 줄이 붙지 않는다.
     UIKit.drag(h,{
       axis:'x',
-      start:()=>({start:ex.offsetWidth,win:h.closest('.ed-win')}),
+      start:()=>({start:ex().offsetWidth,win:h.closest('.ed-win')}),
       move:(ctx,ev)=>{
         const w=clamp(ctx.start+(ev.clientX-ctx.sx0))+'px';
         for(const el of document.querySelectorAll('.ed-win>.ed-side')) el.style.width=w;
       },
       sides:(ctx)=>{
-        const sw=ex.offsetWidth;
+        const sw=ex().offsetWidth;
         const tot=ctx.win?ctx.win.offsetWidth:sw;
         return [
           {px:sw,pct:tot?sw/tot*100:null},
@@ -587,10 +708,13 @@ class Renderer {
     });
   }
 
-  _buildNode(n){
+  // FR-PDR-5: `path` 는 트리에서의 자리다. split 에는 id 가 없고, SSE 로 다시
+  // 받은 layout 은 객체 동일성도 끊긴다 — 자리와 모양(방향·자식 수)이 그것을
+  // 대신하는 키다 (D-5).
+  _buildNode(n,path){
     if(!n) return null;
-    if(n.type==='pane') return this._buildPane(n);
-    if(n.type==='split'&&n.children) return this._buildSp(n);
+    if(n.type==='pane') return this._buildPane(n,path);
+    if(n.type==='split'&&n.children) return this._buildSp(n,path);
     return null;
   }
 
@@ -618,164 +742,316 @@ class Renderer {
   // 서므로 (FR-WSL-20·23), 붙일 실체를 고를 때 그것을 딛는다.
   _mountTabBody(body,at){
     const slot=this._rSlot||0;
-    if(at.type===TAB_TYPE_GIT){
-      // 패널은 **(루트, 칸)마다** 있다 (FR-SVS-40·42 + FR-RTU-60) — 그래야 두
-      // 칸이 같은 뷰를 볼 때 뒤 칸이 앞 칸에서 DOM 을 떼어 가지 않고, 두 Repo
-      // 창이 같은 diff 대상을 다투지 않는다. 관측은 그 패널들이 함께 쓰는
-      // `GitObserver` 에 하나로 있다 (FR-SVS-30).
-      //
-      // 루트는 **이 탭이 있는 창**의 것이다 — 그리는 중인 창이 활성 창이 아닐
-      // 수 있으므로(슬롯) `_gitRootOfActive` 를 쓰지 않는다.
-      const root=this.app._isEditorWin(this._rWin)?this.app._edRootOf(this._rWin):'';
-      const el=this.app._gitPanel(root,slot).elFor(at.gitView);
-      body.appendChild(el); el.classList.add('vis');
+    let el=null,term=null;
+    if(!at){
+      this._hideOthers(body,null);
       return;
     }
-    if(at.type==='editor'){
+    if(at.type===TAB_TYPE_GIT){
+      // 패널은 **(루트, 칸)마다** 있다 (FR-SVS-40·42 + FR-RTU-60). 루트는 **이 탭이
+      // 있는 창**의 것이다 — 그리는 중인 창이 활성 창이 아닐 수 있다(슬롯).
+      const root=this.app._isEditorWin(this._rWin)?this.app._edRootOf(this._rWin):'';
+      el=this.app._gitPanel(root,slot).elFor(at.gitView);
+    }else if(at.type==='editor'){
       const key=this.app._slotKey(at.id,slot);
       let editor=this.app.fileEditors.get(key);
-      // DOC_RENDER_VIEW_SRS D-1: 타입은 하나이고 **실체가 둘**이다. 두 뷰가 같은
-      // 계약을 만족하므로(FR-DRV-32) 이 Map 을 훑는 나머지 자리는 종류를 묻지 않는다.
+      // DOC_RENDER_VIEW_SRS D-1: 타입은 하나이고 **실체가 둘**이다.
       if(!editor){
         editor=at.render
           ? new DocRender(at.id,at.name,at.filePath)
           : new FileEditor(at.id,at.name,at.filePath);
         this.app.fileEditors.set(key,editor);
       }
-      body.appendChild(editor.el);editor.el.classList.add('vis');
-      return;
+      el=editor.el;
+    }else if(at.type==='run'){
+      // FR-RVZ-6: 네 번째 타입. 루트 DOM 은 탭마다 캐시된다 (NFR-RVZ-2).
+      el=this.app._runViewEl(at,slot);
+    }else{
+      // 슬롯 1 의 인스턴스는 그 슬롯이 처음 이 도구를 그릴 때 선다 (FR-WSL-20).
+      const p=at.toolId?this.app._mkTool(at.toolId,at.name||'',slot):null;
+      if(p){ el=p.el; term=p }
     }
-    if(at.type==='run'){
-      // FR-RVZ-6: 네 번째 타입. editor 와 같은 비-PTY 탭이며 at.runId 를 요구한다.
-      // 루트 DOM 은 탭마다 하나로 캐시된다 — pane 을 다시 그려도 SVG 가 새로
-      // 만들어지지 않아야 hover 가 살아남는다 (NFR-RVZ-2). 구현은 app-runs.js.
-      const el=this.app._runViewEl(at,slot);
-      body.appendChild(el); el.classList.add('vis');
-      return;
+    if(!el) { this._hideOthers(body,null); return }
+    if(el.parentNode!==body){
+      // FR-PDR-10: **여기가 유일한 이동이다.** 그리고 이동한 것만 사후 처리를
+      // 받는다 — 자리를 지킨 위젯에는 어떤 스크롤 API 도 닿지 않는다.
+      if(term) this._moved.push(this._grabScroll(term));
+      body.appendChild(el);
     }
-    // 슬롯 1 의 인스턴스는 그 슬롯이 처음 이 도구를 그릴 때 선다 — 서버 도구
-    // 목록으로 미리 만들어 두는 것은 슬롯 0 뿐이다 (app.js init).
-    const p=at.toolId?this.app._mkTool(at.toolId,at.name||'',slot):null;
-    if(p){body.appendChild(p.el);p.el.classList.add('vis')}
+    el.classList.add('vis');
+    this._mounted.add(el);
+    this._hideOthers(body,el);
   }
 
-  _buildPane(n){
-    const el=document.createElement('div');
-    // FR-SVS-1: 이 pane 이 **이 칸에서** 보이는 탭. 렌더 시점의 슬롯을 클로저에
-    // 붙잡아 둔다 — 이벤트 핸들러가 나중에 `_rSlot` 을 읽으면 그때의 렌더 대상을
-    // 보게 된다.
+  /**
+   * FR-PDR-3: 이 자리에 남아 있는 **옛 탭의 위젯**을 거둔다.
+   *
+   * `vis` 만 걷고 자리에 두면 되돌아올 때 옮기지 않아도 되지만, 그 클래스로
+   * 숨겨진다는 보장이 위젯마다 다르다 — Git 뷰는 자기 수명 관리(`panel-life`)가
+   * 따로 `vis` 를 만지고, 종전에는 `.pn-body` 가 매번 새로 만들어져 옛 뷰가
+   * 저절로 문서에서 떨어졌다. 그 전제를 없애자 숨지 않은 뷰가 **본문 위를 덮어
+   * 클릭을 가로챘다** (e2e: `.git-view.git-submodules` 가 Branches 의 행을 가림).
+   *
+   * 그래서 종전과 같게 뗀다. 이 SRS 가 지키려는 것은 "탭이 그대로일 때 움직이지
+   * 않는 것" 이고, 탭이 실제로 바뀌는 순간의 이동은 FR-PDR-10~12 가 받는다.
+   *
+   * 드롭 표시는 위젯이 아니라 이 자리의 장식이다 (`app-dnd` 가 만들어 다시 쓴다).
+   */
+  _hideOthers(body,keep){
+    for(const c of [...body.children]){
+      if(c===keep||c.classList.contains('pn-drop-indicator')) continue;
+      c.classList.remove('vis');
+      c.remove();
+    }
+  }
+
+  _buildPane(n,path){
+    const app=this.app;
     const slot=this._rSlot||0;
-    const shown=this.app.paneTab(n,slot);
-    // FR-PAN-9: 활성탭 pane 이 주의 상태이고 pane 이 포커스 안 됐을 때만 pane 강조
-    // FR-WSL-35: 같은 창이 두 슬롯에 있으면 pane id 가 같다 — 포커스 슬롯에서만
-    // 포커스로 그린다. 그러지 않으면 양쪽이 다 포커스로 보인다.
-    const focused=n.id===this.app.focused&&(this._rSlot||0)===this.app._slotFocused();
-    const at0=(n.tabs||[]).find(t=>t.id===shown);
-    const paneAttn=!focused&&at0&&this.app._attnHas(at0.toolId);
-    el.className='pn'+(focused?' focused':'')+(paneAttn?' attn':'');
+    // FR-PDR-2: 같은 pane 이 같은 칸에 다시 오면 그 요소를 그대로 쓴다. 같은 창이
+    // 두 칸에 설 때 pane id 가 같으므로(FR-WSL-14) 칸이 키에 함께 든다.
+    const key='pane:'+slot+':'+n.id;
+    const el=this._keep(key,()=>this._makePane());
+    // FR-PDR-8: 핸들러가 읽는 지금의 문맥. 재사용되는 요소에 값을 클로저로
+    // 가두면 두 번째 그리기부터 낡은 pane·낡은 칸을 가리킨다.
+    el._ctx={node:n,slot};
     el.dataset.paneid=n.id;
-    const tabs=document.createElement('div'); tabs.className='pn-tabs';
-    for(const tab of(n.tabs||[])){
-      const t=document.createElement('div');
-      // FR-PAN-9/TC-PAN-17: 사용자가 지금 보고 있는 탭(포커스+활성)은 강조하지 않음
-      const tabActive=tab.id===shown;
-      const tabAttn=this.app._attnHas(tab.toolId)&&!(focused&&tabActive);
-      /**
-       * REPO_TAB_UNIFY_SRS FR-RTU-33: git 뷰 탭은 편집기 탭과 **같은 자격**이다 —
-       * 닫기·드래그·분할이 같다.
-       *
-       *   이전 동작: 닫기 버튼도 드래그도 없었다 (FR-GIT-28)
-       *   새  동작: `×` 가 서고 끌 수 있다. 창 밖으로는 못 나간다 (FR-RTU-17)
-       *   이유:     고정의 근거는 Git 창의 탭이 **고정 일곱**이라는 것이었고,
-       *             그 창이 사라졌다 (FR-RTU-70)
-       *
-       * **이름 변경만 다르다.** 탭 이름은 뷰 이름에서 파생하므로(FR-RTU-33)
-       * 고쳐 봐도 다음 렌더가 되돌린다 — 그래서 그 진입점은 달지 않는다.
-       */
-      const isGit=tab.type===TAB_TYPE_GIT;
-      t.className='pn-tab'+(tabActive?' active':'')+(tabAttn?' attn':'')+(isGit?' git':'');
-      t.dataset.tabId=tab.id;
-      if(tab.toolId) t.dataset.toolid=tab.toolId;
-      if(isGit) t.dataset.gitView=tab.gitView;
-      t.innerHTML='<span class="pn-tab-label"></span>'
-        +'<span class="pn-tab-x" title="'+TAB_CLOSE_TITLE+'">'+UIKit.iconHTML('x','ui-icon-sm')+'</span>';
-      const tlab=t.querySelector('.pn-tab-label');
-      tlab.textContent=this._tabDisplayName(tab);
-      /**
-       * TAB_WIDTH_SRS FR-TBW-6 / D-5: **언제나** 붙인다 — 고정 폭에서만 붙이면
-       * 그 시점이 설정 변경 경로에 생기고, 그 경로를 타지 않는(이미 그려진) 탭이
-       * 빠진다. 잘리지 않는 폭에서는 보이지 않을 뿐이므로 해가 없다.
-       *
-       * 말줄임만 있고 전체 이름을 볼 길이 없으면 고정 폭은 이름을 **지우는**
-       * 기능이 된다.
-       */
-      t.title=this._tabDisplayName(tab);
-      // REPO_TAB_UNIFY_SRS FR-RTU-41: 미리보기 탭은 기울임이다 — "이 자리는 곧
-      // 대체된다" 를 눈으로 알리는 유일한 표시다.
-      if(tab.preview){ t.classList.add(REPO_PREVIEW_CLASS); t.title=REPO_PREVIEW_TITLE }
-      t.addEventListener('click',e=>{
-        e.stopPropagation();
-        if(e.target.classList.contains('pn-tab-x')) this.app.closeTab(n.id,tab.id,null,{slot});
-        else this.app.switchTab(n.id,tab.id,slot);
-      });
-      // FR-RTU-42: 탭 자체의 더블클릭이 고정한다. 이름 더블클릭(아래)은 이름
-      // 변경이므로 그쪽이 먼저 잡히고, 그 경우도 고정으로 친다.
-      t.addEventListener('dblclick',e=>{
-        if(!tab.preview) return;
-        e.stopPropagation();
-        this.app._pinPreviewTab(tab);
-      });
-      // 탭은 `_renameTab` 이다 — 창의 `_rename` 과 달리 빈 문자열에 뜻이 있다
-      // (FR-TAN-21).
-      // FR-RTU-42: **미리보기 탭의 더블클릭은 고정이 먼저다.** 이름 변경은 그
-      // 다음이다 — 곧 대체될 탭의 이름을 고치는 것은 뜻이 없고, 사용자가 기대하는
-      // 것은 "이 탭을 남긴다" 이다 (VSCode 와 같은 어휘).
-      if(!isGit) t.querySelector('.pn-tab-label').addEventListener('dblclick',e=>{
-        e.stopPropagation();
-        if(tab.preview){this.app._pinPreviewTab(tab);return}
-        this.app._renameTab(tab,e.target);
-      });
-      t.draggable=true;
-      t.addEventListener('dragstart',e=>{this.app._drag={type:'tab',srcPaneId:n.id,tabId:tab.id};e.dataTransfer.effectAllowed='move';e.stopPropagation();TIMERS.defer(()=>t.classList.add('dragging'),{label:'drag-class'})});
-      t.addEventListener('dragend',()=>{this.app._drag=null;t.classList.remove('dragging');tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none')});
-      t.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));const rect=t.getBoundingClientRect();t.classList.add(e.clientX<rect.left+rect.width/2?'drag-left':'drag-right');document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none')});
-      t.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));const s=this.app._aw();if(!s)return;if(srcPaneId===n.id){const pn=findPane(s.layout,n.id);if(!pn)return;const si=pn.tabs.findIndex(tt=>tt.id===tabId);const di=pn.tabs.findIndex(tt=>tt.id===tab.id);if(si<0||di<0||si===di)return;const rect=t.getBoundingClientRect();const insBefore=e.clientX<rect.left+rect.width/2;const[moved]=pn.tabs.splice(si,1);let ins=pn.tabs.findIndex(tt=>tt.id===tab.id);if(!insBefore)ins++;pn.tabs.splice(ins,0,moved);this.app.paneTabSet(pn,tabId,slot);this.app._save();this.app.render()}else{const rect=t.getBoundingClientRect();this.app._moveTabToPane(srcPaneId,tabId,n.id,tab.id,e.clientX<rect.left+rect.width/2)}});
-      tabs.appendChild(t);
-    }
-    // FR-GIT-180: Git 창에는 `+` 자리를 만들지 않는다 — 눌리지만 아무 일도 하지
-    // 않는 버튼은 고장으로 읽힌다.
-    // FR-EDT-54: Editor 창의 탭은 편집기뿐이고 `+` 가 만들 수 있는 것이 없다 —
-    // Git 창과 같은 이유로 자리를 만들지 않는다.
-    const aw=this.app._aw();
-    const noAdd=this.app._isGitWin(aw)||this.app._isEditorWin(aw);
-    if(!noAdd){
-      const add=document.createElement('button'); add.className='pn-tab-add';
-      add.appendChild(UIKit.icon('plus',{size:'sm'}));
-      add.title=TAB_ADD_TITLE;
-      add.addEventListener('click',e=>{e.stopPropagation();this.app.addTab(n.id)});
-      tabs.appendChild(add);
-    }
-    tabs.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();if(this.app._drag.srcPaneId!==n.id)tabs.classList.add('drag-target')});
-    tabs.addEventListener('dragleave',e=>{if(!tabs.contains(e.relatedTarget))tabs.classList.remove('drag-target')});
-    tabs.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();tabs.classList.remove('drag-target');tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));if(!this.app._drag||this.app._drag.type!=='tab')return;const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;const s=this.app._aw();if(!s)return;if(srcPaneId===n.id){const pn=findPane(s.layout,n.id);if(!pn)return;const si=pn.tabs.findIndex(t=>t.id===tabId);if(si<0)return;const[moved]=pn.tabs.splice(si,1);pn.tabs.push(moved);this.app.paneTabSet(pn,tabId,slot);this.app._save();this.app.render()}else{this.app._moveTabToPane(srcPaneId,tabId,n.id,null,false)}});
-    el.appendChild(tabs);
-    const body=document.createElement('div'); body.className='pn-body';
+    // FR-SVS-1: 이 pane 이 **이 칸에서** 보이는 탭.
+    const shown=app.paneTab(n,slot);
+    // FR-PAN-9: 활성탭 pane 이 주의 상태이고 pane 이 포커스 안 됐을 때만 pane 강조.
+    // FR-WSL-35: 포커스로 그리는 것은 포커스 칸 하나다.
+    const focused=n.id===app.focused&&slot===app._slotFocused();
     const at=(n.tabs||[]).find(t=>t.id===shown);
-    if(at) this._mountTabBody(body,at);
-    body.addEventListener('dragover',e=>{if(!this.app._drag||this.app._drag.type!=='tab')return;e.preventDefault();e.stopPropagation();tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));this.app._showBodyDropIndicator(body,this.app._getDragZone(body,e))});
-    body.addEventListener('dragleave',e=>{if(!body.contains(e.relatedTarget))this.app._clearBodyDropIndicator(body)});
-    body.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(!this.app._drag||this.app._drag.type!=='tab')return;const zone=this.app._getDragZone(body,e);const{srcPaneId,tabId}=this.app._drag;this.app._drag=null;this.app._clearBodyDropIndicator(body);if(zone==='center'){if(srcPaneId===n.id)return;this.app._moveTabToPane(srcPaneId,tabId,n.id,null,false)}else{this.app._splitPaneWithTab(srcPaneId,tabId,n.id,zone)}});
-    el.appendChild(body);
+    el.classList.toggle('focused',focused);
+    el.classList.toggle('attn',!focused&&!!at&&!!app._attnHas(at.toolId));
+    this._rTabs(el.firstChild,n,shown,focused,key);
+    this._mountTabBody(el.lastChild,at);
+    return el;
+  }
+
+  /**
+   * FR-PDR-4: 탭 바를 다시 짓지 않는다. 남은 탭은 그 요소 그대로 두고 라벨과
+   * 클래스만 고치며, 사라진 것만 거두고 새것만 만든다.
+   */
+  _rTabs(tabs,n,shown,focused,key){
+    const app=this.app;
+    const kids=[];
+    for(const tab of(n.tabs||[])){
+      const tkey=key+'/tab:'+tab.id;
+      let t=this._keep(tkey,()=>this._makeTab());
+      /**
+       * 이름 변경은 라벨을 **input 으로 갈아 끼운다** (`_renameTab` 의
+       * `el.replaceWith(input)`). 그 경로는 확정 뒤의 다시 그리기가 DOM 을 새로
+       * 만들어 그 자리를 되돌리는 것에 기대고 있었다 — 재사용하는 지금은 라벨이
+       * 영영 돌아오지 않고, 그다음 갱신이 없는 요소를 만진다 (e2e: V-TAN-5·6,
+       * `tab can be renamed via double-click`).
+       *
+       * 그 탭만 다시 만든다. 되돌릴 상태가 없는 요소이므로 값이 싸다.
+       */
+      if(!t.querySelector('.pn-tab-label')){
+        this._dom.delete(tkey);
+        t=this._keep(tkey,()=>this._makeTab());
+      }
+      t._ctx={tab};
+      t.dataset.tabId=tab.id;
+      if(tab.toolId) t.dataset.toolid=tab.toolId; else delete t.dataset.toolid;
+      const isGit=tab.type===TAB_TYPE_GIT;
+      if(isGit) t.dataset.gitView=tab.gitView; else delete t.dataset.gitView;
+      // FR-PAN-9/TC-PAN-17: 사용자가 지금 보고 있는 탭은 강조하지 않는다.
+      const active=tab.id===shown;
+      const attn=app._attnHas(tab.toolId)&&!(focused&&active);
+      // FR-RTU-41: 미리보기 탭은 기울임이다 — "이 자리는 곧 대체된다".
+      t.className='pn-tab'+(active?' active':'')+(attn?' attn':'')+(isGit?' git':'')
+        +(tab.preview?' '+REPO_PREVIEW_CLASS:'');
+      const name=this._tabDisplayName(tab);
+      const lab=t.querySelector('.pn-tab-label');
+      if(lab.textContent!==name) lab.textContent=name;
+      // TAB_WIDTH_SRS FR-TBW-6 / D-5: **언제나** 붙인다 — 잘리지 않는 폭에서는
+      // 보이지 않을 뿐이므로 해가 없다.
+      t.title=tab.preview?REPO_PREVIEW_TITLE:name;
+      kids.push(t);
+    }
+    // FR-GIT-180 / FR-EDT-54: Git·Editor 창에는 `+` 자리를 만들지 않는다 —
+    // 눌리지만 아무 일도 하지 않는 버튼은 고장으로 읽힌다.
+    const aw=app._aw();
+    if(!(app._isGitWin(aw)||app._isEditorWin(aw))) kids.push(this._keep(key+'/add',()=>this._makeTabAdd()));
+    this._place(tabs,kids);
+  }
+
+  // 탭 요소 하나와 그 배선. **여기서만 배선한다** (FR-PDR-7) — 지금 어느 pane 의
+  // 어느 탭인지는 `_ctx` 가 답한다 (FR-PDR-8).
+  _makeTab(){
+    const app=this.app;
+    const t=document.createElement('div');
+    t.innerHTML='<span class="pn-tab-label"></span>'
+      +'<span class="pn-tab-x" title="'+TAB_CLOSE_TITLE+'">'+UIKit.iconHTML('x','ui-icon-sm')+'</span>';
+    t.draggable=true;
+    const ctx=()=>{
+      const pn=t.closest('.pn');
+      const c=(pn&&pn._ctx)||{};
+      return {pane:c.node||null,slot:c.slot||0,tab:(t._ctx&&t._ctx.tab)||null};
+    };
+    const clearMarks=()=>{
+      const bar=t.parentNode;
+      if(bar) bar.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));
+    };
+    t.addEventListener('click',e=>{
+      e.stopPropagation();
+      const c=ctx(); if(!c.pane||!c.tab) return;
+      if(e.target.classList.contains('pn-tab-x')) app.closeTab(c.pane.id,c.tab.id,null,{slot:c.slot});
+      else app.switchTab(c.pane.id,c.tab.id,c.slot);
+    });
+    // FR-RTU-42: 탭 자체의 더블클릭이 고정한다.
+    t.addEventListener('dblclick',e=>{
+      const c=ctx(); if(!c.tab||!c.tab.preview) return;
+      e.stopPropagation();
+      app._pinPreviewTab(c.tab);
+    });
+    // 탭은 `_renameTab` 이다 — 창의 `_rename` 과 달리 빈 문자열에 뜻이 있다
+    // (FR-TAN-21). git 뷰 탭의 이름은 뷰에서 파생하므로 고쳐도 다음 그리기가
+    // 되돌린다 — 그래서 그 타입에서는 아무 일도 하지 않는다 (FR-RTU-33).
+    t.querySelector('.pn-tab-label').addEventListener('dblclick',e=>{
+      const c=ctx(); if(!c.tab||c.tab.type===TAB_TYPE_GIT) return;
+      e.stopPropagation();
+      if(c.tab.preview){app._pinPreviewTab(c.tab);return}
+      app._renameTab(c.tab,e.target);
+    });
+    t.addEventListener('dragstart',e=>{
+      const c=ctx(); if(!c.pane||!c.tab) return;
+      app._drag={type:'tab',srcPaneId:c.pane.id,tabId:c.tab.id};
+      e.dataTransfer.effectAllowed='move';
+      e.stopPropagation();
+      TIMERS.defer(()=>t.classList.add('dragging'),{label:'drag-class'});
+    });
+    t.addEventListener('dragend',()=>{
+      app._drag=null; t.classList.remove('dragging'); clearMarks();
+      document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none');
+    });
+    t.addEventListener('dragover',e=>{
+      if(!app._drag||app._drag.type!=='tab')return;
+      e.preventDefault(); e.stopPropagation();
+      clearMarks();
+      const rect=t.getBoundingClientRect();
+      t.classList.add(e.clientX<rect.left+rect.width/2?'drag-left':'drag-right');
+      document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none');
+    });
+    t.addEventListener('drop',e=>{
+      e.preventDefault(); e.stopPropagation();
+      if(!app._drag||app._drag.type!=='tab')return;
+      const c=ctx(); if(!c.pane||!c.tab) return;
+      const{srcPaneId,tabId}=app._drag;
+      app._drag=null;
+      clearMarks();
+      const s=app._aw(); if(!s)return;
+      const rect=t.getBoundingClientRect();
+      const insBefore=e.clientX<rect.left+rect.width/2;
+      if(srcPaneId===c.pane.id){
+        const pn=findPane(s.layout,c.pane.id); if(!pn)return;
+        const si=pn.tabs.findIndex(tt=>tt.id===tabId);
+        const di=pn.tabs.findIndex(tt=>tt.id===c.tab.id);
+        if(si<0||di<0||si===di)return;
+        const[moved]=pn.tabs.splice(si,1);
+        let ins=pn.tabs.findIndex(tt=>tt.id===c.tab.id);
+        if(!insBefore)ins++;
+        pn.tabs.splice(ins,0,moved);
+        app.paneTabSet(pn,tabId,c.slot);
+        app._save();
+        app.render();
+      }else{
+        app._moveTabToPane(srcPaneId,tabId,c.pane.id,c.tab.id,insBefore);
+      }
+    });
+    return t;
+  }
+
+  _makeTabAdd(){
+    const app=this.app;
+    const add=document.createElement('button'); add.className='pn-tab-add';
+    add.appendChild(UIKit.icon('plus',{size:'sm'}));
+    add.title=TAB_ADD_TITLE;
+    add.addEventListener('click',e=>{
+      e.stopPropagation();
+      const pn=add.closest('.pn');
+      if(pn&&pn._ctx&&pn._ctx.node) app.addTab(pn._ctx.node.id);
+    });
+    return add;
+  }
+
+  // pane 의 껍데기와 그 배선. 탭 바와 본문 상자는 이 요소의 수명 동안 같은
+  // 것이며, 본문에 붙은 위젯이 움직이지 않는 것이 이 SRS 의 전부다.
+  _makePane(){
+    const app=this.app;
+    const el=document.createElement('div');
+    el.className='pn';
+    const tabs=document.createElement('div'); tabs.className='pn-tabs';
+    const body=document.createElement('div'); body.className='pn-body';
+    el.appendChild(tabs); el.appendChild(body);
+    const node=()=>(el._ctx&&el._ctx.node)||null;
+    const slotOf=()=>(el._ctx&&el._ctx.slot)||0;
+    tabs.addEventListener('dragover',e=>{
+      if(!app._drag||app._drag.type!=='tab')return;
+      e.preventDefault(); e.stopPropagation();
+      const n=node();
+      if(n&&app._drag.srcPaneId!==n.id) tabs.classList.add('drag-target');
+    });
+    tabs.addEventListener('dragleave',e=>{
+      if(!tabs.contains(e.relatedTarget)) tabs.classList.remove('drag-target');
+    });
+    tabs.addEventListener('drop',e=>{
+      e.preventDefault(); e.stopPropagation();
+      tabs.classList.remove('drag-target');
+      tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));
+      if(!app._drag||app._drag.type!=='tab')return;
+      const n=node(); if(!n) return;
+      const{srcPaneId,tabId}=app._drag;
+      app._drag=null;
+      const s=app._aw(); if(!s)return;
+      if(srcPaneId===n.id){
+        const pn=findPane(s.layout,n.id); if(!pn)return;
+        const si=pn.tabs.findIndex(t=>t.id===tabId); if(si<0)return;
+        const[moved]=pn.tabs.splice(si,1);
+        pn.tabs.push(moved);
+        app.paneTabSet(pn,tabId,slotOf());
+        app._save();
+        app.render();
+      }else{
+        app._moveTabToPane(srcPaneId,tabId,n.id,null,false);
+      }
+    });
+    body.addEventListener('dragover',e=>{
+      if(!app._drag||app._drag.type!=='tab')return;
+      e.preventDefault(); e.stopPropagation();
+      tabs.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));
+      app._showBodyDropIndicator(body,app._getDragZone(body,e));
+    });
+    body.addEventListener('dragleave',e=>{
+      if(!body.contains(e.relatedTarget)) app._clearBodyDropIndicator(body);
+    });
+    body.addEventListener('drop',e=>{
+      e.preventDefault(); e.stopPropagation();
+      if(!app._drag||app._drag.type!=='tab')return;
+      const n=node(); if(!n) return;
+      const zone=app._getDragZone(body,e);
+      const{srcPaneId,tabId}=app._drag;
+      app._drag=null;
+      app._clearBodyDropIndicator(body);
+      if(zone==='center'){
+        if(srcPaneId===n.id)return;
+        app._moveTabToPane(srcPaneId,tabId,n.id,null,false);
+      }else{
+        app._splitPaneWithTab(srcPaneId,tabId,n.id,zone);
+      }
+    });
     el.addEventListener('mousedown',()=>{
-      this.app.setFocus(n.id);
+      const n=node(); if(!n) return;
+      app.setFocus(n.id);
       // FR-MTI-25: 모바일에서 키보드를 올리는 유일한 경로. render 는 focus 하지
-      // 않으므로(위) 여기서 하지 않으면 모바일에서 입력을 시작할 길이 없다.
-      // 스크롤 제스처는 touchmove 가 blur 하고 합성 mousedown 도 만들지 않는다.
-      if(this.app.isMobile){
-        const pn=findPane(this.app._aw()?.layout,n.id);
-        const tab=pn&&(pn.tabs||[]).find(t=>t.id===this.app.paneTab(pn,slot));
+      // 않으므로 여기서 하지 않으면 모바일에서 입력을 시작할 길이 없다.
+      if(app.isMobile){
+        const pn=findPane(app._aw()?.layout,n.id);
+        const tab=pn&&(pn.tabs||[]).find(t=>t.id===app.paneTab(pn,slotOf()));
         if(tab&&tab.type!=='editor'){
-          const p=this.app._toolAny(tab.toolId);
+          const p=app._toolAny(tab.toolId);
           if(p) p.focus();
         }
       }
@@ -783,16 +1059,34 @@ class Renderer {
     return el;
   }
 
-  _buildSp(n){
-    const el=document.createElement('div'); el.className='sp'; el.dataset.d=n.direction; el._node=n;
+  _buildSp(n,path){
+    const slot=this._rSlot||0, win=(this._rWin&&this._rWin.id)||'';
+    // 모양이 바뀌면 키가 달라진다 — 그 서브트리만 새로 서고 옛것은 거둬진다.
+    const key='sp:'+slot+':'+win+':'+path+':'+n.direction+':'+n.children.length;
+    const el=this._keep(key,()=>{
+      const e=document.createElement('div'); e.className='sp'; return e;
+    });
+    el.dataset.d=n.direction;
+    // 크기 확정(`_handle` 의 end)이 **지금의** 노드에 적히도록 매번 갱신한다.
+    el._node=n;
+    const kids=[];
     for(let i=0;i<n.children.length;i++){
-      const sc=document.createElement('div'); sc.className='sc';
+      const sc=this._keep(key+'/sc'+i,()=>{
+        const c=document.createElement('div'); c.className='sc'; return c;
+      });
       if(n.sizes&&n.sizes[i]!=null) sc.style.flex=n.sizes[i];
-      const built=this._buildNode(n.children[i]);
-      if(built) sc.appendChild(built);
-      el.appendChild(sc);
-      if(i<n.children.length-1){const h=document.createElement('div');h.className='sh';el.appendChild(h);this._handle(h,el)}
+      const built=this._buildNode(n.children[i],path+'.'+i);
+      this._place(sc,built?[built]:[]);
+      kids.push(sc);
+      if(i<n.children.length-1){
+        kids.push(this._keep(key+'/sh'+i,()=>{
+          const h=document.createElement('div'); h.className='sh';
+          this._handle(h,el);                    // FR-PDR-7: 배선은 만들 때 한 번
+          return h;
+        }));
+      }
     }
+    this._place(el,kids);
     return el;
   }
 
