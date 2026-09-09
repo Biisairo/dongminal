@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"strconv"
 	"sync"
 	"time"
@@ -181,6 +182,12 @@ func (w *GitWatcher) Note(repo string, obs store.Observation) {
 func (w *GitWatcher) evictLocked(now time.Time) {
 	for repo, e := range w.watch {
 		if now.Sub(e.seenAt) > w.ttl {
+			// GIT_LIVE_TRIGGERS_SRS FR-GLW-7: 만료는 **브라우저가 말을 멈춘 것**
+			// 이다. 아래 Tick 의 탈락(저장소가 읽히지 않은 것)과 다른 사건이며,
+			// 로그가 그 둘을 가르지 못하면 "방송이 오지 않았다" 의 원인을 사후에
+			// 특정할 수 없다.
+			log.Printf("[gitwatch] 관심 표명 만료 — 감시를 걷는다 (repo=%s idle=%s)",
+				repo, now.Sub(e.seenAt).Truncate(time.Second))
 			delete(w.watch, repo)
 		}
 	}
@@ -244,6 +251,9 @@ func (w *GitWatcher) Tick(ctx context.Context) int {
 			continue
 		}
 		if err != nil {
+			// FR-GLW-7: 탈락은 **저장소가 읽히지 않은 것**이다 (FR-GPO-5).
+			// 되풀이되지 않는다 — 이 저장소는 여기서 대상에서 빠진다.
+			log.Printf("[gitwatch] 관측 실패로 감시에서 뺀다 (repo=%s err=%v)", repo, err)
 			delete(w.watch, repo)
 			w.mu.Unlock()
 			continue

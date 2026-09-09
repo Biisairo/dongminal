@@ -195,28 +195,23 @@ Object.assign(GitPanel.prototype, {
 
   // ── 변경 감지 3계층 (FR-GIT-18~24) ──
 
-  // init 은 재평가 계기를 붙인다. 폴링과 즉시 신호는 게이팅이 다르므로 같은
-  // 리스너에서 둘을 각각 부른다.
+  // init 은 부팅의 첫 관측이다.
   /**
-   * 문서 이벤트는 **앱당 한 벌**이다 (FR-SVS-30) — 칸마다 등록하면 같은 신호가
-   * 칸 수만큼 온다. 리스너가 붙잡는 것도 특정 패널이 아니라 observer 다: 등록한
-   * 칸이 먼저 사라져도 신호는 계속 들어야 한다.
+   * **문서 이벤트는 더 이상 여기 있지 않다** (GIT_LIVE_TRIGGERS_SRS FR-GLW-1~3).
+   *
+   *   이전 동작: `visibilitychange`·`focus` 리스너를 `this.obs._inited` 가드
+   *             아래에서 달고, `live=()=>this.obs.any()` 로 **그 관측기의** 패널
+   *             하나만 되살렸다
+   *   새  동작: 계기는 `_initGitSection` 이 버스 토픽으로 앱당 한 번 잡고, 되살릴
+   *             대상은 살아 있는 패널 전부다
+   *   이유:     가드가 **관측기의 것**이라 규칙이 "앱당 한 번" 이 아니라 "관측기
+   *             마다 한 번" 이었다. `init()` 의 호출처는 부팅의 한 곳뿐이고 그때
+   *             잡히는 것은 활성 창의 관측기 — 활성 창이 Repo 창이 아니면 루트
+   *             `''` 다. 사용자가 그 뒤에 여는 저장소의 관측기는 복귀 계기를
+   *             **한 번도 갖지 못했고**, 90초를 숨었다 돌아오면 서버 감시가
+   *             만료된 채 남았다 (SRS §2.1)
    */
-  init(){
-    if(this.obs._inited){ this._reschedule(); return }
-    this.obs._inited=true;
-    const live=()=>this.obs.any();
-    document.addEventListener('visibilitychange',()=>{
-      const p=live(); if(!p) return;
-      p._reschedule();
-      if(!document.hidden) p.signal('visible');
-    });
-    window.addEventListener('focus',()=>{
-      const p=live(); if(!p) return;
-      p._reschedule(); p.signal('focus');
-    });
-    this._reschedule();
-  },
+  init(){ this._reschedule() },
 
   // signal 은 즉시 신호의 유일한 처리점이다 (FR-GIT-18·20). Git 창이 활성이 아니어도
   // 한 번은 수집한다 — 사용자 행동과 1:1 이라 폴링이 아니고, 상태바 chip 과 GIT

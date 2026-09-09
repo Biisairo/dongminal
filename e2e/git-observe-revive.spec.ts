@@ -132,13 +132,22 @@ test.describe('GIT_OBSERVE_REVIVE — 폴링 여부는 관측기가 정한다', 
     await settled(page);
     expect(await secondPanel(page), '같은 관측기의 둘째 패널을 세우지 못했다').toBe(true);
 
-    await page.evaluate(`(() => {${PANEL}
+    /**
+     * 판정을 **같은 evaluate 안에서** 읽는다.
+     *
+     * GIT_LIVE_TRIGGERS_SRS FR-GLW-3 이후 생명주기 신호 하나(`life:hidden`)가
+     * `_gitRescheduleAll()` 을 태워 **모든** 관측기의 폴링을 걷는다. 그것은 의도된
+     * 새 동작이고, 재려는 것(둘째 패널의 판정이 첫째를 끄지 못한다)과는 다른
+     * 사건이다. 호출과 판독 사이에 그 신호가 끼면 이 검사가 남의 동작을 잰다.
+     */
+    const on = await page.evaluate(`(() => {${PANEL}
       const p2 = window.app._gitPanel(p.root, 1);
       p2._pollOk = () => false;     // 이 칸의 표면만 사라졌다
       p2._reschedule();
+      return !!p._pollOn;
     })()`);
 
-    expect((await panelState(page)).pollOn, '보이는 칸의 폴링이 꺼졌다').toBe(true);
+    expect(on, '보이는 칸의 폴링이 꺼졌다').toBe(true);
   });
 
   // TC-GOR-5: 전부 거짓이면 종전대로 완전히 멈춘다 (FR-GOR-5 · NFR-RTU-1).
@@ -161,15 +170,24 @@ test.describe('GIT_OBSERVE_REVIVE — 폴링 여부는 관측기가 정한다', 
     await settled(page);
     const box = countStatus(page);
 
+    /**
+     * `_pollOk` 은 **재는 동안 계속 거짓**이다.
+     *
+     * 종전에는 `_watchdog()` 직후 되돌렸는데, 그러면 뒤이은 500ms 동안 남는 상태가
+     * "보이는 표면 + 낡은 관측 + 꺼진 폴링" — 즉 되살리기의 조건 그 자체다.
+     * GIT_LIVE_TRIGGERS_SRS 이후 그 자리를 지나는 계기가 둘 늘었다(주기 워치독
+     * FR-GLW-4, 생명주기 복귀 FR-GLW-1). 되돌리기는 이 검사의 준비가 아니라
+     * 뒷정리였고, 그 뒷정리가 재려는 상황을 깨뜨린다.
+     *
+     * 상황을 유지하는 것이 더 정확하다 — 재는 것은 "보이지 않는 표면은 깨우지
+     * 않는다" 이고, 그 표면은 재는 동안 보이지 않아야 한다.
+     */
     const woke = await page.evaluate(`(() => {${PANEL}
       p._stop();
       p._lastObsAt = Date.now() - 5 * 60 * 1000;
-      const orig = p._pollOk.bind(p);
       p._pollOk = () => false;
       window.app._gitWdAt = 0;
-      const r = p._watchdog();
-      p._pollOk = orig;
-      return r;
+      return p._watchdog();
     })()`);
 
     expect(woke, '보이지 않는 표면을 깨웠다').toBe(false);

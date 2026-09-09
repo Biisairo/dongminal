@@ -575,3 +575,59 @@ test.describe('T-13 — 돌지 않은 회차의 마감 (FR-SRA-1·2)', () => {
     expect(r.spun, '비행 중인 job 의 버려진 마감이 스케줄러를 공회전시켰다').toBeLessThan(30);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T-14 — 생명주기 토픽과 SSE 명령의 이름공간 (GIT_LIVE_TRIGGERS_SRS FR-GLW-8)
+//
+// `_onMessage` 는 **구독자가 있는 action 을 지명 검사 앞에서 가로챈다** (FR-BUS-5):
+//
+//     if(this.has(m.action)){ this.publish(m.action, m.args||{}); return }
+//
+// 그러므로 버스 토픽의 이름과 서버가 보내는 `action` 의 이름이 겹치면, 그 토픽을
+// 구독하는 순간 같은 이름의 **명령이 죽는다** — 처리기(`_fallback`)에 닿지 않는다.
+//
+// `startLifecycle` 이 발행하는 넷 중 `focus` 가 정확히 그런 이름이었고, 오늘까지
+// 구독자가 하나도 없어서 드러나지 않았다. 접두(`life:`)가 그 겹침을 없앤다 —
+// `sse:open` 이 이미 쓰던 규약이다.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('T-14 — 생명주기 토픽은 SSE 명령을 가로채지 않는다 (FR-GLW-8)', () => {
+  test('T-14 생명주기 토픽에 이름공간이 있고, 그것을 구독해도 명령이 처리기에 닿는다', async ({ page }) => {
+    await page.setContent('<!doctype html><title>lifecycle-namespace</title>');
+    await page.addScriptTag({ path: EVENT_BUS_JS });
+
+    const r = await page.evaluate(`(() => {
+      const bus = new EventBus({ clientId: 'c1' }, {});
+      bus.startLifecycle();
+
+      // 생명주기 신호 넷을 실제로 일으켜 **버스가 무슨 이름으로 발행하는지**를
+      // 받아 온다. 이름을 검사에 적어 두면 그 이름이 바뀔 때 검사가 함께 낡는다.
+      window.dispatchEvent(new Event('online'));
+      window.dispatchEvent(new Event('focus'));
+      document.dispatchEvent(new Event('visibilitychange'));
+      const topics = Array.from(bus._counts.keys());
+
+      // 그 토픽들을 **전부** 구독한 상태에서 같은 이름의 명령을 밀어 넣는다.
+      const heard = [];
+      for (const t of topics) bus.subscribe(t, () => heard.push(t), { owner: 'probe' });
+      const fell = [];
+      bus.setFallback((action) => fell.push(action));
+      for (const action of ['focus', 'visible', 'hidden', 'online'])
+        bus._onMessage({ data: JSON.stringify({ action, args: {} }) });
+
+      // 계기 자체는 살아 있어야 한다 — 겹침을 없앤 대가로 신호를 잃으면 안 된다.
+      window.dispatchEvent(new Event('focus'));
+
+      return { topics, fell, heard };
+    })()`) as any;
+
+    expect(r.topics.length, '생명주기가 아무것도 발행하지 않았다 — 검사가 성립하지 않는다')
+      .toBeGreaterThan(0);
+    expect(r.topics.filter((t: string) => !t.includes(':')),
+      `생명주기 토픽에 이름공간이 없다 — SSE action 과 겹칠 수 있다: ${JSON.stringify(r.topics)}`)
+      .toEqual([]);
+    expect(r.fell, 'SSE 명령이 생명주기 구독에 가로채였다 — 처리기에 닿지 않았다')
+      .toEqual(['focus', 'visible', 'hidden', 'online']);
+    expect(r.heard.length, '이름공간을 옮기면서 생명주기 계기를 잃었다').toBeGreaterThan(0);
+  });
+});

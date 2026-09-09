@@ -21,6 +21,22 @@
  * 버스 → 스케줄러 → (콜백) → 버스. 그래서 타이머를 **주입받는다**: 배선은
  * `main.js` 가 하고, 이 파일의 **코드**에 그 이름은 나오지 않는다.
  */
+/**
+ * 생명주기 토픽 (GIT_LIVE_TRIGGERS_SRS FR-GLW-8).
+ *
+ * **접두가 있어야 한다.** 이 버스의 토픽 이름공간과 서버 SSE 의 `action`
+ * 이름공간은 같은 공간이고(`_onMessage` 가 `action` 을 그대로 토픽으로 쓴다),
+ * 겹치는 이름을 구독하면 그 명령이 처리기에 닿지 못한다. `sse:open` 이 세워 둔
+ * 규약을 그대로 따른다.
+ *
+ * 이 파일에 두는 이유는 **발행하는 쪽이 여기**이고, 계약 검사가 이 파일 하나만
+ * 올려 놓고 돌기 때문이다.
+ */
+const LIFE_ONLINE='life:online';
+const LIFE_FOCUS='life:focus';
+const LIFE_HIDDEN='life:hidden';
+const LIFE_VISIBLE='life:visible';
+
 class EventBus {
   /**
    * @param {object} app  위임 껍데기가 남는 자리 (FR-HUB-7)
@@ -107,6 +123,18 @@ class EventBus {
    *
    * 순서가 여기서 결정된다 — `sse:open` 이 먼저 서고 그 다음에 상태들이 자기
    * 스냅샷을 받는다. 종전에는 네 리스너가 각자 깨어나 순서가 없었다.
+   *
+   * **토픽에 `life:` 를 붙인다** (GIT_LIVE_TRIGGERS_SRS FR-GLW-8).
+   *
+   *   이전 동작: `online`·`focus`·`hidden`·`visible` 을 그 이름 그대로 발행했다
+   *   새  동작: `life:` 접두를 붙인다 — `sse:open` 과 같은 규약이다
+   *   이유:     `_onMessage` 는 **구독자가 있는 action 을 지명 검사 앞에서
+   *             가로챈다** (FR-BUS-5). 그러므로 토픽 이름이 서버 `action` 과
+   *             겹치면 그 토픽을 구독하는 순간 같은 이름의 **명령이 죽는다** —
+   *             `_fallback` 에 닿지 않는다. 서버는 `{"action":"focus"}` 를
+   *             보내고 그것이 pane 포커스를 옮긴다 (`app-cmd.js` `_execRemote`).
+   *             구독자가 하나도 없던 동안에는 드러나지 않던 지뢰이며, 첫 구독이
+   *             그것을 밟았다 (TC-SXE-7 실패)
    */
   startLifecycle(){
     if(this._lifecycleOn) return;
@@ -118,11 +146,11 @@ class EventBus {
       if(this._es && this._es.readyState!==2){ this._reviveIfSilent(); return }
       this.reconnect();
     };
-    window.addEventListener('online',()=>{ this.publish('online',{}); wake() });
-    window.addEventListener('focus',()=>{ this.publish('focus',{}); wake() });
+    window.addEventListener('online',()=>{ this.publish(LIFE_ONLINE,{}); wake() });
+    window.addEventListener('focus',()=>{ this.publish(LIFE_FOCUS,{}); wake() });
     document.addEventListener('visibilitychange',()=>{
-      if(document.hidden){ this.publish('hidden',{}); return }
-      this.publish('visible',{});
+      if(document.hidden){ this.publish(LIFE_HIDDEN,{}); return }
+      this.publish(LIFE_VISIBLE,{});
       wake();
     });
   }

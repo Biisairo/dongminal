@@ -288,6 +288,66 @@ Object.assign(App.prototype, {
     // 옛 `#git-add-repo` 는 사라졌다.
     this._startGitReposPoll();
     this.gitPanel.init();
+    /**
+     * GIT_LIVE_TRIGGERS_SRS FR-GLW-1~3: 가시성·포커스 복귀의 계기.
+     *
+     * **여기가 앱당 한 벌인 자리다** — 이 함수는 부팅에서 한 번 돈다 (app.js).
+     * 종전에는 같은 리스너가 `panel-poll.js` 의 `init()` 에 있었고 가드가
+     * 관측기의 것이라 부팅 때 활성이던 관측기 하나에만 결선됐다 (SRS §2.1).
+     *
+     * **문서에 리스너를 새로 달지 않는다** (FR-GLW-2 · FR-BUS-8). `EventBus` 가
+     * 이미 `visibilitychange`·`focus` 를 한 번 듣고 세 토픽으로 발행한다 —
+     * 거기 붙으면 FR-SVS-30("문서 이벤트는 앱당 한 벌")이 가드가 아니라 구조로
+     * 지켜진다.
+     *
+     * 숨김도 같은 자리를 지난다. 숨으면 전 패널이 조건을 다시 보고 폴링을
+     * 걷어야 한다 — 되살리기만 넓히면 아무도 보지 않는 저장소가 폴링을 이어간다
+     * (FR-GLW-3 · FR-GLR-3).
+     *
+     * 토픽 이름이 `life:` 로 시작하는 것은 규약이다 (FR-GLW-8) — 접두 없는
+     * `focus` 는 서버 SSE 의 명령 이름이기도 해서, 그것을 구독하면 그 명령이
+     * 처리기에 닿지 못한다.
+     */
+    for(const [topic,kind] of [[LIFE_VISIBLE,'visible'],[LIFE_FOCUS,'focus'],[LIFE_HIDDEN,null]])
+      this.bus.subscribe(topic,()=>this._gitLifecycle(kind),{owner:'git:lifecycle'});
+    /**
+     * FR-GLW-4·5: 워치독의 **주기** 계기.
+     *
+     * 렌더 훅(renderer.js)은 그대로 남는다 (D-5) — 표면이 막 바뀐 직후를 가장
+     * 이르게 잡는 것은 여전히 렌더다. 모자랐던 것은 렌더가 **주기적이지 않다**는
+     * 것이다: 사용자 조작과 `workspace_changed` 로만 돈다.
+     *
+     * `when` 은 주지 않는다 — 판정은 `_gitWatchdogAll` 자신이 하고(문턱 → 나이),
+     * 그것을 스케줄러로 옮기면 같은 판단이 두 곳에 선다 (FR-SCH-4).
+     *
+     * `whenHidden:'pause'` 인 것은 git status job(`'run'`)과 근거가 다르다. 그쪽은
+     * "조건이 참이 된 순간 즉시 1회 수집" 을 스케줄러에 넘길 수 없어서 `'run'`
+     * 이고, 이쪽은 숨김 중에 모든 `_pollOk()` 가 거짓이라 되살릴 것이 정의상
+     * 없다 — 다시 보이는 순간은 바로 위 `visible` 구독이 든다.
+     */
+    this.timers.every({
+      id:'git.watchdog', owner:'git:lifecycle', whenHidden:'pause',
+      every:()=>GIT_WATCHDOG_CHECK_MS,
+      run:()=>this._gitWatchdogAll(),
+    });
+  },
+
+  /**
+   * FR-GLW-1·3: 복귀·숨김 신호 하나가 **살아 있는 패널 전부**의 조건을 다시 보게
+   * 한다.
+   *
+   * 수집을 관측기마다 흩지 않는다 (D-3). 숨김 동안 폴링은 걷혀 있으므로 복귀 시
+   * `_reschedule()` 이 `_applyCadence()` 의 참을 받아 **그 자리에서 수집하고**
+   * (FR-GIT-22), 그 status 가 곧 저장소마다의 관심 표명이다 — 보이는 표면마다
+   * 한 건이면 족하다.
+   *
+   * `signal()` 은 종전대로 **포커스 패널 하나**에만 준다. 그 값을 딛는 것이 상태바
+   * chip 과 사이드바 배지이고(panel-poll 의 `signal` 주석), 관측기 전부에 주면
+   * 보이지 않는 표면까지 복귀 신호마다 요청을 하나씩 낸다 (NFR-GLW-2).
+   */
+  _gitLifecycle(kind){
+    this._gitRescheduleAll();
+    if(kind) this._gitSignal(kind);
   },
 
   // _gitSignal 은 즉시 신호의 단일 진입점이다 (FR-GIT-18). 어디서 왔는지는 라벨로만

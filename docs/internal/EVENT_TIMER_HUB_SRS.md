@@ -8,6 +8,7 @@
 > |---|---|---|
 > | FR-SCH-3 (마감 힙은 **단일 타이머**) | 그 설계가 성립하려면 모든 job 의 `nextAt` 이 미래여야 한다는 것이 요구로 서 있지 않았다. `_fire` 의 조기 반환 둘이 마감을 과거에 남겨, 조건이 바뀔 때까지 `setTimeout(…,0)` 이 되풀이됐다 (실측 400ms 에 85회) | SCHEDULER_REARM_SRS FR-SRA-1·2 |
 > | FR-SCH-6·7 (조건과 겹침 정책) | 판정의 **의미는 그대로**이고, 돌지 않은 회차도 다음 마감을 건다는 것만 명시됐다 | SCHEDULER_REARM_SRS FR-SRA-3·4 |
+> | FR-BUS-4·5 (`m.action` 이 곧 토픽 · 게이팅은 라우팅 앞) | 순서와 의미는 **그대로**다. 빠져 있던 것은 그 설계의 전제 — **토픽 이름공간과 SSE `action` 이름공간이 겹치면 안 된다**는 것이다. `startLifecycle` 이 `focus`·`visible`·`hidden`·`online` 을 접두 없이 발행하고 있었고, 그중 `focus` 를 처음으로 구독한 순간 같은 이름의 명령이 처리기에 닿지 못했다 (TC-SXE-7 실패). 생명주기 토픽에 `life:` 접두를 준다 — `sse:open` 과 같은 규약 | GIT_LIVE_TRIGGERS_SRS FR-GLW-8 / D-7 |
 
 ---
 

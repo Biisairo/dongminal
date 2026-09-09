@@ -52,7 +52,6 @@ class GitObserver {
     // 이어지면 영영 낡은 채이고, 그 값으로 문턱을 세우면 렌더마다 요청이 나간다.
     // 시도는 시도대로 세어야 절제가 절제가 된다.
     this._wdTryAt=0;
-    this._inited=false;           // 문서 이벤트 등록은 앱당 한 번이다
   }
 
   attach(p){ this.panels.add(p) }

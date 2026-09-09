@@ -616,6 +616,10 @@ const GIT_WATCHDOG_FACTOR=2;
 
 // 워치독 검사 자체의 문턱. 렌더는 잦고 판정은 싸지만, 같은 프레임에 여러 번
 // 그리는 경로가 있으므로 한 번으로 접는다.
+//
+// GIT_LIVE_TRIGGERS_SRS FR-GLW-4: 이 값은 **주기이기도 하다** — `_initGitSection`
+// 의 `git.watchdog` job 이 같은 값으로 돈다. 문턱과 주기가 같은 값인 덕에 두 계기
+// (렌더·주기)가 겹쳐도 검사는 이 간격당 한 번을 넘지 않는다.
 const GIT_WATCHDOG_CHECK_MS=1000;
 // status 요청 하나의 시한 (FR-RMS-29). 큰 저장소의 `git status` 가 몇 초일 수 있으니
 // 넉넉하되, 백오프 상한(GIT_FAIL_BACKOFF_MAX_MS)보다는 짧다 — 시한이 그보다 길면

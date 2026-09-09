@@ -152,6 +152,11 @@ class Renderer {
     // UX_BATCH9_SRS FR-GLR-1: 그리고 난 자리에서 묻는다 — 지금 보이는 표면의
     // 관측이 멎어 있지는 않은가. 표면 판정이 정확하려면 레이아웃이 선 **뒤**여야
     // 한다.
+    //
+    // GIT_LIVE_TRIGGERS_SRS D-5: 이 훅은 이제 **둘 중 하나**다. 나머지 하나는
+    // `_initGitSection` 의 주기 job 이고, 둘은 `_gitWdAt` 문턱을 공유하므로 합쳐도
+    // 검사는 `GIT_WATCHDOG_CHECK_MS` 당 한 번을 넘지 않는다. 렌더 쪽을 남기는
+    // 이유는 표면이 막 바뀐 직후를 가장 이르게 잡기 때문이다.
     this.app._gitWatchdogAll();
   }
 

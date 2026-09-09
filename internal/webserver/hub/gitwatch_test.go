@@ -1,9 +1,12 @@
 package hub
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
+	"strings"
 	"testing"
 	"time"
 
@@ -340,4 +343,62 @@ func TestGitWatch_RenoteDoesNotResetBaseline(t *testing.T) {
 	if n := len(gitChangedRepos(br)); n != 1 {
 		t.Fatalf("재표명이 기준선을 덮어 변화를 삼켰다: %d (G-10b)", n)
 	}
+}
+
+// TC-GLW-7 (GIT_LIVE_TRIGGERS_SRS FR-GLW-7): 감시 대상이 사라지는 두 경로가
+// 로그에서 **구분된다.**
+//
+// 만료는 브라우저가 말을 멈춘 것이고 탈락은 저장소가 읽히지 않은 것이다. 사후
+// 조사에서 "방송이 오지 않았다" 의 원인을 그 둘로 가르지 못하면 다음 접수도 같은
+// 자리에서 막힌다 (SRS §2.3).
+func captureLog(t *testing.T, fn func()) string {
+	t.Helper()
+	var buf bytes.Buffer
+	outw, flags := log.Writer(), log.Flags()
+	log.SetOutput(&buf)
+	log.SetFlags(0)
+	defer func() { log.SetOutput(outw); log.SetFlags(flags) }()
+	fn()
+	return buf.String()
+}
+
+func TestGitWatch_LogsExpiryAndDrop(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/stale": "a"}}
+	w := newWatcher(sig, &fakeBroker{})
+	now := time.Now()
+	w.now = func() time.Time { return now }
+
+	note(t, w, sig, "/stale")
+	now = now.Add(2 * GitWatchTTL)
+	expired := captureLog(t, func() { w.Tick(context.Background()) })
+	if w.Watching() != 0 {
+		t.Fatalf("TTL 을 넘겼는데 남아 있다")
+	}
+	if !strings.Contains(expired, "/stale") || !strings.Contains(expired, "[gitwatch]") {
+		t.Fatalf("만료가 로그에 남지 않았다: %q (FR-GLW-7)", expired)
+	}
+
+	sig2 := &fakeSigner{
+		sigs: map[string]string{"/gone": "x"},
+		errs: map[string]error{"/gone": errors.New("no such gitdir")},
+	}
+	w2 := newWatcher(sig2, &fakeBroker{})
+	note(t, w2, sig2, "/gone")
+	dropped := captureLog(t, func() { w2.Tick(context.Background()) })
+	if w2.Watching() != 0 {
+		t.Fatalf("오류난 저장소가 대상에 남았다")
+	}
+	if !strings.Contains(dropped, "/gone") || !strings.Contains(dropped, "[gitwatch]") {
+		t.Fatalf("탈락이 로그에 남지 않았다: %q (FR-GLW-7)", dropped)
+	}
+	// 두 줄이 **서로 다른 문구**여야 한다 — 같으면 구분이 되지 않는다.
+	if strip(expired) == strip(dropped) {
+		t.Fatalf("만료와 탈락이 같은 문구다: %q (FR-GLW-7)", expired)
+	}
+}
+
+// strip 은 저장소 경로를 지운 나머지다 — 문구가 같은지만 보기 위한 것이다.
+func strip(s string) string {
+	s = strings.ReplaceAll(s, "/stale", "")
+	return strings.ReplaceAll(s, "/gone", "")
 }
