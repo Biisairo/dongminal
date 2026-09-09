@@ -42,3 +42,6 @@ test-results/
 
 # 배포 빌드 산출물 (scripts/build.sh --all)
 /dist/
+
+# 개명 전 빌드 산출물 이름 (히스토리에 9MB급 blob 27개가 남아 있다 — 06-docs-hygiene §4)
+/remote-terminal

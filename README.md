@@ -253,3 +253,14 @@ tmux 의 detach 와 같은 생각입니다.
 
 README 의 그림은 `scripts/shots/shoot.sh` 가 다시 찍습니다 — 격리 인스턴스를
 띄워서 찍으므로 개인 정보가 섞이지 않습니다.
+
+---
+
+## 라이선스
+
+[MIT](LICENSE) — © 2026 Biisairo.
+
+화면에 들어 있는 외부 구성요소는 각자의 라이선스를 그대로 따릅니다:
+xterm.js 와 애드온 4종 · markdown-it (MIT) · highlight.js (BSD-3-Clause) ·
+DOMPurify (Apache-2.0 / MPL-2.0). Go 의존은 `creack/pty` (MIT) ·
+`gorilla/websocket` (BSD-2-Clause) · `golang.org/x/sys` (BSD-3-Clause) 입니다.
