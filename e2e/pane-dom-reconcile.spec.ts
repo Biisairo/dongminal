@@ -96,13 +96,31 @@ test.describe('Pane DOM reconcile', () => {
   });
 
   // TC-PDR-5: 레이아웃이 그대로면 노드를 만들지 않는다 (NFR-PDR-1).
-  test('레이아웃이 바뀌지 않은 render 는 DOM 노드를 만들지 않는다', async ({ page }) => {
+  test('레이아웃이 바뀌지 않은 render 는 골격을 만들지 않는다', async ({ page }) => {
     await waitForInit(page, { clearLocalStorage: true });
-    const added = await page.evaluate(`(async () => {
+    // 살아 있는 위젯 안에서는 노드가 늘 오간다 — xterm 은 화면을 그릴 때마다 행을
+    // 다시 만들고, 셸이 프롬프트를 그리거나 커서가 깜빡이는 것만으로도 그렇다.
+    // (Windows CI 에서 실측: 그 소음이 이 검사를 깨뜨렸다.)
+    //
+    // **재려는 것은 골격이다.** NFR-PDR-1 이 말하는 "노드를 만들지 않는다" 는
+    // `_rLayout` 이 짓는 요소들에 대한 것이고, 위젯 안쪽은 그 요구의 대상이 아니다.
+    // 그래서 클래스로 가린다 — 소음을 재우는 대신 무엇을 세는지 좁힌다.
+    const added = await page.evaluate(`(async () => {${PICK}
+      const LAYOUT = ['slot','slot-handle','sp','sc','pn','pn-tabs','pn-body',
+        'pn-tab','pn-tab-add','ed-win','ed-area','ed-side'];
       const area = document.getElementById('area');
       let n = 0;
-      const obs = new MutationObserver(rs => { for (const r of rs) n += r.addedNodes.length });
+      const obs = new MutationObserver(rs => {
+        for (const r of rs) for (const nd of r.addedNodes) {
+          if (nd.nodeType !== 1) continue;
+          if (LAYOUT.some(c => nd.classList.contains(c))) n++;
+        }
+      });
       obs.observe(area, { childList: true, subtree: true });
+      // 위젯 안쪽을 일부러 시끄럽게 만든다 — 필터가 실제로 가리는지까지 잰다.
+      pane.term.write('NOISE-FOR-OBSERVER' + String.fromCharCode(13, 10));
+      window.app.render();
+      await new Promise(r => setTimeout(r, 300));
       window.app.render();
       await new Promise(r => setTimeout(r, 300));
       obs.disconnect();
