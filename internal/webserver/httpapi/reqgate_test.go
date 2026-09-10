@@ -3,11 +3,12 @@ package httpapi
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"testing"
 )
 
-// REQUEST_GATE_SRS §4.1 — 요청 게이트 (TC-RQG-1~13).
+// REQUEST_GATE_SRS §4.1 — 요청 게이트 (TC-RQG-1~13 · 27~33).
 //
 // 재는 것은 하나다: **브라우저가 다른 출처의 지시로 보낸 요청이 부작용을 내는가.**
 //
@@ -245,5 +246,137 @@ func TestReqGate_DenyIsLoggedAndOpaque(t *testing.T) {
 	}
 	if strings.Contains(body, "127.0.0.1") || strings.Contains(body, "localhost") {
 		t.Fatalf("응답 본문이 허용 목록을 흘렸다: %q", body)
+	}
+}
+
+// ── TC-RQG-13·27~33 — 이 컴퓨터의 별명 (축②, U-18) ────────────────
+//
+// 여기가 U-18 의 자리다. tailnet 의 다른 기기에서 IP 로는 붙고 **이름으로는
+// 421** 이었다 — 서버가 자기 이름을 `os.Hostname()` 으로만 알아 tailnet 별명을
+// 자기 것으로 인식하지 못했고, 그 이름을 적을 자리가 UI 에 없었다.
+
+// gateSrvWith 는 별명 목록과 `--allowed-host` 를 실은 게이트 서버다. DNS·인터페이스
+// 수집은 주입으로 끊는다 — 판정이 이 기계의 네트워크 상태에 좌우되면 무엇을
+// 검증했는지 말할 수 없다.
+func gateSrvWith(t *testing.T, cfg accessConfig, allowedHosts []string) *httptest.Server {
+	t.Helper()
+	srv, err := New(Config{DataDir: t.TempDir(), AllowedHosts: allowedHosts}, Deps{})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	srv.Access.lookupHost = func(string) ([]string, error) { return nil, nil }
+	srv.Access.interfaceAddrs = func() ([]netip.Addr, error) { return nil, nil }
+	if err := srv.Access.setConfig(cfg); err != nil {
+		t.Fatalf("setConfig: %v", err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+	return ts
+}
+
+// hostStatus 는 그 이름으로 불린 요청의 상태 코드와 본문이다. 예외 경로가 아닌
+// 종단을 쓴다 — `/api/ping` 은 게이트를 지나지 않는다(FR-RQG-8).
+func hostStatus(t *testing.T, ts *httptest.Server, host string) (int, string) {
+	t.Helper()
+	req, err := http.NewRequest("GET", ts.URL+"/api/state", nil)
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+	req.Host = host
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Do(%s): %v", host, err)
+	}
+	defer resp.Body.Close()
+	b := make([]byte, 512)
+	n, _ := resp.Body.Read(b)
+	return resp.StatusCode, string(b[:n])
+}
+
+// TC-RQG-27: **U-18 의 재현.** 별명 목록에 있는 이름으로 들어오면 통과한다.
+func TestReqGate_HostAliasPasses(t *testing.T) {
+	ts := gateSrvWith(t, accessConfig{Hosts: []accessEntry{entry("macmini-office")}}, nil)
+	if got, _ := hostStatus(t, ts, "macmini-office:58146"); got == http.StatusMisdirectedRequest {
+		t.Fatalf("status=%d — 별명이 등록됐는데 이름으로 붙지 못한다 (U-18)", got)
+	}
+}
+
+// TC-RQG-28: 목록에 없는 이름은 421 이고, 본문은 목록을 흘리지 않는다
+// (FR-ACL-8 승계). 목록을 흘리면 그것이 곧 다음 시도의 입력이 된다.
+func TestReqGate_UnknownAliasRejectedWithoutLeaking(t *testing.T) {
+	ts := gateSrvWith(t, accessConfig{Hosts: []accessEntry{entry("secret-name")}}, nil)
+	got, body := hostStatus(t, ts, "evil.example")
+	if got != http.StatusMisdirectedRequest {
+		t.Fatalf("status=%d want 421", got)
+	}
+	if strings.Contains(body, "secret-name") {
+		t.Fatalf("응답 본문이 별명 목록을 흘렸다: %q", body)
+	}
+}
+
+// TC-RQG-29: 포트 유무·대소문자·후행 점이 판정을 바꾸지 않는다. 하나라도 갈리면
+// 사용자는 "어제는 됐는데" 를 겪는다.
+func TestReqGate_HostAliasNormalization(t *testing.T) {
+	ts := gateSrvWith(t, accessConfig{Hosts: []accessEntry{entry("macmini-office")}}, nil)
+	for _, host := range []string{"macmini-office", "macmini-office:9999", "MACMINI-OFFICE", "macmini-office."} {
+		if got, _ := hostStatus(t, ts, host); got == http.StatusMisdirectedRequest {
+			t.Errorf("Host %q 가 거절됐다", host)
+		}
+	}
+}
+
+// TC-RQG-30: 같은 목록이 `Origin` 에도 적용된다 — 두 헤더가 한 판정 함수를
+// 지나는 것이 FR-RQG-3 의 설계다 (FR-ACL-31).
+func TestReqGate_HostAliasAppliesToOrigin(t *testing.T) {
+	ts := gateSrvWith(t, accessConfig{Hosts: []accessEntry{entry("macmini-office")}}, nil)
+	h := okHeaders(ts)
+	h["Origin"] = "http://macmini-office:58146"
+	if got := gateReq(t, ts, "POST", "/api/tools/headless", h); got == http.StatusForbidden {
+		t.Fatalf("status=%d — 등록된 별명의 Origin 이 막혔다", got)
+	}
+}
+
+// TC-RQG-31: 꺼 둔 별명은 통과시키지 않는다 (FR-ACL-26 · FR-ACL-17 승계).
+func TestReqGate_DisabledAliasIsIgnored(t *testing.T) {
+	off := entry("macmini-office")
+	off.Enabled = false
+	ts := gateSrvWith(t, accessConfig{Hosts: []accessEntry{off}}, nil)
+	if got, _ := hostStatus(t, ts, "macmini-office"); got != http.StatusMisdirectedRequest {
+		t.Fatalf("status=%d want 421 — 꺼 둔 별명이 통과시켰다", got)
+	}
+}
+
+// TC-RQG-32: **적용 토글이 꺼져 있어도 별명은 적용된다** (FR-ACL-26).
+//
+// Host 판정은 토글과 무관하게 항상 돈다(FR-RQG-2). 토글에 매면 목록을 끈
+// 사용자(=기본값)의 이름 접속이 그대로 막히고, 그것이 U-18 의 증상이다.
+func TestReqGate_AliasIndependentOfEnforcementToggle(t *testing.T) {
+	ts := gateSrvWith(t, accessConfig{Enabled: false, Hosts: []accessEntry{entry("macmini-office")}}, nil)
+	if got, _ := hostStatus(t, ts, "macmini-office"); got == http.StatusMisdirectedRequest {
+		t.Fatalf("status=%d — 토글이 꺼졌다고 별명 판정이 죽었다", got)
+	}
+}
+
+// TC-RQG-33: **동작 변경의 증거** (FR-ACL-32). 축①(출발지 목록)에만 있는 이름은
+// 이제 Host 로 인정되지 않는다.
+//
+// 이전에는 `hasHostname` 이 그것을 인정했고, 그 자리가 두 축을 섞어 사용자가
+// 축②에 무엇을 적어야 하는지 알 수 없게 만들었다. 축①의 항목은 *타 기기* 이름
+// 이므로 이 서버를 그 이름으로 부를 일이 없다.
+func TestReqGate_AclEntryNameNoLongerAllowsHost(t *testing.T) {
+	ts := gateSrvWith(t, accessConfig{Entries: []accessEntry{entry("macmini")}}, nil)
+	if got, _ := hostStatus(t, ts, "macmini"); got != http.StatusMisdirectedRequest {
+		t.Fatalf("status=%d want 421 — hasHostname 편의 규칙이 남아 있다", got)
+	}
+}
+
+// TC-RQG-13: `--allowed-host` 의 접미사 와일드카드는 **그대로 남는다.**
+//
+// 별명 칸이 와일드카드를 받지 않는 근거 중 하나가 "정말 필요한 배치의 입구는
+// 이 경로로 남는다" 이므로(FR-ACL-29), 그 주장을 검증으로 남긴다.
+func TestReqGate_AllowedHostWildcardStillWorks(t *testing.T) {
+	ts := gateSrvWith(t, accessConfig{}, []string{"*.ts.net"})
+	if got, _ := hostStatus(t, ts, "macmini-office.tail5da9ae.ts.net"); got == http.StatusMisdirectedRequest {
+		t.Fatalf("status=%d — --allowed-host 접미사 경로가 깨졌다", got)
 	}
 }

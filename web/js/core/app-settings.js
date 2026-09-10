@@ -828,7 +828,8 @@ Object.assign(App.prototype, {
    * 목록과 무관하게 통과하므로(FR-ACL-5) 되돌릴 길이 언제나 남는다. 그래서
    * 저장을 서버가 막지 않고, 여기서 한 걸음 확인만 받는다 (FR-ACL-24).
    */
-  _aclRow(e){
+  _aclRow(e,opts){
+    opts=opts||{};
     const row=document.createElement('div');
     row.className='acl-row';
     row.dataset.id=(e&&e.id)||'';
@@ -841,7 +842,7 @@ Object.assign(App.prototype, {
     on.appendChild(cb);
     const val=document.createElement('input');
     val.type='text';val.className='acl-value';
-    val.placeholder='100.117.248.111 · 192.168.0.0/24 · macmini';
+    val.placeholder=opts.placeholder||'100.117.248.111 · 192.168.0.0/24 · macmini';
     val.value=(e&&e.value)||'';
     const lab=document.createElement('input');
     lab.type='text';lab.className='acl-label';
@@ -850,7 +851,9 @@ Object.assign(App.prototype, {
     const st=document.createElement('span');
     st.className='acl-state';
     // FR-ACL-16: 해석 실패가 조용히 지나가면 사용자는 규칙이 걸린 줄 안다.
-    if(e&&e.error){st.textContent='해석 실패';st.classList.add('err');st.title=e.error}
+    // 축②(`plain`)에는 이 칸이 비어 있다 — 별명은 해석하지 않는다 (FR-ACL-34).
+    if(opts.plain){/* 해석 상태 없음 */}
+    else if(e&&e.error){st.textContent='해석 실패';st.classList.add('err');st.title=e.error}
     else if(e&&e.resolved&&e.resolved.length){st.textContent=e.resolved.join(', ');st.title='해석된 주소'}
     const del=UIKit.button({icon:'x',title:'Remove this entry',kind:'ghost',size:'sm',cls:'sbx-del'});
     del.addEventListener('click',()=>row.remove());
@@ -858,20 +861,30 @@ Object.assign(App.prototype, {
     return row;
   },
 
-  _aclCollect(){
-    const entries=[];
-    for(const row of document.querySelectorAll('#acl-list .acl-row')){
+  _aclRowsIn(sel){
+    const out=[];
+    for(const row of document.querySelectorAll(sel+' .acl-row')){
       const value=row.querySelector('.acl-value').value.trim();
       // 추가만 하고 두고 간 빈 줄은 조용히 버린다 (마운트 줄과 같은 규약).
       if(!value) continue;
-      entries.push({
+      out.push({
         id:row.dataset.id||(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random()),
         value,
         label:row.querySelector('.acl-label').value.trim(),
         enabled:row.querySelector('input[type=checkbox]').checked,
       });
     }
-    return {enabled:document.getElementById('acl-enabled').checked,entries};
+    return out;
+  },
+
+  // FR-ACL-36: `PUT` 은 전체 교체다 — 두 목록을 **함께** 보낸다. 한쪽만 보내면
+  // 다른 쪽이 지워진다.
+  _aclCollect(){
+    return {
+      enabled:document.getElementById('acl-enabled').checked,
+      entries:this._aclRowsIn('#acl-list'),
+      hosts:this._aclRowsIn('#acl-host-list'),
+    };
   },
 
   _aclV4(s){
@@ -923,11 +936,17 @@ Object.assign(App.prototype, {
     return false;
   },
 
+  _aclHostRow(e){
+    return this._aclRow(e,{placeholder:'macmini-office',plain:true});
+  },
+
   async _loadAccessPanel(){
     const box=document.getElementById('acl-list');
+    const hostBox=document.getElementById('acl-host-list');
     const status=document.getElementById('acl-status');
     if(!box) return;
     box.innerHTML='';status.textContent='';status.classList.remove('err');
+    if(hostBox) hostBox.innerHTML='';
     try{
       const r=await apiGet('/api/access');
       if(!r.ok){
@@ -943,6 +962,13 @@ Object.assign(App.prototype, {
       you.textContent=v.you||'(알 수 없음)';
       you.title=(v.self&&v.self.length)?('이 서버의 주소: '+v.self.join(', ')):'';
       for(const e of this._aclKnown) box.appendChild(this._aclRow(e));
+      // FR-ACL-35: 서버가 자기를 무엇으로 아는지, 지금 어떤 이름으로 불렸는지.
+      // 이 둘을 볼 수 없어서 U-18 의 원인을 아무도 짚지 못했다.
+      const hn=document.getElementById('acl-hostname');
+      if(hn) hn.textContent=v.hostname||'(알 수 없음)';
+      const hnow=document.getElementById('acl-host-now');
+      if(hnow) hnow.textContent=v.host||'(알 수 없음)';
+      if(hostBox) for(const e of (v.hosts||[])) hostBox.appendChild(this._aclHostRow(e));
     }catch(e){
       status.textContent='허용 목록을 읽지 못했습니다 — '+((e&&e.message)||e);
       status.classList.add('err');
@@ -976,6 +1002,9 @@ Object.assign(App.prototype, {
     if(!add||!save) return;
     add.addEventListener('click',()=>
       document.getElementById('acl-list').appendChild(this._aclRow()));
+    const hostAdd=document.getElementById('acl-host-add');
+    if(hostAdd) hostAdd.addEventListener('click',()=>
+      document.getElementById('acl-host-list').appendChild(this._aclHostRow()));
     save.addEventListener('click',()=>{
       const cfg=this._aclCollect();
       if(!cfg.enabled||this._aclCoversYou(cfg,this._aclYou,this._aclKnown)){

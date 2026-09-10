@@ -22,10 +22,12 @@ test.describe('접속 허용 목록', () => {
     await waitForInit(page);
     // 목록은 서버에 남는다 — 앞 테스트가 남긴 항목 위에서 판정하면 무엇을
     // 검증했는지 알 수 없다. 매번 빈 목록에서 시작한다.
+    // FR-ACL-36: `PUT` 은 전체 교체다 — `hosts` 를 함께 보내지 않으면 별명 목록이
+    // 지워진다. 이 테스트들은 축①을 보므로 둘 다 비워 시작한다.
     await page.evaluate(() => fetch('/api/access', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: false, entries: [] }),
+      body: JSON.stringify({ enabled: false, entries: [], hosts: [] }),
     }));
   });
 
@@ -82,6 +84,48 @@ test.describe('접속 허용 목록', () => {
     await dialog.getByRole('button', { name: '취소' }).click();
     await expect(dialog).toHaveCount(0);
     await expect(page.locator('#acl-status')).not.toHaveText('저장했습니다');
+  });
+
+  // FR-ACL-37: 축② — "이 컴퓨터의 별명". 자리가 "지금 내 주소" 와 "허용 목록"
+  // 사이여야 두 축이 나란히 읽힌다. 저장이 파일까지 갔는지는 재진입으로만 확인된다.
+  test('별명을 더하고 저장하면 다시 열어도 남는다', async ({ page }) => {
+    await openAccessTab(page);
+    // 자리: 별명 칸은 "지금 내 주소" 뒤, "허용 목록" 앞이다.
+    const order = await page.evaluate(() => {
+      const ids = ['acl-you', 'acl-host-list', 'acl-list'];
+      return ids.map((id) => {
+        const el = document.getElementById(id);
+        return el ? Array.prototype.indexOf.call(document.querySelectorAll('#panel-access *'), el) : -1;
+      });
+    });
+    expect(order[0]).toBeLessThan(order[1]);
+    expect(order[1]).toBeLessThan(order[2]);
+
+    // 서버가 자기를 무엇으로 아는지가 보여야 무엇을 넣을지 알 수 있다 (FR-ACL-35).
+    await expect(page.locator('#acl-hostname')).not.toHaveText('(알 수 없음)');
+
+    await page.click('#acl-host-add');
+    const row = page.locator('#acl-host-list .acl-row').last();
+    await row.locator('.acl-value').fill('macmini-office');
+    await row.locator('.acl-label').fill('e2e tailnet');
+    await page.click('#acl-save');
+    await expect(page.locator('#acl-status')).toHaveText('저장했습니다');
+
+    await page.click('button.mtab[data-tab="theme"]');
+    await page.click('button.mtab[data-tab="access"]');
+    await expect(page.locator('#acl-host-list .acl-value').last()).toHaveValue('macmini-office');
+  });
+
+  // FR-ACL-29: 와일드카드는 보안 경계를 넓히므로 받지 않는다. 거절 사유가 그대로
+  // 보여야 사용자가 고칠 수 있다 (`_aclSave` 규약).
+  test('별명에 와일드카드는 사유와 함께 거절된다', async ({ page }) => {
+    await openAccessTab(page);
+    await page.click('#acl-host-add');
+    await page.locator('#acl-host-list .acl-row').last().locator('.acl-value').fill('*.ts.net');
+    await page.click('#acl-save');
+    const status = page.locator('#acl-status');
+    await expect(status).toHaveClass(/err/);
+    await expect(status).toContainText('*.ts.net');
   });
 
   // FR-ACL-7: 토글이 꺼져 있으면 자기를 자르는 목록이라도 확인이 붙지 않는다 —

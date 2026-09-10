@@ -40,6 +40,10 @@ type hostAllow struct {
 	// 와일드카드를 쓸 수 있다 (13-tls-tailscale §7 요구 ④).
 	extra []string
 	// hostname 은 이 기계의 이름이다. mDNS(`이름.local`)로 붙는 경로가 흔하다.
+	//
+	// **이것만으로는 부족하다** — macOS 컴퓨터 이름과 tailnet 노드 이름이 다르면
+	// 자기 별명을 자기 것으로 인식하지 못한다(U-18). 그 자리를 채우는 것이
+	// `accessStore.hosts`(FR-ACL-25)다.
 	hostname string
 }
 
@@ -110,8 +114,10 @@ func (h *hostAllow) ok(host string) bool {
 			return true
 		}
 	}
-	// ACL 의 호스트명 항목. 사용자가 "이 이름으로 들어온다" 고 이미 적어 둔 값이다.
-	if h.store != nil && h.store.hasHostname(host) {
+	// 축② — 사용자가 "이 컴퓨터는 이 이름으로 불린다" 고 적어 둔 목록
+	// (`access.json` 의 `hosts`, FR-ACL-25·31). 축①의 출발지 목록은 **보지 않는다**
+	// (FR-ACL-32).
+	if h.store != nil && h.store.hasHostAlias(host) {
 		return true
 	}
 	return false
@@ -178,8 +184,11 @@ func requestGate(allow *hostAllow, next http.Handler) http.Handler {
 		// "Origin == Host" 식의 검사는 통과한다. 그리고 그 공격의 목적은 응답을
 		// **읽는** 것이므로 상태 변경 메서드만 보면 놓친다.
 		if r.Host != "" && !allow.ok(normalizeHost(r.Host)) {
+			// **고칠 수 있는 자리를 가리킨다** (FR-RQG-9 개정). 이전 문구는
+			// `--allowed-host` 를 안내했는데 그 플래그는 CLI 에 배선돼 있지 않아
+			// 사용자가 쓸 수 없는 수단이었다 (U-18).
 			gateDeny(w, r, http.StatusMisdirectedRequest, "host",
-				"허용되지 않은 Host 입니다 — 이 이름으로 접속하려면 --allowed-host 로 추가하세요")
+				"허용되지 않은 Host 입니다 — 설정 ▸ 접속 의 '이 컴퓨터의 별명' 에 이 이름을 추가하세요")
 			return
 		}
 

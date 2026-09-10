@@ -350,3 +350,199 @@ func TestAccessAPI_ReportsCallerAddress(t *testing.T) {
 		t.Fatalf("you=%q want 100.117.248.111", got.You)
 	}
 }
+
+// ── 묶음 H — 이 컴퓨터의 별명 (축②, U-18) ─────────────────────────
+//
+// 재는 것은 축①과 다르다. 축①은 "누가 들어오나"(출발지 IP)이고 여기는 "뭐라고
+// 불리며 들어오나"(Host 이름)다. 두 축이 섞이면 사용자는 자기 서버에 이름으로
+// 붙지 못하면서 그 이유를 알 방법이 없다 — 그것이 U-18 이었다.
+
+// FR-ACL-25·27: 별명 목록이 저장되고 그대로 다시 읽힌다.
+func TestHostAlias_SaveReload(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "access.json")
+	st := newAccessStore(path)
+	st.lookupHost = func(string) ([]string, error) { return nil, nil }
+	st.interfaceAddrs = func() ([]netip.Addr, error) { return nil, nil }
+	mustSetConfig(t, st, accessConfig{
+		Entries: []accessEntry{entry("10.0.0.1")},
+		Hosts:   []accessEntry{entry("macmini-office")},
+	})
+
+	again := newAccessStore(path)
+	got := again.config()
+	if len(got.Hosts) != 1 || got.Hosts[0].Value != "macmini-office" {
+		t.Fatalf("hosts=%+v — 별명이 살아남지 않았다", got.Hosts)
+	}
+	if len(got.Entries) != 1 {
+		t.Fatalf("entries=%+v — 축①이 함께 상했다", got.Entries)
+	}
+}
+
+// FR-ACL-27: `hosts` 키가 없는 **기존 파일**은 빈 목록으로 읽힌다. 하위 호환이
+// 깨지면 업그레이드 순간 접속 판정이 바뀐다.
+func TestHostAlias_MissingKeyIsEmpty(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "access.json")
+	old := `{"enabled":true,"entries":[{"id":"a","value":"10.0.0.1","enabled":true}]}`
+	if err := os.WriteFile(path, []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	st := newAccessStore(path)
+	cfg := st.config()
+	if len(cfg.Hosts) != 0 {
+		t.Fatalf("hosts=%+v want 빈 목록", cfg.Hosts)
+	}
+	if !cfg.Enabled || len(cfg.Entries) != 1 {
+		t.Fatalf("기존 필드를 잃었다: %+v", cfg)
+	}
+}
+
+// FR-ACL-28: 짧은 이름·FQDN·`.local` 을 받는다.
+//
+// `.local` 이 여기서 유효한 이유는 축②가 **문자열 비교**라 DNS 해석이 필요 없기
+// 때문이다. FR-ACL-14a(mDNS 미지원)는 해석이 필요한 축①의 조항이다.
+func TestHostAlias_AcceptsHostnames(t *testing.T) {
+	st := newTestAccessStore(t)
+	for _, ok := range []string{"macmini-office", "macmini-office.tail5da9ae.ts.net", "macmini.local"} {
+		if err := st.setConfig(accessConfig{Hosts: []accessEntry{entry(ok)}}); err != nil {
+			t.Errorf("%q 가 거절됐다: %v", ok, err)
+		}
+	}
+}
+
+// FR-ACL-29: **와일드카드를 지원하지 않는다.** 축②는 DNS 리바인딩 방어의
+// 화이트리스트이므로, 넓힐 수 있는 문법을 UI 에 놓지 않는다.
+//
+// 이 목록이 이 변경의 보안 경계다 — 하나라도 통과하면 사용자가 "아무 도메인이나
+// 통과시키는 값" 을 저장할 수 있다.
+func TestHostAlias_RejectsWildcardsAndNonNames(t *testing.T) {
+	st := newTestAccessStore(t)
+	bad := []string{
+		"", "   ", // 빈 값
+		"*", "*.", "*.ts.net", "*.local", "a*b", "?", "**", // 와일드카드 7형태
+		"100.89.214.106", "::1", "192.168.0.0/24", // IP·CIDR
+		"http://macmini-office", "macmini-office:58146", "macmini-office/x", "u@macmini-office", // 스킴·포트·경로·사용자
+		"-x", "x-", "x..y", strings.Repeat("a", 254), // 라벨 규칙·길이
+	}
+	for _, v := range bad {
+		if err := st.setConfig(accessConfig{Hosts: []accessEntry{entry(v)}}); err == nil {
+			t.Errorf("%q 가 저장을 통과했다 — 보안 경계가 넓어졌다", v)
+		}
+	}
+	if len(st.config().Hosts) != 0 {
+		t.Fatalf("거절된 저장이 상태를 오염시켰다: %+v", st.config().Hosts)
+	}
+}
+
+// FR-ACL-30: 앞뒤 공백·대소문자·후행 점을 정규화해 저장한다. 정규화하지 않으면
+// 같은 이름이 두 벌로 저장되고 한쪽만 판정에 걸린다.
+func TestHostAlias_NormalizedOnSave(t *testing.T) {
+	st := newTestAccessStore(t)
+	mustSetConfig(t, st, accessConfig{Hosts: []accessEntry{entry("  MacMini-Office.  ")}})
+	got := st.config().Hosts
+	if len(got) != 1 || got[0].Value != "macmini-office" {
+		t.Fatalf("hosts=%+v want value=macmini-office", got)
+	}
+}
+
+// FR-ACL-30: 하나라도 유효하지 않으면 **아무것도 저장하지 않는다** (FR-ACL-18 승계).
+// 부분 저장은 사용자가 건 규칙과 실제 규칙을 어긋나게 만든다.
+func TestHostAlias_AllOrNothing(t *testing.T) {
+	st := newTestAccessStore(t)
+	mustSetConfig(t, st, accessConfig{Hosts: []accessEntry{entry("macmini-office")}})
+	err := st.setConfig(accessConfig{Hosts: []accessEntry{entry("macbook-air"), entry("*.ts.net")}})
+	if err == nil {
+		t.Fatal("무효한 줄이 섞인 저장이 통과했다")
+	}
+	got := st.config().Hosts
+	if len(got) != 1 || got[0].Value != "macmini-office" {
+		t.Fatalf("hosts=%+v — 거절된 저장이 앞 줄을 남겼거나 이전 값을 지웠다", got)
+	}
+}
+
+// FR-ACL-34: 별명은 **해석하지 않는다.** 이름↔이름 비교이므로 해석할 것이 없고,
+// 해석하면 UI 에 "해석 실패" 라는 무관한 오류가 뜬다.
+func TestHostAlias_NeverResolved(t *testing.T) {
+	st := newTestAccessStore(t)
+	var calls atomic.Int64
+	st.lookupHost = func(string) ([]string, error) {
+		calls.Add(1)
+		return []string{"100.89.214.106"}, nil
+	}
+	mustSetConfig(t, st, accessConfig{Hosts: []accessEntry{entry("macmini-office")}})
+	st.refresh()
+
+	if got := calls.Load(); got != 0 {
+		t.Fatalf("별명 때문에 DNS 를 %d 회 탔다 — 해석 대상이 아니다", got)
+	}
+	v := st.view()
+	if len(v.Hosts) != 1 || v.Hosts[0].Value != "macmini-office" {
+		t.Fatalf("view.hosts=%+v", v.Hosts)
+	}
+}
+
+// FR-ACL-35: 응답은 **가산적**이다. 기존 필드가 그대로 있고, 별명 편집에 필요한
+// 셋이 더해진다 — 무엇을 넣어야 하는지 알 방법이 이것뿐이다(FR-ACL-23 과 같은 근거).
+func TestAccessAPI_HostAliasView(t *testing.T) {
+	srv, err := New(Config{DataDir: t.TempDir()}, Deps{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.Access.lookupHost = func(string) ([]string, error) { return nil, nil }
+	body := `{"enabled":false,"entries":[{"id":"a","value":"10.0.0.1","enabled":true}],` +
+		`"hosts":[{"id":"h","value":"macmini-office","label":"tailnet","enabled":true}]}`
+	req := apiTestRequest(http.MethodPut, "/api/access", strings.NewReader(body))
+	req.RemoteAddr = "127.0.0.1:5000"
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("PUT status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	req = apiTestRequest(http.MethodGet, "/api/access", nil)
+	req.RemoteAddr = "127.0.0.1:5000"
+	req.Host = "macmini-office:58146"
+	rec = httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("GET status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var got accessView
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Hosts) != 1 || got.Hosts[0].Value != "macmini-office" {
+		t.Fatalf("hosts=%+v", got.Hosts)
+	}
+	if got.Hostname == "" {
+		t.Fatal("hostname 이 비었다 — 서버가 자기를 무엇으로 아는지가 U-18 의 원인이었다")
+	}
+	if got.Host != "macmini-office" {
+		t.Fatalf("host=%q want macmini-office (지금 들어온 이름)", got.Host)
+	}
+	if len(got.Entries) != 1 || got.You == "" {
+		t.Fatalf("기존 필드가 상했다: %+v", got)
+	}
+}
+
+// FR-ACL-36: `PUT` 은 종전대로 **전체 교체**다. `hosts` 없는 본문은 별명 목록을
+// 빈 목록으로 바꾼다 — 어느 필드가 병합되고 어느 것이 교체되는지가 문서 밖에
+// 남으면 다음 필드에서 같은 질문을 다시 한다.
+func TestAccessAPI_HostsOmittedReplacesWithEmpty(t *testing.T) {
+	srv, err := New(Config{DataDir: t.TempDir()}, Deps{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.Access.lookupHost = func(string) ([]string, error) { return nil, nil }
+	mustSetConfig(t, srv.Access, accessConfig{Hosts: []accessEntry{entry("macmini-office")}})
+
+	req := apiTestRequest(http.MethodPut, "/api/access", strings.NewReader(`{"enabled":false,"entries":[]}`))
+	req.RemoteAddr = "127.0.0.1:5000"
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("PUT status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := srv.Access.config().Hosts; len(got) != 0 {
+		t.Fatalf("hosts=%+v want 빈 목록 (전체 교체)", got)
+	}
+}

@@ -391,6 +391,19 @@
           <div class="ds-row"><span>지금 내 주소</span><span id="acl-you" class="sbx-status"></span></div>
           <div class="ds-hint">이 값이 목록에 없으면 저장하는 순간 이 브라우저는 끊깁니다. <b>서버가 돌고 있는 컴퓨터에서는 목록과 무관하게 언제나 접속되므로</b>, 잘못 설정해도 그 컴퓨터에서 되돌릴 수 있습니다.</div>
 
+          <!-- FR-ACL-37: 축② — 이 서버가 **불리는 이름**. 위쪽이 "누가 들어오나" 이고
+               여기가 "뭐라고 불리며 들어오나" 다. 자리를 둘 사이에 둔 이유는 두 축이
+               나란히 서야 무엇이 무엇인지 읽히기 때문이다 (U-18). -->
+          <div class="ds-row"><span>이 서버가 아는 자기 이름</span><span id="acl-hostname" class="sbx-status"></span></div>
+          <div class="ds-row"><span>지금 들어온 이름</span><span id="acl-host-now" class="sbx-status"></span></div>
+          <div class="ds-row"><span>이 컴퓨터의 별명</span>
+            <button type="button" class="ds-toggle" id="acl-host-add" title="Add a host alias">+ 추가</button>
+          </div>
+          <div id="acl-host-list" class="sbx-mounts"></div>
+          <!-- FR-ACL-38: 이 칸이 넓히는 것이 무엇인지, 그리고 막힌 뒤에는 여기서 고칠
+               수 없다는 사실을 함께 적는다. -->
+          <div class="ds-hint">이 컴퓨터를 부르는 이름을 넣습니다(<code>macmini-office</code> · <code>macmini-office.tail5da9ae.ts.net</code> · <code>macmini.local</code>). 여기 없는 이름으로 접속하면 <b>화면은 뜨지만 <code>/api/*</code>·<code>/ws</code> 가 421 로 끊깁니다.</b> 위쪽 허용 목록과 달리 <b>적용 토글과 무관하게 항상 적용되며</b>, 이름은 해석하지 않고 그대로 비교합니다. <b>이 칸은 DNS 리바인딩 방어의 화이트리스트입니다</b> — 남의 도메인을 넣으면 그 도메인이 이 서버를 가리키게 만든 웹페이지가 응답을 읽을 수 있으므로 <b>이 컴퓨터가 불리는 이름만</b> 넣고, 와일드카드(<code>*</code>)는 쓸 수 없습니다. 이미 이름으로 막힌 상태라면 그 브라우저에서는 이 칸을 고칠 수 없습니다 — 서버가 돌고 있는 컴퓨터에서, 또는 IP 로 접속해 고치세요.</div>
+
           <div class="ds-row"><span>허용 목록</span>
             <button type="button" class="ds-toggle" id="acl-add" title="Add an allowlist entry">+ 추가</button>
           </div>

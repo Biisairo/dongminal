@@ -44,6 +44,11 @@ type accessEntry struct {
 type accessConfig struct {
 	Enabled bool          `json:"enabled"`
 	Entries []accessEntry `json:"entries"`
+	// Hosts 는 축② — 이 서버가 **불리는 이름**들이다 (FR-ACL-25). 축①(`Entries`)과
+	// 나누는 이유는 묻는 것이 다르기 때문이다: 저기는 "누가 들어오나", 여기는
+	// "뭐라고 불리며 들어오나". 섞으면 사용자가 축②에 무엇을 적어야 하는지 알
+	// 방법이 없어진다 (U-18).
+	Hosts []accessEntry `json:"hosts,omitempty"`
 }
 
 // accessEntryView 는 항목에 **해석 결과**를 얹은 응답 모양이다. 저장 모양과
@@ -64,6 +69,14 @@ type accessView struct {
 	Entries []accessEntryView `json:"entries"`
 	You     string            `json:"you"`
 	Self    []string          `json:"self,omitempty"`
+	// FR-ACL-35: 축②의 편집에 필요한 셋. `Hosts` 에 해석 상태가 없는 이유는
+	// 별명을 해석하지 않기 때문이다 (FR-ACL-34).
+	Hosts []accessEntry `json:"hosts"`
+	// Hostname 은 서버가 자기를 무엇으로 아는가다 — U-18 의 원인이 이 값이었고
+	// 사용자가 그것을 알 방법이 없었다. Host 는 **지금 이 요청의 이름**이다
+	// (`You` 와 같은 근거, FR-ACL-23).
+	Hostname string `json:"hostname,omitempty"`
+	Host     string `json:"host,omitempty"`
 }
 
 type accessStore struct {
@@ -101,14 +114,18 @@ func newAccessStore(path string) *accessStore {
 		return s
 	}
 	s.cfg = cfg
-	log.Printf("access loaded: enabled=%v entries=%d", cfg.Enabled, len(cfg.Entries))
+	log.Printf("access loaded: enabled=%v entries=%d hosts=%d", cfg.Enabled, len(cfg.Entries), len(cfg.Hosts))
 	return s
 }
 
 func (s *accessStore) config() accessConfig {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return accessConfig{Enabled: s.cfg.Enabled, Entries: append([]accessEntry(nil), s.cfg.Entries...)}
+	return accessConfig{
+		Enabled: s.cfg.Enabled,
+		Entries: append([]accessEntry(nil), s.cfg.Entries...),
+		Hosts:   append([]accessEntry(nil), s.cfg.Hosts...),
+	}
 }
 
 // errAccessSaveFailed 는 **저장 자체가 실패**했다는 뜻이다. 검증 실패와 갈라 두는
@@ -130,8 +147,20 @@ func (s *accessStore) setConfig(cfg accessConfig) error {
 		e.Label = strings.TrimSpace(e.Label)
 		entries = append(entries, e)
 	}
+	// FR-ACL-30: 축②도 같은 규약이다 — 하나라도 유효하지 않으면 아무것도 저장하지
+	// 않는다. 축①보다 좁게 받으므로(FR-ACL-29) 검증 함수를 따로 쓴다.
+	hosts := make([]accessEntry, 0, len(cfg.Hosts))
+	for i, e := range cfg.Hosts {
+		v, err := normalizeHostAlias(e.Value)
+		if err != nil {
+			return fmt.Errorf("hosts[%d]: %w", i, err)
+		}
+		e.Value = v
+		e.Label = strings.TrimSpace(e.Label)
+		hosts = append(hosts, e)
+	}
 	s.mu.Lock()
-	s.cfg = accessConfig{Enabled: cfg.Enabled, Entries: entries}
+	s.cfg = accessConfig{Enabled: cfg.Enabled, Entries: entries, Hosts: hosts}
 	data, err := json.MarshalIndent(s.cfg, "", "  ")
 	s.mu.Unlock()
 	if err != nil {
@@ -166,6 +195,31 @@ func validateAccessValue(v string) error {
 		return nil
 	}
 	return fmt.Errorf("%q 는 IP·CIDR·호스트명 중 어느 것도 아니다", v)
+}
+
+// normalizeHostAlias 는 축②의 값 하나를 검증하고 정규화한다 (FR-ACL-28·29·30).
+//
+// **와일드카드를 받지 않는다.** 축②는 DNS 리바인딩 방어의 화이트리스트이므로,
+// 넓힐 수 있는 문법을 UI 에 놓지 않는다 — 받으면 "어디까지 넓은 것을 막을지"
+// 라는 판정을 새로 만들어야 하고 그 판정이 곧 다음 구멍의 자리가 된다. 정말
+// 필요한 배치의 입구는 `--allowed-host`(`hostAllow.extra`) 로 남아 있다.
+//
+// IP·CIDR·포트·스킴도 거절이다 — 그것들은 축①(`Entries`)의 어휘다. 축①과 달리
+// `.local` 은 유효하다: 여기는 문자열 비교라 DNS 해석이 필요 없다 (FR-ACL-34).
+func normalizeHostAlias(raw string) (string, error) {
+	v := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(raw), "."))
+	if v == "" {
+		return "", fmt.Errorf("빈 값")
+	}
+	// 와일드카드를 **먼저** 가른다. `isHostname` 도 이것을 거절하지만, 그때의
+	// 사유는 "호스트명이 아니다" 라서 사용자가 왜 안 되는지 알 수 없다.
+	if strings.ContainsAny(v, "*?") {
+		return "", fmt.Errorf("%q — 와일드카드는 쓸 수 없다. 이 컴퓨터가 불리는 이름을 그대로 적는다", raw)
+	}
+	if !isHostname(v) {
+		return "", fmt.Errorf("%q 는 이름이 아니다 — IP·대역·포트·스킴은 위쪽 허용 목록이 담당한다", raw)
+	}
+	return v, nil
 }
 
 // isHostname 은 RFC 1123 라벨 규칙이다.
@@ -297,20 +351,26 @@ func (s *accessStore) isSelf(addr netip.Addr) bool {
 	return false
 }
 
-// hasHostname 은 그 이름이 ACL 목록의 호스트명 항목인지 본다.
+// hasHostAlias 는 그 이름이 축②의 활성 항목인지 본다 (FR-ACL-31).
 //
-// 사용자가 "이 이름으로 들어온다" 고 이미 적어 둔 값이므로, 같은 이름으로 오는
-// 요청을 Host 판정이 막을 이유가 없다. **꺼진 항목은 세지 않는다** (FR-ACL-17).
-func (s *accessStore) hasHostname(name string) bool {
+// **축①(`Entries`)을 보지 않는다.** 이전에는 `hasHostname` 이 축①의 호스트명
+// 항목을 Host 로도 인정했고, 그 자리가 두 축을 섞어 사용자가 축②에 무엇을 적어야
+// 하는지 알 수 없게 만들었다 (U-18 · FR-ACL-32). 축①의 항목은 *들여보낼 타 기기*
+// 의 이름이므로 이 서버가 그 이름으로 불릴 일이 없다.
+//
+// **적용 토글과 무관하다** (FR-ACL-26) — Host 판정은 토글과 무관하게 항상 돈다.
+// **꺼진 항목은 세지 않는다** (FR-ACL-17 승계).
+func (s *accessStore) hasHostAlias(name string) bool {
 	if name == "" {
 		return false
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for _, e := range s.cfg.Entries {
-		if !e.Enabled || !isPlainHostname(e.Value) {
+	for _, e := range s.cfg.Hosts {
+		if !e.Enabled {
 			continue
 		}
+		// 손으로 고친 `access.json` 은 정규화를 지나지 않았을 수 있다.
 		if strings.EqualFold(strings.TrimSuffix(e.Value, "."), name) {
 			return true
 		}
@@ -378,6 +438,8 @@ func (s *accessStore) view() accessView {
 	for _, a := range s.self {
 		v.Self = append(v.Self, a.String())
 	}
+	// FR-ACL-34: 별명에는 해석 상태가 없다. 저장 모양 그대로 간다.
+	v.Hosts = append([]accessEntry(nil), s.cfg.Hosts...)
 	return v
 }
 
@@ -464,6 +526,12 @@ func (s *Server) apiAccessGet(w http.ResponseWriter, r *http.Request) {
 	if addr, ok := remoteIP(r.RemoteAddr); ok {
 		v.You = addr.String()
 	}
+	// FR-ACL-35: 서버가 자기를 무엇으로 아는지(`hostname`)와 지금 어떤 이름으로
+	// 불렸는지(`host`)를 함께 준다. U-18 에서 사용자가 알 방법이 없던 둘이다.
+	if s.hosts != nil {
+		v.Hostname = s.hosts.hostname
+	}
+	v.Host = normalizeHost(r.Host)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
 }
