@@ -15,10 +15,15 @@ const gitLiteral = `"gi` + `t"`
 
 var directExec = regexp.MustCompile(`exec\.` + `Command(Context)?\([^)]*` + gitLiteral)
 
-// 허용 예외는 FR-GIT-1 이 명시한 두 곳뿐이다 — internal/webserver/domain/worktree 는 Run 격리 전용
-// 경로이고, internal/webserver/domain/git 자신이 그 단일 지점이다.
+// 허용 예외는 **한 곳뿐이다** — internal/webserver/domain/git 자신이 그 단일
+// 지점이다 (FR-GIT-1).
+//
+// 종전에는 internal/webserver/domain/worktree 도 여기 있었다. 그 패키지가 git 을
+// 직접 띄웠기 때문인데, 지금은 core 의 실행 층을 지나므로 예외가 필요 없다
+// (GIT_EXEC_UNIFY_SRS FR-GXU-7·13). **쓰이지 않는 예외를 남기지 않는다** — 그것은
+// "여기서는 규약을 어겨도 된다"는 잘못된 신호로 남고, 실제로 그 신호 아래에서
+// `Env()` 없는 실행이 자랐다.
 var execAllowed = []string{
-	filepath.Join("internal", "webserver", "domain", "worktree"),
 	filepath.Join("internal", "webserver", "domain", "git"),
 }
 

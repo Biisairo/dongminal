@@ -321,16 +321,23 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 		log.Printf("run store load: %v", err)
 	}
 
+	// git 실행의 단일 지점 (FR-GIT-1). **worktree·submodule 보다 먼저 만든다** —
+	// 그 둘이 이것을 받아야 실행 환경과 기록을 함께 쓴다
+	// (GIT_EXEC_UNIFY_SRS FR-GXU-10). 종전에는 그 둘이 git 을 각자 띄워
+	// `core.Env()` 도 실행 기록도 지나지 않았고, 그래서 Console 이 그 실행들을
+	// 보지 못했다.
+	gitSvc := core.New()
+
 	// worktree 격리의 관리자 (묶음 W). 자기 영역은 $DONGMINAL_HOME/worktrees
 	// 아래뿐이고, 정리 대상은 Run 레코드가 정한다 (FR-WKT-9/10). 격리를 쓰지
 	// 않는 Run 은 이 객체를 건드리지 않는다.
-	worktrees := worktree.New(dataPath(cfg.DataDir, "worktrees"))
+	worktrees := worktree.New(dataPath(cfg.DataDir, "worktrees"), worktree.WithService(gitSvc))
 
 	// Git 창 Worktrees 탭의 사용자 worktree 관리자 (FR-WKT-13) — 위 worktrees 와는
 	// 별개의 Manager 인스턴스이며 root 만 형제(git-worktrees)다. checkPath 가 서로의
 	// root 밖을 거부하므로 이 둘이 갈라진 것만으로 Run 정리가 사용자 worktree 를
 	// 건드리지 않는다는 것이 구조적으로 보장된다 — 그 사실이 I7 안전의 전부다.
-	userWorktrees := worktree.New(dataPath(cfg.DataDir, "git-worktrees"))
+	userWorktrees := worktree.New(dataPath(cfg.DataDir, "git-worktrees"), worktree.WithService(gitSvc))
 
 	// 상태바 지표 샘플러. 커널을 주기적으로 읽어 스냅샷을 유지하므로 /api/stats 가
 	// 요청 경로에서 커널을 호출하지 않는다 (SYSTEM_STATS_SRS FR-STAT-8/9/11).
@@ -338,7 +345,7 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 
 	// git 조회 앞의 single-flight + TTL 캐시 (GIT_SRS 묶음 C). 브라우저 창이
 	// 여러 개여도 git 실행 횟수가 창 수에 비례하지 않게 한다 (FR-GIT-63).
-	gitStore := store.NewStore(core.New())
+	gitStore := store.NewStore(gitSvc)
 
 	// 편집기 코드 탐색의 언어 서버 (LSP_PLUGIN_SRS). 격리 칸은 worktrees 와 같은
 	// 규약으로 홈 아래에 잡는다 — **우리가 받은 것만** 그 안에 살고, 그 칸 하나를

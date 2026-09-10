@@ -2,11 +2,11 @@ package httpapi
 
 import (
 	"dongminal/internal/webserver/apierr"
+	"dongminal/internal/webserver/domain/git/core"
 
-	"bytes"
 	"context"
+	"errors"
 	"net/http"
-	"os/exec"
 	"strings"
 	"time"
 )
@@ -72,13 +72,21 @@ func (s *Server) apiFSIgnored(w http.ResponseWriter, r *http.Request) {
 		fsJSON(w, http.StatusOK, map[string]any{"ignored": []string{}})
 		return
 	}
-	ignored, err := checkIgnore(r.Context(), dir, req.Names)
+	ignored, err := checkIgnore(r.Context(), s.gitService(), dir, req.Names)
 	if err != nil {
 		fsFailErr(w, err)
 		return
 	}
 	fsJSON(w, http.StatusOK, map[string]any{"ignored": ignored})
 }
+
+// unguardedReasonCheckIgnore 는 실행 기록에 남는 사유다
+// (GIT_EXEC_UNIFY_SRS FR-GXU-1).
+//
+// 인가는 이 종단이 진다 — `fsResolveExisting` 의 루트 가드와 아래의 한 겹 이름
+// 검사다. core 의 화이트리스트는 지나지 않는다: `check-ignore` 는 `readCommands`
+// 에 없고, 넣는 것은 화이트리스트 확장이라 비목표다 (§5 N1).
+const unguardedReasonCheckIgnore = "탐색기 무시 판정 — check-ignore 는 읽기 허용 목록에 없다 (FR-ETR-2)"
 
 // checkIgnore 는 `git -C <dir> check-ignore -z --stdin` 한 번으로 겹 전체를
 // 판정한다 (FR-ETR-2).
@@ -88,56 +96,46 @@ func (s *Server) apiFSIgnored(w http.ResponseWriter, r *http.Request) {
 //
 // 이름은 인자가 아니라 stdin 으로 간다. 인자로 넘기면 겹 하나가 수천 개일 때
 // argv 길이 한계에 걸리고, `-` 로 시작하는 이름이 옵션으로 읽힌다.
-func checkIgnore(ctx context.Context, dir string, names []string) ([]string, error) {
-	bin, err := exec.LookPath("git")
-	if err != nil {
+func checkIgnore(ctx context.Context, svc *core.Service, dir string, names []string) ([]string, error) {
+	var in strings.Builder
+	for _, n := range names {
+		in.WriteString(n)
+		in.WriteByte(0)
+	}
+
+	// 실행 방법은 core 가 든다 (GIT_EXEC_UNIFY_SRS FR-GXU-7) — 환경·마감·출력
+	// 상한·취소·오류 분류·기록. 종전에는 그 여섯이 빠져 있었고, 특히 이 경로는
+	// **탐색기가 겹을 펼칠 때마다** 도므로 `GIT_OPTIONAL_LOCKS=0` 이 없으면
+	// 사용자의 터미널 git 과 index.lock 을 두고 경합한다.
+	out, err := svc.ExecUnguarded(ctx, dir, core.UnguardedSpec{
+		Argv:    []string{"check-ignore", "-z", "--stdin"},
+		Stdin:   in.String(),
+		Timeout: checkIgnoreTimeout,
+		Reason:  unguardedReasonCheckIgnore,
+	})
+	if errors.Is(err, core.ErrGitMissing) {
 		// git 이 없으면 무시 여부를 알 수 없다. 색을 못 칠할 뿐이므로 조회
 		// 자체를 죽이지 않고 "저장소가 아니다" 와 같은 답을 준다 — 클라이언트는
 		// 둘 다 "다시 묻지 않는다" 로 처리한다 (FR-ETR-4).
 		return nil, fsError{fsErrNotRepo, "git 을 찾을 수 없다"}
 	}
-	ctx, cancel := context.WithTimeout(ctx, checkIgnoreTimeout)
-	defer cancel()
-
-	var in bytes.Buffer
-	for _, n := range names {
-		in.WriteString(n)
-		in.WriteByte(0)
-	}
-	cmd := exec.CommandContext(ctx, bin, "check-ignore", "-z", "--stdin")
-	cmd.Dir = dir
-	cmd.Stdin = &in
-	var out, errBuf bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &errBuf
-
-	runErr := cmd.Run()
-	if ctx.Err() != nil {
+	if errors.Is(err, core.ErrTimeout) || errors.Is(err, core.ErrCanceled) {
 		return nil, fsError{fsErrIO, "check-ignore 가 시간 안에 끝나지 않았다"}
 	}
-	switch code := exitCodeOf(runErr); code {
+	// 종료 코드로 가른다 — exit 1 은 실패가 아니라 답이므로 err 로 판정하면 안
+	// 된다. core 는 0 이 아닌 종료를 오류로 싸지만 코드는 그대로 싣는다.
+	switch out.ExitCode {
 	case checkIgnoreFound:
-		return splitNUL(out.String()), nil
+		return splitNUL(out.Stdout), nil
 	case checkIgnoreNone:
 		// FR-ETR-3: 무시된 것이 하나도 없다는 **답**이다.
 		return []string{}, nil
 	default:
-		// 128 은 저장소가 아니거나 그 밖의 치명적 실패다. 사유를 그대로 싣지
-		// 않는다 — stderr 에 서버의 절대경로가 실린다 (FR-FTR-3 과 같은 근거).
+		// 128 은 저장소가 아니거나 그 밖의 치명적 실패다. 프로세스가 뜨지도
+		// 못한 경우는 -1 이며 여기로 온다. 사유를 그대로 싣지 않는다 — stderr 에
+		// 서버의 절대경로가 실린다 (FR-FTR-3 과 같은 근거).
 		return nil, fsError{fsErrNotRepo, "저장소가 아니거나 무시 여부를 물을 수 없다"}
 	}
-}
-
-// exitCodeOf 는 종료 코드를 꺼낸다. 실행 자체가 실패한 것(바이너리 없음 등)은
-// 128 로 접는다 — 호출자에게는 "치명적 실패" 로 같다.
-func exitCodeOf(err error) int {
-	if err == nil {
-		return 0
-	}
-	if ee, ok := err.(*exec.ExitError); ok {
-		return ee.ExitCode()
-	}
-	return 128
 }
 
 // splitNUL 은 NUL 로 끝나는 레코드들을 가른다. `-z` 의 출력은 마지막 레코드
@@ -151,4 +149,16 @@ func splitNUL(s string) []string {
 		}
 	}
 	return out
+}
+
+// gitService 는 실행 기록을 공유할 git Service 다 (GIT_EXEC_UNIFY_SRS FR-GXU-10).
+//
+// nil 을 돌려줄 수 있다 — 저장소 계층 없이 서는 배선이 있고(`deps.go` 의 `Git`
+// 주석), 그때도 무시 판정은 동작해야 한다. `ExecUnguarded` 가 nil 수신자를
+// 견디므로(FR-GXU-4) 기록만 생략되고 실행 규약은 그대로 적용된다.
+func (s *Server) gitService() *core.Service {
+	if s.Git == nil {
+		return nil
+	}
+	return s.Git.Service()
 }

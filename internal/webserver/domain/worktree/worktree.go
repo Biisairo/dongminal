@@ -16,11 +16,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"dongminal/internal/webserver/domain/git/core"
 )
 
 // 거부 사유는 열거한다 — 무엇이 위험했는지 호출자가 구분할 수 있어야 한다.
@@ -156,21 +157,54 @@ func resolveSymlinksPrefix(p string) string {
 
 func (m *Manager) Root() string { return m.root }
 
-func execGit(dir string, args ...string) (string, error) {
-	bin, err := exec.LookPath("git")
-	if err != nil {
+// unguardedReason 은 실행 기록에 남는 사유다 (GIT_EXEC_UNIFY_SRS FR-GXU-1).
+// Console 이 이 문장으로 "왜 이 실행이 화이트리스트를 지나지 않았는가"를 답한다.
+const unguardedReason = "worktree 도메인 — 화이트리스트가 argv[0] 으로 키잉되어 list 와 add 를 가를 수 없다 (FR-GIT-246)"
+
+// execGit 은 Service 없이 도는 기본 실행기다. 기록이 남지 않을 뿐 환경·마감·출력
+// 상한·오류 분류는 그대로 적용된다 (FR-GXU-4).
+//
+// 실제 배선은 WithService 로 Service 를 준다 — 그래야 이 패키지의 git 실행이
+// Console 과 Replay 가 보는 같은 기록에 남는다.
+func execGit(dir string, args ...string) (string, error) { return runGit(nil, dir, args...) }
+
+// runGit 은 이 패키지의 유일한 git 실행이다 (GIT_EXEC_UNIFY_SRS FR-GXU-7).
+//
+// **인가는 이 패키지가 진다.** `checkRepo`·`checkPath`·`validRef`·`repoLock` 이
+// 그것이며, core 의 화이트리스트는 지나지 않는다 — `git worktree` 는 한 하위
+// 명령에 `list`(읽기)와 `add`(쓰기)를 함께 갖고 허용 목록은 `argv[0]` 으로만
+// 키잉되므로, 어느 목록에 넣어도 교집합-금지 불변식이 뜻을 잃는다 (FR-GIT-246).
+//
+// core 로 가는 것은 **실행 방법**이다 — 환경(FR-GIT-104 의 프롬프트 배제),
+// 마감, 출력 상한, 취소, 오류 분류, 기록. 종전에는 그 여섯이 전부 빠져 있었다.
+func runGit(svc *core.Service, dir string, args ...string) (string, error) {
+	out, err := svc.ExecUnguarded(context.Background(), dir, core.UnguardedSpec{
+		Argv:    args,
+		Timeout: opTimeout,
+		Reason:  unguardedReason,
+	})
+	// git 부재는 이 패키지의 사유로 바꿔 든다 — apierr 가 이 sentinel 로 HTTP
+	// 코드를 정한다 (tables.go:90). 종전과 같이 텍스트는 비운다.
+	if errors.Is(err, core.ErrGitMissing) {
 		return "", fmt.Errorf("%w: %v", ErrGitMissing, err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, bin, args...)
-	cmd.Dir = dir
-	out, err := cmd.CombinedOutput()
-	text := strings.TrimSpace(string(out))
+	// 종전 CombinedOutput 의 자리를 채운다. 시간순 인터리브가 아니라 스트림별
+	// 결합이며, 성공 경로의 파싱은 stdout 만 읽으므로 실질 차이는 없다.
+	text := strings.TrimSpace(out.Stdout + out.Stderr)
+	// 사유에 텍스트를 덧붙이지 않는다 — core 의 오류가 이미 stderr 를 싣는다.
+	// 붙이면 같은 진단이 두 벌이 되고, 상한(failMax)을 먹어 실제 사유가 잘린다.
 	if err != nil {
-		return text, fmt.Errorf("git %s: %v: %s", strings.Join(args, " "), err, text)
+		return text, fmt.Errorf("git %s: %v", strings.Join(args, " "), err)
 	}
 	return text, nil
+}
+
+// WithService 는 git 실행 기록을 core 와 공유하는 실행기를 붙인다 (FR-GXU-10).
+// 이것을 주지 않으면 이 패키지의 실행은 Console 에 보이지 않는다.
+func WithService(svc *core.Service) Option {
+	return func(m *Manager) {
+		m.git = func(dir string, args ...string) (string, error) { return runGit(svc, dir, args...) }
+	}
 }
 
 // Repo 는 조정자 cwd 에서 확정한 저장소와 base 다.

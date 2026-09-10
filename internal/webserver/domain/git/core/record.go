@@ -25,6 +25,17 @@ type Record struct {
 	Write      bool   `json:"write"`
 	StdinBytes int    `json:"stdinBytes"` // FR-GIT-77. **내용은 남기지 않는다** (I6)
 	Err        string `json:"err,omitempty"`
+	// Unguarded 는 이 실행이 **명령 화이트리스트를 지나지 않았다**는 표식이다
+	// (GIT_EXEC_UNIFY_SRS FR-GXU-5). `domain/worktree`·`domain/submodule`·
+	// `checkIgnore` 가 자기 인가를 거친 뒤 실행 층만 공유하는 경로다.
+	//
+	// 이 표식이 없으면 Console 에서 두 부류가 한 목록에 섞이고, 그 목록을 근거로
+	// 삼는 판단이 틀린다. **Write 와 함께 읽어야 한다** — 이 경로의 argv 는
+	// writeCommands 에 없으므로 Write 가 false 이며, 그것이 뜻하는 것은 "쓰기가
+	// 아니다"가 아니라 "쓰기 목록에 없다"이다.
+	Unguarded bool `json:"unguarded,omitempty"`
+	// Reason 은 인가를 건너뛴 사유다. 빈 값으로는 실행되지 않는다 (FR-GXU-1).
+	Reason string `json:"reason,omitempty"`
 }
 
 // newRecord 는 실행 결과를 기록 한 줄로 옮긴다. 읽기·쓰기가 같은 매핑을 쓰도록 한

@@ -447,14 +447,18 @@ func (s *Server) assetVersion() string {
 
 // submoduleManager 는 서브모듈 조작의 Manager 를 만든다 (UX_BATCH5_SRS FR-SUB-1).
 //
-// **git 실행을 직접 든다** — domain/git 의 화이트리스트를 지나지 않는다. `git
-// submodule` 이 한 하위 명령에 읽기와 쓰기를 함께 갖기 때문이며, 그것이 이 도메인이
-// 따로 있는 이유 전부다 (D-9 정정). worktree Manager 와 같은 모양이다.
+// **domain/git 의 화이트리스트를 지나지 않는다.** `git submodule` 이 한 하위
+// 명령에 읽기와 쓰기를 함께 갖기 때문이며, 그것이 이 도메인이 따로 있는 이유
+// 전부다 (D-9 정정). worktree Manager 와 같은 모양이다.
+//
+// **그러나 실행 방법은 함께 쓴다** (GIT_EXEC_UNIFY_SRS FR-GXU-10) — 화이트리스트를
+// 지나지 않는 것과 git 을 직접 띄우는 것은 다른 문장이다. `RunnerFor` 가 core 의
+// 실행 층으로 보내므로 환경·마감·출력 상한·오류 분류·기록이 한 벌이 된다.
 func submoduleManager(git *store.Store) *submodule.Manager {
 	if git == nil {
 		return nil
 	}
-	return submodule.New(submodule.ExecGit)
+	return submodule.New(submodule.RunnerFor(git.Service()))
 }
 
 // StartGitWatch 는 signature 감시 회차를 돌린다 (GIT_PUSH_OBSERVE_SRS FR-GPO-13).

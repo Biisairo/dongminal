@@ -31,6 +31,16 @@ func Replay(s *core.Service, ctx context.Context, repo string, rec core.Record) 
 	if rec.Cwd != repo {
 		return denied(), fmt.Errorf("%w: 다른 저장소의 기록이다: %q", ErrReplayTarget, rec.Cwd)
 	}
+	// 인가를 지나지 않은 기록은 다시 돌리지 않는다 (GIT_EXEC_UNIFY_SRS FR-GXU-6).
+	//
+	// `domain/worktree`·`domain/submodule` 의 argv 는 화이트리스트에 없으므로 아래
+	// 두 진입점이 어차피 막는다. **그 우연에 기대지 않는다** — 거부의 사유가
+	// 다르고, 화이트리스트가 바뀌면 그 방어가 소리 없이 사라진다. 그 argv 들의
+	// 인가는 자기 도메인에 있으며(checkRepo·checkPath·`--` 규약), replay 는 그
+	// 도메인을 지나지 않는다.
+	if rec.Unguarded {
+		return denied(), fmt.Errorf("%w: 인가를 지나지 않은 기록이다 (%s)", ErrReplayTarget, rec.Reason)
+	}
 	if rec.Write {
 		return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: rec.Argv, Destructive: rec.Destructive})
 	}

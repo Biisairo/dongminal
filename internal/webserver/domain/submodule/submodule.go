@@ -19,13 +19,14 @@ package submodule
 
 import (
 	"context"
-	"dongminal/internal/shared/diagtail"
 	"errors"
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"dongminal/internal/shared/diagtail"
+	"dongminal/internal/webserver/domain/git/core"
 )
 
 // 거부 사유는 열거한다 — 무엇이 위험했는지 호출자가 구분할 수 있어야 한다
@@ -253,30 +254,53 @@ func (m *Manager) run(dir string, args ...string) (string, error) {
 	return m.git(dir, args...)
 }
 
-/*
-ExecGit 는 실제 git 을 부르는 Runner 다.
+// unguardedReason 은 실행 기록에 남는 사유다 (GIT_EXEC_UNIFY_SRS FR-GXU-1).
+// Console 이 이 문장으로 "왜 이 실행이 화이트리스트를 지나지 않았는가"를 답한다.
+const unguardedReason = "submodule 도메인 — 화이트리스트가 argv[0] 으로 키잉되어 status 와 update 를 가를 수 없다 (D-9)"
 
-CombinedOutput 인 것이 요점이다 — 서브모듈 조작의 진단은 stderr 로 나오며,
+/*
+ExecGit 는 Service 없이 도는 기본 Runner 다. 기록이 남지 않을 뿐 환경·마감·출력
+상한·오류 분류는 그대로 적용된다 (FR-GXU-4). 실제 배선은 RunnerFor 를 쓴다.
+
+두 스트림을 모아 드는 것이 요점이다 — 서브모듈 조작의 진단은 stderr 로 나오며,
 그것을 버리면 "왜 실패했는가" 가 통째로 사라진다.
 
-**출력의 앞을 다듬지 않는다.** `worktree.execGit` 는 `TrimSpace` 하지만 그것을
+**출력의 앞을 다듬지 않는다.** `worktree.runGit` 는 `TrimSpace` 하지만 그것을
 그대로 베끼면 안 된다 — `submodule status` 는 **첫 글자가 상태**이고(FR-SUB-2),
 `ok` 상태의 접두는 공백이다. 앞을 다듬으면 그 줄들의 첫 글자가 해시가 되어 전부
 버려진다. 실측으로 잡은 결함이며, Runner 를 주입한 단위 시험은 이것을 볼 수 없다
-— 그래서 `TestExecGitKeepsLeadingSpace` 가 이 함수 자신을 시험한다.
+— 그래서 `TestExecGitKeepsLeadingSpace` 가 이 경로 자신을 시험한다.
 */
-func ExecGit(dir string, args ...string) (string, error) {
-	bin, err := exec.LookPath("git")
-	if err != nil {
+func ExecGit(dir string, args ...string) (string, error) { return runGit(nil, dir, args...) }
+
+// RunnerFor 는 실행 기록을 core 와 공유하는 Runner 를 만든다 (FR-GXU-10).
+// 이것을 쓰지 않으면 이 패키지의 실행은 Console 에 보이지 않는다.
+func RunnerFor(svc *core.Service) Runner {
+	return func(dir string, args ...string) (string, error) { return runGit(svc, dir, args...) }
+}
+
+// runGit 은 이 패키지의 유일한 git 실행이다 (GIT_EXEC_UNIFY_SRS FR-GXU-7).
+//
+// **인가는 이 패키지가 진다** — `checkRepo`·`checkPath`·`--` 규약이 그것이며,
+// core 의 화이트리스트는 지나지 않는다 (패키지 주석의 D-9 근거). core 로 가는
+// 것은 실행 방법이다: 환경(FR-GIT-104 의 프롬프트 배제)·마감·출력 상한·취소·
+// 오류 분류·기록.
+//
+// **환경이 특히 중요한 자리다.** `submodule update --init` 은 원격에 닿으므로,
+// `GIT_TERMINAL_PROMPT=0` 이 없으면 private 서브모듈에서 자격증명 프롬프트가 뜨고
+// 프로세스가 opTimeout 까지 매달린다 — GUI askpass 면 보이지 않는 창을 기다린다.
+func runGit(svc *core.Service, dir string, args ...string) (string, error) {
+	out, err := svc.ExecUnguarded(context.Background(), dir, core.UnguardedSpec{
+		Argv:    args,
+		Timeout: opTimeout,
+		Reason:  unguardedReason,
+	})
+	if errors.Is(err, core.ErrGitMissing) {
 		return "", fmt.Errorf("%w: git 을 찾을 수 없다: %v", ErrFailed, err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, bin, args...)
-	cmd.Dir = dir
-	out, err := cmd.CombinedOutput()
 	// 뒤의 개행만 다듬는다 — 파싱이 줄 단위이므로 끝의 빈 줄은 뜻이 없다.
-	text := strings.TrimRight(string(out), "\r\n")
+	// **앞은 손대지 않는다** (위 FR-SUB-2).
+	text := strings.TrimRight(out.Stdout+out.Stderr, "\r\n")
 	if err != nil {
 		return text, fmt.Errorf("git %s: %v", strings.Join(args, " "), err)
 	}
