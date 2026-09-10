@@ -51,8 +51,8 @@ func Read(w http.ResponseWriter, r *http.Request, limit int64) ([]byte, error) {
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, limit))
 	if err != nil {
-		// **`errors.As` 로 가른다.** `strings.Contains(err.Error(), …)` 로 오류를
-		// 분류하면 문구가 바뀌는 날 조용히 다른 갈래로 간다 (04-secops SEC-17).
+		// **`errors.As` 로 가른다.** 오류의 **문구**로 분류하면 Go 가 그 말을
+		// 바꾸는 날 조용히 다른 갈래로 간다 (04-secops SEC-17).
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
 			return nil, ErrTooLarge

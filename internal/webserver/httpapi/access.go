@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -110,6 +111,11 @@ func (s *accessStore) config() accessConfig {
 	return accessConfig{Enabled: s.cfg.Enabled, Entries: append([]accessEntry(nil), s.cfg.Entries...)}
 }
 
+// errAccessSaveFailed 는 **저장 자체가 실패**했다는 뜻이다. 검증 실패와 갈라 두는
+// 이유는 응답의 모양이다 — 검증 실패의 사유는 사용자가 보고 고치는 것이고, 저장
+// 실패의 사유는 내부 사정이라 감춘다 (04-secops SEC-17).
+var errAccessSaveFailed = errors.New("허용 목록을 저장하지 못했습니다")
+
 // setConfig 는 목록 전체를 교체한다. **하나라도 유효하지 않으면 아무것도
 // 저장하지 않는다** (FR-ACL-18) — 부분 저장은 사용자가 건 규칙과 실제 규칙을
 // 어긋나게 만든다.
@@ -129,7 +135,10 @@ func (s *accessStore) setConfig(cfg accessConfig) error {
 	data, err := json.MarshalIndent(s.cfg, "", "  ")
 	s.mu.Unlock()
 	if err != nil {
-		return err
+		// 문자열과 불뿐인 구조체라 실무에서 나지 않는다. 나더라도 사용자에게 할
+		// 말은 없으므로 전문은 로그로만 간다 (04-secops SEC-17).
+		log.Printf("saveAccess marshal: %v", err)
+		return errAccessSaveFailed
 	}
 	// 원자적으로 쓴다 — 사용자가 손으로 만든 값이고 잘리면 되돌릴 방법이 없다
 	// (settings 저장과 같은 근거).
@@ -475,7 +484,14 @@ func (s *Server) apiAccessPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Access.setConfig(cfg); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		if errors.Is(err, errAccessSaveFailed) {
+			fail(w, http.StatusInternalServerError, err.Error(), nil)
+			return
+		}
+		// **검증 실패의 사유는 그대로 보인다.** 어느 줄이 잘못됐는지 모르면 사용자가
+		// 고칠 수 없다 — `app-settings.js` 의 `_aclSave` 가 이 본문을 그대로 띄운다.
+		// 그 문구는 사용자가 방금 보낸 값과 우리가 쓴 설명뿐이다.
+		fail(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 	// 저장이 끝난 **뒤에** 알린다 — 받은 창이 곧바로 GET 하므로, 먼저 알리면

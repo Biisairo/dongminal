@@ -135,7 +135,7 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 	}
 	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		http.Error(w, err.Error(), httpreq.Status(err))
+		failRead(w, err)
 		return
 	}
 	var req struct {
@@ -160,7 +160,9 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 	openURLWhere := ""
 	if req.Action == OpenURLAction {
 		if _, verr := openURLTarget(req.Args); verr != nil {
-			http.Error(w, verr.Error(), http.StatusBadRequest)
+			// `openurl.go` 가 사용자에게 하려고 쓴 말이다 — 어느 인자가 왜
+			// 거부됐는지가 그 문구에 있고, 내부 사정은 담기지 않는다.
+			fail(w, http.StatusBadRequest, verr.Error(), nil)
 			return
 		}
 		openURLWhere, _ = s.openURLWhere()
@@ -168,7 +170,8 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 
 	origLoc, finalLoc, err := translateLocationUUID(&req.Args, s.Work)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		// 사용자가 보낸 `location` 값에 대한 말이다 (commands.go:36).
+		fail(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 	locField := ""

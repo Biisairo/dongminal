@@ -2,9 +2,17 @@ package sandbox
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
+
+// ErrSaveFailed 는 정의가 옳은데 **쓰기**가 실패했다는 뜻이다.
+//
+// 정의에 대한 오류와 갈라 두는 이유는 응답의 모양이다 — 정의에 대한 말은
+// 사용자가 보고 고치지만, 쓰기 실패의 사유에는 정의 파일의 절대경로가 들어
+// 있다 (04-secops SEC-17).
+var ErrSaveFailed = errors.New("샌드박스 정의를 저장하지 못했습니다")
 
 // Config 는 정의 파일의 내용이다 (FR-SBX-4).
 //

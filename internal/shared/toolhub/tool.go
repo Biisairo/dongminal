@@ -3,6 +3,7 @@ package toolhub
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -10,9 +11,9 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime/debug"
-	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"dongminal/internal/shared/dmenv"
@@ -349,7 +350,13 @@ func (p *Tool) readPTY() {
 	for {
 		n, err := p.term.Read(raw)
 		if err != nil {
-			if err == io.EOF || strings.Contains(err.Error(), "input/output error") {
+			// **errno 로 가른다** (04-secops SEC-17). 문구로 가르면 Go 나 OS 가
+			// 그 말을 바꾸는 날 조용히 다른 갈래로 가고, 그때 정상 종료가
+			// "예기치 못한 오류" 로 로그를 채운다.
+			//
+			// 셸이 끝나면 마스터 쪽 read 는 `EIO` 다 — 리눅스·macOS 모두 그렇고,
+			// 그것이 이 자리에서 "정상 종료" 를 뜻한다.
+			if errors.Is(err, io.EOF) || errors.Is(err, syscall.EIO) {
 				log.Printf("[tool %s] readPTY: shell exited normally", p.ID)
 			} else {
 				log.Printf("[tool %s] readPTY unexpected error: %v", p.ID, err)

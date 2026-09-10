@@ -276,11 +276,13 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// 상한 초과는 **429** 다 (04-secops P1-4). 500 으로 답하면 클라이언트가
 		// 서버 결함으로 읽고 재시도하며, 그 재시도가 곧 이 상황을 만든 것이다.
-		code := http.StatusInternalServerError
 		if errors.Is(err, toolhub.ErrToolCap) {
-			code = http.StatusTooManyRequests
+			// 상한은 사용자가 아는 편이 낫다 — 무엇을 하면 되는지가 그 말에 있다.
+			fail(w, http.StatusTooManyRequests, err.Error(), nil)
+			return
 		}
-		http.Error(w, err.Error(), code)
+		// 그 밖의 실패는 PTY·경로·환경의 사정이며 그 문구에 절대경로가 실린다.
+		fail(w, http.StatusInternalServerError, "도구를 만들지 못했습니다", err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -344,7 +346,8 @@ func (s *Server) apiWorkspacePut(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "stale revision", http.StatusConflict)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		// `workspace parse: …` — 사용자가 방금 보낸 본문에 대한 말이다.
+		fail(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 	// FR-SBX-8/9: Window 가 사라지면 그 대응 컨테이너도 사라져야 한다. 저장
@@ -445,7 +448,7 @@ func (s *Server) apiSandboxConfigGet(w http.ResponseWriter, r *http.Request) {
 	}
 	cfg, err := s.Sandbox.Config()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		fail(w, http.StatusInternalServerError, "샌드박스 정의를 읽지 못했습니다", err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -463,11 +466,17 @@ func (s *Server) apiSandboxConfigPut(w http.ResponseWriter, r *http.Request) {
 	}
 	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		http.Error(w, err.Error(), httpreq.Status(err))
+		failRead(w, err)
 		return
 	}
 	if err := s.Sandbox.SaveConfig(body); err != nil {
-		http.Error(w, err.Error(), 400)
+		if errors.Is(err, sandbox.ErrSaveFailed) {
+			// 저장 실패의 사유에는 정의 파일의 절대경로가 들어 있다.
+			fail(w, http.StatusInternalServerError, err.Error(), nil)
+			return
+		}
+		// 정의 자체에 대한 말이다 — 사용자가 방금 보냈고 고칠 수 있다 (FR-SBX-43).
+		fail(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 	w.WriteHeader(204)

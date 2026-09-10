@@ -114,7 +114,7 @@ func uploadInto(w http.ResponseWriter, r *http.Request, dir string,
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		var mbe *http.MaxBytesError
-		if errors.As(err, &mbe) || strings.Contains(err.Error(), "request body too large") {
+		if errors.As(err, &mbe) {
 			fail(http.StatusRequestEntityTooLarge, fsErrTooLarge, "upload too large")
 			return "", 0, false
 		}

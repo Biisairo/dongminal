@@ -6,10 +6,11 @@ import (
 	"dongminal/internal/shared/toolhub"
 
 	"encoding/binary"
+	"errors"
 	"log"
+	"net"
 	"net/http"
 	"runtime/debug"
-	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -231,7 +232,7 @@ func wsReadLoop(conn *toolhub.SafeConn, toolID string, input func([]byte) error,
 			// 정상 종료와 사라진 소켓은 로그로 남기지 않는다 — 브라우저 탭을
 			// 닫을 때마다 오류가 쌓이면 진짜 오류가 묻힌다.
 			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseNoStatusReceived) &&
-				!strings.Contains(err.Error(), "use of closed network connection") {
+				!errors.Is(err, net.ErrClosed) {
 				log.Printf("[tool %s] readWS error addr=%s: %v", toolID, conn.RemoteAddr(), err)
 			}
 			return
