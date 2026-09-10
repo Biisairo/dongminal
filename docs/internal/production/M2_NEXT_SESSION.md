@@ -10,34 +10,79 @@
 ```
 프로젝트: /Users/dykim/personal/dongminal
 
-프로덕션화 로드맵 M2 를 이어서 진행한다. P0 5건과 P1 10건이 끝났다.
+프로덕션화 로드맵 M2 를 이어서 진행한다. **P0 5건과 P1 11건이 전부 끝났다.**
+남은 것은 DoD 6항목·P2 18건·사용자 보고 6건, 그리고 기존 흔들림이다.
 
-먼저 읽어라 — 이게 진실이고 나머지는 배경이다:
+먼저 이것부터 읽어라 — 이게 진실이고 나머지는 배경이다:
 - docs/internal/production/M2_PROGRESS.md   ← 무엇이 끝났고 무엇이 남았는지
-- docs/internal/REQUEST_GATE_SRS.md          ← 게이트 계약 (구현됨)
-- docs/internal/FILE_API_BOUNDARY_SRS.md     ← 파일 경계 계약 (구현됨)
-- docs/internal/MONACO_VENDORING_SRS.md      ← 벤더링·사전압축·CSP (구현됨)
+스펙 넷은 전부 구현돼 있다. 그 범위 안이면 새로 쓰지 마라:
+- docs/internal/REQUEST_GATE_SRS.md          게이트 계약
+- docs/internal/FILE_API_BOUNDARY_SRS.md     파일 경계 계약
+- docs/internal/MONACO_VENDORING_SRS.md      벤더링·사전압축·CSP
+- docs/internal/CLIENT_API_SRS.md            브라우저 API 호출의 전송 한 겹
 
-남은 일은 셋이다.
+## 첫 번째 일 — FE-8 의 전체 e2e
 
-1) P1 마지막 — FE-8: web/js/core/api.js 통합 (fetch 51곳).
-   M4 인증의 선행 권장이다. 통합하지 않으면 401 공통 처리가 29파일로 흩어진다.
-   중 규모이므로 스펙을 먼저 쓴다.
+**지난 세션이 FE-8(fetch 81곳을 core/api.js 로 통합)을 끝냈지만 전체 e2e 를
+끝까지 보지 못했다.** 중단 시점이 711/1451 이고 그때까지 실패 2건이 나왔는데,
+둘 다 원인을 찾아 고쳤다(합성 페이지 스펙이 core/api.js 를 안 실었다 ·
+주입 fetch 가 응답 없이 resolve 하는 경우). 고친 뒤 닿는 스펙 셋을 단독으로
+돌려 23건 통과를 확인했다.
 
-2) 사용자 보고 5건 (M2_PROGRESS §3.4) — U-1~U-5.
-   U-1(LSP 파일 연결 안 됨)·U-3(스크롤 위로 붙음)은 결함이라 재현부터.
-   U-2·U-4·U-5 는 동작 변경이라 현재 동작이 의도된 것인지 먼저 확인한다.
-   **U-5(탐색기 다중 선택)는 규모가 다르다** — 선택 모델을 바꾸면 그것을 읽는
-   모든 명령이 함께 바뀐다. 착수 전에 스펙 필요 여부를 판정하라.
+**남은 것은 전량 확인 하나다.** 아래 순서의 맨 앞에서 한 번 돌려라.
 
-3) P2·기능축 (M2_PROGRESS §3.2).
+    npx playwright test --reporter=line
 
-규약:
-- 게이트를 먼저 돌려라: make gates · npm run typecheck · npm run lint ·
-  npm run unit · go test -race -shuffle=on ./... · npx playwright test
-- **e2e 는 단독으로 돌려라.** 다른 세션이 같은 기계에서 테스트를 돌리면
-  PTY 가 소진되고 실패 목록이 오염된다 (kern.tty.ptmx_max 기본 511).
+이 작업의 성공 판정은 **아무것도 달라지지 않는 것**이다 (CLIENT_API_SRS
+NFR-CAPI-3). 실패가 나오면 대개 "그 자리가 봉투의 어느 칸을 읽어야 하는가" 다 —
+`ok` 는 HTTP 성공만 보고, 본문은 `data`(JSON) 와 `text`(원문) 둘로 온다.
+
+## 그다음 — 순서는 이것이다
+
+1) **DoD 6항목** (§3.3)
+   · wait 동시 수 상한 · diag 스냅샷 임계 경고
+   · 헤드리스 명령 로그를 전문 대신 길이·해시로
+     (handlers_runs_headless.go:90 이 cmd=%q 로 전문을 남긴다)
+   · worktree.execGit·submodule 실행기의 core.Env() 공유 (B5 · FBE-08)
+   · 편집기 probe.size 상한 (FUI-06) — 서버 SEC-19 상한과 같은 값
+   · 샌드박스 컨테이너 cpu·memory·pids 상한
+   · dongminal verify 에 게이트 항목 추가
+
+2) **P2 18건** (§3.2). 착수 전에 킥오프 M2 의 "건드리지 말 것" 을 다시 읽어라 —
+   git 실행 초크포인트·/api/fs/* 가드·업로드 상한·ACL 설계·파괴적 확인창
+   설계는 전부 양호 판정이며 보존 대상이다.
+
+3) **사용자 보고 6건** (§3.4). U-1~U-6.
+   U-1(LSP 파일 연결)·U-3(스크롤 위로 붙음)은 결함이라 재현부터.
+   U-2·U-4·U-5·U-6 은 동작 변경이라 현재 동작이 의도된 것인지 먼저 확인한다.
+   · U-5(탐색기 다중 선택)는 선택 모델을 바꾸는 일이라 규모가 다르다 —
+     착수 전에 스펙 필요 여부를 판정하라.
+   · U-6(History 의 Fetch/Pull/Push 제거)은 **스펙 개정을 동반한다** —
+     GIT_HEAD_MOBILE_SRS FR-GHM-3 과 V3 이 정확히 그 반대를 요구하고 있고,
+     그것은 두 뷰를 따로 보던 시절의 전제다. 코드만 지우지 마라.
+
+4) **기존 흔들림** (§6.3). 배경 폴링이 사용자의 명령보다 먼저 기록되는 경합이다.
+   HEAD 에서도 같은 비율로 흔들리는 것을 확인해 두었다.
+
+## e2e 를 돌리는 시점 (사용자 지시)
+
+- FE-8 확인으로 **처음에 한 번**
+- **P2 를 끝낸 뒤 한 번**
+- **사용자 보고를 처리한 뒤 한 번**
+- 흔들림을 다루는 동안은 **여러 번**
+
+그 사이에는 make gates · npm run typecheck · npm run lint · npm run unit ·
+go test -race -shuffle=on ./... 로 간다.
+
+## 규약
+
+- **e2e 는 단독으로 돌려라.** 같은 기계의 다른 세션이 테스트를 돌리면 PTY 가
+  소진되고(kern.tty.ptmx_max 기본 511) 실패 목록이 오염된다. 지난 두 세션이
+  그것 때문에 두 번 무너졌다.
+- **이 저장소의 바이너리에 start/stop 을 부르지 마라.** 도구 셸의 환경에
+  DONGMINAL_PORT 가 있어 사용자의 실제 인스턴스를 가리킨다(실제로 한 번 내렸다).
 - 게이트를 느슨하게 만들어 통과시키지 마라. 415·403 이 보이면 스펙으로 먼저
   판정하고, 게이트가 옳으면 호출부를 고친다.
+- 중·대 규모는 스펙 → 테스트(RED) → 구현(GREEN).
 - 커밋 메시지에 AI 서명 금지. 커밋은 사용자 확인 후에만.
 ```
