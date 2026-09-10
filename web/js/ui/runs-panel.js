@@ -220,7 +220,7 @@ Object.assign(RunsPanel.prototype, {
     this._runsModalRender();
     let ok = false, msg = '';
     try {
-      const r = await fetch('/api/runs/' + encodeURIComponent(runId), { method: 'DELETE' });
+      const r = await fetch('/api/runs/' + encodeURIComponent(runId), { method: 'DELETE', headers: {'Content-Type':'application/json'} });
       ok = r.ok;
       if (!ok) msg = (await r.text()).trim() || `삭제 실패 (${r.status})`;
     } catch { msg = '삭제 실패 — 서버에 닿지 못했다' }

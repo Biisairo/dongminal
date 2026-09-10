@@ -59,16 +59,29 @@ Object.assign(App.prototype, {
     const bar=document.getElementById('sb-items');if(!bar)return;
     const items=[];
     const push=(k,html)=>items.push({k,html});
+    // **값은 전부 이 함수를 지난다** (02-fe-arch 의 P0).
+    //
+    // 여기 오는 값의 출처가 여럿이고 그중 하나가 터미널 출력이다 — 셸에서 도는
+    // 어떤 프로그램이든 `printf '\e]777;Cwd;<img src=x onerror=…>\a'` 한 줄로
+    // 이 자리에 임의의 마크업을 넣을 수 있었다. `cat` 한 파일, `curl` 응답, SSH
+    // 원격 호스트의 프롬프트, 에이전트 출력이 전부 소스이며, 디렉터리 이름에
+    // `<` 를 넣는 것은 POSIX 가 허용한다.
+    //
+    // **출처가 아니라 싱크에서 막는다.** 출처를 세다 보면 하나를 빠뜨리게 되고,
+    // 이 UI 는 터미널·파일·git 쓰기·설정 API 에 닿으므로 그 하나가 전부다.
+    // 서버가 준 값(hostname·cpu…)도 예외를 두지 않는다 — 예외가 있으면 다음
+    // 사람이 어느 쪽인지 판단해야 하고, 그 판단이 틀리는 날이 온다.
+    const e=escHtml;
     if(statusBar.connection){
       const ok=this._latency!==null;
-      push('connection',`<span class="sb-item"><span class="sb-dot ${ok?'ok':'err'}"></span>${ok?'연결됨':'끊김'}</span>`);
+      push('connection',`<span class="sb-item"><span class="sb-dot ${e(ok?'ok':'err')}"></span>${e(ok?'연결됨':'끊김')}</span>`);
     }
     if(statusBar.latency&&this._latency!==null){
-      push('latency',`<span class="sb-item">${this._latency}ms</span>`);
+      push('latency',`<span class="sb-item">${e(this._latency)}ms</span>`);
     }
     if(statusBar.location){
       const loc=this._locationLabel();
-      if(loc)push('location',`<span class="sb-item" title="dmctl 대상: ${loc}">📍 ${loc}</span>`);
+      if(loc)push('location',`<span class="sb-item" title="dmctl 대상: ${e(loc)}">📍 ${e(loc)}</span>`);
     }
     if(statusBar.cwd){
       const cwd=this._cwd||'~';
@@ -76,33 +89,33 @@ Object.assign(App.prototype, {
       let short=cwd.replace(/^\/Users\/[^/]+/,'~');
       const parts=short.split('/');
       if(parts.length>4)short='~/.../'+parts.slice(-3).join('/');
-      push('cwd',`<span class="sb-item">📁 ${short}</span>`);
+      push('cwd',`<span class="sb-item">📁 ${e(short)}</span>`);
     }
     if(statusBar.hostname&&this._stats.hostname){
-      push('hostname',`<span class="sb-item">💻 ${this._stats.hostname}</span>`);
+      push('hostname',`<span class="sb-item">💻 ${e(this._stats.hostname)}</span>`);
     }
     if(statusBar.cpu&&this._stats.cpu!==undefined){
-      push('cpu',`<span class="sb-item">CPU ${this._stats.cpu}%</span>`);
+      push('cpu',`<span class="sb-item">CPU ${e(this._stats.cpu)}%</span>`);
     }
     if(statusBar.memory&&this._stats.memTotal){
       const used=this._fmtBytes(this._stats.memUsed);
       const total=this._fmtBytes(this._stats.memTotal);
-      push('memory',`<span class="sb-item">MEM ${used}/${total}</span>`);
+      push('memory',`<span class="sb-item">MEM ${e(used)}/${e(total)}</span>`);
     }
     if(statusBar.disk&&this._stats.diskPct){
-      push('disk',`<span class="sb-item">DISK ${this._stats.diskPct}%</span>`);
+      push('disk',`<span class="sb-item">DISK ${e(this._stats.diskPct)}%</span>`);
     }
     if(statusBar.termsize){
       const p=this._focusedTerminal();
       if(p&&p.term){
-        push('termsize',`<span class="sb-item">${p.term.cols}×${p.term.rows}</span>`);
+        push('termsize',`<span class="sb-item">${e(p.term.cols)}×${e(p.term.rows)}</span>`);
       }
     }
     if(statusBar.uptime){
       const parts=[];
       if(this._stats.sysUptime)parts.push('시스템 '+this._stats.sysUptime);
       if(this._stats.srvUptime)parts.push('서버 '+this._stats.srvUptime);
-      if(parts.length)push('uptime',`<span class="sb-item">↑ ${parts.join(' │ ')}</span>`);
+      if(parts.length)push('uptime',`<span class="sb-item">↑ ${e(parts.join(' │ '))}</span>`);
     }
     // FR-GIT-112: 진행 중 원격 작업. **브랜치 chip 은 없다** (FR-FLW-12) —
     // 활성 리포는 사용자가 고른 것이고 터미널을 따라가지 않으므로, 하단바에

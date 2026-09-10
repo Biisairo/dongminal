@@ -240,9 +240,21 @@ Object.assign(App.prototype, {
     head.className='ag-head';
     // UI_KIT_SRS FR-GLY-4·6 / FR-TIP-2: 문자에서 스프라이트로. 문구도 영어가
     // 된다 — 아이콘만 있는 버튼은 툴팁이 이름의 유일한 자리다.
-    head.innerHTML=`<span class="ag-title">Agents</span>`
-      +`<button class="ui-btn ui-btn-icon ui-btn-ghost ag-refresh" title="Refresh the activity list" aria-label="Refresh the activity list">${UIKit.iconHTML('refresh-cw')}</button>`
-      +`<button class="ui-btn ui-btn-icon ui-btn-ghost ag-close" title="Close the panel" aria-label="Close the panel">${UIKit.iconHTML('x')}</button>`;
+    // 골격은 마크업으로, **값이 들어가는 자리는 DOM 으로** 세운다.
+    // `iconHTML` 이 돌려주는 것은 스프라이트 마크업이라 이스케이프 대상이
+    // 아니지만, 문자열 조립 안에 두면 "여기 들어오는 것은 마크업이다" 라는
+    // 예외가 생긴다 — 예외가 있으면 다음 사람이 판단해야 하고, 그 판단이
+    // 틀리는 날이 온다 (`scripts/check-html.sh`).
+    head.innerHTML='<span class="ag-title">Agents</span>';
+    const mkBtn=(cls,tip,icon)=>{
+      const b=document.createElement('button');
+      b.className='ui-btn ui-btn-icon ui-btn-ghost '+cls;
+      b.title=tip; b.setAttribute('aria-label',tip);
+      b.innerHTML=UIKit.iconHTML(icon);
+      head.appendChild(b);
+    };
+    mkBtn('ag-refresh','Refresh the activity list','refresh-cw');
+    mkBtn('ag-close','Close the panel','x');
     head.querySelector('.ag-refresh').addEventListener('click',e=>{e.stopPropagation();this._activityRestore()});
     head.querySelector('.ag-close').addEventListener('click',e=>{e.stopPropagation();this._agentsToggle()});
     return head;

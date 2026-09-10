@@ -13,8 +13,8 @@ Object.assign(App.prototype, {
   // 껍데기를 쓰되 선택지가 없다 — 알릴 뿐 되돌릴 것이 없다.
   //
   // 본문을 textContent 로 넣는 것이 요점이다. 여기 오는 문자열은 서버가 만든
-  // 오류 메시지이며, `_confirmClose` 처럼 innerHTML 에 끼우면 그 내용이 마크업으로
-  // 해석된다.
+  // 오류 메시지이며, innerHTML 에 끼우면 그 내용이 마크업으로 해석된다.
+  // (`_confirmClose` 가 종전에 그랬고, 지금은 같은 규약으로 수렴했다.)
   _notify(msg){
     const ov=document.createElement('div');ov.className='confirm-overlay';
     ov.innerHTML='<div class="confirm-box"><div class="confirm-msg notify-msg"></div>'+
@@ -173,7 +173,7 @@ Object.assign(App.prototype, {
     note.hidden=false; note.textContent=SBX_RT_STARTING;
     let res=null;
     try{
-      const r=await fetch('/api/sandbox/runtime/start',{method:'POST'});
+      const r=await fetch('/api/sandbox/runtime/start',{method:'POST',headers:{'Content-Type':'application/json'}});
       if(r.ok) res=await r.json();
     }catch{}
     if(!res||!res.started){
@@ -363,30 +363,60 @@ Object.assign(App.prototype, {
     });
   },
 
+  /**
+   * 도구를 닫기 전 확인창.
+   *
+   * **`GitConfirm` 의 규약으로 수렴한다** (03-uiux 의 P1 · FR-GIT-176):
+   * 초기 포커스가 취소이고, `Enter` 는 실행이 아니며, 문구는 `textContent` 다.
+   * 종전에는 이 셋이 전부 반대였다 — 포커스가 실행 버튼에 갔고, `Enter` 가
+   * 그것을 눌렀으며, `msg` 가 `innerHTML` 로 들어갔다.
+   *
+   * 파괴적 확인창이 앱에 두 벌 있었고 그 둘의 `Enter` 규약이 달랐다. 사용자는
+   * 어느 창이 떠 있는지로 손가락을 바꾸지 않는다 — 같은 키가 한쪽에서는 취소이고
+   * 다른 쪽에서는 "실행 중인 프로세스를 죽인다" 였다.
+   *
+   * 마크업을 문자열로 잇지 않는 것도 같은 이유다 (`scripts/check-html.sh`).
+   * `msg` 는 도구 이름을 담고, 도구 이름은 터미널이 정한다.
+   */
   _confirmClose(msg, opts = {}){
     return new Promise(resolve=>{
       const ov=document.createElement('div');ov.className='confirm-overlay';
-      let btns = `<button class="confirm-ok" title="${TIP_CLOSE_TOOL}">닫기</button>`
-        + `<button class="confirm-cancel" title="${TIP_CLOSE_CANCEL}">취소</button>`;
-      if (opts.saveBtn) {
-        btns = `<button class="confirm-save" title="${TIP_CLOSE_SAVE}">저장 후 닫기</button>` + btns;
-      }
-      // FR-BG-3/4: 실행 중인 도구를 살려두고 닫는 선택지.
-      if (opts.bgBtn) {
-        btns = `<button class="confirm-bg" title="${TIP_CLOSE_BG}">${opts.bgLabel||'백그라운드로'}</button>` + btns;
-      }
-      ov.innerHTML=`<div class="confirm-box"><div class="confirm-msg">${msg}</div><div class="confirm-btns">${btns}</div></div>`;
+      const box=document.createElement('div');box.className='confirm-box';
+      const text=document.createElement('div');text.className='confirm-msg';
+      text.textContent=msg;
+      const row=document.createElement('div');row.className='confirm-btns';
+      box.appendChild(text);box.appendChild(row);ov.appendChild(box);
+
+      const mk=(cls,tip,label)=>{
+        const b=document.createElement('button');
+        b.className=cls; b.title=tip; b.textContent=label;
+        row.appendChild(b);
+        return b;
+      };
+      // 순서는 종전 그대로다 — 백그라운드·저장이 앞, 닫기·취소가 뒤.
+      const bgBtn=opts.bgBtn?mk('confirm-bg',TIP_CLOSE_BG,opts.bgLabel||'백그라운드로'):null;
+      const saveBtn=opts.saveBtn?mk('confirm-save',TIP_CLOSE_SAVE,'저장 후 닫기'):null;
+      const okBtn=mk('confirm-ok',TIP_CLOSE_TOOL,'닫기');
+      const cancelBtn=mk('confirm-cancel',TIP_CLOSE_CANCEL,'취소');
+
       document.body.appendChild(ov);
-      const saveBtn = ov.querySelector('.confirm-save');
-      const bgBtn = ov.querySelector('.confirm-bg');
-      if (saveBtn) saveBtn.focus(); else if (bgBtn) bgBtn.focus(); else ov.querySelector('.confirm-ok').focus();
-      const cleanup=v=>{ov.remove();document.removeEventListener('keydown',onKey);resolve(v)};
-      const onKey=e=>{if(e.key==='Enter'){e.preventDefault();cleanup(saveBtn?'save':(bgBtn?'background':true))}else if(e.key==='Escape'){e.preventDefault();cleanup(false)}};
-      document.addEventListener('keydown',onKey);
-      if (saveBtn) saveBtn.addEventListener('click',()=>cleanup('save'));
-      if (bgBtn) bgBtn.addEventListener('click',()=>cleanup('background'));
-      ov.querySelector('.confirm-ok').addEventListener('click',()=>cleanup(true));
-      ov.querySelector('.confirm-cancel').addEventListener('click',()=>cleanup(false));
+      // 기본 선택지는 취소다. 되돌릴 수 없는 쪽에 손이 먼저 가면 안 된다.
+      cancelBtn.focus();
+
+      const cleanup=v=>{ov.remove();document.removeEventListener('keydown',onKey,true);resolve(v)};
+      // capture 로 잡아 **기본 동작(포커스된 버튼의 click 합성)까지** 막는다.
+      // 실행은 클릭 또는 Space 로만 한다.
+      const onKey=e=>{
+        if(e.key!=='Enter'&&e.key!=='Escape') return;
+        e.preventDefault(); e.stopPropagation();
+        cleanup(false);
+      };
+      document.addEventListener('keydown',onKey,true);
+
+      if(saveBtn) saveBtn.addEventListener('click',()=>cleanup('save'));
+      if(bgBtn) bgBtn.addEventListener('click',()=>cleanup('background'));
+      okBtn.addEventListener('click',()=>cleanup(true));
+      cancelBtn.addEventListener('click',()=>cleanup(false));
       ov.addEventListener('click',e=>{if(e.target===ov)cleanup(false)});
     });
   },
@@ -489,7 +519,7 @@ Object.assign(App.prototype, {
       // 뒤에 만드는 탭도 **같은 컨테이너**에 들어가기 때문이다 — 프로파일과 같다.
       if(win.sandboxWork) q+='&sandboxWork='+encodeURIComponent(win.sandboxWork);
     }
-    const r=await fetch('/api/tools?cols=120&rows=40'+q,{method:'POST'});
+    const r=await fetch('/api/tools?cols=120&rows=40'+q,{method:'POST',headers:{'Content-Type':'application/json'}});
     if(!r.ok){
       // FR-SBX-20: 샌드박스 기동 실패의 사유는 사용자에게 닿아야 한다 — 런타임
       // 미설치·데몬 미실행·이미지 없음이 모두 여기로 온다. 뭉개면 "창이 안 열린다"
@@ -521,12 +551,12 @@ Object.assign(App.prototype, {
   async _kill(pid){
     this._killToolInstances(pid);
     if(this._attnDrop(pid)) this._attnRefresh();
-    try{await fetch(`/api/tools/${pid}`,{method:'DELETE'})}catch{}
+    try{await fetch(`/api/tools/${pid}`,{method:'DELETE',headers:{'Content-Type':'application/json'}})}catch{}
   },
   _killTool(pid){
     this._killToolInstances(pid);
     if(this._attnDrop(pid)) this._attnRefresh();
-    fetch(`/api/tools/${pid}`,{method:'DELETE'}).catch(()=>{});
+    fetch(`/api/tools/${pid}`,{method:'DELETE',headers:{'Content-Type':'application/json'}}).catch(()=>{});
   },
 
   _aw(){return this.ws.windows.find(s=>s.id===this.ws.activeWindow)||null},

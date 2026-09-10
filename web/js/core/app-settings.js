@@ -531,11 +531,21 @@ Object.assign(App.prototype, {
         const t=THEMES[name];
         const item=document.createElement('div');
         item.className='tl-item'+(name===activeName?' active':'');
+        // 색 점과 이름을 **DOM 으로 세운다.** 종전에는 마크업 문자열을 이어
+        // 붙였고, `t.ui[k]` 와 `name` 은 사용자가 만든 테마에서 온다 — 문자열
+        // 조립은 그 값들이 마크업이 되는 길이었다.
         const keys=['bg','accent','text','border','danger'];
-        let dots='<div class="tl-dots">';
-        for(const k of keys){const v=t.ui[k];dots+=`<span style="background:${v}"></span>`}
-        dots+='</div>';
-        item.innerHTML=`${dots}<span class="tl-name">${name}</span>`;
+        const dots=document.createElement('div');
+        dots.className='tl-dots';
+        for(const k of keys){
+          const dot=document.createElement('span');
+          dot.style.background=t.ui[k];
+          dots.appendChild(dot);
+        }
+        const label=document.createElement('span');
+        label.className='tl-name';
+        label.textContent=name;
+        item.appendChild(dots); item.appendChild(label);
         item.addEventListener('click',()=>{
           currentThemeName=name; customTheme=null;
           applyThemeObj(t); this._renderThemePanel(); this._hideCustomEditor();

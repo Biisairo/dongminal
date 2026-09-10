@@ -165,7 +165,7 @@ Object.assign(App.prototype, {
 
   // FR-PAN-17: 모든 알람 일괄 해제
   _attnClearAll(){
-    fetch('/api/tools/attention/clear-all',{method:'POST'}).catch(()=>{});
+    fetch('/api/tools/attention/clear-all',{method:'POST',headers:{'Content-Type':'application/json'}}).catch(()=>{});
     Object.keys(this._attnNotifs||{}).forEach(k=>this._attnCloseNotif(k));
     // FR-ATF-13: 서버는 이 한 번으로 전부를 잠근다 — 로컬 기록도 함께 세운다.
     for(const id of this._attn.keys()) this._attnNoteLock(id,false);
@@ -338,7 +338,7 @@ Object.assign(App.prototype, {
     if(!this._attn.size){this._attnCenterClose();return}
     const head=document.createElement('div');
     head.className='attn-head';
-    head.innerHTML=`<span class="attn-title">주의 알림 ${this._attn.size}</span><button class="attn-clear-all" title="Clear every attention alert">모두 제거</button>`;
+    head.innerHTML=`<span class="attn-title">주의 알림 ${escHtml(this._attn.size)}</span><button class="attn-clear-all" title="Clear every attention alert">모두 제거</button>`;
     head.querySelector('.attn-clear-all').addEventListener('click',e=>{e.stopPropagation();this._attnClearAll()});
     center.appendChild(head);
     for(const [toolId,info] of this._attn){

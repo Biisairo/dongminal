@@ -614,7 +614,7 @@ class TerminalTool {
   _showOverlay(title,sub){
     let ov=this.el.querySelector('.tp-overlay');
     if(!ov){ov=document.createElement('div');ov.className='tp-overlay';this.el.appendChild(ov)}
-    ov.innerHTML=`<div class="tp-ov-title">${title}</div><div class="tp-ov-sub">${sub}</div>`;
+    ov.innerHTML=`<div class="tp-ov-title">${escHtml(title)}</div><div class="tp-ov-sub">${escHtml(sub)}</div>`;
     ov.classList.add('visible');
   }
   _hideOverlay(){

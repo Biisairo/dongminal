@@ -34,6 +34,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-cross.sh
 	@echo "── 제3자 자산 판 기록"
 	@scripts/check-vendor.sh
+	@echo "── 마크업 보간 (터미널 출력이 스크립트가 되지 않는가)"
+	@scripts/check-html.sh
 	@echo "gates ok"
 
 test:  ## Go 단위 테스트 (-race -shuffle=on, ./web/... 포함)
