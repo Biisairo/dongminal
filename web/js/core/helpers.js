@@ -351,7 +351,10 @@ const STATUS_ITEMS={
   latency:{label:'레이턴시',def:true},
   location:{label:'현재 위치 (dmctl 대상)',def:true},
   cwd:{label:'현재 디렉토리',def:true},
-  git:{label:'Git 원격 작업 진행',def:true},
+  // U-19 (GIT_FOLLOW_REMOVAL_SRS FR-FLW-12 개정): 라벨이 **순간 표시**임을 말한다.
+  // fetch·pull·push 가 도는 몇 초 동안만 뜨는 항목이므로, 상주 지표로 읽히면
+  // 켜 두었는데 늘 안 보이는 것이 고장으로 읽힌다. 괄호 부연은 `location` 의 선례다.
+  git:{label:'Git 원격 작업 (진행 중일 때만)',def:true},
   memory:{label:'메모리',def:true},
   hostname:{label:'호스트명',def:false},
   cpu:{label:'CPU',def:false},

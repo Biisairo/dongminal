@@ -56,6 +56,14 @@ test.describe('묶음 G — 상태바 (브랜치 chip 철회)', () => {
     await expect(row).toHaveCount(1);
     // 라벨이 아직 "브랜치·변경 수" 를 말하면 설정이 없는 기능을 켜는 것이 된다.
     await expect(row).not.toContainText('브랜치');
+    /**
+     * U-19 (FR-FLW-12 개정): 라벨은 그것이 **순간 표시**임을 말한다.
+     *
+     * 이 항목은 fetch·pull·push 가 도는 몇 초 동안만 뜬다. 라벨이 그 사실을
+     * 말하지 않으면 상주 지표로 읽히고, 켜 두었는데 늘 안 보이는 항목은 고장으로
+     * 읽힌다 — 접수한 말이 그것이었다.
+     */
+    await expect(row).toContainText('진행 중일 때만');
     await page.click('#modal-close');
   });
 });
