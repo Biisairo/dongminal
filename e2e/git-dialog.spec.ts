@@ -175,8 +175,9 @@ test.describe('20단계 — 다이얼로그 공통 규약', () => {
     await expect(radios.nth(2)).not.toBeChecked();
     // 자격증명을 받는 종류는 골격에 없다 (FR-GIT-104).
     await expect(box(page).locator('input[type="password"]')).toHaveCount(0);
-    // 기본 포커스는 취소다.
-    await expect(cancel(page)).toBeFocused();
+    // FR-PDA-1 로 개정: 기본 포커스는 **목적 버튼**인 실행이다 (종전에는
+    // 취소였다). 이 다이얼로그는 `focus` 를 주지 않아 폴백 자리를 잰다.
+    await expect(go(page)).toBeFocused();
   });
 
   test('D4 (V59 / FR-GIT-174): 실행 중에는 중복 실행을 막고 진행을 보인다', async ({ page }) => {
@@ -244,10 +245,21 @@ test.describe('20단계 — 다이얼로그 공통 규약', () => {
     expect(await ran(page)).toBe(1);
     expect(await res(page)).toBe(true);
 
-    // **파괴적이면 Enter 의 기본 동작은 취소다.** 실행 버튼에 포커스가 있어도 그렇다.
+    // POPUP_DEFAULT_ACTION_SRS FR-PDA-2·21 로 **뜻이 뒤집혔다.**
+    //   이전: 파괴적이면 Enter 의 기본 동작은 취소 — 실행 버튼에 포커스가 있어도
+    //   지금: Enter 는 **포커스된 것**을 누른다. 파괴적이어도 다르지 않다
     await open(page, { destructive: true });
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
     await confirm(page).locator('.gc-go').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#git-confirm')).toHaveCount(0);
+    expect(await ran(page)).toBe(1);
+    expect(await res(page)).toBe(true);
+
+    // 그리고 취소에 포커스를 두면 같은 키가 취소다.
+    await open(page, { destructive: true });
+    await expect(confirm(page)).toBeVisible({ timeout: 15000 });
+    await confirm(page).locator('.gc-cancel').focus();
     await page.keyboard.press('Enter');
     await expect(page.locator('#git-confirm')).toHaveCount(0);
     expect(await ran(page)).toBe(0);

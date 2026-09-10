@@ -81,8 +81,8 @@ const OpenUrl = {
          onClick:()=>window.open(url,'_blank')},
       ],
     });
+    // 목적 버튼의 포커스는 `UIKit.modal` 이 준다 (FR-PDA-11) — 여기서 찾던
+    // 것이 ACL 경고에는 없어서 그 창만 포커스가 비어 있었다.
     document.body.appendChild(m.el);
-    const go=m.foot&&m.foot.querySelector('.openurl-go');
-    if(go) go.focus();
   },
 };

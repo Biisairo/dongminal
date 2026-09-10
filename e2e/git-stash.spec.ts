@@ -231,7 +231,8 @@ test.describe('19단계 — Stash 탭', () => {
     // 한 화면이 영향 범위와 recovery hint 를 함께 보인다 (FR-COS-2).
     await expect(confirm(page)).toHaveAttribute('data-stage', '1');
     await expect(confirm(page).locator('.gc-target')).toHaveCount(1);
-    await expect(confirm(page).locator('.gc-cancel')).toBeFocused();
+    // FR-PDA-1 로 개정: 기본 포커스는 **목적 버튼**이다 (종전에는 취소였다).
+    await expect(confirm(page).locator('.gc-go')).toBeFocused();
     // hint 의 명령에 stash 의 sha 가 들어 있다 — 안내문만으로는 되살릴 수 없다.
     await expect(confirm(page).locator('.gc-hint-cmd')).toContainText(oid);
     await confirm(page).locator('.gc-go').click();
@@ -274,7 +275,11 @@ test.describe('19단계 — Stash 탭', () => {
     await expect(menu(page)).toHaveAttribute('data-kind', 'stash');
     await items(page).filter({ hasText: /^Drop$/ }).click();
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
-    // Enter 의 기본 동작은 취소다 (FR-GIT-176) — 파괴적 확인에서 실행이 아니다.
+    // POPUP_DEFAULT_ACTION_SRS FR-PDA-2 로 **뜻이 뒤집혔다.** `Enter` 는 포커스된
+    // 것을 누르고 기본 포커스는 실행이므로, 취소하려면 취소로 옮겨야 한다.
+    // 이 검증이 재는 것은 "확인을 통과하지 않으면 stash 가 남는다" 이므로
+    // 취소하는 손짓만 바꾼다.
+    await confirm(page).locator('.gc-cancel').focus();
     await page.keyboard.press('Enter');
     await expect(page.locator('#git-confirm')).toHaveCount(0);
 

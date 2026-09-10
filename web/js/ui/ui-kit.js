@@ -180,12 +180,34 @@ const UIKit = {
     document.addEventListener('keydown', onKey, true);
     head.appendChild(this.button({ icon: 'x', title: s.closeTitle || 'Close', kind: 'ghost', cls: 'ui-modal-close', onClick: close }));
     ov.addEventListener('mousedown', e => { if (e.target === ov) close() });
+    /**
+     * FR-PDA-1·11: 목적 버튼은 **기제가 정한다** — `kind` 가 `primary` 또는
+     * `danger` 인 마지막 action 이고, 없으면 마지막 action 이다.
+     *
+     * 종전에는 호출자가 `foot.querySelector()` 로 찾아 `focus()` 했고, 그래서
+     * **두 호출자 중 하나에만** 있었다 (`open-url` 에는 있고 ACL 경고에는
+     * 없었다). 여기 두면 앞으로 생길 호출자도 자동으로 덮인다.
+     *
+     * 붙기 전에는 `focus()` 가 아무 일도 하지 않는다 — 호출자가 `el` 을 붙이는
+     * 것은 이 함수가 돌아간 **뒤**다. 그래서 다음 프레임에 준다. 호출자에게
+     * `focusDefault()` 를 부르게 하면 그것이 곧 종전의 "호출자마다 각자" 이고,
+     * 한 자리가 빠지는 것이 지금 고치는 결함이다.
+     */
+    let primary = null, last = null;
     for (const a of (s.actions || [])) {
-      foot.appendChild(this.button(Object.assign({}, a, {
+      const b = this.button(Object.assign({}, a, {
         onClick: () => { if (!a.keepOpen) close(); if (a.onClick) a.onClick() },
-      })));
+      }));
+      foot.appendChild(b);
+      last = b;
+      if (a.kind === 'primary' || a.kind === 'danger') primary = b;
     }
-    return { el: ov, box, body, foot, close };
+    const defBtn = primary || last;
+    if (defBtn) {
+      TIMERS.frame(() => { if (defBtn.isConnected && !closed) defBtn.focus() },
+        { label: 'modal-focus' });
+    }
+    return { el: ov, box, body, foot, close, defBtn };
   },
 
   /**

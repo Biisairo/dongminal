@@ -7,17 +7,20 @@
  * 와 recovery hint — 되돌리는 명령 (FR-GIT-92).
  *
  * 예전에는 그 둘을 두 걸음으로 갈라 물었다. 걸음을 하나로 줄인 근거는
- * CONFIRM_ONE_STAGE_SRS D-4 다 — 오발을 막는 것은 걸음 수가 아니라 기본 선택지가
- * 취소이고 `Enter` 가 실행이 아닌 것이며, 판단에 필요한 정보는 한자리에 모일수록
- * 낫다.
+ * CONFIRM_ONE_STAGE_SRS D-4 다 — 판단에 필요한 정보는 한자리에 모일수록 낫다.
+ * (그 D-4 의 "오발을 막는 것은 기본 선택지가 취소인 것" 이라는 절반은
+ * 2026-09-10 에 철회됐다 — POPUP_DEFAULT_ACTION_SRS D-2. 지금 오발을 막는 것은
+ * **확인창이 존재한다는 사실**과 `Esc` 다.)
  *
  * 20단계의 `GitDialog` 가 **파괴적 확인을 이것에 위임한다** (FR-GIT-172) — 확인
  * 로직이 두 벌이면 한쪽이 조용히 뒤처지므로 이 클래스가 그 전문가로 남는다.
  * 잃어서는 안 되는 규약을 여기 적어 둔다 (GIT_M2_STEP9_CONTRACT §5):
  *
- * - 기본 선택지는 항상 안전한 쪽이다 (FR-GIT-97) — 초기 포커스는 `취소` 이고
- *   `Enter` 의 기본 동작도 취소다 (FR-GIT-176). 실행은 클릭 또는 탭 이동 후
- *   Space 로만 한다. `Esc` 는 취소다.
+ * - **옵션**의 기본값은 항상 안전한 쪽이다 (FR-GIT-97). 그러나 **초기 포커스는
+ *   목적 버튼(실행)** 이고 `Enter` 는 **포커스된 것을 누른다** (FR-GIT-176 개정 ·
+ *   POPUP_DEFAULT_ACTION_SRS FR-PDA-1·2). 취소로 옮긴 뒤의 `Enter` 는 취소다 —
+ *   이 클래스는 `Enter` 를 가로채지 않는다. `Esc` 는 동작 없이 닫는다.
+ *   (2026-09-10 이전에는 초기 포커스가 취소였고 `Enter` 가 언제나 취소였다.)
  * - 모바일에서는 실행 버튼을 목록과 **분리된 별도 행**에 두고 구분선·여백을
  *   준다. 목록은 max-height + overflow-y 로 버튼을 화면 밖으로 밀지 않는다
  *   (FR-GIT-94·177).
@@ -200,12 +203,23 @@ class GitConfirm {
       this._copy((this.hint&&this.hint.command)||''));
     this.box.querySelector('.gc-copy-err').addEventListener('click',()=>
       this._copy((this.err&&this.err.tail)||''));
-    // Enter 는 실행이 아니다 (FR-GIT-176). capture 로 잡아 기본 동작(포커스된
-    // 버튼의 click 합성)까지 막는다 — 실행은 클릭 또는 Space 로만 한다.
+    /**
+     * FR-PDA-2: `Enter` 는 **가로채지 않는다.** 포커스된 버튼의 click 합성이라는
+     * 브라우저 기본 동작이 곧 이 규약이다 — 기본 포커스가 실행이므로 창이 뜨자마자
+     * 누른 `Enter` 는 실행이고, `Tab` 으로 취소에 옮긴 뒤의 `Enter` 는 취소다.
+     *
+     *   이전 동작: capture 로 잡아 `preventDefault` 하고 언제나 취소했다
+     *   새  동작: 흘려보낸다. `Escape` 만 여기서 잡는다
+     *   이유:     가로채면 포커스가 취소에 있어도 실행이 되어 **보이는 것과
+     *             일어나는 일이 달라진다** — 이 요구가 고치려는 문제를 다른
+     *             자리에 새로 만드는 것이다 (POPUP_DEFAULT_ACTION_SRS D-1)
+     *
+     * 실행 중에는 두 버튼이 `disabled` 라 브라우저가 click 을 합성하지 않는다 —
+     * 새 가드 없이 FR-GIT-174 가 그대로 선다 (FR-PDA-6).
+     */
     this._key=e=>{
-      if(e.key!=='Enter'&&e.key!=='Escape') return;
+      if(e.key!=='Escape') return;
       e.preventDefault(); e.stopPropagation();
-      // 실행 중에는 두 버튼이 disable 이다 — 키도 같이 막는다 (FR-GIT-174).
       if(!this.busy) this._cancel();
     };
     document.addEventListener('keydown',this._key,true);
@@ -270,11 +284,21 @@ class GitConfirm {
     cancel.disabled=this.busy; go.disabled=this.busy;
   }
 
-  // 기본 선택지는 취소다 (FR-GIT-97). 걸음이 하나가 되어 오발의 값이 커진 만큼
-  // 이 규약과 `Enter`=취소(FR-GIT-176)가 방어의 전부다 (FR-COS-6·7, D-4).
+  /**
+   * FR-PDA-1: 기본 포커스는 **그 창이 열린 목적**의 버튼이다 — 실행이다.
+   *
+   *   이전 동작: 취소에 두었다 (옛 FR-GIT-97·176 · FR-COS-6)
+   *   새  동작: 실행에 둔다
+   *   이유:     "UX 는 사용자가 하고자 했던 걸 유지하는 방향이지 안전한 방향이
+   *             아니다" (사용자 2026-09-10). 삭제를 누른 사람에게 기본값이
+   *             취소인 것은 그 사람이 하려던 일을 매번 되묻는 것이다
+   *
+   * 안전은 사라지지 않고 자리를 옮긴다 (POPUP_DEFAULT_ACTION_SRS D-2) —
+   * 확인창이 존재한다는 사실과 `Esc` 가 그것을 진다.
+   */
   _focus(){
-    const c=this.box&&this.box.querySelector('.gc-cancel');
-    if(c) c.focus();
+    const g=this.box&&this.box.querySelector('.gc-go');
+    if(g) g.focus();
   }
 
   async _advance(){

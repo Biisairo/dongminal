@@ -362,14 +362,19 @@ Object.assign(App.prototype, {
   /**
    * 도구를 닫기 전 확인창.
    *
-   * **`GitConfirm` 의 규약으로 수렴한다** (03-uiux 의 P1 · FR-GIT-176):
-   * 초기 포커스가 취소이고, `Enter` 는 실행이 아니며, 문구는 `textContent` 다.
-   * 종전에는 이 셋이 전부 반대였다 — 포커스가 실행 버튼에 갔고, `Enter` 가
-   * 그것을 눌렀으며, `msg` 가 `innerHTML` 로 들어갔다.
+   * **`GitConfirm` 의 규약으로 수렴한다** (03-uiux 의 P1 `UX-1`).
    *
    * 파괴적 확인창이 앱에 두 벌 있었고 그 둘의 `Enter` 규약이 달랐다. 사용자는
    * 어느 창이 떠 있는지로 손가락을 바꾸지 않는다 — 같은 키가 한쪽에서는 취소이고
-   * 다른 쪽에서는 "실행 중인 프로세스를 죽인다" 였다.
+   * 다른 쪽에서는 "실행 중인 프로세스를 죽인다" 였다. **그 수렴은 그대로다.**
+   * 문구를 `textContent` 로 넣는 것(`msg` 는 도구 이름을 담고 그것은 터미널이
+   * 정한다)도 그대로다.
+   *
+   * **바뀐 것은 그 수렴이 도착한 값이다** (2026-09-10, POPUP_DEFAULT_ACTION_SRS
+   * FR-PDA-1·2·25). 종전에는 "초기 포커스가 취소, `Enter` 는 실행이 아님" 이었고
+   * 지금은 "초기 포커스가 **목적 버튼**, `Enter` 는 포커스된 것을 누름" 이다.
+   * `UX-1` 이 고친 셋 중 이 둘은 되돌아갔고 나머지 둘(확인창 하나로의 수렴 ·
+   * `textContent`)은 남는다.
    *
    * 마크업을 문자열로 잇지 않는 것도 같은 이유다 (`scripts/check-html.sh`).
    * `msg` 는 도구 이름을 담고, 도구 이름은 터미널이 정한다.
@@ -396,14 +401,24 @@ Object.assign(App.prototype, {
       const cancelBtn=mk('confirm-cancel',TIP_CLOSE_CANCEL,'취소');
 
       document.body.appendChild(ov);
-      // 기본 선택지는 취소다. 되돌릴 수 없는 쪽에 손이 먼저 가면 안 된다.
-      cancelBtn.focus();
+      /**
+       * FR-PDA-1 / D-4: 기본 포커스는 **목적 버튼**이다.
+       *
+       * 사용자가 누른 것은 "닫기" 지만 **이 창이 뜨는 이유는 저장 안 된 편집이
+       * 있기 때문**이다. 그 상황에서 사용자가 원하는 결과는 "편집을 잃지 않고
+       * 닫는 것" 이므로 `저장 후 닫기` 가 목적이다 (사용자 결정 2026-09-10).
+       * `U-10`(FR-RTU-103)이 방금 그 손실을 막는 일이었으므로 일관된다.
+       *
+       * 저장 갈래가 없는 호출(실행 중인 프로세스)에서는 `닫기` 가 목적이다.
+       */
+      (saveBtn||okBtn).focus();
 
       const cleanup=v=>{ov.remove();document.removeEventListener('keydown',onKey,true);resolve(v)};
-      // capture 로 잡아 **기본 동작(포커스된 버튼의 click 합성)까지** 막는다.
-      // 실행은 클릭 또는 Space 로만 한다.
+      // FR-PDA-2: `Enter` 는 가로채지 않는다 — 포커스된 버튼을 누르는 브라우저
+      // 기본 동작이 곧 이 규약이다. 종전에는 capture 로 그것까지 막고 언제나
+      // 취소했다 (POPUP_DEFAULT_ACTION_SRS D-1).
       const onKey=e=>{
-        if(e.key!=='Enter'&&e.key!=='Escape') return;
+        if(e.key!=='Escape') return;
         e.preventDefault(); e.stopPropagation();
         cleanup(false);
       };

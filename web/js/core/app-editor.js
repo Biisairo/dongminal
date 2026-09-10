@@ -1016,7 +1016,10 @@ Object.assign(App.prototype, {
       ok.addEventListener('click',()=>done(true));
       no.addEventListener('click',()=>done(false));
       ov.addEventListener('click',e=>{if(e.target===ov)done(false)});
-      no.focus();
+      // FR-PDA-1: 기본 포커스는 목적 버튼 — 이 창은 삭제하려고 열렸다.
+      // `Enter` 는 그 포커스를 브라우저가 누르는 것이며 (FR-PDA-2) 여기서
+      // 가로채지 않는다. 탈출구는 `Esc` 다 (위 `onKey`).
+      ok.focus();
     });
   },
 

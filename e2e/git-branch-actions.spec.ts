@@ -217,8 +217,8 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
     await expect(confirm(page)).toHaveAttribute('data-stage', '1');
     await expect(confirm(page).locator('.gc-target')).toHaveText('merged-topic');
-    // 기본 포커스는 취소다 (FR-GIT-97·176).
-    await expect(confirm(page).locator('.gc-cancel')).toBeFocused();
+    // FR-PDA-1 로 개정: 기본 포커스는 **목적 버튼**이다 (종전에는 취소였다).
+    await expect(confirm(page).locator('.gc-go')).toBeFocused();
 
     // hint 는 **지우기 전 oid** 로 만든 되살릴 명령이다 (FR-GIT-250.2).
     const cmd = (await confirm(page).locator('.gc-hint-cmd').textContent())!.trim();

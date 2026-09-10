@@ -20,8 +20,13 @@
  * - 실행 중에는 중복 실행을 막고 진행을 보인다 (FR-GIT-174).
  * - 실패하면 사유와 stderr tail 을 보이고 복사 버튼을 준다 (FR-GIT-175) —
  *   다이얼로그를 닫지 않는다. 닫으면 복사할 자리가 사라진다.
- * - `Esc` 는 취소이고 `Enter` 는 기본 동작이다 (FR-GIT-176). **파괴적
- *   다이얼로그에서 기본 동작은 취소**이며 그 규약은 `GitConfirm` 이 지킨다.
+ * - `Esc` 는 취소이고 `Enter` 는 **포커스된 것을 누른다** (FR-GIT-176 개정 ·
+ *   POPUP_DEFAULT_ACTION_SRS FR-PDA-2·5). 기본 포커스가 목적 버튼(필드가 있으면
+ *   그 입력, 없으면 실행)이므로 뜨자마자 누른 `Enter` 는 실행이고, 취소로 옮긴
+ *   뒤의 `Enter` 는 취소다. 필드에서 온 `Enter` 만 이 클래스가 목적 버튼으로
+ *   보낸다 — 그 자리에는 브라우저 기본 동작이 없기 때문이다.
+ *   (2026-09-10 이전에는 **파괴적이면 기본 동작이 취소**였고, 이 클래스가
+ *   `Enter` 를 **무조건** 가로채 취소에 포커스가 있어도 실행했다.)
  * - 모바일 폭에서는 옵션이 스크롤로 접히고 실행 버튼이 분리된 별도 행이 된다
  *   (FR-GIT-94·177).
  * - 열린 동안에도 폴링은 계속된다. 대상 상태 지문이 바뀌면 상단에 알리되
@@ -190,12 +195,18 @@ class GitDialog {
     }
     this._key=e=>{
       if(e.key!=='Enter'&&e.key!=='Escape') return;
+      // FR-PDA-2·5: **버튼에 포커스가 있으면 그 버튼의 것이다.** 흘려보내
+      // 브라우저가 그것을 누르게 한다 — 그래야 취소에 포커스를 두고 누른
+      // `Enter` 가 취소가 된다. 종전에는 이 구분 없이 무조건 가로채서 취소에
+      // 포커스가 있어도 **실행됐다.**
+      //
+      // 여기 남는 `Enter` 는 필드(텍스트 입력)에서 온 것이다. 그 자리에는
+      // 브라우저 기본 동작이 없으므로 다이얼로그가 목적 버튼으로 보낸다.
+      if(e.key==='Enter'&&e.target&&e.target.closest&&e.target.closest('button')) return;
       e.preventDefault(); e.stopPropagation();
       // 실행 중에는 버튼이 disable 이다 — 키도 같이 막는다 (FR-GIT-174).
       if(this.busy) return;
       if(e.key==='Escape'){this._cancel();return}
-      // Enter 는 기본 동작이다 (FR-GIT-176). 선택 다이얼로그의 기본 동작은 기본
-      // 선택이고 그것은 안전한 쪽이다 (O14).
       if(this.choices.length){this._pick(this.def);return}
       this._run();
     };
@@ -331,15 +342,16 @@ class GitDialog {
     go.disabled=this.busy||!!this.whyKind;
   }
 
-  // 텍스트 필드가 있으면 그것이 첫 입력 자리다. 그 밖에는 취소에 둔다 (FR-GIT-173).
+  // 텍스트 필드가 있으면 그것이 첫 입력 자리다 (FR-GIT-173 · FR-PDA-5).
+  // 그 밖에는 **목적 버튼**인 실행에 둔다 (FR-PDA-1) — 종전에는 취소였다.
   _focus(){
     if(this._defBtn){this._defBtn.focus();return}
     const b=this.box;
     const f=this.focusKey&&
       b.querySelector('.git-dialog-fields input[data-key="'+this.focusKey+'"]');
     if(f){f.focus();return}
-    const c=b.querySelector('.git-dialog-cancel');
-    if(c) c.focus();
+    const g=b.querySelector('.git-dialog-go');
+    if(g) g.focus();
   }
 
   async _run(){

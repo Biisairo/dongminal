@@ -64,30 +64,42 @@ test.describe('묶음 SBX — 상태바는 터미널 출력을 그대로 그리�
 });
 
 /**
- * 03-uiux 의 P1 — 파괴적 확인창 두 벌의 `Enter` 규약이 달랐다.
+ * 03-uiux 의 P1(`UX-1`) — 파괴적 확인창 **두 벌의 규약이 달랐다.**
  *
- * `GitConfirm` 은 초기 포커스가 취소이고 `Enter` 가 실행이 아니다 (FR-GIT-176).
- * `_confirmClose` 는 반대였다 — 포커스가 실행 버튼에 갔고 `Enter` 가 그것을
- * 눌렀다. 사용자는 어느 창이 떠 있는지로 손가락을 바꾸지 않는다.
+ * 그 수렴은 그대로다. **도착한 값이 2026-09-10 에 바뀌었다**
+ * (POPUP_DEFAULT_ACTION_SRS FR-PDA-1·2·26).
+ *
+ *   이전: 초기 포커스는 취소, `Enter` 는 실행이 아니다
+ *   지금: 초기 포커스는 **목적 버튼**, `Enter` 는 **포커스된 것**을 누른다
+ *   이유: "UX 는 사용자가 하고자 했던 걸 유지하는 방향이지 안전한 방향이
+ *         아니다" (사용자). 안전은 확인창의 존재와 `Esc` 가 진다
+ *
+ * `UX-1` 이 고친 넷 중 **둘은 되돌아가고 둘은 남는다** — 확인창이 한 벌로
+ * 수렴한 것과 문구가 `textContent` 인 것은 이 결정과 무관하다.
+ *
+ * 여기서 재는 것은 그 "한 벌" 이 `GitConfirm` 과 **같은 값**에 도착했는가다.
  */
-test.describe('묶음 UX1 — 확인창의 Enter 는 실행이 아니다', () => {
-  test('UX1: Enter 로는 실행 중 프로세스가 죽지 않는다', async ({ page }) => {
+test.describe('묶음 UX1 — 확인창의 규약이 GitConfirm 과 같다', () => {
+  test('UX1: Enter 는 포커스된 것을 누른다 — 취소에 두면 죽지 않는다', async ({ page }) => {
     await waitForInit(page);
 
     const decided = await page.evaluate(async () => {
       const app = (window as any).app;
       const p = app._confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?', { bgBtn: true });
-      // 확인창이 선 뒤 Enter 를 누른다.
       await new Promise((r) => setTimeout(r, 0));
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      // 취소로 옮긴 뒤의 Enter 는 취소다 — 팝업이 Enter 를 가로채지 않는다는
+      // 증거다 (FR-PDA-2 / D-1). 합성 이벤트로는 브라우저의 click 합성이 일어나지
+      // 않으므로, 버튼을 직접 눌러 그 자리의 의미만 잰다.
+      const btn = document.querySelector('.confirm-overlay .confirm-cancel') as HTMLElement;
+      btn.focus();
+      btn.click();
       return await p;
     });
 
-    // 취소(false) 여야 한다. `true`·`'background'`·`'save'` 는 전부 "실행" 이다.
-    expect(decided, 'Enter 가 확인창을 실행시켰다').toBe(false);
+    expect(decided, '취소가 실행으로 읽혔다').toBe(false);
   });
 
-  test('UX2: 초기 포커스는 취소 버튼이다', async ({ page }) => {
+  test('UX2: 초기 포커스는 목적 버튼이다', async ({ page }) => {
     await waitForInit(page);
     const focused = await page.evaluate(async () => {
       const app = (window as any).app;
@@ -97,6 +109,8 @@ test.describe('묶음 UX1 — 확인창의 Enter 는 실행이 아니다', () =>
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       return cls;
     });
-    expect(focused, '되돌릴 수 없는 쪽에 손이 먼저 간다').toContain('confirm-cancel');
+    // 저장 갈래가 있으면 그것이 목적이다 (D-4) — 이 창이 뜨는 이유가 저장 안 된
+    // 편집이기 때문이다.
+    expect(focused, '목적 버튼에 손이 먼저 가지 않는다').toContain('confirm-save');
   });
 });

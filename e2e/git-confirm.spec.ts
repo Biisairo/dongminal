@@ -61,11 +61,18 @@ const cancel = (page: Page) => page.locator('#git-confirm .gc-cancel');
 const go = (page: Page) => page.locator('#git-confirm .gc-go');
 
 test.describe('묶음 J — 파괴적 동작의 확인', () => {
-  test('J5 (V38 / TC-COS-7): 초기 포커스가 취소 버튼이다', async ({ page }) => {
+  // POPUP_DEFAULT_ACTION_SRS FR-PDA-1·20·21 로 **뜻이 뒤집혔다.** 지우지 않고
+  // 반대를 단정한다 — 지우면 이 자리가 무엇을 보고 있었는지 함께 사라진다
+  // (FR-COS-5 와 같은 근거).
+  //
+  //   이전: 초기 포커스는 취소, `Enter` 는 실행이 아니다
+  //   지금: 초기 포커스는 **목적 버튼(실행)**, `Enter` 는 포커스된 것을 누른다
+  //   이유: "UX 는 사용자가 하고자 했던 걸 유지하는 방향" (사용자 2026-09-10)
+  test('J5 (V38 / TC-COS-7): 초기 포커스가 실행 버튼이다', async ({ page }) => {
     await waitForInit(page, 'desktop');
     await open(page);
 
-    await expect(cancel(page)).toBeFocused();
+    await expect(go(page)).toBeFocused();
     await expect(box(page)).toHaveAttribute('data-stage', '1');
   });
 
@@ -101,13 +108,22 @@ test.describe('묶음 J — 파괴적 동작의 확인', () => {
     expect(await page.evaluate(() => (window as any).__ran)).toBe(1);
   });
 
-  test('J6 (V38): 파괴적 다이얼로그에서 Enter 가 실행하지 않는다', async ({ page }) => {
+  test('J6 (V38): Enter 는 포커스된 것을 누른다', async ({ page }) => {
     await waitForInit(page, 'desktop');
     await open(page);
 
-    // 실행 버튼에 포커스를 옮긴 뒤에도 Enter 는 실행이 아니다 (FR-GIT-176).
-    await go(page).focus();
+    // 기본 포커스가 실행이므로 뜨자마자 누른 Enter 는 실행이다 (FR-PDA-1·2).
     await expect(go(page)).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    await expect(page.locator('#git-confirm')).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).__res)).toBe(true);
+    expect(await page.evaluate(() => (window as any).__ran)).toBe(1);
+
+    // 취소로 옮기면 같은 키가 취소다 — 가로채지 않는다는 것이 요점이다 (D-1).
+    await open(page);
+    await cancel(page).focus();
+    await expect(cancel(page)).toBeFocused();
     await page.keyboard.press('Enter');
 
     await expect(page.locator('#git-confirm')).toHaveCount(0);
@@ -123,7 +139,9 @@ test.describe('묶음 J — 파괴적 동작의 확인', () => {
     expect(await page.evaluate(() => (window as any).__res)).toBe(false);
   });
 
-  test('J6c (V38 / TC-COS-8): 실행은 탭 이동 후 Space 로 된다', async ({ page }) => {
+  // TC-COS-8 은 종전에 "실행은 **Space 로만** 된다" 였다. 이제 `Enter` 도
+  // 실행하므로(J6) 이 검증이 재는 것은 "Space 도 여전히 실행한다" 다.
+  test('J6c (V38 / TC-COS-8): 실행 버튼에서 Space 도 실행한다', async ({ page }) => {
     await waitForInit(page, 'desktop');
     await open(page);
     await go(page).focus();

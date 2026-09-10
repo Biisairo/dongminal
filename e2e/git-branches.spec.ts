@@ -268,8 +268,11 @@ test.describe('18단계 — Branches 탭', () => {
     await opts.nth(2).click();
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
     await expect(confirm(page)).toHaveAttribute('data-stage', '1');
-    // 기본 포커스는 취소다 — 강제 확인에서도 그대로다 (FR-GIT-97).
-    await expect(confirm(page).locator('.gc-cancel')).toBeFocused();
+    // FR-PDA-1 로 개정: 기본 포커스는 **목적 버튼**이다 — 강제 확인에서도
+    // 그대로다 (종전에는 취소였다). 선택지의 기본이 `cancel` 인 것(위 O14)은
+    // **다른 요구사항**이며 그대로다 — 무엇이 미리 골라져 있는가는 FR-GIT-157 이
+    // 정하고, 그 골라진 것에 포커스가 가는 것이 FR-PDA-1 이다.
+    await expect(confirm(page).locator('.gc-go')).toBeFocused();
     await confirm(page).locator('.gc-go').click();
 
     await expect.poll(() => git(repo, 'branch', '--show-current'), { timeout: 20000 })
