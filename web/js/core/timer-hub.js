@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * TimerHub — 앱의 **모든 시간**이 지나는 한 지점 (EVENT_TIMER_HUB_SRS 묶음 S).
  *

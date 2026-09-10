@@ -39,8 +39,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
 
@@ -48,7 +48,7 @@ jobs:
         run: |
           go build ./...
           go vet ./...
-          go test -race ./internal/... ./cmd/...
+          go test -race -shuffle=on ./...
 
       - name: doctor (플랫폼 계층)
         run: go run ./cmd/dongminal doctor
@@ -65,8 +65,8 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
 
@@ -85,7 +85,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: dist-darwin
           path: dist/
@@ -96,8 +96,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
 
@@ -110,24 +110,68 @@ jobs:
           scripts/build.sh --os linux   --arch arm64
           scripts/build.sh --os windows --arch amd64
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: dist-others
           path: dist/
           if-no-files-found: error
 
+  # ── e2e 게이트 ────────────────────────────────────────────────────
+  #
+  # 07-production-gap `G3-5`: **발행이 브라우저 종단간을 기다리지 않았다.**
+  #
+  # `e2e.yml` 은 `tags: ['v*']` 에서 함께 돌지만 별도 워크플로우라 이 워크플로우의
+  # 발행과 아무 관계가 없었다 — e2e 가 빨간 채로 릴리스가 나갈 수 있었고, 그
+  # 상태를 아무것도 막지 않았다.
+  #
+  # 여기서 그 실행을 기다린다. 같은 커밋의 `e2e` 워크플로우가 끝날 때까지 폴링
+  # 하고, 성공이 아니면 멈춘다.
+  #
+  # **왜 e2e 잡을 여기로 복사하지 않는가**: 그러면 매트릭스 16개가 두 벌이 되고,
+  # 두 벌이면 한쪽만 고쳐진다 (FR-E2I-1 의 선례가 정확히 그것이다).
+  e2e-gate:
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: e2e 워크플로우의 결과를 기다린다
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          echo "커밋 $SHA 의 e2e 실행을 찾는다"
+          for i in $(seq 1 150); do   # 30초 × 150 = 75분
+            json=$(gh api "repos/${{ github.repository }}/actions/workflows/e2e.yml/runs?head_sha=$SHA&per_page=1" \
+                     --jq '.workflow_runs[0] | "\(.status) \(.conclusion) \(.html_url)"' 2>/dev/null || echo "none")
+            case "$json" in
+              none|"null null "*|"")
+                echo "  아직 실행이 없다 ($i)";;
+              completed\ success*)
+                echo "e2e 성공 — ${json#* * }"; exit 0;;
+              completed*)
+                echo "::error::e2e 가 성공하지 않았습니다 — $json"; exit 1;;
+              *)
+                echo "  $json ($i)";;
+            esac
+            sleep 30
+          done
+          echo "::error::e2e 결과를 75분 안에 받지 못했습니다."
+          exit 1
+
   # ── 발행 ──────────────────────────────────────────────────────────
   #
   # 두 빌드 잡 **모두** 를 기다린다. 절반만 올라간 릴리스가 가장 나쁘다
-  # (FR-RGT-3).
+  # (FR-RGT-3). 그리고 `e2e-gate` — 브라우저 종단간이 빨간 판은 나가지 않는다
+  # (`G3-5`).
   publish:
-    needs: [build-darwin, build-others]
+    needs: [build-darwin, build-others, e2e-gate]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           path: staging
 

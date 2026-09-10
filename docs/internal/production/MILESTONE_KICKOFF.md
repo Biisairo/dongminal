@@ -198,6 +198,16 @@ git check-ignore -v remote-terminal && echo "gitignore ok"
 
 **추가 포함 — 성격이 다르니 따로 본다**
 - **[P0] `GP-1` 즉시 완화** (`11-git-polling.md §1`): `gitStatusInterval` 을 `끔(0)`·`2분` 으로 두면 **서버 푸시까지 함께 죽는다.** 서버 감시 등록(`Note()`)의 유일한 호출처가 `GET /api/git/status`(`gitapi/handlers_git.go:417`)인데 TTL 이 90초다(`hub/gitwatch.go:50`). 주기가 0 이면 타이머 자체가 없고 120초면 TTL 보다 길어서, 어느 쪽이든 `evictLocked` 가 감시를 걷고 `git_changed` 방송이 그 저장소에 대해 영구히 멎는다. **사용자가 "요청을 줄이려고" 고른 설정이 자동 갱신을 통째로 끈다.** 여기서는 **증상만 막는다** — 선택지에서 `2분`·`끔` 을 제거하거나 서버 TTL 을 그 최댓값보다 크게 잡는다(규모 S). 근본 조치(관심 표명을 SSE 구독에 붙여 폴링 주기와 푸시 수명을 분리)는 갱신 계층 전체와 함께 M6 에서 한다.
+
+  > **개정 (2026-09-10, 사용자 결정): 여기서 근본 조치까지 했다.** 사용자 원문 —
+  > "오래 안 본다고 지우는 건 안 될 거 같아. 띄워놓고 보고만 있을 수도 있으니까 작업하면서."
+  > 증상 완화(선택지 제거)로는 그 요구를 만족할 수 없다. 폴링이 멈추는 경로가 설정 말고도
+  > 있기 때문이다 — `_pollOk()` 가 거짓이면 `_applyCadence` 가 계층을 완전히 멈추므로
+  > (`panel-poll.js:300-330`), 창을 옮기거나 git 표면이 화면 밖으로 나가도 같은 결함이 난다.
+  > 조사 결과 근본 조치의 재료가 이미 전부 있었다 — `clientId`·구독 결선·끊김 즉시 해제·
+  > 재연결 epoch 가 `FocusRegistry`(FR-XDF-8~10)에 검증된 채로 있고, `GitWatcher` 만 그것을
+  > 쓰지 않고 있었다. 새로 설계할 것이 없어 M6 까지 미룰 이유가 사라졌다.
+  > 스펙: `docs/internal/GIT_WATCH_LEASE_SRS.md`. **M6 의 `GP-1`(근본) 항목은 해소됐다.**
 - **`09` 비목표 5**: git 쓰기 계열(`fetch`·`pull`·`push`)이 CI 에서 한 번도 돌지 않는다. `E2E_UNIFICATION_SRS §6-4` 가 "네트워크와 자격증명이 필요하다" 로 별도 트랙에 뒀는데, **로컬 bare 저장소를 원격으로 세우면 둘 다 필요 없다**(규모 S/M).
 
 **중심 작업**: 묶음 **B9** = `FE-5` + `TEST-11` + `TEST-27` 을 한 인프라 투자로 — `jsconfig.json`+`@ts-check`, eslint 최소 규칙(`no-undef`·`no-unused-vars`·`no-empty`), `node:test` 하네스로 `web/js/core/hunk-coords.js`·`core/timer-hub.js`·`git/lanes.js` 검사.
@@ -206,7 +216,7 @@ git check-ignore -v remote-terminal && echo "gitignore ok"
 - **프로젝트 고유 게이트 4종**(`scripts/check-seams.sh`·`check-timers.sh`·`check-gitwrite.sh`·`check-cross.sh`)은 감사가 "잘 되어 있다" 고 판정했다. 재작성하지 않고 원커맨드에 **묶기만** 한다.
 - **`go.mod` 경량성** — 린터·스캐너는 CI 도구로 설치하고 모듈 의존으로 넣지 않는다. 프론트 테스트는 `node:test`(표준)로, 러너·번들러를 추가하지 않는다.
 - **고득점 커버리지 패키지**(`toolline`·`outbuf`·`apierr`·`web` 100%, `workspace` 89.9%, `git/write` 89.7%)는 커버리지 문턱의 **기준선으로만** 쓴다. 이 마일스톤에서 테스트를 새로 쓰는 대상은 프론트 순수 모듈 3종뿐이다.
-- **`GP-1` 완화 확인**: `gitStatusInterval` 이 취할 수 있는 **최대값보다 서버 `GitWatchTTL` 이 크다.** 재현으로 검증한다 — 설정을 최대값으로 두고 Repo 창을 연 채 TTL 을 넘겨 기다린 뒤(탭 전환·포커스 이동 금지, 그것이 `signal()` 을 깨워 TTL 을 갱신한다) 터미널에서 파일을 만들면 화면이 갱신되고, 서버 로그에 `[gitwatch] 관심 표명 만료 — 감시를 걷는다`(`gitwatch.go:172`)가 **남지 않는다.**
+- **`GP-1` 확인 (개정)**: 임차인이 있는 저장소는 **유휴로 만료되지 않는다** — TTL 과 폴링 최댓값의 대소는 더는 판정 기준이 아니다. 재현으로 검증한다 — 설정을 최대값으로 두고 Repo 창을 연 채 TTL 을 넘겨 기다린 뒤(탭 전환·포커스 이동 금지, 그것이 `signal()` 을 깨워 TTL 을 갱신한다) 터미널에서 파일을 만들면 화면이 갱신되고, 서버 로그에 `[gitwatch] 관심 표명 만료 — 감시를 걷는다`(`gitwatch.go:172`)가 **남지 않는다.**
 - **git 쓰기 CI**: 로컬 bare 저장소를 원격으로 세워 `fetch`·`pull`·`push` 경로가 CI 에서 최소 1회 통과한다.
 - **`flaky > 0` 을 CI 실패로 승격하지 마라.** 제품 쪽 계통 결함이 남아 있어 승격하면 이후 모든 마일스톤의 CI 가 빨갛다. 여기서는 `e2e/parity-reporter.ts` 가 flaky 수를 잡 요약에 **노출**하고 기준선(현재 4)을 기록하는 데까지만 한다. 승격은 M6 의 완료 조건이다.
 - **e2e 스펙 내용 변경 금지** — 이 마일스톤은 타입 검사와 게이트만 추가한다. 스펙 재조직은 M6.
@@ -995,7 +1005,7 @@ grep -rqE 'storageState|auth' e2e/fixtures.ts && echo "M4 e2e fixture adjusted o
 
 | 구분 | ID | 한 줄 | 규모 |
 |---|---|---|---|
-| P0(근본) | GP-1 | 관심 표명(`Note`)이 status 폴링에 업혀 있어 주기 설정이 푸시 수명을 좌우한다. **M1 이 증상을 막았고 여기서 구조를 분리한다** — SSE 구독(또는 전용 keepalive)을 `Note` 의 계기로. `_gitObserveRestore`(`app-git.js:578`)가 이미 `sse:open` 을 잡고 있다 | M |
+| ~~P0(근본)~~ | ~~GP-1~~ | **M1 에서 해소됐다** (2026-09-10). 임대가 SSE 구독으로 옮겨졌다 — `GIT_WATCH_LEASE_SRS` FR-GWL-1~13. 여기서 할 일 없음 | — |
 | P1 | GP-2 | 주기 `0` 에서 워치독이 물러나 첫 관측을 놓치면 영구 정지 — flaky **P4** 의 확정 원인 | S |
 | P1 | GP-3 | `_gitMissing=false` 가 생성자 한 줄뿐 — git 복구 후에도 자동 갱신이 안 돌아온다 | S |
 | P1 | GP-4 | "갱신 실패(낡음)" 표시가 Changes 뷰 골격 안에만 있다 | S/M |
@@ -1056,7 +1066,7 @@ grep -rqE 'storageState|auth' e2e/fixtures.ts && echo "M4 e2e fixture adjusted o
 - `parity-reporter.ts` 가 `flaky > 0` 을 잡 실패로 승격한 상태에서 전량 **3회 연속 flaky 0 · unexpected 0**.
 - **§4 표의 8건이 각각 닫혔음**을 그 스펙의 반복 실행으로 확인. H15 는 `playwright-report/data/*.zip` 을 `npx playwright show-trace` 로 열어 `/api/git/log` 요청 유무를 보고 귀속시킨다.
 - **낙관적 레이아웃 보호**: 브라우저 A 에서 git 뷰 탭을 연 직후 B 가 워크스페이스를 바꿔도 A 의 탭이 사라지지 않는다(e2e). `fixtures.ts:270-273` 의 우회 주석 제거.
-- **GP-1 근본**: `gitStatusInterval:0` 에서도 `git_changed` 방송이 살아 있다 — SSE 구독이 `Note` 를 갱신함을 서버 로그(만료 줄 없음)와 e2e 로 확인. M1 의 완화를 되돌릴 수 있게 된다.
+- ~~**GP-1 근본**~~ — M1 에서 완료. `GIT_WATCH_LEASE_SRS` §4 의 TC-GWL-1~13 이 이 확인을 대신한다.
 - `gitStatusInterval:0` 에서 저장소를 열면 1회 수집이 일어난다(`_lastObsAt===null` 이면 주기 무관 수집).
 - git 을 없앴다 복구하고 새로고침으로 성공하면 자동 갱신이 돌아온다.
 - 낡음 배너가 **모든 git 탭**에서 보인다(History 탭을 연 채 서버를 죽이면 30초 안에).

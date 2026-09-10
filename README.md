@@ -251,6 +251,12 @@ tmux 의 detach 와 같은 생각입니다.
 있습니다. 설계는 [docs/internal/architecture.md](docs/internal/architecture.md),
 기능별 명세는 [docs/internal/](docs/internal/) 아래에 있습니다.
 
+CI 가 도는 것을 커밋 전에 로컬에서 돌리려면 `make gates` 입니다 (`make` 만 치면
+목록이 나옵니다). 커밋마다 자동으로 걸고 싶으면 `make hooks` — 되돌리려면
+`git config --unset core.hooksPath`, 한 번만 건너뛰려면 `git commit --no-verify`
+입니다. 게이트 목록과 각각을 켠 이유는
+[docs/internal/CI_GATES_SRS.md](docs/internal/CI_GATES_SRS.md) 에 있습니다.
+
 README 의 그림은 `scripts/shots/shoot.sh` 가 다시 찍습니다 — 격리 인스턴스를
 띄워서 찍으므로 개인 정보가 섞이지 않습니다.
 

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Git 의 **관측** — SLOT_VIEW_STATE_SRS 묶음 O (FR-SVS-30~35).
  *

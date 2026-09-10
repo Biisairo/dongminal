@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Remote Terminal — 서버 hunk 좌표의 클라이언트 측 사상
  * (DIFF_HUNK_BAR_SRS D-2 · EDITOR_DIRTY_DIFF_SRS FR-EDD-46)

@@ -36,8 +36,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
 
@@ -49,8 +49,16 @@ jobs:
 
       # -race 로 돈다 (FR-CAF-3). 이것 없이 돌던 동안 diag 스냅샷 테스트의
       # 경쟁이 CI 를 통과했다 — 검사기가 보지 않는 결함은 없는 것과 같다.
+      #
+      # `./...` 인 것은 `./web/...` 가 빠져 있었기 때문이다 (05-test TEST-4).
+      # `web/embed_test.go`·`web/version_test.go` 가 CI 에서 한 번도 돌지 않았고,
+      # 그 패키지의 커버리지가 100% 라는 사실이 그것을 더 잘 감췄다.
+      #
+      # `-shuffle=on` 은 순서 의존을 드러낸다 (TEST-14). 이 저장소는 테스트
+      # 317파일에 `t.Parallel()` 이 0건이라 순서 의존이 숨을 자리가 넓다 —
+      # 전역 훅을 교체·복원하는 자리가 여섯 있다(`attention_*_test.go`).
       - name: unit tests
-        run: go test -race ./internal/... ./cmd/...
+        run: go test -race -shuffle=on ./...
 
   # 이음매와 크로스 컴파일 게이트 (CROSS_PLATFORM_SRS FR-XBD-2·3).
   #
@@ -66,8 +74,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
 
@@ -88,12 +96,92 @@ jobs:
       - name: 크로스 컴파일
         run: scripts/check-cross.sh
 
+      # 제3자 자산의 판 기록이 실제 파일과 맞는가 (SEC-32).
+      # 기록만 두면 반드시 어긋난다 — 갱신하는 사람은 파일을 덮어쓰지 표를 고치지
+      # 않는다. 그러면 취약점 공지가 나왔을 때 "우리가 그 판인가" 에 답할 수 없다.
+      - name: 제3자 자산 판 기록
+        run: scripts/check-vendor.sh
+
+      # 서식은 취향이 아니라 diff 의 크기다 (TEST-10). 착수 시 1건 위반이 있었다.
+      - name: gofmt
+        run: |
+          out=$(gofmt -l .)
+          if [ -n "$out" ]; then
+            echo "::error::gofmt 위반 — 아래 파일에 gofmt -w 를 돌리세요"
+            echo "$out"
+            exit 1
+          fi
+
+      # go vet 만으로는 부족하다 (TEST-9 · DOC-7). 규칙은 `.golangci.yml` 에 있고
+      # **결함 탐지만** 켠다 — 스타일 규칙을 켜면 한꺼번에 빨개지고 그러면 아무도
+      # 보지 않는 게이트가 된다.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8
+        with:
+          version: v2.13.2
+
+      # 알려진 취약점 (SEC-28). 직접 의존이 2개뿐이라 값이 없어 보이지만, 값이
+      # 없다는 것은 **확인해야 아는 사실**이고 그 확인이 없었다.
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          "$(go env GOPATH)/bin/govulncheck" ./...
+
+      # 커버리지는 **실패시키지 않는다** (TEST-12 · CI_GATES_SRS §3).
+      # 지금 문턱을 걸면 그 숫자가 근거 없는 값이 된다 — `internal/ctl/cli` 31.5%·
+      # `cmd/dongminal` 0% 처럼 낮은 자리가 실재하고 그것을 올리는 것은 M8 의 일이다.
+      # 여기서는 기준선을 쌓기 시작한다.
+      - name: 커버리지 (기준선 아티팩트)
+        run: |
+          go test -coverprofile=coverage.out -covermode=atomic ./... > /dev/null
+          go tool cover -func=coverage.out | tail -1
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: coverage
+          path: coverage.out
+          retention-days: 14
+
+  # 프론트엔드 — 종전에는 **아무 검사기도 없었다** (02-fe-arch 의 P1).
+  #
+  # 35,120 LOC 에 린터·타입 검사·단위 테스트가 전부 0이었고, 유일한 안전망이
+  # 사람이 손으로 돌리는 e2e 135 스펙이었다. 오타가 런타임까지 갔다는 뜻이다.
+  #
+  # 세 층을 세운다. 셋 다 표준 도구이고 번들러를 들이지 않는다.
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: 의존
+        run: npm ci
+
+      # e2e 는 Playwright 가 **트랜스파일만** 한다 — 타입 오류는 러너가 브라우저를
+      # 띄운 뒤에야 나온다 (TEST-11). 프론트 본체는 `// @ts-check` 를 단 파일만
+      # 본다 (CI_GATES_SRS B2 의 예외).
+      - name: 타입 검사
+        run: npm run typecheck
+
+      # `no-undef`·`no-unused-vars`·`no-empty` 셋뿐이다. 전역 스크립트 구조에서
+      # 없는 이름을 잡는 것이 이 층의 값이다 — 실제로 죽은 선언 넷을 찾았다.
+      - name: eslint
+        run: npm run lint
+
+      # 순수 로직 모듈의 단위 테스트 (TEST-27). 종전에는 이것을 **e2e 로 돌렸다** —
+      # `git-hunk.spec.ts` 가 브라우저를 띄워 좌표 계산 함수를 검사했다.
+      - name: 프론트 단위 테스트
+        run: npm run unit
+
   windows-runtime:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
 
@@ -119,8 +207,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
 

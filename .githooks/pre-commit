@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+#
+# 커밋 전 게이트 (CI_GATES_SRS §4).
+#
+# **저장소가 켜지 않는다.** `make hooks` 를 부른 사람에게만 걸린다 —
+# `core.hooksPath` 를 저장소가 강제하면 `--no-verify` 를 모르는 사람이 커밋을
+# 못 하는 상태가 되고, 그 비용이 이 게이트의 값보다 크다.
+#
+# 건너뛰려면: git commit --no-verify
+set -e
+cd "$(git rev-parse --show-toplevel)"
+exec make gates

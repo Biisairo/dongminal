@@ -1,0 +1,24 @@
+{
+  // e2e 스펙의 타입 검사 (CI_GATES_SRS B1).
+  //
+  // Playwright 는 스펙을 **트랜스파일만** 한다 — 타입 오류는 런타임에야 나오고,
+  // 그때는 이미 러너가 브라우저를 띄운 뒤다. `: any` 가 595회인 것은 그 결과이지
+  // 원인이 아니다: 검사기가 없으니 any 를 적을 이유가 생겼다.
+  //
+  // `strict` 를 켜지 않는다. 지금 켜면 수백 건이 나오고 그러면 아무도 보지 않는
+  // 게이트가 된다. 여기서 잡으려는 것은 **없는 이름·틀린 인자 수·오타** 다.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "noEmit": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "allowJs": false,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["**/*.ts", "../playwright.config.ts"]
+}

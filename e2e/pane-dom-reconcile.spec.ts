@@ -209,13 +209,13 @@ test.describe('Pane DOM reconcile', () => {
     })()`);
     await page.waitForTimeout(150);
 
-    const before = await page.evaluate(`(() => {${PICK}
+    const before: { type: string; y: number } = await page.evaluate(`(() => {${PICK}
       const b = pane.term.buffer.active;
       return { type: b.type, y: b.viewportY };
     })()`);
     await page.evaluate('window.app.render()');
     await page.waitForTimeout(300);
-    const after = await page.evaluate(`(() => {${PICK}
+    const after: { type: string; y: number } = await page.evaluate(`(() => {${PICK}
       const b = pane.term.buffer.active;
       return { type: b.type, y: b.viewportY };
     })()`);

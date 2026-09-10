@@ -1,0 +1,23 @@
+{
+  // 프론트엔드 타입 검사 — **파일 단위 옵트인** (CI_GATES_SRS B2).
+  //
+  // `checkJs` 를 전역으로 켜지 않는다. `web/js` 는 35,120 LOC 에 JSDoc 9건뿐이라
+  // 켜는 순간 수천 건이 나오고, 그러면 아무도 보지 않는 게이트가 된다.
+  // 대신 준비된 파일 맨 위에 `// @ts-check` 를 달면 그 파일만 검사된다.
+  //
+  // 늘리는 순서는 `05-test.md §3.4` 의 순수 모듈 우선순위표를 따른다.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "checkJs": false,
+    "allowJs": true,
+    "noEmit": true,
+    "strict": false,
+    "skipLibCheck": true
+  },
+  "include": ["web/js/**/*.js"],
+  // vendor 는 남의 코드다. 최소화된 번들이라 검사에 의미가 없고 느리기만 하다.
+  "exclude": ["web/vendor/**", "node_modules", "e2e"]
+}

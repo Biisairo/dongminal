@@ -82,11 +82,23 @@ cgo_for() {
   esac
 }
 
+# ── 재현 가능 빌드 ────────────────────────────────────
+#
+# `-trimpath` 는 빌드한 사람의 파일 경로를 바이너리에서 지운다 (04-secops SEC-30).
+# 없으면 `/Users/누구/personal/dongminal/...` 이 배포본에 박히고, 러너가 다르면
+# 같은 소스에서 **다른 해시**가 나온다 — 그러면 `SHA256SUMS` 가 "이 파일이
+# 그 소스에서 나왔다" 를 말하지 못하고 "이 파일이 그 파일이다" 만 말한다.
+#
+# `-buildvcs=false` 는 같은 이유다. 켜 두면 커밋 해시와 워킹트리의 더러움
+# (`vcs.modified`)이 바이너리에 들어가 태그가 같아도 해시가 갈린다. 판은
+# `-ldflags -X` 로 이미 명시적으로 새긴다 (RELEASE_SRS FR-RVN-2/4).
+REPRO_FLAGS=(-trimpath -buildvcs=false)
+
 build_one() {
   local os="$1" arch="$2" out="$3"
   local cgo; cgo="$(cgo_for "$os")"
   CGO_ENABLED="$cgo" GOOS="$os" GOARCH="$arch" \
-    go build ${LDFLAGS:+-ldflags "$LDFLAGS"} -o "$out" ./cmd/dongminal
+    go build "${REPRO_FLAGS[@]}" ${LDFLAGS:+-ldflags "$LDFLAGS"} -o "$out" ./cmd/dongminal
   if [[ "$os" == "darwin" && "$cgo" == "0" ]]; then
     # 건너뛰지 않고 빌드하되 사실을 남긴다. 경고가 없으면 지표가 빠진 배포본이
     # 조용히 나간다.

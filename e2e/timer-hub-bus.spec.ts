@@ -148,7 +148,7 @@ test.describe('TimerHub — 마감과 규약 (FR-SCH-3~9)', () => {
       let release: any = null;
       const h = s.every({
         id: 'st', every: () => 100000,
-        run: (ctx: any) => new Promise((res) => {
+        run: (ctx: any) => new Promise<void>((res) => {
           release = () => { seen.push(ctx.stale()); res() };
         }),
       });
@@ -165,7 +165,7 @@ test.describe('TimerHub — 마감과 규약 (FR-SCH-3~9)', () => {
       let rel2: any = null;
       const h2 = s.every({
         id: 'st2', every: () => 100000, overlap: 'queue',
-        run: (ctx: any) => new Promise((res) => { rel2 = () => { seen2.push(ctx.stale()); res() } }),
+        run: (ctx: any) => new Promise<void>((res) => { rel2 = () => { seen2.push(ctx.stale()); res() } }),
       });
       h2.poke();
       await new Promise((r) => setTimeout(r, 0));

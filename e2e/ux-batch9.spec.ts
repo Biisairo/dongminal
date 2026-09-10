@@ -255,7 +255,7 @@ test.describe('묶음 C — 조합 중에는 어떤 키도 앞지르지 않는�
 // 활성 패널 하나를 브라우저 안에서 집어 온다.
 const PANEL = `const p = window.app.gitPanel;`;
 
-async function panelState(page: Page) {
+async function panelState(page: Page): Promise<{ pollOn: boolean; lastObsAt: number; repo: string }> {
   return await page.evaluate(`(() => {${PANEL}
     return { pollOn: !!p._pollOn, lastObsAt: p._lastObsAt, repo: p.repo };
   })()`);

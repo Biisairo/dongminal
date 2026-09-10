@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * 상태 등록부 — **다섯 상태의 갱신 경로가 한 화면에 나란히 선다**
  * (EVENT_TIMER_HUB_SRS 묶음 H · FR-HUB-1~3).

@@ -783,7 +783,6 @@ class GitRemoteList {
     if(!repo) return;
     const tok=this.panel.token();
     this._loading=true;
-    let r=null,d=null;
     const res=await gitFetch('/api/git/remotes',{repo},
       {stale:()=>this.panel.isStale(tok),echo:{repo}});
     if(res.stale) return;

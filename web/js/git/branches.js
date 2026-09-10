@@ -842,7 +842,6 @@ class GitBranchCreate {
   async _validate(name,d){
     if(!d.alive()) return;
     const seq=++this._seq;
-    const q=new URLSearchParams({repo:this.repo,name});
     // 뒤늦게 온 이전 이름의 판정을 지금 이름의 것으로 읽지 않는다 — 그 가드가
     // 이제 echo 로 선다.
     const res=await gitFetch('/api/git/branch/validate',{repo:this.repo,name},

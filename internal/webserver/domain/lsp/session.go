@@ -114,7 +114,7 @@ func (p rwPipes) Close() error {
 // `typescript-language-server` 를 공유한다.
 type Session struct {
 	root string
-	srv ext.Server
+	srv  ext.Server
 	exe  string
 
 	c    *conn

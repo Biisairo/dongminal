@@ -1,0 +1,50 @@
+# golangci-lint 설정 (CI_GATES_SRS A4).
+#
+# **모듈 의존이 아니다** — CI 가 도구로 설치한다. `go.mod` 는 직접 2개·간접 1개
+# 이고 그 경량성은 감사가 양호로 판정한 항목이다.
+#
+# ── 무엇을 켜는지, 그리고 왜 이것만인지 ──
+#
+# 착수 시 전량을 켜 보고 실측했다. 결과가 이랬다:
+#
+#   govet 0 · ineffassign 0 · staticcheck 13 · unused 7 · errcheck 50 ·
+#   errorlint 10 · bodyclose 3
+#
+# 켠 것은 **지금 0건이거나 0건으로 만들 수 있었던 것**이다. 나머지는 끄되
+# 아래에 목록으로 남긴다 — 게이트가 처음부터 빨간 채로 서면 사람은 그것을
+# 무시하는 법부터 배우고, 그러면 검사기가 있어도 없는 것과 같다.
+#
+# **끈 것을 잊지 않기 위해 여기 적는다.** 이 목록을 지우는 것이 M8 의 일이다
+# (`docs/internal/production/MILESTONE_KICKOFF.md` M8 — Go 아키텍처 부채).
+#
+#   errcheck   50건 — 반환된 오류를 보지 않는 자리. 대부분 `Write`·`Close` 지만
+#                     실제 결함이 섞여 있을 수 있어 한 건씩 봐야 한다
+#   errorlint  10건 — `%v` 로 감싸 오류 사슬이 끊기는 자리. 이 저장소는 `apierr`
+#                     규약으로 사유를 화면까지 나르므로 끊기면 사용자가
+#                     "실패했다" 만 받는다
+#   unused      7건 — 죽은 코드. 그중 `gitPushTarget`·`gitTrackingRef`
+#                     (`handlers_git_remote.go:380,413`)는 감사가 이미 지목했다
+#   bodyclose   3건 — 닫지 않는 응답 본문
+#
+# staticcheck 는 **`SA` 만** 켠다. `ST`(문체)·`QF`(제안)·`S1`(단순화)는 취향이고,
+# 실측 13건 중 11건이 그쪽이었다 (드모르간 법칙·태그드 switch·구두점). 스타일
+# 규칙을 켜면 한꺼번에 빨개지고, 그러면 아무도 보지 않는 게이트가 된다.
+
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - govet
+    - ineffassign
+    - staticcheck
+
+  settings:
+    staticcheck:
+      # SA = 정확성. 나머지 접두는 문체·제안이다 (위 설명).
+      checks:
+        - "SA*"
+
+formatters:
+  enable:
+    - gofmt

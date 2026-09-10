@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * 탐색기의 **관측** — SLOT_VIEW_STATE_SRS 묶음 X (FR-SVS-20~24).
  *

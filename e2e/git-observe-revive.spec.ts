@@ -20,7 +20,7 @@ test.afterAll(() => { cleanGitFixture(GITFX) });
 
 const PANEL = `const p = window.app.gitPanel;`;
 
-async function panelState(page: Page) {
+async function panelState(page: Page): Promise<{ pollOn: boolean; lastObsAt: number; root: string; repo: string }> {
   return await page.evaluate(`(() => {${PANEL}
     return { pollOn: !!p._pollOn, lastObsAt: p._lastObsAt, root: p.root, repo: p.repo };
   })()`);

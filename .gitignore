@@ -28,6 +28,8 @@ coverage.txt
 node_modules/
 playwright-report/
 test-results/
+# parity-reporter 가 잡 요약에 넘기는 flaky 수 (CI_GATES_SRS §3)
+parity-flaky.txt
 
 # Temporary / test data
 /tmp/

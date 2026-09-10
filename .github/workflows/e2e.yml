@@ -34,10 +34,14 @@ jobs:
     # OS × 샤드. OS 마다 job 을 따로 적으면 스텝이 두 벌이 되고, 두 벌이면 한쪽만
     # 고쳐진다 (FR-E2I-1 의 선례) — 그래서 매트릭스다 (D-2).
     #
-    # 샤드로 가르는 이유는 그대로다. `playwright.config.ts` 는 `workers: 1` ·
-    # `fullyParallel: false` 이고 그것은 바꿀 수 없다 — 테스트 전부가 **서버
-    # 인스턴스 하나**를 공유하고, fixtures 가 매 테스트 앞에서 워크스페이스를
-    # 비운다 (E2E_QUIESCENCE_SRS). 한 러너 안에서 못 나누는 대신 러너를 나눈다.
+    # 샤드로 가르는 이유는 러너를 늘리기 위해서다.
+    #
+    # **이 주석은 한 번 사실과 어긋났다** (05-test TEST-15). 종전에는 "`workers: 1`
+    # 이고 그것은 바꿀 수 없다 — 테스트 전부가 서버 인스턴스 하나를 공유한다" 로
+    # 적혀 있었는데, `E2E_PARALLEL_SRS` 가 그 전제를 없앴다: 이제 **워커마다 자기
+    # 인스턴스·홈·포트**를 갖고(FR-EPL-1·7) `workerCount()` 가 2~4 를 준다
+    # (`playwright.config.ts:39-44`). 남아 있는 것은 `fullyParallel: false` 뿐이며
+    # 그것은 파일 **안**의 순서 의존 때문이다(같은 파일:83-94).
     #
     # `fail-fast: false` 는 규약이다 (D-3). 한 OS 의 실패로 나머지를 끊으면 고칠
     # 때마다 한 OS 씩만 보이게 된다 — 두 OS 의 실패 목록을 한 번에 받아야 한다.
@@ -54,18 +58,25 @@ jobs:
         shard: [1, 2, 3, 4, 5, 6, 7, 8]
     runs-on: ${{ matrix.os }}
     # 로컬(macOS) 실측이 전체 25분이므로 샤드 하나는 그 1/8 이지만, 러너는 그보다
-    # 느리고 `retries: 2` 가 실패 항목마다 두 번을 더 돈다 (FR-CEM-6).
+    # 느리고 `retries: 1` 이 실패 항목마다 한 번을 더 돈다
+    # (`playwright.config.ts:71` — 종전 주석의 `retries: 2` 는 사실이 아니었다).
     #
     # 60분인 것은 Windows 의 실측 때문이다 — 4샤드 시절 한 샤드가 23분에 74항목만
     # 지났다. 샤드를 8로 늘려 몫을 절반으로 줄였지만, 그 OS 는 셸 기동이 느려
     # 여유가 필요하다.
+    #
+    # **샤드 8 을 유지한다** (CI_GATES_SRS §5 · TEST-29). 워커가 1에서 2~4 로
+    # 늘었으므로 산술만 보면 4샤드로 줄여도 옛 8샤드와 비슷하고 러너 셋업을
+    # 절반으로 줄인다. 그런데 8과 60분은 **러너 실측**에서 나온 값이고 줄이는
+    # 근거는 산술뿐이다 — 틀리면 Windows 샤드가 상한에 걸려 CI 가 빨개진다.
+    # 실측 없이 바꾸는 것은 게이트를 세우는 일이 아니라 거는 일이다.
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
 
@@ -110,14 +121,33 @@ jobs:
       # 서버·자기 인스턴스 홈·자기 포트를 갖는다 — 샤드를 더 늘리는 것은 러너의
       # 셋업 비용을 반복하지만 워커는 그러지 않는다.
       - name: e2e (샤드 ${{ matrix.shard }}/8)
-        run: npx playwright test --shard=${{ matrix.shard }}/8 --reporter=line,html
+        run: npx playwright test --shard=${{ matrix.shard }}/8 --reporter=line,html,./e2e/parity-reporter.ts
+
+      # flaky 수를 **잡 요약에 드러낸다** (05-test 의 P1 · CI_GATES_SRS §3).
+      #
+      # `retries: 1` 이 한 번까지 봐주므로 흔들린 항목도 초록으로 끝난다. 그 수를
+      # 아무도 세지 않던 동안 제품 결함 셋이 초록 뒤에 있었고 사용자는 그것을
+      # "가끔 안 된다" 로 만나고 있었다 (`playwright.config.ts:51-70`).
+      #
+      # **실패로 올리지는 않는다.** 제품 쪽 계통 결함이 남아 있고
+      # (`11-git-polling.md §5` 가 flaky 9건을 근본 원인에 매핑했다), 지금 올리면
+      # 이후 모든 작업의 CI 가 빨갛다. 승격은 M6 의 완료 조건이다.
+      # 기준선은 **4** 다 (2026-09-09 macOS 3워커 실측).
+      - name: flaky 요약
+        if: always()
+        shell: bash
+        run: |
+          n=$(cat parity-flaky.txt 2>/dev/null || echo 0)
+          echo "### e2e ${{ matrix.os }} 샤드 ${{ matrix.shard }}/8" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- flaky: **$n** (기준선 4 — 전체 합 기준. 승격은 M6)" >> "$GITHUB_STEP_SUMMARY"
 
       # 실패했을 때만 남긴다. 초록인 실행의 리포트는 아무도 열지 않는다.
       # 이름에 OS 가 들어가는 것은 규약이다 (D-6) — 샤드 번호만 쓰면 두 OS 가 같은
       # 이름을 올리고, `upload-artifact@v4` 는 같은 이름을 두 번 받지 않는다.
       - name: 리포트 (실패 시)
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: playwright-report-${{ matrix.os }}-${{ matrix.shard }}
           path: |

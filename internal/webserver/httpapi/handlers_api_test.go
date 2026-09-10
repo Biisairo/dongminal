@@ -312,10 +312,15 @@ func TestSettingsStore(t *testing.T) {
 	}
 
 	// empty save should not write
-	s2 := newSettingsStore(filepath.Join(t.TempDir(), "empty.json"))
+	//
+	// 종전에는 `if !os.IsNotExist(err) { /* 주석 */ }` 였다 — 조건을 세우고 아무
+	// 것도 하지 않았으므로 무엇도 재지 않았다. 재려던 것을 단정으로 적는다:
+	// 빈 저장은 **파일을 만들지 않는다.**
+	empty := filepath.Join(t.TempDir(), "empty.json")
+	s2 := newSettingsStore(empty)
 	s2.save()
-	if _, err := os.Stat(filepath.Join(t.TempDir(), "empty.json")); !os.IsNotExist(err) {
-		// file may or may not exist; if it exists it should be empty from init.
+	if _, err := os.Stat(empty); !os.IsNotExist(err) {
+		t.Fatalf("빈 저장이 파일을 만들었다: %v", err)
 	}
 }
 
