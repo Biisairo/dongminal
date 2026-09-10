@@ -529,6 +529,102 @@ make gates · go test ./... · typecheck · lint · unit
   → **가로채기를 검증한 자리가 `V-PDA-3`·`13`·`32` 다.** "취소로 포커스를 옮긴 뒤
     `Enter` 가 취소인가" 를 묻는다. 이것이 없으면 가로채기 구현도 통과한다.
 
+### 2.12 `U-7`·`U-8` — UI 레이아웃 기본값과 게이트 셋 (`UI_LAYOUT_DEFAULTS_SRS`)
+
+**성공 판정이 "아무것도 달라지지 않는 것" 인 구조 변경이다.** 그런데 실측이 그
+전제를 두 번 고쳤다 — 문서가 **가능성**으로 적은 것이 실제로는 **살아 있는 결함
+넷**이었고, C1 의 설계 전제 셋은 틀렸다.
+
+#### 닫은 결함 넷
+
+| 결함 | 실측 | 원인 |
+|---|---|---|
+| `worktrees`·`submodules` 목록이 **870px 이상 잘려 닿을 수 없다** | 뷰 `scrollH/clientH` = 1504/634 · 1509/634 (행 60개 주입) | 그 둘만 `.git-view.git-<뷰>` 가 아니라 **`.git-<뷰>`**(0-1-0)로 적어 `.git-view.vis`(0-2-0)에 **졌다** → `display:block` 계산 → `flex:1 1 auto`·`min-height:0` 이 전부 무력화 |
+| `blame` 의 스크롤이 다른 뷰와 다르다 (`U-7`) | 바깥이 `overflow:auto` | 안내줄이 행과 함께 밀려 올라갔다. 다른 일곱 뷰는 "안쪽 목록만 구른다" 다 |
+| **모바일 `m-add-tab` 이 `hidden=true` 인데 `display=flex`** | 탐침 실측 | `body.mobile .mtbtn.mobile-only{display:flex!important}`(0-3-0)가 숨김(0-1-0 !important)을 이긴다. `FR-EDT-54`("아무 일도 하지 않는 버튼은 고장으로 읽힌다")가 모바일에서 안 지켜졌다 |
+| `style.css` 끝의 **닫히지 않은 `/*`** | `/*`=166 · `*/`=165 | `*/` 를 잃은 중복 붙여넣기(설명은 `:1375` 에 이미 있었다). 파일 끝이라 잃는 것이 없어 아무도 몰랐지만 **그 뒤에 규칙을 하나만 붙여도 브라우저가 삼킨다** |
+
+**셋째는 이 작업이 만든 것이 아니라 드러낸 것이다** — 옛 `.git-hidden`
+(0-1-0 !important)도 똑같이 졌다. 넷 다 **항목이 적은 픽스처에서는 드러나지
+않아 e2e 가 통과하고 있었다.**
+
+#### C1 은 착수 실측이 전제 셋을 뒤집어 사용자 결정으로 좁혔다
+
+최초 스펙은 "어휘 여섯 종을 `[hidden]` 하나로 수렴" 이었다.
+
+  · `.vis` 는 켜기/끄기만 하지 않는다 — **전이**(`opacity`)와 **결합자**
+    (`.fe-find.vis ~ .fe-note`)에도 쓰이고, `[hidden]` 으로 **표현할 수 없다**
+  · 어휘가 여섯이 아니라 **일곱**이었다 (`.visible` 을 못 셌다)
+  · **죽은 규칙이 둘** — `.doc-render.vis`(기본이 이미 flex, 숨기는 CSS 가 없다) ·
+    `.status-bar.hidden`(그 클래스를 붙이는 자리가 하나도 없다)
+
+그리고 이관 부분은 **결함 증거가 0** 이었다 — C2 의 870px 잘림과 대조된다.
+`M3_REFACTOR_NEXT_SESSION` §2 가 "근거가 (a)~(d) 어디에도 없으면 하지 마라" 인
+그 자리다. 그래서 **증거 있는 부분 + 어휘 게이트**로 확정했다(사용자 결정).
+
+  · `[hidden]{display:none!important}` 한 자리 + 재정의 **네 자리 삭제**
+  · "있으면 숨김" 어휘 넷(`.hidden`·`.off`·`.gone`·`.git-hidden`)을 `[hidden]` 으로
+  · `.vis` 51자리는 **그대로** — 이관의 근거가 없다
+  · 극성이 둘로 굳었다: **있으면 보임 `.vis` · 있으면 숨김 `[hidden]`**
+
+**C3 는 선언을 하나도 바꾸지 않았다.** 탐침으로 전 화면을 훑어 `inset:0` 인
+요소의 담는 블록이 어긋난 자리가 **하나도 없었다**. CSS 의 두 주석은 그 함정을
+*겪고 고친* 기록이다. 근거 없이 22곳을 흔들지 않았다 — 산출물은 게이트다.
+
+#### 검증 수단을 스스로 검증해야 했다
+
+시각 회귀 기준선이 없으므로 **계산값 스냅샷**을 만들었다(전 화면의
+`display`·`overflow`·`position`·`inset`·`flex-direction`·`min-height`).
+
+**첫 판이 4회 중 2회 흔들렸다** — 커밋 제목·카운트 배지·검색 입력의 폭이 내용과
+폴링 시점에 매인다. 두 번 좁혔다: 상자 기하(픽셀)를 **잘림/스크롤 여부**(불리언)로
+바꾸고, 조건부로 뜨는 요소의 유무를 대조에서 뺐다(요소의 **존재**는 다른 스펙
+300여 건이 이미 단정한다). 그 뒤 4회 연속 결정론적이다.
+
+  → **흔들리는 것은 검증 수단이 아니다.** 기준선을 뜨기 전에 그것을 확인해야
+    한다 — 흔들리는 기준선은 회귀를 가리는 데 쓰인다.
+
+**C1 단계에서 기준선을 한 번 다시 떴다.** 식별자가 클래스(`.gone`·`.git-hidden`)
+에서 **속성**으로 옮겨 가면서 클래스로 만든 키 27개가 합쳐졌기 때문이다.
+**재기준화는 "달라진 것이 없다" 의 증명이 아니므로** 그 사실을 SRS §5.1 에 적고,
+C1 의 증명을 직접 검증(`V-LAY-20~22`)과 회귀 넷으로 옮겼다.
+
+#### 게이트 셋 — 요구의 절반
+
+`U-8` 의 뒷문장("또 이렇게 맞지 않는 ui 가 나오면 안 되잖아")이 요구의 절반이다.
+
+```
+check-visibility.sh   [hidden] 정본 1자리 · 숨김 어휘가 display 를 다루지 않는가 ·
+                      **이름 없이** 잡는 구조 규칙(주체에 클래스 2+ 인데 display:none)
+check-scroll.sh       .git-view.git-* 재정의 0 · 명시도 낮은 골격 규칙 0.
+                      뷰 이름은 GIT_VIEWS **한 자리**에서 읽는다
+check-skeleton.sh     inset:0 이 position 과 같은 규칙에 · **주석이 닫혔는가**
+```
+
+`make gates`(9종)·`verify.yml` 에 넣었고 **일곱 형태의 위반을 탐침으로 하나씩
+확인하고 지웠다** (`FR-LAY-40`).
+
+  → **그 과정에서 게이트가 검출에 실패하는 것을 잡았다.** `check-skeleton.sh` 의
+    `awk` 판이 탐침을 통과시켰다 — macOS `awk` 는 `split(s,a,"")` 로 문자 분할을
+    하지 못한다(gawk 확장). perl 로 되돌렸다. **초록은 그 검사가 동작한다는
+    증거가 아니다** (§0-B 와 같은 교훈이 다시 나왔다).
+
+`FR-LAY-34` 도 정정했다 — "`dongminal verify` 에 게이트 항목 추가" 를 그 명령으로
+읽었는데 **틀렸다.** 그것은 서버를 띄워 HTTP 표면을 두드리는 **런타임 종단간**
+검사이며(`verify.go` 머리 주석), 정적 CSS 검사의 자리가 아니다. 기존 여섯도
+`make gates`·`verify.yml` 에 있다.
+
+#### 검증
+
+```
+ui-layout-defaults.spec.ts    7건 (기준선 2,022자리 대조 + 결함 넷 + [hidden] 네 종)
+회귀 넷 24스펙              378건 · 실패 0
+  git 여덟 뷰 · git-commit·operation·hunk·dialog·confirm ·
+  sidebar-tabs·sidebar-collapse·boot-screen · editor-find-panel·dirty-diff ·
+  repo-tab·repo-diff-edit·doc-render·runs·layout·settings
+make gates(9종) · go test ./... · typecheck · lint · unit 64건
+```
+
 ---
 
 ## 3. 남은 것
@@ -576,12 +672,12 @@ make gates · go test ./... · typecheck · lint · unit
 |---|---|---|
 | U-1 | **LSP 로 파일이 연결되지 않는다** | `handlers_lsp.go` · `web/js/ui/file-editor.js` 의 LSP 결선 · 서버 기동 조건 |
 | U-2 | **미리보기를 좌하단으로 옮기고, 색을 바꿔 잘 보이게 한다** | 미리보기 오버레이의 배치·대비 (`web/js/ui/`) |
-| U-3 | **`claude code`·`omp` 에서 스크롤이 위로 붙는 문제가 아직 남아 있다** | 종전 조치가 있었으나 미해결 — 재현 조건부터 다시 잡는다 |
+| U-3 | **`claude code`·`omp` 에서 스크롤이 위로 붙는 문제가 아직 남아 있다** — **2026-09-10 재확인**: "스크롤이 **최상단으로** 가 있을 때가 있다" | 종전 조치가 있었으나 미해결. 재확인된 문구가 증상을 좁힌다 — 붙는 자리가 **최상단**이다. 터미널 스크롤백(xterm)의 자리이며 `U-17`(가끔 스크롤이 안 됨)과 **같은 뿌리일 수 있다** — 둘 다 "높이·위치를 잘못된 순간에 잰다" 로 설명된다. 재현 조건부터 다시 잡고, 둘을 함께 본다 |
 | U-4 | **탐색기의 빈 공간을 클릭하면 커서가 root 로 간다** | ✅ **닫혔다** (`FR-EXR-1`~`6`). 머리 클릭도 함께 들어갔다 — 판정은 드롭의 `_dropDirAt`(`FR-FTR-20`) 그대로다. §2.10 |
 | U-5 | **탐색기에 다중 선택을 더한다** (`Cmd`+클릭 · `Shift`+클릭) | 선택 모델이 단일이라면 그것을 집합으로 넓히는 일이고, 삭제·이동·복사 등 **선택을 소비하는 자리 전부**가 함께 바뀐다 |
 | U-6 | **History 머리의 Fetch·Pull·Push 버튼을 뺀다** — Changes 와 History 를 이제 함께 보므로 같은 버튼이 두 벌이다 | `panel-changes.js:809 headHTML()` 가 두 뷰의 머리를 **한 자리에서** 만든다(FR-GHM-4). History 만 `.git-head-remote` 를 빼는 갈래가 필요하다 |
-| U-7 | **blame 의 스크롤이 다른 뷰와 다르다** | `style-git-views.css:42 .git-blame{overflow:auto}` — blame 은 **브라우저 네이티브** 스크롤이고, 같은 자리의 diff 는 `.git-diff-host` 안의 **Monaco 내부** 스크롤이다. 소유자·축·감각이 셋 다 다르다 (아래 실측) |
-| U-8 | **UI 전체의 기본을 루트에서 미리 정해 두고, 어긋난 UI 가 다시 나오지 않게 한다** | U-7 의 일반형이며 **git 에 국한되지 않는다**(사용자 확인). 기본값이 실사용과 반대여서 자리마다 재정의하고, 빠뜨린 자리가 조용히 어긋난다. **재발 방지 게이트**가 함께 필요하다 (아래 실측) |
+| U-7 | **blame 의 스크롤이 다른 뷰와 다르다** | ✅ **닫혔다** (`FR-LAY-24`). 바깥은 `hidden`, 행 목록만 구른다 — 다른 일곱 뷰와 같은 형태다. §2.12 |
+| U-8 | **UI 전체의 기본을 루트에서 미리 정해 두고, 어긋난 UI 가 다시 나오지 않게 한다** | ✅ **닫혔다** (`UI_LAYOUT_DEFAULTS_SRS`, `FR-LAY-1`~`51`). **살아 있는 결함 넷**을 찾아 닫고(870px 잘림 둘 · 모바일 `m-add-tab` · 닫히지 않은 주석) 게이트 셋을 세웠다. C3 는 어긋난 자리가 없어 선언을 바꾸지 않았다. §2.12 |
 | U-9 | **`Stage hunk`·`Revert hunk` 툴바를 hover 가 아니라 해당 줄을 클릭해 커서가 있을 때 뜨게 하고, 뜨는 위치를 조정한다** | `panel-diff.js:442-443` 이 `onMouseMove`·`onMouseLeave` 로 띄우고, `:501` 이 위치를 `hunk.newStart`(조각 첫 줄)에 고정한다. **스펙 개정을 동반한다** — 아래 |
 | U-10 | **편집기·diff 창을 닫을 때 수정 표시가 있어도 묻지 않는다** — 저장 안 한 내용이 사라진다 | ✅ **닫혔다** (`FR-RTU-103` 신설). 원인은 `FR-RTU-33`("확인은 없다 — 잃는 편집이 없다")과 `FR-RTU-53`(dirty 를 탭에 `●`)의 **모순**이었다. §2.9 |
 | U-11 | **기능 추가** — 탭 바의 **빈 공간을 더블클릭**하면 새 탭이 열린다 | ✅ **닫혔다** (`FR-EXR-40`~`44`). 자리는 **그 여백이 속한 pane** 이고, Editor·Git 창에서는 `addTab` 이 스스로 거절한다. §2.10 |
@@ -590,6 +686,9 @@ make gates · go test ./... · typecheck · lint · unit
 | U-14 | **기능 추가** — 탐색기를 클릭하면 편집기로부터 **키보드 주도권을 가져오고**, 탐색기에서 **키보드로 삭제·복사·붙여넣기**를 한다 | ✅ **닫혔다** (`FR-EXR-50`~`59`). 조작 4종 + 방향키 + `Enter`(사용자 결정). **본체는 키 사상이 아니라 포커스였다** — `tabindex` 만으로는 한 프레임도 안 버틴다. §2.10 |
 | U-15 | **팝업의 기본 포커스를 그 팝업의 목적에 맞는 버튼에 두어 `Enter` 로 바로 실행**한다. 예: 삭제 확인창이면 삭제 버튼. `Esc` 는 동작하지 않고 창닫기. **모든 팝업에 통일** | ✅ **닫혔다** (`POPUP_DEFAULT_ACTION_SRS`, `FR-PDA-1`~`26`). 여덟 자리·규약 여섯 종을 하나로 모았다. `Enter` 를 **가로채지 않는** 쪽으로 구현해 "포커스와 결과가 어긋나는" 새 문제를 만들지 않았다. §2.11 |
 | U-16 | **메모장(Notes)에서는 폴더를 만들 수 없고 파일만 만들어지게** 한다 | ✅ **닫혔다** (`FR-EXR-30`~`35`). `startCreate` 한 자리에서 막고 서버도 거부한다(사용자 결정). §2.10 |
+| U-17 | **가끔 스크롤이 안 될 때가 있다. 새로고침하면 풀린다** (2026-09-10 접수) | **`U-8` 의 정적 결함과 성질이 다르다** — 명시도 문제는 새로고침으로 풀리지 않는다. "새로고침하면 풀린다" 는 **런타임 상태가 굳는다**는 뜻이다. 첫 조사 지점은 flex 자손이 줄어들지 못하는 자리(`min-height:0` 누락)와 **높이가 0 인 순간에 잰 것이 남는** 경로다 — `elFor`(`panel-life.js:81`)의 주석이 이미 그 부류를 적고 있다("루트가 아직 pane 본문에 붙기 전이라 목록의 높이가 0 이다"). `_scrollY` 복원(`file-tree.js mount`)·`_restoreScrollOf`(`FR-PDR-10`)도 같은 자리다. 재현 조건부터 잡는다 |
+| U-18 | **MagicDNS 이름으로는 접속이 안 된다** — tailnet 의 다른 기기에서 IP 로는 되고 `macmini-office` 로는 `/ws`·`/api/*` 가 전부 **421** 이다 (2026-09-10 접수, 조사 완료) | **원인 확정.** `accessGate` 는 통과하고 `requestGate` 의 Host 판정이 막는다 (`reqgate.go:181`·`hostAllow.ok()` `:88`). 서버는 자기 이름을 `os.Hostname()` 으로만 알고 (`DongyoonKimui-Macmini.local`) tailnet 별명 `macmini-office` 를 **자기 것으로 인식하지 못한다**. 축이 둘인데 UI 는 하나만 표현한다 — ①누가 들어오나(출발지 IP, access 칸이 담당) · ②**뭐라고 불리며 들어오나**(Host, **입력할 자리가 없다**). `--allowed-host` 가 축②의 설계였으나 **CLI 배선이 없다**(`main.go:464`). 아래 상세 참조 |
+| U-19 | **하단 status bar 의 "Git 원격 작업 진행" 이 안 보인다. 뭔지도 모르겠다** (2026-09-10 접수) | **불만이 둘이다.** ① 안 보인다 — `_gitJobChip`(`app-git.js:852`)이 `if(!jobs.length) return null` 이라 **진행 중인 원격 작업이 실제로 있을 때만** 뜬다. fetch/pull/push 가 도는 몇 초뿐이므로 사실상 늘 없다(설정 기본값은 `def:true` 로 켜져 있다 — `helpers.js:353`). ② 뭔지도 모르겠다 — **설정의 이름이 그 사실을 말하지 않는다.** `'Git 원격 작업 진행'`(`STATUS_ITEMS.git`)은 상주 지표처럼 읽히는데 실제로는 순간 표시다. `FR-GIT-112` 는 "Git 창을 보지 않아도 알 수 있어야 한다" 이므로 **요구 자체는 그 동작이 맞다** — 고칠 것은 이름과, 그것이 무엇인지 알 방법이다. 먼저 판정할 것: 사용자가 원하는 것이 (가)이름을 알아볼 수 있게 하는 것인가 (나)작업이 없을 때도 무언가 보이는 것인가 — 후자면 `FR-GIT-112`·`FR-FLW-12`(브랜치 chip 을 **일부러 없앤** 결정) 개정을 동반한다 |
 
 **U-6 은 스펙 개정을 동반한다.** `GIT_HEAD_MOBILE_SRS` 가 정확히 그 반대를 요구한다 —
 `FR-GHM-3` 이 "History 탭 최상단에 Changes 와 **같은 머리**를 싣는다", 검증 `V3` 가
@@ -890,7 +989,134 @@ diff" 를 함께 말한 것과 맞는다.
 스펙 개정 없이 고칠 수 있을 가능성이 높다. 다만 고친 뒤 **e2e 회귀를 남긴다** —
 확인이 뜨지 않는 것을 아무 테스트도 잡지 못했다는 사실 자체가 결함의 일부다.
 
-### U-7·U-8 실측 — 기본값이 실사용과 반대다
+### U-18 — access 설정에 "이 컴퓨터의 별명" 목록을 더한다 (조사 완료 · 결정 확정)
+
+**증상**: tailnet 의 다른 기기(`macmini`)에서 이 컴퓨터(`macmini-office`)의 dongminal
+웹에 접속할 때 **IP 로는 되고 MagicDNS 이름으로는 안 된다.** 정적 자산은 뜨지만
+`/ws`·`/api/*` 가 전부 421(Misdirected Request)로 끊긴다.
+
+#### 원인 — 게이트 두 겹 중 **뒤쪽**이다
+
+```
+server.go:239   logging → accessGate(출발지 IP) → requestGate(Host·Origin·…) → authGate → recover → mux
+```
+
+`~/.dongminal/server.log` 의 거절 로그:
+
+```
+request denied why=host addr=100.117.248.111:60672 host="macmini-office:58146"
+                origin="http://macmini-office:58146" GET /ws
+```
+
+`accessGate` 는 **통과했다** — `access.json` 의 `macmini` 항목이 제 일을 했다.
+막은 것은 `requestGate` 의 Host 판정(`reqgate.go:181`)이다.
+
+`hostAllow.ok()`(`reqgate.go:88`)의 허용 집합과 현재 값:
+
+| 허용 항목 | 현재 값 | `macmini-office` 통과 |
+|---|---|---|
+| loopback/localhost 리터럴 | — | ✗ |
+| `os.Hostname()` + `.local` | `DongyoonKimui-Macmini.local` | ✗ ← **근본 원인** |
+| 숫자 IP 중 `accessStore.isSelf` | `100.89.214.106` 포함 | IP 접속만 ✓ |
+| `--allowed-host` extra 패턴 | 빈 값 | ✗ |
+| ACL 목록의 호스트명(`hasHostname`) | `macmini`·`phone`·`macbook` | ✗ |
+
+**핵심**: macOS 컴퓨터 이름과 Tailscale 노드 이름이 다르다. 서버는 자신의 tailnet
+별명을 자기 것으로 인식하지 못한다.
+
+#### 축이 둘인데 UI 는 하나만 표현한다
+
+| 축 | 무엇을 묻는가 | 담당 |
+|---|---|---|
+| ① | **누가** 들어오나 (출발지 IP) | access 칸. 정상 작동 |
+| ② | **뭐라고 불리며** 들어오나 (Host 이름) | **입력할 자리가 아예 없다** |
+
+`--allowed-host` 가 축②를 위한 설계였다(`REQUEST_GATE_SRS:159` ·
+`13-tls-tailscale.md:357`)**만 CLI 배선이 없다** — `main.go:464` 가
+`httpapi.Config{Port,DataDir,StaticFS}` 만 채우고 `AllowedHosts` 를 비워 둔다.
+**지금 사용자가 축②를 채울 방법이 전무하다.**
+
+#### 환경 사실 (조사로 확정)
+
+```
+os.Hostname()              DongyoonKimui-Macmini.local
+scutil --get LocalHostName DongyoonKimui-Macmini
+tailscale Self.DNSName     macmini-office.tail5da9ae.ts.net.
+tailscale Self.HostName    DongyoonKim의 Mac mini
+TailscaleIPs               100.89.214.106 · fd7a:115c:a1e0::7301:d6bb
+접속 형태                  http://macmini-office:58146  → Host 값에 **점이 없다**
+서버 실행                  dongminal start --foreground (플래그 없음)
+tailscale 호출              코드에 없다 (reqgate.go:40 의 주석 한 줄이 전부)
+access.json                enabled:true, entries = macmini·phone·macbook (전부 **타 기기**)
+```
+
+**짧은 이름으로 접속하므로 `*.ts.net` 접미사 패턴으로는 절대 걸리지 않는다** —
+`matchHostPattern`(`reqgate.go:120`)이 `*.` 접미사에 점 하나를 강제한다.
+
+#### 결정 사항 — **사용자가 확정했다. 재논의 불필요**
+
+1. **access 설정을 두 목록으로 나눈다.** ① 허용할 기기(출발지 IP, 기존 `entries`
+   그대로) · ② **이 컴퓨터의 별명**(Host 판정용, 신규).
+2. **기존 편의 규칙 `hasHostname` 을 걷어낸다.** 지금은 ①에 적힌 이름을 Host 로도
+   인정하는데(`reqgate.go:113` · `access.go` 의 `hasHostname`) 그것이 두 축을 섞는
+   원인이다. **동작 변경이므로 "이전 동작 / 새 동작 / 이유" 를 기록한다.**
+   근거: 현재 ① 항목은 전부 타 기기 이름이라 이 서버를 그 이름으로 부를 일이
+   없다 → 실제로 끊길 접속이 없다.
+3. **UI(access 탭)에서 관리하고 저장 즉시 반영한다.** 서버 재시작을 요구하지 않는다
+   (현재 `setConfig` → `refresh` → broadcast 규약을 따른다).
+4. `--allowed-host` CLI 배선은 **이번 범위 밖**이다. `Config.AllowedHosts` →
+   `hostAllow.extra` 경로는 그대로 둔다.
+5. tailscale 을 실행해 이름을 자동 유도하는 방식은 **채택하지 않았다** — 새 실행
+   의존성을 만들지 않는다.
+
+#### 절차 요구 (사용자 지정)
+
+- **보안 경계를 넓히는 변경이다.** 축②는 DNS 리바인딩 방어의 화이트리스트이므로
+  아무 도메인이나 통과시키는 값(`*` · 빈 패턴 · 과도한 와일드카드)을 막는 검증이
+  스펙에 **반드시** 들어간다. 방어가 약해지는 설계는 채택하지 않는다.
+- **스펙 먼저(IEEE 29148).** 기존 문서에 연결한다 — `ACCESS_ALLOWLIST_SRS`(FR-ACL-*) ·
+  `REQUEST_GATE_SRS`(FR-RQG-*). 코드 주석이 FR 번호를 인용하는 관례를 따른다.
+- **TDD** — unit / edge / failure case 전부.
+- 심볼 탐색·수정은 LSP → Serena 우선.
+- **스펙 초안으로 사용자 승인을 먼저 받는다. 구현은 승인 후.**
+
+#### 스펙에서 답할 열린 질문
+
+- ② 항목의 검증 규칙: 와일드카드(`*.ts.net`)를 허용하나, **정확 일치만** 받나?
+- ② 항목도 ①처럼 `enabled` 토글·`label` 을 갖나? (스키마 일관성 vs 최소 구현)
+- ② 가 비었을 때 동작은 **현재와 동일**해야 한다 (`os.Hostname` + self IP + loopback).
+- loopback·self IP 무조건 통과(`FR-ACL-5`)와 `isSelf`(`FR-RQG-6`)는 **유지**한다.
+- ②는 DNS 해석이 필요 없다(이름 문자열 비교) — `refresh` 의 `lookupHost` 대상에
+  넣지 않는 것이 맞는지 확인.
+- API 응답 모양 변경이 기존 클라이언트를 깨는지 (`accessView.You`/`Self` 소비처).
+
+#### 건드릴 것으로 보이는 지점
+
+```
+internal/webserver/httpapi/access.go    accessConfig·accessView 스키마 · setConfig 검증 ·
+                                        hasHostname 제거 · apiAccessGet·apiAccessPut
+internal/webserver/httpapi/reqgate.go   hostAllow.ok() 가 새 목록을 읽도록 ·
+                                        matchHostPattern 재사용 여부 판단
+web/js/core/app-settings.js             access UI 에 ② 섹션 (_aclSave 가 검증 실패 본문을
+                                        그대로 띄우는 규약 유지)
+테스트                                  access_test.go · reqgate_test.go
+하위 호환                               ~/.dongminal/access.json — 새 필드 없는 기존 파일 = ② 빈 목록
+```
+
+#### 작업 중의 임시 조치와 그 만료
+
+지금 당장 접속이 필요하면 access 칸(①)에 `macmini-office` 를 임시로 추가하면
+`hasHostname` 편의 규칙이 그것을 Host 로도 인정해 통한다. **그러나 그 규칙이 이
+작업에서 제거되므로(결정 2) 완료 시점에 그 임시 항목은 무효가 된다** — 새 ② 칸으로
+옮겨야 한다.
+
+---
+
+### U-7·U-8 실측 — 기본값이 실사용과 반대다 — **닫혔다** (§2.12)
+
+아래는 착수 전 조사 기록이다. 실측은 거의 맞았고 `UI_LAYOUT_DEFAULTS_SRS` §2 로
+옮겼다 — 다만 **"빠뜨린 뷰" 가 가능성이 아니라 실제였고**(둘), `overflow` 개수
+148 은 **139** 로 정정됐다. 결론은 §2.12 에 있다.
 
 `style-git.css:12` 가 모든 git 뷰의 기본을 정한다.
 
@@ -1028,25 +1254,35 @@ default-src 'self'; script-src 'self' 'sha256-Y0hr/…' 'sha256-cbCW…'; style-
 프로젝트: /Users/dykim/personal/dongminal
 
 프로덕션화 로드맵 M2 를 이어서 진행한다. **P0 5건·P1 11건이 전부 끝났고**, 4차
-세션이 git 실행 층 통일(GO-39·FBE-08)과 U-10(데이터 손실)을, 5차 세션이 **탐색기
-묶음 여섯**(U-4·U-11·U-12·U-13·U-14·U-16)과 **U-15**(팝업의 기본 포커스)를 닫았다.
-남은 것은 **DoD 5항목 · P2 · 사용자 보고 7건**, 그리고 기존 흔들림이다.
+세션이 git 실행 층 통일(GO-39·FBE-08)과 U-10 을, 5차 세션이 **탐색기 묶음 여섯**
+(U-4·U-11·U-12·U-13·U-14·U-16) · **U-15**(팝업의 기본 포커스) · **U-7·U-8**
+(UI 레이아웃 기본값과 게이트 셋)을 닫았다.
+남은 것은 **DoD 5항목 · P2 · 사용자 보고 8건**, 그리고 기존 흔들림이다.
+
+**첫 일은 U-18 이다** — MagicDNS 이름으로 접속이 안 된다(421). 지금 사용자가 자기
+서버에 이름으로 붙지 못하고, **조사·결정이 이미 확정돼 있다.**
 
 먼저 이것부터 읽어라 — 이게 진실이고 나머지는 배경이다:
 
 - docs/internal/production/M2_PROGRESS.md   ← 무엇이 끝났고 무엇이 남았는지
-  · §2.8 git 실행 층 통일 · §2.9 U-10 · §2.10 탐색기 묶음 · §2.11 U-15
-  · §3.4 사용자 보고(근거·함정·충돌) — 닫힌 여덟은 ✅ 로 표시돼 있다
+  · §2.8 git 실행 층 통일 · §2.9 U-10 · §2.10 탐색기 묶음 · §2.11 U-15 ·
+    §2.12 U-7·U-8
+  · §3.4 사용자 보고(근거·함정·충돌) — 닫힌 열은 ✅ 로 표시돼 있다.
+    **U-18 상세를 그대로 딛는다 — 다시 조사하지 마라**
 - docs/internal/production/M3_REFACTOR_NEXT_SESSION.md
   ← **리팩터를 하려면 반드시 먼저 읽어라.** 이 저장소에서 리팩터가 어떻게
     빗나가는지가 거기 있다. 지난 세션은 그 §0·§1 이 없었으면 **이미 기각된 안을
     다시 구현할 뻔했다.**
 
-스펙 넷은 전부 구현돼 있다. 그 범위 안이면 새로 쓰지 마라:
-- docs/internal/REQUEST_GATE_SRS.md          게이트 계약
+스펙은 전부 구현돼 있다. 그 범위 안이면 새로 쓰지 마라:
+- docs/internal/REQUEST_GATE_SRS.md          게이트 계약  ← **U-18 이 여기 닿는다**
+- docs/internal/ACCESS_ALLOWLIST_SRS.md      출발지 IP 허용목록  ← **U-18**
 - docs/internal/FILE_API_BOUNDARY_SRS.md     파일 경계 계약
 - docs/internal/MONACO_VENDORING_SRS.md      벤더링·사전압축·CSP
 - docs/internal/CLIENT_API_SRS.md            브라우저 API 호출의 전송 한 겹
+- docs/internal/EXPLORER_ROOT_KEYS_SRS.md    탐색기의 루트·생성·키보드 (5차)
+- docs/internal/POPUP_DEFAULT_ACTION_SRS.md  팝업의 기본 포커스 (5차)
+- docs/internal/UI_LAYOUT_DEFAULTS_SRS.md    UI 레이아웃 기본값·게이트 셋 (5차)
 
 ## 착수 순서 — 이대로 간다
 
@@ -1057,19 +1293,35 @@ default-src 'self'; script-src 'self' 'sha256-Y0hr/…' 'sha256-cbCW…'; style-
     포커스를 만지면 그것부터 읽어라
   · U-15 팝업의 기본 포커스 — §2.11 `POPUP_DEFAULT_ACTION_SRS`. **FR-GIT-97·176 ·
     FR-COS-6·7 이 개정됐다.** 그 조항들의 옛 문장("기본 포커스는 취소")을 근거로
-    무언가를 되돌리려 하면 그것은 이미 뒤집힌 결정이다
+    무언가를 되돌리려 하면 그것은 이미 뒤집힌 결정이다. `Enter` 를 가로채는
+    자리를 **다시 만들지 마라** (그 안은 D-1 이 기각했다)
+  · U-7·U-8 UI 레이아웃 기본값 — §2.12 `UI_LAYOUT_DEFAULTS_SRS`. **게이트 셋이
+    섰다**(check-visibility·check-scroll·check-skeleton). CSS 를 만지면 그것들이
+    먼저 말을 건다. 숨김의 어휘는 둘이다 — **있으면 보임 `.vis` · 있으면 숨김
+    `[hidden]`**. 새 어휘를 만들지 마라
 
-**1) U-7·U-8 — 스크롤과 UI 기본값 (구조 변경, 스펙 필요) ← 여기서 시작**
+**1) U-18 — MagicDNS 이름으로 접속이 안 된다 ← 여기서 시작**
 
-U-7 은 증상이고 U-8 이 일반형이다. 고칠 자리는 개별 뷰가 아니라 **기본값**이다.
-.git-view 가 대표 사례 — 기본이 실사용과 반대여서 여섯 뷰가 같은 두 줄을 각자
-반복하고, 빠뜨린 뷰는 조용히 어긋난다.
+**지금 사용자를 막고 있다** — tailnet 의 다른 기기에서 IP 로는 되고
+`macmini-office` 로는 `/ws`·`/api/*` 가 전부 421 이다.
 
-**git 에 국한되지 않는다**(사용자 확인). 저장소 전체로 display:none 89 ·
-.vis 61(값 4종) · overflow 148(축 5종) · inset:0 37 이다. **재발 방지 게이트가
-요구의 절반이다** — 이 저장소는 규약을 게이트로 지킨다(check-seams·check-timers·
-check-gitwrite·check-html·check-fetch, 그 주석들이 "규약은 선언으로 지켜지지
-않는다" 를 적고 있다).
+**조사와 결정이 이미 확정돼 있다.** §3.4 의 U-18 상세를 그대로 딛는다 — 원인 표
+(게이트 두 겹 중 **뒤쪽**인 `requestGate` 의 Host 판정), 환경 사실, 결정 5,
+절차 요구, 열린 질문 6, 건드릴 지점, 임시 조치의 만료까지 적혀 있다.
+**다시 조사하지 마라.**
+
+요체: 축이 둘인데 UI 는 하나만 표현한다 — ①누가 들어오나(출발지 IP, access 칸이
+담당·정상) · ②**뭐라고 불리며 들어오나**(Host, **입력할 자리가 없다**).
+`--allowed-host` 가 축②의 설계였으나 CLI 배선이 없다(`main.go:464`).
+
+**절차 요구 (사용자 지정)**
+  · **보안 경계를 넓히는 변경이다.** 축②는 DNS 리바인딩 방어의 화이트리스트이므로
+    아무 도메인이나 통과시키는 값(`*`·빈 패턴·과도한 와일드카드)을 막는 검증이
+    스펙에 **반드시** 들어간다. 방어가 약해지는 설계는 채택하지 않는다
+  · **스펙 먼저(IEEE 29148).** `ACCESS_ALLOWLIST_SRS`(FR-ACL-*) ·
+    `REQUEST_GATE_SRS`(FR-RQG-*) 에 연결한다
+  · **TDD** — unit / edge / failure case 전부
+  · **스펙 초안으로 사용자 승인을 먼저 받는다. 구현은 승인 후**
 
 **2) U-9 — hunk 툴바를 hover 에서 커서로 (스펙 개정 동반)**
 
@@ -1079,10 +1331,15 @@ check-gitwrite·check-html·check-fetch, 그 주석들이 "규약은 선언으�
 줄로 옮기면 "이상한 위치" 도 같은 수정으로 풀린다.
 DIFF_HUNK_BAR_SRS FR-DHB-11·13·14 와 V-DHB-10 을 함께 고친다.
 
-**3) 남은 결함 U-1·U-3, 그리고 DoD 5항목·P2**
+**3) 남은 결함 U-1·U-3·U-17·U-19, 그리고 DoD 5항목·P2**
 
   U-1  LSP 로 파일이 연결되지 않는다 — 재현부터
-  U-3  claude code·omp 에서 스크롤이 위로 붙는다 — 재현 조건부터 다시
+  U-3  claude code·omp 에서 스크롤이 **최상단으로** 붙는다 — 재현 조건부터 다시
+  U-17 가끔 스크롤이 안 된다. 새로고침하면 풀린다 — **U-8 의 정적 결함과 성질이
+       다르다**(명시도 문제는 새로고침으로 안 풀린다). U-3 과 같은 뿌리일 수 있다
+  U-19 상태바의 "Git 원격 작업 진행" 이 안 보이고 뭔지도 모르겠다 — 조사 완료.
+       진행 중 작업이 있을 때만 뜨는 것이 FR-GIT-112 의 요구다. 고칠 것은 이름과
+       알 방법이며, "없을 때도 보이게" 면 FR-GIT-112·FR-FLW-12 개정 동반
   U-5  탐색기 다중 선택 — 선택 모델을 바꾸는 일이라 규모가 다르다. 스펙 필요 여부 판정
   U-6  History 의 Fetch/Pull/Push 제거 — GIT_HEAD_MOBILE_SRS FR-GHM-3·V3 개정 동반
   U-2  미리보기 위치·대비
@@ -1124,6 +1381,22 @@ DIFF_HUNK_BAR_SRS FR-DHB-11·13·14 와 V-DHB-10 을 함께 고친다.
 FR-EKB-1·4 였고, 확인해 보니 겹치는 키가 **하나도 없어** 개정이 필요 없었다.
   → **"그 문서가 규약을 갖고 있다" 를 받아들이기 전에 그 문서를 열어라.**
     §0-A 의 "기각된 것이 정확히 무엇인지 읽어라" 와 같은 부류다.
+
+**흔들리는 것은 검증 수단이 아니다.** U-8 의 판정은 "아무것도 달라지지 않는 것"
+이어서 계산값 스냅샷을 만들었는데, 첫 판이 4회 중 2회 흔들렸다 — 커밋 제목·카운트
+배지·검색 입력의 폭이 내용과 폴링 시점에 매인다. 픽셀을 버리고 **잘림/스크롤
+여부**(불리언)로 바꾸고 조건부 요소의 유무를 대조에서 뺀 뒤 4회 연속 결정론적이
+됐다.
+  → **기준선을 뜨기 전에 그것이 결정론적인지 확인하라.** 흔들리는 기준선은 회귀를
+    잡는 데 쓰이지 않고 **가리는 데** 쓰인다. 그리고 **재기준화는 "달라진 것이
+    없다" 의 증명이 아니다** — C1 에서 한 번 다시 떠야 했고, 그 사실과 대신
+    무엇이 증명하는지를 SRS §5.1 에 적었다.
+
+**게이트가 검출에 실패하는 것을 또 잡았다.** §0-B 의 교훈이 다시 나왔다 —
+`check-skeleton.sh` 의 `awk` 판이 탐침을 **통과시켰다**(macOS awk 는
+`split(s,a,"")` 로 문자 분할을 못 한다). perl 로 되돌렸다.
+  → **새 게이트를 세우면 반드시 탐침으로 검출을 확인하고 지워라.** 이번에는 일곱
+    형태를 하나씩 넣어 봤고 그중 하나가 그렇게 걸렸다.
 
 **요구를 그대로 구현하는 것이 가장 곧은 길이 아닐 수 있다.** U-15 는 "Enter 로
 바로 실행" 이었고 가장 직접적인 구현은 Enter 를 가로채 목적 동작을 부르는 것이다.
