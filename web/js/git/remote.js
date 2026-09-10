@@ -567,22 +567,15 @@ class GitRemote {
    * GitPanel.post 의 ok 판정과 다르므로 여기서 따로 보낸다.
    */
   async _post(url,body){
-    let r=null,d=null;
-    try{
-      r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(body)});
-    }catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
-    return {ok:!!(r&&r.ok),code:r?r.status:0,data:d||{}};
+    const r=await apiPost(url,body);
+    return {ok:r.ok,code:r.status,data:r.data||{}};
   }
 
   // 읽기 쪽도 같은 모양으로 답한다 — 두 왕복의 결과 해석이 갈리면 실패 사유가
   // 두 벌이 된다.
   async _get(url){
-    let r=null,d=null;
-    try{r=await fetch(url)}catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
-    return {ok:!!(r&&r.ok),code:r?r.status:0,data:d||{}};
+    const r=await apiGet(url);
+    return {ok:r.ok,code:r.status,data:r.data||{}};
   }
 
   _reason(res){

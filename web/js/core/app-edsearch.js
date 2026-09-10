@@ -198,11 +198,10 @@ Object.assign(App.prototype, {
     const seq=(p._seq=(p._seq||0)+1);
     const url=(p._mode==='find'?ED_FIND_API:ED_GREP_API)+
       '?root='+encodeURIComponent(p._root)+'&q='+encodeURIComponent(q);
-    let r=null,d=null;
-    try{r=await fetch(url)}catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
+    const r=await apiGet(url);
+    const d=r.data;
     if(seq!==p._seq) return;
-    if(!r||!r.ok||!d){note.textContent=ED_SEARCH_FAIL;return}
+    if(!r.ok||!d){note.textContent=ED_SEARCH_FAIL;return}
     p._items=(p._mode==='find'?d.files:d.matches)||[];
     p._sel=0;
     this._edPanelPaint(p,d);

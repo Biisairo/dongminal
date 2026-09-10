@@ -26,6 +26,10 @@ declare const EventBus: any;
 // 구분되지 않는다.
 
 const WEB = join(process.cwd(), 'web', 'js');
+// `core/api.js` 는 이 겹을 쓰는 어떤 스크립트보다 **앞**에 실어야 한다
+// (CLIENT_API_SRS FR-CAPI-1). 합성 페이지는 index.html 의 로드 순서를 물려받지
+// 않으므로, 빠뜨리면 `apiGet is not defined` 로 그 자리에서 터진다.
+const API_JS = join(WEB, 'core', 'api.js');
 const APP_CMD_JS = join(WEB, 'core', 'app-cmd.js');
 const HELPERS_JS = join(WEB, 'core', 'helpers.js');
 const TIMER_HUB_JS = join(WEB, 'core', 'timer-hub.js');
@@ -68,6 +72,7 @@ async function loadRestoreProtocol(page: Page) {
       bus = new EventBus({ clientId: 'test-client' }, {});
     };
   });
+  await page.addScriptTag({ path: API_JS });
   await page.addScriptTag({ path: APP_CMD_JS });
   await page.evaluate(() => {
     (window as any).__app = new (window as any).App();
@@ -219,6 +224,7 @@ async function loadPanelPoll(page: Page) {
     (window as any).gitStatusInterval = 1000;
     (window as any).pathJoin = (a: string, b: string) => a + '/' + b;
   });
+  await page.addScriptTag({ path: API_JS });
   await page.addScriptTag({ path: PANEL_POLL_JS });
   await page.evaluate(() => {
     const p = new (window as any).GitPanel();

@@ -67,13 +67,13 @@ Object.assign(App.prototype, {
    */
   async _bkExport(){
     let server;
-    try{
-      const r=await fetch('/api/settings');
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      server=await r.json();
-    }catch(e){
-      this._bkMsg('설정을 읽지 못해 내보내지 않았습니다 ('+e.message+')','err');
-      return false;
+    {
+      const r=await apiGet('/api/settings');
+      if(!r.ok||!r.data){
+        this._bkMsg('설정을 읽지 못해 내보내지 않았습니다 (HTTP '+r.status+')','err');
+        return false;
+      }
+      server=r.data;
     }
     const {local,session}=this._bkCollect();
     const now=new Date();
@@ -150,12 +150,12 @@ Object.assign(App.prototype, {
   async _bkApply(){
     const env=this._bkPending;
     if(!env) return false;
-    try{
-      const r=await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(env.server)});
-      if(!r.ok) throw new Error('HTTP '+r.status);
-    }catch(e){
-      this._bkMsg('서버에 설정을 쓰지 못했습니다 ('+e.message+'). 아무것도 바뀌지 않았습니다.','err');
-      return false;
+    {
+      const r=await apiPut('/api/settings',env.server);
+      if(!r.ok){
+        this._bkMsg('서버에 설정을 쓰지 못했습니다 (HTTP '+r.status+'). 아무것도 바뀌지 않았습니다.','err');
+        return false;
+      }
     }
     for(const {store,key} of BACKUP_KEYS){
       const src=store==='session'?env.session:env.local;

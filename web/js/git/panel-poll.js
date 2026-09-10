@@ -434,9 +434,9 @@ Object.assign(GitPanel.prototype, {
     // 끊겼다 (GP-1). `clientId` 를 실으면 그 신원의 SSE 구독이 임대를 쥐므로,
     // 이 요청이 뜸해져도 아예 끊겨도 감시가 산다.
     const cid=this.app&&this.app.clientId?'&clientId='+encodeURIComponent(this.app.clientId):'';
-    try{r=await fetch('/api/git/status?repo='+encodeURIComponent(repo)+cid,
-      {signal:AbortSignal.timeout(GIT_STATUS_FETCH_TIMEOUT_MS)})}catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
+    r=await apiGet('/api/git/status?repo='+encodeURIComponent(repo)+cid,
+      {timeout:GIT_STATUS_FETCH_TIMEOUT_MS});
+    d=r.data;
     // 리포가 바뀌면 setRepo 가 소유권을 끊는다 — 그 뒤 도착한 응답은 플래그를
     // 건드리지 않는다.
     if(this._seq!==seq){this._applyStatus(tok,r,d);return}
@@ -449,7 +449,7 @@ Object.assign(GitPanel.prototype, {
   _applyStatus(tok,r,d){
     // ① 세대·리포 확인 (FR-GIT-16)
     if(this.isStale(tok)) return;
-    if(!r){
+    if(r.status===0){
       // 네트워크 오류 — 이전 화면을 유지한다. **목록을 지우지 않는다.**
       // 사유가 붙은 화면은 관측으로 그린 화면이 아니다 — 근거를 버려 회복하는
       // 관측이 값이 같아도 다시 그리게 한다 (FR-GIT-227).

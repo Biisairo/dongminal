@@ -91,10 +91,9 @@ Object.assign(FileTree.prototype, {
     fd.append('file',it.file);
     const u=FS_UPLOAD_API+'?root='+encodeURIComponent(this.root)+
       '&dir='+encodeURIComponent(dir);
-    let r=null,d=null;
-    try{r=await fetch(u,{method:'POST',body:fd})}catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
-    if(r&&r.ok&&d&&d.ok) return '';
+    const r=await apiPost(u,fd);
+    const d=r.data;
+    if(r.ok&&d&&d.ok) return '';
     const why=EDITOR_FS_ERR_MSG[(d&&d.code)||'']||(d&&d.message)||'';
     return why||EDITOR_UPLOAD_FAIL.replace('%s',it.relPath||it.file.name);
   },

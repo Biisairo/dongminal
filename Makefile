@@ -36,6 +36,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-vendor.sh
 	@echo "── 마크업 보간 (터미널 출력이 스크립트가 되지 않는가)"
 	@scripts/check-html.sh
+	@echo "── API 호출의 단일 경로 (core/api.js 를 지나는가)"
+	@scripts/check-fetch.sh
 	@echo "gates ok"
 
 test:  ## Go 단위 테스트 (-race -shuffle=on, ./web/... 포함)

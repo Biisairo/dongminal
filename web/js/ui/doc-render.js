@@ -317,9 +317,10 @@ class DocRender {
    */
   async _text() {
     if (this._model) return this._model.getValue();
-    const r = await fetch('/api/file/read?path=' + encodeURIComponent(this.filePath));
+    // 원문을 그대로 받는다 — 이 종단은 JSON 이 아니라 파일 내용을 낸다 (FR-CAPI-11).
+    const r = await apiGet('/api/file/read', { query: { path: this.filePath }, parse: false });
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    return await r.text();
+    return r.text;
   }
 
   _note(text) {

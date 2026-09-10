@@ -253,14 +253,9 @@ class FileEditor {
    * 편이 낫다.
    */
   async _probeFile() {
-    try {
-      const r = await fetch(FILE_PROBE_API + '?path=' + encodeURIComponent(this.filePath));
-      if (!r.ok) return { kind: FILE_KIND_TEXT };
-      const j = await r.json();
-      return j && j.kind ? j : { kind: FILE_KIND_TEXT };
-    } catch {
-      return { kind: FILE_KIND_TEXT };
-    }
+    const r = await apiGet(FILE_PROBE_API, { query: { path: this.filePath } });
+    if (!r.ok) return { kind: FILE_KIND_TEXT };
+    return r.data && r.data.kind ? r.data : { kind: FILE_KIND_TEXT };
   }
 
   // FR-EVW-3: 열지 않고 사유를 보인다. Monaco 를 세우지 않으므로 저장 경로
@@ -311,9 +306,10 @@ class FileEditor {
   }
 
   async _fetchFile() {
-    const r = await fetch('/api/file/read?path=' + encodeURIComponent(this.filePath));
+    // 원문을 그대로 받는다 — 이 종단은 JSON 이 아니라 파일 내용을 낸다 (FR-CAPI-11).
+    const r = await apiGet('/api/file/read', { query: { path: this.filePath }, parse: false });
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    return await r.text();
+    return r.text;
   }
 
   /**
@@ -565,11 +561,7 @@ class FileEditor {
     if (doc) doc.saving = true;
     const content = this._editor.getValue();
     try {
-      const r = await fetch('/api/file/write', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: this.filePath, content }),
-      });
+      const r = await apiPost('/api/file/write', { path: this.filePath, content });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       // FR-WBR-91·92: dirty 와 탭 표시도 문서를 딛는다. `set _dirty` 는 `_doc` 이
       // 끊겨 있으면 **죽은 필드**(`__dirty`)에 쓰므로, 파괴된 뒤에는 쓰기가

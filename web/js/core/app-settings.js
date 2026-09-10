@@ -12,7 +12,7 @@ Object.assign(App.prototype, {
     // POLL_INTERVAL_SETTINGS_SRS FR-PIS-6: 주기 다섯이 나란히 실린다.
     // `gitSignatureInterval` 은 **빠졌다** — 읽을 계층이 없으므로 실어도 아무
     // 일도 하지 않고, 남기면 지운 계층이 아직 있다고 읽힌다 (FR-PIS-2).
-    try{await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,agentsPollInterval,statsInterval,gitStatusInterval,gitReposInterval,gitConsoleInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave,editorWordWrap,tabFixedWidth,tabWidthPx,focusEdgeLevel,attnEdgeLevel})})}catch{}
+    await apiPut('/api/settings',{themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,agentsPollInterval,statsInterval,gitStatusInterval,gitReposInterval,gitConsoleInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave,editorWordWrap,tabFixedWidth,tabWidthPx,focusEdgeLevel,attnEdgeLevel});
   },
 
   /**
@@ -435,11 +435,11 @@ Object.assign(App.prototype, {
    */
   _settingsRestore(){
     const t=this._restoreBegin('settings');
-    return fetch('/api/settings').then(r=>r.ok?r.json():null).then(saved=>{
+    return apiGet('/api/settings').then(r=>{
       if(!this._restoreLive('settings',t)) return;
-      this._settingsApply(saved);
+      this._settingsApply(r.ok?r.data:null);
       this._restoreEnd('settings',t);
-    }).catch(()=>{});
+    });
   },
 
   _initModal(){
@@ -779,14 +779,14 @@ Object.assign(App.prototype, {
     if(!box) return;
     box.innerHTML='';status.textContent='';status.classList.remove('err');
     try{
-      const r=await fetch('/api/sandbox/config');
+      const r=await apiGet('/api/sandbox/config');
       if(!r.ok){
         // 런타임이 없으면 설정할 대상 자체가 없다. 빈 화면보다 이유가 낫다.
-        status.textContent=(await r.text()).trim()||'샌드박스 설정을 읽지 못했습니다';
+        status.textContent=r.text.trim()||'샌드박스 설정을 읽지 못했습니다';
         status.classList.add('err');
         return;
       }
-      const cfg=await r.json();
+      const cfg=r.data||{};
       document.getElementById('sbx-image').value=(cfg.dev&&cfg.dev.image)||'';
       document.getElementById('sbx-ports').value=(cfg.dev&&cfg.dev.ports||[]).join(', ');
       for(const m of cfg.mounts||[]) box.appendChild(this._sbxMountRow(m));
@@ -806,12 +806,10 @@ Object.assign(App.prototype, {
       const status=document.getElementById('sbx-status');
       status.classList.remove('err');status.textContent='저장 중…';
       try{
-        const r=await fetch('/api/sandbox/config',{method:'PUT',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify(this._sbxCollect())});
+        const r=await apiPut('/api/sandbox/config',this._sbxCollect());
         if(!r.ok){
           // 거부 사유가 그대로 온다 — 무엇이 잘못됐는지 모르면 고칠 수 없다.
-          status.textContent=(await r.text()).trim()||'저장하지 못했습니다';
+          status.textContent=r.text.trim()||'저장하지 못했습니다';
           status.classList.add('err');
           return;
         }
@@ -931,13 +929,13 @@ Object.assign(App.prototype, {
     if(!box) return;
     box.innerHTML='';status.textContent='';status.classList.remove('err');
     try{
-      const r=await fetch('/api/access');
+      const r=await apiGet('/api/access');
       if(!r.ok){
-        status.textContent=(await r.text()).trim()||'허용 목록을 읽지 못했습니다';
+        status.textContent=r.text.trim()||'허용 목록을 읽지 못했습니다';
         status.classList.add('err');
         return;
       }
-      const v=await r.json();
+      const v=r.data||{};
       this._aclKnown=v.entries||[];
       this._aclYou=v.you||'';
       document.getElementById('acl-enabled').checked=!!v.enabled;
@@ -955,12 +953,10 @@ Object.assign(App.prototype, {
     const status=document.getElementById('acl-status');
     status.classList.remove('err');status.textContent='저장 중…';
     try{
-      const r=await fetch('/api/access',{method:'PUT',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(cfg)});
+      const r=await apiPut('/api/access',cfg);
       if(!r.ok){
         // 거부 사유가 그대로 온다 — 어느 줄이 잘못됐는지 모르면 고칠 수 없다.
-        status.textContent=(await r.text()).trim()||'저장하지 못했습니다';
+        status.textContent=r.text.trim()||'저장하지 못했습니다';
         status.classList.add('err');
         return;
       }

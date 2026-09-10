@@ -87,11 +87,10 @@ Object.assign(RunsPanel.prototype, {
   // 목록에 필요한 것은 레코드 요약뿐이다.
   async _runsRefresh() {
     let list = null, err = null;
-    try {
-      const r = await fetch('/api/runs');
-      if (r.ok) list = (await r.json()).runs || [];
-      else err = (await r.text()).trim() || `목록을 받지 못했다 (${r.status})`;
-    } catch { err = '목록을 받지 못했다 — 서버에 닿지 못했다' }
+    const r = await apiGet('/api/runs');
+    if (r.ok) list = (r.data && r.data.runs) || [];
+    else if (r.status === 0) err = '목록을 받지 못했다 — 서버에 닿지 못했다';
+    else err = r.text.trim() || `목록을 받지 못했다 (${r.status})`;
     this._runsList = list || [];
     this._runsErr = err;
     if (this._runsModalOpen) this._runsModalRender();
@@ -219,11 +218,10 @@ Object.assign(RunsPanel.prototype, {
     this._runsConfirm = null; this._runsDelErr = null; this._runsPending = runId;
     this._runsModalRender();
     let ok = false, msg = '';
-    try {
-      const r = await fetch('/api/runs/' + encodeURIComponent(runId), { method: 'DELETE', headers: {'Content-Type':'application/json'} });
-      ok = r.ok;
-      if (!ok) msg = (await r.text()).trim() || `삭제 실패 (${r.status})`;
-    } catch { msg = '삭제 실패 — 서버에 닿지 못했다' }
+    const r = await apiDel('/api/runs/' + encodeURIComponent(runId));
+    ok = r.ok;
+    if (!ok) msg = r.status === 0 ? '삭제 실패 — 서버에 닿지 못했다'
+      : (r.text.trim() || `삭제 실패 (${r.status})`);
     this._runsPending = null;
     if (!ok) this._runsDelErr = { runId, msg };
     else await this._runsRefresh();
@@ -326,12 +324,11 @@ Object.assign(RunsPanel.prototype, {
     if (v.busy) { v.pending = true; return }
     v.busy = true; v.pending = false;
     let data = null, err = null;
-    try {
-      const r = await fetch('/api/runs/' + encodeURIComponent(v.runId) + '/graph');
-      if (r.status === 404) err = 'gone';
-      else if (!r.ok) err = (await r.text()).trim() || `대시보드를 받지 못했다 (${r.status})`;
-      else data = await r.json();
-    } catch { err = '대시보드를 받지 못했다 — 서버에 닿지 못했다' }
+    const r = await apiGet('/api/runs/' + encodeURIComponent(v.runId) + '/graph');
+    if (r.status === 404) err = 'gone';
+    else if (r.status === 0) err = '대시보드를 받지 못했다 — 서버에 닿지 못했다';
+    else if (!r.ok) err = r.text.trim() || `대시보드를 받지 못했다 (${r.status})`;
+    else data = r.data;
     v.busy = false;
     if (err) v.err = err; else { v.data = data; v.err = null }
     this._runPaint(v);
@@ -725,11 +722,8 @@ Object.assign(RunsPanel.prototype, {
     if (m.toolId && this.app._findToolLocation(m.toolId)) { this.app._jumpToTool(m.toolId); return }
     try {
       // location 을 비워 둔다 — 그래야 지금 포커스된 분할 칸이 대상이 된다.
-      const r = await fetch('/api/runs/attach', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ memberId: m.id }),
-      });
-      if (!r.ok) console.warn('[run] attach 실패', r.status, (await r.text()).trim());
+      const r = await apiPost('/api/runs/attach', { memberId: m.id });
+      if (!r.ok) console.warn('[run] attach 실패', r.status, r.text.trim());
     } catch (e) { console.warn('[run] attach 실패', e) }
   },
 

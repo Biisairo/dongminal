@@ -110,16 +110,24 @@ class App {
    * 상한을 두는 이유는 데몬이 영영 돌아오지 않는 경우에도 화면은 서야 하기
    * 때문이다. 그때는 아는 것으로 진행하며, 그 뒤의 회복은 SSE 의 몫이다.
    */
+  /**
+   * 응답의 `ETag`. 대소문자 두 벌을 여기 한 번만 적는다 — 종전에는 세 자리가
+   * 각자 `get('ETag')||get('Etag')` 를 썼다.
+   */
+  _etagOf(res){
+    const h=res&&res.headers;
+    return (h&&(h.get('ETag')||h.get('Etag')))||null;
+  }
+
   async _fetchStateKnown(){
-    let res=await fetch('/api/state');
+    // 봉투는 본문을 이미 읽어 두었다 (FR-CAPI-4) — 종전의 `res.clone()` 이
+    // 필요 없어졌다. `Response` 의 본문이 한 번뿐이라 복제하던 자리다.
+    let res=await apiGet('/api/state');
     for(let i=0;i<STATE_UNKNOWN_RETRIES;i++){
-      if(!res.ok) return res;
-      // 본문은 한 번만 읽을 수 있다 — 복제해서 들여다본다.
-      let st=null;
-      try{ st=await res.clone().json() }catch{ return res }
-      if(!st||st.toolsKnown!==false) return res;
+      if(!res.ok||!res.data) return res;
+      if(res.data.toolsKnown!==false) return res;
       await this.timers.sleep(STATE_UNKNOWN_RETRY_MS,{owner:'app',label:'state-retry'});
-      res=await fetch('/api/state');
+      res=await apiGet('/api/state');
     }
     return res;
   }
@@ -135,8 +143,8 @@ class App {
     const edReady=this._edLoad();
     try{
       const stRes=await this._fetchStateKnown();
-      this.wsETag=stRes.headers.get('ETag')||stRes.headers.get('Etag')||null;
-      const st=await stRes.json();
+      this.wsETag=this._etagOf(stRes);
+      const st=stRes.data||{};
       const sp=st.tools||[];
       const sv=st.workspace;
       const ok=new Set(sp.map(p=>p.id));
@@ -396,7 +404,7 @@ class App {
           // 서버는 schemaVersion 미달 저장을 거부한다 (FR-EM-2a). 어떤 경로로
           // this.ws 가 만들어졌든 PUT 은 항상 현재 버전을 실어 보낸다.
           wsBody.schemaVersion=2;
-          const res=await fetch('/api/workspace',{method:'PUT',headers,body:JSON.stringify(wsBody)});
+          const res=await apiPut('/api/workspace',wsBody,{headers});
           if(res.status===409){
             /**
              * WORKSPACE_SAVE_CONFLICT_SRS FR-WSC-1: **이 저장을 포기한다.**
@@ -417,16 +425,16 @@ class App {
             // 1 이 되어 상한에 닿지 않는다 — 잦음을 재려면 연속이어야 한다.
             const conflicts=(this._saveConflicts=(this._saveConflicts||0)+1);
             try{
-              const gr=await fetch('/api/workspace');
+              const gr=await apiGet('/api/workspace');
               if(gr.ok){
-                this.wsETag=gr.headers.get('ETag')||gr.headers.get('Etag')||null;
+                this.wsETag=this._etagOf(gr);
                 // git.pinned 는 서버가 권위로 쓴다 (FR-GIT-11). 409 재시도가 우리
                 // 본문으로 덮으면 핀이 사라진다 — 서버의 git 을 채택한다.
                 //
                 // 단, git.drafts 와 git.favorites 는 클라이언트가 주인이다
                 // (O6·O13) — 통째로 채택하면 방금 입력한 커밋 메시지와 방금 고정한
                 // 즐겨찾기가 재시도에서 사라진다 (FR-GIT-75·149).
-                const rem=await gr.json();
+                const rem=gr.data;
                 if(rem&&rem.git){
                   const mine=this.ws.git||{};
                   this.ws.git=rem.git;
@@ -515,7 +523,7 @@ class App {
             break;
           }
           if(res.ok){
-            const et=res.headers.get('ETag')||res.headers.get('Etag');
+            const et=this._etagOf(res);
             if(et) this.wsETag=et;
             // FR-WSC-12: 이 본문이 서버에 남았다 — 여기 실린 창은 이제 원격이
             // 아는 창이다.

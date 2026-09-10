@@ -710,7 +710,8 @@ class TerminalTool {
   _uploadFiles(files){
     if(!files||!files.length)return;
     // Get cwd from server for this pane
-    fetch('/api/cwd?tool='+this.id).then(r=>r.json()).then(({cwd,source})=>{
+    apiGet('/api/cwd',{query:{tool:this.id}}).then(res=>{
+      const {cwd,source}=res.data||{};
       // FR-FTR-11: 서버의 cwd 는 이 도구의 폴더가 아니다 — 보고 있지 않은 곳에
       // 파일을 떨어뜨리지 않는다. `source` 는 그 구분을 위해 있다 (D-4).
       if(source!=='tool'||!cwd){this._toast(TERM_UPLOAD_NO_CWD,'err',TOAST_ERR_MS);return}
@@ -724,8 +725,8 @@ class TerminalTool {
         // FR-TXN-3·5: 파일 하나의 일은 팝업 하나에서 마친다. 진행 팝업은 스스로
         // 사라지지 않는다 — 전송이 소멸 시간보다 길면 시작한 일이 사라진다.
         const t=this._toast(TERM_UPLOAD_BUSY.replace('%s',f.name),'',0);
-        fetch('/api/upload?dir='+encodeURIComponent(cwd),{method:'POST',body:fd})
-          .then(r=>r.ok?r.json():Promise.reject(r))
+        apiPost('/api/upload',fd,{query:{dir:cwd}})
+          .then(r=>(r.ok&&r.data)?r.data:Promise.reject(r))
           .then(d=>{
             if(t)t.update(TERM_UPLOAD_OK.replace('%s',d.name).replace('%z',this._fmtSize(d.size)),'ok');
             uploadNext();

@@ -90,12 +90,10 @@
   // FR-RLC-2b: 보조 계기. 인사가 닿지 못한 채 사용자가 돌아왔을 때의 길이다.
   const check=async()=>{
     if(done) return;
-    try{
-      const r=await fetch('/?_v='+Date.now(),{cache:'no-store'});
-      if(!r.ok) return;
-      const m=(await r.text()).match(/core\/main\.js\?v=([0-9a-f]+)/);
-      if(m) saw(m[1]);
-    }catch{}
+    const r=await apiGet('/',{query:{_v:Date.now()},cache:'no-store',parse:false});
+    if(!r.ok) return;
+    const m=r.text.match(/core\/main\.js\?v=([0-9a-f]+)/);
+    if(m) saw(m[1]);
   };
 
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)check()});

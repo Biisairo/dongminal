@@ -139,10 +139,10 @@ Object.assign(App.prototype, {
     try{
       do{
         this._wsApplyPending=false;
-        const r=await fetch('/api/state');
+        const r=await apiGet('/api/state');
         if(!r.ok) break;
-        const et=r.headers.get('ETag')||r.headers.get('Etag');
-        const st=await r.json();
+        const et=this._etagOf(r);
+        const st=r.data;
         const sv=st&&st.workspace;
         const sp=(st&&st.tools)||[];
         // FR-TLU-1: 서버가 목록을 **모른다**고 말했는가. 옛 서버는 이 필드를
@@ -195,7 +195,8 @@ Object.assign(App.prototype, {
    */
   _fgRestore(){
     const t=this._restoreBegin('fg');
-    fetch('/api/state').then(r=>r.ok?r.json():null).then(j=>{
+    apiGet('/api/state').then(res=>{
+      const j=res.ok?res.data:null;
       if(!this._restoreLive('fg',t)) return;
       // FR-TLU-7: 도구 목록을 모르는 스냅숏으로는 이름을 지우지 않는다 — 빈
       // 목록을 사실로 받으면 붙어 있던 전경 이름이 전부 걷힌다.
@@ -388,15 +389,12 @@ Object.assign(App.prototype, {
   // REMOTE_COMMAND_RESULT_SRS FR-RCR-6: 생성 명령의 새 엔터티 id 를 reqId 와 묶어
   // 서버에 echo. best-effort — 실패해도 서버 timeout 이 백스톱 (DC-RCR-3).
   _echoResult(reqId, result){
-    fetch('/api/command-result',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        reqId,
-        newWindows:result.newWindows||[],
-        newPanes:result.newPanes||[],
-        newTabs:result.newTabs||[],
-      }),
-    }).catch(()=>{});
+    apiPost('/api/command-result',{
+      reqId,
+      newWindows:result.newWindows||[],
+      newPanes:result.newPanes||[],
+      newTabs:result.newTabs||[],
+    });
   },
 
   _execRemote(action, args){

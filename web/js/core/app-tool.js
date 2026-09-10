@@ -6,7 +6,8 @@
  */
 Object.assign(App.prototype, {
   async _isToolBusy(toolId){
-    try{const r=await fetch(`/api/tools/${toolId}/busy`);const d=await r.json();return d.busy}catch{return false}
+    const r=await apiGet(`/api/tools/${toolId}/busy`);
+    return !!(r.data&&r.data.busy);
   },
 
   // FR-SBX-20: 도구 기동 실패의 사유를 사용자에게 보인다. 확인창과 같은
@@ -58,11 +59,8 @@ Object.assign(App.prototype, {
    * 환경에서 샌드박스를 못 쓰게 된다.
    */
   async _sbxRuntime(){
-    try{
-      const r=await fetch('/api/sandbox/runtime');
-      if(!r.ok) return null;
-      return await r.json();
-    }catch{return null}
+    const r=await apiGet('/api/sandbox/runtime');
+    return r.ok?r.data:null;
   },
 
   /**
@@ -172,10 +170,8 @@ Object.assign(App.prototype, {
     btn.disabled=true;
     note.hidden=false; note.textContent=SBX_RT_STARTING;
     let res=null;
-    try{
-      const r=await fetch('/api/sandbox/runtime/start',{method:'POST',headers:{'Content-Type':'application/json'}});
-      if(r.ok) res=await r.json();
-    }catch{}
+    const rt=await apiPost('/api/sandbox/runtime/start');
+    if(rt.ok) res=rt.data;
     if(!res||!res.started){
       btn.disabled=false;
       note.textContent=SBX_RT_START_FAIL+((res&&res.detail)?' — '+res.detail:'');
@@ -427,12 +423,8 @@ Object.assign(App.prototype, {
   // 호출자의 흐름을 막지 않는다 — 탭 닫기가 알림 실패로 멈추면 더 나쁘다.
   async _setToolBackground(toolId,bg){
     if(!toolId) return false;
-    try{
-      const r=await fetch('/api/tools/background/set',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({toolId,background:!!bg})});
-      return r.ok;
-    }catch{return false}
+    const r=await apiPost('/api/tools/background/set',{toolId,background:!!bg});
+    return r.ok;
   },
 
   /**
@@ -445,14 +437,11 @@ Object.assign(App.prototype, {
    */
   async _bgRefresh(){
     const t=this._restoreBegin('background');
-    try{
-      const r=await fetch('/api/tools/background');
-      if(!r.ok) return;
-      const j=await r.json();
-      if(!this._restoreLive('background',t)) return;
-      this._bg=Array.isArray(j.background)?j.background:[];
-      this._restoreEnd('background',t);
-    }catch{return}
+    const r=await apiGet('/api/tools/background');
+    if(!r.ok||!r.data) return;
+    if(!this._restoreLive('background',t)) return;
+    this._bg=Array.isArray(r.data.background)?r.data.background:[];
+    this._restoreEnd('background',t);
     this._updateStatusBar();
     if(this._bgModalOpen) this._bgModalRender();
   },
@@ -519,22 +508,22 @@ Object.assign(App.prototype, {
       // 뒤에 만드는 탭도 **같은 컨테이너**에 들어가기 때문이다 — 프로파일과 같다.
       if(win.sandboxWork) q+='&sandboxWork='+encodeURIComponent(win.sandboxWork);
     }
-    const r=await fetch('/api/tools?cols=120&rows=40'+q,{method:'POST',headers:{'Content-Type':'application/json'}});
+    const r=await apiPost('/api/tools?cols=120&rows=40'+q);
     if(!r.ok){
       // FR-SBX-20: 샌드박스 기동 실패의 사유는 사용자에게 닿아야 한다 — 런타임
       // 미설치·데몬 미실행·이미지 없음이 모두 여기로 온다. 뭉개면 "창이 안 열린다"
       // 만 남는다.
-      const detail=await r.text().catch(()=>'');
-      throw new Error(detail.trim()||'create pane failed');
+      throw new Error(r.text.trim()||'create pane failed');
     }
-    const {id,name}=await r.json();
+    const {id,name}=r.data;
     return this._mkTool(id,name);
   },
 
   async _focusedCwd(){
     const p=this._focusedTerminal();
     if(!p) return null;
-    try{const r=await fetch('/api/cwd?tool='+p.id);const d=await r.json();return d.cwd||null}catch{return null}
+    const r=await apiGet('/api/cwd',{query:{tool:p.id}});
+    return (r.data&&r.data.cwd)||null;
   },
 
   // FR-ATL-7: 지우는 도구의 알람은 로컬에서 먼저 뗀다. 서버 브로드캐스트를
@@ -551,12 +540,12 @@ Object.assign(App.prototype, {
   async _kill(pid){
     this._killToolInstances(pid);
     if(this._attnDrop(pid)) this._attnRefresh();
-    try{await fetch(`/api/tools/${pid}`,{method:'DELETE',headers:{'Content-Type':'application/json'}})}catch{}
+    await apiDel(`/api/tools/${pid}`);
   },
   _killTool(pid){
     this._killToolInstances(pid);
     if(this._attnDrop(pid)) this._attnRefresh();
-    fetch(`/api/tools/${pid}`,{method:'DELETE',headers:{'Content-Type':'application/json'}}).catch(()=>{});
+    apiDel(`/api/tools/${pid}`);
   },
 
   _aw(){return this.ws.windows.find(s=>s.id===this.ws.activeWindow)||null},

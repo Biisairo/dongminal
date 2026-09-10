@@ -490,6 +490,10 @@
      `BOOT_MAX_MS` 로 상한을 건다. -->
 <!-- 시간과 전파의 소유자. constants 뒤(값을 딛는다) helpers 앞(visiblePoll 이
      이 위에 선다)에 온다 — 번들러가 없으므로 로드 순서가 곧 의존 순서다. -->
+<!-- 서버를 부르는 자리 한 겹 (CLIENT_API_SRS). timer-hub 앞이어야 한다 — 폴링
+     잡이 `ctx.fetch` 를 이 겹에 주입한다. 상수 뒤인 것은 종단 경로가 거기 있기
+     때문이다. -->
+<script src="js/core/api.js?v=__ASSETV__"></script>
 <script src="js/core/timer-hub.js?v=__ASSETV__"></script>
 <script src="js/core/event-bus.js?v=__ASSETV__"></script>
 <script src="js/core/state-registry.js?v=__ASSETV__"></script>

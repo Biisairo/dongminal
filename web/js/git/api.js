@@ -77,22 +77,20 @@ function gitEchoOk(d,echo){
  */
 async function gitFetch(path,params,opts){
   const o=opts||{};
-  const url=params?path+'?'+new URLSearchParams(params).toString():path;
-
-  let r=null;
-  try{r=await fetch(url)}catch{return {ok:false,data:null,stale:false,status:0}}
-  if(o.stale&&o.stale()) return {ok:false,data:null,stale:true,status:r.status};
-
+  // 전송은 `core/api.js` 가 한다 (CLIENT_API_SRS FR-CAPI-14). 이 함수가 가진
+  // 것은 git 화면의 계약뿐이다 — echo 와 stale. 종전에는 여기에도 `fetch`·
+  // `r.json()`·`try/catch` 가 한 벌 더 있었고, 두 벌이면 M4 의 401 도 두 자리가 된다.
+  //
   // **실패해도 본문을 읽는다.** 서버가 사유를 `{error, message}` 로 주고
   // (`apierr` 규약) 화면이 그 message 를 그대로 보인다 — 버리면 사용자는
-  // "실패했다" 만 받고 무엇을 고칠지 알 수 없다.
-  let d=null;
-  try{d=await r.json()}catch{d=null}
-  // 파싱 뒤에 한 번 더 묻는다 — await 둘 사이에 리포가 바뀔 수 있다.
-  if(o.stale&&o.stale()) return {ok:false,data:null,stale:true,status:r.status};
+  // "실패했다" 만 받고 무엇을 고칠지 알 수 없다. 그 성질은 아래 겹이 지킨다.
+  const res=await apiGet(path,{query:params||undefined});
+  if(res.status===0) return {ok:false,data:null,stale:false,status:0};
+  // 응답이 돌아온 뒤에 묻는다 — 그 사이에 리포가 바뀌었으면 이 응답은 남의 것이다.
+  if(o.stale&&o.stale()) return {ok:false,data:null,stale:true,status:res.status};
 
-  const ok=r.ok&&d!==null&&(!o.echo||gitEchoOk(d,o.echo));
-  return {ok,data:d,stale:false,status:r.status};
+  const ok=res.ok&&res.data!==null&&(!o.echo||gitEchoOk(res.data,o.echo));
+  return {ok,data:res.data,stale:false,status:res.status};
 }
 
 /**
@@ -107,15 +105,12 @@ async function gitFetch(path,params,opts){
  * 그때 옵션을 준다.
  */
 async function gitPost(path,body){
-  let r=null;
-  try{
-    r=await fetch(path,{method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(body||{})});
-  }catch{return {ok:false,data:null,stale:false,status:0}}
-  let d=null;
-  try{d=await r.json()}catch{d=null}
-  // `d!==null` 이다 — `!!d` 로 쓰면 `0`·`""`·`false` 도 실패가 된다. 그것들은
+  const res=await apiPost(path,body||{});
+  // `data!==null` 이다 — `!!data` 로 쓰면 `0`·`""`·`false` 도 실패가 된다. 그것들은
   // 유효한 JSON 본문이며, gitFetch 와 판정이 갈리면 두 규약이 된다.
-  return {ok:r.ok&&d!==null,data:d,stale:false,status:r.status};
+  //
+  // **코어의 `ok` 는 HTTP 성공만 본다** (FR-CAPI-15). 여기서 `data` 를 더 요구하는
+  // 것은 git 종단이 언제나 JSON 을 내기 때문이고, 코어에는 204 를 내는 종단이
+  // 있기 때문이다. 그 차이는 의도된 것이다.
+  return {ok:res.ok&&res.data!==null,data:res.data,stale:false,status:res.status};
 }

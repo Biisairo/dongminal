@@ -95,7 +95,8 @@ Object.assign(App.prototype, {
    */
   _attnRestore(){
     const t=this._restoreBegin('attn');
-    fetch('/api/tools/attention').then(r=>r.ok?r.json():null).then(j=>{
+    apiGet('/api/tools/attention').then(res=>{
+      const j=res.ok?res.data:null;
       if(!this._restoreLive('attn',t)) return;
       if(!j||!Array.isArray(j.toolIds)) return;
       const live=new Set(j.toolIds);
@@ -134,8 +135,7 @@ Object.assign(App.prototype, {
     this._attnCloseNotif(toolId);
     this._attn.delete(toolId);
     this._attnNoteLock(toolId,!!typed);
-    fetch('/api/tools/attention/clear',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({toolId,typed:!!typed})}).catch(()=>{});
+    apiPost('/api/tools/attention/clear',{toolId,typed:!!typed});
     this._attnRefresh();
   },
 
@@ -159,13 +159,12 @@ Object.assign(App.prototype, {
   _attnRearm(toolId){
     if(!toolId||!this._attnTyped||this._attnTyped[toolId]!==false) return;
     this._attnTyped[toolId]=true;
-    fetch('/api/tools/attention/clear',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({toolId,typed:true})}).catch(()=>{});
+    apiPost('/api/tools/attention/clear',{toolId,typed:true});
   },
 
   // FR-PAN-17: 모든 알람 일괄 해제
   _attnClearAll(){
-    fetch('/api/tools/attention/clear-all',{method:'POST',headers:{'Content-Type':'application/json'}}).catch(()=>{});
+    apiPost('/api/tools/attention/clear-all');
     Object.keys(this._attnNotifs||{}).forEach(k=>this._attnCloseNotif(k));
     // FR-ATF-13: 서버는 이 한 번으로 전부를 잠근다 — 로컬 기록도 함께 세운다.
     for(const id of this._attn.keys()) this._attnNoteLock(id,false);

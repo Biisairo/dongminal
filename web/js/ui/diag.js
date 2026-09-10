@@ -206,9 +206,11 @@
       const fd=new FormData();
       fd.append('file',new Blob([body],{type:'text/plain'}),name);
       e.target.textContent='...';
-      fetch('/api/upload?dir='+encodeURIComponent('/tmp'),{method:'POST',body:fd})
-        .then(r=>r.json()).then(d=>{e.target.textContent='보냄';put('UPLOADED '+(d&&d.name))})
-        .catch(err=>{e.target.textContent='실패';put('UPLOAD FAIL '+err)});
+      apiPost('/api/upload',fd,{query:{dir:'/tmp'}})
+        .then(r=>{
+          if(!r.ok){e.target.textContent='실패';put('UPLOAD FAIL '+r.status);return}
+          e.target.textContent='보냄';put('UPLOADED '+(r.data&&r.data.name));
+        });
     }
   });
   // 오버레이 자체의 터치가 터미널 핸들러로 새지 않게 한다.

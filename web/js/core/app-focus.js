@@ -189,8 +189,7 @@ Object.assign(App.prototype, {
   // broadcasting the full owner map, which is what actually converges every
   // client — this POST is fire-and-forget.
   _focusClaim(windowId,clientId){
-    fetch('/api/focus/claim',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({clientId:clientId||this.clientId,windowId})}).catch(()=>{});
+    apiPost('/api/focus/claim',{clientId:clientId||this.clientId,windowId});
   },
 
   // _focusRestore aligns local state with the server on SSE connect
@@ -220,7 +219,8 @@ Object.assign(App.prototype, {
    */
   _focusRestore(){
     const t=this._restoreBegin('focus');
-    fetch('/api/focus').then(r=>r.ok?r.json():null).then(j=>{
+    apiGet('/api/focus').then(res=>{
+      const j=res.ok?res.data:null;
       if(!j) return;
       if(!this._restoreLive('focus',t)) return;
       this._restoreEnd('focus',t);

@@ -270,14 +270,13 @@ Object.assign(GitPanel.prototype, {
     const tok=this.token();
     const u='/api/git/blame?repo='+encodeURIComponent(this.repo||'')+
       '&rev='+encodeURIComponent(t.rev)+'&path='+encodeURIComponent(t.path);
-    let r=null,d=null;
-    try{r=await fetch(u)}catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
+    const r=await apiGet(u);
+    const d=r.data;
     if(this.isStale(tok)||this._blameKey!==key) return;
     // 서버가 되돌려준 요청값도 확인한다 — 같은 세대 안에서도 응답 순서가 뒤바뀔 수
     // 있다 (FR-GIT-54).
     const q=(d&&d.requested)||{};
-    if(!r||!r.ok||!d||q.path!==t.path||q.rev!==t.rev){
+    if(!r.ok||!d||q.path!==t.path||q.rev!==t.rev){
       // 거부 사유는 **누른 자리**에 보인다 — 서버가 준 문구가 있으면 그것을 쓴다.
       this._blameErr=(d&&d.message)||GIT_BLAME_FAIL;
       this._paint(); return;
@@ -379,14 +378,13 @@ Object.assign(GitPanel.prototype, {
     const tok=this.token();
     const u='/api/git/hunks?repo='+encodeURIComponent(f.repo)+
       '&axis='+encodeURIComponent(f.axis)+'&path='+encodeURIComponent(f.path);
-    let r=null,d=null;
-    try{r=await fetch(u)}catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
+    const r=await apiGet(u);
+    const d=r.data;
     if(this.isStale(tok)||this._hunkKey!==key) return;
     // 서버가 되돌려준 요청값도 확인한다 — 같은 세대 안에서도 응답 순서가 뒤바뀔 수
     // 있다 (FR-GIT-54). 짝이 맞지 않는 응답이 화면에 닿아서는 안 된다.
     const q=(d&&d.requested)||{};
-    if(!r||!r.ok||!d||q.repo!==f.repo||q.axis!==f.axis||q.path!==f.path){
+    if(!r.ok||!d||q.repo!==f.repo||q.axis!==f.axis||q.path!==f.path){
       this._hunks={err:GIT_HUNK_LOAD_FAIL}; this._paint(); return;
     }
     this._hunks={diffId:d.diffId||'',list:d.hunks||[],note:d.note||''};

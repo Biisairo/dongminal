@@ -43,6 +43,14 @@ function browserStub(clock) {
     clearTimeout: clock.clearTimeout,
     Date: clock.Date,
     console,
+    // 웹 API 중 **검사 대상이 실제로 부르는 것만** 둔다. `core/api.js` 가 URL 조립·
+    // 시한·업로드 판별에 이 셋을 쓴다 (CLIENT_API_SRS FR-CAPI-5·6·7).
+    //
+    // Node 의 전역을 그대로 넣는다 — 검사가 만든 `FormData` 와 vm 안의 것이 같은
+    // 생성자여야 `instanceof` 가 realm 을 건너 성립한다.
+    URLSearchParams,
+    AbortSignal,
+    FormData,
   };
 }
 

@@ -12,6 +12,10 @@ import { test, expect } from './fixtures';
 //
 // term-pane 과 같은 방식으로 빈 페이지에 얹고 계약만 시험한다.
 
+// `core/api.js` 는 이 겹을 쓰는 어떤 스크립트보다 **앞**에 실어야 한다
+// (CLIENT_API_SRS FR-CAPI-1). 합성 페이지는 index.html 의 로드 순서를 물려받지
+// 않으므로, 빠뜨리면 `apiGet is not defined` 로 그 자리에서 터진다.
+const API_JS = join(process.cwd(), 'web', 'js', 'core', 'api.js');
 const APP_CMD_JS = join(process.cwd(), 'web', 'js', 'core', 'app-cmd.js');
 const TIMER_HUB_JS = join(process.cwd(), 'web', 'js', 'core', 'timer-hub.js');
 const EVENT_BUS_JS = join(process.cwd(), 'web', 'js', 'core', 'event-bus.js');
@@ -83,6 +87,7 @@ async function loadAppCmd(page: Page) {
       _fgRestore() {}
     };
   });
+  await page.addScriptTag({ path: API_JS });
   await page.addScriptTag({ path: APP_CMD_JS });
   await page.evaluate(() => {
     const a = new (window as any).App();

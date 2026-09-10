@@ -16,11 +16,10 @@ Object.assign(FileTree.prototype, {
     if(this._busy.has(dir)) return;
     this._busy.add(dir); this._paintAll();
     const u=FS_LIST_API+'?root='+encodeURIComponent(this.root)+'&path='+encodeURIComponent(dir);
-    let r=null,d=null;
-    try{r=await fetch(u)}catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
+    const r=await apiGet(u);
+    const d=r.data;
     this._busy.delete(dir);
-    if(!r||!r.ok){
+    if(!r.ok){
       this._kids.set(dir,{entries:[],truncated:false,err:(d&&d.code)||EDITOR_TREE_ERR});
       // 읽지 못한 겹의 스탬프는 근거가 없다. 남겨 두면 다음 폴링이 "안 바뀌었다"
       // 로 읽어 실패한 겹을 영영 다시 읽지 않는다.
@@ -63,13 +62,9 @@ Object.assign(FileTree.prototype, {
     }
     const names=st.entries.map(e=>e&&e.name).filter(Boolean);
     let r=null,d=null;
-    try{
-      r=await fetch(FS_IGNORED_API,{method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({root:this.root,dir,names})});
-    }catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
-    if(!r) return;   // 전송 실패는 판정이 아니다 — 다음 기회에 다시 묻는다
+    r=await apiPost(FS_IGNORED_API,{root:this.root,dir,names});
+    d=r.data;
+    if(r.status===0) return;   // 전송 실패는 판정이 아니다 — 다음 기회에 다시 묻는다
     // FR-ETR-4: 4xx 는 "이 경로로는 물을 수 없다" 는 서버의 답이다. 굳히지
     // 않으면 겹을 펼칠 때마다 영영 묻는다 (`pollGit` 의 `_gitOff` 와 같은 관례).
     if(!r.ok){
@@ -202,14 +197,10 @@ Object.assign(FileTree.prototype, {
     if(!dirs.length) return;
     this._stampBusy=true;
     let r=null,d=null;
-    try{
-      r=await fetch(FS_STAMP_API,{method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({root:this.root,dirs})});
-    }catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
+    r=await apiPost(FS_STAMP_API,{root:this.root,dirs});
+    d=r.data;
     this._stampBusy=false;
-    if(!r) return;   // 전송 실패는 판정이 아니다 — 다음 회차에 다시 묻는다
+    if(r.status===0) return;   // 전송 실패는 판정이 아니다 — 다음 회차에 다시 묻는다
     // FR-FSL-12: 4xx 는 "이 루트로는 물을 수 없다" 는 서버의 답이다. 종단이
     // 아예 없는 옛 서버도 여기로 온다 (404). 5xx 는 서버 쪽 사정이므로 굳히지
     // 않는다 — `pollGit` 과 같은 관례이되, git 없음을 뜻하는 503 이 여기에는
@@ -265,11 +256,10 @@ Object.assign(FileTree.prototype, {
     const now=Date.now();
     if(!(opts&&opts.now)&&this._gitRetryAt&&now<this._gitRetryAt) return;
     this._gitBusy=true;
-    let r=null,d=null;
-    try{r=await fetch(GIT_STATUS_API+'?repo='+encodeURIComponent(this.root))}catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
+    const r=await apiGet(GIT_STATUS_API,{query:{repo:this.root}});
+    const d=r.data;
     this._gitBusy=false;
-    if(!r) return;
+    if(r.status===0) return;
     if(!r.ok){
       // 503 은 git 자체가 없다는 답이다 — 그대로 두면 3초마다 영영 묻는다. Git
       // 패널이 503 을 `_gitOff` 로 굳히는 것과 같은 관례다 (`app-git.js:264`).

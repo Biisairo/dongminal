@@ -39,17 +39,12 @@ Object.assign(App.prototype, {
   async _lspRefresh(){
     const list=document.getElementById('lsp-list');
     if(!list) return;
-    let r=null,d=null;
-    try{
-      r=await fetch(LSP_STATUS_API,{method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({overrides:this._lspOverrides()})});
-    }catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
-    if(!r||!d||!Array.isArray(d.servers)){
+    const r=await apiPost(LSP_STATUS_API,{overrides:this._lspOverrides()});
+    const d=r.ok?r.data:null;
+    if(!d||!Array.isArray(d.servers)){
       // 503 은 배선이 없는 서버다 — 고장이 아니라 그 서버의 성질이므로 다르게 말한다.
       list.innerHTML='<div class="lsp-empty">'+
-        escHtml(r&&r.status===503?LSP_UNAVAILABLE:LSP_STATUS_FAIL)+'</div>';
+        escHtml(r.status===503?LSP_UNAVAILABLE:LSP_STATUS_FAIL)+'</div>';
       return;
     }
     this._lspPaint(d.servers);
@@ -138,12 +133,8 @@ Object.assign(App.prototype, {
     const msg=row&&row.querySelector('.lsp-msg');
     if(btn){btn.disabled=true;btn.textContent=LSP_INSTALLING}
     if(msg) msg.textContent='';
-    let r=null,d=null;
-    try{
-      r=await fetch(LSP_INSTALL_API,{method:'POST',
-        headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
-    }catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
+    const r=await apiPost(LSP_INSTALL_API,{id});
+    const d=r.ok?r.data:null;
     if(msg){
       if(d&&d.ok) msg.textContent=LSP_INSTALL_OK;
       // 사유는 서버가 사람의 말로 적어 보낸다 (FR-LSP-11) — 화면이 다시 쓰지 않는다.
@@ -201,13 +192,9 @@ Object.assign(App.prototype, {
     at.view.note(LSP_ASKING, 1500);
     const body={root:at.root,path:at.path,text:at.text,line:at.line,col:at.col};
     if(kind==='refs') body.includeDeclaration=false;
-    let r=null,d=null;
-    try{
-      r=await fetch(kind==='refs'?LSP_REFS_API:LSP_DEF_API,{method:'POST',
-        headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    }catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
-    if(!r||!d){at.view.note(LSP_ASK_FAIL);return}
+    const r=await apiPost(kind==='refs'?LSP_REFS_API:LSP_DEF_API,body);
+    const d=r.ok?r.data:null;
+    if(!d){at.view.note(LSP_ASK_FAIL);return}
     // 서버가 사유를 적어 보냈으면 그것을 그대로 보인다 — 화면이 다시 쓰지 않는다.
     if(d.reason){at.view.note(d.reason);return}
     const locs=d.locations||[];
@@ -304,14 +291,11 @@ Object.assign(App.prototype, {
     if(!at) return null;
     const ctl=new AbortController();
     if(token&&token.onCancellationRequested) token.onCancellationRequested(()=>ctl.abort());
-    let r=null,d=null;
-    try{
-      r=await fetch(LSP_HOVER_API,{method:'POST',signal:ctl.signal,
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({root:at.root,path:at.path,text:at.text,
-          line:position.lineNumber,col:position.column})});
-    }catch{return null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
+    const r=await apiPost(LSP_HOVER_API,
+      {root:at.root,path:at.path,text:at.text,
+        line:position.lineNumber,col:position.column},
+      {signal:ctl.signal});
+    const d=r.ok?r.data:null;
     // 호버가 비는 것은 **흔한 일이다** — 빈 자리에 마우스를 얹으면 그렇다. 그래서
     // 여기서는 사유를 알림 줄로 띄우지 않는다: 마우스를 움직일 때마다 "서버가
     // 없습니다" 가 뜨면 그것이 곧 고장이다. 그 사실은 F12 를 눌렀을 때 말한다.
@@ -392,13 +376,8 @@ Object.assign(App.prototype, {
     if(this._lspStatus) return this._lspStatus;
     if(this._lspStatusP) return this._lspStatusP;
     this._lspStatusP=(async()=>{
-      let r=null,d=null;
-      try{
-        r=await fetch(LSP_STATUS_API,{method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({overrides:this._lspOverrides()})});
-      }catch{r=null}
-      if(r&&r.ok){try{d=await r.json()}catch{d=null}}
+      const r=await apiPost(LSP_STATUS_API,{overrides:this._lspOverrides()});
+      const d=r.ok?r.data:null;
       // 배선이 없는 서버(503)는 제안할 것도 없다 — 빈 목록으로 굳혀 다시 묻지
       // 않는다.
       this._lspStatus=(d&&Array.isArray(d.servers))?d.servers:[];
@@ -447,13 +426,8 @@ Object.assign(App.prototype, {
   // 설정창의 `_lspInstall` 은 그 패널을 다시 칠하는 일까지 한다. 배너에는 칠할
   // 패널이 없으므로 종단만 치는 자리를 따로 둔다 — 둘이 같은 종단을 쓴다.
   async _lspInstallOnce(id){
-    let r=null,d=null;
-    try{
-      r=await fetch(LSP_INSTALL_API,{method:'POST',
-        headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
-    }catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
-    return d;
+    const r=await apiPost(LSP_INSTALL_API,{id});
+    return r.ok?r.data:null;
   },
 
   // ── 진단 (묶음 E · M4) ──

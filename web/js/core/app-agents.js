@@ -25,7 +25,8 @@ Object.assign(App.prototype, {
   // 그 사이 도착한 활동이 태어나자마자 사라진다 (RESTORE_FLIGHT_SRS §2.1).
   _activityRestore(){
     const t=this._restoreBegin('activity');
-    fetch('/api/tools/activity').then(r=>r.ok?r.json():null).then(j=>{
+    apiGet('/api/tools/activity').then(res=>{
+      const j=res.ok?res.data:null;
       if(!this._restoreLive('activity',t)) return;
       const list=(j&&Array.isArray(j.activities))?j.activities.slice():[];
       list.sort((a,b)=>(a.updatedAt||0)-(b.updatedAt||0)); // 오래된→최신: 끝이 가장 최근

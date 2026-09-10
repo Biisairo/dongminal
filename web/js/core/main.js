@@ -12,12 +12,12 @@ window.__dongminalDebug={
 // BOOT_SCREEN_SRS FR-BTS-13: 이 프로미스가 걷힘 조건의 한쪽이다 — **테마가
 // 결정되는 시점**이고, 결정에는 실패도 포함된다 (그때는 선주입한 색이 그대로다).
 const themeReady=(async()=>{try{
-  const r=await fetch('/api/settings');
+  const r=await apiGet('/api/settings');
   // SETTINGS_LIVE (2026-09-08): 키를 여기서 나열하지 않는다. 얹는 규약은
   // `_settingsApply` 한 자리이며, 부팅·SSE 방송·소프트 리로드가 같은 길을
   // 지난다 — 종전에는 이 자리와 `app-settings.js` 의 IIFE 가 키를 각자 나열해,
   // 다른 창에서 바뀐 값을 받아 얹을 자리가 아예 없었다.
-  if(r.ok) app._settingsApply(await r.json(),{boot:true});
+  if(r.ok) app._settingsApply(r.data,{boot:true});
 }catch{}
   // FR-BTS-11: 설정이 왔든 오지 않았든, 남은 것은 워크스페이스다.
   BootScreen.step('워크스페이스를 복원합니다');
@@ -57,7 +57,8 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
       if(!go) return;
     }
     let list=[];
-    try{const r=await fetch('/api/sandbox/profiles');if(r.ok) list=await r.json()}catch{}
+    const pr=await apiGet('/api/sandbox/profiles');
+    if(pr.ok&&Array.isArray(pr.data)) list=pr.data;
     if(!list.length){
       // 런타임은 살아 있는데 고를 것이 없는 경우다 — 상태 갈래가 위에서 끝났으므로
       // 여기 남는 것은 정의가 비었거나 조회가 실패한 때다 (FR-SBX-20).

@@ -31,16 +31,13 @@ Object.assign(App.prototype, {
   },
   async _pollStats(){
     // Measure real network latency with lightweight ping
-    try{
-      const t0=performance.now();
-      await fetch('/api/ping');
-      this._latency=Math.round(performance.now()-t0);
-    }catch{this._latency=null}
-    // Fetch stats separately (kept separate so ping stays a clean latency probe)
-    try{
-      const r=await fetch('/api/stats');
-      this._stats=await r.json();
-    }catch{}
+    const t0=performance.now();
+    const ping=await apiGet('/api/ping');
+    // 망 실패는 status 0 이다 — 그때 지연은 숫자가 아니라 "없음" 이다.
+    this._latency=ping.status?Math.round(performance.now()-t0):null;
+    // 통계는 따로 받는다 — ping 을 순수한 지연 측정으로 남겨 두려는 것이다.
+    const st=await apiGet('/api/stats');
+    if(st.ok&&st.data) this._stats=st.data;
     await this._pollGitJobs();
     this._updateStatusBar();
   },
@@ -311,14 +308,11 @@ Object.assign(App.prototype, {
   async _bgKill(toolId){
     this._bgConfirm=null; this._bgError=null; this._bgPending=toolId;
     this._bgModalRender();
-    let ok=false, msg='';
-    try{
-      const r=await fetch('/api/tools/kill',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({toolId})});
-      ok=r.ok;
-      if(!ok) msg=(await r.text()).trim()||`종료 실패 (${r.status})`;
-    }catch{msg='종료 실패 — 서버에 닿지 못했다'}
+    const r=await apiPost('/api/tools/kill',{toolId});
+    const ok=r.ok;
+    let msg='';
+    if(!ok) msg=r.status===0?'종료 실패 — 서버에 닿지 못했다'
+      :(r.text.trim()||`종료 실패 (${r.status})`);
     this._bgPending=null;
     if(!ok) this._bgError={toolId,msg};
     else await this._bgRefresh();
@@ -350,7 +344,11 @@ Object.assign(App.prototype, {
   },
   _updateCwd(){
     const p=this._focusedTerminal();if(!p)return;
-    fetch('/api/cwd?tool='+p.id).then(r=>r.json()).then(({cwd})=>{this._cwd=cwd;this._updateStatusBar()}).catch(()=>{});
+    apiGet('/api/cwd',{query:{tool:p.id}}).then(r=>{
+      if(!r.data) return;
+      this._cwd=r.data.cwd;
+      this._updateStatusBar();
+    });
   },
   _renderStatusBarSettings(){
     const el=document.getElementById('sb-settings');if(!el)return;

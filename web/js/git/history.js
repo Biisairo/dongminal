@@ -897,11 +897,9 @@ class GitHistory {
       if(v===''||v==null) continue;
       q.set(k,String(v));
     }
-    let r=null,d=null;
-    try{r=await fetch(path+'?'+q.toString())}catch{return null}
+    const r=await apiGet(path+'?'+q.toString());
     if(!r.ok) return null;
-    try{d=await r.json()}catch{return null}
-    return d;
+    return r.data;
   }
 
   // 응답이 내 요청의 짝인지 본다 (FR-GIT-133·145). isStale 과 두 겹이다 — 세대만

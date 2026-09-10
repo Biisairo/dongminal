@@ -95,13 +95,12 @@ class GitConsole {
     const seq=++this._seq;
     const tok=this.panel.token();
     let u='/api/git/records?repo='+encodeURIComponent(repo)+'&n='+GIT_CON_LIMIT;
-    let r=null,d=null;
-    try{r=await fetch(u)}catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
+    const r=await apiGet(u);
+    const d=r.data;
     // 세대·리포·일련번호 셋을 다 본다 (FR-GIT-54) — 같은 세대 안에서도 응답
     // 순서가 뒤바뀔 수 있다.
     if(seq!==this._seq||this.panel.isStale(tok)) return;
-    if(!r||!r.ok||!d||!Array.isArray(d.records)){
+    if(!r.ok||!d||!Array.isArray(d.records)){
       this._err=GIT_CON_FAIL; this._paintList(); return;
     }
     if(d.repo!==repo) return;

@@ -196,12 +196,11 @@ class GitDiffView {
     // 루트 커밋이다 — 서버가 그것을 absent 로 답한다.
     if(target.oid) u+='&oid='+encodeURIComponent(target.oid);
     if(target.parentOid) u+='&parentOid='+encodeURIComponent(target.parentOid);
-    let r=null,d=null;
-    try{r=await fetch(u)}catch{r=null}
-    if(r){try{d=await r.json()}catch{d=null}}
+    const r=await apiGet(u);
+    const d=r.data;
     // 닿지 못한 것과 거부당한 것을 가른다 (UX_BATCH6_SRS FR-GLV-6). 앞은
     // 일시적일 수 있고 뒤는 다시 물어도 같은 답이 온다.
-    if(!r||!d) return {ok:false,msg:GIT_DIFF_LOAD_FAIL};
+    if(r.status===0||!d) return {ok:false,msg:GIT_DIFF_LOAD_FAIL};
     if(!r.ok) return {ok:false,refused:true,msg:GIT_DIFF_ERR[d.error]||GIT_DIFF_LOAD_FAIL};
     return {ok:true,body:d};
   }
@@ -301,13 +300,8 @@ class GitDiffView {
   async save(){
     if(!this._editable||!this._dirty||!this._editTarget||!this._mod) return false;
     const content=this._mod.getValue();
-    let r=null;
-    try{
-      r=await fetch('/api/file/write',{method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({path:this._editTarget,content})});
-    }catch{r=null}
-    if(!r||!r.ok){
+    const r=await apiPost('/api/file/write',{path:this._editTarget,content});
+    if(!r.ok){
       this._setNote(GIT_DIFF_SAVE_FAIL);
       return false;
     }

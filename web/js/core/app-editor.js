@@ -105,9 +105,8 @@ Object.assign(App.prototype, {
    * 돌지 않는 것이 옳다.
    */
   async _edLoad(){
-    let r=null,d=null;
-    try{r=await fetch(EDITORS_API)}catch{r=null}
-    if(r&&r.ok){try{d=await r.json()}catch{d=null}}
+    const res=await apiGet(EDITORS_API);
+    const d=res.ok?res.data:null;
     if(!d||typeof d.home!=='string'||!d.home){
       this._edOff=true;this._editors=null;return false;
     }
@@ -859,13 +858,9 @@ Object.assign(App.prototype, {
    * 갈리는 것이 아니라 값이 갈려야 한다.
    */
   async _edFs(url,body){
-    let r=null,d=null;
-    try{
-      r=await fetch(url,{method:'POST',
-        headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    }catch{r=null}
-    if(!r) return {ok:false,code:'',msg:EDITOR_FS_ERR_UNKNOWN};
-    try{d=await r.json()}catch{d=null}
+    const r=await apiPost(url,body);
+    if(r.status===0) return {ok:false,code:'',msg:EDITOR_FS_ERR_UNKNOWN};
+    const d=r.data;
     // 성공 응답의 본문을 함께 넘긴다 — 복사는 **서버가 정한 이름**을 응답으로만
     // 알 수 있다 (FR-WBR-62). 다른 호출자는 `data` 를 보지 않는다.
     if(r.ok&&d&&d.ok) return {ok:true,code:'',msg:'',data:d};
@@ -885,10 +880,8 @@ Object.assign(App.prototype, {
     const q=[dir]; let n=0,more=false;
     while(q.length){
       const d=q.shift();
-      let r=null,j=null;
-      const u=FS_LIST_API+'?root='+encodeURIComponent(root)+'&path='+encodeURIComponent(d);
-      try{r=await fetch(u)}catch{r=null}
-      if(r&&r.ok){try{j=await r.json()}catch{j=null}}
+      const res=await apiGet(FS_LIST_API,{query:{root,path:d}});
+      const j=res.ok?res.data:null;
       if(!j||!Array.isArray(j.entries)){more=true;continue}
       n+=j.entries.length;
       if(j.truncated) more=true;
@@ -1039,10 +1032,9 @@ Object.assign(App.prototype, {
   async _edTermCwd(){
     const tool=this._gitTermToolId();
     if(!tool) return '';
-    let r=null,d=null;
-    try{r=await fetch('/api/cwd?tool='+encodeURIComponent(tool))}catch{return ''}
-    if(!r||!r.ok) return '';
-    try{d=await r.json()}catch{return ''}
+    const r=await apiGet('/api/cwd',{query:{tool}});
+    if(!r.ok) return '';
+    const d=r.data;
     // FR-ETR-33: `source` 를 읽는다. 이 필드는 FR-FTR-7 이 **정확히 이 문제
     // 때문에** 넣은 것인데, 여기가 그것을 읽지 않아 서버 프로세스의 cwd 가
     // 사용자의 경로로 채워지고 있었다 (§2.4).
@@ -1094,13 +1086,9 @@ Object.assign(App.prototype, {
    */
   async _edMutate(sub,body){
     if(!this._edOn()) return false;
-    let r=null,d=null;
-    try{
-      r=await fetch(EDITORS_API+sub,{method:'POST',
-        headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    }catch{return false}
+    const r=await apiPost(EDITORS_API+sub,body);
     if(!r.ok) return false;
-    try{d=await r.json()}catch{d=null}
+    const d=r.data;
     if(!d) return false;
     // 응답에는 `home` 이 없다 (FR-EDT-110) — 알고 있는 값을 그대로 쓴다.
     this._edPatchList(d.list);
