@@ -49,6 +49,8 @@ func usageStart() string {
 
 옵션:
   --expose          0.0.0.0 에 바인드한다 (사내망 다른 기기에서 접근 가능)
+                    Settings ▸ Access 의 허용 목록을 먼저 켜야 뜬다
+  --insecure-no-acl 허용 목록 없이 노출한다. 같은 망의 누구나 셸을 얻는다
   --restart-daemon  dongminald 도 재시작한다 (터미널 세션을 잃는다)
                     도구 안에서 쓰면 대리 프로세스가 이어서 수행하고
                     출력은 $DONGMINAL_HOME/restart.log 에 남는다

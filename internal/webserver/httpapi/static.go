@@ -49,7 +49,44 @@ func newStaticHandler(fsys fs.FS, version string) http.Handler {
 	return h
 }
 
+// 보안 헤더 (04-secops §4.3 · 02-fe-arch 의 P0 2차 방어).
+//
+// **CSP 는 마크업 이스케이프의 대체가 아니라 그 뒤의 그물이다.** 앞의 방어는
+// `scripts/check-html.sh` 가 지키고, 여기는 그것이 언젠가 새는 날을 위한 것이다.
+//
+// `script-src` 에 외부 호스트가 하나 남아 있다 — Monaco 편집기를 런타임에 CDN 에서
+// 받기 때문이다 (`web/js/ui/file-editor.js:5`). 나머지 자산은 전부 `go:embed` 로
+// 바이너리 안에 있고, 그 하나만 인터넷을 필요로 한다. 벤더링하면 이 줄이 사라지고
+// 폐쇄망에서도 편집기가 선다 (02-fe-arch 의 P1 — 별도 결정).
+//
+// `'unsafe-inline'` 이 style 에 남는 것은 앱이 스타일을 계산해 넣기 때문이다
+// (테마·레이아웃). 그것을 없애려면 nonce 를 자산 판마다 심어야 하고, 그 값이
+// 스타일 계산 경로 전체를 지나야 한다.
+const contentSecurityPolicy = "default-src 'self'; " +
+	"script-src 'self' https://cdn.jsdelivr.net; " +
+	"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+	"font-src 'self' data: https://cdn.jsdelivr.net; " +
+	"img-src 'self' data: blob:; " +
+	"connect-src 'self' ws: wss: https://cdn.jsdelivr.net; " +
+	"worker-src 'self' blob:; " +
+	"frame-ancestors 'none'; " +
+	"base-uri 'self'; " +
+	"form-action 'self'"
+
+func setSecurityHeaders(w http.ResponseWriter) {
+	h := w.Header()
+	h.Set("Content-Security-Policy", contentSecurityPolicy)
+	// `frame-ancestors` 를 모르는 브라우저를 위한 같은 뜻의 옛 헤더.
+	h.Set("X-Frame-Options", "DENY")
+	// 추론된 MIME 으로 실행되는 것을 막는다. `/api/file/raw` 가 이미 이 함정을
+	// 개별로 피하고 있었다 (`handlers_file_probe.go`).
+	h.Set("X-Content-Type-Options", "nosniff")
+	// 이 앱의 URL 에는 경로와 도구 id 가 들어간다. 밖으로 나갈 이유가 없다.
+	h.Set("Referrer-Policy", "no-referrer")
+}
+
 func (h *staticHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	setSecurityHeaders(w)
 	if tag := h.etagFor(r.URL.Path); tag != "" {
 		w.Header().Set("ETag", tag)
 	}

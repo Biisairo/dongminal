@@ -41,7 +41,28 @@ func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 		host = ExposeHost
 	}
 
-	if err := os.MkdirAll(home, 0o755); err != nil {
+	// REQUEST_GATE_SRS FR-RQG-20: **노출하면서 허용 목록이 꺼져 있으면 서지 않는다.**
+	//
+	// 원격 접속이 이 제품이 존재하는 이유이고 기본 사용 형태다. "기본이
+	// 127.0.0.1 이니 노출 경로의 결함은 낮은 등급" 이라는 추론을 하지 않는다 —
+	// 인증이 아직 없는 동안 노출은 무인증 셸을 네트워크에 여는 것과 같다.
+	//
+	// 되돌리는 길을 하나 남긴다. 그 이름이 곧 경고이며, 잊고 켜 둔 사람이
+	// 자기 명령줄에서 그것을 본다.
+	if host != DefaultHost && !o.InsecureNoACL {
+		if reason := exposeACLBlocked(home); reason != "" {
+			fmt.Fprintf(stderr, "노출(%s) 상태인데 %s\n", host, reason)
+			fmt.Fprintln(stderr, "Settings ▸ Access 에서 허용 목록을 켜고 출발지를 넣으세요.")
+			fmt.Fprintln(stderr, "그대로 진행하려면: --insecure-no-acl (권장하지 않습니다)")
+			return 1
+		}
+	}
+
+	// 04-secops P1-6: 홈은 **0700** 이다. 그 안에 `settings.json`·`access.json`·
+	// `workspace.json`·`paned.sock` 이 산다 — 같은 호스트의 다른 UID 가 소켓에
+	// 붙으면 데몬 프로토콜로 사용자의 PTY 전부에 입출력 접근이 가능하다
+	// (데몬 IPC 에는 인증이 없다).
+	if err := os.MkdirAll(home, 0o700); err != nil {
 		fmt.Fprintf(stderr, "DONGMINAL_HOME 생성 실패: %v\n", err)
 		return 1
 	}
@@ -188,15 +209,26 @@ func prepareServerCmd(home, host, port, logPath string) (*exec.Cmd, *os.File, st
 	}
 	if logPath == "" {
 		if logPath = os.Getenv(EnvLog); logPath == "" {
-			logPath = defaultLogFile()
+			// 04-secops P1-6: 기본 자리가 **홈 아래**다.
+			//
+			// 종전에는 POSIX 에서 `/tmp/dongminal.log` 였다 — 공유 디렉터리의
+			// 예측 가능한 이름이고, 그 로그에는 `RemoteAddr`·도구 cwd·헤드리스
+			// 명령이 남는다. 홈은 0700 이므로 같은 호스트의 다른 UID 가 읽지
+			// 못한다. `DONGMINAL_LOG` 로 여전히 옮길 수 있다.
+			if home != "" {
+				logPath = filepath.Join(home, "server.log")
+			} else {
+				logPath = defaultLogFile()
+			}
 		}
 	}
 	// 로그의 상위 디렉터리는 없을 수 있다 — POSIX 의 /tmp 와 달리
 	// %LOCALAPPDATA%\dongminal 은 첫 기동 때 존재하지 않는다 (FR-XPA-2).
-	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o700); err != nil {
 		return nil, nil, logPath, fmt.Errorf("로그 디렉터리 생성 실패: %w", err)
 	}
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	// 0600: 로그에 접속 주소·작업 폴더·실행 명령이 남는다 (P1-6).
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return nil, nil, logPath, fmt.Errorf("로그 파일 열기 실패: %w", err)
 	}

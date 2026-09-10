@@ -430,7 +430,11 @@ func resolveHome() (string, error) {
 		}
 		home = filepath.Join(userHome, dmenv.DefaultHomeDir)
 	}
-	if err := os.MkdirAll(home, 0o755); err != nil {
+	// 04-secops P1-6: 홈은 **0700** 이다. 그 안에 `settings.json`·`access.json`·
+	// `workspace.json`·`paned.sock` 이 산다 — 같은 호스트의 다른 UID 가 소켓에
+	// 붙으면 데몬 프로토콜로 사용자의 PTY 전부에 입출력 접근이 가능하다
+	// (데몬 IPC 에는 인증이 없다).
+	if err := os.MkdirAll(home, 0o700); err != nil {
 		return "", fmt.Errorf("DONGMINAL_HOME 생성 실패: %w", err)
 	}
 	os.Setenv(dmenv.EnvHome, home)

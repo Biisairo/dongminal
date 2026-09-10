@@ -174,15 +174,33 @@ func NewCmdSub() *CmdSub {
 
 func (s *CmdSub) Close() { s.once.Do(func() { close(s.done) }) }
 
+// SubCap 은 동시에 붙는 SSE 구독 수의 상한이다 (04-secops P1-4).
+//
+// 구독 하나가 goroutine 하나이고 채널 버퍼를 든다. 상한이 없으면 연결을 여는
+// 것만으로 서버 메모리를 정할 수 있다.
+//
+// 64 는 사람이 여는 창·탭 수보다 한참 크다 — 화면 하나가 칸마다 구독을 열어도
+// (`app-slots.js`) 그 사이가 넓다.
+const SubCap = 64
+
+// Add 는 구독 하나를 등록한다. 상한을 넘으면 **nil** 이며, 호출자는 그것을 503
+// 으로 옮긴다 — 구독을 못 여는 것은 클라이언트의 잘못이 아니다.
 func (h *CommandHub) Add() *CmdSub {
-	s := NewCmdSub()
 	h.mu.Lock()
+	defer h.mu.Unlock()
+	if len(h.subs) >= SubCap {
+		log.Printf("[cmd] 구독 상한 초과로 거절한다 (cap=%d)", SubCap)
+		return nil
+	}
+	s := NewCmdSub()
 	h.subs[s] = struct{}{}
-	h.mu.Unlock()
 	return s
 }
 
 func (h *CommandHub) Remove(s *CmdSub) {
+	if s == nil {
+		return
+	}
 	s.Close()
 	h.mu.Lock()
 	delete(h.subs, s)

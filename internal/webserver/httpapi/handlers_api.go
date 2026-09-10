@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
+
+	"dongminal/internal/webserver/httpreq"
 	"os"
 	"strconv"
 	"strings"
@@ -273,7 +274,13 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 		Work: r.URL.Query().Get("sandboxWork"),
 	})
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		// 상한 초과는 **429** 다 (04-secops P1-4). 500 으로 답하면 클라이언트가
+		// 서버 결함으로 읽고 재시도하며, 그 재시도가 곧 이 상황을 만든 것이다.
+		code := http.StatusInternalServerError
+		if errors.Is(err, toolhub.ErrToolCap) {
+			code = http.StatusTooManyRequests
+		}
+		http.Error(w, err.Error(), code)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -323,7 +330,12 @@ func (s *Server) apiWorkspacePut(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "workspace unavailable", 500)
 		return
 	}
-	body, _ := io.ReadAll(r.Body)
+	// 워크스페이스는 창·탭·핀이 쌓이면 커진다 — 기본 상한보다 넉넉히 준다.
+	body, err := httpreq.Read(w, r, httpreq.WorkspaceLimit)
+	if err != nil {
+		http.Error(w, "read body", httpreq.Status(err))
+		return
+	}
 	ifMatch := r.Header.Get("If-Match")
 	rev, err := s.Work.Save(body, ifMatch)
 	if err != nil {
@@ -449,9 +461,9 @@ func (s *Server) apiSandboxConfigPut(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)을 확인하세요", 503)
 		return
 	}
-	body, err := io.ReadAll(r.Body)
+	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), httpreq.Status(err))
 		return
 	}
 	if err := s.Sandbox.SaveConfig(body); err != nil {

@@ -5,9 +5,10 @@ import (
 
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
+
+	"dongminal/internal/webserver/httpreq"
 	"time"
 )
 
@@ -59,6 +60,14 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	sub := s.Commands.Add()
+	if sub == nil {
+		// 상한 초과 (04-secops P1-4). 헤더를 이미 썼으므로 상태 코드를 바꿀 수
+		// 없다 — 대신 인사 대신 사유를 한 줄 보내고 닫는다. 화면은 SSE 재연결
+		// 규약(`CONNECTIVITY_RESILIENCE_SRS`)으로 다시 붙는다.
+		fmt.Fprint(w, "data: {\"action\":\"subscribeRejected\"}\n\n")
+		flusher.Flush()
+		return
+	}
 	defer s.Commands.Remove(sub)
 
 	// FR-XDF-8: 구독에 clientId 를 결선한다. hub.cmdSub 자체에는 신원이 없으므로
@@ -124,9 +133,9 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	body, err := io.ReadAll(r.Body)
+	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), httpreq.Status(err))
 		return
 	}
 	var req struct {

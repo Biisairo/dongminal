@@ -1,6 +1,7 @@
 package toolhub
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"path/filepath"
@@ -354,6 +355,21 @@ type Placement struct {
 }
 
 // Create spawns a new tool.
+// ToolCap 은 동시에 살아 있는 도구 수의 상한이다 (04-secops P1-4).
+//
+// 도구 하나는 PTY 와 로그인 셸 프로세스다. 상한이 없으면 요청 수천 개가 프로세스
+// 테이블과 메모리를 소진한다. 진입점이 셋이라(`POST /api/tools`·`GET /ws`(tool
+// 생략)·`POST /api/tools/headless`) 어느 하나만 막아서는 뜻이 없고, 그래서
+// **만드는 자리 한 곳**에서 센다.
+//
+// 256 은 사람이 여는 수보다 한참 크고 자원을 소진하는 수보다 한참 작다. 에이전트가
+// 도구를 여는 배치를 감안해도 그 사이가 넓다.
+const ToolCap = 256
+
+// ErrToolCap 은 상한 초과다. 핸들러는 이것을 429 로 옮긴다 — 500 이면 클라이언트가
+// 서버 결함으로 읽고 재시도하며, 재시도가 곧 이 상황을 만든 것이다.
+var ErrToolCap = errors.New("도구 수가 상한에 이르렀다")
+
 func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*Tool, error) {
 	// FR-UNI-7: toolId 는 uuid 다. 카운터는 영속되지 않아 모든 도구가 닫힌 상태로
 	// 재기동하면 "1" 부터 재사용됐다 (SRS §2.7 (3)).
@@ -376,6 +392,15 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	// **잠금 안에서, 그리고 기동 전에** 센다 (04-secops P1-4).
+	//
+	// 잠금 밖에서 세면 동시 요청 여럿이 같은 값을 보고 함께 통과한다 — 상한이
+	// 있는데 넘는 상태가 정확히 그렇게 생긴다. `StartTool` 뒤에 세면 이미 뜬
+	// PTY 와 셸이 등록되지 못한 채 남는다.
+	if len(m.tools) >= ToolCap {
+		log.Printf("[tool] 상한 초과로 생성을 거절한다 (cap=%d)", ToolCap)
+		return nil, ErrToolCap
+	}
 	p, err := StartTool(id, defaultToolName, cwd, cols, rows, func(toolID string) {
 		m.Delete(toolID)
 		if m.invalidator != nil {

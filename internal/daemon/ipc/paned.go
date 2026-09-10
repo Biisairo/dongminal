@@ -434,7 +434,8 @@ func (ps *PanedServer) Listen() error {
 		return fmt.Errorf("paned: %s already served by a live daemon", ps.sockPath)
 	}
 	transport.Remove(ps.sockPath)
-	if err := os.MkdirAll(filepath.Dir(ps.sockPath), 0o755); err != nil {
+	// 04-secops P1-6: 소켓이 사는 자리는 0700 이다.
+	if err := os.MkdirAll(filepath.Dir(ps.sockPath), 0o700); err != nil {
 		return err
 	}
 	ln, err := transport.Listen(ps.sockPath)
@@ -443,7 +444,7 @@ func (ps *PanedServer) Listen() error {
 	}
 	ps.listener = ln
 	if ps.pidPath != "" {
-		os.WriteFile(ps.pidPath, []byte(strconv.Itoa(os.Getpid())+"\n"), 0o644)
+		os.WriteFile(ps.pidPath, []byte(strconv.Itoa(os.Getpid())+"\n"), 0o600)
 	}
 	return nil
 }

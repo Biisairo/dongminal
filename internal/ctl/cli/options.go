@@ -135,7 +135,10 @@ func expandTilde(p string) string {
 // StartOpts는 `dongminal start` 의 옵션이다.
 type StartOpts struct {
 	Common
-	Expose        bool
+	Expose bool
+	// InsecureNoACL 은 노출 게이트를 끄는 유일한 길이다
+	// (REQUEST_GATE_SRS FR-RQG-20). 이름이 곧 경고다.
+	InsecureNoACL bool
 	RestartDaemon bool
 	Isolated      bool
 	Foreground    bool
@@ -193,6 +196,8 @@ func ParseStart(args []string) (StartOpts, error) {
 		switch args[i] {
 		case "--expose":
 			o.Expose = true
+		case "--insecure-no-acl":
+			o.InsecureNoACL = true
 		case "--restart-daemon":
 			o.RestartDaemon = true
 		case "--isolated":

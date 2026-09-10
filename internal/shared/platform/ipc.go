@@ -47,7 +47,24 @@ func (unixSocketIPC) Endpoint(home string) string {
 }
 
 func (unixSocketIPC) Listen(endpoint string) (net.Listener, error) {
-	return net.Listen("unix", endpoint)
+	l, err := net.Listen("unix", endpoint)
+	if err != nil {
+		return nil, err
+	}
+	// 04-secops P1-6: 소켓을 **0600** 으로 못박는다.
+	//
+	// `net.Listen` 이 만드는 소켓의 모드는 umask 가 정한다 — 흔한 022 에서
+	// 0755 가 되고, 그러면 같은 호스트의 다른 UID 가 붙을 수 있다. 데몬 IPC 에는
+	// 인증이 없으므로 그 연결은 사용자의 PTY 전부에 입출력 접근이다.
+	//
+	// 만든 **뒤에** 거는 것은 경합이다(그 사이에 붙을 수 있다). 그래서 소켓이
+	// 사는 디렉터리도 0700 이다 (`daemon/ipc/paned.go`) — 디렉터리를 지날 수
+	// 없으면 소켓 모드와 무관하게 닿지 못한다.
+	if err := os.Chmod(endpoint, 0o600); err != nil {
+		l.Close()
+		return nil, err
+	}
+	return l, nil
 }
 
 func (unixSocketIPC) Dial(endpoint string, timeout time.Duration) (net.Conn, error) {

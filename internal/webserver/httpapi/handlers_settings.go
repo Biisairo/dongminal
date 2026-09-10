@@ -2,9 +2,10 @@ package httpapi
 
 import (
 	"encoding/json"
-	"io"
 	"log"
 	"net/http"
+
+	"dongminal/internal/webserver/httpreq"
 	"os"
 	"sync"
 
@@ -88,7 +89,17 @@ func settingsChangedPayload() []byte {
 }
 
 func (s *Server) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
-	body, _ := io.ReadAll(r.Body)
+	body, err := httpreq.Read(w, r, 0)
+	if err != nil {
+		http.Error(w, "read body", httpreq.Status(err))
+		return
+	}
+	// FR-RQG-16: **JSON 인지 보고 쓴다.** 종전에는 받은 바이트를 검증 없이 그대로
+	// `settings.json` 에 썼다 — 그 파일이 깨지면 다음 기동이 설정을 잃는다.
+	if !json.Valid(body) {
+		http.Error(w, "settings must be JSON", http.StatusBadRequest)
+		return
+	}
 	if s.Settings != nil {
 		s.Settings.set(body)
 		s.Settings.save()

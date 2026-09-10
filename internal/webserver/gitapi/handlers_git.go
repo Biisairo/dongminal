@@ -5,8 +5,9 @@ import (
 	"dongminal/internal/shared/diagtail"
 	"dongminal/internal/shared/listorder"
 	"encoding/json"
-	"io"
 	"net/http"
+
+	"dongminal/internal/webserver/httpreq"
 	"os"
 	"path/filepath"
 	"sync"
@@ -244,9 +245,9 @@ type gitPathReq struct {
 }
 
 func gitDecodePath(w http.ResponseWriter, r *http.Request) (string, bool) {
-	body, err := io.ReadAll(r.Body)
+	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "본문을 읽지 못했다: "+err.Error())
+		gitFail(w, httpreq.Status(err), gitErrBadRequest, "본문을 읽지 못했다: "+err.Error())
 		return "", false
 	}
 	var req gitPathReq
@@ -350,9 +351,9 @@ func (s *GitServer) apiGitReorder(w http.ResponseWriter, r *http.Request) {
 		gitUnavailable(w)
 		return
 	}
-	body, err := io.ReadAll(r.Body)
+	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "본문을 읽지 못했다: "+err.Error())
+		gitFail(w, httpreq.Status(err), gitErrBadRequest, "본문을 읽지 못했다: "+err.Error())
 		return
 	}
 	var req gitReorderReq

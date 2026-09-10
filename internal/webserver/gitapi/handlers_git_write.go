@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
+
+	"dongminal/internal/webserver/httpreq"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -336,9 +337,9 @@ func gitEntryStates(st query.Status) map[string]string {
 // gitDecodeBody 는 JSON 본문을 읽는다. 실패는 400 이며 사유를 그대로 준다 —
 // 클라이언트가 자기 요청의 어디가 틀렸는지 알아야 한다.
 func gitDecodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
-	body, err := io.ReadAll(r.Body)
+	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "본문을 읽지 못했다: "+err.Error())
+		gitFail(w, httpreq.Status(err), gitErrBadRequest, "본문을 읽지 못했다: "+err.Error())
 		return false
 	}
 	if err := json.Unmarshal(body, v); err != nil {

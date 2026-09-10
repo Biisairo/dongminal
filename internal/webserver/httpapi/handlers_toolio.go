@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"dongminal/internal/webserver/httpreq"
 	"strconv"
 	"time"
 
@@ -173,7 +175,14 @@ func (s *Server) apiToolMessage(w http.ResponseWriter, r *http.Request) {
 // 코드가 그 열두 벌에 각각 있었다** — 한 곳만 400 이 아닌 값으로 바뀌어도 그 사실을
 // 아무것도 알려주지 않는다.
 func decodeJSONBody(w http.ResponseWriter, r *http.Request, body any) bool {
-	if err := json.NewDecoder(r.Body).Decode(body); err != nil {
+	// 종전에는 `json.NewDecoder(r.Body)` 로 **무제한** 스트림 디코드를 했다 —
+	// 본문 하나가 서버 메모리를 정했다 (REQUEST_GATE_SRS FR-RQG-14).
+	raw, err := httpreq.Read(w, r, 0)
+	if err != nil {
+		writeToolIOError(w, httpreq.Status(err), "본문을 읽지 못했다: "+err.Error())
+		return false
+	}
+	if err := json.Unmarshal(raw, body); err != nil {
 		writeToolIOError(w, http.StatusBadRequest, "잘못된 JSON: "+err.Error())
 		return false
 	}
