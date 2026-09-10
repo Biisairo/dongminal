@@ -149,6 +149,15 @@ test.describe('Focus invariant (S1-Phase1)', () => {
   });
 });
 
+/**
+ * REQUEST_GATE_SRS FR-RQG-5: 상태 변경 요청은 **본문이 없어도** JSON 을 밝힌다.
+ *
+ * `POST /api/tools?cwd=…` 처럼 쿼리스트링만으로 셸을 만드는 종단이 있어서, 본문
+ * 유무로 예외를 두면 그 경로가 그대로 열린다. 그래서 라우팅을 재는 아래 검사들도
+ * 헤더를 실어야 게이트를 지나 **라우팅까지** 닿는다 — 안 실으면 415 에서 멈춘다.
+ */
+const JSON_HDR = { 'Content-Type': 'application/json' };
+
 test.describe('API method routing (S3)', () => {
   test('GET /api/state returns 200 with ETag', async ({ request }) => {
     const r = await request.get('/api/state');
@@ -157,12 +166,12 @@ test.describe('API method routing (S3)', () => {
   });
 
   test('POST /api/state returns 404 (method mismatch)', async ({ request }) => {
-    const r = await request.post('/api/state');
+    const r = await request.post('/api/state', { headers: JSON_HDR });
     expect(r.status()).toBe(404);
   });
 
   test('DELETE /api/workspace returns 404', async ({ request }) => {
-    const r = await request.delete('/api/workspace');
+    const r = await request.delete('/api/workspace', { headers: JSON_HDR });
     expect(r.status()).toBe(404);
   });
 
@@ -173,7 +182,7 @@ test.describe('API method routing (S3)', () => {
 
   test('GET /api/ping returns ok regardless of method', async ({ request }) => {
     for (const method of ['GET', 'POST', 'PUT', 'DELETE'] as const) {
-      const r = await request.fetch('/api/ping', { method });
+      const r = await request.fetch('/api/ping', { method, headers: JSON_HDR });
       expect(r.status()).toBe(200);
     }
   });

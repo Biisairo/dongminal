@@ -137,15 +137,55 @@ strings.Contains(err.Error(), …)  분류에 쓰는 3곳
 
 ---
 
-## 6. 이 세션이 남긴 미검증
+## 6. 이 세션이 남긴 미검증 — e2e
 
-- **전체 e2e(1,425건)를 끝까지 보지 못했다.** 세션 중단 시점에 실행 중이었다.
-  `statusbar-xss.spec.ts` 4건은 통과를 확인했고, Go 전량·`make gates`·
-  `golangci-lint`·`tsc`·`eslint`·`node:test` 는 통과했다.
-  **다음 세션의 첫 일이 `npx playwright test` 다.**
-- 게이트가 프론트 요청 6곳을 막았던 전례가 있으므로(§2.4), e2e 가 잡을 자리가
-  더 있을 수 있다. 특히 **파일 경계**(`/api/file/*` 403)와 **Content-Type** 이
-  의심 1순위다.
+### 6.1 통과한 것
+
+Go 전량(`-race`) · `make gates`(이음매·타이머·git쓰기·크로스·vendor·**html**) ·
+`golangci-lint` 0건 · `tsc`(e2e + `@ts-check` 6파일) · `eslint` 0건 ·
+`node:test` 46건 · `statusbar-xss.spec.ts` 4건.
+
+### 6.2 전체 e2e 는 **끝까지 보지 못했다**
+
+세션을 접을 때 실행 중이었고 중단했다. 그 시점까지 **실패로 기록된 스펙이 20개**다.
+아래는 그 목록이고, **다음 세션의 첫 일이 이것의 분류**다.
+
+**확정 — 게이트 때문이고 이미 고쳤다 (워킹트리에 있다)**
+
+```
+focus-invariant  "API method routing (S3)" 넷
+  POST /api/state → 404 를 기대했는데 415
+  DELETE /api/workspace → 같음
+  GET /api/ping returns ok regardless of method → POST/PUT/DELETE 가 415
+```
+
+게이트가 라우팅 **앞**에 서므로 Content-Type 이 없으면 404 에 닿기 전에 415 다.
+검사에 헤더를 달았다. **게이트가 옳다** — 본문 없는 상태 변경에도 JSON 을 요구하는
+것이 `POST /api/tools?cwd=…` 를 막는 방법이다.
+
+**미분류 — 다음 세션이 판정할 것 (16)**
+
+```
+bg-kill            마지막 도구 종료      "Expected: 1, Received: 6"  ← 도구 수
+reconnect-storm    4건 (OP-EXIT·백오프·종료 오버레이)
+git-history        2건 (DOM 행 수·필터)
+mobile-kb-gate · mobile-keybar · repo-tab      3건
+editor-lsp-nav · editor-ops · git-window       3건
+layout · settings · sidebar-collapse           3건
+focus-invariant    "Pane size MaxTerminalDim falls back"
+```
+
+**이 목록을 그대로 믿지 마라.** 두 가지 오염이 있다.
+
+1. **자원 경합.** 같은 기계에서 Go 테스트와 e2e 를 겹쳐 돌렸고, PTY 가 218개까지
+   올라갔다(macOS `kern.tty.ptmx_max` 기본 511). 그 상태에서 daemon 통합 테스트가
+   **HEAD 에서도** 실패했다 — 즉 이 목록에는 내 변경과 무관한 실패가 섞여 있다.
+   `bg-kill` 의 "도구가 1개여야 하는데 6개" 가 그 냄새다.
+2. **중단.** 끝까지 돌지 않았으므로 이 20개가 전부가 아니다.
+
+**분류 방법**: 깨끗한 기계에서 `npx playwright test` 를 **단독으로** 한 번 돌린다.
+남는 실패만 진짜다. 그중 415·403 이 보이면 게이트/경계가 맞는지 스펙으로 먼저
+판정하고, 맞으면 **호출부를 고친다** — 게이트를 느슨하게 만들지 않는다.
 
 ---
 
