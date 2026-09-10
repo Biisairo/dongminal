@@ -228,11 +228,14 @@ test.describe('Pane size validation (L4)', () => {
     // POST /api/tools accepts cols/rows; oversized values should be clamped.
     // The fake pane manager doesn't run, but the real one does — verify the
     // creation succeeds (oversized → fallback default 120).
-    const r = await request.post('/api/tools?cols=99999&rows=24');
+    // 본문이 없어도 JSON 을 밝힌다 (JSON_HDR 의 주석 — FR-RQG-5). **이 종단이
+    // 그 요구가 존재하는 이유다**: 쿼리스트링만으로 셸이 만들어지므로, 본문
+    // 유무로 예외를 두면 그 경로가 그대로 열린다.
+    const r = await request.post('/api/tools?cols=99999&rows=24', { headers: JSON_HDR });
     expect(r.status()).toBe(200);
     const body = await r.json();
     expect(body.id).toBeDefined();
     // Cleanup so subsequent tests aren't polluted.
-    await request.delete('/api/tools/' + body.id);
+    await request.delete('/api/tools/' + body.id, { headers: JSON_HDR });
   });
 });

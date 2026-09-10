@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitSettled } from './fixtures';
+import { test, expect, waitSettled, JSON_HDR } from './fixtures';
 
 // WORKSPACE_IDENTITY_SRS §4 — 식별자(묶음 I)와 단일 실행자(묶음 X).
 //
@@ -73,7 +73,7 @@ test.describe('묶음 I — 엔터티 id 는 uuid 다', () => {
   test('TC-WID-2: 구 id 는 보존되고 schemaVersion 도 그대로다', async ({ page, request }) => {
     // 마이그레이션된 v2 파일은 구 형식 id(s1/r1/t1)를 담고 있다. 그 상태를 그대로
     // 주입해, uuid 전환이 기존 워크스페이스를 깨지 않는지 본다 (FR-WID-2).
-    const tool = await (await request.post('/api/tools?cols=120&rows=40')).json();
+    const tool = await (await request.post('/api/tools?cols=120&rows=40', { headers: JSON_HDR })).json();
     const legacyWs = {
       schemaVersion: 2,
       windows: [{

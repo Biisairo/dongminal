@@ -2,7 +2,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, plainWindows, waitForInit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, plainWindows, waitForInit, gitFixture, cleanGitFixture, JSON_HDR } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 const FIXTURES = tmpPath('dm-git-fx-gitwin-' + process.pid);
@@ -74,7 +74,7 @@ test.describe('묶음 D — Repo 창 골격', () => {
 
   test('E2 (V8): type 없는 창을 담은 워크스페이스도 정상 로드된다', async ({ page, request }) => {
     // 기존 workspace.json 은 창에 type 이 없다 (FR-GIT-25 하위호환).
-    const tool = await (await request.post('/api/tools?cols=120&rows=40')).json();
+    const tool = await (await request.post('/api/tools?cols=120&rows=40', { headers: JSON_HDR })).json();
     const legacy = {
       schemaVersion: 2,
       windows: [{

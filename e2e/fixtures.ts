@@ -9,6 +9,19 @@ import { stopDaemon } from './daemon-cleanup';
 import { realPath } from './osenv';
 
 
+/**
+ * 상태 변경 요청의 기본 헤더 (`REQUEST_GATE_SRS` FR-RQG-5).
+ *
+ * **본문이 없어도 JSON 을 밝혀야 한다.** `POST /api/tools?cwd=…` 처럼 쿼리만으로
+ * 셸을 만드는 종단이 있어서 본문 유무로 예외를 두면 그 경로가 열린다.
+ *
+ * `data` 를 객체로 주는 호출은 Playwright 가 알아서 밝히므로 이 상수가 필요 없다.
+ * **필요한 것은 본문이 없는 호출**이고, 그것을 빠뜨리면 415 가 조용히 돌아온다 —
+ * 아래 두 정리 함수가 그렇게 실패하고 있었고, 회수되지 않은 도구가 뒤 스펙의
+ * 개수 단정을 무너뜨렸다 (`bg-kill` 의 "1이어야 하는데 6").
+ */
+export const JSON_HDR = { 'Content-Type': 'application/json' };
+
 // FR-RST-10: 워크스페이스 리셋의 409 재시도 횟수. 겹침은 앞 테스트의 마지막
 // 저장 하나가 원인이므로 몇 번이면 충분하다 — 무한 재시도는 서버가 정말 바쁠 때
 // 테스트 시작을 무한정 미룬다.
@@ -45,7 +58,7 @@ async function reapOrphanTools(request: any) {
   for (const tool of state?.tools || []) {
     if (!tool?.id || referenced.has(tool.id)) continue;
     try {
-      await request.delete('/api/tools/' + tool.id);
+      await request.delete('/api/tools/' + tool.id, { headers: JSON_HDR });
     } catch {
       // 이미 종료된 도구는 무시
     }
@@ -122,7 +135,7 @@ function isEmptyWorkspace(body: string): boolean {
 // 매 테스트 전에 비운다.
 async function clearAttention(request: any) {
   try {
-    await request.post('/api/tools/attention/clear-all');
+    await request.post('/api/tools/attention/clear-all', { headers: JSON_HDR });
   } catch {
     // 서버가 아직 안 떴으면 무시
   }
@@ -161,6 +174,34 @@ async function pingUntilUp(url: string, limitMs: number) {
  * 러너에서 페이지가 뒤에 있으면 폴링과 Monaco 명령이 함께 멎는데, 그 상태는
  * 실패 뒤에 물어보면 이미 사라져 있다 — 그래서 그때 찍어 둔다.
  */
+/**
+ * 워커 서버에 물려줄 환경 (FR-EPL-1).
+ *
+ * **이 저장소를 dongminal 안에서 개발하면 도구 셸의 환경에 그 인스턴스의 정체가
+ * 들어 있다** — `DONGMINAL_HOST`·`DONGMINAL_PORT`·`DONGMINAL_TOOL_ID`·
+ * `DONGMINAL_HISTFILE` 는 서버가 자기 자식에게 심어 주는 값이고, `npx playwright`
+ * 는 그 자식 중 하나다. 그대로 물려주면 워커의 서버가 **개발자의 인스턴스인 척**
+ * 뜬다 — 워커마다 자기 인스턴스를 갖는다는 이 픽스처의 전제가 그 자리에서 깨진다.
+ *
+ * 실측(2026-09-10): `DONGMINAL_HOST=0.0.0.0` 이 물려지자 노출 게이트
+ * (REQUEST_GATE_SRS FR-RQG-20)가 기동을 거부했고, e2e 1,449건이 전부 픽스처
+ * 단계에서 무너졌다. **게이트는 옳았다** — 물려준 쪽이 틀렸다.
+ *
+ * `DONGMINAL_HOME`·`DONGMINAL_TOOL_HOME` 은 아래에서 명시로 덮으므로 여기 없다.
+ */
+const INHERITED_INSTANCE_ENV = [
+  'DONGMINAL_HOST',
+  'DONGMINAL_PORT',
+  'DONGMINAL_TOOL_ID',
+  'DONGMINAL_HISTFILE',
+];
+
+function hermeticEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const k of INHERITED_INSTANCE_ENV) delete env[k];
+  return env;
+}
+
 const pageEnvAtOpen = new WeakMap<any, any>();
 
 export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
@@ -185,7 +226,7 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
 
       const child = spawn(E2E_BIN, ['start', '--foreground'], {
         env: {
-          ...process.env,
+          ...hermeticEnv(),
           PORT: String(port),
           DONGMINAL_HOME: home,
           DONGMINAL_TOOL_HOME: toolHome,
