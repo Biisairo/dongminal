@@ -3,7 +3,10 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -998,5 +1001,49 @@ func TestRunAttach_ToleratesConcurrentReconcile(t *testing.T) {
 	_, got, _ := f.store.FindMember(memberID)
 	if got.TabID != "tab-race" {
 		t.Fatalf("거부가 기록을 바꿨다: %+v", got)
+	}
+}
+
+// 04-secops P1-6: **헤드리스 명령 전문을 로그에 남기지 않는다.**
+//
+// 로그는 같은 호스트의 다른 UID 가 읽을 수 있는 자리였고(그 부분은 홈 0700 ·
+// 소켓·로그 0600 으로 닫혔다), 명령줄에는 토큰·비밀번호가 실린다. 그러면서 진단을
+// 잃으면 안 된다 — "같은 명령이 도는가 · 비었는가" 는 길이와 해시로 답한다.
+func TestRedactCmdForLog(t *testing.T) {
+	secret := "curl -H 'Authorization: Bearer sk-live-abc123' https://x"
+
+	got := redactCmdForLog(secret)
+	if strings.Contains(got, "sk-live-abc123") || strings.Contains(got, "Authorization") {
+		t.Fatalf("명령 전문이 로그 문자열에 남았다: %q", got)
+	}
+	if !strings.Contains(got, "len:") || !strings.Contains(got, "sha256:") {
+		t.Fatalf("길이·해시가 없다: %q — 진단 가치를 잃었다", got)
+	}
+	if !strings.Contains(got, fmt.Sprintf("len:%d", len(secret))) {
+		t.Fatalf("길이가 실제와 다르다: %q (want len:%d)", got, len(secret))
+	}
+
+	// 결정론: 같은 명령은 같은 값이어야 "같은 명령이 다시 돌았다" 를 말할 수 있다.
+	if redactCmdForLog(secret) != got {
+		t.Fatal("같은 명령이 다른 값을 냈다 — 로그로 대조할 수 없다")
+	}
+	if redactCmdForLog(secret+" ") == got {
+		t.Fatal("다른 명령이 같은 값을 냈다")
+	}
+
+	// 빈 명령은 로그인 셸이다. 그 사실은 비밀이 아니고 진단에 중요하다.
+	if e := redactCmdForLog(""); strings.Contains(e, "sha256:") {
+		t.Fatalf("빈 명령에 해시를 실었다: %q", e)
+	}
+}
+
+// 호출부가 그 함수를 지나는가 — 전문을 그대로 실으면 함수가 있어도 뜻이 없다.
+func TestHeadlessLogUsesRedaction(t *testing.T) {
+	src, err := os.ReadFile("handlers_runs_headless.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(src), `cmd=%q`) {
+		t.Fatal("로그가 명령 전문을 그대로 싣는다 — redactCmdForLog 를 지나야 한다")
 	}
 }

@@ -758,12 +758,29 @@ make gates(9종) · typecheck · lint · unit 64건
 
 ### 3.3 DoD 중 아직 못 채운 항목
 
-- `wait` 동시 수 상한 · diag 스냅샷의 임계 경고.
-- 헤드리스 명령 로그를 전문 대신 길이·해시로.
+- ~~헤드리스 명령 로그를 전문 대신 길이·해시로.~~ **닫힘** (2026-09-10) —
+  `redactCmdForLog` 가 `len:<n> sha256:<12자>` 로 줄인다. 빈 명령은 `none`(로그인
+  셸)이다. 04-secops `P1-6` 의 나머지(홈 `0700`·소켓·로그 `0600`·로그 위치)는 이미
+  닫혀 있었고 이 자리가 마지막이었다. 검증: `TestRedactCmdForLog`(전문이 남지
+  않는다·길이가 실린다·결정론) · `TestHeadlessLogUsesRedaction`(호출부가 그 함수를
+  지난다 — 함수만 있고 호출부가 전문을 실으면 뜻이 없다)
 - ~~`worktree.execGit`·`submodule` 실행기의 `core.Env()` 공유 (B5).~~ **닫힘** (§2.8)
-- 편집기의 `probe.size` 상한(`FUI-06`) — 서버 `SEC-19` 상한과 같은 값.
-- 샌드박스 컨테이너의 cpu·memory·pids 상한.
-- `dongminal verify` 에 게이트 항목 추가.
+
+**남은 넷은 전부 값 판정이 필요하다** — 상한 숫자는 제품 결정이고 스펙이 값을 적어
+두지 않았다. 임의로 박으면 되돌릴 근거가 남지 않는다.
+
+- `wait` 동시 수 상한 — **몇 개인가.** 종단은 최대 30분 대기(`handlers_status.go:31`)다.
+- diag 스냅샷의 임계 경고 — **무엇을 넘으면 경고인가.**
+- 편집기의 `probe.size` 상한(`FUI-06`) — **몇 바이트인가.**
+  > **정정 (2026-09-10).** 이 항목은 "클라이언트 짝만 남았다" 로 적혀 있었지만
+  > **서버 상한도 없다** — `apiFileRead`(`handlers_files.go:327`)는 `io.Copy` 로
+  > 전량을 싣고 413 이 없다. 즉 `FR-FAB-8`(서버)과 `FR-FAB-9`(클라이언트)가 **둘 다
+  > 미구현**이며, 값 하나를 정해 두 자리에 함께 넣어야 한다(같은 값을 쓰라는 것이
+  > `FR-FAB-9` 의 요구다). `GO-38`(같은 함수의 `io.Copy` 반환 무시)도 같은 지점이다.
+- 샌드박스 컨테이너의 cpu·memory·pids 상한 — **각 얼마인가.**
+- `dongminal verify` 에 게이트 항목 추가 — **무엇을 넣는가.** §2.12 가 같은 오해를
+  한 번 정정했다: `verify` 는 서버를 띄워 HTTP 표면을 두드리는 **런타임 종단간**
+  검사이며 정적 검사의 자리가 아니다(`make gates`·`verify.yml` 이 그쪽이다).
 
 **CSP 의 외부 호스트는 더는 잔여가 아니다** — §4 가 그것을 닫았다.
 
@@ -1440,9 +1457,14 @@ DIFF_HUNK_BAR_SRS FR-DHB-11·13·14 와 V-DHB-10 을 함께 고친다.
   U-6  History 의 Fetch/Pull/Push 제거 — GIT_HEAD_MOBILE_SRS FR-GHM-3·V3 개정 동반
   U-2  미리보기 위치·대비
 
-  DoD 5: wait 동시 수 상한 · diag 임계 경고 · 헤드리스 로그를 길이/해시로 ·
-         편집기 probe.size 상한(FUI-06) · 샌드박스 cpu·memory·pids 상한 ·
-         dongminal verify 게이트 항목
+  DoD: 헤드리스 로그는 **닫혔다**(redactCmdForLog). **남은 넷은 값 판정이 필요
+       하다 — 사용자에게 물어라**: wait 동시 수 상한 · diag 임계 경고 · 편집기
+       probe.size 상한 · 샌드박스 cpu·memory·pids 상한. `dongminal verify` 항목은
+       **무엇을 넣는지**가 미정이다(§2.12 가 "정적 검사의 자리가 아니다" 를 이미
+       정정했다).
+       **probe.size 는 정정됐다** — 클라이언트만이 아니라 **서버 상한(FR-FAB-8)도
+       없다**. apiFileRead 가 io.Copy 로 전량을 싣는다(GO-38 과 한 지점). 값 하나를
+       정해 두 자리에 같이 넣어야 한다
   P2:    SEC-10·12·13·15·16·18~20 · GO-38 · FE-15~17 · FUI-06
 
 **GO-23(JSON 응답조립 중복)은 하지 마라** — 착수 근거가 없다고 판정했다

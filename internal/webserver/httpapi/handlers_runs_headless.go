@@ -1,9 +1,12 @@
 package httpapi
 
 import (
+	"crypto/sha256"
 	"dongminal/internal/shared/toolhub"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -66,6 +69,25 @@ func (s *Server) apiToolsHeadless(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// redactCmdForLog 는 명령을 **길이와 해시로** 줄인다 (04-secops P1-6).
+//
+// 로그에 명령 전문을 남기면 토큰·비밀번호가 그 파일에 눕는다. 같은 감사 항목의
+// 나머지(홈 `0700` · 소켓·로그 `0600` · 로그 위치를 `/tmp` 밖으로)는 이미
+// 닫혔고, 남은 자리가 여기였다.
+//
+// **진단을 잃지 않는다.** 로그가 답해야 하는 물음은 "같은 명령이 다시 돌았나 ·
+// 비어 있었나(로그인 셸인가) · 얼마나 긴가" 이고 길이와 해시가 그것에 답한다.
+// 해시를 12자로 자르는 것은 git 의 약칭과 같은 근거다 — 대조에 충분하고 한 줄을
+// 덜 먹는다.
+func redactCmdForLog(command string) string {
+	if command == "" {
+		// 비었다는 사실은 비밀이 아니고, 그것이 곧 "로그인 셸" 이라는 뜻이다.
+		return "none"
+	}
+	sum := sha256.Sum256([]byte(command))
+	return fmt.Sprintf("len:%d sha256:%s", len(command), hex.EncodeToString(sum[:])[:12])
+}
+
 // createHeadlessTool spawns a tab-less tool and registers it as background
 // (FR-HLM-2).
 //
@@ -87,7 +109,7 @@ func (s *Server) createHeadlessTool(cwd, command string) (string, error) {
 		return "", err
 	}
 	s.Tools.SetBackground(tool.ID, true)
-	log.Printf("[run] headless tool=%s cwd=%s cmd=%q %dx%d", tool.ID, cwd, command, headlessCols, headlessRows)
+	log.Printf("[run] headless tool=%s cwd=%s cmd=%s %dx%d", tool.ID, cwd, redactCmdForLog(command), headlessCols, headlessRows)
 	// UX_REVISION_SRS FR-BGV-1: 브라우저의 ⏻ 목록은 **자기 행동**(detach·복귀)과
 	// SSE 재연결로만 갱신된다. 서버가 만든 백그라운드 도구를 알리지 않으면 배지가
 	// 0 인 채로 남고, 사용자는 모달을 열거나 새로고침해야 그것을 본다 —

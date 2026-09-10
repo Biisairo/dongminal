@@ -93,9 +93,14 @@ DIFF_HUNK_BAR_SRS FR-DHB-11·13·14 와 V-DHB-10 을 함께 고친다.
   U-6  History 의 Fetch/Pull/Push 제거 — GIT_HEAD_MOBILE_SRS FR-GHM-3·V3 개정 동반
   U-2  미리보기 위치·대비
 
-  DoD 5: wait 동시 수 상한 · diag 임계 경고 · 헤드리스 로그를 길이/해시로 ·
-         편집기 probe.size 상한(FUI-06) · 샌드박스 cpu·memory·pids 상한 ·
-         dongminal verify 게이트 항목
+  DoD: 헤드리스 로그는 **닫혔다**(redactCmdForLog). **남은 넷은 값 판정이 필요
+       하다 — 사용자에게 물어라**: wait 동시 수 상한 · diag 임계 경고 · 편집기
+       probe.size 상한 · 샌드박스 cpu·memory·pids 상한. `dongminal verify` 항목은
+       **무엇을 넣는지**가 미정이다(§2.12 가 "정적 검사의 자리가 아니다" 를 이미
+       정정했다).
+       **probe.size 는 정정됐다** — 클라이언트만이 아니라 **서버 상한(FR-FAB-8)도
+       없다**. apiFileRead 가 io.Copy 로 전량을 싣는다(GO-38 과 한 지점). 값 하나를
+       정해 두 자리에 같이 넣어야 한다
   P2:    SEC-10·12·13·15·16·18~20 · GO-38 · FE-15~17 · FUI-06
 
 **GO-23(JSON 응답조립 중복)은 하지 마라** — 착수 근거가 없다고 판정했다
