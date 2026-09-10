@@ -13,7 +13,7 @@
 ## 1. 한 줄 요약
 
 **P0 5건과 P1 11건을 닫았다 — P1 이 전부 끝났다.** 남은 것은 P2 18건과 DoD 6항목,
-그리고 **사용자가 직접 보고한 6건**이다(§3.4).
+그리고 **사용자가 직접 보고한 16건**이다(§3.4).
 
 `SEC-3`(무인증 LAN 노출)은 M4 까지 열려 있다 — 이 마일스톤의 노출 게이트가 그
 절반을 강제한다.
@@ -215,6 +215,81 @@ handlers_files.go   "request body too large" → errors.As 만 남기고 폴백 
 로드 순서를 물려받지 않아 `core/api.js` 를 함께 실어야 한다. `term-pane.js` 의
 `escHtml` 이 같은 부류였다(§2.5-3) — **합성 페이지는 전역 의존이 드러나는 자리다.**
 
+### 2.8 `GO-39`·`FBE-08` — git 실행 층을 하나로 (`GIT_EXEC_UNIFY_SRS`)
+
+git 프로세스를 띄우는 자리가 **다섯**인데 그중 **둘만** `core.Env()` 를 썼다.
+나머지 셋은 프롬프트·askpass·페이저·편집기를 막지 않은 채 git 을 띄웠고,
+출력 상한·오류 분류·**실행 기록**도 없었다 — Console 과 Replay 가 그 셋을 보지
+못했다.
+
+| 자리 | 종전 | 지금 |
+|---|---|---|
+| `git/core/exec.go` · `git/jobs/job.go` | `Env()` ✅ | 그대로 |
+| `worktree/worktree.go:160` | 직접 실행, 규약 전무 | `core.ExecUnguarded` |
+| `submodule/submodule.go:269` | 직접 실행, 규약 전무 | `core.ExecUnguarded` |
+| `httpapi/handlers_fs_ignored.go:92` | 직접 실행, 규약 전무 | `core.ExecUnguarded` |
+
+**층을 갈랐다.** `core.Service` 가 한 덩어리로 갖던 두 가지를 나눴다 —
+`Exec`/`ExecWrite`(인가: 명령 화이트리스트)와 `ExecUnguarded`(실행: 환경·마감·
+상한·취소·분류·기록). 세 도메인은 자기 인가(`checkRepo`·`checkPath`·`--` 규약·
+루트 가드)를 이미 갖고 있으므로 **실행 방법만** 공유한다.
+
+**화이트리스트는 한 항목도 늘지 않았다.** `FR-GIT-246`(worktree)과 `D-9`(submodule)이
+"어느 목록에 넣어도 `argv[0]` 키잉과 교집합-금지 불변식이 뜻을 잃는다"를 두 번에
+걸쳐 확정했고, 그 판단은 지금도 옳다. 착수 초기에 그 결정을 모르고 화이트리스트
+확장을 설계했다가 되돌렸다 — **기각된 것은 인가 층의 확장이지 실행 층의 공유가
+아니었다.**
+
+**왜 셋이 빠져 있었나 — 게이트 사각.** `FR-GIT-1` 의 정적 검사는
+`exec.Command("git", …)` 라는 **리터럴**을 찾는데, 다섯 자리가 **전부**
+`LookPath("git")` → `exec.Command(bin, …)` 형태여서 **하나도 걸리지 않았다.**
+정규식을 변수까지 넓히는 것은 답이 아니다(`bin` 은 `rg`·`docker` 이기도 하다).
+**기준을 바꿨다** — git 을 띄우려면 반드시 지나는 `LookPath("git")` 을 센다.
+
+게이트 셋을 세웠고(`core/exec_gate_test.go`), 임시 탐침으로 **실제 검출을
+확인**했다 — 정적 검사는 위반이 없을 때도 통과하므로 "초록"은 동작의 증거가
+아니다. 이 저장소가 정확히 그 함정에 있었다.
+
+| 게이트 | 지키는 것 |
+|---|---|
+| `TestGitBinaryLookupIsConfinedToDomain` | git 바이너리를 얻는 자리가 `domain/git` 밖에 **0** |
+| `TestExecUnguardedCallersAreConfined` | 인가를 건너뛰는 진입점의 **호출처 고정** — 이 설계의 안전 장치 |
+| `TestGitExecSitesPassEnvContract` | git 을 띄우는 파일은 `Env()` 를 지난다 |
+| `TestExecAllowlistsHaveNoDeadEntries` | 예외 목록에 **죽은 항목**이 없다 |
+| `TestCommandAllowlistsDidNotGrow` | `readCommands` 15 · `writeCommands` 22 — 늘지 않았다 |
+
+`execAllowed` 에서 `domain/worktree` 를 뺐다. 그 예외는 애초에 **검사되지도
+않으면서** "여기서는 규약을 어겨도 된다"는 신호로 남아 있었고, 실제로 그 아래에서
+`Env()` 없는 실행이 자랐다.
+
+**`SEC-14` 는 조치 불요로 판정했다** (§3.2). `Replay` 는 인가를 지나지 않은 기록을
+거부한다 — 종전에는 화이트리스트가 *우연히* 막고 있었을 뿐이다.
+
+**검증.** `make gates` · `go test -race -shuffle=on ./...` 전량 · `npm run typecheck` ·
+`npm run lint` · `npm run unit` 64건 · **e2e 전량**.
+
+```
+1445 passed · 3 flaky · 3 skipped · 0 failed  (15.4분)
+flaky: git-history H8 · git-history H17 · git-ui-revision V71
+```
+
+**회귀가 아니다** — §6.3 의 기준선과 대조한 판정이다.
+
+| | passed | flaky | failed |
+|---|---|---|---|
+| 기준선 1회차 | 1444 | 3 | 1 |
+| 기준선 2회차 | 1443 | 4 | 1 |
+| 기준선 3회차 | 1443 | 5 | 0 |
+| **이번** | **1445** | **3** | **0** |
+
+셋 다 재시도에서 통과했고(`0 failed`), passed 수가 기준선보다 높다. `git-history` 는
+§6.3 이 이미 관측·판정한 자리이며(`H7` 이 그 예다) 사유가 "배경 폴링이 사용자의
+명령보다 먼저 기록되는 경합" 으로 밝혀져 있다. `git-ui-revision` V71 은 탭 드래그라
+이 변경(Go 의 git 실행 층)과 인과가 없다.
+
+§6.3 이 세운 판정 규칙 — **"흔들리는 자리가 회차마다 전부 다르다는 것이 특정 변경의
+회귀가 아니라는 근거"** — 와도 일치한다.
+
 ---
 
 ## 3. 남은 것
@@ -227,17 +302,26 @@ handlers_files.go   "request body too large" → errors.As 만 남기고 폴백 
 |---|---|
 | `SEC-7` 잔여 | `/api/upload`·`/api/download` 의 경계 — `FILE_API_BOUNDARY_SRS` §5 비목표 2 가 **M8 로 넘겼다**. 그때까지 게이트가 호출을 덮는다 |
 
-### 3.2 P2·기능축 (미착수)
+### 3.2 P2·기능축
 
-`SEC-10`·`SEC-12`~`SEC-16`·`SEC-18`~`SEC-20` · `GO-23`·`GO-38`·`GO-39`(B5) ·
-`FE-15`~`FE-17` · `FBE-08`(submodule `core.Env()`+`ctx`) · `FUI-06`(편집기 크기 상한) ·
+**닫힘**: `GO-39`·`FBE-08` — git 실행 층을 하나로 모았다 (§2.8). `SEC-14` 는
+**조치 불요로 판정**했다 — 초크포인트를 지나지 않는 것이 `FR-GIT-246`·`D-9` 가
+확정한 설계이며, 감사가 그 결정을 모른 채 쓴 항목이다. 다만 그 판정이 실행
+방법까지 갈라 두라는 뜻은 아니었으므로 그쪽은 공유하게 했다.
+
+**남음**: `SEC-10`·`SEC-12`·`SEC-13`·`SEC-15`·`SEC-16`·`SEC-18`~`SEC-20` ·
+`GO-23`·`GO-38` · `FE-15`~`FE-17` · `FUI-06`(편집기 크기 상한) ·
 `09` 비목표 3(샌드박스 cpu·memory·pids 상한).
+
+`GO-23`(JSON 응답조립 5종 중복)은 **착수 근거가 없다**고 판정했다 —
+`M3_REFACTOR_NEXT_SESSION` §2 의 (a)~(d) 어디에도 해당하지 않고, 오류 본문 방언
+4종은 공개 계약이라 통일이 금지돼 있다 (`architecture.md:141-176`).
 
 ### 3.3 DoD 중 아직 못 채운 항목
 
 - `wait` 동시 수 상한 · diag 스냅샷의 임계 경고.
 - 헤드리스 명령 로그를 전문 대신 길이·해시로.
-- `worktree.execGit`·`submodule` 실행기의 `core.Env()` 공유 (B5).
+- ~~`worktree.execGit`·`submodule` 실행기의 `core.Env()` 공유 (B5).~~ **닫힘** (§2.8)
 - 편집기의 `probe.size` 상한(`FUI-06`) — 서버 `SEC-19` 상한과 같은 값.
 - 샌드박스 컨테이너의 cpu·memory·pids 상한.
 - `dongminal verify` 에 게이트 항목 추가.
@@ -257,6 +341,16 @@ handlers_files.go   "request body too large" → errors.As 만 남기고 폴백 
 | U-4 | **탐색기의 빈 공간을 클릭하면 커서가 root 로 간다** | 최상위에 파일·폴더를 만들 수 있어야 한다 — 현재는 그 자리가 없다 |
 | U-5 | **탐색기에 다중 선택을 더한다** (`Cmd`+클릭 · `Shift`+클릭) | 선택 모델이 단일이라면 그것을 집합으로 넓히는 일이고, 삭제·이동·복사 등 **선택을 소비하는 자리 전부**가 함께 바뀐다 |
 | U-6 | **History 머리의 Fetch·Pull·Push 버튼을 뺀다** — Changes 와 History 를 이제 함께 보므로 같은 버튼이 두 벌이다 | `panel-changes.js:809 headHTML()` 가 두 뷰의 머리를 **한 자리에서** 만든다(FR-GHM-4). History 만 `.git-head-remote` 를 빼는 갈래가 필요하다 |
+| U-7 | **blame 의 스크롤이 다른 뷰와 다르다** | `style-git-views.css:42 .git-blame{overflow:auto}` — blame 은 **브라우저 네이티브** 스크롤이고, 같은 자리의 diff 는 `.git-diff-host` 안의 **Monaco 내부** 스크롤이다. 소유자·축·감각이 셋 다 다르다 (아래 실측) |
+| U-8 | **UI 전체의 기본을 루트에서 미리 정해 두고, 어긋난 UI 가 다시 나오지 않게 한다** | U-7 의 일반형이며 **git 에 국한되지 않는다**(사용자 확인). 기본값이 실사용과 반대여서 자리마다 재정의하고, 빠뜨린 자리가 조용히 어긋난다. **재발 방지 게이트**가 함께 필요하다 (아래 실측) |
+| U-9 | **`Stage hunk`·`Revert hunk` 툴바를 hover 가 아니라 해당 줄을 클릭해 커서가 있을 때 뜨게 하고, 뜨는 위치를 조정한다** | `panel-diff.js:442-443` 이 `onMouseMove`·`onMouseLeave` 로 띄우고, `:501` 이 위치를 `hunk.newStart`(조각 첫 줄)에 고정한다. **스펙 개정을 동반한다** — 아래 |
+| U-10 | **편집기·diff 창을 닫을 때 수정 표시가 있어도 묻지 않는다** — 저장 안 한 내용이 사라진다 | 확인 로직은 **있다**(`app-layout.js:189` 창 · `:546` 탭). 탭 경로는 `tab.type==='editor'` 게이트 뒤에 있어 **git diff 탭(`TAB_TYPE_GIT`)은 지나지 않는다**. 재현부터 (아래) |
+| U-11 | **기능 추가** — 탭 바의 **빈 공간을 더블클릭**하면 새 탭이 열린다 | `renderer.js:995` 가 `.pn-tabs` 를 만들고 `:914` 에 **탭 자신의** `dblclick` 이 이미 있다. 컨테이너 여백에는 없다. 진입점은 `app-layout.js:795 addTabFocused()` |
+| U-12 | **기능 추가** — 탐색기의 **빈 공간을 더블클릭**하면 새 파일을 만든다 (U-4 와 맞물려 **루트**에 만든다) | `file-tree.js:71` 이 리스트 전체에 `dblclick` 을 걸어 두어 **여백 더블클릭도 이미 `_onDbl`(`file-tree-paint.js:160`)에 온다** — 행이 없을 때 아무것도 안 할 뿐이다. `startCreate(isDir, at)` 의 `at` 에 `this.root` 를 주면 된다 |
+| U-13 | **기능 추가** — 파일이 만들어지면 **그 파일을 즉시 연다** | `file-tree-edit.js:139 doCreate` 가 `this._sel=path` 로 **선택만** 하고 열지 않는다. U-12 와 한 흐름이다 |
+| U-14 | **기능 추가** — 탐색기를 클릭하면 편집기로부터 **키보드 주도권을 가져오고**, 탐색기에서 **키보드로 삭제·복사·붙여넣기**를 한다 | **조작은 전부 이미 있다** — `doDelete`·`doPasteInto`·`doDuplicate`·`_edClipSet`/`_edClipGet`. 없는 것은 **포커스와 키 경로** 둘뿐이다 (아래) |
+| U-15 | **팝업의 기본 포커스를 그 팝업의 목적에 맞는 버튼에 두어 `Enter` 로 바로 실행**한다. 예: 삭제 확인창이면 삭제 버튼. **모든 팝업에 통일** | ⚠️ **확정된 안전 설계와 정면 충돌한다.** 요구된 동작은 **M2 가 `UX-1`(P1)로 고친 바로 그 종전 상태**다. 아래를 읽고 판단이 필요하다 |
+| U-16 | **메모장(Notes)에서는 폴더를 만들 수 없고 파일만 만들어지게** 한다 | 폴더 생성 진입점은 둘 — `file-tree.js:129`(툴바 `+폴더`) · `file-tree-xfer.js:186`(메뉴 `newDir`). 둘 다 `startCreate(true, …)` 다. Notes 루트 판정은 `app-editor.js:50 root===this._edNotes()` 에 이미 있다 |
 
 **U-6 은 스펙 개정을 동반한다.** `GIT_HEAD_MOBILE_SRS` 가 정확히 그 반대를 요구한다 —
 `FR-GHM-3` 이 "History 탭 최상단에 Changes 와 **같은 머리**를 싣는다", 검증 `V3` 가
@@ -277,8 +371,292 @@ e2e    git-head-mobile.spec.ts:108,185      History 의 버튼 여섯을 단정�
 머리 전체를 빼는 것이 아니다 — `repo`·`branch`·배지·ahead/behind 는 남고
 `.git-head-remote` 만 빠진다.
 
-U-1·U-3 은 **결함**이고 U-2·U-4·U-5·U-6 은 **동작 변경**이다. 뒤의 넷은 손대기 전에
-현재 동작이 의도된 것인지(스펙·주석) 먼저 확인한다.
+**U-9 도 스펙 개정을 동반한다.** `DIFF_HUNK_BAR_SRS` 가 정확히 지금 동작을 요구한다 —
+`FR-DHB-11·13·14` 와 검증 `V-DHB-10`("툴바는 hunk 위에서만 뜨고, **마우스가 에디터를
+떠나면 사라진다**")이다. hover 를 커서로 바꾸면 그 요구와 검증이 함께 바뀌고,
+`V-DHB-2`("조각 위에 **마우스를 올려**")·`V-DHB-11`(blame·커밋 축에서 서지 않는다)도
+문장을 고쳐야 한다. **코드만 바꾸지 마라.**
+
+닿는 자리를 실측해 두었다.
+
+```
+스펙   DIFF_HUNK_BAR_SRS  FR-DHB-11·13·14 · V-DHB-2 · V-DHB-10
+코드   panel-diff.js:442-443  onMouseMove·onMouseLeave 로 띄우고 지운다
+       panel-diff.js:436      getPosition:()=>this._hunkBarPos||null
+       panel-diff.js:501      position:{lineNumber:Math.max(1,hunk.newStart),column:1}
+                              ← 위치가 **조각 첫 줄**에 고정이다. "이상한 위치" 의 근거
+       panel-diff.js:566·598  _hunkBarCoords()
+       panel-diff.js:468-469  툴바 자신의 mouseenter/mouseleave (사라짐 유예)
+```
+
+커서 기반으로 바꾸면 계기가 커서 이동이 되고, 사라지는 조건(지금은 `mouseleave`)을
+**새로 정의해야 한다** — 커서는 에디터를 떠나지 않는다.
+
+**사라지는 조건은 사용자가 정했다** (2026-09-10):
+
+1. **커서가 diff 영역에 있지 않을 때** — `gitHunkAt(list, cursorLine)` 이 `null` 이면
+   숨긴다. `_hunkBarMove` 가 이미 같은 판정을 하고 있으므로 **판정 함수는 그대로**
+   쓰고 좌표의 출처만 마우스 → 커서로 바꾼다.
+2. **해당 에디터에 포커스가 없을 때** — `onDidBlurEditorText` 가 계기다.
+
+배선은 생각보다 가깝다.
+
+| 지금 | 바꾼 뒤 |
+|---|---|
+| `ed.onMouseMove(ev=>this._hunkBarMove(ev))` | `ed.onDidChangeCursorPosition(...)` |
+| `ed.onMouseLeave(()=>this._hunkBarLeave())` | `ed.onDidBlurEditorText(...)` |
+| `ed.onDidChangeCursorSelection(()=>this._hunkBarPaint())` | **이미 있다** — 라벨 갱신용이며 위치 계산까지 넓히면 된다 |
+
+**숨김은 이미 위치를 놓는 일이다** — `getPosition:()=>this._hunkBarPos||null` 이고
+`null` 이면 Monaco 가 그리지 않는다. 위젯을 붙였다 뗐다 하지 않으므로(`FR-DHB-21`)
+계기만 바꾸면 된다.
+
+**위치도 같은 수정으로 풀린다.** `:501` 이 자리를 `hunk.newStart`(조각 첫 줄)로
+잡는 것이 "이상한 위치" 의 정체다 — 조각이 길면 사용자가 보는 줄과 툴바가 멀어지고,
+스크롤 밖으로 나가기도 한다. **커서 줄**에 두면 보고 있는 자리에 뜬다.
+
+없어지는 것 둘도 함께 본다 — `_hunkBarT`(숨김 유예 타이머)와 툴바 DOM 의
+`mouseenter`/`mouseleave`(`:468-469`)는 **hover 를 위해서만 있었다.** 커서 기반에서는
+버튼으로 마우스를 옮기는 사이에 사라질 일이 없으므로 유예가 필요 없다.
+
+`GIT_HUNK_BAR_HIDE_MS` 상수도 쓰이지 않게 된다.
+
+### U-4·U-11·U-12·U-13 — 빈 여백의 뜻과 생성 직후
+
+넷은 **한 흐름으로 본다.** U-4 가 "빈 여백을 클릭하면 루트가 선택된다" 이고,
+U-12 가 그 자리에서 "더블클릭하면 루트에 파일을 만든다" 이며, U-13 이 "만들면
+연다" 다. U-11 은 같은 착상을 탭 바에 적용한 것이다.
+
+**빈 여백 = 루트 규약은 이미 있다.** 새로 만드는 것이 아니라 **넓히는** 것이다.
+
+```
+file-tree-xfer.js:299  _dropDirAt()
+  "폴더 행이면 그 폴더, 파일·링크 행이면 그 부모, 헤더와 빈 여백이면 루트다 (FR-FTR-20)"
+```
+
+드롭은 이미 그렇게 판정한다. 클릭·더블클릭만 그 규약 밖에 있다 — U-4 가 결함으로
+느껴지는 이유가 그것이다. **`_dropDirAt` 과 같은 판정을 쓰면 두 벌이 되지 않는다.**
+
+배선도 이미 절반 있다.
+
+| 요구 | 있는 것 | 더할 것 |
+|---|---|---|
+| U-12 | `file-tree.js:71` 이 **리스트 전체**에 `dblclick` 을 건다 — 여백 더블클릭도 `_onDbl`(`file-tree-paint.js:160`)에 **이미 온다** | 행이 없을 때의 갈래. `startCreate(isDir, at)` 는 `at` 인자를 이미 받는다 → `at=this.root` |
+| U-13 | `doCreate`(`file-tree-edit.js:139`)가 `this._sel=path` 로 **선택까지** 한다 | 파일이면(`isDir` 아니면) 여는 호출 하나. 폴더는 열지 않는다 |
+| U-11 | `renderer.js:914` 에 **탭 자신의** `dblclick`(이름 변경)이 있다 | `.pn-tabs`(`:995`) 여백의 갈래 → `addTabFocused()`(`app-layout.js:795`) |
+
+**주의 둘.**
+
+1. **U-11 은 기존 더블클릭과 충돌하지 않아야 한다.** `renderer.js:914`·`:922` 가
+   탭과 라벨에 이미 `dblclick` 을 걸고 있으므로, 여백 갈래는 `e.target` 이 탭이
+   **아닐 때만** 돈다. 탭에서 올라온 이벤트를 여백으로 읽으면 이름을 고치려다
+   새 탭이 열린다.
+2. **U-13 은 낙관적 갱신과 순서가 얽힌다.** `doCreate` 는 서버 응답 **전에** 먼저
+   그리고(`_optimAdd`), 실패하면 되돌린다(`_restore`). **열기는 성공을 확인한
+   뒤여야 한다** — 실패한 생성의 탭이 남으면 없는 파일을 연 탭이 된다.
+
+### U-15 — 요구된 동작이 `UX-1` 이 고친 그 상태다 ⚠️ **판단 필요**
+
+**요구**: 팝업의 기본 포커스를 목적에 맞는 버튼에 두고 `Enter` 로 실행. 예로 든 것이
+**삭제**이며, "모든 팝업에 통일" 이다.
+
+**충돌**: 이 저장소는 그 반대를 **요구사항으로 못박고 있고, 그것을 어긴 상태를 결함
+으로 판정해 이번 마일스톤에서 고쳤다.**
+
+| 근거 | 내용 |
+|---|---|
+| `FR-GIT-97` | 파괴적 동작의 기본 선택지는 항상 **안전한 쪽** (force 아님, 삭제 아님, **취소가 기본 포커스**) |
+| `FR-GIT-176` | **`Enter` 는 실행이 아니다** |
+| `FR-GIT-94` | 모바일에서는 **더 엄격히** — 터치 오조작 방지 |
+| `FR-COS-6` | "다음은 **바뀌지 않는다**: 초기 포커스는 취소, `Enter` 는 실행이 아님" |
+| `V38`·`TC-COS-7` | 그것을 검증하는 e2e |
+| **`UX-1`** (§2.2) | **이번 마일스톤이 P1 으로 닫은 항목** — `_confirmClose` 를 `GitConfirm` 규약으로 수렴: 초기 포커스 취소 · `Enter`≠실행 |
+
+`app-tool.js:366-370` 의 주석이 종전 상태를 그대로 적고 있다:
+
+> 초기 포커스가 취소이고, `Enter` 는 실행이 아니며, 문구는 `textContent` 다.
+> **종전에는 이 셋이 전부 반대였다** — 포커스가 실행 버튼에 갔고, `Enter` 가 실행이었다.
+> 파괴적 확인창이 앱에 두 벌 있었고 그 둘의 `Enter` 규약이 달랐다.
+
+`CONFIRM_ONE_STAGE_SRS` §의 판정도 같다 — 확인을 한 단계로 줄이면서도 안전을 지킨
+근거가 "걸음 수가 아니라 **기본 선택지가 취소이고 `Enter` 가 실행이 아닌 것**" 이었다.
+
+**그러므로 요구를 그대로 적용하면 `UX-1` 이 되돌아가고 e2e `V38`·`TC-COS-7` 이
+깨진다.** 코드만 고칠 수 없다 — `GIT_SRS` `FR-GIT-94`·`97`·`176` 과
+`CONFIRM_ONE_STAGE_SRS` `FR-COS-6` 을 함께 개정해야 한다.
+
+#### 절충안 — 요구의 목적을 살리되 파괴적 동작만 지킨다 (권장)
+
+요구의 **목적**은 "확인만 하면 되는 팝업에서 `Enter` 한 번으로 끝내고 싶다" 이고,
+안전 설계가 지키려는 것은 "**되돌릴 수 없는 것**을 실수로 실행하지 않는다" 이다.
+둘은 **팝업의 종류로 갈린다.**
+
+| 팝업 | 기본 포커스 | 근거 |
+|---|---|---|
+| **비파괴적** (저장·열기·확인·설정 적용 등) | **그 팝업의 주 동작** — `Enter` 로 실행 | 요구 충족. 잃을 것이 없다 |
+| **파괴적** (삭제·force push·discard·되돌리기) | **취소** — `Enter` 는 실행 아님 | `FR-GIT-97`·`176` 유지 |
+
+**기제가 이미 있다.** `GitDialog._focus()`(`dialog.js:335`)가 `this._defBtn` 이
+있으면 그것에 포커스한다 — 즉 **비파괴적 팝업에 기본 버튼을 지정하는 길은 이미
+열려 있고**, 지금 그 자리를 채우지 않은 팝업이 있을 뿐이다. 그쪽을 채우면 스펙
+개정 없이 요구의 상당 부분이 충족된다.
+
+이 절충을 택하면 통일 규칙은 이렇게 된다 — **"기본 포커스는 그 팝업에서 되돌릴 수
+있는 쪽에 둔다."** "모든 팝업이 주 동작에 포커스" 와는 다르지만, 일관되고 설명
+가능하며 기존 요구사항과 충돌하지 않는다.
+
+**사용자가 절충 없이 원안을 고수하면** 그것은 사용자의 결정이므로 진행하되,
+`GIT_SRS`·`CONFIRM_ONE_STAGE_SRS` 개정과 `V38`·`TC-COS-7` 갱신을 **같은 변경에
+포함**해야 한다. 코드만 바꾸면 게이트가 그것을 되돌린다.
+
+### U-16 — 진입점 둘만 막으면 된다
+
+Notes 루트에서 폴더 생성을 막는다. 진입점은 **둘뿐**이고 둘 다 `startCreate(true, …)`
+를 부른다.
+
+```
+file-tree.js:129        툴바의 새 폴더 버튼   → this.startCreate(true)
+file-tree-xfer.js:186   메뉴 newDir          → this.startCreate(true, dir)
+```
+
+Notes 판정도 이미 있다 — `app-editor.js:50` 이 `root===this._edNotes()` 로 이름을
+가른다. **새 판정을 만들지 말고 그것을 쓴다.**
+
+두 자리에서 각자 막으면 한쪽만 고쳐지는 부류가 된다(이 저장소가 여러 번 겪은
+형태다). **`startCreate` 안에서 한 번 막는 쪽**이 낫고, 그러면 앞으로 생길 세 번째
+진입점도 자동으로 덮인다. 툴바 버튼은 그와 별개로 **감추거나 비활성**해야 한다 —
+눌러도 아무 일이 없는 버튼은 고장으로 읽힌다.
+
+서버도 함께 볼 것: 클라이언트만 막으면 API 직접 호출로는 만들어진다. Notes 루트에
+폴더 생성을 막는 규칙이 서버에 필요한지 판정해야 한다 (`/api/fs/create` 의
+`dir:true`).
+
+### U-14 실측 — 조작은 다 있다. 없는 것은 포커스와 키 경로다
+
+컨텍스트 메뉴(`file-tree-xfer.js:198-210`)가 이미 전부 갖고 있다.
+
+| 조작 | 이미 있는 것 |
+|---|---|
+| 복사 | `app._edClipSet(this.root, p)` — 클립보드 상태는 `app-editor.js:850-851` |
+| 붙여넣기 | `doPasteInto(dir)` — 빈 클립보드면 `EDITOR_PASTE_NONE` 로 막혀 있다 |
+| 복제 | `doDuplicate(p)` |
+| 삭제 | `doDelete(p)` — **확인창까지 자기가 든다**(재귀 여부·항목 수·dirty 탭을 밝혀야 해서 일반 확인으로는 `FR-EDT-83·84` 를 못 만족한다) |
+| 이름 변경 | `startRename(p)` |
+
+**그러므로 이 요구는 조작을 만드는 일이 아니라 그 조작에 키보드 길을 내는 일이다.**
+붙여넣는 자리 규칙("폴더면 그 안, 아니면 그 형제")도 이미 정해져 있다 (`FR-WBR-70`).
+
+없는 것은 둘이다.
+
+1. **탐색기가 포커스를 받지 못한다.** 트리에 `tabindex` 가 없고, `file-tree.js:186`
+   의 `el.focus()` 는 **인라인 편집 입력** 전용이다(`_focusInput`). 지금 탐색기의
+   `keydown` 은 `file-tree-paint.js:628` 하나뿐이고 그것도 그 입력의 것이다.
+   → 사용자가 말한 "editor 로부터 주도권을 뺏어온다" 가 이 부분이다.
+2. **키 → 조작의 사상이 없다.** `Delete`·`Cmd/Ctrl+C`·`Cmd/Ctrl+V`·`F2` 등.
+
+**주의 셋.**
+
+- **전역 `keydown` 과 충돌한다.** `input-binding.js:115` 가 `window` 에 `keydown` 을
+  건다. 탐색기가 포커스를 가진 동안 그 전역이 같은 키를 먹으면 두 동작이 함께
+  돈다 — 어느 쪽이 이기는지를 정해야 하고, 그 규약은 `PANEL_SHORTCUTS_SRS` 가
+  이미 다루는 영역이다. **새 규약을 만들기 전에 그 문서를 읽어라.**
+- **터미널이 키를 삼키는 자리와 다르다.** 편집기·터미널은 자기 키 처리를 갖고
+  있으므로, "주도권을 가져온다" 는 **포커스를 옮기는 일**이지 전역 핸들러를
+  바꾸는 일이 아니다.
+- **삭제는 확인을 건너뛰면 안 된다.** `Delete` 키가 `doDelete` 를 그대로 부르면
+  확인창은 유지된다 — 그것이 `FR-EDT-83·84` 다. 키보드라는 이유로 확인을 빼는
+  갈래를 만들지 마라. **U-10 이 정확히 그 부류의 결함이다.**
+
+### U-10 실측 — 확인 로직은 있는데 그 앞의 게이트를 못 지난다
+
+**데이터 손실이므로 이 목록에서 가장 급하다.** 저장 안 한 편집이 확인 없이 사라진다.
+
+확인 로직 자체는 **두 자리에 있고 둘 다 살아 있다.**
+
+```
+app-layout.js:189   창 닫기 — if(this._edWinDirty&&this._edWinDirty(s))
+                              → _confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true})
+app-layout.js:541   탭 닫기 — const isEditor = tab.type==='editor';
+app-layout.js:546              if(editor && editor._dirty && !opts.force) → 같은 확인
+```
+
+**가장 유력한 원인은 `:541` 의 게이트다.** 확인은 `tab.type==='editor'` 안쪽에
+있는데, git 의 diff 탭은 `TAB_TYPE_GIT`(`:538` 이 `tab.type===TAB_TYPE_GIT` 로
+가른다)이다 — **그 탭은 dirty 확인 경로를 통째로 지나지 않는다.** 사용자가 "editor,
+diff" 를 함께 말한 것과 맞는다.
+
+확인할 갈래 넷 (재현 먼저, 순서대로):
+
+| # | 가설 | 확인법 |
+|---|---|---|
+| 1 | diff 탭이 `isEditor` 가 아니라 확인을 건너뛴다 | git diff 탭에서 편집 → 탭 닫기 |
+| 2 | `editor._dirty` 가 `false` 로 읽힌다 | `_doc` 이 끊기면 `set _dirty` 가 **죽은 필드**(`__dirty`)에 쓴다 — `file-editor.js:566-568` 이 그 함정을 이미 적고 있다 |
+| 3 | `opts.force` 로 닫는 경로를 탄다 | `app-editor.js:956 _edCloseTabsUnder` 가 `{force:true}` 다. 이것은 **삭제 경로 전용**이며(`FR-EDT-91`) 다른 경로가 그것을 재사용하고 있으면 결함 |
+| 4 | 떠남 확인 토글이 꺼져 있다 | `LEAVE_CONFIRM_TOGGLE_SRS` — 설정으로 끌 수 있다면 기본값·적용 범위를 본다 |
+
+닿는 스펙: `EDITOR_TAB_SRS` `FR-EDT-91`·`FR-EDT-84` · `LEAVE_CONFIRM_TOGGLE_SRS` ·
+`EDITOR_DIRTY_DIFF_SRS` · `WORKSPACE_SAVE_CONFLICT_SRS`.
+
+**이것은 동작 변경이 아니라 결함이다** — 확인창은 이미 요구사항이고 코드도 있다.
+스펙 개정 없이 고칠 수 있을 가능성이 높다. 다만 고친 뒤 **e2e 회귀를 남긴다** —
+확인이 뜨지 않는 것을 아무 테스트도 잡지 못했다는 사실 자체가 결함의 일부다.
+
+### U-7·U-8 실측 — 기본값이 실사용과 반대다
+
+`style-git.css:12` 가 모든 git 뷰의 기본을 정한다.
+
+```css
+.git-view{position:absolute;inset:0;display:none;overflow:auto;background:var(--bg)}
+.git-view.vis{display:block}
+```
+
+그런데 **실제 뷰 여섯이 전부 그 둘을 뒤집는다** — 같은 두 줄이 여섯 벌이다.
+
+```css
+.git-view.git-diff{overflow:hidden}      .git-view.git-diff.vis{display:flex;flex-direction:column}
+.git-view.git-history{overflow:hidden}   .git-view.git-history.vis{display:flex;flex-direction:column}
+.git-view.git-console{overflow:hidden}   .git-view.git-console.vis{display:flex;flex-direction:column}
+.git-view.git-branches{overflow:hidden}  .git-view.git-branches.vis{display:flex;flex-direction:column}
+.git-view.git-stash{overflow:hidden}     .git-view.git-stash.vis{display:flex;flex-direction:column}
+.git-view.git-changes{overflow:hidden}   .git-view.git-changes.vis{display:flex;flex-direction:column}
+```
+
+뷰 이름은 `panel-life.js:84` 에서 `'git-view git-'+view` 로 조립된다 — **재정의를
+빠뜨린 뷰는 조용히 기본값(바깥 스크롤 + block)으로 떨어진다.** 그것이 U-8 이
+말하는 "엇나감" 이고, 고칠 자리는 개별 뷰가 아니라 **기본값**이다.
+
+바깥이 `overflow:auto` 인 채로 안쪽 목록도 `overflow-y:auto` 면 스크롤러가 둘이
+되어 머리가 함께 밀린다 — `style-git-views.css:88` 의 주석이 그 사실을 이미 적고
+있다("목록만 스크롤한다. 바·refs·푸터는 고정이다").
+
+**U-8 은 git 에 국한되지 않는다.** 사용자가 범위를 확인했다 — *"git view 뿐만이
+아닌 전체 ui 의 기본을 미리 설정해두고 가는 게 안전할 것 같다. 또 이렇게 맞지 않는
+ui 가 나오면 안 되잖아."* 저장소 전체를 실측하면 같은 형태가 셋 있다.
+
+| # | 형태 | 실측 | 어긋나는 방식 |
+|---|---|---|---|
+| C1 | **켜기/끄기 규약** | `display:none` **89** · `.vis` 재정의 **61** — 켤 때의 값이 `block` 26 · `flex` 23 · `inline-block` 4 · `inline` 3 **네 종** | `.vis` 를 붙여도 자리마다 다른 display 가 필요하다. 빠뜨리면 켜지지 않거나 레이아웃이 무너진다 |
+| C2 | **스크롤 소유권** | `overflow` 선언 **148** — `overflow:hidden` 86 · `overflow-y:auto` 29 · `overflow:auto` 13 · `overflow-x:auto` 7 · 그 밖 4 | 바깥과 안쪽이 **둘 다** 스크롤러가 되면 머리가 함께 밀린다. 축(x/y/both)도 규약이 없다 — U-7 이 그 사례다 |
+| C3 | **골격 배치** | `position:absolute;inset:0` **37** — 계열마다 되풀이 | 어떤 컨테이너가 "칸을 채우는 골격" 인지가 이름이 아니라 선언으로만 드러난다 |
+
+계열별 규칙 수는 `.ed-` 68 · `.ui-` 64 · `.dr-` 48 · `.pn-` 27 · `.sbl-` 26 이며,
+`.git-*` 만의 문제가 아니다.
+
+**재발 방지가 요구의 절반이다.** 이 저장소는 규약을 게이트로 지키는 문화가 있고
+(`check-seams.sh`·`check-timers.sh`·`check-gitwrite.sh`·`check-html.sh`·
+`check-fetch.sh`), 그 파일들의 주석이 이유를 이미 적고 있다 — **"규약은 선언으로
+지켜지지 않는다."** U-8 의 산출물은 루트 기본값과 **그것을 지키는 검사** 둘이다.
+
+착수 시 유의: 이것은 **구조 변경**이라 화면 전체에 닿는다. 성공 판정은 리팩터와
+같다 — **아무것도 달라지지 않는 것**. e2e 스냅샷·시각 회귀가 판정 수단이며,
+`.git-view` 처럼 "기본값을 뒤집으면 여섯 재정의가 사라지는" 자리부터 손대면
+diff 가 줄어드는 방향으로 간다.
+
+---
+
+U-1·U-3·U-7 은 **결함**이고 U-2·U-4·U-5·U-6·U-9 는 **동작 변경**, U-8 은 **구조
+변경**이다. 동작 변경은 손대기 전에 현재 동작이 의도된 것인지(스펙·주석) 먼저
+확인한다 — U-6·U-9 는 확인 결과 **의도된 것이었고 스펙 개정이 필요하다**.
 
 **U-5 는 규모가 다르다.** 선택 모델을 바꾸면 그 선택을 읽는 모든 명령이 영향을
 받으므로, 착수 전에 스펙이 필요한지부터 판정한다 (CLAUDE.md 작업 규모 게이트).
@@ -352,11 +730,16 @@ default-src 'self'; script-src 'self' 'sha256-Y0hr/…' 'sha256-cbCW…'; style-
 [`M2_NEXT_SESSION.md`](./M2_NEXT_SESSION.md) 에 같은 것이 있다 — 그쪽은 사본이고
 **이 절이 원본**이다.
 
+리팩터를 함께 하려는 세션은 [`M3_REFACTOR_NEXT_SESSION.md`](./M3_REFACTOR_NEXT_SESSION.md)
+를 쓴다. 그쪽은 **이 저장소에서 리팩터가 어떻게 빗나가는지**를 먼저 적는다 —
+이미 끝난 리팩터 트랙 아홉 단계, 중복처럼 보이지만 의도된 것 일곱, 그리고
+"착수 근거는 취향이 아니라 실측" 이라는 규칙이다.
+
 ```
 프로젝트: /Users/dykim/personal/dongminal
 
 프로덕션화 로드맵 M2 를 이어서 진행한다. **P0 5건과 P1 11건이 전부 끝났다.**
-남은 것은 DoD 6항목·P2 18건·사용자 보고 6건, 그리고 기존 흔들림이다.
+남은 것은 DoD 6항목·P2 18건·사용자 보고 16건, 그리고 기존 흔들림이다.
 
 먼저 이것부터 읽어라 — 이게 진실이고 나머지는 배경이다:
 - docs/internal/production/M2_PROGRESS.md   ← 무엇이 끝났고 무엇이 남았는지
@@ -397,14 +780,27 @@ NFR-CAPI-3). 실패가 나오면 대개 "그 자리가 봉투의 어느 칸을 �
    git 실행 초크포인트·/api/fs/* 가드·업로드 상한·ACL 설계·파괴적 확인창
    설계는 전부 양호 판정이며 보존 대상이다.
 
-3) **사용자 보고 6건** (§3.4). U-1~U-6.
-   U-1(LSP 파일 연결)·U-3(스크롤 위로 붙음)은 결함이라 재현부터.
-   U-2·U-4·U-5·U-6 은 동작 변경이라 현재 동작이 의도된 것인지 먼저 확인한다.
+3) **사용자 보고 16건** (§3.4). U-1~U-16.
+   U-1(LSP 파일 연결)·U-3(스크롤 위로 붙음)·U-7(blame 스크롤)·U-10(닫을 때
+     묻지 않음)은 결함이라 재현부터. **U-10 이 가장 급하다 — 데이터 손실이다.**
+   U-2·U-4·U-5·U-6·U-9 는 동작 변경, U-11~U-14·U-16 은 기능 추가다.
+     · **U-15 는 착수 전에 판단이 필요하다** — 요구된 동작이 `UX-1`(P1)이
+       고친 그 상태이고, FR-GIT-97·176·FR-COS-6 과 e2e V38·TC-COS-7 이
+       정확히 반대를 요구한다. §3.4 의 절충안을 먼저 읽어라.
+     동작 변경은 현재 동작이 의도된 것인지 먼저 확인한다.
+     · U-4·U-11·U-12·U-13 은 **한 흐름**이다 — 빈 여백의 뜻을 정하는 일이고,
+       그 규약(FR-FTR-20)은 드롭 경로에 **이미 있다.** 두 벌로 만들지 마라.
    · U-5(탐색기 다중 선택)는 선택 모델을 바꾸는 일이라 규모가 다르다 —
      착수 전에 스펙 필요 여부를 판정하라.
    · U-6(History 의 Fetch/Pull/Push 제거)은 **스펙 개정을 동반한다** —
      GIT_HEAD_MOBILE_SRS FR-GHM-3 과 V3 이 정확히 그 반대를 요구하고 있고,
      그것은 두 뷰를 따로 보던 시절의 전제다. 코드만 지우지 마라.
+   · U-9(hunk 툴바를 hover → 커서로)도 **스펙 개정을 동반한다** —
+     DIFF_HUNK_BAR_SRS FR-DHB-11·13·14 와 V-DHB-10 이 "마우스가 에디터를 떠나면
+     사라진다" 를 요구한다. 커서는 에디터를 떠나지 않으므로 **사라지는 조건을
+     새로 정의해야 한다.** 코드만 바꾸지 마라.
+   · U-7·U-8 은 함께 본다 — U-7 은 증상이고 U-8 이 그 일반형이다.
+     고칠 자리는 개별 뷰가 아니라 `.git-view` 의 **기본값**이다 (§3.4 실측).
 
 4) **기존 흔들림** (§6.3). 배경 폴링이 사용자의 명령보다 먼저 기록되는 경합이다.
    HEAD 에서도 같은 비율로 흔들리는 것을 확인해 두었다.
