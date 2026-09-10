@@ -49,6 +49,9 @@ class FileTree {
     this._err=null;    // 마지막 실패. {anchor,msg} — 그 자리에 붙는다 (FR-EDT-92).
     this._drag='';     // 끌고 있는 경로. dataTransfer 는 dragover 에서 읽을 수 없다.
     this._focusEdit=false;
+    // FR-EXR-58: 이 탐색기가 포커스를 쥐고 있는가. render 가 요소를 떼면 포커스는
+    // 사라지므로, 되돌릴 근거는 이 플래그 하나다 (아래 `focusin`/`focusout`).
+    this._focusOwn=false;
 
     // FR-FTR-20: 헤더는 루트 드롭 존이다 — 표시를 위해 들고 있는다.
     this._dropDir='';
@@ -57,8 +60,39 @@ class FileTree {
 
     this.el=document.createElement('div');
     this.el.className='ed-explorer';
+    // FR-EXR-50: 탐색기가 포커스를 받는 자리. 사용자가 말한 "편집기로부터 키보드
+    // 주도권을 가져온다" 는 **포커스를 옮기는 일**이고 전역 핸들러를 바꾸는 일이
+    // 아니다 — 전역 `keydown`(FR-EKB-1·4)은 탐색기를 의도적으로 담당하며 이
+    // 스펙의 키와 겹치지 않는다 (EXPLORER_ROOT_KEYS_SRS §2.5).
+    this.el.tabIndex=0;
     this.head=this._head();
     this.el.appendChild(this.head);
+    // FR-EXR-2: 머리도 루트다 — 드롭이 이미 그렇게 읽는다 (FR-FTR-20). 머리는
+    // 수명 내내 같은 요소이므로 리스너는 하나면 된다.
+    this.head.addEventListener('click',e=>{
+      // 버튼은 자기 동작을 갖는다. 여기서 선택까지 바꾸면 새로고침이 선택을
+      // 옮기는 것으로 읽힌다.
+      if(e.target.closest('.ed-head-btn')) return;
+      this._selectRoot();
+    });
+    // FR-EXR-51: 키는 컨테이너 하나에 건다 — 머리와 트리 어느 쪽에 포커스가
+    // 있어도 같은 길이어야 한다. 행에 거는 것은 reconcile 이 행을 다시 만들기
+    // 때문에 성립하지 않는다 (아래 `click` 과 같은 근거).
+    this.el.addEventListener('keydown',e=>this._onKey(e));
+    /**
+     * FR-EXR-58: **누가 포커스를 쥐고 있는가.** `_rLayout` 이 매 render 마다
+     * `.ed-win` 을 떼었다 붙이므로 포커스는 빼앗기는 것이 아니라 **잃는다** —
+     * 인라인 입력이 겪는 함정과 같은 것이다 (FR-EDT-66, `_restoreEditFocus`).
+     *
+     * `focusout` 은 **바깥으로 나간 것만** 센다. 요소가 떨어져 나가며 잃은
+     * 포커스는 `relatedTarget` 이 없고, 그 blur 는 요소가 다시 붙은 뒤에
+     * 도착하므로(실측 — 같은 주석 참조) 그것으로 소유를 지우면 안 된다.
+     */
+    this.el.addEventListener('focusin',()=>{ this._focusOwn=true });
+    this.el.addEventListener('focusout',e=>{
+      const to=e.relatedTarget;
+      if(to&&!this.el.contains(to)) this._focusOwn=false;
+    });
     this.list=document.createElement('div');
     this.list.className='ed-tree';
     this.el.appendChild(this.list);
@@ -116,6 +150,18 @@ class FileTree {
   // reconcile 이 서명으로 걸러 실제 DOM 변경은 일어나지 않는다.
   _paintAll(){ this.store.paintAll() }
 
+  /**
+   * FR-EXR-30: 이 루트에서는 폴더를 만들 수 없다 — 메모장이다.
+   *
+   * 루트 판정은 `app-editor.js:50` 이 이름을 가르는 데 쓰는 것과 같은 것이다.
+   * 새 판정을 만들지 않는다. 루트는 인스턴스 수명 동안 불변이므로
+   * (`app-editor.js:535` 가 바뀌면 버린다) 머리를 만들 때 물어도 된다.
+   */
+  _noDirs(){
+    const notes=this.app._edNotes();
+    return !!notes&&this.root===notes;
+  }
+
   _head(){
     const h=document.createElement('div'); h.className='ed-head';
     const n=document.createElement('span'); n.className='ed-head-name';
@@ -125,7 +171,10 @@ class FileTree {
     // 선택이 정한다 (FR-EDT-81) — 버튼은 그 규칙을 다시 적지 않는다.
     h.appendChild(this._headBtn('ed-head-new-file',EDITOR_TREE_NEW_FILE,
       EDITOR_TREE_NEW_FILE_TITLE,()=>this.startCreate(false)));
-    h.appendChild(this._headBtn('ed-head-new-dir',EDITOR_TREE_NEW_DIR,
+    // FR-EXR-31: 메모장에는 이 버튼을 두지 않는다. 눌러도 아무 일이 없는 버튼은
+    // 고장으로 읽힌다 — `+` 자리를 Editor·Git 창에서 빼는 것과 같은 근거다
+    // (FR-EDT-54).
+    if(!this._noDirs()) h.appendChild(this._headBtn('ed-head-new-dir',EDITOR_TREE_NEW_DIR,
       EDITOR_TREE_NEW_DIR_TITLE,()=>this.startCreate(true)));
     h.appendChild(this._headBtn('ed-head-refresh',EDITOR_TREE_REFRESH,
       EDITOR_TREE_REFRESH_TITLE,()=>this.refresh()));
@@ -162,7 +211,29 @@ class FileTree {
     // 떨어지는 순간 포커스가 사라지므로(SSE 한 번이면 충분하다) 값으로 되돌린다 —
     // 입력이 **열려 있는 동안**에만이다.
     if(this._edit) this._restoreEditFocus();
+    // FR-EXR-58: 입력이 없을 때는 **컨테이너 자신**이 그 자리다. 이것이 없으면
+    // 방향키가 한 번 눌린 뒤 다음 render 에 길이 끊긴다.
+    else if(this._focusOwn) this._restoreOwnFocus();
     return this.el;
+  }
+
+  /**
+   * 컨테이너의 포커스를 되돌린다. `_restoreEditFocus` 와 **같은 가드**를 쓴다 —
+   * 다른 요소가 쥐고 있으면 뺏지 않는다. 떨어져 나가며 잃은 포커스는 `body` 로
+   * 돌아가므로 그 경우만 우리 것이다.
+   *
+   * 붙기 전에는 `focus()` 가 아무 일도 하지 않으므로 다음 프레임에 건다.
+   * 렌더러의 재포커스(renderer.js)보다 **먼저** 돈다 — 그쪽 프레임이 뒤에
+   * 등록되기 때문이며, 그래서 명시적으로 여는 손짓(FR-EXR-59)은 그 뒤에
+   * 우리를 덮어쓸 수 있다.
+   */
+  _restoreOwnFocus(){
+    TIMERS.frame(()=>{
+      if(!this._focusOwn||!this.el.isConnected) return;
+      const cur=document.activeElement;
+      if(cur&&cur!==document.body) return;
+      this.el.focus();
+    },{owner:this,label:'tree-focus'});
   }
 
   /**

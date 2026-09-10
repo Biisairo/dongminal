@@ -10,6 +10,10 @@
  */
 Object.assign(FileTree.prototype, {
   startCreate(isDir,at){
+    // FR-EXR-30: 메모장에는 폴더가 없다. 진입점마다 막으면 한쪽만 고쳐지므로
+    // (이 저장소가 여러 번 겪은 형태다) **여기 한 번**에서 막는다 — 앞으로 생길
+    // 진입점도 자동으로 덮인다. 버튼·메뉴를 감추는 것은 그와 별개다 (D-5).
+    if(isDir&&this._noDirs()) return;
     const d=at||this._targetDir();
     this._clearErr();
     // 입력 행이 그 폴더 안에 보이려면 폴더가 펼쳐져 있어야 한다.
@@ -147,6 +151,18 @@ Object.assign(FileTree.prototype, {
     const r=await this.app._edFs(FS_CREATE_API,{root:this.root,path,dir:!!isDir});
     if(!r.ok){this._restore(snap);this._fail(dir===this.root?'':dir,r.msg);return}
     await this._after([dir]);
+    /**
+     * FR-EXR-20~24: 만든 **파일**은 곧바로 연다. 진입점(툴바·메뉴·빈 여백
+     * 더블클릭)을 가리지 않으려면 여기 한 자리여야 한다.
+     *
+     * **성공을 확인한 뒤다** (FR-EXR-21) — 위는 응답 전에 먼저 그리고(`_optimAdd`)
+     * 실패하면 되돌리므로(`_restore`), 앞에서 열면 없는 파일의 탭이 남는다.
+     *
+     * 미리보기가 아니라 **고정**이다 (FR-EXR-23 / D-3). 방금 이름까지 지어 준
+     * 파일이 다음 클릭에 대체되면 사용자는 만들기가 실패한 것으로 읽는다.
+     * 폴더는 열지 않는다 (FR-EXR-22).
+     */
+    if(!isDir) await this.app._edOpenFile(path,{preview:false});
   },
 
   /**

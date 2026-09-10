@@ -131,11 +131,28 @@ Object.assign(FileTree.prototype, {
     if(!this._kids.has(p)) this.load(p);
   },
 
+  /**
+   * FR-EXR-1·2: 이 자리가 뜻하는 것이 루트일 때. 판정은 드롭과 같은 것을 쓴다
+   * (`_dropDirAt` — FR-FTR-20). "헤더와 빈 여백이면 루트다" 를 두 벌로 적으면
+   * 한쪽만 고쳐진다.
+   */
+  _selectRoot(){
+    if(this._edit) this.cancelEdit();
+    this._clearErr();
+    this._sel=this.root;
+    this._paintAll();
+  },
+
   _onClick(e){
     // 인라인 입력 자신을 누른 것은 행 선택이 아니다 — 캐럿을 옮기는 중이다.
     if(e.target.closest('.ed-edit')) return;
     const row=e.target.closest('.ed-row');
-    if(!row||!this.list.contains(row)) return;
+    // FR-EXR-1: 행이 아닌 자리는 루트다. 종전에는 여기서 그냥 나갔고, 그래서
+    // 같은 자리에 **놓을 수는 있는데 고를 수는 없었다**.
+    if(!row||!this.list.contains(row)){
+      if(this._dropDirAt(e.target)===this.root) this._selectRoot();
+      return;
+    }
     // 다른 자리를 누르면 쓰다 만 이름은 버린다. 커밋하지 않는 이유는 클릭 한 번이
     // 파일을 만드는 것보다 잃는 쪽이 안전하기 때문이다 (FR-GIT-97 과 같은 근거).
     if(this._edit) this.cancelEdit();
@@ -157,9 +174,95 @@ Object.assign(FileTree.prototype, {
 
   // FR-RTU-42(④): 행 더블클릭은 그 파일의 탭을 고정한다. 여는 일은 앞선 클릭이
   // 이미 했다 (`_onClick`).
+  /**
+   * FR-EXR-51: 선택을 **보이는 순서**로 옮긴다. 순서의 근거는 `_items()` 의 행
+   * 항목이며(FR-EXR-52) 펼침 상태를 그대로 따른다 — 별도의 순서 계산을 만들면
+   * 화면과 어긋난다.
+   *
+   * 선택이 없거나 루트면 끝에서 들어온다.
+   */
+  _moveSel(d){
+    const rows=this._items().filter(it=>it.t==='row');
+    if(!rows.length) return;
+    const i=rows.findIndex(it=>it.path===this._sel);
+    const n=i<0?(d>0?0:rows.length-1)
+      :Math.min(rows.length-1,Math.max(0,i+d));
+    this._sel=rows[n].path;
+    this._paintAll();
+    // 선택이 화면 밖으로 나가면 옮겨 보인다 — `revealPath` 와 같은 손짓이다.
+    const row=this.list.querySelector('.ed-row.sel');
+    if(row&&row.scrollIntoView) row.scrollIntoView({block:'nearest'});
+  },
+
+  /**
+   * FR-EXR-51~57: 탐색기의 키보드 길. **조작을 만들지 않는다** — 이미 있는
+   * `doDelete`·`_edClipSet`·`doPasteInto`·`startRename` 에 길만 낸다.
+   *
+   * 전역 `keydown`(`input-binding.js`, capture)은 이 키들을 삼키지 않는다
+   * (EXPLORER_ROOT_KEYS_SRS §2.5 실측) — 그래서 그 규약(FR-EKB-1·4)을 뒤집지
+   * 않는다. 대신 **처리한 키만** 삼킨다 (FR-EXR-56).
+   */
+  _onKey(e){
+    // FR-EXR-55: 인라인 입력의 키는 그 입력의 것이다. `Delete` 가 글자가 아니라
+    // 파일을 지우면 그것이 놀람이다.
+    if(e.target.closest('.ed-edit')) return;
+    // FR-EXR-57: 머리 버튼에 포커스가 있는 동안의 키도 그 버튼의 것이다.
+    if(e.target.closest('button')) return;
+    const p=this._sel;
+    // FR-EXR-54: 루트는 지울 수도 이름을 고칠 수도 복사할 수도 없다. 붙여넣기만
+    // 된다 — 그 자리가 루트라는 뜻이다 (FR-EXR-5).
+    const pick=p&&p!==this.root?p:'';
+    const take=()=>{e.preventDefault();e.stopPropagation()};
+    if(e.metaKey||e.ctrlKey){
+      if(e.altKey||e.shiftKey) return;
+      if(e.code==='KeyC'){
+        if(!pick) return;
+        take(); this.app._edClipSet(this.root,pick); return;
+      }
+      if(e.code==='KeyV'){
+        take(); this.doPasteInto(this._targetDir()); return;
+      }
+      return;
+    }
+    if(e.altKey||e.shiftKey) return;
+    const kind=pick?this._kindOf(pick):'';
+    switch(e.code){
+      // FR-EXR-53: 확인은 `doDelete` 가 든다 (FR-EDT-83·84). 키보드라는 이유로
+      // 확인을 빼는 갈래를 만들지 않는다 — `U-10` 이 그 부류의 결함이었다.
+      // `Backspace` 를 함께 받는 것은 macOS 의 삭제 관용이 그것이기 때문이다.
+      case 'Delete': case 'Backspace':
+        if(!pick) return;
+        take(); this.doDelete(pick); return;
+      case 'F2':
+        if(!pick) return;
+        take(); this.startRename(pick); return;
+      case 'ArrowDown': take(); this._moveSel(1); return;
+      case 'ArrowUp': take(); this._moveSel(-1); return;
+      case 'ArrowRight':
+        if(kind!=='dir'||this._open.has(pick)) return;
+        take(); this.toggle(pick); return;
+      case 'ArrowLeft':
+        if(kind!=='dir'||!this._open.has(pick)) return;
+        take(); this.toggle(pick); return;
+      case 'Enter':
+        if(!pick) return;
+        take();
+        // 더블클릭과 뜻이 같다 (FR-RTU-42) — 다만 키보드로는 미리보기를 지나지
+        // 않았을 수 있으므로 `_edPinTabFor` 가 아니라 여는 자리를 부른다.
+        if(kind==='dir') this.toggle(pick);
+        else if(kind==='file') this.app._edOpenFile(pick,{preview:false});
+        return;
+    }
+  },
+
   _onDbl(e){
     const row=e.target.closest('.ed-row');
-    if(!row||!this.list.contains(row)) return;
+    // FR-EXR-10·11: 빈 여백의 더블클릭은 **루트에 새 파일**이다. 폴더가 아니다 —
+    // 폴더는 툴바·메뉴로만 만든다.
+    if(!row||!this.list.contains(row)){
+      if(this._dropDirAt(e.target)===this.root) this.startCreate(false,this.root);
+      return;
+    }
     if(row.dataset.kind!=='file') return;
     this.app._edPinTabFor(row.dataset.path);
   },
@@ -536,6 +639,8 @@ Object.assign(FileTree.prototype, {
     reconcileList(this.list,this._items(),{
       key:it=>it.k, sig:it=>it.s, build:it=>this._el(it),
     });
+    // FR-EXR-3: 루트의 선택은 **머리**가 보인다 — 뿌리에는 행이 없다(위 `_items`).
+    this.head.classList.toggle('sel',this._sel===this.root);
     this._focusInput();
   },
 

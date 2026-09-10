@@ -809,6 +809,10 @@ Object.assign(App.prototype, {
     if(!w) return null;
     const rid=(open&&open.win===w)?open.pane.id:this._edEnsurePane(w);
     if(!rid) return null;
+    // FR-EXR-59: 미리보기가 **아닌** 열기는 명시적인 손짓이다 — 편집기가 포커스를
+    // 갖는다 (FR-EXR-58 의 예외). 미리보기는 훑어보는 손짓이므로 탐색기가 쥔
+    // 포커스를 그대로 둔다. 표명은 render 후 재포커스가 소비한다 (renderer.js).
+    if(!(opts||{}).preview) this._edFocusWanted=true;
     // addTab 의 editor 분기가 중복 방지와 refresh 를 이미 한다.
     // FR-RTU-40: `preview` 는 그대로 넘긴다 — 미리보기 탭을 만들지 대체할지는
     // addTab 한 자리가 정한다.

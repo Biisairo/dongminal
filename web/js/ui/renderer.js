@@ -443,14 +443,36 @@ class Renderer {
       // mousedown). 편집기는 그 대상이 아니다 — 자기 UI 를 가진다.
       // `s?.layout` 을 여기서도 본다 — pane 이 없는 Editor 창(FR-EDT-55)이
       // 활성일 때 이 블록에 도달하기 때문이다.
+      /**
+       * FR-EXR-58: **탐색기가 쥔 포커스는 빼앗지 않는다.**
+       *
+       *   이전 동작: 매 렌더가 활성 탭으로 포커스를 되돌렸다 — 행을 한 번
+       *             클릭하면 미리보기가 열리고 그 렌더가 편집기로 가져갔다
+       *   새  동작: 탐색기 안에 포커스가 있으면 그대로 둔다
+       *   이유:     그것이 `U-14`("탐색기가 편집기로부터 키보드 주도권을
+       *             가져온다")의 본체다. `tabindex` 만으로는 한 프레임도
+       *             유지되지 않는다. `FR-EFP-5` 가 이미 "포커스를 편집기로
+       *             되돌리는 **모든 자리**" 를 가리키며 여기가 그 하나다
+       *
+       * FR-EXR-59: 명시적으로 여는 손짓(더블클릭·`Enter`·생성 직후)은 예외다 —
+       * `_edFocusWanted` 가 그 한 번을 표명한다. 판정을 이 자리 하나에 두는
+       * 이유는 여는 자리마다 `focus()` 를 부르면 그 자리가 여러 벌이 되기
+       * 때문이다 (FR-EFP-5 가 겪은 형태).
+       */
+      const ae=document.activeElement;
+      const inTree=!app._edFocusWanted&&ae&&ae.closest&&ae.closest('.ed-explorer');
       const s=app._aw();
-      if(app.focused && !app.isMobile && s?.layout){
+      if(app.focused && !app.isMobile && s?.layout && !inTree){
         const pn=findPane(s.layout,app.focused);
         if(pn){const tab=pn.tabs.find(t=>t.id===app.paneTab(pn));if(tab){
           // 포커스 슬롯의 인스턴스를 focus 한다 (FR-WSL-20).
           const key=app._slotKey(tab.id,app._slotFocused());
           if(tab.type==='editor'){const v=app.fileEditors.get(key)||app.fileEditors.get(tab.id);if(v)v.el.focus()}
           else{const p=app._toolAny(tab.toolId);if(p)p.focus()}
+          // 표명은 **실제로 넘긴 때**만 지운다 — 여는 한 손짓이 render 를 여러 번
+          // 부르므로(addTab·switchWindow·_mobileShowPane), 읽을 때 지우면 탭이
+          // 아직 활성이 아닌 첫 렌더가 그것을 먹는다.
+          app._edFocusWanted=false;
         }}
       }
       // After fit, panes have correct dimensions. Re-send sizes for the
@@ -997,6 +1019,25 @@ class Renderer {
     el.appendChild(tabs); el.appendChild(body);
     const node=()=>(el._ctx&&el._ctx.node)||null;
     const slotOf=()=>(el._ctx&&el._ctx.slot)||0;
+    /**
+     * FR-EXR-40~44: 탭 바의 **빈 여백** 더블클릭이 새 탭을 연다.
+     *
+     * FR-EXR-41: 탭에서 올라온 이벤트는 그 탭의 것이다 — `:914`(고정)·`:922`
+     * (이름 변경)가 이미 쓰고 있고, 여백으로 읽으면 **이름을 고치려다 새 탭이
+     * 열린다.**
+     *
+     * FR-EXR-42: 자리는 활성 pane 이 아니라 **이 여백이 속한 pane** 이다
+     * (`addTabFocused` 는 `this.focused` 를 쓴다).
+     *
+     * FR-EXR-44: Editor·Git 창에서는 `addTab` 이 스스로 거절한다 — `+` 를 두지
+     * 않는 조건과 같은 불변식이며(FR-GIT-179·FR-EDT-54) 여기 다시 적지 않는다.
+     */
+    tabs.addEventListener('dblclick',e=>{
+      if(e.target.closest('.pn-tab'))return;
+      const n=node(); if(!n)return;
+      e.stopPropagation();
+      app.addTab(n.id,'terminal');
+    });
     tabs.addEventListener('dragover',e=>{
       if(!app._drag||app._drag.type!=='tab')return;
       e.preventDefault(); e.stopPropagation();

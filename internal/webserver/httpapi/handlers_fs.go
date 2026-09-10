@@ -331,11 +331,20 @@ func (s *Server) apiFSCreate(w http.ResponseWriter, r *http.Request) {
 	if !fsDecode(w, r, &req) {
 		return
 	}
-	_, target, ok := s.fsRootTarget(w, req.Root, req.Path)
+	root, target, ok := s.fsRootTarget(w, req.Root, req.Path)
 	if !ok {
 		return
 	}
 	if req.Dir {
+		// FR-EXR-33: 메모장에는 폴더가 없다. 클라이언트에서만 막으면 API 직접
+		// 호출로는 만들어진다 — 이 저장소가 반복해 겪은 "한쪽만 고쳐지는" 형태다.
+		//
+		// `Notes()` 는 `MkdirAll` 을 하지만 새 부작용이 아니다 — 바로 위의
+		// `fsRoot` 가 부르는 `Roots()` 가 이미 그것을 지났다.
+		if notes, err := s.Entries.Notes(); err == nil && root == notes {
+			fsFail(w, fsErrBadRequest, "메모장에는 폴더를 만들 수 없다")
+			return
+		}
 		if err := os.Mkdir(target, 0o755); err != nil {
 			fsFailErr(w, fsFromOS(err))
 			return

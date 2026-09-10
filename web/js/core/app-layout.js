@@ -306,6 +306,9 @@ Object.assign(App.prototype, {
   _pinPreviewTab(tab){
     if(!tab||!tab.preview) return false;
     delete tab.preview;
+    // FR-EXR-59: 고정은 "이 파일에서 일하겠다" 다 — 탐색기가 쥔 포커스를 넘긴다
+    // (FR-EXR-58 의 예외). 표명은 아래 render 가 소비한다.
+    this._edFocusWanted=true;
     this.render();
     this._save();
     return true;

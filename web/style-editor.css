@@ -124,6 +124,11 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
   height:26px;padding:0 4px 0 8px;
   border-bottom:1px solid var(--border);
 }
+/* FR-EXR-2·3: 머리는 누를 수 있고, 루트가 선택되면 그것을 보인다. 뿌리에는 행이
+   없으므로(file-tree-paint.js `_items`) 이 자리가 행의 `.ed-row.sel` 을 대신한다 —
+   같은 색을 쓴다. */
+.ed-head{cursor:default}
+.ed-head.sel{background:var(--accent-active)}
 .ed-head-name{flex:1 1 auto;min-width:0;font-size:11px;color:var(--text-bright);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ed-head-btn{
