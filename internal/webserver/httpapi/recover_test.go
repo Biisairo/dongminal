@@ -24,7 +24,7 @@ func TestRecoverMiddlewareTurnsPanicInto500(t *testing.T) {
 	}))
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/x", nil))
+	h.ServeHTTP(rec, apiTestRequest(http.MethodGet, "/api/x", nil))
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("패닉한 핸들러가 %d 를 냈다 — 500 이어야 한다", rec.Code)
@@ -53,7 +53,7 @@ func TestRecoverMiddlewareKeepsStartedResponse(t *testing.T) {
 		panic("late boom")
 	}))
 
-	h.ServeHTTP(rw, httptest.NewRequest(http.MethodGet, "/api/x", nil))
+	h.ServeHTTP(rw, apiTestRequest(http.MethodGet, "/api/x", nil))
 
 	if rw.status != http.StatusMultiStatus {
 		t.Fatalf("그물이 이미 시작된 응답의 상태를 %d 로 덮었다 — 207 이어야 한다", rw.status)
@@ -74,7 +74,7 @@ func TestRecoverMiddlewarePassesAbortHandler(t *testing.T) {
 			t.Fatalf("ErrAbortHandler 가 그대로 오르지 않았다: %v", got)
 		}
 	}()
-	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/x", nil))
+	h.ServeHTTP(httptest.NewRecorder(), apiTestRequest(http.MethodGet, "/api/x", nil))
 	t.Fatal("ErrAbortHandler 를 그물이 삼켰다 — FR-CAF-7 위반")
 }
 
@@ -82,9 +82,13 @@ func TestRecoverMiddlewarePassesAbortHandler(t *testing.T) {
 // 그 결과를 보려면 오류부터 봐야 한다 — 종전에는 `stat, _ :=` 로 받아 실패 시
 // nil 을 역참조했다.
 func TestFileReadRejectsDirectory(t *testing.T) {
-	s := &Server{}
+	// FILE_API_BOUNDARY_SRS FR-FAB-2: `$DONGMINAL_HOME` 은 허용 루트다. 여기서
+	// 재는 것은 `Stat` 의 결과를 보는가이지 경계가 아니므로, 경계를 통과시켜
+	// 놓고 그 뒤를 본다.
+	dir := t.TempDir()
+	s := &Server{cfg: Config{DataDir: dir}}
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/file/read?path="+t.TempDir(), nil)
+	req := apiTestRequest(http.MethodGet, "/api/file/read?path="+dir, nil)
 
 	s.apiFileRead(rec, req)
 
@@ -95,14 +99,15 @@ func TestFileReadRejectsDirectory(t *testing.T) {
 
 // 정상 경로가 그대로인지 — 방어를 넣다 읽기를 막으면 안 된다.
 func TestFileReadReturnsContent(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "a.txt")
+	dir := t.TempDir()
+	p := filepath.Join(dir, "a.txt")
 	if err := os.WriteFile(p, []byte("hello"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	s := &Server{}
+	s := &Server{cfg: Config{DataDir: dir}}
 	rec := httptest.NewRecorder()
 
-	s.apiFileRead(rec, httptest.NewRequest(http.MethodGet, "/api/file/read?path="+p, nil))
+	s.apiFileRead(rec, apiTestRequest(http.MethodGet, "/api/file/read?path="+p, nil))
 
 	if rec.Code != http.StatusOK || rec.Body.String() != "hello" {
 		t.Fatalf("읽기가 깨졌다: code=%d body=%q", rec.Code, rec.Body.String())

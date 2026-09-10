@@ -33,6 +33,13 @@ type Config struct {
 	Port     string
 	DataDir  string
 	StaticFS fs.FS
+	// AllowedHosts 는 `--allowed-host` 로 명시 추가한 이름들이다
+	// (REQUEST_GATE_SRS FR-RQG-6). `*.ts.net` 처럼 접미사 와일드카드를 쓸 수 있다.
+	//
+	// 기본 허용 집합(loopback·이 기계의 인터페이스 주소·호스트명·ACL 의 호스트명
+	// 항목)은 서버가 스스로 유도하므로 대개 비어 있다. 오버레이 망의 이름으로
+	// 붙는 배치에서만 필요하다.
+	AllowedHosts []string
 }
 
 // Server owns the HTTP server lifecycle.
@@ -69,6 +76,10 @@ type Server struct {
 	// Access 는 접속 허용 목록이다 (ACCESS_ALLOWLIST_SRS). nil 이 아니면 게이트가
 	// 모든 표면 앞에 선다. `--expose` 뒤에 아무 제어가 없던 자리를 여기가 메운다.
 	Access *accessStore
+
+	// hosts 는 `Host`·`Origin` 판정의 허용 집합이다 (REQUEST_GATE_SRS FR-RQG-6).
+	// `Access` 의 `self` 를 읽으므로 그 뒤에 만들어진다.
+	hosts *hostAllow
 
 	started time.Time
 
@@ -142,6 +153,9 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		Access:  access,
 		started: time.Now(),
 	}
+	// REQUEST_GATE_SRS FR-RQG-6: 허용 호스트 집합은 `access.self` 를 읽으므로
+	// 그 뒤에 선다. 새 수집 코드를 만들지 않는 것이 이 설계의 요점이다.
+	srv.hosts = newHostAllow(access, cfg.AllowedHosts)
 	runWorktreeRoot := ""
 	if deps.Worktrees != nil {
 		runWorktreeRoot = deps.Worktrees.Root()
@@ -212,12 +226,44 @@ func (s *Server) Handler() http.Handler {
 	// 시작됐는가" 를 판정할 수 있다.
 	// 게이트는 로깅 **안쪽**, recover **바깥쪽**이다 (FR-ACL-10): 거절이 접근
 	// 로그에 남아야 하고, mux 바깥이라야 정적 자산·/api/*·/ws 가 한 겹에 덮인다.
-	return loggingMiddlewareFor(s, accessGate(s.Access, recoverMiddleware(mux)))
+	//
+	// REQUEST_GATE_SRS FR-RQG-1: 게이트가 셋이고 **직렬**이다.
+	//
+	//	accessGate   어느 기기인가   (출발지 IP)
+	//	requestGate  어느 출처인가   (Origin·Host·Sec-Fetch·Content-Type)
+	//	authGate     누구인가       (M4 가 채운다 — 지금은 통과)
+	//
+	// 순서가 계약이다. ACL 이 1차 필터로 먼저 서고, 출처 판정이 그 안에서
+	// 브라우저 매개 요청을 가른다 — ACL 은 그것을 가르지 못한다(출발지가 사용자
+	// 자신의 기기다).
+	return loggingMiddlewareFor(s, accessGate(s.Access,
+		requestGate(s.hosts, authGate(recoverMiddleware(mux)))))
 }
 
 // Run starts the HTTP server on addr and blocks until ctx is cancelled.
+// ShutdownGrace 는 종료 시 진행 중인 요청에 주는 시간이다.
+//
+// 짧은 이유는 오래 사는 연결이 있기 때문이다 — SSE·WebSocket·대기 종단(최대
+// 30분)이 `Shutdown` 을 그 수명만큼 붙든다. 그 둘을 다 만족시키는 값은 없으므로,
+// **진행 중인 짧은 요청을 지키는 데까지만** 준다.
+const ShutdownGrace = 2 * time.Second
+
 func (s *Server) Run(ctx context.Context, addr string) error {
-	srv := &http.Server{Addr: addr, Handler: s.Handler()}
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: s.Handler(),
+		// REQUEST_GATE_SRS FR-RQG-18: 타임아웃이 하나도 없었다.
+		//
+		// 헤더를 천천히 보내는 연결(slowloris)이 fd 와 goroutine 을 무기한
+		// 점유했고, keep-alive 유휴 연결도 회수되지 않았다.
+		//
+		// **`ReadTimeout`·`WriteTimeout` 은 두지 않는다.** 전역으로 걸면 SSE
+		// (`handleCommandSSE`)·WebSocket·대기 종단(`handlers_status.go`, 최대
+		// 30분)이 그 시각에 끊긴다. 그 셋은 오래 사는 것이 설계다. 핸들러별
+		// 마감이 필요하면 `http.ResponseController` 가 그 자리다.
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 
 	// FR-CNR-8·12: 끊긴 순간이 기록에 남게 한다. 서버 수명과 함께 시작하고
 	// 끝난다 — 지금은 "끊겼다" 는 사실 자체가 아무 데도 남지 않는다 (§2.3).
@@ -236,7 +282,17 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 
 	select {
 	case <-ctx.Done():
-		// Close immediately so browsers detect disconnection instantly.
+		// FR-RQG-19: **먼저 정중하게, 그다음 끊는다.**
+		//
+		// 종전에는 곧바로 `Close()` 였다. 그 이유("브라우저가 끊김을 즉시 알게
+		// 한다")는 유효하지만, 진행 중인 응답을 쓰는 도중에 끊으면 사용자의
+		// 저장이 반만 나간다 — 워크스페이스 PUT 이 그 자리다.
+		//
+		// `ShutdownGrace` 가 짧아서 즉시성은 사실상 유지된다: 짧은 요청은 그
+		// 안에 끝나고, 오래 사는 SSE·WS 는 뒤따르는 `Close()` 가 끊는다.
+		grace, cancel := context.WithTimeout(context.Background(), ShutdownGrace)
+		_ = srv.Shutdown(grace)
+		cancel()
 		_ = srv.Close()
 		return <-errCh
 	case err := <-errCh:

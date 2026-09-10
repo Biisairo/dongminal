@@ -66,6 +66,7 @@ func TestHandlerWorkspacePutIfMatch(t *testing.T) {
 	defer ts.Close()
 
 	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/workspace", bytes.NewReader([]byte(`{}`)))
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("If-Match", "3")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -82,6 +83,7 @@ func TestHandlerWorkspacePutIfMatch(t *testing.T) {
 	// sanity: stale=false 상태에서는 200 + 신 rev 반환
 	fw.stale = false
 	req2, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/workspace", bytes.NewReader([]byte(`{}`)))
+	req2.Header.Set("Content-Type", "application/json")
 	resp2, err := http.DefaultClient.Do(req2)
 	if err != nil {
 		t.Fatalf("PUT2: %v", err)

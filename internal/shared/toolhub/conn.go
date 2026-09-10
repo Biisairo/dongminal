@@ -31,6 +31,18 @@ const (
 	bufMax     = 1 << 20
 )
 
+// Upgrader 는 `/ws` 의 업그레이드다. 유일한 사용처가 `httpapi.handleWS` 이고,
+// 그 핸들러는 **mux 안**에 있다.
+//
+// `CheckOrigin` 이 항상 참인 것은 그 사실 위에 선다 (REQUEST_GATE_SRS FR-RQG-11):
+// 출처 판정은 `requestGate` 가 mux **바깥**에서 이미 끝냈다. 여기서 다시 보면
+// 판정이 두 벌이 되고, 두 벌이면 한쪽만 고쳐진다 — 이 저장소가 그 값을 여러 번
+// 치렀다.
+//
+// **이 값을 게이트 밖에서 쓰지 마라.** gorilla 의 기본값(nil)은 `Origin` 이 `Host`
+// 와 같아야 통과시키는데, 그것을 덮어 쓴 채 게이트 없는 자리에 두면 임의의
+// 웹페이지가 터미널을 얻는다(CSWSH → RCE). 그 자리가 실제로 있었고, 전제는
+// "사용자가 이 서버를 띄운 채 아무 페이지나 연다" 하나였다.
 var Upgrader = websocket.Upgrader{
 	ReadBufferSize:  8192,
 	WriteBufferSize: 8192,

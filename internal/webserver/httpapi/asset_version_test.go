@@ -92,7 +92,7 @@ var servedVerRe = regexp.MustCompile(`\?v=([0-9a-f]+)`)
 func servedIndex(t *testing.T, h http.Handler) string {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	h.ServeHTTP(rec, apiTestRequest(http.MethodGet, "/", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET / = %d", rec.Code)
 	}
@@ -125,7 +125,7 @@ func TestIndexPlaceholderSubstituted(t *testing.T) {
 func TestIndexPathRedirectsAsBefore(t *testing.T) {
 	h := staticTestServer(t, fsWith(map[string]string{"js/app.js": "x\n"}))
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/index.html", nil))
+	h.ServeHTTP(rec, apiTestRequest(http.MethodGet, "/index.html", nil))
 	if rec.Code != http.StatusMovedPermanently {
 		t.Fatalf("code = %d, want 301", rec.Code)
 	}
@@ -141,7 +141,7 @@ func TestAssetsAreNotSubstituted(t *testing.T) {
 	h := staticTestServer(t, fsWith(map[string]string{"js/app.js": body}))
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/js/app.js", nil))
+	h.ServeHTTP(rec, apiTestRequest(http.MethodGet, "/js/app.js", nil))
 	if got := rec.Body.String(); got != body {
 		t.Fatalf("자산이 치환됐다: %q", got)
 	}
@@ -155,7 +155,7 @@ func TestIndexETagFollowsSubstitution(t *testing.T) {
 	etagOf := func(js string) string {
 		h := staticTestServer(t, fsWith(map[string]string{"js/app.js": js}))
 		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+		h.ServeHTTP(rec, apiTestRequest(http.MethodGet, "/", nil))
 		if rec.Code != http.StatusOK {
 			t.Fatalf("GET / = %d", rec.Code)
 		}
@@ -176,13 +176,13 @@ func TestIndexETagRevalidates(t *testing.T) {
 	h := staticTestServer(t, fsWith(map[string]string{"js/app.js": "x\n"}))
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	h.ServeHTTP(rec, apiTestRequest(http.MethodGet, "/", nil))
 	etag := rec.Header().Get("ETag")
 	if rec.Header().Get("Cache-Control") != "no-cache" {
 		t.Fatalf("문서가 재검증되지 않는다: %q", rec.Header().Get("Cache-Control"))
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := apiTestRequest(http.MethodGet, "/", nil)
 	req.Header.Set("If-None-Match", etag)
 	rec2 := httptest.NewRecorder()
 	h.ServeHTTP(rec2, req)

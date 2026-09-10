@@ -83,6 +83,7 @@ func TestWorkspacePut_ReapsWithLiveWindows(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/workspace",
 		strings.NewReader(`{"schemaVersion":2,"windows":[]}`))
+	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("put: %v", err)
@@ -109,6 +110,7 @@ func TestWorkspacePut_UnreadableWorkspaceSkipsReap(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/workspace",
 		strings.NewReader(`{"schemaVersion":2,"windows":[]}`))
+	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("put: %v", err)
@@ -183,6 +185,7 @@ func TestSandboxConfig_ReadAndWrite(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/sandbox/config",
 		strings.NewReader(`{"dev":{"image":"node:22"}}`))
+	req.Header.Set("Content-Type", "application/json")
 	put, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("put: %v", err)
@@ -204,6 +207,7 @@ func TestSandboxConfig_RejectionCarriesReason(t *testing.T) {
 	defer ts.Close()
 
 	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/sandbox/config", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("put: %v", err)

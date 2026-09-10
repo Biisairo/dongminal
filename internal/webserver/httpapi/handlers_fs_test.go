@@ -39,9 +39,9 @@ func fsReq(t *testing.T, s *Server, method, path, body string) (int, map[string]
 	t.Helper()
 	var r *http.Request
 	if body == "" {
-		r = httptest.NewRequest(method, path, nil)
+		r = apiTestRequest(method, path, nil)
 	} else {
-		r = httptest.NewRequest(method, path, strings.NewReader(body))
+		r = apiTestRequest(method, path, strings.NewReader(body))
 	}
 	rec := httptest.NewRecorder()
 	http.HandlerFunc(s.handleAPI).ServeHTTP(rec, r)

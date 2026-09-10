@@ -3,10 +3,11 @@ package httpapi
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
+
+	"dongminal/internal/webserver/httpreq"
 	"net/netip"
 	"os"
 	"strings"
@@ -266,6 +267,48 @@ func isPlainHostname(v string) bool {
 }
 
 // allowed 는 이 출발지를 들여보낼지의 판정 전부다.
+// isSelf 는 그 주소가 **이 기계의 것**인지 본다 (REQUEST_GATE_SRS FR-RQG-6).
+//
+// `allowed` 와 가르는 이유는 묻는 것이 다르기 때문이다. `allowed` 는 "이 출발지를
+// 들여보낼까" 이고 여기는 "이 이름이 나를 가리키나" 다 — 후자는 목록의 켜짐·꺼짐과
+// 무관하다. 한 함수로 묶으면 ACL 이 꺼져 있을 때 `allowed` 가 전부 참이 되므로
+// Host 판정이 통째로 무력해진다.
+func (s *accessStore) isSelf(addr netip.Addr) bool {
+	addr = addr.Unmap()
+	if addr.IsLoopback() {
+		return true
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, a := range s.self {
+		if a == addr {
+			return true
+		}
+	}
+	return false
+}
+
+// hasHostname 은 그 이름이 ACL 목록의 호스트명 항목인지 본다.
+//
+// 사용자가 "이 이름으로 들어온다" 고 이미 적어 둔 값이므로, 같은 이름으로 오는
+// 요청을 Host 판정이 막을 이유가 없다. **꺼진 항목은 세지 않는다** (FR-ACL-17).
+func (s *accessStore) hasHostname(name string) bool {
+	if name == "" {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, e := range s.cfg.Entries {
+		if !e.Enabled || !isPlainHostname(e.Value) {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSuffix(e.Value, "."), name) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *accessStore) allowed(addr netip.Addr) bool {
 	addr = addr.Unmap()
 	s.mu.Lock()
@@ -421,9 +464,9 @@ func (s *Server) apiAccessPut(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "access store unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	body, err := io.ReadAll(r.Body)
+	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		http.Error(w, "read body", http.StatusBadRequest)
+		http.Error(w, "read body", httpreq.Status(err))
 		return
 	}
 	var cfg accessConfig

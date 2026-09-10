@@ -104,7 +104,7 @@ func TestDiagLastRequestUpdatedByFilteredPath(t *testing.T) {
 	if shouldLogRequest("/api/ping", 200) {
 		t.Fatal("전제가 깨졌다 — /api/ping 이 로그에 남는다")
 	}
-	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/ping", nil))
+	h.ServeHTTP(httptest.NewRecorder(), apiTestRequest(http.MethodGet, "/api/ping", nil))
 
 	if s.lastReq.Load() == 0 {
 		t.Fatal("걸러지는 경로가 lastReq 를 갱신하지 않았다 — FR-CNR-11 위반")

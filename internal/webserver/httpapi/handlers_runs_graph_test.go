@@ -18,7 +18,7 @@ import (
 func graphOf(t *testing.T, s *Server, runID string) (int, map[string]any, string) {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/runs/"+runID+"/graph", nil))
+	s.Handler().ServeHTTP(rec, apiTestRequest(http.MethodGet, "/api/runs/"+runID+"/graph", nil))
 	var out map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &out)
 	return rec.Code, out, rec.Body.String()

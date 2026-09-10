@@ -566,7 +566,7 @@ func TestHandleAPI_ToolsCreate_CwdToolRef(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp := mustPost(t, ts.URL+"/api/tools?cwdTool=ref", "", nil)
+	resp := mustPost(t, ts.URL+"/api/tools?cwdTool=ref", "application/json", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
@@ -585,7 +585,7 @@ func TestHandleAPI_ToolsCreate_CwdToolRef_ResolvesLiveCwd(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp := mustPost(t, ts.URL+"/api/tools?cwdTool=ref", "", nil)
+	resp := mustPost(t, ts.URL+"/api/tools?cwdTool=ref", "application/json", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
@@ -604,7 +604,7 @@ func TestHandleAPI_ToolsCreate_ExplicitCwdWins(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp := mustPost(t, ts.URL+"/api/tools?cwd=/explicit&cwdTool=ref", "", nil)
+	resp := mustPost(t, ts.URL+"/api/tools?cwd=/explicit&cwdTool=ref", "application/json", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
@@ -621,7 +621,7 @@ func TestHandleAPI_ToolsCreate_UnknownCwdToolFallsBack(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp := mustPost(t, ts.URL+"/api/tools?cwdTool=missing", "", nil)
+	resp := mustPost(t, ts.URL+"/api/tools?cwdTool=missing", "application/json", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)

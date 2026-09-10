@@ -16,7 +16,7 @@ import (
 func deleteRun(t *testing.T, s *Server, path string) (int, map[string]any) {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, path, nil))
+	s.Handler().ServeHTTP(rec, apiTestRequest(http.MethodDelete, path, nil))
 	var out map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &out)
 	return rec.Code, out

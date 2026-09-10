@@ -32,7 +32,7 @@ func transferSrv(t *testing.T, root string) *Server {
 func doGet(t *testing.T, s *Server, path string) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	http.HandlerFunc(s.handleAPI).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+	http.HandlerFunc(s.handleAPI).ServeHTTP(rec, apiTestRequest(http.MethodGet, path, nil))
 	return rec
 }
 
@@ -53,7 +53,7 @@ func multipartBody(t *testing.T, name string, content []byte) (*bytes.Buffer, st
 func doUpload(t *testing.T, s *Server, path, name string, content []byte) *httptest.ResponseRecorder {
 	t.Helper()
 	body, ct := multipartBody(t, name, content)
-	r := httptest.NewRequest(http.MethodPost, path, body)
+	r := apiTestRequest(http.MethodPost, path, body)
 	r.Header.Set("Content-Type", ct)
 	rec := httptest.NewRecorder()
 	http.HandlerFunc(s.handleAPI).ServeHTTP(rec, r)

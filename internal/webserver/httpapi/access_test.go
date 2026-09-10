@@ -39,7 +39,7 @@ func entry(value string) accessEntry {
 // gateStatus 는 주어진 출발지로 게이트를 통과시켰을 때의 상태코드다.
 func gateStatus(st *accessStore, remoteAddr, path string) int {
 	ok := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req := apiTestRequest(http.MethodGet, path, nil)
 	req.RemoteAddr = remoteAddr
 	rec := httptest.NewRecorder()
 	accessGate(st, ok).ServeHTTP(rec, req)
@@ -125,7 +125,7 @@ func TestAccessGate_IgnoresForwardedHeaders(t *testing.T) {
 	mustSetConfig(t, st, accessConfig{Enabled: true, Entries: []accessEntry{entry("10.0.0.1")}})
 
 	ok := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := apiTestRequest(http.MethodGet, "/", nil)
 	req.RemoteAddr = "203.0.113.9:5000"
 	req.Header.Set("X-Forwarded-For", "10.0.0.1")
 	req.Header.Set("X-Real-IP", "10.0.0.1")
@@ -155,7 +155,7 @@ func TestAccessGate_BlocksUnlistedWithoutLeaking(t *testing.T) {
 	mustSetConfig(t, st, accessConfig{Enabled: true, Entries: []accessEntry{entry("10.0.0.1")}})
 
 	ok := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := apiTestRequest(http.MethodGet, "/", nil)
 	req.RemoteAddr = "203.0.113.9:5000"
 	rec := httptest.NewRecorder()
 	accessGate(st, ok).ServeHTTP(rec, req)
@@ -284,7 +284,7 @@ func TestAccessAPI_RoundTripAndBroadcast(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := `{"enabled":true,"entries":[{"id":"a","value":"10.0.0.1","label":"nas","enabled":true}]}`
-	req := httptest.NewRequest(http.MethodPut, "/api/access", strings.NewReader(body))
+	req := apiTestRequest(http.MethodPut, "/api/access", strings.NewReader(body))
 	req.RemoteAddr = "127.0.0.1:5000"
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
@@ -292,7 +292,7 @@ func TestAccessAPI_RoundTripAndBroadcast(t *testing.T) {
 		t.Fatalf("PUT status=%d body=%s", rec.Code, rec.Body.String())
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/api/access", nil)
+	req = apiTestRequest(http.MethodGet, "/api/access", nil)
 	req.RemoteAddr = "127.0.0.1:5000"
 	rec = httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
@@ -317,7 +317,7 @@ func TestAccessAPI_InvalidValueIs400(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := httptest.NewRequest(http.MethodPut, "/api/access",
+	req := apiTestRequest(http.MethodPut, "/api/access",
 		strings.NewReader(`{"enabled":true,"entries":[{"id":"a","value":"nope!!","enabled":true}]}`))
 	req.RemoteAddr = "127.0.0.1:5000"
 	rec := httptest.NewRecorder()
@@ -337,7 +337,7 @@ func TestAccessAPI_ReportsCallerAddress(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := httptest.NewRequest(http.MethodGet, "/api/access", nil)
+	req := apiTestRequest(http.MethodGet, "/api/access", nil)
 	req.RemoteAddr = "100.117.248.111:5000"
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)

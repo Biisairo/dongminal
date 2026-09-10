@@ -31,7 +31,7 @@ func TestToolManager_AttentionIDs_AndEndpoint(t *testing.T) {
 
 	s := &Server{Deps: Deps{Tools: m}}
 	rec := httptest.NewRecorder()
-	s.apiToolsAttention(rec, httptest.NewRequest(http.MethodGet, "/api/tools/attention", nil))
+	s.apiToolsAttention(rec, apiTestRequest(http.MethodGet, "/api/tools/attention", nil))
 	var got struct {
 		ToolIds []string `json:"toolIds"`
 	}
@@ -57,7 +57,7 @@ func TestApiToolAttentionClear(t *testing.T) {
 
 	// unknown tool → 200 no-op.
 	rec := httptest.NewRecorder()
-	s.apiToolAttentionClear(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear",
+	s.apiToolAttentionClear(rec, apiTestRequest(http.MethodPost, "/api/tools/attention/clear",
 		strings.NewReader(`{"toolId":"999"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("unknown tool want 200, got %d", rec.Code)
@@ -65,7 +65,7 @@ func TestApiToolAttentionClear(t *testing.T) {
 
 	// known attention tool → cleared + notifier fired.
 	rec = httptest.NewRecorder()
-	s.apiToolAttentionClear(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear",
+	s.apiToolAttentionClear(rec, apiTestRequest(http.MethodPost, "/api/tools/attention/clear",
 		strings.NewReader(`{"toolId":"4"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("known tool want 200, got %d", rec.Code)
@@ -79,7 +79,7 @@ func TestApiToolAttentionClear(t *testing.T) {
 
 	// missing toolId → 400.
 	rec = httptest.NewRecorder()
-	s.apiToolAttentionClear(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear",
+	s.apiToolAttentionClear(rec, apiTestRequest(http.MethodPost, "/api/tools/attention/clear",
 		strings.NewReader(`{}`)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("missing toolId want 400, got %d", rec.Code)
@@ -104,7 +104,7 @@ func TestApiToolAttentionSet(t *testing.T) {
 	p.SetActivity("working", "Bash", "")
 
 	rec := httptest.NewRecorder()
-	s.apiToolAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/set",
+	s.apiToolAttentionSet(rec, apiTestRequest(http.MethodPost, "/api/tools/attention/set",
 		strings.NewReader(`{"toolId":"9","reason":"done"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("set want 200, got %d", rec.Code)
@@ -119,7 +119,7 @@ func TestApiToolAttentionSet(t *testing.T) {
 	// Re-notify: a second explicit signal must fire AGAIN even though the tool
 	// is already in attention (each agent completion re-alerts) — not edge-gated.
 	rec = httptest.NewRecorder()
-	s.apiToolAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/set",
+	s.apiToolAttentionSet(rec, apiTestRequest(http.MethodPost, "/api/tools/attention/set",
 		strings.NewReader(`{"toolId":"9","reason":"waiting"}`)))
 	if len(attn) != 2 || attn[1] != "9:waiting" {
 		t.Fatalf("second signal must re-fire while already in attention, got %v", attn)
@@ -127,7 +127,7 @@ func TestApiToolAttentionSet(t *testing.T) {
 
 	// missing toolId → 400.
 	rec = httptest.NewRecorder()
-	s.apiToolAttentionSet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/set",
+	s.apiToolAttentionSet(rec, apiTestRequest(http.MethodPost, "/api/tools/attention/set",
 		strings.NewReader(`{}`)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("missing toolId want 400, got %d", rec.Code)
@@ -153,7 +153,7 @@ func TestClearAllAttention_AndEndpoint(t *testing.T) {
 
 	s := &Server{Deps: Deps{Tools: m}}
 	rec := httptest.NewRecorder()
-	s.apiToolAttentionClearAll(rec, httptest.NewRequest(http.MethodPost, "/api/tools/attention/clear-all", nil))
+	s.apiToolAttentionClearAll(rec, apiTestRequest(http.MethodPost, "/api/tools/attention/clear-all", nil))
 	var got struct {
 		Cleared int `json:"cleared"`
 	}
@@ -184,13 +184,13 @@ func TestApiToolDelete_ClearsAttention(t *testing.T) {
 
 	s := &Server{Deps: Deps{Tools: m}}
 	rec := httptest.NewRecorder()
-	s.apiToolDelete(rec, httptest.NewRequest(http.MethodDelete, "/api/tools/del", nil))
+	s.apiToolDelete(rec, apiTestRequest(http.MethodDelete, "/api/tools/del", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("delete code=%d", rec.Code)
 	}
 
 	rec = httptest.NewRecorder()
-	s.apiToolsAttention(rec, httptest.NewRequest(http.MethodGet, "/api/tools/attention", nil))
+	s.apiToolsAttention(rec, apiTestRequest(http.MethodGet, "/api/tools/attention", nil))
 	var got struct {
 		ToolIds []string `json:"toolIds"`
 	}
@@ -226,7 +226,7 @@ func TestApiToolAttentionClear_TypedUnlocksRearm(t *testing.T) {
 			t.Cleanup(s.Tools.(*toolhub.ToolManager).StopSaving)
 
 			rec := httptest.NewRecorder()
-			s.apiToolAttentionClear(rec, httptest.NewRequest(http.MethodPost,
+			s.apiToolAttentionClear(rec, apiTestRequest(http.MethodPost,
 				"/api/tools/attention/clear", strings.NewReader(tc.body)))
 			if rec.Code != http.StatusOK {
 				t.Fatalf("clear → %d", rec.Code)

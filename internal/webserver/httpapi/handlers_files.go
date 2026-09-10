@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+
+	"dongminal/internal/webserver/httpreq"
 	"os"
 	"path/filepath"
 	"strings"
@@ -323,13 +325,11 @@ func (s *Server) apiCwd(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
-	fp := r.URL.Query().Get("path")
-	if fp == "" {
-		http.Error(w, "missing path", http.StatusBadRequest)
-		return
-	}
-	if !filepath.IsAbs(fp) {
-		http.Error(w, "path must be absolute", http.StatusBadRequest)
+	// FR-FAB-11: 읽기도 같은 판정이다. 쓰기만 막고 읽기를 열어 두면 SSH 개인키나
+	// 클라우드 자격 파일이 그대로 나간다 — 이쪽은 응답을 돌려주므로 오히려 더
+	// 직접적이다.
+	fp, ok := s.fileGuard(w, r, r.URL.Query().Get("path"), false)
+	if !ok {
 		return
 	}
 	f, err := os.Open(fp)
@@ -360,9 +360,9 @@ type fileWriteReq struct {
 }
 
 func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
+	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		http.Error(w, "read body: "+err.Error(), http.StatusBadRequest)
+		http.Error(w, "read body: "+err.Error(), httpreq.Status(err))
 		return
 	}
 	var req fileWriteReq
@@ -370,17 +370,17 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid json: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	if req.Path == "" {
-		http.Error(w, "missing path", http.StatusBadRequest)
-		return
-	}
-	if !filepath.IsAbs(req.Path) {
-		http.Error(w, "path must be absolute", http.StatusBadRequest)
+	// FILE_API_BOUNDARY_SRS FR-FAB-1: 허용 루트 아래여야 한다.
+	//
+	// 종전에는 `IsAbs` 하나만 봤고, 그래서 `~/.ssh/authorized_keys` 를 요청 하나로
+	// 덮을 수 있었다 — 응답을 읽을 필요조차 없다.
+	target, ok := s.fileGuard(w, r, req.Path, true)
+	if !ok {
 		return
 	}
 	// 원자적으로 쓴다 (FR-CAF-11). 여기서 잘리는 것은 우리 상태 파일이 아니라
 	// **사용자가 쓰던 원본**이다 — 편집기의 저장이 이 종단이다.
-	if err := platform.WriteFileAtomic(req.Path, []byte(req.Content), 0o644); err != nil {
+	if err := platform.WriteFileAtomic(target, []byte(req.Content), 0o644); err != nil {
 		log.Printf("file write error: %v", err)
 		http.Error(w, "write failed: "+err.Error(), http.StatusInternalServerError)
 		return

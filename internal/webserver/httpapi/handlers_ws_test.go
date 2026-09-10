@@ -364,3 +364,69 @@ func TestRelayOutput_SendsExitOnToolExit(t *testing.T) {
 		t.Fatal("exit 후에도 릴레이가 살아 있다")
 	}
 }
+
+// REQUEST_GATE_SRS §4.2 — WebSocket 의 출처 (TC-RQG-14~16).
+//
+// 종전에는 `toolhub.Upgrader.CheckOrigin` 이 **항상 true** 였다. gorilla 의 기본값
+// (nil)은 `Origin` 호스트가 `Host` 와 같아야 통과시키는데, 그것을 명시적으로 덮어
+// 쓴 것이다.
+//
+// 브라우저의 WebSocket 은 CORS 프리플라이트가 없고 **응답도 읽을 수 있다.** 그래서
+// 임의의 웹페이지가 `ws://127.0.0.1:58146/ws` 를 열면(`tool` 을 생략하면) 서버가
+// 사용자 권한의 로그인 셸을 하나 만들고, 이후 프레임으로 명령을 타이핑·실행할 수
+// 있었다. ACL 은 이것을 막지 못한다 — 출발지가 사용자 자신의 기기다.
+
+// dialWS 는 헤더를 실어 업그레이드를 시도하고 HTTP 상태를 준다.
+// 성공하면 101 이고 연결은 곧바로 닫는다.
+func dialWS(t *testing.T, ts *httptest.Server, path string, hdr http.Header) int {
+	t.Helper()
+	wsURL := strings.Replace(ts.URL, "http://", "ws://", 1) + path
+	c, resp, err := websocket.DefaultDialer.Dial(wsURL, hdr)
+	if c != nil {
+		c.Close()
+	}
+	if resp != nil {
+		defer resp.Body.Close()
+		return resp.StatusCode
+	}
+	t.Fatalf("dial 이 응답도 오류도 주지 않았다: %v", err)
+	return 0
+}
+
+func wsGateServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	t.Cleanup(pm.StopSaving)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+	return ts
+}
+
+// TC-RQG-14: 다른 출처가 연 WebSocket 은 **업그레이드 전에** 막힌다.
+func TestHandleWS_CrossOriginRejected(t *testing.T) {
+	ts := wsGateServer(t)
+	h := http.Header{}
+	h.Set("Origin", "https://evil.example")
+	if got := dialWS(t, ts, "/ws?cols=80&rows=24", h); got != http.StatusForbidden {
+		t.Fatalf("status=%d want 403 — 임의 웹페이지가 셸을 얻는다 (CSWSH → RCE)", got)
+	}
+}
+
+// TC-RQG-15: `Origin` 없는 업그레이드는 통과한다 (비브라우저 클라이언트).
+func TestHandleWS_NoOriginAllowed(t *testing.T) {
+	ts := wsGateServer(t)
+	if got := dialWS(t, ts, "/ws?cols=80&rows=24", nil); got != http.StatusSwitchingProtocols {
+		t.Fatalf("status=%d want 101 — Origin 없는 클라이언트가 막혔다", got)
+	}
+}
+
+// TC-RQG-16: 자기 출처는 통과한다. 게이트가 자기 화면을 막으면 안 된다.
+func TestHandleWS_SameOriginAllowed(t *testing.T) {
+	ts := wsGateServer(t)
+	h := http.Header{}
+	h.Set("Origin", ts.URL)
+	if got := dialWS(t, ts, "/ws?cols=80&rows=24", h); got != http.StatusSwitchingProtocols {
+		t.Fatalf("status=%d want 101 — 자기 화면의 WebSocket 이 막혔다", got)
+	}
+}

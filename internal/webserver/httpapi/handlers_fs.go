@@ -3,9 +3,10 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"io/fs"
 	"net/http"
+
+	"dongminal/internal/webserver/httpreq"
 	"os"
 	"path/filepath"
 	"sort"
@@ -19,10 +20,18 @@ import (
 // /api/fs/* · /api/editors/* — 탐색기의 조회·조작과 Editor 목록
 // (EDITOR_TAB_SRS §3.11 FR-EDT-108~119).
 //
-// 경로 가드가 /api/file/{read,write} 와 **다르다.** 저쪽은 절대경로인지만 보고
-// 그 위의 상한이 없는데, 그것은 사용자가 경로를 이미 알고 지목한 읽기·쓰기이기
-// 때문이다. 이쪽은 트리 탐색에서 파생된 경로를 지우고 옮긴다 — 상한이 없으면
-// 버그 하나가 홈 밖을 지운다 (D-16, FR-EDT-112).
+// 경로 가드가 /api/file/{read,write} 와 **다르다** — 다만 이제 다른 것은 상한의
+// 유무가 아니라 **루트를 고르는 방법**이다 (FILE_API_BOUNDARY_SRS §6).
+//
+//	이쪽(/api/fs/*)   클라이언트가 보낸 `root` 를 Editor 목록과 대조한다
+//	저쪽(/api/file/*)  서버가 루트 목록을 만든다 (Editor·도구 cwd·Notes·홈)
+//
+// 저쪽에 상한이 없던 시절의 근거는 "사용자가 경로를 이미 알고 지목한 읽기·쓰기"
+// 였고, 그것은 대화형 사용자에게만 참이었다. 이쪽은 트리 탐색에서 파생된 경로를
+// 지우고 옮긴다 — 상한이 없으면 버그 하나가 홈 밖을 지운다 (D-16, FR-EDT-112).
+//
+// **대조 함수는 한 벌이다.** `fsResolveExisting`·`fsResolveTarget` 을 저쪽이
+// 그대로 쓴다.
 
 // 오류 코드는 Git API 와 같은 규약이다 — 상태 코드만으로는 프록시가 만든 500 과
 // 조작 실패를 가릴 수 없다 (FR-EDT-117).
@@ -90,7 +99,7 @@ func fsFromOS(err error) error {
 }
 
 func fsDecode(w http.ResponseWriter, r *http.Request, into any) bool {
-	body, err := io.ReadAll(r.Body)
+	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
 		fsFail(w, fsErrBadRequest, "본문을 읽지 못했다: "+err.Error())
 		return false

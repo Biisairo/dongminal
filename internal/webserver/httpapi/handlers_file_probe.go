@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -113,14 +112,11 @@ func looksLikeSVG(head []byte) bool {
 
 // openRegularFile 은 절대경로의 **일반 파일**을 연다. 두 종단이 같은 가드를
 // 딛는다 — 경로 검사가 갈리면 한쪽만 디렉터리를 읽으려 든다.
-func openRegularFile(w http.ResponseWriter, r *http.Request) (*os.File, os.FileInfo, bool) {
-	fp := r.URL.Query().Get("path")
-	if fp == "" {
-		http.Error(w, "missing path", http.StatusBadRequest)
-		return nil, nil, false
-	}
-	if !filepath.IsAbs(fp) {
-		http.Error(w, "path must be absolute", http.StatusBadRequest)
+// FILE_API_BOUNDARY_SRS FR-FAB-11: `probe`·`raw` 도 `read`·`write` 와 같은 경계다.
+// 넷 중 하나만 열려 있으면 그것이 곧 우회 경로다.
+func (s *Server) openRegularFile(w http.ResponseWriter, r *http.Request) (*os.File, os.FileInfo, bool) {
+	fp, ok := s.fileGuard(w, r, r.URL.Query().Get("path"), false)
+	if !ok {
 		return nil, nil, false
 	}
 	f, err := os.Open(fp)
@@ -139,7 +135,7 @@ func openRegularFile(w http.ResponseWriter, r *http.Request) (*os.File, os.FileI
 
 // GET /api/file/probe?path=<abs> — {kind, mime, size} (FR-EVW-1).
 func (s *Server) apiFileProbe(w http.ResponseWriter, r *http.Request) {
-	f, st, ok := openRegularFile(w, r)
+	f, st, ok := s.openRegularFile(w, r)
 	if !ok {
 		return
 	}
@@ -167,7 +163,7 @@ func (s *Server) apiFileProbe(w http.ResponseWriter, r *http.Request) {
 // 형식이며, 그래서 다른 것들에는 없는 잠금장치가 함께 간다 — 내용 판정과
 // `Content-Security-Policy: sandbox` 다. 아래 분기의 주석이 그 값을 적고 있다.
 func (s *Server) apiFileRaw(w http.ResponseWriter, r *http.Request) {
-	f, st, ok := openRegularFile(w, r)
+	f, st, ok := s.openRegularFile(w, r)
 	if !ok {
 		return
 	}

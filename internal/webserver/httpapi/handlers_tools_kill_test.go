@@ -42,7 +42,7 @@ func waitFor(t *testing.T, path string) {
 
 func postKill(s *Server, body string) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
-	s.apiToolKill(rec, httptest.NewRequest(http.MethodPost, "/api/tools/kill", strings.NewReader(body)))
+	s.apiToolKill(rec, apiTestRequest(http.MethodPost, "/api/tools/kill", strings.NewReader(body)))
 	return rec
 }
 

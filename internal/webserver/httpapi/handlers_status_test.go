@@ -41,7 +41,7 @@ func statusServer(t *testing.T) (*Server, *toolhub.ToolManager, *toolhub.Tool) {
 func getStatus(t *testing.T, s *Server, query string) (int, map[string]any) {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	s.apiToolStatus(rec, httptest.NewRequest(http.MethodGet, "/api/tools/activity/get?"+query, nil))
+	s.apiToolStatus(rec, apiTestRequest(http.MethodGet, "/api/tools/activity/get?"+query, nil))
 	var out map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &out)
 	return rec.Code, out
@@ -50,7 +50,7 @@ func getStatus(t *testing.T, s *Server, query string) (int, map[string]any) {
 func getWait(t *testing.T, s *Server, query string) (int, map[string]any) {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	s.apiToolStatusWait(rec, httptest.NewRequest(http.MethodGet, "/api/tools/activity/wait?"+query, nil))
+	s.apiToolStatusWait(rec, apiTestRequest(http.MethodGet, "/api/tools/activity/wait?"+query, nil))
 	var out map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &out)
 	return rec.Code, out

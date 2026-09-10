@@ -64,7 +64,7 @@ func runsServer(t *testing.T, caller string) (*Server, *toolhub.ToolManager, *ru
 func postRun(t *testing.T, s *Server, path, body string) (int, map[string]any) {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	req := apiTestRequest(http.MethodPost, path, strings.NewReader(body))
 	s.Handler().ServeHTTP(rec, req)
 	var out map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &out)
@@ -74,7 +74,7 @@ func postRun(t *testing.T, s *Server, path, body string) (int, map[string]any) {
 func getRun(t *testing.T, s *Server, path string) (int, map[string]any) {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+	s.Handler().ServeHTTP(rec, apiTestRequest(http.MethodGet, path, nil))
 	var out map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &out)
 	return rec.Code, out

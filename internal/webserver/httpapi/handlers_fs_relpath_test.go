@@ -45,7 +45,7 @@ func relUpload(t *testing.T, s *Server, root, dir, name, relPath string, content
 	t.Helper()
 	body, ct := relUploadBody(t, name, relPath, content)
 	u := "/api/fs/upload?root=" + url.QueryEscape(root) + "&dir=" + url.QueryEscape(dir)
-	r := httptest.NewRequest(http.MethodPost, u, body)
+	r := apiTestRequest(http.MethodPost, u, body)
 	r.Header.Set("Content-Type", ct)
 	rec := httptest.NewRecorder()
 	http.HandlerFunc(s.handleAPI).ServeHTTP(rec, r)

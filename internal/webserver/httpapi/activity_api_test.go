@@ -23,7 +23,7 @@ func TestApiToolActivitySet(t *testing.T) {
 
 	// known tool → updates + notifier fires.
 	rec := httptest.NewRecorder()
-	s.apiToolActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
+	s.apiToolActivitySet(rec, apiTestRequest(http.MethodPost, "/api/tools/activity/set",
 		strings.NewReader(`{"toolId":"9","state":"working","tool":"Bash","detail":"npm test"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("set want 200, got %d", rec.Code)
@@ -38,7 +38,7 @@ func TestApiToolActivitySet(t *testing.T) {
 
 	// unknown tool → 200 no-op.
 	rec = httptest.NewRecorder()
-	s.apiToolActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
+	s.apiToolActivitySet(rec, apiTestRequest(http.MethodPost, "/api/tools/activity/set",
 		strings.NewReader(`{"toolId":"999","state":"done"}`)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("unknown tool want 200, got %d", rec.Code)
@@ -46,7 +46,7 @@ func TestApiToolActivitySet(t *testing.T) {
 
 	// missing toolId → 400.
 	rec = httptest.NewRecorder()
-	s.apiToolActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
+	s.apiToolActivitySet(rec, apiTestRequest(http.MethodPost, "/api/tools/activity/set",
 		strings.NewReader(`{"state":"done"}`)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("missing toolId want 400, got %d", rec.Code)
@@ -54,7 +54,7 @@ func TestApiToolActivitySet(t *testing.T) {
 
 	// invalid state → 400.
 	rec = httptest.NewRecorder()
-	s.apiToolActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
+	s.apiToolActivitySet(rec, apiTestRequest(http.MethodPost, "/api/tools/activity/set",
 		strings.NewReader(`{"toolId":"9","state":"bogus"}`)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("invalid state want 400, got %d", rec.Code)
@@ -73,7 +73,7 @@ func TestApiToolsActivity_Endpoint(t *testing.T) {
 	s := &Server{Deps: Deps{Tools: m}}
 
 	rec := httptest.NewRecorder()
-	s.apiToolsActivity(rec, httptest.NewRequest(http.MethodGet, "/api/tools/activity", nil))
+	s.apiToolsActivity(rec, apiTestRequest(http.MethodGet, "/api/tools/activity", nil))
 	var got struct {
 		Activities []struct {
 			ToolID string `json:"toolId"`
@@ -107,7 +107,7 @@ func TestApiToolActivitySet_UserPromptReachesTheTurnMark(t *testing.T) {
 	// 배경 턴: 도구를 쓰고 끝났다 — 사용자 프롬프트가 없다.
 	post := func(body string) {
 		rec := httptest.NewRecorder()
-		s.apiToolActivitySet(rec, httptest.NewRequest(http.MethodPost, "/api/tools/activity/set",
+		s.apiToolActivitySet(rec, apiTestRequest(http.MethodPost, "/api/tools/activity/set",
 			strings.NewReader(body)))
 		if rec.Code != http.StatusOK {
 			t.Fatalf("activity set want 200, got %d", rec.Code)

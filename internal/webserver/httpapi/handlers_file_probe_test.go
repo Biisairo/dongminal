@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+
+	"dongminal/internal/webserver/domain/wsentry"
 	"testing"
 )
 
@@ -21,7 +23,7 @@ var pngBytes = append(
 
 func probeGet(t *testing.T, s *Server, path, p string) (int, map[string]any) {
 	t.Helper()
-	r := httptest.NewRequest("GET", path+"?path="+url.QueryEscape(p), nil)
+	r := apiTestRequest("GET", path+"?path="+url.QueryEscape(p), nil)
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, r)
 	var body map[string]any
@@ -36,7 +38,21 @@ func probeServer(t *testing.T) (*Server, string) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	return srv, t.TempDir()
+	// FILE_API_BOUNDARY_SRS FR-FAB-1: `/api/file/*` 는 이제 허용 루트 아래만 연다.
+	// 이 검사들이 재는 것은 **무엇을 열 수 있는가**(kind·mime·인라인 규칙)이지
+	// 경계가 아니므로, 작업 폴더를 Editor 루트로 등록해 두고 그 위에서 잰다.
+	// 경계 자체는 `handlers_files_boundary_test.go` 가 잰다.
+	dir := t.TempDir()
+	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = resolved
+	}
+	if _, err := srv.Entries.Mutate(func(cur wsentry.Lists) wsentry.Lists {
+		cur.Editors = append(cur.Editors, dir)
+		return cur
+	}); err != nil {
+		t.Fatalf("Editor 루트 등록: %v", err)
+	}
+	return srv, dir
 }
 
 func writeAt(t *testing.T, dir, name string, blob []byte) string {
@@ -105,7 +121,7 @@ func TestFileRawServesImageInline(t *testing.T) {
 	s, dir := probeServer(t)
 	p := writeAt(t, dir, "pic.png", pngBytes)
 
-	r := httptest.NewRequest("GET", "/api/file/raw?path="+url.QueryEscape(p), nil)
+	r := apiTestRequest("GET", "/api/file/raw?path="+url.QueryEscape(p), nil)
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, r)
 
@@ -146,7 +162,7 @@ func TestFileRawRefusesNonImage(t *testing.T) {
 		{"a.xml", "<?xml version='1.0'?><root><item/></root>"},
 	} {
 		p := writeAt(t, dir, tc.name, []byte(tc.body))
-		r := httptest.NewRequest("GET", "/api/file/raw?path="+url.QueryEscape(p), nil)
+		r := apiTestRequest("GET", "/api/file/raw?path="+url.QueryEscape(p), nil)
 		w := httptest.NewRecorder()
 		s.Handler().ServeHTTP(w, r)
 		if w.Code != http.StatusUnsupportedMediaType {
@@ -172,7 +188,7 @@ var svgBytes = []byte(`<?xml version="1.0"?>
 func TestFileRawServesSVGSandboxed(t *testing.T) {
 	s, dir := probeServer(t)
 	p := writeAt(t, dir, "icon.svg", svgBytes)
-	r := httptest.NewRequest("GET", "/api/file/raw?path="+url.QueryEscape(p), nil)
+	r := apiTestRequest("GET", "/api/file/raw?path="+url.QueryEscape(p), nil)
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, r)
 	if w.Code != 200 {
@@ -197,7 +213,7 @@ func TestFileRawServesSVGSandboxed(t *testing.T) {
 func TestFileRawRejectsHTMLNamedSVG(t *testing.T) {
 	s, dir := probeServer(t)
 	p := writeAt(t, dir, "evil.svg", []byte("<html><body><script>alert(1)</script></body></html>"))
-	r := httptest.NewRequest("GET", "/api/file/raw?path="+url.QueryEscape(p), nil)
+	r := apiTestRequest("GET", "/api/file/raw?path="+url.QueryEscape(p), nil)
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, r)
 	if w.Code == 200 {
