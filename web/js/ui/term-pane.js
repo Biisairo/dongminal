@@ -611,10 +611,19 @@ class TerminalTool {
       };
     },{owner:this,label:'ws-retry'});
   }
+  // 오버레이는 **DOM 으로 세운다** — `_confirmClose` 를 `GitConfirm` 규약으로
+  // 옮긴 것과 같은 근거다 (M2 `UX-1`). `textContent` 는 이스케이프를 부를 필요가
+  // 없고, 부를 함수가 이 파일의 스코프에 있는지도 묻지 않는다.
+  //
+  // 종전에는 `innerHTML` 에 `escHtml(...)` 을 끼워 넣었는데, `escHtml` 은
+  // `helpers.js` 의 전역이라 그 파일을 싣지 않는 자리에서는 없다 — 패널이 종료될
+  // 때마다 `ReferenceError` 로 터졌다 (`reconnect-storm.spec.ts` 가 그 자리다).
   _showOverlay(title,sub){
     let ov=this.el.querySelector('.tp-overlay');
     if(!ov){ov=document.createElement('div');ov.className='tp-overlay';this.el.appendChild(ov)}
-    ov.innerHTML=`<div class="tp-ov-title">${escHtml(title)}</div><div class="tp-ov-sub">${escHtml(sub)}</div>`;
+    const t=document.createElement('div');t.className='tp-ov-title';t.textContent=title;
+    const b=document.createElement('div');b.className='tp-ov-sub';b.textContent=sub;
+    ov.replaceChildren(t,b);
     ov.classList.add('visible');
   }
   _hideOverlay(){
