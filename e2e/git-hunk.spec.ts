@@ -15,7 +15,7 @@ import { tmpPath, cssPath } from './osenv';
 // 보면 서버가 무엇을 했는지 알 수 없다. 이 규약은 옛 판에서 그대로 물려받았다.
 //
 // **조작이 바뀌었다** (DIFF_HUNK_BAR_SRS I-1·I-2): 하단 조각 목록(`.git-hunks`)과
-// 그 안의 줄 클릭이 사라지고, diff 위 hover 툴바와 **Monaco 텍스트 선택**이 그
+// 그 안의 줄 클릭이 사라지고, diff 위 커서 툴바와 **Monaco 텍스트 선택**이 그
 // 자리를 대신한다. 그래서 이 파일의 조작 헬퍼는 DOM 이 아니라 에디터를 딛는다.
 //
 // 상태를 **바꾸는** 테스트이므로 픽스처를 복사해 쓴다 (git-staging.spec.ts 의 선례).
@@ -75,7 +75,7 @@ const confirmGo = (page: Page) => page.locator('#git-confirm .gc-go');
 // openDiff 는 Changes 의 행을 골라 Diff 탭을 연다. 조각 관측은 그 탭이 든다.
 //
 // **관측이 도착할 때까지 기다린다** (FR-DHB-20) — 툴바는 경계를 알기 전에는 뜨지
-// 않으므로, 기다리지 않은 hover 는 순서에 따라 되다 말다 한다.
+// 않으므로, 기다리지 않은 클릭은 순서에 따라 되다 말다 한다.
 async function openDiff(page: Page, group: string, path: string) {
   await expect(row(page, group, path)).toBeVisible({ timeout: 10000 });
   await row(page, group, path).click();
@@ -87,7 +87,7 @@ async function openDiff(page: Page, group: string, path: string) {
   }, undefined, { timeout: 20000 });
   // **에디터도 기다린다.** 조각 관측(`/api/git/hunks`)과 diff 본문은 서로 다른
   // 요청이고 도착 순서가 보장되지 않는다 — 관측만 기다리면 에디터가 아직 서지
-  // 않은 순간에 hover 가 떠나, 좌표를 물을 대상이 `null` 이다. 툴바는 에디터의
+  // 않은 순간에 클릭이 떠나, 좌표를 물을 대상이 `null` 이다. 툴바는 에디터의
   // content widget 이므로(FR-DHB-21) 그것이 서기 전에는 잴 것이 없다.
   await page.waitForFunction(
     () => !!(window as any).app?.gitPanel?._diffView?._editor,
@@ -99,19 +99,77 @@ async function openDiff(page: Page, group: string, path: string) {
 const hunkCount = (page: Page) =>
   page.evaluate(() => ((window as any).app.gitPanel._hunks?.list || []).length);
 
-// 모디파이드 에디터의 그 줄로 마우스를 옮긴다 (FR-DHB-11).
+// 모디파이드 에디터의 그 줄을 **클릭해 커서를 둔다** (FR-DHB-11, U-9 개정).
+//
+// 클릭이지 hover 가 아니다 — 접수한 말이 "해당 줄을 클릭해 커서가 있을 때" 이고,
+// 클릭 하나가 계기 둘(커서 이동·포커스)을 모두 만든다.
 //
 // `.view-line` 의 DOM 순서는 줄 번호와 다를 수 있으므로(Monaco 는 그것을 보장하지
 // 않는다) 좌표를 에디터에게 묻는다.
-async function hoverLine(page: Page, line: number) {
-  const at = await page.evaluate((ln) => {
+async function lineXY(page: Page, line: number) {
+  return page.evaluate((ln) => {
     const ed = (window as any).app.gitPanel._diffView._editor.getModifiedEditor();
     ed.revealLine(ln);
     const p = ed.getScrolledVisiblePosition({ lineNumber: ln, column: 1 });
     const r = ed.getDomNode().getBoundingClientRect();
     return { x: r.left + p.left + 30, y: r.top + p.top + p.height / 2 };
   }, line);
-  await page.mouse.move(at.x, at.y);
+}
+
+// 툴바가 지금 가리키는 줄 (FR-DHB-12). 화면 좌표가 아니라 위젯의 자리를 읽는다.
+const barLine = (page: Page) => page.evaluate(
+  () => (window as any).app.gitPanel._hunkBarPos?.position?.lineNumber ?? -1);
+
+/**
+ * 스크롤이 멎은 뒤의 좌표.
+ *
+ * `revealLine` 직후의 `getScrolledVisiblePosition` 은 **렌더 전 값**이라 그 좌표를
+ * 클릭하면 다른 줄에 떨어진다 — hover 판에서는 마우스가 그 자리에 있는 채로 다시
+ * 이벤트가 나서 덮였지만, 클릭은 한 번이라 어긋나면 그대로 실패다(실측: 흔들림).
+ * 같은 값이 두 번 나올 때까지 다시 잰다.
+ */
+async function stableXY(page: Page, line: number) {
+  let prev = await lineXY(page, line);
+  for (let i = 0; i < 10; i++) {
+    const at = await lineXY(page, line);
+    if (Math.abs(at.y - prev.y) < 0.5 && Math.abs(at.x - prev.x) < 0.5) return at;
+    prev = at;
+  }
+  return prev;
+}
+
+/**
+ * 그 줄을 **실제로 클릭한다** — 클릭 하나가 계기 둘(커서 이동·포커스)을 만든다.
+ *
+ * 접수한 말이 "해당 줄을 클릭해" 이므로 그 제스처를 재는 자리가 있어야 한다.
+ * 다만 좌표를 지나는 검증은 렌더 타이밍에 매달리므로 **대표 두 곳**에서만 쓰고
+ * (V-DHB-2·10), 나머지는 `cursorLine` 으로 커서를 직접 놓는다 — 재는 것은
+ * "커서가 조각에 있을 때 뜨는가" 이고, 흔들리는 기준선은 회귀를 잡지 못한다.
+ */
+async function clickLine(page: Page, line: number) {
+  // **판정은 강하게, 타이밍만 흡수한다.** 단정은 "클릭으로 커서가 그 줄에 놓이고
+  // 툴바가 그 줄에 뜬다" 그대로이고, 렌더가 늦어 첫 클릭이 어긋나는 것만 다시
+  // 누른다 — 좌표를 지나는 클릭은 이 저장소에서 한 번에 맞는 수단이 아니다
+  // (실측: 안정된 좌표를 재도 회차에 따라 어긋난다).
+  await expect.poll(async () => {
+    const at = await stableXY(page, line);
+    await page.mouse.click(at.x, at.y);
+    return barLine(page);
+  }, { timeout: 15000, intervals: [200, 300, 500, 1000] }).toBe(line);
+  await expect(bar(page)).toBeVisible();
+}
+
+// 커서를 그 줄에 놓고 에디터에 포커스를 준다 (FR-DHB-11 의 계기 둘).
+//
+// `selectLines` 와 같은 근거로 API 를 쓴다 — 재는 것은 **커서의 결과**이고,
+// API 로 놓은 커서와 클릭으로 놓은 커서는 에디터 안에서 같은 값이다.
+async function cursorLine(page: Page, line: number) {
+  await page.evaluate((ln) => {
+    const ed = (window as any).app.gitPanel._diffView._editor.getModifiedEditor();
+    ed.revealLine(ln);
+    ed.focus();
+    ed.setPosition({ lineNumber: ln, column: 1 });
+  }, line);
   await expect(bar(page)).toBeVisible({ timeout: 10000 });
 }
 
@@ -140,7 +198,7 @@ test.describe('묶음 R — 하단 패널 폐기', () => {
   });
 });
 
-test.describe('묶음 B·W — hover 툴바와 조각 단위 쓰기', () => {
+test.describe('묶음 B·W — 커서 툴바와 조각 단위 쓰기', () => {
   // V-DHB-2 (옛 G1): 세 조각 중 하나만 스테이지된다. 나머지는 남는다.
   test('V-DHB-2: hunk 하나만 스테이지되고 나머지는 남는다', async ({ page }) => {
     const repo = hunkRepo('d2');
@@ -150,7 +208,7 @@ test.describe('묶음 B·W — hover 툴바와 조각 단위 쓰기', () => {
     await openDiff(page, 'working', 'f.txt');
     expect(await hunkCount(page)).toBe(3);
 
-    await hoverLine(page, 15);
+    await clickLine(page, 15);
     await expect(act(page, 'stage')).toHaveText('Stage hunk');
     await act(page, 'stage').click();
 
@@ -175,7 +233,7 @@ test.describe('묶음 B·W — hover 툴바와 조각 단위 쓰기', () => {
     await openDiff(page, 'staged', 'f.txt');
     expect(await hunkCount(page)).toBe(2);
 
-    await hoverLine(page, 5);
+    await cursorLine(page, 5);
     await expect(act(page, 'unstage')).toHaveCount(1);
     await expect(act(page, 'stage')).toHaveCount(0);
     await expect(act(page, 'revert')).toHaveCount(0);
@@ -197,7 +255,7 @@ test.describe('묶음 B·W — hover 툴바와 조각 단위 쓰기', () => {
     await openDiff(page, 'working', 'f.txt');
     expect(await hunkCount(page)).toBe(2);
 
-    await hoverLine(page, 5);
+    await cursorLine(page, 5);
     // 사용자가 조각을 보던 사이에 파일이 바뀌었다 — 같은 번호가 다른 곳을 가리킨다.
     hunkFile(repo, 'f.txt', { 5: 'ALPHA', 15: 'BRAVO', 25: 'CHARLIE' });
     await act(page, 'stage').click();
@@ -218,21 +276,82 @@ test.describe('묶음 B·W — hover 툴바와 조각 단위 쓰기', () => {
     await openGit(page, repo);
     await openDiff(page, 'working', 'f.txt');
 
-    await hoverLine(page, 25);
-    // 조각 밖의 줄로 옮기면 사라진다 (FR-DHB-14).
-    const at = await page.evaluate(() => {
-      const ed = (window as any).app.gitPanel._diffView._editor.getModifiedEditor();
-      const p = ed.getScrolledVisiblePosition({ lineNumber: 1, column: 1 });
-      const r = ed.getDomNode().getBoundingClientRect();
-      return { x: r.left + p.left + 30, y: r.top + p.top + p.height / 2 };
-    });
-    await page.mouse.move(at.x, at.y);
+    await cursorLine(page, 25);
+    // ① 커서를 조각 밖의 줄로 옮기면 사라진다 (FR-DHB-13 조건 1 · FR-DHB-14).
+    // 마우스를 지나가게 하는 것으로는 이제 아무 일도 일어나지 않는다.
+    // 마우스가 지나가는 것으로는 이제 아무 일도 일어나지 않는다 — hover 가 계기면
+    // 여기서 툴바가 사라지고, 이 단정이 그 회귀를 잡는다.
+    await page.mouse.move((await stableXY(page, 1)).x, (await stableXY(page, 1)).y);
+    await expect(bar(page)).toBeVisible();
+    // 그 줄을 클릭해 커서를 조각 밖으로 옮기면 사라진다.
+    await expect.poll(async () => {
+      const at = await stableXY(page, 1);
+      await page.mouse.click(at.x, at.y);
+      return barLine(page);
+    }, { timeout: 15000, intervals: [200, 300, 500, 1000] }).toBe(-1);
     await expect(bar(page)).toBeHidden({ timeout: 10000 });
 
-    // 다시 띄운 뒤 에디터 밖으로 나가도 사라진다 (FR-DHB-13).
-    await hoverLine(page, 25);
-    await page.mouse.move(2, 2);
+    // ② 에디터가 **포커스를 잃으면** 사라진다 (FR-DHB-13 조건 2). 커서는 에디터를
+    // 떠나지 않으므로 `onMouseLeave` 를 대신하는 조건이 이것이다.
+    await cursorLine(page, 25);
+    await diff(page).locator('.git-diff-bar').click();
     await expect(bar(page)).toBeHidden({ timeout: 10000 });
+  });
+
+  /**
+   * V-DHB-16 (FR-DHB-13b): **버튼을 눌러도 툴바가 먼저 사라지지 않는다.**
+   *
+   * 사라지는 조건 둘 중 하나가 "에디터가 포커스를 잃으면" 이므로, 툴바 버튼이
+   * 포커스를 가져가면 **누르는 순간 툴바가 없어져 클릭이 닿지 않는다.** hover 판이
+   * 정확히 그 함정에 빠졌다(FR-DHB-13a) — 그때는 유예 타이머로 풀려다 실패했고,
+   * 이번에는 포커스를 옮기지 않는 것으로 푼다.
+   *
+   * 재는 것은 두 가지다: mousedown 뒤에도 툴바가 서 있는가, 에디터가 포커스를
+   * 지키는가. 실제로 눌리는지는 스테이지 검증들이 이미 답한다.
+   */
+  test('V-DHB-16: 툴바를 눌러도 포커스가 남고 툴바가 사라지지 않는다', async ({ page }) => {
+    const repo = hunkRepo('d16');
+    hunkFile(repo, 'f.txt', { 15: 'BRAVO' });
+    await waitForInit(page);
+    await openGit(page, repo);
+    await openDiff(page, 'working', 'f.txt');
+    await cursorLine(page, 15);
+
+    const btn = act(page, 'stage');
+    await expect(btn).toBeVisible();
+    const box = await btn.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.mouse.down();
+    await expect(bar(page)).toBeVisible();
+    expect(await page.evaluate(
+      () => (window as any).app.gitPanel._diffView._editor.getModifiedEditor().hasTextFocus(),
+    )).toBe(true);
+    await page.mouse.up();
+  });
+
+  // V-DHB-17 (FR-DHB-12): 자리는 커서 줄이다 — 같은 조각 안에서 커서를 옮기면
+  // 툴바도 따라온다. 조각 첫 줄 고정이 "이상한 위치" 의 정체였다.
+  test('V-DHB-17: 툴바의 자리가 커서 줄을 따라온다', async ({ page }) => {
+    const repo = hunkRepo('d17');
+    // 한 조각 안에서 커서를 옮길 수 있도록 연이은 세 줄을 고친다.
+    hunkFile(repo, 'f.txt', { 20: 'X', 21: 'Y', 22: 'Z' });
+    await waitForInit(page);
+    await openGit(page, repo);
+    await openDiff(page, 'working', 'f.txt');
+
+    const barLine = () => page.evaluate(
+      () => (window as any).app.gitPanel._hunkBarPos?.position?.lineNumber ?? -1);
+
+    await cursorLine(page, 20);
+    expect(await barLine()).toBe(20);
+    const first = (await bar(page).boundingBox())!.y;
+
+    await cursorLine(page, 22);
+    expect(await barLine()).toBe(22);
+    // 같은 조각이므로 툴바는 사라지지 않고 **내려온다**.
+    await expect(bar(page)).toBeVisible();
+    expect((await bar(page).boundingBox())!.y).toBeGreaterThan(first);
   });
 
   // V-DHB-11: blame 모드에서는 부분 스테이징이 없다 (FR-DHB-19).
@@ -242,7 +361,7 @@ test.describe('묶음 B·W — hover 툴바와 조각 단위 쓰기', () => {
     await waitForInit(page);
     await openGit(page, repo);
     await openDiff(page, 'working', 'f.txt');
-    await hoverLine(page, 15);
+    await cursorLine(page, 15);
 
     await diff(page).locator('.git-diff-blame').click();
     await expect(bar(page)).toBeHidden({ timeout: 10000 });
@@ -262,7 +381,7 @@ test.describe('묶음 S — Monaco 선택으로 고르는 줄 범위', () => {
     await openDiff(page, 'working', 'f.txt');
     expect(await hunkCount(page)).toBe(1);
 
-    await hoverLine(page, 10);
+    await cursorLine(page, 10);
     await expect(act(page, 'stage')).toHaveText('Stage hunk');
     // 10번 줄만 고른다 — 그 변경 짝(-line10/+TEN)이 함께 간다 (FR-DHB-33).
     await selectLines(page, 10, 10);
@@ -286,7 +405,7 @@ test.describe('묶음 S — Monaco 선택으로 고르는 줄 범위', () => {
     await openGit(page, repo);
     await openDiff(page, 'staged', 'f.txt');
 
-    await hoverLine(page, 10);
+    await cursorLine(page, 10);
     await selectLines(page, 10, 10);
     await expect(act(page, 'unstage')).toHaveText('Unstage lines');
     await act(page, 'unstage').click();
@@ -306,7 +425,7 @@ test.describe('묶음 S — Monaco 선택으로 고르는 줄 범위', () => {
     await openGit(page, repo);
     await openDiff(page, 'working', 'f.txt');
 
-    await hoverLine(page, 10);
+    await cursorLine(page, 10);
     await selectLines(page, 10, 10);
     await expect(act(page, 'revert')).toHaveText('Revert lines');
     await act(page, 'revert').click();
@@ -337,7 +456,7 @@ test.describe('묶음 S — Monaco 선택으로 고르는 줄 범위', () => {
     await openGit(page, repo);
     await openDiff(page, 'working', 'f.txt');
 
-    await hoverLine(page, 10);
+    await cursorLine(page, 10);
     await act(page, 'revert').click();
     await expect(confirmBox(page)).toBeVisible({ timeout: 10000 });
     await page.keyboard.press('Escape');
@@ -362,7 +481,7 @@ test.describe('묶음 S — Monaco 선택으로 고르는 줄 범위', () => {
     expect(await hunkCount(page)).toBe(2);
 
     // 파일의 거의 전부를 고른다 — 두 조각이 다 들어간다.
-    await hoverLine(page, 5);
+    await cursorLine(page, 5);
     await selectLines(page, 1, 30);
     await expect(act(page, 'stage')).toHaveText('Stage lines');
     await act(page, 'stage').click();
@@ -380,7 +499,7 @@ test.describe('묶음 S — Monaco 선택으로 고르는 줄 범위', () => {
     await openGit(page, repo);
     await openDiff(page, 'working', 'f.txt');
 
-    await hoverLine(page, 15);
+    await cursorLine(page, 15);
     await selectLines(page, 15, 15);
     await expect(act(page, 'stage')).toHaveText('Stage lines');
     // 조각 안이지만 바뀌지 않은 줄들만 고른다.

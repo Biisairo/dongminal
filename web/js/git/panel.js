@@ -67,7 +67,7 @@ class GitPanel {
     this._hunkBarPos=null;        // 위젯의 자리. null 이면 뜨지 않는다
     this._hunkBarHunk=-1;         // 지금 가리키는 덩어리 번호
     this._hunkBarSubs=null;       // 에디터 리스너들 (정리 대상)
-    this._hunkBarT=null;          // 숨김 지연 타이머 (FR-DHB-13)
+    this._hunkBarFocus=false;     // 그 에디터가 포커스를 갖고 있나 (FR-DHB-13)
     this._diffPos=0;              // 목록에서 사라진 대상을 클램프할 기준 (FR-GIT-53)
     this._sideBy=null;            // FR-GIT-51 의 보기 모드
     this._ignWs=null;             // FR-GIT-50 의 공백무시 토글

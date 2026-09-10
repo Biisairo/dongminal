@@ -345,8 +345,8 @@ Object.assign(GitPanel.prototype, {
   /**
    * 조각 관측을 관리하고 머리의 한 줄을 갱신한다 (FR-DHB-4·5·50).
    *
-   * **화면에 조각을 그리지 않는다.** 그리는 것은 Monaco 이고, 동작은 hover 로
-   * 뜨는 툴바가 갖는다 — 이 함수가 만지는 DOM 은 안내 한 줄뿐이다.
+   * **화면에 조각을 그리지 않는다.** 그리는 것은 Monaco 이고, 동작은 커서에
+   * 따라 뜨는 툴바가 갖는다 — 이 함수가 만지는 DOM 은 안내 한 줄뿐이다.
    */
   _paintHunks(el,f){
     const note=el.querySelector('.git-diff-hunk-note');
@@ -371,8 +371,10 @@ Object.assign(GitPanel.prototype, {
       this._loadHunks(f,key);
     }
     this._hunkNote(note,this._hunkText());
-    // 쓰기 중 버튼 비활성(FR-DHB-18)도 이 회차에 따라온다.
-    this._hunkBarPaint();
+    // 관측이 커서 이동보다 늦게 도착하는 길이 있다 — 그때 커서 기준으로 다시
+    // 판정하지 않으면 이미 조각 줄에 커서를 둔 사용자에게 툴바가 끝까지 뜨지
+    // 않는다 (FR-DHB-52). 쓰기 중 버튼 비활성(FR-DHB-18)도 이 회차에 따라온다.
+    this._hunkBarCursor();
   },
 
   async _loadHunks(f,key){
@@ -418,7 +420,7 @@ Object.assign(GitPanel.prototype, {
   },
 
   /**
-   * FR-DHB-10~13: 모디파이드 에디터에 hover 툴바를 배선한다.
+   * FR-DHB-10~13: 모디파이드 에디터에 커서 툴바를 배선한다.
    *
    * `GitDiffView` 가 에디터를 세울 때·버릴 때 이 함수를 부른다 (D-4) — 그 클래스는
    * 관측을 모르고, 관측을 아는 쪽이 여기다. `ed` 가 `null` 이면 정리다.
@@ -427,8 +429,10 @@ Object.assign(GitPanel.prototype, {
     this._hunkBarDispose();
     if(!ed) return;
     this._hunkBarEd=ed;
+    // 새로 선 에디터는 포커스를 갖고 있지 않다. 클릭이 그것을 준다.
+    this._hunkBarFocus=false;
     const node=this._hunkBarNode();
-    // FR-DHB-12: 자리는 조각의 첫 줄이다. `getPosition` 이 null 이면 Monaco 가
+    // FR-DHB-12: 자리는 **커서 줄**이다. `getPosition` 이 null 이면 Monaco 가
     // 그리지 않으므로, 숨김이 곧 위치를 놓는 일이다 (위젯을 붙였다 뗐다 하지
     // 않는다 — FR-DHB-21).
     this._hunkBarWidget={
@@ -440,22 +444,26 @@ Object.assign(GitPanel.prototype, {
     };
     ed.addContentWidget(this._hunkBarWidget);
     this._hunkBarSubs=[
-      ed.onMouseMove(ev=>this._hunkBarMove(ev)),
-      ed.onMouseLeave(()=>this._hunkBarLeave()),
-      // FR-DHB-37: 선택이 바뀌면 라벨이 곧바로 따라온다 — 무엇에 걸리는 동작인지
-      // 누르기 전에 보인다.
-      ed.onDidChangeCursorSelection(()=>this._hunkBarPaint()),
+      // FR-DHB-11·12·37: **한 계기가 자리와 라벨을 함께 정한다.** 커서 이동은
+      // 선택 변화로도 오므로 리스너를 둘로 두지 않는다.
+      ed.onDidChangeCursorSelection(()=>this._hunkBarCursor()),
+      // 커서가 이미 조각 줄에 있는 채로 포커스만 돌아오는 길이 있다 (다른 창을
+      // 갔다 왔을 때·같은 줄을 다시 클릭했을 때). 그때 선택은 바뀌지 않으므로
+      // 계기가 따로 필요하다.
+      ed.onDidFocusEditorText(()=>{this._hunkBarFocus=true; this._hunkBarCursor()}),
+      // FR-DHB-13 조건 2: 커서는 에디터를 떠나지 않는다 — `onMouseLeave` 를
+      // 대신하는 조건이 포커스다.
+      ed.onDidBlurEditorText(()=>{this._hunkBarFocus=false; this._hunkBarHide()}),
     ];
   },
 
   _hunkBarDispose(){
-    TIMERS.cancel(this._hunkBarT);
     for(const d of this._hunkBarSubs||[]) if(d&&d.dispose) d.dispose();
     this._hunkBarSubs=null;
     // FR-GIT-56 / FR-DHB-22: 에디터가 버려지기 **전에** 뗀다. 뒤에 떼려 하면 뗄
     // 대상이 이미 없다.
     if(this._hunkBarEd&&this._hunkBarWidget) this._hunkBarEd.removeContentWidget(this._hunkBarWidget);
-    this._hunkBarEd=null; this._hunkBarWidget=null;
+    this._hunkBarEd=null; this._hunkBarWidget=null; this._hunkBarFocus=false;
     this._hunkBarPos=null; this._hunkBarHunk=-1;
   },
 
@@ -464,10 +472,15 @@ Object.assign(GitPanel.prototype, {
     if(this._hunkBarEl) return this._hunkBarEl;
     const el=document.createElement('div');
     el.className='git-hunk-bar';
-    // FR-DHB-13: 툴바 자신에 올라가 있는 동안은 사라지지 않는다 — 그러지 않으면
-    // 버튼까지 마우스를 옮기는 사이에 없어져 누를 수 없다.
-    el.addEventListener('mouseenter',()=>TIMERS.cancel(this._hunkBarT));
-    el.addEventListener('mouseleave',()=>this._hunkBarLeave());
+    /**
+     * FR-DHB-13b: **포커스를 툴바로 넘기지 않는다.**
+     *
+     * 사라지는 조건 하나가 "에디터가 포커스를 잃으면" 이므로, 버튼이 포커스를
+     * 가져가면 누르는 순간 툴바가 없어져 클릭이 닿지 않는다. hover 판이 같은
+     * 함정에 빠졌고(FR-DHB-13a) 그때는 유예 타이머로 풀려다 실패했다 —
+     * 사라지지 않아야 하는 조건은 "시간" 이 아니라 **"어디에 있는가"** 다.
+     */
+    el.addEventListener('mousedown',ev=>ev.preventDefault());
     el.addEventListener('click',ev=>{
       const b=ev.target.closest('.git-hunk-act');
       if(b&&!b.disabled) this._hunkAct(b.dataset.act);
@@ -476,46 +489,87 @@ Object.assign(GitPanel.prototype, {
     return el;
   },
 
-  // FR-DHB-11·14·20: 마우스가 어느 조각 위에 있는가. 관측이 오기 전에는 뜨지
-  // 않는다 — 경계를 모르는 동안 뜨는 버튼은 무엇에 걸리는지 말할 수 없다.
-  _hunkBarMove(ev){
-    const h=this._hunks;
+  // 조각의 마지막 새 줄. 겹침 판정·자리 클램프·좌표가 같은 식을 써야 한다.
+  _hunkEnd(hunk){
+    return hunk.newStart+Math.max(hunk.newLines,1)-1;
+  },
+
+  /**
+   * FR-DHB-11a: 판정에 쓰는 줄 — `{s,e,empty}`.
+   *
+   * **판정과 적용 범위가 같은 규칙을 써야 한다.** 어긋나면 조각의 마지막 줄까지
+   * 드래그한 선택에서 툴바가 사라진다 — 그때 커서(선택의 끝)는 조각 밖의 줄에
+   * 있고 적용 범위는 조각 안이다. 그래서 이 한 자리가 둘에 답한다.
+   */
+  _hunkBarSel(){
+    const ed=this._hunkBarEd;
+    if(!ed) return null;
+    const sel=ed.getSelection();
+    if(!sel||sel.isEmpty()){
+      const pos=ed.getPosition();
+      return pos?{s:pos.lineNumber,e:pos.lineNumber,empty:true}:null;
+    }
+    let e=sel.endLineNumber;
+    // 줄 끝에서 시작해 다음 줄 1열에서 끝나는 선택은 그 다음 줄을 **포함하지
+    // 않는다** — 드래그로 줄을 고르면 흔히 그런 범위가 된다.
+    if(sel.endColumn===1&&e>sel.startLineNumber) e--;
+    return {s:sel.startLineNumber,e,empty:false};
+  },
+
+  /**
+   * FR-DHB-11a: 툴바가 속한 조각 — **선택이 지금 조각과 겹치면 그것을 지킨다.**
+   *
+   * hover 판에서 "툴바가 속한 hunk"(FR-DHB-32)를 정한 것은 마우스였다. 커서 판에서
+   * 그것을 대신하는 것이 이 앵커다. 지키지 않으면 두 조각을 걸친 선택이 **끝
+   * 조각으로 툴바를 옮겨**, 사용자가 고르기 시작한 조각이 아닌 곳에 적용된다
+   * (실측: V-DHB-9 가 ALPHA 대신 CHARLIE 를 올렸다).
+   */
+  _hunkBarAnchor(list,sel){
+    const cur=list.find(x=>x.index===this._hunkBarHunk);
+    if(cur&&sel.s<=this._hunkEnd(cur)&&sel.e>=cur.newStart) return cur;
+    return gitHunkAt(list,sel.s);
+  },
+
+  /**
+   * FR-DHB-11·12·13·14·20: **커서가 어느 조각에 있는가.**
+   *
+   * 관측이 오기 전에는 뜨지 않는다 — 경계를 모르는 동안 뜨는 버튼은 무엇에
+   * 걸리는지 말할 수 없다. 관측이 커서 이동보다 늦게 도착하는 길이 있으므로
+   * `_paintHunks` 도 이 함수를 부른다 (FR-DHB-52).
+   */
+  _hunkBarCursor(){
+    const ed=this._hunkBarEd,h=this._hunks;
+    if(!ed) return;
     if(!h||h.err||!h.list||!h.list.length){this._hunkBarHide();return}
     /**
-     * FR-DHB-13: **툴바 위에서는 사라지지 않는다.**
+     * FR-DHB-13 조건 2 — **이벤트로 추적한 상태**를 본다.
      *
-     * 버튼까지 마우스를 옮기는 길도 에디터 안이므로 Monaco 는 그 이동에도
-     * `onMouseMove` 를 준다. 그런데 그때의 target 은 content widget 이라 줄
-     * 자리(`position`)가 없다 — 그것을 "조각 밖" 으로 읽으면 **버튼에 닿는 순간
-     * 툴바가 사라져 누를 수 없다**(실측: `mouseenter` 는 숨김 **타이머**만 멎게
-     * 하고, 이 갈래의 숨김은 타이머를 지나지 않는다).
+     * `hasTextFocus()` 순간 조회에 매달면 폴링 회차(3초)의 값에 따라 툴바가 되다
+     * 말다 한다 — 실측으로 흔들림 넷이 그렇게 났다. 내려가는 계기는 `blur`
+     * **이벤트** 하나여야 한다: 그것이 스펙이 적은 조건이기도 하다.
      */
-    const over=ev&&ev.target&&ev.target.element;
-    if(over&&this._hunkBarEl&&(over===this._hunkBarEl||this._hunkBarEl.contains(over))) return;
-    const pos=ev&&ev.target&&ev.target.position;
-    const hunk=pos?gitHunkAt(h.list,pos.lineNumber):null;
+    if(!this._hunkBarFocus){this._hunkBarHide();return}
+    const sel=this._hunkBarSel();
+    const hunk=sel?this._hunkBarAnchor(h.list,sel):null;
+    // FR-DHB-13 조건 1 · FR-DHB-14.
     if(!hunk){this._hunkBarHide();return}
-    TIMERS.cancel(this._hunkBarT);
-    if(this._hunkBarHunk!==hunk.index||!this._hunkBarPos){
-      this._hunkBarHunk=hunk.index;
-      this._hunkBarPos={
-        position:{lineNumber:Math.max(1,hunk.newStart),column:1},
-        preference:[
-          monaco.editor.ContentWidgetPositionPreference.ABOVE,
-          monaco.editor.ContentWidgetPositionPreference.BELOW,
-        ],
-      };
-    }
+    this._hunkBarHunk=hunk.index;
+    // FR-DHB-12: **매 회차 커서 줄로 갱신한다.** 같은 조각 안에서 커서를 옮기면
+    // 툴바도 그 줄로 내려온다 — 조각 첫 줄 고정이 "이상한 위치" 의 정체였다.
+    // 선택이 조각 밖에서 시작했으면 조각 안으로 당긴다 — 조각 밖에 뜬 툴바는
+    // 무엇에 걸리는지 말하지 않는다.
+    const line=Math.min(Math.max(sel.s,hunk.newStart),this._hunkEnd(hunk));
+    this._hunkBarPos={
+      position:{lineNumber:Math.max(1,line),column:1},
+      preference:[
+        monaco.editor.ContentWidgetPositionPreference.ABOVE,
+        monaco.editor.ContentWidgetPositionPreference.BELOW,
+      ],
+    };
     this._hunkBarPaint();
   },
 
-  _hunkBarLeave(){
-    TIMERS.cancel(this._hunkBarT);
-    this._hunkBarT=TIMERS.after(GIT_HUNK_BAR_HIDE_MS,()=>this._hunkBarHide(),{owner:this,label:'hunk-bar'});
-  },
-
   _hunkBarHide(){
-    TIMERS.cancel(this._hunkBarT);
     if(!this._hunkBarPos) return;
     this._hunkBarPos=null; this._hunkBarHunk=-1;
     if(this._hunkBarEd&&this._hunkBarWidget){
@@ -570,18 +624,14 @@ Object.assign(GitPanel.prototype, {
     const hunk=h.list.find(x=>x.index===this._hunkBarHunk);
     if(!hunk) return null;
     const whole={hunk:hunk.index,from:0,to:0};
-    const ed=this._hunkBarEd;
-    const sel=ed&&ed.getSelection();
-    // 커서만 있으면 조각 전체다 (FR-DHB-31).
-    if(!sel||sel.isEmpty()) return whole;
-    let s=sel.startLineNumber,e=sel.endLineNumber;
-    // 줄 끝에서 시작해 다음 줄 1열에서 끝나는 선택은 그 다음 줄을 **포함하지
-    // 않는다** — 드래그로 줄을 고르면 흔히 그런 범위가 된다.
-    if(sel.endColumn===1&&e>s) e--;
+    const sel=this._hunkBarSel();
+    // 커서만 있으면 조각 전체다 (FR-DHB-31). 정규화는 `_hunkBarSel` 한 자리에
+    // 있다 (FR-DHB-11a) — 판정과 여기가 어긋나면 안 된다.
+    if(!sel||sel.empty) return whole;
     // FR-DHB-32: 선택이 여러 조각을 걸쳐도 적용되는 것은 이 조각 안의 범위뿐이다.
     // 서버 `patch` 가 hunk 번호를 하나만 받으므로 그것이 규약의 한계다 (D-3).
-    s=Math.max(s,hunk.newStart);
-    e=Math.min(e,hunk.newStart+Math.max(hunk.newLines,1)-1);
+    const s=Math.max(sel.s,hunk.newStart);
+    const e=Math.min(sel.e,this._hunkEnd(hunk));
     if(s>e) return whole;
     const r=gitHunkRangeForLines(hunk,s,e);
     return r?{hunk:hunk.index,from:r[0],to:r[1]}:whole;

@@ -205,11 +205,9 @@ const GIT_HUNK_ACTS={
 // 동작인지 누르기 전에 보여야 한다.
 const GIT_HUNK_LABEL={stage:'Stage hunk',unstage:'Unstage hunk',revert:'Revert hunk'};
 const GIT_HUNK_LINE_LABEL={stage:'Stage lines',unstage:'Unstage lines',revert:'Revert lines'};
-// DIFF_HUNK_BAR_SRS FR-DHB-10·21: hover 툴바는 Monaco content widget 하나다.
+// DIFF_HUNK_BAR_SRS FR-DHB-10·21: 커서 툴바는 Monaco content widget 하나다.
 // id 는 그 위젯을 다시 찾는 열쇠이므로 문자열을 한 자리에만 둔다.
 const GIT_HUNK_BAR_ID='git.hunk.bar';
-// FR-DHB-13: 손을 떼자마자 사라지면 버튼까지 마우스를 옮기는 사이에 없어진다.
-const GIT_HUNK_BAR_HIDE_MS=180;
 const GIT_HUNK_TITLE={
   stage:'Stage only this hunk',
   unstage:'Unstage only this hunk',

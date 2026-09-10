@@ -310,11 +310,12 @@ test.describe('묶음 C — 띄워야 보이는 표면', () => {
   });
 
   /**
-   * hunk 버튼은 **diff 를 열고 바뀐 줄에 hover 해야** 선다 (FR-DHB-11).
+   * hunk 버튼은 **diff 를 열고 바뀐 줄을 클릭해 커서를 두어야** 선다 (FR-DHB-11,
+   * U-9 개정 — 전에는 hover 였다).
    * 부분 스테이징의 진입점이므로 파괴적인 것(`Revert hunk`)이 그 안에 있다.
    *
    * **개정 (DIFF_HUNK_BAR_SRS I-1·I-2).** 하단 조각 목록(`.git-hunks`·
-   * `.git-hunk-head`)이 폐기되고 그 자리를 diff 위의 hover 툴바가 대신한다 —
+   * `.git-hunk-head`)이 폐기되고 그 자리를 diff 위의 커서 툴바가 대신한다 —
    * 재는 버튼은 이제 `.git-hunk-bar .git-hunk-act` 다.
    */
   test('C15 (V-TIP-15 / FR-TIP-1·2): diff 의 hunk 툴바', async ({ page }) => {
@@ -336,19 +337,17 @@ test.describe('묶음 C — 띄워야 보이는 표면', () => {
         && p._diffView && p._diffView._editor);
     }, undefined, { timeout: 20000 });
 
-    // 첫 조각의 머리 줄로 마우스를 옮긴다. `.view-line` 의 DOM 순서는 줄 번호와
-    // 다를 수 있으므로(Monaco 는 그것을 보장하지 않는다) 좌표를 에디터에게 묻는다 —
-    // git-hunk.spec.ts 의 `hoverLine` 과 같은 기법이다.
-    const at = await page.evaluate(() => {
+    // 첫 조각의 줄에 **커서를 놓는다.** 좌표를 지나지 않는다 — 재는 것은 툴팁이고,
+    // 클릭 좌표는 렌더 타이밍에 매달려 흔들린다 (git-hunk.spec.ts 의 `cursorLine`
+    // 과 같은 근거).
+    await page.evaluate(() => {
       const p = (window as any).app.gitPanel;
       const ln = Math.max(1, p._hunks.list[0].newStart);
       const ed = p._diffView._editor.getModifiedEditor();
       ed.revealLine(ln);
-      const q = ed.getScrolledVisiblePosition({ lineNumber: ln, column: 1 });
-      const r = ed.getDomNode().getBoundingClientRect();
-      return { x: r.left + q.left + 30, y: r.top + q.top + q.height / 2 };
+      ed.focus();
+      ed.setPosition({ lineNumber: ln, column: 1 });
     });
-    await page.mouse.move(at.x, at.y);
     await expect(page.locator('.git-hunk-bar .git-hunk-act').first())
       .toBeVisible({ timeout: 10000 });
     await assertAll(page, 'diff · hunk 툴바');
