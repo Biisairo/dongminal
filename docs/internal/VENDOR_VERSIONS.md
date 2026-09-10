@@ -27,6 +27,27 @@
 | `markdown-it.js` | MIT | 15.0.1 | `7a01babb52fc4d7f…` | 114905 |
 | `purify.js` | Apache-2.0 / MPL-2.0 | 3.4.15 (DOMPurify) | `f263b05369e050fa…` | 29369 |
 
+## 디렉터리로 들어온 자산
+
+트리 하나가 자산 하나다. **크기 칸은 파일 수**이며 바이트 합계가 아니다 — 파일
+하나가 커지고 다른 하나가 같은 만큼 작아지면 합계는 그대로여서 판정이 되지 않는다.
+
+집계 해시는 파일마다 `SHA-256  상대경로` 줄을 만들어 경로로 정렬한 뒤 그 목록을
+다시 SHA-256 한 값의 앞 16자다. 파일이 바뀌어도, 사라져도, **이름만 바뀌어도**
+값이 달라진다.
+
+| 자산 | 라이선스 | 판 | 집계 SHA-256 | 파일 수 |
+|---|---|---|---|---|
+| `monaco/` | MIT | monaco-editor 0.56.0 — `min/vs` (③) | `ab1af81a9d9b16a9…` | 139 |
+
+③ 담긴 파일은 전부 **사전압축**(`<이름>.gz`)이며 서버가 `Content-Encoding: gzip`
+   으로 그대로 흘린다 (`MONACO_VENDORING_SRS` 묶음 Z). raw 23.3MB 가 5.4MB 로
+   들어간다 — `go:embed` 는 압축하지 않고 릴리스는 raw 바이너리를 그대로 올리므로,
+   그 차이가 사용자가 받는 파일에 그대로 실린다.
+
+   `min/vs` 의 `.d.ts` 13개는 담지 않는다. TypeScript 선언 파일이며 런타임에
+   요청되지 않는다 — **실행되는 코드는 하나도 빠지지 않았다** (FR-MVN-2).
+
 ① `xterm.js` 는 판 문자열을 번들에 남기지 않는다. `rescaleOverlappingGlyphs`
    옵션이 들어 있는데 그것이 5.5.0 에서 도입됐고, `documentOverride`(5.4.0)도
    있다. 그러므로 **5.5 계열**이며 패키지는 `@xterm/xterm` 이다(구 `xterm` 은
@@ -41,8 +62,18 @@
 2. 아래 명령으로 표의 해시·크기를 다시 만든다.
 
 ```bash
+# 파일 자산
 for f in web/vendor/*; do
+  [ -d "$f" ] && continue
   printf "%-24s %s %8s\n" "$(basename $f)" "$(shasum -a 256 $f | cut -c1-16)" "$(wc -c <$f)"
+done
+
+# 디렉터리 자산 — 집계 해시와 파일 수
+for d in web/vendor/*/; do
+  h=$( cd "$d" && find . -type f | LC_ALL=C sort | while read -r x; do
+         printf '%s  %s\n' "$(shasum -a 256 "$x" | cut -d' ' -f1)" "${x#./}"
+       done | shasum -a 256 | cut -c1-16 )
+  printf "%-24s %s %8s\n" "$(basename $d)/" "$h" "$(find "$d" -type f | wc -l | tr -d ' ')"
 done
 ```
 
@@ -50,7 +81,6 @@ done
 
 ## 벤더링되지 **않은** 것
 
-`monaco-editor` 는 런타임에 외부 CDN 에서 받는다
-(`web/js/ui/file-editor.js:5`, `cdn.jsdelivr.net`, SRI 없음). 나머지가 전부
-오프라인인데 편집기만 인터넷이 필요하고, 그 CDN 이 곧 스크립트 공급망이다 —
-`02-fe-arch` 의 P1 이며 벤더링 대상이다. 이 마일스톤의 범위가 아니다.
+**없다.** 종전에는 `monaco-editor` 하나가 런타임에 `cdn.jsdelivr.net` 에서 SRI 없이
+왔다. M2 에서 벤더링했고(`MONACO_VENDORING_SRS`), 그것으로 CSP 의 외부 호스트가 0 이
+됐다. 새 제3자 자산은 이 표에 줄이 서야 `scripts/check-vendor.sh` 를 지난다.

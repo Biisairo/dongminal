@@ -207,10 +207,16 @@ test.describe('묶음 F — Diff 뷰', () => {
     await expect.poll(() => lineChanges(page), { timeout: 20000 }).toBe(1);
   });
 
-  test('D7 (V12): Monaco CDN 이 막혀도 파일 목록·헤더가 동작하고 diff 가 사유를 보인다', async ({ page }) => {
+  test('D7 (V12): 편집기를 못 받아도 파일 목록·헤더가 동작하고 diff 가 사유를 보인다', async ({ page }) => {
     const repo = copyFx('basic', 'd7');
-    // FR-GIT-55: Monaco 는 CDN 자산이다. 그 실패가 Git 창을 멈춰서는 안 된다.
-    await page.route('**/cdn.jsdelivr.net/**', (r) => r.abort());
+    // FR-GIT-55: Monaco 로드 실패가 Git 창을 멈춰서는 안 된다.
+    //
+    // **막는 자리가 바뀌었다** (MONACO_VENDORING_SRS FR-MVN-3). 종전에는
+    // `cdn.jsdelivr.net` 을 끊었는데 편집기가 이제 바이너리 안에 있어 그 요청이
+    // 아예 없다 — 끊어도 아무것도 실패하지 않으므로 이 검사가 재던 것이 사라진다.
+    // 이제 **자기 자산 경로**를 끊는다. 요구(FR-GIT-55)는 그대로이고 실패를
+    // 만드는 방법만 현실에 맞췄다.
+    await page.route('**/vendor/monaco/**', (r) => r.abort());
 
     await waitForInit(page);
     await openGit(page, repo);
@@ -218,7 +224,7 @@ test.describe('묶음 F — Diff 뷰', () => {
 
     await row(page, 'working', 'tracked.txt').click();
     await expect(diff(page).locator('.git-diff-note'))
-      .toHaveText('에디터를 불러올 수 없습니다 — 네트워크를 확인하세요', { timeout: 20000 });
+      .toHaveText('에디터를 불러오지 못했습니다 — 새로고침해 보세요', { timeout: 20000 });
     await expect(diffEditor(page)).toHaveCount(0);
 
     // 헤더와 목록은 계속 동작한다.
@@ -230,7 +236,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     // Diff 탭도 같은 사유를 보이고 바는 살아 있다.
     await clickGitView(page, 'diff');
     await expect(diff(page).locator('.git-diff-note'))
-      .toHaveText('에디터를 불러올 수 없습니다 — 네트워크를 확인하세요');
+      .toHaveText('에디터를 불러오지 못했습니다 — 새로고침해 보세요');
     await expect(diff(page).locator('.git-diff-path')).toHaveText('tracked.txt');
   });
 

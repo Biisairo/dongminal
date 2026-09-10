@@ -715,7 +715,11 @@ const GIT_DIFF_NAV_TITLE={prev:'Previous changed file',next:'Next changed file'}
 const GIT_DIFF_WS_LABEL='Ignore Whitespace';
 // FR-GIT-55: Monaco 로드 실패는 Git 창의 나머지를 멈추지 않는다 — diff 자리에만
 // 사유를 보인다.
-const GIT_DIFF_MONACO_FAIL='에디터를 불러올 수 없습니다 — 네트워크를 확인하세요';
+//
+// **네트워크를 말하지 않는다** (MONACO_VENDORING_SRS FR-MVN-3). 편집기는 이제
+// 바이너리 안에서 오므로 이 실패에 네트워크가 끼어들 자리가 없다 — 종전 문구는
+// 사용자를 없는 원인으로 보냈다. 새로고침이 실제로 듣는 유일한 조치다.
+const GIT_DIFF_MONACO_FAIL='에디터를 불러오지 못했습니다 — 새로고침해 보세요';
 const GIT_DIFF_LOAD_FAIL='diff 를 불러오지 못했습니다';
 // 커밋·discard 로 대상이 목록에서 사라진 경우 (§3.3). 아무 파일이나 임의로
 // 보이지 않고 사실만 알린다.

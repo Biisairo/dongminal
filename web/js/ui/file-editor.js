@@ -2,7 +2,14 @@
  * Remote Terminal — file editor tab (Monaco Editor)
  */
 
-const MONACO_CDN = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0/min/vs';
+// 편집기는 **바이너리 안에서** 온다 (MONACO_VENDORING_SRS FR-MVN-3).
+//
+// 종전에는 `cdn.jsdelivr.net` 에서 SRI 없이 받았다 — 그 호스트가 주는 것이 무엇이든
+// 이 페이지에서 실행됐고, 이 페이지에는 셸과 파일 API 가 열려 있다. 그리고 인터넷이
+// 없으면 편집기·Diff·LSP 뷰가 통째로 서지 않았다.
+//
+// 담긴 파일은 `.gz` 이고 서버가 그대로 흘린다 — raw 23.3MB 가 5.4MB 로 들어간 이유다.
+const MONACO_BASE = '/vendor/monaco/vs';
 
 // Language map: file extension → Monaco language id
 const LANG_MAP = {
@@ -65,14 +72,14 @@ function loadMonaco() {
   if (monacoLoading) return monacoLoading;
   monacoLoading = new Promise((resolve, reject) => {
     const boot = () => {
-      require.config({ paths: { vs: MONACO_CDN } });
+      require.config({ paths: { vs: MONACO_BASE } });
       require(['vs/editor/editor.main'], () => resolve(), (err) => reject(err));
     };
     // loader.js 는 이미 붙어 있을 수 있다 — 앞선 시도가 모듈 단계에서 실패한
     // 경우다. 그때 script 를 다시 붙이면 loader 가 중복 정의된다.
     if (typeof require !== 'undefined' && require.config) { boot(); return }
     const script = document.createElement('script');
-    script.src = MONACO_CDN + '/loader.js';
+    script.src = MONACO_BASE + '/loader.js';
     script.onload = boot;
     script.onerror = () => reject(new Error('Failed to load Monaco loader'));
     document.head.appendChild(script);
