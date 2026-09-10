@@ -412,9 +412,13 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 	// 감시하기 시작하고, 바뀌면 `git_changed` 를 방송한다 — 브라우저는 500ms
 	// 마다 묻는 대신 그것을 기다린다.
 	//
+	// `clientId` 를 실어 보내면 그 신원의 SSE 구독이 임대를 쥔다
+	// (GIT_WATCH_LEASE_SRS FR-GWL-1·9) — 그러면 이 요청이 뜸해져도, 아예 끊겨도
+	// 감시가 살아 있다. 빈 값이면 종전대로 TTL 임대다 (FR-GWL-5).
+	//
 	// 오류 뒤에 두는 이유는 **답할 수 있는 저장소만** 감시하기 위해서다.
 	if s.Watch != nil {
-		s.Watch.Note(root, obs)
+		s.Watch.NoteFor(root, obs, r.URL.Query().Get("clientId"))
 	}
 	// GIT_DIR_ENTRY_SRS FR-DIR-5·42 / D-DIR-6: **비교는 정규화를 아는 쪽이 한다.**
 	//

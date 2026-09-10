@@ -34,8 +34,12 @@ type ToolLocator interface {
 // 관측을 함께 받는 이유는 **기준선의 경계** 때문이다: 브라우저가 받은 바로 그
 // 관측이 기준선이어야, 표명과 첫 감시 회차 사이의 변화를 놓치지 않는다
 // (GIT_PUSH_OBSERVE_SRS §2.8).
+// NoteFor 가 임차인을 밝히는 쪽이다 (GIT_WATCH_LEASE_SRS FR-GWL-7). 종전의
+// `Note` 는 수명이 TTL 하나였고, 그것을 갱신하는 유일한 경로가 브라우저의 안전망
+// 폴링이라 **안전망을 끄면 push 가 함께 죽었다** (GP-1).
 type RepoWatcher interface {
 	Note(repo string, obs store.Observation)
+	NoteFor(repo string, obs store.Observation, clientID string)
 }
 
 // GitServer는 /api/git/* 핸들러의 리시버다. 필드는 핸들러가 실제로 쓰는 것만

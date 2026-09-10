@@ -65,7 +65,8 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	// 이 결선 없이는 구독 해제와 소유권 해제를 이을 수 없다.
 	// FR-XDF-9: 구독이 끊기면 그 Client 의 소유권을 즉시 해제한다 —
 	// grace period 없음. epoch 로 재연결 경합을 막는다 (FR-XDF-10).
-	if cid := r.URL.Query().Get("clientId"); cid != "" && s.Focus != nil {
+	cid := r.URL.Query().Get("clientId")
+	if cid != "" && s.Focus != nil {
 		// VIEWER_URL_OPEN_SRS FR-VUO-1: 구독의 원격 주소를 함께 남긴다. 이 값이
 		// "보고 있는 기기가 서버와 같은 컴퓨터인가" 의 유일한 근거다.
 		ep := s.Focus.AttachFrom(cid, r.RemoteAddr)
@@ -74,6 +75,16 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 				s.broadcastFocusOwners()
 			}
 		}()
+	}
+	// GIT_WATCH_LEASE_SRS FR-GWL-3: **git 감시 임대도 이 구독이 쥔다.**
+	//
+	// 종전에는 임대의 주체가 `GET /api/git/status` 요청이었고 수명이 90초였다.
+	// 그래서 안전망 폴링을 끄거나 늦추면 본줄인 `git_changed` 방송까지 함께
+	// 죽었다 (11-git-polling GP-1). 보고 있는 동안을 아는 것은 요청이 아니라
+	// 연결이므로, Focus 와 같은 자리에서 같은 규약으로 건다.
+	if cid != "" && s.gitWatch != nil {
+		ep := s.gitWatch.Attach(cid)
+		defer s.gitWatch.Detach(cid, ep)
 	}
 
 	fmt.Fprint(w, ": connected\n\n")

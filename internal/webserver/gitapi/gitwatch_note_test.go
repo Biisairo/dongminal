@@ -13,9 +13,17 @@ import (
 // 서고, 다만 그 뒤로 아무 방송도 오지 않는다. e2e 에서는 "느리다" 로만 드러나고
 // 그 원인이 감시자인지 브라우저인지 가려지지 않는다.
 
-type noteSpy struct{ repos []string }
+type noteSpy struct {
+	repos   []string
+	clients []string
+}
 
-func (n *noteSpy) Note(repo string, _ store.Observation) { n.repos = append(n.repos, repo) }
+func (n *noteSpy) Note(repo string, obs store.Observation) { n.NoteFor(repo, obs, "") }
+
+func (n *noteSpy) NoteFor(repo string, _ store.Observation, clientID string) {
+	n.repos = append(n.repos, repo)
+	n.clients = append(n.clients, clientID)
+}
 
 func TestApiGitStatus_NotesInterest(t *testing.T) {
 	g := newGitFake(t)
@@ -48,5 +56,42 @@ func TestApiGitStatus_NilWatchIsFine(t *testing.T) {
 
 	if code, _ := gitReq(t, s, "GET", "/api/git/status?repo="+absWorkRepo, ""); code != 200 {
 		t.Fatalf("Watch 가 nil 인데 %d 로 답했다", code)
+	}
+}
+
+// TC-GWL-9 (GIT_WATCH_LEASE_SRS FR-GWL-9): status 요청이 실어 온 `clientId` 가
+// 표명까지 그대로 닿는다.
+//
+// 이 배선이 끊기면 임대가 조용히 TTL 로 떨어진다 — 화면은 멀쩡히 서고, 안전망을
+// 끈 사용자에게서만 90초 뒤에 갱신이 멎는다. 그것이 GP-1 이 오래 살아남은 방식이다.
+func TestApiGitStatus_PassesClientID(t *testing.T) {
+	g := newGitFake(t)
+	s, _, _, _ := gitTestServer(t, g)
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
+	spy := &noteSpy{}
+	s.Watch = spy
+
+	code, _ := gitReq(t, s, "GET", "/api/git/status?repo="+absWorkRepo+"&clientId=c-42", "")
+	if code != 200 {
+		t.Fatalf("status 가 %d 로 답했다", code)
+	}
+	if len(spy.clients) != 1 || spy.clients[0] != "c-42" {
+		t.Fatalf("clientId 가 표명에 실리지 않았다: %v (FR-GWL-9)", spy.clients)
+	}
+}
+
+// clientId 를 싣지 않는 호출 형태는 그대로 받는다 (FR-GWL-5) — 옛 화면·스크립트·curl.
+func TestApiGitStatus_WithoutClientIDStillNotes(t *testing.T) {
+	g := newGitFake(t)
+	s, _, _, _ := gitTestServer(t, g)
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
+	spy := &noteSpy{}
+	s.Watch = spy
+
+	if code, _ := gitReq(t, s, "GET", "/api/git/status?repo="+absWorkRepo, ""); code != 200 {
+		t.Fatalf("status 가 %d 로 답했다", code)
+	}
+	if len(spy.clients) != 1 || spy.clients[0] != "" {
+		t.Fatalf("익명 표명이 아니다: %v (FR-GWL-5)", spy.clients)
 	}
 }

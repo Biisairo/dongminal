@@ -351,3 +351,36 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
       .toBeVisible({ timeout: 10000 });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GIT_WATCH_LEASE_SRS §4.3 — 감시 임대 (TC-GWL-11)
+//
+// 임대의 계약 자체는 Go 가 잰다 (`hub/gitwatch_test.go` TC-GWL-1~8,
+// `httpapi/gitwatch_lease_test.go` TC-GWL-9·10). 브라우저 쪽에 남는 몫은 하나다 —
+// **status 요청이 자기 신원을 싣는가.** 이것이 빠지면 서버는 임차인을 모르는 채
+// 종전 TTL 임대로 떨어지고, 화면은 멀쩡히 서며, 안전망을 끈 사용자에게서만 90초
+// 뒤에 갱신이 멎는다. GP-1 이 오래 살아남은 방식이 정확히 그 조용함이었다.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('묶음 GWL — 감시 임대', () => {
+  test('GWL1: status 요청이 SSE 와 같은 clientId 를 싣는다', async ({ page }) => {
+    const seen: string[] = [];
+    page.on('request', (r) => {
+      const u = new URL(r.url());
+      if (u.pathname === '/api/git/status') seen.push(u.searchParams.get('clientId') || '');
+    });
+
+    const repo = fx('basic');
+    await waitForInit(page);
+    await openGit(page, repo);
+
+    await expect.poll(() => seen.length, { timeout: 10000 }).toBeGreaterThanOrEqual(1);
+
+    // SSE 를 여는 신원과 **같아야** 한다 — 다르면 서버가 붙들고 있는 구독과
+    // 표명이 이어지지 않아 임대가 서지 않는다 (FR-GWL-1·9).
+    const cid = await page.evaluate(() => (window as any).app.clientId);
+    expect(cid, 'App 이 clientId 를 갖고 있지 않다').toBeTruthy();
+    expect(seen.filter((v) => v !== cid),
+      'status 요청이 다른(또는 빈) clientId 를 실었다').toEqual([]);
+  });
+});

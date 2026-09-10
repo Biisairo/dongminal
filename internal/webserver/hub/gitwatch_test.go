@@ -402,3 +402,200 @@ func strip(s string) string {
 	s = strings.ReplaceAll(s, "/stale", "")
 	return strings.ReplaceAll(s, "/gone", "")
 }
+
+// ── GIT_WATCH_LEASE_SRS §4.1 — 임대를 SSE 구독이 쥔다 (TC-GWL-1~8) ──────────
+//
+// 여기서 재는 것은 **감시가 언제 걷히는가** 하나다. 종전에는 그 답이 "마지막
+// status 요청에서 90초" 뿐이었고, 그래서 안전망 폴링을 끄면 본줄인 push 까지
+// 죽었다 (GP-1). 새 답은 "그 저장소를 보는 연결이 끊겼을 때" 다.
+
+// noteFor 는 clientId 를 실은 표명이다. `note` 와 같은 이유로 회차 수를 되돌린다.
+func noteFor(t *testing.T, w *GitWatcher, sig *fakeSigner, repo, clientID string) {
+	t.Helper()
+	obs, _, err := sig.Status(context.Background(), repo)
+	if err != nil {
+		obs = store.Observation{}
+	}
+	sig.calls--
+	w.NoteFor(repo, obs, clientID)
+}
+
+// TC-GWL-1 (FR-GWL-2): 임차인이 있으면 유휴 시간으로 만료되지 않는다.
+//
+// 사용자 요구가 이것이다 — "오래 안 본다고 지우는 건 안 될 거 같아. 띄워놓고
+// 보고만 있을 수도 있으니까." TTL 의 몇 배를 기다려도 남아야 한다.
+func TestGitWatch_LeaseSurvivesIdle(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	w := newWatcher(sig, &fakeBroker{})
+	now := time.Now()
+	w.now = func() time.Time { return now }
+
+	ep := w.Attach("c1")
+	if ep == 0 {
+		t.Fatalf("Attach 가 epoch 를 주지 않았다")
+	}
+	noteFor(t, w, sig, "/r", "c1")
+
+	for i := 0; i < 5; i++ {
+		now = now.Add(GitWatchTTL)
+		w.Tick(context.Background())
+	}
+	if w.Watching() != 1 {
+		t.Fatalf("연결이 살아 있는데 유휴로 만료됐다 (FR-GWL-2)")
+	}
+}
+
+// TC-GWL-2: 임대만 살아 있고 관측이 죽어 있으면 뜻이 없다 — 그 사이의 변화가
+// 실제로 방송되는지 본다.
+func TestGitWatch_LeaseStillBroadcasts(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	br := &fakeBroker{}
+	w := newWatcher(sig, br)
+	now := time.Now()
+	w.now = func() time.Time { return now }
+
+	w.Attach("c1")
+	noteFor(t, w, sig, "/r", "c1")
+
+	now = now.Add(GitWatchTTL * 3)
+	sig.sigs["/r"] = "b"
+	w.Tick(context.Background())
+
+	if got := gitChangedRepos(br); len(got) != 1 || got[0] != "/r" {
+		t.Fatalf("TTL 을 훌쩍 넘긴 뒤의 변화가 방송되지 않았다: %v (FR-GWL-2)", got)
+	}
+}
+
+// TC-GWL-3 (FR-GWL-4): 구독이 끊기면 TTL 이 다시 적용된다. 브라우저를 닫으면
+// 감시가 곧 걷힌다 — 임대를 늘린 것이 "영원히 본다" 가 되면 안 된다.
+func TestGitWatch_DetachRestoresTTL(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	w := newWatcher(sig, &fakeBroker{})
+	now := time.Now()
+	w.now = func() time.Time { return now }
+
+	ep := w.Attach("c1")
+	noteFor(t, w, sig, "/r", "c1")
+	w.Detach("c1", ep)
+
+	now = now.Add(GitWatchTTL / 2)
+	w.Tick(context.Background())
+	if w.Watching() != 1 {
+		t.Fatalf("Detach 직후 TTL 안인데 걷혔다 (FR-GWL-4)")
+	}
+	now = now.Add(GitWatchTTL)
+	w.Tick(context.Background())
+	if w.Watching() != 0 {
+		t.Fatalf("Detach 뒤에도 TTL 이 적용되지 않았다 (FR-GWL-4)")
+	}
+}
+
+// TC-GWL-4 (FR-GWL-3): 옛 epoch 의 Detach 는 새 구독의 임대를 지우지 않는다.
+//
+// 재연결에서 옛 연결의 정리가 늦게 도착한다. FocusRegistry 가 FR-XDF-10 으로
+// 이미 막아 둔 자리이고, 같은 규약을 여기서도 지킨다.
+func TestGitWatch_StaleDetachIgnored(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	w := newWatcher(sig, &fakeBroker{})
+	now := time.Now()
+	w.now = func() time.Time { return now }
+
+	old := w.Attach("c1")
+	noteFor(t, w, sig, "/r", "c1")
+	w.Attach("c1") // 재연결 — 새 구독이 같은 신원을 든다
+	w.Detach("c1", old)
+
+	now = now.Add(GitWatchTTL * 3)
+	w.Tick(context.Background())
+	if w.Watching() != 1 {
+		t.Fatalf("옛 구독의 정리가 새 임대를 지웠다 (FR-GWL-3)")
+	}
+}
+
+// TC-GWL-5 (FR-GWL-5): clientId 없는 표명은 종전 TTL 임대 그대로다.
+// 옛 화면·스크립트·curl 이 그렇게 부른다.
+func TestGitWatch_AnonymousNoteKeepsTTL(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	w := newWatcher(sig, &fakeBroker{})
+	now := time.Now()
+	w.now = func() time.Time { return now }
+
+	noteFor(t, w, sig, "/r", "")
+	now = now.Add(GitWatchTTL * 2)
+	w.Tick(context.Background())
+	if w.Watching() != 0 {
+		t.Fatalf("익명 표명이 만료되지 않았다 (FR-GWL-5)")
+	}
+}
+
+// TC-GWL-6: 임차인 둘 중 하나만 나가면 감시가 남는다. 창을 둘 띄워 두고 하나만
+// 닫는 경우다.
+func TestGitWatch_OneHolderLeavesOtherKeeps(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	w := newWatcher(sig, &fakeBroker{})
+	now := time.Now()
+	w.now = func() time.Time { return now }
+
+	ep1 := w.Attach("c1")
+	w.Attach("c2")
+	noteFor(t, w, sig, "/r", "c1")
+	noteFor(t, w, sig, "/r", "c2")
+	w.Detach("c1", ep1)
+
+	now = now.Add(GitWatchTTL * 3)
+	w.Tick(context.Background())
+	if w.Watching() != 1 {
+		t.Fatalf("남은 임차인이 있는데 감시가 걷혔다")
+	}
+}
+
+// TC-GWL-7 (FR-GWL-6): 상한을 넘으면 임차인 없는 것이 먼저 나가고, 퇴출이
+// 로그에 남는다. 종전에는 조용했다 (11-git-polling GP-16).
+func TestGitWatch_CapEvictsUnleasedFirstAndLogs(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{}}
+	w := newWatcher(sig, &fakeBroker{})
+	now := time.Now()
+	w.now = func() time.Time { return now }
+
+	// 임차인 있는 것을 **가장 먼저** 표명한다 — 표명 시각만 보면 이것이 먼저
+	// 나가야 하는 자리다. 임차인이 그 순서를 뒤집는지 본다.
+	w.Attach("c1")
+	noteFor(t, w, sig, "/leased", "c1")
+	now = now.Add(time.Millisecond)
+
+	out := captureLog(t, func() {
+		for i := 0; i < GitWatchCap; i++ {
+			noteFor(t, w, sig, string(rune('a'+i))+":/r", "")
+			now = now.Add(time.Millisecond)
+		}
+	})
+
+	if got := w.Watching(); got != GitWatchCap {
+		t.Fatalf("상한을 지키지 않았다: %d (FR-GWL-6)", got)
+	}
+	w.mu.Lock()
+	_, leasedThere := w.watch["/leased"]
+	w.mu.Unlock()
+	if !leasedThere {
+		t.Fatalf("임차인 있는 것이 먼저 퇴출됐다 (FR-GWL-6)")
+	}
+	if !strings.Contains(out, "[gitwatch]") || !strings.Contains(out, "a:/r") {
+		t.Fatalf("상한 퇴출이 로그에 남지 않았다: %q (FR-GWL-6)", out)
+	}
+}
+
+// TC-GWL-8 (FR-GWL-8): Attach 없이 clientId 만 실어 오면 임대가 아니라 TTL 이다.
+// 구독이 없는 신원은 "보고 있다" 를 주장할 수 없다.
+func TestGitWatch_NoteForUnknownClientIsTTL(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	w := newWatcher(sig, &fakeBroker{})
+	now := time.Now()
+	w.now = func() time.Time { return now }
+
+	noteFor(t, w, sig, "/r", "ghost")
+	now = now.Add(GitWatchTTL * 2)
+	w.Tick(context.Background())
+	if w.Watching() != 0 {
+		t.Fatalf("구독 없는 신원이 임대를 얻었다 (FR-GWL-8)")
+	}
+}

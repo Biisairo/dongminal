@@ -114,7 +114,7 @@ test.describe('묶음 PIS·설정 — 다섯 주기 (FR-PIS-6~15)', () => {
 
   test('PIS4 (V-4): 다섯 키가 설정에서 화면으로 내려온다', async ({ page, request }) => {
     await patchSettings(request, {
-      agentsPollInterval: 10000, statsInterval: 5000, gitStatusInterval: 60000,
+      agentsPollInterval: 10000, statsInterval: 5000, gitStatusInterval: 10000,
       gitReposInterval: 10000, gitConsoleInterval: 5000,
     });
     await waitForInit(page);
@@ -126,7 +126,7 @@ test.describe('묶음 PIS·설정 — 다섯 주기 (FR-PIS-6~15)', () => {
       gitConsole: (window as any).gitConsoleInterval,
     }));
     expect(v).toEqual({
-      agents: 10000, stats: 5000, gitStatus: 60000, gitRepos: 10000, gitConsole: 5000,
+      agents: 10000, stats: 5000, gitStatus: 10000, gitRepos: 10000, gitConsole: 5000,
     });
   });
 
@@ -364,6 +364,23 @@ test.describe('묶음 PIS·화면 — Polling 탭 (FR-PIS-20~25)', () => {
     expect(await has0('pi-gitstatus')).toBe(true);
     for (const id of ['pi-agents', 'pi-stats', 'pi-gitrepos', 'pi-gitconsole'])
       expect(await has0(id), id + ' 에 뜻 없는 0 이 있다').toBe(false);
+  });
+
+  /**
+   * TC-GWL-13 (GIT_WATCH_LEASE_SRS FR-GWL-11): 안전망의 선택지는 셋이다.
+   *
+   * `1분`·`2분` 을 뺐다. 임대가 SSE 구독으로 옮겨간 뒤로 긴 안전망은 뜻이 없다 —
+   * 놓친 것을 줍는 그물이 1~2분에 한 번이면 그물이 아니고, 그 사이는 push 가
+   * 이미 덮는다. 짧게 두거나 끄거나 둘 중 하나다.
+   */
+  test('PIS20 (V-5): 안전망 선택지는 10초·30초·끔 이다', async ({ page }) => {
+    await waitForInit(page);
+    await openSettings(page, 'polling');
+    const opts = await page.evaluate(() => {
+      const el = document.getElementById('pi-gitstatus') as HTMLSelectElement;
+      return [...el.options].map(o => o.value);
+    });
+    expect(opts, '안전망 선택지가 바뀌었다').toEqual(['10000', '30000', '0']);
   });
 
   // FR-PIS-23: 탭에 따라 크기가 달라지지 않는다 (FR-UIK-12·13).

@@ -48,8 +48,14 @@ const POLL_SETTINGS=[
     def:()=>GIT_STATUS_POLL_MS,
     get:()=>gitStatusInterval, set:v=>{gitStatusInterval=v},
     // FR-PIS-9: `0` 이 뜻을 갖는 유일한 자리 — 본줄이 따로 있으므로 꺼도 멎지 않는다.
+    //
+    // GIT_WATCH_LEASE_SRS FR-GWL-11·12: 그 진술이 오래 **거짓**이었다. 서버 감시의
+    // 임대가 이 폴링에 매달려 있어서, 끄면 본줄인 push 까지 죽었다 (GP-1). 임대를
+    // SSE 구독으로 옮겨 참으로 만들었고, 그러면서 `1분`·`2분` 을 뺐다 — 놓친 것을
+    // 줍는 그물이 1~2분에 한 번이면 그물이 아니고, 그 사이는 push 가 이미 덮는다.
+    // 짧게 두거나 끄거나 둘 중 하나다.
     off:true,
-    opts:[[10000,'10초'],[30000,'30초'],[60000,'1분'],[120000,'2분'],[0,'끔']],
+    opts:[[10000,'10초'],[30000,'30초'],[0,'끔']],
   },
   {
     key:'gitReposInterval', id:'pi-gitrepos', label:'저장소 목록·탐색기',

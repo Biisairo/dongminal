@@ -427,7 +427,14 @@ Object.assign(GitPanel.prototype, {
     // 타이머는 살아 있는데 status 만 멎는 모양이다 (TC-SVS-64 · Windows 러너 실측:
     // 46초 동안 signature 요청만 돌았다). 넘기면 망 실패와 같은 길을 간다 — 이전
     // 화면을 지키고 백오프를 지난다.
-    try{r=await fetch('/api/git/status?repo='+encodeURIComponent(repo),
+    // GIT_WATCH_LEASE_SRS FR-GWL-9: **누가 보는지를 함께 말한다.**
+    //
+    // 종전에는 이 요청 자체가 서버 감시의 수명이었다 — 90초 안에 다음 요청이 오지
+    // 않으면 감시가 걷히고 `git_changed` 방송이 멎었다. 그래서 안전망을 끄면 본줄이
+    // 끊겼다 (GP-1). `clientId` 를 실으면 그 신원의 SSE 구독이 임대를 쥐므로,
+    // 이 요청이 뜸해져도 아예 끊겨도 감시가 산다.
+    const cid=this.app&&this.app.clientId?'&clientId='+encodeURIComponent(this.app.clientId):'';
+    try{r=await fetch('/api/git/status?repo='+encodeURIComponent(repo)+cid,
       {signal:AbortSignal.timeout(GIT_STATUS_FETCH_TIMEOUT_MS)})}catch{r=null}
     if(r){try{d=await r.json()}catch{d=null}}
     // 리포가 바뀌면 setRepo 가 소유권을 끊는다 — 그 뒤 도착한 응답은 플래그를
