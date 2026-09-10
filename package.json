@@ -6,7 +6,7 @@
     "@types/node": "22.20.2",
     "eslint": "10.10.0",
     "globals": "17.12.0",
-    "typescript": "5.9.3"
+    "typescript": "7.0.2"
   },
   "scripts": {
     "e2e": "playwright test",
