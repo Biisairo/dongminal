@@ -304,11 +304,13 @@ docs/internal/CI_GATES_SRS.md 에 먼저 쓰고 진행하라(게이트 목록·�
 
 ## M2 — 브라우저 매개 공격 봉합 + 서버 하드닝
 
-> **⚠ 진행 중 (2026-09-10).** **P0 5건이 전부 닫혔고 P1 8건이 끝났다.**
-> 남은 것·미검증·사용자 결정 대기 항목은 [`M2_PROGRESS.md`](./M2_PROGRESS.md) 에
-> 있다 — **이 섹션보다 그쪽을 먼저 읽어라.** 스펙 2건은 이미 있다:
+> **⚠ 진행 중 (2026-09-10, 2차).** **P0 5건이 전부 닫혔고 P1 10건이 끝났다.**
+> 남은 것은 P1 1건(`FE-8`)·P2 18건, 그리고 사용자 보고 5건이다.
+> [`M2_PROGRESS.md`](./M2_PROGRESS.md) 에 있다 — **이 섹션보다 그쪽을 먼저 읽어라.**
+> 스펙은 셋이다:
 > [`REQUEST_GATE_SRS.md`](../REQUEST_GATE_SRS.md) ·
-> [`FILE_API_BOUNDARY_SRS.md`](../FILE_API_BOUNDARY_SRS.md).
+> [`FILE_API_BOUNDARY_SRS.md`](../FILE_API_BOUNDARY_SRS.md) ·
+> [`MONACO_VENDORING_SRS.md`](../MONACO_VENDORING_SRS.md).
 
 **목표(한 문장)**: 기본 설정(127.0.0.1)에서도 성립하는 브라우저 매개 원격 코드 실행 경로 전부를 닫고, 인증 게이트가 설 미들웨어 자리의 계약을 확정한다.
 

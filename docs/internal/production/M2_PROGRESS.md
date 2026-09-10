@@ -1,17 +1,21 @@
 # M2 진행 상황 — 브라우저 매개 공격 봉합 + 서버 하드닝
 
-- 문서 상태: **진행 중** (2026-09-10 세션 중단 시점).
+- 문서 상태: **진행 중** (2026-09-10, 2차 세션).
 - 상위 문서: [`MILESTONE_KICKOFF.md`](./MILESTONE_KICKOFF.md) §M2
 - 스펙: [`REQUEST_GATE_SRS.md`](../REQUEST_GATE_SRS.md) ·
-  [`FILE_API_BOUNDARY_SRS.md`](../FILE_API_BOUNDARY_SRS.md)
+  [`FILE_API_BOUNDARY_SRS.md`](../FILE_API_BOUNDARY_SRS.md) ·
+  [`MONACO_VENDORING_SRS.md`](../MONACO_VENDORING_SRS.md)
 - 다음 세션 착수 프롬프트: §5
 
 ---
 
 ## 1. 한 줄 요약
 
-**P0 5건을 전부 닫았고 P1 8건을 끝냈다.** 남은 것은 P1 4건과 P2 18건이며, 그중
-**Monaco 벤더링은 사용자 결정을 기다린다**(§4).
+**P0 5건과 P1 10건을 닫았다.** 남은 것은 P1 1건(`FE-8`)·P2 18건이며, 여기에
+**사용자가 직접 보고한 5건**이 새로 붙었다(§3.4).
+
+`SEC-3`(무인증 LAN 노출)은 M4 까지 열려 있다 — 이 마일스톤의 노출 게이트가 그
+절반을 강제한다.
 
 ---
 
@@ -35,7 +39,7 @@ logging → accessGate(어느 기기) → requestGate(어느 출처) → authGat
 
 `authGate` 는 **자리만 잡았다** — 지금은 통과시키고, 계약은 `REQUEST_GATE_SRS` §3.6 에 있다.
 
-### 2.2 P1 (8건)
+### 2.2 P1 (10건)
 
 | 발견 | 조치 |
 |---|---|
@@ -47,12 +51,15 @@ logging → accessGate(어느 기기) → requestGate(어느 출처) → authGat
 | `SEC-3` 완화 | `--expose` + ACL 꺼짐이면 **기동 거부**. 되돌리는 길은 `--insecure-no-acl` 하나. 사유가 셋으로 갈린다(없다/꺼졌다/항목이 없다) |
 | `UX-1` | `_confirmClose` 를 `GitConfirm` 규약으로 수렴 — 초기 포커스 취소 · `Enter`≠실행 · `textContent`. DOM 조립으로 재작성 |
 | `SEC-11` 일부 | 정적 응답에 CSP · `X-Frame-Options` · `X-Content-Type-Options` · `Referrer-Policy` |
+| **`FE-6` + `B7`** | **Monaco 벤더링 — 사전압축으로.** `MONACO_CDN` 소멸, `web/vendor/monaco/vs` 로 들어갔다. **CSP 의 외부 호스트가 0** 이 됐다. 상세는 §4 |
+| **`GO-11` `SEC-17`** | **오류 분류·문구 노출.** 응답 본문이 오류 전문을 흘리던 **9곳이 0곳**. 문자열로 오류를 가르던 **3곳이 0곳**. 상세는 §2.6 |
 
 ### 2.3 새로 선 게이트
 
 | 게이트 | 무엇을 막나 |
 |---|---|
 | `scripts/check-html.sh` | HTML 템플릿의 `${…}` 가 `escHtml(`/`e(` 로 시작하지 않으면 실패. **예외 없음** — 마크업을 넣어야 하는 자리는 DOM 으로 세운다 |
+| `scripts/check-vendor.sh` (확장) | 종전에는 flat 파일만 봤다. **디렉터리 자산**(monaco)을 **집계 해시와 파일 수**로 본다 — 파일 하나가 바뀌어도, 사라져도, 이름만 바뀌어도 값이 달라진다 |
 
 `make gates` 와 `verify.yml` 의 `gates` 잡에 함께 걸렸다.
 
@@ -64,18 +71,126 @@ logging → accessGate(어느 기기) → requestGate(어느 출처) → authGat
 - `internal/webserver/httpapi` 의 테스트 105건이 `httptest.NewRequest` 의 기본 Host
   (`example.com`)로 요청을 만들고 있었다. `apiTestRequest` 헬퍼로 일괄 정리했다.
 
+### 2.5 이번 세션이 찾아 고친 것 — **M2 자신이 만든 회귀 넷**
+
+전체 e2e 를 처음으로 끝까지 본 결과, 실패의 대부분이 이 마일스톤의 조치가 남긴
+것이었다. 넷 다 **게이트를 느슨하게 하지 않고** 닫았다.
+
+#### (1) e2e 픽스처가 개발자의 인스턴스 정체를 물려받았다
+
+**증상.** e2e 1,449건이 **전부** 픽스처 단계에서 무너졌다 —
+`Fixture "dmServer" timeout of 60000ms exceeded during setup.`
+
+이 저장소를 **dongminal 안에서** 개발하면 도구 셸의 환경에 그 인스턴스의 정체가
+들어 있다. `DONGMINAL_HOST`·`DONGMINAL_PORT`·`DONGMINAL_TOOL_ID`·
+`DONGMINAL_HISTFILE` 는 서버가 자기 자식에게 심어 주는 값이고 `npx playwright` 는
+그 자식 중 하나인데, `fixtures.ts` 가 `...process.env` 로 통째로 물려주고 있었다.
+
+그래서 워커의 서버가 `DONGMINAL_HOST=0.0.0.0` 을 보고 **노출 모드로** 떴고, 이
+마일스톤의 노출 게이트(`FR-RQG-20`)가 ACL 이 없다며 기동을 거부했다.
+
+```
+노출(0.0.0.0) 상태인데 허용 목록이 아직 없습니다.
+```
+
+**게이트는 옳았다 — 물려준 쪽이 틀렸다.** `hermeticEnv()` 가 그 넷을 지운다. 워커
+마다 자기 인스턴스를 갖는다는 `FR-EPL-1` 의 전제가 그 자리에서 깨지고 있었으므로,
+노출 게이트가 없었어도 잠재 결함이다.
+
+#### (2) CSP 가 **첫 페인트를 막고 있었다** (`SEC-11` 회귀)
+
+`index.html` 의 head 에는 선주입 스크립트가 둘 있다 — 테마 변수와 사이드바 너비를
+첫 페인트 **이전에** 세운다 (`BOOT_SCREEN_SRS` FR-BTS-3). 둘 다 **인라인**이다.
+
+1차 세션이 `script-src 'self'` 를 세우면서 그 둘이 조용히 막혔다. 저장한 테마가
+첫 페인트에 반영되지 않고, 사이드바가 접힌 상태로 저장돼 있어도 펼쳐진 채 그려진다.
+`boot-screen.spec.ts` 의 V-1·V-3 이 그것을 잡고 있었다.
+
+**세 길 중 해시를 골랐다** (`MONACO_VENDORING_SRS` FR-MVN-13a).
+
+| 길 | 왜 아닌가 / 왜 |
+|---|---|
+| `'unsafe-inline'` | `FE-1`(상태바 XSS)의 2차 방어가 통째로 사라진다 |
+| 외부 파일로 이동 | `BOOT_SCREEN_SRS` NFR-1 이 "네트워크에 닿지 않는다" 를 요구한다. 첫 페인트 앞에 왕복이 생긴다 |
+| **`'sha256-…'` 해시** | **그 둘만** 허용한다. 해시는 기동 시 **서빙되는 바이트에서** 계산하므로 두 벌이 될 수 없다 |
+
+#### (3) 종료 오버레이가 `ReferenceError` 로 터졌다
+
+`term-pane.js:617` 이 `innerHTML` 에 `escHtml(...)` 을 끼워 넣고 있었다 —
+`check-html.sh` 를 통과시키려던 1차 세션의 조치다. 그런데 `escHtml` 은
+`helpers.js` 의 전역이고, 그 파일을 싣지 않는 자리에서는 없다.
+
+`_confirmClose` 를 옮긴 것과 **같은 규약**으로 다시 썼다 — `textContent` 와 DOM
+조립. 이스케이프를 부를 필요가 없어지고, 부를 함수가 스코프에 있는지도 묻지 않는다.
+
+#### (4) e2e 호출부 넷이 게이트에 걸려 있었다
+
+**본문 없는 상태 변경**이다. `data` 를 객체로 주는 호출은 Playwright 가 알아서
+Content-Type 을 밝히므로 139곳 중 넷만 남았고, 그 넷이 정확히 게이트가 겨냥한
+모양이었다.
+
+```
+fixtures.ts:48   DELETE /api/tools/{id}              ← 고아 도구 회수
+fixtures.ts:125  POST   /api/tools/attention/clear-all
+git-window       POST   /api/tools?cols=120&rows=40
+workspace-identity  같음
+focus-invariant  POST   /api/tools?cols=99999&rows=24
+```
+
+앞의 둘은 **모든 테스트 앞에서 도는 정리 함수**다. 415 로 조용히 실패하는 동안
+고아 도구가 쌓였고, 그것이 뒤 스펙의 개수 단정을 무너뜨렸다 — `bg-kill` 의
+"1이어야 하는데 6" 이 그 자국이다. 1차 세션이 "자원 경합" 으로 읽은 것의 정체다.
+
+**게이트는 옳다.** `POST /api/tools?cwd=…` 는 쿼리스트링만으로 셸을 만든다 —
+본문 유무로 예외를 두면 그 경로가 그대로 열린다 (`FR-RQG-5`).
+
+### 2.6 오류 분류 — 어떻게 갈랐나 (`GO-11`·`SEC-17`)
+
+`internal/webserver/httpapi/fail.go` 하나로 모았다.
+
+**가르는 기준은 상태 코드가 아니라 누가 그 말을 썼는가다.** 400 이라고 안전하지
+않다 — 파일을 여는 400 은 경로를 담는다. 반대로 500 이어도 우리가 쓴 문구면 보여도
+된다. 그래서 판정을 호출자에게 두고, 호출자가 감출 것을 정한다.
+
+| | 하는 일 |
+|---|---|
+| `fail(w, code, msg, err)` | `msg` 가 본문이 되고 `err` 는 **로그로만** 간다 |
+| `failRead(w, err)` | `httpreq.Read` 의 실패. 상한 초과는 사유가 보이고(413), 그 밖의 읽기 실패는 감춘다(400) |
+
+**사유가 그대로 나가는 자리를 남겼다** — 사용자가 방금 보낸 것에 대한 말이기
+때문이다: ACL 항목 검증(`app-settings.js` 의 `_aclSave` 가 그 본문을 띄운다) ·
+워크스페이스 파싱 · `openUrl` 인자 · `location` uuid · 샌드박스 **정의**.
+
+**감춘 자리**: 도구 생성 실패(PTY·경로) · 샌드박스 정의 읽기/쓰기 실패(절대경로) ·
+본문 읽기 실패(연결 사정) · ACL **저장** 실패.
+
+정의와 저장을 가르려고 표식 둘을 세웠다 — `sandbox.ErrSaveFailed` ·
+`httpapi.errAccessSaveFailed`.
+
+문자열로 오류를 가르던 셋도 없앴다.
+
+```
+toolhub/tool.go     "input/output error"     → errors.Is(err, syscall.EIO)
+handlers_ws.go      "use of closed …"        → errors.Is(err, net.ErrClosed)
+handlers_files.go   "request body too large" → errors.As 만 남기고 폴백 삭제
+```
+
+`syscall.EIO` 는 다섯 대상에서 전부 컴파일되고(`check-cross.sh` 통과),
+`check-seams.sh` 의 금지 목록(`syscall.Kill`·`SIG*`·`Signal`)에 닿지 않는다.
+
+`query/blame.go:82` 은 **git 의 stderr 문자열**을 본다 — Go 오류 분류가 아니므로
+이 항목이 아니다. 그대로 두었다.
+
 ---
 
 ## 3. 남은 것
 
-### 3.1 P1 (4건)
+### 3.1 P1 (1건 + 이월 1건)
 
 | 발견 | 내용 | 규모 |
 |---|---|---|
-| `FE-6` + `B7` | **Monaco 벤더링** — §4 의 결정을 받은 뒤 | M |
-| `GO-11` `SEC-17` | 오류 분류·문구 노출. `http.Error(w, err.Error(), …)` 8곳, `strings.Contains(err.Error(), …)` 3곳 (§3.3) | S |
-| `SEC-7` 잔여 | `/api/upload`·`/api/download` 의 경계 — `FILE_API_BOUNDARY_SRS` §5 비목표 2 가 M8 로 넘겼다. **그때까지 게이트가 호출을 덮는다** | — |
 | `FE-8` | `web/js/core/api.js` 통합 (`fetch` 51곳). M4 인증의 선행 권장 | M |
+| `SEC-7` 잔여 | `/api/upload`·`/api/download` 의 경계 — `FILE_API_BOUNDARY_SRS` §5 비목표 2 가 **M8 로 넘겼다**. 그때까지 게이트가 호출을 덮는다 | — |
 
 ### 3.2 P2·기능축 (미착수)
 
@@ -83,109 +198,193 @@ logging → accessGate(어느 기기) → requestGate(어느 출처) → authGat
 `FE-15`~`FE-17` · `FBE-08`(submodule `core.Env()`+`ctx`) · `FUI-06`(편집기 크기 상한) ·
 `09` 비목표 3(샌드박스 cpu·memory·pids 상한).
 
-### 3.3 오류 분류 — 조사해 둔 것
+### 3.3 DoD 중 아직 못 채운 항목
 
-착수하면 바로 쓸 수 있게 실측해 두었다.
-
-```
-http.Error(w, err.Error(), …)   8곳
-  access.go:478 · handlers_api.go:283,347,448,466,470 · commands.go:138,171
-
-strings.Contains(err.Error(), …)  분류에 쓰는 3곳
-  toolhub/tool.go:352          "input/output error"  → errors.Is(err, syscall.EIO)
-  handlers_ws.go:234           "use of closed …"     → errors.Is(err, net.ErrClosed)
-  handlers_files.go:117        "request body too large" → 이미 errors.As 가 있고 폴백만 남았다
-
-  query/blame.go:82 은 **git 의 stderr 문자열**을 본다 — Go 오류 분류가 아니므로
-  이 항목이 아니다. 건드리지 마라.
-```
-
-### 3.4 DoD 중 아직 못 채운 항목
-
-- CSP `script-src` 에 외부 호스트가 **하나 남아 있다** (`https://cdn.jsdelivr.net`).
-  `TestStatic_CSPExternalHostsAreKnown` 이 그 하나를 알고 있고, 벤더링이 끝나면
-  그 검사가 먼저 실패한다 — 그것이 이 줄을 지울 때가 됐다는 신호다.
 - `wait` 동시 수 상한 · diag 스냅샷의 임계 경고.
 - 헤드리스 명령 로그를 전문 대신 길이·해시로.
 - `worktree.execGit`·`submodule` 실행기의 `core.Env()` 공유 (B5).
+- 편집기의 `probe.size` 상한(`FUI-06`) — 서버 `SEC-19` 상한과 같은 값.
+- 샌드박스 컨테이너의 cpu·memory·pids 상한.
 - `dongminal verify` 에 게이트 항목 추가.
-- **전체 e2e 미검증** — §6.
+
+**CSP 의 외부 호스트는 더는 잔여가 아니다** — §4 가 그것을 닫았다.
+
+### 3.4 사용자 보고 — 분석·수정 대상 (2026-09-10 접수)
+
+감사 목록이 아니라 **사용자가 직접 쓰면서 보고한 것**이다. 원인 조사가 먼저이며,
+조사 결과에 따라 규모(소/중)와 SRS 필요 여부가 갈린다.
+
+| # | 증상 | 첫 조사 지점 |
+|---|---|---|
+| U-1 | **LSP 로 파일이 연결되지 않는다** | `handlers_lsp.go` · `web/js/ui/file-editor.js` 의 LSP 결선 · 서버 기동 조건 |
+| U-2 | **미리보기를 좌하단으로 옮기고, 색을 바꿔 잘 보이게 한다** | 미리보기 오버레이의 배치·대비 (`web/js/ui/`) |
+| U-3 | **`claude code`·`omp` 에서 스크롤이 위로 붙는 문제가 아직 남아 있다** | 종전 조치가 있었으나 미해결 — 재현 조건부터 다시 잡는다 |
+| U-4 | **탐색기의 빈 공간을 클릭하면 커서가 root 로 간다** | 최상위에 파일·폴더를 만들 수 있어야 한다 — 현재는 그 자리가 없다 |
+| U-5 | **탐색기에 다중 선택을 더한다** (`Cmd`+클릭 · `Shift`+클릭) | 선택 모델이 단일이라면 그것을 집합으로 넓히는 일이고, 삭제·이동·복사 등 **선택을 소비하는 자리 전부**가 함께 바뀐다 |
+
+U-1·U-3 은 **결함**이고 U-2·U-4·U-5 는 **동작 변경**이다. 뒤의 셋은 손대기 전에
+현재 동작이 의도된 것인지(스펙·주석) 먼저 확인한다.
+
+**U-5 는 규모가 다르다.** 선택 모델을 바꾸면 그 선택을 읽는 모든 명령이 영향을
+받으므로, 착수 전에 스펙이 필요한지부터 판정한다 (CLAUDE.md 작업 규모 게이트).
 
 ---
 
-## 4. 사용자 결정 대기 — Monaco 벤더링
+## 4. Monaco 벤더링 — 결정과 실측
 
-`web/js/ui/file-editor.js:5` 가 편집기를 런타임에 `cdn.jsdelivr.net` 에서 받는다.
-나머지 자산은 전부 `go:embed` 로 바이너리 안에 있고 **편집기만 인터넷이 필요하다.**
+**결정: 사전압축 벤더링** (사용자 결정, 2026-09-10). 스펙은
+[`MONACO_VENDORING_SRS.md`](../MONACO_VENDORING_SRS.md).
 
-| | 벤더링한다 | 지금대로 둔다 |
-|---|---|---|
-| CSP | `script-src 'self'` — 외부 호스트 0 | `cdn.jsdelivr.net` 을 영구 개방 |
-| 폐쇄망·Tailscale 전용 | 편집기·Diff·LSP 뷰가 선다 | 통째로 서지 않는다 |
-| 공급망 | 없음 | 서드파티 CDN 이 곧 스크립트 공급망 |
-| 바이너리 | **16MB → 약 21MB** (min/vs 약 5MB) | 그대로 |
-| 배포 | 5대상 합계가 약 25MB 늘어난다 | 그대로 |
+### 4.1 1차 세션의 숫자가 틀렸다
 
-`README` 의 첫 문장이 "의존이 없는 단일 파일" 이므로 크기는 제품의 성격에 닿는다.
-**그래서 임의로 정하지 않았다.**
+이 문서의 종전 판은 "min/vs 약 5MB → 바이너리 약 21MB" 라고 적었다. **5.4MB 는 그것을
+gzip 한 크기**이고 raw 는 23.3MB 다. `go:embed` 는 압축하지 않고 `release.yml` 은
+tar/zip 없이 raw 바이너리를 그대로 올리므로, 그대로 담으면 사용자가 받는 파일이
+16MB → 약 **39MB**, 5대상 합계 **+117MB** 였다.
+
+| | 실측 |
+|---|---|
+| `min/vs` 파일 수 | 151 (`.js` 137 · `.d.ts` 13 · `.css` 1) |
+| raw 합계 | 23.3 MB |
+| 파일마다 gzip 한 합계 | 5.4 MB |
+
+내역이 한쪽으로 쏠려 있다 — `assets/ts.worker` 6.7MB + `language/typescript` 6.4MB 로
+**TypeScript 만 13.1MB(56%)** 다.
+
+### 4.2 고른 길
+
+**담긴 채로 내보낸다.** 자산을 `<이름>.gz` 로 담고 정적 핸들러가
+`Content-Encoding: gzip` 으로 그대로 흘린다. `Accept-Encoding` 에 gzip 이 없으면
+서버가 풀어서 준다 — 그 폴백이 없으면 브라우저 아닌 클라이언트가 깨진 바이트를
+받고 그 사실을 모른다.
+
+| | 값 |
+|---|---|
+| 바이너리 | 15.64 MB → **21.15 MB** (+5.51) |
+| 기능 손실 | **없다.** `nls`·TypeScript 언어 서비스를 크기를 이유로 빼지 않았다 |
+| 담긴 파일 | 139 (`.d.ts` 13 은 제외 — 런타임에 요청되지 않는다) |
+| CSP | `script-src 'self'` · **외부 호스트 0** |
+| 규칙의 범위 | monaco 전용이 아니다. `.gz` 가 있으면 어느 자산이든 같은 규칙을 지난다 |
+
+### 4.3 이것으로 닫힌 DoD
+
+- `web/vendor/monaco/` 존재 · `MONACO_CDN` 상수 소멸 · `jsdelivr` 저장소 0건.
+- CSP `script-src` 에 외부 호스트 없음. `TestStatic_CSPExternalHostsAreKnown` 이
+  "하나이고 그것을 안다" 에서 **"하나도 없다"** 로 바뀌었다.
+- 네트워크를 끊은 상태에서 편집기·Diff 뷰가 뜨는 e2e — `e2e/monaco-offline.spec.ts`
+  2건(TC-MVN-15·16). 밖으로 나간 요청이 하나도 없음을 함께 단정한다(TC-MVN-17).
+
+### 4.4 함께 딸려 온 것 — CSP 해시
+
+`script-src` 를 `'self'` 로 조이자 `index.html` 의 head 선주입 스크립트 둘이
+막혔다. §2.5(2) 가 그 이야기이고, 결론은 **해시로 그 둘만 허용**한다는 것이다.
+해시는 `cspFor()` 가 **서빙되는 바이트에서** 계산하므로 문서와 정책이 두 벌이 될
+수 없다.
+
+```
+default-src 'self'; script-src 'self' 'sha256-Y0hr/…' 'sha256-cbCW…'; style-src …
+```
+
+`TestStatic_CSPHashesEveryInlineScript` 와 `TestStatic_CSPCoversRealIndex` 가
+"인라인 스크립트 수 == 해시 수" 를 지킨다. 새 인라인 스크립트를 넣으면 그 검사가
+먼저 실패하고, 속성이 붙은 인라인 스크립트는 해시 대상이 아니라 **막힌다** —
+조용히 허용되는 것보다 낫다.
 
 ---
 
 ## 5. 다음 세션 착수 프롬프트
 
-§6 에 그대로 붙여넣을 수 있는 형태로 있다.
+```
+프로젝트: /Users/dykim/personal/dongminal
+
+프로덕션화 로드맵 M2 를 이어서 진행한다. P0 5건과 P1 10건이 끝났다.
+
+먼저 읽어라 — 이게 진실이고 나머지는 배경이다:
+- docs/internal/production/M2_PROGRESS.md   ← 무엇이 끝났고 무엇이 남았는지
+- docs/internal/REQUEST_GATE_SRS.md          ← 게이트 계약 (구현됨)
+- docs/internal/FILE_API_BOUNDARY_SRS.md     ← 파일 경계 계약 (구현됨)
+- docs/internal/MONACO_VENDORING_SRS.md      ← 벤더링·사전압축·CSP (구현됨)
+
+남은 일은 셋이다.
+
+1) P1 마지막 — FE-8: web/js/core/api.js 통합 (fetch 51곳).
+   M4 인증의 선행 권장이다. 통합하지 않으면 401 공통 처리가 29파일로 흩어진다.
+   중 규모이므로 스펙을 먼저 쓴다.
+
+2) 사용자 보고 5건 (M2_PROGRESS §3.4) — U-1~U-5.
+   U-1(LSP 파일 연결 안 됨)·U-3(스크롤 위로 붙음)은 결함이라 재현부터.
+   U-2·U-4·U-5 는 동작 변경이라 현재 동작이 의도된 것인지 먼저 확인한다.
+   **U-5(탐색기 다중 선택)는 규모가 다르다** — 선택 모델을 바꾸면 그것을 읽는
+   모든 명령이 함께 바뀐다. 착수 전에 스펙 필요 여부를 판정하라.
+
+3) P2·기능축 (M2_PROGRESS §3.2).
+
+규약:
+- 게이트를 먼저 돌려라: make gates · npm run typecheck · npm run lint ·
+  npm run unit · go test -race -shuffle=on ./... · npx playwright test
+- **e2e 는 단독으로 돌려라.** 다른 세션이 같은 기계에서 테스트를 돌리면
+  PTY 가 소진되고 실패 목록이 오염된다 (kern.tty.ptmx_max 기본 511).
+- 게이트를 느슨하게 만들어 통과시키지 마라. 415·403 이 보이면 스펙으로 먼저
+  판정하고, 게이트가 옳으면 호출부를 고친다.
+- 커밋 메시지에 AI 서명 금지. 커밋은 사용자 확인 후에만.
+```
 
 ---
 
-## 6. 이 세션이 남긴 미검증 — e2e
+## 6. e2e — 이번 세션의 검증
 
-### 6.1 통과한 것
+### 6.1 1차 세션의 실패 목록은 **폐기한다**
 
-Go 전량(`-race`) · `make gates`(이음매·타이머·git쓰기·크로스·vendor·**html**) ·
-`golangci-lint` 0건 · `tsc`(e2e + `@ts-check` 6파일) · `eslint` 0건 ·
-`node:test` 46건 · `statusbar-xss.spec.ts` 4건.
+종전 §6.2 에 20건이 적혀 있었고 "자원 경합" 으로 추정했다. 실제 원인은 §2.5 의 넷이며
+그중 셋은 코드 결함이었다. **추정이 틀렸으므로 그 목록을 근거로 쓰지 않는다.**
 
-### 6.2 전체 e2e 는 **끝까지 보지 못했다**
+이번 세션도 중간에 두 번 오염됐다 — 같은 기계의 다른 세션이 playwright 를 돌려
+PTY 가 266개까지 올라갔고 실행이 죽었다(exit 144). **e2e 는 단독으로 돌려야 한다.**
 
-세션을 접을 때 실행 중이었고 중단했다. 그 시점까지 **실패로 기록된 스펙이 20개**다.
-아래는 그 목록이고, **다음 세션의 첫 일이 이것의 분류**다.
+### 6.2 분류 결과
 
-**확정 — 게이트 때문이고 이미 고쳤다 (워킹트리에 있다)**
+| 실패 | 판정 | 조치 |
+|---|---|---|
+| 전량 (픽스처 단계) | **코드 아님 — 하네스** | `hermeticEnv()` (§2.5-1) |
+| `boot-screen` V-1·V-3 | **코드 — M2 회귀** | CSP 해시 (§2.5-2) |
+| `reconnect-storm` 4건 | **코드 — M2 회귀** | 오버레이 DOM 조립 (§2.5-3) |
+| `focus-invariant` L4 · `git-window` E2 · `bg-kill` TC-BGK-7 | **게이트가 옳다 — 호출부** | 본문 없는 상태 변경에 JSON 헤더 (§2.5-4) |
+| `editor-ops` W1 · `git-tag` · `git-repo-missing` · `git-ui-revision` · `history-branch-button` · `git-submodules` · `layout` · `settings` · `sidebar-collapse` | **오염** | 단독 실행에서 전부 통과 |
+| `git-diff` D7 | **벤더링이 전제를 지웠다** | 그 검사는 `cdn.jsdelivr.net` 을 끊어 편집기 로드 실패를 만들었는데, 이제 그 요청이 없다. **자기 자산 경로**(`/vendor/monaco/**`)를 끊도록 옮겼다 — 요구(`FR-GIT-55`)는 그대로다. 실패 문구도 고쳤다: 네트워크가 끼어들 자리가 없어졌으므로 "네트워크를 확인하세요" 가 사용자를 없는 원인으로 보낸다 |
 
-```
-focus-invariant  "API method routing (S3)" 넷
-  POST /api/state → 404 를 기대했는데 415
-  DELETE /api/workspace → 같음
-  GET /api/ping returns ok regardless of method → POST/PUT/DELETE 가 415
-```
+### 6.3 남은 흔들림 — **기존 것이며 이 세션과 무관하다**
 
-게이트가 라우팅 **앞**에 서므로 Content-Type 이 없으면 404 에 닿기 전에 415 다.
-검사에 헤더를 달았다. **게이트가 옳다** — 본문 없는 상태 변경에도 JSON 을 요구하는
-것이 `POST /api/tools?cwd=…` 를 막는 방법이다.
+전체를 **세 번** 돌렸다.
 
-**미분류 — 다음 세션이 판정할 것 (16)**
+| 회차 | 결과 | 실패 |
+|---|---|---|
+| 1 | `1444 passed · 3 flaky · 1 failed` (15.5분) | `git-diff` D7 — 고쳤다 |
+| 2 | `1443 passed · 4 flaky · 1 failed` (14.6분) | `editor-dirty-diff` V-EDD-6 |
+| 3 | `1443 passed · 5 flaky · **0 failed**` (15.0분) | — |
 
-```
-bg-kill            마지막 도구 종료      "Expected: 1, Received: 6"  ← 도구 수
-reconnect-storm    4건 (OP-EXIT·백오프·종료 오버레이)
-git-history        2건 (DOM 행 수·필터)
-mobile-kb-gate · mobile-keybar · repo-tab      3건
-editor-lsp-nav · editor-ops · git-window       3건
-layout · settings · sidebar-collapse           3건
-focus-invariant    "Pane size MaxTerminalDim falls back"
-```
+**흔들리는 자리가 회차마다 전부 다르다.** 1회차는 `git-history`·`slot-view-state`,
+3회차는 `branch-menu-unify`·`git-branches`·`git-repo-missing` 이다. 겹치는 것이
+없다는 것이 "특정 변경의 회귀" 가 아니라는 근거다.
 
-**이 목록을 그대로 믿지 마라.** 두 가지 오염이 있다.
+2회차의 `editor-dirty-diff` V-EDD-6 은 Monaco 가 30초 안에 뜨지 않은 것이라 벤더링과
+닿을 수 있어 따로 봤다 — **단독 3회(54건) 전부 통과**했고 3회차 전체 실행에서도
+통과했다. 부하에서만 나오는 대기 시간 문제다.
 
-1. **자원 경합.** 같은 기계에서 Go 테스트와 e2e 를 겹쳐 돌렸고, PTY 가 218개까지
-   올라갔다(macOS `kern.tty.ptmx_max` 기본 511). 그 상태에서 daemon 통합 테스트가
-   **HEAD 에서도** 실패했다 — 즉 이 목록에는 내 변경과 무관한 실패가 섞여 있다.
-   `bg-kill` 의 "도구가 1개여야 하는데 6개" 가 그 냄새다.
-2. **중단.** 끝까지 돌지 않았으므로 이 20개가 전부가 아니다.
+앞서 `git-console` K2 · `git-commit-actions` D1 · `git-history` H7 로는 **HEAD 와
+직접 견줬다** — 워킹트리 3회 중 1회, HEAD 4회 중 1회로 같은 비율이다. 셋 다 **배경
+폴링이 사용자의 명령보다 먼저 기록되는** 경합이며(K2 의 실패 문구에 맨 위가
+`git stash list` 로 찍힌다), 고치려면 스펙의 "맨 위" 단정을 바꾸거나 폴링을 멎게
+해야 한다 — **별도 작업이고 이 마일스톤의 범위가 아니다.**
 
-**분류 방법**: 깨끗한 기계에서 `npx playwright test` 를 **단독으로** 한 번 돌린다.
-남는 실패만 진짜다. 그중 415·403 이 보이면 게이트/경계가 맞는지 스펙으로 먼저
-판정하고, 맞으면 **호출부를 고친다** — 게이트를 느슨하게 만들지 않는다.
+
+### 6.4 이번 세션에 통과한 게이트
+
+`make gates`(이음매·타이머·git쓰기·크로스 5대상·vendor·html) ·
+`go test -race -shuffle=on ./...` 전량 · `npm run typecheck` · `npm run lint` ·
+`npm run unit` 46건.
+
+**전체 e2e**: 단독 실행 3회. 마지막 회차가 `1443 passed · 5 flaky · **0 failed** ·
+3 skipped` (15.0분)이다. 회차별 표와 흔들림 판정은 §6.3.
 
 ---
 
@@ -193,4 +392,5 @@ focus-invariant    "Pane size MaxTerminalDim falls back"
 
 | 날짜 | 내용 |
 |---|---|
-| 2026-09-10 | 초안. P0 5건·P1 8건 완료 시점에서 세션 중단. |
+| 2026-09-10 (1차) | 초안. P0 5건·P1 8건 완료 시점에서 세션 중단. e2e 미검증. |
+| 2026-09-10 (2차) | e2e 를 끝까지 봤다. **M2 자신이 만든 회귀 셋과 하네스 결함 하나**를 찾아 닫았다(§2.5). `FE-6`+`B7`(Monaco 벤더링 — 사전압축)·`GO-11`+`SEC-17`(오류 분류) 완료. 사용자 보고 5건 접수(§3.4). §4 의 크기 추정이 틀렸던 것을 실측으로 바로잡았다. |
