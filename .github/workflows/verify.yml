@@ -108,6 +108,26 @@ jobs:
       - name: API 호출의 단일 경로
         run: scripts/check-fetch.sh
 
+      # 숨김의 어휘가 둘인가 — .vis(보임) · [hidden](숨김) (FR-LAY-30).
+      # 착수 시 일곱이었고, 그중 `.git-hidden` 은 git 과 무관한 버튼에 붙어 있었다.
+      # `[hidden]` 의 UA display:none 은 작성자 규칙에 지므로 네 자리가 각자
+      # 되돌려 적고 있었다 — 지금은 한 자리의 !important 가 그것을 대신한다.
+      - name: 숨김의 어휘
+        run: scripts/check-visibility.sh
+
+      # 스크롤 소유권 — 뷰별 재정의가 없는가 (UI_LAYOUT_DEFAULTS_SRS FR-LAY-31).
+      # 이 검사가 없어서 여덟 뷰 중 둘이 명시도가 낮은 선택자로 골격을 적었고,
+      # `.git-view.vis` 에 져서 목록이 870px 이상 잘려 닿을 수 없었다. 항목이
+      # 적은 픽스처에서는 드러나지 않아 e2e 가 통과하고 있었다 (SRS §2.3).
+      - name: 스크롤 소유권
+        run: scripts/check-scroll.sh
+
+      # 골격 배치 — inset:0 이 position 과 같은 규칙에 있는가, 그리고 주석이
+      # 닫혔는가 (FR-LAY-32). 닫히지 않은 `/*` 뒤의 규칙은 브라우저가 조용히
+      # 삼킨다 — 실제로 style.css 끝에 그런 자리가 있었다.
+      - name: 골격 배치
+        run: scripts/check-skeleton.sh
+
       # 제3자 자산의 판 기록이 실제 파일과 맞는가 (SEC-32).
       # 기록만 두면 반드시 어긋난다 — 갱신하는 사람은 파일을 덮어쓰지 표를 고치지
       # 않는다. 그러면 취약점 공지가 나왔을 때 "우리가 그 판인가" 에 답할 수 없다.

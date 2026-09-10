@@ -10,8 +10,7 @@
 /* ── Git diff (FR-GIT-49~56) ── */
 /* Monaco 는 컨테이너 크기를 읽어 배치한다 — 호스트가 높이를 잃으면 diff 가
    0px 로 접힌다. 바는 고정이고 본문만 늘어난다. */
-.git-view.git-diff{overflow:hidden}
-.git-view.git-diff.vis{display:flex;flex-direction:column}
+/* FR-LAY-21: 재정의가 기본이 됐다 — 지웠다. */
 .git-diff-bar{
   flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 8px;
   border-bottom:1px solid var(--border);font-size:12px;
@@ -36,10 +35,22 @@
 }
 .git-diff-ws,.git-diff-fold{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);flex-shrink:0;cursor:pointer}
 .git-diff-body{flex:1 1 auto;min-height:0;position:relative}
-.git-diff-body.off{display:none}
+/* FR-LAY-3: `.off` 를 `[hidden]` 으로 옮겼다. */
 
 /* FR-GIT-276: blame 은 Diff 탭의 모드다 (D8). 켜진 쪽만 보인다 */
-.git-blame{display:none;flex:1 1 auto;min-height:0;flex-direction:column;overflow:auto}
+/**
+ * FR-LAY-24 (`U-7`): 스크롤 소유권을 다른 일곱 뷰와 같게 한다.
+ *
+ *   이전 동작: 바깥(`.git-blame`)이 `overflow:auto` — **브라우저 네이티브**
+ *             스크롤이라 안내줄(`.git-blame-note`)이 행과 함께 밀려 올라갔다
+ *   새  동작: 바깥은 `hidden`, **행 목록만** 구른다
+ *   이유:     같은 자리의 diff 는 `.git-diff-host` 안의 Monaco 내부 스크롤이고,
+ *             나머지 뷰는 전부 "안쪽 목록만 구른다" 다. 소유자·축이 셋 다 달랐다
+ *
+ * blame 은 Monaco 를 쓰지 않으므로 **그것과 같아질 수는 없다** — 맞출 수 있는
+ * 것은 소유권과 축이고, 그것으로 요구는 만족된다 (D-6).
+ */
+.git-blame{display:none;flex:1 1 auto;min-height:0;flex-direction:column;overflow:hidden}
 .git-blame.vis{display:flex}
 /* 거부 사유는 누른 자리에 보인다 — Diff 탭에서 낸 실패의 자리가 여기다 */
 .git-blame-note{
@@ -47,7 +58,10 @@
   border-bottom:1px solid var(--border);
 }
 .git-blame-note.vis{display:block}
-.git-blame-rows{flex:1 1 auto;font-family:ui-monospace,monospace;font-size:12px;line-height:18px}
+/* FR-LAY-24·26: 구르는 것은 이 목록이다. `min-height:0` 이 없으면 flex 열에서
+   줄어들지 못해 `overflow-y` 가 스크롤러가 되지 못한다. */
+.git-blame-rows{flex:1 1 auto;min-height:0;overflow-y:auto;
+  font-family:ui-monospace,monospace;font-size:12px;line-height:18px}
 .git-blame-row{display:flex;align-items:baseline;gap:8px;padding:0 10px;white-space:pre}
 .git-blame-row:hover{background:var(--accent-subtle)}
 .git-blame-oid{flex:0 0 auto;width:60px;color:var(--accent);cursor:default}
@@ -85,8 +99,7 @@
 /* ── Git History 탭 (FR-GIT-113~139) ── */
 /* 목록만 스크롤한다. 바·refs·푸터는 고정이다 — 바가 목록과 함께 스크롤되면
    10,000행에서 검색·jump 에 닿을 수 없다. */
-.git-view.git-history{overflow:hidden}
-.git-view.git-history.vis{display:flex;flex-direction:column}
+/* FR-LAY-21: 재정의가 기본이 됐다 — 지웠다. */
 .git-hist-bar{
   flex:0 0 auto;display:flex;align-items:center;gap:4px;padding:4px 8px;
   border-bottom:1px solid var(--border);font-size:12px;flex-wrap:wrap;
@@ -299,8 +312,7 @@ body.mobile .git-refs{width:110px}
 /* ── Git Console 탭 (FR-GIT-218) ── */
 /* 바는 고정이고 목록만 스크롤한다 — 바가 함께 스크롤되면 500줄에서 토글에 닿을
    수 없다. */
-.git-view.git-console{overflow:hidden}
-.git-view.git-console.vis{display:flex;flex-direction:column}
+/* FR-LAY-21: 재정의가 기본이 됐다 — 지웠다. */
 .git-con-bar{
   flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 8px;
   border-bottom:1px solid var(--border);font-size:12px;
@@ -451,8 +463,7 @@ body.mobile .git-repo-xslot{width:24px;height:24px}
 /* ── Git Branches 탭 (FR-GIT-147~160) ── */
 /* 트리만 스크롤한다. 바는 고정이다 — 바가 목록과 함께 스크롤되면 많은 브랜치에서
    검색과 생성에 닿을 수 없다. */
-.git-view.git-branches{overflow:hidden}
-.git-view.git-branches.vis{display:flex;flex-direction:column}
+/* FR-LAY-21: 재정의가 기본이 됐다 — 지웠다. */
 .git-br-bar{
   flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 8px;
   border-bottom:1px solid var(--border);font-size:12px;
@@ -525,8 +536,7 @@ body.mobile .git-repo-xslot{width:24px;height:24px}
 .gbc-checkoutrow,.gsc-optrow,.gwc-optrow{color:var(--text-muted)}
 
 /* ── Git Stash 탭 (FR-GIT-161~170) ── */
-.git-view.git-stash{overflow:hidden}
-.git-view.git-stash.vis{display:flex;flex-direction:column}
+/* FR-LAY-21: 재정의가 기본이 됐다 — 지웠다. */
 .git-stash-bar{
   flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:4px 8px;
   border-bottom:1px solid var(--border);font-size:12px;
@@ -593,7 +603,9 @@ body.mobile .git-repo-xslot{width:24px;height:24px}
 .git-stash-file-path{min-width:0;overflow:hidden;text-overflow:ellipsis}
 
 /* ── Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5 / FR-GIT-240~244) ── */
-.git-worktrees{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+/* FR-LAY-22: 이 규칙이 `.git-view.vis`(0-2-0)에 **져서** worktrees 뷰가
+   display:block 으로 계산됐고 목록이 잘려 닿을 수 없었다 (§2.3). 기본이
+   그것을 대신하므로 지웠다. */
 .git-wt-head{
   display:flex;align-items:center;gap:8px;flex:0 0 auto;
   padding:4px 10px;border-bottom:1px solid var(--border);
@@ -654,7 +666,9 @@ body.mobile .git-repo-xslot{width:24px;height:24px}
    골격이 Worktrees 와 같으므로(FR-SUB-7) 규칙도 그것을 그대로 딛는다. 값을 다시
    적는 대신 선택자를 함께 걸었다면 더 좋았겠으나, 두 탭의 행 구성이 달라(경로+
    상태+커밋 vs 경로+브랜치+소유) 폭 배분이 갈린다 — 공통인 것만 함께 건다. */
-.git-submodules{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+/* FR-LAY-22: 이 규칙이 `.git-view.vis`(0-2-0)에 **져서** submodules 뷰가
+   display:block 으로 계산됐고 목록이 잘려 닿을 수 없었다 (§2.3). 기본이
+   그것을 대신하므로 지웠다. */
 .git-sub-head{
   display:flex;align-items:center;gap:8px;flex:0 0 auto;
   padding:4px 10px;border-bottom:1px solid var(--border);
@@ -759,7 +773,7 @@ body.mobile .git-repo-xslot{width:24px;height:24px}
 /* follow 는 늘 최상단 1줄이다 — 그 아래 선이 핀 목록과 나눈다 (FR-GIT-216) */
 
 /* ── Git 창의 감춘 진입점 (FR-GIT-180) ── */
-.git-hidden{display:none !important}
+/* FR-LAY-3: `.git-hidden` 을 `[hidden]` 으로 옮겼다 — 이미 !important 를 쓰고 있었다. */
 
 /* ── 폼 컨트롤의 테마 (GIT_UI_REVISION_SRS FR-GIT-203~206) ──
    브라우저 기본 위젯은 앱 테마(44종)와 무관한 색으로 그려진다 — 어두운 테마에서
@@ -1093,7 +1107,7 @@ body.mobile .run-view .run-card{min-height:44px}
 .sb-tab-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sb-tab:hover{background:var(--accent-hover);color:var(--accent)}
 .sb-tab.active{color:var(--text-bright);border-bottom-color:var(--accent);background:var(--accent-active)}
-.sb-tab[hidden]{display:none}
+/* FR-LAY-2: `[hidden]` 이 한 자리에서 한다 (style.css). */
 
 /* FR-SBT-12·13: 배지는 **비활성 탭에서만** 보인다 — 활성 탭은 목록에 그 정보가
    이미 있다. 색은 테마 변수에서 온다 (NFR-SBT-3). */
@@ -1102,7 +1116,7 @@ body.mobile .run-view .run-card{min-height:44px}
   font-size:9px;font-weight:700;line-height:14px;text-align:center;
   background:var(--accent-subtle);color:var(--accent);
 }
-.sb-tab-badge[hidden]{display:none}
+/* FR-LAY-2: 같은 근거. */
 .sb-tab[data-panel="windows"] .sb-tab-badge{background:var(--attn-subtle);color:var(--attn);
   animation:attn-pulse-chip 2s ease-in-out infinite}
 
@@ -1122,7 +1136,7 @@ body.mobile .run-view .run-card{min-height:44px}
    **두 목록이 공유하는 것을 쓸 자리**다. 지금 공유하는 것은 드래그 표식 하나다. */
 .sbl-item.dragging{opacity:.35}
 .sb-panel{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;padding-top:8px}
-.sb-panel[hidden]{display:none}
+/* FR-LAY-2: 같은 근거. */
 
 /* FR-SBT-16·17: 모바일 드로어에서 탭 바는 상단에 고정되고 패널만 스크롤한다.
    터치 타깃은 최소 44px (데스크톱 30px 은 `.si`·버튼과 맞춘 값이다). */

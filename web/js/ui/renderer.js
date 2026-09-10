@@ -307,11 +307,11 @@ class Renderer {
     const noSplit=isGit||this.app._isEditorWin(a);
     for(const id of ['split-h','split-v']){
       const b=document.getElementById(id);
-      if(b) b.classList.toggle('git-hidden',noSplit);
+      if(b) b.hidden=noSplit;
     }
     // FR-EDT-54: Editor 창에는 편집기 탭만 있다 — 새 탭 버튼의 대상이 없다.
     const mAdd=document.getElementById('m-add-tab');
-    if(mAdd) mAdd.classList.toggle('git-hidden',noSplit);
+    if(mAdd) mAdd.hidden=noSplit;
     const ind=document.getElementById('m-pane-indicator');
     if(ind){
       const n=this.app._mobilePaneCount();
@@ -332,12 +332,12 @@ class Renderer {
     const n=this.app.slotCount();
     const sa=document.getElementById('slot-add');
     if(sa){
-      sa.classList.toggle('git-hidden',this.app.isMobile);
+      sa.hidden=this.app.isMobile;
       sa.disabled=n>=SLOT_MAX;
     }
     const sr=document.getElementById('slot-remove');
     if(sr){
-      sr.classList.toggle('git-hidden',this.app.isMobile);
+      sr.hidden=this.app.isMobile;
       sr.disabled=n<=1;
     }
   }

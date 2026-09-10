@@ -8,7 +8,7 @@
   position:absolute;inset:0;display:flex;flex-direction:column;
   background:var(--bg);color:var(--text);outline:none;
 }
-.doc-render.vis{display:flex}
+/* FR-LAY-4: 죽은 규칙이었다 — 기본이 이미 flex 이고 숨기는 CSS 가 없다. 지웠다. */
 
 .dr-bar{
   flex:0 0 auto;display:flex;align-items:center;gap:8px;

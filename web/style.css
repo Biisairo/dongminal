@@ -8,6 +8,28 @@
  */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 
+/**
+ * UI_LAYOUT_DEFAULTS_SRS FR-LAY-1: **숨김의 자리는 하나다.**
+ *
+ * `[hidden]` 의 UA 기본은 `display:none` 이지만 **작성자 규칙이 그것을 이긴다** —
+ * 그래서 `display:flex` 를 가진 요소에 `hidden` 을 붙여도 보였고, 네 자리가 각자
+ * `X[hidden]{display:none}` 을 되돌려 적고 있었다. `style.css:1015` 의 주석이
+ * 그 함정을 이미 적고 있었다: "display:flex 가 [hidden] 의 기본 display:none 을
+ * 이긴다 — 되돌려 놓는다."
+ *
+ * 여기 한 줄이 그 네 자리와 앞으로의 전부를 없앤다. `!important` 가 아니면
+ * 성립하지 않는다 (D-2).
+ *
+ * `style-kit.css` 가 아닌 이유: 그 파일의 머리가 "여기에는 `!important` 가 없다"
+ * 를 불변으로 적고 있다 (FR-UIK-1·11). `!important` 는 파일 순서와 무관하므로
+ * 그 불변을 깰 이유가 없다.
+ *
+ * **극성이 둘이다** — "있으면 보임" 은 `.vis` 가, "있으면 숨김" 은 이것이 한다.
+ * 새 숨김 어휘(`.hidden`·`.off`·`.gone` 류)를 만들지 마라 —
+ * `scripts/check-visibility.sh` 가 막는다.
+ */
+[hidden]{display:none!important}
+
 :root{
   --bg:#1a1b26;--sidebar-bg:#16161e;--border:#292e42;
   --accent:#7aa2f7;--text:#a9b1d6;--text-muted:#565f89;
@@ -751,7 +773,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   background:var(--sidebar-bg);border-top:1px solid var(--border);
   z-index:10;flex-shrink:0;
 }
-.search-bar.hidden{display:none}
+/* FR-LAY-3: `.hidden` 을 `[hidden]` 으로 옮겼다 — 숨김의 자리는 하나다. */
 .search-bar input{
   flex:1;background:var(--bg);border:1px solid var(--border);border-radius:3px;
   padding:3px 8px;color:var(--text-bright);font-size:12px;font-family:inherit;outline:none;
@@ -834,7 +856,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   background:var(--sidebar-bg);border-top:1px solid var(--border);
   font-size:11px;color:var(--text-muted);min-height:22px;
 }
-.status-bar.hidden{display:none}
+/* FR-LAY-4: 죽은 규칙이었다 — 이 클래스를 붙이는 자리가 하나도 없다. 지웠다. */
 /* FR-SBR-2: 눌리지 않는다. 폭이 모자라면 줄을 넘길 일이지 글자를 겹칠 일이 아니다.
    FR-SBR-6: 한 줄보다 넓은 지표는 그 지표만 잘린다.
    FR-SBR-5: 음수 마진 1px — 줄의 첫 항목 구분선만 컨테이너 밖으로 나가 잘린다 (D-5). */
@@ -1016,8 +1038,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   border:1px solid var(--accent-border);border-radius:4px;padding:10px;margin-top:10px;
   display:flex;flex-direction:column;gap:10px;
 }
-/* `display:flex` 가 `[hidden]` 의 기본 `display:none` 을 이긴다 — 되돌려 놓는다. */
-.bk-confirm[hidden]{display:none}
+/* FR-LAY-2: 되돌려 적을 것이 없다 — `[hidden]` 이 위에서 한 번에 한다. */
 .bk-summary{color:var(--text);font-size:11px;line-height:1.6;white-space:pre-line}
 .bk-actions{display:flex;gap:8px;justify-content:flex-end}
 .bk-danger{border-color:var(--danger);color:var(--danger)}
@@ -1027,12 +1048,27 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .bk-msg.err{color:var(--danger)}
 
 /* ── Mobile/Desktop visibility toggles ── */
+/**
+ * FR-LAY-1b: **"모바일에서는 보인다" 가 `hidden` 을 이기지 않는다.**
+ *
+ *   이전 동작: `body.mobile .mtbtn.mobile-only{display:flex!important}`(0-3-0)이
+ *             숨김 규칙(0-1-0 !important)을 이겼다. 그래서 `m-add-tab` 은
+ *             `hidden=true` 인데 `display:flex` 였다 — 모바일 Editor·Git 창에서
+ *             **아무 일도 하지 않는 새 탭 버튼이 보였다** (FR-EDT-54 위반).
+ *             옛 `.git-hidden{display:none!important}` 도 같은 이유로 졌으므로
+ *             이 결함은 어휘 통일 이전부터 있었다 (실측 2026-09-10)
+ *   새  동작: `:not([hidden])` 으로 그 규칙의 뜻을 정확히 적는다 — "모바일이면
+ *             보인다, **감추라고 하지 않았다면**"
+ *   이유:     `[hidden]` 은 명시도로 이길 수 없다(0-1-0). 이기게 만들려면
+ *             해킹(`:not(#\9)` 류)이 필요하고, 그러면 다음 사람이 왜 그런지
+ *             모른다. 뜻을 적는 쪽이 낫다
+ */
 .mobile-only{display:none !important}
 body.mobile .desktop-only{display:none !important}
-body.mobile .mtbtn.mobile-only{display:flex !important}
-body.mobile .m-pane-nav.mobile-only{display:inline-flex !important}
+body.mobile .mtbtn.mobile-only:not([hidden]){display:flex !important}
+body.mobile .m-pane-nav.mobile-only:not([hidden]){display:inline-flex !important}
 /* keybar is always visible in mobile mode (SRS: MOBILE_KEYBAR_ALWAYS_VISIBLE) — overrides .mobile-only !important */
-body.mobile #mobile-keybar.mobile-only{display:flex !important}
+body.mobile #mobile-keybar.mobile-only:not([hidden]){display:flex !important}
 
 /* ── Mobile topbar buttons ── */
 .mtbtn{
@@ -1415,9 +1451,3 @@ html.ae-preview #attn-edge{display:block}
 /* FR-AED-7 / D-2·D-7: **알림이 이긴다.** 가장자리의 뜻은 한 번에 하나여야 읽힌다.
    클래스 하나가 정하므로 JS 가 두 겹을 각각 끄고 켜지 않는다. */
 html.attn-edge-on #focus-edge{opacity:0}
-
-/* FR-UFE-6·9·18: 서는 것도 지는 것도, 세기도 자식의 opacity 하나다 (위 규칙).
-   미리보기(D-8d)가 같은 자리에 있는 이유는 그것이 "보이는 조건" 의 하나이기
-   때문이다 — 슬라이더를 만지는 동안 창은 반드시 포커스를 가지고 있어서, 이
-   조건이 없으면 사용자는 눈을 감고 값을 고르게 된다.
-

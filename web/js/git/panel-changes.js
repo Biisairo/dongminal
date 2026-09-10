@@ -398,7 +398,8 @@ Object.assign(GitPanel.prototype, {
     // 비어 있으면 서지 않는 그룹 (`hideEmpty`). 골격에서 빼지 않고 감추는 이유는
     // 접힘·무한 스크롤·트리 보기가 전부 이 상자를 딛기 때문이다 — 다시 만들면
     // 그 상태가 회차마다 날아간다 (FR-RPT-3 과 같은 근거).
-    box.classList.toggle('gone',!!g.hideEmpty&&!entries.length);
+    // FR-LAY-3: `.gone` 을 `[hidden]` 으로 옮겼다.
+    box.hidden=!!g.hideEmpty&&!entries.length;
     const cnt=box.querySelector('.git-group-count');
     cnt.textContent='('+entries.length+')';
     // FR-CMG-11: 합계만으로는 **지울 것이 있는지** 보이지 않는다. 두 출신이 섞이는

@@ -251,7 +251,8 @@ Object.assign(GitPanel.prototype, {
     const box=el.querySelector('.git-blame'); if(!box) return;
     const t=this._blameTarget();
     box.classList.toggle('vis',!!t);
-    el.querySelector('.git-diff-body').classList.toggle('off',!!t);
+    // FR-LAY-3: `.off` 를 `[hidden]` 으로 옮겼다.
+    el.querySelector('.git-diff-body').hidden=!!t;
     if(!t){
       this._blameKey=null; this._blameData=null; this._blameErr=null;
       box.dataset.sig=''; return;

@@ -9,8 +9,26 @@
 /* ── Git 창 (FR-GIT-25~31) ── */
 /* 고정 탭·고정 이름 — 닫기·이름변경·드래그가 없으므로 커서로도 알린다 */
 .pn-tab.git{cursor:default}
-.git-view{position:absolute;inset:0;display:none;overflow:auto;background:var(--bg)}
-.git-view.vis{display:block}
+/**
+ * FR-LAY-20·21·26: **기본이 실사용이다.**
+ *
+ *   이전 동작: display:none / overflow:auto, 켜면 display:block
+ *   새  동작: display:none / overflow:hidden, 켜면 flex column
+ *   이유:     여덟 뷰 중 **여섯이 이미 그것으로 되돌리고 있었다** — 기본이
+ *             다수와 반대라 같은 두 줄이 여섯 벌이었고, 남은 둘은 명시도가
+ *             낮은 선택자(`.git-worktrees`)로 적어 `.git-view.vis` 에 **져서**
+ *             870px 이상이 잘려 닿을 수 없었다 (UI_LAYOUT_DEFAULTS_SRS §2.3)
+ *
+ * 바깥은 스크롤하지 않는다 — 안쪽 목록만 구른다. 조상과 자손이 같은 축에서
+ * 동시에 스크롤러가 되면 머리가 함께 밀린다 (FR-LAY-25 · style-git-views.css
+ * 의 "목록만 스크롤한다. 바·refs·푸터는 고정이다").
+ *
+ * `min-height:0` 은 여기서 무력하다(`inset:0` 이 높이를 정한다). 두는 이유는
+ * 그것을 들고 있던 두 뷰의 규칙을 지우면서 값을 잃지 않기 위해서다 (FR-LAY-26).
+ */
+.git-view{position:absolute;inset:0;display:none;min-height:0;
+  overflow:hidden;background:var(--bg)}
+.git-view.vis{display:flex;flex-direction:column}
 .git-pending,.git-empty{
   position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:6px;
@@ -48,8 +66,7 @@
 /* FR-GIT-39: .git-head·.git-commit 은 flex:0 0 auto 로 고정되고 본문만 늘어난다.
    목록 스크롤은 .git-files 안에서만 일어난다 — 커밋 영역이 목록과 함께
    스크롤되면 이 요구사항은 실패다. */
-.git-view.git-changes{overflow:hidden}
-.git-view.git-changes.vis{display:flex;flex-direction:column}
+/* FR-LAY-21: 재정의가 기본이 됐다 — 지웠다. */
 .git-head,.git-commit,.git-stale-note,.git-partial-note,.git-op-bar{flex:0 0 auto}
 .git-changes-body{flex:1 1 auto;min-height:0;display:flex}
 
@@ -435,8 +452,9 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 /* 비어 있으면 서지 않는 그룹 (충돌). 뒤따르는 그룹이 목록의 **시작**이 되므로
    그 위의 구분선도 함께 걷는다 — 첫 그룹 위에 선이 없다는 규약(FR-GIT-212)이
    "첫 번째 자식" 이 아니라 "처음 보이는 것" 을 뜻하기 때문이다. */
-.git-group.gone{display:none}
-.git-group.gone+.git-group{border-top:none}
+/* FR-LAY-3: `.gone` 을 `[hidden]` 으로 옮겼다. 결합자는 그대로 표현된다 —
+   `[hidden]` 은 속성 선택자다. (`#boot.gone` 은 페이드이므로 남는다 — FR-LAY-6) */
+.git-group[hidden]+.git-group{border-top:none}
 /* FR-GIT-220: 머리글 높이가 일괄 버튼의 유무로 달라지면 안 된다. 일괄이 없는
    Conflicts 만 20px 이었다 — 버튼(26px)이 밀어 올리던 높이를 머리글이 직접 갖는다.
    새 숫자를 발명하지 않는다: 버튼 높이 + 위아래 패딩이 곧 그 값이다. */

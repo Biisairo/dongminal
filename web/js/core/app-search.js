@@ -8,14 +8,15 @@ Object.assign(App.prototype, {
   // ── Search ──
   toggleSearch(){
     const bar=document.getElementById('search-bar');
-    if(!bar.classList.contains('hidden')){this.closeSearch();return}
-    bar.classList.remove('hidden');
+    // FR-LAY-3: 숨김은 `[hidden]` 하나다 — 종전 `.hidden` 클래스를 옮겼다.
+    if(!bar.hidden){this.closeSearch();return}
+    bar.hidden=false;
     document.getElementById('search-input').focus();
     for(const pane of this.tools.values())if(pane.el.classList.contains('vis'))pane.doFit();
   },
   closeSearch(){
     const bar=document.getElementById('search-bar');
-    bar.classList.add('hidden');
+    bar.hidden=true;
     document.getElementById('search-input').value='';
     document.getElementById('search-count').textContent='';
     this._clearAllSearchDecorations();
@@ -25,7 +26,7 @@ Object.assign(App.prototype, {
   _clearAllSearchDecorations(){
     for(const p of this.tools.values())if(p.search)p.search.clearDecorations();
   },
-  _searchOpen(){return !document.getElementById('search-bar').classList.contains('hidden')},
+  _searchOpen(){return !document.getElementById('search-bar').hidden},
   _researchIfOpen(){
     if(!this._searchOpen())return;
     this.timers.after(50,()=>this._doSearch('next'),{owner:'app',label:'search-first'});
