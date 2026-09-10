@@ -108,6 +108,25 @@ Object.assign(GitPanel.prototype, {
   },
 
   /**
+   * 이 뷰가 저장하지 않은 편집을 들고 있는가 (FR-RTU-103).
+   *
+   * Diff 만 편집을 든다 — `GitDiffView` 가 unstaged·conflict 축에서 열린다.
+   * 다른 뷰는 읽기이므로 언제나 false 다.
+   */
+  viewDirty(view){
+    return view==='diff'&&!!this._diffView&&this._diffView.dirty;
+  },
+
+  /**
+   * 이 뷰의 편집을 저장한다. 들고 있지 않으면 할 일이 없으므로 true 다 —
+   * "저장할 것이 없었다" 와 "저장했다" 는 호출자에게 같은 답이어야 한다.
+   */
+  async viewSave(view){
+    if(!this.viewDirty(view)) return true;
+    return await this._diffView.save();
+  },
+
+  /**
    * REPO_TAB_UNIFY_SRS FR-RTU-34 + NFR-RTU-3: 뷰 **하나**의 DOM 을 놓는다.
    *
    * 탭이 닫히는 자리가 부른다. `destroy` 와 다른 것은 범위다 — 패널은 살아 있고
@@ -116,6 +135,10 @@ Object.assign(GitPanel.prototype, {
    *
    * Monaco 는 DOM 을 떼는 것으로 풀리지 않으므로 diff 뷰는 명시적으로 버린다
    * (FR-GIT-56) — 그러지 않으면 탭을 닫아도 인스턴스가 남아 NFR-RTU-3 이 깨진다.
+   *
+   * **저장하지 않은 편집의 확인은 이 함수 앞에서 끝나 있어야 한다** (FR-RTU-103).
+   * 여기까지 오면 `destroy()` 가 편집을 버리므로 되돌릴 수 없다 — 호출자
+   * (`closeTab`)가 그 순서를 진다.
    */
   dropView(view){
     const el=this._els.get(view); if(!el) return;

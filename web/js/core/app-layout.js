@@ -535,6 +535,26 @@ Object.assign(App.prototype, {
      * NFR-RTU-3 이 요구하는 것이다 — 탭이 없는 뷰는 인스턴스도 없다.
      */
     const gitTab=tab.type===TAB_TYPE_GIT;
+    /**
+     * FR-RTU-103: Diff 의 저장하지 않은 편집도 확인을 지난다.
+     *
+     * 위 FR-RTU-33 의 "확인은 없다 (잃는 편집이 없다)" 는 **그 시점의 전제**였다.
+     * 그 뒤 Diff 가 unstaged·conflict 축에서 편집을 받게 되면서(FR-RTU-54,
+     * `GIT_AXIS_EDITABLE`) 전제가 깨졌다 — `GitDiffView` 는 자기 `_dirty` 와
+     * `save()`·`Cmd+S` 를 든다.
+     *
+     * **확인이 `_gitDropView` 앞에 선다.** 뒤에 두면 뷰가 이미 `destroy()` 된
+     * 뒤라서, 취소를 눌러도 편집은 돌아오지 않는다.
+     */
+    if(gitTab&&!opts.force){
+      const root=this._edRootOf(s);
+      if(this._gitViewDirty(root,tab.gitView)){
+        const r=await this._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
+        if(!r) return;
+        // 저장이 실패하면 닫지 않는다 — 저장한 줄 알고 닫는 것이 곧 손실이다.
+        if(r==='save'&&!await this._gitViewSave(root,tab.gitView)) return;
+      }
+    }
     if(gitTab) this._gitDropView(this._edRootOf(s),tab.gitView);
     const isEditor=tab.type==='editor';
     if(isEditor){

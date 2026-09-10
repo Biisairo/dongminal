@@ -278,13 +278,27 @@ Object.assign(App.prototype, {
    * `_dirty` 는 뷰가 아니라 **문서**의 것이다 (`file-editor.js` 의 접근자).
    */
   _edWinDirty(s){
-    if(!s||!s.layout||!this.fileEditors) return false;
+    if(!s||!s.layout) return false;
+    // FR-RTU-103: Diff 의 편집도 이 창이 잃을 수 있는 것이다 — 탭 닫기와 같은
+    // 근거다. 편집기가 하나도 없는 창이어도 Diff 가 dirty 일 수 있으므로,
+    // fileEditors 를 보기 **전에** 묻는다.
+    if(this._edWinGitDirty(s)) return true;
+    if(!this.fileEditors) return false;
     const ids=new Set();
     for(const pn of this._flattenPanes(s.layout))
       for(const t of (pn.tabs||[])) if(t&&t.type==='editor') ids.add(t.id);
     if(!ids.size) return false;
     for(const[k,v] of this.fileEditors)
       if(v&&v._dirty&&ids.has(this._slotBase(k))) return true;
+    return false;
+  },
+
+  // 이 창의 git 뷰 탭 중 저장하지 않은 편집을 든 것이 있는가 (FR-RTU-103).
+  _edWinGitDirty(s){
+    const root=this._edRootOf(s);
+    for(const pn of this._flattenPanes(s.layout))
+      for(const t of (pn.tabs||[]))
+        if(t&&t.type===TAB_TYPE_GIT&&this._gitViewDirty(root,t.gitView)) return true;
     return false;
   },
 
@@ -314,7 +328,14 @@ Object.assign(App.prototype, {
    * 여기서 멈추면 저장할 수 있었던 것까지 잃는다.
    */
   async _edWinSaveDirty(s){
-    if(!s||!s.layout||!this.fileEditors) return;
+    if(!s||!s.layout) return;
+    // FR-RTU-103: Diff 의 편집도 함께 저장한다 — `_edWinDirty` 가 그것을 세었으므로
+    // 여기서 빠뜨리면 "저장하고 닫기" 가 일부만 저장한다.
+    const root=this._edRootOf(s);
+    for(const pn of this._flattenPanes(s.layout))
+      for(const t of (pn.tabs||[]))
+        if(t&&t.type===TAB_TYPE_GIT) await this._gitViewSave(root,t.gitView);
+    if(!this.fileEditors) return;
     const ids=new Set();
     for(const pn of this._flattenPanes(s.layout))
       for(const t of (pn.tabs||[])) if(t&&t.type==='editor') ids.add(t.id);

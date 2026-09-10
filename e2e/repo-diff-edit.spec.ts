@@ -193,3 +193,88 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
         .toHaveCount(1, { timeout: 15000 });
     });
 });
+
+/**
+ * 묶음 E — 닫을 때의 확인 (FR-RTU-103, 사용자 보고 U-10).
+ *
+ * `FR-RTU-33` 은 git 뷰 탭을 "확인 없이" 닫게 했고 그 근거가 **"잃는 편집이
+ * 없다"** 였다. 그 전제는 `FR-RTU-50~53` 이 diff 편집을 들이면서 깨졌다 —
+ * `FR-RTU-53` 이 저장되지 않은 변경을 탭에 `●` 로 세우는 것 자체가 잃을 것이
+ * 있다는 증거다. 두 요구가 모순인 채로 남아 있었고, **그 사이를 아무 테스트도
+ * 보지 않았다.**
+ */
+test.describe('묶음 E — 닫을 때의 확인 (FR-RTU-103)', () => {
+  test('E1 (V-RTU-103): 편집한 diff 탭을 닫으면 확인을 지난다 — 취소하면 편집이 남는다',
+    async ({ page, request }) => {
+      await enter(page, request, REPO);
+      await row(page, 'working', 'mod.txt').click();
+      await expect(modified(page)).toBeVisible({ timeout: 20000 });
+
+      await page.evaluate(() => {
+        const v = (window as any).app.gitPanel._diffView;
+        v._mod.setValue('one\ntwo\nabout-to-be-lost\n');
+      });
+      await expect(diffTab(page)).toContainText('●', { timeout: 10000 });
+
+      // 탭의 닫기(×)를 누른다 — 사용자가 실제로 지나는 길이다.
+      await diffTab(page).locator('.pn-tab-x').click();
+
+      // 확인이 뜬다. 종전에는 이 창이 없어 편집이 조용히 사라졌다.
+      const ov = page.locator('.confirm-overlay');
+      await expect(ov).toBeVisible({ timeout: 10000 });
+      await expect(ov.locator('.confirm-msg'))
+        .toHaveText('저장되지 않은 변경사항이 있습니다.');
+      await expect(ov.locator('.confirm-save')).toHaveText('저장 후 닫기');
+
+      // 취소 — 탭도 편집도 그대로여야 한다.
+      await ov.locator('.confirm-cancel').click();
+      await expect(ov).toHaveCount(0, { timeout: 10000 });
+      await expect(diffTab(page)).toHaveCount(1);
+      await expect(diffTab(page)).toContainText('●');
+
+      // **뷰가 살아 있다.** 확인이 `dropView` 뒤에 서면 이 값이 사라진다 —
+      // 취소를 눌러도 편집이 돌아오지 않는 것이 그 결함이었다.
+      const kept = await page.evaluate(() =>
+        (window as any).app.gitPanel._diffView?._mod?.getValue() || '');
+      expect(kept).toContain('about-to-be-lost');
+
+      // 디스크는 아직 그대로다 — 취소는 저장이 아니다.
+      expect(fs.readFileSync(j(REPO, 'mod.txt'), 'utf8')).not.toContain('about-to-be-lost');
+    });
+
+  test('E2 (V-RTU-103): "저장 후 닫기" 는 저장하고 닫는다', async ({ page, request }) => {
+    await enter(page, request, REPO);
+    await row(page, 'working', 'mod.txt').click();
+    await expect(modified(page)).toBeVisible({ timeout: 20000 });
+
+    const mark = 'saved-on-close-' + Date.now();
+    await page.evaluate((m) => {
+      const v = (window as any).app.gitPanel._diffView;
+      v._mod.setValue('one\ntwo\n' + m + '\n');
+    }, mark);
+    await expect(diffTab(page)).toContainText('●', { timeout: 10000 });
+
+    await diffTab(page).locator('.pn-tab-x').click();
+    const ov = page.locator('.confirm-overlay');
+    await expect(ov).toBeVisible({ timeout: 10000 });
+    await ov.locator('.confirm-save').click();
+
+    // 탭이 닫히고 디스크에 남는다.
+    await expect(diffTab(page)).toHaveCount(0, { timeout: 10000 });
+    await expect.poll(() => fs.readFileSync(j(REPO, 'mod.txt'), 'utf8'), { timeout: 10000 })
+      .toContain(mark);
+  });
+
+  test('E3 (V-RTU-103): 편집이 없으면 확인 없이 닫힌다 — FR-RTU-33 은 그대로다',
+    async ({ page, request }) => {
+      await enter(page, request, REPO);
+      await row(page, 'working', 'mod.txt').click();
+      await expect(modified(page)).toBeVisible({ timeout: 20000 });
+      await expect(diffTab(page)).not.toContainText('●');
+
+      await diffTab(page).locator('.pn-tab-x').click();
+      // 확인이 뜨지 않고 바로 닫힌다 — 잃을 것이 없을 때의 규약은 유지된다.
+      await expect(diffTab(page)).toHaveCount(0, { timeout: 10000 });
+      await expect(page.locator('.confirm-overlay')).toHaveCount(0);
+    });
+});

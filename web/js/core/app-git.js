@@ -143,6 +143,40 @@ Object.assign(App.prototype, {
   },
 
   /**
+   * 그 루트의 Diff 뷰 중 저장하지 않은 편집을 든 것이 있는가 (FR-RTU-103).
+   *
+   * Diff 는 unstaged·conflict 축에서 **편집할 수 있다**(`GIT_AXIS_EDITABLE`) —
+   * `GitDiffView` 가 자기 `_dirty` 와 `save()`·`Cmd+S` 를 든다. 그러므로 탭을
+   * 닫을 때 "잃는 편집이 없다" 는 전제는 더는 참이 아니다.
+   *
+   * `tab.dirty` 를 읽지 않고 뷰에게 묻는 이유는 그것이 **편집을 실제로 들고 있는
+   * 쪽**이기 때문이다. 탭의 표식은 그 사실의 사본이고, 사본을 근거로 삼으면
+   * 동기화가 어긋난 순간 확인이 조용히 빠진다.
+   */
+  _gitViewDirty(root,view){
+    if(!view||!this._gitPanels) return false;
+    for(const [key,p] of this._gitPanels){
+      if(this._gitPanelRoot(key)!==(root||'')) continue;
+      if(p.viewDirty&&p.viewDirty(view)) return true;
+    }
+    return false;
+  },
+
+  /**
+   * 그 루트의 Diff 뷰가 든 편집을 저장한다. 하나라도 실패하면 false 다 —
+   * 호출자는 그때 닫기를 멈춘다. 저장한 줄 알고 닫으면 그것이 곧 손실이다.
+   */
+  async _gitViewSave(root,view){
+    if(!view||!this._gitPanels) return true;
+    let ok=true;
+    for(const [key,p] of this._gitPanels){
+      if(this._gitPanelRoot(key)!==(root||'')) continue;
+      if(p.viewSave&&!await p.viewSave(view)) ok=false;
+    }
+    return ok;
+  },
+
+  /**
    * FR-RTU-62: **이 창에 git 표면이 서 있는가.**
    *
    * 창이 보이는 것만으로는 부족하다 — Repo 창은 사이드가 `Explorer` 이고 본문에
