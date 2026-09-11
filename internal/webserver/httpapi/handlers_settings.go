@@ -46,18 +46,25 @@ func (s *settingsStore) set(b []byte) {
 	s.mu.Unlock()
 }
 
-func (s *settingsStore) save() {
+// save 는 **실패를 돌려준다** (M3 DoD / `FE-7` 의 서버 쪽 짝).
+//
+// 종전에는 오류를 로그로 삼켰고 핸들러는 언제나 200 이었다. 사용자는 설정이 바뀐
+// 줄 알고 다음 기동에서 옛 값을 만난다 — 클라이언트가 `res.ok` 를 보게 된 지금
+// 그 값이 진실이어야 한다.
+func (s *settingsStore) save() error {
 	s.mu.Lock()
 	data := s.raw
 	s.mu.Unlock()
 	if len(data) == 0 {
-		return
+		return nil
 	}
 	// 원자적으로 쓴다 (FR-CAF-11). 설정은 사용자가 손으로 만든 것이고
 	// (테마·단축키·레이아웃 취향), 잘리면 되돌릴 방법이 없다.
 	if err := platform.WriteStateFile(s.path, data, 0644); err != nil {
 		log.Printf("saveSettings: %v", err)
+		return err
 	}
+	return nil
 }
 
 func (s *Server) apiSettingsGet(w http.ResponseWriter, r *http.Request) {
@@ -102,7 +109,12 @@ func (s *Server) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.Settings != nil {
 		s.Settings.set(body)
-		s.Settings.save()
+		if err := s.Settings.save(); err != nil {
+			// 사유는 감춘다 (SEC-17) — 저장 실패의 원인은 내부 사정이고, 여기
+			// 실리면 경로가 나간다. 사용자가 할 일은 다시 시도하는 것뿐이다.
+			http.Error(w, "settings save failed", http.StatusInternalServerError)
+			return
+		}
 	}
 	// 저장이 끝난 **뒤에** 알린다 — 받은 창이 곧바로 GET 하므로, 먼저 알리면
 	// 그 GET 이 옛 값을 읽을 수 있다.

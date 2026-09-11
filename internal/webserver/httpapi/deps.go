@@ -71,7 +71,9 @@ type SandboxReaper interface {
 type SettingsStore interface {
 	get() []byte
 	set([]byte)
-	save()
+	// save 는 **실패를 돌려준다** (M3 DoD). 종전에는 반환이 없어 PUT 이 쓰기
+	// 실패에도 200 을 답했고, 사용자는 설정이 바뀐 줄 알았다.
+	save() error
 }
 
 // Deps is the full injection surface for New.

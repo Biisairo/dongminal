@@ -275,9 +275,10 @@ func (f *fakeCommandBroker) DeliverResult(reqId string, res hub.CmdResult) {
 // ── fakeSettingsStore ───────────────────────────────
 
 type fakeSettingsStore struct {
-	mu    sync.Mutex
-	blob  []byte
-	saves int
+	mu      sync.Mutex
+	blob    []byte
+	saves   int
+	saveErr error
 }
 
 func (f *fakeSettingsStore) get() []byte {
@@ -290,10 +291,13 @@ func (f *fakeSettingsStore) set(b []byte) {
 	defer f.mu.Unlock()
 	f.blob = append([]byte(nil), b...)
 }
-func (f *fakeSettingsStore) save() {
+
+// 실물처럼 실패를 돌려줄 수 있다 (M3 DoD). `saveErr` 를 세우면 그 저장이 실패한다.
+func (f *fakeSettingsStore) save() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.saves++
+	return f.saveErr
 }
 
 // ── fakeUnknownHub ─────────────────────────────────────
