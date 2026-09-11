@@ -142,6 +142,23 @@ function counter(page: Page, pred: (url: string) => boolean) {
 }
 const isList = (u: string) => u.includes('/api/fs/list');
 
+/**
+ * **디스크가 그 상태가 될 때까지 기다린다.**
+ *
+ * 탐색기의 조작은 **낙관적이다** — `doCreate`·`doRename`·`doDelete` 는 서버 응답
+ * 전에 행을 그리고 실패하면 되돌린다 (`file-tree-edit.js` `_optimAdd`/`_restore`,
+ * FR-EXR-21 이 그 설계를 적고 있다). 그러므로 **행이 보이는 것은 디스크에 생겼다는
+ * 뜻이 아니다.**
+ *
+ * 종전에는 행 가시성 바로 뒤에 `fs.statSync` 를 불렀다. darwin·linux 에서는 응답이
+ * 빨라 우연히 통과했고, **Windows 러너에서 ENOENT 로 드러났다** (2026-09-11 CI).
+ * 이미 참이면 폴링은 즉시 끝나므로 비용이 없다.
+ */
+const onDisk = (fn: () => boolean) => expect.poll(fn, { timeout: 10000 });
+const diskText = (p: string) =>
+  expect.poll(() => { try { return fs.readFileSync(p, 'utf8') } catch { return null } },
+    { timeout: 10000 });
+
 test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
   test('O1 (V-EDT-57 / FR-EDT-81): 새 파일·새 폴더가 선택된 폴더 아래에 생긴다', async ({ page, request }) => {
     const R = mkRoot('o1');
@@ -152,7 +169,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     await input(page).fill('r.txt');
     await input(page).press('Enter');
     await expect(row(page, j(R, 'r.txt'))).toBeVisible({ timeout: 10000 });
-    expect(fs.existsSync(j(R, 'r.txt'))).toBe(true);
+    await onDisk(() => fs.existsSync(j(R, 'r.txt'))).toBe(true);
 
     // ② 선택이 폴더면 그 아래다.
     await row(page, j(R, 'src')).click();
@@ -167,7 +184,9 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     await input(page).fill('nd');
     await input(page).press('Enter');
     await expect(row(page, j(R, 'src', 'nd'))).toBeVisible({ timeout: 10000 });
+    await onDisk(() => fs.existsSync(j(R, 'src', 'nd'))).toBe(true);
     expect(fs.statSync(j(R, 'src', 'nd')).isDirectory()).toBe(true);
+    await onDisk(() => fs.existsSync(j(R, 'src', 'n.txt'))).toBe(true);
     expect(fs.statSync(j(R, 'src', 'n.txt')).isFile()).toBe(true);
   });
 
@@ -190,8 +209,8 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     await page.keyboard.type('z');
     await page.keyboard.press('Enter');
     await expect(row(page, j(R, 'src', 'z.txt'))).toBeVisible({ timeout: 10000 });
-    expect(fs.existsSync(j(R, 'src', 'a.txt'))).toBe(false);
-    expect(fs.readFileSync(j(R, 'src', 'z.txt'), 'utf8')).toBe('A\n');
+    await onDisk(() => fs.existsSync(j(R, 'src', 'a.txt'))).toBe(false);
+    await diskText(j(R, 'src', 'z.txt')).toBe('A\n');
   });
 
   test('O3 (V-EDT-59 / FR-EDT-83): 폴더 삭제 확인창이 재귀와 항목 수를 밝힌다', async ({ page, request }) => {
@@ -208,7 +227,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     // 기본 선택지는 안전한 쪽이다 — 취소하면 아무것도 사라지지 않는다.
     await page.locator('.ed-confirm .confirm-cancel').click();
     await expect(confirmMsg(page)).toHaveCount(0);
-    expect(fs.existsSync(j(R, 'src', 'deep', 'c.txt'))).toBe(true);
+    await onDisk(() => fs.existsSync(j(R, 'src', 'deep', 'c.txt'))).toBe(true);
   });
 
   test('O4 (V-EDT-60 / FR-EDT-84): dirty 탭의 파일 삭제는 그 사실을 밝힌다', async ({ page, request }) => {
@@ -228,7 +247,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     await expect(confirmMsg(page)).toContainText('저장되지 않은 탭 1개');
     await expect(confirmMsg(page)).toContainText('a.txt');
     await page.locator('.ed-confirm .confirm-cancel').click();
-    expect(fs.existsSync(j(R, 'src', 'a.txt'))).toBe(true);
+    await onDisk(() => fs.existsSync(j(R, 'src', 'a.txt'))).toBe(true);
   });
 
   test('O5 (V-EDT-61 / FR-EDT-85): 폴더를 자기 하위로 옮길 수 없다', async ({ page, request }) => {
@@ -239,8 +258,8 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
 
     await row(page, j(R, 'src')).dragTo(row(page, j(R, 'src', 'deep')));
     await expect(opErr(page)).toContainText('자기 하위');
-    expect(fs.existsSync(j(R, 'src', 'deep', 'src'))).toBe(false);
-    expect(fs.existsSync(j(R, 'src', 'a.txt'))).toBe(true);
+    await onDisk(() => fs.existsSync(j(R, 'src', 'deep', 'src'))).toBe(false);
+    await onDisk(() => fs.existsSync(j(R, 'src', 'a.txt'))).toBe(true);
   });
 
   /**
@@ -308,8 +327,8 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     // ① 이동 — 대상에 같은 이름이 있다.
     await row(page, j(R, 'docs', 'a.txt')).dragTo(row(page, j(R, 'src')));
     await expect(opErr(page)).toContainText('이미 있습니다');
-    expect(fs.readFileSync(j(R, 'src', 'a.txt'), 'utf8')).toBe('A\n');
-    expect(fs.readFileSync(j(R, 'docs', 'a.txt'), 'utf8')).toBe('DOCS-A\n');
+    await diskText(j(R, 'src', 'a.txt')).toBe('A\n');
+    await diskText(j(R, 'docs', 'a.txt')).toBe('DOCS-A\n');
 
     // ② 생성 — 같은 자리에 같은 이름.
     await row(page, j(R, 'src')).click();
@@ -317,7 +336,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     await input(page).fill('b.txt');
     await input(page).press('Enter');
     await expect(opErr(page)).toContainText('이미 있습니다');
-    expect(fs.readFileSync(j(R, 'src', 'b.txt'), 'utf8')).toBe('B\n');
+    await diskText(j(R, 'src', 'b.txt')).toBe('B\n');
   });
 
   test('O7 (V-EDT-68 / FR-EDT-88): 조작 뒤 영향받은 폴더만 다시 읽는다', async ({ page, request }) => {
@@ -416,7 +435,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
 
     // 폴더 아래의 둘만 닫힌다. 확인창은 다시 뜨지 않는다.
     await expect.poll(async () => (await tabs(page)).map((t) => t.file)).toEqual([j(R, 'top.txt')]);
-    expect(fs.existsSync(j(R, 'src'))).toBe(false);
+    await onDisk(() => fs.existsSync(j(R, 'src'))).toBe(false);
     await expect(page.locator('.confirm-overlay')).toHaveCount(0);
   });
 
@@ -438,7 +457,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     await expect(opErr(page)).toContainText('파일시스템 조작에 실패했습니다');
     // 낙관적으로 그렸던 행이 사라진다 — 남으면 사용자는 만들어졌다고 읽는다.
     await expect(row(page, j(R, 'src', 'x.txt'))).toHaveCount(0);
-    expect(fs.existsSync(j(R, 'src', 'x.txt'))).toBe(false);
+    await onDisk(() => fs.existsSync(j(R, 'src', 'x.txt'))).toBe(false);
     // 형제 행은 그대로다.
     await expect(row(page, j(R, 'src', 'a.txt'))).toBeVisible();
   });
@@ -727,8 +746,8 @@ test.describe('묶음 S — 다중 선택 (FR-EMS-1~25)', () => {
 
     await expect(row(page, j(R, 'src', 'a.txt'))).toHaveCount(0, { timeout: 10000 });
     await expect(row(page, j(R, 'src', 'b.txt'))).toHaveCount(0);
-    expect(fs.existsSync(j(R, 'src', 'a.txt'))).toBe(false);
-    expect(fs.existsSync(j(R, 'src', 'b.txt'))).toBe(false);
+    await onDisk(() => fs.existsSync(j(R, 'src', 'a.txt'))).toBe(false);
+    await onDisk(() => fs.existsSync(j(R, 'src', 'b.txt'))).toBe(false);
   });
 
   // V-EMS-8: 조상이 함께 선택되면 자손은 대상에서 빠진다.
