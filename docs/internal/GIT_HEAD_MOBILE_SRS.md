@@ -109,6 +109,20 @@ web/js/git/history.js:97-131  History 골격. 머리 없이 .git-hist-bar 로 �
 **FR-GHM-3** — History 탭 최상단에 Changes 와 **같은 머리**를 싣는다. 자식 구성·
 순서·라벨·동작이 Changes 의 것과 같다. 자리는 `.git-hist-bar` **위**다.
 
+**FR-GHM-3a (2026-09-11, U-6 개정)** — **History 머리에는 원격 동작부
+(`.git-head-remote`)를 싣지 않는다.**
+
+> 접수한 말: *"History 머리의 Fetch·Pull·Push 버튼을 뺀다 — Changes 와 History 를
+> 이제 함께 보므로 같은 버튼이 두 벌이다."*
+>
+> `FR-GHM-3` 이 "같은 머리" 를 요구한 것은 History 를 **혼자 볼 때**의 이야기였다.
+> 두 표면을 나란히 보는 지금(REPO_TAB_UNIFY) 같은 동작의 자리가 둘이면, 어느 쪽을
+> 눌러도 결과가 같다는 사실을 사용자가 알 방법이 없다.
+>
+> **마크업은 여전히 한 자리에서 만든다** (`FR-GHM-4`) — `headHTML({remote:false})`
+> 로 **가르는** 것이지 두 벌로 쓰는 것이 아니다. 나머지(리포명·브랜치·배지·↑↓·
+> spacer)는 그대로이며 `FR-GHM-5`(하나의 관측)도 그대로다.
+
 **FR-GHM-4** — 머리를 만드는 마크업은 **한 자리에만** 있다. 두 벌로 두면 한쪽에만
 버튼이 늘어난다.
 
@@ -116,8 +130,10 @@ web/js/git/history.js:97-131  History 골격. 머리 없이 .git-hist-bar 로 �
 status 를 받으면 두 머리의 리포명·브랜치·배지·↑↓ 가 함께 갱신된다.
 
 **FR-GHM-6** — 원격 버튼의 막힘 사유(FR-GIT-101: 진행 중이면 같은 리포의 원격
-동작 전부가 막힌다)는 **두 머리에 동시에** 적용된다. 한쪽만 막히면 사용자는
+동작 전부가 막힌다)는 **그 머리에 동시에** 적용된다. 한쪽만 막히면 사용자는
 History 에서 두 번째 push 를 띄울 수 있다.
+
+> **U-6 개정**: 머리가 하나가 됐다 — 원격 버튼은 Changes 에만 있다 (`FR-GHM-3a`).
 
 **FR-GHM-7** — History 에서 누른 원격 동작의 진행·로그·실패는 Changes 탭의 작업
 화면(`.git-job`)에서 보인다. 작업 화면을 History 에 복제하지 않는다 — 하나의
@@ -159,11 +175,11 @@ History 에서 두 번째 push 를 띄울 수 있다.
 |---|------|
 | V1 | Changes 머리에서 `.git-head-spacer` 가 `.git-head-remote` **뒤**에 온다 (FR-GHM-1) |
 | V2 | `.git-head-refresh` 는 여전히 `.git-head` 안·`.git-head-remote` 밖이고, `.git-head-remote button` 은 여섯이다 (C-1, FR-GHM-2) |
-| V3 | History 탭에 `.git-head` 가 하나 있고, 그 안의 `.git-head-remote button` 이 여섯이다 (FR-GHM-3) |
+| V3 | History 탭에 `.git-head` 가 하나 있고, 그 안에 **`.git-head-remote` 가 없다** (FR-GHM-3a). Changes 쪽은 여섯 그대로다 — 사라진 것이 아니라 한 자리로 모았다 |
 | V4 | History 머리의 `.git-head-repo`·`.git-head-branch` 가 Changes 의 것과 같은 값이다 (FR-GHM-5) |
 | V5 | History 머리의 `.git-head-repo` 를 누르면 리포 전환 메뉴가 뜬다 (FR-GHM-3) |
 | V6 | History 머리의 `⟳` 를 누르면 새로고침이 돈다 (FR-GHM-3) |
-| V7 | 원격 작업이 도는 동안 **두 머리 모두** 원격 버튼이 `disabled` 다 (FR-GHM-6) |
+| V7 | 원격 작업이 도는 동안 **Changes 머리**의 원격 버튼이 `disabled` 다 (FR-GHM-6). History 에는 그 자리가 없다 (FR-GHM-3a) |
 | V8 | History 탭에 `.git-job` 이 없다 (FR-GHM-7) |
 | V9 | 리포 없음 상태의 History 에 `.git-head` 가 없다 (FR-GHM-8) |
 | V10 | 390px 폭·모바일에서 Changes 뷰의 `scrollWidth === clientWidth` 이고, 머리 안의 어떤 요소도 뷰의 오른쪽 경계를 넘지 않는다 (FR-GHM-9) |

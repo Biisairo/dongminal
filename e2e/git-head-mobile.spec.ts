@@ -75,18 +75,28 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
      * 안이다. 오른쪽으로 밀려 있으면 이 값이 100% 에 붙는다.
      *
      * **재는 자리는 본문의 History 머리다** (REPO_TAB_UNIFY_SRS FR-RTU-11).
-     * Changes 는 260px 사이드에 있어 버튼 줄이 이미 폭을 다 쓴다 — 거기서는
-     * "남는 공간" 자체가 없어 이 비율이 뜻을 잃는다 (실측 245/219). 머리 골격은
-     * 두 뷰가 같은 것을 쓰므로(`headHTML`) 어느 쪽에서 재도 같은 계약이다.
+     * Changes 는 260px 사이드에 있어 줄이 이미 폭을 다 쓴다 — 거기서는 "남는
+     * 공간" 자체가 없어 이 비율이 뜻을 잃는다 (실측 245/219).
+     *
+     * **앵커는 spacer 바로 앞의 자식이다** (U-6 개정). 종전에는 `.git-head-remote`
+     * 를 앵커로 삼았는데 History 에서 그것이 사라졌다 — 재려는 것은 특정 버튼이
+     * 아니라 "내용은 왼쪽, 남는 공간은 오른쪽" 이므로 앵커도 그렇게 적는다.
      */
     await clickGitView(page, 'history');
     await expect(hist(page).locator('.git-head')).toHaveCount(1);
     const geom = await hist(page).locator('.git-head').evaluate((h) => {
       const hr = h.getBoundingClientRect();
-      const last = h.querySelector('.git-head-remote')!.getBoundingClientRect();
+      const kids = Array.from(h.children) as HTMLElement[];
+      const anchor = kids[kids.length - 2];
+      const last = anchor.getBoundingClientRect();
       return { headW: hr.width, lastRight: last.right - hr.left };
     });
     expect(geom.lastRight).toBeLessThan(geom.headW * 0.7);
+    const histOrder = await hist(page).locator('.git-head').evaluate((h) =>
+      Array.from(h.children).map((c) => (c as HTMLElement).className));
+    expect(histOrder[histOrder.length - 1]).toBe('git-head-spacer');
+    // U-6: History 머리에는 원격 동작부가 없다.
+    expect(histOrder).not.toContain('git-head-remote');
 
     // V2 (FR-GCC-10 개정): 새로고침은 원격 밖이며, 이제 **머리 밖**이다 —
     // 사이드 탭 줄에 하나 서고 머리에는 없다.
@@ -103,9 +113,13 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
     await clickGitView(page, 'history');
     await expect(hist(page)).toHaveClass(/vis/);
 
-    // V3
+    // V3 (U-6 개정): 머리는 같은 자리에 서되 **원격 버튼은 없다.**
+    // Changes 와 History 를 이제 함께 보므로 같은 버튼이 두 벌이었다 (FR-GHM-3a).
     await expect(hist(page).locator('.git-head')).toHaveCount(1);
-    await expect(hist(page).locator('.git-head-remote button')).toHaveCount(6);
+    await expect(hist(page).locator('.git-head-remote')).toHaveCount(0);
+    await expect(hist(page).locator('.git-head-remote button')).toHaveCount(0);
+    // Changes 쪽은 그대로 여섯이다 — 사라진 것이 아니라 **한 자리로 모았다.**
+    await expect(changes(page).locator('.git-head-remote button')).toHaveCount(6);
     // FR-GCC-1·2·10: 머리에서 셋이 사라졌다. 새로고침은 사이드로 올라갔고
     // (거기 하나뿐이다), Sync·Preview 는 지워졌다.
     await expect(hist(page).locator('.git-head-refresh')).toHaveCount(0);
@@ -143,7 +157,14 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
     await page.keyboard.press('Escape');
   });
 
-  test('V7: 원격이 도는 동안 두 머리의 버튼이 모두 막힌다', async ({ page }) => {
+  /**
+   * V7 (U-6 개정): 막힘은 **Changes 머리의 것**이다.
+   *
+   * History 에는 원격 버튼이 없어졌으므로(FR-GHM-3a) "두 머리 모두" 를 잴 수 없다.
+   * 남은 계약은 그대로다 — 진행 중이면 그 리포의 원격 버튼이 막히고 사유를 말한다
+   * (FR-GIT-101 / FR-GHM-6).
+   */
+  test('V7 (개정): 원격이 도는 동안 Changes 머리의 버튼이 막힌다', async ({ page }) => {
     await init(page, 'desktop');
     await openGit(page, fx('with-remote'));
     await expect(changes(page).locator('.git-head-branch')).toHaveText('main', { timeout: 10000 });
@@ -154,19 +175,20 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
     // 들고 있는 루트에서 직접 읽는다. 머리는 떼인 동안에도 살아 있어야 한다.
     const heads = () => page.evaluate(() => {
       const p = (window as any).app.gitPanel;
-      const out: Record<string, boolean[]> = {};
-      for (const k of ['changes', 'history']) {
-        const el = p._els.get(k);
-        const h = el && el.querySelector('.git-head');
-        // FR-GCC-1·2 로 `Sync`·`Preview` 가 사라졌으므로 남은 것은 원격 버튼과
-        // 그 변형을 여는 `▾` 다.
-        out[k] = h ? ['.git-remote-btn[data-remote="push"]', '.git-remote-more[data-remote="pull"]']
-          .map((s) => !!(h.querySelector(s) as HTMLButtonElement).disabled) : [];
-      }
-      return out;
+      const el = p._els.get('changes');
+      const h = el && el.querySelector('.git-head');
+      return h ? ['.git-remote-btn[data-remote="push"]', '.git-remote-more[data-remote="pull"]']
+        .map((s) => !!(h.querySelector(s) as HTMLButtonElement).disabled) : [];
+    });
+    // History 머리에는 그 자리가 아예 없다.
+    const histRemote = () => page.evaluate(() => {
+      const el = (window as any).app.gitPanel._els.get('history');
+      const h = el && el.querySelector('.git-head');
+      return h ? h.querySelectorAll('.git-remote-btn,.git-remote-more').length : -1;
     });
 
-    expect(await heads()).toEqual({ changes: [false, false], history: [false, false] });
+    expect(await heads()).toEqual([false, false]);
+    expect(await histRemote()).toBe(0);
 
     // 시작 요청이 오가는 중과 같은 상태를 만든다 (FR-GIT-101 의 사유 하나).
     await page.evaluate(() => {
@@ -174,15 +196,15 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
       r._busy = true;
       r._paint();
     });
-    expect(await heads()).toEqual({ changes: [true, true], history: [true, true] });
+    expect(await heads()).toEqual([true, true]);
 
     await page.evaluate(() => {
       const r = (window as any).app.gitPanel._remote();
       r._busy = false;
       r._paint();
     });
-    expect(await heads()).toEqual({ changes: [false, false], history: [false, false] });
-    await expect(hist(page).locator('.git-remote-btn[data-remote="push"]')).toBeEnabled();
+    expect(await heads()).toEqual([false, false]);
+    await expect(changes(page).locator('.git-remote-btn[data-remote="push"]')).toBeEnabled();
   });
 
   /**

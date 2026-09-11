@@ -806,17 +806,21 @@ Object.assign(GitPanel, {
    * 한쪽에만 버튼이 늘어나고, 그 어긋남은 탭을 바꿔야 보인다.
    *
    * FR-GHM-1: 여백은 **동작부 뒤**다. 앞에 두면 버튼이 오른쪽 끝으로 밀린다.
+   *
+   * `opts.remote===false` 면 원격 동작부를 뺀다 (FR-GHM-3a / U-6). 마크업을 두
+   * 벌로 만들지 않고 **한 자리에서 가른다** — 그것이 FR-GHM-4 의 뜻이다.
    */
-  headHTML(){
+  headHTML(opts){
+    const remote=!opts||opts.remote!==false;
     return '<div class="git-head">'+
       '<span class="git-head-repo"></span><span class="git-head-branch"></span>'+
       '<span class="git-head-badges"></span><span class="git-head-ab"></span>'+
       // 원격 버튼은 기본 동작만 하고 변형은 `▾` 다이얼로그에서 온다
       // (FR-GIT-98·99). 동작은 GitRemote 가 붙인다.
-      '<span class="git-head-remote">'+GIT_REMOTE_KINDS.map(k=>
+      (remote?'<span class="git-head-remote">'+GIT_REMOTE_KINDS.map(k=>
         '<button class="git-remote-btn" data-remote="'+k+'" disabled></button>'+
         '<button class="git-remote-more" data-remote="'+k+'" disabled></button>'
-      ).join('')+'</span>'+
+      ).join('')+'</span>':'')+
       '<span class="git-head-spacer"></span>'+
     '</div>';
   },

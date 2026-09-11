@@ -110,7 +110,10 @@ class GitHistory {
     el.innerHTML=
       // FR-GHM-3: Changes 와 **같은 머리**다. 마크업도 배선도 GitPanel 이 한 자리에서
       // 만든다 — History 가 자기 것을 만들면 두 탭의 머리가 갈린다.
-      GitPanel.headHTML()+
+      // FR-GHM-3a (U-6, 2026-09-11): **원격 버튼은 싣지 않는다.** Changes 와
+      // History 를 이제 함께 보므로 같은 버튼이 두 벌이었다 — 같은 일을 하는 자리가
+      // 둘이면 어느 쪽을 눌렀는지가 결과와 무관해도 사용자는 그것을 모른다.
+      GitPanel.headHTML({remote:false})+
       /**
        * FR-HSU-1·9: 바에 남는 것은 **검색 입력 · 옵션 버튼 · `+ Branch`** 셋이다.
        * 정렬·필터 넷·reflog·Apply 는 드롭다운으로 들어갔고, `.git-hist-jump` 와
