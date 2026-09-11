@@ -108,6 +108,13 @@ test.describe('History 의 브랜치 생성 버튼', () => {
   test('Changes 에는 버튼이 없고 공용 머리의 버튼 수도 그대로다', async ({ page }) => {
     await waitForInit(page);
     await openHistory(page, fx('basic'));
+    // 머리 골격은 History 에도 선다 — `headHTML({remote:false})` 로 **가르는**
+    // 것이지 두 벌로 쓰는 것이 아니다 (FR-GHM-4 · history.js:116).
+    //
+    // **이 단언은 여기여야 한다.** 아래에서 Changes 를 열면 History 는 본문 탭에서
+    // 내려가 `.git-head` 가 0 이 된다 — 그 시점에 재면 언마운트를 재는 것이지
+    // 계약을 재는 것이 아니다.
+    await expect(hist(page).locator('.git-head')).toHaveCount(1);
     const histHeadBtns = await hist(page).locator('.git-head button').count();
 
     await openChanges(page, fx('basic'));
@@ -125,7 +132,6 @@ test.describe('History 의 브랜치 생성 버튼', () => {
      * 지금 재는 것은 **가름이 실제로 일어났는가**다. 수가 같은지가 아니라,
      * 원격 동작부가 Changes 에만 있는지다.
      */
-    await expect(hist(page).locator('.git-head')).toHaveCount(1);
     await expect(changes(page).locator('.git-head')).toHaveCount(1);
     expect(histHeadBtns, 'History 머리에 버튼이 남았다 — FR-GHM-3a 가 뺀 자리다').toBe(0);
     expect(chHeadBtns, 'Changes 머리에서 원격 버튼이 사라졌다').toBeGreaterThan(0);
