@@ -8,7 +8,7 @@ import (
 
 func TestFeedBelowMax(t *testing.T) {
 	s := NewStream(context.Background(), 100)
-	dropped := s.Feed(bytes.Repeat([]byte("x"), 50))
+	dropped, _ := s.Feed(bytes.Repeat([]byte("x"), 50))
 	if dropped != 0 {
 		t.Errorf("dropped=%d, want 0", dropped)
 	}
@@ -79,7 +79,7 @@ func TestSnapshotIsolation(t *testing.T) {
 func TestFeed_MaxTo2Max_NoDropCount(t *testing.T) {
 	// max=100, Feed 150 → buf=150 (max~2*max). No drop counted yet.
 	s := NewStream(context.Background(), 100)
-	dropped := s.Feed(bytes.Repeat([]byte("x"), 150))
+	dropped, _ := s.Feed(bytes.Repeat([]byte("x"), 150))
 	if dropped != 0 {
 		t.Errorf("dropped=%d want 0 (max~2*max range)", dropped)
 	}
@@ -101,7 +101,7 @@ func TestFeed_MaxTo2Max_NoDropCount(t *testing.T) {
 func TestFeed_Above2Max_Compaction(t *testing.T) {
 	// max=100, Feed 250 → buf=250 (>2*max). Compaction drops 150.
 	s := NewStream(context.Background(), 100)
-	dropped := s.Feed(bytes.Repeat([]byte("x"), 250))
+	dropped, _ := s.Feed(bytes.Repeat([]byte("x"), 250))
 	if dropped != 150 {
 		t.Errorf("dropped=%d want 150", dropped)
 	}

@@ -43,8 +43,12 @@ import (
 // toolRelay holds the output/exit relay callbacks for a Tool. It is stored
 // via atomic.Pointer so the readPTY goroutine can read the callbacks without
 // racing against daemon-mode wiring (DAEMON_SPLIT_SRS FR-12).
+//
+// onOutput 의 end 는 그 청크를 포함한 **누적 입력 바이트**다
+// (TERMINAL_RESUME_SRS FR-TRS-15). 라이브 스트림과 스냅샷이 같은 좌표계에 서야
+// 재접속이 겹침을 정확히 잘라낼 수 있다.
 type toolRelay struct {
-	onOutput func(toolID string, data []byte)
+	onOutput func(toolID string, data []byte, end int64)
 	onExit   func(toolID string)
 }
 
@@ -103,6 +107,15 @@ type Tool struct {
 	// PanedServer.wireTool (guarded by `wired`).
 	relay atomic.Pointer[toolRelay]
 	wired atomic.Bool
+
+	// tmu 는 **터미널 핸들의 fd 를 직접 만지는 자리**만 감싼다 (`Resize`·`Close`).
+	//
+	// `Read`·`Write` 는 `os.File` 의 참조 계수가 지켜 주지만 `Fd()` 는 그것을
+	// 우회한다 — `pty.Setsize` 가 그 경로이고, 닫는 중에 들어오면 이미 없는 fd 에
+	// ioctl 을 건다. 종료 처리 전체를 감싸지 않는 이유는 그것이 프로세스를
+	// 50ms 기다리기 때문이다. 그동안 `cmu` 를 쥐면 접속·브로드캐스트가 멎는다.
+	tmu        sync.Mutex
+	termClosed bool
 
 	activity   atomic.Pointer[ActivityState]
 	onActivity func(id, state, tool, detail string)
@@ -369,17 +382,39 @@ func (p *Tool) readPTY() {
 		}
 		// Single backpressure path: Stream.Feed never blocks; loss (if any)
 		// is recorded in Stats.TotalBytesDrop.
-		p.stream.Feed(append([]byte(nil), raw[:n]...))
+		//
+		// FR-TRS-17: Feed 와 **클라이언트 목록 확보**가 한 번의 cmu 구간 안에
+		// 있어야 한다. 갈라 두면 그 사이에 붙은 클라이언트가 이 청크를 재생으로도
+		// broadcast 로도 받아 한 번 더 보게 된다. 락 순서는 언제나 cmu → stream.mu 다.
+		end, conns, live := p.feedAndClients(raw[:n])
 		if r := p.relay.Load(); r != nil && r.onOutput != nil {
-			r.onOutput(p.ID, append([]byte(nil), raw[:n]...))
+			r.onOutput(p.ID, append([]byte(nil), raw[:n]...), end)
 		}
 		p.observeOutput(raw[:n])
 		p.observeBracketedPaste(raw[:n])
+		if !live {
+			continue
+		}
 		msg := make([]byte, 1+n)
 		msg[0] = OpOutput
 		copy(msg[1:], raw[:n])
-		p.broadcast(msg)
+		p.deliver(msg, conns)
 	}
+}
+
+// feedAndClients 는 청크를 스트림에 넣고, **같은 cmu 구간에서** 그 청크를 받을
+// 클라이언트 목록을 확보한다 (FR-TRS-17). 그래야 AddClient 가 돌려준 오프셋이
+// "이 클라이언트가 broadcast 로 받기 시작하는 자리" 와 정확히 일치한다.
+func (p *Tool) feedAndClients(chunk []byte) (end int64, conns []*SafeConn, live bool) {
+	p.cmu.Lock()
+	defer p.cmu.Unlock()
+	_, end = p.stream.Feed(append([]byte(nil), chunk...))
+	if p.exited {
+		return end, nil, false
+	}
+	conns = make([]*SafeConn, len(p.cls))
+	copy(conns, p.cls)
+	return end, conns, true
 }
 
 // broadcast delivers msg to all currently-registered clients. It is a no-op
@@ -393,6 +428,12 @@ func (p *Tool) broadcast(msg []byte) {
 	snap := make([]*SafeConn, len(p.cls))
 	copy(snap, p.cls)
 	p.cmu.Unlock()
+	p.deliver(msg, snap)
+}
+
+// deliver 는 확보된 목록에 쓴다. 쓰기는 락 밖이다 — 느린 소켓 하나가 PTY 읽기
+// 루프를 멈추게 하면 안 된다.
+func (p *Tool) deliver(msg []byte, snap []*SafeConn) {
 	for _, c := range snap {
 		if err := c.WriteMsg(websocket.BinaryMessage, msg); err != nil {
 			dmlog.Errorf(nil, "[tool %s] broadcast error addr=%s: %v", p.ID, c.RemoteAddr(), err)
@@ -632,18 +673,26 @@ func (p *Tool) Activity() *ActivityState { return p.activity.Load() }
 // that case OpExit is sent to c immediately (outside cmu) and c is left
 // untouched in the caller's possession. Caller must NOT hold cmu.
 func (p *Tool) AddClient(c *SafeConn) bool {
+	_, ok := p.AddClientAt(c)
+	return ok
+}
+
+// AddClientAt 은 클라이언트를 등록하고 **등록 시점의 스트림 오프셋**을 돌려준다
+// (FR-TRS-17). 그 자리부터는 broadcast 가 나르므로, 재생은 거기서 멈춰야 한다.
+func (p *Tool) AddClientAt(c *SafeConn) (int64, bool) {
 	p.cmu.Lock()
 	if p.exited {
 		p.cmu.Unlock()
 		_ = c.Send(OpExit, nil)
 		dmlog.Infof(nil, "[tool %s] addClient after exit addr=%s — sent OpExit", p.ID, c.RemoteAddr())
-		return false
+		return 0, false
 	}
 	p.cls = append(p.cls, c)
 	n := len(p.cls)
+	off := p.stream.Offset()
 	p.cmu.Unlock()
-	dmlog.Infof(nil, "[tool %s] client connected addr=%s total=%d", p.ID, c.RemoteAddr(), n)
-	return true
+	dmlog.Infof(nil, "[tool %s] client connected addr=%s total=%d at=%d", p.ID, c.RemoteAddr(), n, off)
+	return off, true
 }
 
 func (p *Tool) RemoveClient(c *SafeConn) {
@@ -663,6 +712,13 @@ func (p *Tool) resize(c, r uint16) error {
 	if p.term == nil {
 		return fmt.Errorf("tool %s: 터미널이 없다", p.ID)
 	}
+	p.tmu.Lock()
+	defer p.tmu.Unlock()
+	// 이미 닫힌 터미널의 크기를 고치는 것은 오류이지 경쟁이 아니다. 사라지는
+	// 도구에 늦게 도착한 요청은 정상적으로 일어난다 — 거절하고 끝낸다.
+	if p.termClosed {
+		return fmt.Errorf("tool %s: 터미널이 닫혔다", p.ID)
+	}
 	err := p.term.Resize(c, r)
 	if err != nil {
 		dmlog.Errorf(nil, "[tool %s] resize error cols=%d rows=%d: %v", p.ID, c, r, err)
@@ -681,7 +737,7 @@ func (p *Tool) Wait() <-chan struct{} { return p.done }
 // 데몬의 socket 서버(internal/daemon/ipc)가 유일한 호출자다. relay 의 내부
 // 표현(atomic.Pointer[toolRelay])을 패키지 밖으로 내보내지 않기 위해 불변식을
 // 여기에 둔다.
-func (p *Tool) WireRelayOnce(build func(prevExit func(string)) (onOutput func(string, []byte), onExit func(string))) bool {
+func (p *Tool) WireRelayOnce(build func(prevExit func(string)) (onOutput func(string, []byte, int64), onExit func(string))) bool {
 	if !p.wired.CompareAndSwap(false, true) {
 		return false
 	}
@@ -766,7 +822,10 @@ func (p *Tool) kill() {
 			close(p.done)
 		}
 		if p.term != nil {
+			p.tmu.Lock()
+			p.termClosed = true
 			p.term.Close()
+			p.tmu.Unlock()
 			// 순서와 유예는 종전과 같다 — 정중히 요청, 50ms, 강제 종료, 수확.
 			p.term.Terminate()
 			time.Sleep(50 * time.Millisecond)

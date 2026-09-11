@@ -72,7 +72,7 @@ type ToolClient struct {
 	// exit channel is closed when the tool exits so the WS handler can send
 	// toolhub.OpExit and tear down (parity with direct-mode tool.kill).
 	subMu   sync.RWMutex
-	subbers map[string]map[chan []byte]chan struct{}
+	subbers map[string]map[chan OutChunk]chan struct{}
 	dropped atomic.Int64
 
 	// daemonInfo 는 마지막 hello 가 말한 판이다 (FR-VHL-2). 재연결마다 갱신되므로
@@ -130,7 +130,7 @@ func DialPaneClientWithReconnect(sockPath string, spawnDaemon func() error) (*To
 		spawnDaemon: spawnDaemon,
 		pending:     make(map[int64]chan json.RawMessage),
 		closed:      make(chan struct{}),
-		subbers:     map[string]map[chan []byte]chan struct{}{},
+		subbers:     map[string]map[chan OutChunk]chan struct{}{},
 	}
 	if err := pc.connect(); err != nil {
 		return nil, fmt.Errorf("dial paned: %w", err)
@@ -327,6 +327,10 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 		var ev struct {
 			Tool string `json:"tool"`
 			Data string `json:"data"`
+			// End 는 이 청크의 끝 절대 오프셋이다 (TERMINAL_RESUME_SRS FR-TRS-15).
+			// 이 필드를 보내지 않는 옛 데몬에서는 0 으로 읽히고, 그때 받는 쪽은
+			// 겹침 제거를 건너뛴다 — 지금 동작과 같아질 뿐 나빠지지 않는다.
+			End int64 `json:"end"`
 		}
 		if err := json.Unmarshal(raw, &ev); err != nil {
 			return
@@ -356,7 +360,7 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 		pc.subMu.RLock()
 		for ch := range pc.subbers[ev.Tool] {
 			select {
-			case ch <- data:
+			case ch <- OutChunk{Data: data, End: ev.End}:
 			default:
 				dropped = pc.dropped.Add(1)
 			}
@@ -502,11 +506,23 @@ func (pc *ToolClient) Close() {
 // Subscribe registers an output channel for a tool. It returns exitCh (closed
 // when the tool exits) and an unsubscribe function. unsubscribe removes the
 // channel; it does not close exitCh (the tool-exit path owns that close).
-func (pc *ToolClient) Subscribe(toolID string, ch chan []byte) (exitCh <-chan struct{}, unsubscribe func()) {
+// OutChunk 는 구독자가 받는 출력 한 조각이다.
+//
+// 바이트만으로는 부족하다 — 구독은 스냅샷 **앞에** 서므로 둘이 겹치고, 겹친
+// 앞부분을 잘라내려면 그 조각이 스트림의 어디인지 알아야 한다
+// (TERMINAL_RESUME_SRS FR-TRS-15·16). End 는 이 조각의 **끝** 절대 오프셋이며,
+// 조각이 덮는 구간은 `[End-len(Data), End)` 다. 0 은 "모른다" 이고, 그때는
+// 잘라내지 않는다.
+type OutChunk struct {
+	Data []byte
+	End  int64
+}
+
+func (pc *ToolClient) Subscribe(toolID string, ch chan OutChunk) (exitCh <-chan struct{}, unsubscribe func()) {
 	ex := make(chan struct{})
 	pc.subMu.Lock()
 	if pc.subbers[toolID] == nil {
-		pc.subbers[toolID] = map[chan []byte]chan struct{}{}
+		pc.subbers[toolID] = map[chan OutChunk]chan struct{}{}
 	}
 	pc.subbers[toolID][ch] = ex
 	pc.subMu.Unlock()
@@ -714,7 +730,16 @@ func (pc *ToolClient) BackgroundList() []toolhub.BackgroundEntry {
 }
 
 func (pc *ToolClient) SnapshotTool(id string) (toolhub.ToolSnapshot, error) {
-	resp, err := pc.call("snapshot", map[string]interface{}{"id": id})
+	return pc.SnapshotToolSince(id, -1)
+}
+
+// SnapshotToolSince 는 재개 지점을 실어 스냅샷을 부른다 (TERMINAL_RESUME_SRS
+// FR-TRS-3). since<0 은 전량 재생이다.
+//
+// `resumed` 를 보내지 않는 옛 데몬에서는 false 로 읽히므로 전량 재생으로
+// 취급된다 — 강등이지 오류가 아니다.
+func (pc *ToolClient) SnapshotToolSince(id string, since int64) (toolhub.ToolSnapshot, error) {
+	resp, err := pc.call("snapshot", map[string]interface{}{"id": id, "since": since})
 	if err != nil {
 		return toolhub.ToolSnapshot{}, err
 	}
@@ -723,11 +748,15 @@ func (pc *ToolClient) SnapshotTool(id string) (toolhub.ToolSnapshot, error) {
 	totalIn, _ := resp["totalBytesIn"].(float64)
 	totalDrop, _ := resp["totalBytesDrop"].(float64)
 	retained, _ := resp["retained"].(float64)
+	end, _ := resp["end"].(float64)
+	resumed, _ := resp["resumed"].(bool)
 	return toolhub.ToolSnapshot{
 		Data:           data,
 		TotalBytesIn:   int64(totalIn),
 		TotalBytesDrop: int64(totalDrop),
 		Retained:       int(retained),
+		End:            int64(end),
+		Resumed:        resumed,
 	}, nil
 }
 

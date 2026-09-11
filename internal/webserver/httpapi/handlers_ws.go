@@ -17,11 +17,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// termReset 은 이전 연결이 켜 둔 터미널 모드를 끈다 — 마우스 보고(?9·?1000~?1006·?1015),
-// 괄호 붙여넣기(?2004), 대체 화면(?1049·?47·?1047), 커서 감춤·깜빡임(?25h·?12l),
-// 자동 개행(?20l). direct 모드와 daemon 모드가 **같은 값을 보내야** 하므로 한 곳에 둔다.
-var termReset = []byte("\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l")
-
 // wsReadLimit 은 클라이언트 프레임 하나의 상한이다 (1MiB). 터미널 입력과 붙여넣기
 // 한 번이 지나는 크기이며, 상한이 없으면 프레임 하나가 서버 메모리를 정한다.
 const wsReadLimit = 1 << 20
@@ -93,17 +88,28 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		toolID = tool.ID
 	}
 
+	// FR-TRS-3: 값이 없거나 해석되지 않으면 전량 재생이다. 오류가 아니다 —
+	// 배포가 닿지 않은 옛 탭은 이 인자를 보내지 않는다.
+	since, hasSince := parseSince(r)
+	if !hasSince {
+		since = -1
+	}
+
 	// Branch: daemon mode vs direct mode
 	if s.Tools.IsDaemon() {
-		s.handleWSDaemon(conn, toolID, tool)
+		s.handleWSDaemon(conn, toolID, tool, since)
 	} else {
-		s.handleWSDirect(conn, tool, r.RemoteAddr)
+		s.handleWSDirect(conn, tool, r.RemoteAddr, since)
 	}
 }
 
 // handleWSDirect is the original (non-daemon) WebSocket handler.
-func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remoteAddr string) {
-	if !tool.AddClient(conn) {
+//
+// 재생의 끝은 **등록 오프셋**이다 (FR-TRS-17). 거기서부터는 readPTY 의 broadcast
+// 가 이 소켓에 직접 나르므로, 재생이 그 자리를 넘으면 넘은 만큼 두 번 보인다.
+func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remoteAddr string, since int64) {
+	regOff, ok := tool.AddClientAt(conn)
+	if !ok {
 		dmlog.Infof(nil, "ws addr=%s: tool %s already exited; sent toolhub.OpExit", remoteAddr, tool.ID)
 		return
 	}
@@ -111,28 +117,18 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 
 	_ = conn.Send(toolhub.OpToolID, []byte(tool.ID))
 
-	// Send scrollback snapshot for existing tool
-	if snap, _ := tool.Stream().Snapshot(); len(snap) > 0 {
-		snap = stripSnapshotQueries(stripOSC777(snap))
-		if len(snap) > 0 {
-			msg := make([]byte, 1+len(snap))
-			msg[0] = toolhub.OpOutput
-			copy(msg[1:], snap)
-			if err := conn.WriteMsg(websocket.BinaryMessage, msg); err != nil {
-				dmlog.Errorf(nil, "[tool %s] snapshot send error addr=%s: %v", tool.ID, remoteAddr, err)
-				return
-			}
-		}
-	}
-	if tool.Restored {
-		tool.Restored = false
-		msg := make([]byte, 1+len(termReset))
-		msg[0] = toolhub.OpOutput
-		copy(msg[1:], termReset)
-		if err := conn.WriteMsg(websocket.BinaryMessage, msg); err != nil {
-			dmlog.Errorf(nil, "[tool %s] reset send error addr=%s: %v", tool.ID, remoteAddr, err)
+	data, full := directReplay(tool.Stream(), since, regOff)
+	if payload := buildReplay(data, full); len(payload) > 0 {
+		if err := conn.Send(toolhub.OpOutput, payload); err != nil {
+			dmlog.Errorf(nil, "[tool %s] replay send error addr=%s: %v", tool.ID, remoteAddr, err)
 			return
 		}
+	}
+	// FR-TRS-8: 좌표 통보는 재생 **뒤**다. 이 뒤로 오는 OpOutput 은 라이브 PTY
+	// 바이트뿐이므로, 클라이언트는 길이를 더하는 것만으로 좌표를 유지한다.
+	if err := conn.Send(toolhub.OpSeq, seqPayload(regOff, full)); err != nil {
+		dmlog.Errorf(nil, "[tool %s] seq send error addr=%s: %v", tool.ID, remoteAddr, err)
+		return
 	}
 
 	go pingLoop(conn, tool.Wait())
@@ -148,14 +144,8 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 // default cols/rows (120x40), which would incorrectly resize tools owned by
 // other windows. The frontend sends the correct toolhub.OpResize via the WS binary
 // protocol after terminal open+fit, guarded by _resizeCheck (session ownership).
-func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhub.Tool) {
+func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhub.Tool, since int64) {
 	_ = conn.Send(toolhub.OpToolID, []byte(toolID))
-
-	// Send terminal reset to clear any stale modes (mouse tracking, etc.)
-	// from a previous connection.
-	if err := conn.WriteMsg(websocket.BinaryMessage, append([]byte{toolhub.OpOutput}, termReset...)); err != nil {
-		return
-	}
 
 	pc, ok := s.Tools.(*toolclient.ToolClient)
 	if !ok {
@@ -165,26 +155,33 @@ func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhu
 
 	// Subscribe to live output BEFORE taking the snapshot so output produced
 	// during the snapshot RPC round-trip is buffered rather than lost (FR-17).
-	// The small overlap between the snapshot and the buffered live stream may
-	// duplicate a few bytes, which xterm.js redraws harmlessly — preferable to
-	// a gap that could desync escape-sequence parsing.
-	outputCh := make(chan []byte, 256)
+	//
+	// 겹침은 더 이상 견디는 것이 아니라 **잘라내는** 것이다 (FR-TRS-16). 종전
+	// 주석은 그 몇 바이트를 "harmless" 라 적었는데, 실측 왕복이 38 ms 이고 그동안
+	// TUI 가 낸 델타가 두 번 들어간다 — TUI 에는 harmless 가 아니다 (SRS §2.5).
+	outputCh := make(chan toolclient.OutChunk, 256)
 	exitCh, unsub := pc.Subscribe(toolID, outputCh)
 	defer unsub()
 
-	// Send snapshot for reconnection.
-	if snap, err := s.Tools.SnapshotTool(toolID); err == nil && len(snap.Data) > 0 {
-		dmlog.Infof(nil, "[ws-daemon] snapshot tool=%s len=%d retained=%d", toolID, len(snap.Data), snap.Retained)
-		snapData := stripSnapshotQueries(stripOSC777(snap.Data))
-		if len(snapData) > 0 {
-			msg := make([]byte, 1+len(snapData))
-			msg[0] = toolhub.OpOutput
-			copy(msg[1:], snapData)
-			if err := conn.WriteMsg(websocket.BinaryMessage, msg); err != nil {
-				dmlog.Errorf(nil, "[tool %s] snapshot send error: %v", toolID, err)
-				return
-			}
+	// FR-TRS-4·10: 이어 붙일 수 있으면 그 뒤만, 없으면 지우고 전량.
+	snap, err := pc.SnapshotToolSince(toolID, since)
+	if err != nil {
+		dmlog.Errorf(nil, "[tool %s] snapshot error: %v", toolID, err)
+		return
+	}
+	full := !snap.Resumed
+	dmlog.Infof(nil, "[ws-daemon] replay tool=%s len=%d end=%d full=%v since=%d",
+		toolID, len(snap.Data), snap.End, full, since)
+	if payload := buildReplay(snap.Data, full); len(payload) > 0 {
+		if err := conn.Send(toolhub.OpOutput, payload); err != nil {
+			dmlog.Errorf(nil, "[tool %s] replay send error: %v", toolID, err)
+			return
 		}
+	}
+	// FR-TRS-8: 좌표 통보는 재생 뒤다.
+	if err := conn.Send(toolhub.OpSeq, seqPayload(snap.End, full)); err != nil {
+		dmlog.Errorf(nil, "[tool %s] seq send error: %v", toolID, err)
+		return
 	}
 
 	done := make(chan struct{})
@@ -194,7 +191,7 @@ func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhu
 	// toolclient.ToolClient readLoop (OnOutput), not here, so it is not tied to this WS
 	// subscription. On tool exit (exitCh closed) we send toolhub.OpExit and close the
 	// socket so the browser tears the terminal down (parity with direct mode).
-	go relayOutput(conn, toolID, outputCh, exitCh, done)
+	go relayOutput(conn, toolID, outputCh, exitCh, done, snap.End)
 
 	go pingLoop(conn, done)
 
@@ -277,10 +274,16 @@ func readWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool) { readWS(conn, too
 // broken pipe 를 쏟아냈다 — 읽기 루프가 toolhub.PongWait 로 깨질 때까지 26초간 로그가
 // 7.7MB 로 불었다 (실측 2026-08-25). 소켓을 닫으면 읽기 루프가 곧바로 풀리고
 // 핸들러의 defer 가 구독을 해제한다.
-func relayOutput(conn *toolhub.SafeConn, toolID string, outputCh <-chan []byte, exitCh <-chan struct{}, done <-chan struct{}) {
+func relayOutput(conn *toolhub.SafeConn, toolID string, outputCh <-chan toolclient.OutChunk, exitCh <-chan struct{}, done <-chan struct{}, sent int64) {
 	for {
 		select {
-		case data := <-outputCh:
+		case chunk := <-outputCh:
+			// FR-TRS-16: 재생으로 이미 보낸 구간은 잘라낸다. 오프셋은 고정이다 —
+			// 그 자리를 지난 청크는 이 함수가 손대지 않고 그대로 나간다.
+			data := trimOverlap(chunk.Data, chunk.End, sent)
+			if len(data) == 0 {
+				continue
+			}
 			if err := conn.Send(toolhub.OpOutput, data); err != nil {
 				dmlog.Infof(nil, "[tool %s] output relay stopped addr=%s: %v", toolID, conn.RemoteAddr(), err)
 				conn.Close()

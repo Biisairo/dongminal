@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/webserver/toolclient"
 
 	"bytes"
 	"encoding/binary"
@@ -264,7 +265,7 @@ func TestRelayOutput_StopsOnWriteFailure(t *testing.T) {
 	srvConn, _, cleanup := wsPair(t)
 	defer cleanup()
 
-	out := make(chan []byte, 64)
+	out := make(chan toolclient.OutChunk, 64)
 	exit := make(chan struct{})
 	done := make(chan struct{})
 	defer close(done)
@@ -276,12 +277,12 @@ func TestRelayOutput_StopsOnWriteFailure(t *testing.T) {
 	go func() {
 		defer close(feeding)
 		for i := 0; i < 64; i++ {
-			out <- []byte("x")
+			out <- toolclient.OutChunk{Data: []byte("x")}
 		}
 	}()
 
 	fin := make(chan struct{})
-	go func() { relayOutput(srvConn, "t1", out, exit, done); close(fin) }()
+	go func() { relayOutput(srvConn, "t1", out, exit, done, 0); close(fin) }()
 
 	select {
 	case <-fin:
@@ -305,14 +306,14 @@ func TestRelayOutput_KeepsPumpingWhileHealthy(t *testing.T) {
 	srvConn, cli, cleanup := wsPair(t)
 	defer cleanup()
 
-	out := make(chan []byte, 4)
+	out := make(chan toolclient.OutChunk, 4)
 	exit := make(chan struct{})
 	done := make(chan struct{})
 	fin := make(chan struct{})
-	go func() { relayOutput(srvConn, "t1", out, exit, done); close(fin) }()
+	go func() { relayOutput(srvConn, "t1", out, exit, done, 0); close(fin) }()
 
 	for i := 0; i < 3; i++ {
-		out <- []byte("hello")
+		out <- toolclient.OutChunk{Data: []byte("hello")}
 		cli.SetReadDeadline(time.Now().Add(3 * time.Second))
 		_, msg, err := cli.ReadMessage()
 		if err != nil {
@@ -341,13 +342,13 @@ func TestRelayOutput_SendsExitOnToolExit(t *testing.T) {
 	srvConn, cli, cleanup := wsPair(t)
 	defer cleanup()
 
-	out := make(chan []byte)
+	out := make(chan toolclient.OutChunk)
 	exit := make(chan struct{})
 	done := make(chan struct{})
 	defer close(done)
 
 	fin := make(chan struct{})
-	go func() { relayOutput(srvConn, "t1", out, exit, done); close(fin) }()
+	go func() { relayOutput(srvConn, "t1", out, exit, done, 0); close(fin) }()
 	close(exit)
 
 	cli.SetReadDeadline(time.Now().Add(3 * time.Second))

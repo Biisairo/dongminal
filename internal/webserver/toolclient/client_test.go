@@ -151,7 +151,7 @@ func TestToolClientSnapshot(t *testing.T) {
 }
 
 func TestToolClientPushOutput(t *testing.T) {
-	outputCh := make(chan []byte, 1)
+	outputCh := make(chan OutChunk, 1)
 	sockPath := startFakePaned(t, func(req toolipc.PanedRequest) interface{} {
 		return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 			"version": 1, "tool_ids": []interface{}{"1"},

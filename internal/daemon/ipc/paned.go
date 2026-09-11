@@ -327,13 +327,15 @@ func (pc *panedConn) list(req *toolipc.PanedRequest) interface{} {
 }
 
 func (pc *panedConn) snapshot(req *toolipc.PanedRequest) interface{} {
-	var p struct {
-		ID string `json:"id"`
-	}
+	// Since 가 없는 옛 요청은 -1 로 읽혀 전량 재생이 된다 (FR-TRS-3).
+	p := struct {
+		ID    string `json:"id"`
+		Since int64  `json:"since"`
+	}{Since: -1}
 	if err := json.Unmarshal(req.Params, &p); err != nil {
 		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
-	snap, err := pc.pm.SnapshotTool(p.ID)
+	snap, err := pc.pm.SnapshotToolSince(p.ID, p.Since)
 	if err != nil {
 		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32603, Message: err.Error()}}
 	}
@@ -342,6 +344,8 @@ func (pc *panedConn) snapshot(req *toolipc.PanedRequest) interface{} {
 		"totalBytesIn":   snap.TotalBytesIn,
 		"totalBytesDrop": snap.TotalBytesDrop,
 		"retained":       snap.Retained,
+		"end":            snap.End,
+		"resumed":        snap.Resumed,
 	}}
 }
 
@@ -409,10 +413,13 @@ func (pc *panedConn) pushForeground(toolID, name string) {
 	}, true)
 }
 
-func (pc *panedConn) pushOutputData(toolID string, data []byte) {
+// end 는 이 청크의 끝 절대 오프셋이다 (TERMINAL_RESUME_SRS FR-TRS-15). 받는 쪽이
+// 스냅샷과 겹치는 앞부분을 정확히 잘라내는 근거다.
+func (pc *panedConn) pushOutputData(toolID string, data []byte, end int64) {
 	pc.enqueue(map[string]interface{}{
 		"event": "output", "tool": toolID,
 		"data": base64.StdEncoding.EncodeToString(data),
+		"end":  end,
 	}, true)
 }
 
@@ -523,13 +530,13 @@ func (ps *PanedServer) Accept() error {
 	// closures and just swap currConn. `p.wired` guards against re-wiring
 	// (which would nest exit handlers and re-trigger pushes). (FR-12)
 	pc.wireTool = func(p *toolhub.Tool) {
-		p.WireRelayOnce(func(baseExit func(string)) (func(string, []byte), func(string)) {
-			return func(toolID string, data []byte) {
+		p.WireRelayOnce(func(baseExit func(string)) (func(string, []byte, int64), func(string)) {
+			return func(toolID string, data []byte, end int64) {
 					ps.mu.Lock()
 					c := ps.currConn
 					ps.mu.Unlock()
 					if c != nil {
-						c.pushOutputData(toolID, data)
+						c.pushOutputData(toolID, data, end)
 					}
 				}, func(toolID string) {
 					ps.mu.Lock()

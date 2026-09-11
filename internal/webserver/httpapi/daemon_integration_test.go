@@ -97,7 +97,7 @@ func TestDaemonFullFlow(t *testing.T) {
 	})
 
 	// Subscribe to output
-	outputCh := make(chan []byte, 32)
+	outputCh := make(chan toolclient.OutChunk, 32)
 	_, unsub := pc.Subscribe(toolID, outputCh)
 	defer unsub()
 
@@ -121,14 +121,14 @@ func TestDaemonFullFlow(t *testing.T) {
 
 	// Wait for output
 	select {
-	case data := <-outputCh:
-		feed(data)
+	case chunk := <-outputCh:
+		feed(chunk.Data)
 	case <-time.After(shellReadyLimit):
 		t.Fatal("no output received from tool")
 	}
 	go func() {
-		for data := range outputCh {
-			feed(data)
+		for chunk := range outputCh {
+			feed(chunk.Data)
 		}
 	}()
 
@@ -548,7 +548,7 @@ func TestDaemonConcurrentPushAndRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	outputCh := make(chan []byte, 256)
+	outputCh := make(chan toolclient.OutChunk, 256)
 	_, unsub := pc.Subscribe(tool.ID, outputCh)
 	defer unsub()
 	go func() {
@@ -708,7 +708,7 @@ func TestDaemonExitClosesSubscriber(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	outputCh := make(chan []byte, 8)
+	outputCh := make(chan toolclient.OutChunk, 8)
 	exitCh, unsub := pc.Subscribe(tool.ID, outputCh)
 	defer unsub()
 

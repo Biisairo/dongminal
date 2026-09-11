@@ -14,6 +14,12 @@ class TerminalTool {
     this._exited=false; this._healthyTimer=null;
     this._sendQueue=[]; this._sendQueueMax=64; this._sendDropCount=0;
     this._decoder=new TextDecoder('utf-8',{fatal:false}); this._outputBuf=''; this._flushScheduled=false; this._carryTimer=null;
+    // TERMINAL_RESUME_SRS FR-TRS-7: `_seq` 는 **마지막으로 본 바이트 오프셋**이고
+    // 다음 접속의 `since` 다. -1 은 "모른다" — 그때는 서버가 전량을 뿌린다.
+    //
+    // `_seqLive` 가 따로 있는 이유: 재생분(스냅샷·델타)은 좌표 통보 **앞에** 오므로
+    // 세면 안 된다 (FR-TRS-8). 통보를 받은 뒤의 OpOutput 만이 라이브 PTY 바이트다.
+    this._seq=-1; this._seqLive=false;
     this.el=document.createElement('div');
     this.el.className='tp'; this.el.dataset.toolid=id;
     this.box=document.createElement('div');
@@ -87,10 +93,7 @@ class TerminalTool {
     this.term.onResize(({cols,rows})=>{
       // Only the OS-focused window that owns the pane's window may send resize.
       if(!window.app||!window.app._resizeCheck(this.id,this._slot)) return;
-      const m=new Uint8Array(5);m[0]=OP.RESIZE;
-      new DataView(m.buffer).setUint16(1,cols,false);
-      new DataView(m.buffer).setUint16(3,rows,false);
-      this._send(m);
+      this._sendResize(cols,rows);
     });
     // FR-MTI-1: 모바일 소프트 키보드 입력을 xterm 의 CompositionHelper 경로에서
     // 떼어낸다. 그 경로는 setTimeout(0) 뒤에 누적된 textarea 값을 diff 하므로,
@@ -460,12 +463,16 @@ class TerminalTool {
     const p=location.protocol==='https:'?'wss:':'ws:';
     const cols=(this.term&&this.term.cols)||120;
     const rows=(this.term&&this.term.rows)||40;
-    return `${p}//${location.host}/ws?cols=${cols}&rows=${rows}&tool=${encodeURIComponent(this.id)}`;
+    // FR-TRS-3: 좌표를 알면 **이어 붙여** 달라고 한다. 모르면 붙이지 않는다 —
+    // 서버는 그것을 전량 재생으로 읽는다.
+    const since=this._seq>=0?`&since=${this._seq}`:'';
+    return `${p}//${location.host}/ws?cols=${cols}&rows=${rows}&tool=${encodeURIComponent(this.id)}${since}`;
   }
   // FR-RCS-1: 최초 연결과 재연결이 **같은 판정**을 하도록 수신 처리를 한 곳에
   // 둔다. 두 벌로 두었던 것이 OP.EXIT 처리가 한쪽에만 들어가는 사고의 자리였다.
   _onOp(d){
     if(d[0]===OP.OUTPUT){ this._handleOutput(d.subarray(1)); }
+    else if(d[0]===OP.SEQ){ this._onSeq(d.subarray(1)); }
     else if(d[0]===OP.TOOLID){ this.id=dec.decode(d.subarray(1)); this.el.dataset.toolid=this.id; }
     else if(d[0]===OP.EXIT){ this._markExited(); }
     else if(d[0]===OP.ERROR){ this.write('\r\n\x1b[31m'+dec.decode(d.subarray(1))+'\x1b[0m\r\n'); }
@@ -488,15 +495,57 @@ class TerminalTool {
   _clearHealthy(){
     if(this._healthyTimer){TIMERS.cancel(this._healthyTimer);this._healthyTimer=null}
   }
+  _sendResize(cols,rows){
+    const m=new Uint8Array(5);m[0]=OP.RESIZE;
+    const dv=new DataView(m.buffer);
+    dv.setUint16(1,cols,false);
+    dv.setUint16(3,rows,false);
+    this._send(m);
+  }
   _onWsOpen(){
     this._markHealthy();
+    // FR-TRS-7: 새 소켓이다. 좌표 통보를 받기 전까지는 세지 않는다 — 그 전에 오는
+    // OpOutput 은 재생분이고, 그것을 더하면 좌표가 재생 길이만큼 앞질러 간다.
+    this._seqLive=false;
     if(this.term && window.app && window.app._resizeCheck(this.id)){
-      const m=new Uint8Array(5);m[0]=OP.RESIZE;
-      new DataView(m.buffer).setUint16(1,this.term.cols,false);
-      new DataView(m.buffer).setUint16(3,this.term.rows,false);
-      this._send(m);
+      this._sendResize(this.term.cols,this.term.rows);
     }
     this._flushSendQueue();
+  }
+
+  /**
+   * FR-TRS-6·7·18: 서버가 통보한 좌표를 세우고, 전량 재생이었으면 넛지를 건다.
+   *
+   * 오프셋은 8 바이트 빅엔디언이다. `getBigUint64` 를 쓰지 않는 이유는 BigInt 를
+   * 끌어들이지 않기 위해서다 — 32 비트 둘로 읽으면 2^53 까지 정확하고, PTY 가
+   * 그만큼을 내려면 페타바이트가 필요하다.
+   */
+  _onSeq(p){
+    if(!p||p.length<9) return;
+    const dv=new DataView(p.buffer,p.byteOffset,p.length);
+    this._seq=dv.getUint32(0,false)*4294967296+dv.getUint32(4,false);
+    this._seqLive=true;
+    if(p[8]===1) this._redrawNudge();
+  }
+
+  /**
+   * FR-TRS-18~21: **전량 재생 뒤에만** TUI 에 전체 재그리기를 시킨다.
+   *
+   * 전량 재생은 바이트 tail 을 되뿌린 것이고, tail 밖에서 켜진 모드(대체 화면
+   * 따위)는 되살아나지 않는다 (SRS §2.4). claude 같은 TUI 는 델타만 보내므로
+   * 어긋난 화면이 스스로 낫지 않는다 — 한 행 줄였다 되돌려 `SIGWINCH` 를 일으키면
+   * 그쪽이 전체를 다시 그린다.
+   *
+   * 델타 재개에는 걸지 않는다. 화면이 이미 맞아 있고 리플로우만 만든다.
+   */
+  _redrawNudge(){
+    if(!this.term) return;
+    const cols=this.term.cols, rows=this.term.rows;
+    if(!(rows>1)) return;
+    // FR-TRS-19: 크기의 주인이 아닌 창이 PTY 를 흔들면 주인 창의 화면이 깨진다.
+    if(!window.app||!window.app._resizeCheck(this.id,this._slot)) return;
+    this._sendResize(cols,rows-1);
+    TIMERS.defer(()=>{if(this.term)this._sendResize(cols,rows)},{owner:this,label:'trs-nudge'});
   }
   connect() {
     // 명시적인 connect 는 새 시도다 — 이전의 종료 판정을 지운다.
@@ -551,7 +600,7 @@ class TerminalTool {
     }
     // 사용자가 부른 재연결이므로 즉시 시도한다 — 백오프는 실패가 이어질 때의 것이다.
     this._retryDelay=0;
-    try{this._decoder=new TextDecoder('utf-8',{fatal:false});this._outputBuf=''}catch{}
+    this._resetDecoderIfNoResume();
     this._reconnecting=true;
     this._showOverlay('다시 연결', '내부 새로고침...');
     this.connect();
@@ -565,10 +614,20 @@ class TerminalTool {
     this._reconnectPending=true;
     this._clearHealthy();
     if(this.ws){try{this.ws.onclose=null;this.ws.onerror=null;this.ws.onmessage=null;this.ws.close()}catch{}this.ws=null}
-    // Reset decoder state so any half-received multibyte sequence from the
-    // dead connection doesn't get spliced with bytes from the new one.
-    try{this._decoder=new TextDecoder('utf-8',{fatal:false});this._outputBuf=''}catch{}
+    this._resetDecoderIfNoResume();
     this._reconnect();
+  }
+  /**
+   * 끊긴 연결의 반쪽 멀티바이트가 새 연결의 바이트와 이어 붙는 것을 막는다.
+   *
+   * **재개할 좌표가 있으면 지우지 않는다** (FR-TRS-4). 그때 새 연결이 보내는
+   * 것은 끊긴 자리 바로 다음 바이트이므로, 이어 붙는 것이 오히려 정확하다 —
+   * 지우면 걸쳐 있던 글자 하나를 잃는다. 좌표가 없으면 전량 재생이 오고, 그것은
+   * 다른 지점에서 시작하는 별개의 바이트열이므로 지운다.
+   */
+  _resetDecoderIfNoResume(){
+    if(this._seq>=0) return;
+    try{this._decoder=new TextDecoder('utf-8',{fatal:false});this._outputBuf=''}catch{}
   }
   write(s){if(this.term)try{this.term.write(s)}catch{}else this._buf.push(s)}
   doFit(){if(this.fit)try{this.fit.fit()}catch{}}
@@ -631,6 +690,9 @@ class TerminalTool {
     if(ov)ov.classList.remove('visible');
   }
   _handleOutput(data){
+    // FR-TRS-7: 좌표 통보 뒤의 것만 센다. 길이는 **디코딩 전 바이트**다 —
+    // 서버의 오프셋이 PTY 가 낸 raw 바이트의 수이기 때문이다.
+    if(this._seqLive) this._seq+=data.length;
     // stream:true preserves UTF-8 multibyte state across WS chunk boundaries
     this._outputBuf+=this._decoder.decode(data,{stream:true});
     if(this._flushScheduled) return;

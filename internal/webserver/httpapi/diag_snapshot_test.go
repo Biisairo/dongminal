@@ -3,13 +3,14 @@ package httpapi
 import (
 	"bytes"
 	"context"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/dmlog"
 )
 
 // CONNECTIVITY_RESILIENCE_SRS 묶음 B — 끊긴 순간의 기록 (V-CNR-7~10).
@@ -22,8 +23,17 @@ import (
 // 스냅샷의 설계 목표는 §2.4 의 두 증상을 **가르는 것**이다 — 로딩 중 멈춤(서버
 // 쪽)과 연결 거부(경로 쪽). `reqAge` 의 공백이 그 판별자다.
 
-// captureLog 는 log 출력을 가로챈다. 스냅샷은 로그로만 나가므로(D-4) 그것을
-// 읽는 것이 유일한 검사 수단이다.
+// captureLog 는 **dmlog 의 출력을** 가로챈다. 스냅샷은 로그로만 나가므로(D-4)
+// 그것을 읽는 것이 유일한 검사 수단이다.
+//
+// 종전에는 표준 `log` 의 writer 만 갈아 끼웠다. `dmlog.Init` 을 **아무도 부르지
+// 않은 동안에만** 그것이 통한다 — 그때 `dmlog` 는 `slog.Default()` 로 떨어지고
+// 그쪽이 표준 `log` 를 지나기 때문이다. 같은 패키지의 `reqid_test.go` 가
+// `dmlog.Init` 를 부르므로, **그 검사가 먼저 도는 순서에서는** 출력이 slog 의
+// writer 로 빠져 이 버퍼가 내내 비었다. `-shuffle=on` 이 그 순서를 뽑을 때마다
+// 여기 아홉이 함께 무너졌고, 원인이 이 파일 밖이라 읽어서는 보이지 않았다.
+//
+// 이제 로그 계층 자체를 이 버퍼 위에 세운다. 어느 순서로 돌든 답이 같다.
 // logBuf 는 잠금이 있는 로그 수집 버퍼다.
 //
 // 잠금이 필요한 이유는 로그를 쓰는 주체가 테스트 고루틴만이 아니기 때문이다 —
@@ -50,11 +60,8 @@ func (b *logBuf) String() string {
 func captureLog(t *testing.T) *logBuf {
 	t.Helper()
 	buf := &logBuf{}
-	old := log.Writer()
-	flags := log.Flags()
-	log.SetOutput(buf)
-	log.SetFlags(0)
-	t.Cleanup(func() { log.SetOutput(old); log.SetFlags(flags) })
+	dmlog.Init(dmlog.Options{Out: buf})
+	t.Cleanup(dmlog.Reset)
 	return buf
 }
 

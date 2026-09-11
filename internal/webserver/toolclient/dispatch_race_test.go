@@ -14,12 +14,12 @@ import (
 // `fatal error: concurrent map iteration and map write`. recover 로 잡히지
 // 않는 종류이고, e2e 서버가 실제로 그렇게 죽어 그 뒤 검사가 전부 무너졌다.
 func TestToolClient_OutputDispatchRacesWithSubscribe(t *testing.T) {
-	pc := &ToolClient{subbers: map[string]map[chan []byte]chan struct{}{}}
+	pc := &ToolClient{subbers: map[string]map[chan OutChunk]chan struct{}{}}
 	raw := json.RawMessage(`{"tool":"t1","data":"aGk="}`)
 
 	// 순회가 실제로 여러 항목을 돌아야 겹칠 자리가 생긴다 — 빈 map 은 즉시 끝난다.
 	for i := 0; i < 8; i++ {
-		pc.Subscribe("t1", make(chan []byte, 1))
+		pc.Subscribe("t1", make(chan OutChunk, 1))
 	}
 
 	var wg sync.WaitGroup
@@ -34,7 +34,7 @@ func TestToolClient_OutputDispatchRacesWithSubscribe(t *testing.T) {
 				return
 			default:
 			}
-			ch := make(chan []byte, 1)
+			ch := make(chan OutChunk, 1)
 			_, un := pc.Subscribe("t1", ch)
 			un()
 		}

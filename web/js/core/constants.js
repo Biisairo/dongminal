@@ -18,7 +18,10 @@
  * 값을 덧붙이는 top-level 문장이 있고, 그것은 대상 상수와 **같은 파일·같은
  * 순서**로 가야 한다 — 갈라 놓으면 로드 시점에 ReferenceError 다.
  */
-const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,TOOLID:3};
+// SEQ 는 서버가 **좌표**를 통보하는 프레임이다 (TERMINAL_RESUME_SRS FR-TRS-6).
+// 페이로드 9 바이트 — 오프셋 8(빅엔디언) + 전량 재생 여부 1. 재접속의 `since` 가
+// 이 값에서 나온다.
+const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,TOOLID:3,SEQ:4};
 const enc=new TextEncoder(), dec=new TextDecoder();
 // PAGE_TITLE_SRS FR-PGT-7: 설정이 비었을 때 쓰는 페이지 제목.
 const DEFAULT_PAGE_TITLE='Dongminal';

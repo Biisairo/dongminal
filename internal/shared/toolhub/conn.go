@@ -22,6 +22,11 @@ const (
 	OpError  byte = 0x01
 	OpExit   byte = 0x02
 	OpToolID byte = 0x03
+	// OpSeq 는 서버가 클라이언트에게 **좌표**를 통보하는 프레임이다
+	// (TERMINAL_RESUME_SRS FR-TRS-6). 페이로드는 9 바이트 —
+	// 오프셋 8(빅엔디언) + 전량 재생 여부 1. 이 op 를 모르는 옛 클라이언트는
+	// 조용히 버린다(FR-TRS-9). 기존 op 의 뜻과 형식은 바꾸지 않는다.
+	OpSeq byte = 0x04
 )
 
 const (

@@ -74,10 +74,25 @@ type ToolSnapshot struct {
 	TotalBytesIn   int64
 	TotalBytesDrop int64
 	Retained       int
+	// End 는 Data 의 **끝** 절대 오프셋이다 (TERMINAL_RESUME_SRS FR-TRS-6).
+	// 클라이언트는 이 값을 자기 좌표로 세우고 다음 접속의 since 로 되돌려준다.
+	End int64
+	// Resumed 는 요청한 since 에서 **이어 붙였는가** 다. false 면 전량 재생이고,
+	// 그때만 받는 쪽이 화면을 지운다 (FR-TRS-10).
+	Resumed bool
 }
 
 // SnapshotTool returns the outbuf snapshot of the named tool.
 func (m *ToolManager) SnapshotTool(id string) (ToolSnapshot, error) {
+	return m.SnapshotToolSince(id, -1)
+}
+
+// SnapshotToolSince 는 since 에서 이어 붙일 수 있으면 **그 뒤만** 돌려준다
+// (TERMINAL_RESUME_SRS FR-TRS-2~4). since<0 이면 전량이다.
+//
+// 강등은 조용하다 — 창 밖이면 Resumed=false 로 전량을 준다. 호출자는 그 플래그
+// 하나로 "지우고 뿌릴 것인가" 를 정한다.
+func (m *ToolManager) SnapshotToolSince(id string, since int64) (ToolSnapshot, error) {
 	m.mu.RLock()
 	p := m.tools[id]
 	m.mu.RUnlock()
@@ -88,12 +103,18 @@ func (m *ToolManager) SnapshotTool(id string) (ToolSnapshot, error) {
 	if s == nil {
 		return ToolSnapshot{}, nil
 	}
+	if since >= 0 {
+		if data, end, ok := s.Since(since); ok {
+			return ToolSnapshot{Data: data, TotalBytesIn: end, Retained: len(data), End: end, Resumed: true}, nil
+		}
+	}
 	data, stats := s.Snapshot()
 	return ToolSnapshot{
 		Data:           data,
 		TotalBytesIn:   stats.TotalBytesIn,
 		TotalBytesDrop: stats.TotalBytesDrop,
 		Retained:       stats.Retained,
+		End:            stats.TotalBytesIn,
 	}, nil
 }
 

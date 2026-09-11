@@ -190,7 +190,7 @@ func TestPanedPushOutputBase64(t *testing.T) {
 	var buf bytes.Buffer
 	pc := &panedConn{encoder: json.NewEncoder(&buf)}
 	raw := []byte("hello\x1b[31mworld\x1b[0m\n")
-	pc.pushOutputData("1", raw)
+	pc.pushOutputData("1", raw, int64(len(raw)))
 
 	var ev struct {
 		Event string `json:"event"`
@@ -227,7 +227,7 @@ func TestPanedPushOutputStopped(t *testing.T) {
 	var buf bytes.Buffer
 	pc := &panedConn{encoder: json.NewEncoder(&buf)}
 	pc.stopped.Store(true)
-	pc.pushOutputData("1", []byte("x"))
+	pc.pushOutputData("1", []byte("x"), 1)
 	if buf.Len() > 0 {
 		t.Fatal("pushOutputData should no-op when stopped")
 	}

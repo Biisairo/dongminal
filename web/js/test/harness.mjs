@@ -36,6 +36,12 @@ function browserStub(clock) {
       removeEventListener: (t) => { listeners.delete(t) },
       /** 검사가 가시성 변화를 흉내내는 자리. */
       _fire: (t) => { const fn = listeners.get(t); if (fn) fn() },
+      /**
+       * 위젯을 **세우기만** 하면 되는 검사를 위한 최소 원소다. 레이아웃도
+       * 이벤트 전파도 없다 — 그것을 재려는 검사는 e2e 로 간다.
+       */
+      createElement: () => elementStub(),
+      body: { classList: { contains: () => false } },
     },
     requestAnimationFrame: (fn) => clock.setTimeout(fn, 16),
     cancelAnimationFrame: (h) => clock.clearTimeout(h),
@@ -51,7 +57,26 @@ function browserStub(clock) {
     URLSearchParams,
     AbortSignal,
     FormData,
+    // `core/constants.js` 가 로드 시점에 쓰고, `ui/term-pane.js` 가 WS 바이트를
+    // 글자로 옮길 때 쓴다 (TERMINAL_RESUME_SRS FR-TRS-7 의 좌표가 그 **앞의**
+    // 바이트 수다).
+    TextDecoder,
+    TextEncoder,
   };
+}
+
+/** `document.createElement` 가 돌려주는 최소 원소. */
+function elementStub() {
+  const el = {
+    className: '', dataset: {}, style: { cssText: '' }, children: [],
+    classList: { add() {}, remove() {}, contains: () => false },
+    appendChild(c) { el.children.push(c); return c },
+    replaceChildren() { el.children.length = 0 },
+    addEventListener() {}, removeEventListener() {},
+    querySelector: () => null,
+    textContent: '',
+  };
+  return el;
 }
 
 /**
