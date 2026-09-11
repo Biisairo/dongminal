@@ -32,6 +32,11 @@ async function activePaneOfFocused(page) {
       viewportY: pane.term.buffer.active.viewportY,
       scrollTop: vp ? vp.scrollTop : -1,
       bufferLen: pane.term.buffer.active.length,
+      // V-VSR-12: `ydisp × rowHeight` 를 공개 표면만으로 낸다 (D-8).
+      baseY: pane.term.buffer.active.baseY,
+      rows: pane.term.rows,
+      scrollHeight: vp ? vp.scrollHeight : -1,
+      clientHeight: vp ? vp.clientHeight : -1,
     };
   });
 }
@@ -193,5 +198,114 @@ test.describe('Pane scroll preserve regression', () => {
         .toBeGreaterThan(0);
       expect(Math.abs(after.viewportY - before.viewportY),
         '흔들기가 실패했는데 갈무리한 자리가 아니다').toBeLessThanOrEqual(2);
+    });
+
+  /**
+   * V-VSR-12·13 (VIEW_SCROLL_RESTORE_SRS FR-VSR-24): **맨 아래에 붙은 채 왕복한다.**
+   *
+   * 위의 셋은 전부 `scrollUp` 뒤를 잰다 — 중간 스크롤 갈래이며, 그쪽은 흔들기가
+   * `ydisp` 를 실제로 옮기므로 xterm 의 `Viewport` 가 따라온다. 결함은 **가지 않은
+   * 갈래**에 있었다 (`SRS §2.8`): `ydisp === ybase` 면 `scrollToBottom()` 은
+   * `scrollLines(0)` 이라 내부에서 즉시 반환하고, 요소가 떼였을 때 브라우저가 버린
+   * `scrollTop=0` 이 **아무도 고치지 않은 채** 남는다.
+   *
+   * 보이는 것은 맨 아래인데(캔버스는 `ydisp` 를 그린다) 실제 스크롤은 맨 위다.
+   * 그래서 휠을 올리면 브라우저가 이벤트를 내지 않고(이미 `0`), 내리면
+   * `round(scrollTop / rowHeight) - ydisp` 가 큰 음수라 최상단으로 튄다.
+   */
+  function rowHeightOf(st: any) {
+    const span = st.bufferLen - st.rows;
+    const room = st.scrollHeight - st.clientHeight;
+    return span > 0 && room > 0 ? room / span : 0;
+  }
+
+  test('V-VSR-12 (FR-VSR-24): 맨 아래에 붙은 채 왕복해도 DOM 스크롤이 ydisp 와 일치한다',
+    async ({ page }) => {
+      await waitForInit(page, { clearLocalStorage: true });
+
+      const tabIds = await page.evaluate(async () => {
+        const a = (window as any).app;
+        await a.addTab(a.focused, 'terminal');
+        const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
+        const find = (m: any, id: string): any => {
+          if (!m) return null;
+          if (m.type === 'pane' && m.id === id) return m;
+          if (m.children) for (const c of m.children) { const r = find(c, id); if (r) return r; }
+          return null;
+        };
+        const pn = find(s.layout, a.focused);
+        return pn.tabs.map((t: any) => t.id);
+      });
+      expect(tabIds.length).toBe(2);
+
+      await page.evaluate((tid) => (window as any).app.switchTab((window as any).app.focused, tid), tabIds[0]);
+      await page.waitForTimeout(50);
+      // **스크롤을 올리지 않는다.** 맨 아래에 붙은 상태가 이 검사의 전부다.
+      await fillScrollback(page, 200);
+
+      const before = await activePaneOfFocused(page);
+      expect(before.viewportY, '맨 아래에 붙어 있어야 한다').toBe(before.baseY);
+      expect(rowHeightOf(before), '스크롤백이 없으면 잴 것이 없다').toBeGreaterThan(0);
+      expect(before.scrollTop).toBeGreaterThan(0);
+
+      await page.evaluate((tid) => (window as any).app.switchTab((window as any).app.focused, tid), tabIds[1]);
+      await page.waitForTimeout(80);
+      await page.evaluate((tid) => (window as any).app.switchTab((window as any).app.focused, tid), tabIds[0]);
+      await page.waitForTimeout(300);
+
+      const after = await activePaneOfFocused(page);
+      expect(after.viewportY, 'bottom-follow 는 그대로다 (FR-PDR-11 무변경)').toBe(after.baseY);
+      const want = after.viewportY * rowHeightOf(after);
+      expect(Math.abs(after.scrollTop - want),
+        `DOM 이 ydisp 와 어긋났다 — scrollTop=${after.scrollTop} want=${want}. ` +
+        '보이는 것은 맨 아래인데 실제 스크롤은 맨 위다 (SRS §2.8)').toBeLessThanOrEqual(2);
+    });
+
+  test('V-VSR-13 (FR-VSR-24): 왕복 뒤에도 휠이 듣고, 최상단으로 튀지 않는다',
+    async ({ page }) => {
+      await waitForInit(page, { clearLocalStorage: true });
+
+      const tabIds = await page.evaluate(async () => {
+        const a = (window as any).app;
+        await a.addTab(a.focused, 'terminal');
+        const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
+        const find = (m: any, id: string): any => {
+          if (!m) return null;
+          if (m.type === 'pane' && m.id === id) return m;
+          if (m.children) for (const c of m.children) { const r = find(c, id); if (r) return r; }
+          return null;
+        };
+        const pn = find(s.layout, a.focused);
+        return pn.tabs.map((t: any) => t.id);
+      });
+
+      await page.evaluate((tid) => (window as any).app.switchTab((window as any).app.focused, tid), tabIds[0]);
+      await page.waitForTimeout(50);
+      await fillScrollback(page, 200);
+      await page.evaluate((tid) => (window as any).app.switchTab((window as any).app.focused, tid), tabIds[1]);
+      await page.waitForTimeout(80);
+      await page.evaluate((tid) => (window as any).app.switchTab((window as any).app.focused, tid), tabIds[0]);
+      await page.waitForTimeout(300);
+
+      const atBottom = await activePaneOfFocused(page);
+      expect(atBottom.viewportY).toBe(atBottom.baseY);
+
+      // 보이는 터미널 위에서 굴린다 — 휠은 좌표가 있는 실제 입력이다.
+      const box = await page.locator('.pn .tp.vis .xterm-viewport').first().boundingBox();
+      expect(box, '보이는 터미널 뷰포트를 찾지 못했다').not.toBeNull();
+      await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+      await page.mouse.wheel(0, -400);
+      await page.waitForTimeout(120);
+      const up = await activePaneOfFocused(page);
+      expect(up.viewportY,
+        '휠을 올렸는데 움직이지 않았다 — scrollTop 이 이미 0 이라 이벤트가 나지 않는다')
+        .toBeLessThan(atBottom.viewportY);
+
+      await page.mouse.wheel(0, 200);
+      await page.waitForTimeout(120);
+      const down = await activePaneOfFocused(page);
+      expect(down.viewportY, '아래로 굴렸더니 최상단으로 튀었다 (U-3)')
+        .toBeGreaterThanOrEqual(up.viewportY);
     });
 });
