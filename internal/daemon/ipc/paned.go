@@ -475,7 +475,13 @@ func (ps *PanedServer) Listen() error {
 	}
 	ps.listener = ln
 	if ps.pidPath != "" {
-		os.WriteFile(ps.pidPath, []byte(strconv.Itoa(os.Getpid())+"\n"), 0o600)
+		// `GO-36`: **반환값을 버리지 않는다.** pidfile 이 쓰이지 않으면 `stop` 이
+		// 이 데몬을 찾지 못해 정지도 재접속도 못 하는 고아가 된다 — 그 사실이
+		// 기록 없이 지나가면 원인을 찾을 수 없다. 기동을 막지는 않는다: 소켓은
+		// 이미 열렸고, pidfile 은 편의이지 기동의 조건이 아니다.
+		if err := os.WriteFile(ps.pidPath, []byte(strconv.Itoa(os.Getpid())+"\n"), 0o600); err != nil {
+			log.Printf("paned: pidfile 쓰기 실패 %s: %v", ps.pidPath, err)
+		}
 	}
 	return nil
 }

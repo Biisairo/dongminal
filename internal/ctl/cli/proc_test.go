@@ -63,12 +63,41 @@ func stopHome(t *testing.T, pid string) string {
 	return home
 }
 
+// stopHomeLive 는 **답하는 소켓**까지 세운 홈이다.
+//
+// `FBE-07` 이후 `stopDaemon` 은 pid 가 살아 있는 것만으로 신호를 보내지 않는다 —
+// 그 홈의 소켓이 답해야 "우리 데몬" 이다. 빈 파일을 놓아 두면 `Dial` 이 실패하고,
+// 그러면 이 검사들이 **종료 갈래에 닿지 못한 채 통과한다**(잔여물 정리도 true 를
+// 주므로). 살아 있는 데몬을 재는 검사는 살아 있는 소켓을 세워야 한다.
+func stopHomeLive(t *testing.T, pid string) string {
+	t.Helper()
+	home := stopHome(t, pid)
+	tr := platform.Current().IPC
+	ep := tr.Endpoint(home)
+	_ = tr.Remove(ep)
+	ln, err := tr.Listen(ep)
+	if err != nil {
+		t.Skipf("소켓을 열 수 없다: %v", err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			c.Close()
+		}
+	}()
+	return home
+}
+
 // 종료 시도가 먹히지 않으면 false 다. true 를 내면 stop.go 의 실패 분기가
 // 죽은 코드가 되어 `stop --all` 이 실패를 ✅ 로 보고한다.
 func TestStopDaemon_StillAliveReportsFailure(t *testing.T) {
 	f := &fakeProc{alive: true}
 	withProc(t, f)
-	home := stopHome(t, "4242")
+	home := stopHomeLive(t, "4242")
 
 	var out bytes.Buffer
 	if stopDaemon(home, &out) {
@@ -90,7 +119,7 @@ func TestStopDaemon_StillAliveReportsFailure(t *testing.T) {
 func TestStopDaemon_TerminateSucceeds(t *testing.T) {
 	f := &fakeProc{alive: true, dieOnTerm: true}
 	withProc(t, f)
-	home := stopHome(t, "4242")
+	home := stopHomeLive(t, "4242")
 
 	var out bytes.Buffer
 	if !stopDaemon(home, &out) {
@@ -111,7 +140,7 @@ func TestStopDaemon_TerminateSucceeds(t *testing.T) {
 func TestStopDaemon_KillSucceeds(t *testing.T) {
 	f := &fakeProc{alive: true, dieOnKill: true}
 	withProc(t, f)
-	home := stopHome(t, "4242")
+	home := stopHomeLive(t, "4242")
 
 	var out bytes.Buffer
 	if !stopDaemon(home, &out) {

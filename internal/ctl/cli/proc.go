@@ -92,6 +92,40 @@ func daemonPID(home string) (int, bool) {
 	return pid, true
 }
 
+// daemonOurs 는 이 홈의 pidfile 이 가리키는 것이 **정말 우리 데몬인지**다
+// (`FBE-07`).
+//
+// `daemonPID` 의 `Alive(pid)` 만으로는 부족하다 — 데몬이 죽고 OS 가 그 번호를 다른
+// 프로세스에 주면 그 프로세스가 살아 있으므로 참이 되고, 그 뒤의 종료가
+// **무관한 프로세스에 SIGTERM 을 보낸다.**
+//
+// 재료를 하나 더 둔다: **그 홈의 소켓이 답하는가.** 소켓은 홈마다 다르고 그것을
+// 여는 것은 우리 데몬뿐이므로, 답한다면 거기 있는 것은 우리 것이다.
+// `PanedServer.Listen` 이 "살아 있는 데몬이 이미 있는가" 를 가릴 때 쓰는 판정과
+// 같다 — 두 벌을 만들지 않는다.
+//
+// **답하지 않는데 pid 가 살아 있는 경우**는 둘을 구별할 수 없다(번호 재사용 /
+// 멎은 데몬). 그때는 신호를 보내지 않는다 — 남의 프로세스를 죽이는 쪽이 더 비싼
+// 실패다. 멎은 데몬은 기동 경로가 이미 "죽은 소켓" 으로 다루므로(Listen 의 stale
+// 제거) 판정이 어긋나지 않는다.
+func daemonOurs(home string) (int, bool) {
+	pid, alive := daemonPID(home)
+	if !alive {
+		return pid, false
+	}
+	transport := platform.Current().IPC
+	conn, err := transport.Dial(transport.Endpoint(home), daemonProbeTimeout)
+	if err != nil {
+		return pid, false
+	}
+	conn.Close()
+	return pid, true
+}
+
+// daemonProbeTimeout 은 "거기 우리 데몬이 있는가" 를 묻는 시도의 상한이다.
+// 로컬 종단이므로 답은 즉시 오거나 오지 않는다 (ipc 의 dialProbeTimeout 과 같은 뜻).
+const daemonProbeTimeout = 2 * time.Second
+
 // stopDaemon은 dongminald 를 TERM → 1초 → KILL 로 종료하고 pidfile·소켓을
 // 지운다. 이미 죽어 있으면 잔여물만 치운다. 반환값은 "정지 상태로 끝났는가"
 // 이며, killPort 와 같은 형태로 **종료 시도 뒤 다시 확인해** 정한다.
@@ -102,7 +136,10 @@ func daemonPID(home string) (int, bool) {
 func stopDaemon(home string, w io.Writer) bool {
 	pidPath := filepath.Join(home, daemonPIDFile)
 	sockPath := filepath.Join(home, daemonSockFile)
-	pid, alive := daemonPID(home)
+	// `FBE-07`: **우리 데몬임을 확인한 뒤에만 신호를 보낸다.** `Alive(pid)` 만
+	// 보면 번호가 재사용된 무관한 프로세스를 죽인다.
+	pid, ours := daemonOurs(home)
+	alive := ours
 	switch {
 	case alive:
 		fmt.Fprintf(w, "dongminald 정지 중 pid=%d...\n", pid)
@@ -119,6 +156,9 @@ func stopDaemon(home string, w io.Writer) bool {
 			return false
 		}
 	case pid > 0:
+		// 번호는 살아 있을 수 있으나 그 홈의 소켓이 답하지 않았다 — 우리 것이
+		// 아니거나 멎은 것이며, 어느 쪽인지 가릴 수 없다 (`FBE-07`). **신호를
+		// 보내지 않는다**: 남의 프로세스를 죽이는 쪽이 더 비싼 실패다.
 		fmt.Fprintln(w, "dongminald 미실행 (낡은 pidfile 제거)")
 	default:
 		fmt.Fprintln(w, "dongminald 미실행")
