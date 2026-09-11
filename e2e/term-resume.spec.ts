@@ -77,9 +77,9 @@ test.describe('터미널 재접속 (TERMINAL_RESUME_SRS)', () => {
    * 접수한 증상은 화면의 중복이지만, e2e 가 잴 것은 화면이 아니라 **수신량**이다.
    * 이유를 실측으로 적어 둔다 (2026-09-12):
    *
-   *   옛 코드로 셸 하나를 띄우고 평문 열 줄을 낸 뒤 소켓을 끊었다 붙였더니
-   *   **892 바이트가 다시 왔는데 화면은 그대로였다** — 되뿌린 것에 섞인 커서
-   *   이동이 같은 자리를 덮었기 때문이다.
+   *   옛 코드로 셸 하나를 띄우고 소켓을 세 번 끊었다 붙였더니 **2,256 바이트가
+   *   다시 왔는데 화면은 그대로였다** — 되뿌린 것에 섞인 커서 이동이 같은
+   *   자리를 덮었기 때문이다. 그때 화면의 글자는 108 자였다.
    *
    * 즉 평범한 셸로는 증상이 재현되지 않는다. 증상은 claude 같은 TUI 의 1 MiB
    * 스크롤백 — 대체 화면 전환과 스크롤 영역이 섞인 것 — 에서 나온다 (SRS §2.6).
@@ -88,15 +88,26 @@ test.describe('터미널 재접속 (TERMINAL_RESUME_SRS)', () => {
    * **다시 받지 않으면 겹쳐 그릴 수도 없다.** 그 상위 성질을 재면 증상의 크기와
    * 무관하게 결정적이다. 화면이 그대로인지도 함께 본다 — 싸고, 델타 재개가
    * 엉뚱한 자리에 붙는 회귀를 잡는다.
+   *
+   * **0 이 아니라 상한으로 잰다.** 재접속은 `_onWsOpen` 에서 크기 보고를 한 번
+   * 보내고, ConPTY 는 그것에 화면을 되그릴 수 있다 — 그 몇 바이트는 재생이
+   * 아니라 라이브 출력이다. 기준은 "스크롤백을 다시 보냈는가" 이므로 도구가
+   * 지금까지 낸 총량(`_seq`)의 절반을 선으로 둔다.
+   *
+   * 같은 시나리오의 실측(macOS, 2026-09-12): 옛 코드 rx=2,256 / 지금 rx=0,
+   * `seq`=792 이므로 선은 396 이다 — 5.7 배의 여유로 갈린다.
    */
   test('V-TRS-16 재접속이 이미 본 바이트를 다시 보내지 않는다', async ({ page }) => {
     await waitForInit(page);
     await waitShellReady(page);
 
     await page.click('#area .pn.focused .xterm-screen');
-    await page.keyboard.type('for i in 1 2 3 4 5 6 7 8 9 10; do echo trs_line_$i; done');
+    // **셸 문법을 쓰지 않는다.** Windows 의 셸은 PowerShell 이고 `for …; do …;
+    // done` 을 파싱하지 못한다 (러너 실측: `Missing opening '(' after keyword
+    // 'for'`). `echo` 한 줄은 두 셸이 같이 받는다 — 다른 스펙들이 쓰는 형태다.
+    await page.keyboard.type('echo trs_marker_7788');
     await page.keyboard.press('Enter');
-    await expect(page.locator('#area .pn.focused .xterm-rows')).toContainText('trs_line_10', {
+    await expect(page.locator('#area .pn.focused .xterm-rows')).toContainText('trs_marker_7788', {
       timeout: 15000,
     });
     // 셸이 더 낼 것이 없을 때까지 기다린다. 출력이 흐르는 중에 재면 아래의
@@ -110,12 +121,14 @@ test.describe('터미널 재접속 (TERMINAL_RESUME_SRS)', () => {
     }
     await page.waitForTimeout(800);
 
-    // 사이에 새 출력이 없었다. 그러므로 받은 바이트는 **0 이어야 한다.**
-    // 옛 코드에서는 재접속 한 번에 892 바이트였다.
-    expect(await page.evaluate(() => (window as any).__rx)).toBe(0);
+    // 사이에 새 출력이 없었다. 그러므로 받은 것은 스크롤백 재생일 수 없다.
+    const rx = await page.evaluate(() => (window as any).__rx);
+    const seq = await seqOf(page);
+    // 이어 붙였다는 사실 자체를 먼저 확인한다 (FR-TRS-6) — 좌표가 없으면 아래
+    // 선이 무슨 뜻인지 말할 수 없다.
+    expect(seq).toBeGreaterThan(0);
+    expect(rx).toBeLessThan(seq / 2);
     expect(await bufferText(page)).toBe(before);
-    // 그리고 그것이 **이어 붙였기 때문**임을 확인한다 (FR-TRS-6).
-    expect(await seqOf(page)).toBeGreaterThan(0);
   });
 
   // V-TRS-17: 넛지는 전량 재생 뒤에만 나간다. 델타 재개는 좌표를 들고 붙으므로
