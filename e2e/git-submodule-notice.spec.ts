@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGit as fxOpenGit, rmTree, waitSettled } from './fixtures';
+import { test, expect, openGit as fxOpenGit, rmTree, waitSettled, addEditorRoot } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // SUBMODULE_DIRTY_NOTICE_SRS §5 — 검증 V-SDN-*.
@@ -138,9 +138,24 @@ test.describe('묶음 P — sub 필드의 판정', () => {
 
 test.describe('묶음 F — 세 상태의 관측', () => {
   test('F1: 세 저장소의 sub 필드가 각각 커밋·안쪽·둘 다이다', async ({ request }) => {
+    /**
+     * **묻기 직전에 등록한다** (FILE_API_BOUNDARY_SRS FR-FAB-14c, 2026-09-11).
+     *
+     * `repo` 도 이제 경계를 지난다. 제품의 UI 흐름은 `openGitWindow` 가 열기 전에
+     * 등록하므로(FR-RTU-72) 이 계약을 이미 지키고, 이 묶음만 그 걸음을 건너뛴 채
+     * API 를 직접 불렀다.
+     *
+     * **훅이 아니라 이 자리인 이유**: `describe` 의 `beforeAll` 에 두면 픽스처를
+     * 만드는 바깥 훅과 순서로 엮인다 — 실제로 그렇게 두었다가 첫 회만 403 이 나고
+     * 재시도에서 통과하는 흔들림을 만들었다. 등록은 멱등이므로 쓰는 자리에서
+     * 하는 것이 순서에 기대지 않는 유일한 형태다.
+     */
     const subOf = async (repo: string) => {
+      await addEditorRoot(request, repo);
       const r = await request.get('/api/git/status?repo=' + encodeURIComponent(repo));
-      expect(r.ok()).toBeTruthy();
+      // 실패하면 **응답 본문을 보여준다.** `false` 만 남으면 경계에 걸린 것인지
+      // git 이 답을 못 준 것인지 가릴 수 없다.
+      expect(r.ok(), `git status 실패 repo=${repo}: ${await r.text()}`).toBeTruthy();
       const st = (await r.json()).status;
       const all = [...(st.changes || []), ...(st.staged || [])];
       const e = all.find((x: any) => x.path === 'sub');

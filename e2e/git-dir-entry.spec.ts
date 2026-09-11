@@ -139,7 +139,7 @@ async function expand(page: Page, p: string) {
 
 test.describe('묶음 S — 디렉터리 항목의 확정', () => {
   /**
-   * **저장소를 먼저 등록한다** (FILE_API_BOUNDARY_SRS FR-FAB-14, 2026-09-11).
+   * **저장소를 먼저 등록한다** (FILE_API_BOUNDARY_SRS FR-FAB-14c, 2026-09-11).
    *
    * `repo` 도 이제 경계를 지난다 — 워크스페이스가 모르는 저장소는 403 이다. 제품의
    * UI 흐름은 `openGitWindow` 가 **열기 전에 먼저 등록**하므로(FR-RTU-72) 이 계약을
@@ -147,11 +147,15 @@ test.describe('묶음 S — 디렉터리 항목의 확정', () => {
    *
    * 게이트를 느슨하게 만든 것이 **아니다.** 서버 계약이 바뀌었고, 계약을 재는
    * 검사가 그 계약을 따르는 것이다.
+   *
+   * **훅이 아니라 각 검사 안에서 한다** — `beforeAll` 에 두면 픽스처를 만드는 바깥
+   * 훅과 순서로 엮여 첫 회만 403 이 나는 흔들림이 된다. 등록은 멱등이다.
    */
-  test.beforeAll(async ({ request }) => { await addEditor(request, PARENT) });
+  const ready = async (request: APIRequestContext) => { await addEditor(request, PARENT) };
 
   test('S1 (V-DIR-1·2): 중첩 저장소가 dir:true 이고 경로에 끝 슬래시가 없다',
     async ({ request }) => {
+      await ready(request);
       const r = await request.get('/api/git/status?repo=' + encodeURIComponent(PARENT));
       expect(r.ok()).toBeTruthy();
       const st = (await r.json()).status;
@@ -166,6 +170,7 @@ test.describe('묶음 S — 디렉터리 항목의 확정', () => {
 
   test('S2 (V-DIR-2·3): 서브모듈은 dir:true, 일반 파일은 dir 이 없다',
     async ({ request }) => {
+      await ready(request);
       const r = await request.get('/api/git/status?repo=' + encodeURIComponent(PARENT));
       const st = (await r.json()).status;
       const sub = (st.changes || []).find((e: any) => e.path === 'sub');
@@ -180,6 +185,7 @@ test.describe('묶음 S — 디렉터리 항목의 확정', () => {
 
   test('S3 (V-DIR-6): rootMatch 가 루트에서 참, 하위에서 거짓이다',
     async ({ request }) => {
+      await ready(request);
       const at = async (p: string) =>
         (await (await request.get('/api/git/status?repo=' + encodeURIComponent(p))).json());
       expect((await at(PARENT)).rootMatch).toBe(true);
