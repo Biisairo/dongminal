@@ -286,7 +286,10 @@ func (s *Server) closeHeadlessTools(rec run.Record, keep bool) []map[string]any 
 			continue
 		}
 		if s.Tools != nil {
-			s.Tools.Delete(m.ToolID)
+			// `GO-8`: 오류를 **명시로** 무시한다. 이 경로에서 "이미 없다" 는 정상이며
+			// (목록이 앞서 걷혔거나 사용자가 두 번 눌렀다) 치울 것이 없다는 뜻이다.
+			// 버리는 것과 판단한 것은 다르므로 그 사실을 여기 적어 둔다.
+			_ = s.Tools.Delete(m.ToolID)
 		}
 		log.Printf("[run] headless close run=%s member=%s tool=%s", rec.ID, m.ID, m.ToolID)
 	}

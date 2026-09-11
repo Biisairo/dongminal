@@ -87,13 +87,14 @@ func (h *headlessHub) Create(cwd string, cols, rows uint16, place toolhub.Placem
 	return tool, nil
 }
 
-func (h *headlessHub) Delete(id string) {
+func (h *headlessHub) Delete(id string) error {
 	h.mu.Lock()
 	delete(h.tools, id)
 	delete(h.bg, id) // 실물 ToolManager.Delete 와 같다 — background 에서도 뺀다
 	h.deleted = append(h.deleted, id)
 	h.mu.Unlock()
 	h.io.setHas(id, false)
+	return nil
 }
 
 func (h *headlessHub) SetBackground(id string, bg bool) bool {

@@ -293,7 +293,10 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 		// 아니다. FR-HLM-5 가 말하는 고아(Run 이 끝난 뒤 남은 도구)와는 다른
 		// 것이며, 이쪽은 **애초에 만들지 않은 것과 같게** 되돌린다.
 		if body.Headless && s.Tools != nil {
-			s.Tools.Delete(toolID)
+			// `GO-8`: 오류를 **명시로** 무시한다. 이 경로에서 "이미 없다" 는 정상이며
+			// (목록이 앞서 걷혔거나 사용자가 두 번 눌렀다) 치울 것이 없다는 뜻이다.
+			// 버리는 것과 판단한 것은 다르므로 그 사실을 여기 적어 둔다.
+			_ = s.Tools.Delete(toolID)
 			log.Printf("[run] headless 롤백 — 멤버 등록 실패: tool=%s", toolID)
 		}
 		s.rollbackMember(mi)

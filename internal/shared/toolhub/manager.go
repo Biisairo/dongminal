@@ -517,7 +517,11 @@ func (m *ToolManager) List() []map[string]interface{} {
 	return out
 }
 
-func (m *ToolManager) Delete(id string) {
+// Delete 는 도구를 지운다. **없으면 `ErrToolNotFound` 다** (`GO-8`).
+//
+// 종전에는 반환이 없어서 데몬 IPC 가 언제나 성공으로 답했다. 이미 없는 것을
+// 지우는 일이 정상인 호출자도 있으므로 여기서는 사실만 주고 판단은 넘긴다.
+func (m *ToolManager) Delete(id string) error {
 	m.mu.Lock()
 	p := m.tools[id]
 	delete(m.tools, id)
@@ -536,6 +540,12 @@ func (m *ToolManager) Delete(id string) {
 	if wasBg {
 		m.notifyBackground()
 	}
+	// 없던 것을 지운 것도 **사실대로** 말한다. 정리(목록·배경·저장)는 그대로
+	// 도는데, 그것은 남은 찌꺼기를 치우는 일이라 대상이 없어도 해가 없다.
+	if p == nil {
+		return ErrToolNotFound
+	}
+	return nil
 }
 
 // saveAsync 는 저장을 요청 경로 밖으로 떨어뜨리되 **셀 수 있게** 한다.

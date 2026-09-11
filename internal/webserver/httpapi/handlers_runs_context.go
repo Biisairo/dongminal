@@ -324,7 +324,10 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 		// 아니다. 탭에서 지목받은 도구는 원래 남의 것이므로 건드리지 않는다
 		// (apiRunMemberAdd 와 같은 규약).
 		if body.Headless && s.Tools != nil {
-			s.Tools.Delete(toolID)
+			// `GO-8`: 오류를 **명시로** 무시한다. 이 경로에서 "이미 없다" 는 정상이며
+			// (목록이 앞서 걷혔거나 사용자가 두 번 눌렀다) 치울 것이 없다는 뜻이다.
+			// 버리는 것과 판단한 것은 다르므로 그 사실을 여기 적어 둔다.
+			_ = s.Tools.Delete(toolID)
 			log.Printf("[run] headless 롤백 — 승계 실패: tool=%s", toolID)
 		}
 		writeRunError(w, err, nil)

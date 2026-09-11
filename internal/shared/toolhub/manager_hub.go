@@ -1,6 +1,7 @@
 package toolhub
 
 import (
+	"errors"
 	"net/http"
 	"sort"
 	"strconv"
@@ -12,13 +13,23 @@ import (
 // hub.go 의 인터페이스와 짝이며, 갈라 둔 이유는 그 짝을 눈으로 확인할 수 있게
 // 하기 위해서다 — 인터페이스가 늘면 이 파일이 늘고, 다른 파일은 그대로다.
 
+// ErrToolNotFound 는 그 id 의 도구가 없다는 뜻이다 (`GO-8`).
+//
+// 종전에는 `nil` 이었다. 그 `nil` 이 데몬 IPC 를 지나 클라이언트에게 **성공**으로
+// 전달되고, 브라우저는 자기가 보낸 키가 들어간 줄 안다 — "모른다" 를 "괜찮다" 로
+// 바꿔 읽는 자리다 (FR-CBG-5).
+//
+// **판단은 호출자에게 남긴다.** 이미 없는 것을 지우는 일은 호출자에 따라 정상일
+// 수 있으므로, 여기서는 사실만 돌려준다.
+var ErrToolNotFound = errors.New("toolhub: tool not found")
+
 // Write sends data to the PTY master of the named tool.
 func (m *ToolManager) Write(id string, data []byte) error {
 	m.mu.RLock()
 	p := m.tools[id]
 	m.mu.RUnlock()
 	if p == nil {
-		return nil // silently drop write to nonexistent tool
+		return ErrToolNotFound
 	}
 	return p.Write(data)
 }
@@ -29,7 +40,7 @@ func (m *ToolManager) Resize(id string, cols, rows uint16) error {
 	p := m.tools[id]
 	m.mu.RUnlock()
 	if p == nil {
-		return nil
+		return ErrToolNotFound
 	}
 	return p.Resize(cols, rows)
 }

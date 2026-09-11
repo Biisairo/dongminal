@@ -616,8 +616,11 @@ func (pc *ToolClient) Get(id string) *toolhub.Tool {
 	return nil
 }
 
-func (pc *ToolClient) Delete(id string) {
-	pc.call("kill", map[string]interface{}{"id": id})
+// Delete 는 데몬에게 그 도구를 지우라 한다. **RPC 의 실패를 그대로 돌려준다**
+// (`GO-8`) — 종전에는 반환이 없어 데몬이 무엇을 답하든 성공으로 읽혔다.
+func (pc *ToolClient) Delete(id string) error {
+	_, err := pc.call("kill", map[string]interface{}{"id": id})
+	return err
 }
 
 func (pc *ToolClient) Restore(id, name, cwd string, cols, rows uint16) error {

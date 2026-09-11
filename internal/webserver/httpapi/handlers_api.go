@@ -305,7 +305,10 @@ func (s *Server) apiToolBusy(w http.ResponseWriter, r *http.Request) {
 func (s *Server) apiToolDelete(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/api/tools/")
 	if s.Tools != nil {
-		s.Tools.Delete(id)
+		// `GO-8`: 오류를 **명시로** 무시한다. 이 경로에서 "이미 없다" 는 정상이며
+		// (목록이 앞서 걷혔거나 사용자가 두 번 눌렀다) 치울 것이 없다는 뜻이다.
+		// 버리는 것과 판단한 것은 다르므로 그 사실을 여기 적어 둔다.
+		_ = s.Tools.Delete(id)
 	}
 	// FR-ATL-5: 데몬 모드에서 이미 죽어 있던 도구를 지우는 경로에는 OnExit 가
 	// 오지 않는다. 직접 모드는 Delete → kill() 이 이미 해제하므로 여기는 no-op 다.

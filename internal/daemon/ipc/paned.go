@@ -253,7 +253,11 @@ func (pc *panedConn) kill(req *toolipc.PanedRequest) interface{} {
 	if err := json.Unmarshal(req.Params, &p); err != nil {
 		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
-	pc.pm.Delete(p.ID)
+	// `GO-8`: 없는 도구를 지운 것도 사실대로 답한다. 클라이언트가 그것을 정상으로
+	// 볼지는 클라이언트가 정한다.
+	if err := pc.pm.Delete(p.ID); err != nil {
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32000, Message: err.Error()}}
+	}
 	return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
 }
 
@@ -269,7 +273,11 @@ func (pc *panedConn) write(req *toolipc.PanedRequest) interface{} {
 	if err != nil {
 		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: "invalid base64"}}
 	}
-	pc.pm.Write(p.ID, raw)
+	// `GO-8`: **반환값을 버리지 않는다.** 종전에는 없는 도구에 쓴 것도 성공으로
+	// 답했고, 브라우저는 자기가 보낸 키가 들어간 줄 알았다.
+	if err := pc.pm.Write(p.ID, raw); err != nil {
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32000, Message: err.Error()}}
+	}
 	return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
 }
 
@@ -305,7 +313,10 @@ func (pc *panedConn) resize(req *toolipc.PanedRequest) interface{} {
 	if err := json.Unmarshal(req.Params, &p); err != nil {
 		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
-	pc.pm.Resize(p.ID, p.Cols, p.Rows)
+	// `GO-8`: 리사이즈도 같다 — 없는 도구의 크기를 바꿨다고 답하지 않는다.
+	if err := pc.pm.Resize(p.ID, p.Cols, p.Rows); err != nil {
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32000, Message: err.Error()}}
+	}
 	return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
 }
 

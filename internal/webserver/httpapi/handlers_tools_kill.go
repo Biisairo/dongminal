@@ -51,7 +51,10 @@ func (s *Server) apiToolKill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	terminateWithGrace(tool, toolKillGrace)
-	s.Tools.Delete(body.ToolID)
+	// `GO-8`: 오류를 **명시로** 무시한다. 이 경로에서 "이미 없다" 는 정상이며
+	// (목록이 앞서 걷혔거나 사용자가 두 번 눌렀다) 치울 것이 없다는 뜻이다.
+	// 버리는 것과 판단한 것은 다르므로 그 사실을 여기 적어 둔다.
+	_ = s.Tools.Delete(body.ToolID)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"ok": true})
 }

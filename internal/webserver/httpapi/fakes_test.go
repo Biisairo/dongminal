@@ -99,10 +99,16 @@ func (f *fakePaneHub) Get(id string) *toolhub.Tool {
 	return f.tools[id]
 }
 
-func (f *fakePaneHub) Delete(id string) {
+// 실물의 계약을 흉내 낸다 (`GO-8`) — 없는 것을 지우면 `ErrToolNotFound` 다.
+func (f *fakePaneHub) Delete(id string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	_, ok := f.tools[id]
 	delete(f.tools, id)
+	if !ok {
+		return toolhub.ErrToolNotFound
+	}
+	return nil
 }
 
 func (f *fakePaneHub) IsLive(id string) bool                               { return f.Get(id) != nil }

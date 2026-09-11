@@ -17,7 +17,10 @@ type ToolHub interface {
 	// is not usable there because Get returns a cmd-less Tool
 	// (DAEMON_PANE_BUSY_RESOLVE_SRS).
 	Busy(id string) bool
-	Delete(id string)
+	// Delete 는 도구를 지운다. 없으면 `ErrToolNotFound` 다 (`GO-8`) — IPC 경계가
+	// 실패를 성공으로 답하지 않기 위해서다. 이미 없는 것을 지우는 일이 정상인
+	// 호출자는 그 오류를 명시로 무시한다.
+	Delete(id string) error
 	Write(id string, data []byte) error
 	// SendPaste 는 텍스트를 넣고 submit 이면 제출까지 한다. **감싸기 판단이
 	// 구현 쪽에 있다** — 셸이 bracketed paste 모드를 켰는지는 PTY 출력을 읽는
