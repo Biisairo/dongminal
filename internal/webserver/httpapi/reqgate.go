@@ -27,7 +27,7 @@ import (
 // `accessGate` 를 이 자리에 세웠고, 이 게이트는 그 **안쪽에 직렬로** 선다:
 // ACL 이 "어느 기기" 를, 이것이 "어느 출처" 를 본다.
 //
-//	logging → accessGate(기기) → requestGate(출처) → authGate(빈 자리) → recover → mux
+//	logging → accessGate(기기) → requestGate(출처) → recover → mux
 
 // hostAllow 는 `Host`·`Origin` 판정에 쓰는 허용 집합이다.
 //
@@ -254,18 +254,4 @@ func gateDeny(w http.ResponseWriter, r *http.Request, code int, why, msg string)
 	log.Printf("request denied why=%s addr=%s host=%q origin=%q %s %s",
 		why, r.RemoteAddr, r.Host, r.Header.Get("Origin"), r.Method, r.URL.Path)
 	http.Error(w, msg, code)
-}
-
-// authGate 는 **자리만 잡는다** (FR-RQG-22·23).
-//
-// M4 가 세션/토큰 판정을 여기 넣는다. 계약은 REQUEST_GATE_SRS §3.6 에 있다:
-// 예외 경로는 `/`·정적 자산·`/login`·`GET /api/ping` 이고, **loopback 무조건 통과
-// (FR-ACL-5)를 인증에는 적용하지 않는다** — 브라우저 매개 공격이 정확히 loopback
-// 출발지이기 때문이다.
-//
-// 빈 게이트를 지금 세우는 이유는 M4 가 미들웨어 자리를 다시 여는 것보다 싸기
-// 때문이다. 체인의 순서는 그 자체로 계약이고, 순서를 나중에 바꾸면 그때 무엇이
-// 먼저 도는지를 다시 확인해야 한다.
-func authGate(next http.Handler) http.Handler {
-	return next
 }

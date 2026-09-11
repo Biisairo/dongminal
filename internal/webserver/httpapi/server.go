@@ -253,17 +253,22 @@ func (s *Server) Handler() http.Handler {
 	// 게이트는 로깅 **안쪽**, recover **바깥쪽**이다 (FR-ACL-10): 거절이 접근
 	// 로그에 남아야 하고, mux 바깥이라야 정적 자산·/api/*·/ws 가 한 겹에 덮인다.
 	//
-	// REQUEST_GATE_SRS FR-RQG-1: 게이트가 셋이고 **직렬**이다.
+	// REQUEST_GATE_SRS FR-RQG-1(개정): 게이트가 **둘**이고 직렬이다.
 	//
 	//	accessGate   어느 기기인가   (출발지 IP)
 	//	requestGate  어느 출처인가   (Origin·Host·Sec-Fetch·Content-Type)
-	//	authGate     누구인가       (M4 가 채운다 — 지금은 통과)
+	//
+	// **"누구인가" 를 묻는 게이트는 없다.** 이 제품은 인증을 지원하지 않는다
+	// (로드맵 결정 9) — 접근 통제는 오버레이 망(Tailscale)과 이 두 게이트가
+	// 맡고, 그 보증 범위는 보안 경계 문서가 적는다. 종전에 여기 있던 빈
+	// `authGate` 는 그 결정으로 **제거됐다**. 영구 폐기된 기능의 자리를 남겨 두면
+	// 그것이 곧 "예정" 으로 읽힌다.
 	//
 	// 순서가 계약이다. ACL 이 1차 필터로 먼저 서고, 출처 판정이 그 안에서
 	// 브라우저 매개 요청을 가른다 — ACL 은 그것을 가르지 못한다(출발지가 사용자
 	// 자신의 기기다).
 	return loggingMiddlewareFor(s, accessGate(s.Access,
-		requestGate(s.hosts, authGate(recoverMiddleware(mux)))))
+		requestGate(s.hosts, recoverMiddleware(mux))))
 }
 
 // Run starts the HTTP server on addr and blocks until ctx is cancelled.

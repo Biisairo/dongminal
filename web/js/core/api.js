@@ -129,11 +129,6 @@ async function apiSend(method, path, body, opts) {
     try { data = JSON.parse(text) } catch { data = null }
   }
 
-  // ── M4 의 자리 (FR-CAPI-10) ──
-  // 401 을 다루는 곳은 **여기 하나**다. 지금은 아무것도 하지 않는다 — 자리와
-  // 계약만 둔다 (REQUEST_GATE_SRS 의 `authGate` 와 같은 규약). 빈 자리가 여기
-  // 있는 것이, M4 가 29파일을 다시 여는 것보다 싸다.
-
   return { ok: res.ok, status: res.status, data, text, headers: res.headers || null };
 }
 
