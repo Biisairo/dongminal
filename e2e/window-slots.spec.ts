@@ -24,9 +24,23 @@ const setSlotDir = (page, d: string) => page.evaluate((v) => ((window as any).ap
 
 // 새 일반 창을 만들고 그 id 를 준다. _mkWindow 는 생성한 엔터티 id 를 돌려준다
 // (app-layout.js, FR-RCR-6/7).
+//
+// **포커스 칸이 이 창을 받는다** (FR-WSL-54) — 창을 만드는 것도 "여는 경로" 다.
 const addWindow = (page) =>
   page.evaluate(async () => {
     const r = await (window as any).app._mkWindow();
+    (window as any).app.render();
+    return r.win;
+  });
+
+// 배경으로만 만든다 — 칸도 포커스도 건드리지 않는다 (FR-RST-2 의 `keepFocus`).
+//
+// 사이드바 클릭 같은 **여는 경로**를 재려면 그 전에 창이 **화면 밖에** 있어야
+// 한다. 종전에는 `addWindow` 가 칸을 안 건드려서 그대로 썼지만, 그것이 바로
+// FR-WSL-54 의 결함이었다 (2026-09-11).
+const addBgWindow = (page) =>
+  page.evaluate(async () => {
+    const r = await (window as any).app._mkWindow({ keepFocus: true });
     (window as any).app.render();
     return r.win;
   });
@@ -56,6 +70,57 @@ async function owners(request) {
   expect(r.ok()).toBeTruthy();
   return (await r.json()).owners || {};
 }
+
+test.describe('묶음 F — 여는 경로는 포커스 칸에 연다 (FR-WSL-54)', () => {
+  /**
+   * **새 창을 만드는 것도 "여는 경로" 다** (2026-09-11 접수).
+   *
+   * 접수한 말: *"window new 버튼을 누르면 생성과 동시에 해당 윈도우로 이동해야
+   * 하는데 이동하지 않는다"* — 칸이 **나뉜 상태**에서 그렇다.
+   *
+   * `switchWindow` 는 `_slotOnSwitch` 로 포커스 칸이 그 창을 가리키게 하는데,
+   * `_mkWindow` 는 `ws.activeWindow` 만 바꾸고 그 걸음을 밟지 않았다. 그래서
+   * **모델은 새 창이고 화면은 옛 창**이었다.
+   *
+   * 이 파일의 `slotsWith` 가 `openInSlot` 으로 칸을 **명시적으로** 놓는 것도
+   * 그 때문이다 — 결함이 우회로 가려져 있었다.
+   *
+   * **모델이 아니라 화면을 잰다.** `ws.activeWindow` 만 보면 종전에도 초록이다.
+   */
+  test('TC-WSL-54b: 칸이 나뉜 상태에서 새 창을 만들면 포커스 칸이 그 창을 보인다',
+    async ({ page }) => {
+      await waitForInit(page);
+      await slotsWith(page, 2);
+      await focusSlot(page, 1);
+
+      const before = await page.evaluate(() =>
+        (window as any).app._slotWindow((window as any).app.slots.focused)?.id ?? null);
+
+      const count = () => page.evaluate(() => (window as any).app.ws.windows.length);
+      const n = await count();
+      await page.locator('#add-window').click();
+      // 창이 실제로 생길 때까지 기다린다 — 생성은 도구 기동을 지나므로 비동기다.
+      await expect.poll(count, { timeout: 15000 }).toBe(n + 1);
+
+      const after = await page.evaluate(() => {
+        const app = (window as any).app;
+        const shown = app._slotWindow(app.slots.focused);
+        return { act: app.ws.activeWindow, shown: shown ? shown.id : null };
+      });
+      expect(after.shown, '포커스 칸이 새 창을 보이지 않는다 — 모델만 바뀌었다')
+        .toBe(after.act);
+      expect(after.shown, '칸이 옛 창을 그대로 가리킨다').not.toBe(before);
+
+      // 다른 칸은 건드리지 않는다 (FR-WSL-54 의 나머지 절반).
+      const other = await page.evaluate(() => {
+        const app = (window as any).app;
+        const i = app.slots.focused === 0 ? 1 : 0;
+        const w = app._slotWindow(i);
+        return w ? w.id : null;
+      });
+      expect(other, '다른 칸까지 새 창으로 바뀌었다').not.toBe(after.act);
+    });
+});
 
 test.describe('묶음 S·R — 슬롯 모델과 렌더링', () => {
   test('TC-WSL-1: 슬롯 1개일 때 DOM 은 본 SRS 이전과 같다 (FR-WSL-4)', async ({ page }) => {
@@ -407,7 +472,8 @@ test.describe('묶음 U·M — 진입점과 모바일', () => {
   test('TC-WSL-19: 사이드바 클릭은 포커스 칸에만 연다 (FR-WSL-54)', async ({ page }) => {
     await waitForInit(page);
     const wins = await slotsWith(page, 3);
-    const w4 = await addWindow(page);
+    // 화면 밖의 창이어야 "사이드바로 연다" 를 잴 수 있다.
+    const w4 = await addBgWindow(page);
     await focusSlot(page, 1);
 
     await page.click(`#windows .si[data-sid="${w4}"]`);

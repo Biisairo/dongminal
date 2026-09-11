@@ -1,4 +1,3 @@
-import { cpus } from 'os';
 
 import { defineConfig, devices } from '@playwright/test';
 
@@ -36,11 +35,29 @@ export const E2E_PORT0 = 58147;
  * 상한이 있는 또 하나의 이유는 PTY 다 — macOS 의 `kern.tty.ptmx_max` 는 기본
  * 511 이고 인스턴스마다 그것을 나눠 쓴다 (R-1).
  */
+/**
+ * **로컬과 CI 가 같은 값을 쓴다** (FR-EPL-7 개정, 2026-09-11).
+ *
+ * 종전에는 `clamp(cpus/3, 2, 4)` 였다. 규칙은 같았지만 **기계가 다르면 값이
+ * 다르다** — 개발 호스트(10코어+)는 3~4, 러너(2~4코어)는 2였다. 그러면 동시성이
+ * 달라지고, 동시성이 다르면 **같은 검사가 다른 답을 낸다.**
+ *
+ * `V-EPL-2`("병렬이 결과를 바꾸지 않는다")가 그것을 금지하는데, 실제로는
+ * `ui-layout-defaults`·`git-worktrees` V151 이 전량에서만 깨졌다. 조건이 갈리면
+ * 어느 쪽이 사실인지 말할 수 없다 — `retries` 를 양쪽 1 로 맞춘 것과 같은 근거다
+ * (FR-DRC-17).
+ *
+ * 값은 **러너에 맞춘다.** 낮은 쪽으로 맞춰야 개발 호스트에서 초록인 것이 러너에서
+ * 빨개지지 않는다. 반대로 맞추면 러너가 못 견딘다.
+ *
+ * `PW_WORKERS` 로 덮을 수 있다 — 흔들림을 가릴 때 `1` 로 두고 재현하는 자리다.
+ */
+const E2E_WORKERS = 2;
+
 function workerCount(): number {
   const env = parseInt(process.env.PW_WORKERS || '', 10);
   if (Number.isFinite(env) && env > 0) return env;
-  const n = cpus().length || 2;
-  return Math.max(2, Math.min(Math.floor(n / 3), 4));
+  return E2E_WORKERS;
 }
 
 export default defineConfig({

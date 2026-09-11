@@ -150,6 +150,15 @@ Object.assign(App.prototype, {
     // 추가 — activeWindow/focused 무변화 (백그라운드 잡 컨테이너 패턴).
     if(!opts.keepFocus){
       this.ws.activeWindow=s.id;
+      // FR-WSL-54: **여는 경로는 포커스 칸에 연다** — 창을 만드는 것도 그 경로다.
+      //
+      // 화면은 `ws.activeWindow` 가 아니라 **칸이 가리키는 창**을 그린다
+      // (`_slotWindow`). 이 한 줄이 없던 동안 모델만 새 창이 되고 화면은 옛 창을
+      // 그대로 보였다 — 칸이 나뉘어 있을 때만 드러났고, 그대로 접수됐다
+      // ("생성과 동시에 이동해야 하는데 이동하지 않는다", 2026-09-11).
+      //
+      // `switchWindow` 가 밟는 걸음과 같다. 다른 칸은 건드리지 않는다.
+      this._slotOnSwitch(s.id);
       try{sessionStorage.setItem('activeWindow', s.id)}catch{}
       this._setFocus(r, s);
       this._focusWindow(s.id);

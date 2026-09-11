@@ -7,7 +7,7 @@
 # 여기서는 부르기만 한다.
 
 .DEFAULT_GOAL := help
-.PHONY: help gates test lint unit typecheck hooks all
+.PHONY: help gates test lint unit typecheck hooks all e2e e2e-all
 
 help:  ## 이 도움말
 	@echo "dongminal 로컬 게이트"
@@ -45,6 +45,22 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@echo "── 골격 배치 (inset:0 이 position 과 같은 규칙에 있는가)"
 	@scripts/check-skeleton.sh
 	@echo "gates ok"
+
+e2e:  ## e2e 전량 — **CI 와 같은 분할**(8샤드)로 돈다. 결과가 CI 와 같아야 한다
+	@# 로컬이 한 프로세스로 1500항목을 도는 동안 CI 는 8조각을 각자 새 러너에서
+	@# 돈다 — 그 차이가 **상태 누적의 범위**를 바꾸고, 그래서 전량에서만 깨지는
+	@# 검사가 생겼다 (ui-layout-defaults · git-worktrees V151).
+	@#
+	@# 같은 분할로 돌면 같은 답이 나온다. 그것이 e2e 의 조건이다
+	@# (E2E_PARALLEL_SRS V-EPL-2 · FR-EPL-13).
+	@for i in 1 2 3 4 5 6 7 8; do \
+		echo "── e2e 샤드 $$i/8"; \
+		npx playwright test --shard=$$i/8 --reporter=line,./e2e/parity-reporter.ts || exit 1; \
+	done
+	@echo "e2e ok — 8샤드 전부"
+
+e2e-all:  ## e2e 전량을 **한 프로세스**로 (누적 상태까지 겪는 무거운 쪽)
+	npx playwright test
 
 test:  ## Go 단위 테스트 (-race -shuffle=on, ./web/... 포함)
 	go test -race -shuffle=on ./internal/... ./cmd/... ./web/...
