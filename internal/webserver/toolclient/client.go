@@ -72,6 +72,25 @@ type ToolClient struct {
 	subMu   sync.RWMutex
 	subbers map[string]map[chan []byte]chan struct{}
 	dropped atomic.Int64
+
+	// daemonInfo 는 마지막 hello 가 말한 판이다 (FR-VHL-2). 재연결마다 갱신되므로
+	// `mu` 아래 둔다 — readLoop 와 같은 잠금이다.
+	daemonInfo DaemonInfo
+}
+
+// DaemonInfo 는 마지막 `hello` 가 말한 **데몬의 판**이다
+// (VERSION_HEALTH_SRS FR-VHL-2).
+//
+// 여기서 판정하지 않는다 — 이 겹이 아는 것은 "데몬이 뭐라고 했는가" 이고,
+// 그것을 우리 판과 견주는 일은 헬스 종단의 몫이다 (FR-VHL-11). 정책을 여기 두면
+// 이 패키지가 릴리스 규약을 알아야 한다.
+type DaemonInfo struct {
+	// Protocol 은 데몬이 말한 문법 판이다. 말하지 않았으면 현재 판으로 읽는다
+	// (FR-VHL-5) — 옛 데몬을 거부하면 갱신 중인 인스턴스가 통째로 멈춘다.
+	Protocol int
+	// Build 는 데몬 바이너리의 판이다. **말하지 않았으면 빈 값**이며, 빈 것은
+	// 불일치가 아니다 (FR-CBG-5 — 모른다 ≠ 다르다).
+	Build string
 }
 
 type earlyPush struct {
@@ -134,11 +153,50 @@ func (pc *ToolClient) connect() error {
 
 	go pc.readLoop(conn, cd)
 
-	if _, err := pc.call("hello", map[string]interface{}{"server_pid": 0}); err != nil {
+	// FR-VHL-2: **응답을 읽는다.** 종전에는 `_` 로 버렸고, 그래서 판이 무엇이든
+	// 연결이 성립했다 — 낡은 데몬 위에 새 서버가 붙어도 아무도 몰랐다.
+	res, err := pc.call("hello", map[string]interface{}{"server_pid": 0})
+	if err != nil {
 		conn.Close()
 		return fmt.Errorf("hello: %w", err)
 	}
+	info := parseHello(res)
+	// FR-VHL-3: **프로토콜이 다르면 거부한다.** 문법이 다른 상대와 말을 이어 가면
+	// 실패가 엉뚱한 자리에서 난다 — 도구 생성이나 리사이즈에서 터지고, 그때
+	// 원인은 여기에 있다.
+	//
+	// 빌드 불일치로는 끊지 않는다 (FR-VHL-4) — 끊는 비용이 사용자의 PTY 다.
+	if info.Protocol != toolipc.ProtocolVersion {
+		conn.Close()
+		return fmt.Errorf("hello: protocol mismatch: daemon=%d server=%d",
+			info.Protocol, toolipc.ProtocolVersion)
+	}
+	pc.mu.Lock()
+	pc.daemonInfo = info
+	pc.mu.Unlock()
 	return nil
+}
+
+// parseHello 는 hello 결과에서 판 둘을 꺼낸다.
+//
+// **말하지 않은 것은 지어내지 않는다** (FR-VHL-5). 판 키가 없는 옛 데몬은
+// 프로토콜을 현재 판으로 읽고 빌드는 비운다 — 빈 빌드는 불일치가 아니다.
+func parseHello(res map[string]interface{}) DaemonInfo {
+	info := DaemonInfo{Protocol: toolipc.ProtocolVersion}
+	if v, ok := res["version"].(float64); ok {
+		info.Protocol = int(v)
+	}
+	if b, ok := res["build"].(string); ok {
+		info.Build = b
+	}
+	return info
+}
+
+// DaemonInfo 는 마지막 hello 가 말한 데몬의 판이다 (FR-VHL-2).
+func (pc *ToolClient) DaemonInfo() DaemonInfo {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	return pc.daemonInfo
 }
 
 // supervise watches for connection loss and reconnects with exponential

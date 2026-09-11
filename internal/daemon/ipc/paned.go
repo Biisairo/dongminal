@@ -44,6 +44,11 @@ type panedConn struct {
 
 	// wireTool is set by PanedServer to hook tool output/exit into this conn.
 	wireTool func(p *toolhub.Tool)
+
+	// build 는 이 데몬 바이너리의 판이다 (VERSION_HEALTH_SRS FR-VHL-1). `hello`
+	// 가 프로토콜 판과 **따로** 싣는다 — 서버가 둘을 다르게 다루기 때문이다
+	// (프로토콜 불일치는 거부, 빌드 불일치는 기록).
+	build string
 }
 
 func newPanedConn(conn net.Conn, pm *toolhub.ToolManager) *panedConn {
@@ -175,8 +180,17 @@ func (pc *panedConn) hello(req *toolipc.PanedRequest) interface{} {
 			ids = append(ids, id)
 		}
 	}
+	// FR-VHL-1: 판을 **둘로 나눠** 싣는다.
+	//
+	//   version — 프로토콜(문법) 판. 호환의 판정자이며 거의 바뀌지 않는다
+	//   build   — 이 바이너리의 판. 릴리스마다 바뀐다
+	//
+	// 합치면 모든 릴리스가 프로토콜 불일치로 읽힌다 (D-1). 서버는 둘을 다르게
+	// 다룬다 — 프로토콜이 다르면 연결을 거부하고(FR-VHL-3), 빌드가 다르면
+	// 연결은 두고 헬스에 싣는다(FR-VHL-4).
 	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
-		"version":  1,
+		"version":  toolipc.ProtocolVersion,
+		"build":    pc.build,
 		"tool_ids": ids,
 	}}
 }
@@ -397,6 +411,9 @@ type PanedServer struct {
 	pm       *toolhub.ToolManager
 	sockPath string
 	pidPath  string
+	// buildVersion 은 `hello` 가 싣는 빌드 판이다 (FR-VHL-1). `mu` 아래 둔다 —
+	// 연결 수락과 같은 잠금이다.
+	buildVersion string
 
 	mu       sync.Mutex
 	listener net.Listener
@@ -406,6 +423,20 @@ type PanedServer struct {
 // dialProbeTimeout 은 "이미 살아 있는 데몬이 있는가" 를 묻는 시도의 상한이다.
 // 로컬 종단이므로 응답은 즉시 오거나 오지 않는다.
 const dialProbeTimeout = 2 * time.Second
+
+// SetBuildVersion 은 이 데몬의 빌드 판을 새긴다 (FR-VHL-1).
+//
+// 값을 **주입받는** 이유는 층 때문이다. 판의 단일 출처는 `internal/ctl/cli.Version`
+// 이고(빌드 때 ldflags 로 새겨진다) 데몬 층이 그것을 import 하면 아래에서 위를
+// 보게 된다. `boot.Run(home, version)` 이 이미 그 값을 들고 있으므로 여기까지
+// 잇기만 하면 된다.
+//
+// 새기지 않으면 **빈 값**이다. 빈 것은 "모른다" 이지 불일치가 아니다 (FR-VHL-5).
+func (ps *PanedServer) SetBuildVersion(v string) {
+	ps.mu.Lock()
+	ps.buildVersion = v
+	ps.mu.Unlock()
+}
 
 func NewPanedServer(pm *toolhub.ToolManager, sockPath, pidPath string) *PanedServer {
 	ps := &PanedServer{pm: pm, sockPath: sockPath, pidPath: pidPath}
@@ -462,6 +493,12 @@ func (ps *PanedServer) Accept() error {
 	}
 
 	pc := newPanedConn(conn, ps.pm)
+	// FR-VHL-1: 연결마다 빌드 판을 내린다.
+	//
+	// **여기서 다시 잠그지 마라** — 이 함수는 위에서 이미 `ps.mu` 를 쥐고 있고,
+	// `sync.Mutex` 는 재진입이 아니다. 한 번 그렇게 걸었더니 hello 가 영영
+	// 답하지 않았고, 증상은 "연결이 그냥 실패한다" 였다 (2026-09-11).
+	pc.build = ps.buildVersion
 
 	// Wire output/exit from each tool through whichever dongminal connection
 	// is current. The closures resolve ps.currConn dynamically, so a tool only

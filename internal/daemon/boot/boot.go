@@ -88,6 +88,10 @@ func Run(home, version string) {
 	pidPath := filepath.Join(home, "paned.pid")
 
 	ps := ipc.NewPanedServer(pm, sockPath, pidPath)
+	// VERSION_HEALTH_SRS FR-VHL-1: 이 데몬의 빌드 판을 `hello` 에 싣는다. 값은
+	// 이미 `Run(home, version)` 으로 들어와 있다 — 데몬이 `ctl/cli` 를 import
+	// 하지 않고도 판을 말할 수 있는 것이 이 주입의 목적이다.
+	ps.SetBuildVersion(version)
 	if err := ps.Listen(); err != nil {
 		log.Fatalf("dongminald listen: %v", err)
 	}
