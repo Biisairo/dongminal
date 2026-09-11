@@ -1012,11 +1012,31 @@ Object.assign(App.prototype, {
         return;
       }
       // FR-ACL-24: 확인은 한 걸음이다 (CONFIRM_ONE_STAGE_SRS).
+      /**
+       * FE-17: **마크업을 문자열로 잇지 않는다.** `_aclYou` 는 서버가 준 값이지만
+       * 그 값의 재료는 **이 요청의 출발지·Host** 다 — 즉 바깥이 정한다. 서버가
+       * 주었다는 사실은 안전의 근거가 되지 않는다.
+       *
+       * `check-html.sh` 의 머리가 적은 그대로다 — 마크업이 필요한 자리는 DOM 으로
+       * 세운다. 이 자리는 게이트의 규칙(템플릿 리터럴)을 지나지 않아 **문자열
+       * 이어붙이기로 남아 있었고**, 그래서 게이트도 함께 넓혔다.
+       */
       const body=document.createElement('div');
-      body.innerHTML='<p>이 목록은 지금 접속 중인 주소 <code>'+
-        (this._aclYou||'')+'</code> 를 허용하지 않습니다.</p>'+
-        '<p>저장하면 <b>이 브라우저의 접속이 끊깁니다.</b> 서버가 돌고 있는 컴퓨터에서는 '+
-        '언제나 접속되므로 거기서 되돌릴 수 있습니다.</p>';
+      const p1=document.createElement('p');
+      p1.appendChild(document.createTextNode('이 목록은 지금 접속 중인 주소 '));
+      const code=document.createElement('code');
+      code.textContent=this._aclYou||'';
+      p1.appendChild(code);
+      p1.appendChild(document.createTextNode(' 를 허용하지 않습니다.'));
+      const p2=document.createElement('p');
+      p2.appendChild(document.createTextNode('저장하면 '));
+      const b=document.createElement('b');
+      b.textContent='이 브라우저의 접속이 끊깁니다.';
+      p2.appendChild(b);
+      p2.appendChild(document.createTextNode(
+        ' 서버가 돌고 있는 컴퓨터에서는 언제나 접속되므로 거기서 되돌릴 수 있습니다.'));
+      body.appendChild(p1);
+      body.appendChild(p2);
       const m=UIKit.modal({
         title:'이 브라우저가 차단됩니다',
         cls:'acl-confirm',

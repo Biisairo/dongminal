@@ -486,7 +486,22 @@ func accessGate(store *accessStore, next http.Handler) http.Handler {
 		}
 		// FR-ACL-13: 출발지와 경로를 남긴다.
 		log.Printf("access denied addr=%s %s %s", r.RemoteAddr, r.Method, r.URL.Path)
-		// FR-ACL-8: 목록 내용을 응답에 싣지 않는다.
+		// FR-ADP-1: 문서 요청이면 **화면**을 준다 — 평문 `forbidden` 은 사용자가
+		// 무엇을 해야 하는지 말하지 않는다. 그 밖(API·/ws)은 그대로 평문이다.
+		//
+		// FR-ACL-8 은 그대로다: 화면에 실리는 것은 **요청자 자신의 IP** 뿐이고
+		// 목록은 한 줄도 나가지 않는다.
+		if wantsDeniedPage(r) {
+			// **읽지 못했어도 빈칸으로 두지 않는다.** 이 화면의 목적이 "이 주소를
+			// 소유자에게 알린다" 이므로, 정규화에 실패했으면 원문이라도 준다 —
+			// 알릴 것이 없으면 화면이 있으나 마나다.
+			shown := r.RemoteAddr
+			if ok {
+				shown = addr.String()
+			}
+			writeDeniedPage(w, shown)
+			return
+		}
 		http.Error(w, "forbidden", http.StatusForbidden)
 	})
 }

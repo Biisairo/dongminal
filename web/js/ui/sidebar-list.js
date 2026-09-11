@@ -69,7 +69,7 @@ const SidebarList = {
     if (!items.length) {
       // FR-BLP-4: 빈 목록 표시도 블루프린트의 것이다. 문구만 서술자가 준다.
       if (!main || !d.emptyText) { el.innerHTML = ''; return }
-      el.innerHTML = '<div class="' + (d.emptyClass || 'sbl-none') + '"></div>';
+      el.innerHTML = '<div class="' + escHtml(d.emptyClass || 'sbl-none') + '"></div>';
       el.firstElementChild.textContent = d.emptyText;
       return;
     }

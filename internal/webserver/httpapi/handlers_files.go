@@ -351,7 +351,15 @@ func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	io.Copy(w, f)
+	// GO-38: **복사의 결과를 버리지 않는다.** 여기서 실패하면 헤더는 이미 나갔으므로
+	// 상태 코드를 바꿀 수 없다 — 그래서 할 수 있는 일은 **기록**뿐이고, 기록이
+	// 없으면 "파일이 잘려서 왔다" 는 신고에 대고 아무것도 말할 수 없다.
+	//
+	// 크기 상한(FR-FAB-8)은 **아직 없다** — 값이 정해지지 않았다. 그 값이 정해지면
+	// 이 자리에 `io.LimitReader` 와 413 이 함께 선다.
+	if _, err := io.Copy(w, f); err != nil {
+		log.Printf("file read: copy %s: %v", fp, err)
+	}
 }
 
 type fileWriteReq struct {

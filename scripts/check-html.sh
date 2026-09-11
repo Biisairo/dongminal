@@ -55,5 +55,49 @@ if [[ -n "$hits" ]]; then
   exit 1
 fi
 
+# ② 문자열 이어붙이기 (FE-17). 템플릿 리터럴만 보던 규칙의 사각이다.
+#
+# `.innerHTML` 대입문을 세미콜론까지 모은 뒤, `+` 의 오른쪽 피연산자가 따옴표
+# 리터럴도 escHtml(·e( 도 아니면 위반으로 본다.
+#
+# perl 이다 — macOS 의 awk 는 이 저장소에서 이미 한 번 탐침을 통과시켰다
+# (UI_LAYOUT_DEFAULTS_SRS 의 check-skeleton 교훈). 프로그램 안에 따옴표·역따옴표를
+# 쓰지 않는 것은 셸이 그것을 먼저 해석하기 때문이며, 그래서 \x22\x27\x60 으로 적는다.
+cat_hits="$(find web/js -name '*.js' -not -path '*/vendor/*' -print0 \
+  | xargs -0 perl -0777 -ne '
+      my $file = $ARGV;
+      while (/\.innerHTML\s*=\s*([^;]*);/gs) {
+        my $stmt = $1;
+        my $pos  = $-[0];
+        next unless $stmt =~ /</;
+        my $bad = 0;
+        while ($stmt =~ /\+\s*([^\s+]+)/g) {
+          my $op = $1;
+          next if $op =~ /^[\x22\x27\x60]/;          # 따옴표 리터럴
+          next if $op =~ /^(?:escHtml|e)\(/;          # 이스케이프를 지난다
+          next if $op =~ /^[A-Z][A-Z0-9_]*$/;         # 상수 (이 저장소의 규약)
+          next if $op =~ /HTML\(/;                    # 마크업을 만드는 함수
+          # 남는 위반은 **속성 접근**(점이 있는 것)뿐이다. 값이 바깥에서 오는
+          # 자리는 사실상 전부 이 모양이며(`this._aclYou`·`d.name`), 클래스
+          # 조각이나 반복 인덱스 같은 평범한 식별자는 그렇지 않다.
+          next unless $op =~ /\./;
+          $bad = 1; last;
+        }
+        next unless $bad;
+        my $line = 1 + (substr($_, 0, $pos) =~ tr/\n//);
+        print "$file:$line\n";
+      }
+    ' 2>/dev/null || true)"
+
+if [[ -n "$cat_hits" ]]; then
+  echo "✗ 마크업 문자열에 이스케이프 없는 값이 이어 붙는다:"
+  echo
+  echo "$cat_hits"
+  echo
+  echo "규칙: innerHTML 에 잇는 값은 escHtml( 를 지나거나, DOM 으로 세운다."
+  echo "설계: docs/internal/production/02-fe-arch.md 의 P0 (FE-16·FE-17)"
+  exit 1
+fi
+
 n="$(grep -rlE '`[^`]*<[a-zA-Z][^`]*\$\{' web/js --include='*.js' | grep -vc '/vendor/' || true)"
-echo "✓ 마크업 보간이 전부 이스케이프를 지난다 (${n}개 파일)"
+echo "✓ 마크업 보간이 전부 이스케이프를 지난다 — 템플릿 ${n}개 파일 + innerHTML 이어붙이기 (FE-16·17)"
