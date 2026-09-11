@@ -2,7 +2,6 @@ package run
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -23,15 +22,36 @@ func roStore(t *testing.T) *Store {
 	return s
 }
 
+/*
+freeze 는 저장이 반드시 실패하는 상태를 만든다.
+
+**디렉터리 자리에 일반 파일을 놓는다.** 그 자리에는 무엇도 만들 수 없으므로 원자
+쓰기의 임시 파일부터 실패하며, 그 성질은 OS 를 가리지 않는다.
+
+	이전 방법 — `os.Chmod(dir, 0o500)` 으로 읽기 전용을 만든다
+	새 방법   — 디렉터리를 치우고 그 이름으로 파일을 놓는다
+	이유     — Windows 에서 `Chmod` 는 디렉터리 권한을 그렇게 바꾸지 못한다.
+	           **에러 없이 성공하므로** 아래의 Skip 도 타지 않았고, 쓰기가 그대로
+	           성공해 "쓰기가 실패해야 하는데 성공했다" 로 터졌다 (CI 실측
+	           2026-09-11, windows-latest)
+
+`t.Skip` 으로 그 OS 를 빼지 않는 이유는 `WINDOWS_TEST_PARITY_SRS §3.4` 다 — 빼면
+그 OS 에서 `FBE-17` 의 보증이 사라진다. 이 방법은 어느 OS 에서나 성립하므로 건너뛸
+자리가 없다.
+*/
 func freeze(t *testing.T, s *Store) {
 	t.Helper()
-	if err := os.Chmod(s.dir, 0o500); err != nil {
-		t.Skipf("디렉터리를 읽기 전용으로 만들 수 없다: %v", err)
+	if err := os.RemoveAll(s.dir); err != nil {
+		t.Skipf("저장 디렉터리를 치울 수 없다: %v", err)
 	}
-	t.Cleanup(func() { os.Chmod(s.dir, 0o700) })
-	// 이미 있는 파일은 지운다 — 남아 있으면 원자 쓰기가 임시 파일을 못 만들어도
-	// 옛 파일이 읽히며, 이 검사가 재려는 것은 **쓰기 실패**다.
-	os.Remove(filepath.Join(s.dir, fileName))
+	if err := os.WriteFile(s.dir, []byte("x"), 0o600); err != nil {
+		t.Skipf("저장 디렉터리 자리에 파일을 놓을 수 없다: %v", err)
+	}
+	// t.TempDir 의 정리가 디렉터리를 기대하므로 되돌려 둔다.
+	t.Cleanup(func() {
+		os.Remove(s.dir)
+		os.MkdirAll(s.dir, 0o700)
+	})
 }
 
 // 저장이 실패하면 그 변경이 메모리에도 남지 않는다.
