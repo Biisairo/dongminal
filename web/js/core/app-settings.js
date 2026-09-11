@@ -4,18 +4,114 @@
  * class App 본문에서 옮겨온 메서드 9개. 본문은 수정하지 않았다 (FR-APP-3).
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
+/**
+ * 설정 하나를 **읽고 얹는 방법** (CONFIG_MANAGEMENT_SRS FR-CFG-5).
+ *
+ * 키·타입·범위·기본값은 여기 없다 — `settings-schema.js` 의 `SETTINGS_SCHEMA` 가
+ * 그 단일 원천이고 Go 도 같은 바이트를 읽는다 (FR-CFG-1·10). 이 표가 지는 것은
+ * **전역 변수에 닿는 길과 얹은 뒤의 뒷일**뿐이다. JSON 에 담을 수 없어 갈라 둔
+ * 것이며, 두 표의 키 집합이 같은지는 검사가 강제한다 (TC-CFG-1).
+ *
+ * 종전에는 이 목록이 **세 벌**이었다 — PUT 본문의 인라인 나열 · `_settingsApply`
+ * 의 `if` 스무 갈래 · 이식 표. 아무 게이트도 없었고, 빠뜨린 실패는 다른 브라우저
+ * 창을 열어 보기 전까지 아무도 모른다.
+ *
+ *   get()   블롭에 실을 값. 없으면 그 키는 PUT 본문에서 빠진다 (FR-CFG-6)
+ *   set(v)  값을 얹고 화면까지 따라가게 한다
+ */
+const SETTINGS_ACCESS={
+  // 테마는 두 키가 한 쌍이라 얹는 자리가 `_settingsApply` 에 따로 있다 —
+  // 사용자 정의가 있으면 그것이 이름을 이긴다. 여기서는 싣기만 한다.
+  themeName:{get:()=>customTheme?null:currentThemeName},
+  customTheme:{get:()=>customTheme},
+  shortcuts:{get:()=>shortcuts,set:v=>{Object.assign(shortcuts,v)}},
+  statusBar:{get:()=>statusBar,set:v=>{Object.assign(statusBar,v)}},
+  // 주기 다섯은 `POLL_SETTINGS` 가 이미 쥔 길을 그대로 쓴다 (FR-PIS-7).
+  agentsPollInterval:{get:()=>agentsPollInterval,set:v=>POLL_BY_KEY.agentsPollInterval.set(v)},
+  statsInterval:{get:()=>statsInterval,set:v=>POLL_BY_KEY.statsInterval.set(v)},
+  gitStatusInterval:{get:()=>gitStatusInterval,set:v=>POLL_BY_KEY.gitStatusInterval.set(v)},
+  gitReposInterval:{get:()=>gitReposInterval,set:v=>POLL_BY_KEY.gitReposInterval.set(v)},
+  gitConsoleInterval:{get:()=>gitConsoleInterval,set:v=>POLL_BY_KEY.gitConsoleInterval.set(v)},
+  layoutPresets:{get:()=>layoutPresets,set:v=>{layoutPresets=v}},
+  defaultPreset:{get:()=>defaultPreset,set:v=>{defaultPreset=v}},
+  // FR-TAN-19
+  fgTabNames:{get:()=>fgTabNames,set(v){
+    fgTabNames=v;
+    if(this._fgRepaint) this._fgRepaint();
+    const cb=document.getElementById('ds-fgnames');
+    if(cb) cb.checked=fgTabNames;
+  }},
+  // FR-KEY-6: 저장된 적 없으면 기본값(켬).
+  blockBrowserKeys:{get:()=>blockBrowserKeys,set(v){
+    blockBrowserKeys=v;
+    const bk=document.getElementById('sc-blockbrowser');
+    if(bk) bk.checked=blockBrowserKeys;
+  }},
+  // PAGE_TITLE_SRS FR-PGT-10
+  pageTitle:{get:()=>pageTitle,set(v){pageTitle=v;this._applyPageTitle()}},
+  // FR-LVC-6: 저장된 적 없으면 기본값(끔).
+  confirmLeave:{get:()=>confirmLeave,set(v){
+    confirmLeave=v;
+    const cl=document.getElementById('ds-confirmleave');
+    if(cl) cl.checked=confirmLeave;
+  }},
+  // FR-WBR-10·11: 값만 바꾸면 사용자는 설정이 듣지 않는 것으로 읽는다 —
+  // 이미 열려 있는 편집기에도 얹는다.
+  editorWordWrap:{get:()=>editorWordWrap,set(v){
+    editorWordWrap=v;
+    const ww=document.getElementById('ds-wordwrap');
+    if(ww) ww.checked=editorWordWrap;
+    if(this._edApplyWordWrap) this._edApplyWordWrap();
+  }},
+  // FR-TBW-8: 같은 근거로 곧바로 얹는다. 클래스와 변수 하나뿐이라 다시 그리지 않는다.
+  tabFixedWidth:{get:()=>tabFixedWidth,set(v){
+    tabFixedWidth=v;
+    const tf=document.getElementById('ds-tabfix');
+    if(tf) tf.checked=tabFixedWidth;
+    applyTabWidth();
+  }},
+  tabWidthPx:{get:()=>tabWidthPx,set(v){
+    tabWidthPx=clampTabWidth(v);
+    const tw=document.getElementById('ds-tabw');
+    if(tw) tw.value=String(tabWidthPx);
+    applyTabWidth();
+  }},
+  // FR-UFE-12·13 / FR-AED-9: 범위 판정은 표가 한다 (`settingValue`) — 종전에는
+  // 같은 모양의 `if` 가 두 줄 걸러 두 번 적혀 있었다.
+  focusEdgeLevel:{get:()=>focusEdgeLevel,set(v){
+    focusEdgeLevel=v;
+    this._focusEdgePaintRow();
+    this._paintFocusEdge();
+  }},
+  attnEdgeLevel:{get:()=>attnEdgeLevel,set(v){
+    attnEdgeLevel=v;
+    this._attnEdgePaintRow();
+    this._paintAttnEdge();
+    this._attnRefresh();
+  }},
+};
+
 Object.assign(App.prototype, {
   async _saveSettings(){
     // 블롭 전체를 갈아치우므로 읽어 쓰는 값은 전부 실어야 한다 — 여기서 빠지면
     // 다른 설정을 건드릴 때 조용히 사라진다.
     //
-    // POLL_INTERVAL_SETTINGS_SRS FR-PIS-6: 주기 다섯이 나란히 실린다.
-    // `gitSignatureInterval` 은 **빠졌다** — 읽을 계층이 없으므로 실어도 아무
-    // 일도 하지 않고, 남기면 지운 계층이 아직 있다고 읽힌다 (FR-PIS-2).
+    // **그래서 나열하지 않는다** (CONFIG_MANAGEMENT_SRS FR-CFG-4). 본문은
+    // 서술자 표에서 파생되므로, 키를 더하고 여기를 잊는 실패 모드가 없어진다.
+    // `gitSignatureInterval` 이 표에 없는 것이 곧 싣지 않는다는 뜻이다 (FR-PIS-2).
+    //
     // `FE-7`(PRODUCTION_ROADMAP §M3): **응답을 검사한다.** 종전에는 결과를
     // 버렸고, 그래서 디스크가 차거나 경계에 걸려 거절된 저장이 **성공처럼**
     // 보였다 — 사용자는 설정이 바뀐 줄 알고 다음 기동에서 옛 값을 만난다.
-    const res=await apiPut('/api/settings',{themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,agentsPollInterval,statsInterval,gitStatusInterval,gitReposInterval,gitConsoleInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave,editorWordWrap,tabFixedWidth,tabWidthPx,focusEdgeLevel,attnEdgeLevel});
+    const body={};
+    for(const spec of SETTINGS_SCHEMA){
+      const acc=SETTINGS_ACCESS[spec.key];
+      // FR-CFG-6: 읽을 길이 없는 키는 빠진다 — UI 가 아직 없는 값을 표에 적어
+      // 두는 길을 남긴다.
+      if(!acc||!acc.get) continue;
+      body[spec.key]=acc.get.call(this);
+    }
+    const res=await apiPut('/api/settings',body);
     if(!res.ok&&this._notify) this._notify(SETTINGS_SAVE_FAIL);
     return res.ok;
   },
@@ -325,85 +421,30 @@ Object.assign(App.prototype, {
    */
   _settingsApply(saved,opts){
     if(!saved||typeof saved!=='object') return;
-    if(saved.shortcuts) Object.assign(shortcuts,saved.shortcuts);
-    if(saved.statusBar) Object.assign(statusBar,saved.statusBar);
     /**
-     * POLL_INTERVAL_SETTINGS_SRS FR-PIS-7·8: **주기 다섯이 여기 한 자리를 지난다.**
+     * **서술자 표 하나를 돈다** (CONFIG_MANAGEMENT_SRS FR-CFG-3·5).
      *
-     * 부팅 · SSE `settings_changed` · 소프트 리로드가 같은 길이므로 새 전파 경로가
-     * 생기지 않는다 (D-4). 값의 검사도 여기 하나다 — 손으로 고친 `settings.json`
-     * 하나가 초당 폴링을 만들지 않아야 한다 (FR-UFE-12·13 과 같은 근거).
+     * 종전에는 키마다 `if` 가 하나씩 있었고 범위 검사가 같은 모양으로 두 번 세
+     * 번 적혀 있었다 (`focusEdgeLevel`·`attnEdgeLevel`·주기 다섯). 값 판정은
+     * 이제 `settingValue` 한 자리이고, 이 표가 지는 것은 얹은 뒤의 뒷일뿐이다.
+     *
+     * `!==undefined` 가드는 **그대로다** (FR-PIS-8): 서버가 말하지 않은 키에
+     * 대해 화면이 판단하지 않는다. 부팅에서는 변수가 이미 기본값이라 결과가
+     * 같고, 갱신에서는 이것이 유일하게 안전한 답이다 — 되돌려 버리면 이 자리에
+     * 값을 직접 넣어 둔 쪽(검사·진단)의 값을 방송 하나가 지운다.
      */
-    // FR-GIT-23 의 `0`(그 계층을 걸지 않는다)은 예외가 아니라 **표 안에** 있다 —
-    // `off:true` 를 가진 주기만 0 을 통과시킨다 (FR-PIS-9).
-    //
-    // `!==undefined` 가드는 **이 파일의 다른 설정 전부와 같은 규약**이다 (FR-PIS-8):
-    // 서버가 말하지 않은 키에 대해 화면이 판단하지 않는다. 부팅에서는 변수가 이미
-    // 상수 기본값이라 결과가 같고, 갱신에서는 이것이 유일하게 안전한 답이다 —
-    // 되돌려 버리면 이 자리에 값을 직접 넣어 둔 쪽(검사·진단)의 값을 방송 하나가
-    // 지운다. 위 주석의 "`saved.x===undefined` 일 때 기본으로 되돌리기는 부팅과
-    // 갱신에서 뜻이 다르다" 가 정확히 이 자리다.
-    for(const spec of POLL_SETTINGS)
-      if(saved[spec.key]!==undefined) spec.set(pollValue(saved[spec.key],spec));
-    if(saved.layoutPresets) layoutPresets=saved.layoutPresets;
-    if(saved.defaultPreset!==undefined) defaultPreset=saved.defaultPreset;
-    // 테마는 둘 중 하나다 — 사용자 정의가 있으면 그것이 이긴다.
+    for(const spec of SETTINGS_SCHEMA){
+      if(saved[spec.key]===undefined) continue;
+      const acc=SETTINGS_ACCESS[spec.key];
+      if(!acc||!acc.set) continue;
+      const v=settingValue(saved[spec.key],spec);
+      if(v===undefined) continue;
+      acc.set.call(this,v);
+    }
+    // 테마는 두 키가 한 쌍이라 표 밖에 남는다 — **사용자 정의가 이름을 이긴다.**
+    // 표를 돌며 각자 얹으면 순서에 따라 답이 갈린다.
     if(saved.customTheme){customTheme=saved.customTheme;applyThemeObj(customTheme)}
     else if(saved.themeName&&THEMES[saved.themeName]){customTheme=null;currentThemeName=saved.themeName;applyThemeObj(THEMES[currentThemeName])}
-    // PAGE_TITLE_SRS FR-PGT-10
-    if(saved.pageTitle!==undefined){pageTitle=saved.pageTitle;this._applyPageTitle()}
-    // FR-KEY-6: 저장된 적 없으면 기본값(켬).
-    if(saved.blockBrowserKeys!==undefined){
-      blockBrowserKeys=!!saved.blockBrowserKeys;
-      const bk=document.getElementById('sc-blockbrowser');
-      if(bk) bk.checked=blockBrowserKeys;
-    }
-    // FR-LVC-6: 저장된 적 없으면 기본값(끔).
-    if(saved.confirmLeave!==undefined){
-      confirmLeave=!!saved.confirmLeave;
-      const cl=document.getElementById('ds-confirmleave');
-      if(cl) cl.checked=confirmLeave;
-    }
-    // FR-UFE-12·13: 범위 밖이거나 정수가 아닌 값은 받지 않는다 — 손으로 고친
-    // settings.json 하나가 화면을 통째로 반전시키는 일이 없어야 한다.
-    if(saved.focusEdgeLevel!==undefined){
-      const lv=Math.round(Number(saved.focusEdgeLevel));
-      if(lv>=0&&lv<=UFE_LEVEL_MAX) focusEdgeLevel=lv;
-      this._focusEdgePaintRow();
-      this._paintFocusEdge();
-    }
-    // FR-AED-9: 같은 규약, 다른 키 (D-9). 범위 밖은 기본값으로 떨어진다.
-    if(saved.attnEdgeLevel!==undefined){
-      const lv=Math.round(Number(saved.attnEdgeLevel));
-      attnEdgeLevel=(lv>=0&&lv<=ATTN_EDGE_LEVEL_MAX)?lv:ATTN_EDGE_LEVEL_DEFAULT;
-      this._attnEdgePaintRow();
-      this._paintAttnEdge();
-      this._attnRefresh();
-    }
-    // FR-WBR-10·11: 값만 바꾸면 사용자는 설정이 듣지 않는 것으로 읽는다 —
-    // 이미 열려 있는 편집기에도 얹는다.
-    if(saved.editorWordWrap!==undefined){
-      editorWordWrap=!!saved.editorWordWrap;
-      const ww=document.getElementById('ds-wordwrap');
-      if(ww) ww.checked=editorWordWrap;
-      if(this._edApplyWordWrap) this._edApplyWordWrap();
-    }
-    // FR-TBW-8: 같은 근거로 곧바로 얹는다. 클래스와 변수 하나뿐이라 다시 그리지 않는다.
-    if(saved.tabFixedWidth!==undefined||saved.tabWidthPx!==undefined){
-      if(saved.tabFixedWidth!==undefined) tabFixedWidth=!!saved.tabFixedWidth;
-      if(saved.tabWidthPx!==undefined) tabWidthPx=clampTabWidth(saved.tabWidthPx);
-      const tf=document.getElementById('ds-tabfix');
-      if(tf) tf.checked=tabFixedWidth;
-      const tw=document.getElementById('ds-tabw');
-      if(tw) tw.value=String(tabWidthPx);
-      applyTabWidth();
-    }
-    if(saved.fgTabNames!==undefined){
-      fgTabNames=!!saved.fgTabNames;
-      if(this._fgRepaint) this._fgRepaint();
-      const cb=document.getElementById('ds-fgnames');
-      if(cb) cb.checked=fgTabNames;
-    }
     // 설정 변경은 감지 계층의 재평가 시점이다 (FR-GIT-23). 이 계층만 따로인
     // 이유는 백오프·소실 판정·활성 저장소 판정을 함께 쥐고 있어 주기만 떼어 올
     // 수 없기 때문이다 (FR-PIS-15).
@@ -689,6 +730,12 @@ Object.assign(App.prototype, {
       // EDITOR_GIT_UX_SRS FR-EKB-5: 편집기의 검색 셋. 좁은 것부터 넓은 것으로
       // 늘어놓는다 — 파일 안 → 파일 이름 → 파일 내용 전체.
       {label:'Editor 검색',keys:['edFindInFile','edQuickOpen','edGrep']},
+      // `DOC-3` (M5): 이 넷은 기본값이 있는데 **어느 그룹에도 없었다.** 그래서
+      // Settings ▸ Shortcuts 에 뜨지 않았고, 뜨지 않으면 바꿀 수 없다 —
+      // `shortcuts.md` 첫 줄의 "모든 앱 단축키는 커스터마이징 가능합니다" 가
+      // 그 순간 거짓이 된다. `scripts/check-shortcuts-docs.sh` 가 재발을 막는다.
+      {label:'Editor 코드 탐색',keys:['edGotoDef','edFindRefs','edNavBack']},
+      {label:'Editor 편집',keys:['edSave']},
       // FR-SBT-21·30: 직행 키는 서술자 배열에서 파생한다 — 탭이 늘어도 이 목록을
       // 손으로 늘리지 않는다.
       {label:'사이드바 탭',keys:SB_TAB_DEFS.slice(0,9).map((d,i)=>sbTabAction(i))},

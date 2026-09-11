@@ -12,6 +12,13 @@
   <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
   <link rel="icon" href="assets/favicon-16.png" sizes="16x16" type="image/png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <!-- `09` FR-ICON-4 (M5): `icon-192/512` 는 자산만 있고 **참조가 0건**이었다.
+       자산과 선언이 어긋난 상태를 남기지 않는다 — 지우는 대신 참조하는 쪽으로
+       닫았다. `ICON_ASSETS_SRS` FR-ICON-4 가 그 둘의 제공을 필수로 적고 있으므로
+       지우는 것은 그 요구를 철회하는 일이 된다.
+       판 질의문자열을 달지 않는 것은 매니페스트가 HTML 과 같은 no-cache 규약을
+       따르기 때문이다 (static.go). -->
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="vendor/xterm.css">
   <!-- UI_KIT_SRS FR-UIK-1 / D-6: 공통 키트는 **넷보다 먼저** 온다. 캐스케이드가
        곧 의미이므로 키트가 먼저 서고 기존 파일이 그것을 덮을 수 있어야 한다. -->
@@ -369,6 +376,10 @@
             <input type="checkbox" id="attn-sound">
           </div>
           <div class="ds-hint">데스크톱 알림은 브라우저 권한 허용이 필요합니다. 시각 강조와 탭 제목 배지는 항상 동작합니다.</div>
+          <!-- TLS-1: 평문 HTTP 접속이면 브라우저가 Notification 을 통째로 막는다.
+               사유와 대체 수단을 여기 적는다. 문구는 `_attnSecurityNotice` 가 넣는다 —
+               조건이 런타임에 결정되므로 마크업에 박을 수 없다. -->
+          <div class="ds-hint ds-warn" id="attn-insecure" hidden></div>
         </div>
       </div>
       <!-- POLL_INTERVAL_SETTINGS_SRS FR-PIS-20: 행은 `_initPollingSettings` 가
@@ -462,6 +473,32 @@
             </div>
           </div>
           <div class="bk-msg" id="bk-msg"></div>
+
+          <!-- M5 `G4-7`: 워크스페이스 되돌리기. `dongminal rollback` 의 화면 쪽
+               짝이며, 그 명령과 달리 **서버가 돌고 있어도** 쓸 수 있다. -->
+          <div class="ds-sep"></div>
+          <div class="ds-row">
+            <span>창 배치 되돌리기</span>
+            <button type="button" class="ds-toggle" id="bk-revlist" title="List saved workspace generations you can revert to">되돌릴 수 있는 판 보기</button>
+          </div>
+          <div class="ds-hint">창·칸·탭의 배치를 저장 직전의 판으로 되돌립니다. 설정이 아니라 <b>배치</b>만 바뀝니다. 되돌린 뒤에도 직전 판이 목록의 맨 앞에 남으므로, 잘못 골랐으면 한 번 더 되돌리면 됩니다.</div>
+          <div class="bk-revs" id="bk-revs" hidden></div>
+
+          <!-- FUI-24: 설정 전체를 기본값으로 되돌리는 길. 종전에는 없었다 —
+               한 항목씩 되돌리는 수밖에 없었고, 어느 것을 만졌는지 기억해야 했다. -->
+          <div class="ds-sep"></div>
+          <div class="ds-row">
+            <span>기본값으로 되돌리기</span>
+            <button type="button" class="ds-toggle bk-danger" id="bk-reset" title="Reset every setting in this window to its default">전부 되돌리기</button>
+          </div>
+          <div class="ds-hint">이 창의 설정 전부(테마·단축키·상태바·프리셋·표시·알림)를 기본값으로 되돌립니다. <b>창 배치는 건드리지 않습니다.</b> 되돌릴 수 없으니 먼저 <b>파일로 저장</b>을 눌러 지금 설정을 담아 두세요.</div>
+          <div class="bk-confirm" id="bk-reset-confirm" hidden>
+            <div class="bk-summary">지금 설정을 전부 버리고 기본값으로 되돌립니다. 되돌릴 수 없습니다.</div>
+            <div class="bk-actions">
+              <button type="button" class="ds-toggle bk-danger" id="bk-reset-apply" title="Reset all settings and reload">되돌리고 다시 열기</button>
+              <button type="button" class="ds-toggle" id="bk-reset-cancel" title="Keep current settings">취소</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -488,6 +525,9 @@
 <script src="vendor/markdown-it.js"></script>
 <script src="vendor/purify.js"></script>
 <script src="vendor/highlight.js"></script>
+<!-- 잡히지 않은 오류의 기록 (OBSERVABILITY_SRS FR-OBS-18). **가장 앞이어야 한다**
+     — 이 훅이 걸리기 전의 예외는 잡히지 않는다. 서버로 보내지 않는다(D-OBS-4). -->
+<script src="js/core/error-log.js?v=__ASSETV__"></script>
 <script src="js/core/constants.js?v=__ASSETV__"></script>
 <script src="js/core/constants-git.js?v=__ASSETV__"></script>
 <!-- GIT_ACTIONS_SRS 의 동작 상수 + GIT_WRITE_ERR (DRIFT_RECLAIM_SRS
@@ -599,6 +639,10 @@
 <!-- 폴링 주기 설정 (POLL_INTERVAL_SETTINGS_SRS). 표가 진실이므로 app-settings.js
      **앞**이어야 한다 — 그쪽 `_settingsApply` 가 `POLL_SETTINGS` 를 지난다. -->
 <script src="js/core/app-polling.js?v=__ASSETV__"></script>
+<!-- 설정 블롭의 서술자 표 (CONFIG_MANAGEMENT_SRS FR-CFG-1). app-settings.js **앞**
+     이어야 한다 — `_saveSettings`·`_settingsApply` 가 이 표를 돈다. Go 도 embed 된
+     같은 바이트를 읽으므로(FR-CFG-10) 파일 형태가 계약이다. -->
+<script src="js/core/settings-schema.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings.js?v=__ASSETV__"></script>
 <!-- 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS). app.js 뒤·main.js 앞이면 된다. -->
 <script src="js/core/app-backup.js?v=__ASSETV__"></script>

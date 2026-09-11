@@ -1058,6 +1058,25 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .bk-msg.ok{color:var(--text-dim)}
 .bk-msg.err{color:var(--danger)}
 
+/* ── 창 배치 되돌리기 (M5 `G4-7`) ── */
+/* FR-LAY-2: 되돌려 적을 것이 없다 — `[hidden]` 이 위에서 한 번에 한다. */
+.bk-revs{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.bk-rev{
+  display:flex;align-items:center;gap:8px;
+  border:1px solid var(--border);border-radius:4px;padding:6px 8px;
+  font-size:11px;color:var(--text-dim);
+}
+.bk-rev-when{flex:1 1 auto;color:var(--text)}
+.bk-rev-size{flex:0 0 auto;font-variant-numeric:tabular-nums}
+/* 설정 사이의 가로줄. 되돌릴 수 없는 동작을 그 위의 것들과 눈으로 가른다. */
+.ds-sep{border-top:1px solid var(--border);margin:14px 0 4px}
+
+/* 안내 중에서도 **이 환경에서는 동작하지 않는다**를 말하는 것 (TLS-1).
+   FR-LAY-2: 되돌려 적을 것이 없다 — `[hidden]` 이 위에서 한 번에 한다. */
+.ds-warn{border-left:2px solid var(--danger);padding-left:8px;white-space:pre-line}
+/* 켤 수 없는 스위치는 그렇게 보여야 한다. */
+.display-settings input[type=checkbox]:disabled{opacity:.45;cursor:not-allowed}
+
 /* ── Mobile/Desktop visibility toggles ── */
 /**
  * FR-LAY-1b: **"모바일에서는 보인다" 가 `hidden` 을 이기지 않는다.**

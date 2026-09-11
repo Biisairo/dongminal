@@ -324,8 +324,40 @@ class App {
   // 데스크톱 알림은 기본 ON(권한 허용 시 동작) — '0' 으로 명시 비활성만 끈다 (FR-PAN-13a)
   get attnDesktop(){try{return localStorage.getItem('attnDesktop')!=='0'}catch{return true}}
   set attnDesktop(v){try{localStorage.setItem('attnDesktop',v?'1':'0')}catch{}}
-  get attnSound(){try{return localStorage.getItem('attnSound')==='1'}catch{return false}}
+  /**
+   * 알림음 (`TLS-1`, PRODUCTION_ROADMAP §M5).
+   *
+   * **기본값이 환경에 따라 갈린다.** 평문 HTTP 로 접속하면
+   * `window.isSecureContext` 가 거짓이고, 그때 브라우저는 `Notification` 을
+   * 통째로 막는다 — 데스크톱 알림이 **조용히** 죽어 있다는 뜻이다. 사용자는
+   * 토글을 켜 두고도 아무 알림을 받지 못한다.
+   *
+   * 이 제품은 **TLS 를 제공하지 않는다**(로드맵 결정 9 — 기밀성은 오버레이 망에
+   * 위임한다). 그러므로 "HTTPS 로 접속하세요" 는 제시할 수 없는 길이다. 남는
+   * 조치는 **표시와 대체 수단**뿐이고, 그 대체 수단의 하나가 이것이다.
+   *
+   * **사용자가 끄면 그 선택이 우선이다.** 저장된 값이 있으면 그것을 따르고,
+   * 갈리는 것은 "정한 적 없음" 의 해석뿐이다 — `attnDesktop` 이 `'0'` 명시만
+   * 끄는 것과 같은 규약이다.
+   */
+  get attnSound(){
+    try{
+      const v=localStorage.getItem('attnSound');
+      if(v!==null) return v==='1';
+      return !window.isSecureContext;
+    }catch{return false}
+  }
   set attnSound(v){try{localStorage.setItem('attnSound',v?'1':'0')}catch{}}
+  /**
+   * 데스크톱 알림이 이 환경에서 **동작할 수 있는가** (`TLS-1`).
+   *
+   * 둘을 가른다: 권한을 받지 못한 것(사용자가 고칠 수 있다)과 브라우저가 아예
+   * 막은 것(사용자가 고칠 수 없다). 뒤의 것에 "권한을 허용하세요" 를 안내하면
+   * 사용자는 없는 설정을 찾아 헤맨다.
+   */
+  get attnDesktopBlocked(){
+    return !window.isSecureContext||typeof Notification==='undefined';
+  }
   /**
    * POLL_INTERVAL_SETTINGS_SRS FR-PIS-16·19: **접근자는 남고 저장 자리만 바뀌었다.**
    *

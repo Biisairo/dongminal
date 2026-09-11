@@ -175,6 +175,98 @@ Object.assign(App.prototype, {
     return true;
   },
 
+  /**
+   * FUI-24: 설정 전부를 기본값으로 되돌린다.
+   *
+   * 종전에는 길이 없었다 — 한 항목씩 되돌리는 수밖에 없었고, 어느 것을 만졌는지
+   * 사용자가 기억해야 했다.
+   *
+   * 세 자리를 함께 비운다. 서버 블롭은 `{}` 로 갈아치우고(빈 블롭이 곧 "정한 적
+   * 없음" 이므로 `_settingsApply` 가 전부 기본값으로 둔다), 이식 표의
+   * `localStorage`·`sessionStorage` 키를 지운다. **표 밖의 키는 건드리지 않는다**
+   * (FR-SPT-3) — 창 너비 같은 화면 치수는 취향이 아니라 이 기기의 치수다.
+   *
+   * **창 배치는 건드리지 않는다.** 그것은 `workspace.json` 이고 되돌리는 길이
+   * 따로 있다 (`G4-7`).
+   */
+  async _bkReset(){
+    const r=await apiPut('/api/settings',{});
+    if(!r.ok){
+      this._bkMsg('서버에 설정을 쓰지 못했습니다 (HTTP '+r.status+'). 아무것도 바뀌지 않았습니다.','err');
+      return false;
+    }
+    for(const {store,key} of BACKUP_KEYS){
+      try{this._bkStore(store).removeItem(key)}catch{}
+    }
+    window.__dmReloading=true;
+    BootScreen.show(BOOT_STEP_BACKUP);
+    location.reload();
+    return true;
+  },
+
+  /**
+   * M5 `G4-7`: 되돌릴 수 있는 창 배치의 판을 보인다.
+   *
+   * **읽히는지까지는 묻지 않는다** — 서버의 목록 종단과 같은 규약이다. 깨진
+   * 판의 거절은 되돌리는 순간에 일어난다.
+   */
+  async _bkRevList(){
+    const box=document.getElementById('bk-revs');
+    if(!box) return;
+    const r=await apiGet('/api/workspace/revisions');
+    if(!r.ok){
+      this._bkMsg('되돌릴 수 있는 판을 읽지 못했습니다 (HTTP '+r.status+')','err');
+      return;
+    }
+    const gens=(r.data&&r.data.generations)||[];
+    box.textContent='';
+    box.hidden=false;
+    if(!gens.length){
+      const empty=document.createElement('div');
+      empty.className='bk-rev';
+      empty.textContent='되돌릴 수 있는 판이 없습니다 — 아직 덮어쓴 적이 없습니다.';
+      box.appendChild(empty);
+      return;
+    }
+    for(const g of gens){
+      const row=document.createElement('div');
+      row.className='bk-rev';
+      const when=document.createElement('span');
+      when.className='bk-rev-when';
+      // 값은 전부 textContent 로 넣는다 — 보간이 스크립트가 되지 않는다 (FE-16).
+      when.textContent=g.modified||('판 '+g.gen);
+      const size=document.createElement('span');
+      size.className='bk-rev-size';
+      size.textContent=String(g.bytes)+' B';
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='ds-toggle';
+      btn.title='Revert the window layout to this generation';
+      btn.textContent='이 판으로';
+      btn.addEventListener('click',()=>this._bkRevert(g.gen));
+      row.append(when,size,btn);
+      box.appendChild(row);
+    }
+  },
+
+  /**
+   * 판 하나로 되돌린다.
+   *
+   * 확인을 따로 묻지 않는 이유는 **이 동작이 되돌릴 수 있기** 때문이다 —
+   * 직전 판이 세대 사슬의 맨 앞으로 들어가므로 한 번 더 되돌리면 제자리다.
+   * 되돌릴 수 없는 것(`_bkReset`)에만 확인을 붙인다.
+   */
+  async _bkRevert(gen){
+    const r=await apiPost('/api/workspace/revert',{gen});
+    if(!r.ok){
+      this._bkMsg('되돌리지 못했습니다 (HTTP '+r.status+')','err');
+      return;
+    }
+    window.__dmReloading=true;
+    BootScreen.show(BOOT_STEP_BACKUP);
+    location.reload();
+  },
+
   _initBackup(){
     const ex=document.getElementById('bk-export');
     if(!ex) return;
@@ -195,5 +287,25 @@ Object.assign(App.prototype, {
     });
     document.getElementById('bk-apply').addEventListener('click',()=>this._bkApply());
     document.getElementById('bk-cancel').addEventListener('click',()=>{this._bkCancel();this._bkMsg('')});
+
+    // M5 `G4-7` — 창 배치 되돌리기.
+    const revBtn=document.getElementById('bk-revlist');
+    if(revBtn) revBtn.addEventListener('click',()=>this._bkRevList());
+
+    // FUI-24 — 기본값으로 되돌리기. 되돌릴 수 없으므로 한 단계를 더 둔다.
+    const reset=document.getElementById('bk-reset');
+    const rc=document.getElementById('bk-reset-confirm');
+    if(reset&&rc){
+      reset.addEventListener('click',()=>{
+        this._bkCancel();
+        this._bkMsg('');
+        rc.hidden=false;
+      });
+      document.getElementById('bk-reset-apply').addEventListener('click',()=>{
+        rc.hidden=true;
+        this._bkReset();
+      });
+      document.getElementById('bk-reset-cancel').addEventListener('click',()=>{rc.hidden=true});
+    }
   },
 });

@@ -304,6 +304,10 @@ const SHORTCUT_LABELS={
   edFindInFile:'파일 내에서 검색 (Editor)',
   edQuickOpen:'파일 검색 (Editor)',
   edGrep:'파일 전체에서 검색 (Editor)',
+  edSave:'저장 (Editor)',
+  // `DOC-3` (M5): 기본값은 있는데 **라벨이 없었다.** 라벨이 없으면 Settings ▸
+  // Shortcuts 의 목록에 뜨지 않고, 뜨지 않으면 사용자가 바꿀 수 없다 — 바꿀 수
+  // 있다고 적힌 문서가 그 순간 거짓이 된다.
 };
 
 // 이 셋은 **Editor 창에서만** 뜻이 있다 (FR-EKB-4). 다른 창에서 같은 키를 눌렀을

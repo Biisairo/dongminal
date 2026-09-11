@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -185,6 +186,15 @@ var apiRoutes = []apiRoute{
 	// VERSION_HEALTH_SRS FR-VHL-10·13: 헬스는 **생존이 아니라 어긋남**을 답한다.
 	// 새 종단도 같은 게이트를 지난다 — 헬스라고 경계를 비켜 가지 않는다.
 	httproute.Get("/api/health", (*Server).apiHealth),
+	// OBSERVABILITY_SRS 묶음 D: **기계가 읽는 자리.** 헬스와 갈라 둔 근거는
+	// `VERSION_HEALTH_SRS §6-5` 다 — 사람이 읽는 것과 기계가 읽는 것은 형식도
+	// 수명도 다르다. 개별 식별 정보를 싣지 않는다 (FR-OBS-13).
+	httproute.Get("/api/diag", (*Server).apiDiag),
+	// M5 `G4-7`: 워크스페이스 되돌리기. `dongminal rollback` 의 화면 쪽 짝이며,
+	// 그 명령과 달리 **서버가 돌고 있어도** 쓸 수 있다 — 되돌린 판을 바로
+	// 메모리에 올리기 때문이다.
+	httproute.Get("/api/workspace/revisions", (*Server).apiWorkspaceRevisions),
+	httproute.Post("/api/workspace/revert", (*Server).apiWorkspaceRevert),
 	// 묶음 B·C — 리포 해석·핀·변경 감지 (GIT_SRS FR-GIT-60/61). UI 는 이 표면
 	// 위에만 서고, git 실행 결과를 다른 경로로 얻지 않는다.
 	// FR-GIT-223: 핀 순서는 서버가 권위로 쓴다 (O1) — 재배치도 서버를 지난다.
@@ -211,12 +221,12 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 	if s.git != nil && s.git.Handle(w, r) {
 		return
 	}
-	http.Error(w, "not found", 404)
+	httpErr(w, "not found", 404, apierr.CodeNotFound)
 }
 
 func (s *Server) apiStateGet(w http.ResponseWriter, r *http.Request) {
 	if s.Tools == nil {
-		http.Error(w, "tools unavailable", 500)
+		httpErr(w, "tools unavailable", 500, apierr.CodeToolsUnready)
 		return
 	}
 	var rawWS []byte
@@ -258,7 +268,7 @@ func listTools(h toolhub.ToolHub) ([]map[string]interface{}, bool) {
 
 func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 	if s.Tools == nil {
-		http.Error(w, "tools unavailable", 500)
+		httpErr(w, "tools unavailable", 500, apierr.CodeToolsUnready)
 		return
 	}
 	cols, rows := toolhub.ParseSize(r)
@@ -270,7 +280,7 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	// FR-SBX-11: 어느 Window 의 어떤 프로파일인지는 호출자가 실어 보낸다.
 	// 프로파일이 비어 있으면 종전대로 호스트에서 뜬다.
-	tool, err := s.Tools.Create(cwd, cols, rows, toolhub.Placement{
+	tool, err := s.tools(r).Create(cwd, cols, rows, toolhub.Placement{
 		WindowUUID: r.URL.Query().Get("window"),
 		Profile:    r.URL.Query().Get("sandbox"),
 		// UX_BATCH6_SRS FR-SBM-3: 창이 고른 작업 방식. 비면 프로파일의 것이다.
@@ -308,7 +318,7 @@ func (s *Server) apiToolDelete(w http.ResponseWriter, r *http.Request) {
 		// `GO-8`: 오류를 **명시로** 무시한다. 이 경로에서 "이미 없다" 는 정상이며
 		// (목록이 앞서 걷혔거나 사용자가 두 번 눌렀다) 치울 것이 없다는 뜻이다.
 		// 버리는 것과 판단한 것은 다르므로 그 사실을 여기 적어 둔다.
-		_ = s.Tools.Delete(id)
+		_ = s.tools(r).Delete(id)
 	}
 	// FR-ATL-5: 데몬 모드에서 이미 죽어 있던 도구를 지우는 경로에는 OnExit 가
 	// 오지 않는다. 직접 모드는 Delete → kill() 이 이미 해제하므로 여기는 no-op 다.
@@ -335,13 +345,13 @@ func (s *Server) apiWorkspaceGet(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) apiWorkspacePut(w http.ResponseWriter, r *http.Request) {
 	if s.Work == nil {
-		http.Error(w, "workspace unavailable", 500)
+		httpErr(w, "workspace unavailable", 500, apierr.CodeWorkUnready)
 		return
 	}
 	// 워크스페이스는 창·탭·핀이 쌓이면 커진다 — 기본 상한보다 넉넉히 준다.
 	body, err := httpreq.Read(w, r, httpreq.WorkspaceLimit)
 	if err != nil {
-		http.Error(w, "read body", httpreq.Status(err))
+		httpErr(w, "read body", httpreq.Status(err), apierr.CodeBodyTooBig)
 		return
 	}
 	// STATE_FILE_DURABILITY_SRS FR-SFD-20 (`FE-2`, **P0**): **조건을 요구한다.**
@@ -362,14 +372,14 @@ func (s *Server) apiWorkspacePut(w http.ResponseWriter, r *http.Request) {
 	ifMatch := r.Header.Get("If-Match")
 	if ifMatch == "" {
 		w.Header().Set("ETag", strconv.FormatUint(s.Work.CurrentRev(), 10))
-		http.Error(w, "If-Match required", http.StatusPreconditionRequired)
+		httpErr(w, "If-Match required", http.StatusPreconditionRequired, apierr.CodeIfMatchRequired)
 		return
 	}
 	rev, err := s.Work.Save(body, ifMatch)
 	if err != nil {
 		if errors.Is(err, workspace.ErrStale) {
 			w.Header().Set("ETag", strconv.FormatUint(s.Work.CurrentRev(), 10))
-			http.Error(w, "stale revision", http.StatusConflict)
+			httpErr(w, "stale revision", http.StatusConflict, apierr.CodeStaleRev)
 			return
 		}
 		// `workspace parse: …` — 사용자가 방금 보낸 본문에 대한 말이다.
@@ -469,7 +479,7 @@ func (s *Server) apiSandboxRuntimeStart(w http.ResponseWriter, r *http.Request) 
 // apiSandboxConfigGet 은 지금 저장된 샌드박스 정의를 낸다 (FR-SBX-43).
 func (s *Server) apiSandboxConfigGet(w http.ResponseWriter, r *http.Request) {
 	if s.Sandbox == nil {
-		http.Error(w, "샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)을 확인하세요", 503)
+		httpErr(w, "샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)을 확인하세요", 503, apierr.CodeSandboxUnready)
 		return
 	}
 	cfg, err := s.Sandbox.Config()
@@ -487,7 +497,7 @@ func (s *Server) apiSandboxConfigGet(w http.ResponseWriter, r *http.Request) {
 // 규칙이 갈리지 않는다. 400 으로 돌려주는 사유가 그대로 사용자에게 보인다.
 func (s *Server) apiSandboxConfigPut(w http.ResponseWriter, r *http.Request) {
 	if s.Sandbox == nil {
-		http.Error(w, "샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)을 확인하세요", 503)
+		httpErr(w, "샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)을 확인하세요", 503, apierr.CodeSandboxUnready)
 		return
 	}
 	body, err := httpreq.Read(w, r, 0)

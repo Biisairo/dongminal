@@ -367,9 +367,46 @@ Object.assign(App.prototype, {
   },
 
   // FR-PAN-13a: 데스크톱 알림(권한 granted + 설정 on). pane 별 직전 알림을 닫고 새로 띄운다.
+  /**
+   * `TLS-1` — 데스크톱 알림이 **조용히 죽어 있는** 환경을 말한다.
+   *
+   * 평문 HTTP 로 접속하면 `window.isSecureContext` 가 거짓이고, 그때 브라우저는
+   * `Notification` 을 통째로 막는다. 종전에는 토글이 켜진 채로 있고 아무 알림도
+   * 오지 않았다 — 사용자가 그 사실을 아는 방법이 없었다.
+   *
+   * ── 문구에서 "HTTPS 로 접속하세요" 를 뺀다 ────────────────────
+   *
+   * 이 제품은 **TLS 를 제공하지 않는다** (로드맵 결정 9 — 기밀성은 오버레이
+   * 망에 위임한다). 제품이 제공하지 않는 길을 안내하면 사용자는 없는 설정을
+   * 찾아 헤맨다. 남는 조치는 **표시와 대체 수단**뿐이다.
+   *
+   * 대체 수단 둘은 이미 있다 — 알림음(이 환경에서 기본 켜짐, `attnSound`)과
+   * 탭 제목 배지(`PAGE_TITLE_SRS` FR-PGT-8). **새로 만들지 않는다.**
+   */
+  _attnSecurityNotice(){
+    const box=document.getElementById('attn-insecure');
+    const dt=document.getElementById('attn-desktop');
+    if(!this.attnDesktopBlocked){
+      if(box){box.hidden=true;box.textContent=''}
+      if(dt) dt.disabled=false;
+      return;
+    }
+    // 켤 수 없는 스위치는 켜진 것처럼 보이면 안 된다.
+    if(dt){dt.disabled=true;dt.checked=false}
+    if(!box) return;
+    box.hidden=false;
+    box.textContent=
+      '평문 HTTP 접속에서는 브라우저가 데스크톱 알림을 막습니다. '+
+      '이 화면의 토글을 켜도 알림은 오지 않습니다.\n'+
+      '대신 이 환경에서는 사운드가 기본으로 켜지고, 탭 제목의 배지가 '+
+      '대기 중인 도구 수를 계속 보여 줍니다.';
+  },
+
   _attnDesktopNotify(reason,toolId){
     if(!this.attnDesktop) return;
-    if(typeof Notification==='undefined'||Notification.permission!=='granted') return;
+    // TLS-1: 막힌 환경에서는 시도조차 하지 않는다. `new Notification` 이
+    // 예외를 던지고, 그 예외는 아래 try 가 삼켜 아무 흔적도 남지 않았다.
+    if(this.attnDesktopBlocked||Notification.permission!=='granted') return;
     const loc=this._findToolLocation(toolId);
     const where=loc?[loc.win&&loc.win.name,tabName(loc.tab,this._fgNames)].filter(Boolean).join(' · '):('pane '+toolId);
     const head=reason==='done'?'✅ 작업 완료':reason==='waiting'?'⌨️ 입력 대기 중':reason==='idle'?'⏸️ 작업이 멈췄습니다':'🔔 주의가 필요합니다';
@@ -451,6 +488,8 @@ Object.assign(App.prototype, {
         this.attnDesktop=dt.checked;
       });
     }
+    // TLS-1: 동작할 수 없는 환경이면 **끄고 사유를 말한다.**
+    this._attnSecurityNotice();
     const sd=document.getElementById('attn-sound');
     if(sd){
       sd.checked=this.attnSound;
@@ -458,8 +497,11 @@ Object.assign(App.prototype, {
     }
     // 데스크톱 알림 권한은 사용자 제스처가 필요하므로, 켜져 있고 아직 미결정이면
     // 첫 상호작용에서 한 번 요청한다 (브라우저 정책 충족) — FR-PAN-13a.
+    //
+    // **막힌 환경에서는 묻지 않는다** (TLS-1). `requestPermission` 이 조용히
+    // 거절되고, 사용자는 아무 일도 일어나지 않는 클릭을 한 번 더 한다.
     // capture 단계로 들어야 xterm 이 pointer/key 이벤트를 먼저 소비해도 누락되지 않는다.
-    if(typeof Notification!=='undefined'&&Notification.permission==='default'&&this.attnDesktop&&!this._attnPermAsked){
+    if(!this.attnDesktopBlocked&&Notification.permission==='default'&&this.attnDesktop&&!this._attnPermAsked){
       this._attnPermAsked=true;
       let asked=false;
       const ask=()=>{if(asked)return;asked=true;try{const r=Notification.requestPermission();if(r&&r.then)r.then(()=>this._initAttn&&this._attnRefresh())}catch{}};
