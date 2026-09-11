@@ -33,6 +33,9 @@ type healthWorkspace struct {
 	// 성공으로 보임")이며 M3 의 뒤 묶음이다 — 자리가 먼저 있어야 그때 한 줄로
 	// 끝난다. 값은 **분류 문자열**이고 원문 경로를 담지 않는다 (FR-VHL-14).
 	LastPersistErr string `json:"lastPersistErr"`
+	// LastLoadErr 는 기동 시 적재의 분류다 (FR-SFD-14). `LastPersistErr` 와
+	// 다른 것이다 — 이쪽은 **읽기**, 저쪽은 **쓰기**의 사실이다.
+	LastLoadErr string `json:"lastLoadErr"`
 }
 
 type healthBody struct {
@@ -73,6 +76,9 @@ func (s *Server) apiHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.Work != nil {
 		out.Workspace.Rev = s.Work.CurrentRev()
+		// FR-SFD-14: 기동 때 손상을 만났는지가 여기 실린다. 이 값이 있어야
+		// 사용자가 "내 창이 왜 사라졌는가" 를 물을 때 답할 것이 있다.
+		out.Workspace.LastLoadErr = s.Work.LoadErr()
 	}
 
 	w.Header().Set("Content-Type", "application/json")

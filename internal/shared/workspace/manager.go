@@ -31,6 +31,15 @@ var ErrLabelIdentifier = errors.New(
 // 명시적으로 실패한다 — 방치하면 브라우저가 빈 상태를 저장해 덮어쓴다.
 var ErrSchemaTooOld = errors.New("workspace: schemaVersion 이 2 미만입니다 — `dongminal migrate` 를 먼저 실행하세요")
 
+// ErrSchemaTooNew 는 workspace.json 이 이 코드가 아는 판보다 **위**일 때다
+// (STATE_FILE_DURABILITY_SRS FR-SFD-15).
+//
+// 종전에는 `<` 만 봤다. 상위 판은 이 코드가 모르는 필드를 담고 있는데도
+// 통과했고, 읽고 **모르는 것을 버리고** 저장하면 그 순간 다운그레이드 손실이다.
+//
+// 이 파일은 손상된 것이 아니라 **더 새로운 것**이므로 격리하지 않는다.
+var ErrSchemaTooNew = errors.New("workspace: schemaVersion 이 이 판보다 높습니다 — dongminal 을 최신으로 올리거나 백업 세대(.bak.1)에서 되돌리세요")
+
 // SchemaVersion은 이 코드가 읽고 쓰는 workspace.json 스키마 버전이다.
 const SchemaVersion = 2
 
@@ -92,7 +101,18 @@ type Manager struct {
 	done       chan struct{}
 	wg         sync.WaitGroup
 	closedOnce sync.Once
+
+	// loadErr 는 **기동 시 적재의 분류**다 (FR-SFD-14). 기동 뒤에는 바뀌지
+	// 않으므로 잠금이 없다 — 쓰는 것은 `New` 하나뿐이고, 읽기는 그 뒤다.
+	// 빈 값이 정상이다.
+	loadErr string
 }
+
+// LoadErr 는 기동 시 적재가 어땠는지다 — `""`(정상) · `LoadRestored` ·
+// `LoadEmpty`. 헬스가 이 값을 싣는다 (VERSION_HEALTH_SRS FR-VHL-10).
+//
+// **분류 문자열이며 경로를 담지 않는다** (FR-VHL-14).
+func (m *Manager) LoadErr() string { return m.loadErr }
 
 func New(live Liveness, store Persister) (*Manager, error) {
 	m := &Manager{
@@ -112,13 +132,24 @@ func New(live Liveness, store Persister) (*Manager, error) {
 	m.snap.Store(&snap{raw: buf, rev: 0})
 	ix, perr := buildIndex(buf)
 	if perr != nil {
-		// 버전 미달은 치명적이다 — 계속 진행하면 브라우저가 빈 상태를
-		// 저장해 사용자 워크스페이스를 덮어쓴다 (FR-EM-2a).
-		if errors.Is(perr, ErrSchemaTooOld) {
+		// 스키마가 어긋나면 치명적이다 — 계속 진행하면 브라우저가 빈 상태를
+		// 저장해 사용자 워크스페이스를 덮어쓴다 (FR-EM-2a). 위아래 모두
+		// 거부하며(FR-SFD-15), 그 파일들은 **손상된 것이 아니므로 격리하지 않는다**.
+		if errors.Is(perr, ErrSchemaTooOld) || errors.Is(perr, ErrSchemaTooNew) {
 			return nil, perr
 		}
-		// 파싱 불가 파일은 기존 동작 유지 (NFR-EM-3).
-		ix = emptyIndex()
+		// STATE_FILE_DURABILITY_SRS FR-SFD-10·12: **격리하고 세대에서 되살린다.**
+		//
+		//   이전 동작: 빈 인덱스로 조용히 지나갔다 (NFR-EM-3). raw 는 손상본인
+		//             채로 남고, 브라우저가 그것을 읽지 못해 만든 빈 판을
+		//             저장하면 그것이 곧 덮어쓰기였다
+		//   새  동작: 손상본을 `.corrupt-<ts>` 로 옮기고 `.bak.1`~`.bak.3` 에서
+		//             읽히는 첫 세대를 현재 판으로 삼는다
+		//   이유:     되돌아갈 곳이 없으면 사용자의 창·탭이 그대로 사라진다
+		var loadErr string
+		buf, ix, loadErr = recoverCorrupt(store)
+		m.snap.Store(&snap{raw: buf, rev: 0})
+		m.loadErr = loadErr
 	}
 	m.idx.Store(ix)
 	// Note: OnIndexUpdate is not yet wired at construction time; callers invoke
@@ -537,6 +568,9 @@ func decodeState(blob []byte) (*wsState, error) {
 	var s wsState
 	if err := json.Unmarshal(blob, &s); err != nil {
 		return nil, err
+	}
+	if s.SchemaVersion > SchemaVersion {
+		return nil, ErrSchemaTooNew
 	}
 	if s.SchemaVersion < SchemaVersion {
 		return nil, ErrSchemaTooOld

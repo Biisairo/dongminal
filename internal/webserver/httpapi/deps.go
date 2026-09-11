@@ -26,6 +26,9 @@ import (
 type WorkspaceStore interface {
 	Raw() []byte
 	CurrentRev() uint64
+	// LoadErr 는 기동 시 적재의 **분류**다 (STATE_FILE_DURABILITY_SRS FR-SFD-14).
+	// `""`(정상) · `"restored"` · `"empty"`. 헬스가 이 값을 싣는다.
+	LoadErr() string
 	Snapshot() ([]byte, uint64)
 	Save(blob []byte, ifMatch string) (uint64, error)
 	// CoordinateOf rewrites a UUID identifier into the positional "W{n}.P{n}.T{n}"
