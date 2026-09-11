@@ -55,7 +55,7 @@ func (s *settingsStore) save() {
 	}
 	// 원자적으로 쓴다 (FR-CAF-11). 설정은 사용자가 손으로 만든 것이고
 	// (테마·단축키·레이아웃 취향), 잘리면 되돌릴 방법이 없다.
-	if err := platform.WriteFileAtomic(s.path, data, 0644); err != nil {
+	if err := platform.WriteStateFile(s.path, data, 0644); err != nil {
 		log.Printf("saveSettings: %v", err)
 	}
 }

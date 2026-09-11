@@ -86,7 +86,7 @@ func (p *Placer) SaveConfig(blob []byte) error {
 	if err != nil {
 		return err
 	}
-	if err := platform.WriteFileAtomic(p.configPath(), out, 0o644); err != nil {
+	if err := platform.WriteStateFile(p.configPath(), out, 0o644); err != nil {
 		// **정의는 옳은데 저장이 실패한 것**이다. 호출자가 이 둘을 갈라야 하는
 		// 이유는 응답의 모양이다 — 정의에 대한 말은 사용자가 보고 고치지만, 이
 		// 오류에는 정의 파일의 절대경로가 들어 있다 (04-secops SEC-17).

@@ -192,3 +192,25 @@ func TestFileWrite_StampOnDeletedFileCreates(t *testing.T) {
 		t.Fatalf("내용=%q err=%v", got, err)
 	}
 }
+
+// V-SFD-5 (STATE_FILE_DURABILITY_SRS FR-SFD-3): **사용자 파일에는 세대를 만들지
+// 않는다.**
+//
+// `WriteStateFile` 로 옮긴 것은 우리 상태 파일 여섯이고, 이 자리는 일곱째 —
+// 사용자가 편집기로 저장하는 **원본**이다. 여기에 `.bak.1` 을 만들면 사용자의
+// 작업 디렉터리가 우리 파일로 더럽혀진다. 그 자리의 보존은 git 과 편집기의 일이다.
+//
+// 이 검사가 카나리아인 이유: 다음 사람이 "일관성" 을 이유로 마지막 호출부까지
+// 옮기기 쉽고, 그러면 조용히 사용자 디렉터리가 더러워진다.
+func TestFileWrite_LeavesNoBackupGenerations(t *testing.T) {
+	e := newFileBoundaryEnv(t)
+	target := filepath.Join(e.root, "note.txt")
+	seed(t, target, "hello\n")
+
+	if code, body := writeStamped(t, e, target, "edited\n", ""); code != http.StatusOK {
+		t.Fatalf("status=%d body=%q", code, body)
+	}
+	if _, err := os.Stat(target + ".bak.1"); err == nil {
+		t.Fatal("사용자 파일 옆에 .bak.1 이 생겼다 (FR-SFD-3)")
+	}
+}

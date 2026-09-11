@@ -84,7 +84,7 @@ func (m *ToolManager) SaveAll() {
 	}
 	// 원자적으로 쓴다 (FR-CAF-11) — 잘린 tools.json 은 다음 기동에서 도구를
 	// 통째로 잃게 한다.
-	if err := platform.WriteFileAtomic(m.dataPath("tools.json"), data, 0644); err != nil {
+	if err := platform.WriteStateFile(m.dataPath("tools.json"), data, 0644); err != nil {
 		log.Printf("saveTools: %v", err)
 	}
 }

@@ -146,7 +146,7 @@ func (s *Store) save() error {
 	if err != nil {
 		return err
 	}
-	return platform.WriteFileAtomic(s.path(), blob, 0644)
+	return platform.WriteStateFile(s.path(), blob, 0644)
 }
 
 // StartOptions is the input of Start.

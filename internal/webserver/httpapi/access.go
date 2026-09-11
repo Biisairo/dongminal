@@ -171,7 +171,7 @@ func (s *accessStore) setConfig(cfg accessConfig) error {
 	}
 	// 원자적으로 쓴다 — 사용자가 손으로 만든 값이고 잘리면 되돌릴 방법이 없다
 	// (settings 저장과 같은 근거).
-	if err := platform.WriteFileAtomic(s.path, data, 0o644); err != nil {
+	if err := platform.WriteStateFile(s.path, data, 0o644); err != nil {
 		log.Printf("saveAccess: %v", err)
 	}
 	// 새로 들어온 호스트명이 곧바로 상태를 갖게 한다. 이것이 없으면 저장 직후

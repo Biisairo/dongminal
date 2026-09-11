@@ -19,4 +19,5 @@ func (p FilePersister) Read() ([]byte, error) { return os.ReadFile(p.Path) }
 // 이 패키지는 파싱할 수 없는 workspace.json 을 이미 치명적으로 다룬다
 // (manager.go 의 ErrSchemaTooOld — "브라우저가 빈 상태를 저장해 덮어쓴다").
 // 그러면서 그런 파일을 만들 수 있는 쓰기 방식을 쓰고 있었다.
-func (p FilePersister) Write(b []byte) error { return platform.WriteFileAtomic(p.Path, b, 0o644) }
+// STATE_FILE_DURABILITY_SRS FR-SFD-1: 상태 파일이므로 세대를 남긴다.
+func (p FilePersister) Write(b []byte) error { return platform.WriteStateFile(p.Path, b, 0o644) }
