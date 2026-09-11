@@ -397,6 +397,9 @@ blame 은 Monaco 를 쓰지 않으므로 **Monaco 와 같아질 수는 없다.**
 - `classList.*('vis')` 가 JS 에 **하나도 없다**
 
 **FR-LAY-31 (C2)** `scripts/check-scroll.sh` — 스크롤 소유권의 규약을 잡는다.
+이 게이트의 범위는 **CSS 다**(`web/*.css`) — 어느 상자가 구르는가. **JS 의 소유권**
+(누가 스크롤 값을 들고 언제 되돌리는가)은 `VIEW_SCROLL_RESTORE_SRS` 가 맡는다.
+둘을 섞어 읽으면 "게이트가 초록이니 스크롤은 지켜진다" 가 된다 — 그 둘은 다른 질문이다.
 - `.git-view.git-*` 에 `overflow`·`display` 재정의가 **하나도 없다** (기본이
   옳으므로 재정의는 곧 기본이 틀렸다는 신호다)
 - 뷰 이름 목록(`GIT_VIEWS`)과 CSS 가 어긋나지 않는다 — **여덟 뷰 중 일부만

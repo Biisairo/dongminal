@@ -196,6 +196,14 @@ class Renderer {
     // `FileTree.mount` 의 `_scrollY`(FR-EDT-68)와 `_rLayout` 의
     // `.xterm-viewport`. 같은 일을 두 벌로 하면 어느 쪽이 이겼는지 말할 수 없다.
     if(app._gitPanels) for(const p of app._gitPanels.values()) for(const el of p._els.values()) take(el);
+    // VIEW_SCROLL_RESTORE_SRS FR-VSR-2 / D-2: **편집기 탭은 훑기로 잡히지 않는다** —
+    // Monaco 의 스크롤은 DOM `scrollTop` 이 아니라 인스턴스가 든 값이다. 그래서
+    // 자리를 묻지 않고 위젯에게 갈무리를 맡긴다.
+    //
+    // 여기여야 하는 이유는 **떼는 자리가 셋**이라는 것이다 — 탭 전환은
+    // `_hideOthers`, 창·칸 전환은 `_domGC`, 배치 변경은 `_place`. 셋에 각각 훅을
+    // 걸면 넷째 자리가 생길 때 조용히 빠진다. 이 시점은 그 셋보다 앞선다.
+    if(app.fileEditors) for(const v of app.fileEditors.values()) if(v&&v.keepView) v.keepView();
   }
 
   _restoreScroll(){
@@ -799,13 +807,21 @@ class Renderer {
       if(p){ el=p.el; term=p }
     }
     if(!el) { this._hideOthers(body,null); return }
+    let moved=false;
     if(el.parentNode!==body){
       // FR-PDR-10: **여기가 유일한 이동이다.** 그리고 이동한 것만 사후 처리를
       // 받는다 — 자리를 지킨 위젯에는 어떤 스크롤 API 도 닿지 않는다.
       if(term) this._moved.push(this._grabScroll(term));
       body.appendChild(el);
+      moved=true;
     }
     el.classList.add('vis');
+    // FR-VSR-3: 편집기 탭의 시선은 **붙은 뒤에** 되돌린다. 이동하지 않은 경로에서는
+    // 부르지 않는다 — 화면을 만지는 쪽의 조건은 좁아야 한다 (FR-PDR-10 의 규약).
+    if(moved&&at.type==='editor'){
+      const view=this.app.fileEditors.get(this.app._slotKey(at.id,slot));
+      if(view&&view.restoreView) view.restoreView();
+    }
     this._mounted.add(el);
     this._hideOthers(body,el);
   }

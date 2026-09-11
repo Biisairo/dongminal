@@ -70,6 +70,18 @@ Object.assign(App.prototype, {
     if (!ed || !ed.getVisibleRanges) return;
     const vis = ed.getVisibleRanges()[0];
     const line = vis ? vis.startLineNumber : 1;
+    /**
+     * VIEW_SCROLL_RESTORE_SRS R-VSR-6: 추종은 **소스가 움직였을 때만** 돈다.
+     *
+     *   이전 동작: 스크롤 이벤트마다 같은 줄이라도 렌더 뷰를 밀었다
+     *   새  동작: 마지막으로 민 줄과 같으면 물러선다
+     *   이유:     탭·창이 다시 붙은 뒤의 레이아웃도 스크롤 이벤트를 낸다. 그
+     *             이벤트로 같은 줄을 다시 밀면 **렌더 뷰가 스스로 되돌린 자리를
+     *             잃는다** (실측: 600 으로 되돌린 9ms 뒤 0 이 됐다). 같은 줄을
+     *             다시 미는 것은 새로 알리는 바가 없으므로 잃을 것도 없다
+     */
+    if (view._docRenderLine === line) return;
+    view._docRenderLine = line;
     for (const v of this.fileEditors.values()) {
       if (v && v.render && v.filePath === view.filePath && v.syncToLine) v.syncToLine(line);
     }

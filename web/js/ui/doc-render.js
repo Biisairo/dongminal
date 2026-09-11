@@ -341,9 +341,6 @@ class DocRender {
      * 남는다.** 세대를 세어 그 경우를 버린다.
      */
     const gen = ++this._gen;
-    // FR-DRV-43: 다시 그려도 자리를 지킨다. 한 글자를 고칠 때마다 문서 처음으로
-    // 튀면 그것은 미리보기가 아니다.
-    const top = this._body.scrollTop;
     let text = '';
     try {
       text = await this._text();
@@ -376,10 +373,27 @@ class DocRender {
       this._note(DOC_RENDER_FAIL);
       return;
     }
+    /**
+     * FR-DRV-43: 다시 그려도 자리를 지킨다. 한 글자를 고칠 때마다 문서 처음으로
+     * 튀면 그것은 미리보기가 아니다.
+     *
+     * VIEW_SCROLL_RESTORE_SRS FR-VSR-10: **자리는 바꾸기 직전에 읽는다.**
+     *
+     *   이전 동작: 함수 머리에서 읽었다 (`_text()` 의 await 앞)
+     *   새  동작: `innerHTML` 을 갈아 끼우기 바로 앞에서 읽는다
+     *   이유:     그리기는 비동기다. 그 사이에 탭이 다시 붙어 복원이 자리를
+     *             놓으면(FR-VSR-3), 늦게 끝난 그리기가 **머리에서 읽은 0** 으로
+     *             그것을 덮었다 — 실측으로 그 순서를 밟았다
+     *
+     * 떼여 있으면 잴 것이 없으므로(0) 갈무리한 자리를 쓴다.
+     */
+    const top = (this.el.isConnected && this.el.classList.contains('vis'))
+      ? this._body.scrollTop : (this._keptTop || 0);
     this._body.innerHTML = html;
     docFixHeadings(this._body);
     docFixImages(this._body, this.filePath, this.fsRoot);
     this._body.scrollTop = top;
+    this._applyWant(true);
   }
 
   /**
@@ -574,6 +588,50 @@ class DocRender {
   // WORKBENCH_REVIEW_SRS FR-WBR-11 의 대상이 아니다 — 이 뷰에는 줄바꿈 설정이
   // 걸릴 자리가 없다. 계약을 만족시키려 둔다 (FR-DRV-32).
   applyWordWrap() { /* no-op */ }
+
+  /**
+   * VIEW_SCROLL_RESTORE_SRS FR-VSR-10·11: 렌더 뷰의 스크롤도 같은 계기로 남는다.
+   *
+   * 탭 타입은 편집기와 하나이고 실체만 둘이므로(`DOC_RENDER_VIEW_SRS D-1`) 계기를
+   * 둘로 만들지 않는다. 이쪽 표면은 평범한 DOM 스크롤러(`.dr-body`)다.
+   *
+   * 0 은 기록하지 않는다 (`FR-SCR-4` 와 같은 규약).
+   */
+  keepView() {
+    if (!this._body || !this.el.isConnected || !this.el.classList.contains('vis')) return;
+    const t = this._body.scrollTop;
+    if (t) this._keptTop = t;
+  }
+
+  restoreView() {
+    if (!this._body || !this._keptTop) return;
+    this._wantTop = this._keptTop;
+    this._applyWant(false);
+    // **방금 붙은 요소는 이 프레임에 크기가 없다** — `clientHeight` 가 0 이면
+    // `scrollTop` 대입은 0 으로 잘린다(실측: 본문 201개·scrollHeight 6860 인데도
+    // 0 이 됐다). 그래서 한 프레임 뒤에 다시 놓는다. 터미널의 사후 처리가
+    // `TIMERS.frame` 에 있는 것과 **같은 이유·같은 자리**다 (FR-PDR-10).
+    if (this._wantTop) {
+      TIMERS.frame(() => this._applyWant(true),
+        { owner: this, label: 'doc-view-restore', coalesce: 'view' });
+    }
+  }
+
+  /**
+   * FR-VSR-10: 되돌릴 자리를 **실제로 놓을 수 있을 때** 놓는다.
+   *
+   * 방금 붙은 뷰의 본문은 비어 있을 수 있다 — 그리기가 비동기이기 때문이다
+   * (`_schedule`·`_paint`). 그때 `scrollTop` 대입은 0 으로 잘려 조용히 사라진다.
+   * 그래서 놓지 못한 값은 **그리기 한 번까지** 들고 있다가 그 끝에서 놓는다.
+   *
+   * `final` 은 그 마지막 기회다 — 그 뒤에는 버린다. 영영 들고 있으면 사용자가
+   * 스스로 옮긴 자리를 나중의 그리기가 되돌린다.
+   */
+  _applyWant(final) {
+    if (!this._body || !this._wantTop) return;
+    this._body.scrollTop = this._wantTop;
+    if (final || this._body.scrollTop === this._wantTop) this._wantTop = 0;
+  }
 
   destroy() {
     TIMERS.cancel(this._timer);

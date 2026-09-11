@@ -511,6 +511,33 @@ class FileEditor {
     this._editor.updateOptions({ wordWrap: editorWordWrap ? 'on' : 'off' });
   }
 
+  /**
+   * VIEW_SCROLL_RESTORE_SRS FR-VSR-1·2·5: 지금 보고 있던 자리를 적어 둔다.
+   *
+   * **떼기 전에** 불려야 한다. 계기는 `_keepScrollAll`(render 의 머리) 하나이며,
+   * 그 뒤에 오는 `_hideOthers`·`_domGC`·`_place` 가 요소를 문서에서 떼어 간다
+   * (D-2). Monaco 의 스크롤은 DOM `scrollTop` 이 아니라 인스턴스가 든 값이므로
+   * `_keepScrollAll` 의 훑기로는 잡히지 않는다.
+   *
+   * 스크롤만 뽑지 않는다 — 커서·선택·접힘이 같은 이동으로 함께 사라진다.
+   */
+  keepView() {
+    if (!this._editor || !this.el.isConnected || !this.el.classList.contains('vis')) return;
+    const st = this._editor.saveViewState();
+    if (st) this._viewState = st;
+  }
+
+  /**
+   * FR-VSR-3·4: 적어 둔 자리를 되돌린다. **붙은 뒤에** 불린다.
+   *
+   * 적어 둔 것이 없으면 아무것도 하지 않는다 — 처음 열린 편집기의 자연스러운
+   * 자리(`revealLine` 의 결과를 포함)를 덮지 않는다.
+   */
+  restoreView() {
+    if (!this._editor || !this._viewState) return;
+    this._editor.restoreViewState(this._viewState);
+  }
+
   // FR-RTU-42: 이 편집기가 붙은 탭이 미리보기면 고정한다. 탭을 찾는 일은 App 이
   // 하고(레이아웃은 그쪽의 것이다) 여기서는 계기만 전한다.
   _pinIfPreview() {
