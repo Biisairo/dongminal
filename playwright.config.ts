@@ -19,7 +19,14 @@ export const E2E_HOME =
 export const E2E_BIN = E2E_HOME + '/dongminal-e2e' + (isWin ? '.exe' : '');
 
 // 워커 0 의 포트. 워커 i 는 `E2E_PORT0 + i` 를 쓴다 (FR-EPL-1).
-export const E2E_PORT0 = 58147;
+//
+// **샤드를 로컬에서 병렬로 돌 때는 이 뿌리가 샤드마다 달라야 한다** (FR-EPL-14).
+// CI 는 샤드가 각자 다른 러너라 충돌이 없지만, 로컬은 한 기계다 — 같은 뿌리를
+// 쓰면 샤드 A 의 워커 0 과 샤드 B 의 워커 0 이 같은 포트를 잡는다.
+//
+// 홈은 이미 갈린다 — `E2E_HOME` 이 `pid` 를 품으므로 샤드마다 다른 프로세스가
+// 다른 뿌리를 만든다. 갈리지 않던 것은 포트뿐이었다.
+export const E2E_PORT0 = parseInt(process.env.E2E_PORT_BASE || '', 10) || 58147;
 
 /**
  * 워커 수 (FR-EPL-7).

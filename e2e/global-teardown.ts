@@ -1,6 +1,7 @@
 import { readdirSync, rmSync, statSync } from 'fs';
 
 import { stopDaemon, stopDaemonsUnder } from './daemon-cleanup';
+import { E2E_RUN_ENV } from '../playwright.config';
 import { TMP, tmpPath } from './osenv';
 
 // 임시 홈을 지우기 전에 데몬을 먼저 종료한다. 순서가 뒤바뀌면 paned.pid 가
@@ -16,9 +17,14 @@ async function globalTeardown() {
   } catch {
     return;
   }
+  // **병렬 샤드에서는 자기 뿌리만 치운다** (FR-EPL-14). 이웃이 지금 돌고 있는 다른
+  // 샤드일 수 있고, 그 홈을 지우면 그쪽의 서버 바이너리가 사라진다 — 실측으로
+  // `spawn … dongminal-e2e ENOENT` 가 950건 났다.
+  const mine = process.env[E2E_RUN_ENV] || '';
   for (const entry of entries) {
     if (!entry.startsWith('dongminal-e2e-')) continue;
     const fullPath = tmpPath(entry);
+    if (process.env.DM_E2E_KEEP_PEERS && mine && fullPath !== mine) continue;
     try {
       if (!statSync(fullPath).isDirectory()) continue;
     } catch {

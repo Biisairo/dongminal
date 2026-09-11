@@ -46,17 +46,33 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-skeleton.sh
 	@echo "gates ok"
 
-e2e:  ## e2e 전량 — **CI 와 같은 분할**(8샤드)로 돈다. 결과가 CI 와 같아야 한다
+# 한 번에 도는 샤드 수. 샤드 하나가 워커 2개(= 인스턴스 2개)를 띄우므로 이 값이
+# 곧 동시 서버 수의 절반이다 — 기계가 감당하는 선에서 올린다.
+E2E_JOBS ?= 4
+
+e2e:  ## e2e 전량 — **CI 와 같은 분할**(8샤드)을 **병렬**로 돈다
 	@# 로컬이 한 프로세스로 1500항목을 도는 동안 CI 는 8조각을 각자 새 러너에서
 	@# 돈다 — 그 차이가 **상태 누적의 범위**를 바꾸고, 그래서 전량에서만 깨지는
 	@# 검사가 생겼다 (ui-layout-defaults · git-worktrees V151).
 	@#
 	@# 같은 분할로 돌면 같은 답이 나온다. 그것이 e2e 의 조건이다
-	@# (E2E_PARALLEL_SRS V-EPL-2 · FR-EPL-13).
-	@for i in 1 2 3 4 5 6 7 8; do \
-		echo "── e2e 샤드 $$i/8"; \
-		npx playwright test --shard=$$i/8 --reporter=line,./e2e/parity-reporter.ts || exit 1; \
-	done
+	@# (E2E_PARALLEL_SRS V-EPL-2 · FR-EPL-13·14).
+	@#
+	@# **샤드마다 포트 뿌리와 산출물 자리를 옮긴다** (FR-EPL-14).
+	@#
+	@# 홈은 `pid` 로 이미 갈리지만 둘은 갈리지 않았다:
+	@#   포트    같은 기계에서 동시에 돌면 서로의 서버를 잡는다
+	@#   산출물  `test-results/.playwright-artifacts-*` 를 함께 쓰며 **서로의
+	@#           trace 를 지운다** (실측: ENOENT 662건)
+	@#   청소    setup/teardown 이 `dongminal-e2e-*` 를 통째로 훑어 **아직 도는
+	@#           샤드의 바이너리를 지운다** (실측: spawn ENOENT 950건)
+	@#           → `DM_E2E_KEEP_PEERS=1` 이 자기 뿌리만 다루게 한다
+	@# `pipefail` 이 없으면 샤드의 실패가 `sed` 에 먹혀 초록으로 보인다.
+	@seq 1 8 | xargs -P $(E2E_JOBS) -I{} bash -c \
+		'set -o pipefail; DM_E2E_KEEP_PEERS=1 E2E_PORT_BASE=$$((58147 + ({} - 1) * 10)) \
+		 npx playwright test --shard={}/8 --output=test-results/s{} \
+		 --reporter=line,./e2e/parity-reporter.ts \
+		 2>&1 | sed "s|^|[샤드 {}/8] |"'
 	@echo "e2e ok — 8샤드 전부"
 
 e2e-all:  ## e2e 전량을 **한 프로세스**로 (누적 상태까지 겪는 무거운 쪽)

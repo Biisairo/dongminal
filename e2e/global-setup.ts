@@ -23,6 +23,7 @@ function reapOldRuns() {
   for (const entry of entries) {
     if (!entry.startsWith('dongminal-e2e-')) continue;
     if (entry === current) continue; // 이번 실행의 뿌리 — 보존
+    if (keepPeers()) continue;       // 병렬 샤드의 이웃 — 남의 자리다
     const fullPath = tmpPath(entry);
     try {
       if (!statSync(fullPath).isDirectory()) continue;
@@ -39,6 +40,22 @@ function reapOldRuns() {
       // 지울 수 없는 항목은 건너뛴다
     }
   }
+}
+
+
+/**
+ * **병렬 샤드에서는 남의 자리를 치우지 않는다** (FR-EPL-14, 2026-09-11).
+ *
+ * 이 청소는 `dongminal-e2e-*` 를 통째로 훑는다. 혼자 돌 때는 "지난 실행의 찌꺼기"
+ * 라는 뜻이 맞지만, **로컬에서 샤드를 병렬로 돌리면 그 이웃이 지금 돌고 있는
+ * 다른 샤드다** — 먼저 끝난 샤드가 아직 도는 샤드의 홈과 서버 바이너리를 지운다
+ * (실측: `spawn … dongminal-e2e ENOENT` 950건).
+ *
+ * `DM_E2E_KEEP_PEERS` 가 서 있으면 **자기 뿌리만** 다룬다. `make e2e` 가 그것을
+ * 세운다.
+ */
+function keepPeers(): boolean {
+  return !!process.env.DM_E2E_KEEP_PEERS;
 }
 
 /**
