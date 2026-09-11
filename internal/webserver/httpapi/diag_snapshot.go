@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -28,6 +29,41 @@ import (
 // 로테이션에 부담이 없고, 끊김의 구간을 분 단위로 짚기에 충분하다.
 const DiagSnapshotEvery = 60 * time.Second
 
+// diagWarn 은 임계다 (FR-CNR-13). 값의 근거는 **실측**이다 — 도구 8개·창 여럿을
+// 띄운 실제 인스턴스가 goroutines 95~112 · allocMB 2~6 · ws 21~24 · hold 0 이었고,
+// 임계는 그 5배~대역대 위에 있다. 평시에 울지 않아야 경고가 신호로 남는다.
+//
+// `Hold` 의 32 는 대기 상한과 **같은 값**이다 (FR-STA-9). 그 선을 쳤다는 것은
+// 거절이 시작됐다는 뜻이고, 그 사실이 로그에 함께 남아야 한다.
+//
+// var 인 것은 테스트가 낮춰 쓰기 위해서다 — 500개의 고루틴을 실제로 띄우는 대신
+// 판정의 자리를 본다.
+var diagWarn = struct {
+	Goroutines int
+	AllocMB    uint64
+	WS         int
+	Hold       int64
+}{Goroutines: 500, AllocMB: 256, WS: 100, Hold: 32}
+
+// diagWarnings 는 넘은 항목의 이름들이다. 없으면 빈 문자열이며, 그때 `warn=` 자체가
+// 붙지 않는다.
+func diagWarnings(goroutines int, allocMB uint64, ws int, hold int64) string {
+	var over []string
+	if goroutines > diagWarn.Goroutines {
+		over = append(over, "goroutines")
+	}
+	if allocMB > diagWarn.AllocMB {
+		over = append(over, "allocMB")
+	}
+	if ws > diagWarn.WS {
+		over = append(over, "ws")
+	}
+	if hold > diagWarn.Hold {
+		over = append(over, "hold")
+	}
+	return strings.Join(over, ",")
+}
+
 // runDiagSnapshots 는 every 마다 스냅샷을 남긴다. ctx 가 끝나면 함께 끝난다
 // (FR-CNR-12) — 서버 수명을 넘겨 살아남는 고루틴을 만들지 않는다.
 func (s *Server) runDiagSnapshots(ctx context.Context, every time.Duration) {
@@ -51,11 +87,20 @@ func (s *Server) logDiagSnapshot() {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 
-	log.Printf("diag reqAge=%s wsAge=%s ws=%d tools=%d miss=%d hold=%d goroutines=%d allocMB=%d",
+	ws, hold := s.wsCount(), s.holds.Load()
+	goroutines, allocMB := runtime.NumGoroutine(), mem.Alloc>>20
+
+	// FR-CNR-13: 경고는 **같은 줄**이다. 딴 줄로 빼면 시간축에서 둘을 다시 맞춰야
+	// 하고, 이 기능의 성질은 한 줄이 한 순간이라는 것이다 (FR-CNR-9).
+	warn := diagWarnings(goroutines, allocMB, ws, hold)
+	if warn != "" {
+		warn = " warn=" + warn
+	}
+	log.Printf("diag reqAge=%s wsAge=%s ws=%d tools=%d miss=%d hold=%d goroutines=%d allocMB=%d%s",
 		ageOf(s.lastReq.Load()), ageOf(s.lastWS.Load()),
-		s.wsCount(), s.toolCount(),
-		s.misses.size(), s.holds.Load(),
-		runtime.NumGoroutine(), mem.Alloc>>20)
+		ws, s.toolCount(),
+		s.misses.size(), hold,
+		goroutines, allocMB, warn)
 }
 
 // ageOf 는 단조 시각(나노초)을 "몇 초 전" 으로 옮긴다. 한 번도 없었으면 `-` 다 —

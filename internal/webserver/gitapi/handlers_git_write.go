@@ -383,6 +383,18 @@ func (s *GitServer) gitResolveRepo(w http.ResponseWriter, r *http.Request, reque
 		gitError(w, err)
 		return "", false
 	}
+	// FR-FAB-14 (`SEC-15`): 경계는 **푼 루트**로 판정한다. 하위 경로나 링크로 같은
+	// 자리를 다르게 부를 수 있으므로, 요청 문자열로 판정하면 우회가 남는다.
+	//
+	// **목록을 본문에 싣지 않는다** — 흘리면 그것이 다음 시도의 입력이 된다
+	// (FR-ACL-8 승계).
+	if s.RepoGuard != nil {
+		if err := s.RepoGuard(root); err != nil {
+			gitFail(w, http.StatusForbidden, gitErrBadRequest,
+				"이 저장소는 워크스페이스 밖이다")
+			return "", false
+		}
+	}
 	return root, true
 }
 

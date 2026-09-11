@@ -327,6 +327,7 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 .fe-unsup-path{color:var(--text-bright);word-break:break-all;font-family:monospace;font-size:11px}
 .fe-unsup-meta{color:var(--text-dim);font-size:11px}
 .fe-unsup-hint{color:var(--text-dim);font-size:11px;margin-top:4px}
+.fe-unsup-dl{color:var(--accent);font-size:11px;margin-top:6px;text-decoration:underline}
 
 .fe-image{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;

@@ -163,6 +163,17 @@ func (m *Manager) create(name, windowUUID string, p Profile, rs RunSpec) error {
 		"--label", LabelHome + "=" + m.home,
 		"--label", LabelWindow + "=" + windowUUID,
 	}
+	// FR-SBX-45: 자원 제한. 이 안에서 도는 것은 AI 에이전트이고, 그것이 부르는
+	// 빌드·테스트는 자기 자원을 스스로 재지 않는다 — 제한이 없으면 컨테이너
+	// 하나의 폭주가 **호스트를 끌어내린다.** 그 호스트에는 사용자의 다른 창과
+	// dongminal 서버 자신이 함께 산다.
+	//
+	// **프로파일을 가리지 않는다.** 격리 경계인 scratch 가 오히려 자원을 무제한
+	// 쓰면 그 경계는 절반만 있는 것이다.
+	args = append(args,
+		"--cpus", LimitCPUs,
+		"--memory", LimitMemory,
+		"--pids-limit", LimitPids)
 	if p.Network != "" {
 		args = append(args, "--network", p.Network)
 	}
@@ -230,6 +241,16 @@ func (m *Manager) create(name, windowUUID string, p Profile, rs RunSpec) error {
 func nameTaken(out string) bool {
 	return strings.Contains(strings.ToLower(out), "is already in use")
 }
+
+// 컨테이너 자원 상한 (FR-SBX-45, 2026-09-11 사용자 판정).
+//
+// 값은 "보통의 빌드는 통과하고 폭주는 막는" 자리다 — 1cpu·1g 는 컴파일이 자주
+// OOM 되고, 4cpu·4g 는 컨테이너 둘로 노트북이 잠긴다.
+const (
+	LimitCPUs   = "2"
+	LimitMemory = "2g"
+	LimitPids   = "512"
+)
 
 // ExecSpec 은 대응 컨테이너 안에 도구를 띄우는 명세다 (FR-SBX-12).
 //

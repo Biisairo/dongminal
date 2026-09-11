@@ -162,6 +162,10 @@ func FSStatus(code string) int {
 		return http.StatusConflict
 	case CodeOutsideRoot, CodePermission:
 		return http.StatusForbidden
+	case CodeTooLarge:
+		return http.StatusRequestEntityTooLarge
+	case CodeBusy:
+		return http.StatusTooManyRequests
 	case CodeFSNotRepo:
 		// "이 경로로는 무시 여부를 물을 수 없다" 는 답이다 (FR-ETR-4).
 		// 클라이언트는 4xx 를 판정으로 굳히므로(`_gitOff` 와 같은 관례) 5xx 로

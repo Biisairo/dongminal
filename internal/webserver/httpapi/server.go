@@ -202,6 +202,10 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		Submodules:      submoduleManager(deps.Git),
 		UserWorktrees:   deps.UserWorktrees,
 		RunWorktreeRoot: runWorktreeRoot,
+		// FILE_API_BOUNDARY_SRS FR-FAB-14 (`SEC-15`): git 의 `repo` 도 파일
+		// 표면과 **같은 경계**를 지난다. 규칙을 그쪽에서 빌려 오는 것이지
+		// 이 자리에서 다시 세우지 않는다 (FR-FAB-15).
+		RepoGuard: srv.gitRepoAllowed,
 	}
 	return srv, nil
 }

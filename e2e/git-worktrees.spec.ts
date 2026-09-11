@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, rmTree } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, rmTree, addEditorRoot } from './fixtures';
 import { TMP, tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_REVIEW4_SRS §3.6.5 — I7 Worktrees 탭. 검증 V143~V152 (FR-GIT-28 개정·240~245).
@@ -57,6 +57,24 @@ test.afterAll(() => {
 });
 
 const copyFx = makeCopyFx(FIXTURES);
+
+/**
+ * 저장소 사본을 만들고 **워크스페이스에 등록한다**
+ * (FILE_API_BOUNDARY_SRS FR-FAB-14, 2026-09-11).
+ *
+ * `repo` 인자도 이제 경계를 지난다 — 워크스페이스가 모르는 저장소는 403 이다.
+ * 제품의 UI 흐름은 `openGitWindow` 가 **열기 전에 먼저 등록**하므로(FR-RTU-72) 이
+ * 계약을 이미 지키고 있고, 이 스펙만 그 걸음을 건너뛴 채 API 를 직접 불렀다.
+ *
+ * 게이트를 느슨하게 만든 것이 **아니다.** 서버 계약이 바뀌었고 계약을 재는 검사가
+ * 그 계약을 따르는 것이다 — 사본을 만드는 자리가 곧 등록하는 자리이므로 앞으로
+ * 더해지는 검사도 이 걸음을 빠뜨릴 수 없다.
+ */
+async function wtRepo(request: APIRequestContext, tag: string): Promise<string> {
+  const repo = copyFx('basic', tag);
+  await addEditorRoot(request, repo);
+  return repo;
+}
 async function openWorktrees(page: Page, repo: string) {
   await openGit(page, repo);
   await clickGitView(page, 'worktrees');
@@ -123,7 +141,7 @@ async function createUserWorktree(
 
 test.describe('묶음 M — I7 Worktrees 목록 (FR-GIT-240)', () => {
   test('V144 (FR-GIT-240): 목록이 git worktree list 와 같다 — main worktree 를 포함한다', async ({ page, request }) => {
-    const repo = copyFx('basic', 'v144');
+    const repo = await wtRepo(request, 'v144');
     addOutsideWorktree(repo, 'v144-extra');
 
     // 진실은 이미 구현된 읽기 API(GET /api/git/worktrees, domain/worktree.List 를
@@ -157,7 +175,7 @@ test.describe('묶음 M — I7 Worktrees 목록 (FR-GIT-240)', () => {
   // `run`(=outside 로 잘못 떨어지지 않음)으로 정확히 나오는 것 자체가 심링크를 지나는
   // 환경에서 `gitWorktreeOwner`(handlers_git_worktree.go)의 소유 판정이 옳다는 증거다.
   test('V146 (FR-GIT-241 · V163): Run 것·바깥 것에 제거 진입점이 없다 — 비활성으로도 보이지 않는다', async ({ page, request }) => {
-    const repo = copyFx('basic', 'v146');
+    const repo = await wtRepo(request, 'v146');
     addOutsideWorktree(repo, 'v146-outside');
     const runPath = await addRunWorktree(request, repo);
 
@@ -183,8 +201,8 @@ test.describe('묶음 M — I7 Worktrees 목록 (FR-GIT-240)', () => {
     expect(outsideRow!.hasRemove, '바깥 것에 제거 버튼이 있다(비활성 포함)').toBe(false);
   });
 
-  test('V147 (FR-GIT-242): 이름 + ref 로 생성되고, 경로가 파생 규칙과 같으며 화면에 보인다', async ({ page }) => {
-    const repo = copyFx('basic', 'v147');
+  test('V147 (FR-GIT-242): 이름 + ref 로 생성되고, 경로가 파생 규칙과 같으며 화면에 보인다', async ({ page, request }) => {
+    const repo = await wtRepo(request, 'v147');
     await waitForInit(page);
     await openWorktrees(page, repo);
 
@@ -226,7 +244,7 @@ test.describe('묶음 M — I7 Worktrees 목록 (FR-GIT-240)', () => {
 
 test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () => {
   test('V149 (FR-GIT-243): 더러운 worktree 제거가 거부되고 사유가 보인다 — 사용자의 작업이 남는다', async ({ page, request }) => {
-    const repo = copyFx('basic', 'v149');
+    const repo = await wtRepo(request, 'v149');
     // newBranch:true 가 필요하다 — 'main' 은 이미 main worktree(repo 자신)가 물고
     // 있어서, 새 브랜치 없이 'main' 을 그대로 체크아웃하면 git 이 "이미 다른
     // worktree 가 쓰는 중"이라며 거부한다(같은 브랜치를 두 worktree 가 동시에
@@ -270,7 +288,7 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
   // `unsafe_path` 로 잘못 거부하지 않는다는 증거다(V146 발견 당시엔 이 자리가
   // 30초 타임아웃으로 막혀 있었다 — remove 버튼 자체가 안 떴다).
   test('V150 (FR-GIT-243 · V163): 제거는 확인을 거친다 · 취소하면 남는다 · 브랜치 삭제 옵션이 이 경로엔 없다', async ({ page, request }) => {
-    const repo = copyFx('basic', 'v150');
+    const repo = await wtRepo(request, 'v150');
     const wtPath = await createUserWorktree(request, repo, 'v150-remove', 'main', true);
 
     let sentDeleteBranch: unknown = 'unset';
@@ -324,7 +342,7 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
   });
 
   test('V151 (FR-GIT-244): 네 동작 각각 — 활성 리포로 열기 · 핀 추가 · 터미널 탭(Git 창이 아닌 창) · 제거', async ({ page, request }) => {
-    const repo = copyFx('basic', 'v151');
+    const repo = await wtRepo(request, 'v151');
     // newBranch:true — V149 주석과 같은 이유('main' 은 main worktree 가 이미 쓴다).
     const wtPath = await createUserWorktree(request, repo, 'v151-acts', 'main', true);
 
@@ -428,8 +446,8 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
   // 사이드 탭 줄에 있다 (FR-GCC-10 / D-7a) — 눌러 재계기를 일으킨 뒤 Worktrees 로
   // 돌아와 **바뀌지 않은 행의 표식이 남는지**를 본다(V134·git-repaint.spec.ts P1~P11
   // 과 같은 표식 기법, 계기만 다르다).
-  test('V152 (FR-GIT-245 · RPT-1·3): 새로고침 뒤에도 바뀌지 않은 Worktrees 행의 표식이 남는다', async ({ page }) => {
-    const repo = copyFx('basic', 'v152');
+  test('V152 (FR-GIT-245 · RPT-1·3): 새로고침 뒤에도 바뀌지 않은 Worktrees 행의 표식이 남는다', async ({ page, request }) => {
+    const repo = await wtRepo(request, 'v152');
     await waitForInit(page);
     await openWorktrees(page, repo); // 한 번 마운트해야 reload() 대상이 된다(panel.js:1396).
 
@@ -470,7 +488,7 @@ test.describe('묶음 N — Worktrees 행의 핀 토글 (FR-GIT-249)', () => {
     wtRows(page).filter({ hasText: name }).locator(`.git-wt-act[data-act="${a}"]`);
 
   test('V168 (FR-GIT-249): 핀 여부를 버튼이 보인다 — Pin ↔ Unpin 토글이다', async ({ page, request }) => {
-    const repo = copyFx('basic', 'v168');
+    const repo = await wtRepo(request, 'v168');
     const wtPath = await createUserWorktree(request, repo, 'v168-toggle', 'main', true);
 
     await waitForInit(page);
@@ -494,7 +512,7 @@ test.describe('묶음 N — Worktrees 행의 핀 토글 (FR-GIT-249)', () => {
   });
 
   test('V169 (FR-GIT-249 · RPT-2·8): 바깥에서 핀이 바뀌어도 버튼이 따라온다', async ({ page, request }) => {
-    const repo = copyFx('basic', 'v169');
+    const repo = await wtRepo(request, 'v169');
     const wtPath = await createUserWorktree(request, repo, 'v169-outside-change', 'main', true);
 
     await waitForInit(page);
@@ -514,7 +532,7 @@ test.describe('묶음 N — Worktrees 행의 핀 토글 (FR-GIT-249)', () => {
   });
 
   test('V170 (FR-GIT-249): 실패는 그 탭의 안내 줄에만 뜬다 — alert 을 띄우지 않는다', async ({ page, request }) => {
-    const repo = copyFx('basic', 'v170');
+    const repo = await wtRepo(request, 'v170');
     const wtPath = await createUserWorktree(request, repo, 'v170-gone', 'main', true);
 
     await waitForInit(page);
@@ -548,8 +566,8 @@ test.describe('행 동작의 드러남', () => {
    * 감추는 수단은 `opacity` 다 — 자리와 히트 영역은 그대로 두고 보임만 바꾼다
    * (`visibility:hidden` 은 폴링이 행을 갈아 끼운 순간 커서 밑의 버튼을 없앤다).
    */
-  test('W-VIS1: Worktrees 행의 버튼은 마우스를 올리지 않아도 보인다', async ({ page }) => {
-    const repo = copyFx('basic', 'wtvis');
+  test('W-VIS1: Worktrees 행의 버튼은 마우스를 올리지 않아도 보인다', async ({ page, request }) => {
+    const repo = await wtRepo(request, 'wtvis');
     await waitForInit(page);
     await openWorktrees(page, repo);
     await expect(wtRows(page).first()).toBeVisible({ timeout: 20000 });
@@ -561,8 +579,8 @@ test.describe('행 동작의 드러남', () => {
     await expect(wtActs.locator('.git-wt-act').first()).toBeVisible();
   });
 
-  test('W-VIS2: Changes 행의 버튼은 hover 에서 드러나고, 자리는 늘 잡혀 있다', async ({ page }) => {
-    const repo = copyFx('basic', 'chvis');
+  test('W-VIS2: Changes 행의 버튼은 hover 에서 드러나고, 자리는 늘 잡혀 있다', async ({ page, request }) => {
+    const repo = await wtRepo(request, 'chvis');
     await waitForInit(page);
     await openWorktrees(page, repo);
     // FR-RTU-32: Changes 는 사이드에 늘 있다 — 돌아갈 탭이 없다.

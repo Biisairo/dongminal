@@ -45,6 +45,8 @@ const (
 	// 전송에만 있는 코드다 (FR-FTR-5). fsStatus 의 표에 넣지 않는 것은 조작이
 	// 이것을 낼 자리가 없기 때문이다 — 413 은 부르는 쪽이 직접 준다.
 	fsErrTooLarge = apierr.CodeTooLarge
+	// FR-ETR-45: 지금은 자리가 없다 — 재시도가 유효하다.
+	fsErrBusy = apierr.CodeBusy
 )
 
 // FS_LIST_MAX·FS_DELETE_MAX (FR-EDT-65·118). const 가 아닌 이유는 테스트가 상한을

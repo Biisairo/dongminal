@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -147,8 +148,13 @@ func (s *Server) apiFileProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	// FR-FAB-9: **상한을 함께 준다.** 편집기가 자기 상수를 들고 있으면 두 벌이 되고,
+	// 그때 한쪽만 고쳐진 채 "열린다고 했는데 안 열린다" 가 된다.
+	//
+	// probe 자체에는 상한을 걸지 않는다 — 큰 파일이라고 답하려면 먼저 물음에
+	// 답할 수 있어야 한다.
 	json.NewEncoder(w).Encode(map[string]any{
-		"kind": kind, "mime": mime, "size": st.Size(),
+		"kind": kind, "mime": mime, "size": st.Size(), "maxBytes": fileReadMaxBytes,
 	})
 }
 
@@ -168,6 +174,14 @@ func (s *Server) apiFileRaw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer f.Close()
+
+	// FR-FAB-8: 크기 판정이 **종류 판정보다 앞**이다. 뒤에 두면 큰 파일을 읽어
+	// 종류를 가린 뒤에야 거절하게 된다.
+	if st.Size() > fileReadMaxBytes {
+		http.Error(w, fmt.Sprintf("file too large: %d bytes (max %d)", st.Size(), fileReadMaxBytes),
+			http.StatusRequestEntityTooLarge)
+		return
+	}
 
 	kind, mime, head, err := probeFile(f)
 	if err != nil {

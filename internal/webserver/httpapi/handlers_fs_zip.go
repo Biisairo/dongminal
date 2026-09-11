@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 )
 
 // GET /api/fs/download-dir — 폴더를 zip 으로 흘려보낸다
@@ -31,9 +32,24 @@ var (
 	zipMaxEntries = 50000
 	// FR-ETR-12: 압축 **전** 총 바이트의 상한.
 	zipMaxBytes int64 = 2 << 30
+	// FR-ETR-45 (`SEC-20`): 동시 요청 상한. 한 요청이 최대 2GiB 를 압축하며 CPU 와
+	// 디스크를 함께 쓰므로, 겹치면 서버가 그 시간 동안 다른 일을 못 한다.
+	zipMaxConcurrent int64 = 2
 )
 
+// zipInFlight 는 지금 흐르고 있는 zip 응답의 수다.
+var zipInFlight atomic.Int64
+
 func (s *Server) apiFSDownloadDir(w http.ResponseWriter, r *http.Request) {
+	// FR-ETR-45: 자리를 **헤더보다 먼저** 잡는다. 이 함수의 설계가 그것이다 —
+	// 스트리밍이 시작된 뒤에는 거절을 알릴 자리가 없다 (D-6).
+	if zipInFlight.Add(1) > zipMaxConcurrent {
+		zipInFlight.Add(-1)
+		fsFail(w, fsErrBusy, "동시 다운로드가 상한에 닿았다 — 잠시 뒤 다시 시도하세요")
+		return
+	}
+	defer zipInFlight.Add(-1)
+
 	root, ok := s.fsRoot(w, r.URL.Query().Get("root"))
 	if !ok {
 		return

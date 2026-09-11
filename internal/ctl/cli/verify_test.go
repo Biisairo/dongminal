@@ -150,6 +150,7 @@ var verifyGolden = []string{
 	"워크스페이스·설정|/api/workspace",
 	"워크스페이스·설정|/api/stats",
 	"워크스페이스·설정|/api/settings",
+	"git 읽기 표면|검사 대상 저장소 등록",
 	"git 읽기 표면|git status",
 	"git 읽기 표면|git log",
 	"git 읽기 표면|git refs",
@@ -161,6 +162,12 @@ var verifyGolden = []string{
 	"git 읽기 표면|없는 git 경로 404",
 	"정적 자산|index.html 의 script 전량 200",
 	"정적 자산|구 평면 경로 /js/app.js 404",
+	// ── 경계 (M2, 2026-09-11) ──
+	"경계|허용 루트 밖 파일 읽기 403",
+	"경계|상대경로 400",
+	"경계|읽기 상한 초과 413",
+	"경계|정적 응답의 보안 헤더",
+	"경계|노출 ACL 게이트",
 }
 
 func TestVerifyChecks_Golden(t *testing.T) {

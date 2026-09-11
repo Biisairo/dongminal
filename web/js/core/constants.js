@@ -418,6 +418,14 @@ const FILE_UNSUPPORTED_TITLE='열 수 없는 형식입니다';
 const FILE_UNSUPPORTED_HINT='이진 파일은 편집기로 열지 않습니다 — 열어서 저장하면 원본이 깨집니다.';
 const FILE_IMAGE_FAIL='이미지를 불러오지 못했습니다';
 
+// FILE_API_BOUNDARY_SRS FR-FAB-9 (`FUI-06`) — 상한을 넘는 파일은 올리지 않는다.
+// 상한 **값**은 여기 없다. 서버가 `probe.maxBytes` 로 준다 — 두 벌이면 한쪽만
+// 고쳐지고, 그때 사용자는 "열린다고 했는데 안 열린다" 를 만난다.
+const FILE_TOO_LARGE_TITLE='너무 커서 열지 않습니다';
+const FILE_TOO_LARGE_HINT='터미널에서 여세요. 아래에서 내려받을 수도 있습니다.';
+const FILE_TOO_LARGE_DOWNLOAD='내려받기';
+const FILE_DOWNLOAD_API='/api/download';
+
 // FR-EDT-110 의 종단. M2 는 목록 조회·추가·제거·재정렬만 쓴다.
 const EDITORS_API='/api/editors';
 

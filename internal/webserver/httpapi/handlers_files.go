@@ -350,14 +350,21 @@ func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not a file", http.StatusBadRequest)
 		return
 	}
+	// FR-FAB-8: 상한을 넘으면 **413** 이고 실제 크기를 실어 보낸다. 클라이언트는
+	// 그 숫자로 안내를 만든다 — "너무 큽니다" 만으로는 얼마나 큰지 말할 수 없다.
+	if stat.Size() > fileReadMaxBytes {
+		http.Error(w, fmt.Sprintf("file too large: %d bytes (max %d)", stat.Size(), fileReadMaxBytes),
+			http.StatusRequestEntityTooLarge)
+		return
+	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	// GO-38: **복사의 결과를 버리지 않는다.** 여기서 실패하면 헤더는 이미 나갔으므로
 	// 상태 코드를 바꿀 수 없다 — 그래서 할 수 있는 일은 **기록**뿐이고, 기록이
 	// 없으면 "파일이 잘려서 왔다" 는 신고에 대고 아무것도 말할 수 없다.
 	//
-	// 크기 상한(FR-FAB-8)은 **아직 없다** — 값이 정해지지 않았다. 그 값이 정해지면
-	// 이 자리에 `io.LimitReader` 와 413 이 함께 선다.
-	if _, err := io.Copy(w, f); err != nil {
+	// 판정 뒤에도 `LimitReader` 를 지난다. `Stat` 과 `Copy` 사이에 파일이 자라는
+	// 경우가 있고, 판정만으로는 그 틈이 닫히지 않는다.
+	if _, err := io.Copy(w, io.LimitReader(f, fileReadMaxBytes)); err != nil {
 		log.Printf("file read: copy %s: %v", fp, err)
 	}
 }

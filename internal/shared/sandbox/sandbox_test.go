@@ -510,3 +510,33 @@ func TestEnsure_RunsWithInit(t *testing.T) {
 		t.Fatalf("--init 없이 띄웠다: %s", joined(f.call("run")))
 	}
 }
+
+// FR-SBX-45: 컨테이너 자원 제한. 이 안에서 도는 것은 AI 에이전트이고, 그것이
+// 부르는 빌드·테스트는 자기 자원을 스스로 재지 않는다 — 제한이 없으면 컨테이너
+// 하나의 폭주가 호스트를 끌어내린다. 그 호스트에는 사용자의 다른 창과 서버 자신이
+// 함께 산다.
+func TestEnsure_AppliesResourceLimits(t *testing.T) {
+	f := &fakeDocker{reply: stateReply("")}
+	rs := RunSpec{HostDir: "/Users/me/app"}
+	if err := newMgr(f).Ensure("w1", devProfile(), rs); err != nil {
+		t.Fatalf("Ensure: %v", err)
+	}
+	got := joined(f.call("run"))
+	for _, want := range []string{"--cpus 2", "--memory 2g", "--pids-limit 512"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("%q 가 없다: %s", want, got)
+		}
+	}
+}
+
+// scratch 도 같은 제한을 받는다. 격리 경계인 프로파일이 오히려 자원을 무제한
+// 쓰면 그 경계는 절반만 있는 것이다.
+func TestEnsure_ResourceLimitsApplyToScratch(t *testing.T) {
+	f := &fakeDocker{reply: stateReply("")}
+	if err := newMgr(f).Ensure("w1", Scratch(), RunSpec{}); err != nil {
+		t.Fatalf("Ensure: %v", err)
+	}
+	if !strings.Contains(joined(f.call("run")), "--pids-limit 512") {
+		t.Fatalf("scratch 에 제한이 없다: %s", joined(f.call("run")))
+	}
+}

@@ -174,3 +174,57 @@ func TestDiagSnapshotLoopWritesPeriodically(t *testing.T) {
 		t.Fatalf("스냅샷이 %d줄뿐이다 — 주기적으로 남지 않는다\n%s", n, buf.String())
 	}
 }
+
+// FR-CNR-13 — 임계 경고.
+//
+// 임계값은 실측에서 왔다 (goroutines 95~112 · allocMB 2~6 · ws 21~24 · hold 0).
+// 여기 테스트는 임계를 **낮춰서** 경고를 유발한다 — 500개의 고루틴을 실제로
+// 띄우는 대신 판정의 자리를 본다.
+func TestDiagSnapshotWarnsOverThreshold(t *testing.T) {
+	buf := captureLog(t)
+	s := &Server{}
+	old := diagWarn
+	diagWarn.Goroutines = 1
+	t.Cleanup(func() { diagWarn = old })
+
+	s.logDiagSnapshot()
+	line := buf.String()
+	if !strings.Contains(line, "warn=") {
+		t.Fatalf("임계를 넘었는데 경고가 없다: %s", line)
+	}
+	if !strings.Contains(line, "goroutines") {
+		t.Fatalf("무엇이 넘었는지 말하지 않는다: %s", line)
+	}
+	// 경고는 같은 줄이다 (FR-CNR-13) — 딴 줄로 빼면 시간축에서 둘을 다시 맞춰야 한다.
+	if strings.Count(strings.TrimSpace(line), "\n") != 0 {
+		t.Fatalf("줄이 둘 이상이다: %q", line)
+	}
+}
+
+// 평시에는 울지 않는다. 평시에 우는 경고는 신호가 아니다.
+func TestDiagSnapshotQuietWhenNormal(t *testing.T) {
+	buf := captureLog(t)
+	s := &Server{}
+	s.logDiagSnapshot()
+	if strings.Contains(buf.String(), "warn=") {
+		t.Fatalf("평시에 경고가 떴다: %s", buf.String())
+	}
+}
+
+// 붙잡힌 대기가 임계를 넘으면 그것도 경고다. 값은 대기 상한과 같다 (FR-STA-9) —
+// 그 선은 "거절이 시작됐다" 를 뜻한다.
+func TestDiagSnapshotWarnsOnHolds(t *testing.T) {
+	buf := captureLog(t)
+	s := &Server{}
+	s.holds.Store(int64(diagWarn.Hold) + 1)
+	s.logDiagSnapshot()
+	if !strings.Contains(buf.String(), "hold") || !strings.Contains(buf.String(), "warn=") {
+		t.Fatalf("hold 임계를 넘었는데 경고가 없다: %s", buf.String())
+	}
+}
+
+func TestDiagWarnDefaults(t *testing.T) {
+	if diagWarn.Goroutines != 500 || diagWarn.AllocMB != 256 || diagWarn.WS != 100 || diagWarn.Hold != 32 {
+		t.Fatalf("임계=%+v want {500 256 100 32} (FR-CNR-13, 2026-09-11 판정)", diagWarn)
+	}
+}

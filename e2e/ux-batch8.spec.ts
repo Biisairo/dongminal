@@ -250,6 +250,11 @@ test('V-DRB-1: 미리보기 버튼에 라벨이 있고, 렌더 뷰는 공통 스
       // FR-DRB-3: 미니맵의 왼쪽 변보다 앞에 선다 — 그것이 "가리지 않는다" 의 뜻이다.
       right: Math.round(r.right - box.left),
       minimapLeft: v._editor.getLayoutInfo().minimap.minimapLeft,
+      // FR-DRB-3 (U-2): 자리는 **아래쪽**이다. 위쪽 띠는 찾기·알림·제안이 나눠 쓴다.
+      top: Math.round(r.top - box.top),
+      boxH: Math.round(box.height),
+      // FR-DRB-3a: 기본 상태에서 강조색이다 — 배경에 잠기지 않는다.
+      color: cs.color, borderColor: cs.borderTopColor,
     };
   });
   // 라벨을 담는 폭이다 — 22px 정사각이던 때의 폭으로는 글자가 들어가지 않는다.
@@ -259,6 +264,11 @@ test('V-DRB-1: 미리보기 버튼에 라벨이 있고, 렌더 뷰는 공통 스
   expect(look.opacity).toBeGreaterThanOrEqual(0.85);
   expect(look.minimapLeft, '미니맵이 서지 않아 이 단언이 뜻을 잃는다').toBeGreaterThan(0);
   expect(look.right, '버튼이 미니맵·스크롤바를 덮는다').toBeLessThanOrEqual(look.minimapLeft);
+  // U-2: 좌**하**단이다. 위쪽 절반에 있으면 첫 줄을 가리고 제안 띠와 자리를 다툰다.
+  expect(look.boxH, '편집기 상자가 서지 않아 이 단언이 뜻을 잃는다').toBeGreaterThan(0);
+  expect(look.top, '버튼이 아직 위쪽에 있다').toBeGreaterThan(look.boxH / 2);
+  // FR-DRB-3a: 글자와 테두리가 같은 강조색이며, 본문 색(--text)이 아니다.
+  expect(look.color).toBe(look.borderColor);
 
   await btn.click();
   const body = page.locator('.doc-render .dr-body');

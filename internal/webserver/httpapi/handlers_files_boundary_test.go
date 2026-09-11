@@ -25,11 +25,20 @@ import (
 // fileBoundaryEnv 는 Editor 루트 하나와 그 밖의 자리 하나를 만든다.
 type fileBoundaryEnv struct {
 	ts      *httptest.Server
-	root    string // Editor 목록에 든 루트
-	outside string // 아무 목록에도 없는 자리
+	root    string  // Editor 목록에 든 루트
+	outside string  // 아무 목록에도 없는 자리
+	data    string  // $DONGMINAL_HOME — 자기 상태의 자리 (묶음 W)
+	server  *Server // 경계 판정을 직접 부르는 테스트용 (묶음 G)
 }
 
 func newFileBoundaryEnv(t *testing.T) *fileBoundaryEnv {
+	t.Helper()
+	return newFileBoundaryEnvWith(t, nil)
+}
+
+// newFileBoundaryEnvWith 는 서버가 서기 **전에** 홈을 채울 기회를 준다. 설정은
+// 기동 시 한 번 읽히므로(Settings), 뒤에 쓰면 그 판정에 닿지 않는다.
+func newFileBoundaryEnvWith(t *testing.T, prepare func(data string)) *fileBoundaryEnv {
 	t.Helper()
 	base := t.TempDir()
 	if resolved, err := filepath.EvalSymlinks(base); err == nil {
@@ -44,6 +53,12 @@ func newFileBoundaryEnv(t *testing.T) *fileBoundaryEnv {
 	}
 
 	data := t.TempDir()
+	if resolved, err := filepath.EvalSymlinks(data); err == nil {
+		data = resolved
+	}
+	if prepare != nil {
+		prepare(data)
+	}
 	work := newFakeWorkspaceStore()
 	srv, err := New(Config{DataDir: data}, Deps{Work: work})
 	if err != nil {
@@ -60,7 +75,7 @@ func newFileBoundaryEnv(t *testing.T) *fileBoundaryEnv {
 
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
-	return &fileBoundaryEnv{ts: ts, root: root, outside: outside}
+	return &fileBoundaryEnv{ts: ts, root: root, outside: outside, data: data, server: srv}
 }
 
 // write 는 `POST /api/file/write` 한 번이다.

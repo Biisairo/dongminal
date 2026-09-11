@@ -229,6 +229,9 @@ class FileEditor {
       const probe = await this._probeFile();
       this.kind = probe.kind;
       if (probe.kind === FILE_KIND_BINARY) { this._showUnsupported(probe); this._loading = false; return }
+      // FR-FAB-9: 상한을 넘으면 Monaco 를 세우지 않는다. 세우지 않으므로 저장
+      // 경로 자체가 생기지 않는다 — 잘린 내용을 되쓸 길이 없다.
+      if (this._overSizeLimit(probe)) { this._showTooLarge(probe); this._loading = false; return }
       if (probe.kind === FILE_KIND_IMAGE) { this._showImage(probe); this._loading = false; return }
       await this._loadMonaco();
       // FR-SVS-50: 다른 칸이 이미 이 파일을 열어 두었으면 그 문서를 그대로 쓴다 —
@@ -256,6 +259,34 @@ class FileEditor {
     const r = await apiGet(FILE_PROBE_API, { query: { path: this.filePath } });
     if (!r.ok) return { kind: FILE_KIND_TEXT };
     return r.data && r.data.kind ? r.data : { kind: FILE_KIND_TEXT };
+  }
+
+  /**
+   * FR-FAB-9: 판정의 값은 **서버가 준 것**이다. `maxBytes` 가 없는 옛 서버에
+   * 붙었으면 게이트를 걸지 않는다 — 옛 서버에서 편집기가 통째로 막히는 것보다
+   * 지금까지의 동작을 유지하는 편이 낫다 (FR-EVW-8 과 같은 관대함이다).
+   */
+  _overSizeLimit(probe) {
+    const max = Number(probe && probe.maxBytes);
+    const size = Number(probe && probe.size);
+    if (!isFinite(max) || max <= 0 || !isFinite(size)) return false;
+    return size > max;
+  }
+
+  // FR-FAB-9: 사유와 함께 **나가는 길 둘**을 준다. 막기만 하면 사용자는 그
+  // 파일을 어떻게 보는지 모른 채 남는다.
+  _showTooLarge(probe) {
+    const href = FILE_DOWNLOAD_API + '?path=' + encodeURIComponent(this.filePath);
+    this.el.innerHTML =
+      '<div class="fe-unsupported">' +
+        '<div class="fe-unsup-title">' + FILE_TOO_LARGE_TITLE + '</div>' +
+        '<div class="fe-unsup-path">' + escHtml(this.filePath) + '</div>' +
+        '<div class="fe-unsup-meta">' +
+          escHtml(this._fmtBytes(probe.size)) + ' · 상한 ' + escHtml(this._fmtBytes(probe.maxBytes)) +
+        '</div>' +
+        '<div class="fe-unsup-hint">' + FILE_TOO_LARGE_HINT + '</div>' +
+        '<a class="fe-unsup-dl" download href="' + escHtml(href) + '">' + FILE_TOO_LARGE_DOWNLOAD + '</a>' +
+      '</div>';
   }
 
   // FR-EVW-3: 열지 않고 사유를 보인다. Monaco 를 세우지 않으므로 저장 경로
@@ -778,11 +809,12 @@ class FileEditor {
     el.querySelector('.fe-offer-msg').textContent = body;
     this.el.appendChild(el);
     this._offerEl = el;
-    // 제안 띠는 편집기의 위쪽 가로 띠 전부를 먹는다. 그 자리를 이미 쓰고 있는
-    // 손잡이(렌더 진입 `◈`)를 아래로 내려 앉히기 위해 표식을 남긴다 — 형제
-    // 선택자(`.fe-offer ~ …`)로는 안 된다: 그 손잡이는 편집기를 세울 때 붙으므로
-    // 뒤늦게 오는 이 띠보다 **앞선 형제**다.
-    this.el.classList.add('fe-offered');
+    // 종전에는 여기서 `fe-offered` 표식을 남겨 렌더 진입 손잡이를 아래로 내려
+    // 앉혔다. **U-2 로 그 손잡이가 좌하단으로 내려가면서 자리를 다투지 않게 됐다** —
+    // 표식이 가리키던 규칙이 사라졌으므로 표식도 함께 걷는다.
+    //
+    // 찾기 줄·알림 줄은 여전히 내려 앉는다. 그 둘은 형제 선택자(`.fe-offer ~ …`)로
+    // 닿으므로 표식이 필요 없다.
     /**
      * EDITOR_LSP_SRS FR-LSP-44a (2026-09-08 접수): **띠의 높이는 고정이 아니다.**
      *
@@ -846,7 +878,6 @@ class FileEditor {
     if (this._offerRo) { this._offerRo.disconnect(); this._offerRo = null }
     this._offerEl.remove();
     this._offerEl = null;
-    this.el.classList.remove('fe-offered');
     this.el.style.removeProperty('--fe-offer-h');
   }
 

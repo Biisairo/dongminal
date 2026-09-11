@@ -228,6 +228,14 @@ func verifyChecks() []verifyCheck {
 	// ── git 읽기 표면 ──
 	// repo 인자를 받는 것만 저장소를 요구한다. policy·jobs 는 인자가 없으므로
 	// 언제나 돈다 (FR-E2S-3).
+	// FR-FAB-14c: `repo` 가 경계를 지나므로 **대상을 먼저 등록한다.** 제품의 UI
+	// 흐름(`openGitWindow`)은 이 걸음을 이미 밟는다.
+	checks = append(checks, verifyCheck{
+		Section: "git 읽기 표면",
+		Name:    "검사 대상 저장소 등록",
+		Need:    needGitRepo,
+		Run:     (*verifySession).registerRepo,
+	})
 	for _, e := range []string{"status", "log", "refs", "signature", "stash", "records"} {
 		checks = append(checks, verifyCheck{
 			Section: "git 읽기 표면",
@@ -244,6 +252,15 @@ func verifyChecks() []verifyCheck {
 		// ── 정적 자산 ──
 		verifyCheck{Section: "정적 자산", Name: "index.html 의 script 전량 200", Run: (*verifySession).staticAssets},
 		verifyCheck{Section: "정적 자산", Name: "구 평면 경로 /js/app.js 404", Run: wantStatus(http.StatusNotFound, at("/js/app.js"))},
+
+		// ── 경계 (M2) ──
+		// 유닛은 가짜 배선에서 돌고 e2e 는 브라우저를 지난다. "설치된 실물 서버에서
+		// 이 경계가 실제로 서 있는가" 를 묻는 자리가 그 둘 사이에 없었다.
+		verifyCheck{Section: "경계", Name: "허용 루트 밖 파일 읽기 403", Run: (*verifySession).fileOutsideRootIs403},
+		verifyCheck{Section: "경계", Name: "상대경로 400", Run: wantStatus(http.StatusBadRequest, at("/api/file/read?path=relative.txt"))},
+		verifyCheck{Section: "경계", Name: "읽기 상한 초과 413", Run: (*verifySession).fileOverLimitIs413},
+		verifyCheck{Section: "경계", Name: "정적 응답의 보안 헤더", Run: (*verifySession).staticSecurityHeaders},
+		verifyCheck{Section: "경계", Name: "노출 ACL 게이트", Run: (*verifySession).exposeGateBlocks},
 	)
 	return checks
 }

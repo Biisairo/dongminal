@@ -86,6 +86,10 @@ const (
 	CodePermission  = "permission_denied"
 	CodeIO          = "io_failed"
 	CodeTooLarge    = "too_large"
+	// CodeBusy 는 "지금은 자리가 없다" 이며 **재시도가 유효한 유일한 4xx** 다
+	// (FR-ETR-45). 상한 초과(CodeTooLarge)와 다르다 — 그쪽은 같은 요청을 다시
+	// 보내도 같은 답이 온다.
+	CodeBusy = "busy"
 	// CodeFSNotRepo 는 git 표면의 CodeNotRepo("not_a_git_repo") 와 **다른**
 	// 문자열이다 ("not_repo"). 두 표면이 이미 다른 값을 내보내고 있으므로
 	// 합치면 파괴적 변경이다.
