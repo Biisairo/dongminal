@@ -175,6 +175,28 @@ func TestDiagSnapshotLoopWritesPeriodically(t *testing.T) {
 	}
 }
 
+// diagLine 은 캡처된 로그에서 **스냅샷 줄만** 고른다.
+//
+// `captureLog` 는 전역 로그를 가로채는데, 이 패키지의 다른 검사들이 같은 자리에
+// 서버를 띄우고 로그를 쏟는다 (`ws hold released …` 수십 줄). 그것을 함께 세면
+// "경고가 같은 줄인가" 를 재는 대신 **로그가 조용한가**를 재게 된다 — darwin 에서는
+// 우연히 조용해 통과했고 **ubuntu CI 가 그것을 잡았다** (2026-09-11).
+//
+// 앞에 붙는 타임스탬프는 떼어 낸다. `log` 의 접두는 이 검사의 대상이 아니다.
+func diagLine(t *testing.T, out string) string {
+	t.Helper()
+	got := ""
+	for _, ln := range strings.Split(out, "\n") {
+		if i := strings.Index(ln, "diag reqAge="); i >= 0 {
+			got = ln[i:]
+		}
+	}
+	if got == "" {
+		t.Fatalf("스냅샷 줄이 없다: %q", out)
+	}
+	return got
+}
+
 // FR-CNR-13 — 임계 경고.
 //
 // 임계값은 실측에서 왔다 (goroutines 95~112 · allocMB 2~6 · ws 21~24 · hold 0).
@@ -188,16 +210,14 @@ func TestDiagSnapshotWarnsOverThreshold(t *testing.T) {
 	t.Cleanup(func() { diagWarn = old })
 
 	s.logDiagSnapshot()
-	line := buf.String()
+	// FR-CNR-13: 경고는 **스냅샷과 같은 줄**이다 — 그 줄만 골라 재는 것이 곧
+	// 그 계약이다. 딴 줄로 빠졌다면 이 줄에 `warn=` 이 없다.
+	line := diagLine(t, buf.String())
 	if !strings.Contains(line, "warn=") {
 		t.Fatalf("임계를 넘었는데 경고가 없다: %s", line)
 	}
 	if !strings.Contains(line, "goroutines") {
 		t.Fatalf("무엇이 넘었는지 말하지 않는다: %s", line)
-	}
-	// 경고는 같은 줄이다 (FR-CNR-13) — 딴 줄로 빼면 시간축에서 둘을 다시 맞춰야 한다.
-	if strings.Count(strings.TrimSpace(line), "\n") != 0 {
-		t.Fatalf("줄이 둘 이상이다: %q", line)
 	}
 }
 
@@ -206,8 +226,8 @@ func TestDiagSnapshotQuietWhenNormal(t *testing.T) {
 	buf := captureLog(t)
 	s := &Server{}
 	s.logDiagSnapshot()
-	if strings.Contains(buf.String(), "warn=") {
-		t.Fatalf("평시에 경고가 떴다: %s", buf.String())
+	if line := diagLine(t, buf.String()); strings.Contains(line, "warn=") {
+		t.Fatalf("평시에 경고가 떴다: %s", line)
 	}
 }
 
@@ -218,8 +238,9 @@ func TestDiagSnapshotWarnsOnHolds(t *testing.T) {
 	s := &Server{}
 	s.holds.Store(int64(diagWarn.Hold) + 1)
 	s.logDiagSnapshot()
-	if !strings.Contains(buf.String(), "hold") || !strings.Contains(buf.String(), "warn=") {
-		t.Fatalf("hold 임계를 넘었는데 경고가 없다: %s", buf.String())
+	line := diagLine(t, buf.String())
+	if !strings.Contains(line, "hold") || !strings.Contains(line, "warn=") {
+		t.Fatalf("hold 임계를 넘었는데 경고가 없다: %s", line)
 	}
 }
 
