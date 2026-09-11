@@ -134,6 +134,53 @@ jobs:
       - name: 제3자 자산 판 기록
         run: scripts/check-vendor.sh
 
+      # 환경변수 문서 대조 (CONFIG_MANAGEMENT_SRS FR-CFG-18 · M5 `G5-2`).
+      #
+      # 문서는 **조용히** 낡는다. 이 검사가 없던 동안 여섯이 표 밖에 있었고,
+      # 로드맵조차 그 수를 넷으로 세고 있었다. 사람의 눈을 집행자로 두지 않는다.
+      - name: 환경변수 문서 대조
+        run: scripts/check-env-docs.sh
+
+      # 로그의 단일 경로 (OBSERVABILITY_SRS FR-OBS-5 · M5 `GO-43`/`SEC-24`).
+      #
+      # 착수 시 `log.Printf` 가 172곳이었다. 한 번 걷어 내는 것은 쉽고 **다시
+      # 늘지 않게 하는 것**이 본체다.
+      - name: 로그의 단일 경로
+        run: scripts/check-logging.sh
+
+      # 오류 응답의 단일 경로 (ERROR_CONTRACT_SRS FR-ERR-3 · M5 `G6-1`).
+      # 본문은 그대로 두고 `X-Error-Code` 를 얹는다 — 방언 통일은 파괴적 변경이라
+      # 기각돼 있다 (`G6-4`).
+      - name: 오류 응답의 단일 경로
+        run: scripts/check-http-error.sh
+
+      # 오류 카탈로그가 코드와 맞는가 (FR-ERR-11 · M5 `G6-2`).
+      # `docs/external/errors.md` 는 **생성물**이다. 착수 시 코드 47개 중 문서에
+      # 있던 것이 7개였다.
+      - name: 오류 카탈로그 대조
+        run: scripts/check-error-docs.sh
+
+      # ── 문서 대조 넷 (M5 `DOC-1`~`DOC-4` · `G8-1`·`G8-5`) ───────────
+      #
+      # **문서는 조용히 낡는다.** 이 마일스톤이 그것을 반복해서 만났다 — 로드맵이
+      # "`document.title` 대입 0곳" 이라 적은 동안 그것은 이미 구현돼 있었고,
+      # `log.Printf` 는 146곳이 아니라 172곳이었으며, `http.Error` 는 63이 아니라
+      # 65곳이었다. 세는 사람이 아니라 **CI 가 세게** 만드는 것이 이 넷이다.
+      - name: SRS 상태 필드
+        run: scripts/check-srs-status.sh
+
+      - name: 결정 색인 대조
+        run: scripts/check-decisions.sh
+
+      - name: 명령 문서 대조
+        run: scripts/check-commands-docs.sh
+
+      - name: API 문서 대조
+        run: scripts/check-api-docs.sh
+
+      - name: 단축키 문서 대조
+        run: scripts/check-shortcuts-docs.sh
+
       # 서식은 취향이 아니라 diff 의 크기다 (TEST-10). 착수 시 1건 위반이 있었다.
       - name: gofmt
         run: |

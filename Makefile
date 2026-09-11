@@ -46,6 +46,24 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-skeleton.sh
 	@echo "── 에이전트 이름 (등록부 밖에 리터럴이 없는가)"
 	@scripts/check-agent-names.sh
+	@echo "── 환경변수 문서 (코드와 표가 양방향으로 같은가)"
+	@scripts/check-env-docs.sh
+	@echo "── 로그의 단일 경로 (표준 log 를 직접 부르지 않는가)"
+	@scripts/check-logging.sh
+	@echo "── 오류 응답의 단일 경로 (http.Error 를 직접 부르지 않는가)"
+	@scripts/check-http-error.sh
+	@echo "── 오류 카탈로그 (생성물이 코드와 맞는가)"
+	@scripts/check-error-docs.sh
+	@echo "── SRS 상태 필드 (enum 안에 있는가)"
+	@scripts/check-srs-status.sh
+	@echo "── 결정 색인 (생성물이 SRS 와 맞는가)"
+	@scripts/check-decisions.sh
+	@echo "── 명령 문서 (commands.md 와 dmctl 이 양방향으로 같은가)"
+	@scripts/check-commands-docs.sh
+	@echo "── API 문서 (api.md 와 라우트가 양방향으로 같은가)"
+	@scripts/check-api-docs.sh
+	@echo "── 단축키 문서 (기본값·라벨·설정 화면·문서가 한 벌인가)"
+	@scripts/check-shortcuts-docs.sh
 	@echo "gates ok"
 
 # 한 번에 도는 샤드 수. 샤드 하나가 워커 2개(= 인스턴스 2개)를 띄우므로 이 값이
