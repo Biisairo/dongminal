@@ -157,6 +157,9 @@ type DoctorOpts struct {
 	// 그 파일에 적은 뒤 끝낸다 — doctor 가 자기 자신을 **콘솔 없는 자식**으로
 	// 띄워 서버와 같은 조건을 재현할 때 쓴다 (FR-XDG-2).
 	ProbePTY string
+	// Bundle 은 진단 번들을 쓸 자리다 (`G2-3`). 비면 종전의 doctor 다 —
+	// 번들은 **더하는 기능**이지 기존 진단을 대체하지 않는다.
+	Bundle string
 }
 
 // HealthOpts는 `dongminal health` 의 옵션이다.
@@ -250,6 +253,13 @@ func ParseDoctor(args []string) (DoctorOpts, error) {
 			}
 			i++
 			o.ProbePTY = args[i]
+		case "--bundle":
+			// `G2-3`: 진단 번들을 쓸 자리. 종전의 doctor 는 그대로 돈다.
+			if i+1 >= len(args) {
+				return DoctorOpts{}, fmt.Errorf("--bundle 에 파일 경로가 없습니다")
+			}
+			i++
+			o.Bundle = args[i]
 		case "-h", "--help":
 			return DoctorOpts{}, ErrHelp
 		default:

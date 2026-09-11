@@ -51,6 +51,12 @@ func RunDoctor(o DoctorOpts, stdout, stderr io.Writer) int {
 	}
 	p := platform.Current()
 
+	// `G2-3`: 번들 모드. 진단을 **대체하지 않고** 따로 선다 — 사람이 읽는 진단과
+	// 신고에 붙이는 번들은 담는 것도 형식도 다르다.
+	if o.Bundle != "" {
+		return RunDoctorBundle(o, stdout, stderr)
+	}
+
 	// 내부 프로브 모드: 의사 터미널만 확인하고 결과를 파일에 적는다. 부모가
 	// 이 프로세스를 **콘솔 없이** 띄웠으므로, 서버가 도구를 만드는 조건과
 	// 같다 (doctorDetached).
