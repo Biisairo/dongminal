@@ -40,6 +40,7 @@
 | 창 슬롯 빼기 | `Ctrl+Shift+X` |
 | 이전 슬롯 | `Ctrl+Alt+[` |
 | 다음 슬롯 | `Ctrl+Alt+]` |
+| 사이드바 접기/펼치기 | `Ctrl+Shift+E` |
 | 내부 새로고침 | `Ctrl+Shift+K` |
 | 사이드바 탭: Windows | `Ctrl+Shift+1` |
 | 사이드바 탭: Git | `Ctrl+Shift+2` |
@@ -47,6 +48,7 @@
 | 정의로 이동 (Editor) | `F12` |
 | 참조 찾기 (Editor) | `Shift+F12` |
 | 이동 뒤로 (Editor) | `Ctrl+Alt+-` / `Cmd+Alt+-` |
+| 저장 (Editor) | `Ctrl+S` / `Cmd+S` |
 | 파일 내에서 검색 (Editor) | `Ctrl+F` / `Cmd+F` |
 | 파일 검색 (Editor) | `Ctrl+P` / `Cmd+P` |
 | 파일 전체에서 검색 (Editor) | `Ctrl+Shift+F` / `Cmd+Shift+F` |

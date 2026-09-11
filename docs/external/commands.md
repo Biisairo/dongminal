@@ -34,6 +34,47 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl who-am-i [--json]` | 현재 쉘이 속한 탭의 식별 정보. 같은 표준 라인 한 줄. 스크립트에서 `UUID=$(dmctl who-am-i --json \| jq -r .uuid)` 패턴으로 자기 식별 |
 | `dmctl send <action> [json]` | 원시 action 전송 (확장용) |
 
+#### 에이전트 접합면 — 다른 도구의 화면을 읽고 입력을 넣는다
+
+| 명령 | 설명 |
+|------|------|
+| `dmctl read-screen [--at <uuid>] [--bytes N]` | 그 도구의 화면을 **ANSI 를 제거한 텍스트**로 읽습니다 (기본 16384바이트). 사람이 보는 것과 같은 내용입니다 |
+| `dmctl read-output [--at <uuid>] [--bytes N]` | 같은 자리를 **raw 바이트**로 읽습니다 — ANSI 를 포함합니다 (기본 8192바이트). 색·커서 이동까지 봐야 할 때만 쓰세요 |
+| `dmctl send-input --at <uuid> [--execute] <텍스트>` | 그 도구의 **셸에 입력**을 넣습니다. `--execute` 면 Enter 까지 칩니다. 텍스트 자리에 `-` 를 주거나 생략하면 stdin 을 읽습니다 |
+| `dmctl msg --to <uuid> [--from <uuid>] <메시지>` | 그 도구의 **에이전트에게** 신뢰 엔벨로프로 메시지를 보냅니다. `send-input` 과 다릅니다 — 이쪽은 상대가 에이전트임을 전제하고 봉투를 씌웁니다 |
+| `dmctl status [--at <uuid>] [--json]` | 그 도구의 에이전트 상태(`idle`/`working`/`waiting`/`done`) |
+| `dmctl wait [--at <uuid>] --for ready\|done [--timeout-ms N]` | 그 상태가 될 때까지 기다립니다. 서버가 long-poll 로 잡아 주므로 폴링 루프를 짜지 마세요 |
+
+#### 에이전트 훅에서 부르는 것
+
+이 셋은 사람이 직접 치는 명령이 아닙니다. 에이전트의 훅이 부릅니다.
+
+| 명령 | 설명 |
+|------|------|
+| `dmctl notify [label]` | 현재 도구에 **주의 알림**을 세웁니다. 탭·분할 칸에 표시가 뜨고, 설정에 따라 데스크톱 알림·소리가 납니다 |
+| `dmctl activity <agent>` | 현재 도구의 **작업 상태**를 보고합니다. 훅 JSON 을 stdin 으로 읽습니다 |
+| `dmctl agent-context` | 세션에 상시 주입할 **컨텍스트**를 냅니다 (이 도구가 어느 워크스페이스의 무엇인지) |
+
+#### 파일·URL 열기
+
+| 명령 | 설명 |
+|------|------|
+| `dmctl open-editor --at <uuid> [--name <이름>] <파일 절대경로>` | 그 분할 칸에 **편집기 탭**을 엽니다. 경로는 절대 경로여야 합니다 |
+| `dmctl open-url <url>` | **보고 있는 기기의 브라우저**로 엽니다. 서버가 도는 기계가 아닙니다 — 원격에서 쓰는 것이 이 제품의 기본 형태이기 때문입니다. 판정을 강제하려면 `DONGMINAL_URL_OPEN=local\|viewer` |
+
+#### 오케스트레이션 실행 기록 — 누가 어느 Run 의 팀원인가
+
+| 명령 | 설명 |
+|------|------|
+| `dmctl run start --objective <목적> [--projection <p>] [--isolation <i>]` | Run 을 연다 |
+| `dmctl run member --run <uuid> --role <이름> --agent <id> --at <탭 uuid> [--brief -]` | 그 Run 에 팀원을 등록한다 |
+| `dmctl run launch --member <uuid> [--model <m>]` | 그 팀원의 **기동줄**(프리앰블 포함)을 낸다 |
+| `dmctl run report --outcome succeeded\|failed --summary <3문장>` | 자기 몫의 결과를 보고한다 |
+| `dmctl run status [--run <uuid>]` · `dmctl run list` · `dmctl run close --run <uuid>` | 조회와 종료 |
+
+각 서브커맨드의 상세는 `dmctl run <서브커맨드> --help` 로 봅니다.
+여러 에이전트를 팀으로 묶는 절차는 `/dongminal:team` 스킬에 있습니다.
+
 #### 표준 라인 포맷 (list-workspace / who-am-i 공통)
 
 ```

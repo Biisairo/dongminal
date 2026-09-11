@@ -1,5 +1,7 @@
 # SRS: 언어 서버가 Windows 에서도 발견된다 — IEEE 29148
 
+> **문서 상태**: 승인·구현완료
+
 | 항목 | 값 |
 |---|---|
 | 문서 | LSP_WINDOWS_PORTABILITY_SRS |

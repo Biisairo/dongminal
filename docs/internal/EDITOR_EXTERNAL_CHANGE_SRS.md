@@ -1,6 +1,7 @@
 # 편집기와 외부 변경 — SRS
 
-- 문서 상태: **확정**. 2026-09-11 접수·판정, 같은 날 미해결 셋 해소.
+> **문서 상태**: 승인·구현완료
+
 - 접수: 사용자 보고 `U-22`
 - 관련: [`EDITOR_TAB_SRS`](./EDITOR_TAB_SRS.md) · [`SLOT_VIEW_STATE_SRS`](./SLOT_VIEW_STATE_SRS.md)
   (`FR-SVS-50`~`54` — 내용·dirty 는 **문서**의 것이다) ·

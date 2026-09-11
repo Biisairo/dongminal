@@ -1,6 +1,7 @@
 # SRS: Monaco 벤더링과 사전압축 정적 서빙 — IEEE 29148
 
-- 문서 상태: **구현 완료** (2026-09-10). 로드맵 M2 (`docs/internal/production/MILESTONE_KICKOFF.md` §M2).
+> **문서 상태**: 승인·구현완료
+
 - 근거 감사: `02-fe-arch.md` P1 "Monaco CDN"(`FE-6`) · `04-secops.md` §4.3(`B7`, CSP) ·
   `00-INDEX.md` §3 묶음 `B7`.
 - 짝 문서: `REQUEST_GATE_SRS.md` §5 비목표 8 이 "CSP·보안 헤더·Monaco 벤더링 …

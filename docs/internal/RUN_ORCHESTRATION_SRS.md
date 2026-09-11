@@ -1,5 +1,7 @@
 # SRS: Run 오케스트레이션 — 실행 기록·상태 계약·에이전트 어댑터·worktree 격리 — IEEE 29148
 
+> **문서 상태**: 승인·구현완료
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)

@@ -1,5 +1,7 @@
 # SRS: 샌드박스 창 — 컨테이너로 격리된 Window — IEEE 29148
 
+> **문서 상태**: 승인·구현완료
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)

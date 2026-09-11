@@ -135,6 +135,175 @@
 
 둘 다 `dmctl` 의 레이아웃 서브커맨드로는 호출할 수 없다 — `detach` CLI 전용 경로다.
 
+## REST — 나머지 표면 (M5 `DOC-4`)
+
+> 착수 시 이 문서는 실제 HTTP 표면의 **절반 이상을 빠뜨리고** 있었다 — Git 74개와
+> Run 11개가 통째로 없었다. 문서가 절반만 적는 것보다 나쁜 것은 **그것이 절반인
+> 줄 모르는 것**이다. 이제 `scripts/check-api-docs.sh` 가 양방향으로 대조하며,
+> 종단을 더하고 여기를 잊으면 CI 가 멎는다.
+>
+> **모든 오류 응답은 `X-Error-Code` 헤더에 코드를 싣는다.** 본문의 모양은 표면마다
+> 다르지만(방언 다섯) 헤더는 어디서나 같다 — 분기는 헤더로 하고, 코드의 뜻은
+> [`errors.md`](./errors.md) 에 있다. 함께 실리는 `X-Request-Id` 는 그 요청 하나의
+> 식별자이며, 신고에 적으면 서버 로그에서 그 요청이 남긴 줄 전부를 찾을 수 있다.
+
+### 진단·상태
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/health` | 사람이 읽는 상태. 판·가동 시간·도구 수·데몬 연결과 **판 불일치**·워크스페이스 rev·마지막 적재/영속 실패. 어긋난 것이 있어도 200 이며 사실은 본문에 있다 |
+| GET | `/api/diag` | 기계가 읽는 집계. `tools`·`ws`·`goroutines`·`allocMB`·`persistErr`·`gate.{access,request}`(게이트별 거절 수)·`reconnects`·`uptime`·`version`·`logLevel`. **개별 식별 정보를 싣지 않는다** — 주소·경로·도구 이름이 없다 |
+| GET | `/api/access` | 접속 허용 목록(ACL)의 현재 설정 |
+| ANY | `/api/open-url/where` | URL 을 **어디서** 열지의 판정만 낸다 (부작용 없음) |
+
+### 워크스페이스 되돌리기
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/workspace/revisions` | 되돌릴 수 있는 세대 목록. `{rev, generations:[{gen,bytes,modified}]}` |
+| POST | `/api/workspace/revert` | `{gen}` 세대를 현재 판으로 올린다. 직전 판이 세대 사슬의 맨 앞으로 들어가므로 **되돌리기도 되돌릴 수 있다**. 범위 밖이면 400, 그 세대가 없으면 404, 깨졌으면 409 |
+
+### 파일·탐색
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/file/probe` | 파일의 성격만 본다 — 크기·텍스트 여부·MIME. 내용을 읽지 않는다 |
+| GET | `/api/file/raw` | 파일 바이트 그대로. 이미지·이진 파일의 자리 |
+| POST | `/api/fs/copy` | 복사·이동 |
+| GET | `/api/fs/find` | 파일 **이름** 검색 |
+| GET | `/api/fs/grep` | 파일 **내용** 검색 (`rg` 가 있으면 그것을 쓴다) |
+
+### 도구 — 나머지
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/tools/activity/get` | 도구 하나의 현재 활동 상태 |
+| GET | `/api/tools/activity/wait` | 그 상태가 바뀔 때까지 **기다린다** (long-poll). 폴링 루프를 짜지 마세요 |
+| POST | `/api/tools/kill` | 도구의 전경 프로세스를 정지시킨다 |
+
+### 언어 서버 (LSP)
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| POST | `/api/lsp/status` | 그 언어의 서버가 설치·기동돼 있는가 |
+| POST | `/api/lsp/install` | 그 언어의 서버를 설치한다 |
+| POST | `/api/lsp/definition` | 정의로 이동 |
+| POST | `/api/lsp/references` | 참조 찾기 |
+| POST | `/api/lsp/hover` | 호버 정보 |
+
+### 샌드박스
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/sandbox/profiles` | 정의된 프로파일 목록 |
+| GET | `/api/sandbox/config` | 샌드박스 설정 |
+| GET | `/api/sandbox/runtime` | 컨테이너 런타임의 상태 — `ok`·`missing`·`stopped`. 셋은 사용자가 할 일이 다르다 |
+| POST | `/api/sandbox/runtime/start` | 멎어 있는 런타임을 띄운다 |
+
+### Run (오케스트레이션)
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/runs` | Run 목록·상세 (`?id=`) |
+| GET | `/api/runs/graph` | Run 하나의 팀 구조 — 누가 누구를 조정하는가 |
+| POST | `/api/runs/members` | Run 에 팀원을 등록한다 |
+| GET | `/api/runs/preamble` | 그 팀원의 기동 프리앰블 |
+| GET | `/api/runs/peers` | 같은 Run 의 다른 팀원들 |
+| POST | `/api/runs/context` | 세션에 상시 주입할 컨텍스트 |
+| POST | `/api/runs/attach` · `/api/runs/detach` | 도구를 Run 에 붙이고 뗀다 |
+| POST | `/api/runs/handoff` | 팀원 자리를 넘긴다 |
+| POST | `/api/runs/report` | 팀원이 자기 몫의 결과를 보고한다 |
+| POST | `/api/runs/succeed` | Run 을 성공으로 닫는다 |
+| POST | `/api/runs/close` | Run 을 닫는다 |
+
+### Git — 저장소·상태
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/git/repos` | 핀 목록과 각 배지. `?observe=1` 이면 응답 전에 핀 전부를 관측한다 |
+| GET | `/api/git/repo-at` | 그 경로가 저장소인가 (또는 어느 저장소에 속하는가) |
+| POST | `/api/git/init` | 그 자리를 저장소로 만든다 |
+| POST | `/api/git/repos/pin` · `/api/git/repos/unpin` | 핀을 더하고 뺀다 |
+| POST | `/api/git/repos/reorder` | 핀 순서. **서버가 권위**다 |
+| GET | `/api/git/status` | 변경 목록 |
+| GET | `/api/git/signature` | 저장소의 변화 서명 — 바뀌었을 때만 알리기 위한 값 |
+| GET | `/api/git/policy` | 이 저장소에서 허용되는 동작 |
+| GET | `/api/git/preflight` | 그 동작이 지금 가능한가 (사전 점검) |
+| GET | `/api/git/recovery` | 중단된 작업에서 돌아오는 길 |
+
+### Git — 변경·커밋
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| POST | `/api/git/stage` · `/api/git/unstage` | 스테이지에 올리고 내린다 |
+| POST | `/api/git/patch` | **부분 스테이징.** 화면이 본 내용과 디스크가 어긋나면 거절한다 |
+| GET | `/api/git/hunks` | 변경 덩어리 목록 |
+| POST | `/api/git/discard` | 변경을 버린다 |
+| POST | `/api/git/commit` | 커밋 |
+| POST | `/api/git/undo-last` | 마지막 커밋 되돌리기 (창이 지나면 거절) |
+| GET | `/api/git/diff-content` | diff 본문 |
+| GET | `/api/git/file-head` | HEAD 판의 파일 내용 |
+| GET | `/api/git/blame` | 줄별 마지막 변경자 |
+| GET | `/api/git/log` | 커밋 기록 |
+| GET | `/api/git/commit-range` | 두 지점 사이의 커밋들 |
+| POST | `/api/git/uncommitted/reset` · `/api/git/uncommitted/clean` | 미커밋 변경을 되돌리고, 추적되지 않는 파일을 지운다 |
+| POST | `/api/git/ignore` | `.gitignore` 에 더한다 |
+
+### Git — 브랜치·태그
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/git/refs` | 브랜치·태그 목록 |
+| GET | `/api/git/branch/validate` · `/api/git/tag/validate` | 이름이 git 규칙에 맞는가 |
+| POST | `/api/git/branch` · `/api/git/tag` | 만든다 |
+| POST | `/api/git/branch/rename` | 이름을 바꾼다 |
+| POST | `/api/git/branch/delete` · `/api/git/tag/delete` | 지운다 |
+| POST | `/api/git/branch/delete-remote` · `/api/git/tag/delete-remote` | 원격의 것을 지운다 |
+| POST | `/api/git/checkout` | 그 ref 로 옮긴다 |
+| POST | `/api/git/branch/upstream` | 추적 대상을 정한다 |
+| POST | `/api/git/branch/merge` · `/api/git/branch/rebase` | 합친다 |
+| GET | `/api/git/branch/merge-preview` | 합치면 무엇이 바뀌는가 (실행하지 않는다) |
+| POST | `/api/git/branch/push` · `/api/git/branch/fetch` | 그 브랜치만 밀고 받는다 |
+| POST | `/api/git/tag/push` | 태그를 민다 |
+| POST | `/api/git/cherry-pick` · `/api/git/revert` | 커밋 하나를 가져오고 되돌린다 |
+| POST | `/api/git/reset` | `soft`·`mixed`·`hard` |
+| POST | `/api/git/operation` | 진행 중인 작업(merge·rebase…)을 잇거나 중단한다 |
+| POST | `/api/git/resolve` | 충돌을 해결한 것으로 표시한다 |
+
+### Git — 원격·동기화
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/git/remotes` | 원격 목록 |
+| POST | `/api/git/remote/add` · `/api/git/remote/remove` | 원격을 더하고 뺀다 |
+| POST | `/api/git/fetch` · `/api/git/pull` · `/api/git/push` | 받고 당기고 민다 |
+| GET | `/api/git/jobs` | 도는 작업 목록 |
+| GET | `/api/git/job/events` | 그 작업의 진행 (SSE) |
+| POST | `/api/git/job/cancel` | 작업을 취소한다 |
+
+### Git — stash·worktree·submodule
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/git/stash` | stash 목록 |
+| GET | `/api/git/stash/show` | 그 stash 의 내용 |
+| POST | `/api/git/stash/push` | 지금 변경을 치워 둔다 |
+| POST | `/api/git/stash/apply` · `/api/git/stash/pop` | 되돌린다. `pop` 은 성공하면 목록에서 뺀다 |
+| POST | `/api/git/stash/branch` | 그 stash 로 브랜치를 만든다 |
+| POST | `/api/git/stash/drop` | 버린다 |
+| GET | `/api/git/worktrees` | worktree 목록 |
+| POST | `/api/git/worktrees/create` · `/api/git/worktrees/remove` | 만들고 지운다 |
+| GET | `/api/git/submodules` | 서브모듈 목록 |
+| POST | `/api/git/submodules/sync` · `/api/git/submodules/update` | 동기화하고 갱신한다 |
+
+### Git — 기록
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/git/records` | 이 앱이 실행한 git 명령의 기록 (Git ▸ 콘솔 탭) |
+| POST | `/api/git/records/replay` | 그중 하나를 다시 실행한다 |
+| POST | `/api/git/drop` | 기록 하나를 지운다 |
+
 ## WebSocket: `/ws?tool=<id>`
 
 Binary 프로토콜. 첫 바이트가 opcode.

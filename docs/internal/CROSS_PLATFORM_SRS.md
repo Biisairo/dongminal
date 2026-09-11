@@ -1,5 +1,7 @@
 # SRS: 크로스플랫폼 — OS 이음매의 인터페이스화 · Linux/WSL/Windows-native 지원 — IEEE 29148
 
+> **문서 상태**: 승인·구현완료
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)

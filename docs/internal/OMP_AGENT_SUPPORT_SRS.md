@@ -1,5 +1,7 @@
 # SRS: 지원 에이전트에 `omp`(oh my pi)를 더한다 — IEEE 29148
 
+> **문서 상태**: 승인·구현완료
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)

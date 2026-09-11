@@ -1,5 +1,9 @@
 # SRS: 바이너리 배포 — GitHub Releases · v1.0.0 — IEEE 29148
 
+> **문서 상태**: 승인·구현완료
+>
+> 근거: `FR-RWF-` 가 `release.yml` 에 실려 있다
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)

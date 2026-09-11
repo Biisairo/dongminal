@@ -1,5 +1,7 @@
 # SRS: 감시 임대를 SSE 구독에 맡긴다 — IEEE 29148
 
+> **문서 상태**: 승인·구현완료
+
 > 상태: **초안**. `GIT_PUSH_OBSERVE_SRS` FR-GPO-10·11 의 개정이며
 > `POLL_INTERVAL_SETTINGS_SRS` FR-PIS-9 의 전제를 고친다.
 > 근거 감사: `docs/internal/production/11-git-polling.md` §1 (`GP-1`, **P0**).

@@ -1,5 +1,9 @@
 # SRS: CI 게이트 — 최소 스펙
 
+> **문서 상태**: 승인·구현완료
+>
+> 근거: 게이트 A1~ 가 `scripts/check-*.sh` 와 `verify.yml` 에 있다
+
 > 상태: **초안**. 로드맵 M1 (`docs/internal/production/MILESTONE_KICKOFF.md` §M1).
 > 신규 제품 동작이 없다 — 검사기를 붙이는 일이므로 IEEE 29148 전체 구조를 쓰지
 > 않는다. 킥오프가 요구한 넷만 적는다: **게이트 목록 · 각 게이트의 실패 조건 ·

@@ -1,5 +1,7 @@
 # Git 창 — 동작 표면 완성 (SRS)
 
+> **문서 상태**: 승인·구현완료
+
 <!--
   IEEE 29148. 이 문서 하나가 "VSCode Git · Git Graph 의 GUI 기능을 다 갖춘다"는
   사용자 결정의 단일 진실 공급원이다.
@@ -305,11 +307,19 @@ merge·rebase·cherry-pick·revert 를 열면 **충돌로 멈춘 중간 상태**
 - **FR-GIT-269** **remote 목록 · add / remove.** Branches 탭에 원격 목록을 두고
   `git remote add|remove` 를 붙인다. remove 는 파괴적이 아니다(설정만 지운다) —
   다만 되살릴 `git remote add <name> <url>` 을 hint 로 남긴다.
-- **FR-GIT-270** **Sync.** pull 후 push 를 한 번의 진입점으로 묶는다. 두 job 을
-  **순서대로** 돌리고 앞이 실패하면 뒤를 돌리지 않는다.
-- **FR-GIT-271** **Push preview.** 밀기 전에 outgoing 커밋 목록을 보이고, 대상
-  remote/branch 를 고치게 하며, force-with-lease 를 그 자리에서 켠다.
-  목록은 `log <upstream>..<branch>` 이며 **새 조회를 만들지 않는다**.
+- ~~**FR-GIT-270** **Sync.**~~ **⊘ 철회** (`GIT_CHANGES_CONTROLS_SRS` FR-GCC-2·4).
+  화면의 진입점과 서버의 `POST /api/git/sync`·`GET /api/git/sync` 가 **지워졌다.**
+  원문: *"pull 후 push 를 한 번의 진입점으로 묶는다. 두 job 을 순서대로 돌리고
+  앞이 실패하면 뒤를 돌리지 않는다."*
+- ~~**FR-GIT-271** **Push preview.**~~ **⊘ 철회** (같은 문서 FR-GCC-2·4).
+  버튼·다이얼로그와 `GET /api/git/push/preview` 가 **지워졌다.**
+  원문: *"밀기 전에 outgoing 커밋 목록을 보이고, 대상 remote/branch 를 고치게
+  하며, force-with-lease 를 그 자리에서 켠다."*
+
+> **이 둘이 `09` 모순 C 였다** (M5, 2026-09-12). 아래 §7 상태 표가 `269~271 ✅`
+> 라고 적고 있었고, 그중 **둘은 제공되지 않는다.** `GIT_ACTIONS` 는 Git 표면의
+> **색인 문서**라 사용자 영향이 가장 크다 — 여기서 ✅ 를 본 사람은 화면에서
+> 그것을 찾다가 없다는 결론에 도달해야 했다.
 
 ### 3.6 묶음 F — stash · 파일 · 미커밋 행
 
@@ -413,8 +423,8 @@ merge·rebase·cherry-pick·revert 를 열면 **충돌로 멈춘 중간 상태**
 | **V194** | GIT-267 | e2e | 커밋 둘을 골라 비교하면 Diff 탭이 `rev↔rev` 축으로 열린다. `A..B` 입력도 같은 자리로 온다 |
 | **V195** | GIT-268 | e2e | 원격 브랜치의 세 항목이 각각 동작한다. 삭제는 2단계 확인 + 되살릴 hint 를 준다 |
 | **V196** | GIT-269 | e2e | remote add/remove 가 목록에 반영되고, remove 는 되살릴 명령을 남긴다 |
-| **V197** | GIT-270 | e2e | Sync 는 pull → push 순서이고, pull 이 실패하면 push 를 **돌리지 않는다** |
-| **V198** | GIT-271 | e2e | push preview 가 outgoing 목록을 보이고 force-with-lease 를 그 자리에서 켠다 |
+| ~~**V197**~~ | ~~GIT-270~~ | — | ⊘ 철회 — 기능이 삭제됐다 (`GIT_CHANGES_CONTROLS` FR-GCC-2·4) |
+| ~~**V198**~~ | ~~GIT-271~~ | — | ⊘ 철회 — 같음 |
 | **V199** | GIT-272 | e2e | stash 에서 브랜치를 만들면 그 stash 가 적용된 채 새 브랜치로 옮겨간다 |
 | **V200** | GIT-273 | 단위·e2e | `.gitignore` 추가가 저장소 루트 밖을 대상으로 삼지 않는다. 중복 줄을 더하지 않는다 |
 | **V201** | GIT-274·275 | e2e | Open File (HEAD) 가 워킹 트리가 아닌 HEAD 내용을 연다. File history 가 path 필터를 채워 연다 |
@@ -487,7 +497,8 @@ merge·rebase·cherry-pick·revert 를 열면 **충돌로 멈춘 중간 상태**
 | B 브랜치 | 253~259 · 268 | ✅ |
 | C 태그 | 260~262 | ✅ |
 | D 커밋 | 263~267 | ✅ |
-| E 원격 | 269~271 | ✅ |
+| E 원격 | 269 | ✅ |
+| E 원격 | ~~270·271~~ | ⊘ 삭제 (`GIT_CHANGES_CONTROLS` FR-GCC-2·4) |
 | F stash·파일·미커밋 | 272~275 · 277 | ✅ |
 | G 부분 스테이징 | 278·279 | ✅ |
 | H 읽기 보강 | **281 Console** | ✅ |

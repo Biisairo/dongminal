@@ -15,6 +15,51 @@
 Windows 최소 버전이 1809 인 이유는 ConPTY(`CreatePseudoConsole`)입니다. Windows 에서
 PTY 의미론을 얻는 유일한 공식 경로이며 그 버전에서 도입됐습니다.
 
+### 브라우저 (M5 `G10-2`)
+
+**화면은 브라우저에 있습니다.** 서버가 어디서 돌든 여러분이 보는 것은 브라우저이고,
+그래서 그쪽의 최소 버전이 이 제품의 요구사항입니다.
+
+| 브라우저 | 최소 | 비고 |
+|---|---|---|
+| Chrome · Edge · Brave 등 Chromium 계열 | 111 | **권장.** `dongminal window` 의 frameless 창(`--app`)이 여기만 있습니다 |
+| Safari | 16.4 | 동작합니다. frameless 창은 기본 브라우저로 내려갑니다 |
+| Firefox | 121 | 동작합니다. 같음 |
+
+버전 하한은 CSS `:has()` 와 중첩 규칙이 정합니다 — 스타일이 그 위에 서 있어서,
+그보다 낮으면 화면이 어긋난 채로 뜹니다.
+
+### 모바일
+
+**읽고 가볍게 만지는 데까지**를 지원합니다. 모바일 전용 키바가 있고 레이아웃이
+좁은 화면을 따라갑니다. 하지만 **긴 작업의 자리로 설계하지 않았습니다** — 분할
+칸과 다중 창이 모바일에서 뜻을 잃습니다.
+
+- iOS Safari 16.4+ · Android Chrome 111+
+- **데스크톱 알림은 동작하지 않습니다** (§보안 참고 — 평문 접속이면 어디서나 같습니다)
+- 홈 화면에 추가하면 독립 창으로 뜹니다 (웹 앱 매니페스트)
+
+### 선택 의존 — 없으면 어떻게 되나 (M5 `G10-2`)
+
+**셋 다 없어도 서버는 뜹니다.** 없으면 그 기능만 조용히 빠지는 것이 아니라,
+**화면이 그 사실을 말합니다.**
+
+| 도구 | 쓰는 곳 | 없으면 |
+|---|---|---|
+| `git` | Git 사이드바 전부 · 편집기의 dirty-diff | Git 표면이 `git_missing` 코드로 답합니다. 터미널·편집기는 그대로 동작합니다 |
+| `docker` | 샌드박스 창 | 샌드박스 창을 만들 때 *"컨테이너 런타임이 설치되어 실행 중인지 확인하세요"* 가 뜹니다. **설치됐는데 멎어 있는 경우와 가릅니다** — 사용자가 할 일이 다르기 때문입니다 |
+| `rg` (ripgrep) | 파일 내용 검색 | 느린 내장 검색으로 내려갑니다. 결과는 같고 큰 저장소에서 시간이 걸립니다 |
+
+### `linux/arm64` 는 검증되지 않았습니다 (M5 `G10-5`)
+
+릴리스에 `dongminal-linux-arm64` 를 올리지만 **그 대상에서 실기 검증을 하지
+않습니다.** CI 는 `ubuntu-latest`(x86_64) · `windows-latest` · `macos`(arm64)
+셋에서 돌고, 리눅스 ARM 은 **교차 컴파일만 확인**합니다.
+
+빌드가 되는 것과 도는 것은 다른 물음입니다. 라즈베리파이나 ARM 서버에서 쓰시면
+동작할 가능성이 높지만 **우리가 그것을 보증하지 않습니다.** 문제가 있으면
+알려 주세요 — 그 보고가 이 칸을 채우는 유일한 길입니다.
+
 ## 설치
 
 [Releases](https://github.com/Biisairo/dongminal/releases/latest) 에서 자기 OS 것
@@ -251,17 +296,84 @@ DONGMINAL_HOST=0.0.0.0 ./dongminal start       # 동등한 형태
 
 ## 환경 변수
 
+여기 있는 것이 **전부**입니다. 코드에 있는데 이 표에 없는 변수(또는 그 반대)는
+CI 가 잡습니다 (`scripts/check-env-docs.sh`) — 문서는 조용히 낡으므로 사람의 눈을
+집행자로 두지 않습니다.
+
+### 서버 기동
+
 | 변수 | 기본 | 설명 |
 |------|------|------|
-| `PORT` | `58146` | HTTP 서버 포트. `--port` 가 우선 |
-| `DONGMINAL_HOME` | `~/.dongminal` | 설치 루트. `bin/`(런타임 헬퍼), `settings.json`, `access.json`(접속 허용 목록), `workspace.json`, `tools.json`, `notes/`(메모장) 모두 이 아래. 없으면 서버 기동 시 자동 생성 |
-| `DONGMINAL_PORT` | = `PORT` | 서버가 자식 PTY 프로세스에 주입. `dmctl`, `edit` 가 서버로 HTTP 콜 할 때 사용 |
-| `DONGMINAL_HOST` | `127.0.0.1` | HTTP 서버 바인딩 주소. `127.0.0.1` 은 동일 PC 전용, `0.0.0.0` 은 LAN 노출. `--expose` 가 우선. `dmctl` 도 이 값으로 서버에 접속 |
-| `DONGMINAL_LOG` | `/tmp/dongminal.log` | `start` 가 배경 모드에서 서버 로그를 리다이렉트할 파일 |
+| `PORT` | `58146` | HTTP 서버 포트. `--port` 가 우선. **숫자가 아니거나 1~65535 밖이면 기동 전에 거부**되고, 그 문구에 변수 이름과 값이 실립니다 |
+| `DONGMINAL_PORT` | = `PORT` | 같은 포트를 가리키는 두 번째 이름. `PORT` 가 먼저입니다. 서버가 자식 PTY 프로세스에 주입하므로 `dmctl`·`edit` 가 이 값으로 서버에 되붙습니다 |
+| `DONGMINAL_HOST` | `127.0.0.1` | HTTP 서버 바인딩 주소. `--expose`(=`0.0.0.0`) 가 우선. `dmctl` 도 이 값으로 서버에 접속합니다.<br>**loopback(`127.0.0.1`·`::1`·`localhost`)이 아니면 전부 "노출" 입니다** — `192.168.x` 같은 주소도 노출이고, 그때는 Settings ▸ Access 의 허용 목록을 켜야 서버가 뜹니다 |
+| `DONGMINAL_HOME` | `~/.dongminal` | 설치 루트. `bin/`(런타임 헬퍼), `server.json`, `settings.json`, `access.json`(접속 허용 목록), `workspace.json`, `tools.json`, `notes/`(메모장) 모두 이 아래. 없으면 서버 기동 시 자동 생성 |
+| `DONGMINAL_LOG` | `/tmp/dongminal.log`<br>(Windows: `%LOCALAPPDATA%` 아래) | `start` 가 배경 모드에서 서버 로그를 리다이렉트할 파일 |
+| `DONGMINAL_LOG_LEVEL` | `info` | 로그 수준 — `debug`·`info`·`warn`·`error`. 알 수 없는 값은 `info` 로 떨어집니다 |
+| `DONGMINAL_RESTART_RUNNER` | (내부) | **직접 설정하지 마세요.** `--restart-daemon` 이 재시작을 대리 프로세스에 넘길 때 그 대리에게 심는 표시입니다 — 대리가 다시 위임하지 않게 하는 것이 전부입니다 |
+
+### 도구 셸에 주입되는 값
+
+서버가 도구(터미널 탭)의 셸에 직접 심는 값입니다. **사용자가 설정할 것이
+아니라**, 그 셸 안에서 도는 프로그램이 자기 자리를 알기 위해 읽는 값입니다.
+
+| 변수 | 기본 | 설명 |
+|------|------|------|
+| `DONGMINAL_TOOL_ID` | (주입) | 이 셸이 어느 도구 안인지. `dmctl` 이 자기 정체를 이것으로 압니다 |
+| `DONGMINAL_TOOL_HOME` | 사용자 홈 | 도구 셸이 자기 `HOME` 으로 여길 곳. 비면 사용자 홈입니다. 검사·격리 기동이 도구 셸을 사용자 홈에서 떼어내는 자리입니다 |
+| `DONGMINAL_HISTFILE` | `<home>/tool-history/…` | 도구 셸이 쓸 히스토리 파일. macOS `/etc/zshrc` 가 `HISTFILE` 을 무조건 덮으므로, 값은 서버가 정하고 zdotdir 의 rc 가 이 변수로 되살립니다 |
+| `DONGMINAL_SHELL` | 로그인 셸 | 도구 셸로 띄울 프로그램을 강제합니다. 비면 플랫폼 계층이 고릅니다 |
+
+### 동작 조정
+
+| 변수 | 기본 | 설명 |
+|------|------|------|
+| `DONGMINAL_ATTENTION_IDLE_MS` | `10000` | 도구가 이만큼 조용하면 "대기" 로 봅니다(L2 판정). `0` 이면 그 판정을 끕니다 |
+| `DONGMINAL_ATTENTION_BELL` | (꺼짐) | `1` 이면 맨 BEL(`\a`) 하나도 주의 신호로 셉니다. 기본이 꺼짐인 것은 BEL 이 시끄럽기 때문입니다 — 탭 자동완성 하나에도 울립니다 |
+| `DONGMINAL_CMD_RESULT_TIMEOUT_MS` | `3000` | 명령 결과를 기다리는 long-poll 상한 |
+| `DONGMINAL_URL_OPEN` | (자동 판정) | `local` 또는 `viewer`. 서버가 URL 을 **어디서** 열지의 판정을 강제합니다 |
+
+### 빌드
+
+| 변수 | 기본 | 설명 |
+|------|------|------|
 | `BINARY` | `dongminal` | `./scripts/build.sh` 가 만들 바이너리 이름 |
 
-우선순위는 **플래그 > 환경변수 > 기본값**입니다. 레포 루트의 `.env` 는 더 이상
-읽히지 않습니다 — 셸 환경변수로 주거나 `--port`/`--home` 을 쓰세요.
+### 우선순위
+
+**플래그 > 환경변수 > `$DONGMINAL_HOME/server.json` > 기본값** 입니다.
+레포 루트의 `.env` 는 더 이상 읽히지 않습니다.
+
+빈 값은 "정하지 않음" 이라 다음 계층으로 넘어갑니다. 지금 실효값이 무엇이고
+**어디서 왔는지**는 이것으로 봅니다:
+
+```bash
+dongminal config show          # 값과 출처(flag/env/file/default)
+dongminal config validate      # 설정 파일을 스키마에 대조 (불일치가 있으면 exit 1)
+```
+
+### `server.json` — 기계마다 다른 기동값을 고정합니다
+
+`$DONGMINAL_HOME/server.json` 에 두면 셸 프로필이나 래퍼 스크립트 없이 기동값이
+따라옵니다. 없는 것이 정상이고, 없으면 조용히 넘어갑니다.
+
+```json
+{
+  "host": "127.0.0.1",
+  "port": "58146",
+  "logLevel": "info",
+  "logFile": "/tmp/dongminal.log"
+}
+```
+
+**깨져 있어도 서버는 뜹니다.** 경고를 내고 다음 계층으로 갑니다 — 설정 파일
+하나가 서버를 못 뜨게 만들면 그것을 고칠 화면에 닿을 수 없기 때문입니다.
+(`access.json` 은 반대로 읽지 못하면 loopback 만 통과시킵니다. 그쪽은 **경계**고
+이쪽은 **편의**라 답이 갈립니다.)
+
+브라우저 설정(테마·단축키·상태바·레이아웃)은 여기가 아니라 `settings.json` 이며,
+**서버는 그것을 해석하지 않습니다.** `dongminal config validate` 로 대조할 수는
+있지만, 그것은 사람이 부를 때만 도는 진단이고 요청 경로에 없습니다.
 
 ### 런타임 헬퍼 배포 (자동)
 
@@ -288,9 +400,70 @@ DONGMINAL_HOST=0.0.0.0 ./dongminal start       # 동등한 형태
 
 브라우저에서 `http://localhost:<PORT>/` 를 열면 즉시 터미널이 뜨고 첫 도구가 자동 생성됩니다.
 
+## 데이터가 어디 있나요 (M5 `G10-3`)
+
+전부 `$DONGMINAL_HOME`(기본 `~/.dongminal`) 아래에 있습니다. **이 폴더 밖에
+상태를 두지 않습니다** — 로그 하나만 예외입니다.
+
+| 자리 | 무엇 | 옮겨지나 |
+|---|---|---|
+| `workspace.json` | 창·칸·탭의 배치 | ✅ `backup` 이 담습니다 |
+| `settings.json` | 테마·단축키·상태바·레이아웃 프리셋 | ✅ |
+| `access.json` | 접속 허용 목록 | ✅ |
+| `runs.json` | Run(오케스트레이션) 기록 | ✅ |
+| `tools.json` | 도구의 이름·작업 폴더 | ✅ |
+| `server.json` | 서버 기동값 | ✅ |
+| `sandbox.json` | 샌드박스 프로파일 | ✅ |
+| `notes/` | 메모장 | ✅ |
+| `bin/` | 런타임 헬퍼 | ❌ 기동마다 다시 채웁니다 |
+| `tool-history/` | 도구 셸의 히스토리 | ❌ |
+| `paned.sock` · `paned.pid` | 데몬 IPC | ❌ |
+| `.lastexit` | 마지막 종료가 정상이었는지 | ❌ |
+| `server.log` · `daemon.log` · `restart.log` | 로그 | ❌ |
+| `$DONGMINAL_LOG` (기본 `/tmp/dongminal.log`) | 배경 모드 기동 로그 — **홈 밖입니다** | ❌ |
+
+```bash
+dongminal backup --out ~/dm-backup.zip   # 옮겨지는 것 전부
+dongminal restore ~/dm-backup.zip --yes  # 되돌리기
+dongminal uninstall --dry-run            # 지울 것을 먼저 봅니다
+```
+
+**브라우저에도 일부가 삽니다.** 기기별 취향(알림 켬/끔·슬롯 방향)은
+`localStorage` 에, 탭별 값(표시 모드)은 `sessionStorage` 에 있습니다.
+Settings ▸ Backup 의 내보내기가 그 셋을 한 파일로 담습니다.
+
+## 지원 범위와 폐기 정책 (M5 `G10-4`)
+
+### 지원하는 것
+
+- **최신 릴리스 한 판.** 옛 판의 수정본을 따로 내지 않습니다. 문제가 있으면
+  최신으로 올려 주세요 — `dongminal update --check` 가 그것이 있는지 알려 줍니다.
+- 위 §요구사항의 OS·브라우저 조합.
+
+### 스키마 호환 약속
+
+- **`workspace.json` 의 `schemaVersion` 은 위아래 모두 거부합니다.** 판이 뒤진
+  서버가 앞선 파일을 열면 빈 배치를 저장해 **덮어쓰기** 때문입니다. 판을 올릴 때
+  `dongminal migrate` 가 변환합니다.
+- **`settings.json` 은 모르는 키를 무시합니다.** 판이 앞선 브라우저가 쓴 값이
+  뒤진 서버에서 지워지지 않습니다. `dongminal config validate` 로 대조할 수는
+  있지만, 알 수 없는 키는 **경고이지 오류가 아닙니다.**
+- **`server.json` 은 깨져도 기동을 막지 않습니다.** 경고를 내고 다음 계층으로
+  갑니다 — 설정 파일 하나가 서버를 못 뜨게 하면 그것을 고칠 화면에 닿을 수 없습니다.
+
+### 폐기 정책
+
+- **없앨 것은 한 판 앞서 알립니다.** CHANGELOG 에 적고, 해당 표면이 경고를 냅니다.
+- **환경변수의 이름은 계약입니다.** 바꾸지 않습니다.
+- **인증과 TLS 는 확정된 비목표입니다.** 추가 예정이 아니며, 그 경계는
+  [`SECURITY.md`](../../SECURITY.md) 에 적혀 있습니다.
+
 ## 다음 단계
 
+- **노출해서 쓸 때의 경계: [SECURITY.md](../../SECURITY.md)** — 무엇을 보증하고
+  무엇을 보증하지 않는지
 - 기능 전체: [features.md](./features.md)
+- 오류 코드와 복구 안내: [errors.md](./errors.md)
 - 단축키 커스터마이징: [shortcuts.md](./shortcuts.md)
 - 터미널 안에서 쓰는 `dmctl` / `edit` / `download` CLI: [commands.md](./commands.md)
 - 에이전트 오케스트레이션: [agent-orchestration.md](./agent-orchestration.md)

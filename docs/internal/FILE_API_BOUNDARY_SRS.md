@@ -1,6 +1,7 @@
 # SRS: `/api/file/*` 의 경계 — IEEE 29148
 
-- 문서 상태: **초안**. 로드맵 M2 (`docs/internal/production/MILESTONE_KICKOFF.md` §M2).
+> **문서 상태**: 승인·구현완료
+
 - 근거 감사: `04-secops.md` §3 P1-5 · §4.4(`SEC-19`) · `05-test.md` §1
   "`/api/file/write` 테스트 0" · `12-func-ui.md` `FUI-06`.
 - 짝 문서: `REQUEST_GATE_SRS.md` — 그쪽이 **누가 부를 수 있는가**, 이쪽이 **무엇에 닿을

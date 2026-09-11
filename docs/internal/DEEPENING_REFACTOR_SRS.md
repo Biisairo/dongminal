@@ -1,5 +1,7 @@
 # SRS: 얕은 모듈 깊이화 리팩터 — IEEE 29148
 
+> **문서 상태**: 승인·구현완료
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)
@@ -489,7 +491,12 @@ E·F 는 이득이 비용을 크게 넘지 않는다고 분석에서 판단했�
 - **`git/panel.js`(2,837줄)·`ui/file-tree.js`(1,169줄)** (비목표 N6). 크지만 얕음의
   증거를 못 찾았다.
 
-- **`diag_snapshot_test.go` 의 데이터 경쟁** — 이 리팩터와 **무관한 기존 결함**이다.
+- **`diag_snapshot_test.go` 의 데이터 경쟁** — ✅ **닫혔다** (`CODE_AUDIT_FIXES_SRS`
+  FR-CAF-1, `09` 모순 E 로 확인). `go test -race -count=3` 에서 재현되지 않으며,
+  `diag_snapshot_test.go` 가 `<-done` 으로 "끝난 것을 확인한 뒤에 읽는다" 를
+  지킨다. **아래는 그 당시의 기록이다** — 미결로 읽지 마라.
+
+  이 리팩터와 **무관한 기존 결함**이었다.
   검증 중 `go test -race` 로 드러났고, `git archive HEAD` 로 뜬 기준선에서도
   같은 실패가 재현된다.
 

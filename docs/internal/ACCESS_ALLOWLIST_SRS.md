@@ -1,5 +1,7 @@
 # SRS: 접속 허용 목록 (Access Allowlist) — IEEE 29148
 
+> **문서 상태**: 승인·구현완료
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)

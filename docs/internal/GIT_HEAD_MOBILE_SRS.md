@@ -1,5 +1,7 @@
 # SRS: Git 머리의 왼쪽 정렬 · History 이식 · 모바일 폭 — IEEE 29148
 
+> **문서 상태**: 승인·구현완료
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)

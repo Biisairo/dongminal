@@ -1,5 +1,9 @@
 # SRS: Bright Dark 테마 추가 (IEEE 29148 준수)
 
+> **문서 상태**: 승인·구현완료
+>
+> 근거: `themes.js` 에 `mode:'light'` 테마가 있다 — FR 번호에 접두사가 없어 자동 판정이 닿지 않았다
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)

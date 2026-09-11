@@ -1,6 +1,7 @@
 # SRS: 브라우저의 API 호출을 한 자리로 — IEEE 29148
 
-- 문서 상태: **초안**. 로드맵 M2 (`docs/internal/production/MILESTONE_KICKOFF.md` §M2, `FE-8`).
+> **문서 상태**: 승인·구현완료
+
 - 근거 감사: `02-fe-arch.md` P1 "fetch 관용구 중복" · `00-INDEX.md` §3 묶음 `B3`.
 - 후속: M4(인증). **이 문서의 존재 이유가 그것이다** — 401 을 한 자리에서 다루려면
   호출이 한 자리를 지나야 한다.

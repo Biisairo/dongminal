@@ -1,5 +1,9 @@
 # SRS: 문서 언어의 코드 탐색 (Markdown · SVG · YAML · JSON · HTML · CSS) — IEEE 29148
 
+> **문서 상태**: 초안
+>
+> 근거: 묶음 A·B 는 `EDITOR_LSP_SRS` 가 덮었고(§1 머리말), 남은 고유분(묶음 C·D)은 구현되지 않았다
+
 > **소유 주의.** 이 문서가 다루는 코드(`internal/webserver/domain/lsp`,
 > `web/js/core/app-lsp.js`, `constants-editor.js`)는 **다른 세션이 진행 중인 영역**이다
 > (I-3). 여기 적은 것은 그 세션이 딛거나 이어받을 **요구와 접촉면**이며, 이 문서를
