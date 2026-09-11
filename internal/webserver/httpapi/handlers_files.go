@@ -324,6 +324,31 @@ func (s *Server) apiCwd(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"cwd": cwd, "source": source})
 }
 
+// EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-11 — 저장의 경합을 가릴 **표식**.
+//
+// 클라이언트에게는 **불투명한 문자열**이다. 읽기가 헤더로 주고 저장이 본문으로
+// 되돌려 보내며, 견주는 것은 서버뿐이다 (FR-EXC-6) — 판정을 클라이언트에 두면 두
+// 창이 같은 파일을 볼 때 서로 다른 답을 갖는다.
+//
+// 지금의 재료는 mtime(나노초)+크기이고 `os.Stat` 한 번이라 싸다. 정밀도가 모자란
+// 파일시스템이 문제가 되면 내용 해시로 바꾼다 — **그때 클라이언트는 한 줄도 바뀌지
+// 않는다.** 불투명하게 두는 값이 그것이다.
+const fileStampHeader = "X-File-Stamp"
+
+func fileStamp(fi os.FileInfo) string {
+	return fmt.Sprintf("%x-%x", fi.ModTime().UnixNano(), fi.Size())
+}
+
+// stampOfPath 는 지금 디스크의 표식이다. 파일이 없으면 빈 문자열이며, 그것은
+// **경합이 아니다** (FR-EXC-10a) — 덮어쓸 상대가 없다.
+func stampOfPath(p string) string {
+	fi, err := os.Stat(p)
+	if err != nil || fi.IsDir() {
+		return ""
+	}
+	return fileStamp(fi)
+}
+
 func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 	// FR-FAB-11: 읽기도 같은 판정이다. 쓰기만 막고 읽기를 열어 두면 SSH 개인키나
 	// 클라우드 자격 파일이 그대로 나간다 — 이쪽은 응답을 돌려주므로 오히려 더
@@ -358,6 +383,10 @@ func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	// FR-EXC-11: 표식은 **헤더**로 간다. 본문은 파일 원문이므로(FR-CAPI-11) 실을
+	// 자리가 여기뿐이다. `ETag` 를 쓰지 않는 것은 브라우저의 조건부 GET 이 끼어들어
+	// 304 를 만들 수 있어서다 — 편집기는 언제나 본문을 받아야 한다.
+	w.Header().Set(fileStampHeader, fileStamp(stat))
 	// GO-38: **복사의 결과를 버리지 않는다.** 여기서 실패하면 헤더는 이미 나갔으므로
 	// 상태 코드를 바꿀 수 없다 — 그래서 할 수 있는 일은 **기록**뿐이고, 기록이
 	// 없으면 "파일이 잘려서 왔다" 는 신고에 대고 아무것도 말할 수 없다.
@@ -372,6 +401,9 @@ func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 type fileWriteReq struct {
 	Path    string `json:"path"`
 	Content string `json:"content"`
+	// FR-EXC-11: 읽을 때 받은 표식. **비어 있으면 검사하지 않는다** (FR-EXC-6a) —
+	// 옛 클라이언트와, 확인창에서 사용자가 승인한 덮어쓰기가 그 길로 온다.
+	Stamp string `json:"stamp"`
 }
 
 func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
@@ -393,6 +425,17 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-5·7: 우리가 읽은 뒤 디스크가 바뀌었으면
+	// 덮지 않는다. 종전에는 **마지막에 저장한 쪽이 이겼다.**
+	//
+	// 파일이 없을 때는 검사하지 않는다 — 삭제는 경합이 아니라 부재이고, 그때의
+	// 저장은 새로 만드는 것이다 (FR-EXC-10a).
+	if req.Stamp != "" {
+		if cur := stampOfPath(target); cur != "" && cur != req.Stamp {
+			http.Error(w, "file changed on disk", http.StatusConflict)
+			return
+		}
+	}
 	// 원자적으로 쓴다 (FR-CAF-11). 여기서 잘리는 것은 우리 상태 파일이 아니라
 	// **사용자가 쓰던 원본**이다 — 편집기의 저장이 이 종단이다.
 	if err := platform.WriteFileAtomic(target, []byte(req.Content), 0o644); err != nil {
@@ -401,5 +444,8 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+	// FR-EXC-11: **새 표식을 함께 준다.** 없으면 클라이언트가 든 표식이 방금 쓴
+	// 내용보다 낡아서, 다음 저장이 제 손으로 만든 변경에 걸려 409 가 된다 —
+	// 한 번 저장하면 그 뒤로 아무것도 저장되지 않는다는 뜻이다.
+	json.NewEncoder(w).Encode(map[string]any{"ok": true, "stamp": stampOfPath(target)})
 }

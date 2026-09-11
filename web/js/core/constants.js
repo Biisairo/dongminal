@@ -418,6 +418,19 @@ const FILE_UNSUPPORTED_TITLE='열 수 없는 형식입니다';
 const FILE_UNSUPPORTED_HINT='이진 파일은 편집기로 열지 않습니다 — 열어서 저장하면 원본이 깨집니다.';
 const FILE_IMAGE_FAIL='이미지를 불러오지 못했습니다';
 
+// EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-9 — 저장하려는데 그 파일이 밖에서 바뀌었다.
+//
+// 선택지가 둘뿐인 것은 뜻이 있다. `디스크 것으로 덮기` 는 **편집본을 확인 없이
+// 버리는 쪽**이라 `FR-RTU-103`(U-10)과 정면으로 걸리고, 그것을 안전하게 주려면
+// 확인을 한 번 더 물어야 하는데 그러면 확인이 두 걸음이 된다 (FR-COS-1).
+// 취소하면 편집본은 화면에 그대로 남으므로 사용자가 스스로 처리할 수 있다.
+// FR-EXC-11: 표식이 실려 오는 자리. 값은 **불투명**하며 클라이언트는 이름만 안다.
+const FILE_STAMP_HEADER='X-File-Stamp';
+const FILE_CONFLICT_TITLE='파일이 밖에서 바뀌었습니다';
+const FILE_CONFLICT_MSG='이 파일은 연 뒤 디스크에서 바뀌었습니다. 덮어쓰면 그 변경이 사라집니다.';
+const FILE_CONFLICT_GO='내 것으로 덮어쓰기';
+const FILE_CONFLICT_CANCEL='취소';
+
 // FILE_API_BOUNDARY_SRS FR-FAB-9 (`FUI-06`) — 상한을 넘는 파일은 올리지 않는다.
 // 상한 **값**은 여기 없다. 서버가 `probe.maxBytes` 로 준다 — 두 벌이면 한쪽만
 // 고쳐지고, 그때 사용자는 "열린다고 했는데 안 열린다" 를 만난다.

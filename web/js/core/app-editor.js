@@ -327,15 +327,27 @@ Object.assign(App.prototype, {
    * 한 파일이 실패해도 나머지를 시도한다. 그 실패는 `save()` 가 이미 알리며,
    * 여기서 멈추면 저장할 수 있었던 것까지 잃는다.
    */
+  /**
+   * 이 창의 저장하지 않은 편집을 전부 저장한다. **하나라도 실패하면 거짓이다**
+   * (EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-13a).
+   *
+   *   이전 동작: 반환 없음 — 창 닫기가 결과를 모른 채 닫았다
+   *   새  동작: 참/거짓
+   *   이유:     경합으로 막힌 저장이 있는데 창이 닫히면 그 편집을 잃는다
+   *
+   * 실패해도 **나머지를 마저 시도한다** — 첫 실패에서 멈추면 저장할 수 있었던
+   * 것까지 저장되지 않은 채 남는다.
+   */
   async _edWinSaveDirty(s){
-    if(!s||!s.layout) return;
+    if(!s||!s.layout) return true;
     // FR-RTU-103: Diff 의 편집도 함께 저장한다 — `_edWinDirty` 가 그것을 세었으므로
     // 여기서 빠뜨리면 "저장하고 닫기" 가 일부만 저장한다.
     const root=this._edRootOf(s);
+    let ok=true;
     for(const pn of this._flattenPanes(s.layout))
       for(const t of (pn.tabs||[]))
-        if(t&&t.type===TAB_TYPE_GIT) await this._gitViewSave(root,t.gitView);
-    if(!this.fileEditors) return;
+        if(t&&t.type===TAB_TYPE_GIT&&!await this._gitViewSave(root,t.gitView)) ok=false;
+    if(!this.fileEditors) return ok;
     const ids=new Set();
     for(const pn of this._flattenPanes(s.layout))
       for(const t of (pn.tabs||[])) if(t&&t.type==='editor') ids.add(t.id);
@@ -344,8 +356,9 @@ Object.assign(App.prototype, {
       const base=this._slotBase(k);
       if(!v||!v._dirty||!ids.has(base)||done.has(base)) continue;
       done.add(base);
-      await v.save();
+      if(!await v.save()) ok=false;
     }
+    return ok;
   },
 
   // FR-WBR-41: 미룬 사실을 알린다. 창 이름을 밝힌다 — 개수만 말하면 어느 것을
@@ -463,7 +476,10 @@ Object.assign(App.prototype, {
       // 두 번째 뷰가 "이미 누가 열어 두었다" 를 알 수 있다.
       // `dd` 는 변경 표시(EDITOR_DIRTY_DIFF_SRS)다. 문서의 것인 이유는 기준과
       // 계산이 모델 하나에 대한 것이기 때문이다 (FR-EDD-5·15 / D-4).
-      d={model:null,dirty:false,saving:false,dd:null,views:new Set()};
+      // `stamp` 는 경합의 재료다 (EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-11). 문서의
+      // 것인 이유는 dirty·내용과 같다 — 두 칸이 같은 파일을 볼 때 한쪽이 저장하면
+      // **양쪽의** 표식이 함께 새것이 되어야 다음 저장이 제 발에 걸리지 않는다.
+      d={model:null,dirty:false,saving:false,stamp:'',dd:null,views:new Set()};
       this._edDocs.set(filePath,d);
     }
     return d;

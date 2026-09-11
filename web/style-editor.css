@@ -505,3 +505,10 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 }
 /* 이전에 아무것도 없던 자리 — 파일의 내용이 아니라 우리의 말이다. */
 .fe-dd-peek-old.none{color:var(--text-dim);font-style:italic}
+
+/* ── 저장의 경합 확인 (EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-9) ──
+   상자·백드롭·버튼 줄은 `.ui-modal` 이 갖는다. 여기에는 어느 파일의 이야기인지를
+   먼저 읽히게 하는 규칙만 둔다 — 경로만 길게 흐르면 무엇을 덮어쓰는지가 묻힌다. */
+.fe-conflict .ui-modal-body{display:flex;flex-direction:column;gap:8px}
+.fe-conflict-path{color:var(--text-bright);font-size:13px;word-break:break-all}
+.fe-conflict-msg{color:var(--text-muted);font-size:12px;line-height:1.5}

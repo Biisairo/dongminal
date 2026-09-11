@@ -197,7 +197,9 @@ Object.assign(App.prototype, {
     if(this._edWinDirty&&this._edWinDirty(s)){
       const r=await this._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
       if(!r) return;
-      if(r==='save') await this._edWinSaveDirty(s);
+      // FR-EXC-13a: 하나라도 저장하지 못했으면 창을 닫지 않는다 — 탭 하나의
+      // 경합으로 창 전체의 편집을 잃을 수는 없다.
+      if(r==='save'&&!await this._edWinSaveDirty(s)) return;
     }
     const pids=allPids(s.layout);
     const busyChecks=await Promise.all(pids.map(pid=>this._isToolBusy(pid)));
@@ -576,8 +578,15 @@ Object.assign(App.prototype, {
       // 파일은 이미 없다.
       if(editor && editor._dirty && !opts.force){
         const result=await this._confirmClose(CLOSE_DIRTY_MSG, { saveBtn: true });
+        // EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-13: **저장이 실패하면 닫지 않는다.**
+        // 위 Diff 경로가 이미 그렇게 한다 — 편집기 경로에만 그 가드가 없었다.
+        //
+        //   이전 동작: `await editor.save()` 뒤 무조건 닫았다
+        //   새  동작: 저장이 거짓을 주면 탭이 남는다 (dirty 도 남는다)
+        //   이유:     경합(FR-EXC-5)이면 저장이 막힌다. 저장한 줄 알고 닫는 것이
+        //             곧 손실이다 (FR-RTU-103)
         if(result==='save'){
-          await editor.save();
+          if(!await editor.save()) return;
         }else if(!result){
           return;
         }

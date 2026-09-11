@@ -199,6 +199,9 @@ class FileEditor {
     // 그대로 문서로 잇는다 — 이 뷰의 본문은 그 자리가 어디인지 알 필요가 없다.
     // 문서를 아직 못 얻었을 때(이진·이미지·로딩 실패)를 위한 폴백이 `__dirty` 다.
     this.__dirty = false;
+    // FR-EXC-11: 표식의 폴백. 자리는 `__dirty` 와 같다 — 문서를 못 얻은 뷰도
+    // 저장은 할 수 있어야 한다.
+    this.__stamp = '';
     this._doc = (typeof app !== 'undefined' && app && app._edDoc) ? app._edDoc(filePath) : null;
     if (this._doc) this._doc.views.add(this);
     // EDITOR_GIT_UX_SRS FR-EGS-10: 검색 결과로 열린 경우 갈 자리. Monaco 가
@@ -213,6 +216,12 @@ class FileEditor {
 
   get _dirty() { return this._doc ? this._doc.dirty : this.__dirty }
   set _dirty(v) { if (this._doc) this._doc.dirty = v; else this.__dirty = v }
+
+  // FR-EXC-11: 표식도 **문서**의 것이다 (FR-SVS-50 과 같은 근거). 두 칸이 같은
+  // 파일을 볼 때 한쪽의 저장이 다른 칸의 표식을 낡은 채 두면, 그 칸의 다음
+  // 저장이 **자기 편이 만든 변경**에 걸려 경합이 된다.
+  get _stamp() { return this._doc ? this._doc.stamp : this.__stamp }
+  set _stamp(v) { if (this._doc) this._doc.stamp = v; else this.__stamp = v }
 
   // FR-SVS-54: dirty 는 문서의 것이므로 같은 파일을 보는 **모든 칸**의 탭이
   // 동시에, 같게 표시된다.
@@ -336,10 +345,17 @@ class FileEditor {
     return loadMonaco();
   }
 
+  /**
+   * 파일 원문 하나. **표식을 함께 거둔다** (FR-EXC-11).
+   *
+   * 원문을 그대로 받는다 — 이 종단은 JSON 이 아니라 파일 내용을 낸다 (FR-CAPI-11).
+   * 그래서 표식이 실릴 자리는 헤더뿐이다. 값은 **불투명하다** — 여기서 뜻을 읽지
+   * 않고 저장 때 그대로 되돌려 보낸다. 판정은 서버의 것이다 (FR-EXC-6).
+   */
   async _fetchFile() {
-    // 원문을 그대로 받는다 — 이 종단은 JSON 이 아니라 파일 내용을 낸다 (FR-CAPI-11).
     const r = await apiGet('/api/file/read', { query: { path: this.filePath }, parse: false });
     if (!r.ok) throw new Error('HTTP ' + r.status);
+    this._stamp = (r.headers && r.headers.get(FILE_STAMP_HEADER)) || '';
     return r.text;
   }
 
@@ -655,8 +671,21 @@ class FileEditor {
     return false;
   }
 
+  /**
+   * 저장 하나. **성공 여부를 돌려준다** (FR-EXC-12).
+   *
+   * 종전에는 아무것도 반환하지 않았고 실패를 `catch` 로 삼켰다. 탭 닫기의
+   * "저장 후 닫기" 는 그것을 기다린 뒤 **무조건 닫았다** — 바로 위의 git diff
+   * 경로가 `if(!await this._gitViewSave(...)) return` 으로 닫지 않는 것과 달랐다
+   * (EDITOR_EXTERNAL_CHANGE_SRS §2.5).
+   *
+   *   이전 동작: 반환 없음. 실패해도 호출자가 알 길이 없다
+   *   새  동작: 참/거짓. 경합에서 취소한 것도 거짓이다 (쓰이지 않았으므로)
+   *   이유:     경합(FR-EXC-5)을 들이면서 그 가드가 없으면 **이 스펙 자체가**
+   *             저장한 줄 알고 닫는 손실 경로를 만든다 (FR-RTU-103)
+   */
   async save() {
-    if (!this._editor || !this._dirty) return;
+    if (!this._editor || !this._dirty) return false;
     // FR-SVS-53: 저장은 **문서 하나에 대한 한 번**이다. 두 칸이 같은 파일을 볼 때
     // 양쪽에서 Ctrl+S 가 겹치면 같은 내용을 두 번 쓰게 되고, 그 사이의 편집이
     // 어느 쪽 버퍼에 담겼는지에 따라 결과가 갈린다.
@@ -670,12 +699,31 @@ class FileEditor {
     //             문서의 `saving` 을 못 내렸고, 다른 칸이 문서를 붙들고 있으면
     //             그 기록이 살아남아 **그 파일의 모든 저장이 조용히 건너뛰어졌다**
     const doc = this._doc;
-    if (doc && doc.saving) return;
+    if (doc && doc.saving) return false;
     if (doc) doc.saving = true;
     const content = this._editor.getValue();
     try {
-      const r = await apiPost('/api/file/write', { path: this.filePath, content });
+      let r = await this._write(content, this._stamp);
+      // FR-EXC-5·7·9: 409 는 **우리가 읽은 뒤 디스크가 바뀌었다**는 뜻이다.
+      // 사용자가 승인하면 표식 없이 한 번 더 보낸다 — 서버는 표식이 없는 요청을
+      // 검사하지 않으므로(FR-EXC-6a) 그 한 번이 곧 덮어쓰기다.
+      if (r.status === 409) {
+        if (!await this._confirmConflict()) return false;
+        r = await this._write(content, '');
+      }
       if (!r.ok) throw new Error('HTTP ' + r.status);
+      // FR-EXC-11: 새 표식을 거둔다. 거두지 않으면 다음 저장이 **자기 편이 방금
+      // 만든 변경**에 걸려 경합이 된다 — 한 번 저장하면 그 뒤로 아무것도 저장되지
+      // 않는다는 뜻이다.
+      //
+      // **처음 잡아 둔 `doc` 으로 내린다** — `set _stamp` 는 `this._doc` 을 보는데
+      // `destroy()` 가 그것을 끊으므로, 저장이 날아가 있는 동안 이 칸이 파괴되면
+      // 표식이 **죽은 필드**(`__stamp`)에 쓰인다. 그러면 문서의 표식은 낡은 채
+      // 남고, 같은 파일을 보던 다른 칸의 다음 저장이 방금 우리가 만든 변경에
+      // 걸려 409 가 된다 (TC-SVS-53 이 그것을 잡았다). `dirty`·`saving` 이 이미
+      // 치른 값이다 (FR-WBR-90~92).
+      const next = (r.data && r.data.stamp) || '';
+      if (doc) doc.stamp = next; else this._stamp = next;
       // FR-WBR-91·92: dirty 와 탭 표시도 문서를 딛는다. `set _dirty` 는 `_doc` 이
       // 끊겨 있으면 **죽은 필드**(`__dirty`)에 쓰므로, 파괴된 뒤에는 쓰기가
       // 성공해도 문서가 dirty 로 남았다 — 남은 칸의 탭에 저장 안 됨 표시가 남고
@@ -684,18 +732,90 @@ class FileEditor {
       else { this._dirty = false; this._tabLabelAll() }
       // 파일 저장은 즉시 신호다 (FR-GIT-18) — 작업 트리가 방금 바뀌었다.
       if (typeof app !== 'undefined' && app) app._gitSignal('write');
+      return true;
     } catch (e) {
       console.error('[FileEditor] save error:', e);
       // Visual feedback — flash the editor border red briefly
       this.el.style.boxShadow = 'inset 0 0 0 2px #f44';
       TIMERS.after(500, () => { this.el.style.boxShadow = ''; }, {owner:this,label:'flash'});
+      return false;
     } finally {
       if (doc) doc.saving = false;
     }
   }
 
+  // 쓰기 한 번. 표식이 비면 필드를 싣지 않는다 — 서버의 관대함(FR-EXC-6a)을
+  // 부르는 것이 곧 "검사하지 말라" 이므로, 그 뜻을 한 자리에 모아 둔다.
+  _write(content, stamp) {
+    const body = { path: this.filePath, content };
+    if (stamp) body.stamp = stamp;
+    return apiPost('/api/file/write', body);
+  }
+
+  /**
+   * FR-EXC-9: 경합의 확인창. 참이면 덮어쓴다.
+   *
+   * **`디스크 것으로 덮기` 는 두지 않는다** (비목표 3) — 편집본을 확인 없이 버리는
+   * 길을 한 걸음 확인창에 둘 수 없다 (FR-COS-1·FR-RTU-103). 취소하면 편집본은
+   * 화면에 그대로 남으므로(FR-EXC-3) 사용자가 스스로 처리할 수 있다.
+   *
+   * 초기 포커스는 `덮어쓰기` 다 — 이 창이 뜬 까닭이 사용자가 누른 저장이므로
+   * 그것이 목적 버튼이다 (FR-EXC-9a / FR-PDA-1). `UIKit.modal` 이 `kind` 를 보고
+   * 스스로 정하므로 여기서 `focus()` 를 부르지 않는다 (FR-PDA-11).
+   */
+  _confirmConflict() {
+    return new Promise(resolve => {
+      let done = false;
+      const settle = v => { if (!done) { done = true; resolve(v) } };
+      const body = document.createElement('div');
+      const name = document.createElement('div');
+      name.className = 'fe-conflict-path';
+      name.textContent = this.name;
+      name.title = this.filePath;
+      const msg = document.createElement('div');
+      msg.className = 'fe-conflict-msg';
+      msg.textContent = FILE_CONFLICT_MSG;
+      body.appendChild(name); body.appendChild(msg);
+      const m = UIKit.modal({
+        cls: 'fe-conflict',
+        title: FILE_CONFLICT_TITLE,
+        width: 'min(460px,90vw)',
+        body,
+        // **두 버튼 모두 `keepOpen` 이다.** `UIKit.modal` 의 기본은 `close()` 를
+        // 먼저 부르고 그 다음 `onClick` 을 부르는 순서라(ui-kit.js), 답을
+        // `onClose` 에서 받으면 **덮어쓰기를 눌러도 취소로 접수된다.** 그래서 답을
+        // 먼저 정하고 닫는다.
+        actions: [
+          { label: FILE_CONFLICT_CANCEL, kind: 'ghost', cls: 'fe-conflict-cancel',
+            keepOpen: true, onClick: () => { settle(false); m.close() } },
+          { label: FILE_CONFLICT_GO, kind: 'danger', cls: 'fe-conflict-go',
+            keepOpen: true, onClick: () => { settle(true); m.close() } },
+        ],
+        // `Esc` 와 바깥 클릭도 여기로 온다 — 답 없이 닫힌 것은 **쓰지 않은
+        // 것**이다 (FR-PDA-3). 버튼으로 이미 답했으면 `settle` 이 무시한다.
+        onClose: () => settle(false),
+      });
+      document.body.appendChild(m.el);
+    });
+  }
+
+  /**
+   * 디스크의 내용을 다시 읽어 화면에 반영한다 (FR-EXC-1).
+   *
+   * **dirty 면 아무것도 하지 않는다** (FR-EXC-3·4).
+   *
+   *   이전 동작: `_dirty` 를 보지 않고 읽어 와 달라졌으면 `setValue` 했다.
+   *             그래서 편집 중인 파일의 탭을 **다시 열기만 해도** 편집본이
+   *             디스크 것으로 덮였다
+   *   새  동작: dirty 면 읽지도 않고 돌아간다
+   *   이유:     `U-10`(FR-RTU-103) — 편집을 확인 없이 잃는 것이 이 제품에서
+   *             가장 비싼 실패다. 덮어쓸지는 저장할 때 묻는다 (FR-EXC-9)
+   *
+   * 읽기에 실패해도(밖에서 지워졌다) 화면을 비우지 않는다 — 보던 내용이 사라지는
+   * 것이 곧 손실이고, 저장하면 새로 만든다 (FR-EXC-10·10b).
+   */
   refresh() {
-    if (this._loading) return;
+    if (this._loading || this._dirty) return;
     this._fetchFile().then(content => {
       if (!this._editor) return;
       // EDITOR_LSP_SRS §2.11b / FR-LSP-26b: **내용이 같으면 넣지 않는다.**
@@ -708,13 +828,7 @@ class FileEditor {
       //
       // 같은 내용을 다시 넣는 일은 화면에 아무것도 바꾸지 않으면서 커서와 undo
       // 스택만 버린다. 디스크와 같아졌다는 사실(dirty 해제)만 반영한다.
-      if (this._editor.getValue() === content) {
-        if (this._dirty) {
-          this._dirty = false;
-          this._tabLabelAll();
-        }
-        return;
-      }
+      if (this._editor.getValue() === content) return;
       // 모델이 공유되므로 이 한 번이 모든 칸의 내용을 되돌린다.
       this._editor.setValue(content);
       this._dirty = false;
