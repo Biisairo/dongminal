@@ -64,6 +64,15 @@ func newFileBoundaryEnvWith(t *testing.T, prepare func(data string)) *fileBounda
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
+	// **홈을 고정한다** (WINDOWS_TEST_PARITY_SRS FR-WTP-10 의 뜻).
+	//
+	// `Roots()` 의 첫 항목은 `os.UserHomeDir` 이다 (FR-FAB-2). 그것을 그대로 두면
+	// "경계 밖" 이 **플랫폼에 따라 달라진다** — Windows 의 `TempDir` 은
+	// `C:\Users\<user>\AppData\Local\Temp` 라 홈 **아래**이고, 그러면 이 파일이
+	// `outside` 라 부르는 자리가 실제로는 경계 안이다 (Windows CI 가 잡았다).
+	//
+	// 홈을 Editor 루트로 고정하면 두 OS 에서 같은 것을 재게 된다.
+	srv.Entries.HomeFn = func() (string, error) { return root, nil }
 	// Editor 목록에 루트 하나를 넣는다 — 편집기가 여는 자리가 곧 쓰기가 닿아도
 	// 되는 자리다.
 	if _, err := srv.Entries.Mutate(func(cur wsentry.Lists) wsentry.Lists {

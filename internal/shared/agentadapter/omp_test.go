@@ -1,6 +1,9 @@
 package agentadapter
 
 import (
+	"path/filepath"
+
+	"dongminal/internal/shared/testpath"
 	"strings"
 	"testing"
 )
@@ -151,7 +154,10 @@ func TestParseOmpHook_RejectsClaudePayload(t *testing.T) {
 // V-OMP-7 — 멤버 기동줄의 `--config` 뒤에는 **치환된 절대 경로**가 온다.
 func TestLaunchLine_OmpMemberConfigIsResolved(t *testing.T) {
 	omp, _ := Get("omp")
-	hooks := "/tmp/dm/bin/agent-hooks"
+	// **입력과 기대값을 같은 함수로 만든다** (WINDOWS_TEST_PARITY_SRS FR-WTP-12).
+	// 치환된 경로는 OS 표기로 맞춰지므로(FR-OMP-22a), POSIX 리터럴로 기대하면
+	// Windows 에서만 어긋난다.
+	hooks := filepath.Join(testpath.Abs("tmp"), "dm", "bin", "agent-hooks")
 	line, err := omp.LaunchLine(hooks, "opus", "프리앰블 본문")
 	if err != nil {
 		t.Fatalf("LaunchLine: %v", err)
@@ -159,7 +165,8 @@ func TestLaunchLine_OmpMemberConfigIsResolved(t *testing.T) {
 	if strings.Contains(line, HooksDirToken) {
 		t.Fatalf("토큰이 남았다: %s", line)
 	}
-	if !strings.Contains(line, "--config") || !strings.Contains(line, hooks+"/omp-member.yml") {
+	want := filepath.Join(hooks, OmpMemberConfigFile)
+	if !strings.Contains(line, "--config") || !strings.Contains(line, want) {
 		t.Fatalf("멤버 오버레이가 실리지 않았다: %s", line)
 	}
 	// FR-OMP-23: 전면 우회를 싣지 않는다.

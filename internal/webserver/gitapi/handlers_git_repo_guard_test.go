@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"testing"
 
+	"dongminal/internal/shared/testpath"
 	"dongminal/internal/webserver/domain/git/core"
 )
 
@@ -15,7 +16,9 @@ import (
 // 만들면 등록하지 않은 저장소의 커밋 로그·diff 가 읽혔다. 파일 표면은 같은 길이
 // 이미 막혀 있었고 git 만 열려 있었다.
 
-const guardOutsideRepo = "/elsewhere/repo"
+// 절대경로는 OS 마다 다르다 — 리터럴을 쓰면 Windows 에서 `IsAbs` 가 거짓이고
+// 판정이 403 이 아니라 400 이 된다 (WINDOWS_TEST_PARITY_SRS FR-WTP-10).
+var guardOutsideRepo = testpath.Abs("elsewhere", "repo")
 
 func denyAllExcept(allowed string) func(string) error {
 	return func(p string) error {
