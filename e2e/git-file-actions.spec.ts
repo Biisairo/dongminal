@@ -191,10 +191,23 @@ test.describe('묶음 F — stash · 파일 · 미커밋 행', () => {
     const row = group(page, 'working').locator('.git-file[data-path="tracked.txt"]');
     await expect(row).toBeVisible({ timeout: 20000 });
 
+    // **전제를 시간이 아니라 조건으로 세운다.** 종전에는 클릭 뒤 300ms 를 쉬고
+    // 다음 클릭으로 넘어갔는데, 그것은 "그 안에 서버가 쓴다" 는 가정이다 —
+    // 전량 실행처럼 기계가 붐빌 때 깨지고, 그때 `.gitignore` 에는 아무것도 없어
+    // 아래 단정이 **빈 배열**을 본다. 응답을 기다리면 그 가정이 사라진다:
+    // 서버는 파일을 쓴 뒤에 답하므로, 응답이 곧 "디스크가 섰다" 이다.
+    //
+    // (M2_PROGRESS §6.3 의 교훈과 같은 자리다 — 검사가 자기 전제를 스스로
+    // 세워야 하고, 남이 치워 주기를 기대하면 다음 실행이 또 걸린다.)
     for (let i = 0; i < 2; i++) {
       await ctx(page, row);
-      await item(page, 'ignore').click();
-      await page.waitForTimeout(300);
+      await Promise.all([
+        page.waitForResponse(
+          (r) => r.url().includes('/api/git/ignore') && r.request().method() === 'POST',
+          { timeout: 20000 },
+        ),
+        item(page, 'ignore').click(),
+      ]);
     }
     const body = readFileSync(join(repo, '.gitignore'), 'utf8');
     expect(body.split('\n').filter((l) => l === '/tracked.txt')).toHaveLength(1);
