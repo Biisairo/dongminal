@@ -425,6 +425,15 @@ const FILE_IMAGE_FAIL='이미지를 불러오지 못했습니다';
 // 확인을 한 번 더 물어야 하는데 그러면 확인이 두 걸음이 된다 (FR-COS-1).
 // 취소하면 편집본은 화면에 그대로 남으므로 사용자가 스스로 처리할 수 있다.
 // FR-EXC-11: 표식이 실려 오는 자리. 값은 **불투명**하며 클라이언트는 이름만 안다.
+// RELOAD_CONTINUITY_SRS D-2 개정 — 새 판이 있으나 저장하지 않은 편집 때문에
+// 자동 새로고침을 미뤘다는 알림. 누르면 사용자가 직접 고른 것이다.
+const VER_HELD_MSG='새 판이 있습니다. 저장하지 않은 편집이 있어 새로고침을 미뤘습니다.';
+const VER_HELD_GO='지금 새로고침';
+
+// 로드맵 `FUI-05`: 저장 실패는 사유와 함께 알린다 — 테두리만으로는 무엇이
+// 잘못됐는지 말하지 못한다.
+const FILE_SAVE_FAIL='저장하지 못했습니다';
+
 const FILE_STAMP_HEADER='X-File-Stamp';
 const FILE_CONFLICT_TITLE='파일이 밖에서 바뀌었습니다';
 const FILE_CONFLICT_MSG='이 파일은 연 뒤 디스크에서 바뀌었습니다. 덮어쓰면 그 변경이 사라집니다.';

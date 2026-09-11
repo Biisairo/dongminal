@@ -711,7 +711,13 @@ class FileEditor {
         if (!await this._confirmConflict()) return false;
         r = await this._write(content, '');
       }
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) {
+        // 로드맵 `FUI-05` / M3: 저장 실패의 **사유가 화면에 닿는다.** 종전에는
+        // 500ms 붉은 테두리 하나뿐이라, 서버가 본문에 실어 보낸 사유(경계 거부·
+        // 디스크 오류)가 콘솔에만 남았다.
+        this._noteSaveFailed(r);
+        return false;
+      }
       // FR-EXC-11: 새 표식을 거둔다. 거두지 않으면 다음 저장이 **자기 편이 방금
       // 만든 변경**에 걸려 경합이 된다 — 한 번 저장하면 그 뒤로 아무것도 저장되지
       // 않는다는 뜻이다.
@@ -735,13 +741,28 @@ class FileEditor {
       return true;
     } catch (e) {
       console.error('[FileEditor] save error:', e);
-      // Visual feedback — flash the editor border red briefly
-      this.el.style.boxShadow = 'inset 0 0 0 2px #f44';
-      TIMERS.after(500, () => { this.el.style.boxShadow = ''; }, {owner:this,label:'flash'});
+      this._noteSaveFailed(null);
       return false;
     } finally {
       if (doc) doc.saving = false;
     }
+  }
+
+  /**
+   * 저장이 실패했음을 화면에 남긴다 (`FUI-05`).
+   *
+   * 붉은 테두리는 **무언가 잘못됐다**만 말한다. 사용자가 알아야 하는 것은 **무엇이**
+   * 잘못됐는가이고, 서버는 그것을 본문에 실어 보낸다 — 경계 거부인지 디스크
+   * 오류인지에 따라 할 일이 다르다.
+   *
+   * `r` 이 없으면(망 실패·예외) 사유를 모른다. 그때 지어내지 않는다.
+   */
+  _noteSaveFailed(r) {
+    this.el.style.boxShadow = 'inset 0 0 0 2px #f44';
+    TIMERS.after(500, () => { this.el.style.boxShadow = ''; }, {owner:this,label:'flash'});
+    let why = '';
+    if (r) why = (r.text || '').trim().split('\n')[0].slice(0, 200);
+    this.note(why ? FILE_SAVE_FAIL + ': ' + why : FILE_SAVE_FAIL);
   }
 
   // 쓰기 한 번. 표식이 비면 필드를 싣지 않는다 — 서버의 관대함(FR-EXC-6a)을

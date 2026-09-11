@@ -17,7 +17,12 @@
  * 보조 계기 하나가 남는다 — 탭이 다시 보이는 순간. 인사가 닿지 못하는 상태(구독이
  * 죽은 채 사용자가 돌아온 경우)의 길이며, 그때만 `index.html` 을 받아 견준다.
  *
- * 잃는 것: 편집기 탭의 **미저장 내용** (D-2, 알려진 대가). 터미널 스크롤백은
+ * **dirty 편집기가 있으면 물러난다** (D-2 개정 2026-09-11 · 로드맵 `FUI-03`).
+ * 이 파일이 막으려는 것은 "옛 JS 로 계속 도는 **방치된** 화면" 인데, 저장하지 않은
+ * 편집이 있다는 것은 사용자가 그 화면을 **지금 쓰고 있다**는 뜻이다. 그때는 배너로
+ * 알리고, dirty 가 풀린 뒤 다음 계기에 이어 간다.
+ *
+ * 잃는 것: clean 인 편집기 탭의 내용. 터미널 스크롤백은
  * 서버가 들고 있고, 활성 창·포커스 pane·슬롯 배치·사이드바의 복귀 자리는
  * sessionStorage 로 새로고침을 건넌다 (묶음 Q).
  */
@@ -80,7 +85,51 @@
     if(done||!next||next===self) return;
     // 이 목표로 이미 한 번 열어 봤는데 여전히 여기다 — 다시 열어도 같을 것이다.
     if(tried(next)) return;
+    // FR-RLC-1 개정(D-2): **저장하지 않은 편집이 있으면 물러난다.**
+    //
+    // 자동 새로고침의 취지는 "옛 JS 로 도는 **방치된** 화면" 을 없애는 것인데,
+    // dirty 편집기가 있다는 것은 사용자가 그 화면을 지금 쓰고 있다는 뜻이다.
+    // 여기서 열면 그 편집이 확인 없이 사라진다 (`FUI-03`).
+    //
+    // 배너는 **사라지지 않는다** — 목표 판을 기억해 두고, dirty 가 풀린 뒤의
+    // 다음 계기(서버 인사·탭 복귀)에 이어 간다.
+    if(anyDirty()){
+      showHeldBanner(next);
+      return;
+    }
     reload(next);
+  };
+
+  /**
+   * 편집기에 저장하지 않은 것이 있는가. 앱이 아직 서지 않았으면 **없다** —
+   * 그때는 잃을 편집도 없다.
+   */
+  const anyDirty=()=>{
+    try{ return !!(window.app&&app._edAnyDirty&&app._edAnyDirty()) }catch{ return false }
+  };
+
+  // 미룬 목표를 따로 들고 있지 않는다 — `saw` 는 서버 인사와 탭 복귀마다 다시
+  // 불리므로, dirty 가 풀린 뒤의 첫 계기에서 같은 판정이 다시 돌아 이어진다.
+  // 들고 있으면 그 값과 실제 서버 판이 어긋나는 순간이 생긴다.
+
+  /**
+   * 미룬 사실을 화면에 남긴다. 한 번만 세우고, 사용자가 직접 누를 길도 준다 —
+   * 저장할 생각이 없는 편집이라면 기다릴 이유가 없다.
+   */
+  const showHeldBanner=(next)=>{
+    if(document.getElementById('ver-held')) return;
+    const el=document.createElement('div');
+    el.id='ver-held';
+    el.className='ver-held';
+    const msg=document.createElement('span');
+    msg.textContent=VER_HELD_MSG;
+    const go=document.createElement('button');
+    go.type='button';
+    go.className='ui-btn ui-btn-sm ver-held-go';
+    go.textContent=VER_HELD_GO;
+    go.addEventListener('click',()=>reload(next));
+    el.appendChild(msg); el.appendChild(go);
+    document.body.appendChild(el);
   };
 
   // FR-RLC-24: SSE 를 아는 곳은 `app-cmd.js` 하나다. 둘을 잇는 것은 이 이름 하나이며

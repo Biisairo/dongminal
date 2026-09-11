@@ -1451,3 +1451,15 @@ html.ae-preview #attn-edge{display:block}
 /* FR-AED-7 / D-2·D-7: **알림이 이긴다.** 가장자리의 뜻은 한 번에 하나여야 읽힌다.
    클래스 하나가 정하므로 JS 가 두 겹을 각각 끄고 켜지 않는다. */
 html.attn-edge-on #focus-edge{opacity:0}
+
+/* 새 판 보류 알림 (RELOAD_CONTINUITY_SRS D-2 개정).
+   모달이 아니라 배너다 — 사용자의 편집을 막지 않으면서 사실만 남긴다. */
+.ver-held{
+  position:fixed;left:50%;bottom:16px;transform:translateX(-50%);
+  display:flex;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:6px;z-index:60;
+  background:var(--bg-elev,#222);color:var(--text-bright,#eee);
+  border:1px solid var(--border,#444);
+  box-shadow:0 4px 16px rgba(0,0,0,.35);
+  font-size:12px;max-width:min(560px,92vw);
+}
