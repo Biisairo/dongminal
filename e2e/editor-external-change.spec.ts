@@ -224,3 +224,64 @@ test('V-EXC-12: 경합으로 저장이 막히면 "저장 후 닫기" 가 탭을 
     expect(await valueOf(page, 'f.txt')).toBe('mine\n');
     expect(readFileSync(join(root, 'f.txt'), 'utf8')).toBe('theirs\n');
   });
+
+/**
+ * V-EXC-13 (FR-EXC-14): **저장 왕복 중의 편집은 저장된 것으로 치지 않는다.**
+ *
+ * 접수는 `U-23` — *"한번씩 cmd+s 시 파일저장이 안된다. 파일을 닫고 다시열면
+ * 가능해진다."*
+ *
+ * `save()` 는 시작 시점의 `getValue()` 를 담아 보낸다. 그 뒤는 망 왕복이고 그 사이의
+ * 타이핑은 그 요청에 들어 있지 않은데, 성공 처리가 `dirty` 를 무조건 내렸다. 내리는
+ * 순간 다음 `Ctrl+S` 는 `save()` 첫 줄의 `if (!this._dirty) return false` 에 걸려
+ * **아무 말 없이** 되돌아간다 — 사용자에게는 "저장이 안 된다" 로 보이고, 실제로는
+ * 그 사이 편집이 유실된다.
+ *
+ * 왕복을 늦춰 그 창을 연다. 원격 접속에서는 이 창이 저절로 열린다.
+ */
+test('V-EXC-13 (FR-EXC-14): 저장 왕복 중에 친 내용은 dirty 로 남는다',
+  async ({ page, request }) => {
+    const { root, saved } = await mkroot(request, page, 'exc-inflight', { 'a.txt': 'one\n' });
+    await openFile(page, saved, 'a.txt');
+    await typeInto(page, 'a.txt', 'SENT\n');
+
+    // 쓰기 한 번을 늦춘다. 그 사이가 사용자가 계속 타이핑하는 구간이다.
+    let release: (() => void) | null = null;
+    const held = new Promise<void>((r) => { release = r });
+    await page.route('**/api/file/write', async (route) => {
+      await held;
+      await route.continue();
+    });
+
+    const saving = page.evaluate(() => {
+      const v: any = [...(window as any).app.fileEditors.values()].find((e: any) => e.name === 'a.txt');
+      return v.save();
+    });
+
+    // 요청이 날아간 뒤에 친다 — 이 글자는 위 요청에 담기지 않았다.
+    await page.waitForTimeout(150);
+    await page.evaluate(() => {
+      const v: any = [...(window as any).app.fileEditors.values()].find((e: any) => e.name === 'a.txt');
+      const m = v._editor.getModel();
+      v._editor.executeEdits('test', [{ range: m.getFullModelRange(), text: 'LATER\n' }]);
+    });
+
+    release!();
+    expect(await saving).toBe(true);
+    await page.unroute('**/api/file/write');
+
+    // 디스크에는 담아 간 것이 들어갔다 — 그 저장 자체는 성공이다.
+    expect(readFileSync(join(root, 'a.txt'), 'utf8')).toBe('SENT\n');
+    // 그러나 화면의 내용은 아직 저장되지 않았다. **dirty 가 남아야 한다.**
+    expect(await dirtyOf(page, 'a.txt'),
+      '왕복 중의 편집이 저장된 것으로 처리됐다 — 다음 Ctrl+S 가 조용히 무시된다').toBe(true);
+
+    // 그리고 그 다음 저장이 실제로 나간다 (조용히 건너뛰지 않는다).
+    const second = await page.evaluate(() => {
+      const v: any = [...(window as any).app.fileEditors.values()].find((e: any) => e.name === 'a.txt');
+      return v.save();
+    });
+    expect(second, '두 번째 저장이 조용히 건너뛰어졌다').toBe(true);
+    expect(readFileSync(join(root, 'a.txt'), 'utf8')).toBe('LATER\n');
+    await expect.poll(() => dirtyOf(page, 'a.txt')).toBe(false);
+  });

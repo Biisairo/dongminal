@@ -702,6 +702,29 @@ class FileEditor {
     if (doc && doc.saving) return false;
     if (doc) doc.saving = true;
     const content = this._editor.getValue();
+    /**
+     * FR-EXC-14: **담아 간 내용의 판본을 적어 둔다.**
+     *
+     * 위의 `content` 는 지금 이 순간의 스냅샷이고, 아래의 `await` 는 망 왕복이다.
+     * 그 사이의 타이핑은 이 저장에 담기지 않는다 — 그런데 성공 처리는 `dirty` 를
+     * 무조건 내렸다.
+     *
+     *   이전 동작: 왕복 중의 편집이 있어도 `doc.dirty=false`
+     *   새  동작: 판본이 달라졌으면 `dirty` 를 **유지한다**
+     *   이유:     내린 순간 그 편집은 화면에서 저장된 것처럼 보이고(탭의 ● 가
+     *             사라진다), 다음 `Ctrl/Cmd+S` 는 `save()` 의 첫 줄
+     *             `if (!this._dirty) return false` 에 걸려 **아무 말 없이**
+     *             되돌아간다. 사용자에게는 "한 번씩 저장이 안 되고, 닫았다 열면
+     *             된다"(새 문서가 서면서 플래그가 리셋된다)로 보이지만, 실제로
+     *             일어난 일은 **그 사이의 편집이 조용히 유실되는 것**이다.
+     *             원격 접속처럼 왕복이 긴 자리에서 자주 겹친다
+     *
+     * `getAlternativeVersionId` 를 쓰는 이유는 되돌리기까지 셈에 넣기 때문이다 —
+     * 쳤다가 `Cmd+Z` 로 되돌리면 값이 제자리로 오고, 그때는 담아 간 내용과 같으므로
+     * dirty 를 내리는 것이 옳다.
+     */
+    const model = this._editor.getModel();
+    const sentVer = model ? model.getAlternativeVersionId() : 0;
     try {
       let r = await this._write(content, this._stamp);
       // FR-EXC-5·7·9: 409 는 **우리가 읽은 뒤 디스크가 바뀌었다**는 뜻이다.
@@ -734,8 +757,11 @@ class FileEditor {
       // 끊겨 있으면 **죽은 필드**(`__dirty`)에 쓰므로, 파괴된 뒤에는 쓰기가
       // 성공해도 문서가 dirty 로 남았다 — 남은 칸의 탭에 저장 안 됨 표시가 남고
       // 재조정이 그 창을 붙든다 (FR-WBR-40·41).
-      if (doc) { doc.dirty = false; for (const v of doc.views) v._updateTabLabel() }
-      else { this._dirty = false; this._tabLabelAll() }
+      // FR-EXC-14: 왕복 중에 편집이 있었으면 dirty 를 내리지 않는다. 라벨 갱신은
+      // 양쪽 모두에서 한다 — ● 가 **남는 것**도 갱신의 결과다.
+      const edited = !!(model && model.getAlternativeVersionId() !== sentVer);
+      if (doc) { if (!edited) doc.dirty = false; for (const v of doc.views) v._updateTabLabel() }
+      else { if (!edited) this._dirty = false; this._tabLabelAll() }
       // 파일 저장은 즉시 신호다 (FR-GIT-18) — 작업 트리가 방금 바뀌었다.
       if (typeof app !== 'undefined' && app) app._gitSignal('write');
       return true;
