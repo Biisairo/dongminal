@@ -5,6 +5,8 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/gitapi"
 
 	"dongminal/internal/webserver/hub"
@@ -17,7 +19,6 @@ import (
 	"dongminal/internal/webserver/domain/wsentry"
 	"fmt"
 	"io/fs"
-	"log"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -267,8 +268,12 @@ func (s *Server) Handler() http.Handler {
 	// 순서가 계약이다. ACL 이 1차 필터로 먼저 서고, 출처 판정이 그 안에서
 	// 브라우저 매개 요청을 가른다 — ACL 은 그것을 가르지 못한다(출발지가 사용자
 	// 자신의 기기다).
-	return loggingMiddlewareFor(s, accessGate(s.Access,
-		requestGate(s.hosts, recoverMiddleware(mux))))
+	//
+	// OBSERVABILITY_SRS 묶음 R: **요청 ID 가 맨 바깥이다.** 로깅보다 앞에 서야
+	// 접근 로그가 그 ID 를 실을 수 있고, 게이트보다 앞에 서야 **거절된 요청에도**
+	// ID 가 있다 (D-OBS-2) — 거절이야말로 사용자가 묻는 자리다.
+	return reqIDMiddleware(loggingMiddlewareFor(s, accessGate(s.Access,
+		requestGate(s.hosts, recoverMiddleware(mux)))))
 }
 
 // Run starts the HTTP server on addr and blocks until ctx is cancelled.
@@ -356,11 +361,11 @@ func recoverMiddleware(next http.Handler) http.Handler {
 			if v == http.ErrAbortHandler {
 				panic(v)
 			}
-			log.Printf("http panic %s %s: %v\n%s", r.Method, r.URL.Path, v, debug.Stack())
+			dmlog.Errorf(nil, "http panic %s %s: %v\n%s", r.Method, r.URL.Path, v, debug.Stack())
 			if rw, ok := w.(*responseWriter); ok && rw.wrote {
 				return
 			}
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			httpErr(w, "internal error", http.StatusInternalServerError, apierr.CodeInternal)
 		}()
 		next.ServeHTTP(w, r)
 	})
@@ -387,7 +392,9 @@ func loggingMiddlewareFor(srv *Server, next http.Handler) http.Handler {
 		rw := &responseWriter{ResponseWriter: w, status: 200}
 		next.ServeHTTP(rw, r)
 		if shouldLogRequest(r.URL.Path, rw.status) {
-			log.Printf("http %s %s %d %s addr=%s",
+			// FR-OBS-9: 접근 로그가 요청 ID 를 싣는다 — 이 줄과 핸들러가 남긴
+			// 줄과 데몬 RPC 줄이 같은 값으로 묶인다.
+			dmlog.Infof(r.Context(), "http %s %s %d %s addr=%s",
 				r.Method, r.URL.Path, rw.status, time.Since(start).Round(time.Millisecond), r.RemoteAddr)
 		}
 	})

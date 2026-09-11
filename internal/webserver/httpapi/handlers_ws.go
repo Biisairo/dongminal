@@ -1,13 +1,14 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/toolclient"
 
 	"dongminal/internal/shared/toolhub"
 
 	"encoding/binary"
 	"errors"
-	"log"
 	"net"
 	"net/http"
 	"runtime/debug"
@@ -27,12 +28,12 @@ const wsReadLimit = 1 << 20
 
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	if s.Tools == nil {
-		http.Error(w, "tools unavailable", http.StatusInternalServerError)
+		httpErr(w, "tools unavailable", http.StatusInternalServerError, apierr.CodeToolsUnready)
 		return
 	}
 	raw, err := toolhub.Upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("ws upgrade addr=%s: %v", r.RemoteAddr, err)
+		dmlog.Infof(nil, "ws upgrade addr=%s: %v", r.RemoteAddr, err)
 		return
 	}
 	conn := toolhub.NewSafeConn(raw)
@@ -47,7 +48,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	// FR-CNR-8: WS 는 요청 로그와 다른 축이다 — HTTP 는 조용한데 WS 만 오는
 	// 구간(폭주)과 그 반대가 모두 있으므로 따로 새긴다.
 	s.lastWS.Store(time.Now().UnixNano())
-	log.Printf("ws connected addr=%s tool=%s", r.RemoteAddr, toolID)
+	dmlog.Infof(nil, "ws connected addr=%s tool=%s", r.RemoteAddr, toolID)
 
 	cols, rows := toolhub.ParseSize(r)
 	var tool *toolhub.Tool
@@ -59,7 +60,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			// declare the tool gone — just close so the browser shows "재연결 중"
 			// and keeps retrying; toolhub.OpExit is reserved for a genuinely absent tool.
 			if dc, ok := s.Tools.(interface{ Connected() bool }); ok && !dc.Connected() {
-				log.Printf("ws addr=%s: tool %s lookup during daemon reconnect; closing for retry", r.RemoteAddr, toolID)
+				dmlog.Warnf(nil, "ws addr=%s: tool %s lookup during daemon reconnect; closing for retry", r.RemoteAddr, toolID)
 				return
 			}
 			// FR-RCS-9: 규약을 지키는 클라이언트는 이 통보 한 번으로 판정을
@@ -68,7 +69,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			s.throttleMiss(r.Context(), toolID)
 			// Send toolhub.OpExit so the frontend knows this tool is permanently gone.
 			_ = conn.Send(toolhub.OpExit, nil)
-			log.Printf("ws addr=%s: tool %s not found (sent toolhub.OpExit)", r.RemoteAddr, toolID)
+			dmlog.Infof(nil, "ws addr=%s: tool %s not found (sent toolhub.OpExit)", r.RemoteAddr, toolID)
 			// FR-CNR-2: 통보를 보낸 **뒤에** 붙잡는다. 임계를 넘도록 되풀이해 온
 			// 연결은 여기서 돌아오지 않으며, 그동안 소켓이 닫히지 않으므로
 			// 클라이언트에 `onclose` — 재연결의 유일한 계기 — 가 서지 않는다.
@@ -80,13 +81,13 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		tool, err = s.Tools.Create("", cols, rows, toolhub.Placement{})
+		tool, err = s.tools(r).Create("", cols, rows, toolhub.Placement{})
 		if err != nil {
 			// 실제 오류를 화면까지 보낸다. 고정 문구만 보내면 사용자에게는
 			// 빈 터미널과 구별되지 않고, 원인은 서버 로그에만 남는다 —
 			// 크로스플랫폼 도입 때 Windows 에서 정확히 그랬다.
 			_ = conn.Send(toolhub.OpError, []byte("도구를 만들지 못했습니다: "+err.Error()))
-			log.Printf("ws addr=%s: tool create error: %v", r.RemoteAddr, err)
+			dmlog.Errorf(nil, "ws addr=%s: tool create error: %v", r.RemoteAddr, err)
 			return
 		}
 		toolID = tool.ID
@@ -103,7 +104,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 // handleWSDirect is the original (non-daemon) WebSocket handler.
 func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remoteAddr string) {
 	if !tool.AddClient(conn) {
-		log.Printf("ws addr=%s: tool %s already exited; sent toolhub.OpExit", remoteAddr, tool.ID)
+		dmlog.Infof(nil, "ws addr=%s: tool %s already exited; sent toolhub.OpExit", remoteAddr, tool.ID)
 		return
 	}
 	defer tool.RemoveClient(conn)
@@ -118,7 +119,7 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 			msg[0] = toolhub.OpOutput
 			copy(msg[1:], snap)
 			if err := conn.WriteMsg(websocket.BinaryMessage, msg); err != nil {
-				log.Printf("[tool %s] snapshot send error addr=%s: %v", tool.ID, remoteAddr, err)
+				dmlog.Errorf(nil, "[tool %s] snapshot send error addr=%s: %v", tool.ID, remoteAddr, err)
 				return
 			}
 		}
@@ -129,14 +130,14 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 		msg[0] = toolhub.OpOutput
 		copy(msg[1:], termReset)
 		if err := conn.WriteMsg(websocket.BinaryMessage, msg); err != nil {
-			log.Printf("[tool %s] reset send error addr=%s: %v", tool.ID, remoteAddr, err)
+			dmlog.Errorf(nil, "[tool %s] reset send error addr=%s: %v", tool.ID, remoteAddr, err)
 			return
 		}
 	}
 
 	go pingLoop(conn, tool.Wait())
 	readWSDirect(conn, tool)
-	log.Printf("ws disconnected addr=%s tool=%s", remoteAddr, tool.ID)
+	dmlog.Infof(nil, "ws disconnected addr=%s tool=%s", remoteAddr, tool.ID)
 }
 
 // handleWSDaemon is the daemon-mode WebSocket handler.
@@ -158,7 +159,7 @@ func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhu
 
 	pc, ok := s.Tools.(*toolclient.ToolClient)
 	if !ok {
-		log.Printf("[tool %s] daemon mode but toolhub.ToolHub is not *toolclient.ToolClient", toolID)
+		dmlog.Infof(nil, "[tool %s] daemon mode but toolhub.ToolHub is not *toolclient.ToolClient", toolID)
 		return
 	}
 
@@ -173,14 +174,14 @@ func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhu
 
 	// Send snapshot for reconnection.
 	if snap, err := s.Tools.SnapshotTool(toolID); err == nil && len(snap.Data) > 0 {
-		log.Printf("[ws-daemon] snapshot tool=%s len=%d retained=%d", toolID, len(snap.Data), snap.Retained)
+		dmlog.Infof(nil, "[ws-daemon] snapshot tool=%s len=%d retained=%d", toolID, len(snap.Data), snap.Retained)
 		snapData := stripSnapshotQueries(stripOSC777(snap.Data))
 		if len(snapData) > 0 {
 			msg := make([]byte, 1+len(snapData))
 			msg[0] = toolhub.OpOutput
 			copy(msg[1:], snapData)
 			if err := conn.WriteMsg(websocket.BinaryMessage, msg); err != nil {
-				log.Printf("[tool %s] snapshot send error: %v", toolID, err)
+				dmlog.Errorf(nil, "[tool %s] snapshot send error: %v", toolID, err)
 				return
 			}
 		}
@@ -233,7 +234,7 @@ func wsReadLoop(conn *toolhub.SafeConn, toolID string, input func([]byte) error,
 			// 닫을 때마다 오류가 쌓이면 진짜 오류가 묻힌다.
 			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseNoStatusReceived) &&
 				!errors.Is(err, net.ErrClosed) {
-				log.Printf("[tool %s] readWS error addr=%s: %v", toolID, conn.RemoteAddr(), err)
+				dmlog.Errorf(nil, "[tool %s] readWS error addr=%s: %v", toolID, conn.RemoteAddr(), err)
 			}
 			return
 		}
@@ -243,7 +244,7 @@ func wsReadLoop(conn *toolhub.SafeConn, toolID string, input func([]byte) error,
 		switch msg[0] {
 		case toolhub.OpInput:
 			if err := input(msg[1:]); err != nil {
-				log.Printf("[tool %s] 터미널 쓰기 오류: %v", toolID, err)
+				dmlog.Errorf(nil, "[tool %s] 터미널 쓰기 오류: %v", toolID, err)
 				return
 			}
 		case toolhub.OpResize:
@@ -259,7 +260,7 @@ func wsReadLoop(conn *toolhub.SafeConn, toolID string, input func([]byte) error,
 func readWS(conn *toolhub.SafeConn, tool *toolhub.Tool) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[tool %s] readWS panic addr=%s: %v\n%s", tool.ID, conn.RemoteAddr(), r, debug.Stack())
+			dmlog.Errorf(nil, "[tool %s] readWS panic addr=%s: %v\n%s", tool.ID, conn.RemoteAddr(), r, debug.Stack())
 		}
 	}()
 	wsReadLoop(conn, tool.ID, tool.Write, func(c, ro uint16) { tool.Resize(c, ro) })
@@ -281,7 +282,7 @@ func relayOutput(conn *toolhub.SafeConn, toolID string, outputCh <-chan []byte, 
 		select {
 		case data := <-outputCh:
 			if err := conn.Send(toolhub.OpOutput, data); err != nil {
-				log.Printf("[tool %s] output relay stopped addr=%s: %v", toolID, conn.RemoteAddr(), err)
+				dmlog.Infof(nil, "[tool %s] output relay stopped addr=%s: %v", toolID, conn.RemoteAddr(), err)
 				conn.Close()
 				return
 			}
@@ -298,7 +299,7 @@ func relayOutput(conn *toolhub.SafeConn, toolID string, outputCh <-chan []byte, 
 func pingLoop(conn *toolhub.SafeConn, done <-chan struct{}) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("pingLoop panic addr=%s: %v\n%s", conn.RemoteAddr(), r, debug.Stack())
+			dmlog.Errorf(nil, "pingLoop panic addr=%s: %v\n%s", conn.RemoteAddr(), r, debug.Stack())
 		}
 	}()
 	t := time.NewTicker(toolhub.PingPeriod)
@@ -307,7 +308,7 @@ func pingLoop(conn *toolhub.SafeConn, done <-chan struct{}) {
 		select {
 		case <-t.C:
 			if err := conn.WritePing(); err != nil {
-				log.Printf("pingLoop error addr=%s: %v", conn.RemoteAddr(), err)
+				dmlog.Errorf(nil, "pingLoop error addr=%s: %v", conn.RemoteAddr(), err)
 				return
 			}
 		case <-done:

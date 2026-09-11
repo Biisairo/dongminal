@@ -28,6 +28,7 @@
       '<button class="dg-b" data-a="pause" title="Pause and resume log collection">멈춤</button>'+
       '<button class="dg-b" data-a="env" title="Log the current environment (viewport, user agent, feature flags)">환경</button>'+
       '<button class="dg-b" data-a="hub" title="Dump pending timers and event topics (TimerHub / EventBus)">허브</button>'+
+      '<button class="dg-b" data-a="err" title="Dump uncaught errors and unhandled promise rejections">오류</button>'+
       '<button class="dg-b" data-a="min" title="Minimize this overlay">─</button>'+
     '</div>'+
     '<div class="dg-log"></div>';
@@ -191,6 +192,25 @@
   };
   setInterval(watchScroll,1000);
 
+  /**
+   * OBSERVABILITY_SRS FR-OBS-18: 잡히지 않은 오류를 여기서 본다.
+   *
+   * 기록은 `error-log.js` 가 **언제나** 쥐고 있다 — 진단을 켜야만 걸리는 훅은
+   * 재현되는 문제만 잡기 때문이다. 이 버튼은 그 쥔 것을 화면으로 옮길 뿐이다.
+   */
+  function errs(){
+    const L=window.__dongminalErrors;
+    if(!L){put('ERR (기록 계층 없음)');return}
+    const items=L.items();
+    put('ERR total='+L.total()+' kept='+items.length);
+    if(!items.length){put('ERR (없음)');return}
+    for(const it of items){
+      put('ERR '+it.t+' '+it.kind+' '+it.message
+        +(it.src?(' @'+it.src+':'+it.line+':'+it.col):''));
+      if(it.stack) for(const ln of it.stack.split('\n').slice(0,4)) put('ERR   '+ln.trim());
+    }
+  }
+
   el.querySelector('.dg-bar').addEventListener('click',(e)=>{
     const a=e.target&&e.target.dataset&&e.target.dataset.a;
     if(!a) return;
@@ -199,6 +219,7 @@
     if(a==='min'){el.classList.toggle('min');return}
     if(a==='env'){env();return}
     if(a==='hub'){hub();return}
+    if(a==='err'){errs();return}
     if(a==='pause'){paused=!paused;e.target.textContent=paused?'재개':'멈춤';return}
     if(a==='send'){
       const body=lines.join('\n')+'\n';
