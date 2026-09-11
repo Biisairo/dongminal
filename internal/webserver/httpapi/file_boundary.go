@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 // `/api/file/*` 의 경계 (FILE_API_BOUNDARY_SRS).
@@ -169,9 +170,21 @@ var errGitRepoOutside = errors.New("repo 가 허용 루트 밖이다")
 // 같은 함수를 지나므로 예외도 같다 — `fileApiUnrestricted` 가 참이면 여기도
 // 통과한다. 규칙이 둘이면 한쪽만 고쳐지고, 그때 "탐색기에서는 열리는데 git 은
 // 안 된다" 가 된다.
+// gitRepoGuardTTL 은 허용 판정을 붙들어 두는 시간이다 (NFR-FAB-4). git 폴링이
+// 초당 여러 번 지나므로 이 값이 곧 판정 비용을 나눈다.
+const gitRepoGuardTTL = 5 * time.Second
+
 func (s *Server) gitRepoAllowed(repoRoot string) error {
 	if s.fileUnrestricted() {
 		return nil
+	}
+	// NFR-FAB-4: 허용은 붙들어 둔다. 거부는 담지 않는다 — 방금 등록한 저장소가
+	// TTL 동안 막히면 "더했는데 안 열린다" 가 된다.
+	if v, ok := s.gitRepoOK.Load(repoRoot); ok {
+		if exp, ok := v.(time.Time); ok && time.Now().Before(exp) {
+			return nil
+		}
+		s.gitRepoOK.Delete(repoRoot)
 	}
 	roots, err := s.fileRoots()
 	if err != nil {
@@ -198,9 +211,11 @@ func (s *Server) gitRepoAllowed(repoRoot string) error {
 	// **조상**이다. 아래쪽만 보면 그 흐름이 통째로 끊긴다.
 	for _, root := range roots {
 		if _, err := fsResolveExisting(root, repoRoot); err == nil {
+			s.gitRepoOK.Store(repoRoot, time.Now().Add(gitRepoGuardTTL))
 			return nil
 		}
 		if _, err := fsResolveExisting(repoRoot, root); err == nil {
+			s.gitRepoOK.Store(repoRoot, time.Now().Add(gitRepoGuardTTL))
 			return nil
 		}
 	}

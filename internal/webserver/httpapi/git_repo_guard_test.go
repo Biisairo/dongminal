@@ -68,6 +68,52 @@ func TestGitRepoAllowed_AncestorRepoPasses(t *testing.T) {
 	}
 }
 
+// NFR-FAB-4: **거부는 캐시하지 않는다.** 담으면 방금 등록한 저장소가 TTL 동안
+// 계속 막히고, 사용자에게는 "더했는데 안 열린다" 로 보인다.
+func TestGitRepoAllowed_DenyIsNotCached(t *testing.T) {
+	e := newFileBoundaryEnv(t)
+	repo := filepath.Join(e.outside, "later-registered")
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.server.gitRepoAllowed(repo); err == nil {
+		t.Fatal("등록 전인데 통과했다")
+	}
+	if _, err := e.server.Entries.Mutate(func(cur wsentry.Lists) wsentry.Lists {
+		cur.Pinned = append(cur.Pinned, repo)
+		return cur
+	}); err != nil {
+		t.Fatalf("핀 등록: %v", err)
+	}
+	// 거부가 캐시됐다면 여기서도 막힌다.
+	if err := e.server.gitRepoAllowed(repo); err != nil {
+		t.Fatalf("등록했는데도 막혔다 — 거부가 캐시됐다: %v", err)
+	}
+}
+
+// NFR-FAB-4: 허용은 붙들어 둔다. 이 판정은 git 폴링마다 지나며, 캐시가 없으면
+// 루트별 EvalSymlinks 가 그대로 응답 시간이 된다 (실측: refs 16~23ms → 37~123ms).
+func TestGitRepoAllowed_AllowIsCached(t *testing.T) {
+	e := newFileBoundaryEnv(t)
+	repo := filepath.Join(e.root, "cached-repo")
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.server.gitRepoAllowed(repo); err != nil {
+		t.Fatalf("첫 판정이 막혔다: %v", err)
+	}
+	// 목록을 통째로 지워도 캐시가 살아 있는 동안은 통과한다 — 그것이 캐시가
+	// 실제로 쓰이고 있다는 증거다.
+	if _, err := e.server.Entries.Mutate(func(wsentry.Lists) wsentry.Lists {
+		return wsentry.Lists{}
+	}); err != nil {
+		t.Fatalf("목록 비우기: %v", err)
+	}
+	if err := e.server.gitRepoAllowed(repo); err != nil {
+		t.Fatalf("캐시가 쓰이지 않았다: %v", err)
+	}
+}
+
 func TestGitRepoAllowed_OutsideRootIsDenied(t *testing.T) {
 	e := newFileBoundaryEnv(t)
 	repo := filepath.Join(e.outside, "secret-repo")
