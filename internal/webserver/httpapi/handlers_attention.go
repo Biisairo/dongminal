@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"net/http"
 
@@ -39,7 +40,7 @@ func (s *Server) apiToolAttentionSet(w http.ResponseWriter, r *http.Request) {
 		Reason string `json:"reason"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" {
-		http.Error(w, "bad request", http.StatusBadRequest)
+		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeBadRequest)
 		return
 	}
 	reason := req.Reason
@@ -74,7 +75,7 @@ func (s *Server) apiToolAttentionClear(w http.ResponseWriter, r *http.Request) {
 		Typed  bool   `json:"typed"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" {
-		http.Error(w, "bad request", http.StatusBadRequest)
+		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeBadRequest)
 		return
 	}
 	if s.Tools != nil {
@@ -163,7 +164,7 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 		Agent string `json:"agent"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" || !hub.ValidActivityState(req.State) {
-		http.Error(w, "bad request", http.StatusBadRequest)
+		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeBadRequest)
 		return
 	}
 	if s.Tools != nil {
@@ -253,11 +254,11 @@ func (s *Server) apiToolBackgroundSet(w http.ResponseWriter, r *http.Request) {
 		Background bool   `json:"background"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ToolID == "" {
-		http.Error(w, "toolId 필요", http.StatusBadRequest)
+		httpErr(w, "toolId 필요", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}
-	if s.Tools == nil || !s.Tools.SetBackground(body.ToolID, body.Background) {
-		http.Error(w, "toolId="+body.ToolID+" 존재하지 않음", http.StatusNotFound)
+	if s.Tools == nil || !s.tools(r).SetBackground(body.ToolID, body.Background) {
+		httpErr(w, "toolId="+body.ToolID+" 존재하지 않음", http.StatusNotFound, apierr.CodeToolNotFound)
 		return
 	}
 	if !body.Background {

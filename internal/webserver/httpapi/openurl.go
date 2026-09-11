@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"errors"
 	"net"
@@ -105,7 +106,7 @@ func isLoopbackAddr(addr string) bool {
 // 열어 봐야 하고, 오판일 때 그 창은 사용자가 볼 수 없는 곳에 뜬다.
 func (s *Server) handleOpenURLWhere(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		httpErr(w, "method not allowed", http.StatusMethodNotAllowed, apierr.CodeNotAllowed)
 		return
 	}
 	where, cid := s.openURLWhere()

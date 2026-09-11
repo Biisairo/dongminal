@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -122,13 +123,13 @@ func (s *Server) openRegularFile(w http.ResponseWriter, r *http.Request) (*os.Fi
 	}
 	f, err := os.Open(fp)
 	if err != nil {
-		http.Error(w, "file not found", http.StatusNotFound)
+		httpErr(w, "file not found", http.StatusNotFound, apierr.CodeNotFound)
 		return nil, nil, false
 	}
 	st, err := f.Stat()
 	if err != nil || st.IsDir() {
 		f.Close()
-		http.Error(w, "not a file", http.StatusBadRequest)
+		httpErr(w, "not a file", http.StatusBadRequest, apierr.CodeNotAFile)
 		return nil, nil, false
 	}
 	return f, st, true
@@ -144,7 +145,7 @@ func (s *Server) apiFileProbe(w http.ResponseWriter, r *http.Request) {
 
 	kind, mime, _, err := probeFile(f)
 	if err != nil {
-		http.Error(w, "cannot read file", http.StatusForbidden)
+		httpErr(w, "cannot read file", http.StatusForbidden, apierr.CodePermission)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -178,14 +179,14 @@ func (s *Server) apiFileRaw(w http.ResponseWriter, r *http.Request) {
 	// FR-FAB-8: 크기 판정이 **종류 판정보다 앞**이다. 뒤에 두면 큰 파일을 읽어
 	// 종류를 가린 뒤에야 거절하게 된다.
 	if st.Size() > fileReadMaxBytes {
-		http.Error(w, fmt.Sprintf("file too large: %d bytes (max %d)", st.Size(), fileReadMaxBytes),
+		httpErrf(w, apierr.CodeTooLarge, fmt.Sprintf("file too large: %d bytes (max %d)", st.Size(), fileReadMaxBytes),
 			http.StatusRequestEntityTooLarge)
 		return
 	}
 
 	kind, mime, head, err := probeFile(f)
 	if err != nil {
-		http.Error(w, "cannot read file", http.StatusForbidden)
+		httpErr(w, "cannot read file", http.StatusForbidden, apierr.CodePermission)
 		return
 	}
 	// DOC_RENDER_VIEW_SRS FR-DRV-24: **SVG 에 문을 내되 잠금장치를 함께 단다.**
@@ -196,7 +197,7 @@ func (s *Server) apiFileRaw(w http.ResponseWriter, r *http.Request) {
 	// 막는 것은 그 헤더뿐이다. `<img>` 안에서 안전한 것과 그것은 다른 이야기다.
 	svg := kind == fileKindText && looksLikeSVG(head)
 	if kind != fileKindImage && !svg {
-		http.Error(w, "not an image", http.StatusUnsupportedMediaType)
+		httpErr(w, "not an image", http.StatusUnsupportedMediaType, apierr.CodeNotAnImage)
 		return
 	}
 	if svg {
@@ -204,7 +205,7 @@ func (s *Server) apiFileRaw(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Security-Policy", "sandbox")
 	}
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
-		http.Error(w, "cannot read file", http.StatusForbidden)
+		httpErr(w, "cannot read file", http.StatusForbidden, apierr.CodePermission)
 		return
 	}
 	w.Header().Set("Content-Type", mime)

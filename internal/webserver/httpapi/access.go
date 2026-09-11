@@ -1,10 +1,11 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 
@@ -103,18 +104,18 @@ func newAccessStore(path string) *accessStore {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			log.Printf("loadAccess: %v", err)
+			dmlog.Infof(nil, "loadAccess: %v", err)
 		}
 		return s
 	}
 	var cfg accessConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		// FR-ACL-2: 읽기 실패가 서버를 잠그지 않는다. 열린 상태로 서고 로그만 남긴다.
-		log.Printf("loadAccess: %v — 허용 목록을 끈 채로 시작한다", err)
+		dmlog.Infof(nil, "loadAccess: %v — 허용 목록을 끈 채로 시작한다", err)
 		return s
 	}
 	s.cfg = cfg
-	log.Printf("access loaded: enabled=%v entries=%d hosts=%d", cfg.Enabled, len(cfg.Entries), len(cfg.Hosts))
+	dmlog.Infof(nil, "access loaded: enabled=%v entries=%d hosts=%d", cfg.Enabled, len(cfg.Entries), len(cfg.Hosts))
 	return s
 }
 
@@ -166,13 +167,13 @@ func (s *accessStore) setConfig(cfg accessConfig) error {
 	if err != nil {
 		// 문자열과 불뿐인 구조체라 실무에서 나지 않는다. 나더라도 사용자에게 할
 		// 말은 없으므로 전문은 로그로만 간다 (04-secops SEC-17).
-		log.Printf("saveAccess marshal: %v", err)
+		dmlog.Infof(nil, "saveAccess marshal: %v", err)
 		return errAccessSaveFailed
 	}
 	// 원자적으로 쓴다 — 사용자가 손으로 만든 값이고 잘리면 되돌릴 방법이 없다
 	// (settings 저장과 같은 근거).
 	if err := platform.WriteStateFile(s.path, data, 0o644); err != nil {
-		log.Printf("saveAccess: %v", err)
+		dmlog.Infof(nil, "saveAccess: %v", err)
 	}
 	// 새로 들어온 호스트명이 곧바로 상태를 갖게 한다. 이것이 없으면 저장 직후
 	// 화면이 "해석 안 됨" 으로 보인다.
@@ -262,7 +263,7 @@ func (s *accessStore) refresh() {
 	if addrs, err := s.interfaceAddrs(); err == nil {
 		self = addrs
 	} else {
-		log.Printf("access: 인터페이스 주소 수집 실패 (%v) — loopback 예외만 남는다", err)
+		dmlog.Errorf(nil, "access: 인터페이스 주소 수집 실패 (%v) — loopback 예외만 남는다", err)
 	}
 
 	resolved := map[string][]netip.Addr{}
@@ -485,7 +486,9 @@ func accessGate(store *accessStore, next http.Handler) http.Handler {
 			return
 		}
 		// FR-ACL-13: 출발지와 경로를 남긴다.
-		log.Printf("access denied addr=%s %s %s", r.RemoteAddr, r.Method, r.URL.Path)
+		// FR-OBS-9: 거절도 요청 ID 를 든다 — 거절이야말로 사용자가 묻는 자리다.
+		countAccessDenied()
+		dmlog.Infof(r.Context(), "access denied addr=%s %s %s", r.RemoteAddr, r.Method, r.URL.Path)
 		// FR-ADP-1: 문서 요청이면 **화면**을 준다 — 평문 `forbidden` 은 사용자가
 		// 무엇을 해야 하는지 말하지 않는다. 그 밖(API·/ws)은 그대로 평문이다.
 		//
@@ -502,7 +505,7 @@ func accessGate(store *accessStore, next http.Handler) http.Handler {
 			writeDeniedPage(w, shown)
 			return
 		}
-		http.Error(w, "forbidden", http.StatusForbidden)
+		httpErr(w, "forbidden", http.StatusForbidden, apierr.CodeForbidden)
 	})
 }
 
@@ -534,7 +537,7 @@ func localInterfaceAddrs() ([]netip.Addr, error) {
 
 func (s *Server) apiAccessGet(w http.ResponseWriter, r *http.Request) {
 	if s.Access == nil {
-		http.Error(w, "access store unavailable", http.StatusServiceUnavailable)
+		httpErr(w, "access store unavailable", http.StatusServiceUnavailable, apierr.CodeAccessUnready)
 		return
 	}
 	v := s.Access.view()
@@ -553,17 +556,17 @@ func (s *Server) apiAccessGet(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) apiAccessPut(w http.ResponseWriter, r *http.Request) {
 	if s.Access == nil {
-		http.Error(w, "access store unavailable", http.StatusServiceUnavailable)
+		httpErr(w, "access store unavailable", http.StatusServiceUnavailable, apierr.CodeAccessUnready)
 		return
 	}
 	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		http.Error(w, "read body", httpreq.Status(err))
+		httpErr(w, "read body", httpreq.Status(err), apierr.CodeBodyTooBig)
 		return
 	}
 	var cfg accessConfig
 	if err := json.Unmarshal(body, &cfg); err != nil {
-		http.Error(w, "invalid json", http.StatusBadRequest)
+		httpErr(w, "invalid json", http.StatusBadRequest, apierr.CodeInvalidJSON)
 		return
 	}
 	if err := s.Access.setConfig(cfg); err != nil {

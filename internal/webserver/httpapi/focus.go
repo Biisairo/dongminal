@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"net/http"
 )
@@ -42,11 +43,11 @@ func (s *Server) apiFocusClaim(w http.ResponseWriter, r *http.Request) {
 		WindowID string `json:"windowId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ClientID == "" || body.WindowID == "" {
-		http.Error(w, "clientId·windowId 필요", http.StatusBadRequest)
+		httpErr(w, "clientId·windowId 필요", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}
 	if s.Focus == nil {
-		http.Error(w, "focus registry 없음", http.StatusInternalServerError)
+		httpErr(w, "focus registry 없음", http.StatusInternalServerError, apierr.CodeInternal)
 		return
 	}
 	if s.Focus.Claim(body.ClientID, body.WindowID) {

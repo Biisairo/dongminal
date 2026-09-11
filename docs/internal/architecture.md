@@ -148,10 +148,20 @@ docs/
 | fs | `{"code": <코드>, "message": <msg>}` | `/api/fs/*` · `/api/editors/*` |
 | runs | `{"error": <sentinel 문자열>, "detail": <err>}` | `/api/runs/*` |
 | 단문 | `{"error": <msg>}` | `/api/tools/{output,input,message}` · `/api/whoami` |
+| 평문 | `text/plain` 한 줄 | 그 밖의 `/api/*` (`httpErr`) |
+
+> **표가 넷을 세는 동안 실물은 다섯이었다** (2026-09-12, M5 `G6-1`).
+> `http.Error` 가 쓰던 `text/plain` 이 다섯 번째 방언이고 65곳이 그것을 냈다.
+> 지우는 것이 아니라 **세는 것이 먼저다** — 세지 않은 방언은 통일 논의에서도 빠진다.
 
 **통일하지 않는다** — 그것은 리팩터가 아니라 파괴적 변경이다. 대신
 `internal/webserver/apierr` 가 **매핑과 어휘**를 소유하고 렌더링은 각 표면에 남는다
 (DEEPENING_REFACTOR_SRS 묶음 A).
+
+**코드는 방언 밖으로도 나간다** (M5 `G6-1`, `ERROR_CONTRACT_SRS`). 모든 오류 응답이
+`X-Error-Code` 헤더에 코드를 싣는다 — **본문은 한 바이트도 바뀌지 않는다.** 본문이
+공개 계약이고 헤더는 그 밖이라, 통일을 미루면서 코드를 얻는 유일한 길이다.
+카탈로그는 `docs/external/errors.md` 이며 `codes_doc.go` 에서 **생성**된다.
 
 ```
 domain sentinel 78개 ──▶ apierr.{Git,Runs,FS}.Lookup ──▶ (status, code)

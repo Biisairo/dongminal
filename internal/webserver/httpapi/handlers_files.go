@@ -1,11 +1,12 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"dongminal/internal/webserver/httpreq"
@@ -85,13 +86,18 @@ type failFn func(status int, code, msg string)
 // textFail 은 터미널 표면의 형식이다 — 브라우저가 직접 내비게이션하는 종단이라
 // JSON 을 읽을 사람이 없다. 본문에 서버 경로를 싣지 않는다 (FR-FTR-3).
 func textFail(w http.ResponseWriter) failFn {
-	return func(status int, _, msg string) { http.Error(w, msg, status) }
+	// 코드를 버리지 않는다 (FR-ERR-4). 본문은 종전대로 평문이고, 코드는
+	// 헤더로 간다 — 이 종단의 소비자가 사람이라는 사실과 기계가 분기할 수 있다는
+	// 사실이 서로를 밀어내지 않는다.
+	return func(status int, code, msg string) { httpErr(w, msg, status, code) }
 }
 
 // jsonFail 은 탐색기 표면의 형식이다 — /api/fs/* 의 코드 규약을 그대로 쓴다
 // (FR-EDT-117).
 func jsonFail(w http.ResponseWriter) failFn {
 	return func(status int, code, msg string) {
+		// FR-ERR-7: 본문의 코드와 같은 값을 헤더로도 낸다.
+		w.Header().Set(apierr.CodeHeader, code)
 		fsJSON(w, status, map[string]any{"code": code, "message": msg})
 	}
 }
@@ -185,7 +191,7 @@ func (s *Server) apiUpload(w http.ResponseWriter, r *http.Request) {
 	// 오류는 Abs 가 실패할 때(cwd 를 못 읽음)뿐이다.
 	safeDir, err := safeResolve("/", dir)
 	if err != nil {
-		http.Error(w, "forbidden", http.StatusForbidden)
+		httpErr(w, "forbidden", http.StatusForbidden, apierr.CodeForbidden)
 		return
 	}
 	// 터미널 표면은 자동 개명한다 — `(1)`·`(2)` 는 api.md 의 공개 계약이다.
@@ -285,20 +291,20 @@ func serveDownload(w http.ResponseWriter, fp string, fail failFn) {
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", st.Size()))
 	if _, err := io.Copy(w, f); err != nil {
 		// 헤더는 이미 나갔다 — 남길 수 있는 것은 로그뿐이다.
-		log.Printf("download %s: %v", filepath.Base(fp), err)
+		dmlog.Infof(nil, "download %s: %v", filepath.Base(fp), err)
 	}
 }
 
 func (s *Server) apiDownload(w http.ResponseWriter, r *http.Request) {
 	fp := r.URL.Query().Get("path")
 	if fp == "" {
-		http.Error(w, "missing path", http.StatusBadRequest)
+		httpErr(w, "missing path", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}
 	if !filepath.IsAbs(fp) {
 		abs, err := filepath.Abs(fp)
 		if err != nil {
-			http.Error(w, "invalid path", http.StatusBadRequest)
+			httpErr(w, "invalid path", http.StatusBadRequest, apierr.CodeBadRequest)
 			return
 		}
 		fp = abs
@@ -359,7 +365,7 @@ func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 	}
 	f, err := os.Open(fp)
 	if err != nil {
-		http.Error(w, "file not found", http.StatusNotFound)
+		httpErr(w, "file not found", http.StatusNotFound, apierr.CodeNotFound)
 		return
 	}
 	defer f.Close()
@@ -368,17 +374,17 @@ func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 	// 패닉했다 (FR-CAF-4).
 	stat, err := f.Stat()
 	if err != nil {
-		http.Error(w, "stat failed: "+err.Error(), http.StatusInternalServerError)
+		httpErr(w, "stat failed: "+err.Error(), http.StatusInternalServerError, apierr.CodeIO)
 		return
 	}
 	if stat.IsDir() {
-		http.Error(w, "not a file", http.StatusBadRequest)
+		httpErr(w, "not a file", http.StatusBadRequest, apierr.CodeNotAFile)
 		return
 	}
 	// FR-FAB-8: 상한을 넘으면 **413** 이고 실제 크기를 실어 보낸다. 클라이언트는
 	// 그 숫자로 안내를 만든다 — "너무 큽니다" 만으로는 얼마나 큰지 말할 수 없다.
 	if stat.Size() > fileReadMaxBytes {
-		http.Error(w, fmt.Sprintf("file too large: %d bytes (max %d)", stat.Size(), fileReadMaxBytes),
+		httpErrf(w, apierr.CodeTooLarge, fmt.Sprintf("file too large: %d bytes (max %d)", stat.Size(), fileReadMaxBytes),
 			http.StatusRequestEntityTooLarge)
 		return
 	}
@@ -394,7 +400,7 @@ func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 	// 판정 뒤에도 `LimitReader` 를 지난다. `Stat` 과 `Copy` 사이에 파일이 자라는
 	// 경우가 있고, 판정만으로는 그 틈이 닫히지 않는다.
 	if _, err := io.Copy(w, io.LimitReader(f, fileReadMaxBytes)); err != nil {
-		log.Printf("file read: copy %s: %v", fp, err)
+		dmlog.Infof(nil, "file read: copy %s: %v", fp, err)
 	}
 }
 
@@ -409,12 +415,12 @@ type fileWriteReq struct {
 func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		http.Error(w, "read body: "+err.Error(), httpreq.Status(err))
+		httpErr(w, "read body: "+err.Error(), httpreq.Status(err), apierr.CodeBodyTooBig)
 		return
 	}
 	var req fileWriteReq
 	if err := json.Unmarshal(body, &req); err != nil {
-		http.Error(w, "invalid json: "+err.Error(), http.StatusBadRequest)
+		httpErr(w, "invalid json: "+err.Error(), http.StatusBadRequest, apierr.CodeInvalidJSON)
 		return
 	}
 	// FILE_API_BOUNDARY_SRS FR-FAB-1: 허용 루트 아래여야 한다.
@@ -432,15 +438,15 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	// 저장은 새로 만드는 것이다 (FR-EXC-10a).
 	if req.Stamp != "" {
 		if cur := stampOfPath(target); cur != "" && cur != req.Stamp {
-			http.Error(w, "file changed on disk", http.StatusConflict)
+			httpErr(w, "file changed on disk", http.StatusConflict, apierr.CodeFileChanged)
 			return
 		}
 	}
 	// 원자적으로 쓴다 (FR-CAF-11). 여기서 잘리는 것은 우리 상태 파일이 아니라
 	// **사용자가 쓰던 원본**이다 — 편집기의 저장이 이 종단이다.
 	if err := platform.WriteFileAtomic(target, []byte(req.Content), 0o644); err != nil {
-		log.Printf("file write error: %v", err)
-		http.Error(w, "write failed: "+err.Error(), http.StatusInternalServerError)
+		dmlog.Errorf(nil, "file write error: %v", err)
+		httpErr(w, "write failed: "+err.Error(), http.StatusInternalServerError, apierr.CodeIO)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

@@ -1,9 +1,9 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/dmlog"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -210,7 +210,7 @@ func (s *Server) notifyContextAlert(m run.Member, level string) {
 		return
 	}
 	if !s.ToolIO.Has(rec.CoordinatorToolID) {
-		log.Printf("[run] context-alert 생략 run=%s member=%s level=%s — 조정자 도구가 없다",
+		dmlog.Infof(nil, "[run] context-alert 생략 run=%s member=%s level=%s — 조정자 도구가 없다",
 			rec.Short, m.ID, level)
 		return
 	}
@@ -222,10 +222,10 @@ func (s *Server) notifyContextAlert(m run.Member, level string) {
 		rec.CoordinatorToolID, time.Now().Format("15:04:05"), body)
 	if err := s.ToolIO.SendPaste(rec.CoordinatorToolID, []byte(envelope), true); err != nil {
 		// 통지 실패는 로그로 끝난다. Run 은 그대로 살아 있다.
-		log.Printf("[run] context-alert 전달 실패 run=%s member=%s: %v", rec.Short, m.ID, err)
+		dmlog.Errorf(nil, "[run] context-alert 전달 실패 run=%s member=%s: %v", rec.Short, m.ID, err)
 		return
 	}
-	log.Printf("[run] context-alert run=%s member=%s role=%s level=%s ratio=%.2f compact=%d",
+	dmlog.Infof(nil, "[run] context-alert run=%s member=%s role=%s level=%s ratio=%.2f compact=%d",
 		rec.Short, m.ID, m.Role, level, m.ContextRatio, m.CompactCount)
 }
 
@@ -333,7 +333,7 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 			// (목록이 앞서 걷혔거나 사용자가 두 번 눌렀다) 치울 것이 없다는 뜻이다.
 			// 버리는 것과 판단한 것은 다르므로 그 사실을 여기 적어 둔다.
 			_ = s.Tools.Delete(toolID)
-			log.Printf("[run] headless 롤백 — 승계 실패: tool=%s", toolID)
+			dmlog.Errorf(nil, "[run] headless 롤백 — 승계 실패: tool=%s", toolID)
 		}
 		writeRunError(w, err, nil)
 		return
@@ -343,7 +343,7 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 		s.markWorkspaceRun(cur, next.TabID, cur.ID)
 		view.Preamble = run.Preamble(cur, next)
 	}
-	log.Printf("[run] succeed run=%s prev=%s next=%s role=%s tool=%s tab=%s summary=%v worktree=%v",
+	dmlog.Infof(nil, "[run] succeed run=%s prev=%s next=%s role=%s tool=%s tab=%s summary=%v worktree=%v",
 		rec.Short, prevAfter.ID, next.ID, next.Role, next.ToolID, next.TabID,
 		prevAfter.HandoffSummary != "", next.Worktree != nil)
 	writeJSON(w, map[string]any{
@@ -382,7 +382,7 @@ func (s *Server) requestHandoff(rec run.Record, prev run.Member, timeoutMs int) 
 		"[DONGMINAL-AGENT-MSG from=dongminal-server to=%s ts=%s]\n%s\n[/DONGMINAL-AGENT-MSG]",
 		prev.ID, time.Now().Format("15:04:05"), ask)
 	if err := s.ToolIO.SendPaste(prev.ToolID, []byte(envelope), true); err != nil {
-		log.Printf("[run] handoff 요청 실패 run=%s member=%s: %v", rec.Short, prev.ID, err)
+		dmlog.Errorf(nil, "[run] handoff 요청 실패 run=%s member=%s: %v", rec.Short, prev.ID, err)
 		return baseline, false
 	}
 
@@ -406,7 +406,7 @@ func (s *Server) requestHandoff(rec run.Record, prev run.Member, timeoutMs int) 
 			return cur.HandoffSummary, true
 		}
 	}
-	log.Printf("[run] handoff 시한 초과 run=%s member=%s wait=%s — 요약 없이 승계하고 기다림을 프리앰블로 넘긴다",
+	dmlog.Infof(nil, "[run] handoff 시한 초과 run=%s member=%s wait=%s — 요약 없이 승계하고 기다림을 프리앰블로 넘긴다",
 		rec.Short, prev.ID, wait)
 	return baseline, true
 }
@@ -431,6 +431,6 @@ func (s *Server) apiRunHandoff(w http.ResponseWriter, r *http.Request) {
 		writeRunError(w, err, nil)
 		return
 	}
-	log.Printf("[run] handoff run=%s member=%s tool=%s len=%d", m.RunID, m.ID, m.ToolID, len(m.HandoffSummary))
+	dmlog.Infof(nil, "[run] handoff run=%s member=%s tool=%s len=%d", m.RunID, m.ID, m.ToolID, len(m.HandoffSummary))
 	writeJSON(w, map[string]any{"memberId": m.ID, "runId": m.RunID, "len": len(m.HandoffSummary)})
 }

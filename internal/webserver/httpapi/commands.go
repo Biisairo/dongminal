@@ -1,11 +1,12 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/hub"
 
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 
 	"dongminal/internal/webserver/httpreq"
@@ -51,7 +52,7 @@ func translateLocationUUID(rawArgs *json.RawMessage, ws WorkspaceStore) (orig, f
 func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		httpErr(w, "streaming unsupported", http.StatusInternalServerError, apierr.CodeStreamUnsupport)
 		return
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -130,7 +131,7 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		httpErr(w, "method not allowed", http.StatusMethodNotAllowed, apierr.CodeNotAllowed)
 		return
 	}
 	body, err := httpreq.Read(w, r, 0)
@@ -148,11 +149,11 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		ExecClientId string `json:"execClientId,omitempty"`
 	}
 	if err := json.Unmarshal(body, &req); err != nil {
-		http.Error(w, "invalid json: "+err.Error(), http.StatusBadRequest)
+		httpErr(w, "invalid json: "+err.Error(), http.StatusBadRequest, apierr.CodeInvalidJSON)
 		return
 	}
 	if !hub.AllowedCmdActions[req.Action] {
-		http.Error(w, "unknown action: "+req.Action, http.StatusBadRequest)
+		httpErr(w, "unknown action: "+req.Action, http.StatusBadRequest, apierr.CodeUnknownAction)
 		return
 	}
 	// VIEWER_URL_OPEN_SRS: 열 URL 을 먼저 거르고(FR-VUO-18) 어디서 열지 정한다.
@@ -203,7 +204,7 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 	}
 	if openURLWhere == whereLocal {
 		resp["delivered"] = 0
-		log.Printf("[cmd] action=%s where=local (뷰어가 서버와 같은 컴퓨터 — 부른 셸이 연다)", req.Action)
+		dmlog.Infof(nil, "[cmd] action=%s where=local (뷰어가 서버와 같은 컴퓨터 — 부른 셸이 연다)", req.Action)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
 		return
@@ -219,14 +220,14 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		resp["newPanes"] = res.NewPanes
 		resp["newTabs"] = res.NewTabs
 		resp["timedOut"] = timedOut
-		log.Printf("[cmd] action=%s%s delivered=%d newTabs=%d timedOut=%t",
+		dmlog.Infof(nil, "[cmd] action=%s%s delivered=%d newTabs=%d timedOut=%t",
 			req.Action, locField, n, len(res.NewTabs), timedOut)
 	} else {
 		// FR-RCR-5: 비생성 명령은 기존과 완전히 동일 (대기 없음, 새 필드 없음).
 		payload, _ := json.Marshal(req)
 		n := s.Commands.Broadcast(payload)
 		resp["delivered"] = n
-		log.Printf("[cmd] action=%s%s delivered=%d payload=%s", req.Action, locField, n, string(payload))
+		dmlog.Infof(nil, "[cmd] action=%s%s delivered=%d payload=%s", req.Action, locField, n, string(payload))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -237,7 +238,7 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 // routes it to the awaiting handleCommandPost / MCP handler (FR-RCR-3).
 func (s *Server) handleCommandResult(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		httpErr(w, "method not allowed", http.StatusMethodNotAllowed, apierr.CodeNotAllowed)
 		return
 	}
 	var body struct {
@@ -247,7 +248,7 @@ func (s *Server) handleCommandResult(w http.ResponseWriter, r *http.Request) {
 		NewTabs    []hub.TabRef `json:"newTabs"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid json: "+err.Error(), http.StatusBadRequest)
+		httpErr(w, "invalid json: "+err.Error(), http.StatusBadRequest, apierr.CodeInvalidJSON)
 		return
 	}
 	if body.ReqId != "" {

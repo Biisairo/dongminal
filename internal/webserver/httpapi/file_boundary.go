@@ -1,9 +1,10 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -120,7 +121,7 @@ func (s *Server) fileUnrestricted() bool {
 	}
 	if cfg.FileAPIUnrestricted {
 		fileUnrestrictedOnce.Do(func() {
-			log.Printf("file: fileApiUnrestricted=true — /api/file/* 의 경계가 꺼져 있습니다")
+			dmlog.Infof(nil, "file: fileApiUnrestricted=true — /api/file/* 의 경계가 꺼져 있습니다")
 		})
 	}
 	return cfg.FileAPIUnrestricted
@@ -190,7 +191,7 @@ func (s *Server) gitRepoAllowed(repoRoot string) error {
 	if err != nil {
 		// NFR-FAB-3 과 같은 fail-closed 다. 읽기 실패로 전부 열리면 그 실패가 곧
 		// 우회 경로가 된다.
-		log.Printf("git repo: 루트 목록을 읽지 못했다 (%v) — 거절한다", err)
+		dmlog.Warnf(nil, "git repo: 루트 목록을 읽지 못했다 (%v) — 거절한다", err)
 		return errGitRepoOutside
 	}
 	// **핀 목록이 여기 더해진다** (FR-FAB-14a). 파일 표면의 루트 목록(`Roots()`)은
@@ -201,7 +202,7 @@ func (s *Server) gitRepoAllowed(repoRoot string) error {
 		if lists, err := s.Entries.Read(); err == nil {
 			roots = append(roots, lists.Pinned...)
 		} else {
-			log.Printf("git repo: 핀 목록을 읽지 못했다 (%v) — 거절한다", err)
+			dmlog.Warnf(nil, "git repo: 핀 목록을 읽지 못했다 (%v) — 거절한다", err)
 			return errGitRepoOutside
 		}
 	}
@@ -219,7 +220,7 @@ func (s *Server) gitRepoAllowed(repoRoot string) error {
 			return nil
 		}
 	}
-	log.Printf("git repo denied path=%q", repoRoot)
+	dmlog.Infof(nil, "git repo denied path=%q", repoRoot)
 	return errGitRepoOutside
 }
 
@@ -235,11 +236,11 @@ func (s *Server) gitRepoAllowed(repoRoot string) error {
 // 디렉터리가 링크여서 루트를 벗어나는 경우는 걸린다 (FR-EDT-112).
 func (s *Server) fileGuard(w http.ResponseWriter, r *http.Request, p string, forWrite bool) (string, bool) {
 	if p == "" {
-		http.Error(w, "missing path", http.StatusBadRequest)
+		httpErr(w, "missing path", http.StatusBadRequest, apierr.CodeMissingArg)
 		return "", false
 	}
 	if !filepath.IsAbs(p) {
-		http.Error(w, "path must be absolute", http.StatusBadRequest)
+		httpErr(w, "path must be absolute", http.StatusBadRequest, apierr.CodeAbsPathNeeded)
 		return "", false
 	}
 	// FR-FAB-12: 홈 아래 쓰기는 **노트만**이다 (`SEC-16`).
@@ -248,8 +249,8 @@ func (s *Server) fileGuard(w http.ResponseWriter, r *http.Request, p string, for
 	// 어디서든 열겠다" 는 뜻이지 "내 서버의 집행 선언을 웹으로 덮겠다" 는 뜻이
 	// 아니다 — 노출 모드가 같은 설정을 무시하는 것과 같은 논리다 (FR-FAB-7).
 	if forWrite && s.homeWriteDenied(p) {
-		log.Printf("file denied(home) addr=%s %s path=%q", r.RemoteAddr, r.Method, p)
-		http.Error(w, "forbidden", http.StatusForbidden)
+		dmlog.Infof(nil, "file denied(home) addr=%s %s path=%q", r.RemoteAddr, r.Method, p)
+		httpErr(w, "forbidden", http.StatusForbidden, apierr.CodeForbidden)
 		return "", false
 	}
 	if s.fileUnrestricted() {
@@ -258,8 +259,8 @@ func (s *Server) fileGuard(w http.ResponseWriter, r *http.Request, p string, for
 
 	roots, err := s.fileRoots()
 	if err != nil {
-		log.Printf("file: 루트 목록을 읽지 못했다 (%v) — 거절한다", err)
-		http.Error(w, "forbidden", http.StatusForbidden)
+		dmlog.Warnf(nil, "file: 루트 목록을 읽지 못했다 (%v) — 거절한다", err)
+		httpErr(w, "forbidden", http.StatusForbidden, apierr.CodeForbidden)
 		return "", false
 	}
 
@@ -285,7 +286,7 @@ func (s *Server) fileGuard(w http.ResponseWriter, r *http.Request, p string, for
 	}
 	// 어느 루트에도 들지 않았다. **목록을 본문에 싣지 않는다** — 흘리면 그것이 곧
 	// 다음 시도의 입력이 된다 (FR-ACL-8 승계). 사후 추적은 로그가 한다.
-	log.Printf("file denied addr=%s %s path=%q", r.RemoteAddr, r.Method, p)
-	http.Error(w, "forbidden", http.StatusForbidden)
+	dmlog.Infof(nil, "file denied addr=%s %s path=%q", r.RemoteAddr, r.Method, p)
+	httpErr(w, "forbidden", http.StatusForbidden, apierr.CodeForbidden)
 	return "", false
 }

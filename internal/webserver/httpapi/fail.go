@@ -1,8 +1,8 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/dmlog"
 	"errors"
-	"log"
 	"net/http"
 
 	"dongminal/internal/webserver/httpreq"
@@ -28,9 +28,14 @@ import (
 // 로그로 가고 본문에는 실리지 않는다.
 func fail(w http.ResponseWriter, code int, msg string, err error) {
 	if err != nil {
-		log.Printf("응답 %d (%s): %v", code, msg, err)
+		dmlog.Infof(nil, "응답 %d (%s): %v", code, msg, err)
 	}
-	http.Error(w, msg, code)
+	// ERROR_CONTRACT_SRS FR-ERR-1: 코드는 **상태에서 파생한다.**
+	//
+	// 이 함수의 호출자들은 상태만 들고 있고, 그것이 이 이음매의 설계다 —
+	// 판정(무엇을 보일지)은 호출자에게 있고 모양은 여기 있다. 더 좁은 코드가
+	// 필요한 자리는 `httpErr` 을 직접 부르면 된다.
+	httpErr(w, msg, code, "")
 }
 
 // failRead 는 `httpreq.Read` 의 실패를 옮긴다.

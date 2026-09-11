@@ -6,10 +6,10 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/dmlog"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -116,6 +116,8 @@ func writeRunError(w http.ResponseWriter, err error, extra map[string]any) {
 	for k, v := range extra {
 		body[k] = v
 	}
+	// FR-ERR-7: 본문의 `error` 와 같은 값을 헤더로도 낸다.
+	w.Header().Set(apierr.CodeHeader, name)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(body)
@@ -209,7 +211,7 @@ func (s *Server) apiRunStart(w http.ResponseWriter, r *http.Request) {
 		writeRunError(w, err, nil)
 		return
 	}
-	log.Printf("[run] start id=%s short=%s projection=%s isolation=%s coordinator=%s",
+	dmlog.Infof(nil, "[run] start id=%s short=%s projection=%s isolation=%s coordinator=%s",
 		rec.ID, rec.Short, rec.Projection, rec.Isolation, rec.CoordinatorToolID)
 	writeJSON(w, s.viewOf(rec))
 }
@@ -297,7 +299,7 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 			// (목록이 앞서 걷혔거나 사용자가 두 번 눌렀다) 치울 것이 없다는 뜻이다.
 			// 버리는 것과 판단한 것은 다르므로 그 사실을 여기 적어 둔다.
 			_ = s.Tools.Delete(toolID)
-			log.Printf("[run] headless 롤백 — 멤버 등록 실패: tool=%s", toolID)
+			dmlog.Errorf(nil, "[run] headless 롤백 — 멤버 등록 실패: tool=%s", toolID)
 		}
 		s.rollbackMember(mi)
 		writeRunError(w, err, nil)
@@ -310,7 +312,7 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 		// 없어야 그 계열의 결함이 사라진다 (FR-PRE-1).
 		view.Preamble = run.Preamble(rec, m)
 	}
-	log.Printf("[run] member run=%s member=%s role=%s agent=%s tool=%s tab=%s",
+	dmlog.Infof(nil, "[run] member run=%s member=%s role=%s agent=%s tool=%s tab=%s",
 		body.RunID, m.ID, m.Role, m.Agent, m.ToolID, m.TabID)
 	writeJSON(w, view)
 }
@@ -376,7 +378,7 @@ func (s *Server) waitHandoff(memberID string) {
 			return
 		}
 	}
-	log.Printf("[run] handoff 기다림 종료 member=%s wait=%s — 요약 없이 프리앰블을 낸다",
+	dmlog.Infof(nil, "[run] handoff 기다림 종료 member=%s wait=%s — 요약 없이 프리앰블을 낸다",
 		memberID, handoffPreambleWait)
 	s.Runs.GiveUpHandoff(memberID)
 }
@@ -409,7 +411,7 @@ func (s *Server) apiRunReport(w http.ResponseWriter, r *http.Request) {
 		writeRunError(w, err, nil)
 		return
 	}
-	log.Printf("[run] report run=%s member=%s tool=%s outcome=%s files=%d",
+	dmlog.Infof(nil, "[run] report run=%s member=%s tool=%s outcome=%s files=%d",
 		m.RunID, m.ID, m.ToolID, m.Outcome, len(m.FilesModified))
 	writeJSON(w, memberView{Member: m, State: m.State})
 }
@@ -496,7 +498,7 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 	}
 	// 고아 판정이 closeHeadlessTools 뒤에 오는 것은 순서가 아니라 **의미**다 —
 	// 앞서 세면 방금 거둔 도구까지 고아로 보고된다 (FR-HLM-5).
-	log.Printf("[run] close id=%s members=%d force=%v sweep=%v worktrees=%d residue=%d keepTools=%v",
+	dmlog.Infof(nil, "[run] close id=%s members=%d force=%v sweep=%v worktrees=%d residue=%d keepTools=%v",
 		rec.ID, len(rec.Members), body.Force, sweep, len(trees), residue, body.KeepTools)
 	orphans := s.orphanHeadless(rec)
 	// UX_REVISION_SRS FR-DEL-12: 끝난 Run 은 목록에 남지 않는다. 정리는 위에서
@@ -507,10 +509,10 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 	// 로 살려 둔 헤드리스 도구도, 그것이 남아 있다는 사실을 아는 자리는 레코드
 	// 하나뿐이다 (FR-WKT-12 · FR-HLM-5). 지우면 아무도 모르는 자원이 된다.
 	if residue > 0 || len(kept) > 0 {
-		log.Printf("[run] close 뒤 레코드 보존 id=%s residue=%d keptTools=%d",
+		dmlog.Infof(nil, "[run] close 뒤 레코드 보존 id=%s residue=%d keptTools=%d",
 			rec.ID, residue, len(kept))
 	} else if _, err := s.Runs.Delete(rec.ID); err != nil {
-		log.Printf("[run] close 뒤 레코드 삭제 실패 id=%s: %v", rec.ID, err)
+		dmlog.Errorf(nil, "[run] close 뒤 레코드 삭제 실패 id=%s: %v", rec.ID, err)
 	} else {
 		s.broadcastLayout("run_changed", map[string]any{"runId": rec.ID})
 	}
@@ -598,7 +600,7 @@ func (s *Server) markWorkspaceRunExcept(rec run.Record, tabID, runID string, ski
 		}
 		var tree map[string]any
 		if err := json.Unmarshal(blob, &tree); err != nil {
-			log.Printf("[run] workspace 표식 생략 — 파싱 실패: %v", err)
+			dmlog.Errorf(nil, "[run] workspace 표식 생략 — 파싱 실패: %v", err)
 			return
 		}
 		if !applyRunMarks(tree, tabs, windowID, markWindow, runID) {
@@ -606,7 +608,7 @@ func (s *Server) markWorkspaceRunExcept(rec run.Record, tabID, runID string, ski
 		}
 		out, err := json.Marshal(tree)
 		if err != nil {
-			log.Printf("[run] workspace 표식 생략 — 직렬화 실패: %v", err)
+			dmlog.Errorf(nil, "[run] workspace 표식 생략 — 직렬화 실패: %v", err)
 			return
 		}
 		newRev, err := s.Work.Save(out, strconv.FormatUint(rev, 10))
@@ -621,11 +623,11 @@ func (s *Server) markWorkspaceRunExcept(rec run.Record, tabID, runID string, ski
 			return
 		}
 		if !errors.Is(err, workspace.ErrStale) {
-			log.Printf("[run] workspace 표식 실패: %v", err)
+			dmlog.Errorf(nil, "[run] workspace 표식 실패: %v", err)
 			return
 		}
 	}
-	log.Printf("[run] workspace 표식 포기 — 동시 편집으로 3회 stale (runId=%s)", runID)
+	dmlog.Infof(nil, "[run] workspace 표식 포기 — 동시 편집으로 3회 stale (runId=%s)", runID)
 }
 
 // closedTabIDs 는 정리가 닫은 탭의 uuid 집합이다 (FR-RUN-6d).

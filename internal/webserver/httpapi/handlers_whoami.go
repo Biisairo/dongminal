@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"net/http"
 )
@@ -29,7 +30,7 @@ func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		http.Error(w, "whoami unavailable", http.StatusInternalServerError)
+		httpErr(w, "whoami unavailable", http.StatusInternalServerError, apierr.CodeInternal)
 		return
 	}
 
@@ -84,6 +85,11 @@ func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeWhoAmIError(w http.ResponseWriter, status int, msg string) {
+	// ERROR_CONTRACT_SRS FR-ERR-7: 단문 방언은 본문에 코드를 담을 자리가 없다 —
+	// `{"error": <문구>}` 가 공개 계약이고 그 문구는 사람이 읽는 말이다.
+	// 그래서 코드는 헤더로만 간다. 상태에서 파생하는 것이 이 표면에서 가능한
+	// 가장 좁은 답이다.
+	w.Header().Set(apierr.CodeHeader, apierr.CodeForStatus(status))
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})

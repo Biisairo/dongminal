@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
+	"dongminal/internal/webserver/apierr"
 	"encoding/base64"
 	"encoding/hex"
 	"io"
@@ -141,7 +142,10 @@ func (h *staticHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// heuristic freshness 로 재검증을 건너뛸 수 있고, 그러면 새 빌드를 띄워도
 	// index.html 이 옛 `?v=` 를 가리켜 옛 JS 가 계속 돈다. 나머지 자산은 `?v=`
 	// 로 무효화되므로 ETag 만으로 충분하다.
-	if isHTMLPath(r.URL.Path) {
+	//
+	// 매니페스트도 같다 — 판 질의문자열을 달지 않으므로 무효화할 다른 수단이
+	// 없다 (`09` FR-ICON-4).
+	if isHTMLPath(r.URL.Path) || strings.HasSuffix(r.URL.Path, ".webmanifest") {
 		w.Header().Set("Cache-Control", "no-cache")
 	}
 	// 치환본을 직접 내는 경로는 루트 하나다. `/index.html` 은 FileServer 가 예전처럼
@@ -209,13 +213,13 @@ func (h *staticHandler) servePrecompressed(w http.ResponseWriter, r *http.Reques
 	// 브라우저 아닌 클라이언트가 깨진 바이트를 받고 그 사실을 모른다 (FR-MVN-8).
 	zr, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
-		http.Error(w, "corrupt asset", http.StatusInternalServerError)
+		httpErr(w, "corrupt asset", http.StatusInternalServerError, apierr.CodeCorruptAsset)
 		return true
 	}
 	defer zr.Close()
 	plain, err := io.ReadAll(zr)
 	if err != nil {
-		http.Error(w, "corrupt asset", http.StatusInternalServerError)
+		httpErr(w, "corrupt asset", http.StatusInternalServerError, apierr.CodeCorruptAsset)
 		return true
 	}
 	http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(plain))
@@ -239,6 +243,9 @@ var staticTypes = map[string]string{
 	".svg":   "image/svg+xml",
 	".woff2": "font/woff2",
 	".map":   "application/json",
+	// `09` FR-ICON-4 (M5): 웹 앱 매니페스트. 표준 테이블에 없는 호스트가 있어
+	// 여기 박는다 — 형식이 호스트마다 다르면 그것을 재는 검사도 답이 갈린다.
+	".webmanifest": "application/manifest+json",
 }
 
 // contentTypeFor 는 확장자로 형식을 정한다. 모르는 확장자는 sniff 에 맡기지 않는다 —

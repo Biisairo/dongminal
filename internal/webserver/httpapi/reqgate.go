@@ -1,7 +1,8 @@
 package httpapi
 
 import (
-	"log"
+	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/webserver/apierr"
 	"net"
 	"net/http"
 	"net/netip"
@@ -251,7 +252,21 @@ func gateContentTypeOK(r *http.Request) bool {
 func gateDeny(w http.ResponseWriter, r *http.Request, code int, why, msg string) {
 	// 거절을 남긴다. 무엇이 왜 막혔는지 사후에 특정할 수 없으면, 사용자는
 	// "안 된다" 만 받고 우리는 그것이 방어인지 결함인지 가를 수 없다.
-	log.Printf("request denied why=%s addr=%s host=%q origin=%q %s %s",
+	countRequestDenied()
+	dmlog.Infof(r.Context(), "request denied why=%s addr=%s host=%q origin=%q %s %s",
 		why, r.RemoteAddr, r.Host, r.Header.Get("Origin"), r.Method, r.URL.Path)
-	http.Error(w, msg, code)
+	// FR-ERR-4: 거절 사유가 코드로도 나간다. `why` 는 종전부터 로그가 쓰던
+	// 어휘이고, 여기서 와이어 코드로 옮긴다 — 사람이 읽는 로그와 기계가 읽는
+	// 헤더가 같은 판정을 가리킨다.
+	httpErr(w, msg, code, gateDenyCode(why))
+}
+
+// gateDenyCode 는 거절 사유를 와이어 코드로 옮긴다.
+func gateDenyCode(why string) string {
+	if why == "host" {
+		return apierr.CodeHostRejected
+	}
+	// origin·sec-fetch-site 는 둘 다 "이 출처에서 부를 수 없다" 이고, 받는 쪽이
+	// 할 일이 같다 — 가르면 코드가 늘고 분기는 늘지 않는다.
+	return apierr.CodeForbidden
 }

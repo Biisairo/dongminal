@@ -9,10 +9,11 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 
 	"dongminal/internal/webserver/httpreq"
@@ -109,7 +110,7 @@ func (s *Server) apiToolInput(w http.ResponseWriter, r *http.Request) {
 		writeToolIOError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	log.Printf("[toolio] input tool=%s id=%s execute=%v textLen=%d",
+	dmlog.Infof(nil, "[toolio] input tool=%s id=%s execute=%v textLen=%d",
 		toolID, body.ID, body.Execute, len(body.Text))
 	writeJSON(w, map[string]any{"toolId": toolID, "len": len(body.Text), "execute": body.Execute})
 }
@@ -153,7 +154,7 @@ func (s *Server) apiToolMessage(w http.ResponseWriter, r *http.Request) {
 	// FR-RVZ-14: 배달에 성공한 것만 Run 의 사실로 적는다. 실패는 위에서 이미
 	// 돌아갔으므로 여기 도달한 것은 전부 전달된 메시지다. 본문은 넘기지 않는다.
 	s.recordRunMessage(fromToolID, toolID, len(body.Message))
-	log.Printf("[toolio] message from=%s(input=%s) to=%s(input=%s) msgLen=%d",
+	dmlog.Infof(nil, "[toolio] message from=%s(input=%s) to=%s(input=%s) msgLen=%d",
 		sender, body.From, toolID, body.To, len(body.Message))
 	writeJSON(w, map[string]any{
 		"toolId": toolID, "from": sender, "to": toolID, "len": len(body.Message),
@@ -230,6 +231,11 @@ func writeJSON(w http.ResponseWriter, v any) {
 }
 
 func writeToolIOError(w http.ResponseWriter, status int, msg string) {
+	// ERROR_CONTRACT_SRS FR-ERR-7: 단문 방언은 본문에 코드를 담을 자리가 없다 —
+	// `{"error": <문구>}` 가 공개 계약이고 그 문구는 사람이 읽는 말이다.
+	// 그래서 코드는 헤더로만 간다. 상태에서 파생하는 것이 이 표면에서 가능한
+	// 가장 좁은 답이다.
+	w.Header().Set(apierr.CodeHeader, apierr.CodeForStatus(status))
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})

@@ -2,12 +2,12 @@ package httpapi
 
 import (
 	"crypto/sha256"
+	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/toolhub"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -109,7 +109,7 @@ func (s *Server) createHeadlessTool(cwd, command string) (string, error) {
 		return "", err
 	}
 	s.Tools.SetBackground(tool.ID, true)
-	log.Printf("[run] headless tool=%s cwd=%s cmd=%s %dx%d", tool.ID, cwd, redactCmdForLog(command), headlessCols, headlessRows)
+	dmlog.Infof(nil, "[run] headless tool=%s cwd=%s cmd=%s %dx%d", tool.ID, cwd, redactCmdForLog(command), headlessCols, headlessRows)
 	// UX_REVISION_SRS FR-BGV-1: 브라우저의 ⏻ 목록은 **자기 행동**(detach·복귀)과
 	// SSE 재연결로만 갱신된다. 서버가 만든 백그라운드 도구를 알리지 않으면 배지가
 	// 0 인 채로 남고, 사용자는 모달을 열거나 새로고침해야 그것을 본다 —
@@ -181,7 +181,7 @@ func (s *Server) apiRunAttach(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.markWorkspaceRun(rec, tabID, rec.ID)
-	log.Printf("[run] attach run=%s member=%s tool=%s tab=%s", rec.ID, updated.ID, updated.ToolID, tabID)
+	dmlog.Infof(nil, "[run] attach run=%s member=%s tool=%s tab=%s", rec.ID, updated.ID, updated.ToolID, tabID)
 	writeJSON(w, memberView{Member: updated, State: s.deriveMemberState(updated)})
 }
 
@@ -223,7 +223,7 @@ func (s *Server) apiRunDetach(w http.ResponseWriter, r *http.Request) {
 		writeRunError(w, err, map[string]any{"memberId": m.ID})
 		return
 	}
-	log.Printf("[run] detach run=%s member=%s tool=%s", rec.ID, updated.ID, updated.ToolID)
+	dmlog.Infof(nil, "[run] detach run=%s member=%s tool=%s", rec.ID, updated.ID, updated.ToolID)
 	writeJSON(w, memberView{Member: updated, State: s.deriveMemberState(updated)})
 }
 
@@ -291,7 +291,7 @@ func (s *Server) closeHeadlessTools(rec run.Record, keep bool) []map[string]any 
 			// 버리는 것과 판단한 것은 다르므로 그 사실을 여기 적어 둔다.
 			_ = s.Tools.Delete(m.ToolID)
 		}
-		log.Printf("[run] headless close run=%s member=%s tool=%s", rec.ID, m.ID, m.ToolID)
+		dmlog.Infof(nil, "[run] headless close run=%s member=%s tool=%s", rec.ID, m.ID, m.ToolID)
 	}
 	return out
 }
@@ -349,12 +349,12 @@ func (s *Server) reconcileMemberTab(toolID string) {
 			// ErrMemberAttached 는 경합의 정상 결과다 — dmctl run attach 가
 			// 같은 복귀를 관측해 먼저 기록했다. 둘은 같은 답에 도달한다.
 			if !errors.Is(err, run.ErrMemberAttached) {
-				log.Printf("[run] 탭 결속 기록 실패 member=%s: %v", m.ID, err)
+				dmlog.Errorf(nil, "[run] 탭 결속 기록 실패 member=%s: %v", m.ID, err)
 			}
 			return
 		}
 		s.markWorkspaceRun(rec, tabID, rec.ID)
-		log.Printf("[run] 탭 결속 반영 run=%s member=%s tool=%s tab=%s",
+		dmlog.Infof(nil, "[run] 탭 결속 반영 run=%s member=%s tool=%s tab=%s",
 			rec.ID, updated.ID, toolID, tabID)
 	}()
 }

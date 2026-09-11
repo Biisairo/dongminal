@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -36,25 +37,25 @@ func (s *Server) apiToolKill(w http.ResponseWriter, r *http.Request) {
 		ToolID string `json:"toolId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ToolID == "" {
-		http.Error(w, "toolId 필요", http.StatusBadRequest)
+		httpErr(w, "toolId 필요", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}
 	// 알 수 없는 도구는 404 다 — apiToolBackgroundSet 과 같은 규약. 조용히
 	// 성공하면 낡은 id 가 감춰진다.
 	if s.Tools == nil {
-		http.Error(w, "toolId="+body.ToolID+" 존재하지 않음", http.StatusNotFound)
+		httpErr(w, "toolId="+body.ToolID+" 존재하지 않음", http.StatusNotFound, apierr.CodeToolNotFound)
 		return
 	}
 	tool := s.Tools.Get(body.ToolID)
 	if tool == nil {
-		http.Error(w, "toolId="+body.ToolID+" 존재하지 않음", http.StatusNotFound)
+		httpErr(w, "toolId="+body.ToolID+" 존재하지 않음", http.StatusNotFound, apierr.CodeToolNotFound)
 		return
 	}
 	terminateWithGrace(tool, toolKillGrace)
 	// `GO-8`: 오류를 **명시로** 무시한다. 이 경로에서 "이미 없다" 는 정상이며
 	// (목록이 앞서 걷혔거나 사용자가 두 번 눌렀다) 치울 것이 없다는 뜻이다.
 	// 버리는 것과 판단한 것은 다르므로 그 사실을 여기 적어 둔다.
-	_ = s.Tools.Delete(body.ToolID)
+	_ = s.tools(r).Delete(body.ToolID)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"ok": true})
 }

@@ -47,6 +47,9 @@ func gitJSON(w http.ResponseWriter, code int, body any) {
 }
 
 func gitFail(w http.ResponseWriter, code int, name, msg string) {
+	// ERROR_CONTRACT_SRS FR-ERR-7: 코드가 **헤더로도** 나간다. 본문의 값과
+	// 같아야 한다 — 두 자리가 갈리면 헤더 쪽이 거짓말이 된다.
+	w.Header().Set(apierr.CodeHeader, name)
 	gitJSON(w, code, map[string]any{"error": name, "message": msg})
 }
 
