@@ -154,9 +154,21 @@ jobs:
 
       # 알려진 취약점 (SEC-28). 직접 의존이 2개뿐이라 값이 없어 보이지만, 값이
       # 없다는 것은 **확인해야 아는 사실**이고 그 확인이 없었다.
+      #
+      # **판을 고정한다.** `@latest` 는 이 저장소에서 실제로 CI 를 멈춰 세웠다
+      # (2026-09-10): 러너의 툴체인은 `go.mod` 이 정하는데(`go 1.24.0`,
+      # `GOTOOLCHAIN=local`) 도구만 떠 있으면 언젠가 반드시 어긋난다 — 그날
+      # `v1.8.0` 이 `go >= 1.26.0` 을 요구하며 설치 단계에서 죽었다.
+      #
+      # `v1.1.4` 가 `go 1.22` 를 요구하는 마지막 판이다 (v1.2.0 부터 1.25 를
+      # 요구한다). 취약점 **데이터베이스는 원격**이므로 판을 고정해도 탐지는
+      # 최신이다 — 고정되는 것은 분석기뿐이다.
+      #
+      # 이웃 도구들은 이미 고정돼 있다(`golangci-lint v2.13.2`, action 은 SHA).
+      # 이 자리만 예외였다.
       - name: govulncheck
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
           "$(go env GOPATH)/bin/govulncheck" ./...
 
       # 커버리지는 **실패시키지 않는다** (TEST-12 · CI_GATES_SRS §3).
