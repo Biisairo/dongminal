@@ -29,6 +29,11 @@ type WorkspaceStore interface {
 	// LoadErr 는 기동 시 적재의 **분류**다 (STATE_FILE_DURABILITY_SRS FR-SFD-14).
 	// `""`(정상) · `"restored"` · `"empty"`. 헬스가 이 값을 싣는다.
 	LoadErr() string
+	// PersistErr 는 마지막 비동기 쓰기의 분류다 (`GO-10`). `""` 또는
+	// `"write-failed"`. **저장은 요청 경로를 막지 않으려고 고루틴으로 떨어지므로,
+	// 디스크 쓰기가 실패해도 PUT 은 이미 성공을 돌려준 뒤다** — 그 어긋남을
+	// 헬스가 말한다.
+	PersistErr() string
 	Snapshot() ([]byte, uint64)
 	Save(blob []byte, ifMatch string) (uint64, error)
 	// CoordinateOf rewrites a UUID identifier into the positional "W{n}.P{n}.T{n}"

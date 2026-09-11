@@ -106,6 +106,30 @@ type Manager struct {
 	// 않으므로 잠금이 없다 — 쓰는 것은 `New` 하나뿐이고, 읽기는 그 뒤다.
 	// 빈 값이 정상이다.
 	loadErr string
+
+	// persistErr 는 **마지막 비동기 쓰기의 결과**다 (`GO-10`). 쓰는 것은 writer
+	// 고루틴이고 읽는 것은 헬스 요청이므로 원자값이다.
+	//
+	// 성공하면 **걷힌다** — 한 번의 실패가 영원히 남으면 그것은 상태가 아니라
+	// 흉터이고, 지금 디스크가 멀쩡한지를 말해 주지 못한다.
+	persistErr atomic.Value
+}
+
+// PersistErr 는 마지막 비동기 쓰기의 분류다 — `""`(정상) 또는 `PersistFailed`.
+// 헬스가 이 값을 싣는다 (VERSION_HEALTH_SRS FR-VHL-10).
+func (m *Manager) PersistErr() string {
+	v, _ := m.persistErr.Load().(string)
+	return v
+}
+
+// noteWrite 는 쓰기 한 번의 결과를 남긴다. 사유의 **원문을 담지 않는다** —
+// 이 값은 헬스로 나가고, 헬스 몸통에는 경로가 실리지 않는다 (FR-VHL-14).
+func (m *Manager) noteWrite(err error) {
+	if err != nil {
+		m.persistErr.Store(PersistFailed)
+		return
+	}
+	m.persistErr.Store("")
 }
 
 // LoadErr 는 기동 시 적재가 어땠는지다 — `""`(정상) · `LoadRestored` ·
@@ -167,17 +191,21 @@ func (m *Manager) writer() {
 	for {
 		select {
 		case blob := <-m.writeCh:
-			if err := m.store.Write(blob); err != nil {
+			err := m.store.Write(blob)
+			if err != nil {
 				log.Printf("workspace async write: %v", err)
 			}
+			m.noteWrite(err)
 		case <-m.done:
 			// drain pending (at most 1) and exit
 			for {
 				select {
 				case blob := <-m.writeCh:
-					if err := m.store.Write(blob); err != nil {
+					err := m.store.Write(blob)
+					if err != nil {
 						log.Printf("workspace async write (flush): %v", err)
 					}
+					m.noteWrite(err)
 				default:
 					return
 				}

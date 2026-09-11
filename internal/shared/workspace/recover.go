@@ -21,6 +21,12 @@ const (
 	LoadRestored = "restored"
 	// LoadEmpty — 읽지 못했고 되살릴 세대도 없었다. 빈 상태로 시작했다.
 	LoadEmpty = "empty"
+	// PersistFailed — 마지막 비동기 쓰기가 실패했다 (`GO-10`).
+	//
+	// 저장은 요청 경로를 막지 않으려고 고루틴으로 떨어지므로, 디스크 쓰기가
+	// 실패해도 `Save` 는 이미 성공을 돌려준 뒤다 — **사용자는 저장된 줄 안다.**
+	// 그 어긋남을 헬스가 말한다.
+	PersistFailed = "write-failed"
 )
 
 // Recoverable 은 손상된 파일을 격리하고 세대에서 되살릴 수 있는 저장소다.

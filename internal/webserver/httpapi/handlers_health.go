@@ -79,6 +79,9 @@ func (s *Server) apiHealth(w http.ResponseWriter, r *http.Request) {
 		// FR-SFD-14: 기동 때 손상을 만났는지가 여기 실린다. 이 값이 있어야
 		// 사용자가 "내 창이 왜 사라졌는가" 를 물을 때 답할 것이 있다.
 		out.Workspace.LastLoadErr = s.Work.LoadErr()
+		// `GO-10`: 마지막 쓰기가 실패했는지. 사용자는 이미 "저장됐다" 를 본 뒤이므로
+		// 이 값이 없으면 그 어긋남을 아무도 모른다.
+		out.Workspace.LastPersistErr = s.Work.PersistErr()
 	}
 
 	w.Header().Set("Content-Type", "application/json")

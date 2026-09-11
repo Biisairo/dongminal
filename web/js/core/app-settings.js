@@ -12,7 +12,12 @@ Object.assign(App.prototype, {
     // POLL_INTERVAL_SETTINGS_SRS FR-PIS-6: 주기 다섯이 나란히 실린다.
     // `gitSignatureInterval` 은 **빠졌다** — 읽을 계층이 없으므로 실어도 아무
     // 일도 하지 않고, 남기면 지운 계층이 아직 있다고 읽힌다 (FR-PIS-2).
-    await apiPut('/api/settings',{themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,agentsPollInterval,statsInterval,gitStatusInterval,gitReposInterval,gitConsoleInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave,editorWordWrap,tabFixedWidth,tabWidthPx,focusEdgeLevel,attnEdgeLevel});
+    // `FE-7`(PRODUCTION_ROADMAP §M3): **응답을 검사한다.** 종전에는 결과를
+    // 버렸고, 그래서 디스크가 차거나 경계에 걸려 거절된 저장이 **성공처럼**
+    // 보였다 — 사용자는 설정이 바뀐 줄 알고 다음 기동에서 옛 값을 만난다.
+    const res=await apiPut('/api/settings',{themeName:customTheme?null:currentThemeName,customTheme,shortcuts,statusBar,agentsPollInterval,statsInterval,gitStatusInterval,gitReposInterval,gitConsoleInterval,layoutPresets,defaultPreset,fgTabNames,blockBrowserKeys,pageTitle,confirmLeave,editorWordWrap,tabFixedWidth,tabWidthPx,focusEdgeLevel,attnEdgeLevel});
+    if(!res.ok&&this._notify) this._notify(SETTINGS_SAVE_FAIL);
+    return res.ok;
   },
 
   /**

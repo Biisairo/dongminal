@@ -133,16 +133,17 @@ func itoa(n int) string {
 // ── fakeWorkspaceStore ──────────────────────────────
 
 type fakeWorkspaceStore struct {
-	windows  []workspace.WindowInfo
-	mu       sync.Mutex
-	raw      []byte
-	rev      uint64
-	saves    int
-	stale    bool // when true, Save returns ErrStale
-	coordMap map[string]string
-	coordErr map[string]error
-	entries  []workspace.TabEntry
-	loadErr  string
+	windows    []workspace.WindowInfo
+	mu         sync.Mutex
+	raw        []byte
+	rev        uint64
+	saves      int
+	stale      bool // when true, Save returns ErrStale
+	coordMap   map[string]string
+	coordErr   map[string]error
+	entries    []workspace.TabEntry
+	loadErr    string
+	persistErr string
 }
 
 func newFakeWorkspaceStore() *fakeWorkspaceStore {
@@ -152,6 +153,10 @@ func newFakeWorkspaceStore() *fakeWorkspaceStore {
 // LoadErr 는 기동 적재의 분류다 (FR-SFD-14). 가짜는 언제나 정상 적재이며,
 // 손상 갈래는 `workspace` 패키지가 실물 파일로 잰다 (V-SFD-10~14).
 func (f *fakeWorkspaceStore) LoadErr() string { return f.loadErr }
+
+// PersistErr 는 마지막 비동기 쓰기의 분류다 (`GO-10`). 가짜는 동기로 쓰므로 늘
+// 정상이며, 실패 갈래는 `workspace` 패키지가 잰다.
+func (f *fakeWorkspaceStore) PersistErr() string { return f.persistErr }
 
 func (f *fakeWorkspaceStore) Raw() []byte {
 	f.mu.Lock()

@@ -434,6 +434,10 @@ const VER_HELD_GO='지금 새로고침';
 // 잘못됐는지 말하지 못한다.
 const FILE_SAVE_FAIL='저장하지 못했습니다';
 
+// `FE-7`: 설정 저장 실패는 조용히 지나가지 않는다 — 사용자는 바뀐 줄 알고
+// 다음 기동에서 옛 값을 만난다.
+const SETTINGS_SAVE_FAIL='설정을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+
 const FILE_STAMP_HEADER='X-File-Stamp';
 const FILE_CONFLICT_TITLE='파일이 밖에서 바뀌었습니다';
 const FILE_CONFLICT_MSG='이 파일은 연 뒤 디스크에서 바뀌었습니다. 덮어쓰면 그 변경이 사라집니다.';
