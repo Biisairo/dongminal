@@ -78,6 +78,54 @@ func actionsOf() []action {
 				}
 				return RunWindow(o, openFrameless, out, errw)
 			}},
+		{"backup", "홈 전체를 zip 하나로 담는다 (G4-3)", usageBackup,
+			func(rest []string, _ Serve, out, errw io.Writer) int {
+				o, err := ParseBackup(rest)
+				if code, done := settle("backup", err, out, errw); done {
+					return code
+				}
+				return RunBackup(o, out, errw)
+			}},
+		{"restore", "backup 으로 담은 zip 을 홈에 되돌린다 (G4-3)", usageRestore,
+			func(rest []string, _ Serve, out, errw io.Writer) int {
+				o, err := ParseRestore(rest)
+				if code, done := settle("restore", err, out, errw); done {
+					return code
+				}
+				return RunRestore(o, out, errw)
+			}},
+		{"uninstall", "무엇을 지울지 보이고, --yes 가 있을 때만 지운다 (G3-4)", usageUninstall,
+			func(rest []string, _ Serve, out, errw io.Writer) int {
+				o, err := ParseUninstall(rest)
+				if code, done := settle("uninstall", err, out, errw); done {
+					return code
+				}
+				return RunUninstall(o, out, errw)
+			}},
+		{"service", "이 OS 의 감독자(launchd·systemd)에 넣을 정의를 만든다 (SEC-23)", usageService,
+			func(rest []string, _ Serve, out, errw io.Writer) int {
+				o, err := ParseService(rest)
+				if code, done := settle("service", err, out, errw); done {
+					return code
+				}
+				return RunService(o, out, errw)
+			}},
+		{"update", "최신 판이 있는지 확인한다 (--check 를 줄 때만 나간다, G3-3)", usageUpdate,
+			func(rest []string, _ Serve, out, errw io.Writer) int {
+				o, err := ParseUpdate(rest)
+				if code, done := settle("update", err, out, errw); done {
+					return code
+				}
+				return RunUpdate(o, out, errw)
+			}},
+		{"config", "설정의 실효값과 출처를 보이고, 설정 파일을 대조한다 (G5-1)", usageConfig,
+			func(rest []string, _ Serve, out, errw io.Writer) int {
+				o, err := ParseConfig(rest)
+				if code, done := settle("config", err, out, errw); done {
+					return code
+				}
+				return RunConfig(o, out, errw)
+			}},
 		{"health", "서버와 dongminald 의 상태를 확인한다", usageHealth,
 			func(rest []string, _ Serve, out, errw io.Writer) int {
 				o, err := ParseHealth(rest)

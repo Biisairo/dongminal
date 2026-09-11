@@ -155,6 +155,111 @@ func usageRollback() string {
 `
 }
 
+func usageBackup() string {
+	return `사용법: dongminal backup --out <파일.zip> [--home <경로>]
+
+  홈 전체를 zip 하나로 담는다 (G4-3).
+
+  담는 것:   workspace.json · settings.json · access.json · runs.json ·
+             tools.json · server.json · sandbox.json · notes/
+  담지 않는 것: 로그 · 소켓 · pid · bin/ · tool-history/
+             — 다음 기동이 다시 만드는 것들이고, 소켓은 zip 에 담기지도 않는다
+
+  되돌리는 것은 dongminal restore 다.
+  상태 파일 하나를 세대로 되돌리는 것은 dongminal rollback 이다 — 이쪽이 더 좁다.
+`
+}
+
+func usageRestore() string {
+	return `사용법: dongminal restore <파일.zip> [--yes] [--home <경로>]
+
+  backup 으로 담은 zip 을 홈에 되돌린다 (G4-3).
+
+  **담긴 것만 되돌린다.** 담기지 않은 것(로그 등)은 건드리지 않는다 — 복원이
+  로그를 지우면 사고 직후의 증거가 사라진다.
+
+  되돌릴 수 없으므로 --yes 가 있어야 진행한다. 먼저 지금 것을 담아 두세요:
+    dongminal backup --out <파일.zip>
+
+  홈 밖을 가리키는 항목은 건너뛰고 그 사실을 알린다.
+  돌고 있는 서버가 있으면 다시 띄워야 반영된다.
+`
+}
+
+func usageUninstall() string {
+	return `사용법: dongminal uninstall [--dry-run] [--purge] [--yes] [--home <경로>]
+
+  무엇을 지울지 보인다 (G3-4).
+
+  기본은 **다시 만들어지는 것만** 지운다 — 로그·소켓·pid·bin/·tool-history/.
+  설정과 배치는 남으므로, 다시 설치하면 그대로 돌아온다.
+
+  --purge    되살릴 수 있는 상태까지 전부 지운다 (설정·배치·메모장)
+  --dry-run  목록만 내고 아무것도 지우지 않는다
+  --yes      실제로 지운다. 없으면 목록만 내고 멈춘다
+
+  되돌릴 수 없다. 먼저: dongminal backup --out <파일.zip>
+`
+}
+
+func usageService() string {
+	return `사용법: dongminal service install [--out <파일>] [--home <경로>]
+
+  이 OS 의 감독자에 넣을 정의를 만든다 (SEC-23).
+
+    macOS        launchd plist (KeepAlive — 죽으면 되살린다)
+    Linux · WSL  systemd **user** unit (Restart=always)
+    Windows      아직 없다. 작업 스케줄러의 안내만 낸다
+
+  지금의 실효 기동값(host·port·로그 수준)을 그대로 박는다 — dongminal config
+  show 가 내는 것과 같은 값이다. 나중에 그 값을 바꿨으면 이 파일도 고쳐야 한다.
+
+  **설치하지 않는다.** 파일을 쓰고 다음 걸음을 안내한다 — 사용자의 감독자
+  설정에 손을 넣으면 그것을 되돌리는 길도 이 명령이 져야 한다.
+
+  --out 을 주지 않으면 화면에 낸다.
+`
+}
+
+func usageUpdate() string {
+	return `사용법: dongminal update [--check]
+
+  최신 판이 있는지 확인한다 (G3-3).
+
+  **이 제품은 스스로 판을 확인하지 않는다.** --check 를 줄 때만 밖으로 나간다 —
+  상시 노출된 작업 도구가 묻지 않고 나가면 그 트래픽은 사용자가 통제하지 못하는
+  것이 된다.
+
+  **내려받지 않는다.** 설치 형태가 여럿이라(직접 빌드·릴리스 산출물·패키지
+  매니저) 스스로 자기 바이너리를 덮으면 그중 어느 형태에서는 패키지 관리자와
+  싸운다. 무엇을 받을지 알려 주고 거기서 멈춘다.
+`
+}
+
+func usageConfig() string {
+	return `사용법: dongminal config <show|validate> [--json] [--home <경로>]
+
+  설정의 **실효값과 그 출처**를 보이고, 설정 파일을 서술자 표에 대조한다
+  (CONFIG_MANAGEMENT_SRS 묶음 C).
+
+  show      서버 기동값이 지금 무엇이고 **어디서 왔는지** 낸다.
+            출처는 flag · env · file · default 넷이며 우선순위도 그 순서다.
+            안 듣는 설정을 쫓을 때 사람이 묻는 것은 값이 아니라 출처다.
+
+  validate  server.json 과 settings.json 을 대조한다. 불일치를 **전부** 내며
+            첫 오류에서 멈추지 않는다 — 고치고 다시 돌리는 왕복을 키 수만큼
+            시키지 않는다. 불일치가 있으면 exit 1.
+
+            **알 수 없는 키는 경고이지 실패가 아니다.** 판이 앞선 브라우저가
+            쓴 키가 빨갛게 뜨면 사용자가 멀쩡한 설정을 지운다.
+
+  --json    기계가 읽는 형태. 기본은 사람이 읽는 표다.
+
+  서버는 settings.json 을 **런타임에 해석하지 않는다.** 이 명령이 그것을 읽는
+  것은 사람이 부를 때만 도는 진단이며 요청 경로에 없다.
+`
+}
+
 func usageMigrate() string {
 	return `사용법: dongminal migrate [옵션]
 
