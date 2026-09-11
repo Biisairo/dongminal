@@ -138,11 +138,24 @@ type Adapter struct {
 	ExitCommand string
 }
 
+// HooksDirToken 은 `MemberArgs` 안에서 **런타임이 채우는 자리**다
+// (OMP_AGENT_SUPPORT_SRS FR-OMP-22 / RUN_ORCHESTRATION_SRS FR-ADP-1 개정).
+//
+// 어떤 멤버 인자는 값이 **경로**다 — omp 는 승인 규칙을 설정 오버레이 파일로
+// 받으므로(`--config <path>`) 선언이 그 절대 경로를 알 수 없다. 리터럴로 적을 수
+// 없고, 그렇다고 래퍼가 늘 얹으면 사전 허용이 멤버 밖으로 새어 나간다.
+//
+// 그래서 자리를 남기고 기동줄을 만드는 **한 자리**에서 채운다. 채우지 못하면
+// `LaunchLine` 이 **오류**다 — 토큰이 그대로 타이핑되면 omp 가 없는 파일을 읽고
+// 기동이 조용히 깨진다.
+const HooksDirToken = "{{dmHooks}}"
+
 // registry 는 선언 전부다. 에이전트를 추가한다는 것은 여기 한 줄을 더하는 것이며,
 // 다른 파일을 고치는 일이 아니다.
 var registry = map[string]Adapter{
 	claudeAdapter.ID: claudeAdapter,
 	codexAdapter.ID:  codexAdapter,
+	ompAdapter.ID:    ompAdapter,
 }
 
 // Get 은 에이전트 id 로 어댑터를 찾는다. 알 수 없는 id 는 명확한 오류다 —
@@ -178,18 +191,26 @@ func IDs() []string {
 // promptInjection 이 argv 가 아니면 프롬프트를 싣지 않는다 — 받지 않는 자리에
 // 밀어 넣으면 조용히 유실되거나 기동이 깨진다. 그 경우 호출자가 준비완료를
 // 기다렸다가 별도로 붙여넣어야 한다 (FR-PRE-8).
-func (a Adapter) LaunchLine(model, prompt string) string {
-	return a.launchLine(platform.Current().Shell, model, prompt)
+func (a Adapter) LaunchLine(hooksDir, model, prompt string) (string, error) {
+	return a.launchLine(platform.Current().Shell, hooksDir, model, prompt)
 }
 
 // launchLine 은 인용을 담당할 셸을 명시로 받는다. 두 셸의 기동줄을 한 호스트에서
 // 검증하기 위한 자리다 (CROSS_PLATFORM_SRS §4.2).
-func (a Adapter) launchLine(sh platform.ShellProvider, model, prompt string) string {
+func (a Adapter) launchLine(sh platform.ShellProvider, hooksDir, model, prompt string) (string, error) {
 	parts := append([]string{}, a.Launch...)
 	if model != "" && a.ModelFlag != "" {
 		parts = append(parts, a.ModelFlag, model)
 	}
 	for _, arg := range a.MemberArgs {
+		// FR-OMP-22: 자리를 먼저 채우고 그 다음 인용한다. 순서를 바꾸면 인용
+		// 안쪽을 고치는 일이 되어 셸마다 다르게 깨진다.
+		if strings.Contains(arg, HooksDirToken) {
+			if hooksDir == "" {
+				return "", fmt.Errorf("%s: %q 의 자리를 채울 경로가 없다", a.ID, arg)
+			}
+			arg = strings.ReplaceAll(arg, HooksDirToken, hooksDir)
+		}
 		parts = append(parts, sh.Quote(arg))
 	}
 	if a.PromptInjection == PromptArgv && prompt != "" {
@@ -200,5 +221,5 @@ func (a Adapter) launchLine(sh platform.ShellProvider, model, prompt string) str
 		}
 		parts = append(parts, sh.Quote(prompt))
 	}
-	return strings.Join(parts, " ")
+	return strings.Join(parts, " "), nil
 }

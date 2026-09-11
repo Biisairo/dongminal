@@ -316,6 +316,13 @@ agent-plugin/
 `--settings` 부착은 현행 그대로 유지한다 — 훅 주입 경로는 검증된 상태이므로 이번에
 플러그인 `hooks/` 로 흡수하지 않는다.
 
+**FR-INJ-4a (2026-09-11)** `--plugin-dir` 을 쓰는 에이전트가 **둘**이 됐다 —
+`omp()` 래퍼도 같은 디렉터리를 같은 조건(존재할 때만)으로 붙인다
+(`OMP_AGENT_SUPPORT_SRS` `FR-OMP-14`). omp 의 플러그인 매니페스트 탐색 경로에
+`.claude-plugin/plugin.json` 이 들어 있어(실측) **자산을 두 벌로 두지 않는다.**
+그것이 실제로 얹히는지는 `V-OMP-21`(실행 확인)이 답하며, 아니면 그 래퍼에서만
+`--plugin-dir` 을 뺀다 (`FR-OMP-31`).
+
 **FR-INJ-5** 래퍼는 `--settings` 와 `--plugin-dir` 을 독립적으로 판단한다. 한쪽 파일이
 없어도 다른 쪽은 부착되며, 둘 다 없으면 `command claude "$@"` 로 투명하게 위임한다.
 

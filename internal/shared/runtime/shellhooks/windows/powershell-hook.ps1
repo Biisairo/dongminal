@@ -90,3 +90,18 @@ function global:codex {
     $json = ConvertTo-Json -Compress @($dmctl, 'notify', 'codex')
     & $app.Source -c "notify=$json" @args
 }
+
+# omp 의 훅은 in-process 모듈이므로 파일을 `--hook` 으로 붙인다 — claude 의
+# `--settings` 자리와 같은 뜻이다 (OMP_AGENT_SUPPORT_SRS FR-OMP-14).
+function global:omp {
+    $app = __dongminalApp 'omp'
+    if (-not $app) { Write-Error 'omp 를 찾을 수 없습니다'; return }
+    $extra = @()
+    if ($env:DONGMINAL_HOME) {
+        $shim = Join-Path $env:DONGMINAL_HOME 'bin\agent-hooks\omp-activity.mjs'
+        $plugin = Join-Path $env:DONGMINAL_HOME 'bin\agent-plugin'
+        if (Test-Path $shim) { $extra += @('--hook', $shim) }
+        if (Test-Path $plugin) { $extra += @('--plugin-dir', $plugin) }
+    }
+    & $app.Source @extra @args
+}

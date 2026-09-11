@@ -415,7 +415,14 @@ func runSubLaunch(f runFlags, stdout, stderr io.Writer) int {
 		fmt.Fprint(stdout, got.Preamble)
 		return 0
 	}
-	line := adapter.LaunchLine(f.model, got.Preamble)
+	// FR-OMP-22: 멤버 인자에 런타임 자리가 있는 어댑터(omp)는 그 자리를 채워야
+	// 한다. 채우지 못하면 **여기서 멈춘다** — 토큰이 그대로 타이핑되면 에이전트가
+	// 없는 파일을 읽고 기동이 조용히 깨진다.
+	line, err := adapter.LaunchLine(AgentHooksDir(), f.model, got.Preamble)
+	if err != nil {
+		fmt.Fprintf(stderr, "run launch: %v\n", err)
+		return 1
+	}
 	if f.jsonOut {
 		blob, err := json.Marshal(map[string]any{
 			"runId": got.RunID, "memberId": got.MemberID, "role": got.Role,

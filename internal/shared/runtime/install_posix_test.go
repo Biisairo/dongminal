@@ -116,7 +116,13 @@ func TestPolicyInjectionNeverTouchesUserPermanentSettings(t *testing.T) {
 		if !strings.Contains(s, "DONGMINAL_HOME") {
 			t.Errorf("%s: 주입 산출물이 DONGMINAL_HOME 아래가 아니다", rel)
 		}
-		for _, banned := range []string{"$HOME/.claude", "~/.claude", "$HOME/.codex", "~/.codex", "AGENTS.md"} {
+		// omp 도 같은 규약이다 (OMP_AGENT_SUPPORT_SRS NFR-OMP-1) — 특히
+		// `~/.omp/agent/hooks/` 는 omp 의 **자동 탐색** 디렉터리이므로 거기에
+		// 파일을 두는 것이 곧 "사용자의 설치에 파일을 추가하는 일" 이다.
+		for _, banned := range []string{
+			"$HOME/.claude", "~/.claude", "$HOME/.codex", "~/.codex", "AGENTS.md",
+			"$HOME/.omp", "~/.omp", ".omp/agent",
+		} {
 			if strings.Contains(s, banned) {
 				t.Errorf("%s: 사용자 영구 설정 경로가 등장했다: %q (FR-ADP-5)", rel, banned)
 			}

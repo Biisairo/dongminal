@@ -84,6 +84,11 @@ func installWith(binDir, self string) error {
 	if err := installAgentHooks(binDir); err != nil {
 		return fmt.Errorf("install agent hooks: %w", err)
 	}
+	// FR-OMP-10·20: omp 의 훅 shim 과 멤버 오버레이. claude 의 것과 같은 자리에
+	// 같은 수명으로 산다 (`agent-hooks/`).
+	if err := installOmpAssets(binDir); err != nil {
+		return err
+	}
 	if err := installAgentPlugin(binDir); err != nil {
 		return fmt.Errorf("install agent plugin: %w", err)
 	}
@@ -406,7 +411,7 @@ func installAgentPluginHooks(binDir, pluginDir string) error {
 // helper regardless of PATH ordering (a stale dmctl earlier in PATH would not
 // understand `notify`).
 func installAgentHooks(binDir string) error {
-	dir := filepath.Join(binDir, "agent-hooks")
+	dir := runtimebin.AgentHooksDirIn(binDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}

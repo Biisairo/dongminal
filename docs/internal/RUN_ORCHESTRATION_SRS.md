@@ -338,7 +338,7 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 
 | 필드 | 뜻 |
 |---|---|
-| `id` | `claude` · `codex` … |
+| `id` | `claude` · `codex` · `omp` |
 | `detectCmd` | PATH 탐지에 쓰는 실행 파일명 |
 | `launch` | 기동 커맨드와 인자 |
 | `promptInjection` | 프롬프트 전달 방식 — `argv` \| `stdin-after-start` |
@@ -347,7 +347,7 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 | `readiness` | 훅 기반인지, 화면 패턴 폴백이 필요한지 (FR-STA-4 의 2단계, FR-STA-4b) |
 | `exitCommand` | 정중한 종료 지시 (Claude `/exit`) |
 | `argvSeparator` | 위치 인자 프롬프트 **바로 앞**의 구분자 (Claude `--`) |
-| `memberArgs` | Run 멤버로 띄울 때 덧붙는 인자 (Claude `--allowedTools "Bash(dmctl:*)"`) |
+| `memberArgs` | Run 멤버로 띄울 때 덧붙는 인자 (Claude `--allowedTools "Bash(dmctl:*)"`, omp `--config {{dmHooks}}/omp-member.yml`) |
 
 > **뒤 두 필드는 2026-08-25 실측으로 추가됐다.**
 >
@@ -365,6 +365,22 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 > 둘을 적용한 뒤 전 사슬을 다시 실측했다 — 기동에서 보고 기록까지 **10초**,
 > 승인 프롬프트 0건, `run status` 가 `state=done outcome=succeeded` 로 반영.
 
+> **`memberArgs` 의 런타임 자리 — 2026-09-11 개정** (`OMP_AGENT_SUPPORT_SRS`
+> `FR-OMP-21`·`22`).
+>
+> 어떤 멤버 인자는 값이 **경로**다. omp 는 승인 규칙을 **설정 오버레이 파일**로
+> 받으므로(`--config <path>`) 선언이 그 절대 경로를 알 수 없다. 그래서 항목에
+> 토큰 `{{dmHooks}}`(= `agentadapter.HooksDirToken`)를 허용하고, 기동줄을 만드는
+> **한 자리**(`Adapter.LaunchLine`)가 `agent-hooks` 디렉터리로 치환한다.
+>
+> **채우지 못하면 오류다.** 조용히 그대로 타이핑되면 에이전트가 없는 파일을 읽고
+> 기동이 깨진다 — 그 실패는 화면을 보기 전에는 알 수 없으므로 `LaunchLine` 이
+> 오류를 낸다. 그래서 `LaunchLine` 의 시그니처가
+> `(hooksDir, model, prompt) (string, error)` 로 바뀌었다.
+>
+> **래퍼는 이 파일을 모른다.** 알면 사전 허용이 멤버 밖의 모든 세션으로 새어
+> 나간다 — 멤버 한정은 위 주석이 이미 확정한 결정이다.
+
 **FR-ADP-2** `dmctl_activity.go` 의 `switch agent { case "claude": … case "codex": … }`
 를 제거하고 레지스트리 조회로 대체한다. 훅 파서 자체(`parseClaudeHook` 등)는 각
 어댑터의 필드로 이동하며, **동작은 바뀌지 않는다**.
@@ -381,6 +397,16 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 **FR-ADP-4** **검증 대상은 Claude Code 다** (D-D). codex 는 선언을 유지하되 best-effort
 이며, 활동 해상도가 낮다는 사실(§2.4)을 레지스트리 주석과 스킬 문서에 명시한다. codex
 멤버의 준비완료는 FR-STA-4 의 2·3단계로 판정된다.
+
+**FR-ADP-4a (2026-09-11)** `omp`(oh my pi)는 **활동 해상도가 claude 급**이다 —
+생명주기 이벤트가 전부 오고 준비완료를 훅으로 안다. **다만 두 가지가 다르다.**
+
+- 훅이 **in-process 모듈**이다(`--hook <file>`). 그래서 dongminal 이 shim 을
+  배포하고 그 안에서 `dmctl activity omp` 를 부른다 — 훅 형식의 임자가 우리다.
+- **승인 대기가 `waiting` 으로 오지 않는다.** omp 의 훅에는 승인 게이트 통지가
+  없다. 관측되지 않는 것을 지어내지 않는다 (`FR-CBG-5`).
+
+자세한 것은 `OMP_AGENT_SUPPORT_SRS` 다.
 
 **FR-ADP-5** 정책 주입은 **세션 스코프를 유지한다** — 사용자의 영구 설정
 (`~/.claude/settings.json` 등)을 수정하지 않는다. 참조 구현은 영구 설정에 쓰는 대가로

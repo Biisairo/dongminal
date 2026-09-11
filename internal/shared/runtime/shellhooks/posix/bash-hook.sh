@@ -42,6 +42,14 @@ claude() {
   command claude "${extra[@]}" "$@"
 }
 codex() { command codex -c "notify=[\"${DONGMINAL_HOME}/bin/dmctl\",\"notify\",\"codex\"]" "$@"; }
+omp() {
+  local h="${DONGMINAL_HOME}/bin/agent-hooks/omp-activity.mjs"
+  local p="${DONGMINAL_HOME}/bin/agent-plugin"
+  local -a extra=()
+  [ -f "$h" ] && extra+=(--hook "$h")
+  [ -d "$p" ] && extra+=(--plugin-dir "$p")
+  command omp "${extra[@]}" "$@"
+}
 
 # dongminal: 브라우저를 띄우는 명령을 **보고 있는 기기**로 돌린다
 # (VIEWER_URL_OPEN_SRS FR-VUO-14). http/https URL 하나만 가로채고 나머지는

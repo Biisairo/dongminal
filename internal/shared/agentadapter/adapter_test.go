@@ -112,7 +112,7 @@ func TestHookParse_ReachedThroughTheRegistry(t *testing.T) {
 func TestLaunchLine_ArgvQuotingSurvivesShellMetacharacters(t *testing.T) {
 	claude, _ := Get("claude")
 	prompt := "요약: it's \"quoted\" $HOME `date`\n둘째 줄"
-	line := claude.LaunchLine("sonnet", prompt)
+	line, _ := claude.LaunchLine("", "sonnet", prompt)
 
 	if !strings.HasPrefix(line, "claude ") {
 		t.Fatalf("기동 커맨드로 시작해야 한다: %q", line)
@@ -156,7 +156,7 @@ func (s *recordingShell) HookRoot() string                { return "" }
 func TestLaunchLine_DelegatesQuotingToTheShell(t *testing.T) {
 	claude, _ := Get("claude")
 	sh := &recordingShell{}
-	line := claude.launchLine(sh, "sonnet", "it's a prompt")
+	line, _ := claude.launchLine(sh, "", "sonnet", "it's a prompt")
 
 	want := append(append([]string{}, claude.MemberArgs...), "it's a prompt")
 	if !reflect.DeepEqual(sh.seen, want) {
@@ -178,8 +178,8 @@ func TestLaunchLine_DelegatesQuotingToTheShell(t *testing.T) {
 func TestLaunchLine_UsesTheHostShellQuoting(t *testing.T) {
 	claude, _ := Get("claude")
 	const prompt = "it's"
-	got := claude.LaunchLine("sonnet", prompt)
-	want := claude.launchLine(platform.Current().Shell, "sonnet", prompt)
+	got, _ := claude.LaunchLine("", "sonnet", prompt)
+	want, _ := claude.launchLine(platform.Current().Shell, "", "sonnet", prompt)
 	if got != want {
 		t.Fatalf("LaunchLine = %q, 호스트 셸 인용 = %q", got, want)
 	}
@@ -187,13 +187,13 @@ func TestLaunchLine_UsesTheHostShellQuoting(t *testing.T) {
 
 func TestLaunchLine_OmitsModelWhenUnknown(t *testing.T) {
 	claude, _ := Get("claude")
-	if got := claude.LaunchLine("", "안녕"); strings.Contains(got, "--model") {
+	if got, _ := claude.LaunchLine("", "", "안녕"); strings.Contains(got, "--model") {
 		t.Fatalf("모델을 지정하지 않았는데 플래그가 붙었다: %q", got)
 	}
 	// codex 의 모델 플래그는 이 환경에서 확인하지 못했다 (D-D). 확인되지 않은
 	// 플래그를 명령줄에 넣으면 기동 자체가 깨지므로 조용히 생략해야 한다.
 	codex, _ := Get("codex")
-	if got := codex.LaunchLine("o3", "안녕"); strings.Contains(got, "o3") {
+	if got, _ := codex.LaunchLine("", "o3", "안녕"); strings.Contains(got, "o3") {
 		t.Fatalf("codex 는 모델 플래그가 미검증이라 실어선 안 된다: %q", got)
 	}
 }
@@ -206,7 +206,7 @@ func TestLaunchLine_StdinAfterStartCarriesNoPrompt(t *testing.T) {
 		if ad.PromptInjection != PromptStdinAfterStart {
 			continue
 		}
-		if got := ad.LaunchLine("", "비밀 프롬프트"); strings.Contains(got, "비밀 프롬프트") {
+		if got, _ := ad.LaunchLine("", "", "비밀 프롬프트"); strings.Contains(got, "비밀 프롬프트") {
 			t.Fatalf("%q: 기동줄에 프롬프트가 실렸다: %q", id, got)
 		}
 	}
@@ -217,7 +217,7 @@ func TestLaunchLine_StdinAfterStartCarriesNoPrompt(t *testing.T) {
 // 띄워 확인했다 — 프리앰블대로 run report 를 만들었지만 승인 대기에서 멈췄다.
 func TestMemberArgs_PreAuthorizeDmctlOnly(t *testing.T) {
 	claude, _ := Get("claude")
-	line := claude.LaunchLine("haiku", "안녕")
+	line, _ := claude.LaunchLine("", "haiku", "안녕")
 
 	if !strings.Contains(line, "--allowedTools") {
 		t.Fatalf("멤버 기동줄이 dmctl 을 사전 허용하지 않는다: %q", line)
@@ -238,7 +238,7 @@ func TestMemberArgs_PreAuthorizeDmctlOnly(t *testing.T) {
 // 기동됐다. 구분자가 그것을 막는다.
 func TestLaunchLine_SeparatorProtectsThePromptFromVariadicFlags(t *testing.T) {
 	claude, _ := Get("claude")
-	line := claude.LaunchLine("haiku", "프리앰블 본문")
+	line, _ := claude.LaunchLine("", "haiku", "프리앰블 본문")
 
 	sep := strings.Index(line, " -- ")
 	if sep < 0 {
@@ -257,7 +257,7 @@ func TestLaunchLine_SeparatorProtectsThePromptFromVariadicFlags(t *testing.T) {
 // 기동 자체가 깨지거나 엉뚱한 값이 전달된다.
 func TestLaunchLine_QuotesMemberArgValues(t *testing.T) {
 	claude, _ := Get("claude")
-	line := claude.LaunchLine("", "x")
+	line, _ := claude.LaunchLine("", "", "x")
 	if strings.Contains(line, "Bash(dmctl:*)") && !strings.Contains(line, "'Bash(dmctl:*)'") {
 		t.Fatalf("인자 값이 인용되지 않아 셸이 전개한다: %q", line)
 	}
