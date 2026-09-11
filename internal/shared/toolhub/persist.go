@@ -1,8 +1,8 @@
 package toolhub
 
 import (
+	"dongminal/internal/shared/dmlog"
 	"encoding/json"
-	"log"
 	"os"
 	"sort"
 
@@ -79,13 +79,13 @@ func (m *ToolManager) SaveAll() {
 	sort.Slice(states, func(i, j int) bool { return states[i].ID < states[j].ID })
 	data, err := json.Marshal(states)
 	if err != nil {
-		log.Printf("saveTools marshal: %v", err)
+		dmlog.Infof(nil, "saveTools marshal: %v", err)
 		return
 	}
 	// 원자적으로 쓴다 (FR-CAF-11) — 잘린 tools.json 은 다음 기동에서 도구를
 	// 통째로 잃게 한다.
 	if err := platform.WriteStateFile(m.dataPath("tools.json"), data, 0644); err != nil {
-		log.Printf("saveTools: %v", err)
+		dmlog.Infof(nil, "saveTools: %v", err)
 	}
 }
 
@@ -105,13 +105,13 @@ func (m *ToolManager) LoadAllWith(referenced map[string]struct{}, restore restor
 	data, err := os.ReadFile(m.dataPath("tools.json"))
 	if err != nil {
 		if !os.IsNotExist(err) {
-			log.Printf("loadTools: %v", err)
+			dmlog.Infof(nil, "loadTools: %v", err)
 		}
 		return
 	}
 	var states []ToolState
 	if err := json.Unmarshal(data, &states); err != nil {
-		log.Printf("loadTools unmarshal: %v", err)
+		dmlog.Infof(nil, "loadTools unmarshal: %v", err)
 		return
 	}
 	restored, skipped := 0, 0
@@ -125,18 +125,18 @@ func (m *ToolManager) LoadAllWith(referenced map[string]struct{}, restore restor
 		// **하나가 실패해도 멈추지 않는다.** 첫 실패에서 멈추면 그 뒤의 탭이
 		// 전부 빈 채로 돌아온다.
 		if err := restore(s.ID, s.Name, s.Cwd, 120, 40); err != nil {
-			log.Printf("[tool %s] restore error: %v", s.ID, err)
+			dmlog.Errorf(nil, "[tool %s] restore error: %v", s.ID, err)
 			continue
 		}
 		restored++
 	}
 	if skipped > 0 {
-		log.Printf("tools: 미참조 %d개 폐기", skipped)
+		dmlog.Warnf(nil, "tools: 미참조 %d개 폐기", skipped)
 	}
 	// Mark mutated so the next SaveAll (e.g. on shutdown) persists CWD changes
 	// that happen after restore, even if no tools were created/deleted.
 	m.mutated.Store(true)
-	log.Printf("tools restored count=%d", restored)
+	dmlog.Infof(nil, "tools restored count=%d", restored)
 }
 
 // Snapshot locks + copies tool pointers; used by adapters.

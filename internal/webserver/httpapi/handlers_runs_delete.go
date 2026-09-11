@@ -1,7 +1,7 @@
 package httpapi
 
 import (
-	"log"
+	"dongminal/internal/shared/dmlog"
 	"net/http"
 	"strings"
 	"time"
@@ -77,7 +77,7 @@ func (s *Server) purgeRun(rec run.Record, why string, force bool) ([]worktree.Re
 	// 아는 유일한 자리이므로, 여기서 지우면 아무도 모르는 디렉터리가 된다.
 	// 사용자가 고른 삭제(force)는 그 사실을 알고 고른 것이다 (FR-DEL-9).
 	if residue > 0 && !force {
-		log.Printf("[run] 자동 제거 보류 id=%s short=%s residue=%d — 잔여 worktree 가 있다",
+		dmlog.Infof(nil, "[run] 자동 제거 보류 id=%s short=%s residue=%d — 잔여 worktree 가 있다",
 			rec.ID, rec.Short, residue)
 		return trees, nil
 	}
@@ -85,7 +85,7 @@ func (s *Server) purgeRun(rec run.Record, why string, force bool) ([]worktree.Re
 		return nil, err
 	}
 	// FR-DEL-17: 사용자가 만들지 않은 삭제도 근거를 남긴다.
-	log.Printf("[run] delete id=%s short=%s state=%s why=%s members=%d worktrees=%d residue=%d",
+	dmlog.Infof(nil, "[run] delete id=%s short=%s state=%s why=%s members=%d worktrees=%d residue=%d",
 		rec.ID, rec.Short, rec.State, why, len(rec.Members), len(trees), residue)
 	// FR-DEL-11: 열려 있는 Run 탭은 이것으로 "사라진 Run" 이 된다. 탭은 닫지 않는다.
 	s.broadcastLayout("run_changed", map[string]any{"runId": rec.ID})
@@ -105,7 +105,7 @@ func (s *Server) reapRuns() int {
 			why = "ended-" + string(rec.State)
 		}
 		if _, err := s.purgeRun(rec, why, false); err != nil {
-			log.Printf("[run] 자동 제거 실패 id=%s: %v", rec.ID, err)
+			dmlog.Errorf(nil, "[run] 자동 제거 실패 id=%s: %v", rec.ID, err)
 			continue
 		}
 		// 보류(FR-DEL-9a)는 수거가 아니다 — 레코드가 그대로 있으면 세지 않는다.

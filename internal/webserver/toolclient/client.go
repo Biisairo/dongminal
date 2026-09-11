@@ -1,6 +1,7 @@
 package toolclient
 
 import (
+	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
 
@@ -9,7 +10,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -47,7 +47,9 @@ type ToolClient struct {
 
 	stopped   atomic.Bool
 	closeOnce sync.Once
-	closed    chan struct{}
+	// reconnects 는 연결을 되살린 횟수다 (OBSERVABILITY_SRS FR-OBS-12).
+	reconnects atomic.Int64
+	closed     chan struct{}
 
 	// Push event callbacks. OnOutput runs once per output chunk in the readLoop
 	// goroutine (attention/activity detection — DAEMON_SPLIT_SRS §6.2); it is
@@ -214,7 +216,7 @@ func (pc *ToolClient) supervise() {
 		if pc.stopped.Load() {
 			return
 		}
-		log.Printf("toolclient: connection lost, reconnecting...")
+		dmlog.Warnf(nil, "toolclient: connection lost, reconnecting...")
 		backoff := time.Second
 		fails := 0
 		for {
@@ -227,12 +229,13 @@ func (pc *ToolClient) supervise() {
 			case <-time.After(backoff):
 			}
 			if err := pc.connect(); err == nil {
-				log.Printf("toolclient: reconnected")
+				pc.reconnects.Add(1)
+				dmlog.Infof(nil, "toolclient: reconnected")
 				break
 			}
 			fails++
 			if pc.spawnDaemon != nil && fails%panedRespawnEvery == 0 {
-				log.Printf("toolclient: respawning dongminald after %d failed dials", fails)
+				dmlog.Errorf(nil, "toolclient: respawning dongminald after %d failed dials", fails)
 				_ = pc.spawnDaemon()
 			}
 			if backoff < panedMaxBackoff {
@@ -253,7 +256,7 @@ func (pc *ToolClient) readLoop(conn net.Conn, cd chan struct{}) {
 		var raw json.RawMessage
 		if err := dec.Decode(&raw); err != nil {
 			if !pc.stopped.Load() {
-				log.Printf("toolclient read: %v", err)
+				dmlog.Infof(nil, "toolclient read: %v", err)
 			}
 			break
 		}
@@ -360,7 +363,7 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 		}
 		pc.subMu.RUnlock()
 		if dropped == 1 || (dropped > 0 && dropped%256 == 0) {
-			log.Printf("toolclient: WS output backpressure tool=%s dropped=%d (slow browser?)", ev.Tool, dropped)
+			dmlog.Warnf(nil, "toolclient: WS output backpressure tool=%s dropped=%d (slow browser?)", ev.Tool, dropped)
 		}
 	case "fg":
 		var ev struct {
@@ -730,3 +733,10 @@ func (pc *ToolClient) SnapshotTool(id string) (toolhub.ToolSnapshot, error) {
 
 // Ensure ToolClient implements toolhub.ToolHub.
 var _ toolhub.ToolHub = (*ToolClient)(nil)
+
+// Reconnects 는 이 손잡이가 연결을 **되살린 횟수**다
+// (OBSERVABILITY_SRS FR-OBS-12).
+//
+// 진단이 읽는 집계 수치다. 0 이 아니면 데몬이 죽었다 살아났다는 뜻이고, 그
+// 사실은 "도구가 가끔 멎는다" 류의 신고에서 가장 먼저 필요한 값이다.
+func (pc *ToolClient) Reconnects() int64 { return pc.reconnects.Load() }

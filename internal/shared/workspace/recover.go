@@ -1,8 +1,8 @@
 package workspace
 
 import (
+	"dongminal/internal/shared/dmlog"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -79,7 +79,7 @@ func recoverCorrupt(store Persister) ([]byte, *index, string) {
 		return nil, emptyIndex(), LoadEmpty
 	}
 	if err := rec.Quarantine(); err != nil {
-		log.Printf("workspace: 격리 실패: %v", err)
+		dmlog.Errorf(nil, "workspace: 격리 실패: %v", err)
 	}
 	for _, blob := range rec.Generations() {
 		ix, err := buildIndex(blob)
@@ -87,9 +87,9 @@ func recoverCorrupt(store Persister) ([]byte, *index, string) {
 			// 세대까지 손상됐을 수 있다. 멈추지 않고 더 오래된 것을 본다.
 			continue
 		}
-		log.Printf("workspace: 손상된 파일을 격리하고 백업 세대에서 복원했습니다")
+		dmlog.Errorf(nil, "workspace: 손상된 파일을 격리하고 백업 세대에서 복원했습니다")
 		return append([]byte(nil), blob...), ix, LoadRestored
 	}
-	log.Printf("workspace: 손상된 파일을 격리했으나 복원할 백업 세대가 없습니다")
+	dmlog.Errorf(nil, "workspace: 손상된 파일을 격리했으나 복원할 백업 세대가 없습니다")
 	return nil, emptyIndex(), LoadEmpty
 }

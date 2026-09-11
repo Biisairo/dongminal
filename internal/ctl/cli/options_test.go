@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"dongminal/internal/shared/serverconf"
+
 	"errors"
 	"os"
 	"path/filepath"
@@ -225,6 +227,15 @@ func TestResolveStartTarget_IsolatedRespectsExplicit(t *testing.T) {
 	}
 }
 
+// 이 함수는 **포트의 플래그 계층만** 답한다 (CONFIG_MANAGEMENT_SRS FR-CFG-13).
+//
+//	이전 동작: 여기서 환경변수·기본값까지 해석해 언제나 값이 나왔다
+//	새  동작: 플래그가 없으면 빈 문자열이고, 환경변수·파일·기본값은
+//	          `serverconf.Resolve` 가 지난다
+//	이유:     미리 해석하면 뒤에 선 파일 계층(`server.json`)이 **영영 닿지
+//	          않는다** — 이미 정해진 값은 언제나 플래그로 취급되기 때문이다
+//
+// 홈은 그대로다 — 파일 계층이 홈 **안에** 있으므로 홈은 그보다 먼저 정해져야 한다.
 func TestResolveStartTarget_Plain(t *testing.T) {
 	t.Setenv(EnvHome, "/tmp/plain-home")
 	t.Setenv(EnvPort, "58146")
@@ -232,8 +243,30 @@ func TestResolveStartTarget_Plain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if home != "/tmp/plain-home" || port != "58146" {
-		t.Errorf("환경변수가 반영되지 않았다: %s %s", home, port)
+	if home != "/tmp/plain-home" {
+		t.Errorf("홈에 환경변수가 반영되지 않았다: %s", home)
+	}
+	if port != "" {
+		t.Errorf("포트는 플래그 계층만이어야 한다: %q", port)
+	}
+	// 플래그를 주면 그것이 그대로 나온다.
+	_, port, err = resolveStartTarget(StartOpts{Common: Common{Port: "58200"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if port != "58200" {
+		t.Errorf("플래그가 반영되지 않았다: %q", port)
+	}
+}
+
+// 그 환경변수는 이제 `serverconf` 가 지난다 — 계층이 옮겨졌을 뿐 사라지지 않았다.
+func TestStartPortStillHonorsEnv(t *testing.T) {
+	home := t.TempDir()
+	isolateEnv(t, home)
+	t.Setenv(EnvPort, "58146")
+	got := serverconf.Resolve(serverconf.Inputs{Home: home})
+	if got.Port.Value != "58146" || got.Port.Source != serverconf.SourceEnv {
+		t.Errorf("환경변수 포트가 사라졌다: %+v", got.Port)
 	}
 }
 

@@ -1,7 +1,7 @@
 package sandboxplace
 
 import (
-	"log"
+	"dongminal/internal/shared/dmlog"
 	"os"
 	"path/filepath"
 
@@ -29,7 +29,7 @@ func Wire(home, version, port string) *Placer {
 		// 정의가 깨졌어도 scratch 는 살린다 — 그것은 파일이 아니라 코드가 갖는
 		// 프로파일이다. 사용자가 적은 dev·agent 는 요청 시 "정의되지 않았습니다"
 		// 로 걸리므로, 설정이 무시된 사실이 조용히 묻히지는 않는다.
-		log.Printf("[sandbox] %s: %v", sandbox.ProfilesFileName, err)
+		dmlog.Infof(nil, "[sandbox] %s: %v", sandbox.ProfilesFileName, err)
 		profiles = map[string]sandbox.Profile{sandbox.ProfileScratch: sandbox.Scratch()}
 	}
 

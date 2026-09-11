@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"dongminal/internal/shared/dmenv"
 )
 
 // REQUEST_GATE_SRS §4.4 — 노출 게이트 (TC-RQG-22~25).
@@ -75,5 +77,33 @@ func TestExposeACL_ReasonsDiffer(t *testing.T) {
 	writeACL(t, empty, `{"enabled":true,"entries":[]}`)
 	if exposeACLBlocked(off) == exposeACLBlocked(empty) {
 		t.Fatalf("꺼진 것과 비어 있는 것의 사유가 같다 — 사용자가 토글만 다시 본다")
+	}
+}
+
+// TLS-2 — **게이트가 무는 호스트와 표시가 같은 판정을 딛는다.**
+//
+// 종전에는 갈라져 있었다. 게이트는 `host != DefaultHost` 라 `::1` 바인드까지
+// 허용 목록을 요구했고(밖에서 닿지 않는 주소인데 문을 잠그라고 했다), 표시는
+// `0.0.0.0`/`::` 만 보아 `DONGMINAL_HOST=192.168.1.5` 를 `local-only` 로
+// 거짓 표시했다 — **게이트는 물면서 화면은 안전하다고 말하는** 조합이다.
+func TestExposeGateHostsMatchLabel(t *testing.T) {
+	for _, tc := range []struct {
+		host    string
+		gated   bool
+		exposed string
+	}{
+		{DefaultHost, false, "local-only"},
+		{"::1", false, "local-only"}, // 종전에는 게이트가 물었다
+		{"localhost", false, "local-only"},
+		{ExposeHost, true, "exposed"},
+		{"::", true, "exposed"},
+		{"192.168.1.5", true, "exposed"}, // 종전에는 local-only 로 표시됐다
+	} {
+		if got := dmenv.IsExposedHost(tc.host); got != tc.gated {
+			t.Errorf("%s: 게이트 판정 = %v, want %v", tc.host, got, tc.gated)
+		}
+		if got := dmenv.ExposureLabel(tc.host); got != tc.exposed {
+			t.Errorf("%s: 표시 = %q, want %q", tc.host, got, tc.exposed)
+		}
 	}
 }

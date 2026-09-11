@@ -1,9 +1,9 @@
 package toolhub
 
 import (
+	"dongminal/internal/shared/dmlog"
 	"errors"
 	"fmt"
-	"log"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -398,7 +398,7 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 	// 있는데 넘는 상태가 정확히 그렇게 생긴다. `StartTool` 뒤에 세면 이미 뜬
 	// PTY 와 셸이 등록되지 못한 채 남는다.
 	if len(m.tools) >= ToolCap {
-		log.Printf("[tool] 상한 초과로 생성을 거절한다 (cap=%d)", ToolCap)
+		dmlog.Infof(nil, "[tool] 상한 초과로 생성을 거절한다 (cap=%d)", ToolCap)
 		return nil, ErrToolCap
 	}
 	p, err := StartTool(id, defaultToolName, cwd, cols, rows, func(toolID string) {
@@ -408,7 +408,7 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 		}
 	}, m.attnHooks(), spec)
 	if err != nil {
-		log.Printf("[tool %s] create error: %v", id, err)
+		dmlog.Errorf(nil, "[tool %s] create error: %v", id, err)
 		return nil, err
 	}
 	// FR-BGP-3 / FR-SBX-27: `sandboxed` 는 "컨테이너 안에서 돈다" 이지 "명세를
@@ -417,7 +417,7 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 	// 살라고 만든 것이다.
 	p.sandboxed = place.Profile != ""
 	m.tools[id] = p
-	log.Printf("[tool %s] registered total=%d", id, len(m.tools))
+	dmlog.Infof(nil, "[tool %s] registered total=%d", id, len(m.tools))
 	m.mutated.Store(true)
 	m.saveAsync()
 	return p, nil
@@ -472,7 +472,7 @@ func (m *ToolManager) Restore(id, name, cwd string, cols, rows uint16) error {
 	}
 	p.Restored = true
 	m.tools[id] = p
-	log.Printf("[tool %s] restored total=%d", id, len(m.tools))
+	dmlog.Infof(nil, "[tool %s] restored total=%d", id, len(m.tools))
 	return nil
 }
 
@@ -533,7 +533,7 @@ func (m *ToolManager) Delete(id string) error {
 	m.mu.Unlock()
 	if p != nil {
 		p.kill()
-		log.Printf("[tool %s] deleted remaining=%d", id, remaining)
+		dmlog.Infof(nil, "[tool %s] deleted remaining=%d", id, remaining)
 	}
 	m.mutated.Store(true)
 	m.saveAsync()

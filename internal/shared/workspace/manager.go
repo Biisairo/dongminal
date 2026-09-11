@@ -1,10 +1,10 @@
 package workspace
 
 import (
+	"dongminal/internal/shared/dmlog"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 	"strconv"
@@ -193,7 +193,7 @@ func (m *Manager) writer() {
 		case blob := <-m.writeCh:
 			err := m.store.Write(blob)
 			if err != nil {
-				log.Printf("workspace async write: %v", err)
+				dmlog.Infof(nil, "workspace async write: %v", err)
 			}
 			m.noteWrite(err)
 		case <-m.done:
@@ -203,7 +203,7 @@ func (m *Manager) writer() {
 				case blob := <-m.writeCh:
 					err := m.store.Write(blob)
 					if err != nil {
-						log.Printf("workspace async write (flush): %v", err)
+						dmlog.Infof(nil, "workspace async write (flush): %v", err)
 					}
 					m.noteWrite(err)
 				default:

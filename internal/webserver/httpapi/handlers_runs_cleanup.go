@@ -1,7 +1,7 @@
 package httpapi
 
 import (
-	"log"
+	"dongminal/internal/shared/dmlog"
 	"time"
 
 	"dongminal/internal/shared/agentadapter"
@@ -64,7 +64,7 @@ func (s *Server) closeRunTabs(rec run.Record, keep bool) []map[string]any {
 		if cmd := exitCommandFor(m.Agent); cmd != "" && s.ToolIO != nil &&
 			s.Tools != nil && s.Tools.Busy(m.ToolID) {
 			if err := s.ToolIO.SendPaste(m.ToolID, []byte(cmd), true); err != nil {
-				log.Printf("[run] close 정리: 종료 명령 실패 member=%s tool=%s: %v", m.ID, m.ToolID, err)
+				dmlog.Errorf(nil, "[run] close 정리: 종료 명령 실패 member=%s tool=%s: %v", m.ID, m.ToolID, err)
 			}
 		}
 		targets = append(targets, t)
@@ -119,7 +119,7 @@ func (s *Server) waitToolsIdle(ids []string) {
 		}
 		time.Sleep(exitPollInterval)
 	}
-	log.Printf("[run] close 정리: 종료 대기 상한 초과 — 그대로 닫는다 (%d개)", len(ids))
+	dmlog.Infof(nil, "[run] close 정리: 종료 대기 상한 초과 — 그대로 닫는다 (%d개)", len(ids))
 }
 
 // emptyRunTabs 는 **전용 창**에 남은 비-멤버 탭의 uuid 다 (FR-RUN-7).

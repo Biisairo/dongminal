@@ -1,6 +1,7 @@
 package main
 
 import (
+	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/webserver/hub"
 
 	"dongminal/internal/shared/sandboxplace"
@@ -10,7 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -23,6 +23,7 @@ import (
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/runtime"
+	"dongminal/internal/shared/serverconf"
 	"dongminal/internal/shared/uuid"
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/domain/ext"
@@ -83,24 +84,24 @@ func dialOrStartDaemon(home string) *toolclient.ToolClient {
 	select {
 	case r := <-ch:
 		if r.err == nil {
-			log.Printf("connected to dongminald at %s", endpoint)
+			dmlog.Infof(nil, "connected to dongminald at %s", endpoint)
 			return r.pc
 		}
 		// Connection failed (e.g. socket doesn't exist). Start fresh daemon.
 	case <-time.After(3 * time.Second):
 		// Daemon is busy with old connection. Wait for the goroutine to finish.
-		log.Printf("dongminald busy, waiting for old connection to clear...")
+		dmlog.Infof(nil, "dongminald busy, waiting for old connection to clear...")
 		r := <-ch
 		if r.err == nil {
-			log.Printf("connected to dongminald (after waiting)")
+			dmlog.Infof(nil, "connected to dongminald (after waiting)")
 			return r.pc
 		}
 	}
 
 	// Daemon not running or not reachable. Start it.
-	log.Printf("dongminald not reachable, starting...")
+	dmlog.Infof(nil, "dongminald not reachable, starting...")
 	if err := startDaemon(home); err != nil {
-		log.Printf("failed to start dongminald: %v (falling back to direct mode)", err)
+		dmlog.Errorf(nil, "failed to start dongminald: %v (falling back to direct mode)", err)
 		return nil
 	}
 
@@ -109,11 +110,11 @@ func dialOrStartDaemon(home string) *toolclient.ToolClient {
 		time.Sleep(100 * time.Millisecond)
 		pc, err := toolclient.DialPaneClientWithReconnect(endpoint, spawn)
 		if err == nil {
-			log.Printf("connected to newly started dongminald")
+			dmlog.Infof(nil, "connected to newly started dongminald")
 			return pc
 		}
 	}
-	log.Printf("dongminald did not become ready (falling back to direct mode)")
+	dmlog.Infof(nil, "dongminald did not become ready (falling back to direct mode)")
 	return nil
 }
 
@@ -138,7 +139,7 @@ func startDaemon(home string) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	log.Printf("dongminald started pid=%d log=%s", cmd.Process.Pid, logPath)
+	dmlog.Infof(nil, "dongminald started pid=%d log=%s", cmd.Process.Pid, logPath)
 	// Release the process; dongminald outlives us.
 	return nil
 }
@@ -174,7 +175,7 @@ func restoreHeadlessBackground(pm *toolhub.ToolManager, headless map[string]stru
 		}
 	}
 	if restored > 0 {
-		log.Printf("[run] 헤드리스 도구 %d개를 백그라운드로 복원", restored)
+		dmlog.Infof(nil, "[run] 헤드리스 도구 %d개를 백그라운드로 복원", restored)
 	}
 }
 
@@ -323,7 +324,7 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 	runStore := run.NewStore(cfg.DataDir, uuid.NewString(),
 		run.WithLiveness(func(toolID string) bool { return toolHub.IsLive(toolID) }))
 	if err := runStore.Load(); err != nil {
-		log.Printf("run store load: %v", err)
+		dmlog.Infof(nil, "run store load: %v", err)
 	}
 
 	// git 실행의 단일 지점 (FR-GIT-1). **worktree·submodule 보다 먼저 만든다** —
@@ -361,7 +362,7 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 	// 그것은 사용자가 눌러야 일어난다 (FR-EXT-16).
 	extSvc := ext.NewService(dataPath(cfg.DataDir, "ext"))
 	for _, err := range extSvc.Deploy() {
-		log.Printf("플러그인 선언을 펴지 못했습니다: %v", err)
+		dmlog.Warnf(nil, "플러그인 선언을 펴지 못했습니다: %v", err)
 	}
 	lspSvc := lsp.NewService(extSvc)
 	// FR-LSP-32: 진단은 **요청 없이** 오므로 이미 있는 push 길로 밀어낸다 (D-2).
@@ -412,7 +413,10 @@ func main() {
 		os.Exit(code)
 	}
 
-	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
+	// OBSERVABILITY_SRS FR-OBS-1·2: 로그 계층을 가장 먼저 세운다. 여기부터의
+	// 모든 줄이 수준·시각을 갖는다. 수준의 파일 계층(`server.json`)은 홈이
+	// 정해진 **뒤**에야 읽을 수 있으므로 `serve` 가 한 번 더 세운다.
+	dmlog.Init(dmlog.Options{Level: os.Getenv(serverconf.EnvLogLevel)})
 
 	// 데몬 진입점. `dongminal d` 이거나 argv[0] basename 이 dongminald 인
 	// 경우다 — 내부 진입점이므로 액션 목록에 없다 (FR-CLI-8). startDaemon()
@@ -422,7 +426,8 @@ func main() {
 	if (len(os.Args) > 1 && os.Args[1] == "d") || runtimebin.HelperName(os.Args[0]) == "dongminald" {
 		home, err := resolveHome()
 		if err != nil {
-			log.Fatal(err)
+			dmlog.Errorf(nil, "%v", err)
+			os.Exit(1)
 		}
 		boot.Run(home, cli.Version)
 		return
@@ -461,8 +466,16 @@ func serve(home, host, port string) int {
 	os.Setenv(dmenv.EnvPort, port)
 	os.Setenv(dmenv.EnvHost, host)
 
+	// CONFIG_MANAGEMENT_SRS FR-CFG-13: 홈이 정해졌으므로 이제 파일 계층까지
+	// 읽어 로그 수준을 다시 세운다. `main` 의 첫 Init 은 환경변수까지만 봤다.
+	conf := serverconf.Resolve(serverconf.Inputs{Home: home})
+	for _, w := range conf.Warnings {
+		dmlog.Warnf(nil, "%s", w)
+	}
+	dmlog.Init(dmlog.Options{Level: conf.LogLevel.Value})
+
 	if err := runtime.Install(filepath.Join(home, "bin")); err != nil {
-		log.Printf("runtime install: %v", err)
+		dmlog.Infof(nil, "runtime install: %v", err)
 		return 1
 	}
 
@@ -513,20 +526,20 @@ func serve(home, host, port string) int {
 	if err != nil {
 		// 스키마 미달은 사용자가 조치할 수 있는 상태다 — 스택 대신 안내를 낸다.
 		if errors.Is(err, workspace.ErrSchemaTooOld) {
-			log.Printf("workspace.json 이 구 스키마입니다.")
-			log.Printf("  1) 서버와 데몬을 완전히 정지: dongminal stop --all")
-			log.Printf("  2) 변환 내용 확인:            dongminal migrate --dry-run")
-			log.Printf("  3) 변환 실행:                 dongminal migrate")
+			dmlog.Infof(nil, "workspace.json 이 구 스키마입니다.")
+			dmlog.Infof(nil, "  1) 서버와 데몬을 완전히 정지: dongminal stop --all")
+			dmlog.Infof(nil, "  2) 변환 내용 확인:            dongminal migrate --dry-run")
+			dmlog.Infof(nil, "  3) 변환 실행:                 dongminal migrate")
 			return 1
 		}
-		log.Printf("buildDeps: %v", err)
+		dmlog.Infof(nil, "buildDeps: %v", err)
 		return 1
 	}
-	log.Printf("workspace manager ready rev=%d bytes=%d", bd.wsMgr.CurrentRev(), len(bd.wsMgr.Raw()))
+	dmlog.Infof(nil, "workspace manager ready rev=%d bytes=%d", bd.wsMgr.CurrentRev(), len(bd.wsMgr.Raw()))
 
 	srv, err := httpapi.New(cfg, bd.deps)
 	if err != nil {
-		log.Printf("server init: %v", err)
+		dmlog.Infof(nil, "server init: %v", err)
 		return 1
 	}
 
@@ -569,14 +582,29 @@ func serve(home, host, port string) int {
 	// RECONNECT_STORM_SRS FR-LOG-1: 서버가 자기 로그의 크기를 스스로 지킨다.
 	// 폭주가 4.17 GB 를 만든 뒤에도 상한이 없다는 사실은 그대로였다.
 	go cli.WatchLogSize(ctx.Done())
-	exposure := "local-only"
-	if host == "0.0.0.0" || host == "::" {
+	// TLS-2: 판정은 `dmenv` 한 벌이다. 종전에는 여기서도 `0.0.0.0`/`::` 만
+	// 보아 `DONGMINAL_HOST=192.168.1.5` 기동이 `local-only` 로 남았다.
+	exposure := dmenv.ExposureLabel(host)
+	if exposure == "exposed" {
 		exposure = "exposed to LAN"
 	}
 	// 플랫폼을 남긴다. 크로스플랫폼 문제 보고에서 가장 먼저 필요한 값이고,
 	// WSL 은 리눅스와 빌드가 같아 로그 없이는 구별되지 않는다 (FR-XWS-1).
-	log.Printf("dongminal starting on http://%s:%s (%s, platform=%s)",
+	dmlog.Infof(nil, "dongminal starting on http://%s:%s (%s, platform=%s)",
 		host, port, exposure, platform.Current().OS)
+
+	// OBSERVABILITY_SRS FR-OBS-15·16 (M5 `G2-6`): 마지막 종료가 정상이었는가.
+	//
+	// 워크스페이스 손상과 강제 종료는 **증상이 같고 조치가 다르다** — "창이
+	// 사라졌다" 는 신고에서 이 한 줄이 둘을 가른다. 판정을 먼저 하고 그 뒤에
+	// 덮는다: 읽기가 판정만 하므로 순서가 곧 계약이다.
+	if le := platform.ReadLastExit(home); le.Crashed {
+		dmlog.Warn(nil, "지난 종료가 정상 경로를 지나지 않았습니다 (강제 종료·크래시·전원 차단)",
+			"marker", platform.LastExitFile)
+	} else if le.First {
+		dmlog.Debug(nil, "종료 마커가 없습니다 — 첫 기동이거나 지워졌습니다")
+	}
+	platform.MarkRunning(home)
 
 	// FR-LSP-17: 쓰이지 않는 언어 서버를 주기적으로 정지시킨다. 서버 수명과 함께
 	// 시작하고 끝난다 — 진단 스냅샷(runDiagSnapshots)과 같은 규약이다.
@@ -586,7 +614,10 @@ func serve(home, host, port string) int {
 
 	runErr := srv.Run(ctx, host+":"+port)
 
-	log.Printf("shutting down")
+	dmlog.Infof(nil, "shutting down")
+	// OBSERVABILITY_SRS FR-OBS-15: 여기를 지났으면 정상 종료다. 다음 기동이
+	// 이 한 글자로 "강제로 죽었는가" 에 답한다.
+	platform.MarkCleanExit(home)
 	// Close daemon connection FIRST so dongminald can accept new connections.
 	if panedClient != nil {
 		panedClient.Close()
@@ -610,9 +641,9 @@ func serve(home, host, port string) int {
 	}
 	_ = bd.wsMgr.Close()
 	if runErr != nil {
-		log.Printf("server fatal: %v", runErr)
+		dmlog.Infof(nil, "server fatal: %v", runErr)
 		return 1
 	}
-	log.Printf("server stopped")
+	dmlog.Infof(nil, "server stopped")
 	return 0
 }

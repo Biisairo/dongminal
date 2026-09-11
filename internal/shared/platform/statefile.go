@@ -1,8 +1,8 @@
 package platform
 
 import (
+	"dongminal/internal/shared/dmlog"
 	"fmt"
-	"log"
 	"os"
 )
 
@@ -73,17 +73,17 @@ func rotateGenerations(path string, perm os.FileMode) {
 	_ = os.Remove(genPath(path, n))
 	for i := n - 1; i >= 1; i-- {
 		if err := os.Rename(genPath(path, i), genPath(path, i+1)); err != nil && !os.IsNotExist(err) {
-			log.Printf("state file: 세대 회전 %s: %v", genPath(path, i), err)
+			dmlog.Infof(nil, "state file: 세대 회전 %s: %v", genPath(path, i), err)
 		}
 	}
 	// 현재 내용을 `.bak.1` 로 **복사**한다. rename 하면 원본이 사라지고, 그 사이에
 	// 프로세스가 죽으면 현재 판이 없는 순간이 생긴다.
 	blob, err := os.ReadFile(path)
 	if err != nil {
-		log.Printf("state file: 세대 원본 읽기 %s: %v", path, err)
+		dmlog.Infof(nil, "state file: 세대 원본 읽기 %s: %v", path, err)
 		return
 	}
 	if err := WriteFileAtomic(genPath(path, 1), blob, perm); err != nil {
-		log.Printf("state file: 세대 쓰기 %s: %v", genPath(path, 1), err)
+		dmlog.Infof(nil, "state file: 세대 쓰기 %s: %v", genPath(path, 1), err)
 	}
 }

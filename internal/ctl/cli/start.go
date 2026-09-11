@@ -13,6 +13,7 @@ import (
 	"dongminal/internal/shared/platform"
 
 	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/serverconf"
 )
 
 // Serve는 서버를 이 프로세스로 실행하는 콜백이다. cmd/dongminal 이
@@ -33,13 +34,33 @@ func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	host := DefaultHost
-	if v := os.Getenv(EnvHost); v != "" {
-		host = v
+
+	// CONFIG_MANAGEMENT_SRS 묶음 F·P: 기동값의 계층이 **넷**이다 —
+	// 플래그 > 환경변수 > 파일(`<home>/server.json`) > 기본값.
+	//
+	// 홈이 정해진 **뒤에야** 파일 계층을 읽을 수 있어 여기 선다. 격리 기동은
+	// 홈과 포트를 스스로 고르므로(`FR-ISO-2`) 그 둘은 위에서 이미 정해졌고,
+	// 여기서는 그 값을 플래그 계층으로 넣어 파일이 그것을 이기지 못하게 한다.
+	var host string
+	conf := serverconf.Resolve(serverconf.Inputs{
+		Home:           home,
+		FlagHost:       exposeFlagHost(o),
+		FlagPort:       port,
+		DefaultLogFile: defaultLogFile(),
+	})
+	for _, w := range conf.Warnings {
+		// FR-CFG-15 / D-CFG-3: **막지 않는다.** 설정 파일 하나가 서버를 못 뜨게
+		// 만들면 사용자는 그것을 고칠 화면에 닿을 수 없다.
+		fmt.Fprintf(stderr, "⚠ %s\n", w)
 	}
-	if o.Expose {
-		host = ExposeHost
+	// FR-CFG-19: 포트는 `net.Listen` **전에** 본다. 종전에는 `PORT=abc` 가 해석을
+	// 통과해 주소 해석 오류로 끝났고, 그 문구에는 어느 변수가 잘못됐는지가 없었다.
+	if err := conf.Err(); err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
 	}
+	host = conf.Host.Value
+	port = conf.Port.Value
 
 	// REQUEST_GATE_SRS FR-RQG-20: **노출하면서 허용 목록이 꺼져 있으면 서지 않는다.**
 	//
@@ -49,7 +70,11 @@ func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 	//
 	// 되돌리는 길을 하나 남긴다. 그 이름이 곧 경고이며, 잊고 켜 둔 사람이
 	// 자기 명령줄에서 그것을 본다.
-	if host != DefaultHost && !o.InsecureNoACL {
+	//
+	// **판정은 `dmenv.IsExposedHost` 한 벌이다** (TLS-2). 종전의
+	// `host != DefaultHost` 는 `::1`·`localhost` 바인드까지 허용 목록을
+	// 강제했다 — 밖에서 닿지 않는 주소인데 문을 잠그라고 요구한 것이다.
+	if dmenv.IsExposedHost(host) && !o.InsecureNoACL {
 		if reason := exposeACLBlocked(home); reason != "" {
 			fmt.Fprintf(stderr, "노출(%s) 상태인데 %s\n", host, reason)
 			fmt.Fprintln(stderr, "Settings ▸ Access 에서 허용 목록을 켜고 출발지를 넣으세요.")
@@ -98,8 +123,18 @@ func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 	return startDetached(o, home, host, port, stdout, stderr)
 }
 
-// resolveStartTarget은 홈과 포트를 정한다. --isolated 는 명시되지 않은 쪽만
-// 격리 값으로 채운다 (FR-ISO-1/3) — 사용자가 준 값을 조용히 무시하지 않는다.
+// resolveStartTarget은 홈과 **포트의 플래그 계층**을 정한다. --isolated 는
+// 명시되지 않은 쪽만 격리 값으로 채운다 (FR-ISO-1/3) — 사용자가 준 값을 조용히
+// 무시하지 않는다.
+//
+// **포트가 빈 문자열로 나올 수 있다** (CONFIG_MANAGEMENT_SRS FR-CFG-13). 종전에는
+// 여기서 `o.ResolvePort()` 로 환경변수·기본값까지 해석해 버렸고, 그러면 뒤에 선
+// 파일 계층(`server.json`)이 **영영 닿지 않는다** — 이미 값이 정해져 나오므로
+// 언제나 플래그로 취급되기 때문이다. 이 함수는 플래그 계층만 답하고 나머지
+// 계층은 `serverconf.Resolve` 가 지난다.
+//
+// 격리 기동의 빈 포트는 **플래그로 남는다.** 격리는 운영 인스턴스를 건드리지
+// 않는 것이 계약이라(FR-ISO-2) 파일이 그것을 이기면 안 된다.
 func resolveStartTarget(o StartOpts) (home, port string, err error) {
 	if o.Isolated && o.Home == "" {
 		home, err = os.MkdirTemp("", isolatedHomePrefix)
@@ -118,7 +153,7 @@ func resolveStartTarget(o StartOpts) (home, port string, err error) {
 			return "", "", fmt.Errorf("빈 포트 확보 실패: %w", err)
 		}
 	} else {
-		port = o.ResolvePort()
+		port = o.Port
 	}
 	return home, port, nil
 }
@@ -150,8 +185,10 @@ func startDetached(o StartOpts, home, host, port string, stdout, stderr io.Write
 		return 1
 	}
 
+	// 표시도 같은 판정을 딛는다 (TLS-2) — 종전에는 `0.0.0.0`/`::` 만 보아
+	// `DONGMINAL_HOST=192.168.1.5` 를 `local-only` 로 **거짓 표시**했다.
 	exposure := "local-only"
-	if host == ExposeHost || host == "::" {
+	if dmenv.IsExposedHost(host) {
 		exposure = "LAN 노출"
 	}
 	fmt.Fprintf(stdout, "✅ dongminal running on %s (%s)\n", url, exposure)
@@ -302,11 +339,11 @@ func waitReady(url string, tries int, interval time.Duration) bool {
 }
 
 // pingHost는 0.0.0.0/:: 로 바인드했을 때 실제로 두드릴 주소다.
+//
+// 갈리는 기준이 노출 판정과 **다르다** — 미지정 주소만 바꿔 준다. `192.168.1.5`
+// 는 노출이지만 그 주소로 두드리면 된다 (TLS-2, `dmenv.DialHost`).
 func pingHost(host string) string {
-	if host == ExposeHost || host == "::" {
-		return dmenv.DefaultHost
-	}
-	return host
+	return dmenv.DialHost(host)
 }
 
 // withEnv는 base 에서 kv 의 키와 drop 의 키를 걷어내고 kv 의 새 값을 붙인다

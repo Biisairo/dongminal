@@ -1,6 +1,7 @@
 package ipc
 
 import (
+	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
 
@@ -9,7 +10,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -109,7 +109,7 @@ func (pc *panedConn) enqueue(v interface{}, droppable bool) {
 		case <-pc.done:
 		default:
 			if n := pc.dropped.Add(1); n == 1 || n%256 == 0 {
-				log.Printf("paned: output backpressure — dropped %d chunks (slow dongminal?)", n)
+				dmlog.Warnf(nil, "paned: output backpressure — dropped %d chunks (slow dongminal?)", n)
 			}
 		}
 		return
@@ -491,7 +491,7 @@ func (ps *PanedServer) Listen() error {
 		// 기록 없이 지나가면 원인을 찾을 수 없다. 기동을 막지는 않는다: 소켓은
 		// 이미 열렸고, pidfile 은 편의이지 기동의 조건이 아니다.
 		if err := os.WriteFile(ps.pidPath, []byte(strconv.Itoa(os.Getpid())+"\n"), 0o600); err != nil {
-			log.Printf("paned: pidfile 쓰기 실패 %s: %v", ps.pidPath, err)
+			dmlog.Errorf(nil, "paned: pidfile 쓰기 실패 %s: %v", ps.pidPath, err)
 		}
 	}
 	return nil

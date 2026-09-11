@@ -6,7 +6,7 @@
 package httpapi
 
 import (
-	"log"
+	"dongminal/internal/shared/dmlog"
 	"net/http"
 	"sort"
 	"strings"
@@ -273,7 +273,7 @@ func (s *Server) recordRunMessage(fromToolID, toToolID string, size int) {
 	}
 	ev := run.MsgEvent{From: from, To: to, Kind: run.MsgKindAgent, Size: size}
 	if err := s.Runs.AppendMessage(rec.ID, ev); err != nil {
-		log.Printf("[run] 메시지 기록 생략 run=%s from=%s to=%s: %v", rec.Short, from, to, err)
+		dmlog.Infof(nil, "[run] 메시지 기록 생략 run=%s from=%s to=%s: %v", rec.Short, from, to, err)
 		return
 	}
 	s.broadcastLayout("run_changed", map[string]any{"runId": rec.ID})

@@ -5,7 +5,7 @@ package boot
 
 import (
 	"context"
-	"log"
+	"dongminal/internal/shared/dmlog"
 	"os"
 	"path/filepath"
 
@@ -30,13 +30,13 @@ func referencedTools(path string) map[string]struct{} {
 	blob, err := os.ReadFile(path)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			log.Printf("workspace 읽기: %v", err)
+			dmlog.Infof(nil, "workspace 읽기: %v", err)
 		}
 		return map[string]struct{}{}
 	}
 	refs, err := workspace.ReferencedToolIDs(blob)
 	if err != nil {
-		log.Printf("workspace 참조 해석 실패 — 도구를 복원하지 않습니다: %v", err)
+		dmlog.Errorf(nil, "workspace 참조 해석 실패 — 도구를 복원하지 않습니다: %v", err)
 		return map[string]struct{}{}
 	}
 	return refs
@@ -49,10 +49,11 @@ func referencedTools(path string) map[string]struct{} {
 // ctl/cli 를 되받아 import 하지 않게 하기 위해서다 — 샌드박스 헬퍼를 서버와
 // 같은 판으로 맞추는 데만 쓰인다 (FR-SBX-14).
 func Run(home, version string) {
-	log.Printf("dongminald starting home=%s", home)
+	dmlog.Infof(nil, "dongminald starting home=%s", home)
 
 	if err := runtime.Install(filepath.Join(home, "bin")); err != nil {
-		log.Fatalf("runtime install: %v", err)
+		dmlog.Errorf(nil, "runtime install: %v", err)
+		os.Exit(1)
 	}
 
 	pm := toolhub.NewToolManager(home, nil)
@@ -81,7 +82,7 @@ func Run(home, version string) {
 		pm.SetBackground(id, true)
 	}
 	if len(headless) > 0 {
-		log.Printf("헤드리스 도구 %d개를 백그라운드로 복원", len(headless))
+		dmlog.Infof(nil, "헤드리스 도구 %d개를 백그라운드로 복원", len(headless))
 	}
 
 	sockPath := platform.Current().IPC.Endpoint(home)
@@ -93,7 +94,8 @@ func Run(home, version string) {
 	// 하지 않고도 판을 말할 수 있는 것이 이 주입의 목적이다.
 	ps.SetBuildVersion(version)
 	if err := ps.Listen(); err != nil {
-		log.Fatalf("dongminald listen: %v", err)
+		dmlog.Errorf(nil, "dongminald listen: %v", err)
+		os.Exit(1)
 	}
 
 	// On signal, close the listener to unblock Accept() and save state.
@@ -105,7 +107,7 @@ func Run(home, version string) {
 		ps.Close()
 	}()
 
-	log.Printf("dongminald listening on %s (platform=%s)", sockPath, platform.Current().OS)
+	dmlog.Infof(nil, "dongminald listening on %s (platform=%s)", sockPath, platform.Current().OS)
 
 	// Accept loop. Each connection is handled serially; when it drops,
 	// the daemon waits for the next dongminal to connect.
@@ -113,7 +115,7 @@ func Run(home, version string) {
 		if err := ps.Accept(); err != nil {
 			select {
 			case <-ctx.Done():
-				log.Printf("dongminald shutting down, saving %d tools...", len(pm.Snapshot()))
+				dmlog.Infof(nil, "dongminald shutting down, saving %d tools...", len(pm.Snapshot()))
 				// 문을 닫고 인플라이트 저장을 거둔 뒤에 마지막 상태를 쓴다.
 				// 그러지 않으면 프로세스가 쓰기 도중에 끝나 tools.json 이
 				// 잘릴 수 있다.
@@ -122,7 +124,7 @@ func Run(home, version string) {
 				return
 			default:
 			}
-			log.Printf("dongminald accept: %v", err)
+			dmlog.Infof(nil, "dongminald accept: %v", err)
 			// Continue accepting — transient errors are not fatal.
 		}
 	}

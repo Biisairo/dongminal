@@ -1,7 +1,7 @@
 package hub
 
 import (
-	"log"
+	"dongminal/internal/shared/dmlog"
 	"os"
 	"strconv"
 	"sync"
@@ -189,7 +189,7 @@ func (h *CommandHub) Add() *CmdSub {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if len(h.subs) >= SubCap {
-		log.Printf("[cmd] 구독 상한 초과로 거절한다 (cap=%d)", SubCap)
+		dmlog.Infof(nil, "[cmd] 구독 상한 초과로 거절한다 (cap=%d)", SubCap)
 		return nil
 	}
 	s := NewCmdSub()
@@ -217,7 +217,7 @@ func (h *CommandHub) Broadcast(payload []byte) int {
 		case s.ch <- payload:
 			n++
 		default:
-			log.Printf("[cmd] subscriber channel full, dropping")
+			dmlog.Infof(nil, "[cmd] subscriber channel full, dropping")
 		}
 	}
 	return n

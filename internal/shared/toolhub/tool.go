@@ -3,10 +3,10 @@ package toolhub
 import (
 	"bytes"
 	"context"
+	"dongminal/internal/shared/dmlog"
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -331,7 +331,7 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 	// 어디서 띄웠는지 알고 있으므로 그것을 말한다.
 	p.noteCwdReport(startDir)
 	go p.readPTY()
-	log.Printf("[tool %s] started shell=%s pid=%d cwd=%s cols=%d rows=%d",
+	dmlog.Infof(nil, "[tool %s] started shell=%s pid=%d cwd=%s cols=%d rows=%d",
 		id, spec.Path, term.PID(), startDir, cols, rows)
 	return p, nil
 }
@@ -343,7 +343,7 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 func (p *Tool) readPTY() {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[tool %s] readPTY panic: %v\n%s", p.ID, r, debug.Stack())
+			dmlog.Errorf(nil, "[tool %s] readPTY panic: %v\n%s", p.ID, r, debug.Stack())
 		}
 	}()
 	raw := make([]byte, 8192)
@@ -357,9 +357,9 @@ func (p *Tool) readPTY() {
 			// 셸이 끝나면 마스터 쪽 read 는 `EIO` 다 — 리눅스·macOS 모두 그렇고,
 			// 그것이 이 자리에서 "정상 종료" 를 뜻한다.
 			if errors.Is(err, io.EOF) || errors.Is(err, syscall.EIO) {
-				log.Printf("[tool %s] readPTY: shell exited normally", p.ID)
+				dmlog.Infof(nil, "[tool %s] readPTY: shell exited normally", p.ID)
 			} else {
-				log.Printf("[tool %s] readPTY unexpected error: %v", p.ID, err)
+				dmlog.Errorf(nil, "[tool %s] readPTY unexpected error: %v", p.ID, err)
 			}
 			p.kill()
 			if r := p.relay.Load(); r != nil && r.onExit != nil {
@@ -395,7 +395,7 @@ func (p *Tool) broadcast(msg []byte) {
 	p.cmu.Unlock()
 	for _, c := range snap {
 		if err := c.WriteMsg(websocket.BinaryMessage, msg); err != nil {
-			log.Printf("[tool %s] broadcast error addr=%s: %v", p.ID, c.RemoteAddr(), err)
+			dmlog.Errorf(nil, "[tool %s] broadcast error addr=%s: %v", p.ID, c.RemoteAddr(), err)
 			p.RemoveClient(c)
 			c.Close()
 		}
@@ -636,13 +636,13 @@ func (p *Tool) AddClient(c *SafeConn) bool {
 	if p.exited {
 		p.cmu.Unlock()
 		_ = c.Send(OpExit, nil)
-		log.Printf("[tool %s] addClient after exit addr=%s — sent OpExit", p.ID, c.RemoteAddr())
+		dmlog.Infof(nil, "[tool %s] addClient after exit addr=%s — sent OpExit", p.ID, c.RemoteAddr())
 		return false
 	}
 	p.cls = append(p.cls, c)
 	n := len(p.cls)
 	p.cmu.Unlock()
-	log.Printf("[tool %s] client connected addr=%s total=%d", p.ID, c.RemoteAddr(), n)
+	dmlog.Infof(nil, "[tool %s] client connected addr=%s total=%d", p.ID, c.RemoteAddr(), n)
 	return true
 }
 
@@ -656,7 +656,7 @@ func (p *Tool) RemoveClient(c *SafeConn) {
 	}
 	n := len(p.cls)
 	p.cmu.Unlock()
-	log.Printf("[tool %s] client disconnected addr=%s remaining=%d", p.ID, c.RemoteAddr(), n)
+	dmlog.Infof(nil, "[tool %s] client disconnected addr=%s remaining=%d", p.ID, c.RemoteAddr(), n)
 }
 
 func (p *Tool) resize(c, r uint16) error {
@@ -665,7 +665,7 @@ func (p *Tool) resize(c, r uint16) error {
 	}
 	err := p.term.Resize(c, r)
 	if err != nil {
-		log.Printf("[tool %s] resize error cols=%d rows=%d: %v", p.ID, c, r, err)
+		dmlog.Errorf(nil, "[tool %s] resize error cols=%d rows=%d: %v", p.ID, c, r, err)
 	}
 	return err
 }
@@ -757,7 +757,7 @@ func (p *Tool) kill() {
 
 		// Phase 3: tear down PTY/process/stream.
 		pid := p.CmdProcessPID()
-		log.Printf("[tool %s] killing pid=%d", p.ID, pid)
+		dmlog.Infof(nil, "[tool %s] killing pid=%d", p.ID, pid)
 		// NewDetachedTool 로 만든 Tool 은 done 이 nil 이다 (PTY 도 프로세스도 없는
 		// 합성 Tool — 데몬 모드의 원격 도구 대리와 테스트가 쓴다). 무조건 닫으면
 		// close(nil chan) 으로 패닉한다. 아래 ptmx·cmd·stream 이 이미 같은 방어를
@@ -772,7 +772,7 @@ func (p *Tool) kill() {
 			time.Sleep(50 * time.Millisecond)
 			p.term.Kill()
 			if err := p.term.Wait(); err != nil {
-				log.Printf("[tool %s] wait: %v", p.ID, err)
+				dmlog.Infof(nil, "[tool %s] wait: %v", p.ID, err)
 			}
 		}
 		if p.stream != nil {

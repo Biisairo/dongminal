@@ -87,6 +87,20 @@ func bundleAbout(home string) string {
 	// 홈의 **경로**는 담지 않는다 — 사용자 이름이 들어간다. 있는지만 말한다.
 	st, err := os.Stat(home)
 	fmt.Fprintf(&b, "home-exists: %v\n", err == nil && st.IsDir())
+	// OBSERVABILITY_SRS FR-OBS-17: 마지막 종료가 정상이었는지 (M5 `G2-6`).
+	//
+	// **새 수집기를 만들지 않는다** — 번들은 이미 있고 마스킹도 `SanitizeRemote`
+	// 한 벌이다 (D-OBS-6). 워크스페이스 손상과 강제 종료는 증상이 같고 조치가
+	// 다르므로, 신고를 받을 때 가장 먼저 보는 값이다.
+	le := platform.ReadLastExit(home)
+	switch {
+	case le.First:
+		fmt.Fprintln(&b, "last-exit: unknown (마커 없음 — 첫 기동이거나 지워졌습니다)")
+	case le.Crashed:
+		fmt.Fprintln(&b, "last-exit: CRASH (정상 종료 경로를 지나지 않았습니다)")
+	default:
+		fmt.Fprintf(&b, "last-exit: %s\n", le.Raw)
+	}
 	return b.String()
 }
 

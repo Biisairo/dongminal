@@ -2,7 +2,7 @@ package httpapi
 
 import (
 	"context"
-	"log"
+	"dongminal/internal/shared/dmlog"
 	"sync"
 	"time"
 
@@ -171,7 +171,7 @@ func (s *Server) holdMiss(ctx context.Context, toolID string, conn *toolhub.Safe
 	defer s.holds.Add(-1)
 
 	// FR-CNR-7: 이 방어가 언제 몇 개를 붙잡았는지가 §2.1 의 지표와 함께 읽혀야 한다.
-	log.Printf("ws hold tool=%s held=%d", toolID, s.holds.Load())
+	dmlog.Infof(nil, "ws hold tool=%s held=%d", toolID, s.holds.Load())
 	t := time.NewTimer(MissHoldMax)
 	defer t.Stop()
 	select {
@@ -179,7 +179,7 @@ func (s *Server) holdMiss(ctx context.Context, toolID string, conn *toolhub.Safe
 	case <-ctx.Done():
 	case <-connGone(conn):
 	}
-	log.Printf("ws hold released tool=%s held=%d", toolID, s.holds.Load()-1)
+	dmlog.Infof(nil, "ws hold released tool=%s held=%d", toolID, s.holds.Load()-1)
 	return true
 }
 

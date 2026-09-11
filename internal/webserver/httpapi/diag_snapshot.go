@@ -2,7 +2,7 @@ package httpapi
 
 import (
 	"context"
-	"log"
+	"dongminal/internal/shared/dmlog"
 	"runtime"
 	"strings"
 	"time"
@@ -96,7 +96,7 @@ func (s *Server) logDiagSnapshot() {
 	if warn != "" {
 		warn = " warn=" + warn
 	}
-	log.Printf("diag reqAge=%s wsAge=%s ws=%d tools=%d miss=%d hold=%d goroutines=%d allocMB=%d%s",
+	dmlog.Infof(nil, "diag reqAge=%s wsAge=%s ws=%d tools=%d miss=%d hold=%d goroutines=%d allocMB=%d%s",
 		ageOf(s.lastReq.Load()), ageOf(s.lastWS.Load()),
 		ws, s.toolCount(),
 		s.misses.size(), hold,

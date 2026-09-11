@@ -10,9 +10,9 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/dmlog"
 	"errors"
 	"fmt"
-	"log"
 
 	"dongminal/internal/shared/uuid"
 	"dongminal/internal/webserver/domain/run"
@@ -74,7 +74,7 @@ func (s *Server) rollbackRun(iso *runIsolation) {
 	if iso == nil || iso.Worktree == nil || s.Worktrees == nil {
 		return
 	}
-	log.Printf("[run] 격리 롤백 — 레코드 생성 실패: %s", iso.spec.Path)
+	dmlog.Errorf(nil, "[run] 격리 롤백 — 레코드 생성 실패: %s", iso.spec.Path)
 	s.Worktrees.Rollback(iso.spec)
 }
 
@@ -132,7 +132,7 @@ func (s *Server) rollbackMember(mi *memberIsolation) {
 	if mi == nil || !mi.created || s.Worktrees == nil {
 		return
 	}
-	log.Printf("[run] 격리 롤백 — 멤버 등록 실패: %s", mi.spec.Path)
+	dmlog.Errorf(nil, "[run] 격리 롤백 — 멤버 등록 실패: %s", mi.spec.Path)
 	s.Worktrees.Rollback(mi.spec)
 }
 
@@ -172,7 +172,7 @@ func (s *Server) cleanupWorktrees(rec run.Record, keep bool) []worktree.Result {
 			Repo: rec.Repo, Path: t.Path, Branch: t.Branch, Keep: keep,
 		})
 		if !res.Removed {
-			log.Printf("[run] worktree 잔여물 run=%s path=%s residue=%s detail=%s",
+			dmlog.Infof(nil, "[run] worktree 잔여물 run=%s path=%s residue=%s detail=%s",
 				rec.Short, res.Path, res.Residue, res.Detail)
 		}
 		out = append(out, res)
@@ -184,7 +184,7 @@ func (s *Server) cleanupWorktrees(rec run.Record, keep bool) []worktree.Result {
 		})
 	}
 	if err := s.Runs.MarkWorktrees(rec.ID, marks); err != nil {
-		log.Printf("[run] 정리 결과 기록 실패 run=%s: %v", rec.Short, err)
+		dmlog.Errorf(nil, "[run] 정리 결과 기록 실패 run=%s: %v", rec.Short, err)
 	}
 	return out
 }

@@ -9,10 +9,10 @@
 package run
 
 import (
+	"dongminal/internal/shared/dmlog"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -139,7 +139,7 @@ func (s *Store) Load() error {
 	blob, err := os.ReadFile(s.path())
 	if err != nil {
 		if !os.IsNotExist(err) {
-			log.Printf("[run] runs.json 읽기 실패 — 빈 상태로 시작한다: %v", err)
+			dmlog.Errorf(nil, "[run] runs.json 읽기 실패 — 빈 상태로 시작한다: %v", err)
 		}
 		s.runs = nil
 		s.persisted = nil
@@ -147,7 +147,7 @@ func (s *Store) Load() error {
 	}
 	var body fileBody
 	if err := json.Unmarshal(blob, &body); err != nil {
-		log.Printf("[run] runs.json 파싱 실패 — 빈 상태로 시작한다: %v", err)
+		dmlog.Errorf(nil, "[run] runs.json 파싱 실패 — 빈 상태로 시작한다: %v", err)
 		s.runs = nil
 		s.persisted = nil
 		return nil

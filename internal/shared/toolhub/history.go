@@ -1,7 +1,7 @@
 package toolhub
 
 import (
-	"log"
+	"dongminal/internal/shared/dmlog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,7 +50,7 @@ func toolHistEnv(id, shellPath string) []string {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		// 만들 수 없으면 종전 동작으로 내려간다. 히스토리를 위해 도구가 뜨지
 		// 않는 일은 없어야 한다.
-		log.Printf("[tool %s] history dir: %v", id, err)
+		dmlog.Infof(nil, "[tool %s] history dir: %v", id, err)
 		return nil
 	}
 	path := filepath.Join(dir, id+"."+shell)
@@ -125,6 +125,6 @@ func seedHistFile(dst, src string) {
 		return
 	}
 	if _, err := f.Write(data); err != nil {
-		log.Printf("history seed %s: %v", dst, err)
+		dmlog.Infof(nil, "history seed %s: %v", dst, err)
 	}
 }

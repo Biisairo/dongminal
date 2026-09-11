@@ -7,10 +7,10 @@
 package sandboxplace
 
 import (
+	"dongminal/internal/shared/dmlog"
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -90,7 +90,7 @@ func (p *Placer) SaveConfig(blob []byte) error {
 		// **정의는 옳은데 저장이 실패한 것**이다. 호출자가 이 둘을 갈라야 하는
 		// 이유는 응답의 모양이다 — 정의에 대한 말은 사용자가 보고 고치지만, 이
 		// 오류에는 정의 파일의 절대경로가 들어 있다 (04-secops SEC-17).
-		log.Printf("sandbox SaveConfig: %v", err)
+		dmlog.Infof(nil, "sandbox SaveConfig: %v", err)
 		return sandbox.ErrSaveFailed
 	}
 	p.mu.Lock()
@@ -183,7 +183,7 @@ func (p *Placer) Reap(live []string) {
 		set[w] = struct{}{}
 	}
 	if err := p.mgr.ReapOrphans(set); err != nil {
-		log.Printf("[sandbox] 고아 컨테이너 회수 실패: %v", err)
+		dmlog.Errorf(nil, "[sandbox] 고아 컨테이너 회수 실패: %v", err)
 	}
 }
 
@@ -208,6 +208,6 @@ func (p *Placer) Profiles() []sandbox.ProfileInfo {
 // 컨테이너가 돌던 채로 남는 편이 낫고, 그래도 다음 기동이 재사용한다.
 func (p *Placer) Shutdown() {
 	if err := p.mgr.StopOwned(); err != nil {
-		log.Printf("[sandbox] 컨테이너 정지 실패: %v", err)
+		dmlog.Errorf(nil, "[sandbox] 컨테이너 정지 실패: %v", err)
 	}
 }

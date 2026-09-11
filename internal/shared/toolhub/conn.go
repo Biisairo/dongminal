@@ -1,7 +1,7 @@
 package toolhub
 
 import (
-	"log"
+	"dongminal/internal/shared/dmlog"
 	"net/http"
 	"sync"
 	"time"
@@ -80,7 +80,7 @@ func (s *SafeConn) Send(op byte, payload []byte) error {
 	copy(m[1:], payload)
 	err := s.WriteMsg(websocket.BinaryMessage, m)
 	if err != nil {
-		log.Printf("ws send op=0x%02x addr=%s: %v", op, s.RemoteAddr(), err)
+		dmlog.Infof(nil, "ws send op=0x%02x addr=%s: %v", op, s.RemoteAddr(), err)
 	}
 	return err
 }
