@@ -382,6 +382,8 @@ class FileEditor {
       if (this._editor) this._editor.layout();
     },{owner:this,label:'editor-frame'});
     this._findKillMonacoKeys();
+    this._lspKillMonacoKeys();
+    this._lspBindClick();
     // FR-LSP-39: 호버 provider 는 **언어마다 한 번**이다. 편집기를 여럿 세워도
     // 등록이 늘지 않아야 한다 — 늘면 같은 호버가 여러 번 뜬다. 그 판정은 app 이
     // 갖고 있으므로 여기서는 부르기만 한다.
@@ -509,6 +511,59 @@ class FileEditor {
   applyWordWrap() {
     if (!this._editor) return;
     this._editor.updateOptions({ wordWrap: editorWordWrap ? 'on' : 'off' });
+  }
+
+  /**
+   * FR-LSP-60·67 (U-1): **Cmd/Ctrl+클릭으로 정의로 간다.**
+   *
+   * 계기를 우리가 잡는 이유는 실측이다 — 이 판의 Monaco 는 링크 제스처 기여가
+   * 서 있는데도(`getContribution('editor.contrib.gotodefinitionatposition')` 이
+   * 참이다) 제스처에 **provider 를 묻지 않는다.** 수정 키가 DOM 이벤트에 실려
+   * 오는 것까지 확인했고(`metaKey:true`), 그런데도 요청이 0건이었다.
+   *
+   * 그래서 클릭은 `F12` 와 **같은 경로**를 탄다 — 알림 줄의 사유, 여럿일 때의
+   * 목록, 뒤로 가기 스택이 전부 그쪽에 있다. 계기가 둘이어도 동작이 하나여야
+   * 사용자가 두 가지를 배우지 않는다.
+   *
+   * `Mod` 는 Ctrl 과 Meta 중 **정확히 하나**다 (`helpers.js` 의 규약) — 그래야
+   * `Ctrl+Cmd+클릭` 을 따로 쓰는 사람의 조합을 가로채지 않는다.
+   */
+  _lspBindClick() {
+    if (!this._editor) return;
+    this._editor.onMouseUp((e) => {
+      const ev = e && e.event;
+      if (!ev || ev.altKey || ev.shiftKey) return;
+      if (ev.ctrlKey === ev.metaKey) return;
+      const pos = e.target && e.target.position;
+      if (!pos) return;
+      // 드래그로 끝난 클릭은 선택이다 — 그 자리를 고른 것이 아니다.
+      const sel = this._editor.getSelection();
+      if (sel && !sel.isEmpty()) return;
+      if (window.app && window.app._lspClickDef) window.app._lspClickDef(this, pos);
+    });
+  }
+
+  /**
+   * FR-LSP-66 (U-1): Monaco 의 **정의 계열 키바인딩을 죽인다.**
+   *
+   * `registerDefinitionProvider` 를 걸면 Monaco 의 기본 키(`F12`·`Alt+F12`)도 함께
+   * 살아난다. 그러면 **설정에서 키를 바꿔도 옛 키가 계속 듣는다** — `FR-LSP-40`
+   * (키는 설정의 것)이 깨지는 자리이며, 기존 검사가 그것을 잡았다(실측).
+   *
+   * 계기를 가른다: **키는 우리 것**(`_edKeyGate` → `_lspJump`, 알림 줄·목록·뒤로
+   * 가기가 거기 있다), **마우스 제스처는 Monaco 것**(Cmd/Ctrl+클릭의 링크 밑줄은
+   * Monaco 만 그릴 수 있다 — D-8c). 제스처는 키바인딩이 아니므로 이 조치에 걸리지
+   * 않는다.
+   */
+  _lspKillMonacoKeys() {
+    if (!this._editor || typeof monaco === 'undefined') return;
+    const M = monaco.KeyMod, K = monaco.KeyCode;
+    const noop = () => {};
+    for (const kb of [
+      K.F12,                  // 정의로 이동
+      M.Alt | K.F12,          // 정의 peek — 다른 파일에는 모델이 없어 빈 창이 된다
+      M.Shift | K.F12,        // 참조 peek (우리 Shift+F12 가 그 자리다)
+    ]) this._editor.addCommand(kb, noop);
   }
 
   /**

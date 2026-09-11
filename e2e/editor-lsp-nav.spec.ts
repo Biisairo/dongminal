@@ -121,6 +121,19 @@ async function expectHoverGround(page: Page) {
     .toContain('go');
 }
 
+/**
+ * 정의 provider 가 **실제로 걸렸는가.** 호버의 `expectHoverGround` 와 같은 자리다
+ * (FR-LSP-62) — 등록은 `/api/lsp/status` 의 답을 받은 뒤이므로 편집기가 선 그
+ * 순간에는 아직 걸리지 않았을 수 있다. 걸리기 전에 명령을 부르면 Monaco 는
+ * 아무에게도 묻지 않고, 증상은 "이동하지 않는다" 로만 보인다.
+ */
+async function expectDefGround(page: Page) {
+  await expect
+    .poll(async () => page.evaluate(() => [...((window as any).app._lspDefLangs || [])]),
+      { timeout: 15000 })
+    .toContain('go');
+}
+
 // 커서를 그 자리에 둔다 — 요청이 싣는 좌표가 이것이다.
 async function putCursor(page: Page, line: number, col: number) {
   await page.evaluate(([l, c]) => {
@@ -197,6 +210,96 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
     for (const p of [P('pkg'), P('pkg/deep'), P('pkg/deep/helper.go')]) {
       await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`)).toBeVisible({ timeout: 10000 });
     }
+  });
+
+  /**
+   * V-LSP-60·61·62 (FR-LSP-60~64, U-1) — **커맨드클릭으로 정의로.**
+   *
+   * 사용자 증언이 이것이었다: *"import 한 객체를 커맨드클릭 해도 이동하지
+   * 않는다."* 그 제스처가 Monaco 에서 부르는 명령이 `revealDefinition` 이고, 그
+   * 명령은 **DefinitionProvider 가 없으면 아무 일도 하지 않는다.**
+   *
+   * 좌표를 지나는 실제 Meta+클릭 대신 그 명령으로 재는 이유는 이 저장소가 이미
+   * 배운 것이다 — *"좌표를 지나는 클릭은 한 번에 맞지 않는다"*(`revealLine` 직후의
+   * 좌표는 렌더 전 값이다). 링크 제스처가 부르는 자리가 같으므로 판정은 같다.
+   */
+  test('커맨드클릭(revealDefinition)이 다른 파일의 정의로 옮긴다', async ({ page, request }) => {
+    await enter(page, request);
+    await stubStatus(page, [{ id: 'gopls', langs: ['go'], exts: ['.go'], found: true }]);
+    await openFile(page, 'main.go');
+    await expectDefGround(page);
+    await putCursor(page, 4, 3);
+
+    const seen: any[] = [];
+    await stubLSP(page, 'definition',
+      { locations: [{ path: P('pkg/deep/helper.go'), line: 4, col: 6 }] }, seen);
+
+    // **`getAction` 이 아니라 `trigger` 다.** 이 판의 Monaco 는 이 명령을
+    // `registerAction2`(전역 액션 레지스트리)로 등록하므로 편집기의 액션 목록에는
+    // 없다 — `getAction` 은 `null` 을 준다(실측). 커맨드클릭도 같은 명령 서비스를
+    // 지나므로 판정은 같다.
+    await page.evaluate(() => {
+      const ed = (window as any).app._edActiveEditor()._editor;
+      ed.trigger('e2e', 'editor.action.revealDefinition', {});
+    });
+
+    // FR-LSP-63: 다른 파일은 **우리 탭 시스템**으로 열린다.
+    await waitEditorAt(page, P('pkg/deep/helper.go'));
+    expect(await cursor(page)).toEqual({ line: 4, col: 6 });
+    // FR-LSP-61: 새 종단을 만들지 않았다 — 같은 종단이 답했다.
+    expect(seen.length, '정의 요청이 가지 않았다').toBeGreaterThan(0);
+    expect(seen[0].text).toContain('func main()');
+
+    // FR-LSP-64: 그 이동도 뒤로 가기 스택에 쌓인다.
+    await page.keyboard.press('Control+Alt+Minus');
+    await waitEditorAt(page, P('main.go'));
+  });
+
+  /**
+   * V-LSP-60b (FR-LSP-60) — **제스처 그대로.** 사용자가 한 그 동작이다.
+   *
+   * 링크 감지의 수정 키는 플랫폼이 정한다(macOS 는 Cmd, 그 밖은 Ctrl) — Monaco 의
+   * 판정을 그대로 따라간다. 좌표는 Monaco 에게 묻는다(`getScrolledVisiblePosition`)
+   * — 우리가 글자 폭을 계산하면 폰트가 바뀔 때마다 틀린다.
+   */
+  test('그 자리를 커맨드클릭하면 정의로 옮긴다', async ({ page, request }) => {
+    await enter(page, request);
+    await stubStatus(page, [{ id: 'gopls', langs: ['go'], exts: ['.go'], found: true }]);
+    await openFile(page, 'main.go');
+    await expectDefGround(page);
+    await stubLSP(page, 'definition',
+      { locations: [{ path: P('pkg/deep/helper.go'), line: 4, col: 6 }] });
+    // 편집기에 포커스를 준다 — Monaco 의 링크 감지는 그 편집기의 keydown 도 본다.
+    await putCursor(page, 4, 3);
+
+    // `helper()` 의 한가운데 (4행 5열) 화면 좌표.
+    const at = await page.evaluate(() => {
+      const ed = (window as any).app._edActiveEditor()._editor;
+      const p = ed.getScrolledVisiblePosition({ lineNumber: 4, column: 5 });
+      const r = ed.getDomNode().getBoundingClientRect();
+      return { x: r.left + p.left + 2, y: r.top + p.top + p.height / 2 };
+    });
+
+    const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.down(mod);
+    // 링크는 **움직임**으로 감지된다 — 누르기만 하면 감지 전이다.
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.move(at.x + 1, at.y);
+    await page.mouse.click(at.x, at.y);
+    await page.keyboard.up(mod);
+
+    await waitEditorAt(page, P('pkg/deep/helper.go'));
+    expect(await cursor(page)).toEqual({ line: 4, col: 6 });
+  });
+
+  // V-LSP-63 (FR-LSP-65): LSP 가 없는 언어에는 provider 가 서지 않는다.
+  test('LSP 가 없는 언어에는 정의 provider 가 서지 않는다', async ({ page, request }) => {
+    await enter(page, request);
+    await stubStatus(page, [{ id: 'gopls', langs: ['go'], exts: ['.go'], found: true }]);
+    await openFile(page, 'notes.txt');
+    await page.waitForTimeout(500);
+    const langs = await page.evaluate(() => [...((window as any).app._lspDefLangs || [])]);
+    expect(langs).not.toContain('plaintext');
   });
 
   // V-LSP-14 · FR-LSP-27 — 돌아올 수 없으면 그 이동은 길을 잃는 일이 된다.

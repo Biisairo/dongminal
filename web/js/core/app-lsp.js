@@ -148,10 +148,13 @@ Object.assign(App.prototype, {
 
   // ── 정의·참조 이동 (묶음 C·F · M2) ──
   //
-  // **Monaco 의 peek 을 쓰지 않는다** (§2.11 / D-8b). 그것은 다른 파일로 갈 때
-  // 우리 탭 시스템을 모르고, 갈아 끼우려면 문서화되지 않은 내부 서비스에 의존해야
-  // 한다. 그리고 그렇게 얻을 것을 우리는 이미 갖고 있다 — 파일을 탭으로 열고 그
-  // 줄로 가는 길(`_edOpenFile`)과, 자리 목록의 껍데기(찾기 패널)다.
+  // **`F12` 경로는 우리가 그린다** (D-8b·D-8c). 알림 줄의 사유와 목록 껍데기가
+  // 여기 있고, 그것이 Monaco 의 peek 이 주지 않는 것이다.
+  //
+  // 커맨드클릭은 다르다 — 링크 밑줄을 Monaco 만 그릴 수 있으므로 그쪽은 provider
+  // 로 간다 (`_lspProvideDef`, FR-LSP-60~65). 두 벌 구현이 아니라 **같은 종단의
+  // 두 계기**이며, 다른 파일로 가는 일은 `registerEditorOpener` 가 이 파일의
+  // `_edOpenFile` 로 되돌린다 (§2.11c 가 그 기각을 되짚었다).
 
   /**
    * 지금 물을 자리. 활성 편집기의 **커서 위치와 현재 텍스트**다 (D-3).
@@ -178,6 +181,20 @@ Object.assign(App.prototype, {
   },
 
   async _lspGotoDef(){ await this._lspJump('def') },
+
+  /**
+   * FR-LSP-60·67 (U-1): 커맨드클릭이 닿는 자리. **`F12` 와 같은 경로다.**
+   *
+   * 클릭이 커서를 이미 그 자리에 놓지만 명시로 한 번 더 맞춘다 — `_lspJump` 는
+   * 커서를 읽으므로(`_lspWhere`), 그 사이에 다른 것이 커서를 옮기면 엉뚱한
+   * 심볼을 묻게 된다.
+   */
+  async _lspClickDef(view,position){
+    const ed=view&&view._editor;
+    if(!ed||!position) return;
+    ed.setPosition(position);
+    await this._lspJump('def');
+  },
   async _lspFindRefs(){ await this._lspJump('refs') },
 
   /**
@@ -266,16 +283,125 @@ Object.assign(App.prototype, {
     const list=await this._lspStatusCached();
     if(!list) return;
     if(!this._lspHoverLangs) this._lspHoverLangs=new Set();
+    if(!this._lspDefLangs) this._lspDefLangs=new Set();
+    // FR-LSP-63: 다른 파일로 가는 일은 **우리 탭 시스템**의 것이다. 등록은 앱에
+    // 한 번이며 언어와 무관하다.
+    this._lspOpenerRegister();
     for(const s of list){
       for(const lang of (s.langs||[])){
         // FR-LSP-39: 언어마다 한 번이다 — 늘면 같은 호버가 여러 번 뜬다.
-        if(this._lspHoverLangs.has(lang)) continue;
-        this._lspHoverLangs.add(lang);
-        monaco.languages.registerHoverProvider(lang,{
-          provideHover:(model,position,token)=>this._lspHover(model,position,token),
-        });
+        if(!this._lspHoverLangs.has(lang)){
+          this._lspHoverLangs.add(lang);
+          monaco.languages.registerHoverProvider(lang,{
+            provideHover:(model,position,token)=>this._lspHover(model,position,token),
+          });
+        }
+        // FR-LSP-60·62 (U-1): 커맨드클릭으로 정의로 간다. **같은 규약·같은 자리**다
+        // — 표를 두 벌로 두면 언어를 더할 때 한쪽만 고쳐진다.
+        if(!this._lspDefLangs.has(lang)){
+          this._lspDefLangs.add(lang);
+          monaco.languages.registerDefinitionProvider(lang,{
+            provideDefinition:(model,position,token)=>this._lspProvideDef(model,position,token),
+          });
+        }
       }
     }
+  },
+
+  /**
+   * FR-LSP-60·61·65 (U-1): 커맨드클릭이 딛는 속.
+   *
+   * **새 종단도 새 상태도 만들지 않는다** — `F12` 가 쓰는 그 종단이다. 다른 것은
+   * 계기와 그림뿐이다: 링크 밑줄·peek 은 Monaco 만 그릴 수 있고, 알림 줄과 목록
+   * 껍데기는 `F12` 경로의 것이다 (D-8c).
+   *
+   * 답하지 못하면 **조용하다.** 마우스가 지나갈 때마다 "서버가 없습니다" 가 뜨면
+   * 그것이 곧 고장이며, 호버가 같은 이유로 이미 그렇게 정했다 (FR-LSP-65).
+   */
+  async _lspProvideDef(model,position,token){
+    const at=this._lspHoverWhere(model,position);
+    if(!at) return null;
+    const ctl=new AbortController();
+    if(token&&token.onCancellationRequested) token.onCancellationRequested(()=>ctl.abort());
+    const r=await apiPost(LSP_DEF_API,
+      {root:at.root,path:at.path,text:at.text,
+        line:position.lineNumber,col:position.column},
+      {signal:ctl.signal});
+    const d=r.ok?r.data:null;
+    const locs=(d&&d.locations)||[];
+    if(!locs.length) return null;
+    // 좌표는 양쪽이 1 부터다 — 여기서 셈법을 바꾸지 않는다 (Location 의 주석).
+    if(!this._lspUriPath) this._lspUriPath=new Map();
+    return locs.map(l=>{
+      const uri=monaco.Uri.file(l.path);
+      // **되돌릴 짝을 기억한다.** uri 에서 경로를 다시 만들지 않는 이유는 실측이다 —
+      // 이 판의 `uri.fsPath` 는 POSIX 기계에서도 역슬래시 경로를 냈고(`\private\tmp\…`),
+      // 그 경로는 어느 탭과도 견줄 수 없다. 우리가 만든 uri 이므로 그 짝을 아는
+      // 쪽이 우리다.
+      this._lspUriPath.set(String(uri),l.path);
+      return {
+        uri,
+        range:{startLineNumber:l.line,startColumn:l.col,
+          endLineNumber:l.line,endColumn:l.col},
+      };
+    });
+  },
+
+  /**
+   * FR-LSP-63·64 (U-1): Monaco 가 "다른 파일을 열어라" 고 할 때 우리 탭으로 연다.
+   *
+   * §2.11 은 이 자리를 "문서화되지 않은 내부 서비스" 라고 적고 provider 경로를
+   * 기각했다. **그 문장은 낡았다** — `monaco.editor.registerEditorOpener` 는
+   * `monaco.editor` 표면의 공개 함수다 (§2.11c). 없는 판에서는 등록만 건너뛰고
+   * 같은 파일 안의 이동은 그대로 된다.
+   *
+   *   같은 파일이면 `false` — Monaco 가 스스로 한다(그쪽이 선택·접힘을 안다).
+   *   다른 파일이면 우리가 열고 `true` — 그 길이 조상 펼치기까지 한다 (FR-EKB-6).
+   */
+  _lspOpenerRegister(){
+    if(this._lspOpener) return;
+    if(typeof monaco==='undefined'||!monaco.editor||!monaco.editor.registerEditorOpener) return;
+    this._lspOpener=true;
+    monaco.editor.registerEditorOpener({
+      openCodeEditor:(source,resource,selectionOrPosition)=>{
+        const path=this._lspUriPathOf(resource);
+        if(!path) return false;
+        const v=this._edActiveEditor();
+        // 같은 파일 안의 이동은 Monaco 의 것이다.
+        if(v&&v.filePath===path) return false;
+        const sel=selectionOrPosition||{};
+        const line=sel.startLineNumber||sel.lineNumber||1;
+        const col=sel.startColumn||sel.column||1;
+        // FR-LSP-64: 계기가 둘이어도 돌아오는 길은 하나다 — 여기서도 쌓는다.
+        const at=this._lspWhere();
+        if(at) this._lspPush(at);
+        this._edOpenFile(path,{line,col});
+        return true;
+      },
+    });
+  },
+
+  /**
+   * uri 에서 파일 경로를 되돌린다.
+   *
+   * **기억한 짝을 먼저 본다** (`_lspProvideDef` 가 넣는다). `uri.fsPath` 로 되돌리는
+   * 길은 실측에서 틀렸다 — 이 판은 POSIX 기계에서도 `\private\tmp\…` 를 냈고 그
+   * 경로는 어느 탭과도 견줄 수 없다.
+   *
+   * 짝이 없으면(우리가 만들지 않은 uri) 열려 있는 편집기에서 찾고, 그것도 없으면
+   * `path` 를 쓴다 — Windows 의 `/C:/…` 는 앞의 `/` 를 뗀다.
+   */
+  _lspUriPathOf(uri){
+    if(!uri) return '';
+    const key=String(uri);
+    const known=this._lspUriPath&&this._lspUriPath.get(key);
+    if(known) return known;
+    for(const ed of this.fileEditors.values()){
+      if(!ed||!ed.filePath) continue;
+      if(String(monaco.Uri.file(ed.filePath))===key) return ed.filePath;
+    }
+    const p=String(uri.path||'');
+    return /^\/[A-Za-z]:/.test(p)?p.slice(1):p;
   },
 
   /**
