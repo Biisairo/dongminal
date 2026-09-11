@@ -30,12 +30,12 @@ func TestReplay_RejectsUnguardedRecord(t *testing.T) {
 
 	rec := core.Record{
 		Argv:      []string{"worktree", "remove", "--force", "/tmp/x"},
-		Cwd:       "/repo",
+		Cwd:       absRepo,
 		Unguarded: true,
 		Reason:    "worktree 도메인",
 	}
 
-	_, err := Replay(s, context.Background(), "/repo", rec)
+	_, err := Replay(s, context.Background(), absRepo, rec)
 	if err == nil {
 		t.Fatal("인가를 지나지 않은 기록이 재실행됐다")
 	}
@@ -60,8 +60,8 @@ func TestReplay_AllowsGuardedRecord(t *testing.T) {
 		return core.Output{}, nil
 	}))
 
-	rec := core.Record{Argv: []string{"status", "--porcelain"}, Cwd: "/repo"}
-	if _, err := Replay(s, context.Background(), "/repo", rec); err != nil {
+	rec := core.Record{Argv: []string{"status", "--porcelain"}, Cwd: absRepo}
+	if _, err := Replay(s, context.Background(), absRepo, rec); err != nil {
 		t.Fatalf("정상 기록이 거부됐다: %v", err)
 	}
 	if strings.Join(seen, " ") != "status --porcelain" {

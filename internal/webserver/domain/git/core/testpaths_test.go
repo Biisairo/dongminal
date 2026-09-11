@@ -12,6 +12,7 @@ import "dongminal/internal/shared/testpath"
 
 var (
 	absR        = testpath.Abs("r")
+	absRepo     = testpath.Abs("repo")
 	absTmpRepo  = testpath.Abs("tmp", "repo")
 	absUserRepo = testpath.Abs("Users", "x", "repo")
 )

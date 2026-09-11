@@ -17,6 +17,7 @@ package agentadapter
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -209,7 +210,15 @@ func (a Adapter) launchLine(sh platform.ShellProvider, hooksDir, model, prompt s
 			if hooksDir == "" {
 				return "", fmt.Errorf("%s: %q 의 자리를 채울 경로가 없다", a.ID, arg)
 			}
-			arg = strings.ReplaceAll(arg, HooksDirToken, hooksDir)
+			// **선언은 슬래시, 조립은 OS 의 것이다.** `MemberArgs` 는 플랫폼을
+			// 모르는 자리라 `{{dmHooks}}/omp-member.yml` 처럼 슬래시로 적히는데,
+			// `hooksDir` 은 OS 네이티브다 — 그대로 이으면 Windows 에서
+			// `C:\…\agent-hooks/omp-member.yml` 이라는 **혼합 구분자**가 나간다.
+			//
+			// 그것을 에이전트가 열 수 있는지는 그 구현에 달린 일이고, 우리가 기댈
+			// 사실이 아니다. 토큰이 든 인자는 경로 인자이므로 여기서 OS 의 표기로
+			// 맞춘다 (FR-XPL-5 의 뜻 — OS 차이는 한 자리에서 흡수한다).
+			arg = filepath.FromSlash(strings.ReplaceAll(arg, HooksDirToken, hooksDir))
 		}
 		parts = append(parts, sh.Quote(arg))
 	}

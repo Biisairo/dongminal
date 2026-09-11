@@ -36,7 +36,7 @@ func TestExecUnguarded_RunsCommandOutsideAllowlist(t *testing.T) {
 	var seen []string
 	s := New(WithWriteRunner(unguardedRunner(&seen, Output{Stdout: "worktree /x\n"})))
 
-	out, err := s.ExecUnguarded(context.Background(), "/repo", UnguardedSpec{
+	out, err := s.ExecUnguarded(context.Background(), absRepo, UnguardedSpec{
 		Argv:   argv,
 		Reason: "worktree 도메인",
 	})
@@ -52,7 +52,7 @@ func TestExecUnguarded_RunsCommandOutsideAllowlist(t *testing.T) {
 
 	// 같은 argv 를 인가 층에 주면 막혀야 한다. 막히지 않으면 화이트리스트가
 	// 뜻을 잃은 것이다.
-	if _, derr := s.Exec(context.Background(), "/repo", argv...); !errors.Is(derr, ErrWriteCommand) {
+	if _, derr := s.Exec(context.Background(), absRepo, argv...); !errors.Is(derr, ErrWriteCommand) {
 		t.Fatalf("Exec 이 worktree 를 거부하지 않았다: %v", derr)
 	}
 }
@@ -63,7 +63,7 @@ func TestExecUnguarded_RequiresReason(t *testing.T) {
 	var seen []string
 	s := New(WithWriteRunner(unguardedRunner(&seen, Output{})))
 
-	_, err := s.ExecUnguarded(context.Background(), "/repo", UnguardedSpec{
+	_, err := s.ExecUnguarded(context.Background(), absRepo, UnguardedSpec{
 		Argv: []string{"worktree", "list"},
 	})
 	if err == nil {
@@ -104,7 +104,7 @@ func TestExecUnguarded_SpecTimeoutOverridesDefault(t *testing.T) {
 
 	const want = 180 * time.Second
 	start := time.Now()
-	if _, err := s.ExecUnguarded(context.Background(), "/repo", UnguardedSpec{
+	if _, err := s.ExecUnguarded(context.Background(), absRepo, UnguardedSpec{
 		Argv:    []string{"submodule", "update", "--init"},
 		Reason:  "submodule 도메인",
 		Timeout: want,
@@ -133,7 +133,7 @@ func TestExecUnguarded_ShorterContextWins(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 	start := time.Now()
-	if _, err := s.ExecUnguarded(ctx, "/repo", UnguardedSpec{
+	if _, err := s.ExecUnguarded(ctx, absRepo, UnguardedSpec{
 		Argv:    []string{"worktree", "prune"},
 		Reason:  "worktree 도메인",
 		Timeout: 180 * time.Second,
@@ -173,7 +173,7 @@ func TestExecUnguarded_RecordCarriesMark(t *testing.T) {
 	s := New(WithWriteRunner(unguardedRunner(&seen, Output{Stdout: "x"})))
 
 	const reason = "worktree 도메인"
-	if _, err := s.ExecUnguarded(context.Background(), "/repo", UnguardedSpec{
+	if _, err := s.ExecUnguarded(context.Background(), absRepo, UnguardedSpec{
 		Argv:   []string{"worktree", "list"},
 		Reason: reason,
 	}); err != nil {
@@ -203,7 +203,7 @@ func TestExec_RecordHasNoUnguardedMark(t *testing.T) {
 	s := New(WithRunner(func(context.Context, string, []string) (Output, error) {
 		return Output{}, nil
 	}))
-	if _, err := s.Exec(context.Background(), "/repo", "status", "--porcelain"); err != nil {
+	if _, err := s.Exec(context.Background(), absRepo, "status", "--porcelain"); err != nil {
 		t.Fatalf("Exec: %v", err)
 	}
 	recs := s.Records(0)

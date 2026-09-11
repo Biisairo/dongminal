@@ -177,6 +177,7 @@ claude 의 `Notification` 에 대응하는 이벤트가 없다. 승인 게이트
 | FR-OMP-20 | 설치가 오버레이를 `<binDir>/agent-hooks/omp-member.yml` 로 쓴다. 내용은 **`dmctl` 만** 허용하는 `bash.patterns` 한 항목이다 | 필수 |
 | FR-OMP-21 | `MemberArgs` = `["--config", "<오버레이 절대경로>"]`. 경로는 런타임이 아는 값이므로 선언은 **자리(토큰)** 로 두고 기동줄을 만드는 쪽이 채운다 | 필수 |
 | FR-OMP-22 | **`FR-ADP-1` 개정**: `memberArgs` 항목은 토큰 `{{dmHooks}}` 를 포함할 수 있고, 그 자리는 `agent-hooks` 디렉터리의 절대 경로로 치환된다. 치환은 기동줄을 만드는 **한 자리**에서만 한다. 치환하지 않은 토큰이 기동줄에 남으면 **오류**다 — 조용히 그대로 타이핑되면 omp 가 없는 파일을 읽고 기동이 깨진다 | 필수 |
+| FR-OMP-22a | **치환 뒤 경로 표기를 OS 의 것으로 맞춘다.** `memberArgs` 는 플랫폼을 모르는 선언이라 `{{dmHooks}}/omp-member.yml` 처럼 슬래시로 적히는데 `hooksDir` 은 OS 네이티브다 — 그대로 이으면 Windows 에서 `C:\…\agent-hooks/omp-member.yml` 이라는 **혼합 구분자**가 나간다. 그것을 에이전트가 열 수 있는지는 그 구현에 달린 일이고 우리가 기댈 사실이 아니다 (2026-09-11, Windows CI 가 잡았다) | 필수 |
 | FR-OMP-23 | 사전 허용은 **`dmctl` 로만 한정**한다. `tools.approvalMode` 를 낮추거나 `--auto-approve`·`--approval-mode yolo` 를 쓰지 않는다 — 멤버에게 사용자가 주지 않은 권한을 주지 않는다 (`FR-ADP-1` 주석의 기존 결정) | 필수 |
 
 ### 3.4 묶음 D — 스킬 주입 (확인 대상)
