@@ -100,7 +100,8 @@ test.describe('묶음 D — 워킹 그룹의 Discard All', () => {
       await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
 
       // 아이콘을 고른 이유가 이것이다 — 글자 라벨은 줄을 늘려 36→71px 이 됐다.
-      const hs = await changes(page).locator('.git-group:not(.gone) .git-group-head').evaluateAll(
+      // 제품은 `.gone` 을 `[hidden]` 으로 옮겼다 (FR-LAY-3·30) — 숨김의 어휘는 하나다.
+      const hs = await changes(page).locator('.git-group:not([hidden]) .git-group-head').evaluateAll(
         (els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
       expect([...new Set(hs)], '머리 높이가 그룹마다 다르다: ' + JSON.stringify(hs))
         .toHaveLength(1);

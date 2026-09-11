@@ -114,7 +114,20 @@ test.describe('History 의 브랜치 생성 버튼', () => {
     await expect(changes(page).locator('.git-hist-branch')).toHaveCount(0);
     const chHeadBtns = await changes(page).locator('.git-head button').count();
 
-    // 머리는 한 자리에서 만들어진다 — 두 뷰의 버튼 수가 같아야 그 계약이 산다.
-    expect(histHeadBtns).toBe(chHeadBtns);
+    /**
+     * **머리는 한 자리에서 만들어진다** (FR-GHM-4) — 골격은 양쪽에 선다.
+     *
+     * 종전에는 이 자리가 "두 뷰의 버튼 수가 같다" 를 쟀다. **U-6 가 그 계약을
+     * 폐기했다** (FR-GHM-3a, 2026-09-11): History 머리에는 원격 동작부를 싣지
+     * 않는다 — Changes 와 History 를 이제 함께 보므로 같은 버튼이 두 벌이었다.
+     * 그 개정에 이 검사가 따라오지 않아 기준선이 빨간 채로 남아 있었다.
+     *
+     * 지금 재는 것은 **가름이 실제로 일어났는가**다. 수가 같은지가 아니라,
+     * 원격 동작부가 Changes 에만 있는지다.
+     */
+    await expect(hist(page).locator('.git-head')).toHaveCount(1);
+    await expect(changes(page).locator('.git-head')).toHaveCount(1);
+    expect(histHeadBtns, 'History 머리에 버튼이 남았다 — FR-GHM-3a 가 뺀 자리다').toBe(0);
+    expect(chHeadBtns, 'Changes 머리에서 원격 버튼이 사라졌다').toBeGreaterThan(0);
   });
 });

@@ -756,7 +756,8 @@ test.describe('UI 개정 — 목록의 구조 (FR-GIT-211~212)', () => {
 
     const borders = await page.evaluate(() =>
       [...document.querySelectorAll('#area .ed-side .git-group')]
-        .filter((e) => !e.classList.contains('gone'))
+        // 제품은 `.gone` 을 `[hidden]` 으로 옮겼다 (FR-LAY-3·30) — 숨김의 어휘는 하나다.
+        .filter((e) => !(e as HTMLElement).hidden)
         .map((e) => ({
           group: (e as HTMLElement).dataset.group,
           top: getComputedStyle(e).borderTopWidth,
@@ -1096,8 +1097,9 @@ test.describe('UI 개정 — 섹션 경계 (FR-GIT-216)', () => {
     expect(strong.toLowerCase(), '섹션 색이 행 구분선과 같다').not.toBe(plain.toLowerCase());
 
     // ① Changes 그룹 — **처음 보이는** 그룹 위에는 없고, 그다음부터 경계를 갖는다.
-    // 충돌이 없으면 `Conflicts` 는 서지 않으므로(`.gone`) 세는 대상에서 뺀다.
-    const SEL_GROUP = '#area .ed-side .git-group:not(.gone)';
+    // 충돌이 없으면 `Conflicts` 는 서지 않으므로 세는 대상에서 뺀다.
+    // 제품은 `.gone` 을 `[hidden]` 으로 옮겼다 (FR-LAY-3·30) — 숨김의 어휘는 하나다.
+    const SEL_GROUP = '#area .ed-side .git-group:not([hidden])';
     await expect.poll(async () => (await edges(page, SEL_GROUP, 'top')).length,
       { timeout: 15000 }).toBeGreaterThanOrEqual(2);
     const groups = await edges(page, SEL_GROUP, 'top');
