@@ -74,6 +74,18 @@ test.describe('FR-MTB-1/2: 짧은 탭이 키를 전송한다', () => {
     await expect.poll(() => sent(page), { timeout: 3000 }).toEqual([[0, 0x1b]]);
   });
 
+  // FR-MKB-15: 소프트 키보드를 내려 둔 채 줄을 넘길 자리. `⌨` 가 키보드를 내리는
+  // 유일한 길이 되면서(FR-MKB-4) Enter 를 칠 자리가 사라졌다.
+  test('TC-MTB-1b (FR-MKB-15): Enter 짧은 탭 → CR 1회 전송', async ({ page }) => {
+    await gotoMobile(page);
+    await installSendSpy(page);
+    await clearSent(page);
+
+    await keybarBtn(page, '⏎').tap();
+
+    await expect.poll(() => sent(page), { timeout: 3000 }).toEqual([[0, 0x0d]]);
+  });
+
   test('TC-MTB-2: Ctrl 짧은 탭 → sticky 토글', async ({ page }) => {
     await gotoMobile(page);
     const ctrl = page.locator('#mobile-keybar .mkb-btn[data-mod="ctrl"]');

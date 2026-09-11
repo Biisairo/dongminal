@@ -161,6 +161,11 @@ Object.assign(App.prototype, {
       {label:'⌨',act:'kb'},
       {label:'Esc',send:''},
       {label:'Tab',send:'\t'},
+      // FR-MKB-15: 소프트 키보드를 내려 둔 채 쓰는 길이 `⌨` 로 생겼으므로
+      // (FR-MKB-4), 그 상태에서 줄을 넘길 자리가 있어야 한다. `Tab` 옆인 것은
+      // 둘 다 **입력을 확정하는 키**이기 때문이고, `Ctrl`–`^C` 쌍(D-4)은
+      // 건드리지 않는다.
+      {label:'⏎',send:'\r'},
       {label:'Ctrl',mod:'ctrl'},
       // FR-MKB-9·10 / D-4·D-12: `Ctrl` 바로 옆이다. 소프트 키보드를 올리지
       // 않기로 하면(③) `Ctrl` 을 켠 뒤 `c` 를 칠 자리가 사라지므로, 접수한 말이
@@ -183,7 +188,7 @@ Object.assign(App.prototype, {
       {label:'PgDn',send:'[6~'},
     ];
     const FULL_NAMES={
-      'Esc':'Escape','Tab':'Tab','Ctrl':'Control (modifier)','Alt':'Alt (modifier)',
+      'Esc':'Escape','Tab':'Tab','⏎':'Enter','Ctrl':'Control (modifier)','Alt':'Alt (modifier)',
       '↑':'Arrow Up','↓':'Arrow Down','←':'Arrow Left','→':'Arrow Right',
       '|':'Pipe','~':'Tilde','/':'Slash','-':'Hyphen',
       'Home':'Home','End':'End','PgUp':'Page Up','PgDn':'Page Down',
