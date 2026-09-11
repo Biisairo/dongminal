@@ -3,6 +3,7 @@ package cli
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -77,19 +78,45 @@ func capLog(path string, max, keep int64) error {
 	return nil
 }
 
+// homeLogs 는 홈 아래에서 무한히 자랄 수 있는 로그들이다 (`G2-1`·`SEC-25`).
+//
+// 상한 기계는 처음부터 있었으나 **서버 로그에만** 걸려 있었다. 데몬은 서버보다
+// 오래 살고 재시작 로그는 조작마다 덧붙는다 — 상한이 가장 필요한 쪽이 빠져 있었다.
+var homeLogs = []string{"server.log", "daemon.log", restartLogFile}
+
+// capHomeLogs 는 홈 아래 로그 전부에 상한을 건다.
+//
+// 상한·보존량을 인자로 받는 것은 검사가 낮춰 쓰기 위해서다 — 실제 값으로
+// 픽스처를 만들면 검사가 디스크를 192MiB 쓴다 (이 저장소의 관례).
+func capHomeLogs(home string, max, keep int64) {
+	if home == "" {
+		return
+	}
+	for _, n := range homeLogs {
+		_ = capLog(filepath.Join(home, n), max, keep)
+	}
+}
+
 // WatchLogSize 는 ctx 가 끝날 때까지 주기적으로 로그를 줄인다. 서버가 자기
 // 로그를 스스로 관리하는 자리이며, 경로를 알 수 없으면 아무 것도 하지 않는다.
+//
+// **홈 아래 셋을 함께 본다** (`G2-1`). `$DONGMINAL_LOG` 로 옮긴 서버 로그는 홈
+// 밖일 수 있으므로 따로 건다 — 그 경우에도 데몬·재시작 로그는 홈에 남는다.
 func WatchLogSize(done <-chan struct{}) {
 	path := os.Getenv(EnvLog)
 	if path == "" {
 		path = defaultLogFile()
 	}
+	// 홈은 서버가 도는 그 홈이다. 실패하면 홈 아래 로그는 건드리지 않는다 —
+	// 로그 위생 때문에 서버가 서지 않아서는 안 된다 (FR-LOG-4).
+	home, _ := Common{}.ResolveHome()
 	t := time.NewTicker(LogCheckEvery)
 	defer t.Stop()
 	for {
 		select {
 		case <-t.C:
 			_ = capLog(path, LogMaxBytes, LogKeepBytes)
+			capHomeLogs(home, LogMaxBytes, LogKeepBytes)
 		case <-done:
 			return
 		}
