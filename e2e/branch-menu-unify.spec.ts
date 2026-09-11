@@ -260,6 +260,22 @@ test.describe('묶음 T — 진입점이 판정을 가르지 않는다', () => {
     const oid = git(repo, 'rev-parse', name);
     await waitForInit(page);
     await openHistory(page, repo);
+    /**
+     * **refs 가 도착할 때까지 기다린다.**
+     *
+     * `oid` 는 decoration 이 아니라 refs 관측에서 온다 (FR-BMU-18) — 그 둘은 따로
+     * 오고, 배지는 decoration 만으로도 그려진다. 기다리지 않으면 "배지는 보이는데
+     * oid 는 아직 없는" 창에서 누르게 되고, **그 창의 폭은 서버가 얼마나 바쁜가에
+     * 달린다** (전량 실행에서만 재현된 이유다).
+     *
+     * 이웃 검사들의 `waitRefs` 는 **Branches 행**을 센다 — History 뷰가 활성인
+     * 여기서는 그 행이 0 이라 쓸 수 없다. 제품이 `oid` 를 꺼내는 바로 그 자료
+     * (`_historyView._refs`)를 본다.
+     */
+    await expect.poll(() => page.evaluate(() => {
+      const v = (window as any).app?.gitPanel?._historyView;
+      return ((v && v._refs) || []).length;
+    }), { timeout: 20000 }).toBeGreaterThanOrEqual(3);
     await expect(badge(page, name)).toBeVisible({ timeout: 20000 });
     await badge(page, name).click({ button: 'right' });
     await expect(menu(page)).toBeVisible({ timeout: 10000 });
