@@ -308,3 +308,86 @@ test.describe('묶음 J — 파괴적 동작의 확인', () => {
     expect(await page.evaluate(() => (window as any).__res)).toBe(true);
   });
 });
+
+/**
+ * 묶음 OV — 목록이 길어도 상자가 화면을 넘지 않는다 (사용자 보고 `U-26`).
+ *
+ * 접수한 말은 *"git 관련 동작에서 파일이 너무 많으면 팝업에서 파일 목록이
+ * 오버플로우된다. 비슷하게 목록을 보여주는 곳에서 오버플로우에 대비해라."* 다.
+ *
+ * `FR-GIT-177` 이 이미 *"목록이 확인 버튼을 화면 밖으로 밀지 않는다"* 를 요구하고
+ * `.gc-targets` 에 `max-height:40vh; overflow-y:auto` 가 있다. 그런데도 넘친다면
+ * 재는 자리가 목록이 아니라 **상자 전체**여야 한다 — 목록 말고도 `gc-changed`,
+ * `gc-hint`, `gc-err-tail`(24vh) 이 모두 `flex:0 0 auto` 로 자리를 요구하고,
+ * 그 합이 상자의 `max-height` 를 넘으면 삐져나간다.
+ *
+ * 그래서 이 검사는 CSS 값을 단정하지 않는다. **사용자가 겪는 것**을 잰다:
+ * 상자가 화면 안에 있는가, 그리고 누를 버튼이 보이는가.
+ */
+test.describe('묶음 OV — 긴 목록의 넘침', () => {
+  const many = (n: number) =>
+    Array.from({ length: n }, (_, i) =>
+      `packages/server/src/very/deeply/nested/directory/module-${i}/index.spec.ts`);
+
+  async function boxFits(page: Page) {
+    return page.evaluate(() => {
+      const el = document.querySelector('#git-confirm .gc-box') as HTMLElement;
+      const acts = document.querySelector('#git-confirm .gc-actions') as HTMLElement;
+      const b = el.getBoundingClientRect();
+      const a = acts.getBoundingClientRect();
+      const vh = window.innerHeight, vw = window.innerWidth;
+      return {
+        boxTop: Math.round(b.top), boxBottom: Math.round(b.bottom),
+        boxRight: Math.round(b.right), vh, vw,
+        actionsBottom: Math.round(a.bottom), actionsTop: Math.round(a.top),
+        // 목록은 스스로 스크롤해야 한다 — 넘치는 것을 바깥으로 밀면 안 된다.
+        listScrolls: (() => {
+          const t = document.querySelector('#git-confirm .gc-targets') as HTMLElement;
+          return t.scrollHeight > t.clientHeight;
+        })(),
+      };
+    });
+  }
+
+  test('OV1: 파일이 아주 많아도 상자와 버튼이 화면 안에 있다', async ({ page }) => {
+    await waitForInit(page, 'desktop');
+    await open(page, { targets: many(400) });
+
+    const m = await boxFits(page);
+    expect(m.listScrolls, '목록이 스스로 스크롤하지 않는다').toBe(true);
+    expect(m.boxTop, `상자 위가 화면 밖이다 (top=${m.boxTop})`).toBeGreaterThanOrEqual(0);
+    expect(m.boxBottom, `상자 아래가 화면 밖이다 (bottom=${m.boxBottom} vh=${m.vh})`)
+      .toBeLessThanOrEqual(m.vh);
+    expect(m.actionsBottom, '실행·취소 버튼이 화면 밖으로 밀렸다').toBeLessThanOrEqual(m.vh);
+    expect(m.boxRight, '상자가 가로로 넘쳤다').toBeLessThanOrEqual(m.vw);
+  });
+
+  test('OV2: 목록·안내·오류가 한꺼번에 길어도 버튼이 남는다', async ({ page }) => {
+    await waitForInit(page, 'desktop');
+    // 세 자리가 동시에 자리를 요구하는 최악이다 — `gc-err-tail` 만 24vh 를 잡는다.
+    await open(page, {
+      targets: many(400),
+      hint: { note: '긴 안내 '.repeat(40), command: 'git stash push -- ' + many(6).join(' ') },
+      fail: { reason: '실패했다', stderrTail: Array.from({ length: 60 }, (_, i) => `stderr line ${i}`).join('\n') },
+    });
+    await page.locator('#git-confirm .gc-go').click();
+    await expect(page.locator('#git-confirm .gc-err')).toBeVisible();
+
+    const m = await boxFits(page);
+    expect(m.boxBottom, `상자 아래가 화면 밖이다 (bottom=${m.boxBottom} vh=${m.vh})`)
+      .toBeLessThanOrEqual(m.vh);
+    expect(m.boxTop).toBeGreaterThanOrEqual(0);
+    expect(m.actionsBottom, '실행·취소 버튼이 화면 밖으로 밀렸다').toBeLessThanOrEqual(m.vh);
+  });
+
+  test('OV3: 좁은 화면(모바일)에서도 같다', async ({ page }) => {
+    await waitForInit(page, 'mobile');
+    await open(page, { targets: many(400) });
+
+    const m = await boxFits(page);
+    expect(m.boxBottom).toBeLessThanOrEqual(m.vh);
+    expect(m.boxTop).toBeGreaterThanOrEqual(0);
+    expect(m.actionsBottom, '실행·취소 버튼이 화면 밖으로 밀렸다').toBeLessThanOrEqual(m.vh);
+    expect(m.boxRight).toBeLessThanOrEqual(m.vw);
+  });
+});

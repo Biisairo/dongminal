@@ -332,3 +332,78 @@ test.describe('20단계 — 다이얼로그 공통 규약', () => {
     expect(await res(page)).toBe(true);
   });
 });
+
+/**
+ * 묶음 OV — 본문이 길어도 상자가 화면을 넘지 않는다 (사용자 보고 `U-26`).
+ *
+ * `FR-GIT-177` 은 *"옵션이 실행 버튼을 화면 밖으로 밀지 않는다"* 를 요구하고
+ * `.git-dialog-fields` 에 그 대비가 있다. 그런데 **`.git-dialog-body` 에는 없었다** —
+ * `flex`·`min-height`·`overflow` 가 셋 다 빠져 있어 줄어들지도 구르지도 못했다.
+ *
+ * 그 자리에 오는 것이 곧 사용자가 말한 "파일 목록" 이다: 병합·체크아웃이 충돌하면
+ * `branches.js` 가 서버 메시지(`d.message` — 충돌 파일의 목록)를 그대로 `body` 로
+ * 넘긴다. 파일이 많을수록 길어지고, 그만큼 버튼이 아래로 밀린다.
+ */
+test.describe('묶음 OV — 긴 본문의 넘침', () => {
+  const longBody = (n: number) =>
+    'CONFLICT (content): Merge conflict in\n' +
+    Array.from({ length: n },
+      (_, i) => `packages/server/src/deeply/nested/module-${i}/handler.spec.ts`).join('\n');
+
+  async function openBody(page: Page, body: string) {
+    await page.evaluate((b: string) => {
+      const w = window as any;
+      w.__res = undefined;
+      w.GitDialog.open({
+        id: 'git-ov', ns: 'gov', action: 'merge',
+        title: '병합이 충돌했습니다', runLabel: '확인',
+        body: b,
+        fields: [],
+        run: async () => ({ ok: true }),
+      }).then((v: any) => { w.__res = v });
+    }, body);
+    await expect(page.locator('#git-ov .git-dialog-box')).toBeVisible({ timeout: 10000 });
+  }
+
+  async function fits(page: Page) {
+    return page.evaluate(() => {
+      const box = document.querySelector('#git-ov .git-dialog-box') as HTMLElement;
+      const acts = document.querySelector('#git-ov .git-dialog-actions, #git-ov .gov-actions') as HTMLElement;
+      const b = box.getBoundingClientRect();
+      const a = acts ? acts.getBoundingClientRect() : null;
+      const bd = document.querySelector('#git-ov .git-dialog-body') as HTMLElement;
+      return {
+        boxTop: Math.round(b.top), boxBottom: Math.round(b.bottom), boxRight: Math.round(b.right),
+        vh: window.innerHeight, vw: window.innerWidth,
+        actionsBottom: a ? Math.round(a.bottom) : -1,
+        bodyScrolls: bd.scrollHeight > bd.clientHeight,
+      };
+    });
+  }
+
+  test('OV1: 충돌 파일이 아주 많아도 상자와 버튼이 화면 안에 있다', async ({ page }) => {
+    await waitForInit(page);
+    await openBody(page, longBody(400));
+
+    const m = await fits(page);
+    expect(m.boxTop, `상자 위가 화면 밖이다 (top=${m.boxTop})`).toBeGreaterThanOrEqual(0);
+    expect(m.boxBottom, `상자 아래가 화면 밖이다 (bottom=${m.boxBottom} vh=${m.vh})`)
+      .toBeLessThanOrEqual(m.vh);
+    expect(m.boxRight, '상자가 가로로 넘쳤다').toBeLessThanOrEqual(m.vw);
+    if (m.actionsBottom >= 0) {
+      expect(m.actionsBottom, '실행 버튼이 화면 밖으로 밀렸다').toBeLessThanOrEqual(m.vh);
+    }
+    expect(m.bodyScrolls, '본문이 스스로 구르지 않는다 — 넘치는 것을 바깥으로 민다').toBe(true);
+  });
+
+  test('OV2: 좁은 화면에서도 같다', async ({ page }) => {
+    await waitForInit(page, 'mobile');
+    await openBody(page, longBody(400));
+
+    const m = await fits(page);
+    expect(m.boxTop).toBeGreaterThanOrEqual(0);
+    expect(m.boxBottom, `상자 아래가 화면 밖이다 (bottom=${m.boxBottom} vh=${m.vh})`)
+      .toBeLessThanOrEqual(m.vh);
+    expect(m.boxRight, '상자가 가로로 넘쳤다').toBeLessThanOrEqual(m.vw);
+  });
+});

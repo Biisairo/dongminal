@@ -241,7 +241,19 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 .git-dialog-changed{flex:0 0 auto;display:none;padding:6px 8px;border-radius:4px;
   color:var(--attn);background:var(--attn-subtle)}
 .git-dialog-changed.vis{display:block}
-.git-dialog-body{display:none;color:var(--text-muted)}
+/* FR-GIT-177a: **본문도 구른다.** 형제 셋(head·changed·fields)은 자기 몫을
+   정해 두었는데 여기만 비어 있었다 — `flex`·`min-height`·`overflow` 가 없어
+   줄어들지도 구르지도 못했고, 그래서 긴 본문이 실행 버튼을 화면 밖으로 밀었다.
+
+   이 자리에 오는 것이 사용자가 말한 "파일 목록" 이다: 병합·체크아웃이 충돌하면
+   서버 메시지(충돌 파일의 목록)가 그대로 본문이 된다 (`branches.js`).
+
+   `pre-wrap` 은 넘침 대비의 일부다 — 호출부가 `lines.join('\n')` 으로 줄을
+   나눠 보내는데(`commit-ops.js`) 그것이 한 덩이로 이어지면 가로로 넘친다. */
+.git-dialog-body{
+  display:none;flex:0 1 auto;min-height:0;overflow-y:auto;
+  color:var(--text-muted);white-space:pre-wrap;overflow-wrap:anywhere;
+}
 .git-dialog-body.vis{display:block}
 /* FR-GIT-177: 옵션이 실행 버튼을 화면 밖으로 밀지 않는다 */
 .git-dialog-fields{flex:0 1 auto;min-height:0;overflow-y:auto;
