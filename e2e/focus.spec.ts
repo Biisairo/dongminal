@@ -118,10 +118,12 @@ test.describe('Focus movement', () => {
 
     // Open search.
     await page.keyboard.press('Control+f');
-    await expect(page.locator('#search-bar')).not.toHaveClass(/hidden/);
+    // 제품은 `[hidden]` **속성**으로 숨긴다 (app-search.js `_searchOpen`).
+    // 숨김의 어휘는 하나다 (FR-LAY-30) — 클래스를 재면 영영 맞지 않는다.
+    await expect(page.locator('#search-bar')).toBeVisible();
 
     // Close search.
     await page.keyboard.press('Escape');
-    await expect(page.locator('#search-bar')).toHaveClass(/hidden/);
+    await expect(page.locator('#search-bar')).toBeHidden();
   });
 });

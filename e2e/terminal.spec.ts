@@ -5,10 +5,12 @@ test.describe('Terminal features', () => {
   test('search opens and closes', async ({ page }) => {
     await waitForInit(page);
     await page.keyboard.press('Control+f');
-    await expect(page.locator('#search-bar')).not.toHaveClass(/hidden/);
+    // 제품은 `[hidden]` **속성**으로 숨긴다 (app-search.js `_searchOpen`).
+    // 숨김의 어휘는 하나다 (FR-LAY-30) — 클래스를 재면 영영 맞지 않는다.
+    await expect(page.locator('#search-bar')).toBeVisible();
 
     await page.keyboard.press('Escape');
-    await expect(page.locator('#search-bar')).toHaveClass(/hidden/);
+    await expect(page.locator('#search-bar')).toBeHidden();
   });
 
   test('search finds text in terminal', async ({ page }) => {
@@ -23,7 +25,7 @@ test.describe('Terminal features', () => {
 
     // Open search.
     await page.keyboard.press('Control+f');
-    await expect(page.locator('#search-bar')).not.toHaveClass(/hidden/);
+    await expect(page.locator('#search-bar')).toBeVisible();
 
     // Type search query.
     await page.locator('#search-input').fill('findme_12345');
@@ -35,7 +37,7 @@ test.describe('Terminal features', () => {
 
     // Close search.
     await page.keyboard.press('Escape');
-    await expect(page.locator('#search-bar')).toHaveClass(/hidden/);
+    await expect(page.locator('#search-bar')).toBeHidden();
   });
 
   test('multiple sequential commands produce output', async ({ page }) => {
