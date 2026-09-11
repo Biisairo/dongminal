@@ -58,6 +58,36 @@ type Store struct {
 	now   func() int64
 	newID func() string
 	runs  []Record // 최근 것이 앞 (FR-RUN-8)
+	// persisted 는 **마지막으로 디스크에 실제로 쓰인** 목록이다 (`FBE-17`).
+	//
+	// 변경은 메모리에 먼저 반영되고 그다음 저장한다. 저장이 실패하면 오류는
+	// 돌아가지만 메모리는 바뀐 채로 남아 `runs.json` 과 갈라진다 — 그 뒤의 조회는
+	// 디스크에 없는 Run 을 보여 주고, 재기동하면 사라진다.
+	//
+	// 되돌림을 **저장 한 자리**에 두는 이유: 변경 지점이 열 곳이고, 그 열 곳을
+	// 각자 고치면 다음에 생기는 열한 번째가 또 빠진다.
+	persisted []Record
+}
+
+// cloneRuns 는 되돌릴 수 있는 깊이까지 복사한다.
+//
+// `Record` 만 얕게 복사하면 **멤버가 같은 배열을 가리킨다** — 코드가
+// `&s.runs[ri].Members[mi]` 로 제자리 수정을 하므로, 그 수정이 복사본에도 그대로
+// 보여서 되돌릴 것이 남지 않는다.
+func cloneRuns(in []Record) []Record {
+	if in == nil {
+		return nil
+	}
+	out := make([]Record, len(in))
+	copy(out, in)
+	for i := range out {
+		if out[i].Members != nil {
+			ms := make([]Member, len(out[i].Members))
+			copy(ms, out[i].Members)
+			out[i].Members = ms
+		}
+	}
+	return out
 }
 
 // Option customizes a Store for deterministic tests.
@@ -97,15 +127,21 @@ func (s *Store) Load() error {
 			log.Printf("[run] runs.json 읽기 실패 — 빈 상태로 시작한다: %v", err)
 		}
 		s.runs = nil
+		s.persisted = nil
 		return nil
 	}
 	var body fileBody
 	if err := json.Unmarshal(blob, &body); err != nil {
 		log.Printf("[run] runs.json 파싱 실패 — 빈 상태로 시작한다: %v", err)
 		s.runs = nil
+		s.persisted = nil
 		return nil
 	}
 	s.runs = body.Runs
+	// `FBE-17`: **적재한 것이 곧 디스크의 상태다.** 여기서 세우지 않으면 첫 저장
+	// 실패가 빈 목록으로 되돌리고, 그것은 손실을 막으려던 장치가 손실을 만드는
+	// 일이다. 아래 `save()` 가 도는 갈래에서는 그쪽이 다시 세운다.
+	s.persisted = cloneRuns(s.runs)
 
 	if s.fenceStale() {
 		return s.save()
@@ -146,7 +182,14 @@ func (s *Store) save() error {
 	if err != nil {
 		return err
 	}
-	return platform.WriteStateFile(s.path(), blob, 0644)
+	if err := platform.WriteStateFile(s.path(), blob, 0644); err != nil {
+		// `FBE-17`: **쓰지 못했으면 메모리도 되돌린다.** 그러지 않으면 목록과
+		// 디스크가 갈라지고, 사용자는 재기동에서야 그 사실을 만난다.
+		s.runs = cloneRuns(s.persisted)
+		return err
+	}
+	s.persisted = cloneRuns(s.runs)
+	return nil
 }
 
 // StartOptions is the input of Start.
