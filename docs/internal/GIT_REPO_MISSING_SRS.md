@@ -136,7 +136,8 @@ git 바이너리가 사라진 경우와 섞일 수 있고, 그것은 이미 `Err
 | **FR-RMS-1** | `core` 는 소실 사유 `ErrRepoMissing`(문자열 `repo_missing`)을 갖는다. |
 | **FR-RMS-2** | `execGit` 은 프로세스를 시작하지 못한 실패가 `*fs.PathError` 이고 `Op == "chdir"` 이며 `errors.Is(err, fs.ErrNotExist)` 일 때 `ErrRepoMissing` 으로 감싼다. **stderr 로 판정하지 않는다.** |
 | **FR-RMS-3** | `ErrRepoMissing` 은 `kinds` 에 등록된다 — 이미 분류된 오류를 다시 감싸지 않는 판정(`classified`)이 이것을 알아야 한다. |
-| **FR-RMS-4** | `gitErrorCode` 는 `ErrRepoMissing` 을 `(404, "repo_missing")` 로 옮긴다. `not_a_git_repo` 와 같은 상태 코드다 — 둘 다 "네가 지목한 것이 거기 없다" 이고, 클라이언트는 상태 코드가 아니라 `error` 필드로 분기한다. |
+| **FR-RMS-4** | `gitErrorCode` 는 `ErrRepoMissing` 을 `(404, "repo_missing")` 로 옮긴다. 클라이언트는 상태 코드가 아니라 `error` 필드로 분기한다. **매핑표는 그대로다** — `not_a_git_repo` 도 이 표에서는 여전히 404 이고, 갈라진 것은 `/api/git/status` **종단**이다 (`API_ANSWER_NOT_ABSENCE_SRS D-1`·`V-ANA-8`). |
+| **FR-RMS-4a** | ~~`not_a_git_repo` 와 같은 상태 코드다 — 둘 다 "네가 지목한 것이 거기 없다"~~ → **개정 (2026-09-11).** 둘은 성질이 다르다. 소실은 **있던 것이 사라진** 것이라 부재가 사실이고, "저장소가 아니다" 는 **처음부터 그런 것**이라 답이다. 그래서 `/api/git/status` 는 전자를 `404 repo_missing`, 후자를 `200 isRepo:false` 로 답한다 (`FR-ANA-1·3`). 사유로만 가르면 브라우저 콘솔이 둘을 구분하지 못한다 — 그것이 `U-22` 의 본체였다. |
 | **FR-RMS-5** | 위 조건에 들지 않는 실패는 **여전히 `git_failed`** 다. 권한 오류·`.git` 손상·git 크래시를 소실로 승격하지 않는다 — 그것이 오탐을 오탐으로 드러내는 장치다. |
 
 ### 3.2 패널 — 소실 상태

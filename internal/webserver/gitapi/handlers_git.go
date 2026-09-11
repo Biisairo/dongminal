@@ -400,8 +400,39 @@ func (s *GitServer) gitRepoParam(w http.ResponseWriter, r *http.Request) (root, 
 
 // GET /api/git/status?repo=<abs> — single-flight + TTL 캐시를 거친 관측 (FR-GIT-63).
 func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
-	root, requested, ok := s.gitRepoParam(w, r)
+	requested := r.URL.Query().Get("repo")
+	root, notRepo, ok := s.gitResolveRepoSoft(w, r, requested)
 	if !ok {
+		return
+	}
+	/*
+		API_ANSWER_NOT_ABSENCE_SRS FR-ANA-1: **"저장소가 아니다" 는 답이다.**
+
+			이전 동작 — 404 not_a_git_repo
+			새 동작   — 200 {"isRepo":false, …}
+			이유     — 경로는 있고 서버는 답을 안다. 그것을 부재로 적으면 노트
+			           폴더처럼 git 이 아닌 루트를 보는 동안 브라우저 오류
+			           콘솔에 정상 동작이 영구히 쌓인다 (SRS §1.1)
+
+		재시도를 멈추는 성질은 그대로다 — 신호가 상태 코드에서 `isRepo` 로
+		옮겨졌을 뿐이며, 그것이 `FR-DSP-1a` 가 지키려던 것이다 (FR-ANA-4).
+
+		`requested` 를 싣는 이유는 클라이언트의 세대 검사가 그것으로 응답의
+		임자를 가리기 때문이다. 없으면 이 200 이 조용히 버려진다.
+
+		**감시에는 넣지 않는다** (FR-ANA-6) — 답할 수 없는 저장소다. 소실은 여기
+		오지 않는다. 그것은 부재가 사실이므로 404 로 남는다 (FR-ANA-3).
+	*/
+	if notRepo {
+		gitJSON(w, http.StatusOK, map[string]any{
+			"repo":              "",
+			"requested":         requested,
+			"requestedResolved": wsentry.NormalizePath(requested),
+			"isRepo":            false,
+			"rootMatch":         false,
+			"cached":            false,
+			"status":            nil,
+		})
 		return
 	}
 	obs, cached, err := s.Git.Status(r.Context(), root)
@@ -431,6 +462,9 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 	gitJSON(w, http.StatusOK, map[string]any{
 		"repo":      root,
 		"requested": requested,
+		// FR-ANA-1: 두 갈래가 같은 어휘로 답한다. 한쪽에만 있으면 클라이언트가
+		// `undefined` 와 `false` 를 가려야 한다.
+		"isRepo": true,
 		// 요청 경로가 이 저장소의 **루트**인가. 탐색기가 색의 기준을 정하는 값이다.
 		"rootMatch": resolved == root,
 		// 루트가 아닐 때 저장소 루트로부터의 접두를 계산할 근거다 (FR-DIR-41).

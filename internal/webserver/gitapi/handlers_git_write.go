@@ -15,6 +15,7 @@ import (
 
 	"dongminal/internal/shared/uuid"
 	"dongminal/internal/webserver/apierr"
+	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/write"
 )
@@ -353,6 +354,32 @@ func gitDecodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
 // 본문으로 오든 규약은 같다 — 클라이언트가 보낸 경로를 그대로 신뢰해 저장소를
 // 바꾸지 않는다.
 func (s *GitServer) gitResolveRepo(w http.ResponseWriter, r *http.Request, requested string) (string, bool) {
+	root, notRepo, ok := s.gitResolveRepoSoft(w, r, requested)
+	if !ok {
+		return "", false
+	}
+	// 여기서는 종전대로 부재로 적는다 — 이 함수를 쓰는 21개 종단의 계약이다
+	// (API_ANSWER_NOT_ABSENCE_SRS D-1). 답으로 받고 싶은 종단은 Soft 를 직접 쓴다.
+	if notRepo {
+		gitError(w, core.ErrNotRepo)
+		return "", false
+	}
+	return root, true
+}
+
+/*
+gitResolveRepoSoft 는 `gitResolveRepo` 와 같은 검사를 하되 **"저장소가 아니다" 를
+값으로 돌려준다** (API_ANSWER_NOT_ABSENCE_SRS FR-ANA-5).
+
+경계 검사(FR-FAB-14/`SEC-15`)와 git 가용성 검사(FR-DPN-24)는 **이 한 자리에만**
+있다. 그 둘을 호출자로 복제했다가 세 종단에서 빠졌던 이력이 위 주석에 남아 있으므로,
+새 종단을 위해 검사를 다시 쓰지 않고 함수를 한 겹 나눈다 (D-2).
+
+	notRepo=true  경로는 있으나 git 저장소가 아니다. **응답을 쓰지 않았다** —
+	              무엇으로 적을지는 종단이 정한다
+	ok=false      이미 응답을 썼다 (400·403·404·503). 호출자는 그대로 반환한다
+*/
+func (s *GitServer) gitResolveRepoSoft(w http.ResponseWriter, r *http.Request, requested string) (root string, notRepo bool, ok bool) {
 	// **git 가용성 검사가 여기 있다** — `s.Git` 을 역참조하는 자리이기 때문이다
 	// (DEEPENING_REFACTOR_SRS FR-DPN-24).
 	//
@@ -368,20 +395,25 @@ func (s *GitServer) gitResolveRepo(w http.ResponseWriter, r *http.Request, reque
 	//	           알려주지 않는다. 역참조하는 자리에 두면 빠질 자리가 없다
 	if s.Git == nil {
 		gitUnavailable(w)
-		return "", false
+		return "", false, false
 	}
 	if requested == "" {
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "repo 인자가 없다")
-		return "", false
+		return "", false, false
 	}
 	if !filepath.IsAbs(requested) {
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "repo 는 절대경로여야 한다")
-		return "", false
+		return "", false, false
 	}
 	root, err := s.Git.RepoRoot(r.Context(), requested)
 	if err != nil {
+		// **소실과 저장소 아님을 여기서 가른다** (FR-ANA-3). 소실은 있던 것이
+		// 사라진 것이므로 부재가 사실이고, 저장소 아님은 답이다.
+		if errors.Is(err, core.ErrNotRepo) {
+			return "", true, true
+		}
 		gitError(w, err)
-		return "", false
+		return "", false, false
 	}
 	// FR-FAB-14 (`SEC-15`): 경계는 **푼 루트**로 판정한다. 하위 경로나 링크로 같은
 	// 자리를 다르게 부를 수 있으므로, 요청 문자열로 판정하면 우회가 남는다.
@@ -392,10 +424,10 @@ func (s *GitServer) gitResolveRepo(w http.ResponseWriter, r *http.Request, reque
 		if err := s.RepoGuard(root); err != nil {
 			gitFail(w, http.StatusForbidden, gitErrBadRequest,
 				"이 저장소는 워크스페이스 밖이다")
-			return "", false
+			return "", false, false
 		}
 	}
-	return root, true
+	return root, false, true
 }
 
 // undoTicket 은 방금 만든 커밋 하나에 대한 되돌리기 권한이다.

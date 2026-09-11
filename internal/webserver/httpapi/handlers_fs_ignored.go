@@ -74,10 +74,34 @@ func (s *Server) apiFSIgnored(w http.ResponseWriter, r *http.Request) {
 	}
 	ignored, err := checkIgnore(r.Context(), s.gitService(), dir, req.Names)
 	if err != nil {
+		/*
+			API_ANSWER_NOT_ABSENCE_SRS FR-ANA-2: **판정할 수 없다는 것도 답이다.**
+
+				이전 동작 — 404 fs_not_repo
+				새 동작   — 200 {"ignored":[], "isRepo":false}
+				이유     — 이 함수는 `check-ignore` 의 exit 1("무시된 것이 없다")을
+				           **이미 200 으로** 답하고 있다 (FR-ETR-3). exit 128
+				           ("저장소가 아니다") 도 성질이 같은 답인데 부재로 적혀,
+				           노트 폴더를 펼칠 때마다 콘솔에 오류가 쌓였다 (SRS §2.1)
+
+			사유를 나누지 않는다 (D-4) — "저장소가 아니다" 와 "git 이 없다" 는
+			원인이 다르지만 탐색기가 할 일은 같다: 색을 칠하지 않는다.
+
+			나머지 실패(입출력·시간 초과)는 그대로 오류다. 그것은 다시 물으면
+			달라질 수 있으므로 판정으로 굳혀서는 안 된다.
+		*/
+		var fe fsError
+		if errors.As(err, &fe) && fe.code == fsErrNotRepo {
+			fsJSON(w, http.StatusOK, map[string]any{
+				"ignored": []string{},
+				"isRepo":  false,
+			})
+			return
+		}
 		fsFailErr(w, err)
 		return
 	}
-	fsJSON(w, http.StatusOK, map[string]any{"ignored": ignored})
+	fsJSON(w, http.StatusOK, map[string]any{"ignored": ignored, "isRepo": true})
 }
 
 // unguardedReasonCheckIgnore 는 실행 기록에 남는 사유다

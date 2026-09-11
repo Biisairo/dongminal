@@ -344,7 +344,9 @@ test.describe('묶음 R — _gitOff 는 사유마다 수명이 다르다', () =>
       const plain = realPath(fs.mkdtempSync(j(BASE, 'plain-')));
       w(j(plain, 'f.txt'), 'x\n');
       await enter(page, request, plain);
-      // 404 를 받아도 굳지 않는다 — `git init` 이 뒤집을 수 있는 사유다.
+      // "저장소가 아니다" 를 받아도 굳지 않는다 — `git init` 이 뒤집을 수 있는
+      // 사유다. (그 답은 이제 200 `isRepo:false` 로 온다 —
+      // API_ANSWER_NOT_ABSENCE_SRS FR-ANA-1.)
       await expect.poll(() => gitOff(page, plain), { timeout: 10000 })
         .toEqual({ off: false, retry: true });
 
@@ -352,10 +354,16 @@ test.describe('묶음 R — _gitOff 는 사유마다 수명이 다르다', () =>
       init(plain);
       // 서버는 "저장소가 아니다" 도 캐시한다 (store.RepoRoot, TTL 2초) — 그것이
       // 풀리기 전에 물으면 방금 만든 저장소도 없는 것으로 답한다.
+      //
+      // **기다리는 신호가 상태 코드에서 `isRepo` 로 바뀌었다** (FR-ANA-1). 종전에는
+      // `404 → 200` 전환이 곧 "init 이 반영됐다" 였는데, 이제 200 은 두 경우 모두에
+      // 오므로 그것으로는 아무것도 기다리지 못한다 — 캐시가 풀리기 전에 통과해
+      // 다음 단계가 색이 없는 트리를 본다.
       await expect.poll(async () => {
         const r = await request.get('/api/git/status?repo=' + encodeURIComponent(plain));
-        return r.status();
-      }, { timeout: 10000 }).toBe(200);
+        if (r.status() !== 200) return null;
+        return (await r.json()).isRepo;
+      }, { timeout: 10000 }).toBe(true);
 
       // FR-DIR-32: 창 활성화는 백오프를 넘긴다 — 다른 창에 들렀다 돌아온다.
       // 들르는 곳은 홈(`~`) 창이다 — 그것만이 언제나 있다 (FR-EDT-13).

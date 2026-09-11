@@ -153,9 +153,18 @@ func TestFSIgnored_SubdirNames(t *testing.T) {
 	}
 }
 
-// V-ETR-4 (FR-ETR-4): 저장소가 아니면 404 not_repo 다. 클라이언트는 그 답으로
-// 판정을 굳히므로(`_gitOff` 와 같은 관례) 다른 코드와 섞이면 안 된다.
-func TestFSIgnored_NotRepo(t *testing.T) {
+// V-ANA-5 (API_ANSWER_NOT_ABSENCE_SRS FR-ANA-2): **저장소가 아닌 것은 답이다.**
+//
+//	이전 동작 — 404 `fs_not_repo`
+//	새 동작   — 200 `{"ignored":[],"isRepo":false}`
+//	이유     — 같은 함수가 `check-ignore` 의 exit 1("무시된 것 없음")은 이미
+//	           200 으로 답하고 있었다. exit 128("저장소가 아니다") 도 성질이
+//	           같은 답인데 부재로 적혀, 노트 폴더를 펼칠 때마다 브라우저 콘솔에
+//	           오류가 쌓였다 (SRS §2.1 의 비대칭 표)
+//
+// 재시도를 멈추는 성질은 그대로다 — 신호가 4xx 에서 `isRepo:false` 로 옮겨졌을
+// 뿐이며, 그것이 `FR-ETR-4` 가 지키려던 것이다 (FR-ANA-4).
+func TestFSIgnored_NotRepoIsAnswer(t *testing.T) {
 	gitBin(t)
 	plain, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
@@ -164,11 +173,18 @@ func TestFSIgnored_NotRepo(t *testing.T) {
 	srv := transferSrv(t, plain)
 
 	code, out := ignoredReq(t, srv, plain, plain, []string{"a.txt"})
-	if code != http.StatusNotFound {
-		t.Fatalf("code=%d body=%v, want 404", code, out)
+	if code != http.StatusOK {
+		t.Fatalf("code=%d body=%v, want 200", code, out)
 	}
-	if out["code"] != fsErrNotRepo {
-		t.Fatalf("code=%v, want %q", out["code"], fsErrNotRepo)
+	if out["isRepo"] != false {
+		t.Fatalf("isRepo=%v, want false (body=%v)", out["isRepo"], out)
+	}
+	if got := ignoredNames(t, out); len(got) != 0 {
+		t.Fatalf("ignored=%v, want []", got)
+	}
+	// 오류가 아니므로 오류 코드를 남기지 않는다.
+	if _, ok := out["code"]; ok {
+		t.Fatalf("code 필드가 남았다: %v", out)
 	}
 }
 

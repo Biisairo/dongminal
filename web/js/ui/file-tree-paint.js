@@ -71,6 +71,10 @@ Object.assign(FileTree.prototype, {
       if(r.status>=400&&r.status<500){this._ignOff=true;this._ign.clear();this._paintAll()}
       return;
     }
+    // API_ANSWER_NOT_ABSENCE_SRS FR-ANA-2·4: 200 이지만 **판정할 수 없다** 는 답이다
+    // (저장소가 아니거나 git 이 없다). 종전에는 이것이 404 로 와서 위의 4xx 갈래가
+    // 굳혔다 — 굳히는 일은 그대로 하고, 신호만 상태 코드에서 이 필드로 옮겼다.
+    if(d&&d.isRepo===false){this._ignOff=true;this._ign.clear();this._paintAll();return}
     if(!d||!Array.isArray(d.ignored)) return;
     this._ign.set(dir,new Set(d.ignored));
     this._paintAll();
@@ -444,6 +448,14 @@ Object.assign(FileTree.prototype, {
     }
     // 200 인데 본문을 읽지 못한 것은 답이 아니다 — 중간의 프록시일 수 있다.
     if(!d) return;
+    // API_ANSWER_NOT_ABSENCE_SRS FR-ANA-1: **저장소가 아니라는 답이 이제 200 으로
+    // 온다.** 종전의 404 갈래와 같은 처리로 보낸다 — 굳히지 않고 늦춘다
+    // (FR-DIR-31): `git init` 이 뒤집을 수 있는 사유이기 때문이다.
+    //
+    // 아래 `if(!repo)` 도 같은 자리로 가므로 이 줄이 없어도 동작은 같다. 그런데도
+    // 두는 이유는 **계약을 읽는 쪽이 계약의 이름을 부르게** 하기 위해서다 — 빈
+    // `repo` 로 판정하면 서버가 그 필드를 채우는 날 조용히 갈린다.
+    if(d.isRepo===false){this._gitBack(now);this._setStatus(null);return}
     const repo=d.repo||'';
     // 옛 서버는 `rootMatch` 를 주지 않는다. 그때는 문자열 비교로 물러나되,
     // 그 결과를 굳히지는 않는다.

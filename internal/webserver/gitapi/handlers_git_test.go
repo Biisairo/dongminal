@@ -524,9 +524,6 @@ func TestGitStatus_ErrorMapping(t *testing.T) {
 	}{
 		{"repo 누락", "", nil, http.StatusBadRequest, gitErrBadRequest},
 		{"상대경로", "?repo=rel", nil, http.StatusBadRequest, gitErrBadRequest},
-		{"저장소 아님", "?repo=" + url.QueryEscape(absX), func(string) (core.Output, error) {
-			return core.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
-		}, http.StatusNotFound, gitErrNotRepo},
 		{"git 없음", "?repo=" + url.QueryEscape(absX), func(string) (core.Output, error) {
 			return core.Output{ExitCode: -1}, core.ErrGitMissing
 		}, http.StatusServiceUnavailable, gitErrMissing},
@@ -565,6 +562,95 @@ func TestGitStatus_ErrorMapping(t *testing.T) {
 			t.Fatalf("message=%q", msg)
 		}
 	})
+}
+
+// V-ANA-1·2 (API_ANSWER_NOT_ABSENCE_SRS FR-ANA-1·6): **저장소가 아닌 것은 답이지
+// 부재가 아니다.**
+//
+// 종전에는 404 `not_a_git_repo` 였다. 경로는 멀쩡히 있고 서버는 답을 아는데 그것을
+// 부재로 적었으므로, 노트 폴더처럼 git 이 아닌 루트를 보는 동안 브라우저 콘솔에
+// 오류가 영구히 쌓였다 (SRS §1.1 의 실측 로그).
+//
+// `requested` 를 함께 싣는 이유는 클라이언트의 세대 검사(`d.requested!==tok.repo`)가
+// 그것으로 응답의 임자를 가리기 때문이다 — 없으면 이 200 이 조용히 버려진다.
+func TestGitStatus_NotRepoIsAnswer(t *testing.T) {
+	g := newGitFake(t)
+	g.root = func(string) (core.Output, error) {
+		return core.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
+	}
+	s, _, _, _ := gitTestServer(t, g)
+	code, out := gitReq(t, s, http.MethodGet,
+		"/api/git/status?repo="+url.QueryEscape(absX), "")
+	if code != http.StatusOK {
+		t.Fatalf("code=%d body=%v, want 200", code, out)
+	}
+	if out["isRepo"] != false {
+		t.Fatalf("isRepo=%v, want false (body=%v)", out["isRepo"], out)
+	}
+	if out["requested"] != absX {
+		t.Fatalf("requested=%v, want %q", out["requested"], absX)
+	}
+	// 오류 필드를 남기지 않는다 — 오류가 아니다.
+	if _, ok := out["error"]; ok {
+		t.Fatalf("error 필드가 남았다: %v", out)
+	}
+}
+
+// V-ANA-2 (FR-ANA-6): **답할 수 없는 저장소는 감시에 넣지 않는다.**
+//
+// `NoteFor` 는 "이 저장소를 보고 있다" 는 표명이고, 그 뒤에 signature 감시와
+// `git_changed` 방송이 딸린다. 저장소가 아닌 경로를 거기 넣으면 서버가 영영
+// 답이 없을 것을 재게 된다. 오류 갈래에서는 `return` 이 자연히 막아 주었는데,
+// 200 갈래가 생기면서 그 보호가 사라질 수 있는 자리다.
+type fakeRepoWatcher struct{ notes []string }
+
+func (w *fakeRepoWatcher) Note(repo string, _ store.Observation) {
+	w.notes = append(w.notes, repo)
+}
+func (w *fakeRepoWatcher) NoteFor(repo string, _ store.Observation, _ string) {
+	w.notes = append(w.notes, repo)
+}
+
+func TestGitStatus_NotRepoIsNotWatched(t *testing.T) {
+	g := newGitFake(t)
+	g.root = func(string) (core.Output, error) {
+		return core.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
+	}
+	s, _, _, _ := gitTestServer(t, g)
+	w := &fakeRepoWatcher{}
+	s.Watch = w
+	if code, out := gitReq(t, s, http.MethodGet,
+		"/api/git/status?repo="+url.QueryEscape(absX), ""); code != http.StatusOK {
+		t.Fatalf("code=%d body=%v, want 200", code, out)
+	}
+	if len(w.notes) != 0 {
+		t.Fatalf("저장소가 아닌 경로를 감시에 넣었다: %v", w.notes)
+	}
+}
+
+// V-ANA-3 (FR-ANA-3): **소실은 여전히 실제 404 다.** 있던 것이 사라진 것이므로
+// 부재가 사실이고, 그때는 콘솔에 뜨는 것이 옳다 (D-5).
+func TestGitStatus_RepoMissingStays404(t *testing.T) {
+	g := newGitFake(t)
+	g.root = func(string) (core.Output, error) { return core.Output{}, core.ErrRepoMissing }
+	s, _, _, _ := gitTestServer(t, g)
+	code, out := gitReq(t, s, http.MethodGet,
+		"/api/git/status?repo="+url.QueryEscape(absX), "")
+	if code != http.StatusNotFound {
+		t.Fatalf("code=%d body=%v, want 404", code, out)
+	}
+	if out["error"] != gitErrRepoMissing {
+		t.Fatalf("error=%v, want %q", out["error"], gitErrRepoMissing)
+	}
+}
+
+// V-ANA-8 (D-1): **매핑표는 그대로다.** 종단에서 갈랐을 뿐이므로, 같은 sentinel 을
+// 쓰는 다른 종단은 404 를 유지한다. 이것이 무너지면 이 변경이 계약을 통째로
+// 흔든 것이다.
+func TestGitNotRepo_OtherEndpointsStay404(t *testing.T) {
+	if code, _ := gitErrorCode(core.ErrNotRepo); code != http.StatusNotFound {
+		t.Fatalf("매핑표가 바뀌었다: code=%d, want 404", code)
+	}
 }
 
 // H12 (V13, FR-GIT-63): 동시 N 요청이 status 를 1회만 실행한다. 브라우저 창 수에

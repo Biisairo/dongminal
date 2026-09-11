@@ -460,6 +460,22 @@ Object.assign(GitPanel.prototype, {
     if(!r.ok){this._applyError(d&&d.error);return}
     // ② 서버가 되돌려준 요청값 확인. 같은 세대 안에서도 응답 순서가 뒤바뀔 수 있다.
     if(!d||d.requested!==tok.repo) return;
+    /**
+     * API_ANSWER_NOT_ABSENCE_SRS FR-ANA-1·4: **200 인데 답은 "저장소가 아니다" 다.**
+     *
+     *   이전 동작: 서버가 404 로 적었고 그것이 `r.ok===false` 를 지나 위의
+     *             `_applyError` 로 갔다. 화면은 옳았으나 브라우저 콘솔에 정상
+     *             동작이 오류로 쌓였다 — 노트 폴더처럼 git 이 아닌 루트를 보는
+     *             동안 창을 옮길 때마다 한 줄씩 늘었다
+     *   새  동작: 200 을 받아 같은 자리로 보낸다
+     *   이유:     달라지는 것은 전송 계층의 표기뿐이다. 여기 도달한 뒤의 처리는
+     *             한 글자도 바뀌지 않는다 — `_notRepo` 가 서고 `_stop()` 이
+     *             폴링을 멈추며, 되살아나는 길 셋도 그대로다 (FR-DSP-1a)
+     *
+     * 세대 검사 **뒤**에 둔다. 이 응답의 임자가 지금 보는 저장소인지 먼저 가려야
+     * 옛 요청의 답이 현재 화면을 끄지 않는다.
+     */
+    if(d.isRepo===false){this._applyError('not_a_git_repo');return}
     // 관측이 성공했다 — 누적을 놓고 주기를 기준으로 되돌린다 (FR-RMS-24).
     // 소실이었다면 여기가 복구 지점이다 (FR-RMS-11).
     this._failStreak=0;
