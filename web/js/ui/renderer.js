@@ -124,7 +124,20 @@ class Renderer {
       const target=Math.min(Math.max(0,rec.y),max);
       // xterm 은 `scrollToLine(ydisp)` 를 무시하므로(early return) 한 번 흔들어
       // `_onScroll` 을 깨운다 — 그래야 DOM 의 scrollTop 이 함께 맞는다.
-      if(target>0){ p.term.scrollToTop(); p.term.scrollToLine(target) }
+      //
+      // VIEW_SCROLL_RESTORE_SRS FR-VSR-22: 흔들기는 **갈무리한 자리의 이웃**에서
+      // 출발한다.
+      //
+      //   이전 동작: `scrollToTop()` 으로 흔들었다. 두 번째 동작이 듣지 않으면
+      //             화면이 **최상단에 남았다** — `U-3`("최상단으로 붙는다")과
+      //             `U-17`("가끔")의 가설이 그것이고, V-VSR-11 이 그 기전을
+      //             실물에서 재현했다 (방금 붙은 요소는 행 수·높이가 아직
+      //             측정되지 않은 프레임을 지난다)
+      //   새  동작: 이웃 줄로 흔든다. 같은 실패가 한 줄 차이로 끝난다
+      //   이유:     복원은 최상단을 **결과로** 남기지 않는다 (FR-VSR-22).
+      //             판정 규칙(FR-PDR-11 bottom-follow)은 건드리지 않는다 —
+      //             재현 조건이 오기 전의 변경을 FR-VSR-23 이 금지한다
+      if(target>0){ p.term.scrollToLine(target<max?target+1:target-1); p.term.scrollToLine(target) }
       else if(max>0){ p.term.scrollToBottom(); p.term.scrollToTop() }
       const vp=p.el.querySelector('.xterm-viewport');
       if(vp&&rec.top) vp.scrollTop=rec.top;
