@@ -1,6 +1,9 @@
 package agentadapter
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
 // claudeAdapter 는 Claude Code 선언이다. **이것이 검증 대상이다** (D-D).
 //
@@ -67,7 +70,14 @@ func parseClaudeHook(data []byte) (Report, bool) {
 	case "UserPromptSubmit":
 		// FR-ATN-3: 턴의 출처를 말하는 훅은 이것 하나뿐이다. 다른 훅도
 		// `working` 을 보고하지만 **왜** 시작되었는지는 말하지 않는다.
-		rep = Report{State: "working", Detail: ev.Prompt, UserPrompt: true}
+		//
+		// **다만 이 훅은 사람이 친 것과 배경 알림을 구별하지 않는다**
+		// (FR-ATN-3a, 2026-09-11 관측). 백그라운드 작업이 끝나 턴이 깨어날 때도
+		// 같은 훅이 오고, 그때 `prompt` 에는 그 알림의 본문이 실린다 — 그것을
+		// 사용자 턴으로 읽으면 **알림 하나가 `done` 알람 하나를 낳는다.**
+		// §2.7 이 "배경 이벤트로 깨어난 턴의 종료는 사건이 아니다" 로 막으려던
+		// 바로 그 자리다.
+		rep = Report{State: "working", Detail: ev.Prompt, UserPrompt: !isBackgroundPrompt(ev.Prompt)}
 	case "Notification":
 		rep = Report{State: "waiting"}
 	case "Stop":
@@ -82,6 +92,28 @@ func parseClaudeHook(data []byte) (Report, bool) {
 	rep.SessionID = ev.SessionID
 	rep.Transcript = ev.Transcript
 	return rep, true
+}
+
+// backgroundPromptMarks 는 **사람이 치지 않은 프롬프트**의 표식이다 (FR-ATN-3a).
+//
+// 배경 알림은 이 꼴로 온다 — 백그라운드 작업의 완료 통지와 시스템 알림이다.
+// 사람이 친 프롬프트가 이 표식으로 시작하는 일은 없다.
+var backgroundPromptMarks = []string{"<task-notification>", "<system-reminder>"}
+
+// isBackgroundPrompt 는 프롬프트의 **모양**으로 배경 턴을 가른다.
+//
+// **휴리스틱이다.** 훅 payload 에는 출처를 말하는 필드가 없어서 우리가 볼 수 있는
+// 것이 본문뿐이다. 표식이 바뀌면 이 판정은 조용히 무력해지므로, 틀리는 쪽을
+// **울리는 쪽**으로 두었다 — 못 가르면 종전처럼 사용자 턴으로 읽는다. 알람이 한 번
+// 더 우는 것이 울려야 할 때 울지 않는 것보다 낫다 (§1.7 의 판단과 같다).
+func isBackgroundPrompt(prompt string) bool {
+	p := strings.TrimSpace(prompt)
+	for _, mark := range backgroundPromptMarks {
+		if strings.HasPrefix(p, mark) {
+			return true
+		}
+	}
+	return false
 }
 
 // claudeToolDetail pulls the most informative argument out of a tool_input for
