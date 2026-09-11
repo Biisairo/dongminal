@@ -455,8 +455,10 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
       return !!(w && w.type === 'editor' && w.layout);
     })).toBe(true);
 
-    await expect(page.locator('#split-h')).toHaveClass(/git-hidden/);
-    await expect(page.locator('#split-v')).toHaveClass(/git-hidden/);
+    // 제품은 `[hidden]` 속성으로 감춘다 — `.git-hidden` 은 FR-LAY-3 이 걷어낸
+    // 옛 어휘다 (style-git-views.css:772). 숨김의 어휘는 하나다 (FR-LAY-30).
+    await expect(page.locator('#split-h')).toBeHidden();
+    await expect(page.locator('#split-v')).toBeHidden();
 
     const paneCount = () => page.evaluate(() => {
       const a = (window as any).app;

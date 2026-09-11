@@ -98,5 +98,21 @@ if [[ -n "$hits" ]]; then
   fail=1
 fi
 
+# (4) **검사도 같은 어휘를 쓴다** (2026-09-11 추가).
+#
+# 이 게이트는 `web/` 만 보았고 `e2e/` 는 범위 밖이었다. 그래서 FR-LAY-3 의 이관
+# (`.gone`·`.git-hidden` → `[hidden]`)에 검사가 따라오지 않은 채 남았고, **기준선
+# 실패 여섯**이 거기서 나왔다 — terminal 의 검색 둘 · focus · editor-tab E17 ·
+# git-remote R19 · git-ui-revision 둘 · git-discard-all. 그 실패들은 "흔들림" 으로
+# 적혀 쫓지 말라고 문서에 남아 있었다.
+#
+# 숨김을 재는 방법은 하나다: `toBeHidden()` · `toBeVisible()` · `[hidden]`.
+hits=$(grep -nE "toHaveClass\(/($WORDS)/\)|:not\(\.($WORDS)\)|classList\.contains\('($WORDS)'\)" e2e/*.ts || true)
+if [[ -n "$hits" ]]; then
+  echo "✗ 검사가 숨김을 클래스로 잰다 — 제품은 [hidden] 이다. toBeHidden()·toBeVisible()·[hidden] 을 쓴다 (FR-LAY-3·30)" >&2
+  echo "$hits" >&2
+  fail=1
+fi
+
 if [[ $fail -ne 0 ]]; then exit 1; fi
-echo "✓ 숨김의 어휘가 둘이다 — .vis(보임) · [hidden](숨김, 정본 1자리) (FR-LAY-30)"
+echo "✓ 숨김의 어휘가 둘이다 — .vis(보임) · [hidden](숨김, 정본 1자리) · 검사도 같다 (FR-LAY-30)"

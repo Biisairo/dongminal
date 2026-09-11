@@ -474,7 +474,9 @@ test.describe('13단계 — 원격 작업', () => {
      * 세운다. 클릭이 하던 일과 같은 것이고, 상태는 그룹이 다시 설 때까지 남는다.
      */
     await page.evaluate(() => (window as any).app.gitPanel._collapsed.add('conflicts'));
-    await expect(group(page, 'conflicts')).toHaveClass(/gone/);
+    // 제품은 `[hidden]` 속성으로 감춘다 — `.gone` 은 FR-LAY-3 이 걷어낸 옛
+    // 어휘다. 숨김의 어휘는 하나다 (FR-LAY-30).
+    await expect(group(page, 'conflicts')).toBeHidden();
 
     // 로컬 pull 은 즉시 끝난다. 작업 식별자가 늦게 도착하게 해 두면 그 사이에
     // 다른 탭으로 옮겨 갈 수 있고, 되돌아오는 것이 동작임을 볼 수 있다.
@@ -500,7 +502,7 @@ test.describe('13단계 — 원격 작업', () => {
     await expect(page.locator('#area .ed-side .ed-side-tab[data-side="changes"]'))
       .toHaveClass(/active/, { timeout: 30000 });
     // 충돌이 생겼으므로 그 그룹이 다시 서고(FR-CMG-1a), 접어 두었던 것이 펼쳐진다.
-    await expect(group(page, 'conflicts')).not.toHaveClass(/gone/);
+    await expect(group(page, 'conflicts')).toBeVisible();
     await expect(group(page, 'conflicts')).not.toHaveClass(/collapsed/);
     await expect(group(page, 'conflicts').locator('.git-file')).not.toHaveCount(0);
     await expect(job(page).locator('.git-job-note')).toContainText('충돌이 남았습니다');
