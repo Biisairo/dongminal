@@ -220,6 +220,11 @@ class EdDirtyDiff{
       return false;
     }
     const d=st.data||{};
+    // API_ANSWER_NOT_ABSENCE_SRS FR-ANA-1: 저장소가 아니라는 답이 이제 200 으로
+    // 온다. 아래 `!d.repo` 가 같은 자리로 보내므로 동작은 종전과 같지만, **계약을
+    // 읽는 쪽이 계약의 이름을 부르게** 한다 — 빈 `repo` 로 판정하면 서버가 그
+    // 필드를 채우는 날 조용히 갈린다 (`file-tree-paint` 와 같은 규약).
+    if(d.isRepo===false){this._back();return false}
     if(!d.repo){this._back();return false}
     const prefix=d.rootMatch?'':edDdPrefix(d.repo,d.requestedResolved||'');
     if(prefix===null){this._back();return false}
