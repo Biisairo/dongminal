@@ -24,6 +24,11 @@ on:
 
 permissions:
   contents: write
+  # SEC-31: cosign 의 keyless 서명이 OIDC 토큰으로 정체를 증명한다.
+  # 열쇠를 저장소에 두지 않는다 — 둘 곳이 없고, 두면 그것이 곧 유출면이다.
+  id-token: write
+  # provenance(SLSA) 증명서를 레지스트리가 아니라 릴리스에 붙이기 위한 것.
+  attestations: write
 
 jobs:
   # ── 게이트 ────────────────────────────────────────────────────────
@@ -195,6 +200,37 @@ jobs:
           ls -lh
           cat SHA256SUMS
 
+      # SEC-31 — **체크섬만으로는 부족하다.**
+      #
+      # `SHA256SUMS` 는 "받은 파일이 온전한가" 에만 답한다. 그 파일 자체를 바꿔
+      # 놓으면 검증은 통과하고, 그래서 **누가 만들었는가**에는 아무도 답하지
+      # 못했다. cosign 의 keyless 서명이 그 물음을 맡는다 — 열쇠는 없고, 서명
+      # 시점의 OIDC 정체(이 워크플로우·이 저장소·이 태그)가 증거다.
+      #
+      # 서명 대상은 **`SHA256SUMS` 하나**다. 그것이 나머지 전부를 이미 묶고
+      # 있으므로, 다섯을 따로 서명하면 검증 절차만 다섯 배가 되고 얻는 것이 없다.
+      - name: cosign 설치
+        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+
+      - name: 체크섬 서명 (keyless)
+        env:
+          COSIGN_YES: "true"
+        run: |
+          set -euo pipefail
+          cd dist
+          cosign sign-blob SHA256SUMS \
+            --output-signature SHA256SUMS.sig \
+            --output-certificate SHA256SUMS.pem
+          echo "── 서명 산출물"
+          ls -l SHA256SUMS.sig SHA256SUMS.pem
+
+      # 빌드 출처(provenance) 증명. 서명이 "누가" 라면 이쪽은 "무엇으로부터" 다 —
+      # 어떤 커밋의 어떤 워크플로우가 이 바이트를 만들었는지.
+      - name: provenance 증명
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+        with:
+          subject-path: dist/SHA256SUMS
+
       - name: 릴리스 생성
         env:
           GH_TOKEN: ${{ github.token }}
@@ -252,10 +288,30 @@ jobs:
 
           ## 확인
 
+          받은 파일이 **온전한지**:
+
           \`\`\`bash
           curl -fLO https://github.com/${{ github.repository }}/releases/download/$VERSION/SHA256SUMS
           sha256sum -c SHA256SUMS --ignore-missing
           \`\`\`
+
+          그 \`SHA256SUMS\` 를 **누가 만들었는지** (SEC-31). 위의 확인은 체크섬
+          파일 자체가 바뀌었으면 통과합니다 — 이쪽이 그 물음에 답합니다.
+          [cosign](https://github.com/sigstore/cosign) 이 필요합니다:
+
+          \`\`\`bash
+          curl -fLO https://github.com/${{ github.repository }}/releases/download/$VERSION/SHA256SUMS.sig
+          curl -fLO https://github.com/${{ github.repository }}/releases/download/$VERSION/SHA256SUMS.pem
+
+          cosign verify-blob SHA256SUMS \\
+            --signature SHA256SUMS.sig \\
+            --certificate SHA256SUMS.pem \\
+            --certificate-identity-regexp '^https://github.com/${{ github.repository }}/' \\
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          \`\`\`
+
+          열쇠는 없습니다. 서명 시점의 OIDC 정체(이 저장소·이 워크플로우·이
+          태그)가 증거이고, 그 기록은 공개 투명성 로그에 남습니다.
 
           ## 대상
 
