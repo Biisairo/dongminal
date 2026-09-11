@@ -222,10 +222,33 @@ func (h *staticHandler) servePrecompressed(w http.ResponseWriter, r *http.Reques
 	return true
 }
 
+// staticTypes 는 **우리가 내보내는 자산의 형식을 우리가 정한다** (FR-MVN-7).
+//
+// `mime.TypeByExtension` 에 맡기면 **호스트의 설정이 응답을 정한다.** Windows 는
+// 레지스트리(`HKCR\.js`)를 먼저 읽고 그 값이 `application/javascript` 여서, 같은
+// 코드가 러너에서만 다른 형식을 내보냈다 (Windows CI 실측, 2026-09-11). 형식이
+// 호스트마다 다르면 그것을 재는 검사도 호스트마다 다른 답을 받는다.
+//
+// 여기 적힌 것만 우리 자산이다. 그 밖은 아래에서 종전대로 표준 테이블을 본다.
+var staticTypes = map[string]string{
+	".js":    "text/javascript; charset=utf-8",
+	".mjs":   "text/javascript; charset=utf-8",
+	".css":   "text/css; charset=utf-8",
+	".html":  "text/html; charset=utf-8",
+	".json":  "application/json",
+	".svg":   "image/svg+xml",
+	".woff2": "font/woff2",
+	".map":   "application/json",
+}
+
 // contentTypeFor 는 확장자로 형식을 정한다. 모르는 확장자는 sniff 에 맡기지 않는다 —
 // 응답에 `X-Content-Type-Options: nosniff` 가 이미 붙어 있다.
 func contentTypeFor(name string) string {
-	if ct := mime.TypeByExtension(path.Ext(name)); ct != "" {
+	ext := strings.ToLower(path.Ext(name))
+	if ct, ok := staticTypes[ext]; ok {
+		return ct
+	}
+	if ct := mime.TypeByExtension(ext); ct != "" {
 		return ct
 	}
 	return "application/octet-stream"

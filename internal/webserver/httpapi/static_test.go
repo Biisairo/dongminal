@@ -327,3 +327,29 @@ func TestStatic_PrecompressedContentTypeByExt(t *testing.T) {
 		t.Fatalf("Content-Type = %q, want text/css…", ct)
 	}
 }
+
+// FR-MVN-7 (2026-09-11, Windows CI 가 잡았다) — **형식은 우리가 정한다.**
+//
+// `mime.TypeByExtension` 에 맡기면 호스트의 설정이 응답을 정한다. Windows 는
+// 레지스트리(`HKCR\.js`)를 먼저 읽고 그 값이 `application/javascript` 여서, 같은
+// 코드가 러너에서만 다른 형식을 내보냈다. 이 검사는 그 의존을 막는다.
+func TestContentTypeFor_IsHostIndependent(t *testing.T) {
+	cases := map[string]string{
+		"app.js":     "text/javascript; charset=utf-8",
+		"APP.JS":     "text/javascript; charset=utf-8", // 확장자는 대소문자를 가리지 않는다
+		"style.css":  "text/css; charset=utf-8",
+		"index.html": "text/html; charset=utf-8",
+		"icon.svg":   "image/svg+xml",
+		"f.woff2":    "font/woff2",
+	}
+	for name, want := range cases {
+		if got := contentTypeFor(name); got != want {
+			t.Errorf("contentTypeFor(%q) = %q, want %q", name, got, want)
+		}
+	}
+	// 우리 자산이 아닌 것은 종전대로다 — 모르면 octet-stream 이고 sniff 에 맡기지
+	// 않는다.
+	if got := contentTypeFor("x.unknown-ext-xyz"); got != "application/octet-stream" {
+		t.Errorf("모르는 확장자 = %q", got)
+	}
+}
