@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"dongminal/internal/webserver/hub"
+	"strconv"
 
 	"dongminal/internal/shared/toolhub"
 
@@ -170,6 +171,15 @@ func (f *fakeWorkspaceStore) Save(blob []byte, ifMatch string) (uint64, error) {
 	defer f.mu.Unlock()
 	if f.stale {
 		return 0, workspace.ErrStale
+	}
+	// **실물의 계약을 그대로 흉내 낸다** (workspace.Manager.Save). 가짜가 조건을
+	// 무시하면 그것을 딛는 검사가 조건 검사를 재지 못한다 — 이 저장소는 가짜
+	// `HomeFn` 이 경계 검사를 3주 버티게 한 일을 이미 치렀다 (M2_PROGRESS §2.21).
+	if ifMatch != "" {
+		want, err := strconv.ParseUint(ifMatch, 10, 64)
+		if err != nil || want != f.rev {
+			return 0, workspace.ErrStale
+		}
 	}
 	f.raw = append([]byte(nil), blob...)
 	f.rev++

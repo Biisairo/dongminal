@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 )
 
@@ -84,6 +85,8 @@ func TestHandlerWorkspacePutIfMatch(t *testing.T) {
 	fw.stale = false
 	req2, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/workspace", bytes.NewReader([]byte(`{}`)))
 	req2.Header.Set("Content-Type", "application/json")
+	// FR-SFD-20: 쓰기는 조건을 요구한다. 이 검사의 본론은 ETag 의 흐름이다.
+	req2.Header.Set("If-Match", strconv.FormatUint(fw.CurrentRev(), 10))
 	resp2, err := http.DefaultClient.Do(req2)
 	if err != nil {
 		t.Fatalf("PUT2: %v", err)

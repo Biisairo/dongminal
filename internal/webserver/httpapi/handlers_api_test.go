@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"dongminal/internal/shared/toolhub"
+	"strconv"
 
 	"bytes"
 	"encoding/json"
@@ -104,6 +105,8 @@ func TestHandleAPI_WorkspacePut_Broadcast(t *testing.T) {
 	defer ts.Close()
 
 	req := mustNewRequest(t, http.MethodPut, ts.URL+"/api/workspace", strings.NewReader(`{"schemaVersion": 2, "windows":[]}`))
+	// FR-SFD-20: 쓰기는 조건을 요구한다. 이 검사의 본론은 방송이다.
+	req.Header.Set("If-Match", strconv.FormatUint(fw.CurrentRev(), 10))
 	resp := mustDo(t, req)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {

@@ -341,7 +341,27 @@ func (s *Server) apiWorkspacePut(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "read body", httpreq.Status(err))
 		return
 	}
+	// STATE_FILE_DURABILITY_SRS FR-SFD-20 (`FE-2`, **P0**): **조건을 요구한다.**
+	//
+	//   이전 동작: `If-Match` 가 없으면 검사 없이 저장했다
+	//   새  동작: 없으면 **428** 이고 아무것도 쓰지 않는다
+	//   이유:     부팅에 실패한 브라우저가 빈 판을 만들고 그것을 저장하면
+	//             사용자의 창·탭이 통째로 사라진다. 관대함을 남기면 그 길로
+	//             빈 판이 들어온다 (D-3)
+	//
+	// **428 인 이유**: 409 는 "경합했다", 412 는 "조건이 틀렸다" 이고 여기서
+	// 일어난 일은 **조건을 아예 보내지 않았다** 이다. 셋을 같은 코드로 답하면
+	// 클라이언트가 무엇을 해야 할지 가릴 수 없다 — 여기서 할 일은 `GET /api/state`
+	// 로 **재조회부터 다시** 하는 것이다.
+	//
+	// 이 요구는 **HTTP 표면의 계약**이다 (FR-SFD-21). 서버 내부에서 `Save(blob, "")`
+	// 를 부르는 자리는 자기가 방금 읽은 것을 쓰는 쪽이라 경합 대상이 아니다.
 	ifMatch := r.Header.Get("If-Match")
+	if ifMatch == "" {
+		w.Header().Set("ETag", strconv.FormatUint(s.Work.CurrentRev(), 10))
+		http.Error(w, "If-Match required", http.StatusPreconditionRequired)
+		return
+	}
 	rev, err := s.Work.Save(body, ifMatch)
 	if err != nil {
 		if errors.Is(err, workspace.ErrStale) {

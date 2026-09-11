@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -84,6 +85,9 @@ func TestWorkspacePut_ReapsWithLiveWindows(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/workspace",
 		strings.NewReader(`{"schemaVersion":2,"windows":[]}`))
 	req.Header.Set("Content-Type", "application/json")
+	// STATE_FILE_DURABILITY_SRS FR-SFD-20: 워크스페이스 쓰기는 **조건을 요구한다**.
+	// 없으면 428 이라 이 검사의 본론(회수)에 닿지 못한다.
+	req.Header.Set("If-Match", strconv.FormatUint(fw.CurrentRev(), 10))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("put: %v", err)

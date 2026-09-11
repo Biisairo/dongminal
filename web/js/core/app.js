@@ -217,6 +217,9 @@ class App {
       if(this._edReconcile()||sideWidthMoved) this._save();
     }catch(e){
       console.error('[App] init error:',e);
+      // FR-SFD-22: 여기서 세우는 창은 **화면을 위한 것**이다. 이 판이 디스크로
+      // 나가면 사용자의 창·탭이 그것으로 덮인다 (`FE-2`, P0).
+      this._bootFailed=true;
       if(!this.ws.windows.length) await this._mkWindow();
     }
     // Restore per-window activeWindow from sessionStorage (survives refresh).
@@ -382,7 +385,23 @@ class App {
     this._wsSavedIds=new Set((windows||[]).map(w=>w&&w.id).filter(Boolean));
   }
 
+  /**
+   * 워크스페이스를 서버에 쓴다.
+   *
+   * STATE_FILE_DURABILITY_SRS FR-SFD-22: **부팅에 실패한 판은 저장하지 않는다.**
+   *
+   * 서버가 `If-Match` 를 요구하므로(FR-SFD-20) ETag 를 얻지 못한 부팅은 이미
+   * 428 로 막힌다. 그러나 **로드는 성공하고 그 뒤에 초기화가 실패하는** 갈래가
+   * 남는다 — 그때 ETag 는 유효하고, `catch` 가 화면을 세우려고 만든 빈 창이
+   * 그 유효한 조건을 달고 나간다. 그것이 `FE-2`(P0)의 손실이다.
+   *
+   *   이전 동작: 부팅 실패 여부와 무관하게 저장했다
+   *   새  동작: 실패한 부팅의 판은 쓰지 않는다 (화면에는 그대로 남는다)
+   *   이유:     `catch` 가 만든 창은 **사용자에게 보여 주기 위한 것**이지
+   *             디스크에 쓸 것이 아니다
+   */
   _save(){
+    if(this._bootFailed) return;
     this._savePending=true;
     if(this._saveChain) return this._saveChain;
     this._saveInflight=true;
@@ -405,7 +424,13 @@ class App {
           // this.ws 가 만들어졌든 PUT 은 항상 현재 버전을 실어 보낸다.
           wsBody.schemaVersion=2;
           const res=await apiPut('/api/workspace',wsBody,{headers});
-          if(res.status===409){
+          // STATE_FILE_DURABILITY_SRS FR-SFD-20: **428 은 409 와 같이 다룬다.**
+          //
+          // 428 은 "조건을 아예 보내지 않았다" 이고 409 는 "조건이 어긋났다" 인데,
+          // 우리가 **할 일은 같다** — 남이 무엇을 바꿨는지 모르므로 재조회부터
+          // 다시 하고 이 저장은 포기한다 (FR-WSC-1 / I-1). 밀어붙이면 그것이 곧
+          // 남의 변경을 지우는 일이다.
+          if(res.status===409||res.status===428){
             /**
              * WORKSPACE_SAVE_CONFLICT_SRS FR-WSC-1: **이 저장을 포기한다.**
              *
