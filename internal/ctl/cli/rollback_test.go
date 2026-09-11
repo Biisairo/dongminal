@@ -120,3 +120,29 @@ func TestRollbackRejectsMissingGeneration(t *testing.T) {
 		t.Fatal("없는 세대로 되돌렸다")
 	}
 }
+
+// `G4-4`: 설정도 되돌릴 수 있다 — 가져오기가 덮은 직전 판이 `.bak.1` 이다.
+func TestRollbackCoversSettings(t *testing.T) {
+	home := wsHome(t)
+	const want = `{"themeName":"dark"}`
+	os.WriteFile(filepath.Join(home, "settings.json"), []byte(`{"themeName":"imported"}`), 0o644)
+	os.WriteFile(filepath.Join(home, "settings.json.bak.1"), []byte(want), 0o644)
+
+	var out bytes.Buffer
+	if code := RunRollback(RollbackOpts{File: "settings.json", Gen: 1}, &out, &out); code != 0 {
+		t.Fatalf("code=%d out=%s", code, out.String())
+	}
+	got, _ := os.ReadFile(filepath.Join(home, "settings.json"))
+	if string(got) != want {
+		t.Fatalf("설정=%q want %q", got, want)
+	}
+}
+
+// **임의 경로는 받지 않는다.** 받으면 이 명령이 파일 덮어쓰기 도구가 된다.
+func TestRollbackRejectsArbitraryFile(t *testing.T) {
+	wsHome(t)
+	var out bytes.Buffer
+	if code := RunRollback(RollbackOpts{File: "../../etc/passwd", Gen: 1}, &out, &out); code == 0 {
+		t.Fatal("임의 경로를 받았다")
+	}
+}

@@ -136,9 +136,13 @@ func usageHealth() string {
 }
 
 func usageRollback() string {
-	return `사용법: dongminal rollback [--gen <번호>] [--home <경로>]
+	return `사용법: dongminal rollback [--file <이름>] [--gen <번호>] [--home <경로>]
 
-  workspace.json 을 백업 세대로 되돌린다 (G3-2).
+  상태 파일을 백업 세대로 되돌린다 (G3-2·G4-4).
+
+  --file 을 주지 않으면 workspace.json 이다. 되돌릴 수 있는 것은 세대를 남기는
+  상태 파일뿐이다 — settings.json·access.json·runs.json·tools.json.
+  설정 가져오기로 덮인 설정을 되돌리는 길이 여기다.
 
   --gen 없이 부르면 되돌릴 수 있는 세대를 보여 준다. 자동으로 고르지 않는 것은
   어느 세대가 맞는지 사용자만 알기 때문이다.

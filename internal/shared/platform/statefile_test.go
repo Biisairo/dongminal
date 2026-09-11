@@ -96,3 +96,24 @@ func TestStateFileWriteSurvivesRotationFailure(t *testing.T) {
 		t.Fatalf("본문=%q want v2", got)
 	}
 }
+
+// `G4-6`(PRODUCTION_ROADMAP §M3) — **보존 정책은 한 자리에서 정한다.**
+//
+// 세대(`.bak.N`)·격리본(`.corrupt-<ts>`)·되돌리기 직전 판
+// (`.before-rollback-<ts>`)이 홈에 쌓인다. 셋의 수명이 다르고, 그 차이가
+// **의도된 것**임을 여기 적는다.
+
+func TestRetentionPolicyIsExplicit(t *testing.T) {
+	// 세대는 **회전한다** — 상한이 있다. 이미 V-SFD-2 가 잰다.
+	if StateFileGenerations != 3 {
+		t.Errorf("StateFileGenerations=%d want 3 (사용자 결정)", StateFileGenerations)
+	}
+	// 격리본과 되돌리기 직전 판은 **회전하지 않는다.** 둘 다 사건의 증거이고,
+	// 사건은 드물다 — 드문 것을 자동으로 지우면 정작 물어볼 때 없다.
+	//
+	// 이 검사는 값을 재는 것이 아니라 **결정을 고정한다.** 누군가 "일관성" 을
+	// 이유로 격리본에도 회전을 붙이려 하면 여기서 그 결정을 다시 만난다.
+	if RetainQuarantined != true {
+		t.Error("격리본을 자동으로 지우도록 바뀌었다 — 사용자 결정(2026-09-11)에 어긋난다")
+	}
+}

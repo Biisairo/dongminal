@@ -26,11 +26,35 @@ type RollbackOpts struct {
 	// Gen 은 되돌릴 세대다. 0 이면 **목록만 보인다** — 무엇으로 되돌릴지 모르는
 	// 채 되돌리게 하지 않는다.
 	Gen int
+	// File 은 되돌릴 상태 파일이다. 비면 `workspace.json` — 잃어서 가장 아픈 것이다.
+	File string
 }
 
-// rollbackTarget 은 되돌리기의 대상이다. 지금은 워크스페이스 하나다 — 잃어서
-// 가장 아픈 것이고, 나머지 상태 파일은 다시 만들 수 있다.
-const rollbackTarget = "workspace.json"
+// rollbackTargets 는 되돌릴 수 있는 상태 파일이다.
+//
+// **목록으로 막는다.** 임의 경로를 받으면 이 명령이 파일 덮어쓰기 도구가 되고,
+// 그것은 이 명령이 하려는 일이 아니다. 여기 있는 것은 전부 `WriteStateFile` 이
+// 세대를 남기는 자리다 (`G4-1`).
+//
+// `settings.json` 이 여기 있는 것이 `G4-4` 다 — 설정 가져오기는 현재 설정을
+// 통째로 덮는데, 그 직전 판은 이미 `.bak.1` 로 남는다. 없던 것은 **그것을
+// 되돌릴 길**이었다. 기계를 새로 만들지 않고 이 명령을 넓힌다.
+var rollbackTargets = []string{"workspace.json", "settings.json", "access.json", "runs.json", "tools.json"}
+
+const defaultRollbackTarget = "workspace.json"
+
+// resolveTarget 은 고른 파일이 되돌릴 수 있는 것인지 본다.
+func resolveTarget(name string) (string, error) {
+	if name == "" {
+		return defaultRollbackTarget, nil
+	}
+	for _, t := range rollbackTargets {
+		if t == name {
+			return t, nil
+		}
+	}
+	return "", fmt.Errorf("되돌릴 수 있는 대상이 아닙니다: %q (가능: %v)", name, rollbackTargets)
+}
 
 // ParseRollback 은 `rollback` 의 인자를 읽는다.
 func ParseRollback(args []string) (RollbackOpts, error) {
@@ -47,6 +71,12 @@ func ParseRollback(args []string) (RollbackOpts, error) {
 				return o, fmt.Errorf("--gen 은 1 이상의 번호입니다: %q", args[i])
 			}
 			o.Gen = n
+		case "--file":
+			if i+1 >= len(args) {
+				return o, fmt.Errorf("--file 에 이름이 필요합니다")
+			}
+			i++
+			o.File = args[i]
 		case "--home":
 			if i+1 >= len(args) {
 				return o, fmt.Errorf("--home 에 경로가 필요합니다")
@@ -67,7 +97,12 @@ func RunRollback(o RollbackOpts, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	path := filepath.Join(home, rollbackTarget)
+	target, err := resolveTarget(o.File)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	path := filepath.Join(home, target)
 
 	if o.Gen == 0 {
 		return listGenerations(path, stdout, stderr)
@@ -108,7 +143,7 @@ func RunRollback(o RollbackOpts, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "되돌리기 실패: %v\n", err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "✅ %s 를 세대 %d 로 되돌렸습니다\n", rollbackTarget, o.Gen)
+	fmt.Fprintf(stdout, "✅ %s 를 세대 %d 로 되돌렸습니다\n", target, o.Gen)
 	return 0
 }
 
