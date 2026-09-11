@@ -177,7 +177,14 @@ Object.assign(FileTree.prototype, {
     e.preventDefault();
     const p=row.dataset.path,kind=row.dataset.kind;
     if(this._edit) this.cancelEdit();
-    this._sel=p; this._paintAll();
+    /**
+     * FR-EMS-24 와 같은 규약이다 (U-5): 우클릭한 행이 **선택 안이면 선택을
+     * 지킨다.** 밖이면 그 하나로 되돌린다 — 고르지 않은 것에 메뉴를 열었는데
+     * 고른 것이 지워지면 그것이 놀람이다.
+     */
+    if(!this._selHas(p)) this._selOnly(p);
+    else this._sel=p;
+    this._paintAll();
     // 만드는 자리는 우클릭한 행이 정한다 — 폴더면 그 안, 아니면 그 형제다
     // (FR-EDT-81 과 같은 규칙).
     const dir=kind==='dir'?p:this._parent(p);
@@ -230,6 +237,16 @@ Object.assign(FileTree.prototype, {
       const row=e.target.closest('.ed-row[data-path]');
       if(!row||row.classList.contains('ed-edit')){e.preventDefault();return}
       this._drag=row.dataset.path;
+      /**
+       * FR-EMS-24 (U-5): 끌기 시작한 행이 **선택 밖이면** 집합을 그 하나로
+       * 되돌린다. 고르지 않은 것을 끌었는데 고른 것이 따라가면 그것이 놀람이다.
+       */
+      //
+      // **여기서 다시 그리지 않는다.** `dragstart` 중에 목록을 다시 만들면 끌던
+      // 요소가 사라져 드래그 자체가 깨진다 (이 저장소의 `FR-RPT-3` 과 같은
+      // 함정 — 실측으로 O6·O7·O8 이 한 번에 무너졌다). 모델만 바꾸고 화면은
+      // 이동이 끝난 뒤의 갱신에 맡긴다.
+      if(!this._selHas(this._drag)) this._selOnly(this._drag);
       e.dataTransfer.effectAllowed='move';
       // 데이터가 없으면 일부 브라우저가 드래그를 시작조차 하지 않는다.
       e.dataTransfer.setData('text/plain',this._drag);
@@ -265,9 +282,13 @@ Object.assign(FileTree.prototype, {
         this._dropUpload(dir,entries,files);
         return;
       }
-      // 이미 그 폴더에 있으면 아무 일도 아니다 — 서버에 묻지 않는다 (FR-FTR-21).
-      if(this._parent(from)===dir) return;
-      this.doRename(from,this._join(dir,this._base(from)));
+      // FR-EMS-24: 선택 전부를 옮긴다. 조상이 함께 선택된 자손은 뺀다 —
+      // 조상과 함께 옮겨지므로 두 번째 요청은 없는 것을 찾는다 (FR-EMS-22).
+      for(const src of this._selTargets(from)){
+        // 이미 그 폴더에 있으면 아무 일도 아니다 — 서버에 묻지 않는다 (FR-FTR-21).
+        if(this._parent(src)===dir) continue;
+        this.doRename(src,this._join(dir,this._base(src)));
+      }
     });
     this.el.addEventListener('dragend',()=>{this._drag='';this._dropClear()});
   },

@@ -651,3 +651,111 @@ test.describe('묶음 W — 편집기 줄바꿈', () => {
       });
     });
 });
+
+/**
+ * EXPLORER_MULTI_SELECT_SRS §5 — V-EMS-1~10 (U-5).
+ *
+ * 재려는 것은 요구 그대로다: **"탐색기에 다중 선택을 더한다 (`Cmd`+클릭 ·
+ * `Shift`+클릭)."** 소비하는 자리는 둘로 못 박혀 있다 — 삭제와 드래그 이동
+ * (`FR-EMS-20`).
+ */
+test.describe('묶음 S — 다중 선택 (FR-EMS-1~25)', () => {
+  const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
+  const selPaths = (page: Page) => page.evaluate(() => {
+    const tree = (window as any).app._edActiveTree();
+    return [...(tree && tree._selSet ? tree._selSet : [])].sort();
+  });
+  const selRows = (page: Page) => page.locator('.ed-tree .ed-row.sel');
+
+  // V-EMS-1 · V-EMS-2 · V-EMS-3
+  test('S1: Mod+클릭이 선택을 더하고 빼며, 파일을 열지 않는다', async ({ page, request }) => {
+    const R = mkRoot('s1');
+    await enter(page, request, R);
+    await row(page, j(R, 'src')).click();
+
+    await row(page, j(R, 'src', 'a.txt')).click();
+    await expect(selRows(page)).toHaveCount(1);
+    const tabs0 = await page.locator('#area .pn-tab').count();
+
+    await row(page, j(R, 'src', 'b.txt')).click({ modifiers: [mod] });
+    await expect(selRows(page)).toHaveCount(2);
+    // FR-EMS-5: 고르는 클릭은 여는 클릭이 아니다.
+    expect(await page.locator('#area .pn-tab').count()).toBe(tabs0);
+    expect(await selPaths(page)).toEqual([j(R, 'src', 'a.txt'), j(R, 'src', 'b.txt')].sort());
+
+    // 같은 행을 다시 → 빠진다.
+    await row(page, j(R, 'src', 'b.txt')).click({ modifiers: [mod] });
+    await expect(selRows(page)).toHaveCount(1);
+  });
+
+  // V-EMS-4 · V-EMS-5 · V-EMS-6
+  test('S2: Shift+클릭이 보이는 순서의 범위를 고르고, 평범한 클릭이 되돌린다', async ({ page, request }) => {
+    const R = mkRoot('s2');
+    await enter(page, request, R);
+    await row(page, j(R, 'src')).click();          // 펼친다
+    await row(page, j(R, 'src', 'a.txt')).click(); // 앵커
+
+    await row(page, j(R, 'top.txt')).click({ modifiers: ['Shift'] });
+    const n = await selRows(page).count();
+    expect(n, '범위가 잡히지 않았다').toBeGreaterThan(2);
+
+    // FR-EMS-2: 평범한 클릭이 하나로 되돌린다.
+    await row(page, j(R, 'top.txt')).click();
+    await expect(selRows(page)).toHaveCount(1);
+
+    // FR-EMS-8: 키보드 이동도 하나로 되돌린다.
+    await row(page, j(R, 'src', 'a.txt')).click();
+    await row(page, j(R, 'src', 'b.txt')).click({ modifiers: [mod] });
+    await expect(selRows(page)).toHaveCount(2);
+    await page.locator('.ed-tree').press('ArrowDown');
+    await expect(selRows(page)).toHaveCount(1);
+  });
+
+  // V-EMS-7: 확인창 하나로 묻고 셋이 사라진다.
+  test('S3: 여럿을 골라 지우면 확인창이 하나이고 수를 밝힌다', async ({ page, request }) => {
+    const R = mkRoot('s3');
+    await enter(page, request, R);
+    await row(page, j(R, 'src')).click();
+    await row(page, j(R, 'src', 'a.txt')).click();
+    await row(page, j(R, 'src', 'b.txt')).click({ modifiers: [mod] });
+    await expect(selRows(page)).toHaveCount(2);
+
+    await ctx(page, j(R, 'src', 'b.txt'), 'delete');
+    await expect(confirmMsg(page)).toBeVisible();
+    await expect(confirmMsg(page)).toContainText('2개');
+    await page.locator('.ed-confirm .confirm-ok').click();
+
+    await expect(row(page, j(R, 'src', 'a.txt'))).toHaveCount(0, { timeout: 10000 });
+    await expect(row(page, j(R, 'src', 'b.txt'))).toHaveCount(0);
+    expect(fs.existsSync(j(R, 'src', 'a.txt'))).toBe(false);
+    expect(fs.existsSync(j(R, 'src', 'b.txt'))).toBe(false);
+  });
+
+  // V-EMS-8: 조상이 함께 선택되면 자손은 대상에서 빠진다.
+  test('S4: 폴더와 그 안의 파일을 함께 고르면 폴더 하나만 지운다', async ({ page, request }) => {
+    const R = mkRoot('s4');
+    await enter(page, request, R);
+    await row(page, j(R, 'src')).click();
+    await row(page, j(R, 'src', 'deep')).click();   // 펼친다 — c.txt 가 보여야 고를 수 있다
+    await expect(row(page, j(R, 'src', 'deep', 'c.txt'))).toBeVisible({ timeout: 10000 });
+
+    const seen: string[] = [];
+    await page.route('**/api/fs/delete', async (route) => {
+      seen.push(JSON.parse(route.request().postData() || '{}').path);
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+    });
+
+    // `deep` 은 앞선 클릭으로 이미 선택돼 있다 — `Mod` 로 다시 누르면 **빠진다**
+    // (FR-EMS-3). 그래서 자손을 먼저 고르고 조상을 더한다.
+    await row(page, j(R, 'src', 'deep', 'c.txt')).click();
+    await row(page, j(R, 'src', 'deep')).click({ modifiers: [mod] });
+    await expect(selRows(page)).toHaveCount(2);
+
+    await ctx(page, j(R, 'src', 'deep'), 'delete');
+    await expect(confirmMsg(page)).toBeVisible();
+    await page.locator('.ed-confirm .confirm-ok').click();
+
+    await expect.poll(() => seen.length, { timeout: 10000 }).toBe(1);
+    expect(seen[0]).toBe(j(R, 'src', 'deep'));
+  });
+});

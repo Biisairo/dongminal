@@ -420,6 +420,10 @@ const EDITOR_MENU_DELETE='삭제';
 // 그리고 저장되지 않은 탭이 함께 닫힌다는 사실을 한 자리에서 밝힌다.
 const EDITOR_DEL_FILE='%s 을(를) 삭제합니다.';
 const EDITOR_DEL_DIR='%s 폴더를 재귀적으로 삭제합니다 — 그 안의 항목 %n개가 함께 사라집니다.';
+// FR-EMS-21: 여럿을 지울 때. **수가 먼저다** — 이름만 늘어놓으면 몇 개인지
+// 사용자가 세어야 한다.
+const EDITOR_DEL_MANY='%n개 항목을 삭제합니다 — %s';
+const EDITOR_DEL_MANY_TREE='폴더 안의 항목 %n개가 함께 사라집니다.';
 const EDITOR_DEL_PERMANENT='영구 삭제입니다. 휴지통으로 가지 않으며 되돌릴 수 없습니다.';
 const EDITOR_DEL_DIRTY='저장되지 않은 탭 %n개가 함께 닫힙니다 — %s';
 const EDITOR_DEL_COUNT_MORE='%n개 이상';

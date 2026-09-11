@@ -1025,7 +1025,31 @@ Object.assign(App.prototype, {
 
   // FR-EDT-83·84 의 문장을 조립하는 한 자리. 폴더면 재귀와 항목 수를, dirty 탭이
   // 있으면 그 사실을 밝힌다.
+  /**
+   * FR-EMS-21 (U-5): `path` 는 **하나이거나 여럿**이다. 여럿이면 수를 먼저 밝힌다 —
+   * 무엇을 잃는지 세어 주지 않는 확인창은 확인이 아니다 (FR-EDT-83 의 근거).
+   */
   _edConfirmDelete(path,isDir,count,dirty){
+    const many=Array.isArray(path)?path:[path];
+    if(many.length>1) return this._edConfirmDeleteMany(many,isDir,count,dirty);
+    return this._edConfirmDeleteOne(many[0],isDir,count,dirty);
+  },
+
+  _edConfirmDeleteMany(paths,isDir,count,dirty){
+    const lines=[EDITOR_DEL_MANY.replace('%n',paths.length)
+      .replace('%s',paths.map(p=>pathBase(p)||p).join(', '))];
+    if(isDir&&count){
+      const n=count.more?EDITOR_DEL_COUNT_MORE.replace('%n',count.n||0):String(count.n||0);
+      lines.push(EDITOR_DEL_MANY_TREE.replace('%n',n));
+    }
+    lines.push(EDITOR_DEL_PERMANENT);
+    if(dirty&&dirty.length){
+      lines.push(EDITOR_DEL_DIRTY.replace('%n',dirty.length).replace('%s',dirty.join(', ')));
+    }
+    return this._edConfirm(lines,EDITOR_DEL_OK);
+  },
+
+  _edConfirmDeleteOne(path,isDir,count,dirty){
     const name=pathBase(path)||path;
     const lines=[];
     if(isDir){

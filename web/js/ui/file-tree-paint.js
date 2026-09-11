@@ -117,7 +117,7 @@ Object.assign(FileTree.prototype, {
       this._open.add(dir);
       if(!this._kids.has(dir)) await this.load(dir);
     }
-    this._sel=p;
+    this._selOnly(p);
     this._paintAll();
     const row=this.list.querySelector('.ed-row.sel');
     if(row&&row.scrollIntoView) row.scrollIntoView({block:'nearest'});
@@ -132,6 +132,55 @@ Object.assign(FileTree.prototype, {
   },
 
   /**
+   * FR-EMS-1 / R-EMS-1: **집합을 바꾸는 자리는 이 셋뿐이다.**
+   *
+   * 흩어 두면 앵커와 집합이 어긋나고, 그때 화면이 보이는 것과 조작이 지우는 것이
+   * 갈린다 — 그 어긋남은 지운 뒤에야 드러난다.
+   */
+  _selOnly(p){
+    this._sel=p||'';
+    this._selSet=new Set(p&&p!==this.root?[p]:[]);
+  },
+
+  // FR-EMS-3: 토글. 들어온 행이 새 앵커이며, 마지막 하나를 빼면 선택이 빈다.
+  _selToggle(p){
+    if(!p||p===this.root) return;
+    if(this._selSet.has(p)){
+      this._selSet.delete(p);
+      if(this._sel===p) this._sel=this._selSet.size?[...this._selSet][this._selSet.size-1]:'';
+      return;
+    }
+    this._selSet.add(p);
+    this._sel=p;
+  },
+
+  /**
+   * FR-EMS-4: 앵커부터 그 행까지 **보이는 순서**의 범위.
+   *
+   * 앵커는 움직이지 않는다 — 움직이면 범위를 다시 잡을 수 없고, 사용자는 매번
+   * 처음부터 고르게 된다.
+   */
+  _selRange(p){
+    if(!p||p===this.root) return;
+    const rows=this._items().filter(it=>it.t==='row').map(it=>it.path);
+    const a=rows.indexOf(this._sel),b=rows.indexOf(p);
+    if(a<0||b<0){this._selToggle(p);return}
+    const [lo,hi]=a<=b?[a,b]:[b,a];
+    this._selSet=new Set(rows.slice(lo,hi+1).filter(x=>x!==this.root));
+    this._selSet.add(this._sel);
+  },
+
+  // 이 행이 지금 선택에 들어 있는가. 그리기와 드래그가 함께 읽는다.
+  _selHas(p){ return !!p&&this._selSet.has(p) },
+
+  // 조작이 받을 대상. **조상이 함께 선택된 자손은 뺀다** (FR-EMS-22) — 조상과
+  // 함께 사라질 것을 다시 지우려 하면 그 실패가 사용자에게 거짓말을 한다.
+  _selTargets(fallback){
+    const all=this._selSet.size?[...this._selSet]:(fallback?[fallback]:[]);
+    return all.filter(p=>!all.some(q=>q!==p&&p.startsWith(q+'/')||q!==p&&p.startsWith(q+'\\')));
+  },
+
+  /**
    * FR-EXR-1·2: 이 자리가 뜻하는 것이 루트일 때. 판정은 드롭과 같은 것을 쓴다
    * (`_dropDirAt` — FR-FTR-20). "헤더와 빈 여백이면 루트다" 를 두 벌로 적으면
    * 한쪽만 고쳐진다.
@@ -139,6 +188,8 @@ Object.assign(FileTree.prototype, {
   _selectRoot(){
     if(this._edit) this.cancelEdit();
     this._clearErr();
+    // FR-EMS-8: 루트를 고르는 것도 "하나" 다. 집합은 비운다 (FR-EMS-6).
+    this._selOnly('');
     this._sel=this.root;
     this._paintAll();
   },
@@ -157,11 +208,30 @@ Object.assign(FileTree.prototype, {
     // 파일을 만드는 것보다 잃는 쪽이 안전하기 때문이다 (FR-GIT-97 과 같은 근거).
     if(this._edit) this.cancelEdit();
     const p=row.dataset.path,kind=row.dataset.kind;
+    /**
+     * FR-EMS-3·4·5: **고르는 클릭은 여는 클릭이 아니다.**
+     *
+     * `Mod` 는 Ctrl 과 Meta 중 정확히 하나다 (`helpers.js` 의 규약) — 둘 다 누른
+     * 조합까지 받으면 그것을 따로 쓰는 사람의 손짓을 가로챈다.
+     */
+    if(e.shiftKey&&!e.altKey){
+      this._clearErr();
+      this._selRange(p);
+      this._paintAll();
+      return;
+    }
+    if(e.ctrlKey!==e.metaKey&&!e.altKey&&!e.shiftKey){
+      this._clearErr();
+      this._selToggle(p);
+      this._paintAll();
+      return;
+    }
     // FR-WBR-2: 다른 자리를 고른 것은 그 사유를 다 읽었다는 뜻이다. 이것이
     // 없으면 상태를 바꾸지 않는 실패(자기 하위로의 이동 거부 — FR-EDT-85)의
     // 메시지가 **영영 남는다** — 지우는 계기가 성공한 조작뿐이었다.
     this._clearErr();
-    this._sel=p;
+    // FR-EMS-2: 평범한 클릭은 집합을 그 하나로 되돌린다 — 기존 동작 그대로다.
+    this._selOnly(p);
     // FR-EDT-60: 링크는 펼치지도 열지도 않는다 — 선택만 바뀐다. 링크된 디렉터리를
     // 파일로 취급하면 `apiFileRead` 가 not a file 400 을 낸다 (§2.6).
     if(kind==='dir') this.toggle(p);
@@ -187,7 +257,8 @@ Object.assign(FileTree.prototype, {
     const i=rows.findIndex(it=>it.path===this._sel);
     const n=i<0?(d>0?0:rows.length-1)
       :Math.min(rows.length-1,Math.max(0,i+d));
-    this._sel=rows[n].path;
+    // FR-EMS-8: 키보드 이동은 집합을 하나로 되돌린다.
+    this._selOnly(rows[n].path);
     this._paintAll();
     // 선택이 화면 밖으로 나가면 옮겨 보인다 — `revealPath` 와 같은 손짓이다.
     const row=this.list.querySelector('.ed-row.sel');
@@ -602,7 +673,7 @@ Object.assign(FileTree.prototype, {
           open:kind==='dir'&&this._open.has(p),
           busy:this._busy.has(p),
           err:(sub&&sub.err)||'',
-          sel:this._sel===p,
+          sel:this._selHas(p)||this._sel===p,
           st:this._stOf(p,kind),
           ignored:this._isIgnored(p),
           partial:kind!=='dir'&&this._isPartial(p)};

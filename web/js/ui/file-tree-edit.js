@@ -123,6 +123,10 @@ Object.assign(FileTree.prototype, {
     for(const p of this._open) open.add(map(p));
     this._open=open;
     if(this._sel) this._sel=map(this._sel);
+    // FR-EMS-7: 집합도 함께 따라간다 — 앵커만 고치면 이름이 바뀐 뒤 화면의
+    // 선택과 조작의 대상이 갈린다.
+    if(this._selSet&&this._selSet.size)
+      this._selSet=new Set([...this._selSet].map(map));
   },
 
   // 사라진 가지의 캐시·펼침·선택을 거둔다. 남겨 두면 같은 이름이 다시 생겼을 때
@@ -136,6 +140,9 @@ Object.assign(FileTree.prototype, {
   _forgetView(p,pre){
     for(const k of [...this._open]) if(k===p||k.startsWith(pre)) this._open.delete(k);
     if(this._sel===p||this._sel.startsWith(pre)) this._sel='';
+    // 사라진 것은 집합에서도 빠진다 (FR-EMS-7).
+    if(this._selSet&&this._selSet.size)
+      for(const q of [...this._selSet]) if(q===p||q.startsWith(pre)) this._selSet.delete(q);
   },
 
   // ── 조작 넷 (FR-EDT-88·89·90·91·92) ──
@@ -146,7 +153,7 @@ Object.assign(FileTree.prototype, {
     const path=this._join(dir,name);
     const snap=this._snap([dir]);
     this._optimAdd(dir,name,isDir);
-    this._sel=path;
+    this._selOnly(path);
     this._paintAll();
     const r=await this.app._edFs(FS_CREATE_API,{root:this.root,path,dir:!!isDir});
     if(!r.ok){this._restore(snap);this._fail(dir===this.root?'':dir,r.msg);return}
@@ -185,7 +192,7 @@ Object.assign(FileTree.prototype, {
     if(dd!==this.root&&!this._open.has(dd)) this._open.add(dd);
     const snap=this._snap(sd===dd?[sd]:[sd,dd]);
     this._optimMove(from,to);
-    this._sel=to;
+    this._selOnly(to);
     this._paintAll();
     const r=await this.app._edFs(FS_RENAME_API,{root:this.root,from,to});
     if(!r.ok){
@@ -206,24 +213,53 @@ Object.assign(FileTree.prototype, {
    * 세는 것이 확인창보다 먼저다 — 수를 모른 채 "재귀 삭제합니다" 만 말하면
    * 사용자가 무엇을 잃는지 모른다.
    */
+  /**
+   * FR-EMS-20~23 (U-5): 대상은 **선택 전부**다. 고른 것이 없으면 인자 하나다.
+   *
+   * 확인창은 **하나**다 (D-3) — 열 개를 지우는데 창이 열 번 뜨면 사용자는 읽지
+   * 않고 누르고, 그 순간 확인창은 방어가 아니라 통과 의식이 된다.
+   *
+   * 하나가 실패해도 나머지는 계속한다 (`FR-EMS-23`) — 첫 실패에서 멈추면 절반만
+   * 지워진 채 이유를 모른다.
+   */
   async doDelete(p){
-    if(!p||p===this.root) return;
+    const targets=this._selTargets(p).filter(x=>x&&x!==this.root);
+    if(!targets.length) return;
     this._clearErr();
-    const isDir=this._kindOf(p)==='dir';
-    const count=isDir?await this.app._edCountTree(this.root,p):null;
-    const dirty=this.app._edDirtyUnder(p);
-    if(!await this.app._edConfirmDelete(p,isDir,count,dirty)) return;
-    const d=this._parent(p);
-    const snap=this._snap([d]);
-    this._optimDel(p);
+    // 세는 것이 확인창보다 먼저다. 합산이므로 폴더가 여럿이면 그 합이다.
+    let count=null,isDir=false;
+    for(const t of targets){
+      if(this._kindOf(t)!=='dir') continue;
+      isDir=true;
+      const c=await this.app._edCountTree(this.root,t);
+      if(!c) continue;
+      count={n:((count&&count.n)||0)+(c.n||0),more:!!((count&&count.more)||c.more)};
+    }
+    const dirty=[];
+    for(const t of targets) for(const n of this.app._edDirtyUnder(t)) if(!dirty.includes(n)) dirty.push(n);
+    if(!await this.app._edConfirmDelete(targets,isDir,count,dirty)) return;
+
+    const dirs=[];
+    for(const t of targets){const d=this._parent(t);if(!dirs.includes(d))dirs.push(d)}
+    const snap=this._snap(dirs);
+    for(const t of targets) this._optimDel(t);
     this._paintAll();
-    const r=await this.app._edFs(FS_DELETE_API,{root:this.root,path:p});
-    if(!r.ok){this._restore(snap);this._fail(p,r.msg);return}
-    // FR-EDT-91: 그 파일의 탭을 닫는다. 폴더면 하위 전부. 확인창은 다시 띄우지
-    // 않는다 — FR-EDT-84 에서 이미 밝혔다.
-    await this.app._edCloseTabsUnder(p);
-    this._forget(p);
-    await this._after([d]);
+    let failed=null;
+    for(const t of targets){
+      const r=await this.app._edFs(FS_DELETE_API,{root:this.root,path:t});
+      if(!r.ok){failed={path:t,msg:r.msg};continue}
+      // FR-EDT-91: 그 파일의 탭을 닫는다. 폴더면 하위 전부. 확인창은 다시 띄우지
+      // 않는다 — FR-EDT-84 에서 이미 밝혔다.
+      await this.app._edCloseTabsUnder(t);
+      this._forget(t);
+    }
+    if(failed){
+      // 하나라도 실패했으면 낙관적 반영을 믿을 수 없다 — 서버의 답으로 다시 읽는다.
+      this._restore(snap);
+      this._fail(failed.path,failed.msg);
+    }
+    this._selOnly('');
+    await this._after(dirs);
   },
 
   /**
@@ -250,7 +286,7 @@ Object.assign(FileTree.prototype, {
     // 것이 화면에서 사라지고 사용자는 실패로 읽는다.
     if(dir!==this.root&&!this._open.has(dir)) this._open.add(dir);
     const made=(r.data&&r.data.path)||'';
-    if(made) this._sel=made;
+    if(made) this._selOnly(made);
     // FR-WBR-74: 영향받은 것은 **대상 폴더 하나**다 (FR-EDT-88).
     await this._after([dir]);
   },
