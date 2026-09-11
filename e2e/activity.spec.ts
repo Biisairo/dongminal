@@ -178,9 +178,13 @@ test.describe('Agent activity panel', () => {
     const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
     expect(pid).toBeTruthy();
     // done (not pruned by the busy check) so the card stays put through polling.
-    // userPrompt: 사용자 프롬프트로 시작된 턴이라고 말한다 — 그 표시가 없으면
-    // 아래의 `done` 신호는 배경 턴의 종료이고 알람이 되지 않는다 (FR-ATN-4).
-    expect(await setActivity(page, pid, 'done', '', 'finished', true)).toBe(200);
+    //
+    // **여기서는 사용자 턴을 말하지 않는다** (AGENT_EVENT_ABSTRACTION_SRS
+    // FR-AEV-10). 알람이 활동 보고에서 파생되면서, `userPrompt` 를 실은 `done`
+    // 은 **그 자리에서** 알람이 된다 — 그런데 이 시점의 칸은 아직 포커스돼
+    // 있어서 그 알람은 바로 걷힌다. 이 단계의 목적은 카드를 만드는 것뿐이므로
+    // 배경 턴의 종료로 보고하고, 알람은 칸이 배경으로 간 뒤에 세운다.
+    expect(await setActivity(page, pid, 'done', '', 'finished', false)).toBe(200);
 
     await page.locator('#agents-toggle').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
@@ -194,6 +198,10 @@ test.describe('Agent activity panel', () => {
     const before = await page.locator('#area .pn.focused .pn-tab').count();
     await page.locator('#area .pn.focused .pn-tab-add').click();
     await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
+    // 사용자 턴을 하나 연다 — `done` 이 알람이 되는 전제다 (FR-ATN-4). 종전에는
+    // 이 자리가 필요 없었다: 알람이 `dmctl notify` 라는 **별도 명령**에서 왔고
+    // 활동 보고와 무관했기 때문이다. 이제 둘이 한 경로이므로 턴이 서야 한다.
+    expect(await setActivity(page, pid, 'working', '', '', true)).toBe(200);
     await page.evaluate(async (p) => {
       await fetch('/api/tools/attention/set', {
         method: 'POST',

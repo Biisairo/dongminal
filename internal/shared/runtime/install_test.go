@@ -13,8 +13,12 @@ import (
 	"dongminal/internal/shared/testpath"
 )
 
-// FR-AAP-8: claude.json must also wire the activity hook (PreToolUse → working)
-// while preserving the existing attention notify hooks.
+// FR-AAP-8: claude.json must wire the activity hook (PreToolUse → working).
+//
+// V-AEV-9 (AGENT_EVENT_ABSTRACTION_SRS FR-AEV-20): **`notify` 배선은 없다.**
+// 종전에는 `Stop`·`Notification` 에 `dmctl notify` 가 함께 걸려 있었고, 이 검사가
+// 그것을 "보존되어야 한다" 고 단정했다. 알람이 활동 이벤트에서 파생되면서 그 배선은
+// 같은 사실을 두 번 말하는 중복이 됐다 — 단정의 뜻을 뒤집는다.
 func TestInstallAgentHooks_Activity(t *testing.T) {
 	dir := t.TempDir()
 	if err := Install(dir); err != nil {
@@ -29,8 +33,8 @@ func TestInstallAgentHooks_Activity(t *testing.T) {
 	if want := testpath.JSONInner(hookCommand(dmctlPath(dir), "activity", "claude")); !strings.Contains(s, want) {
 		t.Fatalf("claude.json should invoke %q, got:\n%s", want, s)
 	}
-	if want := testpath.JSONInner(hookCommand(dmctlPath(dir), "notify", "done")); !strings.Contains(s, want) {
-		t.Fatalf("attention notify hook must be preserved %q, got:\n%s", want, s)
+	if strings.Contains(s, "notify") {
+		t.Fatalf("claude.json 에 notify 배선이 남았다 — 알람은 활동 이벤트에서 파생한다 (FR-AEV-20):\n%s", s)
 	}
 	var parsed struct {
 		Hooks map[string]any `json:"hooks"`

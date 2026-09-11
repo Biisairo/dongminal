@@ -416,9 +416,6 @@ func installAgentHooks(binDir string) error {
 		return err
 	}
 	dmctl := dmctlPath(binDir)
-	notifyHook := func(label string) map[string]any {
-		return map[string]any{"type": "command", "command": hookCommand(dmctl, "notify", label)}
-	}
 	activityHook := map[string]any{"type": "command", "command": hookCommand(dmctl, "activity", "claude")}
 	event := func(hooks ...any) any {
 		return []any{map[string]any{"matcher": "", "hooks": hooks}}
@@ -432,8 +429,20 @@ func installAgentHooks(binDir string) error {
 			"PostToolUse":      event(activityHook),
 			"PreCompact":       event(activityHook),
 			"SubagentStop":     event(activityHook),
-			"Stop":             event(notifyHook("done"), activityHook),
-			"Notification":     event(notifyHook("waiting"), activityHook),
+			// AGENT_EVENT_ABSTRACTION_SRS FR-AEV-20: **`notify` 배선을 뺐다.**
+			//
+			//   이전 동작: `Stop` → `dmctl notify done` + `dmctl activity claude`
+			//   새  동작: `Stop` → `dmctl activity claude` 하나
+			//   이유:     활동 보고가 이미 같은 사실을 말한다 — claude 의
+			//             `HookParse` 가 `Stop`→`done`·`Notification`→`waiting`
+			//             를 낸다. 알람은 그 활동 이벤트에서 파생한다
+			//             (FR-AEV-10). 두 명령의 도착 순서가 보장되지 않는 것이
+			//             `FR-ATN-8` 이 규칙을 비튼 이유였는데, 명령이 하나가
+			//             되면 그 경합 자체가 사라진다 (FR-AEV-30)
+			//
+			// 훅마다 프로세스 하나가 줄어드는 것은 곁다리 이득이다 (NFR-AEV-1).
+			"Stop":         event(activityHook),
+			"Notification": event(activityHook),
 		},
 	}
 	blob, err := json.MarshalIndent(settings, "", "  ")

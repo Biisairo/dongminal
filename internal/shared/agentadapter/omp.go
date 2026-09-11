@@ -47,6 +47,16 @@ var ompAdapter = Adapter{
 		SessionScoped: true,
 	},
 	HookParse: parseOmpHook,
+	// FR-AEV-2·3: **`Waiting` 만 거짓이다.** omp 의 승인 게이트는 훅에 통지되지
+	// 않으므로(OMP_AGENT_SUPPORT_SRS §2.4) 승인 대기를 관측할 길이 없다. 그것을
+	// 여기 적는 이유는 FR-OMP-8 과 같다 — 관측되지 않는 것을 지어내지 않되,
+	// **없다는 사실은 남긴다.** omp 에 그 이벤트가 생기면 이 한 줄이 참이 된다.
+	//
+	// `UserTurn` 이 참인 것이 알람을 살린다 — `agent_start` 가 그 자리다.
+	Signals: Signals{
+		Idle: true, Working: true, Waiting: false, Done: true, Ended: true,
+		UserTurn: true, Compaction: true, ToolDetail: true, Session: true,
+	},
 	Readiness: Readiness{Hooks: true},
 	// `/exit` 은 "Exit the application" 이며 `/quit` 과 같은 종료 경로다 (실측).
 	ExitCommand: "/exit",

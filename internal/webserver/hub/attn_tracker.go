@@ -201,6 +201,18 @@ func (t *AttnTracker) SignalAttention(toolID, reason string) {
 	t.onAttention(toolID, reason)
 }
 
+// SignalAgentEvent 는 활동 이벤트에서 파생한 알람이다 (FR-AEV-10·14).
+// 직접 모드 `toolhub.Tool.SignalAgentEvent` 와 **같은 자리, 같은 판정**이다 —
+// 두 벌로 적으면 한쪽만 고쳐지는 날이 온다.
+func (t *AttnTracker) SignalAgentEvent(toolID, state string, turnKnown bool) {
+	ps := t.state(toolID)
+	if !ps.turn.AllowActivitySignal(state, turnKnown) {
+		return
+	}
+	ps.attention.Store(true)
+	t.onAttention(toolID, state)
+}
+
 // Attend clears attention (user looked at the tool) and locks re-arming
 // (FR-ATF-5) — mirrors toolhub.Tool.Attend.
 func (t *AttnTracker) Attend(toolID string) { t.attend(toolID, false) }

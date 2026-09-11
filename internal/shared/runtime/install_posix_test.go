@@ -73,7 +73,9 @@ func TestInstallShellHooks(t *testing.T) {
 	}
 	// Hook commands must reference dmctl by absolute path (PATH-independent),
 	// 그리고 그 경로는 인용된다 (HOST_PARITY_SRS FR-HPR-4).
-	wantCmd := hookCommand(filepath.Join(dir, "dmctl"), "notify")
+	// 재는 것은 **절대 경로로 부르는가**이다. 종전에는 `notify` 로 쟀는데 그
+	// 배선이 사라졌으므로(FR-AEV-20) 같은 뜻을 `activity` 로 잰다.
+	wantCmd := hookCommand(filepath.Join(dir, "dmctl"), "activity")
 	if !strings.Contains(string(blob), testpath.JSONInner(wantCmd)) {
 		t.Fatalf("claude.json should invoke %q, got:\n%s", wantCmd, blob)
 	}

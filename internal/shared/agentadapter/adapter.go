@@ -80,6 +80,48 @@ type PolicyInjection struct {
 	SessionScoped bool
 }
 
+// Signals 는 이 에이전트가 **실제로 낼 수 있는 신호**의 선언이다
+// (AGENT_EVENT_ABSTRACTION_SRS FR-AEV-2·3).
+//
+// **모든 이벤트를 미리 선언한다** (사용자 결정 2026-09-11). 알람에 쓰이는 셋만
+// 적으면 다른 층이 이벤트를 소비할 때 같은 일을 또 겪는다 — 선언은 그 에이전트가
+// **무엇을 말할 수 있는가**의 전부여야 한다.
+//
+// 거짓인 항목이 곧 "빈 구현" 이다. 그것을 적는 이유는 `FR-CBG-5` 다 —
+// **모른다 ≠ 괜찮다.** 선언이 없으면 "그 이벤트가 없다" 와 "그 사건이 일어나지
+// 않았다" 가 구별되지 않고, 알람 규칙은 모르는 것을 아니라고 읽어 그 에이전트를
+// 영원히 침묵시킨다 (codex 가 그 자리였다 — SRS §2.4).
+//
+// 이벤트의 **이름**은 담지 않는다 (D-2). 이름은 에이전트마다 다르고 그것을 아는
+// 것은 `HookParse` 의 일이다. 여기 있는 것은 "낼 수 있는가" 하나다.
+//
+// 선언과 실제가 어긋나지 않는 것은 `signals_test.go` 가 잰다 (FR-AEV-4).
+type Signals struct {
+	// Idle 은 세션 시작을 알릴 수 있는가. `Readiness.Hooks` 와 **같은 사실**이다
+	// (FR-AEV-5) — 시작 이벤트가 있으면 준비완료를 훅으로 안다.
+	Idle bool
+	// Working 은 일하는 중임을 알릴 수 있는가. 이것이 없으면 `waiting` 판정의
+	// 전제(`inProgress`)가 서지 않는다 (FR-ATN-7).
+	Working bool
+	// Waiting 은 **사용자의 응답을 기다린다**(승인 요청)를 알릴 수 있는가.
+	Waiting bool
+	// Done 은 턴의 종료를 알릴 수 있는가.
+	Done bool
+	// Ended 는 세션의 종료를 알릴 수 있는가.
+	Ended bool
+	// UserTurn 은 그 턴이 **사용자 프롬프트에서 시작되었다**를 말할 수 있는가
+	// (FR-ATN-2 의 곁들이 값). 이것이 거짓이면 `done` 알람의 판정이 달라진다
+	// (FR-AEV-12) — 모르는 것을 "아니다" 로 읽지 않는다.
+	UserTurn bool
+	// Compaction 은 컨텍스트 압축을 알릴 수 있는가 (FR-CBG-1).
+	Compaction bool
+	// ToolDetail 은 어떤 도구를 무슨 인자로 쓰는지 실어 오는가. 활동 패널의
+	// 한 줄이 이것으로 채워진다.
+	ToolDetail bool
+	// Session 은 세션 신원(`SessionID`·`Transcript`)을 실어 오는가 (FR-CBG-1).
+	Session bool
+}
+
 // Readiness 는 이 에이전트의 준비완료를 무엇으로 아는가다.
 type Readiness struct {
 	// Hooks 는 생명주기 훅이 준비완료(idle)를 알려주는가다. 참이면 FR-STA-4
@@ -132,6 +174,11 @@ type Adapter struct {
 	// HookParse 는 훅 stdin JSON 을 활동 보고로 바꾼다. 이 필드가 `switch agent`
 	// 를 대체한다 (FR-ADP-2).
 	HookParse func([]byte) (Report, bool)
+
+	// Signals 는 이 에이전트의 **이벤트 선언**이다 (FR-AEV-2). `HookParse` 가
+	// 구현부이고 이것이 그 구현이 무엇을 낼 수 있는지의 선언이다 — 둘이 어긋나면
+	// 대조 테스트가 실패한다 (FR-AEV-4).
+	Signals Signals
 	// Readiness 는 준비완료 판정의 근거다.
 	Readiness Readiness
 	// ExitCommand 는 정중한 종료 지시다. Run 정리에서 조정자가 이것을 보낸 뒤

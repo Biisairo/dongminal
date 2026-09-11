@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/hub"
 )
@@ -123,6 +124,23 @@ func (s *Server) apiToolsActivity(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]any{"activities": acts})
 }
 
+// agentReportsUserTurn 은 그 에이전트가 **턴의 출처를 말할 수 있는지**다
+// (FR-AEV-12). 선언을 읽을 뿐 추측하지 않는다.
+//
+// 모르는 id 에는 **참**을 준다 — 종전 판정 그대로 간다는 뜻이다. 거짓을 주면
+// 알 수 없는 보고자의 모든 `done` 이 무조건 알람이 되고, 그것은 이 문서가
+// 고치려는 것과 반대 방향의 소음이다.
+func agentReportsUserTurn(id string) bool {
+	if id == "" {
+		return true
+	}
+	a, err := agentadapter.Get(id)
+	if err != nil {
+		return true
+	}
+	return a.Signals.UserTurn
+}
+
 // apiToolActivitySet records what an agent in a tool is currently doing. Used by
 // `dmctl activity` (agent hook bridge), identified via DONGMINAL_TOOL_ID. Body:
 // {"toolId":"...","state":"working|done|waiting|idle","tool":"...","detail":"..."}.
@@ -136,12 +154,28 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 		// UserPrompt 는 이 턴이 사용자 프롬프트에서 시작되었다는 곁들이 값이다
 		// (FR-ATN-2). 활동 상태 어휘는 이것으로 바뀌지 않는다.
 		UserPrompt bool `json:"userPrompt"`
+		// Agent 는 보고한 에이전트의 id 다 (AGENT_EVENT_ABSTRACTION_SRS
+		// FR-AEV-10). 서버가 그 에이전트의 **이벤트 선언**(`Signals`)을 봐야
+		// `done` 알람의 판정을 옳게 할 수 있다 (FR-AEV-12).
+		//
+		// 비어 있으면 **종전 판정 그대로** 간다 — 알 수 없는 보고자에게 알람을
+		// 지어내지 않는다.
+		Agent string `json:"agent"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" || !hub.ValidActivityState(req.State) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 	if s.Tools != nil {
+		// FR-AEV-10: **알람은 활동 이벤트에서 파생한다.** 에이전트마다 `dmctl
+		// notify` 를 따로 배선하지 않는다 — 그 배선이 없던 omp 는 상태만 바뀌고
+		// 알람이 울리지 않았다 (SRS §2.1).
+		//
+		// 파생의 자리가 서버인 이유는 D-1 이다: `dmctl` 이 한 번 더 POST 하면
+		// 왕복이 늘고 **두 요청의 순서가 다시 문제가 된다.** 한 요청 안에서는
+		// 순서가 확정되고, 직접·데몬 두 모드가 같은 자리를 지난다 (FR-AEV-14).
+		alarm := req.State == "done" || req.State == "waiting"
+		turnKnown := agentReportsUserTurn(req.Agent)
 		if s.AttnTracker != nil {
 			// FR-ATN-1: 표시를 먼저 세운다. 활동 보고와 별도 경로인 것은 둘이
 			// 다른 것을 말하기 때문이다 — 활동은 "지금 무엇을 하는가", 이것은
@@ -152,11 +186,17 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 			s.AttnTracker.SetActivity(req.ToolID, req.State,
 				hub.SanitizeActivityField(req.Tool, hub.ActivityToolMax),
 				hub.SanitizeActivityField(req.Detail, hub.ActivityDetailMax))
+			if alarm {
+				s.AttnTracker.SignalAgentEvent(req.ToolID, req.State, turnKnown)
+			}
 		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
 			if req.UserPrompt {
 				tool.NoteUserPrompt()
 			}
 			tool.SetActivity(req.State, hub.SanitizeActivityField(req.Tool, hub.ActivityToolMax), hub.SanitizeActivityField(req.Detail, hub.ActivityDetailMax))
+			if alarm {
+				tool.SignalAgentEvent(req.State, turnKnown)
+			}
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")

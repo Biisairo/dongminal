@@ -26,6 +26,12 @@ var claudeAdapter = Adapter{
 		SessionScoped: true,
 	},
 	HookParse: parseClaudeHook,
+	// FR-AEV-2·3: claude 는 아홉을 **전부** 낸다. 이 저장소가 검증한 유일한
+	// 에이전트이며, 다른 선언은 이것과의 차이로 읽힌다.
+	Signals: Signals{
+		Idle: true, Working: true, Waiting: true, Done: true, Ended: true,
+		UserTurn: true, Compaction: true, ToolDetail: true, Session: true,
+	},
 	Readiness: Readiness{Hooks: true},
 	// /exit 은 대화를 저장하고 정상 종료한다. SIGKILL 로 끊으면 이력이 남지 않는다.
 	ExitCommand: "/exit",

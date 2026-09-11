@@ -28,6 +28,12 @@ var codexAdapter = Adapter{
 		SessionScoped: true,
 	},
 	HookParse:   parseCodexHook,
+	// FR-AEV-2·3: codex 가 내는 것은 **`done` 하나뿐**이다. 표준 notify 가
+	// `agent-turn-complete` 하나이므로 시작도, 도구도, 턴의 출처도 오지 않는다.
+	//
+	// `UserTurn=false` 가 이 선언에서 가장 중요한 한 줄이다 (FR-AEV-12) — 이것이
+	// 없으면 알람 규칙이 "사용자 턴이 아니었다" 로 읽어 codex 를 영원히 침묵시킨다.
+	Signals: Signals{Done: true},
 	Readiness:   Readiness{Hooks: false},
 	ExitCommand: "", // 미확인
 }

@@ -70,6 +70,25 @@ func (t *AgentTurn) InProgress() bool { return t.inProgress.Load() }
 // `Attend`/`AttendTyped` 의 구분(FR-ATF-5·6)을 L1 명시 신호에도 같게 적용한다.
 func (t *AgentTurn) NoteAttendTyped() { t.waitingSignaled.Store(false) }
 
+// AllowActivitySignal 은 **활동 이벤트에서 파생한** 알람의 판정이다
+// (AGENT_EVENT_ABSTRACTION_SRS FR-AEV-10·12).
+//
+// 판정은 `AllowSignal` 그대로다 — 규칙을 두 벌로 두지 않는다. 다른 것은 하나뿐:
+// **턴의 출처를 말할 수 없는 에이전트**(`Signals.UserTurn=false`)의 `done` 은
+// 판정 없이 울린다.
+//
+// 그 예외가 있는 이유는 `FR-CBG-5` 다 — **모른다 ≠ 괜찮다.** `done` 의 판정은
+// 사용자 턴 표시를 보는데, 그 표시를 세우는 이벤트가 아예 없는 에이전트에서는
+// 표시가 영원히 서지 않는다. 그것을 "사용자 턴이 아니었다" 로 읽으면 그 에이전트는
+// **한 번도 울지 않는다** (codex 가 그 자리였고, 지금은 라벨로 규칙을 우회하고
+// 있다 — SRS §2.4).
+func (t *AgentTurn) AllowActivitySignal(state string, turnKnown bool) bool {
+	if state == "done" && !turnKnown {
+		return true
+	}
+	return t.AllowSignal(state)
+}
+
 // AllowSignal 은 명시 신호(L1 훅 — `dmctl notify`)가 알람이 되는지 판정한다.
 //
 //	done    — 사용자 프롬프트로 시작된 턴이 끝났을 때만 (FR-ATN-4). 표시는

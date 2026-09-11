@@ -59,8 +59,12 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	if toolID == "" {
 		return 0
 	}
-	body := map[string]any{"toolId": toolID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail,
-		"userPrompt": rep.UserPrompt}
+	// AGENT_EVENT_ABSTRACTION_SRS FR-AEV-10: **에이전트 id 를 함께 보낸다.**
+	// 서버가 그 에이전트의 이벤트 선언(`Signals`)을 봐야 `done` 알람의 판정을
+	// 옳게 할 수 있다 (FR-AEV-12) — 턴의 출처를 말할 수 없는 에이전트를 "사용자
+	// 턴이 아니었다" 로 읽으면 그 에이전트는 한 번도 울지 않는다.
+	body := map[string]any{"toolId": toolID, "agent": adapter.ID, "state": rep.State,
+		"tool": rep.Tool, "detail": rep.Detail, "userPrompt": rep.UserPrompt}
 	httpPostJSON(baseURL()+"/api/tools/activity/set", body)
 	reportContext(rep, toolID)
 	return 0
@@ -229,6 +233,11 @@ func reportCodexActivity(label string, args []string, toolID string) {
 	for _, a := range args {
 		if len(a) > 0 && a[0] == '{' {
 			if rep, ok := adapter.HookParse([]byte(a)); ok {
+				// **`agent` 를 싣지 않는다** (FR-AEV-21). 이 경로는 `dmctl notify
+				// codex` 안에서 불리므로, 알람은 그 `notify` 가 이미 낸다
+				// (FR-ATN-12 — `done`·`waiting` 이 아닌 라벨은 무조건 알람).
+				// 여기서 id 를 실으면 `Signals.UserTurn=false` 가 무조건 알람을
+				// 한 번 더 만들어 **같은 턴이 두 번 운다.**
 				httpPostJSON(baseURL()+"/api/tools/activity/set",
 					map[string]any{"toolId": toolID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail})
 			}

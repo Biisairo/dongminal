@@ -21,6 +21,14 @@ type contextCapture struct {
 	context  []string
 }
 
+// activitySnapshot 은 지금까지 받은 활동 보고 본문이다. 잠금을 쥐고 복사한다 —
+// 보고는 다른 고루틴에서 올 수 있다.
+func (c *contextCapture) activitySnapshot() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]string(nil), c.activity...)
+}
+
 func (c *contextCapture) paths() (int, int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

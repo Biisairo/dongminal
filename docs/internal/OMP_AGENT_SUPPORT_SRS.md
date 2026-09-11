@@ -106,6 +106,19 @@ import 되지만 그 guard 가 감싸는 것은 `process.exit`·`process.stdin` 
 `getSessionFile()`(`.jsonl`). 그래서 `Report.SessionID`·`Transcript` 를 비우지
 않아도 된다 (`FR-CBG-1`).
 
+### 2.4a 알람 배선 (2026-09-11 추가)
+
+접수: *"omp 는 agents 에서 상태 바뀌는건 확인했는데 알람이 연결 안됐어."*
+
+**원인은 omp 가 아니라 배선이었다.** shim 은 `dmctl activity omp` 만 부르고
+`dmctl notify` 를 보내지 않았는데, 그때까지 알람은 에이전트마다 손으로 배선된
+`dmctl notify` 에서만 나왔다. 구조를 고친 문서가
+[`AGENT_EVENT_ABSTRACTION_SRS`](./AGENT_EVENT_ABSTRACTION_SRS.md) 이며, 이제
+**알람은 활동 이벤트에서 파생한다** (`FR-AEV-10`). shim 은 한 줄도 바뀌지 않았다.
+
+그 문서의 `Signals` 선언이 아래 §2.4 의 사실을 **값으로** 옮겨 적는다 —
+`omp` 의 `Signals.Waiting` 은 거짓이다.
+
 ### 2.4 `waiting` 은 반만 얻는다
 
 claude 의 `Notification` 에 대응하는 이벤트가 없다. 승인 게이트는 훅에 통지되지

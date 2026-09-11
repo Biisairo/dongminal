@@ -470,6 +470,25 @@ func (p *Tool) SignalAttention(reason string) {
 	}
 }
 
+// SignalAgentEvent 는 **활동 이벤트에서 파생한** 알람이다 (FR-AEV-10).
+//
+// `SignalAttention` 과 나뉘어 있는 것은 판정의 재료가 하나 더 있기 때문이다 —
+// 그 에이전트가 턴의 출처를 말할 수 있는가(`Signals.UserTurn`). 그 밖의 모든
+// 것은 같은 자리, 같은 판정이다 (FR-AEV-11).
+//
+// 이것이 있어서 **활동을 보고할 수 있는 에이전트는 누구나 알람을 얻는다.**
+// 종전에는 에이전트마다 `dmctl notify` 를 따로 배선해야 했고, omp 는 그 배선이
+// 없어 상태만 바뀌고 알람이 울리지 않았다 (SRS §2.1).
+func (p *Tool) SignalAgentEvent(state string, turnKnown bool) {
+	if !p.turn.AllowActivitySignal(state, turnKnown) {
+		return
+	}
+	p.attention.Store(true)
+	if p.onAttention != nil {
+		p.onAttention(p.ID, state)
+	}
+}
+
 // clearAttention transitions attention→none exactly once, firing the clear
 // notifier only on the transition.
 func (p *Tool) clearAttention() bool {

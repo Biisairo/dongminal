@@ -66,7 +66,9 @@ func TestHookCommandRunsUnderPosixShells(t *testing.T) {
 			t.Errorf("%s: %v\n%s", sh, err, out)
 			continue
 		}
-		if !strings.Contains(string(out), "CALLED args=notify done") {
+		// `Stop` 의 훅은 이제 활동 보고 하나다 (FR-AEV-20) — 재는 것은 여전히
+		// **인자가 온전히 가는가**이고, 그 대상만 바뀐다.
+		if !strings.Contains(string(out), "CALLED args=activity claude") {
 			t.Errorf("%s: 인자가 온전히 가지 않았다: %q", sh, out)
 		}
 	}
