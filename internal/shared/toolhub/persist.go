@@ -91,7 +91,17 @@ func (m *ToolManager) SaveAll() {
 
 // LoadAll reads tools.json and respawns the shells that referenced still
 // points at. Unreferenced entries are discarded (FR-EM-14).
+// restoreFn 은 도구 하나를 되살리는 일이다. 이음매인 이유(`TEST-2`): 실물은
+// **진짜 PTY 를 띄운다** — 이 경로가 묻는 것은 셸이 뜨는가가 아니라 **무엇을
+// 되살릴지 고르는 규칙**이고, 그 규칙을 재려면 띄우지 않고도 관측할 수 있어야 한다.
+type restoreFn func(id, name, cwd string, cols, rows uint16) error
+
 func (m *ToolManager) LoadAll(referenced map[string]struct{}) {
+	m.LoadAllWith(referenced, m.Restore)
+}
+
+// LoadAllWith 는 `LoadAll` 이되 되살리는 일을 갈아 끼울 수 있다 (`TEST-2`).
+func (m *ToolManager) LoadAllWith(referenced map[string]struct{}, restore restoreFn) {
 	data, err := os.ReadFile(m.dataPath("tools.json"))
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -112,7 +122,9 @@ func (m *ToolManager) LoadAll(referenced map[string]struct{}) {
 			skipped++
 			continue
 		}
-		if err := m.Restore(s.ID, s.Name, s.Cwd, 120, 40); err != nil {
+		// **하나가 실패해도 멈추지 않는다.** 첫 실패에서 멈추면 그 뒤의 탭이
+		// 전부 빈 채로 돌아온다.
+		if err := restore(s.ID, s.Name, s.Cwd, 120, 40); err != nil {
 			log.Printf("[tool %s] restore error: %v", s.ID, err)
 			continue
 		}

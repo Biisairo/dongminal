@@ -39,7 +39,12 @@ func FreePort() (string, error) {
 // 죽이고(탭이 죽어 새 서버에 다시 붙지 못한다), 클라이언트의 재접속 시도가
 // 종료 확인 스냅샷에 걸리면 "포트를 비우지 못했다" 로 오판해 재시작을 중단한다.
 // 그 보장은 platform.ProcInfo 의 계약이다 (FR-XPI-1).
-func pidsOnPort(port string) []int {
+// pidsOnPort 는 그 포트를 듣고 있는 pid 들이다.
+//
+// **이음매인 이유**(`TEST-3`): 실기로는 "포트를 잡은 프로세스가 TERM 에는 죽지
+// 않고 KILL 에는 죽는다" 를 만들 수 없다. 그 순서가 이 함수의 계약인데, 그것을
+// 재려면 관측 쪽도 갈아 끼울 수 있어야 한다 — `procCtl` 과 같은 근거다.
+var pidsOnPort = func(port string) []int {
 	return platform.Current().Info.ListenerPIDs(port)
 }
 

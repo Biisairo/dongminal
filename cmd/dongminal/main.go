@@ -314,9 +314,14 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 
 	// Run 레코드 저장소 (RUN_ORCHESTRATION_SRS 묶음 R). epoch 는 이 기동의
 	// 식별자이며, 이전 세대가 열어둔 Run 을 로드 시 aborted 로 확정한다
-	// (FR-RUN-5) — 백그라운드 도구가 재기동을 넘지 못하므로(FR-BG-9) 되살릴
-	// 실체가 없다. Load 는 파일이 없거나 손상돼도 부팅을 막지 않는다.
-	runStore := run.NewStore(cfg.DataDir, uuid.NewString())
+	// (FR-RUN-5). Load 는 파일이 없거나 손상돼도 부팅을 막지 않는다.
+	//
+	// **`FBE-03`(2026-09-11): 그 판정에 생존을 함께 묻는다.** 옛 주석은
+	// "백그라운드 도구가 재기동을 넘지 못하므로 되살릴 실체가 없다" 였는데,
+	// 데몬 모드에서 그 전제는 **거짓**이다 — PTY 를 가진 것은 데몬이고 데몬은
+	// 서버보다 오래 산다. 웹서버만 갈아 끼워도 멤버가 죽던 자리가 그것이다.
+	runStore := run.NewStore(cfg.DataDir, uuid.NewString(),
+		run.WithLiveness(func(toolID string) bool { return toolHub.IsLive(toolID) }))
 	if err := runStore.Load(); err != nil {
 		log.Printf("run store load: %v", err)
 	}

@@ -67,6 +67,8 @@ type Store struct {
 	// 되돌림을 **저장 한 자리**에 두는 이유: 변경 지점이 열 곳이고, 그 열 곳을
 	// 각자 고치면 다음에 생기는 열한 번째가 또 빠진다.
 	persisted []Record
+	// alive 는 도구의 생존을 묻는 길이다 (`FBE-03`). nil 이면 묻지 않는다.
+	alive func(toolID string) bool
 }
 
 // cloneRuns 는 되돌릴 수 있는 깊이까지 복사한다.
@@ -92,6 +94,19 @@ func cloneRuns(in []Record) []Record {
 
 // Option customizes a Store for deterministic tests.
 type Option func(*Store)
+
+// WithLiveness 는 "그 도구가 지금 살아 있는가" 를 묻는 길이다 (`FBE-03`).
+//
+// 펜싱의 기준을 `epoch`(웹서버 기동)에서 **실체의 생존**으로 옮긴다. 데몬 모드에서
+// PTY 를 가진 것은 데몬이고 데몬은 서버보다 오래 산다 — 서버만 재시작했다고 살아
+// 있는 멤버를 죽이면, 그것이 `FR-HLM-3`(헤드리스 복원)이 세운 것을 같은 기동의
+// 회수기가 지우는 일이다.
+//
+// 주지 않으면 **종전대로** 펜싱한다. 모른다고 살려 두면 고아 Run 이 영원히 열린
+// 채 남는다 — direct 모드와 옛 배선의 길이다.
+func WithLiveness(fn func(toolID string) bool) Option {
+	return func(s *Store) { s.alive = fn }
+}
 
 func WithClock(now func() int64) Option  { return func(s *Store) { s.now = now } }
 func WithIDGen(gen func() string) Option { return func(s *Store) { s.newID = gen } }
@@ -159,12 +174,37 @@ func (s *Store) fenceStale() bool {
 		if r.State != Open || r.Epoch == s.epoch {
 			continue
 		}
+		// `FBE-03`: **실체가 살아 있으면 닫지 않는다.** 기준이 "웹서버가 새로
+		// 떴는가" 였기에, 데몬을 보존한 채 서버만 재시작해도 멤버가 죽었다.
+		if s.runHasLiveMember(r) {
+			// epoch 를 이 기동의 것으로 옮긴다 — 그러지 않으면 다음 기동이
+			// 같은 판정을 되풀이한다.
+			r.Epoch = s.epoch
+			changed = true
+			continue
+		}
 		r.State = Aborted
 		r.AbortReason = AbortDaemonRestart
 		r.ClosedAt = s.now()
 		changed = true
 	}
 	return changed
+}
+
+// runHasLiveMember 는 그 Run 의 멤버 중 **도구가 실제로 살아 있는 것**이 있는지다
+// (`FBE-03`).
+//
+// 하나라도 살아 있으면 그 Run 은 도는 중이다. 전부 죽었으면 되살릴 실체가 없다.
+func (s *Store) runHasLiveMember(r *Record) bool {
+	if s.alive == nil {
+		return false
+	}
+	for _, m := range r.Members {
+		if m.ToolID != "" && s.alive(m.ToolID) {
+			return true
+		}
+	}
+	return false
 }
 
 // save writes runs.json atomically (FR-RUN-4): a temp file in the same
