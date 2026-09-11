@@ -1,7 +1,6 @@
 package runtimebin
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -10,12 +9,15 @@ import (
 	"dongminal/internal/shared/agentadapter"
 )
 
-const dmctlActivityHelp = `dmctl activity <agent>
+// dmctlActivityHelp 는 등록부에서 **파생한다** (AGENT_ADAPTER_COMPLETION_SRS
+// FR-AAC-30). 손으로 적은 목록은 에이전트가 늘 때 낡고, 낡은 도움말은 없는 것보다
+// 나쁘다 — 사용자가 칠 수 있는 것을 잘못 알려준다.
+var dmctlActivityHelp = `dmctl activity <agent>
   현재 tool 에서 도는 에이전트의 "지금 무엇을 하는가"(작업 상태)를 서버에 보고한다.
   에이전트 hook 의 stdin 으로 들어온 JSON 을 파싱해 state/tool/detail 을 추출한다.
-  <agent>: claude | codex. DONGMINAL_TOOL_ID 로 자신을 식별한다.
-  에이전트 hook(claude PreToolUse 등)에서 호출되며, 비0 종료가 에이전트의 도구
-  실행을 막지 않도록 항상 0 으로 종료한다(실패는 조용히 무시).
+  <agent>: ` + strings.Join(agentadapter.IDs(), " | ") + `. DONGMINAL_TOOL_ID 로 자신을 식별한다.
+  에이전트의 생명주기 hook 에서 호출되며, 비0 종료가 에이전트의 도구 실행을 막지
+  않도록 항상 0 으로 종료한다(실패는 조용히 무시).
 `
 
 // runDmctlActivity reports the calling tool's current agent activity to the
@@ -66,7 +68,7 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	body := map[string]any{"toolId": toolID, "agent": adapter.ID, "state": rep.State,
 		"tool": rep.Tool, "detail": rep.Detail, "userPrompt": rep.UserPrompt}
 	httpPostJSON(baseURL()+"/api/tools/activity/set", body)
-	reportContext(rep, toolID)
+	reportContext(adapter, rep, toolID)
 	return 0
 }
 
@@ -85,11 +87,17 @@ const contextObservePath = "/api/runs/context"
 //
 // 신호가 하나도 없으면 아무것도 보내지 않는다. 관측하지 못한 것을 0 으로
 // 보내면 서버가 그것을 값으로 읽는다 — 모르는 것은 모르는 채로 둔다 (FR-CBG-5).
-func reportContext(rep agentadapter.Report, toolID string) {
+func reportContext(a agentadapter.Adapter, rep agentadapter.Report, toolID string) {
 	if rep.Transcript == "" && !rep.Compacted {
 		return
 	}
-	body := map[string]any{"toolId": toolID}
+	// AGENT_ADAPTER_COMPLETION_SRS FR-AAC-23: **누가 보고했는지 함께 말한다.**
+	//
+	// 창 크기의 판정이 어댑터로 내려갔으므로(FR-AAC-20) 받는 쪽이 보고자를 알아야
+	// 한다. 멤버는 Run 레코드로 되짚을 수 있지만 **조정자는 멤버가 아니라 되짚을
+	// 자리가 없다** — 그 구분이 종전에는 필요 없었다(판정이 전역 함수였다).
+	// 알람 종단이 이미 같은 방법으로 같은 문제를 풀었다 (FR-AEV-10).
+	body := map[string]any{"toolId": toolID, "agent": a.ID}
 	if rep.Compacted {
 		body["compacted"] = true
 	}
@@ -101,20 +109,13 @@ func reportContext(rep agentadapter.Report, toolID string) {
 	}
 	// UX_BATCH6_SRS FR-CTX-1·3: 실측 토큰과 그것을 낸 모델. **숫자와 식별자뿐**이며
 	// 본문은 여기서도 빠져나가지 않는다 (NFR-4).
-	if u, ok := transcriptUsage(rep.Transcript); ok {
-		body["tokens"] = u.tokens
-		if u.model != "" {
-			body["model"] = u.model
+	if u, ok := transcriptUsage(a, rep.Transcript); ok {
+		body["tokens"] = u.Tokens
+		if u.Model != "" {
+			body["model"] = u.Model
 		}
 	}
 	httpPostJSON(baseURL()+contextObservePath, body)
-}
-
-// usageObs 는 transcript 의 마지막 assistant 줄에서 읽은 것이다 — 그 요청이
-// 실제로 모델에 보낸 컨텍스트의 크기와, 답한 모델의 이름.
-type usageObs struct {
-	tokens int64
-	model  string
 }
 
 // usageTailMax 는 뒤에서부터 읽을 상한이다 (NFR-CBG-1 의 개정).
@@ -133,18 +134,20 @@ const usageTailMax = 256 * 1024
 //
 // **내용은 돌려주지 않는다.** 반환 타입이 숫자와 모델 이름뿐인 것이 NFR-4 의
 // 첫 방벽이다 — `transcriptSize` 와 같은 규약이다.
-func transcriptUsage(path string) (usageObs, bool) {
-	if path == "" {
-		return usageObs{}, false
+func transcriptUsage(a agentadapter.Adapter, path string) (agentadapter.Usage, bool) {
+	// FR-AAC-13: 읽지 않는 에이전트의 전사본은 **열지도 않는다.** 종전에는 열어서
+	// 읽고 파싱에 실패했다 — 훅은 에이전트의 핫패스이므로 싸고 정직한 쪽을 고른다.
+	if a.ParseUsage == nil || path == "" {
+		return agentadapter.Usage{}, false
 	}
 	f, err := os.Open(path)
 	if err != nil {
-		return usageObs{}, false
+		return agentadapter.Usage{}, false
 	}
 	defer f.Close()
 	st, err := f.Stat()
 	if err != nil || st.IsDir() || st.Size() == 0 {
-		return usageObs{}, false
+		return agentadapter.Usage{}, false
 	}
 	off, n := int64(0), st.Size()
 	if n > usageTailMax {
@@ -152,7 +155,7 @@ func transcriptUsage(path string) (usageObs, bool) {
 	}
 	buf := make([]byte, n)
 	if _, err := f.ReadAt(buf, off); err != nil && err != io.EOF {
-		return usageObs{}, false
+		return agentadapter.Usage{}, false
 	}
 	lines := strings.Split(string(buf), "\n")
 	// 처음부터 읽지 않았으면 첫 조각은 잘린 줄이다 — 해석하면 오답이 아니라
@@ -160,40 +163,14 @@ func transcriptUsage(path string) (usageObs, bool) {
 	if off > 0 && len(lines) > 0 {
 		lines = lines[1:]
 	}
+	// FR-AAC-11: 뒤에서부터 훑는 것은 **파일 다루는 법**이라 여기 남고, 한 줄의
+	// 뜻은 어댑터가 안다.
 	for i := len(lines) - 1; i >= 0; i-- {
-		if u, ok := parseUsageLine(lines[i]); ok {
+		if u, ok := a.ParseUsage(lines[i]); ok {
 			return u, true
 		}
 	}
-	return usageObs{}, false
-}
-
-// parseUsageLine 은 JSONL 한 줄에서 usage 를 뽑는다. usage 가 없으면 그 줄은
-// 후보가 아니다 — 사용자 줄·요약 줄·메타 줄이 그렇다.
-func parseUsageLine(line string) (usageObs, bool) {
-	line = strings.TrimSpace(line)
-	if line == "" || !strings.Contains(line, `"usage"`) {
-		return usageObs{}, false
-	}
-	var rec struct {
-		Message struct {
-			Model string `json:"model"`
-			Usage *struct {
-				Input      int64 `json:"input_tokens"`
-				CacheWrite int64 `json:"cache_creation_input_tokens"`
-				CacheRead  int64 `json:"cache_read_input_tokens"`
-			} `json:"usage"`
-		} `json:"message"`
-	}
-	if err := json.Unmarshal([]byte(line), &rec); err != nil || rec.Message.Usage == nil {
-		return usageObs{}, false
-	}
-	u := rec.Message.Usage
-	total := u.Input + u.CacheWrite + u.CacheRead
-	if total <= 0 {
-		return usageObs{}, false
-	}
-	return usageObs{tokens: total, model: rec.Message.Model}, true
+	return agentadapter.Usage{}, false
 }
 
 // transcriptSize 는 transcript 의 **크기만** 잰다 — stat 1회이며 파일을 열지도
@@ -217,17 +194,19 @@ func transcriptSize(path string) (size int64, ok bool) {
 	return st.Size(), true
 }
 
-// reportCodexActivity also reports codex turn-complete as activity (done) when
+// reportNotifyActivity also reports codex turn-complete as activity (done) when
 // `dmctl notify codex <json>` is invoked, so the activity panel shows codex
 // state alongside the attention alarm without changing the codex wrapper
 // (FR-AAP-9). Codex passes its event JSON as the final argv. Best-effort and
 // silent — never affects the notify exit status.
-func reportCodexActivity(label string, args []string, toolID string) {
-	if label != "codex" || toolID == "" {
+func reportNotifyActivity(label string, args []string, toolID string) {
+	if toolID == "" {
 		return
 	}
+	// FR-AAC-31: **선언으로 가른다.** 종전에는 `label != "codex"` 였는데, 그것은
+	// 이름의 성질이 아니라 훅이 없다는 성질이다.
 	adapter, err := agentadapter.Get(label)
-	if err != nil {
+	if err != nil || !adapter.ActivityFromNotify {
 		return
 	}
 	for _, a := range args {

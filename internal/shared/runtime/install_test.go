@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"dongminal/internal/shared/agentadapter"
+
 	"dongminal/internal/helper/runtimebin"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/testpath"
@@ -30,7 +32,7 @@ func TestInstallAgentHooks_Activity(t *testing.T) {
 	}
 	s := string(blob)
 	// 실행 파일 경로는 인용된다 (HOST_PARITY_SRS FR-HPR-4).
-	if want := testpath.JSONInner(hookCommand(dmctlPath(dir), "activity", "claude")); !strings.Contains(s, want) {
+	if want := testpath.JSONInner((agentadapter.InstallSpec{Dmctl: dmctlPath(dir)}).HookCommand("activity", "claude")); !strings.Contains(s, want) {
 		t.Fatalf("claude.json should invoke %q, got:\n%s", want, s)
 	}
 	if strings.Contains(s, "notify") {

@@ -132,6 +132,14 @@ type ContextObservation struct {
 	// 답하지 못하면 빈 문자열이다. **내용이 아니라 식별자다** — NFR-4 가 금하는
 	// 것은 대화의 본문이고, 어느 모델이 답했는가는 그것이 아니다.
 	Model string
+	// Agent 는 이 관측을 보고한 에이전트다 (AGENT_ADAPTER_COMPLETION_SRS
+	// FR-AAC-23). 모델 이름의 뜻은 에이전트마다 다르므로 창 크기를 물으려면
+	// 보고자를 알아야 한다.
+	//
+	// **멤버의 Agent 로 대신할 수 없다** — 조정자의 관측은 멤버가 아니라 되짚을
+	// 자리가 없기 때문이다 (observeCoordinator). 비어 있으면 창을 모르는 것으로
+	// 두며, 그때는 정책 기본값과 넓히기가 받는다 (FR-CTX-6·7).
+	Agent string
 }
 
 // ObserveContext 는 관측 하나를 멤버에 반영한다 (FR-CBG-3).
@@ -210,7 +218,7 @@ func applyContextObservation(cs *ContextState, obs ContextObservation, policy Co
 	 *
 	 * 넓힌 값은 남는다 (FR-CTX-7). 압축으로 사용량이 내려가도 창은 그대로다.
 	 */
-	if w, ok := WindowForModel(obs.Model); ok {
+	if w, ok := WindowForModel(obs.Agent, obs.Model); ok {
 		cs.ContextLimit = w
 	}
 	if cs.ContextLimit <= 0 {

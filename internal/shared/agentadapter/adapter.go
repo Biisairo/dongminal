@@ -181,9 +181,59 @@ type Adapter struct {
 	Signals Signals
 	// Readiness 는 준비완료 판정의 근거다.
 	Readiness Readiness
+	// ActivityFromNotify 는 이 에이전트가 활동을 **`notify` 경로로만** 보고한다는
+	// 선언이다 (AGENT_ADAPTER_COMPLETION_SRS FR-AAC-31).
+	//
+	// 활동 훅이 없는 에이전트가 있다 — codex 의 표준 notify 는
+	// `agent-turn-complete` 하나뿐이라 도구도 턴의 출처도 오지 않는다
+	// (`Signals{Done:true}`). 그래서 그 한 번의 notify 에서 활동을 파생시킨다.
+	//
+	// 종전에는 그 판정이 `if label != "codex"` 라는 **이름 비교**였다. 이름은
+	// 등록부 밖에 있으면 안 되고(지시 2026-09-11), 무엇보다 그것은 codex 라는
+	// 이름의 성질이 아니라 **훅이 없다는 성질**이다.
+	ActivityFromNotify bool
 	// ExitCommand 는 정중한 종료 지시다. Run 정리에서 조정자가 이것을 보낸 뒤
 	// 탭을 닫는다 (FR-RUN-11a). 비어 있으면 확인된 종료 지시가 없다는 뜻이다.
 	ExitCommand string
+
+	// ── 아래 셋은 **능력 선언**이다 (AGENT_ADAPTER_COMPLETION_SRS D-2).
+	//
+	// `nil` 은 "이 에이전트는 그것을 하지 않는다" 는 선언이며, 빈 함수와 다르다 —
+	// 빈 함수는 "했는데 결과가 없다" 로 읽힌다. `Signals` 가 이미 같은 규약이다.
+
+	// InstallAssets 는 이 에이전트가 붙기 위해 디스크에 놓아야 할 것을 쓴다
+	// (FR-AAC-1). `nil` 이면 놓을 것이 없다 — codex 는 기동줄만 쓴다.
+	InstallAssets func(InstallSpec) error
+
+	// ParseUsage 는 전사본 **한 줄**에서 사용량을 뽑는다 (FR-AAC-10).
+	//
+	// 줄을 고르고·자르고·뒤에서부터 훑는 것은 호출자의 몫이다 (FR-AAC-11) —
+	// 그것은 파일 다루는 법이고 어느 에이전트에게나 같다. 어댑터가 아는 것은
+	// **한 줄의 뜻**뿐이다.
+	//
+	// `nil` 이면 전사본을 읽지 않는다. 그때 호출자는 **파일을 열지도 않는다**
+	// (FR-AAC-13) — 읽고 실패하는 것보다 싸고 정직하다.
+	ParseUsage func(line string) (Usage, bool)
+
+	// ContextWindow 는 모델 이름이 말하는 컨텍스트 창 크기다 (FR-AAC-20).
+	//
+	// `nil` 이면 창 크기를 말하지 않는다. 그때는 정책 기본값에서 출발해 관측으로
+	// 넓히는 기존 경로가 그대로 받으므로(UX_BATCH6_SRS FR-CTX-6·7) 새 동작을
+	// 만들 필요가 없다.
+	ContextWindow func(model string) (float64, bool)
+}
+
+// Usage 는 전사본 한 줄이 말하는 사용량이다 (FR-AAC-12).
+//
+// **숫자와 모델 이름뿐이다.** 내용을 실어 나를 통로를 만들지 않는 것이 NFR-4 의
+// 첫 방벽이며, 그 규약은 이 타입이 대신 진다 — 종전에는 `dmctl` 안의 사적
+// 타입이 그 자리였다.
+type Usage struct {
+	// Tokens 는 그 요청의 **입력 컨텍스트**다. 답(output)은 다음 요청의 입력이
+	// 되기 전까지 컨텍스트가 아니므로 여기 들지 않는다.
+	Tokens int64
+	// Model 은 그 요청을 처리한 모델의 이름이다. 창 크기의 근거가 된다.
+	Model string
 }
 
 // HooksDirToken 은 `MemberArgs` 안에서 **런타임이 채우는 자리**다

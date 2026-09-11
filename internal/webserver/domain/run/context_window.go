@@ -1,6 +1,10 @@
 package run
 
-import "strings"
+import (
+	"strings"
+
+	"dongminal/internal/shared/agentadapter"
+)
 
 // 컨텍스트 창 크기 (UX_BATCH6_SRS FR-CTX-5·6).
 //
@@ -22,24 +26,27 @@ import "strings"
 // 딛는다. 상수를 코드 여기저기 적지 않으려고 목록 하나에서 파생시킨다.
 var contextWindows = []float64{200000, 1000000}
 
-// longContextSuffix 는 Claude Code 가 긴 컨텍스트 판을 기록할 때 모델 이름에
-// 붙이는 표식이다.
-const longContextSuffix = "[1m]"
-
-// WindowForModel 은 모델 문자열이 말하는 창 크기다 (FR-CTX-5).
+// WindowForModel 은 **그 에이전트의** 모델 문자열이 말하는 창 크기다 (FR-CTX-5).
 //
-// 두 번째 값이 거짓이면 **모델이 답하지 못한 것**이며, 그때는 호출자가 설정값을
-// 쓰고 관측으로 넓힌다. 모르는 이름을 기본값으로 단정하지 않는 이유가 그것이다 —
-// 단정하면 그 뒤의 넓히기가 "설정이 틀렸다" 와 "표에 없다" 를 구분하지 못한다.
-func WindowForModel(model string) (float64, bool) {
-	m := strings.ToLower(strings.TrimSpace(model))
-	if m == "" {
+// AGENT_ADAPTER_COMPLETION_SRS FR-AAC-20·21: 판정은 어댑터가 한다. 종전에는 여기
+// 모델 이름의 접미어 규칙이 박혀 있었고, 그것은 한 에이전트의 기록 방식이지 이
+// 도메인의 지식이 아니었다.
+//
+// 두 번째 값이 거짓이면 **모른다**는 뜻이며, 그때는 호출자가 설정값을 쓰고 관측으로
+// 넓힌다 (FR-CTX-6·7). 셋이 같은 답으로 모인다:
+//
+//	· 에이전트를 말하지 않은 관측    — 보고자를 모른다
+//	· 등록되지 않은 에이전트          — 우리가 모르는 에이전트다
+//	· ContextWindow 가 nil 인 어댑터  — 그 에이전트가 말하지 않는다 (codex)
+//
+// 모르는 것을 기본값으로 단정하지 않는 이유는 종전과 같다 — 단정하면 그 뒤의
+// 넓히기가 "설정이 틀렸다" 와 "표에 없다" 를 구분하지 못한다.
+func WindowForModel(agent, model string) (float64, bool) {
+	a, err := agentadapter.Get(strings.TrimSpace(agent))
+	if err != nil || a.ContextWindow == nil {
 		return 0, false
 	}
-	if strings.HasSuffix(m, longContextSuffix) {
-		return contextWindows[len(contextWindows)-1], true
-	}
-	return 0, false
+	return a.ContextWindow(model)
 }
 
 // WidenWindow 는 관측이 넘어선 창을 아는 다음 단계로 넓힌다 (FR-CTX-6).

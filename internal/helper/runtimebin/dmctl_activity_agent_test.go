@@ -32,7 +32,7 @@ func TestActivityReportCarriesAgentID(t *testing.T) {
 // 남지 않고 사용자에게만 보인다.
 func TestCodexActivityReportOmitsAgentID(t *testing.T) {
 	cap := startCapture(t, "7")
-	reportCodexActivity("codex", []string{`{"type":"agent-turn-complete"}`}, "7")
+	reportNotifyActivity("codex", []string{`{"type":"agent-turn-complete"}`}, "7")
 	body := strings.Join(cap.activitySnapshot(), "\n")
 	if body == "" {
 		t.Fatal("codex 활동 보고가 아예 가지 않았다")

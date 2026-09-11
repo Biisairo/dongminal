@@ -19,7 +19,7 @@ import (
 // 정책은 스킬 본문과 각 서브커맨드의 --help 몫이다.
 
 const dmctlAgentContextHelp = `dmctl agent-context
-  dongminal 세션에 상시 주입되는 컨텍스트를 Claude Code SessionStart 훅 형식의
+  dongminal 세션에 상시 주입되는 컨텍스트를 에이전트의 세션 시작 훅 형식(JSON)으로
   JSON 으로 출력한다. agent-plugin/hooks/hooks.json 이 호출한다.
   훅으로 돌기 때문에 어떤 실패에서도 0 으로 종료한다.
 `

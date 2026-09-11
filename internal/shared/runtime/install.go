@@ -10,7 +10,6 @@ package runtime
 
 import (
 	"embed"
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -20,6 +19,7 @@ import (
 	"strings"
 
 	"dongminal/internal/helper/runtimebin"
+	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/platform"
 )
 
@@ -81,15 +81,25 @@ func installWith(binDir, self string) error {
 	}
 	// LEFTOVERS_SRS FR-LFT-5: 놓기만 하고 거두지 않으면 폐지된 이름이 영원히 남는다.
 	reapRetiredHelpers(binDir, names)
-	if err := installAgentHooks(binDir); err != nil {
-		return fmt.Errorf("install agent hooks: %w", err)
+	/*
+		AGENT_ADAPTER_COMPLETION_SRS FR-AAC-4: **등록된 어댑터를 순회한다.**
+
+		종전에는 이 자리에 에이전트마다 한 줄씩 있었고(claude 훅 · omp shim),
+		네 번째가 오면 줄이 하나 더 늘었다. 그 줄을 빠뜨리면 훅이 조용히 죽고,
+		죽으면 알람과 활동이 통째로 멎는다.
+
+		**순서가 요구사항이다.** 플러그인 트리를 먼저 펼치고, 어댑터가 그 안에
+		훅을 쓰고, 마지막에 거울로 맞춘다 — prune 이 먼저 오면 방금 쓴 훅을
+		지운다(`generatedPluginPaths` 가 그 자리를 지키지만, 순서를 뒤집을
+		이유가 없다).
+	*/
+	if err := unpackAgentPlugin(binDir); err != nil {
+		return fmt.Errorf("install agent plugin: %w", err)
 	}
-	// FR-OMP-10·20: omp 의 훅 shim 과 멤버 오버레이. claude 의 것과 같은 자리에
-	// 같은 수명으로 산다 (`agent-hooks/`).
-	if err := installOmpAssets(binDir); err != nil {
+	if err := installAgentAssets(binDir); err != nil {
 		return err
 	}
-	if err := installAgentPlugin(binDir); err != nil {
+	if err := pruneAgentPlugin(binDir); err != nil {
 		return fmt.Errorf("install agent plugin: %w", err)
 	}
 	return nil
@@ -278,15 +288,44 @@ func AgentPluginDir(binDir string) string { return filepath.Join(binDir, "agent-
 // **거울**이어야 한다 — 삭제된 스킬 자산이 남아 있으면 그 경로를 그대로 쓰는
 // 옛 세션이 사라진 스크립트를 실행한다 (실측 2026-08-25: b3dc910 에서 지운
 // build_prompt.py 가 설치 트리에 남아 있었다).
-func installAgentPlugin(binDir string) error {
-	dir := AgentPluginDir(binDir)
-	if err := unpackEmbedded(agentPluginFS, "agentplugin", dir); err != nil {
+// 훅 쓰기는 이 자리를 떠났다 — 그 형식은 claude 의 것이므로 어댑터가 든다
+// (FR-AAC-6). 남은 둘은 **자산 관리**이며 어느 에이전트의 것도 아니다.
+func unpackAgentPlugin(binDir string) error {
+	return unpackEmbedded(agentPluginFS, "agentplugin", AgentPluginDir(binDir))
+}
+
+// pruneAgentPlugin 은 설치 트리를 임베드 트리의 거울로 되돌린다. 어댑터가 쓴
+// 훅은 `generatedPluginPaths` 가 지킨다.
+func pruneAgentPlugin(binDir string) error {
+	return pruneToEmbedded(agentPluginFS, "agentplugin", AgentPluginDir(binDir), generatedPluginPaths)
+}
+
+// installAgentAssets 는 **등록된 어댑터 전부**의 설치물을 놓는다 (FR-AAC-4).
+//
+// 디렉터리는 여기서 한 번 만든다 — 어댑터마다 MkdirAll 을 되풀이할 이유가 없다
+// (FR-AAC-2).
+func installAgentAssets(binDir string) error {
+	dir := runtimebin.AgentHooksDirIn(binDir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	if err := installAgentPluginHooks(binDir, dir); err != nil {
-		return err
+	spec := agentadapter.InstallSpec{
+		Dir:       dir,
+		PluginDir: AgentPluginDir(binDir),
+		Dmctl:     dmctlPath(binDir),
 	}
-	return pruneToEmbedded(agentPluginFS, "agentplugin", dir, generatedPluginPaths)
+	for _, id := range agentadapter.IDs() {
+		a, err := agentadapter.Get(id)
+		if err != nil || a.InstallAssets == nil {
+			// FR-AAC-1: nil 은 "놓을 것이 없다" 는 선언이다 (codex 는 기동줄만 쓴다).
+			continue
+		}
+		if err := a.InstallAssets(spec); err != nil {
+			// FR-AAC-5: 순회가 되면서 실패의 출처가 흐려지면 안 된다.
+			return fmt.Errorf("install %s assets: %w", id, err)
+		}
+	}
+	return nil
 }
 
 // generatedPluginPaths 는 임베드가 아니라 설치가 **만드는** 것들이다. 거울
@@ -357,99 +396,6 @@ func pruneToEmbedded(src embed.FS, root, dst string, keep []string) error {
 // 만들지 않는다.
 func dmctlPath(binDir string) string {
 	return filepath.Join(binDir, "dmctl"+platform.Current().Paths.ExeSuffix())
-}
-
-// hookCommand 는 에이전트 훅에 적을 명령 한 줄이다 — **실행 파일만** 인용한다
-// (HOST_PARITY_SRS FR-HPR-4·5).
-//
-// 인용이 필요한 이유는 훅을 무엇이 실행하는지 우리가 정하지 못하기 때문이다.
-// Claude Code 는 Windows 에서 Git Bash 가 PATH 에 있으면 `bash -c`, 없으면
-// `cmd.exe` 로 훅을 돌리며 그 선택은 암묵적이다. 무인용 백슬래시는 bash 에서
-// escape 로 소비되어 `C:\Users\foo\…` 가 `C:Usersfoo…` 가 되고, 공백은 cmd
-// 에서 명령을 자른다 — 훅 전량이 무성 실패한다 (§2.2). 큰따옴표는 bash·cmd·
-// PowerShell 셋 모두에서 경로를 한 덩어리로 만든다.
-//
-// 인자는 감싸지 않는다. 명령 전체를 감싸면 셸이 그것을 한 덩어리 파일명으로
-// 읽는다 (D-2).
-func hookCommand(exe string, args ...string) string {
-	cmd := `"` + exe + `"`
-	if len(args) > 0 {
-		cmd += " " + strings.Join(args, " ")
-	}
-	return cmd
-}
-
-// installAgentPluginHooks writes the plugin's SessionStart hook. dmctl is
-// referenced by absolute path for the same reason installAgentHooks does it —
-// a stale dmctl earlier in PATH would not understand `agent-context`.
-func installAgentPluginHooks(binDir, pluginDir string) error {
-	hooksDir := filepath.Join(pluginDir, "hooks")
-	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
-		return err
-	}
-	settings := map[string]any{
-		"hooks": map[string]any{
-			"SessionStart": []any{map[string]any{
-				"matcher": "",
-				"hooks": []any{map[string]any{
-					"type":    "command",
-					"command": hookCommand(dmctlPath(binDir), "agent-context"),
-				}},
-			}},
-		},
-	}
-	blob, err := json.MarshalIndent(settings, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(hooksDir, "hooks.json"), blob, 0o644)
-}
-
-// installAgentHooks writes the Claude Code hooks settings file used by the
-// transparent `claude` wrapper (PANE_ATTENTION_NOTIFY_SRS FR-PAN-19). The hook
-// commands reference dmctl by absolute path so they resolve to THIS instance's
-// helper regardless of PATH ordering (a stale dmctl earlier in PATH would not
-// understand `notify`).
-func installAgentHooks(binDir string) error {
-	dir := runtimebin.AgentHooksDirIn(binDir)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	dmctl := dmctlPath(binDir)
-	activityHook := map[string]any{"type": "command", "command": hookCommand(dmctl, "activity", "claude")}
-	event := func(hooks ...any) any {
-		return []any{map[string]any{"matcher": "", "hooks": hooks}}
-	}
-	settings := map[string]any{
-		"hooks": map[string]any{
-			"SessionStart":     event(activityHook),
-			"SessionEnd":       event(activityHook),
-			"UserPromptSubmit": event(activityHook),
-			"PreToolUse":       event(activityHook),
-			"PostToolUse":      event(activityHook),
-			"PreCompact":       event(activityHook),
-			"SubagentStop":     event(activityHook),
-			// AGENT_EVENT_ABSTRACTION_SRS FR-AEV-20: **`notify` 배선을 뺐다.**
-			//
-			//   이전 동작: `Stop` → `dmctl notify done` + `dmctl activity claude`
-			//   새  동작: `Stop` → `dmctl activity claude` 하나
-			//   이유:     활동 보고가 이미 같은 사실을 말한다 — claude 의
-			//             `HookParse` 가 `Stop`→`done`·`Notification`→`waiting`
-			//             를 낸다. 알람은 그 활동 이벤트에서 파생한다
-			//             (FR-AEV-10). 두 명령의 도착 순서가 보장되지 않는 것이
-			//             `FR-ATN-8` 이 규칙을 비튼 이유였는데, 명령이 하나가
-			//             되면 그 경합 자체가 사라진다 (FR-AEV-30)
-			//
-			// 훅마다 프로세스 하나가 줄어드는 것은 곁다리 이득이다 (NFR-AEV-1).
-			"Stop":         event(activityHook),
-			"Notification": event(activityHook),
-		},
-	}
-	blob, err := json.MarshalIndent(settings, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(dir, "claude.json"), blob, 0o644)
 }
 
 // installShellHooks 는 **이 OS 의** 훅만 푼다. 모든 OS 의 훅을 다 풀면 쓰이지도

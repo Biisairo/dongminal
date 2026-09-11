@@ -12,7 +12,7 @@ const dmctlNotifyHelp = `dmctl notify [label]
   현재 tool 이 주의가 필요함을 알린다(작업 완료/입력 대기 등).
   DONGMINAL_TOOL_ID 로 자신을 식별해 서버에 알림을 POST 하므로, 제어 터미널이
   없는 detached 환경(에이전트 hook 등)에서도 동작한다. 에이전트 hook 에서 호출.
-  예: claude Stop hook -> "dmctl notify done", Notification hook -> "dmctl notify waiting"
+  예: 턴 종료 hook -> "dmctl notify done", 입력 대기 hook -> "dmctl notify waiting"
 `
 
 // runDmctlNotify flags the calling tool as needing attention by POSTing to the
@@ -41,7 +41,7 @@ func runDmctlNotify(args []string, stdout, stderr io.Writer) int {
 	status, resp, err := httpPostJSON(url, body)
 	// Report codex activity on every notify attempt, even if the attention
 	// POST itself fails. Best-effort and silent — never affects exit status.
-	reportCodexActivity(label, args, toolID)
+	reportNotifyActivity(label, args, toolID)
 	return dmctlHTTPResult("dmctl notify", status, resp, err, false, io.Discard, stderr)
 }
 

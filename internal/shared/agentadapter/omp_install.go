@@ -1,13 +1,10 @@
-package runtime
+package agentadapter
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"dongminal/internal/helper/runtimebin"
-	"dongminal/internal/shared/agentadapter"
 )
 
 // OMP_AGENT_SUPPORT_SRS 묶음 B·C — omp 의 활동 shim 과 멤버 오버레이.
@@ -15,21 +12,27 @@ import (
 // **claude 와 형태가 다르다.** claude 는 훅 정의를 JSON 으로 주고 에이전트가 그
 // 명령을 실행한다. omp 의 훅은 in-process 모듈이므로 우리가 **모듈 파일**을 주고,
 // 그 안에서 `dmctl activity omp` 를 띄운다 (SRS §2.2).
+//
+// AGENT_ADAPTER_COMPLETION_SRS FR-AAC-1: `runtime/install_omp.go` 에서 무동작
+// 이동했다. 형태가 claude 와 다르다는 것이 곧 **이 지식이 어댑터의 것**이라는
+// 근거다 — 설치하는 쪽이 그 차이를 알 이유가 없다.
 
-// ompShimFile 은 활동 보고 훅의 파일명이다. `omp --hook <이 파일>` 로 붙는다.
-const ompShimFile = "omp-activity.mjs"
+// OmpShimFile 은 활동 보고 훅의 파일명이다. `omp --hook <이 파일>` 로 붙는다.
+//
+// 밖으로 여는 이유는 `OmpMemberConfigFile` 과 같다 — 설치가 놓은 자리를 확인하는
+// 쪽(검증·래퍼)이 이름을 다시 적으면 두 벌이 된다.
+const OmpShimFile = "omp-activity.mjs"
 
 // installOmpAssets 는 활동 shim 과 멤버 오버레이를 쓴다 (FR-OMP-10·20).
-func installOmpAssets(binDir string) error {
-	dir := runtimebin.AgentHooksDirIn(binDir)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+//
+// 자리는 `InstallSpec` 이 실어 온다 (FR-AAC-2) — 디렉터리는 호출자가 이미 만들어
+// 두었으므로 여기서 MkdirAll 을 되풀이하지 않는다.
+func installOmpAssets(s InstallSpec) error {
+	shim := filepath.Join(s.Dir, OmpShimFile)
+	if err := os.WriteFile(shim, []byte(ompShimSource(s.Dmctl)), 0o644); err != nil {
 		return err
 	}
-	shim := filepath.Join(dir, ompShimFile)
-	if err := os.WriteFile(shim, []byte(ompShimSource(dmctlPath(binDir))), 0o644); err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(dir, agentadapter.OmpMemberConfigFile),
+	return os.WriteFile(filepath.Join(s.Dir, OmpMemberConfigFile),
 		[]byte(ompMemberOverlay), 0o644)
 }
 

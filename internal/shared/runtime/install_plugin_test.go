@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"dongminal/internal/shared/agentadapter"
+
 	"dongminal/internal/shared/testpath"
 )
 
@@ -108,7 +110,7 @@ func TestInstallAgentPlugin_Hooks(t *testing.T) {
 		t.Fatalf("hooks.json must wire SessionStart, got: %v", parsed.Hooks)
 	}
 	// 실행 파일 경로는 인용된다 (HOST_PARITY_SRS FR-HPR-5).
-	want := hookCommand(dmctlPath(dir), "agent-context")
+	want := (agentadapter.InstallSpec{Dmctl: dmctlPath(dir)}).HookCommand("agent-context")
 	if !strings.Contains(string(blob), testpath.JSONInner(want)) {
 		t.Fatalf("hooks.json should invoke %q, got:\n%s", want, blob)
 	}

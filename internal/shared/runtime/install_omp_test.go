@@ -16,6 +16,12 @@ import (
 // 래퍼 ↔ 선언 대조(V-OMP-11·12)는 기존 `TestPolicyInjectionDeclarationMatchesShellWrappers`
 // 가 이미 전 에이전트에 대해 잰다 — 두 벌로 두지 않는다.
 
+// jsonString 은 shim 안의 JS 문자열 리터럴 모양이다. 프로덕션 헬퍼를 검증만을
+// 위해 밖으로 열지 않는다 — 한 줄이므로 여기서 같은 규칙을 적는다.
+func jsonString(v string) string {
+	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(v) + `"`
+}
+
 // V-OMP-10
 func TestInstallOmpAssets_ShimAndOverlay(t *testing.T) {
 	dir := t.TempDir()
@@ -24,7 +30,7 @@ func TestInstallOmpAssets_ShimAndOverlay(t *testing.T) {
 	}
 	hooks := runtimebin.AgentHooksDirIn(dir)
 
-	shim, err := os.ReadFile(filepath.Join(hooks, ompShimFile))
+	shim, err := os.ReadFile(filepath.Join(hooks, agentadapter.OmpShimFile))
 	if err != nil {
 		t.Fatalf("shim 이 없다: %v", err)
 	}
@@ -164,7 +170,7 @@ func TestOmpInjectionIsRuntimeOnly(t *testing.T) {
 
 	// ② 우리 산출물은 binDir 아래다.
 	hooks := runtimebin.AgentHooksDirIn(binDir)
-	for _, f := range []string{ompShimFile, agentadapter.OmpMemberConfigFile} {
+	for _, f := range []string{agentadapter.OmpShimFile, agentadapter.OmpMemberConfigFile} {
 		p := filepath.Join(hooks, f)
 		if _, err := os.Stat(p); err != nil {
 			t.Fatalf("%s 가 없다: %v", f, err)
@@ -175,7 +181,7 @@ func TestOmpInjectionIsRuntimeOnly(t *testing.T) {
 	}
 
 	// ③ shim 도 오버레이도 사용자의 omp 자리를 **언급조차** 하지 않는다.
-	for _, f := range []string{ompShimFile, agentadapter.OmpMemberConfigFile} {
+	for _, f := range []string{agentadapter.OmpShimFile, agentadapter.OmpMemberConfigFile} {
 		blob, err := os.ReadFile(filepath.Join(hooks, f))
 		if err != nil {
 			t.Fatal(err)

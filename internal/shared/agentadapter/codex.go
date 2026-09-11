@@ -33,9 +33,11 @@ var codexAdapter = Adapter{
 	//
 	// `UserTurn=false` 가 이 선언에서 가장 중요한 한 줄이다 (FR-AEV-12) — 이것이
 	// 없으면 알람 규칙이 "사용자 턴이 아니었다" 로 읽어 codex 를 영원히 침묵시킨다.
-	Signals:     Signals{Done: true},
-	Readiness:   Readiness{Hooks: false},
-	ExitCommand: "", // 미확인
+	Signals:   Signals{Done: true},
+	Readiness: Readiness{Hooks: false},
+	// FR-AAC-31: 활동 훅이 없으므로 활동은 이 한 번의 notify 에서 파생한다.
+	ActivityFromNotify: true,
+	ExitCommand:        "", // 미확인
 }
 
 // parseCodexHook maps a Codex notify event to an activity report. Codex's

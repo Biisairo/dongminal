@@ -32,7 +32,7 @@ func TestHookCommandRunsUnderPosixShells(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(bin, "dmctl"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := installAgentHooks(bin); err != nil {
+	if err := installAgentAssets(bin); err != nil {
 		t.Fatal(err)
 	}
 

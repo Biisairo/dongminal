@@ -44,6 +44,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-scroll.sh
 	@echo "── 골격 배치 (inset:0 이 position 과 같은 규칙에 있는가)"
 	@scripts/check-skeleton.sh
+	@echo "── 에이전트 이름 (등록부 밖에 리터럴이 없는가)"
+	@scripts/check-agent-names.sh
 	@echo "gates ok"
 
 # 한 번에 도는 샤드 수. 샤드 하나가 워커 2개(= 인스턴스 2개)를 띄우므로 이 값이

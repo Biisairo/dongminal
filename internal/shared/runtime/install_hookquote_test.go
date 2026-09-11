@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/agentadapter"
 )
 
 // 훅 명령의 인용 (HOST_PARITY_SRS 묶음 B).
@@ -17,7 +19,7 @@ import (
 
 func TestHookCommand_QuotesExecutableOnly(t *testing.T) {
 	// V-HPR-2: 실행 파일만 감싼다. 인자는 감싸지 않는다.
-	got := hookCommand(`C:\Program Files\dm\dmctl.exe`, "notify", "done")
+	got := (agentadapter.InstallSpec{Dmctl: `C:\Program Files\dm\dmctl.exe`}).HookCommand("notify", "done")
 	want := `"C:\Program Files\dm\dmctl.exe" notify done`
 	if got != want {
 		t.Fatalf("hookCommand = %q, want %q", got, want)
@@ -25,7 +27,7 @@ func TestHookCommand_QuotesExecutableOnly(t *testing.T) {
 }
 
 func TestHookCommand_NoArgs(t *testing.T) {
-	if got := hookCommand("/home/u/.dongminal/bin/dmctl"); got != `"/home/u/.dongminal/bin/dmctl"` {
+	if got := (agentadapter.InstallSpec{Dmctl: "/home/u/.dongminal/bin/dmctl"}).HookCommand(); got != `"/home/u/.dongminal/bin/dmctl"` {
 		t.Fatalf("hookCommand = %q", got)
 	}
 }
@@ -33,7 +35,7 @@ func TestHookCommand_NoArgs(t *testing.T) {
 // 설치가 실제로 쓴 파일에서 확인한다 — 헬퍼만 옳고 호출부가 옛 모양이면 뜻이 없다.
 func TestInstallAgentHooks_AllCommandsQuoted(t *testing.T) {
 	bin := t.TempDir()
-	if err := installAgentHooks(bin); err != nil {
+	if err := installAgentAssets(bin); err != nil {
 		t.Fatal(err)
 	}
 	blob, err := os.ReadFile(filepath.Join(bin, "agent-hooks", "claude.json"))
@@ -54,7 +56,7 @@ func TestInstallAgentPluginHooks_Quoted(t *testing.T) {
 	// V-HPR-3: 플러그인 훅도 같은 자리를 지난다 (FR-HPR-5).
 	bin := t.TempDir()
 	plugin := filepath.Join(bin, "agent-plugin")
-	if err := installAgentPluginHooks(bin, plugin); err != nil {
+	if err := installAgentAssets(bin); err != nil {
 		t.Fatal(err)
 	}
 	blob, err := os.ReadFile(filepath.Join(plugin, "hooks", "hooks.json"))
@@ -78,7 +80,7 @@ func TestInstallAgentHooks_SpaceInPath(t *testing.T) {
 	if err := os.MkdirAll(bin, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := installAgentHooks(bin); err != nil {
+	if err := installAgentAssets(bin); err != nil {
 		t.Fatal(err)
 	}
 	blob, err := os.ReadFile(filepath.Join(bin, "agent-hooks", "claude.json"))

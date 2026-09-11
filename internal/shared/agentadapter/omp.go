@@ -47,6 +47,13 @@ var ompAdapter = Adapter{
 		SessionScoped: true,
 	},
 	HookParse: parseOmpHook,
+	// AGENT_ADAPTER_COMPLETION_SRS FR-AAC-1: shim 과 멤버 오버레이.
+	//
+	// `ParseUsage`·`ContextWindow` 는 **비운다** (FR-AAC-14 / D-4). 세션 파일이
+	// `.jsonl` 이라는 것만 알 뿐(SRS §2.3) 그 줄의 구조를 확인한 적이 없고,
+	// 근거 없이 claude 의 파서를 붙이면 우연히 맞는 날과 조용히 틀리는 날을
+	// 구분할 수 없다. 형식이 확인되면 여기 함수 하나가 는다.
+	InstallAssets: installOmpAssets,
 	// FR-AEV-2·3: **`Waiting` 만 거짓이다.** omp 의 승인 게이트는 훅에 통지되지
 	// 않으므로(OMP_AGENT_SUPPORT_SRS §2.4) 승인 대기를 관측할 길이 없다. 그것을
 	// 여기 적는 이유는 FR-OMP-8 과 같다 — 관측되지 않는 것을 지어내지 않되,

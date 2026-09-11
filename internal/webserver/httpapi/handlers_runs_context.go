@@ -135,12 +135,17 @@ func (s *Server) apiRunContext(w http.ResponseWriter, r *http.Request) {
 		// 규약으로 포인터다 — 재지 못한 것과 0 을 가른다.
 		Tokens *int64 `json:"tokens"`
 		Model  string `json:"model"`
+		// AGENT_ADAPTER_COMPLETION_SRS FR-AAC-23: 보고자. 모델 이름의 뜻은
+		// 에이전트마다 다르므로 창 크기를 물으려면 누가 보고했는지 알아야 한다.
+		// 비어 있으면 창을 모르는 것으로 둔다 — 폴백이 이미 있다 (FR-CTX-6·7).
+		Agent string `json:"agent"`
 	}
 	if !decodeJSONBody(w, r, &body) {
 		return
 	}
 	obs := run.ContextObservation{
-		SessionID: body.SessionID, Compacted: body.Compacted, Model: body.Model,
+		SessionID: body.SessionID, Compacted: body.Compacted,
+		Model: body.Model, Agent: body.Agent,
 	}
 	if body.Bytes != nil && *body.Bytes >= 0 {
 		obs.Bytes, obs.HasBytes = *body.Bytes, true

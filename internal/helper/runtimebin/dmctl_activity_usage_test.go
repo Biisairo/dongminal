@@ -6,7 +6,21 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/agentadapter"
 )
+
+// claudeForTest 는 전사본 형식을 아는 어댑터다. 이 파일이 재는 것은 **읽기
+// 전략**(꼬리 자르기·잘린 첫 줄 버리기·뒤에서부터 훑기)이고, 그것은 어느
+// 에이전트에게나 같다 (AGENT_ADAPTER_COMPLETION_SRS FR-AAC-11).
+func claudeForTest(t *testing.T) agentadapter.Adapter {
+	t.Helper()
+	a, err := agentadapter.Get("claude")
+	if err != nil {
+		t.Fatalf("claude 어댑터: %v", err)
+	}
+	return a
+}
 
 // UX_BATCH6_SRS 묶음 C — 실측 토큰의 훅 절반 (FR-CTX-1·2·3).
 
@@ -34,15 +48,15 @@ func writeLines(t *testing.T, lines ...string) string {
 // `output_tokens` 는 그 요청의 **답**이라 입력 컨텍스트가 아니다.
 func TestTranscriptUsage_SumsInputSide(t *testing.T) {
 	p := writeLines(t, assistantLine("claude-opus-5", 2, 1570, 200613, 840, "본문"))
-	u, ok := transcriptUsage(p)
+	u, ok := transcriptUsage(claudeForTest(t), p)
 	if !ok {
 		t.Fatal("usage 를 읽지 못했다")
 	}
-	if u.tokens != 2+1570+200613 {
-		t.Errorf("tokens = %d, want %d (출력 토큰이 섞였는지 보라)", u.tokens, 2+1570+200613)
+	if u.Tokens != 2+1570+200613 {
+		t.Errorf("tokens = %d, want %d (출력 토큰이 섞였는지 보라)", u.Tokens, 2+1570+200613)
 	}
-	if u.model != "claude-opus-5" {
-		t.Errorf("model = %q", u.model)
+	if u.Model != "claude-opus-5" {
+		t.Errorf("model = %q", u.Model)
 	}
 }
 
@@ -54,28 +68,28 @@ func TestTranscriptUsage_PicksLastLine(t *testing.T) {
 		`{"type":"user","message":{"content":"사용자 줄에는 usage 가 없다"}}`,
 		assistantLine("claude-opus-5[1m]", 1, 0, 480000, 7, "지금"),
 	)
-	u, ok := transcriptUsage(p)
+	u, ok := transcriptUsage(claudeForTest(t), p)
 	if !ok {
 		t.Fatal("usage 를 읽지 못했다")
 	}
-	if u.tokens != 1+480000 {
-		t.Errorf("tokens = %d — 마지막 줄이 아니다", u.tokens)
+	if u.Tokens != 1+480000 {
+		t.Errorf("tokens = %d — 마지막 줄이 아니다", u.Tokens)
 	}
-	if u.model != "claude-opus-5[1m]" {
-		t.Errorf("model = %q — 마지막 줄이 아니다", u.model)
+	if u.Model != "claude-opus-5[1m]" {
+		t.Errorf("model = %q — 마지막 줄이 아니다", u.Model)
 	}
 }
 
 // V-CTX-1: usage 가 하나도 없으면 **모른다**이며 0 이 아니다 (FR-CBG-5 의 규약).
 func TestTranscriptUsage_UnknownWhenAbsent(t *testing.T) {
 	p := writeLines(t, `{"type":"user","message":{"content":"안녕"}}`)
-	if _, ok := transcriptUsage(p); ok {
+	if _, ok := transcriptUsage(claudeForTest(t), p); ok {
 		t.Fatal("usage 가 없는 파일에서 값을 만들어 냈다")
 	}
-	if _, ok := transcriptUsage(""); ok {
+	if _, ok := transcriptUsage(claudeForTest(t), ""); ok {
 		t.Fatal("빈 경로에서 값을 만들어 냈다")
 	}
-	if _, ok := transcriptUsage(filepath.Join(t.TempDir(), "없다.jsonl")); ok {
+	if _, ok := transcriptUsage(claudeForTest(t), filepath.Join(t.TempDir(), "없다.jsonl")); ok {
 		t.Fatal("없는 파일에서 값을 만들어 냈다")
 	}
 }
@@ -88,12 +102,12 @@ func TestTranscriptUsage_ReadsOnlyTail(t *testing.T) {
 		assistantLine("claude-opus-5", 9, 9, 9, 9, pad), // 꼬리 밖으로 밀려난다
 		assistantLine("claude-opus-5", 1, 2, 3, 4, "끝"),
 	)
-	u, ok := transcriptUsage(p)
+	u, ok := transcriptUsage(claudeForTest(t), p)
 	if !ok {
 		t.Fatal("꼬리에서 읽지 못했다")
 	}
-	if u.tokens != 1+2+3 {
-		t.Errorf("tokens = %d — 꼬리 밖의 줄을 읽었거나 잘린 줄을 해석했다", u.tokens)
+	if u.Tokens != 1+2+3 {
+		t.Errorf("tokens = %d — 꼬리 밖의 줄을 읽었거나 잘린 줄을 해석했다", u.Tokens)
 	}
 	st, _ := os.Stat(p)
 	if st.Size() <= usageTailMax {
@@ -106,11 +120,11 @@ func TestTranscriptUsage_ReadsOnlyTail(t *testing.T) {
 func TestTranscriptUsage_CarriesNoContent(t *testing.T) {
 	const canary = "CANARY-SECRET-DO-NOT-TRANSMIT"
 	p := writeLines(t, assistantLine("claude-opus-5", 1, 2, 3, 4, canary))
-	u, ok := transcriptUsage(p)
+	u, ok := transcriptUsage(claudeForTest(t), p)
 	if !ok {
 		t.Fatal("usage 를 읽지 못했다")
 	}
-	if strings.Contains(u.model, canary) {
-		t.Fatalf("본문이 모델 이름으로 새 나왔다: %q", u.model)
+	if strings.Contains(u.Model, canary) {
+		t.Fatalf("본문이 모델 이름으로 새 나왔다: %q", u.Model)
 	}
 }

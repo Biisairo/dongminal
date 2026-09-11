@@ -87,11 +87,11 @@ func TestParseCodexHook(t *testing.T) {
 	}
 }
 
-// FR-AAP-9: reportCodexActivity is a no-op for non-codex labels or no tool id
+// FR-AAP-9: reportNotifyActivity is a no-op for non-codex labels or no tool id
 // (must not touch the network in those cases).
 func TestReportCodexActivity_Guards(t *testing.T) {
-	reportCodexActivity("done", []string{`{"type":"agent-turn-complete"}`}, "")
-	reportCodexActivity("claude", []string{`{"type":"agent-turn-complete"}`}, "p1")
+	reportNotifyActivity("done", []string{`{"type":"agent-turn-complete"}`}, "")
+	reportNotifyActivity("claude", []string{`{"type":"agent-turn-complete"}`}, "p1")
 }
 
 // NFR-AAP-5 / TC-AAP-10: runDmctlActivity is non-fatal — missing tool id or bad

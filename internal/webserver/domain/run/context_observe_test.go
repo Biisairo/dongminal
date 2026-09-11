@@ -44,7 +44,7 @@ func TestObserveContext_UsesMeasuredTokens(t *testing.T) {
 func TestObserveContext_ModelDecidesWindowUpFront(t *testing.T) {
 	s := storeWithMember(t, "t1")
 	m, _, _ := s.ObserveContext("t1", ContextObservation{
-		Tokens: 150000, HasTokens: true, Model: "claude-opus-5[1m]",
+		Tokens: 150000, HasTokens: true, Model: "claude-opus-5[1m]", Agent: "claude",
 	}, DefaultContextPolicy())
 	if m.ContextLimit != 1000000 {
 		t.Fatalf("모델이 말한 창을 쓰지 않았다: %v", m.ContextLimit)
