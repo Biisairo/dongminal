@@ -131,6 +131,22 @@ func usageHealth() string {
 `
 }
 
+func usageRollback() string {
+	return `사용법: dongminal rollback [--gen <번호>] [--home <경로>]
+
+  workspace.json 을 백업 세대로 되돌린다 (G3-2).
+
+  --gen 없이 부르면 되돌릴 수 있는 세대를 보여 준다. 자동으로 고르지 않는 것은
+  어느 세대가 맞는지 사용자만 알기 때문이다.
+
+  되돌리기 전의 판은 지우지 않고 .before-rollback-<시각> 으로 남긴다 —
+  세대를 잘못 골랐을 때 돌아올 자리다.
+
+  돌고 있는 인스턴스가 있으면 거부한다. 지금 되돌려도 그 서버가 곧 자기
+  메모리로 덮어쓰기 때문이다.
+`
+}
+
 func usageMigrate() string {
 	return `사용법: dongminal migrate [옵션]
 

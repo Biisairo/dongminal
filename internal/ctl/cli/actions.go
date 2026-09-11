@@ -62,6 +62,14 @@ func actionsOf() []action {
 				}
 				return RunMigrate(o, out, errw)
 			}},
+		{"rollback", "workspace.json 을 백업 세대로 되돌린다 (G3-2)", usageRollback,
+			func(rest []string, _ Serve, out, errw io.Writer) int {
+				o, err := ParseRollback(rest)
+				if code, done := settle("rollback", err, out, errw); done {
+					return code
+				}
+				return RunRollback(o, out, errw)
+			}},
 		{"window", "돌고 있는 서버에 frameless window 를 연다 (서버를 띄우지 않는다)", usageWindow,
 			func(rest []string, _ Serve, out, errw io.Writer) int {
 				o, err := ParseWindow(rest)
