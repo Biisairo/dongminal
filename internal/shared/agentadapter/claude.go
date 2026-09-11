@@ -52,13 +52,17 @@ var claudeAdapter = Adapter{
 // 않는다 — 컨텍스트 관측이 activity 패널의 동작을 바꾸면 안 된다 (NFR-CBG-2).
 func parseClaudeHook(data []byte) (Report, bool) {
 	var ev struct {
-		Event      string          `json:"hook_event_name"`
-		ToolName   string          `json:"tool_name"`
-		ToolInput  json.RawMessage `json:"tool_input"`
-		Prompt     string          `json:"prompt"`
-		Source     string          `json:"source"`
-		SessionID  string          `json:"session_id"`
-		Transcript string          `json:"transcript_path"`
+		Event     string          `json:"hook_event_name"`
+		ToolName  string          `json:"tool_name"`
+		ToolInput json.RawMessage `json:"tool_input"`
+		Prompt    string          `json:"prompt"`
+		// FR-AEV-15: **알람에도 내용이 실린다.** `Notification` 의 본문이 곧
+		// "무엇을 기다리는가" 다 — 권한 요청이면 어느 도구인지가 여기 있다.
+		// 없는 필드는 빈 값이 되므로 종전 동작을 깨지 않는다.
+		Message    string `json:"message"`
+		Source     string `json:"source"`
+		SessionID  string `json:"session_id"`
+		Transcript string `json:"transcript_path"`
 	}
 	if err := json.Unmarshal(data, &ev); err != nil {
 		return Report{}, false
@@ -85,7 +89,7 @@ func parseClaudeHook(data []byte) (Report, bool) {
 		// 바로 그 자리다.
 		rep = Report{State: "working", Detail: ev.Prompt, UserPrompt: !isBackgroundPrompt(ev.Prompt)}
 	case "Notification":
-		rep = Report{State: "waiting"}
+		rep = Report{State: "waiting", Detail: ev.Message}
 	case "Stop":
 		rep = Report{State: "done"}
 	case "SessionEnd":

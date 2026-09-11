@@ -18,8 +18,21 @@ const (
 	// AttnMaxCarry bounds the per-tool carry holding an unterminated OSC
 	// fragment that spans a read boundary. Beyond this the fragment is dropped.
 	AttnMaxCarry = 512
-	// attnDefaultIdleMS is the default L2 idle threshold. 0 would disable L2.
-	attnDefaultIdleMS = 10000
+	// attnDefaultIdleMS is the default L2 idle threshold. 0 disables L2.
+	//
+	// **기본이 꺼짐이다** (사용자 결정 `U-24`, 2026-09-11).
+	//
+	//	이전 동작 — 10000 (출력이 10초 멎으면 "작업이 멈췄습니다" 알람)
+	//	새 동작   — 0 (정적 감지 알람을 내지 않는다)
+	//	이유     — 재무장이 **출력 한 조각**이면 되므로(`observeOutputAt`),
+	//	           에이전트가 간헐적으로 출력하며 일하는 동안 출력→정적→알람이
+	//	           끝없이 반복됐다. 그리고 10초는 생각하는 에이전트에게 짧다.
+	//	           명시 신호(L1 — `waiting`·`done`)는 그대로 남으므로, 에이전트가
+	//	           **스스로 알린** 사건은 여전히 울린다
+	//
+	// 되살리는 길은 `DONGMINAL_ATTENTION_IDLE_MS` 다 — 판정 코드는 그대로 두었고
+	// 임계값만 0 이므로, 값을 주면 종전 동작이 그대로 선다.
+	attnDefaultIdleMS = 0
 	// attnTickMS is the idle sweeper tick period.
 	attnTickMS = 1000
 )

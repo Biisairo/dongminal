@@ -146,16 +146,29 @@ func TestAgentTurn_WaitingMarkClearsOnNewWork(t *testing.T) {
 	}
 }
 
-// V-ATN-16: 키를 누른 주목도 표시를 내린다 (FR-ATN-16). 보기만 한 주목은
-// 내리지 않는다 — 재무장 잠금을 가르는 구분(FR-ATF-5·6)과 같은 규약이다.
-func TestAgentTurn_WaitingMarkClearsOnTypedAttend(t *testing.T) {
+// V-ATN-16 (개정, FR-ATN-16a): **주목은 대기 표시를 내리지 않는다.**
+//
+//	이전 계약 — 키를 누른 주목이 표시를 내렸다 (FR-ATN-16)
+//	새 계약   — 내리지 않는다. 대기가 끝났다고 말할 수 있는 것은 `working` 뿐이다
+//	이유     — 권한 요청을 기다리는 중에 그 터미널을 만진 것은 일을 시킨 것이
+//	           아니다. 대기는 그대로인데 표시만 풀려, 에이전트가 같은 대기로
+//	           `Notification` 을 재전송할 때마다 다시 울렸다 (사용자 보고 `U-24`)
+func TestAgentTurn_TypedAttendKeepsTheWaitingMark(t *testing.T) {
 	var turn AgentTurn
 	turn.NoteActivity("working")
-	turn.AllowSignal("waiting")
+	if !turn.AllowSignal("waiting") {
+		t.Fatal("첫 대기가 알람이 되지 않았다")
+	}
 
 	turn.NoteAttendTyped()
+	if turn.AllowSignal("waiting") {
+		t.Fatal("주목이 대기 표시를 내렸다 — 같은 대기가 다시 울린다")
+	}
+
+	// 해소의 신호는 하나뿐이다: 에이전트가 실제로 다시 일을 시작했다.
+	turn.NoteActivity("working")
 	if !turn.AllowSignal("waiting") {
-		t.Fatalf("키를 누른 주목 뒤의 waiting 이 알람이 되지 않았다")
+		t.Fatal("일이 다시 시작된 뒤의 대기가 알람이 되지 않았다")
 	}
 }
 

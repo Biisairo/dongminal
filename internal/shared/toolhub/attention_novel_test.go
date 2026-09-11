@@ -187,9 +187,9 @@ func TestTool_Ended_DropsTurnMarks(t *testing.T) {
 	}
 }
 
-// V-ATN-14·16: 대기 하나가 낳는 알람은 한 번뿐이다. `Notification` 훅의
-// 되풀이는 조용하고, 사용자가 키를 눌러 응답한 뒤의 대기는 다시 알람이다
-// (FR-ATN-15·16, B7).
+// V-ATN-14·16 (개정): 대기 하나가 낳는 알람은 한 번뿐이다. `Notification` 훅의
+// 되풀이도, **주목도** 그것을 되살리지 못한다 — 해소를 말하는 것은 `working`
+// 하나다 (FR-ATN-15·16a, B7 · `U-24`).
 func TestTool_SignalWaiting_FiresOncePerWait(t *testing.T) {
 	var mu sync.Mutex
 	var attn, clear []string
@@ -216,10 +216,18 @@ func TestTool_SignalWaiting_FiresOncePerWait(t *testing.T) {
 		t.Fatalf("거둔 뒤의 되풀이 훅이 알람을 되살렸다: %v", attn)
 	}
 
-	// 키를 눌러 응답했다 — 그다음의 대기는 새 사건이다.
+	// 키를 눌러도 대기 표시는 남는다 (FR-ATN-16a) — 만졌다고 대기가 끝난 것이
+	// 아니기 때문이다. 같은 대기의 되풀이는 여전히 조용하다.
 	p.AttendTyped()
 	p.SignalAttention("waiting")
+	if len(attn) != 1 {
+		t.Fatalf("주목 뒤의 되풀이 훅이 알람을 되살렸다: %v", attn)
+	}
+
+	// 해소의 신호는 하나뿐이다: 에이전트가 실제로 다시 일을 시작했다.
+	p.SetActivity("working", "Bash", "ls")
+	p.SignalAttention("waiting")
 	if len(attn) != 2 || attn[1] != "agent:waiting" {
-		t.Fatalf("응답 뒤의 waiting 이 알람이 되지 않았다: %v", attn)
+		t.Fatalf("일이 다시 시작된 뒤의 waiting 이 알람이 되지 않았다: %v", attn)
 	}
 }

@@ -27,13 +27,13 @@ var codexAdapter = Adapter{
 		Flags:         []string{"-c"}, // -c notify=[".../dmctl","notify","codex"]
 		SessionScoped: true,
 	},
-	HookParse:   parseCodexHook,
+	HookParse: parseCodexHook,
 	// FR-AEV-2·3: codex 가 내는 것은 **`done` 하나뿐**이다. 표준 notify 가
 	// `agent-turn-complete` 하나이므로 시작도, 도구도, 턴의 출처도 오지 않는다.
 	//
 	// `UserTurn=false` 가 이 선언에서 가장 중요한 한 줄이다 (FR-AEV-12) — 이것이
 	// 없으면 알람 규칙이 "사용자 턴이 아니었다" 로 읽어 codex 를 영원히 침묵시킨다.
-	Signals: Signals{Done: true},
+	Signals:     Signals{Done: true},
 	Readiness:   Readiness{Hooks: false},
 	ExitCommand: "", // 미확인
 }
@@ -46,12 +46,16 @@ var codexAdapter = Adapter{
 func parseCodexHook(data []byte) (Report, bool) {
 	var ev struct {
 		Type string `json:"type"`
+		// FR-AEV-15: **알람에도 내용이 실린다.** codex 가 내는 이벤트는 이 하나뿐이고
+		// (Signals{Done:true}), 그 페이로드가 싣는 유일한 내용이 이것이다. 없으면
+		// 빈 값이므로 종전 동작 그대로다.
+		LastMessage string `json:"last-assistant-message"`
 	}
 	if err := json.Unmarshal(data, &ev); err != nil {
 		return Report{}, false
 	}
 	if ev.Type == "agent-turn-complete" {
-		return Report{State: "done"}, true
+		return Report{State: "done", Detail: ev.LastMessage}, true
 	}
 	return Report{}, false
 }

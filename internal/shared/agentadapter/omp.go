@@ -100,7 +100,9 @@ func parseOmpHook(data []byte) (Report, bool) {
 		// `auto_compaction_start`·`session_compact` 이며 shim 이 둘을 여기로 접는다.
 		rep = Report{State: "working", Compacted: true}
 	case "agent_end":
-		rep = Report{State: "done"}
+		// FR-AEV-15: shim 이 이미 실어 보낸 내용을 **알람에서도** 쓴다. 종전에는
+		// 파싱해 두고 버렸다 — `working` 에만 싣고 `done` 에서 비웠다.
+		rep = Report{State: "done", Detail: ev.Detail}
 	case "session_shutdown":
 		rep = Report{State: "ended"}
 	default:

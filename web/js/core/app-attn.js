@@ -351,6 +351,16 @@ Object.assign(App.prototype, {
       const reasonSpan=document.createElement('span');reasonSpan.className='attn-reason';reasonSpan.textContent=reason;
       item.appendChild(nameSpan);
       item.appendChild(reasonSpan);
+      // FR-AEV-15: 무엇에 대한 알람인지. 내용이 없는 에이전트도 있으므로(그 쪽은
+      // 페이로드가 비어 온다) 있을 때만 붙인다 — 빈 줄이 자리를 먹지 않는다.
+      const detail=this._attnDetail(toolId);
+      if(detail){
+        const d=document.createElement('span');
+        d.className='attn-detail';
+        d.textContent=detail;
+        d.title=detail;
+        item.appendChild(d);
+      }
       item.addEventListener('click',()=>{this._jumpToTool(toolId);this._attnCenterClose()});
       center.appendChild(item);
     }
@@ -367,7 +377,27 @@ Object.assign(App.prototype, {
     // 조용히 갱신만 되어 재팝업이 안 되므로, close→재생성으로 매번 확실히 다시 띄운다.
     this._attnNotifs=this._attnNotifs||{};
     this._attnCloseNotif(toolId);
-    try{this._attnNotifs[toolId]=new Notification(head,{body:where||('pane '+toolId)})}catch{}
+    const detail=this._attnDetail(toolId);
+    const body=[detail,where||('pane '+toolId)].filter(Boolean).join('\n');
+    try{this._attnNotifs[toolId]=new Notification(head,{body})}catch{}
+  },
+
+  /**
+   * FR-AEV-15: **알람이 무엇에 대한 것인지.**
+   *
+   * 종전에는 알림 본문이 자리(창 · 탭)뿐이었다 — 어느 도구인지는 알려 주고 **무슨
+   * 일인지는 말하지 않았다.** 내용은 어댑터가 이미 싣고 있다(claude 는
+   * `Notification` 의 본문, codex 는 `last-assistant-message`, omp 는 shim 의
+   * `detail`).
+   *
+   * 값을 알람 페이로드에 다시 싣지 않고 **활동 상태에서 읽는다** — 서버가 한 요청
+   * 안에서 활동을 먼저 갱신한 뒤 알람을 쏘므로(`handlers_attention.go`), 이 시점의
+   * 활동은 그 알람을 낳은 바로 그 보고다. 전송 표면을 늘리지 않는 쪽을 고른다.
+   */
+  _attnDetail(toolId){
+    const a=this._activity&&this._activity.get(toolId);
+    const d=((a&&a.detail)||'').replace(/\s+/g,' ').trim();
+    return d.length>ATTN_DETAIL_VIEW_MAX?d.slice(0,ATTN_DETAIL_VIEW_MAX)+'…':d;
   },
 
   // 저장해 둔 데스크톱 알림 객체를 닫는다(있으면).

@@ -350,13 +350,24 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 .attn-head .attn-title{font-size:11px;color:var(--text-muted)}
 .attn-clear-all{font-size:11px;color:var(--attn);background:none;border:1px solid var(--attn);border-radius:4px;padding:2px 8px;cursor:pointer}
 .attn-clear-all:hover{background:var(--attn-subtle)}
+/* FR-AEV-15: 이름 · 사유 · 내용 세 칸. 내용은 길 수 있으므로(codex 의
+   last-assistant-message 는 문단으로 온다) **줄이 늘지 않고 잘린다** — 항목 높이가
+   내용에 따라 들쭉날쭉하면 목록으로 읽히지 않는다. */
 .attn-item{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  display:flex;align-items:center;gap:8px;
   padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;color:var(--text);
+  /* flex 자식이 줄어들 수 있어야 생략이 선다 — min-width:auto 가 기본이라
+     긴 내용이 상자를 밀어낸다. */
+  min-width:0;
 }
 .attn-item:hover{background:var(--attn-subtle)}
-.attn-item .attn-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.attn-item .attn-name{flex-shrink:0;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .attn-item .attn-reason{flex-shrink:0;font-size:10px;color:var(--attn)}
+.attn-item .attn-detail{
+  flex:1 1 auto;min-width:0;margin-left:auto;text-align:right;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:10px;color:var(--text-muted);
+}
 .tbtn{
   padding:4px 10px;border:1px solid var(--border);border-radius:4px;
   background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;

@@ -164,9 +164,18 @@ func TestAttnTracker_SignalWaiting_FiresOncePerWait(t *testing.T) {
 		t.Fatalf("거둔 뒤의 되풀이 훅이 알람을 되살렸다: %d", got)
 	}
 
+	// FR-ATN-16a: 키를 눌러도 대기 표시는 남는다 — 만졌다고 대기가 끝난 것이
+	// 아니다. 데몬 모드도 직접 모드와 **글자 그대로 같은** 판정이어야 한다.
 	tr.AttendTyped("agent")
 	tr.SignalAttention("agent", "waiting")
+	if got := firedReason(fb, "agent", "waiting"); got != 1 {
+		t.Fatalf("주목 뒤의 되풀이 훅이 알람을 되살렸다: %d", got)
+	}
+
+	// 해소의 신호는 하나뿐이다: 에이전트가 실제로 다시 일을 시작했다.
+	tr.SetActivity("agent", "working", "Bash", "ls")
+	tr.SignalAttention("agent", "waiting")
 	if got := firedReason(fb, "agent", "waiting"); got != 2 {
-		t.Fatalf("응답 뒤의 waiting 이 알람이 되지 않았다: %d", got)
+		t.Fatalf("일이 다시 시작된 뒤의 waiting 이 알람이 되지 않았다: %d", got)
 	}
 }

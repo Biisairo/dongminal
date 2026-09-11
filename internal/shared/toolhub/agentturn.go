@@ -64,11 +64,28 @@ func (t *AgentTurn) NoteActivity(state string) {
 // InProgress 는 에이전트가 지금 일하는 중인지다 (FR-ATN-7).
 func (t *AgentTurn) InProgress() bool { return t.inProgress.Load() }
 
-// NoteAttendTyped 는 사용자가 그 도구에 **키를 눌러** 주목했음을 기록한다
-// (FR-ATN-16). 보기만 한 주목과 다른 점은 하나다 — 일을 시켰으므로 그 결과를
-// 다시 기다리게 되고, 따라서 다음 대기는 새 사건이다. 재무장 잠금을 가르는
-// `Attend`/`AttendTyped` 의 구분(FR-ATF-5·6)을 L1 명시 신호에도 같게 적용한다.
-func (t *AgentTurn) NoteAttendTyped() { t.waitingSignaled.Store(false) }
+/*
+NoteAttendTyped 는 사용자가 그 도구에 **키를 눌러** 주목했음을 기록한다.
+
+**대기 표시는 건드리지 않는다** (FR-ATN-16a, 사용자 보고 `U-24`).
+
+	이전 동작 — `waitingSignaled` 를 풀어 다음 대기를 새 사건으로 만들었다
+	새 동작   — 풀지 않는다. 대기가 끝났다고 말할 수 있는 것은 `working` 뿐이다
+	이유     — FR-ATN-16 은 "일을 시켰으므로 그 결과를 다시 기다린다" 를 전제했다.
+	           그러나 **권한 요청을 기다리는 중에 그 터미널을 만진 것은 일을 시킨
+	           것이 아니다.** 대기는 그대로인데 표시만 풀리고, 에이전트가 같은
+	           대기로 `Notification` 을 재전송하면 또 운다 — 사용자가 접수한
+	           *"한 번 봐도 여전히 waiting 상태이기 때문에 울리면 안 된다"* 가
+	           이것이다
+
+`NoteActivity("working")` 의 리셋은 **그대로 둔다.** 그쪽은 에이전트가 실제로 다시
+일을 시작했다는 보고이며, 그것이 곧 이전 대기의 해소다. 없애면 한 턴 안의 두 번째
+권한 요청이 조용해진다.
+
+재무장 잠금을 가르는 `Attend`/`AttendTyped` 의 구분(FR-ATF-5·6)은 그대로다 — 그것은
+정적 감지(idle)의 것이고, 이 함수가 만지던 것은 명시 신호(waiting)의 것이다.
+*/
+func (t *AgentTurn) NoteAttendTyped() {}
 
 // AllowActivitySignal 은 **활동 이벤트에서 파생한** 알람의 판정이다
 // (AGENT_EVENT_ABSTRACTION_SRS FR-AEV-10·12).

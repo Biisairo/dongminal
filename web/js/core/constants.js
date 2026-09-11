@@ -99,6 +99,15 @@ const ATTN_EDGE_PREVIEW_CLASS='ae-preview';
 // FR-AED-6: 알림이 있는 동안 documentElement 에 붙는 클래스. style.css 가 같은 이름을 안다.
 const ATTN_EDGE_ON_CLASS='attn-edge-on';
 
+/**
+ * FR-AEV-15: 알람에 곁들이는 **내용**의 표시 상한(글자).
+ *
+ * 서버는 이미 활동 필드를 자른다(`ActivityDetailMax`) — 이 값은 그보다 짧은 **화면의
+ * 상한**이다. 데스크톱 알림은 본문이 길면 OS 가 제멋대로 자르고, 알림 센터의 한
+ * 줄도 자리가 좁다. codex 의 `last-assistant-message` 는 문단 단위로 올 수 있다.
+ */
+const ATTN_DETAIL_VIEW_MAX=140;
+
 // 활동 패널 자동 새로고침 주기 기본값(ms). 설정에서 변경(per-device localStorage).
 // 비정상 종료·hook 누락으로 SSE 가 안 와도 주기적으로 서버와 동기화 (FR-AAP-19).
 const AGENTS_POLL_DEFAULT=5000;

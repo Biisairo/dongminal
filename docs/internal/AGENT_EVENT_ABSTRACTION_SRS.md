@@ -114,6 +114,7 @@ codex 에는 그 이벤트가 **없다** — codex 의 표준 notify 는 `agent-
 | 사용자 턴 | ✅ `UserPromptSubmit` | ✅ `agent_start` | ❌ |
 | 압축 | ✅ `PreCompact` | ✅ `auto_compaction_start`·`session_compact` | ❌ |
 | tool/detail | ✅ | ✅ | ❌ |
+| **알람의 내용** (`done`·`waiting` 의 `Detail`) | ❌ → ✅ `Notification.message` | ❌ → ✅ shim 의 `detail` | ❌ → ✅ `last-assistant-message` |
 | 세션 신원 | ✅ | ✅ `sessionManager` | ❌ |
 
 ---
@@ -164,6 +165,31 @@ codex 에는 그 이벤트가 **없다** — codex 의 표준 notify 는 `agent-
 
 **FR-AEV-14** 직접 모드(`toolhub.Tool`)와 데몬 모드(`hub.AttnTracker`)에서 **같게**
 동작한다 (`FR-ATN-14`·`NFR-4`).
+
+**FR-AEV-15** **알람에도 내용이 실린다** (사용자 보고 `U-25`, 2026-09-11).
+
+접수한 말은 *"codex, omp 에서도 알람 내용을 전달해야 한다. 그게 인터페이스의
+기본이다"* 이고, 조사해 보니 **세 어댑터 전부가 비어 있었다** — claude 도 마찬가지다.
+`Report.Detail` 은 `working` 에서만 채워졌고, **알람이 되는 두 상태**(`done`·
+`waiting`)에서는 셋 다 빈 값을 보냈다. 그래서 데스크톱 알림의 본문에는 자리(창 ·
+탭)만 실렸다 — 어느 도구인지는 알려 주고 **무슨 일인지는 말하지 않았다.**
+
+인터페이스가 자리를 안 준 것이 아니라 **모든 구현이 그 자리를 안 채운 것**이므로,
+고치는 자리는 어댑터 셋이다.
+
+| 어댑터 | 싣는 값 |
+|---|---|
+| claude | `Notification` 의 `message` — 권한 요청이면 무엇을 요청하는지가 여기 있다. `Stop` 은 페이로드에 내용이 없다(전사본을 읽는 것은 비목표) |
+| codex | `agent-turn-complete` 의 `last-assistant-message` — codex 가 내는 유일한 이벤트이자 그 페이로드의 유일한 내용이다 |
+| omp | shim 의 `detail` — **이미 파싱해 두고 버리던 값**이다 |
+
+없는 필드는 빈 값이 되므로 이 변경은 종전 동작을 깨지 않는다 — 싣는 에이전트는
+싣고, 없는 에이전트는 지금과 같다.
+
+**FR-AEV-15a** 값은 **알람 페이로드에 다시 싣지 않는다.** 화면은 활동 상태에서
+읽는다 — 서버가 한 요청 안에서 `SetActivity` 를 먼저 부르고 `SignalAgentEvent` 를
+나중에 부르므로(`handlers_attention.go`), 알람이 닿는 시점의 활동은 **그 알람을 낳은
+바로 그 보고**다. 전송 표면을 늘리지 않는 쪽을 고른다 (D-1 과 같은 근거).
 
 ### 3.3 묶음 W — 손배선 제거
 
