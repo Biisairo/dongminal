@@ -390,6 +390,9 @@ test.describe('Mobile keybar tooltips (SRS REQ-T-1..T-4)', () => {
     // FR-MKB-9·11: `Ctrl` 옆의 새 키. 소프트 키보드를 올리지 않기로 하면
     // `Ctrl` 을 켠 뒤 `c` 를 칠 자리가 사라진다.
     '^C': 'Interrupt (Ctrl+C)',
+    // FR-MKB-15: 소프트 키보드를 내려 둔 채 줄을 넘길 자리. `Tab` 옆이다 —
+    // 둘 다 입력을 확정하는 키다.
+    '⏎': 'Enter',
   };
 
   test('TC-T1: every key button has matching title and aria-label', async ({ page }) => {
