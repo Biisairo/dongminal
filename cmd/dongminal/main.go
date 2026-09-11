@@ -461,7 +461,9 @@ func serve(home, host, port string) int {
 		return 1
 	}
 
-	cfg := httpapi.Config{Port: port, DataDir: home, StaticFS: web.FS()}
+	// FR-VHL-10: 서버의 빌드 판을 헬스가 쓴다. 데몬은 `boot.Run(home, cli.Version)`
+	// 으로 같은 값을 받는다 — 둘이 같은 출처를 봐야 불일치 판정이 뜻을 갖는다.
+	cfg := httpapi.Config{Port: port, DataDir: home, StaticFS: web.FS(), Version: cli.Version}
 
 	// Try daemon mode: connect to dongminald if available
 	panedClient := dialOrStartDaemon(home)

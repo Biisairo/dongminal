@@ -155,8 +155,30 @@ func startDetached(o StartOpts, home, host, port string, stdout, stderr io.Write
 		exposure = "LAN 노출"
 	}
 	fmt.Fprintf(stdout, "✅ dongminal running on %s (%s)\n", url, exposure)
-	if socketExists(home) {
+	// VERSION_HEALTH_SRS FR-VHL-20: HTTP 가 답한 뒤 **데몬 연결까지** 잠시 더
+	// 기다린다. 종전에는 `/api/ping` 만 보고 준비됨을 찍었고, 그 직후의 도구
+	// 생성이 실패할 수 있었다.
+	//
+	// 붙지 않아도 **기동을 막지 않는다** (FR-VHL-20a) — 데몬을 쓰지 않는 구성이
+	// 있고, 거기서는 영원히 붙지 않는다. 단단한 관문은 위의 `waitReady` 이고
+	// 이것은 그 위의 덤이다.
+	st, connected := waitDaemonConnected(url, daemonReadyTries, readyInterval)
+	if connected {
 		fmt.Fprintf(stdout, "✅ dongminald connected at %s/%s\n", home, daemonSockFile)
+	} else if socketExists(home) {
+		fmt.Fprintf(stdout, "ℹ️  dongminald 소켓은 있으나 아직 연결되지 않았습니다\n")
+	}
+	// FR-VHL-21: 빌드 판이 어긋나면 **알린다.**
+	//
+	// **자동으로 재시작하지 않는다.** 데몬을 내리면 그 위의 PTY 가 전부 죽는다 —
+	// 실행 중인 에이전트 세션이 사라진다는 뜻이고, 그 대가는 사용자가 고를 일이지
+	// 이 명령이 대신 고를 일이 아니다.
+	if st.Mismatch {
+		fmt.Fprintf(stdout,
+			"⚠️  데몬이 이전 판으로 돌고 있습니다 (데몬 %s / 서버 %s).\n",
+			st.DaemonBuild, st.ServerVersion)
+		fmt.Fprintf(stdout,
+			"    반영하려면 데몬을 재시작해야 하며 **실행 중인 세션이 사라집니다**.\n")
 	}
 	if o.Isolated {
 		fmt.Fprintf(stdout, "격리 홈: %s (자동으로 지우지 않습니다)\n", home)
@@ -265,6 +287,10 @@ func ServerURL(host, port string) string {
 }
 
 // waitReady 는 /api/ping 이 응답할 때까지 기다린다.
+// daemonReadyTries 는 데몬 연결을 기다리는 **덤**의 횟수다. `readyTries` 보다
+// 짧다 — 붙지 않아도 기동은 성립하므로(FR-VHL-20a) 오래 끌 이유가 없다.
+const daemonReadyTries = 10
+
 func waitReady(url string, tries int, interval time.Duration) bool {
 	for i := 0; i < tries; i++ {
 		if ping(url+"/api/ping", time.Second) {

@@ -182,6 +182,9 @@ var apiRoutes = []apiRoute{
 	httproute.Post("/api/editors/remove", (*Server).apiEditorsRemove),
 	httproute.Post("/api/editors/reorder", (*Server).apiEditorsReorder),
 	httproute.Any("/api/ping", (*Server).apiPing),
+	// VERSION_HEALTH_SRS FR-VHL-10·13: 헬스는 **생존이 아니라 어긋남**을 답한다.
+	// 새 종단도 같은 게이트를 지난다 — 헬스라고 경계를 비켜 가지 않는다.
+	httproute.Get("/api/health", (*Server).apiHealth),
 	// 묶음 B·C — 리포 해석·핀·변경 감지 (GIT_SRS FR-GIT-60/61). UI 는 이 표면
 	// 위에만 서고, git 실행 결과를 다른 경로로 얻지 않는다.
 	// FR-GIT-223: 핀 순서는 서버가 권위로 쓴다 (O1) — 재배치도 서버를 지난다.

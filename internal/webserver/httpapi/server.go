@@ -40,6 +40,15 @@ type Config struct {
 	// 항목)은 서버가 스스로 유도하므로 대개 비어 있다. 오버레이 망의 이름으로
 	// 붙는 배치에서만 필요하다.
 	AllowedHosts []string
+	// Version 은 이 서버 바이너리의 판이다 (VERSION_HEALTH_SRS FR-VHL-10).
+	//
+	// **주입받는다.** 판의 단일 출처는 `internal/ctl/cli.Version` 이고(빌드 때
+	// ldflags 로 새겨진다) 이 층이 그것을 import 하면 아래에서 위를 본다 —
+	// 데몬이 `SetBuildVersion` 으로 받는 것과 같은 근거다.
+	//
+	// 비어 있으면 헬스의 `version` 이 빈 값이고, 그때 데몬과의 비교는 **불일치가
+	// 아니다** (FR-VHL-11 — 모르는 것을 다르다고 읽지 않는다).
+	Version string
 }
 
 // Server owns the HTTP server lifecycle.
