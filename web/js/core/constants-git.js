@@ -1161,10 +1161,6 @@ const GIT_REMOTE_DIALOGS={
     ]},
   ]},
 };
-// FR-GIT-112: 진행 중 원격 작업은 Git 창을 보지 않아도 알 수 있어야 한다.
-const GIT_SB_JOB_ICON='⇅';
-const GIT_SB_JOB_SUFFIX='…';
-const GIT_SB_JOB_TITLE='진행 중인 원격 작업';
 
 // ── Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5 / FR-GIT-240~244) ──
 

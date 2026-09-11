@@ -10,8 +10,9 @@ import { tmpPath, realPath } from './osenv';
 // 있는 곳" 으로 오해되기만 했다.
 //
 // 이 파일은 그 회귀 가드다 — 상태바에 리포 표시를 다시 얹는 변경이 오면 여기서
-// 깨진다. 진행 중 원격 작업 표시(FR-GIT-112)는 남으며 git-remote.spec.ts 의
-// R16 이 그것을 지킨다.
+// 깨진다. **진행 중 원격 작업 표시(FR-GIT-112)도 철회됐다**(U-19 ①, 사용자 판정
+// 2026-09-11) — 상태바에는 이제 git 표면이 하나도 없다. 작업 목록 폴링은 남으며
+// (FR-GIT-101a) git-remote.spec.ts 의 R16 이 그 자리를 지킨다.
 
 const FIXTURES = tmpPath('dm-git-fx-sb-' + process.pid);
 
@@ -48,22 +49,32 @@ test.describe('묶음 G — 상태바 (브랜치 chip 철회)', () => {
     expect(text, `상태바에 브랜치가 보인다: ${text}`).not.toContain('main');
   });
 
-  test('B2 (V-FLW-9): 설정 항목은 원격 작업 표시를 가리킨다', async ({ page }) => {
+  /**
+   * B2 (V-FLW-9 개정 / FR-FLW-12 · FR-GIT-112 **철회**): 그 설정 항목은 **없다.**
+   *
+   * 6차 세션은 라벨을 고쳐 그것이 순간 표시임을 말하게 했다. 7차에 사용자가
+   * 판정했다 — *"그냥 해당 옵션 제거."* 몇 초 동안만 뜨는 것을 켜고 끄는 스위치는
+   * 켜 두어도 늘 안 보이므로 설정으로서 뜻이 없다.
+   *
+   * 작업 목록 폴링 자체는 남는다 (`FR-GIT-101a`) — `git-remote.spec.ts` 의 R16 이
+   * 그 자리를 지킨다.
+   */
+  test('B2 (V-FLW-9 개정): 상태바 설정에 Git 항목이 없다', async ({ page }) => {
     await waitForInit(page);
     await page.click('#settings-btn');
     await page.click('button.mtab[data-tab="statusbar"]');
-    const row = page.locator('#panel-statusbar .sbs-row[data-item="git"]');
-    await expect(row).toHaveCount(1);
-    // 라벨이 아직 "브랜치·변경 수" 를 말하면 설정이 없는 기능을 켜는 것이 된다.
-    await expect(row).not.toContainText('브랜치');
-    /**
-     * U-19 (FR-FLW-12 개정): 라벨은 그것이 **순간 표시**임을 말한다.
-     *
-     * 이 항목은 fetch·pull·push 가 도는 몇 초 동안만 뜬다. 라벨이 그 사실을
-     * 말하지 않으면 상주 지표로 읽히고, 켜 두었는데 늘 안 보이는 항목은 고장으로
-     * 읽힌다 — 접수한 말이 그것이었다.
-     */
-    await expect(row).toContainText('진행 중일 때만');
+    await expect(page.locator('#panel-statusbar .sbs-row').first()).toBeVisible();
+    await expect(page.locator('#panel-statusbar .sbs-row[data-item="git"]')).toHaveCount(0);
+    const text = (await page.locator('#panel-statusbar').textContent()) || '';
+    expect(text, `설정에 Git 항목이 남아 있다: ${text}`).not.toContain('Git 원격 작업');
     await page.click('#modal-close');
+  });
+
+  // 상태바 본체에도 그 자리가 없다 — chip 을 다시 얹는 변경이 오면 여기서 깨진다.
+  test('B3 (FR-GIT-112 철회): 상태바에 원격 작업 chip 의 자리가 없다', async ({ page }) => {
+    await waitForInit(page);
+    await expect(page.locator('#sb-items .sb-git-job')).toHaveCount(0);
+    const has = await page.evaluate(() => typeof (window as any).app._gitJobChip);
+    expect(has, '_gitJobChip 이 되살아났다').toBe('undefined');
   });
 });

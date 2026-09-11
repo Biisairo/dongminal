@@ -395,10 +395,6 @@ body.mobile .git-refs{width:110px}
 
 body.mobile .git-repo-xslot{width:24px;height:24px}
 
-/* ── 상태바 Git (FR-GIT-112) ── */
-/* 진행 중 원격 작업만 남는다 — 브랜치 chip 은 FR-FLW-12 가 걷어냈다 */
-.sb-git-job{color:var(--attn)}
-
 /* ── 파괴적 동작 확인 (FR-GIT-90~97·174~178) ── */
 .gc-modal{
   position:fixed;inset:0;z-index:300;

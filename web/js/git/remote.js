@@ -100,7 +100,8 @@ class GitRemote {
 
 
   // 리포가 바뀌면 붙어 있던 작업을 놓는다 (FR-GIT-16). 작업은 서버에서 계속 돌고
-  // 상태바가 그것을 계속 보인다 (FR-GIT-112) — 화면만 새 리포의 것으로 되돌린다.
+  // `/api/git/jobs` 가 그것을 계속 나른다 (FR-GIT-101a) — 화면만 새 리포의 것으로
+  // 되돌린다.
   detachRepo(){
     this._closeStream();
     this._job=null; this._jobRepo=null; this._done=null; this._err=null;
@@ -428,8 +429,6 @@ class GitRemote {
     this._logOpen=null;
     this._canceling=!!job.canceled; this._streamErr=false; this._retries=0;
     this._openStream();
-    // 상태바는 폴링 주기를 기다리지 않는다 (FR-GIT-112).
-    this.app._gitJobSeen(job);
     this._paint();
   }
 
@@ -506,7 +505,6 @@ class GitRemote {
     // status 는 아직 작업 전의 것이다.
     this._pending=(jb.kind==='pull')?{status:this.panel._status}:null;
     this._paint();
-    this.app._gitJobEnded(jb.id);
     // FR-GIT-107: 작업이 끝나면 ahead/behind 와 상태를 갱신한다 — 폴링 주기를
     // 기다리면 화면이 그만큼 거짓말을 한다.
     this.panel.collect();
@@ -537,7 +535,7 @@ class GitRemote {
   }
 
   /**
-   * 상태바 폴링이 받은 진행 중 목록을 딛는다 (FR-GIT-101·112).
+   * 작업 목록 폴링이 받은 진행 중 목록을 딛는다 (FR-GIT-101·101a).
    *
    * 작업은 서버에 있다 — 다른 브라우저 창이 띄운 것도 같은 리포를 막아야 하고,
    * 그것의 출력도 볼 수 있어야 한다.

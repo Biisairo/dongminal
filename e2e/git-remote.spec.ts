@@ -374,13 +374,22 @@ test.describe('13단계 — 원격 작업', () => {
     await expect(opts(page).first()).toBeVisible();
   });
 
-  test('R16 (V63 / FR-GIT-112): 진행 중 작업이 상태바에 보인다', async ({ page }) => {
+  /**
+   * R16 (V63 개정 / FR-GIT-112 **철회** · FR-GIT-101a): 상태바 표시는 없어졌고,
+   * **작업 목록 폴링은 산다.**
+   *
+   * 사용자 판정(U-19 ①, 2026-09-11)으로 상태바 항목이 제거됐다. 그런데 그 항목의
+   * 설정(`statusBar.git`)이 폴링 자체를 가두고 있었으므로, 제거하면서 그 가드도
+   * 없앴다 — 폴링이 멈추면 **다른 창이 띄운 작업이 같은 리포를 막지 못한다**
+   * (FR-GIT-101). 표시가 사라졌어도 그 계약은 남는다는 것을 여기서 잰다.
+   */
+  test('R16 (V63 개정 / FR-GIT-101a): chip 은 없고, 남의 작업은 여전히 버튼을 막는다', async ({ page }) => {
     const { repo } = copyPair('r16');
     await waitForInit(page);
     await openGit(page, repo);
     await ready(page);
 
-    // 상태바는 /api/git/jobs 를 딛는다 — Git 창의 폴링과 독립이어야 한다.
+    // **이 창이 띄우지 않은** 작업이다 — 서버 목록에만 있다.
     await page.route('**/api/git/jobs', (route) =>
       route.fulfill({
         status: 200,
@@ -391,9 +400,12 @@ test.describe('13단계 — 원격 작업', () => {
       }));
     await page.route('**/api/git/job/events*', () => {});
 
-    await expect(jobChip(page)).toHaveCount(1, { timeout: 20000 });
-    await expect(jobChip(page)).toHaveText('⇅ fetch…');
-    await expect(jobChip(page)).toHaveAttribute('title', /fetch/);
+    // FR-GIT-101: 목록이 도착하면 같은 리포의 원격 버튼이 막힌다.
+    await expect(btn(page, 'fetch')).toBeDisabled({ timeout: 20000 });
+    await expect(btn(page, 'fetch')).toHaveAttribute('title', /already running/);
+
+    // FR-GIT-112 는 철회됐다 — 상태바에 그 자리가 없다.
+    await expect(jobChip(page)).toHaveCount(0);
   });
 
   test('R17 (V62 / FR-GIT-109·110): fetch·pull 다이얼로그의 옵션이 argv 에 반영된다', async ({ page }) => {

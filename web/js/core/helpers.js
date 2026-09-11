@@ -351,10 +351,11 @@ const STATUS_ITEMS={
   latency:{label:'레이턴시',def:true},
   location:{label:'현재 위치 (dmctl 대상)',def:true},
   cwd:{label:'현재 디렉토리',def:true},
-  // U-19 (GIT_FOLLOW_REMOVAL_SRS FR-FLW-12 개정): 라벨이 **순간 표시**임을 말한다.
-  // fetch·pull·push 가 도는 몇 초 동안만 뜨는 항목이므로, 상주 지표로 읽히면
-  // 켜 두었는데 늘 안 보이는 것이 고장으로 읽힌다. 괄호 부연은 `location` 의 선례다.
-  git:{label:'Git 원격 작업 (진행 중일 때만)',def:true},
+  // U-19 ① (2026-09-11 사용자 판정): **`git` 항목은 제거됐다.**
+  // 몇 초 동안만 뜨는 것을 켜고 끄는 스위치는 켜 두어도 늘 안 보이므로 설정으로서
+  // 뜻이 없었다. FR-GIT-112(상태바 표시)가 철회됐다 — 작업 목록 폴링 자체는
+  // 남는다(FR-GIT-101a). 저장된 설정에 옛 키가 있어도 이 표를 딛는 화면은 그것을
+  // 보지 않는다.
   memory:{label:'메모리',def:true},
   hostname:{label:'호스트명',def:false},
   cpu:{label:'CPU',def:false},

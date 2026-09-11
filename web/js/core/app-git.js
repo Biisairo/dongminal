@@ -813,16 +813,22 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * FR-GIT-112: 진행 중 원격 작업을 상태바에 보인다.
+   * FR-GIT-101a: 진행 중 원격 작업 목록을 나른다.
    *
-   * Git 창의 폴링(FR-GIT-22)은 창이 활성일 때만 돌므로 그것에 얹으면 요구사항이
-   * 뜻을 잃는다. 이 호출은 git 을 실행하지 않는다 — 서버가 들고 있는 목록이다.
+   * Git 창의 폴링(FR-GIT-22)은 창이 활성일 때만 돌므로 그것에 얹으면 다른 창이
+   * 띄운 작업을 놓친다. 이 호출은 git 을 실행하지 않는다 — 서버가 들고 있는
+   * 목록이다.
    *
-   * 목록은 Git 창에도 넘긴다: 다른 브라우저 창이 띄운 작업도 같은 리포의 원격
+   * 목록의 임자는 Git 패널이다: 다른 브라우저 창이 띄운 작업도 같은 리포의 원격
    * 버튼을 막아야 한다 (FR-GIT-101).
+   *
+   *   이전 동작: `statusBar.git` 이 꺼져 있으면 **폴링을 하지 않았다**
+   *   새  동작: 표시 설정과 무관하게 돈다 (그 설정은 U-19 ① 로 사라졌다)
+   *   이유:     표시 하나가 correctness 를 가두고 있었다 — 항목을 끄면
+   *             FR-GIT-101 이 조용히 죽었다. 상태바 chip 이 철회된 지금 그
+   *             가드는 폴링 전체를 끄는 스위치만 남긴다
    */
   async _pollGitJobs(){
-    if(!statusBar.git){this._gitJobs=[];return}
     // 전역 조회다 — 리포에 매이지 않으므로 echo 가 없다 (FR-DPN-33).
     const res=await gitFetch('/api/git/jobs',null);
     const d=res.data;
@@ -833,31 +839,10 @@ Object.assign(App.prototype, {
     if(this.gitPanel) this.gitPanel.adoptJobs(d.jobs);
   },
 
-  // 방금 띄운 작업은 폴링 주기를 기다리지 않는다 (FR-GIT-112).
-  _gitJobSeen(job){
-    if(!job||!job.id) return;
-    if(!this._gitJobs) this._gitJobs=[];
-    if(this._gitJobs.some(j=>j.id===job.id)) return;
-    this._gitJobs=this._gitJobs.concat([job]);
-    this._updateStatusBar();
-  },
-
-  _gitJobEnded(id){
-    if(!id||!this._gitJobs) return;
-    const n=this._gitJobs.length;
-    this._gitJobs=this._gitJobs.filter(j=>j.id!==id);
-    if(this._gitJobs.length!==n) this._updateStatusBar();
-  },
-
-  _gitJobChip(){
-    const jobs=this._gitJobs||[];
-    if(!jobs.length) return null;
-    const el=document.createElement('span');
-    el.className='sb-item sb-git-job';
-    el.textContent=GIT_SB_JOB_ICON+' '+jobs.map(j=>j.kind||'').join(' ')+GIT_SB_JOB_SUFFIX;
-    el.title=GIT_SB_JOB_TITLE+' — '+jobs.map(j=>(j.kind||'')+' @ '+(j.repo||'')).join('\n');
-    return el;
-  },
+  // U-19 ①: `_gitJobSeen`·`_gitJobEnded`·`_gitJobChip` 은 **제거됐다.** 셋 다
+  // 상태바 chip 을 즉시 갱신하기 위한 것이었고(FR-GIT-112), 그 chip 이 철회되며
+  // 쓰임이 사라졌다. 작업의 진행·종료는 그것을 띄운 패널이 스트림으로 알고
+  // (FR-GIT-103), 남의 작업은 `_pollGitJobs` → `adoptJobs` 가 받는다.
 });
 
 // FR-SVS-47: 전역 진입점은 **포커스 칸의 패널**을 가리킨다. 메뉴·확인창·다이얼로그는

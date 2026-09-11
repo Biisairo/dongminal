@@ -8,8 +8,9 @@ Object.assign(App.prototype, {
   // ── Status Bar ──
   _initStatusBar(){
     this._stats={};this._latency=null;
-    // FR-GIT-112: 진행 중인 원격 작업. Git 창을 보지 않아도 알 수 있어야 하므로
-    // Git 창의 폴링이 아니라 상태바 폴링에 얹는다.
+    // FR-GIT-101a: 진행 중인 원격 작업 목록. **표시용이 아니다** — 다른 브라우저
+    // 창이 띄운 작업도 같은 리포의 원격 버튼을 막아야 하므로(FR-GIT-101) 이
+    // 폴링이 그 목록을 나른다. 상태바 chip 은 철회됐고 폴링은 남았다.
     this._gitJobs=[];
     // FR-BGU-4: 진입점은 정적 요소다. 리스너를 여기서 한 번만 부착한다 —
     // 지표 재생성(_updateStatusBar) 주기에 종속되면 안 된다.
@@ -114,12 +115,8 @@ Object.assign(App.prototype, {
       if(this._stats.srvUptime)parts.push('서버 '+this._stats.srvUptime);
       if(parts.length)push('uptime',`<span class="sb-item">↑ ${e(parts.join(' │ '))}</span>`);
     }
-    // FR-GIT-112: 진행 중 원격 작업. **브랜치 chip 은 없다** (FR-FLW-12) —
-    // 활성 리포는 사용자가 고른 것이고 터미널을 따라가지 않으므로, 하단바에
-    // 상주하는 브랜치 표시는 "지금 있는 곳" 으로 오해되기만 했다.
-    if(statusBar.git){
-      const j=this._gitJobChip(); if(j) items.push({k:'gitjob',el:j});
-    }
+    // **상태바에 git 표면은 없다.** 브랜치 chip 은 FR-FLW-12 가, 진행 중 원격 작업
+    // chip 은 U-19 ①(FR-GIT-112 철회)이 없앴다 — 둘 다 사용자 판정이다.
     // 근거는 그려질 마크업 전부다 (FR-RPT-2). 문자열 지표는 그 문자열이고, chip 은
     // DOM 이므로 `outerHTML` 이다.
     reconcileList(bar,items,{
