@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { Page } from '@playwright/test';
+import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, openGit as fxOpenGit, waitForInit, clickGitView,
   GIT_BODY_VIEWS, gitFixture, cleanGitFixture, switchToEditorRoot, openExplorerSide } from './fixtures';
@@ -143,8 +143,28 @@ async function collect(page: Page): Promise<Record<string, Row>> {
   return all;
 }
 
-test('V-LAY-1 (FR-LAY-50): 계산값이 기준선과 같다', async ({ page }) => {
+/**
+ * **기준선은 기본 설정에서 떴다 — 그 전제를 스스로 세운다.**
+ *
+ * 설정은 **서버에 저장되고 워커를 넘어 남는다.** 같은 워커에서 앞서 돈 스펙이
+ * 그것을 바꿔 두면 이 검사는 다른 화면을 재게 된다 — `tab-width` 가
+ * `tabFixedWidth` 를 저장하면 `body.tabfix` 가 켜지고, 그러면
+ * `.pn-tab-label` 의 `overflow` 가 `visible`→`hidden` 이 된다 (실측 18자리,
+ * 2026-09-11). 전량 실행에서만 빨갛던 이유가 부하가 아니라 **이 순서**였다.
+ *
+ * `PUT /api/settings` 는 **전체 교체**이므로(`apiSettingsPut`) 현재 값을 받아
+ * 한 자리만 바꿔 되돌린다 — 다른 설정을 이 검사가 지우면 다음 스펙이 같은 함정에
+ * 빠진다.
+ */
+async function resetToDefaults(request: APIRequestContext) {
+  const r = await request.get('/api/settings');
+  const cur = r.ok() ? await r.json().catch(() => ({})) : {};
+  await request.put('/api/settings', { data: { ...cur, tabFixedWidth: false } });
+}
+
+test('V-LAY-1 (FR-LAY-50): 계산값이 기준선과 같다', async ({ page, request }) => {
   test.setTimeout(180000);
+  await resetToDefaults(request);
   await waitForInit(page, { mode: 'desktop', viewport: { width: 1280, height: 720 } });
   const now = await collect(page);
 
