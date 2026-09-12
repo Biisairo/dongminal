@@ -181,6 +181,39 @@ jobs:
       - name: 단축키 문서 대조
         run: scripts/check-shortcuts-docs.sh
 
+      # M6 `TEST-6` · APP_TESTING_CONTRACT_SRS FR-ATC-13.
+      #
+      # 값을 옮기는 것보다 **다시 흩어지지 않게 하는 것**이 본체다 — 착수 시
+      # `app._xxx` 가 507회 · 86파일이었고, 그것이 쌓인 이유는 막는 것이 없어서다.
+      - name: e2e 의 내부 접근
+        run: scripts/check-e2e-private.sh
+
+      # M6 `FE-3` — 스크립트 90개의 **암묵적 로드 순서**.
+      #
+      # `no-undef` 는 이름의 **존재**를 보고 **시각**을 보지 않는다: 그 규칙이
+      # 딛는 전역 목록은 트리 전체에서 뽑으므로 "나중에 로드되는 파일이 선언한다"
+      # 와 "지금 선언돼 있다" 를 구분하지 못한다. 스크립트 한 줄을 옮기면 조용히
+      # `ReferenceError` 가 나던 자리다 (`02 FE-3`).
+      - name: 로드 순서
+        run: node scripts/check-load-order.mjs
+
+      # M6 `TEST-16` — **고정 대기는 근거가 있는 예외만**.
+      #
+      # `waitForTimeout` 은 조건을 보지 않으므로 느린 러너에서 흔들리고 빠른
+      # 러너에서 시간을 버린다. `flaky > 0` 이 실패로 승격된 뒤로 그 흔들림은 곧
+      # 빨간 빌드다. 다만 재려는 것이 **"일어나지 않음"** 인 자리는 기다릴 신호가
+      # 없다 — 그래서 금지가 아니라 근거를 요구한다 (착수 시 247회 · 68파일).
+      - name: e2e 의 고정 대기
+        run: node scripts/check-e2e-waits.mjs
+
+      # M6 `FE-4` — **계층 역전**. `ui/`·`git/` 이 App 의 `_` 이름을 파고들면
+      # App 내부 이름 하나를 바꾸는 것이 세 디렉터리를 깨뜨리고, 그것이 계약을
+      # 깬 것인지 남의 내부를 만지다 깨진 것인지 판정할 수 없다. 착수 시
+      # `app._xxx` 가 363회 · 이름 148개였고 전부 승격했다
+      # (FE_MODULE_BOUNDARY_SRS FR-FMB-40~43).
+      - name: 프론트 계층 경계
+        run: scripts/check-layer.sh
+
       # 서식은 취향이 아니라 diff 의 크기다 (TEST-10). 착수 시 1건 위반이 있었다.
       - name: gofmt
         run: |
