@@ -268,22 +268,75 @@ xterm 캔버스(E-1)를 예외로 둔 것과 같은 논리다. 미리보기가 �
 
 | ID | 요구 | 등급 |
 |---|---|---|
-| FR-TOK-21 | z-index 는 **다섯 층**의 토큰으로 수렴한다. 층은 **뜻**이고 값은 그 뜻의 부산물이다. | 필수 |
+| FR-TOK-21 | z-index 는 **여섯 층**의 토큰으로 수렴한다. 층은 **뜻**이고 값은 그 뜻의 부산물이다. (초안은 다섯이었다 — 사상표를 만들다 여섯째가 필요해졌다. 아래 "왜 여섯인가" 를 본다. 사용자 결정 2026-09-13) | 필수 |
 | FR-TOK-22 | 층 안의 순서는 **DOM 순서**가 정한다. 같은 층에서 값을 ±1 하지 않는다 — `#focus-edge` 500 / `#attn-edge` 501 이 그 부류다. | 필수 |
-| FR-TOK-23 | 44개 선언 전부가 다섯 토큰 중 하나로 사상되고, **사상표가 이 문서에 남는다.** 사상할 수 없는 선언이 있으면 층이 부족한 것이고, 그때 층을 더하는 것은 이 문서를 고치는 일이다. | 필수 |
+| FR-TOK-23 | 44개 선언 전부가 여섯 토큰 중 하나로 사상되고, **사상표가 이 문서에 남는다.** 사상할 수 없는 선언이 있으면 층이 부족한 것이고, 그때 층을 더하는 것은 이 문서를 고치는 일이다. | 필수 |
 
-**층 (§2.5 의 실측에서 도출)**
+**층 (§2.5 의 실측 + 44선언 전수 사상에서 도출)**
 
-| 토큰 | 뜻 | 지금 여기 있는 것 |
+| 토큰 | 뜻 | 여기 있는 것 |
 |---|---|---|
-| `--z-raised` | 같은 뷰 안에서 한 겹 위 | 1~70 의 국소 겹침 |
-| `--z-sticky` | 뷰 안의 고정 요소 | 탭 줄 · 상태바 · sticky 머리 |
-| `--z-overlay` | 뷰를 덮는 것 | 백드롭 · 드로어 · `#boot` · 가장자리 표식 |
-| `--z-modal` | 모달·확인창 상자 | `.ui-modal` · `#modal-overlay` · `.confirm-overlay` · `.bg-modal` |
-| `--z-popover` | 모달 **위**에 뜨는 것 | 메뉴 · 토스트 · HUD · 편집기 찾기 줄 |
+| `--z-raised` | 같은 뷰 안에서 한 겹 위 | 분할 손잡이 · 드래그 표식 · 편집기 안의 알림 줄 |
+| `--z-sticky` | 뷰 안의 고정 요소 | 탭 줄 · 목록 머리 · 검색 줄 · 모바일 키바 |
+| `--z-overlay` | 뷰를 덮는 것 | 백드롭 · 드로어 · 부팅 화면 · 칸을 덮는 것 |
+| `--z-modal` | 모달·확인창 상자 | `.ui-modal` · `#modal-overlay` · `.confirm-overlay` · `.bg-modal` · **`.ed-find`** |
+| `--z-popover` | 모달 **위**에 뜨는 것 | 메뉴 · 토스트 · HUD · `.tc-copy` · 드롭다운 |
+| `--z-edge` | 창 수준의 **비상호작용** 표식 | `#focus-edge` · `#attn-edge` |
 
-`.ed-find`(9997)·`.tc-copy`(9999)가 `--z-popover` 로 내려오면서 **메뉴보다 위에
-있던 것이 같은 층이 된다** — 그 순서는 DOM 이 정한다 (FR-TOK-22).
+**왜 여섯인가.** D-TOK-8 이 답을 미리 적어 뒀다 — *"같은 층이면 DOM 순서가
+답이고, DOM 순서로 답할 수 없으면 **층이 다른 것**이다."* `#focus-edge`(500)·
+`#attn-edge`(501)는 `position:fixed;inset:0;pointer-events:none` 인 **창 전체
+테두리 표식**이고, 지금 모달(200·300)·토스트(420)·HUD(450) 위에 있다. 다섯 층에
+넣으면 `--z-overlay` 가 되어 **설정 모달이 포커스 테두리를 덮는다** — 어느 창이
+포커스를 가졌는지가 모달을 열면 안 보인다. `--z-popover` 로 올리면 뜻이 어긋난다:
+popover 는 사용자가 **띄우는** 것이고 이 둘은 사용자가 띄우지 않는다. 그래서
+층이 다르다. 두 표식 사이의 순서(500/501)는 같은 층 안에서 DOM 이 정한다 —
+FR-TOK-22 가 지목한 바로 그 ±1 이 사라진다.
+
+**`.ed-find` 는 편집기 찾기 줄이 아니다** (초안 정정). §2.5 가 `.ed-find`(9997)를
+"편집기 찾기 줄" 로 읽고 `--z-popover` 에 넣었으나 실측은 다르다 —
+`position:fixed;inset:0;background:rgba(0,0,0,.35)` 로, **배경을 깐 전체 화면
+팔레트**다(빠른 열기·전체 검색이 같은 껍데기를 쓴다). 편집기 안의 찾기 줄은
+`.fe-find`(12) 쪽이고 그것은 `.file-editor` 안에 사는 `--z-raised` 다. 그래서
+`.ed-find` 는 `--z-modal` 로 간다. `.tc-copy`(9999)는 주석이 *"모달 배경을 깔지
+않는다"* 고 적은 대로 비모달 부유 창이므로 `--z-popover` 가 맞다.
+
+**사상표 — 44선언 전수 (구현이 산출, 2026-09-13)**
+
+착수 시 실측은 **44선언 · 28값 · 1~9999** 다 (`web/vendor/` 제외). 값 옆의
+숫자가 종전 값이다.
+
+| 층 | 선언 (종전 값) | 계 |
+|---|---|---|
+| `--z-raised` | `.sh`1 · `.slot-handle`5 · `.git-commit`5 · `.fe-render`6 · `.fe-dd-peek`6 · `.fe-offer`11 · `.fe-find`12 · `.git-hunk-bar`12 · `.fe-note`13 · `.pn-drop-indicator`15 · `.pn.attn::after`35 | 11 |
+| `--z-sticky` | `.git-head`1 · `.git-files-bar`1 · `.tl-section`1 · `body.mobile #sb-tabs`1 · `.search-bar`10 · `#mobile-keybar`60 | 6 |
+| `--z-overlay` | `.tp.dragover::after`20 · `.tp-overlay`25 · `.pn-dimmed .pn-body::after`30 · `#drawer-backdrop`40 · `body.mobile #sidebar`50 · `#boot`1000 | 6 |
+| `--z-modal` | `#modal-overlay`100 · `.ui-modal`200 · `.confirm-overlay`200 · `.bg-modal`200 · `.runs-modal`200 · `.gc-modal`300 · `.git-dialog`300 · `.ed-find`9997 | 8 |
+| `--z-popover` | `.sbx-progress`60 · `.ver-held`60 · `#mkb-tip`70 · `#attn-center`200 · `.git-undo-toast`400 · `.toast-host`420 · `#ui-size-hud`450 · `.ui-menu`3000 · `.git-menu`3000 · `.tc-copy`9999 · `.git-commit-menu`20 | 11 |
+| `--z-edge` | `#focus-edge`500 · `#attn-edge`501 | 2 |
+| | | **44** |
+
+**`--z-raised` 는 1 이 될 수 없다.** `.fe-dd-peek` 의 `6` 은 임의값이 아니다 —
+그 규칙의 주석이 근거를 적고 있다: Monaco 의 `.view-lines` 가 **클릭을
+가로챘고**(playwright 가 `intercepts pointer events` 로 거부했다) 그래서 올린
+값이다. 이 층은 **벤더(Monaco, 예외 E-2)의 내부 스택 위**여야 하므로 값은
+그 위에서 고른다.
+
+**페인트 순서가 실제로 바뀌는 자리 (FR-TOK-22 의 대가)**
+
+| 자리 | 이전 | 이후 | 판단 |
+|---|---|---|---|
+| `.tp.dragover::after`20 ↔ `.tp-overlay`25 | 오버레이가 위 | **드롭 힌트가 위** | 힌트는 `.tp` 의 `::after` 라 DOM 에서 `.tp-overlay`(`appendChild`, `term-pane.js:754`) 뒤에 온다. 드래그 중이라면 힌트가 보이는 쪽이 맞다 |
+| `.sbx-progress`60 · `.ver-held`60 · `#attn-center`200 | 모달 아래(또는 같은 층) | **모달 위** | 셋 다 진행·알림·드롭다운이다. 모달이 떠 있어도 보여야 하는 부류이고 `--z-popover` 의 뜻이 그것이다 |
+| `#boot`1000 | 모달 위 | **모달 아래** | 부팅 중에는 모달이 없다. 무해하지만 기록한다 |
+| `#focus-edge`500·`#attn-edge`501 | 메뉴 아래 | **메뉴 위** | `--z-edge` 가 최상위다. 둘 다 `pointer-events:none` 이므로 조작을 막지 않는다 |
+
+**`.git-commit-menu` 의 값은 무력하다.** `.git-commit{position:relative;z-index:5}`
+가 쌓임 문맥을 만들고(그 규칙의 주석이 이유를 적는다 — 뒤따르는 형제
+`.git-changes-body` 가 메뉴를 가려 클릭이 먹지 않았다) 메뉴는 그 안에 갇힌다.
+뜻으로는 popover 이므로 그 토큰을 쓰되 **시각 변화는 없다.** 언젠가
+`.git-commit` 의 `z-index` 가 사라지면 그때 메뉴가 제 층으로 올라간다 — 그것이
+맞는 동작이다.
 
 ### 3.5 포커스
 
@@ -465,7 +518,7 @@ xterm 캔버스(E-1)를 예외로 둔 것과 같은 논리다. 미리보기가 �
 | TC-TOK-15 | `--bg-alt` 를 쓰는 네 자리의 배경이 **투명이 아니다** |
 | TC-TOK-16 | 테마를 전환하면 파생 토큰이 함께 바뀐다 (Tokyo Night → Gruvbox Light) |
 | TC-TOK-17 | 부팅 첫 페인트에 FOUC 가 없다 — `03 §4-4` 양호 판정 보존 |
-| TC-TOK-18 | 편집기 찾기 줄이 컨텍스트 메뉴와 **같은 층**이고 DOM 순서대로 겹친다 |
+| TC-TOK-18 | `.tc-copy` 가 컨텍스트 메뉴와 **같은 층**(`--z-popover`)이고 DOM 순서대로 겹친다 · `.ed-find` 는 모달 층이므로 메뉴가 그 **위**에 뜬다 (초안은 `.ed-find` 를 찾기 줄로 오독했다 — §3.4) |
 | TC-TOK-19 | e2e 전량 unexpected 0 — 과도기 표면마다 1회 (FR-TOK-38) |
 | TC-TOK-20 | `themes.js` 의 `ui` 값이 착수 전과 **바이트 단위로 같다** (FR-TOK-16) |
 
