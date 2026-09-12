@@ -120,8 +120,18 @@ jobs:
       # 러너 **안**은 워커가 나눈다 (E2E_PARALLEL_SRS FR-EPL-7·11). 워커마다 자기
       # 서버·자기 인스턴스 홈·자기 포트를 갖는다 — 샤드를 더 늘리는 것은 러너의
       # 셋업 비용을 반복하지만 워커는 그러지 않는다.
+      # **분할은 `scripts/e2e-shard.mjs` 한 자리가 정한다** — 로컬 `make e2e` 와
+      # 같은 목록이 나와야 한다. Playwright 의 `--shard` 는 **개수**로 가르는데
+      # 파일당 시간이 스무 배까지 벌어져, 로컬 실측에서 한 샤드가 5.9분인 동안
+      # 다른 샤드는 2.4분이었다. 여기서 `--shard` 를 그대로 두면 로컬과 CI 의
+      # 분할이 갈리고, 그것이 D-2 가 막으려던 바로 그 모양이다.
+      #
+      # `shell: bash` 는 windows 러너에서도 같은 한 벌을 쓰기 위한 것이다.
       - name: e2e (샤드 ${{ matrix.shard }}/8)
-        run: npx playwright test --shard=${{ matrix.shard }}/8 --reporter=line,html,./e2e/parity-reporter.ts
+        shell: bash
+        run: |
+          specs=$(node scripts/e2e-shard.mjs --list ${{ matrix.shard }}/8)
+          npx playwright test $specs --reporter=line,html,./e2e/parity-reporter.ts
 
       # flaky 수를 **잡 요약에 드러낸다** (05-test 의 P1 · CI_GATES_SRS §3).
       #

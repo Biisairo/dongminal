@@ -7,12 +7,13 @@
 # 여기서는 부르기만 한다.
 
 .DEFAULT_GOAL := help
-.PHONY: help gates test lint unit typecheck hooks all e2e e2e-all
+.PHONY: help gates test lint unit typecheck hooks all e2e e2e-all e2e-rebalance e2e-plan
 
 help:  ## 이 도움말
 	@echo "dongminal 로컬 게이트"
 	@echo
-	@grep -E '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+	@# 문자 클래스에 숫자가 없어 `e2e*` 넷이 통째로 안 보이고 있었다.
+	@grep -E '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 	@echo
 	@echo "커밋 전 훅으로 걸려면:  make hooks"
 
@@ -100,12 +101,28 @@ e2e:  ## e2e 전량 — **CI 와 같은 분할**(8샤드)을 **병렬**로 돈�
 	@#           샤드의 바이너리를 지운다** (실측: spawn ENOENT 950건)
 	@#           → `DM_E2E_KEEP_PEERS=1` 이 자기 뿌리만 다루게 한다
 	@# `pipefail` 이 없으면 샤드의 실패가 `sed` 에 먹혀 초록으로 보인다.
-	@seq 1 8 | xargs -P $(E2E_JOBS) -I{} bash -c \
-		'set -o pipefail; DM_E2E_KEEP_PEERS=1 E2E_PORT_BASE=$$((58147 + ({} - 1) * 10)) \
-		 npx playwright test --shard={}/8 --output=test-results/s{} \
-		 --reporter=line,./e2e/parity-reporter.ts \
-		 2>&1 | sed "s|^|[샤드 {}/8] |"'
+	@#
+	@# **개수가 아니라 시간으로 가른다** (M6 잔여). Playwright 의 `--shard` 는
+	@# 개수로 가르는데 파일당 시간이 스무 배까지 벌어져, `git-*` 가 몰린 샤드가
+	@# 6분인 동안 다른 샤드는 2.4분이었다. 벽시계는 가장 느린 쪽에 묶이고 **그
+	@# 느린 샤드 안에서 흔들림이 난다** — 관측 상한이 부하에 밀린다.
+	@#
+	@# `scripts/e2e-shard.mjs` 가 `e2e/` 에서 목록을 파생해 무게로 나눈다.
+	@# 시간표가 없거나 낡아도 동작한다 (모르는 파일은 가장 무겁게 친다).
+	@#
+	@# JSON 리포트를 함께 남긴다 — `make e2e-rebalance` 가 그것으로 시간표를
+	@# 새로 만든다. 시간표를 손으로 적으면 조용히 낡는다.
+	@# 본문은 `scripts/e2e-shard-run.sh` 에 있다 — macOS 의 `xargs -I` 가 치환 뒤
+	@# 줄 길이를 255바이트로 묶어서, 인라인으로 두면 조금만 길어져도 멎는다.
+	@seq 1 8 | xargs -P $(E2E_JOBS) -I{} scripts/e2e-shard-run.sh {} 8
 	@echo "e2e ok — 8샤드 전부"
+
+e2e-rebalance:  ## 마지막 전량 실행의 시간으로 샤드 분할을 다시 맞춘다
+	@node scripts/e2e-timings.mjs
+	@node scripts/e2e-shard.mjs --plan
+
+e2e-plan:  ## 지금 시간표로 샤드가 어떻게 갈리는지 본다
+	@node scripts/e2e-shard.mjs --plan
 
 e2e-all:  ## e2e 전량을 **한 프로세스**로 (누적 상태까지 겪는 무거운 쪽)
 	npx playwright test
